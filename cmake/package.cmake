@@ -114,7 +114,19 @@ function(pack_built_in)
   set(CONF_FILES
       ${CMAKE_SOURCE_DIR}/scripts/package/common/cfg/path.cfg
   )
-  install(FILES ${CMAKE_SOURCE_DIR}/version.info
+
+  if (FULL_MODE)
+    add_custom_target(version_info ALL
+        COMMAND cp -f ${CMAKE_SOURCE_DIR}/version.info ${CMAKE_CURRENT_BINARY_DIR}/version.info
+        COMMAND ${CMAKE_COMMAND} -E echo "host_only=false" >> ${CMAKE_CURRENT_BINARY_DIR}/version.info
+    )
+  else()
+    add_custom_target(version_info ALL
+        COMMAND cp -f ${CMAKE_SOURCE_DIR}/version.info ${CMAKE_CURRENT_BINARY_DIR}/version.info
+        COMMAND ${CMAKE_COMMAND} -E echo "host_only=true" >> ${CMAKE_CURRENT_BINARY_DIR}/version.info
+    )
+  endif()
+  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/version.info
       DESTINATION share/info/hccl
   )
   install(FILES ${CONF_FILES}

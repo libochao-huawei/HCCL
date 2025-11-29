@@ -170,7 +170,15 @@ function(sign_file)
     set(output_sig "${signatures_dir}/${input_name}")
 
     if(EXISTS "${SIGN_SCRIPT}")
-        set(sign_cmd bash ${SIGN_SCRIPT} ${output_sig} ${ARG_CONFIG} ${sign_flag})
+        get_filename_component(EXT ${SIGN_SCRIPT} EXT)  # 获取文件扩展名
+
+        if(${EXT} STREQUAL ".sh")
+            set(sign_cmd bash ${SIGN_SCRIPT} ${output_sig} ${ARG_CONFIG} ${sign_flag})
+        elseif(${EXT} STREQUAL ".py")
+            set(sign_script_prefix ${CMAKE_SOURCE_DIR}/scripts/sign/sign_and_add_header.sh)
+            message(STATUS "Detected +++VERSION_INFO: ${VERSION_INFO}")
+            set(sign_cmd bash ${sign_script_prefix} ${output_sig} ${ARG_CONFIG} ${sign_flag} ${SIGN_SCRIPT} ${VERSION_INFO})
+        endif()
     else()
         set(sign_cmd )
     endif()

@@ -517,6 +517,15 @@ get_version_installed() {
     fi
     echo "$installed_version"
 }
+
+# 获取安装目录下的host_only
+get_version_host_only() {
+    local host_only="none"
+    if [ -f "$default_dir/version.info" ]; then
+        host_only="$(grep -iw ^host_only "$default_dir/version.info" | cut -d"=" -f2-)"
+    fi
+    echo "$host_only"
+}
  
 # 获取本包中的完整版本号
 get_version_in_runpkg() {
@@ -525,6 +534,15 @@ get_version_in_runpkg() {
         version_in_runpkg="$(grep -iw ^version $pkg_version_path | cut -d"=" -f2-)"
     fi
     echo "$version_in_runpkg"
+}
+
+# 获取本包中的host_only
+get_version_host_only_in_runpkg() {
+    local host_only="none"
+    if [ -f "$pkg_version_path" ]; then
+        host_only="$(grep -iw ^host_only $pkg_version_path | cut -d"=" -f2-)"
+    fi
+    echo "$host_only"
 }
  
 # 更新基础版本号
@@ -1326,9 +1344,30 @@ fi
 if [ "$full_install" = "y" ] || [ "$run_install" = "y" ] || [ "$devel_install" = "y" ]; then
     create_default_dir
 fi
+
+stash_binary_configs() {
+    local base_dir="$1"
+    local mod_script
+    shift 1
+
+    mod_script="$(stat -L -c %a "$base_dir/script")"
+    chmod u+w "$base_dir/script"
+
+    cp -f "$base_dir/script/filelist.csv" "$base_dir/script/filelist.csv.stash"
+
+    "$@"
+
+    chmod u+w "$base_dir/script"
+    mv -f "$base_dir/script/filelist.csv.stash" "$base_dir/script/filelist.csv"
+
+    chmod "$mod_script" "$base_dir/script"
+}
  
 # 环境上是否已安装过本包
 version_installed="$(get_version_installed)"
+host_only="$(get_version_host_only)"
+host_only_in_runpkg="$(get_version_host_only_in_runpkg)"
+log "INFO" "version_installed:$version_installed host_only:$host_only host_only_in_runpkg:$host_only_in_runpkg"
 if [ "x$version_installed" != "x" -a "$version_installed" != "none" ] || [ -f "${install_info}" ]; then
     # 卸载场景
     if [ "$uninstall" = "y" ]; then
@@ -1358,11 +1397,17 @@ if [ "x$version_installed" != "x" -a "$version_installed" != "none" ] || [ -f "$
             fi
         fi
         unchattr_files
-        uninstall_run "uninstall" "n" "n"
+        if [ "$host_only" = "$host_only_in_runpkg" ] || [ "$host_only_in_runpkg" = "false" -a "$host_only" = "none" ]; then
+            uninstall_run "uninstall" "n" "n"
+        fi
         save_user_files_to_log "$default_dir"
         save_user_files_to_log "$(dirname $default_dir)/atc"
         save_user_files_to_log "$(dirname $default_dir)/fwkacllib"
-        upgrade_run "upgrade"
+        if [ "$host_only" = "$host_only_in_runpkg" ] || [ "$host_only_in_runpkg" = "false" -a "$host_only" = "none" ]; then
+            upgrade_run "upgrade"
+        else
+            stash_binary_configs "$default_dir" upgrade_run "upgrade"
+        fi
         exit_install_log 0
     # 安装场景
     elif [ "$run_install" = "y" ] || [ "$full_install" = "y" ] || [ "$devel_install" = "y" ]; then
@@ -1383,11 +1428,17 @@ if [ "x$version_installed" != "x" -a "$version_installed" != "none" ] || [ -f "$
             done
         fi
         unchattr_files
-        uninstall_run "uninstall" "n" "n"
+        if [ "$host_only" = "$host_only_in_runpkg" ] || [ "$host_only_in_runpkg" = "false" -a "$host_only" = "none" ]; then
+            uninstall_run "uninstall" "n" "n"
+        fi
         save_user_files_to_log "$default_dir"
         save_user_files_to_log "$(dirname $default_dir)/atc"
         save_user_files_to_log "$(dirname $default_dir)/fwkacllib"
-        install_run "install"
+        if [ "$host_only" = "$host_only_in_runpkg" ] || [ "$host_only_in_runpkg" = "false" -a "$host_only" = "none" ]; then
+            install_run "install"
+        else
+            stash_binary_configs "$default_dir" install_run "install"
+        fi
         exit_install_log 0
     fi
 else

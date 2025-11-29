@@ -158,12 +158,12 @@ if(NOT KERNEL_MODE)
     # 基于ini生成json文件
     SET(HCCL_CMAKE_DIR ${OPS_BASE_DIR}/cmake/)
     message(STATUS "HCCL_CMAKE_DIR = ${HCCL_CMAKE_DIR}")
-    add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/scatter_aicpu_kernel.json
-        COMMAND ${HI_PYTHON} ${HCCL_CMAKE_DIR}/scripts/parser_ini.py ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/scatter_aicpu_kernel.ini ${CMAKE_CURRENT_BINARY_DIR}/scatter_aicpu_kernel.json
+    add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/libscatter_aicpu_kernel.json
+        COMMAND ${HI_PYTHON} ${HCCL_CMAKE_DIR}/scripts/parser_ini.py ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/scatter_aicpu_kernel.ini ${CMAKE_CURRENT_BINARY_DIR}/libscatter_aicpu_kernel.json
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     )
-    add_custom_target(aicpu_kernel_json DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/scatter_aicpu_kernel.json)
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/scatter_aicpu_kernel.json
+    add_custom_target(aicpu_kernel_json DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/libscatter_aicpu_kernel.json)
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libscatter_aicpu_kernel.json
         DESTINATION ${INSTALL_AICPU_KERNEL_JSON_DIR} OPTIONAL
     )
     add_dependencies(hccl aicpu_kernel_json)
@@ -199,7 +199,7 @@ target_compile_options(hccl PRIVATE
     -fstack-protector-all
 )
 
-# libhccl需要依赖libhccl_scatter
+# libhccl
 target_link_options(hccl PRIVATE
     -Wl,-z,relro
     -Wl,-z,now
@@ -210,8 +210,7 @@ target_link_options(hccl PRIVATE
 if(BUILD_OPEN_PROJECT)
     target_link_libraries(hccl PRIVATE
         -Wl,--no-as-needed
-        hccl_fwk
-        hccl_scatter
+        hcomm
         c_sec
         unified_dlog
         mmpa
@@ -224,8 +223,7 @@ else()
         $<BUILD_INTERFACE:runtime_headers>
         $<BUILD_INTERFACE:mmpa_headers>
         -Wl,--no-as-needed
-        hccl_fwk
-        hccl_scatter
+        hcomm
         c_sec
         unified_dlog
         mmpa
@@ -235,73 +233,6 @@ else()
 endif()
 
 install(TARGETS hccl
-    LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} OPTIONAL
-)
-
-# 编译libhccl_scatter.so
-add_library(hccl_scatter SHARED)
-
-if(BUILD_OPEN_PROJECT)
-    target_compile_definitions(hccl_scatter PRIVATE
-        OPEN_BUILD_PROJECT
-        $<$<STREQUAL:${PRODUCT_SIDE},host>:_GLIBCXX_USE_CXX11_ABI=0>
-    )
-else()
-    target_compile_definitions(hccl_scatter PRIVATE
-        $<$<STREQUAL:${PRODUCT_SIDE},host>:_GLIBCXX_USE_CXX11_ABI=0>
-    )
-endif()
-
-target_include_directories(hccl_scatter PRIVATE
-    ${INCLUDE_LIST}
-)
-
-target_compile_options(hccl_scatter PRIVATE
-    -Werror
-    -fno-common
-    -fno-strict-aliasing
-    -pipe
-    # -O3
-    -g -O0
-    -std=c++14
-    -fstack-protector-all
-)
-
-target_link_options(hccl_scatter PRIVATE
-    -Wl,-z,relro
-    -Wl,-z,now
-    -Wl,-z,noexecstack
-    # -s
-)
-
-if(BUILD_OPEN_PROJECT)
-    target_link_libraries(hccl_scatter PRIVATE
-        -Wl,--no-as-needed
-        hccl_fwk
-        # hccl_aicpu_kernel # 修改为代码中进行加载
-        c_sec
-        unified_dlog
-        mmpa
-        -Wl,--no-as-needed
-    )
-else()
-    target_link_libraries(hccl_scatter PRIVATE
-        $<BUILD_INTERFACE:slog_headers>
-        $<BUILD_INTERFACE:msprof_headers>
-        $<BUILD_INTERFACE:runtime_headers>
-        $<BUILD_INTERFACE:mmpa_headers>
-        -Wl,--no-as-needed
-        hccl_fwk
-        # hccl_aicpu_kernel # 修改为代码中进行加载
-        c_sec
-        unified_dlog
-        mmpa
-        -Wl,--no-as-needed
-        ofed_headers
-    )
-endif()
-
-install(TARGETS hccl_scatter
     LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} OPTIONAL
 )
 

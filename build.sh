@@ -19,11 +19,12 @@ JOB_NUM="-j${CPU_NUM}"
 ASAN="false"
 COV="false"
 CUSTOM_OPTION="-DCMAKE_INSTALL_PREFIX=${OUTPUT_DIR}"
-FULL_MODE="true"  # 新增变量，用于控制是否全量构建
+FULL_MODE="false"  # 新增变量，用于控制是否全量构建
 KERNEL="false"  # 新增变量，用于控制是否只编译 ccl_kernel.so
 CANN_3RD_LIB_PATH="${CURRENT_DIR}/third_party"
 CUSTOM_SIGN_SCRIPT=""
 ENABLE_SIGN="false"
+VERSION_INFO="8.5.0.0.B000"
 
 ENABLE_UT="off"
 ENABLE_ST="off"
@@ -279,6 +280,10 @@ while [[ $# -gt 0 ]]; do
         KERNEL="true"
         shift
         ;;
+    --full)
+        FULL_MODE="true"
+        shift
+        ;;
     --asan)
         ASAN="true"
         shift
@@ -287,12 +292,19 @@ while [[ $# -gt 0 ]]; do
         COV="true"
         shift
         ;;
+    --sign-script=*)
+        shift
+        ;;
     --enable-sign)
         ENABLE_SIGN="true"
         shift
         ;;
     --sign-script)
         CUSTOM_SIGN_SCRIPT="$(realpath $2)"
+        shift 2
+        ;;
+    --version)
+        VERSION_INFO="$2"
         shift 2
         ;;
     *)
@@ -307,6 +319,10 @@ fi
 
 if [ "${KERNEL}" == "true" ];then
     CUSTOM_OPTION="${CUSTOM_OPTION} -DKERNEL_MODE=ON -DDEVICE_MODE=ON"
+fi
+
+if [ "${FULL_MODE}" == "true" ];then
+    CUSTOM_OPTION="${CUSTOM_OPTION} -DFULL_MODE=ON"
 fi
 
 if [ "${ASAN}" == "true" ];then
@@ -358,12 +374,13 @@ elif [ "${FULL_MODE}" == "true" ]; then
     mkdir -p ${BUILD_DEVICE_DIR}
     cd ${BUILD_DEVICE_DIR}
     CURRENT_CUSTOM_OPTION="${CUSTOM_OPTION}"
-    CUSTOM_OPTION="${CURRENT_CUSTOM_OPTION} -DFULL_MODE=ON -DDEVICE_MODE=ON -DKERNEL_MODE=ON -DCUSTOM_SIGN_SCRIPT=${CUSTOM_SIGN_SCRIPT} -DENABLE_SIGN=${ENABLE_SIGN}"
+    CUSTOM_OPTION="${CURRENT_CUSTOM_OPTION} -DFULL_MODE=ON -DDEVICE_MODE=ON -DKERNEL_MODE=ON -DCUSTOM_SIGN_SCRIPT=${CUSTOM_SIGN_SCRIPT} -DENABLE_SIGN=${ENABLE_SIGN} -DVERSION_INFO=${VERSION_INFO}"
     build_device
     cd .. & cd ${BUILD_DIR}
     CUSTOM_OPTION="${CURRENT_CUSTOM_OPTION} -DDEVICE_MODE=OFF"
     build_package
     rm -rf ${BUILD_DEVICE_DIR}
 else
+    CUSTOM_OPTION="${CUSTOM_OPTION} -DDEVICE_MODE=OFF"
     build_package
 fi

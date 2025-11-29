@@ -74,7 +74,7 @@ set(STUBS
     unified_dlog
     aicpu_sharder
     mmpa
-    hccl_fwk
+    hcomm
     ccl_kernel
 )
 foreach(STUB ${STUBS})
