@@ -207,16 +207,6 @@ bool IsStreamCapture(aclrtStream stream)
 
 bool IsAiCpuMode(DevType deviceType, u32 rankSize)
 {
-    char* value = getenv("ENABLE_AICPU");
-    if (value != nullptr) {
-        HCCL_DEBUG("[%s:%d]aicpu mode\n", __FUNCTION__, __LINE__);
-        return true;
-    } else {
-        HCCL_DEBUG("[%s:%d]host mode\n", __FUNCTION__, __LINE__);
-        return false;
-    }
-
-    return true;
     if (GetExternalInputHcclAicpuUnfold() == true && deviceType == DevType::DEV_TYPE_910_93 && (rankSize != 1)) {
         return true;
     }
