@@ -29,9 +29,8 @@ target_compile_options(hccl-model-proxy PRIVATE
 
 target_link_libraries(hccl-model-proxy PUBLIC
     # 链接hccl_depends_stub
-    hccl_fwk
-    hccl_alg
-    hccl_plf
+    hcomm
+    ascend_hal
     ascendcl
     unified_dlog
     ascendalog
@@ -51,10 +50,6 @@ if (BUILD_OPEN_PROJECT)
         ${UTILS_DIR}/hccl_proxy
         ${UTILS_DIR}/hccl_proxy/communicator
         ${UTILS_DIR}/hccl_proxy/topo_model
-
-        # 本地hcomm仓头文件
-        #${HCCL_DEV_BASE}/../hcomm/inc/hccl
-        #${HCCL_DEV_BASE}/../hcomm/pkg_inc/hccl
 
         # Ascend安装包头文件
         ${ASCEND_HOME_PATH}/x86_64-linux/include

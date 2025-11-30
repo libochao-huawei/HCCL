@@ -8,28 +8,22 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-cmake_minimum_required(VERSION 3.16.0)
-project(hccl_checker_ops_stest)
-set(TOP_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../..)
+#!/bin/bash
+set -e
+trap 'echo "❌ Error occurred in build.sh at line $LINENO"; exit 1' ERR
 
-# 编译HCCL业务so文件
-if (NOT BUILD_OPEN_PROJECT)
-    execute_process(
-        COMMAND bash ${TOP_DIR}/hccl/test/st/algorithm/utils/script/build.sh
-        RESULT_VARIABLE HCCL_BUILD_RESULT
-    )
-    if(NOT HCCL_BUILD_RESULT EQUAL 0)
-        message(FATAL_ERROR "Failed to execute hccl build script. Exit code: ${HCCL_BUILD_RESULT}")
-    endif()
-endif()
+# 获取shell脚本目录作为根目录
+SHELL_DIR=$(cd $(dirname ${BASH_SOURCE:-$0})
+    pwd
+)
 
-if (BUILD_OPEN_PROJECT)
-    set(UTILS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/utils/src)
-    set(TESTCASE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/testcase)
-    set(ASCEND_HOME_PATH $ENV{ASCEND_HOME_PATH})
-    set(HCCL_DEV_BASE ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
-    set(THIRD_PARTH_PATH ${HCCL_DEV_BASE}/output/third_party)
-endif()
+# 创建build编译目录
+cd $SHELL_DIR
+mkdir -p ./build && cd ./build/ && rm -rf ../build/*
 
-add_subdirectory(testcase)
-add_subdirectory(utils)
+# 编译用例工程，配置执行条件并执行
+cmake .. -DBUILD_OPEN_PROJECT=ON && make
+LIBRARY_DIR="${SHELL_DIR}/build/utils/src/hccl_depends_stub:"
+export LD_LIBRARY_PATH=${LIBRARY_DIR}${LD_LIBRARY_PATH} && ${SHELL_DIR}/build/testcase/hccl_checker_ops_stest
+
+exit 0

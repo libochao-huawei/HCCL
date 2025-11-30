@@ -8,8 +8,8 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-add_library(hccl_fwk SHARED hccl_depends_stub.cc)
-target_compile_options(hccl_fwk PRIVATE
+add_library(hcomm SHARED hccl_depends_stub.cc)
+target_compile_options(hcomm PRIVATE
     -std=c++14
     -fno-common
     -fno-strict-aliasing
@@ -18,18 +18,8 @@ target_compile_options(hccl_fwk PRIVATE
     -O0
 )
 
-add_library(hccl_alg SHARED hccl_depends_stub.cc)
-target_compile_options(hccl_alg PRIVATE
-    -std=c++14
-    -fno-common
-    -fno-strict-aliasing
-    -pipe
-    -g
-    -O0
-)
-
-add_library(hccl_plf SHARED hccl_depends_stub.cc)
-target_compile_options(hccl_plf PRIVATE
+add_library(ascend_hal SHARED hccl_depends_stub.cc)
+target_compile_options(ascend_hal PRIVATE
     -std=c++14
     -fno-common
     -fno-strict-aliasing

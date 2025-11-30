@@ -21,10 +21,6 @@ if (BUILD_OPEN_PROJECT)
         ${THIRD_PARTH_PATH}/gtest_shared/include
         ${THIRD_PARTH_PATH}/gtest_shared/include
 
-        # 本地hcomm仓头文件
-        #${HCCL_DEV_BASE}/../hcomm/inc/hccl
-        #${HCCL_DEV_BASE}/../hcomm/pkg_inc/hccl
-
         # Ascend安装包头文件
         ${ASCEND_HOME_PATH}/x86_64-linux/include
         ${ASCEND_HOME_PATH}/x86_64-linux/pkg_inc
@@ -51,16 +47,12 @@ if (BUILD_OPEN_PROJECT)
     )
 
     target_link_libraries(hccl_checker_ops_stest PRIVATE
-        #$<BUILD_INTERFACE:intf_llt_pub>
         ${THIRD_PARTH_PATH}/gtest_shared/lib/libgtest.so
         pthread
         hccl-model-proxy
         hccl-verifier
         # 链接hccl库
-        #${ASCEND_HOME_PATH}/x86_64-linux/lib64/libhccl_scatter.so
-        #${ASCEND_HOME_PATH}/x86_64-linux/lib64/libhccl.so
-        ${HCCL_DEV_BASE}/../libhccl_scatter.so
-        ${HCCL_DEV_BASE}/../libhccl.so
+        ${ASCEND_HOME_PATH}/x86_64-linux/lib64/libhccl.so
     )
 
     target_compile_options(hccl_checker_ops_stest PRIVATE
@@ -106,7 +98,6 @@ else()
         hccl-verifier
         # 链接hccl库
         ${HCCL_LIB_DIR}/libhccl.so
-        ${HCCL_LIB_DIR}/libhccl_scatter.so
     )
 
     target_compile_options(hccl_checker_ops_stest PRIVATE
