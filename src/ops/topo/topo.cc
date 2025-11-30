@@ -91,6 +91,7 @@ HcclResult SetServerModuleInfo(const std::vector<struct GraphRankInfo> &rankList
         if (rankInfo.rankId == topoInfo->userRank) {
             topoInfo->moduleIdx = moduleIdx;
         }
+
         auto iter = moduleMap.find(moduleIdx);
         if (iter == moduleMap.end()) {
             std::vector<struct GraphRankInfo> rankInfoList;
