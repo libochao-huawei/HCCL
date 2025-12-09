@@ -55,9 +55,6 @@ HcclResult SimCommunicator::Init(const TopoMeta &topoMeta, uint32_t rank)
 
 HcclResult SimCommunicator::SetIndependentOpConfig(const HcclCommConfig &commConfig)
 {
-    commEngine_ = commConfig.commEngine;
-    threadNum_ = commConfig.threadNum;
-    notifyNumPerThread_ = commConfig.notifyNumPerThread;
     commId_ = commConfig.hcclCommName;
     HCCL_INFO("[%s] commEngine[%d], threadNum[%u], notifyNumPerThread[%u], commId[%s]",
         __func__, commEngine_, threadNum_, notifyNumPerThread_, commId_.c_str());
