@@ -216,7 +216,7 @@ function run_ut() {
 }
 
 function run_st() {
-  if [[ "X$ENABLE_UT" = "Xon" ]]; then
+  if [[ "X$ENABLE_ST" = "Xon" ]]; then
     local st_build_shell="${CURRENT_DIR}/test/st/algorithm/build.sh"
     echo "st_build_shell = ${st_build_shell}"
     if [ -e ${st_build_shell} ]; then
@@ -386,6 +386,7 @@ if [ "${ENABLE_UT}" == "on" ]; then
     build_ut
     run_ut
 elif [ "${ENABLE_ST}" == "on" ]; then
+    echo "zhf---"
     run_st
 elif [ -n "${TEST}" ];then
     build_test
