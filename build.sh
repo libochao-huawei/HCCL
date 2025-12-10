@@ -30,6 +30,7 @@ ENABLE_UT="off"
 ENABLE_ST="off"
 CMAKE_BUILD_TYPE="Debug"
 ASCEND_3RD_LIB_PATH="${CURRENT_DIR}/output/third_party"
+BUILD_CB_TEST="false"
 
 if [ "${USER_ID}" != "0" ]; then
     DEFAULT_TOOLKIT_INSTALL_DIR="${HOME}/Ascend/ascend-toolkit/latest"
@@ -81,6 +82,11 @@ function build_package(){
     cmake_config
     log "Info: build_package"
     build package
+}
+
+function build_cb_test_verify(){
+    cd ${CURRENT_DIR}/examples/
+    bash build.sh
 }
 
 function build_test() {
@@ -295,6 +301,10 @@ while [[ $# -gt 0 ]]; do
     --sign-script=*)
         shift
         ;;
+    --cb_test_verify)
+        BUILD_CB_TEST="true"
+        shift
+        ;;
     --enable-sign)
         ENABLE_SIGN="true"
         shift
@@ -369,6 +379,15 @@ elif [ -n "${TEST}" ];then
     build_test
 elif [ "${KERNEL}" == "true" ]; then
     build_kernel
+elif [ "${BUILD_CB_TEST}" == "true" ]; then
+    log "Info: Building cb_test_verify"
+    build_cb_test_verify
+    if grep -q "Make Failure" ${BUILD_DIR}/build.log || grep -q "Make test Failure" ${BUILD_DIR}/build.log; then
+        log "Info: Building cb_test_verify failed"
+        exit 1
+    else
+        log "Info: Building cb_test_verify success"
+    fi
 elif [ "${FULL_MODE}" == "true" ]; then
     cd ..
     mkdir -p ${BUILD_DEVICE_DIR}
