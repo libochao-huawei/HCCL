@@ -386,7 +386,6 @@ if [ "${ENABLE_UT}" == "on" ]; then
     build_ut
     run_ut
 elif [ "${ENABLE_ST}" == "on" ]; then
-    echo "zhf---"
     run_st
 elif [ -n "${TEST}" ];then
     build_test
