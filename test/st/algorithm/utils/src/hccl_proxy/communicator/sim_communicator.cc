@@ -78,9 +78,6 @@ HcclResult SimCommunicator::GetDefaultCommConfig(HcclCommConfig &commConfig, con
     commConfig.hcclRdmaServiceLevel = HCCL_COMM_SERVICE_LEVEL_CONFIG_NOT_SET;
     commConfig.hcclWorldRankID  = 0;
     commConfig.hcclJobID  = 0;
-    commConfig.commEngine = HCCL_COMM_ENGINE_CONFIG_NOT_SET;
-    commConfig.threadNum  = HCCL_COMM_THREADNUM_CONFIG_NOT_SET;
-    commConfig.notifyNumPerThread = HCCL_COMM_NOTIFY_NUM_PER_THREAD_CONFIG_NOT_SET;
     return HCCL_SUCCESS;
 }
 
