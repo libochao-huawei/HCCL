@@ -74,6 +74,7 @@ bash ./build_out/cann-hccl<version>_linux-<arch>.run --full
 bash ./build_out/cann-hccl_<version>_linux-<arch>.run --uninstall
 ```
 
+
 请注意：卸载时需要将上述命令中的软件包名称替换为实际安装的软件包名称。
 
 ## LLT 测试
