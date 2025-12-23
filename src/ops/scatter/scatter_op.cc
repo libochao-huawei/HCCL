@@ -738,7 +738,7 @@ HcclResult AllocAlgResource(HcclComm comm, const OpParam& param, AlgResourceRequ
 
         if (validChannelNum > 0) {
             // 调用控制面接口创建链路
-            CHK_RET(HcclChannelAcquire(comm, param.algTag, param.engine, levelNChannelRequest.data(),
+            CHK_RET(HcclChannelAcquire(comm, param.engine, levelNChannelRequest.data(),
                 validChannelNum, levelNChannels.data()));
         }
 
