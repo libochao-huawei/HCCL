@@ -80,14 +80,14 @@ inline void HcclChannelDescInit(HcclChannelDesc *channelDesc, uint32_t descNum)
 HcclResult HcclChannelAcquire(HcclComm comm, CommEngine engine, const HcclChannelDesc *channelDescList,
     uint32_t listNum, ChannelHandle *channelList) __attribute__((weak));
 
-int32_t HcommAclrtNotifyRecordOnThread(ThreadHandle thread, uint64_t dstNotifyId) __attribute__((weak));
-int32_t HcommAclrtNotifyWaitOnThread(ThreadHandle thread, uint64_t notifyId, uint32_t timeOut) __attribute__((weak));
+HcclResult HcommAclrtNotifyRecordOnThread(ThreadHandle thread, uint64_t dstNotifyId) __attribute__((weak));
+HcclResult HcommAclrtNotifyWaitOnThread(ThreadHandle thread, uint64_t notifyId, uint32_t timeOut) __attribute__((weak));
 
-int32_t HcommChannelNotifyRecordOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t remoteNotifyIdx) __attribute__((weak));
-int32_t HcommChannelNotifyWaitOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeout) __attribute__((weak));
+HcclResult HcommChannelNotifyRecordOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t remoteNotifyIdx) __attribute__((weak));
+HcclResult HcommChannelNotifyWaitOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeout) __attribute__((weak));
 
-int32_t HcommThreadNotifyRecordOnThread(ThreadHandle thread, ThreadHandle dstThread, uint32_t dstNotifyIdx) __attribute__((weak));
-int32_t HcommThreadNotifyWaitOnThread(ThreadHandle thread, uint32_t notifyIdx, uint32_t timeout) __attribute__((weak));
+HcclResult HcommThreadNotifyRecordOnThread(ThreadHandle thread, ThreadHandle dstThread, uint32_t dstNotifyIdx) __attribute__((weak));
+HcclResult HcommThreadNotifyWaitOnThread(ThreadHandle thread, uint32_t notifyIdx, uint32_t timeout) __attribute__((weak));
 HcclResult HcclThreadAcquireWithStream(HcclComm comm, CommEngine engine,
     aclrtStream stream, uint32_t notifyNum, ThreadHandle *thread) __attribute__((weak));
 #ifdef __cplusplus
