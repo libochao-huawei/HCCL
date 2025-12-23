@@ -169,12 +169,13 @@ HcclResult HcclGetHcclBuffer(HcclComm comm, CommBuffer *buffer)
     return simComm->GetHcclBuffer(buffer);
 }
 
-HcclResult HcclChannelCreate(HcclComm comm, const char *channelTag, CommEngine engine,
-    const ChannelDesc *channelDescList, uint32_t listNum, ChannelHandle *channelList)
+HcclResult HcclChannelAcquire(HcclComm comm, CommEngine engine,
+    const HcclChannelDesc *channelDescList, uint32_t listNum, ChannelHandle *channelList)
 {
     auto simComm = static_cast<HcclSim::SimCommunicator*>(comm);
     CHK_PTR_NULL(simComm);
-    return simComm->ChannelCommCreate(simComm->GetIdentifier(), std::string(channelTag), engine, channelDescList, listNum, channelList);
+    std::string channelTag = "channelTag";
+    return simComm->ChannelCommCreate(simComm->GetIdentifier(), channelTag.c_str(), engine, channelDescList, listNum, channelList);
 }
 
 HcclResult HcclCreateEngineCtx(HcclComm comm, const char *engineTag, CommEngine engine, HcclMem *engineCtx)
@@ -206,12 +207,12 @@ HcclResult HcclAllocThreadRes(
     return simComm->independentOpThreadMgr_->HcclAllocThreadRes(engine, threadNum, notifyNumPerThread, thread);
 }
 
-HcclResult HcclAllocThreadResByStream(
+HcclResult HcclThreadAcquireWithStream(
     HcclComm comm, CommEngine engine, aclrtStream stream, uint32_t notifyNum, ThreadHandle *thread)
 {
     auto simComm = static_cast<HcclSim::SimCommunicator*>(comm);
     CHK_PTR_NULL(simComm);
-    return simComm->independentOpThreadMgr_->HcclAllocThreadResByStream(engine, stream, notifyNum, thread);
+    return simComm->independentOpThreadMgr_->HcclThreadAcquireWithStream(engine, stream, notifyNum, thread);
 }
 
 HcclResult HcclGetEngineCtx(HcclComm comm, const char *engineTag, CommEngine engine, HcclMem *engineCtx)
@@ -235,7 +236,7 @@ HcclResult HcclCommDestroy(HcclComm comm)
     return HCCL_SUCCESS;
 }
 
-HcclResult HcommInterThreadNotifyWaitOnThread(ThreadHandle thread, uint32_t notifyIdx, uint32_t timeout)
+HcclResult HcommThreadNotifyWaitOnThread(ThreadHandle thread, uint32_t notifyIdx, uint32_t timeout)
 {
     // timeout 暂时未使用
     static_cast<void>(timeout);
@@ -256,7 +257,7 @@ HcclResult HcommInterThreadNotifyWaitOnThread(ThreadHandle thread, uint32_t noti
     return HCCL_SUCCESS;
 }
 
-HcclResult HcommInterThreadNotifyRecordOnThread(ThreadHandle thread, ThreadHandle dstThread, uint32_t dstNotifyIdx)
+HcclResult HcommThreadNotifyRecordOnThread(ThreadHandle thread, ThreadHandle dstThread, uint32_t dstNotifyIdx)
 {
     // 1.获取当前rankId,NpuPos和stream
     uint32_t curRank = reinterpret_cast<HcclSim::SimHcclThread*>(thread)->GetCurRank();
@@ -380,7 +381,7 @@ HcclResult HcommReadOnThread(ThreadHandle thread, ChannelHandle channel, void *d
     return HCCL_SUCCESS;
 }
 
-HcclResult HcommNotifyRecordOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t remoteNotifyIdx)
+HcclResult HcommChannelNotifyRecordOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t remoteNotifyIdx)
 {
     // 1.获取当前rankId,NpuPos和stream
     uint32_t curRank = reinterpret_cast<HcclSim::SimHcclThread*>(thread)->GetCurRank();
@@ -407,7 +408,7 @@ HcclResult HcommNotifyRecordOnThread(ThreadHandle thread, ChannelHandle channel,
     return HCCL_SUCCESS;
 }
 
-HcclResult HcommNotifyWaitOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeout)
+HcclResult HcommChannelNotifyWaitOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeout)
 {
     //timeout 不参与 taskstubwait的构造
     static_cast<void>(timeout);
@@ -548,13 +549,13 @@ HcclResult HcommReadReduceOnThread(ThreadHandle thread, ChannelHandle channel, v
     return HCCL_SUCCESS;
 }
 
-HcclResult HcommInterOpNotifyRecordOnThread(ThreadHandle thread, uint64_t dstNotifyId) 
+HcclResult HcommAclrtNotifyRecordOnThread(ThreadHandle thread, uint64_t dstNotifyId) 
 {
     HCCL_ERROR("[%s] not support.", __func__);
     return HCCL_E_NOT_SUPPORT;
 }
 
-HcclResult HcommInterOpNotifyWaitOnThread(ThreadHandle thread, uint64_t notifyId, uint32_t timeOut)
+HcclResult HcommAclrtNotifyWaitOnThread(ThreadHandle thread, uint64_t notifyId, uint32_t timeOut)
 {
     HCCL_ERROR("[%s] not support.", __func__);
     return HCCL_E_NOT_SUPPORT;
