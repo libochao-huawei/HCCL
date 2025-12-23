@@ -236,7 +236,11 @@ HcclResult HcclCommDestroy(HcclComm comm)
     return HCCL_SUCCESS;
 }
 
+#ifndef HCOMM_PRIMITIVES_H_MODIFIED
 HcclResult HcommThreadNotifyWaitOnThread(ThreadHandle thread, uint32_t notifyIdx, uint32_t timeout)
+#else
+int32_t HcommThreadNotifyWaitOnThread(ThreadHandle thread, uint32_t notifyIdx, uint32_t timeout)
+#endif
 {
     // timeout 暂时未使用
     static_cast<void>(timeout);
@@ -257,7 +261,11 @@ HcclResult HcommThreadNotifyWaitOnThread(ThreadHandle thread, uint32_t notifyIdx
     return HCCL_SUCCESS;
 }
 
+#ifndef HCOMM_PRIMITIVES_H_MODIFIED
 HcclResult HcommThreadNotifyRecordOnThread(ThreadHandle thread, ThreadHandle dstThread, uint32_t dstNotifyIdx)
+#else
+int32_t HcommThreadNotifyRecordOnThread(ThreadHandle thread, ThreadHandle dstThread, uint32_t dstNotifyIdx)
+#endif
 {
     // 1.获取当前rankId,NpuPos和stream
     uint32_t curRank = reinterpret_cast<HcclSim::SimHcclThread*>(thread)->GetCurRank();
@@ -275,7 +283,11 @@ HcclResult HcommThreadNotifyRecordOnThread(ThreadHandle thread, ThreadHandle dst
     return HCCL_SUCCESS;
 }
 
+#ifndef HCOMM_PRIMITIVES_H_MODIFIED
 HcclResult HcommLocalCopyOnThread(ThreadHandle thread, void *dst, const void *src, uint64_t len)
+#else
+int32_t HcommLocalCopyOnThread(ThreadHandle thread, void *dst, const void *src, uint64_t len)
+#endif
 {
     CHK_PTR_NULL(dst);
     CHK_PTR_NULL(src);
@@ -303,7 +315,11 @@ HcclResult HcommLocalCopyOnThread(ThreadHandle thread, void *dst, const void *sr
     return HCCL_SUCCESS;
 }
 
+#ifndef HCOMM_PRIMITIVES_H_MODIFIED
 HcclResult HcommWriteOnThread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t len)
+#else
+int32_t HcommWriteOnThread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t len)
+#endif
 {
     CHK_PTR_NULL(dst);
     CHK_PTR_NULL(src);
@@ -342,7 +358,11 @@ HcclResult HcommWriteOnThread(ThreadHandle thread, ChannelHandle channel, void *
     return HCCL_SUCCESS;
 }
 
+#ifndef HCOMM_PRIMITIVES_H_MODIFIED
 HcclResult HcommReadOnThread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t len)
+#else
+int32_t HcommReadOnThread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t len)
+#endif
 {
     CHK_PTR_NULL(dst);
     CHK_PTR_NULL(src);
@@ -381,7 +401,11 @@ HcclResult HcommReadOnThread(ThreadHandle thread, ChannelHandle channel, void *d
     return HCCL_SUCCESS;
 }
 
+#ifndef HCOMM_PRIMITIVES_H_MODIFIED
 HcclResult HcommChannelNotifyRecordOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t remoteNotifyIdx)
+#else
+int32_t HcommChannelNotifyRecordOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t remoteNotifyIdx)
+#endif
 {
     // 1.获取当前rankId,NpuPos和stream
     uint32_t curRank = reinterpret_cast<HcclSim::SimHcclThread*>(thread)->GetCurRank();
@@ -408,7 +432,11 @@ HcclResult HcommChannelNotifyRecordOnThread(ThreadHandle thread, ChannelHandle c
     return HCCL_SUCCESS;
 }
 
+#ifndef HCOMM_PRIMITIVES_H_MODIFIED
 HcclResult HcommChannelNotifyWaitOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeout)
+#else
+int32_t HcommChannelNotifyWaitOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeout)
+#endif
 {
     //timeout 不参与 taskstubwait的构造
     static_cast<void>(timeout);
@@ -438,8 +466,13 @@ HcclResult HcommChannelNotifyWaitOnThread(ThreadHandle thread, ChannelHandle cha
     return HCCL_SUCCESS;
 }
 
+#ifndef HCOMM_PRIMITIVES_H_MODIFIED
 HcclResult HcommLocalReduceOnThread(ThreadHandle thread, void *dst, const void *src, uint64_t count,
     HcclDataType dataType, HcclReduceOp reduceOp)
+#else
+int32_t HcommLocalReduceOnThread(ThreadHandle thread, void *dst, const void *src, uint64_t count,
+    HcommDataType dataType, HcommReduceOp reduceOp)
+#endif
 {
     CHK_PTR_NULL(dst);
     CHK_PTR_NULL(src);
@@ -458,18 +491,23 @@ HcclResult HcommLocalReduceOnThread(ThreadHandle thread, void *dst, const void *
     HcclSim::DataSlice srcSlice;
     HcclSim::DataSlice dstSlice;
 
-    CHK_RET(npu.GetSlice(reinterpret_cast<uint64_t>(src), count, dataType, srcSlice));
-    CHK_RET(npu.GetSlice(reinterpret_cast<uint64_t>(dst), count, dataType, dstSlice));
+    CHK_RET(npu.GetSlice(reinterpret_cast<uint64_t>(src), count, static_cast<HcclDataType>(dataType), srcSlice));
+    CHK_RET(npu.GetSlice(reinterpret_cast<uint64_t>(dst), count, static_cast<HcclDataType>(dataType), dstSlice));
 
     // 4.下发task
-    auto task = std::make_shared<HcclSim::TaskStubLocalReduce>(srcSlice, dstSlice, dataType, reduceOp);
+    auto task = std::make_shared<HcclSim::TaskStubLocalReduce>(srcSlice, dstSlice, static_cast<HcclDataType>(dataType), static_cast<HcclReduceOp>(reduceOp));
     HcclSim::SimTaskQueue::Global()->AppendTask(pos, stream, task);
 
     return HCCL_SUCCESS;
 }
 
+#ifndef HCOMM_PRIMITIVES_H_MODIFIED
 HcclResult HcommWriteReduceOnThread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src,
     uint64_t count, HcclDataType dataType, HcclReduceOp reduceOp)
+#else
+int32_t HcommWriteReduceOnThread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src,
+    uint64_t count, HcommDataType dataType, HcommReduceOp reduceOp)
+#endif
 {
     CHK_PTR_NULL(dst);
     CHK_PTR_NULL(src);
@@ -495,22 +533,27 @@ HcclResult HcommWriteReduceOnThread(ThreadHandle thread, ChannelHandle channel, 
     HcclSim::DataSlice srcSlice;
     HcclSim::DataSlice dstSlice;
 
-    CHK_RET(srcNpu.GetSlice(reinterpret_cast<uint64_t>(src), count, dataType, srcSlice));
-    CHK_RET(dstNpu.GetSlice(reinterpret_cast<uint64_t>(dst), count, dataType, dstSlice));
+    CHK_RET(srcNpu.GetSlice(reinterpret_cast<uint64_t>(src), count, static_cast<HcclDataType>(dataType), srcSlice));
+    CHK_RET(dstNpu.GetSlice(reinterpret_cast<uint64_t>(dst), count, static_cast<HcclDataType>(dataType), dstSlice));
 
     // 5.通过抽象链接类型判断链接协议
     HcclSim::LinkInfo link(reinterpret_cast<HcclSim::SimChannel*>(channel)->GetLinkType());
 
     // 6.下发task
     auto task = std::make_shared<HcclSim::TaskStubWriteReduce>(rmtRank, link, srcSlice, dstSlice, 
-        dataType, reduceOp);
+        static_cast<HcclDataType>(dataType), static_cast<HcclReduceOp>(reduceOp));
     HcclSim::SimTaskQueue::Global()->AppendTask(pos, stream, task);
 
     return HCCL_SUCCESS;
 }
 
+#ifndef HCOMM_PRIMITIVES_H_MODIFIED
 HcclResult HcommReadReduceOnThread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src,
     uint64_t count, HcclDataType dataType, HcclReduceOp reduceOp)
+#else
+int32_t HcommReadReduceOnThread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src,
+    uint64_t count, HcommDataType dataType, HcommReduceOp reduceOp)
+#endif
 {
     CHK_PTR_NULL(dst);
     CHK_PTR_NULL(src);
@@ -535,27 +578,35 @@ HcclResult HcommReadReduceOnThread(ThreadHandle thread, ChannelHandle channel, v
     HcclSim::DataSlice srcSlice;
     HcclSim::DataSlice dstSlice;
 
-    CHK_RET(srcNpu.GetSlice(reinterpret_cast<uint64_t>(src), count, dataType, srcSlice));
-    CHK_RET(dstNpu.GetSlice(reinterpret_cast<uint64_t>(dst), count, dataType, dstSlice));
+    CHK_RET(srcNpu.GetSlice(reinterpret_cast<uint64_t>(src), count, static_cast<HcclDataType>(dataType), srcSlice));
+    CHK_RET(dstNpu.GetSlice(reinterpret_cast<uint64_t>(dst), count, static_cast<HcclDataType>(dataType), dstSlice));
 
     // 5.通过抽象链接类型判断链接协议
     HcclSim::LinkInfo link(reinterpret_cast<HcclSim::SimChannel*>(channel)->GetLinkType());
 
     // 6.下发task
     auto task = std::make_shared<HcclSim::TaskStubWriteReduce>(rmtRank, link, dstSlice, srcSlice,
-        dataType, reduceOp);
+        static_cast<HcclDataType>(dataType), static_cast<HcclReduceOp>(reduceOp));
     HcclSim::SimTaskQueue::Global()->AppendTask(pos, stream, task);
 
     return HCCL_SUCCESS;
 }
 
+#ifndef HCOMM_PRIMITIVES_H_MODIFIED
 HcclResult HcommAclrtNotifyRecordOnThread(ThreadHandle thread, uint64_t dstNotifyId) 
+#else
+int32_t HcommAclrtNotifyRecordOnThread(ThreadHandle thread, uint64_t dstNotifyId) 
+#endif
 {
     HCCL_ERROR("[%s] not support.", __func__);
     return HCCL_E_NOT_SUPPORT;
 }
 
+#ifndef HCOMM_PRIMITIVES_H_MODIFIED
 HcclResult HcommAclrtNotifyWaitOnThread(ThreadHandle thread, uint64_t notifyId, uint32_t timeOut)
+#else
+int32_t HcommAclrtNotifyWaitOnThread(ThreadHandle thread, uint64_t notifyId, uint32_t timeOut)
+#endif
 {
     HCCL_ERROR("[%s] not support.", __func__);
     return HCCL_E_NOT_SUPPORT;
@@ -580,8 +631,13 @@ HcclResult CommWriteReduceWithNotify(ThreadHandle thread, ChannelHandle channel,
     return HCCL_E_NOT_SUPPORT;
 }
 
+#ifndef HCOMM_PRIMITIVES_H_MODIFIED
 HcclResult HcommWriteWithNotifyOnThread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src,
     uint64_t len, uint32_t remoteNotifyIdx)
+#else
+int32_t HcommWriteWithNotifyOnThread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src,
+    uint64_t len, uint32_t remoteNotifyIdx)
+#endif
 {
     HCCL_ERROR("[%s] not support.", __func__);
     return HCCL_E_NOT_SUPPORT;
@@ -593,7 +649,11 @@ HcclResult CommFence(ThreadHandle thread, ChannelHandle channel)
     return HCCL_E_NOT_SUPPORT;
 }
 
+#ifndef HCOMM_PRIMITIVES_H_MODIFIED
 HcclResult HcommSetLaunchMode(const char *launchTag, LaunchMode mode)
+#else
+int32_t HcommSetLaunchMode(const char *launchTag, HcommLaunchMode mode)
+#endif
 {
     HCCL_WARNING("[%s] not support.", __func__);
     return HCCL_SUCCESS;
