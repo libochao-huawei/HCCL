@@ -74,7 +74,7 @@ HcclResult ScatterNHR::SdmaRx(ChannelInfo &channelLeft, ChannelInfo &channelRigh
         CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread_, channelRight.handle, NOTIFY_IDX_ACK)));
     }
     if (channelLeft.isValid) {
-        CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread_, channelLeft.handle, NOTIFY_IDX_ACK, CUSTOM_TIMEOUT)));
+        CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(thread_, channelLeft.handle, NOTIFY_IDX_ACK, CUSTOM_TIMEOUT)));
 
         void* srcMemPtr = channelLeft.remoteOutput.addr;
         for (u32 i = 0; i < stepInfo.nSlices; i++) {

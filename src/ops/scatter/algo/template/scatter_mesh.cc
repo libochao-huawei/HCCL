@@ -111,7 +111,7 @@ HcclResult ScatterMesh::RunSendScatter(const u32 dstRank, const Slice &slice, st
     } else { // root rank给其他rank进行数据发送
         // 接收目的rank的同步信号，便可进行下一轮发送
         CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(thread_, channels[dstRank].handle, NOTIFY_IDX_ACK, CUSTOM_TIMEOUT)));
-        CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(thread_, channels[dstRank].handle, NOTIFY_IDX_DATA_SIGNAL)));
+        CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread_, channels[dstRank].handle, NOTIFY_IDX_DATA_SIGNAL)));
     }
     return HCCL_SUCCESS;
 }
