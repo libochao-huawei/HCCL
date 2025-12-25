@@ -23,7 +23,7 @@ FULL_MODE="true"  # 新增变量，用于控制是否全量构建
 KERNEL="false"  # 新增变量，用于控制是否只编译 ccl_kernel.so
 CANN_3RD_LIB_PATH="${CURRENT_DIR}/third_party"
 CUSTOM_SIGN_SCRIPT="${CURRENT_DIR}/scripts/sign/community_sign_build.py"
-ENABLE_SIGN="false"
+ENABLE_SIGN="true"
 VERSION_INFO="8.5.0"
 
 ENABLE_UT="off"
@@ -347,7 +347,7 @@ while [[ $# -gt 0 ]]; do
         shift
         ;;
     --enable-sign)
-        ENABLE_SIGN="false"
+        ENABLE_SIGN="true"
         shift
         ;;
     --sign-script)
