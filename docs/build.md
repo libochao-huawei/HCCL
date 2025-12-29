@@ -23,7 +23,7 @@
 
     编译本项目依赖CANN开发套件包（cann-toolkit），请根据操作系统架构，下载对应的CANN Toolkit安装包，参考[昇腾文档中心-CANN软件安装指南](https://www.hiascend.com/document/redirect/CannCommunityInstWizard)进行安装：
 
-    - aarch64架构：[Ascend-cann-toolkit_8.5.0_linux-aarch64.run](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/community/hccl/Ascend-cann-toolkit_8.5.0_linux-aarch64.run)
+    - aarch64架构：[Ascend-cann-toolkit_8.5.0_linux-aarch64.run](https://mirror-centralrepo.devcloud.cn-north-4.huaweicloud.com/artifactory/cann-run-release/software/8.5.0-20251226000923458/aarch64/Ascend-cann-toolkit_8.5.0_linux-aarch64.run)
 
 3. 设置CANN软件环境变量。
 
