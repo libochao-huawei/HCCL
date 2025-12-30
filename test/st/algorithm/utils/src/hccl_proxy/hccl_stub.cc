@@ -319,7 +319,6 @@ HcclResult HcommThreadNotifyRecordOnThread(ThreadHandle thread, ThreadHandle dst
 #else
 int32_t HcommThreadNotifyRecordOnThread(ThreadHandle thread, ThreadHandle dstThread, uint32_t dstNotifyIdx)
 #endif
-
 {
     // 1.获取当前rankId,NpuPos和stream
     uint32_t curRank = reinterpret_cast<HcclSim::SimHcclThread*>(thread)->GetCurRank();
