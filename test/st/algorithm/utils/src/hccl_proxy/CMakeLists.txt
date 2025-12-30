@@ -22,7 +22,6 @@ target_sources(hccl-model-proxy PRIVATE
     communicator/sim_channel_exchange_handler.cc
     communicator/sim_context_manager.cc
     topo_model/topo_model.cc
-    topo_model/rank_table.cc
 )
 
 target_compile_options(hccl-model-proxy PRIVATE

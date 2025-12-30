@@ -24,6 +24,9 @@
 #include "sim_stream.h"
 #include "sim_task_queue.h"
 #include "sim_channel.h"
+#include "alg_param.h"
+
+using namespace ops_hccl;
 
 #ifdef __cplusplus
 extern "C" {
@@ -31,22 +34,52 @@ extern "C" {
 
 HcclResult HcclGetInstSizeByNetLayer(HcclComm comm, uint32_t netLayer, uint32_t *rankNum)
 {
+    auto simComm = static_cast<HcclSim::SimCommunicator*>(comm);
+    CHK_PTR_NULL(simComm);
+    simComm->topoModel_->GetInstSizeByNetLayer(simComm->GetRankId(), netLayer, rankNum);
     return HCCL_SUCCESS;
 }
 
 HcclResult HcclGetNetLayers(HcclComm comm, uint32_t **netLayers, uint32_t *netLayerNum)
 {
+    auto simComm = static_cast<HcclSim::SimCommunicator*>(comm);
+    CHK_PTR_NULL(simComm);
+    simComm->topoModel_->GetNetLayers(netLayers, netLayerNum);
     return HCCL_SUCCESS;
 }
 
 HcclResult HcclGetInstSizeListByNetLayer(HcclComm comm, uint32_t netLayer, uint32_t **instSizeList, uint32_t *listSize)
 {
+    auto simComm = static_cast<HcclSim::SimCommunicator*>(comm);
+    CHK_PTR_NULL(simComm);
+    simComm->topoModel_->GetInstSizeListByNetLayer(netLayer, instSizeList, listSize);
     return HCCL_SUCCESS;
 }
 
 HcclResult HcclGetLinks(HcclComm comm, uint32_t netLayer, uint32_t srcRank, uint32_t dstRank,
     CommLink **linkList, uint32_t *listSize)
 {
+    auto simComm = static_cast<HcclSim::SimCommunicator*>(comm);
+    CHK_PTR_NULL(simComm);
+    simComm->topoModel_->GetLinks(netLayer, srcRank, dstRank, linkList, listSize);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclGetInstTopoTypeByNetLayer(HcclComm comm, uint32_t netLayer, CommTopo *topoType)
+{
+    auto simComm = static_cast<HcclSim::SimCommunicator*>(comm);
+    CHK_PTR_NULL(simComm);
+    HcclSim::SimNpu &npu = HcclSim::SimWorld::Global()->GetSimNpuByRankId(simComm->GetRankId());
+    auto devType = npu.GetDevType();
+    simComm->topoModel_->GetInstTopoTypeByNetLayer(devType, netLayer, topoType);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclGetInstRanksByNetLayer(HcclComm comm, uint32_t netLayer, uint32_t **ranks, uint32_t *rankNum)
+{
+    auto simComm = static_cast<HcclSim::SimCommunicator*>(comm);
+    CHK_PTR_NULL(simComm);
+    simComm->topoModel_->GetInstRanksByNetLayer(simComm->GetRankId(), netLayer, ranks, rankNum);
     return HCCL_SUCCESS;
 }
 
@@ -286,6 +319,7 @@ HcclResult HcommThreadNotifyRecordOnThread(ThreadHandle thread, ThreadHandle dst
 #else
 int32_t HcommThreadNotifyRecordOnThread(ThreadHandle thread, ThreadHandle dstThread, uint32_t dstNotifyIdx)
 #endif
+
 {
     // 1.获取当前rankId,NpuPos和stream
     uint32_t curRank = reinterpret_cast<HcclSim::SimHcclThread*>(thread)->GetCurRank();

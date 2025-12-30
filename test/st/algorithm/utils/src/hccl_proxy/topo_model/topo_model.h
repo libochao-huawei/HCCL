@@ -14,18 +14,38 @@
 #include "hccl_sim_pub.h"
 #include "hccl_common.h"
 #include "hccl_rank_graph.h"
-#include "hccl_rankgraph.h"
 
 namespace HcclSim {
 class TopoModel {
 public:
     TopoModel() = delete;
-    TopoModel(std::vector<GraphRankInfo> rankGraphs) : rankGraphs_(rankGraphs) {}
+    TopoModel(const TopoMeta& topoMeta);
     ~TopoModel() = default;
     uint32_t GetRankSize() const;
+    void GetNetLayers(uint32_t **netLayers, uint32_t *netLayerNum);
+    void GetInstSizeByNetLayer(uint32_t curRank, uint32_t netLayer, uint32_t *rankNum);
+    void GetLinks(uint32_t netLayer, uint32_t srcRank, uint32_t dstRank, CommLink **linkList, uint32_t *listSize);
+    void GetInstSizeListByNetLayer(uint32_t netLayer, uint32_t **instSizeList, uint32_t *listSize);
+    void GetInstTopoTypeByNetLayer(DevType devType, uint32_t netLayer, CommTopo *topoType);
+    void GetInstRanksByNetLayer(uint32_t curRank, uint32_t netLayer, uint32_t **ranks, uint32_t *rankNum);
 
-public:
-    std::vector<GraphRankInfo> rankGraphs_;
+private:
+    void InitNetLayerInfo(uint32_t serverNum, uint32_t podNum);
+    void InitLinkMap(uint32_t rankNum);
+
+private:
+    std::vector<uint32_t> allRankList_;
+    std::map<uint32_t, std::vector<uint32_t>> serverId2RankList_;
+    std::map<uint32_t, std::vector<uint32_t>> podId2RankList_;
+    std::vector<uint32_t> netLayerList_;
+    std::map<std::pair<uint32_t, uint32_t>, std::vector<CommLink>> linkMap_;
+    std::map<uint32_t, EndpointDesc> rankId2Endpoint_;
+    std::map<uint32_t, uint32_t> rankId2ServerId_;
+    std::map<uint32_t, uint32_t> rankId2PodId_;
+
+    std::vector<uint32_t> podServersGroup_;
+    std::vector<uint32_t> podRanksGroup_;
+    std::vector<uint32_t> allRankNum_;
 }; // TopoModel
 
 };
