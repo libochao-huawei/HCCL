@@ -6,7 +6,7 @@
 
    HCCL集合通信库编译用到的依赖如下，请注意版本要求。
 
-   - python >= 3.7.0
+   - python: 3.7.x 至 3.11.4 版本
    - gcc >= 7.3.0
    - cmake >= 3.16.0
    - ccache
@@ -60,7 +60,7 @@ bash build.sh --pkg
 安装编译生成的HCCL软件包：
 
 ```shell
-bash ./build_out/cann-hccl<version>_linux-<arch>.run --full
+bash ./build_out/cann-hccl_<version>_linux-<arch>.run --full
 ```
 
 请注意：编译时需要将上述命令中的软件包名称替换为实际编译生成的软件包名称。
@@ -109,7 +109,21 @@ HCCL软件包安装完成后，开发者可通过HCCL Test工具进行集合通�
 
    使用 HCCL Test 工具前需要安装 MPI 依赖，配置相关环境变量，并编译 HCCL Test 工具，详细操作方法可参见配套版本的[昇腾文档中心-HCCL 性能测试工具使用指南](https://hiascend.com/document/redirect/CannCommunityToolHcclTest)中的“工具编译”章节。
 
-3. 执行HCCL Test测试命令，测试集合通信的功能及性能
+3. 关闭验签
+
+   - hccl仓编译产生`cann-hccl_<version>_linux-<arch>.run`软件包中含有`aicpu_hccl.tar.gz`（Hccl AICPU 算子包)
+   - `aicpu_hccl.tar.gz`会在业务启动时加载至Device，加载过程中默认会由驱动进行安全验签，确保包可信
+   - 开发者下载hccl仓源码自行编译产生`aicpu_hccl.tar.gz`并不含签名头，为此需要关闭驱动安全验签的机制
+   - 关闭验签方式：
+
+      配套使用HDK 25.5.T2.B001或以上版本，并通过该HDK配套的npu-smi工具关闭验签。参考如下命令，以root用户在物理机上执行。
+      以device 0为例：
+      ```shell
+      npu-smi set -t custom-op-secverify-enable -i 0 -d 1    # 使能验签配置
+      npu-smi set -t custom-op-secverify-mode -i 0 -d 0      # 关闭客户自定义验签
+      ```
+
+4. 执行HCCL Test测试命令，测试集合通信的功能及性能
 
    以1个计算节点，8个NPU设备，测试AllReduce算子的性能为例，命令示例如下：
 
@@ -123,7 +137,7 @@ HCCL软件包安装完成后，开发者可通过HCCL Test工具进行集合通�
 
    工具的详细使用说明可参见[昇腾文档中心-HCCL 性能测试工具使用指南](https://hiascend.com/document/redirect/CannCommunityToolHcclTest)中的“工具执行”章节。
 
-4. 查看结果
+5. 查看结果
 
    执行完HCCL Test工具后，回显示例如下：
 
