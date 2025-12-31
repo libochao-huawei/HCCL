@@ -589,7 +589,9 @@ HcclResult SelectAlg(HcclComm comm, OpParam &param, TopoInfo* topoInfo, AlgType&
     }
 
     // 在algTag中追加编排模式
-    const char* launchMode = (param.engine == CommEngine::COMM_ENGINE_CPU_TS ? "_aicpu" : "_host");
+    bool isAicpuMode = (param.engine == CommEngine::COMM_ENGINE_AICPU) ||
+ 	                   (param.engine == CommEngine::COMM_ENGINE_AICPU_TS)
+ 	const char* launchMode = (isAicpuMode ? "_aicpu" : "_host");
     int ret = strcat_s(param.algTag, sizeof(param.algTag), launchMode);
     if (ret != 0) {
         HCCL_ERROR("faled to fill param.algTag");
