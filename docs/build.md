@@ -23,7 +23,8 @@
 
     编译本项目依赖CANN开发套件包（cann-toolkit），请根据操作系统架构，下载对应的CANN Toolkit安装包，参考[昇腾文档中心-CANN软件安装指南](https://www.hiascend.com/document/redirect/CannCommunityInstWizard)进行安装：
 
-    - aarch64架构：[Ascend-cann-toolkit_8.5.0_linux-aarch64.run](https://mirror-centralrepo.devcloud.cn-north-4.huaweicloud.com/artifactory/cann-run-release/software/8.5.0-20251226000923458/aarch64/Ascend-cann-toolkit_8.5.0_linux-aarch64.run)
+    - aarch64架构：[Ascend-cann-toolkit_8.5.0-beta.1_linux-aarch64.run](https://ascend.devcloud.huaweicloud.com/cann/run/software/8.5.0-beta.1/aarch64/Ascend-cann-toolkit_8.5.0-beta.1_linux-aarch64.run)
+    - x86_64架构：[Ascend-cann-toolkit_8.5.0-beta.1_linux-x86_64.run](https://ascend.devcloud.huaweicloud.com/cann/run/software/8.5.0-beta.1/x86_64/Ascend-cann-toolkit_8.5.0-beta.1_linux-x86_64.run)
 
 3. 设置CANN软件环境变量。
 
@@ -95,12 +96,14 @@ HCCL软件包安装完成后，开发者可通过HCCL Test工具进行集合通�
    - Atlas A2系列产品:
      - Ascend HDK驱动包：[Ascend-hdk-910b-npu-driver_25.5.0.b061_linux-aarch64.run](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/community/hccl/Ascend-hdk-910b-npu-driver_25.5.0.b061_linux-aarch64.run)
      - Ascend HDK固件包：[Ascend-hdk-910b-npu-firmware_7.8.0.5.201.run](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/community/hccl/Ascend-hdk-910b-npu-firmware_7.8.0.5.201.run)
-     - Ascend-ops包（aarch64架构）：[Ascend-cann-ops-910b_8.5.0_linux-aarch64.run](https://mirror-centralrepo.devcloud.cn-north-4.huaweicloud.com/artifactory/cann-run-release/software/8.5.0-20251226000923458/aarch64/Ascend-cann-910b-ops_8.5.0_linux-aarch64.run)
+     - Ascend-ops包（aarch64架构）：[Ascend-cann-910b-ops_8.5.0-beta.1_linux-aarch64.run](https://ascend.devcloud.huaweicloud.com/cann/run/software/8.5.0-beta.1/aarch64/Ascend-cann-910b-ops_8.5.0-beta.1_linux-aarch64.run)
+     - Ascend-ops包（x86_64架构）：[Ascend-cann-910b-ops_8.5.0-beta.1_linux-x86_64.run](https://ascend.devcloud.huaweicloud.com/cann/run/software/8.5.0-beta.1/x86_64/Ascend-cann-910b-ops_8.5.0-beta.1_linux-x86_64.run)
 
    - Atlas A3系列产品:
      - Ascend HDK驱动包：[Atlas-A3-hdk-npu-driver_25.5.0.b061_linux-aarch64.run](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/community/hccl/Atlas-A3-hdk-npu-driver_25.5.0.b061_linux-aarch64.run)
      - Ascend HDK固件包：[Atlas-A3-hdk-npu-firmware_7.8.0.5.201.run](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/community/hccl/Atlas-A3-hdk-npu-firmware_7.8.0.5.201.run)
-     - Ascend-ops包（aarch64架构）：[Atlas-A3-cann-ops_8.5.0_linux-aarch64.run](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/community/hccl/Atlas-A3-cann-ops_8.5.0_linux-aarch64.run)
+     - Ascend-ops包（aarch64架构）：[Ascend-cann-A3-ops_8.5.0-beta.1_linux-aarch64.run](https://ascend.devcloud.huaweicloud.com/cann/run/software/8.5.0-beta.1/aarch64/Ascend-cann-A3-ops_8.5.0-beta.1_linux-aarch64.run)
+     - Ascend-ops包（x86_64架构）：[Ascend-cann-A3-ops_8.5.0-beta.1_linux-x86_64.run](https://ascend.devcloud.huaweicloud.com/cann/run/software/8.5.0-beta.1/x86_64/Ascend-cann-A3-ops_8.5.0-beta.1_linux-x86_64.run)
 
 2. 工具编译
 
