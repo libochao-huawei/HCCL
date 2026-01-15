@@ -294,6 +294,8 @@ function usage() {
   echo "                   Enable to sign"
   echo "    --version <VERSION>"
   echo "                   Set sign version to <VERSION>"
+  echo "    --cb_test_verify"
+  echo "                   Run smoke tests"
   echo "    --custom_ops_path=<CUSTOM_OPS_PATH>"
   echo "                   Set custom ops project path to <CUSTOM_OPS_PATH>"
   echo "    --ops=<OPS>"
