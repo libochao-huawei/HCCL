@@ -144,6 +144,9 @@ function(pack_built_in)
         ${CMAKE_CURRENT_SOURCE_DIR}/version.info
     VERBATIM
   )
+  add_custom_target(version_info ALL
+    DEPENDS ${HCCL_VERSION_FILE}
+  )
   install(FILES ${HCCL_VERSION_FILE}
       DESTINATION share/info/hccl
   )
