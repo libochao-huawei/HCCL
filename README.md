@@ -64,3 +64,4 @@ HCCL提供了用户指南、技术文章、培训视频，详细可参见 [HCCL 
 - [贡献指南](CONTRIBUTING.md)
 - [安全声明](SECURITY.md)
 - [许可证](LICENSE)
+
