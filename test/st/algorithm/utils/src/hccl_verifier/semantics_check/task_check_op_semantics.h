@@ -91,6 +91,15 @@ public:
         root_ = root;
     };
 
+    void SetVDataDes(VDataDesTag vDataDes)
+    {
+        vDataDes_ = vDataDes;
+    }
+    void SetAll2AllDataDes(All2AllDataDesTag all2AllDataDes)
+    {
+        all2AllDataDes_ = all2AllDataDes;
+    }
+
 private:
     void InitInputBuffer();
     void InitInputBuffer(RankId root);
@@ -129,6 +138,8 @@ private:
     RankId srcRank_;
     RankId dstRank_;
     RankId root_;
+    VDataDesTag vDataDes_;
+    All2AllDataDesTag all2AllDataDes_;
 
     TaskNodePtr                           graphHead_;
     u64                                   dataSize_ = 0;

@@ -132,4 +132,68 @@ HcclResult CheckScatter(
 HcclResult CheckBatchSendRecv(
     HcclSim::AllRankTaskQueues &taskQueues, u32 rankSize, HcclDataType dataType, u64 dataCount);
 
+/**
+ * @brief 检查All2All操作的语义是否正确
+ *
+ * @param taskQueues 所有rank的任务队列
+ * @param rankSize 总的rank数量
+ * @param sendType 数据类型
+ * @param sendCount 数据元素个数
+ * @return HcclResult操作结果
+ */
+HcclResult CheckAll2All(
+    HcclSim::AllRankTaskQueues &taskQueues, u32 rankSize, HcclDataType sendType, u64 sendCount);
+ 
+/**
+ * @brief 检查All2AllV操作的语义是否正确
+ *
+ * @param taskQueues 所有rank的任务队列
+ * @param rankSize 总的rank数量
+ * @param sendType 数据类型
+ * @param sendCountMatrix 数据个数数组 [i * rankSize + j]代表rank i发送给rank j的数据个数
+ * @return HcclResult操作结果
+ */
+HcclResult CheckAll2AllV(
+    HcclSim::AllRankTaskQueues &taskQueues, u32 rankSize, HcclDataType sendType, std::vector<u64> sendCountMatrix);
+ 
+/**
+ * @brief 检查All2AllVC操作的语义是否正确
+ *
+ * @param taskQueues 所有rank的任务队列
+ * @param rankSize 总的rank数量
+ * @param sendType 数据类型
+ * @param sendCountMatrix 数据个数数组 [i * rankSize + j]代表rank i发送给rank j的数据个数
+ * @return HcclResult操作结果
+ */
+HcclResult CheckAll2AllVC(
+    HcclSim::AllRankTaskQueues &taskQueues, u32 rankSize, HcclDataType sendType, std::vector<u64> sendCountMatrix);
+ 
+/**
+ * @brief 检查AllGatherV操作的语义是否正确
+ *
+ * @param taskQueues 所有rank的任务队列
+ * @param rankSize 总的rank数量
+ * @param vDataDes
+    displs 每个Rank的数据在buffer中的偏移量
+    counts 第i个表示需要向Rank i接收的数据大小
+    dataType 数据类型
+ * @return HcclResult操作结果
+ */
+HcclResult CheckAllGatherV(
+    HcclSim::AllRankTaskQueues &taskQueues, u32 rankSize, VDataDesTag vDataDes);
+ 
+/**
+ * @brief 检查ReduceScatterV操作的语义是否正确
+ *
+ * @param taskQueues 所有rank的任务队列
+ * @param rankSize 总的rank数量
+ * @param vDataDes
+    displs 每个Rank的数据在buffer中的偏移量
+    counts 第i个表示需要向Rank i发送的数据大小
+    dataType 数据类型
+ * @return HcclResult操作结果
+ */
+HcclResult CheckReduceScatterV(
+    HcclSim::AllRankTaskQueues &taskQueues, u32 rankSize, HcclReduceOp reduceType, VDataDesTag vDataDes);
+
 #endif

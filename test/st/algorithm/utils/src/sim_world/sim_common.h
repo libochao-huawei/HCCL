@@ -57,4 +57,24 @@ struct MemBlock {
     uint64_t size;
 };
 
+struct VDataDesTag {
+    std::vector<u64> displs;    // 每个Rank的数据在buffer中的偏移量 单位为dataType
+    std::vector<u64> counts;    // 每个Rank的数据大小 第i个表示需要向第i个Rank发送/接收的数据大小
+    HcclDataType dataType;      // 数据类型
+};
+
+struct All2AllDataDesTag
+{
+    HcclDataType sendType;          // 发送数据类型
+    HcclDataType recvType;          // 接收数据类型
+    u64 sendCount;                  // All2All
+    u64 recvCount;                  // All2All
+    std::vector<u64> sendCounts;    // All2AllV 每个Rank发送的数据大小
+    std::vector<u64> recvCounts;    // All2AllV 每个Rank接收的数据大小
+    std::vector<u64> sdispls;       // All2AllV 每个Rank发送的数据在buffer中的偏移量 单位为dataType
+    std::vector<u64> rdispls;       // All2AllV 每个Rank接收的数据在buffer中的偏移量 单位为dataType
+    std::vector<u64> sendCountMatrix;   // All2AllVC sendCountMatrix[i * rankSize + j]表示第i个Rank向第j个Rank发送的数据大小
+};
+
+
 #endif
