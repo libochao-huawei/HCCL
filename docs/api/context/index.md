@@ -1,4 +1,4 @@
-# HCCL API
+# 通信算子API
 
 -   [集合通信](集合通信.md)
     -   [HcclAllReduce](HcclAllReduce.md)
