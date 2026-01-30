@@ -294,6 +294,8 @@ function usage() {
   echo "                   Enable to sign"
   echo "    --version <VERSION>"
   echo "                   Set sign version to <VERSION>"
+  echo "    --cb_test_verify" 
+  echo "                   Run smoke tests"
   echo "    --custom_ops_path=<CUSTOM_OPS_PATH>"
   echo "                   Set custom ops project path to <CUSTOM_OPS_PATH>"
   echo "    --ops=<OPS>"
@@ -430,7 +432,6 @@ while [[ $# -gt 0 ]]; do
         log "Error: Undefined option: $1"
         usage
         exit 1
-        ;;
     esac
 done
 
