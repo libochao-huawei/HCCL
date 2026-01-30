@@ -88,6 +88,12 @@ bash ./build_out/cann-hccl_<version>_linux-<arch>.run --uninstall
 bash build.sh --ut
 ```
 
+如需使能地址消毒器，可添加参数 `--asan`，命令如下：
+
+```shell
+bash build.sh --test --asan
+```
+
 ## 上板测试
 
 HCCL软件包安装完成后，开发者可通过HCCL Test工具进行集合通信功能与性能的测试，HCCL Test工具的使用流程如下：
