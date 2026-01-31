@@ -11,6 +11,7 @@
 #include "alg_template_base.h"
 
 namespace ops_hccl {
+
 AlgTemplateBase::AlgTemplateBase()
     : slices_(slicesDummy_), count_(0), dataBytes_(0), dataType_(HCCL_DATA_TYPE_RESERVED),
       reductionOp_(HCCL_REDUCE_RESERVED), root_(INVALID_VALUE_RANKID),
@@ -79,6 +80,21 @@ HcclResult AlgTemplateBase::RunAsync(const u32 rank, const u32 rankSize, std::ve
     (void)rank;
     (void)rankSize;
     (void)channels;
+    return HCCL_SUCCESS;
+}
+
+HcclResult AlgTemplateBase::RunAsync(const u32 rank, const u32 rankSize, std::vector<ChannelInfo> &channels, std::vector<ThreadHandle> slaveThreads)
+{
+    (void)rank;
+    (void)rankSize;
+    (void)channels;
+    (void)slaveThreads;
+    return HCCL_SUCCESS;
+}
+
+HcclResult AlgTemplateBase::RunAsync(const DPUAlgResourceCtx *dpuResCtx)
+{
+    (void) dpuResCtx;
     return HCCL_SUCCESS;
 }
 
