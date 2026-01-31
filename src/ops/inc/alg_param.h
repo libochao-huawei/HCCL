@@ -19,7 +19,6 @@
 #include "hccl_common.h"
 #include "hccl_types.h"
 #include "alg_type.h"
-#include "hcomm_primitives.h"
 #include "hccl_res.h"
 #include "hcomm_primitives.h"
 #include "hccl_rank_graph.h"
@@ -56,6 +55,12 @@ enum class TopoType {
     TOPO_TYPE_RESERVED
 };
 
+enum class Level0Shape {
+    CLOS    = 0,
+    MESH_1D = 1,
+    MESH_2D = 2
+};
+
 // 这个应该是公共的
 struct TopoInfo { // 通信域拓扑ctx
     u32 userRank; // rankId
@@ -73,6 +78,8 @@ struct TopoInfo { // 通信域拓扑ctx
     bool multiModuleDiffDeviceNumMode = false;   // Server间卡数不一致
     bool multiSuperPodDiffServerNumMode = false; // 超节点间Server数不一致
     bool isHCCSSWNumEqualToTwiceSIONum = false; // A3 Server内链路属性
+    u32 topoLevelNums = 0;
+    Level0Shape level0Topo;
 };
 
 // A5用了cntNotify
@@ -105,6 +112,17 @@ struct ChannelInfo {
     HcclMem remoteOutput;
 };
 
+// DPU资源
+struct DPUAlgResourceCtx {
+    uint32_t tempIndex;
+    AlgHierarchyInfo algHierarchyInfo;
+    HcclMem cclInputMem; // 跨Rank缓存Buffer
+    HcclMem cclOutputMem; // 跨Rank缓存Buffer
+    u32 channelNum = 0;
+    ChannelInfo* channels = nullptr;
+    u64 sliceSize = 0;
+};
+
 // 算法ctx，key为通信域id+算法名，提前在device上
 // 头部需补充版本号和长度信息
 struct AlgResourceCtx {
@@ -117,6 +135,9 @@ struct AlgResourceCtx {
     u32 notifyNumPerThread; // 每个thread需要的notify数量
     uint32_t notifyIds[AICPU_CONTROL_NOTIFY_NUM]; // aicpu 模式下控制notify
     TopoInfo topoInfo; // 提取的拓扑信息
+    void *npu2DpuShmemPtr;
+    void *dpu2NpuShmemPtr;
+    DPUAlgResourceCtx dpuResCtx;
     // 下面是变长数据区
     // ThreadHandle* threads; // threadNum个，主流和从流的thread句柄
     // ChannelInfo* channels; // 通信链路，数量可根据algHierarchyInfo字段进行推算
@@ -126,6 +147,7 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     char tag[TAG_LENGTH];
     char algTag[ALG_TAG_LENGTH];
     char commName[COMM_INDENTIFIER_MAX_LENGTH];
+    DevType deviceType = DevType::DEV_TYPE_COUNT; // 硬件类型
     aclrtStream stream;
     void* inputPtr = nullptr;
     u64 inputSize = 0;
@@ -140,6 +162,11 @@ struct OpParam { // 不申请ctx，每个算子单独下发
             HcclDataType dataType;
             u64 strideCount;
         } DataDes = {0, HCCL_DATA_TYPE_RESERVED, 0};
+        struct {
+            void* counts;
+            void* displs;
+            HcclDataType dataType;
+        } VDataDes;
     };
     HcclCMDType opType = HcclCMDType::HCCL_CMD_INVALID;
     bool isZeroCopy = false;
@@ -160,6 +187,10 @@ struct AlgDesc {
 struct Slice {
     u64 offset{0}; // Slice相对于input/output的偏移字节数，gather类操作取output，scatter类操作取input
     u64 size{0};    // Slice的数据大小，单位：字节
+};
+
+struct AlgTemplateArgs {
+    std::vector<Slice> slices;
 };
 }
 #endif
