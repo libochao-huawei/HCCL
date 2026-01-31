@@ -739,6 +739,61 @@ int32_t HcommReleaseComm(const char* commId)
     return 0;
 }
 
+int32_t HcommWriteWithNotifyNbi(ChannelHandle channel, void *dst, const void *src,
+    uint64_t len, uint32_t remoteNotifyIdx)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return 0;
+}
+
+int32_t HcommFlush()
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return 0;
+}
+
+HcclResult HcclDevMemAcquire(HcclComm comm, const char *memTag, uint64_t *size, void **addr, bool *newCreated)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+
+int32_t HcommThreadSynchronize(ThreadHandle thread)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return 0;
+}
+
+int32_t HcommSendRequest(MsgHandle handle, const char* msgTag, const void *src, size_t sizeByte, uint32_t *msgId)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return 0;
+}
+
+int32_t HcommWaitResponse(MsgHandle handle, void *dst, size_t sizeByte, uint32_t *msgId)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return 0;
+}
+
+int32_t HcclTaskRegister(HcclComm comm, const char *msgTag, Callback cb)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return 0;
+}
+
+int32_t HcommChannelNotifyRecord(ChannelHandle channel, uint32_t remoteNotifyIdx)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return 0;
+}
+
+int32_t HcommChannelNotifyWait(ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeout)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return 0;
+}
+
 #ifdef __cplusplus
 }
 #endif  // __cplusplus
