@@ -30,11 +30,24 @@
 #include "config_log.h"
 #include "workflow.h"
 #include "load_kernel.h"
+#include "hcomm_primitives.h"
 
 using namespace std;
 using namespace ops_hccl;
 constexpr uint32_t ROOTINFO_INDENTIFIER_MAX_LENGTH = 128;
 extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+HcclResult __attribute__((weak)) HcommProfilingRegThread(HcomProInfo proInfo, ThreadHandle *threads);
+HcclResult __attribute__((weak)) HcommProfilingUnRegThread(HcomProInfo proInfo, ThreadHandle *threads);
+HcclResult __attribute__((weak)) HcommProfilingReportKernel(uint64_t beginTime, const char *profName);
+HcclResult __attribute__((weak)) HcommProfilingReportOp(HcomProInfo proInfo);
+uint64_t __attribute__((weak)) HcommGetProfilingSysCycleTime();
+#ifdef __cplusplus
+}
+#endif
 
 HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
     HcclDataType dataType, uint32_t root, HcclComm comm, aclrtStream stream)
@@ -230,6 +243,7 @@ bool IsAiCpuMode(DevType deviceType, u32 rankSize)
 HcclResult ScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType, uint32_t root,
     HcclComm comm, aclrtStream stream, const std::string &tag)
 {
+    uint64_t beginTime = HcommGetProfilingSysCycleTime();
     u32 userRankSize;
     CHK_RET(HcclGetRankSize(comm, &userRankSize));
 
@@ -269,6 +283,25 @@ HcclResult ScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, Hcc
     param.opType = HcclCMDType::HCCL_CMD_SCATTER;
 
     CHK_RET(ExecOp(comm, param));
+        // 获取profiling op上报的信息
+    HcomProInfo profInfo;
+    std::string algTypeStr = TransferAlgTypeStr(param.algType);
+    CHK_SAFETY_FUNC_RET(strcpy_s(profInfo.algType, sizeof(profInfo.algType), algTypeStr.c_str()));
+    CHK_SAFETY_FUNC_RET(strcpy_s(profInfo.commName, sizeof(profInfo.commName), param.commName));
+    profInfo.beginTime = beginTime;
+    profInfo.dataCount = param.DataDes.count;
+    profInfo.dataType = static_cast<uint8_t>(param.DataDes.dataType);
+    profInfo.cmdType = static_cast<uint8_t>(param.opType);
+    CHK_PRT(HcommProfilingReportOp(profInfo));
+
+    if (param.engine == CommEngine::COMM_ENGINE_CPU_TS || param.engine == CommEngine::COMM_ENGINE_CPU) {
+        CHK_PTR_NULL(param.resCtx);
+        profInfo.slaveThreadNum = param.resCtx->slaveThreadNum;
+        char* curThreadPtr = reinterpret_cast<char*>(param.resCtx); // 拿到所有host下发的thread
+        curThreadPtr += sizeof(AlgResourceCtx);// 偏移指针
+        ThreadHandle* curThreads = reinterpret_cast<ThreadHandle *>(curThreadPtr);
+        CHK_PRT(HcommProfilingUnRegThread(profInfo,curThreads));
+    }
 
     return HCCL_SUCCESS;
 }
@@ -371,8 +404,9 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
         CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, 0, NOTIFY_DEFAULT_WAIT_TIME)));
     } else {
         CHK_RET(executor->Orchestrate(param, resCtx));
+        param.resCtx = resCtx;
     }
-
+    param.algType = algType;
     return HCCL_SUCCESS;
 }
 
@@ -653,6 +687,8 @@ HcclResult GetAlgRes(HcclComm comm, OpParam &param, std::unique_ptr<ExecutorBase
     uint64_t size = 0;
     if (HcclEngineCtxGet(comm, param.algTag, param.engine, &ctx, &size) == HCCL_SUCCESS) {
         *resCtx = static_cast<AlgResourceCtx *>(ctx);
+        HCCL_INFO("[%s] Res Allready Exist", __func__);
+        CHK_PRT(ReportProfilingThread(param, *resCtx, topoInfo));
         return HCCL_SUCCESS;
     }
 
@@ -753,6 +789,7 @@ HcclResult AllocAlgResource(HcclComm comm, const OpParam& param, AlgResourceRequ
         }
     }
 
+    CHK_PRT(ReportProfilingThread(param, resCtxHost, &(resCtxHost->topoInfo)));
     // 迭代每个子通信域的建链请求，创建链路
     for (u32 level = 0; level < resRequest.channels.size(); level++) {
         // 获取子通信域的建链请求
@@ -797,6 +834,38 @@ HcclResult AllocAlgResource(HcclComm comm, const OpParam& param, AlgResourceRequ
     }
 
     HCCL_INFO("[%s] Alloc res success.", __func__);
+    return HCCL_SUCCESS;
+}
+
+HcclResult ReportProfilingThread(const OpParam &param, AlgResourceCtx *resCtxHost, TopoInfo* topoInfo)
+{
+    CHK_PTR_NULL(resCtxHost);
+    CHK_PTR_NULL(topoInfo);
+    HcomProInfo profInfo;
+    CHK_SAFETY_FUNC_RET(strcpy_s(profInfo.tag, sizeof(profInfo.tag), param.tag));
+    std::string algTypeStr = TransferAlgTypeStr(param.algType);
+    CHK_SAFETY_FUNC_RET(strcpy_s(profInfo.algType, sizeof(profInfo.algType), algTypeStr.c_str()));
+    CHK_SAFETY_FUNC_RET(strcpy_s(profInfo.commName, sizeof(profInfo.commName), param.commName));
+    profInfo.rankSize = topoInfo->userRankSize;
+    profInfo.userRank = topoInfo->userRank;
+    profInfo.dataCount = param.DataDes.count;
+    profInfo.dataType = static_cast<uint8_t>(param.DataDes.dataType);
+    
+    profInfo.root = param.root;
+    HCCL_INFO("[%s] algType[%s], commName[%s], rankSize[%u], userRank[%u], dataCount[%u], dataType[%u], slaveThreadNum[%u], root[%u]",
+            __func__, profInfo.algType, profInfo.commName, profInfo.rankSize, 
+            profInfo.userRank, profInfo.dataCount, profInfo.dataType, profInfo.slaveThreadNum, profInfo.root);
+
+    if (param.engine == CommEngine::COMM_ENGINE_CPU_TS || param.engine == CommEngine::COMM_ENGINE_CPU) {
+        profInfo.slaveThreadNum = resCtxHost->slaveThreadNum;
+        char* curThreadPtr = reinterpret_cast<char*>(resCtxHost); // 拿到所有host下发的thread
+        curThreadPtr += sizeof(AlgResourceCtx);// 偏移指针
+        ThreadHandle* curThreads = reinterpret_cast<ThreadHandle *>(curThreadPtr);
+        CHK_PRT(HcommProfilingRegThread(profInfo,curThreads));
+    } else {
+        profInfo.slaveThreadNum = 0;
+        // aicpu下发 只需要上报主流
+    }
     return HCCL_SUCCESS;
 }
 }

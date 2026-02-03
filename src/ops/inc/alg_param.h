@@ -136,6 +136,7 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     HcclReduceOp reduceType = HcclReduceOp::HCCL_REDUCE_RESERVED;
     u32 root = INVALID_VALUE_RANKID;
     CommEngine engine = CommEngine::COMM_ENGINE_RESERVED;
+    AlgType algType;
     union {
         struct {
             u64 count;
