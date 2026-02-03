@@ -174,6 +174,7 @@ const std::map<AlgTypeLevel2, std::string> HCCL_ALGO_LEVEL2_NAME_MAP = {
 
 std::string AlgTypeToStr(const AlgType algType);
 
+std::string TransferAlgTypeStr(AlgType algType);
 }
 
 #endif
