@@ -49,30 +49,30 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
 
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
-    if (!RunIndependentOpExpansion(deviceType)) {
-        return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
-    }
+    // if (!RunIndependentOpExpansion(deviceType)) {
+    //     return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
+    // }
 
     // 入口的地方先解析环境变量
     CHK_RET(InitEnvConfig());
     
     // AclGraph引导到老的流程上面
-    if (IsStreamCapture(stream)) {
-        return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
-    }
-    // 重执行引导到老的流程上面
-    if (deviceType == DevType::DEV_TYPE_910_93 && (GetExternalInputIntraServerRetryEnable()
-        || GetExternalInputInterServerRetryEnable() || GetExternalInputInterSuperPodRetryEnable())) {
-        return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
-    }
+    // if (IsStreamCapture(stream)) {
+    //     return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
+    // }
+    // // 重执行引导到老的流程上面
+    // if (deviceType == DevType::DEV_TYPE_910_93 && (GetExternalInputIntraServerRetryEnable()
+    //     || GetExternalInputInterServerRetryEnable() || GetExternalInputInterSuperPodRetryEnable())) {
+    //     return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
+    // }
 
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     CHK_RET(HcclGetRankSize(comm, &rankSize));
 
-    // 图模式引导到老的流程上面
-    if (GetWorkflowMode() != HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE) {
-        return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
-    }
+    // // 图模式引导到老的流程上面
+    // if (GetWorkflowMode() != HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE) {
+    //     return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
+    // }
 
     // Attention! 图模式、zeroCopy模式、recompute等先不支持，且当前不引导到老的流程上
 
@@ -296,26 +296,21 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
     AlgResourceCtx* resCtx;
     ThreadHandle cpuTsThread;
     ThreadHandle exportedAicpuTsThread;
-    if (param.engine == COMM_ENGINE_AICPU_TS) {
-        CHK_RET(HcclThreadAcquireWithStream(comm, COMM_ENGINE_CPU_TS, param.stream, 1, &cpuTsThread));
-        // Export cpuTsThread
-        CHK_RET(HcclThreadExportToCommEngine(comm, 1, &cpuTsThread, COMM_ENGINE_AICPU_TS, &exportedAicpuTsThread));
-    }
-    
+    CHK_RET(HcclThreadAcquireWithStream(comm, COMM_ENGINE_CPU_TS, param.stream, 1, &cpuTsThread));
+    // Export cpuTsThread
+    CHK_RET(HcclThreadExportToCommEngine(comm, 1, &cpuTsThread, COMM_ENGINE_AICPU_TS, &exportedAicpuTsThread));
     CHK_RET(GetAlgRes(comm, param, executor, topoInfo, algType, &resCtx));
-    ThreadHandle exportedCpuTsThread;
-    if (param.engine == COMM_ENGINE_AICPU_TS) {
-        // Export aicpu ts thread
-        ThreadHandle mainThread = topoInfo->mainThread;
-        CHK_RET(HcclThreadExportToCommEngine(comm, 1, &mainThread, COMM_ENGINE_CPU_TS, &exportedCpuTsThread));
-        // cpuTsThread 添加到ctx里
-        char* curPtr = reinterpret_cast<char *>(resCtx);
-        curPtr = curPtr + sizeof(AlgResourceCtx) - sizeof(TopoInfo) - sizeof(ThreadHandle); // 偏移指针
-        ACLCHECK(aclrtMemcpy(curPtr, sizeof(ThreadHandle), &exportedAicpuTsThread, sizeof(ThreadHandle),
-            ACL_MEMCPY_HOST_TO_DEVICE));
-    }
     
-
+    // Export aicpu ts thread
+    ThreadHandle mainThread = topoInfo->mainThread;
+    ThreadHandle exportedCpuTsThread;
+    CHK_RET(HcclThreadExportToCommEngine(comm, 1, &mainThread, COMM_ENGINE_CPU_TS, &exportedCpuTsThread));
+    // cpuTsThread 添加到ctx里
+    char* curPtr = reinterpret_cast<char *>(resCtx);
+    curPtr = curPtr + sizeof(AlgResourceCtx) - sizeof(TopoInfo) - sizeof(ThreadHandle); // 偏移指针
+    ACLCHECK(aclrtMemcpy(curPtr, sizeof(ThreadHandle), &exportedAicpuTsThread, sizeof(ThreadHandle),
+        ACL_MEMCPY_HOST_TO_DEVICE));
+    
     // 算法执行
     if (param.engine == COMM_ENGINE_AICPU_TS) {
         // 当前aicpu launch接口只能有一个输入参数，将Context指针放在param参数中
@@ -682,12 +677,12 @@ HcclResult GetAlgRes(HcclComm comm, OpParam &param, std::unique_ptr<ExecutorBase
     AlgResourceCtx* resCtxHost;
     if (param.engine == COMM_ENGINE_AICPU_TS) {
         // AICPU模式下分配一块Host内存用于填充资源
-        ACLCHECK(aclrtMallocHost(reinterpret_cast<void**>(&resCtxHost), size));
-        topoInfo->notifyNumOnMainThread = resRequest.notifyNumOnMainThread;
+        ACLCHECK(aclrtMallocHost(reinterpret_cast<void**>(&resCtxHost), size));  
     } else {
         resCtxHost = *resCtx;
     }
 
+    topoInfo->notifyNumOnMainThread = resRequest.notifyNumOnMainThread;
     resCtxHost->topoInfo = *topoInfo;
     resCtxHost->algType = algType;
     resCtxHost->algHierarchyInfo = algHierarchyInfo;
@@ -701,9 +696,7 @@ HcclResult GetAlgRes(HcclComm comm, OpParam &param, std::unique_ptr<ExecutorBase
         }
         return ret;
     }
-    if (param.engine == COMM_ENGINE_AICPU_TS) {
-        topoInfo->mainThread = resCtxHost->topoInfo.mainThread;
-    }
+    topoInfo->mainThread = resCtxHost->topoInfo.mainThread;
  
     CHK_RET(HcclEngineCtxCopy(comm, param.engine, param.algTag, resCtxHost, size, 0));
     if (param.engine == COMM_ENGINE_AICPU_TS) {
