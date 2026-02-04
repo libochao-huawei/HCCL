@@ -21,25 +21,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-constexpr u32 MAX_LENGTH = 128;
 
-typedef struct HcomProInfo {
-    uint8_t dataType;
-    uint8_t cmdType;
-    uint64_t dataCount;
-    uint32_t rankSize;
-    uint32_t userRank;
-    uint32_t blockDim = 0;
-    uint64_t beginTime;
-    uint32_t root;
-    uint32_t slaveThreadNum;
-    char tag[MAX_LENGTH];
-    char commName[MAX_LENGTH];
-    char algType[MAX_LENGTH];
-    bool isCapture = false;
-    bool isAiv = false;
-    uint8_t reserved[MAX_LENGTH];
-}HcomProInfo;
 
 HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType, uint32_t root,
     HcclComm comm, aclrtStream stream);
@@ -89,7 +71,7 @@ HcclResult CheckScatterInputPara(HcclComm comm, void *recvBuf);
 
 std::string SetLaunchMode(CommEngine engine);
 
-HcclResult ReportProfilingThread(const OpParam &param, AlgResourceCtx *resCtxHost, TopoInfo* topoInfo);
+HcclResult ReportProfilingThread(HcclComm comm, const OpParam &param, AlgResourceCtx *resCtxHost, TopoInfo* topoInfo);
 
 }
 
