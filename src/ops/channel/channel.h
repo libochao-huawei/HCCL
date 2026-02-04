@@ -18,7 +18,7 @@ namespace ops_hccl {
 
 enum CommPlane {
     COMM_LEVEL0 = 0,
-    COMM_LEVEL1,
+    COMM_LEVEL1,src/ops/executor_base.cc
     COMM_LEVEL2,
     COMM_LEVEL_RESERVED
 };
@@ -30,7 +30,8 @@ HcclResult CalcLevel1ChannelRequest(const OpParam& param, const TopoInfo* topoIn
     const AlgType& algType, std::vector<HcclChannelDesc> &channels);
 HcclResult CalcLevel2ChannelRequest(const OpParam& param, const TopoInfo* topoInfo, AlgHierarchyInfo& algHierarchyInfo,
     const AlgType& algType, std::vector<HcclChannelDesc> &channels);
-
+HcclResult CalcLevel1ChannelRequestHostDpu(HcclComm comm, const OpParam& param, TopoInfo* topoInfo, AlgHierarchyInfo& algHierarchyInfo,
+    AlgType& algType, std::vector<HcclChannelDesc> &channels);
 }
 
 #endif
