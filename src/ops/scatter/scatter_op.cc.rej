@@ -1,0 +1,12 @@
+diff a/src/ops/scatter/scatter_op.cc b/src/ops/scatter/scatter_op.cc	(rejected hunks)
+@@ -362,8 +395,9 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
+         }
+     } else {
+         CHK_RET(executor->Orchestrate(param, resCtx));
++        param.resCtx = resCtx;
+     }
+-
++    param.algType = algType;
+     return HCCL_SUCCESS;
+ }
+ 

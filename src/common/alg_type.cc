@@ -56,4 +56,26 @@ std::string TransferAlgTypeStr(AlgType algType)
     }
     return algTypeStr;
 }
+
+std::string TransferAlgType(AlgType algType)
+{
+    std::string algTypeStr;
+    auto level0Iter = HCCL_ALGO_LEVEL0_NAME_MAP.find(algType.algoLevel0);
+    auto level1Iter = HCCL_ALGO_LEVEL1_NAME_MAP.find(algType.algoLevel1);
+    auto level2Iter = HCCL_ALGO_LEVEL2_NAME_MAP.find(algType.algoLevel2);
+    
+    if (level0Iter == HCCL_ALGO_LEVEL0_NAME_MAP.end() || 
+        level1Iter == HCCL_ALGO_LEVEL1_NAME_MAP.end() || 
+        level2Iter == HCCL_ALGO_LEVEL2_NAME_MAP.end()) {
+        algTypeStr = "not found";
+    } else {
+        // 将枚举值转换为整数进行拼接
+        algTypeStr.append(static_cast<std::string>(level0Iter->second))
+                  .append("-")
+                  .append(static_cast<std::string>(level1Iter->second))
+                  .append("-")
+                  .append(static_cast<std::string>(level2Iter->second));
+    }
+    return algTypeStr;
+}
 }
