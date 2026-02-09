@@ -9,7 +9,12 @@
 # -----------------------------------------------------------------------------------------------------------
 
 cmake_minimum_required(VERSION 3.16.0)
-project(hccl_examples_custom_ops_p2p)
+
+# 添加 ASC 和 AICPU 支持
+find_package(ASC REQUIRED)
+find_package(AICPU REQUIRED)
+
+project(hccl_examples_custom_ops_p2p LANGUAGES ASC AICPU CXX)
 
 set(HCCL_CUSTOM_OPS_INCLUDE_LIST
     ${CMAKE_CURRENT_SOURCE_DIR}/inc
@@ -73,7 +78,11 @@ if(KERNEL_MODE)
     target_compile_options(p2p_aicpu_kernel PRIVATE
         -g
         -O0
+        $<$<COMPILE_LANGUAGE:ASC>:--npu-arch=dav-2201>
     )
+    
+    # 指定链接器语言
+    set_target_properties(p2p_aicpu_kernel PROPERTIES LINKER_LANGUAGE ASC)
     target_link_libraries(p2p_aicpu_kernel PRIVATE
         -Wl,--no-as-needed
         ccl_kernel
