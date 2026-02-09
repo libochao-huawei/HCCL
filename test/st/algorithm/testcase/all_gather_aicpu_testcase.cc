@@ -281,3 +281,15 @@ TEST_F(ST_ALL_GATHER_AICPU_TEST, st_all_gather_a5_aicpu_parallel_nhr_mesh1d_3x3r
     auto dataType = HcclDataType::HCCL_DATA_TYPE_UINT8;  // 数据类型
     RunAllGatherAicpuA5(topoMeta, sendCount, dataType);
 }
+
+// TEST_F(ST_ALL_GATHER_AICPU_TEST, host_dpu_opbase_all_gather_omnipipe)
+// {
+//     TopoMeta topoMeta;
+//     GenTopoMeta(topoMeta, 1,6,4);
+//     SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
+//     // 算子执行参数设置
+//     auto sendCount = 1024 * 1024;  // 单卡数据量
+
+//     auto dataType = HcclDataType::HCCL_DATA_TYPE_UINT8;  // 数据类型
+//     RunAllGatherAicpuA5(topoMeta, sendCount, dataType);
+// }
