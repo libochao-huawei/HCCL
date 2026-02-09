@@ -278,6 +278,8 @@ SelectorStatus AllReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayer
             selectAlgName = "InsAllReduceNHR";
         } else if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             selectAlgName = "InsAllReduceParallelRSAG";
+        } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+            selectAlgName = "InsV2AllReduceOmniPipe";
         } else {
             return SelectorStatus::NOT_MATCH;
         }
