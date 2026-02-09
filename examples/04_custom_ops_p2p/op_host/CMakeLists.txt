@@ -13,6 +13,7 @@ set(op_host_src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/recv.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/load_kernel.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/launch_kernel.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/launch_kernel_asc.asc
 )
 
 target_sources(hccl_custom_p2p PRIVATE

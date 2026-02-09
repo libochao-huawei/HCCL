@@ -9,7 +9,12 @@
 # -----------------------------------------------------------------------------------------------------------
 
 cmake_minimum_required(VERSION 3.16.0)
-project(hccl_examples_custom_ops_p2p)
+
+# 添加 ASC 和 AICPU 支持
+find_package(ASC REQUIRED)
+find_package(AICPU REQUIRED)
+
+project(hccl_examples_custom_ops_p2p LANGUAGES CXX AICPU ASC) # 支持CXX、AICPU和ASC编译
 
 set(HCCL_CUSTOM_OPS_INCLUDE_LIST
     ${CMAKE_CURRENT_SOURCE_DIR}/inc
@@ -23,6 +28,8 @@ set(HCCL_CUSTOM_OPS_INCLUDE_LIST
 
 # Host 动态链接库
 add_library(hccl_custom_p2p SHARED)
+# 明确指定host库使用CXX编译
+set_target_properties(hccl_custom_p2p PROPERTIES LINKER_LANGUAGE CXX)
 target_include_directories(hccl_custom_p2p PRIVATE
     ${HCCL_CUSTOM_OPS_INCLUDE_LIST}
 )
@@ -74,6 +81,9 @@ if(KERNEL_MODE)
         -g
         -O0
     )
+    
+    # 明确指定AICPU Kernel使用AICPU编译
+    set_target_properties(p2p_aicpu_kernel PROPERTIES LINKER_LANGUAGE AICPU)
     target_link_libraries(p2p_aicpu_kernel PRIVATE
         -Wl,--no-as-needed
         ccl_kernel
