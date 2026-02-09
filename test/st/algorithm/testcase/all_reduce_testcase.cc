@@ -300,3 +300,15 @@ TEST_F(ST_ALL_REDUCE_TEST, st_all_reduce_hcclbuff_add_1)
     HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_MIN;
     RunAllReduceCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp);
 }
+
+// TEST_F(ST_ALL_REDUCE_TEST, st_all_reduce_omnipipe)
+// {
+//     TopoMeta topoMeta;
+//     GenTopoMeta(topoMeta, 1,4,8);
+//     SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
+//     HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_INT8;
+//     u32 dataTypeSize = 1;
+//     u64 dataCount = 200 * 1024 * 1024 + 1;
+//     HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_MIN;
+//     RunAllReduceCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp);
+// }
