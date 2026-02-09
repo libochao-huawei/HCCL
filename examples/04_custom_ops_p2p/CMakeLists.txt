@@ -9,7 +9,14 @@
 # -----------------------------------------------------------------------------------------------------------
 
 cmake_minimum_required(VERSION 3.16.0)
-project(hccl_examples_custom_ops_p2p)
+
+# 添加 ASC 和 AICPU 支持
+find_package(ASC REQUIRED)
+find_package(AICPU REQUIRED)
+
+project(hccl_examples_custom_ops_p2p LANGUAGES CXX AICPU ASC) # 支持CXX、AICPU和ASC编译
+set(CMAKE_SYSTEM_PROCESSOR "aarch64")
+message("CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
 
 set(HCCL_CUSTOM_OPS_INCLUDE_LIST
     ${CMAKE_CURRENT_SOURCE_DIR}/inc
@@ -20,10 +27,13 @@ set(HCCL_CUSTOM_OPS_INCLUDE_LIST
     ${ASCEND_CANN_PACKAGE_PATH}/include
     ${ASCEND_CANN_PACKAGE_PATH}/include/hccl
     ${ASCEND_CANN_PACKAGE_PATH}/include/mmpa
+    ${ASCEND_CANN_PACKAGE_PATH}/asc/include/aicpu_api
 )
 
 # Host 动态链接库
 add_library(hccl_custom_p2p SHARED)
+# 明确指定host库使用CXX编译
+set_target_properties(hccl_custom_p2p PROPERTIES LINKER_LANGUAGE CXX)
 target_include_directories(hccl_custom_p2p PRIVATE
     ${HCCL_CUSTOM_OPS_INCLUDE_LIST}
 )
@@ -32,7 +42,7 @@ target_compile_options(hccl_custom_p2p PRIVATE
     -fno-common
     -fno-strict-aliasing
     -pipe
-    -g -O0
+    -g -O2
     -std=c++14
     -fstack-protector-all
 )
@@ -45,11 +55,28 @@ target_link_options(hccl_custom_p2p PRIVATE
     -Wl,-z,now
     -Wl,-z,noexecstack
 )
+target_compile_options(hccl_custom_p2p PRIVATE
+    $<$<COMPILE_LANGUAGE:ASC>: --npu-arch=dav-2201>
+)
+target_link_directories(hccl_custom_p2p PRIVATE
+    ${ASCEND_CANN_PACKAGE_PATH}/lib64
+    ${ASCEND_CANN_PACKAGE_PATH}/lib64/device/lib64
+)
 target_link_libraries(hccl_custom_p2p PRIVATE
     -Wl,--no-as-needed
     hcomm
     c_sec
     unified_dlog
+
+    ascendc_runtime
+    profapi
+    ascendalog
+    ascendcl
+    runtime
+    mmpa
+    error_manager
+    ascend_dump
+
     -Wl,--no-as-needed
 )
 install(TARGETS hccl_custom_p2p
@@ -65,6 +92,10 @@ set(AICPU_KERNEL_JSON_FILE ${CMAKE_CURRENT_SOURCE_DIR}/op_kernel_aicpu/libp2p_ai
 if(KERNEL_MODE)
     # AICPU Kernel 动态链接库
     add_library(p2p_aicpu_kernel SHARED)
+    target_link_directories(p2p_aicpu_kernel PRIVATE
+        ${ASCEND_CANN_PACKAGE_PATH}/lib64
+        ${ASCEND_CANN_PACKAGE_PATH}/lib64/device/lib64
+    )
     target_include_directories(p2p_aicpu_kernel PRIVATE
         ${HCCL_CUSTOM_OPS_INCLUDE_LIST}
     )
@@ -75,8 +106,12 @@ if(KERNEL_MODE)
         -g
         -O0
     )
+    
+    # 明确指定AICPU Kernel使用AICPU编译
+    set_target_properties(p2p_aicpu_kernel PROPERTIES LINKER_LANGUAGE AICPU)
     target_link_libraries(p2p_aicpu_kernel PRIVATE
         -Wl,--no-as-needed
+        aicpu_api
         ccl_kernel
         -Wl,--no-as-needed
     )
