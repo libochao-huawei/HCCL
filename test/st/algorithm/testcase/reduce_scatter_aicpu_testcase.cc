@@ -353,3 +353,14 @@ TEST_F(ST_REDUCE_SCATTER_AICPU_TEST, st_reduce_scatter_a5_aicpu_meshchunk_8rank_
     auto reduceOp = HcclReduceOp::HCCL_REDUCE_MAX;
     RunReduceScatterAicpuA5(topoMeta, recvCount, dataType, reduceOp);
 }
+
+// TEST_F(ST_REDUCE_SCATTER_AICPU_TEST, st_reduce_scatter_omnipipe)
+// {
+//     TopoMeta topoMeta;
+//     GenTopoMeta(topoMeta, 1,6,8);
+//     SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
+//     auto recvCount = 1*1024*1024;  // 接收数据量
+//     auto dataType = HcclDataType::HCCL_DATA_TYPE_INT8;  // 数据类型
+//     auto reduceOp = HcclReduceOp::HCCL_REDUCE_SUM;
+//     RunReduceScatterAicpuA5(topoMeta, recvCount, dataType, reduceOp);
+// }
