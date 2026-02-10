@@ -34,7 +34,9 @@ HcclResult ScatterMeshExecutor::CalcResRequest(HcclComm comm, const OpParam& par
     u32 level0RankSize = algHierarchyInfo.infos[COMM_LEVEL0].localRankSize;
     u32 threadNum = level0RankSize > 1 ? level0RankSize - 1 : 1;
     resourceRequest.slaveThreadNum = threadNum - 1;  // 主thread可以通过接口传入的stream来做转换
-    resourceRequest.notifyNumPerThread = 1;
+    for (u32 index = 0; index < threadNum - 1; index++) {
+        resourceRequest.notifyNumPerThread.push_back(1);
+    }
     resourceRequest.notifyNumOnMainThread = threadNum - 1;
 
     std::vector<HcclChannelDesc> level0Channels;
@@ -47,7 +49,7 @@ HcclResult ScatterMeshExecutor::CalcResRequest(HcclComm comm, const OpParam& par
 
     HCCL_INFO("[ScatterRingExecutor][CalcResRequest]slaveThreadNum[%u] notifyNumPerThread[%u] notifyNumOnMainThread[%u]"
         " level0Channels[%u] level1Channels[%u].",
-        resourceRequest.slaveThreadNum, resourceRequest.notifyNumPerThread, resourceRequest.notifyNumOnMainThread,
+        resourceRequest.slaveThreadNum, resourceRequest.notifyNumPerThread.size(), resourceRequest.notifyNumOnMainThread,
         level0Channels.size(), level1Channels.size());
     return HCCL_SUCCESS;
 }
