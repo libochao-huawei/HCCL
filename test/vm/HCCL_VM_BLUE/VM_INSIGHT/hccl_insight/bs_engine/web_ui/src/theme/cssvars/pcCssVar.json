@@ -1,0 +1,55 @@
+{
+  "aui-grid-row-hover-background-color": "#fdf6cf",
+
+  "aui-tree-bgcolor": "#fcf7f0",
+  "aui-tree-none-content-hover-bgcolor": "#fdf6cf",
+
+  "aui-split-trigger-background": "#d1b7a8",
+  "aui-split-trigger-bar-hover-background": "#fcad05",
+
+  "aui-tabs-header-color": "#f2b705",
+  "aui-tabs-header-font-active": "#732c02",
+
+  "aui-dialogbox-head-font-icon-hover": "#f2b705",
+
+  "aui-form-item-label-font-size": "12px",
+  "aui-form-item-label-color": "#666666",
+
+  "aui-button-primary-normal-color": "#f2b705",
+  "aui-button-primary-hover-color": "#fcad05",
+  "aui-button-primary-active-color": "#fcad05",
+  "aui-button-primary-color": "#732c02",
+  "aui-button-text-color": "#732c02",
+  "aui-button-text-hover-color": "#732c02",
+  "aui-button-text-active-color": "#732c02",
+  "aui-button-normal-color": "#732c02",
+  "aui-button-normal-hover-color": "#732c02",
+  "aui-button-normal-hover-border-color": "#f2ce16",
+  "aui-button-normal-hover-background-color": "#fdf6cf",
+  "aui-button-normal-active-color": "#732c02",
+  "aui-button-normal-active-border-color": "#f2ce16",
+  "aui-button-normal-active-background-color": "#fdf6cf",
+
+  "aui-radio-bordered-checked-border-color": "#f2b705",
+  "aui-radio-bordered-hover-border-color": "#f2b705",
+  "aui-radio-button-checked-normal-color": "#f2b705",
+  "aui-radio-button-color": "#732c02",
+  "aui-radio-button-hover-color": "#732c02",
+  "aui-radio-button-checked-hover-color": "#fdf6cf",
+
+  "aui-input-hover-border-color": "#f2b705",
+  "aui-input-active-border-color": "#f2b705",
+
+  "aui-numeric-input-normal-active-border-color": "#f2b705",
+
+  "aui-select-input-caret-color": "#606060",
+  "aui-select-dropdown-item-hover-bgcolor": "#fdf6cf",
+  "aui-select-dropdown-item-selected-bgcolor": "#fdf2b2",
+  "aui-select-inner-hover-border-color": "#f2b705",
+  "aui-select-dropdown-item-icon-selected-color": "#f2b705",
+
+  "aui-checkbox-checked-color": "#f2b705",
+  "aui-checkbox-hover-color": "#f2b705",
+
+  "aui-switch-on-bgcolor":"#f2b705"
+}

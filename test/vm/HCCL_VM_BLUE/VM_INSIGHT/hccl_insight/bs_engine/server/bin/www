@@ -1,0 +1,71 @@
+const app = require('../app');
+const http = require('http');
+//引入debug模块，打印调试日志
+const debug = require('debug')('myapp:server');
+const dotenv = require('dotenv');
+const path = require('path');
+dotenv.config({ path: path.resolve(__dirname, '../.env'), override: false });
+
+let port = normalizePort(process.env.PORT || '4000');
+app.set('port', port);
+
+const server = http.createServer(app);
+server.maxHeadersCount = 20000;
+server.headersTimeout = 60000;
+
+server.listen(port);
+console.log(`http server start, port: ${port}`);
+server.on('error', onError);
+server.on('listening', onListening);
+
+/**
+ * Normalize a port into a number, string, or false.
+ */
+//端口标准化函数
+function normalizePort(val) {
+  var port = parseInt(val, 10);
+
+  if (isNaN(port)) {
+    // named pipe
+    return val;
+  }
+
+  if (port >= 0) {
+    // port number
+    return port;
+  }
+
+  return false;
+}
+
+/**
+ * Event listener for HTTP server "error" event.
+ */
+//HTTP异常事件处理函数
+function onError(error) {
+  if (error.syscall !== 'listen') {
+    throw error;
+  }
+  const prefix = typeof port === 'string' ? 'Pipe' : 'Port';
+  const bind = `${prefix}${port}`;
+
+  // handle specific listen errors with friendly messages
+  switch (error.code) {
+    case 'EACCES':
+      console.error(`${bind} requires elevated privileges`);
+      process.exit(1);
+    // eslint-disable-next-line
+    case 'EADDRINUSE':
+      console.error(`${bind}  is already in use`);
+      process.exit(1);
+  }
+}
+/**
+ * Event listener for HTTP server "listening" event.
+ */
+//事件绑定函数
+function onListening() {
+  var addr = server.address();
+  var bind = typeof addr === 'string' ? `pipe ${addr}` : `port ${addr.port}`;
+  debug(`Listening on ${bind}`);
+}

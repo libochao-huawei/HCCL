@@ -1,0 +1,29 @@
+#!/bin/sh
+# description: start|stop node app
+
+node_start()
+{
+        npm start
+}
+node_stop()
+{
+        npm stop
+}
+
+chown -R clouder:clouder ./
+
+case "$1" in
+        start)
+                node_start
+                ;;  
+        stop)
+                node_stop
+                ;;  
+        restart)
+                node_stop
+                node_start
+                ;;  
+        *)  
+                echo "Usage: $0 {start|stop|restart}"
+esac
+

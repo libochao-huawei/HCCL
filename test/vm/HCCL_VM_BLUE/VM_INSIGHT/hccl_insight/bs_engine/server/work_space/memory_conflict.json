@@ -1,0 +1,393 @@
+{
+  "errorType": 22,
+  "memConflict": {
+    "rankId": 1,
+    "localStepA": 5,
+    "localStepB": 6,
+    "dataSliceA": {
+      "memOp": 0,
+      "startAddr": 100,
+      "endAddr": 150,
+      "size": 50
+    },
+    "dataSliceB": {
+      "memOp": 1,
+      "startAddr": 90,
+      "endAddr": 130,
+      "size": 40
+    }
+  },
+  "globalStep2LocalStep": [],
+  "topologyInfo": {
+    "rankInfo": [
+      {
+        "name": "rank1",
+        "rankId": 1
+      },
+      {
+        "name": "rank2",
+        "rankId": 2
+      }
+    ],
+    "rankNodes": {
+      "rankId": 1,
+      "nodes": [
+        {
+          "nodeId": 0,
+          "nodeName": "dummyStart",
+          "x": 0,
+          "y": 0,
+          "localStep": {
+            "rank": 0,
+            "localStep": 1
+          },
+          "category": 0,
+          "info": "id = 0"
+        },
+        {
+          "nodeId": 1,
+          "nodeName": "PostTo",
+          "x": 150,
+          "y": 0,
+          "localStep": {
+            "rank": 0,
+            "localStep": 2
+          },
+          "category": 1,
+          "info": "id = 1"
+        },
+        {
+          "nodeId": 2,
+          "nodeName": "WaitFrom",
+          "x": 150,
+          "y": 150,
+          "localStep": {
+            "rank": 0,
+            "localStep": 3
+          },
+          "category": 1,
+          "info": "id = 2"
+        },
+        {
+          "nodeId": 3,
+          "nodeName": "PostTo",
+          "x": 300,
+          "y": 0,
+          "localStep": {
+            "rank": 0,
+            "localStep": 4
+          },
+          "category": 1,
+          "info": "id = 3"
+        },
+        {
+          "nodeId": 4,
+          "nodeName": "WaitFrom",
+          "x": 300,
+          "y": 300,
+          "localStep": {
+            "rank": 0,
+            "localStep": 5
+          },
+          "category": 1,
+          "info": "id = 4"
+        },
+        {
+          "nodeId": 5,
+          "nodeName": "Write",
+          "x": 450,
+          "y": 0,
+          "localStep": {
+            "rank": 0,
+            "localStep": 6
+          },
+          "category": 5,
+          "info": "id = 0"
+        },
+        {
+          "nodeId": 6,
+          "nodeName": "Write",
+          "x": 450,
+          "y": 150,
+          "localStep": {
+            "rank": 0,
+            "localStep": 7
+          },
+          "category": 5,
+          "info": "id = 6"
+        },
+        {
+          "nodeId": 7,
+          "nodeName": "Write",
+          "x": 450,
+          "y": 300,
+          "localStep": {
+            "rank": 0,
+            "localStep": 8
+          },
+          "category": 5,
+          "info": "id = 7"
+        },
+        {
+          "nodeId": 8,
+          "nodeName": "BeingWritten",
+          "x": 600,
+          "y": 0,
+          "localStep": {
+            "rank": 0,
+            "localStep": 9
+          },
+          "category": 5,
+          "info": "id = 8"
+        },
+        {
+          "nodeId": 9,
+          "nodeName": "BeingWritten",
+          "x": 600,
+          "y": 150,
+          "localStep": {
+            "rank": 0,
+            "localStep": 10
+          },
+          "category": 5,
+          "info": "id = 9"
+        },
+        {
+          "nodeId": 10,
+          "nodeName": "BeingWritten",
+          "x": 600,
+          "y": 300,
+          "localStep": {
+            "rank": 0,
+            "localStep": 11
+          },
+          "category": 5,
+          "info": "id = 10"
+        },
+        {
+          "nodeId": 11,
+          "nodeName": "BeingWritten",
+          "x": 750,
+          "y": 0,
+          "localStep": {
+            "rank": 0,
+            "localStep": 15
+          },
+          "category": 5,
+          "info": "id = 11"
+        },
+        {
+          "nodeId": 12,
+          "nodeName": "Write",
+          "x": 750,
+          "y": 10,
+          "localStep": {
+            "rank": 0,
+            "localStep": 12
+          },
+          "category": 5,
+          "info": "id = 12"
+        },
+        {
+          "nodeId": 13,
+          "nodeName": "BeingWritten",
+          "x": 750,
+          "y": 150,
+          "localStep": {
+            "rank": 0,
+            "localStep": 16
+          },
+          "category": 5,
+          "info": "id = 13"
+        },
+        {
+          "nodeId": 14,
+          "nodeName": "Write",
+          "x": 750,
+          "y": 225,
+          "localStep": {
+            "rank": 0,
+            "localStep": 13
+          },
+          "category": 5,
+          "info": "id = 14"
+        },
+        {
+          "nodeId": 15,
+          "nodeName": "BeingWritten",
+          "x": 750,
+          "y": 300,
+          "localStep": {
+            "rank": 0,
+            "localStep": 17
+          },
+          "category": 5,
+          "info": "id = 15"
+        },
+        {
+          "nodeId": 16,
+          "nodeName": "Write",
+          "x": 750,
+          "y": 375,
+          "localStep": {
+            "rank": 0,
+            "localStep": 14
+          },
+          "category": 5,
+          "info": "id = 16"
+        },
+        {
+          "nodeId": 17,
+          "nodeName": "WaitFrom",
+          "x": 900,
+          "y": 0,
+          "localStep": {
+            "rank": 0,
+            "localStep": 18
+          },
+          "category": 1,
+          "info": "id = 17"
+        },
+        {
+          "nodeId": 18,
+          "nodeName": "PostTo",
+          "x": 900,
+          "y": 150,
+          "localStep": {
+            "rank": 0,
+            "localStep": 19
+          },
+          "category": 1,
+          "info": "id = 18"
+        },
+        {
+          "nodeId": 19,
+          "nodeName": "WaitFrom",
+          "x": 1050,
+          "y": 0,
+          "localStep": {
+            "rank": 0,
+            "localStep": 20
+          },
+          "category": 1,
+          "info": "id = 19"
+        },
+        {
+          "nodeId": 20,
+          "nodeName": "PostTo",
+          "x": 1050,
+          "y": 300,
+          "localStep": {
+            "rank": 0,
+            "localStep": 21
+          },
+          "category": 1,
+          "info": "id = 20"
+        }
+      ],
+      "rankName": "rank1"
+    },
+    "links": [
+      {
+        "source": 0,
+        "target": 1
+      },
+      {
+        "source": 1,
+        "target": 2
+      },
+      {
+        "source": 1,
+        "target": 3
+      },
+      {
+        "source": 2,
+        "target": 6
+      },
+      {
+        "source": 3,
+        "target": 4
+      },
+      {
+        "source": 4,
+        "target": 7
+      },
+      {
+        "source": 3,
+        "target": 5
+      },
+      {
+        "source": 5,
+        "target": 8
+      },
+      {
+        "source": 6,
+        "target": 9
+      },
+      {
+        "source": 7,
+        "target": 10
+      },
+      {
+        "source": 8,
+        "target": 11
+      },
+      {
+        "source": 8,
+        "target": 12
+      },
+      {
+        "source": 9,
+        "target": 13
+      },
+      {
+        "source": 9,
+        "target": 14
+      },
+      {
+        "source": 10,
+        "target": 15
+      },
+      {
+        "source": 10,
+        "target": 16
+      },
+      {
+        "source": 11,
+        "target": 17
+      },
+      {
+        "source": 12,
+        "target": 17
+      },
+      {
+        "source": 17,
+        "target": 19
+      },
+      {
+        "source": 13,
+        "target": 18
+      },
+      {
+        "source": 14,
+        "target": 18
+      },
+      {
+        "source": 15,
+        "target": 20
+      },
+      {
+        "source": 16,
+        "target": 20
+      },
+      {
+        "source": 20,
+        "target": 19
+      },
+      {
+        "source": 18,
+        "target": 17
+      }
+    ]
+  }
+}

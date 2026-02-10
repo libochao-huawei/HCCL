@@ -1,0 +1,22 @@
+{
+  "caselist": [
+    {
+      "testSuite": "AllReduce",
+      "env": [],
+      "dataType": "HCCL_DATA_TYPE_FP32",
+      "testCase": "all_reduce_mesh",
+      "devtype": "DEV_TYPE_910B",
+      "topoConfigMode": "SYMMETRIC",
+      "opMode": "OPBASE",
+      "count": 100,
+      "opType": "HCCL_CMD_ALLREDUCE",
+      "symmetric_topo": [
+        1,
+        1,
+        8
+      ],
+      "reduceType": "HCCL_REDUCE_SUM",
+      "algName": ""
+    }
+  ]
+}

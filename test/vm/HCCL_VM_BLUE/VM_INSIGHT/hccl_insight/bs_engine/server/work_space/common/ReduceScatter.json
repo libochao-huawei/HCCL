@@ -1,0 +1,22 @@
+{
+    "caselist": [
+      {
+        "testSuite": "ReduceScatter",
+        "env": [],
+        "dataType": "HCCL_DATA_TYPE_FP32",
+        "count": 1600,
+        "testCase": "reduce_scatter_double_ring",
+        "devtype": "DEV_TYPE_910_93",
+        "topoConfigMode": "SYMMETRIC",
+        "opMode": "OPBASE",
+        "opType": "HCCL_CMD_REDUCE_SCATTER",
+        "symmetric_topo": [
+          1,
+          2,
+          8
+        ],
+        "reduceType": "HCCL_REDUCE_SUM",
+        "algName": ""
+      }
+    ]
+  }

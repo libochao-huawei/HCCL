@@ -1,0 +1,7 @@
+version: 2.0
+#检查参数
+tool_params:
+  cmetrics:
+    exclude: /app/models/
+  secsolar: #安全类扫描
+    source_dir: cic/

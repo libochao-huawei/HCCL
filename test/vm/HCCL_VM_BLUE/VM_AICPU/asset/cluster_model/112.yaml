@@ -1,0 +1,12 @@
+# 1. 全局统计信息 podNum, serNum, rankNum 都小于 1024
+meta:
+  podNum: 1       
+  serNum: 1     
+  rankNum: 2
+
+# 2. 详细拓扑结构 
+topology:
+  - podId: 0
+    servers:
+      - serId: 0
+        ranks: [0, 1]

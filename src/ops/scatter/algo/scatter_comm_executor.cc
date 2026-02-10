@@ -36,7 +36,9 @@ HcclResult ScatterCommExecutor::CalcResRequest(HcclComm comm, const OpParam& par
     u32 threadNum = level0RankSize > 1 ? level0RankSize - 1 : 1;
 
     resourceRequest.slaveThreadNum = threadNum - 1;
-    resourceRequest.notifyNumPerThread = 1;
+    for (u32 index = 0; index < threadNum - 1; index++) {
+        resourceRequest.notifyNumPerThread.push_back(1);
+    }
     resourceRequest.notifyNumOnMainThread = threadNum - 1;
 
     // level0 channel
@@ -50,7 +52,7 @@ HcclResult ScatterCommExecutor::CalcResRequest(HcclComm comm, const OpParam& par
 
     HCCL_INFO("[ScatterRingExecutor][CalcResRequest]slaveThreadNum[%u] notifyNumPerThread[%u] notifyNumOnMainThread[%u]"
         " level0Channels[%u] level1Channels[%u].",
-        resourceRequest.slaveThreadNum, resourceRequest.notifyNumPerThread, resourceRequest.notifyNumOnMainThread,
+        resourceRequest.slaveThreadNum, resourceRequest.notifyNumPerThread.size(), resourceRequest.notifyNumOnMainThread,
         level0Channels.size(), level1Channels.size());
     return HCCL_SUCCESS;
 }

@@ -1,0 +1,36 @@
+version: 2.0
+#构建环境
+env:
+  label: BPIT_Build_Default_Yellow
+  cache:
+    - type: workspace
+#构建参数定义,构建脚本可从环境变量中读取使用这些参数
+params:
+  - name: product    #构建方式
+    value: cloudbuild2.0
+  - name: project_dir
+    value: "cic"
+  - name: package_name
+    value: "cic"
+#构建步骤
+steps:
+  PRE_BUILD:
+    - checkout
+  BUILD:
+    - build_execute:
+        command: "sh ${project_dir}/script/build.sh"
+        accelerate: false  # 是否启用分布式加速(jiffy)
+        check:
+          buildcheck:
+            standard_version: "2.10"
+            project_dir: ${project_dir}
+  POST_BUILD: #构建后步骤
+    #新增数字签名配置
+    - sh:
+        command: |
+          signclient "package/${package_name}*.tar.gz" #不同签名包之间用分号分隔，demo.war 为示例，按项目实际情况修改
+    - artget:
+        artifact_type: cloudartifact
+        file_path: "package,package/${package_name}*.tar.gz;cms,package/${package_name}*.tar.gz.cms"
+        version_output_path: .
+    - version_set

@@ -1,0 +1,8 @@
+{
+    "name": "dumper",
+    "version": "1.0.0",
+    "entry": "python3 hccl_server.py",
+    "dependency": {
+        "min_core_version": "1.0.0"
+    }
+}

@@ -1,0 +1,21 @@
+{
+    "caselist": [
+      {
+        "testSuite": "All2all",
+        "env": [],
+        "dataType": "HCCL_DATA_TYPE_FP32",
+        "count": 100,
+        "devtype": "DEV_TYPE_910B",
+        "topoConfigMode": "SYMMETRIC",
+        "opMode": "OPBASE",
+        "opType": "HCCL_CMD_ALLTOALL",
+        "testCase": "all2all_mesh",
+        "symmetric_topo": [
+          1,
+          1,
+          8
+        ],
+        "algName": ""
+      }
+    ]
+  }

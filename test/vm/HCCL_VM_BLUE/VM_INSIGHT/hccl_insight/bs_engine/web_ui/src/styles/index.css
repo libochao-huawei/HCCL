@@ -1,0 +1,73 @@
+@import './reset.scss';
+@import './common.scss';
+
+.icon-normal {
+  width: 14px;
+  height: 14px;
+  vertical-align: top;
+}
+.icon-disabled {
+  cursor: not-allowed;
+}
+
+.icon-loading .aui-icon-loading {
+  font-size: 40px;
+  fill: #f2b705;
+}
+
+.aui-grid-modal__header.aui-grid-modal__header-icon {
+  display: flex;
+  align-items: center;
+}
+.aui-tree-node__content {
+  font-size: 14px;
+  color: #333333;
+  min-height: 32px;
+  height: auto;
+}
+.aui-tree--highlight-current .aui-tree-node.is-current > .aui-tree-node__content {
+  background-color: #f2ce16;
+}
+.aui-dropdown .is-text:not(.is-disabled) {
+  color: #732c02;
+  cursor: pointer;
+}
+.aui-dropdown .is-text:not(.is-disabled):hover {
+  color: #fcad05;
+  cursor: pointer;
+}
+.aui-dropdown .is-text:not(.is-disabled) svg {
+  fill: #732c02;
+}
+.aui-dropdown .is-text:not(.is-disabled) svg:hover {
+  fill: #fcad05;
+}
+.aui-dropdown .is-text:not(.is-disabled):hover svg {
+  fill: #fcad05;
+}
+.aui-dropdown-menu__item:focus,
+.aui-dropdown-menu__item:not(.is-disabled):hover {
+  background-color: #fdf6cf;
+}
+
+.aui-radio-button__orig-radio:checked + .aui-radio-button__inner {
+  color: #732c02;
+}
+
+.aui-radio-button:first-child .aui-radio-button__inner {
+  border-left: 1px solid #d9d9d9;
+}
+.aui-radio-button:first-child .aui-radio-button__inner:hover {
+  border-left: 1px solid #f2ce16;
+}
+.aui-radio-button__inner:hover {
+  border-color: #f2ce16;
+}
+.aui-radio-button__orig-radio:checked + .aui-radio-button__inner:hover {
+  background-color: #fcad05;
+  border-color: #fcad05;
+}
+
+.aui-grid-modal__close-btn:hover {
+  fill: #f2b705;
+}

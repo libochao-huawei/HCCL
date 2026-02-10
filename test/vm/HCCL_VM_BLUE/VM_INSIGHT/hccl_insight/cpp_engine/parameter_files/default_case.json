@@ -1,0 +1,114 @@
+{
+    "caselist": [
+        {   
+            "testSuite": "AllToAllTest",
+            "testCase": "alltoall_test_910B_opbase",
+            "topoConfigMode": "SYMMETRIC",
+            "symmetric_topo": [
+                1,
+                1,
+                3
+            ],
+            "opType": "HCCL_CMD_ALLTOALL",
+            "opMode": "OPBASE",
+            "reduceType": "",
+            "devtype": "DEV_TYPE_910B",
+            "algName": "",
+            "count": 100,
+            "dataType": "HCCL_DATA_TYPE_INT32"
+        },
+        {
+            "testSuite": "AllReduceTest",
+            "testCase": "allreduce_test",
+            "topoConfigMode": "SYMMETRIC",
+            "symmetric_topo": [
+                1,
+                1,
+                6
+            ],
+            "opType": "HCCL_CMD_ALLREDUCE",
+            "opMode": "OPBASE",
+            "reduceType": "HCCL_REDUCE_SUM",
+            "devtype": "DEV_TYPE_910B",
+            "algName": "",
+            "count": 100,
+            "dataType": "HCCL_DATA_TYPE_INT32"
+        },
+        {
+            "testSuite": "AllGatherTest",
+            "testCase": "allgather_910A_opbase_AllGatherComm",
+            "topoConfigMode": "ASYMMETRIC",
+            "asymmetric_topo": [
+                [
+                    [
+                        0,
+                        1
+                    ],
+                    [
+                        0,
+                        1,
+                        2
+                    ]
+                ]
+            ],
+            "opType": "HCCL_CMD_ALLGATHER",
+            "opMode": "OPBASE",
+            "reduceType": "",
+            "devtype": "DEV_TYPE_910",
+            "algName": "AllGatherComm",
+            "count": 100,
+            "dataType": "HCCL_DATA_TYPE_INT32"
+        },
+        {
+            "testSuite": "BroadcastTest",
+            "testCase": "broadcast_offload_test",
+            "topoConfigMode": "SYMMETRIC",
+            "symmetric_topo": [
+                1,
+                1,
+                8
+            ],
+            "opType": "HCCL_CMD_BROADCAST",
+            "opMode": "OFFLOAD",
+            "reduceType": "",
+            "devtype": "DEV_TYPE_910B",
+            "algName": "",
+            "count": 100,
+            "dataType": "HCCL_DATA_TYPE_INT32"
+        },
+        {
+            "testSuite": "SendRecvTest",
+            "testCase": "send_recv_two_superPods_opbase_test",
+            "topoConfigMode": "SYMMETRIC",
+            "symmetric_topo": [
+                2,
+                1,
+                1
+            ],
+            "opType": "HCCL_CMD_SEND",
+            "opMode": "OPBASE",
+            "reduceType": "",
+            "devtype": "DEV_TYPE_910_93",
+            "algName": "",
+            "count": 100,
+            "dataType": "HCCL_DATA_TYPE_INT32"
+        },
+        {
+            "testSuite": "ReduceScatterTest",
+            "testCase": "reduce_scatter_executor_opbase_ReduceScatterDeterExecutor",
+            "topoConfigMode": "SYMMETRIC",
+            "symmetric_topo": [
+                1,
+                1,
+                8
+            ],
+            "opType": "HCCL_CMD_REDUCE_SCATTER",
+            "opMode": "OPBASE",
+            "reduceType": "HCCL_REDUCE_SUM",
+            "devtype": "DEV_TYPE_910B",
+            "algName": "ReduceScatterDeterExecutor",
+            "count": 10000000,
+            "dataType": "HCCL_DATA_TYPE_INT32"
+        }
+    ]
+}

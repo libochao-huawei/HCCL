@@ -1,0 +1,42 @@
+{
+  "name": "hccl_insight",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "node --max_old_space_size=8192 ./node_modules/vite/bin/vite.js build --sourcemap",
+    "build:production": "node --max_old_space_size=8192 ./node_modules/vite/bin/vite.js build",
+    "preview": "vite preview",
+    "lint": "eslint --fix --ext .js,.vue src",
+    "lint:prettier": "prettier --write \"src/**/*.{js,ts,json,tsx,css,less,scss,vue,html,md}\""
+  },
+  "dependencies": {
+    "@antv/g6": "^5.0.35",
+    "@aurora/theme-tool": "^5.3.6",
+    "@aurora/vue3": "^5.0.0",
+    "@aurora/vue3-icon-saas": "^5.0.0",
+    "axios": "^1.7.7",
+    "echarts": "^5.4.3",
+    "jszip": "^3.10.1",
+    "lodash-es": "^4.17.21",
+    "pinia": "^2.1.7",
+    "pinia-plugin-persistedstate": "^4.0.0",
+    "resize-observer-polyfill": "^1.5.1",
+    "sass": "1.62.0",
+    "vue": "^3.5.12",
+    "vue-router": "^4.0.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^3.2.0",
+    "@vitejs/plugin-vue-jsx": "^2.1.0",
+    "eslint": "^8.52.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.0.1",
+    "eslint-plugin-vue": "^9.18.1",
+    "prettier": "^3.1.1",
+    "vite": "^3.2.0",
+    "vite-plugin-eslint": "^1.8.1",
+    "vite-plugin-svg-icons": "^2.0.1"
+  }
+}

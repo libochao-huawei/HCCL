@@ -1,0 +1,10 @@
+.idea
+.DS_Store
+.cache
+.project
+.settings
+node_modules/
+logs
+*.log
+test-results.xml
+.nyc_output/
