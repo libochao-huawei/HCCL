@@ -63,7 +63,7 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
     if (!RunIndependentOpExpansion(deviceType)) {
-       return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
+       // return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
     }
 
     // 入口的地方先解析环境变量
@@ -71,12 +71,12 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
     
     // AclGraph引导到老的流程上面
     if (IsStreamCapture(stream)) {
-        return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
+        // return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
     }
     // 重执行引导到老的流程上面
     if (deviceType == DevType::DEV_TYPE_910_93 && (GetExternalInputIntraServerRetryEnable()
         || GetExternalInputInterServerRetryEnable() || GetExternalInputInterSuperPodRetryEnable())) {
-        return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
+        // return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
     }
 
     u32 rankSize = INVALID_VALUE_RANKSIZE;
@@ -84,7 +84,7 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
 
     // 图模式引导到老的流程上面
     if (GetWorkflowMode() != HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE) {
-        return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
+        // return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
     }
 
     // Attention! 图模式、zeroCopy模式、recompute等先不支持，且当前不引导到老的流程上
@@ -409,15 +409,14 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
         aclError aclRet = aclrtLaunchKernelWithConfig(funcHandle, numBlocks, param.stream, &cfg, argsHandle, nullptr);
         CHK_PRT_RET(aclRet != ACL_SUCCESS,
                     HCCL_ERROR("[LoadCustomKernel][aclrtLaunchKernelWithConfig]errNo[0x%016llx] launch kernel failed", ret), HCCL_E_OPEN_FILE_FAILURE);
-
-        // Host stream等待Device的通知
-        CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, 0, NOTIFY_DEFAULT_WAIT_TIME)));
         std::string profName = "scatter";
         profName += "AicpuKernel"; // 标准后缀，类似于alltoallAicpuKernel;
         // 算子下发时间
         HCCL_DEBUG("[%s] profName = [%s]", __func__, profName);
         // 上报
         HcommProfilingReportKernel(beginTime, profName.c_str());
+        // Host stream等待Device的通知
+        CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, 0, NOTIFY_DEFAULT_WAIT_TIME)));
     } else {
         CHK_RET(executor->Orchestrate(param, resCtx));
         param.resCtx = resCtx;
