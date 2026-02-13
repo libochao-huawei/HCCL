@@ -38,9 +38,6 @@ HcclResult HcclRecv(
     void *recvBuf, uint64_t count, HcclDataType dataType, uint32_t srcRank, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("[HcclRecv] Start.");
-    if (!CheckHCCLIndependentOp()) {
-        return HcclRecvInner(recvBuf, count, dataType, srcRank, comm, stream);
-    }
     // 穿刺的时候只考虑A5
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
@@ -150,7 +147,14 @@ namespace ops_hccl {
             return HcclResult::HCCL_SUCCESS;
         }
 
-        CHK_RET(HcclExecOp(comm, param));
+        OpExecuteConfig opExecuteConfig;
+        std::string algName;
+        std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
+        CHK_RET(Selector(comm, param, topoInfo, algName, opExecuteConfig));
+        if (opExecuteConfig != OpExecuteConfig::AICPU_TS) {
+            return HcclRecvInner(recvBuf, count, dataType, srcRank, comm, stream);
+        }
+        CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
 
         return HcclResult::HCCL_SUCCESS;
     }
