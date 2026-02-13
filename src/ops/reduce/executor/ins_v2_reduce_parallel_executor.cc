@@ -24,7 +24,7 @@ InsV2ReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::Ins
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsV2ReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::CalcAlgHierarchyInfo(
-    HcclComm comm, TopoInfo *topoInfo, AlgHierarchyInfoForAllLevel &algHierarchyInfo)
+    HcclComm comm, TopoInfoWithNetLayerDetails *topoInfo, AlgHierarchyInfoForAllLevel &algHierarchyInfo)
 {
     AlgTopoMatch topoMatch;
     CHK_RET(topoMatch.MatchTopo(comm, topoInfo, algHierarchyInfo));
@@ -33,7 +33,7 @@ HcclResult InsV2ReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemp
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsV2ReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::CalcRes(HcclComm comm,
-    const OpParam &param, const TopoInfo *topoInfo, const AlgHierarchyInfoForAllLevel &algHierarchyInfo,
+    const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo, const AlgHierarchyInfoForAllLevel &algHierarchyInfo,
     AlgResourceRequest &resourceRequest)
 {
     // 构建template

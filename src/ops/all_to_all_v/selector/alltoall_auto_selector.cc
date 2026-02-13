@@ -12,7 +12,7 @@
 #include "selector_registry.h"
 
 namespace ops_hccl {
-SelectorStatus AlltoAllAutoSelector::SelectCcuMsAlgo(TopoInfo* topoInfo, OpParam &opParam,
+SelectorStatus AlltoAllAutoSelector::SelectCcuMsAlgo(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                     std::string &selectAlgName) const
 {
@@ -24,7 +24,7 @@ SelectorStatus AlltoAllAutoSelector::SelectCcuMsAlgo(TopoInfo* topoInfo, OpParam
     return SelectorStatus::NOT_MATCH;
 }
 
-SelectorStatus AlltoAllAutoSelector::SelectCcuScheduleAlgo(TopoInfo* topoInfo,
+SelectorStatus AlltoAllAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetLayerDetails* topoInfo,
                                                     OpParam &opParam,
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                     std::string &selectAlgName) const
@@ -48,7 +48,7 @@ SelectorStatus AlltoAllAutoSelector::SelectCcuScheduleAlgo(TopoInfo* topoInfo,
     }
 }
 
-SelectorStatus AlltoAllAutoSelector::SelectAicpuAlgo(TopoInfo* topoInfo,
+SelectorStatus AlltoAllAutoSelector::SelectAicpuAlgo(TopoInfoWithNetLayerDetails* topoInfo,
                                                       OpParam &opParam,
                                                       const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                       std::string &selectAlgName) const
@@ -74,7 +74,7 @@ SelectorStatus AlltoAllAutoSelector::SelectAicpuAlgo(TopoInfo* topoInfo,
     return SelectorStatus::MATCH;
 }
 
-SelectorStatus AlltoAllAutoSelector::SelectAivAlgo(TopoInfo* topoInfo, OpParam &opParam,
+SelectorStatus AlltoAllAutoSelector::SelectAivAlgo(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
                                                        const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                        std::string &selectAlgName) const
 {
