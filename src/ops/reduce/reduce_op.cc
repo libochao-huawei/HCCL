@@ -146,7 +146,14 @@ HcclResult ReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclData
         return HcclResult::HCCL_SUCCESS;
     }
 
-    CHK_RET(HcclExecOp(comm, param));
+    OpExecuteConfig opExecuteConfig;
+    std::string algName;
+    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
+    CHK_RET(Selector(comm, param, topoInfo, algName, opExecuteConfig));
+    if (opExecuteConfig != OpExecuteConfig::AICPU_TS) {
+        return HcclReduceInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
+    }
+    CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
     HCCL_INFO("Execute ReduceOutPlace success.");
     return HCCL_SUCCESS;
 }
