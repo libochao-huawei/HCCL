@@ -21,7 +21,7 @@ InsV2ReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::InsV2ReduceSoleExecutor()
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsV2ReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcAlgHierarchyInfo(
-    HcclComm comm, TopoInfo *topoInfo, AlgHierarchyInfoForAllLevel &algHierarchyInfo)
+    HcclComm comm, TopoInfoWithNetLayerDetails *topoInfo, AlgHierarchyInfoForAllLevel &algHierarchyInfo)
 {
     // 使用topo match计算AlgHierarchyInfoForAllLevel
     AlgTopoMatch topoMatch;
@@ -31,7 +31,7 @@ HcclResult InsV2ReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcAlgHierarc
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsV2ReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(HcclComm comm, const OpParam &param,
-    const TopoInfo *topoInfo, const AlgHierarchyInfoForAllLevel &algHierarchyInfo, AlgResourceRequest &resourceRequest)
+    const TopoInfoWithNetLayerDetails *topoInfo, const AlgHierarchyInfoForAllLevel &algHierarchyInfo, AlgResourceRequest &resourceRequest)
 {
     // 构建template
     const auto &topo = algHierarchyInfo.infos;

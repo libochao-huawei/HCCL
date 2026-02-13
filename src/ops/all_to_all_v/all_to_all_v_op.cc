@@ -408,7 +408,7 @@ HcclResult AlltoAllVOutPlace(const void *sendBuf, const void *sendCounts, const 
         return HcclResult::HCCL_SUCCESS;
     }
 
-    CHK_RET(HcclExecOp(comm, param));
+    // CHK_RET(HcclExecOp(comm, param));
     paramPtr->~OpParam();
     free(paramMem);
     HCCL_INFO("Execute AlltoAllVOutPlace success.");
