@@ -89,10 +89,17 @@ HcclResult CalculateServersPerSuperPod(const std::vector<uint32_t> &l0Sizes,
                                        const std::vector<uint32_t> &l1Sizes,
                                        std::vector<uint32_t> &serversPerSuperPod);
 
-HcclResult CalcTopoLevelNums(HcclComm comm, TopoInfo* topoInfo);
+// HcclResult CalcTopoLevelNums(HcclComm comm, TopoInfo* topoInfo);
 
-HcclResult CalcLevel0TopoShape(HcclComm comm, TopoInfo* topoInfo);
+// HcclResult CalcLevel0TopoShape(HcclComm comm, TopoInfo* topoInfo);
 
+HcclResult CalcTopoShape(HcclComm comm, TopoInfo* topoInfo);
+
+HcclResult ExtractNetLayerDetails(HcclComm comm, TopoInfo* topoInfo);
+
+HcclResult ExtractTopoDetails(HcclComm comm, TopoInfo* topoInfo);
+
+HcclResult Is2DieFullMesh(HcclComm comm, TopoInfo* topoInfo);
 }
 
 #endif
