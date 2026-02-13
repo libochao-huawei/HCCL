@@ -22,7 +22,7 @@ InsTempReduceMesh1D::~InsTempReduceMesh1D()
 {}
 
 HcclResult InsTempReduceMesh1D::CalcRes(
-    HcclComm comm, const OpParam &param, const TopoInfo *topoInfo, AlgResourceRequest &resourceRequest)
+    HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo, AlgResourceRequest &resourceRequest)
 {
     threadNum_ = templateRankSize_ > 1 ? templateRankSize_ : 1;
     resourceRequest.slaveThreadNum = threadNum_ - 1;
