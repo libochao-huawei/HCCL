@@ -37,7 +37,7 @@ CcuTempReduceMesh1D::~CcuTempReduceMesh1D()
 {
 }
 
-HcclResult CcuTempReduceMesh1D::CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+HcclResult CcuTempReduceMesh1D::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                                                       AlgResourceRequest& resourceRequest)
 {
     // 不需要从流
