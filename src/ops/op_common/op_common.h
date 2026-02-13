@@ -46,7 +46,7 @@ HcclResult HcclAllocAlgResourceAICPU(
     HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
     std::unique_ptr<AlgResourceCtxSerializable>& resCtxSequenceHost);
 
-HcclResult HcclGetH2DNotify(std::unique_ptr<AlgResourceCtxSerializable>& resCtxSequenceHost);
+HcclResult HcclGetH2DNotify(const std::string algTag, std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost)
 
 HcclResult HcclGetThread(HcclComm comm, const OpParam &param,
                         AlgResourceRequest &resRequest, std::unique_ptr<AlgResourceCtxSerializable>& resCtxSequenceHost);
