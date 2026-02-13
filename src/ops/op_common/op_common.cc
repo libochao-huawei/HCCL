@@ -40,7 +40,7 @@
 #include "dpu/kernel_launch.h"
 
 namespace ops_hccl {
-thread_local aclrtNotify g_notifies_host_with_device[AICPU_CONTROL_NOTIFY_NUM];
+thread_local std::map<std::string, std::vector<aclrtNotify>> g_notifies_host_with_device;
 thread_local std::map<std::string, HcclMemHandle> g_memHandleCache; // 当前AIV存放注册内存的memHandle使用
 // 用于维护增量建链算子的host ctx信息
 thread_local std::map<std::string, std::unique_ptr<AlgResourceCtxSerializable>> g_hostCtx;
@@ -129,7 +129,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param)
         }
 
         // Host stream通知Device主thread，这里现在是直接用的acl的接口，是否有基础库的接口
-        if (aclrtRecordNotify(g_notifies_host_with_device[0], param.stream) != ACL_SUCCESS) {
+        if (aclrtRecordNotify(g_notifies_host_with_device[param.algTag].at(0), param.stream) != ACL_SUCCESS) {
             HCCL_ERROR("failed to record aicpu stream");
             return HCCL_E_INTERNAL;
         }
@@ -180,7 +180,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param)
             HCCL_ERROR("[LoadCustomKernel][aclrtLaunchKernelWithConfig]errNo[0x%016llx] launch kernel failed", ret),
             HCCL_E_OPEN_FILE_FAILURE);
         // Host stream等待Device的通知
-        if (aclrtWaitAndResetNotify(g_notifies_host_with_device[1], param.stream, CUSTOM_TIMEOUT) != ACL_SUCCESS) {
+        if (aclrtWaitAndResetNotify(g_notifies_host_with_device[param.algTag].at(1), param.stream, CUSTOM_TIMEOUT) != ACL_SUCCESS) {
             HCCL_ERROR("failed to wait from aicpu stream");
             return HCCL_E_INTERNAL;
         }
@@ -403,22 +403,24 @@ HcclResult HcclAllocAlgResourceAICPU(
     resCtxHost->notifyNumOnMainThread = resRequest.notifyNumOnMainThread;
     resCtxHost->slaveThreadNum = resRequest.slaveThreadNum;
     resCtxHost->notifyNumPerThread = resRequest.notifyNumPerThread;
-    CHK_RET(HcclGetH2DNotify(resCtxHost));
+    CHK_RET(HcclGetH2DNotify(param.algTag, resCtxHost));
     CHK_RET(HcclGetThread(comm, param, resRequest, resCtxHost));
     CHK_RET(HcclGetChannel(comm, param, resRequest, resCtxHost));
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclGetH2DNotify(std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost)
+HcclResult HcclGetH2DNotify(const std::string algTag, std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost)
 {
 #define ACL_NOTIFY_DEFAULT 0x00000000U
     // 先使用acl接口来分配notify
-    if (aclrtCreateNotify(&(g_notifies_host_with_device[0]), ACL_NOTIFY_DEFAULT) != ACL_SUCCESS) {
+    auto& notifyVec = g_notifies_host_with_device[algTag];
+    notifyVec.resize(2);
+    if (aclrtCreateNotify(&(notifyVec[0]), ACL_NOTIFY_DEFAULT) != ACL_SUCCESS) {
         HCCL_ERROR("failed to alloc notify");
         return HCCL_E_INTERNAL;
     }
 
-    if (aclrtCreateNotify(&(g_notifies_host_with_device[1]), ACL_NOTIFY_DEFAULT) != ACL_SUCCESS) {
+    if (aclrtCreateNotify(&(notifyVec[1]), ACL_NOTIFY_DEFAULT) != ACL_SUCCESS) {
         HCCL_ERROR("failed to alloc notify");
         return HCCL_E_INTERNAL;
     }
@@ -426,7 +428,7 @@ HcclResult HcclGetH2DNotify(std::unique_ptr<AlgResourceCtxSerializable>& resCtxH
     for (u32 idx = 0; idx < AICPU_CONTROL_NOTIFY_NUM; idx++) {
         uint32_t notifyId;
         // 获取notify Id，放入Context中
-        if (aclrtGetNotifyId(g_notifies_host_with_device[idx], &notifyId) != ACL_SUCCESS) {
+        if (aclrtGetNotifyId(notifyVec[idx], &notifyId) != ACL_SUCCESS) {
             HCCL_ERROR("failed to get notify id");
             return HCCL_E_INTERNAL;
         }
@@ -543,7 +545,7 @@ HcclResult HcclAllocAlgResourceCcu(HcclComm comm, const OpParam& param, AlgResou
     resCtxHost->notifyNumOnMainThread = resRequest.notifyNumOnMainThread;
     resCtxHost->slaveThreadNum = resRequest.slaveThreadNum;
     resCtxHost->notifyNumPerThread = resRequest.notifyNumPerThread;
-    CHK_RET(HcclGetH2DNotify(resCtxHost));
+    CHK_RET(HcclGetH2DNotify(param.algTag, resCtxHost));
     CHK_RET(HcclGetThread(comm, param, resRequest, resCtxHost));
     CHK_RET(HcclGetChannelForCcu(comm, param, resRequest, resCtxHost));
     CHK_RET(HcclGetCcuKernel(comm, param, resRequest, resCtxHost));
