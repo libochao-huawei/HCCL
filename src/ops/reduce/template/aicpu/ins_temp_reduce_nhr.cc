@@ -21,7 +21,7 @@ InsTempReduceNHR::~InsTempReduceNHR()
 {}
 
 HcclResult InsTempReduceNHR::CalcRes(
-    HcclComm comm, const OpParam &param, const TopoInfo *topoInfo, AlgResourceRequest &resourceRequest)
+    HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo, AlgResourceRequest &resourceRequest)
 {
     u32 threadNum = 1;
     resourceRequest.slaveThreadNum = threadNum - 1;
