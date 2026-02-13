@@ -36,7 +36,7 @@ public:
     HcclResult KernelRun(const OpParam &param, const TemplateDataParams &tempAlgParams,
         const TemplateResource &templateResource) override;
     HcclResult CalcRes(
-        HcclComm comm, const OpParam &param, const TopoInfo *topoInfo, AlgResourceRequest &resourceRequest) override;
+        HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo, AlgResourceRequest &resourceRequest) override;
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
 
     HcclResult PostCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads);
