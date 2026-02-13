@@ -214,4 +214,28 @@ HcclResult AutoSelectorBase::CheckHostDPUOnly(const TopoInfo* topoInfo, const Op
     return HCCL_SUCCESS;
 }
 
+bool AutoSelectorBase::IsLayerAllConnetedWithTopo(const TopoInfo *topoInfo, const u32 netLayer, const CommTopo topoType) const
+{
+    CHK_PRT_RET(topoInfo->netLayerDetails.localNetInsSizeOfLayer.size() <= netLayer,
+        HCCL_WARNING("[BaseSelector][IsLayerAllConnetedWithTopo] localNetInsSizeOfLayer size[%u] <= netLayer[%u]",
+        topoInfo->netLayerDetails.localNetInsSizeOfLayer.size(), netLayer), false);
+    u32 localRankSize = topoInfo->netLayerDetails.localNetInsSizeOfLayer[netLayer];
+
+    CHK_PRT_RET(topoInfo->topoInstDetailsOfLayer.size() <= netLayer,
+        HCCL_WARNING("[BaseSelector][IsLayerAllConnetedWithTopo] topoInstDetailsOfLayer size[%u] <= netLayer[%u]",
+        topoInfo->topoInstDetailsOfLayer.size(), netLayer), false);
+
+    auto rankNumForTopoTypeItr = topoInfo->topoInstDetailsOfLayer[netLayer].rankNumForTopoType.find(topoType);
+    if (rankNumForTopoTypeItr == topoInfo->topoInstDetailsOfLayer[netLayer].rankNumForTopoType.end()) {
+        return false;
+    }
+
+    for (auto topoRankNum : rankNumForTopoTypeItr->second) {
+        if (topoRankNum == localRankSize) {
+            return true;
+        }
+    }
+    return false;
+}
+
 }
