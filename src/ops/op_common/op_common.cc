@@ -576,10 +576,10 @@ HcclResult HcclGetCcuKernel(HcclComm comm, const OpParam &param, AlgResourceRequ
 {
     
     u32 totalKernelNum = 0;
-    for (auto t:resCtxHost->ccuKernelNum) {
+    for (auto t: resRequest.ccuKernelNum) {
         totalKernelNum += t;
     }
-    CHK_PRT_RET(totalKernelNum != resCtxHost->ccuKernelInfos.size(),
+    CHK_PRT_RET(totalKernelNum != resRequest.ccuKernelInfos.size(),
         HCCL_ERROR("[HcclGetCcuKernel]ccuKernel num not match!"),
         HCCL_E_INTERNAL);
 

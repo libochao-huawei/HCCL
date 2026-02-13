@@ -240,7 +240,7 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::KernelRun(const OpParam& param,
     }
 
     for (uint32_t axisId = 0; axisId < kernelNum; axisId++) {
-        if ((axisId == 0) && die0Size == 0) || (axisId == 1) && (die1Size == 0)) {
+        if ((axisId == 0 && die0Size == 0) || (axisId == 1 && die1Size == 0)) {
             // 数据长度为0的kernel不下发
             continue;
         }
