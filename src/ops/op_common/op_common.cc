@@ -40,7 +40,7 @@
 #include "dpu/kernel_launch.h"
 
 namespace ops_hccl {
-thread_local aclrtNotify g_notifies_host_with_device[AICPU_CONTROL_NOTIFY_NUM];
+thread_local std::map<std::string, std::vector<aclrtNotify>> g_notifies_host_with_device;
 thread_local std::map<std::string, HcclMemHandle> g_memHandleCache; // 当前AIV存放注册内存的memHandle使用
 // 用于维护增量建链算子的host ctx信息
 thread_local std::map<std::string, std::unique_ptr<AlgResourceCtxSerializable>> g_hostCtx;
@@ -72,14 +72,14 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param)
         param.engine = CommEngine::COMM_ENGINE_CCU;
     }
     // 获取基础拓扑
-    TopoInfo *topoInfo = nullptr;
-    CHK_RET(HcclCalcTopoInfo(comm, param, &topoInfo));
+    std::unique_ptr<TopoInfo> topoInfo = std::make_unique<TopoInfo>();
+    CHK_RET(HcclCalcTopoInfo(comm, param, topoInfo));
 
     // 算法选择，选择完后顺便param.algTag设置了，资源的保存是以算子+算法为单位
     std::string algName = "";
     std::shared_ptr<ExecuteSelector> collAlgSelector = std::make_shared<ExecuteSelector>(ExecuteSelector());
     OpExecuteConfig opExecuteConfig;
-    CHK_RET(collAlgSelector->Run(param, topoInfo, algName, opExecuteConfig));
+    CHK_RET(collAlgSelector->Run(param, topoInfo.get(), algName, opExecuteConfig));
     if (algName == "") {
         HCCL_ERROR("[HcclExecOp] select algname fail!");
         return HCCL_E_PTR;
@@ -110,7 +110,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param)
     // 资源序列化结果
     void *resCtxSequence;
     bool isResourceReused = false;
-    CHK_RET(HcclGetAlgRes(comm, param, executor, topoInfo, resCtxHost, &resCtxSequence, isResourceReused));
+    CHK_RET(HcclGetAlgRes(comm, param, executor, topoInfo.get(), resCtxHost, &resCtxSequence, isResourceReused));
 
     // 算法执行
     if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
@@ -129,7 +129,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param)
         }
 
         // Host stream通知Device主thread，这里现在是直接用的acl的接口，是否有基础库的接口
-        if (aclrtRecordNotify(g_notifies_host_with_device[0], param.stream) != ACL_SUCCESS) {
+        if (aclrtRecordNotify(g_notifies_host_with_device[param.algTag].at(0), param.stream) != ACL_SUCCESS) {
             HCCL_ERROR("failed to record aicpu stream");
             return HCCL_E_INTERNAL;
         }
@@ -180,7 +180,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param)
             HCCL_ERROR("[LoadCustomKernel][aclrtLaunchKernelWithConfig]errNo[0x%016llx] launch kernel failed", ret),
             HCCL_E_OPEN_FILE_FAILURE);
         // Host stream等待Device的通知
-        if (aclrtWaitAndResetNotify(g_notifies_host_with_device[1], param.stream, CUSTOM_TIMEOUT) != ACL_SUCCESS) {
+        if (aclrtWaitAndResetNotify(g_notifies_host_with_device[param.algTag].at(1), param.stream, CUSTOM_TIMEOUT) != ACL_SUCCESS) {
             HCCL_ERROR("failed to wait from aicpu stream");
             return HCCL_E_INTERNAL;
         }
@@ -219,22 +219,28 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param)
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclCalcTopoInfo(HcclComm comm, OpParam &param, TopoInfo **topoInfo)
+HcclResult HcclCalcTopoInfo(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfo> &topoInfo)
 {
     HCCL_INFO("[%s] HcclCalcTopoInfo start.", __func__);
-    uint64_t size = sizeof(TopoInfo);
+    uint64_t size = 0;
     void *ctx = nullptr;
     // 若获取Context失败，表示对应Context尚未缓存
     if (HcclEngineCtxGet(comm, param.tag, CommEngine::COMM_ENGINE_CPU_TS, &ctx, &size) != HCCL_SUCCESS) {
-        // 创建新的Context
+        // 初始化topoInfo
+        CHK_RET(InitRankInfo(comm, topoInfo.get()));
+        // 序列化
+        std::vector<char> seq = topoInfo->Serialize();
+        size = seq.size();
+        // 创建新的Context保存
         CHK_RET(HcclEngineCtxCreate(comm, param.tag, CommEngine::COMM_ENGINE_CPU_TS, size, &ctx));
-        // 将Context内存地址强转为TopoInfo
-        *topoInfo = static_cast<TopoInfo *>(ctx);
-        // 将对应拓扑信息填入到Context内存中
-        CHK_RET(InitRankInfo(comm, *topoInfo));
+        ACLCHECK(aclrtMemcpy(ctx, size, seq.data(), size, ACL_MEMCPY_HOST_TO_HOST));
         return HCCL_SUCCESS;
     }
-    *topoInfo = static_cast<TopoInfo *>(ctx);
+    char *ctxTemp = reinterpret_cast<char*>(ctx);
+    std::vector<char> seq(ctxTemp, ctxTemp + size);
+    TopoInfo topoInfoTemp;
+    topoInfoTemp.DeSerialize(seq);
+    topoInfo = std::make_unique<TopoInfo>(std::move(topoInfoTemp));
     HCCL_INFO("[%s] HcclCalcTopoInfo end.", __func__);
     return HCCL_SUCCESS;
 }
@@ -403,22 +409,24 @@ HcclResult HcclAllocAlgResourceAICPU(
     resCtxHost->notifyNumOnMainThread = resRequest.notifyNumOnMainThread;
     resCtxHost->slaveThreadNum = resRequest.slaveThreadNum;
     resCtxHost->notifyNumPerThread = resRequest.notifyNumPerThread;
-    CHK_RET(HcclGetH2DNotify(resCtxHost));
+    CHK_RET(HcclGetH2DNotify(param.algTag, resCtxHost));
     CHK_RET(HcclGetThread(comm, param, resRequest, resCtxHost));
     CHK_RET(HcclGetChannel(comm, param, resRequest, resCtxHost));
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclGetH2DNotify(std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost)
+HcclResult HcclGetH2DNotify(const std::string algTag, std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost)
 {
 #define ACL_NOTIFY_DEFAULT 0x00000000U
     // 先使用acl接口来分配notify
-    if (aclrtCreateNotify(&(g_notifies_host_with_device[0]), ACL_NOTIFY_DEFAULT) != ACL_SUCCESS) {
+    auto& notifyVec = g_notifies_host_with_device[algTag];
+    notifyVec.resize(2);
+    if (aclrtCreateNotify(&(notifyVec[0]), ACL_NOTIFY_DEFAULT) != ACL_SUCCESS) {
         HCCL_ERROR("failed to alloc notify");
         return HCCL_E_INTERNAL;
     }
 
-    if (aclrtCreateNotify(&(g_notifies_host_with_device[1]), ACL_NOTIFY_DEFAULT) != ACL_SUCCESS) {
+    if (aclrtCreateNotify(&(notifyVec[1]), ACL_NOTIFY_DEFAULT) != ACL_SUCCESS) {
         HCCL_ERROR("failed to alloc notify");
         return HCCL_E_INTERNAL;
     }
@@ -426,7 +434,7 @@ HcclResult HcclGetH2DNotify(std::unique_ptr<AlgResourceCtxSerializable>& resCtxH
     for (u32 idx = 0; idx < AICPU_CONTROL_NOTIFY_NUM; idx++) {
         uint32_t notifyId;
         // 获取notify Id，放入Context中
-        if (aclrtGetNotifyId(g_notifies_host_with_device[idx], &notifyId) != ACL_SUCCESS) {
+        if (aclrtGetNotifyId(notifyVec[idx], &notifyId) != ACL_SUCCESS) {
             HCCL_ERROR("failed to get notify id");
             return HCCL_E_INTERNAL;
         }
@@ -543,7 +551,7 @@ HcclResult HcclAllocAlgResourceCcu(HcclComm comm, const OpParam& param, AlgResou
     resCtxHost->notifyNumOnMainThread = resRequest.notifyNumOnMainThread;
     resCtxHost->slaveThreadNum = resRequest.slaveThreadNum;
     resCtxHost->notifyNumPerThread = resRequest.notifyNumPerThread;
-    CHK_RET(HcclGetH2DNotify(resCtxHost));
+    CHK_RET(HcclGetH2DNotify(param.algTag, resCtxHost));
     CHK_RET(HcclGetThread(comm, param, resRequest, resCtxHost));
     CHK_RET(HcclGetChannelForCcu(comm, param, resRequest, resCtxHost));
     CHK_RET(HcclGetCcuKernel(comm, param, resRequest, resCtxHost));
@@ -824,7 +832,7 @@ HcclResult SingleRankProc(const OpParam &param)
         return HcclResult::HCCL_SUCCESS;
     }
     u64 len{0};
-    if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL || param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC ||
+    if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL || param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
         param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
         len = DATATYPE_SIZE_TABLE[param.all2AllVDataDes.sendType] * *(static_cast<const u64 *>(param.all2AllVDataDes.sendCounts));
     } else if (param.opType == HCCL_CMD_ALLGATHER_V || param.opType == HCCL_CMD_REDUCE_SCATTER_V) {

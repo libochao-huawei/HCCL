@@ -96,6 +96,7 @@ public:
                                    std::string &selectAlgName) const;
     HcclResult CheckHostDPUOnly(const TopoInfo* topoInfo, const OpParam &opParam, bool &hostDPUOnly) const;
     bool IsStarsState(const OpExecuteConfig &opExecuteConfig) const;
+    bool IsLayerAllConnetedWithTopo(const TopoInfo *topoInfo, const u32 netLayer, const CommTopo topoType) const;
 };
 
 } // namespace Hccl
