@@ -56,9 +56,6 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
 {
     // 入口的地方先解析环境变量
     CHK_RET(InitEnvConfig());
-    if (!CheckHCCLIndependentOp()) {
-        return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
-    }
 
     // 获取设备类型拦截混合组网
     HcclHeterogMode allDeviceType;
@@ -236,7 +233,14 @@ HcclResult ScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, Hcc
     }
 
     if (deviceType == DevType::DEV_TYPE_910_95) {
-        CHK_RET(HcclExecOp(comm, param));
+        OpExecuteConfig opExecuteConfig;
+        std::string algName;
+        std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
+        CHK_RET(Selector(comm, param, topoInfo, algName, opExecuteConfig));
+        if (opExecuteConfig != OpExecuteConfig::AICPU_TS) {
+            return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
+        }
+        CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
     } else {
         CHK_RET(ExecOp(comm, param));  //保留原有A3流程
            // 获取profiling op上报的信息

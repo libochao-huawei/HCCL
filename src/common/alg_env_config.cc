@@ -27,12 +27,20 @@ static AlgEnvConfig g_algEnvConfig;
 HcclResult InitEnvConfig()
 {
     std::lock_guard<std::mutex> lock(g_algEnvConfigMutex);
+    // 解析算子展开模式
+    HcclResult ret = ParseOpExpansion();
+    RPT_ENV_ERR(ret != HCCL_SUCCESS, "EI0001", std::vector<std::string>({"env","tips"}),\
+        std::vector<std::string>({"HCCL_OP_EXPANSION_MODE", "it should be \"AI_CPU\""}));
+    CHK_PRT_RET(ret != HCCL_SUCCESS,
+        HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse "\
+            "HCCL_OP_EXPANSION_MODE failed. errorno[%d]", HCCL_ERROR_CODE(ret), ret), ret);
+    
     if (g_algEnvConfig.initialized) {
         return HCCL_SUCCESS;
     }
 
     // 解析hcclDeterministic,是否为确定性计算
-    HcclResult ret = ParseDeterministic();
+    ret = ParseDeterministic();
     RPT_ENV_ERR(ret != HCCL_SUCCESS, "EI0001", std::vector<std::string>({"env","tips"}),\
         std::vector<std::string>({"HCCL_DETERMINISTIC", "Value should be true ,false or strict."}));
     CHK_PRT_RET(ret != HCCL_SUCCESS,
@@ -63,14 +71,6 @@ HcclResult InitEnvConfig()
     CHK_PRT_RET(ret != HCCL_SUCCESS,
         HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse "\
             "HCCL_INTER_HCCS_DISABLE failed. errorno[%d]", HCCL_ERROR_CODE(ret), ret), ret);
-
-    // 解析算子展开模式
-    ret = ParseOpExpansion();
-    RPT_ENV_ERR(ret != HCCL_SUCCESS, "EI0001", std::vector<std::string>({"env","tips"}),\
-        std::vector<std::string>({"HCCL_OP_EXPANSION_MODE", "it should be \"AI_CPU\""}));
-    CHK_PRT_RET(ret != HCCL_SUCCESS,
-        HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse "\
-            "HCCL_OP_EXPANSION_MODE failed. errorno[%d]", HCCL_ERROR_CODE(ret), ret), ret);
 
     // 解析重执行设置
     ret = ParseRetryEnable();
