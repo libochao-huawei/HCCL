@@ -87,6 +87,10 @@ elseif(ENABLE_CUSTOM)
     include(cmake/config.cmake)
     include(cmake/func.cmake)
     include(cmake/package.cmake)
+    include(version.cmake)
+
+    check_pkg_build_deps("hccl")
+    add_version_info_targets()
 
     # AICPU Device 构建目标
     add_custom_target(custom_aicpu)
