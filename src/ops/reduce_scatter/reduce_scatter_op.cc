@@ -40,9 +40,9 @@ HcclResult HcclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, H
     HcclReduceOp op, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("Start to run execute HcclReduceScatter");
-    if (!CheckHCCLIndependentOp()) {
-        return HcclReduceScatterInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
-    }
+    // if (!CheckHCCLIndependentOp()) {
+    //     return HcclReduceScatterInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
+    // }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
     // 非95设备转到老流程
@@ -142,7 +142,14 @@ HcclResult ReduceScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCoun
         CHK_RET(SingleRankProc(param));
         return HcclResult::HCCL_SUCCESS;
     }
-    CHK_RET(HcclExecOp(comm, param));
+    OpExecuteConfig opExecuteConfig;
+    std::string algName;
+    CHK_RET(SelectorAhead(comm, param, algName, opExecuteConfig));
+    if (opExecuteConfig != OpExecuteConfig::AICPU_TS) {
+        return HcclReduceScatterInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
+    }
+    // CHK_RET(HcclExecOp(comm, param));
+    HcclExecOpWithNoSelector(comm, param, algName);
     HCCL_INFO("Execute ReduceScatterOutPlace success.");
     return HCCL_SUCCESS;
 }
