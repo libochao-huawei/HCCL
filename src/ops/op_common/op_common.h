@@ -32,7 +32,7 @@ namespace ops_hccl {
 
 HcclResult HcclExecOp(HcclComm comm, OpParam &param);
 
-HcclResult HcclCalcTopoInfo(HcclComm comm, OpParam &param, TopoInfo **topoInfo);
+HcclResult HcclCalcTopoInfo(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfo> &topoInfo);
 
 HcclResult HcclGetAlgRes(HcclComm comm, OpParam &param, std::shared_ptr<InsCollAlgBase> &executor, TopoInfo *topoInfo,
     std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, void **resCtxSequence, bool &isResourceReused);
@@ -46,7 +46,7 @@ HcclResult HcclAllocAlgResourceAICPU(
     HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
     std::unique_ptr<AlgResourceCtxSerializable>& resCtxSequenceHost);
 
-HcclResult HcclGetH2DNotify(std::unique_ptr<AlgResourceCtxSerializable>& resCtxSequenceHost);
+HcclResult HcclGetH2DNotify(const std::string algTag, std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost);
 
 HcclResult HcclGetThread(HcclComm comm, const OpParam &param,
                         AlgResourceRequest &resRequest, std::unique_ptr<AlgResourceCtxSerializable>& resCtxSequenceHost);
@@ -98,6 +98,10 @@ HcclResult SingleRankProc(const OpParam &param);
 HcclResult HcclCheckTag(const char *tag);
 
 HcclResult SetOpParamAlgTag(OpParam &param, const std::string &algName);
+
+HcclResult SelectorAhead(HcclComm comm, OpParam &param, std::string &algName, OpExecuteConfig &opExecuteConfig);
+
+HcclResult HcclExecOpWithNoSelector(HcclComm comm, OpParam &param, std::string &algName);
 }  // namespace ops_hccl
 
 #endif
