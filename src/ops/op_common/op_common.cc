@@ -40,57 +40,42 @@
 #include "dpu/kernel_launch.h"
 
 namespace ops_hccl {
-thread_local aclrtNotify g_notifies_host_with_device[AICPU_CONTROL_NOTIFY_NUM];
+thread_local std::map<std::string, std::vector<aclrtNotify>> g_notifies_host_with_device;
 thread_local std::map<std::string, HcclMemHandle> g_memHandleCache; // 当前AIV存放注册内存的memHandle使用
 // 用于维护增量建链算子的host ctx信息
 thread_local std::map<std::string, std::unique_ptr<AlgResourceCtxSerializable>> g_hostCtx;
 
-HcclResult HcclExecOp(HcclComm comm, OpParam &param)
+HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
+    std::string &algName, OpExecuteConfig &opExecuteConfig)
 {
-    HCCL_INFO("Start to execute ExecOp.");
-    param.hcclComm = comm;
-    // 因为AICPU是保底的所以这里获取到是AICPU引擎就应该加载Kernel
-    if (GetExternalInputHcclAicpuUnfold() == true) {
-        HCCL_DEBUG("[HcclExecOp] is aicpu mode");
-        param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
-        CHK_RET(LoadAICPUKernel());
-        param.engine = CommEngine::COMM_ENGINE_AICPU_TS;
-    }
-    else if (GetExternalInputHcclAivMode() == true) {
-        HCCL_DEBUG("[HcclExecOp] is aiv mode");
-        // 注册AIV kernel二进制
-        CHK_RET(RegisterKernel(param.opType, g_aivKernelInfoMap[param.opType].first, g_aivKernelInfoMap[param.opType].second));
-        param.opExecuteConfig = OpExecuteConfig::AIV;
-        param.engine = CommEngine::COMM_ENGINE_AIV;
-    }
-    else if (GetExternalInputHcclCcuMSMode()) {
-        param.opExecuteConfig = OpExecuteConfig::CCU_MS;
-        param.engine = CommEngine::COMM_ENGINE_CCU;
-    }
-    else if (GetExternalInputHcclCcuSchedMode()) {
-        param.opExecuteConfig = OpExecuteConfig::CCU_SCHED;
-        param.engine = CommEngine::COMM_ENGINE_CCU;
-    }
+    HCCL_INFO("Start to execute Selector.");
+    CHK_RET(HcclGetOpExpansionMode(comm, param));
     // 获取基础拓扑
-    TopoInfo *topoInfo = nullptr;
-    CHK_RET(HcclCalcTopoInfo(comm, param, &topoInfo));
+    CHK_RET(HcclCalcTopoInfo(comm, param, topoInfo));
 
     // 算法选择，选择完后顺便param.algTag设置了，资源的保存是以算子+算法为单位
-    std::string algName = "";
     std::shared_ptr<ExecuteSelector> collAlgSelector = std::make_shared<ExecuteSelector>(ExecuteSelector());
-    OpExecuteConfig opExecuteConfig;
-    CHK_RET(collAlgSelector->Run(param, topoInfo, algName, opExecuteConfig));
+    CHK_RET(collAlgSelector->Run(param, topoInfo.get(), algName, opExecuteConfig));
     if (algName == "") {
-        HCCL_ERROR("[HcclExecOp] select algname fail!");
+        HCCL_ERROR("[SelectorAhead] select algname fail!");
         return HCCL_E_PTR;
     }
     CHK_RET(SetCommEngine(param, opExecuteConfig));
     // 如果一开始读取到的Engine不是aicpu，经过算法选择后回退到aipcu，则需要重新LoadAICPUKernel
     if ((param.engine == CommEngine::COMM_ENGINE_AICPU_TS) || (param.engine == CommEngine::COMM_ENGINE_CPU)) {
-        HCCL_DEBUG("[HcclExecOp] is aicpu mode");
+        HCCL_DEBUG("[SelectorAhead] is aicpu mode");
         CHK_RET(LoadAICPUKernel()); // 该函数内部有防止重复加载的逻辑
     }
-    SetOpParamAlgTag(param, algName);
+    CHK_RET(SetOpParamAlgTag(param, algName));
+    HCCL_INFO("Success to execute Selector.");
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclExecOp(HcclComm comm, OpParam &param,
+                      std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo, std::string &algName)
+{
+    HCCL_INFO("Start to execute HcclExecOp.");
+    param.hcclComm = comm;
     // 在原先的commName中添加执行模式，得到commModeTag
     bool isOpBase = true;
     const char* opModeStr = isOpBase ? "_opbase" : "_offload";
@@ -110,84 +95,11 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param)
     // 资源序列化结果
     void *resCtxSequence;
     bool isResourceReused = false;
-    CHK_RET(HcclGetAlgRes(comm, param, executor, topoInfo, resCtxHost, &resCtxSequence, isResourceReused));
+    CHK_RET(HcclGetAlgRes(comm, param, executor, topoInfo.get(), resCtxHost, &resCtxSequence, isResourceReused));
 
     // 算法执行
     if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
-        // 当前aicpu launch接口只能有一个输入参数，将Context指针放在param参数中
-        param.resCtx = resCtxSequence;
-        // 将算法名字放在param参数中
-        int result = sprintf_s(param.algName, sizeof(param.algName), "%s", algName.c_str());
-        if (result <= 0) {
-            HCCL_ERROR("faled to fill param.algName");
-            return HCCL_E_INTERNAL;
-        }
-
-        if (param.engine == COMM_ENGINE_CPU) {
-            // 注册dpu回调函数
-            CHK_RET(static_cast<HcclResult>(HcclTaskRegister(comm, param.algTag, HcclLaunchDPUKernel)));
-        }
-
-        // Host stream通知Device主thread，这里现在是直接用的acl的接口，是否有基础库的接口
-        if (aclrtRecordNotify(g_notifies_host_with_device[0], param.stream) != ACL_SUCCESS) {
-            HCCL_ERROR("failed to record aicpu stream");
-            return HCCL_E_INTERNAL;
-        }
-        // 执行device测的算法编排
-        std::string kernelName = "HcclLaunchAicpuKernel";
-        aclrtFuncHandle funcHandle;
-        aclrtArgsHandle argsHandle;
-        // 注意，目前开源HCCL加载AICPU kernel使用的是从json文件加载
-        // 详见load_kernel.cc中的LoadAICPUKernel函数，且只实现了scatter的，先共用scatter的
-        aclError ret = aclrtBinaryGetFunction(g_binKernelHandle, kernelName.c_str(), &funcHandle);
-        CHK_PRT_RET(ret != ACL_SUCCESS,
-            HCCL_ERROR("[aclrtBinaryGetFunction]errNo[0x%016llx] get func handle failed, kernelName:%s",
-                ret,
-                kernelName.c_str()),
-            HCCL_E_RUNTIME);
-        ret = aclrtKernelArgsInit(funcHandle, &argsHandle);
-        CHK_PRT_RET(ret != ACL_SUCCESS,
-            HCCL_ERROR(
-                "[aclrtKernelArgsInit]errNo[0x%016llx] args init failed, kernelName:%s", ret, kernelName.c_str()),
-            HCCL_E_RUNTIME);
-        aclrtParamHandle paraHandle;
-        size_t paramSize = sizeof(OpParam) + param.varMemSize;
-        ret = aclrtKernelArgsAppend(argsHandle, &param, paramSize, &paraHandle);
-        CHK_PRT_RET(ret != ACL_SUCCESS,
-            HCCL_ERROR("[aclrtKernelArgsAppend]errNo[0x%016llx] args append failed, append size %u,"
-                       "kernelName:%s",
-                ret,
-                paramSize,
-                kernelName.c_str()),
-            HCCL_E_RUNTIME);
-        ret = aclrtKernelArgsFinalize(argsHandle);
-        CHK_PRT_RET(ret != ACL_SUCCESS,
-            HCCL_ERROR("[aclrtKernelArgsFinalize]errNo[0x%016llx] args finalize failed, kernelName:%s",
-                ret,
-                kernelName.c_str()),
-            HCCL_E_RUNTIME);
-        // notifywait默认1836等待时长
-        u16 NOTIFY_DEFAULT_WAIT_TIME = 27 * 68;
-        aclrtLaunchKernelCfg cfg;
-        aclrtLaunchKernelAttr attr;
-        attr.id = ACL_RT_LAUNCH_KERNEL_ATTR_TIMEOUT;
-        attr.value.timeout = NOTIFY_DEFAULT_WAIT_TIME;
-        cfg.numAttrs = 1;
-        cfg.attrs = &attr;
-        constexpr u32 numBlocks = 1;
-        aclError aclRet = aclrtLaunchKernelWithConfig(funcHandle, numBlocks, param.stream, &cfg, argsHandle, nullptr);
-        CHK_PRT_RET(aclRet != ACL_SUCCESS,
-            HCCL_ERROR("[LoadCustomKernel][aclrtLaunchKernelWithConfig]errNo[0x%016llx] launch kernel failed", ret),
-            HCCL_E_OPEN_FILE_FAILURE);
-        // Host stream等待Device的通知
-        if (aclrtWaitAndResetNotify(g_notifies_host_with_device[1], param.stream, CUSTOM_TIMEOUT) != ACL_SUCCESS) {
-            HCCL_ERROR("failed to wait from aicpu stream");
-            return HCCL_E_INTERNAL;
-        }
-        if (aclrtSynchronizeStream(param.stream) != 0) {
-            HCCL_ERROR("Stream Synchronize Failed");
-            return HCCL_E_INTERNAL;
-        }
+        CHK_RET(HcclAicpuKernelEntranceLaunch(comm, param, resCtxSequence, algName));
     } else if (param.engine == COMM_ENGINE_AIV) {
         param.resCtx = resCtxSequence;
         AlgResourceCtxSerializable &resCtxHost = *static_cast<AlgResourceCtxSerializable *>(resCtxSequence);
@@ -214,26 +126,112 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param)
         }
         CHK_RET(executor->Orchestrate(param, *resCtxHost));
     }
-    HCCL_INFO("Execute ExecOp success.");
+    HCCL_INFO("Execute HcclExecOp success.");
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclCalcTopoInfo(HcclComm comm, OpParam &param, TopoInfo **topoInfo)
+HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, void *resCtxSequence, std::string &algName)
+{
+    // 当前aicpu launch接口只能有一个输入参数，将Context指针放在param参数中
+    param.resCtx = resCtxSequence;
+    // 将算法名字放在param参数中
+    int result = sprintf_s(param.algName, sizeof(param.algName), "%s", algName.c_str());
+    if (result <= 0) {
+        HCCL_ERROR("faled to fill param.algName");
+        return HCCL_E_INTERNAL;
+    }
+
+    if (param.engine == COMM_ENGINE_CPU) {
+        // 注册dpu回调函数
+        CHK_RET(static_cast<HcclResult>(HcclTaskRegister(comm, param.algTag, HcclLaunchDPUKernel)));
+    }
+
+    // Host stream通知Device主thread，这里现在是直接用的acl的接口，是否有基础库的接口
+    if (aclrtRecordNotify(g_notifies_host_with_device[param.algTag].at(0), param.stream) != ACL_SUCCESS) {
+        HCCL_ERROR("failed to record aicpu stream");
+        return HCCL_E_INTERNAL;
+    }
+    // 执行device测的算法编排
+    AicpuKernelLaunch(param);
+    // Host stream等待Device的通知
+    if (aclrtWaitAndResetNotify(g_notifies_host_with_device[param.algTag].at(1),
+        param.stream, CUSTOM_TIMEOUT) != ACL_SUCCESS) {
+        HCCL_ERROR("failed to wait from aicpu stream");
+        return HCCL_E_INTERNAL;
+    }
+    if (param.engine == COMM_ENGINE_CPU) {
+        if (aclrtSynchronizeStream(param.stream) != 0) {
+            HCCL_ERROR("Stream Synchronize Failed");
+            return HCCL_E_INTERNAL;
+        }
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult AicpuKernelLaunch(OpParam &param)
+{
+    std::string kernelName = "HcclLaunchAicpuKernel";
+    aclrtFuncHandle funcHandle;
+    aclrtArgsHandle argsHandle;
+    // 注意，目前开源HCCL加载AICPU kernel使用的是从json文件加载
+    // 详见load_kernel.cc中的LoadAICPUKernel函数，且只实现了scatter的，先共用scatter的
+    aclError ret = aclrtBinaryGetFunction(g_binKernelHandle, kernelName.c_str(), &funcHandle);
+    CHK_PRT_RET(ret != ACL_SUCCESS,
+        HCCL_ERROR("[aclrtBinaryGetFunction]errNo[0x%016llx] get func handle failed, kernelName:%s",
+            ret, kernelName.c_str()), HCCL_E_RUNTIME);
+    ret = aclrtKernelArgsInit(funcHandle, &argsHandle);
+    CHK_PRT_RET(ret != ACL_SUCCESS,
+        HCCL_ERROR(
+            "[aclrtKernelArgsInit]errNo[0x%016llx] args init failed, kernelName:%s", ret, kernelName.c_str()),
+        HCCL_E_RUNTIME);
+    aclrtParamHandle paraHandle;
+    size_t paramSize = sizeof(OpParam) + param.varMemSize;
+    ret = aclrtKernelArgsAppend(argsHandle, &param, paramSize, &paraHandle);
+    CHK_PRT_RET(ret != ACL_SUCCESS,
+        HCCL_ERROR("[aclrtKernelArgsAppend]errNo[0x%016llx] args append failed, append size %u,"
+                    "kernelName:%s", ret, paramSize, kernelName.c_str()), HCCL_E_RUNTIME);
+    ret = aclrtKernelArgsFinalize(argsHandle);
+    CHK_PRT_RET(ret != ACL_SUCCESS,
+        HCCL_ERROR("[aclrtKernelArgsFinalize]errNo[0x%016llx] args finalize failed, kernelName:%s",
+            ret, kernelName.c_str()), HCCL_E_RUNTIME);
+    // notifywait默认1836等待时长
+    u16 NOTIFY_DEFAULT_WAIT_TIME = 27 * 68;
+    aclrtLaunchKernelCfg cfg;
+    aclrtLaunchKernelAttr attr;
+    attr.id = ACL_RT_LAUNCH_KERNEL_ATTR_TIMEOUT;
+    attr.value.timeout = NOTIFY_DEFAULT_WAIT_TIME;
+    cfg.numAttrs = 1;
+    cfg.attrs = &attr;
+    constexpr u32 numBlocks = 1;
+    aclError aclRet = aclrtLaunchKernelWithConfig(funcHandle, numBlocks, param.stream, &cfg, argsHandle, nullptr);
+    CHK_PRT_RET(aclRet != ACL_SUCCESS,
+        HCCL_ERROR("[LoadCustomKernel][aclrtLaunchKernelWithConfig]errNo[0x%016llx] launch kernel failed", ret),
+        HCCL_E_OPEN_FILE_FAILURE);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclCalcTopoInfo(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo)
 {
     HCCL_INFO("[%s] HcclCalcTopoInfo start.", __func__);
-    uint64_t size = sizeof(TopoInfo);
+    uint64_t size = 0;
     void *ctx = nullptr;
     // 若获取Context失败，表示对应Context尚未缓存
     if (HcclEngineCtxGet(comm, param.tag, CommEngine::COMM_ENGINE_CPU_TS, &ctx, &size) != HCCL_SUCCESS) {
-        // 创建新的Context
+        // 初始化topoInfo
+        CHK_RET(InitRankInfo(comm, topoInfo.get()));
+        // 序列化
+        std::vector<char> seq = topoInfo->Serialize();
+        size = seq.size();
+        // 创建新的Context保存
         CHK_RET(HcclEngineCtxCreate(comm, param.tag, CommEngine::COMM_ENGINE_CPU_TS, size, &ctx));
-        // 将Context内存地址强转为TopoInfo
-        *topoInfo = static_cast<TopoInfo *>(ctx);
-        // 将对应拓扑信息填入到Context内存中
-        CHK_RET(InitRankInfo(comm, *topoInfo));
+        ACLCHECK(aclrtMemcpy(ctx, size, seq.data(), size, ACL_MEMCPY_HOST_TO_HOST));
         return HCCL_SUCCESS;
     }
-    *topoInfo = static_cast<TopoInfo *>(ctx);
+    char *ctxTemp = reinterpret_cast<char*>(ctx);
+    std::vector<char> seq(ctxTemp, ctxTemp + size);
+    TopoInfoWithNetLayerDetails topoInfoTemp;
+    topoInfoTemp.DeSerialize(seq);
+    topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>(std::move(topoInfoTemp));
     HCCL_INFO("[%s] HcclCalcTopoInfo end.", __func__);
     return HCCL_SUCCESS;
 }
@@ -257,7 +255,7 @@ void CompReqChannelWithExistChannel(const std::vector<std::vector<ChannelInfo>>&
     return;
 }
 
-HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::shared_ptr<InsCollAlgBase>& executor, TopoInfo* topoInfo,
+HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::shared_ptr<InsCollAlgBase>& executor, TopoInfoWithNetLayerDetails* topoInfo,
                          std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, void** resCtxSequence, bool &isResourceReused)
 {
     HCCL_INFO("Start to execute HcclGetAlgRes.");
@@ -321,7 +319,7 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::shared_ptr<InsCollA
 }
 
 HcclResult GetAlgResAICPU(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
-    std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, TopoInfo *topoInfo,
+    std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, TopoInfoWithNetLayerDetails *topoInfo,
     AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence, uint64_t& ctxSize,
     bool increCreateChannelFlag)
 {
@@ -402,22 +400,24 @@ HcclResult HcclAllocAlgResourceAICPU(
     resCtxHost->notifyNumOnMainThread = resRequest.notifyNumOnMainThread;
     resCtxHost->slaveThreadNum = resRequest.slaveThreadNum;
     resCtxHost->notifyNumPerThread = resRequest.notifyNumPerThread;
-    CHK_RET(HcclGetH2DNotify(resCtxHost));
+    CHK_RET(HcclGetH2DNotify(param.algTag, resCtxHost));
     CHK_RET(HcclGetThread(comm, param, resRequest, resCtxHost));
     CHK_RET(HcclGetChannel(comm, param, resRequest, resCtxHost));
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclGetH2DNotify(std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost)
+HcclResult HcclGetH2DNotify(const std::string algTag, std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost)
 {
 #define ACL_NOTIFY_DEFAULT 0x00000000U
     // 先使用acl接口来分配notify
-    if (aclrtCreateNotify(&(g_notifies_host_with_device[0]), ACL_NOTIFY_DEFAULT) != ACL_SUCCESS) {
+    auto& notifyVec = g_notifies_host_with_device[algTag];
+    notifyVec.resize(2);
+    if (aclrtCreateNotify(&(notifyVec[0]), ACL_NOTIFY_DEFAULT) != ACL_SUCCESS) {
         HCCL_ERROR("failed to alloc notify");
         return HCCL_E_INTERNAL;
     }
 
-    if (aclrtCreateNotify(&(g_notifies_host_with_device[1]), ACL_NOTIFY_DEFAULT) != ACL_SUCCESS) {
+    if (aclrtCreateNotify(&(notifyVec[1]), ACL_NOTIFY_DEFAULT) != ACL_SUCCESS) {
         HCCL_ERROR("failed to alloc notify");
         return HCCL_E_INTERNAL;
     }
@@ -425,7 +425,7 @@ HcclResult HcclGetH2DNotify(std::unique_ptr<AlgResourceCtxSerializable>& resCtxH
     for (u32 idx = 0; idx < AICPU_CONTROL_NOTIFY_NUM; idx++) {
         uint32_t notifyId;
         // 获取notify Id，放入Context中
-        if (aclrtGetNotifyId(g_notifies_host_with_device[idx], &notifyId) != ACL_SUCCESS) {
+        if (aclrtGetNotifyId(notifyVec[idx], &notifyId) != ACL_SUCCESS) {
             HCCL_ERROR("failed to get notify id");
             return HCCL_E_INTERNAL;
         }
@@ -504,7 +504,7 @@ HcclResult HcclGetChannel(HcclComm comm, const OpParam &param, AlgResourceReques
 }
 
 HcclResult GetAlgResCcu(HcclComm comm, const OpParam& param, AlgResourceRequest& resRequest,
-                        std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, TopoInfo* topoInfo,
+                        std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, TopoInfoWithNetLayerDetails* topoInfo,
                         AlgHierarchyInfoForAllLevel& algHierarchyInfo, void **resCtxSequence, uint64_t& ctxSize)
 {
     resCtxHost->topoInfo = *topoInfo;
@@ -543,7 +543,7 @@ HcclResult HcclAllocAlgResourceCcu(HcclComm comm, const OpParam& param, AlgResou
     resCtxHost->notifyNumOnMainThread = resRequest.notifyNumOnMainThread;
     resCtxHost->slaveThreadNum = resRequest.slaveThreadNum;
     resCtxHost->notifyNumPerThread = resRequest.notifyNumPerThread;
-    CHK_RET(HcclGetH2DNotify(resCtxHost));
+    CHK_RET(HcclGetH2DNotify(param.algTag, resCtxHost));
     CHK_RET(HcclGetThread(comm, param, resRequest, resCtxHost));
     CHK_RET(HcclGetChannelForCcu(comm, param, resRequest, resCtxHost));
     CHK_RET(HcclGetCcuKernel(comm, param, resRequest, resCtxHost));
@@ -598,7 +598,7 @@ HcclResult HcclGetCcuKernel(HcclComm comm, const OpParam &param, AlgResourceRequ
     return HCCL_SUCCESS;
 }
 
-HcclResult GetAlgResAiv(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest, TopoInfo *topoInfo,
+HcclResult GetAlgResAiv(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest, TopoInfoWithNetLayerDetails *topoInfo,
     AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence, uint64_t& ctxSize)
 {
     uint64_t size = sizeof(AlgResourceCtxSerializable);
@@ -699,7 +699,7 @@ HcclResult HcclAllocAlgResourceAiv(
 }
 
 HcclResult GetAlgResDPU(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
-    std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, TopoInfo *topoInfo,
+    std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, TopoInfoWithNetLayerDetails *topoInfo,
     AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence, uint64_t& ctxSize,
     bool increCreateChannelFlag)
 {
@@ -832,7 +832,7 @@ HcclResult SingleRankProc(const OpParam &param)
         return HcclResult::HCCL_SUCCESS;
     }
     u64 len{0};
-    if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL || param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC ||
+    if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL || param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
         param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
         len = DATATYPE_SIZE_TABLE[param.all2AllVDataDes.sendType] * *(static_cast<const u64 *>(param.all2AllVDataDes.sendCounts));
     } else if (param.opType == HCCL_CMD_ALLGATHER_V || param.opType == HCCL_CMD_REDUCE_SCATTER_V) {
@@ -890,6 +890,116 @@ HcclResult SetOpParamAlgTag(OpParam &param, const std::string &algName)
     }
 
     return HcclResult::HCCL_SUCCESS;
+}
+
+HcclResult HcclGetOpExpansionMode(HcclComm comm, OpParam &param)
+{
+    HcclOpExpansionMode finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_INVALID;
+
+    // 第一步：决定使用哪种模式
+    HcclResult ret = DecideOpExpansionMode(comm, finalMode);
+    if (ret != HCCL_SUCCESS) {
+        HCCL_ERROR("faled to decide op expansion mode.");
+        return ret;
+    }
+
+    // 第二步： 应用选择的模式到param
+    ret = ApplyOpExpansionMode(param, finalMode);
+    if (ret != HCCL_SUCCESS) {
+        HCCL_ERROR("faled to apply op expansion mode.");
+        return ret;
+    }
+
+    return HCCL_SUCCESS;
+}
+
+HcclResult DecideOpExpansionMode(HcclComm comm, HcclOpExpansionMode &finalMode)
+{
+    HcclOpExpansionMode configOpExpansionMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_INVALID;
+    uint32_t infoLen = sizeof(HcclOpExpansionMode);
+    CHK_RET(HcclConfigGetInfo(comm, HcclConfigType::HCCL_CONFIG_TYPE_OP_EXPANSION_MODE,
+                              infoLen, &configOpExpansionMode));
+    
+    finalMode = configOpExpansionMode;
+    std::string modeSource = "config";
+
+    if (GetExternalInputHcclAicpuUnfold()) {
+        finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_AI_CPU;
+        modeSource = "environment variable (AICPU)";
+    } else if (GetExternalInputHcclAivMode()) {
+        finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV;
+        modeSource = "environment variable (AIV)";
+    } else if (GetExternalInputHcclCcuMSMode()) {
+        finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_CCU_MS;
+        modeSource = "environment variable (CCU_MS)";
+    } else if (GetExternalInputHcclCcuSchedMode()) {
+        finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_CCU_SCHED;
+        modeSource = "environment variable (CCU_SCHED)";
+    }
+
+    if (configOpExpansionMode != finalMode) {
+        HCCL_DEBUG("[DecideOpExpansionMode] configOpExpansionMode[%d] != finalMode[%d], use finalMode[%d] from %s",
+                   configOpExpansionMode, finalMode, finalMode, modeSource.c_str());
+    } else {
+        HCCL_DEBUG("[DecideOpExpansionMode] configOpExpansionMode[%d] == finalMode[%d], use finalMode[%d] from %s",
+                   configOpExpansionMode, finalMode, finalMode, modeSource.c_str());
+    }
+
+    return HCCL_SUCCESS;
+}
+
+HcclResult ApplyOpExpansionMode(OpParam &param, HcclOpExpansionMode finalMode)
+{
+    switch (finalMode) {
+        case HcclOpExpansionMode::HCCL_OP_EXPANSION_AI_CPU:
+            param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
+            param.engine = CommEngine::COMM_ENGINE_AICPU_TS;
+            CHK_RET(LoadAICPUKernel());
+            HCCL_DEBUG("[ApplyOpExpansionMode] AICPU mode selected.");
+            break;
+        case HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV:
+            param.opExecuteConfig = OpExecuteConfig::AIV;
+            param.engine = CommEngine::COMM_ENGINE_AIV;
+            CHK_RET(RegisterKernel(param.opType,
+                                   g_aivKernelInfoMap[param.opType].first,
+                                   g_aivKernelInfoMap[param.opType].second));
+            HCCL_DEBUG("[ApplyOpExpansionMode] AIV mode selected.");
+            break;
+        case HcclOpExpansionMode::HCCL_OP_EXPANSION_CCU_MS:
+            param.opExecuteConfig = OpExecuteConfig::CCU_MS;
+            param.engine = CommEngine::COMM_ENGINE_CCU;
+            HCCL_DEBUG("[ApplyOpExpansionMode] CCU_MS mode selected.");
+            break;
+        case HcclOpExpansionMode::HCCL_OP_EXPANSION_CCU_SCHED:
+            param.opExecuteConfig = OpExecuteConfig::CCU_SCHED;
+            param.engine = CommEngine::COMM_ENGINE_CCU;
+            HCCL_DEBUG("[ApplyOpExpansionMode] CCU_SCHED mode selected.");
+            break;
+        case HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_INVALID:
+            // 回退到aicpu
+            HCCL_WARNING("HCCL_OP_EXPANSION_MODE_INVALID, fallback to AICPU_TS");
+            param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
+            param.engine = CommEngine::COMM_ENGINE_AICPU_TS;
+            CHK_RET(LoadAICPUKernel());
+            break;
+        default:
+            HCCL_ERROR("[ApplyOpExpansionMode] faled to apply op expansion mode: %d", static_cast<int>(finalMode));
+            return HcclResult::HCCL_E_INTERNAL;
+    }
+    return HcclResult::HCCL_SUCCESS;
+}
+
+HcclResult HcclCheckAicpuEnableOpen()
+{
+    // 获取环境变量值
+    const char* envValue = std::getenv("HCCL_ENABLE_OPEN_AICPU");
+
+    // 检查环境变量是否存在且值为"1"
+    if (envValue != nullptr && std::strcmp(envValue, "1") == 0) {
+        return true;
+    }
+
+    return false;
 }
 
 }  // namespace ops_hccl
