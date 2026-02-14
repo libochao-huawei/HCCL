@@ -56,9 +56,6 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
 {
     // 入口的地方先解析环境变量
     CHK_RET(InitEnvConfig());
-    if (!CheckHCCLIndependentOp()) {
-        return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
-    }
 
     // 获取设备类型拦截混合组网
     HcclHeterogMode allDeviceType;
@@ -74,9 +71,9 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
        return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
     }
 
-    // 入口的地方先解析环境变量
-    CHK_RET(InitEnvConfig());
-    
+    if (!CheckHCCLIndependentOp() && deviceType != DevType::DEV_TYPE_910_93) {
+        return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
+    }
     // AclGraph引导到老的流程上面
     if (IsStreamCapture(stream)) {
         return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
@@ -86,7 +83,6 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
         || GetExternalInputInterServerRetryEnable() || GetExternalInputInterSuperPodRetryEnable())) {
         return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
     }
-
 
     // 图模式引导到老的流程上面
     if (GetWorkflowMode() != HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE) {
