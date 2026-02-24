@@ -342,6 +342,7 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     s32 aivCountTag = 0;
     u64 ctxSize = 0;
     void* resCtx = nullptr;
+    ThreadHandle opThread = 0;
     u64 varMemSize{0};
     u8 varData[0];
 };
