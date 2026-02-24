@@ -201,13 +201,13 @@ struct AlgHierarchyInfoForAllLevel {
 // 如果能够序列化那么就是下面的结构体
 // 先序列化，把东西考到device，然后把指针存到OpParam，在device侧反序列该指针执行的内存
 struct AlgResourceCtxSerializable {
+    ThreadHandle opThread{0}; // 放在开头，不要移动位置
     AlgType algType; // 环境变量设置的算法类型
     AlgHierarchyInfoForAllLevel algHierarchyInfo; // 算法分层信息
     HcclMem cclMem; // 跨Rank缓存Buffer
     u32 notifyNumOnMainThread; // 主流上的notify数量
     u32 slaveThreadNum; // 需要的thread数量
     std::vector<u32> notifyNumPerThread; // 每个thread需要的notify数量
-    uint32_t notifyIds[AICPU_CONTROL_NOTIFY_NUM]; // aicpu 模式下控制notify
     TopoInfo topoInfo; // 提取的拓扑信息
     void* aivCommInfoPtr = nullptr;
     std::vector<ThreadHandle> threads;
@@ -224,15 +224,13 @@ struct AlgResourceCtxSerializable {
     {
         BinaryStream binaryStream;
 
+        binaryStream << opThread;
         binaryStream << algType;
         binaryStream << algHierarchyInfo.infos;
         binaryStream << cclMem;
         binaryStream << notifyNumOnMainThread;
         binaryStream << slaveThreadNum;
         binaryStream << notifyNumPerThread;
-        for (uint32_t i = 0; i < AICPU_CONTROL_NOTIFY_NUM; i++) {
-            binaryStream << notifyIds[i];
-        }
         binaryStream << topoInfo;
         binaryStream << commInfoPtr;
         binaryStream << threads;
@@ -253,16 +251,13 @@ struct AlgResourceCtxSerializable {
     void DeSerialize(std::vector<char> &data)
     {
         BinaryStream binaryStream(data);
-
+        binaryStream >> opThread;
         binaryStream >> algType;
         binaryStream >> algHierarchyInfo.infos;
         binaryStream >> cclMem;
         binaryStream >> notifyNumOnMainThread;
         binaryStream >> slaveThreadNum;
         binaryStream >> notifyNumPerThread;
-        for (uint32_t i = 0; i < AICPU_CONTROL_NOTIFY_NUM; i++) {
-            binaryStream >> notifyIds[i];
-        }
         binaryStream >> topoInfo;
         binaryStream >> commInfoPtr;
         binaryStream >> threads;
