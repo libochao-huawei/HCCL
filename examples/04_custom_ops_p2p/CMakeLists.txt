@@ -18,7 +18,7 @@ set(HCCL_CUSTOM_OPS_INCLUDE_LIST
 
     # CANN Toolkit头文件
     ${ASCEND_CANN_PACKAGE_PATH}/include
-    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/mmpa
+    ${ASCEND_CANN_PACKAGE_PATH}/include/mmpa
 )
 
 # Host 动态链接库
