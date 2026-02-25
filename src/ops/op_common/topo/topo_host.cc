@@ -45,8 +45,10 @@ HcclResult InitRankInfo(HcclComm comm, TopoInfo* topoInfo)
         // 获取本服务器内的链路信息
         CHK_RET(CalcLinkInfo(topoInfo, pairLinkCounter));
     }
-    CHK_RET(CalcTopoLevelNums(comm, topoInfo));
-    CHK_RET(CalcLevel0TopoShape(comm, topoInfo));
+    if (topoInfo->deviceType == DevType::DEV_TYPE_910_95) {
+        CHK_RET(CalcTopoLevelNums(comm, topoInfo));
+        CHK_RET(CalcLevel0TopoShape(comm, topoInfo));
+    }
     HCCL_CONFIG_INFO(HCCL_ALG, "[InitRankInfo] userRank[%u] userRankSize[%u] serverIdx[%u] superPodIdx[%u] "
         "deviceType[%u] deviceNumPerModule[%u] serverNumPerSuperPod[%u] serverNum[%u] moduleNum[%u] superPodNum[%u] moduleIdx[%u] "
         "isDiffDeviceModule[%d] multiModuleDiffDeviceNumMode[%d] multiSuperPodDiffServerNumMode[%d] isHCCSSWNumEqualToTwiceSIONum[%d]",
