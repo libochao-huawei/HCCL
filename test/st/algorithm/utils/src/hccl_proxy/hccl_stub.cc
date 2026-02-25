@@ -29,22 +29,22 @@
 extern "C" {
 #endif  // __cplusplus
 
-HcclResult HcclGetInstSizeByNetLayer(HcclComm comm, uint32_t netLayer, uint32_t *rankNum)
+HcclResult HcclRankGraphGetRankSizeByLayer(HcclComm comm, uint32_t netLayer, uint32_t *rankNum)
 {
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclGetNetLayers(HcclComm comm, uint32_t **netLayers, uint32_t *netLayerNum)
+HcclResult HcclRankGraphGetLayers(HcclComm comm, uint32_t **netLayers, uint32_t *netLayerNum)
 {
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclGetInstSizeListByNetLayer(HcclComm comm, uint32_t netLayer, uint32_t **instSizeList, uint32_t *listSize)
+HcclResult HcclRankGraphGetInstSizeListByLayer(HcclComm comm, uint32_t netLayer, uint32_t **instSizeList, uint32_t *listSize)
 {
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclGetLinks(HcclComm comm, uint32_t netLayer, uint32_t srcRank, uint32_t dstRank,
+HcclResult HcclRankGraphGetLinks(HcclComm comm, uint32_t netLayer, uint32_t srcRank, uint32_t dstRank,
     CommLink **linkList, uint32_t *listSize)
 {
     return HCCL_SUCCESS;
@@ -82,6 +82,12 @@ HcclResult HcclGetRankId(HcclComm comm, uint32_t *rank)
     *rank = simComm->GetRankId();
     HCCL_INFO("[%s] rankId: %u", __func__, *rank);
     return HCCL_SUCCESS;
+}
+
+HcclResult HcclGetHeterogMode(HcclComm comm, HcclHeterogMode *mode)
+{
+ 	*mode = HcclHeterogMode::HCCL_HETEROG_MODE_HOMOGENEOUS;
+ 	return HCCL_SUCCESS;
 }
 
 // Inner后缀算子尚未实现走原始流程

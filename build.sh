@@ -19,7 +19,7 @@ JOB_NUM="-j${CPU_NUM}"
 ASAN="false"
 COV="false"
 CUSTOM_OPTION="-DCMAKE_INSTALL_PREFIX=${OUTPUT_DIR}"
-FULL_MODE="true"  # 新增变量，用于控制是否全量构建
+FULL_MODE="false"  # 新增变量，用于控制是否全量构建
 KERNEL="false"  # 新增变量，用于控制是否只编译 ccl_kernel.so
 CANN_3RD_LIB_PATH="${CURRENT_DIR}/third_party"
 CUSTOM_SIGN_SCRIPT="${CURRENT_DIR}/scripts/sign/community_sign_build.py"
@@ -289,7 +289,7 @@ function usage() {
   echo "    --version <VERSION>"
   echo "                   Set sign version to <VERSION>"
   echo "    --custom_ops_path=<CUSTOM_OPS_PATH>"
-  echo "                   Set custom ops project path to <VERSION>"
+  echo "                   Set custom ops project path to <CUSTOM_OPS_PATH>"
   echo "    --ops=<OPS>"
   echo "                   Set custom ops name to <OPS>"
   echo "    --vendor=<VENDOR>"
