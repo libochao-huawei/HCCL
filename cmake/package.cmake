@@ -129,11 +129,6 @@ function(pack_built_in)
       ${CMAKE_SOURCE_DIR}/scripts/package/common/cfg/path.cfg
   )
 
-  set(HOST_ONLY "false")
-  if (NOT FULL_MODE)
-    set(HOST_ONLY "true")
-  endif()
-
   install(FILES ${CMAKE_BINARY_DIR}/version.hccl.info
       DESTINATION share/info/hccl
       RENAME version.info
