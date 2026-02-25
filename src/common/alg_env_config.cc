@@ -791,7 +791,7 @@ bool RunIndependentOpExpansion(DevType deviceType) {
     
     // HOST_TS为Host展开
     if (deviceType == DevType::DEV_TYPE_910B) {
-        return opExpansionModeEnv == "HOST_TS";
+        return opExpansionModeEnv == "HOST_TS" || opExpansionModeEnv == "HOST";
     }
     return false;
 }

@@ -102,6 +102,12 @@ HcclResult ScatterExecutorBase::RunLoop(const OpParam &param)
         u64 curRecvSize = curRecvCount * unitSize_;
         u64 curSendSize = topoInfo_->userRankSize * curRecvSize;
 
+#ifndef AICPU_COMPILE
+        if (!IsHugeData(curRecvSize)) {
+            CHK_RET(static_cast<HcclResult>(HcommBatchModeStart(param.algTag)));
+        }
+#endif
+
         HcclMem curInputMem{cclInputMem.type, cclInputMem.addr, curSendSize};
         HcclMem curOutputMem{cclOutputMem.type, cclOutputMem.addr, curRecvSize};
 
@@ -140,6 +146,12 @@ HcclResult ScatterExecutorBase::RunLoop(const OpParam &param)
 
         curUserInputPtr += curRecvSize;
         curUserOutputPtr += curRecvSize;
+
+#ifndef AICPU_COMPILE
+        if (!IsHugeData(curRecvSize)) {
+            CHK_RET(static_cast<HcclResult>(HcommBatchModeEnd(param.algTag)));
+        }
+#endif
     }
     if(param.engine == CommEngine::COMM_ENGINE_CPU_TS || 
         param.engine == CommEngine::COMM_ENGINE_CPU) {
