@@ -65,13 +65,13 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
         return HCCL_E_NOT_SUPPORT;
     }
 
+    DevType deviceType = DevType::DEV_TYPE_COUNT;
+    CHK_RET(hrtGetDeviceType(deviceType));
+
     if (!CheckHCCLIndependentOp() && deviceType != DevType::DEV_TYPE_910_93) {
         return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
     }
 
-    DevType deviceType = DevType::DEV_TYPE_COUNT;
-    CHK_RET(hrtGetDeviceType(deviceType));
-    
     if (!CheckHCCLIndependentOp() && deviceType != DevType::DEV_TYPE_910_93) {
         return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
     }
