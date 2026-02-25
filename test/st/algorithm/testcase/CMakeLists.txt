@@ -25,6 +25,7 @@ set(src_list
     broadcast_testcase.cc
     reduce_scatter_aicpu_testcase.cc
     batch_send_recv_testcase.cc
+    hccl_mc2_testcase.cc
 )
 
 add_executable(hccl_checker_ops_stest ${src_list})
