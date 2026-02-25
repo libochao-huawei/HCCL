@@ -20,7 +20,7 @@ set(COMMON_INC_PATH
     ${ASCEND_3RD_LIB_PATH}/gtest_shared/include
 )
 
-include(cmake/config.cmake)
+# include(cmake/config.cmake)
 
 # UT
 if(ENABLE_UT)
