@@ -37,11 +37,6 @@ function(pack_custom)
       WORLD_READ WORLD_EXECUTE
   )
 
-  add_custom_target(version_info ALL
-      COMMAND cp -f ${CMAKE_SOURCE_DIR}/version.info ${CMAKE_CURRENT_BINARY_DIR}/version.info
-      COMMAND ${CMAKE_COMMAND} -E echo "host_only=false" >> ${CMAKE_CURRENT_BINARY_DIR}/version.info
-  )
-
   # ============= CPack =============
   set(CPACK_PACKAGE_NAME "cann-hccl-${CUSTOM_OPS_NAME}-${CUSTOM_OPS_VENDOR}")
   set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
