@@ -30,21 +30,44 @@ if(NOT INSTALL_RESULT EQUAL 0)
     message(FATAL_ERROR "Installation to staging directory failed: ${INSTALL_ERROR}")
 endif()
 
+# 设置压缩工具
+set(COMPRESSION_TOOLS pigz gzip bzip2 xz)
+unset(COMPRESSION_OPTION)
+foreach(tool IN LISTS COMPRESSION_TOOLS)
+    find_program(TOOL_PATH ${tool})
+    if(TOOL_PATH)
+        set(COMPRESSION_OPTION "--${tool}")
+        break()
+    endif()
+endforeach()
+if(NOT COMPRESSION_OPTION)
+    message(FATAL_ERROR "Make sure at least one of the following compression tools is available: ${COMPRESSION_TOOLS}")
+endif()
+
+# 设置压缩格式
+find_program(BSDTAR_PATH bsdtar)
+if(BSDTAR_PATH)
+    set(TAR_FORMAT "ustar")
+else()
+    set(TAR_FORMAT "gnu")
+endif()
+
 # makeself打包
 set(package_path "${STAGING_DIR}")
 set(package_name "cann-hccl_custom_${CPACK_CUSTOM_OPS_NAME}_linux-${CPACK_ARCH}.run")
 set(package_label "CANN_HCCL_RUN_PACKAGE")
-set(makeself_param 
-    --pigz
-    --complevel 4
-    --nomd5
-    --sha256
-    --nooverwrite
-    --chown
-    --tar-format gnu
-    --tar-extra
-    --numeric-owner
-    --tar-quietly)
+set(makeself_param
+    ${COMPRESSION_OPTION}
+    "--complevel" "4"
+    "--nomd5"
+    "--sha256"
+    "--nooverwrite"
+    "--chown"
+    "--numeric-owner"
+    "--tar-format" "${TAR_FORMAT}"
+    "--tar-extra"
+    "--tar-quietly"
+)
 
 execute_process(COMMAND bash ${MAKESELF_EXE}
         --header ${MAKESELF_HEADER_EXE}
