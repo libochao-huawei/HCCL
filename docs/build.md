@@ -9,7 +9,6 @@
    - python: 3.7.x 至 3.11.4 版本
    - gcc >= 7.3.0
    - cmake >= 3.16.0
-   - nlohmann_json
    - ccache（可选，用于提高二次编译速度）
    - googletest（仅执行UT时依赖，建议版本 release-1.14.0）
 
@@ -51,7 +50,6 @@ git clone https://gitcode.com/cann/hccl.git
 
 | 开源软件      | 版本                   | 下载地址                                                                                                                                                                                                    |
 | ------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| json          | 3.11.3                 | [include.zip](https://gitcode.com/cann-src-third-party/json/releases/download/v3.11.3/include.zip)                                                                                                          |
 | makeself      | 2.5.0                  | [makeself-release-2.5.0-patch1.tar.gz](https://gitcode.com/cann-src-third-party/makeself/releases/download/release-2.5.0-patch1.0/makeself-release-2.5.0-patch1.tar.gz)                                     |
 | googletest    | 1.14.0                 | [googletest-1.14.0.tar.gz](https://gitcode.com/cann-src-third-party/googletest/releases/download/v1.14.0/googletest-1.14.0.tar.gz)                                                                          |
 

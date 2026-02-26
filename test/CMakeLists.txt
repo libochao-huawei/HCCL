@@ -9,7 +9,6 @@
 # -----------------------------------------------------------------------------------------------------------
 
 set(CMAKE_PREFIX_PATH
-    ${CANN_3RD_LIB_PATH}/json
     ${CANN_3RD_LIB_PATH}/gtest/lib64
     ${ASCEND_INSTALL_PATH}
 )
