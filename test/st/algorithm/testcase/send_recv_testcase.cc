@@ -30,6 +30,7 @@ protected:
 
     void TearDown() override {
         unsetenv("HCCL_OP_EXPANSION_MODE");
+        unsetenv("HCCL_INDEPENDENT_OP");
     }
 
     static void SetUpTestCase() {
@@ -52,10 +53,20 @@ void SendRecvTest(
 
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
+    setenv("HCCL_INDEPENDENT_OP", "1", 1);
+
+    std::unordered_set<RankId> usedRankIds;
+    for (const auto &kv: sendRecvMap) {
+        usedRankIds.insert(kv.first);
+        usedRankIds.insert(kv.second);
+    }
 
     // 多线程运行send&recv算子
     std::vector<std::thread> threads;
     for (auto rankId = 0; rankId < rankSize; ++rankId) {
+        if (!usedRankIds.count(rankId)) {
+            continue;
+        }
         threads.emplace_back([=]() {
             // 1.SetDevice
             aclrtSetDevice(rankId);
