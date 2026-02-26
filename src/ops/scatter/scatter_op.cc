@@ -303,7 +303,7 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
         CHK_RET(HcclThreadExportToCommEngine(comm, 1, &mainThread, COMM_ENGINE_CPU_TS, &exportedCpuTsThread));
         // cpuTsThread 添加到ctx里
         char* curPtr = reinterpret_cast<char *>(resCtx);
-        curPtr = curPtr + sizeof(AlgResourceCtx) - sizeof(TopoInfo) - sizeof(ThreadHandle); // 偏移指针
+        curPtr = curPtr + sizeof(AlgResourceCtx) - sizeof(TopoInfo) - sizeof(ThreadHandle) - sizeof(uint32_t) - sizeof(void*); // 偏移指针
         ACLCHECK(aclrtMemcpy(curPtr, sizeof(ThreadHandle), &exportedAicpuTsThread, sizeof(ThreadHandle),
             ACL_MEMCPY_HOST_TO_DEVICE));
     }
