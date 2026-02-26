@@ -20,8 +20,6 @@ set(COMMON_INC_PATH
     ${ASCEND_3RD_LIB_PATH}/gtest_shared/include
 )
 
-# include(cmake/config.cmake)
-
 # UT
 if(ENABLE_UT)
     add_subdirectory(ut)
