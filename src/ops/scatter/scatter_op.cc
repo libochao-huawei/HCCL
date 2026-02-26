@@ -77,7 +77,7 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
        return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
     }
 
-    // 入口的地方先解析环境变量
+    // 入口的地方先解析环境变量, 调用位置有特殊要求，不要变化
     CHK_RET(InitEnvConfig());
     
     // AclGraph引导到老的流程上面
