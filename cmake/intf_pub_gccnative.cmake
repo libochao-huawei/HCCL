@@ -42,8 +42,7 @@ add_library(intf_pub INTERFACE)
 
 target_link_libraries(intf_pub INTERFACE
     $<BUILD_INTERFACE:intf_pub_base>
-    -Wl,--whole-archive
-    $<$<BOOL:${ENABLE_TEST}>:${ASCEND_3RD_LIB_PATH}/gtest_shared/lib/libgtest.so>
-    -Wl,--no-whole-archive
+    json
+    $<$<BOOL:${ENABLE_TEST}>:gtest>
     -Wl,-rpath,${CMAKE_INSTALL_PREFIX}/lib
 )
