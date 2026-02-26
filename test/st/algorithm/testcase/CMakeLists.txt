@@ -20,7 +20,7 @@ set(src_list
     all_gather_aicpu_testcase.cc
     all_gather_v_testcase.cc
     reduce_testcase.cc
-    send_recv_testcase.cc
+    send_recv_aicpu_testcase.cc
     reduce_scatter_v_testcase.cc
     broadcast_testcase.cc
     reduce_scatter_aicpu_testcase.cc
