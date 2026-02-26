@@ -50,7 +50,6 @@ if(ENABLE_TEST)
     include(cmake/config.cmake)
     include(cmake/intf_pub_gccnative.cmake)
     include(cmake/function.cmake)
-    include(cmake/third_party/json.cmake)
     include(cmake/third_party/gtest.cmake)
     add_subdirectory(test)
 
