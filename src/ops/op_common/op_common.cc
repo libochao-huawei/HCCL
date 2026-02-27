@@ -175,7 +175,15 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param)
         cfg.numAttrs = 1;
         cfg.attrs = &attr;
         constexpr u32 numBlocks = 1;
-        aclError aclRet = aclrtLaunchKernelWithConfig(funcHandle, numBlocks, param.stream, &cfg, argsHandle, nullptr);
+
+        // 根据主流的捕获状态决定展开流的状态
+        CaptureSlaveStream(param.stream, resCtxHost.threads);
+        // 通过Thread获取展开流
+        ThreadResTypeStream unfoldStream;
+        HcommThreaResGetInfo(resCtxHost.threads[1], THREAD_RES_TYPE_STREAM, sizeof(ThreadResTypeStream), &unfoldStream);
+        aclError aclRet = aclrtLaunchKernelWithConfig(funcHandle, numBlocks, unfoldStream, &cfg, argsHandle, nullptr); // 传入展开流
+
+        //aclError aclRet = aclrtLaunchKernelWithConfig(funcHandle, numBlocks, param.stream, &cfg, argsHandle, nullptr);
         CHK_PRT_RET(aclRet != ACL_SUCCESS,
             HCCL_ERROR("[LoadCustomKernel][aclrtLaunchKernelWithConfig]errNo[0x%016llx] launch kernel failed", ret),
             HCCL_E_OPEN_FILE_FAILURE);
@@ -439,8 +447,11 @@ HcclResult HcclGetThread(
     std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost)
 {
     ThreadHandle thread;
+    ThreadHandle unfoldThread;
     if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
         CHK_RET(HcclThreadAcquire(comm, COMM_ENGINE_AICPU_TS, 1, resRequest.notifyNumOnMainThread, &thread));
+        // 申请展开流对应的Thread
+        CHK_RET(HcclThreadAcquire(comm, COMM_ENGINE_CPU, 1, resRequest.notifyNumOnMainThread, &unfoldThread));
         HCCL_DEBUG("threads ptr is %p\n", &thread);
     } else {
         // host模式下，将主流封装为thread，并创建主流上的notify
@@ -448,6 +459,7 @@ HcclResult HcclGetThread(
             resRequest.notifyNumOnMainThread, &thread));
     }
     resCtxHost->threads.push_back(thread);
+    resCtxHost->threads.push_back(unfoldThread);
 
     for (u32 index = 0; index < resRequest.slaveThreadNum; index++) {
         ThreadHandle slaveThread;
