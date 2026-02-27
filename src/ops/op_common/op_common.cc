@@ -205,16 +205,56 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param)
             CHK_RET(ClearAivSyncBuf(param, resCtxHost));
         }
         CHK_RET(executor->Orchestrate(param, resCtxHost));
-    } else {
+    } else if (param.engine == COMM_ENGINE_CCU) {
         if (isResourceReused) {
             // 复用资源，则需从engineCtx取得res，进行反序列化
             char *ctx = static_cast<char*>(resCtxSequence);
             std::vector<char> seq(ctx, ctx + param.ctxSize);
             resCtxHost->DeSerialize(seq);
         }
+        if (resCtxHost->slaveThreadNum > 0) {
+            CHK_RET(CaptureSlaveStreams(param.stream, resCtxHost.threads));
+        }
         CHK_RET(executor->Orchestrate(param, *resCtxHost));
     }
     HCCL_INFO("Execute ExecOp success.");
+    return HCCL_SUCCESS;
+}
+
+HcclResult CaptureSlaveStreams(aclrtStream mainStream, const vector<ThreadHandle>& threads)
+{
+    aclmdlRI rtModel = nullptr;
+    u64 modelId = 0;
+    aclmdlRICaptureStatus captureStatus = aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_NONE;
+
+    rtError_t ret = aclmdlRICaptureGetInfo(mainStream, &captureStatus, &rtModel);
+    if (ret == ACL_ERROR_RT_FEATURE_NOT_SUPPORT) {
+        HCCL_WARNING("[%s]Stream capture not support.", __func__);
+        return HCCL_SUCCESS;
+    } else {
+        CHK_PRT_RET(ret != RT_ERROR_NONE, HCCL_ERROR("[%s]aclmdlRICaptureGetInfo fail. return[%d].", __func__, ret),
+            HCCL_E_RUNTIME);
+    }
+
+    CHK_PTR_NULL(rtModel);
+    ret = rtModelGetId(rtModel, &modelId);
+    if (ret != RT_ERROR_NONE) {
+        HCCL_ERROR("[%s]rtModelGetId failed. ret[%d].", __func__, ret);
+        return HCCL_E_RUNTIME;
+    }
+
+    if (captureStatus != aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_ACTIVE){
+        HCCL_WARNING("[%s] failed. captureStatus[%d].", __func__, captureStatus);
+        return HCCL_SUCCESS;
+    }
+    for (auto thread : threads) {
+        ThreadResTypeStream stream;
+        CHK_RET(HcommThreadResGetInfo(thread, ThreadResType::THREAD_RES_TYPE_STREAM, sizeof(ThreadResTypeStream), &stream));
+        ret = rtStreamAddToModel(stream, rtModel);
+        CHK_PRT_RET(ret != RT_ERROR_NONE, HCCL_ERROR
+            ("[%s]rtStreamAddToModel failed. ret[%d].", __func__, ret), HCCL_E_RUNTIME);
+    }
+ 
     return HCCL_SUCCESS;
 }
 
