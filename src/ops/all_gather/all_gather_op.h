@@ -25,7 +25,8 @@ extern "C" {
 
 HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
                          aclrtStream stream);
-
+HcclResult HcclAllGatherGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, const char* group, aclrtStream stream,
+                                  const ResPackGraphMode &resPack);
 #ifdef __cplusplus
 }
 #endif
@@ -33,7 +34,8 @@ HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclD
 namespace ops_hccl {
 HcclResult AllGatherOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
                              aclrtStream stream, const std::string &tag);
-
+HcclResult AllGatherOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
+                                      aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack);
 HcclResult CheckAllGatherInputPara(HcclComm comm, void *sendBuf, void *recvBuf, aclrtStream stream);
 
 }
