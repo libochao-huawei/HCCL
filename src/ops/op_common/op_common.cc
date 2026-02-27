@@ -175,7 +175,17 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param)
         cfg.numAttrs = 1;
         cfg.attrs = &attr;
         constexpr u32 numBlocks = 1;
-        aclError aclRet = aclrtLaunchKernelWithConfig(funcHandle, numBlocks, param.stream, &cfg, argsHandle, nullptr);
+
+        // 根据主流的捕获状态决定展开流的状态
+        std::vector<ThreadHandle> unfoldThread{resCtxHost->unfoldThread};
+        ret = CaptureSlaveStream(param.stream, unfoldThread);
+        CHK_PRT_RET(ret != HCCL_SUCCESS, 
+            HCCL_ERROR("[CaptureSlaveStream] errNo[0x%016llx] for aicpu unfold thread", ret), HCCL_E_RUNTIME);
+        // 通过Thread获取展开流stream
+        ThreadResTypeStream unfoldStream;
+        CHK_RET(HcommThreadResGetInfo(resCtxHost->unfoldThread, ThreadResType::THREAD_RES_TYPE_STREAM, sizeof(ThreadResTypeStream), &unfoldStream));
+        aclError aclRet = aclrtLaunchKernelWithConfig(funcHandle, numBlocks, unfoldStream, &cfg, argsHandle, nullptr); // 提前展开，传入展开流
+
         CHK_PRT_RET(aclRet != ACL_SUCCESS,
             HCCL_ERROR("[LoadCustomKernel][aclrtLaunchKernelWithConfig]errNo[0x%016llx] launch kernel failed", ret),
             HCCL_E_OPEN_FILE_FAILURE);
@@ -217,6 +227,36 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param)
     HCCL_INFO("Execute ExecOp success.");
     return HCCL_SUCCESS;
 }
+
+ HcclResult CaptureSlaveStreams(aclrtStream mainStream, const vector<ThreadHandle>& threads)
+ {
+     aclmdlRI rtModel = nullptr;
+     aclmdlRICaptureStatus captureStatus = aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_NONE;
+ 
+     rtError_t ret = aclmdlRICaptureGetInfo(mainStream, &captureStatus, &rtModel);
+     if (ret == ACL_ERROR_RT_FEATURE_NOT_SUPPORT) {
+         HCCL_WARNING("[%s]Stream capture not support.", __func__);
+         return HCCL_SUCCESS;
+     } else {
+         CHK_PRT_RET(ret != RT_ERROR_NONE, HCCL_ERROR("[%s]aclmdlRICaptureGetInfo fail. return[%d].", __func__, ret),
+             HCCL_E_RUNTIME);
+     }
+ 
+     if (captureStatus != aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_ACTIVE){
+         HCCL_WARNING("[%s] failed. captureStatus[%d].", __func__, captureStatus);
+         return HCCL_SUCCESS;
+     }
+     // threads[0]是主流
+     for (int i = 1; i<threads.size(); i++) {
+         ThreadResTypeStream stream;
+         CHK_RET(HcommThreadResGetInfo(threads[i], ThreadResType::THREAD_RES_TYPE_STREAM, sizeof(ThreadResTypeStream), &stream));
+         ret = rtStreamAddToModel(stream, rtModel);
+         CHK_PRT_RET(ret != RT_ERROR_NONE, HCCL_ERROR
+             ("[%s]rtStreamAddToModel failed. ret[%d].", __func__, ret), HCCL_E_RUNTIME);
+     }
+     HCCL_INFO("[%s] success, captured rtmodel:[%u]", __func__, rtModel);
+     return HCCL_SUCCESS;
+ }
 
 HcclResult HcclCalcTopoInfo(HcclComm comm, OpParam &param, TopoInfo **topoInfo)
 {
@@ -441,6 +481,8 @@ HcclResult HcclGetThread(
     ThreadHandle thread;
     if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
         CHK_RET(HcclThreadAcquire(comm, COMM_ENGINE_AICPU_TS, 1, resRequest.notifyNumOnMainThread, &thread));
+        // 申请展开流对应的Thread
+        CHK_RET(HcclThreadAcquire(comm, COMM_ENGINE_CPU, 1, 0, &resCtxHost->unfoldThread)); // 申请展开流thread
         HCCL_DEBUG("threads ptr is %p\n", &thread);
     } else {
         // host模式下，将主流封装为thread，并创建主流上的notify
