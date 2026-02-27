@@ -98,6 +98,8 @@ HcclResult SingleRankProc(const OpParam &param);
 HcclResult HcclCheckTag(const char *tag);
 
 HcclResult SetOpParamAlgTag(OpParam &param, const std::string &algName);
+
+HcclResult CaptureSlaveStreams(aclrtStream mainStream, const vector<ThreadHandle>& threads);
 }  // namespace ops_hccl
 
 #endif

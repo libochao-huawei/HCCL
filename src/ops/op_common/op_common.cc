@@ -175,7 +175,17 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param)
         cfg.numAttrs = 1;
         cfg.attrs = &attr;
         constexpr u32 numBlocks = 1;
-        aclError aclRet = aclrtLaunchKernelWithConfig(funcHandle, numBlocks, param.stream, &cfg, argsHandle, nullptr);
+
+        // 根据主流的捕获状态决定展开流的状态
+        std::vector<ThreadHandle> thread{resCtxHost.unfoldThread};
+        ret = CaptureSlaveStream(param.stream, thread);
+        CHK_PRT_RET(ret != HCCL_SUCCESS, 
+            HCCL_ERROR("[CaptureSlaveStream] errNo[0x%016llx] for aicpu unfold thread", ret), HCCL_E_RUNTIME);
+        // 通过Thread获取展开流stream
+        ThreadResTypeStream unfoldStream;
+        CHK_RET(HcommThreadResGetInfo(unfoldThread, ThreadResType::THREAD_RES_TYPE_STREAM, sizeof(ThreadResTypeStream), &unfoldStream));
+        aclError aclRet = aclrtLaunchKernelWithConfig(funcHandle, numBlocks, unfoldStream, &cfg, argsHandle, nullptr); // 提前展开，传入展开流
+
         CHK_PRT_RET(aclRet != ACL_SUCCESS,
             HCCL_ERROR("[LoadCustomKernel][aclrtLaunchKernelWithConfig]errNo[0x%016llx] launch kernel failed", ret),
             HCCL_E_OPEN_FILE_FAILURE);
@@ -441,6 +451,8 @@ HcclResult HcclGetThread(
     ThreadHandle thread;
     if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
         CHK_RET(HcclThreadAcquire(comm, COMM_ENGINE_AICPU_TS, 1, resRequest.notifyNumOnMainThread, &thread));
+        // 申请展开流对应的Thread
+        CHK_RET(HcclThreadAcquire(comm, COMM_ENGINE_CPU, 1, resRequest.notifyNumOnMainThread, &resCtxHost->unfoldThread));
         HCCL_DEBUG("threads ptr is %p\n", &thread);
     } else {
         // host模式下，将主流封装为thread，并创建主流上的notify
