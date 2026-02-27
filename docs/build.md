@@ -176,3 +176,66 @@ HCCL软件包安装完成后，开发者可通过HCCL Test工具进行集合通�
    - ”aveg_time“：集合通信算子的执行耗时，单位 us。
    - ”alg_bandwidth“：集合通信算子执行带宽，单位为 GB/s。
    - ”data_size“：单个 NPU 上参与集合通信的数据量，单位为 Bytes。
+
+
+## 补充Docker安装
+
+### 前提条件
+
+* **Docker环境**：以Atlas A2产品（910B）为例，环境里宿主机已安装Docker引擎（版本1.11.2及以上）。
+
+* **驱动与固件**：宿主机已安装昇腾NPU的[驱动与固件](https://www.hiascend.com/hardware/firmware-drivers/community?product=1&model=30&cann=8.0.RC3.alpha002&driver=1.0.26.alpha)Ascend HDK 24.1.0版本以上。安装指导详见《[CANN 软件安装指南](https://www.hiascend.com/document/detail/zh/CANNCommunityEdition/850alpha002/softwareinst/instg/instg_0005.html?Mode=PmIns&OS=openEuler&Software=cannToolKit)》。
+  
+    > **注意**：使用`npu-smi info`查看对应的驱动与固件版本。
+
+### 下载镜像
+拉取已预集成CANN软件包及`ops-nn`所需依赖的镜像。
+
+1.  以root用户登录宿主机。
+2.  执行拉取命令（请根据你的宿主机架构选择）：
+    
+    * ARM架构：
+      
+        ```bash
+        docker pull --platform=arm64 swr.cn-south-1.myhuaweicloud.com/ascendhub/cann:8.5.0-910b-ubuntu22.04-py3.10-ops
+        ```
+    * X86架构：
+    
+        ```bash
+        docker pull --platform=amd64 swr.cn-south-1.myhuaweicloud.com/ascendhub/cann:8.5.0-910b-ubuntu22.04-py3.10-ops
+        ```
+> **注意**：正常网速下，镜像下载时间约为5-10分钟。
+
+### Docker运行
+
+请根据以下命令运行docker：
+
+```bash
+docker run --name cann_container --device /dev/davinci0 --device /dev/davinci_manager --device /dev/devmm_svm --device /dev/hisi_hdc -v /usr/local/dcmi:/usr/local/dcmi -v /usr/local/bin/npu-smi:/usr/local/bin/npu-smi -v /usr/local/Ascend/driver/lib64/:/usr/local/Ascend/driver/lib64/ -v /usr/local/Ascend/driver/version.info:/usr/local/Ascend/driver/version.info -v /etc/ascend_install.info:/etc/ascend_install.info -it swr.cn-south-1.myhuaweicloud.com/ascendhub/cann:8.5.0-910b-ubuntu22.04-py3.10-ops bash
+```
+以下为用户需关注的参数说明：
+| 参数 | 说明 | 注意事项 |
+| :--- | :--- | :--- |
+| `--name cann_container` | 为容器指定名称，便于管理。 | 可自定义。 |
+| `--device /dev/davinci0` | 核心：将宿主机的NPU设备卡映射到容器内，可指定映射多张NPU设备卡。 | 必须根据实际情况调整：`davinci0`对应系统中的第0张NPU卡。请先在宿主机执行 `npu-smi info`命令，根据输出显示的设备号（如`NPU 0`, `NPU 1`）来修改此编号。|
+| `-v /usr/local/Ascend/driver/lib64/:/usr/local/Ascend/driver/lib64/` | 关键挂载：将宿主机的NPU驱动库映射到容器内。 | - |
+
+### 检查环境
+
+进入容器后，验证环境和驱动是否正常。
+
+-   **检查NPU设备**
+
+    执行如下命令，若返回驱动相关信息说明已成功挂载。    
+    ```bash    
+    npu-smi info
+    ```
+-   **检查CANN安装**
+    
+    执行如下命令查看CANN Toolkit版本信息，默认最新商发版本（目前是8.5.0）。
+    
+    ```bash
+    cat /usr/local/Ascend/ascend-toolkit/latest/opp/version.info
+    ```
+
+你已经拥有了一个“开箱即用”的算子开发环境。接下来，需要在这个环境里验证从源码到可运行算子的完整工具链。
