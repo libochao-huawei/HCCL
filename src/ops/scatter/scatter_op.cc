@@ -69,10 +69,6 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
         return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
     }
 
-    if (!CheckHCCLIndependentOp() && deviceType != DevType::DEV_TYPE_910_93) {
-        return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
-    }
-
     if (!RunIndependentOpExpansion(deviceType)) {
        return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
     }
