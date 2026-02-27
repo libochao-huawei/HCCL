@@ -176,6 +176,10 @@ make
 ```bash
 # 运行样例
 make test
+
+# 或直接执行样例二进制
+export LD_LIBRARY_PATH=${ASCEND_HOME_PATH}/opp/vendors/cust/lib64:${LD_LIBRARY_PATH}
+./send_recv
 ```
 
 ### 5. 样例结果示例
