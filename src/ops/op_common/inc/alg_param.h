@@ -211,6 +211,7 @@ struct AlgResourceCtxSerializable {
     TopoInfo topoInfo; // 提取的拓扑信息
     void* aivCommInfoPtr = nullptr;
     std::vector<ThreadHandle> threads;
+    ThreadHandle unfoldThread;
     std::vector<std::vector<ChannelInfo>> channels;
     void* commInfoPtr = nullptr;
     // hostdpu
