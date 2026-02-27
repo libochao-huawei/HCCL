@@ -174,23 +174,13 @@ make
 ### 4. 执行样例
 
 ```bash
-# 自动运行样例
+# 运行样例
 make test
-```
-```bash
-# 手动运行样例
+
+# 或直接执行样例二进制
+export LD_LIBRARY_PATH=${ASCEND_HOME_PATH}/opp/vendors/cust/lib64:${LD_LIBRARY_PATH}
 ./send_recv
 ```
-注：
-1.当前在Makefile中有添加so到环境变量中，需要执行make test能正常运行（自动运行）
-
-```bash
-# Test target
-test:
-    export LD_LIBRARY_PATH=${CUSTOM_P2P_LIB_DIR}:${LD_LIBRARY_PATH};\
-    ./$(TARGET)
-```
-2.当手动执行send_recv的场景时，需要将libhccl_custom_p2p.so的路径手动添加到环境变量LD_LIBRARY_PATH,不然会导致执行testcase报错
 
 ### 5. 样例结果示例
 
