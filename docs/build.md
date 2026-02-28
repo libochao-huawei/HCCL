@@ -9,22 +9,21 @@
    - python: 3.7.x 至 3.11.4 版本
    - gcc >= 7.3.0
    - cmake >= 3.16.0
-   - ccache
-   - nlohmann_json
+   - ccache（可选，用于提高二次编译速度）
    - googletest（仅执行UT时依赖，建议版本 release-1.14.0）
 
-   nlohmann_json和googletest可通过`build_third_party.sh`进行编译安装，可通过`--output_path`参数指定安装目录，默认为`./output/third_party`：
+2. 安装社区版CANN Toolkit包
+
+   编译本项目依赖CANN Toolkit开发套件包，请根据操作系统架构，从[CANN软件包归档页面](https://ascend.devcloud.huaweicloud.com/artifactory/cann-run-release/software/master/)中下载最新的CANN Toolkit安装包，参考[昇腾文档中心-CANN软件安装指南](https://www.hiascend.com/document/redirect/CannCommunityInstWizard)中的“安装CANN-安装Toolkit开发套件包”章节进行安装：
 
    ```shell
-   bash build_third_party.sh --output_path=${THIRD_LIB_PATH}
+   # 安装命令，其中--install-path为可选参数，用于指定安装路径
+   bash Ascend-cann-toolkit_<version>_linux-<arch>.run --full --install-path=<install_path>
    ```
 
-2. 安装社区尝鲜版CANN Toolkit包
-
-    编译本项目依赖CANN开发套件包（cann-toolkit），请根据操作系统架构，下载对应的CANN Toolkit安装包，参考[昇腾文档中心-CANN软件安装指南](https://www.hiascend.com/document/redirect/CannCommunityInstWizard)进行安装：
-
-    - aarch64架构：[Ascend-cann-toolkit_9.0.0_linux-aarch64.run](https://mirror-centralrepo.devcloud.cn-north-4.huaweicloud.com/artifactory/cann-run-release/software/9.0.0/20260205000325321/aarch64/Ascend-cann-toolkit_9.0.0_linux-aarch64.run)
-    - x86_64架构：[Ascend-cann-toolkit_9.0.0_linux-x86_64.run](https://mirror-centralrepo.devcloud.cn-north-4.huaweicloud.com/artifactory/cann-run-release/software/9.0.0/20260205000325321/x86_64/Ascend-cann-toolkit_9.0.0_linux-x86_64.run)
+   - `<cann_version>`: 表示CANN包版本号。
+   - `<arch>`: 表示CPU架构，如aarch64、x86_64。
+   - `<install_path>`: 表示指定安装路径，可选，root用户默认安装在/usr/local/Ascend目录，指定路径安装时，指定的路径权限需设置为755。
 
 3. 设置CANN软件环境变量。
 
@@ -45,6 +44,17 @@ git clone https://gitcode.com/cann/hccl.git
 
 ## 编译
 
+### 开源第三方软件依赖
+
+编译本项目时，依赖的第三方开源软件列表如下：
+
+| 开源软件      | 版本                   | 下载地址                                                                                                                                                                                                    |
+| ------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| makeself      | 2.5.0                  | [makeself-release-2.5.0-patch1.tar.gz](https://gitcode.com/cann-src-third-party/makeself/releases/download/release-2.5.0-patch1.0/makeself-release-2.5.0-patch1.tar.gz)                                     |
+| googletest    | 1.14.0                 | [googletest-1.14.0.tar.gz](https://gitcode.com/cann-src-third-party/googletest/releases/download/v1.14.0/googletest-1.14.0.tar.gz)                                                                          |
+
+### 源码编译
+
 本项目提供一键式编译构建能力，进入代码仓根目录，执行如下命令：
 
 ```shell
@@ -52,6 +62,13 @@ git clone https://gitcode.com/cann/hccl.git
 bash build.sh --pkg
 # 编译 host + device 包
 bash build.sh --pkg --full
+```
+
+若您的编译环境无法访问网络，您需要在联网环境中下载上述开源软件压缩包，并手动上传至编译环境中，并通过 `--cann_3rd_lib_path` 参数指定软件包路径：
+
+```shell
+# 指定软件包路径，默认为：./third_party
+bash build.sh --cann_3rd_lib_path={your_3rd_party_path}
 ```
 
 编译完成后会在`./build_out`目录下生成 `cann-hccl_<version>_linux-<arch>.run` 软件包。
@@ -94,19 +111,28 @@ HCCL软件包安装完成后，开发者可通过HCCL Test工具进行集合通�
 
 1. 环境准备
 
-   运行本项目除需安装CANN Toolkit开发套件包外，还需安装Ascend HDK包、Ascend-ops算子包，下载链接如下，安装方式可参考[昇腾文档中心-CANN软件安装指南](https://www.hiascend.com/document/redirect/CannCommunityInstWizard)进行安装：
+   运行本项目除需安装CANN Toolkit开发套件包外，还需安装NPU驱动、NPU固件和CANN ops算子包。
 
-   - Atlas A2系列产品:
-     - Ascend HDK驱动包：[Ascend-hdk-910b-npu-driver_25.5.0.b061_linux-aarch64.run](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/community/hccl/Ascend-hdk-910b-npu-driver_25.5.0.b061_linux-aarch64.run)
-     - Ascend HDK固件包：[Ascend-hdk-910b-npu-firmware_7.8.0.5.201.run](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/community/hccl/Ascend-hdk-910b-npu-firmware_7.8.0.5.201.run)
-     - Ascend-ops包（aarch64架构）：[Ascend-cann-910b-ops_9.0.0_linux-aarch64.run](https://mirror-centralrepo.devcloud.cn-north-4.huaweicloud.com/artifactory/cann-run-release/software/9.0.0/20260205000325321/aarch64/Ascend-cann-910b-ops_9.0.0_linux-aarch64.run)
-     - Ascend-ops包（x86_64架构）：[Ascend-cann-910b-ops_9.0.0_linux-x86_64.run](https://mirror-centralrepo.devcloud.cn-north-4.huaweicloud.com/artifactory/cann-run-release/software/9.0.0/20260205000325321/x86_64/Ascend-cann-910b-ops_9.0.0_linux-x86_64.run)
+   NPU驱动和固件可参考[昇腾文档中心-CANN软件安装指南](https://www.hiascend.com/document/redirect/CannCommunityInstWizard)中的“安装NPU驱动和固件”章节进行安装：
 
-   - Atlas A3系列产品:
-     - Ascend HDK驱动包：[Atlas-A3-hdk-npu-driver_25.5.0.b061_linux-aarch64.run](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/community/hccl/Atlas-A3-hdk-npu-driver_25.5.0.b061_linux-aarch64.run)
-     - Ascend HDK固件包：[Atlas-A3-hdk-npu-firmware_7.8.0.5.201.run](https://ascend-cann.obs.cn-north-4.myhuaweicloud.com/CANN/community/hccl/Atlas-A3-hdk-npu-firmware_7.8.0.5.201.run)
-     - Ascend-ops包（aarch64架构）：[Ascend-cann-A3-ops_9.0.0_linux-aarch64.run](https://mirror-centralrepo.devcloud.cn-north-4.huaweicloud.com/artifactory/cann-run-release/software/9.0.0/20260205000325321/aarch64/Ascend-cann-A3-ops_9.0.0_linux-aarch64.run)
-     - Ascend-ops包（x86_64架构）：[Ascend-cann-A3-ops_9.0.0_linux-x86_64.run](https://mirror-centralrepo.devcloud.cn-north-4.huaweicloud.com/artifactory/cann-run-release/software/9.0.0/20260205000325321/x86_64/Ascend-cann-A3-ops_9.0.0_linux-x86_64.run)
+   ```shell
+   # 安装驱动
+   ./Ascend-hdk-<chip_type>-npu-driver_<version>_linux-<arch>.run --full --install-for-all
+
+   # 安装固件
+   ./Ascend-hdk-<chip_type>-npu-firmware_<version>.run --full
+   ```
+
+   CANN ops算子包可根据NPU产品型号和操作系统架构，从[CANN软件包归档页面](https://ascend.devcloud.huaweicloud.com/artifactory/cann-run-release/software/master/)中下载对应的CANN ops包，参考[昇腾文档中心-CANN软件安装指南](https://www.hiascend.com/document/redirect/CannCommunityInstWizard)中的“安装CANN-安装ops算子包”章节进行安装：
+
+   ```shell
+   # 安装算子包
+   bash Ascend-cann-<chip_type>-ops_<version>_linux-<arch>.run --install
+   ```
+
+   - `<chip_type>`: 表示NPU产品型号。
+   - `<version>`: 表示CANN包版本号。
+   - `<arch>`: 表示CPU架构，如aarch64、x86_64。
 
 2. 工具编译
 
