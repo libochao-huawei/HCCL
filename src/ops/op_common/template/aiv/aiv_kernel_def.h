@@ -28,7 +28,7 @@ static std::vector<AivKernelInfo> g_allreduceAivKernelInfoList = {
     {"aiv_allreduce_mesh1d_twoshot_int8_t", HcclDataType::HCCL_DATA_TYPE_INT8, KernelArgsType::ARGS_TYPE_TWO_SHOT},
     {"aiv_allreduce_mesh1d_twoshot_bfloat16_t", HcclDataType::HCCL_DATA_TYPE_BFP16, KernelArgsType::ARGS_TYPE_TWO_SHOT},
 };
-static std::string g_allreduceAivBinaryName = "hccl_aiv_all_reduce_op_910_95.o";
+static std::string g_allreduceAivBinaryName = "hccl_aiv_all_reduce_op_950.o";
 
 static std::vector<AivKernelInfo> g_reduceScatterAivKernelInfoList = {
     {"aiv_reduce_scatter_half", HcclDataType::HCCL_DATA_TYPE_FP16},
@@ -38,7 +38,7 @@ static std::vector<AivKernelInfo> g_reduceScatterAivKernelInfoList = {
     {"aiv_reduce_scatter_int8_t", HcclDataType::HCCL_DATA_TYPE_INT8},
     {"aiv_reduce_scatter_bfloat16_t", HcclDataType::HCCL_DATA_TYPE_BFP16},
 };
-static std::string g_reduceScatterAivBinaryName = "hccl_aiv_reduce_scatter_op_910_95.o";
+static std::string g_reduceScatterAivBinaryName = "hccl_aiv_reduce_scatter_op_950.o";
 
 static std::vector<AivKernelInfo> g_allgatherAivKernelInfoList = {
     {"aiv_all_gather_half", HcclDataType::HCCL_DATA_TYPE_FP16},
@@ -53,7 +53,7 @@ static std::vector<AivKernelInfo> g_allgatherAivKernelInfoList = {
     {"aiv_all_gather_uint64_t", HcclDataType::HCCL_DATA_TYPE_INT64},
     {"aiv_all_gather_int64_t", HcclDataType::HCCL_DATA_TYPE_UINT64},
 };
-static std::string g_allgatherAivBinaryName = "hccl_aiv_all_gather_op_910_95.o";
+static std::string g_allgatherAivBinaryName = "hccl_aiv_all_gather_op_950.o";
 
 static std::vector<AivKernelInfo> g_broadcastAivKernelInfoList = {
     {"aiv_broadcast_half", HcclDataType::HCCL_DATA_TYPE_FP16},
@@ -68,7 +68,7 @@ static std::vector<AivKernelInfo> g_broadcastAivKernelInfoList = {
     {"aiv_broadcast_uint64_t", HcclDataType::HCCL_DATA_TYPE_INT64},
     {"aiv_broadcast_int64_t", HcclDataType::HCCL_DATA_TYPE_UINT64},
 };
-static std::string g_broadcastAivBinaryName = "hccl_aiv_broadcast_op_910_95.o";
+static std::string g_broadcastAivBinaryName = "hccl_aiv_broadcast_op_950.o";
 
 static std::vector<AivKernelInfo> g_alltoallAivKernelInfoList = {
     {"aiv_alltoall_half", HcclDataType::HCCL_DATA_TYPE_FP16},
@@ -83,7 +83,7 @@ static std::vector<AivKernelInfo> g_alltoallAivKernelInfoList = {
     {"aiv_alltoall_uint64_t", HcclDataType::HCCL_DATA_TYPE_INT64},
     {"aiv_alltoall_int64_t", HcclDataType::HCCL_DATA_TYPE_UINT64},
 };
-static std::string g_alltoallAivBinaryName = "hccl_aiv_all_to_all_op_910_95.o";
+static std::string g_alltoallAivBinaryName = "hccl_aiv_all_to_all_op_950.o";
 
 static std::vector<AivKernelInfo> g_alltoallvAivKernelInfoList = {
     {"aiv_alltoallv_half", HcclDataType::HCCL_DATA_TYPE_FP16},
@@ -98,7 +98,7 @@ static std::vector<AivKernelInfo> g_alltoallvAivKernelInfoList = {
     {"aiv_alltoallv_uint64_t", HcclDataType::HCCL_DATA_TYPE_INT64},
     {"aiv_alltoallv_int64_t", HcclDataType::HCCL_DATA_TYPE_UINT64},
 };
-static std::string g_alltoallvAivBinaryName = "hccl_aiv_all_to_all_v_op_910_95.o";
+static std::string g_alltoallvAivBinaryName = "hccl_aiv_all_to_all_v_op_950.o";
 
 static std::vector<AivKernelInfo> g_scatterAivKernelInfoList = {
     {"aiv_scatter_half", HcclDataType::HCCL_DATA_TYPE_FP16},
@@ -113,7 +113,7 @@ static std::vector<AivKernelInfo> g_scatterAivKernelInfoList = {
     {"aiv_scatter_uint64_t", HcclDataType::HCCL_DATA_TYPE_INT64},
     {"aiv_scatter_int64_t", HcclDataType::HCCL_DATA_TYPE_UINT64},
 };
-static std::string g_scatterAivBinaryName = "hccl_aiv_scatter_op_910_95.o";
+static std::string g_scatterAivBinaryName = "hccl_aiv_scatter_op_950.o";
 
 static std::vector<AivKernelInfo> g_reduceAivKernelInfoList = {
     {"aiv_reduce_half", HcclDataType::HCCL_DATA_TYPE_FP16},
@@ -123,7 +123,7 @@ static std::vector<AivKernelInfo> g_reduceAivKernelInfoList = {
     {"aiv_reduce_int8_t", HcclDataType::HCCL_DATA_TYPE_INT8},
     {"aiv_reduce_bfloat16_t", HcclDataType::HCCL_DATA_TYPE_BFP16},
 };
-static std::string g_reduceAivBinaryName = "hccl_aiv_reduce_op_910_95.o";
+static std::string g_reduceAivBinaryName = "hccl_aiv_reduce_op_950.o";
 
 static std::map<HcclCMDType, std::pair<std::string, std::vector<AivKernelInfo>>> g_aivKernelInfoMap = {
     {HcclCMDType::HCCL_CMD_ALLREDUCE, {g_allreduceAivBinaryName, g_allreduceAivKernelInfoList}},

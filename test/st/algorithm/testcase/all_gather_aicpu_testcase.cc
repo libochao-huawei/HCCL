@@ -53,7 +53,7 @@ u32 AnalyseRankSize(const TopoMeta &topoInfo)
 void RunAllGatherAicpuA5(const TopoMeta &topoInfo, const u64 &sendCount, const HcclDataType &dataType)
 {
     // 仿真模型初始化
-    SimWorld::Global()->Init(topoInfo, DevType::DEV_TYPE_910_95);
+    SimWorld::Global()->Init(topoInfo, DevType::DEV_TYPE_950);
 
     // 设置展开模式为HOST_TS
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);

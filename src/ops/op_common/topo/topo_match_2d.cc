@@ -31,7 +31,7 @@ HcclResult TopoMatch2D::MatchTopo(const HcclComm comm, TopoInfo* topoInfo, AlgHi
     uint32_t myRank;
     CHK_RET(HcclGetRankId(comm, &myRank));
     // 校验DevType
-    CHK_PRT_RET((topoInfo->deviceType != DevType::DEV_TYPE_910_95),
+    CHK_PRT_RET((topoInfo->deviceType != DevType::DEV_TYPE_950),
                 HCCL_ERROR("[CollAlgFactory] [TopoMatch2D] Rank [%d], Invalid DeviceType.", myRank),
                 HcclResult::HCCL_E_PARA);
     

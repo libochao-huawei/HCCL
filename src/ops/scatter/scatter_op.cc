@@ -235,7 +235,7 @@ HcclResult ScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, Hcc
         return HcclResult::HCCL_SUCCESS;
     }
 
-    if (deviceType == DevType::DEV_TYPE_910_95) {
+    if (deviceType == DevType::DEV_TYPE_950) {
         CHK_RET(HcclExecOp(comm, param));
     } else {
         CHK_RET(ExecOp(comm, param));  //保留原有A3流程
