@@ -26,7 +26,7 @@ public:
 
     std::string Describe() const override
     {
-        return "Topo Match for Mesh Algorithm (CURRENTLY only 910_95 is supported).";
+        return "Topo Match for Mesh Algorithm (CURRENTLY only 950 is supported).";
     }
 
     HcclResult MatchTopo(HcclComm comm, TopoInfo* topoInfo, AlgHierarchyInfoForAllLevel& AlgHierarchyInfoExector) override;

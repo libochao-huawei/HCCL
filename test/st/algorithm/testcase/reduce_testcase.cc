@@ -79,7 +79,7 @@ protected:
         const TopoMeta &topoMeta, u64 recvCount, HcclDataType dataType, HcclReduceOp reduceOp, uint32_t root)
     {
         // 初始化仿真环境
-        SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_910_95);
+        SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
         setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
         setenv("HCCL_INDEPENDENT_OP", "1", 1);
 

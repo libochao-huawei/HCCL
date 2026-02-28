@@ -38,7 +38,7 @@ protected:
 
     void RunAlltoAllMeshTest(TopoMeta &topoMeta, uint32_t rankSize, HcclDataType dataType, uint64_t dataCount)
     {
-        SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_910_95);
+        SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
         // 设置展开模式为HOST_TS
         setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
         setenv("HCCL_BUFFSIZE", "200", 1);

@@ -47,7 +47,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         return 1;
     }
 
-    if (param->deviceType != DevType::DEV_TYPE_910_95) {
+    if (param->deviceType != DevType::DEV_TYPE_950) {
         if (HcommRegOpInfo != nullptr &&
             HcommRegOpInfo(param->commName, reinterpret_cast<void *>(param), sizeof(OpParam)) != HCCL_SUCCESS) {
             HCCL_ERROR("%s HcommRegOpInfo fail, commName[%s], algTag[%s], param[%p], size[%u]",
@@ -64,7 +64,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
 
     // 根据算法名字获取executor
     std::string algName = std::string(param->algName);
-    if (param->deviceType == DevType::DEV_TYPE_910_95) {
+    if (param->deviceType == DevType::DEV_TYPE_950) {
         AlgResourceCtxSerializable resCtx;
 
         char *ctx = static_cast<char*>(param->resCtx);

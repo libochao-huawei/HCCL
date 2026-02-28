@@ -27,7 +27,7 @@ HcclResult TopoMatch1D::MatchTopo(HcclComm comm, TopoInfo* topoInfo, AlgHierarch
             topoInfo->topoLevelNums),
         HCCL_E_INTERNAL);
 
-    if (topoInfo->deviceType != DevType::DEV_TYPE_910_95) {
+    if (topoInfo->deviceType != DevType::DEV_TYPE_950) {
         HCCL_ERROR("[CollAlgFactory] [TopoMatchMesh] Rank [%d], deviceType not supported yet.", myRank_);
     }
 

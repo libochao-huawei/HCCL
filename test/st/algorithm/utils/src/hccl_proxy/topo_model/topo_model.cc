@@ -226,7 +226,7 @@ void TopoModel::GetLinks(DevType devType, uint32_t netLayer, uint32_t srcRank, u
         Create910BLinks(srcRank, dstRank);
     } else if (devType == DevType::DEV_TYPE_910_93) {
         Create910CLinks(srcRank, dstRank);
-    } else if (devType == DevType::DEV_TYPE_910_95) {
+    } else if (devType == DevType::DEV_TYPE_950) {
         Create910DLinks(srcRank, dstRank);
     }
 
@@ -255,7 +255,7 @@ void TopoModel::GetInstTopoTypeByNetLayer(DevType devType, uint32_t netLayer, Co
             *topoType = CommTopo::COMM_TOPO_1DMESH;
         } else if (devType == DevType::DEV_TYPE_910_93) {
             *topoType = CommTopo::COMM_TOPO_910_93;
-        } else if (devType == DevType::DEV_TYPE_910_95) {
+        } else if (devType == DevType::DEV_TYPE_950) {
             *topoType = CommTopo::COMM_TOPO_CUSTOM;  // A5topo使用新API查询
         }
     } else if (netLayer == NetLayerL1) {

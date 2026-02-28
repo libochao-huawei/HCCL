@@ -785,7 +785,7 @@ bool RunIndependentOpExpansion(DevType deviceType) {
         return opExpansionModeEnv == "AI_CPU" || opExpansionModeEnv == "HOST_TS" || opExpansionModeEnv == "EmptyString";
     }
 
-    if (deviceType == DevType::DEV_TYPE_910_95) {
+    if (deviceType == DevType::DEV_TYPE_950) {
         return opExpansionModeEnv == "AI_CPU" || opExpansionModeEnv == "HOST_TS" || opExpansionModeEnv == "EmptyString" || opExpansionModeEnv == "AIV";
     }
     
