@@ -39,11 +39,156 @@
 #include "aiv_kernel_def.h"
 #include "dpu/kernel_launch.h"
 
+
+#include "oxcglobalrecorder.h"
+#include <iomanip>
+
 namespace ops_hccl {
 thread_local aclrtNotify g_notifies_host_with_device[AICPU_CONTROL_NOTIFY_NUM];
 thread_local std::map<std::string, HcclMemHandle> g_memHandleCache; // 当前AIV存放注册内存的memHandle使用
 // 用于维护增量建链算子的host ctx信息
 thread_local std::map<std::string, std::unique_ptr<AlgResourceCtxSerializable>> g_hostCtx;
+
+明白，完全按照你提供的代码逻辑和顺序进行整理，不进行任何结构或逻辑上的调整。以下是整理后的代码内容：
+
+1. src/ops/op_common/CMakeLists.txt
+在源文件列表中新增：
+
+CMake
+${CMAKE_CURRENT_SOURCE_DIR}/oxcglobalrecorder.cpp
+2. src/ops/op_common/op_common.cc
+包含头文件及辅助函数定义：
+
+C++
+#include "oxcglobalrecorder.h"
+#include <iomanip>
+
+// ==========================================
+// 辅助函数定义
+// ==========================================
+ 
+/**
+ * @brief 根据 RankID 从 RankTable 中查找 Server hostIp 和 LocalRank
+ * @return pair<hostIp, npu_index>
+ */
+static std::pair<std::string, u32> GetRankLocation(u32 rankId, const RankTable_oxc& rankTable) {
+    for (const auto& r : rankTable.rankList) {
+        if (r.rankId == rankId) {
+            // r.localRank 本身就是 u32，无需 cast，或者为了显式安全保留 static_cast<u32>
+            return {r.hostIp, r.localRank}; 
+        }
+    }
+    return {"unknown", 0xFFFFFFFF}; // 使用 u32 的最大值表示无效
+}
+ 
+/**
+ * @brief 遍历 channels 提取拓扑连接信息
+ * @param channels 资源上下文中的通道列表
+ * @param rankTable 全局 Rank 表
+ * @param myRankId 当前进程的 RankID
+ * @return 提取出的邻接表节点列表
+ */
+static std::vector<OxcLinkNode> ExtractLinkFromChannels(
+    const std::vector<std::vector<ChannelInfo>>& channels,
+    const RankTable_oxc& rankTable,
+    u32 myRankId) 
+{
+    std::vector<OxcLinkNode> links;
+    
+    // 1. 获取本端位置信息
+    auto myInfo = GetRankLocation(myRankId, rankTable);
+    if (myInfo.second == -1) {
+        HCCL_ERROR("[ExtractLinkFromChannels] Failed to find local rank info for rank %u", myRankId);
+        return links;
+    }
+ 
+    // 2. 遍历所有通道
+    for (const auto& channelGroup : channels) {
+        for (const auto& ch : channelGroup) {
+            // 过滤条件: 必须有效(isValid) 且 必须是连接远端(remoteRank有效)
+            if (ch.isValid && ch.remoteRank != INVALID_VALUE_RANKID) {
+                
+                // 3. 获取对端位置信息
+                auto remoteInfo = GetRankLocation(ch.remoteRank, rankTable);
+                
+                // 构造节点
+                OxcLinkNode node;
+                node.src_server_ip = myInfo.first;
+                node.src_npu_index = myInfo.second;
+                node.dst_server_ip = remoteInfo.first;
+                node.dst_npu_index = remoteInfo.second;
+ 
+                links.push_back(node);
+            }
+        }
+    }
+    return links;
+}
+ 
+/**
+ * @brief [Helper 3] 生成文件名并触发 JSON 写入
+ * 格式: {taskId}_{rankId}_{yyyyMMddHHmmssSSS}_commmatrix.json
+ */
+static void SaveTopologyToJSON(const std::string& taskId, u32 rankId) {
+    try {
+        // 1. 获取高精度时间
+        auto now = std::chrono::system_clock::now();
+        auto time_t_now = std::chrono::system_clock::to_time_t(now);
+        auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
+        
+        std::tm tm_now;
+        #if defined(_WIN32)
+            localtime_s(&tm_now, &time_t_now);
+        #else
+            localtime_r(&time_t_now, &tm_now);
+        #endif
+ 
+        std::string oxc_path = "/tmp";
+ 
+        // 2. 拼接文件名
+        std::stringstream ss_filename;
+        ss_filename << oxc_path << "/"
+                    << taskId << "_" 
+                    << rankId << "_"
+                    << std::put_time(&tm_now, "%Y%m%d%H%M%S") 
+                    << std::setfill('0') << std::setw(3) << ms.count()
+                    << "_commmatrix.json";
+ 
+        std::string filename = ss_filename.str();
+        
+        // 3. 调用单例写入
+        OxcGlobalRecorder::GetInstance().FlushToJSON(filename);
+        
+        HCCL_INFO("[SaveTopologyToJSON] Topology file saved: %s", filename.c_str());
+ 
+    } catch (const std::exception& e) {
+        HCCL_ERROR("[SaveTopologyToJSON] Failed to save json: %s", e.what());
+    }
+}
+ 
+/**
+ * @brief 从 RankTable 中获取最小的 RankID
+ * @return u32 最小的 RankID，如果列表为空则返回 0xFFFFFFFF
+ */
+static u32 GetMinRankID(const RankTable_oxc& rankTable) {
+    if (rankTable.rankList.empty()) {
+        return 0xFFFFFFFF; // 或者使用 HCCL 定义的 INVALID_UINT
+    }
+ 
+    auto minIter = std::min_element(
+        rankTable.rankList.begin(),
+        rankTable.rankList.end(),
+        [](const RankInfo_oxc& a, const RankInfo_oxc& b) {
+            return a.rankId < b.rankId;
+        }
+    );
+ 
+    if (minIter != rankTable.rankList.end()) {
+        return minIter->rankId; // 直接返回 u32，不需要 static_cast<int>
+    }
+ 
+    return 0xFFFFFFFF;
+}
 
 HcclResult HcclExecOp(HcclComm comm, OpParam &param)
 {
@@ -111,7 +256,107 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param)
     void *resCtxSequence;
     bool isResourceReused = false;
     CHK_RET(HcclGetAlgRes(comm, param, executor, topoInfo, resCtxHost, &resCtxSequence, isResourceReused));
+    // ==========================================================
+    // 【新增代码 START】: 记录第一轮迭代数据并写入 JSON
+    // ==========================================================
+    static bool is_first_record = true;
+    if (is_first_record) {
+        try {
+            RankTable_oxc rankTableOXC;
+            CHK_RET(HcclGetRankTable(comm, &rankTableOXC));  //通过强转hccl::hcclComm调用HcclResult GetCommRankTable(RankTable_t &rankTable);
+            OxcCommKey key;
+            OxcCommInfo info;
+            // ------------------------------------------------------
+            // 1. 填充 Key (对应 JSON 中的 comm_domain_key)
+            // ------------------------------------------------------
+            key.task_id = std::to_string(rankTableOXC.taskID);
+            key.comm_type = algName;
+            CHK_RET(HcclGetRankTable(comm, &rankTableOXC));      //需要后续完善GetMinRankID函数
 
+            // ------------------------------------------------------
+            // 2. 【调用接口】准备 LinkTable (从 resCtxHost->channels 解析)
+            // ------------------------------------------------------
+            std::vector<OxcLinkNode> link_nodes;
+            if (resCtxHost != nullptr) {
+                // 直接调用封装好的辅助函数
+                link_nodes = ExtractLinkFromChannels(resCtxHost->channels, rankTableOXC, topoInfo->userRank);
+            }
+            // 更新单例中的 LinkTable
+            OxcGlobalRecorder::GetInstance().UpdateLinkTable(key, link_nodes);
+
+            // ------------------------------------------------------
+            // 3. 填充 Info (对应 JSON 中的 comm_domain_info)
+            // ------------------------------------------------------
+            info.pp_stage = 0;              // 目前硬编码
+            u32 perDataSize = 0;
+            //预留
+            u32 datacount = 0;
+            u32 rankSize = topoInfo->userRankSize;
+            switch (param.opType) {
+                case HcclCMDType::HCCL_CMD_REDUCE_SCATTER:
+                case HcclCMDType::HCCL_CMD_ALLGATHER:
+                {
+                    perDataSize = SIZE_TABLE[param.DataDes.dataType];
+                    datacount = param.DataDes.count;
+                    info.data_size = datacount * perDataSize * (rankSize -1); 
+                    break;
+                }
+                case HcclCMDType::HCCL_CMD_ALLREDUCE:
+                {
+                    u64 total_count = param.DataDes.count;
+                    u64 perDataSize = SIZE_TABLE[param.DataDes.dataType];
+                    u64 total_bytes = total_count * perDataSize;
+                    info.data_size = (total_bytes * 2 * (rankSize - 1)) / rankSize;
+                    break;
+                }
+                case HcclCMDType::HCCL_CMD_BROADCAST:
+                case HcclCMDType::HCCL_CMD_REDUCE:
+                {
+                    u64 total_count = param.DataDes.count;
+                    u64 perDataSize = SIZE_TABLE[param.DataDes.dataType];
+                    
+                    info.data_size = total_count * perDataSize;
+                    break;
+                }
+                case HcclCMDType::HCCL_CMD_ALLTOALL:
+                {
+                    u64 count_per_rank = param.all2AllDataDes.sendCount;
+                    u64 perDataSize = SIZE_TABLE[param.all2AllDataDes.sendType];
+                    info.data_size = count_per_rank * perDataSize * rankSize;
+                    break;
+                }
+                default:
+                {
+                    if (param.inputSize > 0) {
+                        info.data_size = param.inputSize;
+                    } else {
+                        info.data_size = 0;
+                    }
+                    break;
+                }
+            }
+            info.npu_num = rankTableOXC.deviceNum ; // 使用 RankTable_oxc 中的 deviceNum
+            info.link_num_per_npu = static_cast<int>(link_nodes.size()); // 实际建链数
+            OxcGlobalRecorder::GetInstance().UpdateCommInfo(key, info);
+
+            // ------------------------------------------------------
+            // 4. [调用接口] 生成文件名并落盘
+            // ------------------------------------------------------
+            if (param.opType == HcclCMDType::HCCL_CMD_ALLGATHER && 
+                topoInfo->userRankSize == rankTableOXC.rankNum) {
+                
+                SaveTopologyToJSON(key.task_id, topoInfo->userRank);
+                is_first_record = false; 
+            }
+        } catch (const std::exception& e) {
+            HCCL_ERROR("Failed to record topology: %s", e.what());
+        }
+    }
+    // ==========================================================
+    // 【新增代码 END】
+    // ==========================================================
+
+    
     // 算法执行
     if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
         // 当前aicpu launch接口只能有一个输入参数，将Context指针放在param参数中
