@@ -19,6 +19,17 @@ SelectorStatus AutoSelectorBase::Select(OpParam &opParam, TopoInfo* topoInfo,
     HCCL_DEBUG("[AutoSelectorBase][%s] start", __func__);
     std::map<HcclCMDType, std::vector<HcclAlgoType>> configAlgMap = GetExternalInputHcclAlgoConfigAllType();
     SelectorStatus ret = SelectorStatus::NOT_MATCH;
+    if (GetExternalInputHcclOnlyAivMode()) {
+        opParam.engine = CommEngine::COMM_ENGINE_AIV;
+        ret = SelectAivAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
+        if (ret == SelectorStatus::NOT_MATCH) {
+            opExecuteConfig = OpExecuteConfig::CCU_FAIL;
+        } else {
+            opExecuteConfig = OpExecuteConfig::AIV;
+        }
+        HCCL_INFO("[Algo][AutoSelectorBase] The selected algo is %s.", selectAlgName.c_str());
+        return ret;
+    }
     bool hostDPUOnly = false;
     if ((CheckHostDPUOnly(topoInfo, opParam, hostDPUOnly) == HCCL_SUCCESS) && hostDPUOnly) {
         opExecuteConfig = OpExecuteConfig::HOSTCPU;

@@ -534,6 +534,7 @@ HcclResult ParseOpExpansion()
     g_algEnvConfig.aivMode = false;
     g_algEnvConfig.ccuMSMode = false;
     g_algEnvConfig.ccuSchedMode = false;
+    g_algEnvConfig.onlyAivMode = false;
 
     DevType deviceType;
     CHK_RET(hrtGetDeviceType(deviceType));
@@ -557,6 +558,12 @@ HcclResult ParseOpExpansion()
             HCCL_WARNING("Deterministic do not support aiv");
         }
         g_algEnvConfig.aivMode = true;
+    } else if (opExpansionModeEnv == "AIV_ONLY") {
+        if (g_algEnvConfig.hcclDeterministic == true) {
+            HCCL_WARNING("Deterministic do not support aiv only");
+        }
+        g_algEnvConfig.onlyAivMode = true;
+        g_algEnvConfig.aivMode = true;
     } else if (opExpansionModeEnv == "HOST") {
         g_algEnvConfig.aivMode = false;
         g_algEnvConfig.aicpuUnfold = false;
@@ -576,9 +583,15 @@ HcclResult ParseOpExpansion()
             opExpansionModeEnv.c_str());
         return HCCL_E_PARA;
     }
-    HCCL_RUN_INFO("environmental variable HCCL_OP_EXPANSION_MODE is [%s], aicpuUnfold[%u], aivMode[%u], enableFfts[%u]",
-        opExpansionModeEnv.c_str(), g_algEnvConfig.aicpuUnfold, g_algEnvConfig.aivMode, g_algEnvConfig.enableFfts);
+    HCCL_RUN_INFO("environmental variable HCCL_OP_EXPANSION_MODE is [%s], aicpuUnfold[%u], aivMode[%u], onlyAivMode[%u], enableFfts[%u]",
+        opExpansionModeEnv.c_str(), g_algEnvConfig.aicpuUnfold, g_algEnvConfig.aivMode, g_algEnvConfig.onlyAivMode, g_algEnvConfig.enableFfts);
     return HCCL_SUCCESS;
+}
+
+bool GetExternalInputHcclOnlyAivMode()
+{
+    std::lock_guard<std::mutex> lock(g_algEnvConfigMutex);
+    return g_algEnvConfig.onlyAivMode;
 }
 
 HcclResult SplitHcclRetryEnable(const std::string &retryConfig, std::vector<std::string> &retryEnables)

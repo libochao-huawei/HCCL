@@ -44,6 +44,7 @@ struct AlgEnvConfig {
     bool aivMode;
     bool ccuMSMode;
     bool ccuSchedMode;
+    bool onlyAivMode;
     bool enableFfts;
     bool hcclRetryConfig[HCCL_RETRY_ENABLE_LEVEL_NUM];
     std::map<HcclCMDType, std::vector<HcclAlgoType>> hcclAlgoConfig;
@@ -57,6 +58,8 @@ struct AlgEnvConfig {
         initialized = false;
         interHccsDisable = false;
         enableEntryLog = false;
+        ccuSchedMode = false;
+        onlyAivMode = false;
         intraRoceSwitch = 0;     // server内的通信方式 与intraPcieSwitch组合使用，默认为0
         hcclDeterministic = DETERMINISTIC_DISABLE;// 确定性配置 0：不支持；1：支持确定性不支持规约保序；2：支持确定性&规约保序
         enableFfts = true;
@@ -93,6 +96,10 @@ HcclResult SetHcclAlgoConfig(const std::string &hcclAlgo);
 HcclResult ResetAlgEnvConfigInitState();
 
 const std::vector<HcclAlgoType> GetExternalInputHcclAlgoConfig(HcclCMDType opType = HcclCMDType::HCCL_CMD_ALL);
+
+const std::map<HcclCMDType, std::vector<HcclAlgoType>> GetExternalInputHcclAlgoConfigAllType();
+
+bool GetExternalInputHcclOnlyAivMode();
 
 HcclResult SetCommonAlgType(std::vector<std::string> &algos);
 
