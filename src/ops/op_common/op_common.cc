@@ -60,6 +60,11 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
         return HCCL_E_PTR;
     }
     CHK_RET(SetCommEngine(param, opExecuteConfig));
+    if (GetExternalInputHcclAivOnlyMode() && param.engine != CommEngine::COMM_ENGINE_AIV) {
+        HCCL_ERROR("[HcclExecOp] opType[%s] currently do not select aiv mode, aiv only not support, "
+            "please ensure rankNum is greater than one", GetCMDTypeEnumStr(param.opType).c_str());
+        return HCCL_E_NOT_SUPPORT;
+    }
     // 如果一开始读取到的Engine不是aicpu，经过算法选择后回退到aipcu，则需要重新LoadAICPUKernel
     if ((param.engine == CommEngine::COMM_ENGINE_AICPU_TS) || (param.engine == CommEngine::COMM_ENGINE_CPU)) {
         HCCL_DEBUG("[SelectorAhead] is aicpu mode");
@@ -854,6 +859,11 @@ bool CheckHCCLIndependentOp() {
 
 HcclResult SingleRankProc(const OpParam &param)
 {
+    if (GetExternalInputHcclAivOnlyMode()) {
+        HCCL_ERROR("[SingleRankProc] opType[%s] currently do not select aiv mode, aiv only not support, "
+            "please ensure rankNum is greater than one", GetCMDTypeEnumStr(param.opType).c_str());
+        return HCCL_E_NOT_SUPPORT;
+    }
     if (param.opType == HcclCMDType::HCCL_CMD_SEND || param.opType == HcclCMDType::HCCL_CMD_RECEIVE) {
         HCCL_WARNING("[%s] ranksize == 1 is not support BATCHSENDRECV SEND RECV", __func__);
         return HcclResult::HCCL_SUCCESS;
@@ -931,6 +941,13 @@ HcclResult HcclGetOpExpansionMode(HcclComm comm, OpParam &param)
         param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
         CHK_RET(LoadAICPUKernel());
         param.engine = CommEngine::COMM_ENGINE_AICPU_TS;
+    }
+    else if (GetExternalInputHcclAivOnlyMode() == true) {
+        HCCL_DEBUG("[HcclExecOp] is aiv only mode");
+        // 注册AIV kernel二进制
+        CHK_RET(RegisterKernel(param.opType, g_aivKernelInfoMap[param.opType].first, g_aivKernelInfoMap[param.opType].second));
+        param.opExecuteConfig = OpExecuteConfig::AIV_ONLY;
+        param.engine = CommEngine::COMM_ENGINE_AIV;
     }
     else if (GetExternalInputHcclAivMode() == true) {
         HCCL_DEBUG("[HcclExecOp] is aiv mode");
