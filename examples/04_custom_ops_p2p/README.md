@@ -153,6 +153,7 @@ name:aicpu_hccl_custom_p2p.tar.gz
 install_path:2
 optional:true
 package_path:opp/vendors/cust/aicpu/kernel
+load_as_per_soc:false
 ```
 
 各字段含义如下：
