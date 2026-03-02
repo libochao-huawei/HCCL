@@ -43,13 +43,17 @@ SelectorStatus AutoSelectorBase::Select(OpParam &opParam, TopoInfo* topoInfo,
             return ret;
         }
     }
-    if (opParam.opExecuteConfig == OpExecuteConfig::AIV) {
+    if (opParam.opExecuteConfig == OpExecuteConfig::AIV || opParam.opExecuteConfig == OpExecuteConfig::AIV_ONLY) {
         opParam.engine = CommEngine::COMM_ENGINE_AIV;
         ret = SelectAivAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
         if (ret == SelectorStatus::NOT_MATCH) {
+            if (opParam.opExecuteConfig == OpExecuteConfig::AIV_ONLY) {
+                HCCL_ERROR("[Algo][AutoSelectorBase] currently do not select aiv mode, aiv only not support.");
+                return ret;
+            }
             opExecuteConfig = OpExecuteConfig::CCU_FAIL;
         } else {
-            opExecuteConfig = OpExecuteConfig::AIV;
+            opExecuteConfig = opParam.opExecuteConfig;
             return ret;
         }
     }
