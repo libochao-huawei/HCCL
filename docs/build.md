@@ -20,6 +20,7 @@
    # 安装命令，其中--install-path为可选参数，用于指定安装路径
    bash Ascend-cann-toolkit_<version>_linux-<arch>.run --full --install-path=<install_path>
    ```
+   Docker镜像方式快速部署环境方法可参考[ops-nn提供镜像](https://gitcode.com/cann/ops-nn/blob/master/QUICKSTART.md)开箱即用，避免环境差异。
 
    - `<cann_version>`: 表示CANN包版本号。
    - `<arch>`: 表示CPU架构，如aarch64、x86_64。
