@@ -48,8 +48,13 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
     }
 
     if (param->deviceType != DevType::DEV_TYPE_910_95) {
+        ScatterOpInfo opInfo;
+        if (CreateScatter(param, &opInfo) != HCCL_SUCCESS) {
+            HCCL_ERROR("%s CreateScatter fail", __func__);
+            return 1;
+        }
         if (HcommRegOpInfo != nullptr &&
-            HcommRegOpInfo(param->commName, reinterpret_cast<void *>(param), sizeof(OpParam)) != HCCL_SUCCESS) {
+            HcommRegOpInfo(param->commName, reinterpret_cast<void *>(opInfo), sizeof(ScatterOpInfo)) != HCCL_SUCCESS) {
             HCCL_ERROR("%s HcommRegOpInfo fail, commName[%s], algTag[%s], param[%p], size[%u]",
                 __func__, param->commName, param->algTag, param, sizeof(OpParam));
             return 1;

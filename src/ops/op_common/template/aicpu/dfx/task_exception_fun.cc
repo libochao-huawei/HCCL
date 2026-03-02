@@ -17,19 +17,35 @@
 #include "alg_param.h"
 
 namespace ops_hccl {
+HcclResult CreateScatter(OpParam *param, ScatterOpInfo *opInfo)
+{
+    if (param == nullptr || opInfo == nullptr) {
+        HCCL_ERROR("%s fail, param[%p] or opInfo[%p] is nullptr", __func__, param, opInfo);
+        return HCCL_E_PTR;
+    }
+    strcpy(opInfo->algTag, param->algTag);
+    strcpy(opInfo->commName, param->commName);
+    opInfo->count = param->DataDes.count;
+    opInfo->dataType = param->DataDes.dataType;
+    opInfo->opType = param->opType;
+    opInfo->root = param->root;
+    opInfo->inputPtr = param->inputPtr;
+    opInfo->outputPtr = param->outputPtr;
+    return HCCL_SUCCESS
+}
 
 void GetScatterOpInfo(const void *opInfo, char *outPut, size_t size)
 {
-    const OpParam *param = reinterpret_cast<const OpParam *>(opInfo);
+    const ScatterOpInfo *info = reinterpret_cast<const ScatterOpInfo *>(opInfo);
     std::stringstream ss;
-    ss << "tag:" << param->algTag << ", ";
-    ss << "group:" << param->commName << ", ";
-    ss << "count:" << param->DataDes.count << ", ";
-    ss << "dataType:" << param->DataDes.dataType << ", ";
-    ss << "opType:" << param->opType << ", ";
-    ss << "rootId:" << param->root << ", ";
-    ss << "dstAddr:0x" << std::hex << param->inputPtr << ", ";
-    ss << "srcAddr:0x" << std::hex << param->outputPtr << ".";
+    ss << "tag:" << info->algTag << ", ";
+    ss << "group:" << info->commName << ", ";
+    ss << "count:" << info->count << ", ";
+    ss << "dataType:" << info->dataType << ", ";
+    ss << "opType:" << info->opType << ", ";
+    ss << "rootId:" << info->root << ", ";
+    ss << "dstAddr:0x" << std::hex << info->inputPtr << ", ";
+    ss << "srcAddr:0x" << std::hex << info->outputPtr << ".";
 
     std::string strTmp = ss.str();
     s32 sRet = strncpy_s(outPut, size, strTmp.c_str(), std::min(size, strTmp.size()));
