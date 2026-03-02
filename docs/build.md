@@ -18,7 +18,6 @@
    ```shell
    bash build_third_party.sh --output_path=${THIRD_LIB_PATH}
    ```
-   Docker镜像方式快速部署环境方法可参考[ops-nn提供镜像](https://gitcode.com/cann/ops-nn/blob/master/QUICKSTART.md)开箱即用，避免环境差异。
 
 2. 安装社区尝鲜版CANN Toolkit包
 
