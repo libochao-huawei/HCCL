@@ -532,6 +532,7 @@ HcclResult ParseOpExpansion()
     std::string opExpansionModeEnv = GetEnv(MM_ENV_HCCL_OP_EXPANSION_MODE);
     g_algEnvConfig.aicpuUnfold = false;
     g_algEnvConfig.aivMode = false;
+    g_algEnvConfig.aivOnlyMode = false;
     g_algEnvConfig.ccuMSMode = false;
     g_algEnvConfig.ccuSchedMode = false;
 
@@ -557,6 +558,12 @@ HcclResult ParseOpExpansion()
             HCCL_WARNING("Deterministic do not support aiv");
         }
         g_algEnvConfig.aivMode = true;
+    } else if (opExpansionModeEnv == "AIV_ONLY") {
+        if (g_algEnvConfig.hcclDeterministic == true) {
+            HCCL_WARNING("Deterministic do not support aiv only");
+        }
+        g_algEnvConfig.aivMode = true;
+        g_algEnvConfig.aivOnlyMode = true;
     } else if (opExpansionModeEnv == "HOST") {
         g_algEnvConfig.aivMode = false;
         g_algEnvConfig.aicpuUnfold = false;
@@ -744,6 +751,11 @@ const bool& GetExternalInputHcclAivMode()
     return g_algEnvConfig.aivMode;
 }
 
+const bool& GetExternalInputHcclAivOnlyMode()
+{
+    return g_algEnvConfig.aivOnlyMode;
+}
+
 const bool& GetExternalInputHcclCcuMSMode()
 {
     return g_algEnvConfig.ccuMSMode;
@@ -786,7 +798,8 @@ bool RunIndependentOpExpansion(DevType deviceType) {
     }
 
     if (deviceType == DevType::DEV_TYPE_910_95) {
-        return opExpansionModeEnv == "AI_CPU" || opExpansionModeEnv == "HOST_TS" || opExpansionModeEnv == "EmptyString" || opExpansionModeEnv == "AIV";
+        return opExpansionModeEnv == "AI_CPU" || opExpansionModeEnv == "HOST_TS" || opExpansionModeEnv == "EmptyString" ||
+            opExpansionModeEnv == "AIV" || opExpansionModeEnv == "AIV_ONLY";
     }
     
     // HOST_TS为Host展开
