@@ -31,7 +31,7 @@ HcclResult CreateScatter(OpParam *param, ScatterOpInfo *opInfo)
     opInfo->root = param->root;
     opInfo->inputPtr = param->inputPtr;
     opInfo->outputPtr = param->outputPtr;
-    return HCCL_SUCCESS
+    return HCCL_SUCCESS;
 }
 
 void GetScatterOpInfo(const void *opInfo, char *outPut, size_t size)
