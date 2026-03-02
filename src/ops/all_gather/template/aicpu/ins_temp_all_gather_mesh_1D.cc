@@ -91,6 +91,14 @@ HcclResult InsTempAllGatherMesh1D::RunAllGatherMesh(const std::vector<ThreadHand
 
     u32 myAlgRank = 0;
     CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], myAlgRank));
+    u64 sliceSize = tempAlgParams_.sliceSize;
+    u64 sliceCount = tempAlgParams_.count;
+    const u32 dataTypeSize = sliceSize / sliceCount;
+        // 尾块模式
+    if (tempAlgParams_.tailSize !=0 && myAlgRank == templateRankSize_ -1) {
+        sliceSize = tempAlgParams_.tailSize;
+        sliceCount = sliceSize / dataTypeSize;
+    }
     for (u32 rpt = 0; rpt < tempAlgParams_.repeatNum; ++rpt) {
         const u64 outBaseOff = tempAlgParams_.buffInfo.outBuffBaseOff + rpt * tempAlgParams_.outputRepeatStride;
         const u64 scratchRepeatStride = tempAlgParams_.sliceSize * templateRankSize_;
@@ -129,30 +137,30 @@ HcclResult InsTempAllGatherMesh1D::RunAllGatherMesh(const std::vector<ThreadHand
             // write模式使用tx,rx地址不生效，仅使用对端link做Post/Wait
             // read 模式使用rx, tx地址不生效，仅使用对端link做Post/Wait
             std::vector<DataSlice> txSrcSlices{
-                DataSlice(txSrcPtr, txOutOffset, tempAlgParams_.sliceSize, tempAlgParams_.count)};  // 本地(send)
+                DataSlice(txSrcPtr, txOutOffset, sliceSize, sliceCount)};  // 本地(send)
             std::vector<DataSlice> txDstSlices{
-                DataSlice(txDstPtr, txDstOffset, tempAlgParams_.sliceSize, tempAlgParams_.count)};  // 远程(send)
+                DataSlice(txDstPtr, txDstOffset, sliceSize, sliceCount)};  // 远程(send)
             // read模式使用rx
             std::vector<DataSlice> rxDstSlices{
-                DataSlice(rxDstPtr, rxSrcOffset, tempAlgParams_.sliceSize, tempAlgParams_.count)};  // 本地(recv)
+                DataSlice(rxDstPtr, rxSrcOffset, sliceSize, sliceCount)};  // 本地(recv)
             std::vector<DataSlice> rxSrcSlices{
-                DataSlice(rxSrcPtr, rxOutOffset, tempAlgParams_.sliceSize, tempAlgParams_.count)};  // 远程(recv)
+                DataSlice(rxSrcPtr, rxOutOffset, sliceSize, sliceCount)};  // 远程(recv)
 
             HCCL_DEBUG("[InsTempAllGatherMesh1D][RunAllGatherMesh] rankId [%d] connectedRank [%d] txSrcSlices: "
                        "offset[%d] sliceSize[%d] count[%d].",
-                       myRank_, connectedRank, txOutOffset, tempAlgParams_.sliceSize, tempAlgParams_.count);
+                       myRank_, connectedRank, txOutOffset, sliceSize, sliceCount);
 
             HCCL_DEBUG("[InsTempAllGatherMesh1D][RunAllGatherMesh] rankId [%d] connectedRank [%d] txDstSlices: "
                        "offset[%d] sliceSize[%d] count[%d].",
-                       myRank_, connectedRank, txDstOffset, tempAlgParams_.sliceSize, tempAlgParams_.count);
+                       myRank_, connectedRank, txDstOffset, sliceSize, sliceCount);
 
             HCCL_DEBUG("[InsTempAllGatherMesh1D][RunAllGatherMesh] rankId [%d] connectedRank [%d] rxSrcSlices: "
                        "offset[%d] sliceSize[%d] count[%d].",
-                       myRank_, connectedRank, rxOutOffset, tempAlgParams_.sliceSize, tempAlgParams_.count);
+                       myRank_, connectedRank, rxOutOffset, sliceSize, sliceCount);
 
             HCCL_DEBUG("[InsTempAllGatherMesh1D][RunAllGatherMesh] rankId [%d] connectedRank [%d] rxDrcSlices: "
                        "offset[%d] sliceSize[%d] count[%d].",
-                       myRank_, connectedRank, rxSrcOffset, tempAlgParams_.sliceSize, tempAlgParams_.count);
+                       myRank_, connectedRank, rxSrcOffset, sliceSize, sliceCount);
 
             TxRxSlicesList sendRecvSlicesList({txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices});
             TxRxChannels sendRecvChannels(linkRemote, linkRemote);
@@ -199,7 +207,10 @@ HcclResult InsTempAllGatherMesh1D::LocalDataCopy(const std::vector<ThreadHandle>
 HcclResult InsTempAllGatherMesh1D::PostLocalCopy(const std::vector<ThreadHandle> &threads)
 {
     HCCL_INFO("[InsTempAllGatherMesh1D] PostLocalCopy.");
-
+    if (tempAlgParams_.buffInfo.outputPtr == tempAlgParams_.buffInfo.hcclBuff.addr) {
+        HCCL_INFO("[InsTempAllGatherMesh1D] PostLocalCopy skip because output is scratch" );
+        return HcclResult::HCCL_SUCCESS;
+    }
     for (u32 rpt = 0; rpt < tempAlgParams_.repeatNum; ++rpt) {
         const u64 outBaseOff = tempAlgParams_.buffInfo.outBuffBaseOff + rpt * tempAlgParams_.outputRepeatStride;
         const u64 scratchRepeatStride = tempAlgParams_.sliceSize * templateRankSize_;

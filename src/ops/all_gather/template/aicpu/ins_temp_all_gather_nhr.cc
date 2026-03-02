@@ -78,7 +78,7 @@ HcclResult InsTempAllGatherNHR::RunAllGatherNHR(const std::vector<ThreadHandle> 
                                                 const std::map<u32, std::vector<ChannelInfo>> &channels)
 {
     const u32 nSteps = GetNHRStepNum(templateRankSize_);  // NHR 通信步数， celi(log2(rankSize))
-
+    const u32 dataTypeSize = tempAlgParams_.sliceSize / tempAlgParams_.count;
     for (u32 rpt = 0; rpt < tempAlgParams_.repeatNum; ++rpt) {
         const u64 scratchRepeatStride = tempAlgParams_.sliceSize * templateRankSize_;
         const u64 scratchBase = tempAlgParams_.buffInfo.hcclBuffBaseOff + rpt * scratchRepeatStride;
@@ -104,19 +104,18 @@ HcclResult InsTempAllGatherNHR::RunAllGatherNHR(const std::vector<ThreadHandle> 
             for (u32 i = 0; i < stepInfo.nSlices; ++i) {
                 const u32 txIdx = stepInfo.txSliceIdxs[i];
                 const u32 rxIdx = stepInfo.rxSliceIdxs[i];
-
                 const u64 txScratchOff = scratchBase + tempAlgParams_.sliceSize * txIdx;
-
                 const u64 rxScratchOff = scratchBase + tempAlgParams_.sliceSize * rxIdx;
 
-                txSrcSlices.emplace_back(tempAlgParams_.buffInfo.hcclBuff.addr, txScratchOff, tempAlgParams_.sliceSize,
-                                         tempAlgParams_.count);
-                txDstSlices.emplace_back(sendCclBuffAddr, txScratchOff, tempAlgParams_.sliceSize, tempAlgParams_.count);
-                rxSrcSlices.emplace_back(recvCclBuffAddr, rxScratchOff, tempAlgParams_.sliceSize, tempAlgParams_.count);
-                rxDstSlices.emplace_back(tempAlgParams_.buffInfo.hcclBuff.addr, rxScratchOff, tempAlgParams_.sliceSize,
-                                         tempAlgParams_.count);
+                const u64 txSliceSize = (txIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize != 0) ? tempAlgParams_.tailSize: tempAlgParams_.sliceSize;
+                const u64 rxSliceSize = (rxIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize != 0) ? tempAlgParams_.tailSize: tempAlgParams_.sliceSize;
+
+                txSrcSlices.emplace_back(tempAlgParams_.buffInfo.hcclBuff.addr, txScratchOff, txSliceSize, txSliceSize / dataTypeSize);
+                txDstSlices.emplace_back(sendCclBuffAddr, txScratchOff, txSliceSize, txSliceSize / dataTypeSize);
+                rxSrcSlices.emplace_back(recvCclBuffAddr, rxScratchOff, rxSliceSize, rxSliceSize / dataTypeSize);
+                rxDstSlices.emplace_back(tempAlgParams_.buffInfo.hcclBuff.addr, rxScratchOff, rxSliceSize, rxSliceSize / dataTypeSize);
             }
-            // write模式使用tx,rx地址不生效，仅使用对端link做Post/Wait
+            // write模式使用tx, rx地址不生效，仅使用对端link做Post/Wait
             // read 模式使用rx, tx地址不生效，仅使用对端link做Post/Wait
             TxRxSlicesList sendRecvSlicesList({txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices});
             TxRxChannels sendRecvChannels(channelSend, channelRecv);
@@ -171,6 +170,10 @@ HcclResult InsTempAllGatherNHR::GetStepInfo(u32 step, u32 nSteps, AicpuNHRStepIn
 HcclResult InsTempAllGatherNHR::LocalDataCopy(const std::vector<ThreadHandle> &threads)
 
 {
+    if (tempAlgParams_.buffInfo.inputPtr == tempAlgParams_.buffInfo.hcclBuff.addr) {
+        HCCL_INFO("[InsTempAllGatherNHR] LocalDataCopy skip because input is scratch" );
+        return HcclResult::HCCL_SUCCESS;
+    }
     u32 algRankIdx = 0;
     CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], algRankIdx));
 
@@ -192,6 +195,10 @@ HcclResult InsTempAllGatherNHR::LocalDataCopy(const std::vector<ThreadHandle> &t
 
 HcclResult InsTempAllGatherNHR::PostLocalCopy(const std::vector<ThreadHandle> &threads)
 {
+    if (tempAlgParams_.buffInfo.inputPtr == tempAlgParams_.buffInfo.hcclBuff.addr) {
+        HCCL_INFO("[InsTempAllGatherNHR] PostLocalCopy skip because output is scratch" );
+        return HcclResult::HCCL_SUCCESS;
+    }
     for (u32 rpt = 0; rpt < tempAlgParams_.repeatNum; ++rpt) {
         const u64 outBaseOff = tempAlgParams_.buffInfo.outBuffBaseOff + rpt * tempAlgParams_.outputRepeatStride;
         const u64 scratchRepeatStride = tempAlgParams_.sliceSize * templateRankSize_;
