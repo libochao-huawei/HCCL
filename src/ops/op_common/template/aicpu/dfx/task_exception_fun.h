@@ -19,7 +19,7 @@ namespace ops_hccl {
 
 struct ScatterOpInfo {
     char algTag[ALG_TAG_LENGTH]; // 保存资源的key值，和算法绑定
-    char comName[COMM_INDENTIFIER_MAX_LENGTH];
+    char commName[COMM_INDENTIFIER_MAX_LENGTH];
     void* inputPtr = nullptr;
     void* outputPtr = nullptr;
     u32 root = INVALID_VALUE_RANKID;
