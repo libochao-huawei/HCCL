@@ -85,7 +85,7 @@ static u32 GetAivTimeout()
     
     u32 timeout = CUSTOM_TIMEOUT * TIME_S_TO_US;
     double timeoutUs = execTimeOut * TIME_S_TO_US;
-    if (timeoutUs > static_cast<double>(std::numeric_limits<u32>::max())) {
+    if (timeoutUs > static_cast<double>(std::numeric_limits<s32>::max())) {
         HCCL_INFO("[GetAivTimeout]Get input timeout[%.2f] is out of valid range.", timeoutUs);
         return CUSTOM_TIMEOUT * TIME_S_TO_US;
     }
