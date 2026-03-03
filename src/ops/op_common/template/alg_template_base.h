@@ -52,6 +52,7 @@ enum TemplateType {
     TEMPLATE_SCATTER_NHR = 3,                // ScatterNHR
     TEMPLATE_SCATTER_RING_DIRECT = 4,        // ScatterRingDirect
     TEMPLATE_REDUCE_SCATTER_MESH = 5,        // ReduceScatterMesh
+    TEMPLATE_ALLGATHER_RING = 6,             // AllGatherRing
 
     TEMPLATE_REDUCE_SCATTER_HOST_DPU = 100,
     TEMPLATE_REDUCE_SCATTER_LOCAL_REDUCE = 101,

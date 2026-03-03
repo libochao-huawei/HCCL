@@ -7,18 +7,12 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
+# 模板层源码（具体 ring 通信流程实现）。
+set(src_list
+    ${CMAKE_CURRENT_SOURCE_DIR}/allgather_ring.cc
+)
 
-add_subdirectory(scatter)
-add_subdirectory(interface)
-add_subdirectory(op_common)
-add_subdirectory(reduce_scatter)
-add_subdirectory(all_gather)
-add_subdirectory(all_to_all_v)
-add_subdirectory(broadcast)
-add_subdirectory(all_reduce)
-add_subdirectory(send)
-add_subdirectory(recv)
-add_subdirectory(reduce_scatter_v)
-add_subdirectory(all_gather_v)
-add_subdirectory(reduce)
-add_subdirectory(allgather)
+# 注册到 hccl 主目标。
+target_sources(hccl PRIVATE
+    ${src_list}
+)
