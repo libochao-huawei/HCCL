@@ -248,6 +248,21 @@ extern HcclResult HcclReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclD
 */
 extern HcclResult HcclBatchSendRecv(HcclSendRecvItem* sendRecvInfo, uint32_t itemNum, HcclComm comm, aclrtStream stream);
 
+/**
+ * @brief AllGatherRing operator.
+ *
+ * @param sendBuf A pointer identifying the input data address of the operator.
+ * @param recvBuf A pointer identifying the output data address of the operator.
+ * @param sendCount An integer(u64) identifying the number of the input data.
+ * @param dataType The data type of the operator, must be one of the following types: int8, int16, int32, int64,
+ * uint8, uint16, uint32, uint64, float16, float32, float64, bfp16.
+ * @param comm A pointer identifying the communication resource based on.
+ * @param stream A pointer identifying the stream information.
+ * @return HcclResult
+ */
+extern HcclResult HcclAllGatherRing(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType,
+    HcclComm comm, aclrtStream stream);
+
 #ifdef __cplusplus
 }
 #endif // __cplusplus
