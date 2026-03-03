@@ -23,6 +23,7 @@ using HcclUs = std::chrono::steady_clock::time_point;
 #define DURATION_US(x) (std::chrono::duration_cast<std::chrono::microseconds>(x))
 
 HcclResult  SalStrToULong(const std::string str, int base, u32 &val);
+HcclResult SalStrToDouble(const std::string str, double &val);
 
 HcclResult IsAllDigit(const char *strNum);
 u32 SalStrLen(const char *s, u32 maxLen = INT_MAX);
