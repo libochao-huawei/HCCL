@@ -18,6 +18,7 @@
 - [AlltoAllV](./02_collectives/07_alltoallv/)
 - [AlltoAllVC](./02_collectives/08_alltoallvc/)
 - [Scatter](./02_collectives/09_scatter/)
+- [AllGatherRing](./02_collectives/10_allgather_ring/)
 
 ## AI 框架
 
