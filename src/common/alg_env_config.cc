@@ -156,7 +156,7 @@ std::string GetEnv(mmEnvId IdName)
     }
 }
 
-static HcclResult ParseExecTimeout()
+HcclResult ParseExecTimeout()
 {
     std::string execTimeOutEnv = GetEnv(MM_ENV_HCCL_EXEC_TIMEOUT);
     if (execTimeOutEnv == "EmptyString") {
