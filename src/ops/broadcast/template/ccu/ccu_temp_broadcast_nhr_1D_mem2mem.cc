@@ -202,7 +202,7 @@ HcclResult CcuTempBroadcastNHR1DMem2Mem::SplitDataFor2Dies(const OpParam& param,
     u8 die0BWcoeff = 1;
     u8 die1BWcoeff = 1;
 
-    // todo: 查询带宽系数，按比例切分数据
+    // 查询带宽系数，按比例切分数据
 
     die0Size = (dataCount * die0BWcoeff / (die0BWcoeff + die1BWcoeff)) * typeSize;
     die1Size = templateDataParams.sliceSize - die0Size;

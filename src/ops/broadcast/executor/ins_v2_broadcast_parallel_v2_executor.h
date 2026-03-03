@@ -95,6 +95,10 @@ private:
     // rounddown func for uint
     inline u64 RoundDown(u64 dividend, u64 divisor) const
     {
+        if (divisor == 0) {
+            HCCL_WARNING("[InsBroadcastParallelExecutor][RoundDown] divisor is 0!");
+            return dividend;
+        }
         return dividend / divisor;
     }
 

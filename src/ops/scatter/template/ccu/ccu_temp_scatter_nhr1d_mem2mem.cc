@@ -202,16 +202,6 @@ HcclResult CcuTempScatterNHR1DMem2Mem::SplitDataFor2Dies(const OpParam &param,
     }
     u8 die0PortGroupSize = 1;
     u8 die1PortGroupSize = 1;
-    // todo: port查询暂不支持
-    // for (LinkData linkData : tempLinks.begin()->second) {
-    //     if (linkData.GetPortGroupSize() == 0) continue;
-    //     if (linkData.GetLocalDieId() == 0) {
-    //         die0PortGroupSize = linkData.GetPortGroupSize();
-    //     }
-    //     else {
-    //         die1PortGroupSize = linkData.GetPortGroupSize();
-    //     }
-    // }
 
     die0Size = (dataCount * die0PortGroupSize / (die0PortGroupSize + die1PortGroupSize)) * typeSize;
     die1Size = templateDataParams.sliceSize - die0Size;

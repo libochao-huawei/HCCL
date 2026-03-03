@@ -632,7 +632,6 @@ HcclResult ParseOpExpansion()
             HCCL_WARNING("deviceType[%u] do not support HOST_TS", deviceType);
         }
     } else if (opExpansionModeEnv == "CCU_MS") {
-        // todo: 判断芯片类型
         g_algEnvConfig.ccuMSMode = true;
     } else if (opExpansionModeEnv == "CCU_SCHED") {
         g_algEnvConfig.ccuSchedMode = true;
