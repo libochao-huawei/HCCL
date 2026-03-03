@@ -42,10 +42,6 @@ HcclResult __attribute__((weak)) HcommProfilingEnd(ThreadHandle *threads, u32 th
 extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
 {
     HCCL_INFO("Entry-%s, commName[%s], tag[%s], algTag[%s]", __func__, param->commName, param->tag, param->algTag);
-    if (HcommAcquireComm(param->commName) != HCCL_SUCCESS) { 
-        HCCL_ERROR("%s HcommAcquireComm fail, commName[%s]", __func__, param->commName);
-        return 1;
-    }
 
     if (param->deviceType != DevType::DEV_TYPE_910_95) {
         ScatterOpInfo opInfo;
@@ -53,6 +49,12 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             HCCL_ERROR("%s CreateScatter fail", __func__);
             return 1;
         }
+
+        if (HcommAcquireComm(param->commName) != HCCL_SUCCESS) {
+            HCCL_ERROR("%s HcommAcquireComm fail, commName[%s]", __func__, param->commName);
+            return 1;
+        }
+        
         if (HcommRegOpInfo != nullptr &&
             HcommRegOpInfo(param->commName, reinterpret_cast<void *>(&opInfo), sizeof(ScatterOpInfo)) != HCCL_SUCCESS) {
             HCCL_ERROR("%s HcommRegOpInfo fail, commName[%s], algTag[%s], size[%u]",
