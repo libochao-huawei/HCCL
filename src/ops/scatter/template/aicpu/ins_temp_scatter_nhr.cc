@@ -169,11 +169,6 @@ HcclResult InsTempScatterNHR::PreCopy(const TemplateDataParams &tempAlgParams, c
 HcclResult InsTempScatterNHR::PostCopy(
     const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads)
 {
-    //outBuffType为CCL Buffer则跳过postcopy
-    if (tempAlgParams.buffInfo.outBuffType == BufferType::HCCL_BUFFER) {
-        HCCL_INFO("[InsTempScatterNHR][Postcopy] skip postcopy");
-        return HCCL_SUCCESS;
-    }
     u32 myAlgRank;
     GetAlgRank(myRank_, subCommRanks_[0], myAlgRank);
     for (u32 r = 0; r < tempAlgParams.repeatNum; r++) {
