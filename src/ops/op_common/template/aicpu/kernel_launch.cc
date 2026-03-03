@@ -54,9 +54,9 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             return 1;
         }
         if (HcommRegOpInfo != nullptr &&
-            HcommRegOpInfo(param->commName, reinterpret_cast<void *>(opInfo), sizeof(ScatterOpInfo)) != HCCL_SUCCESS) {
-            HCCL_ERROR("%s HcommRegOpInfo fail, commName[%s], algTag[%s], param[%p], size[%u]",
-                __func__, param->commName, param->algTag, param, sizeof(OpParam));
+            HcommRegOpInfo(param->commName, reinterpret_cast<void *>(&opInfo), sizeof(ScatterOpInfo)) != HCCL_SUCCESS) {
+            HCCL_ERROR("%s HcommRegOpInfo fail, commName[%s], algTag[%s], size[%u]",
+                __func__, param->commName, opInfo.algTag, sizeof(ScatterOpInfo));
             return 1;
         }
 

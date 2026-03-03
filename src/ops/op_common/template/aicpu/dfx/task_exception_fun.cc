@@ -19,12 +19,12 @@
 namespace ops_hccl {
 HcclResult CreateScatter(OpParam *param, ScatterOpInfo *opInfo)
 {
-    if (param == nullptr || opInfo == nullptr) {
-        HCCL_ERROR("%s fail, param[%p] or opInfo[%p] is nullptr", __func__, param, opInfo);
-        return HCCL_E_PTR;
-    }
-    strcpy(opInfo->algTag, param->algTag);
-    strcpy(opInfo->commName, param->commName);
+    CHK_PTR_NULL(param);
+    CHK_PTR_NULL(opInfo);
+    s32 sRet = strncpy_s(opINfo->algTag, ALG_TAG_LENGTH, param->algTag, ALG_TAG_LENGTH);
+    CHK_PRT_RET(sRet != EOK, HCCL_ERROR("%s call strncpy_s failed, return %d.", __func__, sRet), HCCL_E_MEMORY);
+    sRet = strncpy_s(opINfo->commName, COMM_INDENTIFIER_MAX_LENGTH, param->commName, COMM_INDENTIFIER_MAX_LENGTH)
+    CHK_PRT_RET(sRet != EOK, HCCL_ERROR("%s call strncpy_s failed, return %d.", __func__, sRet), HCCL_E_MEMORY);
     opInfo->count = param->DataDes.count;
     opInfo->dataType = param->DataDes.dataType;
     opInfo->opType = param->opType;
