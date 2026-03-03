@@ -51,7 +51,6 @@ protected:
     /* *************** 算法编排 *************** */
     HcclResult OrchestrateLoop(const OpParam &param, const AlgResourceCtxSerializable &resCtx);
     HcclResult InitCommInfo(const OpParam& param, const TopoInfo* topoInfo);
-    HcclResult SetJettyNums(std::vector<uint32_t>& jettyNums, bool multijetty);
 
     std::vector<std::vector<std::vector<u32>>> algHierarchyInfo_;
     std::vector<std::map<u32, std::vector<ChannelInfo>>> remoteRankToChannelInfo_;

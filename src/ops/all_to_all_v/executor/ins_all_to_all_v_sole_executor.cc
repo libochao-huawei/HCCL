@@ -58,49 +58,20 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(HcclC
     // 初始化一些基本成员变量
     CHK_RET(InitCommInfo(param, topoInfo));
 
+    std::vector<std::vector<u32>> subCommRanks = algHierarchyInfo.infos[0];
+    // ubx机型algHierarchyInfo的level0存在两个topo，4p以上使用clos topo混合建链，根据topo size判断clos topo
+    if (algHierarchyInfo.infos[0].size() == 2) {
+        subCommRanks = {algHierarchyInfo.infos[0][0].size() > algHierarchyInfo.infos[0][1].size() ?
+            algHierarchyInfo.infos[0][0]  : algHierarchyInfo.infos[0][1]};
+    }
+
     // 构建template
     std::shared_ptr<InsAlgTemplate> algTemplate = 
-        std::make_shared<InsAlgTemplate>(param, topoInfo->userRank, algHierarchyInfo.infos[0]);
+        std::make_shared<InsAlgTemplate>(param, topoInfo->userRank, subCommRanks);
     // 调用计算资源的函数
     algTemplate->CalcRes(comm, param, topoInfo, resourceRequest);
 
-    // ubx机型algHierarchyInfo的level0存在两个topo，4p以上使用clos topo混合建链，根据topo size判断clos topo
-    if (algHierarchyInfo.infos[0].size() == 2) {
-        std::vector<std::vector<u32>> subCommRanksClos = {algHierarchyInfo.infos[0][0].size() > algHierarchyInfo.infos[0][1].size() ?
-            algHierarchyInfo.infos[0][0]  : algHierarchyInfo.infos[0][1]};
-        // 计算建链诉求以COMM_TOPO_1DMESH为优先级，优先建mesh链，没有mesh链建clos链
-        std::vector<HcclChannelDesc> channelDescs;
-        CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanksClos, channelDescs, CommTopo::COMM_TOPO_1DMESH));
-        resourceRequest.ccuKernelInfos[0].channels = channelDescs;
-
-        std::vector<uint32_t> jettyNums;
-        CHK_RET(SetJettyNums(jettyNums, true));
-        resourceRequest.ccuKernelInfos[0].kernelArg = std::make_shared<CcuKernelArgAllToAllVMesh1DMultiJetty>(
-                                                                                        subCommRanksClos[0].size(),
-                                                                                        topoInfo->userRank,
-                                                                                        param,
-                                                                                        subCommRanksClos,
-                                                                                        jettyNums);
-    }
-
     return HCCL_SUCCESS;
-}
-
-template <typename AlgTopoMatch, typename InsAlgTemplate>
-HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::SetJettyNums(
-    std::vector<uint32_t>& jettyNums, bool multijetty)
-{
-    jettyNums.resize(rankSize_, 0);
-    for (int i = 0; i < rankSize_; i++) {
-        if (i == myRank_) {
-            jettyNums[i] = 1;
-        } else if (multijetty) {
-            jettyNums[i] = 4;
-        } else {
-            jettyNums[i] = 1;
-        }
-    }
-    return HcclResult::HCCL_SUCCESS;
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
