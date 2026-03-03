@@ -60,7 +60,6 @@ private:
     void RunBroadcast(std::vector<CcuRep::RemoteAddr> &dst, CcuRep::LocalAddr &src);
     void RunReduce(CcuRep::LocalAddr &dst, std::vector<CcuRep::RemoteAddr> &src);
 
-    // CcuVersion ccuVersion_ = CcuVersion::CCU_INVALID;
     uint64_t rankSize_{0};
     uint32_t rankId_{0};
     HcclDataType dataType_;

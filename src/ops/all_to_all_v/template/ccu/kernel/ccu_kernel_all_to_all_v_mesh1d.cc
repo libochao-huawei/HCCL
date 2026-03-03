@@ -58,8 +58,6 @@ HcclResult CcuKernelAlltoAllVMesh1D::InitResource()
     }
     HCCL_INFO("output size: %d, token size: %d", output_.size(), token_.size());
 
-    // src_.reserve(rankSize_);
-    // dst_.reserve(rankSize_);
     for (uint64_t rankIdx = 0; rankIdx < rankSize_; rankIdx++) {
         src_.push_back(CreateLocalAddr());
         if (rankIdx == rankId_) {

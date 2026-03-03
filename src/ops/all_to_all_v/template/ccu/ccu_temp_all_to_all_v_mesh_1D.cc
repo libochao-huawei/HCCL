@@ -159,7 +159,6 @@ HcclResult CcuTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
     HCCL_INFO("[CcuTempAllToAllVMesh1D] Run Init: myRank_[%d], dimSize[%llu], inputAddr[%llu],"\
         "outputAddr[%llu], sliceSize[%llu], srcOffset[%llu], dstOffset[%llu]",
         myRank_, tempRankSize_, inputAddr, outputAddr, sliceSize, srcOffset, dstOffset);
-    // tempAlg.SetA2ASendRecvInfo(localSendRecvInfo_);
     std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAlltoAllVMesh1D>(
                 inputAddr, outputAddr, sliceSize, token, srcOffset, 
                 dstOffset, localSendRecvInfo_);

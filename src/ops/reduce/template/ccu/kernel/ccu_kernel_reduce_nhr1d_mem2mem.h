@@ -101,7 +101,6 @@ private:
     HcclResult InitResources();
     void PreSync();
     void PostSync();
-    // void AxisSync(uint32_t signalIndex);
     void LocalCopySlices();
     void DoLocalCopySlice(CcuRep::LocalAddr &src, CcuRep::LocalAddr &dst,
                           const u32 &copySliceIdx, u32 signalIndex);

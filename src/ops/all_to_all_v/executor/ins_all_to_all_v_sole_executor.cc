@@ -148,9 +148,6 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLo
     templateAlgRes.threads = resCtx.threads;
     templateAlgRes.aivCommInfoPtr = resCtx.aivCommInfoPtr;
 
-    // 先将cclBuffer切块，看每一块大小
-    // u64 scratchDataCountPerLoopPerRank = maxDataSizePerLoop / dataTypeSize_ / rankSize_;
-
     TemplateDataParams tempAlgParams;
     tempAlgParams.buffInfo.inputPtr = param.inputPtr;
     tempAlgParams.buffInfo.outputPtr = param.outputPtr;
@@ -165,7 +162,6 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLo
     tempAlgParams.repeatNum = 1;  // 不需要重复
     tempAlgParams.inputRepeatStride = 0;
     tempAlgParams.outputRepeatStride = 0;
-    // tempAlgParams.sliceSize = scratchDataCountPerLoopPerRank * dataTypeSize_; // alltoallv在kernel中做切分
 
     CHK_RET(algTemplate->KernelRun(param, tempAlgParams, templateAlgRes));
     HCCL_INFO("[InsAlltoAllVSoleExecutor][OrchestrateLoop] End.");
