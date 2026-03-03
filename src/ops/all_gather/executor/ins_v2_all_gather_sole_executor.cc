@@ -11,10 +11,12 @@
 #include "topo_match_1d.h"
 #include "ins_temp_all_gather_mesh_1D.h"
 #include "ins_temp_all_gather_nhr.h"
+#ifndef AICPU_COMPILE
 #include "aiv_temp_all_gather_mesh_1D.h"
 #include "ccu_temp_all_gather_mesh_1D_mem2mem.h"
 #include "ccu_temp_all_gather_mesh_1D.h"
 #include "ccu_temp_all_gather_nhr_1D_mem2mem.h"
+#endif
 namespace ops_hccl {
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>

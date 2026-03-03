@@ -13,12 +13,14 @@
 #include "ins_temp_all_reduce_mesh_1D_two_shot.h"
 #include "ins_temp_all_reduce_nhr.h"
 #include "ins_temp_all_reduce_mesh_1D_two_shot_mesh_chunk.h"
+#ifndef AICPU_COMPILE
 #include "aiv_temp_all_reduce_mesh_1D_oneshot.h"
 #include "aiv_temp_all_reduce_mesh_1D_twoshot.h"
 #include "ccu_temp_all_reduce_mesh_1D_one_shot.h"
 #include "ccu_temp_all_reduce_mesh_1D_mem2mem.h"
 #include "ccu_temp_all_reduce_mesh_1D.h"
 #include "ccu_temp_all_reduce_nhr_1D_mem2mem.h"
+#endif
 
 namespace ops_hccl {
 

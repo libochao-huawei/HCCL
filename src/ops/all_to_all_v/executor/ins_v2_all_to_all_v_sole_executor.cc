@@ -10,9 +10,11 @@
 
 #include "ins_v2_all_to_all_v_sole_executor.h"
 #include "ins_temp_all_to_all_v_mesh_1D.h"
+#ifndef AICPU_COMPILE
 #include "aiv_temp_all_to_all_mesh_1D.h"
 #include "aiv_temp_all_to_all_v_mesh_1D.h"
 #include "ccu_temp_all_to_all_mesh_1D.h"
+#endif
 namespace ops_hccl {
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>

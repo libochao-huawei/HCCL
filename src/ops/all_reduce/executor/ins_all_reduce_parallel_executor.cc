@@ -13,8 +13,10 @@
 #include "ins_all_reduce_parallel_executor.h"
 #include "ins_temp_all_reduce_mesh_1D_two_shot.h"
 #include "ins_temp_all_reduce_nhr.h"
+#ifndef AICPU_COMPILE
 #include "ccu_temp_all_reduce_mesh_1D_mem2mem.h"
 #include "ccu_temp_all_reduce_nhr_1D_mem2mem.h"
+#endif
 
 namespace ops_hccl {
 

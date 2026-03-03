@@ -11,10 +11,12 @@
 #include "ins_v2_broadcast_sole_executor.h"
 #include "ins_temp_broadcast_mesh_1D_two_shot.h"
 #include "ins_temp_broadcast_nhr.h"
+#ifndef AICPU_COMPILE
 #include "aiv_temp_broadcast_mesh_1D.h"
 #include "ccu_temp_broadcast_mesh_1D_mem2mem.h"
 #include "ccu_temp_broadcast_mesh_1D.h"
 #include "ccu_temp_broadcast_nhr_1D_mem2mem.h"
+#endif
 
 namespace ops_hccl {
 

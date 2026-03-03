@@ -11,9 +11,11 @@
 #include "ins_v2_scatter_parallel_executor.h"
 #include "ins_temp_scatter_mesh_1D.h"
 #include "ins_temp_scatter_nhr.h"
+#ifndef AICPU_COMPILE
 #include "ccu_temp_scatter_mesh1d.h"
 #include "ccu_temp_scatter_nhr1d_mem2mem.h"
 #include "ccu_kernel_scatter_nhr1d_mem2mem.h"
+#endif
 
 namespace ops_hccl {
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
