@@ -62,15 +62,22 @@ SelectorStatus AllReduceAutoSelector::SelectCcuMsAlgo(TopoInfo* topoInfo, OpPara
 SelectorStatus AllReduceAutoSelector::SelectMeshAlgo(TopoInfo* topoInfo, OpParam &opParam,
                                                     std::string &selectAlgName) const
 {
-    (void)opParam;
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-        if (IsSmallData(dataSize)) {
+        if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
+            selectAlgName = "CcuAllReduceMesh2Die";   // FIXME: 检查HF算法名
+        } else if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_NOT_REGULAR) {
+            HCCL_INFO("[Algo][%s] TWO_DIE_NOT_REGULAR not match", __func__);
+            return SelectorStatus::NOT_MATCH;
+        } else if (IsSmallData(dataSize) && IsInputOutputOverlap(opParam.inputPtr, opParam.inputSize, opParam.outputPtr, opParam.outputSize) != true) {
             selectAlgName = "CcuAllReduceMesh1DOneShot";
         } else {
             selectAlgName = "CcuAllReduceMesh1D";
         }
+    } else {
+        HCCL_WARNING("[Algo][AllReduceAutoSelector] level0Topo[%u] is not supported yet.", topoInfo->level0Topo);
+        return SelectorStatus::NOT_MATCH;
     }
     return SelectorStatus::MATCH;
 }
@@ -79,7 +86,7 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleAlgo(TopoInfo* topoInfo,
                                                             OpParam &opParam,
                                                             const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                             std::string &selectAlgName) const
-{    
+{
     // ccu 模式不支持 PROD
     CHK_PRT_RET(opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD,
         HCCL_WARNING("[Algo][AllReduceAutoSelector] ReduceOp[%d] is not supported yet for ccu schedule mode.",
@@ -196,7 +203,7 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpu(TopoInfo* topoInfo, Op
             return SelectorStatus::NOT_MATCH;
         } else if (dataSize <= AR_AICPU_1D_SMALL_DATA_SIZE) {
             selectAlgName = "InsAllReduceMesh1DOneShot";
-        } else if (dataSize > AR_AICPU_1D_MAX_DATA_SIZE) { 
+        } else if (dataSize > AR_AICPU_1D_MAX_DATA_SIZE) {
             selectAlgName = "InsAllReduceMesh1DTwoShotMeshChunk";
         } else {
             selectAlgName = "InsAllReduceMesh1DTwoShot";
@@ -230,7 +237,7 @@ SelectorStatus AllReduceAutoSelector::SelectAivAlgo(TopoInfo* topoInfo, OpParam 
 
     HCCL_INFO("hccl algo op config: config opType:%d, level0:%u, level1:%u, level2:%u, level3:%u",
         opParam.opType, algos[0], algos[1], algos[2], algos[3]);
-    
+
     //aiv 模式不支持 PROD
     CHK_PRT_RET(opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD,
         HCCL_WARNING("[Algo][AllReduceAutoSelector] ReduceOp[%d] is not supported yet for aiv mode.",

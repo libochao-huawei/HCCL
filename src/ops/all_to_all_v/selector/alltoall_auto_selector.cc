@@ -34,10 +34,16 @@ SelectorStatus AlltoAllAutoSelector::SelectCcuScheduleAlgo(TopoInfo* topoInfo,
         return SelectorStatus::NOT_MATCH;
     }
 
-    HcclAlgoType levle0Algo = HcclAlgoType::HCCL_ALGO_TYPE_DEFAULT; 
+    HcclAlgoType levle0Algo = HcclAlgoType::HCCL_ALGO_TYPE_DEFAULT;
     auto it = configAlgMap.find(opParam.opType);
     if ((it != configAlgMap.end()) && (it->second.size() > 0)) {
         levle0Algo = it->second[0];
+    }
+    if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
+        selectAlgName = "CcuAllToAllMesh2Die";
+    } else if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_NOT_REGULAR) {
+        HCCL_INFO("[Algo][%s] TWO_DIE_NOT_REGULAR not match", __func__);
+        return SelectorStatus::NOT_MATCH;
     }
     if (IsDefaultAlg(levle0Algo) || levle0Algo ==  HcclAlgoType::HCCL_ALGO_TYPE_FULLMESH) {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {

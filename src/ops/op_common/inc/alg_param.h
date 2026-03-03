@@ -97,6 +97,13 @@ enum class Level0Shape {
     MESH_1D = 1
 };
 
+enum class Level0MeshType {
+    NOT_MESH = 0,
+    SINGLE_DIE = 1,
+    TWO_DIE_REGULAR = 2,
+    TWO_DIE_NOT_REGULAR = 3,
+};
+
 // 这个应该是公共的
 struct TopoInfo { // 通信域拓扑ctx
     u32 userRank; // rankId
@@ -118,10 +125,13 @@ struct TopoInfo { // 通信域拓扑ctx
     Level0Shape level0Topo;
     ThreadHandle mainThread;    // 主流对应threadHandle
     u32 notifyNumOnMainThread = 0;  // mainThread上创建的notify数量
+    Level0MeshType level0MeshType;
 };
 
 // ccu kernel register所需信息
 struct CcuKernelInfo {
+    // kernel资源组序号，group号不同时，资源复用
+    u32 resGroup = 0;
     // kernel构造函数
     hcomm::KernelCreator creator;
     // KernelArg实例

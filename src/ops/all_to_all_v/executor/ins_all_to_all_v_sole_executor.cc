@@ -33,18 +33,74 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcAlgHierar
     return HCCL_SUCCESS;
 }
 
+template <typename AlgTopoMatch, typename InsAlgTemplate>
+HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::InitCommInfo(const OpParam& param,
+    const TopoInfo* topoInfo)
+{
+    myRank_ = topoInfo->userRank;
+    rankSize_ = topoInfo->userRankSize;
+    devType_ = topoInfo->deviceType;
+    dataType_ = param.all2AllVDataDes.sendType;
+    dataTypeSize_ =  SIZE_TABLE[dataType_];
+    dataCount_ = param.DataDes.count;
+    dataSize_ = dataCount_ * dataTypeSize_;
+
+    HCCL_INFO("[InsAlltoAllVSoleExecutor][InitCommInfo] myRank [%u], rankSize [%u], devType [%u], dataType_ [%u], "
+        "dataCount_ [%llu]", myRank_, rankSize_, devType_, dataType_, dataCount_);
+    return HCCL_SUCCESS;
+}
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(HcclComm comm, const OpParam& param,
                        const TopoInfo* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
                        AlgResourceRequest& resourceRequest)
 {
+    // 初始化一些基本成员变量
+    CHK_RET(InitCommInfo(param, topoInfo));
+
     // 构建template
     std::shared_ptr<InsAlgTemplate> algTemplate = 
         std::make_shared<InsAlgTemplate>(param, topoInfo->userRank, algHierarchyInfo.infos[0]);
     // 调用计算资源的函数
     algTemplate->CalcRes(comm, param, topoInfo, resourceRequest);
+
+    // ubx机型algHierarchyInfo的level0存在两个topo，4p以上使用clos topo混合建链，根据topo size判断clos topo
+    if (algHierarchyInfo.infos[0].size() == 2) {
+        std::vector<std::vector<u32>> subCommRanksClos = {algHierarchyInfo.infos[0][0].size() > algHierarchyInfo.infos[0][1].size() ?
+            algHierarchyInfo.infos[0][0]  : algHierarchyInfo.infos[0][1]};
+        // 计算建链诉求以COMM_TOPO_1DMESH为优先级，优先建mesh链，没有mesh链建clos链
+        std::vector<HcclChannelDesc> channelDescs;
+        CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanksClos, channelDescs, CommTopo::COMM_TOPO_1DMESH));
+        resourceRequest.ccuKernelInfos[0].channels = channelDescs;
+
+        std::vector<uint32_t> jettyNums;
+        CHK_RET(SetJettyNums(jettyNums, true));
+        resourceRequest.ccuKernelInfos[0].kernelArg = std::make_shared<CcuKernelArgAllToAllVMesh1DMultiJetty>(
+                                                                                        subCommRanksClos[0].size(),
+                                                                                        topoInfo->userRank,
+                                                                                        param,
+                                                                                        subCommRanksClos,
+                                                                                        jettyNums);
+    }
+
     return HCCL_SUCCESS;
+}
+
+template <typename AlgTopoMatch, typename InsAlgTemplate>
+HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::SetJettyNums(
+    std::vector<uint32_t>& jettyNums, bool multijetty)
+{
+    jettyNums.resize(rankSize_, 0);
+    for (int i = 0; i < rankSize_; i++) {
+        if (i == myRank_) {
+            jettyNums[i] = 1;
+        } else if (multijetty) {
+            jettyNums[i] = 4;
+        } else {
+            jettyNums[i] = 1;
+        }
+    }
+    return HcclResult::HCCL_SUCCESS;
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
@@ -104,10 +160,10 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate(
     const OpParam &param, const AlgResourceCtxSerializable &resCtx)
 {
     HCCL_INFO("[InsAlltoAllVSoleExecutor][Orchestrate] Orchestrate Start");
-    maxTmpMemSize_ = resCtx.cclMem.size; // maxTmpMemSize_设定为cclIn的大小，op中将申请的HcclBuff全给了cclIn
-    rankSize_ = resCtx.topoInfo.userRankSize;
-    dataType_ = param.all2AllVDataDes.sendType;
-    dataTypeSize_ = SIZE_TABLE[dataType_];
+
+    // 初始化一些基本成员变量
+    CHK_RET(InitCommInfo(param, &resCtx.topoInfo));
+
     // 给channels_和threads_赋值
     threads_ = resCtx.threads;
     if (param.engine != CommEngine::COMM_ENGINE_AIV && param.engine != CommEngine::COMM_ENGINE_CCU) {
@@ -158,7 +214,7 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLo
     tempAlgParams.buffInfo.hcclBuffBaseOff = 0;
     tempAlgParams.buffInfo.inBuffType = BufferType::INPUT;
     tempAlgParams.buffInfo.outBuffType = BufferType::OUTPUT;
-    tempAlgParams.buffInfo.hcclBuffType     = BufferType::HCCL_BUFFER;
+    tempAlgParams.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
     tempAlgParams.repeatNum = 1;  // 不需要重复
     tempAlgParams.inputRepeatStride = 0;
     tempAlgParams.outputRepeatStride = 0;
@@ -168,9 +224,18 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLo
     return HCCL_SUCCESS;
 }
 
-#ifndef AICPU_COMPILE
 // 第二个参数是All to AllV的template文件
+#ifndef AICPU_COMPILE
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, CcuAlltoAllVMesh1D, InsAlltoAllVSoleExecutor, TopoMatch1D,
     CcuTempAlltoAllVMesh1D);
+
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, CcuAllToAllVMesh2Die, InsAlltoAllVSoleExecutor, TopoMatch1D,
+    CcuTempAlltoAllVMesh2Die);
+
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV,
+                CcuAllToAllV1DmeshMultiJetty,
+                InsAlltoAllVSoleExecutor,
+                TopoMatchUBX,
+                CcuTempAllToAllVMesh1DMultiJetty);
 #endif
 }

@@ -214,4 +214,37 @@ HcclResult AutoSelectorBase::CheckHostDPUOnly(const TopoInfo* topoInfo, const Op
     return HCCL_SUCCESS;
 }
 
+bool AutoSelectorBase::IsInputOutputOverlap(const void* inputPtr, const u64 inputSize, const void* outputPtr, const u64 outputSize) const
+{
+    const u64 inputAddr = reinterpret_cast<const u64>(inputPtr);
+    const u64 outputAddr =  reinterpret_cast<const u64>(outputPtr);
+
+    CHK_PRT_RET(inputSize == 0 || outputSize == 0,
+        // 不存在overlap情况
+        HCCL_INFO("[Algo][BaseSelector][IsInputOutputOverlap] The input or output buffer size is 0. Not overlap."),
+        false);
+
+    u64 inputEnd = inputAddr + inputSize - 1;
+    u64 outputEnd = outputAddr + outputSize - 1;
+
+    HCCL_DEBUG("[Algo][BaseSelector][IsInputOutputOverlap] inputAddr[%llu], inputEnd[%llu], outputAddr[%llu], "
+               "outputEnd[%llu].",
+        inputAddr,
+        inputEnd,
+        outputAddr,
+        outputEnd);
+
+    CHK_PRT_RET(inputAddr <= outputEnd && outputAddr <= inputEnd,
+        HCCL_INFO("[Algo][BaseSelector][IsInputOutputOverlap] inputAddr[%llu], inputEnd[%llu], outputAddr[%llu], "
+                  "outputEnd[%llu]. Overlap detected.",
+            inputAddr,
+            inputEnd,
+            outputAddr,
+            outputEnd),
+        true);
+
+    HCCL_DEBUG("[Algo][BaseSelector][IsInputOutputOverlap]No overlap between input and output memory.");
+    return false;
+}
+
 }

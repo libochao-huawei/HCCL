@@ -584,17 +584,30 @@ HcclResult HcclGetCcuKernel(HcclComm comm, const OpParam &param, AlgResourceRequ
         HCCL_ERROR("[HcclGetCcuKernel]ccuKernel num not match!"),
         HCCL_E_INTERNAL);
 
-    for (CcuKernelInfo& kernelInfo: resRequest.ccuKernelInfos) {
-
-        void* kernelArgPtr = static_cast<void*>(kernelInfo.kernelArg.get()); // 保证没有释放
-        void* creatorPtr = static_cast<void*>(&kernelInfo.creator);
-        
-        HCCL_DEBUG("[AllocAlgResource] kernelArgPtr[%p], creator[%p]", kernelArgPtr, &(kernelInfo.creator));
-        CcuKernelHandle handle;
-        CHK_RET(HcclCcuKernelRegister(comm, &handle, creatorPtr, kernelArgPtr));
-        resCtxHost->ccuKernels.push_back(handle);
+    // 按照resgroup进行注册
+    u32 currentResGroup = 0;
+    u32 maxResGroup = 0;
+    resCtxHost->ccuKernels.resize(totalKernelNum);
+    while (currentResGroup <= maxResGroup) {
+        for (u32 i = 0; i < totalKernelNum; i++) {
+            CcuKernelInfo& kernelInfo = resRequest.ccuKernelInfos[i];
+            if (kernelInfo.resGroup > maxResGroup) {
+                maxResGroup = kernelInfo.resGroup;
+            }
+            if (kernelInfo.resGroup != currentResGroup) {
+                continue;
+            }
+            void* kernelArgPtr = static_cast<void*>(kernelInfo.kernelArg.get()); // 保证没有释放
+            void* creatorPtr = static_cast<void*>(&kernelInfo.creator);
+            
+            HCCL_DEBUG("[AllocAlgResource] kernelArgPtr[%p], creator[%p]", kernelArgPtr, &(kernelInfo.creator));
+            CcuKernelHandle handle;
+            CHK_RET(HcclCcuKernelRegister(comm, &handle, creatorPtr, kernelArgPtr));
+            resCtxHost->ccuKernels[i] = handle;
+        }
+        CHK_RET(HcclCcuKernelRegisterFinish(comm));
+        currentResGroup++;
     }
-    CHK_RET(HcclCcuKernelRegisterFinish(comm));
     resCtxHost->ccuKernelNum = resRequest.ccuKernelNum;
     return HCCL_SUCCESS;
 }

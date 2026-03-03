@@ -94,6 +94,7 @@ public:
                                    OpParam &opParam,
                                    const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                    std::string &selectAlgName) const;
+    bool IsInputOutputOverlap(const void* inputPtr, const u64 inputSize, const void* outputPtr, const u64 outputSize) const;
     HcclResult CheckHostDPUOnly(const TopoInfo* topoInfo, const OpParam &opParam, bool &hostDPUOnly) const;
     bool IsStarsState(const OpExecuteConfig &opExecuteConfig) const;
 };

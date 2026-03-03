@@ -179,8 +179,6 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, AivAllReduceMesh1DOneShot, Ins
     AivTempAllReduceMesh1DOneShot);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, AivAllReduceMesh1DTwoShot, InsV2AllReduceSoleExecutor, TopoMatch1D,
     AivTempAllReduceMesh1DTwoShot);
-REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh1DOneShot, InsV2AllReduceSoleExecutor,
-    TopoMatch1D, CcuTempAllReduceMesh1DOneShot);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceNHR1D, InsV2AllReduceSoleExecutor, TopoMatch1D,
                  CcuTempAllReduceNHRMem2Mem1D);
 
@@ -188,5 +186,11 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh1DMem2Mem, Ins
                  TopoMatch1D, CcuTempAllReduceMeshMem2Mem1D);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh1D, InsV2AllReduceSoleExecutor, 
                  TopoMatch1D, CcuTempAllReduceMesh1D);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllreduceMesh1D2Die, InsV2AllReduceSoleExecutor, TopoMatch1D,
+    CcuTempAllreduceMesh1D2DieOneShot);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh1DOneShot, InsV2AllReduceSoleExecutor,
+    TopoMatch1D, CcuTempAllReduceMesh1DOneShot);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh1DMem2Mem2DieOneShot, InsV2AllReduceSoleExecutor, TopoMatch1D,
+    CcuTempAllReduceMesh1DMem2Mem2DieOneShot);
 #endif
 }  // namespace ops_hccl
