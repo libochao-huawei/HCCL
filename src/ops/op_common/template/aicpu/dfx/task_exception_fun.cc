@@ -17,19 +17,35 @@
 #include "alg_param.h"
 
 namespace ops_hccl {
+HcclResult CreateScatter(OpParam *param, ScatterOpInfo *opInfo)
+{
+    CHK_PTR_NULL(param);
+    CHK_PTR_NULL(opInfo);
+    s32 sRet = strncpy_s(opInfo->algTag, ALG_TAG_LENGTH, param->algTag, ALG_TAG_LENGTH);
+    CHK_PRT_RET(sRet != EOK, HCCL_ERROR("%s call strncpy_s failed, return %d.", __func__, sRet), HCCL_E_MEMORY);
+    sRet = strncpy_s(opInfo->commName, COMM_INDENTIFIER_MAX_LENGTH, param->commName, COMM_INDENTIFIER_MAX_LENGTH);
+    CHK_PRT_RET(sRet != EOK, HCCL_ERROR("%s call strncpy_s failed, return %d.", __func__, sRet), HCCL_E_MEMORY);
+    opInfo->count = param->DataDes.count;
+    opInfo->dataType = param->DataDes.dataType;
+    opInfo->opType = param->opType;
+    opInfo->root = param->root;
+    opInfo->inputPtr = param->inputPtr;
+    opInfo->outputPtr = param->outputPtr;
+    return HCCL_SUCCESS;
+}
 
 void GetScatterOpInfo(const void *opInfo, char *outPut, size_t size)
 {
-    const OpParam *param = reinterpret_cast<const OpParam *>(opInfo);
+    const ScatterOpInfo *info = reinterpret_cast<const ScatterOpInfo *>(opInfo);
     std::stringstream ss;
-    ss << "tag:" << param->algTag << ", ";
-    ss << "group:" << param->commName << ", ";
-    ss << "count:" << param->DataDes.count << ", ";
-    ss << "dataType:" << param->DataDes.dataType << ", ";
-    ss << "opType:" << param->opType << ", ";
-    ss << "rootId:" << param->root << ", ";
-    ss << "dstAddr:0x" << std::hex << param->inputPtr << ", ";
-    ss << "srcAddr:0x" << std::hex << param->outputPtr << ".";
+    ss << "tag:" << info->algTag << ", ";
+    ss << "group:" << info->commName << ", ";
+    ss << "count:" << info->count << ", ";
+    ss << "dataType:" << info->dataType << ", ";
+    ss << "opType:" << info->opType << ", ";
+    ss << "rootId:" << info->root << ", ";
+    ss << "dstAddr:0x" << std::hex << info->inputPtr << ", ";
+    ss << "srcAddr:0x" << std::hex << info->outputPtr << ".";
 
     std::string strTmp = ss.str();
     s32 sRet = strncpy_s(outPut, size, strTmp.c_str(), std::min(size, strTmp.size()));
