@@ -315,6 +315,10 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         -DAICPU_COMPILE
     )
 
+    target_link_directories(scatter_aicpu_kernel PRIVATE
+ 	    ${ASCEND_CANN_PACKAGE_PATH}/devlib/device
+ 	)
+
     target_link_libraries(scatter_aicpu_kernel PRIVATE
         -Wl,--no-as-needed
         ccl_kernel
