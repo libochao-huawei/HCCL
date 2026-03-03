@@ -122,6 +122,8 @@ HcclResult ParseInterLinkType();
 
 HcclResult ParseOpExpansion();
 
+HcclResult ParseExecTimeout();
+
 HcclResult SplitHcclRetryEnable(const std::string &retryConfig, std::vector<std::string> &retryEnables);
 
 HcclResult CollectRetryEnableFromConfig(const std::vector<std::string> &retryEnables);
