@@ -82,14 +82,16 @@ HcclResult InsTempScatterMesh1D::KernelRun(const OpParam& param, const TemplateD
         u32 key = item.first;
         HCCL_DEBUG("[KernelRun] myRank_ = %u, channel key = %u", myRank_, key);
     }
+    u32 myAlgRank = 0;
+    CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], myAlgRank));
     threadNum_ = templateResource.threads.size();
     processSize_ = tempAlgParams.sliceSize;
     count_ = tempAlgParams.count;
     dataType_ = param.DataDes.dataType;
     const u32 dataTypeSize = processSize_ / count_;
     // 尾块模式
-    if (tempAlgParams_.tailSize !=0 && myAlgRank == templateRankSize_ -1) {
-        processSize_ = tempAlgParams_.tailSize;
+    if (tempAlgParams.tailSize !=0 && myAlgRank == templateRankSize_ -1) {
+        processSize_ = tempAlgParams.tailSize;
         count_ = processSize_ / dataTypeSize;
     }
     HCCL_INFO("[InsTempScatterMesh1D] Run Start");
