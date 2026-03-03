@@ -17,6 +17,8 @@ set(COMMON_INC_PATH
     ${CANN_3RD_LIB_PATH}/gtest/include
 )
 
+include(cmake/config.cmake)
+
 # UT
 if(ENABLE_UT)
     add_subdirectory(ut)
