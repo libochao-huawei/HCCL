@@ -13,12 +13,11 @@
 #include <iostream>
 #include <fstream>
 #include <limits>
-#include <regex>
 #include "mmpa_api.h"
 #include "adapter_acl.h"
 #include "hccl_aiv_utils.h"
 #include "universal_concurrent_map.h"
-#include "sal.h"
+#include "alg_env_config.h"
 
 using namespace std;
 using namespace ops_hccl;
@@ -37,19 +36,6 @@ static mutex g_mut;
 static aclrtBinHandle g_binHandle;
 static std::unordered_map<s8*, aclrtFuncHandle> g_aivFuncMap;
 
-static std::string GetEnvValue(mmEnvId idName)
-{
-    char* mmSysGetEnvValue = nullptr;
-    MM_SYS_GET_ENV(idName, mmSysGetEnvValue);
-    return (mmSysGetEnvValue != nullptr) ? mmSysGetEnvValue : "EmptyString";
-}
-
-static bool IsValidExecTimeOutMs(const std::string &execTimeOutStr)
-{
-    std::regex validFormat(R"(^\d+(\.\d{1,2})?$)");
-    return std::regex_match(execTimeOutStr, validFormat);
-}
-
 static HcclResult GetMinAndMaxNpuSchedTimeOut(u64 &minNpuSchedTimeout, u64 &maxNpuSchedTimeout)
 {
     uint64_t interval = 0;
@@ -65,28 +51,15 @@ static HcclResult GetMinAndMaxNpuSchedTimeOut(u64 &minNpuSchedTimeout, u64 &maxN
 
 static u32 GetAivTimeout()
 {
-    std::string execTimeOutEnv = GetEnvValue(MM_ENV_HCCL_EXEC_TIMEOUT);
-    if (execTimeOutEnv == "EmptyString") {
-        return CUSTOM_TIMEOUT * TIME_S_TO_US;
-    }
-
-    if (!IsValidExecTimeOutMs(execTimeOutEnv)) {
-        HCCL_WARNING("[GetAivTimeout] HCCL_EXEC_TIMEOUT[%s] format is invalid, use default[%u]us.",
-            execTimeOutEnv.c_str(), CUSTOM_TIMEOUT);
-        return CUSTOM_TIMEOUT * TIME_S_TO_US;
-    }
-
     double execTimeOut = 0;
-    if (SalStrToDouble(execTimeOutEnv, execTimeOut) != HCCL_SUCCESS) {
-        HCCL_WARNING("[GetAivTimeout] HCCL_EXEC_TIMEOUT[%s] parse failed, use default[%u]us.",
-            execTimeOutEnv.c_str(), CUSTOM_TIMEOUT);
+    if (!GetExternalInputExecTimeout(execTimeOut)) {
         return CUSTOM_TIMEOUT * TIME_S_TO_US;
     }
     
     u32 timeout = CUSTOM_TIMEOUT * TIME_S_TO_US;
     double timeoutUs = execTimeOut * TIME_S_TO_US;
     if (timeoutUs > static_cast<double>(std::numeric_limits<s32>::max())) {
-        HCCL_INFO("[GetAivTimeout]Get input timeout[%.2f] is out of valid range.", timeoutUs);
+        HCCL_WARNING("[GetAivTimeout]Get input timeout[%.2f] is out of valid range.", timeoutUs);
         return CUSTOM_TIMEOUT * TIME_S_TO_US;
     }
 
