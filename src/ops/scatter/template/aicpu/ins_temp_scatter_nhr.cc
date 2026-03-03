@@ -120,14 +120,16 @@ HcclResult InsTempScatterNHR::GetStepInfo(u32 step, u32 nSteps, AicpuNHRStepInfo
 HcclResult InsTempScatterNHR::KernelRun(const OpParam& param, const TemplateDataParams &tempAlgParams,
                      const TemplateResource& templateResource)
 {
+    u32 myAlgRank = 0;
+    CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], myAlgRank));
     threadNum_ =  subCommRanks_.size();
     processSize_ = tempAlgParams.sliceSize;
     count_ = tempAlgParams.count;
     dataType_ = param.DataDes.dataType;
     const u32 dataTypeSize = processSize_ / count_;
     // 尾块模式
-    if (tempAlgParams_.tailSize !=0 && myAlgRank == templateRankSize_ -1) {
-        processSize_ = tempAlgParams_.tailSize;
+    if (tempAlgParams.tailSize !=0 && myAlgRank == templateRankSize_ - 1) {
+        processSize_ = tempAlgParams.tailSize;
         count_ = processSize_ / dataTypeSize;
     }
     HCCL_INFO("[InsTempScatterNHR] queNum_ =  [%d], threads size = [%d]", threadNum_, templateResource.threads.size());
