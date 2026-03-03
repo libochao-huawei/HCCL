@@ -124,6 +124,12 @@ HcclResult InsTempScatterNHR::KernelRun(const OpParam& param, const TemplateData
     processSize_ = tempAlgParams.sliceSize;
     count_ = tempAlgParams.count;
     dataType_ = param.DataDes.dataType;
+    const u32 dataTypeSize = processSize_ / count_;
+    // 尾块模式
+    if (tempAlgParams_.tailSize !=0 && myAlgRank == templateRankSize_ -1) {
+        processSize_ = tempAlgParams_.tailSize;
+        count_ = processSize_ / dataTypeSize;
+    }
     HCCL_INFO("[InsTempScatterNHR] queNum_ =  [%d], threads size = [%d]", threadNum_, templateResource.threads.size());
     HCCL_INFO("[InsTempScatterNHR] Run Start");
     CHK_PRT_RET(threadNum_ != templateResource.threads.size(),
@@ -139,6 +145,7 @@ HcclResult InsTempScatterNHR::KernelRun(const OpParam& param, const TemplateData
 HcclResult InsTempScatterNHR::PreCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads) const
 {
     if (u32(myRank_) != root_ || tempAlgParams.buffInfo.inBuffType == BufferType::HCCL_BUFFER) {
+        HCCL_INFO("[InsTempScatterNHR][Precopy] skip precopy, myRank = %u, root = %u", myRank_, root_);
         return HCCL_SUCCESS;
     }
 
@@ -160,12 +167,17 @@ HcclResult InsTempScatterNHR::PreCopy(const TemplateDataParams &tempAlgParams, c
 HcclResult InsTempScatterNHR::PostCopy(
     const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads) const
 {
+    //outBuffType为CCL Buffer则跳过postcopy
+    if (tempAlgParams.buffInfo.outBuffType == BufferType::HCCL_BUFFER) {
+        HCCL_INFO("[InsTempScatterNHR][Postcopy] skip postcopy");
+        return HCCL_SUCCESS;
+    }
     u32 myAlgRank;
     GetAlgRank(myRank_, subCommRanks_[0], myAlgRank);
     for (u32 r = 0; r < tempAlgParams.repeatNum; r++) {
         u64 srcOffset = r * templateRankSize_ * tempAlgParams.sliceSize + tempAlgParams.buffInfo.hcclBuffBaseOff +
                         myAlgRank * tempAlgParams.sliceSize;
-        u64 dstOffset = tempAlgParams.buffInfo.outBuffBaseOff + r * tempAlgParams.sliceSize;
+        u64 dstOffset = tempAlgParams.buffInfo.outBuffBaseOff + myAlgRank * tempAlgParams.outputSliceStride + r * tempAlgParams.sliceSize;
         DataSlice srcSlice = DataSlice(tempAlgParams.buffInfo.hcclBuff.addr, srcOffset, processSize_, count_);
         DataSlice dstSlice = DataSlice(tempAlgParams.buffInfo.outputPtr, dstOffset, processSize_, count_);
         if (tempAlgParams.buffInfo.outBuffType == BufferType::HCCL_BUFFER && srcOffset == dstOffset) {
