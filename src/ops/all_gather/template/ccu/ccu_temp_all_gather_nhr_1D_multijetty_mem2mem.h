@@ -1,9 +1,12 @@
-/*
- * Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
- * Description: 算法库CcuTemAllGatherNHR1DMultiJettyMem2Mem类实现
- * Author: xxx
- * Create: 2026-xx-xx
- */
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 
 #ifndef HCCL_CCU_TEMP_ALL_GATHER_NHR_1D_MULTIJETTY_MEM2MEM_H
 #define HCCL_CCU_TEMP_ALL_GATHER_NHR_1D_MULTIJETTY_MEM2MEM_H
@@ -37,17 +40,15 @@ public:
     
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
 
+    HcclResult GetRes(AlgResourceRequest &resourceRequest) override;
+
+    u64 GetThreadNum() override;
+
+protected:
     HcclResult CalcNHRInfo(std::vector<NHRStepInfo> &stepInfoVector);
-
     u32 GetNHRStepNum(u32 rankSize);
-
     HcclResult GetStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo);
-
     uint32_t RemoteRankId2RankId(const uint32_t remoteRankId);
-
-    HcclResult GetRes(AlgResourceRequest &resourceRequest);
-
-    u64 GetThreadNum();
 
 private:
     uint32_t mySubCommRank_ = 0;

@@ -1,9 +1,12 @@
-/*
- * Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
- * Description: 算法库AllGather类实现
- * Author: xxx
- * Create: 2026-xx-xx
- */
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 
 #include "ccu_kernel_all_gather_nhr_1D_multijetty_mem2mem.h"
 #include "ccu_kernel_alg_base.h"
@@ -86,7 +89,7 @@ HcclResult CcuKernelAllGatherNHR1DMultiJettyMem2Mem::InitResources()
     return HcclResult::HCCL_SUCCESS;
 }
 
-void CcuKernelAllGatherNHR1DMultiJettyMem2Mem::LoadArgs()
+HcclResult CcuKernelAllGatherNHR1DMultiJettyMem2Mem::LoadArgs()
 {
     Load(input_);
     Load(output_[myRankIdx_]);
@@ -102,37 +105,40 @@ void CcuKernelAllGatherNHR1DMultiJettyMem2Mem::LoadArgs()
     Load(isInputOutputEqual_);
     Load(groupOpSize_);
     HCCL_DEBUG("[CcuKernelAllGatherNHR1DMultiJettyMem2Mem] LoadArgs run finished");
-    return;
+    return HcclResult::HCCL_SUCCESS;
 }
 
-void CcuKernelAllGatherNHR1DMultiJettyMem2Mem::PreSync()
+HcclResult CcuKernelAllGatherNHR1DMultiJettyMem2Mem::PreSync()
 {
     HCCL_DEBUG("[CcuKernelAllGatherNHR1DMultiJettyMem2Mem] PreSync start");
     for (ChannelHandle channel : channels_) {
-        NotifyRecord(channel, CKE_IDX_0, OUTPUT_XN_ID, output_[localSize_], 1 << OUTPUT_XN_ID); // 同步并置位远端
-        NotifyRecord(channel, CKE_IDX_0, TOKEN_XN_ID, token_[localSize_], 1 << TOKEN_XN_ID);
+        CHK_RET(NotifyRecord(channel, CKE_IDX_0, OUTPUT_XN_ID, output_[localSize_], 1 << OUTPUT_XN_ID)); // 同步并置位远端
+        CHK_RET(NotifyRecord(channel, CKE_IDX_0, TOKEN_XN_ID, token_[localSize_], 1 << TOKEN_XN_ID));
     }
     
     uint16_t allBit = 1 << OUTPUT_XN_ID | 1 << TOKEN_XN_ID;
     for (ChannelHandle channel : channels_) {
-        NotifyWait(channel, CKE_IDX_0, allBit);
+        CHK_RET(NotifyWait(channel, CKE_IDX_0, allBit));
     }
     HCCL_DEBUG("[CcuKernelAllGatherNHR1DMultiJettyMem2Mem] PreSync end");
+    return HcclResult::HCCL_SUCCESS;
 }
 
-void CcuKernelAllGatherNHR1DMultiJettyMem2Mem::PostSync()
+HcclResult CcuKernelAllGatherNHR1DMultiJettyMem2Mem::PostSync()
 {
+    HCCL_DEBUG("[CcuKernelAllGatherNHR1DMultiJettyMem2Mem] PostSync start");
     for (auto &ch : channels_) {
-        NotifyRecord(ch, CKE_IDX_0, 1 << POST_SYNC_ID);
+        CHK_RET(NotifyRecord(ch, CKE_IDX_0, 1 << POST_SYNC_ID));
     }
 
     for (auto &ch : channels_) {
-        NotifyWait(ch, CKE_IDX_0, 1 << POST_SYNC_ID);
+        CHK_RET(NotifyWait(ch, CKE_IDX_0, 1 << POST_SYNC_ID));
     }
-    HCCL_DEBUG("[CcuKernelAllGatherNHR1DMultiJettyMem2Mem] PostSync run finished");
+    HCCL_DEBUG("[CcuKernelAllGatherNHR1DMultiJettyMem2Mem] PostSync end");
+    return HcclResult::HCCL_SUCCESS;
 }
 
-void CcuKernelAllGatherNHR1DMultiJettyMem2Mem::DoRepeatAllGatherNHR()
+HcclResult CcuKernelAllGatherNHR1DMultiJettyMem2Mem::DoRepeatAllGatherNHR()
 {
     tmpSliceOffset_         = 0;
     myrankInputSliceOffset_ = 0;
@@ -163,24 +169,25 @@ void CcuKernelAllGatherNHR1DMultiJettyMem2Mem::DoRepeatAllGatherNHR()
         event_.SetMask(1 << rankId_);
         CCU_IF(isInputOutputEqual_ == 0)
         {
-            GroupCopy(myDstMem_, srcMem_, groupOpSize_);
-            RecordEvent(event_);
+            CHK_RET(GroupCopy(myDstMem_, srcMem_, groupOpSize_));
+            CHK_RET(RecordEvent(event_));
         }
         CCU_IF(isInputOutputEqual_ != 0)
         {
-            RecordEvent(event_);
+            CHK_RET(RecordEvent(event_));
         }
         event_.SetMask(1 << rankId_);
-        WaitEvent(event_);
+        CHK_RET(WaitEvent(event_));
         repeatTimeflag_ = 1;
     }
 
     for (auto &nhrStepInfo : stepInfoVector_) {
-        DoRepeatAllGatherNHRSingleStep(nhrStepInfo);
+        CHK_RET(DoRepeatAllGatherNHRSingleStep(nhrStepInfo));
     }
+    return HcclResult::HCCL_SUCCESS;
 }
 
-void CcuKernelAllGatherNHR1DMultiJettyMem2Mem::DoRepeatAllGatherNHRSingleStep(const NHRStepInfo &nhrStepInfo)
+HcclResult CcuKernelAllGatherNHR1DMultiJettyMem2Mem::DoRepeatAllGatherNHRSingleStep(const NHRStepInfo &nhrStepInfo)
 {
     u32                    &toRankIdx        = rank2ChannelIdx_[nhrStepInfo.toRank];
     u32                    &fromRankIdx      = rank2ChannelIdx_[nhrStepInfo.fromRank];
@@ -191,8 +198,8 @@ void CcuKernelAllGatherNHR1DMultiJettyMem2Mem::DoRepeatAllGatherNHRSingleStep(co
     srcMem_.token                            = token_[myRankIdx_];
     dstMem_.token                            = token_[toRankIdx];
 
-    NotifyRecord(recvChannel, CKE_IDX_0, 1 << STEP_PRE_SYNC_ID); // 通知fromrank可以写入
-    NotifyWait(sendChannel, CKE_IDX_0, 1 << STEP_PRE_SYNC_ID); // 等待torank准备好
+    CHK_RET(NotifyRecord(recvChannel, CKE_IDX_0, 1 << STEP_PRE_SYNC_ID)); // 通知fromrank可以写入
+    CHK_RET(NotifyWait(sendChannel, CKE_IDX_0, 1 << STEP_PRE_SYNC_ID)); // 等待torank准备好
 
     for (u32 i = 0; i < sendSliceIdxList.size(); i++) {
         sendSliceIdx = sendSliceIdxList[i];
@@ -211,15 +218,16 @@ void CcuKernelAllGatherNHR1DMultiJettyMem2Mem::DoRepeatAllGatherNHRSingleStep(co
                 srcMem_.addr += inputRepeatStride_;
                 dstMem_.addr += outputRepeatStride_;
             }
-            DoSendRecvSlices(nhrStepInfo.toRank, srcMem_, dstMem_);
+            CHK_RET(DoSendRecvSlices(nhrStepInfo.toRank, srcMem_, dstMem_));
             repeatTimeflag_ = 1;
         }
     }
-    NotifyRecord(sendChannel, CKE_IDX_0, 1 << STEP_POST_SYNC_ID); // 通知torank已写完
-    NotifyWait(recvChannel, CKE_IDX_0, 1 << STEP_POST_SYNC_ID); // 等待fromrank写完
+    CHK_RET(NotifyRecord(sendChannel, CKE_IDX_0, 1 << STEP_POST_SYNC_ID)); // 通知torank已写完
+    CHK_RET(NotifyWait(recvChannel, CKE_IDX_0, 1 << STEP_POST_SYNC_ID)); // 等待fromrank写完
+    return HcclResult::HCCL_SUCCESS;
 }
 
-void CcuKernelAllGatherNHR1DMultiJettyMem2Mem::DoSendRecvSlices(const uint32_t &toRank, const CcuRep::LocalAddr &srcMem, 
+HcclResult CcuKernelAllGatherNHR1DMultiJettyMem2Mem::DoSendRecvSlices(const uint32_t &toRank, const CcuRep::LocalAddr &srcMem, 
                                                                 const CcuRep::RemoteAddr &dstMem)
 {
     ChannelHandle      &sendChannel     = channels_[rank2ChannelIdx_[toRank]];
@@ -230,7 +238,7 @@ void CcuKernelAllGatherNHR1DMultiJettyMem2Mem::DoSendRecvSlices(const uint32_t &
     {
         for (uint32_t i = 0; i < jettyNum_ - 1; ++i) {
             event_.SetMask(1 << i);
-            WriteNb(sendChannel, dst, src, sliceSizePerJetty_, event_);
+            CHK_RET(WriteNb(sendChannel, dst, src, sliceSizePerJetty_, event_));
             src.addr += sliceSizePerJetty_;
             dst.addr += sliceSizePerJetty_;
         }
@@ -239,28 +247,29 @@ void CcuKernelAllGatherNHR1DMultiJettyMem2Mem::DoSendRecvSlices(const uint32_t &
     {
         for (uint32_t i = 0; i < jettyNum_ - 1; ++i) {
             event_.SetMask(1 << i);
-            RecordEvent(event_);
+            CHK_RET(RecordEvent(event_));
         }
     }
     CCU_IF(lastSliceSizePerJetty_ != 0)
     {
         event_.SetMask(1 << (jettyNum_ - 1));
-        WriteNb(sendChannel, dst, src, lastSliceSizePerJetty_, event_);
+        CHK_RET(WriteNb(sendChannel, dst, src, lastSliceSizePerJetty_, event_));
     }
     CCU_IF(lastSliceSizePerJetty_ == 0)
     {
         event_.SetMask(1 << (jettyNum_ - 1));
-        RecordEvent(event_);
+        CHK_RET(RecordEvent(event_));
     }
 
     uint16_t sendBit = (1 << jettyNum_) - 1;
     event_.SetMask(sendBit);
-    WaitEvent(event_);
+    CHK_RET(WaitEvent(event_));
+    return HcclResult::HCCL_SUCCESS;
 }
 
 HcclResult CcuKernelAllGatherNHR1DMultiJettyMem2Mem::Algorithm()
 {
-    HCCL_DEBUG("[CcuKernelAllGatherNHR1DMultiJettyMem2Mem] AllgatherNHR1D run");
+    HCCL_DEBUG("[CcuKernelAllGatherNHR1DMultiJettyMem2Mem] AllGatherNHR1DMultiJettyMem2Mem run");
 
     InitResources();
     LoadArgs();
@@ -268,7 +277,7 @@ HcclResult CcuKernelAllGatherNHR1DMultiJettyMem2Mem::Algorithm()
     DoRepeatAllGatherNHR();
     PostSync();
 
-    HCCL_DEBUG("[CcuKernelAllGatherNHR1DMultiJettyMem2Mem] AllgatherNHR1D end");
+    HCCL_DEBUG("[CcuKernelAllGatherNHR1DMultiJettyMem2Mem] AllGatherNHR1DMultiJettyMem2Mem end");
     return HcclResult::HCCL_SUCCESS;
 }
 
