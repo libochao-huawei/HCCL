@@ -65,12 +65,7 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
 {
     if (topoInfo->topoLevelNums > 1) {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-            if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
-                selectAlgName = "CcuAllGatherMesh2Die";   // FIXME: 检查HF算法名
-            } else if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_NOT_REGULAR) {
-                HCCL_INFO("[Algo][%s] TWO_DIE_NOT_REGULAR not match", __func__);
-                return SelectorStatus::NOT_MATCH;
-            } else if (topoInfo->deviceNumPerModule > 1) {
+            if (topoInfo->deviceNumPerModule > 1) {
                 selectAlgName = "CcuAllGatherParallelMesh1DNHR";
                 return SelectorStatus::MATCH;
             } else {
@@ -91,7 +86,14 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
     }
     if ((IsDefaultAlg(levle0Algo) || levle0Algo == HcclAlgoType::HCCL_ALGO_TYPE_FULLMESH) &&
         (topoInfo->level0Topo == Level0Shape::MESH_1D)) {
-        selectAlgName = "CcuAllGatherMeshMem2Mem1D";
+        if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {// FIXME: 检查HF算法名
+            selectAlgName = "CcuAllGatherMesh2Die";
+        } else if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_NOT_REGULAR) {
+            HCCL_INFO("[Algo][%s] TWO_DIE_NOT_REGULAR not match", __func__);
+            return SelectorStatus::NOT_MATCH;
+        } else {
+            selectAlgName = "CcuAllGatherMeshMem2Mem1D";
+        }
         return SelectorStatus::MATCH;
     } else if ((IsDefaultAlg(levle0Algo) || (levle0Algo == HcclAlgoType::HCCL_ALGO_TYPE_FULLMESH))) {
         selectAlgName = "CcuAllGatherMesh2DMem2Mem";
