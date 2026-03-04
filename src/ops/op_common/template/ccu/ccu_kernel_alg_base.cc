@@ -299,15 +299,9 @@ HcclResult CcuKernelAlgBase::CreateMultiOpReduceWithoutMyRank(const std::vector<
                                                moRes.ccuBuf.begin() + index * moConfig.msInterleave + usedBufNum};
         CcuRep::CompletedEvent &event = moRes.completedEvent[index];
         for (uint32_t i = 0; i < ccuChannels.size(); i++) {
-            // if (channels[i] == 0) {
-            //     Hccl::THROW<Hccl::CcuApiException>("channel is nullptr");
-            // }
             event.mask = 1 << i;
             ReadNb(ccuChannels[i], bufs[i], src[i], len, event);
         }
-        // if (size > DATAT_SIZE_U32) {
-        //     Hccl::THROW<Hccl::CcuApiException>("CcuKernelAlgBase::CreateMultiOpReduce size is invalide ,size[%u]", size);
-        // }
 
         event.mask = (1 << size) - 1;
         WaitEvent(event);
@@ -478,7 +472,6 @@ HcclResult CcuKernelAlgBase::GroupBroadcastWithoutMyRank(const std::vector<Chann
         offsetCfg = GetOffsetParam(moConfig.memSlice, moConfig.msInterleave, 1);
 
         LoopGroup({lc}, {loopParam}, paraCfg, offsetCfg);
-        //AddCcuProfiling(goSize, channels);
     }
 
     CCU_IF(goSize.parallelParam != 0)
@@ -507,7 +500,6 @@ HcclResult CcuKernelAlgBase::GroupBroadcastWithoutMyRank(const std::vector<Chann
         offsetCfg = GetOffsetParam(moConfig.memSlice, moConfig.msInterleave, 1);
 
         LoopGroup({lc0, lc1}, {loopCfg0, loopCfg1}, goSize.parallelParam, offsetCfg);
-        //AddCcuProfiling(goSize, channels);
     }
     return HCCL_SUCCESS;
 }
