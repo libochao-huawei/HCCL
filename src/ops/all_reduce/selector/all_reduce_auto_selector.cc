@@ -149,6 +149,9 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleAlgo(TopoInfo* topoInfo,
                 } else {
                     selectAlgName = "CcuAllreduceMesh2DieBigSche"; 
                 }
+            } else if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_NOT_REGULAR) {
+                HCCL_INFO("[Algo][%s] TWO_DIE_NOT_REGULAR not match", __func__);
+                return SelectorStatus::NOT_MATCH;
             } else {
                 selectAlgName = "CcuAllReduceMesh1DMem2Mem";
             }
