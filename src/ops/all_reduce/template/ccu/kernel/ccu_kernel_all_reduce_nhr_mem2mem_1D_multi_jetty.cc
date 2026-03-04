@@ -191,11 +191,6 @@ HcclResult CcuKernelAllReduceNhr1DMem2MemMultiJetty::DoLocalCopySlice(hcomm::Ccu
     const auto &sliceSize = islastSlice ? lastRankSliceSize_ : dataSizePerRank_;
     const auto &goSize = islastSlice ? localCopyGoSize_ : localCopyGoSizeLastSlice_;
 
-    // CCU_IF(sliceSize != 0)
-    // {
-    //     CHK_RET(GroupCopy(dst, src, goSize));
-    // }
-    // CHK_RET(RecordEvent(event));
     CCU_IF(sliceSize != 0)
     {
         CHK_RET(LocalCopyNb(dst, src, sliceSize, event));

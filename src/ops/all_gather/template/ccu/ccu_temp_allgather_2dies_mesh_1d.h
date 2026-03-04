@@ -7,7 +7,7 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
- //changeid:allgather
+
 #ifndef HCCL_CCU_TEMP_ALL_GATHER_2DIES_MESH_1D_H
 #define HCCL_CCU_TEMP_ALL_GATHER_2DIES_MESH_1D_H
 
@@ -27,7 +27,7 @@ public:
  
     std::string Describe() const override
     {
-        return StringFormat("Template of all gather ccu sche mesh 1D Mem2Mem with tempRankSize [%u].",
+        return StringFormat("Template of all gather ccu sche mesh 1D with tempRankSize [%u].",
                             subCommRanks_[0].size());
     }
  
