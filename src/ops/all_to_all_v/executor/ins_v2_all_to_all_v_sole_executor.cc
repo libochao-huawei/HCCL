@@ -14,6 +14,8 @@
 #include "aiv_temp_all_to_all_mesh_1D.h"
 #include "aiv_temp_all_to_all_v_mesh_1D.h"
 #include "ccu_temp_all_to_all_mesh_1D.h"
+#include "ccu/ccu_temp_all_to_all_mesh2die.h"
+#include "ccu_temp_all_to_all_mesh1d_multi_jetty.h"
 #endif
 namespace ops_hccl {
 
