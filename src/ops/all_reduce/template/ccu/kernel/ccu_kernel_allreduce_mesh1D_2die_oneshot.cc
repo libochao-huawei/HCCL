@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "ccu_kernel_allreduce_mesh1D_2die_oneshot.h"
+#include "ccu_kernel_all_reduce_mesh_1D_2die_oneshot.h"
 #include "ccu_kernel_alg_base.h"
 #include "ccu_kernel.h"
 
