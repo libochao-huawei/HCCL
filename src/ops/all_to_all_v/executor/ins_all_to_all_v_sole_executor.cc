@@ -13,6 +13,7 @@
 #ifndef AICPU_COMPILE
 #include "ccu_temp_all_to_all_v_mesh_1D.h"
 #include "ccu_temp_all_to_all_v_mesh2die.h"
+#include "ccu_temp_all_to_all_v_mesh_1D_multi_jetty.h"
 #endif
 
 namespace ops_hccl {

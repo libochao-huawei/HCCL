@@ -10,8 +10,10 @@
 
 #include "channel.h"
 #include "ins_v2_all_to_all_v_concurrent_executor.h"
+#ifndef AICPU_COMPILE
 #include "ccu_temp_all_to_all_v_mesh_1D_multi_jetty.h"
 #include "ccu_kernel_all_to_all_v_mesh1d_multi_jetty.h"
+#endif
 #include "alg_data_trans_wrapper.h"
 
 namespace ops_hccl {
