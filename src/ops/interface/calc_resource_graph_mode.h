@@ -8,15 +8,10 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "alg_param.h"
+#include "hccl_graph_mode.h"
 
-using namespace ops_hccl;
-
+HcclResult HcclCalcOpResOnlineGraphMode(OpParamGraphMode *opParam, ResResponseGraphMode *resResponse);
+HcclResult HcclCalcOpResOfflineGraphMode(OpParamGraphMode *opParam, ResResponseGraphMode *resResponse);
 namespace hccl {
-
-HcclResult HcclCalcOpResOnlineGraphMode(OpParam *opParam, ResResponseGraphMode *resResponse);
-HcclResult HcclCalcOpResOfflineGraphMode(OpParam *opParam, ResResponseGraphMode *resResponse);
-
-
 HcclResult HcclCalcAicpuResOffline(ResResponseGraphMode *resResponse);
 } // namespace hccl
