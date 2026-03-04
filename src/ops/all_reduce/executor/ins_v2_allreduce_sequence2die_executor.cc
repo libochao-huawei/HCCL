@@ -13,7 +13,7 @@
 #ifndef AICPU_COMPILE
 #include "ccu_temp_all_gather_2dies_mesh_1d_mem2mem.h"
 #include "ccu_temp_reduce_scatter_mesh_1D_2die_mem2mem.h"
-#include "ccu_temp_allgather_2dies_mesh_1d.h"
+#include "ccu_temp_all_gather_2dies_mesh_1D.h"
 #include "ccu_temp_reduce_scatter_mesh2die.h"
 #endif
 
