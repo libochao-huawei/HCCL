@@ -43,6 +43,76 @@ namespace ops_hccl {
 thread_local std::map<std::string, HcclMemHandle> g_memHandleCache; // 当前AIV存放注册内存的memHandle使用
 // 用于维护增量建链算子的host ctx信息
 thread_local std::map<std::string, std::unique_ptr<AlgResourceCtxSerializable>> g_hostCtx;
+thread_local std::map<AivOpCacheArgs, std::string> g_aivOpCacheTagMap; // AIV算子参数到algTag映射
+
+static AivOpCacheArgs BuildAivOpCacheArgs(const OpParam &param, const std::string &algName)
+{
+    AivOpCacheArgs cacheArgs;
+    cacheArgs.commModeTag = param.commModeTag;
+    cacheArgs.algName = algName;
+    cacheArgs.opType = param.opType;
+    cacheArgs.reduceOp = param.reduceType;
+    cacheArgs.root = param.root;
+    cacheArgs.blockDimLimit = param.numBlocksLimit;
+    cacheArgs.outputDataType = param.DataDes.outputType;
+
+    if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL) {
+        cacheArgs.count = param.all2AllDataDes.sendCount;
+        cacheArgs.dataType = param.all2AllDataDes.sendType;
+        cacheArgs.all2AllDataDes = {
+            param.all2AllDataDes.sendType,
+            param.all2AllDataDes.recvType,
+            param.all2AllDataDes.sendCount,
+            param.all2AllDataDes.recvCount
+        };
+    } else if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV || param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
+        cacheArgs.dataType = param.all2AllVDataDes.sendType;
+        cacheArgs.all2AllVDataDes = {
+            param.all2AllVDataDes.sendType,
+            param.all2AllVDataDes.recvType,
+            param.all2AllVDataDes.sendCounts,
+            param.all2AllVDataDes.recvCounts,
+            param.all2AllVDataDes.sdispls,
+            param.all2AllVDataDes.rdispls
+        };
+    } else {
+        cacheArgs.count = param.DataDes.count;
+        cacheArgs.dataType = param.DataDes.dataType;
+    }
+
+    return cacheArgs;
+}
+
+static HcclResult TryApplyAivCachedAlgTag(OpParam &param, const AivOpCacheArgs &cacheArgs)
+{
+    auto cacheIt = g_aivOpCacheTagMap.find(cacheArgs);
+    if (cacheIt == g_aivOpCacheTagMap.end()) {
+        return HCCL_SUCCESS;
+    }
+
+    if (strncpy_s(param.algTag, sizeof(param.algTag), cacheIt->second.c_str(), sizeof(param.algTag) - 1) != EOK) {
+        HCCL_ERROR("[%s] failed to set cached algTag", __func__);
+        return HCCL_E_INTERNAL;
+    }
+
+    HCCL_INFO("[%s] hit aiv cache, algTag[%s]", __func__, param.algTag);
+    return HCCL_SUCCESS;
+}
+
+static void SaveAivCachedAlgTag(const AivOpCacheArgs &cacheArgs, const char *algTag)
+{
+    if (algTag == nullptr) {
+        return;
+    }
+
+    if (g_aivOpCacheTagMap.size() > CACHEMAP_MAXSIZE) {
+        size_t clearCount = static_cast<size_t>(CACHEMAP_MAXSIZE * CACHEMAP_CLEARPERCENT);
+        for (auto it = g_aivOpCacheTagMap.begin(); clearCount > 0 && it != g_aivOpCacheTagMap.end(); --clearCount) {
+            it = g_aivOpCacheTagMap.erase(it);
+        }
+    }
+    g_aivOpCacheTagMap[cacheArgs] = algTag;
+}
 
 HcclResult HcclExecOp(HcclComm comm, OpParam &param)
 {
@@ -97,6 +167,12 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param)
     if (ret <= 0) {
         HCCL_ERROR("[%s] failed to fill param.commModeTag", __func__);
         return HCCL_E_INTERNAL;
+    }
+    AivOpCacheArgs aivCacheArgs;
+    const bool isAivMode = (param.engine == CommEngine::COMM_ENGINE_AIV);
+    if (isAivMode) {
+        aivCacheArgs = BuildAivOpCacheArgs(param, algName);
+        CHK_RET(TryApplyAivCachedAlgTag(param, aivCacheArgs));
     }
 
     std::shared_ptr<InsCollAlgBase> executor =
@@ -222,6 +298,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param)
             CHK_RET(ClearAivSyncBuf(param, resCtxHost));
         }
         CHK_RET(executor->Orchestrate(param, resCtxHost));
+        SaveAivCachedAlgTag(aivCacheArgs, param.algTag);
     } else {
         if (isResourceReused) {
             // 复用资源，则需从engineCtx取得res，进行反序列化
