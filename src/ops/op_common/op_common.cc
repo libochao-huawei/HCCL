@@ -905,7 +905,7 @@ HcclResult SetOpParamAlgTag(OpParam &param, const std::string &algName)
     // ccu模式，考虑kernel是否能复用，需要添加dataType和reduceType
     if (param.engine == CommEngine::COMM_ENGINE_CCU) {
 
-        const char* dataType = HCOM_DATA_TYPE_STR_MAP[param.DataDes.dataType];
+        const char* dataType = HCOM_DATA_TYPE_STR_MAP.at(param.DataDes.dataType).c_str();
         ret = strcat_s(param.algTag, sizeof(param.algType), dataType);
         if (ret != 0) {
             HCCL_ERROR("failed to fill alg tag with ccu dataType");
@@ -915,9 +915,9 @@ HcclResult SetOpParamAlgTag(OpParam &param, const std::string &algName)
         if (param.opType == HcclCMDType::HCCL_CMD_ALLREDUCE ||
             param.opType == HcclCMDType::HCCL_CMD_REDUCE ||
             param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER ||
-            param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V ||) {
+            param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V) {
             
-            const char* reduceType = HCOM_REDUCE_OP_STR_MAP[param.reduceType];
+            const char* reduceType = HCOM_REDUCE_OP_STR_MAP.at(param.reduceType).c_str();
             ret = strcat_s(param.algTag, sizeof(param.algType), reduceType);
             if (ret != 0) {
                 HCCL_ERROR("failed to fill alg tag with ccu reduceType");
