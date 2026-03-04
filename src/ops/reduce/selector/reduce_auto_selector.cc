@@ -144,7 +144,7 @@ SelectorStatus ReduceAutoSelector::SelectAicpuAlgo(TopoInfo *topoInfo, OpParam &
             opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
             opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_FP64 ||
             opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
-            selectAlgName = "ReduceMesh1D";
+            selectAlgName = "ReduceAicpuReduceNHR";
         } else if (topoInfo->deviceNumPerModule > 1 && topoInfo->level0Topo == Level0Shape::MESH_1D) {
             selectAlgName = "ReduceParallelMesh1DNHR";
         } else {
