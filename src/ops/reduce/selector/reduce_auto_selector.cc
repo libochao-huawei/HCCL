@@ -180,15 +180,12 @@ SelectorStatus ReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerDet
         return SelectorStatus::NOT_MATCH;
     }
     if (topoInfo->topoLevelNums > 1) {
-        CHK_PRT_RET(opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD,
-            HCCL_WARNING("[ReduceAutoSelector] ReduceOp[%d] is not supported yet for aicpu levelNum > 1.",
-                opParam.reduceType), SelectorStatus::NOT_MATCH);
-
-        CHK_PRT_RET(Is64BitDataType(opParam.DataDes.dataType),
-            HCCL_WARNING("[ReduceAutoSelector] aicpu levelNum > 1 not support INT64, UINT64, FP64.",
-                opParam.reduceType), SelectorStatus::NOT_MATCH);
-    
-        if (topoInfo->netLayerDetails.localNetInsSizeOfLayer.at(0) > 1 && topoInfo->level0Topo == Level0Shape::MESH_1D) {
+        if (opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT64 ||
+            opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
+            opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_FP64 ||
+            opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
+            selectAlgName = "ReduceAicpuReduceNHR";
+        } else if (topoInfo->deviceNumPerModule > 1 && topoInfo->level0Topo == Level0Shape::MESH_1D) {
             selectAlgName = "ReduceParallelMesh1DNHR";
         } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer.at(0) == 1 || topoInfo->level0Topo == Level0Shape::CLOS) {
             selectAlgName = "ReduceNHR";
