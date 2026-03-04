@@ -9,7 +9,7 @@
  */
 
 #include <cstdint>
-#include "ccu_kernel_allgather_2dies_mesh1d_mem2mem.h"
+#include "ccu_kernel_all_gather_2dies_mesh1d_mem2mem.h"
 #include "ccu_kernel_alg_base.h"
 namespace ops_hccl {
 using namespace hcomm;
