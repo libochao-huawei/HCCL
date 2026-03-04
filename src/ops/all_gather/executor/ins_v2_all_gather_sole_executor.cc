@@ -16,6 +16,9 @@
 #include "ccu_temp_all_gather_mesh_1D_mem2mem.h"
 #include "ccu_temp_all_gather_mesh_1D.h"
 #include "ccu_temp_all_gather_nhr_1D_mem2mem.h"
+#include "ccu_temp_all_gather_2dies_mesh_1D_mem2mem.h"
+#include "ccu_temp_all_gather_2dies_mesh_1D.h"
+
 #endif
 namespace ops_hccl {
 

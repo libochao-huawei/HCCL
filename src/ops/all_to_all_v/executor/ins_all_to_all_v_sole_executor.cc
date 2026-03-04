@@ -12,6 +12,7 @@
 #include "ins_all_to_all_v_sole_executor.h"
 #ifndef AICPU_COMPILE
 #include "ccu_temp_all_to_all_v_mesh_1D.h"
+#include "ccu_temp_all_to_all_v_mesh2die.h"
 #endif
 
 namespace ops_hccl {

@@ -17,6 +17,8 @@
 #include "ccu_temp_reduce_scatter_mesh_1D_mem2mem.h"
 #include "ccu_temp_reduce_scatter_mesh_1D.h"
 #include "ccu_temp_reduce_scatter_nhr_1D_mem2mem.h"
+#include "ccu_temp_reduce_scatter_mesh_1D_2die_mem2mem.h"
+#include "ccu_temp_reduce_scatter_mesh2die.h"
 #endif
 
 namespace ops_hccl {

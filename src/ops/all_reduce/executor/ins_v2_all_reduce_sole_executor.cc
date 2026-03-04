@@ -20,6 +20,8 @@
 #include "ccu_temp_all_reduce_mesh_1D_mem2mem.h"
 #include "ccu_temp_all_reduce_mesh_1D.h"
 #include "ccu_temp_all_reduce_nhr_1D_mem2mem.h"
+#include "ccu_temp_allreduce_mesh1d_2die_oneshot.h"
+#include "ccu_temp_all_reduce_mesh_1D_mem2mem_2die_oneshot.h"
 #endif
 
 namespace ops_hccl {
