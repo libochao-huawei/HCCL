@@ -10,8 +10,8 @@
 
 #include "calc_resource_graph_mode.h"
 
-namespace hccl {
-HcclResult HcclCalcOpResOnlineGraphMode(OpParam *opParam, ResResponseGraphMode *resResponse)
+
+HcclResult HcclCalcOpResOnlineGraphMode(OpParamGraphMode *opParam, ResResponseGraphMode *resResponse)
 {
     // 资源初始化
     resResponse->opMemSize = 0;
@@ -26,7 +26,7 @@ HcclResult HcclCalcOpResOnlineGraphMode(OpParam *opParam, ResResponseGraphMode *
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclCalcOpResOfflineGraphMode(OpParam *opParam, ResResponseGraphMode *resResponse)
+HcclResult HcclCalcOpResOfflineGraphMode(OpParamGraphMode *opParam, ResResponseGraphMode *resResponse)
 {
     resResponse->opMemSize = 0;
     resResponse->streamNum = 0;
@@ -38,14 +38,14 @@ HcclResult HcclCalcOpResOfflineGraphMode(OpParam *opParam, ResResponseGraphMode 
 
     // 其他引擎补充在下面
     return HCCL_SUCCESS;
-
 }
 
+namespace hccl {
 HcclResult HcclCalcAicpuResOffline(ResResponseGraphMode *resResponse)
 {
-    u64 aicpuOpMemSize = 0;
-    u64 aicpuStreamNum = 0;
-    u64 aicpuTaskNum = 3;
+    uint64_t aicpuOpMemSize = 0;
+    uint64_t aicpuStreamNum = 0;
+    uint64_t aicpuTaskNum = 3;
 
     resResponse->opMemSize = std::max(resResponse->opMemSize, aicpuOpMemSize);
     resResponse->streamNum = std::max(resResponse->streamNum, aicpuStreamNum);
