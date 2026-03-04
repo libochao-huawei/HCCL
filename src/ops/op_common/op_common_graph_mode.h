@@ -14,6 +14,7 @@
 #include <string>
 #include <memory>
 #include "hccl.h"
+#include "hccl_graph_mode.h"
 #include "op_common.h"
 #include "alg_param.h"
 #include "executor_v2_base.h"
