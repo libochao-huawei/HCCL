@@ -70,6 +70,17 @@ HcclResult InsTempScatterMesh1D::CalcRes(HcclComm comm, const OpParam& param, co
     return HCCL_SUCCESS;
 }
 
+HcclResult InsTempScatterMesh1D::GetRes(AlgResourceRequest &resourceRequest)
+{
+    u32 threadNum = templateRankSize_ > 1 ? templateRankSize_ - 1 : 1;
+    resourceRequest.slaveThreadNum = threadNum - 1;
+    for (u32 index = 0; index < threadNum - 1; index++) {
+        resourceRequest.notifyNumPerThread.push_back(1);
+    }
+    resourceRequest.notifyNumOnMainThread = threadNum - 1;
+    return HCCL_SUCCESS;
+}
+
 u64 InsTempScatterMesh1D::CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType)
 {
     return 1;
