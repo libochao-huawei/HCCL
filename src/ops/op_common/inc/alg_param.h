@@ -41,7 +41,7 @@ constexpr uint32_t OP_ALG_LENGTH = 128; // 存放算法 + host/device标记
 constexpr uint32_t ALG_TAG_LENGTH = TAG_LENGTH + OP_ALG_LENGTH;
 constexpr uint32_t MAX_TAG_LENGTH = 255;
 constexpr uint32_t AICPU_CONTROL_NOTIFY_NUM = 2;
-
+constexpr uint32_t MAX_MEM_TAG_LENGTH = OP_ALG_LENGTH + 10;
 // 是否再拆分一个comm头文件
 constexpr u32 LOCAL_NOTIFY_IDX_ZERO = 0;
 constexpr u32 NOTIFY_IDX_ACK = 0;
@@ -160,8 +160,10 @@ struct ChannelInfo {
     u32 notifyNum;
     ChannelHandle handle;
     HcclMem remoteCclMem; // A5用的
-    HcclMem remoteInput;  // A3用的
-    HcclMem remoteOutput; // A3用的
+    HcclMem remoteInputGraphMode;   // A5用的, 图模式下远端sendBuf地址
+    HcclMem remoteOutputGraphMode;  // A5用的，图模式下远端recvBuf地址
+    HcclMem remoteInput;  // A3用的，cclIn
+    HcclMem remoteOutput; // A3用的, cclOut
 };
 
 // DPU资源
@@ -380,5 +382,6 @@ typedef struct HcomProInfo {
     bool isAiv = false;
     uint8_t reserved[MAX_LENGTH];
 }HcomProInfo;
+
 }
 #endif
