@@ -14,7 +14,7 @@
 #include "hccl_ccu_res.h"
 #include "ccu_assist_pub.h"
 #include "ccu_kernel_all_gather_2dies_mesh1d_mem2mem.h"
-#include "ccu_temp_allgather_2dies_mesh_1D_mem2mem.h"
+#include "ccu_temp_all_gather_2dies_mesh_1d_mem2mem.h"
 #include "alg_data_trans_wrapper.h"
 namespace ops_hccl {
 CcuTempAllGather2DiesMeshMem2Mem1D::CcuTempAllGather2DiesMeshMem2Mem1D(const OpParam& param, const u32 rankId,
