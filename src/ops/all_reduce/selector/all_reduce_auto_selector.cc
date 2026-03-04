@@ -66,7 +66,11 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgo(TopoInfo* topoInfo, OpParam
     u64 dataSize = opParam.DataDes.count * perDataSize;
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
         if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
-            selectAlgName = "CcuAllReduceMesh2Die";   // FIXME: 检查HF算法名
+            if(IsSmallData(dataSize)) {
+                selectAlgName = "CcuAllReduceMesh2Die"; 
+            } else {
+                selectAlgName = "CcuAllreduceMesh2DieBigMs"; 
+            }
         } else if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_NOT_REGULAR) {
             HCCL_INFO("[Algo][%s] TWO_DIE_NOT_REGULAR not match", __func__);
             return SelectorStatus::NOT_MATCH;
@@ -139,7 +143,15 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleAlgo(TopoInfo* topoInfo,
             if (dataSize > AR_M2M_1D_MAX_DATA_SIZE) {
                 return SelectorStatus::NOT_MATCH;
             }
-            selectAlgName = "CcuAllReduceMesh1DMem2Mem";
+            if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
+                if(IsSmallData(dataSize)) {
+                    selectAlgName = "CcuAllReduceMesh1DMem2Mem2DieOneShot"; 
+                } else {
+                    selectAlgName = "CcuAllreduceMesh2DieBigSche"; 
+                }
+            } else {
+                selectAlgName = "CcuAllReduceMesh1DMem2Mem";
+            }
             return SelectorStatus::MATCH;
         } else {
             HCCL_WARNING("[Algo][AllReduceAutoSelector] algo[%u] is not supported yet for ccu_schedule mode, reset to default.", levle0Algo);

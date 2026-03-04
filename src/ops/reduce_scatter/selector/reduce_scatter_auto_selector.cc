@@ -114,7 +114,11 @@ SelectorStatus ReduceScatterAutoSelector::SelectCcuScheduleAlgo(TopoInfo* topoIn
             levle0Algo = it->second[0];
         }
         if ((IsDefaultAlg(levle0Algo) || levle0Algo ==  HcclAlgoType::HCCL_ALGO_TYPE_FULLMESH)&&(topoInfo->level0Topo == Level0Shape::MESH_1D)) {
-            selectAlgName = "CcuReduceScatterMesh1DMem2Mem";
+            if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
+                selectAlgName = "CcuReduceScatterMeshMem2Mem1D2Die";
+            } else {
+                selectAlgName = "CcuReduceScatterMesh1DMem2Mem";
+            }
             return SelectorStatus::MATCH;
         }
         else {
