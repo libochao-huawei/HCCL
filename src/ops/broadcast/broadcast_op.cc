@@ -15,7 +15,6 @@
 #include <hccl/hccl_types.h>
 #include "hccl/base.h"
 #include "sal.h"
-#include "error_codes/rt_error_codes.h"
 #include "mmpa_api.h"
 #include "param_check.h"
 #include "executor_base.h"
@@ -79,7 +78,7 @@ HcclResult HcclBroadcast(void *buf, uint64_t count, HcclDataType dataType, uint3
 }
 
 namespace ops_hccl {
-HcclResult CheckBroadcastInputPara(HcclComm comm, void *buf)
+HcclResult CheckBroadcastInputPara(const HcclComm comm, const void *buf)
 {
     // 入参合法性校验
     RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
