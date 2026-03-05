@@ -34,9 +34,10 @@ SelectorStatus BroadcastAutoSelector::SelectCcuMsAlgo(TopoInfoWithNetLayerDetail
     }
 }
 
-SelectorStatus BroadcastAutoSelector::SelectMeshAlgoCcuMs(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
+SelectorStatus BroadcastAutoSelector::SelectMeshAlgoCcuMs(TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                     std::string &selectAlgName) const
 {
+    (void) opParam;
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
         selectAlgName = "CcuBroadcastMesh1D";
     } else {
@@ -112,7 +113,7 @@ SelectorStatus BroadcastAutoSelector::SelectAicpuAlgo(TopoInfoWithNetLayerDetail
 SelectorStatus BroadcastAutoSelector::SelectMeshAlgoAicpu(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
                                                           std::string &selectAlgName) const
 {
-
+    (void) opParam;
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
         selectAlgName = "InsBroadcastMesh1DTwoShot";
     } else if (topoInfo->level0Topo == Level0Shape::CLOS) {

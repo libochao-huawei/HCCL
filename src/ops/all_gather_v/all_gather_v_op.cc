@@ -75,7 +75,7 @@ HcclResult HcclAllGatherV(void *sendBuf, uint64_t sendCount, void *recvBuf, cons
 }
  
 namespace ops_hccl {
-HcclResult CheckAllGatherVInputPara(HcclComm comm, void *sendBuf, void *recvBuf)
+HcclResult CheckAllGatherVInputPara(const HcclComm comm, const void* sendBuf, const void* recvBuf)
 {
     // 入参合法性校验
     RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),
@@ -135,19 +135,23 @@ HcclResult AllGatherVOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount,c
     param.outputPtr = recvBuf;
     param.outputSize = outputSize;
     param.DataDes.count = sendCount;
-    // param.DataDes.dataType = dataType;
     param.vDataDes.dataType = dataType;
-
 
     // 带V算子的参数
     param.varMemSize = varMemSize;
     // 从源内存地址按字节直接拷贝数据到目标地址
-    std::vector<u64> merged(userRankSize * 2);
+    std::vector<u64> merged(userRankSize + userRankSize); 
     const uint64_t *countsPtr = reinterpret_cast<const uint64_t *>(recvCounts);
     const uint64_t *displsPtr = reinterpret_cast<const uint64_t *>(recvDispls);
     std::copy(countsPtr, countsPtr + userRankSize, merged.begin());
     std::copy(displsPtr, displsPtr + userRankSize, merged.begin() + userRankSize);
-    memcpy(param.varData, merged.data(), varMemSize);
+    if (varMemSize > 0) {
+        auto *dst = static_cast<u64 *>(param.varData);
+        const auto *src = merged.data();
+        for (u64 i = 0; i < userRankSize * 2; ++i) {
+            dst[i] = src[i];
+        }
+    }
     param.opType = HcclCMDType::HCCL_CMD_ALLGATHER_V;
     param.enableDetour = false;
     param.deviceType = deviceType;

@@ -44,7 +44,7 @@ SelectorStatus AllGatherVAutoSelector::SelectCcuMsAlgo(
     HCCL_DEBUG("[AllGatherVAutoSelector][%s] end", __func__);
 }
  
-SelectorStatus AllGatherVAutoSelector::SelectMeshAlgo(TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam,
+SelectorStatus AllGatherVAutoSelector::SelectMeshAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
                                                      std::string &selectAlgName) const
 {
     HCCL_DEBUG("[AllGatherVAutoSelector][%s] start", __func__);
@@ -120,7 +120,7 @@ SelectorStatus AllGatherVAutoSelector::SelectAicpuAlgo(
 }
  
 SelectorStatus AllGatherVAutoSelector::SelectAivAlgo(
-    TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+    const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
     std::string &selectAlgName) const
 {
     std::vector<HcclAlgoType> algos =

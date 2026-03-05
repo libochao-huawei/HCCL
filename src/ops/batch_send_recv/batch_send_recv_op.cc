@@ -77,7 +77,7 @@ HcclResult HcclBatchSendRecv(HcclSendRecvItem *sendRecvInfo, uint32_t itemNum, H
 }
 
 namespace ops_hccl {
-HcclResult CheckBatchSendRecvInputPara(HcclComm &comm, HcclSendRecvItem *sendRecvInfo, aclrtStream stream)
+HcclResult CheckBatchSendRecvInputPara(const HcclComm &comm, const HcclSendRecvItem *sendRecvInfo, const aclrtStream stream)
 {
     // 入参合法性校验
     RPT_INPUT_ERR(stream == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\

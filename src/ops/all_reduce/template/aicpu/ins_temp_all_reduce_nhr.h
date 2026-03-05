@@ -11,7 +11,6 @@
 #ifndef INS_TEMP_ALL_REDUCE_NHR
 #define INS_TEMP_ALL_REDUCE_NHR
 
-#include <cstring>
 #include "alg_v2_template_base.h"
 #include "executor_base.h"
 #include "alg_data_trans_wrapper.h"
@@ -72,11 +71,11 @@ private:
         const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads);
     HcclResult RunAllGather(const TemplateDataParams &tempAlgParams,
         const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads);
-    HcclResult PostCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads);
+    HcclResult PostCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads) const;
 
     HcclResult GetReduceScatterStepInfoList(std::vector<NHRStepInfo> &stepInfoList);
     HcclResult GetAllGatherStepInfoList(std::vector<NHRStepInfo> &stepInfoList);
-    u32 GetNHRStepNum();
+    u32 GetNHRStepNum() const;
 
     u32 dataTypeSize_{0};
     u64 count_{0};
@@ -85,11 +84,6 @@ private:
     u32 myRankIdx_{0};
     std::vector<NHRSliceInfo> sliceInfoList_;
     std::vector<u32> rankList_;
-    
-    void* nhrInBuff_;
-    void* nhrOutBuff_;
-    u64 nhrInBuffBaseOff_ = 0;
-    u64 nhrOutBuffBaseOff_ = 0;
 };
 
 }  // namespace ops_hccl

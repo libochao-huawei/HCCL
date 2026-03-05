@@ -456,8 +456,7 @@ void InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::PrepareResForTemplate(
-    const OpParam &param, const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &tempAlgIntra,
-    InsAlgTemplate1 &tempAlgInter)
+    InsAlgTemplate0 &tempAlgIntra)
 {
     AlgResourceRequest intraResourceRequest;
     AlgResourceRequest interResourceRequest;

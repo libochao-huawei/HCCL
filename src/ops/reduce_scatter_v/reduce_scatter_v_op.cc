@@ -86,7 +86,9 @@ HcclResult HcclReduceScatterV(void *sendBuf,  const void *sendCounts, const void
 }
 
 namespace ops_hccl {
-HcclResult CheckReduceScatterVInputPara(HcclComm comm, void *sendBuf, void *recvBuf, const void *sendCounts, const void *sendDispls, aclrtStream stream)
+HcclResult CheckReduceScatterVInputPara(
+    const HcclComm comm, const void *sendBuf, const void *recvBuf, 
+    const void *sendCounts, const void *sendDispls, const aclrtStream stream)
 {
     // 入参合法性校验
     RPT_INPUT_ERR(stream == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
@@ -173,7 +175,13 @@ if (!paramMem) {
     param.varMemSize = varMemSize;
 
     // 从源内存地址按字节直接拷贝数据到目标地址
-    memcpy(param.varData, merged.data(), varMemSize);
+    if (varMemSize > 0) {
+        auto *dst = static_cast<u64 *>(param.varData);
+        const auto *src = merged.data();
+        for (u64 i = 0; i < userRankSize * 2; ++i) {
+            dst[i] = src[i];
+        }
+    }
     const u64* varData = reinterpret_cast<const u64*>(param.varData);
 
     param.opType = HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V;
