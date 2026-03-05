@@ -101,7 +101,7 @@ HcclResult InsTempScatterMesh1D::KernelRun(const OpParam& param, const TemplateD
     dataType_ = param.DataDes.dataType;
     const u32 dataTypeSize = processSize_ / count_;
     // 尾块模式
-    if (tempAlgParams.tailSize !=0 && myAlgRank == templateRankSize_ -1) {
+    if (tempAlgParams.tailSize !=0 && myAlgRank == templateRankSize_ - 1) {
         processSize_ = tempAlgParams.tailSize;
         count_ = processSize_ / dataTypeSize;
     }
@@ -181,12 +181,17 @@ HcclResult InsTempScatterMesh1D::RunMesh(const std::map<u32, std::vector<Channel
                     const TemplateDataParams &tempAlgParams)
 {
     u32 myAlgRank = 0;
+    u32 curSliceSize = 0;
+    u32 curCount = 0;
+    const u32 dataTypeSize = processSize_ / count_;
     GetAlgRank(myRank_, subCommRanks_[0], myAlgRank);
     HCCL_DEBUG("[InsTempScatterMesh1D][RunMesh] myRank[%d], myAlgRank[%d], channels size[%d]", myRank_, myAlgRank, channels.size());
     for (u32 r = 0; r < tempAlgParams.repeatNum; r++) {
         if (root_ == u32(myRank_)) {
             u32 count = 0;
             for (u32 algRank = 0; algRank < subCommRanks_[0].size(); algRank++) {
+                curSliceSize = tempAlgParams.tailSize !=0 && algRank == templateRankSize_ - 1? tempAlgParams.tailSize: processSize_;
+                curCount = curSliceSize / dataTypeSize;
                 if (myAlgRank == algRank) {
                     continue;
                 }
@@ -204,9 +209,9 @@ HcclResult InsTempScatterMesh1D::RunMesh(const std::map<u32, std::vector<Channel
                 void* remoteCclBuffAddr = linkSend.remoteCclMem.addr;
                 HCCL_DEBUG("[InsTempScatterMesh1D][RunMesh] srcOffset[%d], tempAlgParams.buffInfo.inputPtr[%d]", srcOffset, tempAlgParams.buffInfo.inputPtr);
                 HCCL_DEBUG("[InsTempScatterMesh1D][RunMesh] dstOffset[%d], remoteCclBuffAddr[%d]", srcOffset, remoteCclBuffAddr);
-                DataSlice srcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr, srcOffset, processSize_, count_);
+                DataSlice srcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr, srcOffset, curSliceSize, curCount);
                 HCCL_DEBUG("[InsTempScatterMesh1D][RunMesh] got srcSlice");
-                DataSlice dstSlice = DataSlice(remoteCclBuffAddr, dstOffset, processSize_, count_);
+                DataSlice dstSlice = DataSlice(remoteCclBuffAddr, dstOffset, curSliceSize, curCount);
                 HCCL_DEBUG("[InsTempScatterMesh1D][RunMesh] got dstSlice");
                 SlicesList txSlicesList({srcSlice}, {dstSlice});
 
@@ -227,14 +232,16 @@ HcclResult InsTempScatterMesh1D::RunMesh(const std::map<u32, std::vector<Channel
                 continue;
             }
             const ChannelInfo &linkRecv = channels.at(root_)[0];
+            curSliceSize = tempAlgParams.tailSize !=0 && myAlgRank == templateRankSize_ - 1? tempAlgParams.tailSize: processSize_;
+            curCount = curSliceSize / dataTypeSize;
             u64 srcOffset = tempAlgParams.buffInfo.inBuffType == BufferType::HCCL_BUFFER
                     ? tempAlgParams.buffInfo.hcclBuffBaseOff + r * tempAlgParams.inputRepeatStride +
                           myAlgRank * tempAlgParams.inputSliceStride
                     : r * tempAlgParams.inputRepeatStride + myAlgRank * tempAlgParams.inputSliceStride +
                           tempAlgParams.buffInfo.inBuffBaseOff;
             u64 dstOffset = tempAlgParams.buffInfo.hcclBuffBaseOff + myAlgRank * tempAlgParams.outputSliceStride + r * tempAlgParams.outputRepeatStride;
-            DataSlice srcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr, srcOffset, processSize_, count_);
-            DataSlice dstSlice = DataSlice(tempAlgParams.buffInfo.hcclBuff.addr, dstOffset, processSize_, count_);
+            DataSlice srcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr, srcOffset, curSliceSize, curCount);
+            DataSlice dstSlice = DataSlice(tempAlgParams.buffInfo.hcclBuff.addr, dstOffset, curSliceSize, curCount);
             SlicesList rxSlicesList({srcSlice}, {dstSlice});
             DataInfo recvData(linkRecv, rxSlicesList);
             CHK_PRT_RET(static_cast<HcclResult>(RecvWrite(recvData, threads.at(0))),
