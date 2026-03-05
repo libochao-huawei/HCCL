@@ -466,7 +466,7 @@ HcclResult CcuKernelAllReduceNhr1DMem2MemMultiJetty::DoSendRecvSlice(const u32 t
 
 HcclResult CcuKernelAllReduceNhr1DMem2MemMultiJetty::Algorithm()
 {
-    HCCL_INFO("[CcuKernelAllReduceNhr1DMem2MemMultiJetty] ReduceScatterMesh1DMem2Mem run");
+    HCCL_INFO("[CcuKernelAllReduceNhr1DMem2MemMultiJetty] CcuKernelAllReduceNhr1DMem2MemMultiJetty run");
 
     CHK_RET(InitResource());
     CHK_RET(LoadArgs());
@@ -475,7 +475,7 @@ HcclResult CcuKernelAllReduceNhr1DMem2MemMultiJetty::Algorithm()
     CHK_RET(DoReduceScatterNHR());
     CHK_RET(DoAllGatherNHR());
 
-    HCCL_INFO("[CcuKernelAllReduceNhr1DMem2MemMultiJetty] ReduceScatterMesh1DMem2Mem end");
+    HCCL_INFO("[CcuKernelAllReduceNhr1DMem2MemMultiJetty] CcuKernelAllReduceNhr1DMem2MemMultiJetty end");
     
     return HcclResult::HCCL_SUCCESS;
 }
