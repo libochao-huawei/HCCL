@@ -11,7 +11,6 @@
 #ifndef ALG_V2_TEMPLATE_BASE
 #define ALG_V2_TEMPLATE_BASE
 
-#include <cstring>
 #include <vector>
 #include <memory>
 #include <list>
