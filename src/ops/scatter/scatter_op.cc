@@ -33,6 +33,7 @@
 #include "load_kernel.h"
 #include "hcomm_primitives.h"
 #include "op_common.h"
+#include "adapter/adapter_rts.h"
 
 using namespace std;
 using namespace ops_hccl;
@@ -304,8 +305,7 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
         // cpuTsThread 添加到ctx里
         char* curPtr = reinterpret_cast<char *>(resCtx);
         curPtr = curPtr + sizeof(AlgResourceCtx) - sizeof(TopoInfo) - sizeof(ThreadHandle) - sizeof(uint32_t) * AICPU_CONTROL_NOTIFY_NUM - sizeof(void*); // 偏移指针
-        ACLCHECK(aclrtMemcpy(curPtr, sizeof(ThreadHandle), &exportedAicpuTsThread, sizeof(ThreadHandle),
-            ACL_MEMCPY_HOST_TO_DEVICE));
+        CHK_RET(hrtMemSyncCopy(curPtr, sizeof(ThreadHandle), &exportedAicpuTsThread, sizeof(ThreadHandle), HcclRtMemcpyKind::HCCL_RT_MEMCPY_KIND_HOST_TO_DEVICE));
     }
     
 
