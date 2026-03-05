@@ -597,6 +597,7 @@ HcclResult CalcTopoShape(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo)
     CHK_RET(ExtractTopoDetails(comm, topoInfo));
     CHK_RET(CalcLevel0TopoShape(comm, topoInfo));
     CHK_RET(Is2DieFullMesh(comm, topoInfo));
+    CHK_RET(CalcLevel0MeshType(comm, topoInfo));
     return HCCL_SUCCESS;
 }
 
