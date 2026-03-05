@@ -13,6 +13,7 @@
 
 #include "ccu_alg_template_base.h"
 #include "ccu_kernel_broadcast_nhr1d_mem2mem.h"
+#include "utils.h"
 
 namespace ops_hccl {
 
@@ -44,8 +45,7 @@ private:
     HcclResult GetStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo);
     HcclResult GetScatterStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo);
     HcclResult GetAllGatherStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo);
-    HcclResult ProcessNHRStepInfo(HcclComm comm, const std::vector<HcclChannelDesc>& channelDescs,
-                                    std::vector<NHRStepInfo>& stepInfoVector,
+    HcclResult ProcessNHRStepInfo(HcclComm comm, std::vector<NHRStepInfo>& stepInfoVector,
                                     std::map<u32, u32>& rank2ChannelIdx, u32 enableDieNum,
                                     std::vector<std::vector<HcclChannelDesc>>& channelsPerDie);
     HcclResult GetDieNumFromChannelDescs(HcclComm comm, u32 &dieNum);
