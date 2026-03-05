@@ -145,6 +145,13 @@ HcclResult AllGatherVOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount,c
     const uint64_t *displsPtr = reinterpret_cast<const uint64_t *>(recvDispls);
     std::copy(countsPtr, countsPtr + userRankSize, merged.begin());
     std::copy(displsPtr, displsPtr + userRankSize, merged.begin() + userRankSize);
+    if (varMemSize > 0) {
+        auto *dst = static_cast<u64 *>(param.varData);
+        const auto *src = merged.data();
+        for (u64 i = 0; i < userRankSize + userRankSize; ++i) {
+            dst[i] = src[i];
+        } 
+    }
     memcpy(param.varData, merged.data(), varMemSize);
     param.opType = HcclCMDType::HCCL_CMD_ALLGATHER_V;
     param.enableDetour = false;
