@@ -41,11 +41,11 @@ SelectorStatus AlltoAllVAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetLayer
         if ((isMeshNumEqualToClosNum == true) && (topoInfo->userRankSize <= 4)) { // 同一组4P，走并发算法
             selectAlgName = "CcuAllToAllVMesh1DConcurrent";
         } else {
-            HCCL_WARNING("[Algo][AlltoAllVAutoSelector] algo[%u] is not supported yet for ccu_schedule mode, reset to default.", levle0Algo);
+            HCCL_WARNING("[Algo][AlltoAllVAutoSelector] algo is not supported yet for ccu_schedule mode, reset to default.");
             return SelectorStatus::NOT_MATCH;
         }
     } else {
-        HCCL_WARNING("[Algo][AlltoAllVAutoSelector] algo[%u] is not supported yet for ccu_schedule mode, reset to default.", levle0Algo);
+        HCCL_WARNING("[Algo][AlltoAllVAutoSelector] algo is not supported yet for ccu_schedule mode, reset to default.");
         return SelectorStatus::NOT_MATCH;
     }
     return SelectorStatus::MATCH;
