@@ -18,12 +18,12 @@
 #include "alg_param.h"
 
 namespace ops_hccl {
-constexpr u32 MAX_RANK_SIZE = 8; // 注意要和device侧的一致
+constexpr u32 MAX_RANK_SIZE = 64; // 注意要和device侧的一致
 constexpr u32 MAX_NUM_BLOCKS = 56; // 56-72
  
 constexpr s32 TAG_INIT_VALUE = 1;
 constexpr s32 TAG_RESET_COUNT = 1000;
-constexpr s32 TOPO_LEN = 32;
+constexpr s32 TOPO_LEN = 64;
 
 constexpr u32 AIV_TAG_MOVE_LEFT_BITS = 16;
 constexpr u32 AIV_TAG_ADDR_OFFSET = 16 * 1024;
@@ -36,6 +36,8 @@ constexpr u32 AIV_TAG_BUFF_LEN = 2 * 1024 * 1024;
 constexpr u32 AIV_LOW_16_BITS = 0xFFFF;
 
 constexpr u32 AIV_ATTRNUM_THREE = 3;
+constexpr u32 CACHEMAP_MAXSIZE = 65536;
+constexpr float CACHEMAP_CLEARPERCENT = 0.1;
 
 using AivCountTagArray = std::array<s32, MAX_RANK_SIZE>;
 
@@ -43,6 +45,118 @@ enum class KernelArgsType {
     ARGS_TYPE_SERVER = 0, // kernel参数为单机内
     ARGS_TYPE_TWO_SHOT = 1,
     ARGS_TYPE_DEFAULT
+};
+
+struct AivAll2AllDataDes {
+    HcclDataType sendType = HCCL_DATA_TYPE_RESERVED;
+    HcclDataType recvType = HCCL_DATA_TYPE_RESERVED;
+    u64 sendCount = 0;
+    u64 recvCount = 0;
+
+    bool operator!=(const AivAll2AllDataDes &other) const
+    {
+        return sendType != other.sendType || recvType != other.recvType ||
+            sendCount != other.sendCount || recvCount != other.recvCount;
+    }
+
+    bool operator<(const AivAll2AllDataDes &other) const
+    {
+        if (sendType != other.sendType) {
+            return sendType < other.sendType;
+        }
+        if (recvType != other.recvType) {
+            return recvType < other.recvType;
+        }
+        if (sendCount != other.sendCount) {
+            return sendCount < other.sendCount;
+        }
+        return recvCount < other.recvCount;
+    }
+};
+
+struct AivAll2AllVDataDes {
+    HcclDataType sendType = HCCL_DATA_TYPE_RESERVED;
+    HcclDataType recvType = HCCL_DATA_TYPE_RESERVED;
+    const void *sendCounts = nullptr;
+    const void *recvCounts = nullptr;
+    const void *sdispls = nullptr;
+    const void *rdispls = nullptr;
+
+    bool operator!=(const AivAll2AllVDataDes &other) const
+    {
+        return sendType != other.sendType || recvType != other.recvType ||
+            sendCounts != other.sendCounts || recvCounts != other.recvCounts ||
+            sdispls != other.sdispls || rdispls != other.rdispls;
+    }
+
+    bool operator<(const AivAll2AllVDataDes &other) const
+    {
+        if (sendType != other.sendType) {
+            return sendType < other.sendType;
+        }
+        if (recvType != other.recvType) {
+            return recvType < other.recvType;
+        }
+        if (sendCounts != other.sendCounts) {
+            return sendCounts < other.sendCounts;
+        }
+        if (recvCounts != other.recvCounts) {
+            return recvCounts < other.recvCounts;
+        }
+        if (sdispls != other.sdispls) {
+            return sdispls < other.sdispls;
+        }
+        return rdispls < other.rdispls;
+    }
+};
+
+struct AivOpCacheArgs {
+    std::string commModeTag {};
+    std::string algName {};
+    u64 count = 0;
+    HcclDataType dataType = HCCL_DATA_TYPE_RESERVED;
+    HcclCMDType opType = HcclCMDType::HCCL_CMD_INVALID;
+    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_RESERVED;
+    u32 root = 0;
+    u32 blockDimLimit = 0;
+    HcclDataType outputDataType = HCCL_DATA_TYPE_RESERVED;
+    AivAll2AllDataDes all2AllDataDes {};
+    AivAll2AllVDataDes all2AllVDataDes {};
+
+    bool operator<(const AivOpCacheArgs &other) const
+    {
+        if (commModeTag != other.commModeTag) {
+            return commModeTag < other.commModeTag;
+        }
+        if (algName != other.algName) {
+            return algName < other.algName;
+        }
+        if (count != other.count) {
+            return count < other.count;
+        }
+        if (dataType != other.dataType) {
+            return dataType < other.dataType;
+        }
+        if (opType != other.opType) {
+            return opType < other.opType;
+        }
+        if (reduceOp != other.reduceOp) {
+            return reduceOp < other.reduceOp;
+        }
+        if (root != other.root) {
+            return root < other.root;
+        }
+        if (blockDimLimit != other.blockDimLimit) {
+            return blockDimLimit < other.blockDimLimit;
+        }
+        if (all2AllDataDes != other.all2AllDataDes) {
+            return all2AllDataDes < other.all2AllDataDes;
+        }
+        if (all2AllVDataDes != other.all2AllVDataDes) {
+            return all2AllVDataDes < other.all2AllVDataDes;
+        }
+        return outputDataType < other.outputDataType;
+    }
 };
 
 using AivKernelInfo = struct AivKernelInfoDef {

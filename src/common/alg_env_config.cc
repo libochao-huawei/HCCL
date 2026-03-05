@@ -12,6 +12,7 @@
 #include <sstream>
 #include <string>
 #include <algorithm>
+#include <regex>
 
 #include "log.h"
 #include "adapter_error_manager_pub.h"
@@ -103,6 +104,15 @@ HcclResult InitEnvConfig()
             ret),
         ret);
 
+    // 解析AIV执行超时
+    ret = ParseExecTimeout();
+    RPT_ENV_ERR(ret != HCCL_SUCCESS, "EI0001", std::vector<std::string>({"env", "tips"}),
+        std::vector<std::string>({"HCCL_EXEC_TIMEOUT",
+        "Value should be a non-negative number with up to 2 decimals."}));
+    CHK_PRT_RET(ret != HCCL_SUCCESS,
+        HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse HCCL_EXEC_TIMEOUT failed. "
+            "errorno[%d]", HCCL_ERROR_CODE(ret), ret), ret);
+
     // 解析算法配置
     ret = ParseHcclAlgo();
     RPT_ENV_ERR(ret != HCCL_SUCCESS,
@@ -138,6 +148,49 @@ std::string GetEnv(mmEnvId IdName)
     char *mmSysGetEnvValue = nullptr;
     MM_SYS_GET_ENV(IdName, mmSysGetEnvValue);
     return (mmSysGetEnvValue != nullptr) ? mmSysGetEnvValue : "EmptyString";
+}
+
+HcclResult ParseExecTimeout()
+{
+    std::string execTimeOutEnv = GetEnv(MM_ENV_HCCL_EXEC_TIMEOUT);
+    if (execTimeOutEnv == "EmptyString") {
+        g_algEnvConfig.execTimeOutSet = false;
+        g_algEnvConfig.execTimeout = 0;
+        return HCCL_SUCCESS;
+    }
+
+    std::regex validFormat(R"(^\d+(\.\d{1,2})?$)");
+    if (!std::regex_match(execTimeOutEnv, validFormat)) {
+        HCCL_WARNING("[ParseExecTimeout] HCCL_EXEC_TIMEOUT[%s] format is invalid, use default.",
+            execTimeOutEnv.c_str());
+        g_algEnvConfig.execTimeOutSet = false;
+        g_algEnvConfig.execTimeout = 0;
+        return HCCL_E_PARA;
+    }
+
+    double execTimeOut = 0;
+    if (SalStrToDouble(execTimeOutEnv, execTimeOut) != HCCL_SUCCESS) {
+        HCCL_WARNING("[ParseExecTimeout] HCCL_EXEC_TIMEOUT[%s] parse failed, use default.",
+            execTimeOutEnv.c_str());
+        g_algEnvConfig.execTimeOutSet = false;
+        g_algEnvConfig.execTimeout = 0;
+        return HCCL_E_PARA;
+    }
+
+    g_algEnvConfig.execTimeOutSet = true;
+    g_algEnvConfig.execTimeout = execTimeOut;
+    return HCCL_SUCCESS;
+}
+
+bool GetExternalInputExecTimeout(double &execTimeOut)
+{
+    std::lock_guard<std::mutex> lock(g_algEnvConfigMutex);
+    if (!g_algEnvConfig.execTimeOutSet) {
+        return false;
+    }
+
+    execTimeOut = g_algEnvConfig.execTimeout;
+    return true;
 }
 
 HcclResult ParseHcclAlgo()
@@ -584,11 +637,53 @@ HcclResult ParseEntryLogEnable()
     return HCCL_SUCCESS;
 }
 
+static HcclResult ApplyOpExpansionMode(const std::string& opExpansionModeEnv, DevType deviceType)
+{
+    if (opExpansionModeEnv == "AI_CPU") {
+        if (deviceType == DevType::DEV_TYPE_910) {
+            HCCL_WARNING("910 do not support AICPU unfold.");
+        } else {
+            g_algEnvConfig.aicpuUnfold = true;
+        }
+    } else if (opExpansionModeEnv == "AIV") {
+        if (g_algEnvConfig.hcclDeterministic == true) {
+            HCCL_WARNING("Deterministic do not support aiv");
+        }
+        g_algEnvConfig.aivMode = true;
+    } else if (opExpansionModeEnv == "AIV_ONLY") {
+        if (g_algEnvConfig.hcclDeterministic == true) {
+            HCCL_WARNING("Deterministic do not support aiv only");
+        }
+        g_algEnvConfig.aivMode = true;
+        g_algEnvConfig.aivOnlyMode = true;
+    } else if (opExpansionModeEnv == "HOST") {
+        g_algEnvConfig.aivMode = false;
+        g_algEnvConfig.aicpuUnfold = false;
+    } else if (opExpansionModeEnv == "HOST_TS") {
+        if (deviceType == DevType::DEV_TYPE_910B) {
+            g_algEnvConfig.enableFfts = false;
+        } else {
+            HCCL_WARNING("deviceType[%u] do not support HOST_TS", deviceType);
+        }
+    } else if (opExpansionModeEnv == "CCU_MS") {
+        // todo: 判断芯片类型
+        g_algEnvConfig.ccuMSMode = true;
+    } else if (opExpansionModeEnv == "CCU_SCHED") {
+        g_algEnvConfig.ccuSchedMode = true;
+    } else {
+        HCCL_ERROR("HCCL_OP_EXPANSION_MODE is set to [%s], which is incorrect. Please check",
+            opExpansionModeEnv.c_str());
+        return HCCL_E_PARA;
+    }
+    return HCCL_SUCCESS;
+}
+
 HcclResult ParseOpExpansion()
 {
     std::string opExpansionModeEnv = GetEnv(MM_ENV_HCCL_OP_EXPANSION_MODE);
     g_algEnvConfig.aicpuUnfold = false;
     g_algEnvConfig.aivMode = false;
+    g_algEnvConfig.aivOnlyMode = false;
     g_algEnvConfig.ccuMSMode = false;
     g_algEnvConfig.ccuSchedMode = false;
 
@@ -604,35 +699,8 @@ HcclResult ParseOpExpansion()
             g_algEnvConfig.aivMode);
         return HCCL_SUCCESS;
     }
-    if (opExpansionModeEnv == "AI_CPU") {
-        if (deviceType == DevType::DEV_TYPE_910) {
-            HCCL_WARNING("910 do not support AICPU unfold.");
-        } else {
-            g_algEnvConfig.aicpuUnfold = true;
-        }
-    } else if (opExpansionModeEnv == "AIV") {
-        if (g_algEnvConfig.hcclDeterministic == true) {
-            HCCL_WARNING("Deterministic do not support aiv");
-        }
-        g_algEnvConfig.aivMode = true;
-    } else if (opExpansionModeEnv == "HOST") {
-        g_algEnvConfig.aivMode = false;
-        g_algEnvConfig.aicpuUnfold = false;
-    } else if (opExpansionModeEnv == "HOST_TS") {
-        if (deviceType == DevType::DEV_TYPE_910B) {
-            g_algEnvConfig.enableFfts = false;
-        } else {
-            HCCL_WARNING("deviceType[%u] do not support HOST_TS", deviceType);
-        }
-    } else if (opExpansionModeEnv == "CCU_MS") {
-        g_algEnvConfig.ccuMSMode = true;
-    } else if (opExpansionModeEnv == "CCU_SCHED") {
-        g_algEnvConfig.ccuSchedMode = true;
-    } else {
-        HCCL_ERROR(
-            "HCCL_OP_EXPANSION_MODE is set to [%s], which is incorrect. Please check", opExpansionModeEnv.c_str());
-        return HCCL_E_PARA;
-    }
+    // 调用抽取出来的逻辑
+    CHK_RET(ApplyOpExpansionMode(opExpansionModeEnv, deviceType));
     HCCL_RUN_INFO("environmental variable HCCL_OP_EXPANSION_MODE is [%s], aicpuUnfold[%u], aivMode[%u], enableFfts[%u]",
         opExpansionModeEnv.c_str(),
         g_algEnvConfig.aicpuUnfold,
@@ -807,6 +875,11 @@ const bool &GetExternalInputHcclAivMode()
     return g_algEnvConfig.aivMode;
 }
 
+const bool &GetExternalInputHcclAivOnlyMode()
+{
+    return g_algEnvConfig.aivOnlyMode;
+}
+
 const bool &GetExternalInputHcclCcuMSMode()
 {
     return g_algEnvConfig.ccuMSMode;
@@ -852,7 +925,8 @@ bool RunIndependentOpExpansion(DevType deviceType)
     if (deviceType == DevType::DEV_TYPE_910_95) {
         return opExpansionModeEnv == "AI_CPU" || opExpansionModeEnv == "HOST_TS" ||
                opExpansionModeEnv == "EmptyString" || opExpansionModeEnv == "AIV" ||
-               opExpansionModeEnv == "CCU_SCHED" || opExpansionModeEnv == "CCU_MS";
+               opExpansionModeEnv == "AIV_ONLY" || opExpansionModeEnv == "CCU_SCHED" ||
+               opExpansionModeEnv == "CCU_MS";
     }
 
     // HOST_TS为Host展开
