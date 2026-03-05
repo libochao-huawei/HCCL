@@ -197,7 +197,10 @@ if (!paramMem) {
     if (opExecuteConfig != OpExecuteConfig::AICPU_TS) {
         return HcclReduceScatterVInner(sendBuf, sendCounts, sendDispls, recvBuf, recvCount, dataType, op, comm, stream);
     }
+<<<<<<< HEAD
 >>>>>>> 84ba048... Hybrid comm and selector fix
+=======
+>>>>>>> 789a2ad... Hybrid comm and selector conflict  fix
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
     if (param.opExecuteConfig != OpExecuteConfig::AICPU_TS && opExecuteConfig != OpExecuteConfig::HOSTCPU) {
         return HcclReduceScatterVInner(sendBuf, sendCounts, sendDispls, recvBuf, recvCount, dataType, op, comm, stream);

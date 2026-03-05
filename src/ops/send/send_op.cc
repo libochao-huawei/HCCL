@@ -146,6 +146,7 @@ namespace ops_hccl {
 =======
         CHK_RET(Selector(comm, param, topoInfo, algName, opExecuteConfig));
 <<<<<<< HEAD
+<<<<<<< HEAD
         if (opExecuteConfig != OpExecuteConfig::AICPU_TS && opExecuteConfig != OpExecuteConfig::HOSTCPU) {
             return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
         }
@@ -155,6 +156,11 @@ namespace ops_hccl {
             return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
         }
 >>>>>>> 84ba048... Hybrid comm and selector fix
+=======
+        if (opExecuteConfig != OpExecuteConfig::AICPU_TS) {
+            return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
+        }
+>>>>>>> 789a2ad... Hybrid comm and selector conflict  fix
         CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
 
         return HcclResult::HCCL_SUCCESS;
