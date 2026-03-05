@@ -16,17 +16,17 @@ namespace ops_hccl {
 
 class ReduceAutoSelector : public AutoSelectorBase {
 private:
-    SelectorStatus SelectCcuMsAlgo(TopoInfo *topoInfo, OpParam &opParam,
+    SelectorStatus SelectCcuMsAlgo(const TopoInfo *topoInfo, const OpParam &opParam,
         const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
         std::string &selectAlgName) const override;
-    SelectorStatus SelectCcuScheduleAlgo(TopoInfo *topoInfo, OpParam &opParam,
+    SelectorStatus SelectCcuScheduleAlgo(const TopoInfo *topoInfo, const OpParam &opParam,
         const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
         std::string &selectAlgName) const override;
-    SelectorStatus SelectAicpuAlgo(TopoInfo *topoInfo, OpParam &opParam,
+    SelectorStatus SelectAicpuAlgo(const TopoInfo *topoInfo, const OpParam &opParam,
         const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
         std::string &selectAlgName) const override;
-    SelectorStatus SelectMeshAlgo(TopoInfo *topoInfo, OpParam &opParam, std::string &selectAlgName) const;
-    SelectorStatus SelectAivAlgo(TopoInfo *topoInfo, OpParam &opParam,
+    SelectorStatus SelectMeshAlgo(const TopoInfo *topoInfo, const OpParam &opParam, std::string &selectAlgName) const;
+    SelectorStatus SelectAivAlgo(const TopoInfo *topoInfo, const OpParam &opParam,
         const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
         std::string &selectAlgName) const override;
 };

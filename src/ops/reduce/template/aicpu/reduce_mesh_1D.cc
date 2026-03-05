@@ -21,8 +21,9 @@ ReduceMesh1D::ReduceMesh1D(const OpParam &param,
 ReduceMesh1D::~ReduceMesh1D()
 {}
 
-void ReduceMesh1D::SetRoot(u32 root)
+void ReduceMesh1D::SetRoot(u32 root) const
 {
+    (void)root;
     return;
 }
 
