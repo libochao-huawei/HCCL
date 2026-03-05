@@ -410,6 +410,7 @@ if(BUILD_OPEN_PROJECT)
         c_sec
         unified_dlog
         mmpa
+        acl_rt
         -Wl,--no-as-needed
     )
 else()
@@ -422,6 +423,7 @@ else()
         c_sec
         unified_dlog
         mmpa
+        acl_rt
         -Wl,--no-as-needed
         ofed_headers
     )
