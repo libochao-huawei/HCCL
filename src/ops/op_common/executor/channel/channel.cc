@@ -426,7 +426,7 @@ HcclResult CalcChannelRequestNHRWithPriorityTopo(HcclComm comm, const OpParam& p
     
     for (u32 rank : connectRanks) {
         if (rank != myRank) {
-            CHK_RET(ProcessLinksForChannel(comm, myRank, rank, channels, priorityTopo));
+            CHK_RET(ProcessLinksForChannel(comm, myRank, subcommInfo[0][rank], channels, priorityTopo));
         }
     }
     HCCL_INFO("[%s] success.", __func__);
