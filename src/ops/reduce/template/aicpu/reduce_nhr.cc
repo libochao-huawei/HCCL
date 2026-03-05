@@ -252,7 +252,7 @@ HcclResult ReduceNHR::RunGather(const std::map<u32, std::vector<ChannelInfo>> &c
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult ReduceNHR::PostCopy(const TemplateDataParams &tempAlgParams)
+HcclResult ReduceNHR::PostCopy(const TemplateDataParams &tempAlgParams) const
 {
     if (reduceOutBuffType_ == BufferType::HCCL_BUFFER) {
         HCCL_DEBUG("[ReduceNHR][PostCopy] skip postcopy rank[%d]", myRank_);
@@ -313,7 +313,7 @@ HcclResult ReduceNHR::GetStepInfo(u32 step, u32 nSteps, AicpuNHRStepInfo &stepIn
 }
 
 //  计算每轮收发的对端以及slice编号
-HcclResult ReduceNHR::GetStepInfoList(std::vector<AicpuNHRStepInfo> &stepInfoList)
+HcclResult ReduceNHR::GetStepInfoList(std::vector<AicpuNHRStepInfo> &stepInfoList) const
 {
     // 将本 rank 号转换成算法使用的索引号
     u32 rankIdx = myIdx_;
