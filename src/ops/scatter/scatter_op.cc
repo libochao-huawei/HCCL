@@ -31,7 +31,7 @@
 #include "config_log.h"
 #include "workflow.h"
 #include "load_kernel.h"
-#include "hcomm_primitives.h"
+#include "hcomm_primitives_dl.h"
 #include "op_common.h"
 #include "hcomm_dlsym.h"
 
