@@ -82,7 +82,13 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgo(TopoInfoWithNetLayerDetails
         }
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
         // UBX机型
-        if (IsMeshNumEqualToClosNum(topoInfo) && topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO) {
+        bool isMeshNumEqualToClosNum = false;
+        bool isClosNumMultipleOfMeshNum = false;
+        CHK_PRT_RET(CheckMeshNumEqualToClosNum(topoInfo, isMeshNumEqualToClosNum) != HCCL_SUCCESS,
+            HCCL_ERROR("[Algo][AllReduceAutoSelector] CheckMeshNumEqualToClosNum failed."), SelectorStatus::NOT_MATCH);
+        CHK_PRT_RET(CheckClosNumMultipleOfMeshNum(topoInfo, isClosNumMultipleOfMeshNum) != HCCL_SUCCESS,
+            HCCL_ERROR("[Algo][AllReduceAutoSelector] CheckClosNumMultipleOfMeshNum failed."), SelectorStatus::NOT_MATCH);
+        if (isMeshNumEqualToClosNum && topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO) {
             // 4P mesh
             if (IsSmallData(dataSize)) {
                 // 小数据量，用1d mesh算法
@@ -91,7 +97,7 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgo(TopoInfoWithNetLayerDetails
                 // 大数据量，用mesh+clos并行算法
                 selectAlgName = "CcuAllReduceConcurrentMs";
             }
-        } else if (IsClosNumMultipleOfMeshNum(topoInfo) && !IsSmallData(dataSize)) {
+        } else if (isClosNumMultipleOfMeshNum && !IsSmallData(dataSize)) {
             HCCL_WARNING("[Algo][%s] MESH_1D_CLOS not match.", __func__);
             return SelectorStatus::NOT_MATCH;
         } else {
@@ -169,7 +175,13 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetLayer
                 return SelectorStatus::MATCH;
             } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
                 // UBX机型
-                if (IsMeshNumEqualToClosNum(topoInfo) && topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO) {
+                bool isMeshNumEqualToClosNum = false;
+                bool isClosNumMultipleOfMeshNum = false;
+                CHK_PRT_RET(CheckMeshNumEqualToClosNum(topoInfo, isMeshNumEqualToClosNum) != HCCL_SUCCESS,
+                    HCCL_ERROR("[Algo][AllReduceAutoSelector] CheckMeshNumEqualToClosNum failed."), SelectorStatus::NOT_MATCH);
+                CHK_PRT_RET(CheckClosNumMultipleOfMeshNum(topoInfo, isClosNumMultipleOfMeshNum) != HCCL_SUCCESS,
+                    HCCL_ERROR("[Algo][AllReduceAutoSelector] CheckClosNumMultipleOfMeshNum failed."), SelectorStatus::NOT_MATCH);
+                if (isMeshNumEqualToClosNum && topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO) {
                     // 4P mesh
                     if (IsSmallData(dataSize)) {
                         // 小数据量，用1d mesh算法
@@ -178,7 +190,7 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetLayer
                         // 大数据量，用mesh+clos并行算法
                         selectAlgName = "CcuAllReduceConcurrentSche";
                     }
-                } else if(IsClosNumMultipleOfMeshNum(topoInfo) && !IsSmallData(dataSize)) {
+                } else if(isClosNumMultipleOfMeshNum && !IsSmallData(dataSize)) {
                     // 矩形场景大数据量，用2d并行算法
                     selectAlgName = "CcuAllReduceParallelNHR1DMutiJetty";
                 } else {
@@ -259,7 +271,13 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpu(TopoInfoWithNetLayerDe
         selectAlgName = "InsAllReduceNHR";
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
         // UBX机型
-        if (IsMeshNumEqualToClosNum(topoInfo) && topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO) {
+        bool isMeshNumEqualToClosNum = false;
+        bool isClosNumMultipleOfMeshNum = false;
+        CHK_PRT_RET(CheckMeshNumEqualToClosNum(topoInfo, isMeshNumEqualToClosNum) != HCCL_SUCCESS,
+            HCCL_ERROR("[Algo][AllReduceAutoSelector] CheckMeshNumEqualToClosNum failed."), SelectorStatus::NOT_MATCH);
+        CHK_PRT_RET(CheckClosNumMultipleOfMeshNum(topoInfo, isClosNumMultipleOfMeshNum) != HCCL_SUCCESS,
+            HCCL_ERROR("[Algo][AllReduceAutoSelector] CheckClosNumMultipleOfMeshNum failed."), SelectorStatus::NOT_MATCH);
+        if (isMeshNumEqualToClosNum && topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO) {
             // 4P mesh
             if (dataSize <= AR_AICPU_1D_SMALL_DATA_SIZE) {
                 selectAlgName = "InsAllReduceMesh1DOneShot";
@@ -267,7 +285,7 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpu(TopoInfoWithNetLayerDe
                 // 大数据量，用mesh+clos并行算法
                 selectAlgName = "InsAllReduceConcurrent";
             }
-        } else if(IsClosNumMultipleOfMeshNum(topoInfo) && !IsSmallData(dataSize)) {
+        } else if(isClosNumMultipleOfMeshNum && !IsSmallData(dataSize)) {
             // 矩形场景大数据量，用2d并行算法
             selectAlgName = "InsAllReduceParallelMesh1DNHR";
         } else {
