@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
@@ -399,5 +398,4 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV,
                 TopoMatchUBX,
                 CcuTempAllToAllVMesh1DMultiJetty);
 #endif
->>>>>>> upstream/master
 }
