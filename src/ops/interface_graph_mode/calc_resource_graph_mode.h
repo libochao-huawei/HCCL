@@ -8,10 +8,13 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "hccl_graph_mode.h"
+#include "hccl_graph_mode_interface.h"
 
-HcclResult HcclCalcOpResOnlineGraphMode(OpParamGraphMode *opParam, ResResponseGraphMode *resResponse);
-HcclResult HcclCalcOpResOfflineGraphMode(OpParamGraphMode *opParam, ResResponseGraphMode *resResponse);
+HcclResult HcclCreateOpParamGraphMode(OpParamGraphMode** opParam);
+HcclResult HcclDestroyOpParamGraphMode(OpParamGraphMode opParam);
+HcclResult HcclSetOpParamGraphModeOpType(OpParamGraphMode opParam, const char* opType);
+HcclResult HcclCalcOpResOnlineGraphMode(OpParamGraphMode* opParam, u64* opMemSize, u32* streamNum, u32* taskNum, u32* aivCoreNum);
+HcclResult HcclCalcOpResOfflineGraphMode(OpParamGraphMode* opParam, u64* opMemSize, u32* streamNum, u32* taskNum, u32* aivCoreNum);
 namespace hccl {
 HcclResult HcclCalcAicpuResOffline(ResResponseGraphMode *resResponse);
 } // namespace hccl
