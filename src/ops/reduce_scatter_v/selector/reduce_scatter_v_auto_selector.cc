@@ -18,7 +18,10 @@ SelectorStatus ReduceScatterVAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNet
                                                     std::string &selectAlgName) const
 {
     HCCL_DEBUG("[ReduceScatterVAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
+<<<<<<< HEAD
     (void)configAlgMap;
+=======
+>>>>>>> 789a2ad... Hybrid comm and selector conflict  fix
     // MS 模式不支持 int8
     CHK_PRT_RET(opParam.vDataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT8,
         HCCL_WARNING("[ReduceScatterVAutoSelector] dataType[%d] is not supported yet for ccu_ms mode.",
@@ -31,23 +34,40 @@ SelectorStatus ReduceScatterVAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNet
             opParam.reduceType),
         SelectorStatus::NOT_MATCH);
 
+<<<<<<< HEAD
     if (Is64BitDataType(opParam.vDataDes.dataType)) {
         HCCL_WARNING("[ReduceScatterVAutoSelector] ccu_ms mode not support INT64, UINT64, FP64.");
+=======
+    if (isInt64Type(opParam.vDataDes.dataType)) {
+        HCCL_WARNING("[Algo][ReduceScatterVAutoSelector] ccu_ms mode not support INT64, UINT64, FP64.");
+>>>>>>> 789a2ad... Hybrid comm and selector conflict  fix
         return SelectorStatus::NOT_MATCH;
     }
 
     if (topoInfo->topoLevelNums > 1) {
+<<<<<<< HEAD
         HCCL_WARNING("[ReduceScatterVAutoSelector] layerNum > 1 is not supported yet for ccu_ms mode.");
+=======
+        HCCL_WARNING("[Algo][ReduceScatterVAutoSelector] layerNum > 1 is not supported yet for ccu_ms mode.");
+>>>>>>> 789a2ad... Hybrid comm and selector conflict  fix
         return SelectorStatus::NOT_MATCH;
     }
     SelectorStatus ret = SelectMeshAlgoCcums(topoInfo, opParam, selectAlgName);
     if (ret == SelectorStatus::MATCH) {
+<<<<<<< HEAD
         HCCL_INFO("[ReduceScatterVAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
+=======
+        HCCL_INFO("[Algo][ReduceScatterVAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
+>>>>>>> 789a2ad... Hybrid comm and selector conflict  fix
     }
     return ret;
 }
 
+<<<<<<< HEAD
 SelectorStatus ReduceScatterVAutoSelector::SelectMeshAlgoCcums(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
+=======
+SelectorStatus ReduceScatterVAutoSelector::SelectMeshAlgoCcums(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
+>>>>>>> 789a2ad... Hybrid comm and selector conflict  fix
     std::string &selectAlgName) const
 {
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
@@ -55,7 +75,11 @@ SelectorStatus ReduceScatterVAutoSelector::SelectMeshAlgoCcums(const TopoInfoWit
 
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
         if (topoInfo->is2DieFullMesh) {
+<<<<<<< HEAD
             HCCL_WARNING("[ReduceScatterVAutoSelector] 2DieFullMesh is not supported yet for ccu_ms mode.",
+=======
+            HCCL_WARNING("[Algo][ReduceScatterVAutoSelector] 2DieFullMesh is not supported yet for ccu_ms mode.",
+>>>>>>> 789a2ad... Hybrid comm and selector conflict  fix
                 topoInfo->level0Topo);
             return SelectorStatus::NOT_MATCH;
         } else {
@@ -70,16 +94,28 @@ SelectorStatus ReduceScatterVAutoSelector::SelectMeshAlgoCcums(const TopoInfoWit
             // MESH_1D 即可链接所有卡， 使用 MESH_1D 算法
             selectAlgName = "CcuReduceScatterVMesh1D";
         } else { // MS 不支持
+<<<<<<< HEAD
             HCCL_WARNING("[ReduceScatterVAutoSelector] level0Topo[%d] is not supported yet for ccu_ms mode.",
+=======
+            HCCL_WARNING("[Algo][ReduceScatterVAutoSelector] level0Topo[%d] is not supported yet for ccu_ms mode.",
+>>>>>>> 789a2ad... Hybrid comm and selector conflict  fix
                 topoInfo->level0Topo);
             return SelectorStatus::NOT_MATCH;
         }
     } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
+<<<<<<< HEAD
         HCCL_WARNING("[ReduceScatterVAutoSelector] level0Topo[%d] is not supported yet for ccu_ms mode.",
                 topoInfo->level0Topo);  
         return SelectorStatus::NOT_MATCH;
     } else {
         HCCL_WARNING("[ReduceScatterVAutoSelector] level0Topo[%d] is not supported yet for ccu_ms mode.",
+=======
+        HCCL_WARNING("[Algo][ReduceScatterVAutoSelector] level0Topo[%d] is not supported yet for ccu_ms mode.",
+                topoInfo->level0Topo);  
+        return SelectorStatus::NOT_MATCH;
+    } else {
+        HCCL_WARNING("[Algo][ReduceScatterVAutoSelector] level0Topo[%d] is not supported yet for ccu_ms mode.",
+>>>>>>> 789a2ad... Hybrid comm and selector conflict  fix
                 topoInfo->level0Topo);
         return SelectorStatus::NOT_MATCH;
     }
@@ -91,15 +127,23 @@ SelectorStatus ReduceScatterVAutoSelector::SelectCcuScheduleAlgo(const TopoInfoW
                                                     std::string &selectAlgName) const
 {
     HCCL_DEBUG("[ReduceScatterVAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
+<<<<<<< HEAD
     (void)configAlgMap;
+=======
+>>>>>>> 789a2ad... Hybrid comm and selector conflict  fix
     // ccu 模式不支持 PROD
     CHK_PRT_RET(opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD,
         HCCL_WARNING("[ReduceScatterVAutoSelector] ReduceOp[%d] is not supported yet for ccu schedule mode.",
             opParam.reduceType),
         SelectorStatus::NOT_MATCH);
 
+<<<<<<< HEAD
     if (Is64BitDataType(opParam.vDataDes.dataType)) {
         HCCL_WARNING("[ReduceScatterVAutoSelector] ccu_schedule mode not support INT64, UINT64, FP64.");
+=======
+    if (isInt64Type(opParam.vDataDes.dataType)) {
+        HCCL_WARNING("[Algo][ReduceScatterVAutoSelector] ccu_schedule mode not support INT64, UINT64, FP64.");
+>>>>>>> 789a2ad... Hybrid comm and selector conflict  fix
         return SelectorStatus::NOT_MATCH;
     }
 
@@ -120,7 +164,11 @@ SelectorStatus ReduceScatterVAutoSelector::SelectCcuScheduleAlgo(const TopoInfoW
     } else {
         return SelectMeshAlgoCcuSchedule(topoInfo, opParam, selectAlgName);
     }
+<<<<<<< HEAD
     HCCL_INFO("[ReduceScatterVAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
+=======
+    HCCL_INFO("[Algo][ReduceScatterVAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
+>>>>>>> 789a2ad... Hybrid comm and selector conflict  fix
     return SelectorStatus::MATCH;
 }
 
@@ -129,7 +177,11 @@ SelectorStatus ReduceScatterVAutoSelector::SelectMeshAlgoCcuSchedule(TopoInfoWit
 {
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
         if (topoInfo->is2DieFullMesh) {
+<<<<<<< HEAD
             HCCL_WARNING("[ReduceScatterVAutoSelector] 2DieFullMesh is not supported yet for ccu schedule mode.");
+=======
+            HCCL_WARNING("[Algo][ReduceScatterVAutoSelector] 2DieFullMesh is not supported yet for ccu schedule mode.");
+>>>>>>> 789a2ad... Hybrid comm and selector conflict  fix
             return SelectorStatus::NOT_MATCH;
         } else {
             selectAlgName = "CcuReduceScatterVMeshMem2Mem1D";
@@ -139,11 +191,16 @@ SelectorStatus ReduceScatterVAutoSelector::SelectMeshAlgoCcuSchedule(TopoInfoWit
             // MESH_1D 即可链接所有卡， 使用 MESH_1D 算法
             selectAlgName = "CcuReduceScatterVMeshMem2Mem1D";
         } else {
+<<<<<<< HEAD
             HCCL_WARNING("[ReduceScatterVAutoSelector] level0Topo[%d] is not supported yet for ccu schedule mode.",
+=======
+            HCCL_WARNING("[Algo][ReduceScatterVAutoSelector] level0Topo[%d] is not supported yet for ccu schedule mode.",
+>>>>>>> 789a2ad... Hybrid comm and selector conflict  fix
                 topoInfo->level0Topo);
             return SelectorStatus::NOT_MATCH;
         }
     } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
+<<<<<<< HEAD
         HCCL_WARNING("[ReduceScatterVAutoSelector] level0Topo[%d] is not supported yet for ccu schedule mode.",
             topoInfo->level0Topo);
         return SelectorStatus::NOT_MATCH;
@@ -157,13 +214,33 @@ SelectorStatus ReduceScatterVAutoSelector::SelectMeshAlgoCcuSchedule(TopoInfoWit
 }
 
 SelectorStatus ReduceScatterVAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
+=======
+        HCCL_WARNING("[Algo][ReduceScatterVAutoSelector] level0Topo[%d] is not supported yet for ccu schedule mode.",
+            topoInfo->level0Topo);
+        return SelectorStatus::NOT_MATCH;
+    } else {
+        HCCL_WARNING("[Algo][ReduceScatterVAutoSelector] level0Topo[%d] is not supported yet for ccu schedule mode.",
+            topoInfo->level0Topo);
+        return SelectorStatus::NOT_MATCH;
+    }
+    HCCL_INFO("[Algo][ReduceScatterVAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
+    return SelectorStatus::MATCH;
+}
+
+SelectorStatus ReduceScatterVAutoSelector::SelectAicpuAlgo(TopoInfoWithNetLayerDetails* topoInfo,
+                                                      OpParam &opParam,
+>>>>>>> 789a2ad... Hybrid comm and selector conflict  fix
                                                       const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                       std::string &selectAlgName) const
 {
     HCCL_DEBUG("[ReduceScatterVAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
     (void)configAlgMap;
 
+<<<<<<< HEAD
     if (Is64BitDataType(opParam.vDataDes.dataType)) {
+=======
+    if (isInt64Type(opParam.vDataDes.dataType)) {
+>>>>>>> 789a2ad... Hybrid comm and selector conflict  fix
         HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64 only support in-box fullmesh algo type now.");
         return SelectorStatus::NOT_MATCH;
     }
