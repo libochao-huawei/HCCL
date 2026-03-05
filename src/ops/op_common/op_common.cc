@@ -135,7 +135,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
             resCtxHost->DeSerialize(seq);
         }
         if(resCtxHost->slaveThreadNum > 0){
-            CHK_RET(CaptureSlaveStreams(param.stream, resCtxHost->slaveThreads));
+            CHK_RET(CaptureSlaveStreams(param.stream, resCtxHost->threads));
         }
         CHK_RET(executor->Orchestrate(param, *resCtxHost));
     }
