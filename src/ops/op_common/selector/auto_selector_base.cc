@@ -277,4 +277,38 @@ HcclResult AutoSelectorBase::CheckClosNumMultipleOfMeshNum(const TopoInfoWithNet
     return HCCL_SUCCESS;
 }
 
+bool AutoSelectorBase::IsInputOutputOverlap(const OpParam &opParam) const
+{
+    CHK_PRT_RET(opParam.inputPtr == nullptr || opParam.outputPtr == nullptr,
+        HCCL_INFO("[Algo][AutoSelectorBase][IsInputOutputOverlap] The input or output buffer is null. Not overlap."),
+        false);
+
+    u64 inputDataSize = opParam.inputSize;
+    u64 outputDataSize = opParam.outputSize;
+
+    CHK_PRT_RET(inputDataSize == 0 || outputDataSize == 0,
+        // 不存在overlap情况
+        HCCL_INFO("[Algo][AutoSelectorBase][IsInputOutputOverlap] The input or output buffer size is 0. Not overlap."),
+        false);
+
+    u64 inputEnd = opParam.inputPtr + inputDataSize - 1;
+    u64 outputEnd = opParam.outputPtr + outputDataSize - 1;
+
+    HCCL_DEBUG("[Algo][AutoSelectorBase][IsInputOutputOverlap] inputStart[%llu], inputEnd[%llu], outputStart[%llu], "
+               "outputEnd[%llu].",
+        opParam.inputPtr, inputEnd, opParam.outputPtr, outputEnd);
+
+    CHK_PRT_RET(opParam.inputPtr <= outputEnd && opParam.outputPtr <= inputEnd,
+        HCCL_INFO("[Algo][AutoSelectorBase][IsInputOutputOverlap] inputStart[%llu], inputEnd[%llu], outputStart[%llu], "
+                  "outputEnd[%llu]. Overlap detected.",
+            opParam.inputPtr,
+            inputEnd,
+            opParam.outputPtr,
+            outputEnd),
+        true);
+
+    HCCL_DEBUG("[Algo][AutoSelectorBase][IsInputOutputOverlap]No overlap between input and output memory.");
+    return false;
+}
+
 }

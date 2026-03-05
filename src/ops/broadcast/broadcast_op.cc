@@ -38,7 +38,7 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 HcclResult HcclBroadcast(void *buf, uint64_t count, HcclDataType dataType, uint32_t root, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("Start to run execute HcclBroadcast");
-    if (!CheckHCCLIndependentOp()) {
+    if (!HcclCheckAicpuEnableOpen()) {
         return HcclBroadcastInner(buf, count, dataType, root, comm, stream);
     }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
@@ -136,6 +136,9 @@ HcclResult BroadcastOutPlace(void *buf, uint64_t count, HcclDataType dataType, u
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));
+    if (param.opExecuteConfig != OpExecuteConfig::AICPU_TS) {
+        return HcclBroadcastInner(buf, count, dataType, root, comm, stream);
+    }
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
     HCCL_INFO("Execute BroadcastOutPlace success.");
     return HCCL_SUCCESS;

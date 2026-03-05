@@ -40,7 +40,7 @@ HcclResult HcclAlltoAll(const void *sendBuf, uint64_t sendCount, HcclDataType se
 {
     HCCL_INFO("Start to run execute HcclAlltoAll");
 
-    if (!CheckHCCLIndependentOp()) {
+    if (!HcclCheckAicpuEnableOpen()) {
         return HcclAlltoAllInner(sendBuf, sendCount, sendType, recvBuf, recvCount, recvType, comm, stream);
     }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
@@ -85,9 +85,13 @@ HcclResult HcclAlltoAll(const void *sendBuf, uint64_t sendCount, HcclDataType se
     }
 
     // 底层走AlltoAllV
+    OpOpExecuteConfig opExecuteConfig;
     CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlace(sendBuf, sendCounts.data(), sdispls.data(),
         recvBuf, recvCounts.data(), rdispls.data(), recvType, comm, stream, tag,
-        HcclCMDType::HCCL_CMD_ALLTOALL, rankSize), tag.c_str());
+        HcclCMDType::HCCL_CMD_ALLTOALL, rankSize, opExecuteConfig), tag.c_str());
+    if (opExecuteConfig != OpExecuteConfig::AICPU_TS) {
+        return HcclAlltoAllInner(sendBuf, sendCount, sendType, recvBuf, recvCount, recvType, comm, stream);
+    }
     return HCCL_SUCCESS;
 }
 
@@ -96,7 +100,7 @@ HcclResult HcclAlltoAllV(const void *sendBuf, const void *sendCounts, const void
 {
     HCCL_INFO("Start to run execute HcclAlltoAllV");
 
-    if (!CheckHCCLIndependentOp()) {
+    if (!HcclCheckAicpuEnableOpen()) {
         return HcclAlltoAllVInner(sendBuf, sendCounts, sdispls, sendType, recvBuf, recvCounts, rdispls, recvType, comm, stream);
     }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
@@ -135,9 +139,12 @@ HcclResult HcclAlltoAllV(const void *sendBuf, const void *sendCounts, const void
     CHK_RET(CheckDataType(recvType, false));
 
     // 底层走AlltoAllV
+    OpOpExecuteConfig opExecuteConfig;
     CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlace(sendBuf, sendCounts, sdispls, recvBuf, recvCounts, rdispls, recvType, comm, stream,
-        tag, HcclCMDType::HCCL_CMD_ALLTOALLV, rankSize), tag.c_str());
-
+        tag, HcclCMDType::HCCL_CMD_ALLTOALLV, rankSize, opExecuteConfig), tag.c_str());
+    if (opExecuteConfig != OpExecuteConfig::AICPU_TS) {
+        return HcclAlltoAllVInner(sendBuf, sendCounts, sdispls, sendType, recvBuf, recvCounts, rdispls, recvType, comm, stream);
+    }
     return HCCL_SUCCESS;
 }
 
@@ -146,7 +153,7 @@ HcclResult HcclAlltoAllVC(const void *sendBuf, const void *sendCountMatrix, Hccl
 {
     HCCL_INFO("Start to run execute HcclAlltoAllVC");
 
-    if (!CheckHCCLIndependentOp()) {
+    if (!HcclCheckAicpuEnableOpen()) {
         return HcclAlltoAllVCInner(sendBuf, sendCountMatrix, sendType, recvBuf, recvType, comm, stream);
     }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
@@ -215,10 +222,13 @@ HcclResult HcclAlltoAllVC(const void *sendBuf, const void *sendCountMatrix, Hccl
     CHK_RET(CheckDataType(recvType, false));
 
     // 底层走AlltoAllV
+    OpOpExecuteConfig opExecuteConfig;
     CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlace(sendBuf, sendCounts.data(), sdispls.data(),
         recvBuf, recvCounts.data(), rdispls.data(), recvType, comm, stream, tag,
-        HcclCMDType::HCCL_CMD_ALLTOALLVC, rankSize), tag.c_str());
-
+        HcclCMDType::HCCL_CMD_ALLTOALLVC, rankSize, opExecuteConfig), tag.c_str());
+    if (opExecuteConfig != OpExecuteConfig::AICPU_TS) {
+        return HcclAlltoAllVCInner(sendBuf, sendCountMatrix, sendType, recvBuf, recvType, comm, stream);
+    }
     return HCCL_SUCCESS;
 }
 
@@ -318,7 +328,7 @@ HcclResult CheckAlltoAllVCInputPara(const HcclComm comm, const void *sendBuf, co
 // alltoall/alltoallv/alltoallvc 统一，当前只支持outPlace
 HcclResult AlltoAllVOutPlace(const void *sendBuf, const void *sendCounts, const void *sdispls, const void *recvBuf,
     const void *recvCounts, const void *rdispls, HcclDataType dataType, HcclComm comm, aclrtStream stream,
-    const std::string &tag, HcclCMDType opType, u32 rankSize)
+    const std::string &tag, HcclCMDType opType, u32 rankSize, OpOpExecuteConfig opExecuteConfig)
 {
     HCCL_INFO("Start to execute AlltoAllVOutPlace");
 
@@ -412,6 +422,10 @@ HcclResult AlltoAllVOutPlace(const void *sendBuf, const void *sendCounts, const 
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));
+    if (param.opExecuteConfig != OpExecuteConfig::AICPU_TS) {
+        opExecuteConfig = param.opExecuteConfig;
+        return HCCL_SUCCESS;
+    }
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
     HCCL_INFO("Execute AlltoAllVOutPlace success.");
     return HCCL_SUCCESS;
