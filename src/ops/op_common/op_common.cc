@@ -38,6 +38,8 @@
 #include "hccl_aiv_utils.h"
 #include "aiv_kernel_def.h"
 #include "dpu/kernel_launch.h"
+#include "rt.h"
+#include "hcomm/hcomm_res.h"
 
 namespace ops_hccl {
 thread_local std::map<std::string, HcclMemHandle> g_memHandleCache; // 当前AIV存放注册内存的memHandle使用
@@ -125,16 +127,48 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
         AlgResourceCtxSerializable &resCtxHost = *static_cast<AlgResourceCtxSerializable *>(resCtxSequence);
         CHK_RET(HcclAivKernelEntranceLaunch(comm, param, topoInfo, resCtxHost));
         CHK_RET(executor->Orchestrate(param, resCtxHost));
-    } else {
+    } else if (param.engine == COMM_ENGINE_CCU) {
         if (isResourceReused) {
             // 复用资源，则需从engineCtx取得res，进行反序列化
             char *ctx = static_cast<char*>(resCtxSequence);
             std::vector<char> seq(ctx, ctx + param.ctxSize);
             resCtxHost->DeSerialize(seq);
         }
+        if(resCtxHost->slaveThreadNum > 0){
+            CHK_RET(CaptureSlaveStreams(param.stream, resCtxHost->slaveThreads));
+        }
         CHK_RET(executor->Orchestrate(param, *resCtxHost));
     }
     HCCL_INFO("Execute HcclExecOp success.");
+    return HCCL_SUCCESS;
+}
+
+HcclResult CaptureSlaveStreams(aclrtStream mainStream, const std::vector<ThreadHandle> &threads)
+{
+    aclmdlRI rtModel = nullptr;
+    aclmdlRICaptureStatus captureStatus = aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_NONE;
+    rtError_t ret = aclmdlRICaptureGetInfo(mainStream, &captureStatus, &rtModel);
+    if (ret == ACL_ERROR_RT_FEATURE_NOT_SUPPORT) {
+        HCCL_WARNING("[%s]Stream capture not support.", __func__);
+        return HCCL_SUCCESS;
+    } else {
+        CHK_PRT_RET(ret != RT_ERROR_NONE, HCCL_ERROR("[%s]rtStreamGetCaptureInfo fail. return[%d].", __func__, ret),
+            HCCL_E_RUNTIME);
+    }
+    if(captureStatus != aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_ACTIVE){
+        HCCL_WARNING("[%s]failed. captureStatus[%d]", __func__, captureStatus);
+        return HCCL_SUCCESS;
+    }
+    //thread[0] is main thread
+    for(int i = 1; i < threads.size(); ++i){
+        ThreadResTypeStream stream;
+        CHK_RET(HcommThreadResGetInfo(threads[i], ThreadResTypeStream::THREAD_RES_TYPE_STREAM, sizeof(ThreadResTypeStream), stream));
+        ret = rtStreamAddToModel(stream, rtModel);
+        CHK_PRT_RET(ret != RT_ERROR_NONE, HCCL_ERROR("[%s]rtStreamAddToModel fail. return[%d].", __func__, ret),
+            HCCL_E_RUNTIME);
+        HCCL_INFO("[rtStreamAddToModel]success, add slavestream to model:[%u]", rtModel);
+    }
+    HCCL_INFO("[%s]success, captured rtmodel:[%u]", __func__, rtModel);
     return HCCL_SUCCESS;
 }
 
