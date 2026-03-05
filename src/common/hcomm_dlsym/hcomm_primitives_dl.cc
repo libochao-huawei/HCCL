@@ -218,7 +218,7 @@ static int32_t StubHcommChannelFence(ChannelHandle channel) {
 void HcommPrimitivesDlInit(void* libHcommHandle) {
     #define SET_PTR(ptr, name, stub) \
         do { \
-            ptr = (typeof(ptr))dlsym(libHcommHandle, name); \
+            ptr = (decltype(ptr))dlsym(libHcommHandle, name); \
             if (ptr == NULL) ptr = stub; \
         } while(0)
 

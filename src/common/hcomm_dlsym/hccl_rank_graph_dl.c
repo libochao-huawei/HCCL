@@ -119,7 +119,7 @@ void HcclRankGraphDlInit(void* libHcommHandle) {
     // 辅助宏：解析符号，失败则指向对应桩函数
     #define SET_PTR(ptr, name, stub) \
         do { \
-            ptr = (typeof(ptr))dlsym(libHcommHandle, name); \
+            ptr = (decltype(ptr))dlsym(libHcommHandle, name); \
             if (ptr == NULL) ptr = stub; \
         } while(0)
 
