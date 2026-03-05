@@ -12,10 +12,6 @@
 #include "ins_temp_broadcast_mesh_1D_two_shot.h"
 #include "ins_temp_broadcast_nhr.h"
 #include "topo_match_multilevel.h"
-#ifndef AICPU_COMPILE
-#include "ccu_temp_broadcast_mesh_1D_mem2mem.h"
-#include "ccu_temp_broadcast_nhr_1D_mem2mem.h"
-#endif
 
 namespace ops_hccl {
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
