@@ -151,7 +151,7 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
         }
     }
     HCCL_DEBUG("[AllGatherAutoSelector][%s] end", __func__);
-    return SelectorStatus::NOT_MATCH;
+    return SelectorStatus::MATCH;
 }
 
 SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
@@ -207,7 +207,7 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
             return SelectorStatus::NOT_MATCH;
         }
     }
-    HCCL_DEBUG("[AllGatherAutoSelector][%s] end", __func__);
+    HCCL_INFO("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
     return SelectorStatus::MATCH;
 }
 
@@ -220,7 +220,7 @@ SelectorStatus AllGatherAutoSelector::SelectAivAlgo(
     (void)opParam;
 
     selectAlgName = "AivAllGatherMesh1D";
-    HCCL_INFO("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
+    HCCL_DEBUG("[AllGatherAutoSelector][%s] end", __func__);
     return SelectorStatus::MATCH;
 }
 
