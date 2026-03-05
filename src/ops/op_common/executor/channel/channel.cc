@@ -400,7 +400,7 @@ HcclResult CalcChannelRequestMesh1DWithPriorityTopo(HcclComm comm, const OpParam
     u32 myRank = topoInfo->userRank;
     for (u32 rank : subcommInfo[COMM_LEVEL0]) {
         if (rank != myRank) {
-            CHK_RET(ProcessLinksForChannel(comm, myRank, subcommInfo[COMM_LEVEL0][rank], channels, priorityTopo));
+            CHK_RET(ProcessLinksForChannel(comm, myRank, rank, channels, priorityTopo));
         }
     }
     HCCL_INFO("[%s] success.", __func__);
