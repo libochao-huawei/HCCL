@@ -12,7 +12,6 @@ add_subdirectory(aiv)
 add_subdirectory(registry)
 add_subdirectory(wrapper)
 add_subdirectory(dpu)
-add_subdirectory(ccu)
 
 set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/alg_template_base.cc

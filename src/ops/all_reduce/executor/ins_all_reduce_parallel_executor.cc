@@ -345,9 +345,4 @@ void InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
 
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, InsAllReduceParallelMesh1DNHR,
     InsAllReduceParallelExecutor, TopoMatchMultilevel, InsTempAllReduceMesh1DTwoShot, InsTempAllReduceNHR);
-
-#ifndef AICPU_COMPILE
-REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceParallelMesh1DNHR, 
-    InsAllReduceParallelExecutor, TopoMatchMultilevel, CcuTempAllReduceMeshMem2Mem1D, CcuTempAllReduceNHRMem2Mem1D);
-#endif
 }

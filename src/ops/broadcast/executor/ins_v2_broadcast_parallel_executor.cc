@@ -393,8 +393,4 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_BROADCAST, InsBroadcastParallelMesh1DNHR, InsBroadcastParallelExecutor,
     TopoMatchMultilevel, InsTempBroadcastMesh1DTwoShot, InsTempBroadcastNHR);
 
-#ifndef AICPU_COMPILE
-REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_BROADCAST, CcuBroadcastParallelMesh1DNHR, InsBroadcastParallelExecutor,
-    TopoMatchMultilevel, CcuTempBroadcastMesh1DMem2Mem, CcuTempBroadcastNHR1DMem2Mem);
-#endif
 }  // namespace Hccl
