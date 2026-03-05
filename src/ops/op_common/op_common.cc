@@ -38,6 +38,8 @@
 #include "hccl_aiv_utils.h"
 #include "aiv_kernel_def.h"
 #include "dpu/kernel_launch.h"
+#include "rt.h"
+#include "hcomm/hcomm_res.h"
 
 namespace ops_hccl {
 thread_local std::map<std::string, HcclMemHandle> g_memHandleCache; // 当前AIV存放注册内存的memHandle使用
@@ -125,6 +127,17 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
         AlgResourceCtxSerializable &resCtxHost = *static_cast<AlgResourceCtxSerializable *>(resCtxSequence);
         CHK_RET(HcclAivKernelEntranceLaunch(comm, param, topoInfo, resCtxHost));
         CHK_RET(executor->Orchestrate(param, resCtxHost));
+    } else if (param.engine == COMM_ENGINE_CCU) {
+        if (isResourceReused) {
+            // 复用资源，则需从engineCtx取得res，进行反序列化
+            char *ctx = static_cast<char*>(resCtxSequence);
+            std::vector<char> seq(ctx, ctx + param.ctxSize);
+            resCtxHost->DeSerialize(seq);
+        }
+        if (resCtxHost->slaveThreadNum > 0) {
+            CHK_RET(CaptureSlaveStreams(param.stream, resCtxHost->threads));
+        }
+        CHK_RET(executor->Orchestrate(param, *resCtxHost));
     } else {
         if (isResourceReused) {
             // 复用资源，则需从engineCtx取得res，进行反序列化
@@ -135,6 +148,31 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
         CHK_RET(executor->Orchestrate(param, *resCtxHost));
     }
     HCCL_INFO("Execute HcclExecOp success.");
+    return HCCL_SUCCESS;
+}
+
+HcclResult CaptureSlaveStreams(aclrtStream mainStream, const std::vector<ThreadHandle> &threads)
+{
+    aclmdlRI rtModel = nullptr;
+    u64 modelId = 0;
+    bool isCapture = false;
+    aclmdlRICaptureStatus captureStatus = aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_NONE;
+    CHK_RET(haclrtGetCaptureInfo(mainStream, captureStatus, modelId, isCapture));
+    if (!isCapture) {
+        HCCL_INFO("captureStatus is not active, captureStatus[%d]", captureStatus);
+        return HCCL_SUCCESS;
+    }
+    CHK_PTR_NULL(rtModel);
+    //thread[0] is main thread
+    for (int i = 1; i < threads.size(); ++i) {
+        ThreadResTypeStream stream;
+        CHK_RET(HcommThreadResGetInfo(threads[i], ThreadResType::THREAD_RES_TYPE_STREAM, sizeof(ThreadResTypeStream), &stream));
+        rtError_t ret = rtStreamAddToModel(stream, rtModel);
+        CHK_PRT_RET(ret != RT_ERROR_NONE, HCCL_ERROR("[%s]rtStreamAddToModel fail. return[%d].", __func__, ret),
+            HCCL_E_RUNTIME);
+        HCCL_DEBUG("[%s]add slaveStream to model success, idx[%zu], stream[%p], rtModel[%p]", __func__, i, stream, rtModel);
+    }
+    HCCL_INFO("[%s]success, captured streams to rtmodel:[%u], slaveStreamNum:[%u]", __func__, rtModel, threads.size() - 1);
     return HCCL_SUCCESS;
 }
 
@@ -246,7 +284,7 @@ HcclResult HcclCalcTopoInfo(HcclComm comm, OpParam &param, std::unique_ptr<TopoI
         size = seq.size();
         // 创建新的Context保存
         CHK_RET(HcclEngineCtxCreate(comm, param.tag, CommEngine::COMM_ENGINE_CPU_TS, size, &ctx));
-        ACLCHECK(aclrtMemcpy(ctx, size, seq.data(), size, ACL_MEMCPY_HOST_TO_HOST));
+        memcpy_s(ctx, size, seq.data(), size);
         return HCCL_SUCCESS;
     }
     char *ctxTemp = reinterpret_cast<char*>(ctx);
@@ -720,10 +758,9 @@ HcclResult HcclAllocAlgResourceAiv(
             buffersOut[channelDesc.remoteRank] = remoteMems[0].addr;
         }
     }
-
-    ACLCHECK(aclrtMemcpy(resCtxHost->aivCommInfoPtr, MAX_RANK_SIZE * sizeof(void*), buffersIn, MAX_RANK_SIZE * sizeof(void*),
+    CHK_RET(haclrtMemcpy(resCtxHost->aivCommInfoPtr, MAX_RANK_SIZE * sizeof(void*), buffersIn, MAX_RANK_SIZE * sizeof(void*),
         ACL_MEMCPY_HOST_TO_DEVICE));
-    ACLCHECK(aclrtMemcpy(static_cast<u8*>(resCtxHost->aivCommInfoPtr) + AIV_TAG_ADDR_OFFSET, MAX_RANK_SIZE * sizeof(void*),
+    CHK_RET(haclrtMemcpy(static_cast<u8*>(resCtxHost->aivCommInfoPtr) + AIV_TAG_ADDR_OFFSET, MAX_RANK_SIZE * sizeof(void*),
         buffersOut, MAX_RANK_SIZE * sizeof(void*), ACL_MEMCPY_HOST_TO_DEVICE));
 
     HCCL_INFO("[%s] Alloc res success.", __func__);
@@ -875,11 +912,11 @@ HcclResult SingleRankProc(const OpParam &param)
     HCCL_INFO("[CommunicatorImpl][%s] sendBuf[%p], recvBuf[%p], len[%llu]", __func__,
               param.inputPtr, param.outputPtr, len);
     if (len > 0) {
-        aclError ret = aclrtMemcpy(param.outputPtr, len, param.inputPtr, len, ACL_MEMCPY_DEVICE_TO_DEVICE);
-        HCCL_DEBUG("Call aclrtMemcpyAsync, return value[%d], para: dstAddr[%p], destMax[%llu], "
+        HcclResult ret = haclrtMemcpy(param.outputPtr, len, param.inputPtr, len, ACL_MEMCPY_DEVICE_TO_DEVICE);
+        HCCL_DEBUG("Call haclrtMemcpy, return value[%d], para: dstAddr[%p], destMax[%llu], "
                 "srcAddr[%p], count[%llu], rtKind[%d]", ret, param.outputPtr, len, param.inputPtr,
                 len, ACL_MEMCPY_DEVICE_TO_DEVICE);
-        if (ret != ACL_SUCCESS) {
+        if (ret != HCCL_SUCCESS) {
             HCCL_ERROR("[SingleRankProc][AsyncCopy][Mem]errNo[0x%016llx] rt memory async copy failed, "
                     "return[%d], para: dstAddr[%p], destMax[%llu], srcAddr[%p], count[%llu], kind[%d].",
                     HCCL_ERROR_CODE(HcclResult::HCCL_E_RUNTIME), ret, param.outputPtr, len, param.inputPtr,
