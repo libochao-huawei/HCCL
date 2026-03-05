@@ -162,7 +162,7 @@ HcclResult CaptureSlaveStreams(aclrtStream mainStream, const std::vector<ThreadH
     //thread[0] is main thread
     for(int i = 1; i < threads.size(); ++i){
         ThreadResTypeStream stream;
-        CHK_RET(HcommThreadResGetInfo(threads[i], ThreadResTypeStream::THREAD_RES_TYPE_STREAM, sizeof(ThreadResTypeStream), &stream));
+        CHK_RET(HcommThreadResGetInfo(threads[i], ThreadResType::THREAD_RES_TYPE_STREAM, sizeof(ThreadResTypeStream), &stream));
         ret = rtStreamAddToModel(stream, rtModel);
         CHK_PRT_RET(ret != RT_ERROR_NONE, HCCL_ERROR("[%s]rtStreamAddToModel fail. return[%d].", __func__, ret),
             HCCL_E_RUNTIME);
