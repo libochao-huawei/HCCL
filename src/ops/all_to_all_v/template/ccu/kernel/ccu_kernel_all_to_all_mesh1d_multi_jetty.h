@@ -91,6 +91,8 @@ private:
     HcclResult CalcAddrs();
     HcclResult DoAllToAll();
     HcclResult PostSync();
+    HcclResult SendData(ChannelHandle channel, hcomm::CcuRep::RemoteAddr remoteDst, hcomm::CcuRep::LocalAddr remoteSrc,
+                        hcomm::CcuRep::Variable sliceLength, hcomm::CcuRep::CompletedEvent event);
 
     uint64_t rankSize_{0};
     uint32_t rankId_{0};
