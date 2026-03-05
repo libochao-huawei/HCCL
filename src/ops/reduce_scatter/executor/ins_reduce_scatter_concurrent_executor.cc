@@ -366,7 +366,7 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
     return HCCL_SUCCESS;
 }
 
-REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterConcurrentMeshNHRAicpu, InsReduceScatterConcurrentExecutor, TopoMatchUBX,
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, InsReduceScatterConcurrentMeshNHR, InsReduceScatterConcurrentExecutor, TopoMatchUBX,
     InsTempReduceScatterMesh1D, InsTempReduceScatterNHR);
 #ifndef AICPU_COMPILE
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterConcurrentMeshNHRSche, InsReduceScatterConcurrentExecutor, TopoMatchUBX,
