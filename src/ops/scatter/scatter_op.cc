@@ -233,7 +233,7 @@ HcclResult ScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, Hcc
         return HcclResult::HCCL_SUCCESS;
     }
 
-    if (deviceType == DevType::DEV_TYPE_910_95) {
+    if (deviceType == DevType::DEV_TYPE_910_95 && (GetHcommVersion() >= 90000000)) {
         OpExecuteConfig opExecuteConfig;
         std::string algName;
         std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
@@ -241,30 +241,35 @@ HcclResult ScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, Hcc
         CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
     } else {
         CHK_RET(ExecOp(comm, param));  //保留原有A3流程
-           // 获取profiling op上报的信息
-        HcomProInfo profInfo;
-        std::string algTypeStr = TransferAlgTypeStr(param.algType);
-        CHK_SAFETY_FUNC_RET(strcpy_s(profInfo.algType, sizeof(profInfo.algType), algTypeStr.c_str()));
-        CHK_SAFETY_FUNC_RET(strcpy_s(profInfo.commName, sizeof(profInfo.commName), param.commName));
-        profInfo.beginTime = beginTime;
-        profInfo.dataCount = param.DataDes.count;
-        profInfo.dataType = static_cast<uint8_t>(param.DataDes.dataType);
-        profInfo.cmdType = static_cast<uint8_t>(param.opType);
-        CHK_PRT(HcommProfilingReportOp(profInfo));
 
-        if (param.engine == CommEngine::COMM_ENGINE_CPU_TS || param.engine == CommEngine::COMM_ENGINE_CPU) {
-            CHK_PTR_NULL(param.resCtx);
-            AlgResourceCtx* tmpCtx = reinterpret_cast<AlgResourceCtx*>(param.resCtx);
-            profInfo.slaveThreadNum = tmpCtx->slaveThreadNum;
-            char* curThreadPtr = reinterpret_cast<char*>(param.resCtx); // 拿到所有host下发的thread
-            curThreadPtr += sizeof(AlgResourceCtx);// 偏移指针
-            ThreadHandle* curThreads = reinterpret_cast<ThreadHandle *>(curThreadPtr);
-            CHK_PRT(HcommProfilingUnRegThread(profInfo,curThreads));
-        }   
+        if (GetHcommVersion() >= 90000000) {
+           // 获取profiling op上报的信息
+            HcomProInfo profInfo;
+            std::string algTypeStr = TransferAlgTypeStr(param.algType);
+            CHK_SAFETY_FUNC_RET(strcpy_s(profInfo.algType, sizeof(profInfo.algType), algTypeStr.c_str()));
+            CHK_SAFETY_FUNC_RET(strcpy_s(profInfo.commName, sizeof(profInfo.commName), param.commName));
+            profInfo.beginTime = beginTime;
+            profInfo.dataCount = param.DataDes.count;
+            profInfo.dataType = static_cast<uint8_t>(param.DataDes.dataType);
+            profInfo.cmdType = static_cast<uint8_t>(param.opType);
+            CHK_PRT(HcommProfilingReportOp(profInfo));
+
+            if (param.engine == CommEngine::COMM_ENGINE_CPU_TS || param.engine == CommEngine::COMM_ENGINE_CPU) {
+                CHK_PTR_NULL(param.resCtx);
+                AlgResourceCtx* tmpCtx = reinterpret_cast<AlgResourceCtx*>(param.resCtx);
+                profInfo.slaveThreadNum = tmpCtx->slaveThreadNum;
+                char* curThreadPtr = reinterpret_cast<char*>(param.resCtx); // 拿到所有host下发的thread
+                curThreadPtr += sizeof(AlgResourceCtx);// 偏移指针
+                ThreadHandle* curThreads = reinterpret_cast<ThreadHandle *>(curThreadPtr);
+                CHK_PRT(HcommProfilingUnRegThread(profInfo,curThreads));
+            }
+        }
     }
     HCCL_INFO("Execute ScatterOutPlace success.");
     return HCCL_SUCCESS;
 }
+
+aclrtNotify g_notifies[AICPU_CONTROL_NOTIFY_NUM];
 
 /* 执行通信算子 */
 HcclResult ExecOp(HcclComm comm, OpParam &param)
@@ -287,25 +292,29 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
 
     // 获取资源
     AlgResourceCtx* resCtx;
-    ThreadHandle cpuTsThread;
-    ThreadHandle exportedAicpuTsThread;
-    if (param.engine == COMM_ENGINE_AICPU_TS) {
-        CHK_RET(HcclThreadAcquireWithStream(comm, COMM_ENGINE_CPU_TS, param.stream, 1, &cpuTsThread));
-        // Export cpuTsThread
-        CHK_RET(HcclThreadExportToCommEngine(comm, 1, &cpuTsThread, COMM_ENGINE_AICPU_TS, &exportedAicpuTsThread));
-    }
-    
-    CHK_RET(GetAlgRes(comm, param, executor, topoInfo, algType, &resCtx));
-    ThreadHandle exportedCpuTsThread;
-    if (param.engine == COMM_ENGINE_AICPU_TS) {
-        // Export aicpu ts thread
-        ThreadHandle mainThread = topoInfo->mainThread;
-        CHK_RET(HcclThreadExportToCommEngine(comm, 1, &mainThread, COMM_ENGINE_CPU_TS, &exportedCpuTsThread));
-        // cpuTsThread 添加到ctx里
-        char* curPtr = reinterpret_cast<char *>(resCtx);
-        curPtr = curPtr + sizeof(AlgResourceCtx) - sizeof(TopoInfo) - sizeof(ThreadHandle) - sizeof(uint32_t) * AICPU_CONTROL_NOTIFY_NUM - sizeof(void*); // 偏移指针
-        ACLCHECK(aclrtMemcpy(curPtr, sizeof(ThreadHandle), &exportedAicpuTsThread, sizeof(ThreadHandle),
-            ACL_MEMCPY_HOST_TO_DEVICE));
+    if (HcclThreadExportToCommEngine != nullptr) {
+        ThreadHandle cpuTsThread;
+        ThreadHandle exportedAicpuTsThread;
+        if (param.engine == COMM_ENGINE_AICPU_TS) {
+            CHK_RET(HcclThreadAcquireWithStream(comm, COMM_ENGINE_CPU_TS, param.stream, 1, &cpuTsThread));
+            // Export cpuTsThread
+            CHK_RET(HcclThreadExportToCommEngine(comm, 1, &cpuTsThread, COMM_ENGINE_AICPU_TS, &exportedAicpuTsThread));
+        }
+        
+        CHK_RET(GetAlgRes(comm, param, executor, topoInfo, algType, &resCtx));
+        ThreadHandle exportedCpuTsThread;
+        if (param.engine == COMM_ENGINE_AICPU_TS) {
+            // Export aicpu ts thread
+            ThreadHandle mainThread = topoInfo->mainThread;
+            CHK_RET(HcclThreadExportToCommEngine(comm, 1, &mainThread, COMM_ENGINE_CPU_TS, &exportedCpuTsThread));
+            // cpuTsThread 添加到ctx里
+            char* curPtr = reinterpret_cast<char *>(resCtx);
+            curPtr = curPtr + sizeof(AlgResourceCtx) - sizeof(TopoInfo) - sizeof(ThreadHandle) - sizeof(uint32_t) * AICPU_CONTROL_NOTIFY_NUM - sizeof(void*); // 偏移指针
+            ACLCHECK(aclrtMemcpy(curPtr, sizeof(ThreadHandle), &exportedAicpuTsThread, sizeof(ThreadHandle),
+                ACL_MEMCPY_HOST_TO_DEVICE));
+        }
+    } else {
+        CHK_RET(GetAlgRes(comm, param, executor, topoInfo, algType, &resCtx));
     }
     
 
@@ -324,9 +333,17 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
         int32_t retComm = HcommAcquireComm(param.commName);
         CHK_PRT_RET(retComm != HCCL_SUCCESS, HCCL_ERROR("[%s] [%s] HcommAcquireComm failed ",
             __func__, param.commName), static_cast<HcclResult>(retComm));
-        // Host stream通知Device主thread，使用主流上idx最大的notify
-        CHK_RET(static_cast<HcclResult>(HcommThreadNotifyRecordOnThread(cpuTsThread, exportedCpuTsThread,
-            topoInfo->notifyNumOnMainThread)));
+            
+        if (HcclThreadExportToCommEngine != nullptr) {
+            // Host stream通知Device主thread，使用主流上idx最大的notify
+            CHK_RET(static_cast<HcclResult>(HcommThreadNotifyRecordOnThread(cpuTsThread, exportedCpuTsThread,
+                topoInfo->notifyNumOnMainThread)));
+        } else {
+            if (aclrtRecordNotify(g_notifies[0], param.stream) != ACL_SUCCESS) {
+                HCCL_ERROR("failed to record aicpu stream");
+                return HCCL_E_INTERNAL;
+            }
+        }
 
         // 执行device测的算法编排
         uint64_t beginTime = HcommGetProfilingSysCycleTime();
@@ -369,14 +386,24 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
         aclError aclRet = aclrtLaunchKernelWithConfig(funcHandle, numBlocks, param.stream, &cfg, argsHandle, nullptr);
         CHK_PRT_RET(aclRet != ACL_SUCCESS,
                     HCCL_ERROR("[LoadCustomKernel][aclrtLaunchKernelWithConfig]errNo[0x%016llx] launch kernel failed", ret), HCCL_E_OPEN_FILE_FAILURE);
-        std::string profName = "scatter";
-        profName += "AicpuKernel"; // 标准后缀，类似于alltoallAicpuKernel;
-        // 算子下发时间
-        HCCL_DEBUG("[%s] profName = [%s]", __func__, profName);
-        // 上报
-        HcommProfilingReportKernel(beginTime, profName.c_str());
+
+        if (GetHcommVersion() >= 90000000) {
+            std::string profName = "scatter";
+            profName += "AicpuKernel"; // 标准后缀，类似于alltoallAicpuKernel;
+            // 算子下发时间
+            HCCL_DEBUG("[%s] profName = [%s]", __func__, profName);
+            // 上报
+            HcommProfilingReportKernel(beginTime, profName.c_str());
+        }
         // Host stream等待Device的通知
-        CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, 0, NOTIFY_DEFAULT_WAIT_TIME)));
+        if (HcclThreadExportToCommEngine != nullptr) {
+            CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, 0, NOTIFY_DEFAULT_WAIT_TIME)));
+        } else {
+            if (aclrtWaitAndResetNotify(g_notifies[1], param.stream, CUSTOM_TIMEOUT) != ACL_SUCCESS) {
+                HCCL_ERROR("failed to wait from aicpu stream");
+                return HCCL_E_INTERNAL;
+ 	        }
+        }
     } else {
         CHK_RET(executor->Orchestrate(param, resCtx));
         param.resCtx = resCtx;
@@ -738,6 +765,31 @@ HcclResult AllocAlgResource(HcclComm comm, const OpParam& param, AlgResourceRequ
         resCtxHost->notifyNumPerThread = 0;
     } else {
         resCtxHost->notifyNumPerThread = resRequest.notifyNumPerThread[0];
+    }
+
+    if (HcclThreadExportToCommEngine != nullptr) {
+        #define ACL_NOTIFY_DEFAULT          0x00000000U
+        // 先使用acl接口来分配notify
+        if (aclrtCreateNotify(&(g_notifies[0]), ACL_NOTIFY_DEFAULT) != ACL_SUCCESS) {
+            HCCL_ERROR("failed to alloc notify");
+            return HCCL_E_INTERNAL;
+        }
+
+        if (aclrtCreateNotify(&(g_notifies[1]), ACL_NOTIFY_DEFAULT) != ACL_SUCCESS) {
+            HCCL_ERROR("failed to alloc notify");
+            return HCCL_E_INTERNAL;
+        }
+
+        // 创建两个notify，放入Context结构体中
+        for (u32 idx = 0; idx < AICPU_CONTROL_NOTIFY_NUM; idx++) {
+            uint32_t notifyId;
+            // 获取notify Id，放入Context中
+            if (aclrtGetNotifyId(g_notifies[idx], &notifyId) != ACL_SUCCESS) {
+                HCCL_ERROR("failed to get notify id");
+                return HCCL_E_INTERNAL;
+            }
+            resCtxHost->notifyIds[idx] = notifyId;
+        }
     }
 
     char* curPtr = reinterpret_cast<char *>(resCtxHost);
