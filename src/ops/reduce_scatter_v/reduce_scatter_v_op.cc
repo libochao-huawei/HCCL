@@ -190,7 +190,14 @@ if (!paramMem) {
 
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
+<<<<<<< HEAD
     CHK_RET(Selector(comm, param, topoInfo, algName));
+=======
+    CHK_RET(Selector(comm, param, topoInfo, algName, opExecuteConfig));
+    if (opExecuteConfig != OpExecuteConfig::AICPU_TS) {
+        return HcclReduceScatterVInner(sendBuf, sendCounts, sendDispls, recvBuf, recvCount, dataType, op, comm, stream);
+    }
+>>>>>>> 84ba048... Hybrid comm and selector fix
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
     if (param.opExecuteConfig != OpExecuteConfig::AICPU_TS && opExecuteConfig != OpExecuteConfig::HOSTCPU) {
         return HcclReduceScatterVInner(sendBuf, sendCounts, sendDispls, recvBuf, recvCount, dataType, op, comm, stream);

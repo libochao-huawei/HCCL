@@ -240,10 +240,16 @@ HcclResult ScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, Hcc
         CHK_RET(Selector(comm, param, topoInfo, algName));
 =======
         CHK_RET(Selector(comm, param, topoInfo, algName, opExecuteConfig));
+<<<<<<< HEAD
         if (opExecuteConfig != OpExecuteConfig::AICPU_TS && opExecuteConfig != OpExecuteConfig::HOSTCPU) {
             return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
         }
 >>>>>>> 3ac773b... Hybrid comm and selector fix
+=======
+        if (opExecuteConfig != OpExecuteConfig::AICPU_TS) {
+            return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
+        }
+>>>>>>> 84ba048... Hybrid comm and selector fix
         CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
     } else {
         CHK_RET(ExecOp(comm, param));  //保留原有A3流程
