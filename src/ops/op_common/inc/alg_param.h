@@ -42,6 +42,8 @@ constexpr uint32_t ALG_TAG_LENGTH = TAG_LENGTH + OP_ALG_LENGTH;
 constexpr uint32_t MAX_TAG_LENGTH = 255;
 constexpr uint32_t AICPU_CONTROL_NOTIFY_NUM = 2;
 constexpr uint32_t MAX_MEM_TAG_LENGTH = OP_ALG_LENGTH + 32;
+constexpr uint32_t RES_PACK_TAG_LENGTH = 255;
+
 // 是否再拆分一个comm头文件
 constexpr u32 LOCAL_NOTIFY_IDX_ZERO = 0;
 constexpr u32 NOTIFY_IDX_ACK = 0;
@@ -493,5 +495,28 @@ typedef struct HcomProInfo {
     bool isAiv = false;
     uint8_t reserved[MAX_LENGTH];
 }HcomProInfo;
-}
+
+// 图模式相关定义
+// 图模式编译阶段资源计算入参
+typedef struct OpParamGraphMode {
+    char opType[64]; // 算子类型
+} OpParamGraphMode;
+
+// 图模式编译阶段申请资源
+typedef struct ResResponseGraphMode {
+    u64 opMemSize = 0;  // 额外申请的scratch数量（不包括cclBuff）
+    u32 streamNum = 0;  // 除用户流以外，额外申请的流（不包括算子device展开申请的流）
+    u32 taskNum = 0;    // task数量，一般为前同步 + kernel + 后同步
+    u32 aivCoreNum = 0;
+} ResResponseGraphMode;
+
+// 图模式执行阶段传入的资源
+typedef struct ResPackGraphMode {
+    char tag[RES_PACK_TAG_LENGTH];
+    std::vector<aclrtStream> streams;
+    void* scratchMemAddr;
+    u64 scratchMemSize;
+} ResPackGraphMode;
+
+} 
 #endif
