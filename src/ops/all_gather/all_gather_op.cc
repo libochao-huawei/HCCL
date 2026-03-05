@@ -81,8 +81,7 @@ HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclD
 
     return HCCL_SUCCESS;
 }
-HcclResult HcclAllGatherGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, const char* group, aclrtStream stream,
-                                  const ResPackGraphMode &resPack)
+HcclResult HcclAllGatherGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, const char* group, aclrtStream stream, const char* tag, void** streams, size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize)
 {
     HCCL_INFO("Start to run execute HcclAllGatherGraphMode");
     // 根据group获取通信域
@@ -97,8 +96,8 @@ HcclResult HcclAllGatherGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCou
     // tag有效性,是否过长
     char commName[COMM_INDENTIFIER_MAX_LENGTH];
     CHK_RET(HcclGetCommName(comm, commName));
-    const string tag = "AllGather_" + string(commName);
-    CHK_RET(HcclCheckTag(tag.c_str()));
+    const string opTag = "AllGather_" + string(commName);
+    CHK_RET(HcclCheckTag(opTag.c_str()));
     // 检查sendCount是否合法(超出系统上限)
     CHK_RET(CheckCount(sendCount));
     // 检查数据类型是否支持
@@ -108,10 +107,10 @@ HcclResult HcclAllGatherGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCou
     CHK_RET(HcclGetRankSize(comm, &rankSize));
     u32 userRank = INVALID_VALUE_RANKID;
     CHK_RET(HcclGetRankId(comm, &userRank));
-    CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), tag.c_str());
+    CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), opTag.c_str());
 
     // 执行AllGather
-    CHK_RET_AND_PRINT_IDE(AllGatherOutPlaceGraphMode(sendBuf, recvBuf, sendCount, dataType, comm, stream, tag, resPack), tag.c_str());
+    CHK_RET_AND_PRINT_IDE(AllGatherOutPlaceGraphMode(sendBuf, recvBuf, sendCount, dataType, comm, stream, optag, resPack), optag);
 
     return HCCL_SUCCESS;
 }

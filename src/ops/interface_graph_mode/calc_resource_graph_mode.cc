@@ -9,40 +9,111 @@
  */
 
 #include "calc_resource_graph_mode.h"
+#include <cstddef>
+#include <cstring>
 
-
-HcclResult HcclCalcOpResOnlineGraphMode(OpParamGraphMode *opParam, ResResponseGraphMode *resResponse)
+HcclResult HcclCreateOpParamGraphMode(OpParamGraphMode** opParam)
 {
-    // 资源初始化
-    resResponse->opMemSize = 0;
-    resResponse->streamNum = 0;
-    resResponse->taskNum = 0;
-    resResponse->aivCoreNum = 0;
-
-    // aicpu引擎计算资源
-    hccl::HcclCalcAicpuResOffline(resResponse);
-
-    // 其他引擎补充在下面
+    if (opParam == nullptr) {
+        return HCCL_E_PARA;
+    }
+    *opParam = new OpParamGraphMode();
+    if (*opParam == nullptr) {
+        return HCCL_E_MEMORY;
+    }
+    // 初始化 opType
+    memset((*opParam)->opType, 0, sizeof((*opParam)->opType));
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclCalcOpResOfflineGraphMode(OpParamGraphMode *opParam, ResResponseGraphMode *resResponse)
+HcclResult HcclDestroyOpParamGraphMode(OpParamGraphMode opParam)
 {
-    resResponse->opMemSize = 0;
-    resResponse->streamNum = 0;
-    resResponse->taskNum = 0;
-    resResponse->aivCoreNum = 0;
+    if (opParam == nullptr) {
+        return HCCL_E_PARA;
+    }
+    delete opParam;
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclSetOpParamGraphModeOpType(OpParamGraphMode opParam, const char* opType)
+{
+    if (opParam == nullptr || opType == nullptr) {
+        return HCCL_E_PARA;
+    }
+    strncpy_s(opParam->opType, sizeof(opParam->opType), opType, sizeof(opParam->opType) - 1);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclCalcOpResOnlineGraphMode(OpParamGraphMode opParam, uint64_t* opMemSize, uint64_t* streamNum, uint64_t* taskNum, uint64_t* aivCoreNum)
+{
+    if (opMemSize == nullptr || streamNum == nullptr || taskNum == nullptr || aivCoreNum == nullptr) {
+        return HCCL_E_PARA;
+    }
+    // 资源初始化
+    *opMemSize = 0;
+    *streamNum = 0;
+    *taskNum = 0;
+    *aivCoreNum = 0;
+
+    // 为了兼容，创建临时的 ResResponseGraphMode 结构
+    ResResponseGraphMode resResponse;
+    resResponse.opMemSize = 0;
+    resResponse.streamNum = 0;
+    resResponse.taskNum = 0;
+    resResponse.aivCoreNum = 0;
 
     // aicpu引擎计算资源
-    hccl::HcclCalcAicpuResOffline(resResponse);
+    hccl::HcclCalcAicpuResOffline(&resResponse);
 
     // 其他引擎补充在下面
+
+    // 将结果复制到输出参数
+    *opMemSize = resResponse.opMemSize;
+    *streamNum = resResponse.streamNum;
+    *taskNum = resResponse.taskNum;
+    *aivCoreNum = resResponse.aivCoreNum;
+
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclCalcOpResOfflineGraphMode(OpParamGraphMode opParam, uint64_t* opMemSize, uint64_t* streamNum, uint64_t* taskNum, uint64_t* aivCoreNum)
+{
+    if (opMemSize == nullptr || streamNum == nullptr || taskNum == nullptr || aivCoreNum == nullptr) {
+        return HCCL_E_PARA;
+    }
+    // 资源初始化
+    *opMemSize = 0;
+    *streamNum = 0;
+    *taskNum = 0;
+    *aivCoreNum = 0;
+
+    // 为了兼容，创建临时的 ResResponseGraphMode 结构
+    ResResponseGraphMode resResponse;
+    resResponse.opMemSize = 0;
+    resResponse.streamNum = 0;
+    resResponse.taskNum = 0;
+    resResponse.aivCoreNum = 0;
+
+    // aicpu引擎计算资源
+    hccl::HcclCalcAicpuResOffline(&resResponse);
+
+    // 其他引擎补充在下面
+
+    // 将结果复制到输出参数
+    *opMemSize = resResponse.opMemSize;
+    *streamNum = resResponse.streamNum;
+    *taskNum = resResponse.taskNum;
+    *aivCoreNum = resResponse.aivCoreNum;
+
     return HCCL_SUCCESS;
 }
 
 namespace hccl {
 HcclResult HcclCalcAicpuResOffline(ResResponseGraphMode *resResponse)
 {
+    if (resResponse == nullptr) {
+        return HCCL_E_PARA;
+    }
     uint64_t aicpuOpMemSize = 0;
     uint64_t aicpuStreamNum = 0;
     uint64_t aicpuTaskNum = 3;
