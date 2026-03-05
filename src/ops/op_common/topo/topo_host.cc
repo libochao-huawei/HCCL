@@ -20,6 +20,14 @@
 #include "config_log.h"
 #include "topo.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+HcclResult __attribute__((weak)) hrtGetDeviceType(DevType &devType);
+#ifdef __cplusplus
+}
+#endif
+
 constexpr u32 FACTOR_NUM_TWO = 2;
 constexpr s32 DEVICE_PER_MODULE = 8;
 constexpr uint32_t NET_LAYER_NUM_TWO = 2;
