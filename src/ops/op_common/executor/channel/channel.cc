@@ -284,7 +284,7 @@ HcclResult CalcChannelRequestNhr(HcclComm comm, const OpParam& param, const Topo
 }
 
 HcclResult CreateChannelRequestByRankId(HcclComm comm, u32 myRank, u32 remoteRank,
-    const std::vector<HcclChannelDesc> &channels, u32 channelRepeatNum)
+    std::vector<HcclChannelDesc> &channels, u32 channelRepeatNum)
 {
 #ifndef AICPU_COMPILE
     channels.clear();

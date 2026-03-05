@@ -120,7 +120,7 @@ SelectorStatus AllGatherVAutoSelector::SelectAicpuAlgo(
 }
  
 SelectorStatus AllGatherVAutoSelector::SelectAivAlgo(
-    const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+    TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
     std::string &selectAlgName) const
 {
     std::vector<HcclAlgoType> algos =
