@@ -197,6 +197,10 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetLayer
                     // 其他场景，用1d NHR算法
                     selectAlgName = "CcuAllReduceNHR1DMem2MemMultiJetty";
                 }
+            } else {
+                HCCL_WARNING("[Algo][AllReduceAutoSelector] level0Topo[%d] is not supported yet for ccu schedule mode.",
+                    topoInfo->level0Topo);
+                return SelectorStatus::NOT_MATCH;
             }
         } else {
             HCCL_WARNING("[Algo][AllReduceAutoSelector] algo[%u] is not supported yet for ccu_schedule mode, reset to default.", levle0Algo);
