@@ -114,6 +114,35 @@ static void SaveAivCachedAlgTag(const AivOpCacheArgs &cacheArgs, const char *alg
     g_aivOpCacheTagMap[cacheArgs] = algTag;
 }
 
+static HcclResult PrepareAivCacheIfNeeded(OpParam &param, const std::string &algName, AivOpCacheArgs &aivCacheArgs)
+{
+    if (param.engine != CommEngine::COMM_ENGINE_AIV) {
+        return HCCL_SUCCESS;
+    }
+
+    u32 numBlocksLimit = MAX_NUM_BLOCKS;
+    ACLCHECK(aclrtGetResInCurrentThread(ACL_RT_DEV_RES_VECTOR_CORE, &numBlocksLimit));
+    CHK_PRT_RET(numBlocksLimit < 1,
+        HCCL_ERROR("[%s] block num less than 1, block num[%d]", __func__, numBlocksLimit), HCCL_E_PARA);
+    param.numBlocksLimit = numBlocksLimit;
+    HCCL_INFO("[%s] Aiv core limit is [%d].", __func__, numBlocksLimit);
+
+    aivCacheArgs = BuildAivOpCacheArgs(param, algName);
+    CHK_RET(TryApplyAivCachedAlgTag(param, aivCacheArgs));
+    return HCCL_SUCCESS;
+}
+
+static HcclResult ExecuteAivOp(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
+    std::shared_ptr<InsCollAlgBase> &executor, void *resCtxSequence, const AivOpCacheArgs &aivCacheArgs)
+{
+    param.resCtx = resCtxSequence;
+    AlgResourceCtxSerializable &resCtxHost = *static_cast<AlgResourceCtxSerializable *>(resCtxSequence);
+    CHK_RET(HcclAivKernelEntranceLaunch(comm, param, topoInfo, resCtxHost));
+    CHK_RET(executor->Orchestrate(param, resCtxHost));
+    SaveAivCachedAlgTag(aivCacheArgs, param.algTag);
+    return HCCL_SUCCESS;
+}
+
 HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
     std::string &algName, OpExecuteConfig &opExecuteConfig)
 {
@@ -153,18 +182,9 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
         HCCL_ERROR("[%s] failed to fill param.commModeTag", __func__);
         return HCCL_E_INTERNAL;
     }
+
     AivOpCacheArgs aivCacheArgs;
-    const bool isAivMode = (param.engine == CommEngine::COMM_ENGINE_AIV);
-    if (isAivMode) {
-        u32 numBlocksLimit = MAX_NUM_BLOCKS;
-        ACLCHECK(aclrtGetResInCurrentThread(ACL_RT_DEV_RES_VECTOR_CORE, &numBlocksLimit));
-        CHK_PRT_RET(numBlocksLimit < 1,
-            HCCL_ERROR("[%s] block num less than 1, block num[%d]", __func__, numBlocksLimit), HCCL_E_PARA);
-        param.numBlocksLimit = numBlocksLimit;
-        HCCL_INFO("[%s] Aiv core limit is [%d].", __func__, numBlocksLimit);
-        aivCacheArgs = BuildAivOpCacheArgs(param, algName);
-        CHK_RET(TryApplyAivCachedAlgTag(param, aivCacheArgs));
-    }
+    CHK_RET(PrepareAivCacheIfNeeded(param, algName, aivCacheArgs));
 
     std::shared_ptr<InsCollAlgBase> executor = CollAlgExecRegistryV2::Instance().GetAlgExec(param.opType, algName);
     CHK_PRT_RET(
@@ -203,11 +223,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
         CHK_RET(HcclAicpuKernelEntranceLaunch(comm, param, cpuTsThread, exportedCpuTsThread, notifyNumOnMainThread,
             resCtxSequence, algName));
     } else if (param.engine == COMM_ENGINE_AIV) {
-        param.resCtx = resCtxSequence;
-        AlgResourceCtxSerializable &resCtxHost = *static_cast<AlgResourceCtxSerializable *>(resCtxSequence);
-        CHK_RET(HcclAivKernelEntranceLaunch(comm, param, topoInfo, resCtxHost));
-        CHK_RET(executor->Orchestrate(param, resCtxHost));
-        SaveAivCachedAlgTag(aivCacheArgs, param.algTag);
+        CHK_RET(ExecuteAivOp(comm, param, topoInfo, executor, resCtxSequence, aivCacheArgs));
     } else {
         if (isResourceReused) {
             // 复用资源，则需从engineCtx取得res，进行反序列化
