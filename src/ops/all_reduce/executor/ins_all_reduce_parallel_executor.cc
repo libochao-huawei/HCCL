@@ -49,11 +49,12 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     CHK_RET(tempAlgIntra.CalcRes(comm, param, topoInfo, resReqIntra));
     CHK_RET(tempAlgInter.CalcRes(comm, param, topoInfo, resReqInter));
 
+    constexpr u32 SUB_MAIN_THREAD_NUM = 2;
     // 用第intra算法的主流作为Executor的主流
-    resourceRequest.slaveThreadNum = resReqIntra.slaveThreadNum + resReqInter.slaveThreadNum + 2;
+    resourceRequest.slaveThreadNum = resReqIntra.slaveThreadNum + resReqInter.slaveThreadNum + SUB_MAIN_THREAD_NUM;
 
     // 每个算法的主流需要1个额外Notify用于算法之间同步
-    resourceRequest.notifyNumOnMainThread = 2;
+    resourceRequest.notifyNumOnMainThread = SUB_MAIN_THREAD_NUM;
     resourceRequest.notifyNumPerThread.emplace_back(resReqIntra.notifyNumOnMainThread + 1);
     resourceRequest.notifyNumPerThread.insert(resourceRequest.notifyNumPerThread.end(),
         resReqIntra.notifyNumPerThread.begin(), resReqIntra.notifyNumPerThread.end());

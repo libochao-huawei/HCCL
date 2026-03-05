@@ -129,7 +129,7 @@ HcclResult InsTempAllGatherNHR::RunAllGatherNHR(const std::vector<ThreadHandle> 
     }
     return HcclResult::HCCL_SUCCESS;
 }
-u32 InsTempAllGatherNHR::GetRankFromMap(const u32 algRankIdx)
+u32 InsTempAllGatherNHR::GetRankFromMap(const u32 algRankIdx) const
 {
     return subCommRanks_[0].at(algRankIdx);
 }

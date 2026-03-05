@@ -11,7 +11,6 @@
 #ifndef HCCLV2_INS_TEMP_ALL_REDUCE_MESH_1D_ONE_SHOT
 #define HCCLV2_INS_TEMP_ALL_REDUCE_MESH_1D_ONE_SHOT
 
-#include <cstring>
 #include "alg_v2_template_base.h"
 #include "executor_base.h"
 #include "alg_data_trans_wrapper.h"

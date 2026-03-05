@@ -11,7 +11,6 @@
 #ifndef ALG_V2_TEMPLATE_UTILS
 #define ALG_V2_TEMPLATE_UTILS
 
-#include <cstring>
 #include <vector>
 #include <memory>
 #include <string>

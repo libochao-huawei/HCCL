@@ -11,7 +11,6 @@
 #ifndef INS_TEMP_SCATTER_NHR_H
 #define INS_TEMP_SCATTER_NHR_H
 
-#include <cstring>
 #include "alg_v2_template_base.h"
 #include "executor_base.h"
 #include "alg_data_trans_wrapper.h"
@@ -48,13 +47,13 @@ private:
     HcclResult PreCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads);
     HcclResult PostCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads);
     HcclResult RunNHR(const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads,
-        const TemplateDataParams &tempAlgParams);
+        const TemplateDataParams &tempAlgParam);
     HcclResult BatchSend(AicpuNHRStepInfo &stepInfo, const std::map<u32, std::vector<ChannelInfo>> &channels,
-        const ThreadHandle &thread, const TemplateDataParams &templateDataParams, u32 repeat) const;
+        const ThreadHandle &thread, const TemplateDataParams &tempAlgParam, u32 repeat) const;
     HcclResult BatchRecv(AicpuNHRStepInfo &stepInfo, const std::map<u32, std::vector<ChannelInfo>> &channels,
-        const ThreadHandle &thread, const TemplateDataParams &templateDataParams, u32 repeat) const;
+        const ThreadHandle &thread, const TemplateDataParams &tempAlgParam, u32 repeat) const;
     HcclResult BatchSR(AicpuNHRStepInfo &stepInfo, const std::map<u32, std::vector<ChannelInfo>> &channels,
-        const ThreadHandle &thread, const TemplateDataParams &templateDataParams, u32 repeat) const;
+        const ThreadHandle &thread, const TemplateDataParams &tempAlgParam, u32 repeat) const;
     u64 processSize_{0};
     u64 count_{0};
 };
