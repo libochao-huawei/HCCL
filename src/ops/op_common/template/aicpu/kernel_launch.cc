@@ -168,7 +168,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(thread, notifyNumOnMainThread, CUSTOM_TIMEOUT)));
         } else {
             if (HcommAclrtNotifyWaitOnThread(thread, resCtx->notifyIds[0], CUSTOM_TIMEOUT) != HCCL_SUCCESS) {
-                HCCL_ERROR("failed to wait notify[%d] from host main stream", param->resCtx->notifyIds[0]);
+                HCCL_ERROR("failed to wait notify[%d] from host main stream", resCtx->notifyIds[0]);
                 return 1;
             }
         }
