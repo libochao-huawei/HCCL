@@ -208,6 +208,7 @@ HcclResult InsTempAllGatherNHR::PostLocalCopy(const std::vector<ThreadHandle> &t
     }
     u64 sliceSize = tempAlgParams_.sliceSize;
     u64 sliceCount = tempAlgParams_.count;
+    const u32 dataTypeSize = sliceSize / sliceCount;
     for (u32 rpt = 0; rpt < tempAlgParams_.repeatNum; ++rpt) {
         const u64 outBaseOff = tempAlgParams_.buffInfo.outBuffBaseOff + rpt * tempAlgParams_.outputRepeatStride;
         const u64 scratchRepeatStride = tempAlgParams_.sliceSize * templateRankSize_;
@@ -217,7 +218,7 @@ HcclResult InsTempAllGatherNHR::PostLocalCopy(const std::vector<ThreadHandle> &t
             u32 algRank = 0;
             CHK_RET(GetAlgRank(rank, subCommRanks_[0], algRank));
                         // 尾块模式
-            if (tempAlgParams_.tailSize !=0 && myAlgRank == templateRankSize_ -1) {
+            if (tempAlgParams_.tailSize !=0 && algRank == templateRankSize_ -1) {
                 sliceSize = tempAlgParams_.tailSize;
                 sliceCount = sliceSize / dataTypeSize;
             }
