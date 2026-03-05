@@ -22,6 +22,7 @@ SelectorStatus AlltoAllVCAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithN
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                     std::string &selectAlgName) const
 {
+    HCCL_DEBUG("[AlltoAllVCAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
     if (topoInfo->topoLevelNums > 1) {
         HCCL_WARNING("[Algo][AlltoAllVAutoSelector] levelNum > 1 is not supported yet for ccu_ms mode.");
         return SelectorStatus::NOT_MATCH;
@@ -53,6 +54,7 @@ SelectorStatus AlltoAllVCAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLaye
                                                       const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                       std::string &selectAlgName) const
 {
+    HCCL_DEBUG("[AlltoAllVCAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
     (void) topoInfo;
     std::vector<HcclAlgoType> algos = std::vector<HcclAlgoType>(HCCL_ALGO_LEVEL_NUM, HcclAlgoType::HCCL_ALGO_TYPE_DEFAULT);
     auto it = configAlgMap.find(opParam.opType);
@@ -62,15 +64,16 @@ SelectorStatus AlltoAllVCAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLaye
     HCCL_INFO("[AlltoAllVC] hccl algo op config: config opType:%d, level0:%u, level1:%u, level2:%u, level3:%u",
         opParam.opType, algos.at(INDEX_0), algos.at(INDEX_1), algos.at(INDEX_2), algos.at(INDEX_3));
 
-    if (topoInfo->topoLevelNums > 1) {
-        HCCL_ERROR("hccl algo no match");
-        return SelectorStatus::NOT_MATCH;
-    }
+    // if (topoInfo->topoLevelNums > 1) {
+    //     HCCL_ERROR("hccl algo no match");
+    //     return SelectorStatus::NOT_MATCH;
+    // }
 
-    if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-        selectAlgName = "InsAlltoAllVCMesh1D";
-    }
-
+    // if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
+    //     selectAlgName = "InsAlltoAllVCMesh1D";
+    // }
+    selectAlgName = "InsAlltoAllVCMesh1D";
+    HCCL_INFO("[AlltoAllVCAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
     return SelectorStatus::MATCH;
 }
 
