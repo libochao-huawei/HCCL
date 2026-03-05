@@ -257,7 +257,6 @@ void HcommPrimitivesDlInit(void* libHcommHandle) {
     if (dlerror()) {
         fprintf(stderr, "[HcclWrapper] Warning: dlerror after symbol resolution\n");
     }
-    return 0;
 }
 
 void HcommPrimitivesDlFini(void) {
