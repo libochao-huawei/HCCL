@@ -152,7 +152,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             return 1;
         }
 
-        if (thread != nullptr) {
+        if (thread != 0) {
             // 上报主流和第一个task  wait之前
             if (HcommProfilingReportMainStreamAndFirstTask(thread) != HCCL_SUCCESS) {
                 HCCL_ERROR("failed to report MainStream And FirstTask");
@@ -167,7 +167,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
                 CUSTOM_TIMEOUT);
             CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(thread, notifyNumOnMainThread, CUSTOM_TIMEOUT)));
         } else {
-            if (HcommAclrtNotifyWaitOnThread(thread, param->resCtx->notifyIds[0], CUSTOM_TIMEOUT) != HCCL_SUCCESS) {
+            if (HcommAclrtNotifyWaitOnThread(thread, resCtx->notifyIds[0], CUSTOM_TIMEOUT) != HCCL_SUCCESS) {
                 HCCL_ERROR("failed to wait notify[%d] from host main stream", param->resCtx->notifyIds[0]);
                 return 1;
             }
@@ -179,7 +179,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             return 1;
         }
 
-        if (thread != nullptr) {
+        if (thread != 0) {
             // 上报device侧的op 附加信息
             HcomProInfo profInfo;
             std::string algTypeStr(param->algTypeStr);
@@ -217,7 +217,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
                 return 1;
             }
         } else {
-            if (HcommAclrtNotifyRecordOnThread(thread, param->resCtx->notifyIds[1]) != HCCL_SUCCESS) {
+            if (HcommAclrtNotifyRecordOnThread(thread, resCtx->notifyIds[1]) != HCCL_SUCCESS) {
                 HCCL_ERROR("failed to record host main stream");
                 return 1;
             }
