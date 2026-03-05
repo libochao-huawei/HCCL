@@ -22,6 +22,7 @@
 #include "ccu_temp_all_reduce_nhr_1D_mem2mem.h"
 #include "ccu_temp_all_reduce_mesh_1D_2die_oneshot.h"
 #include "ccu_temp_all_reduce_mesh_1D_mem2mem_2die_oneshot.h"
+#include "ccu_temp_all_reduce_nhr_mem2mem_1D_multi_jetty.h"
 #endif
 
 namespace ops_hccl {
@@ -194,5 +195,7 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh1DOneShot, Ins
     TopoMatch1D, CcuTempAllReduceMesh1DOneShot);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh1DMem2Mem2DieOneShot, InsV2AllReduceSoleExecutor, TopoMatch1D,
     CcuTempAllReduceMesh1DMem2Mem2DieOneShot);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh1DMem2MemNhrMultiJetty, InsV2AllReduceSoleExecutor, TopoMatch1D,
+    CcuTempAllReduceNhrMem2Mem1DMultiJetty);
 #endif
 }  // namespace ops_hccl
