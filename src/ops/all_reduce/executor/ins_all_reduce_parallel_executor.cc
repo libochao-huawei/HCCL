@@ -41,8 +41,25 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
     AlgResourceRequest& resourceRequest)
 {
-    InsAlgTemplate0 tempAlgIntra(param, topoInfo->userRank, algHierarchyInfo.infos.at(0));
-    InsAlgTemplate1 tempAlgInter(param, topoInfo->userRank, algHierarchyInfo.infos.at(1));
+    // 构建template
+    std::vector<std::vector<u32>> temp0HierarchyInfo;
+    std::vector<std::vector<u32>> temp1HierarchyInfo;
+    if(topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+        temp0HierarchyInfo = {algHierarchyInfo.infos[0][0]};
+        std::vector<u32> closRanks;
+        u32 meshSize = algHierarchyInfo.infos[0][0].size();
+        for(auto rank : algHierarchyInfo.infos[0][1]) {
+            if(rank % meshSize == topoInfo->userRank % meshSize) {
+                closRanks.push_back(rank);
+            }
+        }
+        temp1HierarchyInfo = {closRanks};
+    } else {
+        temp0HierarchyInfo = algHierarchyInfo.infos[0];
+        temp1HierarchyInfo = algHierarchyInfo.infos[1];
+    }
+    InsAlgTemplate0 tempAlgIntra(param, topoInfo->userRank, temp0HierarchyInfo);
+    InsAlgTemplate1 tempAlgInter(param, topoInfo->userRank, temp1HierarchyInfo);
 
     // 计算子算法所需资源
     AlgResourceRequest resReqIntra;
@@ -102,9 +119,26 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     maxTmpMemSize_ = resCtx.cclMem.size;
     threads_ = resCtx.threads;
 
+    std::vector<std::vector<u32>> temp0HierarchyInfo;
+    std::vector<std::vector<u32>> temp1HierarchyInfo;
+    if(resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS) {
+        temp0HierarchyInfo = {resCtx.algHierarchyInfo.infos[0][0]};
+        std::vector<u32> closRanks;
+        u32 meshSize = resCtx.algHierarchyInfo.infos[0][0].size();
+        for(auto rank : resCtx.algHierarchyInfo.infos[0][1]) {
+            if(rank % meshSize == resCtx.topoInfo.userRank % meshSize) {
+                closRanks.push_back(rank);
+            }
+        }
+        temp1HierarchyInfo = {closRanks};
+    } else {
+        temp0HierarchyInfo = resCtx.algHierarchyInfo.infos[0];
+        temp1HierarchyInfo = resCtx.algHierarchyInfo.infos[1];
+    }
+    InsAlgTemplate0 tempAlgIntra(param, myRank_, temp0HierarchyInfo);
+    InsAlgTemplate1 tempAlgInter(param, myRank_, temp1HierarchyInfo);
+
     // 分配资源
-    InsAlgTemplate0 tempAlgIntra(param, myRank_, resCtx.algHierarchyInfo.infos.at(0));
-    InsAlgTemplate1 tempAlgInter(param, myRank_, resCtx.algHierarchyInfo.infos.at(1));
     CHK_RET(PrepareResForTemplate(param, resCtx, tempAlgIntra, tempAlgInter));
 
     // 算法展开
