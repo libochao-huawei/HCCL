@@ -934,8 +934,15 @@ HcclResult SetOpParamAlgTag(OpParam &param, const std::string &algName)
 
     // ccu模式，考虑kernel是否能复用，需要添加dataType和reduceType
     if (param.engine == CommEngine::COMM_ENGINE_CCU) {
-
-        const char* dataType = HCOM_DATA_TYPE_STR_MAP.at(param.DataDes.dataType).c_str();
+        HcclDataType tmpDataType;
+        if(param.opType == HcclCMDType::HCCL_CMD_ALLTOALL ||
+           param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
+           param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
+            tmpDataType = param.all2AllVDataDes.sendType;
+        } else {
+            tmpDataType = param.DataDes.dataType;
+        }
+        const char* dataType = HCOM_DATA_TYPE_STR_MAP.at(tmpDataType).c_str();
         ret = strcat_s(param.algTag, sizeof(param.algTag), dataType);
         if (ret != 0) {
             HCCL_ERROR("failed to fill alg tag with ccu dataType");
