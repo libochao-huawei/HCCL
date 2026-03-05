@@ -94,7 +94,7 @@ HcclResult InsTempAllGatherMesh1D::RunAllGatherMesh(const std::vector<ThreadHand
     u64 sliceSize = tempAlgParams_.sliceSize;
     u64 sliceCount = tempAlgParams_.count;
     const u32 dataTypeSize = sliceSize / sliceCount;
-        // 尾块模式
+    // 尾块模式
     if (tempAlgParams_.tailSize !=0 && myAlgRank == templateRankSize_ -1) {
         sliceSize = tempAlgParams_.tailSize;
         sliceCount = sliceSize / dataTypeSize;
@@ -165,9 +165,15 @@ HcclResult InsTempAllGatherMesh1D::RunAllGatherMesh(const std::vector<ThreadHand
             TxRxSlicesList sendRecvSlicesList({txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices});
             TxRxChannels sendRecvChannels(linkRemote, linkRemote);
             SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
+            // 当数据本身就在cclbuffer上时，直接使用DMA消减读模式到output上，同事要跳过后拷贝
+            if (tempAlgParams_.buffInfo.outBuffType == BufferType::OUTPUT && tempAlgParams_.buffInfo.inBuffType == BufferType::HCCL_BUFFER){
+                CHK_PRT_RET(SendRecvRead(sendRecvInfo, threads[threadIdx]),
+                            HCCL_ERROR("[InsTempAllGatherMesh1D] RunAllGather Send failed"), HcclResult::HCCL_E_INTERNAL);
+            } else {
+                CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[threadIdx]),
+                            HCCL_ERROR("[InsTempAllGatherMesh1D] RunAllGather Send failed"), HcclResult::HCCL_E_INTERNAL);
+            }
 
-            CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[threadIdx]),
-                        HCCL_ERROR("[InsTempAllGatherMesh1D] RunAllGather Send failed"), HcclResult::HCCL_E_INTERNAL);
         }
     }
     return HcclResult::HCCL_SUCCESS;
@@ -181,6 +187,14 @@ HcclResult InsTempAllGatherMesh1D::LocalDataCopy(const std::vector<ThreadHandle>
     }
     u32 myAlgRank;
     CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], myAlgRank));
+    u64 sliceSize = tempAlgParams_.sliceSize;
+    u64 sliceCount = tempAlgParams_.count;
+    const u32 dataTypeSize = sliceSize / sliceCount;
+    // 尾块模式
+    if (tempAlgParams_.tailSize !=0 && myAlgRank == templateRankSize_ -1) {
+        sliceSize = tempAlgParams_.tailSize;
+        sliceCount = sliceSize / dataTypeSize;
+    }
     for (u32 rpt = 0; rpt < tempAlgParams_.repeatNum; ++rpt) {
         // repeat 造成的偏移
         const u64 inBaseOff = tempAlgParams_.buffInfo.inBuffBaseOff + rpt * tempAlgParams_.inputRepeatStride;
@@ -189,15 +203,15 @@ HcclResult InsTempAllGatherMesh1D::LocalDataCopy(const std::vector<ThreadHandle>
         const u64 inOff = tempAlgParams_.inputSliceStride * myAlgRank + inBaseOff;
         const u64 outOff = tempAlgParams_.outputSliceStride * myAlgRank + outBaseOff;
 
-        DataSlice srcSlice(tempAlgParams_.buffInfo.inputPtr, inOff, tempAlgParams_.sliceSize, tempAlgParams_.count);
-        DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outOff, tempAlgParams_.sliceSize, tempAlgParams_.count);
+        DataSlice srcSlice(tempAlgParams_.buffInfo.inputPtr, inOff, sliceSize, sliceCount);
+        DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outOff, sliceSize, sliceCount);
 
         HCCL_DEBUG("[InsTempAllGatherMesh1D][LocalDataCopy] RankID [%d] AlgRank [%d] srcSlice: inBaseOff[%d] inOff[%d] "
                    "sliceSize[%d] count[%d].",
-                   myRank_, myAlgRank, inBaseOff, inOff, tempAlgParams_.sliceSize, tempAlgParams_.count);
+                   myRank_, myAlgRank, inBaseOff, inOff, sliceSize, sliceCount);
         HCCL_DEBUG("[InsTempAllGatherMesh1D][LocalDataCopy] RankID [%d] AlgRank [%d] dstSlice: outBaseoff[%d] "
                    "outOff[%d] sliceSize[%d] count[%d].",
-                   myRank_, myAlgRank, outBaseOff, outOff, tempAlgParams_.sliceSize, tempAlgParams_.count);
+                   myRank_, myAlgRank, outBaseOff, outOff, sliceSize, sliceCount);
 
         LocalCopy(threads[0], srcSlice, dstSlice);
     }
@@ -207,10 +221,17 @@ HcclResult InsTempAllGatherMesh1D::LocalDataCopy(const std::vector<ThreadHandle>
 HcclResult InsTempAllGatherMesh1D::PostLocalCopy(const std::vector<ThreadHandle> &threads)
 {
     HCCL_INFO("[InsTempAllGatherMesh1D] PostLocalCopy.");
-    if (tempAlgParams_.buffInfo.outputPtr == tempAlgParams_.buffInfo.hcclBuff.addr) {
+    if (tempAlgParams_.buffInfo.outBuffType == BufferType::HCCL_BUFFER) {
         HCCL_INFO("[InsTempAllGatherMesh1D] PostLocalCopy skip because output is scratch" );
         return HcclResult::HCCL_SUCCESS;
     }
+    if (tempAlgParams_.buffInfo.inBuffType == BufferType::HCCL_BUFFER) {
+        HCCL_INFO("[InsTempAllGatherMesh1D] PostLocalCopy skip because input is scratch and should be read to output" );
+        return HcclResult::HCCL_SUCCESS;
+    }
+    u64 sliceSize = tempAlgParams_.sliceSize;
+    u64 sliceCount = tempAlgParams_.count;
+    const u32 dataTypeSize = sliceSize / sliceCount;
     for (u32 rpt = 0; rpt < tempAlgParams_.repeatNum; ++rpt) {
         const u64 outBaseOff = tempAlgParams_.buffInfo.outBuffBaseOff + rpt * tempAlgParams_.outputRepeatStride;
         const u64 scratchRepeatStride = tempAlgParams_.sliceSize * templateRankSize_;
@@ -222,12 +243,17 @@ HcclResult InsTempAllGatherMesh1D::PostLocalCopy(const std::vector<ThreadHandle>
             }
             u32 algRank = 0;
             CHK_RET(GetAlgRank(rank, subCommRanks_[0], algRank));
+
+            const u32 dataTypeSize = sliceSize / sliceCount;
+            // 尾块模式
+            if (tempAlgParams_.tailSize !=0 && algRank == templateRankSize_ -1) {
+                sliceSize = tempAlgParams_.tailSize;
+                sliceCount = sliceSize / dataTypeSize;
+            }
             u64 scratchOffset = tempAlgParams_.sliceSize * algRank + scratchBase;
             u64 outOffset = tempAlgParams_.outputSliceStride * algRank + outBaseOff;
-            DataSlice srcSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, tempAlgParams_.sliceSize,
-                               tempAlgParams_.count);
-            DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outOffset, tempAlgParams_.sliceSize,
-                               tempAlgParams_.count);
+            DataSlice srcSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, sliceSize, sliceCount);
+            DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outOffset, sliceSize, sliceCount);
             HCCL_DEBUG("[InsTempAllGatherMesh1D] LocalDataCopy RankID [%d] dataRank [%d] dataAlgRank[%d] "
                        "scratchBase[%d] outBaseOff[%d] scratchOffset[%d] outOffset[%d].",
                        myRank_, rank, algRank, outBaseOff, outBaseOff, scratchOffset, outOffset);
