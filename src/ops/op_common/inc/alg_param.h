@@ -269,8 +269,10 @@ struct ChannelInfo {
     u32 notifyNum;
     ChannelHandle handle;
     HcclMem remoteCclMem; // A5用的
-    HcclMem remoteInput;  // A3用的
-    HcclMem remoteOutput; // A3用的
+    HcclMem remoteInputGraphMode;   // A5用的, 图模式下远端sendBuf地址
+    HcclMem remoteOutputGraphMode;  // A5用的，图模式下远端recvBuf地址
+    HcclMem remoteInput;  // A3用的，cclIn
+    HcclMem remoteOutput; // A3用的, cclOut
 };
 
 // DPU资源

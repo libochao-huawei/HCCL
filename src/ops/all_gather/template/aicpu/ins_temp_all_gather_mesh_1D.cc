@@ -47,7 +47,10 @@ u64 InsTempAllGatherMesh1D::CalcScratchMultiple(BufferType inBuffType, BufferTyp
 {
     (void)inBuffType;
     (void)outBuffType;
-    u64 scratchMultiple = templateRankSize_;
+    u64 scratchMultiple = 0;
+    if (opMode_ == OpMode::OPBASE){
+        scratchMultiple = templateRankSize_;
+    }
     return scratchMultiple;
 }
 
@@ -79,7 +82,9 @@ HcclResult InsTempAllGatherMesh1D::KernelRun(const OpParam &param, const Templat
         GetNotifyIdxSubToMain(notifyIdxSubToMain_);
         CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain_));
     }
-    CHK_RET(PostLocalCopy(templateResource.threads));
+    if (opMode_ == OpMode::OPBASE) {
+        CHK_RET(PostLocalCopy(templateResource.threads));
+    }
     HCCL_INFO("[InsTempAllGatherMesh1D] Run End");
     return HcclResult::HCCL_SUCCESS;
 }
@@ -116,17 +121,17 @@ HcclResult InsTempAllGatherMesh1D::RunAllGatherMesh(const std::vector<ThreadHand
 
             u64 txOutOffset = tempAlgParams_.outputSliceStride * myAlgRank + outBaseOff;
             u64 txScratchOffset = scratchBase + tempAlgParams_.sliceSize * myAlgRank;
-            u64 txDstOffset = txScratchOffset;
+            u64 txDstOffset = (opMode_ == OpMode::OPBASE) ? txScratchOffset : txOutOffset;
 
             u64 rxOutOffset = tempAlgParams_.outputSliceStride * connectedAlgRank + outBaseOff;
             u64 rxScratchOffset = scratchBase + tempAlgParams_.sliceSize * connectedAlgRank;
-            u64 rxSrcOffset = rxScratchOffset;
+            u64 rxSrcOffset = (opMode_ == OpMode::OPBASE) ? rxScratchOffset : rxOutOffset;
 
             void *txSrcPtr = tempAlgParams_.buffInfo.outputPtr;
-            void *txDstPtr = remoteCclBuffAddr;
-            void *rxSrcPtr = remoteCclBuffAddr;
+            void *txDstPtr = (opMode_ == OpMode::OPBASE) ? remoteCclBuffAddr : linkRemote.remoteOutputGraphMode.addr;
+            void *rxSrcPtr = (opMode_ == OpMode::OPBASE) ? remoteCclBuffAddr : linkRemote.remoteOutputGraphMode.addr;
             void *rxDstPtr = tempAlgParams_.buffInfo.outputPtr;
-            // write模式使用tx,rx地址不生效，仅使用对端link做Post/Wait
+            // write模式使用tx, rx地址不生效，仅使用对端link做Post/Wait
             // read 模式使用rx, tx地址不生效，仅使用对端link做Post/Wait
             std::vector<DataSlice> txSrcSlices{
                 DataSlice(txSrcPtr, txOutOffset, tempAlgParams_.sliceSize, tempAlgParams_.count)};  // 本地(send)
