@@ -60,16 +60,16 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(HcclC
     // 初始化一些基本成员变量
     CHK_RET(InitCommInfo(param, topoInfo));
 
-    std::vector<std::vector<u32>> subCommRanks = algHierarchyInfo.infos[0];
-    // ubx机型algHierarchyInfo的level0存在两个topo，4p以上使用clos topo混合建链，根据topo size判断clos topo
-    if (algHierarchyInfo.infos[0].size() == 2) {
-        subCommRanks = {algHierarchyInfo.infos[0][0].size() > algHierarchyInfo.infos[0][1].size() ?
-            algHierarchyInfo.infos[0][0]  : algHierarchyInfo.infos[0][1]};
+    std::vector<std::vector<u32>> tempAlgHierachyInfo;
+    if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+        tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[0][1]);    // clos拓扑，包含所有rank
+    } else {
+        tempAlgHierachyInfo = algHierarchyInfo.infos[0];
     }
 
     // 构建template
     std::shared_ptr<InsAlgTemplate> algTemplate = 
-        std::make_shared<InsAlgTemplate>(param, topoInfo->userRank, subCommRanks);
+        std::make_shared<InsAlgTemplate>(param, topoInfo->userRank, tempAlgHierachyInfo);
     // 调用计算资源的函数
     algTemplate->CalcRes(comm, param, topoInfo, resourceRequest);
 
@@ -206,7 +206,7 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, CcuAllToAllVMesh2Die, InsAllto
     CcuTempAlltoAllVMesh2Die);
 
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV,
-                CcuAllToAllV1DmeshMultiJetty,
+                CcuAllToAllVMesh1DMultiJetty,
                 InsAlltoAllVSoleExecutor,
                 TopoMatchUBX,
                 CcuTempAllToAllVMesh1DMultiJetty);
