@@ -249,10 +249,7 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoAicpu(TopoInfoWithNetLay
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
         u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
         u64 dataSize = opParam.DataDes.count * perDataSize;
-        bool isMeshNumEqualToClosNum = false;
         bool isClosNumMultipleOfMeshNum = false;
-        CHK_PRT_RET(CheckMeshNumEqualToClosNum(topoInfo, isMeshNumEqualToClosNum) != HCCL_SUCCESS,
-            HCCL_ERROR("[Algo][ReduceScatterAutoSelector] CheckMeshNumEqualToClosNum failed."), SelectorStatus::NOT_MATCH);
         CHK_PRT_RET(CheckClosNumMultipleOfMeshNum(topoInfo, isClosNumMultipleOfMeshNum) != HCCL_SUCCESS,
             HCCL_ERROR("[Algo][ReduceScatterAutoSelector] CheckClosNumMultipleOfMeshNum failed."), SelectorStatus::NOT_MATCH);
         if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
@@ -277,7 +274,7 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoAicpu(TopoInfoWithNetLay
                 }
             }
         } else if (isClosNumMultipleOfMeshNum && !IsSmallData(dataSize)){
-            selectAlgName = "InsReduceScatterParallelMesh1DNHR"
+            selectAlgName = "InsReduceScatterParallelMesh1DNHR";
         } else {
             if (Is64BitDataType(opParam.DataDes.dataType) ||
                 opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
