@@ -14,6 +14,8 @@
 #include "aiv_temp_all_to_all_mesh_1D.h"
 #include "aiv_temp_all_to_all_v_mesh_1D.h"
 #include "ccu_temp_all_to_all_mesh_1D.h"
+#include "ccu_temp_all_to_all_mesh2die.h"
+#include "ccu_temp_all_to_all_mesh1d_multi_jetty.h"
 #endif
 namespace ops_hccl {
 
@@ -139,9 +141,9 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     if (param.engine == COMM_ENGINE_CCU) {
         templateAlgRes.ccuKernels = resCtx.ccuKernels;
     }
+
     templateAlgRes.threads = resCtx.threads;
     templateAlgRes.aivCommInfoPtr = resCtx.aivCommInfoPtr;
-
     // 准备数据
     TemplateDataParams tempAlgParams;
     tempAlgParams.buffInfo.inputPtr = param.inputPtr;
@@ -239,7 +241,7 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
         tempAlgParams.buffInfo.outBuffBaseOff = processedDataCount * dataTypeSize_;
         tempAlgParams.buffInfo.hcclBuffBaseOff = 0;
         tempAlgParams.processedDataCount = processedDataCount;
- 
+
         tempAlgParams.sliceSize = currDataCount * dataTypeSize_; // 这是每次循环处理的数据大小
         tempAlgParams.tailSize = tempAlgParams.sliceSize;
         // 这里的stride当成传统意义上的sreide 间隔
@@ -297,11 +299,15 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, InsAlltoAllVMesh1D, InsV2Allto
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLVC, InsAlltoAllVCMesh1D, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
     InsTempAlltoAllVMesh1D);
 #ifndef AICPU_COMPILE
-REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, CcuAlltoAllMesh1D, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
-    CcuTempAlltoAllMesh1D);
+    REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, CcuAlltoAllMesh1D, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
+        CcuTempAlltoAllMesh1D);
     REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, AivAlltoAllMesh1D, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
                      AivTempAlltoAllMesh1D);
     REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, AivAlltoAllVMesh1D, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
                      AivTempAlltoAllVMesh1D);
+    REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, CcuAllToAllMesh2Die, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
+    CcuTempAllToAllMesh2Die);
+    REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, CcuAlltoAllMesh1DMultiJetty, InsV2AlltoAllVSoleExecutor,
+                    TopoMatchUBX, CcuTempAllToAllMesh1dMultiJetty);
 #endif
 }  // namespace Hccl

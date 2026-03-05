@@ -62,15 +62,26 @@ SelectorStatus AllReduceAutoSelector::SelectCcuMsAlgo(TopoInfoWithNetLayerDetail
 SelectorStatus AllReduceAutoSelector::SelectMeshAlgo(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
                                                     std::string &selectAlgName) const
 {
-    (void)opParam;
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-        if (IsSmallData(dataSize)) {
+        if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
+            if(IsSmallData(dataSize)) {
+                selectAlgName = "CcuAllReduceMesh2Die"; 
+            } else {
+                selectAlgName = "CcuAllreduceMesh2DieBigMs"; 
+            }
+        } else if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_NOT_REGULAR) {
+            HCCL_INFO("[Algo][%s] TWO_DIE_NOT_REGULAR not match", __func__);
+            return SelectorStatus::NOT_MATCH;
+        } else if (IsSmallData(dataSize)) {
             selectAlgName = "CcuAllReduceMesh1DOneShot";
         } else {
             selectAlgName = "CcuAllReduceMesh1D";
         }
+    } else {
+        HCCL_WARNING("[Algo][AllReduceAutoSelector] level0Topo[%u] is not supported yet.", topoInfo->level0Topo);
+        return SelectorStatus::NOT_MATCH;
     }
     return SelectorStatus::MATCH;
 }
@@ -79,7 +90,7 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetLayer
                                                             OpParam &opParam,
                                                             const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                             std::string &selectAlgName) const
-{    
+{
     // ccu 模式不支持 PROD
     CHK_PRT_RET(opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD,
         HCCL_WARNING("[Algo][AllReduceAutoSelector] ReduceOp[%d] is not supported yet for ccu schedule mode.",
@@ -125,7 +136,18 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetLayer
             if (dataSize > AR_M2M_1D_MAX_DATA_SIZE) {
                 return SelectorStatus::NOT_MATCH;
             }
-            selectAlgName = "CcuAllReduceMesh1DMem2Mem";
+            if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
+                if(IsSmallData(dataSize)) {
+                    selectAlgName = "CcuAllReduceMesh1DMem2Mem2DieOneShot"; 
+                } else {
+                    selectAlgName = "CcuAllreduceMesh2DieBigSche"; 
+                }
+            } else if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_NOT_REGULAR) {
+                HCCL_INFO("[Algo][%s] TWO_DIE_NOT_REGULAR not match", __func__);
+                return SelectorStatus::NOT_MATCH;
+            } else {
+                selectAlgName = "CcuAllReduceMesh1DMem2Mem";
+            }
             return SelectorStatus::MATCH;
         } else {
             HCCL_WARNING("[Algo][AllReduceAutoSelector] algo[%u] is not supported yet for ccu_schedule mode, reset to default.", levle0Algo);
@@ -189,7 +211,7 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpu(TopoInfoWithNetLayerDe
             return SelectorStatus::NOT_MATCH;
         } else if (dataSize <= AR_AICPU_1D_SMALL_DATA_SIZE) {
             selectAlgName = "InsAllReduceMesh1DOneShot";
-        } else if (dataSize > AR_AICPU_1D_MAX_DATA_SIZE) { 
+        } else if (dataSize > AR_AICPU_1D_MAX_DATA_SIZE) {
             selectAlgName = "InsAllReduceMesh1DTwoShotMeshChunk";
         } else {
             selectAlgName = "InsAllReduceMesh1DTwoShot";
@@ -223,7 +245,7 @@ SelectorStatus AllReduceAutoSelector::SelectAivAlgo(TopoInfoWithNetLayerDetails*
 
     HCCL_INFO("hccl algo op config: config opType:%d, level0:%u, level1:%u, level2:%u, level3:%u",
         opParam.opType, algos[0], algos[1], algos[2], algos[3]);
-    
+
     //aiv 模式不支持 PROD
     CHK_PRT_RET(opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD,
         HCCL_WARNING("[Algo][AllReduceAutoSelector] ReduceOp[%d] is not supported yet for aiv mode.",

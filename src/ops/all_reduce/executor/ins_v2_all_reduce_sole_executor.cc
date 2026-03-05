@@ -20,6 +20,8 @@
 #include "ccu_temp_all_reduce_mesh_1D_mem2mem.h"
 #include "ccu_temp_all_reduce_mesh_1D.h"
 #include "ccu_temp_all_reduce_nhr_1D_mem2mem.h"
+#include "ccu_temp_all_reduce_mesh_1D_2die_oneshot.h"
+#include "ccu_temp_all_reduce_mesh_1D_mem2mem_2die_oneshot.h"
 #endif
 
 namespace ops_hccl {
@@ -179,8 +181,6 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, AivAllReduceMesh1DOneShot, Ins
     AivTempAllReduceMesh1DOneShot);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, AivAllReduceMesh1DTwoShot, InsV2AllReduceSoleExecutor, TopoMatch1D,
     AivTempAllReduceMesh1DTwoShot);
-REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh1DOneShot, InsV2AllReduceSoleExecutor,
-    TopoMatch1D, CcuTempAllReduceMesh1DOneShot);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceNHR1D, InsV2AllReduceSoleExecutor, TopoMatch1D,
                  CcuTempAllReduceNHRMem2Mem1D);
 
@@ -188,5 +188,11 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh1DMem2Mem, Ins
                  TopoMatch1D, CcuTempAllReduceMeshMem2Mem1D);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh1D, InsV2AllReduceSoleExecutor, 
                  TopoMatch1D, CcuTempAllReduceMesh1D);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh2Die, InsV2AllReduceSoleExecutor, TopoMatch1D,
+    CcuTempAllreduceMesh1D2DieOneShot);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh1DOneShot, InsV2AllReduceSoleExecutor,
+    TopoMatch1D, CcuTempAllReduceMesh1DOneShot);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh1DMem2Mem2DieOneShot, InsV2AllReduceSoleExecutor, TopoMatch1D,
+    CcuTempAllReduceMesh1DMem2Mem2DieOneShot);
 #endif
 }  // namespace ops_hccl

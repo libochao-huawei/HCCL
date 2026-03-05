@@ -61,9 +61,15 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgo(TopoInfoWithNetLayerDet
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-        selectAlgName = "CcuReduceScatterMesh1D";
-    }
-    else {
+        if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
+            selectAlgName = "CcuReduceScatterMesh2Die";
+        } else if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_NOT_REGULAR) {
+            HCCL_INFO("[Algo][%s] TWO_DIE_NOT_REGULAR not match", __func__);
+            return SelectorStatus::NOT_MATCH;
+        } else {
+            selectAlgName = "CcuReduceScatterMesh1D";
+        }
+    } else {
        return SelectorStatus::NOT_MATCH;
     }
     return SelectorStatus::MATCH;
@@ -108,7 +114,14 @@ SelectorStatus ReduceScatterAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetL
             levle0Algo = it->second[0];
         }
         if ((IsDefaultAlg(levle0Algo) || levle0Algo ==  HcclAlgoType::HCCL_ALGO_TYPE_FULLMESH)&&(topoInfo->level0Topo == Level0Shape::MESH_1D)) {
-            selectAlgName = "CcuReduceScatterMesh1DMem2Mem";
+            if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
+                selectAlgName = "CcuReduceScatterMeshMem2Mem1D2Die";
+            } else if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_NOT_REGULAR) {
+                HCCL_INFO("[Algo][%s] TWO_DIE_NOT_REGULAR not match", __func__);
+                return SelectorStatus::NOT_MATCH;
+            } else {
+                selectAlgName = "CcuReduceScatterMesh1DMem2Mem";
+            }
             return SelectorStatus::MATCH;
         }
         else {
