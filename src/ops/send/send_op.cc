@@ -38,7 +38,7 @@ HcclResult HcclSend(
     void *sendBuf, uint64_t count, HcclDataType dataType, uint32_t destRank, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("[HcclSend] Start.");
-    if (!CheckHCCLIndependentOp()) {
+    if (!HcclCheckAicpuEnableOpen()) {
         return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
     }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
@@ -143,6 +143,9 @@ namespace ops_hccl {
         std::string algName;
         std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
         CHK_RET(Selector(comm, param, topoInfo, algName, opExecuteConfig));
+        if (opExecuteConfig != OpExecuteConfig::AICPU_TS) {
+            return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
+        }
         CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
 
         return HcclResult::HCCL_SUCCESS;
