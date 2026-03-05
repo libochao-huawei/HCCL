@@ -28,6 +28,7 @@
 #include "workflow.h"
 #include "recv_op.h"
 #include "op_common.h"
+#include "hcomm_dlsym.h"
 
 using namespace std;
 using namespace ops_hccl;
@@ -38,7 +39,7 @@ HcclResult HcclRecv(
     void *recvBuf, uint64_t count, HcclDataType dataType, uint32_t srcRank, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("[HcclRecv] Start.");
-    if (!CheckHCCLIndependentOp()) {
+    if (!CheckHCCLIndependentOp() || (GetHcommVersion() < 90000000)) {
         return HcclRecvInner(recvBuf, count, dataType, srcRank, comm, stream);
     }
     DevType deviceType = DevType::DEV_TYPE_COUNT;

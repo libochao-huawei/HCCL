@@ -31,6 +31,7 @@
 #include "load_kernel.h"
 #include "reduce_op.h"
 #include "op_common.h"
+#include "hcomm_dlsym.h"
 
 using namespace std;
 using namespace ops_hccl;
@@ -40,7 +41,7 @@ HcclResult HcclReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType
     uint32_t root, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("Start to run execute HcclReduce");
-    if (!CheckHCCLIndependentOp()) {
+    if (!CheckHCCLIndependentOp() || (GetHcommVersion() < 90000000)) {
         return HcclReduceInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
     }
     DevType deviceType = DevType::DEV_TYPE_COUNT;

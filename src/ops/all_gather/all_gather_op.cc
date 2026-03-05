@@ -31,6 +31,7 @@
 #include "workflow.h"
 #include "load_kernel.h"
 #include "op_common.h"
+#include "hcomm_dlsym.h"
 
 using namespace std;
 using namespace ops_hccl;
@@ -40,7 +41,7 @@ HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclD
                          aclrtStream stream)
 {
     HCCL_INFO("Start to run execute HcclAllGather");
-    if (!CheckHCCLIndependentOp()) {
+    if (!CheckHCCLIndependentOp() || (GetHcommVersion() < 90000000)) {
         return HcclAllGatherInner(sendBuf, recvBuf, sendCount, dataType, comm, stream);
     }
     DevType deviceType = DevType::DEV_TYPE_COUNT;

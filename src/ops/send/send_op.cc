@@ -28,6 +28,7 @@
 #include "workflow.h"
 #include "send_op.h"
 #include "op_common.h"
+#include "hcomm_dlsym.h"
 
 using namespace std;
 using namespace ops_hccl;
@@ -38,7 +39,7 @@ HcclResult HcclSend(
     void *sendBuf, uint64_t count, HcclDataType dataType, uint32_t destRank, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("[HcclSend] Start.");
-    if (!CheckHCCLIndependentOp()) {
+    if (!CheckHCCLIndependentOp() || (GetHcommVersion() < 90000000)) {
         return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
     }
     DevType deviceType = DevType::DEV_TYPE_COUNT;

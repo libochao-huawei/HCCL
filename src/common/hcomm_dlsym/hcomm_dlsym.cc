@@ -5,8 +5,20 @@
 #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <acl/acl.h>
 
 static void* gLibHandle = NULL;
+static int gHcommVersion = 0;
+
+int GetHcommVersion(void) {
+    if (gHcommVersion == 0) {
+        if (aclrtSysGetVersionNum("hcomm", &gHcommVersion) != ACL_SUCCESS) {
+            gHcommVersion = 0;
+        }
+    }
+
+    return gHcommVersion;
+}
 
 // 初始化
 int HcommDlInit(void) {

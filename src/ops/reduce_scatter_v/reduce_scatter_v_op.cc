@@ -31,6 +31,7 @@
 #include "load_kernel.h"
 #include "reduce_scatter_v_op.h"
 #include "op_common.h"
+#include "hcomm_dlsym.h"
 
 using namespace std;
 using namespace ops_hccl;
@@ -41,7 +42,7 @@ HcclResult HcclReduceScatterV(void *sendBuf,  const void *sendCounts, const void
     HcclReduceOp op, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("Start to run execute HcclReduceScatterV");
-    if (!CheckHCCLIndependentOp()) {
+    if (!CheckHCCLIndependentOp() || (GetHcommVersion() < 90000000)) {
         return HcclReduceScatterVInner(sendBuf, sendCounts, sendDispls, recvBuf, recvCount, dataType, op, comm, stream);
     }
     DevType deviceType = DevType::DEV_TYPE_COUNT;

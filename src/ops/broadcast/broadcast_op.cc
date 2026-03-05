@@ -31,6 +31,7 @@
 #include "load_kernel.h"
 #include "broadcast_op.h"
 #include "op_common.h"
+#include "hcomm_dlsym.h"
 
 using namespace std;
 using namespace ops_hccl;
@@ -39,7 +40,7 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 HcclResult HcclBroadcast(void *buf, uint64_t count, HcclDataType dataType, uint32_t root, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("Start to run execute HcclBroadcast");
-    if (!CheckHCCLIndependentOp()) {
+    if (!CheckHCCLIndependentOp() || (GetHcommVersion() < 90000000)) {
         return HcclBroadcastInner(buf, count, dataType, root, comm, stream);
     }
     DevType deviceType = DevType::DEV_TYPE_COUNT;

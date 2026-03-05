@@ -31,6 +31,7 @@
 #include "load_kernel.h"
 #include "all_to_all_v_op.h"
 #include "op_common.h"
+#include "hcomm_dlsym.h"
 
 using namespace std;
 using namespace ops_hccl;
@@ -41,7 +42,7 @@ HcclResult HcclAlltoAll(const void *sendBuf, uint64_t sendCount, HcclDataType se
 {
     HCCL_INFO("Start to run execute HcclAlltoAll");
 
-    if (!CheckHCCLIndependentOp()) {
+    if (!CheckHCCLIndependentOp() || (GetHcommVersion() < 90000000)) {
         return HcclAlltoAllInner(sendBuf, sendCount, sendType, recvBuf, recvCount, recvType, comm, stream);
     }
     DevType deviceType = DevType::DEV_TYPE_COUNT;

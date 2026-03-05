@@ -30,6 +30,7 @@
 #include "load_kernel.h"
 #include "all_gather_v_op.h"
 #include "op_common.h"
+#include "hcomm_dlsym.h"
 
 using namespace std;
 using namespace ops_hccl;
@@ -40,7 +41,7 @@ HcclResult HcclAllGatherV(void *sendBuf, uint64_t sendCount, void *recvBuf, cons
 {
     HCCL_INFO("Start to run execute HcclAllGatherV");
  
-    if (!CheckHCCLIndependentOp()) {
+    if (!CheckHCCLIndependentOp() || (GetHcommVersion() < 90000000)) {
         return HcclAllGatherVInner(sendBuf, sendCount, recvBuf, recvCounts, recvDispls, dataType, comm, stream);
     }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
