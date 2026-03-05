@@ -245,7 +245,7 @@ HcclResult InsTempAllGatherMesh1D::PostLocalCopy(const std::vector<ThreadHandle>
 
             const u32 dataTypeSize = sliceSize / sliceCount;
             // 尾块模式
-            if (tempAlgParams_.tailSize !=0 && myAlgRank == templateRankSize_ -1) {
+            if (tempAlgParams_.tailSize !=0 && algRank == templateRankSize_ -1) {
                 sliceSize = tempAlgParams_.tailSize;
                 sliceCount = sliceSize / dataTypeSize;
             }

@@ -217,7 +217,7 @@ HcclResult InsTempAllGatherNHR::PostLocalCopy(const std::vector<ThreadHandle> &t
             u32 algRank = 0;
             CHK_RET(GetAlgRank(rank, subCommRanks_[0], algRank));
                         // 尾块模式
-            if (tempAlgParams_.tailSize !=0 && myAlgRank == templateRankSize_ -1) {
+            if (tempAlgParams_.tailSize !=0 && algRank == templateRankSize_ -1) {
                 sliceSize = tempAlgParams_.tailSize;
                 sliceCount = sliceSize / dataTypeSize;
             }
