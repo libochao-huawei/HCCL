@@ -17,9 +17,9 @@ namespace ops_hccl {
     }
 
     HcclResult InsSendExecutor::InitCommInfo(
-        HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
-        const AlgHierarchyInfoForAllLevel &algHierarchyInfo)
+        HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo)
     {
+        (void) comm;
         myRank_ = topoInfo->userRank;
         rankSize_ = topoInfo->userRankSize;
         devType_ = topoInfo->deviceType;
@@ -64,7 +64,7 @@ namespace ops_hccl {
         const AlgHierarchyInfoForAllLevel &algHierarchyInfo, AlgResourceRequest &resourceRequest)
     {
         // 初始化一些基本成员变量
-        InitCommInfo(comm, param, topoInfo, algHierarchyInfo);
+        InitCommInfo(comm, param, topoInfo);
         HCCL_DEBUG("[InsSendExecutor][CalcRes][%d]->[%d] Start.", myRank_, remoteRank_);
 
         resourceRequest.notifyNumOnMainThread = 0;

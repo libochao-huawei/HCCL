@@ -21,7 +21,6 @@ public:
     ExecuteSelector();
     
     HcclResult  Run(OpParam &opParam, TopoInfoWithNetLayerDetails* topoInfo, std::string &selectAlgName, OpExecuteConfig &opExecuteConfig);
-
 };
 } // namespace Hccl
 #endif

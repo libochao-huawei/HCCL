@@ -131,6 +131,7 @@ HcclResult CalcChannelRequestMesh1D(HcclComm comm, const OpParam& param, const T
     std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels)
 {
 #ifndef AICPU_COMPILE
+    (void) param;
     channels.clear();
     auto it = std::find(subcommInfo[COMM_LEVEL0].begin(), subcommInfo[COMM_LEVEL0].end(), topoInfo->userRank); 
     CHK_PRT_RET((it == subcommInfo[COMM_LEVEL0].end()),
@@ -283,7 +284,7 @@ HcclResult CalcChannelRequestNhr(HcclComm comm, const OpParam& param, const Topo
 }
 
 HcclResult CreateChannelRequestByRankId(HcclComm comm, u32 myRank, u32 remoteRank,
-    std::vector<HcclChannelDesc> &channels, u32 channelRepeatNum)
+    const std::vector<HcclChannelDesc> &channels, u32 channelRepeatNum)
 {
 #ifndef AICPU_COMPILE
     channels.clear();
