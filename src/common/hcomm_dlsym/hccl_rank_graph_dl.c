@@ -144,7 +144,6 @@ void HcclRankGraphDlInit(void* libHcommHandle) {
     if (dlerror()) {
         fprintf(stderr, "[HcclWrapper] Warning: dlerror after symbol resolution\n");
     }
-    return 0;
 }
 
 // 销毁函数：将指针重置为桩函数（可选，与 HcclResDlFini 配合使用）
