@@ -13,7 +13,7 @@
 
 #include <string>
 #include "hccl.h"
-#include "hccl_graph_mode.h"
+#include "hccl_graph_mode_interface.h"
 #include "alg_param.h"
 #include "alg_type.h"
 #include "execute_selector.h"
