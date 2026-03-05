@@ -296,7 +296,7 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
     std::vector<std::vector<u32>> subCommRanks1 = {algHierarchyInfo_.infos[0][1]};
     TemplateResource templateAlgRes0, templateAlgRes1;
     FillTemplateResource(param, resCtx, templateAlgRes0, 0);
-    FillTemplateResource(param, resCtx, templateAlgRes1, 0);
+    FillTemplateResource(param, resCtx, templateAlgRes1, 1);
 
     // 获取SendRecv数据并切分到各template上
     std::vector<SendRecvData> splitData;
