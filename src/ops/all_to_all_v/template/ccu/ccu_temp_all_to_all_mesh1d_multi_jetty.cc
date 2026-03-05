@@ -35,13 +35,13 @@ CcuTempAllToAllMesh1dMultiJetty::~CcuTempAllToAllMesh1dMultiJetty()
 {
 }
 
-HcclResult CcuTempAllToAllMesh1dMultiJetty::CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+HcclResult CcuTempAllToAllMesh1dMultiJetty::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                                                       AlgResourceRequest& resourceRequest)
 {
     return CalcRes(comm, param, topoInfo, resourceRequest, CommTopo::COMM_TOPO_CLOS);
 }
 
-HcclResult CcuTempAllToAllMesh1dMultiJetty::CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+HcclResult CcuTempAllToAllMesh1dMultiJetty::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                                                       AlgResourceRequest& resourceRequest, CommTopo topoType)
 {
     // 不需要从流

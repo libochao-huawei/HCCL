@@ -39,7 +39,7 @@ CcuTempAllReduceNhrMem2Mem1DMultiJetty::~CcuTempAllReduceNhrMem2Mem1DMultiJetty(
 }
 
 HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::CalcRes(HcclComm comm, const OpParam &param,
-    const TopoInfo *topoInfo, AlgResourceRequest &resourceRequest)
+    const TopoInfoWithNetLayerDetails *topoInfo, AlgResourceRequest &resourceRequest)
 {
     // 不需要从流
     resourceRequest.notifyNumOnMainThread = 0;

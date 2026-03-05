@@ -27,7 +27,7 @@ CcuTempAlltoAllVMesh2Die::~CcuTempAlltoAllVMesh2Die()
 {
 }
 
-HcclResult CcuTempAlltoAllVMesh2Die::CalcRes(HcclComm comm, const OpParam &param, const TopoInfo *topoInfo,
+HcclResult CcuTempAlltoAllVMesh2Die::CalcRes(HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
     AlgResourceRequest &resourceRequest)
 {
     CHK_PRT_RET(subCommRanks_.size() != 1 || subCommRanks_[0].empty(),

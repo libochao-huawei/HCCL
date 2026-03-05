@@ -30,7 +30,7 @@ public:
         return StringFormat("Template of alltoallv ccu mesh 2Die with rankSize[%u]", templateRankSize_);
     }
 
-    HcclResult CalcRes(HcclComm comm, const OpParam &param, const TopoInfo *topoInfo,
+    HcclResult CalcRes(HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
         AlgResourceRequest &resourceRequest) override;
 
     HcclResult KernelRun(const OpParam &param, const TemplateDataParams &templateDataParams,

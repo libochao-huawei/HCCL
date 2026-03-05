@@ -35,7 +35,7 @@ CcuTempReduceScatterNhrMultiJettyMem2Mem1D::~CcuTempReduceScatterNhrMultiJettyMe
 {
 }
 
-HcclResult CcuTempReduceScatterNhrMultiJettyMem2Mem1D::CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+HcclResult CcuTempReduceScatterNhrMultiJettyMem2Mem1D::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                                                       AlgResourceRequest& resourceRequest)
 {
     // 不需要从流

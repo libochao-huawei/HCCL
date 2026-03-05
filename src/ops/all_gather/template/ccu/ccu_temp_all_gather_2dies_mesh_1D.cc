@@ -32,7 +32,7 @@ CcuTempAllGather2DiesMesh1D::~CcuTempAllGather2DiesMesh1D()
 {
 }
 
-HcclResult CcuTempAllGather2DiesMesh1D::CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+HcclResult CcuTempAllGather2DiesMesh1D::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                                                       AlgResourceRequest& resourceRequest)
 {   
     //双die，声明一个从流

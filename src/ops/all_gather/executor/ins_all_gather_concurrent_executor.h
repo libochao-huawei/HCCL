@@ -35,11 +35,11 @@ public:
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
 
     /* *************** 资源计算 *************** */
-    HcclResult CalcRes(HcclComm comm, const OpParam &param, const TopoInfo *topoInfo,
+    HcclResult CalcRes(HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
                        const AlgHierarchyInfoForAllLevel &algHierarchyInfo,
                        AlgResourceRequest &resourceRequest) override;
 
-    HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfo *topoInfo,
+    HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfoWithNetLayerDetails *topoInfo,
                                     AlgHierarchyInfoForAllLevel &algHierarchyInfo) override;
 
 private:
@@ -47,7 +47,7 @@ private:
     HcclResult OrchestrateLoop(const OpParam &param, const AlgResourceCtxSerializable &resCtx,
                                InsAlgTemplate0 &algTemplateMesh, InsAlgTemplate1 &algTemplateNhr);
 
-    HcclResult InitCommInfo(const OpParam &param, const TopoInfo *topoInfo,
+    HcclResult InitCommInfo(const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
                             const AlgHierarchyInfoForAllLevel &algHierarchyInfo);
 
     void GetParallelDataSplit(std::vector<float> &splitDataSize) const;

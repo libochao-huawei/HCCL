@@ -34,7 +34,7 @@ CcuTempAllreduceMesh1D2DieOneShot::~CcuTempAllreduceMesh1D2DieOneShot()
 {
 }
 
-HcclResult CcuTempAllreduceMesh1D2DieOneShot::CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+HcclResult CcuTempAllreduceMesh1D2DieOneShot::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                                                       AlgResourceRequest& resourceRequest)
 {
     // 需要从流

@@ -35,7 +35,7 @@ CcuTemAllGatherNHR1DMultiJettyMem2Mem::~CcuTemAllGatherNHR1DMultiJettyMem2Mem()
 {
 }
 
-HcclResult CcuTemAllGatherNHR1DMultiJettyMem2Mem::CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+HcclResult CcuTemAllGatherNHR1DMultiJettyMem2Mem::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                                                       AlgResourceRequest& resourceRequest)
 {
     // 不需要从流

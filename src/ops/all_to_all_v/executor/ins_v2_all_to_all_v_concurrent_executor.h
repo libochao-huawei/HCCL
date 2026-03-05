@@ -37,14 +37,14 @@ public:
     /* *************** 资源计算 *************** */
     // 这些函数为ExecutorBase纯虚函数，必须重写
     HcclResult CalcRes(HcclComm comm, const OpParam& param,
-                       const TopoInfo* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
+                       const TopoInfoWithNetLayerDetails* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
                        AlgResourceRequest& resourceRequest) override;
     
-    HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfo* topoInfo,
+    HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo,
                                     AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
 
 protected:
-    HcclResult InitCommInfo(const OpParam& param, const TopoInfo* topoInfo);
+    HcclResult InitCommInfo(const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo);
     HcclResult GetAlltoAllLocalSendRecvInfo(const OpParam &opParam, A2ASendRecvInfo &localSendRecvInfo);
     HcclResult SplitA2ASendRecvInfo(A2ASendRecvInfo &sendRecvInfoFirst, A2ASendRecvInfo &sendRecvInfoLast);
     HcclResult SetJettyNums(std::vector<uint32_t>& jettyNums, bool multijetty);

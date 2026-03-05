@@ -63,13 +63,6 @@ HcclResult InitRankInfo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo)
     return HCCL_SUCCESS;
 }
 
-HcclResult InitRankInfo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo)
-{
-    CHK_RET(InitRankInfo(comm, static_cast<TopoInfo*>(topoInfo)));
-    CHK_RET(CalcTopoShape(comm, topoInfo));
-    return HCCL_SUCCESS;
-}
-
 HcclResult CalcMyRankInfo(HcclComm comm, TopoInfo* topoInfo)
 {
     CHK_RET(HcclGetRankSize(comm, &(topoInfo->userRankSize)));
@@ -791,7 +784,7 @@ HcclResult Is2DieFullMesh(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo)
     return HCCL_SUCCESS;
 }
 
-HcclResult CalcLevel0MeshType(HcclComm comm, TopoInfo *topoInfo)
+HcclResult CalcLevel0MeshType(HcclComm comm, TopoInfoWithNetLayerDetails *topoInfo)
 {
     if (topoInfo->level0Topo != Level0Shape::MESH_1D) {
         topoInfo->level0MeshType = Level0MeshType::NOT_MESH;
