@@ -195,7 +195,7 @@ HcclResult InsTempAllGatherNHR::LocalDataCopy(const std::vector<ThreadHandle> &t
 
 HcclResult InsTempAllGatherNHR::PostLocalCopy(const std::vector<ThreadHandle> &threads)
 {
-    if (tempAlgParams_.buffInfo.inputPtr == tempAlgParams_.buffInfo.hcclBuff.addr) {
+    if (tempAlgParams_.buffInfo.outputPtr == tempAlgParams_.buffInfo.hcclBuff.addr) {
         HCCL_INFO("[InsTempAllGatherNHR] PostLocalCopy skip because output is scratch" );
         return HcclResult::HCCL_SUCCESS;
     }

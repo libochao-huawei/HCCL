@@ -165,9 +165,15 @@ HcclResult InsTempAllGatherMesh1D::RunAllGatherMesh(const std::vector<ThreadHand
             TxRxSlicesList sendRecvSlicesList({txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices});
             TxRxChannels sendRecvChannels(linkRemote, linkRemote);
             SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
+            // 当数据本身就在cclbuffer上时，直接使用DMA消减读模式到output上，同事要跳过后拷贝
+            if (tempAlgParams_.buffInfo.outBuffType == BufferType::OUTPUT && tempAlgParams_.buffInfo.inBuffType == BufferType::HCCL_BUFFER){
+                CHK_PRT_RET(SendRecvRead(sendRecvInfo, threads[threadIdx]),
+                            HCCL_ERROR("[InsTempAllGatherMesh1D] RunAllGather Send failed"), HcclResult::HCCL_E_INTERNAL);
+            } else {
+                CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[threadIdx]),
+                            HCCL_ERROR("[InsTempAllGatherMesh1D] RunAllGather Send failed"), HcclResult::HCCL_E_INTERNAL);
+            }
 
-            CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[threadIdx]),
-                        HCCL_ERROR("[InsTempAllGatherMesh1D] RunAllGather Send failed"), HcclResult::HCCL_E_INTERNAL);
         }
     }
     return HcclResult::HCCL_SUCCESS;
@@ -207,8 +213,12 @@ HcclResult InsTempAllGatherMesh1D::LocalDataCopy(const std::vector<ThreadHandle>
 HcclResult InsTempAllGatherMesh1D::PostLocalCopy(const std::vector<ThreadHandle> &threads)
 {
     HCCL_INFO("[InsTempAllGatherMesh1D] PostLocalCopy.");
-    if (tempAlgParams_.buffInfo.outputPtr == tempAlgParams_.buffInfo.hcclBuff.addr) {
+    if (tempAlgParams_.buffInfo.outBuffType == BufferType::HCCL_BUFFER) {
         HCCL_INFO("[InsTempAllGatherMesh1D] PostLocalCopy skip because output is scratch" );
+        return HcclResult::HCCL_SUCCESS;
+    }
+    if (tempAlgParams_.buffInfo.inBuffType == BufferType::HCCL_BUFFER) {
+        HCCL_INFO("[InsTempAllGatherMesh1D] PostLocalCopy skip because input is scratch and should be read to output" );
         return HcclResult::HCCL_SUCCESS;
     }
     for (u32 rpt = 0; rpt < tempAlgParams_.repeatNum; ++rpt) {
