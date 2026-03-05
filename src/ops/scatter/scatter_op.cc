@@ -52,7 +52,7 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
 
-    if (!CheckHCCLIndependentOp() && deviceType != DevType::DEV_TYPE_910_93) {
+    if (!HcclCheckAicpuEnableOpen() && deviceType != DevType::DEV_TYPE_910_93) {
         return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
     }
 
@@ -223,7 +223,14 @@ HcclResult ScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, Hcc
     if (deviceType == DevType::DEV_TYPE_910_95) {
         std::string algName;
         std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
+<<<<<<< HEAD
         CHK_RET(Selector(comm, param, topoInfo, algName));
+=======
+        CHK_RET(Selector(comm, param, topoInfo, algName, opExecuteConfig));
+        if (opExecuteConfig != OpExecuteConfig::AICPU_TS) {
+            return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
+        }
+>>>>>>> 3ac773b... Hybrid comm and selector fix
         CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
     } else {
         CHK_RET(ExecOp(comm, param));  //保留原有A3流程
