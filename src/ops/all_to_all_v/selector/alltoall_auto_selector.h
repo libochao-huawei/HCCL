@@ -26,7 +26,7 @@ private:
                                  std::string &selectAlgName) const override;
     SelectorStatus SelectAicpuAlgo(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
                                    const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
-                                   std::string                                &primQueueGenName) const override;
+                                   std::string &selectAlgName) const override;
     SelectorStatus SelectAivAlgo(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
                                  const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap, std::string &selectAlgName) const override;
 };

@@ -62,7 +62,7 @@ u64 InsTempBroadcastNHR::GetThreadNum()
 }
 
 // SliceInfoVec for NHR
-HcclResult InsTempBroadcastNHR::CalcDataSliceInfo(const u64 dataSize, RankSliceInfo &sliceInfoVec)
+HcclResult InsTempBroadcastNHR::CalcDataSliceInfo(const u64 dataSize, RankSliceInfo &sliceInfoVec) const
 {
 
     sliceInfoVec.clear();

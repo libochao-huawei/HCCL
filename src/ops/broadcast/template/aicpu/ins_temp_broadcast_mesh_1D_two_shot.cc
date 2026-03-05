@@ -352,7 +352,7 @@ HcclResult InsTempBroadcastMesh1DTwoShot::RunAllGather(const std::vector<u32> &c
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult InsTempBroadcastMesh1DTwoShot::PostCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads)
+HcclResult InsTempBroadcastMesh1DTwoShot::PostCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads) const
 {
     u64 inOffset = tempAlgParams.buffInfo.hcclBuffBaseOff;
 
