@@ -16,6 +16,7 @@ SelectorStatus BroadcastAutoSelector::SelectCcuMsAlgo(TopoInfoWithNetLayerDetail
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                     std::string &selectAlgName) const
 {
+    (void)opParam;
     if (topoInfo->topoLevelNums > 1) {
         HCCL_WARNING("[Algo][BroadcastAutoSelector] levelNum > 1 is not supported yet for ccu_ms mode.");
         return SelectorStatus::NOT_MATCH;
@@ -34,8 +35,7 @@ SelectorStatus BroadcastAutoSelector::SelectCcuMsAlgo(TopoInfoWithNetLayerDetail
     }
 }
 
-SelectorStatus BroadcastAutoSelector::SelectMeshAlgoCcuMs(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
-                                                    std::string &selectAlgName) const
+SelectorStatus BroadcastAutoSelector::SelectMeshAlgoCcuMs(const TopoInfoWithNetLayerDetails* topoInfo, std::string &selectAlgName) const
 {
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
         selectAlgName = "CcuBroadcastMesh1D";
@@ -112,7 +112,6 @@ SelectorStatus BroadcastAutoSelector::SelectAicpuAlgo(TopoInfoWithNetLayerDetail
 SelectorStatus BroadcastAutoSelector::SelectMeshAlgoAicpu(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
                                                           std::string &selectAlgName) const
 {
-
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
         selectAlgName = "InsBroadcastMesh1DTwoShot";
     } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
