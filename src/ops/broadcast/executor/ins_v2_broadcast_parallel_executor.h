@@ -56,7 +56,7 @@ private:
     void GenDataParams(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset, const u64 sliceCount,
                        const u64 scratchOffsetCount, TemplateDataParams &dataParams) const;
         
-    HcclResult GenInsQues(const OpParam &param, const AlgResourceCtxSerializable &resCtx, InsAlgTemplate &tempAlgIntra0, InsAlgTemplate1 &tempAlgInter);
+    HcclResult GenInsQues(const OpParam &param, const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &tempAlgIntra, InsAlgTemplate1 &tempAlgInter);
 
     u32 intraLocalRankSize_{0};  // server内算法rankSize
     u32 interLocalRankSize_{0};  // server间算法rankSize
