@@ -219,6 +219,9 @@ add_library(scatter_aicpu_kernel SHARED
     ${CMAKE_CURRENT_SOURCE_DIR}/common/adapter_error_manager_pub.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/common/alg_env_config.cc
 
+    ${CMAKE_CURRENT_SOURCE_DIR}/common/hcomm_dlsym/hcomm_device_dlsym.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/common/hcomm_dlsym/hcomm_primitives_dl.cc
+
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/executor/channel/channel.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/executor/channel/channel_request.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/executor/registry/coll_alg_exec_registry.cc
@@ -403,7 +406,6 @@ target_link_directories(hccl PRIVATE
 if(BUILD_OPEN_PROJECT)
     target_link_libraries(hccl PRIVATE
         -Wl,--no-as-needed
-        hcomm
         c_sec
         unified_dlog
         mmpa
@@ -416,7 +418,6 @@ else()
         $<BUILD_INTERFACE:runtime_headers>
         $<BUILD_INTERFACE:mmpa_headers>
         -Wl,--no-as-needed
-        hcomm
         c_sec
         unified_dlog
         mmpa
