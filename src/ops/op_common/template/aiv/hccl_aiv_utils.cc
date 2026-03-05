@@ -16,6 +16,7 @@
 #include "adapter_acl.h"
 #include "hccl_aiv_utils.h"
 #include "universal_concurrent_map.h"
+#include "adapter_rts.h"
 
 using namespace std;
 using namespace ops_hccl;
@@ -205,8 +206,8 @@ HcclResult GetAivCountTag(const std::string &commTag, u32 rank, s32 &aivCountTag
 // 满足isAivClearEnable条件时，在KernelLaunch前调用，清零标记区
 HcclResult ClearAivSyncBuf(const OpParam &param, AlgResourceCtxSerializable& resCtx)
 {
-    ACLCHECK(aclrtMemcpy(static_cast<u8*>(resCtx.aivCommInfoPtr) + AIV_FLAG_ADDR_OFFSET, AIV_FLAG_AREA_SIZE,
-        static_cast<u8*>(resCtx.aivCommInfoPtr) + AIV_FLAG_CLEAR_OFFSET, AIV_FLAG_AREA_SIZE, ACL_MEMCPY_DEVICE_TO_DEVICE));
+    CHK_RET(hrtMemSyncCopy(static_cast<u8*>(resCtx.aivCommInfoPtr) + AIV_FLAG_CLEAR_OFFSET, AIV_FLAG_AREA_SIZE,
+        static_cast<u8*>(resCtx.aivCommInfoPtr) + AIV_FLAG_ADDR_OFFSET, AIV_FLAG_AREA_SIZE, HcclRtMemcpyKind::HCCL_RT_MEMCPY_KIND_DEVICE_TO_DEVICE));
     HCCL_INFO("[ClearAivSyncBuf] clearaiv done.");
     return HCCL_SUCCESS;
 }
