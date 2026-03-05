@@ -19,12 +19,12 @@
 #include "alg_param.h"
 
 namespace ops_hccl {
-constexpr u32 MAX_RANK_SIZE = 8; // 注意要和device侧的一致
+constexpr u32 MAX_RANK_SIZE = 64; // 注意要和device侧的一致
 constexpr u32 MAX_NUM_BLOCKS = 56; // 56-72
  
 constexpr s32 TAG_INIT_VALUE = 1;
 constexpr s32 TAG_RESET_COUNT = 1000;
-constexpr s32 TOPO_LEN = 32;
+constexpr s32 TOPO_LEN = 64;
 
 constexpr u32 AIV_TAG_MOVE_LEFT_BITS = 16;
 constexpr u32 AIV_TAG_ADDR_OFFSET = 16 * 1024;
