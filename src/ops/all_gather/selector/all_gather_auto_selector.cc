@@ -77,7 +77,7 @@ SelectorStatus AllGatherAutoSelector::SelectMeshAlgo(TopoInfoWithNetLayerDetails
                 return SelectorStatus::MATCH;
             }
         } else {
-        HCCL_WARNING("[Algo][AllGatherAutoSelector] Level0Topo[%u] is not supported for ccu_ms mode, reset to default.", topoinfo->level0Topo);
+        HCCL_WARNING("[Algo][AllGatherAutoSelector] Level0Topo[%u] is not supported for ccu_ms mode, reset to default.", topoInfo->level0Topo);
         return SelectorStatus::NOT_MATCH;
     }
     HCCL_DEBUG("[AllGatherAutoSelector][%s] end", __func__);
