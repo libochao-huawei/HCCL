@@ -16,6 +16,7 @@
 #ifndef AICPU_COMPILE
 #include "ccu_temp_all_gather_nhr_1D_mem2mem.h"
 #include "ccu_temp_all_gather_mesh_1D_mem2mem.h"
+#include "ccu_temp_all_gather_nhr_1D_multijetty_mem2mem.h"
 #endif
 #include "alg_data_trans_wrapper.h"
 
