@@ -182,6 +182,7 @@ SelectorStatus ReduceScatterAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetL
             return SelectorStatus::NOT_MATCH;
         }
     }
+    return SelectorStatus::MATCH;
 }
 
 
