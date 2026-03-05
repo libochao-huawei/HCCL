@@ -265,7 +265,7 @@ HcclResult AutoSelectorBase::CheckClosNumMultipleOfMeshNum(const TopoInfoWithNet
     const auto meshRankNums = topoInstDetails[0].rankNumForTopoType[COMM_TOPO_1DMESH][0];
     
     // 检查Clos数量是否大于Mesh数量且是Mesh数量的倍数
-    isMultiple = (closRankNums > meshRankNums) && (closRankNums % meshRankNums == 0);
+    isMultiple = (meshRankNums > 1) && (closRankNums > meshRankNums) && (closRankNums % meshRankNums == 0);
     return HCCL_SUCCESS;
 }
 
