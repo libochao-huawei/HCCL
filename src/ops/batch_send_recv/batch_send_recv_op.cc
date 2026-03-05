@@ -31,6 +31,7 @@
 #include "load_kernel.h"
 #include "op_common.h"
 #include "batch_send_recv_op.h"
+#include "hcomm_dlsym.h"
 
 using namespace std;
 using namespace ops_hccl;
@@ -39,7 +40,7 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 HcclResult HcclBatchSendRecv(HcclSendRecvItem *sendRecvInfo, uint32_t itemNum, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("Start to run execute HcclBatchSendRecv.");
-    if (!CheckHCCLIndependentOp()) {
+    if (!CheckHCCLIndependentOp() || (GetHcommVersion() < 90000000)) {
         return HcclBatchSendRecvInner(sendRecvInfo, itemNum, comm, stream);
     }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
