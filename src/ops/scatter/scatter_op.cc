@@ -33,6 +33,7 @@
 #include "load_kernel.h"
 #include "hcomm_primitives.h"
 #include "op_common.h"
+#include "hcomm_dlsym.h"
 
 using namespace std;
 using namespace ops_hccl;
