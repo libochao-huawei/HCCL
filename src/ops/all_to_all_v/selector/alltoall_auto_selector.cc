@@ -47,15 +47,21 @@ SelectorStatus AlltoAllAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetLayerD
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
         uint32_t dataTypeSize = DATATYPE_SIZE_TABLE[opParam.all2AllDataDes.sendType];
         uint64_t dataSize = opParam.all2AllDataDes.sendCount * dataTypeSize;
-        if (IsMeshNumEqualClosNum(topoInfo) && (topoInfo->userRankSize <= 4) && (dataSize > 512)) { // 同一组4P且大数据量，走并发算法
+        bool isMeshNumEqualToClosNum = false;
+        CHK_PRT_RET(CheckMeshNumEqualToClosNum(topoInfo, isMeshNumEqualToClosNum) != HCCL_SUCCESS,
+                    HCCL_ERROR("[Algo][AlltoAllAutoSelector] CheckMeshNumEqualToClosNum failed."),
+                    SelectorStatus::NOT_MATCH);
+        if ((isMeshNumEqualToClosNum == true) && (topoInfo->userRankSize <= 4) && (dataSize > 512)) { // 同一组4P且大数据量，走并发算法
             selectAlgName = "CcuAllToAllMesh1DConcurrent";
         } else {
             selectAlgName = "CcuAlltoAllMesh1DMultiJetty";
         }
     } else {
-        HCCL_WARNING("[Algo][AlltoAllAutoSelector] algo[%u] is not supported yet for ccu_schedule mode, reset to default.", levle0Algo);
+        HCCL_WARNING("[Algo][AlltoAllAutoSelector] algo is not supported yet for ccu_schedule mode, reset to default.");
         return SelectorStatus::NOT_MATCH;
     }
+
+    return SelectorStatus::MATCH;
 }
 
 SelectorStatus AlltoAllAutoSelector::SelectAicpuAlgo(TopoInfoWithNetLayerDetails* topoInfo,
@@ -80,7 +86,13 @@ SelectorStatus AlltoAllAutoSelector::SelectAicpuAlgo(TopoInfoWithNetLayerDetails
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
         selectAlgName = "InsAlltoAllMesh1D";
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-        if (IsMeshNumEqualClosNum() && (topoInfo->userRankSize <= 4) && (opParam.all2AllDataDes.sendCount > 128)) { // 同一组4P且大数据量，不走并发
+        uint32_t dataTypeSize = DATATYPE_SIZE_TABLE[opParam.all2AllDataDes.sendType];
+        uint64_t dataSize = opParam.all2AllDataDes.sendCount * dataTypeSize;
+        bool isMeshNumEqualToClosNum = false;
+        CHK_PRT_RET(CheckMeshNumEqualToClosNum(topoInfo, isMeshNumEqualToClosNum) != HCCL_SUCCESS,
+                    HCCL_ERROR("[Algo][AlltoAllAutoSelector] CheckMeshNumEqualToClosNum failed."),
+                    SelectorStatus::NOT_MATCH);
+        if ((isMeshNumEqualToClosNum == true) && (topoInfo->userRankSize <= 4) && (opParam.all2AllDataDes.sendCount > 512)) { // 同一组4P且大数据量，不走并发
             selectAlgName = "InsAllToAllMesh1DConcurrent";
         } else {
             selectAlgName = "InsAlltoAllMesh1D";
