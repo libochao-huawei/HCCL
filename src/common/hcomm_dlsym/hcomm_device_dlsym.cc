@@ -26,7 +26,7 @@ int HcommDeviceDlInit(void) {
 
 void HcommDeviceDlFini(void) {
     if (gLibHandle) {
-        HcommPrimitivesDlFini(gLibHandle);
+        HcommPrimitivesDlFini();
 
         dlclose(gLibHandle);
         gLibHandle = NULL;
