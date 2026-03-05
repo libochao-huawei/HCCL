@@ -31,8 +31,7 @@ public:
           subCommRanks_(subCommRanks),
           jettyNums_(jettyNums)
     {
-        HCCL_DEBUG("[CcuKernelArgAllToAllMesh1DMultiJetty] rankId: %u",
-                   rankId_);
+        HCCL_DEBUG("[CcuKernelArgAllToAllMesh1DMultiJetty] rankSize: %u, rankId: %u", rankSize_, rankId_);
     }
     hcomm::CcuKernelSignature GetKernelSignature() const override
     {
@@ -56,10 +55,14 @@ public:
         jettySliceTail_(jettySliceTail), token_(token), srcOffset_(srcOffset),
         dstOffset_(dstOffset), srcStride_(srcStride)
     {
-        HCCL_DEBUG("[CcuTaskArgAllToAllMesh1DMultiJetty] inputAddr: %lu, outputAddr: %lu, token: %lu, scratchAddr: %lu, "
-                   "inputSliceStride: %lu, inputRepeatStride: %lu, outputRepeatStride: %lu",
+        HCCL_DEBUG("[CcuTaskArgAllToAllMesh1DMultiJetty] inputAddr: %lu, outputAddr: %lu, token: %lu, sliceSize: %lu, "
+                   "srcOffset: %lu, dstOffset: %lu, srcStride: %lu",
                    inputAddr_, outputAddr_, token_, sliceSize_, srcOffset_, dstOffset_,
                    srcStride_);
+        for (uint32_t i = 0; i < jettySlice.size(); i++) {
+            HCCL_DEBUG("[CcuTaskArgAllToAllMesh1DMultiJetty] jettySlice: %llu, jettySliceTail: %llu", 
+                        jettySlice[i], jettySliceTail[i]);
+        }
     }
 
     uint64_t inputAddr_;

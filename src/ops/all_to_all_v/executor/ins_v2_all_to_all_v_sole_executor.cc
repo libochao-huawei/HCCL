@@ -40,9 +40,15 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(
     const TopoInfoWithNetLayerDetails* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
     AlgResourceRequest& resourceRequest)
 {
+    std::vector<std::vector<u32>> tempAlgHierachyInfo;
+    if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+        tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[0][1]);    // clos拓扑，包含所有rank
+    } else {
+        tempAlgHierachyInfo = algHierarchyInfo.infos[0];
+    }
     // 构建template
     std::shared_ptr<InsAlgTemplate> algTemplate =
-        std::make_shared<InsAlgTemplate>(param, topoInfo->userRank, algHierarchyInfo.infos[0]);
+        std::make_shared<InsAlgTemplate>(param, topoInfo->userRank, tempAlgHierachyInfo);
     // 调用计算资源的函数
     algTemplate->CalcRes(comm, param, topoInfo, resourceRequest);
     return HCCL_SUCCESS;
@@ -195,9 +201,15 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
         }
     }
 
+    std::vector<std::vector<u32>> tempAlgHierachyInfo;
+    if (resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS) {
+        tempAlgHierachyInfo.push_back(resCtx.algHierarchyInfo.infos[0][1]);
+    } else {
+        tempAlgHierachyInfo = resCtx.algHierarchyInfo.infos[0];
+    }
     // 构建template
     std::shared_ptr<InsAlgTemplate> algTemplate =
-        std::make_shared<InsAlgTemplate>(param, resCtx.topoInfo.userRank, resCtx.algHierarchyInfo.infos[0]);
+        std::make_shared<InsAlgTemplate>(param, resCtx.topoInfo.userRank, tempAlgHierachyInfo);
     u32 templateScratchMultiplier = algTemplate->CalcScratchMultiple(tempAlgParams.buffInfo.inBuffType,
                                                                      tempAlgParams.buffInfo.outBuffType);
 

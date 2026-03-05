@@ -19,6 +19,7 @@
 
 namespace ops_hccl {
 using namespace std;
+constexpr uint32_t CONCURRENT_NUM = 2;
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::InsV2AllToAllConcurrentExecutor()
 {
@@ -36,8 +37,8 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
     dataType_ = param.all2AllVDataDes.sendType;
     dataTypeSize_ =  SIZE_TABLE[dataType_];
     algHierarchyInfo_ = algHierarchyInfo;
-    HCCL_INFO("[InsV2AllToAllConcurrentExecutor][InitCommInfo] myRank [%u], rankSize [%u], devType [%u], "
-        "dataType [%u] dataTypeSize [%u]", myRank_, rankSize_, devType_, dataType_, dataTypeSize_);
+    HCCL_INFO("[InsV2AllToAllConcurrentExecutor][InitCommInfo] myRank = %u, rankSize = %u, devType = %u, "
+        "dataType = %u, dataTypeSize = %u", myRank_, rankSize_, devType_, dataType_, dataTypeSize_);
     return HCCL_SUCCESS;
 }
 
@@ -61,7 +62,7 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
     HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
     AlgResourceRequest& resourceRequest)
 {
-    // 初始化一些基本成员变量
+    // 初始化基本成员变量
     u32 topoNum = 2;
     if (algHierarchyInfo.infos[0].size() != topoNum) {
         HCCL_ERROR("[InsV2AllToAllConcurrentExecutor[%s] toposize = %u", __FUNCTION__, algHierarchyInfo.infos[0].size());
@@ -73,9 +74,10 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
     std::vector<std::vector<u32>> subCommRanks1 = {algHierarchyInfo.infos[0][1]};
 
     // 构建template
-    std::shared_ptr<InsAlgTemplate0> interTempAlg0 =
-        std::make_shared<InsAlgTemplate0>(param, topoInfo->userRank, subCommRanks0);
-    std::shared_ptr<InsAlgTemplate1> intraTempAlg1 = std::make_shared<InsAlgTemplate1>(param, topoInfo->userRank, subCommRanks1);
+    std::shared_ptr<InsAlgTemplate0> interTempAlg0 = std::make_shared<InsAlgTemplate0>(param, topoInfo->userRank,
+                                                                                       subCommRanks0);
+    std::shared_ptr<InsAlgTemplate1> intraTempAlg1 = std::make_shared<InsAlgTemplate1>(param, topoInfo->userRank,
+                                                                                       subCommRanks1);
 
     // 调用计算资源的函数
     AlgResourceRequest resReq0, resReq1;
@@ -146,8 +148,9 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
     algHierarchyInfo_ = resCtx.algHierarchyInfo;
     HcclResult ret = OrchestrateLoop(param, resCtx);
     CHK_PRT_RET(ret != HCCL_SUCCESS,
-        HCCL_ERROR("[InsV2AllToAllConcurrentExecutor][Orchestrate]errNo[0x%016llx] Reduce scatter excutor kernel run failed",
-            HCCL_ERROR_CODE(ret)), ret);
+                HCCL_ERROR("[InsV2AllToAllConcurrentExecutor][Orchestrate]errNo[0x%016llx] Reduce scatter excutor "
+                "kernel run failed", HCCL_ERROR_CODE(ret)),
+                ret);
     return HcclResult::HCCL_SUCCESS;
 }
 
@@ -168,9 +171,8 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
-HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::FillTemplateDataParams(
-    const OpParam &param, const AlgResourceCtxSerializable& resCtx, TemplateDataParams& tempAlgParams, 
-    SendRecvData &splitData)
+HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::InitTemplateDataParams(
+    const OpParam &param, const AlgResourceCtxSerializable& resCtx, TemplateDataParams& tempAlgParams)
 {
     tempAlgParams.buffInfo.inputPtr = param.inputPtr;
     tempAlgParams.buffInfo.outputPtr = param.outputPtr;
@@ -184,49 +186,6 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
     tempAlgParams.recvCounts.resize(rankSize_, 0);
     tempAlgParams.sdispls.resize(rankSize_, 0);
     tempAlgParams.rdispls.resize(rankSize_, 0);
-    return HcclResult::HCCL_SUCCESS;
-}
-
-template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
-HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::SplitSendRecvData(
-    const OpParam &param, const AlgResourceCtxSerializable& resCtx, std::vector<SendRecvData>& splitData)
-{
-    splitData.resize(2);
-    for (u32 i = 0; i < 2; i++) {
-        splitData[i].sendCounts.resize(rankSize_);
-        splitData[i].recvCounts.resize(rankSize_);
-        splitData[i].sdispls.resize(rankSize_);
-        splitData[i].rdispls.resize(rankSize_);
-    }
-
-    // 按topo切分数据：0为topo 0，1为topo 1
-    uint32_t factorMesh = rankSize_ - 1;
-    uint32_t factorClos = 4;                // 端口数获取
-    uint32_t factor = factorMesh + factorClos;
-    for (u64 i = 0; i < rankSize_; i++) {
-        uint64_t sendQuotient = sendCounts_[i] / factor;
-        uint64_t recvQuotient = recvCounts_[i] / factor;
-        uint64_t sendCountsMesh = sendQuotient * factorMesh;
-        uint64_t recvCountsMesh = recvQuotient * factorMesh;
-        splitData[0].sendCounts[i] = sendCountsMesh;                        // mesh拓扑处理的数据量
-        splitData[1].sendCounts[i] = sendCounts_[i] - sendCountsMesh;       // clos拓扑处理的数据量
-        splitData[0].recvCounts[i] = recvCountsMesh;
-        splitData[1].recvCounts[i] = recvCounts_[i] - recvCountsMesh;
-        splitData[0].sdispls[i] = sdispls_[i];
-        splitData[1].sdispls[i] = sdispls_[i] + sendCountsMesh;
-        splitData[0].rdispls[i] = rdispls_[i];
-        splitData[1].rdispls[i] = rdispls_[i] + recvCountsMesh;
-    }
-
-    for (u32 i = 0; i < 2; i++) {
-        for (u32 rankId = 0; rankId < rankSize_; rankId++) {
-            HCCL_INFO("OrchestrateLoop, rank=%u, sendCounts[%u] is [%u]", rankId, i, splitData[i].sendCounts[rankId]);
-            HCCL_INFO("OrchestrateLoop, rank=%u, recvCounts[%u] is [%u]", rankId, i, splitData[i].recvCounts[rankId]);
-            HCCL_INFO("OrchestrateLoop, rank=%u, sdispls[%u] is [%u]", rankId, i, splitData[i].sdispls[rankId]);
-            HCCL_INFO("OrchestrateLoop, rank=%u, rdispls[%u] is [%u]", rankId, i, splitData[i].rdispls[rankId]);
-        }
-    }
-
     return HcclResult::HCCL_SUCCESS;
 }
 
@@ -258,19 +217,49 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
                 break;
         }
     }
+    return HcclResult::HCCL_SUCCESS;
+}
 
-    for (u32 i = 0; i < rankSize_; i++) {
-        HCCL_INFO("OrchestrateLoop, rank = %u, sendCounts is [%u]", i, sendCounts_[i]);
+template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
+HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::SplitSendRecvData(
+    const OpParam &param, const AlgResourceCtxSerializable& resCtx, std::vector<SendRecvData>& splitData)
+{
+    splitData.resize(CONCURRENT_NUM);
+    for (u32 i = 0; i < CONCURRENT_NUM; i++) {
+        splitData[i].sendCounts.resize(rankSize_);
+        splitData[i].recvCounts.resize(rankSize_);
+        splitData[i].sdispls.resize(rankSize_);
+        splitData[i].rdispls.resize(rankSize_);
     }
-    for (u32 i = 0; i < rankSize_; i++) {
-        HCCL_INFO("OrchestrateLoop, rank = %u, recvCounts is [%u]", i, recvCounts_[i]);
+
+    // 按topo切分数据：0为topo 0，1为topo 1
+    uint32_t factorMesh = rankSize_ - 1;
+    uint32_t factorClos = 4;                // 端口数获取
+    uint32_t factor = factorMesh + factorClos;
+    for (u64 i = 0; i < rankSize_; i++) {
+        uint64_t sendQuotient = sendCounts_[i] / factor;
+        uint64_t recvQuotient = recvCounts_[i] / factor;
+        uint64_t sendCountsMesh = sendQuotient * factorMesh;
+        uint64_t recvCountsMesh = recvQuotient * factorMesh;
+        splitData[0].sendCounts[i] = sendCountsMesh;                        // mesh拓扑处理的数据量
+        splitData[1].sendCounts[i] = sendCounts_[i] - sendCountsMesh;       // clos拓扑处理的数据量
+        splitData[0].recvCounts[i] = recvCountsMesh;
+        splitData[1].recvCounts[i] = recvCounts_[i] - recvCountsMesh;
+        splitData[0].sdispls[i] = sdispls_[i];
+        splitData[1].sdispls[i] = sdispls_[i] + sendCountsMesh;
+        splitData[0].rdispls[i] = rdispls_[i];
+        splitData[1].rdispls[i] = rdispls_[i] + recvCountsMesh;
     }
-    for (u32 i = 0; i < rankSize_; i++) {
-        HCCL_INFO("OrchestrateLoop, rank = %u, sdispls is [%u]", i, sdispls_[i]);
+
+    for (u32 i = 0; i < CONCURRENT_NUM; i++) {
+        for (u32 rankId = 0; rankId < rankSize_; rankId++) {
+            HCCL_INFO("OrchestrateLoop, rank=%u, sendCounts[%u] is [%u]", rankId, i, splitData[i].sendCounts[rankId]);
+            HCCL_INFO("OrchestrateLoop, rank=%u, recvCounts[%u] is [%u]", rankId, i, splitData[i].recvCounts[rankId]);
+            HCCL_INFO("OrchestrateLoop, rank=%u, sdispls[%u] is [%u]", rankId, i, splitData[i].sdispls[rankId]);
+            HCCL_INFO("OrchestrateLoop, rank=%u, rdispls[%u] is [%u]", rankId, i, splitData[i].rdispls[rankId]);
+        }
     }
-    for (u32 i = 0; i < rankSize_; i++) {
-        HCCL_INFO("OrchestrateLoop, rank = %u, rdispls is [%u]", i, rdispls_[i]);
-    }
+
     return HcclResult::HCCL_SUCCESS;
 }
 
@@ -284,7 +273,7 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
         max = std::max(max, splitData.recvCounts[i]);
     }
 
-    HCCL_INFO("[InsV2AlltoAllVSoleExecutor] maxSendRecvDataCount[%u]", max);
+    HCCL_INFO("[InsV2AllToAllConcurrentExecutor] maxSendRecvDataCount = %u", max);
     maxSendRecvDataCount = max;
     return HcclResult::HCCL_SUCCESS;
 }
@@ -293,12 +282,12 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::OrchestrateLoop(
     const OpParam &param, const AlgResourceCtxSerializable& resCtx)
 {
-    HCCL_INFO("[InsV2AlltoAllVSoleExecutor][OrchestrateLoop] Start");
-    HCCL_INFO("OrchestrateLoop, ALL_TO_ALL_V_VECTOR_NUM is [%u]", ALL_TO_ALL_V_VECTOR_NUM);
-    HCCL_INFO("OrchestrateLoop, rankSize_ is [%u]", rankSize_);
-    HCCL_INFO("OrchestrateLoop, param.varMemSize is [%u]", param.varMemSize);
+    HCCL_INFO("[InsV2AllToAllConcurrentExecutor][OrchestrateLoop] Start");
+    HCCL_INFO("[OrchestrateLoop] ALL_TO_ALL_V_VECTOR_NUM is [%u]", ALL_TO_ALL_V_VECTOR_NUM);
+    HCCL_INFO("[OrchestrateLoop] rankSize_ is [%u]", rankSize_);
+    HCCL_INFO("[OrchestrateLoop] param.varMemSize is [%u]", param.varMemSize);
     CHK_PRT_RET(param.varMemSize != ALL_TO_ALL_V_VECTOR_NUM * rankSize_ * sizeof(u64),
-                HCCL_ERROR("[InsV2AlltoAllVSoleExecutor][OrchestrateLoop] param.varMemSize [%llu] is invalid",
+                HCCL_ERROR("[InsV2AllToAllConcurrentExecutor][OrchestrateLoop] param.varMemSize [%llu] is invalid",
                             param.varMemSize),
                 HCCL_E_PARA);
 
@@ -325,15 +314,15 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
         std::make_shared<InsAlgTemplate1>(param, resCtx.topoInfo.userRank, subCommRanks1);
 
     TemplateDataParams tempAlgParams0, tempAlgParams1;
-    FillTemplateDataParams(param, resCtx, tempAlgParams0, splitData[0]);
-    FillTemplateDataParams(param, resCtx, tempAlgParams1, splitData[1]);
+    InitTemplateDataParams(param, resCtx, tempAlgParams0);
+    InitTemplateDataParams(param, resCtx, tempAlgParams1);
 
     std::vector<u64> scratchMulti;
     scratchMulti.push_back(algTemplate0->CalcScratchMultiple(tempAlgParams0.buffInfo.inBuffType,
                                                             tempAlgParams0.buffInfo.outBuffType));
     scratchMulti.push_back(algTemplate1->CalcScratchMultiple(tempAlgParams1.buffInfo.inBuffType,
                                                             tempAlgParams1.buffInfo.outBuffType));
-    std::vector<u64> maxDataCountPerLoop(2, 1);
+    std::vector<u64> maxDataCountPerLoop(CONCURRENT_NUM, 1);
     CalcMaxDataCountPerLoop(param, tempAlgParams0, scratchMulti, maxDataCountPerLoop);
 
     // alltoallv的时候，loopTimes可能是0
@@ -367,7 +356,7 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
     }
     CHK_RET(PostSyncInterThreads(resCtx.threads[0], {resCtx.threads[1]}, notify));
 
-    HCCL_INFO("[InsV2AlltoAllVSoleExecutor][OrchestrateLoop] End.");
+    HCCL_INFO("[InsV2AllToAllConcurrentExecutor][OrchestrateLoop] End.");
     return HCCL_SUCCESS;
 }
 
@@ -386,8 +375,8 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
 
     for (u32 i = 0; i < scratchMulti.size(); i++) {
         if (scratchMulti[i] != 0) {
-            HCCL_INFO("[InsV2AlltoAllVSoleExecutor]maxTmpMemSize_ [%lu]", maxTmpMemSize_);
-            u64 scratchBoundDataSize = maxTmpMemSize_ / scratchMultiSum / 128 * 128;
+            HCCL_INFO("[InsV2AllToAllConcurrentExecutor]maxTmpMemSize_ = %lu", maxTmpMemSize_);
+            u64 scratchBoundDataSize = maxTmpMemSize_ / scratchMultiSum / HCCL_MIN_SLICE_ALIGN * HCCL_MIN_SLICE_ALIGN;
             maxDataSizePerLoop = std::min(transportBoundDataSize, scratchBoundDataSize);
         } else {
             maxDataSizePerLoop = transportBoundDataSize;
@@ -402,11 +391,13 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
         }
 
         HCCL_INFO(
-            "[InsV2AlltoAllVSoleExecutor][OrchestrateOpbase] maxDataCountPerLoop[%llu], maxDataSizePerLoop[%llu], "
-            "transportBoundDataSize[%llu], scratchMulti[%llu]",
+            "[InsV2AllToAllConcurrentExecutor][CalcMaxDataCountPerLoop] maxDataCountPerLoop = %llu, "
+            "maxDataSizePerLoop = %llu, transportBoundDataSize = %llu, scratchMulti = %llu",
             maxDataCountPerLoop[i], maxDataSizePerLoop, transportBoundDataSize, scratchMulti[i]);
         CHK_PRT_RET(maxDataCountPerLoop[i] == 0,
-            HCCL_ERROR("[InsV2AlltoAllVSoleExecutor][OrchestrateOpbase] maxDataCountPerLoop is 0"), HCCL_E_INTERNAL);
+                    HCCL_ERROR("[InsV2AllToAllConcurrentExecutor][CalcMaxDataCountPerLoop] maxDataCountPerLoop[%u] is 0"
+                               ".", i),
+                    HCCL_E_INTERNAL);
     }
 
     return HCCL_SUCCESS;
@@ -444,19 +435,18 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
             tempAlgParams.recvCounts[i] = 0;
             tempAlgParams.rdispls[i] = splitData.rdispls[i] + splitData.recvCounts[i];
         }
-        HCCL_INFO("[%s]loop=%u, rank=%u, tempAlgParams.sendCounts=%u,"
-            "tempAlgParams.sdispls=%u, tempAlgParams.recvCounts=%u, tempAlgParams.rdispls=%u",
-            __FUNCTION__, loop, i,
-            tempAlgParams.sendCounts[i], tempAlgParams.sdispls[i],
-            tempAlgParams.recvCounts[i], tempAlgParams.rdispls[i]);
+        HCCL_DEBUG("[%s]loop = %u, rank = %u, tempAlgParams.sendCounts = %u, tempAlgParams.sdispls = %u, "
+                   "tempAlgParams.recvCounts = %u, tempAlgParams.rdispls = %u",
+                   __FUNCTION__, loop, i, tempAlgParams.sendCounts[i], tempAlgParams.sdispls[i],
+                   tempAlgParams.recvCounts[i], tempAlgParams.rdispls[i]);
     }
 
-    HCCL_INFO("[InsV2AlltoAllVSoleExecutor] loop [%u] tempAlgParams.inputSliceStride [%u],"
-        "tempAlgParams.outputSliceStride [%u] tempAlgParams.sliceSize [%u]",
-        loop, tempAlgParams.inputSliceStride, tempAlgParams.outputSliceStride, tempAlgParams.sliceSize);
-    HCCL_INFO("[InsV2AlltoAllVSoleExecutor] loop [%u] tempAlgParams.buffInfo.inBuffBaseOff [%u],"
-        "tempAlgParams.buffInfo.outBuffBaseOff [%u]",
-        loop, tempAlgParams.buffInfo.inBuffBaseOff, tempAlgParams.buffInfo.outBuffBaseOff);
+    HCCL_INFO("[InsV2AllToAllConcurrentExecutor] loop = %u, tempAlgParams.buffInfo.inBuffBaseOff = %u,"
+        "tempAlgParams.buffInfo.outBuffBaseOff = %u, tempAlgParams.inputSliceStride = %u,"
+        "tempAlgParams.outputSliceStride = %u, tempAlgParams.sliceSize = %u",
+        loop, tempAlgParams.inputSliceStride, tempAlgParams.outputSliceStride, tempAlgParams.sliceSize,
+        tempAlgParams.buffInfo.inBuffBaseOff, tempAlgParams.buffInfo.outBuffBaseOff);
+
     // 不需要重复
     tempAlgParams.repeatNum = 1;
     tempAlgParams.inputRepeatStride = 0;
@@ -464,7 +454,8 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
     return HCCL_SUCCESS;
 }
 
-// 第二个参数是Reduce Scatter的template文件
+// 第1个模板走mesh拓扑
+// 第2个模板走clos拓扑
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLTOALL,
                                 InsAllToAllMesh1DConcurrent,
                                 InsV2AllToAllConcurrentExecutor,
@@ -472,7 +463,7 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLTOALL,
                                 InsTempAlltoAllVMesh1D,
                                 InsTempAlltoAllVMesh1D);
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLTOALLV,
-                                InsAllToAllMesh1DConcurrent,
+                                InsAllToAllVMesh1DConcurrent,
                                 InsV2AllToAllConcurrentExecutor,
                                 TopoMatchUBX,
                                 InsTempAlltoAllVMesh1D,
