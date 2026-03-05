@@ -116,10 +116,6 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
                 HcclResult::HCCL_E_INTERNAL);
 
     if(param.engine == CommEngine::COMM_ENGINE_CCU) {
-        for (auto &kernelInfo : temp0ResReq.ccuKernelInfos) {
-            kernelInfo.channels = channelDescs0;
-        }
-
         resourceRequest.ccuKernelNum.insert(resourceRequest.ccuKernelNum.end(),
                                             temp0ResReq.ccuKernelNum.begin(),
                                             temp0ResReq.ccuKernelNum.end());

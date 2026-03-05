@@ -67,7 +67,7 @@ HcclResult CcuTempReduceScatterNhrMultiJettyMem2Mem1D::CalcRes(HcclComm comm, co
     std::vector<HcclChannelDesc> channelResort; // 重排channel
     GetNhrStepInfo(channelResort, stepInfoVector, rank2ChannelIdx);
     kernelInfo.kernelArg = std::make_shared<CcuKernelArgReduceScatterNhrMutilJettyMem2Mem1D>(subCommRanks_[0].size(),
-                                                                                    myRank_,
+                                                                                    mySubCommRank_,
                                                                                     portNum,
                                                                                     stepInfoVector,
                                                                                     rank2ChannelIdx,

@@ -257,6 +257,7 @@ HcclResult CcuKernelReduceScatterNhrMutilJettyMem2Mem1D::DoRepeatSendRecvSlices(
     CcuRep::Variable repeatNumAdd = CreateVariable();
     repeatNumAdd  = 1;
     flag_ = 0;
+    repeatNumVarTemp_ = repeatNumVar_;
     CCU_WHILE(repeatNumVarTemp_ != UINT64_MAX) {
         CCU_IF(repeatNumVarTemp_ != UINT64_MAX) {
             repeatNumVarTemp_ += repeatNumAdd;
