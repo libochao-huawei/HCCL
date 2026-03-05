@@ -49,6 +49,7 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
 {
     HCCL_INFO("Start to execute Selector.");
     CHK_RET(HcclGetOpExpansionMode(comm, param));
+    param.hcclComm = comm;
     // 获取基础拓扑
     CHK_RET(HcclCalcTopoInfo(comm, param, topoInfo));
 
@@ -74,7 +75,6 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
                       std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo, std::string &algName)
 {
     HCCL_INFO("Start to execute HcclExecOp.");
-    param.hcclComm = comm;
     // 在原先的commName中添加执行模式，得到commModeTag
     bool isOpBase = true;
     const char* opModeStr = isOpBase ? "_opbase" : "_offload";
@@ -937,7 +937,7 @@ HcclResult SetOpParamAlgTag(OpParam &param, const std::string &algName)
     if (param.engine == CommEngine::COMM_ENGINE_CCU) {
 
         const char* dataType = HCOM_DATA_TYPE_STR_MAP.at(param.DataDes.dataType).c_str();
-        ret = strcat_s(param.algTag, sizeof(param.algType), dataType);
+        ret = strcat_s(param.algTag, sizeof(param.algTag), dataType);
         if (ret != 0) {
             HCCL_ERROR("failed to fill alg tag with ccu dataType");
             return HcclResult::HCCL_E_INTERNAL;
@@ -949,7 +949,7 @@ HcclResult SetOpParamAlgTag(OpParam &param, const std::string &algName)
             param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V) {
             
             const char* reduceType = HCOM_REDUCE_OP_STR_MAP.at(param.reduceType).c_str();
-            ret = strcat_s(param.algTag, sizeof(param.algType), reduceType);
+            ret = strcat_s(param.algTag, sizeof(param.algTag), reduceType);
             if (ret != 0) {
                 HCCL_ERROR("failed to fill alg tag with ccu reduceType");
                 return HcclResult::HCCL_E_INTERNAL;
