@@ -338,7 +338,6 @@ target_compile_definitions(scatter_aicpu_kernel PRIVATE
 
 target_link_libraries(scatter_aicpu_kernel PRIVATE
     -Wl,--no-as-needed
-    ccl_kernel
     -Wl,--no-as-needed
 )
 
