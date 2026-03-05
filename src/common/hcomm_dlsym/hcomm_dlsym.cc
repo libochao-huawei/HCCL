@@ -28,9 +28,9 @@ int HcommDlInit(void) {
 
 void HcommDlFini(void) {
     if (gLibHandle) {
-        HcclResDlFini(gLibHandle);
-        HcclResDlFini(gLibHandle);
-        HcommPrimitivesDlFini(gLibHandle);
+        HcclResDlFini();
+        HcclResDlFini();
+        HcommPrimitivesDlFini();
 
         dlclose(gLibHandle);
         gLibHandle = NULL;
