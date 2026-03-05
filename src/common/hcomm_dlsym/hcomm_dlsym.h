@@ -1,6 +1,9 @@
 #ifndef HCOMM_DLSYM_H
 #define HCOMM_DLSYM_H
 
+#include "hccl_types.h"
+#include "acl/acl_rt.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
