@@ -8,8 +8,8 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 target_sources(hccl PRIVATE
-    hccl_rank_graph_dl.c
-    hccl_res_dl.c
+    hccl_rank_graph_dl.cc
+    hccl_res_dl.cc
     hcomm_primitives_dl.cc
     hcomm_dlsym.cc
 )
