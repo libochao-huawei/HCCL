@@ -156,6 +156,12 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     AivOpCacheArgs aivCacheArgs;
     const bool isAivMode = (param.engine == CommEngine::COMM_ENGINE_AIV);
     if (isAivMode) {
+        u32 numBlocksLimit = MAX_NUM_BLOCKS;
+        ACLCHECK(aclrtGetResInCurrentThread(ACL_RT_DEV_RES_VECTOR_CORE, &numBlocksLimit));
+        CHK_PRT_RET(numBlocksLimit < 1,
+            HCCL_ERROR("[%s] block num less than 1, block num[%d]", __func__, numBlocksLimit), HCCL_E_PARA);
+        param.numBlocksLimit = numBlocksLimit;
+        HCCL_INFO("[%s] Aiv core limit is [%d].", __func__, numBlocksLimit);
         aivCacheArgs = BuildAivOpCacheArgs(param, algName);
         CHK_RET(TryApplyAivCachedAlgTag(param, aivCacheArgs));
     }
@@ -296,12 +302,9 @@ HcclResult HcclAivKernelEntranceLaunch(HcclComm comm, OpParam &param, std::uniqu
     HCCL_INFO("[%s] algTag[%s] commModeTag[%s] resCtx(Host)[%p] aivCommInfoPtr(Device)[%p]", __func__,
         param.algTag, param.commModeTag, param.resCtx, resCtxHost.aivCommInfoPtr);
     CHK_RET(GetAivCountTag(param.commModeTag, topoInfo->userRank, param.aivCountTag)); // commTag需要拼接单算子或者图模式
-    u32 numBlocksLimit = MAX_NUM_BLOCKS;
-    ACLCHECK(aclrtGetResInCurrentThread(ACL_RT_DEV_RES_VECTOR_CORE, &numBlocksLimit));
-    CHK_PRT_RET(numBlocksLimit < 1,
-        HCCL_ERROR("[%s] block num less than 1, block num[%d]", __func__, numBlocksLimit), HCCL_E_PARA);
-    param.numBlocksLimit = numBlocksLimit;
-    HCCL_INFO("[%s] Aiv core limit is [%d].", __func__, numBlocksLimit);
+    CHK_PRT_RET(param.numBlocksLimit < 1,
+        HCCL_ERROR("[%s] block num less than 1, block num[%d]", __func__, param.numBlocksLimit), HCCL_E_PARA);
+    HCCL_INFO("[%s] Aiv core limit is [%d].", __func__, param.numBlocksLimit);
     bool isAivClearEnable = false; // 图模式首算子，暂不支持
     if (isAivClearEnable || param.aivCountTag == 1) {
         CHK_RET(ClearAivSyncBuf(param, resCtxHost));
