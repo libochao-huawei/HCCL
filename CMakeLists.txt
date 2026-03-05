@@ -152,6 +152,7 @@ elseif(BUILD_OPEN_PROJECT)
     set(HCCL_HEAD
         include/hccl.h
         include/hccl_mc2.h
+        include/hccl_graph_mode.h
     )
 
     set(HCCL_JSON

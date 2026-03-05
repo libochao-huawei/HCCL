@@ -7,6 +7,7 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
+#include "all_gather_op.h"
 
 #include <algorithm>
 #include <map>
@@ -30,7 +31,9 @@
 #include "adapter_error_manager_pub.h"
 #include "coll_alg_v2_exec_registry.h"
 #include "op_common.h"
-#include "all_gather_op.h"
+#include "op_common_graph_mode.h"
+#include "hcom.h"
+
 
 using namespace std;
 using namespace ops_hccl;
@@ -78,7 +81,40 @@ HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclD
 
     return HCCL_SUCCESS;
 }
+HcclResult HcclAllGatherGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, const char* group, aclrtStream stream,
+                                  const ResPackGraphMode &resPack)
+{
+    HCCL_INFO("Start to run execute HcclAllGatherGraphMode");
+    // 根据group获取通信域
+    HcclComm comm = nullptr;
+    HcomGetCommHandleByGroup(group, &comm);
+    // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
+    CHK_RET(InitEnvConfig());
+    // 参数校验等工作
+    CHK_PRT_RET(sendCount == 0, HCCL_WARNING("input sendCount is 0, return all gather success"), HCCL_SUCCESS);
+    // 检查入参指针有效性
+    CHK_RET(CheckAllGatherInputPara(comm, sendBuf, recvBuf, stream));
+    // tag有效性,是否过长
+    char commName[COMM_INDENTIFIER_MAX_LENGTH];
+    CHK_RET(HcclGetCommName(comm, commName));
+    const string tag = "AllGather_" + string(commName);
+    CHK_RET(HcclCheckTag(tag.c_str()));
+    // 检查sendCount是否合法(超出系统上限)
+    CHK_RET(CheckCount(sendCount));
+    // 检查数据类型是否支持
+    CHK_RET(CheckDataType(dataType, false));
+    // 检查rank有效性，是否超出rankSize
+    u32 rankSize = INVALID_VALUE_RANKSIZE;
+    CHK_RET(HcclGetRankSize(comm, &rankSize));
+    u32 userRank = INVALID_VALUE_RANKID;
+    CHK_RET(HcclGetRankId(comm, &userRank));
+    CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), tag.c_str());
 
+    // 执行AllGather
+    CHK_RET_AND_PRINT_IDE(AllGatherOutPlaceGraphMode(sendBuf, recvBuf, sendCount, dataType, comm, stream, tag, resPack), tag.c_str());
+
+    return HCCL_SUCCESS;
+}
 namespace ops_hccl {
 HcclResult CheckAllGatherInputPara(const HcclComm comm, const void* sendBuf, const void* recvBuf, const aclrtStream stream)
 {
@@ -148,5 +184,55 @@ HcclResult AllGatherOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount, H
     HCCL_INFO("Execute AllGatherOutPlace success.");
     return HCCL_SUCCESS;
 }
+
+HcclResult AllGatherOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
+                                      aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack)
+{
+    HCCL_INFO("Start to execute AllGatherOutPlace");
+    u32 userRankSize;
+    CHK_RET(HcclGetRankSize(comm, &userRankSize));
+
+    u32 perDataSize = SIZE_TABLE[dataType];
+    u64 inputSize = sendCount * perDataSize;    // all gather 每个rank上一份数据
+    u64 outputSize = inputSize * userRankSize;  // 每个卡上结果为rankSize份数据
+
+    OpParam param;
+    CHK_RET(HcclGetCommName(comm, param.commName));
+    param.stream = stream;
+    param.opMode = OpMode::OPBASE;
+
+    DevType deviceType = DevType::DEV_TYPE_COUNT;
+    CHK_RET(hrtGetDeviceType(deviceType));
+
+    // topoInfo的tag，所有相同的算子可以共享
+    int ret = sprintf_s(param.tag, sizeof(param.tag), "%s", tag.c_str());
+    if (ret <= 0) {
+        HCCL_ERROR("failed to fill param.tag");
+        return HCCL_E_INTERNAL;
+    }
+
+    // 参数准备
+    param.inputPtr = sendBuf;
+    param.inputSize = inputSize;
+    param.outputPtr = recvBuf;
+    param.outputSize = outputSize;
+    param.DataDes.count = sendCount;
+    param.DataDes.dataType = dataType;
+    param.opType = HcclCMDType::HCCL_CMD_ALLGATHER;
+    param.enableDetour = false;
+    param.deviceType = deviceType;
+    if (userRankSize == 1) {
+        HCCL_WARNING("[%s] rankSize == 1, enter SingleRankProc", __func__);
+        CHK_RET(SingleRankProc(param));
+        return HcclResult::HCCL_SUCCESS;
+    }
+    OpExecuteConfig opExecuteConfig;
+    std::string algName;
+    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
+    CHK_RET(Selector(comm, param, topoInfo, algName, opExecuteConfig));
+    CHK_RET(HcclExecOpGraphMode(comm, param, topoInfo, algName, resPack));
+    return HCCL_SUCCESS;
+}
+
 
 }  // namespace ops_hccl
