@@ -13,7 +13,7 @@
 
 #include "ccu_alg_template_base.h"
 #include "utils.h"
-#include "ccu_kernel_all_gather_nhr_1D_multijetty_mem2mem.h"
+#include "ccu_kernel_all_gather_nhr1d_multijetty_mem2mem.h"
 
 namespace ops_hccl {
 

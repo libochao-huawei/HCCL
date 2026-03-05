@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "ccu_kernel_all_gather_nhr_1D_multijetty_mem2mem.h"
+#include "ccu_kernel_all_gather_nhr1d_multijetty_mem2mem.h"
 #include "ccu_kernel_alg_base.h"
 
 namespace ops_hccl {
