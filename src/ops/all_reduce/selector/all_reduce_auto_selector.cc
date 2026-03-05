@@ -91,9 +91,11 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgo(TopoInfoWithNetLayerDetails
                 // 大数据量，用mesh+clos并行算法
                 selectAlgName = "CcuAllReduceConcurrentMs";
             }
-        } else {
+        } else if (IsClosNumMultipleOfMeshNum(topoInfo) && !IsSmallData(dataSize)) {
             HCCL_WARNING("[Algo][%s] MESH_1D_CLOS not match.", __func__);
             return SelectorStatus::NOT_MATCH;
+        } else {
+            selectAlgName = "CcuAllReduceMesh1D";
         }
     } else {
         HCCL_WARNING("[Algo][AllReduceAutoSelector] level0Topo[%u] is not supported yet.", topoInfo->level0Topo);
@@ -178,10 +180,10 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetLayer
                     }
                 } else if(IsClosNumMultipleOfMeshNum(topoInfo) && !IsSmallData(dataSize)) {
                     // 矩形场景大数据量，用2d并行算法
-                    selectAlgName = "CcuAllReduceParallelMesh1DNHRMutiJetty";
+                    selectAlgName = "CcuAllReduceParallelNHR1DMutiJetty";
                 } else {
                     // 其他场景，用1d NHR算法
-                    selectAlgName = "CcuAllReduceParallelNHR1DMutiJetty";
+                    selectAlgName = "CcuAllReduceNHR1DMem2MemMultiJetty";
                 }
             }
         } else {
