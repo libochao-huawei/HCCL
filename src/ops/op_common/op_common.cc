@@ -956,18 +956,6 @@ HcclResult SetCommEngine(OpParam &param)
     return HCCL_E_NOT_SUPPORT;
 }
 
-bool CheckHCCLIndependentOp() {
-    // 获取环境变量值
-    const char* envValue = std::getenv("HCCL_INDEPENDENT_OP");
-
-    // 检查环境变量是否存在且值为"1"
-    if (envValue != nullptr && std::strcmp(envValue, "1") == 0) {
-        return true;
-    }
-
-    return false;
-}
-
 HcclResult SingleRankProc(const OpParam &param)
 {
     if (param.opType == HcclCMDType::HCCL_CMD_SEND || param.opType == HcclCMDType::HCCL_CMD_RECEIVE) {
@@ -1070,31 +1058,83 @@ HcclResult SetOpParamAlgTag(OpParam &param, const std::string &algName)
 
 HcclResult HcclGetOpExpansionMode(OpParam &param)
 {
-    // 因为AICPU是保底的所以这里获取到是AICPU引擎就应该加载Kernel
-    if (GetExternalInputHcclAicpuUnfold() == true) {
-        HCCL_DEBUG("[HcclExecOp] is aicpu mode");
-        param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
-        CHK_RET(LoadAICPUKernel());
-        param.engine = CommEngine::COMM_ENGINE_AICPU_TS;
+    HcclOpExpansionMode finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_INVALID;
+    // 第一步：决定使用哪种模式
+    HcclResult ret = DecideHcclOpExpansionMode(comm, finalMode);
+    if (ret != HCCL_SUCCESS) {
+        HCCL_ERROR("DecideHcclOpExpansionMode failed, ret: %d", ret);
+        return ret;
     }
-    else if (GetExternalInputHcclAivMode() == true) {
-        HCCL_DEBUG("[HcclExecOp] is aiv mode");
-        // 注册AIV kernel二进制
-        CHK_RET(RegisterKernel(param.opType, g_aivKernelInfoMap[param.opType].first, g_aivKernelInfoMap[param.opType].second));
-        param.opExecuteConfig = OpExecuteConfig::AIV;
-        param.engine = CommEngine::COMM_ENGINE_AIV;
-    }
-    else if (GetExternalInputHcclCcuMSMode()) {
-        HCCL_DEBUG("[HcclExecOp] is ccu ms mode");
-        param.opExecuteConfig = OpExecuteConfig::CCU_MS;
-        param.engine = CommEngine::COMM_ENGINE_CCU;
-    }
-    else if (GetExternalInputHcclCcuSchedMode()) {
-        HCCL_DEBUG("[HcclExecOp] is ccu sched mode");
-        param.opExecuteConfig = OpExecuteConfig::CCU_SCHED;
-        param.engine = CommEngine::COMM_ENGINE_CCU;
+
+    // 第二步：应用选择的模式到param
+    ret = ApplyOpExpansionMode(param, finalMode);
+    if (ret != HCCL_SUCCESS) {
+        HCCL_ERROR("ApplyOpExpansionMode failed, ret: %d", ret);
+        return ret;
     }
     return HCCL_SUCCESS;
+}
+
+HcclResult DecideHcclOpExpansionMode(HcclComm comm, HcclOpExpansionMode &finalMode)
+{
+    HcclOpExpansionMode configOpExpansionMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_INVALID;
+    uint32_t infoLen = sizeof(HcclOpExpansionMode);
+    CHK_RET(HcclConfigGetInfo(comm, HcclConfigType::HCCL_CONFIG_TYPE_OP_EXPANSION_MODE, infoLen, &configOpExpansionMode));
+    finalMode = configOpExpansionMode;
+    if (GetExternalInputHcclAicpuUnfold() == true) {
+        finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_AI_CPU;
+    } else if (GetExternalInputHcclAivMode() == true) {
+        finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV;
+    } else if (GetExternalInputHcclCcuMSMode()) {
+        finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_CCU_MS;
+    } else if (GetExternalInputHcclCcuSchedMode()) {
+        finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_CCU_SCHED;
+    }
+
+    if (configOpExpansionMode != finalMode) {
+        HCCL_DEBUG("[DecideHcclOpExpansionMode] configOpExpansionMode: %d, environment mode: %d, conflict, use environment mode.",
+            configOpExpansionMode, finalMode);
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult ApplyOpExpansionMode(OpParam &param, HcclOpExpansionMode finalMode)
+{
+    switch (finalMode) {
+        case HcclOpExpansionMode::HCCL_OP_EXPANSION_AI_CPU:
+            param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
+            param.engine = CommEngine::COMM_ENGINE_AICPU_TS;
+            CHK_RET(LoadAICPUKernel());
+            HCCL_DEBUG("[ApplyOpExpansionMode] AICPU mode selected.");
+            break;
+        case HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV:
+            param.opExecuteConfig = OpExecuteConfig::AIV;
+            param.engine = CommEngine::COMM_ENGINE_AIV;
+            CHK_RET(RegisterKernel(param.opType, g_aivKernelInfoMap[param.opType].first, g_aivKernelInfoMap[param.opType].second));
+            HCCL_DEBUG("[ApplyOpExpansionMode] AIV mode selected.");
+            break;
+        case HcclOpExpansionMode::HCCL_OP_EXPANSION_CCU_MS:
+            param.opExecuteConfig = OpExecuteConfig::CCU_MS;
+            param.engine = CommEngine::COMM_ENGINE_CCU;
+            HCCL_DEBUG("[ApplyOpExpansionMode] CCU_MS mode selected.");
+            break;
+        case HcclOpExpansionMode::HCCL_OP_EXPANSION_CCU_SCHED:
+            param.opExecuteConfig = OpExecuteConfig::CCU_SCHED;
+            param.engine = CommEngine::COMM_ENGINE_CCU;
+            HCCL_DEBUG("[ApplyOpExpansionMode] CCU_SCHED mode selected.");
+            break;
+        case HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_INVALID:
+            // 回退到aicpu
+            HCCL_WARNING("[ApplyOpExpansionMode] Invalid HcclOpExpansionMode: %d, fallback to AICPU_TS.", finalMode);
+            param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
+            param.engine = CommEngine::COMM_ENGINE_AICPU_TS;
+            CHK_RET(LoadAICPUKernel());
+            break;
+        default:
+            HCCL_ERROR("[ApplyOpExpansionMode] failed to apply op expansion mode: %d.", finalMode);
+            return HcclResult::HCCL_E_INTERNAL;
+    }
+    return HcclResult::HCCL_SUCCESS;
 }
 
 bool HcclCheckAicpuEnableOpen()
