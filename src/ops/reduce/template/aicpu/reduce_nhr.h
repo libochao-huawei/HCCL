@@ -39,8 +39,6 @@ public:
         HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo, AlgResourceRequest &resourceRequest) override;
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
 
-    HcclResult PostCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads) const;
-
     void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub) override;
     void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override;
 
@@ -51,7 +49,7 @@ private:
     HcclResult PreCopy(const TemplateDataParams &tempAlgParams);
     HcclResult RunReduce(const std::map<u32, std::vector<ChannelInfo>> &channels);
     HcclResult RunGather(const std::map<u32, std::vector<ChannelInfo>> &channels);
-    HcclResult PostCopy(const TemplateDataParams &tempAlgParams);
+    HcclResult PostCopy(const TemplateDataParams &tempAlgParams) const;
 
     HcclResult GetStepInfoList(std::vector<AicpuNHRStepInfo> &stepInfoList) const;
     HcclResult GetStepInfo(u32 step, u32 nSteps, AicpuNHRStepInfo &stepInfo);

@@ -13,6 +13,7 @@
 #include "ccu_assist_pub.h"
 #include "ccu_temp_reduce_scatter_nhr_1D_mem2mem.h"
 #include "alg_data_trans_wrapper.h"
+#include "ccu_kernel_reduce_scatter_nhr1d_mem2mem.h"
 
 namespace ops_hccl {
 
@@ -71,7 +72,7 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::GetDieNumFromChannelDescs(HcclComm 
     }
 }
 
-HcclResult CcuTempReduceScatterNHR1DMem2Mem::ProcessNHRStepInfo(HcclComm comm, const std::vector<HcclChannelDesc>& channelDescs,
+HcclResult CcuTempReduceScatterNHR1DMem2Mem::ProcessNHRStepInfo(HcclComm comm,
                                                             std::vector<NHRStepInfo>& stepInfoVector,
                                                             std::map<u32, u32>& rank2ChannelIdx, u32 enableDieNum,
                                                             std::vector<std::vector<HcclChannelDesc>>& channelsPerDie)
@@ -146,7 +147,7 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::CalcRes(HcclComm comm, const OpPara
     std::map<u32, u32> rank2ChannelIdx;
     std::vector<NHRStepInfo> stepInfoVector;
     
-    CHK_RET(ProcessNHRStepInfo(comm, channelDescs, stepInfoVector, rank2ChannelIdx, enableDieNum, channelsPerDie));
+    CHK_RET(ProcessNHRStepInfo(comm, stepInfoVector, rank2ChannelIdx, enableDieNum, channelsPerDie));
 
     // 3.构造kernelInfo
     for (uint32_t kernelIdx = 0; kernelIdx < kernelNum; kernelIdx++) {
