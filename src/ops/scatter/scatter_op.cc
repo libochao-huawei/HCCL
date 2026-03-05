@@ -293,9 +293,10 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
 
     // 获取资源
     AlgResourceCtx* resCtx;
+    ThreadHandle cpuTsThread;
+    ThreadHandle exportedAicpuTsThread;
+    ThreadHandle exportedCpuTsThread;
     if (HcclThreadExportToCommEngine != nullptr) {
-        ThreadHandle cpuTsThread;
-        ThreadHandle exportedAicpuTsThread;
         if (param.engine == COMM_ENGINE_AICPU_TS) {
             CHK_RET(HcclThreadAcquireWithStream(comm, COMM_ENGINE_CPU_TS, param.stream, 1, &cpuTsThread));
             // Export cpuTsThread
@@ -303,7 +304,6 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
         }
         
         CHK_RET(GetAlgRes(comm, param, executor, topoInfo, algType, &resCtx));
-        ThreadHandle exportedCpuTsThread;
         if (param.engine == COMM_ENGINE_AICPU_TS) {
             // Export aicpu ts thread
             ThreadHandle mainThread = topoInfo->mainThread;
