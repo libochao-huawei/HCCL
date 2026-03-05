@@ -236,4 +236,30 @@ bool AutoSelectorBase::IsLayerAllConnetedWithTopo(const TopoInfoWithNetLayerDeta
     return false;
 }
 
+bool AutoSelectorBase::IsMeshNumEqualToClosNum(const TopoInfoWithNetLayerDetails *topoInfo) const
+{
+    auto& topoInstDetails = topoInfo->topoInstDetailsOfLayer;
+    // 检查topoInstDetails是否为空
+    CHK_PRT_RET(topoInstDetails.empty(),
+        HCCL_ERROR("[BaseSelector][IsMeshNumEqualToClosNum] topoInstDetailsOfLayer0 size is zero."), HCCL_E_INTERNAL);
+    
+    // 获取Clos和Mesh拓扑类型的rank数量并比较是否相等
+    return (topoInstDetails[0].rankNumForTopoType[COMM_TOPO_CLOS] == topoInstDetails[0].rankNumForTopoType[COMM_TOPO_MESH]);
+}
+
+bool AutoSelectorBase::IsClosNumMultipleOfMeshNum(const TopoInfoWithNetLayerDetails *topoInfo) const
+{
+    auto& topoInstDetails = topoInfo->topoInstDetailsOfLayer;
+    // 检查topoInstDetails是否为空
+    CHK_PRT_RET(topoInstDetails.empty(),
+        HCCL_ERROR("[BaseSelector][IsClosNumMultipleOfMeshNum] topoInstDetailsOfLayer0 size is zero."), HCCL_E_INTERNAL);
+    
+    // 获取Clos和Mesh拓扑类型的rank数量
+    const auto& closRankNums = topoInstDetails[0].rankNumForTopoType[COMM_TOPO_CLOS];
+    const auto& meshRankNums = topoInstDetails[0].rankNumForTopoType[COMM_TOPO_MESH];
+    
+    // 检查Clos数量是否大于Mesh数量且是Mesh数量的倍数
+    return (closRankNums > meshRankNums) && (closRankNums % meshRankNums == 0);
+}
+
 }

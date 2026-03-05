@@ -97,6 +97,8 @@ public:
     HcclResult CheckHostDPUOnly(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam, bool &hostDPUOnly) const;
     bool IsStarsState(const OpExecuteConfig &opExecuteConfig) const;
     bool IsLayerAllConnetedWithTopo(const TopoInfoWithNetLayerDetails *topoInfo, const u32 netLayer, const CommTopo topoType) const;
+    bool IsMeshNumEqualToClosNum(const TopoInfoWithNetLayerDetails *topoInfo) const;
+    bool IsClosNumMultipleOfMeshNum(const TopoInfoWithNetLayerDetails *topoInfo) const;
 };
 
 inline bool Is64BitDataType(HcclDataType dataType)
