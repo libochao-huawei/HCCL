@@ -19,6 +19,7 @@
 #include "ccu_temp_reduce_scatter_nhr_1D_mem2mem.h"
 #include "ccu_temp_reduce_scatter_mesh_1D_2die_mem2mem.h"
 #include "ccu_temp_reduce_scatter_mesh2die.h"
+#include "ccu_temp_reduce_scatter_nhr_1D_multi_jetty_mem2mem.h"
 #endif
 
 namespace ops_hccl {
@@ -185,6 +186,8 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterMeshMem2M
     CcuTempReduceScatterMeshMem2Mem1D2Die);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterMesh2Die, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
     CcuTempReduceScatterMesh2Die);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterNhr1DMem2MemMultiJetty, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
+ 	     CcuTempReduceScatterNhrMultiJettyMem2Mem1D);
 #endif
 
 }
