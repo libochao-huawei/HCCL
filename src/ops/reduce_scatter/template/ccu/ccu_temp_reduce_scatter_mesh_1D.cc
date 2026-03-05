@@ -121,4 +121,17 @@ u64 CcuTempReduceScatterMesh1D::CalcScratchMultiple(BufferType inBuffType, Buffe
     return 0;
 }
 
+u64 CcuTempReduceScatterMesh1D::GetThreadNum()
+{
+    return 1;
+}
+
+HcclResult CcuTempReduceScatterMesh1D::GetRes(AlgResourceRequest& resourceRequest)
+{
+    resourceRequest.slaveThreadNum = 0;
+    resourceRequest.notifyNumOnMainThread = 0;
+
+    return HCCL_SUCCESS;
+}
+
 } // namespace ops_hccl
