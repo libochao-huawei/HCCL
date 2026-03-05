@@ -290,7 +290,7 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1>::Orc
     AlgTemplate0 intraTempAlg(paramIntra, resCtx.topoInfo.userRank, resCtx.algHierarchyInfo.infos.at(0));
     AlgTemplate1 interTempAlg(paramInter, resCtx.topoInfo.userRank, resCtx.algHierarchyInfo.infos.at(1));
     // 将计算资源分配个每个算法
-    PrepareResForTemplate(param, resCtx, intraTempAlg, interTempAlg);
+    PrepareResForTemplate(intraTempAlg, interTempAlg);
     // 算法展开
 
     HcclResult ret = OrchestrateLoop(param, resCtx, intraTempAlg, interTempAlg);
