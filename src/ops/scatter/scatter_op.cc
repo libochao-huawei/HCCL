@@ -240,7 +240,7 @@ HcclResult ScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, Hcc
         CHK_RET(Selector(comm, param, topoInfo, algName));
 =======
         CHK_RET(Selector(comm, param, topoInfo, algName, opExecuteConfig));
-        if (opExecuteConfig != OpExecuteConfig::AICPU_TS) {
+        if (opExecuteConfig != OpExecuteConfig::AICPU_TS && opExecuteConfig != OpExecuteConfig::HOSTCPU) {
             return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
         }
 >>>>>>> 3ac773b... Hybrid comm and selector fix

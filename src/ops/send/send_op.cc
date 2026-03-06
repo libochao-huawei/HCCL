@@ -145,7 +145,7 @@ namespace ops_hccl {
         CHK_RET(Selector(comm, param, topoInfo, algName));
 =======
         CHK_RET(Selector(comm, param, topoInfo, algName, opExecuteConfig));
-        if (opExecuteConfig != OpExecuteConfig::AICPU_TS) {
+        if (opExecuteConfig != OpExecuteConfig::AICPU_TS && opExecuteConfig != OpExecuteConfig::HOSTCPU) {
             return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
         }
 >>>>>>> 3ac773b... Hybrid comm and selector fix
