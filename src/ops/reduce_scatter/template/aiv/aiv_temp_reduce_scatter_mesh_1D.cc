@@ -69,8 +69,8 @@ HcclResult AivTempReduceScatterMesh1D::KernelRun(const OpParam& param,
     dataType_ = param.DataDes.dataType;
     AivOpArgs aivReduceScatterArgs;
     aivReduceScatterArgs.cmdType = HcclCMDType::HCCL_CMD_REDUCE_SCATTER;
-    aivReduceScatterArgs.input = tempAlgParams.buffInfo.inBuffBaseOff + reinterpret_cast<u64>(tempAlgParams.buffInfo.inputPtr);
-    aivReduceScatterArgs.output = tempAlgParams.buffInfo.outBuffBaseOff + reinterpret_cast<u64>(tempAlgParams.buffInfo.outputPtr);
+    aivReduceScatterArgs.input = tempAlgParams.buffInfo.inBuffBaseOff + reinterpret_cast<uintptr_t>(tempAlgParams.buffInfo.inputPtr);
+    aivReduceScatterArgs.output = tempAlgParams.buffInfo.outBuffBaseOff + reinterpret_cast<uintptr_t>(tempAlgParams.buffInfo.outputPtr);
     aivReduceScatterArgs.rank = u32(myRank_);
     aivReduceScatterArgs.rankSize = tempRankSize_;
     aivReduceScatterArgs.count = tempAlgParams.sliceSize / SIZE_TABLE[dataType_];

@@ -51,8 +51,8 @@ HcclResult AivTempScatterMesh1D::KernelRun(const OpParam& param,
     dataType_ = param.DataDes.dataType;
     AivOpArgs aivScatterArgs;
     aivScatterArgs.cmdType = HcclCMDType::HCCL_CMD_SCATTER;
-    aivScatterArgs.input = tempAlgParams.buffInfo.inBuffBaseOff + reinterpret_cast<u64>(tempAlgParams.buffInfo.inputPtr);
-    aivScatterArgs.output = tempAlgParams.buffInfo.outBuffBaseOff + reinterpret_cast<u64>(tempAlgParams.buffInfo.outputPtr);
+    aivScatterArgs.input = tempAlgParams.buffInfo.inBuffBaseOff + reinterpret_cast<uintptr_t>(tempAlgParams.buffInfo.inputPtr);
+    aivScatterArgs.output = tempAlgParams.buffInfo.outBuffBaseOff + reinterpret_cast<uintptr_t>(tempAlgParams.buffInfo.outputPtr);
     aivScatterArgs.rank = u32(myRank_);
     aivScatterArgs.rankSize = tempRankSize_;
     aivScatterArgs.count = tempAlgParams.sliceSize / SIZE_TABLE[dataType_];
