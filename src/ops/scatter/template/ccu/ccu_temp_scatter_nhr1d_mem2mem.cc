@@ -160,7 +160,7 @@ HcclResult CcuTempScatterNHR1DMem2Mem::CalcRes(HcclComm comm, const OpParam &par
     std::map<u32, u32> rank2ChannelIdx;
     std::vector<NHRStepInfo> stepInfoVector;
 
-    CHK_RET(ProcessNHRStepInfo(comm, channelDescs, stepInfoVector, rank2ChannelIdx, enableDieNum, channelsPerDie));
+    CHK_RET(ProcessNHRStepInfo(comm,  stepInfoVector, rank2ChannelIdx, enableDieNum, channelsPerDie));
 
     // 3.构造kernelInfo
     for (uint32_t kernelIdx = 0; kernelIdx < kernelNum; kernelIdx++) {
