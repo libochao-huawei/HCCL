@@ -11,9 +11,9 @@
 #include "channel.h"
 #include "hccl_ccu_res.h"
 #include "ccu_assist_pub.h"
-#include "ccu_temp_all_reduce_mesh_1D_2die_oneshot.h"
-#include "ccu_kernel_all_reduce_mesh_1D_2die_oneshot.h"
 #include "alg_data_trans_wrapper.h"
+#include "ccu_kernel_all_reduce_mesh_1D_2die_oneshot.h"
+#include "ccu_temp_all_reduce_mesh_1D_2die_oneshot.h"
 
 namespace ops_hccl {
 
@@ -65,8 +65,8 @@ HcclResult CcuTempAllreduceMesh1D2DieOneShot::CalcRes(HcclComm comm, const OpPar
         groupRanksforDie[dieId].push_back(channel.remoteRank);
         HCCL_INFO("[CcuTempAllreduceMesh1D2DieOneShot::calRes] dieId[%d],channelIdx[%d]", dieId, channelIdx);
         channelIdx++;
-
     }
+
     for (uint32_t die = 0; die < 2; die++) {
         // 创建每个kernel的ctxArg，放入kernelInfo, 然后将kernelinfo放入resourceRequest.ccuKernelInfos
         CcuKernelInfo kernelInfo;
@@ -88,9 +88,9 @@ HcclResult CcuTempAllreduceMesh1D2DieOneShot::CalcRes(HcclComm comm, const OpPar
         kernelInfo.channels = channelDescsDie[die];
         resourceRequest.ccuKernelInfos.push_back(kernelInfo);
         HCCL_DEBUG("[CcuTempAllreduceMesh1D2DieOneShot::CalcRes] channelDescs.size()=%llu, dimsize=%llu, "
-            ,channelDescsDie[die].size(), groupRanksforDie[die].size());
-
+            , channelDescsDie[die].size(), groupRanksforDie[die].size());
     }
+
     HCCL_DEBUG("[CcuTempAllreduceMesh1D2DieOneShot::CalcRes] ccuKernelInfos.size()=%llu",
             resourceRequest.ccuKernelInfos.size());
     return HcclResult::HCCL_SUCCESS;
