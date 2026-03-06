@@ -11,7 +11,6 @@
 #ifndef INS_TEMP_BROADCAST_MESH_1D_TWO_SHOT_H
 #define INS_TEMP_BROADCAST_MESH_1D_TWO_SHOT_H
 
-#include <cstring>
 #include "alg_v2_template_base.h"
 #include "executor_base.h"
 #include "alg_data_trans_wrapper.h"
@@ -38,7 +37,7 @@ public:
                          const TemplateResource& templateResource) override;
     HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo, 
                        AlgResourceRequest& resourceRequest) override;
-    HcclResult GetRes(AlgResourceRequest &resourceReques) override;
+    HcclResult GetRes(AlgResourceRequest &resourceRequest) override;
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
     u64 GetThreadNum() override;
     void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub) override;
@@ -46,7 +45,7 @@ public:
     void SetRoot(u32 root);
 
 private:
-    HcclResult PostCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads);
+    HcclResult PostCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads) const;
     HcclResult CalcCommRankSetforScatter(const u32 groupRankSize, std::vector<u32> &commRanks) const;
     HcclResult CalcCommRankSetforAllGather(const u32 groupRankSize, std::vector<u32> &commRanks) const;
     HcclResult RunScatter(const std::vector<u32> &commRanks, const TemplateDataParams &tempAlgParams,

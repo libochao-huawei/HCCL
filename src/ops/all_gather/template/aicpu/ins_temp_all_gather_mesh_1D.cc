@@ -104,7 +104,8 @@ HcclResult InsTempAllGatherMesh1D::RunAllGatherMesh(const std::vector<ThreadHand
             HCCL_INFO("[InsTempAllGatherMesh1D] RunAllGatherMesh RankIDs[%d], connectedRank[%d], connectedAlgRank[%d].",
                       myRank_, connectedRank, connectedAlgRank);
 
-            CHK_PRT_RET(threadIdx >= threads.size() || !channels.count(connectedRank),
+            CHK_PRT_RET(threadIdx >= threads.size() || channels.count(connectedRank) == 0 || 
+                        channels.at(connectedRank).empty(),
                         HCCL_ERROR("[InsTempAllGatherMesh1D][RankID]=%u threadIdx=%u, threads.size=%u, "
                                    "connectedRank=%d, channels.size=%u",
                                    myRank_, threadIdx, threads.size(), connectedRank, channels.size()),

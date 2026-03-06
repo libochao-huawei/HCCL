@@ -37,7 +37,7 @@ public:
     HcclResult GetRes(AlgResourceRequest& resourceRequest) override;
 private:
     HcclResult CalcSlice(const u64 dataSize, RankSliceInfo &sliceInfoVec);
-    uint64_t RoundUp(uint64_t dividend, uint64_t divisor);
+    uint64_t RoundUp(uint64_t dividend, uint64_t divisor) const;
     uint32_t mySubCommRank_ = 0;
 };
 
