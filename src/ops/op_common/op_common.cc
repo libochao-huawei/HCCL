@@ -576,13 +576,12 @@ HcclResult HcclAllocAlgResourceCcu(HcclComm comm, const OpParam& param, AlgResou
     resCtxHost->slaveThreadNum = resRequest.slaveThreadNum;
     resCtxHost->notifyNumPerThread = resRequest.notifyNumPerThread;
     CHK_RET(HcclGetThread(comm, param, resRequest, resCtxHost));
-    CHK_RET(HcclGetChannelForCcu(comm, param, resRequest, resCtxHost));
+    CHK_RET(HcclGetChannelForCcu(comm, param, resRequest));
     CHK_RET(HcclGetCcuKernel(comm, resRequest, resCtxHost));
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclGetChannelForCcu(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
-                          const std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost)
+HcclResult HcclGetChannelForCcu(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest)
 {
     // 以kernel为粒度申请channel
     for (CcuKernelInfo& kernelInfo: resRequest.ccuKernelInfos) {
@@ -602,7 +601,7 @@ HcclResult HcclGetChannelForCcu(HcclComm comm, const OpParam &param, AlgResource
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclGetCcuKernel(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
+HcclResult HcclGetCcuKernel(HcclComm comm, AlgResourceRequest &resRequest,
                           std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost)
 {
     
@@ -629,13 +628,8 @@ HcclResult HcclGetCcuKernel(HcclComm comm, const OpParam &param, AlgResourceRequ
     return HCCL_SUCCESS;
 }
 
-<<<<<<< HEAD
-HcclResult GetAlgResAiv(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest, TopoInfo *topoInfo,
-    AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence)
-=======
 HcclResult GetAlgResAiv(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest, TopoInfoWithNetLayerDetails *topoInfo,
-    AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence, uint64_t& ctxSize)
->>>>>>> 80a70729211582fbef76dd06817d2a1df162e6a0
+    AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence)
 {
     uint64_t size = sizeof(AlgResourceCtxSerializable);
     CHK_RET(HcclEngineCtxCreate(comm, param.algTag, CommEngine::COMM_ENGINE_CPU_TS, size, resCtxSequence));
