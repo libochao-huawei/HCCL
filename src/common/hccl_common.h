@@ -134,11 +134,14 @@ enum class HcclRtDeviceInfoType {
  * @enum HcclMemType
  * @brief 内存类型枚举定义
  */
+#ifndef HCCL_MEM_TYPE_DEFINED
+#define HCCL_MEM_TYPE_DEFINED
 typedef enum {
     HCCL_MEM_TYPE_DEVICE, ///< 设备侧内存（如NPU等）
     HCCL_MEM_TYPE_HOST,   ///< 主机侧内存
     HCCL_MEM_TYPE_NUM     ///< 内存类型数量
 } HcclMemType;
+#endif
 
 typedef struct {
     HcclMemType type;
