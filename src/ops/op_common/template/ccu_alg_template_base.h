@@ -15,6 +15,9 @@
 #include "alg_param.h"
 
 namespace ops_hccl {
+
+constexpr uint32_t CCU_DIE_NUM_MAX_2 = 2;
+
 class CcuAlgTemplateBase {
 public:
     explicit CcuAlgTemplateBase();
