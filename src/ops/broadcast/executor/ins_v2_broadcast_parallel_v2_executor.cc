@@ -414,9 +414,9 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     float multiple = std::max(multiple0, multiple1);
 
     // 数据切分
-    u64 oneceSliceCountPercent = std::max(dataSplitSize.at(0) * float(1.0 / intraLocalRankSize_), dataSplitSize.at(1) * float(1.0 / interLocalRankSize_));
+    u64 onceSliceCountPercent = std::max(dataSplitSize.at(0) * float(1.0 / intraLocalRankSize_), dataSplitSize.at(1) * float(1.0 / interLocalRankSize_));
     u64 sliceCountUB = static_cast<u64>(UB_MAX_DATA_SIZE) / dataTypeSize_;
-    u64 sliceCountUB0 = oneceSliceCountPercent > 0 ? std::floor(sliceCountUB / oneceSliceCountPercent) : sliceCountUB;
+    u64 sliceCountUB0 = onceSliceCountPercent > 0 ? std::floor(sliceCountUB / onceSliceCountPercent) : sliceCountUB;
     u64 sliceCount = sliceCountUB0;
     if (multiple > 0 && maxTmpMemSize_ > 0) {
         u64 scratchCount = maxTmpMemSize_ / dataTypeSize_;  // 按照count来切分
@@ -470,6 +470,8 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 
         // 第一步开始前同步
         CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
+        HCCL_DEBUG("[InsBroadcastParallelExecutor][GenInsQues] RunTemplateInter1 myRank_[%d], dataOffset1[%d], currCountPart1[%d], scratchOffsetCountInterStage0[%d]",
+                   myRank_, dataOffset1, currCountPart1, scratchOffsetCountInterStage0);
         RunTemplateIntra0(param, resCtx, dataOffset0, currCountPart0, scratchOffsetCountIntraStage0, tempAlgParamsIntra0, intraTempAlgRes, tempAlgIntra);
         RunTemplateInter1(param, resCtx, dataOffset1, currCountPart1, scratchOffsetCountInterStage0, tempAlgParamsInter1, interTempAlgRes, tempAlgInter);
         // 第一步做完后回到主流做尾同步
