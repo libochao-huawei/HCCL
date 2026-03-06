@@ -39,8 +39,8 @@ public:
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
     u64 GetThreadNum() override;
 
-    void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMianToSub);
-    void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain);
+    void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMianToSub) override;
+    void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override;
 private:
     HcclResult GetStepInfoList(std::vector<AicpuNHRStepInfo> &stepInfoList);
     HcclResult LocalDataCopy(const std::vector<ThreadHandle> &threads);

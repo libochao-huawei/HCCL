@@ -15,7 +15,7 @@ namespace ops_hccl {
 constexpr u64 AG_2D_SMALL_DATA_SIZE = 1024 * 1024;
  
 SelectorStatus AllGatherVAutoSelector::SelectCcuMsAlgo(
-    TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+    const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
     std::string &selectAlgName) const
 {
     HCCL_DEBUG("[AllGatherVAutoSelector][%s] start", __func__);
@@ -60,7 +60,7 @@ SelectorStatus AllGatherVAutoSelector::SelectMeshAlgo(const TopoInfoWithNetLayer
 }
  
 SelectorStatus AllGatherVAutoSelector::SelectCcuScheduleAlgo(
-    TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+    const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
     std::string &selectAlgName) const
 {
     if (topoInfo->topoLevelNums > 1) {
@@ -98,7 +98,7 @@ SelectorStatus AllGatherVAutoSelector::SelectCcuScheduleAlgo(
 }
  
 SelectorStatus AllGatherVAutoSelector::SelectAicpuAlgo(
-    TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+    const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
     std::string &selectAlgName) const
 {
     std::vector<HcclAlgoType> algos =
@@ -120,7 +120,7 @@ SelectorStatus AllGatherVAutoSelector::SelectAicpuAlgo(
 }
  
 SelectorStatus AllGatherVAutoSelector::SelectAivAlgo(
-    TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+    const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
     std::string &selectAlgName) const
 {
     std::vector<HcclAlgoType> algos =

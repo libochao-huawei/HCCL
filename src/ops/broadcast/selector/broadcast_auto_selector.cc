@@ -12,7 +12,7 @@
 #include "selector_registry.h"
 
 namespace ops_hccl {
-SelectorStatus BroadcastAutoSelector::SelectCcuMsAlgo(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
+SelectorStatus BroadcastAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                     std::string &selectAlgName) const
 {
@@ -34,7 +34,7 @@ SelectorStatus BroadcastAutoSelector::SelectCcuMsAlgo(TopoInfoWithNetLayerDetail
     }
 }
 
-SelectorStatus BroadcastAutoSelector::SelectMeshAlgoCcuMs(TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
+SelectorStatus BroadcastAutoSelector::SelectMeshAlgoCcuMs(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                     std::string &selectAlgName) const
 {
     (void) opParam;
@@ -46,8 +46,8 @@ SelectorStatus BroadcastAutoSelector::SelectMeshAlgoCcuMs(TopoInfoWithNetLayerDe
     return SelectorStatus::MATCH;
 }
 
-SelectorStatus BroadcastAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetLayerDetails* topoInfo,
-                                                    OpParam &opParam,
+SelectorStatus BroadcastAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNetLayerDetails* topoInfo,
+                                                    const OpParam &opParam,
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                     std::string &selectAlgName) const
 {
@@ -81,8 +81,8 @@ SelectorStatus BroadcastAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetLayer
     }
 }
 
-SelectorStatus BroadcastAutoSelector::SelectAicpuAlgo(TopoInfoWithNetLayerDetails* topoInfo,
-                                                      OpParam &opParam,
+SelectorStatus BroadcastAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerDetails* topoInfo,
+                                                      const OpParam &opParam,
                                                       const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                       std::string &selectAlgName) const
 {
@@ -110,7 +110,7 @@ SelectorStatus BroadcastAutoSelector::SelectAicpuAlgo(TopoInfoWithNetLayerDetail
     return SelectorStatus::MATCH;
 }
 
-SelectorStatus BroadcastAutoSelector::SelectMeshAlgoAicpu(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
+SelectorStatus BroadcastAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                           std::string &selectAlgName) const
 {
     (void) opParam;
@@ -126,9 +126,9 @@ SelectorStatus BroadcastAutoSelector::SelectMeshAlgoAicpu(TopoInfoWithNetLayerDe
     return SelectorStatus::MATCH;
 }
 
-SelectorStatus BroadcastAutoSelector::SelectAivAlgo(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
-                                                        const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
-                                                        std::string &selectAlgName) const
+SelectorStatus BroadcastAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
+                                                    const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+                                                    std::string &selectAlgName) const
 {
     std::vector<HcclAlgoType> algos = std::vector<HcclAlgoType>(HCCL_ALGO_LEVEL_NUM, HcclAlgoType::HCCL_ALGO_TYPE_DEFAULT);
     auto it = configAlgMap.find(opParam.opType);

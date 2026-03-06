@@ -20,6 +20,12 @@
 
 
 namespace ops_hccl {
+
+// 并行执行器中两个 template 算法所需的 notify 数量
+constexpr u32 TEMPLATE_NOTIFY_NUM = 2;
+// 并行执行器中两个 template 算法的主 thread 数量
+constexpr u32 TEMPLATE_MAIN_THREAD_NUM = 2;
+
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::InsReduceScatterParallelExecutor()
     : InsCollAlgBase()
@@ -47,9 +53,9 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     intraTempAlg.CalcRes(comm, param, topoInfo, intraTempRequest);
     interTempAlg.CalcRes(comm, param, topoInfo, interTempRequest);
     // 申请一条控制thread作为主thread，该thread仅用于两个template之间同步
-    resourceRequest.notifyNumOnMainThread = 2;
+    resourceRequest.notifyNumOnMainThread = TEMPLATE_NOTIFY_NUM;
     // 由于主thread被单独作为控制thread，因此总的slaveThread需要额外加上两个template的主thread
-    resourceRequest.slaveThreadNum = intraTempRequest.slaveThreadNum + interTempRequest.slaveThreadNum + 2;
+    resourceRequest.slaveThreadNum = intraTempRequest.slaveThreadNum + interTempRequest.slaveThreadNum + TEMPLATE_MAIN_THREAD_NUM;
     // 第一个template的zhuthread需要的notify数量，+1是因为需要和控制thread做同步
     resourceRequest.notifyNumPerThread.emplace_back(intraTempRequest.notifyNumOnMainThread + 1);
     resourceRequest.notifyNumPerThread.insert(resourceRequest.notifyNumPerThread.end(),
@@ -215,8 +221,7 @@ void InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTempl
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::PrepareResForTemplate(
-    const OpParam &param, const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &tempAlgIntra,
-    InsAlgTemplate1 &tempAlgInter)
+    const AlgResourceCtxSerializable &resCtx, const InsAlgTemplate0 &tempAlgIntra, const InsAlgTemplate1 &tempAlgInter)
 {
     u64 intraThreadsNum = tempAlgIntra.GetThreadNum();
     u64 interThreadsNum = tempAlgInter.GetThreadNum();
@@ -376,7 +381,7 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 uint64_t InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::GetRankSize(
-    const std::vector<std::vector<u32>> &subCommRanks)
+    const std::vector<std::vector<u32>> &subCommRanks) const
 {
     uint64_t count = 1;
     for (const auto &i : subCommRanks) {
