@@ -17,13 +17,13 @@
 
 namespace ops_hccl {
 
-class CcuTemAllGatherNHR1DMultiJettyMem2Mem : public CcuAlgTemplateBase {
+class CcuTempAllGatherNHR1DMultiJettyMem2Mem : public CcuAlgTemplateBase {
 public:
-    explicit  CcuTemAllGatherNHR1DMultiJettyMem2Mem(const OpParam& param,
+    explicit  CcuTempAllGatherNHR1DMultiJettyMem2Mem(const OpParam& param,
                                                 const u32 rankId,
                                                 const std::vector<std::vector<u32>> &subCommRanks);
 
-    ~CcuTemAllGatherNHR1DMultiJettyMem2Mem() override;
+    ~CcuTempAllGatherNHR1DMultiJettyMem2Mem() override;
 
     std::string Describe() const override
     {

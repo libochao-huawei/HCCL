@@ -360,11 +360,11 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherConc
 
 #ifndef AICPU_COMPILE
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherConcurrentMesh1DNHRMem, InsAllGatherConcurrentExecutor,
-    TopoMatchUBX, CcuTempAllGatherMesh1DMem2Mem, CcuTemAllGatherNHR1DMultiJettyMem2Mem);
+    TopoMatchUBX, CcuTempAllGatherMesh1DMem2Mem, CcuTempAllGatherNHR1DMultiJettyMem2Mem);
 
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherConcurrentMesh1DNHR,
                                InsAllGatherConcurrentExecutor, TopoMatchUBX, CcuTempAllGatherMesh1D,
-                               CcuTemAllGatherNHR1DMultiJettyMem2Mem);
+                               CcuTempAllGatherNHR1DMultiJettyMem2Mem);
 #endif
 
 }  // namespace
