@@ -127,7 +127,7 @@ HcclResult CcuTempReduceNHR1DMem2Mem::CalcRes(HcclComm comm, const OpParam& para
     uint32_t enableDieNum = 0;
     CHK_RET(GetDieNumFromChannelDescs(comm, enableDieNum));
     
-    if (enableDieNum < 1 || enableDieNum > 2) {
+    if (enableDieNum < 1 || enableDieNum > CCU_DIE_NUM_MAX_2) { // 目前只支持1个或2个die
         HCCL_ERROR("[CcuTempReduceNHR1DMem2Mem::CalcRes] get channelDescs fail");
         return HcclResult::HCCL_E_INTERNAL;
     }
@@ -202,7 +202,7 @@ HcclResult CcuTempReduceNHR1DMem2Mem::SplitDataFor2Dies(const OpParam& param,
  * 输入的 dataSize 是一张卡上完整的数据量
  * 函数会将 dataSize 切分成 rankSize 份，最后一份尾块可能会比其他的切分出来的子块大。
  */
-HcclResult CcuTempReduceNHR1DMem2Mem::CalcSliceInfoAllReduce(const u64 dataSize, RankSliceInfo &sliceInfoVec)
+HcclResult CcuTempReduceNHR1DMem2Mem::CalcSliceInfoAllReduce(const u64 dataSize, RankSliceInfo &sliceInfoVec) const
 {
     sliceInfoVec.clear();
     sliceInfoVec.resize(templateRankSize_);
@@ -325,7 +325,7 @@ HcclResult CcuTempReduceNHR1DMem2Mem::GetStepInfo(u32 step, u32 nSteps, NHRStepI
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuTempReduceNHR1DMem2Mem::GetReduceScatterStepInfo(u32 step, NHRStepInfo &stepInfo)
+HcclResult CcuTempReduceNHR1DMem2Mem::GetReduceScatterStepInfo(u32 step, NHRStepInfo &stepInfo) const
 {
     u32 virtRankIdx = mySubCommRank_;
     stepInfo.txSliceIdxs.clear();

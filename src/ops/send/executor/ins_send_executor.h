@@ -36,8 +36,7 @@ namespace ops_hccl {
 
     protected:
         HcclResult InitCommInfo(
-            HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
-            const AlgHierarchyInfoForAllLevel &algHierarchyInfo);
+            HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo);
 
         // 单算子|图模式
         OpMode opMode_;

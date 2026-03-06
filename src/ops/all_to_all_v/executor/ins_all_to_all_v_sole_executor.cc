@@ -14,6 +14,11 @@
 #include "ccu_temp_all_to_all_v_mesh_1D.h"
 #endif
 
+#define CONST_ZERO = 0
+#define CONST_ONE = 1
+#define CONST_TWO = 2
+#define CONST_THREE = 3
+
 namespace ops_hccl {
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
@@ -71,22 +76,22 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::GetAlltoAllLo
         u64 val = i / rankSize_;
         u64 curRank = i % rankSize_;
         switch(val) {
-            case 0:
+            case CONST_ZERO:
                 localSendRecvInfo.sendCounts[curRank] = data[i];
                 localSendRecvInfo.sendLength[curRank] = data[i] * dataTypeSize_;
                 HCCL_INFO("data[i]: %u, localSendRecvInfo.sendLength: %u", data[i], localSendRecvInfo.sendLength[curRank]);
                 break;
-            case 1:
+            case CONST_ONE:
                 localSendRecvInfo.recvCounts[curRank] = data[i];
                 localSendRecvInfo.recvLength[curRank] = data[i] * dataTypeSize_;
                 HCCL_INFO("data[i]: %u, localSendRecvInfo.recvLength: %u", data[i], localSendRecvInfo.recvLength[curRank]);
                 break;
-            case 2:
+            case CONST_TWO:
                 localSendRecvInfo.sendDispls[curRank] = data[i];
                 localSendRecvInfo.sendOffset[curRank] = data[i] * dataTypeSize_;
                 HCCL_INFO("data[i]: %u, localSendRecvInfo.sendOffset: %u", data[i], localSendRecvInfo.sendOffset[curRank]);
                 break;
-            case 3:
+            case CONST_THREE:
                 localSendRecvInfo.recvDispls[curRank] = data[i];
                 localSendRecvInfo.recvOffset[curRank] = data[i] * dataTypeSize_;
                 HCCL_INFO("data[i]: %u, localSendRecvInfo.recvOffset: %u", data[i], localSendRecvInfo.recvOffset[curRank]);
@@ -122,7 +127,6 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate(
     CHK_PRT_RET(ret != HCCL_SUCCESS,
         HCCL_ERROR("[InsAlltoAllVSoleExecutor][Orchestrate]errNo[0x%016llx] All to All excutor kernel run failed",
             HCCL_ERROR_CODE(ret)), ret);
-    return HCCL_SUCCESS;
     return HcclResult::HCCL_SUCCESS;
 }
 

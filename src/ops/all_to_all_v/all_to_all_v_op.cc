@@ -15,7 +15,6 @@
 #include <hccl/hccl_types.h>
 #include "hccl/base.h"
 #include "sal.h"
-#include "error_codes/rt_error_codes.h"
 #include "mmpa_api.h"
 #include "param_check.h"
 #include "executor_base.h"
@@ -228,7 +227,7 @@ HcclResult HcclAlltoAllVC(const void *sendBuf, const void *sendCountMatrix, Hccl
 
 namespace ops_hccl {
 
-HcclResult CheckAlltoAllInputPara(HcclComm comm, const void *sendBuf, uint64_t sendCount, HcclDataType sendType,
+HcclResult CheckAlltoAllInputPara(const HcclComm comm, const void *sendBuf, uint64_t sendCount, HcclDataType sendType,
     const void *recvBuf, uint64_t recvCount, HcclDataType recvType)
 {
     // 入参合法性校验
@@ -257,7 +256,7 @@ HcclResult CheckAlltoAllInputPara(HcclComm comm, const void *sendBuf, uint64_t s
     return HCCL_SUCCESS;
 }
 
-HcclResult CheckAlltoAllVInputPara(HcclComm comm, const void *sendBuf, const void *sendCounts, const void *sdispls,
+HcclResult CheckAlltoAllVInputPara(const HcclComm comm, const void *sendBuf, const void *sendCounts, const void *sdispls,
     HcclDataType sendType, const void *recvBuf, const void *recvCounts, const void *rdispls, HcclDataType recvType)
 {
     RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
@@ -292,7 +291,7 @@ HcclResult CheckAlltoAllVInputPara(HcclComm comm, const void *sendBuf, const voi
     return HCCL_SUCCESS;
 }
 
-HcclResult CheckAlltoAllVCInputPara(HcclComm comm, const void *sendBuf, const void *sendCountMatrix,
+HcclResult CheckAlltoAllVCInputPara(const HcclComm comm, const void *sendBuf, const void *sendCountMatrix,
     HcclDataType sendType, const void *recvBuf, HcclDataType recvType)
 {
     RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
