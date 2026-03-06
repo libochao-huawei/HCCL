@@ -105,11 +105,11 @@ HcclResult GetAivOpBinaryPath(const std::string &aivBinaryName, std::string &bin
 s8* GetFuncKey(HcclCMDType cmdType, HcclDataType dataType, KernelArgsType argsType = KernelArgsType::ARGS_TYPE_SERVER)
 {
     return reinterpret_cast<s8*>(
-        (((static_cast<s64>(cmdType) << SIG_MOVE_LEFT_BITS) + static_cast<s64>(dataType)) << SIG_MOVE_LEFT_BITS) +
-        static_cast<s64>(argsType));
+        (((static_cast<u64>(cmdType) << SIG_MOVE_LEFT_BITS) + static_cast<u64>(dataType)) << SIG_MOVE_LEFT_BITS) +
+        static_cast<u64>(argsType));
 }
 
-HcclResult RegisterBinaryKernel(const char* funcName, const aclrtBinHandle binHandle, s8* funcKey)
+HcclResult RegisterBinaryKernel(const char* funcName, const aclrtBinHandle binHandle, const s8* funcKey)
 {
     if (funcKey == nullptr) {
         return HCCL_E_PARA;
@@ -120,17 +120,17 @@ HcclResult RegisterBinaryKernel(const char* funcName, const aclrtBinHandle binHa
     CHK_PRT_RET(aclRet != ACL_SUCCESS, HCCL_ERROR("[RegisterBinaryKernel]errNo[0x%016llx] get function from binary error.", aclRet),
         HCCL_E_NOT_FOUND);
 
-    g_aivFuncMap[funcKey] = funcHandle;
+    g_aivFuncMap[const_cast<s8*>(funcKey)] = funcHandle;
 
     return HCCL_SUCCESS;
 }
 
-HcclResult GetKernelFunc(aclrtFuncHandle& funcHandle, s8* funcKey)
+HcclResult GetKernelFunc(aclrtFuncHandle& funcHandle, const s8* funcKey)
 {
-    if (funcKey == nullptr || g_aivFuncMap.find(funcKey) == g_aivFuncMap.end()) {
+    if (funcKey == nullptr || g_aivFuncMap.find(const_cast<s8*>(funcKey)) == g_aivFuncMap.end()) {
         return HCCL_E_PARA;
     }
-    funcHandle = g_aivFuncMap[funcKey];
+    funcHandle = g_aivFuncMap[const_cast<s8*>(funcKey)];
     return HCCL_SUCCESS;
 }
 
