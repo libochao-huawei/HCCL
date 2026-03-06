@@ -60,22 +60,6 @@ struct EnumHash {
     }
 };
 
-const std::unordered_set<HcclDataType, EnumHash> HCCL_SUPPORT_DATA_TYPE = {
-    HCCL_DATA_TYPE_INT8,
-    HCCL_DATA_TYPE_INT16,
-    HCCL_DATA_TYPE_INT32,
-    HCCL_DATA_TYPE_FP16,
-    HCCL_DATA_TYPE_FP32,
-    HCCL_DATA_TYPE_INT64,
-    HCCL_DATA_TYPE_UINT64,
-    HCCL_DATA_TYPE_UINT8,
-    HCCL_DATA_TYPE_UINT16,
-    HCCL_DATA_TYPE_UINT32,
-    HCCL_DATA_TYPE_FP64,
-    HCCL_DATA_TYPE_BFP16,
-    HCCL_DATA_TYPE_INT128
-};
-
 HcclResult HcomCheckTag(const char *tag)
 {
     CHK_PTR_NULL(tag);
@@ -100,9 +84,19 @@ HcclResult HcomCheckCount(const u64 count)
 
 HcclResult HcomCheckDataType(const HcclDataType dataType)
 {
-    if (HCCL_SUPPORT_DATA_TYPE.find(dataType) == HCCL_SUPPORT_DATA_TYPE.end()) {
+    if (HCOM_DATA_TYPE_STR_MAP.find(dataType) == HCOM_DATA_TYPE_STR_MAP.end()) {
         HCCL_ERROR("[Check][DataType]errNo[0x%016llx] data type[%s] not supported",
             HCOM_ERROR_CODE(HCCL_E_NOT_SUPPORT), GetDataTypeEnumStr(dataType).c_str());
+        return HCCL_E_NOT_SUPPORT;
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcomCheckReductionOp(const HcclReduceOp op)
+{
+    if (HCOM_REDUCE_OP_STR_MAP.find(op) == HCOM_REDUCE_OP_STR_MAP.end()) {
+        HCCL_ERROR("[Check][ReduceOp]errNo[0x%016llx] reduce op type[%s] not supported",
+            HCOM_ERROR_CODE(HCCL_E_NOT_SUPPORT), GetReduceOpEnumStr(op).c_str());
         return HCCL_E_NOT_SUPPORT;
     }
     return HCCL_SUCCESS;
