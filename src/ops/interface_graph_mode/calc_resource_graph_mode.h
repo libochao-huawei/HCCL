@@ -10,11 +10,19 @@
 
 #include "alg_param.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 HcclResult HcclCreateOpParamGraphMode(OpParamGraphMode** opParam);
 HcclResult HcclDestroyOpParamGraphMode(OpParamGraphMode opParam);
 HcclResult HcclSetOpParamGraphModeOpType(OpParamGraphMode opParam, const char* opType);
 HcclResult HcclCalcOpResOnlineGraphMode(OpParamGraphMode* opParam, u64* opMemSize, u32* streamNum, u32* taskNum, u32* aivCoreNum);
 HcclResult HcclCalcOpResOfflineGraphMode(OpParamGraphMode* opParam, u64* opMemSize, u32* streamNum, u32* taskNum, u32* aivCoreNum);
+
+#ifdef __cplusplus
+}
+#endif
 namespace hccl {
 HcclResult HcclCalcAicpuResOffline(ResResponseGraphMode *resResponse);
 } // namespace hccl
