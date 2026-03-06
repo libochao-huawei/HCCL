@@ -9,17 +9,17 @@
  */
 
 #include <algorithm>
+#include <string>
 #include <future>
 #include <map>
-#include <string>
 #include <hccl/hccl_types.h>
 #include "hccl/base.h"
 #include "sal.h"
 #include "mmpa_api.h"
-#include "param_check.h"
-#include "executor_base.h"
 #include "coll_alg_v2_exec_registry.h"
 #include "alg_env_config.h"
+#include "param_check.h"
+#include "executor_base.h"
 #include "adapter_acl.h"
 #include "topo_host.h"
 #include "adapter_error_manager_pub.h"
@@ -103,8 +103,7 @@ HcclResult BatchSendRecvOutPlace(HcclSendRecvItem *sendRecvInfo, uint32_t itemNu
     u64 varMemSize = itemNum * sizeof(HcclSendRecvItem);
     void* paramMem = malloc(sizeof(OpParam) + varMemSize);
     if (!paramMem) {
-        // 内存分配失败
-        HCCL_ERROR("malloc OpParam failed!");
+        HCCL_ERROR("[BatchSendRecvOutPlace] malloc OpParam failed!");
         return HCCL_E_INTERNAL;
     }
     OpParam* tmpParamPtr = new (paramMem) OpParam();

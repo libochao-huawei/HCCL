@@ -332,7 +332,7 @@ HcclResult AlltoAllVOutPlace(const void *sendBuf, const void *sendCounts, const 
     void *paramMem = malloc(sizeof(OpParam) + varMemSize);
     if (!paramMem) {
         // 内存分配失败
-        HCCL_ERROR("malloc OpParam failed!");
+        HCCL_ERROR("[AlltoAllVOutPlace] malloc OpParam failed!");
         return HCCL_E_INTERNAL;
     }
     OpParam* tmpParamPtr = new (paramMem) OpParam();
