@@ -35,6 +35,7 @@ SelectorStatus AlltoAllAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNet
                                                     std::string &selectAlgName) const
 {
     HCCL_DEBUG("[AlltoAllAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
+    (void)opParam;
     (void)configAlgMap;
     if (topoInfo->topoLevelNums > 1) {
         HCCL_WARNING("[Algo][AlltoAllAutoSelector] levelNum > 1 is not supported yet for ccu_schedule mode.");
@@ -69,6 +70,7 @@ SelectorStatus AlltoAllAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNet
         return SelectorStatus::NOT_MATCH;
     }
 
+    HCCL_INFO("[AlltoAllAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
     return SelectorStatus::MATCH;
 }
 
@@ -78,10 +80,13 @@ SelectorStatus AlltoAllAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerD
 {
     HCCL_DEBUG("[AlltoAllAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
     (void)configAlgMap;
+<<<<<<< HEAD
 
     HCCL_INFO("[AlltoAll] hccl algo op config: config opType:%d, level0:%u, level1:%u, level2:%u, level3:%u",
         opParam.opType, algos.at(INDEX_0), algos.at(INDEX_1), algos.at(INDEX_2), algos.at(INDEX_3));
 
+=======
+>>>>>>> c427422... alltoall and allgather selector change
     if (topoInfo->topoLevelNums > 1) {
         HCCL_ERROR("hccl algo no match");
         return SelectorStatus::NOT_MATCH;
@@ -113,11 +118,8 @@ SelectorStatus AlltoAllAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDet
                                                    std::string &selectAlgName) const
 {
     HCCL_DEBUG("[AlltoAllAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
-    (void) topoInfo;
+    (void)opParam;
     (void)configAlgMap;
-
-    HCCL_INFO("[AlltoAll] hccl algo op config: config opType:%d, level0:%u, level1:%u, level2:%u, level3:%u",
-        opParam.opType, algos.at(INDEX_0), algos.at(INDEX_1), algos.at(INDEX_2), algos.at(INDEX_3));
 
     selectAlgName = "AivAlltoAllMesh1D";
 
