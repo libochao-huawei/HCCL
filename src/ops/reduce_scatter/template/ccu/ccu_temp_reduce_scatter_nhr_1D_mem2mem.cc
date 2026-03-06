@@ -188,7 +188,6 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::SplitDataFor2Dies(const OpParam& pa
     u8 die0BWcoeff = 1;
     u8 die1BWcoeff = 1;
 
-
     die0Size = (dataCount * die0BWcoeff / (die0BWcoeff + die1BWcoeff)) * typeSize;
     die1Size = templateDataParams.sliceSize - die0Size;
     return HcclResult::HCCL_SUCCESS;
@@ -302,7 +301,8 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::GetStepInfo(u32 step, NHRStepInfo &
 
 u64 CcuTempReduceScatterNHR1DMem2Mem::GetThreadNum()
 {
-    return 2;
+    constexpr uint32_t KERNEL_NUM_2 = 2;
+    return KERNEL_NUM_2;
 }
 
 HcclResult CcuTempReduceScatterNHR1DMem2Mem::GetRes(AlgResourceRequest& resourceRequest)
