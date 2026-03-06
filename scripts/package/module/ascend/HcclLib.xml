@@ -14,6 +14,7 @@
     </dir_info>
     <file_info value="include" copy_type="source" src_path="hccl/include" dst_path="include/hccl" install_path="$(TARGET_ENV)/include/hccl" install_type="devel" install_mod="440">
         <file value="hccl.h"/>
+        <file value="hccl_mc2.h"/>
     </file_info>
     <file_info value="lib64" copy_type="delivery" src_path="build" dst_path="lib64" install_path="$(TARGET_ENV)/lib64" install_type="all" install_mod="440">
         <!-- hccl -->
