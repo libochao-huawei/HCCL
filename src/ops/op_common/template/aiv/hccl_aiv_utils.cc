@@ -84,7 +84,7 @@ using AivExtraKernelArgs = struct AivExtraKernelArgsDef {
 
 HcclResult GetAivOpBinaryPath(const std::string &aivBinaryName, std::string &binaryPath)
 {
-    // 获取二进制文件路径
+    // 获取二进制文件路径 
     std::string libPath;
     char *getPath = nullptr;
     MM_SYS_GET_ENV(MM_ENV_ASCEND_HOME_PATH, getPath);
