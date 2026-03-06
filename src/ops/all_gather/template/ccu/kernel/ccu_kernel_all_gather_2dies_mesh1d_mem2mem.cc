@@ -86,7 +86,6 @@ std::vector<uint64_t> CcuKernelAllGather2DiesMeshMem2Mem1D::GeneArgs(const hcomm
 
 HcclResult CcuKernelAllGather2DiesMeshMem2Mem1D::InitResource()
 {
-    
     localGoSize_ = CreateGroupOpSize();
     localCopyEvent_ = CreateCompletedEvent();
     event_ = CreateCompletedEvent();
@@ -152,19 +151,16 @@ void CcuKernelAllGather2DiesMeshMem2Mem1D::PostSync()
 }
 
 void CcuKernelAllGather2DiesMeshMem2Mem1D::DoAllGather()
-{
-    
+{    
     hcomm::CcuRep::LocalAddr src = CreateLocalAddr();
     src.addr = input_[0];
     src.token = token_[rankId_];
 
-    
     std::vector<hcomm::CcuRep::RemoteAddr> remoteDst;
     for (uint64_t rankIdx = 0; rankIdx < rankIdGroup_.size(); rankIdx++) {
         remoteDst.push_back(CreateRemoteAddr());
     }
 
-    
     for (uint64_t rankIdx = 0; rankIdx < rankIdGroup_.size(); rankIdx++) {
         
         event_.SetMask(1 << rankIdGroup_[rankIdx]);
@@ -196,6 +192,5 @@ void CcuKernelAllGather2DiesMeshMem2Mem1D::DoAllGather()
     }
     event_.SetMask(rankMask);
     WaitEvent(event_);
-
 }
 }

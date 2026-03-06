@@ -108,12 +108,10 @@ HcclResult CcuTempAllGather2DiesMeshMem2Mem1D::KernelRun(const OpParam& param, c
     uint64_t sliceSize = templateDataParams.sliceSize;
     uint64_t offSet = rankId * templateDataParams.outputSliceStride;
 
-    
     std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
     std::vector<u32> notifyIdxMainToSub(1, 0);
     CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub));
     
-
     for (uint64_t i = 0; i < 2; i++) {
         std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAllGather2DiesMeshMem2Mem1D>(inputAddr, outputAddr,
                                                                                                          sliceSize, offSet, token);
