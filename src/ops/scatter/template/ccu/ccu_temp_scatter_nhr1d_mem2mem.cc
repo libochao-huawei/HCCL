@@ -88,12 +88,10 @@ HcclResult CcuTempScatterNHR1DMem2Mem::GetDieNumFromChannelDescs(HcclComm comm, 
 }
 
 HcclResult CcuTempScatterNHR1DMem2Mem::ProcessNHRStepInfo(HcclComm comm,
-                                                          const std::vector<HcclChannelDesc> &channelDescs,
                                                           std::vector<NHRStepInfo> &stepInfoVector,
                                                           std::map<u32, u32> &rank2ChannelIdx, u32 enableDieNum,
                                                           std::vector<std::vector<HcclChannelDesc>> &channelsPerDie)
 {
-    
     u32 nSteps = GetNHRStepNum(templateRankSize_);
     for (u32 step = 0; step < nSteps; step++) {
         NHRStepInfo stepInfo;
@@ -335,7 +333,8 @@ HcclResult CcuTempScatterNHR1DMem2Mem::GetStepInfo(u32 step, u32 nSteps, NHRStep
 
 u64 CcuTempScatterNHR1DMem2Mem::GetThreadNum()
 {
-    return 2;
+    constexpr uint32_t KERNEL_NUM_2 = 2;
+    return KERNEL_NUM_2;
 }
 
 HcclResult CcuTempScatterNHR1DMem2Mem::GetRes(AlgResourceRequest& resourceRequest)
