@@ -300,7 +300,7 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2, typename InsAlgTemplate3>
 void InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3>::GenDataParamstempAlg(
     const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset, const u64 sliceCount, const u64 scratchOffsetCount,
-    TemplateDataParams &dataParams, const u32 LocalRankSize, const bool isScatter) const
+    TemplateDataParams &dataParams, const u32 LocalRankSize) const
 {
     dataParams.buffInfo.inputPtr = dataParams.buffInfo.inBuffType == BufferType::HCCL_BUFFER ? resCtx.cclMem.addr : param.inputPtr;
     dataParams.buffInfo.outputPtr = dataParams.buffInfo.outBuffType == BufferType::HCCL_BUFFER ? resCtx.cclMem.addr : param.inputPtr;
@@ -309,7 +309,7 @@ void InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
     dataParams.buffInfo.inBuffBaseOff = dataParams.buffInfo.inBuffType == BufferType::HCCL_BUFFER ? dataParams.buffInfo.hcclBuffBaseOff : dataOffset;
     dataParams.buffInfo.outBuffBaseOff = dataParams.buffInfo.outBuffType == BufferType::HCCL_BUFFER ? dataParams.buffInfo.hcclBuffBaseOff : dataOffset;
 
-    GenDataParamsAllRank(sliceCount, LocalRankSize, isScatter, dataParams);
+    GenDataParamsAllRank(sliceCount, LocalRankSize, dataParams);
     dataParams.repeatNum = 1;
     dataParams.inputRepeatStride = 0;
     dataParams.outputRepeatStride = 0;
@@ -319,7 +319,7 @@ void InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2, typename InsAlgTemplate3>
 void InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3>::GenDataParamsAllRank(
-    const u64 sliceCount, const u32 LocalRankSize, const bool isScatter, TemplateDataParams &dataParams) const
+    const u64 sliceCount, const u32 LocalRankSize, TemplateDataParams &dataParams) const
 {
 
     u64 curSize = 0;
@@ -329,17 +329,10 @@ void InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
         curSize = (i == (LocalRankSize - 1)) ? (sliceSize - rankStride * i) : rankStride;
     }
     dataParams.tailSize = curSize;
-    if (isScatter){
-        dataParams.sliceSize = rankStride;
-        dataParams.count = dataParams.sliceSize / dataTypeSize_;
-        dataParams.inputSliceStride = rankStride;
-        dataParams.outputSliceStride = rankStride;
-    } else {
-        dataParams.sliceSize = rankStride;
-        dataParams.count = dataParams.sliceSize / dataTypeSize_;
-        dataParams.inputSliceStride = rankStride;
-        dataParams.outputSliceStride = rankStride;;
-    }
+    dataParams.sliceSize = rankStride;
+    dataParams.count = dataParams.sliceSize / dataTypeSize_;
+    dataParams.inputSliceStride = rankStride;
+    dataParams.outputSliceStride = rankStride;
     return;
 }
 
@@ -532,7 +525,7 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     if (intraLocalRoot_ == root_ && currCountPart > 0) {
         //数据0的server内的mesh算法
         GenDataParamsBufferType(BufferType::INPUT, BufferType::HCCL_BUFFER, BufferType::HCCL_BUFFER, dataParams);
-        GenDataParamstempAlg(param, resCtx, dataOffset, currCountPart, scratchOffsetCount, dataParams, intraLocalRankSize_, true);
+        GenDataParamstempAlg(param, resCtx, dataOffset, currCountPart, scratchOffsetCount, dataParams, intraLocalRankSize_);
         CHK_RET(tempAlgIntra.KernelRun(param, dataParams, templateResource));
     }
     return HcclResult::HCCL_SUCCESS;
@@ -547,7 +540,7 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     if (interLocalRoot_ == root_ && currCountPart > 0) {
         //数据1的server间的nhr算法
         GenDataParamsBufferType(BufferType::INPUT, BufferType::HCCL_BUFFER, BufferType::HCCL_BUFFER, dataParams);
-        GenDataParamstempAlg(param, resCtx, dataOffset, currCountPart, scratchOffsetCount, dataParams, interLocalRankSize_, true);
+        GenDataParamstempAlg(param, resCtx, dataOffset, currCountPart, scratchOffsetCount, dataParams, interLocalRankSize_);
         CHK_RET(tempAlgInter.KernelRun(param, dataParams, templateResource));
     }
     return HcclResult::HCCL_SUCCESS;
@@ -562,7 +555,7 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     if (currCountPart0_ > 0) {
         // 数据0的server间的nhr算法
         GenDataParamsBufferType(BufferType::HCCL_BUFFER, BufferType::HCCL_BUFFER, BufferType::HCCL_BUFFER, dataParams);
-        GenDataParamstempAlg(param, resCtx, dataOffset0Inter_, currCountPart0_, scratchOffsetCountInterStage1_, dataParams, interLocalRankSize_, true);
+        GenDataParamstempAlg(param, resCtx, dataOffset0Inter_, currCountPart0_, scratchOffsetCountInterStage1_, dataParams, interLocalRankSize_);
         tempAlgInter.SetRoot(interLocalRoot_);
         CHK_RET(tempAlgInter.KernelRun(param, dataParams, templateResource));
     }
@@ -578,7 +571,7 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     if (currCountPart1_ > 0) {
         // 数据1的server内的mesh算法
         GenDataParamsBufferType(BufferType::HCCL_BUFFER, BufferType::HCCL_BUFFER, BufferType::HCCL_BUFFER, dataParams);
-        GenDataParamstempAlg(param, resCtx, dataOffset0Intra_, currCountPart1_, scratchOffsetCountIntraStage1_, dataParams, intraLocalRankSize_, true);
+        GenDataParamstempAlg(param, resCtx, dataOffset0Intra_, currCountPart1_, scratchOffsetCountIntraStage1_, dataParams, intraLocalRankSize_);
         tempAlgIntra.SetRoot(intraLocalRoot_);
         CHK_RET(tempAlgIntra.KernelRun(param, dataParams, templateResource));
     }
@@ -596,7 +589,7 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     if (currCountPart0_ > 0) {
         // 数据0的server间的nhr算法
         GenDataParamsBufferType(BufferType::HCCL_BUFFER, BufferType::HCCL_BUFFER, BufferType::HCCL_BUFFER, dataParams);
-        GenDataParamstempAlg(param, resCtx, dataOffset0Inter_, currCountPart0_, scratchOffsetCountInterStage1_, dataParams, interLocalRankSize_, false);
+        GenDataParamstempAlg(param, resCtx, dataOffset0Inter_, currCountPart0_, scratchOffsetCountInterStage1_, dataParams, interLocalRankSize_);
         CHK_RET(tempAlgInter1.KernelRun(param, dataParams, templateResource));
     }
     return HcclResult::HCCL_SUCCESS;
@@ -611,7 +604,7 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     if (currCountPart1_ > 0) {
         // 数据1的server内的mesh算法
         GenDataParamsBufferType(BufferType::HCCL_BUFFER, BufferType::HCCL_BUFFER, BufferType::HCCL_BUFFER, dataParams);
-        GenDataParamstempAlg(param, resCtx, dataOffset0Intra_, currCountPart1_, scratchOffsetCountIntraStage1_, dataParams, intraLocalRankSize_, false);
+        GenDataParamstempAlg(param, resCtx, dataOffset0Intra_, currCountPart1_, scratchOffsetCountIntraStage1_, dataParams, intraLocalRankSize_);
         CHK_RET(tempAlgIntra1.KernelRun(param, dataParams, templateResource));
     }
     return HcclResult::HCCL_SUCCESS;
@@ -625,7 +618,7 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     if (currCountPart > 0) {
         //数据0的server内的mesh算法
         GenDataParamsBufferType(BufferType::HCCL_BUFFER, BufferType::INPUT, BufferType::HCCL_BUFFER, dataParams);
-        GenDataParamstempAlg(param, resCtx, dataOffset, currCountPart, scratchOffsetCount, dataParams, intraLocalRankSize_, false);
+        GenDataParamstempAlg(param, resCtx, dataOffset, currCountPart, scratchOffsetCount, dataParams, intraLocalRankSize_);
         CHK_RET(tempAlgIntra1.KernelRun(param, dataParams, templateResource));
         }
     return HcclResult::HCCL_SUCCESS;
@@ -639,7 +632,7 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     if (currCountPart > 0) {
         //数据1的server间的nhr算法
         GenDataParamsBufferType(BufferType::HCCL_BUFFER, BufferType::INPUT, BufferType::HCCL_BUFFER, dataParams);
-        GenDataParamstempAlg(param, resCtx, dataOffset, currCountPart, scratchOffsetCount, dataParams, interLocalRankSize_, false);
+        GenDataParamstempAlg(param, resCtx, dataOffset, currCountPart, scratchOffsetCount, dataParams, interLocalRankSize_);
         CHK_RET(tempAlgInter1.KernelRun(param, dataParams, templateResource));
         }
     return HcclResult::HCCL_SUCCESS;

@@ -61,10 +61,10 @@ private:
     void GenDataParamsBufferType(const BufferType inBuffType, const BufferType outBuffType, const BufferType hcclBuffType,
                                  TemplateDataParams &dataParams) const;
     void GenDataParamstempAlg(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset, const u64 sliceCount,
-                              const u64 scratchOffsetCount, TemplateDataParams &dataParams, const u32 LocalRankSize, const bool isScatter) const;
+                              const u64 scratchOffsetCount, TemplateDataParams &dataParams, const u32 LocalRankSize) const;
     void PrePareDataParamstempAlgInter(const u64 dataOffset, const u64 currCountPart, const u64 scratchOffsetCount);
     void PrePareDataParamstempAlgIntra(const u64 dataOffset, const u64 currCountPart, const u64 scratchOffsetCount);
-    void GenDataParamsAllRank(const u64 sliceCount, const u32 LocalRankSize, const bool isScatter, TemplateDataParams &dataParams) const;
+    void GenDataParamsAllRank(const u64 sliceCount, const u32 LocalRankSize, TemplateDataParams &dataParams) const;
 
     HcclResult RunTemplateIntra0(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset,
                                   const u64 currCountPart, const u64 scratchOffsetCount, TemplateDataParams &dataParams,
