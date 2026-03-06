@@ -54,7 +54,7 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(HcclC
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::GetAlltoAllLocalSendRecvInfo(
-    const OpParam &param, A2ASendRecvInfo &localSendRecvInfo)
+    const OpParam &param, A2ASendRecvInfo &localSendRecvInfo) const
 {
     HCCL_DEBUG("[GetAlltoAllLocalSendRecvInfo] rank[%u], userRankSize[%u]", myRank_, rankSize_);
     localSendRecvInfo.sendCounts.resize(rankSize_, 0);
