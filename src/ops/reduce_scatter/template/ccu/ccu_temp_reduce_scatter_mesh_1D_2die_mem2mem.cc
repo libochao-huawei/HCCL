@@ -62,7 +62,6 @@ HcclResult CcuTempReduceScatterMeshMem2Mem1D2Die::CalcRes(HcclComm comm, const O
     CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
  
     // 根据dieId对channel分组
-    // uint32_t ii = 0;
     for (auto channel : channelDescs) {
         uint32_t dieId = 0;
         CHK_RET(GetChannelDieId(comm, myRank_, channel, dieId));
