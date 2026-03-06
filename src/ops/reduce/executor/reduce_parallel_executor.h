@@ -59,7 +59,7 @@ private:
     HcclResult PrepareResForTemplate(const OpParam &param, const AlgResourceCtxSerializable &resCtx,
         AlgTemplate0 &tempAlgIntra, AlgTemplate1 &tempAlgInter);
     void GetParallelDataSplit(std::vector<float> &splitDataSize) const;
-    uint64_t GetRankSize(const std::vector<std::vector<u32>> &vTopo);
+    uint64_t GetRankSize(const std::vector<std::vector<u32>> &vTopo) const;
 
     HcclResult CalcLocalRoot();
 

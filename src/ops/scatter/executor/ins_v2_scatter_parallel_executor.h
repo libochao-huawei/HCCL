@@ -43,8 +43,7 @@ public:
 protected:
     /* *************** 算法编排 *************** */
     HcclResult OrchestrateLoop(const OpParam &param, const AlgResourceCtxSerializable &resCtx);
-    HcclResult PrepareResForTemplate(
-        const OpParam &param, const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &tempAlgIntra, InsAlgTemplate1 &tempAlgInter);
+    HcclResult PrepareResForTemplate(InsAlgTemplate0 &tempAlgIntra);
     HcclResult GenInsQuesHost(
         const OpParam &param, const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &tempAlgIntra, InsAlgTemplate1 &tempAlgInter);
     void GenTemplateAlgParamsIntra0(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset, const u64 dataCountPerLoopAixs0, const u64 scratchOffset,

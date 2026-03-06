@@ -17,7 +17,6 @@
 #include <hccl/hccl_types.h>
 #include "hccl/base.h"
 #include "sal.h"
-#include "error_codes/rt_error_codes.h"
 #include "mmpa_api.h"
 #include "param_check.h"
 #include "executor_base.h"
@@ -80,7 +79,7 @@ HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclD
 }
 
 namespace ops_hccl {
-HcclResult CheckAllGatherInputPara(HcclComm comm, void *sendBuf, void *recvBuf, aclrtStream stream)
+HcclResult CheckAllGatherInputPara(const HcclComm comm, const void* sendBuf, const void* recvBuf, const aclrtStream stream)
 {
     // 入参合法性校验
     RPT_INPUT_ERR(stream == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),

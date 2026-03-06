@@ -240,7 +240,7 @@ void ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1>::GenTempla
 
 template <typename AlgTopoMatch, typename AlgTemplate0, typename AlgTemplate1>
 uint64_t ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1>::GetRankSize(
-    const std::vector<std::vector<u32>> &vTopo)
+    const std::vector<std::vector<u32>> &vTopo) const
 {
     uint64_t count = 1;
     for (const auto &i : vTopo) {

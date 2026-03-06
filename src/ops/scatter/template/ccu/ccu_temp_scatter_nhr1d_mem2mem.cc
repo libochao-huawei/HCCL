@@ -143,7 +143,7 @@ HcclResult CcuTempScatterNHR1DMem2Mem::CalcRes(HcclComm comm, const OpParam &par
     uint32_t enableDieNum = 0;
     CHK_RET(GetDieNumFromChannelDescs(comm, enableDieNum));
 
-    if (enableDieNum < 1 || enableDieNum > 2) {
+    if (enableDieNum < 1 || enableDieNum > CCU_DIE_NUM_MAX_2) { // 目前只支持1个或2个die
         HCCL_ERROR("[CcuTempScatterNHR1DMem2Mem::CalcRes] get channelDescs fail");
         return HcclResult::HCCL_E_INTERNAL;
     }
