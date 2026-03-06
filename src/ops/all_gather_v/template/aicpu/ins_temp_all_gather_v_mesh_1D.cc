@@ -30,7 +30,7 @@ HcclResult InsTempAllGatherVMesh1D::CalcRes(HcclComm comm, const OpParam &param,
     resourceRequest.channels.push_back(level0Channels);
     return HCCL_SUCCESS;
 }
-HcclResult InsTempAllGatherVMesh1D::GetResWithoutLinks(AlgResourceRequest &resourceRequest)
+HcclResult InsTempAllGatherVMesh1D::GetResWithoutLinks(AlgResourceRequest &resourceRequest) const
 {
     u32 level0RankSize = templateRankSize_;
     u32 threadNum = level0RankSize > 1 ? level0RankSize - 1 : 1;

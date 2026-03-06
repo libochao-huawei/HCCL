@@ -187,7 +187,7 @@ HcclResult InsTempAllGatherNHRDPU::LocalDataCopy(const TemplateDataParams& tempA
 }
 
 HcclResult InsTempAllGatherNHRDPU::RunNHR(const TemplateDataParams& tempAlgParams,
-                                          const std::map<u32, std::vector<ChannelInfo>>& channels)
+                                          const std::map<u32, std::vector<ChannelInfo>>& channels) const
 {
 #ifndef AICPU_COMPILE
     const uint32_t nSteps = GetNHRStepNum(templateRankSize_);

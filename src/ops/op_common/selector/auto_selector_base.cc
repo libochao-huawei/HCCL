@@ -14,7 +14,7 @@
 namespace ops_hccl {
 
 SelectorStatus AutoSelectorBase::Select(OpParam &opParam, TopoInfoWithNetLayerDetails* topoInfo,
-                                        std::string &selectAlgName, OpExecuteConfig &opExecuteConfig)
+                                        std::string &selectAlgName, OpExecuteConfig &opExecuteConfig) const
 {
     HCCL_DEBUG("[AutoSelectorBase][%s] start", __func__);
     std::map<HcclCMDType, std::vector<HcclAlgoType>> configAlgMap = GetExternalInputHcclAlgoConfigAllType();

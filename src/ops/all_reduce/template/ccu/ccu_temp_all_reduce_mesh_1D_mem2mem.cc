@@ -35,7 +35,7 @@ CcuTempAllReduceMeshMem2Mem1D::~CcuTempAllReduceMeshMem2Mem1D()
 {
 }
 
-uint64_t CcuTempAllReduceMeshMem2Mem1D::RoundUp(uint64_t dividend, uint64_t divisor)
+uint64_t CcuTempAllReduceMeshMem2Mem1D::RoundUp(uint64_t dividend, uint64_t divisor) const
 {
     return dividend / divisor + ((dividend % divisor != 0) ? 1 : 0);
 }
@@ -99,10 +99,10 @@ HcclResult CcuTempAllReduceMeshMem2Mem1D::CalcRes(HcclComm comm, const OpParam& 
     return HcclResult::HCCL_SUCCESS;
 }
 
-u64 CcuTempAllReduceMeshMem2Mem1D::CalcScratchMultiple(BufferType input, BufferType output)
+u64 CcuTempAllReduceMeshMem2Mem1D::CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType)
 {
-    (void)input;
-    (void)output;
+    (void)inBuffType;
+    (void)outBuffType;
     return templateRankSize_;
 }
 
