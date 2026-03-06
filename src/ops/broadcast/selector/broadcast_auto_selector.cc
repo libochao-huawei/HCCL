@@ -27,7 +27,7 @@ SelectorStatus BroadcastAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayer
         levle0Algo = it->second[0];
     }
     if (IsDefaultAlg(levle0Algo) || levle0Algo ==  HcclAlgoType::HCCL_ALGO_TYPE_FULLMESH) {
-        return SelectMeshAlgoCcuMs(topoInfo, selectAlgName);
+        return SelectMeshAlgoCcuMs(topoInfo, opParam, selectAlgName);
     } else {
         HCCL_WARNING("[Algo][BroadcastAutoSelector] algo[%u] is not supported yet for ccu_ms mode, reset to default.", levle0Algo);
         return SelectorStatus::NOT_MATCH;
@@ -37,6 +37,7 @@ SelectorStatus BroadcastAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayer
 SelectorStatus BroadcastAutoSelector::SelectMeshAlgoCcuMs(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                     std::string &selectAlgName) const
 {
+    (void)opParam;
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
         selectAlgName = "CcuBroadcastMesh1D";
     } else {
