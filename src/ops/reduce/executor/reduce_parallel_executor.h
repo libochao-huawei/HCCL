@@ -29,7 +29,7 @@ template <typename AlgTopoMatch, typename AlgTemplate0, typename AlgTemplate1>
 class ReduceParallelExecutor : public InsCollAlgBase {
 public:
     explicit ReduceParallelExecutor();
-    ~ReduceParallelExecutor() = default;
+    ~ReduceParallelExecutor() override = default;
 
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
 

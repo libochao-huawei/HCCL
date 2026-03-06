@@ -286,7 +286,6 @@ HcclResult CcuTempReduceNHR1DMem2Mem::KernelRun(const OpParam& param,
         CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub));
     }
 
-
     for (uint32_t axisId = 0; axisId < kernelNum; axisId++) {
         if ((axisId == 0 && die0Size == 0) || (axisId == 1 && die1Size == 0)) {
             continue;
