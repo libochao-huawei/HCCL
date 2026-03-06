@@ -282,7 +282,7 @@ HcclResult CalcChannelRequestNhr(HcclComm comm, const OpParam& param, const Topo
     return HCCL_SUCCESS;
 }
 
-bool IsEndPointEqual(EndpointDesc &endPoint0, EndpointDesc &endPoint1)
+static bool IsEndPointEqual(EndpointDesc &endPoint0, EndpointDesc &endPoint1)
 {
     HCCL_INFO("endPoint0:phyId[%u], protocol[%u], addr.type[%u], addr.id[%u]",
             endPoint0.loc.device.devPhyId,
