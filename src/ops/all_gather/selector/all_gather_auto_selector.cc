@@ -49,6 +49,8 @@ SelectorStatus AllGatherAutoSelector::SelectMeshAlgo(TopoInfoWithNetLayerDetails
                                                      std::string &selectAlgName) const
 {
     HCCL_DEBUG("[AllGatherAutoSelector][%s] start", __func__);
+    u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
+    u64 dataSize = opParam.DataDes.count * perDataSize;
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
         if (IsSmallData(opParam.inputSize)) {
             selectAlgName = "CcuAllGatherMesh1D";
@@ -63,7 +65,7 @@ SelectorStatus AllGatherAutoSelector::SelectMeshAlgo(TopoInfoWithNetLayerDetails
             HCCL_ERROR("[Algo][AllGatherAutoSelector] CheckMeshNumEqualToClosNum failed."), SelectorStatus::NOT_MATCH);
         CHK_PRT_RET(CheckClosNumMultipleOfMeshNum(topoInfo, isClosNumMultipleOfMeshNum) != HCCL_SUCCESS,
             HCCL_ERROR("[Algo][AllGatherAutoSelector] CheckClosNumMultipleOfMeshNum failed."), SelectorStatus::NOT_MATCH);
-        if (opParam.inputSize > SMALL_COUNT_512KB) {
+        if (dataSize > SMALL_COUNT_512KB) {
             // 大数据量场景，4P内并发executor，4P外回退ccu_sched模式
             if (isMeshNumEqualToClosNum && (topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO)) {
                 selectAlgName = "CcuAllGatherConcurrentMesh1DNHR";
@@ -88,6 +90,8 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
     TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
     std::string &selectAlgName) const
 {
+    u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
+    u64 dataSize = opParam.DataDes.count * perDataSize;
     if (topoInfo->topoLevelNums > 1) {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             if (topoInfo->deviceNumPerModule > 1) {
@@ -128,7 +132,7 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
             HCCL_ERROR("[Algo][AllGatherAutoSelector] CheckMeshNumEqualToClosNum failed."), SelectorStatus::NOT_MATCH);
         CHK_PRT_RET(CheckClosNumMultipleOfMeshNum(topoInfo, isClosNumMultipleOfMeshNum) != HCCL_SUCCESS,
             HCCL_ERROR("[Algo][AllGatherAutoSelector] CheckClosNumMultipleOfMeshNum failed."), SelectorStatus::NOT_MATCH);
-        if (opParam.inputSize > SMALL_COUNT_512KB) {
+        if (dataSize > SMALL_COUNT_512KB) {
             if (isMeshNumEqualToClosNum && (topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO)) {
                 selectAlgName = "CcuAllGatherConcurrentMesh1DNHRMem";
                 return SelectorStatus::MATCH;
@@ -159,6 +163,8 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
     TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
     std::string &selectAlgName) const
 {
+    u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
+    u64 dataSize = opParam.DataDes.count * perDataSize;
     std::vector<HcclAlgoType> algos =
         std::vector<HcclAlgoType>(HCCL_ALGO_LEVEL_NUM, HcclAlgoType::HCCL_ALGO_TYPE_DEFAULT);
     auto it = configAlgMap.find(opParam.opType);
@@ -189,7 +195,7 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
             HCCL_ERROR("[Algo][AllGatherAutoSelector] CheckMeshNumEqualToClosNum failed."), SelectorStatus::NOT_MATCH);
             CHK_PRT_RET(CheckClosNumMultipleOfMeshNum(topoInfo, isClosNumMultipleOfMeshNum) != HCCL_SUCCESS,
             HCCL_ERROR("[Algo][AllGatherAutoSelector] CheckClosNumMultipleOfMeshNum failed."), SelectorStatus::NOT_MATCH);
-            if (opParam.inputSize > SMALL_COUNT_512KB) {
+            if (dataSize > SMALL_COUNT_512KB) {
                 if (isMeshNumEqualToClosNum && (topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO)) {
                     selectAlgName = "InsAllGatherConcurrentMesh1DNHR";
                     return SelectorStatus::MATCH;
