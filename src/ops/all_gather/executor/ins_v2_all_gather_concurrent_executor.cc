@@ -82,18 +82,6 @@ HcclResult InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     temp0Alg->CalcRes(comm, param, topoInfo, temp0ResReq);
     temp1Alg->CalcRes(comm, param, topoInfo, temp1ResReq);
 
-    std::vector<HcclChannelDesc> temp0Channels;
-    std::vector<HcclChannelDesc> temp1Channels;
-    CommTopo temp0PriorityTopo = COMM_TOPO_1DMESH;
-    CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, temp0HierarchyInfo, temp0Channels, temp0PriorityTopo));
-    CommTopo temp1PriorityTopo = COMM_TOPO_CLOS;
-    CHK_RET(CalcChannelRequestNHRWithPriorityTopo(comm, param, topoInfo, temp1HierarchyInfo, temp1Channels, temp1PriorityTopo));
-
-    CHK_PRT_RET(temp0Channels.size() != temp1Channels.size(),
-            HCCL_ERROR("[InsAllGatherConcurrentExecutor][CalcRes] temp0Channels.size()[%zu] is not equal to temp1Channels.size()[%zu]",
-                    temp0Channels.size(), temp1Channels.size()),
-            HcclResult::HCCL_E_INTERNAL);
-
     // 两个模板并行，资源累加
     resourceRequest.slaveThreadNum = temp0ResReq.slaveThreadNum + temp1ResReq.slaveThreadNum + 1;
     resourceRequest.notifyNumOnMainThread = temp0ResReq.notifyNumOnMainThread + 1;
@@ -106,9 +94,6 @@ HcclResult InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
                                               temp1ResReq.notifyNumPerThread.end());
     
     if (param.engine == CommEngine::COMM_ENGINE_CCU) {
-        for (auto &kernelInfo : temp0ResReq.ccuKernelInfos) {
-            kernelInfo.channels = temp0Channels;
-        }
         resourceRequest.ccuKernelNum.emplace_back(temp0ResReq.ccuKernelNum[0]);
         resourceRequest.ccuKernelNum.emplace_back(temp1ResReq.ccuKernelNum[0]);
         resourceRequest.ccuKernelInfos.insert(resourceRequest.ccuKernelInfos.end(), temp0ResReq.ccuKernelInfos.begin(),
@@ -116,6 +101,17 @@ HcclResult InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
         resourceRequest.ccuKernelInfos.insert(resourceRequest.ccuKernelInfos.end(), temp1ResReq.ccuKernelInfos.begin(),
                                               temp1ResReq.ccuKernelInfos.end());
     } else {
+        std::vector<HcclChannelDesc> temp0Channels;
+        std::vector<HcclChannelDesc> temp1Channels;
+        CommTopo temp0PriorityTopo = COMM_TOPO_1DMESH;
+        CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, temp0HierarchyInfo, temp0Channels, temp0PriorityTopo));
+        CommTopo temp1PriorityTopo = COMM_TOPO_CLOS;
+        CHK_RET(CalcChannelRequestNHRWithPriorityTopo(comm, param, topoInfo, temp1HierarchyInfo, temp1Channels, temp1PriorityTopo));
+
+        CHK_PRT_RET(temp0Channels.size() != temp1Channels.size(),
+            HCCL_ERROR("[InsAllGatherConcurrentExecutor][CalcRes] temp0Channels.size()[%zu] is not equal to temp1Channels.size()[%zu]",
+                    temp0Channels.size(), temp1Channels.size()),
+            HcclResult::HCCL_E_INTERNAL);
         resourceRequest.channels[0].insert(resourceRequest.channels[0].end(), temp0Channels.begin(),
                                            temp0Channels.end());
         resourceRequest.channels[0].insert(resourceRequest.channels[0].end(), temp1Channels.begin(),

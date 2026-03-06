@@ -61,6 +61,7 @@ HcclResult CcuTemAllGatherNHR1DMultiJettyMem2Mem::CalcRes(HcclComm comm, const O
             return HCCL_E_INTERNAL;
         }
     }
+    HCCL_DEBUG("[CcuTemAllGatherNHR1DMultiJettyMem2Mem::CalcRes] Get Clos Channel Success!");
 
     std::vector<NHRStepInfo>     stepInfoVector;
     std::map<u32, u32>           rank2ChannelIdx;
