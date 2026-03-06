@@ -18,6 +18,7 @@ SelectorStatus ReduceScatterVAutoSelector::SelectCcuMsAlgo(TopoInfoWithNetLayerD
                                                     std::string &selectAlgName) const
 {
     HCCL_DEBUG("[ReduceScatterVAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
+    (void)configAlgMap;
     // MS 模式不支持 int8
     CHK_PRT_RET(opParam.vDataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT8,
         HCCL_WARNING("[Algo][ReduceScatterVAutoSelector] dataType[%d] is not supported yet for ccu_ms mode.",
@@ -91,6 +92,7 @@ SelectorStatus ReduceScatterVAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNet
                                                     std::string &selectAlgName) const
 {
     HCCL_DEBUG("[ReduceScatterVAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
+    (void)configAlgMap;
     // ccu 模式不支持 PROD
     CHK_PRT_RET(opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD,
         HCCL_WARNING("[Algo][ReduceScatterVAutoSelector] ReduceOp[%d] is not supported yet for ccu schedule mode.",
@@ -160,16 +162,8 @@ SelectorStatus ReduceScatterVAutoSelector::SelectAicpuAlgo(TopoInfoWithNetLayerD
                                                       const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                       std::string &selectAlgName) const
 {
-    std::vector<HcclAlgoType> algos = std::vector<HcclAlgoType>(HCCL_ALGO_LEVEL_NUM, HcclAlgoType::HCCL_ALGO_TYPE_DEFAULT);
-    auto it = configAlgMap.find(opParam.opType);
-    if ((it != configAlgMap.end()) && (it->second.size() > 1)) {
-        algos = it->second;
-        if(algos[0] != HcclAlgoType::HCCL_ALGO_TYPE_NHR && algos[1] != HcclAlgoType::HCCL_ALGO_TYPE_NHR) {
-            HCCL_WARNING("[Algo][ReduceScatterVAutoSelector] algo[%u] is not supported yet, reset to default.", algos[0]);
-        }
-    }
-    HCCL_INFO("hccl algo op config: config opType:%d, level0:%u, level1:%u, level2:%u, level3:%u",
-        opParam.opType, algos[0], algos[1], algos[2], algos[3]);
+    HCCL_DEBUG("[ReduceScatterVAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
+    (void)configAlgMap;
 
     if (isInt64Type(opParam.vDataDes.dataType)) {
         HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64 only support in-box fullmesh algo type now.");
@@ -202,13 +196,8 @@ SelectorStatus ReduceScatterVAutoSelector::SelectAivAlgo(TopoInfoWithNetLayerDet
                                                        const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                        std::string &selectAlgName) const
 {
-    std::vector<HcclAlgoType> algos = std::vector<HcclAlgoType>(HCCL_ALGO_LEVEL_NUM, HcclAlgoType::HCCL_ALGO_TYPE_DEFAULT);
-    auto it = configAlgMap.find(opParam.opType);
-    if (it != configAlgMap.end()) {
-        algos = it->second;
-    }
-    HCCL_INFO("hccl algo op config: config opType:%d, level0:%u, level1:%u, level2:%u, level3:%u",
-        opParam.opType, algos[0], algos[1], algos[2], algos[3]);
+    HCCL_DEBUG("[ReduceScatterVAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
+    (void)configAlgMap;
 
     //aiv 模式不支持 PROD
     CHK_PRT_RET(opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD,
@@ -216,19 +205,12 @@ SelectorStatus ReduceScatterVAutoSelector::SelectAivAlgo(TopoInfoWithNetLayerDet
             opParam.reduceType),
         SelectorStatus::NOT_MATCH);
 
-    if (opParam.vDataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT64 ||
-        opParam.vDataDes.dataType == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
-        opParam.vDataDes.dataType == HcclDataType::HCCL_DATA_TYPE_FP64) {
+    if (isInt64Type(opParam.vDataDes.dataType)) {
         HCCL_WARNING("[Algo][ReduceScatterVAutoSelector] aiv mode not support INT64, UINT64, FP64.");
         return SelectorStatus::NOT_MATCH;
     }
 
-    if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-        selectAlgName = "AivReduceScatterVMesh1D";
-    } else {
-        HCCL_WARNING("[ReduceScatterVAutoSelector] topo not match for aiv algo");
-        return  SelectorStatus::NOT_MATCH;
-    }
+    selectAlgName = "AivReduceScatterVMesh1D";
     return SelectorStatus::MATCH;
 }
 
