@@ -67,7 +67,6 @@ std::vector<uint64_t> CcuKernelAllGather2DiesMeshMem2Mem1D::GeneArgs(const hcomm
     uint64_t offSet = taskArg->offSet_;
     uint64_t token = taskArg->token_;
     auto localGoSize = CalGoSize(sliceSize);
-
     std::vector<uint64_t> taskArgs = {
         inputAddr,
         outputAddr,
@@ -89,7 +88,6 @@ HcclResult CcuKernelAllGather2DiesMeshMem2Mem1D::InitResource()
     localGoSize_ = CreateGroupOpSize();
     localCopyEvent_ = CreateCompletedEvent();
     event_ = CreateCompletedEvent();
-    
     input_.push_back(CreateVariable());//两个kernel共用一个input
     uint16_t channelIdx = 0;
     for (uint64_t peerId = 0; peerId < rankSize_; peerId++) {
@@ -155,17 +153,12 @@ void CcuKernelAllGather2DiesMeshMem2Mem1D::DoAllGather()
     hcomm::CcuRep::LocalAddr src = CreateLocalAddr();
     src.addr = input_[0];
     src.token = token_[rankId_];
-
     std::vector<hcomm::CcuRep::RemoteAddr> remoteDst;
     for (uint64_t rankIdx = 0; rankIdx < rankIdGroup_.size(); rankIdx++) {
         remoteDst.push_back(CreateRemoteAddr());
     }
-
     for (uint64_t rankIdx = 0; rankIdx < rankIdGroup_.size(); rankIdx++) {
-        
         event_.SetMask(1 << rankIdGroup_[rankIdx]);
-
-        
         remoteDst[rankIdx].addr = output_[rankIdGroup_[rankIdx]];
         remoteDst[rankIdx].addr += offSet_;
         remoteDst[rankIdx].token = token_[rankIdGroup_[rankIdx]];
