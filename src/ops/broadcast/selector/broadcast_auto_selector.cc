@@ -27,7 +27,7 @@ SelectorStatus BroadcastAutoSelector::SelectCcuMsAlgo(TopoInfoWithNetLayerDetail
         levle0Algo = it->second[0];
     }
     if (IsDefaultAlg(levle0Algo) || levle0Algo ==  HcclAlgoType::HCCL_ALGO_TYPE_FULLMESH) {
-        return SelectMeshAlgoCcuMs(topoInfo, opParam, selectAlgName);
+        return SelectMeshAlgoCcuMs(topoInfo, selectAlgName);
     } else {
         HCCL_WARNING("[Algo][BroadcastAutoSelector] algo[%u] is not supported yet for ccu_ms mode, reset to default.", levle0Algo);
         return SelectorStatus::NOT_MATCH;
