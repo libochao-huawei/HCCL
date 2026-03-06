@@ -38,10 +38,10 @@ public:
     /* *************** 资源计算 *************** */
     // 这些函数为ExecutorBase纯虚函数，必须重写
     HcclResult CalcRes(HcclComm comm, const OpParam& param,
-                       const TopoInfo* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
+                       const TopoInfoWithNetLayerDetails* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
                        AlgResourceRequest& resourceRequest) override;
     
-    HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfo* topoInfo,
+    HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo,
                                     AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
     
     HcclResult GetAlltoAllLocalSendRecvInfo(const OpParam &param, 
@@ -50,7 +50,7 @@ public:
 protected:
     /* *************** 算法编排 *************** */
     HcclResult OrchestrateLoop(const OpParam &param, const AlgResourceCtxSerializable &resCtx);
-    HcclResult InitCommInfo(const OpParam& param, const TopoInfo* topoInfo);
+    HcclResult InitCommInfo(const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo);
 
     std::vector<std::vector<std::vector<u32>>> algHierarchyInfo_;
     std::vector<std::map<u32, std::vector<ChannelInfo>>> remoteRankToChannelInfo_;

@@ -7,14 +7,12 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
- //changeid:allgather
-
 
 #include "channel.h"
 #include "hccl_ccu_res.h"
 #include "ccu_assist_pub.h"
-#include "ccu_kernel_allgather_2dies_mesh1d.h"
-#include "ccu_temp_allgather_2dies_mesh_1d.h"
+#include "ccu_kernel_all_gather_2dies_mesh_1D.h"
+#include "ccu_temp_all_gather_2dies_mesh_1D.h"
 #include "alg_data_trans_wrapper.h"
 namespace ops_hccl {
 
@@ -34,7 +32,7 @@ CcuTempAllGather2DiesMesh1D::~CcuTempAllGather2DiesMesh1D()
 {
 }
 
-HcclResult CcuTempAllGather2DiesMesh1D::CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+HcclResult CcuTempAllGather2DiesMesh1D::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                                                       AlgResourceRequest& resourceRequest)
 {   
     //双die，声明一个从流

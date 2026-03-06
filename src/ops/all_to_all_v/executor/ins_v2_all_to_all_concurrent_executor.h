@@ -38,16 +38,16 @@ public:
 
     /* *************** 资源计算 *************** */
     // 这些函数为ExecutorBase纯虚函数，必须重写
-    HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+    HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                         const AlgHierarchyInfoForAllLevel& algHierarchyInfo, AlgResourceRequest& resourceRequest) override;
     
-    HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfo* topoInfo,
+    HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo,
                                     AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
 
 protected:
     /* *************** 算法编排 *************** */
     HcclResult OrchestrateLoop(const OpParam &param, const AlgResourceCtxSerializable& resCtx);
-    HcclResult InitCommInfo(const OpParam& param, const TopoInfo* topoInfo,
+    HcclResult InitCommInfo(const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                 const AlgHierarchyInfoForAllLevel& algHierarchyInfo);
     HcclResult InitExectorInfo(const OpParam& param);
 
@@ -63,21 +63,18 @@ private:
         std::vector<u64> rdispls;
     };
 
-    HcclResult SetTemplateDataParams(
-    TemplateDataParams &tempAlgParams, SendRecvData &splitData,
-    u32 loop, u64 currDataCount, u64 processedDataCount, u64 maxDataCountPerLoop);
-    HcclResult FillTemplateResource(
-    const OpParam &param, const AlgResourceCtxSerializable& resCtx, TemplateResource& templateAlgRes, uint32_t index);
-    HcclResult FillTemplateDataParams(
-    const OpParam &param, const AlgResourceCtxSerializable& resCtx, TemplateDataParams& tempAlgParams, 
-    SendRecvData &splitData);
+    HcclResult SetTemplateDataParams(TemplateDataParams &tempAlgParams, SendRecvData &splitData,u32 loop,
+        u64 currDataCount, u64 processedDataCount, u64 maxDataCountPerLoop);
+    HcclResult FillTemplateResource(const OpParam &param, const AlgResourceCtxSerializable& resCtx,
+        TemplateResource& templateAlgRes, uint32_t index);
+    HcclResult InitTemplateDataParams(const OpParam &param, const AlgResourceCtxSerializable& resCtx,
+        TemplateDataParams& tempAlgParams);
     HcclResult RestoreSendRecvData(const OpParam &param, const AlgResourceCtxSerializable& resCtx);
-    HcclResult SplitSendRecvData(
-    const OpParam &param, const AlgResourceCtxSerializable& resCtx, std::vector<SendRecvData>& splitData);
-    HcclResult GetMaxSendRecvDataCount(
-    u64& maxSendRecvDataCount, const SendRecvData& splitData);
-    HcclResult CalcMaxDataCountPerLoop(const OpParam &param,
-    TemplateDataParams &tempAlgParams, const std::vector<u64> scratchMulti, std::vector<u64>& maxDataCountPerLoop);
+    HcclResult SplitSendRecvData(const OpParam &param, const AlgResourceCtxSerializable& resCtx,
+        std::vector<SendRecvData>& splitData);
+    HcclResult GetMaxSendRecvDataCount(u64& maxSendRecvDataCount, const SendRecvData& splitData);
+    HcclResult CalcMaxDataCountPerLoop(const OpParam &param,TemplateDataParams &tempAlgParams,
+        const std::vector<u64> scratchMulti, std::vector<u64>& maxDataCountPerLoop);
 
     std::vector<u64> sendCounts_;
     std::vector<u64> recvCounts_;

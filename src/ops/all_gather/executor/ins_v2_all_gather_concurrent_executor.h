@@ -27,19 +27,19 @@
 
 namespace ops_hccl {
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
-class InsAllGatherConcurrentExecutor : public InsCollAlgBase {
+class InsV2AllGatherConcurrentExecutor : public InsCollAlgBase {
 public:
-    explicit InsAllGatherConcurrentExecutor();
-    ~InsAllGatherConcurrentExecutor() = default;
+    explicit InsV2AllGatherConcurrentExecutor();
+    ~InsV2AllGatherConcurrentExecutor() = default;
 
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
 
     /* *************** 资源计算 *************** */
-    HcclResult CalcRes(HcclComm comm, const OpParam &param, const TopoInfo *topoInfo,
+    HcclResult CalcRes(HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
                        const AlgHierarchyInfoForAllLevel &algHierarchyInfo,
                        AlgResourceRequest &resourceRequest) override;
 
-    HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfo *topoInfo,
+    HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfoWithNetLayerDetails *topoInfo,
                                     AlgHierarchyInfoForAllLevel &algHierarchyInfo) override;
 
 private:
@@ -47,18 +47,14 @@ private:
     HcclResult OrchestrateLoop(const OpParam &param, const AlgResourceCtxSerializable &resCtx,
                                InsAlgTemplate0 &algTemplateMesh, InsAlgTemplate1 &algTemplateNhr);
 
-    HcclResult InitCommInfo(const OpParam &param, const TopoInfo *topoInfo,
+    HcclResult InitCommInfo(const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
                             const AlgHierarchyInfoForAllLevel &algHierarchyInfo);
 
     void GetParallelDataSplit(std::vector<float> &splitDataSize) const;
 
-    void GenAlgParamsforTemplate0(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset,
+    void GenTemplateAlgParams(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset,
                                   const u64 dataCountPerLoopMesh, const u64 scratchOffset,
                                   TemplateDataParams &tempAlgParamsMesh) const;
-
-    void GenAlgParamsforTemplate1(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset,
-                                 const u64 dataCountPerLoopNhr, const u64 scratchOffset,
-                                 TemplateDataParams &tempAlgParamsNhr) const;
 
     HcclResult PrepareResForTemplate(const OpParam &param, const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &algTemplateMesh, InsAlgTemplate1 &algTemplateNhr);
 

@@ -29,18 +29,14 @@ public:
                             templateRankSize_);
     }
 
-    HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+    HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                        AlgResourceRequest& resourceRequest) override;
-    HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
-                       AlgResourceRequest& resourceRequest, CommTopo topoType);
     HcclResult KernelRun(const OpParam& param,
                          const TemplateDataParams& templateDataParams,
                          const TemplateResource& templateResource) override;
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
 
 private:
-    uint64_t sendStrideSize_ = 0;  // Bytes
-    uint64_t recvStrideSize_ = 0;  // Bytes
     uint32_t dataTypeSize_;
     std::vector<u32> jettyNums_;
     std::vector<u64> sendCounts_;

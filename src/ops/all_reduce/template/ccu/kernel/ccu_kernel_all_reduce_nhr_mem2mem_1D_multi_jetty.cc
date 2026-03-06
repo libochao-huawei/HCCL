@@ -191,11 +191,6 @@ HcclResult CcuKernelAllReduceNhr1DMem2MemMultiJetty::DoLocalCopySlice(hcomm::Ccu
     const auto &sliceSize = islastSlice ? lastRankSliceSize_ : dataSizePerRank_;
     const auto &goSize = islastSlice ? localCopyGoSize_ : localCopyGoSizeLastSlice_;
 
-    // CCU_IF(sliceSize != 0)
-    // {
-    //     CHK_RET(GroupCopy(dst, src, goSize));
-    // }
-    // CHK_RET(RecordEvent(event));
     CCU_IF(sliceSize != 0)
     {
         CHK_RET(LocalCopyNb(dst, src, sliceSize, event));
@@ -471,7 +466,7 @@ HcclResult CcuKernelAllReduceNhr1DMem2MemMultiJetty::DoSendRecvSlice(const u32 t
 
 HcclResult CcuKernelAllReduceNhr1DMem2MemMultiJetty::Algorithm()
 {
-    HCCL_INFO("[CcuKernelAllReduceNhr1DMem2MemMultiJetty] ReduceScatterMesh1DMem2Mem run");
+    HCCL_INFO("[CcuKernelAllReduceNhr1DMem2MemMultiJetty] Algorithm run");
 
     CHK_RET(InitResource());
     CHK_RET(LoadArgs());
@@ -480,7 +475,7 @@ HcclResult CcuKernelAllReduceNhr1DMem2MemMultiJetty::Algorithm()
     CHK_RET(DoReduceScatterNHR());
     CHK_RET(DoAllGatherNHR());
 
-    HCCL_INFO("[CcuKernelAllReduceNhr1DMem2MemMultiJetty] ReduceScatterMesh1DMem2Mem end");
+    HCCL_INFO("[CcuKernelAllReduceNhr1DMem2MemMultiJetty] Algorithm end");
     
     return HcclResult::HCCL_SUCCESS;
 }

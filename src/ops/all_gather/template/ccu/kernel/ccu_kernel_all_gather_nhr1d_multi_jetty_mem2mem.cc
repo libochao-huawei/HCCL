@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "ccu_kernel_all_gather_nhr_1D_multijetty_mem2mem.h"
+#include "ccu_kernel_all_gather_nhr1d_multi_jetty_mem2mem.h"
 #include "ccu_kernel_alg_base.h"
 
 namespace ops_hccl {
@@ -71,7 +71,8 @@ HcclResult CcuKernelAllGatherNHR1DMultiJettyMem2Mem::InitResources()
     input_       = CreateVariable();
     for (uint32_t channelIdx = 0; channelIdx < localSize_; channelIdx++) {
         HCCL_DEBUG("[CcuKernelAllGatherNHR1DMultiJettyMem2Mem] MyRank[%u], channelIdx[%u]", rankId_, channelIdx);
-        CcuRep::Variable outputVar, tokenVar;
+        CcuRep::Variable outputVar;
+        CcuRep::Variable tokenVar;
         CHK_RET(CreateVariable(channels_[channelIdx], OUTPUT_XN_ID, &outputVar));
         output_.push_back(outputVar);
         CHK_RET(CreateVariable(channels_[channelIdx], TOKEN_XN_ID, &tokenVar));
@@ -82,6 +83,8 @@ HcclResult CcuKernelAllGatherNHR1DMultiJettyMem2Mem::InitResources()
 
     srcMem_    = CreateLocalAddr();
     dstMem_    = CreateRemoteAddr();
+    srcMemTmp_ = CreateLocalAddr();
+    dstMemTmp_ = CreateRemoteAddr();
     myDstMem_  = CreateLocalAddr(); // 用于本地拷贝
     event_     = CreateCompletedEvent();
 
@@ -227,20 +230,20 @@ HcclResult CcuKernelAllGatherNHR1DMultiJettyMem2Mem::DoRepeatAllGatherNHRSingleS
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuKernelAllGatherNHR1DMultiJettyMem2Mem::DoSendRecvSlices(const uint32_t &toRank, const CcuRep::LocalAddr &srcMem, 
+HcclResult CcuKernelAllGatherNHR1DMultiJettyMem2Mem::DoSendRecvSlices(const uint32_t &toRank, const CcuRep::LocalAddr &srcMem,
                                                                 const CcuRep::RemoteAddr &dstMem)
 {
     ChannelHandle      &sendChannel     = channels_[rank2ChannelIdx_[toRank]];
-    CcuRep::LocalAddr  src              = srcMem;
-    CcuRep::RemoteAddr dst              = dstMem;
+    srcMemTmp_             = srcMem;
+    dstMemTmp_             = dstMem;
 
     CCU_IF(sliceSizePerJetty_ != 0)
     {
         for (uint32_t i = 0; i < jettyNum_ - 1; ++i) {
             event_.SetMask(1 << i);
-            CHK_RET(WriteNb(sendChannel, dst, src, sliceSizePerJetty_, event_));
-            src.addr += sliceSizePerJetty_;
-            dst.addr += sliceSizePerJetty_;
+            CHK_RET(WriteNb(sendChannel, dstMemTmp_, srcMemTmp_, sliceSizePerJetty_, event_));
+            srcMemTmp_.addr += sliceSizePerJetty_;
+            dstMemTmp_.addr += sliceSizePerJetty_;
         }
     }
     CCU_IF(sliceSizePerJetty_ == 0)
@@ -253,7 +256,7 @@ HcclResult CcuKernelAllGatherNHR1DMultiJettyMem2Mem::DoSendRecvSlices(const uint
     CCU_IF(lastSliceSizePerJetty_ != 0)
     {
         event_.SetMask(1 << (jettyNum_ - 1));
-        CHK_RET(WriteNb(sendChannel, dst, src, lastSliceSizePerJetty_, event_));
+        CHK_RET(WriteNb(sendChannel, dstMemTmp_, srcMemTmp_, lastSliceSizePerJetty_, event_));
     }
     CCU_IF(lastSliceSizePerJetty_ == 0)
     {
@@ -300,7 +303,7 @@ std::vector<uint64_t> CcuKernelAllGatherNHR1DMultiJettyMem2Mem::GeneArgs(const C
     auto     goSize                  = CalGoSize(sliceSize);
 
     HCCL_INFO("[CcuKernelAllGatherNHR1DMultiJettyMem2Mem] TaskArgs: inputAddr[%llu], outputAddr[%llu], "
-    "token[%llu], sliceSize[%llu], sliceSizePerJetty[%llu], lastSliceSizePerJetty[%llu], repeatNumInv[%llu]," 
+    "token[%llu], sliceSize[%llu], sliceSizePerJetty[%llu], lastSliceSizePerJetty[%llu], repeatNumInv[%llu],"
     "inputSliceStride[%llu], outputSliceStride[%llu], inputRepeatStride[%llu], outputRepeatStride[%llu], isInputOutputEqual[%llu]",
     inputAddr, outputAddr, token, sliceSize, sliceSizePerJetty, lastSliceSizePerJetty, repeatNumInv, inputSliceStride, 
     outputSliceStride, inputRepeatStride, outputRepeatStride, isInputOutputEqual);

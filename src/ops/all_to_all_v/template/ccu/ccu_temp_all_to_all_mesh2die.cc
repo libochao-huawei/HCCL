@@ -30,7 +30,7 @@ CcuTempAllToAllMesh2Die::~CcuTempAllToAllMesh2Die()
 {
 }
 
-HcclResult CcuTempAllToAllMesh2Die::CalcRes(HcclComm comm, const OpParam &param, const TopoInfo *topoInfo,
+HcclResult CcuTempAllToAllMesh2Die::CalcRes(HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
     AlgResourceRequest &resourceRequest)
 {
     // 需要从流

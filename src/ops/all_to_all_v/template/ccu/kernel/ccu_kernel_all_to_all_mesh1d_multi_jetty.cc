@@ -197,6 +197,18 @@ HcclResult CcuKernelAllToAllMesh1DMultiJetty::CalcAddrs()
     return HcclResult::HCCL_SUCCESS;
 }
 
+HcclResult CcuKernelAllToAllMesh1DMultiJetty::SendData(ChannelHandle channel, hcomm::CcuRep::RemoteAddr remoteDst,
+    hcomm::CcuRep::LocalAddr remoteSrc, hcomm::CcuRep::Variable sliceLength, hcomm::CcuRep::CompletedEvent event)
+{
+    CCU_IF(sliceLength != 0) {
+        CHK_RET(WriteNb(channel, remoteDst, remoteSrc, sliceLength, event));
+    }
+    CCU_IF(sliceLength == 0) {
+        CHK_RET(RecordEvent(event));
+    }
+    return HcclResult::HCCL_SUCCESS;;
+}
+
 HcclResult CcuKernelAllToAllMesh1DMultiJetty::DoAllToAll()
 {
     uint32_t channelId = 0;
@@ -207,11 +219,9 @@ HcclResult CcuKernelAllToAllMesh1DMultiJetty::DoAllToAll()
         for (uint32_t jettyIdx = 0; jettyIdx < jettyNums_[r]; jettyIdx++) {
             eventList_[r].SetMask(1 << jettyIdx);
             if (jettyIdx == (jettyNums_[r] - 1)) {
-                WriteNb(channels_[channelId], remoteDst_[r], remoteSrc_[r],
-                        jettySliceTail_[r], eventList_[r]);
+                CHK_RET(SendData(channels_[channelId], remoteDst_[r], remoteSrc_[r], jettySliceTail_[r], eventList_[r]));
             } else {
-                WriteNb(channels_[channelId], remoteDst_[r], remoteSrc_[r],
-                        jettySlice_[r], eventList_[r]);
+                CHK_RET(SendData(channels_[channelId], remoteDst_[r], remoteSrc_[r], jettySlice_[r], eventList_[r]));
             }
             remoteDst_[r].addr += jettySlice_[r];
             remoteSrc_[r].addr += jettySlice_[r];

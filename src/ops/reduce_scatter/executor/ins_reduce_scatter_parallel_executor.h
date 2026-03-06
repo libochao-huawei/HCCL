@@ -23,6 +23,7 @@
 #include "coll_alg_v2_exec_registry.h"
 #include "topo_match_base.h"
 #include "topo_match_multilevel.h"
+#include "topo_match_ubx.h"
 
 namespace ops_hccl {
 
@@ -44,10 +45,10 @@ public:
     /* *************** 资源计算 *************** */
 
     HcclResult CalcRes(HcclComm comm, const OpParam& param,
-                       const TopoInfo* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
+                       const TopoInfoWithNetLayerDetails* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
                        AlgResourceRequest& resourceRequest) override;
     
-    HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfo* topoInfo,
+    HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo,
                                     AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
 
 private:

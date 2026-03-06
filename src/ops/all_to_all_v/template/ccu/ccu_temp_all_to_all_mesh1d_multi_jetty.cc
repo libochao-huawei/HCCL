@@ -23,26 +23,25 @@ CcuTempAllToAllMesh1dMultiJetty::CcuTempAllToAllMesh1dMultiJetty(const OpParam& 
 {
     std::vector<u32> ranks = subCommRanks[0];
     templateRankSize_ = ranks.size();
+    for (u32 i = 0; i < subCommRanks_.size(); i++) {
+        for (u32 j = 0; j < subCommRanks_[i].size(); j++) {
+            HCCL_INFO("subCommRanks_[%u][%u]=%u", i, j, subCommRanks_[i][j]);
+        }
+    }
     // 获取本卡在子通信域(如果有)中的rankid
+    jettyNums_.assign(templateRankSize_, 4);
     auto it = std::find(ranks.begin(), ranks.end(), rankId);
     if (it != ranks.end()) {
         myRank_ = std::distance(ranks.begin(), it);
     }
-
 }
 
 CcuTempAllToAllMesh1dMultiJetty::~CcuTempAllToAllMesh1dMultiJetty()
 {
 }
 
-HcclResult CcuTempAllToAllMesh1dMultiJetty::CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
-                                                      AlgResourceRequest& resourceRequest)
-{
-    return CalcRes(comm, param, topoInfo, resourceRequest, CommTopo::COMM_TOPO_CLOS);
-}
-
-HcclResult CcuTempAllToAllMesh1dMultiJetty::CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
-                                                      AlgResourceRequest& resourceRequest, CommTopo topoType)
+HcclResult CcuTempAllToAllMesh1dMultiJetty::CalcRes(HcclComm comm, const OpParam& param,
+    const TopoInfoWithNetLayerDetails* topoInfo, AlgResourceRequest& resourceRequest)
 {
     // 不需要从流
     resourceRequest.notifyNumOnMainThread = 0;
@@ -57,20 +56,20 @@ HcclResult CcuTempAllToAllMesh1dMultiJetty::CalcRes(HcclComm comm, const OpParam
                              return std::make_unique<CcuKernelAllToAllMesh1DMultiJetty>(arg);
                          };
 
-    jettyNums_.assign(templateRankSize_, 4);
-    kernelInfo.kernelArg = std::make_shared<CcuKernelArgAllToAllMesh1DMultiJetty>(subCommRanks_[0].size(),
+    kernelInfo.kernelArg = std::make_shared<CcuKernelArgAllToAllMesh1DMultiJetty>(templateRankSize_,
                                                                                     myRank_,
                                                                                     param,
                                                                                     subCommRanks_,
                                                                                     jettyNums_);
     std::vector<HcclChannelDesc> channelDescs;
-    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
+    CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks_, channelDescs,
+                                                     CommTopo::COMM_TOPO_1DMESH));
     kernelInfo.channels = channelDescs;
     resourceRequest.ccuKernelInfos.push_back(kernelInfo);
 
     HCCL_DEBUG("[CcuTempAllToAllMesh1dMultiJetty::CalcRes] channelDescs.size()=%llu, dimsize=%llu, "
                "ccuKernelInfos.size()=%llu",
-               channelDescs.size(), subCommRanks_[0].size(), resourceRequest.ccuKernelInfos.size());
+               channelDescs.size(), templateRankSize_, resourceRequest.ccuKernelInfos.size());
 
     return HcclResult::HCCL_SUCCESS;
 }
@@ -98,13 +97,13 @@ HcclResult CcuTempAllToAllMesh1dMultiJetty::KernelRun(const OpParam& param, cons
     uint64_t dstStride = totalSliceSize;
     uint64_t srcOffset = 0;
     uint64_t dstOffset = myRank_ * dstStride;
-    HCCL_INFO("[%s]sliceSize=%llu, totalSliceSize=%llu, srcStride=%llu, dstStride=%llu, srcOffset=%llu, dstOffset=%llu,"
+    HCCL_INFO("sliceSize=%llu, totalSliceSize=%llu, srcStride=%llu, dstStride=%llu, srcOffset=%llu, dstOffset=%llu,"
               " dataType_=%lu, dataTypeSize_=%lu",
-            __FUNCTION__, sliceSize, totalSliceSize, srcStride, dstStride, srcOffset, dstOffset, dataType_,
+            sliceSize, totalSliceSize, srcStride, dstStride, srcOffset, dstOffset, dataType_,
             dataTypeSize_);
-    // 根据channel的jetty数量，对再做切分
+
+    // 根据channel的jetty数量，再做切分
     std::vector<uint64_t> jettySlice, jettySliceTail;
-    jettyNums_.assign(templateRankSize_, 4);
     for (uint32_t rank = 0; rank < templateRankSize_; rank++) {
         // 128B对齐
         uint64_t quotient = sliceSize / jettyNums_[rank] / HCCL_MIN_SLICE_ALIGN * HCCL_MIN_SLICE_ALIGN;

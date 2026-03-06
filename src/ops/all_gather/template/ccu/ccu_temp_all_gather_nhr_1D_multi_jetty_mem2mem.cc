@@ -12,12 +12,14 @@
 #include "hccl_ccu_res.h"
 #include "ccu_assist_pub.h"
 #include "alg_template_base.h"
-#include "ccu_kernel_all_gather_nhr_1D_multijetty_mem2mem.h"
-#include "ccu_temp_all_gather_nhr_1D_multijetty_mem2mem.h"
+#include "ccu_kernel_all_gather_nhr1d_multi_jetty_mem2mem.h"
+#include "ccu_temp_all_gather_nhr_1D_multi_jetty_mem2mem.h"
+
+constexpr u32 JETTY_NUM = 4;
 
 namespace ops_hccl {
 
-CcuTemAllGatherNHR1DMultiJettyMem2Mem::CcuTemAllGatherNHR1DMultiJettyMem2Mem(const OpParam& param, const u32 rankId,
+CcuTempAllGatherNHR1DMultiJettyMem2Mem::CcuTempAllGatherNHR1DMultiJettyMem2Mem(const OpParam& param, const u32 rankId,
                                        const std::vector<std::vector<u32>> &subCommRanks)
     : CcuAlgTemplateBase(param, rankId, subCommRanks)
 {
@@ -31,36 +33,37 @@ CcuTemAllGatherNHR1DMultiJettyMem2Mem::CcuTemAllGatherNHR1DMultiJettyMem2Mem(con
     subCommRanks_ = subCommRanks;
 }
 
-CcuTemAllGatherNHR1DMultiJettyMem2Mem::~CcuTemAllGatherNHR1DMultiJettyMem2Mem()
+CcuTempAllGatherNHR1DMultiJettyMem2Mem::~CcuTempAllGatherNHR1DMultiJettyMem2Mem()
 {
 }
 
-HcclResult CcuTemAllGatherNHR1DMultiJettyMem2Mem::CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                                                       AlgResourceRequest& resourceRequest)
 {
     // 不需要从流
     GetRes(resourceRequest);
     // 需要1个kernel
     resourceRequest.ccuKernelNum.push_back(1);
-    HCCL_DEBUG("[CcuTemAllGatherNHR1DMultiJettyMem2Mem::CalcRes] notifyNumOnMainThread[%u] slaveThreadNum[%u]",
+    HCCL_DEBUG("[CcuTempAllGatherNHR1DMultiJettyMem2Mem::CalcRes] notifyNumOnMainThread[%u] slaveThreadNum[%u]",
                resourceRequest.notifyNumOnMainThread, resourceRequest.slaveThreadNum);
 
     // 创建每个kernel的ctxArg，放入kernelInfo, 然后将kernelinfo放入resourceRequest.ccuKernelInfos
     CcuKernelInfo kernelInfo;
     
     kernelInfo.creator = [](const hcomm::CcuKernelArg &arg) {
-                             return std::make_unique<CcuKernelAllGatherNHR1DMultiJettyMem2Mem>(arg);
-                         };
+        return std::make_unique<CcuKernelAllGatherNHR1DMultiJettyMem2Mem>(arg);
+    };
     std::vector<HcclChannelDesc> channelDescs;
-    jettyNum_ = 4; // 框架传入
-    CommTopo priorityTopo = COMM_TOPO_CLOS;
+    jettyNum_ = JETTY_NUM; // 框架传入
+    CommTopo  priorityTopo = COMM_TOPO_CLOS;
     CHK_RET(CalcChannelRequestNHRWithPriorityTopo(comm, param, topoInfo, subCommRanks_, channelDescs, priorityTopo));
-    for(auto channel : channelDescs){
-        if(channel.channelProtocol != COMM_PROTOCOL_UBC_CTP){
-            HCCL_ERROR("[CcuTemAllGatherNHR1DMultiJettyMem2Mem][CalcRes] channelProtocol: %u", channel.channelProtocol);
+    for (auto channel : channelDescs) {
+        if (channel.channelProtocol != COMM_PROTOCOL_UBC_CTP) {
+            HCCL_ERROR("[CcuTempAllGatherNHR1DMultiJettyMem2Mem][CalcRes] channelProtocol: %u", channel.channelProtocol);
             return HCCL_E_INTERNAL;
         }
     }
+    HCCL_DEBUG("[CcuTempAllGatherNHR1DMultiJettyMem2Mem::CalcRes] Get Clos Channel Success!");
 
     std::vector<NHRStepInfo>     stepInfoVector;
     std::map<u32, u32>           rank2ChannelIdx;
@@ -82,14 +85,14 @@ HcclResult CcuTemAllGatherNHR1DMultiJettyMem2Mem::CalcRes(HcclComm comm, const O
     kernelInfo.channels = channelDescs;
     resourceRequest.ccuKernelInfos.push_back(kernelInfo);
 
-    HCCL_DEBUG("[CcuTemAllGatherNHR1DMultiJettyMem2Mem::CalcRes] channelDescs.size()=%llu, dimsize=%llu, "
+    HCCL_DEBUG("[CcuTempAllGatherNHR1DMultiJettyMem2Mem::CalcRes] channelDescs.size()=%llu, dimsize=%llu, "
                "ccuKernelInfos.size()=%llu",
                channelDescs.size(), subCommRanks_[0].size(), resourceRequest.ccuKernelInfos.size());
 
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuTemAllGatherNHR1DMultiJettyMem2Mem::CalcNHRInfo(std::vector<NHRStepInfo> &stepInfoVector)
+HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::CalcNHRInfo(std::vector<NHRStepInfo> &stepInfoVector)
 {
     u32 nSteps = GetNHRStepNum(tempRankSize_);
     for (u32 step = 0; step < nSteps; step++) {
@@ -100,7 +103,7 @@ HcclResult CcuTemAllGatherNHR1DMultiJettyMem2Mem::CalcNHRInfo(std::vector<NHRSte
     return HcclResult::HCCL_SUCCESS;
 }
 
-u32 CcuTemAllGatherNHR1DMultiJettyMem2Mem::GetNHRStepNum(u32 rankSize)
+u32 CcuTempAllGatherNHR1DMultiJettyMem2Mem::GetNHRStepNum(u32 rankSize)
 {
     u32 nSteps = 0;
     for (u32 tmp = rankSize - 1; tmp != 0; tmp >>= 1, nSteps++) {
@@ -109,7 +112,7 @@ u32 CcuTemAllGatherNHR1DMultiJettyMem2Mem::GetNHRStepNum(u32 rankSize)
     return nSteps;
 }
 
-HcclResult CcuTemAllGatherNHR1DMultiJettyMem2Mem::GetStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo)
+HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::GetStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo)
 {
     u32 rankIdx = mySubCommRank_;
     stepInfo.txSliceIdxs.clear();
@@ -141,7 +144,7 @@ HcclResult CcuTemAllGatherNHR1DMultiJettyMem2Mem::GetStepInfo(u32 step, u32 nSte
     return HcclResult::HCCL_SUCCESS;
 }
 
-uint32_t CcuTemAllGatherNHR1DMultiJettyMem2Mem::RemoteRankId2RankId(const uint32_t remoteRankId)
+uint32_t CcuTempAllGatherNHR1DMultiJettyMem2Mem::RemoteRankId2RankId(const uint32_t remoteRankId)
 {
     uint32_t subCommRankId = 0;
     std::vector<u32> ranks = subCommRanks_[0];
@@ -152,11 +155,11 @@ uint32_t CcuTemAllGatherNHR1DMultiJettyMem2Mem::RemoteRankId2RankId(const uint32
     return subCommRankId;
 }
 
-HcclResult CcuTemAllGatherNHR1DMultiJettyMem2Mem::KernelRun(const OpParam& param,
+HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::KernelRun(const OpParam& param,
                                                         const TemplateDataParams& templateDataParams,
                                                         const TemplateResource& templateResource)
 {
-    HCCL_INFO("[CcuTemAllGatherNHR1DMultiJettyMem2Mem] Template Run start.");
+    HCCL_INFO("[CcuTempAllGatherNHR1DMultiJettyMem2Mem] Template Run start.");
     buffInfo_ = templateDataParams.buffInfo;
 
     uint64_t inputAddr             = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
@@ -168,7 +171,7 @@ HcclResult CcuTemAllGatherNHR1DMultiJettyMem2Mem::KernelRun(const OpParam& param
     HcclDataType dataType          = param.DataDes.dataType;
     uint64_t dataTypeSize          = DataTypeSizeGet(dataType);
     uint64_t dataCount             = sliceSize / dataTypeSize;
-    jettyNum_ = 4; 
+    jettyNum_ = JETTY_NUM;
 
     uint64_t sliceCountPerJetty    = dataCount / jettyNum_  / (HCCL_MIN_SLICE_ALIGN / dataTypeSize) * (HCCL_MIN_SLICE_ALIGN / dataTypeSize);
     uint64_t lastCountSizePerJetty = dataCount - sliceCountPerJetty * (jettyNum_ - 1);
@@ -182,14 +185,14 @@ HcclResult CcuTemAllGatherNHR1DMultiJettyMem2Mem::KernelRun(const OpParam& param
 
     uint64_t repeatNumInv = UINT64_MAX - repeatNumTmp; // CCU硬件限制
 
-    HCCL_DEBUG("[CcuTemAllGatherNHR1DMultiJettyMem2Mem] inputAddr[%llu], outputAddr[%llu], token[%llu]," 
+    HCCL_DEBUG("[CcuTempAllGatherNHR1DMultiJettyMem2Mem] inputAddr[%llu], outputAddr[%llu], token[%llu],"
     "sliceSize[%llu], sliceSizePerJetty[%llu], lastSliceSizePerJetty[%llu], repeatNumInv[%llu], inputSliceStride[%llu], "
     "outputSliceStride[%llu], inputRepeatStride[%llu], outputRepeatStride[%llu], isInputOutputEqual[%llu]",
     inputAddr, outputAddr, token, sliceSize, sliceSizePerJetty, lastSliceSizePerJetty, repeatNumInv, inputSliceStride, 
     outputSliceStride, inputRepeatStride, outputRepeatStride, isInputOutputEqual);
 
     if (dataCount == 0) {
-        HCCL_INFO("[CcuTemAllGatherNHR1DMultiJettyMem2Mem] DataCount == 0, Template Run Ends.");
+        HCCL_INFO("[CcuTempAllGatherNHR1DMultiJettyMem2Mem] DataCount == 0, Template Run Ends.");
         return HcclResult::HCCL_SUCCESS;
     }
 
@@ -201,12 +204,12 @@ HcclResult CcuTemAllGatherNHR1DMultiJettyMem2Mem::KernelRun(const OpParam& param
 
     HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr);
     
-    HCCL_DEBUG("[CcuTemAllGatherNHR1DMultiJettyMem2Mem::KernelRun] end");
+    HCCL_DEBUG("[CcuTempAllGatherNHR1DMultiJettyMem2Mem::KernelRun] end");
 
     return HcclResult::HCCL_SUCCESS;
 }
 
-u64 CcuTemAllGatherNHR1DMultiJettyMem2Mem::CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType)
+u64 CcuTempAllGatherNHR1DMultiJettyMem2Mem::CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType)
 {
     // 不需要Scratch buff
     (void)inBuffType;
@@ -214,12 +217,12 @@ u64 CcuTemAllGatherNHR1DMultiJettyMem2Mem::CalcScratchMultiple(BufferType inBuff
     return 0;
 }
 
-u64 CcuTemAllGatherNHR1DMultiJettyMem2Mem::GetThreadNum()
+u64 CcuTempAllGatherNHR1DMultiJettyMem2Mem::GetThreadNum()
 {
     return 1;
 }
 
-HcclResult CcuTemAllGatherNHR1DMultiJettyMem2Mem::GetRes(AlgResourceRequest &resourceRequest)
+HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::GetRes(AlgResourceRequest &resourceRequest)
 {
     resourceRequest.notifyNumOnMainThread = 0;
     resourceRequest.slaveThreadNum = 0;

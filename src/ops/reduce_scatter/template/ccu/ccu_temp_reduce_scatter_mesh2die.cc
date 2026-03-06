@@ -40,7 +40,7 @@ u64 CcuTempReduceScatterMesh2Die::CalcScratchMultiple(BufferType inBuffType, Buf
     return 2;
 }
 
-HcclResult CcuTempReduceScatterMesh2Die::CalcRes(HcclComm comm, const OpParam &param, const TopoInfo *topoInfo,
+HcclResult CcuTempReduceScatterMesh2Die::CalcRes(HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
     AlgResourceRequest &resourceRequest)
 {
     // 需要从流

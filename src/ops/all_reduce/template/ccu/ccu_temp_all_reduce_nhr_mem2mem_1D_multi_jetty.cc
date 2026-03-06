@@ -39,7 +39,7 @@ CcuTempAllReduceNhrMem2Mem1DMultiJetty::~CcuTempAllReduceNhrMem2Mem1DMultiJetty(
 }
 
 HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::CalcRes(HcclComm comm, const OpParam &param,
-    const TopoInfo *topoInfo, AlgResourceRequest &resourceRequest)
+    const TopoInfoWithNetLayerDetails *topoInfo, AlgResourceRequest &resourceRequest)
 {
     // 不需要从流
     resourceRequest.notifyNumOnMainThread = 0;
@@ -257,6 +257,15 @@ HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::ProcessNHRStepInfo(std::vecto
         HCCL_DEBUG("[%s] step[%u], myRank[%u], nSlices[%u], toRank[%u], fromRank[%u].", __func__, stepInfo.step,
                    stepInfo.myRank, stepInfo.nSlices, stepInfo.toRank, stepInfo.fromRank);
     }
+
+    return HcclResult::HCCL_SUCCESS;
+}
+
+HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::GetRes(AlgResourceRequest& resourceRequest)
+{
+    // 不需要从流
+    resourceRequest.notifyNumOnMainThread = 0;
+    resourceRequest.slaveThreadNum = 0;
 
     return HcclResult::HCCL_SUCCESS;
 }

@@ -8,12 +8,9 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-//#include "ccu_repeat.h"
-//#include "ccu_condition.h"
 #include <cstdint>
-#include "ccu_kernel_allgather_2dies_mesh1d.h"
+#include "ccu_kernel_all_gather_2dies_mesh_1D.h"
 #include "ccu_kernel_alg_base.h"
-//#include "ccu_loopblock.h"
 namespace ops_hccl {
 using namespace hcomm;
 

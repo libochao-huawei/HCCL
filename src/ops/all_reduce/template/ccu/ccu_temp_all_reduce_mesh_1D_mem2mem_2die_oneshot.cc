@@ -37,7 +37,7 @@ CcuTempAllReduceMesh1DMem2Mem2DieOneShot::~CcuTempAllReduceMesh1DMem2Mem2DieOneS
 {
 }
  
-HcclResult CcuTempAllReduceMesh1DMem2Mem2DieOneShot::CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+HcclResult CcuTempAllReduceMesh1DMem2Mem2DieOneShot::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                                                       AlgResourceRequest& resourceRequest)
 {
     resourceRequest.slaveThreadNum = 1;

@@ -29,13 +29,16 @@ public:
         return StringFormat("Template of Reduce Scatter ccu mesh 1D with tempRankSize [%u].", templateRankSize_);
     }
 
-    HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+    HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                        AlgResourceRequest& resourceRequest) override;
 
     HcclResult KernelRun(const OpParam& param,
                          const TemplateDataParams& templateDataParams,
                          const TemplateResource& templateResource) override;
-
+    
+    u64 GetThreadNum() override;
+    HcclResult GetRes(AlgResourceRequest& resourceRequest) override;
+    
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
 
 private:

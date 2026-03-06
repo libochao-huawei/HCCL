@@ -13,17 +13,17 @@
 
 #include "ccu_alg_template_base.h"
 #include "utils.h"
-#include "ccu_kernel_all_gather_nhr_1D_multijetty_mem2mem.h"
+#include "ccu_kernel_all_gather_nhr1d_multi_jetty_mem2mem.h"
 
 namespace ops_hccl {
 
-class CcuTemAllGatherNHR1DMultiJettyMem2Mem : public CcuAlgTemplateBase {
+class CcuTempAllGatherNHR1DMultiJettyMem2Mem : public CcuAlgTemplateBase {
 public:
-    explicit  CcuTemAllGatherNHR1DMultiJettyMem2Mem(const OpParam& param,
+    explicit  CcuTempAllGatherNHR1DMultiJettyMem2Mem(const OpParam& param,
                                                 const u32 rankId,
                                                 const std::vector<std::vector<u32>> &subCommRanks);
 
-    ~CcuTemAllGatherNHR1DMultiJettyMem2Mem() override;
+    ~CcuTempAllGatherNHR1DMultiJettyMem2Mem() override;
 
     std::string Describe() const override
     {
@@ -31,7 +31,7 @@ public:
                             subCommRanks_[0].size());
     }
 
-    HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+    HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                        AlgResourceRequest& resourceRequest) override;
 
     HcclResult KernelRun(const OpParam& param,
@@ -59,4 +59,4 @@ private:
 
 } // namespace ops_hccl
 
-#endif// HCCL_CCU_TEMP_ALL_GATHER_NHR_1D_MULTIJETTY_MEM2MEM_H
+#endif // HCCL_CCU_TEMP_ALL_GATHER_NHR_1D_MULTIJETTY_MEM2MEM_H

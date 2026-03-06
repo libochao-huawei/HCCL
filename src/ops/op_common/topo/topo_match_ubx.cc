@@ -121,7 +121,7 @@ HcclResult TopoMatchUBX::CheckVecElementAllSame(uint32_t *instSizeList, uint32_t
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult TopoMatchUBX::MatchTopo(const HcclComm comm, TopoInfo* topoInfo, AlgHierarchyInfoForAllLevel& algHierarchyInfo)
+HcclResult TopoMatchUBX::MatchTopo(const HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo, AlgHierarchyInfoForAllLevel& algHierarchyInfo)
 {
 #ifndef AICPU_COMPILE
     CHK_PRT_RET(topoInfo->topoLevelNums == 0 || topoInfo->topoLevelNums > 2,

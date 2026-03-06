@@ -25,6 +25,7 @@
 #include "topo_match_base.h"
 #include "topo_match_1d.h"
 #include "topo_match_multilevel.h"
+#include "topo_match_ubx.h"
  
 namespace ops_hccl {
  
@@ -39,9 +40,9 @@ public:
         return "Instruction based AllReduce Parallel Executor.";
     }
 
-    HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfo* topoInfo,
+    HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo,
         AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
-    HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+    HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
         const AlgHierarchyInfoForAllLevel& algHierarchyInfo, AlgResourceRequest& resourceRequest) override;
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
  

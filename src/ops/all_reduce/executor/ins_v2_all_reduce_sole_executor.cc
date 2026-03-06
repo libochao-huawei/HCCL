@@ -22,6 +22,7 @@
 #include "ccu_temp_all_reduce_nhr_1D_mem2mem.h"
 #include "ccu_temp_all_reduce_mesh_1D_2die_oneshot.h"
 #include "ccu_temp_all_reduce_mesh_1D_mem2mem_2die_oneshot.h"
+#include "ccu_temp_all_reduce_nhr_mem2mem_1D_multi_jetty.h"
 #endif
 
 namespace ops_hccl {
@@ -34,7 +35,7 @@ InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::InsV2AllReduceSoleExec
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcAlgHierarchyInfo(HcclComm comm,
-    TopoInfo* topoInfo,
+    TopoInfoWithNetLayerDetails* topoInfo,
     AlgHierarchyInfoForAllLevel& algHierarchyInfo)
 {
     // 使用topo match计算AlgHierarchyInfoForAllLevel
@@ -47,7 +48,7 @@ HcclResult InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcAlgHier
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(
     HcclComm comm, const OpParam& param,
-    const TopoInfo* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
+    const TopoInfoWithNetLayerDetails* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
     AlgResourceRequest& resourceRequest)
 {
     // 构建template
@@ -188,11 +189,13 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh1DMem2Mem, Ins
                  TopoMatch1D, CcuTempAllReduceMeshMem2Mem1D);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh1D, InsV2AllReduceSoleExecutor, 
                  TopoMatch1D, CcuTempAllReduceMesh1D);
-REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllreduceMesh1D2Die, InsV2AllReduceSoleExecutor, TopoMatch1D,
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh2Die, InsV2AllReduceSoleExecutor, TopoMatch1D,
     CcuTempAllreduceMesh1D2DieOneShot);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh1DOneShot, InsV2AllReduceSoleExecutor,
     TopoMatch1D, CcuTempAllReduceMesh1DOneShot);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh1DMem2Mem2DieOneShot, InsV2AllReduceSoleExecutor, TopoMatch1D,
     CcuTempAllReduceMesh1DMem2Mem2DieOneShot);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceNHR1DMem2MemMultiJetty, InsV2AllReduceSoleExecutor, TopoMatch1D,
+    CcuTempAllReduceNhrMem2Mem1DMultiJetty);
 #endif
 }  // namespace ops_hccl

@@ -38,7 +38,7 @@ CcuTempReduceScatterMeshMem2Mem1D2Die::~CcuTempReduceScatterMeshMem2Mem1D2Die()
 {
 }
  
-HcclResult CcuTempReduceScatterMeshMem2Mem1D2Die::CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+HcclResult CcuTempReduceScatterMeshMem2Mem1D2Die::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                                                       AlgResourceRequest& resourceRequest)
 {
     resourceRequest.notifyNumOnMainThread = 1;

@@ -116,7 +116,7 @@ void CcuTempReduceNHR1DMem2Mem::SetRoot(u32 root)
     return;
 }
 
-HcclResult CcuTempReduceNHR1DMem2Mem::CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+HcclResult CcuTempReduceNHR1DMem2Mem::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                                                       AlgResourceRequest& resourceRequest)
 {
     std::vector<HcclChannelDesc> channelDescs;
@@ -401,7 +401,6 @@ u64 CcuTempReduceNHR1DMem2Mem::GetThreadNum()
 
 HcclResult CcuTempReduceNHR1DMem2Mem::GetRes(AlgResourceRequest& resourceRequest)
 {
-    // todo：先只用1条主流，调通算法
     resourceRequest.slaveThreadNum = 1;
     resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, 1);
     resourceRequest.notifyNumOnMainThread = 1;
