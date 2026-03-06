@@ -18,7 +18,7 @@
 #include "ccu_temp_all_gather_nhr_1D_mem2mem.h"
 #include "ccu_temp_all_gather_2dies_mesh_1d_mem2mem.h"
 #include "ccu_temp_all_gather_2dies_mesh_1D.h"
-#include "ccu_temp_all_gather_nhr_1D_multijetty_mem2mem.h"
+#include "ccu_temp_all_gather_nhr_1D_multi_jetty_mem2mem.h"
 #endif
 #include "topo_match_ubx.h"
 namespace ops_hccl {

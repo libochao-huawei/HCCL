@@ -21,7 +21,7 @@
 #ifndef AICPU_COMPILE
 // CCU template 头文件
 #include "ccu_temp_all_gather_mesh_1D.h"
-#include "ccu_temp_all_gather_nhr_1D_multijetty_mem2mem.h"
+#include "ccu_temp_all_gather_nhr_1D_multi_jetty_mem2mem.h"
 #include "ccu_temp_all_gather_mesh_1D_mem2mem.h"
 
 #endif
@@ -31,12 +31,12 @@ constexpr u32 CLOS_PORT_NUM = 4;
 namespace ops_hccl {
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
-InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::InsAllGatherConcurrentExecutor()
+InsV2AllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::InsV2AllGatherConcurrentExecutor()
 {
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
-HcclResult InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::InitCommInfo(
+HcclResult InsV2AllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::InitCommInfo(
     const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo, const AlgHierarchyInfoForAllLevel &algHierarchyInfo)
 {
     myRank_ = topoInfo->userRank;
@@ -47,14 +47,14 @@ HcclResult InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     dataTypeSize_ = SIZE_TABLE[param.DataDes.dataType];
 
     algHierarchyInfo_ = algHierarchyInfo;
-    HCCL_INFO("[InsAllGatherConcurrentExecutor][InitCommInfo] myRank [%u], rankSize [%u], devType [%u], "
+    HCCL_INFO("[InsV2AllGatherConcurrentExecutor][InitCommInfo] myRank [%u], rankSize [%u], devType [%u], "
               "dataType [%u] dataTypeSize [%u], dataCount_ [%u]",
               myRank_, rankSize_, devType_, dataType_, dataTypeSize_, dataCount_);
     return HCCL_SUCCESS;
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
-HcclResult InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::CalcAlgHierarchyInfo(
+HcclResult InsV2AllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::CalcAlgHierarchyInfo(
     HcclComm comm, TopoInfoWithNetLayerDetails *topoInfo, AlgHierarchyInfoForAllLevel &algHierarchyInfo)
 {
     // 使用topo match计算AlgHierarchyInfoForAllLevel
@@ -64,7 +64,7 @@ HcclResult InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
-HcclResult InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::CalcRes(
+HcclResult InsV2AllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::CalcRes(
     HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo, const AlgHierarchyInfoForAllLevel &algHierarchyInfo,
     AlgResourceRequest &resourceRequest)
 {
@@ -109,7 +109,7 @@ HcclResult InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
         CHK_RET(CalcChannelRequestNHRWithPriorityTopo(comm, param, topoInfo, temp1HierarchyInfo, temp1Channels, temp1PriorityTopo));
 
         CHK_PRT_RET(temp0Channels.size() != temp1Channels.size(),
-            HCCL_ERROR("[InsAllGatherConcurrentExecutor][CalcRes] temp0Channels.size()[%zu] is not equal to temp1Channels.size()[%zu]",
+            HCCL_ERROR("[InsV2AllGatherConcurrentExecutor][CalcRes] temp0Channels.size()[%zu] is not equal to temp1Channels.size()[%zu]",
                     temp0Channels.size(), temp1Channels.size()),
             HcclResult::HCCL_E_INTERNAL);
         resourceRequest.channels[0].insert(resourceRequest.channels[0].end(), temp0Channels.begin(),
@@ -121,7 +121,7 @@ HcclResult InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
-void InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::GenTemplateAlgParams(
+void InsV2AllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::GenTemplateAlgParams(
     const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset,
     const u64 dataCountPerLoop, const u64 scratchOffset, TemplateDataParams &temp0AlgParams) const
 {
@@ -145,7 +145,7 @@ void InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplat
     temp0AlgParams.outputRepeatStride = 0;
 
     HCCL_DEBUG(
-        "[InsAllGatherConcurrentExecutor][GenTemplateAlgParams] rank[%d] inBuffBaseOff[%llu] "
+        "[InsV2AllGatherConcurrentExecutor][GenTemplateAlgParams] rank[%d] inBuffBaseOff[%llu] "
         "outBuffBaseOff[%llu] hcclBuffBaseOff[%llu] sliceSize[%llu] inputSliceStride[%llu] outputSliceStride[%llu]",
         myRank_, temp0AlgParams.buffInfo.inBuffBaseOff, temp0AlgParams.buffInfo.outBuffBaseOff,
         temp0AlgParams.buffInfo.hcclBuffBaseOff, temp0AlgParams.sliceSize, temp0AlgParams.inputSliceStride,
@@ -154,21 +154,21 @@ void InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplat
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
-void InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::GetParallelDataSplit(
+void InsV2AllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::GetParallelDataSplit(
     std::vector<float> &splitDataSize) const
 {
     const u32 portNum0 = rankSize_ - 1;  // mesh端口数为rank size - 1
     const u32 portNum1 = CLOS_PORT_NUM;
     double splitData = static_cast<double>(portNum0) / (portNum0 + portNum1);
-    splitDataSize.push_back(splitData);  
+    splitDataSize.push_back(splitData);
     splitDataSize.push_back(1 - splitData);
-    HCCL_INFO("[InsAllGatherConcurrentExecutor][GenTemplate1AlgParams] portNum0[%u], portNum1[%u], splitData[%.4f], ",
+    HCCL_INFO("[InsV2AllGatherConcurrentExecutor][GenTemplate1AlgParams] portNum0[%u], portNum1[%u], splitData[%.4f], ",
             portNum0, portNum1, splitData);
     return;
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
-HcclResult InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::PrepareResForTemplate(
+HcclResult InsV2AllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::PrepareResForTemplate(
     const OpParam &param, const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &algTemplate0,
     InsAlgTemplate1 &algTemplate1)
 {
@@ -194,10 +194,10 @@ HcclResult InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
-HcclResult InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::Orchestrate(
+HcclResult InsV2AllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::Orchestrate(
     const OpParam &param, const AlgResourceCtxSerializable &resCtx)
 {
-    HCCL_INFO("[InsAllGatherConcurrentExecutor][Orchestrate] Orchestrate Start");
+    HCCL_INFO("[InsV2AllGatherConcurrentExecutor][Orchestrate] Orchestrate Start");
     algHierarchyInfo_ = resCtx.algHierarchyInfo;
     threads_ = resCtx.threads;
 
@@ -237,18 +237,18 @@ HcclResult InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     HcclResult ret = OrchestrateLoop(param, resCtx, algTemplate0, algTemplate1);
     CHK_PRT_RET(
         ret != HCCL_SUCCESS,
-        HCCL_ERROR("[InsAllGatherConcurrentExecutor][Orchestrate]errNo[0x%016llx] All gather executor kernel run failed",
+        HCCL_ERROR("[InsV2AllGatherConcurrentExecutor][Orchestrate]errNo[0x%016llx] All gather executor kernel run failed",
                    HCCL_ERROR_CODE(ret)),
         ret);
     return HCCL_SUCCESS;
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
-HcclResult InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::OrchestrateLoop(
+HcclResult InsV2AllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::OrchestrateLoop(
     const OpParam &param, const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &algTemplate0,
     InsAlgTemplate1 &algTemplate1)
 {
-    HCCL_INFO("[InsAllGatherConcurrentExecutor][OrchestrateLoop] Start");
+    HCCL_INFO("[InsV2AllGatherConcurrentExecutor][OrchestrateLoop] Start");
     // 构造Mesh拓扑template资源
     TemplateResource templateAlgResforTemp0;
     templateAlgResforTemp0.threads = tmp0Threads_;
@@ -281,7 +281,7 @@ HcclResult InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     u32 ScratchMultiplier1 = static_cast<u32>(std::ceil(dataSplitSize[1] * scratchMultiplierforTemp1));
     u32 totalScratchMultiple = ScratchMultiplier0 + ScratchMultiplier1;
     u64 scratchMemBlockSize = maxTmpMemSize_;
-    HCCL_INFO("[InsAllGatherConcurrentExecutor]maxTmpMemSize_ [%u]", maxTmpMemSize_);
+    HCCL_INFO("[InsV2AllGatherConcurrentExecutor]maxTmpMemSize_ [%u]", maxTmpMemSize_);
     if (totalScratchMultiple > 0) {
         scratchMemBlockSize = (maxTmpMemSize_ / HCCL_MIN_SLICE_ALIGN / totalScratchMultiple) * HCCL_MIN_SLICE_ALIGN;
     }
@@ -303,10 +303,10 @@ HcclResult InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
                                                          HCCL_MIN_SLICE_ALIGN / dataTypeSize_);
     }
     CHK_PRT_RET(maxCountPerLoopforTemp0 == 0,
-                HCCL_ERROR("[InsAllGatherConcurrentExecutor][OrchestrateLoop] maxDataCountPerLoop0 is 0"),
+                HCCL_ERROR("[InsV2AllGatherConcurrentExecutor][OrchestrateLoop] maxDataCountPerLoop0 is 0"),
                 HCCL_E_INTERNAL);
     CHK_PRT_RET(maxCountPerLoopforTemp1 == 0,
-                HCCL_ERROR("[InsAllGatherConcurrentExecutor][OrchestrateLoop] maxDataCountPerLoop1 is 0"),
+                HCCL_ERROR("[InsV2AllGatherConcurrentExecutor][OrchestrateLoop] maxDataCountPerLoop1 is 0"),
                 HCCL_E_INTERNAL);
 
     // 按比例切分数据，并计算loopTimes
@@ -317,7 +317,7 @@ HcclResult InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     u64 loopTimesforTemp0 = totalCount0 / maxCountPerLoopforTemp0 + static_cast<u64>(totalCount0 % maxCountPerLoopforTemp0 != 0);
     u64 loopTimesforTemp1 = totalCount1 / maxCountPerLoopforTemp1 + static_cast<u64>(totalCount1 % maxCountPerLoopforTemp1 != 0);
 
-    HCCL_INFO("[InsAllGatherConcurrentExecutor][OrchestrateLoop] maxCountPerLoopforTemp0[%llu], maxCountPerLoopforTemp1[%llu], "
+    HCCL_INFO("[InsV2AllGatherConcurrentExecutor][OrchestrateLoop] maxCountPerLoopforTemp0[%llu], maxCountPerLoopforTemp1[%llu], "
               "transportBoundDataCount[%llu], totalScratchMultiple[%llu], loopTimesforTemp0[%llu], loopTimesforTemp1[%llu], "
               "totalCount0[%llu], totalCount1[%llu]",
               maxCountPerLoopforTemp0, maxCountPerLoopforTemp1, maxCountUBLimit, totalScratchMultiple, loopTimesforTemp0, loopTimesforTemp1, totalCount0, totalCount1);
@@ -326,44 +326,44 @@ HcclResult InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
      
     // 交替下发两个template的任务
-    for(u32 loopIndex = 0; loopIndex < loopTimesforTemp0 || loopIndex < loopTimesforTemp1; loopIndex++) {
-        if(loopIndex < loopTimesforTemp0) {
+    for (u32 loopIndex = 0; loopIndex < loopTimesforTemp0 || loopIndex < loopTimesforTemp1; loopIndex++) {
+        if (loopIndex < loopTimesforTemp0) {
             u64 currCountforTemp0 = (loopIndex == loopTimesforTemp0 - 1) ?
                             (totalCount0 - loopIndex * maxCountPerLoopforTemp0) : maxCountPerLoopforTemp0;
             u64 dataOffsetforTemp0 = loopIndex * maxCountPerLoopforTemp0 * dataTypeSize_;
             GenTemplateAlgParams(param, resCtx, dataOffsetforTemp0, currCountforTemp0, scratchOffsetforTemp0,
                                  AlgParamsforTemp0);
-            HCCL_INFO("[InsAllGatherConcurrentExecutor][OrchestrateLoop] loopIndex[%u], currCountforTemp0[%u], dataOffsetforTemp0[%u]", loopIndex, currCountforTemp0, dataOffsetforTemp0);
+            HCCL_INFO("[InsV2AllGatherConcurrentExecutor][OrchestrateLoop] loopIndex[%u], currCountforTemp0[%u], dataOffsetforTemp0[%u]", loopIndex, currCountforTemp0, dataOffsetforTemp0);
             CHK_RET(algTemplate0.KernelRun(param, AlgParamsforTemp0, templateAlgResforTemp0));
         }
 
-        if(loopIndex < loopTimesforTemp1) {
+        if (loopIndex < loopTimesforTemp1) {
             u64 currCountforTemp1 = (loopIndex == loopTimesforTemp1 - 1) ?
                             (totalCount1 - loopIndex * maxCountPerLoopforTemp1) : maxCountPerLoopforTemp1;
             u64 dataOffsetforTemp1 = initOffsetforTemp1 + loopIndex * maxCountPerLoopforTemp1 * dataTypeSize_;
             GenTemplateAlgParams(param, resCtx, dataOffsetforTemp1, currCountforTemp1, scratchOffsetforTemp1,
                                  AlgParamsforTemp1);
-            HCCL_INFO("[InsAllGatherConcurrentExecutor][OrchestrateLoop] loopIndex[%u], currCountforTemp1[%u], dataOffsetforTemp1[%u]", loopIndex, currCountforTemp1, dataOffsetforTemp1);
+            HCCL_INFO("[InsV2AllGatherConcurrentExecutor][OrchestrateLoop] loopIndex[%u], currCountforTemp1[%u], dataOffsetforTemp1[%u]", loopIndex, currCountforTemp1, dataOffsetforTemp1);
             CHK_RET(algTemplate1.KernelRun(param, AlgParamsforTemp1, templateAlgResforTemp1));
         }
     }
 
     // 尾同步
     CHK_RET(PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_));
-    HCCL_INFO("[InsAllGatherConcurrentExecutor][OrchestrateLoop] End.");
+    HCCL_INFO("[InsV2AllGatherConcurrentExecutor][OrchestrateLoop] End.");
     return HCCL_SUCCESS;
 }
 
 // 算法注册
-REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherConcurrentMesh1DNHR, InsAllGatherConcurrentExecutor,
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherConcurrentMesh1DNHR, InsV2AllGatherConcurrentExecutor,
                               TopoMatchUBX, InsTempAllGatherMesh1D, InsTempAllGatherNHR);
 
 #ifndef AICPU_COMPILE
-REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherConcurrentMesh1DNHRMem, InsAllGatherConcurrentExecutor,
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherConcurrentMesh1DNHRMem, InsV2AllGatherConcurrentExecutor,
     TopoMatchUBX, CcuTempAllGatherMesh1DMem2Mem, CcuTempAllGatherNHR1DMultiJettyMem2Mem);
 
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherConcurrentMesh1DNHR,
-                               InsAllGatherConcurrentExecutor, TopoMatchUBX, CcuTempAllGatherMesh1D,
+                               InsV2AllGatherConcurrentExecutor, TopoMatchUBX, CcuTempAllGatherMesh1D,
                                CcuTempAllGatherNHR1DMultiJettyMem2Mem);
 #endif
 

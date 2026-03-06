@@ -35,7 +35,7 @@ using NHRStepInfo = struct NHRStepInfoDef {
 
 class CcuKernelArgAllGatherNHR1DMultiJettyMem2Mem : public hcomm::CcuKernelArg {
 public:
-    explicit CcuKernelArgAllGatherNHR1DMultiJettyMem2Mem(uint64_t rankSize_, uint32_t rankId, 
+    explicit CcuKernelArgAllGatherNHR1DMultiJettyMem2Mem(uint64_t rankSize_, uint32_t rankId,
                                                 const OpParam& opParam, uint32_t jettyNum,
                                                 const std::vector<NHRStepInfo> stepInfoVector,
                                                 const std::map<uint32_t, uint32_t> rank2ChannelIdx,
@@ -69,11 +69,11 @@ public:
 class CcuTaskArgAllGatherNHR1DMultiJettyMem2Mem : public hcomm::CcuTaskArg {
 public:
     explicit CcuTaskArgAllGatherNHR1DMultiJettyMem2Mem(uint64_t inputAddr, uint64_t outputAddr, uint64_t token,
-                                                uint64_t sliceSize, uint64_t sliceSizePerJetty, uint64_t lastSliceSizePerJetty, 
-                                                uint64_t repeatNumInv, uint64_t inputSliceStride, 
+                                                uint64_t sliceSize, uint64_t sliceSizePerJetty, uint64_t lastSliceSizePerJetty,
+                                                uint64_t repeatNumInv, uint64_t inputSliceStride,
                                                 uint64_t outputSliceStride, uint64_t inputRepeatStride, uint64_t outputRepeatStride,
                                                 uint64_t isInputOutputEqual)
-        : inputAddr_(inputAddr), outputAddr_(outputAddr), token_(token), sliceSize_(sliceSize), sliceSizePerJetty_(sliceSizePerJetty), 
+        : inputAddr_(inputAddr), outputAddr_(outputAddr), token_(token), sliceSize_(sliceSize),     sliceSizePerJetty_(sliceSizePerJetty),
           lastSliceSizePerJetty_(lastSliceSizePerJetty), repeatNumInv_(repeatNumInv), inputSliceStride_(inputSliceStride), outputSliceStride_(outputSliceStride), inputRepeatStride_(inputRepeatStride), outputRepeatStride_(outputRepeatStride), isInputOutputEqual_(isInputOutputEqual)
     {
         HCCL_DEBUG("[CcuKernelAllGatherNHR1DMultiJettyMem2Mem] TaskArgs: inputAddr[%llu], outputAddr[%llu], "

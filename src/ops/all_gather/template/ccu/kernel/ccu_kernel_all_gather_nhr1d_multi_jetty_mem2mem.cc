@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "ccu_kernel_all_gather_nhr1d_multijetty_mem2mem.h"
+#include "ccu_kernel_all_gather_nhr1d_multi_jetty_mem2mem.h"
 #include "ccu_kernel_alg_base.h"
 
 namespace ops_hccl {
@@ -71,7 +71,8 @@ HcclResult CcuKernelAllGatherNHR1DMultiJettyMem2Mem::InitResources()
     input_       = CreateVariable();
     for (uint32_t channelIdx = 0; channelIdx < localSize_; channelIdx++) {
         HCCL_DEBUG("[CcuKernelAllGatherNHR1DMultiJettyMem2Mem] MyRank[%u], channelIdx[%u]", rankId_, channelIdx);
-        CcuRep::Variable outputVar, tokenVar;
+        CcuRep::Variable outputVar;
+        CcuRep::Variable tokenVar;
         CHK_RET(CreateVariable(channels_[channelIdx], OUTPUT_XN_ID, &outputVar));
         output_.push_back(outputVar);
         CHK_RET(CreateVariable(channels_[channelIdx], TOKEN_XN_ID, &tokenVar));
@@ -229,7 +230,7 @@ HcclResult CcuKernelAllGatherNHR1DMultiJettyMem2Mem::DoRepeatAllGatherNHRSingleS
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuKernelAllGatherNHR1DMultiJettyMem2Mem::DoSendRecvSlices(const uint32_t &toRank, const CcuRep::LocalAddr &srcMem, 
+HcclResult CcuKernelAllGatherNHR1DMultiJettyMem2Mem::DoSendRecvSlices(const uint32_t &toRank, const CcuRep::LocalAddr &srcMem,
                                                                 const CcuRep::RemoteAddr &dstMem)
 {
     ChannelHandle      &sendChannel     = channels_[rank2ChannelIdx_[toRank]];
@@ -302,7 +303,7 @@ std::vector<uint64_t> CcuKernelAllGatherNHR1DMultiJettyMem2Mem::GeneArgs(const C
     auto     goSize                  = CalGoSize(sliceSize);
 
     HCCL_INFO("[CcuKernelAllGatherNHR1DMultiJettyMem2Mem] TaskArgs: inputAddr[%llu], outputAddr[%llu], "
-    "token[%llu], sliceSize[%llu], sliceSizePerJetty[%llu], lastSliceSizePerJetty[%llu], repeatNumInv[%llu]," 
+    "token[%llu], sliceSize[%llu], sliceSizePerJetty[%llu], lastSliceSizePerJetty[%llu], repeatNumInv[%llu],"
     "inputSliceStride[%llu], outputSliceStride[%llu], inputRepeatStride[%llu], outputRepeatStride[%llu], isInputOutputEqual[%llu]",
     inputAddr, outputAddr, token, sliceSize, sliceSizePerJetty, lastSliceSizePerJetty, repeatNumInv, inputSliceStride, 
     outputSliceStride, inputRepeatStride, outputRepeatStride, isInputOutputEqual);

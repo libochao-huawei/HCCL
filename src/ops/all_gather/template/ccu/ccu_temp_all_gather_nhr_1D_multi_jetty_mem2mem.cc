@@ -12,8 +12,10 @@
 #include "hccl_ccu_res.h"
 #include "ccu_assist_pub.h"
 #include "alg_template_base.h"
-#include "ccu_kernel_all_gather_nhr1d_multijetty_mem2mem.h"
-#include "ccu_temp_all_gather_nhr_1D_multijetty_mem2mem.h"
+#include "ccu_kernel_all_gather_nhr1d_multi_jetty_mem2mem.h"
+#include "ccu_temp_all_gather_nhr_1D_multi_jetty_mem2mem.h"
+
+constexpr u32 JETTY_NUM = 4;
 
 namespace ops_hccl {
 
@@ -49,14 +51,14 @@ HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::CalcRes(HcclComm comm, const 
     CcuKernelInfo kernelInfo;
     
     kernelInfo.creator = [](const hcomm::CcuKernelArg &arg) {
-                             return std::make_unique<CcuKernelAllGatherNHR1DMultiJettyMem2Mem>(arg);
-                         };
+        return std::make_unique<CcuKernelAllGatherNHR1DMultiJettyMem2Mem>(arg);
+    };
     std::vector<HcclChannelDesc> channelDescs;
-    jettyNum_ = 4; // 框架传入
-    CommTopo priorityTopo = COMM_TOPO_CLOS;
+    jettyNum_ = JETTY_NUM; // 框架传入
+    CommTopo  priorityTopo = COMM_TOPO_CLOS;
     CHK_RET(CalcChannelRequestNHRWithPriorityTopo(comm, param, topoInfo, subCommRanks_, channelDescs, priorityTopo));
-    for(auto channel : channelDescs){
-        if(channel.channelProtocol != COMM_PROTOCOL_UBC_CTP){
+    for (auto channel : channelDescs) {
+        if (channel.channelProtocol != COMM_PROTOCOL_UBC_CTP) {
             HCCL_ERROR("[CcuTempAllGatherNHR1DMultiJettyMem2Mem][CalcRes] channelProtocol: %u", channel.channelProtocol);
             return HCCL_E_INTERNAL;
         }
@@ -169,7 +171,7 @@ HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::KernelRun(const OpParam& para
     HcclDataType dataType          = param.DataDes.dataType;
     uint64_t dataTypeSize          = DataTypeSizeGet(dataType);
     uint64_t dataCount             = sliceSize / dataTypeSize;
-    jettyNum_ = 4; 
+    jettyNum_ = JETTY_NUM;
 
     uint64_t sliceCountPerJetty    = dataCount / jettyNum_  / (HCCL_MIN_SLICE_ALIGN / dataTypeSize) * (HCCL_MIN_SLICE_ALIGN / dataTypeSize);
     uint64_t lastCountSizePerJetty = dataCount - sliceCountPerJetty * (jettyNum_ - 1);
@@ -183,7 +185,7 @@ HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::KernelRun(const OpParam& para
 
     uint64_t repeatNumInv = UINT64_MAX - repeatNumTmp; // CCU硬件限制
 
-    HCCL_DEBUG("[CcuTempAllGatherNHR1DMultiJettyMem2Mem] inputAddr[%llu], outputAddr[%llu], token[%llu]," 
+    HCCL_DEBUG("[CcuTempAllGatherNHR1DMultiJettyMem2Mem] inputAddr[%llu], outputAddr[%llu], token[%llu],"
     "sliceSize[%llu], sliceSizePerJetty[%llu], lastSliceSizePerJetty[%llu], repeatNumInv[%llu], inputSliceStride[%llu], "
     "outputSliceStride[%llu], inputRepeatStride[%llu], outputRepeatStride[%llu], isInputOutputEqual[%llu]",
     inputAddr, outputAddr, token, sliceSize, sliceSizePerJetty, lastSliceSizePerJetty, repeatNumInv, inputSliceStride, 

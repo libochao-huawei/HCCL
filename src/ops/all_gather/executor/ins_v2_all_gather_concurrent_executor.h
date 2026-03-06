@@ -27,10 +27,10 @@
 
 namespace ops_hccl {
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
-class InsAllGatherConcurrentExecutor : public InsCollAlgBase {
+class InsV2AllGatherConcurrentExecutor : public InsCollAlgBase {
 public:
-    explicit InsAllGatherConcurrentExecutor();
-    ~InsAllGatherConcurrentExecutor() = default;
+    explicit InsV2AllGatherConcurrentExecutor();
+    ~InsV2AllGatherConcurrentExecutor() = default;
 
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
 
