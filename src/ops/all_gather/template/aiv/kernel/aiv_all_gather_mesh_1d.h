@@ -76,7 +76,7 @@ public:
  
     __aicore__ inline void Process(uint64_t count, uint64_t tag, uint64_t stride)
     {
-        curTag_ = (tag_ << AIV_TAG_MOVE_LEFT_BITS) | tag;
+        curTag_ = (tag_ << AIV_TAG_MOVE_RIGHT_BITS) | tag;
         if (numBlocks_ >= rankSize_) {
             // 核数大于等于ranksize
             InitCoreInfo(count);
@@ -121,7 +121,7 @@ public:
             PipeBarrier<PIPE_ALL>();
         }
     }
-    int32_t curTag;
+    uint64_t coreOffset;
     uint64_t curCount;
 };
  
