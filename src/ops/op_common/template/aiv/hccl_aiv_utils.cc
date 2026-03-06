@@ -177,40 +177,6 @@ HcclResult UnRegisterAivKernel()
     return HCCL_SUCCESS;
 }
 
-// commTag需要拼接单算子或者图模式
-HcclResult GetAivCountTag(const std::string &commTag, u32 rank, s32 &aivCountTag)
-{
-    static UniversalConcurrentMap<std::string, AivCountTagArray> aivCountTagMap;
-    auto builder = []() -> AivCountTagArray {
-        AivCountTagArray array;
-        array.fill(0);
-        return array;
-    };
-
-    std::pair<UniversalConcurrentMap<std::string, AivCountTagArray>::Iterator, bool> tagIt;
-    EXECEPTION_CATCH(tagIt = aivCountTagMap.EmplaceIfNotExist(commTag, builder), return HCCL_E_INTERNAL);
-    if (tagIt.second) {
-        HCCL_INFO("[GetAivCountTag]aivCountTagMap new insert, commTag[%s]", commTag.c_str());
-    }
-    AivCountTagArray &aivCountTags = aivCountTagMap[commTag];
-    aivCountTags[rank]++;
-    if (aivCountTags[rank] > TAG_RESET_COUNT) {
-        aivCountTags[rank] = TAG_INIT_VALUE;
-    }
-    aivCountTag = aivCountTags[rank];
-    HCCL_INFO("[GetAivCountTag]aivCountTag[%u]", aivCountTag);
-    return HCCL_SUCCESS;
-}
-
-// 满足isAivClearEnable条件时，在KernelLaunch前调用，清零标记区
-HcclResult ClearAivSyncBuf(const OpParam &param, AlgResourceCtxSerializable& resCtx)
-{
-    ACLCHECK(aclrtMemcpy(static_cast<u8*>(resCtx.aivCommInfoPtr) + AIV_FLAG_ADDR_OFFSET, AIV_FLAG_AREA_SIZE,
-        static_cast<u8*>(resCtx.aivCommInfoPtr) + AIV_FLAG_CLEAR_OFFSET, AIV_FLAG_AREA_SIZE, ACL_MEMCPY_DEVICE_TO_DEVICE));
-    HCCL_INFO("[ClearAivSyncBuf] clearaiv done.");
-    return HCCL_SUCCESS;
-}
-
 // KernelLaunch内部接口
 HcclResult ExecuteKernelLaunchInner(const AivOpArgs &opArgs, void* args, u32 argsSize)
 {

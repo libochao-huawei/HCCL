@@ -144,10 +144,6 @@ HcclResult RegisterKernel(HcclCMDType cmdType, const std::string &aivBinaryName,
 
 HcclResult UnRegisterAivKernel();
 
-HcclResult GetAivCountTag(const std::string &commTag, u32 rank, s32 &aivCountTag);
-
-HcclResult ClearAivSyncBuf(const OpParam &param, AlgResourceCtxSerializable& resCtx);
-
 HcclResult ExecuteKernelLaunchInner(const AivOpArgs &opArgs, void* args, u32 argsSize);
  
 HcclResult ExecuteKernelLaunch(const AivOpArgs &opArgs);
