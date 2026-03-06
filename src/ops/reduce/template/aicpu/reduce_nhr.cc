@@ -20,8 +20,9 @@ ReduceNHR::ReduceNHR(const OpParam &param,
 ReduceNHR::~ReduceNHR()
 {}
 
-void ReduceNHR::SetRoot(u32 root)
+void ReduceNHR::SetRoot(u32 root) const
 {
+    (void)root;
     return;
 }
 
@@ -277,7 +278,7 @@ HcclResult ReduceNHR::PostCopy(const TemplateDataParams &tempAlgParams) const
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult ReduceNHR::GetStepInfo(u32 step, u32 nSteps, AicpuNHRStepInfo &stepInfo)
+HcclResult ReduceNHR::GetStepInfo(u32 step, u32 nSteps, AicpuNHRStepInfo &stepInfo) const
 {
     u32 rankIdx = myIdx_;
     stepInfo.txSliceIdxs.clear();

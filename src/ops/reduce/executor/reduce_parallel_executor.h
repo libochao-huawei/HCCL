@@ -28,6 +28,8 @@ namespace ops_hccl {
 template <typename AlgTopoMatch, typename AlgTemplate0, typename AlgTemplate1>
 class ReduceParallelExecutor : public InsCollAlgBase {
 public:
+    static constexpr u32 templateNum_{2};
+
     explicit ReduceParallelExecutor();
     ~ReduceParallelExecutor() override = default;
 
@@ -56,8 +58,7 @@ private:
         u64 dataCountPerLoopAxis1, u64 scratchOffset, u64 othScratchOffset, TemplateDataParams &tempAlgParams1) const;
     void GenTemplateAlgParamsInter1(const OpParam &param, const AlgResourceCtxSerializable &resCtx, u64 dataOffset,
         u64 dataCountPerLoopAxis1, u64 scratchOffset, u64 othScratchOffset, TemplateDataParams &tempAlgParams1) const;
-    HcclResult PrepareResForTemplate(const OpParam &param, const AlgResourceCtxSerializable &resCtx,
-        AlgTemplate0 &tempAlgIntra, AlgTemplate1 &tempAlgInter);
+    HcclResult PrepareResForTemplate(AlgTemplate0 &tempAlgIntra, AlgTemplate1 &tempAlgInter);
     void GetParallelDataSplit(std::vector<float> &splitDataSize) const;
     uint64_t GetRankSize(const std::vector<std::vector<u32>> &vTopo) const;
 

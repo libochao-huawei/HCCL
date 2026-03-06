@@ -34,7 +34,7 @@ public:
     // 现在的Kernel就是之前的GenExtIns
     HcclResult KernelRun(const OpParam &param, const TemplateDataParams &tempAlgParams,
         const TemplateResource &templateResource) override;
-    void SetRoot(u32 root);
+    void SetRoot(u32 root) const;
     HcclResult CalcRes(
         HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo, AlgResourceRequest &resourceRequest) override;
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
@@ -45,14 +45,14 @@ public:
     u64 GetThreadNum();
 
 private:
-    HcclResult CalcSlice(const u64 dataSize);
+    HcclResult CalcSlice(u64 dataSize);
     HcclResult PreCopy(const TemplateDataParams &tempAlgParams);
     HcclResult RunReduce(const std::map<u32, std::vector<ChannelInfo>> &channels);
     HcclResult RunGather(const std::map<u32, std::vector<ChannelInfo>> &channels);
     HcclResult PostCopy(const TemplateDataParams &tempAlgParams) const;
 
     HcclResult GetStepInfoList(std::vector<AicpuNHRStepInfo> &stepInfoList) const;
-    HcclResult GetStepInfo(u32 step, u32 nSteps, AicpuNHRStepInfo &stepInfo);
+    HcclResult GetStepInfo(u32 step, u32 nSteps, AicpuNHRStepInfo &stepInfo) const;
     std::pair<std::vector<DataSlice>, std::vector<DataSlice>> getTxRxSlices(
         const AicpuNHRStepInfo &stepInfo, const std::map<u32, std::vector<ChannelInfo>> &channels);
     u32 getMyAlgRank() const;

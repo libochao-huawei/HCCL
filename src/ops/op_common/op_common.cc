@@ -95,7 +95,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     bool isResourceReused = false;
 
     ThreadHandle cpuTsThread;
-    ThreadHandle exportedAicpuTsThread;
+    ThreadHandle exportedAicpuTsThread{0};
     if (param.engine == COMM_ENGINE_AICPU_TS) {
         CHK_RET(HcclThreadAcquireWithStream(comm, COMM_ENGINE_CPU_TS, param.stream, 1, &cpuTsThread));
         // Export cpuTsThread
@@ -576,13 +576,12 @@ HcclResult HcclAllocAlgResourceCcu(HcclComm comm, const OpParam& param, AlgResou
     resCtxHost->slaveThreadNum = resRequest.slaveThreadNum;
     resCtxHost->notifyNumPerThread = resRequest.notifyNumPerThread;
     CHK_RET(HcclGetThread(comm, param, resRequest, resCtxHost));
-    CHK_RET(HcclGetChannelForCcu(comm, param, resRequest, resCtxHost));
-    CHK_RET(HcclGetCcuKernel(comm, param, resRequest, resCtxHost));
+    CHK_RET(HcclGetChannelForCcu(comm, param, resRequest));
+    CHK_RET(HcclGetCcuKernel(comm, resRequest, resCtxHost));
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclGetChannelForCcu(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
-                          std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost)
+HcclResult HcclGetChannelForCcu(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest)
 {
     // 以kernel为粒度申请channel
     for (CcuKernelInfo& kernelInfo: resRequest.ccuKernelInfos) {
@@ -602,7 +601,7 @@ HcclResult HcclGetChannelForCcu(HcclComm comm, const OpParam &param, AlgResource
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclGetCcuKernel(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
+HcclResult HcclGetCcuKernel(HcclComm comm, AlgResourceRequest &resRequest,
                           std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost)
 {
     
