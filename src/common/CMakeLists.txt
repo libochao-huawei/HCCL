@@ -18,6 +18,7 @@ set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/config_log.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/log.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/sal.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/hccl_mc2.cc
 )
 
 target_sources(hccl PRIVATE

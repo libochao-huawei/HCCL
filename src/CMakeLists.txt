@@ -173,7 +173,6 @@ else()
     list(APPEND INCLUDE_LIST
         ${TOP_DIR}/inc
         ${TOP_DIR}/inc/aicpu/tsd
-        ${TOP_DIR}/ace/npuruntime/runtime/platform/inc
         ${TOP_DIR}/inc/driver
         ${TOP_DIR}/inc/external
         ${TOP_DIR}/inc/external/acl
@@ -194,6 +193,9 @@ else()
         ${TOP_DIR}/metadef/inc
         ${TOP_DIR}/metadef/inc/common
         ${TOP_DIR}/metadef/inc/external
+
+        ${TOP_DIR}/runtime/include/external
+        ${TOP_DIR}/runtime/include/external/acl
         ${TOP_DIR}/runtime/pkg_inc/base
 
         ${TOP_DIR}/open_source/json/include
