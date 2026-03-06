@@ -269,3 +269,5 @@ bool AutoSelectorBase::IsInputOutputOverlap(const OpParam &opParam) const
     HCCL_DEBUG("[Algo][AutoSelectorBase][IsInputOutputOverlap]No overlap between input and output memory.");
     return false;
 }
+
+}

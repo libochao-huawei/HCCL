@@ -144,7 +144,7 @@ namespace ops_hccl {
         std::string algName;
         std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
         CHK_RET(Selector(comm, param, topoInfo, algName, opExecuteConfig));
-        if (opExecuteConfig != OpExecuteConfig::AICPU_TS) {
+        if (opExecuteConfig != OpExecuteConfig::AICPU_TS && opExecuteConfig != OpExecuteConfig::HOSTCPU) {
             return HcclRecvInner(recvBuf, count, dataType, srcRank, comm, stream);
         }
         CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
