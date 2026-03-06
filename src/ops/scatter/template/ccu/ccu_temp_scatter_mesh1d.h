@@ -36,7 +36,7 @@ public:
                          const TemplateResource &templateResource) override;
 
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
-    u64 GetThreadNum() override;
+    u64 GetThreadNum() const override;
     void SetRoot(u32 root);
 
 private:

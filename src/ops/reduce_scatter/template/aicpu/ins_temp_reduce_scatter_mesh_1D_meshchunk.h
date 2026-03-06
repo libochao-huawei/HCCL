@@ -37,12 +37,12 @@ public:
                         AlgResourceRequest& resourceRequest) override;
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
     
-    HcclResult PreCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads);
+    HcclResult PreCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads) const;
     HcclResult PostCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads);
     HcclResult CalcSliceInfoVec(const u64 &dataSize, RankSliceInfo &sliceInfoVec);
 
-    void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub);
-    void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain);
+    void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub) override;
+    void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override;
 
 private:
     HcclResult RunReduceScatter(const std::map<u32, std::vector<ChannelInfo>> &channels,

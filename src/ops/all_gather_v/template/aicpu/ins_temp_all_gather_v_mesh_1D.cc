@@ -40,7 +40,7 @@ HcclResult InsTempAllGatherVMesh1D::GetResWithoutLinks(AlgResourceRequest &resou
     return HCCL_SUCCESS;
 }
  
-u64 InsTempAllGatherVMesh1D::GetThreadNum()
+u64 InsTempAllGatherVMesh1D::GetThreadNum() const
 {
     return templateRankSize_ > 1 ? templateRankSize_ - 1 : 1;
 }

@@ -28,7 +28,7 @@ HcclResult InsTempAllGatherMesh1D::CalcRes(HcclComm comm, const OpParam &param, 
     resourceRequest.channels.push_back(level0Channels);
     return HCCL_SUCCESS;
 }
-HcclResult InsTempAllGatherMesh1D::GetRes(AlgResourceRequest &resourceRequest)
+HcclResult InsTempAllGatherMesh1D::GetRes(AlgResourceRequest &resourceRequest) const
 {
     u32 level0RankSize = templateRankSize_;
     u32 threadNum = level0RankSize > 1 ? level0RankSize - 1 : 1;
@@ -38,7 +38,7 @@ HcclResult InsTempAllGatherMesh1D::GetRes(AlgResourceRequest &resourceRequest)
     return HCCL_SUCCESS;
 }
 
-u64 InsTempAllGatherMesh1D::GetThreadNum()
+u64 InsTempAllGatherMesh1D::GetThreadNum() const
 {
     return templateRankSize_ > 1 ? templateRankSize_ - 1 : 1;
 }

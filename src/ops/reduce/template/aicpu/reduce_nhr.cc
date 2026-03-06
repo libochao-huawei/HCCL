@@ -409,7 +409,7 @@ void ReduceNHR::GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub)
 void ReduceNHR::GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain)
 {}
 
-u64 ReduceNHR::GetThreadNum()
+u64 ReduceNHR::GetThreadNum() const
 {
     return 1;
 }

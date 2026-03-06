@@ -17,7 +17,7 @@ constexpr u64 AR_M2M_1D_MAX_DATA_SIZE = 16 * 1024 * 1024;
 constexpr u64 AR_AICPU_1D_SMALL_DATA_SIZE = 8 * 1024 * 1024;
 constexpr u64 AR_AICPU_1D_MAX_DATA_SIZE = 32 * 1024 * 1024;
 
-SelectorStatus AllReduceAutoSelector::SelectCcuMsAlgo(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
+SelectorStatus AllReduceAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                     std::string &selectAlgName) const
 {
@@ -75,8 +75,8 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgo(const TopoInfoWithNetLayerD
     return SelectorStatus::MATCH;
 }
 
-SelectorStatus AllReduceAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetLayerDetails* topoInfo,
-                                                            OpParam &opParam,
+SelectorStatus AllReduceAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNetLayerDetails* topoInfo,
+                                                            const OpParam &opParam,
                                                             const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                             std::string &selectAlgName) const
 {    
@@ -135,8 +135,8 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetLayer
     return SelectorStatus::MATCH;
 }
 
-SelectorStatus AllReduceAutoSelector::SelectAicpuAlgo(TopoInfoWithNetLayerDetails* topoInfo,
-                                                      OpParam &opParam,
+SelectorStatus AllReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerDetails* topoInfo,
+                                                      const OpParam &opParam,
                                                       const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                       std::string &selectAlgName) const
 {
@@ -211,9 +211,9 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetL
     return SelectorStatus::MATCH;
 }
 
-SelectorStatus AllReduceAutoSelector::SelectAivAlgo(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
-                                                       const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
-                                                       std::string &selectAlgName) const
+SelectorStatus AllReduceAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
+                                                    const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+                                                    std::string &selectAlgName) const
 {
     std::vector<HcclAlgoType> algos = std::vector<HcclAlgoType>(HCCL_ALGO_LEVEL_NUM, HcclAlgoType::HCCL_ALGO_TYPE_DEFAULT);
     auto it = configAlgMap.find(opParam.opType);

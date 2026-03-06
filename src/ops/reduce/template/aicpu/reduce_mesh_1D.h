@@ -41,7 +41,7 @@ public:
 
     HcclResult PostCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads);
 
-    u64 GetThreadNum() override;
+    u64 GetThreadNum() const override;
 
 private:
     HcclResult RunReduce(const std::map<u32, std::vector<ChannelInfo>> &channels,

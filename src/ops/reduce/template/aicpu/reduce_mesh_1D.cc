@@ -270,7 +270,7 @@ void ReduceMesh1D::GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain)
     std::iota(notifyIdxSubToMain.begin(), notifyIdxSubToMain.end(), 0);
 }
 
-u64 ReduceMesh1D::GetThreadNum()
+u64 ReduceMesh1D::GetThreadNum() const
 {
     return templateRankSize_;
 }

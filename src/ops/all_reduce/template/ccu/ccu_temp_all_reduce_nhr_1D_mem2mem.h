@@ -33,8 +33,8 @@ public:
     HcclResult KernelRun(const OpParam& param,
                          const TemplateDataParams& templateDataParams,
                          const TemplateResource& templateResource) override;
-    u64 GetThreadNum() override;
-    HcclResult GetRes(AlgResourceRequest& resourceRequest) override; 
+    u64 GetThreadNum() const override;
+    HcclResult GetRes(AlgResourceRequest& resourceRequest) const override;
 private:
     HcclResult CalcSlice(const u64 dataSize, RankSliceInfo &sliceInfoVec) const;
     HcclResult GetStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo);
