@@ -67,8 +67,8 @@ HcclResult CcuTempAllGatherMesh1D::CalcRes(HcclComm comm, const OpParam& param, 
 }
 
 HcclResult CcuTempAllGatherMesh1D::KernelRun(const OpParam& param,
-                                                        const TemplateDataParams& templateDataParams,
-                                                        const TemplateResource& templateResource)
+                                             const TemplateDataParams& templateDataParams,
+                                             const TemplateResource& templateResource)
 {
     buffInfo_ = templateDataParams.buffInfo;
 
