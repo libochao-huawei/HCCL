@@ -33,7 +33,7 @@ public:
                          const TemplateResource &templateResource) override;
     HcclResult CalcRes(HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
                        AlgResourceRequest &resourceRequest) override;
-    HcclResult GetResWithoutLinks(AlgResourceRequest &resourceRequest);
+    HcclResult GetResWithoutLinks(AlgResourceRequest &resourceRequest) const;
  
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
     u64 GetThreadNum() override;
