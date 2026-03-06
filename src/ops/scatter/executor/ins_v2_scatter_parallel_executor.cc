@@ -174,7 +174,7 @@ HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::GenInsQuesHost(
-    const OpParam &param, const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &tempAlgIntra, InsAlgTemplate1 &tempAlgInter)
+    const OpParam &param, const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &tempAlgIntra, InsAlgTemplate1 &tempAlgInter) const
 {
     HCCL_INFO("[InsV2ScatterParallelExecutor] AlgTemplate intra server is [%s]", tempAlgIntra.Describe().c_str());
     HCCL_INFO("[InsV2ScatterParallelExecutor] AlgTemplate inter server is [%s]", tempAlgInter.Describe().c_str());
@@ -352,7 +352,7 @@ void InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::PrepareResForTemplate(
-    const OpParam &param, const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &tempAlgIntra, InsAlgTemplate1 &tempAlgInter)
+    const OpParam &param, const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &tempAlgIntra, InsAlgTemplate1 &tempAlgInter) const
 {
     (void)param;
     (void)tempAlgInter;
