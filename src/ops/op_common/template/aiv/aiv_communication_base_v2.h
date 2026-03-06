@@ -223,7 +223,7 @@ public:
         if (tag_ = TAG_RESET_COUNT) {
             tag_ = TAG_INIT_VALUE;
         } else {
-            tag++;
+            tag_++;
         }
         for (uint64_t i = 0; i < setBlockNum; ++i) {
             localOut.SetValue(i, tag_);
