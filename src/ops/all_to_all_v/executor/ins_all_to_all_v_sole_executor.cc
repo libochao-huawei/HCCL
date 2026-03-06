@@ -24,7 +24,6 @@ namespace ops_hccl {
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::InsAlltoAllVSoleExecutor()
 {
-    
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
@@ -127,7 +126,7 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate(
     CHK_PRT_RET(ret != HCCL_SUCCESS,
         HCCL_ERROR("[InsAlltoAllVSoleExecutor][Orchestrate]errNo[0x%016llx] All to All excutor kernel run failed",
             HCCL_ERROR_CODE(ret)), ret);
-    return HcclResult::HCCL_SUCCESS;
+    return HCCL_SUCCESS;
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
