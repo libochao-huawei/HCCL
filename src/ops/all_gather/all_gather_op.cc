@@ -9,6 +9,8 @@
  */
 
 #include <algorithm>
+#include <map>
+#include <string>
 #include <future>
 #include <map>
 #include <string>

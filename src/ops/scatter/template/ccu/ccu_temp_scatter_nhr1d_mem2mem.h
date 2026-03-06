@@ -28,16 +28,16 @@ public:
                             subCommRanks_[0].size());
     }
 
+    HcclResult KernelRun(const OpParam& param,
+                        const TemplateDataParams& templateDataParams,
+                        const TemplateResource& templateResource) override;
+
     HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                        AlgResourceRequest& resourceRequest) override;
-
-    HcclResult KernelRun(const OpParam& param,
-                         const TemplateDataParams& templateDataParams,
-                         const TemplateResource& templateResource) override;
-
+    
+    u64 GetThreadNum() const override;
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
     void SetRoot(u32 root);
-    u64 GetThreadNum() const override;
     HcclResult GetRes(AlgResourceRequest& resourceRequest) const override;
 
 private:
