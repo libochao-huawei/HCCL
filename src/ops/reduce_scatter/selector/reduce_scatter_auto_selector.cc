@@ -94,7 +94,7 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgo(TopoInfoWithNetLayerDet
             selectAlgName = "CcuReduceScatterMesh1D";
         }
     } else {
-       return SelectorStatus::NOT_MATCH;
+        return SelectorStatus::NOT_MATCH;
     }
     return SelectorStatus::MATCH;
 }
@@ -274,7 +274,7 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoAicpu(TopoInfoWithNetLay
                     selectAlgName = "InsReduceScatterMesh1D";
                 }
             }
-        } else if (isClosNumMultipleOfMeshNum && !IsSmallData(dataSize)){
+        } else if (isClosNumMultipleOfMeshNum && !IsSmallData(dataSize)) {
             selectAlgName = "InsReduceScatterParallelMesh1DNHR";
         } else {
             if (Is64BitDataType(opParam.DataDes.dataType) ||
