@@ -352,6 +352,4 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceConc
 #endif
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, InsAllReduceConcurrent, InsV2AllReduceConcurrentExecutor, TopoMatchUBX,
     InsTempAllReduceMesh1DTwoShot, InsTempAllReduceNHR);
-
-
 }
