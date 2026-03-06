@@ -65,7 +65,7 @@ SelectorStatus AllGatherAutoSelector::SelectMeshAlgo(const TopoInfoWithNetLayerD
         HCCL_WARNING("[Algo][AllGatherAutoSelector] Level0Topo[%u] is not supported for ccu_ms mode, reset to default.", topoInfo->level0Topo);
         return SelectorStatus::NOT_MATCH;
     }
-    HCCL_DEBUG("[AllGatherAutoSelector][%s] end", __func__);
+    HCCL_INFO("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
     return SelectorStatus::MATCH;
 }
 
@@ -127,9 +127,6 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
                 selectAlgName = "CcuAllGatherMesh1DMem2MemUBX";
                 return SelectorStatus::MATCH;
         }
-    } else if ((IsDefaultAlg(levle0Algo) || (levle0Algo == HcclAlgoType::HCCL_ALGO_TYPE_FULLMESH))) {
-        selectAlgName = "CcuAllGatherMesh2DMem2Mem";
-        return SelectorStatus::MATCH;
     } else {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             if (topoInfo->is2DieFullMesh) {
@@ -150,7 +147,8 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
             return SelectorStatus::NOT_MATCH;
         }
     }
-    HCCL_DEBUG("[AllGatherAutoSelector][%s] end", __func__);
+
+    HCCL_INFO("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
     return SelectorStatus::MATCH;
 }
 
@@ -158,7 +156,8 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
     const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
     std::string &selectAlgName) const
 {
-    HCCL_DEBUG("[AllGatherAutoSelector][%s] start", __func__);
+    HCCL_DEBUG("[AllGatherAutoSelector][%s] start, topoInfo topoLevelNums[%u]", __func__, topoInfo->topoLevelNums);
+    (void)configAlgMap;
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
     HCCL_INFO("[AllGatherAutoSelector][SelectAicpuAlgo] topoLevelNums=[%d], deviceNumPerModule=[%d], level0Topo=[%d]",
@@ -220,7 +219,7 @@ SelectorStatus AllGatherAutoSelector::SelectAivAlgo(
     (void)opParam;
 
     selectAlgName = "AivAllGatherMesh1D";
-    HCCL_DEBUG("[AllGatherAutoSelector][%s] end", __func__);
+    HCCL_INFO("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
     return SelectorStatus::MATCH;
 }
 
