@@ -135,7 +135,6 @@ HcclResult InitEnvConfig()
 }
 std::string GetEnv(mmEnvId IdName)
 {
-    // 使用足够大的固定缓冲区来避免缓冲区溢出
     constexpr size_t MAX_ENV_VALUE_SIZE = 1024;
     char envValue[MAX_ENV_VALUE_SIZE] = {0};
     char* mmSysGetEnvValue = envValue;
