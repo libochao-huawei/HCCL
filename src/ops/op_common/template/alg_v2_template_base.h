@@ -13,7 +13,6 @@
 
 #include <vector>
 #include <memory>
-#include <list>
 #include "template_utils.h"
 #include "alg_template_base.h"
 
