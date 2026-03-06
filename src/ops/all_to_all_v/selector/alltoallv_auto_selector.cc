@@ -20,6 +20,7 @@ SelectorStatus AlltoAllVAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNe
                                                     std::string &selectAlgName) const
 {
     HCCL_DEBUG("[AlltoAllVAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
+    (void)opParam;
     (void)configAlgMap;
     if (topoInfo->topoLevelNums > 1) {
         HCCL_WARNING("[Algo][AlltoAllVAutoSelector] levelNum > 1 is not supported yet for ccu_schedule mode.");
@@ -60,12 +61,8 @@ SelectorStatus AlltoAllVAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayer
                                                       std::string &selectAlgName) const
 {
     HCCL_DEBUG("[AlltoAllVAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
-    (void) topoInfo;
+    (void)opParam;
     (void)configAlgMap;
-
-    HCCL_INFO("[AlltoAllV] hccl algo op config: config opType:%d, level0:%u, level1:%u, level2:%u, level3:%u",
-        opParam.opType, algos.at(0), algos.at(1), algos.at(2), algos.at(3));
-
     if (topoInfo->topoLevelNums > 1) {
         HCCL_ERROR("hccl algo no match");
         return SelectorStatus::NOT_MATCH;
@@ -93,11 +90,8 @@ SelectorStatus AlltoAllVAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDe
                                                    std::string &selectAlgName) const
 {
     HCCL_DEBUG("[AlltoAllVAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
-    (void) topoInfo;
+    (void)opParam;
     (void)configAlgMap;
-
-    HCCL_INFO("[AlltoAllV] hccl algo op config: config opType:%d, level0:%u, level1:%u, level2:%u, level3:%u",
-              opParam.opType, algos.at(0), algos.at(1), algos.at(2), algos.at(3));
 
     selectAlgName = "AivAlltoAllVMesh1D";
     HCCL_INFO("[AlltoAllVAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
