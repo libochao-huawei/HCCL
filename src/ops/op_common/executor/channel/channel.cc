@@ -306,16 +306,16 @@ HcclResult GetTopoTypeByLink(HcclComm comm, uint32_t netLayer, CommLink &link, C
     CHK_RET(HcclRankGraphGetTopoInstsByLayer(comm, netLayer, &topoInstList, &listSize));         // 获取当前rank的所有TopoInst
     HCCL_INFO("[%s][%u] listSize = %u", __func__, __LINE__, listSize);
  
-    for (uint32_t i = 0; i < listSize; i++) { // 遍历topoInst
-        uint32_t topoInstId = topoInstList[i];
+    for (uint32_t topoInstIdx = 0; topoInstIdx < listSize; topoInstIdx++) { // 遍历topoInst
+        uint32_t topoInstId = topoInstList[topoInstIdx];
         uint32_t endPointNum;
         CHK_RET(HcclRankGraphGetEndpointNum(comm, netLayer, topoInstId, &endPointNum));
         EndpointDesc *endPointDescs = (EndpointDesc*)malloc(endPointNum * sizeof(EndpointDesc));
         CHK_RET(HcclRankGraphGetEndpointDesc(comm, netLayer, topoInstId, &endPointNum, endPointDescs));
         CHK_RET(HcclRankGraphGetTopoType(comm, netLayer, topoInstId, &topoType));
         HCCL_DEBUG("[%s]topoInstId=%u, endPointNum=%u, topoType=%u", __func__, topoInstId, endPointNum, topoType);
-        for (uint32_t i = 0; i < endPointNum; i++) {
-            EndpointDesc endPoint = endPointDescs[i];
+        for (uint32_t endPointIdx = 0; endPointIdx < endPointNum; endPointIdx++) {
+            EndpointDesc endPoint = endPointDescs[endPointIdx];
             if (IsEndPointEqual(link.srcEndpointDesc, endPoint) == true) {  // 当前TopoInst和link的endPoint相同，说明link属于当前TopoInst
                 return HCCL_SUCCESS;
             }
@@ -337,7 +337,6 @@ HcclResult ProcessLinksForChannel(HcclComm comm, u32 myRank, u32 rank, std::vect
     uint32_t netLayerNum;
     CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
     std::vector<uint32_t> netLayersVector(netLayers, netLayers + netLayerNum);
-    // bool isFlag= false;
     for (auto netLayer : netLayersVector) {
         CommLink *linkList = nullptr;
         u32 listSize;

@@ -95,8 +95,6 @@ public:
     uint64_t repeatNum_;
     uint64_t inputRepeatStride_;
     uint64_t outputRepeatStride_;
-    // uint64_t isInplace_;
-
 };
 
 class CcuKernelReduceScatterNhrMutilJettyMem2Mem1D : public CcuKernelAlgBase {
@@ -142,14 +140,10 @@ private:
     hcomm::CcuRep::Variable sliceOneJettySize_;
     hcomm::CcuRep::Variable sliceLastJettySize_;
     hcomm::CcuRep::Variable repeatNumVar_;
-    // hcomm::CcuRep::Variable isInplace_;
-
 
     std::vector<hcomm::CcuRep::CompletedEvent> jettyEvent_;
     hcomm::CcuRep::CompletedEvent event_;
     hcomm::CcuRep::Variable repeatNumVarTemp_;
-    // hcomm::CcuRep::Memory srcMem_;
-    // hcomm::CcuRep::Memory dstMem_;
     CcuRep::LocalAddr   localSrc_;
     CcuRep::LocalAddr   localDst_;
     CcuRep::RemoteAddr  remoteDst_;
