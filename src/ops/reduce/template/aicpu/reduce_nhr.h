@@ -42,7 +42,7 @@ public:
     void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub) override;
     void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override;
 
-    u64 GetThreadNum();
+    u64 GetThreadNum() const override;
 
 private:
     HcclResult CalcSlice(const u64 dataSize);

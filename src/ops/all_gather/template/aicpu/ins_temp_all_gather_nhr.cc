@@ -31,15 +31,15 @@ HcclResult InsTempAllGatherNHR::CalcRes(HcclComm comm, const OpParam &param, con
     HCCL_WARNING("Resource calculation is temporarily not performed in the template.");
     return HCCL_SUCCESS;
 }
-HcclResult InsTempAllGatherNHR::GetRes(AlgResourceRequest &resourceRequest)
+HcclResult InsTempAllGatherNHR::GetRes(AlgResourceRequest &resourceRequest) const
 {
     // NHR算法主需要一条主流
     resourceRequest.slaveThreadNum = 0;
-    resourceRequest.notifyNumPerThread;         // 没有从流
+    resourceRequest.notifyNumPerThread = 0;         // 没有从流
     resourceRequest.notifyNumOnMainThread = 0;  // 没有从流
     return HCCL_SUCCESS;
 }
-u64 InsTempAllGatherNHR::GetThreadNum()
+u64 InsTempAllGatherNHR::GetThreadNum() const
 {
     return 1;
 }

@@ -36,7 +36,7 @@ HcclResult InsTempBroadcastNHR::CalcRes(HcclComm comm, const OpParam& param, con
     return HCCL_SUCCESS;
 }
 
-HcclResult InsTempBroadcastNHR::GetRes(AlgResourceRequest &resourceRequest)
+HcclResult InsTempBroadcastNHR::GetRes(AlgResourceRequest &resourceRequest) const
 {
     u32 threadNum = 1;
     resourceRequest.slaveThreadNum = threadNum - 1;
@@ -55,7 +55,7 @@ u64 InsTempBroadcastNHR::CalcScratchMultiple(BufferType inBuffType, BufferType o
     return scratchMultiple;
 }
 
-u64 InsTempBroadcastNHR::GetThreadNum()
+u64 InsTempBroadcastNHR::GetThreadNum() const
 {
     u32 threadNum = 1;
     return threadNum;

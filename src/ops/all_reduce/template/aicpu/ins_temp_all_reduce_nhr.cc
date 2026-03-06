@@ -40,14 +40,14 @@ HcclResult InsTempAllReduceNHR::CalcRes(HcclComm comm, const OpParam& param,
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult InsTempAllReduceNHR::GetRes(AlgResourceRequest& resourceRequest)
+HcclResult InsTempAllReduceNHR::GetRes(AlgResourceRequest& resourceRequest) const
 {
     resourceRequest.slaveThreadNum = 0;
     resourceRequest.notifyNumOnMainThread = 0;
     return HCCL_SUCCESS;
 }
 
-u64 InsTempAllReduceNHR::GetThreadNum()
+u64 InsTempAllReduceNHR::GetThreadNum() const
 {
     return 1;
 }

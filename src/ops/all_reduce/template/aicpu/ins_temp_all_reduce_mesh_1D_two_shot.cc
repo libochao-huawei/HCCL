@@ -42,7 +42,7 @@ HcclResult InsTempAllReduceMesh1DTwoShot::CalcRes(HcclComm comm, const OpParam& 
     return HCCL_SUCCESS;
 }
 
-HcclResult InsTempAllReduceMesh1DTwoShot::GetRes(AlgResourceRequest& resourceRequest)
+HcclResult InsTempAllReduceMesh1DTwoShot::GetRes(AlgResourceRequest& resourceRequest) const
 {
     threadNum_ = GetThreadNum();
     resourceRequest.slaveThreadNum = threadNum_ - 1;
@@ -53,7 +53,7 @@ HcclResult InsTempAllReduceMesh1DTwoShot::GetRes(AlgResourceRequest& resourceReq
     return HCCL_SUCCESS;
 }
 
-u64 InsTempAllReduceMesh1DTwoShot::GetThreadNum()
+u64 InsTempAllReduceMesh1DTwoShot::GetThreadNum() const
 {
     // 需要rankSize个线程并行
     return templateRankSize_;
