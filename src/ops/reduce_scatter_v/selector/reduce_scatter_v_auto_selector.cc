@@ -152,7 +152,7 @@ SelectorStatus ReduceScatterVAutoSelector::SelectAicpuAlgo(const TopoInfoWithNet
     return SelectorStatus::MATCH;
 }
 
-SelectorStatus ReduceScatterVAutoSelector::SelectMeshAlgoAicpu(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
+SelectorStatus ReduceScatterVAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                           std::string &selectAlgName) const
 {
     if (topoInfo->level0Topo == Level0Shape::MESH_1D){
