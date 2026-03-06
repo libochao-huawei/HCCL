@@ -132,7 +132,7 @@ HcclResult ReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclData
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));
-    if (param.opExecuteConfig != OpExecuteConfig::AICPU_TS) {
+    if (param.opExecuteConfig != OpExecuteConfig::AICPU_TS && param.opExecuteConfig != OpExecuteConfig::HOSTCPU) {
         return HcclReduceInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
     }
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
