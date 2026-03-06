@@ -57,7 +57,7 @@ private:
     HcclResult RankRecvData(const u64 memOffset, const u32 remoteRank, const TemplateDataParams &tempAlgParams,
             const std::vector<ThreadHandle> &threads, const u32 id, const std::map<u32, std::vector<ChannelInfo>> &channels, const RankSliceInfo &sliceInfoVec) const;
     
-    HcclResult CalcDataSliceInfo(const u64 dataSize, RankSliceInfo &sliceInfoVec);
+    HcclResult CalcDataSliceInfo(const u64 dataSize, RankSliceInfo &sliceInfoVec) const;
 
     u64 dataTypeSize_{0};
     std::map<u32, u32> tempVirtRankMap_;
