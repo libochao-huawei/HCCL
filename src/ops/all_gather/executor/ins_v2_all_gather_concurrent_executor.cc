@@ -159,7 +159,7 @@ void InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplat
 {
     const u32 portNum0 = rankSize_ - 1;  // mesh端口数为rank size - 1
     const u32 portNum1 = CLOS_PORT_NUM;
-    double splitData = portNum0 / (portNum0 + portNum1);
+    double splitData = static_cast<double>(portNum0) / (portNum0 + portNum1);
     splitDataSize.push_back(splitData);  
     splitDataSize.push_back(1 - splitData);
     HCCL_INFO("[InsAllGatherConcurrentExecutor][GenTemplate1AlgParams] portNum0[%u], portNum1[%u], splitData[%.4f], ",
@@ -318,9 +318,9 @@ HcclResult InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     u64 loopTimesforTemp1 = totalCount1 / maxCountPerLoopforTemp1 + static_cast<u64>(totalCount1 % maxCountPerLoopforTemp1 != 0);
 
     HCCL_INFO("[InsAllGatherConcurrentExecutor][OrchestrateLoop] maxCountPerLoopforTemp0[%llu], maxCountPerLoopforTemp1[%llu], "
-              "transportBoundDataCount[%llu], totalScratchMultiple[%llu]"
-              "loopTimesforTemp0[%llu], loopTimesforTemp1[%llu]",
-              maxCountPerLoopforTemp0, maxCountPerLoopforTemp1, maxCountUBLimit, totalScratchMultiple, loopTimesforTemp0, loopTimesforTemp1);
+              "transportBoundDataCount[%llu], totalScratchMultiple[%llu], loopTimesforTemp0[%llu], loopTimesforTemp1[%llu], "
+              "totalCount0[%llu], totalCount1[%llu]",
+              maxCountPerLoopforTemp0, maxCountPerLoopforTemp1, maxCountUBLimit, totalScratchMultiple, loopTimesforTemp0, loopTimesforTemp1, totalCount0, totalCount1);
 
     // 前同步
     CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
