@@ -42,8 +42,8 @@ CcuKernelAllreduceMesh1D2DieOneShot::CcuKernelAllreduceMesh1D2DieOneShot(const C
     rmtReduceRankNum_ = channels_.size() + (rmtReduceWithMyRank_ == true ? 1 : 0);
  
     rmtSyncMyBit_ = 1 << (myRankId_ % rmtReduceRankNum_);
-    rmtSyncWaitBit_
-        = rmtReduceWithMyRank_ ? ((1 << rmtReduceRankNum_) - 1) & (~rmtSyncMyBit_) : (1 << rmtReduceRankNum_) - 1;
+    rmtSyncWaitBit_ = 
+        rmtReduceWithMyRank_ ? ((1 << rmtReduceRankNum_) - 1) & (~rmtSyncMyBit_) : (1 << rmtReduceRankNum_) - 1;
   
     missionSyncMybit_   = 1 << (rmtReduceWithMyRank_ ? 1 : 0);
     missionSyncWaitBit_ = 1 << (!rmtReduceWithMyRank_ ? 1 : 0);
@@ -79,7 +79,7 @@ HcclResult CcuKernelAllreduceMesh1D2DieOneShot::InitResource()
     }
     HCCL_INFO("[CcuKernelAllreduceMesh1D2DieOneShot] myRankId_[%llu], channel[%llu]", myRankId_, channels_.size());
     for (auto channel : channels_) {
-        HCCL_INFO("[CcuKernelAllreduceMesh1D2DieOneShot] myRankId_[%llu] channelId[%llu]",myRankId_, channelIdx);
+        HCCL_INFO("[CcuKernelAllreduceMesh1D2DieOneShot] myRankId_[%llu] channelId[%llu]", myRankId_, channelIdx);
         CcuRep::Variable inputVar, tokenVar;
         CHK_RET(CreateVariable(channel, INPUT_XN_ID, &inputVar));
         input_.push_back(inputVar); // 获取channel中id=0的Var来传递output
@@ -119,7 +119,6 @@ void CcuKernelAllreduceMesh1D2DieOneShot::LoadArgs()
     Load(localReduceGoSize1_);
 
     HCCL_INFO("[CcuKernelAllreduceMesh1D2DieOneShot] LoadArgs run finished");
-
 }
 
 void CcuKernelAllreduceMesh1D2DieOneShot::PreSync()
@@ -152,11 +151,12 @@ void CcuKernelAllreduceMesh1D2DieOneShot::PostSync(uint32_t signalIndex)
     HCCL_INFO("[CcuKernelAllreduceMesh1D2DieOneShot] PostSync run finished");
 }
 
-void CcuKernelAllreduceMesh1D2DieOneShot::DoRmtReduce() {
+void CcuKernelAllreduceMesh1D2DieOneShot::DoRmtReduce()
+{
     std::vector<CcuRep::RemoteAddr> src;
     src.reserve(rmtReduceRankNum_);
     for (uint32_t peerIdx = 0; peerIdx < channels_.size(); peerIdx++) {
-        HCCL_INFO("[CcuKernelAllreduceMesh1D2DieOneShot] DoRmtReduce myRankId_[%llu] peerIdx[%llu]",myRankId_, peerIdx);
+        HCCL_INFO("[CcuKernelAllreduceMesh1D2DieOneShot] DoRmtReduce myRankId_[%llu] peerIdx[%llu]", myRankId_, peerIdx);
         src.push_back(CreateRemoteAddr());
         src.back().token = remoteToken_[peerIdx];
         src.back().addr  = input_[peerIdx];
@@ -566,10 +566,9 @@ std::vector<uint64_t> CcuKernelAllreduceMesh1D2DieOneShot::GeneArgs(const CcuTas
     }
 
     HCCL_INFO("[CcuKernelAllreduceMesh1D2DieOneShot][GeneArgs]: inputAddr[%llu], outputAddr[%llu],"
-        "sliceSize[%llu], scratchBaseOffset0[%llu], scratchBaseOffset1[%llu],localReduceSliceOffset0[%llu],localReduceSliceOffset1[%llu],localRedcueSize0[%llu],,localRedcueSize1[%llu]",
-        myInput, myOutput, sliceSize, scratchBaseOffset0, scratchBaseOffset1,localReduceSliceOffset0,localReduceSliceOffset1,localRedcueSize0,localRedcueSize1);
+        "sliceSize[%llu], scratchBaseOffset0[%llu], scratchBaseOffset1[%llu],localReduceSliceOffset0[%llu],localReduceSliceOffset1[%llu]",
+        myInput, myOutput, sliceSize, scratchBaseOffset0, scratchBaseOffset1,localReduceSliceOffset0,localReduceSliceOffset1);
 
     return taskArgs;
 }
-
 } // namespace ops_hccl

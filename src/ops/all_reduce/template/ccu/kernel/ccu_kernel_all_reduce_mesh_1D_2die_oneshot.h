@@ -45,7 +45,6 @@ public:
     OpParam                                 opParam_;
     std::vector<std::vector<uint32_t>>      subCommRanks_;
     bool                                    rmtReduceWithMyRank_;
-
 };
 
 class CcuTaskArgAllreduceMesh1D2DieOneShot : public hcomm::CcuTaskArg {
@@ -94,7 +93,6 @@ private:
     void CreateReduceLoop(uint32_t size, HcclDataType dataType, HcclDataType outputDataType,
                                                          HcclReduceOp opType);
 
-
     bool rmtReduceWithMyRank_;
     uint32_t myRankId_;
     uint32_t rankSize_;
@@ -135,6 +133,6 @@ private:
     std::vector<ChannelHandle> channels_;
 };
 
-}// namespace ops_hccl
+} // namespace ops_hccl
 #endif // HCCLV2_CCU_KERNEL_ALLREDUCE_MESH_1D_2DIE_ONE_SHOT_H
 

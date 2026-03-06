@@ -59,7 +59,7 @@ HcclResult InsV2AllReduceSequence2DieExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
     // step1在完成后，完成后同步后展开step2，因此slaveThread和对应notify可以复用
     resourceRequest.slaveThreadNum = std::max(resReqStepReduce.slaveThreadNum, resReqStepGather.slaveThreadNum);
     resourceRequest.notifyNumOnMainThread = std::max(resReqStepReduce.notifyNumOnMainThread, resReqStepGather.notifyNumOnMainThread);
-    if (resourceRequest.slaveThreadNum != 0){
+    if (resourceRequest.slaveThreadNum != 0) {
         resourceRequest.notifyNumPerThread.assign(resReqStepReduce.slaveThreadNum, 1);
     }
     
@@ -224,7 +224,8 @@ HcclResult InsV2AllReduceSequence2DieExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
         tempAlgParams0.buffInfo.hcclBuffBaseOff = 0;
         tempAlgParams0.sliceSize = sliceInfoList_.at(myRank_).size;
         tempAlgParams0.tailSize = tempAlgParams0.sliceSize;
-        tempAlgParams0.inputSliceStride = (myRank_ == (rankSize_ - 1)) ? sliceInfoList_.at(myRank_-1).size : sliceInfoList_.at(myRank_).size; // 如果是输入，偏移是算子的output datasize
+        // 如果是输入，偏移是算子的output datasize
+        tempAlgParams0.inputSliceStride = (myRank_ == (rankSize_ - 1)) ? sliceInfoList_.at(myRank_-1).size : sliceInfoList_.at(myRank_).size; 
         tempAlgParams0.outputSliceStride = 0; // 如果是scratchbuffer，偏移是单次循环处理的最大数据量
         tempAlgParams0.repeatNum = 1;
         CHK_RET(algTemplate0->KernelRun(param, tempAlgParams0, templateAlgRes0));
@@ -245,20 +246,21 @@ HcclResult InsV2AllReduceSequence2DieExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
         tempAlgParams1.sliceSize = sliceInfoList_.at(myRank_).size;
         tempAlgParams1.tailSize = tempAlgParams1.sliceSize;
         tempAlgParams1.inputSliceStride = 0; // 如果是输入，偏移是算子的output datasize
-        tempAlgParams1.outputSliceStride = (myRank_ == (rankSize_ - 1)) ? sliceInfoList_.at(myRank_-1).size : sliceInfoList_.at(myRank_).size; // 如果是scratchbuffer，偏移是单次循环处理的最大数据量
+        // 如果是scratchbuffer，偏移是单次循环处理的最大数据量
+        tempAlgParams1.outputSliceStride = (myRank_ == (rankSize_ - 1)) ? sliceInfoList_.at(myRank_-1).size : sliceInfoList_.at(myRank_).size; 
         tempAlgParams1.repeatNum = 1;
         CHK_RET(algTemplate1->KernelRun(param, tempAlgParams1, templateAlgRes1));
  
         processedDataCount += currDataCount;
         HCCL_DEBUG("[InsV2AllReduceSequence2DieExecutor] testargs fortemplate0  tempAlgParams0.buffInfo.inBuffBaseOff[%u], tempAlgParams0.buffInfo.outBuffBaseOff[%u], tempAlgParams0.sliceSize[%u],"
-        "tempAlgParams0.tailSize[%u], tempAlgParams0.inputSliceStride[%u], tempAlgParams0.outputSliceStride[%u].",tempAlgParams0.buffInfo.inBuffBaseOff, tempAlgParams0.buffInfo.outBuffBaseOff
+        "tempAlgParams0.tailSize[%u], tempAlgParams0.inputSliceStride[%u], tempAlgParams0.outputSliceStride[%u].", tempAlgParams0.buffInfo.inBuffBaseOff, tempAlgParams0.buffInfo.outBuffBaseOff
         , tempAlgParams0.sliceSize,tempAlgParams0.tailSize, tempAlgParams0.inputSliceStride, tempAlgParams0.outputSliceStride);
 
         HCCL_DEBUG("[InsV2AllReduceSequence2DieExecutor] testargs fortemplate1  tempAlgParams1.buffInfo.inBuffBaseOff[%u], tempAlgParams0.buffInfo.outBuffBaseOff[%u], tempAlgParams0.sliceSize[%u],"
-        "tempAlgParams1.tailSize[%u], tempAlgParams1.inputSliceStride[%u], tempAlgParams1.outputSliceStride[%u].",tempAlgParams1.buffInfo.inBuffBaseOff, tempAlgParams1.buffInfo.outBuffBaseOff
-        , tempAlgParams1.sliceSize,tempAlgParams1.tailSize, tempAlgParams1.inputSliceStride, tempAlgParams1.outputSliceStride);
-
+        "tempAlgParams1.tailSize[%u], tempAlgParams1.inputSliceStride[%u], tempAlgParams1.outputSliceStride[%u].", tempAlgParams1.buffInfo.inBuffBaseOff, tempAlgParams1.buffInfo.outBuffBaseOff
+        , tempAlgParams1.sliceSize, tempAlgParams1.tailSize, tempAlgParams1.inputSliceStride, tempAlgParams1.outputSliceStride);
     }
+
     HCCL_INFO("[InsV2AllReduceSequence2DieExecutor][OrchestrateLoop] End.");
     return HCCL_SUCCESS;
 }
