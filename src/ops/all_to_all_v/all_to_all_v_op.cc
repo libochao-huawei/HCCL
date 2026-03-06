@@ -321,7 +321,7 @@ HcclResult CheckAlltoAllVCInputPara(const HcclComm comm, const void *sendBuf, co
 // alltoall/alltoallv/alltoallvc 统一，当前只支持outPlace
 HcclResult AlltoAllVOutPlace(const void *sendBuf, const void *sendCounts, const void *sdispls, const void *recvBuf,
     const void *recvCounts, const void *rdispls, HcclDataType dataType, HcclComm comm, aclrtStream stream,
-    const std::string &tag, HcclCMDType opType, u32 rankSize, OpExecuteConfig& opExecuteConfig)
+    const std::string &tag, HcclCMDType opType, u32 rankSize, OpExecuteConfig& opExecuteConfig) const
 {
     HCCL_INFO("Start to execute AlltoAllVOutPlace");
 

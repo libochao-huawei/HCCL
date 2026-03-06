@@ -146,7 +146,7 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::CalcRes(HcclComm comm, const OpParam& p
 
     std::vector<uint64_t> dimSize;
 
-    CHK_RET(ProcessNHRStepInfo(comm, channelDescs, stepInfoVector, rank2ChannelIdx, enableDieNum, channelsPerDie));
+    CHK_RET(ProcessNHRStepInfo(comm, stepInfoVector, rank2ChannelIdx, enableDieNum, channelsPerDie));
 
     // 3.构造kernelInfo
     for (uint32_t kernelIdx = 0; kernelIdx < kernelNum; kernelIdx++) {

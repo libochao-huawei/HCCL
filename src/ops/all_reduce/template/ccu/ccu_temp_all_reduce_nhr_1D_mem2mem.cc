@@ -92,7 +92,7 @@ HcclResult CcuTempAllReduceNHRMem2Mem1D::CalcRes(HcclComm comm, const OpParam& p
     std::map<u32, u32> rank2ChannelIdx;
     std::vector<NHRStepInfo> stepInfoVector;
     channelsPerDie.resize(enableDieNum);
-    CHK_RET(ProcessNHRStepInfo(comm, channelDescs, stepInfoVector, rank2ChannelIdx, enableDieNum, channelsPerDie));
+    CHK_RET(ProcessNHRStepInfo(comm, stepInfoVector, rank2ChannelIdx, enableDieNum, channelsPerDie));
     std::vector<uint64_t> dimSize;
     dimSize.emplace_back(subCommRanks_[0].size());
     for (uint32_t kernelIdx = 0; kernelIdx < kernelNum; kernelIdx++) {
