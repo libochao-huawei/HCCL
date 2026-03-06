@@ -12,15 +12,28 @@
 #define OPS_HCCL_SRC_COMMON_PARAM_CHECK
 
 #include <hccl/hccl_types.h>
+#include <hccl/hccl_res.h>
 #include "hccl/base.h"
 
 namespace ops_hccl {
+HcclResult HcomCheckGroupName(const char *group);
+
 HcclResult HcomCheckOpParam(const char *tag, const u64 count, const HcclDataType dataType, const char *group,
     const void *stream);
 
 HcclResult HcomCheckOpParam(const char *tag, const u64 count, const HcclDataType dataType, const void *stream);
 
 HcclResult HcomCheckOpParam(const char *tag, const u64 count, const HcclDataType dataType);
+
+HcclResult HcomCheckTag(const char *tag);
+
+HcclResult HcomCheckCount(const u64 count);
+
+HcclResult HcomCheckDataType(const HcclDataType dataType);
+
+HcclResult HcomCheckReductionOp(const HcclReduceOp op);
+
+HcclResult HcomCheckCommEngine(const CommEngine commEngine);
 
 HcclResult HcomCheckUserRank(const u32 totalRanks, const u32 userRank);
 }
