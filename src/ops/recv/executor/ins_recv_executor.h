@@ -27,19 +27,19 @@ namespace ops_hccl {
         HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
 
         HcclResult CalcAlgHierarchyInfo(
-            HcclComm comm, TopoInfo *topoInfo, AlgHierarchyInfoForAllLevel &algHierarchyInfo) override;
+            HcclComm comm, TopoInfoWithNetLayerDetails *topoInfo, AlgHierarchyInfoForAllLevel &algHierarchyInfo) override;
 
         // 资源计算
         HcclResult CalcRes(
-            HcclComm comm, const OpParam &param, const TopoInfo *topoInfo,
+            HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
             const AlgHierarchyInfoForAllLevel &algHierarchyInfo, AlgResourceRequest &resourceRequest) override;
 
     protected:
         HcclResult InitCommInfo(
-            HcclComm comm, const OpParam &param, const TopoInfo *topoInfo,
+            HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
             const AlgHierarchyInfoForAllLevel &algHierarchyInfo);
 
-        // 单算子还是图模式
+        // 单算子|图模式
         OpMode opMode_;
         u32 remoteRank_;
       

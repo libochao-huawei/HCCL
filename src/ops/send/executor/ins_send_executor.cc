@@ -17,7 +17,7 @@ namespace ops_hccl {
     }
 
     HcclResult InsSendExecutor::InitCommInfo(
-        HcclComm comm, const OpParam &param, const TopoInfo *topoInfo,
+        HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
         const AlgHierarchyInfoForAllLevel &algHierarchyInfo)
     {
         myRank_ = topoInfo->userRank;
@@ -37,7 +37,7 @@ namespace ops_hccl {
     }
 
     HcclResult InsSendExecutor::CalcAlgHierarchyInfo(
-        HcclComm comm, TopoInfo *topoInfo, AlgHierarchyInfoForAllLevel &algHierarchyInfo)
+        HcclComm comm, TopoInfoWithNetLayerDetails *topoInfo, AlgHierarchyInfoForAllLevel &algHierarchyInfo)
     {
         // 初始化一些基本成员变量
         myRank_ = topoInfo->userRank;
@@ -60,7 +60,7 @@ namespace ops_hccl {
     }
 
     HcclResult InsSendExecutor::CalcRes(
-        HcclComm comm, const OpParam &param, const TopoInfo *topoInfo,
+        HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
         const AlgHierarchyInfoForAllLevel &algHierarchyInfo, AlgResourceRequest &resourceRequest)
     {
         // 初始化一些基本成员变量
@@ -84,7 +84,7 @@ namespace ops_hccl {
         remoteRank_ = param.sendRecvRemoteRank;
         HCCL_DEBUG("[InsSendExecutor][Orchestrate][%d]->[%d] Start.", myRank_, remoteRank_);
 
-        // maxTmpMemSize_设定为cclIn的大小，op中将申请的HcclBuff全给了cclIn
+        // maxTmpMemSize_设定为ccl buffer的大小
         maxTmpMemSize_ = resCtx.cclMem.size;
         dataCount_ = param.DataDes.count;
         dataType_ = param.DataDes.dataType;

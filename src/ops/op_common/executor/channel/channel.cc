@@ -127,7 +127,7 @@ HcclResult CalcLevel2ChannelRequest(const OpParam& param, const TopoInfo* topoIn
     return HCCL_SUCCESS;
 }
 
-HcclResult CalcChannelRequestMesh1D(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+HcclResult CalcChannelRequestMesh1D(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
     std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels)
 {
 #ifndef AICPU_COMPILE
@@ -181,7 +181,7 @@ HcclResult CalcChannelRequestMesh1D(HcclComm comm, const OpParam& param, const T
     return HCCL_SUCCESS;
 }
 
-HcclResult CalcChannelRequestMesh2D(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+HcclResult CalcChannelRequestMesh2D(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
     std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels)
 {
 #ifndef AICPU_COMPILE
@@ -231,7 +231,7 @@ HcclResult CalcChannelRequestMesh2D(HcclComm comm, const OpParam& param, const T
     return HCCL_SUCCESS;
 }
 
-HcclResult CalcChannelRequestNhr(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+HcclResult CalcChannelRequestNhr(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
     std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels)
 {
 #ifndef AICPU_COMPILE
@@ -283,7 +283,7 @@ HcclResult CalcChannelRequestNhr(HcclComm comm, const OpParam& param, const Topo
 }
 
 HcclResult CreateChannelRequestByRankId(HcclComm comm, u32 myRank, u32 remoteRank,
-    std::vector<HcclChannelDesc> &channels)
+    std::vector<HcclChannelDesc> &channels, u32 channelRepeatNum)
 {
 #ifndef AICPU_COMPILE
     channels.clear();
@@ -312,7 +312,9 @@ HcclResult CreateChannelRequestByRankId(HcclComm comm, u32 myRank, u32 remoteRan
                 myRank, channelDesc.remoteRank, channelDesc.remoteEndpoint.protocol);
             channelDesc.channelProtocol = link.linkAttr.linkProtocol;
             channelDesc.notifyNum = NORMAL_NOTIFY_NUM;
-            channels.push_back(channelDesc);
+            for (u32 repeatId = 0; repeatId < channelRepeatNum; repeatId++) {
+                channels.push_back(channelDesc);
+            }
         }
         if (listSize > 0) {
             findFlag = true;

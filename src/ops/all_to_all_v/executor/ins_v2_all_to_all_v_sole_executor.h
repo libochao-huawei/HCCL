@@ -36,10 +36,10 @@ public:
     /* *************** 资源计算 *************** */
 
     HcclResult CalcRes(HcclComm comm, const OpParam& param,
-                       const TopoInfo* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
+                       const TopoInfoWithNetLayerDetails* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
                        AlgResourceRequest& resourceRequest) override;
 
-    HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfo* topoInfo,
+    HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo,
                                     AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
 
 protected:
@@ -47,7 +47,10 @@ protected:
     HcclResult OrchestrateLoop(const OpParam &param, const AlgResourceCtxSerializable &resCtx);
 
     std::vector<std::map<u32, std::vector<ChannelInfo>>> remoteRankToChannelInfo_;
-    std::vector<ThreadHandle> threads_;               
+    std::vector<ThreadHandle> threads_;
+    u64 sendTypeSize_{0};
+    u64 recvTypeSize_{0};
+    A2ASendRecvInfo localSendRecvInfo_;               
 };
 }
 

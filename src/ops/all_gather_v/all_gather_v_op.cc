@@ -40,7 +40,9 @@ HcclResult HcclAllGatherV(void *sendBuf, uint64_t sendCount, void *recvBuf, cons
 {
     HCCL_INFO("Start to run execute HcclAllGatherV");
  
-    // 穿刺的时候只考虑A5
+    if (!CheckHCCLIndependentOp()) {
+        return HcclAllGatherVInner(sendBuf, sendCount, recvBuf, recvCounts, recvDispls, dataType, comm, stream);
+    }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
     if (deviceType != DevType::DEV_TYPE_910_95) {
@@ -149,7 +151,11 @@ HcclResult AllGatherVOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount,c
     param.opType = HcclCMDType::HCCL_CMD_ALLGATHER_V;
     param.enableDetour = false;
     param.deviceType = deviceType;
-    CHK_RET(HcclExecOp(comm, param));
+    OpExecuteConfig opExecuteConfig;
+    std::string algName;
+    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
+    CHK_RET(Selector(comm, param, topoInfo, algName, opExecuteConfig));
+    CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
     paramPtr->~OpParam();
     free(paramMem);
     HCCL_INFO("Execute AllGatherVOutPlace success.");

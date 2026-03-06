@@ -13,7 +13,7 @@
 
 namespace ops_hccl {
 
-SelectorStatus AlltoAllVAutoSelector::SelectCcuScheduleAlgo(TopoInfo* topoInfo,
+SelectorStatus AlltoAllVAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetLayerDetails* topoInfo,
                                                     OpParam &opParam,
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                     std::string &selectAlgName) const
@@ -31,6 +31,7 @@ SelectorStatus AlltoAllVAutoSelector::SelectCcuScheduleAlgo(TopoInfo* topoInfo,
 
     if (IsDefaultAlg(levle0Algo) || levle0Algo ==  HcclAlgoType::HCCL_ALGO_TYPE_FULLMESH) {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
+            HCCL_INFO("Setlect CcuAlltoAllVMesh1D!");
             selectAlgName = "CcuAlltoAllVMesh1D";
         } else {
             HCCL_ERROR("hccl algo no match");
@@ -43,7 +44,7 @@ SelectorStatus AlltoAllVAutoSelector::SelectCcuScheduleAlgo(TopoInfo* topoInfo,
     }
 }
 
-SelectorStatus AlltoAllVAutoSelector::SelectAicpuAlgo(TopoInfo* topoInfo,
+SelectorStatus AlltoAllVAutoSelector::SelectAicpuAlgo(TopoInfoWithNetLayerDetails* topoInfo,
                                                       OpParam &opParam,
                                                       const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                       std::string &selectAlgName) const
@@ -70,7 +71,7 @@ SelectorStatus AlltoAllVAutoSelector::SelectAicpuAlgo(TopoInfo* topoInfo,
     return SelectorStatus::MATCH;
 }
 
-SelectorStatus AlltoAllVAutoSelector::SelectAivAlgo(TopoInfo* topoInfo, OpParam &opParam,
+SelectorStatus AlltoAllVAutoSelector::SelectAivAlgo(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
                                                    const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                    std::string &selectAlgName) const
 {
