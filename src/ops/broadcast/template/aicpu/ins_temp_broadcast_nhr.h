@@ -11,7 +11,6 @@
 #ifndef INS_TEMP_BROADCAST_NHR_H
 #define INS_TEMP_BROADCAST_NHR_H
 
-#include <cstring>
 #include "alg_v2_template_base.h"
 #include "executor_base.h"
 #include "alg_data_trans_wrapper.h"
@@ -63,7 +62,7 @@ private:
     HcclResult BatchSR(AicpuNHRStepInfo &stepInfo, const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads,
         const RankSliceInfo &sliceInfoVec, u64 memOffset) const;
     u32 GetRankFromMap(const u32 rankIdx) const;
-    HcclResult CalcDataSliceInfo(const u64 dataSize, RankSliceInfo &sliceInfoVec);
+    HcclResult CalcDataSliceInfo(const u64 dataSize, RankSliceInfo &sliceInfoVec) const;
     u64 dataTypeSize_{0};
     std::map<u32, u32> tempVirtRankMap_;
 };

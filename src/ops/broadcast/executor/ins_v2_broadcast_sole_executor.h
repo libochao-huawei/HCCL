@@ -31,7 +31,7 @@ namespace ops_hccl {
 template <typename AlgTopoMatch, typename InsAlgTemplate> class InsV2BroadcastSoleExecutor : public InsCollAlgBase {
 public:
     explicit InsV2BroadcastSoleExecutor();
-    ~InsV2BroadcastSoleExecutor() = default;
+    ~InsV2BroadcastSoleExecutor() final = default;
 
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
     
@@ -41,8 +41,6 @@ public:
                        const AlgHierarchyInfoForAllLevel& algHierarchyInfo, AlgResourceRequest& resourceRequest) override;
 
     HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo,  AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
-
-
 private:
     /* *************** 算法编排 *************** */
     HcclResult OrchestrateLoop(const OpParam &param, const AlgResourceCtxSerializable &resCtx);
