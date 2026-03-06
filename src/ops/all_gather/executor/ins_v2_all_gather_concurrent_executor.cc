@@ -125,9 +125,9 @@ HcclResult InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
-void InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::GenAlgParamsforTemplate0(
+void InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::GenTemplateAlgParams(
     const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset,
-    const u64 dataCountPerLoopforTemp0, const u64 scratchOffset, TemplateDataParams &temp0AlgParams) const
+    const u64 dataCountPerLoop, const u64 scratchOffset, TemplateDataParams &temp0AlgParams) const
 {
     temp0AlgParams.buffInfo.inputPtr = param.inputPtr;
     temp0AlgParams.buffInfo.outputPtr = param.outputPtr;
@@ -136,8 +136,8 @@ void InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplat
     temp0AlgParams.buffInfo.outputSize = param.outputSize;
     temp0AlgParams.buffInfo.inBuffType = BufferType::INPUT;
     temp0AlgParams.buffInfo.outBuffType = BufferType::OUTPUT;
-    temp0AlgParams.count = dataCountPerLoopforTemp0;
-    temp0AlgParams.sliceSize = dataCountPerLoopforTemp0 * dataTypeSize_;
+    temp0AlgParams.count = dataCountPerLoop;
+    temp0AlgParams.sliceSize = dataCountPerLoop * dataTypeSize_;
     temp0AlgParams.buffInfo.inBuffBaseOff = dataOffset;
     temp0AlgParams.buffInfo.outBuffBaseOff = dataOffset;
     temp0AlgParams.buffInfo.hcclBuffBaseOff = scratchOffset;
@@ -149,44 +149,11 @@ void InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplat
     temp0AlgParams.outputRepeatStride = 0;
 
     HCCL_DEBUG(
-        "[InsAllGatherConcurrentExecutor][GenTemplate0AlgParams] rank[%d] inBuffBaseOff[%llu] "
+        "[InsAllGatherConcurrentExecutor][GenTemplateAlgParams] rank[%d] inBuffBaseOff[%llu] "
         "outBuffBaseOff[%llu] hcclBuffBaseOff[%llu] sliceSize[%llu] inputSliceStride[%llu] outputSliceStride[%llu]",
         myRank_, temp0AlgParams.buffInfo.inBuffBaseOff, temp0AlgParams.buffInfo.outBuffBaseOff,
         temp0AlgParams.buffInfo.hcclBuffBaseOff, temp0AlgParams.sliceSize, temp0AlgParams.inputSliceStride,
         temp0AlgParams.outputSliceStride);
-    return;
-}
-
-template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
-void InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::GenAlgParamsforTemplate1(
-    const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset,
-    const u64 dataCountPerLoopforTemp1, const u64 scratchOffset, TemplateDataParams &temp1AlgParams) const
-{
-    temp1AlgParams.buffInfo.inputPtr = param.inputPtr;
-    temp1AlgParams.buffInfo.outputPtr = param.outputPtr;
-    temp1AlgParams.buffInfo.hcclBuff = resCtx.cclMem;
-    temp1AlgParams.buffInfo.inputSize = param.inputSize;
-    temp1AlgParams.buffInfo.outputSize = param.outputSize;
-    temp1AlgParams.buffInfo.inBuffType = BufferType::INPUT;
-    temp1AlgParams.buffInfo.outBuffType = BufferType::OUTPUT;
-    temp1AlgParams.count = dataCountPerLoopforTemp1;
-    temp1AlgParams.sliceSize = dataCountPerLoopforTemp1 * dataTypeSize_;
-    temp1AlgParams.buffInfo.inBuffBaseOff = dataOffset;
-    temp1AlgParams.buffInfo.outBuffBaseOff = dataOffset;
-    temp1AlgParams.buffInfo.hcclBuffBaseOff = scratchOffset;
-
-    temp1AlgParams.inputSliceStride = 0; 
-    temp1AlgParams.outputSliceStride = dataSize_;
-    temp1AlgParams.repeatNum = 1;
-    temp1AlgParams.inputRepeatStride = 0;
-    temp1AlgParams.outputRepeatStride = 0;
-
-    HCCL_DEBUG(
-        "[InsAllGatherConcurrentExecutor][GenTemplate1AlgParams] rank[%d] inBuffBaseOff[%llu] "
-        "outBuffBaseOff[%llu] hcclBuffBaseOff[%llu] sliceSize[%llu] inputSliceStride[%llu] outputSliceStride[%llu]",
-        myRank_, temp1AlgParams.buffInfo.inBuffBaseOff, temp1AlgParams.buffInfo.outBuffBaseOff,
-        temp1AlgParams.buffInfo.hcclBuffBaseOff, temp1AlgParams.sliceSize, temp1AlgParams.inputSliceStride,
-        temp1AlgParams.outputSliceStride);
     return;
 }
 
@@ -304,7 +271,7 @@ HcclResult InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     TemplateDataParams AlgParamsforTemp0;
     TemplateDataParams AlgParamsforTemp1;
 
-    // 数据切分
+    // 计算数据切分比例
     std::vector<float> dataSplitSize;
     GetParallelDataSplit(dataSplitSize);
 
@@ -322,42 +289,69 @@ HcclResult InsAllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     if (totalScratchMultiple > 0) {
         scratchMemBlockSize = (maxTmpMemSize_ / HCCL_MIN_SLICE_ALIGN / totalScratchMultiple) * HCCL_MIN_SLICE_ALIGN;
     }
+    u64 scratchSizeforTemp0 = ScratchMultiplier0 * scratchMemBlockSize;
+    u64 scratchSizeforTemp1 = scratchMemBlockSize - scratchSizeforTemp0;
     u64 scratchOffsetforTemp0 = 0;
-    u64 scratchOffsetforTemp1 = ScratchMultiplier0 * scratchMemBlockSize;
+    u64 scratchOffsetforTemp1 = scratchSizeforTemp0;
 
-    // 计算单次传输最大数据条目数
-    u64 transportBoundDataSize = UB_MAX_DATA_SIZE;
-    u64 maxDataCountPerLoop =
-        (std::min(static_cast<u64>(scratchMemBlockSize), static_cast<u64>(UB_MAX_DATA_SIZE)) / dataTypeSize_);
-    u64 maxDataSizePerLoop = maxDataCountPerLoop * dataTypeSize_;
-    HCCL_INFO("[InsAllGatherConcurrentExecutor][OrchestrateOpbase] maxDataCountPerLoop[%llu], maxDataSizePerLoop[%llu], "
-              "transportBoundDataSize[%llu], totalScratchMultiple[%llu]",
-              maxDataCountPerLoop, maxDataSizePerLoop, transportBoundDataSize, totalScratchMultiple);
-    CHK_PRT_RET(maxDataCountPerLoop == 0,
-                HCCL_ERROR("[InsAllGatherConcurrentExecutor][OrchestrateOpbase] maxDataCountPerLoop is 0"),
+    // 分别计算两个template的maxCountPerLoop
+    const u64 maxCountUBLimit = UB_MAX_DATA_SIZE / dataTypeSize_;
+    u64 maxCountPerLoopforTemp0 = maxCountUBLimit;
+    u64 maxCountPerLoopforTemp1 = maxCountUBLimit;
+    if (scratchMultiplierforTemp0 > 0) {
+        maxCountPerLoopforTemp0 = std::min(maxCountUBLimit, scratchSizeforTemp0 / scratchMultiplierforTemp0 / HCCL_MIN_SLICE_ALIGN *
+                                                         HCCL_MIN_SLICE_ALIGN / dataTypeSize_);
+    }
+    if (scratchMultiplierforTemp1 > 0) {
+        maxCountPerLoopforTemp1 = std::min(maxCountUBLimit, scratchSizeforTemp1 / scratchMultiplierforTemp1 / HCCL_MIN_SLICE_ALIGN *
+                                                         HCCL_MIN_SLICE_ALIGN / dataTypeSize_);
+    }
+    CHK_PRT_RET(maxCountPerLoopforTemp0 == 0,
+                HCCL_ERROR("[InsAllGatherConcurrentExecutor][OrchestrateLoop] maxDataCountPerLoop0 is 0"),
+                HCCL_E_INTERNAL);
+    CHK_PRT_RET(maxCountPerLoopforTemp1 == 0,
+                HCCL_ERROR("[InsAllGatherConcurrentExecutor][OrchestrateLoop] maxDataCountPerLoop1 is 0"),
                 HCCL_E_INTERNAL);
 
-    // 计算loopTimes
-    u64 loopTimes = dataCount_ / maxDataCountPerLoop + static_cast<u64>(dataCount_ % maxDataCountPerLoop != 0);
-    u64 processedDataCount = 0;
+    // 按比例切分数据，并计算loopTimes
+    const u64 sliceAlignCount = HCCL_MIN_SLICE_ALIGN / dataTypeSize_;
+    const u64 totalCount0 = dataSplitSize[0] * dataCount_ / sliceAlignCount * sliceAlignCount;
+    const u64 totalCount1 = dataCount_ - totalCount0;
+    const u64 initOffsetforTemp1 = totalCount0 * dataTypeSize_;
+    u64 loopTimesforTemp0 = totalCount0 / maxCountPerLoopforTemp0 + static_cast<u64>(totalCount0 % maxCountPerLoopforTemp0 != 0);
+    u64 loopTimesforTemp1 = totalCount1 / maxCountPerLoopforTemp1 + static_cast<u64>(totalCount1 % maxCountPerLoopforTemp1 != 0);
+
+    HCCL_INFO("[InsAllGatherConcurrentExecutor][OrchestrateLoop] maxCountPerLoopforTemp0[%llu], maxCountPerLoopforTemp1[%llu], "
+              "transportBoundDataCount[%llu], totalScratchMultiple[%llu]"
+              "loopTimesforTemp0[%llu], loopTimesforTemp1[%llu]",
+              maxCountPerLoopforTemp0, maxCountPerLoopforTemp1, maxCountUBLimit, totalScratchMultiple, loopTimesforTemp0, loopTimesforTemp1);
+
     // 前同步
     CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
-    for (u64 loopIndex = 0; loopIndex < loopTimes; loopIndex++) {
-        u64 currDataCount = (loopIndex == loopTimes - 1) ? dataCount_ - processedDataCount : maxDataCountPerLoop;
-        u64 dataCountPerLoopforTemp0 = static_cast<u64>(dataSplitSize[0] * currDataCount);
-        u64 dataCountPerLoopforTemp1 = currDataCount - dataCountPerLoopforTemp0;
-        u64 dataOffsetforTemp0 = processedDataCount * dataTypeSize_;
-        u64 dataOffsetforTemp1 = dataOffsetforTemp0 + dataCountPerLoopforTemp0 * dataTypeSize_;
-        // 第一个算法
-        GenAlgParamsforTemplate0(param, resCtx, dataOffsetforTemp0, dataCountPerLoopforTemp0, scratchOffsetforTemp0,
+     
+    // 交替下发两个template的任务
+    for(u32 loopIndex = 0; loopIndex < loopTimesforTemp0 || loopIndex < loopTimesforTemp1; loopIndex++) {
+        if(loopIndex < loopTimesforTemp0) {
+            u64 currCountforTemp0 = (loopIndex == loopTimesforTemp0 - 1) ?
+                            (totalCount0 - loopIndex * maxCountPerLoopforTemp0) : maxCountPerLoopforTemp0;
+            u64 dataOffsetforTemp0 = loopIndex * maxCountPerLoopforTemp0 * dataTypeSize_;
+            GenTemplateAlgParams(param, resCtx, dataOffsetforTemp0, currCountforTemp0, scratchOffsetforTemp0,
                                  AlgParamsforTemp0);
-        CHK_RET(algTemplate0.KernelRun(param, AlgParamsforTemp0, templateAlgResforTemp0));
-        // 第二个算法
-        GenAlgParamsforTemplate1(param, resCtx, dataOffsetforTemp1, dataCountPerLoopforTemp1, scratchOffsetforTemp1,
+            HCCL_INFO("[InsAllGatherConcurrentExecutor][OrchestrateLoop] loopIndex[%u], currCountforTemp0[%u], dataOffsetforTemp0[%u]", loopIndex, currCountforTemp0, dataOffsetforTemp0);
+            CHK_RET(algTemplate0.KernelRun(param, AlgParamsforTemp0, templateAlgResforTemp0));
+        }
+
+        if(loopIndex < loopTimesforTemp1) {
+            u64 currCountforTemp1 = (loopIndex == loopTimesforTemp1 - 1) ?
+                            (totalCount1 - loopIndex * maxCountPerLoopforTemp1) : maxCountPerLoopforTemp1;
+            u64 dataOffsetforTemp1 = initOffsetforTemp1 + loopIndex * maxCountPerLoopforTemp1 * dataTypeSize_;
+            GenTemplateAlgParams(param, resCtx, dataOffsetforTemp1, currCountforTemp1, scratchOffsetforTemp1,
                                  AlgParamsforTemp1);
-        CHK_RET(algTemplate1.KernelRun(param, AlgParamsforTemp1, templateAlgResforTemp1));
-        processedDataCount += currDataCount;
+            HCCL_INFO("[InsAllGatherConcurrentExecutor][OrchestrateLoop] loopIndex[%u], currCountforTemp1[%u], dataOffsetforTemp1[%u]", loopIndex, currCountforTemp1, dataOffsetforTemp1);
+            CHK_RET(algTemplate1.KernelRun(param, AlgParamsforTemp1, templateAlgResforTemp1));
+        }
     }
+
     // 尾同步
     CHK_RET(PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_));
     HCCL_INFO("[InsAllGatherConcurrentExecutor][OrchestrateLoop] End.");

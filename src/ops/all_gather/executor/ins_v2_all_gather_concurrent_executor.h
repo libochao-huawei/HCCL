@@ -52,13 +52,9 @@ private:
 
     void GetParallelDataSplit(std::vector<float> &splitDataSize) const;
 
-    void GenAlgParamsforTemplate0(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset,
+    void GenTemplateAlgParams(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset,
                                   const u64 dataCountPerLoopMesh, const u64 scratchOffset,
                                   TemplateDataParams &tempAlgParamsMesh) const;
-
-    void GenAlgParamsforTemplate1(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset,
-                                 const u64 dataCountPerLoopNhr, const u64 scratchOffset,
-                                 TemplateDataParams &tempAlgParamsNhr) const;
 
     HcclResult PrepareResForTemplate(const OpParam &param, const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &algTemplateMesh, InsAlgTemplate1 &algTemplateNhr);
 
