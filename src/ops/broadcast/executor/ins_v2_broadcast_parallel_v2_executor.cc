@@ -90,7 +90,7 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     resourceRequest.notifyNumPerThread.emplace_back(interTempRequest1.notifyNumOnMainThread + 1);
     resourceRequest.notifyNumPerThread.insert(resourceRequest.notifyNumPerThread.end(),
                                               interTempRequestFinal.notifyNumPerThread.begin(),
-                                              interTempRequest.notifyNumPerThread.end());
+                                              interTempRequestFinal.notifyNumPerThread.end());
     resourceRequest.channels.emplace_back(intraTempRequest.channels[0]);
     resourceRequest.channels.emplace_back(interTempRequest.channels[0]);
 
