@@ -160,6 +160,7 @@ SelectorStatus ReduceScatterVAutoSelector::SelectAicpuAlgo(const TopoInfoWithNet
                                                       const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                       std::string &selectAlgName) const
 {
+    HCCL_DEBUG("[ReduceScatterVAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
     (void)configAlgMap;
 
     if (isInt64Type(opParam.vDataDes.dataType)) {
@@ -194,6 +195,7 @@ SelectorStatus ReduceScatterVAutoSelector::SelectAivAlgo(const TopoInfoWithNetLa
                                                        const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                        std::string &selectAlgName) const
 {
+    HCCL_DEBUG("[ReduceScatterVAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
     (void)configAlgMap;
 
     //aiv 模式不支持 PROD
@@ -202,19 +204,12 @@ SelectorStatus ReduceScatterVAutoSelector::SelectAivAlgo(const TopoInfoWithNetLa
             opParam.reduceType),
         SelectorStatus::NOT_MATCH);
 
-    if (opParam.vDataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT64 ||
-        opParam.vDataDes.dataType == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
-        opParam.vDataDes.dataType == HcclDataType::HCCL_DATA_TYPE_FP64) {
+    if (isInt64Type(opParam.vDataDes.dataType)) {
         HCCL_WARNING("[Algo][ReduceScatterVAutoSelector] aiv mode not support INT64, UINT64, FP64.");
         return SelectorStatus::NOT_MATCH;
     }
 
-    if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-        selectAlgName = "AivReduceScatterVMesh1D";
-    } else {
-        HCCL_WARNING("[ReduceScatterVAutoSelector] topo not match for aiv algo");
-        return  SelectorStatus::NOT_MATCH;
-    }
+    selectAlgName = "AivReduceScatterVMesh1D";
     return SelectorStatus::MATCH;
 }
 
