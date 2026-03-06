@@ -194,7 +194,7 @@ if (!paramMem) {
     CHK_RET(Selector(comm, param, topoInfo, algName));
 =======
     CHK_RET(Selector(comm, param, topoInfo, algName, opExecuteConfig));
-    if (opExecuteConfig != OpExecuteConfig::AICPU_TS) {
+    if (opExecuteConfig != OpExecuteConfig::AICPU_TS && opExecuteConfig != OpExecuteConfig::HOSTCPU) {
         return HcclReduceScatterVInner(sendBuf, sendCounts, sendDispls, recvBuf, recvCount, dataType, op, comm, stream);
     }
 <<<<<<< HEAD

@@ -155,6 +155,12 @@ HcclResult AllReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclD
     if (param.opExecuteConfig != OpExecuteConfig::AICPU_TS && param.opExecuteConfig != OpExecuteConfig::HOSTCPU) {
         return HcclAllReduceInner(sendBuf, recvBuf, count, dataType, op, comm, stream);
     CHK_RET(Selector(comm, param, topoInfo, algName, opExecuteConfig));
+<<<<<<< HEAD
+=======
+    if (opExecuteConfig != OpExecuteConfig::AICPU_TS && opExecuteConfig != OpExecuteConfig::HOSTCPU) {
+        return HcclAllReduceInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
+    }
+>>>>>>> f93490a... opExen fix 2
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
     HCCL_INFO("Execute AllReduceOutPlace success.");
     return HCCL_SUCCESS;
