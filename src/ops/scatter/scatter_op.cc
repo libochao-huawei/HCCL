@@ -233,6 +233,7 @@ HcclResult ScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, Hcc
         CHK_RET(Selector(comm, param, topoInfo, algName, opExecuteConfig));
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         if (opExecuteConfig != OpExecuteConfig::AICPU_TS && opExecuteConfig != OpExecuteConfig::HOSTCPU) {
             return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
         }
@@ -244,6 +245,9 @@ HcclResult ScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, Hcc
 >>>>>>> 84ba048... Hybrid comm and selector fix
 =======
         if (opExecuteConfig != OpExecuteConfig::AICPU_TS) {
+=======
+        if (opExecuteConfig != OpExecuteConfig::AICPU_TS && opExecuteConfig != OpExecuteConfig::HOSTCPU) {
+>>>>>>> f93490a... opExen fix 2
             return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
         }
 >>>>>>> 789a2ad... Hybrid comm and selector conflict  fix
