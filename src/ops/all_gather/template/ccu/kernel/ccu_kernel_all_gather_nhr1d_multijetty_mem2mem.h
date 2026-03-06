@@ -153,6 +153,8 @@ private:
     hcomm::CcuRep::LocalAddr                   srcMem_;
     hcomm::CcuRep::LocalAddr                   myDstMem_;
     hcomm::CcuRep::RemoteAddr                  dstMem_;
+    hcomm::CcuRep::LocalAddr                   srcMemTmp_;
+    hcomm::CcuRep::RemoteAddr                  dstMemTmp_;
     std::vector<hcomm::CcuRep::CompletedEvent> events_;
     hcomm::CcuRep::CompletedEvent              event_;
     GroupOpSize groupOpSize_;

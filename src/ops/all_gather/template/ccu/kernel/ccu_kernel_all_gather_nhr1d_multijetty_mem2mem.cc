@@ -82,6 +82,8 @@ HcclResult CcuKernelAllGatherNHR1DMultiJettyMem2Mem::InitResources()
 
     srcMem_    = CreateLocalAddr();
     dstMem_    = CreateRemoteAddr();
+    srcMemTmp_ = CreateLocalAddr();
+    dstMemTmp_ = CreateRemoteAddr();
     myDstMem_  = CreateLocalAddr(); // 用于本地拷贝
     event_     = CreateCompletedEvent();
 
@@ -231,14 +233,14 @@ HcclResult CcuKernelAllGatherNHR1DMultiJettyMem2Mem::DoSendRecvSlices(const uint
                                                                 const CcuRep::RemoteAddr &dstMem)
 {
     ChannelHandle      &sendChannel     = channels_[rank2ChannelIdx_[toRank]];
-    CcuRep::LocalAddr  src              = srcMem;
-    CcuRep::RemoteAddr dst              = dstMem;
+    srcMemTmp_             = srcMem;
+    dstMemTmp_             = dstMem;
 
     CCU_IF(sliceSizePerJetty_ != 0)
     {
         for (uint32_t i = 0; i < jettyNum_ - 1; ++i) {
             event_.SetMask(1 << i);
-            CHK_RET(WriteNb(sendChannel, dst, src, sliceSizePerJetty_, event_));
+            CHK_RET(WriteNb(sendChannel, dstMemTmp_, srcMemTmp_, sliceSizePerJetty_, event_));
             src.addr += sliceSizePerJetty_;
             dst.addr += sliceSizePerJetty_;
         }
@@ -253,7 +255,7 @@ HcclResult CcuKernelAllGatherNHR1DMultiJettyMem2Mem::DoSendRecvSlices(const uint
     CCU_IF(lastSliceSizePerJetty_ != 0)
     {
         event_.SetMask(1 << (jettyNum_ - 1));
-        CHK_RET(WriteNb(sendChannel, dst, src, lastSliceSizePerJetty_, event_));
+        CHK_RET(WriteNb(sendChannel, dstMemTmp_, srcMemTmp_, lastSliceSizePerJetty_, event_));
     }
     CCU_IF(lastSliceSizePerJetty_ == 0)
     {
