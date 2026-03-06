@@ -174,7 +174,7 @@ HcclResult CcuTempAllReduceNHRMem2Mem1D::ProcessNHRStepInfo(HcclComm comm,
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuTempAllReduceNHRMem2Mem1D::CalcSlice(const u64 dataSize, RankSliceInfo &sliceInfoVec)
+HcclResult CcuTempAllReduceNHRMem2Mem1D::CalcSlice(const u64 dataSize, RankSliceInfo &sliceInfoVec) const
 {
     // 将数据切分为 templateRankSize_ 份，每份大小为 dataSize / templateRankSize_，最后一份需要包含尾块
     sliceInfoVec.clear();
@@ -298,7 +298,7 @@ HcclResult CcuTempAllReduceNHRMem2Mem1D::GetStepInfo(u32 step, u32 nSteps, NHRSt
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuTempAllReduceNHRMem2Mem1D::GetReduceScatterStepInfo(u32 step, NHRStepInfo &stepInfo)
+HcclResult CcuTempAllReduceNHRMem2Mem1D::GetReduceScatterStepInfo(u32 step, NHRStepInfo &stepInfo) const
 {
     u32 virtRankIdx = mySubCommRank_;
     stepInfo.txSliceIdxs.clear();
@@ -333,7 +333,7 @@ HcclResult CcuTempAllReduceNHRMem2Mem1D::GetReduceScatterStepInfo(u32 step, NHRS
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuTempAllReduceNHRMem2Mem1D::GetAllGatherStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo)
+HcclResult CcuTempAllReduceNHRMem2Mem1D::GetAllGatherStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo) const
 {
     u32 virtRankIdx = mySubCommRank_;
     stepInfo.txSliceIdxs.clear();

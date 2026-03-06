@@ -35,7 +35,7 @@ CcuTempAllReduceMeshMem2Mem1D::~CcuTempAllReduceMeshMem2Mem1D()
 {
 }
 
-uint64_t CcuTempAllReduceMeshMem2Mem1D::RoundUp(uint64_t dividend, uint64_t divisor)
+uint64_t CcuTempAllReduceMeshMem2Mem1D::RoundUp(uint64_t dividend, uint64_t divisor) const
 {
     return dividend / divisor + ((dividend % divisor != 0) ? 1 : 0);
 }
