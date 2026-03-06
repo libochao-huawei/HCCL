@@ -47,9 +47,9 @@ public:
     HcclResult KernelRun(const OpParam& param,
                          const TemplateDataParams& templateDataParams,
                          const TemplateResource& templateResource) override;
-    HcclResult GetRes(AlgResourceRequest& resourceRequest);
+    HcclResult GetRes(AlgResourceRequest& resourceRequest) const override;
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
-    u64 GetThreadNum();
+    u64 GetThreadNum() const override;
  
 private:
     uint32_t mySubCommRank_ = 0;

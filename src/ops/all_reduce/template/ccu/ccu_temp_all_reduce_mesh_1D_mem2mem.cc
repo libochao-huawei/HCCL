@@ -106,12 +106,12 @@ u64 CcuTempAllReduceMeshMem2Mem1D::CalcScratchMultiple(BufferType input, BufferT
     return templateRankSize_;
 }
 
-u64 CcuTempAllReduceMeshMem2Mem1D::GetThreadNum()
+u64 CcuTempAllReduceMeshMem2Mem1D::GetThreadNum() const
 {
     return 1;
 }
  
-HcclResult CcuTempAllReduceMeshMem2Mem1D::GetRes(AlgResourceRequest& resourceRequest)
+HcclResult CcuTempAllReduceMeshMem2Mem1D::GetRes(AlgResourceRequest& resourceRequest) const
 {
     resourceRequest.slaveThreadNum = 0;
     resourceRequest.notifyNumOnMainThread = 0;

@@ -11,7 +11,6 @@
 #ifndef AICPU_REDUCE_MESH_1D_H
 #define AICPU_REDUCE_MESH_1D_H
 
-#include <cstring>
 #include "alg_v2_template_base.h"
 #include "executor_base.h"
 #include "alg_data_trans_wrapper.h"
@@ -42,7 +41,7 @@ public:
 
     HcclResult PostCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads);
 
-    u64 GetThreadNum();
+    u64 GetThreadNum() const override;
 
 private:
     HcclResult RunReduce(const std::map<u32, std::vector<ChannelInfo>> &channels,

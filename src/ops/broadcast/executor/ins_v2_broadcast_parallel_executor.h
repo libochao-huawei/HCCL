@@ -48,11 +48,11 @@ public:
 
 private:
     void GetParallelDataSplit(std::vector<float> &splitDataSize) const;
-    uint64_t GetRankSize(const std::vector<std::vector<u32>> &vTopo);
+    uint64_t GetRankSize(const std::vector<std::vector<u32>> &vTopo) const;
     HcclResult CalcLocalRoot();
 
     // Aicpu
-    HcclResult PrepareResForTemplate(const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &tempAlgIntra, InsAlgTemplate1 &tempAlgInter);
+    HcclResult PrepareResForTemplate(InsAlgTemplate0 &tempAlgIntra, InsAlgTemplate1 &tempAlgInter);
     void GenDataParams(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset, const u64 sliceCount,
                        const u64 scratchOffsetCount, TemplateDataParams &dataParams) const;
         

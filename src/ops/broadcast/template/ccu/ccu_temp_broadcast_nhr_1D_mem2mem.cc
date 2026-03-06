@@ -139,7 +139,7 @@ HcclResult CcuTempBroadcastNHR1DMem2Mem::CalcRes(HcclComm comm, const OpParam& p
     uint32_t enableDieNum = 0;
     CHK_RET(GetDieNumFromChannelDescs(comm, enableDieNum));
 
-    if (enableDieNum < 1 || enableDieNum > 2) {
+    if (enableDieNum < 1 || enableDieNum > 2) { // 目前只支持1个或2个die
         HCCL_ERROR("[CcuTempBroadcastNHR1DMem2Mem::CalcRes] get channelDescs fail");
         return HCCL_E_INTERNAL;
     }
@@ -393,12 +393,12 @@ void CcuTempBroadcastNHR1DMem2Mem::SetRoot(u32 root)
     HCCL_INFO("[CcuTempBroadcastNHR1DMem2Mem][SetRoot] myRank_ [%u], set root_ [%u] subCommRootId[%u]", myRank_, root, subCommRootId_);
 }
 
-u64 CcuTempBroadcastNHR1DMem2Mem::GetThreadNum()
+u64 CcuTempBroadcastNHR1DMem2Mem::GetThreadNum() const
 {
     return 2;
 }
 
-HcclResult CcuTempBroadcastNHR1DMem2Mem::GetRes(AlgResourceRequest& resourceRequest)
+HcclResult CcuTempBroadcastNHR1DMem2Mem::GetRes(AlgResourceRequest& resourceRequest) const
 {
     resourceRequest.slaveThreadNum = 1;
     resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, 1);

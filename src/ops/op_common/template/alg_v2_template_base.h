@@ -11,7 +11,6 @@
 #ifndef ALG_V2_TEMPLATE_BASE
 #define ALG_V2_TEMPLATE_BASE
 
-#include <cstring>
 #include <vector>
 #include <memory>
 #include <list>
@@ -42,10 +41,10 @@ public:
     // calculate resources
     virtual HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                                AlgResourceRequest& resourceRequest);
-    virtual HcclResult GetRes(AlgResourceRequest& resourceRequest);
+    virtual HcclResult GetRes(AlgResourceRequest& resourceRequest) const;
     virtual u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType);
 
-    virtual u64 GetThreadNum();
+    virtual u64 GetThreadNum() const;
 
     virtual void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub) = 0;
 

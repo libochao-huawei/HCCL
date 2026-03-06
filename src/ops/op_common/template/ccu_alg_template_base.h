@@ -33,8 +33,8 @@ public:
                                  const TemplateDataParams& templateDataParams,
                                  const TemplateResource& templateResource);
                                  
-    virtual HcclResult GetRes(AlgResourceRequest& resourceRequest);
-    virtual u64 GetThreadNum();
+    virtual HcclResult GetRes(AlgResourceRequest& resourceRequest) const;
+    virtual u64 GetThreadNum() const;
 
     virtual u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType);
 

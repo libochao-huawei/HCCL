@@ -56,12 +56,12 @@ HcclResult CcuAlgTemplateBase::KernelRun(const OpParam& param, const TemplateDat
     return HcclResult::HCCL_E_INTERNAL;
 }
 
-u64 CcuAlgTemplateBase::GetThreadNum()
+u64 CcuAlgTemplateBase::GetThreadNum() const
 {
     return 0;
 }
 
-HcclResult CcuAlgTemplateBase::GetRes(AlgResourceRequest& resourceRequest)
+HcclResult CcuAlgTemplateBase::GetRes(AlgResourceRequest& resourceRequest) const
 {
     (void)resourceRequest;
     HCCL_ERROR("[CcuAlgTemplateBase] Unsupported interface of resource calculation!");
