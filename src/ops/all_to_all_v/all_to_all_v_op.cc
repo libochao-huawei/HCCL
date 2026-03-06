@@ -228,7 +228,7 @@ HcclResult HcclAlltoAllVC(const void *sendBuf, const void *sendCountMatrix, Hccl
 namespace ops_hccl {
 
 HcclResult CheckAlltoAllInputPara(const HcclComm comm, const void *sendBuf, uint64_t sendCount, HcclDataType sendType,
-    const void *recvBuf, uint64_t recvCount, HcclDataType recvType) const
+    const void *recvBuf, uint64_t recvCount, HcclDataType recvType)
 {
     // 入参合法性校验
     CHK_PRT_RET(sendCount == 0 && recvCount == 0,
@@ -257,7 +257,7 @@ HcclResult CheckAlltoAllInputPara(const HcclComm comm, const void *sendBuf, uint
 }
 
 HcclResult CheckAlltoAllVInputPara(const HcclComm comm, const void *sendBuf, const void *sendCounts, const void *sdispls,
-    HcclDataType sendType, const void *recvBuf, const void *recvCounts, const void *rdispls, HcclDataType recvType) const
+    HcclDataType sendType, const void *recvBuf, const void *recvCounts, const void *rdispls, HcclDataType recvType)
 {
     RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
         std::vector<std::string>({"HcclAlltoAllV", "comm", "nullptr", "please check comm"}));
@@ -292,7 +292,7 @@ HcclResult CheckAlltoAllVInputPara(const HcclComm comm, const void *sendBuf, con
 }
 
 HcclResult CheckAlltoAllVCInputPara(const HcclComm comm, const void *sendBuf, const void *sendCountMatrix,
-    HcclDataType sendType, const void *recvBuf, HcclDataType recvType) const
+    HcclDataType sendType, const void *recvBuf, HcclDataType recvType)
 {
     RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
         std::vector<std::string>({"HcclAlltoAllVC", "comm", "nullptr", "please check comm"}));
@@ -321,7 +321,7 @@ HcclResult CheckAlltoAllVCInputPara(const HcclComm comm, const void *sendBuf, co
 // alltoall/alltoallv/alltoallvc 统一，当前只支持outPlace
 HcclResult AlltoAllVOutPlace(const void *sendBuf, const void *sendCounts, const void *sdispls, const void *recvBuf,
     const void *recvCounts, const void *rdispls, HcclDataType dataType, HcclComm comm, aclrtStream stream,
-    const std::string &tag, HcclCMDType opType, u32 rankSize, OpExecuteConfig& opExecuteConfig) const
+    const std::string &tag, HcclCMDType opType, u32 rankSize, OpExecuteConfig& opExecuteConfig)
 {
     HCCL_INFO("Start to execute AlltoAllVOutPlace");
 

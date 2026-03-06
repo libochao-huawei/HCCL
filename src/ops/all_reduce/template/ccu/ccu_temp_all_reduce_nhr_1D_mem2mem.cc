@@ -92,7 +92,7 @@ HcclResult CcuTempAllReduceNHRMem2Mem1D::CalcRes(HcclComm comm, const OpParam& p
     std::map<u32, u32> rank2ChannelIdx;
     std::vector<NHRStepInfo> stepInfoVector;
     channelsPerDie.resize(enableDieNum);
-    CHK_RET(ProcessNHRStepInfo(comm, channelDescs, stepInfoVector, rank2ChannelIdx, enableDieNum, channelsPerDie));
+    CHK_RET(ProcessNHRStepInfo(comm, stepInfoVector, rank2ChannelIdx, enableDieNum, channelsPerDie));
     std::vector<uint64_t> dimSize;
     dimSize.emplace_back(subCommRanks_[0].size());
     for (uint32_t kernelIdx = 0; kernelIdx < kernelNum; kernelIdx++) {
@@ -114,8 +114,6 @@ HcclResult CcuTempAllReduceNHRMem2Mem1D::CalcRes(HcclComm comm, const OpParam& p
     return HcclResult::HCCL_SUCCESS;
 }
 
-
-
 HcclResult CcuTempAllReduceNHRMem2Mem1D::SplitDataFor2Dies(uint64_t dataCount, uint64_t &die0Size, uint64_t &die1Size) const
 {
     constexpr uint64_t MULTIPLIER = 4;
@@ -133,7 +131,7 @@ HcclResult CcuTempAllReduceNHRMem2Mem1D::SplitDataFor2Dies(uint64_t dataCount, u
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuTempAllReduceNHRMem2Mem1D::ProcessNHRStepInfo(HcclComm comm, const std::vector<HcclChannelDesc>& channelDescs,
+HcclResult CcuTempAllReduceNHRMem2Mem1D::ProcessNHRStepInfo(HcclComm comm,
                                                             std::vector<NHRStepInfo>& stepInfoVector,
                                                             std::map<u32, u32>& rank2ChannelIdx, u32 enableDieNum,
                                                             std::vector<std::vector<HcclChannelDesc>>& channelsPerDie)
@@ -275,7 +273,8 @@ HcclResult CcuTempAllReduceNHRMem2Mem1D::KernelRun(const OpParam& param, const T
 
 u64 CcuTempAllReduceNHRMem2Mem1D::GetThreadNum()
 {
-    return 2;
+    const u64 NHR_THREAD_NUM = 2;
+    return NHR_THREAD_NUM;
 }
  
 HcclResult CcuTempAllReduceNHRMem2Mem1D::GetRes(AlgResourceRequest& resourceRequest)

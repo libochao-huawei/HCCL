@@ -99,10 +99,10 @@ HcclResult CcuTempAllReduceMeshMem2Mem1D::CalcRes(HcclComm comm, const OpParam& 
     return HcclResult::HCCL_SUCCESS;
 }
 
-u64 CcuTempAllReduceMeshMem2Mem1D::CalcScratchMultiple(BufferType input, BufferType output)
+u64 CcuTempAllReduceMeshMem2Mem1D::CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType)
 {
-    (void)input;
-    (void)output;
+    (void)inBuffType;
+    (void)outBuffType;
     return templateRankSize_;
 }
 

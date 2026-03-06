@@ -65,7 +65,7 @@ HcclResult CcuTempReduceNHR1DMem2Mem::GetDieNumFromChannelDescs(HcclComm comm, u
     }
 }
 
-HcclResult CcuTempReduceNHR1DMem2Mem::ProcessNHRStepInfo(HcclComm comm, const std::vector<HcclChannelDesc>& channelDescs,
+HcclResult CcuTempReduceNHR1DMem2Mem::ProcessNHRStepInfo(HcclComm comm,
                                                          std::vector<NHRStepInfo>& stepInfoVector,
                                                          std::map<u32, u32>& rank2ChannelIdx, u32 enableDieNum,
                                                          std::vector<std::vector<HcclChannelDesc>>& channelsPerDie)
@@ -146,7 +146,7 @@ HcclResult CcuTempReduceNHR1DMem2Mem::CalcRes(HcclComm comm, const OpParam& para
     std::map<u32, u32> rank2ChannelIdx;
     std::vector<NHRStepInfo> stepInfoVector;
     
-    CHK_RET(ProcessNHRStepInfo(comm, channelDescs, stepInfoVector, rank2ChannelIdx, enableDieNum, channelsPerDie));
+    CHK_RET(ProcessNHRStepInfo(comm, stepInfoVector, rank2ChannelIdx, enableDieNum, channelsPerDie));
 
     // 3.构造kernelInfo
     for (uint32_t kernelIdx = 0; kernelIdx < kernelNum; kernelIdx++) {
