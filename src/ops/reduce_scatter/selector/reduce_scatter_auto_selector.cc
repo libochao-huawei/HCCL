@@ -160,61 +160,60 @@ SelectorStatus ReduceScatterAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetL
 SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                           std::string &selectAlgName) const
 {
+    u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
+    u64 dataSize = opParam.DataDes.count * perDataSize;
     if (topoInfo->level0Topo == Level0Shape::MESH_1D){
-        if (Is64BitDataType(opParam.DataDes.dataType)) {
-            selectAlgName = "InsReduceScatterAicpuReduce";
+        if (Is64BitDataType(opParam.DataDes.dataType) || dataSize < LARGE_COUNT_1024KB) {
+            selectAlgName = "InsReduceScatterMesh1D";
         } else {
-            u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
-            u64 dataSize = opParam.DataDes.count * perDataSize;
-            if (dataSize >= LARGE_COUNT_1024KB) {
-                selectAlgName = "InsReduceScatterMesh1DMeshChunk";
-            } else {
-                selectAlgName = "InsReduceScatterMesh1D";
-            }
+            selectAlgName = "InsReduceScatterMesh1DMeshChunk";
         }
     } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
-        if (Is64BitDataType(opParam.DataDes.dataType) ||
-            opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
+        if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
             HCCL_WARNING("[ReduceScatterAutoSelector] topo not match");
             return SelectorStatus::NOT_MATCH;
         } else {
             selectAlgName = "InsReduceScatterNHR";
         }
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-        if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
-            // MESH_1D 即可链接所有卡， 使用 MESH_1D 算法
-            if (Is64BitDataType(opParam.DataDes.dataType) ||
-                opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
-                selectAlgName = "InsReduceScatterAicpuReduce";
-            } else {
-                double ratio; // 以8卡为基线确定ratio，用来表示不同卡数对下发的影响系数
-                u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
-                u64 dataSize = opParam.DataDes.count * perDataSize;
-                if (topoInfo->userRankSize == 0) {
-                    HCCL_WARNING("[ReduceScatterAutoSelector]the selector is not set RankSize_]");
-                    ratio = 1;
-                } else {
-                    ratio = (DEFAULT_RANK_SIZE / topoInfo->userRankSize) * (DEFAULT_RANK_SIZE / topoInfo->userRankSize);
-                }
-                if (dataSize * ratio > LARGE_COUNT_1024KB) {
-                    selectAlgName = "InsReduceScatterMesh1DMeshChunk";
-                } else {
-                    selectAlgName = "InsReduceScatterMesh1D";
-                }
-            }
-        } else {
-            if (Is64BitDataType(opParam.DataDes.dataType) ||
-                opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
-                HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64, PROD only support in-box fullmesh algo type now.");
-                return SelectorStatus::NOT_MATCH;
-            } else {
-                selectAlgName = "InsReduceScatterParallelMesh1DNHR";
-            }
-        }
+        return SelectMeshAlgoAicpuMeshClos(topoInfo, opParam, selectAlgName);
     } else {
         HCCL_WARNING("[ReduceScatterAutoSelector] topo not match");
         return SelectorStatus::NOT_MATCH;
     }
+    return SelectorStatus::MATCH;
+}
+
+SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoAicpuMeshClos(const TopoInfoWithNetLayerDetails* topoInfo,
+    const OpParam &opParam, std::string &selectAlgName) const
+{
+    if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
+        // MESH_1D 即可链接所有卡， 使用 MESH_1D 算法
+        if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
+            selectAlgName = "InsReduceScatterAicpuReduce";
+        } else {
+            double ratio; // 以8卡为基线确定ratio，用来表示不同卡数对下发的影响系数
+            if (topoInfo->userRankSize == 0) {
+                HCCL_WARNING("[ReduceScatterAutoSelector]the selector is not set RankSize_]");
+                ratio = 1;
+            } else {
+                ratio = (DEFAULT_RANK_SIZE / topoInfo->userRankSize) * (DEFAULT_RANK_SIZE / topoInfo->userRankSize);
+            }
+            if (dataSize * ratio > LARGE_COUNT_1024KB) {
+                selectAlgName = "InsReduceScatterMesh1DMeshChunk";
+            } else {
+                selectAlgName = "InsReduceScatterMesh1D";
+            }
+        }
+    } else {
+        if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
+            HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64, PROD only support in-box fullmesh algo type now.");
+            return SelectorStatus::NOT_MATCH;
+        } else {
+            selectAlgName = "InsReduceScatterParallelMesh1DNHR";
+        }
+    }
+    HCCL_DEBUG("[ReduceScatterAutoSelector] selectAlgName: %s", selectAlgName.c_str());
     return SelectorStatus::MATCH;
 }
 
