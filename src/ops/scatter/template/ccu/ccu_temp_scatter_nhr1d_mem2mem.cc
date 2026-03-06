@@ -88,7 +88,6 @@ HcclResult CcuTempScatterNHR1DMem2Mem::GetDieNumFromChannelDescs(HcclComm comm, 
 }
 
 HcclResult CcuTempScatterNHR1DMem2Mem::ProcessNHRStepInfo(HcclComm comm,
-                                                          const std::vector<HcclChannelDesc> &channelDescs,
                                                           std::vector<NHRStepInfo> &stepInfoVector,
                                                           std::map<u32, u32> &rank2ChannelIdx, u32 enableDieNum,
                                                           std::vector<std::vector<HcclChannelDesc>> &channelsPerDie)

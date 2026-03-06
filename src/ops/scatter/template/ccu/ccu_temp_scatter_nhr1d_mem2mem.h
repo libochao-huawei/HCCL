@@ -37,7 +37,7 @@ public:
 
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
     void SetRoot(u32 root);
-    u64 GetThreadNum();
+    u64 GetThreadNum() override;
     HcclResult GetRes(AlgResourceRequest& resourceRequest);
 
 private:
