@@ -241,8 +241,8 @@ HcclResult CcuKernelAllGatherNHR1DMultiJettyMem2Mem::DoSendRecvSlices(const uint
         for (uint32_t i = 0; i < jettyNum_ - 1; ++i) {
             event_.SetMask(1 << i);
             CHK_RET(WriteNb(sendChannel, dstMemTmp_, srcMemTmp_, sliceSizePerJetty_, event_));
-            src.addr += sliceSizePerJetty_;
-            dst.addr += sliceSizePerJetty_;
+            srcMemTmp_.addr += sliceSizePerJetty_;
+            dstMemTmp_.addr += sliceSizePerJetty_;
         }
     }
     CCU_IF(sliceSizePerJetty_ == 0)
