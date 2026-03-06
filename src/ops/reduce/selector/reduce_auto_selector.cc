@@ -72,9 +72,8 @@ SelectorStatus ReduceAutoSelector::SelectMeshAlgo(
     return SelectorStatus::MATCH;
 }
 
-SelectorStatus ReduceAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetLayerDetails *topoInfo,
-    OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
-    std::string &selectAlgName) const
+SelectorStatus ReduceAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam,
+    const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap, std::string &selectAlgName) const
 {
     // ccu 模式不支持 PROD
     CHK_PRT_RET(opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD,
