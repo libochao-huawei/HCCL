@@ -341,7 +341,7 @@ HcclResult AlltoAllVOutPlace(const void *sendBuf, const void *sendCounts, const 
             p->~OpParam();
             free(p);
         }
-    }
+    };
     std::unique_ptr<OpParam, decltype(deleter)> paramPtr(tmpParamPtr, deleter);
     OpParam &param = *paramPtr;
 

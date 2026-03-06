@@ -113,7 +113,7 @@ HcclResult BatchSendRecvOutPlace(HcclSendRecvItem *sendRecvInfo, uint32_t itemNu
             p->~OpParam();
             free(p);
         }
-    }
+    };
     std::unique_ptr<OpParam, decltype(deleter)> paramPtr(tmpParamPtr, deleter);
     OpParam& param = *paramPtr;
     CHK_RET(HcclGetCommName(comm, param.commName));
