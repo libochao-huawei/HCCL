@@ -273,12 +273,12 @@ HcclResult CcuTempAllReduceNHRMem2Mem1D::KernelRun(const OpParam& param, const T
     return HcclResult::HCCL_SUCCESS;
 }
 
-u64 CcuTempAllReduceNHRMem2Mem1D::GetThreadNum()
+u64 CcuTempAllReduceNHRMem2Mem1D::GetThreadNum() const
 {
     return 2;
 }
  
-HcclResult CcuTempAllReduceNHRMem2Mem1D::GetRes(AlgResourceRequest& resourceRequest)
+HcclResult CcuTempAllReduceNHRMem2Mem1D::GetRes(AlgResourceRequest& resourceRequest) const
 {
     resourceRequest.slaveThreadNum = 1;
     resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, 1);

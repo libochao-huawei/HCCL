@@ -126,12 +126,12 @@ HcclResult CcuTempReduceMesh1DMem2Mem::KernelRun(const OpParam& param,
     return HcclResult::HCCL_SUCCESS;
 }
 
-u64 CcuTempReduceMesh1DMem2Mem::GetThreadNum()
+u64 CcuTempReduceMesh1DMem2Mem::GetThreadNum() const
 {
     return 1;
 }
 
-HcclResult CcuTempReduceMesh1DMem2Mem::GetRes(AlgResourceRequest& resourceRequest)
+HcclResult CcuTempReduceMesh1DMem2Mem::GetRes(AlgResourceRequest& resourceRequest) const
 {
     resourceRequest.slaveThreadNum = 0;
     resourceRequest.notifyNumOnMainThread = 0;

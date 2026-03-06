@@ -297,12 +297,12 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::GetStepInfo(u32 step, u32 nSteps, NHRSt
     return HcclResult::HCCL_SUCCESS;
 }
 
-u64 CcuTempAllGatherNHR1DMem2Mem::GetThreadNum()
+u64 CcuTempAllGatherNHR1DMem2Mem::GetThreadNum() const
 {
     return 1;
 }
  
-HcclResult CcuTempAllGatherNHR1DMem2Mem::GetRes(AlgResourceRequest& resourceRequest)
+HcclResult CcuTempAllGatherNHR1DMem2Mem::GetRes(AlgResourceRequest& resourceRequest) const
 {
     resourceRequest.slaveThreadNum = 0;
     resourceRequest.notifyNumOnMainThread = 0;
