@@ -106,14 +106,14 @@ HcclResult BatchSendRecvOutPlace(HcclSendRecvItem *sendRecvInfo, uint32_t itemNu
         HCCL_ERROR("[BatchSendRecvOutPlace] malloc OpParam failed!");
         return HCCL_E_INTERNAL;
     }
-    OpParam* tmpParamPtr = new (paramMem) OpParam();
-    auto deleter = [](OpParam* p) {
-        if (p) {
-            p->~OpParam();
-            free(p);
+    OpParam* batchSendRecvParamPtr = new (paramMem) OpParam();
+    auto deleter = [](OpParam* tmp) {
+        if (tmp) {
+            tmp->~OpParam();
+            free(tmp);
         }
     };
-    std::unique_ptr<OpParam, decltype(deleter)> paramPtr(tmpParamPtr, deleter);
+    std::unique_ptr<OpParam, decltype(deleter)> paramPtr(batchSendRecvParamPtr, deleter);
     OpParam& param = *paramPtr;
     CHK_RET(HcclGetCommName(comm, param.commName));
     param.stream = stream;
