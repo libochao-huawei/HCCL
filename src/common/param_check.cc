@@ -76,6 +76,23 @@ const std::unordered_set<HcclDataType, EnumHash> HCCL_SUPPORT_DATA_TYPE = {
     HCCL_DATA_TYPE_INT128
 };
 
+const std::unordered_set<HcclReduceOp, EnumHash> HCCL_SUPPORT_REDUCE_OP = {
+    HCCL_REDUCE_SUM,
+    HCCL_REDUCE_PROD,
+    HCCL_REDUCE_MAX,
+    HCCL_REDUCE_MIN
+};
+
+const std::unordered_set<CommEngine, EnumHash> HCCL_SUPPORT_COMM_ENGINE = {
+    COMM_ENGINE_RESERVED,
+    COMM_ENGINE_CPU,
+    COMM_ENGINE_CPU_TS,
+    COMM_ENGINE_AICPU,
+    COMM_ENGINE_AICPU_TS,
+    COMM_ENGINE_AIV,
+    COMM_ENGINE_CCU
+};
+
 HcclResult HcomCheckTag(const char *tag)
 {
     CHK_PTR_NULL(tag);
@@ -103,6 +120,26 @@ HcclResult HcomCheckDataType(const HcclDataType dataType)
     if (HCCL_SUPPORT_DATA_TYPE.find(dataType) == HCCL_SUPPORT_DATA_TYPE.end()) {
         HCCL_ERROR("[Check][DataType]errNo[0x%016llx] data type[%s] not supported",
             HCOM_ERROR_CODE(HCCL_E_NOT_SUPPORT), GetDataTypeEnumStr(dataType).c_str());
+        return HCCL_E_NOT_SUPPORT;
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcomCheckReductionOp(const HcclReduceOp op)
+{
+    if (HCCL_SUPPORT_REDUCE_OP.find(op) == HCCL_SUPPORT_REDUCE_OP.end()) {
+        HCCL_ERROR("[Check][ReduceOp]errNo[0x%016llx] reduce op type[%s] not supported",
+            HCOM_ERROR_CODE(HCCL_E_NOT_SUPPORT), GetReduceOpEnumStr(op).c_str());
+        return HCCL_E_NOT_SUPPORT;
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcomCheckCommEngine(const CommEngine commEngine)
+{
+    if (HCCL_SUPPORT_COMM_ENGINE.find(commEngine) == HCCL_SUPPORT_COMM_ENGINE.end()) {
+        HCCL_ERROR("[Check][CommEngine]errNo[0x%016llx] comm engine[%u] not supported",
+            HCOM_ERROR_CODE(HCCL_E_NOT_SUPPORT), commEngine);
         return HCCL_E_NOT_SUPPORT;
     }
     return HCCL_SUCCESS;
