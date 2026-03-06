@@ -48,7 +48,7 @@ private:
     std::map<u32, std::vector<HcclChannelDesc>> rankIdToChannelDesc_;
 
     HcclResult GetDieNumFromChannelDescs(HcclComm comm, u32 &dieNum);
-    HcclResult GetReduceScatterStepInfo(u32 step, NHRStepInfo &stepInfo);
+    HcclResult GetReduceScatterStepInfo(u32 step, NHRStepInfo &stepInfo) const;
     HcclResult GetAllGatherStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo);
     HcclResult GetStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo);
     HcclResult ProcessNHRStepInfo(HcclComm comm, const std::vector<HcclChannelDesc>& channelDescs,
@@ -56,7 +56,7 @@ private:
                                   u32 enableDieNum, std::vector<std::vector<HcclChannelDesc>>& channelsPerDie);
     HcclResult SplitDataFor2Dies(const OpParam& param, const TemplateDataParams& templateDataParams, uint64_t& die0Size,
                                  uint64_t& die1Size) const;
-    HcclResult CalcSliceInfoAllReduce(const u64 dataSize, RankSliceInfo &sliceInfoVec);
+    HcclResult CalcSliceInfoAllReduce(const u64 dataSize, RankSliceInfo &sliceInfoVec) const;
     
 };
 
