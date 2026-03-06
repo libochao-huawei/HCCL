@@ -35,7 +35,6 @@ HcclResult InsTempBroadcastMesh1DTwoShot::CalcRes(HcclComm comm, const OpParam& 
     return HCCL_SUCCESS;
 }
 
-
 HcclResult InsTempBroadcastMesh1DTwoShot::GetRes(AlgResourceRequest &resourceRequest) const
 {
     u32 threadNum = templateRankSize_ > 1 ? templateRankSize_ - 1 : 1;
