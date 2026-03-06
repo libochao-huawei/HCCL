@@ -175,7 +175,11 @@ SelectorStatus ReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerDet
 {
     HCCL_DEBUG("[ReduceAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
     (void)configAlgMap;
+<<<<<<< HEAD
     if (Is64BitDataType(opParam.DataDes.dataType)) {
+=======
+    if (isInt64Type(opParam.DataDes.dataType)) {
+>>>>>>> a62c957... reduce/reducescatter/reducescatterv selector fix 2
         HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64 only support in-box fullmesh algo type now.");
         return SelectorStatus::NOT_MATCH;
     }
@@ -246,13 +250,22 @@ SelectorStatus ReduceAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDetai
         HCCL_WARNING("[ReduceAutoSelector] ReduceOp[%d] is not supported yet for aiv mode.", opParam.reduceType),
         SelectorStatus::NOT_MATCH);
 
+<<<<<<< HEAD
     if (Is64BitDataType(opParam.DataDes.dataType)) {
         HCCL_WARNING("[ReduceAutoSelector] aiv mode not support INT64, UINT64, FP64.");
+=======
+    if (isInt64Type(opParam.DataDes.dataType)) {
+        HCCL_WARNING("[Algo][ReduceAutoSelector] aiv mode not support INT64, UINT64, FP64.");
+>>>>>>> a62c957... reduce/reducescatter/reducescatterv selector fix 2
         return SelectorStatus::NOT_MATCH;
     }
 
     selectAlgName = "AivReduceMesh1D";
+<<<<<<< HEAD
     HCCL_INFO("[ReduceAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
+=======
+    HCCL_INFO("[Algo][ReduceAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
+>>>>>>> a62c957... reduce/reducescatter/reducescatterv selector fix 2
     return SelectorStatus::MATCH;
 }
 
