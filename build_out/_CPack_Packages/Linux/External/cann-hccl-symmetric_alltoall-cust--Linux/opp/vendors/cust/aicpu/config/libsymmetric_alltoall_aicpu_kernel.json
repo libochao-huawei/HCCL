@@ -1,0 +1,9 @@
+{
+  "HcclLaunchSymmetricAlltoallAicpuKernel": {
+    "opInfo": {
+      "opKernelLib": "AICPUKernel",
+      "kernelSo": "libsymmetric_alltoall_aicpu_kernel.so",
+      "functionName": "HcclLaunchSymmetricAlltoallAicpuKernel"
+    }
+  }
+}

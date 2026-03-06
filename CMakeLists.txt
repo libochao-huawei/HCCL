@@ -89,6 +89,9 @@ elseif(ENABLE_CUSTOM)
     include(cmake/func.cmake)
     include(cmake/package.cmake)
 
+    # 为自定义算子设置链接目录
+    link_directories(${ASCEND_CANN_PACKAGE_PATH}/lib64)
+
     # AICPU Device 构建目标
     add_custom_target(custom_aicpu)
     # CPack 打包
