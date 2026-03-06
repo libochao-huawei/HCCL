@@ -160,7 +160,6 @@ SelectorStatus ReduceScatterVAutoSelector::SelectAicpuAlgo(const TopoInfoWithNet
                                                       const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                       std::string &selectAlgName) const
 {
-    HCCL_DEBUG("[ReduceScatterVAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
     (void)configAlgMap;
     CHK_PRT_RET(opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD,
         HCCL_ERROR("[Algo][ReduceScatterVAutoSelector] ReduceOp [PROD] is not supported yet for aicpu mode."),
@@ -206,8 +205,10 @@ SelectorStatus ReduceScatterVAutoSelector::SelectAivAlgo(const TopoInfoWithNetLa
             opParam.reduceType),
         SelectorStatus::NOT_MATCH);
 
-    if (Is64BitDataType(opParam.vDataDes.dataType)) {
-        HCCL_WARNING("[ReduceScatterVAutoSelector] aiv mode not support INT64, UINT64, FP64.");
+    if (opParam.vDataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT64 ||
+        opParam.vDataDes.dataType == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
+        opParam.vDataDes.dataType == HcclDataType::HCCL_DATA_TYPE_FP64) {
+        HCCL_WARNING("[Algo][ReduceScatterVAutoSelector] aiv mode not support INT64, UINT64, FP64.");
         return SelectorStatus::NOT_MATCH;
     }
 
