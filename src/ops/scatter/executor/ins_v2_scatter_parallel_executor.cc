@@ -196,7 +196,7 @@ HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     InsAlgTemplate1 tempAlgInter(
         param, resCtx.topoInfo.userRank, resCtx.algHierarchyInfo.infos[1]);  // server间算法，比如nhr
     // 计算算法模板所需资源
-    CHK_RET(PrepareResForTemplate(param, resCtx, tempAlgIntra, tempAlgInter));
+    CHK_RET(PrepareResForTemplate(tempAlgIntra));
 
     CHK_RET(GenInsQuesHost(param, resCtx, tempAlgIntra, tempAlgInter));
     HCCL_INFO("[InsV2ScatterParallelExecutor][OrchestrateLoop] Orchestrate success.");
@@ -208,7 +208,6 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 void InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::GetParallelDataSplit(
     std::vector<double> &splitDataSize) const
 {
-    // to do 先做等分，后续根据性能做调整
     double splitData = 0.5;
     splitDataSize.push_back(splitData);
     splitDataSize.push_back(splitData);
@@ -456,8 +455,7 @@ void InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::PrepareResForTemplate(
-    const OpParam &param, const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &tempAlgIntra,
-    InsAlgTemplate1 &tempAlgInter)
+    InsAlgTemplate0 &tempAlgIntra)
 {
     AlgResourceRequest intraResourceRequest;
     AlgResourceRequest interResourceRequest;

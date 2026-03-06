@@ -11,6 +11,7 @@
 #ifndef HCCL_CCU_TEMP_REDUCE_SCATTER_MESH_1D_MEM2MEM_H
 #define HCCL_CCU_TEMP_REDUCE_SCATTER_MESH_1D_MEM2MEM_H
 
+#include "utils.h"
 #include "ccu_alg_template_base.h"
 
 namespace ops_hccl {
