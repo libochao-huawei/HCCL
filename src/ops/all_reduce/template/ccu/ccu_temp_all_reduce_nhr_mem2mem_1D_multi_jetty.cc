@@ -260,4 +260,13 @@ HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::ProcessNHRStepInfo(std::vecto
 
     return HcclResult::HCCL_SUCCESS;
 }
+
+HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::GetRes(AlgResourceRequest& resourceRequest)
+{
+    // 不需要从流
+    resourceRequest.notifyNumOnMainThread = 0;
+    resourceRequest.slaveThreadNum = 0;
+
+    return HcclResult::HCCL_SUCCESS;
+}
 } // namespace ops_hccl
