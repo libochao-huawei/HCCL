@@ -135,9 +135,16 @@ HcclResult InitEnvConfig()
 }
 std::string GetEnv(mmEnvId IdName)
 {
-    char *mmSysGetEnvValue = nullptr;
+    // 使用足够大的固定缓冲区来避免缓冲区溢出
+    constexpr size_t MAX_ENV_VALUE_SIZE = 1024;
+    char envValue[MAX_ENV_VALUE_SIZE] = {0};
+    char* mmSysGetEnvValue = envValue;
     MM_SYS_GET_ENV(IdName, mmSysGetEnvValue);
-    return (mmSysGetEnvValue != nullptr) ? mmSysGetEnvValue : "EmptyString";
+    if (mmSysGetEnvValue != nullptr && mmSysGetEnvValue[0] != '\0') {
+        return std::string(mmSysGetEnvValue);
+    } else {
+        return "EmptyString";
+    }
 }
 
 HcclResult ParseHcclAlgo()
