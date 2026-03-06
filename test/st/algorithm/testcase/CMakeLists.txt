@@ -24,6 +24,8 @@ set(src_list
     reduce_scatter_v_testcase.cc
     broadcast_testcase.cc
     reduce_scatter_aicpu_testcase.cc
+    batch_send_recv_testcase.cc
+    hccl_mc2_testcase.cc
 )
 
 add_executable(hccl_checker_ops_stest ${src_list})
@@ -59,7 +61,7 @@ if (BUILD_OPEN_PROJECT)
     )
 
     target_link_libraries(hccl_checker_ops_stest PRIVATE
-        ${THIRD_PARTH_PATH}/gtest_shared/lib/libgtest.so
+        gtest
         pthread
         hccl-model-proxy
         hccl-verifier

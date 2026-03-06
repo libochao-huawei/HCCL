@@ -13,9 +13,11 @@
 #include "aiv_temp_reduce_scatter_mesh_1D.h"
 #include "ins_temp_reduce_scatter_nhr.h"
 #include "ins_temp_reduce_scatter_mesh_1D_meshchunk.h"
+#ifndef AICPU_COMPILE
 #include "ccu_temp_reduce_scatter_mesh_1D_mem2mem.h"
 #include "ccu_temp_reduce_scatter_mesh_1D.h"
 #include "ccu_temp_reduce_scatter_nhr_1D_mem2mem.h"
+#endif
 
 namespace ops_hccl {
 
@@ -27,7 +29,7 @@ InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::InsV2ReduceScatter
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcAlgHierarchyInfo(HcclComm comm,
-    TopoInfo* topoInfo,
+    TopoInfoWithNetLayerDetails* topoInfo,
     AlgHierarchyInfoForAllLevel& algHierarchyInfo)
 {
     // 使用topo match计算AlgHierarchyInfoForAllLevel
@@ -40,7 +42,7 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcAlg
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(
     HcclComm comm, const OpParam& param,
-    const TopoInfo* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
+    const TopoInfoWithNetLayerDetails* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
     AlgResourceRequest& resourceRequest)
 {
     // 构建template

@@ -21,7 +21,7 @@ InsV2ReduceSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::Ins
 // ! 已编码完成
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsV2ReduceSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::InitCommInfo(
-    const OpParam &param, const TopoInfo *topoInfo, const AlgHierarchyInfoForAllLevel &algHierarchyInfo)
+    const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo, const AlgHierarchyInfoForAllLevel &algHierarchyInfo)
 {
     myRank_ = topoInfo->userRank;
     rankSize_ = topoInfo->userRankSize;
@@ -46,7 +46,7 @@ HcclResult InsV2ReduceSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemp
 // ! 已编码完成，实例化实际执行以来AutoMatchMeshNhr这个类的实现
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsV2ReduceSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::CalcAlgHierarchyInfo(
-    HcclComm comm, TopoInfo *topoInfo, AlgHierarchyInfoForAllLevel &algHierarchyInfo)
+    HcclComm comm, TopoInfoWithNetLayerDetails *topoInfo, AlgHierarchyInfoForAllLevel &algHierarchyInfo)
 {
     myRank_ = topoInfo->userRank;
     rankSize_ = topoInfo->userRankSize;
@@ -60,7 +60,7 @@ HcclResult InsV2ReduceSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemp
 // ! 已编码完成
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsV2ReduceSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::CalcRes(HcclComm comm,
-    const OpParam &param, const TopoInfo *topoInfo, const AlgHierarchyInfoForAllLevel &algHierarchyInfo,
+    const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo, const AlgHierarchyInfoForAllLevel &algHierarchyInfo,
     AlgResourceRequest &resourceRequest)
 {
     // 初始化一些基本成员变量
@@ -135,51 +135,86 @@ HcclResult InsV2ReduceSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemp
     // 将ccl-buffer分成ccl-in和ccl-out 2部分区分使用
     void *cclInAddr = resCtx.cclMem.addr;
     HcclMem cclInMem = {resCtx.cclMem.type, cclInAddr, resCtx.cclMem.size / 2};
-    void *cclOutAddr = static_cast<void *>(static_cast<s8 *>(resCtx.cclMem.addr) + resCtx.cclMem.size / 2);
-    HcclMem cclOutMem = {resCtx.cclMem.type, cclOutAddr, resCtx.cclMem.size / 2};
+    void *cclOutAddr = static_cast<void*>(static_cast<s8 *>(resCtx.cclMem.addr) + resCtx.cclMem.size / 2);
+    HcclMem cclOutMem = {resCtx.cclMem.type , cclOutAddr, resCtx.cclMem.size / 2};
 
-    // 声明框内templateargs，user in搬运到ccl in，最终规约到ccl in
-    TemplateDataParams tempAlgParamsInter;
-    tempAlgParamsInter.buffInfo.inputPtr = param.inputPtr;
-    tempAlgParamsInter.buffInfo.outputPtr = cclOutMem.addr;
-    tempAlgParamsInter.buffInfo.hcclBuff = cclInMem;  // ! 待验证这样使用是否能正常输出到CCL-IN，或者这里改用CCL-OUT
+    // 声明框内ReduceScatterMesh1D的templateargs
+    TemplateDataParams tempAlgParamsReduceScatterMesh1D;
+    tempAlgParamsReduceScatterMesh1D.buffInfo.inputPtr = param.inputPtr;
+    tempAlgParamsReduceScatterMesh1D.buffInfo.outputPtr = cclOutMem.addr; 
+    tempAlgParamsReduceScatterMesh1D.buffInfo.inputSize = param.inputSize;
+    tempAlgParamsReduceScatterMesh1D.buffInfo.outputSize = param.outputSize;
+    tempAlgParamsReduceScatterMesh1D.buffInfo.hcclBuff = cclInMem;
+    tempAlgParamsReduceScatterMesh1D.root = param.root;
 
-    // 构建框内template
-    std::shared_ptr<InsAlgTemplate0> algTemplateInter =
+    // 构建框内ReduceScatterMesh1D的template
+    std::shared_ptr<InsAlgTemplate0> algTemplateReduceScatterMesh1D =
         std::make_shared<InsAlgTemplate0>(param, myRank_, algHierarchyInfo_.infos[0]);
 
-    // 声明框间templateargs，ccl-in写到对端ccl-out，最终规约到outputPtr上
-    TemplateDataParams tempAlgParamsIntra;
-    tempAlgParamsIntra.buffInfo.inputPtr =
-        cclOutMem.addr;  // ! 如果上面验证有问题，这里改成用CCL-OUT做输入，CCL-IN做Buffer
-    tempAlgParamsIntra.buffInfo.outputPtr = param.outputPtr;
-    tempAlgParamsIntra.buffInfo.hcclBuff = cclInMem;
+    // 声明框间ReduceScatterMesh1dDpu的templateargs
+    TemplateDataParams tempAlgParamsReduceScatterMesh1dDpu;
+    tempAlgParamsReduceScatterMesh1dDpu.buffInfo.inputPtr = cclOutMem.addr;
+    tempAlgParamsReduceScatterMesh1dDpu.buffInfo.outputPtr = cclOutMem.addr;
+    tempAlgParamsReduceScatterMesh1dDpu.buffInfo.inputSize = param.inputSize;
+    tempAlgParamsReduceScatterMesh1dDpu.buffInfo.outputSize = param.outputSize;
+    tempAlgParamsReduceScatterMesh1dDpu.buffInfo.hcclBuff = cclInMem;
+    tempAlgParamsReduceScatterMesh1dDpu.root = param.root;
 
-    // 构建框间template
-    std::shared_ptr<InsAlgTemplate0> algTemplateIntra =
-        std::make_shared<InsAlgTemplate0>(param, myRank_, algHierarchyInfo_.infos[1]);
+    // 构建框间ReduceScatterMesh1dDpu的template
+    std::shared_ptr<InsAlgTemplate1> algTemplateReduceScatterMesh1dDpu =
+        std::make_shared<InsAlgTemplate1>(param, myRank_, algHierarchyInfo_.infos[1]);
 
-    BufferType inBuffType = BufferType::INPUT;
-    BufferType outBuffType = BufferType::OUTPUT;
-    u32 templateScratchMultiplierInter = algTemplateInter->CalcScratchMultiple(inBuffType, outBuffType);
-    u32 templateScratchMultiplierIntra = algTemplateIntra->CalcScratchMultiple(outBuffType, outBuffType);
+    // 声明框间GatherDpu的templateargs，ccl-out搬运到ccl-out
+    TemplateDataParams tempAlgParamsGatherDpu;
+    tempAlgParamsGatherDpu.buffInfo.inputPtr = cclOutMem.addr;
+    tempAlgParamsGatherDpu.buffInfo.outputPtr = cclOutMem.addr;
+    tempAlgParamsGatherDpu.buffInfo.inputSize = param.inputSize;
+    tempAlgParamsGatherDpu.buffInfo.outputSize = param.outputSize;
+    tempAlgParamsGatherDpu.buffInfo.hcclBuff = cclInMem;
+    tempAlgParamsGatherDpu.root = param.root;
 
-    u32 templateScratchMultiplier =
-        std::max(templateScratchMultiplierInter * rankSizeLevel1_, templateScratchMultiplierIntra);
+    // 构建框间GatherDpu的template
+    std::shared_ptr<InsAlgTemplate2> algTemplateGatherDpu =
+        std::make_shared<InsAlgTemplate2>(param, myRank_, algHierarchyInfo_.infos[1]);
 
-    // 构造框内template资源
-    TemplateResource templateResourceInter;
-    templateResourceInter.channels = remoteRankToChannelInfo_[0];
-    templateResourceInter.threads = resCtx.threads;
-    templateResourceInter.npu2DpuShmemPtr = resCtx.npu2DpuShmemPtr;
-    templateResourceInter.dpu2NpuShmemPtr = resCtx.dpu2NpuShmemPtr;
-    // 构造框间template资源
-    TemplateResource templateResourceIntra;
-    templateResourceIntra.channels = remoteRankToChannelInfo_[1];
-    templateResourceIntra.threads = resCtx.threads;
-    templateResourceIntra.npu2DpuShmemPtr = resCtx.npu2DpuShmemPtr;
-    templateResourceIntra.dpu2NpuShmemPtr = resCtx.dpu2NpuShmemPtr;
+    // 声明框内GatherMesh1D的templateargs，ccl-out搬运到user-out
+    TemplateDataParams tempAlgParamsGatherMesh1D;
+    tempAlgParamsGatherMesh1D.buffInfo.inputPtr = cclOutMem.addr;
+    tempAlgParamsGatherMesh1D.buffInfo.outputPtr = param.outputPtr;
+    tempAlgParamsGatherMesh1D.buffInfo.inputSize = param.inputSize;
+    tempAlgParamsGatherMesh1D.buffInfo.outputSize = param.outputSize;
+    tempAlgParamsGatherMesh1D.buffInfo.hcclBuff = cclInMem;
+    tempAlgParamsGatherMesh1D.root = param.root;
 
+    // 构建框内GatherMesh1D的template
+    std::shared_ptr<InsAlgTemplate3> algTemplateGatherMesh1D =
+        std::make_shared<InsAlgTemplate3>(param, myRank_, algHierarchyInfo_.infos[0]);
+
+    // 构造框内ReduceScatterMesh1D的template资源
+    TemplateResource templateResourceReduceScatterMesh1D;
+    templateResourceReduceScatterMesh1D.channels = remoteRankToChannelInfo_[0];
+    templateResourceReduceScatterMesh1D.threads = resCtx.threads;
+    templateResourceReduceScatterMesh1D.npu2DpuShmemPtr = resCtx.npu2DpuShmemPtr;
+    templateResourceReduceScatterMesh1D.dpu2NpuShmemPtr = resCtx.dpu2NpuShmemPtr;
+    // 构造框间ReduceScatterMesh1dDpu的template资源
+    TemplateResource templateResourceReduceScatterMesh1dDpu;
+    templateResourceReduceScatterMesh1dDpu.channels = remoteRankToChannelInfo_[1];
+    templateResourceReduceScatterMesh1dDpu.threads = resCtx.threads;
+    templateResourceReduceScatterMesh1dDpu.npu2DpuShmemPtr = resCtx.npu2DpuShmemPtr;
+    templateResourceReduceScatterMesh1dDpu.dpu2NpuShmemPtr = resCtx.dpu2NpuShmemPtr;
+    // 构造框间GatherDpu的template资源
+    TemplateResource templateResourceGatherDpu;
+    templateResourceGatherDpu.channels = remoteRankToChannelInfo_[1];
+    templateResourceGatherDpu.threads = resCtx.threads;
+    templateResourceGatherDpu.npu2DpuShmemPtr = resCtx.npu2DpuShmemPtr;
+    templateResourceGatherDpu.dpu2NpuShmemPtr = resCtx.dpu2NpuShmemPtr;
+    // 构造框内GatherMesh1D的template资源
+    TemplateResource templateResourceGatherMesh1D;
+    templateResourceGatherMesh1D.channels = remoteRankToChannelInfo_[0];
+    templateResourceGatherMesh1D.threads = resCtx.threads;
+    templateResourceGatherMesh1D.npu2DpuShmemPtr = resCtx.npu2DpuShmemPtr;
+    templateResourceGatherMesh1D.dpu2NpuShmemPtr = resCtx.dpu2NpuShmemPtr;
+    
     // 中转内存单次最多能够接受的output count，注意是count不是size
     u64 maxCountPerLoop = tempAlgParamsInter.buffInfo.hcclBuff.size / 2 / templateScratchMultiplier /
                           HCCL_MIN_SLICE_ALIGN * HCCL_MIN_SLICE_ALIGN / dataTypeSize_;

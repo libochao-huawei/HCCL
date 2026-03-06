@@ -13,8 +13,22 @@
 
 #include <string>
 #include "hccl/base.h"
+#include "alg_param.h"
 
 namespace ops_hccl {
+
+struct ScatterOpInfo {
+    char algTag[ALG_TAG_LENGTH]; // 保存资源的key值，和算法绑定
+    char commName[COMM_INDENTIFIER_MAX_LENGTH];
+    void* inputPtr = nullptr;
+    void* outputPtr = nullptr;
+    u32 root = INVALID_VALUE_RANKID;
+    u64 count;
+    HcclDataType dataType;
+    HcclCMDType opType = HcclCMDType::HCCL_CMD_INVALID;
+};
+
+HcclResult CreateScatter(OpParam *param, ScatterOpInfo *opInfo);
 
 void GetScatterOpInfo(const void *opInfo, char *outPut, size_t size);
 

@@ -153,6 +153,7 @@ name:aicpu_hccl_custom_p2p.tar.gz
 install_path:2
 optional:true
 package_path:opp/vendors/cust/aicpu/kernel
+load_as_per_soc:false
 ```
 
 各字段含义如下：
@@ -161,6 +162,7 @@ package_path:opp/vendors/cust/aicpu/kernel
 - `install_path`: 安装到 Device 侧的路径
 - `optional`: 默认为 true
 - `package_path`: tar 包在Host侧CANN Toolkit包下的相对路径
+- `load_as_per_soc`: 是否每种芯片类型都加载
 
 ### 3. 编译样例
 
@@ -176,6 +178,10 @@ make
 ```bash
 # 运行样例
 make test
+
+# 或直接执行样例二进制
+export LD_LIBRARY_PATH=${ASCEND_HOME_PATH}/opp/vendors/cust/lib64:${LD_LIBRARY_PATH}
+./send_recv
 ```
 
 ### 5. 样例结果示例

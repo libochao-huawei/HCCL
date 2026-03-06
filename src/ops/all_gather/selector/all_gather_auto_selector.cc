@@ -15,7 +15,7 @@ namespace ops_hccl {
 constexpr u64 AG_2D_SMALL_DATA_SIZE = 1024 * 1024;
 
 SelectorStatus AllGatherAutoSelector::SelectCcuMsAlgo(
-    TopoInfo *topoInfo, OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+    TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
     std::string &selectAlgName) const
 {
     HCCL_DEBUG("[AllGatherAutoSelector][%s] start", __func__);
@@ -44,7 +44,7 @@ SelectorStatus AllGatherAutoSelector::SelectCcuMsAlgo(
     HCCL_DEBUG("[AllGatherAutoSelector][%s] end", __func__);
 }
 
-SelectorStatus AllGatherAutoSelector::SelectMeshAlgo(TopoInfo *topoInfo, OpParam &opParam,
+SelectorStatus AllGatherAutoSelector::SelectMeshAlgo(TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam,
                                                      std::string &selectAlgName) const
 {
     HCCL_DEBUG("[AllGatherAutoSelector][%s] start", __func__);
@@ -52,7 +52,7 @@ SelectorStatus AllGatherAutoSelector::SelectMeshAlgo(TopoInfo *topoInfo, OpParam
         if (IsSmallData(opParam.inputSize)) {
             selectAlgName = "CcuAllGatherMesh1D";
         } else {
-            selectAlgName = "CcuAllGatherMesh1DMultiMission";
+            selectAlgName = "CcuAllGatherMesh1D";
         }
     }
     HCCL_DEBUG("[AllGatherAutoSelector][%s] end", __func__);
@@ -60,7 +60,7 @@ SelectorStatus AllGatherAutoSelector::SelectMeshAlgo(TopoInfo *topoInfo, OpParam
 }
 
 SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
-    TopoInfo *topoInfo, OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+    TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
     std::string &selectAlgName) const
 {
     if (topoInfo->topoLevelNums > 1) {
@@ -69,7 +69,7 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
                 selectAlgName = "CcuAllGatherParallelMesh1DNHR";
                 return SelectorStatus::MATCH;
             } else {
-                selectAlgName = "CcuAllGatherNHR1D";
+                selectAlgName = "CcuAllGatherNHR1DMem2Mem";
                 return SelectorStatus::MATCH;
             }
         } else {
@@ -86,10 +86,10 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
     }
     if ((IsDefaultAlg(levle0Algo) || levle0Algo == HcclAlgoType::HCCL_ALGO_TYPE_FULLMESH) &&
         (topoInfo->level0Topo == Level0Shape::MESH_1D)) {
-        selectAlgName = "CcuAllGatherMeshMem2Mem1D";
+        selectAlgName = "CcuAllGatherMesh1DMem2Mem";
         return SelectorStatus::MATCH;
     } else if ((IsDefaultAlg(levle0Algo) || (levle0Algo == HcclAlgoType::HCCL_ALGO_TYPE_FULLMESH))) {
-        selectAlgName = "CcuAllGatherMeshMem2Mem2D";
+        selectAlgName = "CcuAllGatherMesh2DMem2Mem";
         return SelectorStatus::MATCH;
     } else {
         HCCL_WARNING(
@@ -101,7 +101,7 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
 }
 
 SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
-    TopoInfo *topoInfo, OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+    TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
     std::string &selectAlgName) const
 {
     std::vector<HcclAlgoType> algos =
@@ -135,7 +135,7 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
 }
 
 SelectorStatus AllGatherAutoSelector::SelectAivAlgo(
-    TopoInfo *topoInfo, OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+    TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
     std::string &selectAlgName) const
 {
     std::vector<HcclAlgoType> algos =
@@ -157,7 +157,7 @@ SelectorStatus AllGatherAutoSelector::SelectAivAlgo(
 }
 
 SelectorStatus AllGatherAutoSelector::SelectDPUAlgo(
-    TopoInfo *topoInfo, OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+    TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
     std::string &selectAlgName) const
 {
     std::vector<HcclAlgoType> algos =
