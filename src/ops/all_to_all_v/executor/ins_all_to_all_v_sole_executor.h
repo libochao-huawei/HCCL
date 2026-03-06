@@ -30,7 +30,7 @@ namespace ops_hccl {
 template <typename AlgTopoMatch, typename InsAlgTemplate> class InsAlltoAllVSoleExecutor : public InsCollAlgBase {
 public:
     explicit InsAlltoAllVSoleExecutor();
-    ~InsAlltoAllVSoleExecutor() = default;
+    ~InsAlltoAllVSoleExecutor() override = default;
 
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
 
@@ -44,7 +44,7 @@ public:
                                     AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
     
     HcclResult GetAlltoAllLocalSendRecvInfo(const OpParam &param, 
-                                            A2ASendRecvInfo &localSendRecvInfo);
+                                            A2ASendRecvInfo &localSendRecvInfo) const;
 
 protected:
     /* *************** 算法编排 *************** */

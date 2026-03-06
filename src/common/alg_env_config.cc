@@ -779,12 +779,12 @@ HcclResult ParseDeterministic()
                 deviceType);
             return HCCL_E_NOT_SUPPORT;
         }
-        g_algEnvConfig.hcclDeterministic = DETERMINISTIC_STRICT;
+        g_algEnvConfig.hcclDeterministic = static_cast<u8>(DeterministicEnableLevel::DETERMINISTIC_STRICT);
     } else if (hcclDeterministicEnv == "TRUE") {
         // 确定性计算场景（不保证规约保序）
-        g_algEnvConfig.hcclDeterministic = DETERMINISTIC_ENABLE;
+        g_algEnvConfig.hcclDeterministic = static_cast<u8>(DeterministicEnableLevel::DETERMINISTIC_ENABLE);
     } else {
-        g_algEnvConfig.hcclDeterministic = DETERMINISTIC_DISABLE;
+        g_algEnvConfig.hcclDeterministic = static_cast<u8>(DeterministicEnableLevel::DETERMINISTIC_DISABLE);
     }
     HCCL_RUN_INFO("HCCL_DETERMINISTIC set by environment to [%s], hcclDeterministic[%u]",
         hcclDeterministicEnv.c_str(),
