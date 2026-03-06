@@ -52,11 +52,7 @@ SelectorStatus AllGatherAutoSelector::SelectMeshAlgo(TopoInfoWithNetLayerDetails
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-        if (IsSmallData(opParam.inputSize)) {
-            selectAlgName = "CcuAllGatherMesh1D";
-        } else {
-            selectAlgName = "CcuAllGatherMesh1D";
-        }
+        selectAlgName = "CcuAllGatherMesh1D";
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
         // UBX机型
         bool isMeshNumEqualToClosNum = false;
@@ -90,6 +86,7 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
     TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
     std::string &selectAlgName) const
 {
+    HCCL_DEBUG("[AllGatherAutoSelector][%s] start", __func__);
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
     if (topoInfo->topoLevelNums > 1) {
@@ -113,8 +110,8 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
     if ((it != configAlgMap.end()) && (it->second.size() > 0)) {
         levle0Algo = it->second[0];
     }
-    if ((IsDefaultAlg(levle0Algo) || levle0Algo == HcclAlgoType::HCCL_ALGO_TYPE_FULLMESH) &&
-        (topoInfo->level0Topo == Level0Shape::MESH_1D)) {
+    const bool isDefaultOrFullMesh = IsDefaultAlg(levle0Algo) || (levle0Algo == HcclAlgoType::HCCL_ALGO_TYPE_FULLMESH);
+    if (isDefaultOrFullMesh && (topoInfo->level0Topo == Level0Shape::MESH_1D)) {
         if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
             selectAlgName = "CcuAllGatherMesh2Die";
         } else if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_NOT_REGULAR) {
@@ -124,7 +121,7 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
             selectAlgName = "CcuAllGatherMeshMem2Mem1D";
         }
         return SelectorStatus::MATCH;
-    } else if ((IsDefaultAlg(levle0Algo) || levle0Algo == HcclAlgoType::HCCL_ALGO_TYPE_FULLMESH) && (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS)) {
+    } else if (isDefaultOrFullMesh && (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS)) {
         // UBX机型
         bool isMeshNumEqualToClosNum = false;
         bool isClosNumMultipleOfMeshNum = false;
@@ -156,6 +153,7 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
             levle0Algo);
         return SelectorStatus::NOT_MATCH;
     }
+    HCCL_DEBUG("[AllGatherAutoSelector][%s] end", __func__);
     return SelectorStatus::NOT_MATCH;
 }
 
@@ -163,6 +161,7 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
     TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
     std::string &selectAlgName) const
 {
+    HCCL_DEBUG("[AllGatherAutoSelector][%s] start", __func__);
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
     std::vector<HcclAlgoType> algos =
@@ -215,6 +214,7 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
             return SelectorStatus::NOT_MATCH;
         }
     }
+    HCCL_DEBUG("[AllGatherAutoSelector][%s] end", __func__);
     return SelectorStatus::MATCH;
 }
 
@@ -222,6 +222,7 @@ SelectorStatus AllGatherAutoSelector::SelectAivAlgo(
     TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
     std::string &selectAlgName) const
 {
+    HCCL_DEBUG("[AllGatherAutoSelector][%s] start", __func__);
     std::vector<HcclAlgoType> algos =
         std::vector<HcclAlgoType>(HCCL_ALGO_LEVEL_NUM, HcclAlgoType::HCCL_ALGO_TYPE_DEFAULT);
     auto it = configAlgMap.find(opParam.opType);
@@ -237,6 +238,7 @@ SelectorStatus AllGatherAutoSelector::SelectAivAlgo(
         HCCL_WARNING("[AllGatherAutoSelector] topo not match for aiv algo");
         return SelectorStatus::NOT_MATCH;
     }
+    HCCL_DEBUG("[AllGatherAutoSelector][%s] end", __func__);
     return SelectorStatus::MATCH;
 }
 
@@ -244,6 +246,7 @@ SelectorStatus AllGatherAutoSelector::SelectDPUAlgo(
     TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
     std::string &selectAlgName) const
 {
+    HCCL_DEBUG("[AllGatherAutoSelector][%s] start", __func__);
     std::vector<HcclAlgoType> algos =
         std::vector<HcclAlgoType>(HCCL_ALGO_LEVEL_NUM, HcclAlgoType::HCCL_ALGO_TYPE_DEFAULT);
     auto it = configAlgMap.find(opParam.opType);
@@ -258,7 +261,7 @@ SelectorStatus AllGatherAutoSelector::SelectDPUAlgo(
             return SelectorStatus::MATCH;
         }
     }
-
+    HCCL_DEBUG("[AllGatherAutoSelector][%s] end", __func__);
     return SelectorStatus::NOT_MATCH;
 }
 
