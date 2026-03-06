@@ -19,7 +19,6 @@ namespace ops_hccl {
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::InsAlltoAllVSoleExecutor()
 {
-    
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
@@ -49,7 +48,7 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(HcclC
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::GetAlltoAllLocalSendRecvInfo(
-    const OpParam &param, A2ASendRecvInfo &localSendRecvInfo)
+    const OpParam &param, A2ASendRecvInfo &localSendRecvInfo) const
 {
     HCCL_DEBUG("[GetAlltoAllLocalSendRecvInfo] rank[%u], userRankSize[%u]", myRank_, rankSize_);
     localSendRecvInfo.sendCounts.resize(rankSize_, 0);
@@ -123,7 +122,6 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate(
         HCCL_ERROR("[InsAlltoAllVSoleExecutor][Orchestrate]errNo[0x%016llx] All to All excutor kernel run failed",
             HCCL_ERROR_CODE(ret)), ret);
     return HCCL_SUCCESS;
-    return HcclResult::HCCL_SUCCESS;
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
