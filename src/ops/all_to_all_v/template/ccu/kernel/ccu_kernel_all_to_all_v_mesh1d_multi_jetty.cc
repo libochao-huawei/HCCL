@@ -32,7 +32,6 @@ CcuKernelAllToAllVMesh1DMultiJetty::CcuKernelAllToAllVMesh1DMultiJetty(const Ccu
     HCCL_INFO(
         "[CcuKernelAllToAllVMesh1DMultiJetty] Init, KernelArgs are rankId[%u], rankSize_[%u]",
         rankId_, rankSize_);
-
 }
 
 HcclResult CcuKernelAllToAllVMesh1DMultiJetty::PreSync()

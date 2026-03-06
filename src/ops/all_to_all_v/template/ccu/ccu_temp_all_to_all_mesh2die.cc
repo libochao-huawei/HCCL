@@ -140,6 +140,5 @@ HcclResult CcuTempAllToAllMesh2Die::KernelRun(const OpParam &param, const Templa
     HCCL_DEBUG("[CcuTempAlltoAllMesh2Die][KernelRun] end. Rank[%d]", myRank_);
     HCCL_INFO("[CcuTempAllToAllMesh2Die] Template Run for all steps Ends.");
     return HcclResult::HCCL_SUCCESS;
-
 }
 } // namespace ops_hccl
