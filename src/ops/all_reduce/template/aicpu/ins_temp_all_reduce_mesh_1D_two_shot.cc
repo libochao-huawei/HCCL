@@ -44,8 +44,7 @@ HcclResult InsTempAllReduceMesh1DTwoShot::CalcRes(HcclComm comm, const OpParam& 
 
 HcclResult InsTempAllReduceMesh1DTwoShot::GetRes(AlgResourceRequest& resourceRequest) const
 {
-    threadNum_ = GetThreadNum();
-    resourceRequest.slaveThreadNum = threadNum_ - 1;
+    resourceRequest.slaveThreadNum = templateRankSize_ - 1;
 
     resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, 1);
     resourceRequest.notifyNumOnMainThread = resourceRequest.slaveThreadNum;
