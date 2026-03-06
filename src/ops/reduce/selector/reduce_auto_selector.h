@@ -16,21 +16,21 @@ namespace ops_hccl {
 
 class ReduceAutoSelector : public AutoSelectorBase {
 private:
-    SelectorStatus SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
+    SelectorStatus SelectCcuMsAlgo(TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam,
         const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
         std::string &selectAlgName) const override;
-    SelectorStatus SelectCcuScheduleAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
+    SelectorStatus SelectCcuScheduleAlgo(TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam,
         const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
         std::string &selectAlgName) const override;
-    SelectorStatus SelectAicpuAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
+    SelectorStatus SelectAicpuAlgo(TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam,
         const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
         std::string &selectAlgName) const override;
-    SelectorStatus SelectMeshAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
+    SelectorStatus SelectMeshAlgo(TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam,
         std::string &selectAlgName) const;
-    SelectorStatus SelectAivAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
+    SelectorStatus SelectAivAlgo(TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam,
         const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
         std::string &selectAlgName) const override;
-    SelectorStatus SelectMeshAlgoAicpu(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
+    SelectorStatus SelectMeshAlgoAicpu(TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam,
         std::string &selectAlgName) const;
 };
 

@@ -13,7 +13,7 @@
 namespace ops_hccl {
 constexpr u64 RS_2D_SMALL_DATA_SIZE = 1024 * 1024;
 
-SelectorStatus ReduceAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
+SelectorStatus ReduceAutoSelector::SelectCcuMsAlgo(TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam,
     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap, std::string &selectAlgName) const
 {
     if (topoInfo->topoLevelNums > 1) {
@@ -55,7 +55,7 @@ SelectorStatus ReduceAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayerDet
 }
 
 SelectorStatus ReduceAutoSelector::SelectMeshAlgo(
-    const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam, std::string &selectAlgName) const
+    TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam, std::string &selectAlgName) const
 {
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
@@ -72,8 +72,8 @@ SelectorStatus ReduceAutoSelector::SelectMeshAlgo(
     return SelectorStatus::MATCH;
 }
 
-SelectorStatus ReduceAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNetLayerDetails *topoInfo,
-    const OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+SelectorStatus ReduceAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetLayerDetails *topoInfo,
+    OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
     std::string &selectAlgName) const
 {
     // ccu 模式不支持 PROD
@@ -122,7 +122,7 @@ SelectorStatus ReduceAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNetLa
     }
 }
 
-SelectorStatus ReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
+SelectorStatus ReduceAutoSelector::SelectAicpuAlgo(TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam,
     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap, std::string &selectAlgName) const
 {
     if (opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT64 ||
@@ -160,7 +160,7 @@ SelectorStatus ReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerDet
 }
 
 SelectorStatus ReduceAutoSelector::SelectMeshAlgoAicpu(
-    const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam, std::string &selectAlgName) const
+    TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam, std::string &selectAlgName) const
 {
     HCCL_DEBUG("SelectMeshAlgoAicpu %u", topoInfo->level0Topo);
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
@@ -184,7 +184,7 @@ SelectorStatus ReduceAutoSelector::SelectMeshAlgoAicpu(
     return SelectorStatus::MATCH;
 }
 
-SelectorStatus ReduceAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
+SelectorStatus ReduceAutoSelector::SelectAivAlgo(TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam,
     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap, std::string &selectAlgName) const
 {
     std::vector<HcclAlgoType> algos =
