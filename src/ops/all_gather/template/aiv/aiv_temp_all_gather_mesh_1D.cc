@@ -44,8 +44,8 @@ HcclResult AivTempAllGatherMesh1D::CalcRes(HcclComm comm, const OpParam& param, 
 HcclResult AivTempAllGatherMesh1D::CalNumBlocks(u32& numBlocks, u64 dataSize, u32 numBlocksLimit)
 {
     (void) dataSize;
-    // numBlocks = numBlocksLimit;
-    numBlocks = 4;
+    const uint32_t DEFAULT_BLOCK_COUNT = 4;
+    numBlocks = DEFAULT_BLOCK_COUNT;
     HCCL_INFO("[AivTempAllGatherMesh1D] Actually use core num[%u]", numBlocks);
     return HcclResult::HCCL_SUCCESS;
 }
@@ -60,8 +60,8 @@ HcclResult AivTempAllGatherMesh1D::KernelRun(const OpParam& param,
     dataType_ = param.DataDes.dataType;
     AivOpArgs aivAllGatherArgs;
     aivAllGatherArgs.cmdType = HcclCMDType::HCCL_CMD_ALLGATHER;
-    aivAllGatherArgs.input = tempAlgParams.buffInfo.inBuffBaseOff + reinterpret_cast<u64>(tempAlgParams.buffInfo.inputPtr);
-    aivAllGatherArgs.output = tempAlgParams.buffInfo.outBuffBaseOff + reinterpret_cast<u64>(tempAlgParams.buffInfo.outputPtr);
+    aivAllGatherArgs.input = tempAlgParams.buffInfo.inBuffBaseOff + reinterpret_cast<uintptr_t>(tempAlgParams.buffInfo.inputPtr);
+    aivAllGatherArgs.output = tempAlgParams.buffInfo.outBuffBaseOff + reinterpret_cast<uintptr_t>(tempAlgParams.buffInfo.outputPtr);
     aivAllGatherArgs.rank = u32(myRank_);
     aivAllGatherArgs.rankSize = tempRankSize_;
     aivAllGatherArgs.count = tempAlgParams.sliceSize / SIZE_TABLE[dataType_];

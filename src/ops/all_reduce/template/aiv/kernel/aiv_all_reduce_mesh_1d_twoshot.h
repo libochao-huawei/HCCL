@@ -224,7 +224,6 @@ __aicore__ inline void SmallCoreAllgather()
         pipe_barrier(PIPE_ALL);
     }
 }
- 
 };
  
 /*

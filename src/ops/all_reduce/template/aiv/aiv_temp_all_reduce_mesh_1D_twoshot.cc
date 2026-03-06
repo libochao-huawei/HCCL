@@ -74,8 +74,8 @@ HcclResult AivTempAllReduceMesh1DTwoShot::KernelRun(const OpParam& param,
     AivOpArgs aivAllReduceArgs;
     aivAllReduceArgs.cmdType = HcclCMDType::HCCL_CMD_ALLREDUCE;
     aivAllReduceArgs.argsType = KernelArgsType::ARGS_TYPE_TWO_SHOT;
-    aivAllReduceArgs.input = tempAlgParams.buffInfo.inBuffBaseOff + reinterpret_cast<u64>(tempAlgParams.buffInfo.inputPtr);
-    aivAllReduceArgs.output = tempAlgParams.buffInfo.outBuffBaseOff + reinterpret_cast<u64>(tempAlgParams.buffInfo.outputPtr);
+    aivAllReduceArgs.input = tempAlgParams.buffInfo.inBuffBaseOff + reinterpret_cast<uintptr_t>(tempAlgParams.buffInfo.inputPtr);
+    aivAllReduceArgs.output = tempAlgParams.buffInfo.outBuffBaseOff + reinterpret_cast<uintptr_t>(tempAlgParams.buffInfo.outputPtr);
     aivAllReduceArgs.rank = u32(myRank_);
     aivAllReduceArgs.rankSize = tempRankSize_;
     aivAllReduceArgs.count = tempAlgParams.sliceSize / SIZE_TABLE[dataType_];

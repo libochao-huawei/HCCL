@@ -73,8 +73,8 @@ HcclResult AivTempAlltoAllMesh1D::KernelRun(const OpParam& param,
     dataType_ = param.all2AllVDataDes.sendType;
     AivOpArgs aivAlltoAllArgs;
     aivAlltoAllArgs.cmdType = HcclCMDType::HCCL_CMD_ALLTOALL;
-    aivAlltoAllArgs.input = tempAlgParams.buffInfo.inBuffBaseOff + reinterpret_cast<u64>(tempAlgParams.buffInfo.inputPtr);
-    aivAlltoAllArgs.output = tempAlgParams.buffInfo.outBuffBaseOff + reinterpret_cast<u64>(tempAlgParams.buffInfo.outputPtr);
+    aivAlltoAllArgs.input = tempAlgParams.buffInfo.inBuffBaseOff + reinterpret_cast<uintptr_t>(tempAlgParams.buffInfo.inputPtr);
+    aivAlltoAllArgs.output = tempAlgParams.buffInfo.outBuffBaseOff + reinterpret_cast<uintptr_t>(tempAlgParams.buffInfo.outputPtr);
     aivAlltoAllArgs.rank = u32(myRank_);
     aivAlltoAllArgs.rankSize = tempRankSize_;
 
@@ -110,8 +110,8 @@ HcclResult AivTempAlltoAllMesh1D::KernelRun(const OpParam& param,
     u64 dataSize = tempAlgParams.inputSliceStride;
     CHK_RET(CalNumBlocks(aivAlltoAllArgs.numBlocks, dataSize, param.numBlocksLimit));
 
-    aivAlltoAllArgs.inputSliceStride = reinterpret_cast<u64*>(param.all2AllVDataDes.sendCounts)[0];
-    aivAlltoAllArgs.outputSliceStride = reinterpret_cast<u64*>(param.all2AllVDataDes.sendCounts)[0];
+    aivAlltoAllArgs.inputSliceStride = static_cast<u64*>(param.all2AllVDataDes.sendCounts)[0];
+    aivAlltoAllArgs.outputSliceStride = static_cast<u64*>(param.all2AllVDataDes.sendCounts)[0];
     aivAlltoAllArgs.repeatNum = tempAlgParams.repeatNum;
     aivAlltoAllArgs.inputRepeatStride = tempAlgParams.inputRepeatStride;
     aivAlltoAllArgs.outputRepeatStride = tempAlgParams.outputRepeatStride;
