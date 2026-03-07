@@ -12,13 +12,13 @@
 #include <cstddef>
 #include <cstring>
 
-HcclResult HcclCreateOpParamGraphMode(OpParamGraphMode** opParam)
+HcclResult HcclCreateOpParamGraphMode(OpParamGraphMode **opParam)
 {
     if (opParam == nullptr) {
         return HCCL_E_PARA;
     }
     // 将void**转换为OpParamGraphMode**
-    OpParamGraphMode** paramPtr = reinterpret_cast<OpParamGraphMode**>(opParam);
+    OpParamGraphMode **paramPtr = reinterpret_cast<OpParamGraphMode **>(opParam);
     *paramPtr = new OpParamGraphMode();
     if (*paramPtr == nullptr) {
         return HCCL_E_MEMORY;
@@ -28,29 +28,29 @@ HcclResult HcclCreateOpParamGraphMode(OpParamGraphMode** opParam)
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclDestroyOpParamGraphMode(OpParamGraphMode opParam)
+HcclResult HcclDestroyOpParamGraphMode(OpParamGraphMode *opParam)
 {
     if (opParam == nullptr) {
         return HCCL_E_PARA;
     }
     // 将void*转换为OpParamGraphMode*
-    OpParamGraphMode* paramPtr = reinterpret_cast<OpParamGraphMode*>(opParam);
+    OpParamGraphMode *paramPtr = reinterpret_cast<OpParamGraphMode *>(opParam);
     delete paramPtr;
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclSetOpParamGraphModeOpType(OpParamGraphMode opParam, const char* opType)
+HcclResult HcclSetOpParamGraphModeOpType(OpParamGraphMode *opParam, const char *opType)
 {
     if (opParam == nullptr || opType == nullptr) {
         return HCCL_E_PARA;
     }
     // 将void*转换为OpParamGraphMode*
-    OpParamGraphMode* paramPtr = reinterpret_cast<OpParamGraphMode*>(opParam);
+    OpParamGraphMode *paramPtr = reinterpret_cast<OpParamGraphMode *>(opParam);
     strncpy_s(paramPtr->opType, sizeof(paramPtr->opType), opType, sizeof(paramPtr->opType) - 1);
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclCalcOpResOnlineGraphMode(OpParamGraphMode* opParam, u64* opMemSize, u32* streamNum, u32* taskNum, u32* aivCoreNum)
+HcclResult HcclCalcOpResOnlineGraphMode(OpParamGraphMode *opParam, u64 *opMemSize, u32 *streamNum, u32 *taskNum, u32 *aivCoreNum)
 {
     if (opParam == nullptr) {
         return HCCL_E_PARA;
@@ -59,7 +59,7 @@ HcclResult HcclCalcOpResOnlineGraphMode(OpParamGraphMode* opParam, u64* opMemSiz
         return HCCL_E_PARA;
     }
     // 将void**转换为OpParamGraphMode**
-    OpParamGraphMode** paramPtr = reinterpret_cast<OpParamGraphMode**>(opParam);
+    OpParamGraphMode **paramPtr = reinterpret_cast<OpParamGraphMode **>(opParam);
     if (*paramPtr == nullptr) {
         return HCCL_E_PARA;
     }
@@ -77,7 +77,7 @@ HcclResult HcclCalcOpResOnlineGraphMode(OpParamGraphMode* opParam, u64* opMemSiz
     resResponse.aivCoreNum = 0;
 
     // aicpu引擎计算资源
-    hccl::HcclCalcAicpuResOffline(&resResponse);
+    ops_hccl::HcclCalcAicpuResOffline(&resResponse);
 
     // 其他引擎补充在下面
 
@@ -90,7 +90,7 @@ HcclResult HcclCalcOpResOnlineGraphMode(OpParamGraphMode* opParam, u64* opMemSiz
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclCalcOpResOfflineGraphMode(OpParamGraphMode* opParam, u64* opMemSize, u32* streamNum, u32* taskNum, u32* aivCoreNum)
+HcclResult HcclCalcOpResOfflineGraphMode(OpParamGraphMode *opParam, u64 *opMemSize, u32 *streamNum, u32 *taskNum, u32 *aivCoreNum)
 {
     if (opParam == nullptr) {
         return HCCL_E_PARA;
@@ -99,7 +99,7 @@ HcclResult HcclCalcOpResOfflineGraphMode(OpParamGraphMode* opParam, u64* opMemSi
         return HCCL_E_PARA;
     }
     // 将void**转换为OpParamGraphMode**
-    OpParamGraphMode** paramPtr = reinterpret_cast<OpParamGraphMode**>(opParam);
+    OpParamGraphMode **paramPtr = reinterpret_cast<OpParamGraphMode **>(opParam);
     if (*paramPtr == nullptr) {
         return HCCL_E_PARA;
     }
@@ -117,7 +117,7 @@ HcclResult HcclCalcOpResOfflineGraphMode(OpParamGraphMode* opParam, u64* opMemSi
     resResponse.aivCoreNum = 0;
 
     // aicpu引擎计算资源
-    hccl::HcclCalcAicpuResOffline(&resResponse);
+    ops_hccl::HcclCalcAicpuResOffline(&resResponse);
 
     // 其他引擎补充在下面
 
@@ -130,7 +130,7 @@ HcclResult HcclCalcOpResOfflineGraphMode(OpParamGraphMode* opParam, u64* opMemSi
     return HCCL_SUCCESS;
 }
 
-namespace hccl {
+namespace ops_hccl {
 HcclResult HcclCalcAicpuResOffline(ResResponseGraphMode *resResponse)
 {
     if (resResponse == nullptr) {
@@ -145,4 +145,4 @@ HcclResult HcclCalcAicpuResOffline(ResResponseGraphMode *resResponse)
     resResponse->taskNum = std::max(resResponse->taskNum, aicpuTaskNum);
     return HCCL_SUCCESS;
 }
-} // namespace hccl
+} // namespace ops_hccl
