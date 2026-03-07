@@ -75,29 +75,29 @@ void SetHcclDfxOpInfoDataDes(HcclDfxOpInfo& dfxOpInfo, const OpParam& param) {
     if (param.opType == HcclCMDType::HCCL_CMD_ALLGATHER_V) {
         dfxOpInfo.vDataDes.counts = param.vDataDes.counts;
         dfxOpInfo.vDataDes.displs = param.vDataDes.displs;
-        dfxOpInfo.vDataDes.dataType = param.vDataDes.dataType;
+        dfxOpInfo.vDataDes.dataType = static_cast<u32>(param.vDataDes.dataType);
     } else if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL) {
-        dfxOpInfo.all2AllDataDes.sendType  = param.all2AllDataDes.sendType;
-        dfxOpInfo.all2AllDataDes.recvType  = param.all2AllDataDes.recvType;
+        dfxOpInfo.all2AllDataDes.sendType  = static_cast<u32>(param.all2AllDataDes.sendType);
+        dfxOpInfo.all2AllDataDes.recvType  = static_cast<u32>(param.all2AllDataDes.recvType);
         dfxOpInfo.all2AllDataDes.sendCount = param.all2AllDataDes.sendCount;
         dfxOpInfo.all2AllDataDes.recvCount = param.all2AllDataDes.recvCount;
     } else if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV) {
-        dfxOpInfo.all2AllVDataDes.sendType  = param.all2AllVDataDes.sendType;
-        dfxOpInfo.all2AllVDataDes.recvType  = param.all2AllVDataDes.recvType;
+        dfxOpInfo.all2AllVDataDes.sendType  = static_cast<u32>(param.all2AllVDataDes.sendType);
+        dfxOpInfo.all2AllVDataDes.recvType  = static_cast<u32>(param.all2AllVDataDes.recvType);
         dfxOpInfo.all2AllVDataDes.sendCounts = param.all2AllVDataDes.sendCounts;
         dfxOpInfo.all2AllVDataDes.recvCounts = param.all2AllVDataDes.recvCounts;
         dfxOpInfo.all2AllVDataDes.sdispls = param.all2AllVDataDes.sdispls;
         dfxOpInfo.all2AllVDataDes.rdispls = param.all2AllVDataDes.rdispls;
     } else if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
-        dfxOpInfo.all2AllVCDataDes.sendType  = param.all2AllVCDataDes.sendType;
-        dfxOpInfo.all2AllVCDataDes.recvType  = param.all2AllVCDataDes.recvType;
+        dfxOpInfo.all2AllVCDataDes.sendType  = static_cast<u32>(param.all2AllVCDataDes.sendType);
+        dfxOpInfo.all2AllVCDataDes.recvType  = static_cast<u32>(param.all2AllVCDataDes.recvType);
         dfxOpInfo.all2AllVCDataDes.sendCountMatrix = param.all2AllVCDataDes.sendCountMatrix;
     } else if (param.opType == HcclCMDType::HCCL_CMD_BATCH_SEND_RECV) {
         dfxOpInfo.batchSendRecvDataDes.itemNum = param.batchSendRecvDataDes.itemNum;
         dfxOpInfo.batchSendRecvDataDes.sendRecvItemsPtr = param.batchSendRecvDataDes.sendRecvItemsPtr;
     } else {
         dfxOpInfo.dataDes.dataCount = param.DataDes.count;
-        dfxOpInfo.dataDes.dataType = param.DataDes.dataType;
+        dfxOpInfo.dataDes.dataType = static_cast<u32>(param.DataDes.dataType);
         dfxOpInfo.dataDes.strideCount = param.DataDes.strideCount;
     }
 }
@@ -138,12 +138,11 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
 
     // Op注册
     HcclDfxOpInfo hcclDfxOpInfo{};
-    hcclDfxOpInfo.algType_ = param.algType;
-    hcclDfxOpInfo.opMode = param.opMode;
-    hcclDfxOpInfo.opType = param.opType;
-    hcclDfxOpInfo.reduceOp = param.reduceType;
-    hcclDfxOpInfo.outputType = param.DataDes.outputType;
-    hcclDfxOpInfo.dataCount = param.DataDes.count;
+    hcclDfxOpInfo.opMode = static_cast<u32>opMode;
+    hcclDfxOpInfo.opType = static_cast<u32>param.opType;
+    hcclDfxOpInfo.reduceOp = static_cast<u32>param.reduceType;
+    hcclDfxOpInfo.outputType = static_cast<u32>param.DataDes.outputType;
+    hcclDfxOpInfo.dataCount = static_cast<u32>param.DataDes.count;
     hcclDfxOpInfo.root = param.root;
     hcclDfxOpInfo.numBlocksLimit = param.numBlocksLimit;
     hcclDfxOpInfo.inputMemPtr = reinterpret_cast<void*>(param.inputPtr);
