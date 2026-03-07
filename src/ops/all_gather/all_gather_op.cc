@@ -98,6 +98,7 @@ HcclResult HcclAllGatherGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCou
     CHK_RET(HcclGetCommName(comm, commName));
     const string opTag = "AllGather_" + string(commName);
     CHK_RET(HcclCheckTag(opTag.c_str()));
+    CHK_RET(HcclCheckTag(tag);
     // 检查sendCount是否合法(超出系统上限)
     CHK_RET(CheckCount(sendCount));
     // 检查数据类型是否支持
@@ -112,11 +113,7 @@ HcclResult HcclAllGatherGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCou
     // 拼装ResPackGraphMode
     ResPackGraphMode resPack;
     // 设置tag
-    if (tag != nullptr) {
-        strncpy_s(resPack.tag, sizeof(resPack.tag), tag, sizeof(resPack.tag) - 1);
-    } else {
-        memset(resPack.tag, 0, sizeof(resPack.tag));
-    }
+    strncpy_s(resPack.tag, sizeof(resPack.tag), tag, sizeof(resPack.tag) - 1);
     // 设置streams
     if (streams != nullptr && streamCount > 0) {
         for (size_t i = 0; i < streamCount; i++) {
@@ -216,7 +213,7 @@ HcclResult AllGatherOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t sen
     OpParam param;
     CHK_RET(HcclGetCommName(comm, param.commName));
     param.stream = stream;
-    param.opMode = OpMode::OPBASE;
+    param.opMode = OpMode::OFFLOAD;
 
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
