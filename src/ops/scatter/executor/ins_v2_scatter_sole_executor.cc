@@ -12,6 +12,10 @@
 #include "ins_temp_scatter_mesh_1D.h"
 #include "ins_temp_scatter_nhr.h"
 
+#ifndef AICPU_COMPILE
+#include "aiv_temp_scatter_mesh_1D.h"
+#endif
+
 namespace ops_hccl {
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 InsV2ScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::InsV2ScatterSoleExecutor()
