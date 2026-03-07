@@ -111,16 +111,16 @@ namespace ops_hccl {
         // channel.remoteInput不是对端input buffer
         // 但因为使用的是PUT模式srcBufferPtr无用，且无法获取对端input buffer地址，仅示意作用
         if (opMode_ == OpMode::OFFLOAD) {
-            CHK_RET(OrchestrateOffload(param, channel));
+            CHK_RET(OrchestrateOffload(param, thread, channel));
         } else {
-            CHK_RET(OrchestrateOpbase(param, channel));
+            CHK_RET(OrchestrateOpbase(param, thread, channel));
         }
         HCCL_DEBUG("[InsRecvExecutor][Orchestrate][%d]<-[%d] Success.", myRank_, remoteRank_);
 
         return HcclResult::HCCL_SUCCESS;
     }
 
-    HcclResult InsRecvExecutor::OrchestrateOffload(const OpParam &param, const ChannelInfo &channel) {
+    HcclResult InsRecvExecutor::OrchestrateOffload(const OpParam &param, const ThreadHandle &thread, const ChannelInfo &channel) {
         void *srcBufferPtr = static_cast<void *>(channel.remoteInput.addr);
         // 图模式直接到本端output buffer
         void *dstBufferPtr = static_cast<void *>(param.outputPtr);
@@ -152,7 +152,7 @@ namespace ops_hccl {
         return HcclResult::HCCL_SUCCESS;
     }
 
-    HcclResult InsRecvExecutor::OrchestrateOpbase(const OpParam &param, const ChannelInfo &channel) {
+    HcclResult InsRecvExecutor::OrchestrateOpbase(const OpParam &param, const ThreadHandle &thread, const ChannelInfo &channel) {
         void *srcBufferPtr = static_cast<void *>(channel.remoteInput.addr);
         // 单算子模式到本端ccl buffer(scratch buffer)
         void *dstBufferPtr = static_cast<void *>(resCtx.cclMem.addr);
