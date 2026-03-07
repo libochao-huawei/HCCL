@@ -34,9 +34,9 @@ namespace ops_hccl {
         // 算法编排
         HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
         // 图模式
-        HcclResult OrchestrateOffload(const OpParam &param, const ThreadHandle &thread, const ChannelInfo &channel);
+        HcclResult OrchestrateOffload(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const ThreadHandle &thread, const ChannelInfo &channel);
         // 单算子
-        HcclResult OrchestrateOpbase(const OpParam &param, const ThreadHandle &thread, const ChannelInfo &channel);
+        HcclResult OrchestrateOpbase(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const ThreadHandle &thread, const ChannelInfo &channel);
 
     protected:
         HcclResult InitCommInfo(
