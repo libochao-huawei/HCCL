@@ -457,8 +457,6 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::PrepareResForTemplate(
     InsAlgTemplate0 &tempAlgIntra)
 {
-    (void)param;
-    (void)tempAlgInter;
     u64 intraThreadsNum = tempAlgIntra.GetThreadNum();
     intraThreads_.assign(threads_.begin() + 1, threads_.begin() + 1 + intraThreadsNum);
     interThreads_.assign(threads_.begin() + intraThreadsNum + 1, threads_.end());
