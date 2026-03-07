@@ -45,8 +45,8 @@ extern HcclResult (*hcclRankGraphGetEndpointInfoPtr)(HcclComm, uint32_t, const E
 #define HcclRankGraphGetEndpointDesc          (*hcclRankGraphGetEndpointDescPtr)
 #define HcclRankGraphGetEndpointInfo          (*hcclRankGraphGetEndpointInfoPtr)
 
-void HcclResDlInit(void* libHcommHandle);   // 复用 hccl_res_dl 的初始化
-void HcclResDlFini(void);                   // 复用 hccl_res_dl 的销毁
+void HcclRankGraphDlInit(void* libHcommHandle);
+void HcclRankGraphDlFini(void);
 
 #ifdef __cplusplus
 }
