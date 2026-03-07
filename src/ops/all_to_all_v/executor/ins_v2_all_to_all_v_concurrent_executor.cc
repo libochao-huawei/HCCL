@@ -10,10 +10,6 @@
 
 #include "channel.h"
 #include "ins_v2_all_to_all_v_concurrent_executor.h"
-#ifndef AICPU_COMPILE
-#include "ccu_temp_all_to_all_v_mesh_1D_multi_jetty.h"
-#include "ccu_kernel_all_to_all_v_mesh1d_multi_jetty.h"
-#endif
 #include "alg_data_trans_wrapper.h"
 
 namespace ops_hccl {
@@ -342,14 +338,5 @@ HcclResult InsV2AllToAllVConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     HCCL_INFO("[InsV2AllToAllVConcurrentExecutor][Orchestrate] Orchestrate End");
     return HcclResult::HCCL_SUCCESS;
 }
-
-#ifndef AICPU_COMPILE
-REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLTOALLV,
-                                CcuAllToAllVMesh1DConcurrent,
-                                InsV2AllToAllVConcurrentExecutor,
-                                TopoMatchUBX,
-                                CcuTempAllToAllVMesh1DMultiJetty,
-                                CcuTempAllToAllVMesh1DMultiJetty);
-#endif
 
 }

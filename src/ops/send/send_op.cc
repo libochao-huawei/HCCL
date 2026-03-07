@@ -47,9 +47,6 @@ HcclResult HcclSend(
     if (deviceType != DevType::DEV_TYPE_910_95) {
         return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
     }
-    if (GetWorkflowMode() != HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE) {
-        return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
-    }
 
     CHK_RET(InitEnvConfig());
 
