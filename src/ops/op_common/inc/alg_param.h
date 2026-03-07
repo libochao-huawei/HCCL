@@ -95,7 +95,7 @@ enum class OpMode {
 enum class Level0Shape {
     CLOS    = 0,
     MESH_1D = 1,
-    MESH_1D_CLOS = 2,
+MESH_1D_CLOS = 2,
 };
 
 struct NetLayerDetails {
@@ -468,7 +468,7 @@ struct HcclDfxOpInfo {
     char                opTag[256];
     bool                staticAddr{false};
     bool                staticShape{false};
-    RankId              myRank;
+    u32                 myRank;
     //baseCollOperator
     u32                 opMode{0};
     u32                 opType{0};//通过map找dfxopinfo
