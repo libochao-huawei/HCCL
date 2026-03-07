@@ -34,7 +34,7 @@ int HcommDlInit(void) {
     dlerror();
 
     HcclResDlInit(gLibHandle);
-    HcclResDlInit(gLibHandle);
+    HcclRankGraphDlInit(gLibHandle);
     HcommPrimitivesDlInit(gLibHandle);
     return 0;
 }
@@ -42,7 +42,7 @@ int HcommDlInit(void) {
 void HcommDlFini(void) {
     if (gLibHandle) {
         HcclResDlFini();
-        HcclResDlFini();
+        HcclRankGraphDlFini();
         HcommPrimitivesDlFini();
 
         dlclose(gLibHandle);
