@@ -47,9 +47,6 @@ HcclResult HcclRecv(
     if (deviceType != DevType::DEV_TYPE_910_95) {
         return HcclRecvInner(recvBuf, count, dataType, srcRank, comm, stream);
     }
-    if (GetWorkflowMode() != HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE) {
-        return HcclRecvInner(recvBuf, count, dataType, srcRank, comm, stream);
-    }
 
     CHK_RET(InitEnvConfig());
 

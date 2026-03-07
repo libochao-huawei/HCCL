@@ -48,9 +48,7 @@ HcclResult HcclBatchSendRecv(HcclSendRecvItem *sendRecvInfo, uint32_t itemNum, H
     if (deviceType != DevType::DEV_TYPE_910_95) {
         return HcclBatchSendRecvInner(sendRecvInfo, itemNum, comm, stream);
     }
-    if (GetWorkflowMode() != HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE) {
-        return HcclBatchSendRecvInner(sendRecvInfo, itemNum, comm, stream);
-    }
+
     CHK_RET(InitEnvConfig());
 
     // 参数校验等工作

@@ -87,11 +87,6 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
         return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
     }
 
-    // 图模式引导到老的流程上面
-    if (GetWorkflowMode() != HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE) {
-        return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
-    }
-
     // Attention! zeroCopy模式、recompute等先不支持，且当前不引导到老的流程上
 
     HcclUs startut = TIME_NOW(); // 走老流程的判断时间不统计在内
@@ -530,8 +525,8 @@ HcclResult SetAlgoLevel1(TopoInfo* topoInfo, HcclAlgoType algoConfig, AlgTypeLev
             break;
     }
 
-    HCCL_DEBUG("[AlgConfigurator][SetAlgoLevel1] algType[%u], deviceType_[%u], workflowmode[%u]", algType,
-        topoInfo->deviceType, GetWorkflowMode());
+    HCCL_DEBUG("[AlgConfigurator][SetAlgoLevel1] algType[%u], deviceType_[%u]", algType,
+        topoInfo->deviceType);
 
     if (algoConfigShadow == HcclAlgoType::HCCL_ALGO_TYPE_DEFAULT) {
         CHK_RET(GetDefaultAlgoLevel1V1(topoInfo, algType));
@@ -638,7 +633,7 @@ HcclResult SelectAlg(HcclComm comm, OpParam &param, TopoInfo* topoInfo, AlgType&
         algType.algoLevel1 = AlgTypeLevel1::ALG_LEVEL1_RING;
     }
 
-    if (topoInfo->userRankSize == 1 && GetWorkflowMode() == HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE) {
+    if (topoInfo->userRankSize == 1) {
         algName = "ScatterSingleExecutor";
     } else if (topoInfo->multiModuleDiffDeviceNumMode || topoInfo->multiSuperPodDiffServerNumMode) {
         algName = "ScatterCommExecutor";
@@ -649,7 +644,7 @@ HcclResult SelectAlg(HcclComm comm, OpParam &param, TopoInfo* topoInfo, AlgType&
     }
 
     // 在原先的tag中添加算法名字，得到algTag
-    bool isOpBase = GetWorkflowMode() == HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE;
+    bool isOpBase = true;
     if (isOpBase) {
         int ret = sprintf_s(param.algTag, sizeof(param.algTag), "%s_%s_%d", param.tag, algName.c_str(), param.root);
         if (ret <= 0) {
