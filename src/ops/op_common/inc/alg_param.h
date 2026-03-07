@@ -457,6 +457,106 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     u8 varData[0];
 };
 
+class Buffer {
+public:
+    Buffer(uintptr_t addr, std::size_t size);
+
+    explicit Buffer(std::size_t size);
+
+    virtual ~Buffer() = default;
+
+    uintptr_t GetAddr() const;
+
+    size_t GetSize() const;
+
+    // "bool"运算符(可执行if(object){...}的操作判断该buffer是否为空)
+    operator bool() const
+    {
+        return addr_ != 0;
+    }
+
+    // "=="运算符
+    bool operator==(const Buffer &that) const
+    {
+        return (addr_ == that.GetAddr()) && (size_ == that.GetSize());
+    }
+
+    // "!="运算符
+    bool operator!=(const Buffer &that) const
+    {
+        return (addr_ != that.GetAddr()) || (size_ != that.GetSize());
+    }
+
+protected:
+    uintptr_t   addr_{0};
+    std::size_t size_{0};
+};
+
+struct HcclDfxOpInfo {
+
+    //DfxOpInfo_base
+    std::string         tag_;
+    AlgType             algType_;
+    u32                 index_{0};
+    u64                 beginTime_{0};
+    u64                 endTime_{0};
+    //CollOperator
+    std::string         opTag;
+    bool                staticAddr{false};
+    bool                staticShape{false};
+    u32                 myRank;
+    //baseCollOperator
+    OpMode              opMode;
+    HcclCMDType         opType = HcclCMDType::HCCL_CMD_INVALID;
+    HcclReduceOp        reduceOp = HcclReduceOp::HCCL_REDUCE_RESERVED;
+    HcclDataType        dataType;
+    HcclDataType        outputType;
+    u64                 dataCount{0};
+    u32                 root = INVALID_VALUE_RANKID;
+    u32                 numBlocksLimit{0};
+    std::shared_ptr<Buffer> inputMem{nullptr};
+    std::shared_ptr<Buffer> outputMem{nullptr};
+    std::shared_ptr<Buffer> scratchMem{nullptr};
+    //task_exception
+    u32          notifyId{0}; //host wait device notifyId
+    union {
+        struct {
+            u64 dataCount{0};
+            HcclDataType dataType;
+            HcclDataType dataOutputType;
+            u64 strideCount{0};
+        } dataDes;
+        struct {
+            void* counts;
+            void* displs;
+            HcclDataType dataType;
+        } vDataDes;
+        struct {
+            HcclDataType sendType;
+            HcclDataType recvType;
+            u64 sendCount{0};
+            u64 recvCount{0};
+        } all2AllDataDes;
+        struct {
+            HcclDataType sendType;
+            HcclDataType recvType;
+            void* sendCounts;
+            void* recvCounts;
+            void* sdispls;
+            void* rdispls;
+        } all2AllVDataDes;
+        struct {
+            HcclDataType sendType;
+            HcclDataType recvType;
+            void* sendCountMatrix;
+        } all2AllVCDataDes;
+        struct {
+            HcclSendRecvItem* sendRecvItemsPtr;
+            u32 itemNum{0};
+        } batchSendRecvDataDes;
+    };
+};
+
 struct AlgDesc {
     bool isZeroCopy = false;
     bool isAivMode = false;

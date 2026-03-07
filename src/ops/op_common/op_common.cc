@@ -38,6 +38,7 @@
 #include "hccl_aiv_utils.h"
 #include "aiv_kernel_def.h"
 #include "dpu/kernel_launch.h"
+#include "hccl_diag.h"
 
 namespace ops_hccl {
 thread_local std::map<std::string, HcclMemHandle> g_memHandleCache; // 当前AIV存放注册内存的memHandle使用
@@ -48,7 +49,6 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
     std::string &algName, OpExecuteConfig &opExecuteConfig)
 {
     HCCL_INFO("Start to execute Selector.");
-    param.hcclComm = comm;
     CHK_RET(HcclGetOpExpansionMode(comm, param));
     // 获取基础拓扑
     CHK_RET(HcclCalcTopoInfo(comm, param, topoInfo));
@@ -71,11 +71,43 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
     return HCCL_SUCCESS;
 }
 
+void SetHcclDfxOpInfoDataDes(HcclDfxOpInfo& dfxOpInfo, const OpParam& param) {
+    if (param.opType == HcclCMDType::HCCL_CMD_ALLGATHER_V) {
+        dfxOpInfo.vDataDes.counts = param.vDataDes.counts;
+        dfxOpInfo.vDataDes.displs = param.vDataDes.displs;
+        dfxOpInfo.vDataDes.dataType = param.vDataDes.dataType;
+    } else if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL) {
+        dfxOpInfo.all2AllDataDes.sendType  = param.all2AllDataDes.sendType;
+        dfxOpInfo.all2AllDataDes.recvType  = param.all2AllDataDes.recvType;
+        dfxOpInfo.all2AllDataDes.sendCount = param.all2AllDataDes.sendCount;
+        dfxOpInfo.all2AllDataDes.recvCount = param.all2AllDataDes.recvCount;
+    } else if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV) {
+        dfxOpInfo.all2AllVDataDes.sendType  = param.all2AllVDataDes.sendType;
+        dfxOpInfo.all2AllVDataDes.recvType  = param.all2AllVDataDes.recvType;
+        dfxOpInfo.all2AllVDataDes.sendCounts = param.all2AllVDataDes.sendCounts;
+        dfxOpInfo.all2AllVDataDes.recvCounts = param.all2AllVDataDes.recvCounts;
+        dfxOpInfo.all2AllVDataDes.sdispls = param.all2AllVDataDes.sdispls;
+        dfxOpInfo.all2AllVDataDes.rdispls = param.all2AllVDataDes.rdispls;
+    } else if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
+        dfxOpInfo.all2AllVCDataDes.sendType  = param.all2AllVCDataDes.sendType;
+        dfxOpInfo.all2AllVCDataDes.recvType  = param.all2AllVCDataDes.recvType;
+        dfxOpInfo.all2AllVCDataDes.sendCountMatrix = param.all2AllVCDataDes.sendCountMatrix;
+    } else if (param.opType == HcclCMDType::HCCL_CMD_BATCH_SEND_RECV) {
+        dfxOpInfo.batchSendRecvDataDes.itemNum = param.batchSendRecvDataDes.itemNum;
+        dfxOpInfo.batchSendRecvDataDes.sendRecvItemsPtr = param.batchSendRecvDataDes.sendRecvItemsPtr;
+    } else {
+        dfxOpInfo.dataDes.dataCount = param.DataDes.count;
+        dfxOpInfo.dataDes.dataType = param.DataDes.dataType;
+        dfxOpInfo.dataDes.strideCount = param.DataDes.strideCount;
+    }
+}
+
 HcclResult HcclExecOp(HcclComm comm, OpParam &param,
                       std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo, std::string &algName)
 {
     HCCL_INFO("Start to execute HcclExecOp.");
     // 在原先的commName中添加执行模式，得到commModeTag
+    param.hcclComm = comm;
     bool isOpBase = true;
     const char* opModeStr = isOpBase ? "_opbase" : "_offload";
     auto ret = sprintf_s(param.commModeTag, sizeof(param.commModeTag), "%s_%s", param.commName, opModeStr);
@@ -93,7 +125,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     // 资源序列化结果
     void *resCtxSequence;
     bool isResourceReused = false;
-
+    
     ThreadHandle cpuTsThread;
     ThreadHandle exportedAicpuTsThread;
     if (param.engine == COMM_ENGINE_AICPU_TS) {
@@ -103,6 +135,31 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     }
 
     CHK_RET(HcclGetAlgRes(comm, param, executor, topoInfo.get(), resCtxHost, &resCtxSequence, isResourceReused));
+
+    // Op注册
+    HcclDfxOpInfo hcclDfxOpInfo{};
+    hcclDfxOpInfo.algType_ = param.algType;
+    hcclDfxOpInfo.opMode = param.opMode;
+    hcclDfxOpInfo.opType = param.opType;
+    hcclDfxOpInfo.reduceOp = param.reduceType;
+    hcclDfxOpInfo.outputType = param.DataDes.outputType;
+    hcclDfxOpInfo.dataCount = param.DataDes.count;
+    hcclDfxOpInfo.root = param.root;
+    hcclDfxOpInfo.numBlocksLimit = param.numBlocksLimit;
+    hcclDfxOpInfo.inputMem = std::make_shared<Buffer>(
+        reinterpret_cast<uintptr_t>(param.inputPtr),
+        static_cast<std::size_t>(param.inputSize));
+    hcclDfxOpInfo.outputMem = std::make_shared<Buffer>(
+        reinterpret_cast<uintptr_t>(param.outputPtr),
+        static_cast<std::size_t>(param.outputSize));
+    SetHcclDfxOpInfoDataDes(hcclDfxOpInfo, param);
+    HcclDfxOpInfo *tempOp = &hcclDfxOpInfo;
+
+    HcclResult result = HcclDfxRegOpInfo(comm, static_cast<void*>(tempOp));
+    if (result != HCCL_SUCCESS) {
+        HCCL_ERROR("[%s] HcclDfxRegOpInfo failed", __func__);
+        return HCCL_E_INTERNAL;
+    }
 
     ThreadHandle exportedCpuTsThread;
     ThreadHandle mainThread;
@@ -133,6 +190,12 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
             resCtxHost->DeSerialize(seq);
         }
         CHK_RET(executor->Orchestrate(param, *resCtxHost));
+    }
+    // op上报
+    result = HcclProfilingReportOp(comm, hcclDfxOpInfo.beginTime_);
+    if (result != HCCL_SUCCESS) {
+        HCCL_ERROR("[%s] HcclProfilingReportOp failed", __func__);
+        return HCCL_E_INTERNAL;
     }
     HCCL_INFO("Execute HcclExecOp success.");
     return HCCL_SUCCESS;
@@ -168,11 +231,13 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
         HCCL_ERROR("Stream Synchronize Failed");
         return HCCL_E_INTERNAL;
     }
+
     return HCCL_SUCCESS;
 }
 
 HcclResult AicpuKernelLaunch(OpParam &param)
 {
+    uint64_t beginTime = HcommGetProfilingSysCycleTime();
     std::string kernelName = "HcclLaunchAicpuKernel";
     aclrtFuncHandle funcHandle;
     aclrtArgsHandle argsHandle;
@@ -210,6 +275,11 @@ HcclResult AicpuKernelLaunch(OpParam &param)
     CHK_PRT_RET(aclRet != ACL_SUCCESS,
         HCCL_ERROR("[LoadCustomKernel][aclrtLaunchKernelWithConfig]errNo[0x%016llx] launch kernel failed", ret),
         HCCL_E_OPEN_FILE_FAILURE);
+    CHK_PTR_NULL(param.hcclComm);
+    ret = HcclReportAicpuKernel(param.hcclComm, beginTime, param.opThread);//TODO:获取是否streammaster,或者通信域怎么获取
+    CHK_PRT_RET(ret != HCCL_SUCCESS,
+    HCCL_ERROR("[aclrtKernelArgsFinalize]errNo[0x%016llx] HcclReportAicpuKernel failed, kernelName:%s",
+        ret, kernelName.c_str()), HCCL_E_RUNTIME);
     return HCCL_SUCCESS;
 }
 
