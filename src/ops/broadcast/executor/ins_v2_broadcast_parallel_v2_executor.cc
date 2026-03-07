@@ -22,7 +22,6 @@ InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, Ins
 {
 }
 
-
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2, typename InsAlgTemplate3>
 HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3>::CalcAlgHierarchyInfo(
     HcclComm comm,
@@ -146,8 +145,6 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     InsAlgTemplate2 tempAlgIntra1(param, resCtx.topoInfo.userRank, resCtx.algHierarchyInfo.infos[0]);
     InsAlgTemplate3 tempAlgInter1(param, resCtx.topoInfo.userRank, resCtx.algHierarchyInfo.infos[1]);
 
-
-
     // 算法展开
     HcclResult ret = GenInsQues(param, resCtx, tempAlgIntra, tempAlgInter, tempAlgIntra1, tempAlgInter1);
     CHK_PRT_RET(ret != HCCL_SUCCESS,
@@ -155,7 +152,6 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
             HCCL_ERROR_CODE(ret)), ret);
     return HcclResult::HCCL_SUCCESS;
 }
-
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2, typename InsAlgTemplate3>
 void InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3>::GetParallelDataSplit(
@@ -232,7 +228,6 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 
     // 用于两个算法同步
     mainThread_ = threads_.at(0);
-
     templateMainThreads_.clear();
     templateMainThreads_.emplace_back(intraThreads_.at(0));
     templateMainThreads_.emplace_back(interThreads_.at(0));
@@ -321,7 +316,6 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 void InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3>::GenDataParamsAllRank(
     const u64 sliceCount, const u32 LocalRankSize, TemplateDataParams &dataParams) const
 {
-
     u64 curSize = 0;
     u64 sliceSize = sliceCount * dataTypeSize_;
     u64 rankStride = RoundDown(sliceSize, (LocalRankSize * dataTypeSize_)) * dataTypeSize_;
@@ -405,8 +399,12 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     std::vector<float> dataSplitSize;
     GetParallelDataSplit(dataSplitSize);
 
-    u32 multipleIntra = 1;
-    u32 multipleInter = 1;
+    u32 multipleIntra = tempAlgIntra.CalcScratchMultiple(BufferType::INPUT, BufferType::OUTPUT);
+    u32 multipleInter = tempAlgInter.CalcScratchMultiple(BufferType::INPUT, BufferType::OUTPUT);
+    if(multipleIntra > 0 || multipleInter > 0){
+        multipleIntra = 1;
+        multipleInter = 1;
+    }
 
     // 按照intraData0+interData1，以及intraData1+interData0两种方式分别计算，取multiple最大需求
     float multiple0 = dataSplitSize.at(0) * float(multipleIntra) + dataSplitSize.at(1) * float(multipleInter);
@@ -414,15 +412,17 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     float multiple = std::max(multiple0, multiple1);
 
     // 数据切分
-    u64 onceSliceCountPercent = std::max(dataSplitSize.at(0) * float(1.0 / intraLocalRankSize_), dataSplitSize.at(1) * float(1.0 / interLocalRankSize_));
-    u64 sliceCountUB = static_cast<u64>(UB_MAX_DATA_SIZE) / dataTypeSize_;
+    u64 sliceCountUB = std::min(static_cast<u64>(UB_MAX_DATA_SIZE) / dataTypeSize_, dataCount_);
+    float onceSliceCountPercent = std::max(dataSplitSize.at(0) * float(1.0 / intraLocalRankSize_), dataSplitSize.at(1) * float(1.0 / interLocalRankSize_));
     u64 sliceCountUB0 = onceSliceCountPercent > 0 ? std::floor(sliceCountUB / onceSliceCountPercent) : sliceCountUB;
-    u64 sliceCount = sliceCountUB0;
+    u64 sliceCount = sliceCountUB;
     if (multiple > 0 && maxTmpMemSize_ > 0) {
         u64 scratchCount = maxTmpMemSize_ / dataTypeSize_;  // 按照count来切分
         sliceCount = std::min(static_cast<u64>(float(scratchCount) / multiple), sliceCountUB0);
         sliceCount = std::min(sliceCount, dataCount_);
     }
+    HCCL_DEBUG("[InsBroadcastParallelExecutor][GenInsQues] dataCount_[%d], myRank_[%d], sliceCountUB[%d], sliceCountUB0[%d], sliceCount[%d]",
+              dataCount_, myRank_, sliceCountUB, sliceCountUB0, sliceCount);
 
     u64 sliceCountPart0 = static_cast<u64>(float(sliceCount) * dataSplitSize.at(0));
     u64 sliceCountPart1 = sliceCount - sliceCountPart0;
@@ -446,7 +446,6 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
               dataCount_, myRank_, sliceCountPart0, multipleIntra);
     HCCL_DEBUG("[InsBroadcastParallelExecutor][GenInsQues] myRank_[%d],scratchOffsetCountInterStage0[%d], scratchOffsetCountIntraStage1[%d]",
                myRank_, scratchOffsetCountInterStage0, scratchOffsetCountIntraStage1);
-
     TemplateDataParams tempAlgParamsIntra0;
     TemplateDataParams tempAlgParamsInter0;
     TemplateDataParams tempAlgParamsInter1;
@@ -455,7 +454,6 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     TemplateDataParams tempAlgParamsInter01;
     TemplateDataParams tempAlgParamsInter11;
     TemplateDataParams tempAlgParamsIntra11;
-
 
     for (u32 loopIndex = 0; loopIndex < loopTimes; loopIndex++) {
         u64 currCountPart0 = (loopIndex == loopTimes - 1) ? finalSliceCountPart0 : sliceCountPart0;

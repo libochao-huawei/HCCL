@@ -40,8 +40,6 @@ public:
 
     HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
                        AlgResourceRequest& resourceRequest) override;
-
-
     // AICPU 接口
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
     HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfo* topoInfo, AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
@@ -50,7 +48,6 @@ private:
     void GetParallelDataSplit(std::vector<float> &splitDataSize) const;
     uint64_t GetRankSize(const std::vector<std::vector<u32>> &vTopo);
     HcclResult CalcLocalRoot();
-
     // Aicpu
     HcclResult PrepareResForTemplate(const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &tempAlgIntra,
                                      InsAlgTemplate1 &tempAlgInter, InsAlgTemplate2 &tempAlgIntra1);
@@ -65,7 +62,6 @@ private:
     void PrePareDataParamstempAlgInter(const u64 dataOffset, const u64 currCountPart, const u64 scratchOffsetCount);
     void PrePareDataParamstempAlgIntra(const u64 dataOffset, const u64 currCountPart, const u64 scratchOffsetCount);
     void GenDataParamsAllRank(const u64 sliceCount, const u32 LocalRankSize, TemplateDataParams &dataParams) const;
-
     HcclResult RunTemplateIntra0(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset,
                                   const u64 currCountPart, const u64 scratchOffsetCount, TemplateDataParams &dataParams,
                                   const TemplateResource& templateResource, InsAlgTemplate0 &tempAlgInter);
@@ -101,7 +97,6 @@ private:
         }
         return dividend / divisor;
     }
-
     std::map<u32, u32> tempVirtRankMapInter_;
     std::map<u32, u32> tempVirtRankMapIntra_;
     std::vector<u64> allRankSliceSizeInter_;
@@ -126,7 +121,6 @@ private:
     u64 currCountPart1_;
     u64 scratchOffsetCountIntraStage1_;
 
-
     std::vector<std::vector<std::vector<u32>>> vTopo_;
     std::vector<u32>              virtRanks_;
     std::map<u32, u32>            virtRankMap_; // 全局RankID:虚拟RankId
@@ -138,11 +132,9 @@ private:
     std::vector<ThreadHandle> templateMainThreads_;
     std::vector<u32> syncNotifyOnTemplates_;
     std::vector<u32> syncNotifyOnMain_;
-
     std::map<u32, std::vector<ChannelInfo>> intraLinks_;
     std::map<u32, std::vector<ChannelInfo>> interLinks_;
 
-    std::vector<std::vector<u32>> AlgHierarchyInfoExector;
     std::vector<std::map<u32, std::vector<ChannelInfo>>> remoteRankToChannelInfo_;
     std::vector<ThreadHandle> threads_;
 
