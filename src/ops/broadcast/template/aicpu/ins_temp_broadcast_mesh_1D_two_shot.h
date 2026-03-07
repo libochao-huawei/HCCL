@@ -61,7 +61,6 @@ private:
 
     u64 dataTypeSize_{0};
     std::map<u32, u32> tempVirtRankMap_;
-    
 };
 
 } // namespace Hccl

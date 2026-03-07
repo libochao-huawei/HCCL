@@ -47,5 +47,3 @@ private:
 }// namespace ops_hccl
 
 #endif //HCCL_CCU_TEMP_REDUCE_SCATTER_MESH_2DIE_H
-
-

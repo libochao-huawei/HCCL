@@ -56,8 +56,7 @@ private:
                                   u32 enableDieNum, std::vector<std::vector<HcclChannelDesc>>& channelsPerDie);
     HcclResult SplitDataFor2Dies(const OpParam& param, const TemplateDataParams& templateDataParams, uint64_t& die0Size,
                                  uint64_t& die1Size) const;
-    HcclResult CalcSliceInfoAllReduce(const u64 dataSize, RankSliceInfo &sliceInfoVec) const;
-    
+    HcclResult CalcSliceInfoAllReduce(const u64 dataSize, RankSliceInfo &sliceInfoVec) const;    
 };
 
 }// namespace ops_hccl
