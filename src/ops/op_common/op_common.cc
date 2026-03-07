@@ -146,12 +146,10 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     hcclDfxOpInfo.dataCount = param.DataDes.count;
     hcclDfxOpInfo.root = param.root;
     hcclDfxOpInfo.numBlocksLimit = param.numBlocksLimit;
-    hcclDfxOpInfo.inputMem = std::make_shared<Buffer>(
-        reinterpret_cast<uintptr_t>(param.inputPtr),
-        static_cast<std::size_t>(param.inputSize));
-    hcclDfxOpInfo.outputMem = std::make_shared<Buffer>(
-        reinterpret_cast<uintptr_t>(param.outputPtr),
-        static_cast<std::size_t>(param.outputSize));
+    hcclDfxOpInfo.inputMemPtr = reinterpret_cast<void*>(param.inputPtr);
+    hcclDfxOpInfo.inputMemSize = param.inputSize;
+    hcclDfxOpInfo.outputMemPtr = reinterpret_cast<void*>(param.outputPtr);
+    hcclDfxOpInfo.outputMemSize = param.inputSize;
     SetHcclDfxOpInfoDataDes(hcclDfxOpInfo, param);
     HcclDfxOpInfo *tempOp = &hcclDfxOpInfo;
 

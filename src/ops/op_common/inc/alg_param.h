@@ -457,40 +457,6 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     u8 varData[0];
 };
 
-class Buffer {
-public:
-    Buffer(uintptr_t addr, std::size_t size);
-
-    explicit Buffer(std::size_t size);
-
-    virtual ~Buffer() = default;
-
-    uintptr_t GetAddr() const;
-
-    size_t GetSize() const;
-
-    // "bool"运算符(可执行if(object){...}的操作判断该buffer是否为空)
-    operator bool() const
-    {
-        return addr_ != 0;
-    }
-
-    // "=="运算符
-    bool operator==(const Buffer &that) const
-    {
-        return (addr_ == that.GetAddr()) && (size_ == that.GetSize());
-    }
-
-    // "!="运算符
-    bool operator!=(const Buffer &that) const
-    {
-        return (addr_ != that.GetAddr()) || (size_ != that.GetSize());
-    }
-
-protected:
-    uintptr_t   addr_{0};
-    std::size_t size_{0};
-};
 
 struct HcclDfxOpInfo {
 
@@ -514,9 +480,12 @@ struct HcclDfxOpInfo {
     u64                 dataCount{0};
     u32                 root = INVALID_VALUE_RANKID;
     u32                 numBlocksLimit{0};
-    std::shared_ptr<Buffer> inputMem{nullptr};
-    std::shared_ptr<Buffer> outputMem{nullptr};
-    std::shared_ptr<Buffer> scratchMem{nullptr};
+    void*               inputMemPtr;
+    u64                 inputMemSize{0};
+    void*               outputMemPtr;
+    u64                 outpuMemSize{0};
+    void*               scratchMemPtr;
+    u64                 scratchMemSize{0};
     //task_exception
     u32          notifyId{0}; //host wait device notifyId
     union {
