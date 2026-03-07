@@ -461,7 +461,7 @@ struct OpParam { // 不申请ctx，每个算子单独下发
 struct HcclDfxOpInfo {
 
     //DfxOpInfo_base
-    std::string         tag_;
+    char                tag_[256];
     AlgType             algType_;
     u32                 index_{0};
     u64                 beginTime_{0};
