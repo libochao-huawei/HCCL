@@ -105,16 +105,16 @@ namespace ops_hccl {
             HcclResult::HCCL_E_NOT_FOUND);
         const ChannelInfo &channel = *channelIt;
         if (opMode_ == OpMode::OFFLOAD) {
-            CHK_RET(OrchestrateOffload(param, channel));
+            CHK_RET(OrchestrateOffload(param, thread, channel));
         } else {
-            CHK_RET(OrchestrateOpbase(param, channel));
+            CHK_RET(OrchestrateOpbase(param, thread, channel));
         }
         HCCL_DEBUG("[InsSendExecutor][Orchestrate][%d]->[%d] Success.", myRank_, remoteRank_);
 
         return HcclResult::HCCL_SUCCESS;
     }
 
-    HcclResult InsSendExecutor::OrchestrateOffload(const OpParam &param, const ChannelInfo &channel) {
+    HcclResult InsSendExecutor::OrchestrateOffload(const OpParam &param, const ThreadHandle &thread, const ChannelInfo &channel) {
         // 图模式本端可拿到对端output buffer地址，所以直接从本端input buffer到对端output buffer
         void *dstBufferPtr = static_cast<void *>(channel.remoteOutput.addr);
         // UB传输最大数据量
@@ -144,7 +144,7 @@ namespace ops_hccl {
         return HcclResult::HCCL_SUCCESS;
     }
 
-    HcclResult InsSendExecutor::OrchestrateOpbase(const OpParam &param, const ChannelInfo &channel) {
+    HcclResult InsSendExecutor::OrchestrateOpbase(const OpParam &param, const ThreadHandle &thread, const ChannelInfo &channel) {
         // 单算子模式本端仅可拿到对端ccl buffer地址，所以从本端input buffer到对端ccl buffer
         void *dstBufferPtr = static_cast<void *>(channel.remoteCclMem.addr);
         // UB和ccl Buffer取小为一次传输最大数据量
