@@ -308,7 +308,6 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
             ACL_MEMCPY_HOST_TO_DEVICE));
     }
     
-
     // 算法执行
     if (param.engine == COMM_ENGINE_AICPU_TS) {
         // 当前aicpu launch接口只能有一个输入参数，将Context指针放在param参数中
@@ -623,7 +622,7 @@ HcclResult SelectAlg(HcclComm comm, OpParam &param, TopoInfo* topoInfo, AlgType&
     // 在原先的tag中添加算法名字，得到algTag
     bool isOpBase = GetWorkflowMode() == HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE;
     if (isOpBase) {
-        int ret = sprintf_s(param.algTag, sizeof(param.algTag), "%s_%s_%d", param.tag, algName.c_str(), param.root);
+        int ret = sprintf_s(param.algTag, sizeof(param.algTag), "%s_%s_%u", param.tag, algName.c_str(), param.root);
         if (ret <= 0) {
             HCCL_ERROR("faled to fill param.algTag");
             return HCCL_E_INTERNAL;

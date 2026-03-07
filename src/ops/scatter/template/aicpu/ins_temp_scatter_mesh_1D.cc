@@ -105,7 +105,7 @@ HcclResult InsTempScatterMesh1D::KernelRun(const OpParam& param, const TemplateD
 }
 
 HcclResult InsTempScatterMesh1D::PreCopy(
-    const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads)
+    const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads) const
 {
     if (u32(myRank_) != root_) {
         return HCCL_SUCCESS;
@@ -132,7 +132,7 @@ HcclResult InsTempScatterMesh1D::PreCopy(
 }
 
 HcclResult InsTempScatterMesh1D::PostCopy(
-    const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads)
+    const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads) const
 {
     // 通信结束之后，非root rank数据都在 cclBuffer 上，需要搬运到对应的输出位置。
     if (u32(myRank_) == root_ || tempAlgParams.buffInfo.outBuffType == BufferType::HCCL_BUFFER) {

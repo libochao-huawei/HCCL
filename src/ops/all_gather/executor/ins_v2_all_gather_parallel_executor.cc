@@ -24,7 +24,7 @@
 #include "topo_match_ubx.h"
 
 namespace ops_hccl {
-
+constexpr u32 NUM_SYNC_THREADS = 2;
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::InsV2AllGatherParallelExecutor()
 {
@@ -70,8 +70,8 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     AlgResourceRequest interTempRequest;
     intraTempAlg.CalcRes(comm, param, topoInfo, intraTempRequest);
     interTempAlg.CalcRes(comm, param, topoInfo, interTempRequest);
-    resourceRequest.notifyNumOnMainThread = 2;  // 用于两个template间同步
-    resourceRequest.slaveThreadNum = intraTempRequest.slaveThreadNum + interTempRequest.slaveThreadNum + 2;
+    resourceRequest.notifyNumOnMainThread = NUM_SYNC_THREADS;  // 用于两个template间同步
+    resourceRequest.slaveThreadNum = intraTempRequest.slaveThreadNum + interTempRequest.slaveThreadNum + NUM_SYNC_THREADS;
     resourceRequest.notifyNumPerThread.emplace_back(intraTempRequest.notifyNumOnMainThread + 1);
     resourceRequest.notifyNumPerThread.insert(resourceRequest.notifyNumPerThread.end(),
                                               intraTempRequest.notifyNumPerThread.begin(),
