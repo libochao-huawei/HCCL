@@ -23,8 +23,6 @@ HcclResult HcclCreateOpParamGraphMode(OpParamGraphMode **opParam)
     if (*paramPtr == nullptr) {
         return HCCL_E_MEMORY;
     }
-    // 初始化 opType
-    memset((*paramPtr)->opType, 0, sizeof((*paramPtr)->opType));
     return HCCL_SUCCESS;
 }
 
