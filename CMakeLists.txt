@@ -120,6 +120,7 @@ elseif(BUILD_OPEN_PROJECT)
                 TARGETS scatter_aicpu_kernel
                 FILES ${CCL_KERNEL_TAR_LIBS}
                 MANIFEST "bin_hash.cfg"
+                TAR_ROOT_DIR "aicpu_kernels_device"
             )
             add_dependencies(generate_device_aicpu_package scatter_aicpu_kernel)
             sign_file(
