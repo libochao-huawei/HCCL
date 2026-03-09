@@ -12,7 +12,6 @@
 #include "selector_registry.h"
 
 namespace ops_hccl {
-constexpr u64 RS_2D_SMALL_DATA_SIZE = 1024 * 1024;
 constexpr u32 MAX_RANK_NUM_FOR_CONCURRENT_ALGO = 4;
 constexpr u64 RS_AICPU_1D_MAX_DATA_SIZE = 16 * 1024 * 1024;
 
@@ -58,6 +57,8 @@ SelectorStatus ReduceScatterAutoSelector::SelectCcuMsAlgo(TopoInfoWithNetLayerDe
 SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoCcums(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
                                                     std::string &selectAlgName) const
 {
+    u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
+    u64 dataSize = opParam.DataDes.count * perDataSize;
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
         if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
             selectAlgName = "CcuReduceScatterMesh2Die";
