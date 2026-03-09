@@ -35,6 +35,9 @@ private:
                                  std::vector<HcclAlgoType>> &configAlgMap, std::string &selectAlgName) const override;
     SelectorStatus SelectMeshAlgoAicpu(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
                                        std::string &selectAlgName) const;
+    SelectorStatus SelectMeshAlgoAicpuForMesh1DClos(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
+                                                      u64 dataSize, double ratio, bool isClosNumMultipleOfMeshNum,
+                                                      std::string &selectAlgName) const;
     SelectorStatus SelectDPUAlgo(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
         const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
         std::string &selectAlgName) const override;       
