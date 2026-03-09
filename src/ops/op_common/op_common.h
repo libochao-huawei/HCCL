@@ -81,7 +81,7 @@ HcclResult CheckDataType(const HcclDataType dataType, bool needReduce);
 
 std::string GetSupportDataType(bool needReduce);
 
-HcclResult SetCommEngine(OpParam &param, OpExecuteConfig opExecuteConfig);
+HcclResult SetCommEngine(OpParam &param);
 
 void CompReqChannelWithExistChannel(const std::vector<std::vector<ChannelInfo>>& existChannels,
                                     AlgResourceRequest &resRequest);
