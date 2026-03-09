@@ -86,6 +86,7 @@ HcclResult HcclAllGatherGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCou
     HCCL_INFO("Start to run execute HcclAllGatherGraphMode");
     // 根据group获取通信域
     HcclComm comm = nullptr;
+    HCCL_INFO("[HcclAllGatherGraphMode] get group name: %s", group);
     HcomGetCommHandleByGroup(group, &comm);
     // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
     CHK_RET(InitEnvConfig());
@@ -202,7 +203,7 @@ HcclResult AllGatherOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount, H
 HcclResult AllGatherOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
                                       aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack)
 {
-    HCCL_INFO("Start to execute AllGatherOutPlace");
+    HCCL_INFO("Start to execute AllGatherOutPlaceGraphMode");
     u32 userRankSize;
     CHK_RET(HcclGetRankSize(comm, &userRankSize));
 
@@ -245,6 +246,7 @@ HcclResult AllGatherOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t sen
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName, opExecuteConfig));
     CHK_RET(HcclExecOpGraphMode(comm, param, topoInfo, algName, resPack));
+    HCCL_INFO("Execute AllGatherOutPlaceGraphMode success.");
     return HCCL_SUCCESS;
 }
 
