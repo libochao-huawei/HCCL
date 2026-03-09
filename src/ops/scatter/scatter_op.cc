@@ -345,7 +345,10 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
         }
 
         // 执行device测的算法编排
-        uint64_t beginTime = HcommGetProfilingSysCycleTime();
+        uint64_t beginTime;
+        if (GetHcommVersion() >= 90000000) {
+            beginTime = HcommGetProfilingSysCycleTime();
+        }
         std::string kernelName = "HcclLaunchAicpuKernel";
         aclrtFuncHandle funcHandle;
         aclrtArgsHandle argsHandle;

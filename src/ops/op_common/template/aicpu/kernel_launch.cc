@@ -147,12 +147,12 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             return 1;
         }
 
-        if (HcommProfilingInit(threadHandlePtr, resCtx->slaveThreadNum + 1) != HCCL_SUCCESS) {
-            HCCL_ERROR("failed to init Profiling");
-            return 1;
-        }
-
         if (thread != 0) {
+            if (HcommProfilingInit(threadHandlePtr, resCtx->slaveThreadNum + 1) != HCCL_SUCCESS) {
+                HCCL_ERROR("failed to init Profiling");
+                return 1;
+            }
+
             // 上报主流和第一个task  wait之前
             if (HcommProfilingReportMainStreamAndFirstTask(thread) != HCCL_SUCCESS) {
                 HCCL_ERROR("failed to report MainStream And FirstTask");
