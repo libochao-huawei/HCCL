@@ -290,10 +290,8 @@ SelectorStatus ReduceScatterAutoSelector::SelectAivAlgo(const TopoInfoWithNetLay
             opParam.reduceType),
         SelectorStatus::NOT_MATCH);
 
-    if (opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT64 ||
-        opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
-        opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_FP64) {
-        HCCL_WARNING("[Algo][ReduceScatterAutoSelector] aiv mode not support INT64, UINT64, FP64.");
+    if (Is64BitDataType(opParam.DataDes.dataType)) {
+        HCCL_WARNING("[ReduceScatterAutoSelector] aiv mode not support INT64, UINT64, FP64.");
         return SelectorStatus::NOT_MATCH;
     }
 
