@@ -286,7 +286,8 @@ SelectorStatus AllReduceAutoSelector::SelectAicpuAlgo(TopoInfoWithNetLayerDetail
     return SelectorStatus::MATCH;
 }
 
-SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpuUBX(TopoInfoWithNetLayerDetails* topoInfo, std::string &selectAlgName) const
+SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpuUBX(const TopoInfoWithNetLayerDetails* topoInfo, const u64 dataSize,
+        std::string &selectAlgName) const
 {
     // UBX机型
     bool isMeshNumEqualToClosNum = false;
@@ -344,7 +345,7 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpu(TopoInfoWithNetLayerDe
     } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
         selectAlgName = "InsAllReduceNHR";
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-        return SelectMeshAlgoAicpuUBX(topoInfo, selectAlgName);
+        return SelectMeshAlgoAicpuUBX(topoInfo, dataSize, selectAlgName);
     } else {
         HCCL_WARNING("[AllReduceAutoSelector] topo not match");
         return SelectorStatus::NOT_MATCH;

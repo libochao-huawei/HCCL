@@ -57,7 +57,7 @@ SelectorStatus ReduceAutoSelector::SelectMeshAlgoCcums(
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-        if (Is2DieFullMesh()) {
+        if (topoInfo->is2DieFullMesh) {
             HCCL_WARNING("[ReduceAutoSelector] 2DieFullMesh is not supported yet for ccu_ms mode.");
             return SelectorStatus::NOT_MATCH;
         } else if(dataSize >= REDUCE_AICPU_1D_MAX_DATA_SIZE) {

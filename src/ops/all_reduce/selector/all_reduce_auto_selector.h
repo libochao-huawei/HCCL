@@ -38,8 +38,8 @@ private:
                                  std::vector<HcclAlgoType>> &configAlgMap, std::string &selectAlgName) const override;
     SelectorStatus SelectMeshAlgoAicpu(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
                                        std::string &selectAlgName) const;
-    SelectorStatus SelectMeshAlgoAicpuUBX(TopoInfoWithNetLayerDetails* topoInfo, 
-        std::string &selectAlgName, u64 dataSize) const;
+    SelectorStatus SelectMeshAlgoAicpuUBX(const TopoInfoWithNetLayerDetails* topoInfo, const u64 dataSize,
+        std::string &selectAlgName) const;
 };
 
 } // namespace ops_hccl
