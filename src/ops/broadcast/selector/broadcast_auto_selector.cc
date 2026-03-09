@@ -88,26 +88,25 @@ SelectorStatus BroadcastAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNe
     } else {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             if (topoInfo->is2DieFullMesh) {
-                    HCCL_WARNING("[BroadcastAutoSelector] 2DieFullMesh is not supported yet for ccu schedule mode.");
-                    return SelectorStatus::NOT_MATCH;
-                } else {
-                    selectAlgName = "CcuBroadcastMesh1DMem2Mem";
-                }
-            } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-                if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
-                    selectAlgName = "CcuBroadcastMesh1DMem2Mem";
-                } else {
-                    selectAlgName = "CcuBroadcastParallelMesh1DNHR";
-                }
-            } else if (topoInfo->level0Topo == Level0Shape::CLOS){
-                HCCL_WARNING("[Algo][BroadcastAutoSelector] level0Shape[%d] is not supported yet for ccu schedule mode.",
-                        topoInfo->level0Topo);
+                HCCL_WARNING("[BroadcastAutoSelector] 2DieFullMesh is not supported yet for ccu schedule mode.");
                 return SelectorStatus::NOT_MATCH;
             } else {
-                HCCL_WARNING("[Algo][BroadcastAutoSelector] level0Shape[%d] is not supported yet for ccu schedule mode.",
-                        topoInfo->level0Topo);
-                return SelectorStatus::NOT_MATCH;
+                selectAlgName = "CcuBroadcastMesh1DMem2Mem";
             }
+        } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+            if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
+                selectAlgName = "CcuBroadcastMesh1DMem2Mem";
+            } else {
+                selectAlgName = "CcuBroadcastParallelMesh1DNHR";
+            }
+        } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
+            HCCL_WARNING("[Algo][BroadcastAutoSelector] level0Shape[%d] is not supported yet for ccu schedule mode.",
+                    topoInfo->level0Topo);
+            return SelectorStatus::NOT_MATCH;
+        } else {
+            HCCL_WARNING("[Algo][BroadcastAutoSelector] level0Shape[%d] is not supported yet for ccu schedule mode.",
+                    topoInfo->level0Topo);
+            return SelectorStatus::NOT_MATCH;
         }
     }
     HCCL_INFO("[BroadcastAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
