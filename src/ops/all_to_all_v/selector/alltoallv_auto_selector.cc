@@ -14,8 +14,8 @@
 namespace ops_hccl {
 constexpr uint32_t CONST_4 = 4;
 
-SelectorStatus AlltoAllVAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetLayerDetails* topoInfo,
-                                                    OpParam &opParam,
+SelectorStatus AlltoAllVAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNetLayerDetails* topoInfo,
+                                                    const OpParam &opParam,
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                     std::string &selectAlgName) const
 {
@@ -52,8 +52,8 @@ SelectorStatus AlltoAllVAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetLayer
     return SelectorStatus::MATCH;
 }
 
-SelectorStatus AlltoAllVAutoSelector::SelectAicpuAlgo(TopoInfoWithNetLayerDetails* topoInfo,
-                                                      OpParam &opParam,
+SelectorStatus AlltoAllVAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerDetails* topoInfo,
+                                                      const OpParam &opParam,
                                                       const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                       std::string &selectAlgName) const
 {
@@ -89,7 +89,7 @@ SelectorStatus AlltoAllVAutoSelector::SelectAicpuAlgo(TopoInfoWithNetLayerDetail
     return SelectorStatus::MATCH;
 }
 
-SelectorStatus AlltoAllVAutoSelector::SelectAivAlgo(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
+SelectorStatus AlltoAllVAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                    const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                    std::string &selectAlgName) const
 {
