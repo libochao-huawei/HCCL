@@ -113,6 +113,10 @@ HcclResult HcclAivKernelEntranceLaunch(HcclComm comm, OpParam &param, std::uniqu
 
 HcclResult HcclGetOpExpansionMode(HcclComm comm, OpParam &param);
 
+HcclResult DecideHcclOpExpansionMode(HcclComm comm, OpParam &param);
+
+HcclResult ApplyOpExpansionMode(HcclComm comm, OpParam &param);
+
 bool HcclCheckAicpuEnableOpen();
 
 }  // namespace ops_hccl
