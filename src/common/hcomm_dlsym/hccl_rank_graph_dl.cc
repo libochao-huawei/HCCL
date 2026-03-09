@@ -1,3 +1,4 @@
+#include "log.h"
 #include "hccl_rank_graph_dl.h"
 #include <dlfcn.h>
 #include <stdio.h>
@@ -40,95 +41,95 @@ static bool g_hcclRankGraphGetEndpointInfoSupported = false;
 // ---------- 桩函数定义（签名与真实API完全一致）----------
 static HcclResult StubHcclGetRankId(HcclComm comm, uint32_t* rank) {
     (void)comm; (void)rank;
-    fprintf(stderr, "[HcclWrapper] HcclGetRankId not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcclGetRankId not supported");
     return HCCL_E_NOT_SUPPORTED;
 }
 
 static HcclResult StubHcclGetRankSize(HcclComm comm, uint32_t* rankSize) {
     (void)comm; (void)rankSize;
-    fprintf(stderr, "[HcclWrapper] HcclGetRankSize not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcclGetRankSize not supported");
     return HCCL_E_NOT_SUPPORTED;
 }
 
 static HcclResult StubHcclRankGraphGetLayers(HcclComm comm, uint32_t** netLayers, uint32_t* netLayerNum) {
     (void)comm; (void)netLayers; (void)netLayerNum;
-    fprintf(stderr, "[HcclWrapper] HcclRankGraphGetLayers not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcclRankGraphGetLayers not supported");
     return HCCL_E_NOT_SUPPORTED;
 }
 
 static HcclResult StubHcclRankGraphGetRanksByLayer(HcclComm comm, uint32_t netLayer, uint32_t** ranks, uint32_t* rankNum) {
     (void)comm; (void)netLayer; (void)ranks; (void)rankNum;
-    fprintf(stderr, "[HcclWrapper] HcclRankGraphGetRanksByLayer not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcclRankGraphGetRanksByLayer not supported");
     return HCCL_E_NOT_SUPPORTED;
 }
 
 static HcclResult StubHcclRankGraphGetRankSizeByLayer(HcclComm comm, uint32_t netLayer, uint32_t* rankNum) {
     (void)comm; (void)netLayer; (void)rankNum;
-    fprintf(stderr, "[HcclWrapper] HcclRankGraphGetRankSizeByLayer not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcclRankGraphGetRankSizeByLayer not supported");
     return HCCL_E_NOT_SUPPORTED;
 }
 
 static HcclResult StubHcclRankGraphGetTopoTypeByLayer(HcclComm comm, uint32_t netLayer, CommTopo* topoType) {
     (void)comm; (void)netLayer; (void)topoType;
-    fprintf(stderr, "[HcclWrapper] HcclRankGraphGetTopoTypeByLayer not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcclRankGraphGetTopoTypeByLayer not supported");
     return HCCL_E_NOT_SUPPORTED;
 }
 
 static HcclResult StubHcclRankGraphGetInstSizeListByLayer(HcclComm comm, uint32_t netLayer, uint32_t** instSizeList, uint32_t* listSize) {
     (void)comm; (void)netLayer; (void)instSizeList; (void)listSize;
-    fprintf(stderr, "[HcclWrapper] HcclRankGraphGetInstSizeListByLayer not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcclRankGraphGetInstSizeListByLayer not supported");
     return HCCL_E_NOT_SUPPORTED;
 }
 
 static HcclResult StubHcclRankGraphGetLinks(HcclComm comm, uint32_t netLayer, uint32_t srcRank, uint32_t dstRank,
                                             CommLink** links, uint32_t* linkNum) {
     (void)comm; (void)netLayer; (void)srcRank; (void)dstRank; (void)links; (void)linkNum;
-    fprintf(stderr, "[HcclWrapper] HcclRankGraphGetLinks not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcclRankGraphGetLinks not supported");
     return HCCL_E_NOT_SUPPORTED;
 }
 
 static HcclResult StubHcclRankGraphGetTopoInstsByLayer(HcclComm comm, uint32_t netLayer, uint32_t** topoInsts, uint32_t* topoInstNum) {
     (void)comm; (void)netLayer; (void)topoInsts; (void)topoInstNum;
-    fprintf(stderr, "[HcclWrapper] HcclRankGraphGetTopoInstsByLayer not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcclRankGraphGetTopoInstsByLayer not supported");
     return HCCL_E_NOT_SUPPORTED;
 }
 
 static HcclResult StubHcclRankGraphGetTopoType(HcclComm comm, uint32_t netLayer, uint32_t topoInstId, CommTopo* topoType) {
     (void)comm; (void)netLayer; (void)topoInstId; (void)topoType;
-    fprintf(stderr, "[HcclWrapper] HcclRankGraphGetTopoType not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcclRankGraphGetTopoType not supported");
     return HCCL_E_NOT_SUPPORTED;
 }
 
 static HcclResult StubHcclRankGraphGetRanksByTopoInst(HcclComm comm, uint32_t netLayer, uint32_t topoInstId,
                                                       uint32_t** ranks, uint32_t* rankNum) {
     (void)comm; (void)netLayer; (void)topoInstId; (void)ranks; (void)rankNum;
-    fprintf(stderr, "[HcclWrapper] HcclRankGraphGetRanksByTopoInst not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcclRankGraphGetRanksByTopoInst not supported");
     return HCCL_E_NOT_SUPPORTED;
 }
 
 static HcclResult StubHcclGetHeterogMode(HcclComm comm, HcclHeterogMode* mode) {
     (void)comm; (void)mode;
-    fprintf(stderr, "[HcclWrapper] HcclGetHeterogMode not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcclGetHeterogMode not supported");
     return HCCL_E_NOT_SUPPORTED;
 }
 
 static HcclResult StubHcclRankGraphGetEndpointNum(HcclComm comm, uint32_t layer, uint32_t topoInstId, uint32_t* num) {
     (void)comm; (void)layer; (void)topoInstId; (void)num;
-    fprintf(stderr, "[HcclWrapper] HcclRankGraphGetEndpointNum not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcclRankGraphGetEndpointNum not supported");
     return HCCL_E_NOT_SUPPORTED;
 }
 
 static HcclResult StubHcclRankGraphGetEndpointDesc(HcclComm comm, uint32_t layer, uint32_t topoInstId,
                                                    uint32_t* descNum, EndpointDesc* endpointDesc) {
     (void)comm; (void)layer; (void)topoInstId; (void)descNum; (void)endpointDesc;
-    fprintf(stderr, "[HcclWrapper] HcclRankGraphGetEndpointDesc not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcclRankGraphGetEndpointDesc not supported");
     return HCCL_E_NOT_SUPPORTED;
 }
 
 static HcclResult StubHcclRankGraphGetEndpointInfo(HcclComm comm, uint32_t rankId, const EndpointDesc* endpointDesc,
                                                    EndpointAttr endpointAttr, uint32_t infoLen, void* info) {
     (void)comm; (void)rankId; (void)endpointDesc; (void)endpointAttr; (void)infoLen; (void)info;
-    fprintf(stderr, "[HcclWrapper] HcclRankGraphGetEndpointInfo not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcclRankGraphGetEndpointInfo not supported");
     return HCCL_E_NOT_SUPPORTED;
 }
 
@@ -140,6 +141,7 @@ void HcclRankGraphDlInit(void* libHcommHandle) {
             if (ptr == NULL) { \
                 ptr = stub; \
                 support_flag = false; \
+                HCCL_DEBUG("[HcclWrapper] %s not supported", name); \
             } else { \
                 support_flag = true; \
             } \
@@ -162,10 +164,6 @@ void HcclRankGraphDlInit(void* libHcommHandle) {
     SET_PTR(hcclRankGraphGetEndpointInfoPtr, "HcclRankGraphGetEndpointInfo", StubHcclRankGraphGetEndpointInfo, g_hcclRankGraphGetEndpointInfoSupported);
 
     #undef SET_PTR
-
-    if (dlerror()) {
-        fprintf(stderr, "[HcclWrapper] Warning: dlerror after symbol resolution\n");
-    }
 }
 
 // 销毁函数：将指针重置为桩函数（可选，与 HcclResDlFini 配合使用）

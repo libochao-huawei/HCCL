@@ -692,7 +692,9 @@ HcclResult GetAlgRes(HcclComm comm, OpParam &param, std::unique_ptr<ExecutorBase
     if (HcclEngineCtxGet(comm, param.algTag, param.engine, &ctx, &size) == HCCL_SUCCESS) {
         *resCtx = static_cast<AlgResourceCtx *>(ctx);
         HCCL_INFO("[%s] Res Allready Exist", __func__);
-        CHK_PRT(ReportProfilingThread(comm, param, *resCtx, topoInfo));
+        if (GetHcommVersion() >= 90000000) {
+            CHK_PRT(ReportProfilingThread(comm, param, *resCtx, topoInfo));
+        }
         return HCCL_SUCCESS;
     }
 

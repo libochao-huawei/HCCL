@@ -1,3 +1,4 @@
+#include "log.h"
 #include "hcomm_primitives_dl.h"
 #include <dlfcn.h>
 #include <stdio.h>
@@ -68,58 +69,58 @@ static bool g_hcommChannelFenceSupported = false;
 // ---------- 桩函数定义（签名与真实API完全一致）----------
 static int32_t StubHcommLocalCopyOnThread(ThreadHandle thread, void* dst, const void* src, uint64_t len) {
     (void)thread; (void)dst; (void)src; (void)len;
-    fprintf(stderr, "[HcclWrapper] HcommLocalCopyOnThread not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcommLocalCopyOnThread not supported");
     return -1;
 }
 
 static int32_t StubHcommLocalReduceOnThread(ThreadHandle thread, void* dst, const void* src, uint64_t count,
                                             HcommDataType dataType, HcommReduceOp reduceOp) {
     (void)thread; (void)dst; (void)src; (void)count; (void)dataType; (void)reduceOp;
-    fprintf(stderr, "[HcclWrapper] HcommLocalReduceOnThread not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcommLocalReduceOnThread not supported");
     return -1;
 }
 
 static int32_t StubHcommThreadNotifyRecordOnThread(ThreadHandle thread, ThreadHandle dstThread, uint32_t dstNotifyIdx) {
     (void)thread; (void)dstThread; (void)dstNotifyIdx;
-    fprintf(stderr, "[HcclWrapper] HcommThreadNotifyRecordOnThread not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcommThreadNotifyRecordOnThread not supported");
     return -1;
 }
 
 static int32_t StubHcommThreadNotifyWaitOnThread(ThreadHandle thread, uint32_t notifyIdx, uint32_t timeOut) {
     (void)thread; (void)notifyIdx; (void)timeOut;
-    fprintf(stderr, "[HcclWrapper] HcommThreadNotifyWaitOnThread not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcommThreadNotifyWaitOnThread not supported");
     return -1;
 }
 
 static int32_t StubHcommAclrtNotifyRecordOnThread(ThreadHandle thread, uint64_t dstNotifyId) {
     (void)thread; (void)dstNotifyId;
-    fprintf(stderr, "[HcclWrapper] HcommAclrtNotifyRecordOnThread not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcommAclrtNotifyRecordOnThread not supported");
     return -1;
 }
 
 static int32_t StubHcommAclrtNotifyWaitOnThread(ThreadHandle thread, uint64_t notifyId, uint32_t timeOut) {
     (void)thread; (void)notifyId; (void)timeOut;
-    fprintf(stderr, "[HcclWrapper] HcommAclrtNotifyWaitOnThread not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcommAclrtNotifyWaitOnThread not supported");
     return -1;
 }
 
 static int32_t StubHcommWriteOnThread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t len) {
     (void)thread; (void)channel; (void)dst; (void)src; (void)len;
-    fprintf(stderr, "[HcclWrapper] HcommWriteOnThread not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcommWriteOnThread not supported");
     return -1;
 }
 
 static int32_t StubHcommWriteReduceOnThread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src,
                                             uint64_t count, HcommDataType dataType, HcommReduceOp reduceOp) {
     (void)thread; (void)channel; (void)dst; (void)src; (void)count; (void)dataType; (void)reduceOp;
-    fprintf(stderr, "[HcclWrapper] HcommWriteReduceOnThread not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcommWriteReduceOnThread not supported");
     return -1;
 }
 
 static int32_t StubHcommWriteWithNotifyOnThread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src,
                                                 uint64_t len, uint32_t remoteNotifyIdx) {
     (void)thread; (void)channel; (void)dst; (void)src; (void)len; (void)remoteNotifyIdx;
-    fprintf(stderr, "[HcclWrapper] HcommWriteWithNotifyOnThread not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcommWriteWithNotifyOnThread not supported");
     return -1;
 }
 
@@ -127,121 +128,121 @@ static int32_t StubHcommWriteReduceWithNotifyOnThread(ThreadHandle thread, Chann
                                                       uint64_t count, HcommDataType dataType, HcommReduceOp reduceOp,
                                                       uint32_t remoteNotifyIdx) {
     (void)thread; (void)channel; (void)dst; (void)src; (void)count; (void)dataType; (void)reduceOp; (void)remoteNotifyIdx;
-    fprintf(stderr, "[HcclWrapper] HcommWriteReduceWithNotifyOnThread not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcommWriteReduceWithNotifyOnThread not supported");
     return -1;
 }
 
 static int32_t StubHcommReadOnThread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t len) {
     (void)thread; (void)channel; (void)dst; (void)src; (void)len;
-    fprintf(stderr, "[HcclWrapper] HcommReadOnThread not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcommReadOnThread not supported");
     return -1;
 }
 
 static int32_t StubHcommReadReduceOnThread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src,
                                            uint64_t count, HcommDataType dataType, HcommReduceOp reduceOp) {
     (void)thread; (void)channel; (void)dst; (void)src; (void)count; (void)dataType; (void)reduceOp;
-    fprintf(stderr, "[HcclWrapper] HcommReadReduceOnThread not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcommReadReduceOnThread not supported");
     return -1;
 }
 
 static int32_t StubHcommWriteNbi(ChannelHandle channel, void* dst, const void* src, uint64_t len) {
     (void)channel; (void)dst; (void)src; (void)len;
-    fprintf(stderr, "[HcclWrapper] HcommWriteNbi not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcommWriteNbi not supported");
     return -1;
 }
 
 static int32_t StubHcommWriteWithNotifyNbi(ChannelHandle channel, void* dst, const void* src, uint64_t len, uint32_t remoteNotifyIdx) {
     (void)channel; (void)dst; (void)src; (void)len; (void)remoteNotifyIdx;
-    fprintf(stderr, "[HcclWrapper] HcommWriteWithNotifyNbi not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcommWriteWithNotifyNbi not supported");
     return -1;
 }
 
 static int32_t StubHcommReadNbi(ChannelHandle channel, void* dst, const void* src, uint64_t len) {
     (void)channel; (void)dst; (void)src; (void)len;
-    fprintf(stderr, "[HcclWrapper] HcommReadNbi not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcommReadNbi not supported");
     return -1;
 }
 
 static int32_t StubHcommChannelNotifyRecordOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t remoteNotifyIdx) {
     (void)thread; (void)channel; (void)remoteNotifyIdx;
-    fprintf(stderr, "[HcclWrapper] HcommChannelNotifyRecordOnThread not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcommChannelNotifyRecordOnThread not supported");
     return -1;
 }
 
 static int32_t StubHcommChannelNotifyRecord(ChannelHandle channel, uint32_t remoteNotifyIdx) {
     (void)channel; (void)remoteNotifyIdx;
-    fprintf(stderr, "[HcclWrapper] HcommChannelNotifyRecord not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcommChannelNotifyRecord not supported");
     return -1;
 }
 
 static int32_t StubHcommChannelNotifyWaitOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeout) {
     (void)thread; (void)channel; (void)localNotifyIdx; (void)timeout;
-    fprintf(stderr, "[HcclWrapper] HcommChannelNotifyWaitOnThread not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcommChannelNotifyWaitOnThread not supported");
     return -1;
 }
 
 static int32_t StubHcommChannelNotifyWait(ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeout) {
     (void)channel; (void)localNotifyIdx; (void)timeout;
-    fprintf(stderr, "[HcclWrapper] HcommChannelNotifyWait not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcommChannelNotifyWait not supported");
     return -1;
 }
 
 static int32_t StubHcommBatchModeStart(const char* batchTag) {
     (void)batchTag;
-    fprintf(stderr, "[HcclWrapper] HcommBatchModeStart not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcommBatchModeStart not supported");
     return -1;
 }
 
 static int32_t StubHcommBatchModeEnd(const char* batchTag) {
     (void)batchTag;
-    fprintf(stderr, "[HcclWrapper] HcommBatchModeEnd not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcommBatchModeEnd not supported");
     return -1;
 }
 
 static int32_t StubHcommAcquireComm(const char* commId) {
     (void)commId;
-    fprintf(stderr, "[HcclWrapper] HcommAcquireComm not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcommAcquireComm not supported");
     return -1;
 }
 
 static int32_t StubHcommReleaseComm(const char* commId) {
     (void)commId;
-    fprintf(stderr, "[HcclWrapper] HcommReleaseComm not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcommReleaseComm not supported");
     return -1;
 }
 
 static HcclResult StubHcommSymWinGetPeerPointer(CommSymWindow winHandle, size_t offset, uint32_t peerRank, void** ptr) {
     (void)winHandle; (void)offset; (void)peerRank; (void)ptr;
-    fprintf(stderr, "[HcclWrapper] HcommSymWinGetPeerPointer not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcommSymWinGetPeerPointer not supported");
     return HCCL_E_NOT_SUPPORTED;
 }
 
 static int32_t StubHcommThreadSynchronize(ThreadHandle thread) {
     (void)thread;
-    fprintf(stderr, "[HcclWrapper] HcommThreadSynchronize not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcommThreadSynchronize not supported");
     return -1;
 }
 
 static int32_t StubHcommSendRequest(MsgHandle handle, const char* msgTag, const void* src, size_t sizeByte, uint32_t* msgId) {
     (void)handle; (void)msgTag; (void)src; (void)sizeByte; (void)msgId;
-    fprintf(stderr, "[HcclWrapper] HcommSendRequest not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcommSendRequest not supported");
     return -1;
 }
 
 static int32_t StubHcommWaitResponse(MsgHandle handle, void* dst, size_t sizeByte, uint32_t* msgId) {
     (void)handle; (void)dst; (void)sizeByte; (void)msgId;
-    fprintf(stderr, "[HcclWrapper] HcommWaitResponse not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcommWaitResponse not supported");
     return -1;
 }
 
 static int32_t StubHcommFlush() {
-    fprintf(stderr, "[HcclWrapper] HcommFlush not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcommFlush not supported");
     return -1;
 }
 
 static int32_t StubHcommChannelFence(ChannelHandle channel) {
     (void)channel;
-    fprintf(stderr, "[HcclWrapper] HcommChannelFence not supported\n");
+    HCCL_ERROR("[HcclWrapper] HcommChannelFence not supported");
     return -1;
 }
 
@@ -254,6 +255,7 @@ void HcommPrimitivesDlInit(void* libHcommHandle) {
             if (ptr == NULL) { \
                 ptr = stub; \
                 support_flag = false; \
+                HCCL_DEBUG("[HcclWrapper] %s not supported", name); \
             } else { \
                 support_flag = true; \
             } \
@@ -290,10 +292,6 @@ void HcommPrimitivesDlInit(void* libHcommHandle) {
     SET_PTR(hcommChannelFencePtr, "HcommChannelFence", StubHcommChannelFence, g_hcommChannelFenceSupported);
 
     #undef SET_PTR
-
-    if (dlerror()) {
-        fprintf(stderr, "[HcclWrapper] Warning: dlerror after symbol resolution\n");
-    }
 }
 
 void HcommPrimitivesDlFini(void) {
