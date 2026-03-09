@@ -16,32 +16,48 @@ SelectorStatus BroadcastAutoSelector::SelectCcuMsAlgo(TopoInfoWithNetLayerDetail
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                     std::string &selectAlgName) const
 {
+    (void)configAlgMap; 
+    HCCL_DEBUG("[BroadcastAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
+
     if (topoInfo->topoLevelNums > 1) {
         HCCL_WARNING("[Algo][BroadcastAutoSelector] levelNum > 1 is not supported yet for ccu_ms mode.");
         return SelectorStatus::NOT_MATCH;
-    }
-
-    HcclAlgoType levle0Algo = HcclAlgoType::HCCL_ALGO_TYPE_DEFAULT;
-    auto it = configAlgMap.find(opParam.opType);
-    if ((it != configAlgMap.end()) && (it->second.size() > 0)) {
-        levle0Algo = it->second[0];
-    }
-    if (IsDefaultAlg(levle0Algo) || levle0Algo ==  HcclAlgoType::HCCL_ALGO_TYPE_FULLMESH) {
-        return SelectMeshAlgoCcuMs(topoInfo, opParam, selectAlgName);
     } else {
-        HCCL_WARNING("[Algo][BroadcastAutoSelector] algo[%u] is not supported yet for ccu_ms mode, reset to default.", levle0Algo);
-        return SelectorStatus::NOT_MATCH;
+        return SelectMeshAlgoCcuMs(topoInfo, opParam, selectAlgName);
     }
+    HCCL_INFO("[BroadcastAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
+    return SelectorStatus::MATCH;
 }
 
 SelectorStatus BroadcastAutoSelector::SelectMeshAlgoCcuMs(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
                                                     std::string &selectAlgName) const
 {
+    (void)opParam; 
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-        selectAlgName = "CcuBroadcastMesh1D";
+        if (topoInfo->is2DieFullMesh) {
+            HCCL_WARNING("[BroadcastAutoSelector] 2DieFullMesh is not supported yet for schedule mode.");
+            return SelectorStatus::NOT_MATCH;
+        } else {
+            selectAlgName = "CcuBroadcastMesh1D";
+        }
+    } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+        if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
+            selectAlgName = "CcuBroadcastMesh1D";
+        } else { // MS 不支持
+            HCCL_WARNING("[Algo][BroadcastAutoSelector] level0Shape[%d] is not supported yet for ccu_ms mode.",
+                topoInfo->level0Topo);
+            return SelectorStatus::NOT_MATCH;
+        }
+    } else if (topoInfo->level0Topo == Level0Shape::CLOS){
+        HCCL_WARNING("[Algo][BroadcastAutoSelector] level0Shape[%d] is not supported yet for ccu_ms mode.",
+                topoInfo->level0Topo);
+        return SelectorStatus::NOT_MATCH;
     } else {
+        HCCL_WARNING("[Algo][BroadcastAutoSelector] level0Shape[%d] is not supported yet for ccu_ms mode.",
+                topoInfo->level0Topo);
         return SelectorStatus::NOT_MATCH;
     }
+    HCCL_INFO("[BroadcastAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
     return SelectorStatus::MATCH;
 }
 
@@ -50,14 +66,19 @@ SelectorStatus BroadcastAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetLayer
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                     std::string &selectAlgName) const
 {
+    (void)opParam;
+    (void)configAlgMap;
+    HCCL_DEBUG("[BroadcastAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
+
     if (topoInfo->topoLevelNums > 1) {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-            if(topoInfo->deviceNumPerModule > 1){
+            if(topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] == 1){ // 每框出1卡
                 selectAlgName = "CcuBroadcastParallelMesh1DNHR";
-                return SelectorStatus::MATCH;
-            }else {
-                selectAlgName = "CcuBroadcastNHR1DMem2Mem";
-                return SelectorStatus::MATCH;
+            } else if (topoInfo->is2DieFullMesh) {
+                HCCL_WARNING("[BroadcastAutoSelector] 2DieFullMesh is not supported yet for ccu schedule mode.");
+                return SelectorStatus::NOT_MATCH;
+            } else {
+                selectAlgName = "CcuBroadcastParallelMesh1DNHR";
             }
         } else {
              HCCL_WARNING("[Algo][SelectCcuScheduleAlgo] level0Shape[%d] is not supported yet for ccu schedule mode.",
@@ -65,19 +86,31 @@ SelectorStatus BroadcastAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetLayer
             return  SelectorStatus::NOT_MATCH;
         }
     } else {
-        HcclAlgoType levle0Algo = HcclAlgoType::HCCL_ALGO_TYPE_DEFAULT;
-        auto it = configAlgMap.find(opParam.opType);
-        if ((it != configAlgMap.end()) && (it->second.size() > 0)) {
-            levle0Algo = it->second[0];
-        }
-        if ((IsDefaultAlg(levle0Algo) || levle0Algo == HcclAlgoType::HCCL_ALGO_TYPE_FULLMESH) && (topoInfo->level0Topo == Level0Shape::MESH_1D) ) {
-            selectAlgName = "CcuBroadcastMesh1DMem2Mem";
-            return SelectorStatus::MATCH;
-        } else {
-            HCCL_WARNING("[Algo][BroadcastAutoSelector] algo[%u] is not supported yet for ccu_schedule mode, reset to default.", levle0Algo);
-            return SelectorStatus::NOT_MATCH;
+        if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
+            if (topoInfo->is2DieFullMesh) {
+                HCCL_WARNING("[BroadcastAutoSelector] 2DieFullMesh is not supported yet for ccu schedule mode.");
+                return SelectorStatus::NOT_MATCH;
+            } else {
+                selectAlgName = "CcuBroadcastMesh1DMem2Mem";
+            } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+                if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
+                    selectAlgName = "CcuBroadcastMesh1DMem2Mem";
+                } else {
+                    selectAlgName = "CcuBroadcastParallelMesh1DNHR";
+                }
+            } else if (topoInfo->level0Topo == Level0Shape::CLOS){
+                HCCL_WARNING("[Algo][BroadcastAutoSelector] level0Shape[%d] is not supported yet for ccu schedule mode.",
+                        topoInfo->level0Topo);
+                return SelectorStatus::NOT_MATCH;
+            } else {
+                HCCL_WARNING("[Algo][BroadcastAutoSelector] level0Shape[%d] is not supported yet for ccu schedule mode.",
+                        topoInfo->level0Topo);
+                return SelectorStatus::NOT_MATCH;
+            }
         }
     }
+    HCCL_INFO("[BroadcastAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
+    return SelectorStatus::MATCH;
 }
 
 SelectorStatus BroadcastAutoSelector::SelectAicpuAlgo(TopoInfoWithNetLayerDetails* topoInfo,
@@ -85,20 +118,16 @@ SelectorStatus BroadcastAutoSelector::SelectAicpuAlgo(TopoInfoWithNetLayerDetail
                                                       const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                       std::string &selectAlgName) const
 {
-    std::vector<HcclAlgoType> algos = std::vector<HcclAlgoType>(HCCL_ALGO_LEVEL_NUM, HcclAlgoType::HCCL_ALGO_TYPE_DEFAULT);
-    auto it = configAlgMap.find(opParam.opType);
-    if (it != configAlgMap.end()) {
-        algos = it->second;
-    }
-
-    HCCL_INFO("hccl algo op config: config opType:%d, level0:%u, level1:%u, level2:%u, level3:%u",
-        opParam.opType, algos[0], algos[1], algos[2], algos[3]);
-
+    (void)configAlgMap;
+    HCCL_DEBUG("[BroadcastAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
+    
     if (topoInfo->topoLevelNums > 1) {
-        if (topoInfo->deviceNumPerModule <= 1) {
+        if (topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] == 1) {
             selectAlgName = "InsBroadcastNHR";
         } else if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             selectAlgName = "InsBroadcastParallelMesh1DNHR";
+        } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
+            selectAlgName = "InsBroadcastNHR";
         } else {
             HCCL_WARNING("[BroadcastAutoSelector] topo not match");
             return SelectorStatus::NOT_MATCH;
@@ -106,15 +135,23 @@ SelectorStatus BroadcastAutoSelector::SelectAicpuAlgo(TopoInfoWithNetLayerDetail
     } else {
         return SelectMeshAlgoAicpu(topoInfo, opParam, selectAlgName);
     }
+
+    HCCL_INFO("[BroadcastAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
     return SelectorStatus::MATCH;
 }
 
 SelectorStatus BroadcastAutoSelector::SelectMeshAlgoAicpu(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
                                                           std::string &selectAlgName) const
 {
-
+    (void)opParam;
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
         selectAlgName = "InsBroadcastMesh1DTwoShot";
+    } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+        if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
+            selectAlgName = "InsBroadcastMesh1DTwoShot";
+        } else {
+            selectAlgName = "InsBroadcastParallelMesh1DNHR";
+        }
     } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
         selectAlgName = "InsBroadcastNHR";
     } else {
@@ -122,6 +159,7 @@ SelectorStatus BroadcastAutoSelector::SelectMeshAlgoAicpu(TopoInfoWithNetLayerDe
         return SelectorStatus::NOT_MATCH;
     }
 
+    HCCL_INFO("[BroadcastAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
     return SelectorStatus::MATCH;
 }
 
@@ -129,20 +167,13 @@ SelectorStatus BroadcastAutoSelector::SelectAivAlgo(TopoInfoWithNetLayerDetails*
                                                         const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                         std::string &selectAlgName) const
 {
+    (void)opParam;
+    (void)configAlgMap;
     std::vector<HcclAlgoType> algos = std::vector<HcclAlgoType>(HCCL_ALGO_LEVEL_NUM, HcclAlgoType::HCCL_ALGO_TYPE_DEFAULT);
-    auto it = configAlgMap.find(opParam.opType);
-    if (it != configAlgMap.end()) {
-        algos = it->second;
-    }
-    HCCL_INFO("hccl algo op config: config opType:%d, level0:%u, level1:%u, level2:%u, level3:%u",
-              opParam.opType, algos[0], algos[1], algos[2], algos[3]);
 
-    if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-        selectAlgName = "AivBroadcastMesh1D";
-    } else {
-        HCCL_WARNING("[BroadcastAutoSelector] topo not match for aiv algo");
-        return  SelectorStatus::NOT_MATCH;
-    }
+    selectAlgName = "AivBroadcastMesh1D";
+
+    HCCL_INFO("[BroadcastAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
     return SelectorStatus::MATCH;
 }
 

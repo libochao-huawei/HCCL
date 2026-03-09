@@ -102,6 +102,7 @@ set(INCLUDE_LIST
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_to_all_v/template/aicpu
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_to_all_v/template/aiv
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_to_all_v/template/ccu
+    ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_to_all_v/template/ccu/kernel
 
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor
@@ -173,7 +174,6 @@ else()
     list(APPEND INCLUDE_LIST
         ${TOP_DIR}/inc
         ${TOP_DIR}/inc/aicpu/tsd
-        ${TOP_DIR}/ace/npuruntime/runtime/platform/inc
         ${TOP_DIR}/inc/driver
         ${TOP_DIR}/inc/external
         ${TOP_DIR}/inc/external/acl
@@ -194,6 +194,9 @@ else()
         ${TOP_DIR}/metadef/inc
         ${TOP_DIR}/metadef/inc/common
         ${TOP_DIR}/metadef/inc/external
+
+        ${TOP_DIR}/runtime/include/external
+        ${TOP_DIR}/runtime/include/external/acl
         ${TOP_DIR}/runtime/pkg_inc/base
 
         ${TOP_DIR}/open_source/json/include
@@ -238,6 +241,7 @@ add_library(scatter_aicpu_kernel SHARED
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/topo/topo_match_base.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/topo/topo_match_2d.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/topo/topo_match_multilevel.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/topo/topo_match_ubx.cc
 
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/algo/scatter_comm_executor.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/algo/scatter_executor_base.cc

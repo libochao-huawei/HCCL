@@ -13,6 +13,7 @@
 
 namespace ops_hccl {
 constexpr u64 AG_2D_SMALL_DATA_SIZE = 1024 * 1024;
+constexpr u32 MAX_RANK_NUM_FOR_CONCURRENT_ALGO = 4;
 
 SelectorStatus AllGatherAutoSelector::SelectCcuMsAlgo(
     TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
@@ -39,6 +40,7 @@ SelectorStatus AllGatherAutoSelector::SelectCcuMsAlgo(
                     topoInfo->level0Topo);
                 return SelectorStatus::NOT_MATCH;
             }
+<<<<<<< HEAD
         } else {
             HCCL_WARNING("[Algo][AllGatherAutoSelector] level0Shape[%d] is not supported yet for ccu_ms mode",
                 topoInfo->level0Topo);
@@ -46,6 +48,48 @@ SelectorStatus AllGatherAutoSelector::SelectCcuMsAlgo(
         }
     }
 
+=======
+        } else {
+            HCCL_WARNING("[Algo][AllGatherAutoSelector] level0Shape[%d] is not supported yet for ccu_ms mode",
+                topoInfo->level0Topo);
+            return SelectorStatus::NOT_MATCH;
+        }
+    }
+
+SelectorStatus AllGatherAutoSelector::SelectMeshAlgo(TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam,
+                                                     std::string &selectAlgName) const
+{
+    HCCL_DEBUG("[AllGatherAutoSelector][%s] start", __func__);
+    u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
+    u64 dataSize = opParam.DataDes.count * perDataSize;
+    if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
+        selectAlgName = "CcuAllGatherMesh1D";
+    } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+        // UBX机型
+        bool isMeshNumEqualToClosNum = false;
+        bool isClosNumMultipleOfMeshNum = false;
+        CHK_PRT_RET(CheckMeshNumEqualToClosNum(topoInfo, isMeshNumEqualToClosNum) != HCCL_SUCCESS,
+            HCCL_ERROR("[Algo][AllGatherAutoSelector] CheckMeshNumEqualToClosNum failed."), SelectorStatus::NOT_MATCH);
+        CHK_PRT_RET(CheckClosNumMultipleOfMeshNum(topoInfo, isClosNumMultipleOfMeshNum) != HCCL_SUCCESS,
+            HCCL_ERROR("[Algo][AllGatherAutoSelector] CheckClosNumMultipleOfMeshNum failed."), SelectorStatus::NOT_MATCH);
+        if (dataSize > SMALL_COUNT_512KB) {
+            // 大数据量场景，4P内并发executor，4P外回退ccu_sched模式
+            if (isMeshNumEqualToClosNum && (topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO)) {
+                selectAlgName = "CcuAllGatherConcurrentMesh1DNHR";
+                return SelectorStatus::MATCH;
+            } else {
+                HCCL_WARNING("[Algo][AllGatherAutoSelector] Level0Shape::MESH_1D_CLOS in large data scene is not supported for ccu_ms mode, reset to default.");
+                return SelectorStatus::NOT_MATCH;
+            }
+        } else {
+                selectAlgName = "CcuAllGatherMesh1DUBX";
+                return SelectorStatus::MATCH;
+            }
+        } else {
+        HCCL_WARNING("[Algo][AllGatherAutoSelector] Level0Topo[%u] is not supported for ccu_ms mode, reset to default.", topoInfo->level0Topo);
+        return SelectorStatus::NOT_MATCH;
+    }
+>>>>>>> 6b7402ea21477c3946db04c4bd5fd97c14f4dabd
     HCCL_INFO("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
     return SelectorStatus::MATCH;
 }
@@ -54,9 +98,16 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
     TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
     std::string &selectAlgName) const
 {
+<<<<<<< HEAD
     HCCL_DEBUG("[AllGatherAutoSelector][%s] start, topoInfo topoLevelNums[%u]", __func__, topoInfo->topoLevelNums);
     (void)configAlgMap;
     (void)opParam;
+=======
+    HCCL_DEBUG("[AllGatherAutoSelector][%s] start", __func__);
+    (void)configAlgMap;
+    u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
+    u64 dataSize = opParam.DataDes.count * perDataSize;
+>>>>>>> 6b7402ea21477c3946db04c4bd5fd97c14f4dabd
     if (topoInfo->topoLevelNums > 1) {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             if (topoInfo->is2DieFullMesh) {
@@ -72,6 +123,44 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
                 topoInfo->level0Topo);
             return SelectorStatus::NOT_MATCH;
         }
+<<<<<<< HEAD
+=======
+    }
+
+    if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
+        if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
+            selectAlgName = "CcuAllGatherMesh2Die";
+        } else if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_NOT_REGULAR) {
+            HCCL_INFO("[Algo][%s] TWO_DIE_NOT_REGULAR not match", __func__);
+            return SelectorStatus::NOT_MATCH;
+        } else {
+            selectAlgName = "CcuAllGatherMeshMem2Mem1D";
+        }
+        return SelectorStatus::MATCH;
+    } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+        // UBX机型
+        bool isMeshNumEqualToClosNum = false;
+        bool isClosNumMultipleOfMeshNum = false;
+        CHK_PRT_RET(CheckMeshNumEqualToClosNum(topoInfo, isMeshNumEqualToClosNum) != HCCL_SUCCESS,
+            HCCL_ERROR("[Algo][AllGatherAutoSelector] CheckMeshNumEqualToClosNum failed."), SelectorStatus::NOT_MATCH);
+        CHK_PRT_RET(CheckClosNumMultipleOfMeshNum(topoInfo, isClosNumMultipleOfMeshNum) != HCCL_SUCCESS,
+            HCCL_ERROR("[Algo][AllGatherAutoSelector] CheckClosNumMultipleOfMeshNum failed."), SelectorStatus::NOT_MATCH);
+        if (dataSize > SMALL_COUNT_512KB) {
+            if (isMeshNumEqualToClosNum && (topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO)) {
+                selectAlgName = "CcuAllGatherConcurrentMesh1DNHRMem";
+                return SelectorStatus::MATCH;
+            } else if (isClosNumMultipleOfMeshNum) {
+                selectAlgName = "CcuAllGatherParallelMesh1DNHRMemUBX";
+                return SelectorStatus::MATCH;
+            } else {
+                selectAlgName = "CcuAllGatherNHR1DMem2MemUBX";
+                return SelectorStatus::MATCH;
+            }
+        } else {
+                selectAlgName = "CcuAllGatherMesh1DMem2MemUBX";
+                return SelectorStatus::MATCH;
+        }
+>>>>>>> 6b7402ea21477c3946db04c4bd5fd97c14f4dabd
     } else {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             if (topoInfo->is2DieFullMesh) {
@@ -103,7 +192,12 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
 {
     HCCL_DEBUG("[AllGatherAutoSelector][%s] start, topoInfo topoLevelNums[%u]", __func__, topoInfo->topoLevelNums);
     (void)configAlgMap;
+<<<<<<< HEAD
     (void)opParam;
+=======
+    u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
+    u64 dataSize = opParam.DataDes.count * perDataSize;
+>>>>>>> 6b7402ea21477c3946db04c4bd5fd97c14f4dabd
     if (topoInfo->topoLevelNums > 1) {
         if (topoInfo->Level1Nhr) {
             selectAlgName = "InsAllGatherNHR";
@@ -121,13 +215,28 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             selectAlgName = "InsAllGatherMesh1D";
         } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-            if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
-                selectAlgName = "InsAllGatherMesh1D";
+            // UBX机型
+            bool isMeshNumEqualToClosNum = false;
+            bool isClosNumMultipleOfMeshNum = false;
+            CHK_PRT_RET(CheckMeshNumEqualToClosNum(topoInfo, isMeshNumEqualToClosNum) != HCCL_SUCCESS,
+            HCCL_ERROR("[Algo][AllGatherAutoSelector] CheckMeshNumEqualToClosNum failed."), SelectorStatus::NOT_MATCH);
+            CHK_PRT_RET(CheckClosNumMultipleOfMeshNum(topoInfo, isClosNumMultipleOfMeshNum) != HCCL_SUCCESS,
+            HCCL_ERROR("[Algo][AllGatherAutoSelector] CheckClosNumMultipleOfMeshNum failed."), SelectorStatus::NOT_MATCH);
+            if (dataSize > SMALL_COUNT_512KB) {
+                if (isMeshNumEqualToClosNum && (topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO)) {
+                    selectAlgName = "InsAllGatherConcurrentMesh1DNHR";
+                    return SelectorStatus::MATCH;
+                } else if (isClosNumMultipleOfMeshNum) { 
+                    selectAlgName = "InsAllGatherParallelMesh1DNHRUBX";
+                    return SelectorStatus::MATCH;
+                } else {
+                    selectAlgName = "InsAllGatherNHRUBX";
+                    return SelectorStatus::MATCH;
+                } 
             } else {
-                selectAlgName = "InsAllGatherParallelMesh1DNHR";
+                    selectAlgName = "InsAllGatherMesh1DUBX";
+                    return SelectorStatus::MATCH;
             }
-        } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
-            selectAlgName = "InsAllGatherNHR";
         } else {
             HCCL_WARNING("[AllGatherAutoSelector] topo not match");
             return SelectorStatus::NOT_MATCH;
@@ -162,7 +271,7 @@ SelectorStatus AllGatherAutoSelector::SelectDPUAlgo(
             return SelectorStatus::MATCH;
         }
     }
-
+    HCCL_DEBUG("[AllGatherAutoSelector][%s] end", __func__);
     return SelectorStatus::NOT_MATCH;
 }
 
