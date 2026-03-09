@@ -294,7 +294,7 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
     ThreadHandle cpuTsThread;
     ThreadHandle exportedAicpuTsThread;
     ThreadHandle exportedCpuTsThread;
-    if (HcclThreadExportToCommEngine != nullptr) {
+    if (HcommIsSupportHcclThreadExportToCommEngine()) {
         if (param.engine == COMM_ENGINE_AICPU_TS) {
             CHK_RET(HcclThreadAcquireWithStream(comm, COMM_ENGINE_CPU_TS, param.stream, 1, &cpuTsThread));
             // Export cpuTsThread
@@ -333,7 +333,7 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
         CHK_PRT_RET(retComm != HCCL_SUCCESS, HCCL_ERROR("[%s] [%s] HcommAcquireComm failed ",
             __func__, param.commName), static_cast<HcclResult>(retComm));
             
-        if (HcclThreadExportToCommEngine != nullptr) {
+        if (HcommIsSupportHcclThreadExportToCommEngine()) {
             // Host stream通知Device主thread，使用主流上idx最大的notify
             CHK_RET(static_cast<HcclResult>(HcommThreadNotifyRecordOnThread(cpuTsThread, exportedCpuTsThread,
                 topoInfo->notifyNumOnMainThread)));
@@ -395,7 +395,7 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
             HcommProfilingReportKernel(beginTime, profName.c_str());
         }
         // Host stream等待Device的通知
-        if (HcclThreadExportToCommEngine != nullptr) {
+        if (HcommIsSupportHcclThreadExportToCommEngine()) {
             CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, 0, NOTIFY_DEFAULT_WAIT_TIME)));
         } else {
             if (aclrtWaitAndResetNotify(g_notifies[1], param.stream, CUSTOM_TIMEOUT) != ACL_SUCCESS) {
@@ -766,7 +766,7 @@ HcclResult AllocAlgResource(HcclComm comm, const OpParam& param, AlgResourceRequ
         resCtxHost->notifyNumPerThread = resRequest.notifyNumPerThread[0];
     }
 
-    if (HcclThreadExportToCommEngine != nullptr) {
+    if (!HcommIsSupportHcclThreadExportToCommEngine()) {
         #define ACL_NOTIFY_DEFAULT          0x00000000U
         // 先使用acl接口来分配notify
         if (aclrtCreateNotify(&(g_notifies[0]), ACL_NOTIFY_DEFAULT) != ACL_SUCCESS) {
