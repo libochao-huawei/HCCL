@@ -16,7 +16,6 @@
 #include "alg_param.h"
 #include "log.h"
 #include "alg_env_config.h"
-#include "topo_host.h"
 
 namespace ops_hccl {
 
