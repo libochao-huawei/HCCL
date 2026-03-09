@@ -43,6 +43,7 @@ namespace ops_hccl {
 thread_local std::map<std::string, HcclMemHandle> g_memHandleCache; // 当前AIV存放注册内存的memHandle使用
 // 用于维护增量建链算子的host ctx信息
 thread_local std::map<std::string, std::unique_ptr<AlgResourceCtxSerializable>> g_hostCtx;
+thread_local std::map<AivOpCacheArgs, std::shared_ptr<InsQueue>> g_hcclCacheMap;
 
 HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
     std::string &algName, OpExecuteConfig &opExecuteConfig)
@@ -124,7 +125,63 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
         param.resCtx = resCtxSequence;
         AlgResourceCtxSerializable &resCtxHost = *static_cast<AlgResourceCtxSerializable *>(resCtxSequence);
         CHK_RET(HcclAivKernelEntranceLaunch(comm, param, topoInfo, resCtxHost));
-        CHK_RET(executor->Orchestrate(param, resCtxHost));
+
+        // Cache Logic
+        bool useCache = (param.opType != HCCL_CMD_ALLTOALLV && param.opType != HCCL_CMD_ALLTOALLVC && 
+                         param.opType != HCCL_CMD_ALLGATHER_V && param.opType != HCCL_CMD_REDUCE_SCATTER_V);
+        
+        AivOpCacheArgs cacheKey = {};
+        if (useCache) {
+            cacheKey.algName = algName;
+            cacheKey.opType = param.opType;
+            cacheKey.root = param.root;
+            cacheKey.reduceOp = param.reduceType;
+
+            if (param.opType == HCCL_CMD_ALLTOALL) {
+                cacheKey.sendType = param.all2AllDataDes.sendType;
+                cacheKey.recvType = param.all2AllDataDes.recvType;
+                cacheKey.sendCount = param.all2AllDataDes.sendCount;
+                cacheKey.recvCount = param.all2AllDataDes.recvCount;
+            } else {
+                cacheKey.count = param.DataDes.count;
+                cacheKey.dataType = param.DataDes.dataType;
+            }
+        }
+
+        if (useCache && g_hcclCacheMap.find(cacheKey) != g_hcclCacheMap.end()) {
+            // Hit
+            auto queue = g_hcclCacheMap[cacheKey];
+            for (auto& ins : *queue) {
+                AivOpArgs newArgs = ins.opArgs;
+                newArgs.stream = param.stream;
+                
+                // Update addresses
+                newArgs.input = (u64)param.inputPtr + ins.inputOffset;
+                newArgs.output = (u64)param.outputPtr + ins.outputOffset;
+                
+                // Update aivCountTag (preserve sliceId from cached args)
+                u32 oldSliceId = newArgs.aivCountTag & AIV_LOW_16_BITS;
+                newArgs.aivCountTag = (static_cast<uint32_t>(param.aivCountTag) << AIV_TAG_MOVE_LEFT_BITS) | oldSliceId;
+                
+                CHK_RET(ExecuteKernelLaunch(newArgs));
+            }
+        } else {
+            // Miss
+            if (useCache) {
+                g_recordingQueue = std::make_shared<InsQueue>();
+                g_baseInputAddr = (u64)param.inputPtr;
+                g_baseOutputAddr = (u64)param.outputPtr;
+            }
+
+            CHK_RET(executor->Orchestrate(param, resCtxHost));
+
+            if (useCache && g_recordingQueue) {
+                g_hcclCacheMap[cacheKey] = g_recordingQueue;
+                g_recordingQueue = nullptr;
+                g_baseInputAddr = 0;
+                g_baseOutputAddr = 0;
+            }
+        }
     } else {
         if (isResourceReused) {
             // 复用资源，则需从engineCtx取得res，进行反序列化
