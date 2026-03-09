@@ -55,20 +55,22 @@ class CcuTaskArgReduceScatterMeshDetour1D : public CcuTaskArg {
 public:
     explicit CcuTaskArgReduceScatterMeshDetour1D(uint64_t inputAddr, uint64_t outputAddr, uint64_t offset, 
         uint64_t token, uint64_t iterNum, uint64_t tailOffset, uint64_t tailSize, const std::vector<uint64_t> &lengths) :
-        inputAddr_(inputAddr), outputAddr_(outputAddr), sliceSize_(sliceSize), offset_(offset), token_(token)
+        inputAddr_(inputAddr), outputAddr_(outputAddr), offset_(offset), token_(token), iterNum_(iterNum), tailOffset_(tailOffset),
+        tailSize_(tailSize), lengths_(lengths)
     {
-        HCCL_DEBUG("[CcuTaskArgReduceScatterMeshDetour1D] inputAddr: %lu, outputAddr: %lu, sliceSize: %lu, offset: %lu",
-                   inputAddr_, outputAddr_, sliceSize_, offset_);
+        HCCL_DEBUG("[CcuTaskArgReduceScatterMeshDetour1D] inputAddr: %lu, outputAddr: %lu, offset: %lu, token: %lu, "
+                   "iterNum: %lu, tailOffset: %lu, tailSize: %lu",
+                   inputAddr_, outputAddr_, offset_, token_, iterNum_, tailOffset_, tailSize_);
     }
 
     uint64_t inputAddr_;
     uint64_t outputAddr_;
     uint64_t offset_;
     uint64_t token_;
-    uint64_t iterNum;
-    uint64_t tailOffset;
-    uint64_t tailSize;
-    std::vector<uint64_t> lengths;
+    uint64_t iterNum_;
+    uint64_t tailOffset_;
+    uint64_t tailSize_;
+    std::vector<uint64_t> lengths_;
 };
 
 class CcuKernelReduceScatterMeshDetour1D : public CcuKernelAlgBase {
@@ -79,9 +81,20 @@ public:
     HcclResult Algorithm() override;
     std::vector<uint64_t> GeneArgs(const CcuTaskArg &arg) override;
 private:
-    void CreateMultiOpReduceDetour(HcclDataType &dataType, HcclDataType &outputDataType, HcclReduceOp &opType);
-    void GroupReduceDetour(std::vector<CcuRep::Memory> &src, std::vector<CcuRep::Memory> &dst,
+    void LoadArgs();
+    void PreSync();
+    void PostSync();
+    void AllocGoResourceDetour();
+    HcclResult InitResource();
+    HcclResult CreateMultiOpReduceDetour(HcclDataType &dataType, HcclDataType &outputDataType, HcclReduceOp &opType);
+    HcclResult GroupReduceDetour(std::vector<CcuRep::RemoteAddr> &src, std::vector<CcuRep::LocalAddr> &dst,
         HcclDataType &dataType, HcclDataType &outputDataType, HcclReduceOp &opType);
+    void LoopForReduceDetour(std::vector<std::vector<CcuRep::CcuBuf>> &bufs,
+        std::vector<CcuRep::RemoteAddr> &src, std::vector<CcuRep::LocalAddr> &dst,
+        std::vector<CcuRep::Variable> &lengths, std::vector<CcuRep::CompletedEvent> &events,
+        HcclDataType &dataType, HcclDataType &outputDataType, HcclReduceOp &opType);
+    HcclResult GroupReduceForTailData();
+    HcclResult GroupReduceDetourFunc();
 
     uint64_t rankSize_{0};
     uint32_t rankId_{0};
@@ -100,6 +113,7 @@ private:
     CcuRep::Variable offset_;
     CcuRep::Variable iterNum_;
     CcuRep::Variable tailSize_;
+    CcuRep::Variable tailOffset_;
     GroupOpSize groupOpSize_;
     std::vector<CcuRep::Variable> lengths_;
 };

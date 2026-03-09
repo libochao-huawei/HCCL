@@ -57,13 +57,16 @@ CcuKernelReduceScatterMeshDetour1D::CcuKernelReduceScatterMeshDetour1D(const Ccu
     for (uint32_t i = 0; i < detourPathNum_; i++) {
         for (uint32_t j = 0; j < rankSize_ - 1; j++) {
             detourChannels_[i + directPathNum].emplace_back(channels_[(i + 1) * (rankSize_ - 1) + j]);
-            HCCL_DEBUG("[CcuKernelArgReduceScatterMeshDetour1D] detourChannels_ emplace_back directChannels[%llu], size[%zu]", i , detourChannels_[i].size());
-            detourChannels_[i + directPathNum].emplace_back(channels_[(i + 1) * (rankSize_ - 1) + j + detourPathNum_ * (rankSize_ - 1)]);
+            HCCL_DEBUG("[CcuKernelArgReduceScatterMeshDetour1D] detourChannels_ emplace_back directChannels[%llu], size[%zu]",
+                       i , detourChannels_[i].size());
+            detourChannels_[i + directPathNum].emplace_back(
+                channels_[(i + 1) * (rankSize_ - 1) + j + detourPathNum_ * (rankSize_ - 1)]
+            );
         }
     }
 }
 
-HcclResult CcuKernelReduceScatterMesh1DMem2Mem::InitResource()
+HcclResult CcuKernelReduceScatterMeshDetour1D::InitResource()
 {
     output_.push_back(CreateVariable());
     // 初始化资源
@@ -76,10 +79,11 @@ HcclResult CcuKernelReduceScatterMesh1DMem2Mem::InitResource()
         } else {
             HCCL_INFO("[CcuKernelReduceScatterMeshDetour1D] MyRank[%u], PeerId[%llu], ChannelId[%u]",
                 rankId_, peerId, channelIdx);
-                CHK_PRT_RET(detourChannels_[0][channelIdx] == nullptr,
-                HCCL_ERROR("[CcuKernelReduceScatterMeshDetour1D] Algorithm transport ptr is null"),);
-                input_.push_back(CreateVariable((*detourChannels_[0][channelIdx]), INPUT_XN_ID));
-            token_.push_back(CreateVariable((*detourChannels_[0][channelIdx]), TOKEN_XN_ID));
+            CcuRep::Variable inputVar, tokenVar;
+            CHK_RET(CreateVariable(detourChannels_[0][channelIdx], INPUT_XN_ID, &inputVar));
+            input_.push_back(inputVar);
+            CHK_RET(CreateVariable(detourChannels_[0][channelIdx], TOKEN_XN_ID, &tokenVar));
+            token_.push_back(tokenVar);
             channelIdx++;
         }
     }
@@ -134,88 +138,102 @@ void CcuKernelReduceScatterMeshDetour1D::PostSync()
     return;
 }
 
-void CcuKernelReduceScatterMeshDetour1D::CreateMultiOpReduceDetour(HcclDataType &dataType, HcclDataType &outputDataType, HcclReduceOp &opType)
+void CcuKernelReduceScatterMeshDetour1D::AllocGoResourceDetour()
 {
     moConfig.loopCount = CcuRep::CCU_MS_DEFAULT_LOOP_COUNT;
     moConfig.msInterleave = pathNumPerPeer_ * rankSize_;
     if (moRes.executor.size() == 0) {
         moRes.executor = CreateBlockExecutor(moConfig.loopCount);
-        moRes.maskSignal = CreateBlockMaskSignal(moConfig.loopCount);
-        moRes.ccuBuffer = CreateBlockCcuBuffer(moConfig.loopCount * moConfig.msInterleave);
+        moRes.completedEvent = CreateBlockCompletedEvent(moConfig.loopCount);
+        moRes.ccuBuf = CreateBlockCcuBuf(moConfig.loopCount * moConfig.msInterleave);
     }
+}
+
+HcclResult CcuKernelReduceScatterMeshDetour1D::CreateMultiOpReduceDetour(
+    HcclDataType &dataType, HcclDataType &outputDataType, HcclReduceOp &opType)
+{
+    AllocGoResourceDetour();
     std::string loopType = "reduceDetour";
     if (registeredLoop.find(loopType) != registeredLoop.end()) {
-        return;
+        return HcclResult::HCCL_SUCCESS;
     }
     CcuRep::LoopBlock lb(this, loopType + "_loop");
     {
-        // loopblock的形参
-        std::vector<CcuRep::Memory> src;
-        std::vector<CcuRep::Memory> dst;
+        std::vector<CcuRep::RemoteAddr> src;
+        std::vector<CcuRep::LocalAddr> dst;
         std::vector<CcuRep::Variable> lengths;
         for (uint32_t i = 0; i < pathNumPerPeer_; i++) {
             lengths.emplace_back(CreateVariable());
-            dst.emplace_back(CreateMemory());
+            dst.emplace_back(CreateLocalAddr());
             for (uint32_t j = 0; j < rankSize_; j++) {
-                src.emplace_back(CreateMemory());
+                src.emplace_back(CreateRemoteAddr());
             }
         }
 
         lb(src, dst, lengths);
-        std::vector<std::vector<CcuRep::CcuBuffer>> bufs;
+        std::vector<std::vector<CcuRep::CcuBuf>> bufs;
         bufs.resize(pathNumPerPeer_);
-        std::vector<CcuRep::MaskSignal> sems;
+        std::vector<CcuRep::CompletedEvent> events;
 
         for (uint32_t i = 0; i < pathNumPerPeer_; i++) {
             for (uint32_t j = 0; j < rankSize_; j++) {
-                bufs[i].emplace_back(moRes.ccuBuffer[i * rankSize_ + j]);
+                bufs[i].emplace_back(moRes.ccuBuf[i * rankSize_ + j]);
             }
-            sems.emplace_back(moRes.maskSignal[i]);
+            events.emplace_back(moRes.completedEvent[i]);
         }
 
-        // 先读远端直连的到本地MS
-        uint64_t directPathNum = pathNumPerPeer_ - detourPathNum_;
-        for (uint32_t i = 0; i < directPathNum; i++) {
-            for (uint32_t j = 0; j < detourChannels_[i].size(); j++) {
-                if (detourChannels_[i][j] == NULL) {
-                    THROW<CcuApiException>("transport is nullptr");
-                }
-                ReadNb(*detourChannels_[i][j], bufs[i][j], src[i * rankSize_ + j], lengths[i], sems[i], 1 << j);
-            }
-        }
-        // 再读远端绕路的到本地MS
-        for (uint32_t i = directPathNum; i < pathNumPerPeer_; i++) {
-            for (uint32_t j = 0; j < rankSize_ - 1; j++) {
-                if (detourChannels_[i][j * 2 + 1] == nullptr) { // j * 2 + 1是recvOnly Link
-                    THROW<CcuApiException>("transport is nullptr");
-                }
-                ReadNb(*detourChannels_[i][j * 2 + 1], bufs[i][j], src[i * rankSize_ + j], lengths[i], sems[i], 1 << j);
-            }
-        }
-
-        for (uint32_t i = 0; i < pathNumPerPeer_; i++) {
-            LocalCopyNb(bufs[i][rankSize_ - 1], src[i * rankSize_ + rankSize_ - 1], lengths[i], sems[i], 1 << (rankSize_ - 1));
-        }
-        for (uint32_t i = 0; i < pathNumPerPeer_; i++) {
-            LocalWait(sems[i], (1 << rankSize_) - 1);
-        }
-        if (rankSize_ > 1) {
-            for (uint32_t i = 0; i < pathNumPerPeer_; i++) {
-                LocalReduce(bufs[i], rankSize_, dataType, outputDataType, opType, sems[i], lengths[i]);
-                LocalWait(sems[i]);
-            }
-        }
-        for (uint32_t i = 0; i < pathNumPerPeer_; i++) {
-            LocalCopyNb(dst[i], bufs[i][0], lengths[i], sems[i]);
-            LocalWait(sems[i]);
-        }
+        LoopForReduceDetour(bufs, src, dst, lengths, events, dataType, outputDataType, opType);
     }
     registeredLoop.insert(loopType);
-    return;
+    return HcclResult::HCCL_SUCCESS;
 }
 
-void CcuKernelReduceScatterMeshDetour1D::GroupReduceDetour(std::vector<CcuRep::Memory> &src,
-    std::vector<CcuRep::Memory> &dst, HcclDataType &dataType, HcclDataType &outputDataType, HcclReduceOp &opType)
+void CcuKernelReduceScatterMeshDetour1D::LoopForReduceDetour(std::vector<std::vector<CcuRep::CcuBuf>> &bufs,
+    std::vector<CcuRep::RemoteAddr> &src, std::vector<CcuRep::LocalAddr> &dst,
+    std::vector<CcuRep::Variable> &lengths, std::vector<CcuRep::CompletedEvent> &events,
+    HcclDataType &dataType, HcclDataType &outputDataType, HcclReduceOp &opType)
+{
+    // 先读远端直连的到本地MS
+    uint64_t directPathNum = pathNumPerPeer_ - detourPathNum_;
+    for (uint32_t i = 0; i < directPathNum; i++) {
+        for (uint32_t j = 0; j < detourChannels_[i].size(); j++) {
+            events[i].mask = 1 << j;
+            ReadNb(detourChannels_[i][j], bufs[i][j], src[i * rankSize_ + j], lengths[i], events[i]);
+        }
+    }
+    // 再读远端绕路的到本地MS
+    for (uint32_t i = directPathNum; i < pathNumPerPeer_; i++) {
+        for (uint32_t j = 0; j < rankSize_ - 1; j++) {
+            events[i].mask = 1 << j;
+            ReadNb(detourChannels_[i][j * 2 + 1], bufs[i][j], src[i * rankSize_ + j], lengths[i], events[i]);
+        }
+    }
+
+    for (uint32_t i = 0; i < pathNumPerPeer_; i++) {
+        events[i].mask = (1 << rankSize_) - 1;
+        CcuRep::LocalAddr &localSrc = *reinterpret_cast<CcuRep::LocalAddr*>(&src[i * rankSize_ + rankSize_ - 1]);
+        LocalCopyNb(bufs[i][rankSize_ - 1], localSrc, lengths[i], events[i]);
+    }
+    for (uint32_t i = 0; i < pathNumPerPeer_; i++) {
+        events[i].mask = (1 << rankSize_) - 1;
+        WaitEvent(events[i]);
+    }
+    if (rankSize_ > 1) {
+        for (uint32_t i = 0; i < pathNumPerPeer_; i++) {
+            events[i].mask = 1;
+            LocalReduceNb(bufs[i], rankSize_, dataType, outputDataType, opType, lengths[i], events[i]);
+            WaitEvent(events[i]);
+        }
+    }
+    for (uint32_t i = 0; i < pathNumPerPeer_; i++) {
+        events[i].mask = 1;
+        LocalCopyNb(dst[i], bufs[i][0], lengths[i], events[i]);
+        WaitEvent(events[i]);
+    }
+}
+
+HcclResult CcuKernelReduceScatterMeshDetour1D::GroupReduceDetour(std::vector<CcuRep::RemoteAddr> &src,
+    std::vector<CcuRep::LocalAddr> &dst, HcclDataType &dataType, HcclDataType &outputDataType, HcclReduceOp &opType)
 {
     CreateMultiOpReduceDetour(dataType, outputDataType, opType);
     uint32_t interLeave = 8;
@@ -225,36 +243,29 @@ void CcuKernelReduceScatterMeshDetour1D::GroupReduceDetour(std::vector<CcuRep::M
         CcuRep::Variable paraCfg = CreateVariable();
         CcuRep::Variable offsetCfg = CreateVariable();
 
-        loopParam = CcuRep::GetLoopParam(0, singleTransportSize_ * moConfig.loopCount, 0);  // 下次迭代的偏移是单次总搬运量*loopNum
+        loopParam = GetLoopParam(0, singleTransportSize_ * moConfig.loopCount, 0);  // 下次迭代的偏移是单次总搬运量*loopNum
         loopParam += iterNum_;  // 加上loop的迭代次数构成完整loop参数
-        paraCfg = CcuRep::GetParallelParam(moConfig.loopCount - 1, 0, 1);  // loop固定展开到128个
-        offsetCfg = CcuRep::GetOffsetParam(singleTransportSize_, interLeave, pathNumPerPeer_);  // 下一个loop偏移量
+        paraCfg = GetParallelParam(moConfig.loopCount - 1, 0, 1);  // loop固定展开到128个
+        offsetCfg = GetOffsetParam(singleTransportSize_, interLeave, pathNumPerPeer_);  // 下一个loop偏移量
         auto lc = Loop("reduceDetour_loop")(src, dst, lengths_);
         LoopGroup({lc}, {loopParam}, paraCfg, offsetCfg);
     }
-    return;
+    return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuKernelReduceScatterMeshDetour1D::Algorithm()
+
+HcclResult CcuKernelReduceScatterMeshDetour1D::GroupReduceDetourFunc()
 {
-    HCCL_INFO("[CcuKernelReduceScatterMeshDetour1D] ReduceScatterMeshDetour1D run");
-    
-    CHK_RET(InitResource());
-    
-    LoadArgs();
-    
-    PreSync();
-    
     // 如果是4p*2场景，template里可以都传4k进来，channel和length通过<直连4k>, <直连4k>, <绕路4k>这样构造达成数据量2:1的效果
     
-    std::vector<CcuRep::Memory> reduceSrc;
-    std::vector<CcuRep::Memory> reduceDst;
+    std::vector<CcuRep::RemoteAddr> reduceSrc;
+    std::vector<CcuRep::LocalAddr> reduceDst;
     
     // 为每个直连或绕路channel分别准备reduceSrc与reduceDst
     for (uint32_t i = 0; i < pathNumPerPeer_; i++) {
-        reduceDst.emplace_back(CreateMemory());
+        reduceDst.emplace_back(CreateLocalAddr());
         for (uint32_t j = 0; j < rankSize_; j++) {
-            reduceSrc.emplace_back(CreateMemory());
+            reduceSrc.emplace_back(CreateRemoteAddr());
         }
     }
 
@@ -287,21 +298,23 @@ HcclResult CcuKernelReduceScatterMeshDetour1D::Algorithm()
             reduceSrc[i * rankSize_ + j].token = reduceSrc[(i - 1) * rankSize_ + j].token;
         }
     }
+    GroupReduceDetour(reduceSrc, reduceDst, dataType_, outputDataType_, reduceOp_);
+    return HcclResult::HCCL_SUCCESS;
+}
 
-    GroupReduceDetour(reduceSrc, reduceDst, dataType_, outputDataType_, reduceOp);
-
-    // 余下的尾块用直连Reduce
-    std::vector<CcuRep::Memory> tailSrc;
-    CcuRep::Memory tailDst = CreateMemory();
+HcclResult CcuKernelReduceScatterMeshDetour1D::GroupReduceForTailData()
+{
+    std::vector<CcuRep::RemoteAddr> tailSrc;
+    CcuRep::LocalAddr tailDst = CreateLocalAddr();
     for (uint32_t i = 0; i < rankSize_; i++) {
-        tailSrc.emplace_back(CreateMemory());
+        tailSrc.emplace_back(CreateRemoteAddr());
     }
     tailDst.addr = output_[0];
     // tailDst.addr += offset_;
     tailDst.addr += tailOffset_;
     tailDst.token = token_[rankId_];
-    srcId = 0;
-    curId = 0;
+    uint32_t srcId = 0;
+    uint32_t curId = 0;
     for (uint32_t rankIdx = 0; rankIdx < rankSize_; rankIdx++) {
         if (rankIdx != rankId_) {
             curId = srcId;
@@ -315,7 +328,24 @@ HcclResult CcuKernelReduceScatterMeshDetour1D::Algorithm()
         tailSrc[curId].token = token_[rankIdx];
     }
 
-    GroupReduce(detourChannels_[0], tailDst, tailSrc, groupOpSize_, dataType_, outputDataType_, reduceOp);
+    GroupReduce(detourChannels_[0], tailDst, tailSrc, groupOpSize_, dataType_, outputDataType_, reduceOp_);
+    return HcclResult::HCCL_SUCCESS;
+}
+
+HcclResult CcuKernelReduceScatterMeshDetour1D::Algorithm()
+{
+    HCCL_INFO("[CcuKernelReduceScatterMeshDetour1D] ReduceScatterMeshDetour1D run");
+    
+    CHK_RET(InitResource());
+    
+    LoadArgs();
+    
+    PreSync();
+
+    CHK_RET(GroupReduceDetourFunc());
+
+    // 余下的尾块用直连Reduce
+    CHK_RET(GroupReduceForTailData());
 
     PostSync();
 
@@ -327,9 +357,7 @@ HcclResult CcuKernelReduceScatterMeshDetour1D::Algorithm()
 std::vector<uint64_t> CcuKernelReduceScatterMeshDetour1D::GeneArgs(const CcuTaskArg &arg)
 {
     const CcuTaskArgReduceScatterMeshDetour1D *taskArg = dynamic_cast<const CcuTaskArgReduceScatterMeshDetour1D *>(&arg);
-    if (taskArg == nullptr) {
-        THROW<NullPtrException>(StringFormat("CcuKernelReduceScatterMeshDetour1D::taskArg ptr is null"));
-    }
+    
     uint64_t inputAddr   = taskArg->inputAddr_;
     uint64_t outputAddr  = taskArg->outputAddr_;
     uint64_t tokenInfo   = taskArg->token_;
