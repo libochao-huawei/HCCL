@@ -55,8 +55,13 @@ HcclResult InsTempReduceScatterMesh1D::KernelRun(const OpParam& param,
         return HCCL_SUCCESS;
     }
     threadNum_ = templateResource.threads.size();
-    processSize_ = tempAlgParams.sliceSize;
-    count_ = tempAlgParams.count;
+    if (myAlgRank == templateRankSize_ - 1 && tempAlgParams.tailSize > 0) {
+        processSize_ = tempAlgParams.tailSize;
+        count_ = tempAlgParams.tailSize / DATATYPE_SIZE_TABLE[dataType_];
+    } else {
+        processSize_ = tempAlgParams.sliceSize;
+        count_ = tempAlgParams.sliceSize / DATATYPE_SIZE_TABLE[dataType_];
+    }
     dataType_ = param.DataDes.dataType;
     HCCL_INFO("[InsTempReduceScatterMesh1D] Run Start");
     if (threadNum_ > 1) {
@@ -136,11 +141,15 @@ HcclResult InsTempReduceScatterMesh1D::RunReduceScatter(
         CHK_RET(static_cast<HcclResult>(LocalCopy(threads[0], srcSlice, dstSlice)));
     }
 
+    u64 sliceSize = processSize_;
+    u64 sliceCount = count_;
     for (u32 queIdx = 1; queIdx < threadNum_; queIdx++) {
         u32 nextRank = (myAlgRank + queIdx) % templateRankSize_; // 这里取的虚拟rankId
-        // u32 remoteRank = tempVTopo_[0][nextRank]; // 这里取的全局rankId
+        if (nextRank == templateRankSize_ - 1 && tempAlgParam.tailSize > 0) {
+            sliceSize = tempAlgParam.tailSize;
+            sliceCount = tempAlgParam.tailSize / DATATYPE_SIZE_TABLE[dataType_];
+        }
         u32 remoteRank = subCommRanks_[0][nextRank];
-
         HCCL_DEBUG("[InsTempReduceScatterMesh1D][RunReduceScatter] myRank[%d], toRank[%d], fromRank[%d]",
                    myRank_, remoteRank, remoteRank);
         const ChannelInfo &linkSend = channels.at(remoteRank)[0];
@@ -156,18 +165,18 @@ HcclResult InsTempReduceScatterMesh1D::RunReduceScatter(
             // 在reduce_scatter_op.cc的创建channels的环节中获取到了remote的HcclBuff的地址
             void* remoteCclBuffAddr = linkSend.remoteCclMem.addr;
             // 在接收的时候接收源应该是远端地址，但是由于rs的mesh算法用的是write，所以rx不用care
-            DataSlice rxSrcSlice = DataSlice(tempAlgParam.buffInfo.inputPtr, tempAlgParam.buffInfo.inBuffBaseOff + 
+            DataSlice rxSrcSlice = DataSlice(remoteCclBuffAddr, tempAlgParam.buffInfo.inBuffBaseOff + 
                 repeatIdx * tempAlgParam.inputRepeatStride + myAlgRank * tempAlgParam.inputSliceStride,
-                processSize_, count_); // 接收源
+                sliceSize, sliceCount); // 接收源
             DataSlice rxDstSlice = DataSlice(tempAlgParam.buffInfo.hcclBuff.addr,
                 tempAlgParam.buffInfo.hcclBuffBaseOff +  repeatIdx * tempAlgParam.outputRepeatStride +
-                nextRank * tempAlgParam.outputSliceStride, processSize_, count_); // 接收目标
+                nextRank * tempAlgParam.outputSliceStride, sliceSize, sliceCount); // 接收目标
             DataSlice txSrcSlice = DataSlice(tempAlgParam.buffInfo.inputPtr, tempAlgParam.buffInfo.inBuffBaseOff +
                 repeatIdx * tempAlgParam.inputRepeatStride + nextRank * tempAlgParam.inputSliceStride,
-                processSize_, count_); // 发送源
+                sliceSize, sliceCount); // 发送源
             DataSlice txDstSlice = DataSlice(remoteCclBuffAddr, tempAlgParam.buffInfo.hcclBuffBaseOff +
                 repeatIdx * tempAlgParam.outputRepeatStride + myAlgRank * tempAlgParam.outputSliceStride,
-                processSize_, count_);  // 发送目标
+                sliceSize, sliceCount);  // 发送目标
 
             rxSrcSlices.push_back(rxSrcSlice);
             rxDstSlices.push_back(rxDstSlice);
