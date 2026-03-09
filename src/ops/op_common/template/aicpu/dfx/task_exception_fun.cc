@@ -19,18 +19,18 @@
 namespace ops_hccl {
 HcclResult CreateScatter(OpParam *param, ScatterOpInfo *opInfo)
 {
-    CHK_PTR_NULL(param);
-    CHK_PTR_NULL(opInfo);
-    s32 sRet = strncpy_s(opInfo->algTag, ALG_TAG_LENGTH, param->algTag, ALG_TAG_LENGTH);
-    CHK_PRT_RET(sRet != EOK, HCCL_ERROR("%s call strncpy_s failed, return %d.", __func__, sRet), HCCL_E_MEMORY);
-    sRet = strncpy_s(opInfo->commName, COMM_INDENTIFIER_MAX_LENGTH, param->commName, COMM_INDENTIFIER_MAX_LENGTH);
-    CHK_PRT_RET(sRet != EOK, HCCL_ERROR("%s call strncpy_s failed, return %d.", __func__, sRet), HCCL_E_MEMORY);
-    opInfo->count = param->DataDes.count;
-    opInfo->dataType = param->DataDes.dataType;
-    opInfo->opType = param->opType;
-    opInfo->root = param->root;
-    opInfo->inputPtr = param->inputPtr;
-    opInfo->outputPtr = param->outputPtr;
+    // CHK_PTR_NULL(param);
+    // CHK_PTR_NULL(opInfo);
+    // s32 sRet = strncpy_s(opInfo->algTag, ALG_TAG_LENGTH, param->algTag, ALG_TAG_LENGTH);
+    // CHK_PRT_RET(sRet != EOK, HCCL_ERROR("%s call strncpy_s failed, return %d.", __func__, sRet), HCCL_E_MEMORY);
+    // sRet = strncpy_s(opInfo->commName, COMM_INDENTIFIER_MAX_LENGTH, param->commName, COMM_INDENTIFIER_MAX_LENGTH);
+    // CHK_PRT_RET(sRet != EOK, HCCL_ERROR("%s call strncpy_s failed, return %d.", __func__, sRet), HCCL_E_MEMORY);
+    // opInfo->count = param->DataDes.count;
+    // opInfo->dataType = param->DataDes.dataType;
+    // opInfo->opType = param->opType;
+    // opInfo->root = param->root;
+    // opInfo->inputPtr = param->inputPtr;
+    // opInfo->outputPtr = param->outputPtr;
     return HCCL_SUCCESS;
 }
 
