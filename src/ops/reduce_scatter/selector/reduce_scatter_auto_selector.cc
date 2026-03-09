@@ -57,6 +57,8 @@ SelectorStatus ReduceScatterAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetL
 SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoCcums(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                     std::string &selectAlgName) const
 {
+    u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
+    u64 dataSize = opParam.DataDes.count * perDataSize;
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
         if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
             selectAlgName = "CcuReduceScatterMesh2Die";

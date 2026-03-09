@@ -291,19 +291,21 @@ bool AutoSelectorBase::IsInputOutputOverlap(const OpParam &opParam) const
         HCCL_INFO("[Algo][AutoSelectorBase][IsInputOutputOverlap] The input or output buffer size is 0. Not overlap."),
         false);
 
-    u64 inputEnd = opParam.inputPtr + inputDataSize - 1;
-    u64 outputEnd = opParam.outputPtr + outputDataSize - 1;
+    uintptr_t inputStart = reinterpret_cast<uintptr_t>(opParam.inputPtr);
+    uintptr_t outputStart = reinterpret_cast<uintptr_t>(opParam.outputPtr);
+    uintptr_t inputEnd = inputStart + inputDataSize - 1;
+    uintptr_t outputEnd = outputStart + outputDataSize - 1;
 
     HCCL_DEBUG("[Algo][AutoSelectorBase][IsInputOutputOverlap] inputStart[%llu], inputEnd[%llu], outputStart[%llu], "
                "outputEnd[%llu].",
-        opParam.inputPtr, inputEnd, opParam.outputPtr, outputEnd);
+        inputStart, inputEnd, outputStart, outputEnd);
 
-    CHK_PRT_RET(opParam.inputPtr <= outputEnd && opParam.outputPtr <= inputEnd,
+    CHK_PRT_RET(inputStart <= outputEnd && outputStart <= inputEnd,
         HCCL_INFO("[Algo][AutoSelectorBase][IsInputOutputOverlap] inputStart[%llu], inputEnd[%llu], outputStart[%llu], "
                   "outputEnd[%llu]. Overlap detected.",
-            opParam.inputPtr,
+            inputStart,
             inputEnd,
-            opParam.outputPtr,
+            outputStart,
             outputEnd),
         true);
 
