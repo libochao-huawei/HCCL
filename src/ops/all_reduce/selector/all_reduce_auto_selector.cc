@@ -58,6 +58,35 @@ SelectorStatus AllReduceAutoSelector::SelectCcuMsAlgo(TopoInfoWithNetLayerDetail
     return SelectorStatus::MATCH;
 }
 
+SelectorStatus AllReduceAutoSelector::SelectMeshUBXAlgo(TopoInfoWithNetLayerDetails* topoInfo, std::string &selectAlgName) const
+{
+    // UBX机型
+    bool isMeshNumEqualToClosNum = false;
+    bool isClosNumMultipleOfMeshNum = false;
+    CHK_PRT_RET(CheckMeshNumEqualToClosNum(topoInfo, isMeshNumEqualToClosNum) != HCCL_SUCCESS,
+        HCCL_ERROR("[Algo][AllReduceAutoSelector] CheckMeshNumEqualToClosNum failed."), SelectorStatus::NOT_MATCH);
+    CHK_PRT_RET(CheckClosNumMultipleOfMeshNum(topoInfo, isClosNumMultipleOfMeshNum) != HCCL_SUCCESS,
+        HCCL_ERROR("[Algo][AllReduceAutoSelector] CheckClosNumMultipleOfMeshNum failed."), SelectorStatus::NOT_MATCH);
+    if (isMeshNumEqualToClosNum && topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO) {
+        // 4P mesh
+        if (IsSmallData(dataSize)) {
+            // 小数据量，用1d mesh算法
+            selectAlgName = "CcuAllReduceMesh1D";
+        } else {
+            // 大数据量，用mesh+clos并行算法
+            selectAlgName = "CcuAllReduceConcurrentMs";
+        }
+    } else if (isClosNumMultipleOfMeshNum && !IsSmallData(dataSize)) {
+        HCCL_WARNING("[Algo][%s] MESH_1D_CLOS not match.", __func__);
+        return SelectorStatus::NOT_MATCH;
+    } else {
+        selectAlgName = "CcuAllReduceMesh1D";
+    }
+
+    HCCL_INFO("[AllReduceAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
+    return SelectorStatus::MATCH;
+}                                                
+
 SelectorStatus AllReduceAutoSelector::SelectMeshAlgo(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
                                                     std::string &selectAlgName) const
 {
@@ -99,28 +128,7 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgo(TopoInfoWithNetLayerDetails
             return SelectorStatus::NOT_MATCH;
         }
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-        // UBX机型
-        bool isMeshNumEqualToClosNum = false;
-        bool isClosNumMultipleOfMeshNum = false;
-        CHK_PRT_RET(CheckMeshNumEqualToClosNum(topoInfo, isMeshNumEqualToClosNum) != HCCL_SUCCESS,
-            HCCL_ERROR("[Algo][AllReduceAutoSelector] CheckMeshNumEqualToClosNum failed."), SelectorStatus::NOT_MATCH);
-        CHK_PRT_RET(CheckClosNumMultipleOfMeshNum(topoInfo, isClosNumMultipleOfMeshNum) != HCCL_SUCCESS,
-            HCCL_ERROR("[Algo][AllReduceAutoSelector] CheckClosNumMultipleOfMeshNum failed."), SelectorStatus::NOT_MATCH);
-        if (isMeshNumEqualToClosNum && topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO) {
-            // 4P mesh
-            if (IsSmallData(dataSize)) {
-                // 小数据量，用1d mesh算法
-                selectAlgName = "CcuAllReduceMesh1D";
-            } else {
-                // 大数据量，用mesh+clos并行算法
-                selectAlgName = "CcuAllReduceConcurrentMs";
-            }
-        } else if (isClosNumMultipleOfMeshNum && !IsSmallData(dataSize)) {
-            HCCL_WARNING("[Algo][%s] MESH_1D_CLOS not match.", __func__);
-            return SelectorStatus::NOT_MATCH;
-        } else {
-            selectAlgName = "CcuAllReduceMesh1D";
-        }
+        return SelectMeshUBXAlgo(topoInfo, selectAlgName);
     } else {
         HCCL_WARNING("[Algo][AllReduceAutoSelector] level0Topo[%u] is not supported yet.", topoInfo->level0Topo);
         return SelectorStatus::NOT_MATCH;
@@ -174,6 +182,36 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetLayer
     return SelectorStatus::MATCH;
 }
 
+SelectorStatus AllReduceAutoSelector::SelectCcuScheduleLevel0UBXAlgo(TopoInfoWithNetLayerDetails* topoInfo, std::string &selectAlgName) const
+{
+    // UBX机型
+    bool isMeshNumEqualToClosNum = false;
+    bool isClosNumMultipleOfMeshNum = false;
+    CHK_PRT_RET(CheckMeshNumEqualToClosNum(topoInfo, isMeshNumEqualToClosNum) != HCCL_SUCCESS,
+        HCCL_ERROR("[Algo][AllReduceAutoSelector] CheckMeshNumEqualToClosNum failed."), SelectorStatus::NOT_MATCH);
+    CHK_PRT_RET(CheckClosNumMultipleOfMeshNum(topoInfo, isClosNumMultipleOfMeshNum) != HCCL_SUCCESS,
+        HCCL_ERROR("[Algo][AllReduceAutoSelector] CheckClosNumMultipleOfMeshNum failed."), SelectorStatus::NOT_MATCH);
+    if (isMeshNumEqualToClosNum && topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO) {
+        // 4P mesh
+        if (IsSmallData(dataSize)) {
+            // 小数据量，用1d mesh算法
+            selectAlgName = "CcuAllReduceMesh1DMem2Mem";
+        } else {
+            // 大数据量，用mesh+clos并行算法
+            selectAlgName = "CcuAllReduceConcurrentSche";
+        }
+    } else if(isClosNumMultipleOfMeshNum && !IsSmallData(dataSize)) {
+        // 矩形场景大数据量，用2d并行算法
+        selectAlgName = "CcuAllReduceParallelNHR1DMutiJetty";
+    } else {
+        // 其他场景，用1d NHR算法
+        selectAlgName = "CcuAllReduceNHR1DMem2MemMultiJetty";
+    }
+
+    HCCL_INFO("[AllReduceAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
+    return SelectorStatus::MATCH;
+}
+
 SelectorStatus SelectCcuScheduleLevel0Algo(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
                                  std::string &selectAlgName) const
 {
@@ -206,29 +244,7 @@ SelectorStatus SelectCcuScheduleLevel0Algo(TopoInfoWithNetLayerDetails* topoInfo
         }
         return SelectorStatus::MATCH;
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-        // UBX机型
-        bool isMeshNumEqualToClosNum = false;
-        bool isClosNumMultipleOfMeshNum = false;
-        CHK_PRT_RET(CheckMeshNumEqualToClosNum(topoInfo, isMeshNumEqualToClosNum) != HCCL_SUCCESS,
-            HCCL_ERROR("[Algo][AllReduceAutoSelector] CheckMeshNumEqualToClosNum failed."), SelectorStatus::NOT_MATCH);
-        CHK_PRT_RET(CheckClosNumMultipleOfMeshNum(topoInfo, isClosNumMultipleOfMeshNum) != HCCL_SUCCESS,
-            HCCL_ERROR("[Algo][AllReduceAutoSelector] CheckClosNumMultipleOfMeshNum failed."), SelectorStatus::NOT_MATCH);
-        if (isMeshNumEqualToClosNum && topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO) {
-            // 4P mesh
-            if (IsSmallData(dataSize)) {
-                // 小数据量，用1d mesh算法
-                selectAlgName = "CcuAllReduceMesh1DMem2Mem";
-            } else {
-                // 大数据量，用mesh+clos并行算法
-                selectAlgName = "CcuAllReduceConcurrentSche";
-            }
-        } else if(isClosNumMultipleOfMeshNum && !IsSmallData(dataSize)) {
-            // 矩形场景大数据量，用2d并行算法
-            selectAlgName = "CcuAllReduceParallelNHR1DMutiJetty";
-        } else {
-            // 其他场景，用1d NHR算法
-            selectAlgName = "CcuAllReduceNHR1DMem2MemMultiJetty";
-        }
+        return SelectCcuScheduleLevel0UBXAlgo(topoInfo, selectAlgName);
     } else {
         HCCL_WARNING("[Algo][AllReduceAutoSelector] level0Topo[%d] is not supported yet for ccu schedule mode.",
             topoInfo->level0Topo);
@@ -269,6 +285,35 @@ SelectorStatus AllReduceAutoSelector::SelectAicpuAlgo(TopoInfoWithNetLayerDetail
     return SelectorStatus::MATCH;
 }
 
+SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpuUBX(TopoInfoWithNetLayerDetails* topoInfo, std::string &selectAlgName) const
+{
+    // UBX机型
+    bool isMeshNumEqualToClosNum = false;
+    bool isClosNumMultipleOfMeshNum = false;
+    CHK_PRT_RET(CheckMeshNumEqualToClosNum(topoInfo, isMeshNumEqualToClosNum) != HCCL_SUCCESS,
+        HCCL_ERROR("[Algo][AllReduceAutoSelector] CheckMeshNumEqualToClosNum failed."), SelectorStatus::NOT_MATCH);
+    CHK_PRT_RET(CheckClosNumMultipleOfMeshNum(topoInfo, isClosNumMultipleOfMeshNum) != HCCL_SUCCESS,
+        HCCL_ERROR("[Algo][AllReduceAutoSelector] CheckClosNumMultipleOfMeshNum failed."), SelectorStatus::NOT_MATCH);
+    if (isMeshNumEqualToClosNum && topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO) {
+        // 4P mesh
+        if (dataSize <= AR_AICPU_1D_SMALL_DATA_SIZE) {
+            selectAlgName = "InsAllReduceMesh1DOneShot";
+        } else {
+            // 大数据量，用mesh+clos并行算法
+            selectAlgName = "InsAllReduceConcurrent";
+        }
+    } else if(isClosNumMultipleOfMeshNum && !IsSmallData(dataSize)) {
+        // 矩形场景大数据量，用2d并行算法
+        selectAlgName = "InsAllReduceParallelMesh1DNHR";
+    } else {
+        // 其他场景，用1d NHR算法
+        selectAlgName = "InsAllReduceNHR";
+    }
+
+    HCCL_INFO("[AllReduceAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
+    return SelectorStatus::MATCH;
+}
+
 SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpu(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
                                                           std::string &selectAlgName) const
 {
@@ -298,28 +343,7 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpu(TopoInfoWithNetLayerDe
     } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
         selectAlgName = "InsAllReduceNHR";
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-        // UBX机型
-        bool isMeshNumEqualToClosNum = false;
-        bool isClosNumMultipleOfMeshNum = false;
-        CHK_PRT_RET(CheckMeshNumEqualToClosNum(topoInfo, isMeshNumEqualToClosNum) != HCCL_SUCCESS,
-            HCCL_ERROR("[Algo][AllReduceAutoSelector] CheckMeshNumEqualToClosNum failed."), SelectorStatus::NOT_MATCH);
-        CHK_PRT_RET(CheckClosNumMultipleOfMeshNum(topoInfo, isClosNumMultipleOfMeshNum) != HCCL_SUCCESS,
-            HCCL_ERROR("[Algo][AllReduceAutoSelector] CheckClosNumMultipleOfMeshNum failed."), SelectorStatus::NOT_MATCH);
-        if (isMeshNumEqualToClosNum && topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO) {
-            // 4P mesh
-            if (dataSize <= AR_AICPU_1D_SMALL_DATA_SIZE) {
-                selectAlgName = "InsAllReduceMesh1DOneShot";
-            } else {
-                // 大数据量，用mesh+clos并行算法
-                selectAlgName = "InsAllReduceConcurrent";
-            }
-        } else if(isClosNumMultipleOfMeshNum && !IsSmallData(dataSize)) {
-            // 矩形场景大数据量，用2d并行算法
-            selectAlgName = "InsAllReduceParallelMesh1DNHR";
-        } else {
-            // 其他场景，用1d NHR算法
-            selectAlgName = "InsAllReduceNHR";
-        }
+        return SelectMeshAlgoAicpuUBX(topoInfo, selectAlgName);
     } else {
         HCCL_WARNING("[AllReduceAutoSelector] topo not match");
         return SelectorStatus::NOT_MATCH;
