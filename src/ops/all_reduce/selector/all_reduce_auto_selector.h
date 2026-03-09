@@ -41,6 +41,8 @@ private:
         const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap, std::string &selectAlgName) const;
     SelectorStatus SelectMeshAlgoAicpuUBX(const TopoInfoWithNetLayerDetails* topoInfo,
         std::string &selectAlgName) const;
+    SelectorStatus SelectMeshUBXAlgo(const TopoInfoWithNetLayerDetails* topoInfo, std::string &selectAlgName, 
+        u64 dataSize) const;
 };
 
 } // namespace ops_hccl

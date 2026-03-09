@@ -122,7 +122,7 @@ SelectorStatus ScatterAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDeta
                                                   std::string &selectAlgName) const
 {
     (void)opParam;
-    (void)configAlgMap
+    (void)configAlgMap;
     HCCL_DEBUG("[ScatterAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
 
     selectAlgName = "AivScatterMesh1D";
