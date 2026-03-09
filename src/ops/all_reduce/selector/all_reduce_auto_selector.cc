@@ -58,7 +58,7 @@ SelectorStatus AllReduceAutoSelector::SelectCcuMsAlgo(TopoInfoWithNetLayerDetail
     return SelectorStatus::MATCH;
 }
 
-SelectorStatus AllReduceAutoSelector::SelectMeshUBXAlgo(TopoInfoWithNetLayerDetails* topoInfo, std::string &selectAlgName) const
+SelectorStatus AllReduceAutoSelector::SelectMeshUBXAlgo(TopoInfoWithNetLayerDetails* topoInfo, std::string &selectAlgName, u64 dataSize) const
 {
     // UBX机型
     bool isMeshNumEqualToClosNum = false;
@@ -128,7 +128,7 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgo(TopoInfoWithNetLayerDetails
             return SelectorStatus::NOT_MATCH;
         }
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-        return SelectMeshUBXAlgo(topoInfo, selectAlgName);
+        return SelectMeshUBXAlgo(topoInfo, selectAlgName, dataSize);
     } else {
         HCCL_WARNING("[Algo][AllReduceAutoSelector] level0Topo[%u] is not supported yet.", topoInfo->level0Topo);
         return SelectorStatus::NOT_MATCH;
@@ -176,13 +176,14 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetLayer
             return SelectorStatus::NOT_MATCH;
         }
     } else {
-        return SelectCcuScheduleLevel0Algo(topoInfo, opParam, selectAlgName);
+        return SelectCcuScheduleLevel0Algo(topoInfo, opParam, selectAlgName, dataSize);
     }
     HCCL_INFO("[AllReduceAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
     return SelectorStatus::MATCH;
 }
 
-SelectorStatus AllReduceAutoSelector::SelectCcuScheduleLevel0UBXAlgo(TopoInfoWithNetLayerDetails* topoInfo, std::string &selectAlgName) const
+SelectorStatus AllReduceAutoSelector::SelectCcuScheduleLevel0UBXAlgo(TopoInfoWithNetLayerDetails* topoInfo, 
+    std::string &selectAlgName, u64 dataSize) const
 {
     // UBX机型
     bool isMeshNumEqualToClosNum = false;
@@ -213,7 +214,7 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleLevel0UBXAlgo(TopoInfoWit
 }
 
 SelectorStatus SelectCcuScheduleLevel0Algo(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
-                                 std::string &selectAlgName) const
+                                 std::string &selectAlgName, u64 dataSize) const
 {
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
         // 性能优化改用MS做reduce后不支持int8
@@ -244,7 +245,7 @@ SelectorStatus SelectCcuScheduleLevel0Algo(TopoInfoWithNetLayerDetails* topoInfo
         }
         return SelectorStatus::MATCH;
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-        return SelectCcuScheduleLevel0UBXAlgo(topoInfo, selectAlgName);
+        return SelectCcuScheduleLevel0UBXAlgo(topoInfo, selectAlgName, dataSize);
     } else {
         HCCL_WARNING("[Algo][AllReduceAutoSelector] level0Topo[%d] is not supported yet for ccu schedule mode.",
             topoInfo->level0Topo);

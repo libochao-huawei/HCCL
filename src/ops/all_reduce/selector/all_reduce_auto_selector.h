@@ -24,22 +24,22 @@ private:
                                  const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                  std::string &selectAlgName) const override;
     SelectorStatus SelectCcuScheduleLevel0Algo(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
-                                 std::string &selectAlgName) const;
-    SelectorStatus AllReduceAutoSelector::SelectCcuScheduleLevel0UBXAlgo(TopoInfoWithNetLayerDetails* topoInfo, 
-        std::string &selectAlgName) const;
+                                 std::string &selectAlgName, u64 dataSize) const;
+    SelectorStatus SelectCcuScheduleLevel0UBXAlgo(TopoInfoWithNetLayerDetails* topoInfo, 
+        std::string &selectAlgName, u64 dataSize) const;
     SelectorStatus SelectAicpuAlgo(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
                                    const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                    std::string                                 &selectAlgName) const override;
     SelectorStatus SelectMeshAlgo(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
                                   std::string &selectAlgName) const;
-    SelectorStatus AllReduceAutoSelector::SelectMeshUBXAlgo(TopoInfoWithNetLayerDetails* topoInfo, 
-        std::string &selectAlgName) const;
+    SelectorStatus SelectMeshUBXAlgo(TopoInfoWithNetLayerDetails* topoInfo, std::string &selectAlgName, 
+        u64 dataSize) const;
     SelectorStatus SelectAivAlgo(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam, const std::map<HcclCMDType, 
                                  std::vector<HcclAlgoType>> &configAlgMap, std::string &selectAlgName) const override;
     SelectorStatus SelectMeshAlgoAicpu(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
                                        std::string &selectAlgName) const;
-    SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpuUBX(TopoInfoWithNetLayerDetails* topoInfo, 
-        std::string &selectAlgName) const;
+    SelectorStatus SelectMeshAlgoAicpuUBX(TopoInfoWithNetLayerDetails* topoInfo, 
+        std::string &selectAlgName, u64 dataSize) const;
 };
 
 } // namespace ops_hccl
