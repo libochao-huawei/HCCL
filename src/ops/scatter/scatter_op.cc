@@ -183,7 +183,10 @@ bool IsAiCpuMode(DevType deviceType, u32 rankSize)
 HcclResult ScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType, uint32_t root,
     HcclComm comm, aclrtStream stream, const std::string &tag)
 {
-    uint64_t beginTime = HcommGetProfilingSysCycleTime();
+    uint64_t beginTime;
+    if (GetHcommVersion() >= 90000000) {
+        beginTime = HcommGetProfilingSysCycleTime();
+    }
     u32 userRankSize;
     CHK_RET(HcclGetRankSize(comm, &userRankSize));
 
