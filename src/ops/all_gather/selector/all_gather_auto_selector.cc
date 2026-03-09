@@ -74,6 +74,8 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleUBXAlgo(
     const TopoInfoWithNetLayerDetails *topoInfo, const u64 dataSize, std::string &selectAlgName) const 
 {
     // UBX机型
+    u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
+    u64 dataSize = opParam.DataDes.count * perDataSize;
     bool isMeshNumEqualToClosNum = false;
     bool isClosNumMultipleOfMeshNum = false;
     CHK_PRT_RET(CheckMeshNumEqualToClosNum(topoInfo, isMeshNumEqualToClosNum) != HCCL_SUCCESS,
