@@ -344,7 +344,7 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpu(TopoInfoWithNetLayerDe
     } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
         selectAlgName = "InsAllReduceNHR";
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-        return SelectMeshAlgoAicpuUBX(topoInfo, selectAlgName);
+        return SelectMeshAlgoAicpuUBX(topoInfo, dataSize, selectAlgName);
     } else {
         HCCL_WARNING("[AllReduceAutoSelector] topo not match");
         return SelectorStatus::NOT_MATCH;
