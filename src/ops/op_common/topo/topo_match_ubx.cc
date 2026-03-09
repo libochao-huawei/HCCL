@@ -124,8 +124,8 @@ HcclResult TopoMatchUBX::CheckVecElementAllSame(uint32_t *instSizeList, uint32_t
 HcclResult TopoMatchUBX::MatchTopo(const HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo, AlgHierarchyInfoForAllLevel& algHierarchyInfo)
 {
 #ifndef AICPU_COMPILE
-    constexpr uint32_t EXPECTED_TOPO_LEVEL_NUM = 2;
-    CHK_PRT_RET(topoInfo->topoLevelNums == 0 || topoInfo->topoLevelNums > EXPECTED_TOPO_LEVEL_NUM,
+    constexpr uint32_t EXPECTED_TOPO_LEVEL_NUM_2 = 2;
+    CHK_PRT_RET(topoInfo->topoLevelNums == 0 || topoInfo->topoLevelNums > EXPECTED_TOPO_LEVEL_NUM_2,
         HCCL_ERROR("[CalcTopoLevelNums] topoLevelNum[%u] is invalid.",
             topoInfo->topoLevelNums),
         HCCL_E_INTERNAL);

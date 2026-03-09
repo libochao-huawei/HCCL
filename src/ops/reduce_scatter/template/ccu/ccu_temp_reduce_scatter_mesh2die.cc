@@ -36,7 +36,7 @@ u64 CcuTempReduceScatterMesh2Die::CalcScratchMultiple(BufferType inBuffType, Buf
 {
     (void)inBuffType;
     (void)outBuffType;
-    return ScratchMultipleCount;
+    return SCRATCH_MULTIPLE_COUNT_2;
 }
 
 HcclResult CcuTempReduceScatterMesh2Die::CalcRes(HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
