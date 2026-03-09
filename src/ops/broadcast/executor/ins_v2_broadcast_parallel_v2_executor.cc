@@ -303,7 +303,6 @@ void InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
     dataParams.buffInfo.hcclBuffBaseOff = scratchOffsetCount * dataTypeSize_;
     dataParams.buffInfo.inBuffBaseOff = dataParams.buffInfo.inBuffType == BufferType::HCCL_BUFFER ? dataParams.buffInfo.hcclBuffBaseOff : dataOffset;
     dataParams.buffInfo.outBuffBaseOff = dataParams.buffInfo.outBuffType == BufferType::HCCL_BUFFER ? dataParams.buffInfo.hcclBuffBaseOff : dataOffset;
-
     GenDataParamsAllRank(sliceCount, LocalRankSize, dataParams);
     dataParams.repeatNum = 1;
     dataParams.inputRepeatStride = 0;
@@ -421,7 +420,7 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
         sliceCount = std::min(static_cast<u64>(float(scratchCount) / multiple), sliceCountUB0);
         sliceCount = std::min(sliceCount, dataCount_);
     }
-    HCCL_DEBUG("[InsBroadcastParallelExecutor][GenInsQues] dataCount_[%d], myRank_[%d], sliceCountUB[%d], sliceCountUB0[%d], sliceCount[%d]",
+    HCCL_DEBUG("[InsBroadcastParallelExecutor][GenInsQues] dataCount_[%lu], myRank_[%d], sliceCountUB[%d], sliceCountUB0[%d], sliceCount[%d]",
               dataCount_, myRank_, sliceCountUB, sliceCountUB0, sliceCount);
 
     u64 sliceCountPart0 = static_cast<u64>(float(sliceCount) * dataSplitSize.at(0));
@@ -442,7 +441,7 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     u64 scratchOffsetCountInterStage0 = sliceCountPart0 * multipleIntra;
     u64 scratchOffsetCountInterStage1 = 0;
     u64 scratchOffsetCountIntraStage1 = sliceCountPart0 * multipleInter;
-    HCCL_DEBUG("[InsBroadcastParallelExecutor][GenInsQues] dataCount_[%d], myRank_[%d], sliceCountPart0[%d], multipleIntra[%d]",
+    HCCL_DEBUG("[InsBroadcastParallelExecutor][GenInsQues] dataCount_[%lu], myRank_[%d], sliceCountPart0[%d], multipleIntra[%d]",
               dataCount_, myRank_, sliceCountPart0, multipleIntra);
     HCCL_DEBUG("[InsBroadcastParallelExecutor][GenInsQues] myRank_[%d],scratchOffsetCountInterStage0[%d], scratchOffsetCountIntraStage1[%d]",
                myRank_, scratchOffsetCountInterStage0, scratchOffsetCountIntraStage1);
@@ -468,6 +467,8 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 
         // 第一步开始前同步
         CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
+        HCCL_DEBUG("[InsBroadcastParallelExecutor][GenInsQues] RunTemplateInter1 myRank_[%d], dataOffset0[%d], currCountPart0[%d], loopTimes[%d]",
+                   myRank_, dataOffset0, currCountPart0, loopTimes);
         HCCL_DEBUG("[InsBroadcastParallelExecutor][GenInsQues] RunTemplateInter1 myRank_[%d], dataOffset1[%d], currCountPart1[%d], scratchOffsetCountInterStage0[%d]",
                    myRank_, dataOffset1, currCountPart1, scratchOffsetCountInterStage0);
         RunTemplateIntra0(param, resCtx, dataOffset0, currCountPart0, scratchOffsetCountIntraStage0, tempAlgParamsIntra0, intraTempAlgRes, tempAlgIntra);
@@ -619,6 +620,8 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
         //数据0的server内的mesh算法
         GenDataParamsBufferType(BufferType::HCCL_BUFFER, BufferType::INPUT, BufferType::HCCL_BUFFER, dataParams);
         GenDataParamstempAlg(param, resCtx, dataOffset, currCountPart, scratchOffsetCount, dataParams, intraLocalRankSize_);
+        HCCL_DEBUG("[InsBroadcastParallelExecutor][RunTemplateIntra01] dataOffset[%d], myRank_[%d], inBuffBaseOff[%d], outBuffBaseOff[%d], hcclBuffBaseOff[%d]",
+            dataOffset, myRank_, dataParams.buffInfo.inBuffBaseOff, dataParams.buffInfo.outBuffBaseOff, dataParams.buffInfo.hcclBuffBaseOff);
         CHK_RET(tempAlgIntra1.KernelRun(param, dataParams, templateResource));
         }
     return HcclResult::HCCL_SUCCESS;
