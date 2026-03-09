@@ -111,7 +111,7 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleLevel0Algo(
         }
         return SelectorStatus::MATCH;
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-        return SelectCcuScheduleUBXAlgo(topoInfo, selectAlgName, dataSize);
+        return SelectCcuScheduleUBXAlgo(topoInfo, opParam, selectAlgName, dataSize);
     } else {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             if (topoInfo->is2DieFullMesh) {
