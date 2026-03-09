@@ -66,6 +66,7 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::GetDieNumFromChannelDescs(HcclComm comm
         HCCL_ERROR("[CcuTempAllGatherNHR1DMem2Mem::CalcRes] get channelDescs fail: there are [] link to rank []",
                    firstVector.size(), firstElement->first);
         return HcclResult::HCCL_E_INTERNAL;
+        
     }
 }
 
