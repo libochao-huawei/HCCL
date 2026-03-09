@@ -45,7 +45,7 @@ namespace ops_hccl {
 HcclResult HcclExecOpGraphMode(HcclComm comm, OpParam &param,
                       std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo, std::string &algName, const ResPackGraphMode &resPack)
 {
-    HCCL_INFO("Start to execute HcclExecOp.");
+    HCCL_INFO("Start to execute HcclExecOpGraphMode.");
     param.hcclComm = comm;
     // 在原先的commName中添加执行模式，得到commModeTag
     bool isOpBase = true;
@@ -143,7 +143,7 @@ HcclResult HcclGetRemoteBuffGraphMode(HcclComm comm, ChannelHandle channel, cons
 HcclResult HcclGetAlgResGraphMode(HcclComm comm, OpParam& param, std::shared_ptr<InsCollAlgBase>& executor, TopoInfoWithNetLayerDetails* topoInfo,
                          std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, void** resCtxSequence, bool &isResourceReused)
 {
-    HCCL_INFO("Start to execute HcclGetAlgRes.");
+    HCCL_INFO("Start to execute HcclGetAlgResGraphMode.");
 
     bool increCreateChannelFlag = false;
     uint64_t size = 0;

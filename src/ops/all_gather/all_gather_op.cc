@@ -202,7 +202,7 @@ HcclResult AllGatherOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount, H
 HcclResult AllGatherOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
                                       aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack)
 {
-    HCCL_INFO("Start to execute AllGatherOutPlace");
+    HCCL_INFO("Start to execute AllGatherOutPlaceGraphMode");
     u32 userRankSize;
     CHK_RET(HcclGetRankSize(comm, &userRankSize));
 
@@ -245,6 +245,7 @@ HcclResult AllGatherOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t sen
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName, opExecuteConfig));
     CHK_RET(HcclExecOpGraphMode(comm, param, topoInfo, algName, resPack));
+    HCCL_INFO("Execute AllGatherOutPlaceGraphMode success.");
     return HCCL_SUCCESS;
 }
 
