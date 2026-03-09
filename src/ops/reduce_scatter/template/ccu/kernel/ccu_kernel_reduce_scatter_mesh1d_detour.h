@@ -79,8 +79,9 @@ public:
     HcclResult Algorithm() override;
     std::vector<uint64_t> GeneArgs(const CcuTaskArg &arg) override;
 private:
-    void CreateMultiOpReduceDetour(HcclDataType &dataType, HcclDataType &outputDataType, HcclReduceOp &opType);
-    void GroupReduceDetour(std::vector<CcuRep::Memory> &src, std::vector<CcuRep::Memory> &dst,
+    void AllocGoResourceDetour();
+    HcclResult CreateMultiOpReduceDetour(HcclDataType &dataType, HcclDataType &outputDataType, HcclReduceOp &opType);
+    HcclResult GroupReduceDetour(std::vector<CcuRep::Memory> &src, std::vector<CcuRep::Memory> &dst,
         HcclDataType &dataType, HcclDataType &outputDataType, HcclReduceOp &opType);
 
     uint64_t rankSize_{0};
