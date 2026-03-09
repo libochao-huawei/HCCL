@@ -34,6 +34,10 @@ static mutex g_mut;
 static aclrtBinHandle g_binHandle;
 static std::unordered_map<s8*, aclrtFuncHandle> g_aivFuncMap;
 
+thread_local std::shared_ptr<InsQueue> g_recordingQueue = nullptr;
+thread_local u64 g_baseInputAddr = 0;
+thread_local u64 g_baseOutputAddr = 0;
+
 using AivExtraKernelArgs = struct AivExtraKernelArgsDef {
     const void* buffersIn; // 注册的CCLIN地址，所有卡可访问
     u64 input;
@@ -248,6 +252,26 @@ HcclResult ExecuteKernelLaunchInner(const AivOpArgs &opArgs, void* args, u32 arg
 // Kernel单次调用Launch外部接口
 HcclResult ExecuteKernelLaunch(const AivOpArgs &opArgs)
 {
+    // Recording Logic
+    if (g_recordingQueue) {
+        AivInstruction ins;
+        ins.opArgs = opArgs;
+        // Calculate offsets
+        // Note: opArgs.input is absolute address.
+        if (opArgs.input >= g_baseInputAddr) {
+             ins.inputOffset = opArgs.input - g_baseInputAddr;
+        } else {
+             ins.inputOffset = 0;
+        }
+        
+        if (opArgs.output >= g_baseOutputAddr) {
+             ins.outputOffset = opArgs.output - g_baseOutputAddr;
+        } else {
+             ins.outputOffset = 0;
+        }
+        g_recordingQueue->push_back(ins);
+    }
+
     AivExtraKernelArgs aivExtraKernelArgs {
         opArgs.buffersIn, opArgs.input, opArgs.output,
         opArgs.rank, opArgs.rankSize, opArgs.xRankSize, opArgs.yRankSize, opArgs.zRankSize, opArgs.count, opArgs.dataType, opArgs.op, opArgs.root, opArgs.aivCountTag,
