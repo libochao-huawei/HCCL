@@ -241,8 +241,8 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     u64 temp1SlaveThreadNum = 0;
 
     if (param.engine == CommEngine::COMM_ENGINE_CCU) {
-        constexpr u32 EXPECTED_CCU_KERNEL_NUM = 2;
-        CHK_PRT_RET(resCtx.ccuKernels.size() != EXPECTED_CCU_KERNEL_NUM,
+        constexpr u32 EXPECTED_CCU_KERNEL_NUM_2 = 2;
+        CHK_PRT_RET(resCtx.ccuKernels.size() != EXPECTED_CCU_KERNEL_NUM_2,
                     HCCL_ERROR("[%s] resCtx.ccuKernels.size[%zu] is not %u.", __func__, resCtx.ccuKernels.size(), EXPECTED_CCU_KERNEL_NUM),
                     HcclResult::HCCL_E_INTERNAL);
         // CCU模式
