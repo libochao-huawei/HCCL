@@ -176,7 +176,7 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNe
             return SelectorStatus::NOT_MATCH;
         }
     } else {
-        return SelectCcuScheduleLevel0Algo(topoInfo, opParam, selectAlgName, dataSize);
+        return SelectCcuScheduleLevel0Algo(topoInfo, selectAlgName, dataSize);
     }
     HCCL_INFO("[AllReduceAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
     return SelectorStatus::MATCH;
