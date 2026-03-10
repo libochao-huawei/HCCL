@@ -28,6 +28,7 @@ SelectorStatus AllGatherAutoSelector::SelectCcuMsAlgo(
     } else {
         return SelectMeshAlgo(topoInfo, opParam, selectAlgName);
     }
+    HCCL_DEBUG("[AllGatherAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
     return SelectorStatus::MATCH;
 }
 
