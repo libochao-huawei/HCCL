@@ -58,13 +58,8 @@ HcclResult InsTempReduceScatterMesh1D::KernelRun(const OpParam& param,
     }
     threadNum_ = templateResource.threads.size();
     dataType_ = param.DataDes.dataType;
-    if (myAlgRank == templateRankSize_ - 1 && tempAlgParams.tailSize > 0) {
-        processSize_ = tempAlgParams.tailSize;
-        count_ = tempAlgParams.tailSize / DATATYPE_SIZE_TABLE[dataType_];
-    } else {
-        processSize_ = tempAlgParams.sliceSize;
-        count_ = tempAlgParams.sliceSize / DATATYPE_SIZE_TABLE[dataType_];
-    }
+    processSize_ = tempAlgParams.sliceSize;
+    count_ = tempAlgParams.sliceSize / DATATYPE_SIZE_TABLE[dataType_];
     HCCL_INFO("[InsTempReduceScatterMesh1D] Run Start");
     if (threadNum_ > 1) {
         std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
@@ -134,9 +129,9 @@ HcclResult InsTempReduceScatterMesh1D::RunReduceScatter(
         CHK_RET(static_cast<HcclResult>(LocalCopy(threads[0], srcSlice, dstSlice)));
     }
 
-    u64 sliceSize = processSize_;
-    u64 sliceCount = count_;
     for (u32 queIdx = 1; queIdx < threadNum_; queIdx++) {
+        u64 sliceSize = processSize_;
+        u64 sliceCount = count_;
         u32 nextRank = (myAlgRank + queIdx) % templateRankSize_; // 这里取的虚拟rankId
         if (nextRank == templateRankSize_ - 1 && tempAlgParam.tailSize > 0) {
             sliceSize = tempAlgParam.tailSize;
