@@ -78,10 +78,10 @@ HcclResult InsTempReduceScatterNHR::LocalDataCopy(const std::vector<ThreadHandle
 {
     CHK_PRT_RET(threads.empty(),
         HCCL_ERROR("[InsTempReduceScatterNHR][LocalDataCopy] empty threads"), HcclResult::HCCL_E_INTERNAL);
-    u64 sliceSize = tempAlgParams_.sliceSize;
     ThreadHandle q = threads[0];
     const u64 rptNum = std::max<u64>(1, tempAlgParams_.repeatNum);
-    for (u32 localRandId = 0; localRandId < templateRankSize_; ++localRandId) { 
+    for (u32 localRandId = 0; localRandId < templateRankSize_; ++localRandId) {
+        u64 sliceSize = tempAlgParams_.sliceSize;
         if (localRandId == templateRankSize_ - 1 && tempAlgParams_.tailSize > 0) {
             sliceSize = tempAlgParams_.tailSize;
         }
