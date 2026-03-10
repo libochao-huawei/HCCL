@@ -49,6 +49,7 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
     std::string &algName, OpExecuteConfig &opExecuteConfig)
 {
     HCCL_INFO("Start to execute Selector.");
+    param.hcclComm = comm;
     CHK_RET(HcclGetOpExpansionMode(comm, param));
     // 获取基础拓扑
     CHK_RET(HcclCalcTopoInfo(comm, param, topoInfo));
