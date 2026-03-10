@@ -160,6 +160,8 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
     } else {
         return SelectCcuScheduleLevel0Algo(topoInfo, selectAlgName, dataSize);
     }
+    HCCL_DEBUG("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
+    return SelectorStatus::MATCH;
 }
 
 SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
