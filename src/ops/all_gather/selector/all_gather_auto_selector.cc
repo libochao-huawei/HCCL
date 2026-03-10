@@ -70,15 +70,9 @@ SelectorStatus AllGatherAutoSelector::SelectMeshAlgo(const TopoInfoWithNetLayerD
 }
 
 SelectorStatus AllGatherAutoSelector::SelectCcuScheduleUBXAlgo(
-<<<<<<< HEAD
-    const TopoInfoWithNetLayerDetails *topoInfo, std::string &selectAlgName) const 
-=======
-    TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam, std::string &selectAlgName, u64 dataSize) const 
->>>>>>> 2e75354... fix compile fix
+    const TopoInfoWithNetLayerDetails *topoInfo, const u64 dataSize, std::string &selectAlgName) const 
 {
     // UBX机型
-    u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
-    u64 dataSize = opParam.DataDes.count * perDataSize;
     bool isMeshNumEqualToClosNum = false;
     bool isClosNumMultipleOfMeshNum = false;
     CHK_PRT_RET(CheckMeshNumEqualToClosNum(topoInfo, isMeshNumEqualToClosNum) != HCCL_SUCCESS,
@@ -114,7 +108,7 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleLevel0Algo(
         }
         return SelectorStatus::MATCH;
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-        return SelectCcuScheduleUBXAlgo(topoInfo, opParam, selectAlgName, dataSize);
+        return SelectCcuScheduleUBXAlgo(topoInfo, selectAlgName, dataSize);
     } else {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             if (topoInfo->is2DieFullMesh) {
