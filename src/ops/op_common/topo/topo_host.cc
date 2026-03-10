@@ -187,7 +187,7 @@ HcclResult SetSuperPodInfo(HcclComm comm, TopoInfo* topoInfo)
 }
 
 /* 用于标识集群中是否存在A2 A+X形态 */
-bool IsDiffDeviceModule(TopoInfo* topoInfo, const std::unordered_map<u32, u32> &pairLinkCounter)
+bool IsDiffDeviceModule(const TopoInfo* topoInfo, const std::unordered_map<u32, u32> &pairLinkCounter)
 {
     bool isDiffMeshAggregation = false;
     if (topoInfo->deviceType != DevType::DEV_TYPE_910B || topoInfo->userRankSize == 0) {
@@ -328,7 +328,7 @@ HcclResult GetPairLinkCounter(HcclComm comm, TopoInfo* topoInfo, std::unordered_
 }
 
 // 获取当前服务器的startRank
-uint32_t GetCurrentServerStartRank(HcclComm comm, TopoInfo* topoInfo)
+uint32_t GetCurrentServerStartRank(HcclComm comm, const TopoInfo* topoInfo)
 {
     uint32_t rankListNum = 0;
     uint32_t *rankSizeList = nullptr;
@@ -345,7 +345,7 @@ uint32_t GetCurrentServerStartRank(HcclComm comm, TopoInfo* topoInfo)
 }
 
 // 获取当前服务器的EndRank
-uint32_t GetCurrentServerEndRank(HcclComm comm, TopoInfo* topoInfo)
+uint32_t GetCurrentServerEndRank(HcclComm comm, const TopoInfo* topoInfo)
 {
     uint32_t rankListNum = 0;
     uint32_t *rankSizeList = nullptr;
