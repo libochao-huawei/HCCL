@@ -183,7 +183,7 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNe
 }
 
 SelectorStatus AllReduceAutoSelector::SelectCcuScheduleLevel0UBXAlgo(TopoInfoWithNetLayerDetails* topoInfo, 
-    std::string &selectAlgName, u64 dataSize) const
+    std::string &selectAlgName, const u64 dataSize) const
 {
     // UBX机型
     bool isMeshNumEqualToClosNum = false;
@@ -213,7 +213,7 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleLevel0UBXAlgo(TopoInfoWit
     return SelectorStatus::MATCH;
 }
 
-SelectorStatus AllReduceAutoSelector::SelectCcuScheduleLevel0Algo(TopoInfoWithNetLayerDetails* topoInfo, 
+SelectorStatus AllReduceAutoSelector::SelectCcuScheduleLevel0Algo(TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                  std::string &selectAlgName, u64 dataSize) const
 {
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
