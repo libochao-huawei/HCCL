@@ -140,13 +140,8 @@ HcclResult AllGatherVOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount,c
 
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
-<<<<<<< HEAD
     CCHK_RET(Selector(comm, param, topoInfo, algName));
     if (param.opExecuteConfig != OpExecuteConfig::AICPU_TS && param.opExecuteConfig != OpExecuteConfig::HOSTCPU) {
-=======
-    CHK_RET(Selector(comm, param, topoInfo, algName, opExecuteConfig));
-    if (opExecuteConfig != OpExecuteConfig::AICPU_TS && opExecuteConfig != OpExecuteConfig::HOSTCPU) {
->>>>>>> f93490a... opExen fix 2
         return HcclAllGatherVInner(sendBuf, sendCount, recvBuf, recvCounts, recvDispls, dataType, comm, stream);
     }
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName));

@@ -133,17 +133,8 @@ HcclResult ReduceScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCoun
 
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
-<<<<<<< HEAD
     CHK_RET(Selector(comm, param, topoInfo, algName));
-    if (param.opExecuteConfig != OpExecuteConfig::AICPU_TS && opExecuteConfig != OpExecuteConfig::HOSTCPU) {
-=======
-    CHK_RET(Selector(comm, param, topoInfo, algName, opExecuteConfig));
-<<<<<<< HEAD
-    if (opExecuteConfig != OpExecuteConfig::AICPU_TS) {
->>>>>>> 789a2ad... Hybrid comm and selector conflict  fix
-=======
-    if (opExecuteConfig != OpExecuteConfig::AICPU_TS && opExecuteConfig != OpExecuteConfig::HOSTCPU) {
->>>>>>> f93490a... opExen fix 2
+    if (param.opExecuteConfig != OpExecuteConfig::AICPU_TS && param.opExecuteConfig != OpExecuteConfig::HOSTCPU) {
         return HcclReduceScatterInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
     }
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
