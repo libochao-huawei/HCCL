@@ -95,7 +95,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     bool isResourceReused = false;
 
     ThreadHandle cpuTsThread;
-    ThreadHandle exportedAicpuTsThread;
+    ThreadHandle exportedAicpuTsThread{0};
     if (param.engine == COMM_ENGINE_AICPU_TS) {
         CHK_RET(HcclThreadAcquireWithStream(comm, COMM_ENGINE_CPU_TS, param.stream, 1, &cpuTsThread));
         // Export cpuTsThread
@@ -330,7 +330,7 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::shared_ptr<InsCollA
         CHK_RET(GetAlgResAICPU(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence,
                                size, increCreateChannelFlag));
     } else if (param.engine == COMM_ENGINE_AIV) {
-        CHK_RET(GetAlgResAiv(comm, param, resRequest, topoInfo, algHierarchyInfo, resCtxSequence, size));
+        CHK_RET(GetAlgResAiv(comm, param, resRequest, topoInfo, algHierarchyInfo, resCtxSequence));
     } else {
         HCCL_ERROR("fail to get engine.", HCCL_E_PARA);
     }
@@ -535,7 +535,7 @@ HcclResult HcclGetChannel(HcclComm comm, const OpParam &param, AlgResourceReques
 }
 
 HcclResult GetAlgResAiv(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest, TopoInfoWithNetLayerDetails *topoInfo,
-    AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence, uint64_t& ctxSize)
+    AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence)
 {
     uint64_t size = sizeof(AlgResourceCtxSerializable);
     CHK_RET(HcclEngineCtxCreate(comm, param.algTag, CommEngine::COMM_ENGINE_CPU_TS, size, resCtxSequence));
@@ -845,7 +845,6 @@ HcclResult SetOpParamAlgTag(OpParam &param, const std::string &algName)
             param.opType == HcclCMDType::HCCL_CMD_REDUCE ||
             param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER ||
             param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V) {
-            
             const char* reduceType = HCOM_REDUCE_OP_STR_MAP.at(param.reduceType).c_str();
             ret = strcat_s(param.algTag, sizeof(param.algTag), reduceType);
             if (ret != 0) {
@@ -854,7 +853,6 @@ HcclResult SetOpParamAlgTag(OpParam &param, const std::string &algName)
             }
         }
     }
-
     return HcclResult::HCCL_SUCCESS;
 }
 

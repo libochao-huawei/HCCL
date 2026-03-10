@@ -9,21 +9,20 @@
  */
 
 #include <algorithm>
+#include <string>
 #include <future>
 #include <map>
-#include <string>
 #include <hccl/hccl_types.h>
 #include "hccl/base.h"
 #include "sal.h"
-#include "error_codes/rt_error_codes.h"
 #include "mmpa_api.h"
+#include "topo_host.h"
 #include "param_check.h"
 #include "executor_base.h"
-#include "coll_alg_v2_exec_registry.h"
 #include "alg_env_config.h"
 #include "adapter_acl.h"
-#include "topo_host.h"
 #include "adapter_error_manager_pub.h"
+#include "coll_alg_v2_exec_registry.h"
 #include "hccl_inner.h"
 #include "hccl.h"
 #include "config_log.h"
@@ -37,18 +36,19 @@ using namespace std;
 using namespace ops_hccl;
 extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 
-HcclResult HcclAllReduce(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
+HcclResult HcclAllReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType,
     HcclReduceOp op, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("Start to run execute HcclAllReduce");
+
     if (!CheckHCCLIndependentOp() || (GetHcommVersion() < 90000000)) {
-        return HcclAllReduceInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
+        return HcclAllReduceInner(sendBuf, recvBuf, count, dataType, op, comm, stream);
     }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
     // 非95设备转到老流程
     if (deviceType != DevType::DEV_TYPE_910_95) {
-        return HcclAllReduceInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
+        return HcclAllReduceInner(sendBuf, recvBuf, count, dataType, op, comm, stream);
     }
 
     // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
@@ -56,7 +56,7 @@ HcclResult HcclAllReduce(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclD
     CHK_RET(InitEnvConfig());
 
     // 参数校验等工作
-    CHK_PRT_RET(recvCount == 0, HCCL_WARNING("input recvCount is 0, return all reduce success"), HCCL_SUCCESS);
+    CHK_PRT_RET(count == 0, HCCL_WARNING("input count is 0, return all reduce success"), HCCL_SUCCESS);
     CHK_RET(CheckAllReduceInputPara(comm, sendBuf, recvBuf, stream));
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     CHK_RET(HcclGetRankSize(comm, &rankSize));
@@ -67,18 +67,18 @@ HcclResult HcclAllReduce(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclD
     const string tag = "AllReduce_" + string(commName);
     CHK_RET(HcclCheckTag(tag.c_str()));
     CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), tag.c_str());
-    CHK_RET(CheckCount(recvCount));
+    CHK_RET(CheckCount(count));
     CHK_RET(CheckDataType(dataType, true));
 
     // 执行AllReduce
-    CHK_RET_AND_PRINT_IDE(AllReduceOutPlace(sendBuf, recvBuf, recvCount, dataType, op, comm, stream, tag),
+    CHK_RET_AND_PRINT_IDE(AllReduceOutPlace(sendBuf, recvBuf, count, dataType, op, comm, stream, tag),
                           tag.c_str());
 
     return HCCL_SUCCESS;
 }
 
 namespace ops_hccl {
-HcclResult CheckAllReduceInputPara(HcclComm comm, void *sendBuf, void *recvBuf, aclrtStream stream)
+HcclResult CheckAllReduceInputPara(const HcclComm comm, const void* sendBuf, const void* recvBuf, const aclrtStream stream)
 {
     // 入参合法性校验
     RPT_INPUT_ERR(stream == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
