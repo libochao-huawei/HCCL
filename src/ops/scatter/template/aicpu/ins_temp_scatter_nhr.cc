@@ -234,8 +234,8 @@ HcclResult InsTempScatterNHR::BatchSend(AicpuNHRStepInfo &stepInfo, const std::m
                            txId * tempAlgParam.sliceSize;
         curSliceSize = tempAlgParam.tailSize !=0 && txId == templateRankSize_ - 1? tempAlgParam.tailSize : processSize_;
         curCount = curSliceSize / dataTypeSize;
-        DataSlice srcSlice = DataSlice(tempAlgParam.buffInfo.hcclBuff.addr, srcDstOffset, processSize_, count_);
-        DataSlice dstSlice = DataSlice(remoteCclBuffAddr, srcDstOffset, processSize_, count_);
+        DataSlice srcSlice = DataSlice(tempAlgParam.buffInfo.hcclBuff.addr, srcDstOffset, curSliceSize, curCount);
+        DataSlice dstSlice = DataSlice(remoteCclBuffAddr, srcDstOffset, curSliceSize, curCount);
         srcSlices.push_back(srcSlice);
         dstSlices.push_back(dstSlice);
     }
