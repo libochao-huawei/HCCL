@@ -88,8 +88,6 @@ void CompReqChannelWithExistChannel(const std::vector<std::vector<ChannelInfo>>&
 HcclResult HcclMemcpyCtxHostToDevice(HcclComm comm, const OpParam &param,
     std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, void **resCtxSequence, uint64_t& ctxSize);
 
-bool CheckHCCLIndependentOp();
-
 HcclResult SingleRankProc(const OpParam &param);
 
 HcclResult HcclCheckTag(const char *tag);
