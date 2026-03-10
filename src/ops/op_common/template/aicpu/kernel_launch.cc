@@ -193,8 +193,9 @@ namespace ops_hccl{
 
                     //创建新的通信域缓存
                     auto result = commCaches_.emplace(
-                        commName,
-                        CommDomainCache(commName)
+                        std::piecewise_construct,
+                        std::forward_as_tuple(commName),
+                        std::forward_as_tuple(commName)
                     );
                     return &result.first->second;
                 }
