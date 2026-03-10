@@ -123,8 +123,8 @@ SelectorStatus ReduceScatterVAutoSelector::SelectCcuScheduleAlgo(const TopoInfoW
     return SelectorStatus::MATCH;
 }
 
-SelectorStatus ReduceScatterVAutoSelector::SelectMeshAlgoCcuSchedule(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
-    std::string &selectAlgName) const
+SelectorStatus ReduceScatterVAutoSelector::SelectMeshAlgoCcuSchedule(const TopoInfoWithNetLayerDetails* topoInfo,
+    const OpParam &opParam, std::string &selectAlgName) const
 {
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
         if (topoInfo->is2DieFullMesh) {
