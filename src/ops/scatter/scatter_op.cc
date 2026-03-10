@@ -223,30 +223,10 @@ HcclResult ScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, Hcc
     if (deviceType == DevType::DEV_TYPE_910_95) {
         std::string algName;
         std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
-<<<<<<< HEAD
         CHK_RET(Selector(comm, param, topoInfo, algName));
-=======
-        CHK_RET(Selector(comm, param, topoInfo, algName, opExecuteConfig));
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-        if (opExecuteConfig != OpExecuteConfig::AICPU_TS && opExecuteConfig != OpExecuteConfig::HOSTCPU) {
+        if (param.opExecuteConfig != OpExecuteConfig::AICPU_TS && param.opExecuteConfig != OpExecuteConfig::HOSTCPU) {
             return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
         }
->>>>>>> 3ac773b... Hybrid comm and selector fix
-=======
-        if (opExecuteConfig != OpExecuteConfig::AICPU_TS) {
-            return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
-        }
->>>>>>> 84ba048... Hybrid comm and selector fix
-=======
-        if (opExecuteConfig != OpExecuteConfig::AICPU_TS) {
-=======
-        if (opExecuteConfig != OpExecuteConfig::AICPU_TS && opExecuteConfig != OpExecuteConfig::HOSTCPU) {
->>>>>>> f93490a... opExen fix 2
-            return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
-        }
->>>>>>> 789a2ad... Hybrid comm and selector conflict  fix
         CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
     } else {
         CHK_RET(ExecOp(comm, param));  //保留原有A3流程
