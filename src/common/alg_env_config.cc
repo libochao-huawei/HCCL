@@ -799,6 +799,7 @@ const u32 &GetExternalInputIntraRoceSwitch()
 
 const bool &GetExternalInputHcclAicpuUnfold()
 {
+    std::lock_guard<std::mutex> lock(g_algEnvConfigMutex);
     return g_algEnvConfig.aicpuUnfold;
 }
 
