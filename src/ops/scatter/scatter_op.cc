@@ -70,7 +70,7 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
         return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
     }
 
-    if (!RunIndependentOpExpansion(deviceType)) {
+    if (!RunIndependentOpExpansion(deviceType) || (GetHcommVersion() < 90000000)) {
        return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
     }
 
