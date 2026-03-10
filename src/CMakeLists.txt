@@ -44,6 +44,7 @@ set(INCLUDE_LIST
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/template/ccu/kernel
 
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/topo
+    ${CMAKE_CURRENT_SOURCE_DIR}/ops/interface_graph_mode
 
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor
