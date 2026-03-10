@@ -12,14 +12,20 @@
 #include "ins_all_to_all_v_sole_executor.h"
 #ifndef AICPU_COMPILE
 #include "ccu_temp_all_to_all_v_mesh_1D.h"
+#include "ccu_temp_all_to_all_v_mesh2die.h"
+#include "ccu_temp_all_to_all_v_mesh_1D_multi_jetty.h"
 #endif
+
+#define CONST_ZERO 0
+#define CONST_ONE 1
+#define CONST_TWO 2
+#define CONST_THREE 3
 
 namespace ops_hccl {
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::InsAlltoAllVSoleExecutor()
 {
-    
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
@@ -33,23 +39,50 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcAlgHierar
     return HCCL_SUCCESS;
 }
 
+template <typename AlgTopoMatch, typename InsAlgTemplate>
+HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::InitCommInfo(const OpParam& param,
+    const TopoInfoWithNetLayerDetails* topoInfo)
+{
+    myRank_ = topoInfo->userRank;
+    rankSize_ = topoInfo->userRankSize;
+    devType_ = topoInfo->deviceType;
+    dataType_ = param.all2AllVDataDes.sendType;
+    dataTypeSize_ =  SIZE_TABLE[dataType_];
+    dataCount_ = param.DataDes.count;
+    dataSize_ = dataCount_ * dataTypeSize_;
+
+    HCCL_INFO("[InsAlltoAllVSoleExecutor][InitCommInfo] myRank [%u], rankSize [%u], devType [%u], dataType_ [%u], "
+        "dataCount_ [%llu]", myRank_, rankSize_, devType_, dataType_, dataCount_);
+    return HCCL_SUCCESS;
+}
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(HcclComm comm, const OpParam& param,
                        const TopoInfoWithNetLayerDetails* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
                        AlgResourceRequest& resourceRequest)
 {
+    // 初始化一些基本成员变量
+    CHK_RET(InitCommInfo(param, topoInfo));
+
+    std::vector<std::vector<u32>> tempAlgHierachyInfo;
+    if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+        tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[0][1]);    // clos拓扑，包含所有rank
+    } else {
+        tempAlgHierachyInfo = algHierarchyInfo.infos[0];
+    }
+
     // 构建template
     std::shared_ptr<InsAlgTemplate> algTemplate = 
-        std::make_shared<InsAlgTemplate>(param, topoInfo->userRank, algHierarchyInfo.infos[0]);
+        std::make_shared<InsAlgTemplate>(param, topoInfo->userRank, tempAlgHierachyInfo);
     // 调用计算资源的函数
     algTemplate->CalcRes(comm, param, topoInfo, resourceRequest);
+
     return HCCL_SUCCESS;
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::GetAlltoAllLocalSendRecvInfo(
-    const OpParam &param, A2ASendRecvInfo &localSendRecvInfo)
+    const OpParam &param, A2ASendRecvInfo &localSendRecvInfo) const
 {
     HCCL_DEBUG("[GetAlltoAllLocalSendRecvInfo] rank[%u], userRankSize[%u]", myRank_, rankSize_);
     localSendRecvInfo.sendCounts.resize(rankSize_, 0);
@@ -71,22 +104,22 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::GetAlltoAllLo
         u64 val = i / rankSize_;
         u64 curRank = i % rankSize_;
         switch(val) {
-            case 0:
+            case CONST_ZERO:
                 localSendRecvInfo.sendCounts[curRank] = data[i];
                 localSendRecvInfo.sendLength[curRank] = data[i] * dataTypeSize_;
                 HCCL_INFO("data[i]: %u, localSendRecvInfo.sendLength: %u", data[i], localSendRecvInfo.sendLength[curRank]);
                 break;
-            case 1:
+            case CONST_ONE:
                 localSendRecvInfo.recvCounts[curRank] = data[i];
                 localSendRecvInfo.recvLength[curRank] = data[i] * dataTypeSize_;
                 HCCL_INFO("data[i]: %u, localSendRecvInfo.recvLength: %u", data[i], localSendRecvInfo.recvLength[curRank]);
                 break;
-            case 2:
+            case CONST_TWO:
                 localSendRecvInfo.sendDispls[curRank] = data[i];
                 localSendRecvInfo.sendOffset[curRank] = data[i] * dataTypeSize_;
                 HCCL_INFO("data[i]: %u, localSendRecvInfo.sendOffset: %u", data[i], localSendRecvInfo.sendOffset[curRank]);
                 break;
-            case 3:
+            case CONST_THREE:
                 localSendRecvInfo.recvDispls[curRank] = data[i];
                 localSendRecvInfo.recvOffset[curRank] = data[i] * dataTypeSize_;
                 HCCL_INFO("data[i]: %u, localSendRecvInfo.recvOffset: %u", data[i], localSendRecvInfo.recvOffset[curRank]);
@@ -104,10 +137,10 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate(
     const OpParam &param, const AlgResourceCtxSerializable &resCtx)
 {
     HCCL_INFO("[InsAlltoAllVSoleExecutor][Orchestrate] Orchestrate Start");
-    maxTmpMemSize_ = resCtx.cclMem.size; // maxTmpMemSize_设定为cclIn的大小，op中将申请的HcclBuff全给了cclIn
-    rankSize_ = resCtx.topoInfo.userRankSize;
-    dataType_ = param.all2AllVDataDes.sendType;
-    dataTypeSize_ = SIZE_TABLE[dataType_];
+
+    // 初始化一些基本成员变量
+    CHK_RET(InitCommInfo(param, &resCtx.topoInfo));
+
     // 给channels_和threads_赋值
     threads_ = resCtx.threads;
     if (param.engine != CommEngine::COMM_ENGINE_AIV && param.engine != CommEngine::COMM_ENGINE_CCU) {
@@ -123,7 +156,6 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate(
         HCCL_ERROR("[InsAlltoAllVSoleExecutor][Orchestrate]errNo[0x%016llx] All to All excutor kernel run failed",
             HCCL_ERROR_CODE(ret)), ret);
     return HCCL_SUCCESS;
-    return HcclResult::HCCL_SUCCESS;
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
@@ -158,7 +190,7 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLo
     tempAlgParams.buffInfo.hcclBuffBaseOff = 0;
     tempAlgParams.buffInfo.inBuffType = BufferType::INPUT;
     tempAlgParams.buffInfo.outBuffType = BufferType::OUTPUT;
-    tempAlgParams.buffInfo.hcclBuffType     = BufferType::HCCL_BUFFER;
+    tempAlgParams.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
     tempAlgParams.repeatNum = 1;  // 不需要重复
     tempAlgParams.inputRepeatStride = 0;
     tempAlgParams.outputRepeatStride = 0;
@@ -168,9 +200,18 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLo
     return HCCL_SUCCESS;
 }
 
-#ifndef AICPU_COMPILE
 // 第二个参数是All to AllV的template文件
+#ifndef AICPU_COMPILE
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, CcuAlltoAllVMesh1D, InsAlltoAllVSoleExecutor, TopoMatch1D,
     CcuTempAlltoAllVMesh1D);
+
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, CcuAllToAllVMesh2Die, InsAlltoAllVSoleExecutor, TopoMatch1D,
+    CcuTempAlltoAllVMesh2Die);
+
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV,
+                CcuAllToAllVMesh1DMultiJetty,
+                InsAlltoAllVSoleExecutor,
+                TopoMatchUBX,
+                CcuTempAllToAllVMesh1DMultiJetty);
 #endif
 }

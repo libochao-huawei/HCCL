@@ -50,6 +50,7 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
     std::string &algName, OpExecuteConfig &opExecuteConfig)
 {
     HCCL_INFO("Start to execute Selector.");
+    param.hcclComm = comm;
     CHK_RET(HcclGetOpExpansionMode(comm, param));
     // 获取基础拓扑
     CHK_RET(HcclCalcTopoInfo(comm, param, topoInfo));
@@ -76,7 +77,6 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
                       std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo, std::string &algName)
 {
     HCCL_INFO("Start to execute HcclExecOp.");
-    param.hcclComm = comm;
     // 在原先的commName中添加执行模式，得到commModeTag
     bool isOpBase = true;
     const char* opModeStr = isOpBase ? "_opbase" : "_offload";
@@ -97,7 +97,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     bool isResourceReused = false;
 
     ThreadHandle cpuTsThread;
-    ThreadHandle exportedAicpuTsThread;
+    ThreadHandle exportedAicpuTsThread{0};
     if (param.engine == COMM_ENGINE_AICPU_TS) {
         CHK_RET(HcclThreadAcquireWithStream(comm, COMM_ENGINE_CPU_TS, param.stream, 1, &cpuTsThread));
         // Export cpuTsThread
@@ -372,7 +372,7 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::shared_ptr<InsCollA
         CHK_RET(GetAlgResAICPU(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence,
                                size, increCreateChannelFlag));
     } else if (param.engine == COMM_ENGINE_AIV) {
-        CHK_RET(GetAlgResAiv(comm, param, resRequest, topoInfo, algHierarchyInfo, resCtxSequence, size));
+        CHK_RET(GetAlgResAiv(comm, param, resRequest, topoInfo, algHierarchyInfo, resCtxSequence));
     } else if (param.engine == COMM_ENGINE_CCU) {
         CHK_RET(GetAlgResCcu(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence, size));
     } else {
@@ -591,7 +591,6 @@ HcclResult GetAlgResCcu(HcclComm comm, const OpParam& param, AlgResourceRequest&
         HCCL_ERROR("failed to alloc alg resource.");
         return ret;
     }
-    // todo : check resreq合法
     // 序列化
     std::vector<char> seq = resCtxHost->Serialize();
     uint64_t size = seq.size();
@@ -619,13 +618,12 @@ HcclResult HcclAllocAlgResourceCcu(HcclComm comm, const OpParam& param, AlgResou
     resCtxHost->slaveThreadNum = resRequest.slaveThreadNum;
     resCtxHost->notifyNumPerThread = resRequest.notifyNumPerThread;
     CHK_RET(HcclGetThread(comm, param, resRequest, resCtxHost));
-    CHK_RET(HcclGetChannelForCcu(comm, param, resRequest, resCtxHost));
-    CHK_RET(HcclGetCcuKernel(comm, param, resRequest, resCtxHost));
+    CHK_RET(HcclGetChannelForCcu(comm, param, resRequest));
+    CHK_RET(HcclGetCcuKernel(comm, resRequest, resCtxHost));
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclGetChannelForCcu(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
-                          std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost)
+HcclResult HcclGetChannelForCcu(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest)
 {
     // 以kernel为粒度申请channel
     for (CcuKernelInfo& kernelInfo: resRequest.ccuKernelInfos) {
@@ -645,7 +643,7 @@ HcclResult HcclGetChannelForCcu(HcclComm comm, const OpParam &param, AlgResource
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclGetCcuKernel(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
+HcclResult HcclGetCcuKernel(HcclComm comm, AlgResourceRequest &resRequest,
                           std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost)
 {
     
@@ -657,23 +655,36 @@ HcclResult HcclGetCcuKernel(HcclComm comm, const OpParam &param, AlgResourceRequ
         HCCL_ERROR("[HcclGetCcuKernel]ccuKernel num not match!"),
         HCCL_E_INTERNAL);
 
-    for (CcuKernelInfo& kernelInfo: resRequest.ccuKernelInfos) {
-
-        void* kernelArgPtr = static_cast<void*>(kernelInfo.kernelArg.get()); // 保证没有释放
-        void* creatorPtr = static_cast<void*>(&kernelInfo.creator);
-        
-        HCCL_DEBUG("[AllocAlgResource] kernelArgPtr[%p], creator[%p]", kernelArgPtr, &(kernelInfo.creator));
-        CcuKernelHandle handle;
-        CHK_RET(HcclCcuKernelRegister(comm, &handle, creatorPtr, kernelArgPtr));
-        resCtxHost->ccuKernels.push_back(handle);
+    // 按照resgroup进行注册
+    u32 currentResGroup = 0;
+    u32 maxResGroup = 0;
+    resCtxHost->ccuKernels.resize(totalKernelNum);
+    while (currentResGroup <= maxResGroup) {
+        for (u32 i = 0; i < totalKernelNum; i++) {
+            CcuKernelInfo& kernelInfo = resRequest.ccuKernelInfos[i];
+            if (kernelInfo.resGroup > maxResGroup) {
+                maxResGroup = kernelInfo.resGroup;
+            }
+            if (kernelInfo.resGroup != currentResGroup) {
+                continue;
+            }
+            void* kernelArgPtr = static_cast<void*>(kernelInfo.kernelArg.get()); // 保证没有释放
+            void* creatorPtr = static_cast<void*>(&kernelInfo.creator);
+            
+            HCCL_DEBUG("[AllocAlgResource] kernelArgPtr[%p], creator[%p]", kernelArgPtr, &(kernelInfo.creator));
+            CcuKernelHandle handle;
+            CHK_RET(HcclCcuKernelRegister(comm, &handle, creatorPtr, kernelArgPtr));
+            resCtxHost->ccuKernels[i] = handle;
+        }
+        CHK_RET(HcclCcuKernelRegisterFinish(comm));
+        currentResGroup++;
     }
-    CHK_RET(HcclCcuKernelRegisterFinish(comm));
     resCtxHost->ccuKernelNum = resRequest.ccuKernelNum;
     return HCCL_SUCCESS;
 }
 
 HcclResult GetAlgResAiv(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest, TopoInfoWithNetLayerDetails *topoInfo,
-    AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence, uint64_t& ctxSize)
+    AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence)
 {
     uint64_t size = sizeof(AlgResourceCtxSerializable);
     CHK_RET(HcclEngineCtxCreate(comm, param.algTag, CommEngine::COMM_ENGINE_CPU_TS, size, resCtxSequence));
@@ -961,6 +972,35 @@ HcclResult SetOpParamAlgTag(OpParam &param, const std::string &algName)
         return HcclResult::HCCL_E_INTERNAL;
     }
 
+    // ccu模式，考虑kernel是否能复用，需要添加dataType和reduceType
+    if (param.engine == CommEngine::COMM_ENGINE_CCU) {
+        HcclDataType tmpDataType;
+        if(param.opType == HcclCMDType::HCCL_CMD_ALLTOALL ||
+           param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
+           param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
+            tmpDataType = param.all2AllVDataDes.sendType;
+        } else {
+            tmpDataType = param.DataDes.dataType;
+        }
+        const char* dataType = HCOM_DATA_TYPE_STR_MAP.at(tmpDataType).c_str();
+        ret = strcat_s(param.algTag, sizeof(param.algTag), dataType);
+        if (ret != 0) {
+            HCCL_ERROR("failed to fill alg tag with ccu dataType");
+            return HcclResult::HCCL_E_INTERNAL;
+        }
+
+        if (param.opType == HcclCMDType::HCCL_CMD_ALLREDUCE ||
+            param.opType == HcclCMDType::HCCL_CMD_REDUCE ||
+            param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER ||
+            param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V) {
+            const char* reduceType = HCOM_REDUCE_OP_STR_MAP.at(param.reduceType).c_str();
+            ret = strcat_s(param.algTag, sizeof(param.algTag), reduceType);
+            if (ret != 0) {
+                HCCL_ERROR("failed to fill alg tag with ccu reduceType");
+                return HcclResult::HCCL_E_INTERNAL;
+            }
+        }
+    }
     return HcclResult::HCCL_SUCCESS;
 }
 

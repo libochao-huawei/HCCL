@@ -142,9 +142,10 @@ typedef enum {
     HCCL_MEM_TYPE_NUM     ///< 内存类型数量
 } HcclMemType;
 #endif
-typedef struct {
+
+struct HcclMem {
     HcclMemType type;
-    void *addr;
+    void* addr;
     uint64_t size;
-} HcclMem;
+};
 #endif // HCCL_COMMON_H

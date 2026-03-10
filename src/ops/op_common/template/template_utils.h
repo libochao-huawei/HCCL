@@ -11,7 +11,6 @@
 #ifndef ALG_V2_TEMPLATE_UTILS
 #define ALG_V2_TEMPLATE_UTILS
 
-#include <cstring>
 #include <vector>
 #include <memory>
 #include <string>
@@ -50,7 +49,6 @@ struct DataSlice {
     DataSlice(void* addr, u64 offset, u64 size, u64 count)
     : addr_(addr), offset_(offset), size_(size), count_(count)
     {
-
     }
 
     DataSlice(void* addr, u64 offset, u64 size)
@@ -297,6 +295,5 @@ inline u64 RoundUp(const u64 dividend, const u64 divisor)
     }
     return dividend / divisor + ((dividend % divisor != 0) ? 1 : 0);
 }
-
 }
 #endif

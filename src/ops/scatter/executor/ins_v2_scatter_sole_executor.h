@@ -22,7 +22,6 @@
 #include "executor_v2_base.h"
 #include "coll_alg_v2_exec_registry.h"
 #include "topo_match_1d.h"
-#include "topo_match_2d.h"
 #include "topo_match_multilevel.h"
 
 
