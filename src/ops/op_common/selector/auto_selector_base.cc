@@ -13,8 +13,8 @@
 
 namespace ops_hccl {
 
-SelectorStatus AutoSelectorBase::Select(OpParam &opParam, TopoInfoWithNetLayerDetails* topoInfo,
-                                        std::string &selectAlgName, OpExecuteConfig &opExecuteConfig)
+SelectorStatus AutoSelectorBase::Select(const OpParam &opParam, const TopoInfoWithNetLayerDetails* topoInfo,
+                                        std::string &selectAlgName, OpExecuteConfig &opExecuteConfig) const
 {
     HCCL_DEBUG("[AutoSelectorBase][%s] start", __func__);
     std::map<HcclCMDType, std::vector<HcclAlgoType>> configAlgMap = GetExternalInputHcclAlgoConfigAllType();
@@ -87,7 +87,7 @@ bool AutoSelectorBase::IsLargeData(const u64 dataSize) const
     return dataSize >= LARGE_COUNT_1024KB;
 }
 
-SelectorStatus AutoSelectorBase::SelectCcuMsAlgo(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
+SelectorStatus AutoSelectorBase::SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                  const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                  std::string &selectAlgName) const
 {
@@ -97,7 +97,7 @@ SelectorStatus AutoSelectorBase::SelectCcuMsAlgo(TopoInfoWithNetLayerDetails* to
     return SelectorStatus::NOT_MATCH;
 }
 
-SelectorStatus AutoSelectorBase::SelectCcuScheduleAlgo(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
+SelectorStatus AutoSelectorBase::SelectCcuScheduleAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                     std::string &selectAlgName) const
 {
@@ -107,7 +107,7 @@ SelectorStatus AutoSelectorBase::SelectCcuScheduleAlgo(TopoInfoWithNetLayerDetai
     return SelectorStatus::NOT_MATCH;
 }
 
-SelectorStatus AutoSelectorBase::SelectAicpuAlgo(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
+SelectorStatus AutoSelectorBase::SelectAicpuAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                  const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                  std::string &selectAlgName) const
 {
@@ -117,7 +117,7 @@ SelectorStatus AutoSelectorBase::SelectAicpuAlgo(TopoInfoWithNetLayerDetails* to
     return SelectorStatus::NOT_MATCH;
 }
 
-SelectorStatus AutoSelectorBase::SelectAivAlgo(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
+SelectorStatus AutoSelectorBase::SelectAivAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                std::string &selectAlgName) const
 {
@@ -127,7 +127,7 @@ SelectorStatus AutoSelectorBase::SelectAivAlgo(TopoInfoWithNetLayerDetails* topo
     return SelectorStatus::NOT_MATCH;
 }
 
-SelectorStatus AutoSelectorBase::SelectDPUAlgo(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
+SelectorStatus AutoSelectorBase::SelectDPUAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                std::string &selectAlgName) const
 {

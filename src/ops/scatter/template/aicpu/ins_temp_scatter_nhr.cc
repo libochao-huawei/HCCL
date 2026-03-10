@@ -19,7 +19,7 @@ InsTempScatterNHR::InsTempScatterNHR(const OpParam& param, const u32 rankId, // 
 InsTempScatterNHR::~InsTempScatterNHR()
 {}
 
-u64 InsTempScatterNHR::GetThreadNum()
+u64 InsTempScatterNHR::GetThreadNum() const
 {
     u64 threadNum = 1;
     return threadNum;
@@ -42,7 +42,7 @@ HcclResult InsTempScatterNHR::CalcRes(HcclComm comm, const OpParam& param, const
     return HCCL_SUCCESS;
 }
 
-HcclResult InsTempScatterNHR::GetRes(AlgResourceRequest &resourceRequest)
+HcclResult InsTempScatterNHR::GetRes(AlgResourceRequest &resourceRequest) const
 {
     // NHR算法主需要一条主流
     resourceRequest.slaveThreadNum = 0;

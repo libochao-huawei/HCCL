@@ -24,7 +24,8 @@ if(BUILD_OPEN_PROJECT AND KERNEL_MODE)
     #Change the path to the absolute path of the cross compilation tool after the toolkit package is decompressed
     # set cross compile toolchain dir
     set(TOOLCHAIN_DIR ${CUSTOM_ASCEND_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc/)
-    message(STATUS "TOOLCHAIN_DIR = ${TOOLCHAIN_DIR}")
+    #Specify cross compiler
+    message(STATUS "TOOLCHAIN_DIR=${TOOLCHAIN_DIR}")
     if (NOT "x${TOOLCHAIN_DIR}" STREQUAL "x")
         if (NOT IS_DIRECTORY ${TOOLCHAIN_DIR})
             message(FATAL_ERROR "specify cross compile toolchain directory(${TOOLCHAIN_DIR}) is not exist")
@@ -110,10 +111,15 @@ elseif(BUILD_OPEN_PROJECT)
     if(DEVICE_MODE)
         set(CCL_KERNEL_TAR_DIR ${CMAKE_CURRENT_SOURCE_DIR}/build_device/ccl_kernel_tar_pkg/)
         if(KERNEL_MODE)
-            add_custom_target(generate_device_aicpu_package
-                COMMAND cd ${CCL_KERNEL_TAR_DIR} && ls && tar czf ../aicpu_hccl.tar.gz aicpu_kernels_device
-                DEPENDS scatter_aicpu_kernel
-                COMMENT "Creating aicpu_hccl.tar.gz"
+            set(CCL_KERNEL_TAR_LIBS
+                ${CCL_KERNEL_TAR_DIR}/aicpu_kernels_device/libscatter_aicpu_kernel.so
+            )
+            pack_targets_and_files(
+                OUTPUT_TARGET "generate_device_aicpu_package"
+                OUTPUT "aicpu_hccl.tar.gz"
+                FILES ${CCL_KERNEL_TAR_LIBS}
+                MANIFEST "bin_hash.cfg"
+                TAR_ROOT_DIR "aicpu_kernels_device"
             )
             add_dependencies(generate_device_aicpu_package scatter_aicpu_kernel)
             sign_file(
