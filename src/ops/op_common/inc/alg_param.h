@@ -105,6 +105,13 @@ enum class Level0MeshType {
     TWO_DIE_NOT_REGULAR = 3,
 };
 
+enum class Level0MeshType {
+    NOT_MESH = 0,
+    SINGLE_DIE = 1,
+    TWO_DIE_REGULAR = 2,
+    TWO_DIE_NOT_REGULAR = 3,
+};
+
 struct NetLayerDetails {
     u32 netLayerNum;
     std::vector<u32> netLayers;
