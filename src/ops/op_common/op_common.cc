@@ -71,34 +71,17 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
     return HCCL_SUCCESS;
 }
 
-void SetHcclDfxOpInfoDataDes(HcclDfxOpInfo& dfxOpInfo, const OpParam& param) {
-    if (param.opType == HcclCMDType::HCCL_CMD_ALLGATHER_V) {
-        dfxOpInfo.vDataDes.counts = param.vDataDes.counts;
-        dfxOpInfo.vDataDes.displs = param.vDataDes.displs;
-        dfxOpInfo.vDataDes.dataType = static_cast<u32>(param.vDataDes.dataType);
-    } else if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL) {
-        dfxOpInfo.all2AllDataDes.sendType  = static_cast<u32>(param.all2AllDataDes.sendType);
-        dfxOpInfo.all2AllDataDes.recvType  = static_cast<u32>(param.all2AllDataDes.recvType);
-        dfxOpInfo.all2AllDataDes.sendCount = param.all2AllDataDes.sendCount;
-        dfxOpInfo.all2AllDataDes.recvCount = param.all2AllDataDes.recvCount;
-    } else if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV) {
-        dfxOpInfo.all2AllVDataDes.sendType  = static_cast<u32>(param.all2AllVDataDes.sendType);
-        dfxOpInfo.all2AllVDataDes.recvType  = static_cast<u32>(param.all2AllVDataDes.recvType);
-        dfxOpInfo.all2AllVDataDes.sendCounts = param.all2AllVDataDes.sendCounts;
-        dfxOpInfo.all2AllVDataDes.recvCounts = param.all2AllVDataDes.recvCounts;
-        dfxOpInfo.all2AllVDataDes.sdispls = param.all2AllVDataDes.sdispls;
-        dfxOpInfo.all2AllVDataDes.rdispls = param.all2AllVDataDes.rdispls;
-    } else if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
-        dfxOpInfo.all2AllVCDataDes.sendType  = static_cast<u32>(param.all2AllVCDataDes.sendType);
-        dfxOpInfo.all2AllVCDataDes.recvType  = static_cast<u32>(param.all2AllVCDataDes.recvType);
-        dfxOpInfo.all2AllVCDataDes.sendCountMatrix = param.all2AllVCDataDes.sendCountMatrix;
-    } else if (param.opType == HcclCMDType::HCCL_CMD_BATCH_SEND_RECV) {
-        dfxOpInfo.batchSendRecvDataDes.itemNum = param.batchSendRecvDataDes.itemNum;
-        dfxOpInfo.batchSendRecvDataDes.sendRecvItemsPtr = param.batchSendRecvDataDes.sendRecvItemsPtr;
+void SetHcclDfxOpInfoDataCount(HcclDfxOpInfo& dfxOpInfo, const OpParam& param) {
+    if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL
+        || param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV
+        || param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
+        u64 sendCount =0;
+        for (u64 i =0; i<dfxOpInfo.ranksize_; i++) {
+            sendCount += *(static_cast<const u64 *>(param.all2AllVDataDes.sendCounts) + i);
+        }
+        dfxOpInfo.dataCount = sendCount;
     } else {
-        dfxOpInfo.dataDes.dataCount = param.DataDes.count;
-        dfxOpInfo.dataDes.dataType = static_cast<u32>(param.DataDes.dataType);
-        dfxOpInfo.dataDes.strideCount = param.DataDes.strideCount;
+        return;
     }
 }
 
@@ -138,18 +121,22 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
 
     // Op注册
     HcclDfxOpInfo hcclDfxOpInfo{};
-    hcclDfxOpInfo.opMode = static_cast<u32>opMode;
-    hcclDfxOpInfo.opType = static_cast<u32>param.opType;
-    hcclDfxOpInfo.reduceOp = static_cast<u32>param.reduceType;
-    hcclDfxOpInfo.outputType = static_cast<u32>param.DataDes.outputType;
-    hcclDfxOpInfo.dataCount = static_cast<u32>param.DataDes.count;
+    hcclDfxOpInfo.opMode = static_cast<u32>(param.opMode);
+    hcclDfxOpInfo.opType = static_cast<u32>(param.opType);
+    hcclDfxOpInfo.reduceOp = static_cast<u32>(param.reduceType);
+    hcclDfxOpInfo.dataType = static_cast<u32>(param.DataDes.dataType);
+    hcclDfxOpInfo.dataCount = static_cast<u32>(param.DataDes.count);
     hcclDfxOpInfo.root = param.root;
-    hcclDfxOpInfo.numBlocksLimit = param.numBlocksLimit;
     hcclDfxOpInfo.inputMemPtr = reinterpret_cast<void*>(param.inputPtr);
     hcclDfxOpInfo.inputMemSize = param.inputSize;
     hcclDfxOpInfo.outputMemPtr = reinterpret_cast<void*>(param.outputPtr);
-    hcclDfxOpInfo.outputMemSize = param.inputSize;
-    SetHcclDfxOpInfoDataDes(hcclDfxOpInfo, param);
+    hcclDfxOpInfo.outputMemSize = param.outputSize;
+    // rankSize
+    u32 userRankSize{0};
+    CHK_RET(HcclGetRankSize(comm, &userRankSize));
+    hcclDfxOpInfo.ranksize_ = userRankSize;
+
+    SetHcclDfxOpInfoDataCount(hcclDfxOpInfo, param);
     HcclDfxOpInfo *tempOp = &hcclDfxOpInfo;
 
     HcclResult result = HcclDfxRegOpInfo(comm, static_cast<void*>(tempOp));
@@ -218,8 +205,14 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
     // Host stream通知Device主thread，使用主流上idx最大的notify
     CHK_RET(static_cast<HcclResult>(HcommThreadNotifyRecordOnThread(cpuTsThread, exportedCpuTsThread,
         notifyNumOnMainThread)));
-
+    // AicpuKernel report
+    uint64_t beginTime = HcommGetProfilingSysCycleTime();
     CHK_RET(AicpuKernelLaunch(param));
+    CHK_PTR_NULL(comm);
+    HcclResult ret = HcclReportAicpuKernel(comm, beginTime, cpuTsThread);
+    CHK_PRT_RET(ret != HCCL_SUCCESS, 
+        HCCL_ERROR("[HcclAicpuKernelEntranceLaunch]errNo[0x%016llx] HcclReportAicpuKernel failed", ret))
+
     // Host stream等待Device的通知
     u16 NOTIFY_WAIT_TIME = 27 * 68;
     CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, 0, NOTIFY_WAIT_TIME)));
@@ -234,7 +227,6 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
 
 HcclResult AicpuKernelLaunch(OpParam &param)
 {
-    uint64_t beginTime = HcommGetProfilingSysCycleTime();
     std::string kernelName = "HcclLaunchAicpuKernel";
     aclrtFuncHandle funcHandle;
     aclrtArgsHandle argsHandle;
@@ -272,11 +264,6 @@ HcclResult AicpuKernelLaunch(OpParam &param)
     CHK_PRT_RET(aclRet != ACL_SUCCESS,
         HCCL_ERROR("[LoadCustomKernel][aclrtLaunchKernelWithConfig]errNo[0x%016llx] launch kernel failed", ret),
         HCCL_E_OPEN_FILE_FAILURE);
-    CHK_PTR_NULL(param.hcclComm);
-    ret = HcclReportAicpuKernel(param.hcclComm, beginTime, param.opThread);//TODO:获取是否streammaster,或者通信域怎么获取
-    CHK_PRT_RET(ret != HCCL_SUCCESS,
-    HCCL_ERROR("[aclrtKernelArgsFinalize]errNo[0x%016llx] HcclReportAicpuKernel failed, kernelName:%s",
-        ret, kernelName.c_str()), HCCL_E_RUNTIME);
     return HCCL_SUCCESS;
 }
 

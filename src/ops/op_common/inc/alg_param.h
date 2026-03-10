@@ -98,6 +98,13 @@ enum class Level0Shape {
 MESH_1D_CLOS = 2,
 };
 
+enum class Level0MeshType {
+    NOT_MESH = 0,
+    SINGLE_DIE = 1,
+    TWO_DIE_REGULAR = 2,
+    TWO_DIE_NOT_REGULAR = 3,
+};
+
 struct NetLayerDetails {
     u32 netLayerNum;
     std::vector<u32> netLayers;
@@ -141,9 +148,9 @@ struct TopoInfoWithNetLayerDetails : public TopoInfo { // 通信域拓扑ctx
     bool Level1Nhr{false};
     bool is2DieFullMesh{false};
     u32 topoInstDetailsOfLayerSize = 0;
+    Level0MeshType level0MeshType;
     NetLayerDetails netLayerDetails;
     std::vector<TopoInstDetails> topoInstDetailsOfLayer;
-
     std::vector<char> Serialize()
     {
         BinaryStream binaryStream;
@@ -170,6 +177,7 @@ struct TopoInfoWithNetLayerDetails : public TopoInfo { // 通信域拓扑ctx
         binaryStream << Level1Nhr;
         binaryStream << is2DieFullMesh;
         binaryStream << topoInstDetailsOfLayerSize;
+        binaryStream << level0MeshType;
         binaryStream << netLayerDetails.netLayerNum;
         binaryStream << netLayerDetails.netLayers;
         binaryStream << netLayerDetails.netInstNumOfLayer;
@@ -213,6 +221,7 @@ struct TopoInfoWithNetLayerDetails : public TopoInfo { // 通信域拓扑ctx
         binaryStream >> Level1Nhr;
         binaryStream >> is2DieFullMesh;
         binaryStream >> topoInstDetailsOfLayerSize;
+        binaryStream >> level0MeshType;
         binaryStream >> netLayerDetails.netLayerNum;
         binaryStream >> netLayerDetails.netLayers;
         binaryStream >> netLayerDetails.netInstNumOfLayer;
@@ -231,6 +240,8 @@ struct TopoInfoWithNetLayerDetails : public TopoInfo { // 通信域拓扑ctx
 
 // ccu kernel register所需信息
 struct CcuKernelInfo {
+    // kernel资源组序号，group号不同时，资源复用
+    u32 resGroup = 0;
     // kernel构造函数
     hcomm::KernelCreator creator;
     // KernelArg实例
@@ -459,69 +470,33 @@ struct OpParam { // 不申请ctx，每个算子单独下发
 
 
 struct HcclDfxOpInfo {
-    //DfxOpInfo_base
+    // DfxOpInfo_base
     char                tag_[256];
     u32                 index_{0};
     u64                 beginTime_{0};
     u64                 endTime_{0};
-    //CollOperator
+    u64                 ranksize_;
+    // CollOperator
     char                opTag[256];
     bool                staticAddr{false};
     bool                staticShape{false};
     u32                 myRank;
-    //baseCollOperator
+    // baseCollOperator
     u32                 opMode{0};
-    u32                 opType{0};//通过map找dfxopinfo
+    u32                 opType{0};// 通过map找dfxopinfo
     u32                 reduceOp{0};
     u32                 dataType{0};
     u32                 outputType{0};
     u64                 dataCount{0};
     u32                 root = INVALID_VALUE_RANKID;
-    u32                 numBlocksLimit{0};
     void*               inputMemPtr{nullptr};
     u64                 inputMemSize{0};
     void*               outputMemPtr{nullptr};
     u64                 outputMemSize{0};
     void*               scratchMemPtr{nullptr};
     u64                 scratchMemSize{0};
-    //task_exception
-    u32          notifyId{0}; //host wait device notifyId
-    union {
-        struct {
-            u64 dataCount{0};
-            u32 dataType{0};
-            u32 dataOutputType{0};
-            u64 strideCount{0};
-        } dataDes;
-        struct {
-            void* counts;
-            void* displs;
-            u32 dataType{0};
-        } vDataDes;
-        struct {
-            u32 sendType{0};
-            u32 recvType{0};
-            u64 sendCount{0};
-            u64 recvCount{0};
-        } all2AllDataDes;
-        struct {
-            u32 sendType{0};
-            u32 recvType{0};
-            void* sendCounts;
-            void* recvCounts;
-            void* sdispls;
-            void* rdispls;
-        } all2AllVDataDes;
-        struct {
-            u32 sendType{0};
-            u32 recvType{0};
-            void* sendCountMatrix;
-        } all2AllVCDataDes;
-        struct {
-            HcclSendRecvItem* sendRecvItemsPtr;
-            u32 itemNum{0};
-        } batchSendRecvDataDes;
-    };
+    // task_exception
+    u32                 notifyId{0}; // host wait device notifyId
 };
 
 struct AlgDesc {

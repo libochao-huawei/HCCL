@@ -102,7 +102,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         }
 
         // 上报主流和第一个task  wait之前
-        if (HcommProfilingReportKernelStartTask(thread) != HCCL_SUCCESS) {
+        if (HcommProfilingReportKernelStartTask(thread, param->commName) != HCCL_SUCCESS) {
             HCCL_ERROR("failed to report MainStream And FirstTask");
             return 1;
         }
