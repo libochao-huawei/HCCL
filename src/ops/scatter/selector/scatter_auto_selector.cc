@@ -13,7 +13,7 @@
 
 namespace ops_hccl {
 
-SelectorStatus ScatterAutoSelector::SelectCcuMsAlgo(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
+SelectorStatus ScatterAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                     std::string &selectAlgName) const
 {
@@ -25,8 +25,7 @@ SelectorStatus ScatterAutoSelector::SelectCcuMsAlgo(TopoInfoWithNetLayerDetails*
     return SelectorStatus::NOT_MATCH;
 }
 
-SelectorStatus ScatterAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetLayerDetails* topoInfo,
-                                                    OpParam &opParam,
+SelectorStatus ScatterAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                     std::string &selectAlgName) const
 {
@@ -66,9 +65,9 @@ SelectorStatus ScatterAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetLayerDe
 }
 
 
-SelectorStatus ScatterAutoSelector::SelectAicpuAlgo(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
-                                                      const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
-                                                      std::string &selectAlgName) const
+SelectorStatus ScatterAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
+                                                    const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+                                                    std::string &selectAlgName) const
 {
     std::vector<HcclAlgoType> algos = std::vector<HcclAlgoType>(HCCL_ALGO_LEVEL_NUM, HcclAlgoType::HCCL_ALGO_TYPE_DEFAULT);
     auto it = configAlgMap.find(opParam.opType);
@@ -100,9 +99,9 @@ SelectorStatus ScatterAutoSelector::SelectAicpuAlgo(TopoInfoWithNetLayerDetails*
     return SelectorStatus::MATCH;
 }
 
-SelectorStatus ScatterAutoSelector::SelectAivAlgo(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
-                                                       const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
-                                                       std::string &selectAlgName) const
+SelectorStatus ScatterAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
+                                                  const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+                                                  std::string &selectAlgName) const
 {
     std::vector<HcclAlgoType> algos = std::vector<HcclAlgoType>(HCCL_ALGO_LEVEL_NUM, HcclAlgoType::HCCL_ALGO_TYPE_DEFAULT);
     auto it = configAlgMap.find(opParam.opType);

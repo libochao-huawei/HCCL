@@ -50,7 +50,19 @@ HcclResult CcuTempAllGatherMesh1DMem2Mem::CalcRes(HcclComm comm, const OpParam& 
                              return std::make_unique<CcuKernelAllGatherMesh1DMem2Mem>(arg);
                          };
     std::vector<HcclChannelDesc> channelDescs;
-    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
+    if(topoInfo->level0Topo != Level0Shape::MESH_1D_CLOS) {
+        CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
+    } else {
+        CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks_, channelDescs, CommTopo::COMM_TOPO_1DMESH));
+        for(auto channel : channelDescs){
+            if(channel.channelProtocol != COMM_PROTOCOL_UBC_CTP){
+                HCCL_ERROR("[CcuTempAllGatherMesh1DMem2Mem][CalcRes] channelProtocol: %u", channel.channelProtocol);
+                return HCCL_E_INTERNAL;
+            }
+        }
+    }
+    HCCL_DEBUG("[CcuTempAllGatherMesh1DMem2Mem::CalcRes] Get Mesh Channel Success!");
+
     kernelInfo.kernelArg = std::make_shared<CcuKernelArgAllGatherMesh1DMem2Mem>(subCommRanks_[0].size(),
                                                                                     mySubCommRank_,
                                                                                     param,
@@ -74,7 +86,6 @@ HcclResult CcuTempAllGatherMesh1DMem2Mem::KernelRun(const OpParam& param,
     uint64_t inputAddr          = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr         = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
     uint64_t token              = hcomm::CcuRep::GetTokenInfo(reinterpret_cast<uint64_t>(buffInfo_.inputPtr),
-                                    
                                                        static_cast<uint64_t>(buffInfo_.inputSize));
 
     uint64_t inputSliceStride   = templateDataParams.inputSliceStride;
@@ -113,12 +124,12 @@ u64 CcuTempAllGatherMesh1DMem2Mem::CalcScratchMultiple(BufferType inBuffType, Bu
     return 0;
 }
 
-u64 CcuTempAllGatherMesh1DMem2Mem::GetThreadNum()
+u64 CcuTempAllGatherMesh1DMem2Mem::GetThreadNum() const
 {
     return 1;
 }
  
-HcclResult CcuTempAllGatherMesh1DMem2Mem::GetRes(AlgResourceRequest& resourceRequest)
+HcclResult CcuTempAllGatherMesh1DMem2Mem::GetRes(AlgResourceRequest& resourceRequest) const
 {
     resourceRequest.slaveThreadNum = 0;
     resourceRequest.notifyNumOnMainThread = 0;

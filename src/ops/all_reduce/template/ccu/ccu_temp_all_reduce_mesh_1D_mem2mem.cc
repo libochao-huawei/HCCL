@@ -35,7 +35,7 @@ CcuTempAllReduceMeshMem2Mem1D::~CcuTempAllReduceMeshMem2Mem1D()
 {
 }
 
-uint64_t CcuTempAllReduceMeshMem2Mem1D::RoundUp(uint64_t dividend, uint64_t divisor)
+uint64_t CcuTempAllReduceMeshMem2Mem1D::RoundUp(uint64_t dividend, uint64_t divisor) const
 {
     return dividend / divisor + ((dividend % divisor != 0) ? 1 : 0);
 }
@@ -84,7 +84,18 @@ HcclResult CcuTempAllReduceMeshMem2Mem1D::CalcRes(HcclComm comm, const OpParam& 
                              return std::make_unique<CcuKernelAllReduceMeshMem2Mem1D>(arg);
                          };
     std::vector<HcclChannelDesc> channelDescs;
-    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
+    if(topoInfo->level0Topo != Level0Shape::MESH_1D_CLOS) {
+        CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
+    } else {
+        std::vector<HcclChannelDesc> myChannelDescs;
+        CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks_, myChannelDescs, CommTopo::COMM_TOPO_1DMESH));
+        for(auto channel : myChannelDescs) {
+            if(channel.channelProtocol == COMM_PROTOCOL_UBC_CTP) {
+                channelDescs.push_back(channel);
+            }
+        }
+        HCCL_DEBUG("[CcuTempReduceScatterMesh1DMem2Mem::CalcRes] Get Mesh Channel Success!");
+    }
     kernelInfo.kernelArg = std::make_shared<CcuKernelArgAllReduceMeshMem2Mem1D>(subCommRanks_[0].size(),
                                                                                     mySubCommRank_,
                                                                                     param,
@@ -99,19 +110,19 @@ HcclResult CcuTempAllReduceMeshMem2Mem1D::CalcRes(HcclComm comm, const OpParam& 
     return HcclResult::HCCL_SUCCESS;
 }
 
-u64 CcuTempAllReduceMeshMem2Mem1D::CalcScratchMultiple(BufferType input, BufferType output)
+u64 CcuTempAllReduceMeshMem2Mem1D::CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType)
 {
-    (void)input;
-    (void)output;
+    (void)inBuffType;
+    (void)outBuffType;
     return templateRankSize_;
 }
 
-u64 CcuTempAllReduceMeshMem2Mem1D::GetThreadNum()
+u64 CcuTempAllReduceMeshMem2Mem1D::GetThreadNum() const
 {
     return 1;
 }
  
-HcclResult CcuTempAllReduceMeshMem2Mem1D::GetRes(AlgResourceRequest& resourceRequest)
+HcclResult CcuTempAllReduceMeshMem2Mem1D::GetRes(AlgResourceRequest& resourceRequest) const
 {
     resourceRequest.slaveThreadNum = 0;
     resourceRequest.notifyNumOnMainThread = 0;
