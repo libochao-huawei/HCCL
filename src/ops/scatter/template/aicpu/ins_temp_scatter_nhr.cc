@@ -19,7 +19,7 @@ InsTempScatterNHR::InsTempScatterNHR(const OpParam& param, const u32 rankId, // 
 InsTempScatterNHR::~InsTempScatterNHR()
 {}
 
-u64 InsTempScatterNHR::GetThreadNum()
+u64 InsTempScatterNHR::GetThreadNum() const
 {
     u64 threadNum = 1;
     return threadNum;
