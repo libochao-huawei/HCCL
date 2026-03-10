@@ -210,8 +210,7 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
     CHK_RET(AicpuKernelLaunch(param));
     CHK_PTR_NULL(comm);
     HcclResult ret = HcclReportAicpuKernel(comm, beginTime, cpuTsThread);
-    CHK_PRT_RET(ret != HCCL_SUCCESS, 
-        HCCL_ERROR("[HcclAicpuKernelEntranceLaunch]errNo[0x%016llx] HcclReportAicpuKernel failed", ret))
+    CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("[HcclAicpuKernelEntranceLaunch] HcclReportAicpuKernel failed"), ret);
 
     // Host stream等待Device的通知
     u16 NOTIFY_WAIT_TIME = 27 * 68;
