@@ -105,7 +105,7 @@ HcclResult AllGatherVOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount,c
     }  // 结果为recvCount中的数据之和
 
     // 申请OpParam参数结构体内存
-    u64 varMemSize = userRankSize * 2 * sizeof(u64);
+    u64 varMemSize = (userRankSize + userRankSize) * sizeof(u64);
     void* paramMem = malloc(sizeof(OpParam) + varMemSize);
     if (!paramMem) {
         // 内存分配失败
@@ -144,7 +144,7 @@ HcclResult AllGatherVOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount,c
     const uint64_t *displsPtr = reinterpret_cast<const uint64_t *>(recvDispls);
     std::copy(countsPtr, countsPtr + userRankSize, merged.begin());
     std::copy(displsPtr, displsPtr + userRankSize, merged.begin() + userRankSize);
-    memcpy(param.varData, merged.data(), varMemSize);
+    memcpy_s(param.varData, varMemSize, merged.data(), varMemSize);
     param.opType = HcclCMDType::HCCL_CMD_ALLGATHER_V;
     param.enableDetour = false;
     param.deviceType = deviceType;
