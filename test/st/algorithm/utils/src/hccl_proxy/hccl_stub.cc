@@ -26,6 +26,7 @@
 #include "sim_channel.h"
 #include "alg_param.h"
 #include "hcomm_diag.h"
+#include "hcomm/hcomm_res.h"
 
 using namespace ops_hccl;
 
@@ -928,6 +929,12 @@ HcclResult HcommProfilingReportMainStreamAndFirstTask(ThreadHandle thread)
 }
 
 HcclResult HcommProfilingReportMainStreamAndLastTask(ThreadHandle thread)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcommThreadResGetInfo(ThreadHandle thread, ThreadResType resType, uint32_t infoLen, void **info)
 {
     HCCL_WARNING("[%s] not support.", __func__);
     return HCCL_SUCCESS;
