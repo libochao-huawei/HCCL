@@ -31,6 +31,7 @@
 #include "load_kernel.h"
 #include "all_reduce_op.h"
 #include "op_common.h"
+#include "hcomm_dlsym.h"
 
 using namespace std;
 using namespace ops_hccl;
@@ -40,7 +41,7 @@ HcclResult HcclAllReduce(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclD
     HcclReduceOp op, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("Start to run execute HcclAllReduce");
-    if (!CheckHCCLIndependentOp()) {
+    if (!CheckHCCLIndependentOp() || (GetHcommVersion() < 90000000)) {
         return HcclAllReduceInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
     }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
@@ -49,10 +50,7 @@ HcclResult HcclAllReduce(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclD
     if (deviceType != DevType::DEV_TYPE_910_95) {
         return HcclAllReduceInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
     }
-    // 图模式引导到老的流程上面
-    if (GetWorkflowMode() != HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE) {
-        return HcclAllReduceInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
-    }
+
     // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
     // A3是：export HCCL_OP_EXPANSION_MODE="AI_CPU"，A5的接口还没提供
     CHK_RET(InitEnvConfig());

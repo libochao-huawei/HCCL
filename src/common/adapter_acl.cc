@@ -13,6 +13,14 @@
 #include "workflow.h"
 #include "mmpa_api.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+HcclResult __attribute__((weak)) hrtGetDeviceType(DevType &devType);
+#ifdef __cplusplus
+}
+#endif 
+
 namespace ops_hccl {
 HcclResult haclrtGetDeviceIndexByPhyId(u32 devicePhyId, u32 &deviceLogicId)
 {
@@ -74,10 +82,6 @@ HcclResult haclrtGetCaptureInfo(aclrtStream stream, aclmdlRICaptureStatus &captu
 {
 #ifndef AICPU_COMPILE
     isCapture = false;
-    if (GetWorkflowMode() != HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE) {
-        HCCL_WARNING("[%s]Stream capture only support opbase mode!", __func__);
-        return HCCL_SUCCESS;
-    }
     aclmdlRI rtModel = nullptr;
     aclError ret = aclmdlRICaptureGetInfo(stream, &captureStatus, &rtModel);
     if (ret == ACL_ERROR_RT_FEATURE_NOT_SUPPORT) {

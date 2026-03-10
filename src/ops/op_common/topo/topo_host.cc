@@ -10,11 +10,9 @@
 
 #include <numeric>
 #include "topo_host.h"
-#include "hccl_rank_graph.h"
-#include "hcomm_primitives.h"
-#include "hccl_rank_graph.h"
-#include "hccl_res.h"
-#include "hcomm_primitives.h"
+#include "hccl_rank_graph_dl.h"
+#include "hcomm_primitives_dl.h"
+#include "hccl_res_dl.h"
 #include "hccl.h"
 #include "adapter_acl.h"
 #include "channel.h"
@@ -26,6 +24,15 @@ constexpr u32 FACTOR_NUM_TWO = 2;
 constexpr s32 DEVICE_PER_MODULE = 8;
 constexpr uint32_t NET_LAYER_NUM_TWO = 2;
 constexpr uint32_t NET_LAYER_NUM_THREE = 3;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+HcclResult __attribute__((weak)) hrtGetDeviceType(DevType &devType);
+#ifdef __cplusplus
+}
+
+#endif 
 
 namespace ops_hccl {
 
