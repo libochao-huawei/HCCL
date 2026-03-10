@@ -126,7 +126,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             return 1;
         }
 
-        if (HcommProfilingReportDeviceOp(param->commName) != HCCL_SUCCESS) {//TODO::commName是否是groupname
+        if (HcommProfilingReportDeviceOp(param->commName) != HCCL_SUCCESS) {
             HCCL_ERROR("%s HcommProfilingReportDeviceOp fail, commName[%s]", __func__, param->commName);
             return 1;
         }
