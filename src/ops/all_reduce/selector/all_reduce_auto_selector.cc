@@ -176,7 +176,7 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetLayer
             return SelectorStatus::NOT_MATCH;
         }
     } else {
-        return SelectCcuScheduleLevel0Algo(topoInfo, opParam, selectAlgName, dataSize);
+        return SelectCcuScheduleLevel0Algo(topoInfo, selectAlgName, dataSize);
     }
     HCCL_INFO("[AllReduceAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
     return SelectorStatus::MATCH;
@@ -213,7 +213,7 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleLevel0UBXAlgo(TopoInfoWit
     return SelectorStatus::MATCH;
 }
 
-SelectorStatus SelectCcuScheduleLevel0Algo(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
+SelectorStatus AllReduceAutoSelector::SelectCcuScheduleLevel0Algo(TopoInfoWithNetLayerDetails* topoInfo, 
                                  std::string &selectAlgName, u64 dataSize) const
 {
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {

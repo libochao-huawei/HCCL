@@ -23,8 +23,7 @@ private:
     SelectorStatus SelectCcuScheduleAlgo(TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam,
                                          const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                          std::string &selectAlgName) const override;
-    SelectorStatus SelectCcuScheduleUBXAlgo(TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
-        std::string &selectAlgName, u64 dataSize) const;
+    SelectorStatus SelectCcuScheduleUBXAlgo(TopoInfoWithNetLayerDetails *topoInfo, std::string &selectAlgName, u64 dataSize) const;
     SelectorStatus SelectCcuScheduleLevel0Algo(TopoInfoWithNetLayerDetails *topoInfo, 
         std::string &selectAlgName, u64 dataSize) const;
     SelectorStatus SelectAicpuAlgo(TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam,
