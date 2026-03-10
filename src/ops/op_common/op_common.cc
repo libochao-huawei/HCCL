@@ -39,7 +39,6 @@
 #include "aiv_kernel_def.h"
 #include "dpu/kernel_launch.h"
 #include "rt.h"
-#include "hcomm/hcomm_res.h"
 
 namespace ops_hccl {
 thread_local std::map<std::string, HcclMemHandle> g_memHandleCache; // 当前AIV存放注册内存的memHandle使用
@@ -135,7 +134,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
             resCtxHost->DeSerialize(seq);
         }
         if (resCtxHost->slaveThreadNum > 0) {
-            CHK_RET(CaptureSlaveStreams(param.stream, resCtxHost->threads));
+            CHK_RET(CaptureSlaveStreams(comm, param.stream, resCtxHost->threads));
         }
         CHK_RET(executor->Orchestrate(param, *resCtxHost));
     } else {
@@ -151,7 +150,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     return HCCL_SUCCESS;
 }
 
-HcclResult CaptureSlaveStreams(aclrtStream mainStream, const std::vector<ThreadHandle> &threads)
+HcclResult CaptureSlaveStreams(HcclComm comm, aclrtStream mainStream, const std::vector<ThreadHandle> &threads)
 {
     aclmdlRI rtModel = nullptr;
     aclmdlRICaptureStatus captureStatus = aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_NONE;
@@ -170,7 +169,7 @@ HcclResult CaptureSlaveStreams(aclrtStream mainStream, const std::vector<ThreadH
     //thread[0] is main thread
     for (size_t i = 1; i < threads.size(); ++i) {
         ThreadResTypeStream stream;
-        CHK_RET(HcommThreadResGetInfo(threads[i], ThreadResType::THREAD_RES_TYPE_STREAM, sizeof(ThreadResTypeStream), &stream));
+        CHK_RET(HcclThreadResGetInfo(comm, threads[i], ThreadResType::THREAD_RES_TYPE_STREAM, sizeof(ThreadResTypeStream), &stream));
         rtError_t ret = rtStreamAddToModel(stream, rtModel);
         CHK_PRT_RET(ret != RT_ERROR_NONE, HCCL_ERROR("[%s]rtStreamAddToModel fail. return[%d].", __func__, ret),
             HCCL_E_RUNTIME);

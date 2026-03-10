@@ -116,7 +116,7 @@ HcclResult HcclGetOpExpansionMode(HcclComm comm, OpParam &param);
 
 bool HcclCheckAicpuEnableOpen();
 
-HcclResult CaptureSlaveStreams(aclrtStream mainStream, const std::vector<ThreadHandle>& threads);
+HcclResult CaptureSlaveStreams(HcclComm comm, aclrtStream mainStream, const std::vector<ThreadHandle>& threads);
 
 }  // namespace ops_hccl
 
