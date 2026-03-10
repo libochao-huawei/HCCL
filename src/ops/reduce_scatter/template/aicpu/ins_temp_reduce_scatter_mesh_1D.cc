@@ -58,13 +58,8 @@ HcclResult InsTempReduceScatterMesh1D::KernelRun(const OpParam& param,
     }
     threadNum_ = templateResource.threads.size();
     dataType_ = param.DataDes.dataType;
-    if (myAlgRank == templateRankSize_ - 1 && tempAlgParams.tailSize > 0) {
-        processSize_ = tempAlgParams.tailSize;
-        count_ = tempAlgParams.tailSize / DATATYPE_SIZE_TABLE[dataType_];
-    } else {
-        processSize_ = tempAlgParams.sliceSize;
-        count_ = tempAlgParams.sliceSize / DATATYPE_SIZE_TABLE[dataType_];
-    }
+    processSize_ = tempAlgParams.sliceSize;
+    count_ = tempAlgParams.sliceSize / DATATYPE_SIZE_TABLE[dataType_];
     HCCL_INFO("[InsTempReduceScatterMesh1D] Run Start");
     if (threadNum_ > 1) {
         std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
@@ -94,9 +89,19 @@ HcclResult InsTempReduceScatterMesh1D::PostCopy(const TemplateDataParams &tempAl
         return HCCL_E_INTERNAL;
     }
     // 如果是单算子模式, 并且是最后一步算子，需要将数据从 cclBuffer 拷贝到 userOut
-    HCCL_INFO("[InsTempReduceScatterMesh1D][PostCopy], copy from cclBuffer to userOut");
+    HCCL_DEBUG("[InsTempReduceScatterMesh1D][PostCopy], copy from cclBuffer to userOut");
     // 先把本卡的数据从userIn搬运到userOut，然后再在userOut上做规约
-    HCCL_INFO("[InsTempReduceScatterMesh1D][PostCopy]tempAlgParams.repeatNum=%llu", tempAlgParams.repeatNum);
+    HCCL_DEBUG("[InsTempReduceScatterMesh1D][PostCopy]tempAlgParams.repeatNum=%llu", tempAlgParams.repeatNum);
+    u32 myAlgRank = 0;
+    CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], myAlgRank));
+    if (myAlgRank == templateRankSize_ - 1 && tempAlgParams.tailSize > 0) {
+        processSize_ = tempAlgParams.tailSize;
+        count_ = tempAlgParams.tailSize / DATATYPE_SIZE_TABLE[dataType_];
+    } else {
+        processSize_ = tempAlgParams.sliceSize;
+        count_ = tempAlgParams.sliceSize / DATATYPE_SIZE_TABLE[dataType_];
+    }
+    HCCL_DEBUG("[InsTempReduceScatterMesh1D][PostCopy] processSize_=%llu, count_=%llu", processSize_, count_);
     for (u32 repeatIdx = 0; repeatIdx < tempAlgParams.repeatNum; repeatIdx++) {
         // 把其他卡的数据input累加到output
         for (u32 tmpRank = 0; tmpRank < templateRankSize_; tmpRank++) {
@@ -126,17 +131,25 @@ HcclResult InsTempReduceScatterMesh1D::RunReduceScatter(
     CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], myAlgRank));
     // DMA消减：让thread 0做本地拷贝
     for (u32 repeatIdx = 0; repeatIdx < tempAlgParam.repeatNum; repeatIdx++) {
+        u64 sliceSize = processSize_;
+        u64 sliceCount = count_;
+        if (myAlgRank == templateRankSize_ - 1 && tempAlgParam.tailSize > 0) {
+            sliceSize = tempAlgParam.tailSize;
+            sliceCount = tempAlgParam.tailSize / DATATYPE_SIZE_TABLE[dataType_];
+        }
+        HCCL_DEBUG("[InsTempReduceScatterMesh1D][RunReduceScatter] myAlgRank[%d], repeatIdx[%d], sliceSize[%llu], sliceCount[%llu]",
+                   myAlgRank, repeatIdx, sliceSize, sliceCount);
         DataSlice srcSlice = DataSlice(tempAlgParam.buffInfo.inputPtr, tempAlgParam.buffInfo.inBuffBaseOff +
                                        repeatIdx * tempAlgParam.inputRepeatStride + myAlgRank * tempAlgParam.inputSliceStride,
-                                       processSize_, count_);
+                                       sliceSize, sliceCount);
         DataSlice dstSlice = DataSlice(tempAlgParam.buffInfo.outputPtr, tempAlgParam.buffInfo.outBuffBaseOff +
-                                       repeatIdx * tempAlgParam.outputRepeatStride, processSize_, count_);
+                                       repeatIdx * tempAlgParam.outputRepeatStride, sliceSize, sliceCount);
         CHK_RET(static_cast<HcclResult>(LocalCopy(threads[0], srcSlice, dstSlice)));
     }
 
-    u64 sliceSize = processSize_;
-    u64 sliceCount = count_;
     for (u32 queIdx = 1; queIdx < threadNum_; queIdx++) {
+        u64 sliceSize = processSize_;
+        u64 sliceCount = count_;
         u32 nextRank = (myAlgRank + queIdx) % templateRankSize_; // 这里取的虚拟rankId
         if (nextRank == templateRankSize_ - 1 && tempAlgParam.tailSize > 0) {
             sliceSize = tempAlgParam.tailSize;
