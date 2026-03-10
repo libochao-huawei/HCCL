@@ -113,8 +113,9 @@ HcclResult HcclRankGraphGetTopoType(HcclComm comm, uint32_t netLayer, uint32_t t
 
 HcclResult HcclRankGraphGetEndpointInfo(HcclComm comm, uint32_t rankId, const EndpointDesc *endpointDesc, EndpointAttr endpointAttr, uint32_t infoLen, void *info)
 {
-    HCCL_ERROR("[%s] not support", __func__);
-    return HCCL_E_NOT_SUPPORT;
+    uint32_t* intInfo = static_cast<uint32_t*>(info);
+    *intInfo = 0;
+    return HCCL_SUCCESS;
 }
 
 HcclResult HcclRankGraphGetEndpointNum(HcclComm comm, uint32_t layer, uint32_t topoInstId, uint32_t *num)
@@ -827,6 +828,7 @@ HcclResult HcclCommMemReg(HcclComm comm, const char *memTag, const CommMem *mem,
 HcclResult HcclThreadExportToCommEngine(HcclComm comm, uint32_t threadNum, const ThreadHandle *threads, CommEngine dstCommEngine, ThreadHandle *exportedThreads)
 {
     HCCL_WARNING("[%s] not support.", __func__);
+    *exportedThreads = *const_cast<const ThreadHandle*>(threads);
     return HCCL_SUCCESS;
 }
 
