@@ -113,9 +113,9 @@ HcclResult HcclAivKernelEntranceLaunch(OpParam &param, std::unique_ptr<TopoInfoW
 
 HcclResult HcclGetOpExpansionMode(OpParam &param);
 
-HcclResult DecideHcclOpExpansionMode(HcclComm comm, OpParam &param);
+HcclResult DecideHcclOpExpansionMode(HcclComm comm, HcclOpExpansionMode &finalMod);
 
-HcclResult ApplyOpExpansionMode(HcclComm comm, OpParam &param);
+HcclResult ApplyOpExpansionMode(OpParam &param, HcclOpExpansionMode finalMode);
 
 bool HcclCheckAicpuEnableOpen();
 
