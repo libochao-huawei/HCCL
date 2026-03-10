@@ -330,6 +330,7 @@ struct AlgResourceCtxSerializable {
     std::vector<u32> notifyNumPerThread; // 每个thread需要的notify数量
     void* aivCommInfoPtr = nullptr;
     std::vector<ThreadHandle> threads;
+    ThreadHandle unfoldThread; // 展开流thread
     std::vector<std::vector<ChannelInfo>> channels;
     void* commInfoPtr = nullptr;
     // hostdpu
