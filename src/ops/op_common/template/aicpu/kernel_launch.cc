@@ -42,7 +42,11 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
 {
     HCCL_INFO("Entry-%s, commName[%s], tag[%s], algTag[%s]", __func__, param->commName, param->tag, param->algTag);
 
-    if (param->deviceType != DevType::DEV_TYPE_910_95) {
+    if (param->deviceType == DevType::DEV_TYPE_910_95) {
+        if(LaunchAicpuKernelMain(param) != HCCL_SUCCESS) {
+            return 1;
+        }
+    } else {
         ScatterOpInfo opInfo;
         if (CreateScatter(param, &opInfo) != HCCL_SUCCESS) {
             HCCL_ERROR("%s CreateScatter fail", __func__);
@@ -67,145 +71,8 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
                 "%s HcommRegOpTaskException fail, commName[%s], algTag[%s]", __func__, param->commName, param->algTag);
             return 1;
         }
-    }
 
-    // 根据算法名字获取executor
-    std::string algName = std::string(param->algName);
-    if (param->deviceType == DevType::DEV_TYPE_910_95) {
-        AlgResourceCtxSerializable resCtx;
-
-        char *ctx = static_cast<char *>(param->resCtx);
-        std::vector<char> seq(ctx, ctx + param->ctxSize);
-        resCtx.DeSerialize(seq);
-        // 还原变长指针
-        HcclResult ret = HCCL_SUCCESS;
-        if (param->opType == HCCL_CMD_BATCH_SEND_RECV) {
-            ret = ops_hccl::RestoreVarDataBatchSendRecv(*param);
-        } else if (param->opType == HCCL_CMD_ALLTOALLV || param->opType == HCCL_CMD_ALLTOALLVC ||
-                   param->opType == HCCL_CMD_ALLTOALL) {
-            ret = ops_hccl::RestoreVarDataAlltoAllV(*param, resCtx);
-        } else if (param->opType == HCCL_CMD_REDUCE_SCATTER_V) {
-            ret = ops_hccl::RestoreVarDataReduceScatterV(*param, resCtx);
-        } else if (param->opType == HCCL_CMD_ALLGATHER_V) {
-            ret = ops_hccl::RestoreVarDataAllGatherV(*param, resCtx);
-        }
-        if (ret != HCCL_SUCCESS) {
-            HCCL_ERROR("failed to restore optype [%d] data and counts.", param->opType);
-            return 1;
-        }
-        // 获取Device测主thread
-        ThreadHandle thread = resCtx.threads[0];
-        if (HcommBatchModeStart(param->algTag) != HCCL_SUCCESS) {
-            HCCL_ERROR("failed set batch mode, tag is %s.", param->algTag);
-            return 1;
-        }
-
-        // 主thread等待Host stream的通知
-        ThreadHandle exportedAicpuTsThread = param->opThread;
-        u32 notifyNumOnMainThread = resCtx.notifyNumOnMainThread;
-        HCCL_DEBUG("[%s]Notify wait on thread[%llu], notifyNumOnMainThread[%u], timeout[%u]", __func__, thread,
-            notifyNumOnMainThread, CUSTOM_TIMEOUT);
-        CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(thread, notifyNumOnMainThread, CUSTOM_TIMEOUT)));
-
-        std::shared_ptr<InsCollAlgBase> executor = CollAlgExecRegistryV2::Instance().GetAlgExec(param->opType, algName);
-        if (executor.get() == nullptr) {
-            HCCL_ERROR("Fail to find executor for algName[%s]", algName.c_str());
-            return 1;
-        }
-
-        // 执行算法编排
-        if (executor->Orchestrate(*param, resCtx) != HCCL_SUCCESS) {
-            HCCL_ERROR("orchestrate failed for alg:%s", param->algName);
-            return 1;
-        }
-
-        constexpr u32 DEFAULT_NOTIFY_IDX = 0;
-        HCCL_DEBUG("[%s]Notify record on srcThread[%llu], dstThread[%llu], notifyIdx[%u]",__func__, thread, exportedAicpuTsThread,
-            DEFAULT_NOTIFY_IDX);
-        CHK_RET(static_cast<HcclResult>(HcommThreadNotifyRecordOnThread(thread, exportedAicpuTsThread,
-            DEFAULT_NOTIFY_IDX)));
-
-        if (HcommBatchModeEnd(param->algTag) != HCCL_SUCCESS) {
-            HCCL_ERROR("failed set eager mode, tag is %s.", param->algTag);
-            return 1;
-        }
-    } else {
-        std::unique_ptr<ExecutorBase> executor = CollAlgExecRegistry::Instance().GetAlgExec(algName);
-        if (executor.get() == nullptr) {
-            HCCL_ERROR("Fail to find executor for algName[%s]", algName.c_str());
-            return 1;
-        }
-        AlgResourceCtx *resCtx = reinterpret_cast<AlgResourceCtx *>(param->resCtx);
-        // 获取Device测主thread
-        ThreadHandle *threadHandlePtr =
-            reinterpret_cast<ThreadHandle *>(reinterpret_cast<u8 *>(resCtx) + sizeof(AlgResourceCtx));
-        ThreadHandle thread = threadHandlePtr[0];
-        ThreadHandle exportedAicpuTsThread = resCtx->opThread;
-        u32 notifyNumOnMainThread = resCtx->notifyNumOnMainThread;
-        if (HcommBatchModeStart(param->algTag) != HCCL_SUCCESS) {
-            HCCL_ERROR("failed set batch mode, tag is %s.", param->algTag);
-            return 1;
-        }
-
-        if (HcommProfilingInit(threadHandlePtr, resCtx->slaveThreadNum + 1) != HCCL_SUCCESS) {
-            HCCL_ERROR("failed to init Profiling");
-            return 1;
-        }
-
-        // 上报主流和第一个task  wait之前
-        if (HcommProfilingReportMainStreamAndFirstTask(thread) != HCCL_SUCCESS) {
-            HCCL_ERROR("failed to report MainStream And FirstTask");
-            return 1;
-        }
-
-        // 主thread等待Host stream的通知
-        HCCL_DEBUG("[%s]Notify wait on thread[%llu], notifyNumOnMainThread[%u], timeout[%u]",
-            __func__,
-            thread,
-            notifyNumOnMainThread,
-            CUSTOM_TIMEOUT);
-        CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(thread, notifyNumOnMainThread, CUSTOM_TIMEOUT)));
-
-        // 执行算法编排
-        if (executor->Orchestrate(*param, resCtx) != HCCL_SUCCESS) {
-            HCCL_ERROR("orchestrate failed for alg:%s", param->algName);
-            return 1;
-        }
-
-        // 上报device侧的op 附加信息
-        HcomProInfo profInfo;
-        std::string algTypeStr(param->algTypeStr);
-        strcpy_s(profInfo.algType, sizeof(profInfo.algType), algTypeStr.c_str());
-        strcpy_s(profInfo.commName, sizeof(profInfo.commName), param->commName);
-        profInfo.commNameLen = strlen(param->commName);
-        profInfo.dataCount = param->DataDes.count;
-        profInfo.dataType = static_cast<uint8_t>(param->DataDes.dataType);
-        profInfo.rankSize = resCtx->topoInfo.userRankSize;
-        HcommProfilingReportDeviceHcclOpInfo(profInfo);
-
-        // 主thread通知Host stream
-        constexpr u32 DEFAULT_NOTIFY_IDX = 0;
-        HCCL_DEBUG("[%s]Notify record on srcThread[%llu], dstThread[%llu], notifyIdx[%u]",
-            __func__,
-            thread,
-            exportedAicpuTsThread,
-            DEFAULT_NOTIFY_IDX);
-        CHK_RET(static_cast<HcclResult>(
-            HcommThreadNotifyRecordOnThread(thread, exportedAicpuTsThread, DEFAULT_NOTIFY_IDX)));
-
-        // 上报主流和最后一个task 在notify之后
-        if (HcommProfilingReportMainStreamAndLastTask(thread) != HCCL_SUCCESS) {
-            HCCL_ERROR("failed to report MainStream And LastTask");
-            return 1;
-        }
-
-        if (HcommBatchModeEnd(param->algTag) != HCCL_SUCCESS) {
-            HCCL_ERROR("failed set eager mode, tag is %s.", param->algTag);
-            return 1;
-        }
-
-        if (HcommProfilingEnd(threadHandlePtr, resCtx->slaveThreadNum + 1) != HCCL_SUCCESS) {
-            HCCL_ERROR("failed to End Profiling");
+        if(LaunchAicpuKernelLegacy(param) != HCCL_SUCCESS) {
             return 1;
         }
     }
@@ -216,6 +83,166 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
     }
     HCCL_INFO("%s success, tag[%s], algTag[%s], commName[%s]", __func__, param->tag, param->algTag, param->commName);
     return 0;
+}
+
+static HcclResult LaunchAicpuKernelMain(OpParam *param)
+{
+    AlgResourceCtxSerializable resCtx;
+
+    char *ctx = static_cast<char *>(param->resCtx);
+    std::vector<char> seq(ctx, ctx + param->ctxSize);
+    resCtx.DeSerialize(seq);
+    // 根据算法名字获取executor
+    std::string algName = std::string(param->algName);
+    // 还原变长指针
+    HcclResult ret = HCCL_SUCCESS;
+    if (param->opType == HCCL_CMD_BATCH_SEND_RECV) {
+        ret = ops_hccl::RestoreVarDataBatchSendRecv(*param);
+    } else if (param->opType == HCCL_CMD_ALLTOALLV || param->opType == HCCL_CMD_ALLTOALLVC ||
+                param->opType == HCCL_CMD_ALLTOALL) {
+        ret = ops_hccl::RestoreVarDataAlltoAllV(*param, resCtx);
+    } else if (param->opType == HCCL_CMD_REDUCE_SCATTER_V) {
+        ret = ops_hccl::RestoreVarDataReduceScatterV(*param, resCtx);
+    } else if (param->opType == HCCL_CMD_ALLGATHER_V) {
+        ret = ops_hccl::RestoreVarDataAllGatherV(*param, resCtx);
+    }
+    if (ret != HCCL_SUCCESS) {
+        HCCL_ERROR("failed to restore optype [%d] data and counts.", param->opType);
+        return ret;
+    }
+    // 获取Device测主thread
+    ThreadHandle thread = resCtx.threads[0];
+    ret = HcommBatchModeStart(param->algTag);
+    if (ret != HCCL_SUCCESS) {
+        HCCL_ERROR("failed set batch mode, tag is %s.", param->algTag);
+        return ret;
+    }
+
+    // 主thread等待Host stream的通知
+    ThreadHandle exportedAicpuTsThread = param->opThread;
+    u32 notifyNumOnMainThread = resCtx.notifyNumOnMainThread;
+    HCCL_DEBUG("[%s]Notify wait on thread[%llu], notifyNumOnMainThread[%u], timeout[%u]", __func__, thread,
+        notifyNumOnMainThread, CUSTOM_TIMEOUT);
+    CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(thread, notifyNumOnMainThread, CUSTOM_TIMEOUT)));
+
+    std::shared_ptr<InsCollAlgBase> executor = CollAlgExecRegistryV2::Instance().GetAlgExec(param->opType, algName);
+    if (executor.get() == nullptr) {
+        HCCL_ERROR("Fail to find executor for algName[%s]", algName.c_str());
+        return HCCL_E_NOT_SUPPORT;
+    }
+
+    // 执行算法编排
+    ret = executor->Orchestrate(*param, resCtx);
+    if (ret != HCCL_SUCCESS) {
+        HCCL_ERROR("orchestrate failed for alg:%s", param->algName);
+        return ret;
+    }
+
+    constexpr u32 DEFAULT_NOTIFY_IDX = 0;
+    HCCL_DEBUG("[%s]Notify record on srcThread[%llu], dstThread[%llu], notifyIdx[%u]",__func__, thread, exportedAicpuTsThread,
+        DEFAULT_NOTIFY_IDX);
+    CHK_RET(static_cast<HcclResult>(HcommThreadNotifyRecordOnThread(thread, exportedAicpuTsThread,
+        DEFAULT_NOTIFY_IDX)));
+
+    ret = HcommBatchModeEnd(param->algTag);
+    if (ret != HCCL_SUCCESS) {
+        HCCL_ERROR("failed set eager mode, tag is %s.", param->algTag);
+        return ret;
+    }
+    return HCCL_SUCCESS;
+}
+
+static HcclResult LaunchAicpuKernelLegacy(OpParam *param)
+{
+    HcclResult ret = HCCL_SUCCESS;
+    // 根据算法名字获取executor
+    std::string algName = std::string(param->algName);
+    std::unique_ptr<ExecutorBase> executor = CollAlgExecRegistry::Instance().GetAlgExec(algName);
+    if (executor.get() == nullptr) {
+        HCCL_ERROR("Fail to find executor for algName[%s]", algName.c_str());
+        return HCCL_E_NOT_SUPPORT;
+    }
+    AlgResourceCtx *resCtx = reinterpret_cast<AlgResourceCtx *>(param->resCtx);
+    // 获取Device测主thread
+    ThreadHandle *threadHandlePtr =
+        reinterpret_cast<ThreadHandle *>(reinterpret_cast<u8 *>(resCtx) + sizeof(AlgResourceCtx));
+    ThreadHandle thread = threadHandlePtr[0];
+    ThreadHandle exportedAicpuTsThread = resCtx->opThread;
+    u32 notifyNumOnMainThread = resCtx->notifyNumOnMainThread;
+    ret = HcommBatchModeStart(param->algTag);
+    if (ret != HCCL_SUCCESS) {
+        HCCL_ERROR("failed set batch mode, tag is %s.", param->algTag);
+        return ret;
+    }
+
+    ret = HcommProfilingInit(threadHandlePtr, resCtx->slaveThreadNum + 1);
+    if (ret != HCCL_SUCCESS) {
+        HCCL_ERROR("failed to init Profiling");
+        return ret;
+    }
+
+    // 上报主流和第一个task  wait之前
+    ret = HcommProfilingReportMainStreamAndFirstTask(thread);
+    if (ret != HCCL_SUCCESS) {
+        HCCL_ERROR("failed to report MainStream And FirstTask");
+        return ret;
+    }
+
+    // 主thread等待Host stream的通知
+    HCCL_DEBUG("[%s]Notify wait on thread[%llu], notifyNumOnMainThread[%u], timeout[%u]",
+        __func__,
+        thread,
+        notifyNumOnMainThread,
+        CUSTOM_TIMEOUT);
+    CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(thread, notifyNumOnMainThread, CUSTOM_TIMEOUT)));
+
+    // 执行算法编排
+    ret = executor->Orchestrate(*param, resCtx);
+    if (ret != HCCL_SUCCESS) {
+        HCCL_ERROR("orchestrate failed for alg:%s", algName.c_str());
+        return ret;
+    }
+
+    // 上报device侧的op 附加信息
+    HcomProInfo profInfo;
+    std::string algTypeStr(param->algTypeStr);
+    strcpy_s(profInfo.algType, sizeof(profInfo.algType), algTypeStr.c_str());
+    strcpy_s(profInfo.commName, sizeof(profInfo.commName), param->commName);
+    profInfo.commNameLen = strlen(param->commName);
+    profInfo.dataCount = param->DataDes.count;
+    profInfo.dataType = static_cast<uint8_t>(param->DataDes.dataType);
+    profInfo.rankSize = resCtx->topoInfo.userRankSize;
+    HcommProfilingReportDeviceHcclOpInfo(profInfo);
+
+    // 主thread通知Host stream
+    constexpr u32 DEFAULT_NOTIFY_IDX = 0;
+    HCCL_DEBUG("[%s]Notify record on srcThread[%llu], dstThread[%llu], notifyIdx[%u]",
+        __func__,
+        thread,
+        exportedAicpuTsThread,
+        DEFAULT_NOTIFY_IDX);
+    CHK_RET(static_cast<HcclResult>(
+        HcommThreadNotifyRecordOnThread(thread, exportedAicpuTsThread, DEFAULT_NOTIFY_IDX)));
+
+    // 上报主流和最后一个task 在notify之后
+    ret = HcommProfilingReportMainStreamAndLastTask(thread);
+    if (ret != HCCL_SUCCESS) {
+        HCCL_ERROR("failed to report MainStream And LastTask");
+        return ret;
+    }
+
+    ret = HcommBatchModeEnd(param->algTag);
+    if (ret != HCCL_SUCCESS) {
+        HCCL_ERROR("failed set eager mode, tag is %s.", param->algTag);
+        return ret;
+    }
+
+    ret = HcommProfilingEnd(threadHandlePtr, resCtx->slaveThreadNum + 1);
+    if (ret != HCCL_SUCCESS) {
+        HCCL_ERROR("failed to End Profiling");
+        return ret;
+    }
+    return HCCL_SUCCESS;
 }
 
 HcclResult ops_hccl::RestoreVarDataBatchSendRecv(OpParam &param)
