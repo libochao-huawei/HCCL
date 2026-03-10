@@ -38,6 +38,8 @@
 #include "hccl_aiv_utils.h"
 #include "aiv_kernel_def.h"
 #include "dpu/kernel_launch.h"
+#include "rt.h"
+#include "hcomm/hcomm_res.h"
 
 namespace ops_hccl {
 thread_local std::map<std::string, HcclMemHandle> g_memHandleCache; // 当前AIV存放注册内存的memHandle使用
@@ -118,6 +120,8 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
 
     // 算法执行
     if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
+        // 根据主流的捕获状态决定展开流的状态
+        CHK_RET(CaptureSlaveStreams(param.stream, {resCtxHost->unfoldThread}));
         CHK_RET(HcclAicpuKernelEntranceLaunch(comm, param, cpuTsThread, exportedCpuTsThread, notifyNumOnMainThread,
             resCtxSequence, algName));
     } else if (param.engine == COMM_ENGINE_AIV) {
@@ -176,6 +180,7 @@ HcclResult AicpuKernelLaunch(OpParam &param)
     std::string kernelName = "HcclLaunchAicpuKernel";
     aclrtFuncHandle funcHandle;
     aclrtArgsHandle argsHandle;
+    AlgResourceCtxSerializable &resCtxHost = *static_cast<AlgResourceCtxSerializable *>(param.resCtx);
     // 注意，目前开源HCCL加载AICPU kernel使用的是从json文件加载
     // 详见load_kernel.cc中的LoadAICPUKernel函数，且只实现了scatter的，先共用scatter的
     aclError ret = aclrtBinaryGetFunction(g_binKernelHandle, kernelName.c_str(), &funcHandle);
@@ -206,7 +211,10 @@ HcclResult AicpuKernelLaunch(OpParam &param)
     cfg.numAttrs = 1;
     cfg.attrs = &attr;
     constexpr u32 numBlocks = 1;
-    aclError aclRet = aclrtLaunchKernelWithConfig(funcHandle, numBlocks, param.stream, &cfg, argsHandle, nullptr);
+    // 通过Thread获取展开流stream
+    ThreadResTypeStream unfoldStream;
+    CHK_RET(HcommThreadResGetInfo(resCtxHost.unfoldThread, ThreadResType::THREAD_RES_TYPE_STREAM, sizeof(ThreadResTypeStream), &unfoldStream));
+    aclError aclRet = aclrtLaunchKernelWithConfig(funcHandle, numBlocks, unfoldStream, &cfg, argsHandle, nullptr); // 提前展开，传入展开流
     CHK_PRT_RET(aclRet != ACL_SUCCESS,
         HCCL_ERROR("[LoadCustomKernel][aclrtLaunchKernelWithConfig]errNo[0x%016llx] launch kernel failed", ret),
         HCCL_E_OPEN_FILE_FAILURE);
@@ -232,6 +240,32 @@ HcclResult HcclAivKernelEntranceLaunch(HcclComm comm, OpParam &param, std::uniqu
     return HCCL_SUCCESS;
 }
 
+HcclResult CaptureSlaveStreams(aclrtStream mainStream, const std::vector<ThreadHandle>& threads)
+{
+    aclmdlRI rtModel = nullptr;
+    u64 modelId = 0;
+    bool isCapture = false;
+    aclmdlRICaptureStatus captureStatus = aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_NONE;
+    CHK_RET(haclrtGetCaptureInfo(mainStream, captureStatus, modelId, isCapture));
+    if (!isCapture) {
+        HCCL_INFO("captureStatus is not active, captureStatus[%d]", captureStatus);
+        return HCCL_SUCCESS;
+    }
+    aclmdlRI rtModel = reinterpret_cast<aclmdlRI>(modelId);
+    CHK_PTR_NULL(rtModel);
+    //thread[0] is main thread
+    for (size_t i = 1; i < threads.size(); ++i) {
+        ThreadResTypeStream stream;
+        CHK_RET(HcommThreadResGetInfo(threads[i], ThreadResType::THREAD_RES_TYPE_STREAM, sizeof(ThreadResTypeStream), &stream));
+        rtError_t ret = rtStreamAddToModel(stream, rtModel);
+        CHK_PRT_RET(ret != RT_ERROR_NONE, HCCL_ERROR("[%s]rtStreamAddToModel fail. return[%d].", __func__, ret),
+            HCCL_E_RUNTIME);
+        HCCL_DEBUG("[%s]add slaveStream to model success, idx[%d], stream[%p], rtModel[%p]", __func__, i, stream, rtModel);
+    }
+    HCCL_INFO("[%s]success, captured streams to rtmodel:[%p], slaveStreamNum:[%zu]", __func__, rtModel, threads.size() - 1);
+    return HCCL_SUCCESS;
+}
+
 HcclResult HcclCalcTopoInfo(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo)
 {
     HCCL_INFO("[%s] HcclCalcTopoInfo start.", __func__);
@@ -246,7 +280,7 @@ HcclResult HcclCalcTopoInfo(HcclComm comm, OpParam &param, std::unique_ptr<TopoI
         size = seq.size();
         // 创建新的Context保存
         CHK_RET(HcclEngineCtxCreate(comm, param.tag, CommEngine::COMM_ENGINE_CPU_TS, size, &ctx));
-        ACLCHECK(aclrtMemcpy(ctx, size, seq.data(), size, ACL_MEMCPY_HOST_TO_HOST));
+        CHK_SAFETY_FUNC_RET(memcpy_s(ctx, size, seq.data(), size));
         return HCCL_SUCCESS;
     }
     char *ctxTemp = reinterpret_cast<char*>(ctx);
@@ -436,6 +470,8 @@ HcclResult HcclGetThread(
     if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
         CHK_RET(HcclThreadAcquire(comm, COMM_ENGINE_AICPU_TS, 1, resRequest.notifyNumOnMainThread, &thread));
         CHK_RET(SaveMainThreadInfo(comm, param, thread, resRequest.notifyNumOnMainThread));
+        // 申请展开流对应的Thread
+        CHK_RET(HcclThreadAcquire(comm, COMM_ENGINE_CPU, 1, 0, &resCtxHost->unfoldThread));
         HCCL_DEBUG("threads ptr is %p\n", &thread);
     } else {
         // host模式下，将主流封装为thread，并创建主流上的notify
