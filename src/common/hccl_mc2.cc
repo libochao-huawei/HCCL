@@ -13,6 +13,7 @@
 #include "sal.h"
 #include "alg_env_config.h"
 #include "hccl_inner.h"
+#include "param_check.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -56,6 +57,7 @@ HcclResult HcclKfcFreeOpArgs(void *opArgs)
 HcclResult HcclKfcOpArgsSetSrcDataType(void *opArgs, uint8_t srcDataType)
 {
     CHK_PTR_NULL(opArgs);
+    CHK_RET(HcomCheckDataType(static_cast<HcclDataType>(srcDataType)));
 
     HcclOpArgs *opArgsPtr = static_cast<HcclOpArgs *>(opArgs);
     opArgsPtr->srcDataType = static_cast<HcclDataType>(srcDataType);
@@ -66,6 +68,7 @@ HcclResult HcclKfcOpArgsSetSrcDataType(void *opArgs, uint8_t srcDataType)
 HcclResult HcclKfcOpArgsSetDstDataType(void *opArgs, uint8_t dstDataType)
 {
     CHK_PTR_NULL(opArgs);
+    CHK_RET(HcomCheckDataType(static_cast<HcclDataType>(dstDataType)));
 
     HcclOpArgs *opArgsPtr = static_cast<HcclOpArgs *>(opArgs);
     opArgsPtr->dstDataType = static_cast<HcclDataType>(dstDataType);
@@ -76,6 +79,7 @@ HcclResult HcclKfcOpArgsSetDstDataType(void *opArgs, uint8_t dstDataType)
 HcclResult HcclKfcOpArgsSetReduceType(void *opArgs, uint32_t reduceType)
 {
     CHK_PTR_NULL(opArgs);
+    CHK_RET(HcomCheckReductionOp(static_cast<HcclReduceOp>(reduceType)));
 
     HcclOpArgs *opArgsPtr = static_cast<HcclOpArgs *>(opArgs);
     opArgsPtr->reduceType = static_cast<HcclReduceOp>(reduceType);
@@ -115,6 +119,11 @@ HcclResult HcclKfcOpArgsSetAlgConfig(void *opArgs, char *algConfig)
 HcclResult HcclKfcOpArgsSetCommEngine(void *opArgs, uint8_t commEngine)
 {
     CHK_PTR_NULL(opArgs);
+    // A3只支持AICPU和AIV场景
+    if (commEngine != COMM_ENGINE_AICPU && commEngine != COMM_ENGINE_AIV) {
+        HCCL_ERROR("[%s] commEngine[%u] not supported", __func__, commEngine);
+        return HCCL_E_NOT_SUPPORT;
+    }
 
     HcclOpArgs *opArgsPtr = static_cast<HcclOpArgs *>(opArgs);
     opArgsPtr->commEngine = static_cast<CommEngine>(commEngine);
@@ -131,6 +140,8 @@ HcclResult HcclCreateOpResCtx(HcclComm comm, uint8_t opType, void *opArgs, void 
         HCCL_ERROR("[%s] invalid opType[%u]", __func__, opType);
         return HCCL_E_PARA;
     }
+
+    CHK_RET(InitEnvConfig());
 
     HcclOpArgs *opArgsPtr = static_cast<HcclOpArgs *>(opArgs);
     if (GetExternalInputHcclEnableEntryLog()) {

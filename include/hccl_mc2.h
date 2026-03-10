@@ -32,6 +32,7 @@ struct HcclOpArgs {
         srcDataType = HCCL_DATA_TYPE_FP16;
         dstDataType = HCCL_DATA_TYPE_FP16;
         reduceType = HCCL_REDUCE_SUM;
+        count = 0;
     }
 };
 
