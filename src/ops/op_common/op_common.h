@@ -19,6 +19,7 @@
 #include "executor_v2_base.h"
 #include "alg_type.h"
 #include "execute_selector.h"
+#include "acl/acl_rt.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -104,14 +105,20 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
                          std::string &algName);
 
 HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHandle cpuTsThread,
-    ThreadHandle exportedCpuTsThread, u32 notifyNumOnMainThread, void *resCtxSequence, std::string &algName);
+    ThreadHandle exportedCpuTsThread, u32 notifyNumOnMainThread, void *resCtxSequence, std::string &algName, ThreadHandle unfoldThread);
 
-HcclResult AicpuKernelLaunch(OpParam &param);
+HcclResult AicpuKernelLaunch(HcclComm comm, OpParam &param, ThreadHandle unfoldThread);
 
 HcclResult HcclAivKernelEntranceLaunch(OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
     AlgResourceCtxSerializable &resCtxHost);
 
 HcclResult HcclGetOpExpansionMode(OpParam &param);
+
+HcclResult CaptureSlaveStreams(HcclComm comm, aclrtStream mainStream, const std::vector<ThreadHandle>& threads);
+
+HcclResult SaveUnfoldThreadInfo(HcclComm comm, const OpParam &param, ThreadHandle unfoldThread);
+
+HcclResult GetUnfoldThreadInfo(HcclComm comm, const OpParam &param, ThreadHandle& unfoldThread);
 
 bool HcclCheckAicpuEnableOpen();
 
