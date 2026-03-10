@@ -147,7 +147,7 @@ HcclResult InsTempScatterNHR::PreCopy(const TemplateDataParams &tempAlgParams, c
 
     u32 curSliceSize = 0;
     u32 curCount = 0;
-    const u32 dataTypeSize = processSize_ / count_;
+    const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
 
     for (u32 r = 0; r < tempAlgParams.repeatNum; r++) {
         for (u32 algRank = 0; algRank < templateRankSize_; algRank++) {
@@ -171,7 +171,7 @@ HcclResult InsTempScatterNHR::PostCopy(
     const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads) const
 {
     u32 myAlgRank;
-    const u32 dataTypeSize = processSize_ / count_;
+    const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
     u32 curSliceSize = tempAlgParams.tailSize !=0 && myAlgRank == templateRankSize_ - 1? tempAlgParams.tailSize : processSize_;
     u32 curCount = curSliceSize / dataTypeSize;
     GetAlgRank(myRank_, subCommRanks_[0], myAlgRank);
@@ -226,7 +226,7 @@ HcclResult InsTempScatterNHR::BatchSend(AicpuNHRStepInfo &stepInfo, const std::m
     std::vector<DataSlice> dstSlices;
     u32 curSliceSize = 0;
     u32 curCount = 0;
-    const u32 dataTypeSize = processSize_ / count_;
+    const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
 
     for (u32 i = 0; i < stepInfo.txSliceIdxs.size(); i++) {
         u32 txId = stepInfo.txSliceIdxs.at(i);
@@ -254,7 +254,7 @@ HcclResult InsTempScatterNHR::BatchRecv(AicpuNHRStepInfo &stepInfo, const std::m
     std::vector<DataSlice> srcDstSlices;
     u32 curSliceSize = 0;
     u32 curCount = 0;
-    const u32 dataTypeSize = processSize_ / count_;
+    const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
 
     for (u32 i = 0; i < stepInfo.rxSliceIdxs.size(); i++) {
         u32 rxId = stepInfo.rxSliceIdxs.at(i);
@@ -282,7 +282,7 @@ HcclResult InsTempScatterNHR::BatchSR(AicpuNHRStepInfo &stepInfo, const std::map
 
     u32 curSliceSize = 0;
     u32 curCount = 0;
-    const u32 dataTypeSize = processSize_ / count_;
+    const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
 
     std::vector<DataSlice> txSrcSlices;
     std::vector<DataSlice> txDstSlices;

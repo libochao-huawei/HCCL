@@ -99,7 +99,7 @@ HcclResult InsTempScatterMesh1D::KernelRun(const OpParam& param, const TemplateD
     processSize_ = tempAlgParams.sliceSize;
     count_ = tempAlgParams.count;
     dataType_ = param.DataDes.dataType;
-    const u32 dataTypeSize = processSize_ / count_;
+    const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
     // 尾块模式
     if (tempAlgParams.tailSize !=0 && myAlgRank == templateRankSize_ - 1) {
         processSize_ = tempAlgParams.tailSize;
@@ -183,7 +183,7 @@ HcclResult InsTempScatterMesh1D::RunMesh(const std::map<u32, std::vector<Channel
     u32 myAlgRank = 0;
     u32 curSliceSize = 0;
     u32 curCount = 0;
-    const u32 dataTypeSize = processSize_ / count_;
+    const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
     GetAlgRank(myRank_, subCommRanks_[0], myAlgRank);
     HCCL_DEBUG("[InsTempScatterMesh1D][RunMesh] myRank[%d], myAlgRank[%d], channels size[%d]", myRank_, myAlgRank, channels.size());
     for (u32 r = 0; r < tempAlgParams.repeatNum; r++) {
