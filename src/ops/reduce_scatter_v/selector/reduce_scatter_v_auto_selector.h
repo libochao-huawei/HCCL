@@ -27,13 +27,7 @@ private:
     SelectorStatus SelectAicpuAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
                                    const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                    std::string                                 &selectAlgName) const override;
-<<<<<<< HEAD
     SelectorStatus SelectMeshAlgoCcums(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
-=======
-    SelectorStatus SelectMeshAlgoCcums(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
-                                  std::string &selectAlgName) const;
-    SelectorStatus SelectMeshAlgoCcuSchedule(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
->>>>>>> 789a2ad... Hybrid comm and selector conflict  fix
                                   std::string &selectAlgName) const;
     SelectorStatus SelectMeshAlgoCcuSchedule(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                   std::string &selectAlgName) const;
