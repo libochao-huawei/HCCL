@@ -44,6 +44,7 @@ namespace ops_hccl {
 thread_local std::map<std::string, HcclMemHandle> g_memHandleCache; // 当前AIV存放注册内存的memHandle使用
 // 用于维护增量建链算子的host ctx信息
 thread_local std::map<std::string, std::unique_ptr<AlgResourceCtxSerializable>> g_hostCtx;
+constexpr u32 HOST_WAIT_AICPU_NOTIFYIDX = 0;// host主流wait aicpu流的notify idx
 
 HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
     std::string &algName, OpExecuteConfig &opExecuteConfig)
@@ -132,6 +133,8 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     hcclDfxOpInfo.inputMemSize = param.inputSize;
     hcclDfxOpInfo.outputMemPtr = reinterpret_cast<void*>(param.outputPtr);
     hcclDfxOpInfo.outputMemSize = param.outputSize;
+    hcclDfxOpInfo.cpuTsThread = cpuTsThread;
+    hcclDfxOpInfo.cpuWaitAicpuNotifyIdx = HOST_WAIT_AICPU_NOTIFYIDX;
     // rankSize
     u32 userRankSize{0};
     CHK_RET(HcclGetRankSize(comm, &userRankSize));
@@ -215,7 +218,7 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
 
     // Host stream等待Device的通知
     u16 NOTIFY_WAIT_TIME = 27 * 68;
-    CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, 0, NOTIFY_WAIT_TIME)));
+    CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, HOST_WAIT_AICPU_NOTIFYIDX, NOTIFY_WAIT_TIME)));
 
     if (aclrtSynchronizeStream(param.stream) != 0) {
         HCCL_ERROR("Stream Synchronize Failed");
