@@ -355,6 +355,12 @@ aclError aclrtSynchronizeStream(aclrtStream stream)
     return ACL_SUCCESS;
 }
 
+rtError_t rtStreamAddToModel(rtStream_t stm, rtModel_t captureMdl)
+{
+    captureMdl =&rtModelFake;
+    return RT_ERROR_NONE;
+}
+
 #ifdef __cplusplus
 }
 #endif  // __cplusplus
