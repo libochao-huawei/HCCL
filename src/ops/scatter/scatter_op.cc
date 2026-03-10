@@ -70,7 +70,8 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
         return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
     }
 
-    if (!RunIndependentOpExpansion(deviceType) || (GetHcommVersion() < 90000000)) {
+    // if (!RunIndependentOpExpansion(deviceType) || (GetHcommVersion() < 90000000)) {
+    if (!RunIndependentOpExpansion(deviceType)) {
        return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
     }
 
@@ -150,7 +151,7 @@ constexpr u32 DEVICE_TWO = 2;
 constexpr u32 DEVICE_ONE = 1;
 constexpr u32 HCCL_INTER_SERVER_RING_ALGO_MAX_SUPPORT_SERVER_NUM = 8; // server 间 ring 算法支持的最大server数: 8
 
-HcclResult CheckScatterInputPara(const HcclComm comm, const void *recvBuf)
+HcclResult CheckScatterInputPara(HcclComm comm, void *recvBuf)
 {
     // 入参合法性校验
     RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
