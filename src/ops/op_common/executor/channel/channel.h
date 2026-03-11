@@ -47,6 +47,7 @@ HcclResult CalcChannelRequestNHRWithPriorityTopo(HcclComm comm, const OpParam &p
 HcclResult GetTopoTypeByLink(HcclComm comm, uint32_t netLayer, CommLink &link, CommTopo &topoType);
 HcclResult ProcessLinksForChannel(HcclComm comm, u32 myRank, u32 rank, std::vector<HcclChannelDesc> &channels,
                                   CommTopo priorityTopo);
+HcclResult GetProtocolByEngine(const OpParam& param, std::vector<CommProtocol> &protocols);
 }
 
 #endif
