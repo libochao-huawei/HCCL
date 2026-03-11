@@ -8,29 +8,12 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include "all_gather_op.h"
+#include "op_common_ops.h"
 #include <algorithm>
-#include <map>
-#include <string>
 #include <future>
 #include <map>
 #include <string>
-#include <hccl/hccl_types.h>
-#include "hccl/base.h"
-#include "sal.h"
-#include "param_check.h"
-#include "mmpa_api.h"
-#include "executor_base.h"
-#include "alg_env_config.h"
-#include "adapter_acl.h"
-#include "hccl_inner.h"
-#include "hccl.h"
-#include "config_log.h"
-#include "workflow.h"
-#include "load_kernel.h"
-#include "adapter_error_manager_pub.h"
-#include "coll_alg_v2_exec_registry.h"
-#include "op_common.h"
-#include "all_gather_op.h"
 
 using namespace std;
 using namespace ops_hccl;
