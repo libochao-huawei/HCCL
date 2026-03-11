@@ -85,10 +85,28 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
     for (uint32_t r = 0; r < rankSize; r++) {
         if (r == rank) continue;
         HcclChannelDesc desc;
-        HcclChannelDescInit(&desc); // Helper or memset? HcclChannelDescInit is not in headers usually.
-        // HcclChannelDescInit is used in p2p example.
-        // Let's assume memset 0 is fine or just set fields.
-        memset(&desc, 0, sizeof(desc));
+        // HcclChannelDescInit(&desc, 1);
+        // Manual initialization to avoid linking errors with inline functions
+        memset(&desc, 0xFF, sizeof(desc));
+        desc.header.version = HCCL_CHANNEL_VERSION;
+        desc.header.magicWord = HCCL_CHANNEL_MAGIC_WORD;
+        desc.header.size = sizeof(HcclChannelDesc);
+        desc.header.reserved = 0;
+        desc.remoteRank = ~0U;
+        desc.channelProtocol = CommProtocol::COMM_PROTOCOL_RESERVED;
+        desc.notifyNum = 0;
+        desc.memHandles = nullptr;
+        desc.memHandleNum = 0;
+        // Init Endpoints (Local/Remote)
+        memset(&desc.localEndpoint, 0xFF, sizeof(EndpointDesc));
+        desc.localEndpoint.protocol = CommProtocol::COMM_PROTOCOL_RESERVED;
+        desc.localEndpoint.commAddr.type = CommAddrType::COMM_ADDR_TYPE_RESERVED;
+        desc.localEndpoint.loc.locType = EndpointLocType::ENDPOINT_LOC_TYPE_RESERVED;
+        memset(&desc.remoteEndpoint, 0xFF, sizeof(EndpointDesc));
+        desc.remoteEndpoint.protocol = CommProtocol::COMM_PROTOCOL_RESERVED;
+        desc.remoteEndpoint.commAddr.type = CommAddrType::COMM_ADDR_TYPE_RESERVED;
+        desc.remoteEndpoint.loc.locType = EndpointLocType::ENDPOINT_LOC_TYPE_RESERVED;
+
         desc.remoteRank = r;
         desc.channelProtocol = CommProtocol::COMM_PROTOCOL_HCCS; // Assume HCCS
         desc.notifyNum = 0; // AIV might not need notifies if using flags in memory?
