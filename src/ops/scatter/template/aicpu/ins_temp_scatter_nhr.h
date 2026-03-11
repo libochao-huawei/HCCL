@@ -37,15 +37,15 @@ public:
                         AlgResourceRequest& resourceRequest) override;
     HcclResult GetStepInfo(u32 step, u32 nSteps, AicpuNHRStepInfo &stepInfo);
     u64 GetThreadNum() const override;
-    HcclResult GetRes(AlgResourceRequest &resourceReques) const override;
+    HcclResult GetRes(AlgResourceRequest &resourceRequest) const override;
     void SetRoot(u32 root);
 
     void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainnToSub) override {};
     void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override{};
 
 private:
-    HcclResult PreCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads);
-    HcclResult PostCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads);
+    HcclResult PreCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads) const;
+    HcclResult PostCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads) const;
     HcclResult RunNHR(const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads,
         const TemplateDataParams &tempAlgParam);
     HcclResult BatchSend(AicpuNHRStepInfo &stepInfo, const std::map<u32, std::vector<ChannelInfo>> &channels,
