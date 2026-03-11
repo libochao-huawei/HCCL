@@ -127,6 +127,33 @@ HcclResult CalcLevel2ChannelRequest(const OpParam& param, const TopoInfo* topoIn
     return HCCL_SUCCESS;
 }
 
+HcclResult GetProtocolByEngine(const OpParam& param, std::vector<CommProtocol> &protocols)
+{
+    protocols.clear();
+    switch (param.engine) {
+        case CommEngine::COMM_ENGINE_AICPU:
+        case CommEngine::COMM_ENGINE_AICPU_TS:
+        case CommEngine::COMM_ENGINE_CCU:
+            protocols.push_back(CommProtocol::COMM_PROTOCOL_UBC_CTP);
+            protocols.push_back(CommProtocol::COMM_PROTOCOL_UBC_TP);
+            break;
+        case CommEngine::COMM_ENGINE_AIV:
+            protocols.push_back(CommProtocol::COMM_PROTOCOL_UB_MEM);
+            break;
+        case CommEngine::COMM_ENGINE_CPU:
+            protocols.push_back(CommProtocol::COMM_PROTOCOL_ROCE);
+            break;
+        case CommEngine::COMM_ENGINE_CPU_TS:
+            protocols.push_back(CommProtocol::COMM_PROTOCOL_ROCE);
+            break;
+        default:
+            HCCL_WARNING("[GetProtocolByEngine] Unknown engine[%d], set protocol to RESERVED",
+                         static_cast<int>(param.engine));
+            break;
+    }
+    return HCCL_SUCCESS;
+}
+
 HcclResult CalcChannelRequestMesh1D(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
     std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels)
 {
@@ -139,6 +166,11 @@ HcclResult CalcChannelRequestMesh1D(HcclComm comm, const OpParam& param, const T
     
     // 获取本rank的全局rankId
     u32 myRank = topoInfo->userRank;
+    
+    // 根据engine获取期望的协议类型列表
+    std::vector<CommProtocol> expectedProtocols;
+    CHK_RET(GetProtocolByEngine(param, expectedProtocols));
+    
     for (u32 rank: subcommInfo[COMM_LEVEL0]) {
         if (rank == topoInfo->userRank) {
             continue;
@@ -151,28 +183,32 @@ HcclResult CalcChannelRequestMesh1D(HcclComm comm, const OpParam& param, const T
             CommLink *linkList = nullptr;
             u32 listSize;
             CHK_RET(HcclRankGraphGetLinks(comm, netLayer, myRank, rank, &linkList, &listSize));
-            for (u32 idx = 0; idx < listSize; idx++) {
-                HcclChannelDesc channelDesc;
-                HcclChannelDescInit(&channelDesc, 1);
-                channelDesc.remoteRank = rank;
-                CommLink link = linkList[idx];
-                channelDesc.localEndpoint.protocol = link.srcEndpointDesc.protocol;
-                channelDesc.localEndpoint.commAddr = link.srcEndpointDesc.commAddr;
-                channelDesc.localEndpoint.loc = link.srcEndpointDesc.loc;
-                channelDesc.remoteEndpoint.protocol = link.dstEndpointDesc.protocol;
-                channelDesc.remoteEndpoint.commAddr = link.dstEndpointDesc.commAddr;
-                channelDesc.remoteEndpoint.loc = link.dstEndpointDesc.loc;
-                HCCL_DEBUG("[CalcChannelRequestMesh1D] local device phyId: %u, remote device phyId: %u.",
-                            channelDesc.localEndpoint.loc.device.devPhyId,
-                            channelDesc.remoteEndpoint.loc.device.devPhyId);
-                HCCL_INFO("[CalcChannelRequestMesh1D] Add channel request between %zu and %zu, netLayerIdx %u, "
-                          "linkListIdx %u, protocol %zu",
-                          myRank, channelDesc.remoteRank, netLayer, idx, channelDesc.remoteEndpoint.protocol);
-                channelDesc.channelProtocol = link.linkAttr.linkProtocol;
-                channelDesc.notifyNum = NORMAL_NOTIFY_NUM;
-                channels.push_back(channelDesc);
+            for (auto expectedProtocol : expectedProtocols) {
+                for (u32 idx = 0; idx < listSize; idx++) {
+                    CommLink link = linkList[idx];
+                    if (link.linkAttr.linkProtocol == expectedProtocol) {
+                        HcclChannelDesc channelDesc;
+                        HcclChannelDescInit(&channelDesc, 1);
+                        channelDesc.remoteRank = rank;
+                        channelDesc.localEndpoint.protocol = link.srcEndpointDesc.protocol;
+                        channelDesc.localEndpoint.commAddr = link.srcEndpointDesc.commAddr;
+                        channelDesc.localEndpoint.loc = link.srcEndpointDesc.loc;
+                        channelDesc.remoteEndpoint.protocol = link.dstEndpointDesc.protocol;
+                        channelDesc.remoteEndpoint.commAddr = link.dstEndpointDesc.commAddr;
+                        channelDesc.remoteEndpoint.loc = link.dstEndpointDesc.loc;
+                        HCCL_DEBUG("[CalcChannelRequestMesh1D] local device phyId: %u, remote device phyId: %u.",
+                                    channelDesc.localEndpoint.loc.device.devPhyId,
+                                    channelDesc.remoteEndpoint.loc.device.devPhyId);
+                        HCCL_INFO("[CalcChannelRequestMesh1D] Add channel request between %zu and %zu, netLayerIdx %u, "
+                                  "linkListIdx %u, protocol %zu",
+                                  myRank, channelDesc.remoteRank, netLayer, idx, channelDesc.remoteEndpoint.protocol);
+                        channelDesc.channelProtocol = link.linkAttr.linkProtocol;
+                        channelDesc.notifyNum = NORMAL_NOTIFY_NUM;
+                        channels.push_back(channelDesc);
+                    }
+                }
             }
-            if (listSize > 0) {
+            if (channels.size() > 0) {
                 break;
             }
         }
@@ -247,6 +283,11 @@ HcclResult CalcChannelRequestNhr(HcclComm comm, const OpParam& param, const Topo
     u32 localRank = std::distance(subcommInfo[0].begin(), it);;
     u32 localRankSize = subcommInfo[0].size();
     CHK_RET(CalcNHRChannelConnect(localRank, localRankSize, INVALID_VALUE_RANKID, connectRanks));
+    
+    // 根据engine获取期望的协议类型列表
+    std::vector<CommProtocol> expectedProtocols;
+    CHK_RET(GetProtocolByEngine(param, expectedProtocols));
+    
     for (u32 rankIdx: connectRanks) {
         uint32_t *netLayers;
         uint32_t netLayerNum;
@@ -256,24 +297,32 @@ HcclResult CalcChannelRequestNhr(HcclComm comm, const OpParam& param, const Topo
             CommLink *linkList = nullptr;
             u32 listSize;
             CHK_RET(HcclRankGraphGetLinks(comm, netLayer, myRank, subcommInfo[0][rankIdx], &linkList, &listSize));
-            for (u32 idx = 0; idx < listSize; idx++) {
-                HcclChannelDesc channelDesc;
-                HcclChannelDescInit(&channelDesc, 1);
-                channelDesc.remoteRank = subcommInfo[0][rankIdx];
-                CommLink link = linkList[idx];
-                channelDesc.localEndpoint = link.srcEndpointDesc;
-                channelDesc.remoteEndpoint = link.dstEndpointDesc;
-                HCCL_DEBUG("[CalcLevel1ChannelRequestNhr] local device phyId: %u, remote device phyId: %u.",
-                            channelDesc.localEndpoint.loc.device.devPhyId,
-                            channelDesc.remoteEndpoint.loc.device.devPhyId);
-                HCCL_INFO("[CalcLevel1ChannelRequestNhr] Add channel request between %zu and %zu, netLayerIdx %u, "
-                          "linkListIdx %u, protocol %zu",
-                          myRank, channelDesc.remoteRank, netLayer, idx, channelDesc.remoteEndpoint.protocol);
-                channelDesc.channelProtocol = link.linkAttr.linkProtocol;
-                channelDesc.notifyNum = NORMAL_NOTIFY_NUM;
-                channels.push_back(channelDesc);
+            for (auto expectedProtocol : expectedProtocols) {
+                for (u32 idx = 0; idx < listSize; idx++) {
+                    CommLink link = linkList[idx];
+                    if (link.linkAttr.linkProtocol == expectedProtocol) {
+                        HcclChannelDesc channelDesc;
+                        HcclChannelDescInit(&channelDesc, 1);
+                        channelDesc.remoteRank = subcommInfo[0][rankIdx];
+                        channelDesc.localEndpoint.protocol = link.srcEndpointDesc.protocol;
+                        channelDesc.localEndpoint.commAddr = link.srcEndpointDesc.commAddr;
+                        channelDesc.localEndpoint.loc = link.srcEndpointDesc.loc;
+                        channelDesc.remoteEndpoint.protocol = link.dstEndpointDesc.protocol;
+                        channelDesc.remoteEndpoint.commAddr = link.dstEndpointDesc.commAddr;
+                        channelDesc.remoteEndpoint.loc = link.dstEndpointDesc.loc;
+                        HCCL_DEBUG("[CalcLevel1ChannelRequestNhr] local device phyId: %u, remote device phyId: %u.",
+                                    channelDesc.localEndpoint.loc.device.devPhyId,
+                                    channelDesc.remoteEndpoint.loc.device.devPhyId);
+                        HCCL_INFO("[CalcLevel1ChannelRequestNhr] Add channel request between %zu and %zu, netLayerIdx %u, "
+                                  "linkListIdx %u, protocol %zu",
+                                  myRank, channelDesc.remoteRank, netLayer, idx, channelDesc.remoteEndpoint.protocol);
+                        channelDesc.channelProtocol = link.linkAttr.linkProtocol;
+                        channelDesc.notifyNum = NORMAL_NOTIFY_NUM;
+                        channels.push_back(channelDesc);
+                    }
+                }
             }
-            if (listSize > 0) {
+            if (channels.size() > 0) {
                 break;
             }
         }
