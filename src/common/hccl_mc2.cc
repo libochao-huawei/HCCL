@@ -15,17 +15,6 @@
 #include "hccl_inner.h"
 #include "param_check.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-extern HcclResult __attribute__((weak)) HcclCreateOpResCtxInner(HcclComm comm, uint8_t opType, HcclDataType srcDataType, HcclDataType dstDataType,
-                                          HcclReduceOp reduceType, uint64_t count, char *algConfig, uint32_t commEngine, void **opResCtx);
-
-#ifdef __cplusplus
-}
-#endif
-
 using namespace ops_hccl;
 
 HcclResult HcclKfcAllocOpArgs(void **opArgs)
@@ -151,11 +140,8 @@ HcclResult HcclCreateOpResCtx(HcclComm comm, uint8_t opType, void *opArgs, void 
             opArgsPtr->count, opArgsPtr->algConfig, opArgsPtr->commEngine, opResCtx);
     }
 
-    if (HcclCreateOpResCtxInner != nullptr) {
-        CHK_RET(HcclCreateOpResCtxInner(comm, opType, opArgsPtr->srcDataType, opArgsPtr->dstDataType,
-            opArgsPtr->reduceType, opArgsPtr->count, opArgsPtr->algConfig, opArgsPtr->commEngine, opResCtx));
-    } else {
-        HCCL_RUN_WARNING("[HcclKfcCreateOpResCtx] HcclCreateOpResCtxInner is nullptr.");
-    }
+    CHK_RET(HcclCreateOpResCtxInner(comm, opType, opArgsPtr->srcDataType, opArgsPtr->dstDataType,
+        opArgsPtr->reduceType, opArgsPtr->count, opArgsPtr->algConfig, opArgsPtr->commEngine, opResCtx));
+
     return HCCL_SUCCESS;
 }
