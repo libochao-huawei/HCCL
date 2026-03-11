@@ -91,3 +91,35 @@ execute_process(
     COMMAND echo "Move ${STAGING_DIR}/${package_name} to ${CPACK_PACKAGE_DIRECTORY}/"
     WORKING_DIRECTORY ${STAGING_DIR}
 )
+
+# 如果未指定only_host模式（用于其他调用方式），需要构建device侧tar包
+if(NOT DEFINED CUSTOM_ONLY_HOST OR NOT CUSTOM_ONLY_HOST)
+    message(STATUS "Building device package for other call modes")
+    
+    # 获取device包构建目录
+    set(DEVICE_BUILD_DIR "${CPACK_CMAKE_SOURCE_DIR}/build_device")
+    set(AICPU_CUSTOM_DIR "${DEVICE_BUILD_DIR}/aicpu_custom")
+    set(CCL_KERNEL_TAR_DIR "${DEVICE_BUILD_DIR}/ccl_kernel_tar_pkg/aicpu_kernels_device")
+    
+    # 确保device构建目录存在
+    file(MAKE_DIRECTORY "${AICPU_CUSTOM_DIR}")
+    file(MAKE_DIRECTORY "${CCL_KERNEL_TAR_DIR}")
+    
+    # 复制device侧的so文件到自定义算子目录
+    set(SCATTER_KERNEL_SRC "${CPACK_CMAKE_BINARY_DIR}/src/libscatter_aicpu_kernel.so")
+    set(SCATTER_KERNEL_DST "${AICPU_CUSTOM_DIR}/libscatter_aicpu_kernel.so")
+    
+    if(EXISTS "${SCATTER_KERNEL_SRC}")
+        execute_process(
+            COMMAND ${CMAKE_COMMAND} -E copy ${SCATTER_KERNEL_SRC} ${SCATTER_KERNEL_DST}
+            RESULT_VARIABLE COPY_RESULT
+        )
+        if(NOT COPY_RESULT EQUAL 0)
+            message(WARNING "Failed to copy libscatter_aicpu_kernel.so to ${SCATTER_KERNEL_DST}")
+        else()
+            message(STATUS "Copied libscatter_aicpu_kernel.so to ${SCATTER_KERNEL_DST}")
+        endif()
+    else()
+        message(WARNING "Device kernel library not found at ${SCATTER_KERNEL_SRC}, skipping device package build")
+    endif()
+endif()
