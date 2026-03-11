@@ -248,17 +248,32 @@ function run_st() {
   fi
 }
 
+CUSTOM_ONLY_HOST="false"
+
 function build_custom() {
-    # 编译 Host 包
-    log "Info: build_custom_host"
-    cd ${BUILD_DIR}
-    cmake_config "-DENABLE_CUSTOM=ON
-                  -DCUSTOM_OPS_PATH=${CUSTOM_OPS_PATH} \
-                  -DCUSTOM_OPS_NAME=${CUSTOM_OPS_NAME} \
-                  -DCUSTOM_OPS_VENDOR=${CUSTOM_OPS_VENDOR} \
-                  -DVERSION_INFO=${VERSION_INFO}"
-    # 打包 run 包
-    build package
+    if [ "${CUSTOM_ONLY_HOST}" == "true" ]; then
+        # 编译 Host 包（用于<<<>>>调用流程，仅910_93支持）
+        log "Info: build_custom_host_only"
+        cd ${BUILD_DIR}
+        cmake_config "-DENABLE_CUSTOM=ON
+                      -DCUSTOM_OPS_PATH=${CUSTOM_OPS_PATH} \
+                      -DCUSTOM_OPS_NAME=${CUSTOM_OPS_NAME} \
+                      -DCUSTOM_OPS_VENDOR=${CUSTOM_OPS_VENDOR} \
+                      -DVERSION_INFO=${VERSION_INFO} \
+                      -DKERNEL_MODE=OFF -DDEVICE_MODE=OFF"
+        build package
+    else
+        # 其他调用方式：同时编译host和device侧包
+        log "Info: build_custom_host_and_device"
+        cd ${BUILD_DIR}
+        cmake_config "-DENABLE_CUSTOM=ON
+                      -DCUSTOM_OPS_PATH=${CUSTOM_OPS_PATH} \
+                      -DCUSTOM_OPS_NAME=${CUSTOM_OPS_NAME} \
+                      -DCUSTOM_OPS_VENDOR=${CUSTOM_OPS_VENDOR} \
+                      -DVERSION_INFO=${VERSION_INFO} \
+                      -DKERNEL_MODE=ON -DDEVICE_MODE=ON"
+        build package
+    fi
 }
 
 # print usage message
@@ -293,6 +308,8 @@ function usage() {
   echo "                   Set custom ops name to <OPS>"
   echo "    --vendor=<VENDOR>"
   echo "                   Set custom ops vendor to <VENDOR>"
+  echo "    --custom_only_host"
+  echo "                   Build custom ops with host package only for <<<>>> call (910_93 only)"
   echo ""
 }
 
@@ -419,6 +436,10 @@ while [[ $# -gt 0 ]]; do
         ENABLE_CUSTOM="on"
         shift
         ;;
+    --custom_only_host)
+        CUSTOM_ONLY_HOST="true"
+        shift
+        ;;
     *)
         log "Error: Undefined option: $1"
         usage
@@ -433,6 +454,10 @@ fi
 
 if [ "${KERNEL}" == "true" ];then
     CUSTOM_OPTION="${CUSTOM_OPTION} -DKERNEL_MODE=ON -DDEVICE_MODE=ON"
+fi
+
+if [ "${CUSTOM_ONLY_HOST}" == "true" ];then
+    CUSTOM_OPTION="${CUSTOM_OPTION} -DCUSTOM_ONLY_HOST=ON"
 fi
 
 if [ "${FULL_MODE}" == "true" ];then
