@@ -220,7 +220,7 @@ public:
         tag_ = localIn.GetValue(0);
         inOutQue.EnQue(localIn);
         LocalTensor<int32_t> localOut = inOutQue.DeQue<int32_t>();
-        if (tag_ = TAG_RESET_COUNT) {
+        if (tag_ == TAG_RESET_COUNT) {
             tag_ = TAG_INIT_VALUE;
         } else {
             tag_++;
