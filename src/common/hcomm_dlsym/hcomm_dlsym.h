@@ -14,6 +14,10 @@ int HcommDlInit(void);
 void HcommDlFini(void);
 int GetHcommVersion(void);
 
+// 功能支持情况查询
+bool HcommIsProfilingSupported();
+bool HcommIsExportThreadSupported();
+
 // 新增：查询函数声明
 bool HcommIsSupportHcclGetRankId(void);
 bool HcommIsSupportHcclGetRankSize(void);

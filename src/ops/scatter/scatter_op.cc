@@ -184,7 +184,7 @@ HcclResult ScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, Hcc
     HcclComm comm, aclrtStream stream, const std::string &tag)
 {
     uint64_t beginTime;
-    if (GetHcommVersion() >= 90000000) {
+    if (HcommIsProfilingSupported()) {
         beginTime = HcommGetProfilingSysCycleTime();
     } 
     u32 userRankSize;
@@ -240,7 +240,7 @@ HcclResult ScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, Hcc
     } else {
         CHK_RET(ExecOp(comm, param));  //保留原有A3流程
 
-        if (GetHcommVersion() >= 90000000) {
+        if (HcommIsProfilingSupported()) {
            // 获取profiling op上报的信息
             HcomProInfo profInfo;
             std::string algTypeStr = TransferAlgTypeStr(param.algType);
@@ -292,7 +292,7 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
     ThreadHandle cpuTsThread = 0;
     ThreadHandle exportedAicpuTsThread = 0;
     ThreadHandle exportedCpuTsThread = 0;
-    if (HcommIsSupportHcclThreadExportToCommEngine()) {
+    if (HcommIsExportThreadSupported()) {
         if (param.engine == COMM_ENGINE_AICPU_TS) {
             CHK_RET(HcclThreadAcquireWithStream(comm, COMM_ENGINE_CPU_TS, param.stream, 1, &cpuTsThread));
             // Export cpuTsThread
@@ -336,7 +336,7 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
         int32_t retComm = HcommAcquireComm(param.commName);
         CHK_PRT_RET(retComm != HCCL_SUCCESS, HCCL_ERROR("[%s] [%s] HcommAcquireComm failed ",
             __func__, param.commName), static_cast<HcclResult>(retComm));
-        if (HcommIsSupportHcclThreadExportToCommEngine()) {
+        if (HcommIsExportThreadSupported()) {
             // Host stream通知Device主thread，使用主流上idx最大的notify
             CHK_RET(static_cast<HcclResult>(HcommThreadNotifyRecordOnThread(cpuTsThread, exportedCpuTsThread,
                 topoInfo->notifyNumOnMainThread)));
@@ -349,7 +349,7 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
 
         // 执行device测的算法编排
         uint64_t beginTime;
-        if (GetHcommVersion() >= 90000000) {
+        if (HcommIsProfilingSupported()) {
             beginTime = HcommGetProfilingSysCycleTime();
         } 
         std::string kernelName = "HcclLaunchAicpuKernel";
@@ -391,7 +391,7 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
         aclError aclRet = aclrtLaunchKernelWithConfig(funcHandle, numBlocks, param.stream, &cfg, argsHandle, nullptr);
         CHK_PRT_RET(aclRet != ACL_SUCCESS,
                     HCCL_ERROR("[LoadCustomKernel][aclrtLaunchKernelWithConfig]errNo[0x%016llx] launch kernel failed", ret), HCCL_E_OPEN_FILE_FAILURE);
-        if (GetHcommVersion() >= 90000000) {
+        if (HcommIsProfilingSupported()) {
             std::string profName = "scatter";
             profName += "AicpuKernel"; // 标准后缀，类似于alltoallAicpuKernel;
             // 算子下发时间
@@ -401,7 +401,7 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
         }
 
         // Host stream等待Device的通知
-        if (HcommIsSupportHcclThreadExportToCommEngine()) {
+        if (HcommIsExportThreadSupported()) {
             CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, 0, NOTIFY_DEFAULT_WAIT_TIME)));
         } else {
             if (aclrtWaitAndResetNotify(g_notifies[1], param.stream, CUSTOM_TIMEOUT) != ACL_SUCCESS) {
@@ -695,7 +695,7 @@ HcclResult GetAlgRes(HcclComm comm, OpParam &param, std::unique_ptr<ExecutorBase
     if (HcclEngineCtxGet(comm, param.algTag, param.engine, &ctx, &size) == HCCL_SUCCESS) {
         *resCtx = static_cast<AlgResourceCtx *>(ctx);
         HCCL_INFO("[%s] Res Allready Exist", __func__);
-        if (GetHcommVersion() >= 90000000) {
+        if (HcommIsProfilingSupported()) {
             CHK_PRT(ReportProfilingThread(comm, param, *resCtx, topoInfo));
         }
         return HCCL_SUCCESS;
@@ -774,7 +774,7 @@ HcclResult AllocAlgResource(HcclComm comm, const OpParam& param, AlgResourceRequ
         resCtxHost->notifyNumPerThread = resRequest.notifyNumPerThread[0];
     }
 
-    if (!HcommIsSupportHcclThreadExportToCommEngine()) {
+    if (!HcommIsExportThreadSupported()) {
         #define ACL_NOTIFY_DEFAULT          0x00000000U
         // 先使用acl接口来分配notify
         if (aclrtCreateNotify(&(g_notifies[0]), ACL_NOTIFY_DEFAULT) != ACL_SUCCESS) {
@@ -829,7 +829,7 @@ HcclResult AllocAlgResource(HcclComm comm, const OpParam& param, AlgResourceRequ
         }
     }
 
-    if (GetHcommVersion() >= 90000000) {
+    if (HcommIsProfilingSupported()) {
         CHK_PRT(ReportProfilingThread(comm, param, resCtxHost, &(resCtxHost->topoInfo)));
     }
     // 迭代每个子通信域的建链请求，创建链路

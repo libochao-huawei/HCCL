@@ -22,6 +22,24 @@ int GetHcommVersion(void) {
     return gHcommVersion;
 }
 
+bool HcommIsProfilingSupported()
+{
+    if (GetHcommVersion() >= 90000000) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+bool HcommIsExportThreadSupported()
+{
+    if (GetHcommVersion() >= 90000000 && HcommIsSupportHcclThreadExportToCommEngine()) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
 // 初始化
 int HcommDlInit(void) {
     if (gLibHandle != NULL) return 0;
