@@ -169,7 +169,7 @@ __aicore__ inline void AivReduceScatterV2Mesh1DCoreCtrl(EXTERN_KERNEL_ARGS_DEF_V
     op.InitCoreInfo(len, inputSliceStride);
 
     SyncAll<true>();
-    if (IsFirstOP(tag)) {
+    if (op.IsFirstOP(tag)) {
         op.BarrierForFirstOP();
     }
     SyncAll<true>();

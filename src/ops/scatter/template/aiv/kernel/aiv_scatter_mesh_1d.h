@@ -115,7 +115,7 @@ __aicore__ inline void AivScatterV2Mesh1D(EXTERN_KERNEL_ARGS_DEF_V2)
     op.Init(KERNEL_CLASS_INIT, true);
     op.InitCoreInfo(len, inputSliceStride);
     SyncAll<true>();
-    if (IsFirstOP(tag)) {
+    if (op.IsFirstOP(tag)) {
         op.BarrierForFirstOP();
     }
     SyncAll<true>();
