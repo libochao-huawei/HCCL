@@ -49,7 +49,7 @@ target_compile_options(hccl_custom_allgather PRIVATE
     -fno-strict-aliasing
     -pipe
     -g -O2
-    -std=c++14
+    -std=c++17
     -fstack-protector-all
 )
 target_compile_definitions(hccl_custom_allgather PRIVATE

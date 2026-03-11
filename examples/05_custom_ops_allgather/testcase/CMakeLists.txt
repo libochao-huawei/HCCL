@@ -22,3 +22,7 @@ target_link_libraries(test_custom_allgather PRIVATE
 target_compile_definitions(test_custom_allgather PRIVATE
     _GLIBCXX_USE_CXX11_ABI=0
 )
+
+target_compile_options(test_custom_allgather PRIVATE
+    -std=c++17
+)

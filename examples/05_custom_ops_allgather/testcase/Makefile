@@ -1,7 +1,7 @@
 # Makefile for testcase
 
 CXX := g++
-CXXFLAGS := -std=c++14 -O2 -g -Wall
+CXXFLAGS := -std=c++17 -O2 -g -Wall
 ASCEND_HOME ?= /usr/local/Ascend/ascend-toolkit/latest
 INCLUDES := -I../inc -I$(ASCEND_HOME)/include -I$(ASCEND_HOME)/include/hccl
 LIB_DIR := ../build
