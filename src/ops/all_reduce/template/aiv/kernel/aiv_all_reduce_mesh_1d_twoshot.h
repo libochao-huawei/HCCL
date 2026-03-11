@@ -237,7 +237,7 @@ __aicore__ inline void AivAllReduceV2Mesh1DTwoShot(EXTERN_KERNEL_ARGS_DEF_V2)
     AivAllReduceMesh1DTwoShot<T> op;
     op.Init(KERNEL_CLASS_INIT, true);
     SyncAll<true>();
-    if (IsFirstOP(tag)) {
+    if (op.IsFirstOP(tag)) {
         op.BarrierForFirstOP();
     }
     SyncAll<true>();

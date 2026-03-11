@@ -156,7 +156,7 @@ __aicore__ inline void AivAlltoAllVV2Mesh1D(EXTERN_KERNEL_ARGS_DEF_V2)
     AivAlltoAllVMesh1D<T> op;
     op.Init(KERNEL_CLASS_INIT, true);
     SyncAll<true>();
-    if (IsFirstOP(tag)) {
+    if (op.IsFirstOP(tag)) {
         op.BarrierForFirstOP();
     }
     SyncAll<true>();
