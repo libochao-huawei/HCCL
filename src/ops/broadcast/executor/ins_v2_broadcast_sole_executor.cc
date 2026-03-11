@@ -22,8 +22,7 @@ namespace ops_hccl {
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 InsV2BroadcastSoleExecutor<AlgTopoMatch, InsAlgTemplate>::InsV2BroadcastSoleExecutor()
-{
-    
+{    
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
