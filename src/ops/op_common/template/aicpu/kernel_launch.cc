@@ -129,6 +129,11 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             HCCL_ERROR("failed set eager mode, tag is %s.", param->algTag);
             return 1;
         }
+
+        for (int i = 0; i < resCtx.threads.size(); i++) {
+            CHK_RET(HcommThreadSynchronize(resCtx.threads[i]));
+        }
+
     } else {
         std::unique_ptr<ExecutorBase> executor = CollAlgExecRegistry::Instance().GetAlgExec(algName);
         if (executor.get() == nullptr) {

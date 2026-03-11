@@ -12,6 +12,7 @@
 #define ALG_DATA_TRANS_WRAPPER
 
 #include "alg_v2_template_base.h"
+#include "alg_env_config.h"
 
 namespace ops_hccl {
 
