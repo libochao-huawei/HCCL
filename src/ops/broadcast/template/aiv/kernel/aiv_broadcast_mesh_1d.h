@@ -21,12 +21,13 @@ public:
     __aicore__ inline AivBroadcastMesh1D() {}
  
     template<typename T>
-    __aicore__ inline void Process(uint64_t curCount, uint64_t curTag, uint64_t stride);
+    __aicore__ inline void Process(uint64_t curCount, uint64_t tag, uint64_t stride);
 };
  
 template<typename T>
-__aicore__ inline void AivBroadcastMesh1D::Process(uint64_t curCount, uint64_t curTag, uint64_t stride)
+__aicore__ inline void AivBroadcastMesh1D::Process(uint64_t curCount, uint64_t tag, uint64_t stride)
 {
+    curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (tag & LOW_16_BITS);
     uint64_t dataTypeSize = sizeof(T);
     uint64_t curStageCoreNum = CORE_NUMS_ALL / rankSize_ * rankSize_;
     if (block_idx >= curStageCoreNum) {
@@ -44,11 +45,11 @@ __aicore__ inline void AivBroadcastMesh1D::Process(uint64_t curCount, uint64_t c
     if (rank_ == root_) {
         CpGM2GM(cclGM, inputGM, countPerCore);
         PipeBarrier<PIPE_ALL>();
-        Record(peerRank, flag_offset, curTag);
+        Record(peerRank, flag_offset, curTag_);
     }
  
     // allgather
-    WaitFlag(peerRank, flag_offset, curTag);
+    WaitFlag(peerRank, flag_offset, curTag_);
     CpGM2GM(inputGM, cclGM, countPerCore);
     PipeBarrier<PIPE_ALL>();
 }

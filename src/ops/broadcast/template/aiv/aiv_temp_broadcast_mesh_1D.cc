@@ -67,7 +67,7 @@ HcclResult AivTempBroadcastMesh1D::KernelRun(const OpParam& param,
     aivBroadcastArgs.dataType = dataType_;
     aivBroadcastArgs.op = param.reduceType;
     aivBroadcastArgs.root = root_;
-    aivBroadcastArgs.aivCountTag = (static_cast<uint32_t>(param.aivCountTag) << AIV_TAG_MOVE_LEFT_BITS) | static_cast<uint32_t>(sliceId_);  // 传入aivCountTag，Lauch时重新组装为aivCountTag  // todo
+    aivBroadcastArgs.aivCountTag = static_cast<uint32_t>(sliceId_);
     aivBroadcastArgs.buffersIn = templateResource.aivCommInfoPtr;
     aivBroadcastArgs.stream = param.stream;
     aivBroadcastArgs.isOpBase = (param.opMode == OpMode::OPBASE);
