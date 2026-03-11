@@ -18,8 +18,9 @@ HcclResult SendWrite(const DataInfo &sendInfo, const ThreadHandle &thread)
     const std::vector<DataSlice> dstSlices = sendInfo.slices_.dstSlices_;
     const ChannelInfo &sendChannel = sendInfo.channel_;
     u32 sliceNum = srcSlices.size();
+    u32 customTimeout = GetExternalInputHcclCustomTimeout();
     CHK_RET(static_cast<HcclResult>(
-        HcommChannelNotifyWaitOnThread(thread, sendChannel.handle, NOTIFY_IDX_ACK, CUSTOM_TIMEOUT)));
+        HcommChannelNotifyWaitOnThread(thread, sendChannel.handle, NOTIFY_IDX_ACK, customTimeout)));
     for (int i = 0; i < sliceNum; i++) {
         const DataSlice srcSlice = srcSlices[i];
         const DataSlice dstSlice = dstSlices[i];
@@ -39,9 +40,10 @@ HcclResult SendWrite(const DataInfo &sendInfo, const ThreadHandle &thread)
 HcclResult RecvWrite(const DataInfo &recvInfo, const ThreadHandle &thread)
 {
     const ChannelInfo &recvChannel = recvInfo.channel_;
+    u32 customTimeout = GetExternalInputHcclCustomTimeout();
     CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, recvChannel.handle, NOTIFY_IDX_ACK)));
     CHK_RET(static_cast<HcclResult>(
-        HcommChannelNotifyWaitOnThread(thread, recvChannel.handle, NOTIFY_IDX_DATA_SIGNAL, CUSTOM_TIMEOUT)));
+        HcommChannelNotifyWaitOnThread(thread, recvChannel.handle, NOTIFY_IDX_DATA_SIGNAL, customTimeout)));
     return HCCL_SUCCESS;
 }
 
@@ -58,11 +60,12 @@ HcclResult SendRecvWrite(const SendRecvInfo &sendRecvInfo, const ThreadHandle &t
     const ChannelInfo &sendChannel = sendRecvInfo.sendRecvChannels_.txChannel_;
     const ChannelInfo &recvChannel = sendRecvInfo.sendRecvChannels_.rxChannel_;
     u32 repeatNum = srcSlices.size();
+    u32 customTimeout = GetExternalInputHcclCustomTimeout();
     // 向write rank发送tx同步，确保该rank的hcclBuffer可用
     // 这里只是在host上向device下任务，所以实际在host侧不会因为wait而阻塞
     CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, recvChannel.handle, NOTIFY_IDX_ACK)));
     CHK_RET(static_cast<HcclResult>(
-        HcommChannelNotifyWaitOnThread(thread, sendChannel.handle, NOTIFY_IDX_ACK, CUSTOM_TIMEOUT)));
+        HcommChannelNotifyWaitOnThread(thread, sendChannel.handle, NOTIFY_IDX_ACK, customTimeout)));
     for (int i = 0; i < repeatNum; i++) {
         // tx同步完成后准备将自己的userIn上的数据写到对方的hcclBuffer上
         const DataSlice srcSlice = srcSlices[i];
@@ -79,7 +82,7 @@ HcclResult SendRecvWrite(const SendRecvInfo &sendRecvInfo, const ThreadHandle &t
     CHK_RET(
         static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, sendChannel.handle, NOTIFY_IDX_DATA_SIGNAL)));
     CHK_RET(static_cast<HcclResult>(
-        HcommChannelNotifyWaitOnThread(thread, recvChannel.handle, NOTIFY_IDX_DATA_SIGNAL, CUSTOM_TIMEOUT)));
+        HcommChannelNotifyWaitOnThread(thread, recvChannel.handle, NOTIFY_IDX_DATA_SIGNAL, customTimeout)));
     return HCCL_SUCCESS;
 }
 
@@ -89,8 +92,9 @@ HcclResult SendWriteReduce(const DataReduceInfo &sendInfo, const ThreadHandle &t
     const std::vector<DataSlice> dstSlices = sendInfo.slices_.dstSlices_;
     const ChannelInfo &sendChannel = sendInfo.channel_;
     u32 repeatNum = srcSlices.size();
+    u32 customTimeout = GetExternalInputHcclCustomTimeout();
     CHK_RET(static_cast<HcclResult>(
-        HcommChannelNotifyWaitOnThread(thread, sendChannel.handle, NOTIFY_IDX_ACK, CUSTOM_TIMEOUT)));
+        HcommChannelNotifyWaitOnThread(thread, sendChannel.handle, NOTIFY_IDX_ACK, customTimeout)));
     for (int i = 0; i < repeatNum; i++) {
         const DataSlice srcSlice = srcSlices[i];
         const DataSlice dstSlice = dstSlices[i];
@@ -131,8 +135,9 @@ HcclResult RecvWriteReduce(const DataReduceInfo &recvInfo, const ThreadHandle &t
 {
     const ChannelInfo &recvChannel = recvInfo.channel_;
     CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, recvChannel.handle, NOTIFY_IDX_ACK)));
+    u32 customTimeout = GetExternalInputHcclCustomTimeout();
     CHK_RET(static_cast<HcclResult>(
-        HcommChannelNotifyWaitOnThread(thread, recvChannel.handle, NOTIFY_IDX_DATA_SIGNAL, CUSTOM_TIMEOUT)));
+        HcommChannelNotifyWaitOnThread(thread, recvChannel.handle, NOTIFY_IDX_DATA_SIGNAL, customTimeout)));
     return HCCL_SUCCESS;
 }
 
@@ -146,8 +151,9 @@ HcclResult SendRecvWriteReduce(const SendRecvReduceInfo &sendRecvInfo, const Thr
     // 向write rank发送tx同步，确保该rank的hcclBuffer可用
     // 这里只是在host上向device下任务，所以实际在host侧不会因为wait而阻塞
     CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, recvChannel.handle, NOTIFY_IDX_ACK)));
+    u32 customTimeout = GetExternalInputHcclCustomTimeout();
     CHK_RET(static_cast<HcclResult>(
-        HcommChannelNotifyWaitOnThread(thread, sendChannel.handle, NOTIFY_IDX_ACK, CUSTOM_TIMEOUT)));
+        HcommChannelNotifyWaitOnThread(thread, sendChannel.handle, NOTIFY_IDX_ACK, customTimeout)));
     for (int i = 0; i < repeatNum; i++) {
         // tx同步完成后准备将自己的userIn上的数据写到对方的hcclBuffer上
         const DataSlice srcSlice = srcSlices[i];
@@ -184,16 +190,17 @@ HcclResult SendRecvWriteReduce(const SendRecvReduceInfo &sendRecvInfo, const Thr
     CHK_RET(
         static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, sendChannel.handle, NOTIFY_IDX_DATA_SIGNAL)));
     CHK_RET(static_cast<HcclResult>(
-        HcommChannelNotifyWaitOnThread(thread, recvChannel.handle, NOTIFY_IDX_DATA_SIGNAL, CUSTOM_TIMEOUT)));
+        HcommChannelNotifyWaitOnThread(thread, recvChannel.handle, NOTIFY_IDX_DATA_SIGNAL, customTimeout)));
     return HCCL_SUCCESS;
 }
 
 HcclResult SendRead(const DataInfo &sendInfo, const ThreadHandle &thread)
 {
     const ChannelInfo &sendChannel = sendInfo.channel_;
+    u32 customTimeout = GetExternalInputHcclCustomTimeout();
     CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, sendChannel.handle, NOTIFY_IDX_ACK)));
     CHK_RET(static_cast<HcclResult>(
-        HcommChannelNotifyWaitOnThread(thread, sendChannel.handle, NOTIFY_IDX_DATA_SIGNAL, CUSTOM_TIMEOUT)));
+        HcommChannelNotifyWaitOnThread(thread, sendChannel.handle, NOTIFY_IDX_DATA_SIGNAL, customTimeout)));
     return HCCL_SUCCESS;
 }
 
@@ -203,8 +210,9 @@ HcclResult RecvRead(const DataInfo &recvInfo, const ThreadHandle &thread)
     const std::vector<DataSlice> dstSlices = recvInfo.slices_.dstSlices_;
     const ChannelInfo &recvChannel = recvInfo.channel_;
     u32 repeatNum = srcSlices.size();
+    u32 customTimeout = GetExternalInputHcclCustomTimeout();
     CHK_RET(static_cast<HcclResult>(
-        HcommChannelNotifyWaitOnThread(thread, recvChannel.handle, NOTIFY_IDX_ACK, CUSTOM_TIMEOUT)));
+        HcommChannelNotifyWaitOnThread(thread, recvChannel.handle, NOTIFY_IDX_ACK, customTimeout)));
     for (int i = 0; i < repeatNum; i++) {
         const DataSlice srcSlice = srcSlices[i];
         const DataSlice dstSlice = dstSlices[i];
@@ -231,8 +239,9 @@ HcclResult SendRecvRead(const SendRecvInfo &sendRecvInfo, const ThreadHandle &th
     // 向read rank发送rx同步，确保该rank的hcclBuffer可用
     // 这里只是在host上向device下任务，所以实际在host侧不会因为wait而阻塞
     CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, sendChannel.handle, NOTIFY_IDX_ACK)));
+    u32 customTimeout = GetExternalInputHcclCustomTimeout();
     CHK_RET(static_cast<HcclResult>(
-        HcommChannelNotifyWaitOnThread(thread, recvChannel.handle, NOTIFY_IDX_ACK, CUSTOM_TIMEOUT)));
+        HcommChannelNotifyWaitOnThread(thread, recvChannel.handle, NOTIFY_IDX_ACK, customTimeout)));
     for (int i = 0; i < repeatNum; i++) {
         // rx同步完成后准备将数据从对方的hcclBuffer上读到自己的userIn上
         const DataSlice srcSlice = srcSlices[i];
@@ -249,7 +258,7 @@ HcclResult SendRecvRead(const SendRecvInfo &sendRecvInfo, const ThreadHandle &th
     CHK_RET(
         static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, recvChannel.handle, NOTIFY_IDX_DATA_SIGNAL)));
     CHK_RET(static_cast<HcclResult>(
-        HcommChannelNotifyWaitOnThread(thread, sendChannel.handle, NOTIFY_IDX_DATA_SIGNAL, CUSTOM_TIMEOUT)));
+        HcommChannelNotifyWaitOnThread(thread, sendChannel.handle, NOTIFY_IDX_DATA_SIGNAL, customTimeout)));
     return HCCL_SUCCESS;
 }
 
@@ -257,8 +266,9 @@ HcclResult SendReadReduce(const DataReduceInfo &sendInfo, const ThreadHandle &th
 {
     const ChannelInfo &sendChannel = sendInfo.channel_;
     CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, sendChannel.handle, NOTIFY_IDX_ACK)));
+    u32 customTimeout = GetExternalInputHcclCustomTimeout();
     CHK_RET(static_cast<HcclResult>(
-        HcommChannelNotifyWaitOnThread(thread, sendChannel.handle, NOTIFY_IDX_DATA_SIGNAL, CUSTOM_TIMEOUT)));
+        HcommChannelNotifyWaitOnThread(thread, sendChannel.handle, NOTIFY_IDX_DATA_SIGNAL, customTimeout)));
     return HCCL_SUCCESS;
 }
 
@@ -268,8 +278,9 @@ HcclResult RecvReadReduce(const DataReduceInfo &recvInfo, const ThreadHandle &th
     const std::vector<DataSlice> dstSlices = recvInfo.slices_.dstSlices_;
     const ChannelInfo &recvChannel = recvInfo.channel_;
     u32 repeatNum = srcSlices.size();
+    u32 customTimeout = GetExternalInputHcclCustomTimeout();
     CHK_RET(static_cast<HcclResult>(
-        HcommChannelNotifyWaitOnThread(thread, recvChannel.handle, NOTIFY_IDX_ACK, CUSTOM_TIMEOUT)));
+        HcommChannelNotifyWaitOnThread(thread, recvChannel.handle, NOTIFY_IDX_ACK, customTimeout)));
     for (int i = 0; i < repeatNum; i++) {
         const DataSlice srcSlice = srcSlices[i];
         const DataSlice dstSlice = dstSlices[i];
@@ -316,8 +327,9 @@ HcclResult SendRecvReadReduce(const SendRecvReduceInfo &sendRecvInfo, const Thre
     // 向write rank发送tx同步，确保该rank的hcclBuffer可用
     // 这里只是在host上向device下任务，所以实际在host侧不会因为wait而阻塞
     CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, sendChannel.handle, NOTIFY_IDX_ACK)));
+    u32 customTimeout = GetExternalInputHcclCustomTimeout();
     CHK_RET(static_cast<HcclResult>(
-        HcommChannelNotifyWaitOnThread(thread, recvChannel.handle, NOTIFY_IDX_ACK, CUSTOM_TIMEOUT)));
+        HcommChannelNotifyWaitOnThread(thread, recvChannel.handle, NOTIFY_IDX_ACK, customTimeout)));
     for (int i = 0; i < repeatNum; i++) {
         // tx同步完成后准备将自己的userIn上的数据写到对方的hcclBuffer上
         const DataSlice srcSlice = srcSlices[i];
@@ -354,7 +366,7 @@ HcclResult SendRecvReadReduce(const SendRecvReduceInfo &sendRecvInfo, const Thre
     CHK_RET(
         static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, recvChannel.handle, NOTIFY_IDX_DATA_SIGNAL)));
     CHK_RET(static_cast<HcclResult>(
-        HcommChannelNotifyWaitOnThread(thread, sendChannel.handle, NOTIFY_IDX_DATA_SIGNAL, CUSTOM_TIMEOUT)));
+        HcommChannelNotifyWaitOnThread(thread, sendChannel.handle, NOTIFY_IDX_DATA_SIGNAL, customTimeout)));
     return HCCL_SUCCESS;
 }
 
@@ -488,9 +500,10 @@ HcclResult PreSyncInterThreads(const ThreadHandle &mainThread, const std::vector
     }
 
     // 从thread等待主thread的record
+    u32 customTimeout = GetExternalInputHcclCustomTimeout();
     for (u32 tidx = 0; tidx < subThreads.size(); tidx++) {
         CHK_RET(static_cast<HcclResult>(
-            HcommThreadNotifyWaitOnThread(subThreads[tidx], notifyIdxMainToSub[tidx], CUSTOM_TIMEOUT)));
+            HcommThreadNotifyWaitOnThread(subThreads[tidx], notifyIdxMainToSub[tidx], customTimeout)));
     }
 
     return HcclResult::HCCL_SUCCESS;
@@ -512,9 +525,10 @@ HcclResult PostSyncInterThreads(const ThreadHandle &mainThread, const std::vecto
             notifyIdxSubToMain.size()),
         HcclResult::HCCL_E_INTERNAL);
     // 主thread等待所有从thread的record
+    u32 customTimeout = GetExternalInputHcclCustomTimeout();
     for (u32 tidx = 0; tidx < subThreads.size(); tidx++) {
         CHK_RET(static_cast<HcclResult>(
-            HcommThreadNotifyWaitOnThread(mainThread, notifyIdxSubToMain[tidx], CUSTOM_TIMEOUT)));
+            HcommThreadNotifyWaitOnThread(mainThread, notifyIdxSubToMain[tidx], customTimeout)));
     }
 
     // 从thread向主thread发送record
