@@ -68,7 +68,7 @@ HcclResult AivTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
     aivAlltoAllVArgs.dataType = dataType_;
     aivAlltoAllVArgs.op = param.reduceType;
     aivAlltoAllVArgs.root = root_;
-    aivAlltoAllVArgs.aivCountTag = (static_cast<uint32_t>(param.aivCountTag) << AIV_TAG_MOVE_LEFT_BITS) | static_cast<uint32_t>(sliceId_);  // 传入aivCountTag，Lauch时重新组装为aivCountTag  // todo
+    aivAlltoAllVArgs.aivCountTag = static_cast<uint32_t>(sliceId_);
     aivAlltoAllVArgs.buffersIn = templateResource.aivCommInfoPtr;
     aivAlltoAllVArgs.stream = param.stream;
     aivAlltoAllVArgs.isOpBase = (param.opMode == OpMode::OPBASE);
