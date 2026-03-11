@@ -59,7 +59,7 @@ HcclResult CcuKernelAllReduceMesh1DOneShot::InitResource()
     output_ = CreateVariable();
     uint16_t channelIdx = 0;
     if (channels_.size() == 0) {
-        // THROW<NullPtrException>(StringFormat("CcuKernelAllReduceMesh1DOneShot channels is empty")); //打印
+        HCCL_INFO("[CcuKernelAllReduceMesh1DOneShot] channels is empty");
         return HcclResult::HCCL_E_INTERNAL; 
     }
     // 按照rank号从小到大遍历channels，遇到本rank就填充本地资源，否则依次取远端资源，要求给框架返回的Link同样是按顺序排列的
