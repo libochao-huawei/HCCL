@@ -73,12 +73,12 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
     return HCCL_SUCCESS;
 }
 
-void SetHcclDfxOpInfoDataCount(HcclDfxOpInfo& dfxOpInfo, const OpParam& param) {
+void SetHcclDfxOpInfoDataCount(HcclDfxOpInfo &dfxOpInfo, const OpParam &param, const u32 &rankSize) {
     if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL
         || param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV
         || param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
         u64 sendCount =0;
-        for (u64 i =0; i<dfxOpInfo.ranksize_; i++) {
+        for (u64 i =0; i<rankSize; i++) {
             sendCount += *(static_cast<const u64 *>(param.all2AllVDataDes.sendCounts) + i);
         }
         dfxOpInfo.dataCount = sendCount;
@@ -138,9 +138,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     // rankSize
     u32 userRankSize{0};
     CHK_RET(HcclGetRankSize(comm, &userRankSize));
-    hcclDfxOpInfo.ranksize_ = userRankSize;
-
-    SetHcclDfxOpInfoDataCount(hcclDfxOpInfo, param);
+    SetHcclDfxOpInfoDataCount(hcclDfxOpInfo, param, userRankSize);
     HcclDfxOpInfo *tempOp = &hcclDfxOpInfo;
 
     HcclResult result = HcclDfxRegOpInfo(comm, static_cast<void*>(tempOp));

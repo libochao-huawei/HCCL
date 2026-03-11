@@ -468,39 +468,6 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     u8 varData[0];
 };
 
-
-struct HcclDfxOpInfo {
-    // DfxOpInfo_base
-    char                tag_[256];
-    u32                 index_{0};
-    u64                 beginTime_{0};
-    u64                 endTime_{0};
-    u64                 ranksize_;
-    // CollOperator
-    char                opTag[256];
-    bool                staticAddr{false};
-    bool                staticShape{false};
-    u32                 myRank;
-    // baseCollOperator
-    u32                 opMode{0};
-    u32                 opType{0};// 通过map找dfxopinfo
-    u32                 reduceOp{0};
-    u32                 dataType{0};
-    u32                 outputType{0};
-    u64                 dataCount{0};
-    u32                 root = INVALID_VALUE_RANKID;
-    void*               inputMemPtr{nullptr};
-    u64                 inputMemSize{0};
-    void*               outputMemPtr{nullptr};
-    u64                 outputMemSize{0};
-    void*               scratchMemPtr{nullptr};
-    u64                 scratchMemSize{0};
-    // task_exception
-    u64                 cpuTsThread{0}; // host侧算子主流的threadhandle
-    u32                 cpuWaitAicpuNotifyIdx{0}; // host wait device notifyIdx
-    u32                 cpuWaitAicpuNotifyId{0}; // host wait device notifyId
-};
-
 struct AlgDesc {
     bool isZeroCopy = false;
     bool isAivMode = false;
