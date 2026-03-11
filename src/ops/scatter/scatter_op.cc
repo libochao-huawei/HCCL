@@ -9,8 +9,10 @@
  */
 
 #include "scatter_op.h"
-#include "op_common_ops.h"
+#include "coll_alg_exec_registry.h"
 #include "hcomm_primitives.h"
+#include "load_kernel.h"
+#include "op_common_ops.h"
 #include "topo.h"
 #include "topo_host.h"
 #include <algorithm>
