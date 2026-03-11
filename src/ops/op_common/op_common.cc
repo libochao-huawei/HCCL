@@ -135,6 +135,9 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     hcclDfxOpInfo.outputMemSize = param.outputSize;
     hcclDfxOpInfo.cpuTsThread = cpuTsThread;
     hcclDfxOpInfo.cpuWaitAicpuNotifyIdx = HOST_WAIT_AICPU_NOTIFYIDX;
+    s32 sRet = strncpy_s(hcclDfxOpInfo.algTag, ALG_TAG_LENGTH, param.algTag, ALG_TAG_LENGTH);
+    CHK_PRT_RET(sRet != EOK, HCCL_ERROR("%s call strncpy_s failed, return %d.", __func__, sRet), HCCL_E_MEMORY);
+
     // rankSize
     u32 userRankSize{0};
     CHK_RET(HcclGetRankSize(comm, &userRankSize));
@@ -178,7 +181,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
         CHK_RET(executor->Orchestrate(param, *resCtxHost));
     }
     // op上报
-    result = HcclProfilingReportOp(comm, hcclDfxOpInfo.beginTime_);
+    result = HcclProfilingReportOp(comm, hcclDfxOpInfo.beginTime);
     if (result != HCCL_SUCCESS) {
         HCCL_ERROR("[%s] HcclProfilingReportOp failed", __func__);
         return HCCL_E_INTERNAL;
