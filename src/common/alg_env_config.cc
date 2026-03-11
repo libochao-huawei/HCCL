@@ -12,6 +12,8 @@
 #include <sstream>
 #include <string>
 #include <algorithm>
+#include <cstdlib>
+#include <cstring>
 
 #include "log.h"
 #include "adapter_error_manager_pub.h"
@@ -128,6 +130,11 @@ HcclResult InitEnvConfig()
             HCCL_ERROR_CODE(ret),
             ret),
         ret);
+    
+    ret = ParseOpExpansion();
+    CHK_PRT_RET(ret != HCCL_SUCCESS,
+        HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse "
+                   "HCCL_OP_EXPANSION_MODE failed. errorno[%d]", HCCL_ERROR_CODE(ret), ret), ret);
 
     g_algEnvConfig.initialized = true;
 
@@ -647,6 +654,28 @@ HcclResult ParseOpExpansion()
     return HCCL_SUCCESS;
 }
 
+HcclResult ParseOpExpansion()
+{
+    const char* envValue = std::getenv("HCCL_EXEC_TIMEOUT");
+
+    if (envValue != nullptr) {
+        char* endptr = nullptr;
+        int timeout = std::strtol(envValue, &endptr, 10);
+        if (*endptr == '\0' && timeout >= 0) {
+            g_algEnvConfig.customTimeout = static_cast<u32>(timeout);
+            g_algEnvConfig.notifyDefaultWaitTime = g_algEnvConfig.customTimeout;
+            HCCL_INFO("HCCL_EXEC_TIMEOUT set by environment to [%u]", g_algEnvConfig.customTimeout);
+        } else {
+            HCCL_WARNING("[ParseOpExpansion] HCCL_EXEC_TIMEOUT value [%s] is invalid, use default value [%u]",
+                envValue, g_algEnvConfig.customTimeout);
+        }
+    } else {
+        HCCL_INFO("HCCL_EXEC_TIMEOUT is not set, use default value [%u]", g_algEnvConfig.customTimeout);
+    }
+
+    return HCCL_SUCCESS;
+}
+
 HcclResult SplitHcclRetryEnable(const std::string &retryConfig, std::vector<std::string> &retryEnables)
 {
     std::string remainRetryConfig;
@@ -867,4 +896,13 @@ bool RunIndependentOpExpansion(DevType deviceType)
     }
     return false;
 }
+
+const u32& GetExternalInputHcclCustomTimeout()
+{
+    return g_algEnvConfig.customTimeout;
+}
+
+const u32& GetExternalInputNotifyDefaultWaitTime()
+{
+    return g_algEnvConfig.notifyDefaultWaitTime;
 }  // namespace ops_hccl

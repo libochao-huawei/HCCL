@@ -161,7 +161,7 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
 
     CHK_RET(AicpuKernelLaunch(param));
     // Host stream等待Device的通知
-    u16 NOTIFY_WAIT_TIME = 27 * 68;
+    u16 NOTIFY_WAIT_TIME = GetExternalInputNotifyDefaultWaitTime();
     CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, 0, NOTIFY_WAIT_TIME)));
 
     if (aclrtSynchronizeStream(param.stream) != 0) {
@@ -198,7 +198,7 @@ HcclResult AicpuKernelLaunch(OpParam &param)
         HCCL_ERROR("[aclrtKernelArgsFinalize]errNo[0x%016llx] args finalize failed, kernelName:%s",
             ret, kernelName.c_str()), HCCL_E_RUNTIME);
     // notifywait默认1836等待时长
-    u16 NOTIFY_DEFAULT_WAIT_TIME = 27 * 68;
+    u16 NOTIFY_DEFAULT_WAIT_TIME = GetExternalInputNotifyDefaultWaitTime();
     aclrtLaunchKernelCfg cfg;
     aclrtLaunchKernelAttr attr;
     attr.id = ACL_RT_LAUNCH_KERNEL_ATTR_TIMEOUT;
