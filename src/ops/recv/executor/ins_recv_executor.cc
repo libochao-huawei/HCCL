@@ -18,7 +18,7 @@ namespace ops_hccl {
     }
 
     HcclResult InsRecvExecutor::InitRecvInfo(
-        HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
+        const HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
         const AlgHierarchyInfoForAllLevel &algHierarchyInfo)
     {
         (void) comm;

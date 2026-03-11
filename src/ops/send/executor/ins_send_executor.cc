@@ -17,7 +17,7 @@ namespace ops_hccl {
     }
 
     HcclResult InsSendExecutor::InitSendInfo(
-        HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo)
+        const HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo)
     {
         (void) comm;
         myRank_ = topoInfo->userRank;
