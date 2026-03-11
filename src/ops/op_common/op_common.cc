@@ -45,7 +45,7 @@ thread_local std::map<std::string, HcclMemHandle> g_memHandleCache; // 当前AIV
 thread_local std::map<std::string, std::unique_ptr<AlgResourceCtxSerializable>> g_hostCtx;
 
 HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
-    std::string &algName, OpExecuteConfig &opExecuteConfig)
+    std::string &algName)
 {
     HCCL_INFO("Start to execute Selector.");
     param.hcclComm = comm;
@@ -55,12 +55,12 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
 
     // 算法选择，选择完后顺便param.algTag设置了，资源的保存是以算子+算法为单位
     std::shared_ptr<ExecuteSelector> collAlgSelector = std::make_shared<ExecuteSelector>(ExecuteSelector());
-    CHK_RET(collAlgSelector->Run(param, topoInfo.get(), algName, opExecuteConfig));
+    CHK_RET(collAlgSelector->Run(param, topoInfo.get(), algName));
     if (algName == "") {
         HCCL_ERROR("[SelectorAhead] select algname fail!");
         return HCCL_E_PTR;
     }
-    CHK_RET(SetCommEngine(param, opExecuteConfig));
+    CHK_RET(SetCommEngine(param));
     // 如果一开始读取到的Engine不是aicpu，经过算法选择后回退到aipcu，则需要重新LoadAICPUKernel
     if ((param.engine == CommEngine::COMM_ENGINE_AICPU_TS) || (param.engine == CommEngine::COMM_ENGINE_CPU)) {
         HCCL_DEBUG("[SelectorAhead] is aicpu mode");
@@ -825,7 +825,7 @@ std::string GetSupportDataType(bool needReduce)
     return supportInfo;
 }
 
-HcclResult SetCommEngine(OpParam &param, OpExecuteConfig opExecuteConfig)
+HcclResult SetCommEngine(OpParam &param)
 {
     // 使用一个静态的映射表来关联配置和引擎值
     static const std::unordered_map<OpExecuteConfig, CommEngine> ConfigToEngineMap = {
@@ -839,15 +839,13 @@ HcclResult SetCommEngine(OpParam &param, OpExecuteConfig opExecuteConfig)
         {OpExecuteConfig::HOSTCPU,    COMM_ENGINE_CPU},
     };
 
-    param.opExecuteConfig = opExecuteConfig;
-
-    auto it = ConfigToEngineMap.find(opExecuteConfig);
+    auto it = ConfigToEngineMap.find(param.opExecuteConfig);
     if (it != ConfigToEngineMap.end()) {
         param.engine = it->second;
         return HCCL_SUCCESS;
     }
 
-    HCCL_ERROR("[op_common][SetCommEngine] Unsupported or unknown opExecuteConfig: {%d}", static_cast<int>(opExecuteConfig));
+    HCCL_ERROR("[op_common][SetCommEngine] Unsupported or unknown opExecuteConfig: {%d}", static_cast<int>(param.opExecuteConfig));
     return HCCL_E_NOT_SUPPORT;
 }
 
