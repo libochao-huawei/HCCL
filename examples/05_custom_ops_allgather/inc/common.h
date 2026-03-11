@@ -50,7 +50,7 @@ struct OpParam {
     char commName[COMM_INDENTIFIER_MAX_LENGTH];
     
     // AIV Kernel Arguments (matching EXTERN_KERNEL_ARGS_DEF_V2)
-    void* buffIn = nullptr; // cclMem address
+    uint64_t buffIn = 0; // cclMem address
     uint64_t input = 0;
     uint64_t output = 0;
     uint32_t rank = 0;
@@ -72,9 +72,9 @@ struct OpParam {
     
     bool isOpBase = false;
     
-    void* headCountMem = nullptr;
-    void* tailCountMem = nullptr;
-    void* addOneMem = nullptr;
+    uint64_t headCountMem = 0;
+    uint64_t tailCountMem = 0;
+    uint64_t addOneMem = 0;
     uint32_t counterMemSize = 0;
     bool isEnableCounter = false;
     

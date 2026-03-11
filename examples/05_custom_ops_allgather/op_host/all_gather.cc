@@ -193,7 +193,7 @@ extern "C" HcclResult HcclAllGatherCustom(void *sendBuf, void *recvBuf, uint64_t
     HcclGetRankId(comm, &rank);
     HcclGetRankSize(comm, &rankSize);
     
-    param.buffIn = resCtx->aivCommInfo.addr; // Passed as buffIn to kernel (which expects aivCommInfo there)
+    param.buffIn = (uint64_t)resCtx->aivCommInfo.addr; // Passed as buffIn to kernel (which expects aivCommInfo there)
     param.input = (uint64_t)sendBuf;
     param.output = (uint64_t)recvBuf;
     param.rank = rank;
@@ -223,9 +223,9 @@ extern "C" HcclResult HcclAllGatherCustom(void *sendBuf, void *recvBuf, uint64_t
     param.isOpBase = true;
     
     // Counters - not used/enabled
-    param.headCountMem = nullptr;
-    param.tailCountMem = nullptr;
-    param.addOneMem = nullptr;
+    param.headCountMem = 0;
+    param.tailCountMem = 0;
+    param.addOneMem = 0;
     param.counterMemSize = 0;
     param.isEnableCounter = false;
     
