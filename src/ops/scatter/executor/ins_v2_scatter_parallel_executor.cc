@@ -18,6 +18,7 @@
 #endif
 
 namespace ops_hccl {
+constexpr uint32_t NUM_CONTROL_THREADS = 2;
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::InsV2ScatterParallelExecutor()
 {}
@@ -72,8 +73,8 @@ HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     interAlgTemplate->CalcRes(comm, param, topoInfo, interResourceRequest);
 
     // 合并两个template的资源
-    resourceRequest.notifyNumOnMainThread = 2;  // 用于两个template间同步
-    resourceRequest.slaveThreadNum = intraResourceRequest.slaveThreadNum + interResourceRequest.slaveThreadNum + 2;
+    resourceRequest.notifyNumOnMainThread = NUM_CONTROL_THREADS;  // 用于两个template间同步
+    resourceRequest.slaveThreadNum = intraResourceRequest.slaveThreadNum + interResourceRequest.slaveThreadNum + NUM_CONTROL_THREADS;
     resourceRequest.notifyNumPerThread.emplace_back(intraResourceRequest.slaveThreadNum + 1);  // intra模板控制流
     resourceRequest.notifyNumPerThread.insert(resourceRequest.notifyNumPerThread.end(),
         intraResourceRequest.notifyNumPerThread.begin(),
