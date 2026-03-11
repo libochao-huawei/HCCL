@@ -15,7 +15,6 @@
 #include <hccl/hccl_types.h>
 #include "hccl/base.h"
 #include "sal.h"
-#include "error_codes/rt_error_codes.h"
 #include "mmpa_api.h"
 #include "param_check.h"
 #include "executor_base.h"
@@ -138,10 +137,17 @@ HcclResult ReduceScatterVOutPlace(void *sendBuf, const void *sendDispls, const v
 
 if (!paramMem) {
         // 内存分配失败
-        HCCL_ERROR("malloc OpParam failed!");
+        HCCL_ERROR("[ReduceScatterVOutPlace] malloc OpParam failed!");
         return HCCL_E_INTERNAL;
     }
-    OpParam* paramPtr = new (paramMem) OpParam();
+    OpParam* tmpParamPtr = new (paramMem) OpParam();
+    auto deleter = [](OpParam* p) {
+        if (p) {
+            p->~OpParam();
+            free(p);
+        }
+     };
+    std::unique_ptr<OpParam, decltype(deleter)> paramPtr(tmpParamPtr, deleter);
     OpParam& param = *paramPtr;
 
     CHK_RET(HcclGetCommName(comm, param.commName));
@@ -167,15 +173,15 @@ if (!paramMem) {
     param.vDataDes.dataType = dataType;
 
     // 参数准备
-    std::vector<u64> merged(userRankSize*2);
+    std::vector<u64> countsAndDispls(userRankSize*2);
     const u64* sendDisplsAddr = reinterpret_cast<const u64*>(sendDispls);
     const u64* sendCountsAddr = reinterpret_cast<const u64*>(sendCounts);
-    std::copy(sendCountsAddr, sendCountsAddr + userRankSize, merged.begin());
-    std::copy(sendDisplsAddr, sendDisplsAddr + userRankSize, merged.begin() + userRankSize);
+    std::copy(sendCountsAddr, sendCountsAddr + userRankSize, countsAndDispls.begin());
+    std::copy(sendDisplsAddr, sendDisplsAddr + userRankSize, countsAndDispls.begin() + userRankSize);
     param.varMemSize = varMemSize;
 
     // 从源内存地址按字节直接拷贝数据到目标地址
-    memcpy(param.varData, merged.data(), varMemSize);
+    memcpy_s(param.varData, varMemSize, countsAndDispls.data(), varMemSize);
     const u64* varData = reinterpret_cast<const u64*>(param.varData);
 
     param.opType = HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V;
@@ -192,8 +198,6 @@ if (!paramMem) {
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName, opExecuteConfig));
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
-    paramPtr->~OpParam();
-    free(paramMem);
     HCCL_INFO("Execute ReduceScatterVOutPlace success.");
     return HCCL_SUCCESS;
 }
