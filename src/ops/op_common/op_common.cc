@@ -90,6 +90,8 @@ void SetHcclDfxOpInfoDataCount(HcclDfxOpInfo &dfxOpInfo, const OpParam &param, c
 HcclResult HcclExecOp(HcclComm comm, OpParam &param,
                       std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo, std::string &algName)
 {
+    uint64_t beginTime = HcommGetProfilingSysCycleTime();
+    HCCL_INFO("HcommGetProfilingSysCycleTime.%llu", beginTime);
     HCCL_INFO("Start to execute HcclExecOp.");
     // 在原先的commName中添加执行模式，得到commModeTag
     param.hcclComm = comm;
@@ -181,7 +183,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
         CHK_RET(executor->Orchestrate(param, *resCtxHost));
     }
     // op上报
-    result = HcclProfilingReportOp(comm, hcclDfxOpInfo.beginTime);
+    result = HcclProfilingReportOp(comm, beginTime);
     if (result != HCCL_SUCCESS) {
         HCCL_ERROR("[%s] HcclProfilingReportOp failed", __func__);
         return HCCL_E_INTERNAL;
