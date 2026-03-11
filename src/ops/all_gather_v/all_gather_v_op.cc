@@ -154,6 +154,10 @@ HcclResult AllGatherVOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount,c
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));
+    if (param.opExecuteConfig == OpExecuteConfig::CCU_MS ||
+        param.opExecuteConfig == OpExecuteConfig::CCU_SCHED) {
+        return HcclAllGatherVInner(sendBuf, sendCount, recvBuf, recvCounts, recvDispls, dataType, comm, stream);
+    }
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
     paramPtr->~OpParam();
     free(paramMem);

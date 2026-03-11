@@ -236,6 +236,10 @@ HcclResult ScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, Hcc
         std::string algName;
         std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
         CHK_RET(Selector(comm, param, topoInfo, algName));
+        if (param.opExecuteConfig == OpExecuteConfig::CCU_MS ||
+            param.opExecuteConfig == OpExecuteConfig::CCU_SCHED) {
+            return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
+        }
         CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
     } else {
         CHK_RET(ExecOp(comm, param));  //保留原有A3流程

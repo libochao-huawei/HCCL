@@ -135,6 +135,10 @@ HcclResult BroadcastOutPlace(void *buf, uint64_t count, HcclDataType dataType, u
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));
+    if (param.opExecuteConfig == OpExecuteConfig::CCU_MS ||
+        param.opExecuteConfig == OpExecuteConfig::CCU_SCHED) {
+        return HcclBroadcastInner(buf, count, dataType, root, comm, stream);
+    }
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
     HCCL_INFO("Execute BroadcastOutPlace success.");
     return HCCL_SUCCESS;
