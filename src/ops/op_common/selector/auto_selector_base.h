@@ -70,7 +70,7 @@ const std::unordered_map<std::string, std::string> RES_RESUSE_ALG = {
 class AutoSelectorBase {
 public:
     SelectorStatus Select(OpParam &opParam, TopoInfoWithNetLayerDetails* topoInfo,
-                          std::string &selectAlgName, OpExecuteConfig &opExecuteConfig);
+                          std::string &selectAlgName) const;
     bool IsDefaultAlg(const HcclAlgoType algoType) const;
     bool IsSmallData(const u64 dataSize) const;
     bool IsLargeData(const u64 dataSize) const;

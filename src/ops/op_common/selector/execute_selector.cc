@@ -19,7 +19,7 @@ ExecuteSelector::ExecuteSelector()
 }
 
 HcclResult ExecuteSelector::Run(OpParam &opParam, TopoInfoWithNetLayerDetails* topoInfo,
-                                std::string &selectAlgName, OpExecuteConfig &opExecuteConfig)
+                                std::string &selectAlgName) const
 {
     HCCL_DEBUG("[Algo][Selector] Run.");
     std::map<u32, AutoSelectorBase *> selectors = SelectorRegistry::Global()->GetAllSelectors();
@@ -30,7 +30,7 @@ HcclResult ExecuteSelector::Run(OpParam &opParam, TopoInfoWithNetLayerDetails* t
             HCCL_ERROR("[Algo][Selector] CCU selector is not registried.");
             return HcclResult::HCCL_E_NOT_SUPPORT;
         }
-        if(iter->second->Select(opParam, topoInfo, selectAlgName, opExecuteConfig) == SelectorStatus::MATCH) {
+        if(iter->second->Select(opParam, topoInfo, selectAlgName) == SelectorStatus::MATCH) {
             HCCL_INFO("[Algo][Selector] The ccu selector[priority of %u] is matched, the selected algo type is %s",
                 iter->first, selectAlgName.c_str());
             return HcclResult::HCCL_SUCCESS;
@@ -43,7 +43,7 @@ HcclResult ExecuteSelector::Run(OpParam &opParam, TopoInfoWithNetLayerDetails* t
     HCCL_INFO("[Algo][Selector] The selector nums of optype[%d] is [%zu].", opParam.opType, selectors.size());
     for (auto iter : selectors) {
         HCCL_DEBUG("[Algo][Selector] The selector[priority of %llu] is running.", iter.first);
-        if (iter.second->Select(opParam, topoInfo, selectAlgName, opExecuteConfig) == SelectorStatus::MATCH) {
+        if (iter.second->Select(opParam, topoInfo, selectAlgName) == SelectorStatus::MATCH) {
             HCCL_INFO("[Algo][Selector] The selector[priority of %llu] is matched, the selected algo type is %s",
                       iter.first, selectAlgName.c_str());
             return HcclResult::HCCL_SUCCESS;

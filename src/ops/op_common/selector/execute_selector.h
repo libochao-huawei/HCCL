@@ -20,7 +20,7 @@ class ExecuteSelector {
 public:
     ExecuteSelector();
     
-    HcclResult  Run(OpParam &opParam, TopoInfoWithNetLayerDetails* topoInfo, std::string &selectAlgName, OpExecuteConfig &opExecuteConfig);
+    HcclResult  Run(OpParam &opParam, TopoInfoWithNetLayerDetails* topoInfo, std::string &selectAlgName) const;
 
 };
 } // namespace Hccl
