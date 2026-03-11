@@ -429,7 +429,6 @@ __aicore__ inline void AivCommBase::CpGM2GM(__gm__ T *outputGM, __gm__ T *inputG
     return;
 }
 
-// 910B支持的Atomic数据类型
 #define AIV_ATOMIC_DATA_TYPE_DEF(func) \
     func(float); \
     func(half); \
@@ -438,7 +437,6 @@ __aicore__ inline void AivCommBase::CpGM2GM(__gm__ T *outputGM, __gm__ T *inputG
     func(int8_t); \
     func(bfloat16_t)
 
-// 910B支持的DataCopy数据类型
 #define AIV_COPY_DATA_TYPE_DEF(func) \
     func(half); \
     func(int16_t); \

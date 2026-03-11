@@ -13,7 +13,7 @@ cmake_minimum_required(VERSION 3.16.0)
 find_package(ASC REQUIRED)
 
 project(hccl_examples_custom_ops_allgather LANGUAGES CXX ASC)
-set(CMAKE_SYSTEM_PROCESSOR "aarch64")
+set(CMAKE_SYSTEM_PROCESSOR "x86_64")
 
 set(HCCL_CUSTOM_OPS_INCLUDE_LIST
     ${CMAKE_CURRENT_SOURCE_DIR}/inc
