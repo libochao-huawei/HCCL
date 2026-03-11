@@ -45,7 +45,6 @@ target_include_directories(hccl_custom_allgather PRIVATE
 )
 
 target_compile_options(hccl_custom_allgather PRIVATE
-    -Werror
     -fno-common
     -fno-strict-aliasing
     -pipe
