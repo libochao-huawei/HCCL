@@ -28,7 +28,7 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 class InsV2ScatterParallelExecutor : public InsCollAlgBase {
 public:
     explicit InsV2ScatterParallelExecutor();
-    ~InsV2ScatterParallelExecutor() = default;
+    ~InsV2ScatterParallelExecutor() override = default;
 
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
 
@@ -56,7 +56,7 @@ protected:
         TemplateDataParams &tempAlgParamsInter1) const;
 
     void GetParallelDataSplit(std::vector<double> &splitDataSize) const;
-    uint64_t GetRankSize(const std::vector<std::vector<u32>> &vTopo);
+    uint64_t GetRankSize(const std::vector<std::vector<u32>> &vTopo) const;
 
     uint64_t rankSizeLevel0_{0};
     uint64_t rankSizeLevel1_{0};
