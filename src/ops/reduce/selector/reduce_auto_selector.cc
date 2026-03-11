@@ -171,7 +171,7 @@ SelectorStatus ReduceAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetLaye
             HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64, PROD only support in-box fullmesh algo type now.");
             return SelectorStatus::NOT_MATCH;
         }
-        selectAlgName = "ReduceMeshNHR";
+        selectAlgName = "ReduceNHR";
     } else {
         HCCL_WARNING("[ReduceAutoSelector] topo not match");
         return SelectorStatus::NOT_MATCH;
