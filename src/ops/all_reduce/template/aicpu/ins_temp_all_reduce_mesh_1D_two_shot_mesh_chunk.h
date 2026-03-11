@@ -62,8 +62,7 @@ private:
     u64 count_{0};
     u64 dataTypeSize_{0};
     u32 myAlgRank_{0};
-};
- 
+}; 
 }  // namespace Hccl
  
 #endif  // HCCLV2_INS_TEMP_ALL_REDUCE_1D_MESH_TWO_SHOT_MESH_CHUNK

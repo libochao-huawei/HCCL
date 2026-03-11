@@ -24,13 +24,11 @@
 #include "topo_match_1d.h"
 #include "topo_match_multilevel.h"
 
-
-
 namespace ops_hccl {
 template <typename AlgTopoMatch, typename InsAlgTemplate> class InsV2ScatterSoleExecutor : public InsCollAlgBase {
 public:
     explicit InsV2ScatterSoleExecutor();
-    ~InsV2ScatterSoleExecutor() = default;
+    ~InsV2ScatterSoleExecutor() override = default;
 
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
 
