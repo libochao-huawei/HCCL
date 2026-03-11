@@ -80,7 +80,7 @@ HcclResult HcclReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType
 
 namespace ops_hccl {
 // 除了错误都是公共的
-HcclResult CheckReduceInputPara(HcclComm comm, void const *sendBuf, void const *recvBuf)
+HcclResult CheckReduceInputPara(HcclComm comm, const void *sendBuf, const void *recvBuf)
 {
     // 入参合法性校验
     RPT_INPUT_ERR(comm == nullptr,
