@@ -67,7 +67,7 @@ HcclResult AivTempReduceMesh1D::KernelRun(const OpParam& param,
     aivReduceArgs.dataType = dataType_;
     aivReduceArgs.op = param.reduceType;
     aivReduceArgs.root = root_;
-    aivReduceArgs.aivCountTag = (static_cast<uint32_t>(param.aivCountTag) << AIV_TAG_MOVE_LEFT_BITS) | static_cast<uint32_t>(sliceId_);  // 传入aivCountTag，Lauch时重新组装为aivCountTag  // todo
+    aivReduceArgs.aivCountTag = static_cast<uint32_t>(sliceId_);
     aivReduceArgs.buffersIn = templateResource.aivCommInfoPtr;
     aivReduceArgs.stream = param.stream;
     aivReduceArgs.isOpBase = (param.opMode == OpMode::OPBASE);
