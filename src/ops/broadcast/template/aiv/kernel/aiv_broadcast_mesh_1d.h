@@ -60,7 +60,7 @@ __aicore__ inline void AivBroadcastV2Mesh1D(EXTERN_KERNEL_ARGS_DEF_V2)
     AivBroadcastMesh1D op;
     op.Init(KERNEL_CLASS_INIT, true);
     SyncAll<true>();
-    if (block_idx == 0 && tag >> AIV_TAG_MOVE_RIGHT_BITS == 1 && (tag & LOW_16_BITS) == 1) {
+    if (op.IsFirstOP(tag)) {
         op.BarrierForFirstOP();
     }
     SyncAll<true>();
