@@ -36,6 +36,7 @@ int HcommDlInit(void) {
     HcclResDlInit(gLibHandle);
     HcclRankGraphDlInit(gLibHandle);
     HcommPrimitivesDlInit(gLibHandle);
+    HcclCommDlInit(gLibHandle);
     return 0;
 }
 
@@ -44,6 +45,7 @@ void HcommDlFini(void) {
         HcclResDlFini();
         HcclRankGraphDlFini();
         HcommPrimitivesDlFini();
+        HcclCommDlFini();
 
         dlclose(gLibHandle);
         gLibHandle = NULL;
