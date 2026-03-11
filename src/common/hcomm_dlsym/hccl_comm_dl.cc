@@ -1,3 +1,4 @@
+#include "log.h"
 #include "hccl_comm_dl.h"
 #include <dlfcn.h>
 #include <stdio.h>

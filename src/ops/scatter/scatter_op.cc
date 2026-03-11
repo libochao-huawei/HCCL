@@ -290,9 +290,9 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
 
     // 获取资源
     AlgResourceCtx* resCtx;
-    ThreadHandle cpuTsThread;
-    ThreadHandle exportedAicpuTsThread;
-    ThreadHandle exportedCpuTsThread;
+    ThreadHandle cpuTsThread = 0;
+    ThreadHandle exportedAicpuTsThread = 0;
+    ThreadHandle exportedCpuTsThread = 0;
     if (HcommIsSupportHcclThreadExportToCommEngine()) {
         if (param.engine == COMM_ENGINE_AICPU_TS) {
             CHK_RET(HcclThreadAcquireWithStream(comm, COMM_ENGINE_CPU_TS, param.stream, 1, &cpuTsThread));
@@ -314,6 +314,11 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
         }
     } else {
         CHK_RET(GetAlgRes(comm, param, executor, topoInfo, algType, &resCtx));
+        // cpuTsThread 添加到ctx里
+        char* curPtr = reinterpret_cast<char *>(resCtx);
+        curPtr = curPtr + sizeof(AlgResourceCtx) - sizeof(TopoInfo) - sizeof(ThreadHandle) - sizeof(uint32_t) * AICPU_CONTROL_NOTIFY_NUM - sizeof(void*); // 偏移指针
+        ACLCHECK(aclrtMemcpy(curPtr, sizeof(ThreadHandle), &exportedAicpuTsThread, sizeof(ThreadHandle),
+            ACL_MEMCPY_HOST_TO_DEVICE));
     }
     
 
@@ -332,9 +337,16 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
         int32_t retComm = HcommAcquireComm(param.commName);
         CHK_PRT_RET(retComm != HCCL_SUCCESS, HCCL_ERROR("[%s] [%s] HcommAcquireComm failed ",
             __func__, param.commName), static_cast<HcclResult>(retComm));
-        // Host stream通知Device主thread，使用主流上idx最大的notify
-        CHK_RET(static_cast<HcclResult>(HcommThreadNotifyRecordOnThread(cpuTsThread, exportedCpuTsThread,
-            topoInfo->notifyNumOnMainThread)));
+        if (HcommIsSupportHcclThreadExportToCommEngine()) {
+            // Host stream通知Device主thread，使用主流上idx最大的notify
+            CHK_RET(static_cast<HcclResult>(HcommThreadNotifyRecordOnThread(cpuTsThread, exportedCpuTsThread,
+                topoInfo->notifyNumOnMainThread)));
+        } else {
+            if (aclrtRecordNotify(g_notifies[0], param.stream) != ACL_SUCCESS) {
+                HCCL_ERROR("failed to record aicpu stream");
+                return HCCL_E_INTERNAL;
+            }
+        }
 
         // 执行device测的算法编排
         uint64_t beginTime;

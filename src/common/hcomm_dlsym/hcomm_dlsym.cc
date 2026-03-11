@@ -2,6 +2,7 @@
 #include "hccl_res_dl.h"
 #include "hccl_rank_graph_dl.h"
 #include "hcomm_primitives_dl.h"
+#include "hccl_comm_dl.h"
 #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
