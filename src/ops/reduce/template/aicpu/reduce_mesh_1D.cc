@@ -11,14 +11,6 @@
 #include <numeric>
 #include "reduce_mesh_1D.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-HcclResult __attribute__((weak)) HcommThreadJoin(ThreadHandle thread, uint32_t timeout);
-#ifdef __cplusplus
-}
-#endif
-
 namespace ops_hccl {
 ReduceMesh1D::ReduceMesh1D(const OpParam &param,
     const u32 rankId,  // 传通信域的rankId，userRank
