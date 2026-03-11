@@ -70,7 +70,7 @@ HcclResult InsTempScatterMesh1D::CalcRes(HcclComm comm, const OpParam& param, co
     return HCCL_SUCCESS;
 }
 
-HcclResult InsTempScatterMesh1D::GetRes(AlgResourceRequest &resourceRequest)
+HcclResult InsTempScatterMesh1D::GetRes(AlgResourceRequest &resourceRequest) const
 {
     u32 threadNum = templateRankSize_ > 1 ? templateRankSize_ - 1 : 1;
     resourceRequest.slaveThreadNum = threadNum - 1;
