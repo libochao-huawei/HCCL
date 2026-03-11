@@ -50,8 +50,21 @@ HcclResult CcuTempAllGatherMesh1D::CalcRes(HcclComm comm, const OpParam& param, 
     kernelInfo.creator = [](const hcomm::CcuKernelArg &arg) {
                              return std::make_unique<CcuKernelAllGatherMesh1D>(arg);
                          };
+
     std::vector<HcclChannelDesc> channelDescs;
-    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
+    if(topoInfo->level0Topo != Level0Shape::MESH_1D_CLOS) {
+        CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
+    } else {
+        CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks_, channelDescs, CommTopo::COMM_TOPO_1DMESH));
+        for(auto channel : channelDescs){
+            if(channel.channelProtocol != COMM_PROTOCOL_UBC_CTP){
+                HCCL_ERROR("[CcuTempAllGatherMesh1D][CalcRes] channelProtocol: %u", channel.channelProtocol);
+                return HCCL_E_INTERNAL;
+            }
+        }
+    }
+    HCCL_DEBUG("[CcuTempAllGatherMesh1D::CalcRes] Get Mesh Channel Success!");
+
     kernelInfo.kernelArg = std::make_shared<CcuKernelArgAllGatherMesh1D>(subCommRanks_[0].size(),
                                                                                     mySubCommRank_,
                                                                                     param,
@@ -67,8 +80,8 @@ HcclResult CcuTempAllGatherMesh1D::CalcRes(HcclComm comm, const OpParam& param, 
 }
 
 HcclResult CcuTempAllGatherMesh1D::KernelRun(const OpParam& param,
-                                                        const TemplateDataParams& templateDataParams,
-                                                        const TemplateResource& templateResource)
+                                             const TemplateDataParams& templateDataParams,
+                                             const TemplateResource& templateResource)
 {
     buffInfo_ = templateDataParams.buffInfo;
 
@@ -109,12 +122,12 @@ u64 CcuTempAllGatherMesh1D::CalcScratchMultiple(BufferType inBuffType, BufferTyp
     return 0;
 }
 
-u64 CcuTempAllGatherMesh1D::GetThreadNum()
+u64 CcuTempAllGatherMesh1D::GetThreadNum() const
 {
     return 1;
 }
  
-HcclResult CcuTempAllGatherMesh1D::GetRes(AlgResourceRequest& resourceRequest)
+HcclResult CcuTempAllGatherMesh1D::GetRes(AlgResourceRequest& resourceRequest) const
 {
     resourceRequest.slaveThreadNum = 0;
     resourceRequest.notifyNumOnMainThread = 0;
