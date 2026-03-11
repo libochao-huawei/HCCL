@@ -16,6 +16,14 @@
 #include "template_utils.h"
 #include "alg_template_base.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+HcclResult __attribute__((weak)) HcommThreadJoin(ThreadHandle thread, uint32_t timeout);
+#ifdef __cplusplus
+}
+#endif
+
 namespace ops_hccl {
 
 class InsAlgTemplateBase {
