@@ -10,6 +10,7 @@
 
 #include "scatter_op.h"
 #include "coll_alg_exec_registry.h"
+#include "config_log.h"
 #include "hcomm_primitives.h"
 #include "load_kernel.h"
 #include "op_common_ops.h"
