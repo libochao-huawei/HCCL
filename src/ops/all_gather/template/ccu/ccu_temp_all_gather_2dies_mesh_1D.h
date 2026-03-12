@@ -11,6 +11,7 @@
 #ifndef HCCL_CCU_TEMP_ALL_GATHER_2DIES_MESH_1D_H
 #define HCCL_CCU_TEMP_ALL_GATHER_2DIES_MESH_1D_H
 
+#include "utils.h"
 #include "ccu_alg_template_base.h"
 
 namespace ops_hccl {

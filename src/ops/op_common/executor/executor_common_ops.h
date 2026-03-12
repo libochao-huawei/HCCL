@@ -8,19 +8,19 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCCLV2_COLL_ALG_SELECTOR_EXECUTION
-#define HCCLV2_COLL_ALG_SELECTOR_EXECUTION
+#ifndef EXECUTOR_COMMON_OPS_H
+#define EXECUTOR_COMMON_OPS_H
 
-#include <string>
 #include "alg_param.h"
-#include "auto_selector_base.h"
+#include "alg_v2_template_base.h"
+#include "channel.h"
+#include "coll_alg_v2_exec_registry.h"
+#include "config_log.h"
+#include "executor_v2_base.h"
+#include "log.h"
+#include "sal.h"
+#include "topo_host.h"
+#include "utils.h"
+#include "workflow.h"
 
-namespace ops_hccl {
-class ExecuteSelector {
-public:
-    ExecuteSelector();
-    
-    HcclResult  Run(OpParam &opParam, TopoInfoWithNetLayerDetails* topoInfo, std::string &selectAlgName) const;
-};
-} // namespace Hccl
 #endif

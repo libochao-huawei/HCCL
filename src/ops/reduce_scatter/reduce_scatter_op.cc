@@ -8,28 +8,13 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include "reduce_scatter_op.h"
+#include "op_common_ops.h"
+#include "topo_host.h"
 #include <algorithm>
 #include <future>
 #include <map>
 #include <string>
-#include <hccl/hccl_types.h>
-#include "hccl/base.h"
-#include "sal.h"
-#include "mmpa_api.h"
-#include "param_check.h"
-#include "alg_env_config.h"
-#include "adapter_acl.h"
-#include "executor_base.h"
-#include "topo_host.h"
-#include "coll_alg_v2_exec_registry.h"
-#include "adapter_error_manager_pub.h"
-#include "hccl_inner.h"
-#include "hccl.h"
-#include "config_log.h"
-#include "workflow.h"
-#include "load_kernel.h"
-#include "reduce_scatter_op.h"
-#include "op_common.h"
 
 using namespace std;
 using namespace ops_hccl;

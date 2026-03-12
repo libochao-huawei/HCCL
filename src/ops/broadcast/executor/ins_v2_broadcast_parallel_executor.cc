@@ -196,7 +196,6 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::PrepareResForTemplate(
     InsAlgTemplate0 &tempAlgIntra, InsAlgTemplate1 &tempAlgInter)
 {
-
     AlgResourceRequest intraTempRequest;
     AlgResourceRequest interTempRequest;
     tempAlgIntra.GetRes(intraTempRequest);
