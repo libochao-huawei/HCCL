@@ -100,6 +100,7 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
     if (hcclRet != HCCL_SUCCESS || ctx == nullptr) {
          HCCL_INFO("[PrepareResources] Context not found (ret=%d), creating new with COMM_ENGINE_CPU_TS...", hcclRet);
          hcclRet = HcclEngineCtxCreate(comm, param.tag, ctxEngine, size, &ctx);
+         HCCL_INFO("[PrepareResources] HcclEngineCtxCreate (ret=%d)", hcclRet);
          if (hcclRet != HCCL_SUCCESS) {
              HCCL_ERROR("[PrepareResources] Failed to allocate context memory via HcclEngineCtxCreate. ret=%d", hcclRet);
              return hcclRet;
