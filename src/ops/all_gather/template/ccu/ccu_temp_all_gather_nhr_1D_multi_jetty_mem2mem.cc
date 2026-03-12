@@ -192,7 +192,7 @@ HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::KernelRun(const OpParam& para
     outputSliceStride, inputRepeatStride, outputRepeatStride, isInputOutputEqual);
 
     if (dataCount == 0) {
-        HCCL_INFO("[CcuTempAllGatherNHR1DMultiJettyMem2Mem] DataCount == 0, Template Run Ends.");
+        HCCL_INFO("[CcuTempAllGatherNHR1DMultiJettyMem2Mem] DataCount == 0, Template Run End.");
         return HcclResult::HCCL_SUCCESS;
     }
 
@@ -204,7 +204,7 @@ HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::KernelRun(const OpParam& para
 
     HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr);
     
-    HCCL_DEBUG("[CcuTempAllGatherNHR1DMultiJettyMem2Mem::KernelRun] end");
+    HCCL_DEBUG("[CcuTempAllGatherNHR1DMultiJettyMem2Mem] Template Run end.");
 
     return HcclResult::HCCL_SUCCESS;
 }
