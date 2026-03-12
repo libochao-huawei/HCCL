@@ -87,6 +87,9 @@ HcclResult HcclExecOpGraphMode(HcclComm comm, OpParam &param,
         // cpuTsThread 添加到param里
         param.opThread = exportedAicpuTsThread;
     }
+    HCCL_INFO("[HcclExecOpGraphMode]resCtxHost.algHierarchyInfo.infos.size: %d", resCtxHost->algHierarchyInfo.infos.size());
+    HCCL_INFO("[HcclExecOpGraphMode]resCtxHost.algHierarchyInfo.infos[0].size: %d", resCtxHost->algHierarchyInfo.infos[0].size());
+    HCCL_INFO("[HcclExecOpGraphMode]resCtxHost.algHierarchyInfo.infos[0][0].size: %d", resCtxHost->algHierarchyInfo.infos[0][0].size());
 
     // 算法执行
     if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
