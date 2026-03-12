@@ -48,6 +48,10 @@ struct AlgEnvConfig {
     bool hcclRetryConfig[HCCL_RETRY_ENABLE_LEVEL_NUM];
     std::map<HcclCMDType, std::vector<HcclAlgoType>> hcclAlgoConfig;
 
+    // 超时时间，单位：秒
+    u32 customTimeout;
+    u32 notifyDefaultWaitTime;
+
     AlgEnvConfig()
     {
         SetDefaultParams();
@@ -65,6 +69,9 @@ struct AlgEnvConfig {
             hcclAlgoConfig[static_cast<HcclCMDType>(opType)] =
                 std::vector<HcclAlgoType>(HCCL_ALGO_LEVEL_NUM, HcclAlgoType::HCCL_ALGO_TYPE_DEFAULT);
         }
+        // 超时时间，单位：秒
+        customTimeout = 1800;
+        notifyDefaultWaitTime = 27 * 68;
     }
 };
 
@@ -118,6 +125,8 @@ HcclResult ParseInterLinkType();
 
 HcclResult ParseOpExpansion();
 
+HcclResult ParseHcclExecTimeout();
+
 HcclResult SplitHcclRetryEnable(const std::string &retryConfig, std::vector<std::string> &retryEnables);
 
 HcclResult CollectRetryEnableFromConfig(const std::vector<std::string> &retryEnables);
@@ -143,6 +152,10 @@ const bool& GetExternalInputInterServerRetryEnable();
 const bool& GetExternalInputInterSuperPodRetryEnable();
 
 const bool& GetExternalInputHcclEnableEntryLog();
+
+const u32& GetExternalInputHcclCustomTimeout();
+
+const u32& GetExternalInputNotifyDefaultWaitTime();
 
 const std::map<HcclCMDType, std::vector<HcclAlgoType>> GetExternalInputHcclAlgoConfigAllType();
 
