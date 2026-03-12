@@ -77,6 +77,15 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         char *ctx = static_cast<char *>(param->resCtx);
         std::vector<char> seq(ctx, ctx + param->ctxSize);
         resCtx.DeSerialize(seq);
+        if (!resCtx.algHierarchyInfo.infos.empty()) {
+            HCCL_INFO("[HcclLaunchAicpuKernel]resCtxHost.algHierarchyInfo.infos.size: %d", resCtx.algHierarchyInfo.infos.size());
+        }
+        if (!resCtx.algHierarchyInfo.infos[0].empty()) {
+            HCCL_INFO("[HcclLaunchAicpuKernel]resCtxHost.algHierarchyInfo.infos[0].size: %d", resCtx.algHierarchyInfo.infos[0].size());
+        }
+        if (!resCtx.algHierarchyInfo.infos[0][0].empty()) {
+            HCCL_INFO("[HcclLaunchAicpuKernel]resCtxHost.algHierarchyInfo.infos[0][0].size: %d", resCtx.algHierarchyInfo.infos[0][0].size());
+        }
         // 还原变长指针
         HcclResult ret = HCCL_SUCCESS;
         if (param->opType == HCCL_CMD_BATCH_SEND_RECV) {

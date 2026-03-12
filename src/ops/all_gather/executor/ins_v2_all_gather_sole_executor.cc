@@ -122,6 +122,18 @@ HcclResult InsV2AllGatherSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
               myRank_, param.inputPtr, param.outputPtr, resCtx.cclMem.addr, resCtx.cclMem.size,
               templateAlgRes.channels.size(), templateAlgRes.threads.size());
     // 构建template
+    if (resCtx.algHierarchyInfo.infos.empty()) {
+            HCCL_ERROR("[InsV2AllGatherSoleExecutor]algHierarchyInfo size is 0");
+        return HCCL_E_INTERNAL;
+    }
+    if (resCtx.algHierarchyInfo.infos[0].empty() ){
+            HCCL_ERROR("[InsV2AllGatherSoleExecutor]algHierarchyInfo[0] size is 0");
+        return HCCL_E_INTERNAL;
+    }
+    if (resCtx.algHierarchyInfo.infos[0][0].empty()) {
+            HCCL_ERROR("[InsV2AllGatherSoleExecutor]algHierarchyInfo[0][0] size is 0");
+        return HCCL_E_INTERNAL;
+    }
     InsAlgTemplate algTemplate(param, resCtx.topoInfo.userRank, resCtx.algHierarchyInfo.infos[0]);
 
     u32 templateScratchMultiplier =
