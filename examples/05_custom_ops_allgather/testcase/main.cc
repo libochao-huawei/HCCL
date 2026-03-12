@@ -10,9 +10,12 @@
 
 #include <iostream>
 #include <vector>
-#include <thread>
 #include <cstring>
 #include <cmath>
+#include <cstdarg>
+#include <sys/time.h>
+#include <mpi.h>
+#include <unistd.h>
 
 #include "acl/acl.h"
 #include "hccl/hccl.h"
@@ -22,7 +25,7 @@
 #define ACLCHECK(ret)                                                                          \
     do {                                                                                       \
         if (ret != ACL_SUCCESS) {                                                              \
-            printf("acl interface return err %s:%d, retcode: %d \n", __FILE__, __LINE__, ret); \
+            printf("[ERROR] acl interface return err %s:%d, retcode: %d \n", __FILE__, __LINE__, ret); \
             return ret;                                                                        \
         }                                                                                      \
     } while (0)
@@ -30,67 +33,99 @@
 #define HCCLCHECK(ret)                                                                          \
     do {                                                                                        \
         if (ret != HCCL_SUCCESS) {                                                              \
-            printf("hccl interface return err %s:%d, retcode: %d \n", __FILE__, __LINE__, ret); \
+            printf("[ERROR] hccl interface return err %s:%d, retcode: %d \n", __FILE__, __LINE__, ret); \
             return ret;                                                                         \
         }                                                                                       \
     } while (0)
 
-struct ThreadContext {
-    HcclRootInfo rootInfo;
-    uint32_t deviceId;
-    uint32_t rankId;
-    uint32_t rankSize;
-};
-
-int Sample(void *arg)
-{
-    ThreadContext *ctx = (ThreadContext *)arg;
-    void *sendBuf = nullptr;
-    void *recvBuf = nullptr;
-    uint32_t deviceId = ctx->deviceId;
-    uint32_t rankId = ctx->rankId;
-    uint32_t rankSize = ctx->rankSize;
+// Helper for logging with timestamp and rank
+void Log(int rank, const char* fmt, ...) {
+    char buf[1024];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, args);
+    va_end(args);
     
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    printf("[%ld.%06ld] [Rank %d] %s\n", tv.tv_sec, tv.tv_usec, rank, buf);
+}
+
+int main(int argc, char* argv[])
+{
+    // 1. MPI Init
+    MPI_Init(&argc, &argv);
+    int rank, size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    Log(rank, "MPI Initialized. World Size: %d", size);
+
+    // 2. ACL Init
+    ACLCHECK(aclInit(NULL));
+    
+    uint32_t devCount;
+    ACLCHECK(aclrtGetDeviceCount(&devCount));
+    
+    if (devCount == 0) {
+        Log(rank, "Error: No devices found");
+        MPI_Finalize();
+        return -1;
+    }
+    
+    // Simple device assignment: rank % devCount
+    int deviceId = rank % devCount;
+    ACLCHECK(aclrtSetDevice(deviceId));
+    Log(rank, "Device %d selected (Total devices: %u)", deviceId, devCount);
+
+    // 3. HCCL Root Info Exchange
+    HcclRootInfo rootInfo;
+    if (rank == 0) {
+        HCCLCHECK(HcclGetRootInfo(&rootInfo));
+        Log(rank, "Root info generated");
+    }
+    MPI_Bcast(&rootInfo, sizeof(HcclRootInfo), MPI_BYTE, 0, MPI_COMM_WORLD);
+    
+    // 4. HCCL Init
+    HcclComm hcclComm;
+    HCCLCHECK(HcclCommInitRootInfo(size, &rootInfo, rank, &hcclComm));
+    Log(rank, "HCCL Comm Initialized");
+
+    // 5. Prepare Data
     uint64_t count = 1024; // Elements per rank
     size_t sendBytes = count * sizeof(float);
-    size_t recvBytes = count * rankSize * sizeof(float);
+    size_t recvBytes = count * size * sizeof(float);
 
-    // Set device
-    ACLCHECK(aclrtSetDevice(deviceId));
-
-    // Init Comm
-    HcclComm hcclComm;
-    HCCLCHECK(HcclCommInitRootInfo(rankSize, &ctx->rootInfo, rankId, &hcclComm));
-
-    // Create Stream
     aclrtStream stream;
     ACLCHECK(aclrtCreateStream(&stream));
 
-    // Alloc Buffers
+    void *sendBuf = nullptr;
+    void *recvBuf = nullptr;
     ACLCHECK(aclrtMalloc(&sendBuf, sendBytes, ACL_MEM_MALLOC_HUGE_FIRST));
     ACLCHECK(aclrtMalloc(&recvBuf, recvBytes, ACL_MEM_MALLOC_HUGE_FIRST));
-    
-    // Init Send Data
-    std::vector<float> hostSend(count, (float)rankId);
+
+    std::vector<float> hostSend(count, (float)rank);
     ACLCHECK(aclrtMemcpy(sendBuf, sendBytes, hostSend.data(), sendBytes, ACL_MEMCPY_HOST_TO_DEVICE));
     ACLCHECK(aclrtMemset(recvBuf, recvBytes, 0, recvBytes));
+    Log(rank, "Buffers allocated and initialized");
 
-    // Run AllGather
+    // 6. Run Custom AllGather
+    Log(rank, "Starting HcclAllGatherCustom...");
     HCCLCHECK(HcclAllGatherCustom(sendBuf, recvBuf, count, HCCL_DATA_TYPE_FP32, hcclComm, stream));
-
-    // Sync
+    
     ACLCHECK(aclrtSynchronizeStream(stream));
+    Log(rank, "HcclAllGatherCustom completed and synchronized");
 
-    // Verify
-    std::vector<float> hostRecv(count * rankSize);
+    // 7. Verify
+    std::vector<float> hostRecv(count * size);
     ACLCHECK(aclrtMemcpy(hostRecv.data(), recvBytes, recvBuf, recvBytes, ACL_MEMCPY_DEVICE_TO_HOST));
 
     bool pass = true;
-    for (uint32_t r = 0; r < rankSize; r++) {
+    for (int r = 0; r < size; r++) {
         for (uint64_t i = 0; i < count; i++) {
             float val = hostRecv[r * count + i];
             if (std::abs(val - (float)r) > 1e-5) {
-                printf("[Rank %u] Error at rank %u offset %llu: expected %f, got %f\n", rankId, r, i, (float)r, val);
+                Log(rank, "Error at rank %d offset %llu: expected %f, got %f", r, i, (float)r, val);
                 pass = false;
                 break;
             }
@@ -99,56 +134,18 @@ int Sample(void *arg)
     }
 
     if (pass) {
-        printf("[Rank %u] AllGather Success!\n", rankId);
+        Log(rank, "Test Passed!");
     } else {
-        printf("[Rank %u] AllGather Failed!\n", rankId);
+        Log(rank, "Test Failed!");
     }
 
-    // Cleanup
+    // 8. Cleanup
     HCCLCHECK(HcclCommDestroy(hcclComm));
     ACLCHECK(aclrtFree(sendBuf));
     ACLCHECK(aclrtFree(recvBuf));
     ACLCHECK(aclrtDestroyStream(stream));
-    // ACLCHECK(aclrtResetDevice(deviceId)); // Avoid resetting device in thread if reused
-    return 0;
-}
-
-int main()
-{
-    // Init ACL
-    ACLCHECK(aclInit(NULL));
-    
-    uint32_t devCount;
-    ACLCHECK(aclrtGetDeviceCount(&devCount));
-    printf("Found %u devices\n", devCount);
-    
-    if (devCount < 2) {
-        printf("Need at least 2 devices for test\n");
-        return 0;
-    }
-    
-    // Use first 2 devices
-    uint32_t rankSize = 2;
-    
-    ACLCHECK(aclrtSetDevice(0));
-    HcclRootInfo rootInfo;
-    HCCLCHECK(HcclGetRootInfo(&rootInfo));
-    
-    std::vector<std::thread> threads;
-    std::vector<ThreadContext> ctxs(rankSize);
-    
-    for (uint32_t i = 0; i < rankSize; i++) {
-        ctxs[i].rootInfo = rootInfo;
-        ctxs[i].deviceId = i;
-        ctxs[i].rankId = i;
-        ctxs[i].rankSize = rankSize;
-        threads.emplace_back(Sample, &ctxs[i]);
-    }
-    
-    for (auto& t : threads) {
-        t.join();
-    }
-    
     ACLCHECK(aclFinalize());
+    
+    MPI_Finalize();
     return 0;
 }

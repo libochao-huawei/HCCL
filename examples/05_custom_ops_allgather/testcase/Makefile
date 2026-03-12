@@ -1,6 +1,6 @@
 # Makefile for testcase
 
-CXX := g++
+CXX := mpic++
 CXXFLAGS := -std=c++17 -O2 -g -Wall
 ASCEND_HOME ?= /usr/local/Ascend/ascend-toolkit/latest
 INCLUDES := -I../inc -I$(ASCEND_HOME)/include -I$(ASCEND_HOME)/include/hccl
@@ -18,4 +18,4 @@ clean:
 	rm -f $(TARGET)
 
 run: $(TARGET)
-	export LD_LIBRARY_PATH=$(LIB_DIR):$(ASCEND_HOME)/lib64:$$LD_LIBRARY_PATH && ./$(TARGET)
+	export LD_LIBRARY_PATH=$(LIB_DIR):$(ASCEND_HOME)/lib64:$$LD_LIBRARY_PATH && mpirun -n 2 ./$(TARGET)
