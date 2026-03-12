@@ -40,13 +40,8 @@ SelectorStatus AutoSelectorBase::Select(OpParam &opParam, TopoInfoWithNetLayerDe
             return ret;
         }
     }
-    if (opParam.opExecuteConfig == OpExecuteConfig::AIV) {
-        ret = SelectAivAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
-        if (ret == SelectorStatus::NOT_MATCH) {
-            opParam.opExecuteConfig = OpExecuteConfig::CCU_FAIL;
-        } else {
-            return ret;
-        }
+    if (TrySelectAivAlgo(topoInfo, opParam, configAlgMap, selectAlgName, opParam.opExecuteConfig, ret)) {
+        return ret;
     }
     if (IsStarsState(opParam.opExecuteConfig)) {
         ret = SelectAicpuAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
@@ -61,6 +56,32 @@ SelectorStatus AutoSelectorBase::Select(OpParam &opParam, TopoInfoWithNetLayerDe
     HCCL_INFO("[Algo][AutoSelectorBase] The selected algo is %s, OpExecuteConfig is %d.", 
         selectAlgName.c_str(), opParam.opExecuteConfig);
     return ret;
+}
+
+bool AutoSelectorBase::TrySelectAivAlgo(TopoInfoWithNetLayerDetails* topoInfo,
+                                        OpParam &opParam,
+                                        const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+                                        std::string &selectAlgName,
+                                        OpExecuteConfig &opExecuteConfig,
+                                        SelectorStatus &ret) const
+{
+    if (opParam.opExecuteConfig != OpExecuteConfig::AIV && opParam.opExecuteConfig != OpExecuteConfig::AIV_ONLY) {
+        return false;
+    }
+
+    opParam.engine = CommEngine::COMM_ENGINE_AIV;
+    ret = SelectAivAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
+    if (ret == SelectorStatus::NOT_MATCH) {
+        if (opParam.opExecuteConfig == OpExecuteConfig::AIV_ONLY) {
+            HCCL_ERROR("[Algo][AutoSelectorBase] currently do not select aiv mode, aiv only not support.");
+            return true;
+        }
+        opExecuteConfig = OpExecuteConfig::CCU_FAIL;
+        return false;
+    }
+
+    opExecuteConfig = opParam.opExecuteConfig;
+    return true;
 }
 
 bool AutoSelectorBase::IsStarsState(const OpExecuteConfig &opExecuteConfig) const
