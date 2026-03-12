@@ -58,19 +58,22 @@ static HcclResult LoadBinaryFromFile(const std::string& fileName, void*& buffer,
 
 // Register Kernel Logic (Adapted from hccl_aiv_utils.cc)
 HcclResult RegisterKernel() {
+    HCCL_INFO("[RegisterKernel] Start registering kernel...");
     std::lock_guard<std::mutex> guard(g_mut);
     if (g_init) {
+        HCCL_INFO("[RegisterKernel] Already initialized.");
         return HCCL_SUCCESS;
     }
 
-    // 1. Get Binary Path (In this example, we assume it's in the current directory or a specific path)
-    // You might need to adjust this logic to find the binary correctly
+    // 1. Get Binary Path 
     std::string binPath = AIV_BINARY_NAME;
+    HCCL_INFO("[RegisterKernel] Loading binary from: %s", binPath.c_str());
     
     // 2. Load Binary
     void* binBuffer = nullptr;
     size_t binSize = 0;
     CHK_RET(LoadBinaryFromFile(binPath, binBuffer, binSize));
+    HCCL_INFO("[RegisterKernel] Binary loaded size: %zu", binSize);
     
     // 3. Register Binary with ACL
     aclError aclRet = aclrtBinaryLoad(binBuffer, binSize, &g_binHandle);
@@ -79,16 +82,7 @@ HcclResult RegisterKernel() {
         delete[] static_cast<char*>(binBuffer);
         return HCCL_E_INTERNAL;
     }
-    
-    // Buffer can be freed after load? Check ACL docs. Usually yes if it copies.
-    // If ACL doesn't copy, we must keep it. 
-    // aclrtBinaryLoad documentation says "The memory needs to be managed by the caller".
-    // Wait, usually it means we must keep it alive if it's used? 
-    // But standard practice often keeps it. Let's keep it in a global vector or just leak it for now (singleton).
-    // Or better, make it static.
-    // To avoid memory leak in clean shutdown, we should store it.
-    static std::vector<char> g_binBufferVec; 
-    // Actually, let's just keep it simple. If we want to be safe, we don't delete it.
+    HCCL_INFO("[RegisterKernel] aclrtBinaryLoad success");
     
     // 4. Get Function Handle
     aclRet = aclrtBinaryGetFunction(g_binHandle, KERNEL_NAME.c_str(), &g_funcHandle);
@@ -96,6 +90,7 @@ HcclResult RegisterKernel() {
         HCCL_ERROR("[RegisterKernel] aclrtBinaryGetFunction failed for %s, ret: %d", KERNEL_NAME.c_str(), aclRet);
         return HCCL_E_INTERNAL;
     }
+    HCCL_INFO("[RegisterKernel] aclrtBinaryGetFunction success for %s", KERNEL_NAME.c_str());
 
     g_init = true;
     HCCL_INFO("[RegisterKernel] Kernel registered successfully: %s", KERNEL_NAME.c_str());
@@ -104,12 +99,13 @@ HcclResult RegisterKernel() {
 
 // Execute Kernel Launch Logic (Adapted from hccl_aiv_utils.cc)
 HcclResult ExecuteKernelLaunch(const OpParam &param, aclrtStream stream) {
+    HCCL_INFO("[ExecuteKernelLaunch] Start launch...");
     if (!g_init) {
         CHK_RET(RegisterKernel());
     }
 
     aclrtLaunchKernelCfg cfg;
-    aclrtLaunchKernelAttr attr[3]; // Adapting 3 attributes from utils
+    aclrtLaunchKernelAttr attr[3]; 
     
     // 1. Scheme Mode (1 = AIV)
     attr[0].id = ACL_RT_LAUNCH_KERNEL_ATTR_SCHEM_MODE;
@@ -117,11 +113,7 @@ HcclResult ExecuteKernelLaunch(const OpParam &param, aclrtStream stream) {
     
     // 2. Timeout
     attr[1].id = ACL_RT_LAUNCH_KERNEL_ATTR_TIMEOUT_US;
-    attr[1].value.timeoutUs.timeoutLow = CUSTOM_TIMEOUT * 1000000; // CUSTOM_TIMEOUT is in seconds? common.h says 1800.
-    // In common.h: constexpr uint32_t CUSTOM_TIMEOUT = 1800;
-    // In utils: CUSTOM_TIMEOUT * TIME_S_TO_US.
-    // Let's assume common.h CUSTOM_TIMEOUT is seconds.
-    attr[1].value.timeoutUs.timeoutLow = CUSTOM_TIMEOUT * 1000000;
+    attr[1].value.timeoutUs.timeoutLow = CUSTOM_TIMEOUT * 1000000; // Convert seconds to microseconds
     attr[1].value.timeoutUs.timeoutHigh = 0;
     
     // 3. Engine Type
@@ -131,9 +123,9 @@ HcclResult ExecuteKernelLaunch(const OpParam &param, aclrtStream stream) {
     cfg.numAttrs = 3;
     cfg.attrs = attr;
 
+    HCCL_INFO("[ExecuteKernelLaunch] Calling aclrtLaunchKernelWithHostArgs...");
     // Launch with Host Args
-    // We pass 'param' as the argument struct.
-    // Note: The kernel must expect OpParam by value.
+    // We pass 'param' as the argument struct by value (via pointer to host memory)
     aclError aclRet = aclrtLaunchKernelWithHostArgs(g_funcHandle, 1, stream, &cfg, 
                                                     const_cast<OpParam*>(&param), sizeof(OpParam), 
                                                     nullptr, 0);
@@ -142,6 +134,7 @@ HcclResult ExecuteKernelLaunch(const OpParam &param, aclrtStream stream) {
         HCCL_ERROR("[ExecuteKernelLaunch] aclrtLaunchKernelWithHostArgs failed, ret: %d", aclRet);
         return HCCL_E_INTERNAL;
     }
+    HCCL_INFO("[ExecuteKernelLaunch] Launch success.");
 
     return HCCL_SUCCESS;
 }

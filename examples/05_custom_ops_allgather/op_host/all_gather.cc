@@ -64,11 +64,7 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
     uint64_t aivInfoSize = AIV_TAG_BUFF_LEN;
     void* aivInfoAddr = nullptr;
     // We allocate it on device.
-    // HcclEngineCtxCreate for COMM_ENGINE_AIV might create device memory if we use it for that.
-    // But here we want a separate buffer for AIV info.
-    // Use aclrtMalloc or Hccl API? 
-    // op_common uses HcclEngineCtxCreate/Get with a specific tag for aivCommInfo.
-    // We can use aclrtMalloc.
+    HCCL_INFO("[PrepareResources] Allocating AIV info buffer, size: %llu", aivInfoSize);
     ACLCHECK(aclrtMalloc(&aivInfoAddr, aivInfoSize, ACL_MEM_MALLOC_HUGE_FIRST));
     ACLCHECK(aclrtMemset(aivInfoAddr, aivInfoSize, 0, aivInfoSize));
     resCtx->aivCommInfo.addr = aivInfoAddr;
@@ -77,41 +73,21 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
     // Register memory to comm
     HcclMemHandle memHandle;
     CommMem regMem{COMM_MEM_TYPE_DEVICE, aivInfoAddr, aivInfoSize};
+    HCCL_INFO("[PrepareResources] Registering memory to comm...");
     CHK_RET(HcclCommMemReg(comm, param.tag, &regMem, &memHandle));
     
     // 4. Create Channels and Get Remote Buffers
     // Mesh 1D: Connect to all other ranks
     std::vector<HcclChannelDesc> channelDescs;
+    HCCL_INFO("[PrepareResources] Creating channels...");
     for (uint32_t r = 0; r < rankSize; r++) {
         if (r == rank) continue;
         HcclChannelDesc desc;
         HcclChannelDescInit(&desc, 1);
-        // Manual initialization to avoid linking errors with inline functions
-        // memset(&desc, 0xFF, sizeof(desc));
-        // desc.header.version = HCCL_CHANNEL_VERSION;
-        // desc.header.magicWord = HCCL_CHANNEL_MAGIC_WORD;
-        // desc.header.size = sizeof(HcclChannelDesc);
-        // desc.header.reserved = 0;
-        // desc.remoteRank = ~0U;
-        // desc.channelProtocol = CommProtocol::COMM_PROTOCOL_RESERVED;
-        // desc.notifyNum = 0;
-        // desc.memHandles = nullptr;
-        // desc.memHandleNum = 0;
-        // // Init Endpoints (Local/Remote)
-        // memset(&desc.localEndpoint, 0xFF, sizeof(EndpointDesc));
-        // desc.localEndpoint.protocol = CommProtocol::COMM_PROTOCOL_RESERVED;
-        // desc.localEndpoint.commAddr.type = CommAddrType::COMM_ADDR_TYPE_RESERVED;
-        // desc.localEndpoint.loc.locType = EndpointLocType::ENDPOINT_LOC_TYPE_RESERVED;
-        // memset(&desc.remoteEndpoint, 0xFF, sizeof(EndpointDesc));
-        // desc.remoteEndpoint.protocol = CommProtocol::COMM_PROTOCOL_RESERVED;
-        // desc.remoteEndpoint.commAddr.type = CommAddrType::COMM_ADDR_TYPE_RESERVED;
-        // desc.remoteEndpoint.loc.locType = EndpointLocType::ENDPOINT_LOC_TYPE_RESERVED;
 
         desc.remoteRank = r;
         desc.channelProtocol = CommProtocol::COMM_PROTOCOL_HCCS; // Assume HCCS
-        desc.notifyNum = 0; // AIV might not need notifies if using flags in memory?
-        // aiv_all_gather_mesh_1d uses memory flags.
-        // But we need to pass memHandle to channel?
+        desc.notifyNum = 0; 
         desc.memHandles = &memHandle;
         desc.memHandleNum = 1;
         channelDescs.push_back(desc);
@@ -121,6 +97,7 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
         resCtx->channels.resize(channelDescs.size());
         CHK_RET(HcclChannelAcquire(comm, engine, channelDescs.data(), channelDescs.size(), resCtx->channels.data()));
     }
+    HCCL_INFO("[PrepareResources] Channels acquired.");
     
     // 5. Fill AIV Comm Info Buffer content
     // We need to prepare arrays of pointers on host and copy to device.
@@ -157,6 +134,7 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
     
     // Copy to device (aivCommInfo)
     // Offset 0: buffersIn
+    HCCL_INFO("[PrepareResources] Copying info to device...");
     ACLCHECK(aclrtMemcpy(aivInfoAddr, MAX_RANK_SIZE * sizeof(uint64_t), buffersIn.data(), MAX_RANK_SIZE * sizeof(uint64_t), ACL_MEMCPY_HOST_TO_DEVICE));
     
     // Offset 16KB: buffersOut
@@ -171,6 +149,7 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
 }
 
 extern "C" HcclResult HcclAllGatherCustom(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm, aclrtStream stream) {
+    HCCL_INFO("[HcclAllGatherCustom] Entry. sendCount=%llu", sendCount);
     CHK_PTR_NULL(sendBuf);
     CHK_PTR_NULL(recvBuf);
     CHK_PTR_NULL(comm);
@@ -185,7 +164,9 @@ extern "C" HcclResult HcclAllGatherCustom(void *sendBuf, void *recvBuf, uint64_t
     int ret = sprintf_s(param.tag, sizeof(param.tag), "AllGather_%s_Custom", commName);
     if (ret <= 0) return HCCL_E_INTERNAL;
     
+    HCCL_INFO("[HcclAllGatherCustom] Preparing resources...");
     CHK_RET(PrepareResources(comm, param, stream));
+    HCCL_INFO("[HcclAllGatherCustom] Resources prepared.");
     
     // Fill Param
     AlgResourceCtx* resCtx = param.resCtx;
@@ -207,13 +188,6 @@ extern "C" HcclResult HcclAllGatherCustom(void *sendBuf, void *recvBuf, uint64_t
     param.root = 0; // Not used
     param.tagId = 1; // Fixed tag ID for sync
     
-    param.inputSliceStride = sendCount * SIZE_TABLE[dataType]; // Bytes? No, stride usually elements or bytes?
-    // AIVAllGatherMesh1D::Run passes `stride` (outputSliceStride) to `CpGM2GM` destination calculation: `output + rank * stride`.
-    // Since `output` is `T*`, `rank * stride` is pointer arithmetic. So stride is in elements.
-    // `outputSliceStride` passed to `Process`.
-    // In temp implementation: `aivAllGatherArgs.outputSliceStride = tempAlgParams.outputSliceStride;`
-    // Usually it is `sendCount`.
-    // Let's assume element count.
     param.inputSliceStride = sendCount;
     param.outputSliceStride = sendCount;
     
@@ -230,7 +204,9 @@ extern "C" HcclResult HcclAllGatherCustom(void *sendBuf, void *recvBuf, uint64_t
     param.isEnableCounter = false;
     
     // Launch
+    HCCL_INFO("[HcclAllGatherCustom] Launching kernel...");
     CHK_RET(LaunchKernel(param, stream));
+    HCCL_INFO("[HcclAllGatherCustom] Launch returned.");
     
     return HCCL_SUCCESS;
 }

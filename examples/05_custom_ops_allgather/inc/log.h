@@ -15,7 +15,7 @@
 #include <cstdio>
 
 #ifndef LOG_LEVEL
-#define LOG_LEVEL LOG_LEVEL_ERROR  // 默认日志级别为：ERROR
+#define LOG_LEVEL LOG_LEVEL_INFO  // Changed to INFO for debugging
 #endif
 
 typedef enum {
