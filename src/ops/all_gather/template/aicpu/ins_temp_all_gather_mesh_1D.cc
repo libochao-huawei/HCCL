@@ -190,9 +190,7 @@ HcclResult InsTempAllGatherMesh1D::RunAllGatherMesh(const std::vector<ThreadHand
 HcclResult InsTempAllGatherMesh1D::LocalDataCopy(const std::vector<ThreadHandle> &threads)
 {
     HCCL_INFO("[InsTempAllGatherMesh1D] LocalDataCopy.");
-    if (tempAlgParams_.buffInfo.inputPtr == tempAlgParams_.buffInfo.outputPtr) {
-        return HcclResult::HCCL_SUCCESS;
-    }
+
     u32 myAlgRank;
     CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], myAlgRank));
     const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
@@ -212,7 +210,9 @@ HcclResult InsTempAllGatherMesh1D::LocalDataCopy(const std::vector<ThreadHandle>
 
         DataSlice srcSlice(tempAlgParams_.buffInfo.inputPtr, inOff, sliceSize, sliceCount);
         DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outOff, sliceSize, sliceCount);
-
+        if (tempAlgParams_.buffInfo.inputPtr == tempAlgParams_.buffInfo.outputPtr && inOff == outOff) {
+            continue;
+        }
         HCCL_DEBUG("[InsTempAllGatherMesh1D][LocalDataCopy] RankID [%d] AlgRank [%d] srcSlice: inBaseOff[%d] inOff[%d] "
                    "sliceSize[%d] count[%d].",
                    myRank_, myAlgRank, inBaseOff, inOff, sliceSize, sliceCount);
