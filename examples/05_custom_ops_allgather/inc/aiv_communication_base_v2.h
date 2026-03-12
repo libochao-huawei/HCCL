@@ -350,11 +350,11 @@ template<typename T>
 __aicore__ inline void AivCommBase::SetAtomicOp(uint32_t atomicOp)
 {
     switch (atomicOp) {
-        case HcclReduceOp::AIV_REDUCE_SUM:
+        case AscendC::HcclReduceOp::HCCL_REDUCE_SUM:
         SetAtomicAdd<T>(); break;
-        case HcclReduceOp::AIV_REDUCE_MAX:
+        case AscendC::HcclReduceOp::HCCL_REDUCE_MAX:
         SetAtomicMax<T>(); break;
-        case HcclReduceOp::AIV_REDUCE_MIN:
+        case AscendC::HcclReduceOp::HCCL_REDUCE_MIN:
         SetAtomicMin<T>(); break;
         default:
         SetAtomicNone(); break;
