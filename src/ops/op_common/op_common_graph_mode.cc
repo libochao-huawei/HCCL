@@ -87,7 +87,24 @@ HcclResult HcclExecOpGraphMode(HcclComm comm, OpParam &param,
         // cpuTsThread 添加到param里
         param.opThread = exportedAicpuTsThread;
     }
-
+    if (!resCtxHost.algHierarchyInfo.infos.empty()) {
+        HCCL_INFO("[HcclExecOpGraphMode]resCtxHost.algHierarchyInfo.infos.size: %d", resCtxHost.algHierarchyInfo.infos.size());
+        if (!resCtx.algHierarchyInfo.infos[0].empty()) {
+            HCCL_INFO("[HcclExecOpGraphMode]resCtxHost.algHierarchyInfo.infos[0].size: %d", resCtxHost.algHierarchyInfo.infos[0].size());
+            if (!resCtx.algHierarchyInfo.infos[0][0].empty()) {
+                HCCL_INFO("[HcclExecOpGraphMode]resCtxHost.algHierarchyInfo.infos[0][0].size: %d", resCtxHost.algHierarchyInfo.infos[0][0].size());
+            }
+        } else {
+            HCCL_ERROR("HcclExecOpGraphMode] resCtxHost.algHierarchyInfo.infos[0][0] is empty.");
+            return HCCL_E_INTERNAL;
+        } else {
+            HCCL_ERROR("HcclExecOpGraphMode] resCtxHost.algHierarchyInfo.infos[0] is empty.");
+            return HCCL_E_INTERNAL;
+        }
+    } else {
+        HCCL_ERROR("HcclExecOpGraphMode] resCtxHost.algHierarchyInfo.infos is empty.");
+        return HCCL_E_INTERNAL;
+    }
     // 算法执行
     if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
         CHK_RET(HcclAicpuKernelEntranceLaunch(comm, param, cpuTsThread, exportedCpuTsThread, notifyNumOnMainThread,
