@@ -13,11 +13,9 @@ cmake_minimum_required(VERSION 3.16.0)
 # 添加 ASC 和 AICPU 支持
 find_package(ASC REQUIRED)
 find_package(AICPU REQUIRED)
-
 project(hccl_examples_custom_ops_p2p LANGUAGES CXX AICPU ASC) # 支持CXX、AICPU和ASC编译
-set(CMAKE_SYSTEM_PROCESSOR "aarch64") # 在欧拉操作系统中，需要指定处理器为aarch64，否则编译时会报错
-message("CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
 
+set(HCCL_CUSTOM_OPS_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 set(HCCL_CUSTOM_OPS_INCLUDE_LIST
     ${CMAKE_CURRENT_SOURCE_DIR}/inc
     ${CMAKE_CURRENT_SOURCE_DIR}/op_host
@@ -27,12 +25,7 @@ set(HCCL_CUSTOM_OPS_INCLUDE_LIST
     ${ASCEND_CANN_PACKAGE_PATH}/include
     ${ASCEND_CANN_PACKAGE_PATH}/include/hccl
     ${ASCEND_CANN_PACKAGE_PATH}/include/mmpa
-    ${ASCEND_CANN_PACKAGE_PATH}/asc/include/aicpu_api  # 包含 AICPU 头文件，否则编译时aicpu_api.h无法找到
-)
-
-set_source_files_properties(
-    ${CMAKE_CURRENT_SOURCE_DIR}/op_kernel_aicpu/aicpu_kernel_asc.aicpu
-    PROPERTIES LANGUAGE AICPU
+    ${ASCEND_CANN_PACKAGE_PATH}/asc/include/aicpu_api
 )
 
 # Host 动态链接库
@@ -47,7 +40,7 @@ target_compile_options(hccl_custom_p2p PRIVATE
     -fno-common
     -fno-strict-aliasing
     -pipe
-    -g -O2
+    -g -O0
     -std=c++14
     -fstack-protector-all
 )
@@ -130,14 +123,14 @@ if(KERNEL_MODE)
     )
 else()
     # 安装
-    # install(FILES
-    #     ${BUILD_DEVICE_DIR}/signatures/aicpu_hccl_custom_p2p.tar.gz
-    #     DESTINATION ${CUSTOM_OPS_OPP_AICPU_KERNEL_PATH}
-    # )
-    # install(FILES
-    #     ${AICPU_KERNEL_JSON_FILE}
-    #     DESTINATION ${CUSTOM_OPS_OPP_AICPU_CONFIG_PATH}
-    # )
+    install(FILES
+        ${BUILD_DEVICE_DIR}/signatures/aicpu_hccl_custom_p2p.tar.gz
+        DESTINATION ${CUSTOM_OPS_OPP_AICPU_KERNEL_PATH}
+    )
+    install(FILES
+        ${AICPU_KERNEL_JSON_FILE}
+        DESTINATION ${CUSTOM_OPS_OPP_AICPU_CONFIG_PATH}
+    )
 endif()
 
 # 添加子目录
