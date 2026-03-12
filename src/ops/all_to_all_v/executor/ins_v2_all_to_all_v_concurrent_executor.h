@@ -35,9 +35,9 @@ public:
 
 protected:
     HcclResult InitCommInfo(const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo);
-    HcclResult GetAlltoAllLocalSendRecvInfo(const OpParam &opParam, A2ASendRecvInfo &localSendRecvInfo);
+    HcclResult GetAlltoAllLocalSendRecvInfo(const OpParam &param, A2ASendRecvInfo &localSendRecvInfo);
     HcclResult SplitA2ASendRecvInfo(A2ASendRecvInfo &sendRecvInfoFirst, A2ASendRecvInfo &sendRecvInfoLast);
-    HcclResult SetJettyNums(std::vector<uint32_t>& jettyNums, bool multijetty);
+    HcclResult SetJettyNums(std::vector<uint32_t>& jettyNums, const bool multijetty);
     A2ASendRecvInfo localSendRecvInfo_;
 };
 }

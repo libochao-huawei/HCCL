@@ -305,8 +305,8 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
 
     // 获取SendRecv数据并切分到各template上
     std::vector<SendRecvData> splitData;
-    RestoreSendRecvData(param, resCtx);
-    SplitSendRecvData(param, resCtx, splitData);
+    RestoreSendRecvData(param);
+    SplitSendRecvData(splitData);
 
     u64 maxSendOrRecvDataCount0, maxSendOrRecvDataCount1;
     GetMaxSendRecvDataCount(maxSendOrRecvDataCount0, splitData[0]);
@@ -328,7 +328,7 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
     scratchMulti.push_back(algTemplate1->CalcScratchMultiple(tempAlgParams1.buffInfo.inBuffType,
                                                             tempAlgParams1.buffInfo.outBuffType));
     std::vector<u64> maxDataCountPerLoop(CONCURRENT_NUM, 1);
-    CalcMaxDataCountPerLoop(param, tempAlgParams0, scratchMulti, maxDataCountPerLoop);
+    CalcMaxDataCountPerLoop(param, scratchMulti, maxDataCountPerLoop);
 
     // alltoallv的时候，loopTimes可能是0
     u64 loopTimes0 = (maxSendOrRecvDataCount0 + maxDataCountPerLoop[0] - 1) / maxDataCountPerLoop[0];
@@ -409,7 +409,7 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::SetTemplateDataParams(
-    TemplateDataParams &tempAlgParams, cosnt SendRecvData &splitData,
+    TemplateDataParams &tempAlgParams, const SendRecvData &splitData,
     u32 loop, u64 currDataCount, u64 processedDataCount, u64 maxDataCountPerLoop)
 {
     tempAlgParams.count = currDataCount;
