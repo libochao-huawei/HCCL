@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "hccl/hccl_types.h"
-#include "hccl/hcomm_primitives.h"
+#include <hccl/hccl_types.h>
+#include <hccl/hcomm_primitives.h>
 #include "log.h"
 #include "common.h"
 #include "hccl_custom_p2p.h"
@@ -55,9 +55,11 @@ HcclResult HcclSendCustom(
     uint64_t size = sizeof(AlgResourceCtx);
     if (HcclEngineCtxGet(comm, param.tag, engine, &ctx, &size) == HCCL_SUCCESS) {
         // device资源已经存在
+        HCCL_INFO("[HcclSendCustom] Engine context already exists");
         param.resCtx = static_cast<AlgResourceCtx *>(ctx);
     } else {
         // 不存在，新创建Context
+        HCCL_INFO("[HcclSendCustom] Creating engine context");
         CHK_RET(HcclEngineCtxCreate(comm, param.tag, engine, size, &ctx));
         param.resCtx = static_cast<AlgResourceCtx *>(ctx);
 
@@ -95,7 +97,11 @@ HcclResult HcclSendCustom(
     // ==============================================
     // STEP 3: 下发 AICPU Kernel
     // ==============================================
-    CHK_RET(LaunchKernel(param, stream));
+    char *kernelMode = getenv("HCCL_CUSTOM_KERNEL_LAUNCH_ASC");
+    HCCL_INFO("[HcclSendCustom] HCCL_CUSTOM_KERNEL_LAUNCH_ASC: %s", kernelMode);
+    KernelLaunchMode mode = (kernelMode != nullptr && strcmp(kernelMode, "1") == 0)
+            ? KERNEL_LAUNCH_ASC : KERNEL_LAUNCH_ACLRT;
+    CHK_RET(LaunchKernel(param, stream, mode));
 
     return HCCL_SUCCESS;
 }
