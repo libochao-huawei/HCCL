@@ -22,20 +22,22 @@
 #include "hccl/hccl_types.h"
 #include "hccl_custom_allgather.h"
 
-#define ACLCHECK(ret)                                                                          \
+#define ACLCHECK(expr)                                                                         \
     do {                                                                                       \
-        if (ret != ACL_SUCCESS) {                                                              \
-            printf("[ERROR] acl interface return err %s:%d, retcode: %d \n", __FILE__, __LINE__, ret); \
-            return ret;                                                                        \
+        auto _ret = (expr); /* 执行一次并保存结果 */                                              \
+        if (_ret != ACL_SUCCESS) {                                                             \
+            printf("[ERROR] acl interface return err %s:%d, retcode: %d \n", __FILE__, __LINE__, _ret); \
+            return _ret;                                                                       \
         }                                                                                      \
     } while (0)
 
-#define HCCLCHECK(ret)                                                                          \
-    do {                                                                                        \
-        if (ret != HCCL_SUCCESS) {                                                              \
-            printf("[ERROR] hccl interface return err %s:%d, retcode: %d \n", __FILE__, __LINE__, ret); \
-            return ret;                                                                         \
-        }                                                                                       \
+#define HCCLCHECK(expr)                                                                        \
+    do {                                                                                       \
+        auto _ret = (expr); /* 执行一次并保存结果 */                                              \
+        if (_ret != HCCL_SUCCESS) {                                                            \
+            printf("[ERROR] hccl interface return err %s:%d, retcode: %d \n", __FILE__, __LINE__, _ret); \
+            return _ret;                                                                       \
+        }                                                                                      \
     } while (0)
 
 // Helper for logging with timestamp and rank
