@@ -29,7 +29,7 @@ namespace ops_hccl {
 template <typename AlgTopoMatch, typename InsAlgTemplate> class InsV2ReduceScatterVSoleExecutor : public InsCollAlgBase {
 public:
     explicit InsV2ReduceScatterVSoleExecutor();
-    ~InsV2ReduceScatterVSoleExecutor() = default;
+    ~InsV2ReduceScatterVSoleExecutor() override = default;
 
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
 
