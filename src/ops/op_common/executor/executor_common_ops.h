@@ -8,21 +8,19 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef OP_COMMON_OPS_H
-#define OP_COMMON_OPS_H
+#ifndef EXECUTOR_COMMON_OPS_H
+#define EXECUTOR_COMMON_OPS_H
 
-#include "adapter_acl.h"
-#include "adapter_error_manager_pub.h"
-#include "alg_env_config.h"
-#include "executor_base.h"
-#include "hccl.h"
-#include "hccl/base.h"
-#include "hccl_inner.h"
-#include "mmpa_api.h"
-#include "op_common.h"
-#include "param_check.h"
+#include "alg_param.h"
+#include "alg_v2_template_base.h"
+#include "channel.h"
+#include "coll_alg_v2_exec_registry.h"
+#include "config_log.h"
+#include "executor_v2_base.h"
+#include "log.h"
 #include "sal.h"
+#include "topo_host.h"
+#include "utils.h"
 #include "workflow.h"
-#include <hccl/hccl_types.h>
 
 #endif
