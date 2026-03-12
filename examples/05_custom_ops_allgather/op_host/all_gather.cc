@@ -54,7 +54,12 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
     // In p2p example, it uses COMM_ENGINE_AICPU and casts ctx to AlgResourceCtx*.
     // If it's host memory, we can use placement new.
     // Since we are running on host, and accessing it, it must be host memory.
-    new (param.resCtx) AlgResourceCtx();
+    if (param.resCtx != nullptr) {
+        new (param.resCtx) AlgResourceCtx();
+    } else {
+        HCCL_ERROR("[PrepareResources] Failed to allocate context memory.");
+        return HCCL_E_INTERNAL;
+    }
     
     AlgResourceCtx* resCtx = param.resCtx;
     
@@ -82,6 +87,7 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
     CommMem regMem{COMM_MEM_TYPE_DEVICE, aivInfoAddr, aivInfoSize};
     HCCL_INFO("[PrepareResources] Registering memory to comm...");
     CHK_RET(HcclCommMemReg(comm, param.tag, &regMem, &memHandle));
+    HCCL_INFO("[PrepareResources] Memory registered to comm. handle=%p", memHandle);
     
     // 4. Create Channels and Get Remote Buffers
     // Mesh 1D: Connect to all other ranks
@@ -117,23 +123,27 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
     buffersOut[rank] = (uint64_t)resCtx->aivCommInfo.addr;
     topo[rank] = rank; // Simple topo mapping
     
+    HCCL_INFO("[PrepareResources] Populating AIV info. channels=%zu", resCtx->channels.size());
+
     // Remote info
     for (size_t i = 0; i < resCtx->channels.size(); i++) {
         uint32_t remoteRank = channelDescs[i].remoteRank;
         
         // Remote CCL Buffer
-        void* remoteCclAddr;
-        uint64_t remoteCclSize;
+        void* remoteCclAddr = nullptr;
+        uint64_t remoteCclSize = 0;
         CHK_RET(HcclChannelGetHcclBuffer(comm, resCtx->channels[i], &remoteCclAddr, &remoteCclSize));
         buffersIn[remoteRank] = (uint64_t)remoteCclAddr;
         
         // Remote AIV Info Buffer
-        uint32_t memNum;
-        CommMem* remoteMems;
-        char** memTags;
+        uint32_t memNum = 0;
+        CommMem* remoteMems = nullptr;
+        char** memTags = nullptr;
         CHK_RET(HcclChannelGetRemoteMems(comm, resCtx->channels[i], &memNum, &remoteMems, &memTags));
-        if (memNum > 0) {
+        if (memNum > 0 && remoteMems != nullptr) {
             buffersOut[remoteRank] = (uint64_t)remoteMems[0].addr;
+        } else {
+            HCCL_WARNING("[PrepareResources] No remote memory found for rank %u", remoteRank);
         }
         
         topo[remoteRank] = remoteRank;
