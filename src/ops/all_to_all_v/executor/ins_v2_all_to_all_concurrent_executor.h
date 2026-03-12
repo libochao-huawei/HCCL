@@ -53,18 +53,17 @@ private:
         std::vector<u64> rdispls;
     };
 
-    HcclResult SetTemplateDataParams(TemplateDataParams &tempAlgParams, SendRecvData &splitData,u32 loop,
+    HcclResult SetTemplateDataParams(TemplateDataParams &tempAlgParams, const SendRecvData &splitData,u32 loop,
         u64 currDataCount, u64 processedDataCount, u64 maxDataCountPerLoop);
     HcclResult FillTemplateResource(const OpParam &param, const AlgResourceCtxSerializable& resCtx,
         TemplateResource& templateAlgRes, uint32_t index);
     HcclResult InitTemplateDataParams(const OpParam &param, const AlgResourceCtxSerializable& resCtx,
         TemplateDataParams& tempAlgParams);
-    HcclResult RestoreSendRecvData(const OpParam &param, const AlgResourceCtxSerializable& resCtx);
-    HcclResult SplitSendRecvData(const OpParam &param, const AlgResourceCtxSerializable& resCtx,
-        std::vector<SendRecvData>& splitData);
+    HcclResult RestoreSendRecvData(const OpParam &param);
+    HcclResult SplitSendRecvData(std::vector<SendRecvData>& splitData);
     HcclResult GetMaxSendRecvDataCount(u64& maxSendRecvDataCount, const SendRecvData& splitData);
-    HcclResult CalcMaxDataCountPerLoop(const OpParam &param,TemplateDataParams &tempAlgParams,
-        const std::vector<u64> scratchMulti, std::vector<u64>& maxDataCountPerLoop);
+    HcclResult CalcMaxDataCountPerLoop(const OpParam &param, const std::vector<u64> scratchMulti,
+        std::vector<u64>& maxDataCountPerLoop);
 
     std::vector<u64> sendCounts_;
     std::vector<u64> recvCounts_;

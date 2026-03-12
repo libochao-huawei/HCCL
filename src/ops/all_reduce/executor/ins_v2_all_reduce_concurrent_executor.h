@@ -41,7 +41,7 @@ protected:
 
     HcclResult CalcChannelRequest(HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
                                   const std::vector<std::vector<u32>> &subCommRanks,
-                                  std::vector<HcclChannelDesc> &channelDescs, CommTopo topo);
+                                  std::vector<HcclChannelDesc> &channelDescs, CommTopo topo) const;
 
     std::vector<ThreadHandle> threads_;
     AlgHierarchyInfoForAllLevel algHierarchyInfo_;

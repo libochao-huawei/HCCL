@@ -46,9 +46,9 @@ public:
 
 protected:
     HcclResult CalcNHRInfo(std::vector<NHRStepInfo> &stepInfoVector);
-    u32 GetNHRStepNum(u32 rankSize);
-    HcclResult GetStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo);
-    uint32_t RemoteRankId2RankId(const uint32_t remoteRankId);
+    u32 GetNHRStepNum(u32 rankSize) const;
+    HcclResult GetStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo) const;
+    uint32_t RemoteRankId2RankId(const uint32_t remoteRankId) const;
 
 private:
     uint32_t mySubCommRank_ = 0;

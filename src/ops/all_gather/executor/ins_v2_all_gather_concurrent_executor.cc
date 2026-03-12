@@ -123,33 +123,33 @@ HcclResult InsV2AllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 void InsV2AllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::GenTemplateAlgParams(
     const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset,
-    const u64 dataCountPerLoop, const u64 scratchOffset, TemplateDataParams &temp0AlgParams) const
+    const u64 dataCountPerLoop, const u64 scratchOffset, TemplateDataParams &tempAlgParams) const
 {
-    temp0AlgParams.buffInfo.inputPtr = param.inputPtr;
-    temp0AlgParams.buffInfo.outputPtr = param.outputPtr;
-    temp0AlgParams.buffInfo.hcclBuff = resCtx.cclMem;
-    temp0AlgParams.buffInfo.inputSize = param.inputSize;
-    temp0AlgParams.buffInfo.outputSize = param.outputSize;
-    temp0AlgParams.buffInfo.inBuffType = BufferType::INPUT;
-    temp0AlgParams.buffInfo.outBuffType = BufferType::OUTPUT;
-    temp0AlgParams.count = dataCountPerLoop;
-    temp0AlgParams.sliceSize = dataCountPerLoop * dataTypeSize_;
-    temp0AlgParams.buffInfo.inBuffBaseOff = dataOffset;
-    temp0AlgParams.buffInfo.outBuffBaseOff = dataOffset;
-    temp0AlgParams.buffInfo.hcclBuffBaseOff = scratchOffset;
+    tempAlgParams.buffInfo.inputPtr = param.inputPtr;
+    tempAlgParams.buffInfo.outputPtr = param.outputPtr;
+    tempAlgParams.buffInfo.hcclBuff = resCtx.cclMem;
+    tempAlgParams.buffInfo.inputSize = param.inputSize;
+    tempAlgParams.buffInfo.outputSize = param.outputSize;
+    tempAlgParams.buffInfo.inBuffType = BufferType::INPUT;
+    tempAlgParams.buffInfo.outBuffType = BufferType::OUTPUT;
+    tempAlgParams.count = dataCountPerLoop;
+    tempAlgParams.sliceSize = dataCountPerLoop * dataTypeSize_;
+    tempAlgParams.buffInfo.inBuffBaseOff = dataOffset;
+    tempAlgParams.buffInfo.outBuffBaseOff = dataOffset;
+    tempAlgParams.buffInfo.hcclBuffBaseOff = scratchOffset;
 
-    temp0AlgParams.inputSliceStride = 0;
-    temp0AlgParams.outputSliceStride = dataSize_;
-    temp0AlgParams.repeatNum = 1;
-    temp0AlgParams.inputRepeatStride = 0;
-    temp0AlgParams.outputRepeatStride = 0;
+    tempAlgParams.inputSliceStride = 0;
+    tempAlgParams.outputSliceStride = dataSize_;
+    tempAlgParams.repeatNum = 1;
+    tempAlgParams.inputRepeatStride = 0;
+    tempAlgParams.outputRepeatStride = 0;
 
     HCCL_DEBUG(
         "[InsV2AllGatherConcurrentExecutor][GenTemplateAlgParams] rank[%d] inBuffBaseOff[%llu] "
         "outBuffBaseOff[%llu] hcclBuffBaseOff[%llu] sliceSize[%llu] inputSliceStride[%llu] outputSliceStride[%llu]",
-        myRank_, temp0AlgParams.buffInfo.inBuffBaseOff, temp0AlgParams.buffInfo.outBuffBaseOff,
-        temp0AlgParams.buffInfo.hcclBuffBaseOff, temp0AlgParams.sliceSize, temp0AlgParams.inputSliceStride,
-        temp0AlgParams.outputSliceStride);
+        myRank_, tempAlgParams.buffInfo.inBuffBaseOff, tempAlgParams.buffInfo.outBuffBaseOff,
+        tempAlgParams.buffInfo.hcclBuffBaseOff, tempAlgParams.sliceSize, tempAlgParams.inputSliceStride,
+        tempAlgParams.outputSliceStride);
     return;
 }
 
@@ -169,8 +169,7 @@ void InsV2AllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTempl
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsV2AllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::PrepareResForTemplate(
-    const OpParam &param, const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &algTemplate0,
-    InsAlgTemplate1 &algTemplate1)
+    InsAlgTemplate0 &algTemplate0, InsAlgTemplate1 &algTemplate1)
 {
     AlgResourceRequest temp0Request;
     AlgResourceRequest temp1Request;
@@ -218,7 +217,7 @@ HcclResult InsV2AllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     InsAlgTemplate1 algTemplate1(param, myRank_, temp1HierarchyInfo);
 
     // 分配threads
-    PrepareResForTemplate(param, resCtx, algTemplate0, algTemplate1);
+    PrepareResForTemplate(algTemplate0, algTemplate1);
 
     // 分配channels或者ccuKernels
     if (param.engine == CommEngine::COMM_ENGINE_CCU) {
@@ -311,7 +310,7 @@ HcclResult InsV2AllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
 
     // 按比例切分数据，并计算loopTimes
     const u64 sliceAlignCount = HCCL_MIN_SLICE_ALIGN / dataTypeSize_;
-    const u64 totalCount0 = dataSplitSize[0] * dataCount_ / sliceAlignCount * sliceAlignCount;
+    const u64 totalCount0 = static_cast<u64>(std::floor(dataSplitSize[0] * dataCount_)) / sliceAlignCount * sliceAlignCount;
     const u64 totalCount1 = dataCount_ - totalCount0;
     const u64 initOffsetforTemp1 = totalCount0 * dataTypeSize_;
     u64 loopTimesforTemp0 = totalCount0 / maxCountPerLoopforTemp0 + static_cast<u64>(totalCount0 % maxCountPerLoopforTemp0 != 0);

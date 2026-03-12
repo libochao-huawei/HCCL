@@ -56,7 +56,6 @@ private:
     u32 intraLocalRoot_{0};  // server内算法root
     u32 interLocalRoot_{0};  // server间算法root
 
-
     std::vector<std::vector<std::vector<u32>>> vTopo_;
     std::vector<u32>              virtRanks_;
     std::map<u32, u32>            virtRankMap_; // 全局RankID:虚拟RankId
@@ -75,7 +74,6 @@ private:
     std::vector<std::vector<u32>> AlgHierarchyInfoExector;
     std::vector<std::map<u32, std::vector<ChannelInfo>>> remoteRankToChannelInfo_;
     std::vector<ThreadHandle> threads_;
-
 };
 
 } // namespace Hccl
