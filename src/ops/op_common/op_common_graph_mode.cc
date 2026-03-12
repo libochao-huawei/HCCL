@@ -87,7 +87,24 @@ HcclResult HcclExecOpGraphMode(HcclComm comm, OpParam &param,
         // cpuTsThread 添加到param里
         param.opThread = exportedAicpuTsThread;
     }
-
+    if (!resCtxHost.algHierarchyInfo.infos.empty()) {
+        HCCL_INFO("[HcclExecOpGraphMode]resCtxHost.algHierarchyInfo.infos.size: %d", resCtxHost.algHierarchyInfo.infos.size());
+        if (!resCtx.algHierarchyInfo.infos[0].empty()) {
+            HCCL_INFO("[HcclExecOpGraphMode]resCtxHost.algHierarchyInfo.infos[0].size: %d", resCtxHost.algHierarchyInfo.infos[0].size());
+            if (!resCtx.algHierarchyInfo.infos[0][0].empty()) {
+                HCCL_INFO("[HcclExecOpGraphMode]resCtxHost.algHierarchyInfo.infos[0][0].size: %d", resCtxHost.algHierarchyInfo.infos[0][0].size());
+            }
+        } else {
+            HCCL_ERROR("HcclExecOpGraphMode] resCtxHost.algHierarchyInfo.infos[0][0] is empty.");
+            return HCCL_E_INTERNAL;
+        } else {
+            HCCL_ERROR("HcclExecOpGraphMode] resCtxHost.algHierarchyInfo.infos[0] is empty.");
+            return HCCL_E_INTERNAL;
+        }
+    } else {
+        HCCL_ERROR("HcclExecOpGraphMode] resCtxHost.algHierarchyInfo.infos is empty.");
+        return HCCL_E_INTERNAL;
+    }
     // 算法执行
     if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
         CHK_RET(HcclAicpuKernelEntranceLaunch(comm, param, cpuTsThread, exportedCpuTsThread, notifyNumOnMainThread,
@@ -189,7 +206,7 @@ HcclResult GetAlgResAICPUGraphMode(HcclComm comm, const OpParam &param, AlgResou
     resCtxHost->topoInfo = *topoInfo;
     resCtxHost->algHierarchyInfo = algHierarchyInfo;
     // 创建资源，并填充到Host内存上
-    HcclResult ret = HcclAllocAlgResourceAICPU(comm, param, resRequest, resCtxHost);
+    HcclResult ret = HcclAllocAlgResourceAICPUGraphMode(comm, param, resRequest, resCtxHost);
     CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("failed to alloc alg resource."), ret);
     // 在device侧创建Ctx，并将host资源拷贝到device侧
     ret = HcclMemcpyCtxHostToDevice(comm, param, resCtxHost, resCtxSequence, ctxSize);
