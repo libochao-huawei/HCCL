@@ -73,8 +73,8 @@ private:
         const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads);
     HcclResult PostCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads) const;
 
-    HcclResult GetReduceScatterStepInfoList(std::vector<NHRStepInfo> &stepInfoList);
-    HcclResult GetAllGatherStepInfoList(std::vector<NHRStepInfo> &stepInfoList);
+    HcclResult GetReduceScatterStepInfoList(std::vector<NHRStepInfo> &stepInfoList) const;
+    HcclResult GetAllGatherStepInfoList(std::vector<NHRStepInfo> &stepInfoList) const;
     u32 GetNHRStepNum() const;
 
     u32 dataTypeSize_{0};
