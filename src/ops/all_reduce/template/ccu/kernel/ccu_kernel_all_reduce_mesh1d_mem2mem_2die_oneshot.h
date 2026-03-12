@@ -87,7 +87,7 @@ private:
     void ReduceLoopGroup(CcuRep::LocalAddr &outDstOrg, std::vector<CcuRep::LocalAddr> &srcOrg,
                                                         GroupOpSize goSize, HcclDataType dataType, HcclDataType outputDataType,
                                                         HcclReduceOp opType, std::string loopName);
-    std::string GetLoopBlockTag(std::string loopType, int32_t index);
+    std::string GetLoopBlockTag(std::string loopType, int32_t index) const;
     void CreateReduceLoop(uint32_t size, HcclDataType dataType, HcclDataType outputDataType,
                                                          HcclReduceOp opType, std::string loopName);
     HcclResult MissionSync(uint32_t maskIndex);
