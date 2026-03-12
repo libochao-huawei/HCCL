@@ -20,7 +20,7 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 class InsV2AllGatherConcurrentExecutor : public InsCollAlgBase {
 public:
     explicit InsV2AllGatherConcurrentExecutor();
-    ~InsV2AllGatherConcurrentExecutor() = default;
+    ~InsV2AllGatherConcurrentExecutor() override = default;
 
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
 
@@ -43,15 +43,15 @@ private:
     void GetParallelDataSplit(std::vector<float> &splitDataSize) const;
 
     void GenTemplateAlgParams(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset,
-                                  const u64 dataCountPerLoopMesh, const u64 scratchOffset,
-                                  TemplateDataParams &tempAlgParamsMesh) const;
+                                  const u64 dataCountPerLoop, const u64 scratchOffset,
+                                  TemplateDataParams &tempAlgParams) const;
 
-    HcclResult PrepareResForTemplate(const OpParam &param, const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &algTemplateMesh, InsAlgTemplate1 &algTemplateNhr);
+    HcclResult PrepareResForTemplate(InsAlgTemplate0 &algTemplate0, InsAlgTemplate1 &algTemplate1);
 
     std::vector<ThreadHandle> threads_;  // 相当于之前的std::vector<InsQuePtr> tempInsQue_;
     std::vector<ThreadHandle> tmp0Threads_;
     std::vector<ThreadHandle> tmp1Threads_;
-    ThreadHandle mainThread_;
+    ThreadHandle mainThread_{0};
     std::vector<ThreadHandle> templateMainThreads_;
     std::vector<u32> syncNotifyOnTemplates_;
     std::vector<u32> syncNotifyOnMain_;
