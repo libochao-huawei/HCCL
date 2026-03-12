@@ -16,8 +16,8 @@ namespace ops_hccl {
         return "Instruction based Send Executor.";
     }
 
-    HcclResult InsSendExecutor::InitCommInfo(
-        HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo)
+    HcclResult InsSendExecutor::InitSendInfo(
+        const HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo)
     {
         (void) comm;
         myRank_ = topoInfo->userRank;
@@ -29,7 +29,7 @@ namespace ops_hccl {
         dataTypeSize_ = static_cast<u64>(DATATYPE_SIZE_TABLE[dataType_]);
 
         HCCL_INFO(
-            "[InsSendExecutor][InitCommInfo] myRank [%u], remoteRank [%u], rankSize [%u], devType [%u], "
+            "[InsSendExecutor][InitSendInfo] myRank [%u], remoteRank [%u], rankSize [%u], devType [%u], "
             "dataType [%u] dataTypeSize [%u]",
             myRank_, remoteRank_, rankSize_, devType_, dataType_, dataTypeSize_);
 
@@ -64,7 +64,7 @@ namespace ops_hccl {
         const AlgHierarchyInfoForAllLevel &algHierarchyInfo, AlgResourceRequest &resourceRequest)
     {
         // 初始化一些基本成员变量
-        InitCommInfo(comm, param, topoInfo);
+        InitSendInfo(comm, param, topoInfo);
         HCCL_DEBUG("[InsSendExecutor][CalcRes][%d]->[%d] Start.", myRank_, remoteRank_);
 
         resourceRequest.notifyNumOnMainThread = 0;
@@ -82,8 +82,6 @@ namespace ops_hccl {
         opMode_ = param.opMode;
         myRank_ = resCtx.topoInfo.userRank;
         remoteRank_ = param.sendRecvRemoteRank;
-        HCCL_DEBUG("[InsSendExecutor][Orchestrate][%d]->[%d] Start.", myRank_, remoteRank_);
-
         // maxTmpMemSize_设定为ccl buffer的大小
         maxTmpMemSize_ = resCtx.cclMem.size;
         dataCount_ = param.DataDes.count;
@@ -91,9 +89,9 @@ namespace ops_hccl {
         dataTypeSize_ = static_cast<u64>(DATATYPE_SIZE_TABLE[dataType_]);
         dataSize_ = dataCount_ * dataTypeSize_;
 
+        HCCL_DEBUG("[InsSendExecutor][Orchestrate][%d]->[%d] Start.", myRank_, remoteRank_);
         // 给channels_和threads_赋值
-        threads_ = resCtx.threads;
-        const ThreadHandle &thread = threads_.at(0);
+        const ThreadHandle &thread = resCtx.threads.at(0);
         auto channelIt = std::find_if(
             resCtx.channels.at(0).begin(), resCtx.channels.at(0).end(),
             [this](const ChannelInfo &channel_) {
