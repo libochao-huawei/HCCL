@@ -1,0 +1,184 @@
+syntax = "proto2";
+
+package gui;
+
+enum BufferType {
+    INPUT = 0;
+    OUTPUT = 1;
+    INPUT_CCL = 2;
+    OUTPUT_CCL = 3;
+    SCRATCH = 4;
+    BUFFER_RESERVED = 5;
+}
+
+message SrcBufDes {
+    required uint32 rankId = 1;
+    required BufferType bufType = 2;
+    required uint64 srcAddr = 3;
+}
+
+enum ReduceType {
+    REDUCE_SUM = 0;
+    REDUCE_PROD = 1;
+    REDUCE_MAX = 2;
+    REDUCE_MIN = 3;
+    REDUCE_RESERVED = 4;
+}
+
+// TODO:错误的语义块需要进行高亮展示
+message BufferSemantic {
+    required uint64 startAddr = 1;
+    required uint64 size = 2;
+    required bool isReduce = 3;
+    required ReduceType reduceType = 4;
+    repeated SrcBufDes srcBufs = 5;
+    repeated uint32 affectedGlobalSteps = 6;
+    optional bool invalid = 7;
+}
+
+message MemBufferSemantic {
+    required bool stateNoChange = 1;
+    optional uint32 localStep = 2;
+    repeated BufferSemantic inputBufferSemantics = 3;
+    repeated BufferSemantic outputBufferSemantics = 4;
+    repeated BufferSemantic inputCCLBufferSemantics = 5;
+    repeated BufferSemantic outputCCLBufferSemantics = 6;
+    repeated BufferSemantic scratchBufferSemantics = 7;
+}
+
+message RankBufferSemanticStates {
+    required uint32 rankId = 1;
+    required uint64 inputSize = 2;
+    required uint64 outputSize = 3;
+    required uint64 inputCCLSize = 4;
+    required uint64 outputCCLSize = 5;
+    required uint64 scratchSize = 6;
+
+    repeated uint32 localStep2GlobalStep = 8;
+    repeated MemBufferSemantic memStates = 9;
+}
+
+message LocalStep {
+    required uint32 rank = 1;
+    required uint32 localStep = 2;
+}
+
+message GlobalStep2LocalStep {
+    required uint32 globalStepSize = 1;
+    repeated LocalStep globalStep2LocalStep = 2;
+}
+
+enum ResultStatus {
+    ORCHESTRA_TASK_FAILED = 0;
+    // 资源相关的错误
+    INVALID_STREAM_NUM = 10;
+    INVALID_NOTIFY_NUM = 11;
+    INVALID_SCRATCH_MEM_SIZE = 12;
+    TRANSPORT_MATCH_FAILRD = 13;
+    // 单task校验相关的报错
+    INVALID_SINGLE_TASK = 20;
+    // 成图相关的报错
+    GEN_GRAPH_FAILED = 30;
+    ORIGIN_GRAPH_RING = 31;
+    // 内存冲突相关的报错
+    MEMORY_CONFLICT = 40;
+    REVAMP_GRAPH_FAILED = 41;
+    REVAMPED_GRAPH_RING = 42;
+    // 语义校验相关的报错
+    GEN_FAILED_INCOMPLETE_SLICE = 50;        // slice中的语义块不完整
+    GEN_FAILED_MODIFY_SEMANTIC_FAILED = 51;  // 修改语义块失败
+    CHECK_FAILED_MISSING_SEMANTIC = 52;      // 校验过程中，语义块有缺失
+    CHECK_FAILED_UNEXPECTED_SEMANTIC = 53;   // 校验过程中，出现了不期望的语义块
+    // 校验成功，没有任何报错
+    CHECK_SUCCESS = 100;
+}
+
+enum MemOp {
+    MEM_READ = 0;
+    MEM_WRITE = 1;
+}
+
+message DataSlice {
+    required MemOp memOp = 1;
+    required uint64 startAddr = 2;
+    required uint64 endAddr = 3;
+    required uint64 size = 4;
+}
+
+message MemConflict {
+    required uint32 rankId = 1;
+    required uint32 nodeIdA = 2;
+    required uint32 nodeIdB = 3;
+    required DataSlice dataSliceA = 4;
+    required DataSlice dataSliceB = 5;
+}
+
+enum NodeType {
+    LOCAL_COPY = 0;
+    LOCAL_REDUCE = 1;
+    LOCAL_POST = 2;
+    LOCAL_WAIT = 3;
+    POST = 4;
+    WAIT = 5;
+    READ = 6;
+    READ_REDUCE = 7;
+    WRITE = 8;
+    WRITE_REDUCE = 9;
+    BEING_READ = 10;
+    BEING_READ_REDUCE = 11;
+    BEING_WRITTEN = 12;
+    BEING_WRITTEN_REDUCE = 13;
+    LOCAL_POST_SHADOW = 14;
+    LOCAL_WAIT_FROM_SHADOW = 15;
+    RESERVED = 16;
+}
+
+message CodeContext {
+    optional string fileName = 1;
+    optional string funcName = 2;
+    optional uint32 line = 3;  // 表示行号
+}
+
+message Node {
+    required uint32 nodeId = 1;
+    required NodeType nodeType = 2;
+    required uint32 queueId = 3;
+    required uint32 position = 4;
+    repeated uint32 parents = 5;
+    repeated uint32 children = 6;
+    required uint32 globalStep = 7;
+    required LocalStep localStep = 8;
+    optional string tag = 9;
+    optional CodeContext codeContext = 10;
+    optional string nodeDescribe = 11;
+    required uint32 rankId = 12;
+    required bool unmatch = 13;
+    required bool genSemanticError = 14;
+}
+
+message RankGraph {
+    repeated Node nodes = 1;
+}
+
+message WholeGraph {
+    repeated RankGraph rankGraphs = 1;
+}
+
+// 用于标记缺失的语义块
+message MissingSemantic {
+    required uint32 rankId = 1;
+    required BufferType bufferType = 2;
+    required uint64 startAddr = 3;
+}
+
+message AnalysisResult {
+    required ResultStatus resultStatus = 1;
+    repeated string errorMessage = 2;
+    optional WholeGraph wholeGraph = 3;
+    optional WholeGraph bilateralGraph = 4;
+    optional MemConflict memConflict = 5;
+    optional GlobalStep2LocalStep globalStep2LocalStep = 6;
+    required uint32 rankSize = 7;
+    repeated RankBufferSemanticStates rankStates = 8;
+    repeated MissingSemantic missingSemantic = 9;
+}
