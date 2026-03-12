@@ -8,11 +8,13 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "aicpu_api.h"
 #include <string>
 #include <memory>
-#include "hccl/hcomm_primitives.h"
+#include <hccl/hcomm_primitives.h>
+#include <aicpu_api.h>
+
 #include "common.h"
+#include "exec_op.h"
 
 using namespace ops_hccl_p2p;
 
@@ -94,6 +96,7 @@ __global__ __aicpu__ uint32_t HcclP2PAicpuKernelAsc(void *args)
     HCCL_INFO("%s success, commName[%s], tag[%s]", __func__, param->commName, param->tag);
     return 0;
 }
+
 #ifdef __cplusplus
 }
 #endif
