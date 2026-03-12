@@ -30,7 +30,11 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
     uint64_t size = sizeof(AlgResourceCtx);
     // Use tag to retrieve context. 
     // Note: HcclEngineCtxGet uses (tag, engine) key.
-    HcclResult hcclRet = HcclEngineCtxGet(comm, param.tag, engine, &ctx, &size);
+    // We use COMM_ENGINE_CPU for the context structure itself because it resides on Host
+    // and manages resources (some of which are on device).
+    CommEngine ctxEngine = CommEngine::COMM_ENGINE_CPU;
+    
+    HcclResult hcclRet = HcclEngineCtxGet(comm, param.tag, ctxEngine, &ctx, &size);
     if (hcclRet == HCCL_SUCCESS && ctx != nullptr) {
         param.resCtx = static_cast<AlgResourceCtx*>(ctx);
         HCCL_INFO("[PrepareResources] Found existing context: %p", ctx);
@@ -39,7 +43,7 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
     
     // Create new context
     HCCL_INFO("[PrepareResources] Context not found or invalid (ret=%d, ctx=%p), creating new...", hcclRet, ctx);
-    CHK_RET(HcclEngineCtxCreate(comm, param.tag, engine, size, &ctx));
+    CHK_RET(HcclEngineCtxCreate(comm, param.tag, ctxEngine, size, &ctx));
     param.resCtx = static_cast<AlgResourceCtx*>(ctx);
     // Initialize the object in the allocated memory (placement new) or just assume POD-like usage
     // But AlgResourceCtx has std::vector, so we must construct it.
