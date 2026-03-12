@@ -11,17 +11,7 @@
 #ifndef HCCL_REDUCE_PARALLEL_EXECUTOR_H
 #define HCCL_REDUCE_PARALLEL_EXECUTOR_H
 
-#include "alg_param.h"
-#include "topo_host.h"
-#include "channel.h"
-#include "alg_v2_template_base.h"
-#include "utils.h"
-#include "log.h"
-#include "workflow.h"
-#include "sal.h"
-#include "config_log.h"
-#include "executor_v2_base.h"
-#include "coll_alg_v2_exec_registry.h"
+#include "executor_common_ops.h"
 #include "topo_match_base.h"
 
 namespace ops_hccl {

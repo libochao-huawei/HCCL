@@ -140,7 +140,7 @@ HcclResult InsV2AllReduceSequence2DieExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
 }
  
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
-u64  InsV2AllReduceSequence2DieExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::RoundUp(const u64 dividend, const u64 divisor)
+u64  InsV2AllReduceSequence2DieExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::RoundUp(const u64 dividend, const u64 divisor) const
 {
     if (divisor == 0) {
         HCCL_WARNING("[InsTempAllReduceMesh1DTwoShot][RoundUp] divisor is 0.");

@@ -11,17 +11,7 @@
 #ifndef HCCLV2_INS_V2_ALL_REDUCE_CONCURRENT_EXECUTOR_H
 #define HCCLV2_INS_V2_ALL_REDUCE_CONCURRENT_EXECUTOR_H
 
-#include "alg_param.h"
-#include "topo_host.h"
-#include "channel.h"
-#include "alg_v2_template_base.h"
-#include "utils.h"
-#include "log.h"
-#include "workflow.h"
-#include "sal.h"
-#include "config_log.h"
-#include "executor_v2_base.h"
-#include "coll_alg_v2_exec_registry.h"
+#include "executor_common_ops.h"
 #include "topo_match_base.h"
 #include "topo_match_ubx.h"
 
@@ -51,7 +41,7 @@ protected:
 
     HcclResult CalcChannelRequest(HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
                                   const std::vector<std::vector<u32>> &subCommRanks,
-                                  std::vector<HcclChannelDesc> &channelDescs, CommTopo topo);
+                                  std::vector<HcclChannelDesc> &channelDescs, CommTopo topo) const;
 
     std::vector<ThreadHandle> threads_;
     AlgHierarchyInfoForAllLevel algHierarchyInfo_;
