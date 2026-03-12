@@ -64,7 +64,7 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
     uint64_t aivInfoSize = AIV_TAG_BUFF_LEN;
     void* aivInfoAddr = nullptr;
     // We allocate it on device.
-    HCCL_INFO("[PrepareResources] Allocating AIV info buffer, size: %llu", aivInfoSize);
+    HCCL_INFO("[PrepareResources] Allocating AIV info buffer, size: %lu", aivInfoSize);
     ACLCHECK(aclrtMalloc(&aivInfoAddr, aivInfoSize, ACL_MEM_MALLOC_HUGE_FIRST));
     ACLCHECK(aclrtMemset(aivInfoAddr, aivInfoSize, 0, aivInfoSize));
     resCtx->aivCommInfo.addr = aivInfoAddr;
@@ -149,7 +149,7 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
 }
 
 extern "C" HcclResult HcclAllGatherCustom(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm, aclrtStream stream) {
-    HCCL_INFO("[HcclAllGatherCustom] Entry. sendCount=%llu", sendCount);
+    HCCL_INFO("[HcclAllGatherCustom] Entry. sendCount=%lu", sendCount);
     CHK_PTR_NULL(sendBuf);
     CHK_PTR_NULL(recvBuf);
     CHK_PTR_NULL(comm);

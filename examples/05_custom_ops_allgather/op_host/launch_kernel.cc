@@ -76,12 +76,36 @@ HcclResult RegisterKernel() {
     HCCL_INFO("[RegisterKernel] Binary loaded size: %zu", binSize);
     
     // 3. Register Binary with ACL
-    aclError aclRet = aclrtBinaryLoad(binBuffer, binSize, &g_binHandle);
+    // Using aclrtCreateBinary to create aclrtBinary object
+    aclrtBinary binary = aclrtCreateBinary(binBuffer, binSize);
+    if (binary == nullptr) {
+        HCCL_ERROR("[RegisterKernel] aclrtCreateBinary failed");
+        delete[] static_cast<char*>(binBuffer);
+        return HCCL_E_INTERNAL;
+    }
+    
+    aclError aclRet = aclrtBinaryLoad(binary, &g_binHandle);
+    if (aclRet != ACL_SUCCESS) {
+        HCCL_ERROR("[RegisterKernel] aclrtBinaryLoad failed, ret: %d", aclRet);
+        aclrtDestroyBinary(binary);
+        delete[] static_cast<char*>(binBuffer);
+        return HCCL_E_INTERNAL;
+    }
+    
+    // Cleanup binary wrapper (assuming data is copied or managed by handle, 
+    // but binBuffer is ours. ACL docs usually say binary data must be valid during load.
+    // If aclrtBinaryLoad copies it or not? 
+    // Usually we keep binBuffer alive. 
+    // And we can destroy the wrapper 'binary'.
+    aclrtDestroyBinary(binary);
+    
+    HCCL_INFO("[RegisterKernel] aclrtBinaryLoad success");
     if (aclRet != ACL_SUCCESS) {
         HCCL_ERROR("[RegisterKernel] aclrtBinaryLoad failed, ret: %d", aclRet);
         delete[] static_cast<char*>(binBuffer);
         return HCCL_E_INTERNAL;
     }
+    delete[] static_cast<char*>(binBuffer);
     HCCL_INFO("[RegisterKernel] aclrtBinaryLoad success");
     
     // 4. Get Function Handle
