@@ -30,35 +30,48 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
     uint64_t size = sizeof(AlgResourceCtx);
     // Use tag to retrieve context. 
     // Note: HcclEngineCtxGet uses (tag, engine) key.
-    // We use COMM_ENGINE_CPU for the context structure itself because it resides on Host
-    // and manages resources (some of which are on device).
-    CommEngine ctxEngine = CommEngine::COMM_ENGINE_CPU;
+    // We use COMM_ENGINE_CPU_TS for context to ensure compatibility or fallback to plain malloc if API fails.
+    // NOTE: If HcclEngineCtxCreate fails with COMM_ENGINE_CPU, we might need to use COMM_ENGINE_CPU_TS or manage memory manually.
+    // However, for simplicity and debugging, we'll try to use a static map or thread-local storage if the API persists in failing.
+    // But let's try COMM_ENGINE_CPU_TS first if CPU fails, or just alloc manually.
     
+    // Track if context was newly created to decide whether to call constructor
+    bool isNewContext = false;
+    
+    // Attempt 1: Try getting with COMM_ENGINE_CPU
+    CommEngine ctxEngine = CommEngine::COMM_ENGINE_CPU;
     HcclResult hcclRet = HcclEngineCtxGet(comm, param.tag, ctxEngine, &ctx, &size);
-    if (hcclRet == HCCL_SUCCESS && ctx != nullptr) {
-        param.resCtx = static_cast<AlgResourceCtx*>(ctx);
-        HCCL_INFO("[PrepareResources] Found existing context: %p", ctx);
-        return HCCL_SUCCESS;
+    
+    if (hcclRet != HCCL_SUCCESS || ctx == nullptr) {
+         HCCL_INFO("[PrepareResources] Context not found (ret=%d), creating new with COMM_ENGINE_CPU...", hcclRet);
+         hcclRet = HcclEngineCtxCreate(comm, param.tag, ctxEngine, size, &ctx);
+         if (hcclRet == HCCL_SUCCESS) isNewContext = true;
+    }
+
+    // Attempt 2: If COMM_ENGINE_CPU failed, try COMM_ENGINE_CPU_TS (Task Scheduler)
+    if (hcclRet != HCCL_SUCCESS) {
+        HCCL_WARNING("[PrepareResources] COMM_ENGINE_CPU failed (ret=%d), trying COMM_ENGINE_CPU_TS...", hcclRet);
+        ctxEngine = CommEngine::COMM_ENGINE_CPU_TS;
+        hcclRet = HcclEngineCtxGet(comm, param.tag, ctxEngine, &ctx, &size);
+        if (hcclRet != HCCL_SUCCESS || ctx == nullptr) {
+            hcclRet = HcclEngineCtxCreate(comm, param.tag, ctxEngine, size, &ctx);
+            if (hcclRet == HCCL_SUCCESS) isNewContext = true;
+        }
     }
     
-    // Create new context
-    HCCL_INFO("[PrepareResources] Context not found or invalid (ret=%d, ctx=%p), creating new...", hcclRet, ctx);
-    CHK_RET(HcclEngineCtxCreate(comm, param.tag, ctxEngine, size, &ctx));
-    param.resCtx = static_cast<AlgResourceCtx*>(ctx);
-    // Initialize the object in the allocated memory (placement new) or just assume POD-like usage
-    // But AlgResourceCtx has std::vector, so we must construct it.
-    // HcclEngineCtxCreate allocates memory but doesn't call constructor.
-    // And it might be device memory? No, HcclEngineCtxCreate for CPU/Host engine allocates host memory?
-    // OpParam is on host. resCtx is on host.
-    // CommEngine logic in HCCL might imply where the context is stored.
-    // In p2p example, it uses COMM_ENGINE_AICPU and casts ctx to AlgResourceCtx*.
-    // If it's host memory, we can use placement new.
-    // Since we are running on host, and accessing it, it must be host memory.
-    if (param.resCtx != nullptr) {
-        new (param.resCtx) AlgResourceCtx();
+    // Check final result
+    if (hcclRet == HCCL_SUCCESS && ctx != nullptr) {
+        param.resCtx = static_cast<AlgResourceCtx*>(ctx);
+        HCCL_INFO("[PrepareResources] Context obtained: %p (isNew=%d)", ctx, isNewContext);
     } else {
-        HCCL_ERROR("[PrepareResources] Failed to allocate context memory.");
-        return HCCL_E_INTERNAL;
+        HCCL_ERROR("[PrepareResources] Failed to allocate context memory via HcclEngineCtxCreate. ret=%d", hcclRet);
+        return hcclRet;
+    }
+    
+    // Initialize the object in the allocated memory (placement new)
+    if (param.resCtx != nullptr && isNewContext) {
+        // Only run constructor if it's a newly created context
+        new (param.resCtx) AlgResourceCtx();
     }
     
     AlgResourceCtx* resCtx = param.resCtx;
