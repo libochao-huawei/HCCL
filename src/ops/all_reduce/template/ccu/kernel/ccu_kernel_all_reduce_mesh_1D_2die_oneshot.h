@@ -71,25 +71,20 @@ public:
     CcuKernelAllreduceMesh1D2DieOneShot(const hcomm::CcuKernelArg &arg);
     ~CcuKernelAllreduceMesh1D2DieOneShot() override {}
 
-    HcclResult Algorithm();
+    HcclResult Algorithm() override;
     std::vector<uint64_t> GeneArgs(const hcomm::CcuTaskArg &arg) override;
 
 private:
     HcclResult InitResource();
     void LoadArgs();
     void PreSync();
-    void PostSync(uint32_t ckeIdx);
-    void MissionSync(uint32_t signalIndex);
+    void PostSync(uint32_t signalIndex);
+    void MissionSync(uint32_t maskIndex);
     void DoRmtReduce();
     std::string GetLoopBlockTag(std::string loopType, int32_t index);
     void DoLocalReduce();
     void ReduceLoopGroup(CcuRep::LocalAddr &outDstOrg, std::vector<CcuRep::LocalAddr> &srcOrg,
         GroupOpSize goSize, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType);
-    HcclResult GroupReduceWithoutMyRank(const std::vector<ChannelHandle>& channels, CcuRep::LocalAddr &dst,
-                                std::vector<CcuRep::RemoteAddr> &src, GroupOpSize &goSize, HcclDataType dataType,
-                                HcclDataType outputDataType, HcclReduceOp opType);
-    HcclResult CreateMultiOpReduceWithoutMyRank(const std::vector<ChannelHandle>& channels, HcclDataType dataType,
-                                     HcclDataType outputDataType, HcclReduceOp opType);
     void CreateReduceLoop(uint32_t size, HcclDataType dataType, HcclDataType outputDataType,
                                                          HcclReduceOp opType);
 

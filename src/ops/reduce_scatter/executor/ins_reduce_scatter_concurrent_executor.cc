@@ -167,7 +167,7 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
         std::make_shared<InsAlgTemplate1>(param, myRank_, temp1HierarchyInfo);
     // 准备资源
     // mesh的流向nhr的流发一个信号，并等nhr流收到
-    PrepareThreadFromTemplate(param, tempAlg0, tempAlg1); // 计算不同的流
+    PrepareThreadFromTemplate(tempAlg0, tempAlg1); // 计算不同的流
     TemplateResource templateAlgResforTemp0;
     templateAlgResforTemp0.threads = temp0Threads_; // 这里用重新算出的thream计算
     TemplateResource templateAlgResforTemp1;
@@ -347,7 +347,7 @@ void InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::PrepareThreadFromTemplate(
-    const OpParam &param, std::shared_ptr<InsAlgTemplate0> &tempAlg0, std::shared_ptr<InsAlgTemplate1> &tempAlg1)
+    std::shared_ptr<InsAlgTemplate0> &tempAlg0, std::shared_ptr<InsAlgTemplate1> &tempAlg1)
 {
     // 流的数量
     u64 meshThreadsNum = tempAlg0->GetThreadNum(); // check流数

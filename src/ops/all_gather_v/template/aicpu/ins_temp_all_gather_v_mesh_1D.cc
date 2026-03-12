@@ -109,7 +109,8 @@ HcclResult InsTempAllGatherVMesh1D::RunAllGatherVMesh(const std::vector<ThreadHa
                       myRank_, connectedRank, connectedAlgRank);
  
             // 异常检查
-            CHK_PRT_RET(threadIdx >= threads.size() || !channels.count(connectedRank),
+            CHK_PRT_RET(threadIdx >= threads.size() || channels.count(connectedRank) == 0 || 
+                        channels.at(connectedRank).empty(),
                         HCCL_ERROR("[InsTempAllGatherVMesh1D][RankID]=%u threadIdx=%u, threads.size=%u, "
                                    "connectedRank=%d, channels.size=%u",
                                    myRank_, threadIdx, threads.size(), connectedRank, channels.size()),

@@ -72,7 +72,7 @@ HcclResult CcuTempAllToAllMesh2Die::PartitionChannels(HcclComm comm, const std::
         DieIdType dieId = 0;
         EndpointDesc localEndpoint = channel.localEndpoint;
         HcclResult ret = HcclRankGraphGetEndpointInfo(comm, myRank_, &localEndpoint, ENDPOINT_ATTR_DIE_ID,
-            dieIdTypeSize, (void*)(&dieId));
+            dieIdTypeSize, static_cast<void*>(&dieId));
         CHK_PRT_RET(ret != HCCL_SUCCESS,
             HCCL_ERROR("[CcuTempAlltoAllMesh2Die][CalcRes] Rank[%d] channel to remoteRank[%d], Failed to get dieId. "
                 "errNo[0x%016llx]", myRank_, remoteRank, HCCL_ERROR_CODE(ret)),
@@ -108,7 +108,7 @@ HcclResult CcuTempAllToAllMesh2Die::KernelRun(const OpParam &param, const Templa
 
     uint64_t inputAddr  = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
-    uint64_t token = hcomm::CcuRep::GetTokenInfo(reinterpret_cast<uint64_t>(buffInfo_.inputPtr),
+    uint64_t token = hcomm::CcuRep::GetTokenInfo(PointerToAddr(buffInfo_.inputPtr),
                                                        static_cast<uint64_t>(buffInfo_.inputSize));
     uint64_t sliceSize        = templateDataParams.sliceSize;
     uint64_t inputSliceStride = templateDataParams.sdispls[1] * DATATYPE_SIZE_TABLE[param.all2AllDataDes.recvType] -  buffInfo_.inBuffBaseOff;

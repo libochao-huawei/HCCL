@@ -39,7 +39,7 @@ public:
 
     void SetA2ASendRecvInfo(const A2ASendRecvInfo &sendRecvInfo);
 
-    HcclResult SetJettyNums(std::vector<uint32_t>& jettyNums, bool multijetty);
+    HcclResult SetJettyNums(std::vector<uint32_t>& jettyNums, const bool multijetty);
 
 private:
     A2ASendRecvInfo localSendRecvInfo_;

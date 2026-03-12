@@ -11,19 +11,9 @@
 #ifndef HCCLV2_INS_V2_BROADCAST_SOLE_EXECUTOR_H
 #define HCCLV2_INS_V2_BROADCAST_SOLE_EXECUTOR_H
 
-#include "alg_param.h"
-#include "topo_host.h"
-#include "channel.h"
-#include "alg_v2_template_base.h"
-#include "utils.h"
-#include "log.h"
-#include "workflow.h"
-#include "sal.h"
-#include "config_log.h"
-#include "executor_v2_base.h"
-#include "coll_alg_v2_exec_registry.h"
-#include "topo_match_base.h"
+#include "executor_common_ops.h"
 #include "topo_match_1d.h"
+#include "topo_match_base.h"
 
 namespace ops_hccl {
 
@@ -66,7 +56,6 @@ private:
     u32 intraLocalRoot_{0};  // server内算法root
     u32 interLocalRoot_{0};  // server间算法root
 
-
     std::vector<std::vector<std::vector<u32>>> vTopo_;
     std::vector<u32>              virtRanks_;
     std::map<u32, u32>            virtRankMap_; // 全局RankID:虚拟RankId
@@ -85,7 +74,6 @@ private:
     std::vector<std::vector<u32>> AlgHierarchyInfoExector;
     std::vector<std::map<u32, std::vector<ChannelInfo>>> remoteRankToChannelInfo_;
     std::vector<ThreadHandle> threads_;
-
 };
 
 } // namespace Hccl
