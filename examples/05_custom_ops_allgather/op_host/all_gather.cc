@@ -22,9 +22,6 @@ using namespace ops_hccl_allgather;
 // --- Simplified AlgResourceCtxSerializable Definitions ---
 namespace {
 
-// Forward declarations
-struct HcclChannelDesc;
-
 // Mock dependencies (simplified versions of internal HCCL structs)
 enum class AlgType { ALG_TYPE_RING = 0, ALG_TYPE_MESH = 1 }; // Placeholder
 struct AlgHierarchyInfoForAllLevel {
