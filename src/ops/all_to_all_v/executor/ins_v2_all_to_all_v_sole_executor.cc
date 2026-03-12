@@ -249,6 +249,7 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     // 计算loopTimes，alltoallv的时候，有些算子的loopTimes可能是0
     u64 loopTimes = maxSendOrRecvDataCount / maxDataCountPerLoop +
         static_cast<u64>(maxSendOrRecvDataCount % maxDataCountPerLoop != 0);
+    HCCL_INFO("loopTimes: %d", loopTimes);
     u64 processedDataCount = 0;
     for (u64 loop = 0; loop < loopTimes; loop++) {
         u64 currDataCount = (loop == loopTimes - 1) ? maxSendOrRecvDataCount - processedDataCount : maxDataCountPerLoop;
