@@ -107,6 +107,8 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
          }
          isNewContext = true;
     }
+
+    HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
     
     // Cast to our struct type
     AlgResourceCtxSerializable* resCtx = static_cast<AlgResourceCtxSerializable*>(ctx);
@@ -121,6 +123,8 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
     // For now, we just reinterpret_cast back when needed or change OpParam definition if we could.
     // Since we can't change common.h easily without risk, we reinterpret_cast.
     param.resCtx = reinterpret_cast<AlgResourceCtx*>(resCtx); 
+
+    HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
     
     // 2. Get Rank Info
     uint32_t rank, rankSize;
@@ -128,6 +132,8 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
     CHK_RET(HcclGetRankSize(comm, &rankSize));
     resCtx->topoInfo.userRank = rank;
     resCtx->topoInfo.userRankSize = rankSize;
+
+    HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
     
     // 3. Get CCL Buffer (Scratch)
     CHK_RET(HcclGetHcclBuffer(comm, &resCtx->cclMem.addr, &resCtx->cclMem.size));
@@ -136,12 +142,16 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
     // We use COMM_ENGINE_AIV
     std::string aivTagStr = std::string(param.tag) + "_AIV";
     const char* aivTag = aivTagStr.c_str();
+
+    HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
     
     void* aivCommInfoPtr = nullptr;
     uint64_t aivCommInfoSize = AIV_TAG_BUFF_LEN;
     HcclMemHandle memHandle;
 
     hcclRet = HcclEngineCtxGet(comm, aivTag, CommEngine::COMM_ENGINE_AIV, &aivCommInfoPtr, &aivCommInfoSize);
+
+    HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
     if (hcclRet != HCCL_SUCCESS || aivCommInfoPtr == nullptr) {
         // Create new AIV buffer
         HCCL_INFO("[PrepareResources] AIV buffer not found, creating new...");
