@@ -21,7 +21,9 @@ TopoMatch1D::~TopoMatch1D()
 
 HcclResult TopoMatch1D::MatchTopo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo, AlgHierarchyInfoForAllLevel &algHierarchyInfoExector)
 {
+    HCCL_INFO("Start to match 1D topo.");
 #ifndef AICPU_COMPILE
+    HCCL_INFO("Start to match 1D topo 2.");
     CHK_PRT_RET(topoInfo->topoLevelNums == 0 || topoInfo->topoLevelNums > 2,
         HCCL_ERROR("[CalcTopoLevelNums] topoLevelNum[%u] is invalid.",
             topoInfo->topoLevelNums),
