@@ -14,6 +14,7 @@
 #include <vector>
 #include <cstring>
 #include <string>
+#include <map>
 
 using namespace ops_hccl_allgather;
 
