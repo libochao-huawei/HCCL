@@ -38,6 +38,7 @@ typedef enum {
         if (LOG_LEVEL <= LOG_LEVEL_DEBUG) {                                    \
             printf("[DEBUG][%s][%s:%d]" format "\n",                           \
                     __func__, __FILE__, __LINE__, ##__VA_ARGS__);              \
+            fflush(stdout);                                                    \
         }                                                                      \
     } while (0)
 
@@ -46,6 +47,7 @@ typedef enum {
         if (LOG_LEVEL <= LOG_LEVEL_INFO) {                                     \
             printf("[INFO][%s][%s:%d]" format "\n",                            \
                     __func__, __FILE__, __LINE__, ##__VA_ARGS__);              \
+            fflush(stdout);                                                    \
         }                                                                      \
     } while (0)
 
@@ -54,6 +56,7 @@ typedef enum {
         if (LOG_LEVEL <= LOG_LEVEL_WARNING) {                                  \
             printf("[WARN][%s][%s:%d]" format "\n",                            \
                     __func__, __FILE__, __LINE__, ##__VA_ARGS__);              \
+            fflush(stdout);                                                    \
         }                                                                      \
     } while (0)
 
@@ -62,6 +65,7 @@ typedef enum {
         if (LOG_LEVEL <= LOG_LEVEL_ERROR) {                                    \
             printf("[ERROR][%s][%s:%d]" format "\n",                           \
                     __func__, __FILE__, __LINE__, ##__VA_ARGS__);              \
+            fflush(stdout);                                                    \
         }                                                                      \
     } while (0)
 
