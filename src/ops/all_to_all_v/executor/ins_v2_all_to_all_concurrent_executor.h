@@ -22,7 +22,7 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 class InsV2AllToAllConcurrentExecutor : public InsCollAlgBase {
 public:
     explicit InsV2AllToAllConcurrentExecutor();
-    ~InsV2AllToAllConcurrentExecutor() override = default;
+    ~InsV2AllToAllConcurrentExecutor() = default;
 
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable& resCtx) override;
 
