@@ -18,20 +18,22 @@
 namespace ops_hccl {
 constexpr u32 PORT_NUM = 4;
 
-CcuTempAllReduceNhrMem2Mem1DMultiJetty::CcuTempAllReduceNhrMem2Mem1DMultiJetty(const OpParam& param, const u32 rankId,
-    const std::vector<std::vector<u32>> &subCommRanks)
-    : CcuAlgTemplateBase(param, rankId, subCommRanks)
+CcuTempAllReduceNhrMem2Mem1DMultiJetty::CcuTempAllReduceNhrMem2Mem1DMultiJetty(const OpParam& param,
+        const u32 rankId, const std::vector<std::vector<u32>> &subCommRanks) : 
+        CcuAlgTemplateBase(param, rankId, subCommRanks),
+        dataType_(param.DataDes.dataType),
+        localRank_(INVALID_VALUE_RANKID),
+        portNum_(0)
 {
-    dataType_ = param.DataDes.dataType;
-
-    // 生成全局rank号到子通信域rank号的对应关系
-    const auto& ranks = subCommRanks[0];
-    for (u32 i = 0; i < ranks.size(); ++i) {
-        subCommRankMap_[ranks[i]] = i;
+    // 根据子通信域，计算localRank
+    for (u32 i = 0; i < subCommRanks[0].size(); i++) {
+        if (subCommRanks[0][i] == rankId) {
+            localRank_ = i;
+        }
+        subCommRankMap_.insert(std::make_pair(subCommRanks[0][i], i));
     }
-    localRank_ = subCommRankMap_[rankId];
-    portNum_ = PORT_NUM;
     templateRankSize_ = subCommRanks[0].size();
+    portNum_ = PORT_NUM;
 }
 
 CcuTempAllReduceNhrMem2Mem1DMultiJetty::~CcuTempAllReduceNhrMem2Mem1DMultiJetty()
@@ -142,7 +144,7 @@ u64 CcuTempAllReduceNhrMem2Mem1DMultiJetty::CalcScratchMultiple(BufferType inBuf
     return 0;
 }
 
-HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::GetReduceScatterStepInfo(u32 step, NHRStepInfo &stepInfo)
+HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::GetReduceScatterStepInfo(u32 step, NHRStepInfo &stepInfo) const
 {
     CHK_PRT_RET(localRank_ == INVALID_VALUE_RANKID, HCCL_ERROR("[%s]localRank_[%u] is invalid.", __func__, localRank_),
                 HcclResult::HCCL_E_INTERNAL);
@@ -180,7 +182,7 @@ HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::GetReduceScatterStepInfo(u32 
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::GetAllGatherStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo)
+HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::GetAllGatherStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo) const
 {
     CHK_PRT_RET(localRank_ == INVALID_VALUE_RANKID, HCCL_ERROR("[%s]localRank_[%u] is invalid.", __func__, localRank_),
                 HcclResult::HCCL_E_INTERNAL);
@@ -217,9 +219,10 @@ HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::GetAllGatherStepInfo(u32 step
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::GetStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo)
+HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::GetStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo) const
 {
     u32 nStepsNHR = nSteps / 2;
+    CHK_PRT_RET(nStepsNHR == 0, HCCL_ERROR("[%s]nStepsNHR[%u] is invalid.", __func__, nStepsNHR), HcclResult::HCCL_E_INTERNAL);
     u32 realStep = step;
     if (realStep < nStepsNHR) {
         CHK_RET(GetReduceScatterStepInfo(realStep, stepInfo));
@@ -244,7 +247,7 @@ uint32_t CcuTempAllReduceNhrMem2Mem1DMultiJetty::localRank2UserRank(const uint32
     return subCommRanks_[0][localRank];
 }
 
-HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::ProcessNHRStepInfo(std::vector<NHRStepInfo> &algStepInfoList)
+HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::ProcessNHRStepInfo(std::vector<NHRStepInfo> &algStepInfoList) const
 {
     const u32 nSteps = GetNHRStepNum(templateRankSize_) * 2;  // 分为RS和AG两次NHR
     algStepInfoList.reserve(nSteps);

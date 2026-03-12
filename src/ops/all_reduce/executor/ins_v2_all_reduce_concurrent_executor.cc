@@ -28,16 +28,15 @@ InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::InitCommInfo(
     const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo, const AlgHierarchyInfoForAllLevel &algHierarchyInfo)
+    : myRank_(topoInfo->userRank),
+      rankSize_(topoInfo->userRankSize),
+      devType_(topoInfo->deviceType),
+      reduceOp_(param.reduceType),
+      dataType_(param.DataDes.dataType),
+      dataCount_(param.DataDes.count),
+      dataTypeSize_(SIZE_TABLE[param.DataDes.dataType]),
+      algHierarchyInfo_(algHierarchyInfo)
 {
-    myRank_ = topoInfo->userRank;
-    rankSize_ = topoInfo->userRankSize;
-    devType_ = topoInfo->deviceType;
-    reduceOp_ = param.reduceType;
-    dataType_ = param.DataDes.dataType;
-    dataCount_ = param.DataDes.count;
-    dataTypeSize_ = SIZE_TABLE[param.DataDes.dataType];
-
-    algHierarchyInfo_ = algHierarchyInfo;
     HCCL_INFO("[%s][InitCommInfo] myRank [%u], rankSize [%u], devType [%u], redOp [%u], "
               "dataType [%u] dataTypeSize [%u]",
               __func__, myRank_, rankSize_, devType_, reduceOp_, dataType_, dataTypeSize_);
@@ -58,7 +57,7 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::CalcChannelRequest(
     HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo, const std::vector<std::vector<u32>> &subCommRanks,
-    std::vector<HcclChannelDesc> &channelDescs, CommTopo topo)
+    std::vector<HcclChannelDesc> &channelDescs, CommTopo topo) const
 {
     std::vector<HcclChannelDesc> channelDescsTemp;
 
