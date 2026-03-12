@@ -40,12 +40,12 @@ public:
 
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override; // 此template需要将buffer分几块用
 private:
-    HcclResult GetReduceScatterStepInfo(u32 step, NHRStepInfo &stepInfo);
-    HcclResult GetAllGatherStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo);
-    HcclResult GetStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo);
+    HcclResult GetReduceScatterStepInfo(u32 step, NHRStepInfo &stepInfo) const;
+    HcclResult GetAllGatherStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo) const;
+    HcclResult GetStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo) const;
     uint32_t GetNHRStepNum(const uint32_t rankSize) const;
     uint32_t localRank2UserRank(const uint32_t localRank) const;
-    HcclResult ProcessNHRStepInfo(std::vector<NHRStepInfo> &stepInfoVector);
+    HcclResult ProcessNHRStepInfo(std::vector<NHRStepInfo> &algStepInfoList) const;
     HcclDataType dataType_;
     uint32_t localRank_{INVALID_VALUE_RANKID}; // 所在子通信域的rank id
     uint32_t portNum_{0}; // 端口数量

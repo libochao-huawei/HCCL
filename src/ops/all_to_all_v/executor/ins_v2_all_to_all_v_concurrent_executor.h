@@ -11,17 +11,7 @@
 #ifndef HCCLV2_INS_V2_ALL_TO_ALL_V_CONCURRENT_EXECUTOR_H
 #define HCCLV2_INS_V2_ALL_TO_ALL_V_CONCURRENT_EXECUTOR_H
 
-#include "alg_param.h"
-#include "topo_host.h"
-#include "channel.h"
-#include "alg_v2_template_base.h"
-#include "utils.h"
-#include "log.h"
-#include "workflow.h"
-#include "sal.h"
-#include "config_log.h"
-#include "executor_v2_base.h"
-#include "coll_alg_v2_exec_registry.h"
+#include "executor_common_ops.h"
 #include "topo_match_base.h"
 #include "topo_match_ubx.h"
 
@@ -45,9 +35,9 @@ public:
 
 protected:
     HcclResult InitCommInfo(const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo);
-    HcclResult GetAlltoAllLocalSendRecvInfo(const OpParam &opParam, A2ASendRecvInfo &localSendRecvInfo);
+    HcclResult GetAlltoAllLocalSendRecvInfo(const OpParam &param, A2ASendRecvInfo &localSendRecvInfo);
     HcclResult SplitA2ASendRecvInfo(A2ASendRecvInfo &sendRecvInfoFirst, A2ASendRecvInfo &sendRecvInfoLast);
-    HcclResult SetJettyNums(std::vector<uint32_t>& jettyNums, bool multijetty);
+    HcclResult SetJettyNums(std::vector<uint32_t>& jettyNums, const bool multijetty);
     A2ASendRecvInfo localSendRecvInfo_;
 };
 }

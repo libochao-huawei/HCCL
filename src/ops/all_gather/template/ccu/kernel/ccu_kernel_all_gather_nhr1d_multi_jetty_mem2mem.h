@@ -101,7 +101,7 @@ public:
     CcuKernelAllGatherNHR1DMultiJettyMem2Mem(const hcomm::CcuKernelArg &arg);
     ~CcuKernelAllGatherNHR1DMultiJettyMem2Mem() override {}
 
-    HcclResult Algorithm();
+    HcclResult Algorithm() override;
     std::vector<uint64_t> GeneArgs(const hcomm::CcuTaskArg &arg) override;
 
 private:

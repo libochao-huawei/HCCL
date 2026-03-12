@@ -292,7 +292,7 @@ HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 
     for (u32 loopIndex = 0; loopIndex < loopTimes; loopIndex++) {
         u64 currCount = (loopIndex == loopTimes - 1) ? (dataCount_ - loopIndex * maxCountPerLoop) : maxCountPerLoop;
-        u64 dataCountPerLoopAixs0 = dataSplitSize.at(0) * currCount;
+        u64 dataCountPerLoopAixs0 = static_cast<u64>(dataSplitSize.at(0) * currCount);
         u64 dataCountPerLoopAixs1 = currCount - dataCountPerLoopAixs0;
 
         u64 dataOffset0 = loopIndex * maxCountPerLoop * dataTypeSize_;

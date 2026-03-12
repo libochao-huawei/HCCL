@@ -296,7 +296,7 @@ HcclResult InsTempAllReduceNHR::PostCopy(const TemplateDataParams &tempAlgParams
 }
 
 // 计算ReduceScatter每轮收发的对端以及slice编号
-HcclResult InsTempAllReduceNHR::GetReduceScatterStepInfoList(std::vector<NHRStepInfo> &stepInfoList)
+HcclResult InsTempAllReduceNHR::GetReduceScatterStepInfoList(std::vector<NHRStepInfo> &stepInfoList) const
 {
     stepInfoList.clear();
 
@@ -337,7 +337,7 @@ HcclResult InsTempAllReduceNHR::GetReduceScatterStepInfoList(std::vector<NHRStep
 }
 
 // 计算AllGather每轮收发的对端以及slice编号
-HcclResult InsTempAllReduceNHR::GetAllGatherStepInfoList(std::vector<NHRStepInfo> &stepInfoList)
+HcclResult InsTempAllReduceNHR::GetAllGatherStepInfoList(std::vector<NHRStepInfo> &stepInfoList) const
 {
     stepInfoList.clear();
 

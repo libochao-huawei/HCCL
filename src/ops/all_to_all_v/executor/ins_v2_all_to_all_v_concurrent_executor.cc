@@ -246,7 +246,7 @@ HcclResult InsV2AllToAllVConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsV2AllToAllVConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::SetJettyNums(
-    std::vector<uint32_t>& jettyNums, bool multijetty)
+    std::vector<uint32_t>& jettyNums, const bool multijetty)
 {
     jettyNums.resize(rankSize_, 0);
     for (int i = 0; i < rankSize_; i++) {

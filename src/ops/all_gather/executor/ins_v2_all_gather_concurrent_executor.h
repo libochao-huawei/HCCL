@@ -11,17 +11,7 @@
 #ifndef HCCLV2_INS_ALL_GATHER_CONCURR_EXECUTOR_H
 #define HCCLV2_INS_ALL_GATHER_CONCURR_EXECUTOR_H
 
-#include "alg_param.h"
-#include "topo_host.h"
-#include "channel.h"
-#include "alg_v2_template_base.h"
-#include "utils.h"
-#include "log.h"
-#include "workflow.h"
-#include "sal.h"
-#include "config_log.h"
-#include "executor_v2_base.h"
-#include "coll_alg_v2_exec_registry.h"
+#include "executor_common_ops.h"
 #include "topo_match_base.h"
 #include "topo_match_ubx.h"
 
@@ -30,7 +20,7 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 class InsV2AllGatherConcurrentExecutor : public InsCollAlgBase {
 public:
     explicit InsV2AllGatherConcurrentExecutor();
-    ~InsV2AllGatherConcurrentExecutor() = default;
+    ~InsV2AllGatherConcurrentExecutor() override = default;
 
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
 
@@ -53,15 +43,15 @@ private:
     void GetParallelDataSplit(std::vector<float> &splitDataSize) const;
 
     void GenTemplateAlgParams(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset,
-                                  const u64 dataCountPerLoopMesh, const u64 scratchOffset,
-                                  TemplateDataParams &tempAlgParamsMesh) const;
+                                  const u64 dataCountPerLoop, const u64 scratchOffset,
+                                  TemplateDataParams &tempAlgParams) const;
 
-    HcclResult PrepareResForTemplate(const OpParam &param, const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &algTemplateMesh, InsAlgTemplate1 &algTemplateNhr);
+    HcclResult PrepareResForTemplate(InsAlgTemplate0 &algTemplate0, InsAlgTemplate1 &algTemplate1);
 
     std::vector<ThreadHandle> threads_;  // 相当于之前的std::vector<InsQuePtr> tempInsQue_;
     std::vector<ThreadHandle> tmp0Threads_;
     std::vector<ThreadHandle> tmp1Threads_;
-    ThreadHandle mainThread_;
+    ThreadHandle mainThread_{0};
     std::vector<ThreadHandle> templateMainThreads_;
     std::vector<u32> syncNotifyOnTemplates_;
     std::vector<u32> syncNotifyOnMain_;

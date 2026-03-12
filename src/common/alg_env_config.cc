@@ -550,7 +550,7 @@ HcclResult ParseIntraLinkType()
     }
 
     // pcie和roce环境变量同时配置且相等
-    if (!(intraPcie ^ intraRoce)) {
+    if ((intraPcie ^ intraRoce) == 0) {
         if (intraPcie == 1) {  // 同时为1，暂不支持，报错
             HCCL_ERROR(
                 "[Parse][IntraLinkType] Enabling intra Pcie and intra Roce at the same time is not supported now.");
