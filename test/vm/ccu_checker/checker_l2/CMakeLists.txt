@@ -1,0 +1,52 @@
+cmake_minimum_required(VERSION 3.10)
+project(hccl_vm)
+set(CMAKE_VERBOSE_MAKEFILE true)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+set(OUTPUT_DIR ${CMAKE_BINARY_DIR}/output)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${OUTPUT_DIR})
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${OUTPUT_DIR})
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${OUTPUT_DIR})
+
+set(HCOMM_VM_ROOT_PATH   ${CMAKE_CURRENT_SOURCE_DIR})
+
+if(NOT DEFINED ASCEND_CANN_PACKAGE_PATH)
+    if(NOT DEFINED ENV{ASCEND_TOOLKIT_HOME})
+    message(FATAL_ERROR "Error: ASCEND_TOOLKIT_HOME environment variable is not set. Please set it to the Ascend Toolkit installation path.")
+    endif()
+    set(ASCEND_CANN_PACKAGE_PATH  $ENV{ASCEND_TOOLKIT_HOME})
+endif()
+message(STATUS "ASCEND_CANN_PACKAGE_PATH: ${ASCEND_CANN_PACKAGE_PATH}")
+
+set(TOP_DIR ${CMAKE_SOURCE_DIR}/../../..)
+message(STATUS "TOP_DIR: ${TOP_DIR}")
+
+set(HCOMM_CODE_ROOT      ${CMAKE_SOURCE_DIR}/../..)
+set(HCOMM_CODE_COMMON    ${HCOMM_CODE_ROOT}/src/common)
+set(HCOMM_CODE_PLATFORM  ${HCOMM_CODE_ROOT}/src/platform)
+set(HCOMM_CODE_ALGORITHM ${HCOMM_CODE_ROOT}/src/algorithm)
+set(HCOMM_CODE_FRAMEWORK ${HCOMM_CODE_ROOT}/src/framework)
+message(STATUS "HCOMM_CODE_ROOT: ${HCOMM_CODE_ROOT}")
+
+set(THRID_PARTY_DIR   ${HCOMM_CODE_ROOT}/output/third_party)
+
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+    set(CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}" CACHE PATH "Default install prefix" FORCE)
+endif()
+
+set(CMAKE_INSTALL_RPATH 
+    "\$ORIGIN/."
+    "${CMAKE_INSTALL_PREFIX}")
+file(MAKE_DIRECTORY ${CMAKE_INSTALL_PREFIX}/hccl_vm_install)
+file(MAKE_DIRECTORY ${CMAKE_INSTALL_PREFIX}/hccl_vm_install/data)
+
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/asset/"
+    DESTINATION "${CMAKE_INSTALL_PREFIX}/hccl_vm_install"
+)
+
+add_subdirectory(third_party)
+add_subdirectory(src)

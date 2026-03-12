@@ -1,0 +1,1 @@
+add_subdirectory(hccl_check_plugin)

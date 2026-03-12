@@ -1,0 +1,19 @@
+syntax = "proto2";
+
+package cmd;
+
+message Server {
+    repeated uint32 phyIds = 1;
+}
+
+message Pod {
+    repeated Server servers = 1;
+}
+
+message AsymmetryTopo {
+    repeated Pod pods = 1;
+}
+
+message CmdExtParam {
+    optional AsymmetryTopo topo = 1;
+}
