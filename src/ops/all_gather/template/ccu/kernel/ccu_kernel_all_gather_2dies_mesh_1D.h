@@ -67,7 +67,7 @@ public:
     CcuKernelAllGather2DiesMesh1D(const hcomm::CcuKernelArg &arg);
     ~CcuKernelAllGather2DiesMesh1D() override {}
  
-    HcclResult Algorithm();
+    HcclResult Algorithm() override;
     std::vector<uint64_t> GeneArgs(const hcomm::CcuTaskArg &arg) override;
  
 private:
@@ -88,7 +88,7 @@ private:
     CcuRep::Variable offSet_;
     CcuRep::Variable sliceSize_;
     std::vector<uint32_t> rankIdGroup_;
-    bool ifHandleSelfRank_;
+    bool ifHandleSelfRank_ = true;
     std::vector<ChannelHandle> channels_;
     hcomm::CcuRep::CompletedEvent event_;// signal, used to controll the broadcast sync
     GroupOpSize groupOpSize_;
