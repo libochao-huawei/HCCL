@@ -19,7 +19,7 @@ namespace ops_hccl {
 
 CcuTempReduceScatterNhrMultiJettyMem2Mem1D::CcuTempReduceScatterNhrMultiJettyMem2Mem1D(const OpParam& param, const u32 rankId,
                                        const std::vector<std::vector<u32>>& subCommRanks)
-: CcuAlgTemplateBase(param, rankId, subCommRanks)
+    : CcuAlgTemplateBase(param, rankId, subCommRanks)
 {
     std::vector<u32> ranks = subCommRanks[0];
     templateRankSize_ = ranks.size();
