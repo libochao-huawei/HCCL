@@ -45,7 +45,7 @@ protected:
     /* *************** 算法编排 *************** */
     HcclResult OrchestrateLoop(const OpParam &param, const AlgResourceCtxSerializable& resCtx);
     HcclResult CalcSliceInfoAllReduce(u64 dataCount);
-    u64 RoundUp(const u64 dividend, const u64 divisor);
+    u64 RoundUp(const u64 dividend, const u64 divisor) const;
 
     AlgHierarchyInfoForAllLevel algHierarchyInfo_;
     std::vector<std::map<u32, std::vector<ChannelInfo>>> remoteRankToChannelInfo_;
