@@ -103,7 +103,7 @@ HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::CalcNHRInfo(std::vector<NHRSt
     return HcclResult::HCCL_SUCCESS;
 }
 
-u32 CcuTempAllGatherNHR1DMultiJettyMem2Mem::GetNHRStepNum(u32 rankSize)
+u32 CcuTempAllGatherNHR1DMultiJettyMem2Mem::GetNHRStepNum(u32 rankSize) const
 {
     u32 nSteps = 0;
     for (u32 tmp = rankSize - 1; tmp != 0; tmp >>= 1, nSteps++) {
@@ -112,7 +112,7 @@ u32 CcuTempAllGatherNHR1DMultiJettyMem2Mem::GetNHRStepNum(u32 rankSize)
     return nSteps;
 }
 
-HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::GetStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo)
+HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::GetStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo) const
 {
     u32 rankIdx = mySubCommRank_;
     stepInfo.txSliceIdxs.clear();
@@ -144,7 +144,7 @@ HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::GetStepInfo(u32 step, u32 nSt
     return HcclResult::HCCL_SUCCESS;
 }
 
-uint32_t CcuTempAllGatherNHR1DMultiJettyMem2Mem::RemoteRankId2RankId(const uint32_t remoteRankId)
+uint32_t CcuTempAllGatherNHR1DMultiJettyMem2Mem::RemoteRankId2RankId(const uint32_t remoteRankId) const
 {
     uint32_t subCommRankId = 0;
     std::vector<u32> ranks = subCommRanks_[0];
@@ -164,8 +164,8 @@ HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::KernelRun(const OpParam& para
 
     uint64_t inputAddr             = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr            = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
-    uint64_t token                 = hcomm::CcuRep::GetTokenInfo(reinterpret_cast<uint64_t>(buffInfo_.inputPtr),
-                                                       static_cast<uint64_t>(buffInfo_.inputSize));
+    uint64_t token                 = hcomm::CcuRep::GetTokenInfo(PointerToAddr(buffInfo_.inputPtr), buffInfo_.inputSize);
+    
     uint64_t isInputOutputEqual    = buffInfo_.inputPtr == buffInfo_.outputPtr ? 1 : 0;
     uint64_t sliceSize             = templateDataParams.sliceSize;
     HcclDataType dataType          = param.DataDes.dataType;
@@ -192,7 +192,7 @@ HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::KernelRun(const OpParam& para
     outputSliceStride, inputRepeatStride, outputRepeatStride, isInputOutputEqual);
 
     if (dataCount == 0) {
-        HCCL_INFO("[CcuTempAllGatherNHR1DMultiJettyMem2Mem] DataCount == 0, Template Run Ends.");
+        HCCL_INFO("[CcuTempAllGatherNHR1DMultiJettyMem2Mem] DataCount == 0, Template Run End.");
         return HcclResult::HCCL_SUCCESS;
     }
 
@@ -204,7 +204,7 @@ HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::KernelRun(const OpParam& para
 
     HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr);
     
-    HCCL_DEBUG("[CcuTempAllGatherNHR1DMultiJettyMem2Mem::KernelRun] end");
+    HCCL_DEBUG("[CcuTempAllGatherNHR1DMultiJettyMem2Mem] Template Run end.");
 
     return HcclResult::HCCL_SUCCESS;
 }

@@ -272,7 +272,7 @@ HcclResult CcuKernelAllGatherNHR1DMultiJettyMem2Mem::DoSendRecvSlices(const uint
 
 HcclResult CcuKernelAllGatherNHR1DMultiJettyMem2Mem::Algorithm()
 {
-    HCCL_DEBUG("[CcuKernelAllGatherNHR1DMultiJettyMem2Mem] AllGatherNHR1DMultiJettyMem2Mem run");
+    HCCL_DEBUG("[CcuKernelAllGatherNHR1DMultiJettyMem2Mem] AllGatherNHR1DMultiJettyMem2Mem start");
 
     InitResources();
     LoadArgs();
