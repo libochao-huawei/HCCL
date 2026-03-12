@@ -275,6 +275,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             if (g_cacheManager.GetCommStats(commName, stats, cacheSize)) {
                 HCCL_DEBUG("[%s] comm[%s] hitRate=%.2f%%, cacheSize=%zu",
                 __func__, commName.c_str(), stats.hitRate() * 100, cacheSize);
+            resCtx = *cachedResCtx;
             }
         } else {
             //未命中，进行反序列化并存入缓存
