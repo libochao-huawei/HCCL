@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <title>HCCL 任务可视化工具</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sigma.js/3.0.2/sigma.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/graphology/0.26.0/graphology.umd.min.js"></script>
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --bg-main: #f8fafc;
+      --panel-bg: #ffffff;
+      --text-main: #0f172a;
+      --border: #e2e8f0;
+      --terminal-bg: #0f172a;
+    }
+
+    body,
+    html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg-main);
+      overflow: hidden;
+    }
+
+    .main-layout {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    /* 顶部导航栏 */
+    .top-bar {
+      height: 60px;
+      background: #1e293b;
+      color: white;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 15px;
+      z-index: 100;
+      flex-shrink: 0;
+    }
+
+    .meta-container {
+      display: flex;
+      gap: 8px;
+      font-family: 'Fira Code', monospace;
+      font-size: 11px;
+      overflow-x: auto;
+    }
+
+    .meta-pill {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 3px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    .meta-v {
+      color: #38bdf8;
+      font-weight: bold;
+    }
+
+    /* 主体布局 */
+    .content-area {
+      flex: 1;
+      display: flex;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .side-panel {
+      width: 280px;
+      background: var(--panel-bg);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      z-index: 90;
+      padding: 15px;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+    }
+
+    .section-title {
+      font-weight: 700;
+      font-size: 11px;
+      color: var(--text-main);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .section-title::before {
+      content: '';
+      width: 3px;
+      height: 11px;
+      background: var(--primary);
+      border-radius: 2px;
+    }
+
+    /* 控件样式 */
+    .input-control {
+      width: 100%;
+      padding: 7px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin-bottom: 5px;
+      font-size: 12px;
+      outline: none;
+      box-sizing: border-box;
+    }
+
+    .rank-list-container {
+      height: 140px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px;
+      font-size: 12px;
+      background: #fafafa;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 11px;
+      color: #64748b;
+      margin-bottom: 4px;
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: bold;
+      font-size: 8px;
+    }
+
+    #log-console {
+      flex: 1;
+      background: var(--terminal-bg);
+      color: #10b981;
+      font-family: 'Fira Code', monospace;
+      font-size: 10px;
+      padding: 10px;
+      border-radius: 6px;
+      overflow-y: auto;
+      border: 1px solid #334155;
+    }
+
+    /* 画布 */
+    .graph-wrapper {
+      flex: 1;
+      position: relative;
+      background: #fff;
+    }
+
+    #sigma-container {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* 详情面板 */
+    .detail-panel {
+      position: absolute;
+      right: 20px;
+      top: 20px;
+      bottom: 20px;
+      width: 420px;
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+      display: none;
+      flex-direction: column;
+      z-index: 1000;
+      overflow: hidden;
+    }
+
+    .detail-header {
+      padding: 18px;
+      background: #1e293b;
+      color: white;
+      position: relative;
+    }
+
+    .close-btn {
+      position: absolute;
+      right: 15px;
+      top: 15px;
+      cursor: pointer;
+      font-size: 22px;
+      opacity: 0.7;
+    }
+
+    .detail-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding-bottom: 20px;
+    }
+
+    .info-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin: 15px;
+      background: #fff;
+      overflow: hidden;
+    }
+
+    .info-row {
+      display: flex;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .info-label {
+      width: 130px;
+      background: #f8fafc;
+      padding: 7px 12px;
+      font-size: 11px;
+      color: #64748b;
+      border-right: 1px solid var(--border);
+      font-weight: 600;
+    }
+
+    .info-value {
+      flex: 1;
+      padding: 7px 12px;
+      font-size: 11px;
+      color: #334155;
+      word-break: break-all;
+    }
+
+    /* UI 组件 */
+    button {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 9px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 12px;
+      width: 100%;
+    }
+
+    .btn-file {
+      background: #334155;
+      padding: 6px 12px;
+      border-radius: 5px;
+      font-size: 12px;
+      cursor: pointer;
+      color: white;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 34px;
+      height: 20px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 20px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+
+    input:checked+.slider {
+      background-color: var(--primary);
+    }
+
+    input:checked+.slider:before {
+      transform: translateX(14px);
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="main-layout">
+    <div class="top-bar">
+      <div style="font-weight:900; font-size:17px;">HCCL <span style="color:var(--primary)">任务可视化</span></div>
+      <label class="btn-file" for="fileInput">📂 导入数据</label>
+      <select id="remoteFileSelect" class="input-control"
+        style="width: 180px; margin-bottom: 0; background: #334155; color: white; border: none;">
+        <option value="">🌐 正在加载远端列表...</option>
+      </select>
+      <button onclick="loadRemoteFile()" style="width: auto; background: #10b981; padding: 6px 12px;">加载远端</button>
+      <input id="fileInput" style="display:none" type="file">
+      <div class="meta-container" id="meta-info-bar"></div>
+    </div>
+
+    <div class="content-area">
+      <div class="side-panel">
+        <div class="card">
+          <div class="section-title">搜索节点属性</div>
+          <div id="filter-inputs"></div>
+          <button onclick="applyNodeFilters()" style="margin-bottom: 10px; background: #334155;">执行搜索</button>
+          <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
+            <span style="font-size: 11px; font-weight: 600;">显示标签</span>
+            <label class="switch">
+              <input id="toggle-labels" onchange="toggleLabels(this.checked)" type="checkbox">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
+            <span style="font-size: 11px; font-weight: 600;">点击高亮</span>
+            <label class="switch">
+              <input id="toggle-highlight" onchange="toggleHighlight(this.checked)" type="checkbox">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
+            <span style="font-size: 11px; font-weight: 600;">显示连线</span>
+            <label class="switch">
+              <input id="toggle-edges" onchange="toggleEdges(this.checked)" type="checkbox">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-title">Rank 过滤 (最多4个)</div>
+          <input class="input-control" id="rank-search" placeholder="搜索 Rank ID..." type="text">
+          <div class="rank-list-container" id="rank-list"></div>
+          <button onclick="applyRankFilter()" style="margin-top:8px">重新渲染</button>
+        </div>
+
+        <div class="card">
+          <div class="section-title">任务类型图例</div>
+          <div id="legend-list"></div>
+        </div>
+
+        <div id="log-console"></div>
+      </div>
+
+      <div class="graph-wrapper">
+        <div id="sigma-container"></div>
+        <div class="detail-panel" id="detail-panel">
+          <div class="detail-header" id="detail-header"></div>
+          <div class="detail-scroll" id="detail-content"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * 静态配置：任务类型与颜色、字符映射
+     */
+    const TASK_MAP_STAGE_1 = {
+      0: { char: 'W', color: '#4472c4', name: 'WAIT' },
+      1: { char: 'P', color: '#70ad47', name: 'RECORD' },
+      2: { char: 'R', color: '#f39c12', name: 'REDUCE' },
+      3: { char: 'C', color: '#b235e6', name: 'MEM_CPY' },
+      4: { char: 'G', color: '#1abc9c', name: 'GRAPH' }
+    };
+
+    const TASK_MAP_STAGE_2 = {
+      0: { char: 'C', color: '#b235e6', name: 'LOCAL_COPY' },
+      1: { char: 'R', color: '#f39c12', name: 'LOCAL_REDUCE' },
+      2: { char: 'R', color: '#f39c12', name: 'LOCAL_BATCH_REDUCE' },
+      3: { char: 'P', color: '#70ad47', name: 'LOCAL_POST_TO' },
+      4: { char: 'W', color: '#4472c4', name: 'LOCAL_WAIT_FROM' },
+      5: { char: 'P', color: '#70ad47', name: 'POST' },
+      6: { char: 'W', color: '#4472c4', name: 'WAIT' },
+      7: { char: 'C', color: '#b235e6', name: 'READ' },
+      8: { char: 'R', color: '#f39c12', name: 'READ_REDUCE' },
+      9: { char: 'C', color: '#b235e6', name: 'WRITE' },
+      10: { char: 'R', color: '#f39c12', name: 'WRITE_REDUCE' }
+    };
+
+    // 全局应用状态
+    let g_rawData = null;
+    let g_graphType = "UNKNOWN";
+    let g_renderer = null;
+    let g_graph = null;
+    let g_selectedNodeId = null;
+    let g_allRanks = [];
+    let g_selectedRanks = new Set();
+    let g_nodeFilters = {};
+    let g_showLabels = false;
+    let g_enableHighlight = false;
+    let g_showEdges = false;
+
+    /**
+     * 工具：日志记录
+     */
+    function addLog(msg, isError = false) {
+      const consoleEl = document.getElementById('log-console');
+      const color = isError ? '#f87171' : '#10b981';
+      consoleEl.innerHTML += `<div><span style="color:#475569">></span> <span style="color:${color}">${msg}</span></div>`;
+      consoleEl.scrollTop = consoleEl.scrollHeight;
+    }
+
+    /**
+     * 工具：处理 ID 字段展示，将 IdStr 和 Id 统一为 baseName
+     */
+    function cleanObjectIds(obj) {
+      if (Array.isArray(obj)) return obj.map(cleanObjectIds);
+      if (obj !== null && typeof obj === 'object') {
+        const cleaned = {};
+        const keys = Object.keys(obj);
+        const baseKeys = new Set();
+        keys.forEach(k => baseKeys.add(k.replace(/IdStr$/, '').replace(/Id$/, '')));
+        baseKeys.forEach(bk => {
+          const sK = bk + "IdStr", vK = bk + "Id";
+          if (keys.includes(sK)) cleaned[bk] = obj[sK];
+          else if (keys.includes(vK)) cleaned[bk] = obj[vK];
+          else cleaned[bk] = cleanObjectIds(obj[bk]);
+        });
+        return cleaned;
+      }
+      return obj;
+    }
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const response = await fetch(`list_files`);
+        const files = await response.json();
+        const select = document.getElementById('remoteFileSelect');
+        select.innerHTML = files.length ? '' : '<option value="">无可用文件</option>';
+        files.forEach(f => {
+          const opt = document.createElement('option');
+          opt.value = f;
+          opt.textContent = f;
+          select.appendChild(opt);
+        });
+      } catch (err) {
+        addLog("无法连接到远端服务器", true);
+      }
+    });
+
+    // 2. 加载远端选中的文件
+    async function loadRemoteFile() {
+      const filename = document.getElementById('remoteFileSelect').value;
+      if (!filename) return;
+
+      addLog(`正在从远端请求: ${filename}...`);
+      const tStart = performance.now();
+
+      try {
+        const response = await fetch(`get_file/${filename}`);
+        const json = await response.json();
+        processLoadedData(json, filename, tStart);
+      } catch (err) {
+        addLog(`远端读取失败: ${err.message}`, true);
+      }
+    }
+
+    // 3. 抽离公共的数据处理逻辑
+    function processLoadedData(json, filename, tStart) {
+      addLog(`解析成功: ${filename} (耗时: ${(performance.now() - tStart).toFixed(1)}ms)`);
+      if (!json.dumpDataType) {
+        addLog("错误：JSON 缺少 dumpDataType 字段", true);
+        return;
+      }
+      closeDetail();
+      g_rawData = json;
+      g_graphType = json.dumpDataType;
+      updateTopBar(json);
+      initNodeFilters();
+      processRankMetadata();
+      if (json.taskCount > 200000) {
+        addLog(`警告：任务总数(${json.taskCount})过大，已停止自动渲染。请先在左侧过滤 Rank 后点击“重新渲染”。`, true);
+      } else {
+        renderGraph();
+      }
+    }
+
+    // 4. 修改原有的 fileInput 监听器，复用 processLoadedData
+    document.getElementById('fileInput').addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const tStart = performance.now();
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          processLoadedData(JSON.parse(ev.target.result), file.name, tStart);
+        } catch (err) { addLog(`解析失败: ${err.message}`, true); }
+      };
+      reader.readAsText(file);
+    });
+
+    /**
+     * UI：更新顶部状态栏
+     */
+    function updateTopBar(json) {
+      const bar = document.getElementById('meta-info-bar');
+      const items = [
+        ['CMD', json.CMDType], ['Mode', json.dumpDataType],
+        ['Total Ranks', json.rankSize], ['Tasks', json.taskCount]
+      ];
+      bar.innerHTML = items.map(it => `<div class="meta-pill"><span style="color:#94a3b8">${it[0]}:</span> <span class="meta-v">${it[1] || '-'}</span></div>`).join('');
+    }
+
+    /**
+     * UI：初始化搜索输入框及图例
+     */
+    function initNodeFilters() {
+      const filterArea = document.getElementById('filter-inputs');
+      filterArea.innerHTML = '';
+      // 注意：这里不再清空 g_nodeFilters，或者初始化为空
+
+      const fields = g_graphType === "TASK_META" ? ["index", "stream", "notify"] : ["index", "queue", "pos", "notify"];
+
+      fields.forEach(f => {
+        const input = document.createElement('input');
+        input.className = 'input-control';
+        input.id = `filter-input-${f}`; // 给每个输入框一个 ID
+        const example = (f === "stream" || f === "notify") ? "(0,0,0,0)" : "123";
+        input.placeholder = `过滤 ${f.toUpperCase()} (${example})`;
+
+        // 移除原有的 input 监听器，仅保留回车触发功能
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') applyNodeFilters();
+        });
+
+        filterArea.appendChild(input);
+      });
+
+      renderLegend();
+    }
+
+    function applyNodeFilters() {
+      const fields = g_graphType === "TASK_META" ? ["index", "stream", "notify"] : ["index", "queue", "pos", "notify"];
+      let changed = false;
+
+      fields.forEach(f => {
+        const el = document.getElementById(`filter-input-${f}`);
+        if (el) {
+          const newVal = el.value.toLowerCase();
+          if (g_nodeFilters[f] !== newVal) {
+            g_nodeFilters[f] = newVal;
+            changed = true;
+          }
+        }
+      });
+
+      if (changed && g_renderer) {
+        addLog("执行属性过滤...");
+        g_renderer.refresh();
+      }
+    }
+
+    /**
+     * UI：渲染任务类型图例
+     */
+    function renderLegend() {
+      const legendArea = document.getElementById('legend-list');
+      legendArea.innerHTML = '';
+      const map = g_graphType === "TASK_META" ? TASK_MAP_STAGE_1 : TASK_MAP_STAGE_2;
+      Object.values(map).forEach(v => {
+        legendArea.innerHTML += `<div class="legend-item"><div class="dot" style="background:${v.color}">${v.char}</div><span><b>${v.char}</b>: ${v.name}</span></div>`;
+      });
+    }
+
+    /**
+     * 数据：提取 Rank 并生成过滤列表
+     */
+    function processRankMetadata() {
+      const rankSet = new Set();
+      g_rawData.data.forEach(item => rankSet.add(item.rankId));
+      g_allRanks = Array.from(rankSet).sort((a, b) => a - b);
+      g_selectedRanks.clear();
+      renderRankList('');
+      document.getElementById('rank-search').addEventListener('input', (e) => renderRankList(e.target.value));
+    }
+
+    function renderRankList(keyword) {
+      const container = document.getElementById('rank-list');
+      const filtered = g_allRanks.filter(r => r.toString().includes(keyword));
+
+      container.innerHTML = filtered.map(r => `
+        <div style="padding:2px 0">
+            <input type="checkbox" value="${r}" ${g_selectedRanks.has(r) ? 'checked' : ''}> Rank ${r}
+        </div>
+    `).join('');
+
+      container.querySelectorAll('input').forEach(el => {
+        el.addEventListener('change', e => {
+          const val = Number(e.target.value);
+          if (e.target.checked) {
+            if (g_selectedRanks.size >= 5) {
+              e.target.checked = false;
+              alert("性能建议：最多同时选择 5 个 Rank");
+              return;
+            }
+            g_selectedRanks.add(val);
+          } else {
+            g_selectedRanks.delete(val);
+          }
+        });
+      });
+    }
+
+    function applyRankFilter() {
+      renderGraph();
+    }
+
+    /**
+     * 核心：Sigma.js 图表渲染
+     */
+    function renderGraph() {
+      const t0 = performance.now();
+      if (g_renderer) g_renderer.kill();
+      document.getElementById('sigma-container').innerHTML = '';
+
+      const graph = new window.graphology.Graph({ type: 'directed', multi: true });
+      const filteredData = g_selectedRanks.size > 0
+        ? g_rawData.data.filter(d => g_selectedRanks.has(d.rankId))
+        : g_rawData.data;
+
+      const nodeMap = new Map();
+
+      // 1. 计算 Y 轴泳道
+      const rowKeys = Array.from(new Set(filteredData.map(d =>
+        g_graphType === "TASK_META" ? `R${d.rankId}_S${d.streamId}` : `R${d.rankId}_Q${d.queueId}`
+      ))).sort((a, b) => {
+        const numA = a.match(/\d+/g).map(Number);
+        const numB = b.match(/\d+/g).map(Number);
+        return numA[0] !== numB[0] ? numA[0] - numB[0] : numA[1] - numB[1];
+      });
+
+      const yPosMap = {};
+      const rankYGroup = {};
+      rowKeys.forEach((key, i) => {
+        const y = i * -75;
+        yPosMap[key] = y;
+        const rId = key.match(/R(\d+)_/)[1];
+
+        if (!rankYGroup[rId]) rankYGroup[rId] = [];
+        rankYGroup[rId].push(y);
+      });
+
+      // 2. 绘制 Rank 标签
+      Object.entries(rankYGroup).forEach(([rId, ys]) => {
+        graph.addNode(`label_${rId}`, {
+          x: -150, y: (Math.min(...ys) + Math.max(...ys)) / 2, size: 0,
+          label: `Rank ${rId}`, color: "#000", isRankLabel: true
+        });
+      });
+
+      // 3. 绘制节点
+      const metaX = {};
+      filteredData.forEach((item, i) => {
+        const nodeId = `n_${i}`;
+        const rowKey = g_graphType === "TASK_META" ? `R${item.rankId}_S${item.streamId}` : `R${item.rankId}_Q${item.queueId}`;
+        let x, label, color, infoName;
+
+        if (g_graphType === "TASK_META") {
+          const style = TASK_MAP_STAGE_1[item.taskType] || { char: '?', color: '#ccc', name: 'UNK' };
+          metaX[rowKey] = (metaX[rowKey] || 0) + 1;
+          x = metaX[rowKey] * 50;
+          label = style.char; color = style.color; infoName = style.name;
+        } else {
+          const style = Object.values(TASK_MAP_STAGE_2).find(v => v.name === item.task?.taskType) || { char: '?', color: '#ccc', name: item.task?.taskType };
+          x = item.pos * 50;
+          label = style.char; color = style.color; infoName = style.name;
+          nodeMap.set(`${item.rankId}_${item.queueId}_${item.pos}`, nodeId);
+        }
+
+        graph.addNode(nodeId, { x, y: yPosMap[rowKey], size: 15, label, color, rawData: item, infoName });
+      });
+
+      // 4. 绘制连线
+      if (g_graphType === "TASK_META") {
+        const lastNode = {}, recMap = {}, waitMap = {};
+        filteredData.forEach((item, i) => {
+          const id = `n_${i}`, sk = `R${item.rankId}_S${item.streamId}`;
+          if (lastNode[sk]) graph.addEdge(lastNode[sk], id, { color: "#e2e8f0", size: 1 });
+          lastNode[sk] = id;
+          const nid = item.taskData?.notifyId;
+          if (nid !== undefined) {
+            if (item.taskType === 1) (recMap[nid] = recMap[nid] || []).push(id);
+            if (item.taskType === 0) (waitMap[nid] = waitMap[nid] || []).push(id);
+          }
+        });
+        Object.keys(recMap).forEach(nid => {
+          const rs = recMap[nid], ws = waitMap[nid] || [];
+          for (let i = 0; i < Math.min(rs.length, ws.length); i++)
+            graph.addEdge(rs[i], ws[i], { color: "#4f46e5", size: 2, type: "arrow" });
+        });
+      } else {
+        filteredData.forEach((item, i) => {
+          const cur = `n_${i}`;
+          if (item.children) item.children.forEach(c => {
+            const tar = nodeMap.get(`${c.rankId}_${c.queueId}_${c.pos}`);
+            if (tar) {
+              const internal = (c.rankId === item.rankId && c.queueId === item.queueId);
+              graph.addEdge(cur, tar, { color: internal ? "#e2e8f0" : "#4f46e5", size: internal ? 1 : 2 });
+            }
+          });
+        });
+      }
+
+      g_graph = graph;
+      g_renderer = new Sigma(graph, document.getElementById('sigma-container'), {
+        autoRescale: false,
+        itemSizesReference: "positions",
+        labelRenderedSizeThreshold: 0,
+        labelDensity: 100,
+      });
+
+      setupReducers();
+      setupEvents();
+      addLog(`渲染完成 (耗时: ${(performance.now() - t0).toFixed(1)}ms)`);
+    }
+
+    /**
+     * 引擎：节点与连线的动态渲染逻辑 (Reducers)
+     */
+
+    /**
+     * 优化后的 Reducers 逻辑
+     * 引入了邻居预计算机制，极大降低大规模数据下的渲染压力
+     */
+    let g_neighborNodes = new Set(); // 用于缓存当前选中节点的邻居
+
+    function setupReducers() {
+      // 抽离匹配逻辑，减少重复计算
+      const getMatchStatus = (nodeId) => {
+        const raw = g_graph.getNodeAttribute(nodeId, "rawData");
+        if (!raw) return true;
+        for (const [k, v] of Object.entries(g_nodeFilters)) {
+          if (!v) continue;
+          if (k === 'index' && !raw.index?.toString().includes(v)) return false;
+          if (k === 'queue' && !raw.queueId?.toString().includes(v)) return false;
+          if (k === 'pos' && !raw.pos?.toString().includes(v)) return false;
+          if (k === 'stream' && !raw.streamIdStr?.toLowerCase().includes(v)) return false;
+          if (k === 'notify') {
+            const nid = (g_graphType === "TASK_META" ? raw.taskData?.notifyIdStr : raw.task?.notifyIdStr) || "";
+            if (!nid.toLowerCase().includes(v)) return false;
+          }
+        }
+        return true;
+      };
+
+      g_renderer.setSetting("nodeReducer", (node, data) => {
+        const res = { ...data };
+
+        // 1. 处理 Rank 标签（始终显示）
+        if (data.isRankLabel) return res;
+
+        // 2. 处理节点点击高亮逻辑
+        if (g_selectedNodeId) {
+          if (node === g_selectedNodeId) {
+            res.highlighted = true;
+            res.zIndex = 100;
+          } else if (g_neighborNodes.has(node)) {
+            // 邻居节点保持原样
+            res.highlighted = false;
+          } else {
+            // 非邻居节点淡化并隐藏标签
+            res.color = "#f1f5f9";
+            res.label = "";
+            res.zIndex = 0;
+          }
+          return res;
+        }
+
+        // 3. 处理搜索过滤逻辑
+        const matched = getMatchStatus(node);
+        if (!matched) {
+          res.color = "#f1f5f9";
+          res.label = "";
+        } else {
+          res.label = g_showLabels ? data.label : "";
+        }
+        return res;
+      });
+
+      g_renderer.setSetting("edgeReducer", (edge, data) => {
+        const res = { ...data };
+        const [s, t] = g_graph.extremities(edge);
+
+        // 逻辑 1：如果有节点被选中（高亮模式）
+        if (g_selectedNodeId) {
+          if (s === g_selectedNodeId || t === g_selectedNodeId) {
+            res.size = 3;
+            res.zIndex = 10;
+            res.hidden = false; // 强制显示关联线
+          } else {
+            res.hidden = true; // 隐藏非关联线
+          }
+          return res;
+        }
+
+        // 逻辑 2：普通状态下，受“显示连线”开关控制
+        if (!g_showEdges) {
+          res.hidden = true;
+          return res;
+        }
+
+        // 逻辑 3：开关开启时的默认过滤显示
+        const matchedS = getMatchStatus(s);
+        const matchedT = getMatchStatus(t);
+        if (!matchedS || !matchedT) {
+          res.color = "rgba(226, 232, 240, 0.2)";
+          res.size = 1;
+        }
+
+        res.hidden = false;
+        return res;
+      });
+    }
+
+    /**
+     * 优化后的事件监听
+     */
+    function setupEvents() {
+
+      g_renderer.on("clickNode", ({ node }) => {
+        if (g_graph.getNodeAttribute(node, "isRankLabel")) return;
+
+        // 无论开关如何，都显示详情面板
+        showDetail(node);
+
+        // 仅在开关开启时执行高亮逻辑（性能消耗点）
+        if (g_enableHighlight) {
+          g_selectedNodeId = node;
+          g_neighborNodes = new Set(g_graph.neighbors(node));
+          g_renderer.refresh();
+        }
+      });
+
+      g_renderer.on("clickStage", () => {
+        if (g_enableHighlight) {
+          g_selectedNodeId = null;
+          g_neighborNodes.clear();
+          g_renderer.refresh();
+        }
+        closeDetail();
+      });
+    }
+
+    function toggleLabels(enabled) {
+      g_showLabels = enabled;
+      if (g_renderer) g_renderer.refresh();
+    }
+
+    function toggleHighlight(checked) {
+      g_enableHighlight = checked;
+    }
+
+    function toggleEdges(enabled) {
+      g_showEdges = enabled;
+      if (g_renderer) g_renderer.refresh();
+    }
+
+    /**
+     * 详情：右侧属性面板展示
+     */
+    function showDetail(nodeId) {
+      const attr = g_graph.getNodeAttributes(nodeId);
+      const raw = cleanObjectIds(attr.rawData);
+      const panel = document.getElementById('detail-panel');
+      panel.style.display = 'flex';
+
+      document.getElementById('detail-header').innerHTML = `
+        <span class="close-btn" onclick="closeDetail()">×</span>
+        <div style="font-size:10px; opacity:0.6;">TASK DETAILS</div>
+        <div style="font-size:20px; font-weight:800; margin-top:4px"># ${raw.index}</div>
+        <div style="margin-top:10px"><span style="background:${attr.color}; color:white; padding:3px 10px; border-radius:4px; font-size:11px; font-weight:700">${attr.infoName}</span></div>
+    `;
+
+      let html = '';
+      const biz = raw.task || raw.taskData || null;
+      if (biz) {
+        html += `<div style="padding:15px 15px 0 15px; font-weight:800; font-size:12px; color:var(--primary)">业务数据</div>`;
+        html += `<div class="info-card" style="border-top:3px solid var(--primary)">${renderFields(biz)}</div>`;
+      }
+
+      html += `<div style="padding:0 15px; font-weight:800; font-size:12px">元数据</div><div class="info-card">`;
+      for (let [k, v] of Object.entries(raw)) {
+        if (['task', 'taskData', 'children', 'parents'].includes(k)) continue;
+        if (typeof v !== 'object') html += `<div class="info-row"><div class="info-label">${k}</div><div class="info-value">${v}</div></div>`;
+      }
+      html += `</div>`;
+
+      if (raw.parents?.length) html += `<div style="padding:0 15px; font-weight:800; font-size:12px">PARENTS</div><div class="info-card">${renderConn(raw.parents)}</div>`;
+      if (raw.children?.length) html += `<div style="padding:0 15px; font-weight:800; font-size:12px">CHILDREN</div><div class="info-card">${renderConn(raw.children)}</div>`;
+
+      document.getElementById('detail-content').innerHTML = html;
+    }
+
+    function closeDetail() {
+      // 1. 仅仅隐藏 UI 面板，这是瞬时的
+      document.getElementById('detail-panel').style.display = 'none';
+
+      // 2. 只有当当前存在高亮状态时，才需要刷新图表来恢复原状
+      // 如果用户关闭了“点击高亮”开关，或者本来就没有选中节点，就不执行 refresh
+      if (g_selectedNodeId !== null) {
+        g_selectedNodeId = null;
+        g_neighborNodes.clear();
+
+        // 如果数据量巨大，可以加一个日志提示
+        // addLog("清理高亮状态...");
+
+        if (g_renderer) {
+          g_renderer.refresh();
+        }
+      }
+    }
+
+    function renderFields(obj) {
+      let res = '';
+      for (let [k, v] of Object.entries(obj)) {
+        if (v !== null && typeof v === 'object') {
+          res += `<div style="background:#f8fafc; padding:5px 12px; font-size:10px; font-weight:700; border-bottom:1px solid #e2e8f0">${k}</div><div style="padding-left:10px">${renderFields(v)}</div>`;
+        } else {
+          res += `<div class="info-row"><div class="info-label">${k}</div><div class="info-value">${v}</div></div>`;
+        }
+      }
+      return res;
+    }
+
+    function renderConn(arr) {
+      return arr.map(item => `<div style="font-size:10px; padding:8px; border-bottom:1px solid #f1f5f9">
+        ${Object.entries(item).map(([k, v]) => `<span style="color:#64748b">${k}:</span><b>${v}</b>`).join(' | ')}
+    </div>`).join('');
+    }
+  </script>
+</body>
+
+</html>
