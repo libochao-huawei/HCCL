@@ -171,10 +171,6 @@ HcclResult InsTempAllGatherNHR::GetStepInfo(u32 step, u32 nSteps, AicpuNHRStepIn
 HcclResult InsTempAllGatherNHR::LocalDataCopy(const std::vector<ThreadHandle> &threads)
 
 {
-    if (tempAlgParams_.buffInfo.inputPtr == tempAlgParams_.buffInfo.hcclBuff.addr) {
-        HCCL_INFO("[InsTempAllGatherNHR] LocalDataCopy skip because input is scratch" );
-        return HcclResult::HCCL_SUCCESS;
-    }
     u32 myAlgRank = 0;
     CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], myAlgRank));
 
@@ -191,6 +187,9 @@ HcclResult InsTempAllGatherNHR::LocalDataCopy(const std::vector<ThreadHandle> &t
 
         const u64 inOff = tempAlgParams_.inputSliceStride * myAlgRank + inBaseOff;
         const u64 scOff = tempAlgParams_.sliceSize * myAlgRank + scratchBaseoff;
+        if (tempAlgParams_.buffInfo.inputPtr == tempAlgParams_.buffInfo.hcclBuff.addr && inOff == scOff) {
+            continue;
+        }
         u64 sliceCount = sliceSize / dataTypeSize;
         DataSlice srcSlices(tempAlgParams_.buffInfo.inputPtr, inOff, sliceSize, sliceCount);
         DataSlice dstSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scOff, sliceSize, sliceCount);
