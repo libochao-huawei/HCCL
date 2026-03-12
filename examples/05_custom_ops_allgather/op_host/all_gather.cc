@@ -107,16 +107,17 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
          }
          isNewContext = true;
     }
-
     HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
     
     // Cast to our struct type
     AlgResourceCtxSerializable* resCtx = static_cast<AlgResourceCtxSerializable*>(ctx);
+    HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
     
     // Initialize the object in the allocated memory (placement new) CRITICAL STEP
     if (isNewContext) {
         new (resCtx) AlgResourceCtxSerializable();
     }
+    HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
     
     // Store in param for later use (casting to void* or keeping strict typing if possible)
     // OpParam in common.h has `AlgResourceCtx* resCtx`. We need to match types or reinterpret_cast.
