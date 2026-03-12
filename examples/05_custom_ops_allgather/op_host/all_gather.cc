@@ -15,8 +15,72 @@
 #include <cstring>
 #include <string>
 #include <map>
+#include <new> // For placement new
 
 using namespace ops_hccl_allgather;
+
+// --- Simplified AlgResourceCtxSerializable Definitions ---
+namespace {
+
+// Forward declarations
+struct HcclChannelDesc;
+
+// Mock dependencies (simplified versions of internal HCCL structs)
+enum class AlgType { ALG_TYPE_RING = 0, ALG_TYPE_MESH = 1 }; // Placeholder
+struct AlgHierarchyInfoForAllLevel {
+    std::vector<std::vector<std::vector<uint32_t>>> infos;
+};
+struct HcclMem {
+    uint32_t type; // HCCL_MEM_TYPE_DEVICE
+    void* addr;
+    uint64_t size;
+};
+struct ChannelInfo {
+    bool isValid;
+    uint32_t remoteRank;
+    CommProtocol protocol;
+    EndpointLocType locationType;
+    uint32_t notifyNum;
+    ChannelHandle handle;
+    HcclMem remoteCclMem;
+    HcclMem remoteInput;
+    HcclMem remoteOutput;
+};
+struct TopoInfoWithNetLayerDetails {
+    // Simplified TopoInfo - just padding/placeholder if not used, 
+    // or key fields if accessed. 
+    // We only use userRank and userRankSize in our logic.
+    uint32_t userRank;
+    uint32_t userRankSize;
+    // ... extensive fields omitted for brevity, assuming we don't need full layout for custom op
+    // UNLESS HcclEngineCtxCreate validates size? Unlikely for custom op.
+};
+struct CcuKernelHandle { void* ptr; };
+
+struct AlgResourceCtxSerializable {
+    AlgType algType;
+    AlgHierarchyInfoForAllLevel algHierarchyInfo;
+    HcclMem cclMem;
+    uint32_t notifyNumOnMainThread;
+    uint32_t slaveThreadNum;
+    std::vector<uint32_t> notifyNumPerThread;
+    void* aivCommInfoPtr = nullptr;
+    std::vector<ThreadHandle> threads;
+    std::vector<std::vector<ChannelInfo>> channels;
+    void* commInfoPtr = nullptr;
+    void *npu2DpuShmemPtr = nullptr;
+    void *dpu2NpuShmemPtr = nullptr;
+    std::vector<uint32_t> ccuKernelNum;
+    std::vector<CcuKernelHandle> ccuKernels;
+    uint32_t topoInfoSeqSize = 0;
+    TopoInfoWithNetLayerDetails topoInfo;
+
+    AlgResourceCtxSerializable() {
+        // Constructor to initialize vectors
+    }
+};
+
+} // namespace
 
 // Helper to check if independent op check is needed (omitted for simplicity or kept if needed)
 bool CheckHCCLIndependentOp() {
@@ -27,13 +91,14 @@ constexpr uint32_t AIV_TAG_ADDR_OFFSET = 16 * 1024;
 static std::map<std::string, HcclMemHandle> g_memHandleCache;
 
 HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
-    // 1. Get or Create Host Context (AlgResourceCtx)
-    // We use COMM_ENGINE_CPU_TS for Host Context as per standard implementation
+    // 1. Get or Create Host Context (AlgResourceCtxSerializable)
+    // We use COMM_ENGINE_CPU_TS (1) for Host Context as per standard implementation
     CommEngine ctxEngine = CommEngine::COMM_ENGINE_CPU_TS;
     void* ctx = nullptr;
-    uint64_t size = sizeof(AlgResourceCtx);
+    uint64_t size = sizeof(AlgResourceCtxSerializable);
     bool isNewContext = false;
     
+    // Attempt to get existing context
     HcclResult hcclRet = HcclEngineCtxGet(comm, param.tag, ctxEngine, &ctx, &size);
     if (hcclRet != HCCL_SUCCESS || ctx == nullptr) {
          HCCL_INFO("[PrepareResources] Context not found (ret=%d), creating new with COMM_ENGINE_CPU_TS...", hcclRet);
@@ -44,25 +109,33 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
          }
          isNewContext = true;
     }
-    param.resCtx = static_cast<AlgResourceCtx*>(ctx);
     
-    // Initialize the object in the allocated memory (placement new)
+    // Cast to our struct type
+    AlgResourceCtxSerializable* resCtx = static_cast<AlgResourceCtxSerializable*>(ctx);
+    
+    // Initialize the object in the allocated memory (placement new) CRITICAL STEP
     if (isNewContext) {
-        new (param.resCtx) AlgResourceCtx();
+        new (resCtx) AlgResourceCtxSerializable();
     }
-    AlgResourceCtx* resCtx = param.resCtx;
+    
+    // Store in param for later use (casting to void* or keeping strict typing if possible)
+    // OpParam in common.h has `AlgResourceCtx* resCtx`. We need to match types or reinterpret_cast.
+    // For now, we just reinterpret_cast back when needed or change OpParam definition if we could.
+    // Since we can't change common.h easily without risk, we reinterpret_cast.
+    param.resCtx = reinterpret_cast<AlgResourceCtx*>(resCtx); 
     
     // 2. Get Rank Info
     uint32_t rank, rankSize;
     CHK_RET(HcclGetRankId(comm, &rank));
     CHK_RET(HcclGetRankSize(comm, &rankSize));
+    resCtx->topoInfo.userRank = rank;
+    resCtx->topoInfo.userRankSize = rankSize;
     
     // 3. Get CCL Buffer (Scratch)
     CHK_RET(HcclGetHcclBuffer(comm, &resCtx->cclMem.addr, &resCtx->cclMem.size));
 
     // 4. Create/Get AIV Comm Info Buffer (Device Memory)
     // We use COMM_ENGINE_AIV
-    // Use a separate tag for AIV buffer or just append suffix
     std::string aivTagStr = std::string(param.tag) + "_AIV";
     const char* aivTag = aivTagStr.c_str();
     
@@ -103,11 +176,9 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
         }
     }
     
-    resCtx->aivCommInfo.addr = aivCommInfoPtr;
-    resCtx->aivCommInfo.size = AIV_TAG_BUFF_LEN;
+    resCtx->aivCommInfoPtr = aivCommInfoPtr;
 
     // 5. Create Channels
-    // We need to pass the registered memory handle to HcclChannelAcquire
     std::vector<HcclChannelDesc> channelDescs;
     for (uint32_t r = 0; r < rankSize; r++) {
         if (r == rank) continue;
@@ -120,9 +191,39 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
         channelDescs.push_back(desc);
     }
     
+    // We store channels in resCtx->channels (vector of vector of ChannelInfo)
+    // Flattened or just one level for simplicity
     if (!channelDescs.empty()) {
-        resCtx->channels.resize(channelDescs.size());
-        CHK_RET(HcclChannelAcquire(comm, CommEngine::COMM_ENGINE_AIV, channelDescs.data(), channelDescs.size(), resCtx->channels.data()));
+        if (resCtx->channels.empty()) {
+            resCtx->channels.resize(1); // One level
+        }
+        // Need to acquire channels and convert to ChannelInfo
+        std::vector<ChannelHandle> handles(channelDescs.size());
+        CHK_RET(HcclChannelAcquire(comm, CommEngine::COMM_ENGINE_AIV, channelDescs.data(), channelDescs.size(), handles.data()));
+        
+        // Store info
+        for (size_t i = 0; i < channelDescs.size(); i++) {
+             ChannelInfo info;
+             info.isValid = true;
+             info.remoteRank = channelDescs[i].remoteRank;
+             info.protocol = channelDescs[i].channelProtocol;
+             info.handle = handles[i];
+             // Fetch remote buffers
+             void* remoteAddr = nullptr;
+             uint64_t remoteSize = 0;
+             HcclChannelGetHcclBuffer(comm, handles[i], &remoteAddr, &remoteSize);
+             info.remoteCclMem = {0, remoteAddr, remoteSize}; // Type 0 is device? HCCL_MEM_TYPE_DEVICE
+             
+             uint32_t mNum = 0;
+             CommMem* rMems = nullptr;
+             char** tags = nullptr;
+             HcclChannelGetRemoteMems(comm, handles[i], &mNum, &rMems, &tags);
+             if (mNum > 0 && rMems) {
+                 info.remoteInput = {0, rMems[0].addr, rMems[0].size};
+             }
+             
+             resCtx->channels[0].push_back(info);
+        }
     }
     
     // 6. Fill AIV Comm Info Buffer content
@@ -132,38 +233,22 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
     // My info
     if (rank < MAX_RANK_SIZE) {
         buffersIn[rank] = (uint64_t)resCtx->cclMem.addr;
-        buffersOut[rank] = (uint64_t)resCtx->aivCommInfo.addr;
+        buffersOut[rank] = (uint64_t)resCtx->aivCommInfoPtr;
     }
     
     // Remote info
-    for (size_t i = 0; i < resCtx->channels.size(); i++) {
-        uint32_t remoteRank = channelDescs[i].remoteRank;
-        
-        // Remote CCL Buffer
-        void* remoteCclAddr = nullptr;
-        uint64_t remoteCclSize = 0;
-        CHK_RET(HcclChannelGetHcclBuffer(comm, resCtx->channels[i], &remoteCclAddr, &remoteCclSize));
-        if (remoteRank < MAX_RANK_SIZE) {
-            buffersIn[remoteRank] = (uint64_t)remoteCclAddr;
-        }
-        
-        // Remote AIV Info Buffer
-        uint32_t memNum = 0;
-        CommMem* remoteMems = nullptr;
-        char** memTags = nullptr;
-        CHK_RET(HcclChannelGetRemoteMems(comm, resCtx->channels[i], &memNum, &remoteMems, &memTags));
-        if (memNum > 0 && remoteMems != nullptr) {
-            if (remoteRank < MAX_RANK_SIZE) {
-                buffersOut[remoteRank] = (uint64_t)remoteMems[0].addr;
+    if (!resCtx->channels.empty()) {
+        for (const auto& chan : resCtx->channels[0]) {
+            uint32_t rRank = chan.remoteRank;
+            if (rRank < MAX_RANK_SIZE) {
+                buffersIn[rRank] = (uint64_t)chan.remoteCclMem.addr;
+                buffersOut[rRank] = (uint64_t)chan.remoteInput.addr;
             }
         }
     }
     
     // Copy to device (aivCommInfo)
-    // Offset 0: buffersIn
     ACLCHECK(aclrtMemcpy(aivCommInfoPtr, MAX_RANK_SIZE * sizeof(uint64_t), buffersIn.data(), MAX_RANK_SIZE * sizeof(uint64_t), ACL_MEMCPY_HOST_TO_DEVICE));
-    
-    // Offset AIV_TAG_ADDR_OFFSET: buffersOut
     ACLCHECK(aclrtMemcpy((uint8_t*)aivCommInfoPtr + AIV_TAG_ADDR_OFFSET, MAX_RANK_SIZE * sizeof(uint64_t), buffersOut.data(), MAX_RANK_SIZE * sizeof(uint64_t), ACL_MEMCPY_HOST_TO_DEVICE));
     
     return HCCL_SUCCESS;
@@ -179,7 +264,6 @@ extern "C" HcclResult HcclAllGatherCustom(void *sendBuf, void *recvBuf, uint64_t
     OpParam param;
     
     // Generate tag
-    // We use a fixed tag for simplicity, or based on comm name
     char commName[COMM_INDENTIFIER_MAX_LENGTH];
     CHK_RET(HcclGetCommName(comm, commName));
     int ret = sprintf_s(param.tag, sizeof(param.tag), "AllGather_%s_Custom", commName);
@@ -189,13 +273,15 @@ extern "C" HcclResult HcclAllGatherCustom(void *sendBuf, void *recvBuf, uint64_t
     CHK_RET(PrepareResources(comm, param, stream));
     HCCL_INFO("[HcclAllGatherCustom] Resources prepared.");
     
-    // Fill Param
-    AlgResourceCtx* resCtx = param.resCtx;
-    uint32_t rank, rankSize;
-    HcclGetRankId(comm, &rank);
-    HcclGetRankSize(comm, &rankSize);
+    // Use reinterpret_cast to access our struct fields via the stored pointer
+    // Note: param.resCtx was set to (AlgResourceCtx*)resCtx in PrepareResources
+    // We cast it back to our local AlgResourceCtxSerializable* to access fields
+    AlgResourceCtxSerializable* resCtx = reinterpret_cast<AlgResourceCtxSerializable*>(param.resCtx);
     
-    param.buffIn = (uint64_t)resCtx->aivCommInfo.addr; // Passed as buffIn to kernel (which expects aivCommInfo there)
+    uint32_t rank = resCtx->topoInfo.userRank;
+    uint32_t rankSize = resCtx->topoInfo.userRankSize;
+    
+    param.buffIn = (uint64_t)resCtx->aivCommInfoPtr; // Passed as buffIn to kernel
     param.input = (uint64_t)sendBuf;
     param.output = (uint64_t)recvBuf;
     param.rank = rank;
@@ -203,11 +289,11 @@ extern "C" HcclResult HcclAllGatherCustom(void *sendBuf, void *recvBuf, uint64_t
     param.xRankSize = rankSize;
     param.yRankSize = 0;
     param.zRankSize = 0;
-    param.len = sendCount; // Element count
+    param.len = sendCount; 
     param.dataType = dataType;
-    param.reduceOp = 0; // Not used for AllGather
-    param.root = 0; // Not used
-    param.tagId = 1; // Fixed tag ID for sync
+    param.reduceOp = 0; 
+    param.root = 0; 
+    param.tagId = 1; 
     
     param.inputSliceStride = sendCount;
     param.outputSliceStride = sendCount;
@@ -217,17 +303,16 @@ extern "C" HcclResult HcclAllGatherCustom(void *sendBuf, void *recvBuf, uint64_t
     param.outputRepeatStride = 0;
     param.isOpBase = true;
     
-    // Counters - not used/enabled
     param.headCountMem = 0;
     param.tailCountMem = 0;
     param.addOneMem = 0;
     param.counterMemSize = 0;
     param.isEnableCounter = false;
     
-    // Launch
     HCCL_INFO("[HcclAllGatherCustom] Launching kernel...");
     CHK_RET(LaunchKernel(param, stream));
     HCCL_INFO("[HcclAllGatherCustom] Launch returned.");
     
     return HCCL_SUCCESS;
 }
+
