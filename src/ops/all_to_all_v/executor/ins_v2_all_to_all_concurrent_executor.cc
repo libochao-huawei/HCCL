@@ -196,7 +196,7 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::RestoreSendRecvData(
-    const OpParam &param, const AlgResourceCtxSerializable& resCtx)
+    const OpParam &param)
 {
     // 从varData把值取出来
     const u64* data = reinterpret_cast<const u64*>(param.varData);
@@ -227,7 +227,7 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::SplitSendRecvData(
-    const OpParam &param, const AlgResourceCtxSerializable& resCtx, std::vector<SendRecvData>& splitData)
+    std::vector<SendRecvData>& splitData)
 {
     splitData.resize(CONCURRENT_NUM);
     for (u32 i = 0; i < CONCURRENT_NUM; i++) {
@@ -367,8 +367,7 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::CalcMaxDataCountPerLoop(
-    const OpParam &param, TemplateDataParams &tempAlgParams, const std::vector<u64> scratchMulti,
-    std::vector<u64>& maxDataCountPerLoop)
+    const OpParam &param, const std::vector<u64> scratchMulti, std::vector<u64>& maxDataCountPerLoop)
 {
     // 计算最小传输大小
     u64 transportBoundDataSize = UB_MAX_DATA_SIZE;
@@ -379,7 +378,7 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
     }
 
     for (u32 i = 0; i < scratchMulti.size(); i++) {
-        if (scratchMulti[i] != 0) {
+        if ((scratchMulti[i] != 0) && (scratchMultiSum != 0)) {
             HCCL_INFO("[InsV2AllToAllConcurrentExecutor]maxTmpMemSize_ = %lu", maxTmpMemSize_);
             u64 scratchBoundDataSize = maxTmpMemSize_ / scratchMultiSum / HCCL_MIN_SLICE_ALIGN * HCCL_MIN_SLICE_ALIGN;
             maxDataSizePerLoop = std::min(transportBoundDataSize, scratchBoundDataSize);
@@ -410,7 +409,7 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::SetTemplateDataParams(
-    TemplateDataParams &tempAlgParams, SendRecvData &splitData,
+    TemplateDataParams &tempAlgParams, cosnt SendRecvData &splitData,
     u32 loop, u64 currDataCount, u64 processedDataCount, u64 maxDataCountPerLoop)
 {
     tempAlgParams.count = currDataCount;
