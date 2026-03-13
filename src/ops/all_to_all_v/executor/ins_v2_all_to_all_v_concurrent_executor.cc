@@ -285,7 +285,7 @@ HcclResult InsV2AllToAllVConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     std::shared_ptr<InsAlgTemplate1> algTemplateMesh =
         std::make_shared<InsAlgTemplate1>(param, resCtx.topoInfo.userRank, subCommRanks1);
 
-    CHK_PRT_RET(SetAlltoAllLocalSendRecvInfo(param, localSendRecvInfo_),
+    CHK_PRT_RET(SetAlltoAllLocalSendRecvInfo(param),
         HCCL_ERROR("[InitCommInfo] unable to init DataInfo."),
         HcclResult::HCCL_E_PARA);
 
