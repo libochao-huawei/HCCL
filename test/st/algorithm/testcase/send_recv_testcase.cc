@@ -62,7 +62,7 @@ std::unordered_set<RankId> GetRankIds(const std::map<RankId, RankId> &sendRecvMa
 enum class SendRecvOpType {
     SEND = 0,
     RECV = 1,
-}
+};
 
 HcclResult RunSendRecvTask(RankId rankId, RankId remoteRankId, SendRecvOpType opType, u32 dataCount, HcclDataType dataType) {
     // 1.SetDevice
