@@ -109,7 +109,7 @@ HcclResult AicpuKernelLaunch(OpParam &param);
 HcclResult HcclAivKernelEntranceLaunch(OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
     AlgResourceCtxSerializable &resCtxHost);
 
-HcclResult HcclGetOpExpansionMode(OpParam &param);
+HcclResult HcclGetOpExpansionMode(HcclComm comm, OpParam &param);
 
 HcclResult DecideHcclOpExpansionMode(HcclComm comm, HcclOpExpansionMode &finalMod);
 
