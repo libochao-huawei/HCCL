@@ -258,10 +258,13 @@ SelectorStatus AllReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayer
     CHK_PRT_RET(opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD,
         HCCL_ERROR("[AllReduceAutoSelector] ReduceOp [PROD]] is not supported yet for aicpu mode."),
         SelectorStatus::NOT_MATCH);
+<<<<<<< Updated upstream
     if (Is64BitDataType(opParam.DataDes.dataType)) {
         HCCL_ERROR("[AllReduceAutoSelector][SelectAicpuAlgo] INT64, UINT64, FP64 only support in-box fullmesh algo type now.");
         return SelectorStatus::NOT_MATCH;
     }
+=======
+>>>>>>> Stashed changes
 
     if (topoInfo->topoLevelNums > 1) {
         if (topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] == 1) {
@@ -273,6 +276,11 @@ SelectorStatus AllReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayer
         }
     } else {
         return SelectMeshAlgoAicpu(topoInfo, opParam, selectAlgName);
+    }
+    
+    if (Is64BitDataType(opParam.DataDes.dataType)) {
+        HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64 only support in-box fullmesh algo type now.");
+        return SelectorStatus::NOT_MATCH;
     }
 
     HCCL_DEBUG("[AllReduceAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
