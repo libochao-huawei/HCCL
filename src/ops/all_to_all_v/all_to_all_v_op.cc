@@ -8,12 +8,12 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "all_to_all_v_op.h" 
-#include "op_common_ops.h" 
-#include "topo_host.h" 
-#include <algorithm>	 
-#include <future>	 
-#include <map>	 
+#include "all_to_all_v_op.h"
+#include "op_common_ops.h"
+#include "topo_host.h"
+#include <algorithm>
+#include <future>
+#include <map>
 #include <string>
 
 using namespace std;
@@ -120,8 +120,8 @@ HcclResult HcclAlltoAllV(const void *sendBuf, const void *sendCounts, const void
     CHK_RET(CheckDataType(recvType, false));
 
     // 底层走AlltoAllV
-    CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlace(sendBuf, sendCounts, sdispls, recvBuf, recvCounts,
-        rdispls, recvType, comm, stream, tag, HcclCMDType::HCCL_CMD_ALLTOALLV, rankSize), tag.c_str());
+    CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlace(sendBuf, sendCounts, sdispls, recvBuf, recvCounts, rdispls, recvType, comm, stream,
+        tag, HcclCMDType::HCCL_CMD_ALLTOALLV, rankSize), tag.c_str());
 
     return HCCL_SUCCESS;
 }
@@ -200,8 +200,8 @@ HcclResult HcclAlltoAllVC(const void *sendBuf, const void *sendCountMatrix, Hccl
     CHK_RET(CheckDataType(recvType, false));
 
     // 底层走AlltoAllV
-    CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlace(sendBuf, sendCounts.data(), sdispls.data(),	 
-        recvBuf, recvCounts.data(), rdispls.data(), recvType, comm, stream, tag,	 
+    CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlace(sendBuf, sendCounts.data(), sdispls.data(),
+        recvBuf, recvCounts.data(), rdispls.data(), recvType, comm, stream, tag,
         HcclCMDType::HCCL_CMD_ALLTOALLVC, rankSize), tag.c_str());
 
     return HCCL_SUCCESS;
@@ -323,8 +323,9 @@ HcclResult AlltoAllVOutPlace(const void *sendBuf, const void *sendCounts, const 
             p->~OpParam();
             free(p);
         }
-    }; 
+    };
     std::unique_ptr<OpParam, decltype(deleter)> paramPtr(tmpParamPtr, deleter);
+    OpParam &param = *paramPtr;
 
     CHK_RET(HcclGetCommName(comm, param.commName));
     param.stream = stream;
