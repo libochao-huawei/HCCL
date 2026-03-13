@@ -38,7 +38,7 @@ add_custom_command(
     OUTPUT ${KERNEL_OBJ}
     # 1. Compile to temporary object file
     COMMAND ${CMAKE_ASC_COMPILER} -c -x cce -O2 ${KERNEL_SRC} -o ${KERNEL_TMP_OBJ}
-        --cce-aicore-arch=dav-c310-vec
+        --cce-aicore-arch=dav-c220
         --cce-aicore-input-parameter-size=28000
         --cce-aicore-only
         -mllvm -cce-aicore-function-stack-size=0x8000
