@@ -26,18 +26,17 @@ SelectorStatus AlltoAllVCAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithN
     (void)opParam;
     (void)configAlgMap;
     if (topoInfo->topoLevelNums > 1) {
-        HCCL_WARNING("[Algo][AlltoAllVAutoSelector] levelNum > 1 is not supported yet for ccu_ms mode.");
+        HCCL_DEBUG("[Algo][AlltoAllVAutoSelector] levelNum > 1 is not supported yet for ccu_ms mode.");
         return SelectorStatus::NOT_MATCH;
     }
 
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-        HCCL_INFO("Setlect CcuAlltoAllVCMesh1D!");
         selectAlgName = "CcuAlltoAllVCMesh1D";
     } else {
-        HCCL_ERROR("hccl algo no match");
+        HCCL_DEBUG("hccl algo no match");
         return SelectorStatus::NOT_MATCH;
     }
-    HCCL_INFO("[AlltoAllVCAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
+    HCCL_DEBUG("[AlltoAllVCAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
     return SelectorStatus::MATCH;
 }
 
@@ -49,8 +48,12 @@ SelectorStatus AlltoAllVCAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLaye
     HCCL_DEBUG("[AlltoAllVCAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
     (void)opParam;
     (void)configAlgMap;
+    if (topoInfo->topoLevelNums > 1) {
+        HCCL_ERROR("[AlltoAllVCAutoSelector][%s] hccl algo no match");
+        return SelectorStatus::NOT_MATCH;
+    }
     selectAlgName = "InsAlltoAllVCMesh1D";
-    HCCL_INFO("[AlltoAllVCAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
+    HCCL_DEBUG("[AlltoAllVCAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
     return SelectorStatus::MATCH;
 }
 
