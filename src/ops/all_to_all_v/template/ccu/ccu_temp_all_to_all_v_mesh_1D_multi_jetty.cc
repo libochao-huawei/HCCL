@@ -76,8 +76,7 @@ HcclResult CcuTempAllToAllVMesh1DMultiJetty::KernelRun(const OpParam& param, con
 
     uint64_t inputAddr          = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr         = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
-    uint64_t token              = hcomm::CcuRep::GetTokenInfo(reinterpret_cast<uint64_t>(buffInfo_.outputPtr),
-                                                       static_cast<uint64_t>(buffInfo_.outputSize));
+    uint64_t token              = hcomm::CcuRep::GetTokenInfo(PointerToAddr(buffInfo_.outputPtr), buffInfo_.outputSize);
     uint64_t srcOffset = 0; // alltoallv假设src起始地址为发送rank的对应块起始地址
     uint64_t dstOffset = 0; // alltoallv假设dst起始地址为接收rank的对应块起始地址
 
@@ -99,7 +98,7 @@ void CcuTempAllToAllVMesh1DMultiJetty::SetA2ASendRecvInfo(const A2ASendRecvInfo 
     localSendRecvInfo_ = sendRecvInfo;
 }
 
-HcclResult CcuTempAllToAllVMesh1DMultiJetty::SetJettyNums(std::vector<uint32_t>& jettyNums, bool multijetty)
+HcclResult CcuTempAllToAllVMesh1DMultiJetty::SetJettyNums(std::vector<uint32_t>& jettyNums, const bool multijetty)
 {
     jettyNums.resize(templateRankSize_, 0);
     for (int i = 0; i < templateRankSize_; i++) {

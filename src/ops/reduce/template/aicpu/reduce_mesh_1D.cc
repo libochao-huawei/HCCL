@@ -21,8 +21,9 @@ ReduceMesh1D::ReduceMesh1D(const OpParam &param,
 ReduceMesh1D::~ReduceMesh1D()
 {}
 
-void ReduceMesh1D::SetRoot(u32 root)
+void ReduceMesh1D::SetRoot(u32 root) const
 {
+    (void)root;
     return;
 }
 
@@ -114,6 +115,7 @@ HcclResult ReduceMesh1D::RunReduce(const std::map<u32, std::vector<ChannelInfo>>
             CHK_RET(static_cast<HcclResult>(HcommBatchModeEnd(param.algTag)));
             CHK_RET(static_cast<HcclResult>(HcommBatchModeStart(param.algTag)));
             for (const auto &thread : threads) {
+                CHK_RET(static_cast<HcclResult>(HcommThreadJoin(thread, CUSTOM_TIMEOUT)));
             }
         }
         // 规约数据
@@ -269,7 +271,7 @@ void ReduceMesh1D::GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain)
     std::iota(notifyIdxSubToMain.begin(), notifyIdxSubToMain.end(), 0);
 }
 
-u64 ReduceMesh1D::GetThreadNum()
+u64 ReduceMesh1D::GetThreadNum() const
 {
     return templateRankSize_;
 }

@@ -15,7 +15,7 @@ namespace ops_hccl {
 constexpr u64 AG_2D_SMALL_DATA_SIZE = 1024 * 1024;
  
 SelectorStatus AllGatherVAutoSelector::SelectCcuMsAlgo(
-    TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+    const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
     std::string &selectAlgName) const
 {
     HCCL_WARNING("[Algo][AllGatherVAutoSelector] algo[%u] is not supported yet for ccu_ms mode, reset to default.", levle0Algo);
@@ -24,7 +24,7 @@ SelectorStatus AllGatherVAutoSelector::SelectCcuMsAlgo(
 }
 
 SelectorStatus AllGatherVAutoSelector::SelectCcuScheduleAlgo(
-    TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+    const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
     std::string &selectAlgName) const
 {
     std::vector<HcclAlgoType> algos =
@@ -46,7 +46,7 @@ SelectorStatus AllGatherVAutoSelector::SelectCcuScheduleAlgo(
 }
  
 SelectorStatus AllGatherVAutoSelector::SelectAicpuAlgo(
-    TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+    const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
     std::string &selectAlgName) const
 {
     std::vector<HcclAlgoType> algos =
@@ -68,7 +68,7 @@ SelectorStatus AllGatherVAutoSelector::SelectAicpuAlgo(
 }
  
 SelectorStatus AllGatherVAutoSelector::SelectAivAlgo(
-    TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+    const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
     std::string &selectAlgName) const
 {
     HCCL_WARNING("[Algo][AllGatherVAutoSelector] algo[%u] is not supported yet for aiv mode, reset to default.", levle0Algo);

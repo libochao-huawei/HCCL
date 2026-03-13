@@ -11,25 +11,17 @@
 #ifndef HCCL_REDUCE_PARALLEL_EXECUTOR_H
 #define HCCL_REDUCE_PARALLEL_EXECUTOR_H
 
-#include "alg_param.h"
-#include "topo_host.h"
-#include "channel.h"
-#include "alg_v2_template_base.h"
-#include "utils.h"
-#include "log.h"
-#include "workflow.h"
-#include "sal.h"
-#include "config_log.h"
-#include "executor_v2_base.h"
-#include "coll_alg_v2_exec_registry.h"
+#include "executor_common_ops.h"
 #include "topo_match_base.h"
 
 namespace ops_hccl {
 template <typename AlgTopoMatch, typename AlgTemplate0, typename AlgTemplate1>
 class ReduceParallelExecutor : public InsCollAlgBase {
 public:
+    static constexpr u32 templateNum_{2};
+
     explicit ReduceParallelExecutor();
-    ~ReduceParallelExecutor() = default;
+    ~ReduceParallelExecutor() override = default;
 
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
 
@@ -56,10 +48,9 @@ private:
         u64 dataCountPerLoopAxis1, u64 scratchOffset, u64 othScratchOffset, TemplateDataParams &tempAlgParams1) const;
     void GenTemplateAlgParamsInter1(const OpParam &param, const AlgResourceCtxSerializable &resCtx, u64 dataOffset,
         u64 dataCountPerLoopAxis1, u64 scratchOffset, u64 othScratchOffset, TemplateDataParams &tempAlgParams1) const;
-    HcclResult PrepareResForTemplate(const OpParam &param, const AlgResourceCtxSerializable &resCtx,
-        AlgTemplate0 &tempAlgIntra, AlgTemplate1 &tempAlgInter);
+    HcclResult PrepareResForTemplate(AlgTemplate0 &tempAlgIntra, AlgTemplate1 &tempAlgInter);
     void GetParallelDataSplit(std::vector<float> &splitDataSize) const;
-    uint64_t GetRankSize(const std::vector<std::vector<u32>> &vTopo);
+    uint64_t GetRankSize(const std::vector<std::vector<u32>> &vTopo) const;
 
     HcclResult CalcLocalRoot();
 

@@ -12,10 +12,14 @@
 #include "selector_registry.h"
 
 namespace ops_hccl {
+constexpr uint32_t INDEX_0 = 0;
+constexpr uint32_t INDEX_1 = 1;
+constexpr uint32_t INDEX_2 = 2;
+constexpr uint32_t INDEX_3 = 3;
 constexpr uint32_t CONST_4 = 4;
 
-SelectorStatus AlltoAllVAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetLayerDetails* topoInfo,
-                                                    OpParam &opParam,
+SelectorStatus AlltoAllVAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNetLayerDetails* topoInfo,
+                                                    const OpParam &opParam,
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                     std::string &selectAlgName) const
 {
@@ -52,8 +56,8 @@ SelectorStatus AlltoAllVAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetLayer
     return SelectorStatus::MATCH;
 }
 
-SelectorStatus AlltoAllVAutoSelector::SelectAicpuAlgo(TopoInfoWithNetLayerDetails* topoInfo,
-                                                      OpParam &opParam,
+SelectorStatus AlltoAllVAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerDetails* topoInfo,
+                                                      const OpParam &opParam,
                                                       const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                       std::string &selectAlgName) const
 {
@@ -65,7 +69,7 @@ SelectorStatus AlltoAllVAutoSelector::SelectAicpuAlgo(TopoInfoWithNetLayerDetail
     }
 
     HCCL_INFO("[AlltoAllV] hccl algo op config: config opType:%d, level0:%u, level1:%u, level2:%u, level3:%u",
-        opParam.opType, algos.at(0), algos.at(1), algos.at(2), algos.at(3));
+        opParam.opType, algos.at(INDEX_0), algos.at(INDEX_1), algos.at(INDEX_2), algos.at(INDEX_3));
 
     if (topoInfo->topoLevelNums > 1) {
         HCCL_ERROR("hccl algo no match");
@@ -89,7 +93,7 @@ SelectorStatus AlltoAllVAutoSelector::SelectAicpuAlgo(TopoInfoWithNetLayerDetail
     return SelectorStatus::MATCH;
 }
 
-SelectorStatus AlltoAllVAutoSelector::SelectAivAlgo(TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
+SelectorStatus AlltoAllVAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                    const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                    std::string &selectAlgName) const
 {
@@ -101,7 +105,7 @@ SelectorStatus AlltoAllVAutoSelector::SelectAivAlgo(TopoInfoWithNetLayerDetails*
     }
 
     HCCL_INFO("[AlltoAllV] hccl algo op config: config opType:%d, level0:%u, level1:%u, level2:%u, level3:%u",
-              opParam.opType, algos.at(0), algos.at(1), algos.at(2), algos.at(3));
+              opParam.opType, algos.at(INDEX_0), algos.at(INDEX_1), algos.at(INDEX_2), algos.at(INDEX_3));
 
     selectAlgName = "AivAlltoAllVMesh1D";
 

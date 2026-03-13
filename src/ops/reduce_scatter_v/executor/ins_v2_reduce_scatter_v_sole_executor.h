@@ -11,25 +11,15 @@
 #ifndef HCCLV2_INS_V2_REDUCE_SCATTER_V_SOLE_EXECUTOR_H
 #define HCCLV2_INS_V2_REDUCE_SCATTER_V_SOLE_EXECUTOR_H
 
-#include "alg_param.h"
-#include "topo_host.h"
-#include "channel.h"
-#include "alg_v2_template_base.h"
-#include "utils.h"
-#include "log.h"
-#include "workflow.h"
-#include "sal.h"
-#include "config_log.h"
-#include "executor_v2_base.h"
-#include "coll_alg_v2_exec_registry.h"
-#include "topo_match_base.h"
+#include "executor_common_ops.h"
 #include "topo_match_1d.h"
+#include "topo_match_base.h"
 
 namespace ops_hccl {
 template <typename AlgTopoMatch, typename InsAlgTemplate> class InsV2ReduceScatterVSoleExecutor : public InsCollAlgBase {
 public:
     explicit InsV2ReduceScatterVSoleExecutor();
-    ~InsV2ReduceScatterVSoleExecutor() = default;
+    ~InsV2ReduceScatterVSoleExecutor() override = default;
 
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
 

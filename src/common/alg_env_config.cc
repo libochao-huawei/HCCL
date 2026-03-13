@@ -135,9 +135,15 @@ HcclResult InitEnvConfig()
 }
 std::string GetEnv(mmEnvId IdName)
 {
-    char *mmSysGetEnvValue = nullptr;
+    constexpr size_t MAX_ENV_VALUE_SIZE = 1024;
+    char envValue[MAX_ENV_VALUE_SIZE] = {0};
+    char* mmSysGetEnvValue = envValue;
     MM_SYS_GET_ENV(IdName, mmSysGetEnvValue);
-    return (mmSysGetEnvValue != nullptr) ? mmSysGetEnvValue : "EmptyString";
+    if (mmSysGetEnvValue != nullptr && mmSysGetEnvValue[0] != '\0') {
+        return std::string(mmSysGetEnvValue);
+    } else {
+        return "EmptyString";
+    }
 }
 
 HcclResult ParseHcclAlgo()
@@ -544,7 +550,7 @@ HcclResult ParseIntraLinkType()
     }
 
     // pcie和roce环境变量同时配置且相等
-    if (!(intraPcie ^ intraRoce)) {
+    if ((intraPcie ^ intraRoce) == 0) {
         if (intraPcie == 1) {  // 同时为1，暂不支持，报错
             HCCL_ERROR(
                 "[Parse][IntraLinkType] Enabling intra Pcie and intra Roce at the same time is not supported now.");
@@ -779,12 +785,12 @@ HcclResult ParseDeterministic()
                 deviceType);
             return HCCL_E_NOT_SUPPORT;
         }
-        g_algEnvConfig.hcclDeterministic = DETERMINISTIC_STRICT;
+        g_algEnvConfig.hcclDeterministic = static_cast<u8>(DeterministicEnableLevel::DETERMINISTIC_STRICT);
     } else if (hcclDeterministicEnv == "TRUE") {
         // 确定性计算场景（不保证规约保序）
-        g_algEnvConfig.hcclDeterministic = DETERMINISTIC_ENABLE;
+        g_algEnvConfig.hcclDeterministic = static_cast<u8>(DeterministicEnableLevel::DETERMINISTIC_ENABLE);
     } else {
-        g_algEnvConfig.hcclDeterministic = DETERMINISTIC_DISABLE;
+        g_algEnvConfig.hcclDeterministic = static_cast<u8>(DeterministicEnableLevel::DETERMINISTIC_DISABLE);
     }
     HCCL_RUN_INFO("HCCL_DETERMINISTIC set by environment to [%s], hcclDeterministic[%u]",
         hcclDeterministicEnv.c_str(),

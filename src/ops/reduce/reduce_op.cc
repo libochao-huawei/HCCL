@@ -8,29 +8,13 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include "reduce_op.h"
+#include "op_common_ops.h"
+#include "topo_host.h"
 #include <algorithm>
 #include <future>
 #include <map>
 #include <string>
-#include <hccl/hccl_types.h>
-#include "hccl/base.h"
-#include "sal.h"
-#include "error_codes/rt_error_codes.h"
-#include "mmpa_api.h"
-#include "param_check.h"
-#include "executor_base.h"
-#include "coll_alg_v2_exec_registry.h"
-#include "alg_env_config.h"
-#include "adapter_acl.h"
-#include "topo_host.h"
-#include "adapter_error_manager_pub.h"
-#include "hccl_inner.h"
-#include "hccl.h"
-#include "config_log.h"
-#include "workflow.h"
-#include "load_kernel.h"
-#include "reduce_op.h"
-#include "op_common.h"
 
 using namespace std;
 using namespace ops_hccl;
@@ -80,7 +64,7 @@ HcclResult HcclReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType
 
 namespace ops_hccl {
 // 除了错误都是公共的
-HcclResult CheckReduceInputPara(HcclComm comm, void *sendBuf, void *recvBuf)
+HcclResult CheckReduceInputPara(const HcclComm comm, const void* sendBuf, const void* recvBuf)
 {
     // 入参合法性校验
     RPT_INPUT_ERR(comm == nullptr,
@@ -145,10 +129,9 @@ HcclResult ReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclData
         return HcclResult::HCCL_SUCCESS;
     }
 
-    OpExecuteConfig opExecuteConfig;
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
-    CHK_RET(Selector(comm, param, topoInfo, algName, opExecuteConfig));
+    CHK_RET(Selector(comm, param, topoInfo, algName));
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
     HCCL_INFO("Execute ReduceOutPlace success.");
     return HCCL_SUCCESS;

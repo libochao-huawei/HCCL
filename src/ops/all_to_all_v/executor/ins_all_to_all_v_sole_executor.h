@@ -11,27 +11,16 @@
 #ifndef HCCLV2_INS_ALL_TO_ALL_V_SOLE_EXECUTOR_H
 #define HCCLV2_INS_ALL_TO_ALL_V_SOLE_EXECUTOR_H
 
-#include "alg_param.h"
-#include "topo_host.h"
-#include "channel.h"
-#include "alg_v2_template_base.h"
-#include "utils.h"
-#include "log.h"
-#include "workflow.h"
-#include "sal.h"
-#include "config_log.h"
-#include "executor_v2_base.h"
-#include "coll_alg_v2_exec_registry.h"
-#include "topo_match_base.h"
+#include "executor_common_ops.h"
 #include "topo_match_1d.h"
-#include "topo_match_2d.h"
+#include "topo_match_base.h"
 #include "topo_match_ubx.h"
 
 namespace ops_hccl {
 template <typename AlgTopoMatch, typename InsAlgTemplate> class InsAlltoAllVSoleExecutor : public InsCollAlgBase {
 public:
     explicit InsAlltoAllVSoleExecutor();
-    ~InsAlltoAllVSoleExecutor() = default;
+    ~InsAlltoAllVSoleExecutor() override = default;
 
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
 
@@ -45,7 +34,7 @@ public:
                                     AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
     
     HcclResult GetAlltoAllLocalSendRecvInfo(const OpParam &param, 
-                                            A2ASendRecvInfo &localSendRecvInfo);
+                                            A2ASendRecvInfo &localSendRecvInfo) const;
 
 protected:
     /* *************** 算法编排 *************** */

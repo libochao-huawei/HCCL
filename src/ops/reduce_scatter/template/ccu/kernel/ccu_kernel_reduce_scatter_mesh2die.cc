@@ -32,11 +32,6 @@ CcuKernelReduceScatterMesh2Die::CcuKernelReduceScatterMesh2Die(const hcomm::CcuK
     myRankId_            = kernelArg->rankId_;
     rankSize_ = kernelArg->rankSize_;
 
-    rmtReduceRankNum_ = channels_.size() + (rmtReduceWithMyRank_ == true ? 1 : 0);
-    rmtSyncMyBit_ = 1 << (myRankId_ % rmtReduceRankNum_);
-    rmtSyncWaitBit_
-        = rmtReduceWithMyRank_ ? ((1 << rmtReduceRankNum_) - 1) & (~rmtSyncMyBit_) : (1 << rmtReduceRankNum_) - 1;
-
      // 数据类型处理
     dataType_       = kernelArg->opParam_.DataDes.dataType;
     outputDataType_ = kernelArg->opParam_.DataDes.outputType;
@@ -67,6 +62,10 @@ HcclResult CcuKernelReduceScatterMesh2Die::InitResources()
     sliceSize_ = CreateVariable();
     rmtReduceSliceOffset_ = CreateVariable();
     rmtReduceGoSize_    = CreateGroupOpSize();
+    rmtReduceRankNum_ = channels_.size() + (rmtReduceWithMyRank_ == true ? 1 : 0);
+    rmtSyncMyBit_ = 1 << (myRankId_ % rmtReduceRankNum_);
+    rmtSyncWaitBit_
+        = rmtReduceWithMyRank_ ? ((1 << rmtReduceRankNum_) - 1) & (~rmtSyncMyBit_) : (1 << rmtReduceRankNum_) - 1;
 
     return HcclResult::HCCL_SUCCESS;
 }

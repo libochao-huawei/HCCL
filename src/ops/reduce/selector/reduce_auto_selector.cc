@@ -13,7 +13,7 @@
 namespace ops_hccl {
 constexpr u64 RS_2D_SMALL_DATA_SIZE = 1024 * 1024;
 
-SelectorStatus ReduceAutoSelector::SelectCcuMsAlgo(TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam,
+SelectorStatus ReduceAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap, std::string &selectAlgName) const
 {
     if (topoInfo->topoLevelNums > 1) {
@@ -54,8 +54,8 @@ SelectorStatus ReduceAutoSelector::SelectCcuMsAlgo(TopoInfoWithNetLayerDetails *
     }
 }
 
-SelectorStatus ReduceAutoSelector::SelectMeshAlgo(
-    TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam, std::string &selectAlgName) const
+SelectorStatus ReduceAutoSelector::SelectMeshAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
+    std::string &selectAlgName) const
 {
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
@@ -72,7 +72,7 @@ SelectorStatus ReduceAutoSelector::SelectMeshAlgo(
     return SelectorStatus::MATCH;
 }
 
-SelectorStatus ReduceAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam,
+SelectorStatus ReduceAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap, std::string &selectAlgName) const
 {
     // ccu 模式不支持 PROD
@@ -121,15 +121,9 @@ SelectorStatus ReduceAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetLayerDet
     }
 }
 
-SelectorStatus ReduceAutoSelector::SelectAicpuAlgo(TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam,
+SelectorStatus ReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap, std::string &selectAlgName) const
 {
-    if (opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT64 ||
-        opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
-        opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_FP64) {
-        HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64 only support in-box fullmesh algo type now.");
-        return SelectorStatus::NOT_MATCH;
-    }
     std::vector<HcclAlgoType> algos =
         std::vector<HcclAlgoType>(HCCL_ALGO_LEVEL_NUM, HcclAlgoType::HCCL_ALGO_TYPE_DEFAULT);
     auto it = configAlgMap.find(opParam.opType);
@@ -147,9 +141,17 @@ SelectorStatus ReduceAutoSelector::SelectAicpuAlgo(TopoInfoWithNetLayerDetails *
         algos[3]);
     if (topoInfo->topoLevelNums > 1) {
         if (topoInfo->deviceNumPerModule > 1 && topoInfo->level0Topo == Level0Shape::MESH_1D) {
-            selectAlgName = "InsReduceParallelMesh1DNHR";
+            if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
+                HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64, PROD only support in-box fullmesh algo type now.");
+                return SelectorStatus::NOT_MATCH;
+            }
+            selectAlgName = "ReduceParallelMesh1DNHR";
         } else {
-            selectAlgName = "InsReduceNHR";
+            if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
+                HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64, PROD only support in-box fullmesh algo type now.");
+                return SelectorStatus::NOT_MATCH;
+            }
+            selectAlgName = "ReduceNHR";
         }
     } else {
         return SelectMeshAlgoAicpu(topoInfo, opParam, selectAlgName);
@@ -158,23 +160,18 @@ SelectorStatus ReduceAutoSelector::SelectAicpuAlgo(TopoInfoWithNetLayerDetails *
     return SelectorStatus::MATCH;
 }
 
-SelectorStatus ReduceAutoSelector::SelectMeshAlgoAicpu(
-    TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam, std::string &selectAlgName) const
+SelectorStatus ReduceAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
+    std::string &selectAlgName) const
 {
     HCCL_DEBUG("SelectMeshAlgoAicpu %u", topoInfo->level0Topo);
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-        if (opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT64 ||
-            opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
-            opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_FP64 ||
-            opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
-            selectAlgName = "ReduceMesh1D";
-        } else if (topoInfo->deviceNumPerModule > 1 && topoInfo->level0Topo == Level0Shape::MESH_1D) {
-            selectAlgName = "ReduceParallelMesh1DNHR";
-        } else {
-            selectAlgName = "ReduceNHR";
-        }
-    } else if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
         selectAlgName = "ReduceMesh1D";
+    } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
+        if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
+            HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64, PROD only support in-box fullmesh algo type now.");
+            return SelectorStatus::NOT_MATCH;
+        }
+        selectAlgName = "ReduceNHR";
     } else {
         HCCL_WARNING("[ReduceAutoSelector] topo not match");
         return SelectorStatus::NOT_MATCH;
@@ -183,7 +180,7 @@ SelectorStatus ReduceAutoSelector::SelectMeshAlgoAicpu(
     return SelectorStatus::MATCH;
 }
 
-SelectorStatus ReduceAutoSelector::SelectAivAlgo(TopoInfoWithNetLayerDetails *topoInfo, OpParam &opParam,
+SelectorStatus ReduceAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap, std::string &selectAlgName) const
 {
     std::vector<HcclAlgoType> algos =
