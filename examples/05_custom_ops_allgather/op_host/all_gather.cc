@@ -15,7 +15,7 @@
 #include <cstring>
 #include <string>
 #include <map>
-#include <new> // For placement new
+#include <hccl_rank_graph.h>
 
 using namespace ops_hccl_allgather;
 
@@ -195,7 +195,7 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
         // std::vector<HcclChannelDesc> &levelNChannelRequest = resRequest.channels[level];
         // for (auto &channelDesc : level0ChannelRequest) {
         
-        for (size_t remoteRank = 0; remoteRank < rankSize; i++)
+        for (size_t remoteRank = 0; remoteRank < rankSize; remoteRank++)
         {
             if (remoteRank == rank) continue;
 
