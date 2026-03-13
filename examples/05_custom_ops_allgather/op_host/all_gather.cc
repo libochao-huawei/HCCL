@@ -105,6 +105,8 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
     param.resCtx = reinterpret_cast<AlgResourceCtx*>(resCtx); 
     HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
     if (isNewContext) {
+        new (resCtx) AlgResourceCtxSerializable(); 
+
         HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
         uint32_t rank, rankSize;
         CHK_RET(HcclGetRankId(comm, &rank));
