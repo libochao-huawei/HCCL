@@ -229,6 +229,8 @@ SelectorStatus ReduceAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetLaye
                 selectAlgName = "ReduceNHR";
             }
         }
+    } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
+        selectAlgName = "ReduceNHR";
     } else {
         HCCL_WARNING("[ReduceAutoSelector] level0Shape[%d] is not supported yet.", topoInfo->level0Topo);
         return SelectorStatus::NOT_MATCH;
