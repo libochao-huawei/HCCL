@@ -85,7 +85,7 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
 {
     HCCL_INFO("Start to execute Selector.");
     param.hcclComm = comm;
-    CHK_RET(HcclGetOpExpansionMode(param));
+    CHK_RET(HcclGetOpExpansionMode(comm, param));
     // 获取基础拓扑
     CHK_RET(HcclCalcTopoInfo(comm, param, topoInfo));
 
@@ -1056,7 +1056,7 @@ HcclResult SetOpParamAlgTag(OpParam &param, const std::string &algName)
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult HcclGetOpExpansionMode(OpParam &param)
+HcclResult HcclGetOpExpansionMode(HcclComm comm, OpParam &param)
 {
     HcclOpExpansionMode finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_INVALID;
     // 第一步：决定使用哪种模式
@@ -1139,12 +1139,51 @@ HcclResult ApplyOpExpansionMode(OpParam &param, HcclOpExpansionMode finalMode)
 
 bool HcclCheckAicpuEnableOpen()
 {
-    // 获取环境变量值
     const char* envValue = std::getenv("HCCL_ENABLE_OPEN_AICPU");
 
-    // 检查环境变量是否存在且值为"1"
     if (envValue != nullptr && std::strcmp(envValue, "1") == 0) {
         return true;
+    }
+
+    return false;
+}
+
+bool HcclCheckCcuEnableOpen()
+{
+    const char* envValue = std::getenv("HCCL_ENABLE_OPEN_CCU");
+
+    if (envValue != nullptr && std::strcmp(envValue, "1") == 0) {
+        return true;
+    }
+
+    return false;
+}
+
+bool HcclCheckAivEnableOpen()
+{
+    const char* envValue = std::getenv("HCCL_ENABLE_OPEN_AIV");
+
+    if (envValue != nullptr && std::strcmp(envValue, "1") == 0) {
+        return true;
+    }
+
+    return false;
+}
+
+bool ShouldUseInnerOp(OpExecuteConfig opExecuteConfig)
+{
+    bool isAicpuOrHostMode = (opExecuteConfig == OpExecuteConfig::AICPU_TS || 
+                              opExecuteConfig == OpExecuteConfig::HOSTCPU);
+    bool isCcuMode = (opExecuteConfig == OpExecuteConfig::CCU_MS || 
+                      opExecuteConfig == OpExecuteConfig::CCU_SCHED);
+    bool isAivMode = (opExecuteConfig == OpExecuteConfig::AIV);
+
+    if (isAicpuOrHostMode) {
+        return !HcclCheckAicpuEnableOpen();
+    } else if (isCcuMode) {
+        return !HcclCheckCcuEnableOpen();
+    } else if (isAivMode) {
+        return !HcclCheckAivEnableOpen();
     }
 
     return false;
