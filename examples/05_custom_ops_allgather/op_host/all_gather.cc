@@ -15,7 +15,8 @@
 #include <cstring>
 #include <string>
 #include <map>
-#include <new> // For placement new
+#include <memory>
+#include <mutex>
 
 using namespace ops_hccl_allgather;
 
@@ -77,39 +78,31 @@ bool CheckHCCLIndependentOp() {
 
 constexpr uint32_t AIV_TAG_ADDR_OFFSET = 16 * 1024;
 static std::map<std::string, HcclMemHandle> g_memHandleCache;
+static std::map<std::string, std::unique_ptr<AlgResourceCtxSerializable>> g_hostCtxCache;
+static std::mutex g_hostCtxCacheMutex;
 
 HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
-    CommEngine ctxEngine = CommEngine::COMM_ENGINE_CPU_TS;
-    void* ctx = nullptr;
-    const uint64_t ctxSize = sizeof(AlgResourceCtxSerializable);
-    uint64_t size = ctxSize;
     bool isNewContext = false;
-
-    HcclResult hcclRet = HcclEngineCtxGet(comm, param.tag, ctxEngine, &ctx, &size);
-    if (hcclRet == HCCL_SUCCESS && ctx != nullptr && size < ctxSize) {
-        HCCL_ERROR("[PrepareResources] Existing context size too small. got=%llu expect=%llu", size, ctxSize);
-        hcclRet = HCCL_E_INTERNAL;
-        ctx = nullptr;
-    }
-    if (hcclRet != HCCL_SUCCESS || ctx == nullptr) {
-        HCCL_INFO("[PrepareResources] Context not found (ret=%d), creating new with COMM_ENGINE_CPU_TS...", hcclRet);
-        hcclRet = HcclEngineCtxCreate(comm, param.tag, ctxEngine, ctxSize, &ctx);
-        if (hcclRet != HCCL_SUCCESS) {
-            HCCL_ERROR("[PrepareResources] Failed to allocate context memory via HcclEngineCtxCreate. ret=%d", hcclRet);
-            return hcclRet;
+    std::string hostCtxTag = param.tag;
+    HcclResult hcclRet = HCCL_SUCCESS;
+    AlgResourceCtxSerializable* resCtx = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(g_hostCtxCacheMutex);
+        auto hostCtxIter = g_hostCtxCache.find(hostCtxTag);
+        if (hostCtxIter == g_hostCtxCache.end()) {
+            auto insertRet = g_hostCtxCache.emplace(hostCtxTag, std::make_unique<AlgResourceCtxSerializable>());
+            if (!insertRet.second || insertRet.first->second == nullptr) {
+                HCCL_ERROR("[PrepareResources] Failed to create host resource context");
+                return HCCL_E_INTERNAL;
+            }
+            resCtx = insertRet.first->second.get();
+            isNewContext = true;
+            HCCL_INFO("[PrepareResources] New Host Context %p created", resCtx);
+        } else {
+            resCtx = hostCtxIter->second.get();
+            HCCL_INFO("[PrepareResources] Reuse Host Context %p", resCtx);
         }
-        HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
-        (void)new (ctx) AlgResourceCtxSerializable();
-        HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
-        isNewContext = true;
-        HCCL_INFO("[PrepareResources] New Host Context %p created", ctx);
-    } else {
-        HCCL_INFO("[PrepareResources] Reuse Host Context %p", ctx);
     }
-
-    HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
-
-    AlgResourceCtxSerializable* resCtx = static_cast<AlgResourceCtxSerializable*>(ctx);
     HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
     param.resCtx = reinterpret_cast<AlgResourceCtx*>(resCtx); 
     HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
