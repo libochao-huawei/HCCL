@@ -10,6 +10,7 @@
 
 #include "hccl_custom_allgather.h"
 #include "launch_kernel.h"
+#include "binary_stream.h"
 #include "common.h"
 #include <vector>
 #include <cstring>
