@@ -8,6 +8,7 @@
 
 # Manual compilation of ASC kernel to object file for dynamic loading
 set(KERNEL_SRC ${CMAKE_CURRENT_SOURCE_DIR}/launch_kernel_asc.asc)
+set(KERNEL_TMP_OBJ ${CMAKE_CURRENT_BINARY_DIR}/hccl_custom_allgather_kernels_tmp.o)
 set(KERNEL_OBJ ${CMAKE_CURRENT_BINARY_DIR}/hccl_custom_allgather_kernels.o)
 
 # Include paths for ASC compiler
@@ -23,12 +24,21 @@ if(NOT CMAKE_ASC_COMPILER)
     set(CMAKE_ASC_COMPILER "asc")
 endif()
 
+# Find linker
+find_program(LLD_LINKER ld.lld PATHS "${ASCEND_CANN_PACKAGE_PATH}/tools/ccec_compiler/bin" NO_DEFAULT_PATH)
+if(NOT LLD_LINKER)
+    set(LLD_LINKER "ld.lld")
+endif()
+
 # Compile ASC kernel
 add_custom_command(
     OUTPUT ${KERNEL_OBJ}
-    COMMAND ${CMAKE_ASC_COMPILER} -c -o ${KERNEL_OBJ} ${KERNEL_SRC} --npu-arch=dav-2201 ${ASC_INCLUDE_FLAGS}
+    # 1. Compile to temporary object file
+    COMMAND ${CMAKE_ASC_COMPILER} -c -o ${KERNEL_TMP_OBJ} ${KERNEL_SRC} --npu-arch=dav-2201 ${ASC_INCLUDE_FLAGS}
+    # 2. Link object file (essential for aclrtBinaryLoad)
+    COMMAND ${LLD_LINKER} -m aicorelinux -Ttext=0 ${KERNEL_TMP_OBJ} -static -o ${KERNEL_OBJ}
     DEPENDS ${KERNEL_SRC}
-    COMMENT "Compiling ASC kernel: ${KERNEL_SRC} -> ${KERNEL_OBJ}"
+    COMMENT "Compiling and Linking ASC kernel: ${KERNEL_SRC} -> ${KERNEL_OBJ}"
     VERBATIM
 )
 
