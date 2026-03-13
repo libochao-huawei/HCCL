@@ -67,7 +67,7 @@ public:
     CcuKernelAllGather2DiesMeshMem2Mem1D(const hcomm::CcuKernelArg &arg);
     ~CcuKernelAllGather2DiesMeshMem2Mem1D() override {}
  
-    HcclResult Algorithm();
+    HcclResult Algorithm() override;
     std::vector<uint64_t> GeneArgs(const hcomm::CcuTaskArg &arg) override;
  
 private:
