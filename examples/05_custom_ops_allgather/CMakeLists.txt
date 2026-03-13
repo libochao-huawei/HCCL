@@ -59,7 +59,7 @@ endif()
 
 add_custom_command(
     OUTPUT ${KERNEL_OBJ}
-    COMMAND ${CMAKE_ASC_COMPILER} -o ${KERNEL_OBJ} ${KERNEL_SRC} --npu-arch=dav-2201 ${ASC_INCLUDE_FLAGS}
+    COMMAND ${CMAKE_ASC_COMPILER} -c -o ${KERNEL_OBJ} ${KERNEL_SRC} --npu-arch=dav-c310 ${ASC_INCLUDE_FLAGS}
     DEPENDS ${KERNEL_SRC}
     COMMENT "Compiling ASC kernel: ${KERNEL_SRC} -> ${KERNEL_OBJ}"
     VERBATIM
