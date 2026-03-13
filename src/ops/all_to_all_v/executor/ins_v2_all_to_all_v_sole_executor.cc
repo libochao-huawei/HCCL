@@ -231,7 +231,13 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
         maxDataSizePerLoop = transportBoundDataSize;
     }
     // 单次循环处理的数据量大小
-    u64 maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize_ / rankSize_; // 发往单卡的数据量
+    u64 maxDataCountPerLoop;
+    if (param.engine == COMM_ENGINE_CCU) {
+        maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize_;
+    } else {
+        maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize_ / rankSize_; // 发往单卡的数据量
+    }
+
     HCCL_INFO(
         "[InsV2AlltoAllVSoleExecutor][OrchestrateOpbase] maxDataCountPerLoop[%llu], maxDataSizePerLoop[%llu], "
         "transportBoundDataSize[%llu], templateScratchMultiplier[%llu]",
@@ -249,6 +255,7 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     // 计算loopTimes，alltoallv的时候，有些算子的loopTimes可能是0
     u64 loopTimes = maxSendOrRecvDataCount / maxDataCountPerLoop +
         static_cast<u64>(maxSendOrRecvDataCount % maxDataCountPerLoop != 0);
+    HCCL_INFO("loopTimes: %d", loopTimes);
     u64 processedDataCount = 0;
     for (u64 loop = 0; loop < loopTimes; loop++) {
         u64 currDataCount = (loop == loopTimes - 1) ? maxSendOrRecvDataCount - processedDataCount : maxDataCountPerLoop;

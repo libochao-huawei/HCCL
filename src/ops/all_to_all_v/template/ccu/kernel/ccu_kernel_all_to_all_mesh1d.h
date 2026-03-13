@@ -54,7 +54,7 @@ public:
         srcOffset_(srcOffset), dstOffset_(dstOffset), srcStride_(srcStride), loadFromMem_(loadFromMem)
     {
         HCCL_DEBUG("[CcuTaskArgAlltoAllMesh1D] inputAddr: %lu, outputAddr: %lu, sliceSize: %lu, srcOffset: %lu, "
-                   "srcOffset: %lu, dstOffset: %lu, srcStride: %lu, loadFromMem: %lu, "
+                   "dstOffset: %lu, srcStride: %lu, loadFromMem: %lu, "
                    "lastSliceSize: %lu, repeatNum: %lu",
                    inputAddr_, outputAddr_, sliceSize_, srcOffset_, dstOffset_, srcStride_, loadFromMem_);
     }
