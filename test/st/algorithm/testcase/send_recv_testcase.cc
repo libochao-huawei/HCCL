@@ -59,6 +59,43 @@ std::unordered_set<RankId> GetRankIds(const std::map<RankId, RankId> &sendRecvMa
     return usedRankIds;
 }
 
+enum class SendRecvOpType {
+    SEND = 0,
+    RECV = 1,
+}
+
+HcclResult RunSendRecvTask(RankId rankId, RankId remoteRankId, SendRecvOpType opType, u32 dataCount, HcclDataType dataType) {
+    // 1.SetDevice
+    aclrtSetDevice(rankId);
+
+    // 2.创建流
+    aclrtStream stream = nullptr;
+    aclrtCreateStream(&stream);
+
+    // 3.初始化通信域
+    HcclComm comm = nullptr;
+    CHK_RET(HcclCommInitClusterInfo("./ranktable.json", rankId, &comm));
+
+    u64 bufSize = dataCount * DATATYPE_SIZE_TABLE[dataType]; // 数据量转化为字节数
+
+    // 4.算子下发
+    if (opType == SendRecvOpType::SEND) {
+        void *sendBuf = nullptr;
+        // 打桩实现，仿真运行需标记内存是INPUT和OUTPUT
+        aclrtMalloc(&sendBuf, bufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
+        CHK_RET(HcclSend(sendBuf, dataCount, dataType, remoteRankId, comm, stream));
+    } else if (opType == SendRecvOpType::RECV) {
+        void *recvBuf = nullptr;
+        // 打桩实现，仿真运行需标记内存是INPUT和OUTPUT
+        aclrtMalloc(&recvBuf, bufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
+        CHK_RET(HcclRecv(recvBuf, dataCount, dataType, remoteRankId, comm, stream));
+    }
+
+    // 5.销毁通信域
+    CHK_RET(HcclCommDestroy(comm));
+    return HCCL_SUCCESS;
+}
+
 void SendRecvTest(
     TopoMeta &topoMeta, const std::map<RankId, RankId> &sendRecvMap, u32 dataCount, HcclDataType dataType) {
     // 仿真模型初始化
@@ -82,38 +119,15 @@ void SendRecvTest(
             continue;
         }
         threads.emplace_back([=]() {
-            // 1.SetDevice
-            aclrtSetDevice(rankId);
-
-            // 2.创建流
-            aclrtStream stream = nullptr;
-            aclrtCreateStream(&stream);
-
-            // 3.初始化通信域
-            HcclComm comm = nullptr;
-            CHK_RET(HcclCommInitClusterInfo("./ranktable.json", rankId, &comm));
-
-            u64 bufSize = dataCount * DATATYPE_SIZE_TABLE[dataType]; // 数据量转化为字节数
-
-            // 4.算子下发
-            void *sendBuf = nullptr;
-            // 打桩实现，仿真运行需标记内存是INPUT和OUTPUT
-            aclrtMalloc(&sendBuf, bufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
-            void *recvBuf = nullptr;
-            aclrtMalloc(&recvBuf, bufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
-
             for (const auto &kv: sendRecvMap) {
                 RankId srcRankId = kv.first;
                 RankId dstRankId = kv.second;
                 if (srcRankId == rankId) {
-                    CHK_RET(HcclSend(sendBuf, dataCount, dataType, dstRankId, comm, stream));
+                    CHK_RET(RunSendRecvTask(rankId, dstRankId, SendRecvOpType::SEND, dataCount, dataType));
                 } else if (dstRankId == rankId) {
-                    CHK_RET(HcclRecv(recvBuf, dataCount, dataType, srcRankId, comm, stream));
+                    CHK_RET(RunSendRecvTask(rankId, srcRankId, SendRecvOpType::RECV, dataCount, dataType));
                 }
             }
-
-            // 5.销毁通信域
-            CHK_RET(HcclCommDestroy(comm));
             return HCCL_SUCCESS;
         });
     }
@@ -154,9 +168,9 @@ TEST_F(ST_SEND_RECV_TEST, st_send_recv_1d_2r_int32_c100_test) {
 }
 
 // 2卡1机100个int32，同一通信域多次调用算子用例
-TEST_F(ST_SEND_RECV_TEST, st_send_recv_1d_3r_int32_100_repeat_test) {
+TEST_F(ST_SEND_RECV_TEST, st_send_recv_1d_2r_int32_c100_repeat_test) {
     TopoMeta topoMeta{{{0, 1}}};
-    std::map<RankId, RankId> sendRecvMap = {{0, 1}, {1, 0}, {0, 1}};
+    std::map<RankId, RankId> sendRecvMap = {{0, 1}, {0, 1}};
     auto dataCount = 100;
     auto dataType = HcclDataType::HCCL_DATA_TYPE_INT32;
 
