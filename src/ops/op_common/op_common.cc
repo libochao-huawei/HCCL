@@ -491,8 +491,8 @@ HcclResult HcclGetThread(
 {
     ThreadHandle thread;
     if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
-        CHK_RET(HcclThreadAcquire(comm, COMM_ENGINE_AICPU_TS, 1, resRequest.notifyNumOnMainThread, &thread));
-        CHK_RET(SaveMainThreadInfo(comm, param, thread, resRequest.notifyNumOnMainThread));
+        CHK_RET(HcclThreadAcquire(comm, COMM_ENGINE_AICPU_TS, 1, resRequest.notifyNumOnMainThread + 1, &thread));
+        CHK_RET(SaveMainThreadInfo(comm, param, thread, resRequest.notifyNumOnMainThread + 1));
         HCCL_DEBUG("threads ptr is %p\n", &thread);
     } else {
         // host模式下，将主流封装为thread，并创建主流上的notify
