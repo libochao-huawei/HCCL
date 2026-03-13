@@ -23,9 +23,6 @@ HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclD
                          aclrtStream stream)
 {
     HCCL_INFO("Start to run execute HcclAllGather");
-    if (!HcclCheckAicpuEnableOpen()) {
-        return HcclAllGatherInner(sendBuf, recvBuf, sendCount, dataType, comm, stream);
-    }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
     #ifdef MACRO_DEV_TYPE_NEW
@@ -131,7 +128,7 @@ HcclResult AllGatherOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount, H
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));
-    if (param.opExecuteConfig != OpExecuteConfig::AICPU_TS && param.opExecuteConfig != OpExecuteConfig::HOSTCPU) {
+    if (ShouldUseInnerOp(param.opExecuteConfig)) {
         return HcclAllGatherInner(sendBuf, recvBuf, sendCount, dataType, comm, stream);
     }
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName));

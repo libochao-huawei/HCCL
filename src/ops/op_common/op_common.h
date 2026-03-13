@@ -109,13 +109,16 @@ HcclResult AicpuKernelLaunch(OpParam &param);
 HcclResult HcclAivKernelEntranceLaunch(OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
     AlgResourceCtxSerializable &resCtxHost);
 
-HcclResult HcclGetOpExpansionMode(OpParam &param);
+HcclResult HcclGetOpExpansionMode(HcclComm comm, OpParam &param);
 
 HcclResult DecideHcclOpExpansionMode(HcclComm comm, HcclOpExpansionMode &finalMod);
 
 HcclResult ApplyOpExpansionMode(OpParam &param, HcclOpExpansionMode finalMode);
 
 bool HcclCheckAicpuEnableOpen();
+bool HcclCheckCcuEnableOpen();
+bool HcclCheckAivEnableOpen();
+bool ShouldUseInnerOp(OpExecuteConfig opExecuteConfig);
 
 }  // namespace ops_hccl
 
