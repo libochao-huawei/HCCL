@@ -23,8 +23,12 @@ SelectorStatus AllGatherAutoSelector::SelectCcuMsAlgo(
     (void)configAlgMap;
 
     if (topoInfo->topoLevelNums > 1) {
-        HCCL_DEBUG("[AllGatherAutoSelector] levelNum > 1 is not supported yet for ccu_ms mode");
-        return SelectorStatus::NOT_MATCH;
+        if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
+            selectAlgName = "CcuAllGatherParallelMeshNHR";
+        } else {
+            HCCL_WARNING("[AllGatherAutoSelector] levelNum > 1 is not supported yet for 2d ccu_ms mode.");
+            return SelectorStatus::NOT_MATCH;
+        }
     } else {
         return SelectMeshAlgo(topoInfo, opParam, selectAlgName);
     }
@@ -88,7 +92,7 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleUBXAlgo(
             selectAlgName = "CcuAllGatherNHR1DMem2MemUBX";
         }
     } else {
-            selectAlgName = "CcuAllGatherMesh1DMem2MemUBX";
+        selectAlgName = "CcuAllGatherMesh1DMem2MemUBX";
     }
     HCCL_DEBUG("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
     return SelectorStatus::MATCH;
@@ -210,8 +214,8 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
                     return SelectorStatus::MATCH;
                 } 
             } else {
-                    selectAlgName = "InsAllGatherMesh1DUBX";
-                    return SelectorStatus::MATCH;
+                selectAlgName = "InsAllGatherMesh1DUBX";
+                return SelectorStatus::MATCH;
             }
         } else {
             HCCL_ERROR("[AllGatherAutoSelector] topo not match");
