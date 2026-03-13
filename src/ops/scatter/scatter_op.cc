@@ -9,31 +9,17 @@
  */
 
 #include "scatter_op.h"
+#include "coll_alg_exec_registry.h"
+#include "config_log.h"
+#include "hcomm_primitives.h"
+#include "load_kernel.h"
+#include "op_common_ops.h"
+#include "topo.h"
+#include "topo_host.h"
 #include <algorithm>
 #include <future>
 #include <map>
 #include <string>
-#include <hccl/hccl_types.h>
-#include "hccl/base.h"
-#include "sal.h"
-#include "error_codes/rt_error_codes.h"
-#include "mmpa_api.h"
-#include "param_check.h"
-#include "executor_base.h"
-#include "coll_alg_exec_registry.h"
-#include "alg_env_config.h"
-#include "adapter_acl.h"
-#include "topo.h"
-#include "topo_host.h"
-#include "adapter_error_manager_pub.h"
-#include "hccl_inner.h"
-#include "hccl.h"
-#include "config_log.h"
-#include "workflow.h"
-#include "load_kernel.h"
-#include "hcomm_primitives_dl.h"
-#include "op_common.h"
-#include "hcomm_dlsym.h"
 
 using namespace std;
 using namespace ops_hccl;
@@ -150,7 +136,7 @@ constexpr u32 DEVICE_TWO = 2;
 constexpr u32 DEVICE_ONE = 1;
 constexpr u32 HCCL_INTER_SERVER_RING_ALGO_MAX_SUPPORT_SERVER_NUM = 8; // server 间 ring 算法支持的最大server数: 8
 
-HcclResult CheckScatterInputPara(HcclComm comm, void *recvBuf)
+HcclResult CheckScatterInputPara(const HcclComm comm, const void *recvBuf)
 {
     // 入参合法性校验
     RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
@@ -324,7 +310,6 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
             ACL_MEMCPY_HOST_TO_DEVICE));
     }
     
-
     // 算法执行
     if (param.engine == COMM_ENGINE_AICPU_TS) {
         // 当前aicpu launch接口只能有一个输入参数，将Context指针放在param参数中
@@ -659,7 +644,7 @@ HcclResult SelectAlg(HcclComm comm, OpParam &param, TopoInfo* topoInfo, AlgType&
     // 在原先的tag中添加算法名字，得到algTag
     bool isOpBase = true;
     if (isOpBase) {
-        int ret = sprintf_s(param.algTag, sizeof(param.algTag), "%s_%s_%d", param.tag, algName.c_str(), param.root);
+        int ret = sprintf_s(param.algTag, sizeof(param.algTag), "%s_%s_%u", param.tag, algName.c_str(), param.root);
         if (ret <= 0) {
             HCCL_ERROR("faled to fill param.algTag");
             return HCCL_E_INTERNAL;

@@ -30,7 +30,7 @@ HcclResult InsTempAllGatherVMesh1D::CalcRes(HcclComm comm, const OpParam &param,
     resourceRequest.channels.push_back(level0Channels);
     return HCCL_SUCCESS;
 }
-HcclResult InsTempAllGatherVMesh1D::GetResWithoutLinks(AlgResourceRequest &resourceRequest)
+HcclResult InsTempAllGatherVMesh1D::GetResWithoutLinks(AlgResourceRequest &resourceRequest) const
 {
     u32 level0RankSize = templateRankSize_;
     u32 threadNum = level0RankSize > 1 ? level0RankSize - 1 : 1;
@@ -40,7 +40,7 @@ HcclResult InsTempAllGatherVMesh1D::GetResWithoutLinks(AlgResourceRequest &resou
     return HCCL_SUCCESS;
 }
  
-u64 InsTempAllGatherVMesh1D::GetThreadNum()
+u64 InsTempAllGatherVMesh1D::GetThreadNum() const
 {
     return templateRankSize_ > 1 ? templateRankSize_ - 1 : 1;
 }
@@ -109,7 +109,8 @@ HcclResult InsTempAllGatherVMesh1D::RunAllGatherVMesh(const std::vector<ThreadHa
                       myRank_, connectedRank, connectedAlgRank);
  
             // 异常检查
-            CHK_PRT_RET(threadIdx >= threads.size() || !channels.count(connectedRank),
+            CHK_PRT_RET(threadIdx >= threads.size() || channels.count(connectedRank) == 0 || 
+                        channels.at(connectedRank).empty(),
                         HCCL_ERROR("[InsTempAllGatherVMesh1D][RankID]=%u threadIdx=%u, threads.size=%u, "
                                    "connectedRank=%d, channels.size=%u",
                                    myRank_, threadIdx, threads.size(), connectedRank, channels.size()),

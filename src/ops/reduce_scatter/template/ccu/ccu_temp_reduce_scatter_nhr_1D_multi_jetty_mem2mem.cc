@@ -19,7 +19,7 @@ namespace ops_hccl {
 
 CcuTempReduceScatterNhrMultiJettyMem2Mem1D::CcuTempReduceScatterNhrMultiJettyMem2Mem1D(const OpParam& param, const u32 rankId,
                                        const std::vector<std::vector<u32>>& subCommRanks)
-: CcuAlgTemplateBase(param, rankId, subCommRanks)
+    : CcuAlgTemplateBase(param, rankId, subCommRanks)
 {
     std::vector<u32> ranks = subCommRanks[0];
     templateRankSize_ = ranks.size();
@@ -83,7 +83,7 @@ HcclResult CcuTempReduceScatterNhrMultiJettyMem2Mem1D::CalcRes(HcclComm comm, co
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuTempReduceScatterNhrMultiJettyMem2Mem1D::GetRes(AlgResourceRequest& resourceRequest)
+HcclResult CcuTempReduceScatterNhrMultiJettyMem2Mem1D::GetRes(AlgResourceRequest& resourceRequest) const
 {
     // 不需要从流
     resourceRequest.notifyNumOnMainThread = 0;
@@ -105,7 +105,7 @@ HcclResult CcuTempReduceScatterNhrMultiJettyMem2Mem1D::KernelRun(const OpParam& 
     constexpr uint16_t portNum  = 4;
     uint64_t inputAddr          = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr         = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
-    uint64_t token              = hcomm::CcuRep::GetTokenInfo(reinterpret_cast<uint64_t>(buffInfo_.inputPtr),
+    uint64_t token              = hcomm::CcuRep::GetTokenInfo(PointerToAddr(buffInfo_.inputPtr),
                                                        static_cast<uint64_t>(buffInfo_.inputSize));
     uint64_t sliceSize          = templateDataParams.sliceSize; // 单次处理数据的长度
     uint64_t inputSliceStride   = templateDataParams.inputSliceStride; // 输入数据的长度
@@ -222,7 +222,7 @@ HcclResult CcuTempReduceScatterNhrMultiJettyMem2Mem1D::GetStepInfo(u32 step, NHR
     return HcclResult::HCCL_SUCCESS;
 }
 
-u64 CcuTempReduceScatterNhrMultiJettyMem2Mem1D::GetThreadNum()
+u64 CcuTempReduceScatterNhrMultiJettyMem2Mem1D::GetThreadNum() const
 {
     return 1;
 }

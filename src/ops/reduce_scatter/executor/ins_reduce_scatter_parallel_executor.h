@@ -10,17 +10,8 @@
 
 #ifndef HCCLV2_INS_V2_REDUCE_SCATTER_PARALLEL_EXECUTOR_H
 #define HCCLV2_INS_V2_REDUCE_SCATTER_PARALLEL_EXECUTOR_H
-#include "alg_param.h"
-#include "topo_host.h"
-#include "channel.h"
-#include "alg_v2_template_base.h"
-#include "utils.h"
-#include "log.h"
-#include "workflow.h"
-#include "sal.h"
-#include "config_log.h"
-#include "executor_v2_base.h"
-#include "coll_alg_v2_exec_registry.h"
+
+#include "executor_common_ops.h"
 #include "topo_match_base.h"
 #include "topo_match_multilevel.h"
 #include "topo_match_ubx.h"
@@ -59,9 +50,9 @@ private:
     void GenTemplateAlgParamsInter0(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset, const u64 dataCountPerLoopAixs0, std::vector<u64> &scratchOffVec, TemplateDataParams &tempAlgParamsInter0) const;
     void GenTemplateAlgParamsInter1(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset, const u64 dataCountPerLoopAixs1, std::vector<u64> &scratchOffVec, TemplateDataParams &tempAlgParamsInter1) const;
     void GetParallelDataSplit(std::vector<float> &splitDataSize) const;
-    HcclResult PrepareResForTemplate(const OpParam &param, const AlgResourceCtxSerializable &resCtx,
-        InsAlgTemplate0 &tempAlgIntra, InsAlgTemplate1 &tempAlgInter);
-    uint64_t GetRankSize(const std::vector<std::vector<u32>> &subCommRanks);
+    HcclResult PrepareResForTemplate(const AlgResourceCtxSerializable &resCtx,
+        const InsAlgTemplate0 &tempAlgIntra, const InsAlgTemplate1 &tempAlgInter);
+    uint64_t GetRankSize(const std::vector<std::vector<u32>> &subCommRanks) const;
 
     uint64_t rankSizeLevel0_{0};
     uint64_t rankSizeLevel1_{0};
@@ -69,7 +60,7 @@ private:
     uint64_t rankIdxLevel0_{0};
     uint64_t rankIdxLevel1_{0};
 
-    ThreadHandle              controlThread_;
+    ThreadHandle              controlThread_{0};
     std::vector<ThreadHandle> templateMainThreads_;
     std::vector<u32>          notifyIdxControlToTemplates_;
     std::vector<u32>          notifyIdxTemplatesToControl_;

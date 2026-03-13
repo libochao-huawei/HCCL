@@ -12,9 +12,13 @@
 #include "selector_registry.h"
 
 namespace ops_hccl {
+constexpr uint32_t INDEX_0 = 0;
+constexpr uint32_t INDEX_1 = 1;
+constexpr uint32_t INDEX_2 = 2;
+constexpr uint32_t INDEX_3 = 3;
 
-SelectorStatus AlltoAllVCAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetLayerDetails* topoInfo,
-                                                    OpParam &opParam,
+SelectorStatus AlltoAllVCAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNetLayerDetails* topoInfo,
+                                                    const OpParam &opParam,
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                     std::string &selectAlgName) const
 {
@@ -44,8 +48,8 @@ SelectorStatus AlltoAllVCAutoSelector::SelectCcuScheduleAlgo(TopoInfoWithNetLaye
     }
 }
 
-SelectorStatus AlltoAllVCAutoSelector::SelectAicpuAlgo(TopoInfoWithNetLayerDetails* topoInfo,
-                                                      OpParam &opParam,
+SelectorStatus AlltoAllVCAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerDetails* topoInfo,
+                                                      const OpParam &opParam,
                                                       const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                       std::string &selectAlgName) const
 {
@@ -56,7 +60,7 @@ SelectorStatus AlltoAllVCAutoSelector::SelectAicpuAlgo(TopoInfoWithNetLayerDetai
         algos = it->second;
     }
     HCCL_INFO("[AlltoAllVC] hccl algo op config: config opType:%d, level0:%u, level1:%u, level2:%u, level3:%u",
-        opParam.opType, algos.at(0), algos.at(1), algos.at(2), algos.at(3));
+        opParam.opType, algos.at(INDEX_0), algos.at(INDEX_1), algos.at(INDEX_2), algos.at(INDEX_3));
 
     if (topoInfo->topoLevelNums > 1) {
         HCCL_ERROR("hccl algo no match");

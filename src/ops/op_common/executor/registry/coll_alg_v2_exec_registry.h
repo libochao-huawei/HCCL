@@ -33,7 +33,7 @@ static InsCollAlgBase *DefaultExecCreatorV2()
 class CollAlgExecRegistryV2 {
 public:
     static CollAlgExecRegistryV2 &Instance();
-    HcclResult Register(const HcclCMDType type, const std::string &tag, const CollExecCreatorV2 &collAlgExecCreator);
+    HcclResult Register(const HcclCMDType type, const std::string &tag, const CollExecCreatorV2 &collExecCreator);
     std::shared_ptr<InsCollAlgBase> GetAlgExec(const HcclCMDType type, const std::string &tag);
 
 private:

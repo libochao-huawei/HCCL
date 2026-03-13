@@ -49,7 +49,7 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
 {
     HCCL_INFO("Start to execute Selector.");
     param.hcclComm = comm;
-    CHK_RET(HcclGetOpExpansionMode(comm, param));
+    CHK_RET(HcclGetOpExpansionMode(param));
     // 获取基础拓扑
     CHK_RET(HcclCalcTopoInfo(comm, param, topoInfo));
 
@@ -91,11 +91,11 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     // 资源结构体
     std::unique_ptr<AlgResourceCtxSerializable> resCtxHost = std::make_unique<AlgResourceCtxSerializable>();
     // 资源序列化结果
-    void *resCtxSequence;
+    void *resCtxSequence = nullptr;
     bool isResourceReused = false;
 
-    ThreadHandle cpuTsThread;
-    ThreadHandle exportedAicpuTsThread;
+    ThreadHandle cpuTsThread{0};
+    ThreadHandle exportedAicpuTsThread{0};
     if (param.engine == COMM_ENGINE_AICPU_TS) {
         CHK_RET(HcclThreadAcquireWithStream(comm, COMM_ENGINE_CPU_TS, param.stream, 1, &cpuTsThread));
         // Export cpuTsThread
@@ -123,7 +123,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     } else if (param.engine == COMM_ENGINE_AIV) {
         param.resCtx = resCtxSequence;
         AlgResourceCtxSerializable &resCtxHost = *static_cast<AlgResourceCtxSerializable *>(resCtxSequence);
-        CHK_RET(HcclAivKernelEntranceLaunch(comm, param, topoInfo, resCtxHost));
+        CHK_RET(HcclAivKernelEntranceLaunch(param, topoInfo, resCtxHost));
         CHK_RET(executor->Orchestrate(param, resCtxHost));
     } else {
         if (isResourceReused) {
@@ -213,7 +213,7 @@ HcclResult AicpuKernelLaunch(OpParam &param)
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclAivKernelEntranceLaunch(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
+HcclResult HcclAivKernelEntranceLaunch(OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
     AlgResourceCtxSerializable &resCtxHost)
 {
     HCCL_INFO("[%s] algTag[%s] commModeTag[%s] resCtx(Host)[%p] aivCommInfoPtr(Device)[%p]", __func__,
@@ -318,19 +318,19 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::shared_ptr<InsCollA
 
     // host侧资源
     if (param.engine == COMM_ENGINE_RESERVED) {
-
+        // COMM_ENGINE_RESERVED
     } else if (param.engine == COMM_ENGINE_CPU) {
         CHK_RET(GetAlgResDPU(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence,
             size, increCreateChannelFlag));
     } else if (param.engine == COMM_ENGINE_CPU_TS) {
-
+        // COMM_ENGINE_CPU_TS
     } else if (param.engine == COMM_ENGINE_AICPU) {
-
+        // COMM_ENGINE_AICPU
     } else if (param.engine == COMM_ENGINE_AICPU_TS) {
         CHK_RET(GetAlgResAICPU(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence,
                                size, increCreateChannelFlag));
     } else if (param.engine == COMM_ENGINE_AIV) {
-        CHK_RET(GetAlgResAiv(comm, param, resRequest, topoInfo, algHierarchyInfo, resCtxSequence, size));
+        CHK_RET(GetAlgResAiv(comm, param, resRequest, topoInfo, algHierarchyInfo, resCtxSequence));
     } else {
         HCCL_ERROR("fail to get engine.", HCCL_E_PARA);
     }
@@ -535,7 +535,7 @@ HcclResult HcclGetChannel(HcclComm comm, const OpParam &param, AlgResourceReques
 }
 
 HcclResult GetAlgResAiv(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest, TopoInfoWithNetLayerDetails *topoInfo,
-    AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence, uint64_t& ctxSize)
+    AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence)
 {
     uint64_t size = sizeof(AlgResourceCtxSerializable);
     CHK_RET(HcclEngineCtxCreate(comm, param.algTag, CommEngine::COMM_ENGINE_CPU_TS, size, resCtxSequence));
@@ -645,7 +645,8 @@ HcclResult GetAlgResDPU(HcclComm comm, const OpParam &param, AlgResourceRequest 
     bool newCreated;
     CHK_RET(HcclDevMemAcquire(comm, "DPUTAG", &shmemSize, &shmemPtr, &newCreated));
     resCtxHost->npu2DpuShmemPtr = shmemPtr;
-    resCtxHost->dpu2NpuShmemPtr = static_cast<void*>(static_cast<uint8_t*>(shmemPtr) + shmemSize / 2);
+    constexpr uint64_t DPU2NPU_SHMEM_RATIO = 2;
+    resCtxHost->dpu2NpuShmemPtr = static_cast<void*>(static_cast<uint8_t*>(shmemPtr) + shmemSize / DPU2NPU_SHMEM_RATIO);
 
     CHK_RET(GetAlgResAICPU(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence,
                            ctxSize, increCreateChannelFlag));
@@ -856,7 +857,7 @@ HcclResult SetOpParamAlgTag(OpParam &param, const std::string &algName)
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult HcclGetOpExpansionMode(HcclComm comm, OpParam &param)
+HcclResult HcclGetOpExpansionMode(OpParam &param)
 {
     // 因为AICPU是保底的所以这里获取到是AICPU引擎就应该加载Kernel
     if (GetExternalInputHcclAicpuUnfold() == true) {

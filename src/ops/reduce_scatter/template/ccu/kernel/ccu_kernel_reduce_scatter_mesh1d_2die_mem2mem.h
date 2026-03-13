@@ -102,7 +102,7 @@ private:
     HcclResult PostSync();
     HcclResult DoReduceScatter();
     void ReduceLoopGroup(CcuRep::LocalAddr outDstOrg, std::vector<CcuRep::LocalAddr> &scratchOrg);
-    std::string GetLoopBlockTag(std::string loopType, int32_t index);
+    std::string GetLoopBlockTag(std::string loopType, int32_t index) const;
     void GroupCopy(CcuRep::LocalAddr dst, CcuRep::LocalAddr src);
     void CreateGroupCopy();
     void CreateReduceLoop(uint32_t size);

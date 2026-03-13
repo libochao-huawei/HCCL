@@ -98,7 +98,7 @@ HcclResult CcuTempAllGather2DiesMeshMem2Mem1D::KernelRun(const OpParam& param, c
     uint32_t rankId = mySubCommRank_;
     uint64_t inputAddr = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
-    uint64_t token = hcomm::CcuRep::GetTokenInfo(reinterpret_cast<uint64_t>(buffInfo_.inputPtr),
+    uint64_t token = hcomm::CcuRep::GetTokenInfo(PointerToAddr(buffInfo_.inputPtr),
                                                        static_cast<uint64_t>(buffInfo_.inputSize));
     uint64_t sliceSize = templateDataParams.sliceSize;
     uint64_t offSet = rankId * templateDataParams.outputSliceStride;
@@ -124,11 +124,11 @@ u64 CcuTempAllGather2DiesMeshMem2Mem1D::CalcScratchMultiple(BufferType inBuffTyp
     return 1;
 }
 
-u64 CcuTempAllGather2DiesMeshMem2Mem1D::GetThreadNum()
+u64 CcuTempAllGather2DiesMeshMem2Mem1D::GetThreadNum() const
 {
     return 2;
 }
-HcclResult CcuTempAllGather2DiesMeshMem2Mem1D::GetRes(AlgResourceRequest& resourceRequest)
+HcclResult CcuTempAllGather2DiesMeshMem2Mem1D::GetRes(AlgResourceRequest& resourceRequest) const
 {
     resourceRequest.slaveThreadNum = 1;
     resourceRequest.notifyNumOnMainThread = 1;

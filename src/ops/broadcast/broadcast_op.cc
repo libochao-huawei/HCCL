@@ -8,30 +8,13 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include "broadcast_op.h"
+#include "op_common_ops.h"
+#include "topo_host.h"
 #include <algorithm>
 #include <future>
 #include <map>
 #include <string>
-#include <hccl/hccl_types.h>
-#include "hccl/base.h"
-#include "sal.h"
-#include "error_codes/rt_error_codes.h"
-#include "mmpa_api.h"
-#include "param_check.h"
-#include "executor_base.h"
-#include "coll_alg_v2_exec_registry.h"
-#include "alg_env_config.h"
-#include "adapter_acl.h"
-#include "topo_host.h"
-#include "adapter_error_manager_pub.h"
-#include "hccl_inner.h"
-#include "hccl.h"
-#include "config_log.h"
-#include "workflow.h"
-#include "load_kernel.h"
-#include "broadcast_op.h"
-#include "op_common.h"
-#include "hcomm_dlsym.h"
 
 using namespace std;
 using namespace ops_hccl;
@@ -77,7 +60,7 @@ HcclResult HcclBroadcast(void *buf, uint64_t count, HcclDataType dataType, uint3
 }
 
 namespace ops_hccl {
-HcclResult CheckBroadcastInputPara(HcclComm comm, void *buf)
+HcclResult CheckBroadcastInputPara(const HcclComm comm, const void *buf)
 {
     // 入参合法性校验
     RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\

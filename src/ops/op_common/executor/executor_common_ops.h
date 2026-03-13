@@ -8,25 +8,19 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef TOPO_MATCH_CONCURR_MESH
-#define TOPO_MATCH_CONCURR_MESH
+#ifndef EXECUTOR_COMMON_OPS_H
+#define EXECUTOR_COMMON_OPS_H
 
-#include "topo_match_base.h"
+#include "alg_param.h"
+#include "alg_v2_template_base.h"
+#include "channel.h"
+#include "coll_alg_v2_exec_registry.h"
+#include "config_log.h"
+#include "executor_v2_base.h"
+#include "log.h"
+#include "sal.h"
+#include "topo_host.h"
+#include "utils.h"
+#include "workflow.h"
 
-namespace ops_hccl {
-
-class TopoMatch2D : public TopoMatchBase {
-public:
-    explicit TopoMatch2D();
-    ~TopoMatch2D() override;
-
-    std::string Describe() const override
-    {
-        return "Topo Match for Multi-dimensional Concurrent Mesh Algorithm (CURRENTLY only 2-D Concurr Mesh is "
-               "supported).";
-    }
-    HcclResult MatchTopo(const HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo, AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
-};
-} // namespace ops_hccl
-
-#endif // !TOPO_MATCH_CONCURR_MESH
+#endif
