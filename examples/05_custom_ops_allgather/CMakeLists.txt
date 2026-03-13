@@ -37,42 +37,7 @@ set_target_properties(hccl_custom_allgather PROPERTIES LINKER_LANGUAGE CXX)
 target_sources(hccl_custom_allgather PRIVATE
     op_host/all_gather.cc
     op_host/launch_kernel.cc
-)
-
-# Manual compilation of ASC kernel to object file for dynamic loading
-set(KERNEL_SRC ${CMAKE_CURRENT_SOURCE_DIR}/op_host/launch_kernel_asc.asc)
-set(KERNEL_OBJ ${CMAKE_CURRENT_BINARY_DIR}/hccl_custom_allgather_kernels.o)
-
-# Include paths for ASC compiler
-set(ASC_INCLUDE_FLAGS 
-    -I${CMAKE_CURRENT_SOURCE_DIR}/inc
-    -I${CMAKE_CURRENT_SOURCE_DIR}/op_host
-    -I${ASCEND_CANN_PACKAGE_PATH}/include
-    -I${ASCEND_CANN_PACKAGE_PATH}/include/hccl
-    -I${ASCEND_CANN_PACKAGE_PATH}/include/mmpa
-)
-
-# Use CMAKE_ASC_COMPILER if available, otherwise default to 'asc'
-if(NOT CMAKE_ASC_COMPILER)
-    set(CMAKE_ASC_COMPILER "asc")
-endif()
-
-add_custom_command(
-    OUTPUT ${KERNEL_OBJ}
-    COMMAND ${CMAKE_ASC_COMPILER} -c -o ${KERNEL_OBJ} ${KERNEL_SRC} --npu-arch=dav-c310 ${ASC_INCLUDE_FLAGS}
-    DEPENDS ${KERNEL_SRC}
-    COMMENT "Compiling ASC kernel: ${KERNEL_SRC} -> ${KERNEL_OBJ}"
-    VERBATIM
-)
-
-add_custom_target(generate_kernel_obj ALL DEPENDS ${KERNEL_OBJ})
-add_dependencies(hccl_custom_allgather generate_kernel_obj)
-
-# Copy the generated .o file to testcase directory for runtime loading
-add_custom_command(TARGET hccl_custom_allgather POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${KERNEL_OBJ}
-        ${CMAKE_CURRENT_SOURCE_DIR}/testcase/hccl_custom_allgather_kernels.o
+    op_host/launch_kernel_asc.asc
 )
 
 target_include_directories(hccl_custom_allgather PRIVATE
@@ -122,9 +87,6 @@ target_link_libraries(hccl_custom_allgather PRIVATE
 
 install(TARGETS hccl_custom_allgather
     LIBRARY DESTINATION ${CUSTOM_OPS_OPP_LIB_PATH}
-)
-install(FILES ${KERNEL_OBJ}
-    DESTINATION ${CUSTOM_OPS_OPP_LIB_PATH}
 )
 install(FILES
     inc/hccl_custom_allgather.h
