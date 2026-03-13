@@ -216,7 +216,9 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
     uint64_t beginTime = HcommGetProfilingSysCycleTime();
     CHK_RET(AicpuKernelLaunch(param));
     CHK_PTR_NULL(comm);
-    HcclResult ret = HcclReportAicpuKernel(comm, beginTime, cpuTsThread);
+    std::string kernelName = "HcclLaunchAicpuKernel"
+    char* kernelNameCStr = const_cast<char*>(kernelName.c_str());
+    HcclResult ret = HcclReportAicpuKernel(comm, beginTime, kernelNameCStr);
     CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("[HcclAicpuKernelEntranceLaunch] HcclReportAicpuKernel failed"), ret);
 
     // Host stream等待Device的通知
