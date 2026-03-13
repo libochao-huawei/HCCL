@@ -189,7 +189,7 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
         // 获取子通信域的建链请求
 
         std::vector<HcclChannelDesc> level0ChannelRequest;
-        level0ChannelRequest.resize(rankSize);
+        level0ChannelRequest.reserve(rankSize);
 
 
         // std::vector<HcclChannelDesc> &levelNChannelRequest = resRequest.channels[level];
@@ -199,10 +199,6 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
         {
             if (remoteRank == rank) continue;
 
-            HcclChannelDesc &channelDesc = level0ChannelRequest[remoteRank];
-            channelDesc.memHandles = &memHandle;
-            channelDesc.memHandleNum = 1;
-
             uint32_t netLayer = 0;
             CommLink *linkList = nullptr;
             uint32_t listSize;
@@ -210,6 +206,8 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
             for (uint32_t idx = 0; idx < listSize; idx++) {
                 HcclChannelDesc channelDesc;
                 HcclChannelDescInit(&channelDesc, 1);
+                channelDesc.memHandles = &memHandle;
+                channelDesc.memHandleNum = 1;
                 channelDesc.remoteRank = remoteRank;
                 CommLink link = linkList[idx];
                 channelDesc.localEndpoint.protocol = link.srcEndpointDesc.protocol;
@@ -227,6 +225,7 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
                 channelDesc.channelProtocol = link.linkAttr.linkProtocol;
                 constexpr uint32_t NORMAL_NOTIFY_NUM = 3;
                 channelDesc.notifyNum = NORMAL_NOTIFY_NUM;
+                level0ChannelRequest.push_back(channelDesc);
             }
         }
 
