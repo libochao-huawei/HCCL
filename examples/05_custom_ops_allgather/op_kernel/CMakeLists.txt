@@ -17,6 +17,9 @@ set(ASC_INCLUDE_FLAGS
     -I${ASCEND_CANN_PACKAGE_PATH}/include
     -I${ASCEND_CANN_PACKAGE_PATH}/include/hccl
     -I${ASCEND_CANN_PACKAGE_PATH}/include/mmpa
+    -I${ASCEND_CANN_PACKAGE_PATH}/include/tikcpp/tikcfw
+    -I${ASCEND_CANN_PACKAGE_PATH}/include/tikcpp/tikcfw/interface
+    -I${ASCEND_CANN_PACKAGE_PATH}/include/tikcpp/tikcfw/impl
 )
 
 # Use CMAKE_ASC_COMPILER if available, otherwise default to 'asc'
