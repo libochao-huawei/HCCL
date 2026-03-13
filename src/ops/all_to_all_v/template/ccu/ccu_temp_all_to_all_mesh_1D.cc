@@ -132,7 +132,6 @@ HcclResult CcuTempAlltoAllMesh1D::KernelRun(const OpParam& param,
 
     HCCL_DEBUG("[CcuTempAlltoAllMesh1D::KernelRun] Start");
     if (tempRankSize_ == 1) {
-        // 遗留 不确定对不对
         DataSlice usrInSlice = DataSlice(buffInfo_.inputPtr, buffInfo_.inBuffBaseOff, sliceSize);
         DataSlice usrOutSlice = DataSlice(buffInfo_.outputPtr, buffInfo_.outBuffBaseOff, sliceSize);
         LocalCopy(templateResource.threads[0], usrInSlice, usrOutSlice);
