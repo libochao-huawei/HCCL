@@ -747,7 +747,7 @@ HcclResult Is2DieFullMesh(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo)
     u32 dieNum = 2;  // 一共2个die
     std::vector<u32> dieLinkCounter(dieNum, 0);
     for (uint32_t rankIdx = 0; rankIdx < rankNum; rankIdx++) {
-        if (rankIdx == myRank) {
+        if (ranks[rankIdx] == myRank) {
             continue;
         }
         CommLink *links = nullptr;
@@ -806,7 +806,7 @@ HcclResult CalcLevel0MeshType(HcclComm comm, TopoInfoWithNetLayerDetails *topoIn
     u32 dieNum = 2;  // 一共2个die
     std::vector<u32> dieLinkCounter(dieNum, 0);
     for (uint32_t rankIdx = 0; rankIdx < rankNum; rankIdx++) {
-        if (myRank == rankIdx) {
+        if (myRank == ranks[rankIdx]) {
             continue;
         }
         CommLink *links = nullptr;
