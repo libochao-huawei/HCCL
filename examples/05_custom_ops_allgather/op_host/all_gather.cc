@@ -129,13 +129,17 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
     HcclMemHandle memHandle;
     
     hcclRet = HcclEngineCtxGet(comm, aivTag, CommEngine::COMM_ENGINE_AIV, &aivCommInfoPtr, &aivCommInfoSize);
-    HCCL_INFO("[PrepareResources] HcclEngineCtxGet ret=%d ptr=%p", hcclRet, aivCommInfoPtr);
+    HCCL_INFO("[PrepareResources] HcclEngineCtxGet ret=%d ptr=%p size=%llu", hcclRet, aivCommInfoPtr, aivCommInfoSize);
 
     if (hcclRet != HCCL_SUCCESS || aivCommInfoPtr == nullptr) {
         hcclRet = HcclEngineCtxCreate(comm, aivTag, CommEngine::COMM_ENGINE_AIV, AIV_TAG_BUFF_LEN, &aivCommInfoPtr);
         if (hcclRet != HCCL_SUCCESS) {
             HCCL_ERROR("[PrepareResources] Failed to create AIV buffer. ret=%d", hcclRet);
             return hcclRet;
+        }
+        if (aivCommInfoPtr == nullptr) {
+            HCCL_ERROR("[PrepareResources] HcclEngineCtxCreate returned null AIV buffer. ret=%d", hcclRet);
+            return HCCL_E_INTERNAL;
         }
         HCCL_INFO("[PrepareResources] Created AIV buffer %p", aivCommInfoPtr);
         ACLCHECK(aclrtMemset(aivCommInfoPtr, AIV_TAG_BUFF_LEN, 0, AIV_TAG_BUFF_LEN));
@@ -161,6 +165,15 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
         } else {
              memHandle = g_memHandleCache[aivTagStr];
         }
+    }
+    if (aivCommInfoPtr == nullptr) {
+        HCCL_ERROR("[PrepareResources] AIV buffer is null before use");
+        return HCCL_E_INTERNAL;
+    }
+    if (aivCommInfoSize < AIV_TAG_ADDR_OFFSET + MAX_RANK_SIZE * sizeof(uint64_t)) {
+        HCCL_ERROR("[PrepareResources] AIV buffer size is too small. size=%llu need>=%llu",
+            aivCommInfoSize, AIV_TAG_ADDR_OFFSET + MAX_RANK_SIZE * sizeof(uint64_t));
+        return HCCL_E_INTERNAL;
     }
     
     resCtx->aivCommInfoPtr = aivCommInfoPtr;
