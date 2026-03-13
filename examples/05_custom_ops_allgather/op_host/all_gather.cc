@@ -99,8 +99,6 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
             return hcclRet;
         }
         HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
-        (void)new (ctx) AlgResourceCtxSerializable();
-        HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
         isNewContext = true;
         HCCL_INFO("[PrepareResources] New Host Context %p created", ctx);
     } else {
@@ -121,6 +119,7 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
         CHK_RET(HcclGetRankSize(comm, &rankSize));
         HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
         resCtx->topoInfo.userRank = rank;
+        HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
         resCtx->topoInfo.userRankSize = rankSize;
         HCCL_INFO("[PrepareResources] Rank %u, RankSize %u", rank, rankSize);
 
