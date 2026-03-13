@@ -20,7 +20,7 @@ AlgTemplateRegistry &AlgTemplateRegistry::Instance()
 
 AlgTemplateRegistry::AlgTemplateRegistry()
 {
-    tempCreators_.resize(TemplateType::TEMPLATE_CUSTOM_MAX_NUM, nullptr);
+    tempCreators_.resize(static_cast<size_t>(TemplateType::TEMPLATE_CUSTOM_MAX_NUM), nullptr);
 }
 
 HcclResult AlgTemplateRegistry::Register(const TemplateType type, const AlgTemplateCreator &algTemplateCreator)
