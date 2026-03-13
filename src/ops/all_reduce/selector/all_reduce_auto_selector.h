@@ -39,7 +39,7 @@ private:
                                        std::string &selectAlgName) const;
     SelectorStatus SelectDPUAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
         const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap, std::string &selectAlgName) const;
-    SelectorStatus SelectMeshAlgoAicpuUBX(const TopoInfoWithNetLayerDetails* topoInfo,
+    SelectorStatus SelectMeshAlgoAicpuUBX(const TopoInfoWithNetLayerDetails* topoInfo, const u64 dataSize, 
         std::string &selectAlgName) const;
     SelectorStatus SelectMeshUBXAlgo(const TopoInfoWithNetLayerDetails* topoInfo, std::string &selectAlgName, 
         u64 dataSize) const;
