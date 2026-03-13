@@ -346,10 +346,6 @@ HcclResult AlltoAllVOutPlace(const void *sendBuf, const void *sendCounts, const 
     param.varMemSize = varMemSize;
     param.all2AllVDataDes.sendType = dataType;
     param.all2AllVDataDes.recvType = dataType;
-    param.all2AllVDataDes.sendCounts = const_cast<void *>(sendCounts);
-    param.all2AllVDataDes.recvCounts = const_cast<void *>(recvCounts);
-    param.all2AllVDataDes.sdispls = const_cast<void *>(sdispls);
-    param.all2AllVDataDes.rdispls = const_cast<void *>(rdispls);
     // 后面结构体改了之后，这里该赋值的地方要赋值，不然后续别人校验可能会有问题的
     u64 inputSize = 0;
     u64 outputSize = 0;
@@ -367,22 +363,26 @@ HcclResult AlltoAllVOutPlace(const void *sendBuf, const void *sendCounts, const 
     for (u64 i = 0; i < ALL_TO_ALL_V_VECTOR_NUM * userRankSize; i++) {
         u64 val = i / rankSize;
         switch(val) {
-            case 0:
+            case SEND_COUNT_IDX:
                 data[i] = static_cast<const u64*>(sendCounts)[i % rankSize];
                 break;
-            case 1:
+            case RECV_COUNT_IDX:
                 data[i] = static_cast<const u64*>(recvCounts)[i % rankSize];
                 break;
-            case 2:
+            case SEND_DISPL_IDX:
                 data[i] = static_cast<const u64*>(sdispls)[i % rankSize];
                 break;
-            case 3:
+            case RECV_DISPL_IDX:
                 data[i] = static_cast<const u64*>(rdispls)[i % rankSize];
                 break;
             default:
                 break;
         }
     }
+    param.all2AllVDataDes.sendCounts = data;
+    param.all2AllVDataDes.recvCounts = data + RECV_COUNT_IDX * rankSize;
+    param.all2AllVDataDes.sdispls = data + SEND_DISPL_IDX * rankSize;
+    param.all2AllVDataDes.rdispls = data + RECV_DISPL_IDX * rankSize;
 
     for (u64 i = 0; i < ALL_TO_ALL_V_VECTOR_NUM * userRankSize; i++) {
         HCCL_INFO("[AlltoAllVOutPlace] varData[%u] is [%u]", i, data[i]);
