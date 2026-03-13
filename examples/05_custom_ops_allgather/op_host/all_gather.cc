@@ -236,8 +236,10 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
         levelNChannels.resize(validChannelNum);
 
         if (validChannelNum > 0) {
-            CHK_RET(HcclChannelAcquire(comm, COMM_ENGINE_AIV, level0ChannelRequest.data(),
+            HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
+            CHK_RET(HcclChannelAcquire(comm, CommEngine::COMM_ENGINE_AIV, level0ChannelRequest.data(),
                 validChannelNum, levelNChannels.data()));
+            HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
         }
 
         for (uint32_t idx = 0; idx < validChannelNum; idx++) {
