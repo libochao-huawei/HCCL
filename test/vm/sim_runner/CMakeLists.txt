@@ -1,0 +1,3 @@
+add_subdirectory(stub_runtime)
+add_subdirectory(stub_runtime_aicpu)
+add_subdirectory(virt_runtime_fwk)

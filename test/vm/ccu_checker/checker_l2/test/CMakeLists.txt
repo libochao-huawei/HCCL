@@ -1,0 +1,20 @@
+cmake_minimum_required(VERSION 3.14)
+project(hcc_vm_test)
+set(CMAKE_VERBOSE_MAKEFILE true)
+
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+
+add_subdirectory(googletest)
+# add_subdirectory(hccl_virtual_runtime_test)
+# add_subdirectory(hccl_ipc)
+# add_subdirectory(hccl_shm_test)
+# add_subdirectory(hccl_proxy)
+add_subdirectory(hccl_host)
+
+enable_testing()
+# add_test(NAME hccl_ipc_test COMMAND hccl_ipc_test)
+# add_test(NAME hccl_proxy_test COMMAND hccl_proxy_test)
+# add_test(NAME hccl_virtual_runtime_test COMMAND hccl_virtual_runtime_test)
+add_test(NAME hccl_host_test COMMAND hccl_host_test)

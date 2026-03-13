@@ -198,13 +198,13 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
                 if (isMeshNumEqualToClosNum && (topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO)) {
                     selectAlgName = "InsAllGatherConcurrentMesh1DNHR";
                     return SelectorStatus::MATCH;
-                } else if (isClosNumMultipleOfMeshNum) { 
+                } else if (isClosNumMultipleOfMeshNum) {
                     selectAlgName = "InsAllGatherParallelMesh1DNHRUBX";
                     return SelectorStatus::MATCH;
                 } else {
                     selectAlgName = "InsAllGatherNHRUBX";
                     return SelectorStatus::MATCH;
-                } 
+                }
             } else {
                     selectAlgName = "InsAllGatherMesh1DUBX";
                     return SelectorStatus::MATCH;
@@ -243,7 +243,8 @@ SelectorStatus AllGatherAutoSelector::SelectAivAlgo(
 }
 
 SelectorStatus AllGatherAutoSelector::SelectDPUAlgo(
-    const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+    const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
+    const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
     std::string &selectAlgName) const
 {
     HCCL_DEBUG("[AllGatherAutoSelector][%s] start", __func__);
@@ -252,12 +253,16 @@ SelectorStatus AllGatherAutoSelector::SelectDPUAlgo(
     auto it = configAlgMap.find(opParam.opType);
     if ((it != configAlgMap.end()) && (it->second.size() > 1)) {
         algos = it->second;
+        if ((algos[0] != HcclAlgoType::HCCL_ALGO_TYPE_FULLMESH) || (algos[1] != HcclAlgoType::HCCL_ALGO_TYPE_NHR)) {
+            HCCL_WARNING("[Algo][AllGatherAutoSelector] level0 algo[%u] level1 algo[%u] is not supported yet, "
+                "reset to default.", algos[0], algos[1]);
+        }
     }
     HCCL_INFO("hccl algo op config: config opType:%d, level0:%u, level1:%u, level2:%u, level3:%u", opParam.opType,
               algos[0], algos[1], algos[2], algos[3]);
     if (topoInfo->topoLevelNums > 1) {
         if ((topoInfo->deviceNumPerModule == 1) || (topoInfo->level0Topo == Level0Shape::MESH_1D)) {
-            selectAlgName = "InsAllGatherMeshNhr";
+            selectAlgName = "InsAllGatherMeshNhrDPU";
             return SelectorStatus::MATCH;
         }
     }

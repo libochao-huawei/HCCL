@@ -300,7 +300,7 @@ static bool IsEndPointEqual(EndpointDesc &endPoint0, EndpointDesc &endPoint1)
            (endPoint0.commAddr.type == endPoint1.commAddr.type) &&
            (memcmp(endPoint0.commAddr.eid, endPoint1.commAddr.eid, sizeof(endPoint0.commAddr.eid)) == 0);
 }
- 
+
 HcclResult GetTopoTypeByLink(HcclComm comm, uint32_t netLayer, CommLink &link, CommTopo &topoType)
 {
 #ifndef AICPU_COMPILE
@@ -308,7 +308,7 @@ HcclResult GetTopoTypeByLink(HcclComm comm, uint32_t netLayer, CommLink &link, C
     uint32_t listSize;
     CHK_RET(HcclRankGraphGetTopoInstsByLayer(comm, netLayer, &topoInstList, &listSize));         // 获取当前rank的所有TopoInst
     HCCL_INFO("[%s][%u] listSize = %u", __func__, __LINE__, listSize);
- 
+
     for (uint32_t topoInstIdx = 0; topoInstIdx < listSize; topoInstIdx++) { // 遍历topoInst
         uint32_t topoInstId = topoInstList[topoInstIdx];
         uint32_t endPointNum;
@@ -331,7 +331,7 @@ HcclResult GetTopoTypeByLink(HcclComm comm, uint32_t netLayer, CommLink &link, C
     return HCCL_SUCCESS;
 #endif
 }
- 
+
 /*
 *   获取link对应的channel。对于2个rank之间，存在多条link的场景，会优先获取指定TopoType的1条channel。
 *   如果多条link都没有指定的TopoType，则返回第一条link对应的channel。
