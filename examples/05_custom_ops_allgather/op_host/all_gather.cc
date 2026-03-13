@@ -81,17 +81,24 @@ static std::map<std::string, HcclMemHandle> g_memHandleCache;
 HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
     CommEngine ctxEngine = CommEngine::COMM_ENGINE_CPU_TS;
     void* ctx = nullptr;
-    uint64_t size = sizeof(AlgResourceCtxSerializable);
+    const uint64_t ctxSize = sizeof(AlgResourceCtxSerializable);
+    uint64_t size = ctxSize;
     bool isNewContext = false;
 
     HcclResult hcclRet = HcclEngineCtxGet(comm, param.tag, ctxEngine, &ctx, &size);
+    if (hcclRet == HCCL_SUCCESS && ctx != nullptr && size < ctxSize) {
+        HCCL_ERROR("[PrepareResources] Existing context size too small. got=%llu expect=%llu", size, ctxSize);
+        hcclRet = HCCL_E_INTERNAL;
+        ctx = nullptr;
+    }
     if (hcclRet != HCCL_SUCCESS || ctx == nullptr) {
         HCCL_INFO("[PrepareResources] Context not found (ret=%d), creating new with COMM_ENGINE_CPU_TS...", hcclRet);
-        hcclRet = HcclEngineCtxCreate(comm, param.tag, ctxEngine, size, &ctx);
+        hcclRet = HcclEngineCtxCreate(comm, param.tag, ctxEngine, ctxSize, &ctx);
         if (hcclRet != HCCL_SUCCESS) {
             HCCL_ERROR("[PrepareResources] Failed to allocate context memory via HcclEngineCtxCreate. ret=%d", hcclRet);
             return hcclRet;
         }
+        (void)new (ctx) AlgResourceCtxSerializable();
         isNewContext = true;
         HCCL_INFO("[PrepareResources] New Host Context %p created", ctx);
     } else {
