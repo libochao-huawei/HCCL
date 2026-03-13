@@ -34,7 +34,17 @@ endif()
 add_custom_command(
     OUTPUT ${KERNEL_OBJ}
     # 1. Compile to temporary object file
-    COMMAND ${CMAKE_ASC_COMPILER} -c -o ${KERNEL_TMP_OBJ} ${KERNEL_SRC} --npu-arch=dav-2201 --cce-aicore-only ${ASC_INCLUDE_FLAGS}
+    COMMAND ${CMAKE_ASC_COMPILER} -c -x cce -O2 ${KERNEL_SRC} -o ${KERNEL_TMP_OBJ}
+        --cce-aicore-arch=dav-c310-vec
+        --cce-aicore-input-parameter-size=28000
+        --cce-aicore-only
+        -mllvm -cce-aicore-function-stack-size=0x8000
+        -mllvm -cce-aicore-stack-size=0x8000
+        -mllvm -cce-aicore-record-overflow=false
+        -mllvm -cce-aicore-addr-transform
+        -mllvm -cce-aicore-jump-expand=true
+        -std=c++17 -fstack-protector-all
+        ${ASC_INCLUDE_FLAGS}
     # 2. Link object file (essential for aclrtBinaryLoad)
     COMMAND ${LLD_LINKER} -m aicorelinux -Ttext=0 ${KERNEL_TMP_OBJ} -static -o ${KERNEL_OBJ}
     DEPENDS ${KERNEL_SRC}
