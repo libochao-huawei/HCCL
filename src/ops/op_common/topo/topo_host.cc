@@ -603,7 +603,7 @@ HcclResult CalcTopoShape(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo)
     return HCCL_SUCCESS;
 }
 
-HcclResult ExtractNetLayerDetails(const HcclComm comm, const TopoInfoWithNetLayerDetails* topoInfo)
+HcclResult ExtractNetLayerDetails(const HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo)
 {
     CHK_PRT_RET(comm == nullptr, HCCL_ERROR("[Topo][ExtractNetLayerDetails] comm is null"), HCCL_E_PTR);
 

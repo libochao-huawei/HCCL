@@ -89,7 +89,7 @@ HcclResult CalculateServersPerSuperPod(const std::vector<uint32_t> &l0Sizes,
 
 HcclResult CalcTopoShape(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo);
 
-HcclResult ExtractNetLayerDetails(const HcclComm comm, const TopoInfoWithNetLayerDetails* topoInfo);
+HcclResult ExtractNetLayerDetails(const HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo);
 
 HcclResult ExtractTopoDetails(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo);
 
