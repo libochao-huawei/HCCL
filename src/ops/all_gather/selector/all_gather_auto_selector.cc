@@ -205,18 +205,16 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
             if (dataSize > SMALL_COUNT_512KB) {
                 if (isMeshNumEqualToClosNum && (topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO)) {
                     selectAlgName = "InsAllGatherConcurrentMesh1DNHR";
-                    return SelectorStatus::MATCH;
                 } else if (isClosNumMultipleOfMeshNum) {
                     selectAlgName = "InsAllGatherParallelMesh1DNHRUBX";
-                    return SelectorStatus::MATCH;
                 } else {
                     selectAlgName = "InsAllGatherNHRUBX";
-                    return SelectorStatus::MATCH;
                 }
             } else {
                 selectAlgName = "InsAllGatherMesh1DUBX";
-                return SelectorStatus::MATCH;
             }
+        } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
+            selectAlgName = "InsAllGatherNHR";
         } else {
             HCCL_ERROR("[AllGatherAutoSelector] topo not match");
             return SelectorStatus::NOT_MATCH;

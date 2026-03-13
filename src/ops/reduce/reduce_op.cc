@@ -127,17 +127,17 @@ HcclResult ReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclData
     param.enableDetour = false;
     param.deviceType = deviceType;
     param.root = root;
-    if (userRankSize == 1) {
-        HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
-        CHK_RET(SingleRankProc(param));
-        return HcclResult::HCCL_SUCCESS;
-    }
 
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));
-    if (param.opExecuteConfig != OpExecuteConfig::AICPU_TS && param.opExecuteConfig != OpExecuteConfig::HOSTCPU) {
+    if (ShouldUseInnerOp(param.opExecuteConfig)) {
         return HcclReduceInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
+    }
+    if (userRankSize == 1) {
+        HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
+        CHK_RET(SingleRankProc(param));
+        return HcclResult::HCCL_SUCCESS;
     }
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
     HCCL_INFO("Execute ReduceOutPlace success.");
