@@ -161,7 +161,7 @@ SelectorStatus ReduceScatterVAutoSelector::SelectAicpuAlgo(const TopoInfoWithNet
                                                       std::string &selectAlgName) const
 {
     (void)configAlgMap;
-    if (isInt64Type(opParam.vDataDes.dataType)) {
+    if (Is64BitDataType(opParam.vDataDes.dataType)) {
         HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64 only support in-box fullmesh algo type now.");
         return SelectorStatus::NOT_MATCH;
     }
