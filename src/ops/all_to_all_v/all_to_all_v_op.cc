@@ -72,7 +72,7 @@ HcclResult HcclAlltoAll(const void *sendBuf, uint64_t sendCount, HcclDataType se
     }
 
     // 底层走AlltoAllV
-    OpOpExecuteConfig opExecuteConfig;
+    OpExecuteConfig opExecuteConfig;
     CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlace(sendBuf, sendCounts.data(), sdispls.data(),
         recvBuf, recvCounts.data(), rdispls.data(), recvType, comm, stream, tag,
         HcclCMDType::HCCL_CMD_ALLTOALL, rankSize, opExecuteConfig), tag.c_str());
@@ -128,7 +128,7 @@ HcclResult HcclAlltoAllV(const void *sendBuf, const void *sendCounts, const void
     CHK_RET(CheckDataType(recvType, false));
 
     // 底层走AlltoAllV
-    OpOpExecuteConfig opExecuteConfig;
+    OpExecuteConfig opExecuteConfig;
     CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlace(sendBuf, sendCounts, sdispls, recvBuf, recvCounts, rdispls, recvType, comm, stream,
         tag, HcclCMDType::HCCL_CMD_ALLTOALLV, rankSize, opExecuteConfig), tag.c_str());
     if (opExecuteConfig != OpExecuteConfig::AICPU_TS && opExecuteConfig != OpExecuteConfig::HOSTCPU) {
@@ -212,7 +212,7 @@ HcclResult HcclAlltoAllVC(const void *sendBuf, const void *sendCountMatrix, Hccl
     CHK_RET(CheckDataType(recvType, false));
 
     // 底层走AlltoAllV
-    OpOpExecuteConfig opExecuteConfig;
+    OpExecuteConfig opExecuteConfig;
     CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlace(sendBuf, sendCounts.data(), sdispls.data(),
         recvBuf, recvCounts.data(), rdispls.data(), recvType, comm, stream, tag,
         HcclCMDType::HCCL_CMD_ALLTOALLVC, rankSize, opExecuteConfig), tag.c_str());
@@ -318,7 +318,7 @@ HcclResult CheckAlltoAllVCInputPara(const HcclComm comm, const void *sendBuf, co
 // alltoall/alltoallv/alltoallvc 统一，当前只支持outPlace
 HcclResult AlltoAllVOutPlace(const void *sendBuf, const void *sendCounts, const void *sdispls, const void *recvBuf,
     const void *recvCounts, const void *rdispls, HcclDataType dataType, HcclComm comm, aclrtStream stream,
-    const std::string &tag, HcclCMDType opType, u32 rankSize, OpOpExecuteConfig opExecuteConfig)
+    const std::string &tag, HcclCMDType opType, u32 rankSize, OpExecuteConfig opExecuteConfig)
 {
     HCCL_INFO("Start to execute AlltoAllVOutPlace");
 
