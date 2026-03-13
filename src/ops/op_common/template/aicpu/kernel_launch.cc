@@ -103,7 +103,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
 
         // 上报主流和第一个task  wait之前
         if (HcommProfilingReportKernelStartTask(thread, param->commName) != HCCL_SUCCESS) {
-            HCCL_ERROR(%s"failed to report MainStream And FirstTask, thread %lu, param->commName %s." __func__, thread, param->commName);
+            HCCL_ERROR("%sfailed to report MainStream And FirstTask, thread %lu, param->commName %s.", __func__, thread, param->commName);
             return 1;
         }
 
@@ -139,7 +139,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
 
         // 上报主流和最后一个task 在notify之后
         if (HcommProfilingReportKernelEndTask(thread, param->commName) != HCCL_SUCCESS) {
-            HCCL_ERROR("%s failed to report MainStream And LastTask, thread %lu, param->commName %s." __func__, thread, param->commName);
+            HCCL_ERROR("%s failed to report MainStream And LastTask, thread %lu, param->commName %s.",  __func__, thread, param->commName);
             return 1;
         }
         
