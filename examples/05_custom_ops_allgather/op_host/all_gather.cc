@@ -225,6 +225,7 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
                             "linkListIdx %u, protocol %zu",
                             rank, channelDesc.remoteRank, netLayer, idx, channelDesc.remoteEndpoint.protocol);
                 channelDesc.channelProtocol = link.linkAttr.linkProtocol;
+                constexpr u32 NORMAL_NOTIFY_NUM = 3;
                 channelDesc.notifyNum = NORMAL_NOTIFY_NUM;
                 channels.push_back(channelDesc);
             }
