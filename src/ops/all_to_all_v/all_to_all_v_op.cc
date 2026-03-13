@@ -8,13 +8,29 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "all_to_all_v_op.h"
-#include "op_common_ops.h"
-#include "topo_host.h"
 #include <algorithm>
 #include <future>
 #include <map>
 #include <string>
+#include <hccl/hccl_types.h>
+#include "hccl/base.h"
+#include "sal.h"
+#include "error_codes/rt_error_codes.h"
+#include "mmpa_api.h"
+#include "param_check.h"
+#include "executor_base.h"
+#include "coll_alg_v2_exec_registry.h"
+#include "alg_env_config.h"
+#include "adapter_acl.h"
+#include "topo_host.h"
+#include "adapter_error_manager_pub.h"
+#include "hccl_inner.h"
+#include "hccl.h"
+#include "config_log.h"
+#include "workflow.h"
+#include "load_kernel.h"
+#include "all_to_all_v_op.h"
+#include "op_common.h"
 
 using namespace std;
 using namespace ops_hccl;
@@ -70,9 +86,10 @@ HcclResult HcclAlltoAll(const void *sendBuf, uint64_t sendCount, HcclDataType se
     }
 
     // 底层走AlltoAllV
+    OpExecuteConfig opExecuteConfig;
     CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlace(sendBuf, sendCounts.data(), sdispls.data(),
         recvBuf, recvCounts.data(), rdispls.data(), recvType, comm, stream, tag,
-        HcclCMDType::HCCL_CMD_ALLTOALL, rankSize), tag.c_str());
+        HcclCMDType::HCCL_CMD_ALLTOALL, rankSize, opExecuteConfig), tag.c_str());
     return HCCL_SUCCESS;
 }
 
@@ -120,8 +137,9 @@ HcclResult HcclAlltoAllV(const void *sendBuf, const void *sendCounts, const void
     CHK_RET(CheckDataType(recvType, false));
 
     // 底层走AlltoAllV
+    OpExecuteConfig opExecuteConfig;
     CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlace(sendBuf, sendCounts, sdispls, recvBuf, recvCounts, rdispls, recvType, comm, stream,
-        tag, HcclCMDType::HCCL_CMD_ALLTOALLV, rankSize), tag.c_str());
+        tag, HcclCMDType::HCCL_CMD_ALLTOALLV, rankSize, opExecuteConfig), tag.c_str());
 
     return HCCL_SUCCESS;
 }
@@ -200,17 +218,18 @@ HcclResult HcclAlltoAllVC(const void *sendBuf, const void *sendCountMatrix, Hccl
     CHK_RET(CheckDataType(recvType, false));
 
     // 底层走AlltoAllV
+    OpExecuteConfig opExecuteConfig;
     CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlace(sendBuf, sendCounts.data(), sdispls.data(),
         recvBuf, recvCounts.data(), rdispls.data(), recvType, comm, stream, tag,
-        HcclCMDType::HCCL_CMD_ALLTOALLVC, rankSize), tag.c_str());
+        HcclCMDType::HCCL_CMD_ALLTOALLVC, rankSize, opExecuteConfig), tag.c_str());
 
     return HCCL_SUCCESS;
 }
 
 namespace ops_hccl {
 
-HcclResult CheckAlltoAllInputPara(const HcclComm comm, const void *sendBuf, const uint64_t sendCount,
-    const HcclDataType sendType, const void *recvBuf, const uint64_t recvCount, const HcclDataType recvType)
+HcclResult CheckAlltoAllInputPara(HcclComm comm, const void *sendBuf, uint64_t sendCount, HcclDataType sendType,
+    const void *recvBuf, uint64_t recvCount, HcclDataType recvType)
 {
     // 入参合法性校验
     CHK_PRT_RET(sendCount == 0 && recvCount == 0,
@@ -238,8 +257,8 @@ HcclResult CheckAlltoAllInputPara(const HcclComm comm, const void *sendBuf, cons
     return HCCL_SUCCESS;
 }
 
-HcclResult CheckAlltoAllVInputPara(const HcclComm comm, const void *sendBuf, const void *sendCounts, const void *sdispls,
-    const HcclDataType sendType, const void *recvBuf, const void *recvCounts, const void *rdispls, const HcclDataType recvType)
+HcclResult CheckAlltoAllVInputPara(HcclComm comm, const void *sendBuf, const void *sendCounts, const void *sdispls,
+    HcclDataType sendType, const void *recvBuf, const void *recvCounts, const void *rdispls, HcclDataType recvType)
 {
     RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
         std::vector<std::string>({"HcclAlltoAllV", "comm", "nullptr", "please check comm"}));
@@ -273,8 +292,8 @@ HcclResult CheckAlltoAllVInputPara(const HcclComm comm, const void *sendBuf, con
     return HCCL_SUCCESS;
 }
 
-HcclResult CheckAlltoAllVCInputPara(const HcclComm comm, const void *sendBuf, const void *sendCountMatrix,
-    const HcclDataType sendType, const void *recvBuf, const HcclDataType recvType)
+HcclResult CheckAlltoAllVCInputPara(HcclComm comm, const void *sendBuf, const void *sendCountMatrix,
+    HcclDataType sendType, const void *recvBuf, HcclDataType recvType)
 {
     RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
         std::vector<std::string>({"HcclAlltoAllVC", "comm", "nullptr", "please check comm"}));
@@ -303,7 +322,7 @@ HcclResult CheckAlltoAllVCInputPara(const HcclComm comm, const void *sendBuf, co
 // alltoall/alltoallv/alltoallvc 统一，当前只支持outPlace
 HcclResult AlltoAllVOutPlace(const void *sendBuf, const void *sendCounts, const void *sdispls, const void *recvBuf,
     const void *recvCounts, const void *rdispls, HcclDataType dataType, HcclComm comm, aclrtStream stream,
-    const std::string &tag, HcclCMDType opType, u32 rankSize)
+    const std::string &tag, HcclCMDType opType, u32 rankSize, OpExecuteConfig& opExecuteConfig)
 {
     HCCL_INFO("Start to execute AlltoAllVOutPlace");
 
@@ -314,17 +333,10 @@ HcclResult AlltoAllVOutPlace(const void *sendBuf, const void *sendCounts, const 
     void *paramMem = malloc(sizeof(OpParam) + varMemSize);
     if (!paramMem) {
         // 内存分配失败
-        HCCL_ERROR("[AlltoAllVOutPlace] malloc OpParam failed!");
+        HCCL_ERROR("malloc OpParam failed!");
         return HCCL_E_INTERNAL;
     }
-    OpParam* tmpParamPtr = new (paramMem) OpParam();
-    auto deleter = [](OpParam* p) {
-        if (p) {
-            p->~OpParam();
-            free(p);
-        }
-    };
-    std::unique_ptr<OpParam, decltype(deleter)> paramPtr(tmpParamPtr, deleter);
+    OpParam *paramPtr = new (paramMem)OpParam();
     OpParam &param = *paramPtr;
 
     CHK_RET(HcclGetCommName(comm, param.commName));
@@ -346,10 +358,6 @@ HcclResult AlltoAllVOutPlace(const void *sendBuf, const void *sendCounts, const 
     param.varMemSize = varMemSize;
     param.all2AllVDataDes.sendType = dataType;
     param.all2AllVDataDes.recvType = dataType;
-    param.all2AllVDataDes.sendCounts = const_cast<void *>(sendCounts);
-    param.all2AllVDataDes.recvCounts = const_cast<void *>(recvCounts);
-    param.all2AllVDataDes.sdispls = const_cast<void *>(sdispls);
-    param.all2AllVDataDes.rdispls = const_cast<void *>(rdispls);
     // 后面结构体改了之后，这里该赋值的地方要赋值，不然后续别人校验可能会有问题的
     u64 inputSize = 0;
     u64 outputSize = 0;
@@ -367,22 +375,26 @@ HcclResult AlltoAllVOutPlace(const void *sendBuf, const void *sendCounts, const 
     for (u64 i = 0; i < ALL_TO_ALL_V_VECTOR_NUM * userRankSize; i++) {
         u64 val = i / rankSize;
         switch(val) {
-            case 0:
+            case SEND_COUNT_IDX:
                 data[i] = static_cast<const u64*>(sendCounts)[i % rankSize];
                 break;
-            case 1:
+            case RECV_COUNT_IDX:
                 data[i] = static_cast<const u64*>(recvCounts)[i % rankSize];
                 break;
-            case 2:
+            case SEND_DISPL_IDX:
                 data[i] = static_cast<const u64*>(sdispls)[i % rankSize];
                 break;
-            case 3:
+            case RECV_DISPL_IDX:
                 data[i] = static_cast<const u64*>(rdispls)[i % rankSize];
                 break;
             default:
                 break;
         }
     }
+    param.all2AllVDataDes.sendCounts = data;
+    param.all2AllVDataDes.recvCounts = data + RECV_COUNT_IDX * rankSize;
+    param.all2AllVDataDes.sdispls = data + SEND_DISPL_IDX * rankSize;
+    param.all2AllVDataDes.rdispls = data + RECV_DISPL_IDX * rankSize;
 
     for (u64 i = 0; i < ALL_TO_ALL_V_VECTOR_NUM * userRankSize; i++) {
         HCCL_INFO("[AlltoAllVOutPlace] varData[%u] is [%u]", i, data[i]);
@@ -396,8 +408,10 @@ HcclResult AlltoAllVOutPlace(const void *sendBuf, const void *sendCounts, const 
     }
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
-    CHK_RET(Selector(comm, param, topoInfo, algName));
+    CHK_RET(Selector(comm, param, topoInfo, algName, opExecuteConfig));
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
+    paramPtr->~OpParam();
+    free(paramMem);
     HCCL_INFO("Execute AlltoAllVOutPlace success.");
     return HCCL_SUCCESS;
 }
