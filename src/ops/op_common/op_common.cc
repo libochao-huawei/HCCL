@@ -85,7 +85,7 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
 {
     HCCL_INFO("Start to execute Selector.");
     param.hcclComm = comm;
-    CHK_RET(HcclGetOpExpansionMode(param));
+    CHK_RET(HcclGetOpExpansionMode(comm, param));
     // 获取基础拓扑
     CHK_RET(HcclCalcTopoInfo(comm, param, topoInfo));
 
@@ -93,13 +93,13 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
     std::shared_ptr<ExecuteSelector> collAlgSelector = std::make_shared<ExecuteSelector>(ExecuteSelector());
     CHK_RET(collAlgSelector->Run(param, topoInfo.get(), algName));
     if (algName == "") {
-        HCCL_ERROR("[SelectorAhead] select algname fail!");
+        HCCL_ERROR("[Selector] select algname fail!");
         return HCCL_E_PTR;
     }
     CHK_RET(SetCommEngine(param));
     // 如果一开始读取到的Engine不是aicpu，经过算法选择后回退到aipcu，则需要重新LoadAICPUKernel
     if ((param.engine == CommEngine::COMM_ENGINE_AICPU_TS) || (param.engine == CommEngine::COMM_ENGINE_CPU)) {
-        HCCL_DEBUG("[SelectorAhead] is aicpu mode");
+        HCCL_DEBUG("[Selector] is aicpu mode");
         CHK_RET(LoadAICPUKernel()); // 该函数内部有防止重复加载的逻辑
     }
     CHK_RET(SetOpParamAlgTag(param, algName));
@@ -1104,7 +1104,7 @@ HcclResult SetOpParamAlgTag(OpParam &param, const std::string &algName)
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult HcclGetOpExpansionMode(OpParam &param)
+HcclResult HcclGetOpExpansionMode(HcclComm comm, OpParam &param)
 {
     HcclOpExpansionMode finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_INVALID;
     // 第一步：决定使用哪种模式
@@ -1171,28 +1171,64 @@ HcclResult ApplyOpExpansionMode(OpParam &param, HcclOpExpansionMode finalMode)
             param.engine = CommEngine::COMM_ENGINE_CCU;
             HCCL_DEBUG("[ApplyOpExpansionMode] CCU_SCHED mode selected.");
             break;
-        case HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_INVALID:
+        default:
             // 回退到aicpu
             HCCL_WARNING("[ApplyOpExpansionMode] Invalid HcclOpExpansionMode: %d, fallback to AICPU_TS.", finalMode);
             param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
             param.engine = CommEngine::COMM_ENGINE_AICPU_TS;
             CHK_RET(LoadAICPUKernel());
             break;
-        default:
-            HCCL_ERROR("[ApplyOpExpansionMode] failed to apply op expansion mode: %d.", finalMode);
-            return HcclResult::HCCL_E_INTERNAL;
     }
     return HcclResult::HCCL_SUCCESS;
 }
 
 bool HcclCheckAicpuEnableOpen()
 {
-    // 获取环境变量值
     const char* envValue = std::getenv("HCCL_ENABLE_OPEN_AICPU");
 
-    // 检查环境变量是否存在且值为"1"
     if (envValue != nullptr && std::strcmp(envValue, "1") == 0) {
         return true;
+    }
+
+    return false;
+}
+
+bool HcclCheckCcuEnableOpen()
+{
+    const char* envValue = std::getenv("HCCL_ENABLE_OPEN_CCU");
+
+    if (envValue != nullptr && std::strcmp(envValue, "1") == 0) {
+        return true;
+    }
+
+    return false;
+}
+
+bool HcclCheckAivEnableOpen()
+{
+    const char* envValue = std::getenv("HCCL_ENABLE_OPEN_AIV");
+
+    if (envValue != nullptr && std::strcmp(envValue, "1") == 0) {
+        return true;
+    }
+
+    return false;
+}
+
+bool ShouldUseInnerOp(OpExecuteConfig opExecuteConfig)
+{
+    bool isAicpuOrHostMode = (opExecuteConfig == OpExecuteConfig::AICPU_TS || 
+                              opExecuteConfig == OpExecuteConfig::HOSTCPU);
+    bool isCcuMode = (opExecuteConfig == OpExecuteConfig::CCU_MS || 
+                      opExecuteConfig == OpExecuteConfig::CCU_SCHED);
+    bool isAivMode = (opExecuteConfig == OpExecuteConfig::AIV);
+
+    if (isAicpuOrHostMode) {
+        return !HcclCheckAicpuEnableOpen();
+    } else if (isCcuMode) {
+        return !HcclCheckCcuEnableOpen();
+    } else if (isAivMode) {
+        return !HcclCheckAivEnableOpen();
     }
 
     return false;
