@@ -17,6 +17,11 @@
 #include "alg_data_trans_wrapper.h"
 
 namespace ops_hccl {
+constexpr uint32_t CONST_0 = 0;
+constexpr uint32_t CONST_1 = 1;
+constexpr uint32_t CONST_2 = 2;
+constexpr uint32_t CONST_3 = 3;
+constexpr uint32_t CONST_4 = 4;
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 InsV2AllToAllVConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::InsV2AllToAllVConcurrentExecutor()
