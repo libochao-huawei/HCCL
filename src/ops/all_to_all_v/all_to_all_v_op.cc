@@ -30,7 +30,7 @@ HcclResult HcclAlltoAll(const void *sendBuf, uint64_t sendCount, HcclDataType se
     }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
-    // 非95设备转到老流程
+
     #ifdef MACRO_DEV_TYPE_NEW
     if (deviceType != DevType::DEV_TYPE_950) {
     #else
@@ -38,12 +38,10 @@ HcclResult HcclAlltoAll(const void *sendBuf, uint64_t sendCount, HcclDataType se
     #endif
         return HcclAlltoAllInner(sendBuf, sendCount, sendType, recvBuf, recvCount, recvType, comm, stream);
     }
-    // 图模式引导到老的流程上面
     if (GetWorkflowMode() != HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE) {
         return HcclAlltoAllInner(sendBuf, sendCount, sendType, recvBuf, recvCount, recvType, comm, stream);
     }
-    // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
-    // A3是：export HCCL_OP_EXPANSION_MODE="AI_CPU"，A5的接口还没提供
+
     CHK_RET(InitEnvConfig());
 
     // 参数校验等工作
@@ -90,7 +88,7 @@ HcclResult HcclAlltoAllV(const void *sendBuf, const void *sendCounts, const void
     }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
-    // 非95设备转到老流程
+
     #ifdef MACRO_DEV_TYPE_NEW
     if (deviceType != DevType::DEV_TYPE_950) {
     #else
@@ -98,12 +96,10 @@ HcclResult HcclAlltoAllV(const void *sendBuf, const void *sendCounts, const void
     #endif
         return HcclAlltoAllVInner(sendBuf, sendCounts, sdispls, sendType, recvBuf, recvCounts, rdispls, recvType, comm, stream);
     }
-    // 图模式引导到老的流程上面
     if (GetWorkflowMode() != HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE) {
         return HcclAlltoAllVInner(sendBuf, sendCounts, sdispls, sendType, recvBuf, recvCounts, rdispls, recvType, comm, stream);
     }
-    // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
-    // A3是：export HCCL_OP_EXPANSION_MODE="AI_CPU"，A5的接口还没提供
+
     CHK_RET(InitEnvConfig());
 
     // 参数校验等工作
@@ -144,7 +140,6 @@ HcclResult HcclAlltoAllVC(const void *sendBuf, const void *sendCountMatrix, Hccl
     }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
-    // 非95设备转到老流程
     #ifdef MACRO_DEV_TYPE_NEW
     if (deviceType != DevType::DEV_TYPE_950) {
     #else
@@ -152,12 +147,10 @@ HcclResult HcclAlltoAllVC(const void *sendBuf, const void *sendCountMatrix, Hccl
     #endif
         return HcclAlltoAllVCInner(sendBuf, sendCountMatrix, sendType, recvBuf, recvType, comm, stream);
     }
-    // 图模式引导到老的流程上面
     if (GetWorkflowMode() != HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE) {
         return HcclAlltoAllVCInner(sendBuf, sendCountMatrix, sendType, recvBuf, recvType, comm, stream);
     }
-    // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
-    // A3是：export HCCL_OP_EXPANSION_MODE="AI_CPU"，A5的接口还没提供
+
     CHK_RET(InitEnvConfig());
 
     // 参数校验等工作
@@ -346,7 +339,6 @@ HcclResult AlltoAllVOutPlace(const void *sendBuf, const void *sendCounts, const 
     CHK_RET(hrtGetDeviceType(deviceType));
     param.deviceType = deviceType;
 
-    // topoInfo的tag，所有相同的算子可以共享
     int ret = sprintf_s(param.tag, sizeof(param.tag), "%s", tag.c_str());
     if (ret <= 0) {
         HCCL_ERROR("failed to fill param.tag");
@@ -358,11 +350,7 @@ HcclResult AlltoAllVOutPlace(const void *sendBuf, const void *sendCounts, const 
     param.varMemSize = varMemSize;
     param.all2AllVDataDes.sendType = dataType;
     param.all2AllVDataDes.recvType = dataType;
-    param.all2AllVDataDes.sendCounts = const_cast<void *>(sendCounts);
-    param.all2AllVDataDes.recvCounts = const_cast<void *>(recvCounts);
-    param.all2AllVDataDes.sdispls = const_cast<void *>(sdispls);
-    param.all2AllVDataDes.rdispls = const_cast<void *>(rdispls);
-    // 后面结构体改了之后，这里该赋值的地方要赋值，不然后续别人校验可能会有问题的
+
     u64 inputSize = 0;
     u64 outputSize = 0;
     for (u64 i = 0; i < userRankSize; i++) {
@@ -379,22 +367,26 @@ HcclResult AlltoAllVOutPlace(const void *sendBuf, const void *sendCounts, const 
     for (u64 i = 0; i < ALL_TO_ALL_V_VECTOR_NUM * userRankSize; i++) {
         u64 val = i / rankSize;
         switch(val) {
-            case 0:
+            case SEND_COUNT_IDX:
                 data[i] = static_cast<const u64*>(sendCounts)[i % rankSize];
                 break;
-            case 1:
+            case RECV_COUNT_IDX:
                 data[i] = static_cast<const u64*>(recvCounts)[i % rankSize];
                 break;
-            case 2:
+            case SEND_DISPL_IDX:
                 data[i] = static_cast<const u64*>(sdispls)[i % rankSize];
                 break;
-            case 3:
+            case RECV_DISPL_IDX:
                 data[i] = static_cast<const u64*>(rdispls)[i % rankSize];
                 break;
             default:
                 break;
         }
     }
+    param.all2AllVDataDes.sendCounts = data;
+    param.all2AllVDataDes.recvCounts = data + RECV_COUNT_IDX * rankSize;
+    param.all2AllVDataDes.sdispls = data + SEND_DISPL_IDX * rankSize;
+    param.all2AllVDataDes.rdispls = data + RECV_DISPL_IDX * rankSize;
 
     for (u64 i = 0; i < ALL_TO_ALL_V_VECTOR_NUM * userRankSize; i++) {
         HCCL_INFO("[AlltoAllVOutPlace] varData[%u] is [%u]", i, data[i]);
