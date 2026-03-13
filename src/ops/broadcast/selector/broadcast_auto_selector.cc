@@ -25,8 +25,6 @@ SelectorStatus BroadcastAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayer
     } else {
         return SelectMeshAlgoCcuMs(topoInfo, opParam, selectAlgName);
     }
-    HCCL_INFO("[BroadcastAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
-    return SelectorStatus::MATCH;
 }
 
 SelectorStatus BroadcastAutoSelector::SelectMeshAlgoCcuMs(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
@@ -73,7 +71,7 @@ SelectorStatus BroadcastAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNe
     if (topoInfo->topoLevelNums > 1) {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             if(topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] == 1){ // 每框出1卡
-                selectAlgName = "CcuBroadcastParallelMesh1DNHR";
+                selectAlgName = "CcuBroadcastNHR1DMem2Mem";
             } else if (topoInfo->is2DieFullMesh) {
                 HCCL_WARNING("[BroadcastAutoSelector] 2DieFullMesh is not supported yet for ccu schedule mode.");
                 return SelectorStatus::NOT_MATCH;
@@ -81,8 +79,8 @@ SelectorStatus BroadcastAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNe
                 selectAlgName = "CcuBroadcastParallelMesh1DNHR";
             }
         } else {
-             HCCL_WARNING("[Algo][SelectCcuScheduleAlgo] level0Shape[%d] is not supported yet for ccu schedule mode.",
-                topoInfo->level0Topo );
+             HCCL_WARNING("[Algo][BroadcastAutoSelector] level0Shape[%d] is not supported yet for ccu schedule mode.",
+                topoInfo->level0Topo);
             return  SelectorStatus::NOT_MATCH;
         }
     } else {
@@ -143,7 +141,6 @@ SelectorStatus BroadcastAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayer
 SelectorStatus BroadcastAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                           std::string &selectAlgName) const
 {
-    (void)opParam;
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
         selectAlgName = "InsBroadcastMesh1DTwoShot";
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
