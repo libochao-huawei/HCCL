@@ -11,6 +11,9 @@
 #ifndef HCCL_SERIALIZATION
 #define HCCL_SERIALIZATION
 
+#define u64 uint64_t
+#define u32 uint32_t
+
 #include <vector>
 #include <cstdint>
 #include <sstream>
