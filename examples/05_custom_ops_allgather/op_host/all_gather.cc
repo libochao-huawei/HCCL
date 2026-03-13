@@ -19,6 +19,7 @@
 #include "binary_stream.h"
 
 using namespace ops_hccl_allgather;
+using namespace ops_hccl;
 
 // --- Simplified AlgResourceCtxSerializable Definitions ---
 namespace {
