@@ -99,7 +99,11 @@ HcclResult RunSendRecvTask(RankId rankId, RankId remoteRankId, SendRecvOpType op
 void SendRecvTest(
     TopoMeta &topoMeta, const std::map<RankId, RankId> &sendRecvMap, u32 dataCount, HcclDataType dataType) {
     // 仿真模型初始化
+    #ifdef MACRO_DEV_TYPE_NEW
+    SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
+    #else
     SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_910_95);
+    #endif
 
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
