@@ -49,24 +49,80 @@ struct TopoInfoWithNetLayerDetails {
 struct CcuKernelHandle { void* ptr; };
 
 struct AlgResourceCtxSerializable {
-    AlgType algType;
-    AlgHierarchyInfoForAllLevel algHierarchyInfo;
-    HcclMem cclMem;
-    uint32_t notifyNumOnMainThread;
-    uint32_t slaveThreadNum;
-    std::vector<uint32_t> notifyNumPerThread;
+    AlgType algType; // 环境变量设置的算法类型
+    AlgHierarchyInfoForAllLevel algHierarchyInfo; // 算法分层信息
+    HcclMem cclMem; // 跨Rank缓存Buffer
+    uint32_t notifyNumOnMainThread; // 主流上的notify数量
+    uint32_t slaveThreadNum; // 需要的thread数量
+    std::vector<uint32_t> notifyNumPerThread; // 每个thread需要的notify数量
     void* aivCommInfoPtr = nullptr;
     std::vector<ThreadHandle> threads;
     std::vector<std::vector<ChannelInfo>> channels;
     void* commInfoPtr = nullptr;
+    // hostdpu
     void *npu2DpuShmemPtr = nullptr;
     void *dpu2NpuShmemPtr = nullptr;
+    // ccu的
     std::vector<uint32_t> ccuKernelNum;
     std::vector<CcuKernelHandle> ccuKernels;
     uint32_t topoInfoSeqSize = 0;
-    TopoInfoWithNetLayerDetails topoInfo;
+    TopoInfoWithNetLayerDetails topoInfo; // 提取的拓扑信息
 
-    AlgResourceCtxSerializable() {}
+    std::vector<char> Serialize()
+    {
+        BinaryStream binaryStream;
+
+        binaryStream << algType;
+        binaryStream << algHierarchyInfo.infos;
+        binaryStream << cclMem;
+        binaryStream << notifyNumOnMainThread;
+        binaryStream << slaveThreadNum;
+        binaryStream << notifyNumPerThread;
+        binaryStream << commInfoPtr;
+        binaryStream << threads;
+        binaryStream << channels;
+
+        binaryStream << npu2DpuShmemPtr;
+        binaryStream << dpu2NpuShmemPtr;
+
+        binaryStream << ccuKernelNum;
+        binaryStream << ccuKernels;
+        std::vector<char> seq = topoInfo.Serialize();
+        topoInfoSeqSize = seq.size();
+        binaryStream << topoInfoSeqSize;
+        std::vector<char> result;
+        binaryStream.Dump(result);
+        result.insert(result.end(), seq.begin(), seq.end());
+
+        return result;
+    }
+
+    void DeSerialize(std::vector<char> &data)
+    {
+        BinaryStream binaryStream(data);
+
+        binaryStream >> algType;
+        binaryStream >> algHierarchyInfo.infos;
+        binaryStream >> cclMem;
+        binaryStream >> notifyNumOnMainThread;
+        binaryStream >> slaveThreadNum;
+        binaryStream >> notifyNumPerThread;
+        binaryStream >> commInfoPtr;
+        binaryStream >> threads;
+        binaryStream >> channels;
+
+        binaryStream >> npu2DpuShmemPtr;
+        binaryStream >> dpu2NpuShmemPtr;
+
+        binaryStream >> ccuKernelNum;
+        binaryStream >> ccuKernels;
+        binaryStream >> topoInfoSeqSize;
+        size_t startPos = data.size() - topoInfoSeqSize;
+        std::vector<char> tailData(data.begin() + startPos, data.end());
+        TopoInfoWithNetLayerDetails topoTemp;
+        topoTemp.DeSerialize(tailData);
+        topoInfo = std::move(topoTemp);
+    }
 };
 
 } // namespace
@@ -81,46 +137,30 @@ static std::map<std::string, HcclMemHandle> g_memHandleCache;
 HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
     CommEngine ctxEngine = CommEngine::COMM_ENGINE_CPU_TS;
     void* ctx = nullptr;
-    uint64_t size = sizeof(AlgResourceCtxSerializable);
+    uint64_t ctxSize = 0;
     bool isNewContext = false;
 
-    HcclResult hcclRet = HcclEngineCtxGet(comm, param.tag, ctxEngine, &ctx, &size);
+    HcclResult hcclRet = HcclEngineCtxGet(comm, param.tag, ctxEngine, &ctx, &ctxSize);
+    AlgResourceCtxSerializable* hostCtx = new AlgResourceCtxSerializable();
     if (hcclRet != HCCL_SUCCESS || ctx == nullptr) {
         HCCL_INFO("[PrepareResources] Context not found (ret=%d), creating new with COMM_ENGINE_CPU_TS...", hcclRet);
-        hcclRet = HcclEngineCtxCreate(comm, param.tag, ctxEngine, size, &ctx);
-        if (hcclRet != HCCL_SUCCESS) {
-            HCCL_ERROR("[PrepareResources] Failed to allocate context memory via HcclEngineCtxCreate. ret=%d", hcclRet);
-            return hcclRet;
-        }
         isNewContext = true;
-        HCCL_INFO("[PrepareResources] New Host Context %p created", ctx);
-    } else {
-        HCCL_INFO("[PrepareResources] Reuse Host Context %p", ctx);
-    }
-
-    HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
-
-    AlgResourceCtxSerializable* resCtx = static_cast<AlgResourceCtxSerializable*>(ctx);
-    HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
-    param.resCtx = reinterpret_cast<AlgResourceCtx*>(resCtx); 
-    HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
-    if (isNewContext) {
-        new (resCtx) AlgResourceCtxSerializable(); 
-
         HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
+
+
         uint32_t rank, rankSize;
         CHK_RET(HcclGetRankId(comm, &rank));
         HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
         CHK_RET(HcclGetRankSize(comm, &rankSize));
         HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
-        resCtx->topoInfo.userRank = rank;
-        resCtx->topoInfo.userRankSize = rankSize;
+        hostCtx->topoInfo.userRank = rank;
+        HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
+        hostCtx->topoInfo.userRankSize = rankSize;
         HCCL_INFO("[PrepareResources] Rank %u, RankSize %u", rank, rankSize);
 
-        CHK_RET(HcclGetHcclBuffer(comm, &resCtx->cclMem.addr, &resCtx->cclMem.size));
-        HCCL_INFO("[PrepareResources] Got HCCL Buffer addr=%p size=%lu", resCtx->cclMem.addr, resCtx->cclMem.size);
-    }
-    
+        CHK_RET(HcclGetHcclBuffer(comm, &hostCtx->cclMem.addr, &hostCtx->cclMem.size));
+        HCCL_INFO("[PrepareResources] Got HCCL Buffer addr=%p size=%lu", hostCtx->cclMem.addr, hostCtx->cclMem.size);
+        
     std::string aivTagStr = std::string(param.tag) + "_AIV";
     const char* aivTag = aivTagStr.c_str();
     
@@ -163,11 +203,7 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
         }
     }
     
-    resCtx->aivCommInfoPtr = aivCommInfoPtr;
-
-    if (isNewContext) {
-        uint32_t rank = resCtx->topoInfo.userRank;
-        uint32_t rankSize = resCtx->topoInfo.userRankSize;
+    hostCtx->aivCommInfoPtr = aivCommInfoPtr;
 
         std::vector<HcclChannelDesc> channelDescs;
         for (uint32_t r = 0; r < rankSize; r++) {
@@ -180,15 +216,13 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
             desc.memHandleNum = 1;
             channelDescs.push_back(desc);
         }
-        HCCL_INFO("[PrepareResources] Creating %zu channels", channelDescs.size());
         
         if (!channelDescs.empty()) {
-            if (resCtx->channels.empty()) {
-                resCtx->channels.resize(1);
+            if (hostCtx->channels.empty()) {
+                hostCtx->channels.resize(1);
             }
             std::vector<ChannelHandle> handles(channelDescs.size());
             CHK_RET(HcclChannelAcquire(comm, CommEngine::COMM_ENGINE_AIV, channelDescs.data(), channelDescs.size(), handles.data()));
-            HCCL_INFO("[PrepareResources] Channels acquired");
             
             for (size_t i = 0; i < channelDescs.size(); i++) {
                  ChannelInfo info;
@@ -208,24 +242,44 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
                  if (mNum > 0 && rMems) {
                      info.remoteInput = {0, rMems[0].addr, rMems[0].size};
                  }
-                 
-                 resCtx->channels[0].push_back(info);
+                 hostCtx->channels[0].push_back(info);
             }
         }
+
+        std::vector<char> serializedData = hostCtx->Serialize();
+        ctxSize = serializedData.size();
+        
+        hcclRet = HcclEngineCtxCreate(comm, param.tag, ctxEngine, ctxSize, &ctx);
+        if (hcclRet != HCCL_SUCCESS) {
+            HCCL_ERROR("[PrepareResources] Failed to create ctx memory. ret=%d", hcclRet);
+            delete hostCtx;
+            return hcclRet;
+        }
+        
+        std::memcpy(ctx, serializedData.data(), ctxSize);
+        HCCL_INFO("[PrepareResources] New Context created and serialized. Size: %lu", ctxSize);
+
+    } else {
+        HCCL_INFO("[PrepareResources] Reuse Host Context %p", ctx);
+        std::vector<char> serializedData(ctxSize);
+        std::memcpy(serializedData.data(), ctx, ctxSize);
+        hostCtx->DeSerialize(serializedData);
     }
-    
+
+    param.resCtx = reinterpret_cast<AlgResourceCtx*>(hostCtx);
+
     if (isNewContext) {
-        uint32_t rank = resCtx->topoInfo.userRank;
+        uint32_t rank = hostCtx->topoInfo.userRank;
         std::vector<uint64_t> buffersIn(MAX_RANK_SIZE, 0);
         std::vector<uint64_t> buffersOut(MAX_RANK_SIZE, 0);
         
         if (rank < MAX_RANK_SIZE) {
-            buffersIn[rank] = (uint64_t)resCtx->cclMem.addr;
-            buffersOut[rank] = (uint64_t)resCtx->aivCommInfoPtr;
+            buffersIn[rank] = (uint64_t)hostCtx->cclMem.addr;
+            buffersOut[rank] = (uint64_t)hostCtx->aivCommInfoPtr;
         }
         
-        if (!resCtx->channels.empty()) {
-            for (const auto& chan : resCtx->channels[0]) {
+        if (!hostCtx->channels.empty()) {
+            for (const auto& chan : hostCtx->channels[0]) {
                 uint32_t rRank = chan.remoteRank;
                 if (rRank < MAX_RANK_SIZE) {
                     buffersIn[rRank] = (uint64_t)chan.remoteCclMem.addr;
@@ -234,8 +288,8 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
             }
         }
         
-        ACLCHECK(aclrtMemcpy(aivCommInfoPtr, MAX_RANK_SIZE * sizeof(uint64_t), buffersIn.data(), MAX_RANK_SIZE * sizeof(uint64_t), ACL_MEMCPY_HOST_TO_DEVICE));
-        ACLCHECK(aclrtMemcpy((uint8_t*)aivCommInfoPtr + AIV_TAG_ADDR_OFFSET, MAX_RANK_SIZE * sizeof(uint64_t), buffersOut.data(), MAX_RANK_SIZE * sizeof(uint64_t), ACL_MEMCPY_HOST_TO_DEVICE));
+        ACLCHECK(aclrtMemcpy(hostCtx->aivCommInfoPtr, MAX_RANK_SIZE * sizeof(uint64_t), buffersIn.data(), MAX_RANK_SIZE * sizeof(uint64_t), ACL_MEMCPY_HOST_TO_DEVICE));
+        ACLCHECK(aclrtMemcpy((uint8_t*)hostCtx->aivCommInfoPtr + AIV_TAG_ADDR_OFFSET, MAX_RANK_SIZE * sizeof(uint64_t), buffersOut.data(), MAX_RANK_SIZE * sizeof(uint64_t), ACL_MEMCPY_HOST_TO_DEVICE));
         HCCL_INFO("[PrepareResources] AIV info copied to device");
     }
     
@@ -294,6 +348,9 @@ extern "C" HcclResult HcclAllGatherCustom(void *sendBuf, void *recvBuf, uint64_t
     HCCL_INFO("[HcclAllGatherCustom] Launching kernel... rank=%u rankSize=%u", rank, rankSize);
     CHK_RET(LaunchKernel(param, stream));
     HCCL_INFO("[HcclAllGatherCustom] Launch success");
+
+    delete resCtx;
+    param.resCtx = nullptr;
     
     return HCCL_SUCCESS;
 }
