@@ -96,7 +96,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
 
     ThreadHandle cpuTsThread{0};
     ThreadHandle exportedAicpuTsThread{0};
-    if (param.engine == COMM_ENGINE_AICPU_TS) {
+    if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
         CHK_RET(HcclThreadAcquireWithStream(comm, COMM_ENGINE_CPU_TS, param.stream, 1, &cpuTsThread));
         // Export cpuTsThread
         CHK_RET(HcclThreadExportToCommEngine(comm, 1, &cpuTsThread, COMM_ENGINE_AICPU_TS, &exportedAicpuTsThread));
@@ -107,7 +107,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     ThreadHandle exportedCpuTsThread;
     ThreadHandle mainThread;
     u32 notifyNumOnMainThread;
-    if (param.engine == COMM_ENGINE_AICPU_TS) {
+    if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
         // 获取主流信息
         CHK_RET(GetMainThreadInfo(comm, param, mainThread, notifyNumOnMainThread));
         // Export mainThread
@@ -141,6 +141,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
 HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHandle cpuTsThread,
     ThreadHandle exportedCpuTsThread, u32 notifyNumOnMainThread, void *resCtxSequence, std::string &algName)
 {
+    HCCL_DEBUG("[HcclAicpuKernelEntranceLaunch]start to run aicpu kernel");
     // 当前aicpu launch接口只能有一个输入参数，将Context指针放在param参数中
     param.resCtx = resCtxSequence;
     // 将算法名字放在param参数中
@@ -163,12 +164,10 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
     // Host stream等待Device的通知
     u16 NOTIFY_WAIT_TIME = 27 * 68;
     CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, 0, NOTIFY_WAIT_TIME)));
-    
-    if (param.engine == COMM_ENGINE_CPU) {
-        if (aclrtSynchronizeStream(param.stream) != 0) {
-            HCCL_ERROR("[HcclAicpuKernelEntranceLaunch] Stream Synchronize Failed");
-            return HCCL_E_INTERNAL;
-        }
+
+    if (aclrtSynchronizeStream(param.stream) != 0) {
+        HCCL_ERROR("Stream Synchronize Failed");
+        return HCCL_E_INTERNAL;
     }
     return HCCL_SUCCESS;
 }
@@ -403,7 +402,7 @@ HcclResult HcclMemcpyCtxHostToDevice(HcclComm comm, const OpParam &param,
     // 创建Context, aicpu和host dpu申请device内存
     CHK_RET(HcclEngineCtxCreate(comm, param.algTag, COMM_ENGINE_AICPU_TS, size, &ctx));
     // 从Host内存拷贝到Device Context内存上
-    CHK_RET(HcclEngineCtxCopy(comm, param.engine, param.algTag, seq.data(), size, 0));
+    CHK_RET(HcclEngineCtxCopy(comm, COMM_ENGINE_AICPU_TS, param.algTag, seq.data(), size, 0));
     // 将内存强转为AlgResourceCtx结构体
     *resCtxSequence = ctx;
     ctxSize = size;
@@ -449,7 +448,7 @@ HcclResult HcclGetThread(
     for (u32 index = 0; index < resRequest.slaveThreadNum; index++) {
         ThreadHandle slaveThread;
         // 创建从流thread及对应的notify
-        CHK_RET(HcclThreadAcquire(comm, param.engine, 1, resRequest.notifyNumPerThread[index], &slaveThread));
+        CHK_RET(HcclThreadAcquire(comm, COMM_ENGINE_AICPU_TS, 1, resRequest.notifyNumPerThread[index], &slaveThread));
         resCtxHost->threads.push_back(slaveThread);
     }
 
@@ -507,30 +506,67 @@ HcclResult HcclGetChannel(HcclComm comm, const OpParam &param, AlgResourceReques
     for (u32 level = 0; level < resRequest.channels.size(); level++) {
         // 获取子通信域的建链请求
         std::vector<HcclChannelDesc> &levelNChannelRequest = resRequest.channels[level];
+        std::vector<HcclChannelDesc> deviceChannelRequest;
+        std::vector<HcclChannelDesc> hostChannelRequest;
+        for (auto &channelRequest : levelNChannelRequest) {
+            if (channelRequest.remoteEndpoint.loc.locType == ENDPOINT_LOC_TYPE_DEVICE) {
+                deviceChannelRequest.emplace_back(channelRequest);
+            } else if (channelRequest.remoteEndpoint.loc.locType == ENDPOINT_LOC_TYPE_HOST) {
+                hostChannelRequest.emplace_back(channelRequest);
+            }
+        }
         // 获取子通信域的建链数量
-        u32 channelNum = levelNChannelRequest.size();
-        std::vector<ChannelHandle> levelNChannels;
-        levelNChannels.resize(channelNum);
+        u32 channelNum = deviceChannelRequest.size();
+        std::vector<ChannelHandle> levelNDeviceChannels;
+        levelNDeviceChannels.resize(channelNum);
 
         if (channelNum > 0) {
-            CHK_RET(HcclChannelAcquire(comm, param.engine, levelNChannelRequest.data(),
-                channelNum, levelNChannels.data()));
+            CHK_RET(HcclChannelAcquire(comm, COMM_ENGINE_AICPU_TS, deviceChannelRequest.data(),
+                channelNum, levelNDeviceChannels.data()));
         }
 
         for (u32 idx = 0; idx < channelNum; idx++) {
             ChannelInfo channel;
             // 对于真实建链的链路进行填充
-            HcclChannelDesc &channelDescNew = levelNChannelRequest[idx];
+            HcclChannelDesc &channelDescNew = deviceChannelRequest[idx];
             channel.isValid = true;
             channel.remoteRank = channelDescNew.remoteRank;
             channel.protocol = channelDescNew.channelProtocol;
             channel.locationType = channelDescNew.remoteEndpoint.loc.locType;
             channel.notifyNum = channelDescNew.notifyNum;
-            channel.handle = levelNChannels[idx];
+            channel.handle = levelNDeviceChannels[idx];
 
             void* remoteBufferAddr;
             uint64_t remoteBufferSize;
-            CHK_RET(HcclChannelGetHcclBuffer(comm, levelNChannels[idx], &remoteBufferAddr, &remoteBufferSize));
+            CHK_RET(HcclChannelGetHcclBuffer(comm, levelNDeviceChannels[idx], &remoteBufferAddr, &remoteBufferSize));
+            channel.remoteCclMem = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteBufferAddr, remoteBufferSize};
+            resCtxHost->channels[level].push_back(channel);
+        }
+
+        // 获取子通信域的建链数量
+        channelNum = hostChannelRequest.size();
+        std::vector<ChannelHandle> levelNHostChannels;
+        levelNHostChannels.resize(channelNum);
+
+        if (channelNum > 0) {
+            CHK_RET(HcclChannelAcquire(comm, COMM_ENGINE_CPU, hostChannelRequest.data(),
+                channelNum, levelNHostChannels.data()));
+        }
+
+        for (u32 idx = 0; idx < channelNum; idx++) {
+            ChannelInfo channel;
+            // 对于真实建链的链路进行填充
+            HcclChannelDesc &channelDescNew = hostChannelRequest[idx];
+            channel.isValid = true;
+            channel.remoteRank = channelDescNew.remoteRank;
+            channel.protocol = channelDescNew.channelProtocol;
+            channel.locationType = channelDescNew.remoteEndpoint.loc.locType;
+            channel.notifyNum = channelDescNew.notifyNum;
+            channel.handle = levelNHostChannels[idx];
+
+            void* remoteBufferAddr;
+            uint64_t remoteBufferSize;
+            CHK_RET(HcclChannelGetHcclBuffer(comm, levelNHostChannels[idx], &remoteBufferAddr, &remoteBufferSize));
             channel.remoteCclMem = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteBufferAddr, remoteBufferSize};
             resCtxHost->channels[level].push_back(channel);
         }

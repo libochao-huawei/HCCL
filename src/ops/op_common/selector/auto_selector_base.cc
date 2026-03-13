@@ -22,6 +22,7 @@ SelectorStatus AutoSelectorBase::Select(OpParam &opParam, TopoInfoWithNetLayerDe
     bool hostDPUOnly = false;
     if ((CheckHostDPUOnly(topoInfo, opParam, hostDPUOnly) == HCCL_SUCCESS) && hostDPUOnly) {
         opParam.opExecuteConfig = OpExecuteConfig::HOSTCPU;
+        opParam.engine = CommEngine::COMM_ENGINE_CPU;
         return SelectDPUAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
     }
     if (opParam.opExecuteConfig == OpExecuteConfig::CCU_MS) {
@@ -58,7 +59,7 @@ SelectorStatus AutoSelectorBase::Select(OpParam &opParam, TopoInfoWithNetLayerDe
             }
         }
     }
-    HCCL_INFO("[Algo][AutoSelectorBase] The selected algo is %s, OpExecuteConfig is %d.", 
+    HCCL_INFO("[Algo][AutoSelectorBase] The selected algo is %s, OpExecuteConfig is %d.",
         selectAlgName.c_str(), opParam.opExecuteConfig);
     return ret;
 }
@@ -237,18 +238,18 @@ bool AutoSelectorBase::IsLayerAllConnetedWithTopo(const TopoInfoWithNetLayerDeta
 HcclResult AutoSelectorBase::CheckMeshNumEqualToClosNum(const TopoInfoWithNetLayerDetails *topoInfo, bool &isEqual) const
 {
     const auto& topoInstDetails = topoInfo->topoInstDetailsOfLayer;
-    
+
     // 检查topoInstDetails是否为空
     CHK_PRT_RET(topoInstDetails.empty(),
         HCCL_ERROR("[BaseSelector][CheckMeshNumEqualToClosNum] topoInstDetailsOfLayer0 size is zero."), HCCL_E_INTERNAL);
-    
+
     const auto& rankNumMap = topoInstDetails[0].rankNumForTopoType;
     auto closItr = rankNumMap.find(COMM_TOPO_CLOS);
     auto meshItr = rankNumMap.find(COMM_TOPO_1DMESH);
     CHK_PRT_RET(closItr == rankNumMap.end() || closItr->second.empty() ||
                 meshItr == rankNumMap.end() || meshItr->second.empty(),
         HCCL_ERROR("[BaseSelector][CheckMeshNumEqualToClosNum] topoInstDetailsOfLayer0 size is zero."), HCCL_E_INTERNAL);
-    
+
     // 获取CLOS和1DMESH拓扑的rank数量并比较是否相等
     isEqual = (closItr->second[0] == meshItr->second[0]);
     return HCCL_SUCCESS;
@@ -271,7 +272,7 @@ HcclResult AutoSelectorBase::CheckClosNumMultipleOfMeshNum(const TopoInfoWithNet
     // 获取CLOS和1DMESH拓扑的rank数量
     const auto closRankNums = closItr->second[0];
     const auto meshRankNums = meshItr->second[0];
-    
+
     // 检查CLOS数量是否大于1DMESH数量且是1DMESH数量的倍数
     isMultiple = (meshRankNums > 1) && (closRankNums > meshRankNums) && (closRankNums % meshRankNums == 0);
     return HCCL_SUCCESS;

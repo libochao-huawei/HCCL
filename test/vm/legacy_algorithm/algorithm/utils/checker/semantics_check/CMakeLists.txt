@@ -1,0 +1,17 @@
+target_sources(hccl_alg_analyzer_legacy
+        PRIVATE
+        task_check_op_semantics.cc
+        allgather_semantics_checker.cc
+        allgather_v_semantics_checker.cc
+        allreduce_semantics_checker.cc
+        reduce_scatter_v_semantics_checker.cc
+        reduce_scatter_semantics_checker.cc
+        all2all_semantics_checker.cc
+        all2allv_semantics_checker.cc
+        broadcast_semantics_checker.cc
+        reduce_semantics_checker.cc
+        send_recv_semantics_checker.cc
+        scatter_semantics_checker.cc
+        batchsendrecv_semantics_checker.cc
+        semantics_utils.cc
+)

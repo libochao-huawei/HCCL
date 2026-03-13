@@ -90,8 +90,6 @@ HcclResult InsV2BatchSendRecvExecutor::ProcessSelfSendRecvTasks(ThreadHandle& th
             DataSlice srcSlice(inputDataPtr, 0, dataSize);
             DataSlice dstSlice(outputDataPtr, 0, dataSize);
             CHK_RET(LocalCopy(thread, srcSlice, dstSlice));
-            HCCL_DEBUG("[InsV2BatchSendRecvExecutor][ProcessSelfSendRecvTasks] inpuData[%p], outputData[%p], dataSize[%llu]",
-                inputDataPtr, outputDataPtr, dataSize);
             sendToSelfDeque_.pop_front();
             recvFromSelfDeque_.pop_front();
         } else {
@@ -210,9 +208,6 @@ HcclResult InsV2BatchSendRecvExecutor::CalcSendSlices()
 {
     while (!sendDeque_.empty()) {
         const HcclSendRecvItem* sendItem = sendDeque_.front();
-        HCCL_INFO("[InsV2BatchSendRecvExecutor][CalcSendSlices] remoteRank[%u], buf[%p], count[%llu],"\
-            "dataType[%u], sendRecvType[%d].", sendItem->remoteRank, sendItem->buf,
-            sendItem->count, sendItem->dataType, sendItem->sendRecvType);
         // 计算每轮搬运的最大数据量
         dataTypeSize_ = DATATYPE_SIZE_TABLE[sendItem->dataType];
         u64 maxCountPerLoop = maxTmpMemSize_ / dataTypeSize_;
@@ -227,8 +222,6 @@ HcclResult InsV2BatchSendRecvExecutor::CalcSendSlices()
             u64 transferSize = transferCount * dataTypeSize_;
             curInputPtr = static_cast<u8*>(sendItem->buf) + curOffset;
             sendDataSilces_.emplace_back(static_cast<void*>(curInputPtr), transferSize, sendItem->remoteRank);
-            HCCL_DEBUG("[InsV2BatchSendRecvExecutor][CalcSendSlices] slice curOffset[%llu], slice size[%llu] curInputPtr [%p].",
-                curOffset, transferSize, curInputPtr);
             curOffset += transferSize;
             resDataCount -= transferCount;
         }
@@ -241,9 +234,6 @@ HcclResult InsV2BatchSendRecvExecutor::CalcRecvSlices()
 {
     while (!recvDeque_.empty()) {
         const HcclSendRecvItem* recvItem = recvDeque_.front();
-        HCCL_INFO("[InsV2BatchSendRecvExecutor][CalcRecvSlices] remoteRank[%u], buf[%p], count[%llu],"\
-            "dataType[%u], sendRecvType[%d].", recvItem ->remoteRank, recvItem ->buf,
-            recvItem->count, recvItem->dataType, recvItem->sendRecvType);
         // 计算每轮搬运的最大数据量
         dataTypeSize_ = DATATYPE_SIZE_TABLE[recvItem->dataType];
         u64 maxCountPerLoop = maxTmpMemSize_ / dataTypeSize_;
@@ -258,8 +248,6 @@ HcclResult InsV2BatchSendRecvExecutor::CalcRecvSlices()
             u64 transferSize = transferCount * dataTypeSize_;
             curOutputPtr = static_cast<u8*>(recvItem->buf) + curOffset;
             recvDataSilces_.emplace_back(static_cast<void*>(curOutputPtr), transferSize, recvItem->remoteRank);
-            HCCL_DEBUG("[InsV2BatchSendRecvExecutor][CalcRecvSlices] slice curOffset[%llu], slice size[%llu] curOutputPtr [%p].",
-                curOffset, transferSize, curOutputPtr);
             curOffset += transferSize;
             resDataCount -= transferCount;
         }
@@ -325,8 +313,6 @@ HcclResult InsV2BatchSendRecvExecutor::ProcessSendDataSlice(SendRecvSlice& sendS
     SlicesList slices({}, {}); // read模式下发送端不感知数据信息，直接给一个空的
     DataInfo sendDataInfo(sendChannel, slices);
     SendRead(sendDataInfo, thread);
-    HCCL_DEBUG("[InsV2BatchSendRecvExecutor][ProcessSendDataSlice] Process a send task by read mode, CCLBuffer[%p], remoteRank[%u].",
-        cclMem_.addr, sendSlice.remoteRank_);
     return HCCL_SUCCESS;
 }
 
@@ -344,8 +330,6 @@ HcclResult InsV2BatchSendRecvExecutor::ProcessRecvDataSlice(SendRecvSlice& recvS
     SlicesList slices({recvSrcDataSlice}, {recvDstDataSlice});
     DataInfo recvDataInfo(recvChannel, slices);
     RecvRead(recvDataInfo, thread);
-    HCCL_DEBUG("[InsV2BatchSendRecvExecutor][ProcessRecvDataSlice] Process a recv task by read mode, outputBuffer[%p], remoteRank[%u].",
-        recvSlice.addr_, recvSlice.remoteRank_);
     return HCCL_SUCCESS;
 }
 
