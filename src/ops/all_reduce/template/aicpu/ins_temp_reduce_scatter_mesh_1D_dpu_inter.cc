@@ -199,16 +199,6 @@ HcclResult InsTempReduceScatterMesh1dDpuInter::DPUKernelRun(const TemplateDataPa
                 CHK_PRT_RET(SendRecvWrite(sendRecvInfo),
                     HCCL_ERROR("[InsTempReduceScatterMesh1dDpuInter] SendRecvWrite failed."),
                     HcclResult::HCCL_E_INTERNAL);
-                HCCL_DEBUG("[InsTempReduceScatterMesh1dDpuInter][DPUKernelRun]Send from src rank %u to dst rank %u, src "
-                          "offset %u, dst offset %u, size %u",
-                    myRank, remoteRank,
-                    tempAlgParams.buffInfo.inBuffBaseOff + repeatIdx * tempAlgParams.inputRepeatStride + sendOffset,
-                    tempAlgParams.buffInfo.hcclBuffBaseOff + repeatIdx * tempAlgParams.outputRepeatStride +
-                        myAlgRank * sendSize,
-                    sendSize);
-                HCCL_DEBUG("[InsTempReduceScatterMesh1dDpuInter][DPUKernelRun]SendRecvWrite src addr %p, dst addr %p",
-                    tempAlgParams.buffInfo.inputPtr,
-                    remoteCclBuffAddr);
             } else if (sendSize > 0) {
                 SlicesList sendSliceList(txSrcSlices, txDstSlices);
                 DataInfo sendInfo(linkSend, sendSliceList);
@@ -266,14 +256,6 @@ HcclResult InsTempReduceScatterMesh1dDpuInter::PostLocalReduce(const TemplateDat
             sliceSize,
             sliceCount);
         CHK_RET(static_cast<HcclResult>(LocalCopy(threads[0], srcSlice, dstSlice)));
-        HCCL_DEBUG("[InsTempReduceScatterMesh1dDpuInter][PostLocalReduce]Local copy rank %u data from offset %u to offset %u size %u",
-            myRank_,
-            tempAlgParams.buffInfo.inBuffBaseOff + repeatIdx * tempAlgParams.inputRepeatStride + sliceOffset,
-            tempAlgParams.buffInfo.hcclBuffBaseOff + repeatIdx * tempAlgParams.outputRepeatStride + sliceSize * myAlgRank,
-            sliceSize);
-        HCCL_DEBUG("[InsTempReduceScatterMesh1dDpuInter][PostLocalReduce]Local copy src addr %p, dst addr %p",
-            tempAlgParams.buffInfo.inputPtr,
-            tempAlgParams.buffInfo.hcclBuff.addr);
         // 将后n-1片数据，规约到第0片数据上
         for (u32 tmpRank = 1; tmpRank < templateRankSize_; tmpRank++) {
             DataSlice srcSlice = DataSlice(tempAlgParams.buffInfo.hcclBuff.addr,
@@ -287,14 +269,6 @@ HcclResult InsTempReduceScatterMesh1dDpuInter::PostLocalReduce(const TemplateDat
                                            + repeatIdx * tempAlgParams.outputRepeatStride,
                                            sliceSize,
                                            sliceCount);
-            HCCL_DEBUG("[InsTempReduceScatterMesh1dDpuInter][PostLocalReduce]Local reduce on rank %u src offset %u, dst offset %u, size %u",
-                myRank_,
-                tempAlgParams.buffInfo.hcclBuffBaseOff + repeatIdx * tempAlgParams.outputRepeatStride + tmpRank * sliceSize,
-                tempAlgParams.buffInfo.hcclBuffBaseOff + repeatIdx * tempAlgParams.outputRepeatStride,
-                sliceSize);
-            HCCL_DEBUG("[InsTempReduceScatterMesh1dDpuInter][PostLocalReduce]Local reduce src addr %p, dst addr %p",
-                tempAlgParams.buffInfo.hcclBuff.addr,
-                tempAlgParams.buffInfo.hcclBuff.addr);
             CHK_RET(static_cast<HcclResult>(LocalReduce(threads[0], srcSlice, dstSlice, dataType_, reduceOp_)));
         }
         // 将规约后的分片，搬运到output上
@@ -307,14 +281,6 @@ HcclResult InsTempReduceScatterMesh1dDpuInter::PostLocalReduce(const TemplateDat
                             + repeatIdx * tempAlgParams.outputRepeatStride,
                             sliceSize, sliceCount);
         CHK_RET(static_cast<HcclResult>(LocalCopy(threads[0], srcSlice, dstSlice)));
-        HCCL_DEBUG("[PostLocalReduce]Local copy to dst on rank %u src offset %u, dst offset %u, size %u",
-                myRank_,
-                tempAlgParams.buffInfo.hcclBuffBaseOff + repeatIdx * tempAlgParams.outputRepeatStride,
-                tempAlgParams.buffInfo.outBuffBaseOff + repeatIdx * tempAlgParams.outputRepeatStride,
-                sliceSize);
-        HCCL_DEBUG("[PostLocalReduce]Local copy to dst src addr %p dst addr %p",
-            tempAlgParams.buffInfo.hcclBuff.addr,
-            tempAlgParams.buffInfo.outputPtr);
     }
     return HcclResult::HCCL_SUCCESS;
 }

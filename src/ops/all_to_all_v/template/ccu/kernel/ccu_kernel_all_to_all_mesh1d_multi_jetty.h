@@ -81,7 +81,7 @@ public:
     CcuKernelAllToAllMesh1DMultiJetty(const hcomm::CcuKernelArg &arg);
     ~CcuKernelAllToAllMesh1DMultiJetty() override {}
 
-    HcclResult Algorithm();
+    HcclResult Algorithm() override;
     std::vector<uint64_t> GeneArgs(const hcomm::CcuTaskArg &arg) override;
 
 private:

@@ -226,9 +226,6 @@ SelectorStatus ReduceAutoSelector::SelectDPUAlgo(const TopoInfoWithNetLayerDetai
     auto it = configAlgMap.find(opParam.opType);
     if ((it != configAlgMap.end()) && (it->second.size() > 1)) {
         algos = it->second;
-        // if (algos[0] != HcclAlgoType::HCCL_ALGO_TYPE_NHR && algos[1] != HcclAlgoType::HCCL_ALGO_TYPE_NHR) {
-        //     HCCL_WARNING("[Algo][ReduceAutoSelector] algo[%u] is not supported yet, reset to default.", algos[0]);
-        // }
     }
     HCCL_INFO("hccl algo op config: config opType:%d, level0:%u, level1:%u, level2:%u, level3:%u",
         opParam.opType, algos[0], algos[1], algos[2], algos[3]);

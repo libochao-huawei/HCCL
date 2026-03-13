@@ -36,8 +36,8 @@ HcclResult HcclAlltoAllVC(const void *sendBuf, const void *sendCountMatrix, Hccl
 #endif
 
 namespace ops_hccl {
-HcclResult CheckAlltoAllInputPara(const HcclComm comm, const void *sendBuf, uint64_t sendCount, const HcclDataType sendType,
-    const void *recvBuf, const uint64_t recvCount, const HcclDataType recvType);
+HcclResult CheckAlltoAllInputPara(const HcclComm comm, const void *sendBuf, const uint64_t sendCount,
+    const HcclDataType sendType, const void *recvBuf, const uint64_t recvCount, const HcclDataType recvType);
 HcclResult CheckAlltoAllVInputPara(const HcclComm comm, const void *sendBuf, const void *sendCounts, const void *sdispls,
     const HcclDataType sendType, const void *recvBuf, const void *recvCounts, const void *rdispls, const HcclDataType recvType);
 HcclResult CheckAlltoAllVCInputPara(const HcclComm comm, const void *sendBuf, const void *sendCountMatrix,

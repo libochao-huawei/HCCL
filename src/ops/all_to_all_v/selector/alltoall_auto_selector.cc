@@ -12,6 +12,10 @@
 #include "selector_registry.h"
 
 namespace ops_hccl {
+constexpr uint32_t INDEX_0 = 0;
+constexpr uint32_t INDEX_1 = 1;
+constexpr uint32_t INDEX_2 = 2;
+constexpr uint32_t INDEX_3 = 3;
 constexpr uint32_t CONCURRENT_RANK_LIMIT = 4;
 constexpr uint64_t BIG_DATA_SIZE_LIMIT = 512;
 SelectorStatus AlltoAllAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
@@ -77,7 +81,7 @@ SelectorStatus AlltoAllAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerD
     }
 
     HCCL_INFO("[AlltoAll] hccl algo op config: config opType:%d, level0:%u, level1:%u, level2:%u, level3:%u",
-        opParam.opType, algos.at(0), algos.at(1), algos.at(2), algos.at(3));
+        opParam.opType, algos.at(INDEX_0), algos.at(INDEX_1), algos.at(INDEX_2), algos.at(INDEX_3));
 
     if (topoInfo->topoLevelNums > 1) {
         HCCL_ERROR("hccl algo no match");
@@ -93,7 +97,8 @@ SelectorStatus AlltoAllAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerD
         CHK_PRT_RET(CheckMeshNumEqualToClosNum(topoInfo, isMeshNumEqualToClosNum) != HCCL_SUCCESS,
                     HCCL_ERROR("[Algo][AlltoAllAutoSelector] CheckMeshNumEqualToClosNum failed."),
                     SelectorStatus::NOT_MATCH);
-        if ((isMeshNumEqualToClosNum == true) && (topoInfo->userRankSize <= 4) && (opParam.all2AllDataDes.sendCount > 512)) { // 同一组4P且大数据量，不走并发
+        if ((isMeshNumEqualToClosNum == true) && (topoInfo->userRankSize <= CONCURRENT_RANK_LIMIT) &&
+            (opParam.all2AllDataDes.sendCount > BIG_DATA_SIZE_LIMIT)) { // 同一组4P且大数据量，不走并发
             selectAlgName = "InsAllToAllMesh1DConcurrent";
         } else {
             selectAlgName = "InsAlltoAllMesh1D";
@@ -115,7 +120,7 @@ SelectorStatus AlltoAllAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDet
     }
 
     HCCL_INFO("[AlltoAll] hccl algo op config: config opType:%d, level0:%u, level1:%u, level2:%u, level3:%u",
-        opParam.opType, algos.at(0), algos.at(1), algos.at(2), algos.at(3));
+        opParam.opType, algos.at(INDEX_0), algos.at(INDEX_1), algos.at(INDEX_2), algos.at(INDEX_3));
 
     selectAlgName = "AivAlltoAllMesh1D";
 

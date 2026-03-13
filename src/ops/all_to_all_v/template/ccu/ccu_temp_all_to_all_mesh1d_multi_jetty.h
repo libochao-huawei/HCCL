@@ -37,7 +37,6 @@ public:
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
 
 private:
-    uint32_t dataTypeSize_;
     std::vector<u32> jettyNums_;
     std::vector<u64> sendCounts_;
     std::vector<u64> recvCounts_;

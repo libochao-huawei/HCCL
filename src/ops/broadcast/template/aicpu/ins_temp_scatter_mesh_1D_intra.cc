@@ -194,14 +194,6 @@ HcclResult InsTempScatterMesh1DIntra::RunScatter(const std::map<u32, std::vector
                     CHK_PRT_RET(static_cast<HcclResult>(SendWrite(sendData, threads.at(count))),
                         HCCL_ERROR("[InsTempScatterMesh1DIntra][RunScatter] Send failed"),
                         HcclResult::HCCL_E_INTERNAL);
-                    HCCL_DEBUG("[InsTempScatterMesh1DIntra][RunScatter]SendWrite srcOffset %d, dstOffset %d, srcbuf %p, dstbuf "
-                               "%p, dataSize %u",
-                        srcOffset,
-                        dstOffset,
-                        tempAlgParams.buffInfo.inputPtr,
-                        remoteCclBuffAddr,
-                        sendSize);
-                    HCCL_INFO("[InsTempScatterMesh1DIntra][RunScatter] End SendWrite");
                 }
                 count++;
             }
@@ -222,9 +214,6 @@ HcclResult InsTempScatterMesh1DIntra::RunScatter(const std::map<u32, std::vector
                 CHK_PRT_RET(static_cast<HcclResult>(RecvWrite(recvData, threads.at(0))),
                     HCCL_ERROR("[InsTempScatterMesh1DIntra][RunScatter] Recv failed"),
                     HcclResult::HCCL_E_INTERNAL);
-                HCCL_DEBUG(
-                    "[InsTempScatterMesh1DIntra][RunScatter]RecvWrite srcOffset %d, dstOffset %d, srcRank %u, dstRank "
-                    "%p, dataSize %u", srcOffset, dstOffset, root_, myRank_, recvSize);
             }
         }
     }

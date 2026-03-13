@@ -110,15 +110,6 @@ HcclResult InsTempReduceScatterMesh1DIntra::PostCopy(
                     sliceSize,
                     sliceCount);
                 CHK_RET(static_cast<HcclResult>(LocalReduce(threads[0], srcSlice, dstSlice, dataType_, reduceOp_)));
-                HCCL_DEBUG("[InsTempReduceScatterMesh1DIntra][PostCopy]Local reduce on rank %u src offset %u, "
-                          "dst offset %u, size %u",
-                    myRank_,
-                    tempAlgParams.buffInfo.hcclBuffBaseOff + repeatIdx * tempAlgParams.outputRepeatStride + tmpRank * sliceSize,
-                    tempAlgParams.buffInfo.outBuffBaseOff + repeatIdx * tempAlgParams.outputRepeatStride,
-                    sliceSize);
-                HCCL_DEBUG("[InsTempReduceScatterMesh1DIntra][PostCopy]Local reduce src addr %p, dst addr %p",
-                    tempAlgParams.buffInfo.hcclBuff.addr,
-                    tempAlgParams.buffInfo.outputPtr);
             }
         }
     }
@@ -155,14 +146,6 @@ HcclResult InsTempReduceScatterMesh1DIntra::RunReduceScatter(
                 recvSize,
                 recvCount);
             CHK_RET(static_cast<HcclResult>(LocalCopy(threads[0], srcSlice, dstSlice)));
-            HCCL_DEBUG("[InsTempReduceScatterMesh1DIntra][RunReduceScatter]rank %u LocalCopy src offset %u, dst offset %u, size %u",
-            myRank_,
-            tempAlgParam.buffInfo.inBuffBaseOff + repeatIdx * tempAlgParam.inputRepeatStride + recvOffset,
-            tempAlgParam.buffInfo.outBuffBaseOff + repeatIdx * tempAlgParam.outputRepeatStride,
-            recvSize);
-            HCCL_DEBUG("[InsTempReduceScatterMesh1DIntra][RunReduceScatter]LocalCopy src addr %p, dst addr %p",
-                tempAlgParam.buffInfo.inputPtr,
-                tempAlgParam.buffInfo.outputPtr);
         }
     }    
     

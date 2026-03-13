@@ -11,6 +11,7 @@
 #ifndef HCCLV2_INS_V2_REDUCE_SEQUENCE_EXECUTOR_H
 #define HCCLV2_INS_V2_REDUCE_SEQUENCE_EXECUTOR_H
 
+<<<<<<< HEAD
 #include "alg_param.h"
 #include "topo_host.h"
 #include "channel.h"
@@ -22,6 +23,10 @@
 #include "config_log.h"
 #include "executor_v2_base.h"
 #include "coll_alg_v2_exec_registry.h"
+=======
+#include "executor_common_ops.h"
+#include "topo_match_base.h"
+>>>>>>> upstream/master
 #include "topo_match_multilevel.h"
 
 namespace ops_hccl {

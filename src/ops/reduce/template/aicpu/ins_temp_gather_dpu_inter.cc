@@ -189,15 +189,6 @@ HcclResult InsTempGatherDpuInter::LocalDataCopy(const TemplateDataParams& tempAl
         DataSlice srcSlices(tempAlgParams.buffInfo.inputPtr, inOff, sliceSize, sliceCount);
         DataSlice dstSlice(tempAlgParams.buffInfo.hcclBuff.addr, scOff, sliceSize, sliceCount);
         CHK_RET(LocalCopy(templateResource.threads[0], srcSlices, dstSlice));
-        HCCL_INFO("[InsTempGatherDpuInter][LocalDataCopy] on rank %u src offset %u, dst offset %u, "
-                  "size %u",
-            myRank_,
-            inOff,
-            scOff,
-            sliceSize);
-        HCCL_INFO("[InsTempGatherDpuInter][LocalDataCopy] src addr %p, dst addr %p",
-            tempAlgParams.buffInfo.inputPtr,
-            tempAlgParams.buffInfo.hcclBuff.addr);
     }
     return HcclResult::HCCL_SUCCESS;
 }

@@ -81,7 +81,6 @@ HcclResult InsV2SendSoleExecutor<InsAlgTemplate>::Orchestrate(
 {
     HCCL_INFO("[InsV2SendSoleExecutor][Orchestrate] Orchestrate Start");
     myRank_ = resCtx.topoInfo.userRank;
-    // algHierarchyInfo_ = resCtx.algHierarchyInfo;
     recvRank_ = param.sendRecvRemoteRank;
     dataCount_ = param.DataDes.count;
     dataTypeSize_ = SIZE_TABLE[param.DataDes.dataType];

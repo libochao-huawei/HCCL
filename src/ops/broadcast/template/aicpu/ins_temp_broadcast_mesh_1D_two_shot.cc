@@ -22,7 +22,6 @@ InsTempBroadcastMesh1DTwoShot::~InsTempBroadcastMesh1DTwoShot()
 {
 }
 
-
 HcclResult InsTempBroadcastMesh1DTwoShot::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo, 
                                                   AlgResourceRequest& resourceRequest)
 {
@@ -162,16 +161,10 @@ HcclResult InsTempBroadcastMesh1DTwoShot::RootSendData(const u64 memOffset,
     u64 sendSrcOffset1 = sliceInfoVec[myRankIdx][0].offset + memOffset;
     u64 sendDstOffset1 = sliceInfoVec[myRankIdx][0].offset;
 
-
     sendDstOffset1 += tempAlgParams.buffInfo.hcclBuffBaseOff;
 
     DataSlice sendSrcSlice1 = DataSlice(tempAlgParams.buffInfo.inputPtr, sendSrcOffset1, sliceInfoVec[myRankIdx][0].size);
     DataSlice sendDstSlice1 = DataSlice(DstPtr, sendDstOffset1, sendDstOffset1);
-
-    HCCL_DEBUG("[InsTempBroadcastMesh1DTwoShot] RootSendData: sendSrcSlice1.myRank[%d] addr[%p] offset[%d] Size[%d]",
-              myRank_, tempAlgParams.buffInfo.inputPtr, sendSrcOffset1, sliceInfoVec[myRankIdx][0].size);
-    HCCL_DEBUG("[InsTempBroadcastMesh1DTwoShot] RootSendData: sendSrcSlice1.myRank[%d] addr[%p] offset[%d] Size[%d]",
-              myRank_, DstPtr, sendDstOffset1, sliceInfoVec[myRankIdx][0].size);
 
     std::vector<DataSlice> sendSrcSliceVec1 = {sendSrcSlice1};
     std::vector<DataSlice> sendDstSliceVec1 = {sendDstSlice1};
@@ -223,11 +216,6 @@ HcclResult InsTempBroadcastMesh1DTwoShot::RankRecvData(const u64 memOffset,
 
     DataSlice recvSrcSlice1 = DataSlice(tempAlgParams.buffInfo.inputPtr, sendSrcOffset1, sliceInfoVec[rootIdx][0].size);
     DataSlice recvDstSlice1 = DataSlice(DstPtr, sendDstOffset1, sliceInfoVec[rootIdx][0].size);
-
-    HCCL_DEBUG("[InsTempBroadcastMesh1DTwoShot] RankRecvData: recvSrcSlice1.myRank[%d] addr[%p] offset[%d] Size[%d]",
-              myRank_, tempAlgParams.buffInfo.inputPtr, sendSrcOffset1, sliceInfoVec[rootIdx][0].size);
-    HCCL_DEBUG("[InsTempBroadcastMesh1DTwoShot] RankRecvData: recvDstSlice1.myRank[%d] addr[%p] offset[%d] Size[%d]",
-              myRank_, DstPtr, sendDstOffset1, sliceInfoVec[rootIdx][0].size);
 
     std::vector<DataSlice> recvSrcSliceVec1= {recvSrcSlice1};
     std::vector<DataSlice> recvDstSliceVec1 = {recvDstSlice1};

@@ -256,16 +256,6 @@ HcclResult InsTempAllGatherNHRDPUInter::RunNHR(const TemplateDataParams& tempAlg
                     CHK_PRT_RET(SendRecvWrite(sendRecvInfo),
                         HCCL_ERROR("[InsTempAllGatherNHRDPUInter] SendRecvWrite failed (step=%u, rpt=%u)", step, rpt),
                         HcclResult::HCCL_E_INTERNAL);
-                    HCCL_DEBUG(
-                        "[InsTempAllGatherNHRDPUInter][RunNHR]SendRecvWrite on rank %u src offset %u, dst offset %u, "
-                        "size %u",
-                        myRank_,
-                        txScratchOff,
-                        txScratchOff,
-                        sendSize);
-                    HCCL_DEBUG("[InsTempAllGatherNHRDPUInter][RunNHR]SendRecvWrite src addr %p, dst addr %p",
-                        tempAlgParams.buffInfo.hcclBuff.addr,
-                        sendCclBuffAddr);
                 } else if (sendSize > 0) {
                     SlicesList sendSliceList(txSrcSlices, txDstSlices);
                     DataInfo sendInfo(txChannel[0], sendSliceList);
