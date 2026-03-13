@@ -98,7 +98,9 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
             HCCL_ERROR("[PrepareResources] Failed to allocate context memory via HcclEngineCtxCreate. ret=%d", hcclRet);
             return hcclRet;
         }
+        HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
         (void)new (ctx) AlgResourceCtxSerializable();
+        HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
         isNewContext = true;
         HCCL_INFO("[PrepareResources] New Host Context %p created", ctx);
     } else {
