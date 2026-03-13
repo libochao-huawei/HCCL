@@ -199,15 +199,15 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
         {
             if (remoteRank == rank) continue;
 
-            HcclChannelDesc &channelDesc = level0ChannelRequest[i];
+            HcclChannelDesc &channelDesc = level0ChannelRequest[remoteRank];
             channelDesc.memHandles = &memHandle;
             channelDesc.memHandleNum = 1;
 
             uint32_t netLayer = 0;
             CommLink *linkList = nullptr;
-            u32 listSize;
+            uint32_t listSize;
             CHK_RET(HcclRankGraphGetLinks(comm, netLayer, rank, remoteRank, &linkList, &listSize));
-            for (u32 idx = 0; idx < listSize; idx++) {
+            for (uint32_t idx = 0; idx < listSize; idx++) {
                 HcclChannelDesc channelDesc;
                 HcclChannelDescInit(&channelDesc, 1);
                 channelDesc.remoteRank = remoteRank;
@@ -233,7 +233,7 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
 
     // 迭代每个子通信域的建链请求，创建链路
         // 获取子通信域的建链数量
-        u32 validChannelNum = level0ChannelRequest.size();
+        uint32_t validChannelNum = level0ChannelRequest.size();
         std::vector<ChannelHandle> levelNChannels;
         levelNChannels.resize(validChannelNum);
         HCCL_INFO("[%s]level[%u] validChannelNum[%u]", __func__, level, validChannelNum);
@@ -243,7 +243,7 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
                 validChannelNum, levelNChannels.data()));
         }
 
-        for (u32 idx = 0; idx < validChannelNum; idx++) {
+        for (uint32_t idx = 0; idx < validChannelNum; idx++) {
             HcclChannelDesc &channelDesc = level0ChannelRequest[idx];
             void* remoteBufferAddr;
             uint64_t remoteBufferSize;
@@ -252,7 +252,7 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
                 remoteBufferAddr, remoteBufferSize);
             buffersIn[channelDesc.remoteRank] = remoteBufferAddr;
 
-            u32 memNum;
+            uint32_t memNum;
             CommMem* remoteMems;
             char** memTags;
             CHK_RET(HcclChannelGetRemoteMems(comm, levelNChannels[idx], &memNum, &remoteMems, &memTags));
