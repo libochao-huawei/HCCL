@@ -77,8 +77,8 @@ void SetHcclDfxOpInfoDataCount(HcclDfxOpInfo &dfxOpInfo, const OpParam &param, c
     if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL
         || param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV
         || param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
-        u64 sendCount =0;
-        for (u64 i =0; i<rankSize; i++) {
+        u64 sendCount = 0;
+        for (u64 i = 0; i < rankSize; i++) {
             sendCount += *(static_cast<const u64 *>(param.all2AllVDataDes.sendCounts) + i);
         }
         dfxOpInfo.dataCount = sendCount;
@@ -91,8 +91,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
                       std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo, std::string &algName)
 {
     uint64_t beginTime = HcommGetProfilingSysCycleTime();
-    HCCL_INFO("HcommGetProfilingSysCycleTime.%llu", beginTime);
-    HCCL_INFO("Start to execute HcclExecOp.");
+    HCCL_INFO("[HcclExecOp]Start to execute HcclExecOp.HcommGetProfilingSysCycleTime.%llu", beginTime);
     // 在原先的commName中添加执行模式，得到commModeTag
     param.hcclComm = comm;
     bool isOpBase = true;
@@ -138,20 +137,15 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     hcclDfxOpInfo.cpuTsThread = cpuTsThread;
     hcclDfxOpInfo.cpuWaitAicpuNotifyIdx = HOST_WAIT_AICPU_NOTIFYIDX;
     s32 sRet = strncpy_s(hcclDfxOpInfo.algTag, ALG_TAG_LENGTH, param.algTag, ALG_TAG_LENGTH);
-    CHK_PRT_RET(sRet != EOK, HCCL_ERROR("%s call strncpy_s failed, return %d.", __func__, sRet), HCCL_E_MEMORY);
+    CHK_PRT_RET(sRet != EOK, HCCL_ERROR("%s call strncpy_s failed, param.algTag %s,  return %d.", __func__, param.algTag, sRet), HCCL_E_MEMORY);
 
-    // rankSize
+    // rankSize获取指定算子的dataCount
     u32 userRankSize{0};
     CHK_RET(HcclGetRankSize(comm, &userRankSize));
     SetHcclDfxOpInfoDataCount(hcclDfxOpInfo, param, userRankSize);
     HcclDfxOpInfo *tempOp = &hcclDfxOpInfo;
 
-    HcclResult result = HcclDfxRegOpInfo(comm, static_cast<void*>(tempOp));
-    if (result != HCCL_SUCCESS) {
-        HCCL_ERROR("[%s] HcclDfxRegOpInfo failed", __func__);
-        return HCCL_E_INTERNAL;
-    }
-
+    CHK_RET(HcclDfxRegOpInfo(comm, static_cast<void*>(tempOp)));
     ThreadHandle exportedCpuTsThread;
     ThreadHandle mainThread;
     u32 notifyNumOnMainThread;
@@ -183,11 +177,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
         CHK_RET(executor->Orchestrate(param, *resCtxHost));
     }
     // op上报
-    result = HcclProfilingReportOp(comm, beginTime);
-    if (result != HCCL_SUCCESS) {
-        HCCL_ERROR("[%s] HcclProfilingReportOp failed", __func__);
-        return HCCL_E_INTERNAL;
-    }
+    CHK_RET(HcclProfilingReportOp(comm, beginTime););
     HCCL_INFO("Execute HcclExecOp success.");
     return HCCL_SUCCESS;
 }
@@ -216,10 +206,13 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
     uint64_t beginTime = HcommGetProfilingSysCycleTime();
     CHK_RET(AicpuKernelLaunch(param));
     CHK_PTR_NULL(comm);
-    std::string kernelName = "HcclLaunchAicpuKernel"
+    std::string kernelName = "HcclLaunchAicpuKernel";
     char* kernelNameCStr = const_cast<char*>(kernelName.c_str());
     HcclResult ret = HcclReportAicpuKernel(comm, beginTime, kernelNameCStr);
-    CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("[HcclAicpuKernelEntranceLaunch] HcclReportAicpuKernel failed"), ret);
+    if (ret != HCCL_SUCCESS) {
+        HCCL_ERROR("[HcclAicpuKernelEntranceLaunch] HcclReportAicpuKernel failed, beginTime %lu, kernelNameCStr %s, ret %d ", beginTime, kernelNameCStr, ret);
+        return ret;
+    }
 
     // Host stream等待Device的通知
     u16 NOTIFY_WAIT_TIME = 27 * 68;

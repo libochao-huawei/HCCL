@@ -95,7 +95,7 @@ enum class OpMode {
 enum class Level0Shape {
     CLOS    = 0,
     MESH_1D = 1,
-MESH_1D_CLOS = 2,
+    MESH_1D_CLOS = 2,
 };
 
 enum class Level0MeshType {
