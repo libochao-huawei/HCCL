@@ -16,7 +16,7 @@
 
 namespace ops_hccl {
 
-enum class CommPlane {
+enum CommPlane {
     COMM_LEVEL0 = 0,
     COMM_LEVEL1,
     COMM_LEVEL2,
