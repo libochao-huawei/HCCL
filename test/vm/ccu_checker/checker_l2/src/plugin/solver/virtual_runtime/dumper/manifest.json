@@ -1,0 +1,8 @@
+{
+    "name": "dumper",
+    "version": "1.0.0",
+    "entry": "./dumper",
+    "dependency": {
+        "min_core_version": "1.0.0"
+    }
+}
