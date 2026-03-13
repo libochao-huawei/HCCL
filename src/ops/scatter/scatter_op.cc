@@ -214,12 +214,6 @@ HcclResult ScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, Hcc
     param.opType = HcclCMDType::HCCL_CMD_SCATTER;
     param.deviceType = deviceType;
 
-    if (userRankSize == 1) {
-        HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
-        CHK_RET(SingleRankProc(param));
-        return HcclResult::HCCL_SUCCESS;
-    }
-
     #ifdef MACRO_DEV_TYPE_NEW
     if (deviceType == DevType::DEV_TYPE_950) {
     #else
@@ -228,8 +222,13 @@ HcclResult ScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, Hcc
         std::string algName;
         std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
         CHK_RET(Selector(comm, param, topoInfo, algName));
-        if (param.opExecuteConfig != OpExecuteConfig::AICPU_TS && param.opExecuteConfig != OpExecuteConfig::HOSTCPU) {
+        if (ShouldUseInnerOp(param.opExecuteConfig)) {
             return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
+        }
+        if (userRankSize == 1) {
+            HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
+            CHK_RET(SingleRankProc(param));
+            return HcclResult::HCCL_SUCCESS;
         }
         CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
     } else {
