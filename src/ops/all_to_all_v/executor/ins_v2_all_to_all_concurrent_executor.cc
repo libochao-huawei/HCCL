@@ -177,7 +177,7 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::InitTemplateDataParams(
-    const OpParam &param, const AlgResourceCtxSerializable& resCtx, TemplateDataParams& tempAlgParams)
+    const OpParam &param, const AlgResourceCtxSerializable& resCtx, TemplateDataParams& tempAlgParams) const
 {
     tempAlgParams.buffInfo.inputPtr = param.inputPtr;
     tempAlgParams.buffInfo.outputPtr = param.outputPtr;
@@ -270,7 +270,7 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::GetMaxSendRecvDataCount(
-    u64& maxSendRecvDataCount, const SendRecvData& splitData)
+    u64& maxSendRecvDataCount, const SendRecvData& splitData) const
 {
     u64 max = 0;
     for (u64 i = 0; i < rankSize_; i++) {
@@ -367,7 +367,7 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::CalcMaxDataCountPerLoop(
-    const OpParam &param, const std::vector<u64> scratchMulti, std::vector<u64>& maxDataCountPerLoop)
+    const OpParam &param, const std::vector<u64> scratchMulti, std::vector<u64>& maxDataCountPerLoop) const
 {
     // 计算最小传输大小
     u64 transportBoundDataSize = UB_MAX_DATA_SIZE;
@@ -410,7 +410,7 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::SetTemplateDataParams(
     TemplateDataParams &tempAlgParams, const SendRecvData &splitData,
-    u32 loop, u64 currDataCount, u64 processedDataCount, u64 maxDataCountPerLoop)
+    u32 loop, u64 currDataCount, u64 processedDataCount, u64 maxDataCountPerLoop) const
 {
     tempAlgParams.count = currDataCount;
     tempAlgParams.buffInfo.inBuffBaseOff = (splitData.sdispls[0] + processedDataCount) * dataTypeSize_;
