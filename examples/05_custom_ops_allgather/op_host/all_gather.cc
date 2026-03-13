@@ -227,9 +227,7 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
                 channelDesc.channelProtocol = link.linkAttr.linkProtocol;
                 constexpr uint32_t NORMAL_NOTIFY_NUM = 3;
                 channelDesc.notifyNum = NORMAL_NOTIFY_NUM;
-                channels.push_back(channelDesc);
             }
-
         }
 
     // 迭代每个子通信域的建链请求，创建链路
@@ -239,7 +237,7 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
         levelNChannels.resize(validChannelNum);
 
         if (validChannelNum > 0) {
-            CHK_RET(HcclChannelAcquire(comm, param.engine, level0ChannelRequest.data(),
+            CHK_RET(HcclChannelAcquire(comm, COMM_ENGINE_AIV, level0ChannelRequest.data(),
                 validChannelNum, levelNChannels.data()));
         }
 
