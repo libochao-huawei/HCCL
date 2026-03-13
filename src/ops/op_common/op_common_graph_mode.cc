@@ -95,7 +95,7 @@ HcclResult HcclExecOpGraphMode(HcclComm comm, OpParam &param,
     } else if (param.engine == COMM_ENGINE_AIV) {
         param.resCtx = resCtxSequence;
         AlgResourceCtxSerializable &resCtxHost = *static_cast<AlgResourceCtxSerializable *>(resCtxSequence);
-        CHK_RET(HcclAivKernelEntranceLaunch(comm, param, topoInfo, resCtxHost));
+        CHK_RET(HcclAivKernelEntranceLaunch(param, topoInfo, resCtxHost));
         CHK_RET(executor->Orchestrate(param, resCtxHost));
     } else {
         if (isResourceReused) {
@@ -110,11 +110,12 @@ HcclResult HcclExecOpGraphMode(HcclComm comm, OpParam &param,
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclRegstryBuffGraphMode(HcclComm comm, const char *memTag, void *bufferPtr, uint64_t bufferSize)
+HcclResult HcclRegstryBuffGraphMode(HcclComm comm, const char *memTag, void *bufferPtr, uint64_t bufferSize, HcclMemHandle *memHandle)
 {
+    CHK_PTR_NULL(memHandle);
     CommMem regMem{COMM_MEM_TYPE_DEVICE, bufferPtr, bufferSize};
-    void *memHandle = nullptr;
-    CHK_RET(HcclCommMemReg(comm, memTag, &regMem, &memHandle));
+    CHK_RET(HcclCommMemReg(comm, memTag, &regMem, memHandle));
+    CHK_PTR_NULL(*memHandle);
     return HCCL_SUCCESS;
 }
 
@@ -230,13 +231,20 @@ HcclResult HcclGetChannelGraphMode(HcclComm comm, const OpParam &param, AlgResou
         HCCL_ERROR("[HcclGetChannelGraphMode]faled to fill BuffTag");
         return HcclResult::HCCL_E_INTERNAL;
     }
-    CHK_RET(HcclRegstryBuffGraphMode(comm, inputBuffTag, param.inputPtr, param.inputSize));
-    CHK_RET(HcclRegstryBuffGraphMode(comm, outputBuffTag, param.outputPtr, param.outputSize));
- 
+    std::vector<HcclMemHandle> memHandles;
+    constexpr u32 REMOTE_MEM_NUM = 2;
+    memHandles.resize(REMOTE_MEM_NUM);
+
+    CHK_RET(HcclRegstryBuffGraphMode(comm, inputBuffTag, param.inputPtr, param.inputSize, &memHandles[0]));
+    CHK_RET(HcclRegstryBuffGraphMode(comm, outputBuffTag, param.outputPtr, param.outputSize, &memHandles[1]));
     resCtxHost->channels.resize(resRequest.channels.size());
     for (u32 level = 0; level < resRequest.channels.size(); level++) {
         // 获取子通信域的建链请求
         std::vector<HcclChannelDesc> &levelNChannelRequest = resRequest.channels[level];
+        for (auto &channelDesc : levelNChannelRequest) {
+            channelDesc.memHandles = memHandles.data();
+            channelDesc.memHandleNum = memHandles.size();
+        }
         // 获取子通信域的建链数量
         u32 channelNum = levelNChannelRequest.size();
         std::vector<ChannelHandle> levelNChannels;
