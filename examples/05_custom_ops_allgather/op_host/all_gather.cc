@@ -77,33 +77,40 @@ bool CheckHCCLIndependentOp() {
 
 constexpr uint32_t AIV_TAG_ADDR_OFFSET = 16 * 1024;
 static std::map<std::string, HcclMemHandle> g_memHandleCache;
-static std::map<std::string, AlgResourceCtxSerializable*> g_hostCtxCache;
 
 HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
-    AlgResourceCtxSerializable* resCtx = nullptr;
-    std::string tagStr = param.tag;
+    CommEngine ctxEngine = CommEngine::COMM_ENGINE_CPU_TS;
+    void* ctx = nullptr;
+    uint64_t size = sizeof(AlgResourceCtxSerializable);
     bool isNewContext = false;
 
-    if (g_hostCtxCache.find(tagStr) != g_hostCtxCache.end()) {
-        resCtx = g_hostCtxCache[tagStr];
-        HCCL_INFO("[PrepareResources] Reuse Host Context %p", resCtx);
-    } else {
-        resCtx = new (std::nothrow) AlgResourceCtxSerializable();
-        if (resCtx == nullptr) {
-            HCCL_ERROR("[PrepareResources] Failed to allocate AlgResourceCtxSerializable.");
-            return HCCL_E_INTERNAL;
+    HcclResult hcclRet = HcclEngineCtxGet(comm, param.tag, ctxEngine, &ctx, &size);
+    if (hcclRet != HCCL_SUCCESS || ctx == nullptr) {
+        HCCL_INFO("[PrepareResources] Context not found (ret=%d), creating new with COMM_ENGINE_CPU_TS...", hcclRet);
+        hcclRet = HcclEngineCtxCreate(comm, param.tag, ctxEngine, size, &ctx);
+        if (hcclRet != HCCL_SUCCESS) {
+            HCCL_ERROR("[PrepareResources] Failed to allocate context memory via HcclEngineCtxCreate. ret=%d", hcclRet);
+            return hcclRet;
         }
-        g_hostCtxCache[tagStr] = resCtx;
         isNewContext = true;
-        HCCL_INFO("[PrepareResources] New Host Context %p created", resCtx);
+        HCCL_INFO("[PrepareResources] New Host Context %p created", ctx);
+    } else {
+        HCCL_INFO("[PrepareResources] Reuse Host Context %p", ctx);
     }
-    
-    param.resCtx = reinterpret_cast<AlgResourceCtx*>(resCtx); 
 
+    HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
+
+    AlgResourceCtxSerializable* resCtx = static_cast<AlgResourceCtxSerializable*>(ctx);
+    HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
+    param.resCtx = reinterpret_cast<AlgResourceCtx*>(resCtx); 
+    HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
     if (isNewContext) {
+        HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
         uint32_t rank, rankSize;
         CHK_RET(HcclGetRankId(comm, &rank));
+        HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
         CHK_RET(HcclGetRankSize(comm, &rankSize));
+        HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
         resCtx->topoInfo.userRank = rank;
         resCtx->topoInfo.userRankSize = rankSize;
         HCCL_INFO("[PrepareResources] Rank %u, RankSize %u", rank, rankSize);
@@ -118,8 +125,7 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
     void* aivCommInfoPtr = nullptr;
     uint64_t aivCommInfoSize = AIV_TAG_BUFF_LEN;
     HcclMemHandle memHandle;
-    HcclResult hcclRet = HCCL_SUCCESS;
-
+    
     hcclRet = HcclEngineCtxGet(comm, aivTag, CommEngine::COMM_ENGINE_AIV, &aivCommInfoPtr, &aivCommInfoSize);
     HCCL_INFO("[PrepareResources] HcclEngineCtxGet ret=%d ptr=%p", hcclRet, aivCommInfoPtr);
 
