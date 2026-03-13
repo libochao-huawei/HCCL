@@ -25,7 +25,13 @@ HcclResult HcclAlltoAll(const void *sendBuf, uint64_t sendCount, HcclDataType se
 {
     HCCL_INFO("Start to run execute HcclAlltoAll");
 
-    if (!CheckHCCLIndependentOp() || (GetHcommVersion() < 90000000)) {
+    if ((GetHcommVersion() < 90000000) ||
+        GetExternalInputHcclCcuMSMode() ||
+        GetExternalInputHcclCcuSchedMode()) { // compat handle
+        return HcclAlltoAllInner(sendBuf, sendCount, sendType, recvBuf, recvCount, recvType, comm, stream);
+    }
+
+    if (!CheckHCCLIndependentOp()) {
         return HcclAlltoAllInner(sendBuf, sendCount, sendType, recvBuf, recvCount, recvType, comm, stream);
     }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
@@ -78,7 +84,13 @@ HcclResult HcclAlltoAllV(const void *sendBuf, const void *sendCounts, const void
 {
     HCCL_INFO("Start to run execute HcclAlltoAllV");
 
-    if (!CheckHCCLIndependentOp() || (GetHcommVersion() < 90000000)) {
+    if ((GetHcommVersion() < 90000000) ||
+        GetExternalInputHcclCcuMSMode() ||
+        GetExternalInputHcclCcuSchedMode()) { // compat handle
+        return HcclAlltoAllVInner(sendBuf, sendCounts, sdispls, sendType, recvBuf, recvCounts, rdispls, recvType, comm, stream);
+    }
+
+    if (!CheckHCCLIndependentOp()) {
         return HcclAlltoAllVInner(sendBuf, sendCounts, sdispls, sendType, recvBuf, recvCounts, rdispls, recvType, comm, stream);
     }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
@@ -391,10 +403,6 @@ HcclResult AlltoAllVOutPlace(const void *sendBuf, const void *sendCounts, const 
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));
-    // if (param.opExecuteConfig == OpExecuteConfig::CCU_MS ||
-    //     param.opExecuteConfig == OpExecuteConfig::CCU_SCHED) {
-    //     return HcclAlltoAllInner(sendBuf, sendCount, sendType, recvBuf, recvCount, recvType, comm, stream);
-    // }
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
     HCCL_INFO("Execute AlltoAllVOutPlace success.");
     return HCCL_SUCCESS;

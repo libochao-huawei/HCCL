@@ -23,8 +23,14 @@ HcclResult HcclAllGatherV(void *sendBuf, uint64_t sendCount, void *recvBuf, cons
     const void *recvDispls, HcclDataType dataType, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("Start to run execute HcclAllGatherV");
+
+    if ((GetHcommVersion() < 90000000) ||
+        GetExternalInputHcclCcuMSMode() ||
+        GetExternalInputHcclCcuSchedMode()) { // compat handle
+        return HcclAllGatherVInner(sendBuf, sendCount, recvBuf, recvCounts, recvDispls, dataType, comm, stream);
+    }
  
-    if (!CheckHCCLIndependentOp() || (GetHcommVersion() < 90000000)) {
+    if (!CheckHCCLIndependentOp()) {
         return HcclAllGatherVInner(sendBuf, sendCount, recvBuf, recvCounts, recvDispls, dataType, comm, stream);
     }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
@@ -135,10 +141,6 @@ HcclResult AllGatherVOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount,c
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));
-    if (param.opExecuteConfig == OpExecuteConfig::CCU_MS ||
-        param.opExecuteConfig == OpExecuteConfig::CCU_SCHED) {
-        return HcclAllGatherVInner(sendBuf, sendCount, recvBuf, recvCounts, recvDispls, dataType, comm, stream);
-    }
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
     paramPtr->~OpParam();
     free(paramMem);

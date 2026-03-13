@@ -25,7 +25,13 @@ HcclResult HcclAllReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataT
 {
     HCCL_INFO("Start to run execute HcclAllReduce");
 
-    if (!CheckHCCLIndependentOp() || (GetHcommVersion() < 90000000)) {
+    if ((GetHcommVersion() < 90000000) ||
+        GetExternalInputHcclCcuMSMode() ||
+        GetExternalInputHcclCcuSchedMode()) { // compat handle
+        return HcclAllReduceInner(sendBuf, recvBuf, count, dataType, op, comm, stream);
+    }
+
+    if (!CheckHCCLIndependentOp()) {
         return HcclAllReduceInner(sendBuf, recvBuf, count, dataType, op, comm, stream);
     }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
@@ -131,10 +137,6 @@ HcclResult AllReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclD
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));
-    if (param.opExecuteConfig == OpExecuteConfig::CCU_MS ||
-        param.opExecuteConfig == OpExecuteConfig::CCU_SCHED) {
-        return HcclAllReduceInner(sendBuf, recvBuf, count, dataType, op, comm, stream);
-    }
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
     HCCL_INFO("Execute AllReduceOutPlace success.");
     return HCCL_SUCCESS;
