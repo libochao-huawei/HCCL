@@ -19,8 +19,14 @@ using namespace hcomm;
 
 constexpr int BIT_NUM_PER_CKE = 16; // 一个CKE可以处理16个信号类型
 
-CcuKernelAllReduceNhr1DMem2MemMultiJetty::CcuKernelAllReduceNhr1DMem2MemMultiJetty(const CcuKernelArg &arg)
-    : CcuKernelAlgBase(arg)
+CcuKernelAllReduceNhr1DMem2MemMultiJetty::CcuKernelAllReduceNhr1DMem2MemMultiJetty(const CcuKernelArg &arg) : 
+    CcuKernelAlgBase(arg),
+    rankSize_(0),
+    rankId_(0),
+    portNum_(0),
+    dataType_(HcclDataType::HCCL_DATA_TYPE_RESERVED),
+    outputDataType_(HcclDataType::HCCL_DATA_TYPE_RESERVED),
+    reduceOp_(HcclReduceOp::HCCL_REDUCE_RESERVED)
 {
     const CcuKernelArgAllReduceNhrMem2Mem1DMultiJetty *kernelArg
         = dynamic_cast<const CcuKernelArgAllReduceNhrMem2Mem1DMultiJetty *>(&arg);
@@ -41,7 +47,7 @@ CcuKernelAllReduceNhr1DMem2MemMultiJetty::CcuKernelAllReduceNhr1DMem2MemMultiJet
             "[CcuKernelAllReduceNhr1DMem2MemMultiJetty] outputDataType is [INVALID], set outputDataType to[%d]",
             outputDataType_);
     }
-    HCCL_INFO("[CcuKernelAllReduceNhr1DMem2MemMultiJetty] Init, KernelArgs are rankId[%u], rankSize_[%u], portSize[%u],"
+    HCCL_INFO("[CcuKernelAllReduceNhr1DMem2MemMultiJetty] Init, KernelArgs are rankId[%u], rankSize_[%u], portSize[%u]," 
         " dataType[%d], outputDataType[%d], reduceOp[%d]",
         rankId_, rankSize_, portNum_, dataType_, outputDataType_, reduceOp_);
 }

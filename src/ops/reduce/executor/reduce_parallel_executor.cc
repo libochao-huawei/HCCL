@@ -205,8 +205,6 @@ void ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1>::GenTempla
     tempAlgParams1.buffInfo.hcclBuff = resCtx.cclMem;
     tempAlgParams1.buffInfo.inputSize = param.inputSize;
     tempAlgParams1.buffInfo.outputSize = param.outputSize;
-    // tempAlgParams1.buffInfo.inBuffBaseOff = othScratchOffset;
-    // tempAlgParams1.buffInfo.inBuffBaseOff = dataOffset;
     if (param.engine == CommEngine::COMM_ENGINE_CCU) {
         tempAlgParams1.buffInfo.inBuffBaseOff = dataOffset;
     } else {

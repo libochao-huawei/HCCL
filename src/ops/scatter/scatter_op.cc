@@ -9,30 +9,17 @@
  */
 
 #include "scatter_op.h"
+#include "coll_alg_exec_registry.h"
+#include "config_log.h"
+#include "hcomm_primitives.h"
+#include "load_kernel.h"
+#include "op_common_ops.h"
+#include "topo.h"
+#include "topo_host.h"
 #include <algorithm>
 #include <future>
 #include <map>
 #include <string>
-#include <hccl/hccl_types.h>
-#include "hccl/base.h"
-#include "sal.h"
-#include "error_codes/rt_error_codes.h"
-#include "mmpa_api.h"
-#include "param_check.h"
-#include "executor_base.h"
-#include "coll_alg_exec_registry.h"
-#include "alg_env_config.h"
-#include "adapter_acl.h"
-#include "topo.h"
-#include "topo_host.h"
-#include "adapter_error_manager_pub.h"
-#include "hccl_inner.h"
-#include "hccl.h"
-#include "config_log.h"
-#include "workflow.h"
-#include "load_kernel.h"
-#include "hcomm_primitives.h"
-#include "op_common.h"
 
 using namespace std;
 using namespace ops_hccl;
@@ -234,10 +221,9 @@ HcclResult ScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, Hcc
     }
 
     if (deviceType == DevType::DEV_TYPE_910_95) {
-        OpExecuteConfig opExecuteConfig;
         std::string algName;
         std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
-        CHK_RET(Selector(comm, param, topoInfo, algName, opExecuteConfig));
+        CHK_RET(Selector(comm, param, topoInfo, algName));
         CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
     } else {
         CHK_RET(ExecOp(comm, param));  //保留原有A3流程
@@ -308,7 +294,6 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
             ACL_MEMCPY_HOST_TO_DEVICE));
     }
     
-
     // 算法执行
     if (param.engine == COMM_ENGINE_AICPU_TS) {
         // 当前aicpu launch接口只能有一个输入参数，将Context指针放在param参数中
@@ -623,7 +608,7 @@ HcclResult SelectAlg(HcclComm comm, OpParam &param, TopoInfo* topoInfo, AlgType&
     // 在原先的tag中添加算法名字，得到algTag
     bool isOpBase = GetWorkflowMode() == HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE;
     if (isOpBase) {
-        int ret = sprintf_s(param.algTag, sizeof(param.algTag), "%s_%s_%d", param.tag, algName.c_str(), param.root);
+        int ret = sprintf_s(param.algTag, sizeof(param.algTag), "%s_%s_%u", param.tag, algName.c_str(), param.root);
         if (ret <= 0) {
             HCCL_ERROR("faled to fill param.algTag");
             return HCCL_E_INTERNAL;

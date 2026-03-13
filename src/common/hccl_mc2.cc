@@ -13,17 +13,7 @@
 #include "sal.h"
 #include "alg_env_config.h"
 #include "hccl_inner.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-extern HcclResult __attribute__((weak)) HcclCreateOpResCtxInner(HcclComm comm, uint8_t opType, HcclDataType srcDataType, HcclDataType dstDataType,
-                                          HcclReduceOp reduceType, uint64_t count, char *algConfig, uint32_t commEngine, void **opResCtx);
-
-#ifdef __cplusplus
-}
-#endif
+#include "param_check.h"
 
 using namespace ops_hccl;
 
@@ -56,6 +46,7 @@ HcclResult HcclKfcFreeOpArgs(void *opArgs)
 HcclResult HcclKfcOpArgsSetSrcDataType(void *opArgs, uint8_t srcDataType)
 {
     CHK_PTR_NULL(opArgs);
+    CHK_RET(HcomCheckDataType(static_cast<HcclDataType>(srcDataType)));
 
     HcclOpArgs *opArgsPtr = static_cast<HcclOpArgs *>(opArgs);
     opArgsPtr->srcDataType = static_cast<HcclDataType>(srcDataType);
@@ -66,6 +57,7 @@ HcclResult HcclKfcOpArgsSetSrcDataType(void *opArgs, uint8_t srcDataType)
 HcclResult HcclKfcOpArgsSetDstDataType(void *opArgs, uint8_t dstDataType)
 {
     CHK_PTR_NULL(opArgs);
+    CHK_RET(HcomCheckDataType(static_cast<HcclDataType>(dstDataType)));
 
     HcclOpArgs *opArgsPtr = static_cast<HcclOpArgs *>(opArgs);
     opArgsPtr->dstDataType = static_cast<HcclDataType>(dstDataType);
@@ -76,6 +68,7 @@ HcclResult HcclKfcOpArgsSetDstDataType(void *opArgs, uint8_t dstDataType)
 HcclResult HcclKfcOpArgsSetReduceType(void *opArgs, uint32_t reduceType)
 {
     CHK_PTR_NULL(opArgs);
+    CHK_RET(HcomCheckReductionOp(static_cast<HcclReduceOp>(reduceType)));
 
     HcclOpArgs *opArgsPtr = static_cast<HcclOpArgs *>(opArgs);
     opArgsPtr->reduceType = static_cast<HcclReduceOp>(reduceType);
@@ -115,6 +108,11 @@ HcclResult HcclKfcOpArgsSetAlgConfig(void *opArgs, char *algConfig)
 HcclResult HcclKfcOpArgsSetCommEngine(void *opArgs, uint8_t commEngine)
 {
     CHK_PTR_NULL(opArgs);
+    // A3只支持AICPU和AIV场景
+    if (commEngine != COMM_ENGINE_AICPU && commEngine != COMM_ENGINE_AIV) {
+        HCCL_ERROR("[%s] commEngine[%u] not supported", __func__, commEngine);
+        return HCCL_E_NOT_SUPPORT;
+    }
 
     HcclOpArgs *opArgsPtr = static_cast<HcclOpArgs *>(opArgs);
     opArgsPtr->commEngine = static_cast<CommEngine>(commEngine);
@@ -132,6 +130,8 @@ HcclResult HcclCreateOpResCtx(HcclComm comm, uint8_t opType, void *opArgs, void 
         return HCCL_E_PARA;
     }
 
+    CHK_RET(InitEnvConfig());
+
     HcclOpArgs *opArgsPtr = static_cast<HcclOpArgs *>(opArgs);
     if (GetExternalInputHcclEnableEntryLog()) {
         HCCL_RUN_INFO("Entry-HcclKfcCreateOpResCtx, opType[%u], opArgs[%p], srcDataType[%u], dstDataType[%u], reduceType[%u], "
@@ -140,11 +140,8 @@ HcclResult HcclCreateOpResCtx(HcclComm comm, uint8_t opType, void *opArgs, void 
             opArgsPtr->count, opArgsPtr->algConfig, opArgsPtr->commEngine, opResCtx);
     }
 
-    if (HcclCreateOpResCtxInner != nullptr) {
-        CHK_RET(HcclCreateOpResCtxInner(comm, opType, opArgsPtr->srcDataType, opArgsPtr->dstDataType,
-            opArgsPtr->reduceType, opArgsPtr->count, opArgsPtr->algConfig, opArgsPtr->commEngine, opResCtx));
-    } else {
-        HCCL_RUN_WARNING("[HcclKfcCreateOpResCtx] HcclCreateOpResCtxInner is nullptr.");
-    }
+    CHK_RET(HcclCreateOpResCtxInner(comm, opType, opArgsPtr->srcDataType, opArgsPtr->dstDataType,
+        opArgsPtr->reduceType, opArgsPtr->count, opArgsPtr->algConfig, opArgsPtr->commEngine, opResCtx));
+
     return HCCL_SUCCESS;
 }

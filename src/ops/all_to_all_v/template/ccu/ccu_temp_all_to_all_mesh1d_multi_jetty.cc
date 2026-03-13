@@ -13,7 +13,7 @@
 #include "ccu_assist_pub.h"
 #include "alg_template_base.h"
 #include "kernel/ccu_kernel_all_to_all_mesh1d_multi_jetty.h"
-#include "../../../all_to_all_v/template/ccu/ccu_temp_all_to_all_mesh1d_multi_jetty.h"
+#include "ccu_temp_all_to_all_mesh1d_multi_jetty.h"
 
 namespace ops_hccl {
 constexpr uint32_t STUB_JETTY_NUM = 4;
@@ -85,22 +85,21 @@ HcclResult CcuTempAllToAllMesh1dMultiJetty::KernelRun(const OpParam& param, cons
     std::vector<uint64_t> dimSize;
     dimSize.push_back(templateRankSize_);
     dataType_ = param.all2AllVDataDes.sendType;
-    dataTypeSize_ = SIZE_TABLE[dataType_];
+    uint32_t dataTypeSize = SIZE_TABLE[dataType_];
 
     uint64_t inputAddr          = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr         = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
-    uint64_t token              = hcomm::CcuRep::GetTokenInfo(reinterpret_cast<uint64_t>(buffInfo_.inputPtr),
-                                                       static_cast<uint64_t>(buffInfo_.inputSize));
+    uint64_t token              = hcomm::CcuRep::GetTokenInfo(PointerToAddr(buffInfo_.inputPtr), buffInfo_.inputSize);
     uint64_t sliceSize    = templateDataParams.sliceSize;
-    uint64_t totalSliceSize = (sdispls_[1] - sdispls_[0]) * dataTypeSize_; // Bytes
+    uint64_t totalSliceSize = (sdispls_[1] - sdispls_[0]) * dataTypeSize; // Bytes
     uint64_t srcStride = totalSliceSize;
     uint64_t dstStride = totalSliceSize;
     uint64_t srcOffset = 0;
     uint64_t dstOffset = myRank_ * dstStride;
     HCCL_INFO("sliceSize=%llu, totalSliceSize=%llu, srcStride=%llu, dstStride=%llu, srcOffset=%llu, dstOffset=%llu,"
-              " dataType_=%lu, dataTypeSize_=%lu",
+              " dataType_=%lu, dataTypeSize=%lu",
             sliceSize, totalSliceSize, srcStride, dstStride, srcOffset, dstOffset, dataType_,
-            dataTypeSize_);
+            dataTypeSize);
 
     // 根据channel的jetty数量，再做切分
     std::vector<uint64_t> jettySlice, jettySliceTail;

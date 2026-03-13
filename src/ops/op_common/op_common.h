@@ -80,7 +80,7 @@ HcclResult CheckDataType(const HcclDataType dataType, bool needReduce);
 
 std::string GetSupportDataType(bool needReduce);
 
-HcclResult SetCommEngine(OpParam &param, OpExecuteConfig opExecuteConfig);
+HcclResult SetCommEngine(OpParam &param);
 
 void CompReqChannelWithExistChannel(const std::vector<std::vector<ChannelInfo>>& existChannels,
                                     AlgResourceRequest &resRequest);
@@ -101,17 +101,17 @@ HcclResult SaveMainThreadInfo(HcclComm comm, const OpParam &param, ThreadHandle 
 HcclResult GetMainThreadInfo(HcclComm comm, const OpParam &param, ThreadHandle &thread, u32 &notifyNum);
 
 HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
-                         std::string &algName, OpExecuteConfig &opExecuteConfig);
+                         std::string &algName);
 
 HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHandle cpuTsThread,
     ThreadHandle exportedCpuTsThread, u32 notifyNumOnMainThread, void *resCtxSequence, std::string &algName);
 
 HcclResult AicpuKernelLaunch(OpParam &param);
 
-HcclResult HcclAivKernelEntranceLaunch(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
+HcclResult HcclAivKernelEntranceLaunch(OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
     AlgResourceCtxSerializable &resCtxHost);
 
-HcclResult HcclGetOpExpansionMode(HcclComm comm, OpParam &param);
+HcclResult HcclGetOpExpansionMode(OpParam &param);
 
 bool HcclCheckAicpuEnableOpen();
 

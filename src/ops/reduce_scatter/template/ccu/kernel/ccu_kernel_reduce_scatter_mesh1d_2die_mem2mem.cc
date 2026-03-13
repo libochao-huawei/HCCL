@@ -243,7 +243,7 @@ HcclResult CcuKernelReduceScatterMesh1D2DieMem2Mem::DoReduceScatter()
     return HCCL_SUCCESS;
 }
  
-std::string CcuKernelReduceScatterMesh1D2DieMem2Mem::GetLoopBlockTag(std::string loopType, int32_t index)
+std::string CcuKernelReduceScatterMesh1D2DieMem2Mem::GetLoopBlockTag(std::string loopType, int32_t index) const
 {
     return loopType + LOCAL_REDUCE_LOOP_BLOCK_TAG + std::to_string(index);
 }

@@ -18,6 +18,7 @@
 #endif
 
 namespace ops_hccl {
+constexpr uint32_t NUM_CONTROL_THREADS = 2;
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::InsV2ScatterParallelExecutor()
 {}
@@ -72,8 +73,8 @@ HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     interAlgTemplate->CalcRes(comm, param, topoInfo, interResourceRequest);
 
     // 合并两个template的资源
-    resourceRequest.notifyNumOnMainThread = 2;  // 用于两个template间同步
-    resourceRequest.slaveThreadNum = intraResourceRequest.slaveThreadNum + interResourceRequest.slaveThreadNum + 2;
+    resourceRequest.notifyNumOnMainThread = NUM_CONTROL_THREADS;  // 用于两个template间同步
+    resourceRequest.slaveThreadNum = intraResourceRequest.slaveThreadNum + interResourceRequest.slaveThreadNum + NUM_CONTROL_THREADS;
     resourceRequest.notifyNumPerThread.emplace_back(intraResourceRequest.slaveThreadNum + 1);  // intra模板控制流
     resourceRequest.notifyNumPerThread.insert(resourceRequest.notifyNumPerThread.end(),
         intraResourceRequest.notifyNumPerThread.begin(),
@@ -118,7 +119,7 @@ HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 uint64_t InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::GetRankSize(
-    const std::vector<std::vector<u32>> &vTopo)
+    const std::vector<std::vector<u32>> &vTopo) const
 {
     uint64_t count = 1;
     for (const auto &i : vTopo) {
@@ -257,9 +258,9 @@ HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
             (u64(dataSplitSize.at(0) * tmpMemBlockCount) + u64(dataSplitSize.at(1) * tmpMemBlockCount)) * dataTypeSize_;
     }
     u64 intraScratchOffset = 0;
-    u64 interScratchOffset = hcclBuffMultipleIntra * hcclMemBlockSize;
-    u64 maxCountPerLoop = std::min(static_cast<u64>(hcclMemBlockSize), static_cast<u64>(UB_MAX_DATA_SIZE)) /
-                          HCCL_MIN_SLICE_ALIGN * HCCL_MIN_SLICE_ALIGN / dataTypeSize_;
+    u64 interScratchOffset = static_cast<u64>(hcclBuffMultipleIntra * hcclMemBlockSize);
+    u64 maxCountPerLoop = std::min(static_cast<u64>(hcclMemBlockSize), static_cast<u64>(UB_MAX_DATA_SIZE)) / HCCL_MIN_SLICE_ALIGN
+        * HCCL_MIN_SLICE_ALIGN / dataTypeSize_; 
 
     u32 loopTimes = dataCount_ / maxCountPerLoop + ((dataCount_ % maxCountPerLoop == 0) ? 0 : 1);
 
@@ -291,7 +292,7 @@ HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 
     for (u32 loopIndex = 0; loopIndex < loopTimes; loopIndex++) {
         u64 currCount = (loopIndex == loopTimes - 1) ? (dataCount_ - loopIndex * maxCountPerLoop) : maxCountPerLoop;
-        u64 dataCountPerLoopAixs0 = dataSplitSize.at(0) * currCount;
+        u64 dataCountPerLoopAixs0 = static_cast<u64>(dataSplitSize.at(0) * currCount);
         u64 dataCountPerLoopAixs1 = currCount - dataCountPerLoopAixs0;
 
         u64 dataOffset0 = loopIndex * maxCountPerLoop * dataTypeSize_;
@@ -457,8 +458,6 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::PrepareResForTemplate(
     InsAlgTemplate0 &tempAlgIntra)
 {
-    AlgResourceRequest intraResourceRequest;
-    AlgResourceRequest interResourceRequest;
     u64 intraThreadsNum = tempAlgIntra.GetThreadNum();
     intraThreads_.assign(threads_.begin() + 1, threads_.begin() + 1 + intraThreadsNum);
     interThreads_.assign(threads_.begin() + intraThreadsNum + 1, threads_.end());

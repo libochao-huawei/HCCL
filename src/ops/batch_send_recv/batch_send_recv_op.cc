@@ -8,28 +8,13 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include "batch_send_recv_op.h"
+#include "op_common_ops.h"
+#include "topo_host.h"
 #include <algorithm>
-#include <string>
 #include <future>
 #include <map>
-#include <hccl/hccl_types.h>
-#include "hccl/base.h"
-#include "sal.h"
-#include "mmpa_api.h"
-#include "coll_alg_v2_exec_registry.h"
-#include "alg_env_config.h"
-#include "param_check.h"
-#include "executor_base.h"
-#include "adapter_acl.h"
-#include "topo_host.h"
-#include "adapter_error_manager_pub.h"
-#include "hccl_inner.h"
-#include "hccl.h"
-#include "config_log.h"
-#include "workflow.h"
-#include "load_kernel.h"
-#include "op_common.h"
-#include "batch_send_recv_op.h"
+#include <string>
 
 using namespace std;
 using namespace ops_hccl;
@@ -136,10 +121,9 @@ HcclResult BatchSendRecvOutPlace(HcclSendRecvItem *sendRecvInfo, uint32_t itemNu
     param.opType = HcclCMDType::HCCL_CMD_BATCH_SEND_RECV;
     param.deviceType = deviceType;
 
-    OpExecuteConfig opExecuteConfig;
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
-    CHK_RET(Selector(comm, param, topoInfo, algName, opExecuteConfig));
+    CHK_RET(Selector(comm, param, topoInfo, algName));
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
     HCCL_INFO("Execute BatchSendRecvOutPlace success.");
     return HCCL_SUCCESS;

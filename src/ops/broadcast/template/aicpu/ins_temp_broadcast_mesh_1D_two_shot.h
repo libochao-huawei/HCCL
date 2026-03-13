@@ -37,7 +37,7 @@ public:
                          const TemplateResource& templateResource) override;
     HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo, 
                        AlgResourceRequest& resourceRequest) override;
-    HcclResult GetRes(AlgResourceRequest &resourceReques) const override;
+    HcclResult GetRes(AlgResourceRequest &resourceRequest) const override;
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
     u64 GetThreadNum() const override;
     void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub) override;
@@ -61,7 +61,6 @@ private:
 
     u64 dataTypeSize_{0};
     std::map<u32, u32> tempVirtRankMap_;
-    
 };
 
 } // namespace Hccl
