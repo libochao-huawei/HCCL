@@ -98,6 +98,11 @@ HcclResult CcuKernel::LocalNotifyRecord(uint32_t coreId, uint32_t dstNotifyIdx, 
     return HCCL_SUCCESS;
 }
 
+HcclResult CcuKernel::LocalNotifyWait(const uint32_t coreId, const uint32_t notifyIdx, const uint32_t mask)
+{
+    return HCCL_SUCCESS;
+}
+
 HcclResult CcuKernel::NotifyRecord(const ChannelHandle channel, uint32_t remoteNotifyIdx, uint32_t mask)
 {
     return HCCL_SUCCESS;
