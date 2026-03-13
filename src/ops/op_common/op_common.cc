@@ -177,7 +177,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
         CHK_RET(executor->Orchestrate(param, *resCtxHost));
     }
     // op上报
-    CHK_RET(HcclProfilingReportOp(comm, beginTime););
+    CHK_RET(HcclProfilingReportOp(comm, beginTime));
     HCCL_INFO("Execute HcclExecOp success.");
     return HCCL_SUCCESS;
 }
