@@ -263,6 +263,7 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
             buffersOut[channelDesc.remoteRank] = remoteMems[0].addr;
         }
 
+    param.buffIn = (uint64_t)aivCommInfoPtr;
     ACLCHECK(aclrtMemcpy(aivCommInfoPtr, MAX_RANK_SIZE * sizeof(void*), buffersIn, MAX_RANK_SIZE * sizeof(void*),
         ACL_MEMCPY_HOST_TO_DEVICE));
     ACLCHECK(aclrtMemcpy(static_cast<uint8_t*>(aivCommInfoPtr) + AIV_TAG_ADDR_OFFSET, MAX_RANK_SIZE * sizeof(void*),
@@ -296,7 +297,7 @@ extern "C" HcclResult HcclAllGatherCustom(void *sendBuf, void *recvBuf, uint64_t
     CHK_RET(HcclGetRankId(comm, &rank));
     CHK_RET(HcclGetRankSize(comm, &rankSize));
     
-    param.buffIn = (uint64_t)resCtx->aivCommInfoPtr;
+    param.buffIn = (uint64_t)aivCommInfoPtr;
     param.input = (uint64_t)sendBuf;
     param.output = (uint64_t)recvBuf;
     param.rank = rank;
