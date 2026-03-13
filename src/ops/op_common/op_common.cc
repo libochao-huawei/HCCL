@@ -163,10 +163,12 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
     // Host stream等待Device的通知
     u16 NOTIFY_WAIT_TIME = 27 * 68;
     CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, 0, NOTIFY_WAIT_TIME)));
-
-    if (aclrtSynchronizeStream(param.stream) != 0) {
-        HCCL_ERROR("Stream Synchronize Failed");
-        return HCCL_E_INTERNAL;
+    
+    if (param.engine == COMM_ENGINE_CPU) {
+        if (aclrtSynchronizeStream(param.stream) != 0) {
+            HCCL_ERROR("[HcclAicpuKernelEntranceLaunch] Stream Synchronize Failed");
+            return HCCL_E_INTERNAL;
+        }
     }
     return HCCL_SUCCESS;
 }
