@@ -297,7 +297,7 @@ extern "C" HcclResult HcclAllGatherCustom(void *sendBuf, void *recvBuf, uint64_t
     CHK_RET(HcclGetRankId(comm, &rank));
     CHK_RET(HcclGetRankSize(comm, &rankSize));
     
-    param.buffIn = (uint64_t)aivCommInfoPtr;
+    param.buffIn = (uint64_t)param.buffIn;
     param.input = (uint64_t)sendBuf;
     param.output = (uint64_t)recvBuf;
     param.rank = rank;
