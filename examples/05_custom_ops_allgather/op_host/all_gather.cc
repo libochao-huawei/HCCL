@@ -223,7 +223,7 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
                             channelDesc.remoteEndpoint.loc.device.devPhyId);
                 HCCL_INFO("[CalcChannelRequestMesh1D] Add channel request between %zu and %zu, netLayerIdx %u, "
                             "linkListIdx %u, protocol %zu",
-                            myRank, channelDesc.remoteRank, netLayer, idx, channelDesc.remoteEndpoint.protocol);
+                            rank, channelDesc.remoteRank, netLayer, idx, channelDesc.remoteEndpoint.protocol);
                 channelDesc.channelProtocol = link.linkAttr.linkProtocol;
                 channelDesc.notifyNum = NORMAL_NOTIFY_NUM;
                 channels.push_back(channelDesc);
@@ -236,7 +236,6 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
         uint32_t validChannelNum = level0ChannelRequest.size();
         std::vector<ChannelHandle> levelNChannels;
         levelNChannels.resize(validChannelNum);
-        HCCL_INFO("[%s]level[%u] validChannelNum[%u]", __func__, level, validChannelNum);
 
         if (validChannelNum > 0) {
             CHK_RET(HcclChannelAcquire(comm, param.engine, level0ChannelRequest.data(),
