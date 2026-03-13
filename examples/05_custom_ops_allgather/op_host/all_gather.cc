@@ -85,47 +85,50 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
     uint64_t size = ctxSize;
     bool isNewContext = false;
 
-    HcclResult hcclRet = HcclEngineCtxGet(comm, param.tag, ctxEngine, &ctx, &size);
-    if (hcclRet == HCCL_SUCCESS && ctx != nullptr && size < ctxSize) {
-        HCCL_ERROR("[PrepareResources] Existing context size too small. got=%llu expect=%llu", size, ctxSize);
-        hcclRet = HCCL_E_INTERNAL;
-        ctx = nullptr;
-    }
-    if (hcclRet != HCCL_SUCCESS || ctx == nullptr) {
-        HCCL_INFO("[PrepareResources] Context not found (ret=%d), creating new with COMM_ENGINE_CPU_TS...", hcclRet);
-        hcclRet = HcclEngineCtxCreate(comm, param.tag, ctxEngine, ctxSize, &ctx);
-        if (hcclRet != HCCL_SUCCESS) {
-            HCCL_ERROR("[PrepareResources] Failed to allocate context memory via HcclEngineCtxCreate. ret=%d", hcclRet);
-            return hcclRet;
-        }
-        HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
-        isNewContext = true;
-        HCCL_INFO("[PrepareResources] New Host Context %p created", ctx);
-    } else {
-        HCCL_INFO("[PrepareResources] Reuse Host Context %p", ctx);
-    }
+    // HcclResult hcclRet = HcclEngineCtxGet(comm, param.tag, ctxEngine, &ctx, &size);
+    // if (hcclRet == HCCL_SUCCESS && ctx != nullptr && size < ctxSize) {
+    //     HCCL_ERROR("[PrepareResources] Existing context size too small. got=%llu expect=%llu", size, ctxSize);
+    //     hcclRet = HCCL_E_INTERNAL;
+    //     ctx = nullptr;
+    // }
+    // if (hcclRet != HCCL_SUCCESS || ctx == nullptr) {
+    //     HCCL_INFO("[PrepareResources] Context not found (ret=%d), creating new with COMM_ENGINE_CPU_TS...", hcclRet);
+    //     hcclRet = HcclEngineCtxCreate(comm, param.tag, ctxEngine, ctxSize, &ctx);
+    //     if (hcclRet != HCCL_SUCCESS) {
+    //         HCCL_ERROR("[PrepareResources] Failed to allocate context memory via HcclEngineCtxCreate. ret=%d", hcclRet);
+    //         return hcclRet;
+    //     }
+    //     HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
+    //     isNewContext = true;
+    //     HCCL_INFO("[PrepareResources] New Host Context %p created", ctx);
+    // } else {
+    //     HCCL_INFO("[PrepareResources] Reuse Host Context %p", ctx);
+    // }
 
-    HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
+    // HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
 
-    AlgResourceCtxSerializable* resCtx = static_cast<AlgResourceCtxSerializable*>(ctx);
-    HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
-    param.resCtx = reinterpret_cast<AlgResourceCtx*>(resCtx); 
-    HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
-    if (isNewContext) {
-        HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
-        uint32_t rank, rankSize;
-        CHK_RET(HcclGetRankId(comm, &rank));
-        HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
-        CHK_RET(HcclGetRankSize(comm, &rankSize));
-        HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
-        resCtx->topoInfo.userRank = rank;
-        HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
-        resCtx->topoInfo.userRankSize = rankSize;
-        HCCL_INFO("[PrepareResources] Rank %u, RankSize %u", rank, rankSize);
+    // AlgResourceCtxSerializable* resCtx = static_cast<AlgResourceCtxSerializable*>(ctx);
+    // HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
+    // param.resCtx = reinterpret_cast<AlgResourceCtx*>(resCtx); 
+    // HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
+    // if (isNewContext) {
+    //     HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
+    //     uint32_t rank, rankSize;
+    //     CHK_RET(HcclGetRankId(comm, &rank));
+    //     HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
+    //     CHK_RET(HcclGetRankSize(comm, &rankSize));
+    //     HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
+    //     resCtx->topoInfo.userRank = rank;
+    //     HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
+    //     resCtx->topoInfo.userRankSize = rankSize;
+    //     HCCL_INFO("[PrepareResources] Rank %u, RankSize %u", rank, rankSize);
 
-        CHK_RET(HcclGetHcclBuffer(comm, &resCtx->cclMem.addr, &resCtx->cclMem.size));
-        HCCL_INFO("[PrepareResources] Got HCCL Buffer addr=%p size=%lu", resCtx->cclMem.addr, resCtx->cclMem.size);
-    }
+    //     CHK_RET(HcclGetHcclBuffer(comm, &resCtx->cclMem.addr, &resCtx->cclMem.size));
+    //     HCCL_INFO("[PrepareResources] Got HCCL Buffer addr=%p size=%lu", resCtx->cclMem.addr, resCtx->cclMem.size);
+    // }
+
+
+    CHK_RET(HcclGetHcclBuffer(comm, &resCtx->cclMem.addr, &resCtx->cclMem.size));
     
     std::string aivTagStr = std::string(param.tag) + "_AIV";
     const char* aivTag = aivTagStr.c_str();
@@ -134,7 +137,7 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
     uint64_t aivCommInfoSize = AIV_TAG_BUFF_LEN;
     HcclMemHandle memHandle;
     
-    hcclRet = HcclEngineCtxGet(comm, aivTag, CommEngine::COMM_ENGINE_AIV, &aivCommInfoPtr, &aivCommInfoSize);
+    auto hcclRet = HcclEngineCtxGet(comm, aivTag, CommEngine::COMM_ENGINE_AIV, &aivCommInfoPtr, &aivCommInfoSize);
     HCCL_INFO("[PrepareResources] HcclEngineCtxGet ret=%d ptr=%p", hcclRet, aivCommInfoPtr);
 
     if (hcclRet != HCCL_SUCCESS || aivCommInfoPtr == nullptr) {
@@ -155,95 +158,84 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
              HCCL_ERROR("[PrepareResources] Failed to register memory. ret=%d", hcclRet);
              return hcclRet;
         }
-        g_memHandleCache[aivTagStr] = memHandle;
         HCCL_INFO("[PrepareResources] Registered AIV memory handle");
-    } else {
-        if (g_memHandleCache.find(aivTagStr) == g_memHandleCache.end()) {
-             CommMem regMem{COMM_MEM_TYPE_DEVICE, aivCommInfoPtr, AIV_TAG_BUFF_LEN};
-             hcclRet = HcclCommMemReg(comm, aivTag, &regMem, &memHandle);
-             if (hcclRet != HCCL_SUCCESS) return hcclRet;
-             g_memHandleCache[aivTagStr] = memHandle;
-             HCCL_INFO("[PrepareResources] Re-registered AIV memory handle (cache miss)");
-        } else {
-             memHandle = g_memHandleCache[aivTagStr];
-        }
     }
     
-    resCtx->aivCommInfoPtr = aivCommInfoPtr;
+    // resCtx->aivCommInfoPtr = aivCommInfoPtr;
 
-    if (isNewContext) {
-        uint32_t rank = resCtx->topoInfo.userRank;
-        uint32_t rankSize = resCtx->topoInfo.userRankSize;
+    // if (isNewContext) {
+    //     uint32_t rank = resCtx->topoInfo.userRank;
+    //     uint32_t rankSize = resCtx->topoInfo.userRankSize;
 
-        std::vector<HcclChannelDesc> channelDescs;
-        for (uint32_t r = 0; r < rankSize; r++) {
-            if (r == rank) continue;
-            HcclChannelDesc desc;
-            HcclChannelDescInit(&desc, 1);
-            desc.remoteRank = r;
-            desc.channelProtocol = CommProtocol::COMM_PROTOCOL_HCCS;
-            desc.memHandles = &memHandle;
-            desc.memHandleNum = 1;
-            channelDescs.push_back(desc);
-        }
-        HCCL_INFO("[PrepareResources] Creating %zu channels", channelDescs.size());
+    //     std::vector<HcclChannelDesc> channelDescs;
+    //     for (uint32_t r = 0; r < rankSize; r++) {
+    //         if (r == rank) continue;
+    //         HcclChannelDesc desc;
+    //         HcclChannelDescInit(&desc, 1);
+    //         desc.remoteRank = r;
+    //         desc.channelProtocol = CommProtocol::COMM_PROTOCOL_HCCS;
+    //         desc.memHandles = &memHandle;
+    //         desc.memHandleNum = 1;
+    //         channelDescs.push_back(desc);
+    //     }
+    //     HCCL_INFO("[PrepareResources] Creating %zu channels", channelDescs.size());
         
-        if (!channelDescs.empty()) {
-            if (resCtx->channels.empty()) {
-                resCtx->channels.resize(1);
-            }
-            std::vector<ChannelHandle> handles(channelDescs.size());
-            CHK_RET(HcclChannelAcquire(comm, CommEngine::COMM_ENGINE_AIV, channelDescs.data(), channelDescs.size(), handles.data()));
-            HCCL_INFO("[PrepareResources] Channels acquired");
+    //     if (!channelDescs.empty()) {
+    //         if (resCtx->channels.empty()) {
+    //             resCtx->channels.resize(1);
+    //         }
+    //         std::vector<ChannelHandle> handles(channelDescs.size());
+    //         CHK_RET(HcclChannelAcquire(comm, CommEngine::COMM_ENGINE_AIV, channelDescs.data(), channelDescs.size(), handles.data()));
+    //         HCCL_INFO("[PrepareResources] Channels acquired");
             
-            for (size_t i = 0; i < channelDescs.size(); i++) {
-                 ChannelInfo info;
-                 info.isValid = true;
-                 info.remoteRank = channelDescs[i].remoteRank;
-                 info.protocol = channelDescs[i].channelProtocol;
-                 info.handle = handles[i];
-                 void* remoteAddr = nullptr;
-                 uint64_t remoteSize = 0;
-                 HcclChannelGetHcclBuffer(comm, handles[i], &remoteAddr, &remoteSize);
-                 info.remoteCclMem = {0, remoteAddr, remoteSize};
+    //         for (size_t i = 0; i < channelDescs.size(); i++) {
+    //              ChannelInfo info;
+    //              info.isValid = true;
+    //              info.remoteRank = channelDescs[i].remoteRank;
+    //              info.protocol = channelDescs[i].channelProtocol;
+    //              info.handle = handles[i];
+    //              void* remoteAddr = nullptr;
+    //              uint64_t remoteSize = 0;
+    //              HcclChannelGetHcclBuffer(comm, handles[i], &remoteAddr, &remoteSize);
+    //              info.remoteCclMem = {0, remoteAddr, remoteSize};
                  
-                 uint32_t mNum = 0;
-                 CommMem* rMems = nullptr;
-                 char** tags = nullptr;
-                 HcclChannelGetRemoteMems(comm, handles[i], &mNum, &rMems, &tags);
-                 if (mNum > 0 && rMems) {
-                     info.remoteInput = {0, rMems[0].addr, rMems[0].size};
-                 }
+    //              uint32_t mNum = 0;
+    //              CommMem* rMems = nullptr;
+    //              char** tags = nullptr;
+    //              HcclChannelGetRemoteMems(comm, handles[i], &mNum, &rMems, &tags);
+    //              if (mNum > 0 && rMems) {
+    //                  info.remoteInput = {0, rMems[0].addr, rMems[0].size};
+    //              }
                  
-                 resCtx->channels[0].push_back(info);
-            }
-        }
-    }
+    //              resCtx->channels[0].push_back(info);
+    //         }
+    //     }
+    // }
     
-    if (isNewContext) {
-        uint32_t rank = resCtx->topoInfo.userRank;
-        std::vector<uint64_t> buffersIn(MAX_RANK_SIZE, 0);
-        std::vector<uint64_t> buffersOut(MAX_RANK_SIZE, 0);
+    // if (isNewContext) {
+    //     uint32_t rank = resCtx->topoInfo.userRank;
+    //     std::vector<uint64_t> buffersIn(MAX_RANK_SIZE, 0);
+    //     std::vector<uint64_t> buffersOut(MAX_RANK_SIZE, 0);
         
-        if (rank < MAX_RANK_SIZE) {
-            buffersIn[rank] = (uint64_t)resCtx->cclMem.addr;
-            buffersOut[rank] = (uint64_t)resCtx->aivCommInfoPtr;
-        }
+    //     if (rank < MAX_RANK_SIZE) {
+    //         buffersIn[rank] = (uint64_t)resCtx->cclMem.addr;
+    //         buffersOut[rank] = (uint64_t)resCtx->aivCommInfoPtr;
+    //     }
         
-        if (!resCtx->channels.empty()) {
-            for (const auto& chan : resCtx->channels[0]) {
-                uint32_t rRank = chan.remoteRank;
-                if (rRank < MAX_RANK_SIZE) {
-                    buffersIn[rRank] = (uint64_t)chan.remoteCclMem.addr;
-                    buffersOut[rRank] = (uint64_t)chan.remoteInput.addr;
-                }
-            }
-        }
+    //     if (!resCtx->channels.empty()) {
+    //         for (const auto& chan : resCtx->channels[0]) {
+    //             uint32_t rRank = chan.remoteRank;
+    //             if (rRank < MAX_RANK_SIZE) {
+    //                 buffersIn[rRank] = (uint64_t)chan.remoteCclMem.addr;
+    //                 buffersOut[rRank] = (uint64_t)chan.remoteInput.addr;
+    //             }
+    //         }
+    //     }
         
-        ACLCHECK(aclrtMemcpy(aivCommInfoPtr, MAX_RANK_SIZE * sizeof(uint64_t), buffersIn.data(), MAX_RANK_SIZE * sizeof(uint64_t), ACL_MEMCPY_HOST_TO_DEVICE));
-        ACLCHECK(aclrtMemcpy((uint8_t*)aivCommInfoPtr + AIV_TAG_ADDR_OFFSET, MAX_RANK_SIZE * sizeof(uint64_t), buffersOut.data(), MAX_RANK_SIZE * sizeof(uint64_t), ACL_MEMCPY_HOST_TO_DEVICE));
-        HCCL_INFO("[PrepareResources] AIV info copied to device");
-    }
+    //     ACLCHECK(aclrtMemcpy(aivCommInfoPtr, MAX_RANK_SIZE * sizeof(uint64_t), buffersIn.data(), MAX_RANK_SIZE * sizeof(uint64_t), ACL_MEMCPY_HOST_TO_DEVICE));
+    //     ACLCHECK(aclrtMemcpy((uint8_t*)aivCommInfoPtr + AIV_TAG_ADDR_OFFSET, MAX_RANK_SIZE * sizeof(uint64_t), buffersOut.data(), MAX_RANK_SIZE * sizeof(uint64_t), ACL_MEMCPY_HOST_TO_DEVICE));
+    //     HCCL_INFO("[PrepareResources] AIV info copied to device");
+    // }
     
     return HCCL_SUCCESS;
 }
