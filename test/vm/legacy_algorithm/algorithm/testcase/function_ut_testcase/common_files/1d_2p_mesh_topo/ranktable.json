@@ -1,0 +1,46 @@
+{
+    "version": "2.0",
+	"rank_count" : 2,
+	"rank_list": [
+		{
+			"rank_id": 0,
+			"device_id": 0,
+			"local_id": 0,
+			"level_list":  [
+				{
+					"net_layer": 0,
+					"net_instance_id" : "az0-rack0",
+					"net_type": "TOPO_FILE_DESC",
+					"net_attr": "",
+					"rank_addr_list": [
+					{
+					"addr_type": "IPV4",
+					"addr": "223.0.0.28",
+					"ports": [ "0/0" ]
+					}
+					]
+				}
+			]
+		},
+		{
+			"rank_id": 1,
+			"local_id": 1,
+			"device_id": 1,
+			"level_list":  [
+				{
+					"net_layer": 0,
+					"net_instance_id" : "az0-rack0",
+					"net_type": "TOPO_FILE_DESC",
+					"net_attr": "",
+					"rank_addr_list": [
+					{
+					"addr_type": "IPV4",
+					"addr": "223.0.0.10",
+					"ports": [ "0/1" ]
+					}
+					]
+				}
+			]
+		}
+	]
+}

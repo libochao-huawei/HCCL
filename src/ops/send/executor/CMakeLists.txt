@@ -9,6 +9,7 @@
 # -----------------------------------------------------------------------------------------------------------
 set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_send_executor.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_send_sole_executor.cc
 )
 
 target_sources(hccl PRIVATE

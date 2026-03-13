@@ -217,5 +217,27 @@ SelectorStatus ReduceAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDetai
     return SelectorStatus::MATCH;
 }
 
+SelectorStatus ReduceAutoSelector::SelectDPUAlgo(const TopoInfoWithNetLayerDetails* topoInfo,
+                                                const OpParam &opParam,
+                                                const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+                                                std::string &selectAlgName) const
+{
+    std::vector<HcclAlgoType> algos = std::vector<HcclAlgoType>(HCCL_ALGO_LEVEL_NUM, HcclAlgoType::HCCL_ALGO_TYPE_DEFAULT);
+    auto it = configAlgMap.find(opParam.opType);
+    if ((it != configAlgMap.end()) && (it->second.size() > 1)) {
+        algos = it->second;
+    }
+    HCCL_INFO("hccl algo op config: config opType:%d, level0:%u, level1:%u, level2:%u, level3:%u",
+        opParam.opType, algos[0], algos[1], algos[2], algos[3]);
+    if (topoInfo->topoLevelNums > 1) {
+        if ((topoInfo->deviceNumPerModule == 1) || (topoInfo->level0Topo == Level0Shape::MESH_1D)) {
+            selectAlgName = "InsReduceSequenceMeshNhrDPU";
+            HCCL_INFO("selectAlgName is InsReduceSequenceMeshNhrDPU");
+            return SelectorStatus::MATCH;
+        }
+    }
+    return SelectorStatus::NOT_MATCH;
+}
+
 REGISTER_SELECTOR_BY_OPTYPE(HcclCMDType::HCCL_CMD_REDUCE, 18, ReduceAutoSelector);
 }  // namespace ops_hccl
