@@ -21,7 +21,7 @@
 namespace ops_hccl {
 
 static std::mutex g_algEnvConfigMutex;
-static AlgEnvConfig g_algEnvConfig;
+static thread_local AlgEnvConfig g_algEnvConfig;
 
 /* 入口 */
 HcclResult InitEnvConfig()
