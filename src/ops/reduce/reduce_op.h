@@ -37,7 +37,7 @@ HcclResult ReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclData
 
 HcclResult ReduceExecOp(HcclComm comm, OpParam &param);
 
-HcclResult CheckReduceInputPara(const HcclComm comm, const void* sendBuf, const void* recvBuf);
+HcclResult CheckReduceInputPara(const HcclComm comm, const void *sendBuf, const void *recvBuf);
 
 HcclResult GetAlgResReduce(HcclComm comm, OpParam &param, std::shared_ptr<InsCollAlgBase> &executor, TopoInfoWithNetLayerDetails *topoInfo,
     AlgResourceCtx **resCtx, aclrtNotify *notifies);

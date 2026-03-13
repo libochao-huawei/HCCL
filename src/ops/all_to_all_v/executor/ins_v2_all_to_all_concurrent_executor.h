@@ -11,17 +11,7 @@
 #ifndef HCCLV2_INS_V2_ALL_TO_ALL_EXECUTOR_H
 #define HCCLV2_INS_V2_ALL_TO_ALL_EXECUTOR_H
 
-#include "alg_param.h"
-#include "topo_host.h"
-#include "channel.h"
-#include "alg_v2_template_base.h"
-#include "utils.h"
-#include "log.h"
-#include "workflow.h"
-#include "sal.h"
-#include "config_log.h"
-#include "executor_v2_base.h"
-#include "coll_alg_v2_exec_registry.h"
+#include "executor_common_ops.h"
 #include "topo_match_base.h"
 #include "topo_match_multilevel.h"
 #include "topo_match_ubx.h"
@@ -63,18 +53,17 @@ private:
         std::vector<u64> rdispls;
     };
 
-    HcclResult SetTemplateDataParams(TemplateDataParams &tempAlgParams, SendRecvData &splitData,u32 loop,
+    HcclResult SetTemplateDataParams(TemplateDataParams &tempAlgParams, const SendRecvData &splitData,u32 loop,
         u64 currDataCount, u64 processedDataCount, u64 maxDataCountPerLoop);
     HcclResult FillTemplateResource(const OpParam &param, const AlgResourceCtxSerializable& resCtx,
         TemplateResource& templateAlgRes, uint32_t index);
     HcclResult InitTemplateDataParams(const OpParam &param, const AlgResourceCtxSerializable& resCtx,
         TemplateDataParams& tempAlgParams);
-    HcclResult RestoreSendRecvData(const OpParam &param, const AlgResourceCtxSerializable& resCtx);
-    HcclResult SplitSendRecvData(const OpParam &param, const AlgResourceCtxSerializable& resCtx,
-        std::vector<SendRecvData>& splitData);
+    HcclResult RestoreSendRecvData(const OpParam &param);
+    HcclResult SplitSendRecvData(std::vector<SendRecvData>& splitData);
     HcclResult GetMaxSendRecvDataCount(u64& maxSendRecvDataCount, const SendRecvData& splitData);
-    HcclResult CalcMaxDataCountPerLoop(const OpParam &param,TemplateDataParams &tempAlgParams,
-        const std::vector<u64> scratchMulti, std::vector<u64>& maxDataCountPerLoop);
+    HcclResult CalcMaxDataCountPerLoop(const OpParam &param, const std::vector<u64> scratchMulti,
+        std::vector<u64>& maxDataCountPerLoop);
 
     std::vector<u64> sendCounts_;
     std::vector<u64> recvCounts_;

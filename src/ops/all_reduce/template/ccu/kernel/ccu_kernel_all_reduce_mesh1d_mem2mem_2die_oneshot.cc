@@ -364,7 +364,7 @@ void CcuKernelAllReduceMesh1DMem2Mem2DieOneShot::CreateReduceLoop(uint32_t size,
     registeredLoop.insert(loopType);
 }
  
-std::string CcuKernelAllReduceMesh1DMem2Mem2DieOneShot::GetLoopBlockTag(std::string loopType, int32_t index)
+std::string CcuKernelAllReduceMesh1DMem2Mem2DieOneShot::GetLoopBlockTag(std::string loopType, int32_t index) const
 {
     return loopType + LOCAL_REDUCE_LOOP_BLOCK_TAG + std::to_string(index);
 }

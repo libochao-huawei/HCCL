@@ -11,17 +11,7 @@
 #ifndef HCCLV2_INS_V2_REDUCE_SCATTER_CONCURRENT_EXECUTOR_H
 #define HCCLV2_INS_V2_REDUCE_SCATTER_CONCURRENT_EXECUTOR_H
 
-#include "alg_param.h"
-#include "topo_host.h"
-#include "channel.h"
-#include "alg_v2_template_base.h"
-#include "utils.h"
-#include "log.h"
-#include "workflow.h"
-#include "sal.h"
-#include "config_log.h"
-#include "executor_v2_base.h"
-#include "coll_alg_v2_exec_registry.h"
+#include "executor_common_ops.h"
 #include "topo_match_base.h"
 #include "topo_match_ubx.h"
 
@@ -29,7 +19,7 @@ namespace ops_hccl {
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1> class InsReduceScatterConcurrentExecutor : public InsCollAlgBase {
 public:
     explicit InsReduceScatterConcurrentExecutor();
-    ~InsReduceScatterConcurrentExecutor() = default;
+    ~InsReduceScatterConcurrentExecutor() override = default;
 
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
 
@@ -48,21 +38,21 @@ protected:
     HcclResult InitCommInfo(const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                             const AlgHierarchyInfoForAllLevel& algHierarchyInfo);
     HcclResult InitExectorInfo(const OpParam& param, const AlgResourceCtxSerializable &resCtx);
-    HcclResult PrepareThreadFromTemplate(const OpParam &param, std::shared_ptr<InsAlgTemplate0> &tempAlg0,
+    HcclResult PrepareThreadFromTemplate(std::shared_ptr<InsAlgTemplate0> &tempAlg0,
         std::shared_ptr<InsAlgTemplate1> &tempAlg1);
 
     std::vector<std::map<u32, std::vector<ChannelInfo>>> remoteRankToChannelInfo_; // level 0 layer <remoteRankId,<channelInfo>>
     std::vector<ThreadHandle> threads_;                 // 相当于之前的std::vector<InsQuePtr> tempInsQue_;
     std::vector<ThreadHandle> temp0Threads_;
-    ThreadHandle temp0ThreadMain_;
+    ThreadHandle temp0ThreadMain_ = 0;
     std::vector<ThreadHandle> temp1Threads_;
-    ThreadHandle temp1ThreadMain_;
+    ThreadHandle temp1ThreadMain_ = 0;
 
     AlgHierarchyInfoForAllLevel algHierarchyInfo_;
 
 private:
     void GenTempAlgParams(const u64 dataOffset, const u64 dataCountforTemp, const u64 maxCountPerLoop,
-        TemplateDataParams &tempAlgParamsforMesh) const;
+        TemplateDataParams &tempAlgParams) const;
 };
 }
 

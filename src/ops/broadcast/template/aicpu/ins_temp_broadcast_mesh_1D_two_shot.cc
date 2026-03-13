@@ -22,7 +22,6 @@ InsTempBroadcastMesh1DTwoShot::~InsTempBroadcastMesh1DTwoShot()
 {
 }
 
-
 HcclResult InsTempBroadcastMesh1DTwoShot::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo, 
                                                   AlgResourceRequest& resourceRequest)
 {
@@ -161,7 +160,6 @@ HcclResult InsTempBroadcastMesh1DTwoShot::RootSendData(const u64 memOffset,
     // root将自己数据分片发送至对端
     u64 sendSrcOffset1 = sliceInfoVec[myRankIdx][0].offset + memOffset;
     u64 sendDstOffset1 = sliceInfoVec[myRankIdx][0].offset;
-
 
     sendDstOffset1 += tempAlgParams.buffInfo.hcclBuffBaseOff;
 
