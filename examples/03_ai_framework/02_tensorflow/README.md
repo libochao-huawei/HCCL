@@ -15,6 +15,7 @@
 - <term>Atlas 训练系列产品</term> / <term>Atlas 推理系列产品</term>
 - <term>Atlas A2 训练系列产品</term>
 - <term>Atlas A3 训练系列产品</term> / <term>Atlas A3 推理系列产品</term>
+- <term>Atlas A5 系列产品</term>
 
 注意：本样例代码基于 TensorFlow 1.x 框架开发，不兼容 TensorFlow 2.x。推荐使用 TensorFlow 1.15.0 版本。
 ### 配置环境变量
@@ -32,6 +33,13 @@ export RANK_TABLE_FILE=ranktable.json
 ```bash
 bash run_tensorflow.sh
 ```
+
+> 注意：可通过设置 `HCCL_OP_EXPANSION_MODE` 环境变量配置通信算法的任务编排展开位置，不同产品型号支持的范围可参考[集合通信库用户指南](https://hiascend.com/document/redirect/CannCommunityHcclUg) 中该环境变量的使用方法。
+>
+> ```bash
+> # 设置通信算法的编排展开位置在Device侧的AI CPU，Device侧根据硬件型号自动选择相应的调度器
+> export HCCL_OP_EXPANSION_MODE=AI_CPU
+> ```
 
 ## 结果示例
 
