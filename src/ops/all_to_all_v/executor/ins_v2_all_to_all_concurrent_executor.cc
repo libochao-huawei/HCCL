@@ -16,10 +16,10 @@
 namespace ops_hccl {
 using namespace std;
 constexpr uint32_t CONCURRENT_NUM = 2;
-constexpr uint32_t CONST_0 = 0; 
-constexpr uint32_t CONST_1 = 1; 
-constexpr uint32_t CONST_2 = 2; 
-constexpr uint32_t CONST_3 = 3; 
+constexpr uint32_t CONST_0 = 0;
+constexpr uint32_t CONST_1 = 1;
+constexpr uint32_t CONST_2 = 2;
+constexpr uint32_t CONST_3 = 3;
 constexpr uint32_t CONST_4 = 4;
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>

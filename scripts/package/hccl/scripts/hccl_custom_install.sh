@@ -95,9 +95,9 @@ hccl_install_package() {
     local _package="$1"
     local _pythonlocalpath="$2"
     log "INFO" "install python module package in ${_package}"
-    if ! command -v pip3 >/dev/null 2>&1; then 
-        log "ERROR" "install ${_package} failed, pip3 is not installed." 
-        exit 1 
+    if ! command -v pip3 >/dev/null 2>&1; then
+        log "ERROR" "install ${_package} failed, pip3 is not installed."
+        exit 1
     fi
     if [ -f "$_package" ]; then
         if [ "$pylocal" = "y" ]; then

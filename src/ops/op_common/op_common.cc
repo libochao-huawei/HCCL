@@ -164,11 +164,11 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
     u16 NOTIFY_WAIT_TIME = 27 * 68;
     CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, 0, NOTIFY_WAIT_TIME)));
 
-    if (param.engine == COMM_ENGINE_CPU) {	 
-        if (aclrtSynchronizeStream(param.stream) != 0) {	 
-            HCCL_ERROR("[HcclAicpuKernelEntranceLaunch] Stream Synchronize Failed");	 
-            return HCCL_E_INTERNAL; 
-        } 
+    if (param.engine == COMM_ENGINE_CPU) {
+        if (aclrtSynchronizeStream(param.stream) != 0) {
+            HCCL_ERROR("[HcclAicpuKernelEntranceLaunch] Stream Synchronize Failed");
+            return HCCL_E_INTERNAL;
+        }
     }
     return HCCL_SUCCESS;
 }
@@ -432,39 +432,38 @@ HcclResult HcclGetThread(
     HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
     std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost)
 {
-    ThreadHandle thread;
     if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
-        u32 maxNotifyNum = resRequest.notifyNumOnMainThread;	 
-        for (u32 i = 0; i < resRequest.notifyNumPerThread.size(); i++) {	 
-            if (resRequest.notifyNumPerThread[i] > maxNotifyNum) {	 
-                maxNotifyNum = resRequest.notifyNumPerThread[i]; 
-            } 
-        } 
-        u32 threadNum = resRequest.notifyNumPerThread.size() + 1; 
-        std::vector<ThreadHandle> threads(threadNum); 
-        CHK_RET(HcclThreadAcquire(comm, COMM_ENGINE_AICPU_TS, threadNum + 1, maxNotifyNum, threads.data())); 
-        CHK_RET(SaveMainThreadInfo(comm, param, threads[0], resRequest.notifyNumOnMainThread + 1)); 
-        HCCL_DEBUG("threads ptr is %p\n", threads.data()); 
-        for (u32 i = 0; i < threadNum; i++) { 
-            resCtxHost->threads.push_back(threads[i]); 
+        u32 maxNotifyNum = resRequest.notifyNumOnMainThread;
+        for (u32 i = 0; i < resRequest.notifyNumPerThread.size(); i++) {
+            if (resRequest.notifyNumPerThread[i] > maxNotifyNum) {
+                maxNotifyNum = resRequest.notifyNumPerThread[i];
+            }
+        }
+        u32 threadNum = resRequest.notifyNumPerThread.size() + 1;
+        std::vector<ThreadHandle> threads(threadNum);
+        CHK_RET(HcclThreadAcquire(comm, COMM_ENGINE_AICPU_TS, threadNum + 1, maxNotifyNum, threads.data()));
+        CHK_RET(SaveMainThreadInfo(comm, param, threads[0], resRequest.notifyNumOnMainThread + 1));
+        HCCL_DEBUG("threads ptr is %p\n", threads.data());
+        for (u32 i = 0; i < threadNum; i++) {
+            resCtxHost->threads.push_back(threads[i]);
         }
     } else {
-        ThreadHandle thread; 
-        // host模式下，将主流封装为thread，并创建主流上的notify	 
-        CHK_RET(HcclThreadAcquireWithStream(comm, param.engine, param.stream,	 
-            resRequest.notifyNumOnMainThread, &thread));	 
-        resCtxHost->threads.push_back(thread);	 
-        u32 maxNotifyNum = 0;	 
-        for (u32 i = 0; i < resRequest.notifyNumPerThread.size(); i++) {	 
-            if (resRequest.notifyNumPerThread[i] > maxNotifyNum) {	 
-                maxNotifyNum = resRequest.notifyNumPerThread[i];	 
-            }	 
-        }	 
-        u32 threadNum = resRequest.notifyNumPerThread.size();	 
-        std::vector<ThreadHandle> threads(threadNum); 
-        CHK_RET(HcclThreadAcquire(comm, param.engine, threadNum, maxNotifyNum, threads.data())); 
-        for (u32 i = 0; i < threadNum; i++) { 
-            resCtxHost->threads.push_back(threads[i]); 
+        ThreadHandle thread;
+        // host模式下，将主流封装为thread，并创建主流上的notify
+        CHK_RET(HcclThreadAcquireWithStream(comm, param.engine, param.stream,
+            resRequest.notifyNumOnMainThread, &thread));
+        resCtxHost->threads.push_back(thread);
+        u32 maxNotifyNum = 0;
+        for (u32 i = 0; i < resRequest.notifyNumPerThread.size(); i++) {
+            if (resRequest.notifyNumPerThread[i] > maxNotifyNum) {
+                maxNotifyNum = resRequest.notifyNumPerThread[i];
+            }
+        }
+        u32 threadNum = resRequest.notifyNumPerThread.size();
+        std::vector<ThreadHandle> threads(threadNum);
+        CHK_RET(HcclThreadAcquire(comm, param.engine, threadNum, maxNotifyNum, threads.data()));
+        for (u32 i = 0; i < threadNum; i++) {
+            resCtxHost->threads.push_back(threads[i]);
         }
     }
 
@@ -689,10 +688,10 @@ HcclResult CheckDataType(const HcclDataType dataType, bool needReduce)
     const std::vector<std::string> infoTitle({"ccl_op", "parameter", "value", "tips"});
     if (needReduce) {
         if ((dataType == HCCL_DATA_TYPE_UINT8)   || (dataType == HCCL_DATA_TYPE_UINT16)  ||
-            (dataType == HCCL_DATA_TYPE_UINT32)  ||
-            (dataType == HCCL_DATA_TYPE_INT128)  || (dataType == HCCL_DATA_TYPE_HIF8)    ||
-            (dataType == HCCL_DATA_TYPE_FP8E4M3) || (dataType == HCCL_DATA_TYPE_FP8E5M2) ||
-            (dataType == HCCL_DATA_TYPE_FP8E8M0) || (dataType == HCCL_DATA_TYPE_RESERVED)) {
+            (dataType == HCCL_DATA_TYPE_UINT32)  || (dataType == HCCL_DATA_TYPE_INT128)  ||
+            (dataType == HCCL_DATA_TYPE_HIF8)    || (dataType == HCCL_DATA_TYPE_FP8E4M3) ||
+            (dataType == HCCL_DATA_TYPE_FP8E5M2) || (dataType == HCCL_DATA_TYPE_FP8E8M0) ||
+            (dataType == HCCL_DATA_TYPE_RESERVED)) {
             RPT_INPUT_ERR(true, "EI0003", infoTitle, std::vector<std::string>({"CheckDataType", "dataType", GetDataTypeEnumStr(dataType), "please check dataType"}));
             HCCL_ERROR("[Check][DataType]errNo[0x%016llx] data type[%s] not supported, support range=[%s]",
                         HCCL_ERROR_CODE(HCCL_E_NOT_SUPPORT), GetDataTypeEnumStr(dataType).c_str(),

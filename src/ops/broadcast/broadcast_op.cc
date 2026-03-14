@@ -36,10 +36,10 @@ HcclResult HcclBroadcast(void *buf, uint64_t count, HcclDataType dataType, uint3
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
     // 非95设备转到老流程
-    #ifdef MACRO_DEV_TYPE_NEW 
-    if (deviceType != DevType::DEV_TYPE_950) { 
-    #else 
-    if (deviceType != DevType::DEV_TYPE_910_95) {	 
+    #ifdef MACRO_DEV_TYPE_NEW
+    if (deviceType != DevType::DEV_TYPE_950) {
+    #else
+    if (deviceType != DevType::DEV_TYPE_910_95) {
     #endif
         return HcclBroadcastInner(buf, count, dataType, root, comm, stream);
     }

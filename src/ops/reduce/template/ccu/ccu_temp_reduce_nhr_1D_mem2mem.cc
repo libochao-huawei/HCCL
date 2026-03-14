@@ -111,10 +111,10 @@ HcclResult CcuTempReduceNHR1DMem2Mem::ProcessNHRStepInfo(HcclComm comm,
     return HcclResult::HCCL_SUCCESS;
 }
 
-void CcuTempReduceNHR1DMem2Mem::SetRoot(u32 root) const	 
-{	 
-    (void)root; 
-    return;	 
+void CcuTempReduceNHR1DMem2Mem::SetRoot(u32 root) const
+{
+    (void)root;
+    return;
 }
 
 HcclResult CcuTempReduceNHR1DMem2Mem::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
@@ -396,7 +396,7 @@ HcclResult CcuTempReduceNHR1DMem2Mem::GetAllGatherStepInfo(u32 step, u32 nSteps,
 
 u64 CcuTempReduceNHR1DMem2Mem::GetThreadNum() const
 {
-    constexpr u64 NHR_THREAD_NUM = 2;	 
+    constexpr u64 NHR_THREAD_NUM = 2;
     return NHR_THREAD_NUM;
 }
 

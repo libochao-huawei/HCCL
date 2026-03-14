@@ -152,6 +152,6 @@ u64 CcuTempAllreduceMesh1D2DieOneShot::CalcScratchMultiple(BufferType inBuffType
     // one shot 场景，scratch Buffer 需要是 usrIn的rankSize倍
     (void)inBuffType;
     (void)outBuffType;
-    return 2;
+    return ALL_REDUCE_DIE_NUM;
 }
 } // namespace ops_hccl
