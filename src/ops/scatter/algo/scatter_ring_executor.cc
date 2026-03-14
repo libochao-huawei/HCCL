@@ -232,7 +232,7 @@ HcclResult ScatterRingExecutor::MultiRingScatter(HcclMem inputMem, HcclMem outpu
             tempAlg = AlgTemplateRegistry::Instance().GetAlgTemplate(TemplateType::TEMPLATE_SCATTER_RING_DIRECT);
             CHK_SMART_PTR_NULL(tempAlg);
             CHK_RET(tempAlg->Prepare(
-                static_cast<HcomCollOpInfo *>(opInfo), topoInfo_->userRank, rankOrder, singleRingSlice));
+                const_cast<HcomCollOpInfo *>(opInfo), topoInfo_->userRank, rankOrder, singleRingSlice));
         }
 
         if (ringIndex != (ringNum - 1)) {  // 0~ringNum-2的环
