@@ -157,6 +157,7 @@ HcclResult GetProtocolByEngine(const OpParam& param, std::vector<CommProtocol> &
 HcclResult CreateChannelFromLink(HcclComm comm, u32 myRank, u32 rank, uint32_t netLayer, u32 idx,
     const CommLink& link, const std::string& funcName, std::vector<HcclChannelDesc>& channels)
 {
+    (void) comm;
     HcclChannelDesc channelDesc;
     HcclChannelDescInit(&channelDesc, 1);
     channelDesc.remoteRank = rank;
