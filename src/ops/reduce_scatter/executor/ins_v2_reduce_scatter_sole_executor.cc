@@ -132,6 +132,7 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchest
     // 计算loopTimes
     u64 loopTimes = dataCount_ / maxDataCountPerLoop + static_cast<u64>(dataCount_ % maxDataCountPerLoop != 0);
     u64 processedDataCount = 0;
+    tempAlgParams.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
     for (u64 loop = 0; loop < loopTimes; loop++) {
         u64 currDataCount = (loop == loopTimes - 1) ? dataCount_ - processedDataCount : maxDataCountPerLoop;
         tempAlgParams.count = currDataCount;

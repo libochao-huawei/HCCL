@@ -59,7 +59,10 @@ HcclResult InsTempReduceScatterNHR::KernelRun(const OpParam& param,
     tempAlgParams_       = tempAlgParams;
     channels_            = templateResource.channels;
     dataType_ = param.DataDes.dataType;
-    CHK_RET(LocalDataCopy(templateResource.threads));
+    enableRemoteMemAccess_ = tempAlgParams.enableRemoteMemAccess;
+    if (!enableRemoteMemAccess_) {
+        CHK_RET(LocalDataCopy(templateResource.threads));
+    }
 
     if (templateRankSize_ <= 1) {
         CHK_RET(PostLocalCopy(templateResource.threads));
@@ -110,18 +113,25 @@ HcclResult InsTempReduceScatterNHR::PostLocalCopy(const std::vector<ThreadHandle
 
     const u64 rptNum = std::max<u64>(1, tempAlgParams_.repeatNum);
     for (u64 rpt = 0; rpt < rptNum; ++rpt) {
-        const u64 outBaseOff  = tempAlgParams_.buffInfo.outBuffBaseOff
-                              + rpt * tempAlgParams_.outputRepeatStride;
-        const u64 scratchBase = tempAlgParams_.buffInfo.hcclBuffBaseOff
-                              + rpt * tempAlgParams_.outputRepeatStride;
-
-        const u64 scOff  = scratchBase + tempAlgParams_.sliceSize * myAlgIdx;
+        const u64 outBaseOff = tempAlgParams_.buffInfo.outBuffBaseOff + rpt * tempAlgParams_.outputRepeatStride;
         const u64 outOff = outBaseOff;
 
-        DataSlice src = DataSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scOff, tempAlgParams_.sliceSize);
+        DataSlice src;
         DataSlice dst = DataSlice(tempAlgParams_.buffInfo.outputPtr, outOff, tempAlgParams_.sliceSize);
+        bool needCopy = true;
 
-        if (tempAlgParams_.buffInfo.hcclBuffType != tempAlgParams_.buffInfo.outBuffType || scOff != outOff) {
+        if (!enableRemoteMemAccess_) {
+            const u64 scratchBase = tempAlgParams_.buffInfo.hcclBuffBaseOff + rpt * tempAlgParams_.outputRepeatStride;
+            const u64 scOff = scratchBase + tempAlgParams_.sliceSize * myAlgIdx;
+            src = DataSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scOff, tempAlgParams_.sliceSize);
+            needCopy = (tempAlgParams_.buffInfo.hcclBuffType != tempAlgParams_.buffInfo.outBuffType || scOff != outOff);
+        } else {
+            const u64 inBase = tempAlgParams_.buffInfo.inBuffBaseOff + rpt * tempAlgParams_.inputRepeatStride;
+            const u64 inOff = inBase + tempAlgParams_.inputSliceStride * myAlgIdx;
+            src = DataSlice(tempAlgParams_.buffInfo.inputPtr, inOff, tempAlgParams_.sliceSize);
+        }
+
+        if (needCopy) {
             CHK_RET(LocalCopy(q, src, dst));
         }
     }
@@ -171,19 +181,36 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
             rxSlices.reserve(st.nSlices);
             
             void* remoteCclBuffAddr = linkSend.remoteCclMem.addr;
-            // RS：在 SCRATCH 上进行规约交换
+            void* remoteInputGraphModeAddr = linkSend.remoteInputGraphMode.addr;
+            void* remoteOutputGraphModeAddr = linkRecv.remoteOutputGraphMode.addr;
+
             for (u32 i = 0; i < st.nSlices; ++i) {
-                const u32 txIdx = st.txSliceIdxs[i]; // 算法序
+                const u32 txIdx = st.txSliceIdxs[i];
                 const u32 rxIdx = st.rxSliceIdxs[i];
 
-                const u64 txScOff = scratchBase + tempAlgParams_.sliceSize * txIdx;
-                const u64 rxScOff = scratchBase + tempAlgParams_.sliceSize * rxIdx;
+                DataSlice txSrcSlice;
+                DataSlice txDstSlice;
+                DataSlice rxSlice;
 
-                DataSlice txSrcSlice = DataSlice(tempAlgParams_.buffInfo.hcclBuff.addr, txScOff,
-                    tempAlgParams_.sliceSize, tempAlgParams_.count); // 发送源
-                DataSlice txDstSlice = DataSlice(remoteCclBuffAddr, txScOff,
-                    tempAlgParams_.sliceSize, tempAlgParams_.count);  // 发送目标
-                DataSlice rxSlice = DataSlice(tempAlgParams_.buffInfo.hcclBuff.addr, rxScOff, tempAlgParams_.sliceSize);
+                if (!enableRemoteMemAccess_) {
+                    const u64 txScOff = scratchBase + tempAlgParams_.sliceSize * txIdx;
+                    const u64 rxScOff = scratchBase + tempAlgParams_.sliceSize * rxIdx;
+                    txSrcSlice = DataSlice(tempAlgParams_.buffInfo.hcclBuff.addr, txScOff,
+                        tempAlgParams_.sliceSize, tempAlgParams_.count);
+                    txDstSlice = DataSlice(remoteCclBuffAddr, txScOff,
+                        tempAlgParams_.sliceSize, tempAlgParams_.count);
+                    rxSlice = DataSlice(tempAlgParams_.buffInfo.hcclBuff.addr, rxScOff, tempAlgParams_.sliceSize);
+                } else {
+                    const u64 inBaseOff = tempAlgParams_.buffInfo.inBuffBaseOff + rpt * tempAlgParams_.inputRepeatStride;
+                    const u64 txInOff = inBaseOff + tempAlgParams_.inputSliceStride * txIdx;
+                    const u64 rxScOff = scratchBase + tempAlgParams_.sliceSize * rxIdx;
+                    txSrcSlice = DataSlice(tempAlgParams_.buffInfo.inputPtr, txInOff,
+                        tempAlgParams_.sliceSize, tempAlgParams_.count);
+                    txDstSlice = DataSlice(remoteInputGraphModeAddr, txInOff,
+                        tempAlgParams_.sliceSize, tempAlgParams_.count);
+                    rxSlice = DataSlice(remoteOutputGraphModeAddr, rxScOff, tempAlgParams_.sliceSize);
+                }
+
                 txSrcSlices.push_back(txSrcSlice);
                 txDstSlices.push_back(txDstSlice);
                 rxSlices.emplace_back(rxSlice);
