@@ -37,7 +37,11 @@ HcclResult HcclReduceScatterV(void *sendBuf,  const void *sendCounts, const void
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
     // 非95设备转到老流程
-    if (deviceType != DevType::DEV_TYPE_910_95) {
+    #ifdef MACRO_DEV_TYPE_NEW 
+    if (deviceType != DevType::DEV_TYPE_950) { 
+    #else 
+    if (deviceType != DevType::DEV_TYPE_910_95) {	 
+    #endif
         return HcclReduceScatterVInner(sendBuf, sendCounts, sendDispls, recvBuf, recvCount, dataType, op, comm, stream);
     }
 
@@ -160,8 +164,8 @@ if (!paramMem) {
     param.outputSize = outputSize;
     param.vDataDes.dataType = dataType;
 
-    // 参数准备
-    std::vector<u64> countsAndDispls(userRankSize*2);
+    // 参数准备，sendDispls和sendCounts的长度等于userRankSize	 
+    std::vector<u64> countsAndDispls(userRankSize + userRankSize);
     const u64* sendDisplsAddr = reinterpret_cast<const u64*>(sendDispls);
     const u64* sendCountsAddr = reinterpret_cast<const u64*>(sendCounts);
     std::copy(sendCountsAddr, sendCountsAddr + userRankSize, countsAndDispls.begin());

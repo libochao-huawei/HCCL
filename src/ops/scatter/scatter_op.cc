@@ -207,7 +207,11 @@ HcclResult ScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, Hcc
         return HcclResult::HCCL_SUCCESS;
     }
 
-    if (deviceType == DevType::DEV_TYPE_910_95 && (GetHcommVersion() >= 90000000)) {
+    #ifdef MACRO_DEV_TYPE_NEW	 
+    if (deviceType == DevType::DEV_TYPE_950 && (GetHcommVersion() >= 90000000)) { 
+    #else 
+    if (deviceType == DevType::DEV_TYPE_910_95 && (GetHcommVersion() >= 90000000)) { 
+    #endif
         std::string algName;
         std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
         CHK_RET(Selector(comm, param, topoInfo, algName));
@@ -781,25 +785,34 @@ HcclResult AllocAlgResource(HcclComm comm, const OpParam& param, AlgResourceRequ
     curPtr += sizeof(AlgResourceCtx); // 偏移指针
     ThreadHandle* threads = reinterpret_cast<ThreadHandle *>(curPtr);
     if (param.engine == COMM_ENGINE_AICPU_TS) {
-        // 主流多申请1个notify用于host和device同步
-        CHK_RET(HcclThreadAcquire(comm, param.engine, 1,
-            resRequest.notifyNumOnMainThread + 1, threads));
+        u32 maxNotifyNum = resRequest.notifyNumOnMainThread + 1;	 
+        for (u32 i = 0; i < resRequest.notifyNumPerThread.size(); i++) {	 
+            if (resRequest.notifyNumPerThread[i] > maxNotifyNum) {	 
+                maxNotifyNum = resRequest.notifyNumPerThread[i]; 
+            } 
+        } 
+        u32 threadNum = resRequest.slaveThreadNum + 1; 
+        CHK_RET(HcclThreadAcquire(comm, param.engine, threadNum, maxNotifyNum, threads));
         resCtxHost->topoInfo.mainThread = *threads;
         HCCL_DEBUG("threads ptr is %p\n", *threads);
     } else {
         // host模式下，将主流封装为thread，并创建主流上的notify
         CHK_RET(HcclThreadAcquireWithStream(comm, param.engine, param.stream,
             resRequest.notifyNumOnMainThread, threads));
+        if (resRequest.slaveThreadNum > 0) { 
+            u32 maxNotifyNum = 0; 
+            for (u32 i = 0; i < resRequest.notifyNumPerThread.size(); i++) { 
+                if (resRequest.notifyNumPerThread[i] > maxNotifyNum) { 
+                    maxNotifyNum = resRequest.notifyNumPerThread[i]; 
+                } 
+            } 
+            curPtr += sizeof(ThreadHandle); 
+            ThreadHandle* slaveThreads = reinterpret_cast<ThreadHandle *>(curPtr); 
+            CHK_RET(HcclThreadAcquire(comm, param.engine, resRequest.slaveThreadNum, maxNotifyNum, slaveThreads)); 
+        }
     }
-    curPtr += sizeof(ThreadHandle); // 指针向后偏移
+    curPtr += sizeof(ThreadHandle) * (resRequest.slaveThreadNum + 1);
 
-    for (u32 index = 0; index < resRequest.slaveThreadNum; index++) {
-        threads = reinterpret_cast<ThreadHandle *>(curPtr);
-        // 创建从流thread及对应的notify
-        CHK_RET(HcclThreadAcquire(comm, param.engine, 1,
-            resRequest.notifyNumPerThread[index], threads));
-        curPtr += sizeof(ThreadHandle); // 指针向后偏移
-    }
     if (UNLIKELY(HcclCheckLogLevel(DLOG_DEBUG))) {
         HCCL_DEBUG("[AllocAlgResource] slaveThreadNum[%u]", resRequest.slaveThreadNum);
         for (u32 i = 0; i < resRequest.slaveThreadNum; i++) {

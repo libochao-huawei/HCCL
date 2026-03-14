@@ -29,7 +29,11 @@ HcclResult HcclRecv(
     }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
-    if (deviceType != DevType::DEV_TYPE_910_95) {
+    #ifdef MACRO_DEV_TYPE_NEW 
+    if (deviceType != DevType::DEV_TYPE_950) { 
+    #else 
+    if (deviceType != DevType::DEV_TYPE_910_95) {	 
+    #endif
         return HcclRecvInner(recvBuf, count, dataType, srcRank, comm, stream);
     }
 
