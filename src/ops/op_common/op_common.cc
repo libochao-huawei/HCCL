@@ -130,10 +130,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     hcclDfxOpInfo.dataType = static_cast<u32>(param.DataDes.dataType);
     hcclDfxOpInfo.dataCount = static_cast<u32>(param.DataDes.count);
     hcclDfxOpInfo.root = param.root;
-    hcclDfxOpInfo.inputMemPtr = reinterpret_cast<void*>(param.inputPtr);
-    hcclDfxOpInfo.inputMemSize = param.inputSize;
-    hcclDfxOpInfo.outputMemPtr = reinterpret_cast<void*>(param.outputPtr);
-    hcclDfxOpInfo.outputMemSize = param.outputSize;
+    hcclDfxOpInfo.engine = param.engine;
     hcclDfxOpInfo.cpuTsThread = cpuTsThread;
     hcclDfxOpInfo.cpuWaitAicpuNotifyIdx = HOST_WAIT_AICPU_NOTIFYIDX;
     s32 sRet = strncpy_s(hcclDfxOpInfo.algTag, ALG_TAG_LENGTH, param.algTag, ALG_TAG_LENGTH);
