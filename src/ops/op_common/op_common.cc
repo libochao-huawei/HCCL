@@ -443,6 +443,7 @@ HcclResult HcclGetThread(
         }
         u32 threadNum = resRequest.notifyNumPerThread.size() + 1;
         std::vector<ThreadHandle> threads(threadNum);
+        // 多申请一条thread用于保存主流信息
         CHK_RET(HcclThreadAcquire(comm, COMM_ENGINE_AICPU_TS, threadNum + 1, maxNotifyNum, threads.data()));
         CHK_RET(SaveMainThreadInfo(comm, param, threads[0], resRequest.notifyNumOnMainThread + 1));
         HCCL_DEBUG("threads ptr is %p\n", threads.data());
@@ -462,6 +463,9 @@ HcclResult HcclGetThread(
             }
         }
         u32 threadNum = resRequest.notifyNumPerThread.size();
+        if (threadNum == 0) {
+            continue;
+        }
         std::vector<ThreadHandle> threads(threadNum);
         CHK_RET(HcclThreadAcquire(comm, param.engine, threadNum, maxNotifyNum, threads.data()));
         for (u32 i = 0; i < threadNum; i++) {
