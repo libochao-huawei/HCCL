@@ -19,6 +19,7 @@
 #include "hccl_common.h"
 #include "config_log.h"
 #include "topo.h"
+#include "dtype_common_dl.h"
 
 constexpr u32 FACTOR_NUM_TWO = 2;
 constexpr s32 DEVICE_PER_MODULE = 8;
@@ -26,15 +27,6 @@ constexpr uint32_t NET_LAYER_NUM_TWO = 2;
 constexpr uint32_t NET_LAYER_NUM_THREE = 3;
 constexpr u32 DEVICE_NO_HCCS_LINK_COUNT = 2; // 设备没有与自身和通过同一SIO链路连接的companion设备的HCCS_SW链路
 constexpr u32 TOPO_INST_NUM_MESH_1D_CLOS = 2; // MESH_1D_CLOS拓扑类型的实例数量
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-HcclResult __attribute__((weak)) hrtGetDeviceType(DevType &devType);
-#ifdef __cplusplus
-}
-
-#endif 
 
 namespace ops_hccl {
 

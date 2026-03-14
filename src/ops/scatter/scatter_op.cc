@@ -26,18 +26,6 @@ using namespace ops_hccl;
 constexpr uint32_t ROOTINFO_INDENTIFIER_MAX_LENGTH = 128;
 extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-HcclResult __attribute__((weak)) HcommProfilingRegThread(HcomProInfo proInfo, ThreadHandle *threads);
-HcclResult __attribute__((weak)) HcommProfilingUnRegThread(HcomProInfo proInfo, ThreadHandle *threads);
-HcclResult __attribute__((weak)) HcommProfilingReportKernel(uint64_t beginTime, const char *profName);
-HcclResult __attribute__((weak)) HcommProfilingReportOp(HcomProInfo proInfo);
-uint64_t __attribute__((weak)) HcommGetProfilingSysCycleTime();
-#ifdef __cplusplus
-}
-#endif
-
 HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
     HcclDataType dataType, uint32_t root, HcclComm comm, aclrtStream stream)
 {
