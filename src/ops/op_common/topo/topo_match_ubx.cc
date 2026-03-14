@@ -20,7 +20,7 @@ TopoMatchUBX::~TopoMatchUBX()
 {
 }
 
-HcclResult TopoMatchUBX::TopoForLayer0(const HcclComm comm, uint32_t &layer0Size, uint32_t myRank,
+HcclResult TopoMatchUBX::TopoForLayer0(const HcclComm comm, uint32_t &layer0Size, const uint32_t myRank,
                                                   AlgHierarchyInfoForAllLevel& algHierarchyInfo) const
 {
 #ifndef AICPU_COMPILE
@@ -65,7 +65,7 @@ HcclResult TopoMatchUBX::TopoForLayer0(const HcclComm comm, uint32_t &layer0Size
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult TopoMatchUBX::TopoForLayer1(const HcclComm comm, uint32_t layer0Size, uint32_t myRank,
+HcclResult TopoMatchUBX::TopoForLayer1(const HcclComm comm, uint32_t layer0Size, const uint32_t myRank,
                                                   AlgHierarchyInfoForAllLevel& algHierarchyInfo) const
 {
     HCCL_DEBUG("[TopoMatchUBX::MeshNHRTopoForLayer1] layer0Size [%d]", layer0Size);
