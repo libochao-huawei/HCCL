@@ -20,7 +20,7 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 class InsV2AllReduceConcurrentExecutor : public InsCollAlgBase {
 public:
     explicit InsV2AllReduceConcurrentExecutor();
-    ~InsV2AllReduceConcurrentExecutor() override = default;
+    ~InsV2AllReduceConcurrentExecutor() = default;
 
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
 

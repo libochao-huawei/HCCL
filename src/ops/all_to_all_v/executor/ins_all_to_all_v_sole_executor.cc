@@ -16,11 +16,6 @@
 #define CONST_TWO 2
 #define CONST_THREE 3
 
-#define CONST_ZERO 0
-#define CONST_ONE 1
-#define CONST_TWO 2
-#define CONST_THREE 3
-
 namespace ops_hccl {
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>

@@ -37,9 +37,6 @@ HcclResult HcclAllReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataT
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
     // 非95设备转到老流程
-    #ifdef MACRO_DEV_TYPE_NEW
-    if (deviceType != DevType::DEV_TYPE_950) {
-    #else
     if (deviceType != DevType::DEV_TYPE_910_95) {
         return HcclAllReduceInner(sendBuf, recvBuf, count, dataType, op, comm, stream);
     }

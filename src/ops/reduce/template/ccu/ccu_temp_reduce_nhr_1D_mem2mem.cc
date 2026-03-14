@@ -111,9 +111,8 @@ HcclResult CcuTempReduceNHR1DMem2Mem::ProcessNHRStepInfo(HcclComm comm,
     return HcclResult::HCCL_SUCCESS;
 }
 
-void CcuTempReduceNHR1DMem2Mem::SetRoot(u32 root) const
+void CcuTempReduceNHR1DMem2Mem::SetRoot(u32 root)
 {
-    (void)root;
     return;
 }
 
@@ -312,7 +311,7 @@ HcclResult CcuTempReduceNHR1DMem2Mem::KernelRun(const OpParam& param,
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuTempReduceNHR1DMem2Mem::GetStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo) const
+HcclResult CcuTempReduceNHR1DMem2Mem::GetStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo)
 {
     u32 nStepsNHR = nSteps / 2;
     u32 realStep = step;
@@ -359,7 +358,7 @@ HcclResult CcuTempReduceNHR1DMem2Mem::GetReduceScatterStepInfo(u32 step, NHRStep
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuTempReduceNHR1DMem2Mem::GetAllGatherStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo) const
+HcclResult CcuTempReduceNHR1DMem2Mem::GetAllGatherStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo)
 {
     u32 virtRankIdx = mySubCommRank_;
     stepInfo.txSliceIdxs.clear();
@@ -396,8 +395,7 @@ HcclResult CcuTempReduceNHR1DMem2Mem::GetAllGatherStepInfo(u32 step, u32 nSteps,
 
 u64 CcuTempReduceNHR1DMem2Mem::GetThreadNum() const
 {
-    constexpr u64 NHR_THREAD_NUM = 2;
-    return NHR_THREAD_NUM;
+    return 2;
 }
 
 HcclResult CcuTempReduceNHR1DMem2Mem::GetRes(AlgResourceRequest& resourceRequest) const

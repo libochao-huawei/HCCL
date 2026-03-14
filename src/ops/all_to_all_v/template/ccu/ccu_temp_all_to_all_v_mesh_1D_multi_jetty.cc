@@ -16,8 +16,6 @@
 #include "alg_data_trans_wrapper.h"
 
 namespace ops_hccl {
-constexpr uint32_t CONST_1 = 1;
-constexpr uint32_t CONST_4 = 4;
 
 CcuTempAllToAllVMesh1DMultiJetty::CcuTempAllToAllVMesh1DMultiJetty(const OpParam& param, const u32 rankId,
                                        const std::vector<std::vector<u32>> &subCommRanks)
@@ -103,11 +101,11 @@ HcclResult CcuTempAllToAllVMesh1DMultiJetty::SetJettyNums(std::vector<uint32_t>&
     jettyNums.resize(templateRankSize_, 0);
     for (int i = 0; i < templateRankSize_; i++) {
         if (i == myRank_) {
-            jettyNums[i] = CONST_1;
+            jettyNums[i] = 1;
         } else if (multijetty) {
-            jettyNums[i] = CONST_4;
+            jettyNums[i] = 4;
         } else {
-            jettyNums[i] = CONST_1;
+            jettyNums[i] = 1;
         }
     }
     return HcclResult::HCCL_SUCCESS;
