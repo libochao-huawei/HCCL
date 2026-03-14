@@ -17,7 +17,7 @@
 #include "executor_base.h"
 #include "hccl.h"
 #include "hccl/base.h"
-#include "hccl_inner.h"
+#include "hccl_inner_dl.h"
 #include "mmpa_api.h"
 #include "op_common.h"
 #include "param_check.h"

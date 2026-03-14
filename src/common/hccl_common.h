@@ -18,7 +18,7 @@
 #include <string>
 #include <unordered_map>
 #include <algorithm>
-#include "dtype_common.h"
+#include "dtype_common_dl.h"
 #include "log.h"
 #include "hccl_types.h"
 #include "hccl_res_dl.h"
