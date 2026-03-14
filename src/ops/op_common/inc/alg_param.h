@@ -420,6 +420,7 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     u32 root = INVALID_VALUE_RANKID;
     u32 sendRecvRemoteRank = INVALID_VALUE_RANKID;
     OpMode opMode;
+    bool   accessRemoteMem = false;
     bool   enableDetour{false};
     bool   isMc2{false};
     DevType deviceType = DevType::DEV_TYPE_COUNT;
