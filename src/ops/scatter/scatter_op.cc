@@ -16,6 +16,7 @@
 #include "op_common_ops.h"
 #include "topo.h"
 #include "topo_host.h"
+#include "hcomm_host_profiling_dl.h"
 #include <algorithm>
 #include <future>
 #include <map>

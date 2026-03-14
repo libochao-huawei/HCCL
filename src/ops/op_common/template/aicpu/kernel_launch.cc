@@ -19,6 +19,7 @@
 #include "dfx/task_exception_fun.h"
 #include "kernel_launch.h"
 #include "hcomm_diag_dl.h"
+#include "hcomm_device_profiling_dl.h"
 
 using namespace ops_hccl;
 
