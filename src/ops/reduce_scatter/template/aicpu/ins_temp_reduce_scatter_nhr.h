@@ -48,6 +48,7 @@ private:
     HcclResult PostLocalCopy(const std::vector<ThreadHandle> &threads);
     TemplateDataParams tempAlgParams_;
     std::map<u32, std::vector<ChannelInfo>> channels_;
+    bool enableRemoteMemAccess_{false};
 };
 
 } // namespace Hccl
