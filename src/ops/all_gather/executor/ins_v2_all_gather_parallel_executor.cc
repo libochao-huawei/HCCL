@@ -433,11 +433,10 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     }
     return HcclResult::HCCL_SUCCESS;
 };
-
+}
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherParallelMesh1DNHR,
                                InsV2AllGatherParallelExecutor, TopoMatchMultilevel, InsTempAllGatherMesh1D,
                                InsTempAllGatherNHR);
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherParallelMesh1DNHRUBX,
                                InsV2AllGatherParallelExecutor, TopoMatchUBX, InsTempAllGatherMesh1D,
                                InsTempAllGatherNHR);
-}

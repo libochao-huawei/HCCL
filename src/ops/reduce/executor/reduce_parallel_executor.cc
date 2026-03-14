@@ -467,5 +467,4 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1>::Cal
 // 算法注册
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE, ReduceParallelMesh1DNHR, ReduceParallelExecutor,
     TopoMatchMultilevel, ReduceMesh1D, ReduceNHR);
-
-// 算法注册
+}
