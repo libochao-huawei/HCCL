@@ -80,4 +80,9 @@ u64 InsAlgTemplateBase::GetThreadNum() const
     return 0;
 }
 
+void InsAlgTemplateBase::SetAccessRemoteMem(bool accessRemoteMem)
+{
+    accessRemoteMem_ = accessRemoteMem;
+}
+
 }

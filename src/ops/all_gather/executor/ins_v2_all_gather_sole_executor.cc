@@ -123,7 +123,8 @@ HcclResult InsV2AllGatherSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
               templateAlgRes.channels.size(), templateAlgRes.threads.size());
     // 构建template
     InsAlgTemplate algTemplate(param, resCtx.topoInfo.userRank, resCtx.algHierarchyInfo.infos[0]);
-
+    bool accessRemoteMem = param.opMode == OpMode::OFFLOAD;
+    algTemplate.SetAccessRemoteMem(accessRemoteMem);
     u32 templateScratchMultiplier =
         algTemplate.CalcScratchMultiple(tempAlgParams.buffInfo.inBuffType, tempAlgParams.buffInfo.outBuffType);
     maxTmpMemSize_ = tempAlgParams.buffInfo.hcclBuff.size;
