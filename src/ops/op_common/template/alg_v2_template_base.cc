@@ -23,6 +23,7 @@ InsAlgTemplateBase::InsAlgTemplateBase(
     } else {
         templateRankSize_ = subCommRanks[0].size();
     }
+    accessRemoteMem_ = param.accessRemoteMem;
 }
 
 InsAlgTemplateBase::~InsAlgTemplateBase()
