@@ -233,6 +233,7 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::PrepareResForTemplate(
     const AlgResourceCtxSerializable &resCtx, const InsAlgTemplate0 &tempAlgIntra, const InsAlgTemplate1 &tempAlgInter)
 {
+    (void) resCtx;
     u64 intraThreadsNum = tempAlgIntra.GetThreadNum();
     u64 interThreadsNum = tempAlgInter.GetThreadNum();
     intraThreads_.assign(threads_.begin() + 1, threads_.begin() + 1 + intraThreadsNum);
