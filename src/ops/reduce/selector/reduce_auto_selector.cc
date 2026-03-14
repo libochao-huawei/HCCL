@@ -142,10 +142,10 @@ SelectorStatus ReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerDet
     if (topoInfo->topoLevelNums > 1) {
         if (topoInfo->deviceNumPerModule > 1 && topoInfo->level0Topo == Level0Shape::MESH_1D) {
             if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
-                    HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64, PROD only support in-box fullmesh algo type now.");
-                    return SelectorStatus::NOT_MATCH;
-                }
-                selectAlgName = "ReduceParallelMesh1DNHR";
+                HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64, PROD only support in-box fullmesh algo type now.");
+                return SelectorStatus::NOT_MATCH;
+            }
+            selectAlgName = "ReduceParallelMesh1DNHR";
         } else {
             if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
                 HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64, PROD only support in-box fullmesh algo type now.");
@@ -165,12 +165,12 @@ SelectorStatus ReduceAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetLaye
 {
     HCCL_DEBUG("SelectMeshAlgoAicpu %u", topoInfo->level0Topo);
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-         selectAlgName = "ReduceMesh1D";
-     } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
-         if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
-             HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64, PROD only support in-box fullmesh algo type now.");
-             return SelectorStatus::NOT_MATCH;
-         }
+        selectAlgName = "ReduceMesh1D";
+    } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
+        if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
+            HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64, PROD only support in-box fullmesh algo type now.");
+            return SelectorStatus::NOT_MATCH;
+        }
         selectAlgName = "ReduceNHR";
     } else {
         HCCL_WARNING("[ReduceAutoSelector] topo not match");

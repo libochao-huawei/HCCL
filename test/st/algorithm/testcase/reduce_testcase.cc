@@ -221,6 +221,6 @@ INSTANTIATE_TEST_SUITE_P(ReduceVariants, ST_REDUCE_TEST,
         std::make_tuple(GenerateMeshTopoMeta(2, 1, 2), 1023, HCCL_DATA_TYPE_INT16, HCCL_REDUCE_SUM, 0),
         std::make_tuple(GenerateMeshTopoMeta(2, 1, 2), 24 * (1 << 20) - 1, HCCL_DATA_TYPE_INT8, HCCL_REDUCE_SUM, 0),
         std::make_tuple(GenerateMeshTopoMeta(2, 1, 2), 96 * (1 << 20) - 1, HCCL_DATA_TYPE_INT8, HCCL_REDUCE_SUM, 0),
-        std::make_tuple(GenerateMeshTopoMeta(2, 1, 2), 16 * (1 << 20) - 1, HCCL_DATA_TYPE_INT8, HCCL_REDUCE_SUM, 0),
+        std::make_tuple(GenerateMeshTopoMeta(2, 1, 2), 16 * (1 << 20) - 1, HCCL_DATA_TYPE_INT8, HCCL_REDUCE_SUM, 0)
         // 2DMeshNHR
         ));
