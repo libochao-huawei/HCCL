@@ -10,9 +10,6 @@
 
 #include "ins_v2_all_reduce_concurrent_executor.h"
 #include "alg_data_trans_wrapper.h"
-#include "ccu_temp_all_reduce_mesh_1D.h"
-#include "ccu_temp_all_reduce_mesh_1D_mem2mem.h"
-#include "ccu_temp_all_reduce_nhr_mem2mem_1D_multi_jetty.h"
 #include "ins_temp_all_reduce_nhr.h"
 #include "ins_temp_all_reduce_mesh_1D_two_shot.h"
 
@@ -241,9 +238,8 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     u64 temp1SlaveThreadNum = 0;
 
     if (param.engine == CommEngine::COMM_ENGINE_CCU) {
-        constexpr u32 EXPECTED_CCU_KERNEL_NUM_2 = 2;
-        CHK_PRT_RET(resCtx.ccuKernels.size() != EXPECTED_CCU_KERNEL_NUM_2,
-                    HCCL_ERROR("[%s] resCtx.ccuKernels.size[%zu] is not %u.", __func__, resCtx.ccuKernels.size(), EXPECTED_CCU_KERNEL_NUM_2),
+        CHK_PRT_RET(resCtx.ccuKernels.size() != 2,
+                    HCCL_ERROR("[%s] resCtx.ccuKernels.size[%zu] is not 2.", __func__, resCtx.ccuKernels.size()),
                     HcclResult::HCCL_E_INTERNAL);
         // CCU模式
         tempAlgResource0.ccuKernels.push_back(resCtx.ccuKernels[0]);
@@ -345,12 +341,6 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     return HCCL_SUCCESS;
 }
 
-#ifndef AICPU_COMPILE
-REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceConcurrentSche, InsV2AllReduceConcurrentExecutor, TopoMatchUBX,
-    CcuTempAllReduceMeshMem2Mem1D, CcuTempAllReduceNhrMem2Mem1DMultiJetty);
-REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceConcurrentMs, InsV2AllReduceConcurrentExecutor, TopoMatchUBX,
-    CcuTempAllReduceMesh1D, CcuTempAllReduceNhrMem2Mem1DMultiJetty);
-#endif
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, InsAllReduceConcurrent, InsV2AllReduceConcurrentExecutor, TopoMatchUBX,
     InsTempAllReduceMesh1DTwoShot, InsTempAllReduceNHR);
 }

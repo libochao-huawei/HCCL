@@ -15,8 +15,10 @@
 #include "ccu_alg_template_base.h"
 
 namespace ops_hccl {
+
 using RankId = u32;
 using RankGroup = std::vector<RankId>;
+
 class CcuTempReduceScatterMesh2Die : public CcuAlgTemplateBase{
 public:
     explicit CcuTempReduceScatterMesh2Die(const OpParam &param, RankId rankId,
@@ -38,7 +40,6 @@ private:
     HcclResult PartitionChannels(HcclComm comm, const std::vector<HcclChannelDesc> &channelDescs);
 
     const uint32_t DIE_NUM = 2; // 2Die
-    const uint64_t SCRATCH_MULTIPLE_COUNT_2 = 2;
     std::map<uint32_t, RankGroup> rankGroup_;
     std::map<uint32_t, std::vector<HcclChannelDesc>> channels_; // key is DieId
     uint32_t mySubCommRank_ = 0;
@@ -46,3 +47,5 @@ private:
 }// namespace ops_hccl
 
 #endif //HCCL_CCU_TEMP_REDUCE_SCATTER_MESH_2DIE_H
+
+

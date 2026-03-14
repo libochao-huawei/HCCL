@@ -285,7 +285,7 @@ HcclResult CcuTempAllReduceNHRMem2Mem1D::GetRes(AlgResourceRequest& resourceRequ
     return HCCL_SUCCESS;
 }
 
-HcclResult CcuTempAllReduceNHRMem2Mem1D::GetStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo) const
+HcclResult CcuTempAllReduceNHRMem2Mem1D::GetStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo)
 {
     u32 nStepsNHR = nSteps / 2;
     u32 realStep = step;

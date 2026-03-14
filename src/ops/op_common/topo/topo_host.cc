@@ -10,17 +10,16 @@
 
 #include <numeric>
 #include "topo_host.h"
-#include "hccl_rank_graph.h"
-#include "hcomm_primitives.h"
-#include "hccl_rank_graph.h"
-#include "hccl_res.h"
-#include "hcomm_primitives.h"
+#include "hccl_rank_graph_dl.h"
+#include "hcomm_primitives_dl.h"
+#include "hccl_res_dl.h"
 #include "hccl.h"
 #include "adapter_acl.h"
 #include "channel.h"
 #include "hccl_common.h"
 #include "config_log.h"
 #include "topo.h"
+#include "dtype_common_dl.h"
 
 constexpr u32 FACTOR_NUM_TWO = 2;
 constexpr s32 DEVICE_PER_MODULE = 8;
@@ -747,7 +746,7 @@ HcclResult Is2DieFullMesh(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo)
     u32 dieNum = 2;  // 一共2个die
     std::vector<u32> dieLinkCounter(dieNum, 0);
     for (uint32_t rankIdx = 0; rankIdx < rankNum; rankIdx++) {
-        if (ranks[rankIdx] == myRank) {
+        if (rankIdx == myRank) {
             continue;
         }
         CommLink *links = nullptr;
@@ -806,7 +805,7 @@ HcclResult CalcLevel0MeshType(HcclComm comm, TopoInfoWithNetLayerDetails *topoIn
     u32 dieNum = 2;  // 一共2个die
     std::vector<u32> dieLinkCounter(dieNum, 0);
     for (uint32_t rankIdx = 0; rankIdx < rankNum; rankIdx++) {
-        if (myRank == ranks[rankIdx]) {
+        if (myRank == rankIdx) {
             continue;
         }
         CommLink *links = nullptr;

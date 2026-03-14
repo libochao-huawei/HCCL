@@ -27,7 +27,7 @@
 #include "adapter_acl.h"
 #include "topo_host.h"
 #include "adapter_error_manager_pub.h"
-#include "hccl_inner.h"
+#include "hccl_inner_dl.h"
 #include "hccl.h"
 #include "config_log.h"
 #include "workflow.h"
@@ -157,18 +157,16 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
 
     // Host stream通知Device主thread，使用主流上idx最大的notify
     CHK_RET(static_cast<HcclResult>(HcommThreadNotifyRecordOnThread(cpuTsThread, exportedCpuTsThread,
-        notifyNumOnMainThread - 1)));
+        notifyNumOnMainThread)));
 
     CHK_RET(AicpuKernelLaunch(param));
     // Host stream等待Device的通知
     u16 NOTIFY_WAIT_TIME = 27 * 68;
     CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, 0, NOTIFY_WAIT_TIME)));
-    
-    if (param.engine == COMM_ENGINE_CPU) {
-        if (aclrtSynchronizeStream(param.stream) != 0) {
-            HCCL_ERROR("[HcclAicpuKernelEntranceLaunch] Stream Synchronize Failed");
-            return HCCL_E_INTERNAL;
-        }
+
+    if (aclrtSynchronizeStream(param.stream) != 0) {
+        HCCL_ERROR("Stream Synchronize Failed");
+        return HCCL_E_INTERNAL;
     }
     return HCCL_SUCCESS;
 }
@@ -333,8 +331,6 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::shared_ptr<InsCollA
                                size, increCreateChannelFlag));
     } else if (param.engine == COMM_ENGINE_AIV) {
         CHK_RET(GetAlgResAiv(comm, param, resRequest, topoInfo, algHierarchyInfo, resCtxSequence));
-    } else if (param.engine == COMM_ENGINE_CCU) {
-        CHK_RET(GetAlgResCcu(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence, size));
     } else {
         HCCL_ERROR("fail to get engine.", HCCL_E_PARA);
     }
@@ -434,39 +430,23 @@ HcclResult HcclGetThread(
     HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
     std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost)
 {
+    ThreadHandle thread;
     if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
-        u32 maxNotifyNum = resRequest.notifyNumOnMainThread;
-        for (u32 i = 0; i < resRequest.notifyNumPerThread.size(); i++) {
-            if (resRequest.notifyNumPerThread[i] > maxNotifyNum) {
-                maxNotifyNum = resRequest.notifyNumPerThread[i];
-            }
-        }
-        u32 threadNum = resRequest.notifyNumPerThread.size() + 1;
-        std::vector<ThreadHandle> threads(threadNum);
-        CHK_RET(HcclThreadAcquire(comm, COMM_ENGINE_AICPU_TS, threadNum + 1, maxNotifyNum, threads.data()));
-        CHK_RET(SaveMainThreadInfo(comm, param, threads[0], resRequest.notifyNumOnMainThread + 1));
-        HCCL_DEBUG("threads ptr is %p\n", threads.data());
-        for (u32 i = 0; i < threadNum; i++) {
-            resCtxHost->threads.push_back(threads[i]);
-        }
+        CHK_RET(HcclThreadAcquire(comm, COMM_ENGINE_AICPU_TS, 1, resRequest.notifyNumOnMainThread, &thread));
+        CHK_RET(SaveMainThreadInfo(comm, param, thread, resRequest.notifyNumOnMainThread));
+        HCCL_DEBUG("threads ptr is %p\n", &thread);
     } else {
-        ThreadHandle thread;
         // host模式下，将主流封装为thread，并创建主流上的notify
         CHK_RET(HcclThreadAcquireWithStream(comm, param.engine, param.stream,
             resRequest.notifyNumOnMainThread, &thread));
-        resCtxHost->threads.push_back(thread);
-        u32 maxNotifyNum = 0;
-        for (u32 i = 0; i < resRequest.notifyNumPerThread.size(); i++) {
-            if (resRequest.notifyNumPerThread[i] > maxNotifyNum) {
-                maxNotifyNum = resRequest.notifyNumPerThread[i];
-            }
-        }
-        u32 threadNum = resRequest.notifyNumPerThread.size();
-        std::vector<ThreadHandle> threads(threadNum);
-        CHK_RET(HcclThreadAcquire(comm, param.engine, threadNum, maxNotifyNum, threads.data()));
-        for (u32 i = 0; i < threadNum; i++) {
-            resCtxHost->threads.push_back(threads[i]);
-        }
+    }
+    resCtxHost->threads.push_back(thread);
+
+    for (u32 index = 0; index < resRequest.slaveThreadNum; index++) {
+        ThreadHandle slaveThread;
+        // 创建从流thread及对应的notify
+        CHK_RET(HcclThreadAcquire(comm, param.engine, 1, resRequest.notifyNumPerThread[index], &slaveThread));
+        resCtxHost->threads.push_back(slaveThread);
     }
 
     if (UNLIKELY(HcclCheckLogLevel(DLOG_DEBUG))) {
@@ -551,110 +531,6 @@ HcclResult HcclGetChannel(HcclComm comm, const OpParam &param, AlgResourceReques
             resCtxHost->channels[level].push_back(channel);
         }
     }
-    return HCCL_SUCCESS;
-}
-
-HcclResult GetAlgResCcu(HcclComm comm, const OpParam& param, AlgResourceRequest& resRequest,
-                        std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, TopoInfoWithNetLayerDetails* topoInfo,
-                        AlgHierarchyInfoForAllLevel& algHierarchyInfo, void **resCtxSequence, uint64_t& ctxSize)
-{
-    resCtxHost->topoInfo = *topoInfo;
-    resCtxHost->algHierarchyInfo = algHierarchyInfo;
-
-    // 创建资源，并填充到Host内存上
-    HcclResult ret = HcclAllocAlgResourceCcu(comm, param, resRequest, resCtxHost);
-    if (ret != HCCL_SUCCESS) {
-        HCCL_ERROR("failed to alloc alg resource.");
-        return ret;
-    }
-    // 序列化
-    std::vector<char> seq = resCtxHost->Serialize();
-    uint64_t size = seq.size();
-
-    void *ctx = nullptr;
-    CHK_RET(HcclEngineCtxCreate(comm, param.algTag, param.engine, size, &ctx));
-    memcpy_s(ctx, size, seq.data(), size);
-    *resCtxSequence = ctx;
-    ctxSize = size;
-    HCCL_INFO("Execute GetAlgResCCU success.");
-    return HCCL_SUCCESS;
-}
-
-HcclResult HcclAllocAlgResourceCcu(HcclComm comm, const OpParam& param, AlgResourceRequest& resRequest,
-                                   std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost)
-{
-    HCCL_INFO("Start to execute AllocAlgResource.");
-    void *cclBufferAddr;
-    uint64_t cclBufferSize;
-    // 从通信域获取CCL buffer
-    CHK_RET(HcclGetHcclBuffer(comm, &cclBufferAddr, &cclBufferSize));
-    // CCL IN使用所有的CCL Buffer，这个其实就是scratch buffer
-    resCtxHost->cclMem = HcclMem{HCCL_MEM_TYPE_DEVICE, cclBufferAddr, cclBufferSize};
-    resCtxHost->notifyNumOnMainThread = resRequest.notifyNumOnMainThread;
-    resCtxHost->slaveThreadNum = resRequest.slaveThreadNum;
-    resCtxHost->notifyNumPerThread = resRequest.notifyNumPerThread;
-    CHK_RET(HcclGetThread(comm, param, resRequest, resCtxHost));
-    CHK_RET(HcclGetChannelForCcu(comm, param, resRequest));
-    CHK_RET(HcclGetCcuKernel(comm, resRequest, resCtxHost));
-    return HCCL_SUCCESS;
-}
-
-HcclResult HcclGetChannelForCcu(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest)
-{
-    // 以kernel为粒度申请channel
-    for (CcuKernelInfo& kernelInfo: resRequest.ccuKernelInfos) {
-        std::vector<HcclChannelDesc> &kernelChannelRequest = kernelInfo.channels;
-        
-        u32 channelNum = kernelChannelRequest.size();
-        std::vector<ChannelHandle> kernelChannels;
-        kernelChannels.resize(channelNum);
-        
-        if (channelNum > 0) {
-            CHK_RET(HcclChannelAcquire(comm, param.engine, kernelChannelRequest.data(),
-                channelNum, kernelChannels.data()));
-        }
-        kernelInfo.kernelArg->channels = kernelChannels;
-        HCCL_INFO("[HcclGetChannelForCcu] Get [%lu] channels", channelNum);
-    }
-    return HCCL_SUCCESS;
-}
-
-HcclResult HcclGetCcuKernel(HcclComm comm, AlgResourceRequest &resRequest,
-                          std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost)
-{
-    u32 totalKernelNum = 0;
-    for (auto t: resRequest.ccuKernelNum) {
-        totalKernelNum += t;
-    }
-    CHK_PRT_RET(totalKernelNum != resRequest.ccuKernelInfos.size(),
-        HCCL_ERROR("[HcclGetCcuKernel]ccuKernel num not match!"),
-        HCCL_E_INTERNAL);
-
-    // 按照resgroup进行注册
-    u32 currentResGroup = 0;
-    u32 maxResGroup = 0;
-    resCtxHost->ccuKernels.resize(totalKernelNum);
-    while (currentResGroup <= maxResGroup) {
-        for (u32 i = 0; i < totalKernelNum; i++) {
-            CcuKernelInfo& kernelInfo = resRequest.ccuKernelInfos[i];
-            if (kernelInfo.resGroup > maxResGroup) {
-                maxResGroup = kernelInfo.resGroup;
-            }
-            if (kernelInfo.resGroup != currentResGroup) {
-                continue;
-            }
-            void* kernelArgPtr = static_cast<void*>(kernelInfo.kernelArg.get()); // 保证没有释放
-            void* creatorPtr = static_cast<void*>(&kernelInfo.creator);
-            
-            HCCL_DEBUG("[AllocAlgResource] kernelArgPtr[%p], creator[%p]", kernelArgPtr, &(kernelInfo.creator));
-            CcuKernelHandle handle;
-            CHK_RET(HcclCcuKernelRegister(comm, &handle, creatorPtr, kernelArgPtr));
-            resCtxHost->ccuKernels[i] = handle;
-        }
-        CHK_RET(HcclCcuKernelRegisterFinish(comm));
-        currentResGroup++;
-    }
-    resCtxHost->ccuKernelNum = resRequest.ccuKernelNum;
     return HCCL_SUCCESS;
 }
 
@@ -794,10 +670,10 @@ HcclResult CheckDataType(const HcclDataType dataType, bool needReduce)
     const std::vector<std::string> infoTitle({"ccl_op", "parameter", "value", "tips"});
     if (needReduce) {
         if ((dataType == HCCL_DATA_TYPE_UINT8)   || (dataType == HCCL_DATA_TYPE_UINT16)  ||
-            (dataType == HCCL_DATA_TYPE_UINT32)  || (dataType == HCCL_DATA_TYPE_INT128)  || 
-            (dataType == HCCL_DATA_TYPE_HIF8)    || (dataType == HCCL_DATA_TYPE_FP8E4M3) || 
-            (dataType == HCCL_DATA_TYPE_FP8E5M2) || (dataType == HCCL_DATA_TYPE_FP8E8M0) || 
-            (dataType == HCCL_DATA_TYPE_RESERVED)) {
+            (dataType == HCCL_DATA_TYPE_UINT32)  || (dataType == HCCL_DATA_TYPE_UINT8)   ||
+            (dataType == HCCL_DATA_TYPE_INT128)  || (dataType == HCCL_DATA_TYPE_HIF8)    ||
+            (dataType == HCCL_DATA_TYPE_FP8E4M3) || (dataType == HCCL_DATA_TYPE_FP8E5M2) ||
+            (dataType == HCCL_DATA_TYPE_FP8E8M0) || (dataType == HCCL_DATA_TYPE_RESERVED)) {
             RPT_INPUT_ERR(true, "EI0003", infoTitle, std::vector<std::string>({"CheckDataType", "dataType", GetDataTypeEnumStr(dataType), "please check dataType"}));
             HCCL_ERROR("[Check][DataType]errNo[0x%016llx] data type[%s] not supported, support range=[%s]",
                         HCCL_ERROR_CODE(HCCL_E_NOT_SUPPORT), GetDataTypeEnumStr(dataType).c_str(),
@@ -976,6 +852,7 @@ HcclResult SetOpParamAlgTag(OpParam &param, const std::string &algName)
             }
         }
     }
+
     return HcclResult::HCCL_SUCCESS;
 }
 
@@ -994,16 +871,6 @@ HcclResult HcclGetOpExpansionMode(OpParam &param)
         CHK_RET(RegisterKernel(param.opType, g_aivKernelInfoMap[param.opType].first, g_aivKernelInfoMap[param.opType].second));
         param.opExecuteConfig = OpExecuteConfig::AIV;
         param.engine = CommEngine::COMM_ENGINE_AIV;
-    }
-    else if (GetExternalInputHcclCcuMSMode()) {
-        HCCL_DEBUG("[HcclExecOp] is ccu ms mode");
-        param.opExecuteConfig = OpExecuteConfig::CCU_MS;
-        param.engine = CommEngine::COMM_ENGINE_CCU;
-    }
-    else if (GetExternalInputHcclCcuSchedMode()) {
-        HCCL_DEBUG("[HcclExecOp] is ccu sched mode");
-        param.opExecuteConfig = OpExecuteConfig::CCU_SCHED;
-        param.engine = CommEngine::COMM_ENGINE_CCU;
     }
     return HCCL_SUCCESS;
 }

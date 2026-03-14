@@ -25,23 +25,22 @@ HcclResult HcclReduceScatterV(void *sendBuf,  const void *sendCounts, const void
     HcclReduceOp op, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("Start to run execute HcclReduceScatterV");
+    if ((GetHcommVersion() < 90000000) ||
+        GetExternalInputHcclCcuMSMode() ||
+        GetExternalInputHcclCcuSchedMode()) { // compat handle
+        return HcclReduceScatterVInner(sendBuf, sendCounts, sendDispls, recvBuf, recvCount, dataType, op, comm, stream);
+    }
+
     if (!CheckHCCLIndependentOp()) {
         return HcclReduceScatterVInner(sendBuf, sendCounts, sendDispls, recvBuf, recvCount, dataType, op, comm, stream);
     }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
     // 非95设备转到老流程
-    #ifdef MACRO_DEV_TYPE_NEW
-    if (deviceType != DevType::DEV_TYPE_950) {
-    #else
     if (deviceType != DevType::DEV_TYPE_910_95) {
-    #endif
         return HcclReduceScatterVInner(sendBuf, sendCounts, sendDispls, recvBuf, recvCount, dataType, op, comm, stream);
     }
-    // 图模式引导到老的流程上面
-    if (GetWorkflowMode() != HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE) {
-        return HcclReduceScatterVInner(sendBuf, sendCounts, sendDispls, recvBuf, recvCount, dataType, op, comm, stream);
-    }
+
     // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
     // A3是：export HCCL_OP_EXPANSION_MODE="AI_CPU"，A5的接口还没提供
     CHK_RET(InitEnvConfig());
@@ -161,8 +160,8 @@ if (!paramMem) {
     param.outputSize = outputSize;
     param.vDataDes.dataType = dataType;
 
-    // 参数准备，sendDispls和sendCounts的长度等于userRankSize
-    std::vector<u64> countsAndDispls(userRankSize + userRankSize);
+    // 参数准备
+    std::vector<u64> countsAndDispls(userRankSize*2);
     const u64* sendDisplsAddr = reinterpret_cast<const u64*>(sendDispls);
     const u64* sendCountsAddr = reinterpret_cast<const u64*>(sendCounts);
     std::copy(sendCountsAddr, sendCountsAddr + userRankSize, countsAndDispls.begin());

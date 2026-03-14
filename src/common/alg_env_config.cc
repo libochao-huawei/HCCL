@@ -18,10 +18,12 @@
 #include "mmpa_api.h"
 #include "config_log.h"
 #include "sal.h"
+#include "dtype_common_dl.h"
+
 namespace ops_hccl {
 
 static std::mutex g_algEnvConfigMutex;
-static thread_local AlgEnvConfig g_algEnvConfig;
+static AlgEnvConfig g_algEnvConfig;
 
 /* 入口 */
 HcclResult InitEnvConfig()
@@ -855,11 +857,7 @@ bool RunIndependentOpExpansion(DevType deviceType)
         return opExpansionModeEnv == "AI_CPU" || opExpansionModeEnv == "HOST_TS" || opExpansionModeEnv == "EmptyString";
     }
 
-    #ifdef MACRO_DEV_TYPE_NEW
-    if (deviceType == DevType::DEV_TYPE_950) {
-    #else
     if (deviceType == DevType::DEV_TYPE_910_95) {
-    #endif
         return opExpansionModeEnv == "AI_CPU" || opExpansionModeEnv == "HOST_TS" ||
                opExpansionModeEnv == "EmptyString" || opExpansionModeEnv == "AIV" ||
                opExpansionModeEnv == "CCU_SCHED" || opExpansionModeEnv == "CCU_MS";

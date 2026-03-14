@@ -1,0 +1,86 @@
+#include "hcomm_dlsym.h"
+#include "hccl_res_dl.h"
+#include "hccl_rank_graph_dl.h"
+#include "hcomm_primitives_dl.h"
+#include "hccl_comm_dl.h"
+#include "hccl_inner_dl.h"
+#include "dtype_common_dl.h"
+#include "hcomm_host_profiling_dl.h"
+#include <dlfcn.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <acl/acl.h>
+
+static void* gLibHandle = NULL;
+static int gHcommVersion = 0;
+
+int GetHcommVersion(void) {
+    if (gHcommVersion == 0) {
+        char hcommPkgName[] = "hcomm";
+        if (aclsysGetVersionNum(hcommPkgName, &gHcommVersion) != ACL_SUCCESS) {
+            gHcommVersion = 0;
+        }
+    }
+
+    return gHcommVersion;
+}
+
+bool HcommIsProfilingSupported()
+{
+    if (GetHcommVersion() >= 90000000) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+bool HcommIsExportThreadSupported()
+{
+    if (GetHcommVersion() >= 90000000 && HcommIsSupportHcclThreadExportToCommEngine()) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+// 初始化
+int HcommDlInit(void) {
+    if (gLibHandle != NULL) return 0;
+
+    gLibHandle = dlopen("libhcomm.so", RTLD_NOW);
+    if (!gLibHandle) {
+        fprintf(stderr, "[HcclWrapper] Failed to open libhcomm: %s\n", dlerror());
+        return -1;
+    }
+
+    dlerror();
+
+    HcclResDlInit(gLibHandle);
+    HcclRankGraphDlInit(gLibHandle);
+    HcommPrimitivesDlInit(gLibHandle);
+    HcclCommDlInit(gLibHandle);
+    HcclInnerDlInit(gLibHandle);
+    DtypeCommonDlInit(gLibHandle);
+    HcommProfilingDlInit(gLibHandle);
+    return 0;
+}
+
+void HcommDlFini(void) {
+    if (gLibHandle) {
+        HcclResDlFini();
+        HcclRankGraphDlFini();
+        HcommPrimitivesDlFini();
+        HcclCommDlFini();
+        HcclInnerDlFini();
+        DtypeCommonDlFini();
+        HcommProfilingDlFini();
+
+        dlclose(gLibHandle);
+        gLibHandle = NULL;
+    }
+}
+
+__attribute__((constructor)) void InitHcommDlsym()
+{
+    (void)HcommDlInit();
+}
