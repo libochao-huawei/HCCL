@@ -166,7 +166,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
 
         if (exportedAicpuTsThread != 0) {
             // 上报device侧的op 附加信息
-            HcomProInfo profInfo;
+            HcomProInfoTmp profInfo;
             std::string algTypeStr(param->algTypeStr);
             strcpy_s(profInfo.algType, sizeof(profInfo.algType), algTypeStr.c_str());
             strcpy_s(profInfo.commName, sizeof(profInfo.commName), param->commName);

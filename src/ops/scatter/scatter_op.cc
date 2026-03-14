@@ -221,7 +221,7 @@ HcclResult ScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, Hcc
 
         if (HcommIsProfilingSupported()) {
            // 获取profiling op上报的信息
-            HcomProInfo profInfo;
+            HcomProInfoTmp profInfo;
             std::string algTypeStr = TransferAlgTypeStr(param.algType);
             CHK_SAFETY_FUNC_RET(strcpy_s(profInfo.algType, sizeof(profInfo.algType), algTypeStr.c_str()));
             CHK_SAFETY_FUNC_RET(strcpy_s(profInfo.commName, sizeof(profInfo.commName), param.commName));
@@ -861,7 +861,7 @@ HcclResult ReportProfilingThread(HcclComm comm, const OpParam &param, AlgResourc
 {
     CHK_PTR_NULL(resCtxHost);
     CHK_PTR_NULL(topoInfo);
-    HcomProInfo profInfo;
+    HcomProInfoTmp profInfo;
     CHK_SAFETY_FUNC_RET(strcpy_s(profInfo.tag, sizeof(profInfo.tag), param.tag));
     std::string algTypeStr = TransferAlgTypeStr(param.algType);
     CHK_SAFETY_FUNC_RET(strcpy_s(profInfo.algType, sizeof(profInfo.algType), algTypeStr.c_str()));

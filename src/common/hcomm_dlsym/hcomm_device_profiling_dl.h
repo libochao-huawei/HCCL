@@ -12,7 +12,7 @@ extern "C" {
 #endif
 
 typedef struct HcomProInfoTmp {
-constexpr u32 MAX_LENGTH = 128;
+#define MAX_LENGTH 128
     uint8_t dataType;
     uint8_t cmdType;
     uint64_t dataCount;
