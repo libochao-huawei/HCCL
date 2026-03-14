@@ -122,15 +122,15 @@ HcclResult InsTempAllGatherMesh1D::RunAllGatherMesh(const std::vector<ThreadHand
 
             u64 txOutOffset = tempAlgParams_.outputSliceStride * myAlgRank + outBaseOff;
             u64 txScratchOffset = scratchBase + tempAlgParams_.sliceSize * myAlgRank;
-            u64 txDstOffset = (opMode_ == OpMode::OPBASE) ? txScratchOffset : txOutOffset;
+            u64 txDstOffset = (!accessRemoteMem_) ? txScratchOffset : txOutOffset;
 
             u64 rxOutOffset = tempAlgParams_.outputSliceStride * connectedAlgRank + outBaseOff;
             u64 rxScratchOffset = scratchBase + tempAlgParams_.sliceSize * connectedAlgRank;
-            u64 rxSrcOffset = (opMode_ == OpMode::OPBASE) ? rxScratchOffset : rxOutOffset;
+            u64 rxSrcOffset = (!accessRemoteMem_) ? rxScratchOffset : rxOutOffset;
 
             void *txSrcPtr = tempAlgParams_.buffInfo.outputPtr;
-            void *txDstPtr = (opMode_ == OpMode::OPBASE) ? remoteCclBuffAddr : linkRemote.remoteOutputGraphMode.addr;
-            void *rxSrcPtr = (opMode_ == OpMode::OPBASE) ? remoteCclBuffAddr : linkRemote.remoteOutputGraphMode.addr;
+            void *txDstPtr = (!accessRemoteMem_) ? remoteCclBuffAddr : linkRemote.remoteOutputGraphMode.addr;
+            void *rxSrcPtr = (!accessRemoteMem_) ? remoteCclBuffAddr : linkRemote.remoteOutputGraphMode.addr;
             void *rxDstPtr = tempAlgParams_.buffInfo.outputPtr;
             // write模式使用tx, rx地址不生效，仅使用对端link做Post/Wait
             // read 模式使用rx, tx地址不生效，仅使用对端link做Post/Wait
@@ -140,9 +140,9 @@ HcclResult InsTempAllGatherMesh1D::RunAllGatherMesh(const std::vector<ThreadHand
                 DataSlice(txDstPtr, txDstOffset, tempAlgParams_.sliceSize, tempAlgParams_.count)};  // 远程(send)
             // read模式使用rx
             std::vector<DataSlice> rxDstSlices{
-                DataSlice(rxDstPtr, rxSrcOffset, tempAlgParams_.sliceSize, tempAlgParams_.count)};  // 本地(recv)
+                DataSlice(rxDstPtr, rxOutOffset, tempAlgParams_.sliceSize, tempAlgParams_.count)};  // 本地(recv)
             std::vector<DataSlice> rxSrcSlices{
-                DataSlice(rxSrcPtr, rxOutOffset, tempAlgParams_.sliceSize, tempAlgParams_.count)};  // 远程(recv)
+                DataSlice(rxSrcPtr, rxSrcOffset, tempAlgParams_.sliceSize, tempAlgParams_.count)};  // 远程(recv)
 
             HCCL_DEBUG("[InsTempAllGatherMesh1D][RunAllGatherMesh] rankId [%d] connectedRank [%d] txSrcSlices: "
                        "offset[%d] sliceSize[%d] count[%d].",
