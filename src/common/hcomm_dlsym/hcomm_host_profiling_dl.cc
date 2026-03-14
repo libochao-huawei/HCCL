@@ -5,10 +5,10 @@
 #include <stdlib.h>
 
 // 定义全局函数指针
-HcclResult (*hcommProfilingRegThreadPtr)(HcomProInfo, ThreadHandle*) = NULL;
-HcclResult (*hcommProfilingUnRegThreadPtr)(HcomProInfo, ThreadHandle*) = NULL;
+HcclResult (*hcommProfilingRegThreadPtr)(HcomProInfoTmp, ThreadHandle*) = NULL;
+HcclResult (*hcommProfilingUnRegThreadPtr)(HcomProInfoTmp, ThreadHandle*) = NULL;
 HcclResult (*hcommProfilingReportKernelPtr)(uint64_t, const char*) = NULL;
-HcclResult (*hcommProfilingReportOpPtr)(HcomProInfo) = NULL;
+HcclResult (*hcommProfilingReportOpPtr)(HcomProInfoTmp) = NULL;
 uint64_t (*hcommGetProfilingSysCycleTimePtr)() = NULL;
 
 // 添加支持标志（静态，默认 false）
@@ -19,12 +19,12 @@ static bool g_hcommProfilingReportOpSupported = false;
 static bool g_hcommGetProfilingSysCycleTimeSupported = false;
 
 // ---------- 桩函数定义 ----------
-static HcclResult StubHcommProfilingRegThread(HcomProInfo profInfo, ThreadHandle* threads) {
+static HcclResult StubHcommProfilingRegThread(HcomProInfoTmp profInfo, ThreadHandle* threads) {
     (void)profInfo; (void)threads;
     HCCL_ERROR("[HcclWrapper] HcommProfilingRegThread not supported");
     return HCCL_E_NOT_SUPPORTED;
 }
-static HcclResult StubHcommProfilingUnRegThread(HcomProInfo profInfo, ThreadHandle* threads) {
+static HcclResult StubHcommProfilingUnRegThread(HcomProInfoTmp profInfo, ThreadHandle* threads) {
     (void)profInfo; (void)threads;
     HCCL_ERROR("[HcclWrapper] HcommProfilingUnRegThread not supported");
     return HCCL_E_NOT_SUPPORTED;
@@ -34,7 +34,7 @@ static HcclResult StubHcommProfilingReportKernel(uint64_t beginTime, const char*
     HCCL_ERROR("[HcclWrapper] HcommProfilingReportKernel not supported");
     return HCCL_E_NOT_SUPPORTED;
 }
-static HcclResult StubHcommProfilingReportOp(HcomProInfo profInfo) {
+static HcclResult StubHcommProfilingReportOp(HcomProInfoTmp profInfo) {
     (void)profInfo;
     HCCL_ERROR("[HcclWrapper] HcommProfilingReportOp not supported");
     return HCCL_E_NOT_SUPPORTED;

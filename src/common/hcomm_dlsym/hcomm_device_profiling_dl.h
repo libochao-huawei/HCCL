@@ -11,9 +11,8 @@ extern "C" {
 #define HCCL_E_NOT_SUPPORTED  ((HcclResult)(-2))
 #endif
 
+typedef struct HcomProInfoTmp {
 constexpr u32 MAX_LENGTH = 128;
-
-typedef struct HcomProInfo {
     uint8_t dataType;
     uint8_t cmdType;
     uint64_t dataCount;
@@ -31,12 +30,12 @@ typedef struct HcomProInfo {
     bool isCapture = false;
     bool isAiv = false;
     uint8_t reserved[MAX_LENGTH];
-}HcomProInfo;
+}HcomProInfoTmp;
 
 // 声明全局函数指针（小驼峰命名）
 extern HcclResult (*hcommProfilingReportMainStreamAndFirstTaskPtr)(ThreadHandle);
 extern HcclResult (*hcommProfilingReportMainStreamAndLastTaskPtr)(ThreadHandle);
-extern HcclResult (*hcommProfilingReportDeviceHcclOpInfoPtr)(HcomProInfo);
+extern HcclResult (*hcommProfilingReportDeviceHcclOpInfoPtr)(HcomProInfoTmp);
 extern HcclResult (*hcommProfilingInitPtr)(ThreadHandle*, uint32_t);
 extern HcclResult (*hcommProfilingEndPtr)(ThreadHandle*, uint32_t);
 

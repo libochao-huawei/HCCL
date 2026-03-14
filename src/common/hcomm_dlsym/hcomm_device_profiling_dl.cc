@@ -7,7 +7,7 @@
 // 定义全局函数指针
 HcclResult (*hcommProfilingReportMainStreamAndFirstTaskPtr)(ThreadHandle) = NULL;
 HcclResult (*hcommProfilingReportMainStreamAndLastTaskPtr)(ThreadHandle) = NULL;
-HcclResult (*hcommProfilingReportDeviceHcclOpInfoPtr)(HcomProInfo) = NULL;
+HcclResult (*hcommProfilingReportDeviceHcclOpInfoPtr)(HcomProInfoTmp) = NULL;
 HcclResult (*hcommProfilingInitPtr)(ThreadHandle*, uint32_t) = NULL;
 HcclResult (*hcommProfilingEndPtr)(ThreadHandle*, uint32_t) = NULL;
 
@@ -29,7 +29,7 @@ static HcclResult StubHcommProfilingReportMainStreamAndLastTask(ThreadHandle thr
     HCCL_ERROR("[HcclWrapper] HcommProfilingReportMainStreamAndLastTask not supported");
     return HCCL_E_NOT_SUPPORTED;
 }
-static HcclResult StubHcommProfilingReportDeviceHcclOpInfo(HcomProInfo profInfo) {
+static HcclResult StubHcommProfilingReportDeviceHcclOpInfo(HcomProInfoTmp profInfo) {
     (void)profInfo;
     HCCL_ERROR("[HcclWrapper] HcommProfilingReportDeviceHcclOpInfo not supported");
     return HCCL_E_NOT_SUPPORTED;
