@@ -140,17 +140,19 @@ SelectorStatus ReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerDet
         algos[2],
         algos[3]);
     if (topoInfo->topoLevelNums > 1) {
-        if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {	 
-                HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64, PROD only support in-box fullmesh algo type now."); 
-                return SelectorStatus::NOT_MATCH; 
-            } 
-            selectAlgName = "ReduceParallelMesh1DNHR"; 
-        } else {	 
+        if (topoInfo->deviceNumPerModule > 1 && topoInfo->level0Topo == Level0Shape::MESH_1D) {
             if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {	 
-                HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64, PROD only support in-box fullmesh algo type now."); 
-                return SelectorStatus::NOT_MATCH; 
-            } 
-            selectAlgName = "ReduceNHR"; 
+                    HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64, PROD only support in-box fullmesh algo type now."); 
+                    return SelectorStatus::NOT_MATCH; 
+                } 
+                selectAlgName = "ReduceParallelMesh1DNHR"; 
+            } else {	 
+                if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {	 
+                    HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64, PROD only support in-box fullmesh algo type now."); 
+                    return SelectorStatus::NOT_MATCH; 
+                } 
+                selectAlgName = "ReduceNHR"; 
+            }
         }
     } else {
         return SelectMeshAlgoAicpu(topoInfo, opParam, selectAlgName);
@@ -164,23 +166,12 @@ SelectorStatus ReduceAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetLaye
 {
     HCCL_DEBUG("SelectMeshAlgoAicpu %u", topoInfo->level0Topo);
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-        if (opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT64 ||
-            opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
-            opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_FP64 ||
-            opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
-            selectAlgName = "ReduceMesh1D";
-        } else if (topoInfo->deviceNumPerModule > 1 && topoInfo->level0Topo == Level0Shape::MESH_1D) {
-            selectAlgName = "ReduceParallelMesh1DNHR";
-        } else {
-            selectAlgName = "ReduceNHR";
-        }
-    } else if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
          selectAlgName = "ReduceMesh1D";	 
      } else if (topoInfo->level0Topo == Level0Shape::CLOS) {	 
-        if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {	 
-            HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64, PROD only support in-box fullmesh algo type now.");	 
-            return SelectorStatus::NOT_MATCH;	 
-        }	 
+         if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {	 
+             HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64, PROD only support in-box fullmesh algo type now.");	 
+             return SelectorStatus::NOT_MATCH;
+         }
         selectAlgName = "ReduceNHR";
     } else {
         HCCL_WARNING("[ReduceAutoSelector] topo not match");
