@@ -18,25 +18,9 @@
 #include "hcomm_primitives_dl.h"
 #include "dfx/task_exception_fun.h"
 #include "kernel_launch.h"
+#include "hcomm_diag_dl.h"
 
 using namespace ops_hccl;
-using HcclGetOpInfoCallback = void (*)(const void *opInfo, char *outPut, size_t size);
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-HcclResult __attribute__((weak)) HcommRegOpInfo(const char *commId, void *opInfo, size_t size);
-HcclResult __attribute__((weak)) HcommRegOpTaskException(const char *commId, HcclGetOpInfoCallback callback);
-
-HcclResult __attribute__((weak)) HcommProfilingReportMainStreamAndFirstTask(ThreadHandle thread);
-HcclResult __attribute__((weak)) HcommProfilingReportMainStreamAndLastTask(ThreadHandle thread);
-// device侧的OP
-HcclResult __attribute__((weak)) HcommProfilingReportDeviceHcclOpInfo(HcomProInfo profInfo);
-HcclResult __attribute__((weak)) HcommProfilingInit(ThreadHandle *threads, u32 threadNum);
-HcclResult __attribute__((weak)) HcommProfilingEnd(ThreadHandle *threads, u32 threadNum);
-#ifdef __cplusplus
-}
-#endif
 
 extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
 {
@@ -54,14 +38,14 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             return 1;
         }
         
-        if (HcommRegOpInfo != nullptr &&
+        if (HcommIsSupportHcommRegOpInfo() &&
             HcommRegOpInfo(param->commName, reinterpret_cast<void *>(&opInfo), sizeof(ScatterOpInfo)) != HCCL_SUCCESS) {
             HCCL_ERROR("%s HcommRegOpInfo fail, commName[%s], algTag[%s], size[%u]",
                 __func__, param->commName, opInfo.algTag, sizeof(ScatterOpInfo));
             return 1;
         }
 
-        if (HcommRegOpTaskException != nullptr &&
+        if (HcommIsSupportHcommRegOpTaskException() &&
             HcommRegOpTaskException(param->commName, ops_hccl::GetScatterOpInfo) != HCCL_SUCCESS) {
             HCCL_ERROR(
                 "%s HcommRegOpTaskException fail, commName[%s], algTag[%s]", __func__, param->commName, param->algTag);

@@ -221,7 +221,9 @@ add_library(scatter_aicpu_kernel SHARED
     ${CMAKE_CURRENT_SOURCE_DIR}/common/adapter_error_manager_pub.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/common/alg_env_config.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/common/hcomm_dlsym/hcomm_device_dlsym.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/common/hcomm_dlsym/hcomm_primitives_dl.cc 
+    ${CMAKE_CURRENT_SOURCE_DIR}/common/hcomm_dlsym/hcomm_primitives_dl.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/common/hcomm_dlsym/hcomm_diag_dl.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/common/hcomm_dlsym/hcomm_device_profiling_dl.cc
 
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/executor/channel/channel.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/executor/channel/channel_request.cc

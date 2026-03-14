@@ -2,6 +2,8 @@
 #include "hccl_res_dl.h"
 #include "hccl_rank_graph_dl.h"
 #include "hcomm_primitives_dl.h"
+#include "hcomm_device_profiling_dl.h"
+#include "hcomm_diag_dl.h"
 #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,12 +23,16 @@ int HcommDeviceDlInit(void) {
     dlerror();
 
     HcommPrimitivesDlInit(gLibHandle);
+    HcommDeviceProfilingDlInit(gLibHandle);
+    HcommDiagDlInit(gLibHandle);
     return 0;
 }
 
 void HcommDeviceDlFini(void) {
     if (gLibHandle) {
         HcommPrimitivesDlFini();
+        HcommDeviceProfilingDlFini();
+        HcommDiagDlFini();
 
         dlclose(gLibHandle);
         gLibHandle = NULL;

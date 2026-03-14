@@ -12,14 +12,7 @@
 #include "acl_rt.h"
 #include "workflow.h"
 #include "mmpa_api.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-HcclResult __attribute__((weak)) hrtGetDeviceType(DevType &devType);
-#ifdef __cplusplus
-}
-#endif 
+#include "dtype_common_dl.h"
 
 namespace ops_hccl {
 HcclResult haclrtGetDeviceIndexByPhyId(u32 devicePhyId, u32 &deviceLogicId)

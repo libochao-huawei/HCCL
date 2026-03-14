@@ -18,14 +18,7 @@
 #include "mmpa_api.h"
 #include "config_log.h"
 #include "sal.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-HcclResult __attribute__((weak)) hrtGetDeviceType(DevType &devType);
-#ifdef __cplusplus
-}
-#endif 
+#include "dtype_common_dl.h"
 
 namespace ops_hccl {
 
