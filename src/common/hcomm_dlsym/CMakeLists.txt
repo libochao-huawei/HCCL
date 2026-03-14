@@ -15,4 +15,5 @@ target_sources(hccl PRIVATE
     hccl_comm_dl.cc
     hccl_inner_dl.cc
     dtype_common_dl.cc
+    hcomm_diag_dl.cc
 )
