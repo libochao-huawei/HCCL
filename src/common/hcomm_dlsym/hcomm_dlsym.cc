@@ -4,6 +4,8 @@
 #include "hcomm_primitives_dl.h"
 #include "hccl_comm_dl.h"
 #include "hccl_inner_dl.h"
+#include "dtype_common_dl.h"
+#include "hcomm_diag_dl.h"
 #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -59,6 +61,7 @@ int HcommDlInit(void) {
     HcclCommDlInit(gLibHandle);
     HcclInnerDlInit(gLibHandle);
     DtypeCommonDlInit(gLibHandle);
+    HcommDiagDlInit(gLibHandle);
     return 0;
 }
 
@@ -70,6 +73,7 @@ void HcommDlFini(void) {
         HcclCommDlFini();
         HcclInnerDlFini();
         DtypeCommonDlFini();
+        HcommDiagDlFini();
 
         dlclose(gLibHandle);
         gLibHandle = NULL;
