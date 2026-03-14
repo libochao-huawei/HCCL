@@ -4,6 +4,7 @@
 #include "hcomm_primitives_dl.h"
 #include "hcomm_device_profiling_dl.h"
 #include "hcomm_diag_dl.h"
+#include "dtype_common_dl.h"
 #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,6 +26,7 @@ int HcommDeviceDlInit(void) {
     HcommPrimitivesDlInit(gLibHandle);
     HcommDeviceProfilingDlInit(gLibHandle);
     HcommDiagDlInit(gLibHandle);
+    DtypeCommonDlInit(gLibHandle);
     return 0;
 }
 
@@ -33,6 +35,7 @@ void HcommDeviceDlFini(void) {
         HcommPrimitivesDlFini();
         HcommDeviceProfilingDlFini();
         HcommDiagDlFini();
+        DtypeCommonDlFini();
 
         dlclose(gLibHandle);
         gLibHandle = NULL;

@@ -224,6 +224,7 @@ add_library(scatter_aicpu_kernel SHARED
     ${CMAKE_CURRENT_SOURCE_DIR}/common/hcomm_dlsym/hcomm_primitives_dl.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/common/hcomm_dlsym/hcomm_diag_dl.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/common/hcomm_dlsym/hcomm_device_profiling_dl.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/common/hcomm_dlsym/dtype_common_dl.cc
 
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/executor/channel/channel.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/executor/channel/channel_request.cc
