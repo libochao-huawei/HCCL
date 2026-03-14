@@ -23,6 +23,7 @@ InsAlgTemplateBase::InsAlgTemplateBase(
     } else {
         templateRankSize_ = subCommRanks[0].size();
     }
+    accessRemoteMem_ = param.accessRemoteMem;
 }
 
 InsAlgTemplateBase::~InsAlgTemplateBase()
@@ -78,6 +79,11 @@ u64 InsAlgTemplateBase::CalcScratchMultiple(BufferType inBuffType, BufferType ou
 u64 InsAlgTemplateBase::GetThreadNum() const
 {
     return 0;
+}
+
+void InsAlgTemplateBase::SetAccessRemoteMem(bool accessRemoteMem)
+{
+    accessRemoteMem_ = accessRemoteMem;
 }
 
 }
