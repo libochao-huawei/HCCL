@@ -146,13 +146,12 @@ SelectorStatus ReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerDet
                     return SelectorStatus::NOT_MATCH; 
                 } 
                 selectAlgName = "ReduceParallelMesh1DNHR"; 
-            } else {	 
-                if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {	 
-                    HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64, PROD only support in-box fullmesh algo type now."); 
-                    return SelectorStatus::NOT_MATCH; 
-                } 
-                selectAlgName = "ReduceNHR"; 
-            }
+        } else {	 
+            if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {	 
+                HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64, PROD only support in-box fullmesh algo type now."); 
+                return SelectorStatus::NOT_MATCH; 
+            } 
+            selectAlgName = "ReduceNHR"; 
         }
     } else {
         return SelectMeshAlgoAicpu(topoInfo, opParam, selectAlgName);
