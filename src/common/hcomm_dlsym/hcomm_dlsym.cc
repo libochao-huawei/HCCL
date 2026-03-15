@@ -44,7 +44,7 @@ bool HcommIsExportThreadSupported()
 }
 
 // 初始化
-void int HcommDlInit(void) {
+void HcommDlInit(void) {
     if (gLibHandle != NULL) return;
 
     gLibHandle = dlopen("libhcomm.so", RTLD_NOW);
