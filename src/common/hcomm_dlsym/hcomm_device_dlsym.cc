@@ -47,5 +47,5 @@ void HcommDeviceDlFini(void) {
 __attribute__((constructor)) void InitHcommDeviceDlsym()
 {
     static pthread_once_t once = PTHREAD_ONCE_INIT;
-    pthread_once(&once, (void)HcommDeviceDlInit);
+    pthread_once(&once, HcommDeviceDlInit);
 }

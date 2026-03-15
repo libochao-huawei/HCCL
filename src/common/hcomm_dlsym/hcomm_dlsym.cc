@@ -83,5 +83,5 @@ void HcommDlFini(void) {
 __attribute__((constructor)) void InitHcommDlsym()
 {
     static pthread_once_t once = PTHREAD_ONCE_INIT;
-    pthread_once(&once, (void)HcommDlInit);
+    pthread_once(&once, HcommDlInit);
 }
