@@ -6,6 +6,7 @@
 #include "hccl_inner_dl.h"
 #include "dtype_common_dl.h"
 #include "hcomm_host_profiling_dl.h"
+#include <pthread.h>
 #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -82,5 +83,6 @@ void HcommDlFini(void) {
 
 __attribute__((constructor)) void InitHcommDlsym()
 {
-    (void)HcommDlInit();
+    static pthread_once_t once = PTHREAD_ONCE_INIT;
+    pthread_once(&once, (void)HcommDlInit);
 }
