@@ -5,6 +5,8 @@
 #include "hcomm_device_profiling_dl.h"
 #include "hcomm_diag_dl.h"
 #include "dtype_common_dl.h"
+#include <pthread.h>
+#include <pthread.h>
 #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,5 +46,6 @@ void HcommDeviceDlFini(void) {
 
 __attribute__((constructor)) void InitHcommDeviceDlsym()
 {
-    (void)HcommDeviceDlInit();
+    static pthread_once_t once = PTHREAD_ONCE_INIT;
+    pthread_once(&once, (void)HcommDeviceDlInit);
 }
