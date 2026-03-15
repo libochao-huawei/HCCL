@@ -45,13 +45,13 @@ bool HcommIsExportThreadSupported()
 }
 
 // 初始化
-int HcommDlInit(void) {
-    if (gLibHandle != NULL) return 0;
+void HcommDlInit(void) {
+    if (gLibHandle != NULL) return;
 
     gLibHandle = dlopen("libhcomm.so", RTLD_NOW);
     if (!gLibHandle) {
         fprintf(stderr, "[HcclWrapper] Failed to open libhcomm: %s\n", dlerror());
-        return -1;
+        return;
     }
 
     dlerror();
@@ -63,7 +63,6 @@ int HcommDlInit(void) {
     HcclInnerDlInit(gLibHandle);
     DtypeCommonDlInit(gLibHandle);
     HcommProfilingDlInit(gLibHandle);
-    return 0;
 }
 
 void HcommDlFini(void) {
@@ -84,5 +83,5 @@ void HcommDlFini(void) {
 __attribute__((constructor)) void InitHcommDlsym()
 {
     static pthread_once_t once = PTHREAD_ONCE_INIT;
-    pthread_once(&once, (void)HcommDlInit);
+    pthread_once(&once, HcommDlInit);
 }
