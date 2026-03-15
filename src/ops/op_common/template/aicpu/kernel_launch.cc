@@ -93,6 +93,12 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             return 1;
         }
 
+        // 上报主流和第一个task  wait之前
+        if (HcommProfilingReportKernelStartTask(thread, param->commName) != HCCL_SUCCESS) {
+            HCCL_ERROR("%sfailed to report MainStream And FirstTask, thread %lu, param->commName %s.", __func__, thread, param->commName);
+            return 1;
+        }
+
         // 主thread等待Host stream的通知
         ThreadHandle exportedAicpuTsThread = param->opThread;
         u32 notifyNumOnMainThread = resCtx.notifyNumOnMainThread;
@@ -112,12 +118,23 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             return 1;
         }
 
+        if (HcommProfilingReportDeviceOp(param->commName) != HCCL_SUCCESS) {
+            HCCL_ERROR("%s HcommProfilingReportDeviceOp fail, commName[%s]", __func__, param->commName);
+            return 1;
+        }
+
         constexpr u32 DEFAULT_NOTIFY_IDX = 0;
         HCCL_DEBUG("[%s]Notify record on srcThread[%llu], dstThread[%llu], notifyIdx[%u]",__func__, thread, exportedAicpuTsThread,
             DEFAULT_NOTIFY_IDX);
         CHK_RET(static_cast<HcclResult>(HcommThreadNotifyRecordOnThread(thread, exportedAicpuTsThread,
             DEFAULT_NOTIFY_IDX)));
 
+        // 上报主流和最后一个task 在notify之后
+        if (HcommProfilingReportKernelEndTask(thread, param->commName) != HCCL_SUCCESS) {
+            HCCL_ERROR("%s failed to report MainStream And LastTask, thread %lu, param->commName %s.",  __func__, thread, param->commName);
+            return 1;
+        }
+        
         if (HcommBatchModeEnd(param->algTag) != HCCL_SUCCESS) {
             HCCL_ERROR("failed set eager mode, tag is %s.", param->algTag);
             return 1;
