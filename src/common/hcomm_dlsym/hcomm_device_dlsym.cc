@@ -14,13 +14,13 @@
 static void* gLibHandle = NULL;
 
 // 初始化
-int HcommDeviceDlInit(void) {
-    if (gLibHandle != NULL) return 0;
+void HcommDeviceDlInit(void) {
+    if (gLibHandle != NULL) return;
 
     gLibHandle = dlopen("libccl_kernel.so", RTLD_NOW);
     if (!gLibHandle) {
         fprintf(stderr, "[HcclWrapper] Failed to open libccl_kernel.so: %s\n", dlerror());
-        return -1;
+        return;
     }
 
     dlerror();
@@ -29,7 +29,6 @@ int HcommDeviceDlInit(void) {
     HcommDeviceProfilingDlInit(gLibHandle);
     HcommDiagDlInit(gLibHandle);
     DtypeCommonDlInit(gLibHandle);
-    return 0;
 }
 
 void HcommDeviceDlFini(void) {

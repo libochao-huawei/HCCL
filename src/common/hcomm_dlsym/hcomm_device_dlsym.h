@@ -6,7 +6,7 @@ extern "C" {
 #endif
 
 // 动态库管理接口（大驼峰命名）
-int HcommDeviceDlInit(void);
+void HcommDeviceDlInit(void);
 void HcommDeviceDlFini(void);
 
 bool HcommIsSupportHcommLocalCopyOnThread(void);

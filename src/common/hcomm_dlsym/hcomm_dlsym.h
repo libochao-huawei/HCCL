@@ -10,7 +10,7 @@ extern "C" {
 #endif
 
 // 动态库管理接口（大驼峰命名）
-int HcommDlInit(void);
+void HcommDlInit(void);
 void HcommDlFini(void);
 int GetHcommVersion(void);
 
