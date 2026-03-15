@@ -38,6 +38,9 @@ extern HcclResult (*hcommProfilingReportMainStreamAndLastTaskPtr)(ThreadHandle);
 extern HcclResult (*hcommProfilingReportDeviceHcclOpInfoPtr)(HcomProInfoTmp);
 extern HcclResult (*hcommProfilingInitPtr)(ThreadHandle*, uint32_t);
 extern HcclResult (*hcommProfilingEndPtr)(ThreadHandle*, uint32_t);
+extern HcclResult (*hcommProfilingReportDeviceOpPtr)(const char* groupname);
+extern HcclResult (*hcommProfilingReportKernelStartTaskPtr)(uint64_t thread, const char* groupname);
+extern HcclResult (*hcommProfilingReportKernelEndTaskPtr)(uint64_t thread, const char* groupname);
 
 // 宏：将原始API名映射为函数指针调用
 #define HcommProfilingReportMainStreamAndFirstTask                (*hcommProfilingReportMainStreamAndFirstTaskPtr)
@@ -45,6 +48,9 @@ extern HcclResult (*hcommProfilingEndPtr)(ThreadHandle*, uint32_t);
 #define HcommProfilingReportDeviceHcclOpInfo                       (*hcommProfilingReportDeviceHcclOpInfoPtr)
 #define HcommProfilingInit                                          (*hcommProfilingInitPtr)
 #define HcommProfilingEnd                                           (*hcommProfilingEndPtr)
+#define HcommProfilingReportDeviceOp                                (*hcommProfilingReportDeviceOpPtr)
+#define HcommProfilingReportKernelStartTask                         (*hcommProfilingReportKernelStartTaskPtr)
+#define HcommProfilingReportKernelEndTask                            (*hcommProfilingReportKernelEndTaskPtr)
 
 // 查询函数声明
 bool HcommIsSupportHcommProfilingReportMainStreamAndFirstTask(void);
@@ -52,6 +58,9 @@ bool HcommIsSupportHcommProfilingReportMainStreamAndLastTask(void);
 bool HcommIsSupportHcommProfilingReportDeviceHcclOpInfo(void);
 bool HcommIsSupportHcommProfilingInit(void);
 bool HcommIsSupportHcommProfilingEnd(void);
+bool HcommIsSupportHcommProfilingReportDeviceOp(void);
+bool HcommIsSupportHcommProfilingReportKernelStartTask(void);
+bool HcommIsSupportHcommProfilingReportKernelEndTask(void);
 
 // 动态库管理接口
 void HcommDeviceProfilingDlInit(void* libHcommHandle);

@@ -38,6 +38,10 @@ extern HcclResult (*hcommProfilingUnRegThreadPtr)(HcomProInfoTmp, ThreadHandle*)
 extern HcclResult (*hcommProfilingReportKernelPtr)(uint64_t, const char*);
 extern HcclResult (*hcommProfilingReportOpPtr)(HcomProInfoTmp);
 extern uint64_t (*hcommGetProfilingSysCycleTimePtr)();
+extern HcclResult (*hcclDfxRegOpInfoPtr)(HcclComm comm, void* dfxOpInfo);
+extern HcclResult (*hcclProfilingReportOpPtr)(HcclComm comm, uint64_t beginTime);
+extern HcclResult (*hcclReportAicpuKernelPtr)(HcclComm comm, uint64_t beginTime, char *kernelName);
+
 
 // 宏：将原始API名映射为函数指针调用
 #define HcommProfilingRegThread                (*hcommProfilingRegThreadPtr)
@@ -45,6 +49,9 @@ extern uint64_t (*hcommGetProfilingSysCycleTimePtr)();
 #define HcommProfilingReportKernel               (*hcommProfilingReportKernelPtr)
 #define HcommProfilingReportOp                    (*hcommProfilingReportOpPtr)
 #define HcommGetProfilingSysCycleTime              (*hcommGetProfilingSysCycleTimePtr)
+#define HcclDfxRegOpInfo                         (*hcclDfxRegOpInfoPtr)
+#define HcclProfilingReportOp                         (*hcclProfilingReportOpPtr)
+#define HcclReportAicpuKernel                         (*hcclReportAicpuKernelPtr)
 
 // 查询函数声明
 bool HcommIsSupportHcommProfilingRegThread(void);
@@ -52,6 +59,9 @@ bool HcommIsSupportHcommProfilingUnRegThread(void);
 bool HcommIsSupportHcommProfilingReportKernel(void);
 bool HcommIsSupportHcommProfilingReportOp(void);
 bool HcommIsSupportHcommGetProfilingSysCycleTime(void);
+bool HcommIsSupportHcclDfxRegOpInfo(void);
+bool HcommIsSupportHcclProfilingReportOp(void);
+bool HcommIsSupportHcclProfilingReportOp(void);
 
 // 动态库管理接口
 void HcommProfilingDlInit(void* libHcommHandle);
