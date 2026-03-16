@@ -204,6 +204,7 @@ HcclResult PrepareReduceScatterVParam(void *sendBuf, const void *sendDispls, con
     param.opType = HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V;
     param.enableDetour = false;
     param.deviceType = deviceType;
+    return HCCL_SUCCESS;
 }
 
 HcclResult ReduceScatterVOutPlace(void *sendBuf, const void *sendDispls, const void *sendCounts, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
