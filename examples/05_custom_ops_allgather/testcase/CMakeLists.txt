@@ -6,6 +6,11 @@ find_package(MPI REQUIRED)
 
 add_executable(test_custom_allgather main.cc)
 
+if(NOT DEFINED ASCEND_CANN_PACKAGE_PATH)
+    set(ASCEND_CANN_PACKAGE_PATH "/usr/local/Ascend/ascend-toolkit/latest")
+    message(WARNING "ASCEND_CANN_PACKAGE_PATH not set, defaulting to ${ASCEND_CANN_PACKAGE_PATH}")
+endif()
+
 target_include_directories(test_custom_allgather PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../inc
     ${ASCEND_CANN_PACKAGE_PATH}/include
@@ -20,6 +25,7 @@ target_link_libraries(test_custom_allgather PRIVATE
     ascendcl
     hccl
     hccl_custom_allgather
+    securec
     MPI::MPI_CXX
 )
 
