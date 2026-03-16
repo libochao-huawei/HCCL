@@ -231,44 +231,44 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
 
     // 迭代每个子通信域的建链请求，创建链路
         // 获取子通信域的建链数量
-        uint32_t validChannelNum = level0ChannelRequest.size();
-        std::vector<ChannelHandle> levelNChannels;
-        levelNChannels.resize(validChannelNum);
+    //     uint32_t validChannelNum = level0ChannelRequest.size();
+    //     std::vector<ChannelHandle> levelNChannels;
+    //     levelNChannels.resize(validChannelNum);
 
-        if (validChannelNum > 0) {
-            HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
-            CHK_RET(HcclChannelAcquire(comm, CommEngine::COMM_ENGINE_AIV, level0ChannelRequest.data(),
-                validChannelNum, levelNChannels.data()));
-            HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
-        }
+    //     if (validChannelNum > 0) {
+    //         HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
+    //         CHK_RET(HcclChannelAcquire(comm, CommEngine::COMM_ENGINE_AIV, level0ChannelRequest.data(),
+    //             validChannelNum, levelNChannels.data()));
+    //         HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
+    //     }
 
-        for (uint32_t idx = 0; idx < validChannelNum; idx++) {
-            HcclChannelDesc &channelDesc = level0ChannelRequest[idx];
-            void* remoteBufferAddr;
-            uint64_t remoteBufferSize;
-            CHK_RET(HcclChannelGetHcclBuffer(comm, levelNChannels[idx], &remoteBufferAddr, &remoteBufferSize));
-            HCCL_INFO("[%s]remoteRank[%u] cclBufferAddr[%p] cclBufferSize[%llu]", __func__, channelDesc.remoteRank,
-                remoteBufferAddr, remoteBufferSize);
-            buffersIn[channelDesc.remoteRank] = remoteBufferAddr;
+    //     for (uint32_t idx = 0; idx < validChannelNum; idx++) {
+    //         HcclChannelDesc &channelDesc = level0ChannelRequest[idx];
+    //         void* remoteBufferAddr;
+    //         uint64_t remoteBufferSize;
+    //         CHK_RET(HcclChannelGetHcclBuffer(comm, levelNChannels[idx], &remoteBufferAddr, &remoteBufferSize));
+    //         HCCL_INFO("[%s]remoteRank[%u] cclBufferAddr[%p] cclBufferSize[%llu]", __func__, channelDesc.remoteRank,
+    //             remoteBufferAddr, remoteBufferSize);
+    //         buffersIn[channelDesc.remoteRank] = remoteBufferAddr;
 
-            uint32_t memNum;
-            CommMem* remoteMems;
-            char** memTags;
-            CHK_RET(HcclChannelGetRemoteMems(comm, levelNChannels[idx], &memNum, &remoteMems, &memTags));
-            CHK_PRT_RET(memNum != 1,
-                HCCL_ERROR("[%s] HcclChannelGetRemoteMems memNum[%u] not equal to 1", __func__, memNum), HCCL_E_PARA);
-            HCCL_INFO("[%s]remoteRank[%u] memNum[%u] regMemAddr[%p] regMemSize[%llu] memTag[%s]", __func__,
-                channelDesc.remoteRank, memNum, remoteMems[0].addr, remoteMems[0].size, memTags[0]);
-            buffersOut[channelDesc.remoteRank] = remoteMems[0].addr;
-        }
+    //         uint32_t memNum;
+    //         CommMem* remoteMems;
+    //         char** memTags;
+    //         CHK_RET(HcclChannelGetRemoteMems(comm, levelNChannels[idx], &memNum, &remoteMems, &memTags));
+    //         CHK_PRT_RET(memNum != 1,
+    //             HCCL_ERROR("[%s] HcclChannelGetRemoteMems memNum[%u] not equal to 1", __func__, memNum), HCCL_E_PARA);
+    //         HCCL_INFO("[%s]remoteRank[%u] memNum[%u] regMemAddr[%p] regMemSize[%llu] memTag[%s]", __func__,
+    //             channelDesc.remoteRank, memNum, remoteMems[0].addr, remoteMems[0].size, memTags[0]);
+    //         buffersOut[channelDesc.remoteRank] = remoteMems[0].addr;
+    //     }
 
-    param.buffIn = (uint64_t)aivCommInfoPtr;
-    ACLCHECK(aclrtMemcpy(aivCommInfoPtr, MAX_RANK_SIZE * sizeof(void*), buffersIn, MAX_RANK_SIZE * sizeof(void*),
-        ACL_MEMCPY_HOST_TO_DEVICE));
-    ACLCHECK(aclrtMemcpy(static_cast<uint8_t*>(aivCommInfoPtr) + AIV_TAG_ADDR_OFFSET, MAX_RANK_SIZE * sizeof(void*),
-        buffersOut, MAX_RANK_SIZE * sizeof(void*), ACL_MEMCPY_HOST_TO_DEVICE));
+    // param.buffIn = (uint64_t)aivCommInfoPtr;
+    // ACLCHECK(aclrtMemcpy(aivCommInfoPtr, MAX_RANK_SIZE * sizeof(void*), buffersIn, MAX_RANK_SIZE * sizeof(void*),
+    //     ACL_MEMCPY_HOST_TO_DEVICE));
+    // ACLCHECK(aclrtMemcpy(static_cast<uint8_t*>(aivCommInfoPtr) + AIV_TAG_ADDR_OFFSET, MAX_RANK_SIZE * sizeof(void*),
+    //     buffersOut, MAX_RANK_SIZE * sizeof(void*), ACL_MEMCPY_HOST_TO_DEVICE));
 
-    HCCL_INFO("[%s] Alloc res success.", __func__);
+    // HCCL_INFO("[%s] Alloc res success.", __func__);
 
     return HCCL_SUCCESS;
 }
