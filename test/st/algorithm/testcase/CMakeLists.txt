@@ -10,7 +10,6 @@
 
 set(src_list
     main.cc
-    scatter_testcase_a3.cc
     scatter_testcase.cc
     reduce_scatter_testcase.cc
     all_reduce_testcase.cc
