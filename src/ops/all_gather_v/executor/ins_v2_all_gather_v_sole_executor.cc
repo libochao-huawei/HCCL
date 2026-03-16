@@ -90,7 +90,7 @@ HcclResult InsV2AllGatherVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrat
     tempAlgParams.repeatNum = 1;
     tempAlgParams.inputRepeatStride = 0;
     tempAlgParams.outputRepeatStride = 0;
-    param.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
+    tempAlgParams.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
     // 从零数组中获取counts和displs
     // 强制类型转换
     const u64 *varData = reinterpret_cast<const u64 *>(param.varData);
