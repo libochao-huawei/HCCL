@@ -340,8 +340,8 @@ SelectorStatus ReduceScatterAutoSelector::SelectDPUAlgo(const TopoInfoWithNetLay
         opParam.opType, algos[0], algos[1], algos[2], algos[3]);
     HCCL_INFO("topoInfo->topoLevelNums is %u, topoInfo->level0Topo is %u", topoInfo->topoLevelNums, topoInfo->level0Topo);
     if (topoInfo->topoLevelNums > 1) {
-        selectAlgName = "InsV2ReduceScatterSequenceMeshMesh";
-        HCCL_INFO("Using algo InsV2ReduceScatterSequenceMeshMesh");
+        selectAlgName = "InsReduceScatterSequenceMeshMeshDPU";
+        HCCL_INFO("Using algo InsReduceScatterSequenceMeshMeshDPU");
         return SelectorStatus::MATCH;
     }
 
