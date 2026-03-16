@@ -22,7 +22,10 @@ private:
                                  std::string &selectAlgName) const override;
     SelectorStatus SelectAicpuAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                    const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
-                                   std::string &selectAlgName) const override;
+                                   std::string                                 &selectAlgName) const override;
+    SelectorStatus SelectDPUAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
+                                 const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+                                 std::string &selectAlgName) const override;
 };
 
 } // namespace Hccl

@@ -814,6 +814,12 @@ int32_t HcommChannelNotifyWait(ChannelHandle channel, uint32_t localNotifyIdx, u
     return 0;
 }
 
+int32_t HcommChannelFence(ChannelHandle channel)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return 0;
+}
+
 int32_t HcommWaitResponse(MsgHandle handle, void *dst, size_t sizeByte, uint32_t *msgId)
 {
     HCCL_WARNING("[%s] not support.", __func__);
