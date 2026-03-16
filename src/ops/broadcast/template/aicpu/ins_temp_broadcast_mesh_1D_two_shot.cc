@@ -54,7 +54,7 @@ u64 InsTempBroadcastMesh1DTwoShot::CalcScratchMultiple(BufferType inBuffType, Bu
     (void)inBuffType;
     (void)outBuffType;
     u64 scratchMultiple = 0;
-    if (opMode_ == OpMode::OPBASE){
+    if (!enableRemoteMemAccess_){
         scratchMultiple = 1;
     }
     return scratchMultiple;
@@ -407,10 +407,11 @@ HcclResult InsTempBroadcastMesh1DTwoShot::KernelRun(const OpParam& param, const 
     HCCL_DEBUG("[InsTempBroadcastMesh1DTwoShot] BroadcastMesh1DTwoShot rank[%d] slicesize[%d] count[%d].",
                myRank_, tempAlgParams.sliceSize, tempAlgParams.count);
     dataType_ = param.DataDes.dataType;
-    dataTypeSize_  = tempAlgParams.sliceSize/tempAlgParams.count;
+    dataTypeSize_  = DATATYPE_SIZE_TABLE[dataType_];
     opMode_            = param.opMode;
+    enableRemoteMemAccess_ = tempAlgParams.enableRemoteMemAccess;
 
-    if (opMode_ == opMode::OPBASE) {
+    if (!enableRemoteMemAccess_) {
         srcBufferType_ = BufferType::HCCL_BUFFER;
         dstBufferType_ = BufferType::HCCL_BUFFER;
     }
@@ -437,7 +438,7 @@ HcclResult InsTempBroadcastMesh1DTwoShot::KernelRun(const OpParam& param, const 
     }
 
     // 单算子模式
-    if (opMode_ == opMode::OPBASE && (u32(myRank_) != root_)){
+    if ((!enableRemoteMemAccess_) && (u32(myRank_) != root_)){
         CHK_RET(PostCopy(tempAlgParams, templateResource.threads));
     }
 
