@@ -10,7 +10,11 @@ extern "C" {
 #endif
 
 // 需优化
-
+typedef enum {
+    HCCL_MEM_TYPE_DEVICE, ///< 设备侧内存（如NPU等）
+    HCCL_MEM_TYPE_HOST,   ///< 主机侧内存
+    HCCL_MEM_TYPE_NUM     ///< 内存类型数量
+} HcclMemType;
 /**
  * @struct HcclMem
  * @brief 内存段元数据描述结构体
