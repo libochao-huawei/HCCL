@@ -38,8 +38,8 @@ HcclResult BroadcastOutPlace(void *buf, uint64_t count, HcclDataType dataType, u
 HcclResult CheckBroadcastInputPara(const HcclComm comm, const void *buf);
 HcclResult BroadcastOutPlaceCommon(void *buf, uint64_t count, HcclDataType dataType, uint32_t root, HcclComm comm, aclrtStream stream,
                                    const std::string &tag, OpParam &param);
-HcclResult CheckBroadcast(void *buf, uint64_t count, HcclDataType dataType, HcclComm comm, const string opTag);
-HcclResult AllGatherOutPlaceGraphMode(void *buf, uint64_t count, HcclDataType dataType, uint32_t root, HcclComm comm,
+HcclResult CheckBroadcast(void *buf, uint64_t count, HcclDataType dataType, HcclComm comm, const std::string &opTag);
+HcclResult BroadcastOutPlaceGraphMode(void *buf, uint64_t count, HcclDataType dataType, uint32_t root, HcclComm comm,
                                       aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack);
 
 }

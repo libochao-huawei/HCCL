@@ -10,6 +10,7 @@
 
 #include "broadcast_op.h"
 #include "op_common_ops.h"
+#include "op_common_graph_mode.h"
 #include "topo_host.h"
 #include <algorithm>
 #include <future>
@@ -41,6 +42,8 @@ HcclResult HcclBroadcast(void *buf, uint64_t count, HcclDataType dataType, uint3
         return HcclBroadcastInner(buf, count, dataType, root, comm, stream);
     }
 
+    char commName[COMM_INDENTIFIER_MAX_LENGTH];
+    CHK_RET(HcclGetCommName(comm, commName));
     const string tag = "Broadcast_" + string(commName);
     CheckBroadcast(buf, count, dataType, comm, tag);
 
@@ -52,14 +55,16 @@ HcclResult HcclBroadcast(void *buf, uint64_t count, HcclDataType dataType, uint3
 }
 
 HcclResult HcclBroadcastGraphMode(void *buf, uint64_t count, HcclDataType dataType, uint32_t root, const char* group, aclrtStream stream,
-                                  const char* tag, void** streams, size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize)
+                                  const std::char* tag, void** streams, size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize)
 {
     HCCL_INFO("Start to run execute HcclBroadcastGraphMode");
     // 根据group获取通信域
     HcclComm comm = nullptr;
-    HCCL_INFO("[HcclAllGatherGraphMode] get group name: %s", group);
+    HCCL_INFO("[HcclBroadcastGraphMode] get group name: %s", group);
     HcomGetCommHandleByGroup(group, &comm);
 
+    char commName[COMM_INDENTIFIER_MAX_LENGTH];
+    CHK_RET(HcclGetCommName(comm, commName));
     const string opTag = "Broadcast_" + string(commName);
     CheckBroadcast(buf, count, dataType, comm, opTag);
     CHK_RET(HcclCheckTag(tag));
@@ -84,7 +89,7 @@ HcclResult HcclBroadcastGraphMode(void *buf, uint64_t count, HcclDataType dataTy
     return HCCL_SUCCESS;
 }
 
-HcclResult CheckBroadcast(void *buf, uint64_t count, HcclDataType dataType, HcclComm comm, const string opTag)
+HcclResult CheckBroadcast(void *buf, uint64_t count, HcclDataType dataType, HcclComm comm, const std::string opTag)
 {
     HCCL_INFO("Start to CheckBroadcast");
     CHK_RET(InitEnvConfig());
@@ -96,8 +101,6 @@ HcclResult CheckBroadcast(void *buf, uint64_t count, HcclDataType dataType, Hccl
     CHK_RET(HcclGetRankSize(comm, &rankSize));
     u32 userRank = INVALID_VALUE_RANKID;
     CHK_RET(HcclGetRankId(comm, &userRank));
-    char commName[COMM_INDENTIFIER_MAX_LENGTH];
-    CHK_RET(HcclGetCommName(comm, commName));
     CHK_RET(HcclCheckTag(opTag.c_str()));
     CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), opTag.c_str());
     CHK_RET(CheckCount(count));
