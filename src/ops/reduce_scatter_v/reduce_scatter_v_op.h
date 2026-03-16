@@ -42,7 +42,7 @@ HcclResult ReduceScatterVOutPlaceGraphMode(void *sendBuf, const void *sendDispls
     HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack);
 
 HcclResult PrepareReduceScatterVParam(void *sendBuf, const void *sendDispls, const void *sendCounts, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
-    HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag, OpMode opMode, u32 userRankSize, OpParam &param);
+    HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag, OpMode opMode, u32 userRankSize, u64 varMemSize, OpParam &param);
 
 HcclResult ReduceScatterVExecOp(HcclComm comm, OpParam &param);
 

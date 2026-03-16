@@ -162,8 +162,11 @@ HcclResult CheckReduceScatterVInputPara(
 }
 
 HcclResult PrepareReduceScatterVParam(void *sendBuf, const void *sendDispls, const void *sendCounts, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
-    HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag, OpMode opMode, u32 userRankSize, OpParam &param) {
-
+    HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag, OpMode opMode, u32 userRankSize, u64 varMemSize, OpParam &param) 
+{
+    u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
+    u64 outputSize = recvCount * perDataSize;
+    u64 inputSize = outputSize * userRankSize;
     CHK_RET(HcclGetCommName(comm, param.commName));
     param.stream = stream;
     param.reduceType = op;
@@ -209,10 +212,6 @@ HcclResult ReduceScatterVOutPlace(void *sendBuf, const void *sendDispls, const v
     HCCL_INFO("Start to execute ReduceScatterVOutPlace");
     u32 userRankSize;
     CHK_RET(HcclGetRankSize(comm, &userRankSize));
-        u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
-    u64 outputSize = recvCount * perDataSize;
-    u64 inputSize = outputSize * userRankSize;
-
     // 申请OpParam参数结构体内存
     u64 varMemSize = 2 * userRankSize * sizeof(u64);
 
@@ -232,7 +231,7 @@ HcclResult ReduceScatterVOutPlace(void *sendBuf, const void *sendDispls, const v
      };
     std::unique_ptr<OpParam, decltype(deleter)> paramPtr(tmpParamPtr, deleter);
     OpParam& param = *paramPtr;
-    CHK_RET(PrepareReduceScatterVParam(sendBuf, sendDispls, sendCounts, recvBuf, recvCount, dataType, op, comm, stream, tag, OpMode::OPBASE, userRankSize, param));
+    CHK_RET(PrepareReduceScatterVParam(sendBuf, sendDispls, sendCounts, recvBuf, recvCount, dataType, op, comm, stream, tag, OpMode::OPBASE, userRankSize, varMemSize, param));
 
     if (userRankSize == 1) {
         HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
@@ -254,9 +253,6 @@ HcclResult ReduceScatterVOutPlaceGraphMode(void *sendBuf, const void *sendDispls
     HCCL_INFO("Start to execute ReduceScatterVOutPlaceGraphMode");
     u32 userRankSize;
     CHK_RET(HcclGetRankSize(comm, &userRankSize));
-        u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
-    u64 outputSize = recvCount * perDataSize;
-    u64 inputSize = outputSize * userRankSize;
 
     // 申请OpParam参数结构体内存
     u64 varMemSize = 2 * userRankSize * sizeof(u64);
@@ -277,7 +273,7 @@ HcclResult ReduceScatterVOutPlaceGraphMode(void *sendBuf, const void *sendDispls
      };
     std::unique_ptr<OpParam, decltype(deleter)> paramPtr(tmpParamPtr, deleter);
     OpParam& param = *paramPtr;
-    PrepareReduceScatterVParam(sendBuf, sendDispls, sendCounts, recvBuf, recvCount, dataType, op, comm, stream, tag, OpMode::OFFLOAD, userRankSize, param);
+    PrepareReduceScatterVParam(sendBuf, sendDispls, sendCounts, recvBuf, recvCount, dataType, op, comm, stream, tag, OpMode::OFFLOAD, userRankSize, varMemSize, param);
     if (userRankSize == 1) {
         HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
         CHK_RET(SingleRankProc(param));
