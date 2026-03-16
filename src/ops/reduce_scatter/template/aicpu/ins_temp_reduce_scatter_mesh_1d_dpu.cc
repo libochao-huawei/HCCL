@@ -39,23 +39,23 @@ HcclResult InsTempReduceScatterMesh1dDpu::CalcRes(HcclComm comm, const OpParam& 
     std::vector<HcclChannelDesc> level1Channels;
     CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level1Channels));
     resourceRequest.channels.push_back(level1Channels);
-    HCCL_INFO("[InsTempReduceScatterMeshSeqInter][CalcRes]slaveThreadNum[%u] notifyNumPerThread[%u] notifyNumOnMainThread[%u]"
+    HCCL_INFO("[InsTempReduceScatterMeshSeqInter][CalcRes]slaveThreadNum[%u] notifyNumOnMainThread[%u]"
         " level1Channels[%u].",
-        resourceRequest.slaveThreadNum, resourceRequest.notifyNumPerThread, resourceRequest.notifyNumOnMainThread,
+        resourceRequest.slaveThreadNum, resourceRequest.notifyNumOnMainThread,
         level1Channels.size());
     return HCCL_SUCCESS;
 }
 
+// ! 已编码完成
 u64 InsTempReduceScatterMesh1dDpu::CalcScratchMultiple(BufferType inBufferType, BufferType outBufferType)
 {
     (void) inBufferType;
     (void) outBufferType;
     u64 scratchMultiple = subCommRanks_[0].size();
-    HCCL_INFO(
-        "[InsTempReduceScatterMesh1dDpu][CalcScratchMultiple] templateScratchMultiplier[%llu]", scratchMultiple);
     return scratchMultiple;
 }
 
+// ! 基本编码完成，剩余数据序列化
 HcclResult InsTempReduceScatterMesh1dDpu::KernelRun(const OpParam& param,
                                                     const TemplateDataParams& tempAlgParams,
                                                     const TemplateResource& templateResource)
@@ -127,7 +127,7 @@ HcclResult InsTempReduceScatterMesh1dDpu::DPUKernelRun(const TemplateDataParams&
     if (iter != rankIds.end()) {
         myAlgRank = std::distance(rankIds.begin(), iter);
     } else {
-        HCCL_ERROR("[InsTempReduceScatterMesh1D][RunReduceScatter] rankIds or myRank is error.");
+        HCCL_ERROR("[InsTempReduceScatterMesh1dDpu][RunReduceScatter] rankIds or myRank is error.");
         return HCCL_E_INTERNAL;
     }
 
@@ -136,8 +136,6 @@ HcclResult InsTempReduceScatterMesh1dDpu::DPUKernelRun(const TemplateDataParams&
         if (remoteRank == myRank) {
             continue;
         }
-        HCCL_DEBUG("[InsTempReduceScatterMesh1D][RunReduceScatter] myRank[%d], toRank[%d], fromRank[%d]",
-                   myRank, remoteRank, myRank);
         const ChannelInfo &linkSend = channels.at(remoteRank)[0];
         const ChannelInfo &linkRecv = channels.at(remoteRank)[0];
         std::vector<DataSlice> txSrcSlices;
@@ -169,12 +167,6 @@ HcclResult InsTempReduceScatterMesh1dDpu::DPUKernelRun(const TemplateDataParams&
             rxDstSlices.push_back(rxDstSlice);
             txSrcSlices.push_back(txSrcSlice);
             txDstSlices.push_back(txDstSlice);
-            HCCL_WARNING("Send from src rank %u to dst rank %u, src offset %u, dst offset %u, size %u",
-                myRank, remoteRank,
-                tempAlgParams.buffInfo.inBuffBaseOff + repeatIdx * tempAlgParams.inputRepeatStride + rankIdx * tempAlgParams.inputSliceStride,
-                tempAlgParams.buffInfo.hcclBuffBaseOff + repeatIdx * tempAlgParams.outputRepeatStride + myAlgRank * tempAlgParams.outputSliceStride,
-                tempAlgParams.sliceSize);
-            HCCL_INFO("Send from buf %p, to buf %p", tempAlgParams.buffInfo.inputPtr, remoteCclBuffAddr);
         }
         SendRecvInfo sendRecvInfo{{linkSend, linkRecv},
                              {{txSrcSlices, txDstSlices},{rxSrcSlices, rxDstSlices}}};
@@ -182,11 +174,13 @@ HcclResult InsTempReduceScatterMesh1dDpu::DPUKernelRun(const TemplateDataParams&
         CHK_PRT_RET(SendRecvWrite(sendRecvInfo),
                     HCCL_ERROR("[InsTempReduceScatterMesh1dDpu] RunReduceScatter Send failed"),
                     HcclResult::HCCL_E_INTERNAL);
+        
     }
 #endif
     return HCCL_SUCCESS;
 }
 
+// ! 已完成编码，待与堂植确认加法序问题
 HcclResult InsTempReduceScatterMesh1dDpu::PostLocalReduce(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads)
 {
     // 通信结束之后，数据都在 cclBuffer 上，需要搬运到对应的输出位置。
@@ -196,39 +190,29 @@ HcclResult InsTempReduceScatterMesh1dDpu::PostLocalReduce(const TemplateDataPara
     if (iter != rankIds.end()) {
         myAlgRank = std::distance(rankIds.begin(), iter);
     } else {
-        HCCL_ERROR("[InsTempReduceScatterMesh1D][PostLocalReduce] rankIds or myRank_ is error.");
+        HCCL_ERROR("[InsTempReduceScatterMesh1dDpu][PostLocalReduce] rankIds or myRank_ is error.");
         return HCCL_E_INTERNAL;
     }
-    // 如果是单算子模式, 并且是最后一步算子，需要将数据从 cclBuffer 拷贝到 userOut
-    HCCL_INFO("[InsTempReduceScatterMesh1dDpu][PostCopy], copy from cclBuffer to userOut");
-    // 先把本卡的数据从userIn搬运到userOut，然后再在userOut上做规约
-    HCCL_INFO("[InsTempReduceScatterMesh1dDpu][PostCopy]tempAlgParams.repeatNum=%llu", tempAlgParams.repeatNum);
     for (u32 repeatIdx = 0; repeatIdx < tempAlgParams.repeatNum; repeatIdx++) {
         u64 dataTypeSize =  SIZE_TABLE[dataType_];
-        HCCL_INFO("Data sssize here is %u", dataTypeSize);
         u64 count = processSize_ / dataTypeSize;
         // 将本端数据从inputPtr搬运到cclBuffer上面
         DataSlice srcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr,
-                            myAlgRank * tempAlgParams.inputSliceStride
+                            tempAlgParams.buffInfo.inBuffBaseOff
+                            + myAlgRank * tempAlgParams.inputSliceStride
                             + repeatIdx * tempAlgParams.inputRepeatStride,
                             processSize_, count_);
         DataSlice dstSlice = DataSlice(tempAlgParams.buffInfo.hcclBuff.addr,
-                            myAlgRank * tempAlgParams.outputSliceStride
+                            tempAlgParams.buffInfo.hcclBuffBaseOff
+                            + myAlgRank * tempAlgParams.outputSliceStride
                             + repeatIdx * tempAlgParams.outputRepeatStride,
                             processSize_, count_);
         CHK_RET(static_cast<HcclResult>(LocalCopy(threads[0], srcSlice, dstSlice)));
-        HCCL_INFO("[PostLocalReduce]Local copy rank %u data from offset %u to offset %u size %u",
-            myRank_,
-            myAlgRank * tempAlgParams.inputSliceStride + repeatIdx * tempAlgParams.inputRepeatStride,
-            myAlgRank * tempAlgParams.outputSliceStride + repeatIdx * tempAlgParams.outputRepeatStride,
-            processSize_);
-        HCCL_INFO("[PostLocalReduce]Local copy src addr %p, dst addr %p",
-            tempAlgParams.buffInfo.inputPtr,
-            tempAlgParams.buffInfo.hcclBuff.addr);
+
         // 将后n-1片数据，规约到第0片数据上
         for (u32 tmpRank = 1; tmpRank < templateRankSize_; tmpRank++) {
             DataSlice srcSlice = DataSlice(tempAlgParams.buffInfo.hcclBuff.addr,
-                                            tempAlgParams.buffInfo.inBuffBaseOff
+                                            tempAlgParams.buffInfo.hcclBuffBaseOff
                                             + repeatIdx * tempAlgParams.outputRepeatStride
                                             + tmpRank * tempAlgParams.outputSliceStride,
                                             processSize_, count_);
@@ -236,14 +220,6 @@ HcclResult InsTempReduceScatterMesh1dDpu::PostLocalReduce(const TemplateDataPara
                                             tempAlgParams.buffInfo.hcclBuffBaseOff
                                             + repeatIdx * tempAlgParams.outputRepeatStride,
                                             processSize_, count_);
-            HCCL_INFO("[PostLocalReduce]Local reduce on rank %u src offset %u, dst offset %u, size %u",
-                myRank_,
-                tempAlgParams.buffInfo.inBuffBaseOff + repeatIdx * tempAlgParams.inputRepeatStride + tmpRank * tempAlgParams.inputSliceStride,
-                tempAlgParams.buffInfo.hcclBuffBaseOff + repeatIdx * tempAlgParams.outputRepeatStride,
-                processSize_);
-            HCCL_INFO("[PostLocalReduce]Local reduce src addr %p, dst addr %p",
-                tempAlgParams.buffInfo.hcclBuff.addr,
-                tempAlgParams.buffInfo.hcclBuff.addr);
             CHK_RET(static_cast<HcclResult>(LocalReduce(threads[0], srcSlice, dstSlice, dataType_, reduceOp_)));
         }
         // 将规约后的分片，搬运到output上
@@ -256,14 +232,6 @@ HcclResult InsTempReduceScatterMesh1dDpu::PostLocalReduce(const TemplateDataPara
                             + repeatIdx * tempAlgParams.outputRepeatStride,
                             processSize_, count_);
         CHK_RET(static_cast<HcclResult>(LocalCopy(threads[0], srcSlice, dstSlice)));
-        HCCL_INFO("[PostLocalReduce]Local copy to dst on rank %u src offset %u, dst offset %u, size %u",
-                myRank_,
-                tempAlgParams.buffInfo.hcclBuffBaseOff + repeatIdx * tempAlgParams.outputRepeatStride,
-                tempAlgParams.buffInfo.outBuffBaseOff + repeatIdx * tempAlgParams.outputRepeatStride,
-                processSize_);
-        HCCL_INFO("[PostLocalReduce]Local copy to dst src addr %p dst addr %p",
-            tempAlgParams.buffInfo.hcclBuff.addr,
-            tempAlgParams.buffInfo.outputPtr);
     }
     return HcclResult::HCCL_SUCCESS;
 }
