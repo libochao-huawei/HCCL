@@ -24,7 +24,7 @@ public:
     }
     HcclResult MatchTopo(const HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo, AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
 private:
-    HcclResult TopoForLayer0(const HcclComm comm, uint32_t& layer0Size, const uint32_t myRank,
+    HcclResult TopoForLayer0(const HcclComm comm, const uint32_t& layer0Size, const uint32_t myRank,
                                     AlgHierarchyInfoForAllLevel& algHierarchyInfo) const;
     HcclResult TopoForLayer1(const HcclComm comm, uint32_t layer0Size, const uint32_t myRank,
                                     AlgHierarchyInfoForAllLevel& algHierarchyInfo) const;
