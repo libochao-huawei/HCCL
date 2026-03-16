@@ -35,7 +35,7 @@
 
 ```bash
 # 设置 CANN 环境变量，以 root 用户默认安装路径为例
-source /usr/local/Ascend/ascend-toolkit/set_env.sh
+source /usr/local/Ascend/cann/set_env.sh
 ```
 
 ## 编译执行样例
