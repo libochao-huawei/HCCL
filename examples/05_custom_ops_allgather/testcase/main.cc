@@ -17,6 +17,7 @@
 #include <mpi.h>
 #include <unistd.h>
 
+#include "securec.h"
 #include "acl/acl.h"
 #include "hccl/hccl.h"
 #include "hccl/hccl_types.h"
@@ -45,41 +46,39 @@ void Log(int rank, const char* fmt, ...) {
     char buf[1024];
     va_list args;
     va_start(args, fmt);
-    vsnprintf(buf, sizeof(buf), fmt, args);
+
+    int ret = vsnprintf_s(buf, sizeof(buf), sizeof(buf) - 1, fmt, args);
     va_end(args);
-    
+
+    if (ret < 0) {
+        printf("[ERROR] [Rank %d] Log formatting failed! ret: %d\n", rank, ret);
+        return;
+    }
+
     struct timeval tv;
     gettimeofday(&tv, NULL);
     printf("[%ld.%06ld] [Rank %d] %s\n", tv.tv_sec, tv.tv_usec, rank, buf);
 }
 
-int main(int argc, char* argv[])
-{
-    // MPI Init
+// 1. 初始化 MPI、ACL 和 HCCL 通信域
+int InitEnv(int argc, char* argv[], int& rank, int& size, HcclComm& hcclComm) {
     MPI_Init(&argc, &argv);
-    int rank, size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
-
     Log(rank, "MPI Initialized. World Size: %d", size);
 
-    // ACL Init
     ACLCHECK(aclInit(NULL));
-    
     uint32_t devCount;
     ACLCHECK(aclrtGetDeviceCount(&devCount));
-    
     if (devCount == 0) {
         Log(rank, "Error: No devices found");
-        MPI_Finalize();
         return -1;
     }
-    
+
     int deviceId = rank % devCount;
     ACLCHECK(aclrtSetDevice(deviceId));
     Log(rank, "Device %d selected (Total devices: %u)", deviceId, devCount);
 
-    // HCCL Root Info Exchange
     HcclRootInfo rootInfo;
     if (rank == 0) {
         HCCLCHECK(HcclGetRootInfo(&rootInfo));
@@ -87,21 +86,15 @@ int main(int argc, char* argv[])
     }
     MPI_Bcast(&rootInfo, sizeof(HcclRootInfo), MPI_BYTE, 0, MPI_COMM_WORLD);
     
-    // HCCL Init
-    HcclComm hcclComm;
     HCCLCHECK(HcclCommInitRootInfo(size, &rootInfo, rank, &hcclComm));
     Log(rank, "HCCL Comm Initialized");
+    return 0;
+}
 
-    // Prepare Data
-    uint64_t count = 1024;
-    size_t sendBytes = count * sizeof(float);
-    size_t recvBytes = count * size * sizeof(float);
-
-    aclrtStream stream;
+// 2. 准备内存和测试数据
+int PrepareData(int rank, uint64_t count, size_t sendBytes, size_t recvBytes, 
+                aclrtStream& stream, void*& sendBuf, void*& recvBuf) {
     ACLCHECK(aclrtCreateStream(&stream));
-
-    void *sendBuf = nullptr;
-    void *recvBuf = nullptr;
     ACLCHECK(aclrtMalloc(&sendBuf, sendBytes, ACL_MEM_MALLOC_HUGE_FIRST));
     ACLCHECK(aclrtMalloc(&recvBuf, recvBytes, ACL_MEM_MALLOC_HUGE_FIRST));
 
@@ -109,44 +102,73 @@ int main(int argc, char* argv[])
     ACLCHECK(aclrtMemcpy(sendBuf, sendBytes, hostSend.data(), sendBytes, ACL_MEMCPY_HOST_TO_DEVICE));
     ACLCHECK(aclrtMemset(recvBuf, recvBytes, 0, recvBytes));
     Log(rank, "Buffers allocated and initialized");
+    return 0;
+}
 
-    // Run Custom AllGather
-    Log(rank, "Starting HcclAllGatherCustom...");
-    HCCLCHECK(HcclAllGatherCustom(sendBuf, recvBuf, count * sizeof(float), HCCL_DATA_TYPE_FP32, hcclComm, stream));
-    
-    ACLCHECK(aclrtSynchronizeStream(stream));
-    Log(rank, "HcclAllGatherCustom completed and synchronized");
-
-    // Verify
+// 3. 校验 AllGather 结果
+int VerifyResult(int rank, int size, uint64_t count, size_t recvBytes, void* recvBuf) {
     std::vector<float> hostRecv(count * size);
     ACLCHECK(aclrtMemcpy(hostRecv.data(), recvBytes, recvBuf, recvBytes, ACL_MEMCPY_DEVICE_TO_HOST));
 
-    bool pass = true;
     for (int r = 0; r < size; r++) {
         for (uint64_t i = 0; i < count; i++) {
             float val = hostRecv[r * count + i];
             if (std::abs(val - (float)r) > 1e-5) {
                 Log(rank, "Error at rank %d offset %llu: expected %f, got %f", r, i, (float)r, val);
-                pass = false;
-                break;
+                return -1;
             }
         }
-        if (!pass) break;
     }
+    return 0;
+}
 
-    if (pass) {
-        Log(rank, "Test Passed!");
-    } else {
-        Log(rank, "Test Failed!");
-    }
-
-    // Cleanup
-    HCCLCHECK(HcclCommDestroy(hcclComm));
-    ACLCHECK(aclrtFree(sendBuf));
-    ACLCHECK(aclrtFree(recvBuf));
-    ACLCHECK(aclrtDestroyStream(stream));
-    ACLCHECK(aclFinalize());
-    
+// 4. 统一清理资源
+void Cleanup(HcclComm hcclComm, void* sendBuf, void* recvBuf, aclrtStream stream) {
+    if (hcclComm) HcclCommDestroy(hcclComm);
+    if (sendBuf) aclrtFree(sendBuf);
+    if (recvBuf) aclrtFree(recvBuf);
+    if (stream) aclrtDestroyStream(stream);
+    aclFinalize();
     MPI_Finalize();
+}
+
+int main(int argc, char* argv[]) {
+    int rank = 0, size = 0;
+    HcclComm hcclComm = nullptr;
+    
+    if (InitEnv(argc, argv, rank, size, hcclComm) != 0) {
+        MPI_Finalize();
+        return -1;
+    }
+
+    uint64_t count = 1024;
+    size_t sendBytes = count * sizeof(float);
+    size_t recvBytes = count * size * sizeof(float);
+    
+    aclrtStream stream = nullptr;
+    void *sendBuf = nullptr, *recvBuf = nullptr;
+
+    if (PrepareData(rank, count, sendBytes, recvBytes, stream, sendBuf, recvBuf) == 0) {
+        Log(rank, "Starting HcclAllGatherCustom...");
+        
+        // 使用 Lambda 包装执行逻辑，避免宏(HCCLCHECK)直接 return 导致绕过 Cleanup
+        auto run_allgather = [&]() -> int {
+            HCCLCHECK(HcclAllGatherCustom(sendBuf, recvBuf, sendBytes, HCCL_DATA_TYPE_FP32, hcclComm, stream));
+            ACLCHECK(aclrtSynchronizeStream(stream));
+            return 0;
+        };
+
+        if (run_allgather() == 0) {
+            Log(rank, "HcclAllGatherCustom completed and synchronized");
+            if (VerifyResult(rank, size, count, recvBytes, recvBuf) == 0) {
+                Log(rank, "Test Passed!");
+            } else {
+                Log(rank, "Test Failed!");
+            }
+        }
+    }
+
+    // 确保任何情况下都会执行资源释放
+    Cleanup(hcclComm, sendBuf, recvBuf, stream);
     return 0;
 }
