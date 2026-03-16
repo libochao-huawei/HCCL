@@ -110,7 +110,7 @@ SelectorStatus ReduceAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNetLa
         }
         if ((IsDefaultAlg(level0Algo) || level0Algo == HcclAlgoType::HCCL_ALGO_TYPE_FULLMESH) &&
             (topoInfo->level0Topo == Level0Shape::MESH_1D)) {
-            selectAlgName = "CcuReduceNHR1DMem2Mem";
+            selectAlgName = "CcuReduceMesh1DMem2Mem";
             return SelectorStatus::MATCH;
         } else {
             HCCL_WARNING("[Algo][ReduceAutoSelector] algo[%u] is not supported yet for ccu_schedule mode, reset "
