@@ -112,7 +112,7 @@ int main(int argc, char* argv[])
 
     // Run Custom AllGather
     Log(rank, "Starting HcclAllGatherCustom...");
-    HCCLCHECK(HcclAllGatherCustom(sendBuf, recvBuf, count, HCCL_DATA_TYPE_FP32, hcclComm, stream));
+    HCCLCHECK(HcclAllGatherCustom(sendBuf, recvBuf, count * sizeof(float), HCCL_DATA_TYPE_FP32, hcclComm, stream));
     
     ACLCHECK(aclrtSynchronizeStream(stream));
     Log(rank, "HcclAllGatherCustom completed and synchronized");
