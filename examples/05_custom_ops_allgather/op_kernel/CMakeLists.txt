@@ -11,20 +11,70 @@ set(KERNEL_TMP_OBJ ${CMAKE_CURRENT_BINARY_DIR}/hccl_custom_allgather_kernels_tmp
 set(KERNEL_OBJ ${CMAKE_CURRENT_BINARY_DIR}/hccl_custom_allgather_kernels.o)
 
 set(CCE_DIR ${ASCEND_CANN_PACKAGE_PATH}/tools/ccec_compiler/bin)
+set(CANN_ARCH_BASE ${ASCEND_CANN_PACKAGE_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux)
+
+set(KERNEL_OPERATOR_HINTS
+    ${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw/interface
+    ${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw
+    ${ASCEND_CANN_PACKAGE_PATH}/tikcpp/tikcfw/interface
+    ${ASCEND_CANN_PACKAGE_PATH}/tikcpp/tikcfw
+    ${ASCEND_CANN_PACKAGE_PATH}/include/tikcpp/tikcfw/interface
+    ${ASCEND_CANN_PACKAGE_PATH}/include/tikcpp/tikcfw
+    ${CANN_ARCH_BASE}/tikcpp/tikcfw/interface
+    ${CANN_ARCH_BASE}/tikcpp/tikcfw
+)
+
+find_path(KERNEL_OPERATOR_DIR
+    NAMES kernel_operator.h
+    HINTS ${KERNEL_OPERATOR_HINTS}
+)
+
+if(NOT KERNEL_OPERATOR_DIR)
+    message(FATAL_ERROR "kernel_operator.h not found under ASCEND_CANN_PACKAGE_PATH=${ASCEND_CANN_PACKAGE_PATH}")
+endif()
+
+find_program(CCE_COMPILER
+    NAMES ccec
+    HINTS ${CCE_DIR}
+)
+
+find_program(CCE_LLD
+    NAMES ld.lld
+    HINTS ${CCE_DIR}
+)
+
+if(NOT CCE_COMPILER OR NOT CCE_LLD)
+    message(FATAL_ERROR "ccec or ld.lld not found under ${CCE_DIR}")
+endif()
 
 set(ASC_INCLUDE_FLAGS
     -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw/lib/
     -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw
     -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw/interface/
     -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw/impl/
+    -I${ASCEND_CANN_PACKAGE_PATH}/tikcpp/tikcfw
+    -I${ASCEND_CANN_PACKAGE_PATH}/tikcpp/tikcfw/interface/
+    -I${ASCEND_CANN_PACKAGE_PATH}/tikcpp/tikcfw/impl/
+    -I${CANN_ARCH_BASE}/tikcpp/tikcfw
+    -I${CANN_ARCH_BASE}/tikcpp/tikcfw/interface/
+    -I${CANN_ARCH_BASE}/tikcpp/tikcfw/impl/
+    -I${KERNEL_OPERATOR_DIR}
     -I${CMAKE_CURRENT_SOURCE_DIR}/../inc
+    -I${ASCEND_CANN_PACKAGE_PATH}/include
     -I${ASCEND_CANN_PACKAGE_PATH}/include/hccl/
     -I${ASCEND_CANN_PACKAGE_PATH}/include/mmpa
 )
 
+if(DEFINED OPS_BASE_DIR)
+    list(APPEND ASC_INCLUDE_FLAGS
+        -I${OPS_BASE_DIR}/src/ops/op_common/template/aiv/
+        -I${OPS_BASE_DIR}/src/ops/op_common/template/aiv/aiv_interface/
+    )
+endif()
+
 add_custom_command(
     OUTPUT ${KERNEL_OBJ}
-    COMMAND ${CCE_DIR}/ccec -c -x cce -O2 ${KERNEL_SRC} -o ${KERNEL_TMP_OBJ}
+    COMMAND ${CCE_COMPILER} -c -x cce -O2 ${KERNEL_SRC} -o ${KERNEL_TMP_OBJ}
         --cce-aicore-arch=dav-c310-vec
         --cce-aicore-input-parameter-size=28000
         --cce-aicore-only
@@ -35,7 +85,7 @@ add_custom_command(
         -mllvm -cce-aicore-jump-expand=true
         -std=c++17 -fstack-protector-all
         ${ASC_INCLUDE_FLAGS}
-    COMMAND ${CCE_DIR}/ld.lld -m aicorelinux -Ttext=0 ${KERNEL_TMP_OBJ} -static -o ${KERNEL_OBJ}
+    COMMAND ${CCE_LLD} -m aicorelinux -Ttext=0 ${KERNEL_TMP_OBJ} -static -o ${KERNEL_OBJ}
     DEPENDS ${KERNEL_SRC}
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     VERBATIM
