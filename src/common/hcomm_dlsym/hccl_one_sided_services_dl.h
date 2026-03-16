@@ -1,11 +1,58 @@
 #ifndef HCCL_ONE_SIDED_SERVICES_DL_H
 #define HCCL_ONE_SIDED_SERVICES_DL_H
 
-#include "hccl_one_sided_services.h"   // 原始头文件，包含所有声明和类型定义
+// #include "hccl_one_sided_services.h"   // 原始头文件，包含所有声明和类型定义
+#include <hccl/hccl_types.h>
+#include <hccl/base.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+// 需优化
+
+/**
+ * @struct HcclMem
+ * @brief 内存段元数据描述结构体
+ * @var type  - 内存物理位置类型，参见HcclMemType
+ * @var addr  - 内存虚拟地址
+ * @var size  - 内存区域字节数
+ */
+typedef struct {
+    HcclMemType type;
+    void *addr;
+    uint64_t size;
+} HcclMem;
+
+const u32 HCCL_MEM_DESC_LENGTH = 511;
+
+typedef struct {
+    char desc[HCCL_MEM_DESC_LENGTH + 1]; // 具体内容对调用者不可见
+} HcclMemDesc;
+
+typedef struct {
+    HcclMemDesc* array;
+    u32 arrayLength;
+} HcclMemDescs;
+
+typedef struct {
+    void* localAddr; // 本端VA
+    void* remoteAddr; // 远端VA
+    u64 count;
+    HcclDataType dataType;
+} HcclOneSideOpDesc;
+
+typedef enum {
+    HCCL_TOPO_FULLMESH = 0, // fullmesh连接
+    HCCL_TOPO_NUM,
+} HcclTopoType;
+
+typedef struct {
+    HcclTopoType topoType;
+    u64 rsvd0;
+    u64 rsvd1;
+    u64 rsvd2;
+} HcclPrepareConfig;
 
 #ifndef HCCL_E_NOT_SUPPORTED
 #define HCCL_E_NOT_SUPPORTED  ((HcclResult)(-2))
