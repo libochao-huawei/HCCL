@@ -35,27 +35,7 @@ constexpr uint64_t LOCAL_FLAG_BUF_LEN = 1024;
 constexpr uint64_t AIV_TAG_MOVE_RIGHT_BITS = 16;
 constexpr uint64_t LOW_16_BITS = 0xFFFF;
 
-struct ExtraArgsv2 {
-    uint64_t sendCountMatrix[MAX_RANK_SIZE * MAX_RANK_SIZE] = {};
-    uint64_t sendCounts[MAX_RANK_SIZE] = {};
-    uint64_t sendDispls[MAX_RANK_SIZE] = {};
-    uint64_t recvCounts[MAX_RANK_SIZE] = {};
-    uint64_t recvDispls[MAX_RANK_SIZE] = {};
-    uint64_t maxCount = 0;
-};
-
 // ExtraArgs is defined in extra_args.h
-
-enum class AivNotifyType {
-    ACK,
-    DataSignal,
-    Done
-};
-
-enum class CommPattern {
-    interRank,
-    intraRank
-};
 
 #define KERNEL_ARGS_DEF \
 GM_ADDR buffIn, \
@@ -91,8 +71,6 @@ constexpr uint64_t CLEAR_BUFFER_OFFSET = 1024 * 1024;
 constexpr uint64_t SYNC_BUFFER_OFFSET = 2 * 1024 * 1024;
 constexpr uint64_t BUFFER_AREA = 1024 * 1024;
 
-constexpr uint64_t AIV_PING_PONG_FACTOR_TWO = 2;
-
 constexpr uint32_t NUM_BLOCKS_FOUR_PER_RANK_A3 = 4;
 constexpr uint32_t MAX_NUM_BLOCKS = 48;
 
@@ -102,7 +80,6 @@ constexpr uint64_t UB_FLAG_SIZE_4 = UB_FLAG_SIZE * 4;
 constexpr uint64_t UB_FLAG_SIZE_8 = UB_FLAG_SIZE * 8;
 constexpr uint64_t UB_MAX_DATA_SIZE = 190 * 1024;
 constexpr uint64_t UB_DB_DATA_BATCH_SIZE = UB_MAX_DATA_SIZE / 2;
-constexpr uint32_t MaxBufferSize = 200 * 1024 * 1024;
 
 constexpr uint64_t FLAG_SIZE = 32;
 constexpr uint64_t ATOMIC_FLAG_SIZE = 512;
@@ -214,8 +191,6 @@ public:
 
     __aicore__ inline void BarrierForFirstOP();
 
-    __aicore__ inline void SyncCoreAll(int32_t curTag);
-
     __aicore__ inline void WaitFlag(uint32_t targetRank, uint64_t flag_offset, int32_t curTag);
 
     __aicore__ inline void Record(uint32_t targetRank, uint64_t flag_offset, int32_t curTag);
@@ -301,19 +276,6 @@ __aicore__ inline void AivCommBase::BarrierForFirstOP()
             uint64_t flag_offset = BASE_FLAG_OFFSET + rank_ * FLAG_SIZE;
             WaitFlag(i, flag_offset / UB_ALIGN_SIZE, DOUBLE);
         }
-    }
-}
-
-__aicore__ inline void AivCommBase::SyncCoreAll(int32_t curTag)
-{
-    pipe_barrier(PIPE_ALL);
-    uint64_t flag_offset = SYNC_CORE_OFFSET + GetBlockIdx() * FLAG_SIZE;
-    Record(rank_, flag_offset / UB_ALIGN_SIZE, curTag);
-
-    pipe_barrier(PIPE_ALL);
-    for (int i = 0; i < MAX_NUM_BLOCKS; i++) {
-        uint64_t flag_offset = SYNC_CORE_OFFSET + i * FLAG_SIZE;
-        WaitFlag(rank_, flag_offset / UB_ALIGN_SIZE, curTag);
     }
 }
 
@@ -433,26 +395,5 @@ __aicore__ inline void AivCommBase::CpGM2GM(__gm__ T *outputGM, __gm__ T *inputG
 
     return;
 }
-
-#define AIV_ATOMIC_DATA_TYPE_DEF(func) \
-    func(float); \
-    func(half); \
-    func(int16_t); \
-    func(int32_t); \
-    func(int8_t); \
-    func(bfloat16_t)
-
-#define AIV_COPY_DATA_TYPE_DEF(func) \
-    func(half); \
-    func(int16_t); \
-    func(uint16_t); \
-    func(float); \
-    func(int32_t); \
-    func(uint32_t); \
-    func(int8_t); \
-    func(uint8_t); \
-    func(bfloat16_t); \
-    func(uint64_t); \
-    func(int64_t)
 
 #endif  /* AIV_COMMUNICATION_BASE_V2_H */

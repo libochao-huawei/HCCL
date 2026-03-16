@@ -17,12 +17,9 @@
 #include "acl/acl_rt.h"
 #include "log.h"
 #include "extra_args.h"
-#include <vector>
 
 namespace ops_hccl_allgather {
 
-constexpr uint32_t NOTIFY_IDX_ACK = 0;
-constexpr uint32_t NOTIFY_IDX_DATA_SIGNAL = 1;
 constexpr uint32_t CUSTOM_TIMEOUT = 1800;
 
 constexpr uint32_t COMM_INDENTIFIER_MAX_LENGTH = 128;
@@ -30,20 +27,6 @@ constexpr uint32_t OP_NAME_LENGTH = 32;
 constexpr uint32_t TAG_LENGTH = OP_NAME_LENGTH + COMM_INDENTIFIER_MAX_LENGTH;
 
 constexpr uint64_t AIV_TAG_BUFF_LEN = 2 * 1024 * 1024; // 2MB
-
-typedef struct {
-    void *addr;
-    uint64_t size;
-} CommBuffer;
-
-struct AlgResourceCtx {
-    CommBuffer cclMem;        // Scratch buffer
-    CommBuffer aivCommInfo;   // AIV communication info buffer
-    
-    // Channels to other ranks (simplified for mesh_1d: just a list)
-    std::vector<ChannelHandle> channels;
-    std::vector<CommBuffer> remoteBuffers; // Remote buffers corresponding to channels
-};
 
 struct OpParam {
     char tag[TAG_LENGTH];
@@ -79,14 +62,7 @@ struct OpParam {
     bool isEnableCounter = false;
     
     ExtraArgs extraArgs;
-
-    // Resource Context
-    AlgResourceCtx* resCtx = nullptr;
 };
-
-constexpr uint32_t SIZE_TABLE[HCCL_DATA_TYPE_RESERVED] = {sizeof(int8_t), sizeof(int16_t), sizeof(int32_t),
-    2, sizeof(float), sizeof(int64_t), sizeof(uint64_t), sizeof(uint8_t), sizeof(uint16_t), sizeof(uint32_t),
-    8, 2, 16, 2, 1, 1, 1, 1};
 
 }
 

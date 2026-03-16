@@ -14,69 +14,11 @@
 #include <vector>
 #include <cstring>
 #include <string>
-#include <map>
 #include <hccl_rank_graph.h>
 
 using namespace ops_hccl_allgather;
 
-// --- Simplified AlgResourceCtxSerializable Definitions ---
-namespace {
-
-enum class AlgType { ALG_TYPE_RING = 0, ALG_TYPE_MESH = 1 };
-struct AlgHierarchyInfoForAllLevel {
-    std::vector<std::vector<std::vector<uint32_t>>> infos;
-};
-struct HcclMem {
-    uint32_t type;
-    void* addr;
-    uint64_t size;
-};
-struct ChannelInfo {
-    bool isValid;
-    uint32_t remoteRank;
-    CommProtocol protocol;
-    EndpointLocType locationType;
-    uint32_t notifyNum;
-    ChannelHandle handle;
-    HcclMem remoteCclMem;
-    HcclMem remoteInput;
-    HcclMem remoteOutput;
-};
-struct TopoInfoWithNetLayerDetails {
-    uint32_t userRank;
-    uint32_t userRankSize;
-};
-struct CcuKernelHandle { void* ptr; };
-
-struct AlgResourceCtxSerializable {
-    AlgType algType;
-    AlgHierarchyInfoForAllLevel algHierarchyInfo;
-    HcclMem cclMem;
-    uint32_t notifyNumOnMainThread;
-    uint32_t slaveThreadNum;
-    std::vector<uint32_t> notifyNumPerThread;
-    void* aivCommInfoPtr = nullptr;
-    std::vector<ThreadHandle> threads;
-    std::vector<std::vector<ChannelInfo>> channels;
-    void* commInfoPtr = nullptr;
-    void *npu2DpuShmemPtr = nullptr;
-    void *dpu2NpuShmemPtr = nullptr;
-    std::vector<uint32_t> ccuKernelNum;
-    std::vector<CcuKernelHandle> ccuKernels;
-    uint32_t topoInfoSeqSize = 0;
-    TopoInfoWithNetLayerDetails topoInfo;
-
-    AlgResourceCtxSerializable() {}
-};
-
-} // namespace
-
-bool CheckHCCLIndependentOp() {
-    return true;
-}
-
 constexpr uint32_t AIV_TAG_ADDR_OFFSET = 16 * 1024;
-static std::map<std::string, HcclMemHandle> g_memHandleCache;
 
 HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
     // CommEngine ctxEngine = CommEngine::COMM_ENGINE_CPU_TS;
@@ -288,9 +230,7 @@ extern "C" HcclResult HcclAllGatherCustom(void *sendBuf, void *recvBuf, uint64_t
     if (ret <= 0) return HCCL_E_INTERNAL;
     
     CHK_RET(PrepareResources(comm, param, stream));
-    
-    // AlgResourceCtxSerializable* resCtx = reinterpret_cast<AlgResourceCtxSerializable*>(param.resCtx);
-    
+        
     uint32_t rank = 0;
     uint32_t rankSize = 0;
     CHK_RET(HcclGetRankId(comm, &rank));
