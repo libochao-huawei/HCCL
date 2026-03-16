@@ -235,7 +235,7 @@ HcclResult HcclAlltoAllGraphMode(const void *sendBuf, uint64_t sendCount, HcclDa
     CHK_RET(HcclGetCommName(comm, commName));
     const string opTag = "AlltoAll_" + string(commName);
     CHK_RET(HcclCheckTag(opTag.c_str()));
-    CHK_RET(HcclCheckTag(tag.c_str()));
+    CHK_RET(HcclCheckTag(tag));
     CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), opTag.c_str());
     CHK_RET(CheckCount(recvCount));
     CHK_RET(CheckDataType(recvType, false));
@@ -298,7 +298,7 @@ HcclResult HcclAlltoAllVGraphMode(const void *sendBuf, const void *sendCounts, c
 
     const string opTag = "AlltoAllV_" + string(commName);
     CHK_RET(HcclCheckTag(opTag.c_str()));
-    CHK_RET(HcclCheckTag(tag.c_str()));
+    CHK_RET(HcclCheckTag(tag));
 
     u64 maxSendRecvCount = 0;
     for (u64 i = 0; i < rankSize; i++) {
@@ -355,7 +355,7 @@ HcclResult HcclAlltoAllVCGraphMode(const void *sendBuf, const void *sendCountMat
 
     const string opTag = "AlltoAllVC_" + string(commName);
     CHK_RET(HcclCheckTag(opTag.c_str()));
-    CHK_RET(HcclCheckTag(tag.c_str()));
+    CHK_RET(HcclCheckTag(tag));
 
     // 取出sendCountMatrix的数据
     std::vector<std::vector<u64>> outputMatrix;
