@@ -32,7 +32,6 @@ struct OpParam {
     char tag[TAG_LENGTH];
     char commName[COMM_INDENTIFIER_MAX_LENGTH];
     
-    // AIV Kernel Arguments (matching EXTERN_KERNEL_ARGS_DEF_V2)
     uint64_t buffIn = 0; // cclMem address
     uint64_t input = 0;
     uint64_t output = 0;

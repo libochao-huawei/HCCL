@@ -94,14 +94,6 @@ constexpr uint64_t FLAG_BUF_NUM = 3;
 
 constexpr uint32_t MAX_FLAG_SIZE_PER_KERNEL = 6 * MAX_RANK_SIZE * FLAG_SIZE;
 
-// enum AivReduceOp {
-//     AIV_REDUCE_SUM = 0,    /**< sum */
-//     AIV_REDUCE_PROD = 1,   /**< prod */
-//     AIV_REDUCE_MAX = 2,    /**< max */
-//     AIV_REDUCE_MIN = 3,    /**< min */
-//     AIV_REDUCE_RESERVED = 255 /**< reserved */
-// };
-
 #define BASE_FLAG_OFFSET (MAX_FLAG_SIZE_PER_KERNEL)
 
 class AivCommBase {

@@ -28,7 +28,8 @@ static aclrtFuncHandle g_funcHandle = nullptr;
 const std::string AIV_BINARY_NAME = "hccl_custom_allgather_kernels.o";
 const std::string KERNEL_NAME = "HcclAllGatherAivKernel";
 
-static HcclResult LoadBinaryFromFile(const std::string& fileName, void*& buffer, size_t& length) {
+static HcclResult LoadBinaryFromFile(const std::string& fileName, void*& buffer, size_t& length)
+{
     std::ifstream file(fileName, std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
         HCCL_ERROR("[LoadBinaryFromFile] Failed to open file: %s", fileName.c_str());
@@ -54,7 +55,8 @@ static HcclResult LoadBinaryFromFile(const std::string& fileName, void*& buffer,
     return HCCL_SUCCESS;
 }
 
-HcclResult RegisterKernel() {
+HcclResult RegisterKernel()
+{
     std::lock_guard<std::mutex> guard(g_mut);
     if (g_init) {
         return HCCL_SUCCESS;
@@ -96,7 +98,8 @@ HcclResult RegisterKernel() {
     return HCCL_SUCCESS;
 }
 
-HcclResult ExecuteKernelLaunch(const OpParam &param, aclrtStream stream) {
+HcclResult ExecuteKernelLaunch(const OpParam &param, aclrtStream stream)
+{
     if (!g_init) {
         CHK_RET(RegisterKernel());
     }

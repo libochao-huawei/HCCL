@@ -21,57 +21,6 @@ using namespace ops_hccl_allgather;
 constexpr uint32_t AIV_TAG_ADDR_OFFSET = 16 * 1024;
 
 HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
-    // CommEngine ctxEngine = CommEngine::COMM_ENGINE_CPU_TS;
-    // void* ctx = nullptr;
-    // const uint64_t ctxSize = sizeof(AlgResourceCtxSerializable);
-    // uint64_t size = ctxSize;
-    // bool isNewContext = false;
-
-    // HcclResult hcclRet = HcclEngineCtxGet(comm, param.tag, ctxEngine, &ctx, &size);
-    // if (hcclRet == HCCL_SUCCESS && ctx != nullptr && size < ctxSize) {
-    //     HCCL_ERROR("[PrepareResources] Existing context size too small. got=%llu expect=%llu", size, ctxSize);
-    //     hcclRet = HCCL_E_INTERNAL;
-    //     ctx = nullptr;
-    // }
-    // if (hcclRet != HCCL_SUCCESS || ctx == nullptr) {
-    //     HCCL_INFO("[PrepareResources] Context not found (ret=%d), creating new with COMM_ENGINE_CPU_TS...", hcclRet);
-    //     hcclRet = HcclEngineCtxCreate(comm, param.tag, ctxEngine, ctxSize, &ctx);
-    //     if (hcclRet != HCCL_SUCCESS) {
-    //         HCCL_ERROR("[PrepareResources] Failed to allocate context memory via HcclEngineCtxCreate. ret=%d", hcclRet);
-    //         return hcclRet;
-    //     }
-    //     HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
-    //     isNewContext = true;
-    //     HCCL_INFO("[PrepareResources] New Host Context %p created", ctx);
-    // } else {
-    //     HCCL_INFO("[PrepareResources] Reuse Host Context %p", ctx);
-    // }
-
-    // HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
-
-    // AlgResourceCtxSerializable* resCtx = static_cast<AlgResourceCtxSerializable*>(ctx);
-    // HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
-    // param.resCtx = reinterpret_cast<AlgResourceCtx*>(resCtx); 
-    // HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
-    // if (isNewContext) {
-    //     HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
-    //     uint32_t rank, rankSize;
-    //     CHK_RET(HcclGetRankId(comm, &rank));
-    //     HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
-    //     CHK_RET(HcclGetRankSize(comm, &rankSize));
-    //     HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
-    //     resCtx->topoInfo.userRank = rank;
-    //     HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
-    //     resCtx->topoInfo.userRankSize = rankSize;
-    //     HCCL_INFO("[PrepareResources] Rank %u, RankSize %u", rank, rankSize);
-
-    //     CHK_RET(HcclGetHcclBuffer(comm, &resCtx->cclMem.addr, &resCtx->cclMem.size));
-    //     HCCL_INFO("[PrepareResources] Got HCCL Buffer addr=%p size=%lu", resCtx->cclMem.addr, resCtx->cclMem.size);
-    // }
-
-
-    // CHK_RET(HcclGetHcclBuffer(comm, &resCtx->cclMem.addr, &resCtx->cclMem.size));
-    
     std::string aivTagStr = std::string(param.tag) + "_AIV";
     const char* aivTag = aivTagStr.c_str();
     
@@ -90,28 +39,20 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
         }
         HCCL_INFO("[PrepareResources] Created AIV buffer %p", aivCommInfoPtr);
         ACLCHECK(aclrtMemset(aivCommInfoPtr, AIV_TAG_BUFF_LEN, 0, AIV_TAG_BUFF_LEN));
-        HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
         
         CommMem regMem{COMM_MEM_TYPE_DEVICE, aivCommInfoPtr, AIV_TAG_BUFF_LEN};
-        HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
         hcclRet = HcclCommMemReg(comm, aivTag, &regMem, &memHandle);
-        HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
         if (hcclRet != HCCL_SUCCESS) {
              HCCL_ERROR("[PrepareResources] Failed to register memory. ret=%d", hcclRet);
              return hcclRet;
         }
         HCCL_INFO("[PrepareResources] Registered AIV memory handle");
     }
-
-
     
     uint32_t rank = 0;
     uint32_t rankSize = 0;
     CHK_RET(HcclGetRankId(comm, &rank));
     CHK_RET(HcclGetRankSize(comm, &rankSize));
-
-
-    
 
     void* cclBufferAddr;
     uint64_t cclBufferSize;
@@ -124,85 +65,74 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
     buffersIn[rank] = cclBufferAddr;
     buffersOut[rank] = aivCommInfoPtr;
 
+    // 获取子通信域的建链请求
 
-    
-    // 迭代每个子通信域的建链请求，创建链路
-    // for (u32 level = 0; level < resRequest.channels.size(); level++) {
-        // 获取子通信域的建链请求
+    std::vector<HcclChannelDesc> level0ChannelRequest;
+    level0ChannelRequest.reserve(rankSize);
 
-        std::vector<HcclChannelDesc> level0ChannelRequest;
-        level0ChannelRequest.reserve(rankSize);
+    for (size_t remoteRank = 0; remoteRank < rankSize; remoteRank++)
+    {
+        if (remoteRank == rank) continue;
 
-
-        // std::vector<HcclChannelDesc> &levelNChannelRequest = resRequest.channels[level];
-        // for (auto &channelDesc : level0ChannelRequest) {
-        
-        for (size_t remoteRank = 0; remoteRank < rankSize; remoteRank++)
-        {
-            if (remoteRank == rank) continue;
-
-            uint32_t netLayer = 0;
-            CommLink *linkList = nullptr;
-            uint32_t listSize;
-            CHK_RET(HcclRankGraphGetLinks(comm, netLayer, rank, remoteRank, &linkList, &listSize));
-            for (uint32_t idx = 0; idx < listSize; idx++) {
-                HcclChannelDesc channelDesc;
-                HcclChannelDescInit(&channelDesc, 1);
-                channelDesc.memHandles = &memHandle;
-                channelDesc.memHandleNum = 1;
-                channelDesc.remoteRank = remoteRank;
-                CommLink link = linkList[idx];
-                channelDesc.localEndpoint.protocol = link.srcEndpointDesc.protocol;
-                channelDesc.localEndpoint.commAddr = link.srcEndpointDesc.commAddr;
-                channelDesc.localEndpoint.loc = link.srcEndpointDesc.loc;
-                channelDesc.remoteEndpoint.protocol = link.dstEndpointDesc.protocol;
-                channelDesc.remoteEndpoint.commAddr = link.dstEndpointDesc.commAddr;
-                channelDesc.remoteEndpoint.loc = link.dstEndpointDesc.loc;
-                HCCL_DEBUG("[CalcChannelRequestMesh1D] local device phyId: %u, remote device phyId: %u.",
-                            channelDesc.localEndpoint.loc.device.devPhyId,
-                            channelDesc.remoteEndpoint.loc.device.devPhyId);
-                HCCL_INFO("[CalcChannelRequestMesh1D] Add channel request between %zu and %zu, netLayerIdx %u, "
-                            "linkListIdx %u, protocol %zu",
-                            rank, channelDesc.remoteRank, netLayer, idx, channelDesc.remoteEndpoint.protocol);
-                channelDesc.channelProtocol = link.linkAttr.linkProtocol;
-                constexpr uint32_t NORMAL_NOTIFY_NUM = 3;
-                channelDesc.notifyNum = NORMAL_NOTIFY_NUM;
-                level0ChannelRequest.push_back(channelDesc);
-            }
+        uint32_t netLayer = 0;
+        CommLink *linkList = nullptr;
+        uint32_t listSize;
+        CHK_RET(HcclRankGraphGetLinks(comm, netLayer, rank, remoteRank, &linkList, &listSize));
+        for (uint32_t idx = 0; idx < listSize; idx++) {
+            HcclChannelDesc channelDesc;
+            HcclChannelDescInit(&channelDesc, 1);
+            channelDesc.memHandles = &memHandle;
+            channelDesc.memHandleNum = 1;
+            channelDesc.remoteRank = remoteRank;
+            CommLink link = linkList[idx];
+            channelDesc.localEndpoint.protocol = link.srcEndpointDesc.protocol;
+            channelDesc.localEndpoint.commAddr = link.srcEndpointDesc.commAddr;
+            channelDesc.localEndpoint.loc = link.srcEndpointDesc.loc;
+            channelDesc.remoteEndpoint.protocol = link.dstEndpointDesc.protocol;
+            channelDesc.remoteEndpoint.commAddr = link.dstEndpointDesc.commAddr;
+            channelDesc.remoteEndpoint.loc = link.dstEndpointDesc.loc;
+            HCCL_DEBUG("[CalcChannelRequestMesh1D] local device phyId: %u, remote device phyId: %u.",
+                        channelDesc.localEndpoint.loc.device.devPhyId,
+                        channelDesc.remoteEndpoint.loc.device.devPhyId);
+            HCCL_INFO("[CalcChannelRequestMesh1D] Add channel request between %zu and %zu, netLayerIdx %u, "
+                        "linkListIdx %u, protocol %zu",
+                        rank, channelDesc.remoteRank, netLayer, idx, channelDesc.remoteEndpoint.protocol);
+            channelDesc.channelProtocol = link.linkAttr.linkProtocol;
+            constexpr uint32_t NORMAL_NOTIFY_NUM = 3;
+            channelDesc.notifyNum = NORMAL_NOTIFY_NUM;
+            level0ChannelRequest.push_back(channelDesc);
         }
+    }
 
-    // 迭代每个子通信域的建链请求，创建链路
-        // 获取子通信域的建链数量
-        uint32_t validChannelNum = level0ChannelRequest.size();
-        std::vector<ChannelHandle> levelNChannels;
-        levelNChannels.resize(validChannelNum);
+    // 获取子通信域的建链数量
+    uint32_t validChannelNum = level0ChannelRequest.size();
+    std::vector<ChannelHandle> levelNChannels;
+    levelNChannels.resize(validChannelNum);
 
-        if (validChannelNum > 0) {
-            HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
-            CHK_RET(HcclChannelAcquire(comm, CommEngine::COMM_ENGINE_AIV, level0ChannelRequest.data(),
-                validChannelNum, levelNChannels.data()));
-            HCCL_INFO("[PrepareResources] (line=%d)", __LINE__);
-        }
+    if (validChannelNum > 0) {
+        CHK_RET(HcclChannelAcquire(comm, CommEngine::COMM_ENGINE_AIV, level0ChannelRequest.data(),
+            validChannelNum, levelNChannels.data()));
+    }
 
-        for (uint32_t idx = 0; idx < validChannelNum; idx++) {
-            HcclChannelDesc &channelDesc = level0ChannelRequest[idx];
-            void* remoteBufferAddr;
-            uint64_t remoteBufferSize;
-            CHK_RET(HcclChannelGetHcclBuffer(comm, levelNChannels[idx], &remoteBufferAddr, &remoteBufferSize));
-            HCCL_INFO("[%s]remoteRank[%u] cclBufferAddr[%p] cclBufferSize[%llu]", __func__, channelDesc.remoteRank,
-                remoteBufferAddr, remoteBufferSize);
-            buffersIn[channelDesc.remoteRank] = remoteBufferAddr;
+    for (uint32_t idx = 0; idx < validChannelNum; idx++) {
+        HcclChannelDesc &channelDesc = level0ChannelRequest[idx];
+        void* remoteBufferAddr;
+        uint64_t remoteBufferSize;
+        CHK_RET(HcclChannelGetHcclBuffer(comm, levelNChannels[idx], &remoteBufferAddr, &remoteBufferSize));
+        HCCL_INFO("[%s]remoteRank[%u] cclBufferAddr[%p] cclBufferSize[%llu]", __func__, channelDesc.remoteRank,
+            remoteBufferAddr, remoteBufferSize);
+        buffersIn[channelDesc.remoteRank] = remoteBufferAddr;
 
-            uint32_t memNum;
-            CommMem* remoteMems;
-            char** memTags;
-            CHK_RET(HcclChannelGetRemoteMems(comm, levelNChannels[idx], &memNum, &remoteMems, &memTags));
-            CHK_PRT_RET(memNum != 1,
-                HCCL_ERROR("[%s] HcclChannelGetRemoteMems memNum[%u] not equal to 1", __func__, memNum), HCCL_E_PARA);
-            HCCL_INFO("[%s]remoteRank[%u] memNum[%u] regMemAddr[%p] regMemSize[%llu] memTag[%s]", __func__,
-                channelDesc.remoteRank, memNum, remoteMems[0].addr, remoteMems[0].size, memTags[0]);
-            buffersOut[channelDesc.remoteRank] = remoteMems[0].addr;
-        }
+        uint32_t memNum;
+        CommMem* remoteMems;
+        char** memTags;
+        CHK_RET(HcclChannelGetRemoteMems(comm, levelNChannels[idx], &memNum, &remoteMems, &memTags));
+        CHK_PRT_RET(memNum != 1,
+            HCCL_ERROR("[%s] HcclChannelGetRemoteMems memNum[%u] not equal to 1", __func__, memNum), HCCL_E_PARA);
+        HCCL_INFO("[%s]remoteRank[%u] memNum[%u] regMemAddr[%p] regMemSize[%llu] memTag[%s]", __func__,
+            channelDesc.remoteRank, memNum, remoteMems[0].addr, remoteMems[0].size, memTags[0]);
+        buffersOut[channelDesc.remoteRank] = remoteMems[0].addr;
+    }
 
     param.buffIn = (uint64_t)aivCommInfoPtr;
     ACLCHECK(aclrtMemcpy(aivCommInfoPtr, MAX_RANK_SIZE * sizeof(void*), buffersIn, MAX_RANK_SIZE * sizeof(void*),
