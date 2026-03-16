@@ -20,7 +20,7 @@ TopoMatchUBX::~TopoMatchUBX()
 {
 }
 
-HcclResult TopoMatchUBX::TopoForLayer0(const HcclComm comm, const uint32_t &layer0Size, const uint32_t myRank,
+HcclResult TopoMatchUBX::TopoForLayer0(const HcclComm comm, uint32_t &layer0Size, const uint32_t myRank,
                                                   AlgHierarchyInfoForAllLevel& algHierarchyInfo) const
 {
 #ifndef AICPU_COMPILE
