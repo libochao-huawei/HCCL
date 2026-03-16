@@ -46,10 +46,10 @@ make
 make test
 ```
 
-> 注意：可通过设置 `[HCCL_OP_EXPANSION_MODE` 环境变量配置通信算法的任务编排展开位置，不同产品型号支持的范围可参考[集合通信库用户指南](https://hiascend.com/document/redirect/CannCommunityHcclUg) 中该环境变量的使用方法。
+> 注意：可通过设置 `[HCCL_OP_EXPANSION_MODE` 环境变量配置通信算子的展开模式，不同产品型号支持的范围可参考[集合通信库环境变量列表](https://hiascend.com/document/redirect/CannCommercialEnvvar) 中该环境变量的使用方法。
 >
 > ```bash
-> # 设置通信算法的编排展开位置在Device侧的AI CPU，Device侧根据硬件型号自动选择相应的调度器
+> # 设置通信算子的展开模式为AI CPU通信引擎
 > export HCCL_OP_EXPANSION_MODE=AI_CPU
 > ```
 
