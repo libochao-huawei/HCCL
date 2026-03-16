@@ -77,6 +77,9 @@ HcclResult HcclCalcOpResOnlineGraphMode(OpParamGraphMode *opParam, u64 *opMemSiz
     // aicpu引擎计算资源
     ops_hccl::HcclCalcAicpuResOffline(&resResponse);
 
+    // ccu引擎计算资源
+    ops_hccl::HcclCalcCcuResOffline(&resResponse);
+
     // 其他引擎补充在下面
 
     // 将结果复制到输出参数
@@ -117,6 +120,9 @@ HcclResult HcclCalcOpResOfflineGraphMode(OpParamGraphMode *opParam, u64 *opMemSi
     // aicpu引擎计算资源
     ops_hccl::HcclCalcAicpuResOffline(&resResponse);
 
+    // ccu引擎计算资源
+    ops_hccl::HcclCalcCcuResOffline(&resResponse);
+
     // 其他引擎补充在下面
 
     // 将结果复制到输出参数
@@ -141,6 +147,22 @@ HcclResult HcclCalcAicpuResOffline(ResResponseGraphMode *resResponse)
     resResponse->opMemSize = std::max(resResponse->opMemSize, aicpuOpMemSize);
     resResponse->streamNum = std::max(resResponse->streamNum, aicpuStreamNum);
     resResponse->taskNum = std::max(resResponse->taskNum, aicpuTaskNum);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclCalcCcuResOffline(ResResponseGraphMode *resResponse)
+{
+    if (resResponse == nullptr) {
+        return HCCL_E_PARA;
+    }
+    // ccu的资源申请
+    u64 ccuOpMemSize = 0;
+    u32 ccuStreamNum = 0;
+    u32 ccuTaskNum = 3;
+
+    resResponse->opMemSize = std::max(resResponse->opMemSize, ccuOpMemSize);
+    resResponse->streamNum = std::max(resResponse->streamNum, ccuStreamNum);
+    resResponse->taskNum = std::max(resResponse->taskNum, ccuTaskNum);
     return HCCL_SUCCESS;
 }
 } // namespace ops_hccl
