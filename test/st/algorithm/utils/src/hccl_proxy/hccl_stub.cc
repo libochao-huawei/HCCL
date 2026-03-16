@@ -25,6 +25,7 @@
 #include "sim_task_queue.h"
 #include "sim_channel.h"
 #include "alg_param.h"
+#include "hcomm_diag.h"
 
 using namespace ops_hccl;
 
@@ -113,8 +114,9 @@ HcclResult HcclRankGraphGetTopoType(HcclComm comm, uint32_t netLayer, uint32_t t
 
 HcclResult HcclRankGraphGetEndpointInfo(HcclComm comm, uint32_t rankId, const EndpointDesc *endpointDesc, EndpointAttr endpointAttr, uint32_t infoLen, void *info)
 {
-    HCCL_ERROR("[%s] not support", __func__);
-    return HCCL_E_NOT_SUPPORT;
+    uint32_t* intInfo = static_cast<uint32_t*>(info);
+    *intInfo = 0;
+    return HCCL_SUCCESS;
 }
 
 HcclResult HcclRankGraphGetEndpointNum(HcclComm comm, uint32_t layer, uint32_t topoInstId, uint32_t *num)
@@ -267,6 +269,13 @@ HcclResult HcclReduceInner(void *sendBuf, void *recvBuf, uint64_t count, HcclDat
 }
 
 HcclResult HcclBatchSendRecvInner(HcclSendRecvItem *sendRecvInfo, uint32_t itemNum, HcclComm comm, aclrtStream stream)
+{
+    HCCL_ERROR("[%s] not support", __func__);
+    return HCCL_E_NOT_SUPPORT;
+}
+
+HcclResult HcclCreateOpResCtxInner(HcclComm comm, uint8_t opType, HcclDataType srcDataType, HcclDataType dstDataType,
+    HcclReduceOp reduceType, uint64_t count, char *algConfig, uint32_t commEngine, void **opResCtx)
 {
     HCCL_ERROR("[%s] not support", __func__);
     return HCCL_E_NOT_SUPPORT;
@@ -826,7 +835,7 @@ HcclResult HcclCommMemReg(HcclComm comm, const char *memTag, const CommMem *mem,
 
 HcclResult HcclThreadExportToCommEngine(HcclComm comm, uint32_t threadNum, const ThreadHandle *threads, CommEngine dstCommEngine, ThreadHandle *exportedThreads)
 {
-    HCCL_WARNING("[%s] not support.", __func__);
+    *exportedThreads = *const_cast<const ThreadHandle*>(threads);
     return HCCL_SUCCESS;
 }
 
@@ -854,6 +863,65 @@ HcclResult HcommProfilingReportKernel(uint64_t beginTime, const char *profName)
 }
 
 HcclResult HcommProfilingReportOp(HcomProInfo proInfo)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcommRegOpInfo(const char* commId, void* opInfo, size_t size)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcommRegOpTaskException(const char* commId, HcommGetOpInfoCallback callback)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclDfxRegOpInfo(HcclComm comm, void* dfxOpInfo)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclProfilingReportOp(HcclComm comm, uint64_t beginTime)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclReportAicpuKernel(HcclComm comm, uint64_t beginTime, char *kernelName)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcommProfilingReportDeviceOp(const char* groupname)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+HcclResult HcommProfilingReportKernelStartTask(uint64_t thread, const char* groupname)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcommProfilingReportKernelEndTask(uint64_t thread, const char* groupname)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcommProfilingReportMainStreamAndFirstTask(ThreadHandle thread)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcommProfilingReportMainStreamAndLastTask(ThreadHandle thread)
 {
     HCCL_WARNING("[%s] not support.", __func__);
     return HCCL_SUCCESS;

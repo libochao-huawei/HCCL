@@ -544,7 +544,7 @@ HcclResult CalculateServersPerSuperPod(const std::vector<uint32_t> &l0Sizes,
     return HCCL_SUCCESS;
 }
 
-HcclResult CalcLevel0TopoShape(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo)
+HcclResult CalcLevel0TopoShape(const HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo)
 {
     static_cast<void>(comm);
     u32 netLayer = 0;
@@ -603,7 +603,7 @@ HcclResult CalcTopoShape(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo)
     return HCCL_SUCCESS;
 }
 
-HcclResult ExtractNetLayerDetails(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo)
+HcclResult ExtractNetLayerDetails(const HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo)
 {
     CHK_PRT_RET(comm == nullptr, HCCL_ERROR("[Topo][ExtractNetLayerDetails] comm is null"), HCCL_E_PTR);
 
@@ -747,7 +747,7 @@ HcclResult Is2DieFullMesh(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo)
     u32 dieNum = 2;  // 一共2个die
     std::vector<u32> dieLinkCounter(dieNum, 0);
     for (uint32_t rankIdx = 0; rankIdx < rankNum; rankIdx++) {
-        if (rankIdx == myRank) {
+        if (ranks[rankIdx] == myRank) {
             continue;
         }
         CommLink *links = nullptr;
@@ -806,7 +806,7 @@ HcclResult CalcLevel0MeshType(HcclComm comm, TopoInfoWithNetLayerDetails *topoIn
     u32 dieNum = 2;  // 一共2个die
     std::vector<u32> dieLinkCounter(dieNum, 0);
     for (uint32_t rankIdx = 0; rankIdx < rankNum; rankIdx++) {
-        if (myRank == rankIdx) {
+        if (myRank == ranks[rankIdx]) {
             continue;
         }
         CommLink *links = nullptr;
