@@ -9,15 +9,15 @@
  */
 
 #include <iostream>
+#include <sstream>
+#include <iomanip>
 #include <vector>
 #include <cstring>
 #include <cmath>
-#include <cstdarg>
 #include <sys/time.h>
 #include <mpi.h>
 #include <unistd.h>
 
-#include "securec.h"
 #include "acl/acl.h"
 #include "hccl/hccl.h"
 #include "hccl/hccl_types.h"
@@ -41,26 +41,30 @@
         }                                                                                      \
     } while (0)
 
-// Helper for logging with timestamp and rank
-void Log(int rank, const char* fmt, ...) {
-    char buf[1024];
-    va_list args;
-    va_start(args, fmt);
+inline void BuildLogString(std::ostringstream& oss) {}
 
-    int ret = vsnprintf_s(buf, sizeof(buf), sizeof(buf) - 1, fmt, args);
-    va_end(args);
-
-    if (ret < 0) {
-        printf("[ERROR] [Rank %d] Log formatting failed! ret: %d\n", rank, ret);
-        return;
-    }
-
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    printf("[%ld.%06ld] [Rank %d] %s\n", tv.tv_sec, tv.tv_usec, rank, buf);
+template<typename T, typename... Args>
+inline void BuildLogString(std::ostringstream& oss, const T& first, const Args&... args) {
+    oss << first;
+    BuildLogString(oss, args...);
 }
 
-// 1. 初始化 MPI、ACL 和 HCCL 通信域
+template<typename... Args>
+void Log(int rank, const Args&... args) {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    
+    std::ostringstream oss;
+    
+    oss << "[" << tv.tv_sec << "." 
+        << std::setfill('0') << std::setw(6) << tv.tv_usec 
+        << "] [Rank " << rank << "] ";
+    
+    BuildLogString(oss, args...);
+    
+    std::cout << oss.str() << std::endl;
+}
+
 int InitEnv(int argc, char* argv[], int& rank, int& size, HcclComm& hcclComm) {
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -91,7 +95,6 @@ int InitEnv(int argc, char* argv[], int& rank, int& size, HcclComm& hcclComm) {
     return 0;
 }
 
-// 2. 准备内存和测试数据
 int PrepareData(int rank, uint64_t count, size_t sendBytes, size_t recvBytes, 
                 aclrtStream& stream, void*& sendBuf, void*& recvBuf) {
     ACLCHECK(aclrtCreateStream(&stream));
@@ -105,7 +108,6 @@ int PrepareData(int rank, uint64_t count, size_t sendBytes, size_t recvBytes,
     return 0;
 }
 
-// 3. 校验 AllGather 结果
 int VerifyResult(int rank, int size, uint64_t count, size_t recvBytes, void* recvBuf) {
     std::vector<float> hostRecv(count * size);
     ACLCHECK(aclrtMemcpy(hostRecv.data(), recvBytes, recvBuf, recvBytes, ACL_MEMCPY_DEVICE_TO_HOST));
@@ -122,7 +124,6 @@ int VerifyResult(int rank, int size, uint64_t count, size_t recvBytes, void* rec
     return 0;
 }
 
-// 4. 统一清理资源
 void Cleanup(HcclComm hcclComm, void* sendBuf, void* recvBuf, aclrtStream stream) {
     if (hcclComm) HcclCommDestroy(hcclComm);
     if (sendBuf) aclrtFree(sendBuf);

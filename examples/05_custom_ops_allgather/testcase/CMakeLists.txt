@@ -25,7 +25,6 @@ target_link_libraries(test_custom_allgather PRIVATE
     ascendcl
     hccl
     hccl_custom_allgather
-    securec
     MPI::MPI_CXX
 )
 
