@@ -121,7 +121,7 @@ HcclResult HcclReduceScatterVGraphMode(void *sendBuf,  const void *sendCounts, c
     resPack.scratchMemSize = scratchMemSize;
 
     // 执行
-    CHK_RET_AND_PRINT_IDE(ReduceScatterVOutPlaceGraphMode(sendBuf, recvBuf, sendCount, dataType, comm, stream, tag, resPack), opTag);
+    CHK_RET_AND_PRINT_IDE(ReduceScatterVOutPlaceGraphMode(sendBuf, sendDispls, sendCounts, recvBuf, recvCount, dataType, op, comm, stream, tag, resPack), opTag);
 
     return HCCL_SUCCESS;
 }
@@ -162,33 +162,7 @@ HcclResult CheckReduceScatterVInputPara(
 }
 
 HcclResult PrepareReduceScatterVParam(void *sendBuf, const void *sendDispls, const void *sendCounts, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
-    HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag, OpMode opMode) {
-    u32 userRankSize;
-    CHK_RET(HcclGetRankSize(comm, &userRankSize));
-
-    u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
-    u64 outputSize = recvCount * perDataSize;
-    u64 inputSize = outputSize * userRankSize;
-
-    // 申请OpParam参数结构体内存
-    u64 varMemSize = 2 * userRankSize * sizeof(u64);
-
-    void* paramMem = malloc(sizeof(OpParam) + varMemSize);
-
-    if (!paramMem) {
-        // 内存分配失败
-        HCCL_ERROR("[ReduceScatterVOutPlace] malloc OpParam failed!");
-        return HCCL_E_INTERNAL;
-    }
-    OpParam* tmpParamPtr = new (paramMem) OpParam();
-    auto deleter = [](OpParam* p) {
-        if (p) {
-            p->~OpParam();
-            free(p);
-        }
-     };
-    std::unique_ptr<OpParam, decltype(deleter)> paramPtr(tmpParamPtr, deleter);
-    OpParam& param = *paramPtr;
+    HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag, OpMode opMode, u32 userRankSize, OpParam &param) {
 
     CHK_RET(HcclGetCommName(comm, param.commName));
     param.stream = stream;
@@ -233,7 +207,32 @@ HcclResult ReduceScatterVOutPlace(void *sendBuf, const void *sendDispls, const v
     HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag)
 {
     HCCL_INFO("Start to execute ReduceScatterVOutPlace");
-    PrepareReduceScatterVParam(sendBuf, sendDispls, sendCounts, recvBuf, recvCount, dataType, op, comm, stream, tag, OpMode::OPBASE);
+    u32 userRankSize;
+    CHK_RET(HcclGetRankSize(comm, &userRankSize));
+        u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
+    u64 outputSize = recvCount * perDataSize;
+    u64 inputSize = outputSize * userRankSize;
+
+    // 申请OpParam参数结构体内存
+    u64 varMemSize = 2 * userRankSize * sizeof(u64);
+
+    void* paramMem = malloc(sizeof(OpParam) + varMemSize);
+
+    if (!paramMem) {
+        // 内存分配失败
+        HCCL_ERROR("[ReduceScatterVOutPlace] malloc OpParam failed!");
+        return HCCL_E_INTERNAL;
+    }
+    OpParam* tmpParamPtr = new (paramMem) OpParam();
+    auto deleter = [](OpParam* p) {
+        if (p) {
+            p->~OpParam();
+            free(p);
+        }
+     };
+    std::unique_ptr<OpParam, decltype(deleter)> paramPtr(tmpParamPtr, deleter);
+    OpParam& param = *paramPtr;
+    CHK_RET(PrepareReduceScatterVParam(sendBuf, sendDispls, sendCounts, recvBuf, recvCount, dataType, op, comm, stream, tag, OpMode::OPBASE, userRankSize, param));
 
     if (userRankSize == 1) {
         HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
@@ -253,7 +252,32 @@ HcclResult ReduceScatterVOutPlaceGraphMode(void *sendBuf, const void *sendDispls
     HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack)
 {
     HCCL_INFO("Start to execute ReduceScatterVOutPlaceGraphMode");
-    PrepareReduceScatterVParam(sendBuf, sendDispls, sendCounts, recvBuf, recvCount, dataType, op, comm, stream, tag, OpMode::OFFLOAD);
+    u32 userRankSize;
+    CHK_RET(HcclGetRankSize(comm, &userRankSize));
+        u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
+    u64 outputSize = recvCount * perDataSize;
+    u64 inputSize = outputSize * userRankSize;
+
+    // 申请OpParam参数结构体内存
+    u64 varMemSize = 2 * userRankSize * sizeof(u64);
+
+    void* paramMem = malloc(sizeof(OpParam) + varMemSize);
+
+    if (!paramMem) {
+        // 内存分配失败
+        HCCL_ERROR("[ReduceScatterVOutPlace] malloc OpParam failed!");
+        return HCCL_E_INTERNAL;
+    }
+    OpParam* tmpParamPtr = new (paramMem) OpParam();
+    auto deleter = [](OpParam* p) {
+        if (p) {
+            p->~OpParam();
+            free(p);
+        }
+     };
+    std::unique_ptr<OpParam, decltype(deleter)> paramPtr(tmpParamPtr, deleter);
+    OpParam& param = *paramPtr;
+    PrepareReduceScatterVParam(sendBuf, sendDispls, sendCounts, recvBuf, recvCount, dataType, op, comm, stream, tag, OpMode::OFFLOAD, userRankSize, param);
     if (userRankSize == 1) {
         HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
         CHK_RET(SingleRankProc(param));
