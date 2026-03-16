@@ -35,7 +35,6 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
     return HCCL_SUCCESS;
 }
 
-
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::CalcRes(
     HcclComm comm, const OpParam& param,
@@ -349,6 +348,7 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::PrepareThreadFromTemplate(
     std::shared_ptr<InsAlgTemplate0> &tempAlg0, std::shared_ptr<InsAlgTemplate1> &tempAlg1)
 {
+    (void)tempAlg1;
     // 流的数量
     u64 meshThreadsNum = tempAlg0->GetThreadNum(); // check流数
     temp0Threads_.assign(threads_.begin(), threads_.begin() + meshThreadsNum); // 从0开始前meshThreadNum是mesh的流

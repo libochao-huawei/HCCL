@@ -181,6 +181,7 @@ add_library(scatter_aicpu_kernel SHARED
     ${HCCL_DEV_BASE}/src/ops/op_common/topo/topo_match_1d.cc
     ${HCCL_DEV_BASE}/src/ops/op_common/topo/topo_match_base.cc
     ${HCCL_DEV_BASE}/src/ops/op_common/topo/topo_match_multilevel.cc
+    ${HCCL_DEV_BASE}/src/ops/op_common/topo/topo_match_ubx.cc
 
     ${HCCL_DEV_BASE}/src/ops/scatter/algo/scatter_comm_executor.cc
     ${HCCL_DEV_BASE}/src/ops/scatter/algo/scatter_executor_base.cc
@@ -201,11 +202,10 @@ add_library(scatter_aicpu_kernel SHARED
 
     ${HCCL_DEV_BASE}/src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sole_executor.cc
     ${HCCL_DEV_BASE}/src/ops/reduce_scatter/executor/ins_reduce_scatter_parallel_executor.cc
-    # ${HCCL_DEV_BASE}/src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor.cc
+    ${HCCL_DEV_BASE}/src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor.cc
     ${HCCL_DEV_BASE}/src/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_mesh_1D.cc
     ${HCCL_DEV_BASE}/src/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_nhr.cc
     ${HCCL_DEV_BASE}/src/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_mesh_1D_meshchunk.cc
-    # ${HCCL_DEV_BASE}/src/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_nhr_dpu.cc
 
     ${HCCL_DEV_BASE}/src/ops/all_gather/executor/ins_v2_all_gather_sole_executor.cc
     ${HCCL_DEV_BASE}/src/ops/all_gather/executor/ins_v2_all_gather_parallel_executor.cc

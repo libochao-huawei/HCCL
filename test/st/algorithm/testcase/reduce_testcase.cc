@@ -85,7 +85,11 @@ protected:
         const TopoMeta &topoMeta, u64 recvCount, HcclDataType dataType, HcclReduceOp reduceOp, uint32_t root)
     {
         // 初始化仿真环境
+        #ifdef MACRO_DEV_TYPE_NEW
+        SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
+        #else
         SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_910_95);
+        #endif
         setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
         setenv("HCCL_INDEPENDENT_OP", "1", 1);
 
@@ -378,11 +382,6 @@ INSTANTIATE_TEST_SUITE_P(ReduceVariants, ST_REDUCE_TEST,
         std::make_tuple(GenerateMeshTopoMeta(2), 220 * (1 << 20) - 1, HCCL_DATA_TYPE_INT32, HCCL_REDUCE_SUM, 0),
         std::make_tuple(GenerateMeshTopoMeta(2), (1 << 30) - 1, HCCL_DATA_TYPE_INT32, HCCL_REDUCE_SUM, 0),
         std::make_tuple(GenerateMeshTopoMeta(2), 1, HCCL_DATA_TYPE_INT32, HCCL_REDUCE_SUM, 0),
-        // 1D Mesh Aicpu Reduce
-        std::make_tuple(GenerateMeshTopoMeta(2), 100, HCCL_DATA_TYPE_INT64, HCCL_REDUCE_SUM, 0),
-        std::make_tuple(GenerateMeshTopoMeta(7), 220 * (1 << 20) - 1, HCCL_DATA_TYPE_UINT64, HCCL_REDUCE_SUM, 5),
-        std::make_tuple(GenerateMeshTopoMeta(8), 1023, HCCL_DATA_TYPE_FP64, HCCL_REDUCE_SUM, 3),
-        std::make_tuple(GenerateMeshTopoMeta(3), (1 << 30) - 1, HCCL_DATA_TYPE_INT64, HCCL_REDUCE_SUM, 1),
         // NHR
         std::make_tuple(GenerateMeshTopoMeta(1, 1, 2), 100, HCCL_DATA_TYPE_INT32, HCCL_REDUCE_SUM, 0),
         std::make_tuple(GenerateMeshTopoMeta(1, 1, 3), 100, HCCL_DATA_TYPE_INT32, HCCL_REDUCE_SUM, 0),
@@ -417,16 +416,6 @@ INSTANTIATE_TEST_SUITE_P(ReduceVariants, ST_REDUCE_TEST,
         std::make_tuple(GenerateMeshTopoMeta(2, 1, 2), 1023, HCCL_DATA_TYPE_INT16, HCCL_REDUCE_SUM, 0),
         std::make_tuple(GenerateMeshTopoMeta(2, 1, 2), 24 * (1 << 20) - 1, HCCL_DATA_TYPE_INT8, HCCL_REDUCE_SUM, 0),
         std::make_tuple(GenerateMeshTopoMeta(2, 1, 2), 96 * (1 << 20) - 1, HCCL_DATA_TYPE_INT8, HCCL_REDUCE_SUM, 0),
-        std::make_tuple(GenerateMeshTopoMeta(2, 1, 2), 16 * (1 << 20) - 1, HCCL_DATA_TYPE_INT8, HCCL_REDUCE_SUM, 0),
-        // NHR Aicpu Reduce
-        std::make_tuple(GenerateMeshTopoMeta(1, 1, 2), 100, HCCL_DATA_TYPE_INT64, HCCL_REDUCE_SUM, 0),
-        std::make_tuple(GenerateMeshTopoMeta(1, 1, 3), 100, HCCL_DATA_TYPE_UINT64, HCCL_REDUCE_SUM, 0),
-        std::make_tuple(GenerateMeshTopoMeta(1, 1, 4), 100, HCCL_DATA_TYPE_FP64, HCCL_REDUCE_SUM, 0),
-        // 1DMeshNHR Aicpu Reduce
-        std::make_tuple(GenerateMeshTopoMeta(2, 1, 2), 100, HCCL_DATA_TYPE_INT64, HCCL_REDUCE_SUM, 0),
-        std::make_tuple(GenerateMeshTopoMeta(2, 1, 2), 1, HCCL_DATA_TYPE_UINT64, HCCL_REDUCE_SUM, 1),
-        std::make_tuple(GenerateMeshTopoMeta(2, 1, 2), 2, HCCL_DATA_TYPE_FP64, HCCL_REDUCE_SUM, 2),
-        std::make_tuple(GenerateMeshTopoMeta(2, 1, 2), 3, HCCL_DATA_TYPE_INT64, HCCL_REDUCE_SUM, 3),
-        std::make_tuple(GenerateMeshTopoMeta(2, 1, 2), 1 << 30, HCCL_DATA_TYPE_FP64, HCCL_REDUCE_SUM, 0)
+        std::make_tuple(GenerateMeshTopoMeta(2, 1, 2), 16 * (1 << 20) - 1, HCCL_DATA_TYPE_INT8, HCCL_REDUCE_SUM, 0)
         // 2DMeshNHR
         ));

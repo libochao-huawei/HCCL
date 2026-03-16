@@ -20,8 +20,8 @@ TopoMatchUBX::~TopoMatchUBX()
 {
 }
 
-HcclResult TopoMatchUBX::TopoForLayer0(const HcclComm comm, uint32_t &layer0Size, uint32_t myRank,
-                                                  AlgHierarchyInfoForAllLevel& algHierarchyInfo)
+HcclResult TopoMatchUBX::TopoForLayer0(const HcclComm comm, uint32_t &layer0Size, const uint32_t myRank,
+                                                  AlgHierarchyInfoForAllLevel& algHierarchyInfo) const
 {
 #ifndef AICPU_COMPILE
     uint32_t *topoInsts;
@@ -65,8 +65,8 @@ HcclResult TopoMatchUBX::TopoForLayer0(const HcclComm comm, uint32_t &layer0Size
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult TopoMatchUBX::TopoForLayer1(const HcclComm comm, uint32_t layer0Size, uint32_t myRank,
-                                                  AlgHierarchyInfoForAllLevel& algHierarchyInfo)
+HcclResult TopoMatchUBX::TopoForLayer1(const HcclComm comm, uint32_t layer0Size, const uint32_t myRank,
+                                                  AlgHierarchyInfoForAllLevel& algHierarchyInfo) const
 {
     HCCL_DEBUG("[TopoMatchUBX::MeshNHRTopoForLayer1] layer0Size [%d]", layer0Size);
 #ifndef AICPU_COMPILE
@@ -106,7 +106,7 @@ HcclResult TopoMatchUBX::TopoForLayer1(const HcclComm comm, uint32_t layer0Size,
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult TopoMatchUBX::CheckVecElementAllSame(uint32_t *instSizeList, uint32_t listSize)
+HcclResult TopoMatchUBX::CheckVecElementAllSame(const uint32_t *instSizeList, uint32_t listSize) const
 {
 #ifndef AICPU_COMPILE
     uint32_t firstSize = instSizeList[0];
@@ -131,7 +131,11 @@ HcclResult TopoMatchUBX::MatchTopo(const HcclComm comm, TopoInfoWithNetLayerDeta
         HCCL_E_INTERNAL);
     uint32_t myRank;
     CHK_RET(HcclGetRankId(comm, &myRank));
+#ifdef MACRO_DEV_TYPE_NEW
+    CHK_PRT_RET(topoInfo->deviceType != DevType::DEV_TYPE_950,
+#else
     CHK_PRT_RET(topoInfo->deviceType != DevType::DEV_TYPE_910_95,
+#endif
         HCCL_ERROR("[CollAlgFactory] [TopoMatchUBX] Rank [%d], deviceType not supported yet.",
             myRank),
         HcclResult::HCCL_E_PARA);

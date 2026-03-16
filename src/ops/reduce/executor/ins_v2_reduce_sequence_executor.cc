@@ -96,7 +96,7 @@ HcclResult InsV2ReduceSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemp
     resourceRequest.notifyNumOnMainThread = std::max(resReqReduceScatterMesh1D.notifyNumOnMainThread,
         resReqReduceScatterMesh1dDpu.notifyNumOnMainThread);
 
-    resourceRequest.channels = {resReqReduceScatterMesh1D.channels[0],resReqReduceScatterMesh1dDpu.channels[0]};
+    resourceRequest.channels = {resReqReduceScatterMesh1D.channels[0], resReqReduceScatterMesh1dDpu.channels[0]};
     return HCCL_SUCCESS;
 }
 
@@ -433,12 +433,12 @@ HcclResult InsV2ReduceSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemp
     return HcclResult::HCCL_SUCCESS;
 }
 
-REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_REDUCE, 
-                                InsReduceSequenceMeshNhrDPU, 
+REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_REDUCE,
+                                InsReduceSequenceMeshNhrDPU,
                                 InsV2ReduceSequenceExecutor,
-                                TopoMatchMultilevel, 
-                                InsTempReduceScatterMesh1DIntra, 
+                                TopoMatchMultilevel,
+                                InsTempReduceScatterMesh1DIntra,
                                 InsTempReduceScatterMesh1dDpuInter,
                                 InsTempGatherDpuInter,
                                 InsTempGatherMesh1dIntra);
-}  // 
+}  //

@@ -119,7 +119,6 @@ SelectorStatus ReduceScatterVAutoSelector::SelectCcuScheduleAlgo(const TopoInfoW
     }
 }
 
-
 SelectorStatus ReduceScatterVAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
                                                       const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                       std::string &selectAlgName) const
@@ -154,7 +153,8 @@ SelectorStatus ReduceScatterVAutoSelector::SelectAicpuAlgo(const TopoInfoWithNet
 
 SelectorStatus ReduceScatterVAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                           std::string &selectAlgName) const
-{
+{   
+    (void) opParam;
     if (topoInfo->level0Topo == Level0Shape::MESH_1D){
         selectAlgName = "InsReduceScatterVMesh1D";
     } else {
