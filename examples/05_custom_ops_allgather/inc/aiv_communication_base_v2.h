@@ -362,14 +362,14 @@ template<typename T>
 __aicore__ inline void AivCommBase::DataCopyGM2UB(const LocalTensor<T>& dstLocal, const GlobalTensor<T>& srcGlobal,
                                                   const uint32_t calCount)
 {
-    DataCopy(dstLocal, srcGlobal, calCount);
+    copy_gm_to_ubuf_align_v2((__ubuf__ uint8_t*)dstLocal.GetPhyAddr(), (__gm__ uint8_t*)srcGlobal.GetPhyAddr(), 0, 1, calCount * sizeof(T), 0,0,0, 0,0,0);
 }
 
 template<typename T>
 __aicore__ inline void AivCommBase::DataCopyUB2GM(const GlobalTensor<T>& dstGlobal, const LocalTensor<T>& srcLocal,
                                                   const uint32_t calCount)
 {
-    DataCopy(dstGlobal, srcLocal, calCount);
+    copy_ubuf_to_gm_align_v2(reinterpret_cast<const __gm__ uint8_t*>(dstGlobal.GetPhyAddr()), reinterpret_cast<__ubuf__ uint8_t*>(srcLocal.GetPhyAddr()), 0, 1, calCount * sizeof(T), 0,0,0);
 }
 
 template<typename T>
