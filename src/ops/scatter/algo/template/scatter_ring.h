@@ -30,8 +30,8 @@ private:
     u32 interRank_;       // comm内的rank排序
     u32 interRankSize_; // 本comm内ranksize总数
 
-    ChannelInfo channelLeft_;
-    ChannelInfo channelRight_;
+    ChannelInfo channelLeft_ = {};
+    ChannelInfo channelRight_ = {};
 };
 }
 
