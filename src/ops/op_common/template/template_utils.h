@@ -172,6 +172,7 @@ struct TemplateDataParams {
     BuffInfo buffInfo;
     u64 count{0};
     u64 sliceSize{0};
+    u64 totalSliceSize{0};
     u64 inputSliceStride{0};
     u64 outputSliceStride{0};
     u64 repeatNum{0};

@@ -250,6 +250,7 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     u64 loopTimes = maxSendOrRecvDataCount / maxDataCountPerLoop +
         static_cast<u64>(maxSendOrRecvDataCount % maxDataCountPerLoop != 0);
     u64 processedDataCount = 0;
+    tempAlgParams.totalSliceSize = maxSendOrRecvDataCount * dataTypeSize_;
     for (u64 loop = 0; loop < loopTimes; loop++) {
         u64 currDataCount = (loop == loopTimes - 1) ? maxSendOrRecvDataCount - processedDataCount : maxDataCountPerLoop;
 
