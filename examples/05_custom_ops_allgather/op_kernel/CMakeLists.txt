@@ -6,39 +6,26 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 
-# Manual compilation of ASC kernel to object file for dynamic loading
 set(KERNEL_SRC ${CMAKE_CURRENT_SOURCE_DIR}/launch_kernel_asc.asc)
 set(KERNEL_TMP_OBJ ${CMAKE_CURRENT_BINARY_DIR}/hccl_custom_allgather_kernels_tmp.o)
 set(KERNEL_OBJ ${CMAKE_CURRENT_BINARY_DIR}/hccl_custom_allgather_kernels.o)
 
-# Include paths for ASC compiler
-set(ASC_INCLUDE_FLAGS 
+set(CCE_DIR ${ASCEND_CANN_PACKAGE_PATH}/tools/ccec_compiler/bin)
+
+set(ASC_INCLUDE_FLAGS
+    -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw/lib/
+    -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw
+    -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw/interface/
+    -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw/impl/
     -I${CMAKE_CURRENT_SOURCE_DIR}/../inc
-    -I${ASCEND_CANN_PACKAGE_PATH}/include
-    -I${ASCEND_CANN_PACKAGE_PATH}/include/hccl
+    -I${ASCEND_CANN_PACKAGE_PATH}/include/hccl/
     -I${ASCEND_CANN_PACKAGE_PATH}/include/mmpa
-    -I${ASCEND_CANN_PACKAGE_PATH}/include/tikcpp/tikcfw
-    -I${ASCEND_CANN_PACKAGE_PATH}/include/tikcpp/tikcfw/interface
-    -I${ASCEND_CANN_PACKAGE_PATH}/include/tikcpp/tikcfw/impl
 )
 
-# Use CMAKE_ASC_COMPILER if available, otherwise default to 'asc'
-if(NOT CMAKE_ASC_COMPILER)
-    set(CMAKE_ASC_COMPILER "asc")
-endif()
-
-# Find linker
-find_program(LLD_LINKER ld.lld PATHS "${ASCEND_CANN_PACKAGE_PATH}/tools/ccec_compiler/bin" NO_DEFAULT_PATH)
-if(NOT LLD_LINKER)
-    set(LLD_LINKER "ld.lld")
-endif()
-
-# Compile ASC kernel
 add_custom_command(
     OUTPUT ${KERNEL_OBJ}
-    # 1. Compile to temporary object file
-    COMMAND ${CMAKE_ASC_COMPILER} -c -x cce -O2 ${KERNEL_SRC} -o ${KERNEL_TMP_OBJ}
-        --cce-aicore-arch=dav-c220
+    COMMAND ${CCE_DIR}/ccec -c -x cce -O2 ${KERNEL_SRC} -o ${KERNEL_TMP_OBJ}
+        --cce-aicore-arch=dav-c310-vec
         --cce-aicore-input-parameter-size=28000
         --cce-aicore-only
         -mllvm -cce-aicore-function-stack-size=0x8000
@@ -48,21 +35,18 @@ add_custom_command(
         -mllvm -cce-aicore-jump-expand=true
         -std=c++17 -fstack-protector-all
         ${ASC_INCLUDE_FLAGS}
-    # 2. Link object file (essential for aclrtBinaryLoad)
-    COMMAND ${LLD_LINKER} -m aicorelinux -Ttext=0 ${KERNEL_TMP_OBJ} -static -o ${KERNEL_OBJ}
+    COMMAND ${CCE_DIR}/ld.lld -m aicorelinux -Ttext=0 ${KERNEL_TMP_OBJ} -static -o ${KERNEL_OBJ}
     DEPENDS ${KERNEL_SRC}
-    COMMENT "Compiling and Linking ASC kernel: ${KERNEL_SRC} -> ${KERNEL_OBJ}"
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     VERBATIM
 )
 
 add_custom_target(generate_kernel_obj ALL DEPENDS ${KERNEL_OBJ})
 
-# Install the generated .o file to lib directory
 install(FILES ${KERNEL_OBJ}
     DESTINATION ${CUSTOM_OPS_OPP_LIB_PATH}
 )
 
-# Copy to testcase directory for runtime loading convenience
 add_custom_command(TARGET generate_kernel_obj POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         ${KERNEL_OBJ}
