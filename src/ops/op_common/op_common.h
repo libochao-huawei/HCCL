@@ -115,6 +115,10 @@ HcclResult HcclGetOpExpansionMode(OpParam &param);
 
 bool HcclCheckAicpuEnableOpen();
 
+HcclResult HcclRegstryBuff(HcclComm comm, const char *memTag, void *bufferPtr, uint64_t bufferSize, HcclMemHandle *memHandle);
+
+HcclResult HcclGetRemoteBuff(HcclComm comm, ChannelHandle channel, const char *memTag, void **bufferPtr, uint64_t *bufferSize);
+
 }  // namespace ops_hccl
 
 #endif
