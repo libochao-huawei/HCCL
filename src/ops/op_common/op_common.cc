@@ -286,12 +286,13 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::shared_ptr<InsCollA
 
     void *ctx = nullptr;
     bool increCreateChannelFlag = false;
-    if (param.opType == HcclCMDType::HCCL_CMD_BATCH_SEND_RECV) {
+    if (param.opType == HcclCMDType::HCCL_CMD_BATCH_SEND_RECV && param.opMode == OpMode::OPBASE) {
         // 增量建链模式
         increCreateChannelFlag = true;
     }
     uint64_t size = 0;
-    if (!increCreateChannelFlag) {
+    // 图模式不支持资源复用，且不存在增量建链场景
+    if (!increCreateChannelFlag && param.opMode == OpMode::OPBASE) {
         void *ctx = nullptr;
         // 这种情况下资源已经有了
         CommEngine ctxEngine = param.engine;
@@ -503,10 +504,31 @@ HcclResult GetMainThreadInfo(HcclComm comm, const OpParam &param, ThreadHandle &
 HcclResult HcclGetChannel(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
                           std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost)
 {
+    char inputBuffTag[MAX_MEM_TAG_LENGTH];
+    char outputBuffTag[MAX_MEM_TAG_LENGTH];
+    std::vector<HcclMemHandle> memHandles;
+    if (param.opMode == OpMode::OFFLOAD) {
+        constexpr u32 REMOTE_MEM_NUM = 2;
+        memHandles.resize(REMOTE_MEM_NUM);
+        HCCL_INFO("[HcclGetChannel] graph mode regstry remote buuffer");
+
+        auto retIn = sprintf_s(inputBuffTag, sizeof(inputBuffTag), "%s_%s", param.algTag, "InputBUffer");
+        auto retOut =  sprintf_s(outputBuffTag, sizeof(outputBuffTag), "%s_%s", param.algTag, "OutputBUffer");
+        if (retIn <= 0 || retOut <= 0){
+            HCCL_ERROR("[HcclGetChannel]faled to fill BuffTag");
+            return HcclResult::HCCL_E_INTERNAL;
+        }
+        CHK_RET(HcclRegstryBuff(comm, inputBuffTag, param.inputPtr, param.inputSize, &memHandles[0]));
+        CHK_RET(HcclRegstryBuff(comm, outputBuffTag, param.outputPtr, param.outputSize, &memHandles[1]));
+    }
     resCtxHost->channels.resize(resRequest.channels.size());
     for (u32 level = 0; level < resRequest.channels.size(); level++) {
         // 获取子通信域的建链请求
         std::vector<HcclChannelDesc> &levelNChannelRequest = resRequest.channels[level];
+        for (auto &channelDesc : levelNChannelRequest) {
+            channelDesc.memHandles = memHandles.data();
+            channelDesc.memHandleNum = memHandles.size();
+        }
         // 获取子通信域的建链数量
         u32 channelNum = levelNChannelRequest.size();
         std::vector<ChannelHandle> levelNChannels;
@@ -528,10 +550,22 @@ HcclResult HcclGetChannel(HcclComm comm, const OpParam &param, AlgResourceReques
             channel.notifyNum = channelDescNew.notifyNum;
             channel.handle = levelNChannels[idx];
 
-            void* remoteBufferAddr;
-            uint64_t remoteBufferSize;
-            CHK_RET(HcclChannelGetHcclBuffer(comm, levelNChannels[idx], &remoteBufferAddr, &remoteBufferSize));
-            channel.remoteCclMem = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteBufferAddr, remoteBufferSize};
+            void* remoteCclBufferAddr;
+            uint64_t remoteCclBufferSize;
+            CHK_RET(HcclChannelGetHcclBuffer(comm, levelNChannels[idx], &remoteCclBufferAddr, &remoteCclBufferSize));
+            channel.remoteCclMem = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteCclBufferAddr, remoteCclBufferSize};
+            if (param.opMode == OpMode::OFFLOAD) {
+                void* remoteInputBufferAddr;
+                uint64_t remoteInputBufferSize;
+                CHK_RET(HcclGetRemoteBuffGraphMode(comm, levelNChannels[idx], inputBuffTag, &remoteInputBufferAddr, &remoteInputBufferSize));
+                channel.remoteInputGraphMode = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteInputBufferAddr, remoteInputBufferSize};
+
+                void* remoteOutputBufferAddr;
+                uint64_t remoteOutputBufferSize;
+                CHK_RET(HcclGetRemoteBuffGraphMode(comm, levelNChannels[idx], outputBuffTag, &remoteOutputBufferAddr, &remoteOutputBufferSize));
+                channel.remoteOutputGraphMode = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteOutputBufferAddr, remoteOutputBufferSize};
+            }
+
             resCtxHost->channels[level].push_back(channel);
         }
     }
@@ -1004,5 +1038,37 @@ bool HcclCheckAicpuEnableOpen()
 
     return false;
 }
+
+HcclResult HcclRegstryBuff(HcclComm comm, const char *memTag, void *bufferPtr, uint64_t bufferSize, HcclMemHandle *memHandle)
+{
+    CHK_PTR_NULL(memHandle);
+    CommMem regMem{COMM_MEM_TYPE_DEVICE, bufferPtr, bufferSize};
+    CHK_RET(HcclCommMemReg(comm, memTag, &regMem, memHandle));
+    CHK_PTR_NULL(*memHandle);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclGetRemoteBuff(HcclComm comm, ChannelHandle channel, const char *memTag, void **bufferPtr, uint64_t *bufferSize)
+{
+    CHK_PTR_NULL(bufferPtr);
+    CHK_PTR_NULL(bufferSize);
+
+    u32 memNum;
+    CommMem *remoteMemList;
+    char **memTags;
+    CHK_RET(HcclChannelGetRemoteMems(comm, channel, &memNum, &remoteMemList, &memTags));
+    for (u32 i=0; i< memNum; i++) {
+        HCCL_INFO("[%s] memNum[%u/%u] memTags[%s]", __func__, i, memNum, memTags[i]);
+        if (strcmp(memTags[i], memTag) == 0) {
+            *bufferPtr = remoteMemList[i].addr;
+            *bufferSize = remoteMemList[i].size;
+            HCCL_INFO("[%s] Found %u memNum[%u/%u] is %u at index %u: addr=%p, size=%llu", __func__, *memTag, 
+                memNum, i, remoteMemList[i].addr, remoteMemList[i].size);
+            break;
+        }
+    }
+    return HCCL_SUCCESS;
+}
+
 
 }  // namespace ops_hccl
