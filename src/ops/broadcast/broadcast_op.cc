@@ -55,7 +55,7 @@ HcclResult HcclBroadcast(void *buf, uint64_t count, HcclDataType dataType, uint3
 }
 
 HcclResult HcclBroadcastGraphMode(void *buf, uint64_t count, HcclDataType dataType, uint32_t root, const char* group, aclrtStream stream,
-                                  const std::char* tag, void** streams, size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize)
+                                  const char* tag, void** streams, size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize)
 {
     HCCL_INFO("Start to run execute HcclBroadcastGraphMode");
     // 根据group获取通信域
