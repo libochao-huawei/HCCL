@@ -340,7 +340,7 @@ HcclResult InsTempBroadcastMesh1DTwoShot::RunAllGather(const std::vector<u32> &c
             recvSrcOffset += tempAlgParams.buffInfo.inBuffBaseOff;
             SrcPtr = tempAlgParams.buffInfo.inputPtr;
             DstPtr = tempAlgParams.buffInfo.outputPtr;
-            remoteDstPtr = linkSendRecv.remoteOutputGraphMode.addr
+            remoteDstPtr = linkSendRecv.remoteOutputGraphMode.addr;
         }
 
         if (dstBufferType_ == BufferType::HCCL_BUFFER){
