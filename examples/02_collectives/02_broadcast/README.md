@@ -24,12 +24,12 @@
 
 ### 环境要求
 
-本样例支持以下昇腾产品：
+本样例支持以下产品：
 
-- <term>Atlas 训练系列产品</term>
-- <term>Atlas A2 训练系列产品</term>
+- <term>Ascend 950PR</term> / <term>Ascend 950DT</term>
 - <term>Atlas A3 训练系列产品</term> / <term>Atlas A3 推理系列产品</term>
-- <term>Atlas A5 系列产品</term>
+- <term>Atlas A2 训练系列产品</term>
+- <term>Atlas 训练系列产品</term>
 
 ### 配置环境变量
 

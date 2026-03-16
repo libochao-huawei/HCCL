@@ -10,12 +10,12 @@
 
 ### 环境要求
 
-本样例支持以下昇腾产品，集群拓扑为单机 8 卡：
+本样例支持以下产品，集群拓扑为单机 8 卡：
 
-- <term>Atlas 训练系列产品</term> / <term>Atlas 推理系列产品</term>
-- <term>Atlas A2 训练系列产品</term>
+- <term>Ascend 950PR</term> / <term>Ascend 950DT</term>
 - <term>Atlas A3 训练系列产品</term> / <term>Atlas A3 推理系列产品</term>
-- <term>Atlas A5 系列产品</term>
+- <term>Atlas A2 训练系列产品</term>
+- <term>Atlas 训练系列产品</term> / <term>Atlas 推理系列产品</term>
 
 注意：本样例代码基于 TensorFlow 1.x 框架开发，不兼容 TensorFlow 2.x。推荐使用 TensorFlow 1.15.0 版本。
 ### 配置环境变量
