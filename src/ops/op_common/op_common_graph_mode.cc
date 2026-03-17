@@ -235,8 +235,12 @@ HcclResult HcclGetChannelGraphMode(HcclComm comm, const OpParam &param, AlgResou
     constexpr u32 REMOTE_MEM_NUM = 2;
     memHandles.resize(REMOTE_MEM_NUM);
 
-    CHK_RET(HcclRegstryBuffGraphMode(comm, inputBuffTag, param.inputPtr, param.inputSize, &memHandles[0]));
-    CHK_RET(HcclRegstryBuffGraphMode(comm, outputBuffTag, param.outputPtr, param.outputSize, &memHandles[1]));
+    if (param.inputPtr != nullptr) {
+        CHK_RET(HcclRegstryBuffGraphMode(comm, inputBuffTag, param.inputPtr, param.inputSize, &memHandles[0]));
+    }
+    if (param.outputPtr != nullptr) {
+        CHK_RET(HcclRegstryBuffGraphMode(comm, outputBuffTag, param.outputPtr, param.outputSize, &memHandles[1]));
+    }
     resCtxHost->channels.resize(resRequest.channels.size());
     for (u32 level = 0; level < resRequest.channels.size(); level++) {
         // 获取子通信域的建链请求
@@ -271,15 +275,19 @@ HcclResult HcclGetChannelGraphMode(HcclComm comm, const OpParam &param, AlgResou
             CHK_RET(HcclChannelGetHcclBuffer(comm, levelNChannels[idx], &remoteCclBufferAddr, &remoteCclBufferSize));
             channel.remoteCclMem = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteCclBufferAddr, remoteCclBufferSize};
 
-            void* remoteInputBufferAddr;
-            uint64_t remoteInputBufferSize;
-            CHK_RET(HcclGetRemoteBuffGraphMode(comm, levelNChannels[idx], inputBuffTag, &remoteInputBufferAddr, &remoteInputBufferSize));
-            channel.remoteInputGraphMode = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteInputBufferAddr, remoteInputBufferSize};
+            if (param.inputPtr != nullptr) {
+                void* remoteInputBufferAddr;
+                uint64_t remoteInputBufferSize;
+                CHK_RET(HcclGetRemoteBuffGraphMode(comm, levelNChannels[idx], inputBuffTag, &remoteInputBufferAddr, &remoteInputBufferSize));
+                channel.remoteInputGraphMode = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteInputBufferAddr, remoteInputBufferSize};
+            }
 
-            void* remoteOutputBufferAddr;
-            uint64_t remoteOutputBufferSize;
-            CHK_RET(HcclGetRemoteBuffGraphMode(comm, levelNChannels[idx], outputBuffTag, &remoteOutputBufferAddr, &remoteOutputBufferSize));
-            channel.remoteOutputGraphMode = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteOutputBufferAddr, remoteOutputBufferSize};
+            if (param.outputPtr != nullptr) {
+                void* remoteOutputBufferAddr;
+                uint64_t remoteOutputBufferSize;
+                CHK_RET(HcclGetRemoteBuffGraphMode(comm, levelNChannels[idx], outputBuffTag, &remoteOutputBufferAddr, &remoteOutputBufferSize));
+                channel.remoteOutputGraphMode = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteOutputBufferAddr, remoteOutputBufferSize};
+            }
 
             resCtxHost->channels[level].push_back(channel);
         }
