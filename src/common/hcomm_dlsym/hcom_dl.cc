@@ -558,6 +558,9 @@ void HcomDlFini(void) {
     #undef RESET_PTR
 }
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 // ---------- 对外API实现（通过函数指针转发）----------
 HcclResult HcomGetRankSize(const char* group, u32* rankSize) {
     return hcomGetRankSizePtr(group, rankSize);
@@ -780,7 +783,9 @@ HcclResult HcomGetWorkspaceMemSize(const std::string& opType, u64 count,
     HcclDataType dataType, const char* group, u64& memSize) {
     return hcomGetWorkspaceMemSizePtr(opType, count, dataType, group, memSize);
 }
-
+#ifdef __cplusplus
+}
+#endif
 // ---------- 查询函数实现 ----------
 #define DEFINE_QUERY(name) extern "C" bool HcommIsSupport##name(void) { return g_##name##Supported; }
 

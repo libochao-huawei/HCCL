@@ -51,7 +51,10 @@ HcclResult CommGetKFCWorkSpace(HcclComm comm, void **addr, uint64_t *size);
 HcclResult CommGetCCLBufSizeCfg(HcclComm comm, uint64_t *cclBufSize);
 HcclResult HcclCommInitClusterInfoMemConfig(const char *rankTableString, uint32_t rank,
                                             HcclCommConfig *config, HcclComm *comm);
-
+HcclResult HcclSnapshotSave(void* snapshotBuf, uint32_t size, uint32_t step);
+HcclResult HcclSnapshotGetBufSize(uint32_t step, uint32_t* size);
+HcclResult HcclSnapshotRecoverAllComms(const char* clusterInfo, const char* changedInfo,
+                                       void* snapshotBuf, uint32_t snapshotBufSize);
 // 查询函数声明
 bool HcommIsSupportHcclCommInitClusterInfo(void);
 bool HcommIsSupportHcclCommInitClusterInfoConfig(void);
