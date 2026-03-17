@@ -78,6 +78,8 @@ HcclResult (*hcomGetRankSizeExPtr)(const char*, uint32_t*, uint32_t) = NULL;
 static HcclResult (*hcomInitByFilePtr)(const char*, const char*) = NULL;
 static HcclResult (*hcomGetWorkspaceSubStreamNumPtr)(const char*, u64&, u64, HcclDataType, u32, HcclReduceOp, u64, HcclCMDType) = NULL;
 static HcclResult (*hcomGetWorkspaceMemSizePtr)(const std::string&, u64, HcclDataType, const char*, u64&) = NULL;
+static HcclResult (*hcomSetAlgorithmPtr)(const char*) = NULL;
+static HcclResult (*hcomGetAlltoAllStagedWorkSpaceMemSizePtr)(const char*, u64*, u64*, HcclDataType, u64*, u64*, HcclDataType, u64&) = NULL;
 
 // 支持标志（静态，默认 false）
 #define DEFINE_SUPPORT_FLAG(name) static bool g_##name##Supported = false
@@ -155,6 +157,8 @@ DEFINE_SUPPORT_FLAG(HcomGetRankSizeEx);
 DEFINE_SUPPORT_FLAG(HcomInitByFile);
 DEFINE_SUPPORT_FLAG(HcomGetWorkspaceSubStreamNum);
 DEFINE_SUPPORT_FLAG(HcomGetWorkspaceMemSize);
+DEFINE_SUPPORT_FLAG(HcomSetAlgorithm);
+DEFINE_SUPPORT_FLAG(HcomGetAlltoAllStagedWorkSpaceMemSize);
 
 
 // ---------- 桩函数定义 ----------
@@ -385,6 +389,17 @@ static HcclResult StubHcomGetWorkspaceMemSize(const std::string& opType, u64 cou
     HCCL_ERROR("[HcclWrapper] HcomGetWorkspaceMemSize not supported");
     return HCCL_E_NOT_SUPPORTED;
 }
+static HcclResult StubHcomSetAlgorithm(const char* algo) {
+    (void)algo;
+    HCCL_ERROR("[HcclWrapper] HcomSetAlgorithm not supported");
+    return HCCL_E_NOT_SUPPORTED;
+}
+static HcclResult StubHcomGetAlltoAllStagedWorkSpaceMemSize(const char *group, u64 *sendCounts, u64 *sdispls,
+    HcclDataType sendType, u64 *recvCounts, u64 *rdispls, HcclDataType recvType, u64 &memSize) {
+    (void)group; (void)sendCounts; (void)sdispls; (void)sendType; (void)recvCounts; (void)rdispls; (void)recvType; (void)memSize;
+    HCCL_ERROR("[HcclWrapper] HcomGetAlltoAllStagedWorkSpaceMemSize not supported");
+    return HCCL_E_NOT_SUPPORTED;
+}
 
 // ---------- 初始化函数 ----------
 void HcomDlInit(void* libHcommHandle) {
@@ -473,6 +488,8 @@ void HcomDlInit(void* libHcommHandle) {
     SET_PTR(hcomInitByFilePtr, "HcomInitByFile", StubHcomInitByFile, g_HcomInitByFileSupported);
     SET_PTR(hcomGetWorkspaceSubStreamNumPtr, "HcomGetWorkspaceSubStreamNum", StubHcomGetWorkspaceSubStreamNum, g_HcomGetWorkspaceSubStreamNumSupported);
     SET_PTR(hcomGetWorkspaceMemSizePtr, "HcomGetWorkspaceMemSize", StubHcomGetWorkspaceMemSize, g_HcomGetWorkspaceMemSizeSupported);
+    SET_PTR(hcomSetAlgorithmPtr, "HcomSetAlgorithm", StubHcomSetAlgorithm, g_HcomSetAlgorithmSupported);
+    SET_PTR(hcomGetAlltoAllStagedWorkSpaceMemSizePtr, "HcomGetAlltoAllStagedWorkSpaceMemSize", StubHcomGetAlltoAllStagedWorkSpaceMemSize, g_HcomGetAlltoAllStagedWorkSpaceMemSizeSupported);
 
     #undef SET_PTR
 }
@@ -554,6 +571,8 @@ void HcomDlFini(void) {
     RESET_PTR(hcomInitByFilePtr, StubHcomInitByFile, g_HcomInitByFileSupported);
     RESET_PTR(hcomGetWorkspaceSubStreamNumPtr, StubHcomGetWorkspaceSubStreamNum, g_HcomGetWorkspaceSubStreamNumSupported);
     RESET_PTR(hcomGetWorkspaceMemSizePtr, StubHcomGetWorkspaceMemSize, g_HcomGetWorkspaceMemSizeSupported);
+    RESET_PTR(hcomSetAlgorithmPtr, StubHcomSetAlgorithm, g_HcomSetAlgorithmSupported);
+    RESET_PTR(hcomGetAlltoAllStagedWorkSpaceMemSizePtr, StubHcomGetAlltoAllStagedWorkSpaceMemSize, g_HcomGetAlltoAllStagedWorkSpaceMemSizeSupported);
 
     #undef RESET_PTR
 }
@@ -783,6 +802,13 @@ HcclResult HcomGetWorkspaceMemSize(const std::string& opType, u64 count,
     HcclDataType dataType, const char* group, u64& memSize) {
     return hcomGetWorkspaceMemSizePtr(opType, count, dataType, group, memSize);
 }
+HcclResult HcomSetAlgorithm(const char* algo) {
+    return hcomSetAlgorithmPtr(algo);
+}
+HcclResult HcomGetAlltoAllStagedWorkSpaceMemSize(const char *group, u64 *sendCounts, u64 *sdispls,
+    HcclDataType sendType, u64 *recvCounts, u64 *rdispls, HcclDataType recvType, u64 &memSize) {
+    return hcomGetAlltoAllStagedWorkSpaceMemSizePtr(group, sendCounts, sdispls, sendType, recvCounts, rdispls, recvType, memSize);
+}
 #ifdef __cplusplus
 }
 #endif
@@ -862,3 +888,5 @@ DEFINE_QUERY(HcomGetRankSizeEx)
 DEFINE_QUERY(HcomInitByFile)
 DEFINE_QUERY(HcomGetWorkspaceSubStreamNum)
 DEFINE_QUERY(HcomGetWorkspaceMemSize)
+DEFINE_QUERY(HcomSetAlgorithm)
+DEFINE_QUERY(HcomGetAlltoAllStagedWorkSpaceMemSize)

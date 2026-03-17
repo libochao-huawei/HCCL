@@ -85,6 +85,8 @@ bool HcommIsSupportHcomGetRankSizeEx(void);
 bool HcommIsSupportHcomInitByFile(void);
 bool HcommIsSupportHcomGetWorkspaceSubStreamNum(void);
 bool HcommIsSupportHcomGetWorkspaceMemSize(void);
+bool HcommIsSupportHcomSetAlgorithm(void);
+bool HcommIsSupportHcomGetAlltoAllStagedWorkSpaceMemSize(void);
 
 // 动态库管理接口
 void HcomDlInit(void* libHcommHandle);
