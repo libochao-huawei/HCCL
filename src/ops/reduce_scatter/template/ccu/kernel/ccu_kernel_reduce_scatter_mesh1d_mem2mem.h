@@ -112,7 +112,8 @@ private:
     CcuRep::Variable inputRepeatStride_;
     CcuRep::Variable outputRepeatStride_;
     CcuRep::Variable normalSliceSize_;
-    GroupOpSize normalGoSize_;
+    CcuRep::Variable lastSliceSize_;
+    GroupOpSize GoSize_;
     uint16_t selfBit_{0};
     uint16_t allBit_{0};
     CcuRep::LocalAddr                   myInput_;
