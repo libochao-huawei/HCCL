@@ -89,14 +89,20 @@ SelectorStatus ReduceScatterVAutoSelector::SelectCcuScheduleAlgo(const TopoInfoW
         return SelectorStatus::NOT_MATCH;
     }
 
+    // 调度模式使用 MS 进行规约后不支持 int8
+    CHK_PRT_RET(opParam.vDataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT8,
+        HCCL_WARNING("[Algo][ReduceScatterVAutoSelector] dataType[%d] is not supported yet for ccu schedule mode.",
+            opParam.vDataDes.dataType),
+        SelectorStatus::NOT_MATCH);
+
     if (topoInfo->topoLevelNums > 1) {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             if (topoInfo->deviceNumPerModule > 1) {
                 selectAlgName = "CcuReduceScatterVParallelMesh1DNHR";
-                return SelectorStatus::MATCH;
+                return SelectorStatus::NOT_MATCH;
             } else {
                 selectAlgName = "CcuReduceScatterVNHR1DMem2Mem";
-                return SelectorStatus::MATCH;
+                return SelectorStatus::NOT_MATCH;
             }
         } else {
             HCCL_WARNING("[Algo][SelectCcuScheduleAlgo] layer0Shape[%d] is not supported yet for ccu schedule mode.",
@@ -111,7 +117,7 @@ SelectorStatus ReduceScatterVAutoSelector::SelectCcuScheduleAlgo(const TopoInfoW
         }
         if ((IsDefaultAlg(levle0Algo) || levle0Algo ==  HcclAlgoType::HCCL_ALGO_TYPE_FULLMESH)&&(topoInfo->level0Topo == Level0Shape::MESH_1D)) {
             selectAlgName = "CcuReduceScatterVMeshMem2Mem1D";
-            return SelectorStatus::MATCH; 
+            return SelectorStatus::MATCH;
         } else {
             HCCL_WARNING("[Algo][ReduceScatterVAutoSelector] algo[%u] is not supported yet for ccu_schedule mode, reset to default.", levle0Algo);
             return SelectorStatus::NOT_MATCH;
@@ -140,7 +146,7 @@ SelectorStatus ReduceScatterVAutoSelector::SelectAicpuAlgo(const TopoInfoWithNet
         HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64 only support in-box fullmesh algo type now.");
         return SelectorStatus::NOT_MATCH;
     }
-    
+
     if (topoInfo->topoLevelNums > 1) {
         HCCL_WARNING("[Algo][ReduceScatterVAutoSelector] layerNum > 1 is not supported yet for aicpu_schedule mode.");
         return SelectorStatus::NOT_MATCH;
@@ -153,7 +159,7 @@ SelectorStatus ReduceScatterVAutoSelector::SelectAicpuAlgo(const TopoInfoWithNet
 
 SelectorStatus ReduceScatterVAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                           std::string &selectAlgName) const
-{   
+{
     (void) opParam;
     if (topoInfo->level0Topo == Level0Shape::MESH_1D){
         selectAlgName = "InsReduceScatterVMesh1D";
