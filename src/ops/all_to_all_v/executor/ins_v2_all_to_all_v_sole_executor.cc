@@ -261,10 +261,10 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
 
         tempAlgParams.sliceSize = currDataCount * dataTypeSize_; // 这是每次循环处理的数据大小
         tempAlgParams.tailSize = tempAlgParams.sliceSize;
-        // 这里的stride当成传统意义上的sreide 间隔
-        tempAlgParams.inputSliceStride = 0; // 变长算子不涉及,这里是每一块数据的大小，这个值被sendCounts代替了
         // 这里用来放每张卡可以用的cclBuffer的大小，数据从ureIn到cclBuffer的时候，以这个量来分隔
-        tempAlgParams.outputSliceStride = maxDataCountPerLoop * dataTypeSize_;
+        tempAlgParams.inputSliceStride = maxDataCountPerLoop * dataTypeSize_;
+        // 这里用来放每张卡之间的stride大小
+        tempAlgParams.outputSliceStride = maxSendOrRecvDataCount * dataTypeSize_;
 
         HCCL_INFO("[InsV2AlltoAllVSoleExecutor] loop [%u] tempAlgParams.inputSliceStride [%u],"
             "tempAlgParams.outputSliceStride [%u] tempAlgParams.sliceSize [%u]",

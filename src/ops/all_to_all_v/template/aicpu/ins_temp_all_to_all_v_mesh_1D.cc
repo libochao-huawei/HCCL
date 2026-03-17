@@ -54,7 +54,7 @@ HcclResult InsTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
     count_ = tempAlgParams.count;
     dataType_ = param.all2AllVDataDes.sendType;
     dataTypeSize_ = SIZE_TABLE[dataType_];
-    cclBufferCountPerRank_ = tempAlgParams.outputSliceStride / dataTypeSize_;
+    cclBufferCountPerRank_ = tempAlgParams.inputSliceStride / dataTypeSize_;
     HCCL_INFO("[InsTempAlltoAllVMesh1D] Run Start");
 
     if (threadNum_ > 1) {
