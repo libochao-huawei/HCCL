@@ -62,8 +62,8 @@ HcclResult HcclAllGatherV(void *sendBuf, uint64_t sendCount, void *recvBuf, cons
     return HCCL_SUCCESS;
 }
  
-HcclResult HcclAllGatherVGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCount, const void *recvCounts,
-    const void *recvDispls HcclDataType dataType, const char* group, aclrtStream stream, const char* tag, void** streams, size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize)
+HcclResult HcclAllGatherVGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCount, const void *recvCounts, const void *recvDispls, 
+    HcclDataType dataType, const char* group, aclrtStream stream, const char* tag, void** streams, size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize)
  	 {
  	     HCCL_INFO("Start to run execute HcclAllGatherVGraphMode");
  	     // 根据group获取通信域
