@@ -41,6 +41,8 @@ constexpr uint32_t OP_ALG_LENGTH = 128; // 存放算法 + host/device标记
 constexpr uint32_t ALG_TAG_LENGTH = TAG_LENGTH + OP_ALG_LENGTH;
 constexpr uint32_t MAX_TAG_LENGTH = 255;
 constexpr uint32_t AICPU_CONTROL_NOTIFY_NUM = 2;
+constexpr uint32_t MAX_MEM_TAG_LENGTH = OP_ALG_LENGTH + 32;
+constexpr uint32_t RES_PACK_TAG_LENGTH = 255;
 
 // 是否再拆分一个comm头文件
 constexpr u32 LOCAL_NOTIFY_IDX_ZERO = 0;
@@ -281,8 +283,10 @@ struct ChannelInfo {
     u32 notifyNum;
     ChannelHandle handle;
     HcclMem remoteCclMem; // A5用的
-    HcclMem remoteInput;  // A3用的
-    HcclMem remoteOutput; // A3用的
+    HcclMem remoteInputGraphMode;   // A5用的, 图模式下远端sendBuf地址
+    HcclMem remoteOutputGraphMode;  // A5用的，图模式下远端recvBuf地址
+    HcclMem remoteInput;  // A3用的，cclIn
+    HcclMem remoteOutput; // A3用的, cclOut
 };
 
 // 算法ctx，key为通信域id+算法名，提前在device上
@@ -492,5 +496,28 @@ struct HcomProInfo {
     bool isAiv = false;
     uint8_t reserved[MAX_LENGTH];
 };
-}
+
+// 图模式相关定义
+// 图模式编译阶段资源计算入参
+struct OpParamGraphMode {
+    char opType[64]; // 算子类型
+};
+
+// 图模式编译阶段申请资源
+struct ResResponseGraphMode {
+    u64 opMemSize = 0;  // 额外申请的scratch数量（不包括cclBuff）
+    u32 streamNum = 0;  // 除用户流以外，额外申请的流（不包括算子device展开申请的流）
+    u32 taskNum = 0;    // task数量，一般为前同步 + kernel + 后同步
+    u32 aivCoreNum = 0;
+};
+
+// 图模式执行阶段传入的资源
+struct ResPackGraphMode {
+    char tag[RES_PACK_TAG_LENGTH];
+    std::vector<aclrtStream> streams;
+    void* scratchMemAddr;
+    u64 scratchMemSize;
+};
+
+} 
 #endif
