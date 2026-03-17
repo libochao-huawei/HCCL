@@ -17,6 +17,9 @@ using namespace ops_hccl;
 HcclResult HcclCreateOpParamGraphMode(OpParamGraphMode **opParam);
 HcclResult HcclDestroyOpParamGraphMode(OpParamGraphMode *opParam);
 HcclResult HcclSetOpParamGraphModeOpType(OpParamGraphMode *opParam, const char *opType);
+HcclResult HcclSetOpParamGraphModeDataCount(OpParamGraphMode *opParam, const u64 *dataCount);
+HcclResult HcclSetOpParamGraphModeDataType(OpParamGraphMode *opParam, HcclDataType dataType);
+HcclResult HcclSetOpParamGraphModeRankSize(OpParamGraphMode *opParam, const u64 *rankSize);
 HcclResult HcclCalcOpResOnlineGraphMode(OpParamGraphMode *opParam, u64 *opMemSize, u32 *streamNum, u32 *taskNum, u32 *aivCoreNum);
 HcclResult HcclCalcOpResOfflineGraphMode(OpParamGraphMode *opParam, u64 *opMemSize, u32 *streamNum, u32 *taskNum, u32 *aivCoreNum);
 
@@ -26,5 +29,7 @@ HcclResult HcclCalcOpResOfflineGraphMode(OpParamGraphMode *opParam, u64 *opMemSi
 namespace ops_hccl {
 HcclResult HcclCalcAicpuResOffline(ResResponseGraphMode *resResponse);
 
-HcclResult HcclCalcCcuResOffline(ResResponseGraphMode *resResponse);
+HcclResult HcclCalcCcuResOffline(OpParamGraphMode *opParam, ResResponseGraphMode *resResponse);
+
+HcclResult CalcTaskNum(OpParamGraphMode *opParam, u32 &ccuTaskNum);
 } // namespace ops_hccl

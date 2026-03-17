@@ -48,6 +48,39 @@ HcclResult HcclSetOpParamGraphModeOpType(OpParamGraphMode *opParam, const char *
     return HCCL_SUCCESS;
 }
 
+HcclResult HcclSetOpParamGraphModeDataCount(OpParamGraphMode *opParam, const u64 *dataCount)
+{
+    if (opParam == nullptr || dataCount == nullptr) {
+        return HCCL_E_PARA;
+    }
+    // 将void*转换为OpParamGraphMode*
+    OpParamGraphMode *paramPtr = reinterpret_cast<OpParamGraphMode *>(opParam);
+    memcpy_s(&paramPtr->dataCount, sizeof(paramPtr->dataCount), &dataCount, sizeof(u64));
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclSetOpParamGraphModeDataType(OpParamGraphMode *opParam, const HcclDataType *dataType)
+{
+    if (opParam == nullptr || dataType == nullptr) {
+        return HCCL_E_PARA;
+    }
+    // 将void*转换为OpParamGraphMode*
+    OpParamGraphMode *paramPtr = reinterpret_cast<OpParamGraphMode *>(opParam);
+    memcpy_s(&paramPtr->dataType, sizeof(paramPtr->dataType), &dataType, sizeof(HcclDataType));
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclSetOpParamGraphModeRankSize(OpParamGraphMode *opParam, const u32 *rankSize)
+{
+    if (opParam == nullptr || rankSize == nullptr) {
+        return HCCL_E_PARA;
+    }
+    // 将void*转换为OpParamGraphMode*
+    OpParamGraphMode *paramPtr = reinterpret_cast<OpParamGraphMode *>(opParam);
+    memcpy_s(&paramPtr->rankSize, sizeof(paramPtr->rankSize), &rankSize, sizeof(u32));
+    return HCCL_SUCCESS;
+}
+
 HcclResult HcclCalcOpResOnlineGraphMode(OpParamGraphMode *opParam, u64 *opMemSize, u32 *streamNum, u32 *taskNum, u32 *aivCoreNum)
 {
     if (opParam == nullptr) {
@@ -121,7 +154,7 @@ HcclResult HcclCalcOpResOfflineGraphMode(OpParamGraphMode *opParam, u64 *opMemSi
     ops_hccl::HcclCalcAicpuResOffline(&resResponse);
 
     // ccu引擎计算资源
-    ops_hccl::HcclCalcCcuResOffline(&resResponse);
+    ops_hccl::HcclCalcCcuResOffline(opParam, &resResponse);
 
     // 其他引擎补充在下面
 
@@ -150,19 +183,37 @@ HcclResult HcclCalcAicpuResOffline(ResResponseGraphMode *resResponse)
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclCalcCcuResOffline(ResResponseGraphMode *resResponse)
+HcclResult HcclCalcCcuResOffline(OpParamGraphMode *opParam, ResResponseGraphMode *resResponse)
 {
-    if (resResponse == nullptr) {
+    if (resResponse == nullptr || opParam == nullptr) {
         return HCCL_E_PARA;
     }
+
     // ccu的资源申请
     u64 ccuOpMemSize = 0;
-    u32 ccuStreamNum = 0;
-    u32 ccuTaskNum = 3;
+    u32 ccuStreamNum = 3;
+    u32 ccuTaskNum = 0;
+
+    CHK_PRT(CalcTaskNum(opParam, ccuTaskNum));
 
     resResponse->opMemSize = std::max(resResponse->opMemSize, ccuOpMemSize);
     resResponse->streamNum = std::max(resResponse->streamNum, ccuStreamNum);
     resResponse->taskNum = std::max(resResponse->taskNum, ccuTaskNum);
+    return HCCL_SUCCESS;
+}
+
+HcclResult CalcTaskNum(OpParamGraphMode *opParam, u32 &ccuTaskNum)
+{
+    u64 scratchBufferSize = 256 * 1024 * 1024;
+    u64 dataCount = opParam->dataCount;
+    u64 dataType = opParam->dataType;
+    u64 dataTypeSize = DATATYPE_SIZE_TABLE[dataType];
+    u64 rankSize = opParam->rankSize;
+    u64 maxDataSizePerLoop = scratchBufferSize;
+    u64 maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize / rankSize;
+    if (opParam->opType == "HCCLALLTOALL") {
+        ccuTaskNum = dataCount / maxDataCountPerLoop + static_cast<u64>(dataCount % maxDataCountPerLoop != 0);
+    }
     return HCCL_SUCCESS;
 }
 } // namespace ops_hccl
