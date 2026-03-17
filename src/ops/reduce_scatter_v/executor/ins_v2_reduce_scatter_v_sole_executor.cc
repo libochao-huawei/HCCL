@@ -10,6 +10,7 @@
 
 #include "ins_v2_reduce_scatter_v_sole_executor.h"
 #include "ins_temp_reduce_scatter_v_mesh_1D.h"
+#include "ccu_temp_reduce_scatter_v_mesh_1D_mem2mem.h"
 
 namespace ops_hccl {
 
@@ -36,7 +37,7 @@ HcclResult InsV2ReduceScatterVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRe
     AlgResourceRequest& resourceRequest)
 {
     // 构建template
-    std::shared_ptr<InsAlgTemplate> algTemplate = 
+    std::shared_ptr<InsAlgTemplate> algTemplate =
         std::make_shared<InsAlgTemplate>(param, topoInfo->userRank, algHierarchyInfo.infos[0]);
     // 调用计算资源的函数
     algTemplate->CalcRes(comm, param, topoInfo, resourceRequest);
@@ -57,7 +58,7 @@ HcclResult InsV2ReduceScatterVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orches
     }
     dataTypeSize_ =  DATATYPE_SIZE_TABLE[param.vDataDes.dataType];
 
-HCCL_INFO("[InsV2ReduceScatterVSoleExecutor][Orchestrate] Orchestrate Start3"); 
+HCCL_INFO("[InsV2ReduceScatterVSoleExecutor][Orchestrate] Orchestrate Start3");
     HcclResult ret = OrchestrateLoop(param, resCtx);
     CHK_PRT_RET(ret != HCCL_SUCCESS,
         HCCL_ERROR("[InsV2ReduceScatterVSoleExecutor][Orchestrate]errNo[0x%016llx] Reduce scatter excutor kernel run failed",
@@ -93,7 +94,7 @@ HcclResult InsV2ReduceScatterVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orches
     tempAlgParams.allRankDispls.assign(varData + rankSize_, varData + rankSize_ + rankSize_);
     // 单位转换为字节
     for (size_t i = 0; i < tempAlgParams.allRankDispls.size(); ++i) {
-    tempAlgParams.allRankDispls[i] *= dataTypeSize_;   
+    tempAlgParams.allRankDispls[i] *= dataTypeSize_;
 }
     std::vector<u64> sendCounts;
     sendCounts.assign(varData, varData + rankSize_);
@@ -141,7 +142,7 @@ HcclResult InsV2ReduceScatterVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orches
         tempAlgParams.buffInfo.hcclBuffBaseOff = 0;
         tempAlgParams.tailSize = tempAlgParams.sliceSize;
         tempAlgParams.outputSliceStride = maxDataCountPerLoop * dataTypeSize_; // 如果是scratchbuffer，偏移是单次循环处理的最大数据量
-        
+
         HCCL_INFO("[InsV2ReduceScatterVSoleExecutor] loop [%u] tempAlgParams.buffInfo.inBuffBaseOff [%u],"
             "tempAlgParams.buffInfo.outBuffBaseOff [%u]",
             loop, tempAlgParams.buffInfo.inBuffBaseOff, tempAlgParams.buffInfo.outBuffBaseOff);
@@ -160,4 +161,8 @@ HcclResult InsV2ReduceScatterVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orches
 // 第二个参数是Reduce Scatter的template文件
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V, InsReduceScatterVMesh1D, InsV2ReduceScatterVSoleExecutor, TopoMatch1D,
     InsTempReduceScatterVMesh1D);
+#ifndef AICPU_COMPILE
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V, CcuReduceScatterVMesh1D, InsV2ReduceScatterVSoleExecutor, TopoMatch1D,
+    CcuTempReduceScatterVMesh1DMem2Mem);
+#endif
 }
