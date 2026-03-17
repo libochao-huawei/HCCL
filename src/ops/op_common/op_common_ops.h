@@ -24,5 +24,6 @@
 #include "sal.h"
 #include "workflow.h"
 #include <hccl/hccl_types.h>
+#include "hcom.h"
 
 #endif
