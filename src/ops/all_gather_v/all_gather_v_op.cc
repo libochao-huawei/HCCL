@@ -62,7 +62,8 @@ HcclResult HcclAllGatherV(void *sendBuf, uint64_t sendCount, void *recvBuf, cons
     return HCCL_SUCCESS;
 }
  
-HcclResult HcclAllGatherVGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, const char* group, aclrtStream stream, const char* tag, void** streams, size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize)
+HcclResult HcclAllGatherVGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCount, const void *recvCounts,
+    const void *recvDispls HcclDataType dataType, const char* group, aclrtStream stream, const char* tag, void** streams, size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize)
  	 {
  	     HCCL_INFO("Start to run execute HcclAllGatherVGraphMode");
  	     // 根据group获取通信域
@@ -74,7 +75,7 @@ HcclResult HcclAllGatherVGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCo
  	     // 参数校验等工作
  	     CHK_PRT_RET(sendCount == 0, HCCL_WARNING("input sendCount is 0, return all gather success"), HCCL_SUCCESS);
  	     // 检查入参指针有效性
- 	     CHK_RET(CheckAllGatherVInputPara(comm, sendBuf, recvBuf, stream));
+ 	     CHK_RET(CheckAllGatherVInputPara(comm, sendBuf, recvBuf));
  	     // tag有效性,是否过长
  	     char commName[COMM_INDENTIFIER_MAX_LENGTH];
  	     CHK_RET(HcclGetCommName(comm, commName));
