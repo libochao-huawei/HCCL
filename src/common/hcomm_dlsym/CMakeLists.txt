@@ -18,4 +18,5 @@ target_sources(hccl PRIVATE
     hcomm_host_profiling_dl.cc
     hccl_one_sided_services_dl.cc
     hccl_ex_dl.cc
+    hcom_dl.cc
 )
