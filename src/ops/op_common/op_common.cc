@@ -124,7 +124,7 @@ void SetHcclDfxOpInfoDataCount(HcclDfxOpInfo &dfxOpInfo, const OpParam &param, c
 void SetHcclDfxOpInfoDataType(HcclDfxOpInfo &dfxOpInfo, const OpParam &param) {
     u64 dataType = 0;
     if (param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V
-        || param.opType == HcclCMDType::HCCL_CMD_ALLGATGER_V) {
+        || param.opType == HcclCMDType::HCCL_CMD_ALLGATHER_V) {
         dfxOpInfo.dataType = static_cast<u32>(param.vDataDes.dataType);
     } else if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL) {
         dfxOpInfo.dataType = static_cast<u32>(param.all2AllDataDes.sendType);
