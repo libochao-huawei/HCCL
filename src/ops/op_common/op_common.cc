@@ -121,6 +121,23 @@ void SetHcclDfxOpInfoDataCount(HcclDfxOpInfo &dfxOpInfo, const OpParam &param, c
     }
 }
 
+uint32_t GetHcclDfxOpInfoDataType(const OpParam &param) {
+    uint32_t dataType = 0;
+    if (param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V
+        || param.opType == HcclCMDType::HCCL_CMD_ALLGATHER_V) {
+        dataType = static_cast<u32>(param.vDataDes.dataType);
+    } else if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL) {
+        dataType = static_cast<u32>(param.all2AllDataDes.sendType);
+    } else if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV) {
+        dataType = static_cast<u32>(param.all2AllVDataDes.sendType);
+    } else if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
+        dataType = static_cast<u32>(param.all2AllVCDataDes.sendType);
+    } else {
+        dataType = static_cast<u32>(param.DataDes.dataType);
+    }
+    return dataType;
+}
+
 HcclResult HcclExecOp(HcclComm comm, OpParam &param,
                       std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo, std::string &algName)
 {
@@ -161,7 +178,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     hcclDfxOpInfo.opMode = static_cast<u32>(param.opMode);
     hcclDfxOpInfo.opType = static_cast<u32>(param.opType);
     hcclDfxOpInfo.reduceOp = static_cast<u32>(param.reduceType);
-    hcclDfxOpInfo.dataType = static_cast<u32>(param.DataDes.dataType);
+    hcclDfxOpInfo.dataType = GetHcclDfxOpInfoDataType(param);
     hcclDfxOpInfo.dataCount = static_cast<u32>(param.DataDes.count);
     hcclDfxOpInfo.root = param.root;
     hcclDfxOpInfo.engine = param.engine;
