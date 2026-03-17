@@ -121,7 +121,7 @@ void SetHcclDfxOpInfoDataCount(HcclDfxOpInfo &dfxOpInfo, const OpParam &param, c
     }
 }
 
-uint32_t GetHcclDfxOpInfoDataType(HcclDfxOpInfo &dfxOpInfo, const OpParam &param) {
+uint32_t GetHcclDfxOpInfoDataType(const OpParam &param) {
     uint32_t dataType = 0;
     if (param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V
         || param.opType == HcclCMDType::HCCL_CMD_ALLGATHER_V) {
@@ -178,7 +178,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     hcclDfxOpInfo.opMode = static_cast<u32>(param.opMode);
     hcclDfxOpInfo.opType = static_cast<u32>(param.opType);
     hcclDfxOpInfo.reduceOp = static_cast<u32>(param.reduceType);
-    hcclDfxOpInfo.dataType = GetHcclDfxOpInfoDataType;
+    hcclDfxOpInfo.dataType = GetHcclDfxOpInfoDataType(param);
     hcclDfxOpInfo.dataCount = static_cast<u32>(param.DataDes.count);
     hcclDfxOpInfo.root = param.root;
     hcclDfxOpInfo.engine = param.engine;
