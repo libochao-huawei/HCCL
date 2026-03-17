@@ -12,38 +12,6 @@ extern "C" {
 #define HCCL_E_NOT_SUPPORTED ((HcclResult)(-2))
 #endif
 
-// 声明全局函数指针（小驼峰命名）
-extern HcclResult (*hcclGetRankIdPtr)(HcclComm, uint32_t*);
-extern HcclResult (*hcclGetRankSizePtr)(HcclComm, uint32_t*);
-extern HcclResult (*hcclCommInitClusterInfoPtr)(const char*, uint32_t, HcclComm*);
-extern HcclResult (*hcclCommInitClusterInfoConfigPtr)(const char*, uint32_t, HcclCommConfig*, HcclComm*);
-extern HcclResult (*hcclCreateSubCommConfigPtr)(HcclComm*, uint32_t, uint32_t*, uint64_t, uint32_t, HcclCommConfig*, HcclComm*);
-extern HcclResult (*hcclGetRootInfoPtr)(HcclRootInfo*);
-extern HcclResult (*hcclCommInitRootInfoPtr)(uint32_t, const HcclRootInfo*, uint32_t, HcclComm*);
-extern HcclResult (*hcclCommInitRootInfoConfigPtr)(uint32_t, const HcclRootInfo*, uint32_t, const HcclCommConfig*, HcclComm*);
-extern HcclResult (*hcclSetConfigPtr)(HcclConfig, HcclConfigValue);
-extern HcclResult (*hcclGetConfigPtr)(HcclConfig, HcclConfigValue*);
-extern HcclResult (*hcclGetCommNamePtr)(HcclComm, char*);
-extern HcclResult (*hcclCommGetHandleWithNamePtr)(const char*, HcclComm*);
-extern HcclResult (*hcclBarrierPtr)(HcclComm, aclrtStream);
-extern HcclResult (*hcclCommDestroyPtr)(HcclComm);
-extern HcclResult (*hcclCommInitAllPtr)(uint32_t, int32_t*, HcclComm*);
-extern HcclResult (*hcclGetCommAsyncErrorPtr)(HcclComm, HcclResult*);
-extern const char* (*hcclGetErrorStringPtr)(HcclResult);
-extern uint32_t (*hcclGetCommConfigCapabilityPtr)(void);
-extern HcclResult (*hcclCommSuspendPtr)(HcclComm);
-extern HcclResult (*hcclCommResumePtr)(HcclComm);
-extern HcclResult (*hcclCommSetMemoryRangePtr)(HcclComm, void*, size_t, size_t, uint64_t);
-extern HcclResult (*hcclCommUnsetMemoryRangePtr)(HcclComm, void*);
-extern HcclResult (*hcclCommActivateCommMemoryPtr)(HcclComm, void*, size_t, size_t, aclrtDrvMemHandle, uint64_t);
-extern HcclResult (*hcclCommDeactivateCommMemoryPtr)(HcclComm, void*);
-extern HcclResult (*hcclCommWorkingDevNicSetPtr)(HcclComm, uint32_t*, bool*, uint32_t);
-extern HcclResult (*hcclGroupStartPtr)(void);
-extern HcclResult (*hcclGroupEndPtr)(void);
-extern HcclResult (*hcclCommSymWinRegisterPtr)(HcclComm, void*, uint64_t, CommSymWindow*, uint32_t);
-extern HcclResult (*hcclCommSymWinDeregisterPtr)(CommSymWindow);
-extern HcclResult (*hcclCommSymWinGetPtr)(HcclComm, void*, size_t, CommSymWindow*, size_t*);
-
 // 对外 API 的函数声明（包装函数）
 HcclResult HcclGetRankId(HcclComm comm, uint32_t* rank);
 HcclResult HcclGetRankSize(HcclComm comm, uint32_t* rankSize);

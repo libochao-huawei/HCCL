@@ -203,6 +203,67 @@ void HcclResDlFini(void) {
     hcclEngineCtxDestroyPtr = StubHcclEngineCtxDestroy;
 }
 
+// ---------- 对外API实现（通过函数指针转发）----------
+HcclResult HcclGetHcclBuffer(HcclComm comm, void **buffer, uint64_t *size) {
+    return hcclGetHcclBufferPtr(comm, buffer, size);
+}
+HcclResult HcclGetRemoteIpcHcclBuf(HcclComm comm, uint64_t remoteRank, void **addr, uint64_t *size) {
+    return hcclGetRemoteIpcHcclBufPtr(comm, remoteRank, addr, size);
+}
+HcclResult HcclThreadAcquire(HcclComm comm, CommEngine engine, uint32_t threadNum,
+                              uint32_t notifyNumPerThread, ThreadHandle *threads) {
+    return hcclThreadAcquirePtr(comm, engine, threadNum, notifyNumPerThread, threads);
+}
+HcclResult HcclThreadAcquireWithStream(HcclComm comm, CommEngine engine, aclrtStream stream,
+                                       uint32_t notifyNum, ThreadHandle *thread) {
+    return hcclThreadAcquireWithStreamPtr(comm, engine, stream, notifyNum, thread);
+}
+HcclResult HcclChannelAcquire(HcclComm comm, CommEngine engine, const HcclChannelDesc *channelDescs,
+                              uint32_t channelNum, ChannelHandle *channels) {
+    return hcclChannelAcquirePtr(comm, engine, channelDescs, channelNum, channels);
+}
+HcclResult HcclChannelGetHcclBuffer(HcclComm comm, ChannelHandle channel, void **buffer, uint64_t *size) {
+    return hcclChannelGetHcclBufferPtr(comm, channel, buffer, size);
+}
+HcclResult HcclEngineCtxCreate(HcclComm comm, const char *ctxTag, CommEngine engine,
+                               uint64_t size, void **ctx) {
+    return hcclEngineCtxCreatePtr(comm, ctxTag, engine, size, ctx);
+}
+HcclResult HcclEngineCtxGet(HcclComm comm, const char *ctxTag, CommEngine engine,
+                            void **ctx, uint64_t *size) {
+    return hcclEngineCtxGetPtr(comm, ctxTag, engine, ctx, size);
+}
+HcclResult HcclEngineCtxCopy(HcclComm comm, CommEngine engine, const char *ctxTag,
+                             const void *srcCtx, uint64_t size, uint64_t dstCtxOffset) {
+    return hcclEngineCtxCopyPtr(comm, engine, ctxTag, srcCtx, size, dstCtxOffset);
+}
+int32_t HcclTaskRegister(HcclComm comm, const char *msgTag, Callback cb) {
+    return hcclTaskRegisterPtr(comm, msgTag, cb);
+}
+int32_t HcclTaskUnRegister(HcclComm comm, const char *msgTag) {
+    return hcclTaskUnRegisterPtr(comm, msgTag);
+}
+HcclResult HcclDevMemAcquire(HcclComm comm, const char *memTag, uint64_t *size,
+                             void **addr, bool *newCreated) {
+    return hcclDevMemAcquirePtr(comm, memTag, size, addr, newCreated);
+}
+HcclResult HcclThreadExportToCommEngine(HcclComm comm, uint32_t threadNum,
+                                        const ThreadHandle *threads, CommEngine dstCommEngine,
+                                        ThreadHandle *exportedThreads) {
+    return hcclThreadExportToCommEnginePtr(comm, threadNum, threads, dstCommEngine, exportedThreads);
+}
+HcclResult HcclChannelGetRemoteMems(HcclComm comm, ChannelHandle channel,
+                                   uint32_t *memNum, CommMem **remoteMems, char ***memTags) {
+    return hcclChannelGetRemoteMemsPtr(comm, channel, memNum, remoteMems, memTags);
+}
+HcclResult HcclCommMemReg(HcclComm comm, const char *memTag, const CommMem *mem,
+                          HcclMemHandle *memHandle) {
+    return hcclCommMemRegPtr(comm, memTag, mem, memHandle);
+}
+HcclResult HcclEngineCtxDestroy(HcclComm comm, const char *ctxTag, CommEngine engine) {
+    return hcclEngineCtxDestroyPtr(comm, ctxTag, engine);
+}
+
 // ---------- 对外提供的查询接口（判断函数是否存在）----------
 extern "C" bool HcommIsSupportHcclGetHcclBuffer(void) {
     return g_hcclGetHcclBufferSupported;
