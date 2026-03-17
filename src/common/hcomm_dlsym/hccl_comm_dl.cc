@@ -599,9 +599,6 @@ extern "C" bool HcommIsSupportCommGetRemoteCCLBuf(void) { return g_commGetRemote
 extern "C" bool HcommIsSupportCommGetKFCWorkSpace(void) { return g_commGetKFCWorkSpaceSupported; }
 extern "C" bool HcommIsSupportCommGetCCLBufSizeCfg(void) { return g_commGetCCLBufSizeCfgSupported; }
 extern "C" bool HcommIsSupportHcclCommInitClusterInfoMemConfig(void) { return g_hcclCommInitClusterInfoMemConfigSupported; }
-extern "C" bool HcommIsSupportHcclCommInitClusterInfoMemConfig(void) {
-    return g_hcclCommInitClusterInfoMemConfigSupported;
-}
 extern "C" bool HcommIsSupportHcclSnapshotSave(void) {
     return g_hcclSnapshotSaveSupported;
 }
