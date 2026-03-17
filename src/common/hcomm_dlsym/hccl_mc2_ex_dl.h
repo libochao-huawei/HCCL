@@ -19,6 +19,16 @@ HcclResult HcclLaunchCcoreWait(void* opHandle, uint64_t waitAddr, uint32_t turnN
 HcclResult HcclLaunchCcorePost(void* opHandle, uint64_t recordAddr, uint32_t turnNum, uint64_t turnNumAddr);
 HcclResult HcclLaunchOp(void* opHandle, void* data);
 
+HcclResult HcclGetOpArgs(void **opArgs);
+HcclResult HcclFreeOpArgs(void *opArgs);
+HcclResult HcclSetOpSrcDataType(void *opArgs, uint8_t srcDataType);
+HcclResult HcclSetOpDstDataType(void *opArgs, uint8_t dstDataType);
+HcclResult HcclSetOpReduceType(void *opArgs, uint32_t reduceType);
+HcclResult HcclSetOpCount(void *opArgs, uint64_t count);
+HcclResult HcclSetOpAlgConfig(void *opArgs, char *algConfig);
+HcclResult HcclSetOpCommEngine(void *opArgs, uint8_t commEngine);
+HcclResult HcclCommResPrepare(HcclComm comm, char *opName, void *opArgs, void **addr);
+
 // 查询函数声明
 bool HcommIsSupportHcclGetCommHandleByCtx(void);
 bool HcommIsSupportHcclReleaseComm(void);
@@ -28,6 +38,16 @@ bool HcommIsSupportHcclPrintTaskExceptionAllComm(void);
 bool HcommIsSupportHcclLaunchCcoreWait(void);
 bool HcommIsSupportHcclLaunchCcorePost(void);
 bool HcommIsSupportHcclLaunchOp(void);
+
+bool HcommIsSupportHcclGetOpArgs(void);
+bool HcommIsSupportHcclFreeOpArgs(void);
+bool HcommIsSupportHcclSetOpSrcDataType(void);
+bool HcommIsSupportHcclSetOpDstDataType(void);
+bool HcommIsSupportHcclSetOpReduceType(void);
+bool HcommIsSupportHcclSetOpCount(void);
+bool HcommIsSupportHcclSetOpAlgConfig(void);
+bool HcommIsSupportHcclSetOpCommEngine(void);
+bool HcommIsSupportHcclCommResPrepare(void);
 
 // 动态库管理接口
 void HcclMc2ExDlInit(void* libHcommHandle);
