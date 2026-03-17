@@ -64,7 +64,7 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     }
     InsAlgTemplate0 intraTempAlg(param, topoInfo->userRank, intraHierarchyInfo);
     InsAlgTemplate1 interTempAlg(param, topoInfo->userRank, interHierarchyInfo);
-
+    
     // 调用计算资源的函数
     AlgResourceRequest intraTempRequest;
     AlgResourceRequest interTempRequest;
@@ -134,6 +134,7 @@ void InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplat
     tempAlgParamsIntra0.repeatNum = 1;
     tempAlgParamsIntra0.inputRepeatStride = 0;
     tempAlgParamsIntra0.outputRepeatStride = 0;
+    tempAlgParamsIntra0.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
 
     HCCL_DEBUG(
         "[InsV2AllGatherParallelExecutor][GenTemplateAlgParamsIntra0] rank[%d] inBuffBaseOff[%llu] "
@@ -169,6 +170,7 @@ void InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplat
     tempAlgParamsInter0.repeatNum = rankSizeLevel0_;
     tempAlgParamsInter0.inputRepeatStride = dataSize_;
     tempAlgParamsInter0.outputRepeatStride = dataSize_;
+    tempAlgParamsInter0.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
     HCCL_DEBUG("[InsV2AllGatherParallelExecutor][GenTemplateAlgParamsInter0] rank[%u] inBuffBaseOff[%llu] "
                "outBuffBaseOff[%llu] scratchBuffBaseOff[%llu] sliceSize[%llu] outputSliceStride[%llu] "
                "outputRepeatStride[%llu]",
@@ -202,6 +204,7 @@ void InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplat
     tempAlgParamsInter1.repeatNum = 1;
     tempAlgParamsInter1.inputRepeatStride = 0;
     tempAlgParamsInter1.outputRepeatStride = 0;
+    tempAlgParamsInter1.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
     HCCL_DEBUG("[InsV2AllGatherParallelExecutor][GenTemplateAlgParamsInter1] rank[%u] inBuffBaseOff[%llu] "
                "outBuffBaseOff[%llu] scratchBuffBaseOff[%llu] sliceSize[%llu] outputSliceStride[%llu]",
                myRank_, tempAlgParamsInter1.buffInfo.inBuffBaseOff, tempAlgParamsInter1.buffInfo.outBuffBaseOff,
@@ -234,6 +237,7 @@ void InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplat
     tempAlgParamsIntra1.repeatNum = rankSizeLevel1_;
     tempAlgParamsIntra1.inputRepeatStride = dataSize_ * rankSizeLevel0_;
     tempAlgParamsIntra1.outputRepeatStride = dataSize_ * rankSizeLevel0_;
+    tempAlgParamsIntra1.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
     HCCL_DEBUG("[InsV2AllGatherParallelExecutor][GenTemplateAlgParamsIntra1] rank[%u] inBuffBaseOff[%llu] "
                "outBuffBaseOff[%llu] scratchBuffBaseOff[%llu] sliceSize[%llu] outputSliceStride[%llu] "
                "outputRepeatStride[%llu]",
