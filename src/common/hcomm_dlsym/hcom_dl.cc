@@ -75,6 +75,9 @@ HcclResult (*hcomGenerateCclOpTagPtr)(const char*, s64, const char*, char*) = NU
 HcclResult (*hcomGetCommCCLBufferSizePtr)(const char*, uint64_t&) = NULL;
 HcclResult (*hcomGetL0TopoTypeExPtr)(const char*, CommTopo*, uint32_t) = NULL;
 HcclResult (*hcomGetRankSizeExPtr)(const char*, uint32_t*, uint32_t) = NULL;
+static HcclResult (*hcomInitByFilePtr)(const char*, const char*) = NULL;
+static HcclResult (*hcomGetWorkspaceSubStreamNumPtr)(const char*, u64&, u64, HcclDataType, u32, HcclReduceOp, u64, HcclCMDType) = NULL;
+static HcclResult (*hcomGetWorkspaceMemSizePtr)(const std::string&, u64, HcclDataType, const char*, u64&) = NULL;
 
 // 支持标志（静态，默认 false）
 #define DEFINE_SUPPORT_FLAG(name) static bool g_##name##Supported = false
@@ -149,6 +152,10 @@ DEFINE_SUPPORT_FLAG(HcomGenerateCclOpTag);
 DEFINE_SUPPORT_FLAG(HcomGetCommCCLBufferSize);
 DEFINE_SUPPORT_FLAG(HcomGetL0TopoTypeEx);
 DEFINE_SUPPORT_FLAG(HcomGetRankSizeEx);
+DEFINE_SUPPORT_FLAG(HcomInitByFile);
+DEFINE_SUPPORT_FLAG(HcomGetWorkspaceSubStreamNum);
+DEFINE_SUPPORT_FLAG(HcomGetWorkspaceMemSize);
+
 
 // ---------- 桩函数定义 ----------
 static HcclResult StubHcomGetRankSize(const char* group, u32* rankSize) {
@@ -361,6 +368,23 @@ static HcclResult StubHcomGetL0TopoTypeEx(const char* group, CommTopo* topoType,
 static HcclResult StubHcomGetRankSizeEx(const char* group, uint32_t* rankSize, uint32_t flag) {
     (void)group; (void)rankSize; (void)flag; HCCL_ERROR("[HcclWrapper] HcomGetRankSizeEx not supported"); return HCCL_E_NOT_SUPPORTED;
 }
+static HcclResult StubHcomInitByFile(const char* rankTablePath, const char* identify) {
+    (void)rankTablePath; (void)identify;
+    HCCL_ERROR("[HcclWrapper] HcomInitByFile not supported");
+    return HCCL_E_NOT_SUPPORTED;
+}
+static HcclResult StubHcomGetWorkspaceSubStreamNum(const char* group, u64& streamNum, u64 dataSize,
+    HcclDataType dataType, u32 aivCoreLimit, HcclReduceOp reduceOp, u64 count, HcclCMDType optype) {
+    (void)group; (void)streamNum; (void)dataSize; (void)dataType; (void)aivCoreLimit; (void)reduceOp; (void)count; (void)optype;
+    HCCL_ERROR("[HcclWrapper] HcomGetWorkspaceSubStreamNum not supported");
+    return HCCL_E_NOT_SUPPORTED;
+}
+static HcclResult StubHcomGetWorkspaceMemSize(const std::string& opType, u64 count,
+    HcclDataType dataType, const char* group, u64& memSize) {
+    (void)opType; (void)count; (void)dataType; (void)group; (void)memSize;
+    HCCL_ERROR("[HcclWrapper] HcomGetWorkspaceMemSize not supported");
+    return HCCL_E_NOT_SUPPORTED;
+}
 
 // ---------- 初始化函数 ----------
 void HcomDlInit(void* libHcommHandle) {
@@ -446,6 +470,9 @@ void HcomDlInit(void* libHcommHandle) {
     SET_PTR(hcomGetCommCCLBufferSizePtr, "HcomGetCommCCLBufferSize", StubHcomGetCommCCLBufferSize, g_HcomGetCommCCLBufferSizeSupported);
     SET_PTR(hcomGetL0TopoTypeExPtr, "HcomGetL0TopoTypeEx", StubHcomGetL0TopoTypeEx, g_HcomGetL0TopoTypeExSupported);
     SET_PTR(hcomGetRankSizeExPtr, "HcomGetRankSizeEx", StubHcomGetRankSizeEx, g_HcomGetRankSizeExSupported);
+    SET_PTR(hcomInitByFilePtr, "HcomInitByFile", StubHcomInitByFile, g_HcomInitByFileSupported);
+    SET_PTR(hcomGetWorkspaceSubStreamNumPtr, "HcomGetWorkspaceSubStreamNum", StubHcomGetWorkspaceSubStreamNum, g_HcomGetWorkspaceSubStreamNumSupported);
+    SET_PTR(hcomGetWorkspaceMemSizePtr, "HcomGetWorkspaceMemSize", StubHcomGetWorkspaceMemSize, g_HcomGetWorkspaceMemSizeSupported);
 
     #undef SET_PTR
 }
@@ -524,6 +551,9 @@ void HcomDlFini(void) {
     RESET_PTR(hcomGetCommCCLBufferSizePtr, StubHcomGetCommCCLBufferSize, g_HcomGetCommCCLBufferSizeSupported);
     RESET_PTR(hcomGetL0TopoTypeExPtr, StubHcomGetL0TopoTypeEx, g_HcomGetL0TopoTypeExSupported);
     RESET_PTR(hcomGetRankSizeExPtr, StubHcomGetRankSizeEx, g_HcomGetRankSizeExSupported);
+    RESET_PTR(hcomInitByFilePtr, StubHcomInitByFile, g_HcomInitByFileSupported);
+    RESET_PTR(hcomGetWorkspaceSubStreamNumPtr, StubHcomGetWorkspaceSubStreamNum, g_HcomGetWorkspaceSubStreamNumSupported);
+    RESET_PTR(hcomGetWorkspaceMemSizePtr, StubHcomGetWorkspaceMemSize, g_HcomGetWorkspaceMemSizeSupported);
 
     #undef RESET_PTR
 }
@@ -739,6 +769,17 @@ HcclResult HcomGetL0TopoTypeEx(const char* group, CommTopo* topoType, uint32_t f
 HcclResult HcomGetRankSizeEx(const char* group, uint32_t* rankSize, uint32_t flag) {
     return hcomGetRankSizeExPtr(group, rankSize, flag);
 }
+HcclResult HcomInitByFile(const char* rankTablePath, const char* identify) {
+    return hcomInitByFilePtr(rankTablePath, identify);
+}
+HcclResult HcomGetWorkspaceSubStreamNum(const char* group, u64& streamNum, u64 dataSize,
+    HcclDataType dataType, u32 aivCoreLimit, HcclReduceOp reduceOp, u64 count, HcclCMDType optype) {
+    return hcomGetWorkspaceSubStreamNumPtr(group, streamNum, dataSize, dataType, aivCoreLimit, reduceOp, count, optype);
+}
+HcclResult HcomGetWorkspaceMemSize(const std::string& opType, u64 count,
+    HcclDataType dataType, const char* group, u64& memSize) {
+    return hcomGetWorkspaceMemSizePtr(opType, count, dataType, group, memSize);
+}
 
 // ---------- 查询函数实现 ----------
 #define DEFINE_QUERY(name) extern "C" bool HcommIsSupport##name(void) { return g_##name##Supported; }
@@ -813,3 +854,6 @@ DEFINE_QUERY(HcomGenerateCclOpTag)
 DEFINE_QUERY(HcomGetCommCCLBufferSize)
 DEFINE_QUERY(HcomGetL0TopoTypeEx)
 DEFINE_QUERY(HcomGetRankSizeEx)
+DEFINE_QUERY(HcomInitByFile)
+DEFINE_QUERY(HcomGetWorkspaceSubStreamNum)
+DEFINE_QUERY(HcomGetWorkspaceMemSize)

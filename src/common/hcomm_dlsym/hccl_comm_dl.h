@@ -88,6 +88,9 @@ bool HcommIsSupportCommGetRemoteCCLBuf(void);
 bool HcommIsSupportCommGetKFCWorkSpace(void);
 bool HcommIsSupportCommGetCCLBufSizeCfg(void);
 bool HcommIsSupportHcclCommInitClusterInfoMemConfig(void);
+bool HcommIsSupportHcclSnapshotSave(void);
+bool HcommIsSupportHcclSnapshotGetBufSize(void);
+bool HcommIsSupportHcclSnapshotRecoverAllComms(void);
 
 void HcclCommDlInit(void* libHcommHandle);        // 本模块独立初始化
 void HcclCommDlFini(void);                         // 本模块独立销毁

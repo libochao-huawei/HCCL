@@ -82,6 +82,9 @@ bool HcommIsSupportHcomGenerateCclOpTag(void);
 bool HcommIsSupportHcomGetCommCCLBufferSize(void);
 bool HcommIsSupportHcomGetL0TopoTypeEx(void);
 bool HcommIsSupportHcomGetRankSizeEx(void);
+bool HcommIsSupportHcomInitByFile(void);
+bool HcommIsSupportHcomGetWorkspaceSubStreamNum(void);
+bool HcommIsSupportHcomGetWorkspaceMemSize(void);
 
 // 动态库管理接口
 void HcomDlInit(void* libHcommHandle);

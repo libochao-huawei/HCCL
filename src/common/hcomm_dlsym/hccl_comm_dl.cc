@@ -43,6 +43,9 @@ static HcclResult (*commGetKFCWorkSpacePtr)(HcclComm, void**, uint64_t*) = NULL;
 static HcclResult (*commGetCCLBufSizeCfgPtr)(HcclComm, uint64_t*) = NULL;
 HcclResult (*hcclCommInitClusterInfoMemConfigPtr)(const char *rankTableString, uint32_t rank,
                                             HcclCommConfig *config, HcclComm *comm) = NULL;
+static HcclResult (*hcclSnapshotSavePtr)(void*, uint32_t, uint32_t) = NULL;
+static HcclResult (*hcclSnapshotGetBufSizePtr)(uint32_t, uint32_t*) = NULL;
+static HcclResult (*hcclSnapshotRecoverAllCommsPtr)(const char*, const char*, void*, uint32_t) = NULL;
 
 // 添加支持标志（静态，默认 false）
 static bool g_hcclGetRankIdSupported = false;
@@ -82,6 +85,9 @@ static bool g_commGetRemoteCCLBufSupported = false;
 static bool g_commGetKFCWorkSpaceSupported = false;
 static bool g_commGetCCLBufSizeCfgSupported = false;
 static bool g_hcclCommInitClusterInfoMemConfigSupported = false;
+static bool g_hcclSnapshotSaveSupported = false;
+static bool g_hcclSnapshotGetBufSizeSupported = false;
+static bool g_hcclSnapshotRecoverAllCommsSupported = false;
 
 // ---------- 桩函数定义（签名与真实API完全一致）----------
 static HcclResult StubHcclGetRankId(HcclComm comm, uint32_t* rank) {
@@ -270,6 +276,22 @@ HcclResult StubHcclCommInitClusterInfoMemConfig(const char *rankTableString, uin
     HCCL_ERROR("[HcclWrapper] HcclCommInitClusterInfoMemConfig not supported");
     return HCCL_E_NOT_SUPPORTED;
 }
+static HcclResult StubHcclSnapshotSave(void* snapshotBuf, uint32_t size, uint32_t step) {
+    (void)snapshotBuf; (void)size; (void)step;
+    HCCL_ERROR("[HcclWrapper] HcclSnapshotSave not supported");
+    return HCCL_E_NOT_SUPPORTED;
+}
+static HcclResult StubHcclSnapshotGetBufSize(uint32_t step, uint32_t* size) {
+    (void)step; (void)size;
+    HCCL_ERROR("[HcclWrapper] HcclSnapshotGetBufSize not supported");
+    return HCCL_E_NOT_SUPPORTED;
+}
+static HcclResult StubHcclSnapshotRecoverAllComms(const char* clusterInfo, const char* changedInfo,
+                                                   void* snapshotBuf, uint32_t snapshotBufSize) {
+    (void)clusterInfo; (void)changedInfo; (void)snapshotBuf; (void)snapshotBufSize;
+    HCCL_ERROR("[HcclWrapper] HcclSnapshotRecoverAllComms not supported");
+    return HCCL_E_NOT_SUPPORTED;
+}
 
 // ---------- 初始化函数 ----------
 void HcclCommDlInit(void* libHcommHandle) {
@@ -321,6 +343,10 @@ void HcclCommDlInit(void* libHcommHandle) {
     SET_PTR(commGetKFCWorkSpacePtr, "CommGetKFCWorkSpace", StubCommGetKFCWorkSpace, g_commGetKFCWorkSpaceSupported);
     SET_PTR(commGetCCLBufSizeCfgPtr, "CommGetCCLBufSizeCfg", StubCommGetCCLBufSizeCfg, g_commGetCCLBufSizeCfgSupported);
     SET_PTR(hcclCommInitClusterInfoMemConfigPtr, "HcclCommInitClusterInfoMemConfig", StubHcclCommInitClusterInfoMemConfig, g_hcclCommInitClusterInfoMemConfigSupported);
+    SET_PTR(hcclSnapshotSavePtr, "HcclSnapshotSave", StubHcclSnapshotSave, g_hcclSnapshotSaveSupported);
+    SET_PTR(hcclSnapshotGetBufSizePtr, "HcclSnapshotGetBufSize", StubHcclSnapshotGetBufSize, g_hcclSnapshotGetBufSizeSupported);
+    SET_PTR(hcclSnapshotRecoverAllCommsPtr, "HcclSnapshotRecoverAllComms",
+            StubHcclSnapshotRecoverAllComms, g_hcclSnapshotRecoverAllCommsSupported);
 
     #undef SET_PTR
 }
@@ -398,6 +424,12 @@ void HcclCommDlFini(void) {
     g_commGetCCLBufSizeCfgSupported = false;
     hcclCommInitClusterInfoMemConfigPtr = StubHcclCommInitClusterInfoMemConfig;
     g_hcclCommInitClusterInfoMemConfigSupported = false;
+    hcclSnapshotSavePtr = StubHcclSnapshotSave;
+    g_hcclSnapshotSaveSupported = false;
+    hcclSnapshotGetBufSizePtr = StubHcclSnapshotGetBufSize;
+    g_hcclSnapshotGetBufSizeSupported = false;
+    hcclSnapshotRecoverAllCommsPtr = StubHcclSnapshotRecoverAllComms;
+    g_hcclSnapshotRecoverAllCommsSupported = false;
 }
 
 // ---------- 对外API实现（通过函数指针转发）----------
@@ -514,6 +546,16 @@ HcclResult HcclCommInitClusterInfoMemConfig(const char *rankTableString, uint32_
 {
     return hcclCommInitClusterInfoMemConfigPtr(rankTableString, rank, config, comm);
 }
+HcclResult HcclSnapshotSave(void* snapshotBuf, uint32_t size, uint32_t step) {
+    return hcclSnapshotSavePtr(snapshotBuf, size, step);
+}
+HcclResult HcclSnapshotGetBufSize(uint32_t step, uint32_t* size) {
+    return hcclSnapshotGetBufSizePtr(step, size);
+}
+HcclResult HcclSnapshotRecoverAllComms(const char* clusterInfo, const char* changedInfo,
+                                       void* snapshotBuf, uint32_t snapshotBufSize) {
+    return hcclSnapshotRecoverAllCommsPtr(clusterInfo, changedInfo, snapshotBuf, snapshotBufSize);
+}
 
 // ---------- 查询函数实现 ----------
 extern "C" bool HcommIsSupportHcclGetRankId(void) {
@@ -557,3 +599,15 @@ extern "C" bool HcommIsSupportCommGetRemoteCCLBuf(void) { return g_commGetRemote
 extern "C" bool HcommIsSupportCommGetKFCWorkSpace(void) { return g_commGetKFCWorkSpaceSupported; }
 extern "C" bool HcommIsSupportCommGetCCLBufSizeCfg(void) { return g_commGetCCLBufSizeCfgSupported; }
 extern "C" bool HcommIsSupportHcclCommInitClusterInfoMemConfig(void) { return g_hcclCommInitClusterInfoMemConfigSupported; }
+extern "C" bool HcommIsSupportHcclCommInitClusterInfoMemConfig(void) {
+    return g_hcclCommInitClusterInfoMemConfigSupported;
+}
+extern "C" bool HcommIsSupportHcclSnapshotSave(void) {
+    return g_hcclSnapshotSaveSupported;
+}
+extern "C" bool HcommIsSupportHcclSnapshotGetBufSize(void) {
+    return g_hcclSnapshotGetBufSizeSupported;
+}
+extern "C" bool HcommIsSupportHcclSnapshotRecoverAllComms(void) {
+    return g_hcclSnapshotRecoverAllCommsSupported;
+}
