@@ -55,7 +55,6 @@ HcclResult HcclSnapshotSave(void* snapshotBuf, uint32_t size, uint32_t step);
 HcclResult HcclSnapshotGetBufSize(uint32_t step, uint32_t* size);
 HcclResult HcclSnapshotRecoverAllComms(const char* clusterInfo, const char* changedInfo,
                                        void* snapshotBuf, uint32_t snapshotBufSize);
-HcclResult HcclGetCommHandleByCtx(void *ctx, void **opHandle);
 
 // 查询函数声明
 bool HcommIsSupportHcclCommInitClusterInfo(void);
@@ -96,7 +95,6 @@ bool HcommIsSupportHcclCommInitClusterInfoMemConfig(void);
 bool HcommIsSupportHcclSnapshotSave(void);
 bool HcommIsSupportHcclSnapshotGetBufSize(void);
 bool HcommIsSupportHcclSnapshotRecoverAllComms(void);
-bool HcommIsSupportHcclGetCommHandleByCtx(void);
 
 void HcclCommDlInit(void* libHcommHandle);        // 本模块独立初始化
 void HcclCommDlFini(void);                         // 本模块独立销毁

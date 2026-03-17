@@ -19,4 +19,5 @@ target_sources(hccl PRIVATE
     hccl_one_sided_services_dl.cc
     hccl_ex_dl.cc
     hcom_dl.cc
+    hccl_mc2_ex_dl.cc
 )
