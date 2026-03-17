@@ -14,6 +14,7 @@
 #include <future>
 #include <map>
 #include <string>
+#include "op_common_graph_mode.h"
 
 using namespace std;
 using namespace ops_hccl;
