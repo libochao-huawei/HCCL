@@ -107,7 +107,7 @@ HcclResult HcclAllGatherVGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCo
  	     resPack.scratchMemSize = scratchMemSize;
  	 
  	     // 执行AllGatherV
- 	     CHK_RET_AND_PRINT_IDE(AllGatherVOutPlaceGraphMode(sendBuf, recvBuf, sendCount, dataType, comm, stream, tag, resPack), opTag);
+ 	     CHK_RET_AND_PRINT_IDE(AllGatherVOutPlaceGraphMode(sendBuf, recvBuf, sendCount, recvCounts, recvDispls, dataType, comm, stream, tag, resPack), opTag);
  	 
  	     return HCCL_SUCCESS;
  	 }
@@ -198,7 +198,7 @@ HcclResult AllGatherVOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount,c
     return HCCL_SUCCESS;
 }
 
-HcclResult AllGatherVOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
+HcclResult AllGatherVOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCount, const void *recvCounts,const void *recvDispls, HcclDataType dataType, HcclComm comm,
  	                                       aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack)
 {
  	HCCL_INFO("Start to execute AllGatherVOutPlaceGraphMode");
@@ -244,7 +244,7 @@ HcclResult AllGatherVOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t se
  	param.outputSize = outputSize;
  	param.DataDes.count = sendCount;
  	param.DataDes.dataType = dataType;
- 	param.opType = HcclCMDType::HCCL_CMD_ALLGATHERV;
+ 	param.opType = HcclCMDType::HCCL_CMD_ALLGATHER_V;
  	param.enableDetour = false;
  	param.deviceType = deviceType;
  	if (userRankSize == 1) {
