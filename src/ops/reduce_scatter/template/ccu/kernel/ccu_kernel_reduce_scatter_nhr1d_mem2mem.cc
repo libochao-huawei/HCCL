@@ -57,6 +57,8 @@ void CcuKernelReduceScatterNHR1DMem2Mem::LoadArgs()
     Load(token_[myRankIdx_]);
     Load(die0Size_);
     Load(die1Size_);
+    Load(die0LastSliceSize_);
+    Load(die1LastSliceSize_);
     Load(inputSliceStride_);
     Load(outputSliceStride_);
     Load(inputRepeatStride_);
@@ -70,6 +72,8 @@ HcclResult CcuKernelReduceScatterNHR1DMem2Mem::InitResources()
 {
     die0Size_           = CreateVariable();
     die1Size_           = CreateVariable();
+    die0LastSliceSize_  = CreateVariable();
+    die1LastSliceSize_  = CreateVariable();
     sliceSize_          = CreateVariable();
     inputSliceStride_   = CreateVariable();
     outputSliceStride_  = CreateVariable();
@@ -167,9 +171,12 @@ void CcuKernelReduceScatterNHR1DMem2Mem::DoRepeatReduceScatterNHR()
                 localDst_.addr += die0Size_;
             }
         }
-        CcuRep::Variable &localSliceSize = (axisId_ == 0) ? die0Size_ : die1Size_;
+        CcuRep::Variable &localSliceSize = (axisId_ == 0) ? (islastSlice? die0LastSliceSize_ : die0Size_)
+                                                          : (islastSlice? die1LastSliceSize_ : die1Size_);
         event_.SetMask(1);
-        LocalCopyNb(localDst_, localSrc_, localSliceSize, event_);
+        CCU_IF(localSliceSize != 0) {
+            LocalCopyNb(localDst_, localSrc_, localSliceSize, event_);
+        }
         WaitEvent(event_);
         isRepeatIter_ = 1;
     }
@@ -185,6 +192,8 @@ void CcuKernelReduceScatterNHR1DMem2Mem::DoRepeatReduceScatterNHRSingleStep(cons
     const std::vector<u32> &sendSliceIdxList = nhrStepInfo.txSliceIdxs;
     remoteDst_.token = token_[toRankIdx];
     localSrc_.token = token_[myRankIdx_];
+    
+    bool islastSlice = false;
 
     // 通知fromRank，可以写入
     NotifyRecord(recvChannel, CKE_IDX_0, 1 << STEP_PRE_SYNC_ID);
@@ -197,7 +206,9 @@ void CcuKernelReduceScatterNHR1DMem2Mem::DoRepeatReduceScatterNHRSingleStep(cons
         remoteDst_.addr += inputSliceOffset[sendSliceIdx];
         localSrc_.addr = input_[myRankIdx_];
         localSrc_.addr += inputSliceOffset[sendSliceIdx];
-        DoRepeatWriteReduceSlices(nhrStepInfo.toRank, localSrc_, remoteDst_);
+        
+        islastSlice = (sendSliceIdx + 1 == dimSize_);
+        DoRepeatWriteReduceSlices(nhrStepInfo.toRank, localSrc_, remoteDst_, islastSlice);
     }
 
     // 通知toRank数据写入完毕
@@ -208,8 +219,9 @@ void CcuKernelReduceScatterNHR1DMem2Mem::DoRepeatReduceScatterNHRSingleStep(cons
 }
 
 void CcuKernelReduceScatterNHR1DMem2Mem::DoRepeatWriteReduceSlices(const u32 &toRank, CcuRep::LocalAddr &src,
-                                                                 CcuRep::RemoteAddr &dst)
+                                                                 CcuRep::RemoteAddr &dst, const bool islastSlice)
 {
+    bool islastSlice = (mySubCommRankId_ + 1 == dimSize_);
     CcuRep::Variable repeatNumAdd = CreateVariable();
     repeatNumAdd  = 1;
     isRepeatIter_ = 0;
@@ -230,10 +242,13 @@ void CcuKernelReduceScatterNHR1DMem2Mem::DoRepeatWriteReduceSlices(const u32 &to
                 dst.addr += die0Size_;
             }
         }
-        sliceSize_ =  (axisId_ == 0) ? die0Size_ : die1Size_;
+        sliceSize_ = (axisId_ == 0) ? (islastSlice? die0LastSliceSize_ : die0Size_)
+                                    : (islastSlice? die1LastSliceSize_ : die1Size_);
+    
         event_.SetMask(1);
-        WriteReduceNb(sendChannel, dst, src, sliceSize_, dataType_,
-                    reduceOp_, event_);
+        CCU_IF(sliceSize_ != 0) {
+            WriteReduceNb(sendChannel, dst, src, sliceSize_, dataType_, reduceOp_, event_);
+        }
         WaitEvent(event_);
         isRepeatIter_ = 1;
     }
@@ -262,6 +277,8 @@ std::vector<uint64_t> CcuKernelReduceScatterNHR1DMem2Mem::GeneArgs(const CcuTask
     uint64_t token              = taskArg->token_;
     uint64_t die0Size           = taskArg->die0Size_;
     uint64_t die1Size           = taskArg->die1Size_;
+    uint64_t die0LastSliceSize  = taskArg->die0LastSliceSize_;
+    uint64_t die1LastSliceSize  = taskArg->die1LastSliceSize_;
     uint64_t inputSliceStride   = taskArg->inputSliceStride_;
     uint64_t outputSliceStride  = taskArg->outputSliceStride_;
     uint64_t inputRepeatStride  = taskArg->inputRepeatStride_;
@@ -269,14 +286,14 @@ std::vector<uint64_t> CcuKernelReduceScatterNHR1DMem2Mem::GeneArgs(const CcuTask
     uint64_t repeatNumVar       = UINT64_MAX - taskArg->repeatNum_;
 
     HCCL_INFO("[CcuKernelReduceScatterNHR1DMem2Mem] TaskArgs: inputAddr[%llu], outputAddr[%llu],"
-              "die0Size[%llu], die1Size[%llu],"
+              "die0Size[%llu], die1Size[%llu], die0LastSliceSize[%llu], die1LastSliceSize[%llu],"
               "inputSliceStride[%llu], outputSliceStride[%llu], inputRepeatStride[%llu], outputRepeatStride[%llu]",
-              inputAddr, outputAddr, die0Size, die1Size,
+              inputAddr, outputAddr, die0Size, die1Size, die0LastSliceSize, die1LastSliceSize,
               inputSliceStride, outputSliceStride, inputRepeatStride, outputRepeatStride);
 
-    return {inputAddr,          outputAddr,        token,
-            die0Size,           die1Size,          inputSliceStride,
-            outputSliceStride,  inputRepeatStride, outputRepeatStride,
-            repeatNumVar};
+    return {inputAddr,          outputAddr,         token,
+            die0Size,           die1Size,           die0LastSliceSize,
+            die1LastSliceSize,  inputSliceStride,   outputSliceStride,
+            inputRepeatStride,  outputRepeatStride, repeatNumVar};
 }
 } // namespace ops_hccl
