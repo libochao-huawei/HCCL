@@ -251,6 +251,23 @@ struct CcuKernelInfo {
     std::vector<HcclChannelDesc> channels;
 };
 
+// 算法sqe最大个数（alltoallv除外）
+#define CCU_MAX_TASK_ARG_NUM 30;
+
+struct CcuKernelSubmmitInfo {
+    CcuKernelHandle kernelHandle;
+    uint64_t sqeArgs[CCU_MAX_TASK_ARG_NUM];
+}
+
+// ccu快速下发上下文
+struct CcuFastRunCtx {
+    char algName[OP_ALG_LENGTH];
+    u32 threadNum;
+    u32 ccuKernelNum;
+    // ThreadHandle threadHandles[];
+    // CcuKernelSubmmitInfo ccuKernelSubmmitInfo[];
+}
+
 // A5用了cntNotify
 struct AlgResourceRequest {
     u32 notifyNumOnMainThread = 0;
@@ -402,6 +419,7 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     void* hcclComm;
     char tag[TAG_LENGTH]; // 保存topoInfo的key值
     char algTag[ALG_TAG_LENGTH]; // 保存资源的key值，和算法绑定
+    char FastLaunchTag[ALG_TAG_LENGTH]; // 快速下发的key值
     char commName[COMM_INDENTIFIER_MAX_LENGTH];
     char commModeTag[TAG_LENGTH]; // 保存与执行模式相关的资源信息的key值
     aclrtStream stream;
