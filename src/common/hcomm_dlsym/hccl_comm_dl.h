@@ -49,6 +49,8 @@ HcclResult CommGetLocalCCLBuf(HcclComm comm, void **addr, uint64_t *size);
 HcclResult CommGetRemoteCCLBuf(HcclComm comm, uint32_t remoteRank, void **addr, uint64_t *size);
 HcclResult CommGetKFCWorkSpace(HcclComm comm, void **addr, uint64_t *size);
 HcclResult CommGetCCLBufSizeCfg(HcclComm comm, uint64_t *cclBufSize);
+HcclResult HcclCommInitClusterInfoMemConfig(const char *rankTableString, uint32_t rank,
+                                            HcclCommConfig *config, HcclComm *comm);
 
 // 查询函数声明
 bool HcommIsSupportHcclCommInitClusterInfo(void);
@@ -85,6 +87,7 @@ bool HcommIsSupportCommGetLocalCCLBuf(void);
 bool HcommIsSupportCommGetRemoteCCLBuf(void);
 bool HcommIsSupportCommGetKFCWorkSpace(void);
 bool HcommIsSupportCommGetCCLBufSizeCfg(void);
+bool HcommIsSupportHcclCommInitClusterInfoMemConfig(void);
 
 void HcclCommDlInit(void* libHcommHandle);        // 本模块独立初始化
 void HcclCommDlFini(void);                         // 本模块独立销毁

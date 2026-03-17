@@ -41,6 +41,8 @@ static HcclResult (*commGetLocalCCLBufPtr)(HcclComm, void**, uint64_t*) = NULL;
 static HcclResult (*commGetRemoteCCLBufPtr)(HcclComm, uint32_t, void**, uint64_t*) = NULL;
 static HcclResult (*commGetKFCWorkSpacePtr)(HcclComm, void**, uint64_t*) = NULL;
 static HcclResult (*commGetCCLBufSizeCfgPtr)(HcclComm, uint64_t*) = NULL;
+HcclResult (*hcclCommInitClusterInfoMemConfigPtr)(const char *rankTableString, uint32_t rank,
+                                            HcclCommConfig *config, HcclComm *comm) = NULL;
 
 // 添加支持标志（静态，默认 false）
 static bool g_hcclGetRankIdSupported = false;
@@ -79,6 +81,7 @@ static bool g_commGetLocalCCLBufSupported = false;
 static bool g_commGetRemoteCCLBufSupported = false;
 static bool g_commGetKFCWorkSpaceSupported = false;
 static bool g_commGetCCLBufSizeCfgSupported = false;
+static bool g_hcclCommInitClusterInfoMemConfigSupported = false;
 
 // ---------- 桩函数定义（签名与真实API完全一致）----------
 static HcclResult StubHcclGetRankId(HcclComm comm, uint32_t* rank) {
@@ -260,6 +263,13 @@ static HcclResult StubCommGetCCLBufSizeCfg(HcclComm comm, uint64_t* cclBufSize) 
     HCCL_ERROR("[HcclWrapper] CommGetCCLBufSizeCfg not supported");
     return HCCL_E_NOT_SUPPORTED;
 }
+HcclResult StubHcclCommInitClusterInfoMemConfig(const char *rankTableString, uint32_t rank,
+                                            HcclCommConfig *config, HcclComm *comm)
+{
+    (void)rankTableString; (void)rank; (void)config; (void)comm;
+    HCCL_ERROR("[HcclWrapper] HcclCommInitClusterInfoMemConfig not supported");
+    return HCCL_E_NOT_SUPPORTED;
+}
 
 // ---------- 初始化函数 ----------
 void HcclCommDlInit(void* libHcommHandle) {
@@ -310,6 +320,7 @@ void HcclCommDlInit(void* libHcommHandle) {
     SET_PTR(commGetRemoteCCLBufPtr, "CommGetRemoteCCLBuf", StubCommGetRemoteCCLBuf, g_commGetRemoteCCLBufSupported);
     SET_PTR(commGetKFCWorkSpacePtr, "CommGetKFCWorkSpace", StubCommGetKFCWorkSpace, g_commGetKFCWorkSpaceSupported);
     SET_PTR(commGetCCLBufSizeCfgPtr, "CommGetCCLBufSizeCfg", StubCommGetCCLBufSizeCfg, g_commGetCCLBufSizeCfgSupported);
+    SET_PTR(hcclCommInitClusterInfoMemConfigPtr, "HcclCommInitClusterInfoMemConfig", StubHcclCommInitClusterInfoMemConfig, g_hcclCommInitClusterInfoMemConfigSupported);
 
     #undef SET_PTR
 }
@@ -385,6 +396,8 @@ void HcclCommDlFini(void) {
     g_commGetKFCWorkSpaceSupported = false;
     commGetCCLBufSizeCfgPtr = StubCommGetCCLBufSizeCfg;
     g_commGetCCLBufSizeCfgSupported = false;
+    hcclCommInitClusterInfoMemConfigPtr = StubHcclCommInitClusterInfoMemConfig;
+    g_hcclCommInitClusterInfoMemConfigSupported = false;
 }
 
 // ---------- 对外API实现（通过函数指针转发）----------
@@ -496,6 +509,11 @@ HcclResult CommGetKFCWorkSpace(HcclComm comm, void **addr, uint64_t *size) {
 HcclResult CommGetCCLBufSizeCfg(HcclComm comm, uint64_t *cclBufSize) {
     return commGetCCLBufSizeCfgPtr(comm, cclBufSize);
 }
+HcclResult HcclCommInitClusterInfoMemConfig(const char *rankTableString, uint32_t rank,
+                                            HcclCommConfig *config, HcclComm *comm)
+{
+    return hcclCommInitClusterInfoMemConfigPtr(rankTableString, rank, config, comm);
+}
 
 // ---------- 查询函数实现 ----------
 extern "C" bool HcommIsSupportHcclGetRankId(void) {
@@ -538,3 +556,4 @@ extern "C" bool HcommIsSupportCommGetLocalCCLBuf(void) { return g_commGetLocalCC
 extern "C" bool HcommIsSupportCommGetRemoteCCLBuf(void) { return g_commGetRemoteCCLBufSupported; }
 extern "C" bool HcommIsSupportCommGetKFCWorkSpace(void) { return g_commGetKFCWorkSpaceSupported; }
 extern "C" bool HcommIsSupportCommGetCCLBufSizeCfg(void) { return g_commGetCCLBufSizeCfgSupported; }
+extern "C" bool HcommIsSupportHcclCommInitClusterInfoMemConfig(void) { return g_hcclCommInitClusterInfoMemConfigSupported; }
