@@ -135,11 +135,14 @@ HcclResult GenerateCcuKernelSignature(hcomm::CcuKernelSignature &sig, const std:
     sig.Append<std::string>(name);
     if (opParam.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER ||
         opParam.opType == HcclCMDType::HCCL_CMD_ALLREDUCE ||
-        opParam.opType == HcclCMDType::HCCL_CMD_REDUCE ||
-        opParam.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V) {
+        opParam.opType == HcclCMDType::HCCL_CMD_REDUCE) {
         sig.Append<uint8_t>(uint8_t(opParam.reduceType));
         sig.Append<uint8_t>(uint8_t(opParam.DataDes.dataType));
         sig.Append<uint8_t>(uint8_t(opParam.DataDes.outputType));
+    }
+    if (opParam.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V) {
+        sig.Append<uint8_t>(uint8_t(opParam.reduceType));
+        sig.Append<uint8_t>(uint8_t(opParam.vDataDes.dataType));
     }
     if (opParam.opType == HcclCMDType::HCCL_CMD_REDUCE ||
         opParam.opType == HcclCMDType::HCCL_CMD_BROADCAST ||
