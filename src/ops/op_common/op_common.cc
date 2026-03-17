@@ -121,6 +121,99 @@ void SetHcclDfxOpInfoDataCount(HcclDfxOpInfo &dfxOpInfo, const OpParam &param, c
     }
 }
 
+HcclResult SetOpParamFastLaunchTag(OpParam &param)
+{
+    int ret = sprintf_s(param.FastLaunchTag, sizeof(param.FastLaunchTag), "%s_", param.tag);
+    if (ret <= 0) {
+        HCCL_ERROR("faled to fill param.FastLaunchTag");
+        return HcclResult::HCCL_E_INTERNAL;
+    }
+
+    HcclDataType tmpDataType;
+    if(param.opType == HcclCMDType::HCCL_CMD_ALLTOALL ||
+        param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
+        param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
+        tmpDataType = param.all2AllVDataDes.sendType;
+    } else {
+        tmpDataType = param.DataDes.dataType;
+    }
+    const std::string dataType = HCOM_DATA_TYPE_STR_MAP.at(tmpDataType);
+    ret = strcat_s(param.FastLaunchTag, sizeof(param.FastLaunchTag), dataType.c_str());
+    if (ret != 0) {
+        HCCL_ERROR("failed to fill alg tag with ccu dataType");
+        return HcclResult::HCCL_E_INTERNAL;
+    }
+
+    if (param.opType == HcclCMDType::HCCL_CMD_ALLREDUCE ||
+        param.opType == HcclCMDType::HCCL_CMD_REDUCE ||
+        param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER ||
+        param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V) {
+        const std::string reduceType = HCOM_REDUCE_OP_STR_MAP.at(param.reduceType);
+        ret = strcat_s(param.FastLaunchTag, sizeof(param.FastLaunchTag), reduceType.c_str());
+        if (ret != 0) {
+            HCCL_ERROR("failed to fill alg tag with ccu reduceType");
+            return HcclResult::HCCL_E_INTERNAL;
+        }
+    }
+
+    if (param.opType != HcclCMDType::HCCL_CMD_ALLTOALLV) {
+        std::string count = std::to_string(param.DataDes.count);
+        ret = strcat_s(param.FastLaunchTag, sizeof(param.FastLaunchTag), count.c_str());
+        if (ret != 0) {
+            HCCL_ERROR("failed to fill alg tag with data count");
+            return HcclResult::HCCL_E_INTERNAL;
+        }
+    }
+    HCCL_DEBUG("[SetOpParamFastLaunchTag] FastLaunchTag: '%s'", param.FastLaunchTag);
+    return HcclResult::HCCL_SUCCESS;
+}
+
+bool CcuFastLaunchSupported(HcclComm comm, OpParam &param, CcuFastRunCtx **ccuFastLaunchCtx)
+{
+    param.hcclComm = comm;
+    
+    // 1. 是ccu模式
+    if (GetExternalInputHcclCcuMSMode()) {
+        HCCL_DEBUG("[HcclExecOp] is ccu ms mode");
+        param.opExecuteConfig = OpExecuteConfig::CCU_MS;
+        param.engine = CommEngine::COMM_ENGINE_CCU;
+    } else if (GetExternalInputHcclCcuSchedMode()) {
+        HCCL_DEBUG("[HcclExecOp] is ccu sched mode");
+        param.opExecuteConfig = OpExecuteConfig::CCU_SCHED;
+        param.engine = CommEngine::COMM_ENGINE_CCU;
+    } else {
+        // 非CCU模式，返回走正常流程
+        return false;
+    }
+
+    CHK_RET(GetFastLaunchTag(param));
+    
+    // 2. 查到engineCtx
+    uint64_t size = 0;
+    void *fastLaunchCtxPtr = nullptr;
+    if (HcclEngineCtxGet(comm, param.FastLaunchTag, CommEngine::COMM_ENGINE_CCU, &fastLaunchCtxPtr, &size) == HCCL_SUCCESS) {
+        HCCL_INFO("[CcuFastLaunchSupported] get fastLaunchCtx success, size is %u", size);
+        *ccuFastLaunchCtx = reinterpret_cast<CcuFastRunCtx*> fastLaunchCtxPtr;
+        return true;
+    }
+    return false;
+}
+
+HcclResult HcclExecOpCcuFastLaunch(HcclComm comm, OpParam &param, CcuFastRunCtx *ccuFastRunCtx)
+{
+    HCCL_INFO("[HcclExecOpCcuFastLaunch] HcclExecOpCcuFastLaunch start");
+    std::string algName = ccuFastRunCtx->algName;
+    std::shared_ptr<InsCollAlgBase> executor = CollAlgExecRegistryV2::Instance().GetAlgExec(param.opType, algName);
+    CHK_PRT_RET(
+        executor.get() == nullptr, HCCL_ERROR("Fail to find executor for algName[%s]", algName.c_str()), HCCL_E_PARA);
+    
+    HCCL_INFO("[HcclExecOpCcuFastLaunch] FastLaunch start");
+    CHK_RET(executor->FastLaunch(param, *ccuFastRunCtx));
+    
+    HCCL_INFO("[HcclExecOpCcuFastLaunch] HcclExecOpCcuFastLaunch end");
+    return HCCL_SUCCESS;
+}
+
 HcclResult HcclExecOp(HcclComm comm, OpParam &param,
                       std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo, std::string &algName)
 {
