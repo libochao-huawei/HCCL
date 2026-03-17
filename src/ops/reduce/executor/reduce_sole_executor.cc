@@ -14,11 +14,12 @@
 #include "../template/aicpu/reduce_aicpu_reduce_nhr.h"
 #include "topo_match_1d.h"
 #ifndef AICPU_COMPILE
+#include "aiv_temp_reduce_mesh_1D.h"
 #include "ccu_temp_reduce_mesh_1D_mem2mem.h"
 #include "ccu_temp_reduce_mesh_1D.h"
 #include "ccu_temp_reduce_nhr_1D_mem2mem.h"
 #endif
-
+    
 namespace ops_hccl {
 
 template <typename AlgTopoMatch, typename AlgTemplate>
