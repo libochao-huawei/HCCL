@@ -389,10 +389,10 @@ void HcclCommDlFini(void) {
 
 // ---------- 对外API实现（通过函数指针转发）----------
 HcclResult HcclGetRankId(HcclComm comm, uint32_t* rank) {
-    return HcclGetRankIdPtr(comm, rank);
+    return hcclGetRankIdPtr(comm, rank);
 }
 HcclResult HcclGetRankSize(HcclComm comm, uint32_t* rankSize) {
-    return HcclGetRankSizePtr(comm, rankSize);
+    return hcclGetRankSizePtr(comm, rankSize);
 }
 HcclResult HcclCommInitClusterInfo(const char* clusterInfo, uint32_t rank, HcclComm* comm) {
     return hcclCommInitClusterInfoPtr(clusterInfo, rank, comm);
