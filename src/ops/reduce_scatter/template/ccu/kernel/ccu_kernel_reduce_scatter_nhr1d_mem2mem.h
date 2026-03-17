@@ -115,7 +115,8 @@ private:
     void DoRepeatReduceScatterNHR();
     void DoRepeatReduceScatterNHRSingleStep(const NHRStepInfo &nhrStepInfo,
         const std::vector<CcuRep::Variable> &inputSliceOffset);
-    void DoRepeatWriteReduceSlices(const u32 &toRank, CcuRep::LocalAddr &src, CcuRep::RemoteAddr &dst);
+    void DoRepeatWriteReduceSlices(const u32 &toRank, CcuRep::LocalAddr &src, CcuRep::RemoteAddr &dst
+                                   const bool islastSlice);
 
     // 构造函数中
     uint32_t mySubCommRankId_{0};
@@ -138,6 +139,8 @@ private:
     std::vector<CcuRep::Variable> token_;
     CcuRep::Variable die0Size_;
     CcuRep::Variable die1Size_;
+    CcuRep::Variable die0LastSliceSize_;
+    CcuRep::Variable die1LastSliceSize_;
     CcuRep::Variable inputSliceStride_;
     CcuRep::Variable outputSliceStride_;
     CcuRep::Variable inputRepeatStride_;
