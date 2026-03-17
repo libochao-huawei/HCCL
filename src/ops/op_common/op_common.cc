@@ -121,6 +121,22 @@ void SetHcclDfxOpInfoDataCount(HcclDfxOpInfo &dfxOpInfo, const OpParam &param, c
     }
 }
 
+void SetHcclDfxOpInfoDataType(HcclDfxOpInfo &dfxOpInfo, const OpParam &param) {
+    u64 dataType = 0;
+    if (param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V
+        || param.opType == HcclCMDType::HCCL_CMD_ALLGATGERV) {
+        hcclDfxOpInfo.dataType = static_cast<u32>(param.vDataDes.dataType);
+    } else if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL) {
+        hcclDfxOpInfo.dataType = static_cast<u32>(param.all2AllDataDes.sendType);
+    } else if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV) {
+        hcclDfxOpInfo.dataType = static_cast<u32>(param.all2AllVDataDes.sendType);
+    } else if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
+        hcclDfxOpInfo.dataType = static_cast<u32>(param.all2AllVCDataDes.sendType);
+    } else {
+        return;
+    }
+}
+
 HcclResult HcclExecOp(HcclComm comm, OpParam &param,
                       std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo, std::string &algName)
 {
@@ -174,6 +190,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     u32 userRankSize{0};
     CHK_RET(HcclGetRankSize(comm, &userRankSize));
     SetHcclDfxOpInfoDataCount(hcclDfxOpInfo, param, userRankSize);
+    SetHcclDfxOpInfoDataType(hcclDfxOpInfo, param);
     HcclDfxOpInfo *tempOp = &hcclDfxOpInfo;
 
     CHK_RET(HcclDfxRegOpInfo(comm, static_cast<void*>(tempOp)));
