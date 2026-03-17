@@ -121,20 +121,21 @@ void SetHcclDfxOpInfoDataCount(HcclDfxOpInfo &dfxOpInfo, const OpParam &param, c
     }
 }
 
-void SetHcclDfxOpInfoDataType(HcclDfxOpInfo &dfxOpInfo, const OpParam &param) {
-    u64 dataType = 0;
+uint32_t GetHcclDfxOpInfoDataType(HcclDfxOpInfo &dfxOpInfo, const OpParam &param) {
+    uint32_t dataType = 0;
     if (param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V
         || param.opType == HcclCMDType::HCCL_CMD_ALLGATHER_V) {
-        dfxOpInfo.dataType = static_cast<u32>(param.vDataDes.dataType);
+        dataType = static_cast<u32>(param.vDataDes.dataType);
     } else if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL) {
-        dfxOpInfo.dataType = static_cast<u32>(param.all2AllDataDes.sendType);
+        dataType = static_cast<u32>(param.all2AllDataDes.sendType);
     } else if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV) {
-        dfxOpInfo.dataType = static_cast<u32>(param.all2AllVDataDes.sendType);
+        dataType = static_cast<u32>(param.all2AllVDataDes.sendType);
     } else if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
-        dfxOpInfo.dataType = static_cast<u32>(param.all2AllVCDataDes.sendType);
+        dataType = static_cast<u32>(param.all2AllVCDataDes.sendType);
     } else {
-        return;
+        dataType = static_cast<u32>(param.DataDes.dataType);
     }
+    return dataType;
 }
 
 HcclResult HcclExecOp(HcclComm comm, OpParam &param,
@@ -177,7 +178,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     hcclDfxOpInfo.opMode = static_cast<u32>(param.opMode);
     hcclDfxOpInfo.opType = static_cast<u32>(param.opType);
     hcclDfxOpInfo.reduceOp = static_cast<u32>(param.reduceType);
-    hcclDfxOpInfo.dataType = static_cast<u32>(param.DataDes.dataType);
+    hcclDfxOpInfo.dataType = GetHcclDfxOpInfoDataType;
     hcclDfxOpInfo.dataCount = static_cast<u32>(param.DataDes.count);
     hcclDfxOpInfo.root = param.root;
     hcclDfxOpInfo.engine = param.engine;
@@ -190,7 +191,6 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     u32 userRankSize{0};
     CHK_RET(HcclGetRankSize(comm, &userRankSize));
     SetHcclDfxOpInfoDataCount(hcclDfxOpInfo, param, userRankSize);
-    SetHcclDfxOpInfoDataType(hcclDfxOpInfo, param);
     HcclDfxOpInfo *tempOp = &hcclDfxOpInfo;
 
     CHK_RET(HcclDfxRegOpInfo(comm, static_cast<void*>(tempOp)));
