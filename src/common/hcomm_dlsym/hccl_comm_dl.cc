@@ -5,6 +5,8 @@
 #include <stdlib.h>
 
 // 定义全局函数指针（小驼峰）
+HcclResult (*hcclGetRankIdPtr)(HcclComm, uint32_t*) = NULL;
+HcclResult (*hcclGetRankSizePtr)(HcclComm, uint32_t*) = NULL;
 HcclResult (*hcclCommInitClusterInfoPtr)(const char*, uint32_t, HcclComm*) = NULL;
 HcclResult (*hcclCommInitClusterInfoConfigPtr)(const char*, uint32_t, HcclCommConfig*, HcclComm*) = NULL;
 HcclResult (*hcclCreateSubCommConfigPtr)(HcclComm*, uint32_t, uint32_t*, uint64_t, uint32_t, HcclCommConfig*, HcclComm*) = NULL;
@@ -33,8 +35,16 @@ HcclResult (*hcclGroupEndPtr)(void) = NULL;
 HcclResult (*hcclCommSymWinRegisterPtr)(HcclComm, void*, uint64_t, CommSymWindow*, uint32_t) = NULL;
 HcclResult (*hcclCommSymWinDeregisterPtr)(CommSymWindow) = NULL;
 HcclResult (*hcclCommSymWinGetPtr)(HcclComm, void*, size_t, CommSymWindow*, size_t*) = NULL;
+static HcclResult (*hcclGetRawCommHandlePtr)(const char*, HcclComm*) = NULL;
+static HcclResult (*hcclGetCcuTaskInfoPtr)(HcclComm, void*, void*) = NULL;
+static HcclResult (*commGetLocalCCLBufPtr)(HcclComm, void**, uint64_t*) = NULL;
+static HcclResult (*commGetRemoteCCLBufPtr)(HcclComm, uint32_t, void**, uint64_t*) = NULL;
+static HcclResult (*commGetKFCWorkSpacePtr)(HcclComm, void**, uint64_t*) = NULL;
+static HcclResult (*commGetCCLBufSizeCfgPtr)(HcclComm, uint64_t*) = NULL;
 
 // 添加支持标志（静态，默认 false）
+static bool g_hcclGetRankIdSupported = false;
+static bool g_hcclGetRankSizeSupported = false;
 static bool g_hcclCommInitClusterInfoSupported = false;
 static bool g_hcclCommInitClusterInfoConfigSupported = false;
 static bool g_hcclCreateSubCommConfigSupported = false;
@@ -63,8 +73,26 @@ static bool g_hcclGroupEndSupported = false;
 static bool g_hcclCommSymWinRegisterSupported = false;
 static bool g_hcclCommSymWinDeregisterSupported = false;
 static bool g_hcclCommSymWinGetSupported = false;
+static bool g_hcclGetRawCommHandleSupported = false;
+static bool g_hcclGetCcuTaskInfoSupported = false;
+static bool g_commGetLocalCCLBufSupported = false;
+static bool g_commGetRemoteCCLBufSupported = false;
+static bool g_commGetKFCWorkSpaceSupported = false;
+static bool g_commGetCCLBufSizeCfgSupported = false;
 
 // ---------- 桩函数定义（签名与真实API完全一致）----------
+static HcclResult StubHcclGetRankId(HcclComm comm, uint32_t* rank) {
+    (void)comm; (void)rank;
+    HCCL_ERROR("[HcclWrapper] HcclGetRankId not supported");
+    return HCCL_E_NOT_SUPPORTED;
+}
+
+static HcclResult StubHcclGetRankSize(HcclComm comm, uint32_t* rankSize) {
+    (void)comm; (void)rankSize;
+    HCCL_ERROR("[HcclWrapper] HcclGetRankSize not supported");
+    return HCCL_E_NOT_SUPPORTED;
+}
+
 static HcclResult StubHcclCommInitClusterInfo(const char* clusterInfo, uint32_t rank, HcclComm* comm) {
     (void)clusterInfo; (void)rank; (void)comm;
     HCCL_ERROR("[HcclWrapper] HcclCommInitClusterInfo not supported");
@@ -202,6 +230,36 @@ static HcclResult StubHcclCommSymWinGet(HcclComm comm, void* ptr, size_t size, C
     HCCL_ERROR("[HcclWrapper] HcclCommSymWinGet not supported");
     return HCCL_E_NOT_SUPPORTED;
 }
+static HcclResult StubHcclGetRawCommHandle(const char* commName, HcclComm* commHandle) {
+    (void)commName; (void)commHandle;
+    HCCL_ERROR("[HcclWrapper] HcclGetRawCommHandle not supported");
+    return HCCL_E_NOT_SUPPORTED;
+}
+static HcclResult StubHcclGetCcuTaskInfo(HcclComm comm, void* tilingData, void* ccuTaskGroup) {
+    (void)comm; (void)tilingData; (void)ccuTaskGroup;
+    HCCL_ERROR("[HcclWrapper] HcclGetCcuTaskInfo not supported");
+    return HCCL_E_NOT_SUPPORTED;
+}
+static HcclResult StubCommGetLocalCCLBuf(HcclComm comm, void** addr, uint64_t* size) {
+    (void)comm; (void)addr; (void)size;
+    HCCL_ERROR("[HcclWrapper] CommGetLocalCCLBuf not supported");
+    return HCCL_E_NOT_SUPPORTED;
+}
+static HcclResult StubCommGetRemoteCCLBuf(HcclComm comm, uint32_t remoteRank, void** addr, uint64_t* size) {
+    (void)comm; (void)remoteRank; (void)addr; (void)size;
+    HCCL_ERROR("[HcclWrapper] CommGetRemoteCCLBuf not supported");
+    return HCCL_E_NOT_SUPPORTED;
+}
+static HcclResult StubCommGetKFCWorkSpace(HcclComm comm, void** addr, uint64_t* size) {
+    (void)comm; (void)addr; (void)size;
+    HCCL_ERROR("[HcclWrapper] CommGetKFCWorkSpace not supported");
+    return HCCL_E_NOT_SUPPORTED;
+}
+static HcclResult StubCommGetCCLBufSizeCfg(HcclComm comm, uint64_t* cclBufSize) {
+    (void)comm; (void)cclBufSize;
+    HCCL_ERROR("[HcclWrapper] CommGetCCLBufSizeCfg not supported");
+    return HCCL_E_NOT_SUPPORTED;
+}
 
 // ---------- 初始化函数 ----------
 void HcclCommDlInit(void* libHcommHandle) {
@@ -216,6 +274,8 @@ void HcclCommDlInit(void* libHcommHandle) {
             } \
         } while(0)
 
+    SET_PTR(hcclGetRankIdPtr, "HcclGetRankId", StubHcclGetRankId, g_hcclGetRankIdSupported);
+    SET_PTR(hcclGetRankSizePtr, "HcclGetRankSize", StubHcclGetRankSize, g_hcclGetRankSizeSupported);
     SET_PTR(hcclCommInitClusterInfoPtr, "HcclCommInitClusterInfo", StubHcclCommInitClusterInfo, g_hcclCommInitClusterInfoSupported);
     SET_PTR(hcclCommInitClusterInfoConfigPtr, "HcclCommInitClusterInfoConfig", StubHcclCommInitClusterInfoConfig, g_hcclCommInitClusterInfoConfigSupported);
     SET_PTR(hcclCreateSubCommConfigPtr, "HcclCreateSubCommConfig", StubHcclCreateSubCommConfig, g_hcclCreateSubCommConfigSupported);
@@ -244,11 +304,19 @@ void HcclCommDlInit(void* libHcommHandle) {
     SET_PTR(hcclCommSymWinRegisterPtr, "HcclCommSymWinRegister", StubHcclCommSymWinRegister, g_hcclCommSymWinRegisterSupported);
     SET_PTR(hcclCommSymWinDeregisterPtr, "HcclCommSymWinDeregister", StubHcclCommSymWinDeregister, g_hcclCommSymWinDeregisterSupported);
     SET_PTR(hcclCommSymWinGetPtr, "HcclCommSymWinGet", StubHcclCommSymWinGet, g_hcclCommSymWinGetSupported);
+    SET_PTR(hcclGetRawCommHandlePtr, "HcclGetRawCommHandle", StubHcclGetRawCommHandle, g_hcclGetRawCommHandleSupported);
+    SET_PTR(hcclGetCcuTaskInfoPtr, "HcclGetCcuTaskInfo", StubHcclGetCcuTaskInfo, g_hcclGetCcuTaskInfoSupported);
+    SET_PTR(commGetLocalCCLBufPtr, "CommGetLocalCCLBuf", StubCommGetLocalCCLBuf, g_commGetLocalCCLBufSupported);
+    SET_PTR(commGetRemoteCCLBufPtr, "CommGetRemoteCCLBuf", StubCommGetRemoteCCLBuf, g_commGetRemoteCCLBufSupported);
+    SET_PTR(commGetKFCWorkSpacePtr, "CommGetKFCWorkSpace", StubCommGetKFCWorkSpace, g_commGetKFCWorkSpaceSupported);
+    SET_PTR(commGetCCLBufSizeCfgPtr, "CommGetCCLBufSizeCfg", StubCommGetCCLBufSizeCfg, g_commGetCCLBufSizeCfgSupported);
 
     #undef SET_PTR
 }
 
 void HcclCommDlFini(void) {
+    hcclGetRankIdPtr = StubHcclGetRankId;
+    hcclGetRankSizePtr = StubHcclGetRankSize;
     hcclCommInitClusterInfoPtr = StubHcclCommInitClusterInfo;
     g_hcclCommInitClusterInfoSupported = false;
     hcclCommInitClusterInfoConfigPtr = StubHcclCommInitClusterInfoConfig;
@@ -305,9 +373,27 @@ void HcclCommDlFini(void) {
     g_hcclCommSymWinDeregisterSupported = false;
     hcclCommSymWinGetPtr = StubHcclCommSymWinGet;
     g_hcclCommSymWinGetSupported = false;
+    hcclGetRawCommHandlePtr = StubHcclGetRawCommHandle;
+    g_hcclGetRawCommHandleSupported = false;
+    hcclGetCcuTaskInfoPtr = StubHcclGetCcuTaskInfo;
+    g_hcclGetCcuTaskInfoSupported = false;
+    commGetLocalCCLBufPtr = StubCommGetLocalCCLBuf;
+    g_commGetLocalCCLBufSupported = false;
+    commGetRemoteCCLBufPtr = StubCommGetRemoteCCLBuf;
+    g_commGetRemoteCCLBufSupported = false;
+    commGetKFCWorkSpacePtr = StubCommGetKFCWorkSpace;
+    g_commGetKFCWorkSpaceSupported = false;
+    commGetCCLBufSizeCfgPtr = StubCommGetCCLBufSizeCfg;
+    g_commGetCCLBufSizeCfgSupported = false;
 }
 
 // ---------- 对外API实现（通过函数指针转发）----------
+HcclResult HcclGetRankId(HcclComm comm, uint32_t* rank) {
+    return HcclGetRankIdPtr(comm, rank);
+}
+HcclResult HcclGetRankSize(HcclComm comm, uint32_t* rankSize) {
+    return HcclGetRankSizePtr(comm, rankSize);
+}
 HcclResult HcclCommInitClusterInfo(const char* clusterInfo, uint32_t rank, HcclComm* comm) {
     return hcclCommInitClusterInfoPtr(clusterInfo, rank, comm);
 }
@@ -392,8 +478,32 @@ HcclResult HcclCommSymWinDeregister(CommSymWindow winHandle) {
 HcclResult HcclCommSymWinGet(HcclComm comm, void* ptr, size_t size, CommSymWindow* winHandle, size_t* offset) {
     return hcclCommSymWinGetPtr(comm, ptr, size, winHandle, offset);
 }
+HcclResult HcclGetRawCommHandle(const char* commName, HcclComm* commHandle) {
+    return hcclGetRawCommHandlePtr(commName, commHandle);
+}
+HcclResult HcclGetCcuTaskInfo(HcclComm comm, void* tilingData, void* ccuTaskGroup) {
+    return hcclGetCcuTaskInfoPtr(comm, tilingData, ccuTaskGroup);
+}
+HcclResult CommGetLocalCCLBuf(HcclComm comm, void **addr, uint64_t *size) {
+    return commGetLocalCCLBufPtr(comm, addr, size);
+}
+HcclResult CommGetRemoteCCLBuf(HcclComm comm, uint32_t remoteRank, void **addr, uint64_t *size) {
+    return commGetRemoteCCLBufPtr(comm, remoteRank, addr, size);
+}
+HcclResult CommGetKFCWorkSpace(HcclComm comm, void **addr, uint64_t *size) {
+    return commGetKFCWorkSpacePtr(comm, addr, size);
+}
+HcclResult CommGetCCLBufSizeCfg(HcclComm comm, uint64_t *cclBufSize) {
+    return commGetCCLBufSizeCfgPtr(comm, cclBufSize);
+}
 
 // ---------- 查询函数实现 ----------
+extern "C" bool HcommIsSupportHcclGetRankId(void) {
+    return g_hcclGetRankIdSupported;
+}
+extern "C" bool HcommIsSupportHcclGetRankSize(void) {
+    return g_hcclGetRankSizeSupported;
+}
 extern "C" bool HcommIsSupportHcclCommInitClusterInfo(void) { return g_hcclCommInitClusterInfoSupported; }
 extern "C" bool HcommIsSupportHcclCommInitClusterInfoConfig(void) { return g_hcclCommInitClusterInfoConfigSupported; }
 extern "C" bool HcommIsSupportHcclCreateSubCommConfig(void) { return g_hcclCreateSubCommConfigSupported; }
@@ -422,3 +532,9 @@ extern "C" bool HcommIsSupportHcclGroupEnd(void) { return g_hcclGroupEndSupporte
 extern "C" bool HcommIsSupportHcclCommSymWinRegister(void) { return g_hcclCommSymWinRegisterSupported; }
 extern "C" bool HcommIsSupportHcclCommSymWinDeregister(void) { return g_hcclCommSymWinDeregisterSupported; }
 extern "C" bool HcommIsSupportHcclCommSymWinGet(void) { return g_hcclCommSymWinGetSupported; }
+extern "C" bool HcommIsSupportHcclGetRawCommHandle(void) { return g_hcclGetRawCommHandleSupported; }
+extern "C" bool HcommIsSupportHcclGetCcuTaskInfo(void) { return g_hcclGetCcuTaskInfoSupported; }
+extern "C" bool HcommIsSupportCommGetLocalCCLBuf(void) { return g_commGetLocalCCLBufSupported; }
+extern "C" bool HcommIsSupportCommGetRemoteCCLBuf(void) { return g_commGetRemoteCCLBufSupported; }
+extern "C" bool HcommIsSupportCommGetKFCWorkSpace(void) { return g_commGetKFCWorkSpaceSupported; }
+extern "C" bool HcommIsSupportCommGetCCLBufSizeCfg(void) { return g_commGetCCLBufSizeCfgSupported; }

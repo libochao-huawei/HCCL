@@ -13,7 +13,8 @@ extern "C" {
 #endif
 
 // 声明全局函数指针（小驼峰命名）
-// 注意：重复的函数（如 HcclGetRankSize、HcclGetRankId）已在 hccl_rank_graph_dl 中处理，此处不再重复
+extern HcclResult (*hcclGetRankIdPtr)(HcclComm, uint32_t*);
+extern HcclResult (*hcclGetRankSizePtr)(HcclComm, uint32_t*);
 extern HcclResult (*hcclCommInitClusterInfoPtr)(const char*, uint32_t, HcclComm*);
 extern HcclResult (*hcclCommInitClusterInfoConfigPtr)(const char*, uint32_t, HcclCommConfig*, HcclComm*);
 extern HcclResult (*hcclCreateSubCommConfigPtr)(HcclComm*, uint32_t, uint32_t*, uint64_t, uint32_t, HcclCommConfig*, HcclComm*);
@@ -44,6 +45,8 @@ extern HcclResult (*hcclCommSymWinDeregisterPtr)(CommSymWindow);
 extern HcclResult (*hcclCommSymWinGetPtr)(HcclComm, void*, size_t, CommSymWindow*, size_t*);
 
 // 对外 API 的函数声明（包装函数）
+HcclResult HcclGetRankId(HcclComm comm, uint32_t* rank);
+HcclResult HcclGetRankSize(HcclComm comm, uint32_t* rankSize);
 HcclResult HcclCommInitClusterInfo(const char* clusterInfo, uint32_t rank, HcclComm* comm);
 HcclResult HcclCommInitClusterInfoConfig(const char* clusterInfo, uint32_t rank, HcclCommConfig* config, HcclComm* comm);
 HcclResult HcclCreateSubCommConfig(HcclComm* comm, uint32_t rankNum, uint32_t* rankIds, uint64_t subCommId, uint32_t subCommRankId, HcclCommConfig* config, HcclComm* subComm);
@@ -72,6 +75,12 @@ HcclResult HcclGroupEnd(void);
 HcclResult HcclCommSymWinRegister(HcclComm comm, void* addr, uint64_t size, CommSymWindow* winHandle, uint32_t flag);
 HcclResult HcclCommSymWinDeregister(CommSymWindow winHandle);
 HcclResult HcclCommSymWinGet(HcclComm comm, void* ptr, size_t size, CommSymWindow* winHandle, size_t* offset);
+HcclResult HcclGetRawCommHandle(const char* commName, HcclComm* commHandle);
+HcclResult HcclGetCcuTaskInfo(HcclComm comm, void* tilingData, void* ccuTaskGroup);
+HcclResult CommGetLocalCCLBuf(HcclComm comm, void **addr, uint64_t *size);
+HcclResult CommGetRemoteCCLBuf(HcclComm comm, uint32_t remoteRank, void **addr, uint64_t *size);
+HcclResult CommGetKFCWorkSpace(HcclComm comm, void **addr, uint64_t *size);
+HcclResult CommGetCCLBufSizeCfg(HcclComm comm, uint64_t *cclBufSize);
 
 // 查询函数声明
 bool HcommIsSupportHcclCommInitClusterInfo(void);
@@ -102,6 +111,12 @@ bool HcommIsSupportHcclGroupEnd(void);
 bool HcommIsSupportHcclCommSymWinRegister(void);
 bool HcommIsSupportHcclCommSymWinDeregister(void);
 bool HcommIsSupportHcclCommSymWinGet(void);
+bool HcommIsSupportHcclGetRawCommHandle(void);
+bool HcommIsSupportHcclGetCcuTaskInfo(void);
+bool HcommIsSupportCommGetLocalCCLBuf(void);
+bool HcommIsSupportCommGetRemoteCCLBuf(void);
+bool HcommIsSupportCommGetKFCWorkSpace(void);
+bool HcommIsSupportCommGetCCLBufSizeCfg(void);
 
 void HcclCommDlInit(void* libHcommHandle);        // 本模块独立初始化
 void HcclCommDlFini(void);                         // 本模块独立销毁

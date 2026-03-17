@@ -8,6 +8,7 @@
 #include "hcomm_host_profiling_dl.h"
 #include "hccl_one_sided_services_dl.h"
 #include "hccl_ex_dl.h"
+#include "hcom_dl.h"
 #include <pthread.h>
 #include <dlfcn.h>
 #include <stdio.h>
@@ -67,6 +68,7 @@ void HcommDlInit(void) {
     HcommProfilingDlInit(gLibHandle);
     HcclOneSidedServicesDlInit(gLibHandle);
     HcclExDlInit(gLibHandle);
+    HcomDlInit(gLibHandle);
 }
 
 void HcommDlFini(void) {
@@ -80,6 +82,7 @@ void HcommDlFini(void) {
         HcommProfilingDlFini();
         HcclOneSidedServicesDlFini();
         HcclExDlFini();
+        HcomDlFini();
 
         dlclose(gLibHandle);
         gLibHandle = NULL;

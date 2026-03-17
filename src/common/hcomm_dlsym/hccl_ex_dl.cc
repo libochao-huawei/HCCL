@@ -4,18 +4,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// 定义全局函数指针
-HcclResult (*hcclCreateComResourcePtr)(const char*, u32, void**) = NULL;
-HcclResult (*hcclGetAicpuOpStreamNotifyPtr)(const char*, rtStream_t*, void**) = NULL;
-HcclResult (*hcclAllocComResourcePtr)(HcclComm, u32, void**) = NULL;
-HcclResult (*hcclAllocComResourceByTilingPtr)(HcclComm, void*, void*, void**) = NULL;
-HcclResult (*hcclGetAicpuOpStreamAndNotifyPtr)(HcclComm, rtStream_t*, u8, void**) = NULL;
-HcclResult (*hcclGetTopoDescPtr)(HcclComm, HcclTopoDescs*, uint32_t) = NULL;
-HcclResult (*hcclCommRegisterPtr)(HcclComm, void*, uint64_t, void**, uint32_t) = NULL;
-HcclResult (*hcclCommDeregisterPtr)(HcclComm, void*) = NULL;
-HcclResult (*hcclCommExchangeMemPtr)(HcclComm, void*, uint32_t*, uint32_t) = NULL;
+// 定义全局函数指针（小驼峰）
+static HcclResult (*hcclCreateComResourcePtr)(const char*, u32, void**) = NULL;
+static HcclResult (*hcclGetAicpuOpStreamNotifyPtr)(const char*, rtStream_t*, void**) = NULL;
+static HcclResult (*hcclAllocComResourcePtr)(HcclComm, u32, void**) = NULL;
+static HcclResult (*hcclAllocComResourceByTilingPtr)(HcclComm, void*, void*, void**) = NULL;
+static HcclResult (*hcclGetAicpuOpStreamAndNotifyPtr)(HcclComm, rtStream_t*, u8, void**) = NULL;
+static HcclResult (*hcclGetTopoDescPtr)(HcclComm, HcclTopoDescs*, uint32_t) = NULL;
+static HcclResult (*hcclCommRegisterPtr)(HcclComm, void*, uint64_t, void**, uint32_t) = NULL;
+static HcclResult (*hcclCommDeregisterPtr)(HcclComm, void*) = NULL;
+static HcclResult (*hcclCommExchangeMemPtr)(HcclComm, void*, uint32_t*, uint32_t) = NULL;
 
-// 添加支持标志
+// 添加支持标志（静态，默认 false）
 static bool g_hcclCreateComResourceSupported = false;
 static bool g_hcclGetAicpuOpStreamNotifySupported = false;
 static bool g_hcclAllocComResourceSupported = false;
@@ -26,7 +26,7 @@ static bool g_hcclCommRegisterSupported = false;
 static bool g_hcclCommDeregisterSupported = false;
 static bool g_hcclCommExchangeMemSupported = false;
 
-// ---------- 桩函数定义 ----------
+// ---------- 桩函数定义（签名与真实API完全一致）----------
 static HcclResult StubHcclCreateComResource(const char* commName, u32 streamMode, void** commContext) {
     (void)commName; (void)streamMode; (void)commContext;
     HCCL_ERROR("[HcclWrapper] HcclCreateComResource not supported");
@@ -73,7 +73,7 @@ static HcclResult StubHcclCommExchangeMem(HcclComm comm, void* windowHandle, uin
     return HCCL_E_NOT_SUPPORTED;
 }
 
-// 初始化
+// ---------- 初始化函数 ----------
 void HcclExDlInit(void* libHcommHandle) {
     #define SET_PTR(ptr, name, stub, support_flag) \
         do { \
@@ -81,7 +81,6 @@ void HcclExDlInit(void* libHcommHandle) {
             if (ptr == NULL) { \
                 ptr = stub; \
                 support_flag = false; \
-                HCCL_DEBUG("[HcclWrapper] %s not supported", name); \
             } else { \
                 support_flag = true; \
             } \
@@ -121,7 +120,36 @@ void HcclExDlFini(void) {
     g_hcclCommExchangeMemSupported = false;
 }
 
-// ---------- 对外提供的查询接口 ----------
+// ---------- 对外API实现（通过函数指针转发）----------
+HcclResult HcclCreateComResource(const char* commName, u32 streamMode, void** commContext) {
+    return hcclCreateComResourcePtr(commName, streamMode, commContext);
+}
+HcclResult HcclGetAicpuOpStreamNotify(const char* commName, rtStream_t* Opstream, void** aicpuNotify) {
+    return hcclGetAicpuOpStreamNotifyPtr(commName, Opstream, aicpuNotify);
+}
+HcclResult HcclAllocComResource(HcclComm comm, u32 streamMode, void** commContext) {
+    return hcclAllocComResourcePtr(comm, streamMode, commContext);
+}
+HcclResult HcclAllocComResourceByTiling(HcclComm comm, void* stream, void* Mc2Tiling, void** commContext) {
+    return hcclAllocComResourceByTilingPtr(comm, stream, Mc2Tiling, commContext);
+}
+HcclResult HcclGetAicpuOpStreamAndNotify(HcclComm comm, rtStream_t* opstream, u8 aicpuNotifyNum, void** aicpuNotify) {
+    return hcclGetAicpuOpStreamAndNotifyPtr(comm, opstream, aicpuNotifyNum, aicpuNotify);
+}
+HcclResult HcclGetTopoDesc(HcclComm comm, HcclTopoDescs *topoDescs, uint32_t topoSize) {
+    return hcclGetTopoDescPtr(comm, topoDescs, topoSize);
+}
+HcclResult HcclCommRegister(HcclComm comm, void* addr, uint64_t size, void **handle, uint32_t flag) {
+    return hcclCommRegisterPtr(comm, addr, size, handle, flag);
+}
+HcclResult HcclCommDeregister(HcclComm comm, void* handle) {
+    return hcclCommDeregisterPtr(comm, handle);
+}
+HcclResult HcclCommExchangeMem(HcclComm comm, void* windowHandle, uint32_t* peerRanks, uint32_t peerRankNum) {
+    return hcclCommExchangeMemPtr(comm, windowHandle, peerRanks, peerRankNum);
+}
+
+// ---------- 查询函数实现 ----------
 extern "C" bool HcommIsSupportHcclCreateComResource(void) { return g_hcclCreateComResourceSupported; }
 extern "C" bool HcommIsSupportHcclGetAicpuOpStreamNotify(void) { return g_hcclGetAicpuOpStreamNotifySupported; }
 extern "C" bool HcommIsSupportHcclAllocComResource(void) { return g_hcclAllocComResourceSupported; }

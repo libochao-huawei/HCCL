@@ -62,35 +62,20 @@ typedef struct {
 #define HCCL_E_NOT_SUPPORTED  ((HcclResult)(-2))
 #endif
 
-// 声明全局函数指针（小驼峰命名）
-extern HcclResult (*hcclRegisterMemPtr)(HcclComm, u32, int, void*, u64, HcclMemDesc*);
-extern HcclResult (*hcclDeregisterMemPtr)(HcclComm, HcclMemDesc*);
-extern HcclResult (*hcclExchangeMemDescPtr)(HcclComm, u32, HcclMemDescs*, int, HcclMemDescs*, u32*);
-extern HcclResult (*hcclEnableMemAccessPtr)(HcclComm, HcclMemDesc*, HcclMem*);
-extern HcclResult (*hcclDisableMemAccessPtr)(HcclComm, HcclMemDesc*);
-extern HcclResult (*hcclBatchPutPtr)(HcclComm, u32, HcclOneSideOpDesc*, u32, rtStream_t);
-extern HcclResult (*hcclBatchGetPtr)(HcclComm, u32, HcclOneSideOpDesc*, u32, rtStream_t);
-extern HcclResult (*hcclRemapRegistedMemoryPtr)(HcclComm*, HcclMem*, u64, u64);
-extern HcclResult (*hcclRegisterGlobalMemPtr)(const HcclMem*, void**);
-extern HcclResult (*hcclDeregisterGlobalMemPtr)(void*);
-extern HcclResult (*hcclCommBindMemPtr)(HcclComm, void*);
-extern HcclResult (*hcclCommUnbindMemPtr)(HcclComm, void*);
-extern HcclResult (*hcclCommPreparePtr)(HcclComm, const HcclPrepareConfig*, const int);
-
-// 宏：将原始API名映射为函数指针调用
-#define HcclRegisterMem                (*hcclRegisterMemPtr)
-#define HcclDeregisterMem              (*hcclDeregisterMemPtr)
-#define HcclExchangeMemDesc            (*hcclExchangeMemDescPtr)
-#define HcclEnableMemAccess            (*hcclEnableMemAccessPtr)
-#define HcclDisableMemAccess           (*hcclDisableMemAccessPtr)
-#define HcclBatchPut                   (*hcclBatchPutPtr)
-#define HcclBatchGet                   (*hcclBatchGetPtr)
-#define HcclRemapRegistedMemory        (*hcclRemapRegistedMemoryPtr)
-#define HcclRegisterGlobalMem           (*hcclRegisterGlobalMemPtr)
-#define HcclDeregisterGlobalMem         (*hcclDeregisterGlobalMemPtr)
-#define HcclCommBindMem                  (*hcclCommBindMemPtr)
-#define HcclCommUnbindMem                (*hcclCommUnbindMemPtr)
-#define HcclCommPrepare                  (*hcclCommPreparePtr)
+// 对外 API 的包装函数声明
+HcclResult HcclRegisterMem(HcclComm comm, u32 remoteRank, int type, void* addr, u64 size, HcclMemDesc* desc);
+HcclResult HcclDeregisterMem(HcclComm comm, HcclMemDesc* desc);
+HcclResult HcclExchangeMemDesc(HcclComm comm, u32 remoteRank, HcclMemDescs* local, int timeout, HcclMemDescs* remote, u32* actualNum);
+HcclResult HcclEnableMemAccess(HcclComm comm, HcclMemDesc* remoteMemDesc, HcclMem* remoteMem);
+HcclResult HcclDisableMemAccess(HcclComm comm, HcclMemDesc* remoteMemDesc);
+HcclResult HcclBatchPut(HcclComm comm, u32 remoteRank, HcclOneSideOpDesc* desc, u32 descNum, rtStream_t stream);
+HcclResult HcclBatchGet(HcclComm comm, u32 remoteRank, HcclOneSideOpDesc* desc, u32 descNum, rtStream_t stream);
+HcclResult HcclRemapRegistedMemory(HcclComm *comm, HcclMem *memInfoArray, u64 commSize, u64 arraySize);
+HcclResult HcclRegisterGlobalMem(const HcclMem* mem, void** memHandle);
+HcclResult HcclDeregisterGlobalMem(void* memHandle);
+HcclResult HcclCommBindMem(HcclComm comm, void* memHandle);
+HcclResult HcclCommUnbindMem(HcclComm comm, void* memHandle);
+HcclResult HcclCommPrepare(HcclComm comm, const HcclPrepareConfig* prepareConfig, const int timeout);
 
 // 查询函数声明
 bool HcommIsSupportHcclRegisterMem(void);

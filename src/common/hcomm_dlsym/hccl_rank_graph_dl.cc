@@ -5,8 +5,6 @@
 #include <stdlib.h>
 
 // 定义全局函数指针（小驼峰）
-HcclResult (*hcclGetRankIdPtr)(HcclComm, uint32_t*) = NULL;
-HcclResult (*hcclGetRankSizePtr)(HcclComm, uint32_t*) = NULL;
 HcclResult (*hcclRankGraphGetLayersPtr)(HcclComm, uint32_t**, uint32_t*) = NULL;
 HcclResult (*hcclRankGraphGetRanksByLayerPtr)(HcclComm, uint32_t, uint32_t**, uint32_t*) = NULL;
 HcclResult (*hcclRankGraphGetRankSizeByLayerPtr)(HcclComm, uint32_t, uint32_t*) = NULL;
@@ -22,8 +20,6 @@ HcclResult (*hcclRankGraphGetEndpointDescPtr)(HcclComm, uint32_t, uint32_t, uint
 HcclResult (*hcclRankGraphGetEndpointInfoPtr)(HcclComm, uint32_t, const EndpointDesc*, EndpointAttr, uint32_t, void*) = NULL;
 
 // 添加支持标志（静态，默认 false，初始化时根据 dlsym 结果设置）
-static bool g_hcclGetRankIdSupported = false;
-static bool g_hcclGetRankSizeSupported = false;
 static bool g_hcclRankGraphGetLayersSupported = false;
 static bool g_hcclRankGraphGetRanksByLayerSupported = false;
 static bool g_hcclRankGraphGetRankSizeByLayerSupported = false;
@@ -39,18 +35,6 @@ static bool g_hcclRankGraphGetEndpointDescSupported = false;
 static bool g_hcclRankGraphGetEndpointInfoSupported = false;
 
 // ---------- 桩函数定义（签名与真实API完全一致）----------
-static HcclResult StubHcclGetRankId(HcclComm comm, uint32_t* rank) {
-    (void)comm; (void)rank;
-    HCCL_ERROR("[HcclWrapper] HcclGetRankId not supported");
-    return HCCL_E_NOT_SUPPORTED;
-}
-
-static HcclResult StubHcclGetRankSize(HcclComm comm, uint32_t* rankSize) {
-    (void)comm; (void)rankSize;
-    HCCL_ERROR("[HcclWrapper] HcclGetRankSize not supported");
-    return HCCL_E_NOT_SUPPORTED;
-}
-
 static HcclResult StubHcclRankGraphGetLayers(HcclComm comm, uint32_t** netLayers, uint32_t* netLayerNum) {
     (void)comm; (void)netLayers; (void)netLayerNum;
     HCCL_ERROR("[HcclWrapper] HcclRankGraphGetLayers not supported");
@@ -147,8 +131,6 @@ void HcclRankGraphDlInit(void* libHcommHandle) {
             } \
         } while(0)
 
-    SET_PTR(hcclGetRankIdPtr, "HcclGetRankId", StubHcclGetRankId, g_hcclGetRankIdSupported);
-    SET_PTR(hcclGetRankSizePtr, "HcclGetRankSize", StubHcclGetRankSize, g_hcclGetRankSizeSupported);
     SET_PTR(hcclRankGraphGetLayersPtr, "HcclRankGraphGetLayers", StubHcclRankGraphGetLayers, g_hcclRankGraphGetLayersSupported);
     SET_PTR(hcclRankGraphGetRanksByLayerPtr, "HcclRankGraphGetRanksByLayer", StubHcclRankGraphGetRanksByLayer, g_hcclRankGraphGetRanksByLayerSupported);
     SET_PTR(hcclRankGraphGetRankSizeByLayerPtr, "HcclRankGraphGetRankSizeByLayer", StubHcclRankGraphGetRankSizeByLayer, g_hcclRankGraphGetRankSizeByLayerSupported);
@@ -168,8 +150,6 @@ void HcclRankGraphDlInit(void* libHcommHandle) {
 
 // 销毁函数：将指针重置为桩函数（可选，与 HcclResDlFini 配合使用）
 void HcclRankGraphDlFini(void) {
-    hcclGetRankIdPtr = StubHcclGetRankId;
-    hcclGetRankSizePtr = StubHcclGetRankSize;
     hcclRankGraphGetLayersPtr = StubHcclRankGraphGetLayers;
     hcclRankGraphGetRanksByLayerPtr = StubHcclRankGraphGetRanksByLayer;
     hcclRankGraphGetRankSizeByLayerPtr = StubHcclRankGraphGetRankSizeByLayer;
@@ -186,12 +166,6 @@ void HcclRankGraphDlFini(void) {
 }
 
 // ---------- 对外提供的查询接口（判断函数是否存在）----------
-extern "C" bool HcommIsSupportHcclGetRankId(void) {
-    return g_hcclGetRankIdSupported;
-}
-extern "C" bool HcommIsSupportHcclGetRankSize(void) {
-    return g_hcclGetRankSizeSupported;
-}
 extern "C" bool HcommIsSupportHcclRankGraphGetLayers(void) {
     return g_hcclRankGraphGetLayersSupported;
 }

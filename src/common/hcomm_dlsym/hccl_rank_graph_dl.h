@@ -12,8 +12,6 @@ extern "C" {
 #endif
 
 // 声明全局函数指针（小驼峰命名）
-extern HcclResult (*hcclGetRankIdPtr)(HcclComm, uint32_t*);
-extern HcclResult (*hcclGetRankSizePtr)(HcclComm, uint32_t*);
 extern HcclResult (*hcclRankGraphGetLayersPtr)(HcclComm, uint32_t**, uint32_t*);
 extern HcclResult (*hcclRankGraphGetRanksByLayerPtr)(HcclComm, uint32_t, uint32_t**, uint32_t*);
 extern HcclResult (*hcclRankGraphGetRankSizeByLayerPtr)(HcclComm, uint32_t, uint32_t*);
@@ -29,8 +27,6 @@ extern HcclResult (*hcclRankGraphGetEndpointDescPtr)(HcclComm, uint32_t, uint32_
 extern HcclResult (*hcclRankGraphGetEndpointInfoPtr)(HcclComm, uint32_t, const EndpointDesc*, EndpointAttr, uint32_t, void*);
 
 // 宏：将原始API名映射为函数指针调用（保持API名大驼峰）
-#define HcclGetRankId                       (*hcclGetRankIdPtr)
-#define HcclGetRankSize                     (*hcclGetRankSizePtr)
 #define HcclRankGraphGetLayers              (*hcclRankGraphGetLayersPtr)
 #define HcclRankGraphGetRanksByLayer        (*hcclRankGraphGetRanksByLayerPtr)
 #define HcclRankGraphGetRankSizeByLayer     (*hcclRankGraphGetRankSizeByLayerPtr)

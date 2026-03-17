@@ -1,7 +1,7 @@
 #ifndef HCCL_EX_DL_H
 #define HCCL_EX_DL_H
 
-#include "hccl_ex.h"   // 原始头文件，包含所有声明和类型定义
+#include "hccl_ex.h"   // 原始头文件
 
 #ifdef __cplusplus
 extern "C" {
@@ -11,27 +11,16 @@ extern "C" {
 #define HCCL_E_NOT_SUPPORTED  ((HcclResult)(-2))
 #endif
 
-// 声明全局函数指针（小驼峰命名）
-extern HcclResult (*hcclCreateComResourcePtr)(const char*, u32, void**);
-extern HcclResult (*hcclGetAicpuOpStreamNotifyPtr)(const char*, rtStream_t*, void**);
-extern HcclResult (*hcclAllocComResourcePtr)(HcclComm, u32, void**);
-extern HcclResult (*hcclAllocComResourceByTilingPtr)(HcclComm, void*, void*, void**);
-extern HcclResult (*hcclGetAicpuOpStreamAndNotifyPtr)(HcclComm, rtStream_t*, u8, void**);
-extern HcclResult (*hcclGetTopoDescPtr)(HcclComm, HcclTopoDescs*, uint32_t);
-extern HcclResult (*hcclCommRegisterPtr)(HcclComm, void*, uint64_t, void**, uint32_t);
-extern HcclResult (*hcclCommDeregisterPtr)(HcclComm, void*);
-extern HcclResult (*hcclCommExchangeMemPtr)(HcclComm, void*, uint32_t*, uint32_t);
-
-// 宏：将原始API名映射为函数指针调用
-#define HcclCreateComResource                (*hcclCreateComResourcePtr)
-#define HcclGetAicpuOpStreamNotify           (*hcclGetAicpuOpStreamNotifyPtr)
-#define HcclAllocComResource                 (*hcclAllocComResourcePtr)
-#define HcclAllocComResourceByTiling         (*hcclAllocComResourceByTilingPtr)
-#define HcclGetAicpuOpStreamAndNotify        (*hcclGetAicpuOpStreamAndNotifyPtr)
-#define HcclGetTopoDesc                       (*hcclGetTopoDescPtr)
-#define HcclCommRegister                       (*hcclCommRegisterPtr)
-#define HcclCommDeregister                     (*hcclCommDeregisterPtr)
-#define HcclCommExchangeMem                    (*hcclCommExchangeMemPtr)
+// 对外 API 的包装函数声明
+HcclResult HcclCreateComResource(const char* commName, u32 streamMode, void** commContext);
+HcclResult HcclGetAicpuOpStreamNotify(const char* commName, rtStream_t* Opstream, void** aicpuNotify);
+HcclResult HcclAllocComResource(HcclComm comm, u32 streamMode, void** commContext);
+HcclResult HcclAllocComResourceByTiling(HcclComm comm, void* stream, void* Mc2Tiling, void** commContext);
+HcclResult HcclGetAicpuOpStreamAndNotify(HcclComm comm, rtStream_t* opstream, u8 aicpuNotifyNum, void** aicpuNotify);
+HcclResult HcclGetTopoDesc(HcclComm comm, HcclTopoDescs *topoDescs, uint32_t topoSize);
+HcclResult HcclCommRegister(HcclComm comm, void* addr, uint64_t size, void **handle, uint32_t flag);
+HcclResult HcclCommDeregister(HcclComm comm, void* handle);
+HcclResult HcclCommExchangeMem(HcclComm comm, void* windowHandle, uint32_t* peerRanks, uint32_t peerRankNum);
 
 // 查询函数声明
 bool HcommIsSupportHcclCreateComResource(void);

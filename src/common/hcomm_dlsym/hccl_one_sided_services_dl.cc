@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-// 定义全局函数指针
+// 定义全局函数指针（小驼峰）
 HcclResult (*hcclRegisterMemPtr)(HcclComm, u32, int, void*, u64, HcclMemDesc*) = NULL;
 HcclResult (*hcclDeregisterMemPtr)(HcclComm, HcclMemDesc*) = NULL;
 HcclResult (*hcclExchangeMemDescPtr)(HcclComm, u32, HcclMemDescs*, int, HcclMemDescs*, u32*) = NULL;
@@ -19,7 +19,7 @@ HcclResult (*hcclCommBindMemPtr)(HcclComm, void*) = NULL;
 HcclResult (*hcclCommUnbindMemPtr)(HcclComm, void*) = NULL;
 HcclResult (*hcclCommPreparePtr)(HcclComm, const HcclPrepareConfig*, const int) = NULL;
 
-// 添加支持标志
+// 添加支持标志（静态，默认 false）
 static bool g_hcclRegisterMemSupported = false;
 static bool g_hcclDeregisterMemSupported = false;
 static bool g_hcclExchangeMemDescSupported = false;
@@ -34,7 +34,7 @@ static bool g_hcclCommBindMemSupported = false;
 static bool g_hcclCommUnbindMemSupported = false;
 static bool g_hcclCommPrepareSupported = false;
 
-// ---------- 桩函数定义 ----------
+// ---------- 桩函数定义（签名与真实API完全一致）----------
 static HcclResult StubHcclRegisterMem(HcclComm comm, u32 remoteRank, int type, void* addr, u64 size, HcclMemDesc* desc) {
     (void)comm; (void)remoteRank; (void)type; (void)addr; (void)size; (void)desc;
     HCCL_ERROR("[HcclWrapper] HcclRegisterMem not supported");
@@ -101,7 +101,7 @@ static HcclResult StubHcclCommPrepare(HcclComm comm, const HcclPrepareConfig* pr
     return HCCL_E_NOT_SUPPORTED;
 }
 
-// 初始化
+// ---------- 初始化函数 ----------
 void HcclOneSidedServicesDlInit(void* libHcommHandle) {
     #define SET_PTR(ptr, name, stub, support_flag) \
         do { \
@@ -109,7 +109,6 @@ void HcclOneSidedServicesDlInit(void* libHcommHandle) {
             if (ptr == NULL) { \
                 ptr = stub; \
                 support_flag = false; \
-                HCCL_DEBUG("[HcclWrapper] %s not supported", name); \
             } else { \
                 support_flag = true; \
             } \
@@ -161,7 +160,48 @@ void HcclOneSidedServicesDlFini(void) {
     g_hcclCommPrepareSupported = false;
 }
 
-// ---------- 对外提供的查询接口 ----------
+// ---------- 对外API实现（通过函数指针转发）----------
+HcclResult HcclRegisterMem(HcclComm comm, u32 remoteRank, int type, void* addr, u64 size, HcclMemDesc* desc) {
+    return hcclRegisterMemPtr(comm, remoteRank, type, addr, size, desc);
+}
+HcclResult HcclDeregisterMem(HcclComm comm, HcclMemDesc* desc) {
+    return hcclDeregisterMemPtr(comm, desc);
+}
+HcclResult HcclExchangeMemDesc(HcclComm comm, u32 remoteRank, HcclMemDescs* local, int timeout, HcclMemDescs* remote, u32* actualNum) {
+    return hcclExchangeMemDescPtr(comm, remoteRank, local, timeout, remote, actualNum);
+}
+HcclResult HcclEnableMemAccess(HcclComm comm, HcclMemDesc* remoteMemDesc, HcclMem* remoteMem) {
+    return hcclEnableMemAccessPtr(comm, remoteMemDesc, remoteMem);
+}
+HcclResult HcclDisableMemAccess(HcclComm comm, HcclMemDesc* remoteMemDesc) {
+    return hcclDisableMemAccessPtr(comm, remoteMemDesc);
+}
+HcclResult HcclBatchPut(HcclComm comm, u32 remoteRank, HcclOneSideOpDesc* desc, u32 descNum, rtStream_t stream) {
+    return hcclBatchPutPtr(comm, remoteRank, desc, descNum, stream);
+}
+HcclResult HcclBatchGet(HcclComm comm, u32 remoteRank, HcclOneSideOpDesc* desc, u32 descNum, rtStream_t stream) {
+    return hcclBatchGetPtr(comm, remoteRank, desc, descNum, stream);
+}
+HcclResult HcclRemapRegistedMemory(HcclComm *comm, HcclMem *memInfoArray, u64 commSize, u64 arraySize) {
+    return hcclRemapRegistedMemoryPtr(comm, memInfoArray, commSize, arraySize);
+}
+HcclResult HcclRegisterGlobalMem(const HcclMem* mem, void** memHandle) {
+    return hcclRegisterGlobalMemPtr(mem, memHandle);
+}
+HcclResult HcclDeregisterGlobalMem(void* memHandle) {
+    return hcclDeregisterGlobalMemPtr(memHandle);
+}
+HcclResult HcclCommBindMem(HcclComm comm, void* memHandle) {
+    return hcclCommBindMemPtr(comm, memHandle);
+}
+HcclResult HcclCommUnbindMem(HcclComm comm, void* memHandle) {
+    return hcclCommUnbindMemPtr(comm, memHandle);
+}
+HcclResult HcclCommPrepare(HcclComm comm, const HcclPrepareConfig* prepareConfig, const int timeout) {
+    return hcclCommPreparePtr(comm, prepareConfig, timeout);
+}
+
+// ---------- 查询函数实现 ----------
 extern "C" bool HcommIsSupportHcclRegisterMem(void) { return g_hcclRegisterMemSupported; }
 extern "C" bool HcommIsSupportHcclDeregisterMem(void) { return g_hcclDeregisterMemSupported; }
 extern "C" bool HcommIsSupportHcclExchangeMemDesc(void) { return g_hcclExchangeMemDescSupported; }
