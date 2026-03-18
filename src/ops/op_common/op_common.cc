@@ -117,14 +117,14 @@ uint64_t GetHcclDfxOpInfoDataCount(const OpParam &param, const u32 &rankSize) {
         }
     } else if (param.opType == HcclCMDType::HCCL_CMD_ALLGATHER_V) {
         for (u64 i = 0; i < rankSize; i++) {
-            sendCount += *(static_cast<const u64 *>(param.varData[i]));
+            sendCount += *(static_cast<const u64 *>(param.varData) + i);
         }
     } else if (param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V) {
         for (u64 i = rankSize; i < 2*rankSize; i++) {
-            sendCount += *(static_cast<const u64 *>(param.varData[i]));
+            sendCount += *(static_cast<const u64 *>(param.varData) + i);
         }
     } else {
-        sendCount = static_cast<u32>(param.DataDes.count);
+        sendCount = static_cast<u64>(param.DataDes.count);
     }
     return sendCount;
 }
