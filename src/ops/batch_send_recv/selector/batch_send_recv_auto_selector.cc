@@ -31,5 +31,25 @@ SelectorStatus BatchSendRecvAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetL
     return SelectorStatus::MATCH;
 }
 
+SelectorStatus BatchSendRecvAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNetLayerDetails* topoInfo,
+                                                      const OpParam &opParam,
+                                                      const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+                                                      std::string &selectAlgName) const
+{
+    if (topoInfo->topoLevelNums > 1) {
+        HCCL_WARNING("[Algo][BatchSendRecvAutoSelector] levelNum > 1 is not supported yet for ccu_schedule mode.");
+        return SelectorStatus::NOT_MATCH;
+    }
+
+    if (topoInfo->level0Topo != Level0Shape::MESH_1D) {
+        HCCL_WARNING("[Algo][BatchSendRecvAutoSelector] only MESH_1D is supported for ccu_schedule mode.");
+        return SelectorStatus::NOT_MATCH;
+    }
+
+    selectAlgName = "CcuBatchSendRecvMesh1D";
+    HCCL_INFO("[Algo][BatchSendRecvAutoSelector] Select CcuBatchSendRecvMesh1D.");
+    return SelectorStatus::MATCH;
+}
+
 REGISTER_SELECTOR_BY_OPTYPE(HcclCMDType::HCCL_CMD_BATCH_SEND_RECV, 18, BatchSendRecvAutoSelector);
 } // namespace ops_hccl

@@ -10,6 +10,9 @@
 
 #include "ins_v2_batch_send_recv_executor.h"
 #include "ins_temp_batch_send_recv_mesh_1D.h"
+#ifndef AICPU_COMPILE
+#include "ccu_temp_batch_send_recv_mesh_1D.h"
+#endif
 
 namespace ops_hccl {
 
@@ -270,10 +273,8 @@ HcclResult InsV2BatchSendRecvSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchest
 {
     HCCL_INFO("[InsV2BatchSendRecvSoleExecutor][Orchestrate] Orchestrate Start.");
 
-    maxTmpMemSize_ = std::min(resCtx.cclMem.size, UB_MAX_DATA_SIZE);
-    CHK_PRT_RET((maxTmpMemSize_ == 0),
-        HCCL_ERROR("[InsV2BatchSendRecvSoleExecutor][Orchestrate] maxTmpMemSize equals to zero."),
-        HCCL_E_PARA);
+    maxTmpMemSize_ = resCtx.cclMem.size > 0 ?
+        std::min(resCtx.cclMem.size, UB_MAX_DATA_SIZE) : UB_MAX_DATA_SIZE;
     myRank_ = resCtx.topoInfo.userRank;
     rankSize_ = resCtx.topoInfo.userRankSize;
 
@@ -298,10 +299,15 @@ HcclResult InsV2BatchSendRecvSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchest
 
     // 准备 TemplateResource
     TemplateResource templateAlgRes;
-    std::vector<std::map<u32, std::vector<ChannelInfo>>> remoteRankToChannelInfo;
-    CHK_RET(RestoreChannelMap(resCtx, remoteRankToChannelInfo));
-    if (remoteRankToChannelInfo.size() > 0) {
-        templateAlgRes.channels = remoteRankToChannelInfo[0];
+    if (param.engine != CommEngine::COMM_ENGINE_CCU) {
+        std::vector<std::map<u32, std::vector<ChannelInfo>>> remoteRankToChannelInfo;
+        CHK_RET(RestoreChannelMap(resCtx, remoteRankToChannelInfo));
+        if (remoteRankToChannelInfo.size() > 0) {
+            templateAlgRes.channels = remoteRankToChannelInfo[0];
+        }
+    }
+    if (param.engine == CommEngine::COMM_ENGINE_CCU) {
+        templateAlgRes.ccuKernels = resCtx.ccuKernels;
     }
     templateAlgRes.threads = resCtx.threads;
 
@@ -321,5 +327,10 @@ HcclResult InsV2BatchSendRecvSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchest
 
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_BATCH_SEND_RECV, InsBatchSendRecv,
     InsV2BatchSendRecvSoleExecutor, TopoMatch1D, InsTempBatchSendRecvMesh1D);
+
+#ifndef AICPU_COMPILE
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_BATCH_SEND_RECV, CcuBatchSendRecvMesh1D,
+    InsV2BatchSendRecvSoleExecutor, TopoMatch1D, CcuTempBatchSendRecvMesh1D);
+#endif
 
 } // namespace ops_hccl
