@@ -146,10 +146,52 @@ HcclResult ReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclData
     u32 userRankSize = 0;
     CHK_RET(HcclGetRankSize(comm, &userRankSize));
 
+    OpParam param;
+    CHK_RET(ReduceConstructOpParam(sendBuf, recvBuf, count, dataType, op, root, comm, stream, tag, param));
+
+    if (userRankSize == 1) {
+        HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
+        CHK_RET(SingleRankProc(param));
+        return HcclResult::HCCL_SUCCESS;
+    }
+
+    std::string algName;
+    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
+    CHK_RET(Selector(comm, param, topoInfo, algName));
+    CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
+    HCCL_INFO("Execute ReduceOutPlace success.");
+    return HCCL_SUCCESS;
+}
+
+HcclResult ReduceOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
+    uint32_t root, HcclComm comm, aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack)
+{
+    HCCL_INFO("Start to execute ReduceOutPlaceGraphMode");
+    u32 userRankSize = 0;
+    CHK_RET(HcclGetRankSize(comm, &userRankSize));
+
+    OpParam param;
+    CHK_RET(ReduceConstructOpParam(sendBuf, recvBuf, count, dataType, op, root, comm, stream, tag, param));
+    
+    if (userRankSize == 1) {
+        HCCL_WARNING("[%s] rankSize == 1, enter SingleRankProc", __func__);
+        CHK_RET(SingleRankProc(param));
+        return HcclResult::HCCL_SUCCESS;
+    }
+    std::string algName;
+    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
+    CHK_RET(Selector(comm, param, topoInfo, algName));
+    CHK_RET(HcclExecOpGraphMode(comm, param, topoInfo, algName, resPack));
+    HCCL_INFO("Execute ReduceOutPlaceGraphMode success.");
+    return HCCL_SUCCESS;
+}
+
+HcclResult ReduceConstructOpParam(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
+    uint32_t root, HcclComm comm, aclrtStream stream, const std::string &tag, OpParam &param)
+{
     u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
     u64 totalSize = count * perDataSize;
 
-    OpParam param;
     CHK_RET(HcclGetCommName(comm, param.commName));
     param.stream = stream;
     param.reduceType = op;
@@ -176,66 +218,7 @@ HcclResult ReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclData
     param.enableDetour = false;
     param.deviceType = deviceType;
     param.root = root;
-    if (userRankSize == 1) {
-        HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
-        CHK_RET(SingleRankProc(param));
-        return HcclResult::HCCL_SUCCESS;
-    }
 
-    std::string algName;
-    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
-    CHK_RET(Selector(comm, param, topoInfo, algName));
-    CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
-    HCCL_INFO("Execute ReduceOutPlace success.");
-    return HCCL_SUCCESS;
-}
-
-HcclResult ReduceOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
-    uint32_t root, HcclComm comm, aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack)
-{
-    HCCL_INFO("Start to execute ReduceOutPlaceGraphMode");
-    u32 userRankSize = 0;
-    CHK_RET(HcclGetRankSize(comm, &userRankSize));
-
-    u32 perDataSize = SIZE_TABLE[dataType];
-    u64 inputSize = count * perDataSize;    // all reduce 每个rank上一份数据
-    u64 outputSize = inputSize * userRankSize;  // 每个卡上结果为rankSize份数据
-
-    OpParam param;
-    CHK_RET(HcclGetCommName(comm, param.commName));
-    param.stream = stream;
-    param.opMode = OpMode::OFFLOAD;
-
-    DevType deviceType = DevType::DEV_TYPE_COUNT;
-    CHK_RET(hrtGetDeviceType(deviceType));
-
-    // topoInfo的tag，所有相同的算子可以共享
-    int ret = sprintf_s(param.tag, sizeof(param.tag), "%s", tag.c_str());
-    if (ret <= 0) {
-        HCCL_ERROR("failed to fill param.tag");
-        return HCCL_E_INTERNAL;
-    }
-
-    // 参数准备
-    param.inputPtr = sendBuf;
-    param.inputSize = inputSize;
-    param.outputPtr = recvBuf;
-    param.outputSize = outputSize;
-    param.DataDes.count = count;
-    param.DataDes.dataType = dataType;
-    param.opType = HcclCMDType::HCCL_CMD_REDUCE;
-    param.enableDetour = false;
-    param.deviceType = deviceType;
-    if (userRankSize == 1) {
-        HCCL_WARNING("[%s] rankSize == 1, enter SingleRankProc", __func__);
-        CHK_RET(SingleRankProc(param));
-        return HcclResult::HCCL_SUCCESS;
-    }
-    std::string algName;
-    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
-    CHK_RET(Selector(comm, param, topoInfo, algName));
-    CHK_RET(HcclExecOpGraphMode(comm, param, topoInfo, algName, resPack));
-    HCCL_INFO("Execute ReduceOutPlaceGraphMode success.");
     return HCCL_SUCCESS;
 }
 
