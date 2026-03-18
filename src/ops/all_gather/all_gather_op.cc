@@ -79,7 +79,7 @@ HcclResult HcclAllGatherGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCou
     resPack.scratchMemSize = scratchMemSize;
 
     // 执行AllGather
-    CHK_RET_AND_PRINT_IDE(AllGatherOutPlaceGraphMode(sendBuf, recvBuf, sendCount, dataType, comm, stream, opTag, resPack), opTag.c_str());
+    CHK_RET_AND_PRINT_IDE(AllGatherOutPlaceGraphMode(sendBuf, recvBuf, sendCount, dataType, comm, stream, tag, resPack), tag.c_str());
 
     return HCCL_SUCCESS;
 }
