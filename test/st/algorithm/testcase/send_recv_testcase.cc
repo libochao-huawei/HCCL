@@ -128,6 +128,7 @@ void SendRecvTest(
                     CHK_RET(RunSendRecvTask(rankId, srcRankId, SendRecvOpType::RECV, dataCount, dataType));
                 }
             }
+
             return HCCL_SUCCESS;
         });
     }
