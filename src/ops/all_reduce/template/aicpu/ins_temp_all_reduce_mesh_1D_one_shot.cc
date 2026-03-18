@@ -68,6 +68,7 @@ HcclResult InsTempAllReduceMesh1DOneShot::KernelRun(const OpParam& param,
     const TemplateDataParams& tempAlgParams,
     const TemplateResource& templateResource)
 {
+    enableRemoteMemAccess_ = tempAlgParams.enableRemoteMemAccess;
     threadNum_ = templateResource.threads.size();
     processSize_ = tempAlgParams.sliceSize;
     count_ = tempAlgParams.count;

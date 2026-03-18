@@ -26,7 +26,10 @@ extern "C" {
 
 HcclResult HcclAllReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType,
                              HcclReduceOp op, HcclComm comm, aclrtStream stream);
-
+HcclResult HcclAllReduceGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, 
+                                  const char* group, aclrtStream stream, const char *tag, void **streams, 
+                                  size_t streamCount, void *scratchMemAddr, uint64_t scratchMemSize);
+                             
 #ifdef __cplusplus
 }
 #endif
@@ -37,5 +40,7 @@ HcclResult AllReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclD
 
 HcclResult CheckAllReduceInputPara(const HcclComm comm, const void* sendBuf, const void* recvBuf, const aclrtStream stream);
 }
+HcclResult AllReduceOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
+                                      aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack);
 
 #endif
