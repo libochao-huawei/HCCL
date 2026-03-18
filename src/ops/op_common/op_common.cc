@@ -15,6 +15,7 @@
 #include <memory>
 #include <cstdlib>  // 包含getenv函数
 #include <cstring>  // 包含strcmp函数
+#include <stdexcept>
 #include <hccl/hccl_types.h>
 #include "hccl/base.h"
 #include "sal.h"
@@ -1021,48 +1022,44 @@ HcclResult HcclCheckTag(const char *tag)
 HcclResult SetOpParamAlgTag(OpParam &param, const std::string &algName)
 {
     std::string temp = algName; // 创建algName的副本
-    // 在原先的tag中添加算法名字，得到algTag
-    int ret = sprintf_s(param.algTag, sizeof(param.algTag), "%s_%s", param.tag, temp.c_str());
-    if (ret <= 0) {
-        HCCL_ERROR("faled to fill param.algTag");
-        return HcclResult::HCCL_E_INTERNAL;
-    }
-    // 在algTag中追加编排模式
     const char* launchMode = (((param.engine == CommEngine::COMM_ENGINE_AICPU) ||
-                                (param.engine == CommEngine::COMM_ENGINE_AICPU_TS)) ? "_device" : "_host");
-    ret = strcat_s(param.algTag, sizeof(param.algTag), launchMode);
-    if (ret != 0) {
+                                (param.engine == CommEngine::COMM_ENGINE_AICPU_TS)) ? "device" : "host");
+    // 原有tag + algName + 编排模式，得到基础algTag
+    int len = snprintf(param.algTag, sizeof(param.algTag), "%s_%s_%s", param.tag, temp.c_str(), launchMode);
+    if (len < 0|| len >= sizeof(param.algTag)) {
         HCCL_ERROR("faled to fill param.algTag");
         return HcclResult::HCCL_E_INTERNAL;
     }
 
     // ccu模式，考虑kernel是否能复用，需要添加dataType和reduceType
-    if (param.engine == CommEngine::COMM_ENGINE_CCU) {
-        HcclDataType tmpDataType;
-        if(param.opType == HcclCMDType::HCCL_CMD_ALLTOALL ||
-           param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
-           param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
-            tmpDataType = param.all2AllVDataDes.sendType;
-        } else {
-            tmpDataType = param.DataDes.dataType;
-        }
-        const std::string dataType = HCOM_DATA_TYPE_STR_MAP.at(tmpDataType);
-        ret = strcat_s(param.algTag, sizeof(param.algTag), dataType.c_str());
-        if (ret != 0) {
-            HCCL_ERROR("failed to fill alg tag with ccu dataType");
-            return HcclResult::HCCL_E_INTERNAL;
-        }
+    if (param.engine == CommEngine::COMM_ENGINE_CCU) { 
+        try{
+            HcclDataType tmpDataType;
+            if(param.opType == HcclCMDType::HCCL_CMD_ALLTOALL ||
+               param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
+               param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
+                tmpDataType = param.all2AllVDataDes.sendType;
+            } else {
+                tmpDataType = param.DataDes.dataType;
+            }
+            std::string ccuExtraTag = "_" + HCOM_DATA_TYPE_STR_MAP.at(tmpDataType);
 
-        if (param.opType == HcclCMDType::HCCL_CMD_ALLREDUCE ||
-            param.opType == HcclCMDType::HCCL_CMD_REDUCE ||
-            param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER ||
-            param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V) {
-            const std::string reduceType = HCOM_REDUCE_OP_STR_MAP.at(param.reduceType);
-            ret = strcat_s(param.algTag, sizeof(param.algTag), reduceType.c_str());
-            if (ret != 0) {
-                HCCL_ERROR("failed to fill alg tag with ccu reduceType");
+            if (param.opType == HcclCMDType::HCCL_CMD_ALLREDUCE ||
+                param.opType == HcclCMDType::HCCL_CMD_REDUCE ||
+                param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER ||
+                param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V) {
+                ccuExtraTag += "_" + HCOM_REDUCE_OP_STR_MAP.at(param.reduceType);
+            }
+
+            int len_ccu = snprintf(param.algTag + len, sizeof(param.algTag) - len, "%s", ccuExtraTag.c_str());
+            if (len_ccu < 0 || len_ccu >= sizeof(param.algTag) - len) {
+                HCCL_ERROR("failed to fill alg tag with ccu dataType");
                 return HcclResult::HCCL_E_INTERNAL;
             }
+        }
+        catch (const std::out_of_range& e) {
+            HCCL_ERROR("[SetOpParamAlgTag] dataType or reduceType out of range: %s", e.what());
+            return HCCL_E_PARA;
         }
     }
     return HcclResult::HCCL_SUCCESS;
