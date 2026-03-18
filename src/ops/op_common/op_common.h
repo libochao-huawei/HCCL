@@ -51,7 +51,8 @@ HcclResult HcclGetThread(HcclComm comm, const OpParam &param,
 
 HcclResult HcclGetChannel(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
                           std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost);
-
+HcclResult HcclGetChannelImpl(HcclComm comm, const OpParam &param, const std::vector<HcclChannelDesc>& channelRequest, 
+                              CommEngine &commEngine, std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost);
 HcclResult HcclGetCcuKernel(HcclComm comm, AlgResourceRequest &resRequest,
                           std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost);
 

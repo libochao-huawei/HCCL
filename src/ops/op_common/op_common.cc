@@ -603,22 +603,23 @@ HcclResult GetMainThreadInfo(HcclComm comm, const OpParam &param, ThreadHandle &
 HcclResult HcclGetChannel(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
                           std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost)
 {
-    char inputBuffTag[MAX_MEM_TAG_LENGTH];
-    char outputBuffTag[MAX_MEM_TAG_LENGTH];
     std::vector<HcclMemHandle> memHandles;
     if (param.opMode == OpMode::OFFLOAD) {
         constexpr u32 REMOTE_MEM_NUM = 2;
         memHandles.resize(REMOTE_MEM_NUM);
         HCCL_INFO("[HcclGetChannel] graph mode regstry remote buuffer");
-
-        auto retIn = sprintf_s(inputBuffTag, sizeof(inputBuffTag), "%s_%s", param.algTag, "InputBUffer");
-        auto retOut =  sprintf_s(outputBuffTag, sizeof(outputBuffTag), "%s_%s", param.algTag, "OutputBUffer");
-        if (retIn <= 0 || retOut <= 0){
-            HCCL_ERROR("[HcclGetChannel]faled to fill BuffTag");
-            return HcclResult::HCCL_E_INTERNAL;
+        auto inputBuffTag = "InputBuffer";
+        auto outputBuffTag = "OutputBuffer";
+        if (param.inputPtr != nullptr) {
+            HcclMemHandle inputHandle = nullptr;
+            CHK_RET(HcclRegstryBuff(comm, inputBuffTag, param.inputPtr, param.inputSize, &inputHandle));
+            memHandles.emplace_back(inputHandle);
         }
-        CHK_RET(HcclRegstryBuff(comm, inputBuffTag, param.inputPtr, param.inputSize, &memHandles[0]));
-        CHK_RET(HcclRegstryBuff(comm, outputBuffTag, param.outputPtr, param.outputSize, &memHandles[1]));
+        if (param.outputPtr != nullptr) {
+            HcclMemHandle outputHandle = nullptr;
+            CHK_RET(HcclRegstryBuff(comm, outputBuffTag, param.outputPtr, param.outputSize, &outputHandle));
+            memHandles.emplace_back(outputHandle);
+        }
     }
     resCtxHost->channels.resize(resRequest.channels.size());
     for (u32 level = 0; level < resRequest.channels.size(); level++) {
@@ -637,73 +638,61 @@ HcclResult HcclGetChannel(HcclComm comm, const OpParam &param, AlgResourceReques
                 hostChannelRequest.emplace_back(channelRequest);
             }
         }
-        // 获取子通信域的建链数量
-        u32 channelNum = deviceChannelRequest.size();
-        std::vector<ChannelHandle> levelNDeviceChannels;
-        levelNDeviceChannels.resize(channelNum);
+        // device建链
+        HcclGetChannelImpl(comm, param, deviceChannelRequest, COMM_ENGINE_AICPU_TS, resCtxHost);
+        // host建链
+        HcclGetChannelImpl(comm, param, hostChannelRequest, COMM_ENGINE_CPU, resCtxHost);
+        
+    }
+    return HCCL_SUCCESS;
+}
 
-        if (channelNum > 0) {
-            CHK_RET(HcclChannelAcquire(comm, COMM_ENGINE_AICPU_TS, deviceChannelRequest.data(),
-                channelNum, levelNDeviceChannels.data()));
-        }
+HcclResult HcclGetChannelImpl(HcclComm comm, const OpParam &param, const std::vector<HcclChannelDesc>& channelRequest, 
+                              CommEngine &commEngine, std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost) {
+    // 获取子通信域的建链数量
+    u32 channelNum = channelRequest.size();
+    std::vector<ChannelHandle> levelNChannels;
+    levelNChannels.resize(channelNum);
 
-        for (u32 idx = 0; idx < channelNum; idx++) {
-            ChannelInfo channel;
-            // 对于真实建链的链路进行填充
-            HcclChannelDesc &channelDescNew = deviceChannelRequest[idx];
-            channel.isValid = true;
-            channel.remoteRank = channelDescNew.remoteRank;
-            channel.protocol = channelDescNew.channelProtocol;
-            channel.locationType = channelDescNew.remoteEndpoint.loc.locType;
-            channel.notifyNum = channelDescNew.notifyNum;
-            channel.handle = levelNDeviceChannels[idx];
+    if (channelNum > 0) {
+        CHK_RET(HcclChannelAcquire(comm, commEngine, channelRequest.data(),
+            channelNum, levelNChannels.data()));
+    }
 
-            void* remoteCclBufferAddr;
-            uint64_t remoteCclBufferSize;
-            CHK_RET(HcclChannelGetHcclBuffer(comm, levelNDeviceChannels[idx], &remoteBufferAddr, &remoteBufferSize));
-            channel.remoteCclMem = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteBufferAddr, remoteBufferSize};
-            resCtxHost->channels[level].push_back(channel);
-        }
+    for (u32 idx = 0; idx < channelNum; idx++) {
+        ChannelInfo channel;
+        // 对于真实建链的链路进行填充
+        HcclChannelDesc &channelDescNew = channelRequest[idx];
+        channel.isValid = true;
+        channel.remoteRank = channelDescNew.remoteRank;
+        channel.protocol = channelDescNew.channelProtocol;
+        channel.locationType = channelDescNew.remoteEndpoint.loc.locType;
+        channel.notifyNum = channelDescNew.notifyNum;
+        channel.handle = levelNChannels[idx];
 
-        // 获取子通信域的建链数量
-        channelNum = hostChannelRequest.size();
-        std::vector<ChannelHandle> levelNHostChannels;
-        levelNHostChannels.resize(channelNum);
-
-        if (channelNum > 0) {
-            CHK_RET(HcclChannelAcquire(comm, COMM_ENGINE_CPU, hostChannelRequest.data(),
-                channelNum, levelNHostChannels.data()));
-        }
-
-        for (u32 idx = 0; idx < channelNum; idx++) {
-            ChannelInfo channel;
-            // 对于真实建链的链路进行填充
-            HcclChannelDesc &channelDescNew = hostChannelRequest[idx];
-            channel.isValid = true;
-            channel.remoteRank = channelDescNew.remoteRank;
-            channel.protocol = channelDescNew.channelProtocol;
-            channel.locationType = channelDescNew.remoteEndpoint.loc.locType;
-            channel.notifyNum = channelDescNew.notifyNum;
-            channel.handle = levelNHostChannels[idx];
-
-            void* remoteBufferAddr;
-            uint64_t remoteBufferSize;
-            CHK_RET(HcclChannelGetHcclBuffer(comm, levelNHostChannels[idx], &remoteCclBufferAddr, &remoteCclBufferSize));
-            channel.remoteCclMem = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteCclBufferAddr, remoteCclBufferSize};
-            if (param.opMode == OpMode::OFFLOAD) {
-                void* remoteInputBufferAddr;
-                uint64_t remoteInputBufferSize;
-                CHK_RET(HcclGetRemoteBuff(comm, levelNChannels[idx], inputBuffTag, &remoteInputBufferAddr, &remoteInputBufferSize));
+        void* remoteCclBufferAddr;
+        uint64_t remoteCclBufferSize;
+        CHK_RET(HcclChannelGetHcclBuffer(comm, levelNChannels[idx], &remoteCclBufferAddr, &remoteCclBufferSize));
+        channel.remoteCclMem = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteCclBufferAddr, remoteCclBufferSize};
+        
+        if (param.opMode == OpMode::OFFLOAD) {
+            auto inputBuffTag = "InputBuffer";
+            auto outputBuffTag = "OutputBuffer";
+            void* remoteInputBufferAddr = nullptr;
+            uint64_t remoteInputBufferSize = 0;
+            CHK_RET(HcclGetRemoteBuff(comm, levelNChannels[idx], inputBuffTag, &remoteInputBufferAddr, &remoteInputBufferSize));
+            if (remoteInputBufferAddr != nullptr && remoteInputBufferSize > 0) {
                 channel.remoteInputGraphMode = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteInputBufferAddr, remoteInputBufferSize};
-
-                void* remoteOutputBufferAddr;
-                uint64_t remoteOutputBufferSize;
-                CHK_RET(HcclGetRemoteBuff(comm, levelNChannels[idx], outputBuffTag, &remoteOutputBufferAddr, &remoteOutputBufferSize));
-                channel.remoteOutputGraphMode = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteOutputBufferAddr, remoteOutputBufferSize};
             }
 
-            resCtxHost->channels[level].push_back(channel);
+            void* remoteOutputBufferAddr = nullptr;
+            uint64_t remoteOutputBufferSize = 0;
+            CHK_RET(HcclGetRemoteBuff(comm, levelNChannels[idx], outputBuffTag, &remoteOutputBufferAddr, &remoteOutputBufferSize));
+            if (remoteInputBufferAddr != nullptr && remoteOutputBufferSize > 0) {
+                channel.remoteOutputGraphMode = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteOutputBufferAddr, remoteOutputBufferSize};
+            }
         }
+        resCtxHost->channels[level].push_back(channel);
     }
     return HCCL_SUCCESS;
 }
