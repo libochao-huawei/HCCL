@@ -37,7 +37,7 @@ HcclResult ReduceNHR::CalcRes(
     std::vector<HcclChannelDesc> level1Channels;
     CHK_RET(CalcChannelRequestNhr(comm, param, topoInfo, subCommRanks_, level1Channels));
     resourceRequest.channels.push_back(level1Channels);
-    HCCL_INFO("[ReduceMeshNHR][CalcRes]slaveThreadNum[%u] notifyNumPerThread[%u] notifyNumOnMainThread[%u]"
+    HCCL_INFO("[ReduceNHR][CalcRes]slaveThreadNum[%u] notifyNumPerThread[%u] notifyNumOnMainThread[%u]"
               " level1Channels[%u] .",
         resourceRequest.slaveThreadNum,
         resourceRequest.notifyNumPerThread.size(),
@@ -74,6 +74,8 @@ HcclResult ReduceNHR::KernelRun(
             myIdx_,
             templateRankSize_),
         HcclResult::HCCL_E_INTERNAL);
+
+    enableRemoteMemAccess_ = tempAlgParams.enableRemoteMemAccess;
     processSize_ = tempAlgParams.sliceSize;
     count_ = tempAlgParams.count;
     dataType_ = param.DataDes.dataType;

@@ -27,13 +27,20 @@ extern "C" {
 HcclResult HcclReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
     uint32_t root, HcclComm comm, aclrtStream stream);
 
+HcclResult HcclReduceGraphMode(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
+    uint32_t root, const char* group, aclrtStream stream, const char* tag, void** streams, size_t streamCount,
+    void* scratchMemAddr, uint64_t scratchMemSize);
+
 #ifdef __cplusplus
 }
 #endif
 
 namespace ops_hccl {
 HcclResult ReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
-    uint32_t root, HcclComm comm, aclrtStream stream, const std::string &tag);
+    uint32_t root, HcclComm comm, aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack);
+
+HcclResult ReduceOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
+    uint32_t root, HcclComm comm, aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack);
 
 HcclResult ReduceExecOp(HcclComm comm, OpParam &param);
 
