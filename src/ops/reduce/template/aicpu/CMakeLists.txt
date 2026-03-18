@@ -11,6 +11,8 @@
 set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/reduce_mesh_1D.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/reduce_nhr.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_gather_mesh_1D_intra.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_gather_dpu_inter.cc
 )
 
 target_sources(hccl PRIVATE

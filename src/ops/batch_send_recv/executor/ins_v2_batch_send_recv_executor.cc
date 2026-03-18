@@ -12,7 +12,7 @@
 #include "alg_data_trans_wrapper.h"
 #include "ins_v2_batch_send_recv_executor.h"
 
-namespace ops_hccl { 
+namespace ops_hccl {
 InsV2BatchSendRecvExecutor::InsV2BatchSendRecvExecutor()
 {
 }
@@ -113,7 +113,7 @@ bool InsV2BatchSendRecvExecutor::SortSendItems(const HcclSendRecvItem* a, const 
     } else if (a->count != b->count) {
         return a->count > b->count;
     }
-    return a->dataType > b->dataType;    
+    return a->dataType > b->dataType;
 }
 
 bool InsV2BatchSendRecvExecutor::SortRecvItems(const HcclSendRecvItem* a, const HcclSendRecvItem* b) const{
@@ -126,14 +126,14 @@ bool InsV2BatchSendRecvExecutor::SortRecvItems(const HcclSendRecvItem* a, const 
     } else if (a->count != b->count) {
         return a->count > b->count;
     }
-    return a->dataType > b->dataType;  
+    return a->dataType > b->dataType;
 }
 
 bool InsV2BatchSendRecvExecutor::SortSelfItems(const HcclSendRecvItem* a, const HcclSendRecvItem* b) const{
     if (a->count != b->count) {
         return a->count > b->count;
     }
-    return a->dataType > b->dataType;  
+    return a->dataType > b->dataType;
 }
 
 HcclResult InsV2BatchSendRecvExecutor::GetPairWiseList(const HcclSendRecvItem *sendRecvInfo, u32 itemNum)

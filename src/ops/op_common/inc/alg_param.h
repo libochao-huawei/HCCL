@@ -195,7 +195,7 @@ struct TopoInfoWithNetLayerDetails : public TopoInfo { // 通信域拓扑ctx
         binaryStream.Dump(result);
         return result;
     }
-
+ 
     void DeSerialize(std::vector<char> &data)
     {
         BinaryStream binaryStream(data);
@@ -283,17 +283,6 @@ struct ChannelInfo {
     HcclMem remoteCclMem; // A5用的
     HcclMem remoteInput;  // A3用的
     HcclMem remoteOutput; // A3用的
-};
-
-// DPU资源
-struct DPUAlgResourceCtx {
-    uint32_t tempIndex;
-    AlgHierarchyInfo algHierarchyInfo;
-    HcclMem cclInputMem; // 跨Rank缓存Buffer
-    HcclMem cclOutputMem; // 跨Rank缓存Buffer
-    u32 channelNum = 0;
-    ChannelInfo* channels = nullptr;
-    u64 sliceSize = 0;
 };
 
 // 算法ctx，key为通信域id+算法名，提前在device上
