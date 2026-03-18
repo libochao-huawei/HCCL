@@ -32,8 +32,8 @@ HcclResult __attribute__((weak)) HcommProfilingReportDeviceHcclOpInfo(HcomProInf
 HcclResult __attribute__((weak)) HcommProfilingInit(ThreadHandle *threads, u32 threadNum);
 HcclResult __attribute__((weak)) HcommProfilingEnd(ThreadHandle *threads, u32 threadNum);
 
-HcclResult __attribute__((weak)) HcommProfilingReportDeviceOp(const char* groupname); 
-HcclResult __attribute__((weak)) HcommProfilingReportKernelStartTask(uint64_t thread, const char* groupname); 
+HcclResult __attribute__((weak)) HcommProfilingReportDeviceOp(const char* groupname);
+HcclResult __attribute__((weak)) HcommProfilingReportKernelStartTask(uint64_t thread, const char* groupname);
 HcclResult __attribute__((weak)) HcommProfilingReportKernelEndTask(uint64_t thread, const char* groupname);
 #ifdef __cplusplus
 }
