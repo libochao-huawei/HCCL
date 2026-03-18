@@ -1,3 +1,13 @@
+/**
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
 #ifndef HCCL_RES_DL_H
 #define HCCL_RES_DL_H
 
@@ -11,41 +21,34 @@ extern "C" {
 #define HCCL_E_NOT_SUPPORTED  ((HcclResult)(-2))
 #endif
 
-// 声明全局函数指针（小驼峰命名）
-extern HcclResult (*hcclGetHcclBufferPtr)(HcclComm, void**, uint64_t*);
-extern HcclResult (*hcclGetRemoteIpcHcclBufPtr)(HcclComm, uint64_t, void**, uint64_t*);
-extern HcclResult (*hcclThreadAcquirePtr)(HcclComm, CommEngine, uint32_t, uint32_t, ThreadHandle*);
-extern HcclResult (*hcclThreadAcquireWithStreamPtr)(HcclComm, CommEngine, aclrtStream, uint32_t, ThreadHandle*);
-extern HcclResult (*hcclChannelAcquirePtr)(HcclComm, CommEngine, const HcclChannelDesc*, uint32_t, ChannelHandle*);
-extern HcclResult (*hcclChannelGetHcclBufferPtr)(HcclComm, ChannelHandle, void**, uint64_t*);
-extern HcclResult (*hcclEngineCtxCreatePtr)(HcclComm, const char*, CommEngine, uint64_t, void**);
-extern HcclResult (*hcclEngineCtxGetPtr)(HcclComm, const char*, CommEngine, void**, uint64_t*);
-extern HcclResult (*hcclEngineCtxCopyPtr)(HcclComm, CommEngine, const char*, const void*, uint64_t, uint64_t);
-extern int32_t    (*hcclTaskRegisterPtr)(HcclComm, const char*, Callback);
-extern int32_t    (*hcclTaskUnRegisterPtr)(HcclComm, const char*);
-extern HcclResult (*hcclDevMemAcquirePtr)(HcclComm, const char*, uint64_t*, void**, bool*);
-extern HcclResult (*hcclThreadExportToCommEnginePtr)(HcclComm, uint32_t, const ThreadHandle*, CommEngine, ThreadHandle*);
-extern HcclResult (*hcclChannelGetRemoteMemsPtr)(HcclComm, ChannelHandle, uint32_t*, CommMem**, char***);
-extern HcclResult (*hcclCommMemRegPtr)(HcclComm, const char*, const CommMem*, HcclMemHandle*);
-extern HcclResult (*hcclEngineCtxDestroyPtr)(HcclComm, const char*, CommEngine);
-
-// 宏：将原始API名映射为函数指针调用（保持API名大驼峰）
-#define HcclGetHcclBuffer               (*hcclGetHcclBufferPtr)
-#define HcclGetRemoteIpcHcclBuf         (*hcclGetRemoteIpcHcclBufPtr)
-#define HcclThreadAcquire                (*hcclThreadAcquirePtr)
-#define HcclThreadAcquireWithStream      (*hcclThreadAcquireWithStreamPtr)
-#define HcclChannelAcquire                (*hcclChannelAcquirePtr)
-#define HcclChannelGetHcclBuffer          (*hcclChannelGetHcclBufferPtr)
-#define HcclEngineCtxCreate                (*hcclEngineCtxCreatePtr)
-#define HcclEngineCtxGet                   (*hcclEngineCtxGetPtr)
-#define HcclEngineCtxCopy                  (*hcclEngineCtxCopyPtr)
-#define HcclTaskRegister                   (*hcclTaskRegisterPtr)
-#define HcclTaskUnRegister                 (*hcclTaskUnRegisterPtr)
-#define HcclDevMemAcquire                  (*hcclDevMemAcquirePtr)
-#define HcclThreadExportToCommEngine       (*hcclThreadExportToCommEnginePtr)
-#define HcclChannelGetRemoteMems           (*hcclChannelGetRemoteMemsPtr)
-#define HcclCommMemReg                     (*hcclCommMemRegPtr)
-#define HcclEngineCtxDestroy                (*hcclEngineCtxDestroyPtr)
+// ---------- 对外API实现（通过函数指针转发）----------
+HcclResult HcclGetHcclBuffer(HcclComm comm, void **buffer, uint64_t *size);
+HcclResult HcclGetRemoteIpcHcclBuf(HcclComm comm, uint64_t remoteRank, void **addr, uint64_t *size);
+HcclResult HcclThreadAcquire(HcclComm comm, CommEngine engine, uint32_t threadNum,
+                              uint32_t notifyNumPerThread, ThreadHandle *threads);
+HcclResult HcclThreadAcquireWithStream(HcclComm comm, CommEngine engine, aclrtStream stream,
+                                       uint32_t notifyNum, ThreadHandle *thread);
+HcclResult HcclChannelAcquire(HcclComm comm, CommEngine engine, const HcclChannelDesc *channelDescs,
+                              uint32_t channelNum, ChannelHandle *channels);
+HcclResult HcclChannelGetHcclBuffer(HcclComm comm, ChannelHandle channel, void **buffer, uint64_t *size);
+HcclResult HcclEngineCtxCreate(HcclComm comm, const char *ctxTag, CommEngine engine,
+                               uint64_t size, void **ctx);
+HcclResult HcclEngineCtxGet(HcclComm comm, const char *ctxTag, CommEngine engine,
+                            void **ctx, uint64_t *size);
+HcclResult HcclEngineCtxCopy(HcclComm comm, CommEngine engine, const char *ctxTag,
+                             const void *srcCtx, uint64_t size, uint64_t dstCtxOffset);
+int32_t HcclTaskRegister(HcclComm comm, const char *msgTag, Callback cb);
+int32_t HcclTaskUnRegister(HcclComm comm, const char *msgTag);
+HcclResult HcclDevMemAcquire(HcclComm comm, const char *memTag, uint64_t *size,
+                             void **addr, bool *newCreated);
+HcclResult HcclThreadExportToCommEngine(HcclComm comm, uint32_t threadNum,
+                                        const ThreadHandle *threads, CommEngine dstCommEngine,
+                                        ThreadHandle *exportedThreads);
+HcclResult HcclChannelGetRemoteMems(HcclComm comm, ChannelHandle channel,
+                                   uint32_t *memNum, CommMem **remoteMems, char ***memTags);
+HcclResult HcclCommMemReg(HcclComm comm, const char *memTag, const CommMem *mem,
+                          HcclMemHandle *memHandle);
+HcclResult HcclEngineCtxDestroy(HcclComm comm, const char *ctxTag, CommEngine engine);
 
 // 动态库管理接口（大驼峰命名）
 void HcclResDlInit(void* libHcommHandle);

@@ -1,3 +1,13 @@
+/**
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
 #ifndef HCOMM_HOST_PROFILING_DL_H
 #define HCOMM_HOST_PROFILING_DL_H
 
@@ -38,6 +48,10 @@ extern HcclResult (*hcommProfilingUnRegThreadPtr)(HcomProInfoTmp, ThreadHandle*)
 extern HcclResult (*hcommProfilingReportKernelPtr)(uint64_t, const char*);
 extern HcclResult (*hcommProfilingReportOpPtr)(HcomProInfoTmp);
 extern uint64_t (*hcommGetProfilingSysCycleTimePtr)();
+extern HcclResult (*hcclDfxRegOpInfoPtr)(HcclComm comm, void* dfxOpInfo);
+extern HcclResult (*hcclProfilingReportOpPtr)(HcclComm comm, uint64_t beginTime);
+extern HcclResult (*hcclReportAicpuKernelPtr)(HcclComm comm, uint64_t beginTime, char *kernelName);
+
 
 // 宏：将原始API名映射为函数指针调用
 #define HcommProfilingRegThread                (*hcommProfilingRegThreadPtr)
@@ -45,6 +59,9 @@ extern uint64_t (*hcommGetProfilingSysCycleTimePtr)();
 #define HcommProfilingReportKernel               (*hcommProfilingReportKernelPtr)
 #define HcommProfilingReportOp                    (*hcommProfilingReportOpPtr)
 #define HcommGetProfilingSysCycleTime              (*hcommGetProfilingSysCycleTimePtr)
+#define HcclDfxRegOpInfo                         (*hcclDfxRegOpInfoPtr)
+#define HcclProfilingReportOp                         (*hcclProfilingReportOpPtr)
+#define HcclReportAicpuKernel                         (*hcclReportAicpuKernelPtr)
 
 // 查询函数声明
 bool HcommIsSupportHcommProfilingRegThread(void);
@@ -52,6 +69,9 @@ bool HcommIsSupportHcommProfilingUnRegThread(void);
 bool HcommIsSupportHcommProfilingReportKernel(void);
 bool HcommIsSupportHcommProfilingReportOp(void);
 bool HcommIsSupportHcommGetProfilingSysCycleTime(void);
+bool HcommIsSupportHcclDfxRegOpInfo(void);
+bool HcommIsSupportHcclProfilingReportOp(void);
+bool HcommIsSupportHcclProfilingReportOp(void);
 
 // 动态库管理接口
 void HcommProfilingDlInit(void* libHcommHandle);

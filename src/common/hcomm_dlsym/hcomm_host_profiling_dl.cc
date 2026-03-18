@@ -1,3 +1,13 @@
+/**
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
 #include "log.h"
 #include "hcomm_host_profiling_dl.h"
 #include <dlfcn.h>
@@ -10,6 +20,9 @@ HcclResult (*hcommProfilingUnRegThreadPtr)(HcomProInfoTmp, ThreadHandle*) = NULL
 HcclResult (*hcommProfilingReportKernelPtr)(uint64_t, const char*) = NULL;
 HcclResult (*hcommProfilingReportOpPtr)(HcomProInfoTmp) = NULL;
 uint64_t (*hcommGetProfilingSysCycleTimePtr)() = NULL;
+HcclResult (*hcclDfxRegOpInfoPtr)(HcclComm comm, void* dfxOpInfo) = NULL;
+HcclResult (*hcclProfilingReportOpPtr)(HcclComm comm, uint64_t beginTime) = NULL;
+HcclResult (*hcclReportAicpuKernelPtr)(HcclComm comm, uint64_t beginTime, char *kernelName) = NULL;
 
 // 添加支持标志（静态，默认 false）
 static bool g_hcommProfilingRegThreadSupported = false;
@@ -17,6 +30,9 @@ static bool g_hcommProfilingUnRegThreadSupported = false;
 static bool g_hcommProfilingReportKernelSupported = false;
 static bool g_hcommProfilingReportOpSupported = false;
 static bool g_hcommGetProfilingSysCycleTimeSupported = false;
+static bool g_hcclDfxRegOpInfoSupported = false;
+static bool g_hcclProfilingReportOpSupported = false;
+static bool g_hcclReportAicpuKernelSupported = false;
 
 // ---------- 桩函数定义 ----------
 static HcclResult StubHcommProfilingRegThread(HcomProInfoTmp profInfo, ThreadHandle* threads) {
@@ -44,6 +60,25 @@ static uint64_t StubHcommGetProfilingSysCycleTime() {
     return 0;
 }
 
+static HcclResult StubHcclDfxRegOpInfo(HcclComm comm, void* dfxOpInfo)
+{
+    (void)comm; (void)dfxOpInfo;
+    HCCL_ERROR("[HcclWrapper] StubHcclDfxRegOpInfo not supported");
+    return HCCL_E_NOT_SUPPORTED;
+}
+static HcclResult StubHcclProfilingReportOp(HcclComm comm, uint64_t beginTime)
+{
+    (void)comm; (void)beginTime;
+    HCCL_ERROR("[HcclWrapper] HcclProfilingReportOp not supported");
+    return HCCL_E_NOT_SUPPORTED;
+}
+static HcclResult StubHcclReportAicpuKernel(HcclComm comm, uint64_t beginTime, char *kernelName)
+{
+    (void)comm; (void)beginTime; (void)kernelName;
+    HCCL_ERROR("[HcclWrapper] HcclReportAicpuKernel not supported");
+    return HCCL_E_NOT_SUPPORTED;
+}
+
 // 初始化
 void HcommProfilingDlInit(void* libHcommHandle) {
     #define SET_PTR(ptr, name, stub, support_flag) \
@@ -63,6 +98,9 @@ void HcommProfilingDlInit(void* libHcommHandle) {
     SET_PTR(hcommProfilingReportKernelPtr, "HcommProfilingReportKernel", StubHcommProfilingReportKernel, g_hcommProfilingReportKernelSupported);
     SET_PTR(hcommProfilingReportOpPtr, "HcommProfilingReportOp", StubHcommProfilingReportOp, g_hcommProfilingReportOpSupported);
     SET_PTR(hcommGetProfilingSysCycleTimePtr, "HcommGetProfilingSysCycleTime", StubHcommGetProfilingSysCycleTime, g_hcommGetProfilingSysCycleTimeSupported);
+    SET_PTR(hcclDfxRegOpInfoPtr, "HcclDfxRegOpInfo", StubHcclDfxRegOpInfo, g_hcclDfxRegOpInfoSupported);
+    SET_PTR(hcclProfilingReportOpPtr, "HcclProfilingReportOp", StubHcclProfilingReportOp, g_hcclProfilingReportOpSupported);
+    SET_PTR(hcclReportAicpuKernelPtr, "HcclReportAicpuKernel", StubHcclReportAicpuKernel, g_hcclReportAicpuKernelSupported);
 
     #undef SET_PTR
 }
@@ -78,6 +116,12 @@ void HcommProfilingDlFini(void) {
     g_hcommProfilingReportOpSupported = false;
     hcommGetProfilingSysCycleTimePtr = StubHcommGetProfilingSysCycleTime;
     g_hcommGetProfilingSysCycleTimeSupported = false;
+    hcclDfxRegOpInfoPtr = StubHcclDfxRegOpInfo;
+    g_hcclDfxRegOpInfoSupported = false;
+    hcclProfilingReportOpPtr = StubHcclProfilingReportOp;
+    g_hcclProfilingReportOpSupported = false;
+    hcclReportAicpuKernelPtr = StubHcclReportAicpuKernel;
+    g_hcclReportAicpuKernelSupported = false;
 }
 
 // ---------- 对外提供的查询接口 ----------
@@ -95,4 +139,13 @@ extern "C" bool HcommIsSupportHcommProfilingReportOp(void) {
 }
 extern "C" bool HcommIsSupportHcommGetProfilingSysCycleTime(void) {
     return g_hcommGetProfilingSysCycleTimeSupported;
+}
+extern "C" bool HcommIsSupportHcclDfxRegOpInfo(void) {
+    return g_hcclDfxRegOpInfoSupported;
+}
+extern "C" bool HcommIsSupportHcclProfilingReportOp(void) {
+    return g_hcclProfilingReportOpSupported;
+}
+extern "C" bool HcommIsSupportHcclReportAicpuKernel(void) {
+    return g_hcclReportAicpuKernelSupported;
 }

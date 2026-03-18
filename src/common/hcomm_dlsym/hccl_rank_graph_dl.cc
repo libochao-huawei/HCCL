@@ -1,3 +1,13 @@
+/**
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
 #include "log.h"
 #include "hccl_rank_graph_dl.h"
 #include <dlfcn.h>
@@ -5,8 +15,6 @@
 #include <stdlib.h>
 
 // 定义全局函数指针（小驼峰）
-HcclResult (*hcclGetRankIdPtr)(HcclComm, uint32_t*) = NULL;
-HcclResult (*hcclGetRankSizePtr)(HcclComm, uint32_t*) = NULL;
 HcclResult (*hcclRankGraphGetLayersPtr)(HcclComm, uint32_t**, uint32_t*) = NULL;
 HcclResult (*hcclRankGraphGetRanksByLayerPtr)(HcclComm, uint32_t, uint32_t**, uint32_t*) = NULL;
 HcclResult (*hcclRankGraphGetRankSizeByLayerPtr)(HcclComm, uint32_t, uint32_t*) = NULL;
@@ -22,8 +30,6 @@ HcclResult (*hcclRankGraphGetEndpointDescPtr)(HcclComm, uint32_t, uint32_t, uint
 HcclResult (*hcclRankGraphGetEndpointInfoPtr)(HcclComm, uint32_t, const EndpointDesc*, EndpointAttr, uint32_t, void*) = NULL;
 
 // 添加支持标志（静态，默认 false，初始化时根据 dlsym 结果设置）
-static bool g_hcclGetRankIdSupported = false;
-static bool g_hcclGetRankSizeSupported = false;
 static bool g_hcclRankGraphGetLayersSupported = false;
 static bool g_hcclRankGraphGetRanksByLayerSupported = false;
 static bool g_hcclRankGraphGetRankSizeByLayerSupported = false;
@@ -39,18 +45,6 @@ static bool g_hcclRankGraphGetEndpointDescSupported = false;
 static bool g_hcclRankGraphGetEndpointInfoSupported = false;
 
 // ---------- 桩函数定义（签名与真实API完全一致）----------
-static HcclResult StubHcclGetRankId(HcclComm comm, uint32_t* rank) {
-    (void)comm; (void)rank;
-    HCCL_ERROR("[HcclWrapper] HcclGetRankId not supported");
-    return HCCL_E_NOT_SUPPORTED;
-}
-
-static HcclResult StubHcclGetRankSize(HcclComm comm, uint32_t* rankSize) {
-    (void)comm; (void)rankSize;
-    HCCL_ERROR("[HcclWrapper] HcclGetRankSize not supported");
-    return HCCL_E_NOT_SUPPORTED;
-}
-
 static HcclResult StubHcclRankGraphGetLayers(HcclComm comm, uint32_t** netLayers, uint32_t* netLayerNum) {
     (void)comm; (void)netLayers; (void)netLayerNum;
     HCCL_ERROR("[HcclWrapper] HcclRankGraphGetLayers not supported");
@@ -147,8 +141,6 @@ void HcclRankGraphDlInit(void* libHcommHandle) {
             } \
         } while(0)
 
-    SET_PTR(hcclGetRankIdPtr, "HcclGetRankId", StubHcclGetRankId, g_hcclGetRankIdSupported);
-    SET_PTR(hcclGetRankSizePtr, "HcclGetRankSize", StubHcclGetRankSize, g_hcclGetRankSizeSupported);
     SET_PTR(hcclRankGraphGetLayersPtr, "HcclRankGraphGetLayers", StubHcclRankGraphGetLayers, g_hcclRankGraphGetLayersSupported);
     SET_PTR(hcclRankGraphGetRanksByLayerPtr, "HcclRankGraphGetRanksByLayer", StubHcclRankGraphGetRanksByLayer, g_hcclRankGraphGetRanksByLayerSupported);
     SET_PTR(hcclRankGraphGetRankSizeByLayerPtr, "HcclRankGraphGetRankSizeByLayer", StubHcclRankGraphGetRankSizeByLayer, g_hcclRankGraphGetRankSizeByLayerSupported);
@@ -168,8 +160,6 @@ void HcclRankGraphDlInit(void* libHcommHandle) {
 
 // 销毁函数：将指针重置为桩函数（可选，与 HcclResDlFini 配合使用）
 void HcclRankGraphDlFini(void) {
-    hcclGetRankIdPtr = StubHcclGetRankId;
-    hcclGetRankSizePtr = StubHcclGetRankSize;
     hcclRankGraphGetLayersPtr = StubHcclRankGraphGetLayers;
     hcclRankGraphGetRanksByLayerPtr = StubHcclRankGraphGetRanksByLayer;
     hcclRankGraphGetRankSizeByLayerPtr = StubHcclRankGraphGetRankSizeByLayer;
@@ -185,13 +175,52 @@ void HcclRankGraphDlFini(void) {
     hcclRankGraphGetEndpointInfoPtr = StubHcclRankGraphGetEndpointInfo;
 }
 
+// ---------- 对外API实现（通过函数指针转发）----------
+HcclResult HcclRankGraphGetLayers(HcclComm comm, uint32_t** netLayers, uint32_t* netLayerNum) {
+    return hcclRankGraphGetLayersPtr(comm, netLayers, netLayerNum);
+}
+HcclResult HcclRankGraphGetRanksByLayer(HcclComm comm, uint32_t netLayer, uint32_t** ranks, uint32_t* rankNum) {
+    return hcclRankGraphGetRanksByLayerPtr(comm, netLayer, ranks, rankNum);
+}
+HcclResult HcclRankGraphGetRankSizeByLayer(HcclComm comm, uint32_t netLayer, uint32_t* rankNum) {
+    return hcclRankGraphGetRankSizeByLayerPtr(comm, netLayer, rankNum);
+}
+HcclResult HcclRankGraphGetTopoTypeByLayer(HcclComm comm, uint32_t netLayer, CommTopo* topoType) {
+    return hcclRankGraphGetTopoTypeByLayerPtr(comm, netLayer, topoType);
+}
+HcclResult HcclRankGraphGetInstSizeListByLayer(HcclComm comm, uint32_t netLayer, uint32_t** instSizeList, uint32_t* listSize) {
+    return hcclRankGraphGetInstSizeListByLayerPtr(comm, netLayer, instSizeList, listSize);
+}
+HcclResult HcclRankGraphGetLinks(HcclComm comm, uint32_t netLayer, uint32_t srcRank, uint32_t dstRank,
+                                 CommLink** links, uint32_t* linkNum) {
+    return hcclRankGraphGetLinksPtr(comm, netLayer, srcRank, dstRank, links, linkNum);
+}
+HcclResult HcclRankGraphGetTopoInstsByLayer(HcclComm comm, uint32_t netLayer, uint32_t** topoInsts, uint32_t* topoInstNum) {
+    return hcclRankGraphGetTopoInstsByLayerPtr(comm, netLayer, topoInsts, topoInstNum);
+}
+HcclResult HcclRankGraphGetTopoType(HcclComm comm, uint32_t netLayer, uint32_t topoInstId, CommTopo* topoType) {
+    return hcclRankGraphGetTopoTypePtr(comm, netLayer, topoInstId, topoType);
+}
+HcclResult HcclRankGraphGetRanksByTopoInst(HcclComm comm, uint32_t netLayer, uint32_t topoInstId,
+                                          uint32_t** ranks, uint32_t* rankNum) {
+    return hcclRankGraphGetRanksByTopoInstPtr(comm, netLayer, topoInstId, ranks, rankNum);
+}
+HcclResult HcclGetHeterogMode(HcclComm comm, HcclHeterogMode* mode) {
+    return hcclGetHeterogModePtr(comm, mode);
+}
+HcclResult HcclRankGraphGetEndpointNum(HcclComm comm, uint32_t layer, uint32_t topoInstId, uint32_t* num) {
+    return hcclRankGraphGetEndpointNumPtr(comm, layer, topoInstId, num);
+}
+HcclResult HcclRankGraphGetEndpointDesc(HcclComm comm, uint32_t layer, uint32_t topoInstId,
+                                        uint32_t* descNum, EndpointDesc* endpointDesc) {
+    return hcclRankGraphGetEndpointDescPtr(comm, layer, topoInstId, descNum, endpointDesc);
+}
+HcclResult HcclRankGraphGetEndpointInfo(HcclComm comm, uint32_t rankId, const EndpointDesc* endpointDesc,
+                                        EndpointAttr endpointAttr, uint32_t infoLen, void* info) {
+    return hcclRankGraphGetEndpointInfoPtr(comm, rankId, endpointDesc, endpointAttr, infoLen, info);
+}
+
 // ---------- 对外提供的查询接口（判断函数是否存在）----------
-extern "C" bool HcommIsSupportHcclGetRankId(void) {
-    return g_hcclGetRankIdSupported;
-}
-extern "C" bool HcommIsSupportHcclGetRankSize(void) {
-    return g_hcclGetRankSizeSupported;
-}
 extern "C" bool HcommIsSupportHcclRankGraphGetLayers(void) {
     return g_hcclRankGraphGetLayersSupported;
 }

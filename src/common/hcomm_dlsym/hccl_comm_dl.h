@@ -1,3 +1,13 @@
+/**
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
 #ifndef HCCL_COMM_DL_H
 #define HCCL_COMM_DL_H
 
@@ -12,38 +22,9 @@ extern "C" {
 #define HCCL_E_NOT_SUPPORTED ((HcclResult)(-2))
 #endif
 
-// 声明全局函数指针（小驼峰命名）
-// 注意：重复的函数（如 HcclGetRankSize、HcclGetRankId）已在 hccl_rank_graph_dl 中处理，此处不再重复
-extern HcclResult (*hcclCommInitClusterInfoPtr)(const char*, uint32_t, HcclComm*);
-extern HcclResult (*hcclCommInitClusterInfoConfigPtr)(const char*, uint32_t, HcclCommConfig*, HcclComm*);
-extern HcclResult (*hcclCreateSubCommConfigPtr)(HcclComm*, uint32_t, uint32_t*, uint64_t, uint32_t, HcclCommConfig*, HcclComm*);
-extern HcclResult (*hcclGetRootInfoPtr)(HcclRootInfo*);
-extern HcclResult (*hcclCommInitRootInfoPtr)(uint32_t, const HcclRootInfo*, uint32_t, HcclComm*);
-extern HcclResult (*hcclCommInitRootInfoConfigPtr)(uint32_t, const HcclRootInfo*, uint32_t, const HcclCommConfig*, HcclComm*);
-extern HcclResult (*hcclSetConfigPtr)(HcclConfig, HcclConfigValue);
-extern HcclResult (*hcclGetConfigPtr)(HcclConfig, HcclConfigValue*);
-extern HcclResult (*hcclGetCommNamePtr)(HcclComm, char*);
-extern HcclResult (*hcclCommGetHandleWithNamePtr)(const char*, HcclComm*);
-extern HcclResult (*hcclBarrierPtr)(HcclComm, aclrtStream);
-extern HcclResult (*hcclCommDestroyPtr)(HcclComm);
-extern HcclResult (*hcclCommInitAllPtr)(uint32_t, int32_t*, HcclComm*);
-extern HcclResult (*hcclGetCommAsyncErrorPtr)(HcclComm, HcclResult*);
-extern const char* (*hcclGetErrorStringPtr)(HcclResult);
-extern uint32_t (*hcclGetCommConfigCapabilityPtr)(void);
-extern HcclResult (*hcclCommSuspendPtr)(HcclComm);
-extern HcclResult (*hcclCommResumePtr)(HcclComm);
-extern HcclResult (*hcclCommSetMemoryRangePtr)(HcclComm, void*, size_t, size_t, uint64_t);
-extern HcclResult (*hcclCommUnsetMemoryRangePtr)(HcclComm, void*);
-extern HcclResult (*hcclCommActivateCommMemoryPtr)(HcclComm, void*, size_t, size_t, aclrtDrvMemHandle, uint64_t);
-extern HcclResult (*hcclCommDeactivateCommMemoryPtr)(HcclComm, void*);
-extern HcclResult (*hcclCommWorkingDevNicSetPtr)(HcclComm, uint32_t*, bool*, uint32_t);
-extern HcclResult (*hcclGroupStartPtr)(void);
-extern HcclResult (*hcclGroupEndPtr)(void);
-extern HcclResult (*hcclCommSymWinRegisterPtr)(HcclComm, void*, uint64_t, CommSymWindow*, uint32_t);
-extern HcclResult (*hcclCommSymWinDeregisterPtr)(CommSymWindow);
-extern HcclResult (*hcclCommSymWinGetPtr)(HcclComm, void*, size_t, CommSymWindow*, size_t*);
-
 // 对外 API 的函数声明（包装函数）
+HcclResult HcclGetRankId(HcclComm comm, uint32_t* rank);
+HcclResult HcclGetRankSize(HcclComm comm, uint32_t* rankSize);
 HcclResult HcclCommInitClusterInfo(const char* clusterInfo, uint32_t rank, HcclComm* comm);
 HcclResult HcclCommInitClusterInfoConfig(const char* clusterInfo, uint32_t rank, HcclCommConfig* config, HcclComm* comm);
 HcclResult HcclCreateSubCommConfig(HcclComm* comm, uint32_t rankNum, uint32_t* rankIds, uint64_t subCommId, uint32_t subCommRankId, HcclCommConfig* config, HcclComm* subComm);
@@ -72,6 +53,18 @@ HcclResult HcclGroupEnd(void);
 HcclResult HcclCommSymWinRegister(HcclComm comm, void* addr, uint64_t size, CommSymWindow* winHandle, uint32_t flag);
 HcclResult HcclCommSymWinDeregister(CommSymWindow winHandle);
 HcclResult HcclCommSymWinGet(HcclComm comm, void* ptr, size_t size, CommSymWindow* winHandle, size_t* offset);
+HcclResult HcclGetRawCommHandle(const char* commName, HcclComm* commHandle);
+HcclResult HcclGetCcuTaskInfo(HcclComm comm, void* tilingData, void* ccuTaskGroup);
+HcclResult CommGetLocalCCLBuf(HcclComm comm, void **addr, uint64_t *size);
+HcclResult CommGetRemoteCCLBuf(HcclComm comm, uint32_t remoteRank, void **addr, uint64_t *size);
+HcclResult CommGetKFCWorkSpace(HcclComm comm, void **addr, uint64_t *size);
+HcclResult CommGetCCLBufSizeCfg(HcclComm comm, uint64_t *cclBufSize);
+HcclResult HcclCommInitClusterInfoMemConfig(const char *rankTableString, uint32_t rank,
+                                            HcclCommConfig *config, HcclComm *comm);
+HcclResult HcclSnapshotSave(void* snapshotBuf, uint32_t size, uint32_t step);
+HcclResult HcclSnapshotGetBufSize(uint32_t step, uint32_t* size);
+HcclResult HcclSnapshotRecoverAllComms(const char* clusterInfo, const char* changedInfo,
+                                       void* snapshotBuf, uint32_t snapshotBufSize);
 
 // 查询函数声明
 bool HcommIsSupportHcclCommInitClusterInfo(void);
@@ -102,6 +95,16 @@ bool HcommIsSupportHcclGroupEnd(void);
 bool HcommIsSupportHcclCommSymWinRegister(void);
 bool HcommIsSupportHcclCommSymWinDeregister(void);
 bool HcommIsSupportHcclCommSymWinGet(void);
+bool HcommIsSupportHcclGetRawCommHandle(void);
+bool HcommIsSupportHcclGetCcuTaskInfo(void);
+bool HcommIsSupportCommGetLocalCCLBuf(void);
+bool HcommIsSupportCommGetRemoteCCLBuf(void);
+bool HcommIsSupportCommGetKFCWorkSpace(void);
+bool HcommIsSupportCommGetCCLBufSizeCfg(void);
+bool HcommIsSupportHcclCommInitClusterInfoMemConfig(void);
+bool HcommIsSupportHcclSnapshotSave(void);
+bool HcommIsSupportHcclSnapshotGetBufSize(void);
+bool HcommIsSupportHcclSnapshotRecoverAllComms(void);
 
 void HcclCommDlInit(void* libHcommHandle);        // 本模块独立初始化
 void HcclCommDlFini(void);                         // 本模块独立销毁

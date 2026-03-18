@@ -23,6 +23,8 @@ HcclResult HcclAllGatherV(void *sendBuf, uint64_t sendCount, void *recvBuf, cons
     const void *recvDispls, HcclDataType dataType, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("Start to run execute HcclAllGatherV");
+    // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
+    CHK_RET(InitEnvConfig());
 
     if ((GetHcommVersion() < 90000000) ||
         GetExternalInputHcclCcuMSMode() ||
@@ -35,16 +37,10 @@ HcclResult HcclAllGatherV(void *sendBuf, uint64_t sendCount, void *recvBuf, cons
     }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
-    #ifdef MACRO_DEV_TYPE_NEW
-    if (deviceType != DevType::DEV_TYPE_950) {
-    #else
     if (deviceType != DevType::DEV_TYPE_910_95) {
-    #endif
         return HcclAllGatherVInner(sendBuf, sendCount, recvBuf, recvCounts, recvDispls, dataType, comm, stream);
     }
 
-    // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
-    CHK_RET(InitEnvConfig());
     // 参数校验等工作
     CHK_PRT_RET(sendCount == 0, HCCL_WARNING("input recvCount is 0, return all gather success"), HCCL_SUCCESS);
     CHK_RET(CheckAllGatherVInputPara(comm, sendBuf, recvBuf));

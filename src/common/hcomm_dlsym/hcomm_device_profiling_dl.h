@@ -1,3 +1,13 @@
+/**
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
 #ifndef HCOMM_DEVICE_PROFILING_DL_H
 #define HCOMM_DEVICE_PROFILING_DL_H
 
@@ -38,6 +48,9 @@ extern HcclResult (*hcommProfilingReportMainStreamAndLastTaskPtr)(ThreadHandle);
 extern HcclResult (*hcommProfilingReportDeviceHcclOpInfoPtr)(HcomProInfoTmp);
 extern HcclResult (*hcommProfilingInitPtr)(ThreadHandle*, uint32_t);
 extern HcclResult (*hcommProfilingEndPtr)(ThreadHandle*, uint32_t);
+extern HcclResult (*hcommProfilingReportDeviceOpPtr)(const char* groupname);
+extern HcclResult (*hcommProfilingReportKernelStartTaskPtr)(uint64_t thread, const char* groupname);
+extern HcclResult (*hcommProfilingReportKernelEndTaskPtr)(uint64_t thread, const char* groupname);
 
 // 宏：将原始API名映射为函数指针调用
 #define HcommProfilingReportMainStreamAndFirstTask                (*hcommProfilingReportMainStreamAndFirstTaskPtr)
@@ -45,6 +58,9 @@ extern HcclResult (*hcommProfilingEndPtr)(ThreadHandle*, uint32_t);
 #define HcommProfilingReportDeviceHcclOpInfo                       (*hcommProfilingReportDeviceHcclOpInfoPtr)
 #define HcommProfilingInit                                          (*hcommProfilingInitPtr)
 #define HcommProfilingEnd                                           (*hcommProfilingEndPtr)
+#define HcommProfilingReportDeviceOp                                (*hcommProfilingReportDeviceOpPtr)
+#define HcommProfilingReportKernelStartTask                         (*hcommProfilingReportKernelStartTaskPtr)
+#define HcommProfilingReportKernelEndTask                            (*hcommProfilingReportKernelEndTaskPtr)
 
 // 查询函数声明
 bool HcommIsSupportHcommProfilingReportMainStreamAndFirstTask(void);
@@ -52,6 +68,9 @@ bool HcommIsSupportHcommProfilingReportMainStreamAndLastTask(void);
 bool HcommIsSupportHcommProfilingReportDeviceHcclOpInfo(void);
 bool HcommIsSupportHcommProfilingInit(void);
 bool HcommIsSupportHcommProfilingEnd(void);
+bool HcommIsSupportHcommProfilingReportDeviceOp(void);
+bool HcommIsSupportHcommProfilingReportKernelStartTask(void);
+bool HcommIsSupportHcommProfilingReportKernelEndTask(void);
 
 // 动态库管理接口
 void HcommDeviceProfilingDlInit(void* libHcommHandle);
