@@ -225,21 +225,23 @@ HcclResult HcclGetChannelGraphMode(HcclComm comm, const OpParam &param, AlgResou
 {
     char inputBuffTag[MAX_MEM_TAG_LENGTH];
     char outputBuffTag[MAX_MEM_TAG_LENGTH];
-    auto retIn = sprintf_s(inputBuffTag, sizeof(inputBuffTag), "%s_%s", param.algTag, "InputBUffer");
-    auto retOut =  sprintf_s(outputBuffTag, sizeof(outputBuffTag), "%s_%s", param.algTag, "OutputBUffer");
+    auto retIn = sprintf_s(inputBuffTag, sizeof(inputBuffTag), "InputBuffer");
+    auto retOut = sprintf_s(outputBuffTag, sizeof(outputBuffTag), "OutputBuffer");
     if (retIn <= 0 || retOut <= 0){
         HCCL_ERROR("[HcclGetChannelGraphMode]faled to fill BuffTag");
         return HcclResult::HCCL_E_INTERNAL;
     }
     std::vector<HcclMemHandle> memHandles;
-    constexpr u32 REMOTE_MEM_NUM = 2;
-    memHandles.resize(REMOTE_MEM_NUM);
 
     if (param.inputPtr != nullptr) {
-        CHK_RET(HcclRegstryBuffGraphMode(comm, inputBuffTag, param.inputPtr, param.inputSize, &memHandles[0]));
+        HcclMemHandle inputMemHandle;
+        CHK_RET(HcclRegstryBuffGraphMode(comm, inputBuffTag, param.inputPtr, param.inputSize, &inputMemHandle));
+        memHandles.push_back(inputMemHandle);
     }
     if (param.outputPtr != nullptr) {
-        CHK_RET(HcclRegstryBuffGraphMode(comm, outputBuffTag, param.outputPtr, param.outputSize, &memHandles[1]));
+        HcclMemHandle outputMemHandle;
+        CHK_RET(HcclRegstryBuffGraphMode(comm, outputBuffTag, param.outputPtr, param.outputSize, &outputMemHandle));
+        memHandles.push_back(outputMemHandle);
     }
     resCtxHost->channels.resize(resRequest.channels.size());
     for (u32 level = 0; level < resRequest.channels.size(); level++) {
@@ -275,19 +277,15 @@ HcclResult HcclGetChannelGraphMode(HcclComm comm, const OpParam &param, AlgResou
             CHK_RET(HcclChannelGetHcclBuffer(comm, levelNChannels[idx], &remoteCclBufferAddr, &remoteCclBufferSize));
             channel.remoteCclMem = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteCclBufferAddr, remoteCclBufferSize};
 
-            if (param.inputPtr != nullptr) {
-                void* remoteInputBufferAddr;
-                uint64_t remoteInputBufferSize;
-                CHK_RET(HcclGetRemoteBuffGraphMode(comm, levelNChannels[idx], inputBuffTag, &remoteInputBufferAddr, &remoteInputBufferSize));
-                channel.remoteInputGraphMode = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteInputBufferAddr, remoteInputBufferSize};
-            }
+            void* remoteInputBufferAddr;
+            uint64_t remoteInputBufferSize;
+            CHK_PRT(HcclGetRemoteBuffGraphMode(comm, levelNChannels[idx], inputBuffTag, &remoteInputBufferAddr, &remoteInputBufferSize));
+            channel.remoteInputGraphMode = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteInputBufferAddr, remoteInputBufferSize};
 
-            if (param.outputPtr != nullptr) {
-                void* remoteOutputBufferAddr;
-                uint64_t remoteOutputBufferSize;
-                CHK_RET(HcclGetRemoteBuffGraphMode(comm, levelNChannels[idx], outputBuffTag, &remoteOutputBufferAddr, &remoteOutputBufferSize));
-                channel.remoteOutputGraphMode = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteOutputBufferAddr, remoteOutputBufferSize};
-            }
+            void* remoteOutputBufferAddr;
+            uint64_t remoteOutputBufferSize;
+            CHK_PRT(HcclGetRemoteBuffGraphMode(comm, levelNChannels[idx], outputBuffTag, &remoteOutputBufferAddr, &remoteOutputBufferSize));
+            channel.remoteOutputGraphMode = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteOutputBufferAddr, remoteOutputBufferSize};
 
             resCtxHost->channels[level].push_back(channel);
         }
