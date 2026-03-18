@@ -9,6 +9,7 @@
  */
 
 #include "calc_resource_graph_mode.h"
+#include "hccl/hcom.h"
 #include <cstddef>
 #include <cstring>
 
@@ -48,6 +49,50 @@ HcclResult HcclSetOpParamGraphModeOpType(OpParamGraphMode *opParam, const char *
     return HCCL_SUCCESS;
 }
 
+HcclResult HcclSetOpParamGraphModeDataCount(OpParamGraphMode *opParam, const u64 *dataCount)
+{
+    if (opParam == nullptr || dataCount == nullptr) {
+        return HCCL_E_PARA;
+    }
+    // 将void*转换为OpParamGraphMode*
+    OpParamGraphMode *paramPtr = reinterpret_cast<OpParamGraphMode *>(opParam);
+    memcpy_s(&paramPtr->dataCount, sizeof(paramPtr->dataCount), &dataCount, sizeof(u64));
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclSetOpParamGraphModeDataType(OpParamGraphMode *opParam, const HcclDataType *dataType)
+{
+    if (opParam == nullptr || dataType == nullptr) {
+        return HCCL_E_PARA;
+    }
+    // 将void*转换为OpParamGraphMode*
+    OpParamGraphMode *paramPtr = reinterpret_cast<OpParamGraphMode *>(opParam);
+    memcpy_s(&paramPtr->dataType, sizeof(paramPtr->dataType), &dataType, sizeof(HcclDataType));
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclSetOpParamGraphModeRankSize(OpParamGraphMode *opParam, const u32 *rankSize)
+{
+    if (opParam == nullptr || rankSize == nullptr) {
+        return HCCL_E_PARA;
+    }
+    // 将void*转换为OpParamGraphMode*
+    OpParamGraphMode *paramPtr = reinterpret_cast<OpParamGraphMode *>(opParam);
+    memcpy_s(&paramPtr->rankSize, sizeof(paramPtr->rankSize), &rankSize, sizeof(u32));
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclSetOpParamGraphModeHCCLBufferSize(OpParamGraphMode *opParam, const u64 *hcclBufferSize)
+{
+    if (opParam == nullptr || hcclBufferSize == nullptr) {
+        return HCCL_E_PARA;
+    }
+    // 将void*转换为OpParamGraphMode*
+    OpParamGraphMode *paramPtr = reinterpret_cast<OpParamGraphMode *>(opParam);
+    memcpy_s(&paramPtr->hcclBufferSize, sizeof(paramPtr->hcclBufferSize), &hcclBufferSize, sizeof(u64));
+    return HCCL_SUCCESS;
+}
+
 HcclResult HcclCalcOpResOnlineGraphMode(OpParamGraphMode *opParam, u64 *opMemSize, u32 *streamNum, u32 *taskNum, u32 *aivCoreNum)
 {
     if (opParam == nullptr) {
@@ -78,7 +123,7 @@ HcclResult HcclCalcOpResOnlineGraphMode(OpParamGraphMode *opParam, u64 *opMemSiz
     ops_hccl::HcclCalcAicpuResOffline(&resResponse);
 
     // ccu引擎计算资源
-    ops_hccl::HcclCalcCcuResOffline(&resResponse);
+    ops_hccl::HcclCalcCcuResOffline(opParam, &resResponse);
 
     // 其他引擎补充在下面
 
@@ -121,7 +166,7 @@ HcclResult HcclCalcOpResOfflineGraphMode(OpParamGraphMode *opParam, u64 *opMemSi
     ops_hccl::HcclCalcAicpuResOffline(&resResponse);
 
     // ccu引擎计算资源
-    ops_hccl::HcclCalcCcuResOffline(&resResponse);
+    ops_hccl::HcclCalcCcuResOffline(opParam, &resResponse);
 
     // 其他引擎补充在下面
 
@@ -150,19 +195,67 @@ HcclResult HcclCalcAicpuResOffline(ResResponseGraphMode *resResponse)
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclCalcCcuResOffline(ResResponseGraphMode *resResponse)
+HcclResult HcclCalcCcuResOffline(OpParamGraphMode *opParam, ResResponseGraphMode *resResponse)
 {
-    if (resResponse == nullptr) {
+    if (resResponse == nullptr || opParam == nullptr) {
         return HCCL_E_PARA;
     }
+
     // ccu的资源申请
     u64 ccuOpMemSize = 0;
-    u32 ccuStreamNum = 0;
-    u32 ccuTaskNum = 3;
+    u32 ccuStreamNum = 3;
+    u32 ccuTaskNum = 0;
+
+    CHK_PRT(CalcTaskNum(opParam, ccuTaskNum));
 
     resResponse->opMemSize = std::max(resResponse->opMemSize, ccuOpMemSize);
     resResponse->streamNum = std::max(resResponse->streamNum, ccuStreamNum);
     resResponse->taskNum = std::max(resResponse->taskNum, ccuTaskNum);
+    return HCCL_SUCCESS;
+}
+
+HcclResult CalcTaskNum(OpParamGraphMode *opParam, u32 &ccuTaskNum)
+{
+    u64 scratchBufferSize = 200 * 1024 * 1024; // transportBoundDataSize
+    u64 dataCount = opParam->dataCount;
+    u64 dataType = opParam->dataType;
+    u64 dataTypeSize = DATATYPE_SIZE_TABLE[dataType];
+    u64 rankSize = opParam->rankSize;
+    u64 maxDataSizePerLoop = std::min(UB_MAX_DATA_SIZE, scratchBufferSize);
+    u64 maxDataCountPerLoop;
+    u64 loopTimes;
+    if (opParam->opType == HCCL_KERNEL_OP_TYPE_ALLTOALL) { // alltoall
+        maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize / rankSize;
+        loopTimes = dataCount / maxDataCountPerLoop + static_cast<u64>(dataCount % maxDataCountPerLoop != 0);
+        ccuTaskNum = loopTimes;
+    } else if (opParam->opType == HCCL_KERNEL_OP_TYPE_ALLTOALLV || opParam->opType == HCCL_KERNEL_OP_TYPE_ALLTOALLVC) {
+        ccuTaskNum = 1;
+    } else if (opParam->opType == HCCL_KERNEL_OP_TYPE_REDUCE) { // reduce 
+        maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize;
+        loopTimes = dataCount / maxDataCountPerLoop + static_cast<u64>(dataCount % maxDataCountPerLoop != 0);
+        ccuTaskNum = loopTimes * 18;
+    } else if (opParam->opType == HCCL_KERNEL_OP_TYPE_BROADCAST) { // broadcast 还要写
+        maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize;
+        loopTimes = dataCount / maxDataCountPerLoop + static_cast<u64>(dataCount % maxDataCountPerLoop != 0);
+        ccuTaskNum = loopTimes * 18;
+    } else if (opParam->opType == HCCL_KERNEL_OP_TYPE_ALLGATHER) {
+        maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize;
+        loopTimes = dataCount / maxDataCountPerLoop + static_cast<u64>(dataCount % maxDataCountPerLoop != 0);
+        ccuTaskNum = loopTimes * 18;
+    } else if (opParam->opType == HCCL_KERNEL_OP_TYPE_ALLGATHERV) {
+        maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize;
+        loopTimes = (dataCount - 1) / maxDataCountPerLoop + 1;
+        ccuTaskNum = loopTimes;
+    } else if (opParam->opType == HCCL_KERNEL_OP_TYPE_REDUCESCATTER) {
+        maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize;
+        loopTimes = dataCount / maxDataCountPerLoop + static_cast<u64>(dataCount % maxDataCountPerLoop != 0);
+        ccuTaskNum = loopTimes * 18;
+    } else if (opParam->opType == HCCL_KERNEL_OP_TYPE_REDUCESCATTERV) {
+        maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize;
+        loopTimes = 1 + ((dataCount - 1) / maxDataCountPerLoop);
+        ccuTaskNum = loopTimes * 18;
+    }
+    }
     return HCCL_SUCCESS;
 }
 } // namespace ops_hccl
