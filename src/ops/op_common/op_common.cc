@@ -43,7 +43,6 @@
 extern "C" {
 #endif
 
- 
 // 兼容性处理
 uint64_t __attribute__((weak)) HcommGetProfilingSysCycleTime();
 HcclResult __attribute__((weak))  HcclDfxRegOpInfo(HcclComm comm, void* dfxOpInfo);
@@ -69,7 +68,7 @@ struct HcclDfxOpInfo {
     uint32_t            cpuWaitAicpuNotifyIdx = INVALID_UINT; // host wait device notifyIdx
     uint32_t            cpuWaitAicpuNotifyId = INVALID_UINT; // host wait device notifyId
     int8_t              reserve[128]; // 预留扩展字段
-}; 
+};
 
 #ifdef __cplusplus
 }
