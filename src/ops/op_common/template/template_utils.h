@@ -12,6 +12,7 @@
 #define ALG_V2_TEMPLATE_UTILS
 
 #include <vector>
+#include <deque>
 #include <memory>
 #include <string>
 #include <sstream>
@@ -75,6 +76,20 @@ struct SlicesList {
         : srcSlices_(srcSlices), dstSlices_(dstSlices)
     {
     }
+};
+
+struct SendRecvSlice {
+    void *addr;
+    u64 size;
+    u32 remoteRank;
+    SendRecvSlice(void *addr, u64 size, u32 remoteRank) : addr(addr), size(size), remoteRank(remoteRank) {}
+};
+
+struct BatchSendRecvInfo {
+    std::deque<SendRecvSlice> sendSlices;
+    std::deque<SendRecvSlice> recvSlices;
+    std::deque<SendRecvSlice> sendToSelfSlices;
+    std::deque<SendRecvSlice> recvFromSelfSlices;
 };
 
 struct A2ASendRecvInfo {

@@ -116,6 +116,8 @@ set(INCLUDE_LIST
     ${HCCL_DEV_BASE}/src/ops/batch_send_recv
     ${HCCL_DEV_BASE}/src/ops/batch_send_recv/executor
     ${HCCL_DEV_BASE}/src/ops/batch_send_recv/selector
+    ${HCCL_DEV_BASE}/src/ops/batch_send_recv/template
+    ${HCCL_DEV_BASE}/src/ops/batch_send_recv/template/aicpu
 
 )
 
@@ -240,6 +242,7 @@ add_library(scatter_aicpu_kernel SHARED
     ${HCCL_DEV_BASE}/src/ops/broadcast/template/aicpu/ins_temp_broadcast_nhr.cc
 
     ${HCCL_DEV_BASE}/src/ops/batch_send_recv/executor/ins_v2_batch_send_recv_executor.cc
+    ${HCCL_DEV_BASE}/src/ops/batch_send_recv/template/aicpu/ins_temp_batch_send_recv_mesh_1D.cc
 
     ${HCCL_DEV_BASE}/src/ops/reduce/executor/reduce_sole_executor.cc
     ${HCCL_DEV_BASE}/src/ops/reduce/executor/reduce_parallel_executor.cc

@@ -10,78 +10,54 @@
 #ifndef HCCLV2_INS_V2_BATCH_SEND_RECV_EXECUTOR_H
 #define HCCLV2_INS_V2_BATCH_SEND_RECV_EXECUTOR_H
 
-#include <unordered_set>
 #include <algorithm>
+#include <deque>
+#include <set>
 
-#include "alg_param.h"
-#include "channel.h"
-#include "executor_v2_base.h"
-#include "coll_alg_v2_exec_registry.h"
-#include "template_utils.h"
+#include "executor_common_ops.h"
+#include "topo_match_1d.h"
 
 namespace ops_hccl {
-class InsV2BatchSendRecvExecutor : public InsCollAlgBase {
+
+template <typename AlgTopoMatch, typename InsAlgTemplate>
+class InsV2BatchSendRecvSoleExecutor : public InsCollAlgBase {
 public:
-    explicit InsV2BatchSendRecvExecutor();
-    ~InsV2BatchSendRecvExecutor() override = default;
+    explicit InsV2BatchSendRecvSoleExecutor();
+    ~InsV2BatchSendRecvSoleExecutor() override = default;
 
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
 
-    HcclResult CalcRes(HcclComm comm, const OpParam& param,
-        const TopoInfoWithNetLayerDetails* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
-        AlgResourceRequest& resourceRequest) override;
+    HcclResult CalcRes(HcclComm comm, const OpParam &param,
+        const TopoInfoWithNetLayerDetails *topoInfo,
+        const AlgHierarchyInfoForAllLevel &algHierarchyInfo,
+        AlgResourceRequest &resourceRequest) override;
 
-    HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo,
-        AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
-
-protected:
-
-    struct SendRecvSlice {
-        void* addr_;
-        u64 size_;
-        u32 remoteRank_;
-        SendRecvSlice(void* addr, u64 size, u32 remoteRank) :
-            addr_(addr), size_(size), remoteRank_(remoteRank) {}
-    }; // 切片任务信息
-
-    std::deque<SendRecvSlice> sendDataSilces_;
-    std::deque<SendRecvSlice> recvDataSilces_;
-    std::vector<std::map<u32 ,std::vector<ChannelInfo>>> remoteRankToChannelInfo_;
-    std::vector<ThreadHandle> threads_;
+    HcclResult CalcAlgHierarchyInfo(HcclComm comm,
+        TopoInfoWithNetLayerDetails *topoInfo,
+        AlgHierarchyInfoForAllLevel &algHierarchyInfo) override;
 
 private:
-    // 排序
-    bool SortSendItems(const HcclSendRecvItem* a, const HcclSendRecvItem* b) const;
-    bool SortRecvItems(const HcclSendRecvItem* a, const HcclSendRecvItem* b) const;
-    bool SortSelfItems(const HcclSendRecvItem* a, const HcclSendRecvItem* b) const;
+    HcclResult ParseAndOrganize(const HcclSendRecvItem *itemPtr, u32 itemNum);
     HcclResult GetPairWiseList(const HcclSendRecvItem *sendRecvInfo, u32 itemNum);
-    
-    // 实现自发自收
-    HcclResult ProcessSelfSendRecvTasks(ThreadHandle& thread);
-    
-    // 收发任务切片
     HcclResult CalcSendSlices();
     HcclResult CalcRecvSlices();
+    HcclResult CalcSelfSlices();
 
-    // 获取数据发送&接收channel
-    HcclResult GetSendChannel(u32 remoteRank, ChannelInfo& sendChannel) const;
-    HcclResult GetRecvChannel(u32 remoteRank, ChannelInfo& recvChannel) const;
+    bool SortSendItems(const HcclSendRecvItem *a, const HcclSendRecvItem *b) const;
+    bool SortRecvItems(const HcclSendRecvItem *a, const HcclSendRecvItem *b) const;
+    bool SortSelfItems(const HcclSendRecvItem *a, const HcclSendRecvItem *b) const;
 
-    // 实现数据发送&接收
-    HcclResult ProcessSendDataSlice(SendRecvSlice& sendSlice, ThreadHandle& thread) const;
-    HcclResult ProcessRecvDataSlice(SendRecvSlice& recvSlice, ThreadHandle& thread) const;
-    HcclResult RunLoopSendRecv();
-
-    static constexpr u32 channelNumPerRankPair_ = 2;
-    const HcclSendRecvItem* itemPtr_ = nullptr;
-    HcclMem cclMem_{HCCL_MEM_TYPE_DEVICE, nullptr, 0};
+    const HcclSendRecvItem *itemPtr_ = nullptr;
     u32 itemNum_ = 0;
-    u64 maxRoundTransferSize_ = 0; // 单轮最多能够传输的size
-    std::set<u32> commTargetUserRankSet_; // 所有需要通信的remoteRank ID集合
-    std::deque<const HcclSendRecvItem*> sendToSelfDeque_;
-    std::deque<const HcclSendRecvItem*> recvFromSelfDeque_;
-    std::deque<const HcclSendRecvItem*> sendDeque_;
-    std::deque<const HcclSendRecvItem*> recvDeque_;
+    std::deque<const HcclSendRecvItem *> sendDeque_;
+    std::deque<const HcclSendRecvItem *> recvDeque_;
+    std::deque<const HcclSendRecvItem *> sendToSelfDeque_;
+    std::deque<const HcclSendRecvItem *> recvFromSelfDeque_;
+    std::deque<SendRecvSlice> sendDataSlices_;
+    std::deque<SendRecvSlice> recvDataSlices_;
+    std::deque<SendRecvSlice> selfSendSlices_;
+    std::deque<SendRecvSlice> selfRecvSlices_;
 };
+
 } // namespace ops_hccl
-#endif
+#endif // HCCLV2_INS_V2_BATCH_SEND_RECV_EXECUTOR_H
