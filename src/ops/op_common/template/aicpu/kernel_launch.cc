@@ -21,7 +21,7 @@
 #include "hcomm_diag.h"
 
 using namespace ops_hccl;
-
+using HcclGetOpInfoCallback = void (*)(const void *opInfo, char *outPut, size_t size);
 #ifdef __cplusplus
 extern "C" {
 #endif
