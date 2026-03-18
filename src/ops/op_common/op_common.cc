@@ -852,7 +852,6 @@ HcclResult SetOpParamAlgTag(OpParam &param, const std::string &algName)
             }
         }
     }
-
     return HcclResult::HCCL_SUCCESS;
 }
 
