@@ -24,6 +24,9 @@ HcclResult HcclAllReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataT
     HcclReduceOp op, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("Start to run execute HcclAllReduce");
+    // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
+    // A3是：export HCCL_OP_EXPANSION_MODE="AI_CPU"，A5的接口还没提供
+    CHK_RET(InitEnvConfig());
 
     if ((GetHcommVersion() < 90000000) ||
         GetExternalInputHcclCcuMSMode() ||
@@ -44,10 +47,6 @@ HcclResult HcclAllReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataT
     #endif
         return HcclAllReduceInner(sendBuf, recvBuf, count, dataType, op, comm, stream);
     }
-
-    // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
-    // A3是：export HCCL_OP_EXPANSION_MODE="AI_CPU"，A5的接口还没提供
-    CHK_RET(InitEnvConfig());
 
     // 参数校验等工作
     CHK_PRT_RET(count == 0, HCCL_WARNING("input count is 0, return all reduce success"), HCCL_SUCCESS);

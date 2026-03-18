@@ -24,6 +24,7 @@ HcclResult HcclAlltoAll(const void *sendBuf, uint64_t sendCount, HcclDataType se
     uint64_t recvCount, HcclDataType recvType, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("Start to run execute HcclAlltoAll");
+    CHK_RET(InitEnvConfig());
 
     if ((GetHcommVersion() < 90000000) ||
         GetExternalInputHcclCcuMSMode() ||
@@ -44,8 +45,6 @@ HcclResult HcclAlltoAll(const void *sendBuf, uint64_t sendCount, HcclDataType se
     #endif
         return HcclAlltoAllInner(sendBuf, sendCount, sendType, recvBuf, recvCount, recvType, comm, stream);
     }
-
-    CHK_RET(InitEnvConfig());
 
     // 参数校验等工作
     CHK_RET(CheckAlltoAllInputPara(comm, sendBuf, sendCount, sendType, recvBuf, recvCount, recvType));
@@ -85,6 +84,7 @@ HcclResult HcclAlltoAllV(const void *sendBuf, const void *sendCounts, const void
     const void *recvBuf, const void *recvCounts, const void *rdispls, HcclDataType recvType, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("Start to run execute HcclAlltoAllV");
+    CHK_RET(InitEnvConfig());
 
     if ((GetHcommVersion() < 90000000) ||
         GetExternalInputHcclCcuMSMode() ||
@@ -105,8 +105,6 @@ HcclResult HcclAlltoAllV(const void *sendBuf, const void *sendCounts, const void
     #endif
         return HcclAlltoAllVInner(sendBuf, sendCounts, sdispls, sendType, recvBuf, recvCounts, rdispls, recvType, comm, stream);
     }
-
-    CHK_RET(InitEnvConfig());
 
     // 参数校验等工作
     CHK_RET(CheckAlltoAllVInputPara(comm, sendBuf, sendCounts, sdispls, sendType, recvBuf, recvCounts, rdispls, recvType));
