@@ -75,6 +75,8 @@ HcclResult ReduceMesh1D::KernelRun(
             myIdx_,
             templateRankSize_),
         HcclResult::HCCL_E_INTERNAL);
+
+    enableRemoteMemAccess_ = tempAlgParams.enableRemoteMemAccess;
     processSize_ = tempAlgParams.sliceSize;
     count_ = tempAlgParams.count;
     dataType_ = param.DataDes.dataType;
