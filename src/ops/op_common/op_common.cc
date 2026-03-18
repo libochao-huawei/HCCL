@@ -38,7 +38,43 @@
 #include "hccl_aiv_utils.h"
 #include "aiv_kernel_def.h"
 #include "dpu/kernel_launch.h"
-#include "hccl_diag.h"
+
+ #ifdef __cplusplus 
+ extern "C" { 
+ #endif 
+ 
+ 
+// 兼容性处理 
+uint64_t __attribute__((weak)) HcommGetProfilingSysCycleTime(); 
+HcclResult __attribute__((weak))  HcclDfxRegOpInfo(HcclComm comm, void* dfxOpInfo); 
+HcclResult __attribute__((weak)) HcclProfilingReportOp(HcclComm comm, uint64_t beginTime); 
+HcclResult __attribute__((weak)) HcclReportAicpuKernel(HcclComm comm, uint64_t beginTime, char *kernelName); 
+struct HcclDfxOpInfo { 
+    CommAbiHeader       header; 
+    //DfxOpInfo_base 
+    uint64_t            beginTime = 0; 
+    uint64_t            endTime = 0; 
+    //baseCollOperator 
+    uint32_t            opMode = 0; // 单算子和图模式 
+    uint32_t            opType = 0; // 算子名称类型 
+    uint32_t            reduceOp = 0; 
+    uint32_t            dataType = 0; 
+    uint32_t            outputType = 0; //暂不删除，考虑后续算子使用 
+    uint64_t            dataCount = 0; 
+    uint32_t            root = INVALID_VALUE_RANKID; 
+    char                algTag[288]; // 算法名 = "算子类型 + 通信域id + 选择的算法" 
+    CommEngine          engine = COMM_ENGINE_RESERVED; 
+    //task_exception 
+    uint64_t            cpuTsThread = 0; // host侧算子主流的threadhandle 
+    uint32_t            cpuWaitAicpuNotifyIdx = INVALID_UINT; // host wait device notifyIdx 
+    uint32_t            cpuWaitAicpuNotifyId = INVALID_UINT; // host wait device notifyId 
+    int8_t              reserve[128]; // 预留扩展字段 
+}; 
+
+
+#ifdef __cplusplus 
+} 
+#endif
 
 namespace ops_hccl {
 thread_local std::map<std::string, HcclMemHandle> g_memHandleCache; // 当前AIV存放注册内存的memHandle使用
