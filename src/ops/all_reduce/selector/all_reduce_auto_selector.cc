@@ -216,7 +216,7 @@ SelectorStatus AllReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayer
                                                       std::string &selectAlgName) const
 {
     CHK_PRT_RET(opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD,
-        HCCL_WARNING("[Algo][AllReduceAutoSelector] ReduceOp [PROD]] is not supported yet for aicpu mode."),
+        HCCL_ERROR("[Algo][AllReduceAutoSelector] ReduceOp [PROD] is not supported yet for aicpu mode."),
         SelectorStatus::NOT_MATCH);
 
     std::vector<HcclAlgoType> algos = std::vector<HcclAlgoType>(HCCL_ALGO_LEVEL_NUM, HcclAlgoType::HCCL_ALGO_TYPE_DEFAULT);
