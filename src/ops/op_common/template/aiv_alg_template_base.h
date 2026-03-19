@@ -60,5 +60,4 @@ protected:
 };
 
 } // namespace Hccl
-
 #endif // AIV_ALG_TEMPLATE_BASE
