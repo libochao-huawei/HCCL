@@ -69,7 +69,7 @@ HcclResult HcclAllReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataT
 }
 
 
-HcclResult HcclAllReduceGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, const char* group, aclrtStream stream, const char* tag, void** streams, size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize)
+HcclResult HcclAllReduceGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclReduceOp op, const char* group, aclrtStream stream, const char* tag, void** streams, size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize)
 {
     HCCL_INFO("Start to run execute HcclAllReduceGraphMode");
     // 根据group获取通信域
@@ -114,7 +114,7 @@ HcclResult HcclAllReduceGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCou
     resPack.scratchMemSize = scratchMemSize;
 
     // 执行AllReduce
-    CHK_RET_AND_PRINT_IDE(AllReduceOutPlaceGraphMode(sendBuf, recvBuf, sendCount, dataType, comm, stream, tag, resPack), opTag);
+    CHK_RET_AND_PRINT_IDE(AllReduceOutPlaceGraphMode(sendBuf, recvBuf, sendCount, dataType, op, comm, stream, tag, resPack), opTag);
 
     return HCCL_SUCCESS;
 }
@@ -194,7 +194,7 @@ HcclResult AllReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclD
     return HCCL_SUCCESS;
 }
 
-HcclResult AllReduceOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
+HcclResult AllReduceOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclReduceOp op, HcclComm comm,
                                       aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack)
 {
     HCCL_INFO("Start to execute AllReduceOutPlaceGraphMode");
@@ -230,6 +230,7 @@ HcclResult AllReduceOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t sen
     param.opType = HcclCMDType::HCCL_CMD_ALLREDUCE;
     param.enableDetour = false;
     param.deviceType = deviceType;
+    param.reduceType = op;
     if (userRankSize == 1) {
         HCCL_WARNING("[%s] rankSize == 1, enter SingleRankProc", __func__);
         CHK_RET(SingleRankProc(param));
