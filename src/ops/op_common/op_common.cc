@@ -42,6 +42,7 @@
 #include "hcomm_host_profiling_dl.h"
 #include "rt.h"
 #include "dlhcomm_function.h"
+#include "hcom_dl.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -1465,7 +1466,7 @@ HcclResult HcclSetAivCoreLimitGraphMode(const char *group, u32 aivCoreLimit)
         return HCCL_E_PARA;
     }
     
-    AivParamStorage *aivParam = nullptr;
+    ops_hccl::AivParamStorage *aivParam = nullptr;
     CHK_RET(ops_hccl::GetAivParamStorage(group, &aivParam));
     
     aivParam->aivCoreLimit = aivCoreLimit;
@@ -1475,19 +1476,19 @@ HcclResult HcclSetAivCoreLimitGraphMode(const char *group, u32 aivCoreLimit)
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclSetAivClearEnableGraphMode(const char *group, bool aivClearEnable)
+HcclResult HcclSetAivSyncBufGraphMode(const char *group, bool aivClearEnable)
 {
     if (group == nullptr) {
-        HCCL_ERROR("[HcclSetAivClearEnableGraphMode] group is nullptr");
+        HCCL_ERROR("[HcclSetAivSyncBufGraphMode] group is nullptr");
         return HCCL_E_PARA;
     }
     
-    AivParamStorage *aivParam = nullptr;
+    ops_hccl::AivParamStorage *aivParam = nullptr;
     CHK_RET(ops_hccl::GetAivParamStorage(group, &aivParam));
     
     aivParam->aivClearEnable = aivClearEnable;
     
-    HCCL_INFO("[HcclSetAivClearEnableGraphMode] Set aivClearEnable[%d] for group[%s]", aivClearEnable, group);
+    HCCL_INFO("[HcclSetAivSyncBufGraphMode] Set aivClearEnable[%d] for group[%s]", aivClearEnable, group);
     
     return HCCL_SUCCESS;
 }

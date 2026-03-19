@@ -20,6 +20,7 @@
 #include "alg_type.h"
 #include "execute_selector.h"
 #include "acl/acl_rt.h"
+#include "alg_param.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -150,7 +151,7 @@ extern "C" {
 #endif
 
 HcclResult HcclSetAivCoreLimitGraphMode(const char *group, u32 aivCoreLimit);
-HcclResult HcclSetAivClearEnableGraphMode(const char *group, bool aivClearEnable);
+HcclResult HcclSetAivSyncBufGraphMode(const char *group, bool aivClearEnable);
 
 #ifdef __cplusplus
 }

@@ -17,6 +17,7 @@
 #include "alg_type.h"
 #include "execute_selector.h"
 #include "executor_v2_base.h"
+#include "op_common_graph_mode.h"
 
 #ifdef __cplusplus
 extern "C" {
