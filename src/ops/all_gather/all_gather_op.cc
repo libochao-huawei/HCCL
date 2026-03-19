@@ -234,5 +234,4 @@ HcclResult AllGatherOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t sen
     return HCCL_SUCCESS;
 }
 
-
 }  // namespace ops_hccl
