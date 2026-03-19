@@ -115,6 +115,20 @@ HcclResult HcclGetOpExpansionMode(OpParam &param);
 
 bool HcclCheckAicpuEnableOpen();
 
+HcclResult GetAivParamStorage(const char *group, AivParamStorage **aivParam);
+HcclResult GetAivParamStorageByComm(HcclComm comm, AivParamStorage **aivParam);
+
 }  // namespace ops_hccl
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+HcclResult HcclSetAivCoreLimitGraphMode(const char *group, u32 aivCoreLimit);
+HcclResult HcclSetAivClearEnableGraphMode(const char *group, bool aivClearEnable);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
