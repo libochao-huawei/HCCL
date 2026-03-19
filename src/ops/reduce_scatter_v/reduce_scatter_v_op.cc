@@ -166,7 +166,8 @@ HcclResult PrepareReduceScatterVParam(void *sendBuf, const void *sendDispls, con
 {
     u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
     u64 outputSize = recvCount * perDataSize;
-    u64 inputSize = outputSize * userRankSize;
+    HCCL_INFO("PrepareReduceScatterVParam[outputSize]:[%u]", outputSize);
+
     CHK_RET(HcclGetCommName(comm, param.commName));
     param.stream = stream;
     param.reduceType = op;
@@ -196,6 +197,10 @@ HcclResult PrepareReduceScatterVParam(void *sendBuf, const void *sendDispls, con
     std::copy(sendCountsAddr, sendCountsAddr + userRankSize, countsAndDispls.begin());
     std::copy(sendDisplsAddr, sendDisplsAddr + userRankSize, countsAndDispls.begin() + userRankSize);
     param.varMemSize = varMemSize;
+
+    for (u64 i=0; i < countsAndDispls.size();++i) {
+        HCCL_INFO("PrepareReduceScatterVParam: countsAndDispls[%u]:[%u]", i, countsAndDispls[i]);
+    }
 
     // 从源内存地址按字节直接拷贝数据到目标地址
     memcpy_s(param.varData, varMemSize, countsAndDispls.data(), varMemSize);
