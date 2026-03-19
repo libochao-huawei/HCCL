@@ -325,7 +325,7 @@ HcclResult AicpuKernelLaunch(HcclComm comm, OpParam &param, ThreadHandle unfoldT
     CHK_RET(HcclThreadResGetInfo(comm, unfoldThread, ThreadResType::THREAD_RES_TYPE_STREAM, sizeof(ThreadResTypeStream), &unfoldStream));
     aclError aclRet = aclrtLaunchKernelWithConfig(funcHandle, numBlocks, unfoldStream, &cfg, argsHandle, nullptr); // 提前展开，传入展开流
     CHK_PRT_RET(aclRet != ACL_SUCCESS,
-        HCCL_ERROR("[LoadCustomKernel][aclrtLaunchKernelWithConfig]errNo[0x%016llx] launch kernel failed", ret),
+        HCCL_ERROR("[LoadCustomKernel][aclrtLaunchKernelWithConfig]errNo[0x%016llx] launch kernel failed", aclRet),
         HCCL_E_OPEN_FILE_FAILURE);
     return HCCL_SUCCESS;
 }
