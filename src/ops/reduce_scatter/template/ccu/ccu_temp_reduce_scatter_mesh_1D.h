@@ -19,6 +19,7 @@ namespace ops_hccl {
 
 class CcuTempReduceScatterMesh1D : public CcuAlgTemplateBase {
 public:
+    CcuTempReduceScatterMesh1D() = default;
     explicit CcuTempReduceScatterMesh1D(const OpParam& param, 
                                         const u32 rankId, // 传通信域的rankId，userRank
                                         const std::vector<std::vector<u32>> &subCommRanks);

@@ -37,6 +37,7 @@ public:
     virtual HcclResult KernelRun(const OpParam& param,
                                  const TemplateDataParams& tempAlgParams,
                                  const TemplateResource& templateResource);
+    virtual HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx);
     // Sync
     HcclResult PreSync(const u32 queIdx, const std::vector<ThreadHandle> &threads) const;
     HcclResult PostSync(const u32 queIdx, const std::vector<ThreadHandle> &threads) const;

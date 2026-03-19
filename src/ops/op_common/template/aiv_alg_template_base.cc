@@ -32,6 +32,14 @@ u64 AivAlgTemplateBase::CalcScratchMultiple(BufferType inBuffType, BufferType ou
     return 1;
 }
 
+HcclResult AivAlgTemplateBase::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+{
+    (void)param;
+    (void)tempFastLaunchCtx;
+    HCCL_ERROR("[AivAlgTemplateBase] Unsupported interface of CcuAlgTemplateBase::FastLaunch!");
+    return HcclResult::HCCL_E_INTERNAL;
+}
+
 HcclResult AivAlgTemplateBase::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                                        AlgResourceRequest& resourceRequest)
 {

@@ -80,7 +80,8 @@ HcclResult CcuTempReduceScatterMesh1D::CalcRes(HcclComm comm, const OpParam& par
 HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
 {
     std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgReduceScatterMesh1D>(
-        inputAddr, outputAddr,
+        PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr),
+        PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr),
         tempFastLaunchCtx.CcuKernelSubmmitInfo[0].sqeArgs[2],
         tempFastLaunchCtx.CcuKernelSubmmitInfo[0].sqeArgs[3],
         tempFastLaunchCtx.CcuKernelSubmmitInfo[0].sqeArgs[4]);
