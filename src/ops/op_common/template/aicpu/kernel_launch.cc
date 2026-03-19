@@ -41,11 +41,11 @@ HcclResult __attribute__((weak)) HcommProfilingReportKernelEndTask(uint64_t thre
 
 extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
 {
-    HCCL_INFO("Entry-%s, commName[%s], tag[%s], algTag[%s]", __func__, param->commName, param->tag, param->algTag);
     if (param == nullptr) {
         HCCL_ERROR("%s param is nullptr", __func__);
         return 1;
     }
+    HCCL_INFO("Entry-%s, commName[%s], tag[%s], algTag[%s]", __func__, param->commName, param->tag, param->algTag);
     if (HcommAcquireComm(param->commName) != HCCL_SUCCESS) {
         HCCL_ERROR("%s HcommAcquireComm fail, commName[%s]", __func__, param->commName);
         return 1;
