@@ -190,8 +190,8 @@ HcclResult InsTempScatterMesh1D::RunMesh(const std::map<u32, std::vector<Channel
                 SlicesList txSlicesList({srcSlice}, {dstSlice});
 
                 HCCL_DEBUG("[InsTempScatterMesh1D][RunMesh] tempAlgParam.buffInfo.hcclBuff.addr[%d], tempAlgParams.buffInfo.inputPtr[%d], tempAlgParams.buffInfo.outputPtr[%d], ", tempAlgParams.buffInfo.hcclBuff.addr, tempAlgParams.buffInfo.inputPtr, tempAlgParams.buffInfo.outputPtr);
-                HCCL_DEBUG("[InsTempScatterMesh1D][RunMesh] remoteCclBuffAddr[%d]", remoteCclBuffAddr);
-                HCCL_DEBUG("[InsTempScatterMesh1D][RunMesh] tempAlgParam.buffInfo.inBuffBaseOff[%d], tempAlgParam.buffInfo.outBuffBaseOff[%d], tempAlgParam.buffInfo.hcclBuffBaseOff[%d]", remoteCclBuffAddr, tempAlgParams.buffInfo.outBuffBaseOff, tempAlgParams.buffInfo.hcclBuffBaseOff);
+                HCCL_DEBUG("[InsTempScatterMesh1D][RunMesh] txDstPtr[%d]", txDstPtr);
+                HCCL_DEBUG("[InsTempScatterMesh1D][RunMesh] tempAlgParam.buffInfo.inBuffBaseOff[%d], tempAlgParam.buffInfo.outBuffBaseOff[%d], tempAlgParam.buffInfo.hcclBuffBaseOff[%d]", tempAlgParams.buffInfo.inBuffBaseOff, tempAlgParams.buffInfo.outBuffBaseOff, tempAlgParams.buffInfo.hcclBuffBaseOff);
 
                 DataInfo sendData(linkSend, txSlicesList);
                 HCCL_DEBUG("[InsTempScatterMesh1D][RunMesh] start SendWrite");
