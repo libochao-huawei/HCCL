@@ -257,7 +257,7 @@ struct CcuKernelInfo {
 struct CcuKernelSubmmitInfo {
     CcuKernelHandle kernelHandle;
     uint64_t sqeArgs[CCU_MAX_TASK_ARG_NUM];
-}
+};
 
 // ccu快速下发上下文
 struct CcuFastRunCtx {
@@ -269,7 +269,7 @@ struct CcuFastRunCtx {
 
     ThreadHandle *GetThreadHandlePtr()
     {
-        size_t offset = offsetof(CcuFastRunCtx, ccuKernelNum)
+        size_t offset = offsetof(CcuFastRunCtx, ccuKernelNum);
         return reinterpret_cast<ThreadHandle*>(reinterpret_cast<char*>(this) + offset + sizeof(u32));
     }
     CcuKernelSubmmitInfo *GetCcuKernelSubmmitInfoPtr()
@@ -277,8 +277,7 @@ struct CcuFastRunCtx {
         size_t offset = offsetof(CcuFastRunCtx, ccuKernelNum) + sizeof(u32) + sizeof(ThreadHandle) * threadNum;
         return reinterpret_cast<ThreadHandle*>(reinterpret_cast<char*>(this) + offset);
     }
-
-}
+};
 
 // A5用了cntNotify
 struct AlgResourceRequest {
