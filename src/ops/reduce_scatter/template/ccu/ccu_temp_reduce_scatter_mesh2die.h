@@ -19,6 +19,7 @@ using RankId = u32;
 using RankGroup = std::vector<RankId>;
 class CcuTempReduceScatterMesh2Die : public CcuAlgTemplateBase{
 public:
+    CcuTempReduceScatterMesh2Die() = default;
     explicit CcuTempReduceScatterMesh2Die(const OpParam &param, RankId rankId,
     const std::vector<std::vector<u32>> &subCommRanks);
     ~CcuTempReduceScatterMesh2Die() override;

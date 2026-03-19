@@ -172,7 +172,7 @@ struct TemplateFastLaunchCtx {
     BuffInfo buffInfo;
     std::vector<ThreadHandle> threads;
     std::vector<CcuKernelSubmmitInfo> ccuKernelSubmmitInfos;
-}
+};
 
 struct TemplateDataParams {
     BuffInfo buffInfo;
