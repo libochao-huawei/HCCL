@@ -13,6 +13,7 @@
  
 #include "string"
 #include <array>
+#include <memory>
 #include "hccl_types.h"
 #include "acl/acl_rt.h"
 #include "alg_param.h"
@@ -99,6 +100,48 @@ struct AivOpArgs {
     AivOpArgs() {};
     KernelArgsType argsType = KernelArgsType::ARGS_TYPE_SERVER;
 };
+
+// AIV Cache Definitions
+struct AivOpCacheArgs {
+    std::string commName;
+    std::string algName;
+    u64 count;
+    HcclDataType dataType;
+    HcclCMDType opType;
+    HcclReduceOp reduceOp;
+    u32 root;
+    // For AlltoAll
+    HcclDataType sendType;
+    HcclDataType recvType;
+    u64 sendCount;
+    u64 recvCount;
+
+    bool operator<(const AivOpCacheArgs& other) const {
+        if (commName != other.commName) return commName < other.commName;
+        if (algName != other.algName) return algName < other.algName;
+        if (count != other.count) return count < other.count;
+        if (dataType != other.dataType) return dataType < other.dataType;
+        if (opType != other.opType) return opType < other.opType;
+        if (reduceOp != other.reduceOp) return reduceOp < other.reduceOp;
+        if (root != other.root) return root < other.root;
+        if (sendType != other.sendType) return sendType < other.sendType;
+        if (recvType != other.recvType) return recvType < other.recvType;
+        if (sendCount != other.sendCount) return sendCount < other.sendCount;
+        return recvCount < other.recvCount;
+    }
+};
+
+struct AivInstruction {
+    AivOpArgs opArgs;
+    u64 inputOffset;
+    u64 outputOffset;
+};
+
+using InsQueue = std::vector<AivInstruction>;
+
+extern thread_local std::shared_ptr<InsQueue> g_recordingQueue;
+extern thread_local u64 g_baseInputAddr;
+extern thread_local u64 g_baseOutputAddr;
 
 using AivSuperKernelArgs = struct AivSuperKernelArgsDef {
     const void* buffersIn = nullptr; // 注册的CCLIN地址，所有卡可访问
