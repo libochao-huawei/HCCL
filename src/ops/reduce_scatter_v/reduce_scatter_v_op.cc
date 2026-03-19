@@ -30,8 +30,7 @@ HcclResult HcclReduceScatterV(void *sendBuf,  const void *sendCounts, const void
     CHK_RET(InitEnvConfig());
 
     if ((GetHcommVersion() < 90000000) ||
-        GetExternalInputHcclCcuMSMode() ||
-        GetExternalInputHcclCcuSchedMode()) { // compat handle
+        HcclCheckExpansionModeCcu(comm)) { // compat handle
         return HcclReduceScatterVInner(sendBuf, sendCounts, sendDispls, recvBuf, recvCount, dataType, op, comm, stream);
     }
 

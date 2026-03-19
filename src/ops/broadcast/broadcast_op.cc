@@ -28,8 +28,7 @@ HcclResult HcclBroadcast(void *buf, uint64_t count, HcclDataType dataType, uint3
     CHK_RET(InitEnvConfig());
 
     if ((GetHcommVersion() < 90000000) ||
-        GetExternalInputHcclCcuMSMode() ||
-        GetExternalInputHcclCcuSchedMode()) { // compat handle
+        HcclCheckAicpuEnableOpen(comm)) { // compat handle
         return HcclBroadcastInner(buf, count, dataType, root, comm, stream);
     }
 

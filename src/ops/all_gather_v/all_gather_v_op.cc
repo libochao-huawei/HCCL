@@ -27,8 +27,7 @@ HcclResult HcclAllGatherV(void *sendBuf, uint64_t sendCount, void *recvBuf, cons
     CHK_RET(InitEnvConfig());
 
     if ((GetHcommVersion() < 90000000) ||
-        GetExternalInputHcclCcuMSMode() ||
-        GetExternalInputHcclCcuSchedMode()) { // compat handle
+        HcclCheckExpansionModeCcu(comm)) { // compat handle
         return HcclAllGatherVInner(sendBuf, sendCount, recvBuf, recvCounts, recvDispls, dataType, comm, stream);
     }
  
