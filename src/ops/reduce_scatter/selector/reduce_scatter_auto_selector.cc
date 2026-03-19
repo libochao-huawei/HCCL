@@ -192,7 +192,7 @@ SelectorStatus ReduceScatterAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetL
 {
     HCCL_DEBUG("[ReduceScatterAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
     CHK_PRT_RET(opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD,
-        HCCL_WARNING("[Algo][ReduceScatterAutoSelector] ReduceOp [PROD]] is not supported yet for aicpu mode."),
+        HCCL_ERROR("[Algo][ReduceScatterAutoSelector] ReduceOp [PROD] is not supported yet for aicpu mode."),
         SelectorStatus::NOT_MATCH);
     if (opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT64 ||
         opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
@@ -340,8 +340,8 @@ SelectorStatus ReduceScatterAutoSelector::SelectDPUAlgo(const TopoInfoWithNetLay
         opParam.opType, algos[0], algos[1], algos[2], algos[3]);
     HCCL_INFO("topoInfo->topoLevelNums is %u, topoInfo->level0Topo is %u", topoInfo->topoLevelNums, topoInfo->level0Topo);
     if (topoInfo->topoLevelNums > 1) {
-        selectAlgName = "InsV2ReduceScatterSequenceMeshMesh";
-        HCCL_INFO("Using algo InsV2ReduceScatterSequenceMeshMesh");
+        selectAlgName = "InsReduceScatterSequenceMeshMeshDPU";
+        HCCL_INFO("Using algo InsReduceScatterSequenceMeshMeshDPU");
         return SelectorStatus::MATCH;
     }
 

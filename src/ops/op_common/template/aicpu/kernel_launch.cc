@@ -18,30 +18,38 @@
 #include "hcomm_primitives.h"
 #include "dfx/task_exception_fun.h"
 #include "kernel_launch.h"
+#include "hcomm_diag.h"
 
 using namespace ops_hccl;
 using HcclGetOpInfoCallback = void (*)(const void *opInfo, char *outPut, size_t size);
-
 #ifdef __cplusplus
 extern "C" {
 #endif
-HcclResult __attribute__((weak)) HcommRegOpInfo(const char *commId, void *opInfo, size_t size);
-HcclResult __attribute__((weak)) HcommRegOpTaskException(const char *commId, HcclGetOpInfoCallback callback);
-
 HcclResult __attribute__((weak)) HcommProfilingReportMainStreamAndFirstTask(ThreadHandle thread);
 HcclResult __attribute__((weak)) HcommProfilingReportMainStreamAndLastTask(ThreadHandle thread);
 // device侧的OP
 HcclResult __attribute__((weak)) HcommProfilingReportDeviceHcclOpInfo(HcomProInfo profInfo);
 HcclResult __attribute__((weak)) HcommProfilingInit(ThreadHandle *threads, u32 threadNum);
 HcclResult __attribute__((weak)) HcommProfilingEnd(ThreadHandle *threads, u32 threadNum);
+
+HcclResult __attribute__((weak)) HcommProfilingReportDeviceOp(const char* groupname);
+HcclResult __attribute__((weak)) HcommProfilingReportKernelStartTask(uint64_t thread, const char* groupname);
+HcclResult __attribute__((weak)) HcommProfilingReportKernelEndTask(uint64_t thread, const char* groupname);
 #ifdef __cplusplus
 }
 #endif
 
 extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
 {
+    if (param == nullptr) {
+        HCCL_ERROR("%s param is nullptr", __func__);
+        return 1;
+    }
     HCCL_INFO("Entry-%s, commName[%s], tag[%s], algTag[%s]", __func__, param->commName, param->tag, param->algTag);
-
+    if (HcommAcquireComm(param->commName) != HCCL_SUCCESS) {
+        HCCL_ERROR("%s HcommAcquireComm fail, commName[%s]", __func__, param->commName);
+        return 1;
+    }
     #ifdef MACRO_DEV_TYPE_NEW
     if (param->deviceType != DevType::DEV_TYPE_950) {
     #else
@@ -50,11 +58,6 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         ScatterOpInfo opInfo;
         if (CreateScatter(param, &opInfo) != HCCL_SUCCESS) {
             HCCL_ERROR("%s CreateScatter fail", __func__);
-            return 1;
-        }
-
-        if (HcommAcquireComm(param->commName) != HCCL_SUCCESS) {
-            HCCL_ERROR("%s HcommAcquireComm fail, commName[%s]", __func__, param->commName);
             return 1;
         }
         
@@ -108,12 +111,23 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             return 1;
         }
 
+        // 上报主流和第一个task  wait之前
+        if (HcommProfilingReportKernelStartTask(thread, param->commName) != HCCL_SUCCESS) {
+            HCCL_ERROR("%sfailed to report MainStream And FirstTask, thread %lu, param->commName %s.", __func__, thread, param->commName);
+            return 1;
+        }
+
         // 主thread等待Host stream的通知
         ThreadHandle exportedAicpuTsThread = param->opThread;
-        u32 notifyNumOnMainThread = resCtx.notifyNumOnMainThread;
-        HCCL_DEBUG("[%s]Notify wait on thread[%llu], notifyNumOnMainThread[%u], timeout[%u]", __func__, thread,
-            notifyNumOnMainThread, CUSTOM_TIMEOUT);
-        CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(thread, notifyNumOnMainThread, CUSTOM_TIMEOUT)));
+        u32 maxNotifyNum = resCtx.notifyNumOnMainThread;
+        for (u32 i = 0; i < resCtx.notifyNumPerThread.size(); i++) {
+            if (resCtx.notifyNumPerThread[i] > maxNotifyNum) {
+                maxNotifyNum = resCtx.notifyNumPerThread[i];
+            }
+        }
+        HCCL_DEBUG("[%s]Notify wait on thread[%llu], maxNotifyNum[%u], timeout[%u]", __func__, thread,
+            maxNotifyNum, CUSTOM_TIMEOUT);
+        CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(thread, maxNotifyNum, CUSTOM_TIMEOUT)));
 
         std::shared_ptr<InsCollAlgBase> executor = CollAlgExecRegistryV2::Instance().GetAlgExec(param->opType, algName);
         if (executor.get() == nullptr) {
@@ -127,12 +141,23 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             return 1;
         }
 
+        if (HcommProfilingReportDeviceOp(param->commName) != HCCL_SUCCESS) {
+            HCCL_ERROR("%s HcommProfilingReportDeviceOp fail, commName[%s]", __func__, param->commName);
+            return 1;
+        }
+
         constexpr u32 DEFAULT_NOTIFY_IDX = 0;
         HCCL_DEBUG("[%s]Notify record on srcThread[%llu], dstThread[%llu], notifyIdx[%u]",__func__, thread, exportedAicpuTsThread,
             DEFAULT_NOTIFY_IDX);
         CHK_RET(static_cast<HcclResult>(HcommThreadNotifyRecordOnThread(thread, exportedAicpuTsThread,
             DEFAULT_NOTIFY_IDX)));
 
+        // 上报主流和最后一个task 在notify之后
+        if (HcommProfilingReportKernelEndTask(thread, param->commName) != HCCL_SUCCESS) {
+            HCCL_ERROR("%s failed to report MainStream And LastTask, thread %lu, param->commName %s.",  __func__, thread, param->commName);
+            return 1;
+        }
+        
         if (HcommBatchModeEnd(param->algTag) != HCCL_SUCCESS) {
             HCCL_ERROR("failed set eager mode, tag is %s.", param->algTag);
             return 1;

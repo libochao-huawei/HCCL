@@ -18,7 +18,7 @@
 
 namespace ops_hccl {
 
-HcclResult SendWrite(const DataInfo &snedInfo);
+HcclResult SendWrite(const DataInfo &sendInfo);
 HcclResult RecvWrite(const DataInfo &recvInfo);
 HcclResult SendRecvWrite(const SendRecvInfo &sendRecvInfo);
 

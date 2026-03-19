@@ -24,17 +24,18 @@
 
 ### 环境要求
 
-本示例支持以下昇腾产品：
+本示例支持以下产品：
 
-- <term>Atlas 训练系列产品</term>
-- <term>Atlas A2 训练系列产品</term>
+- <term>Ascend 950PR</term> / <term>Ascend 950DT</term>
 - <term>Atlas A3 训练系列产品</term> / <term>Atlas A3 推理系列产品</term>
+- <term>Atlas A2 训练系列产品</term>
+- <term>Atlas 训练系列产品</term>
 
 ### 配置环境变量
 
 ```bash
 # 设置 CANN 环境变量，以root用户默认安装路径为例
-source /usr/local/Ascend/ascend-toolkit/set_env.sh
+source /usr/local/Ascend/cann/set_env.sh
 ```
 
 ## 编译执行样例
@@ -45,6 +46,13 @@ source /usr/local/Ascend/ascend-toolkit/set_env.sh
 make
 make test
 ```
+
+> 注意：可通过设置 `HCCL_OP_EXPANSION_MODE` 环境变量配置通信算子的展开模式，不同产品型号支持的范围可参考[环境变量列表](https://hiascend.com/document/redirect/CannCommunityEnvRef)中该环境变量的使用方法。
+>
+> ```bash
+> # 设置通信算子的展开模式为AI CPU通信引擎
+> export HCCL_OP_EXPANSION_MODE=AI_CPU
+> ```
 
 ## 结果示例
 
