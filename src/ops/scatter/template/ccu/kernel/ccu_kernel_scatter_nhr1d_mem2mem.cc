@@ -332,8 +332,7 @@ void CcuKernelScatterNHR1DMem2Mem::DoScatterNHRSingleStep(const NHRStepInfo &nhr
             return;
         }
         ChannelHandle sendChannel = channels_[toRankIdx];
-        HCCL_INFO("[CcuKernelScatterNHR1DMem2Mem][DoSendRecvSlice]rankId[%u] toRank[%u] toRankIdx[%u] axisId[%u] subCommRanksSize[%zu]",
-                rankId_, toRank, toRankIdx, axisId_, subCommRanks_[0].size());
+
         // 发送每个slice的数据
         for (u32 i = 0; i < sendSliceIdxList.size(); i++) {
             u32 sendSliceIdx = sendSliceIdxList[i];
