@@ -32,8 +32,8 @@ HcclResult HcclDestroyOpParamGraphMode(OpParamGraphMode *opParam)
         return HCCL_E_PARA;
     }
     // 将void*转换为OpParamGraphMode*
-    OpParamGraphMode *paramPtr = reinterpret_cast<OpParamGraphMode *>(opParam);
-    delete paramPtr;
+    delete opParam;
+    opParam = nullptr;
     return HCCL_SUCCESS;
 }
 

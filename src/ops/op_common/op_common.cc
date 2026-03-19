@@ -676,8 +676,8 @@ HcclResult RegGraphModeBuffers(HcclComm comm, const OpParam &param, std::vector<
         return HCCL_SUCCESS;
     }
 
-    auto retIn = sprintf_s(inputBuffTag, MAX_MEM_TAG_LENGTH, "%s_%s", param.algTag, "InputBUffer");
-    auto retOut =  sprintf_s(outputBuffTag, MAX_MEM_TAG_LENGTH, "%s_%s", param.algTag, "OutputBUffer");
+    auto retIn = sprintf_s(inputBuffTag, MAX_MEM_TAG_LENGTH, "%s_%s", param.algTag, "InputBuffer");
+    auto retOut =  sprintf_s(outputBuffTag, MAX_MEM_TAG_LENGTH, "%s_%s", param.algTag, "OutputBuffer");
     if (retIn <= 0 || retOut <= 0){
         HCCL_ERROR("[RegGraphModeBuffers]faled to fill BuffTag");
         return HcclResult::HCCL_E_INTERNAL;
@@ -714,7 +714,7 @@ HcclResult GetGraphModeBuffers(HcclComm comm, ChannelHandle channelHandle, const
     void* remoteOutputBufferAddr = nullptr;
     uint64_t remoteOutputBufferSize = 0;
     CHK_RET(HcclGetRemoteBuff(comm, channelHandle, outputBuffTag, &remoteOutputBufferAddr, &remoteOutputBufferSize));
-    if (remoteInputBufferAddr != nullptr && remoteOutputBufferSize > 0) {
+    if (remoteOutputBufferAddr != nullptr && remoteOutputBufferSize > 0) {
         channel.remoteOutputGraphMode = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteOutputBufferAddr, remoteOutputBufferSize};
     }
     return HCCL_SUCCESS;
