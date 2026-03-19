@@ -33,6 +33,7 @@ public:
     virtual HcclResult KernelRun(const OpParam& param,
                                  const TemplateDataParams& templateDataParams,
                                  const TemplateResource& templateResource);
+    virtual HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx);
                                  
     virtual HcclResult GetRes(AlgResourceRequest& resourceRequest) const;
     virtual u64 GetThreadNum() const;

@@ -32,6 +32,8 @@ public:
     HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo,
                                     AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
 
+    HcclResult FastLaunch(const OpParam &param, const CcuFastRunCtx *resCtx) override;
+
 protected:
     /* *************** 算法编排 *************** */
     HcclResult OrchestrateLoop(const OpParam &param, const AlgResourceCtxSerializable &resCtx);

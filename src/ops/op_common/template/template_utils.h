@@ -168,6 +168,12 @@ struct BuffInfo {
     u64        hcclBuffBaseOff    = 0;
 };
 
+struct TemplateFastLaunchCtx {
+    BuffInfo buffInfo;
+    std::vector<ThreadHandle> threads;
+    std::vector<CcuKernelSubmmitInfo> ccuKernelSubmmitInfos;
+}
+
 struct TemplateDataParams {
     BuffInfo buffInfo;
     u64 count{0};

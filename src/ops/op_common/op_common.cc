@@ -15,6 +15,7 @@
 #include <memory>
 #include <cstdlib>  // 包含getenv函数
 #include <cstring>  // 包含strcmp函数
+#include <stdexcept>
 #include <hccl/hccl_types.h>
 #include "hccl/base.h"
 #include "sal.h"
@@ -123,48 +124,45 @@ void SetHcclDfxOpInfoDataCount(HcclDfxOpInfo &dfxOpInfo, const OpParam &param, c
 
 HcclResult SetOpParamFastLaunchTag(OpParam &param)
 {
-    int ret = sprintf_s(param.FastLaunchTag, sizeof(param.FastLaunchTag), "%s_", param.tag);
-    if (ret <= 0) {
-        HCCL_ERROR("faled to fill param.FastLaunchTag");
-        return HcclResult::HCCL_E_INTERNAL;
-    }
-
     HcclDataType tmpDataType;
-    if(param.opType == HcclCMDType::HCCL_CMD_ALLTOALL ||
-        param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
+    if(param.opType == HcclCMDType::HCCL_CMD_ALLTOALL || param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
         param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
         tmpDataType = param.all2AllVDataDes.sendType;
     } else {
         tmpDataType = param.DataDes.dataType;
     }
     const std::string dataType = HCOM_DATA_TYPE_STR_MAP.at(tmpDataType);
-    ret = strcat_s(param.FastLaunchTag, sizeof(param.FastLaunchTag), dataType.c_str());
-    if (ret != 0) {
-        HCCL_ERROR("failed to fill alg tag with ccu dataType");
+    // 通信域tag + 数据类型，得到基础FastLaunchTag
+    int len = snprintf_s(param.fastLaunchTag, sizeof(param.fastLaunchTag), sizeof(param.fastLaunchTag), 
+                         "%s_%s", param.tag, temp.c_str(), dataType.c_str());
+    if (len < 0|| len >= sizeof(param.algTag)) {
+        HCCL_ERROR("faled to fill param.fastLaunchTag");
         return HcclResult::HCCL_E_INTERNAL;
     }
-
-    if (param.opType == HcclCMDType::HCCL_CMD_ALLREDUCE ||
-        param.opType == HcclCMDType::HCCL_CMD_REDUCE ||
-        param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER ||
-        param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V) {
+    
+    size_t remainBytes = sizeof(param.algTag) - len;
+    if (param.opType == HcclCMDType::HCCL_CMD_ALLREDUCE || param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER ||
+        param.opType == HcclCMDType::HCCL_CMD_REDUCE || param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V) {
         const std::string reduceType = HCOM_REDUCE_OP_STR_MAP.at(param.reduceType);
-        ret = strcat_s(param.FastLaunchTag, sizeof(param.FastLaunchTag), reduceType.c_str());
-        if (ret != 0) {
-            HCCL_ERROR("failed to fill alg tag with ccu reduceType");
+        int len2 = snprintf_s(param.fastLaunchTag + len, remainBytes, remainBytes, "_%s", reduceType.c_str());
+        if (len2 < 0|| len >= remainBytes) {
+            HCCL_ERROR("faled to fill param.fastLaunchTag");
             return HcclResult::HCCL_E_INTERNAL;
         }
+        len += len2;
     }
 
     if (param.opType != HcclCMDType::HCCL_CMD_ALLTOALLV) {
-        std::string count = std::to_string(param.DataDes.count);
-        ret = strcat_s(param.FastLaunchTag, sizeof(param.FastLaunchTag), count.c_str());
-        if (ret != 0) {
-            HCCL_ERROR("failed to fill alg tag with data count");
+        remainBytes = sizeof(param.algTag) - len;
+        std::string count = std::to_string(param.DataDes.count); //todo: alltoall 的count不是从这里取
+        int len3 = snprintf_s(param.fastLaunchTag + len, remainBytes, remainBytes, "_%s", count.c_str());
+        if (len3 < 0|| len >= remainBytes) {
+            HCCL_ERROR("faled to fill param.fastLaunchTag");
             return HcclResult::HCCL_E_INTERNAL;
         }
+        len += len3;
     }
-    HCCL_DEBUG("[SetOpParamFastLaunchTag] FastLaunchTag: '%s'", param.FastLaunchTag);
+    HCCL_DEBUG("[SetOpParamFastLaunchTag] fastLaunchTag: [%s]", param.fastLaunchTag);
     return HcclResult::HCCL_SUCCESS;
 }
 
@@ -191,7 +189,7 @@ bool CcuFastLaunchSupported(HcclComm comm, OpParam &param, CcuFastRunCtx **ccuFa
     // 2. 查到engineCtx
     uint64_t size = 0;
     void *fastLaunchCtxPtr = nullptr;
-    if (HcclEngineCtxGet(comm, param.FastLaunchTag, CommEngine::COMM_ENGINE_CCU, &fastLaunchCtxPtr, &size) == HCCL_SUCCESS) {
+    if (HcclEngineCtxGet(comm, param.fastLaunchTag, CommEngine::COMM_ENGINE_CCU, &fastLaunchCtxPtr, &size) == HCCL_SUCCESS) {
         HCCL_INFO("[CcuFastLaunchSupported] get fastLaunchCtx success, size is %u", size);
         *ccuFastLaunchCtx = reinterpret_cast<CcuFastRunCtx*> fastLaunchCtxPtr;
         return true;
@@ -199,10 +197,11 @@ bool CcuFastLaunchSupported(HcclComm comm, OpParam &param, CcuFastRunCtx **ccuFa
     return false;
 }
 
-HcclResult HcclExecOpCcuFastLaunch(HcclComm comm, OpParam &param, CcuFastRunCtx *ccuFastRunCtx)
+HcclResult HcclExecOpCcuFastLaunch(HcclComm comm, OpParam &param, const CcuFastRunCtx *ccuFastRunCtx)
 {
     HCCL_INFO("[HcclExecOpCcuFastLaunch] HcclExecOpCcuFastLaunch start");
     std::string algName = ccuFastRunCtx->algName;
+    HCCL_DEBUG("[HcclExecOpCcuFastLaunch] algName: [%s]", algName.c_str());
     std::shared_ptr<InsCollAlgBase> executor = CollAlgExecRegistryV2::Instance().GetAlgExec(param.opType, algName);
     CHK_PRT_RET(
         executor.get() == nullptr, HCCL_ERROR("Fail to find executor for algName[%s]", algName.c_str()), HCCL_E_PARA);
