@@ -134,7 +134,7 @@ HcclResult SetOpParamFastLaunchTag(OpParam &param)
     const std::string dataType = HCOM_DATA_TYPE_STR_MAP.at(tmpDataType);
     // 通信域tag + 数据类型，得到基础FastLaunchTag
     int len = snprintf_s(param.fastLaunchTag, sizeof(param.fastLaunchTag), sizeof(param.fastLaunchTag), 
-                         "%s_%s", param.tag, temp.c_str(), dataType.c_str());
+                         "%s_%s", param.tag, dataType.c_str());
     if (len < 0|| len >= sizeof(param.algTag)) {
         HCCL_ERROR("faled to fill param.fastLaunchTag");
         return HcclResult::HCCL_E_INTERNAL;
@@ -184,14 +184,14 @@ bool CcuFastLaunchSupported(HcclComm comm, OpParam &param, CcuFastRunCtx **ccuFa
         return false;
     }
 
-    CHK_RET(GetFastLaunchTag(param));
+    CHK_RET(SetOpParamFastLaunchTag(param));
     
     // 2. 查到engineCtx
     uint64_t size = 0;
     void *fastLaunchCtxPtr = nullptr;
     if (HcclEngineCtxGet(comm, param.fastLaunchTag, CommEngine::COMM_ENGINE_CCU, &fastLaunchCtxPtr, &size) == HCCL_SUCCESS) {
         HCCL_INFO("[CcuFastLaunchSupported] get fastLaunchCtx success, size is %u", size);
-        *ccuFastLaunchCtx = reinterpret_cast<CcuFastRunCtx*> fastLaunchCtxPtr;
+        *ccuFastLaunchCtx = reinterpret_cast<CcuFastRunCtx*>(fastLaunchCtxPtr);
         return true;
     }
     return false;
@@ -207,7 +207,7 @@ HcclResult HcclExecOpCcuFastLaunch(HcclComm comm, OpParam &param, const CcuFastR
         executor.get() == nullptr, HCCL_ERROR("Fail to find executor for algName[%s]", algName.c_str()), HCCL_E_PARA);
     
     HCCL_INFO("[HcclExecOpCcuFastLaunch] FastLaunch start");
-    CHK_RET(executor->FastLaunch(param, *ccuFastRunCtx));
+    CHK_RET(executor->FastLaunch(param, ccuFastRunCtx));
     
     HCCL_INFO("[HcclExecOpCcuFastLaunch] HcclExecOpCcuFastLaunch end");
     return HCCL_SUCCESS;
