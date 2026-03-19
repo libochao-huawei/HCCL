@@ -116,6 +116,7 @@ HcclResult HcclRegstryBuffGraphMode(HcclComm comm, const char *memTag, void *buf
     CommMem regMem{COMM_MEM_TYPE_DEVICE, bufferPtr, bufferSize};
     CHK_RET(HcclCommMemReg(comm, memTag, &regMem, memHandle));
     CHK_PTR_NULL(*memHandle);
+    HCCL_INFO("[%s] regMemAddr[%p] regMemSize[%llu]", __func__, regMem.addr, regMem.size);
     return HCCL_SUCCESS;
 }
 
