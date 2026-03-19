@@ -30,7 +30,7 @@ extern "C" {
 #endif
 
 namespace ops_hccl {
-
+extern thread_local std::map<std::string, HcclMemHandle> g_memHandleCache;
 HcclResult HcclExecOp(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo, std::string &algName, const ResPackGraphMode &resPack = ResPackGraphMode());
 
 HcclResult HcclCalcTopoInfo(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo);
@@ -73,6 +73,10 @@ HcclResult GetAlgResAiv(HcclComm comm, const OpParam &param, AlgResourceRequest 
 HcclResult HcclAllocAlgResourceAiv(
     HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest, AlgResourceCtxSerializable* resCtxHost);
 
+HcclResult HcclAllocAlgResourceAivGraphMode(
+    HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
+    std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost);
+
 HcclResult GetAlgResDPU(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
     std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, TopoInfoWithNetLayerDetails *topoInfo,
     AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence, uint64_t& ctxSize,
@@ -113,6 +117,9 @@ HcclResult AicpuKernelLaunch(HcclComm comm, OpParam &param, ThreadHandle unfoldT
 HcclResult HcclAivKernelEntranceLaunch(OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
     AlgResourceCtxSerializable &resCtxHost);
 
+HcclResult HcclAivKernelEntranceLaunchGraphMode(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
+    AlgResourceCtxSerializable &resCtxHost);
+
 HcclResult HcclGetOpExpansionMode(HcclComm comm, OpParam &param);
 
 HcclResult DecideHcclOpExpansionMode(HcclComm comm, HcclOpExpansionMode &finalMod);
@@ -140,6 +147,20 @@ HcclResult HcclRegstryBuff(HcclComm comm, const char *memTag, void *bufferPtr, u
 
 HcclResult HcclGetRemoteBuff(HcclComm comm, ChannelHandle channel, const char *memTag, void **bufferPtr, uint64_t *bufferSize);
 
+HcclResult GetAivParamStorage(const char *group, AivParamStorage **aivParam);
+HcclResult GetAivParamStorageByComm(HcclComm comm, AivParamStorage **aivParam);
+
 }  // namespace ops_hccl
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+HcclResult HcclSetAivCoreLimitGraphMode(const char *group, u32 aivCoreLimit);
+HcclResult HcclSetAivClearEnableGraphMode(const char *group, bool aivClearEnable);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
