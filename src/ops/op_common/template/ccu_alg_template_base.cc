@@ -50,7 +50,7 @@ HcclResult CcuAlgTemplateBase::KernelRun(const OpParam& param, const TemplateDat
     return HcclResult::HCCL_E_INTERNAL;
 }
 
-HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+HcclResult CcuAlgTemplateBase::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
 {
     (void)param;
     (void)tempFastLaunchCtx;
