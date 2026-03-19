@@ -29,8 +29,7 @@ HcclResult HcclAllReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataT
     CHK_RET(InitEnvConfig());
 
     if ((GetHcommVersion() < 90000000) ||
-        GetExternalInputHcclCcuMSMode() ||
-        GetExternalInputHcclCcuSchedMode()) { // compat handle
+        HcclCheckExpansionModeCcu(comm)) { // compat handle
         return HcclAllReduceInner(sendBuf, recvBuf, count, dataType, op, comm, stream);
     }
 
