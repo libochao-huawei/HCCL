@@ -280,12 +280,16 @@ HcclResult HcclGetChannelGraphMode(HcclComm comm, const OpParam &param, AlgResou
             void* remoteInputBufferAddr;
             uint64_t remoteInputBufferSize;
             CHK_PRT(HcclGetRemoteBuffGraphMode(comm, levelNChannels[idx], inputBuffTag, &remoteInputBufferAddr, &remoteInputBufferSize));
-            channel.remoteInputGraphMode = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteInputBufferAddr, remoteInputBufferSize};
+            if (remoteInputBufferAddr != nullptr && remoteInputBufferSize > 0) {
+                channel.remoteInputGraphMode = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteInputBufferAddr, remoteInputBufferSize};
+            }
 
             void* remoteOutputBufferAddr;
             uint64_t remoteOutputBufferSize;
             CHK_PRT(HcclGetRemoteBuffGraphMode(comm, levelNChannels[idx], outputBuffTag, &remoteOutputBufferAddr, &remoteOutputBufferSize));
-            channel.remoteOutputGraphMode = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteOutputBufferAddr, remoteOutputBufferSize};
+            if (remoteOutputBufferAddr != nullptr && remoteOutputBufferSize > 0) {
+                channel.remoteOutputGraphMode = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteOutputBufferAddr, remoteOutputBufferSize};
+            }
 
             resCtxHost->channels[level].push_back(channel);
         }
