@@ -33,8 +33,6 @@ CcuTempScatterNHR1DMem2Mem::CcuTempScatterNHR1DMem2Mem(const OpParam &param, con
     if (itRoot != ranks.end()) {
         subCommRootId_  = std::distance(ranks.begin(), itRoot);
     }
-    HCCL_INFO("[CcuTempScatterNHR1DMem2Mem][SetSubCommRoot]myRank_ [%u] ranks = subCommRanks[0] is: %s subCommRootId: %u",
-            myRank_, ranksStr.c_str(), subCommRootId_);
 }
 
 CcuTempScatterNHR1DMem2Mem::~CcuTempScatterNHR1DMem2Mem() {}
