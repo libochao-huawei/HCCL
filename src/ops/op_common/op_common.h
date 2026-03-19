@@ -19,6 +19,7 @@
 #include "executor_v2_base.h"
 #include "alg_type.h"
 #include "execute_selector.h"
+#include "acl/acl_rt.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -114,6 +115,8 @@ HcclResult HcclAivKernelEntranceLaunch(OpParam &param, std::unique_ptr<TopoInfoW
 HcclResult HcclGetOpExpansionMode(OpParam &param);
 
 bool HcclCheckAicpuEnableOpen();
+
+HcclResult CaptureSlaveStreams(HcclComm comm, aclrtStream mainStream, const std::vector<ThreadHandle>& threads);
 
 }  // namespace ops_hccl
 
