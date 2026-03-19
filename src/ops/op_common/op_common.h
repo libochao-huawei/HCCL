@@ -33,6 +33,10 @@ namespace ops_hccl {
 
 HcclResult HcclExecOp(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo, std::string &algName, const ResPackGraphMode &resPack = ResPackGraphMode());
 
+HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName, 
+                                std::shared_ptr<InsCollAlgBase> executor, 
+                                AlgResourceCtxSerializable &resCtxHost);
+
 HcclResult HcclCalcTopoInfo(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo);
 
 HcclResult HcclGetAlgRes(HcclComm comm, OpParam &param, std::shared_ptr<InsCollAlgBase> &executor, TopoInfoWithNetLayerDetails *topoInfo,
