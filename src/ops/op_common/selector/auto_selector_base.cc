@@ -41,13 +41,9 @@ SelectorStatus AutoSelectorBase::Select(OpParam &opParam, TopoInfoWithNetLayerDe
             return ret;
         }
     }
-    if (opParam.opExecuteConfig == OpExecuteConfig::AIV) {
-        ret = SelectAivAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
-        if (ret == SelectorStatus::NOT_MATCH) {
-            opParam.opExecuteConfig = OpExecuteConfig::CCU_FAIL;
-        } else {
-            return ret;
-        }
+    ret = HandleAivSelection(topoInfo, opParam, configAlgMap, selectAlgName);
+    if (ret != SelectorStatus::NOT_MATCH) {
+        return ret;
     }
     if (IsStarsState(opParam.opExecuteConfig)) {
         ret = SelectAicpuAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
@@ -133,6 +129,21 @@ SelectorStatus AutoSelectorBase::SelectDPUAlgo(const TopoInfoWithNetLayerDetails
     (void)topoInfo;
     (void)configAlgMap;
     (void)selectAlgName;
+    return SelectorStatus::NOT_MATCH;
+}
+
+SelectorStatus AutoSelectorBase::HandleAivSelection(const TopoInfoWithNetLayerDetails* topoInfo, OpParam &opParam,
+                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+                                                     std::string &selectAlgName) const
+{
+    if (opParam.opExecuteConfig == OpExecuteConfig::AIV) {
+        SelectorStatus ret = SelectAivAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
+        if (ret == SelectorStatus::NOT_MATCH) {
+            opParam.opExecuteConfig = OpExecuteConfig::CCU_FAIL;
+        } else {
+            return ret;
+        }
+    }
     return SelectorStatus::NOT_MATCH;
 }
 
