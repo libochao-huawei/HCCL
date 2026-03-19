@@ -79,6 +79,39 @@ thread_local std::map<std::string, HcclMemHandle> g_memHandleCache; // 当前AIV
 thread_local std::map<std::string, std::unique_ptr<AlgResourceCtxSerializable>> g_hostCtx;
 constexpr u32 HOST_WAIT_AICPU_NOTIFYIDX = 0;// host主流wait aicpu流的notify idx
 
+HcclResult GetAivParamStorageByComm(HcclComm comm, AivParamStorage **aivParam)
+{
+    if (comm == nullptr || aivParam == nullptr) {
+        HCCL_ERROR("[GetAivParamStorageByComm] Invalid parameters");
+        return HCCL_E_PARA;
+    }
+    
+    void *aivParamCtx = nullptr;
+    uint64_t size = sizeof(AivParamStorage);
+    
+    const char *aivParamTag = "AivParamStorage";
+    if (HcclEngineCtxGet(comm, aivParamTag, CommEngine::COMM_ENGINE_CPU_TS, &aivParamCtx, &size) != HCCL_SUCCESS) {
+        CHK_RET(HcclEngineCtxCreate(comm, aivParamTag, CommEngine::COMM_ENGINE_CPU_TS, size, &aivParamCtx));
+    }
+    
+    *aivParam = static_cast<AivParamStorage *>(aivParamCtx);
+    
+    return HCCL_SUCCESS;
+}
+
+HcclResult GetAivParamStorage(const char *group, AivParamStorage **aivParam)
+{
+    if (group == nullptr || aivParam == nullptr) {
+        HCCL_ERROR("[GetAivParamStorage] Invalid parameters");
+        return HCCL_E_PARA;
+    }
+    
+    HcclComm comm = nullptr;
+    CHK_RET(HcomGetCommHandleByGroup(group, &comm));
+    
+    return GetAivParamStorageByComm(comm, aivParam);
+}
+
 HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
     std::string &algName)
 {
@@ -353,7 +386,7 @@ HcclResult HcclAivKernelEntranceLaunch(OpParam &param, std::unique_ptr<TopoInfoW
         HCCL_ERROR("[%s] block num less than 1, block num[%d]", __func__, numBlocksLimit), HCCL_E_PARA);
     param.numBlocksLimit = numBlocksLimit;
     HCCL_INFO("[%s] Aiv core limit is [%d].", __func__, numBlocksLimit);
-    bool isAivClearEnable = false; // 图模式首算子，暂不支持
+    bool isAivClearEnable = false;
     if (isAivClearEnable || param.aivCountTag == 1) {
         CHK_RET(ClearAivSyncBuf(param, resCtxHost));
     }
@@ -1424,3 +1457,37 @@ bool ShouldUseInnerOp(OpExecuteConfig opExecuteConfig)
 }
 
 }  // namespace ops_hccl
+
+HcclResult HcclSetAivCoreLimitGraphMode(const char *group, u32 aivCoreLimit)
+{
+    if (group == nullptr) {
+        HCCL_ERROR("[HcclSetAivCoreLimitGraphMode] group is nullptr");
+        return HCCL_E_PARA;
+    }
+    
+    AivParamStorage *aivParam = nullptr;
+    CHK_RET(ops_hccl::GetAivParamStorage(group, &aivParam));
+    
+    aivParam->aivCoreLimit = aivCoreLimit;
+    
+    HCCL_INFO("[HcclSetAivCoreLimitGraphMode] Set aivCoreLimit[%u] for group[%s]", aivCoreLimit, group);
+    
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclSetAivClearEnableGraphMode(const char *group, bool aivClearEnable)
+{
+    if (group == nullptr) {
+        HCCL_ERROR("[HcclSetAivClearEnableGraphMode] group is nullptr");
+        return HCCL_E_PARA;
+    }
+    
+    AivParamStorage *aivParam = nullptr;
+    CHK_RET(ops_hccl::GetAivParamStorage(group, &aivParam));
+    
+    aivParam->aivClearEnable = aivClearEnable;
+    
+    HCCL_INFO("[HcclSetAivClearEnableGraphMode] Set aivClearEnable[%d] for group[%s]", aivClearEnable, group);
+    
+    return HCCL_SUCCESS;
+}

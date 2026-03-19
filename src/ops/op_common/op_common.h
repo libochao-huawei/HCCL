@@ -30,7 +30,7 @@ extern "C" {
 #endif
 
 namespace ops_hccl {
-
+extern thread_local std::map<std::string, HcclMemHandle> g_memHandleCache;
 HcclResult HcclExecOp(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo, std::string &algName, const ResPackGraphMode &resPack = ResPackGraphMode());
 
 HcclResult HcclCalcTopoInfo(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo);
@@ -140,6 +140,20 @@ HcclResult HcclRegstryBuff(HcclComm comm, const char *memTag, void *bufferPtr, u
 
 HcclResult HcclGetRemoteBuff(HcclComm comm, ChannelHandle channel, const char *memTag, void **bufferPtr, uint64_t *bufferSize);
 
+HcclResult GetAivParamStorage(const char *group, AivParamStorage **aivParam);
+HcclResult GetAivParamStorageByComm(HcclComm comm, AivParamStorage **aivParam);
+
 }  // namespace ops_hccl
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+HcclResult HcclSetAivCoreLimitGraphMode(const char *group, u32 aivCoreLimit);
+HcclResult HcclSetAivClearEnableGraphMode(const char *group, bool aivClearEnable);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
