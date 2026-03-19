@@ -34,13 +34,11 @@ extern int32_t (*hcommWriteWithNotifyOnThreadPtr)(ThreadHandle, ChannelHandle, v
 extern int32_t (*hcommWriteReduceWithNotifyOnThreadPtr)(ThreadHandle, ChannelHandle, void*, const void*, uint64_t, HcommDataType, HcommReduceOp, uint32_t);
 extern int32_t (*hcommReadOnThreadPtr)(ThreadHandle, ChannelHandle, void*, const void*, uint64_t);
 extern int32_t (*hcommReadReduceOnThreadPtr)(ThreadHandle, ChannelHandle, void*, const void*, uint64_t, HcommDataType, HcommReduceOp);
-extern int32_t (*hcommWriteNbiPtr)(ChannelHandle, void*, const void*, uint64_t);
-extern int32_t (*hcommWriteWithNotifyNbiPtr)(ChannelHandle, void*, const void*, uint64_t, uint32_t);
-extern int32_t (*hcommReadNbiPtr)(ChannelHandle, void*, const void*, uint64_t);
+extern int32_t (*hcommWriteNbiOnThreadPtr)(ThreadHandle, ChannelHandle, void*, const void*, uint64_t);
+extern int32_t (*hcommWriteWithNotifyNbiOnThreadPtr)(ThreadHandle, ChannelHandle, void*, const void*, uint64_t, uint32_t);
+extern int32_t (*hcommReadNbiOnThreadPtr)(ThreadHandle, ChannelHandle, void*, const void*, uint64_t);
 extern int32_t (*hcommChannelNotifyRecordOnThreadPtr)(ThreadHandle, ChannelHandle, uint32_t);
-extern int32_t (*hcommChannelNotifyRecordPtr)(ChannelHandle, uint32_t);
 extern int32_t (*hcommChannelNotifyWaitOnThreadPtr)(ThreadHandle, ChannelHandle, uint32_t, uint32_t);
-extern int32_t (*hcommChannelNotifyWaitPtr)(ChannelHandle, uint32_t, uint32_t);
 extern int32_t (*hcommBatchModeStartPtr)(const char*);
 extern int32_t (*hcommBatchModeEndPtr)(const char*);
 extern int32_t (*hcommAcquireCommPtr)(const char*);
@@ -49,8 +47,8 @@ extern HcclResult (*hcommSymWinGetPeerPointerPtr)(CommSymWindow, size_t, uint32_
 extern int32_t (*hcommThreadSynchronizePtr)(ThreadHandle);
 extern int32_t (*hcommSendRequestPtr)(MsgHandle, const char*, const void*, size_t, uint32_t*);
 extern int32_t (*hcommWaitResponsePtr)(MsgHandle, void*, size_t, uint32_t*);
-extern int32_t (*hcommFlushPtr)();
-extern int32_t (*hcommChannelFencePtr)(ChannelHandle);
+extern int32_t (*hcommFenceOnThreadPtr)(ThreadHandle);
+extern int32_t (*hcommChannelFenceOnThreadPtr)(ThreadHandle, ChannelHandle);
 
 // 宏：将原始API名映射为函数指针调用（保持API名大驼峰）
 #define HcommLocalCopyOnThread               (*hcommLocalCopyOnThreadPtr)
@@ -65,13 +63,11 @@ extern int32_t (*hcommChannelFencePtr)(ChannelHandle);
 #define HcommWriteReduceWithNotifyOnThread     (*hcommWriteReduceWithNotifyOnThreadPtr)
 #define HcommReadOnThread                       (*hcommReadOnThreadPtr)
 #define HcommReadReduceOnThread                 (*hcommReadReduceOnThreadPtr)
-#define HcommWriteNbi                           (*hcommWriteNbiPtr)
-#define HcommWriteWithNotifyNbi                 (*hcommWriteWithNotifyNbiPtr)
-#define HcommReadNbi                            (*hcommReadNbiPtr)
+#define HcommWriteNbiOnThread                   (*hcommWriteNbiOnThreadPtr)
+#define HcommWriteWithNotifyNbiOnThread         (*hcommWriteWithNotifyNbiOnThreadPtr)
+#define HcommReadNbiOnThread                    (*hcommReadNbiOnThreadPtr)
 #define HcommChannelNotifyRecordOnThread        (*hcommChannelNotifyRecordOnThreadPtr)
-#define HcommChannelNotifyRecord                (*hcommChannelNotifyRecordPtr)
 #define HcommChannelNotifyWaitOnThread          (*hcommChannelNotifyWaitOnThreadPtr)
-#define HcommChannelNotifyWait                   (*hcommChannelNotifyWaitPtr)
 #define HcommBatchModeStart                      (*hcommBatchModeStartPtr)
 #define HcommBatchModeEnd                        (*hcommBatchModeEndPtr)
 #define HcommAcquireComm                         (*hcommAcquireCommPtr)
@@ -80,8 +76,8 @@ extern int32_t (*hcommChannelFencePtr)(ChannelHandle);
 #define HcommThreadSynchronize                    (*hcommThreadSynchronizePtr)
 #define HcommSendRequest                          (*hcommSendRequestPtr)
 #define HcommWaitResponse                         (*hcommWaitResponsePtr)
-#define HcommFlush                                 (*hcommFlushPtr)
-#define HcommChannelFence                          (*hcommChannelFencePtr)
+#define HcommFenceOnThread                         (*hcommFenceOnThreadPtr)
+#define HcommChannelFenceOnThread                  (*hcommChannelFenceOnThreadPtr)
 
 void HcommPrimitivesDlInit(void* libHcommHandle);  // 本模块独立初始化
 void HcommPrimitivesDlFini(void);                  // 本模块独立销毁

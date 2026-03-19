@@ -27,13 +27,11 @@ int32_t (*hcommWriteWithNotifyOnThreadPtr)(ThreadHandle, ChannelHandle, void*, c
 int32_t (*hcommWriteReduceWithNotifyOnThreadPtr)(ThreadHandle, ChannelHandle, void*, const void*, uint64_t, HcommDataType, HcommReduceOp, uint32_t) = NULL;
 int32_t (*hcommReadOnThreadPtr)(ThreadHandle, ChannelHandle, void*, const void*, uint64_t) = NULL;
 int32_t (*hcommReadReduceOnThreadPtr)(ThreadHandle, ChannelHandle, void*, const void*, uint64_t, HcommDataType, HcommReduceOp) = NULL;
-int32_t (*hcommWriteNbiPtr)(ChannelHandle, void*, const void*, uint64_t) = NULL;
-int32_t (*hcommWriteWithNotifyNbiPtr)(ChannelHandle, void*, const void*, uint64_t, uint32_t) = NULL;
-int32_t (*hcommReadNbiPtr)(ChannelHandle, void*, const void*, uint64_t) = NULL;
+int32_t (*hcommWriteNbiOnThreadPtr)(ThreadHandle, ChannelHandle, void*, const void*, uint64_t) = NULL;
+int32_t (*hcommWriteWithNotifyNbiOnThreadPtr)(ThreadHandle, ChannelHandle, void*, const void*, uint64_t, uint32_t) = NULL;
+int32_t (*hcommReadNbiOnThreadPtr)(ThreadHandle, ChannelHandle, void*, const void*, uint64_t) = NULL;
 int32_t (*hcommChannelNotifyRecordOnThreadPtr)(ThreadHandle, ChannelHandle, uint32_t) = NULL;
-int32_t (*hcommChannelNotifyRecordPtr)(ChannelHandle, uint32_t) = NULL;
 int32_t (*hcommChannelNotifyWaitOnThreadPtr)(ThreadHandle, ChannelHandle, uint32_t, uint32_t) = NULL;
-int32_t (*hcommChannelNotifyWaitPtr)(ChannelHandle, uint32_t, uint32_t) = NULL;
 int32_t (*hcommBatchModeStartPtr)(const char*) = NULL;
 int32_t (*hcommBatchModeEndPtr)(const char*) = NULL;
 int32_t (*hcommAcquireCommPtr)(const char*) = NULL;
@@ -42,8 +40,8 @@ HcclResult (*hcommSymWinGetPeerPointerPtr)(CommSymWindow, size_t, uint32_t, void
 int32_t (*hcommThreadSynchronizePtr)(ThreadHandle) = NULL;
 int32_t (*hcommSendRequestPtr)(MsgHandle, const char*, const void*, size_t, uint32_t*) = NULL;
 int32_t (*hcommWaitResponsePtr)(MsgHandle, void*, size_t, uint32_t*) = NULL;
-int32_t (*hcommFlushPtr)() = NULL;
-int32_t (*hcommChannelFencePtr)(ChannelHandle) = NULL;
+int32_t (*hcommFenchOnThreadPtr)(ThreadHandle) = NULL;
+int32_t (*hcommChannelFenceOnThreadPtr)(ThreadHandle, ChannelHandle) = NULL;
 
 // 添加支持标志（静态，默认 false）
 static bool g_hcommLocalCopyOnThreadSupported = false;
@@ -58,13 +56,11 @@ static bool g_hcommWriteWithNotifyOnThreadSupported = false;
 static bool g_hcommWriteReduceWithNotifyOnThreadSupported = false;
 static bool g_hcommReadOnThreadSupported = false;
 static bool g_hcommReadReduceOnThreadSupported = false;
-static bool g_hcommWriteNbiSupported = false;
-static bool g_hcommWriteWithNotifyNbiSupported = false;
-static bool g_hcommReadNbiSupported = false;
+static bool g_hcommWriteNbiOnThreadSupported = false;
+static bool g_hcommWriteWithNotifyNbiOnThreadSupported = false;
+static bool g_hcommReadNbiOnThreadSupported = false;
 static bool g_hcommChannelNotifyRecordOnThreadSupported = false;
-static bool g_hcommChannelNotifyRecordSupported = false;
 static bool g_hcommChannelNotifyWaitOnThreadSupported = false;
-static bool g_hcommChannelNotifyWaitSupported = false;
 static bool g_hcommBatchModeStartSupported = false;
 static bool g_hcommBatchModeEndSupported = false;
 static bool g_hcommAcquireCommSupported = false;
@@ -73,8 +69,8 @@ static bool g_hcommSymWinGetPeerPointerSupported = false;
 static bool g_hcommThreadSynchronizeSupported = false;
 static bool g_hcommSendRequestSupported = false;
 static bool g_hcommWaitResponseSupported = false;
-static bool g_hcommFlushSupported = false;
-static bool g_hcommChannelFenceSupported = false;
+static bool g_hcommFenchOnThreadSupported = false;
+static bool g_hcommChannelFenceOnThreadSupported = false;
 
 // ---------- 桩函数定义（签名与真实API完全一致）----------
 static int32_t StubHcommLocalCopyOnThread(ThreadHandle thread, void* dst, const void* src, uint64_t len) {
@@ -155,21 +151,21 @@ static int32_t StubHcommReadReduceOnThread(ThreadHandle thread, ChannelHandle ch
     return -1;
 }
 
-static int32_t StubHcommWriteNbi(ChannelHandle channel, void* dst, const void* src, uint64_t len) {
-    (void)channel; (void)dst; (void)src; (void)len;
-    HCCL_ERROR("[HcclWrapper] HcommWriteNbi not supported");
+static int32_t StubHcommWriteNbiOnThread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t len) {
+    (void)thread; (void)channel; (void)dst; (void)src; (void)len;
+    HCCL_ERROR("[HcclWrapper] HcommWriteNbiOnThread not supported");
     return -1;
 }
 
-static int32_t StubHcommWriteWithNotifyNbi(ChannelHandle channel, void* dst, const void* src, uint64_t len, uint32_t remoteNotifyIdx) {
-    (void)channel; (void)dst; (void)src; (void)len; (void)remoteNotifyIdx;
-    HCCL_ERROR("[HcclWrapper] HcommWriteWithNotifyNbi not supported");
+static int32_t StubHcommWriteWithNotifyNbiOnThread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t len, uint32_t remoteNotifyIdx) {
+    (void)thread; (void)channel; (void)dst; (void)src; (void)len; (void)remoteNotifyIdx;
+    HCCL_ERROR("[HcclWrapper] HcommWriteWithNotifyNbiOnThread not supported");
     return -1;
 }
 
-static int32_t StubHcommReadNbi(ChannelHandle channel, void* dst, const void* src, uint64_t len) {
-    (void)channel; (void)dst; (void)src; (void)len;
-    HCCL_ERROR("[HcclWrapper] HcommReadNbi not supported");
+static int32_t StubHcommReadNbiOnThread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t len) {
+    (void)thread; (void)channel; (void)dst; (void)src; (void)len;
+    HCCL_ERROR("[HcclWrapper] HcommReadNbiOnThread not supported");
     return -1;
 }
 
@@ -179,21 +175,9 @@ static int32_t StubHcommChannelNotifyRecordOnThread(ThreadHandle thread, Channel
     return -1;
 }
 
-static int32_t StubHcommChannelNotifyRecord(ChannelHandle channel, uint32_t remoteNotifyIdx) {
-    (void)channel; (void)remoteNotifyIdx;
-    HCCL_ERROR("[HcclWrapper] HcommChannelNotifyRecord not supported");
-    return -1;
-}
-
 static int32_t StubHcommChannelNotifyWaitOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeout) {
     (void)thread; (void)channel; (void)localNotifyIdx; (void)timeout;
     HCCL_ERROR("[HcclWrapper] HcommChannelNotifyWaitOnThread not supported");
-    return -1;
-}
-
-static int32_t StubHcommChannelNotifyWait(ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeout) {
-    (void)channel; (void)localNotifyIdx; (void)timeout;
-    HCCL_ERROR("[HcclWrapper] HcommChannelNotifyWait not supported");
     return -1;
 }
 
@@ -245,14 +229,15 @@ static int32_t StubHcommWaitResponse(MsgHandle handle, void* dst, size_t sizeByt
     return -1;
 }
 
-static int32_t StubHcommFlush() {
-    HCCL_ERROR("[HcclWrapper] HcommFlush not supported");
+static int32_t StubHcommFenchOnThread(ThreadHandle thread) {
+    (void)thread;
+    HCCL_ERROR("[HcclWrapper] HcommFenchOnThread not supported");
     return -1;
 }
 
-static int32_t StubHcommChannelFence(ChannelHandle channel) {
-    (void)channel;
-    HCCL_ERROR("[HcclWrapper] HcommChannelFence not supported");
+static int32_t StubHcommChannelFenceOnThread(ThreadHandle thread, ChannelHandle channel) {
+    (void)thread; (void)channel;
+    HCCL_ERROR("[HcclWrapper] HcommChannelFenceOnThread not supported");
     return -1;
 }
 
@@ -283,13 +268,11 @@ void HcommPrimitivesDlInit(void* libHcommHandle) {
     SET_PTR(hcommWriteReduceWithNotifyOnThreadPtr, "HcommWriteReduceWithNotifyOnThread", StubHcommWriteReduceWithNotifyOnThread, g_hcommWriteReduceWithNotifyOnThreadSupported);
     SET_PTR(hcommReadOnThreadPtr, "HcommReadOnThread", StubHcommReadOnThread, g_hcommReadOnThreadSupported);
     SET_PTR(hcommReadReduceOnThreadPtr, "HcommReadReduceOnThread", StubHcommReadReduceOnThread, g_hcommReadReduceOnThreadSupported);
-    SET_PTR(hcommWriteNbiPtr, "HcommWriteNbi", StubHcommWriteNbi, g_hcommWriteNbiSupported);
-    SET_PTR(hcommWriteWithNotifyNbiPtr, "HcommWriteWithNotifyNbi", StubHcommWriteWithNotifyNbi, g_hcommWriteWithNotifyNbiSupported);
-    SET_PTR(hcommReadNbiPtr, "HcommReadNbi", StubHcommReadNbi, g_hcommReadNbiSupported);
+    SET_PTR(hcommWriteNbiOnThreadPtr, "HcommWriteNbiOnThread", StubHcommWriteNbiOnThread, g_hcommWriteNbiOnThreadSupported);
+    SET_PTR(hcommWriteWithNotifyNbiOnThreadPtr, "HcommWriteWithNotifyNbiOnThread", StubHcommWriteWithNotifyNbiOnThread, g_hcommWriteWithNotifyNbiOnThreadSupported);
+    SET_PTR(hcommReadNbiOnThreadPtr, "HcommReadNbiOnThread", StubHcommReadNbiOnThread, g_hcommReadNbiOnThreadSupported);
     SET_PTR(hcommChannelNotifyRecordOnThreadPtr, "HcommChannelNotifyRecordOnThread", StubHcommChannelNotifyRecordOnThread, g_hcommChannelNotifyRecordOnThreadSupported);
-    SET_PTR(hcommChannelNotifyRecordPtr, "HcommChannelNotifyRecord", StubHcommChannelNotifyRecord, g_hcommChannelNotifyRecordSupported);
     SET_PTR(hcommChannelNotifyWaitOnThreadPtr, "HcommChannelNotifyWaitOnThread", StubHcommChannelNotifyWaitOnThread, g_hcommChannelNotifyWaitOnThreadSupported);
-    SET_PTR(hcommChannelNotifyWaitPtr, "HcommChannelNotifyWait", StubHcommChannelNotifyWait, g_hcommChannelNotifyWaitSupported);
     SET_PTR(hcommBatchModeStartPtr, "HcommBatchModeStart", StubHcommBatchModeStart, g_hcommBatchModeStartSupported);
     SET_PTR(hcommBatchModeEndPtr, "HcommBatchModeEnd", StubHcommBatchModeEnd, g_hcommBatchModeEndSupported);
     SET_PTR(hcommAcquireCommPtr, "HcommAcquireComm", StubHcommAcquireComm, g_hcommAcquireCommSupported);
@@ -298,8 +281,8 @@ void HcommPrimitivesDlInit(void* libHcommHandle) {
     SET_PTR(hcommThreadSynchronizePtr, "HcommThreadSynchronize", StubHcommThreadSynchronize, g_hcommThreadSynchronizeSupported);
     SET_PTR(hcommSendRequestPtr, "HcommSendRequest", StubHcommSendRequest, g_hcommSendRequestSupported);
     SET_PTR(hcommWaitResponsePtr, "HcommWaitResponse", StubHcommWaitResponse, g_hcommWaitResponseSupported);
-    SET_PTR(hcommFlushPtr, "HcommFlush", StubHcommFlush, g_hcommFlushSupported);
-    SET_PTR(hcommChannelFencePtr, "HcommChannelFence", StubHcommChannelFence, g_hcommChannelFenceSupported);
+    SET_PTR(hcommFenchOnThreadPtr, "HcommFenchOnThread", StubHcommFenchOnThread, g_hcommFenchOnThreadSupported);
+    SET_PTR(hcommChannelFenceOnThreadPtr, "HcommChannelFenceOnThread", StubHcommChannelFenceOnThread, g_hcommChannelFenceOnThreadSupported);
 
     #undef SET_PTR
 }
@@ -317,13 +300,11 @@ void HcommPrimitivesDlFini(void) {
     hcommWriteReduceWithNotifyOnThreadPtr = StubHcommWriteReduceWithNotifyOnThread;
     hcommReadOnThreadPtr = StubHcommReadOnThread;
     hcommReadReduceOnThreadPtr = StubHcommReadReduceOnThread;
-    hcommWriteNbiPtr = StubHcommWriteNbi;
-    hcommWriteWithNotifyNbiPtr = StubHcommWriteWithNotifyNbi;
-    hcommReadNbiPtr = StubHcommReadNbi;
+    hcommWriteNbiOnThreadPtr = StubHcommWriteNbiOnThread;
+    hcommWriteWithNotifyNbiOnThreadPtr = StubHcommWriteWithNotifyNbiOnThread;
+    hcommReadNbiOnThreadPtr = StubHcommReadNbiOnThread;
     hcommChannelNotifyRecordOnThreadPtr = StubHcommChannelNotifyRecordOnThread;
-    hcommChannelNotifyRecordPtr = StubHcommChannelNotifyRecord;
     hcommChannelNotifyWaitOnThreadPtr = StubHcommChannelNotifyWaitOnThread;
-    hcommChannelNotifyWaitPtr = StubHcommChannelNotifyWait;
     hcommBatchModeStartPtr = StubHcommBatchModeStart;
     hcommBatchModeEndPtr = StubHcommBatchModeEnd;
     hcommAcquireCommPtr = StubHcommAcquireComm;
@@ -332,8 +313,8 @@ void HcommPrimitivesDlFini(void) {
     hcommThreadSynchronizePtr = StubHcommThreadSynchronize;
     hcommSendRequestPtr = StubHcommSendRequest;
     hcommWaitResponsePtr = StubHcommWaitResponse;
-    hcommFlushPtr = StubHcommFlush;
-    hcommChannelFencePtr = StubHcommChannelFence;
+    hcommFenchOnThreadPtr = StubHcommFenchOnThread;
+    hcommChannelFenceOnThreadPtr = StubHcommChannelFenceOnThread;
 }
 
 // ---------- 对外提供的查询接口（判断函数是否存在）----------
@@ -373,26 +354,20 @@ extern "C" bool HcommIsSupportHcommReadOnThread(void) {
 extern "C" bool HcommIsSupportHcommReadReduceOnThread(void) {
     return g_hcommReadReduceOnThreadSupported;
 }
-extern "C" bool HcommIsSupportHcommWriteNbi(void) {
-    return g_hcommWriteNbiSupported;
+extern "C" bool HcommIsSupportHcommWriteNbiOnThread(void) {
+    return g_hcommWriteNbiOnThreadSupported;
 }
-extern "C" bool HcommIsSupportHcommWriteWithNotifyNbi(void) {
-    return g_hcommWriteWithNotifyNbiSupported;
+extern "C" bool HcommIsSupportHcommWriteWithNotifyNbiOnThread(void) {
+    return g_hcommWriteWithNotifyNbiOnThreadSupported;
 }
-extern "C" bool HcommIsSupportHcommReadNbi(void) {
-    return g_hcommReadNbiSupported;
+extern "C" bool HcommIsSupportHcommReadNbiOnThread(void) {
+    return g_hcommReadNbiOnThreadSupported;
 }
 extern "C" bool HcommIsSupportHcommChannelNotifyRecordOnThread(void) {
     return g_hcommChannelNotifyRecordOnThreadSupported;
 }
-extern "C" bool HcommIsSupportHcommChannelNotifyRecord(void) {
-    return g_hcommChannelNotifyRecordSupported;
-}
 extern "C" bool HcommIsSupportHcommChannelNotifyWaitOnThread(void) {
     return g_hcommChannelNotifyWaitOnThreadSupported;
-}
-extern "C" bool HcommIsSupportHcommChannelNotifyWait(void) {
-    return g_hcommChannelNotifyWaitSupported;
 }
 extern "C" bool HcommIsSupportHcommBatchModeStart(void) {
     return g_hcommBatchModeStartSupported;
@@ -418,9 +393,9 @@ extern "C" bool HcommIsSupportHcommSendRequest(void) {
 extern "C" bool HcommIsSupportHcommWaitResponse(void) {
     return g_hcommWaitResponseSupported;
 }
-extern "C" bool HcommIsSupportHcommFlush(void) {
-    return g_hcommFlushSupported;
+extern "C" bool HcommIsSupportHcommFenchOnThread(void) {
+    return g_hcommFenchOnThreadSupported;
 }
-extern "C" bool HcommIsSupportHcommChannelFence(void) {
-    return g_hcommChannelFenceSupported;
+extern "C" bool HcommIsSupportHcommChannelFenceOnThread(void) {
+    return g_hcommChannelFenceOnThreadSupported;
 }
