@@ -17,6 +17,7 @@ using namespace ops_hccl;
 HcclResult HcclCreateOpParamGraphMode(OpParamGraphMode **opParam);
 HcclResult HcclDestroyOpParamGraphMode(OpParamGraphMode *opParam);
 HcclResult HcclSetOpParamGraphModeOpType(OpParamGraphMode *opParam, const char *opType);
+HcclResult HcclSetAivSelectOpParamGraphMode(OpParamGraphMode *opParam, const u32 *aivCoreLimit);
 HcclResult HcclCalcOpResOnlineGraphMode(OpParamGraphMode *opParam, u64 *opMemSize, u32 *streamNum, u32 *taskNum, u32 *aivCoreNum);
 HcclResult HcclCalcOpResOfflineGraphMode(OpParamGraphMode *opParam, u64 *opMemSize, u32 *streamNum, u32 *taskNum, u32 *aivCoreNum);
 

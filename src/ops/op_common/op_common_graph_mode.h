@@ -48,8 +48,15 @@ HcclResult HcclAllocAlgResourceAICPUGraphMode(
     HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
     std::unique_ptr<AlgResourceCtxSerializable>& resCtxSequenceHost);
 
+HcclResult HcclAivKernelEntranceLaunchGraphMode(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
+    AlgResourceCtxSerializable &resCtxHost);
+
 HcclResult HcclGetChannelGraphMode(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
                           std::unique_ptr<AlgResourceCtxSerializable>& resCtxSequenceHost);
+
+HcclResult HcclAllocAlgResourceAivGraphMode(
+    HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
+    std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost);
 
 }  // namespace ops_hccl
 
