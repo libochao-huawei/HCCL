@@ -32,7 +32,9 @@ public:
     HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo,
                                     AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
 
+#ifndef AICPU_COMPILE
     HcclResult FastLaunch(const OpParam &param, const CcuFastRunCtx *resCtx) override;
+#endif
 
 protected:
     /* *************** 算法编排 *************** */
