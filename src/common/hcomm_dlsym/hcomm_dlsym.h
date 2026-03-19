@@ -74,13 +74,11 @@ bool HcommIsSupportHcommWriteWithNotifyOnThread(void);
 bool HcommIsSupportHcommWriteReduceWithNotifyOnThread(void);
 bool HcommIsSupportHcommReadOnThread(void);
 bool HcommIsSupportHcommReadReduceOnThread(void);
-bool HcommIsSupportHcommWriteNbi(void);
-bool HcommIsSupportHcommWriteWithNotifyNbi(void);
-bool HcommIsSupportHcommReadNbi(void);
+bool HcommIsSupportHcommWriteNbiOnThread(void);
+bool HcommIsSupportHcommWriteWithNotifyNbiOnThread(void);
+bool HcommIsSupportHcommReadNbiOnThread(void);
 bool HcommIsSupportHcommChannelNotifyRecordOnThread(void);
-bool HcommIsSupportHcommChannelNotifyRecord(void);
 bool HcommIsSupportHcommChannelNotifyWaitOnThread(void);
-bool HcommIsSupportHcommChannelNotifyWait(void);
 bool HcommIsSupportHcommBatchModeStart(void);
 bool HcommIsSupportHcommBatchModeEnd(void);
 bool HcommIsSupportHcommAcquireComm(void);
@@ -89,8 +87,8 @@ bool HcommIsSupportHcommSymWinGetPeerPointer(void);
 bool HcommIsSupportHcommThreadSynchronize(void);
 bool HcommIsSupportHcommSendRequest(void);
 bool HcommIsSupportHcommWaitResponse(void);
-bool HcommIsSupportHcommFlush(void);
-bool HcommIsSupportHcommChannelFence(void);
+bool HcommIsSupportHcommFenchOnThread(void);
+bool HcommIsSupportHcommChannelFenceOnThread(void);
 
 #ifdef __cplusplus
 }
