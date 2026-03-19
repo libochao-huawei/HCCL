@@ -41,17 +41,8 @@ SelectorStatus AutoSelectorBase::Select(OpParam &opParam, TopoInfoWithNetLayerDe
             return ret;
         }
     }
-    if (opParam.opExecuteConfig == OpExecuteConfig::AIV || opParam.opExecuteConfig == OpExecuteConfig::AIV_ONLY) {
-        ret = SelectAivAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
-        if (ret == SelectorStatus::NOT_MATCH) {
-            if (opParam.opExecuteConfig == OpExecuteConfig::AIV_ONLY) {
-                HCCL_ERROR("[Algo][AutoSelectorBase] currently do not select aiv mode, aiv only not support.");
-                return ret;
-            }
-            opParam.opExecuteConfig = OpExecuteConfig::CCU_FAIL;
-        } else {
-            return ret;
-        }
+    if (ProcessAivConfig(opParam, topoInfo, configAlgMap, selectAlgName, ret)) {
+        return ret;
     }
     if (IsStarsState(opParam.opExecuteConfig)) {
         ret = SelectAicpuAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
@@ -280,6 +271,27 @@ HcclResult AutoSelectorBase::CheckClosNumMultipleOfMeshNum(const TopoInfoWithNet
     // 检查CLOS数量是否大于1DMESH数量且是1DMESH数量的倍数
     isMultiple = (meshRankNums > 1) && (closRankNums > meshRankNums) && (closRankNums % meshRankNums == 0);
     return HCCL_SUCCESS;
+}
+
+bool AutoSelectorBase::ProcessAivConfig(OpParam &opParam, TopoInfoWithNetLayerDetails* topoInfo,
+                                        const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+                                        std::string &selectAlgName, SelectorStatus &ret) const
+{
+    if (opParam.opExecuteConfig != OpExecuteConfig::AIV && opParam.opExecuteConfig != OpExecuteConfig::AIV_ONLY) {
+        return false; 
+    }
+
+    ret = SelectAivAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
+    if (ret == SelectorStatus::NOT_MATCH) {
+        if (opParam.opExecuteConfig == OpExecuteConfig::AIV_ONLY) {
+            HCCL_ERROR("[Algo][AutoSelectorBase] currently do not select aiv mode, aiv only not support.");
+            return true;
+        }
+        opParam.opExecuteConfig = OpExecuteConfig::CCU_FAIL;
+        return false; 
+    } 
+    
+    return true; 
 }
 
 }
