@@ -37,9 +37,8 @@ HcclResult CcuTempAllGatherMesh1DMem2Mem::CalcRes(HcclComm comm, const OpParam& 
                                                       AlgResourceRequest& resourceRequest)
 {
     // 不需要从流
+    GetRes(resourceRequest);
     // 多少个kernel
-    resourceRequest.notifyNumOnMainThread = 0;
-+   resourceRequest.slaveThreadNum = 0;
     resourceRequest.ccuKernelNum.push_back(1);
     HCCL_DEBUG("[CcuTempAllGatherMesh1DMem2Mem::CalcRes] notifyNumOnMainThread[%u] slaveThreadNum[%u]",
                resourceRequest.notifyNumOnMainThread, resourceRequest.slaveThreadNum);
