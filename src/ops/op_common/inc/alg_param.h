@@ -252,7 +252,7 @@ struct CcuKernelInfo {
 };
 
 // 算法sqe最大个数（alltoallv除外）
-#define CCU_MAX_TASK_ARG_NUM 30;
+#define CCU_MAX_TASK_ARG_NUM 30
 
 struct CcuKernelSubmmitInfo {
     CcuKernelHandle kernelHandle;
