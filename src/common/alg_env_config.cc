@@ -636,7 +636,6 @@ static HcclResult ApplyOpExpansionMode(const std::string& opExpansionModeEnv, De
 HcclResult ParseOpExpansion()
 {
     std::string opExpansionModeEnv = GetEnv(MM_ENV_HCCL_OP_EXPANSION_MODE);
-    std::string opExpansionModeEnvTest = GetEnv(MM_ENV_HCCL_OP_EXPANSION_MODE_Test);
     g_algEnvConfig.aicpuUnfold = false;
     g_algEnvConfig.aivMode = false;
     g_algEnvConfig.aivOnlyMode = false;
@@ -655,10 +654,10 @@ HcclResult ParseOpExpansion()
             g_algEnvConfig.aivMode);
         return HCCL_SUCCESS;
     }
-    if (opExpansionModeEnvTest != "EmptyString") {
-        CHK_RET(ApplyOpExpansionMode(opExpansionModeEnvTest, deviceType));
-        HCCL_RUN_INFO("environmental variable opExpansionModeEnvTest is [%s], aicpuUnfold[%u], aivMode[%u], enableFfts[%u]",
-            opExpansionModeEnvTest.c_str(),
+    if (opExpansionModeEnv == "AIV") {
+        CHK_RET(ApplyOpExpansionMode("AIV_ONLY", deviceType));
+        HCCL_RUN_INFO("environmental variable HCCL_OP_EXPANSION_MODE is [%s], aicpuUnfold[%u], aivMode[%u], enableFfts[%u]",
+            opExpansionModeEnv.c_str(),
             g_algEnvConfig.aicpuUnfold,
             g_algEnvConfig.aivMode,
             g_algEnvConfig.enableFfts);
