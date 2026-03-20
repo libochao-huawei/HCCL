@@ -655,12 +655,17 @@ HcclResult HcclGetChannel(HcclComm comm, const OpParam &param, AlgResourceReques
 HcclResult HcclGetChannelImpl(const u32 level, HcclComm comm, const OpParam &param, std::vector<HcclChannelDesc>& channelRequest, 
                               const CommEngine commEngine, std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost) {
     // 获取子通信域的建链数量
+    if (channelRequest.empty()) {
+        HCCL_INFO("[HcclGetChannelImpl] channelRequest is empty");
+        return HCCL_SUCCESS;
+    }
     u32 channelNum = channelRequest.size();
     std::vector<ChannelHandle> levelNChannels;
     levelNChannels.resize(channelNum);
     char inputBuffTag[MAX_MEM_TAG_LENGTH];
     char outputBuffTag[MAX_MEM_TAG_LENGTH];
     if (param.opMode == OpMode::OFFLOAD) {
+        HCCL_INFO("[HcclGetChannelImpl] start to RegGraphModeBuffers");
         CHK_RET(RegGraphModeBuffers(comm, param, channelRequest, inputBuffTag, outputBuffTag));
     }
     if (channelNum > 0) {
@@ -714,13 +719,16 @@ HcclResult RegGraphModeBuffers(HcclComm comm, const OpParam &param, std::vector<
     if (param.inputPtr != nullptr) {
         HcclMemHandle inputHandle = nullptr;
         CHK_RET(HcclRegstryBuff(comm, inputBuffTag, param.inputPtr, param.inputSize, &inputHandle));
+        CHK_PTR_NULL(inputHandle);
         memHandles.emplace_back(inputHandle);
     }
     if (param.outputPtr != nullptr) {
         HcclMemHandle outputHandle = nullptr;
         CHK_RET(HcclRegstryBuff(comm, outputBuffTag, param.outputPtr, param.outputSize, &outputHandle));
+        CHK_PTR_NULL(outputHandle);
         memHandles.emplace_back(outputHandle);
     }
+    HCCL_INFO("[RegGraphModeBuffers]memHandles size[%d]", memHandles.size());
     for (auto &channelDesc : channelRequest) {
         channelDesc.memHandles = memHandles.data();
         channelDesc.memHandleNum = memHandles.size();
