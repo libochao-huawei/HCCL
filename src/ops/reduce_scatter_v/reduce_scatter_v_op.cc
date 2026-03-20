@@ -198,7 +198,7 @@ HcclResult PrepareReduceScatterVParam(void *sendBuf, const void *sendDispls, con
     const u64* sendCountsAddr = reinterpret_cast<const u64*>(sendCounts);
 
     param.inputSize = (sendDisplsAddr[userRankSize-1] + sendCountsAddr[userRankSize-1]) * perDataSize;
-    
+
     std::copy(sendCountsAddr, sendCountsAddr + userRankSize, countsAndDispls.begin());
     std::copy(sendDisplsAddr, sendDisplsAddr + userRankSize, countsAndDispls.begin() + userRankSize);
     param.varMemSize = varMemSize;
@@ -294,7 +294,7 @@ HcclResult ReduceScatterVOutPlaceGraphMode(void *sendBuf, const void *sendDispls
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));
-    CHK_RET(HcclExecOpGraphMode(comm, param, topoInfo, algName, resPack));
+    CHK_RET(HcclExecOp(comm, param, topoInfo, algName, resPack));
     HCCL_INFO("Execute ReduceScatterVOutPlaceGraphMode success.");
     return HCCL_SUCCESS;
 }
