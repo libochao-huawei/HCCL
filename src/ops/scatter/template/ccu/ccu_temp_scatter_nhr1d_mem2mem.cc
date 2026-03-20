@@ -54,7 +54,7 @@ u64 CcuTempScatterNHR1DMem2Mem::CalcScratchMultiple(BufferType inBuffType, Buffe
 {
     (void)inBuffType;
     (void)outBuffType;
-    return 0;
+    return subCommRanks_[0].size();
 }
 
 HcclResult CcuTempScatterNHR1DMem2Mem::GetDieNumFromChannelDescs(HcclComm comm, u32 &dieNum)
