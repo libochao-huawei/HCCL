@@ -242,6 +242,10 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
     ThreadHandle exportedCpuTsThread, u32 notifyNumOnMainThread, void *resCtxSequence, std::string &algName)
 {
     HCCL_DEBUG("[HcclAicpuKernelEntranceLaunch]start to run aicpu kernel");
+    CHK_PTR_NULL(comm);
+    CHK_PRT_RET(notifyNumOnMainThread == 0, HCCL_ERROR("[HcclAicpuKernelEntranceLaunch] notifyNumOnMainThread is 0"), HCCL_E_PTR);
+    CHK_PRT_RET(cpuTsThread == 0, HCCL_ERROR("[HcclAicpuKernelEntranceLaunch] cpuTsThread is 0"), HCCL_E_PTR);
+    CHK_PRT_RET(exportedCpuTsThread == 0, HCCL_ERROR("[HcclAicpuKernelEntranceLaunch] exportedCpuTsThread is 0"), HCCL_E_PTR);
     // 当前aicpu launch接口只能有一个输入参数，将Context指针放在param参数中
     param.resCtx = resCtxSequence;
     // 将算法名字放在param参数中
