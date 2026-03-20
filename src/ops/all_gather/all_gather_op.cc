@@ -137,7 +137,7 @@ HcclResult AllGatherOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t sendCo
     u32 userRankSize;
     CHK_RET(HcclGetRankSize(comm, &userRankSize));
 
-    u32 perDataSize = SIZE_TABLE[dataType];
+    u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
     u64 inputSize = sendCount * perDataSize;    // all gather 每个rank上一份数据
     u64 outputSize = inputSize * userRankSize;  // 每个卡上结果为rankSize份数据
 
