@@ -52,7 +52,7 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
 
-    if (!CheckHCCLIndependentOp() && deviceType != DevType::DEV_TYPE_910_93) {
+    if (!HcclCheckAicpuEnableOpen() && deviceType != DevType::DEV_TYPE_910_93) {
         return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
     }
 
@@ -214,12 +214,6 @@ HcclResult ScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, Hcc
     param.opType = HcclCMDType::HCCL_CMD_SCATTER;
     param.deviceType = deviceType;
 
-    if (userRankSize == 1) {
-        HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
-        CHK_RET(SingleRankProc(param));
-        return HcclResult::HCCL_SUCCESS;
-    }
-
     #ifdef MACRO_DEV_TYPE_NEW
     if (deviceType == DevType::DEV_TYPE_950) {
     #else
@@ -228,6 +222,14 @@ HcclResult ScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, Hcc
         std::string algName;
         std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
         CHK_RET(Selector(comm, param, topoInfo, algName));
+        if (ShouldUseInnerOp(param.opExecuteConfig)) {
+            return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
+        }
+        if (userRankSize == 1) {
+            HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
+            CHK_RET(SingleRankProc(param));
+            return HcclResult::HCCL_SUCCESS;
+        }
         CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
     } else {
         CHK_RET(ExecOp(comm, param));  //保留原有A3流程
@@ -733,25 +735,33 @@ HcclResult AllocAlgResource(HcclComm comm, const OpParam& param, AlgResourceRequ
     curPtr += sizeof(AlgResourceCtx); // 偏移指针
     ThreadHandle* threads = reinterpret_cast<ThreadHandle *>(curPtr);
     if (param.engine == COMM_ENGINE_AICPU_TS) {
-        // 主流多申请1个notify用于host和device同步
-        CHK_RET(HcclThreadAcquire(comm, param.engine, 1,
-            resRequest.notifyNumOnMainThread + 1, threads));
+        u32 maxNotifyNum = resRequest.notifyNumOnMainThread + 1;
+        for (u32 i = 0; i < resRequest.notifyNumPerThread.size(); i++) {
+            if (resRequest.notifyNumPerThread[i] > maxNotifyNum) {
+                maxNotifyNum = resRequest.notifyNumPerThread[i];
+            }
+        }
+        u32 threadNum = resRequest.slaveThreadNum + 1;
+        CHK_RET(HcclThreadAcquire(comm, param.engine, threadNum, maxNotifyNum, threads));
         resCtxHost->topoInfo.mainThread = *threads;
         HCCL_DEBUG("threads ptr is %p\n", *threads);
     } else {
         // host模式下，将主流封装为thread，并创建主流上的notify
         CHK_RET(HcclThreadAcquireWithStream(comm, param.engine, param.stream,
             resRequest.notifyNumOnMainThread, threads));
+        if (resRequest.slaveThreadNum > 0) {
+            u32 maxNotifyNum = 0;
+            for (u32 i = 0; i < resRequest.notifyNumPerThread.size(); i++) {
+                if (resRequest.notifyNumPerThread[i] > maxNotifyNum) {
+                    maxNotifyNum = resRequest.notifyNumPerThread[i];
+                }
+            }
+            curPtr += sizeof(ThreadHandle);
+            ThreadHandle* slaveThreads = reinterpret_cast<ThreadHandle *>(curPtr);
+            CHK_RET(HcclThreadAcquire(comm, param.engine, resRequest.slaveThreadNum, maxNotifyNum, slaveThreads));
+        }
     }
-    curPtr += sizeof(ThreadHandle); // 指针向后偏移
-
-    for (u32 index = 0; index < resRequest.slaveThreadNum; index++) {
-        threads = reinterpret_cast<ThreadHandle *>(curPtr);
-        // 创建从流thread及对应的notify
-        CHK_RET(HcclThreadAcquire(comm, param.engine, 1,
-            resRequest.notifyNumPerThread[index], threads));
-        curPtr += sizeof(ThreadHandle); // 指针向后偏移
-    }
+    curPtr += sizeof(ThreadHandle) * (resRequest.slaveThreadNum + 1);
     if (UNLIKELY(HcclCheckLogLevel(DLOG_DEBUG))) {
         HCCL_DEBUG("[AllocAlgResource] slaveThreadNum[%u]", resRequest.slaveThreadNum);
         for (u32 i = 0; i < resRequest.slaveThreadNum; i++) {

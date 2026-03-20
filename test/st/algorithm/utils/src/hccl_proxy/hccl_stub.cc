@@ -25,6 +25,7 @@
 #include "sim_task_queue.h"
 #include "sim_channel.h"
 #include "alg_param.h"
+#include "hcomm_diag.h"
 
 using namespace ops_hccl;
 
@@ -813,6 +814,12 @@ int32_t HcommChannelNotifyWait(ChannelHandle channel, uint32_t localNotifyIdx, u
     return 0;
 }
 
+int32_t HcommChannelFence(ChannelHandle channel)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return 0;
+}
+
 int32_t HcommWaitResponse(MsgHandle handle, void *dst, size_t sizeByte, uint32_t *msgId)
 {
     HCCL_WARNING("[%s] not support.", __func__);
@@ -862,6 +869,65 @@ HcclResult HcommProfilingReportKernel(uint64_t beginTime, const char *profName)
 }
 
 HcclResult HcommProfilingReportOp(HcomProInfo proInfo)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcommRegOpInfo(const char* commId, void* opInfo, size_t size)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcommRegOpTaskException(const char* commId, HcommGetOpInfoCallback callback)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclDfxRegOpInfo(HcclComm comm, void* dfxOpInfo)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclProfilingReportOp(HcclComm comm, uint64_t beginTime)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclReportAicpuKernel(HcclComm comm, uint64_t beginTime, char *kernelName)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcommProfilingReportDeviceOp(const char* groupname)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+HcclResult HcommProfilingReportKernelStartTask(uint64_t thread, const char* groupname)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcommProfilingReportKernelEndTask(uint64_t thread, const char* groupname)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcommProfilingReportMainStreamAndFirstTask(ThreadHandle thread)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcommProfilingReportMainStreamAndLastTask(ThreadHandle thread)
 {
     HCCL_WARNING("[%s] not support.", __func__);
     return HCCL_SUCCESS;

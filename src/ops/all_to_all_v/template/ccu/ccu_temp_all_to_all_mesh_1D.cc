@@ -123,8 +123,9 @@ HcclResult CcuTempAlltoAllMesh1D::KernelRun(const OpParam& param,
     uint64_t outputAddr         = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
     uint64_t token              = hcomm::CcuRep::GetTokenInfo(reinterpret_cast<uint64_t>(buffInfo_.inputPtr),
                                                        static_cast<uint64_t>(buffInfo_.inputSize));
-    uint64_t srcStride = sliceSize + sendStrideSize_;
-    uint64_t dstStride = sliceSize + recvStrideSize_;
+    
+    uint64_t srcStride = templateDataParams.outputSliceStride;
+    uint64_t dstStride = templateDataParams.outputSliceStride;
 
     uint64_t dataType_ = param.all2AllVDataDes.sendType;
     uint64_t dataTypeSize_ = SIZE_TABLE[dataType_];
@@ -132,7 +133,6 @@ HcclResult CcuTempAlltoAllMesh1D::KernelRun(const OpParam& param,
 
     HCCL_DEBUG("[CcuTempAlltoAllMesh1D::KernelRun] Start");
     if (tempRankSize_ == 1) {
-        // 遗留 不确定对不对
         DataSlice usrInSlice = DataSlice(buffInfo_.inputPtr, buffInfo_.inBuffBaseOff, sliceSize);
         DataSlice usrOutSlice = DataSlice(buffInfo_.outputPtr, buffInfo_.outBuffBaseOff, sliceSize);
         LocalCopy(templateResource.threads[0], usrInSlice, usrOutSlice);
@@ -141,8 +141,8 @@ HcclResult CcuTempAlltoAllMesh1D::KernelRun(const OpParam& param,
         return HcclResult::HCCL_SUCCESS;
     }
 
-    uint64_t srcOffset = sliceBias;
-    uint64_t dstOffset = sliceBias + myRank_ * dstStride;
+    uint64_t srcOffset = 0;
+    uint64_t dstOffset = myRank_ * dstStride;
     bool loadFromMem = false;
 
     HCCL_INFO("[CcuTempAllToAllMesh1D] Run Init: loadFromMem_[%d], myRank_[%d], dimSize[%llu], inputAddr[%llu],"\
