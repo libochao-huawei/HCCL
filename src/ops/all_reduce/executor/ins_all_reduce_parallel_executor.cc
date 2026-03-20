@@ -347,6 +347,7 @@ void InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
     tempAlgParams.tailSize = tempAlgParams.sliceSize;
     tempAlgParams.inputSliceStride = 0;
     tempAlgParams.outputSliceStride = 0;
+    tempAlgParams.enableRemoteMemAccess = param.opMode == OpMode::OPBASE; // TODO:
     return;
 }
 
@@ -375,6 +376,7 @@ void InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
     tempAlgParams.tailSize = tempAlgParams.sliceSize;
     tempAlgParams.inputSliceStride = 0;
     tempAlgParams.outputSliceStride = 0;
+    tempAlgParams.enableRemoteMemAccess = param.opMode == OpMode::OPBASE; // TODO:
     return;
 }
 
