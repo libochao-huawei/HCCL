@@ -664,9 +664,14 @@ HcclResult HcclGetChannelImpl(const u32 level, HcclComm comm, const OpParam &par
     levelNChannels.resize(channelNum);
     char inputBuffTag[MAX_MEM_TAG_LENGTH];
     char outputBuffTag[MAX_MEM_TAG_LENGTH];
+    std::vector<HcclMemHandle> memHandles;
     if (param.opMode == OpMode::OFFLOAD) {
         HCCL_INFO("[HcclGetChannelImpl] start to RegGraphModeBuffers");
-        CHK_RET(RegGraphModeBuffers(comm, param, channelRequest, inputBuffTag, outputBuffTag));
+        CHK_RET(RegGraphModeBuffers(comm, param, channelRequest, inputBuffTag, outputBuffTag, memHandles));
+        for (auto &channelDesc : channelRequest) {
+            channelDesc.memHandles = memHandles.data();
+            channelDesc.memHandleNum = memHandles.size();
+        }
     }
     if (channelNum > 0) {
         CHK_RET(HcclChannelAcquire(comm, commEngine, channelRequest.data(),
@@ -700,7 +705,7 @@ HcclResult HcclGetChannelImpl(const u32 level, HcclComm comm, const OpParam &par
 }
 
 
-HcclResult RegGraphModeBuffers(HcclComm comm, const OpParam &param, std::vector<HcclChannelDesc>& channelRequest, char* inputBuffTag, char* outputBuffTag) {
+HcclResult RegGraphModeBuffers(HcclComm comm, const OpParam &param, std::vector<HcclChannelDesc>& channelRequest, char* inputBuffTag, char* outputBuffTag, std::vector<HcclMemHandle>& memHandles) {
     HCCL_INFO("[RegGraphModeBuffers] param.algTag[%s]", param.algTag);
     if (channelRequest.empty()) {
         HCCL_INFO("[RegGraphModeBuffers]channelRequest is empty");
@@ -714,7 +719,6 @@ HcclResult RegGraphModeBuffers(HcclComm comm, const OpParam &param, std::vector<
         return HcclResult::HCCL_E_INTERNAL;
     }
 
-    std::vector<HcclMemHandle> memHandles;
     HCCL_INFO("[RegGraphModeBuffers] graph mode regstry remote buuffer");
     if (param.inputPtr != nullptr) {
         HcclMemHandle inputHandle = nullptr;
@@ -729,11 +733,6 @@ HcclResult RegGraphModeBuffers(HcclComm comm, const OpParam &param, std::vector<
         memHandles.emplace_back(outputHandle);
     }
     HCCL_INFO("[RegGraphModeBuffers]memHandles size[%d]", memHandles.size());
-    for (auto &channelDesc : channelRequest) {
-        channelDesc.memHandles = memHandles.data();
-        channelDesc.memHandleNum = memHandles.size();
-    }
-    
     return HCCL_SUCCESS;
 }
 
