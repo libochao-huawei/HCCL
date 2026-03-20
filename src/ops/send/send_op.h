@@ -39,12 +39,8 @@ namespace ops_hccl {
 
     HcclResult SendExec(
         void *sendBuf, uint64_t count, HcclDataType dataType, uint32_t destRank,
-        const HcclComm comm, const aclrtStream stream,
-        const u32 &rankSize, const std::string &tag);
-    HcclResult SendExecGraphMode(
-        void *sendBuf, uint64_t count, HcclDataType dataType, uint32_t destRank,
-        const HcclComm comm, const aclrtStream stream,
-        const u32 &rankSize, const std::string &tag, const ResPackGraphMode &resPack);
+        const HcclComm comm, const aclrtStream stream, const u32 &rankSize,
+        const OpMode opMode, const std::string &tag, const ResPackGraphMode &resPack = ResPackGraphMode());
 } // namespace ops_hccl
 
 // ifndef OPS_HCCL_SRC_OPS_SEND_OP
