@@ -53,7 +53,7 @@ HcclResult HcclGetChannel(HcclComm comm, const OpParam &param, AlgResourceReques
                           std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost);
 HcclResult HcclGetChannelImpl(const u32 level, HcclComm comm, const OpParam &param, std::vector<HcclChannelDesc>& channelRequest, 
                               const CommEngine commEngine, std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost);
-HcclResult RegGraphModeBuffers(HcclComm comm, const OpParam &param, std::vector<HcclChannelDesc>& channelRequest, char* inputBuffTag, char* outputBuffTag);
+HcclResult RegGraphModeBuffers(HcclComm comm, const OpParam &param, std::vector<HcclChannelDesc>& channelRequest, char* inputBuffTag, char* outputBuffTag, std::vector<HcclMemHandle>& memHandles);
 HcclResult GetGraphModeBuffers(HcclComm comm, ChannelHandle channelHandle, const char* inputBuffTag, const char* outputBuffTag, ChannelInfo& channel);
 HcclResult HcclGetCcuKernel(HcclComm comm, AlgResourceRequest &resRequest,
                           std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost);
@@ -91,8 +91,6 @@ void CompReqChannelWithExistChannel(const std::vector<std::vector<ChannelInfo>>&
 HcclResult HcclMemcpyCtxHostToDevice(HcclComm comm, const OpParam &param,
     std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, void **resCtxSequence, uint64_t& ctxSize);
 
-bool CheckHCCLIndependentOp();
-
 HcclResult SingleRankProc(const OpParam &param);
 
 HcclResult HcclCheckTag(const char *tag);
@@ -114,9 +112,16 @@ HcclResult AicpuKernelLaunch(OpParam &param);
 HcclResult HcclAivKernelEntranceLaunch(OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
     AlgResourceCtxSerializable &resCtxHost);
 
-HcclResult HcclGetOpExpansionMode(OpParam &param);
+HcclResult HcclGetOpExpansionMode(HcclComm comm, OpParam &param);
+
+HcclResult DecideHcclOpExpansionMode(HcclComm comm, HcclOpExpansionMode &finalMod);
+
+HcclResult ApplyOpExpansionMode(OpParam &param, HcclOpExpansionMode finalMode);
 
 bool HcclCheckAicpuEnableOpen();
+bool HcclCheckCcuEnableOpen();
+bool HcclCheckAivEnableOpen();
+bool ShouldUseInnerOp(OpExecuteConfig opExecuteConfig);
 
 HcclResult HcclRegstryBuff(HcclComm comm, const char *memTag, void *bufferPtr, uint64_t bufferSize, HcclMemHandle *memHandle);
 

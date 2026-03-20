@@ -26,9 +26,6 @@ HcclResult HcclAlltoAll(const void *sendBuf, uint64_t sendCount, HcclDataType se
 {
     HCCL_INFO("Start to run execute HcclAlltoAll");
 
-    if (!CheckHCCLIndependentOp()) {
-        return HcclAlltoAllInner(sendBuf, sendCount, sendType, recvBuf, recvCount, recvType, comm, stream);
-    }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
 
@@ -73,9 +70,13 @@ HcclResult HcclAlltoAll(const void *sendBuf, uint64_t sendCount, HcclDataType se
     }
 
     // 底层走AlltoAllV
+    bool useInnerOp = false;
     CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlace(sendBuf, sendCounts.data(), sdispls.data(),
         recvBuf, recvCounts.data(), rdispls.data(), recvType, comm, stream, tag,
-        HcclCMDType::HCCL_CMD_ALLTOALL, rankSize), tag.c_str());
+        HcclCMDType::HCCL_CMD_ALLTOALL, rankSize, useInnerOp), tag.c_str());
+    if (useInnerOp) {
+        return HcclAlltoAllInner(sendBuf, sendCount, sendType, recvBuf, recvCount, recvType, comm, stream);
+    }
     return HCCL_SUCCESS;
 }
 
@@ -84,9 +85,6 @@ HcclResult HcclAlltoAllV(const void *sendBuf, const void *sendCounts, const void
 {
     HCCL_INFO("Start to run execute HcclAlltoAllV");
 
-    if (!CheckHCCLIndependentOp()) {
-        return HcclAlltoAllVInner(sendBuf, sendCounts, sdispls, sendType, recvBuf, recvCounts, rdispls, recvType, comm, stream);
-    }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
 
@@ -125,9 +123,12 @@ HcclResult HcclAlltoAllV(const void *sendBuf, const void *sendCounts, const void
     CHK_RET(CheckDataType(recvType, false));
 
     // 底层走AlltoAllV
+    bool useInnerOp = false;
     CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlace(sendBuf, sendCounts, sdispls, recvBuf, recvCounts, rdispls, recvType, comm, stream,
-        tag, HcclCMDType::HCCL_CMD_ALLTOALLV, rankSize), tag.c_str());
-
+        tag, HcclCMDType::HCCL_CMD_ALLTOALLV, rankSize, useInnerOp), tag.c_str());
+    if (useInnerOp) {
+        return HcclAlltoAllVInner(sendBuf, sendCounts, sdispls, sendType, recvBuf, recvCounts, rdispls, recvType, comm, stream);
+    }
     return HCCL_SUCCESS;
 }
 
@@ -136,9 +137,6 @@ HcclResult HcclAlltoAllVC(const void *sendBuf, const void *sendCountMatrix, Hccl
 {
     HCCL_INFO("Start to run execute HcclAlltoAllVC");
 
-    if (!CheckHCCLIndependentOp()) {
-        return HcclAlltoAllVCInner(sendBuf, sendCountMatrix, sendType, recvBuf, recvType, comm, stream);
-    }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
     #ifdef MACRO_DEV_TYPE_NEW
@@ -206,9 +204,218 @@ HcclResult HcclAlltoAllVC(const void *sendBuf, const void *sendCountMatrix, Hccl
     CHK_RET(CheckDataType(recvType, false));
 
     // 底层走AlltoAllV
+    bool useInnerOp = false;
     CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlace(sendBuf, sendCounts.data(), sdispls.data(),
         recvBuf, recvCounts.data(), rdispls.data(), recvType, comm, stream, tag,
-        HcclCMDType::HCCL_CMD_ALLTOALLVC, rankSize), tag.c_str());
+        HcclCMDType::HCCL_CMD_ALLTOALLVC, rankSize, useInnerOp), tag.c_str());
+    if (useInnerOp) {
+        return HcclAlltoAllVCInner(sendBuf, sendCountMatrix, sendType, recvBuf, recvType, comm, stream);
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclAlltoAllGraphMode(const void *sendBuf, uint64_t sendCount, HcclDataType sendType, const void *recvBuf,
+    uint64_t recvCount, HcclDataType recvType, const char* group, aclrtStream stream, const char* tag,
+    void** streams, size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize)
+{
+    HCCL_INFO("Start to run execute HcclAlltoAllGraphMode");
+    // 根据group获取通信域
+    HcclComm comm = nullptr;
+    HCCL_INFO("[HcclAlltoAllGraphMode] get group name: %s", group);
+    HcomGetCommHandleByGroup(group, &comm);
+    // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
+    CHK_RET(InitEnvConfig());
+
+    // 参数校验等工作
+    CHK_RET(CheckAlltoAllInputPara(comm, sendBuf, sendCount, sendType, recvBuf, recvCount, recvType));
+    u32 rankSize = INVALID_VALUE_RANKSIZE;
+    CHK_RET(HcclGetRankSize(comm, &rankSize));
+    u32 userRank = INVALID_VALUE_RANKID;
+    CHK_RET(HcclGetRankId(comm, &userRank));
+    char commName[COMM_INDENTIFIER_MAX_LENGTH];
+    CHK_RET(HcclGetCommName(comm, commName));
+    const string opTag = "AlltoAll_" + string(commName);
+    CHK_RET(HcclCheckTag(opTag.c_str()));
+    CHK_RET(HcclCheckTag(tag));
+    CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), opTag.c_str());
+    CHK_RET(CheckCount(recvCount));
+    CHK_RET(CheckDataType(recvType, false));
+
+    // 构造四个矩阵，适配alltoallV的逻辑
+    u64 dataCountPerRank = recvCount;
+    u64 dataCountOffset = 0;
+    vector<u64> sendCounts(rankSize, dataCountPerRank);
+    vector<u64> recvCounts(rankSize, dataCountPerRank);
+    vector<u64> sdispls(rankSize, dataCountOffset);
+    vector<u64> rdispls(rankSize, dataCountOffset);
+    for (u64 i = 0; i < rankSize; i++) {
+        sdispls[i] = dataCountOffset;
+        rdispls[i] = dataCountOffset;
+        dataCountOffset += dataCountPerRank;
+    }
+
+    // 拼装ResPackGraphMode
+    ResPackGraphMode resPack;
+    // 设置tag
+    strncpy_s(resPack.tag, sizeof(resPack.tag), tag, sizeof(resPack.tag) - 1);
+    // 设置streams
+    if (streams != nullptr && streamCount > 0) {
+        for (size_t i = 0; i < streamCount; i++) {
+            resPack.streams.push_back(static_cast<aclrtStream>(streams[i]));
+        }
+    }
+    // 设置scratchMem
+    resPack.scratchMemAddr = scratchMemAddr;
+    resPack.scratchMemSize = scratchMemSize;
+
+    // 执行AlltoAllV
+    CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlaceGraphMode(sendBuf, sendCounts.data(), sdispls.data(),
+        recvBuf, recvCounts.data(), rdispls.data(), recvType, comm, stream, tag, resPack,
+        HcclCMDType::HCCL_CMD_ALLTOALL, rankSize), opTag);
+
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclAlltoAllVGraphMode(const void *sendBuf, const void *sendCounts, const void *sdispls, HcclDataType sendType,
+    const void *recvBuf, const void *recvCounts, const void *rdispls, HcclDataType recvType, const char* group, aclrtStream stream, const char* tag,
+    void** streams, size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize)
+{
+    HCCL_INFO("Start to run execute HcclAlltoAllVGraphMode");
+    // 根据group获取通信域
+    HcclComm comm = nullptr;
+    HCCL_INFO("[HcclAlltoAllVGraphMode] get group name: %s", group);
+    HcomGetCommHandleByGroup(group, &comm);
+    // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
+    CHK_RET(InitEnvConfig());
+
+    // 参数校验等工作
+    CHK_RET(CheckAlltoAllVInputPara(comm, sendBuf, sendCounts, sdispls, sendType, recvBuf, recvCounts, rdispls, recvType));
+    u32 rankSize = INVALID_VALUE_RANKSIZE;
+    CHK_RET(HcclGetRankSize(comm, &rankSize));
+    u32 userRank = INVALID_VALUE_RANKID;
+    CHK_RET(HcclGetRankId(comm, &userRank));
+    char commName[COMM_INDENTIFIER_MAX_LENGTH];
+    CHK_RET(HcclGetCommName(comm, commName));
+
+    const string opTag = "AlltoAllV_" + string(commName);
+    CHK_RET(HcclCheckTag(opTag.c_str()));
+    CHK_RET(HcclCheckTag(tag));
+
+    u64 maxSendRecvCount = 0;
+    for (u64 i = 0; i < rankSize; i++) {
+        maxSendRecvCount = max(maxSendRecvCount, static_cast<const u64 *>(sendCounts)[i]);
+        maxSendRecvCount = max(maxSendRecvCount, static_cast<const u64 *>(recvCounts)[i]);
+    }
+
+    CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), opTag.c_str());
+    CHK_RET(CheckCount(maxSendRecvCount));
+    CHK_RET(CheckDataType(recvType, false));
+
+    // 拼装ResPackGraphMode
+    ResPackGraphMode resPack;
+    // 设置tag
+    strncpy_s(resPack.tag, sizeof(resPack.tag), tag, sizeof(resPack.tag) - 1);
+    // 设置streams
+    if (streams != nullptr && streamCount > 0) {
+        for (size_t i = 0; i < streamCount; i++) {
+            resPack.streams.push_back(static_cast<aclrtStream>(streams[i]));
+        }
+    }
+    // 设置scratchMem
+    resPack.scratchMemAddr = scratchMemAddr;
+    resPack.scratchMemSize = scratchMemSize;
+
+    // 执行AlltoAllV
+    CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlaceGraphMode(sendBuf, sendCounts, sdispls,
+        recvBuf, recvCounts, rdispls, recvType, comm, stream, tag, resPack,
+        HcclCMDType::HCCL_CMD_ALLTOALLV, rankSize), opTag);
+
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclAlltoAllVCGraphMode(const void *sendBuf, const void *sendCountMatrix, HcclDataType sendType,
+    const void *recvBuf, HcclDataType recvType, const char* group, aclrtStream stream, const char* tag,
+    void** streams, size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize)
+{
+    HCCL_INFO("Start to run execute HcclAlltoAllVCGraphMode");
+    // 根据group获取通信域
+    HcclComm comm = nullptr;
+    HCCL_INFO("[HcclAlltoAllVCGraphMode] get group name: %s", group);
+    HcomGetCommHandleByGroup(group, &comm);
+    // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
+    CHK_RET(InitEnvConfig());
+
+    // 参数校验等工作
+    CHK_RET(CheckAlltoAllVCInputPara(comm, sendBuf, sendCountMatrix, sendType, recvBuf, recvType));
+    u32 rankSize = INVALID_VALUE_RANKSIZE;
+    CHK_RET(HcclGetRankSize(comm, &rankSize));
+    u32 userRank = INVALID_VALUE_RANKID;
+    CHK_RET(HcclGetRankId(comm, &userRank));
+    char commName[COMM_INDENTIFIER_MAX_LENGTH];
+    CHK_RET(HcclGetCommName(comm, commName));
+
+    const string opTag = "AlltoAllVC_" + string(commName);
+    CHK_RET(HcclCheckTag(opTag.c_str()));
+    CHK_RET(HcclCheckTag(tag));
+
+    // 取出sendCountMatrix的数据
+    std::vector<std::vector<u64>> outputMatrix;
+    const u64* data = static_cast<const u64*>(sendCountMatrix);
+    outputMatrix.resize(rankSize);
+    for (u64 i = 0; i < rankSize; ++i) {
+        // 计算当前行的起始指针位置（行优先顺序）
+        const u64* rowStart = data + i * rankSize;
+        // 直接通过指针初始化当前行的vector
+        outputMatrix[i].assign(rowStart, rowStart + rankSize);
+    }
+
+    // 构造四个矩阵，适配alltoallV的逻辑
+    std::vector<u64> sendCounts(rankSize, 0);
+    std::vector<u64> recvCounts(rankSize, 0);
+    std::vector<u64> sdispls(rankSize, 0);
+    std::vector<u64> rdispls(rankSize, 0);
+
+    u64 dataCountOffset = 0;
+    for (u64 i = 0; i < rankSize; i++) {
+        sendCounts[i] = outputMatrix[userRank][i];
+        sdispls[i] = dataCountOffset;
+        dataCountOffset += sendCounts[i];
+    }
+
+    dataCountOffset = 0;
+    for (u64 i = 0; i < rankSize; i++) {
+        recvCounts[i] = outputMatrix[i][userRank];
+        rdispls[i] = dataCountOffset;
+        dataCountOffset += recvCounts[i];
+    }
+
+    u64 maxSendRecvCount = 0;
+    for (u64 i = 0; i < rankSize * rankSize; i++) {
+        maxSendRecvCount = max(maxSendRecvCount, data[i]);
+    }
+
+    CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), opTag.c_str());
+    CHK_RET(CheckCount(maxSendRecvCount));
+    CHK_RET(CheckDataType(recvType, false));
+
+    // 拼装ResPackGraphMode
+    ResPackGraphMode resPack;
+    // 设置tag
+    strncpy_s(resPack.tag, sizeof(resPack.tag), tag, sizeof(resPack.tag) - 1);
+    // 设置streams
+    if (streams != nullptr && streamCount > 0) {
+        for (size_t i = 0; i < streamCount; i++) {
+            resPack.streams.push_back(static_cast<aclrtStream>(streams[i]));
+        }
+    }
+    // 设置scratchMem
+    resPack.scratchMemAddr = scratchMemAddr;
+    resPack.scratchMemSize = scratchMemSize;
+
+    // 执行AlltoAllV
+    CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlaceGraphMode(sendBuf, sendCounts.data(), sdispls.data(),
+        recvBuf, recvCounts.data(), rdispls.data(), recvType, comm, stream, tag, resPack,
+        HcclCMDType::HCCL_CMD_ALLTOALLVC, rankSize), opTag);
 
     return HCCL_SUCCESS;
 }
@@ -582,52 +789,9 @@ HcclResult AlltoAllVConstructOpParam(const void *sendBuf, const void *sendCounts
     return HCCL_SUCCESS;
 }
 
-// alltoall/alltoallv/alltoallvc 统一，当前只支持outPlace
-HcclResult AlltoAllVOutPlace(const void *sendBuf, const void *sendCounts, const void *sdispls, const void *recvBuf,
+HcclResult AlltoAllVOutPlaceCommon(const void *sendBuf, const void *sendCounts, const void *sdispls, const void *recvBuf,
     const void *recvCounts, const void *rdispls, HcclDataType dataType, HcclComm comm, aclrtStream stream,
-    const std::string &tag, HcclCMDType opType, u32 rankSize)
-{
-    HCCL_INFO("Start to execute AlltoAllVOutPlace");
-
-    u32 userRankSize;
-    CHK_RET(HcclGetRankSize(comm, &userRankSize));
-
-    u64 varMemSize = ALL_TO_ALL_V_VECTOR_NUM * userRankSize * sizeof(u64);
-    void *paramMem = malloc(sizeof(OpParam) + varMemSize);
-    if (!paramMem) {
-        // 内存分配失败
-        HCCL_ERROR("[AlltoAllVOutPlace] malloc OpParam failed!");
-        return HCCL_E_INTERNAL;
-    }
-    OpParam* tmpParamPtr = new (paramMem) OpParam();
-    auto deleter = [](OpParam* p) {
-        if (p) {
-            p->~OpParam();
-            free(p);
-        }
-    };
-    std::unique_ptr<OpParam, decltype(deleter)> paramPtr(tmpParamPtr, deleter);
-    OpParam &param = *paramPtr;
-
-    CHK_RET(AlltoAllVConstructOpParam(sendBuf, sendCounts, sdispls, recvBuf, recvCounts, rdispls, dataType,
-        comm, stream, tag, opType, rankSize, OpMode::OPBASE, varMemSize, param));
-
-    if (userRankSize == 1) {
-        HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
-        CHK_RET(SingleRankProc(param));
-        return HcclResult::HCCL_SUCCESS;
-    }
-    std::string algName;
-    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
-    CHK_RET(Selector(comm, param, topoInfo, algName));
-    CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
-    HCCL_INFO("Execute AlltoAllVOutPlace success.");
-    return HCCL_SUCCESS;
-}
-
-HcclResult AlltoAllVOutPlaceGraphMode(const void *sendBuf, const void *sendCounts, const void *sdispls, const void *recvBuf,
-    const void *recvCounts, const void *rdispls, HcclDataType dataType, HcclComm comm, aclrtStream stream,
-    const std::string &tag, const ResPackGraphMode &resPack, HcclCMDType opType, u32 rankSize)
+    const std::string &tag, HcclCMDType opType, u32 rankSize, bool &useInnerOp, OpMode opMode, const ResPackGraphMode &resPack)
 {
     HCCL_INFO("Start to execute AlltoAllVOutPlaceGraphMode");
     u32 userRankSize;
@@ -651,18 +815,45 @@ HcclResult AlltoAllVOutPlaceGraphMode(const void *sendBuf, const void *sendCount
     OpParam &param = *paramPtr;
 
     CHK_RET(AlltoAllVConstructOpParam(sendBuf, sendCounts, sdispls, recvBuf, recvCounts, rdispls, dataType,
-        comm, stream, tag, opType, rankSize, OpMode::OFFLOAD, varMemSize, param));
+        comm, stream, tag, opType, rankSize, opMode, varMemSize, param));
 
+    std::string algName;
+    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
+    CHK_RET(Selector(comm, param, topoInfo, algName));
+    if (ShouldUseInnerOp(param.opExecuteConfig)) {
+        useInnerOp = true;
+        return HCCL_SUCCESS;
+    }
     if (userRankSize == 1) {
         HCCL_WARNING("[%s] rankSize == 1, enter SingleRankProc", __func__);
         CHK_RET(SingleRankProc(param));
         return HcclResult::HCCL_SUCCESS;
     }
-    std::string algName;
-    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
-    CHK_RET(Selector(comm, param, topoInfo, algName));
-    CHK_RET(HcclExecOpGraphMode(comm, param, topoInfo, algName, resPack));
+
+    CHK_RET(HcclExecOp(comm, param, topoInfo, algName, resPack));
     HCCL_INFO("Execute AlltoAllVOutPlaceGraphMode success.");
+    return HCCL_SUCCESS;
+}
+
+HcclResult AlltoAllVOutPlaceGraphMode(const void *sendBuf, const void *sendCounts, const void *sdispls, const void *recvBuf,
+    const void *recvCounts, const void *rdispls, HcclDataType dataType, HcclComm comm, aclrtStream stream,
+    const std::string &tag, HcclCMDType opType, u32 rankSize, bool &useInnerOp, const ResPackGraphMode &resPack)
+{
+    HCCL_INFO("Start to execute AlltoAllVOutPlaceGraphMode");
+    CHK_RET(AlltoAllVOutPlaceCommon(sendBuf, sendCounts, sdispls, recvBuf, recvCounts, rdispls, dataType, comm, stream,
+        tag, opType, rankSize, useInnerOp, OpMode::OFFLOAD, resPack));
+    HCCL_INFO("Execute AlltoAllVOutPlaceGraphMode success.");
+    return HCCL_SUCCESS;
+}
+
+HcclResult AlltoAllVOutPlace(const void *sendBuf, const void *sendCounts, const void *sdispls, const void *recvBuf,
+    const void *recvCounts, const void *rdispls, HcclDataType dataType, HcclComm comm, aclrtStream stream,
+    const std::string &tag, HcclCMDType opType, u32 rankSize, bool &useInnerOp)
+{
+    HCCL_INFO("Start to execute AlltoAllVOutPlace");
+    CHK_RET(AlltoAllVOutPlaceCommon(endBuf, sendCounts, sdispls, recvBuf, recvCounts, rdispls, dataType, comm, stream,
+        tag, opType, rankSize, useInnerOp, OpMode::OPBASE, ResPackGraphMode()));
+    HCCL_INFO("Execute AlltoAllVOutPlace success.");
     return HCCL_SUCCESS;
 }
 
