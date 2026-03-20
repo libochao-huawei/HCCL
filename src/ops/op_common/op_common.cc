@@ -1228,7 +1228,12 @@ bool ShouldUseInnerOp(OpExecuteConfig opExecuteConfig)
     bool isCcuMode = (opExecuteConfig == OpExecuteConfig::CCU_MS || 
                       opExecuteConfig == OpExecuteConfig::CCU_SCHED);
     bool isAivMode = (opExecuteConfig == OpExecuteConfig::AIV);
+    
+    bool isHostDpuMode = (opExecuteConfig == OpExecuteConfig::HOSTCPU);
 
+    if (isHostDpuMode) {
+        return false;
+    }
     if (isAicpuOrHostMode) {
         return !HcclCheckAicpuEnableOpen();
     } else if (isCcuMode) {
