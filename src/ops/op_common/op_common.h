@@ -89,8 +89,6 @@ void CompReqChannelWithExistChannel(const std::vector<std::vector<ChannelInfo>>&
 HcclResult HcclMemcpyCtxHostToDevice(HcclComm comm, const OpParam &param,
     std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, void **resCtxSequence, uint64_t& ctxSize);
 
-bool CheckHCCLIndependentOp();
-
 HcclResult SingleRankProc(const OpParam &param);
 
 HcclResult HcclCheckTag(const char *tag);
@@ -112,7 +110,17 @@ HcclResult AicpuKernelLaunch(HcclComm comm, OpParam &param, ThreadHandle unfoldT
 HcclResult HcclAivKernelEntranceLaunch(OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
     AlgResourceCtxSerializable &resCtxHost);
 
-HcclResult HcclGetOpExpansionMode(OpParam &param);
+HcclResult HcclGetOpExpansionMode(HcclComm comm, OpParam &param);
+
+HcclResult DecideHcclOpExpansionMode(HcclComm comm, HcclOpExpansionMode &finalMod);
+
+HcclResult ApplyOpExpansionMode(OpParam &param, HcclOpExpansionMode finalMode);
+
+HcclResult CaptureSlaveStreams(HcclComm comm, aclrtStream mainStream, const std::vector<ThreadHandle>& threads);
+
+HcclResult SaveUnfoldThreadInfo(HcclComm comm, const OpParam &param, ThreadHandle unfoldThread);
+
+HcclResult GetUnfoldThreadInfo(HcclComm comm, const OpParam &param, ThreadHandle& unfoldThread);
 
 HcclResult CaptureSlaveStreams(HcclComm comm, aclrtStream mainStream, const std::vector<ThreadHandle>& threads);
 
@@ -121,6 +129,9 @@ HcclResult SaveUnfoldThreadInfo(HcclComm comm, const OpParam &param, ThreadHandl
 HcclResult GetUnfoldThreadInfo(HcclComm comm, const OpParam &param, ThreadHandle& unfoldThread);
 
 bool HcclCheckAicpuEnableOpen();
+bool HcclCheckCcuEnableOpen();
+bool HcclCheckAivEnableOpen();
+bool ShouldUseInnerOp(OpExecuteConfig opExecuteConfig);
 
 }  // namespace ops_hccl
 
