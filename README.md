@@ -31,23 +31,23 @@ HCCL包含HCCL集合通信库与HCOMM（Huawei Communication）通信基础库�
 │── src                         # HCCL算子源码目录
 |    ├── common                 # 通用逻辑，包括类型定义、日志模块等
 |    └── ops                    # HCCL算子实现
-|        ├── all_gather         # All_gather算子实现
-|        ├── all_gather_v       # All_gather_v算子实现
-|        ├── all_reduce         # All_reduce算子实现
-|        ├── all_to_all_v       # All_to_all_v算子实现
-|        ├── batch_send_recv    # Batch_send_recv算子实现
+|        ├── all_gather         # AllGather算子实现
+|        ├── all_gather_v       # AllGatherV算子实现
+|        ├── all_reduce         # AllReduce算子实现
+|        ├── all_to_all_v       # AlltoAll、AlltoAllV、AlltoAllVC算子实现
+|        ├── batch_send_recv    # BatchSendRecv算子实现
 |        ├── broadcast          # Broadcast算子实现
 |        ├── op_common          # 算子通用组件
 |        │   ├── executor       # 执行器
 |        │   ├── selector       # 算法选择器
-|        │   ├── template       # 模板代码
+|        │   ├── template       # 算法模板
 |        │   └── topo           # 通信域拓扑信息获取和转换
-|        ├── recv               # recv算子实现
-|        ├── reduce             # reduce算子实现
-|        ├── reduce_scatter     # reduce_scatter算子实现
-|        ├── reduce_scatter_v   # reduce_scatter_v算子实现
-|        ├── scatter            # scatter算子实现
-|        └── send               # send算子实现
+|        ├── recv               # Recv算子实现
+|        ├── reduce             # Reduce算子实现
+|        ├── reduce_scatter     # ReduceScatter算子实现
+|        ├── reduce_scatter_v   # ReduceScatterV算子实现
+|        ├── scatter            # Scatter算子实现
+|        └── send               # Send算子实现
 ├── include                     # HCCL对外头文件
 ├── test                        # 测试代码目录
 |   ├── ut                      # 单元测试代码目录
