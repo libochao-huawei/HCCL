@@ -52,11 +52,7 @@ SelectorStatus AutoSelectorBase::Select(OpParam &opParam, TopoInfoWithNetLayerDe
     if (IsStarsState(opParam.opExecuteConfig)) {
         ret = SelectAicpuAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
         if (ret == SelectorStatus::MATCH) {
-            if (opParam.opMode == OpMode::OPBASE) {
-                opParam.opExecuteConfig = OpExecuteConfig::AICPU_TS;
-            } else {
-                opParam.opExecuteConfig = OpExecuteConfig::HOSTCPU_TS;
-            }
+            opParam.opExecuteConfig = OpExecuteConfig::AICPU_TS;
         }
     }
     HCCL_INFO("[Algo][AutoSelectorBase] The selected algo is %s, OpExecuteConfig is %d.",
