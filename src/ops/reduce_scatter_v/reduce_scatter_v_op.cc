@@ -191,6 +191,10 @@ HcclResult PrepareReduceScatterVParam(void *sendBuf, const void *sendDispls, con
     param.outputSize = outputSize;
     param.vDataDes.dataType = dataType;
 
+    HCCL_INFO("PrepareReduceScatterVParam: sendBuf:[%u]", sendBuf);
+    HCCL_INFO("PrepareReduceScatterVParam: recvBuf:[%u]", recvBuf);
+    HCCL_INFO("PrepareReduceScatterVParam: recvCount:[%u]", recvCount);
+
     // 参数准备
     std::vector<u64> countsAndDispls(userRankSize*2);
     const u64* sendDisplsAddr = reinterpret_cast<const u64*>(sendDispls);
