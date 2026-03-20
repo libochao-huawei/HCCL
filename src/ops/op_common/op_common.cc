@@ -39,6 +39,7 @@
 #include "aiv_kernel_def.h"
 #include "dpu/kernel_launch.h"
 #include "rt.h"
+#include "dlhcomm_function.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -321,8 +322,8 @@ HcclResult AicpuKernelLaunch(HcclComm comm, OpParam &param, ThreadHandle unfoldT
     constexpr u32 numBlocks = 1;
     // 通过Thread获取展开流stream
     HCCL_INFO("[AicpuKernelLaunch] unfoldThread [%lu]", unfoldThread);
-    ThreadResTypeStream unfoldStream;
-    CHK_RET(HcclThreadResGetInfo(comm, unfoldThread, ThreadResType::THREAD_RES_TYPE_STREAM, sizeof(ThreadResTypeStream), &unfoldStream));
+    u32 unfoldStream;
+    CHK_RET(HcclThreadResGetInfo(comm, unfoldThread, 0, sizeof(u32), &unfoldStream));
     aclError aclRet = aclrtLaunchKernelWithConfig(funcHandle, numBlocks, unfoldStream, &cfg, argsHandle, nullptr); // 提前展开，传入展开流
     CHK_PRT_RET(aclRet != ACL_SUCCESS,
         HCCL_ERROR("[LoadCustomKernel][aclrtLaunchKernelWithConfig]errNo[0x%016llx] launch kernel failed", aclRet),
@@ -367,8 +368,8 @@ HcclResult CaptureSlaveStreams(HcclComm comm, aclrtStream mainStream, const std:
     }
     //thread[0] is main thread
     for (size_t i = 1; i < threads.size(); ++i) {
-        ThreadResTypeStream stream;
-        CHK_RET(HcclThreadResGetInfo(comm, threads[i], ThreadResType::THREAD_RES_TYPE_STREAM, sizeof(ThreadResTypeStream), &stream));
+        u32 stream;
+        CHK_RET(HcclThreadResGetInfo(comm, threads[i], 0, sizeof(u32), &stream));
         rtError_t addRet = rtStreamAddToModel(stream, rtModel);
         CHK_PRT_RET(addRet != RT_ERROR_NONE, HCCL_ERROR("[%s]rtStreamAddToModel fail. return[%d].", __func__, addRet),
             HCCL_E_RUNTIME);
