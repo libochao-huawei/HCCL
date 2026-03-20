@@ -74,7 +74,7 @@ function(generate_stub STUB)
     endif() 
 endfunction(generate_stub) 
 
-if (BUILD_AARCH)
+if(AARCH_MODE)
     set(STUBS
         hcomm 
         ccl_kernel
