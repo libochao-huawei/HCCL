@@ -24,9 +24,6 @@ HcclResult HcclRecv(
     void *recvBuf, uint64_t count, HcclDataType dataType, uint32_t srcRank, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("[HcclRecv] Start.");
-    if (!HcclCheckAicpuEnableOpen()) {
-        return HcclRecvInner(recvBuf, count, dataType, srcRank, comm, stream);
-    }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
     #ifdef MACRO_DEV_TYPE_NEW
@@ -48,7 +45,7 @@ HcclResult HcclRecv(
     CHK_PRT_RET(count == 0, HCCL_WARNING("[HcclRecv] input count is 0, return recv success"), HcclResult::HCCL_SUCCESS);
     CHK_RET(GetAndCheckRecvPara(comm, recvBuf, count, dataType, srcRank, rankSize, userRank, tag));
 
-    CHK_RET_AND_PRINT_IDE(RecvExec(recvBuf, count, dataType, srcRank, comm, stream, rankSize, tag), tag.c_str());
+    CHK_RET_AND_PRINT_IDE(RecvExec(recvBuf, count, dataType, srcRank, comm, stream, rankSize, OpMode::OPBASE, tag), tag.c_str());
 
     HCCL_INFO("[HcclRecv][%d]<-[%d] Success.", userRank, srcRank);
     return HcclResult::HCCL_SUCCESS;
@@ -88,7 +85,7 @@ HcclResult HcclRecvGraphMode(
     resPack.scratchMemSize = scratchMemSize;
 
     // 执行Recv
-    CHK_RET_AND_PRINT_IDE(RecvExecGraphMode(recvBuf, count, dataType, srcRank, comm, stream, rankSize, tag, resPack), opTag.c_str());
+    CHK_RET_AND_PRINT_IDE(RecvExec(recvBuf, count, dataType, srcRank, comm, stream, rankSize, OpMode::OFFLOAD, tag, resPack), opTag.c_str());
 
     HCCL_INFO("[HcclRecvGraphMode][%d]<-[%d] Success.", userRank, srcRank);
     return HcclResult::HCCL_SUCCESS;
@@ -150,7 +147,7 @@ namespace ops_hccl {
 
         param.stream = stream;
         param.inputPtr = nullptr;
-        param.inputSize = dataSize;
+        param.inputSize = 0;
         param.sendRecvRemoteRank = srcRank;
         param.outputPtr = recvBuf;
         param.outputSize = dataSize;
@@ -162,55 +159,31 @@ namespace ops_hccl {
 
     HcclResult RecvExec(
         void *recvBuf, uint64_t count, HcclDataType dataType, uint32_t srcRank,
-        const HcclComm comm, const aclrtStream stream,
-        const u32 &rankSize, const std::string &tag)
+        const HcclComm comm, const aclrtStream stream, const u32 &rankSize,
+        const OpMode &opMode, const std::string &tag, const ResPackGraphMode &resPack)
     {
-        HCCL_DEBUG("[RecvExec][%s] Start.", tag);
-        
+        HCCL_DEBUG("[RecvExec][%s][%s] Start.", tag.c_str(), opMode == OpMode::OPBASE ? "OPBASE" : "OFFLOAD");
+
         // 参数构建
         OpParam param;
         CHK_RET(GenerateRecvOpParam(param, recvBuf, count, dataType, srcRank, comm, stream, tag));
-        param.opMode = OpMode::OPBASE;
-
-        if (rankSize == 1) {
-            HCCL_WARNING("[RecvExec][%s] ranksize == 1, enter SingleRankProc", tag.c_str());
-            CHK_RET(SingleRankProc(param));
-            return HcclResult::HCCL_SUCCESS;
-        }
+        param.opMode = opMode;
 
         std::string algName;
         std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
         CHK_RET(Selector(comm, param, topoInfo, algName));
+
         if (ShouldUseInnerOp(param.opExecuteConfig)) {
             return HcclRecvInner(recvBuf, count, dataType, srcRank, comm, stream);
         }
-        CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
-
-        return HcclResult::HCCL_SUCCESS;
-    }
-
-    HcclResult RecvExecGraphMode(
-        void *recvBuf, uint64_t count, HcclDataType dataType, uint32_t srcRank,
-        const HcclComm comm, const aclrtStream stream,
-        const u32 &rankSize, const std::string &tag, const ResPackGraphMode &resPack)
-    {
-        HCCL_DEBUG("[RecvExecGraphMode][%s] Start.", tag.c_str());
-
-        // 参数构建
-        OpParam param;
-        CHK_RET(GenerateRecvOpParam(param, recvBuf, count, dataType, srcRank, comm, stream, tag));
-        param.opMode = OpMode::OFFLOAD;
-
         if (rankSize == 1) {
-            HCCL_WARNING("[RecvExecGraphMode][%s] ranksize == 1, enter SingleRankProc", tag.c_str());
+            HCCL_WARNING("[RecvExec][%s][%s] ranksize == 1, enter SingleRankProc", tag.c_str(),
+                opMode == OpMode::OPBASE ? "OPBASE" : "OFFLOAD");
             CHK_RET(SingleRankProc(param));
             return HcclResult::HCCL_SUCCESS;
         }
 
-        std::string algName;
-        std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
-        CHK_RET(Selector(comm, param, topoInfo, algName));
-        CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
+        CHK_RET(HcclExecOp(comm, param, topoInfo, algName, resPack));
 
         return HcclResult::HCCL_SUCCESS;
     }

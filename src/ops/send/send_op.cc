@@ -10,7 +10,6 @@
 
 #include "send_op.h"
 #include "op_common_ops.h"
-#include "op_common_graph_mode.h"
 #include <algorithm>
 #include <future>
 #include <map>
@@ -25,9 +24,6 @@ HcclResult HcclSend(
     void *sendBuf, uint64_t count, HcclDataType dataType, uint32_t destRank, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("[HcclSend] Start.");
-    if (!HcclCheckAicpuEnableOpen()) {
-        return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
-    }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
     #ifdef MACRO_DEV_TYPE_NEW
@@ -49,7 +45,7 @@ HcclResult HcclSend(
     CHK_PRT_RET(count == 0, HCCL_WARNING("[HcclSend] input count is 0, return send success"), HcclResult::HCCL_SUCCESS);
     CHK_RET(GetAndCheckSendPara(comm, sendBuf, count, dataType, destRank, rankSize, userRank, tag));
 
-    CHK_RET_AND_PRINT_IDE(SendExec(sendBuf, count, dataType, destRank, comm, stream, rankSize, tag), tag.c_str());
+    CHK_RET_AND_PRINT_IDE(SendExec(sendBuf, count, dataType, destRank, comm, stream, rankSize, OpMode::OPBASE, tag), tag.c_str());
 
     HCCL_INFO("[HcclSend][%d]->[%d] Success.", userRank, destRank);
     return HcclResult::HCCL_SUCCESS;
@@ -89,7 +85,7 @@ HcclResult HcclSendGraphMode(
     resPack.scratchMemSize = scratchMemSize;
 
     // 执行Send
-    CHK_RET_AND_PRINT_IDE(SendExecGraphMode(sendBuf, count, dataType, destRank, comm, stream, rankSize, tag, resPack), opTag.c_str());
+    CHK_RET_AND_PRINT_IDE(SendExec(sendBuf, count, dataType, destRank, comm, stream, rankSize, OpMode::OFFLOAD, tag, resPack), opTag.c_str());
 
     HCCL_INFO("[HcclSendGraphMode][%d]->[%d] Success.", userRank, destRank);
     return HcclResult::HCCL_SUCCESS;
@@ -154,7 +150,7 @@ namespace ops_hccl {
         param.inputSize = dataSize;
         param.sendRecvRemoteRank = destRank;
         param.outputPtr = nullptr;
-        param.outputSize = dataSize;
+        param.outputSize = 0;
         param.DataDes.count = count;
         param.DataDes.dataType = dataType;
 
@@ -163,55 +159,31 @@ namespace ops_hccl {
 
     HcclResult SendExec(
         void *sendBuf, uint64_t count, HcclDataType dataType, uint32_t destRank,
-        const HcclComm comm, const aclrtStream stream,
-        const u32 &rankSize, const std::string &tag)
+        const HcclComm comm, const aclrtStream stream, const u32 &rankSize,
+        const OpMode &opMode, const std::string &tag, const ResPackGraphMode &resPack)
     {
-        HCCL_DEBUG("[SendExec][%s] Start.", tag.c_str());
+        HCCL_DEBUG("[SendExec][%s][%s] Start.", tag.c_str(), opMode == OpMode::OPBASE ? "OPBASE" : "OFFLOAD");
 
         // 参数构建
         OpParam param;
         CHK_RET(GenerateSendOpParam(param, sendBuf, count, dataType, destRank, comm, stream, tag));
-        param.opMode = OpMode::OPBASE;
-
-        if (rankSize == 1) {
-            HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
-            CHK_RET(SingleRankProc(param));
-            return HcclResult::HCCL_SUCCESS;
-        }
+        param.opMode = opMode;
 
         std::string algName;
         std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
         CHK_RET(Selector(comm, param, topoInfo, algName));
-        if (param.opExecuteConfig != OpExecuteConfig::AICPU_TS && param.opExecuteConfig != OpExecuteConfig::HOSTCPU) {
+
+        if (ShouldUseInnerOp(param.opExecuteConfig)) {
             return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
         }
-        CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
-
-        return HcclResult::HCCL_SUCCESS;
-    }
-
-    HcclResult SendExecGraphMode(
-        void *sendBuf, uint64_t count, HcclDataType dataType, uint32_t destRank,
-        const HcclComm comm, const aclrtStream stream,
-        const u32 &rankSize, const std::string &tag, const ResPackGraphMode &resPack)
-    {
-        HCCL_DEBUG("[SendExecGraphMode][%s] Start.", tag.c_str());
-
-        // 参数构建
-        OpParam param;
-        CHK_RET(GenerateSendOpParam(param, sendBuf, count, dataType, destRank, comm, stream, tag));
-        param.opMode = OpMode::OFFLOAD;
-
         if (rankSize == 1) {
-            HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
+            HCCL_WARNING("[SendExec][%s][%s] ranksize == 1, enter SingleRankProc", tag.c_str(),
+                opMode == OpMode::OPBASE ? "OPBASE" : "OFFLOAD");
             CHK_RET(SingleRankProc(param));
             return HcclResult::HCCL_SUCCESS;
         }
 
-        std::string algName;
-        std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
-        CHK_RET(Selector(comm, param, topoInfo, algName));
-        CHK_RET(HcclExecOpGraphMode(comm, param, topoInfo, algName, resPack));
+        CHK_RET(HcclExecOp(comm, param, topoInfo, algName, resPack));
 
         return HcclResult::HCCL_SUCCESS;
     }
