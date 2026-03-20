@@ -39,6 +39,7 @@
 #include "aiv_kernel_def.h"
 #include "dpu/kernel_launch.h"
 #include "rt.h"
+#include "dlhcomm_function.h"
 
 #ifdef __cplusplus
 extern "C" {
