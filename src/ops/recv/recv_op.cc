@@ -24,9 +24,10 @@ HcclResult HcclRecv(
     void *recvBuf, uint64_t count, HcclDataType dataType, uint32_t srcRank, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("[HcclRecv] Start.");
-    if (!CheckHCCLIndependentOp() || (GetHcommVersion() < 90000000)) {
+    if (GetHcommVersion() < 90000000) {
         return HcclRecvInner(recvBuf, count, dataType, srcRank, comm, stream);
     }
+
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
     #ifdef MACRO_DEV_TYPE_NEW
@@ -130,6 +131,9 @@ namespace ops_hccl {
         std::string algName;
         std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
         CHK_RET(Selector(comm, param, topoInfo, algName));
+        if (ShouldUseInnerOp(param.opExecuteConfig)) {
+            return HcclRecvInner(recvBuf, count, dataType, srcRank, comm, stream);
+        }
         CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
 
         return HcclResult::HCCL_SUCCESS;

@@ -88,8 +88,6 @@ void CompReqChannelWithExistChannel(const std::vector<std::vector<ChannelInfo>>&
 HcclResult HcclMemcpyCtxHostToDevice(HcclComm comm, const OpParam &param,
     std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, void **resCtxSequence, uint64_t& ctxSize);
 
-bool CheckHCCLIndependentOp();
-
 HcclResult SingleRankProc(const OpParam &param);
 
 HcclResult HcclCheckTag(const char *tag);
@@ -111,9 +109,16 @@ HcclResult AicpuKernelLaunch(OpParam &param);
 HcclResult HcclAivKernelEntranceLaunch(OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
     AlgResourceCtxSerializable &resCtxHost);
 
-HcclResult HcclGetOpExpansionMode(OpParam &param);
+HcclResult HcclGetOpExpansionMode(HcclComm comm, OpParam &param);
+
+HcclResult DecideHcclOpExpansionMode(HcclComm comm, HcclOpExpansionMode &finalMod);
+
+HcclResult ApplyOpExpansionMode(OpParam &param, HcclOpExpansionMode finalMode);
 
 bool HcclCheckAicpuEnableOpen();
+bool HcclCheckCcuEnableOpen();
+bool HcclCheckAivEnableOpen();
+bool ShouldUseInnerOp(OpExecuteConfig opExecuteConfig);
 
 }  // namespace ops_hccl
 

@@ -25,9 +25,16 @@ using namespace ops_hccl;
 
 extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
 {
+    if (param == nullptr) {
+        HCCL_ERROR("%s param is nullptr", __func__);
+        return 1;
+    }
     HCCL_INFO("Entry-%s, commName[%s], tag[%s], algTag[%s]", __func__, param->commName, param->tag, param->algTag);
-
-    #ifdef MACRO_DEV_TYPE_NEW 
+    if (HcommAcquireComm(param->commName) != HCCL_SUCCESS) {
+        HCCL_ERROR("%s HcommAcquireComm fail, commName[%s]", __func__, param->commName);
+        return 1;
+    }
+    #ifdef MACRO_DEV_TYPE_NEW
     if (param->deviceType != DevType::DEV_TYPE_950) {
     #else
     if (param->deviceType != DevType::DEV_TYPE_910_95) {
@@ -35,11 +42,6 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         ScatterOpInfo opInfo;
         if (CreateScatter(param, &opInfo) != HCCL_SUCCESS) {
             HCCL_ERROR("%s CreateScatter fail", __func__);
-            return 1;
-        }
-
-        if (HcommAcquireComm(param->commName) != HCCL_SUCCESS) {
-            HCCL_ERROR("%s HcommAcquireComm fail, commName[%s]", __func__, param->commName);
             return 1;
         }
         

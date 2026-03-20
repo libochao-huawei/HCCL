@@ -41,10 +41,6 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
 
-    if (!CheckHCCLIndependentOp() && deviceType != DevType::DEV_TYPE_910_93) {
-        return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
-    }
-
     if (!RunIndependentOpExpansion(deviceType)) {
        return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
     }
@@ -201,12 +197,6 @@ HcclResult ScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, Hcc
     param.opType = HcclCMDType::HCCL_CMD_SCATTER;
     param.deviceType = deviceType;
 
-    if (userRankSize == 1) {
-        HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
-        CHK_RET(SingleRankProc(param));
-        return HcclResult::HCCL_SUCCESS;
-    }
-
     #ifdef MACRO_DEV_TYPE_NEW
     if (deviceType == DevType::DEV_TYPE_950 && (GetHcommVersion() >= 90000000)) {
     #else
@@ -219,6 +209,16 @@ HcclResult ScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, Hcc
             param.opExecuteConfig == OpExecuteConfig::CCU_SCHED) {
             return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
         }
+
+        if (ShouldUseInnerOp(param.opExecuteConfig)) {
+            return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
+        }
+        if (userRankSize == 1) {
+            HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
+            CHK_RET(SingleRankProc(param));
+            return HcclResult::HCCL_SUCCESS;
+        }
+
         CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
     } else {
         CHK_RET(ExecOp(comm, param));  //保留原有A3流程
