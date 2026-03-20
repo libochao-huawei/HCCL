@@ -160,8 +160,7 @@ HcclResult haclrtMemcpy(void *dst, size_t destMax, const void *src, size_t count
     aclError ret = aclmdlRICaptureThreadExchangeMode(&mode);
     HCCL_DEBUG("Call aclmdlRICaptureThreadExchangeMode mode before: %d, ret: %d", mode, ret);
     if (ret == ACL_ERROR_RT_FEATURE_NOT_SUPPORT) {
-        HCCL_INFO("[haclrtMemcpy]aclmdlRICaptureThreadExchangeMode not support!");
-        return HCCL_E_NOT_SUPPORT;
+        HCCL_WARNING("[haclrtMemcpy]aclmdlRICaptureThreadExchangeMode not support!");
     } else {
         CHK_PRT_RET(ret != ACL_SUCCESS, HCCL_ERROR("[haclrtMemcpy]aclmdlRICaptureThreadExchangeMode "
             "failed mode:%d, return value[%d].", mode, ret), HCCL_E_RUNTIME);
@@ -171,11 +170,11 @@ HcclResult haclrtMemcpy(void *dst, size_t destMax, const void *src, size_t count
     HCCL_DEBUG("Call aclrtMemcpy, return[%d], para: dstAddr[%p], destMax[%llu], srcAddr[%p], count[%llu], rtKind[%d]",
         ret, dst, destMax, src, count, kind);
     if (ret != ACL_SUCCESS) {
-       HCCL_ERROR("[SyncCopy][Mem]errNo[0x%016llx] aclrtMemcpy failed, "
+        HCCL_ERROR("[SyncCopy][Mem]errNo[0x%016llx] aclrtMemcpy failed, "
             "return[%d], para: dstAddr[%p], destMax[%llu], srcAddr[%p], count[%llu], rtKind[%d].",
             HCCL_ERROR_CODE(HCCL_E_RUNTIME), ret, dst, destMax, src, count, kind);
         ret = aclmdlRICaptureThreadExchangeMode(&mode);
-        CHK_PRT_RET(ret != ACL_SUCCESS, HCCL_ERROR("[haclrtMemcpy]aclmdlRICaptureThreadExchangeMode "
+        CHK_PRT_RET(ret != ACL_SUCCESS && ret != ACL_ERROR_RT_FEATURE_NOT_SUPPORT, HCCL_ERROR("[haclrtMemcpy]aclmdlRICaptureThreadExchangeMode "
             "failed mode:%d, return value[%d].", mode, ret), HCCL_E_RUNTIME);
         return HCCL_E_RUNTIME;
     }
@@ -183,8 +182,7 @@ HcclResult haclrtMemcpy(void *dst, size_t destMax, const void *src, size_t count
     ret = aclmdlRICaptureThreadExchangeMode(&mode);
     HCCL_DEBUG("Call aclmdlRICaptureThreadExchangeMode mode before: %d, ret: %d", mode, ret);
     if (ret == ACL_ERROR_RT_FEATURE_NOT_SUPPORT) {
-        HCCL_INFO("[haclrtMemcpy]aclmdlRICaptureThreadExchangeMode not support!");
-        return HCCL_E_NOT_SUPPORT;
+        HCCL_WARNING("[haclrtMemcpy]aclmdlRICaptureThreadExchangeMode not support!");
     } else {
         CHK_PRT_RET(ret != ACL_SUCCESS, HCCL_ERROR("[haclrtMemcpy]aclmdlRICaptureThreadExchangeMode "
             "failed mode:%d, return value[%d].", mode, ret), HCCL_E_RUNTIME);
