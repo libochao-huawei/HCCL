@@ -166,6 +166,7 @@ HcclResult PrepareReduceScatterVParam(void *sendBuf, const void *sendDispls, con
 {
     u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
     u64 outputSize = recvCount * perDataSize;
+    u64 inputSize = outputSize * userRankSize;
     HCCL_INFO("PrepareReduceScatterVParam[outputSize]:[%u]", outputSize);
 
     CHK_RET(HcclGetCommName(comm, param.commName));
