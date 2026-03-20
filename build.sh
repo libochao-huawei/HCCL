@@ -27,7 +27,7 @@ CANN_3RD_LIB_PATH="${CURRENT_DIR}/third_party"
 CUSTOM_SIGN_SCRIPT="${CURRENT_DIR}/scripts/sign/community_sign_build.py"
 ENABLE_SIGN="false"
 VERSION_INFO="8.5.0"
-BUILD_AARCH= "false"
+BUILD_AARCH="false"
 
 ENABLE_UT="off"
 ENABLE_ST="off"
