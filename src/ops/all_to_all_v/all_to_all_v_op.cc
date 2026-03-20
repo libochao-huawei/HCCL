@@ -268,9 +268,13 @@ HcclResult HcclAlltoAllGraphMode(const void *sendBuf, uint64_t sendCount, HcclDa
     resPack.scratchMemSize = scratchMemSize;
 
     // 执行AlltoAllV
+    bool useInnerOp = false;
     CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlaceGraphMode(sendBuf, sendCounts.data(), sdispls.data(),
-        recvBuf, recvCounts.data(), rdispls.data(), recvType, comm, stream, tag, resPack,
-        HcclCMDType::HCCL_CMD_ALLTOALL, rankSize), opTag);
+        recvBuf, recvCounts.data(), rdispls.data(), recvType, comm, stream, tag,
+        HcclCMDType::HCCL_CMD_ALLTOALL, rankSize, useInnerOp, resPack), opTag);
+    if (useInnerOp) {
+        return HcclAlltoAllInner(sendBuf, sendCount, sendType, recvBuf, recvCount, recvType, comm, stream);
+    }
 
     return HCCL_SUCCESS;
 }
@@ -325,10 +329,13 @@ HcclResult HcclAlltoAllVGraphMode(const void *sendBuf, const void *sendCounts, c
     resPack.scratchMemSize = scratchMemSize;
 
     // 执行AlltoAllV
+    bool useInnerOp = false;
     CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlaceGraphMode(sendBuf, sendCounts, sdispls,
-        recvBuf, recvCounts, rdispls, recvType, comm, stream, tag, resPack,
-        HcclCMDType::HCCL_CMD_ALLTOALLV, rankSize), opTag);
-
+        recvBuf, recvCounts, rdispls, recvType, comm, stream, tag,
+        HcclCMDType::HCCL_CMD_ALLTOALLV, rankSize, useInnerOp, resPack), opTag);
+    if (useInnerOp) {
+        return HcclAlltoAllVInner(sendBuf, sendCounts, sdispls, sendType, recvBuf, recvCounts, rdispls, recvType, comm, stream);
+    }
     return HCCL_SUCCESS;
 }
 
@@ -412,10 +419,13 @@ HcclResult HcclAlltoAllVCGraphMode(const void *sendBuf, const void *sendCountMat
     resPack.scratchMemSize = scratchMemSize;
 
     // 执行AlltoAllV
+    bool useInnerOp = false;
     CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlaceGraphMode(sendBuf, sendCounts.data(), sdispls.data(),
-        recvBuf, recvCounts.data(), rdispls.data(), recvType, comm, stream, tag, resPack,
-        HcclCMDType::HCCL_CMD_ALLTOALLVC, rankSize), opTag);
-
+        recvBuf, recvCounts.data(), rdispls.data(), recvType, comm, stream, tag,
+        HcclCMDType::HCCL_CMD_ALLTOALLVC, rankSize, useInnerOp, resPack), opTag);
+    if (useInnerOp) {
+        return HcclAlltoAllVCInner(sendBuf, sendCountMatrix, sendType, recvBuf, recvType, comm, stream);
+    }
     return HCCL_SUCCESS;
 }
 
@@ -644,7 +654,7 @@ HcclResult AlltoAllVOutPlace(const void *sendBuf, const void *sendCounts, const 
     const std::string &tag, HcclCMDType opType, u32 rankSize, bool &useInnerOp)
 {
     HCCL_INFO("Start to execute AlltoAllVOutPlace");
-    CHK_RET(AlltoAllVOutPlaceCommon(endBuf, sendCounts, sdispls, recvBuf, recvCounts, rdispls, dataType, comm, stream,
+    CHK_RET(AlltoAllVOutPlaceCommon(sendBuf, sendCounts, sdispls, recvBuf, recvCounts, rdispls, dataType, comm, stream,
         tag, opType, rankSize, useInnerOp, OpMode::OPBASE, ResPackGraphMode()));
     HCCL_INFO("Execute AlltoAllVOutPlace success.");
     return HCCL_SUCCESS;
