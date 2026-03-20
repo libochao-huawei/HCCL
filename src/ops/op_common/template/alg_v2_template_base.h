@@ -78,6 +78,8 @@ protected:
     std::vector<u32>                 notifyIdxMainToSub_;
     // 用于记录从thread向主thread发送record的时候使用主thread的哪个notify
     std::vector<u32>                 notifyIdxSubToMain_;
+    // 是否可以直接访问对端input/output memory
+    bool                             enableRemoteMemAccess_ = false;
 };
 } // namespace Hccl
 
