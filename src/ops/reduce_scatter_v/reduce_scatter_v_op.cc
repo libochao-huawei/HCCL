@@ -15,6 +15,7 @@
 #include <future>
 #include <map>
 #include <string>
+#include "op_common_graph_mode.h"
 
 using namespace std;
 using namespace ops_hccl;
@@ -73,6 +74,58 @@ HcclResult HcclReduceScatterV(void *sendBuf,  const void *sendCounts, const void
     return HCCL_SUCCESS;
 }
 
+
+HcclResult HcclReduceScatterVGraphMode(void *sendBuf,  const void *sendCounts, const void *sendDispls, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
+    HcclReduceOp op, const char* group, aclrtStream stream, const char* tag, void** streams, size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize)
+{
+    HCCL_INFO("Start to run execute HcclReduceScatterVGraphMode");
+    // 根据group获取通信域
+    HcclComm comm = nullptr;
+    HCCL_INFO("[HcclReduceScatterVGraphMode] get group name: %s", group);
+    HcomGetCommHandleByGroup(group, &comm);
+    // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
+    CHK_RET(InitEnvConfig());
+    // 参数校验等工作;
+    CHK_RET(CheckReduceScatterVInputPara(comm, sendBuf, recvBuf, sendCounts, sendDispls, stream));
+
+    u32 rankSize = INVALID_VALUE_RANKSIZE;
+    CHK_RET(HcclGetRankSize(comm, &rankSize));
+    // 校验sendCounts全部为0的情况
+    const u64* sendCountsAddr = reinterpret_cast<const u64*>(sendCounts);
+    CHK_PRT_RET(std::all_of(sendCountsAddr, sendCountsAddr + rankSize, [](auto count) { return count == 0; }), 
+            HCCL_WARNING("input all %u elements in sendCounts are 0, return success", rankSize), 
+            HCCL_SUCCESS);  
+    u32 userRank = INVALID_VALUE_RANKID;
+    CHK_RET(HcclGetRankId(comm, &userRank));
+    char commName[COMM_INDENTIFIER_MAX_LENGTH];
+    CHK_RET(HcclGetCommName(comm, commName));
+    const string opTag = "ReduceScatterV_" + string(commName);
+    CHK_RET(HcclCheckTag(opTag.c_str()));
+    CHK_RET(HcclCheckTag(tag));
+    CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), opTag.c_str());
+    CHK_RET(CheckCount(recvCount));
+    CHK_RET(CheckDataType(dataType, true));
+
+    // 拼装ResPackGraphMode
+    ResPackGraphMode resPack;
+    // 设置tag
+    strncpy_s(resPack.tag, sizeof(resPack.tag), tag, sizeof(resPack.tag) - 1);
+    // 设置streams
+    if (streams != nullptr && streamCount > 0) {
+        for (size_t i = 0; i < streamCount; i++) {
+            resPack.streams.push_back(static_cast<aclrtStream>(streams[i]));
+        }
+    }
+    // 设置scratchMem
+    resPack.scratchMemAddr = scratchMemAddr;
+    resPack.scratchMemSize = scratchMemSize;
+
+    // 执行
+    CHK_RET_AND_PRINT_IDE(ReduceScatterVOutPlaceGraphMode(sendBuf, sendDispls, sendCounts, recvBuf, recvCount, dataType, op, comm, stream, tag, resPack), opTag);
+
+    return HCCL_SUCCESS;
+}
+
 namespace ops_hccl {
 HcclResult CheckReduceScatterVInputPara(
     const HcclComm comm, const void *sendBuf, const void *recvBuf, 
@@ -108,41 +161,18 @@ HcclResult CheckReduceScatterVInputPara(
     return HCCL_SUCCESS;
 }
 
-HcclResult ReduceScatterVOutPlace(void *sendBuf, const void *sendDispls, const void *sendCounts, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
-    HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag)
+HcclResult PrepareReduceScatterVParam(void *sendBuf, const void *sendDispls, const void *sendCounts, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
+    HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag, OpMode opMode, u32 userRankSize, u64 varMemSize, OpParam &param) 
 {
-    HCCL_INFO("Start to execute ReduceScatterVOutPlace");
-    u32 userRankSize;
-    CHK_RET(HcclGetRankSize(comm, &userRankSize));
-
     u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
     u64 outputSize = recvCount * perDataSize;
     u64 inputSize = outputSize * userRankSize;
-
-    // 申请OpParam参数结构体内存
-    u64 varMemSize = 2 * userRankSize * sizeof(u64);
-
-    void* paramMem = malloc(sizeof(OpParam) + varMemSize);
-
-if (!paramMem) {
-        // 内存分配失败
-        HCCL_ERROR("[ReduceScatterVOutPlace] malloc OpParam failed!");
-        return HCCL_E_INTERNAL;
-    }
-    OpParam* tmpParamPtr = new (paramMem) OpParam();
-    auto deleter = [](OpParam* p) {
-        if (p) {
-            p->~OpParam();
-            free(p);
-        }
-     };
-    std::unique_ptr<OpParam, decltype(deleter)> paramPtr(tmpParamPtr, deleter);
-    OpParam& param = *paramPtr;
+    HCCL_INFO("PrepareReduceScatterVParam[outputSize]:[%u]", outputSize);
 
     CHK_RET(HcclGetCommName(comm, param.commName));
     param.stream = stream;
     param.reduceType = op;
-    param.opMode = OpMode::OPBASE;
+    param.opMode = opMode;
 
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
@@ -169,6 +199,10 @@ if (!paramMem) {
     std::copy(sendDisplsAddr, sendDisplsAddr + userRankSize, countsAndDispls.begin() + userRankSize);
     param.varMemSize = varMemSize;
 
+    for (u64 i=0; i < countsAndDispls.size();++i) {
+        HCCL_INFO("PrepareReduceScatterVParam: countsAndDispls[%u]:[%u]", i, countsAndDispls[i]);
+    }
+
     // 从源内存地址按字节直接拷贝数据到目标地址
     memcpy_s(param.varData, varMemSize, countsAndDispls.data(), varMemSize);
     const u64* varData = reinterpret_cast<const u64*>(param.varData);
@@ -176,6 +210,35 @@ if (!paramMem) {
     param.opType = HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V;
     param.enableDetour = false;
     param.deviceType = deviceType;
+    return HCCL_SUCCESS;
+}
+
+HcclResult ReduceScatterVOutPlace(void *sendBuf, const void *sendDispls, const void *sendCounts, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
+    HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag)
+{
+    HCCL_INFO("Start to execute ReduceScatterVOutPlace");
+    u32 userRankSize;
+    CHK_RET(HcclGetRankSize(comm, &userRankSize));
+    // 申请OpParam参数结构体内存
+    u64 varMemSize = 2 * userRankSize * sizeof(u64);
+
+    void* paramMem = malloc(sizeof(OpParam) + varMemSize);
+
+    if (!paramMem) {
+        // 内存分配失败
+        HCCL_ERROR("[ReduceScatterVOutPlace] malloc OpParam failed!");
+        return HCCL_E_INTERNAL;
+    }
+    OpParam* tmpParamPtr = new (paramMem) OpParam();
+    auto deleter = [](OpParam* p) {
+        if (p) {
+            p->~OpParam();
+            free(p);
+        }
+     };
+    std::unique_ptr<OpParam, decltype(deleter)> paramPtr(tmpParamPtr, deleter);
+    OpParam& param = *paramPtr;
+    CHK_RET(PrepareReduceScatterVParam(sendBuf, sendDispls, sendCounts, recvBuf, recvCount, dataType, op, comm, stream, tag, OpMode::OPBASE, userRankSize, varMemSize, param));
 
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
@@ -194,4 +257,46 @@ if (!paramMem) {
     HCCL_INFO("Execute ReduceScatterVOutPlace success.");
     return HCCL_SUCCESS;
 }
+
+HcclResult ReduceScatterVOutPlaceGraphMode(void *sendBuf, const void *sendDispls, const void *sendCounts, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
+    HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack)
+{
+    HCCL_INFO("Start to execute ReduceScatterVOutPlaceGraphMode");
+    u32 userRankSize;
+    CHK_RET(HcclGetRankSize(comm, &userRankSize));
+
+    // 申请OpParam参数结构体内存
+    u64 varMemSize = 2 * userRankSize * sizeof(u64);
+
+    void* paramMem = malloc(sizeof(OpParam) + varMemSize);
+
+    if (!paramMem) {
+        // 内存分配失败
+        HCCL_ERROR("[ReduceScatterVOutPlace] malloc OpParam failed!");
+        return HCCL_E_INTERNAL;
+    }
+    OpParam* tmpParamPtr = new (paramMem) OpParam();
+    auto deleter = [](OpParam* p) {
+        if (p) {
+            p->~OpParam();
+            free(p);
+        }
+     };
+    std::unique_ptr<OpParam, decltype(deleter)> paramPtr(tmpParamPtr, deleter);
+    OpParam& param = *paramPtr;
+    PrepareReduceScatterVParam(sendBuf, sendDispls, sendCounts, recvBuf, recvCount, dataType, op, comm, stream, tag, OpMode::OFFLOAD, userRankSize, varMemSize, param);
+    if (userRankSize == 1) {
+        HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
+        CHK_RET(SingleRankProc(param));
+        return HcclResult::HCCL_SUCCESS;
+    }
+
+    std::string algName;
+    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
+    CHK_RET(Selector(comm, param, topoInfo, algName));
+    CHK_RET(HcclExecOpGraphMode(comm, param, topoInfo, algName, resPack));
+    HCCL_INFO("Execute ReduceScatterVOutPlaceGraphMode success.");
+    return HCCL_SUCCESS;
+}
+
 }
