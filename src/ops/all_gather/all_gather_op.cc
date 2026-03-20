@@ -178,7 +178,7 @@ HcclResult AllGatherOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t sendCo
         CHK_RET(SingleRankProc(param));
         return HcclResult::HCCL_SUCCESS;
     }
-    CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
+    CHK_RET(HcclExecOp(comm, param, topoInfo, algName, resPack));
     HCCL_INFO("Execute AllGatherOutPlace success.");
     return HCCL_SUCCESS;
 }
@@ -192,5 +192,14 @@ HcclResult AllGatherOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t sen
     return HCCL_SUCCESS;
 }
 
+
+HcclResult AllGatherOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
+                                      aclrtStream stream, const std::string &tag)
+{
+    HCCL_INFO("Start to execute AllGatherOutPlace");
+    CHK_RET(AllGatherOutPlaceCommon(sendBuf, recvBuf, sendCount, dataType, comm, stream, tag, OpMode::OPBASE, ResPackGraphMode()));
+    HCCL_INFO("Execute AllGatherOutPlace success.");
+    return HCCL_SUCCESS;
+}
 
 }  // namespace ops_hccl
