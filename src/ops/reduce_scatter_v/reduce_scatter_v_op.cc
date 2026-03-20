@@ -25,7 +25,7 @@ HcclResult HcclReduceScatterV(void *sendBuf,  const void *sendCounts, const void
     HcclReduceOp op, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("Start to run execute HcclReduceScatterV");
-    if (!CheckHCCLIndependentOp()) {
+    if (!HcclCheckAicpuEnableOpen()) {
         return HcclReduceScatterVInner(sendBuf, sendCounts, sendDispls, recvBuf, recvCount, dataType, op, comm, stream);
     }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
@@ -177,16 +177,20 @@ if (!paramMem) {
     param.enableDetour = false;
     param.deviceType = deviceType;
 
+    std::string algName;
+    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
+    CHK_RET(Selector(comm, param, topoInfo, algName));
+    if (ShouldUseInnerOp(param.opExecuteConfig)) {
+        return HcclReduceScatterVInner(sendBuf, sendCounts, sendDispls, recvBuf, recvCount, dataType, op, comm, stream);
+    }
     if (userRankSize == 1) {
         HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
         CHK_RET(SingleRankProc(param));
         return HcclResult::HCCL_SUCCESS;
     }
-
-    std::string algName;
-    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
-    CHK_RET(Selector(comm, param, topoInfo, algName));
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
+    paramPtr->~OpParam();
+    free(paramMem);
     HCCL_INFO("Execute ReduceScatterVOutPlace success.");
     return HCCL_SUCCESS;
 }

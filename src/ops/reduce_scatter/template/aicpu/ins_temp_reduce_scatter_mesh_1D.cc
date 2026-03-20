@@ -50,6 +50,10 @@ HcclResult InsTempReduceScatterMesh1D::KernelRun(const OpParam& param,
     const TemplateDataParams& tempAlgParams,
     const TemplateResource& templateResource)
 {
+    if (tempAlgParams.sliceSize == 0 && tempAlgParams.tailSize == 0) {
+        HCCL_DEBUG("[InsTempReduceScatterMesh1D] myRank[%u] sliceSize and tailSize are 0, skip reduce scatter.", myRank_);
+        return HCCL_SUCCESS;
+    }
     threadNum_ = templateResource.threads.size();
     processSize_ = tempAlgParams.sliceSize;
     count_ = tempAlgParams.count;
@@ -112,25 +116,15 @@ HcclResult InsTempReduceScatterMesh1D::RunReduceScatter(
     const TemplateDataParams &tempAlgParam)
 {
     u32 myAlgRank = 0;
-    auto iter = std::find(subCommRanks_[0].begin(), subCommRanks_[0].end(), myRank_);
-    if (iter != subCommRanks_[0].end()) {
-        myAlgRank = std::distance(subCommRanks_[0].begin(), iter);
-    } else {
-        HCCL_ERROR("[InsTempReduceScatterMesh1D][RunReduceScatter] subCommRanks_ or myRank_ is error.");
-        return HCCL_E_INTERNAL;
-    }
+    CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], myAlgRank));
 
     // DMA消减：让thread 0做本地拷贝
     for (u32 repeatIdx = 0; repeatIdx < tempAlgParam.repeatNum; repeatIdx++) {
-        DataSlice srcSlice = DataSlice(tempAlgParam.buffInfo.inputPtr,
-                                       tempAlgParam.buffInfo.inBuffBaseOff +
-                                       repeatIdx * tempAlgParam.inputRepeatStride +
-                                       myAlgRank * tempAlgParam.inputSliceStride,
+        DataSlice srcSlice = DataSlice(tempAlgParam.buffInfo.inputPtr, tempAlgParam.buffInfo.inBuffBaseOff +
+                                       repeatIdx * tempAlgParam.inputRepeatStride + myAlgRank * tempAlgParam.inputSliceStride,
                                        processSize_, count_);
-        DataSlice dstSlice = DataSlice(tempAlgParam.buffInfo.outputPtr,
-                                       tempAlgParam.buffInfo.outBuffBaseOff +
-                                       repeatIdx * tempAlgParam.outputRepeatStride,
-                                       processSize_, count_);
+        DataSlice dstSlice = DataSlice(tempAlgParam.buffInfo.outputPtr, tempAlgParam.buffInfo.outBuffBaseOff +
+                                       repeatIdx * tempAlgParam.outputRepeatStride, processSize_, count_);
         CHK_RET(static_cast<HcclResult>(LocalCopy(threads[0], srcSlice, dstSlice)));
     }
 

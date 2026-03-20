@@ -14,7 +14,6 @@
 #include <string>
 #include <memory>
 #include "hccl.h"
-
 #include "alg_param.h"
 #include "executor_v2_base.h"
 #include "alg_type.h"
@@ -36,11 +35,15 @@ HcclResult HcclAllReduceGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCou
 
 namespace ops_hccl {
 HcclResult AllReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType,
-    HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag);
+                             HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag);
+HcclResult AllReduceOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclReduceOp op, HcclComm comm,
+                                      aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack);
+HcclResult AllReduceOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclReduceOp op, HcclComm comm,
+                                   aclrtStream stream, const std::string &tag, OpMode opMode, const ResPackGraphMode &resPack);
 
 HcclResult CheckAllReduceInputPara(const HcclComm comm, const void* sendBuf, const void* recvBuf, const aclrtStream stream);
-HcclResult AllReduceOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclReduceOp op, HcclComm comm,
-    aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack);
+HcclResult AllReduceInitAndCheck(HcclComm comm, void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op, 
+                                 aclrtStream stream, std::string &opTag);
 }
 
 #endif
