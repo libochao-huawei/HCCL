@@ -41,7 +41,6 @@
 本样例支持以下昇腾产品：
 
 - <term>Ascend 950PR</term> / <term>Ascend 950DT</term>
-- <term>Atlas A3 训练系列产品</term> / <term>Atlas A3 推理系列产品</term>
 
 ### 2. 安装 CANN Toolkit 开发套件包
 
