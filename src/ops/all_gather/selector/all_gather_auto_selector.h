@@ -17,6 +17,9 @@ namespace ops_hccl {
 
 class AllGatherAutoSelector : public AutoSelectorBase {
 private:
+    SelectorStatus SelectCcuScheduleAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
+                                    const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+                                    std::string &selectAlgName) const override;
     SelectorStatus SelectMeshAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
                                   std::string &selectAlgName) const;
     SelectorStatus SelectAicpuAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
@@ -25,12 +28,13 @@ private:
     SelectorStatus SelectDPUAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
                                  const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                  std::string &selectAlgName) const override;
+    SelectorStatus SelectCcuScheduleUBXAlgo(const TopoInfoWithNetLayerDetails *topoInfo,
+        std::string &selectAlgName, const u64 dataSize) const;
+    SelectorStatus SelectCcuScheduleLevel0Algo(const TopoInfoWithNetLayerDetails *topoInfo, 
+        std::string &selectAlgName, const u64 dataSize) const;
     SelectorStatus SelectAivAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
                                  const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                  std::string &selectAlgName) const override;
-    SelectorStatus SelectCcuScheduleAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
-                                        const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
-                                        std::string &selectAlgName) const override;
     SelectorStatus SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
                                    const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                    std::string &selectAlgName) const override;
