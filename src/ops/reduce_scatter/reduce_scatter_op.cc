@@ -131,6 +131,11 @@ HcclResult ReduceScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCoun
         return HcclResult::HCCL_SUCCESS;
     }
 
+    CcuFastRunCtx *ccuFastRunCtx = nullptr;
+    if (CcuFastLaunchSupported(comm, param, &ccuFastRunCtx)) {
+        return HcclExecOpCcuFastLaunch(comm, param, ccuFastRunCtx);
+    }
+    
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));

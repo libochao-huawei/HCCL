@@ -42,4 +42,8 @@ HcclResult InsCollAlgBase::RestoreChannelMap(const AlgResourceCtxSerializable &r
     return HCCL_SUCCESS;
 }
 
+HcclResult FastLaunch(const OpParam &param, const CcuFastRunCtx *resCtx) {
+    return HCCL_SUCCESS;
+}
+
 }

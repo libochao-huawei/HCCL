@@ -50,6 +50,14 @@ HcclResult CcuAlgTemplateBase::KernelRun(const OpParam& param, const TemplateDat
     return HcclResult::HCCL_E_INTERNAL;
 }
 
+HcclResult CcuAlgTemplateBase::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+{
+    (void)param;
+    (void)tempFastLaunchCtx;
+    HCCL_ERROR("[CcuAlgTemplateBase] Unsupported interface of CcuAlgTemplateBase::FastLaunch!");
+    return HcclResult::HCCL_E_INTERNAL;
+}
+
 u64 CcuAlgTemplateBase::GetThreadNum() const
 {
     return 0;

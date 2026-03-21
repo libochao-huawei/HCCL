@@ -163,6 +163,31 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchest
     return HCCL_SUCCESS;
 }
 
+#ifndef AICPU_COMPILE
+template <typename AlgTopoMatch, typename InsAlgTemplate>
+HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunch(
+        const OpParam &param, const CcuFastRunCtx *resCtx)
+{
+    HCCL_INFO("[InsV2ReduceScatterSoleExecutor][FastLaunch] Start.");
+    TemplateFastLaunchCtx tempFastLaunchCtx;
+    // 1 取线程
+    ThreadHandle *threads = resCtx->GetThreadHandlePtr();
+    tempFastLaunchCtx.threads.assign(threads, threads + resCtx->threadNum);
+    
+    // 2 取arg
+    CcuKernelSubmmitInfo *ccuKernelSubmmitInfos = resCtx->GetCcuKernelSubmmitInfoPtr();
+    tempFastLaunchCtx.ccuKernelSubmmitInfos.assign(ccuKernelSubmmitInfos, ccuKernelSubmmitInfos + resCtx->ccuKernelNum);
+    tempFastLaunchCtx.buffInfo.inputPtr = param.inputPtr;
+    tempFastLaunchCtx.buffInfo.outputPtr = param.outputPtr;
+    
+    // 3 调template
+    std::shared_ptr<InsAlgTemplate> algTemplate = std::make_shared<InsAlgTemplate>();
+    CHK_RET(algTemplate->FastLaunch(param, tempFastLaunchCtx));
+    HCCL_INFO("[InsV2ReduceScatterSoleExecutor][FastLaunch] End.");
+    return HCCL_SUCCESS;
+}
+#endif
+
 // 第二个参数是Reduce Scatter的template文件
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, InsReduceScatterMesh1D, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
     InsTempReduceScatterMesh1D);
