@@ -15,9 +15,11 @@
 #include <map>
 #include <string>
 
+
 using namespace std;
 using namespace ops_hccl;
 extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
+
 
 HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
                          aclrtStream stream)
@@ -35,6 +37,56 @@ HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclD
     if (GetWorkflowMode() != HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE) {
         return HcclAllGatherInner(sendBuf, recvBuf, sendCount, dataType, comm, stream);
     }
+    
+    std::string opTag;
+    CHK_RET(AllGatherInitAndCheck(comm, sendBuf, recvBuf, sendCount, dataType, stream, opTag));
+
+    // 执行AllGather
+    CHK_RET_AND_PRINT_IDE(AllGatherOutPlace(sendBuf, recvBuf, sendCount, dataType, comm, stream, opTag), opTag.c_str());
+
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclAllGatherGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, const char* group, aclrtStream stream, const char* tag, void** streams, size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize)
+{
+    HCCL_INFO("Start to run execute HcclAllGatherGraphMode");
+    // 根据group获取通信域
+    HcclComm comm = nullptr;
+    HCCL_INFO("[HcclAllGatherGraphMode] get group name: %s", group);
+    CHK_RET(HcomGetCommHandleByGroup(group, &comm));
+    
+    std::string opTag;
+    CHK_RET(AllGatherInitAndCheck(comm, sendBuf, recvBuf, sendCount, dataType, stream, opTag));
+    
+    // 检查tag有效性
+    CHK_RET(HcclCheckTag(tag));
+    
+    // 拼装ResPackGraphMode
+    ResPackGraphMode resPack;
+    // 设置tag
+    if (strncpy_s(resPack.tag, sizeof(resPack.tag), tag, sizeof(resPack.tag) - 1) != 0) {
+        HCCL_ERROR("failed to fill resPack.tag");
+        return HCCL_E_INTERNAL;
+    }
+    // 设置streams
+    if (streams != nullptr && streamCount > 0) {
+        for (size_t i = 0; i < streamCount; i++) {
+            resPack.streams.push_back(static_cast<aclrtStream>(streams[i]));
+        }
+    }
+    // 设置scratchMem
+    resPack.scratchMemAddr = scratchMemAddr;
+    resPack.scratchMemSize = scratchMemSize;
+    std::string tagStr = tag;
+    // 执行AllGather
+    CHK_RET_AND_PRINT_IDE(AllGatherOutPlaceGraphMode(sendBuf, recvBuf, sendCount, dataType, comm, stream, tagStr, resPack), tagStr.c_str());
+
+    return HCCL_SUCCESS;
+}
+namespace ops_hccl {
+
+HcclResult AllGatherInitAndCheck(HcclComm comm, void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, aclrtStream stream, std::string &opTag)
+{
     // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
     CHK_RET(InitEnvConfig());
     // 参数校验等工作
@@ -44,8 +96,8 @@ HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclD
     // tag有效性,是否过长
     char commName[COMM_INDENTIFIER_MAX_LENGTH];
     CHK_RET(HcclGetCommName(comm, commName));
-    const string tag = "AllGather_" + string(commName);
-    CHK_RET(HcclCheckTag(tag.c_str()));
+    opTag = "AllGather_" + string(commName);
+    CHK_RET(HcclCheckTag(opTag.c_str()));
     // 检查sendCount是否合法(超出系统上限)
     CHK_RET(CheckCount(sendCount));
     // 检查数据类型是否支持
@@ -55,15 +107,10 @@ HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclD
     CHK_RET(HcclGetRankSize(comm, &rankSize));
     u32 userRank = INVALID_VALUE_RANKID;
     CHK_RET(HcclGetRankId(comm, &userRank));
-    CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), tag.c_str());
-
-    // 执行AllGather
-    CHK_RET_AND_PRINT_IDE(AllGatherOutPlace(sendBuf, recvBuf, sendCount, dataType, comm, stream, tag), tag.c_str());
-
+    CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), opTag.c_str());
     return HCCL_SUCCESS;
 }
 
-namespace ops_hccl {
 HcclResult CheckAllGatherInputPara(const HcclComm comm, const void* sendBuf, const void* recvBuf, const aclrtStream stream)
 {
     // 入参合法性校验
@@ -83,21 +130,21 @@ HcclResult CheckAllGatherInputPara(const HcclComm comm, const void* sendBuf, con
     return HCCL_SUCCESS;
 }
 
-HcclResult AllGatherOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
-                             aclrtStream stream, const std::string &tag)
+HcclResult AllGatherOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
+                                   aclrtStream stream, const std::string &tag, OpMode opMode, const ResPackGraphMode &resPack)
 {
-    HCCL_INFO("Start to execute AllGatherOutPlace");
+    HCCL_INFO("Start to execute AllGatherOutPlaceCommon");
     u32 userRankSize;
     CHK_RET(HcclGetRankSize(comm, &userRankSize));
 
-    u32 perDataSize = SIZE_TABLE[dataType];
+    u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
     u64 inputSize = sendCount * perDataSize;    // all gather 每个rank上一份数据
     u64 outputSize = inputSize * userRankSize;  // 每个卡上结果为rankSize份数据
 
     OpParam param;
     CHK_RET(HcclGetCommName(comm, param.commName));
     param.stream = stream;
-    param.opMode = OpMode::OPBASE;
+    param.opMode = opMode;
 
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
@@ -131,7 +178,26 @@ HcclResult AllGatherOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount, H
         CHK_RET(SingleRankProc(param));
         return HcclResult::HCCL_SUCCESS;
     }
-    CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
+    CHK_RET(HcclExecOp(comm, param, topoInfo, algName, resPack));
+    HCCL_INFO("Execute AllGatherOutPlace success.");
+    return HCCL_SUCCESS;
+}
+
+HcclResult AllGatherOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
+                                      aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack)
+{
+    HCCL_INFO("Start to execute AllGatherOutPlaceGraphMode");
+    CHK_RET(AllGatherOutPlaceCommon(sendBuf, recvBuf, sendCount, dataType, comm, stream, tag, OpMode::OFFLOAD, resPack));
+    HCCL_INFO("Execute AllGatherOutPlaceGraphMode success.");
+    return HCCL_SUCCESS;
+}
+
+
+HcclResult AllGatherOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
+                                      aclrtStream stream, const std::string &tag)
+{
+    HCCL_INFO("Start to execute AllGatherOutPlace");
+    CHK_RET(AllGatherOutPlaceCommon(sendBuf, recvBuf, sendCount, dataType, comm, stream, tag, OpMode::OPBASE, ResPackGraphMode()));
     HCCL_INFO("Execute AllGatherOutPlace success.");
     return HCCL_SUCCESS;
 }
