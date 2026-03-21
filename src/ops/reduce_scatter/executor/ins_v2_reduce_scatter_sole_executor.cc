@@ -159,6 +159,39 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchest
         CHK_RET(algTemplate->KernelRun(param, tempAlgParams, templateAlgRes));
         processedDataCount += currDataCount;
     }
+
+#ifndef AICPU_COMPILE
+    if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU) {
+        HCCL_INFO("[InsV2ReduceScatterSoleExecutor] loopTimes==1, save fast launch ctx.");
+        u32 threadNum = 1;
+        u32 ccuKernelNum = templateAlgRes.submitInfos.size();
+        if (ccuKernelNum < 1) {
+            HCCL_INFO("[InsV2ReduceScatterSoleExecutor] ccu kernel num is 0, no need to save.");
+            return HCCL_SUCCESS;
+        }
+
+        u64 size = CcuFastLaunchCtx.GetCtxSize(threadNum, ccuKernelNum);
+        // 申请ctx
+        void *ctxPtr = nullptr;
+        HCCL_INFO("[InsV2ReduceScatterSoleExecutor][HcclEngineCtxCreate] Tag[%s], size[%llu], ");
+        CHK_RET(HcclEngineCtxCreate(param.hcclComm, param.fastLaunchTag, CommEngine::COMM_ENGINE_CCU, size, &ctxPtr));
+
+        CcuFastLaunchCtx *ccuFastLaunchCtx = reinterpret_cast<CcuFastLaunchCtx*>(ctxPtr);
+        // 1 算法名:
+        CHK_SAFETY_FUNC_RET(strcpy_s(ccuFastLaunchCtx->algName, sizeof(ccuFastLaunchCtx->algName), param.algName));
+
+        // 2 thread
+        ThreadHandle *threads = ccuFastLaunchCtx->GetThreadHandlePtr();
+        threads[0] = templateAlgRes.threads[0];
+            
+        // 3 ccu kernel handle, taskArg入参
+        CcuKernelSubmitInfo *kernels = ccuFastLaunchCtx->GetCcuKernelSubmitInfoPtr();
+        kernels[0].kernelHandle = templateAlgRes.ccuKernels[0];
+        memcpy_s(kernels[0].sqeArgs, sizeof(kernels[0].sqeArgs), 
+                 templateAlgRes.submitInfos[0].sqeArgs, sizeof(templateAlgRes.submitInfos[0].sqeArgs));
+    }
+#endif
+
     HCCL_INFO("[InsV2ReduceScatterSoleExecutor][OrchestrateLoop] End.");
     return HCCL_SUCCESS;
 }
@@ -166,7 +199,7 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchest
 #ifndef AICPU_COMPILE
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunch(
-        const OpParam &param, const CcuFastRunCtx *resCtx)
+        const OpParam &param, const CcuFastLaunchCtx *resCtx)
 {
     HCCL_INFO("[InsV2ReduceScatterSoleExecutor][FastLaunch] Start.");
     TemplateFastLaunchCtx tempFastLaunchCtx;
@@ -175,8 +208,8 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLau
     tempFastLaunchCtx.threads.assign(threads, threads + resCtx->threadNum);
     
     // 2 取arg
-    CcuKernelSubmmitInfo *ccuKernelSubmmitInfos = resCtx->GetCcuKernelSubmmitInfoPtr();
-    tempFastLaunchCtx.ccuKernelSubmmitInfos.assign(ccuKernelSubmmitInfos, ccuKernelSubmmitInfos + resCtx->ccuKernelNum);
+    CcuKernelSubmitInfo *ccuKernelSubmitInfos = resCtx->GetCcuKernelSubmitInfoPtr();
+    tempFastLaunchCtx.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + resCtx->ccuKernelNum);
     tempFastLaunchCtx.buffInfo.inputPtr = param.inputPtr;
     tempFastLaunchCtx.buffInfo.outputPtr = param.outputPtr;
     
@@ -189,28 +222,28 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLau
 #endif
 
 // 第二个参数是Reduce Scatter的template文件
-REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, InsReduceScatterMesh1D, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
-    InsTempReduceScatterMesh1D);
-REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, InsReduceScatterMesh1DMeshChunk, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
-    InsTempReduceScatterMesh1DMeshChunk);
-REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, InsReduceScatterNHR, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
-    InsTempReduceScatterNHR);
+// REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, InsReduceScatterMesh1D, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
+//     InsTempReduceScatterMesh1D);
+// REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, InsReduceScatterMesh1DMeshChunk, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
+//     InsTempReduceScatterMesh1DMeshChunk);
+// REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, InsReduceScatterNHR, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
+//     InsTempReduceScatterNHR);
 #ifndef AICPU_COMPILE
-REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, AivReduceScatterMesh1D, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
-    AivTempReduceScatterMesh1D);
+// REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, AivReduceScatterMesh1D, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
+//     AivTempReduceScatterMesh1D);
 
-REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterMesh1DMem2Mem, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
-    CcuTempReduceScatterMesh1DMem2Mem);
+// REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterMesh1DMem2Mem, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
+//     CcuTempReduceScatterMesh1DMem2Mem);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterMesh1D, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
     CcuTempReduceScatterMesh1D);
-REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterNHR1DMem2Mem, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
-    CcuTempReduceScatterNHR1DMem2Mem);
-REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterMeshMem2Mem1D2Die, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
-    CcuTempReduceScatterMeshMem2Mem1D2Die);
-REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterMesh2Die, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
-    CcuTempReduceScatterMesh2Die);
-REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterNhr1DMem2MemMultiJetty, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
- 	     CcuTempReduceScatterNhrMultiJettyMem2Mem1D);
+// REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterNHR1DMem2Mem, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
+//     CcuTempReduceScatterNHR1DMem2Mem);
+// REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterMeshMem2Mem1D2Die, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
+//     CcuTempReduceScatterMeshMem2Mem1D2Die);
+// REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterMesh2Die, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
+//     CcuTempReduceScatterMesh2Die);
+// REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterNhr1DMem2MemMultiJetty, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
+//  	     CcuTempReduceScatterNhrMultiJettyMem2Mem1D);
 #endif
 
 }
