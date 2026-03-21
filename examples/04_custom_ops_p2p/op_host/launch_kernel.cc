@@ -70,8 +70,13 @@ HcclResult LaunchKernelWithAclrt(OpParam &param, aclrtStream stream)
     return HCCL_SUCCESS;
 }
 
-HcclResult LaunchKernel(OpParam &param, aclrtStream stream, KernelLaunchMode mode)
+HcclResult LaunchKernel(OpParam &param, aclrtStream stream)
 {
+    // 通过环境变量判断 Kernel 下发方式，默认使用 aclrt 接口方式
+    char *kernelMode = getenv("HCCL_CUSTOM_KERNEL_LAUNCH_ASC");
+    HCCL_INFO("[LaunchKernel] HCCL_CUSTOM_KERNEL_LAUNCH_ASC: %s", kernelMode);
+    KernelLaunchMode mode = (kernelMode != nullptr && strcmp(kernelMode, "1") == 0)
+            ? KERNEL_LAUNCH_ASC : KERNEL_LAUNCH_ACLRT;
     if (mode == KERNEL_LAUNCH_ASC) {
         // <<<>>> 尖括号调用方式
         HCCL_INFO("[LaunchKernel] Launching kernel with ascendc");
