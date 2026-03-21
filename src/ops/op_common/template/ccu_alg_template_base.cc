@@ -41,7 +41,7 @@ HcclResult CcuAlgTemplateBase::CalcRes(HcclComm comm, const OpParam& param, cons
 }
 
 HcclResult CcuAlgTemplateBase::KernelRun(const OpParam& param, const TemplateDataParams& templateDataParams,
-                                         const TemplateResource& templateResource)
+                                         TemplateResource& templateResource)
 {
     (void)param;
     (void)templateDataParams;

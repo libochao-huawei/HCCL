@@ -171,7 +171,7 @@ struct BuffInfo {
 struct TemplateFastLaunchCtx {
     BuffInfo buffInfo;
     std::vector<ThreadHandle> threads;
-    std::vector<CcuKernelSubmmitInfo> ccuKernelSubmmitInfos;
+    std::vector<CcuKernelSubmitInfo> ccuKernelSubmitInfos;
 };
 
 struct TemplateDataParams {
@@ -251,6 +251,7 @@ struct TemplateResource {
     std::map<u32, std::vector<ChannelInfo>> channels;
     std::vector<ThreadHandle> threads;
     std::vector<CcuKernelHandle> ccuKernels;
+    std::vector<CcuKernelSubmitInfo> submitInfos;
     void *npu2DpuShmemPtr;
     void *dpu2NpuShmemPtr;
     void* aivCommInfoPtr = nullptr;

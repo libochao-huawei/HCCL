@@ -254,28 +254,33 @@ struct CcuKernelInfo {
 // 算法sqe最大个数（alltoallv除外）
 #define CCU_MAX_TASK_ARG_NUM 30
 
-struct CcuKernelSubmmitInfo {
+struct CcuKernelSubmitInfo {
     CcuKernelHandle kernelHandle;
     uint64_t sqeArgs[CCU_MAX_TASK_ARG_NUM];
 };
 
 // ccu快速下发上下文
-struct CcuFastRunCtx {
+struct CcuFastLaunchCtx {
     char algName[OP_ALG_LENGTH];
     u32 threadNum;
     u32 ccuKernelNum;
     // ThreadHandle threadHandles[];
-    // CcuKernelSubmmitInfo ccuKernelSubmmitInfo[];
+    // CcuKernelSubmitInfo ccuKernelSubmitInfo[];
 
     ThreadHandle *GetThreadHandlePtr() const
     {
-        size_t offset = offsetof(CcuFastRunCtx, ccuKernelNum) + sizeof(u32);
-        return reinterpret_cast<ThreadHandle*>(reinterpret_cast<char*>(const_cast<CcuFastRunCtx*>(this)) + offset);
+        size_t offset = offsetof(CcuFastLaunchCtx, ccuKernelNum) + sizeof(u32);
+        return reinterpret_cast<ThreadHandle*>(reinterpret_cast<char*>(const_cast<CcuFastLaunchCtx*>(this)) + offset);
     }
-    CcuKernelSubmmitInfo *GetCcuKernelSubmmitInfoPtr() const
+    CcuKernelSubmitInfo *GetCcuKernelSubmitInfoPtr() const
     {
-        size_t offset = offsetof(CcuFastRunCtx, ccuKernelNum) + sizeof(u32) + sizeof(ThreadHandle) * threadNum;
-        return reinterpret_cast<CcuKernelSubmmitInfo*>(reinterpret_cast<char*>(const_cast<CcuFastRunCtx*>(this)) + offset);
+        size_t offset = offsetof(CcuFastLaunchCtx, ccuKernelNum) + sizeof(u32) + sizeof(ThreadHandle) * threadNum;
+        return reinterpret_cast<CcuKernelSubmitInfo*>(reinterpret_cast<char*>(const_cast<CcuFastLaunchCtx*>(this)) + offset);
+    }
+
+    static u64 GetCtxSize(u32 threadNum, u32 ccuKernelNum)
+    {
+        return sizeof(CcuFastLaunchCtx) + sizeof(ThreadHandle) * threadNum + sizeof(CcuKernelSubmitInfo) * ccuKernelNum;
     }
 };
 
