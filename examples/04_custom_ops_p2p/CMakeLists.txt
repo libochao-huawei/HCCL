@@ -78,6 +78,9 @@ if(KERNEL_MODE)
         -g
         -O0
     )
+    target_link_directories(p2p_aicpu_kernel PRIVATE
+        ${ASCEND_CANN_PACKAGE_PATH}/devlib/device
+    )
     target_link_libraries(p2p_aicpu_kernel PRIVATE
         -Wl,--no-as-needed
         ccl_kernel
