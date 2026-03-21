@@ -12,6 +12,7 @@ add_subdirectory(aiv)
 add_subdirectory(registry)
 add_subdirectory(wrapper)
 add_subdirectory(dpu)
+add_subdirectory(ccu)
 
 set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/alg_template_base.cc
@@ -19,6 +20,7 @@ set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/aiv_alg_template_base.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/template_utils.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/aiv_alg_template_base.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/ccu_alg_template_base.cc
 )
 
 target_sources(hccl PRIVATE

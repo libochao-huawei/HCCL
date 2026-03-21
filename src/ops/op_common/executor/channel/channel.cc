@@ -148,7 +148,7 @@ HcclResult GetProtocolByEngine(const OpParam& param, std::vector<CommProtocol> &
             break;
         default:
             HCCL_WARNING("[GetProtocolByEngine] Unknown engine[%d], set protocol to RESERVED",
-                static_cast<int>(param.engine));
+                         static_cast<int>(param.engine));
             break;
     }
     return HCCL_SUCCESS;
@@ -168,11 +168,11 @@ HcclResult CreateChannelFromLink(HcclComm comm, u32 myRank, u32 rank, uint32_t n
     channelDesc.remoteEndpoint.commAddr = link.dstEndpointDesc.commAddr;
     channelDesc.remoteEndpoint.loc = link.dstEndpointDesc.loc;
     HCCL_DEBUG("%s local device phyId: %u, remote device phyId: %u.",
-        funcName.c_str(), channelDesc.localEndpoint.loc.device.devPhyId,
-        channelDesc.remoteEndpoint.loc.device.devPhyId);
+                funcName.c_str(), channelDesc.localEndpoint.loc.device.devPhyId,
+                channelDesc.remoteEndpoint.loc.device.devPhyId);
     HCCL_INFO("%s Add channel request between %zu and %zu, netLayerIdx %u, "
-        "linkListIdx %u, protocol %zu",
-        funcName.c_str(), myRank, channelDesc.remoteRank, netLayer, idx, channelDesc.remoteEndpoint.protocol);
+              "linkListIdx %u, protocol %zu",
+              funcName.c_str(), myRank, channelDesc.remoteRank, netLayer, idx, channelDesc.remoteEndpoint.protocol);
     channelDesc.channelProtocol = link.linkAttr.linkProtocol;
     channelDesc.notifyNum = NORMAL_NOTIFY_NUM;
     channels.push_back(channelDesc);

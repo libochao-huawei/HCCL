@@ -15,10 +15,8 @@
 #include "ccu_alg_template_base.h"
 
 namespace ops_hccl {
-
 using RankId = u32;
 using RankGroup = std::vector<RankId>;
-
 class CcuTempReduceScatterMesh2Die : public CcuAlgTemplateBase{
 public:
     explicit CcuTempReduceScatterMesh2Die(const OpParam &param, RankId rankId,
@@ -48,5 +46,3 @@ private:
 }// namespace ops_hccl
 
 #endif //HCCL_CCU_TEMP_REDUCE_SCATTER_MESH_2DIE_H
-
-

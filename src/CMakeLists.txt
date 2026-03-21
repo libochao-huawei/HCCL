@@ -437,6 +437,7 @@ target_link_directories(hccl PRIVATE
 if(BUILD_OPEN_PROJECT)
     target_link_libraries(hccl PRIVATE
         -Wl,--no-as-needed
+        hcomm
         acl_rt
         c_sec
         unified_dlog
@@ -450,6 +451,7 @@ else()
         $<BUILD_INTERFACE:npu_runtime_headers>
         $<BUILD_INTERFACE:mmpa_headers>
         -Wl,--no-as-needed
+        hcomm
         acl_rt
         c_sec
         unified_dlog
