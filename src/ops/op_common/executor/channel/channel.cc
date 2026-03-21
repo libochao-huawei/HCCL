@@ -134,14 +134,12 @@ HcclResult GetProtocolByEngine(const OpParam& param, std::vector<CommProtocol> &
         case CommEngine::COMM_ENGINE_AICPU:
         case CommEngine::COMM_ENGINE_AICPU_TS:
         case CommEngine::COMM_ENGINE_CCU:
+        case CommEngine::COMM_ENGINE_CPU:
             protocols.push_back(CommProtocol::COMM_PROTOCOL_UBC_CTP);
             protocols.push_back(CommProtocol::COMM_PROTOCOL_UBC_TP);
             break;
         case CommEngine::COMM_ENGINE_AIV:
             protocols.push_back(CommProtocol::COMM_PROTOCOL_UB_MEM);
-            break;
-        case CommEngine::COMM_ENGINE_CPU:
-            protocols.push_back(CommProtocol::COMM_PROTOCOL_ROCE);
             break;
         case CommEngine::COMM_ENGINE_CPU_TS:
             protocols.push_back(CommProtocol::COMM_PROTOCOL_ROCE);
