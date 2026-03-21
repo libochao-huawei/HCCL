@@ -97,11 +97,7 @@ HcclResult HcclSendCustom(
     // ==============================================
     // STEP 3: 下发 AICPU Kernel
     // ==============================================
-    char *kernelMode = getenv("HCCL_CUSTOM_KERNEL_LAUNCH_ASC");
-    HCCL_INFO("[HcclSendCustom] HCCL_CUSTOM_KERNEL_LAUNCH_ASC: %s", kernelMode);
-    KernelLaunchMode mode = (kernelMode != nullptr && strcmp(kernelMode, "1") == 0)
-            ? KERNEL_LAUNCH_ASC : KERNEL_LAUNCH_ACLRT;
-    CHK_RET(LaunchKernel(param, stream, mode));
+    CHK_RET(LaunchKernel(param, stream));
 
     return HCCL_SUCCESS;
 }

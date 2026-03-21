@@ -26,7 +26,7 @@ extern thread_local aclrtNotify g_notifies[AICPU_CONTROL_NOTIFY_NUM];
 // 使用 ASC 编译的二进制调用函数
 extern HcclResult LaunchKernelAsc(OpParam &param, aclrtStream stream);
 
-HcclResult LaunchKernel(OpParam &param, aclrtStream stream, KernelLaunchMode mode = KERNEL_LAUNCH_ACLRT);
+HcclResult LaunchKernel(OpParam &param, aclrtStream stream);
 }
 
 #endif
