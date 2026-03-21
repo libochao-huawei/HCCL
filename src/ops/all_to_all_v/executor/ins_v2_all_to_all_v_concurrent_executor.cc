@@ -220,10 +220,10 @@ HcclResult InsV2AllToAllVConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     std::vector<uint32_t> jettyNums;
     CHK_RET(SetJettyNums(jettyNums, true));
     resReq0.ccuKernelInfos[0].kernelArg = std::make_shared<CcuKernelArgAllToAllVMesh1DMultiJetty>(subCommRanks0[0].size(),
-                                                                                     topoInfo->userRank,
-                                                                                     param,
-                                                                                     subCommRanks0,
-                                                                                     jettyNums);
+                                                                                    topoInfo->userRank,
+                                                                                    param,
+                                                                                    subCommRanks0,
+                                                                                    jettyNums);
 
     std::vector<HcclChannelDesc> channelDescs1;
     CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks1, channelDescs1, CommTopo::COMM_TOPO_1DMESH));
@@ -231,10 +231,10 @@ HcclResult InsV2AllToAllVConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
 
     CHK_RET(SetJettyNums(jettyNums, false));
     resReq1.ccuKernelInfos[0].kernelArg = std::make_shared<CcuKernelArgAllToAllVMesh1DMultiJetty>(subCommRanks1[0].size(),
-                                                                                     topoInfo->userRank,
-                                                                                     param,
-                                                                                     subCommRanks1,
-                                                                                     jettyNums);
+                                                                                    topoInfo->userRank,
+                                                                                    param,
+                                                                                    subCommRanks1,
+                                                                                    jettyNums);
 
     resourceRequest.ccuKernelNum.emplace_back(resReq0.ccuKernelNum[0]);
     resourceRequest.ccuKernelNum.emplace_back(resReq1.ccuKernelNum[0]);

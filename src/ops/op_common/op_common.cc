@@ -780,7 +780,7 @@ HcclResult GetAlgResCcu(HcclComm comm, const OpParam& param, AlgResourceRequest&
 }
 
 HcclResult HcclAllocAlgResourceCcu(HcclComm comm, const OpParam& param, AlgResourceRequest& resRequest,
-                                std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost)
+                                   std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost)
 {
     HCCL_INFO("Start to execute AllocAlgResource.");
     void *cclBufferAddr;
@@ -819,7 +819,7 @@ HcclResult HcclGetChannelForCcu(HcclComm comm, const OpParam &param, AlgResource
 }
 
 HcclResult HcclGetCcuKernel(HcclComm comm, AlgResourceRequest &resRequest,
-                        std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost)
+                          std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost)
 {
     u32 totalKernelNum = 0;
     for (auto t: resRequest.ccuKernelNum) {

@@ -458,3 +458,4 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherPara
 
 #endif
 }
+// 算法注册

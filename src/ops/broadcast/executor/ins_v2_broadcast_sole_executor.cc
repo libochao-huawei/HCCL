@@ -165,6 +165,6 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_BROADCAST, CcuBroadcastMesh1DMem2Mem, Ins
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_BROADCAST, CcuBroadcastMesh1D, InsV2BroadcastSoleExecutor, TopoMatch1D,
                 CcuTempBroadcastMesh1D);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_BROADCAST, CcuBroadcastNHR1DMem2Mem, InsV2BroadcastSoleExecutor, TopoMatch1D,
-                CcuTempBroadcastNHR1DMem2Mem)
+                CcuTempBroadcastNHR1DMem2Mem);
 #endif
 }
