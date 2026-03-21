@@ -581,7 +581,7 @@ HcclResult HcclSnapshotRecoverAllComms(const char* clusterInfo, const char* chan
 }
 HcclResult HcclConfigGetInfo(HcclComm comm, HcclConfigType cfgType,
     uint32_t infoLen, void *info) {
-    return hcclConfigGetInfoPtr(comm, cfgType, infoLen， info);
+    return hcclConfigGetInfoPtr(comm, cfgType, infoLen, info);
 }
 
 // ---------- 查询函数实现 ----------
