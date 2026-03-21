@@ -65,9 +65,9 @@ HcclResult GetAlgResCcu(HcclComm comm, const OpParam& param, AlgResourceRequest&
 
 HcclResult SetOpParamFastLaunchTag(OpParam &param);
 
-bool CcuFastLaunchSupported(HcclComm comm, OpParam &param, CcuFastRunCtx **ccuFastLaunchCtx);
+bool CcuFastLaunchSupported(HcclComm comm, OpParam &param, CcuFastLaunchCtx **ccuFastLaunchCtx);
 
-HcclResult HcclExecOpCcuFastLaunch(HcclComm comm, OpParam &param, const CcuFastRunCtx *ccuFastRunCtx);
+HcclResult HcclExecOpCcuFastLaunch(HcclComm comm, OpParam &param, const CcuFastLaunchCtx *ccuFastLaunchCtx);
 
 HcclResult GetAlgResAiv(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest, TopoInfoWithNetLayerDetails *topoInfo,
     AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence);

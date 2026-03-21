@@ -123,9 +123,9 @@ HcclResult ReduceScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCoun
     param.enableDetour = false;
     param.deviceType = deviceType;
 
-    CcuFastRunCtx *ccuFastRunCtx = nullptr;
-    if (CcuFastLaunchSupported(comm, param, &ccuFastRunCtx)) {
-        return HcclExecOpCcuFastLaunch(comm, param, ccuFastRunCtx);
+    CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
+    if (CcuFastLaunchSupported(comm, param, &ccuFastLaunchCtx)) {
+        return HcclExecOpCcuFastLaunch(comm, param, ccuFastLaunchCtx);
     }
 
     std::string algName;

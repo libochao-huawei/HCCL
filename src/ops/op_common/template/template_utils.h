@@ -251,6 +251,7 @@ struct TemplateResource {
     std::map<u32, std::vector<ChannelInfo>> channels;
     std::vector<ThreadHandle> threads;
     std::vector<CcuKernelHandle> ccuKernels;
+    std::vector<CcuKernelSubmmitInfo> submmitInfos;
     void *npu2DpuShmemPtr;
     void *dpu2NpuShmemPtr;
     void* aivCommInfoPtr = nullptr;
