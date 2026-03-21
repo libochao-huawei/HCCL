@@ -17,10 +17,6 @@
 extern "C" {
 #endif
 
-#ifndef HCCL_E_NOT_SUPPORTED
-#define HCCL_E_NOT_SUPPORTED ((HcclResult)(-2))
-#endif
-
 // 查询函数声明
 bool HcommIsSupportHcomGetRankSize(void);
 bool HcommIsSupportHcomGetLocalRankSize(void);

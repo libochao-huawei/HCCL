@@ -17,10 +17,6 @@
 extern "C" {
 #endif
 
-#ifndef HCCL_E_NOT_SUPPORTED
-#define HCCL_E_NOT_SUPPORTED  ((HcclResult)(-2))
-#endif
-
 // ---------- 对外API实现（通过函数指针转发）----------
 HcclResult HcclGetHcclBuffer(HcclComm comm, void **buffer, uint64_t *size);
 HcclResult HcclGetRemoteIpcHcclBuf(HcclComm comm, uint64_t remoteRank, void **addr, uint64_t *size);

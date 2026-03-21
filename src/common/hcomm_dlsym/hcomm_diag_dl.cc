@@ -15,8 +15,8 @@
 #include <stdlib.h>
 
 // 定义全局函数指针
-HcclResult (*hcommRegOpInfoPtr)(const char*, void*, size_t) = NULL;
-HcclResult (*hcommRegOpTaskExceptionPtr)(const char*, HcommGetOpInfoCallback) = NULL;
+HcclResult (*hcommRegOpInfoPtr)(const char*, void*, size_t) = nullptr;
+HcclResult (*hcommRegOpTaskExceptionPtr)(const char*, HcommGetOpInfoCallback) = nullptr;
 
 // 添加支持标志（静态，默认 false）
 static bool g_hcommRegOpInfoSupported = false;
@@ -26,21 +26,21 @@ static bool g_hcommRegOpTaskExceptionSupported = false;
 static HcclResult StubHcommRegOpInfo(const char* commId, void* opInfo, size_t size) {
     (void)commId; (void)opInfo; (void)size;
     HCCL_ERROR("[HcclWrapper] HcommRegOpInfo not supported");
-    return HCCL_E_NOT_SUPPORTED;
+    return HCCL_E_NOT_SUPPORT;
 }
 
 static HcclResult StubHcommRegOpTaskException(const char* commId, HcommGetOpInfoCallback callback) {
     (void)commId; (void)callback;
     HCCL_ERROR("[HcclWrapper] HcommRegOpTaskException not supported");
-    return HCCL_E_NOT_SUPPORTED;
+    return HCCL_E_NOT_SUPPORT;
 }
 
 // 初始化
 void HcommDiagDlInit(void* libHcommHandle) {
-    #define SET_PTR(ptr, name, stub, support_flag) \
+    #define SET_PTR(ptr, handle, name, stub, support_flag) \
         do { \
-            ptr = (decltype(ptr))dlsym(libHcommHandle, name); \
-            if (ptr == NULL) { \
+            ptr = (decltype(ptr))dlsym(handle, name); \
+            if (ptr == nullptr) { \
                 ptr = stub; \
                 support_flag = false; \
                 HCCL_DEBUG("[HcclWrapper] %s not supported", name); \
@@ -49,8 +49,8 @@ void HcommDiagDlInit(void* libHcommHandle) {
             } \
         } while(0)
 
-    SET_PTR(hcommRegOpInfoPtr, "HcommRegOpInfo", StubHcommRegOpInfo, g_hcommRegOpInfoSupported);
-    SET_PTR(hcommRegOpTaskExceptionPtr, "HcommRegOpTaskException", StubHcommRegOpTaskException, g_hcommRegOpTaskExceptionSupported);
+    SET_PTR(hcommRegOpInfoPtr, libHcommHandle, "HcommRegOpInfo", StubHcommRegOpInfo, g_hcommRegOpInfoSupported);
+    SET_PTR(hcommRegOpTaskExceptionPtr, libHcommHandle, "HcommRegOpTaskException", StubHcommRegOpTaskException, g_hcommRegOpTaskExceptionSupported);
 
     #undef SET_PTR
 }

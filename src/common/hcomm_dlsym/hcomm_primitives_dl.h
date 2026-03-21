@@ -17,10 +17,6 @@
 extern "C" {
 #endif
 
-#ifndef HCCL_E_NOT_SUPPORTED
-#define HCCL_E_NOT_SUPPORTED  ((HcclResult)(-2))
-#endif
-
 // 声明全局函数指针（小驼峰命名）
 extern int32_t (*hcommLocalCopyOnThreadPtr)(ThreadHandle, void*, const void*, uint64_t);
 extern int32_t (*hcommLocalReduceOnThreadPtr)(ThreadHandle, void*, const void*, uint64_t, HcommDataType, HcommReduceOp);

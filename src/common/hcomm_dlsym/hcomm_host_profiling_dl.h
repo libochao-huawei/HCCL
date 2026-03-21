@@ -17,10 +17,6 @@
 extern "C" {
 #endif
 
-#ifndef HCCL_E_NOT_SUPPORTED
-#define HCCL_E_NOT_SUPPORTED  ((HcclResult)(-2))
-#endif
-
 typedef struct HcomProInfoTmp {
 #define MAX_LENGTH 128
     uint8_t dataType;

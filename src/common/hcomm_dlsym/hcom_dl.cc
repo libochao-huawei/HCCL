@@ -15,81 +15,81 @@
 #include <stdlib.h>
 
 // 定义全局函数指针
-HcclResult (*hcomGetRankSizePtr)(const char*, u32*) = NULL;
-HcclResult (*hcomGetLocalRankSizePtr)(const char*, u32*) = NULL;
-HcclResult (*hcomGetRankIdPtr)(const char*, u32*) = NULL;
-HcclResult (*hcomGetLocalRankIdPtr)(const char*, u32*) = NULL;
-HcclResult (*hcomGetWorldRankFromGroupRankPtr)(const char*, u32, u32*) = NULL;
-HcclResult (*hcomGetGroupRankFromWorldRankPtr)(u32, const char*, u32*) = NULL;
-HcclResult (*hcomCreateGroupPtr)(const char*, u32, u32*) = NULL;
-HcclResult (*hcomDestroyGroupPtr)(const char*) = NULL;
-HcclResult (*hcomSetGradFusionByIndexPtr)(const char*, u32, const u32*) = NULL;
-HcclResult (*hcomSetGradFusionBySizePtr)(const char*, u32, const float*) = NULL;
-HcclResult (*hcomInitByRankTablePtr)(const char*, uint32_t) = NULL;
-HcclResult (*hcomDestroyPtr)() = NULL;
-HcclResult (*hcomGetCommHandleByGroupPtr)(const char*, HcclComm*) = NULL;
-HcclResult (*getGroupNameByOpBaseHcomPtr)(s64, char**) = NULL;
-HcclResult (*hcomCreateComResourceByCommPtr)(HcclComm, u32, bool, void**, bool) = NULL;
-void (*hcomTopoInfoRegCallbackPtr)(HcclResult (*)(const char *, uint32_t), void (*)(const char *)) = NULL;
-HcclResult (*hcomGetandClearOverFlowTasksPtr)(const char*, hccl::HcclDumpInfo**, s32*) = NULL;
-HcclWorkflowMode (*hcomGetWorkflowModePtr)() = NULL;
-HcclResult (*hcomSetWorkflowModePtr)(HcclWorkflowMode) = NULL;
-HcclResult (*hcomCalcOpOnlinePtr)(HcomOpParam*, HcomResResponse*) = NULL;
-HcclResult (*hcomCalcOpResOfflinePtr)(HcomOpParam*, HcomResResponse*) = NULL;
-HcclResult (*hcomGetMemTypePtr)(const char*, const char*, bool, u32*, bool*, bool, bool) = NULL;
-HcclResult (*hcomGetBandWidthPerNPUPtr)(u32, float*) = NULL;
-HcclResult (*hcomGetServerNumAndDeviceNumPerServerPtr)(u32*, u32*, u32*) = NULL;
-bool (*hcomGetSecAddrCopyFlagPtr)(const char*) = NULL;
-HcclResult (*hcomInitByStringPtr)(const char*, const char*, WorkMode, HcomInitConfig*) = NULL;
-HcclResult (*hcomInitByMasterInfoPtr)(const char*, const char*, const char*, const char*, const char*, HcomInitConfig*) = NULL;
-HcclResult (*hcomCreateCommCCLbufferPtr)(const char*) = NULL;
-HcclResult (*hcomGetInCCLbufferPtr)(const char*, void**, u64*) = NULL;
-HcclResult (*hcomGetOutCCLbufferPtr)(const char*, void**, u64*) = NULL;
-void (*hcomSetLaunchKernelModePtr)(bool) = NULL;
-HcclResult (*hcomGetAicpuOpStreamNotifyPtr)(const char*, HcclRtStream*, u8, void**) = NULL;
-HcclResult (*hcomMc2AiCpuStreamAllocAndGetPtr)(const char*, u32, rtStream_t*) = NULL;
-void (*hcomSetDumpDebugModePtr)(bool) = NULL;
-HcclResult (*hcomGetAlgorithmPtr)(u32, char**) = NULL;
-HcclResult (*hcomGetAlgExecParamPtr)(const char*, const char*, u64, void*, void*, HcclCMDType, bool, HcclDataType, HcclReduceOp, void**, u64*, u32) = NULL;
-void (*hcomSetAutoTuneModePtr)(bool) = NULL;
-DevType (*hcomGetDeviceTypePtr)() = NULL;
-HcclResult (*hcomSetProfilingModePtr)(HcomProfilingMode, const char*) = NULL;
-HcclResult (*hcomGetSplitStrategyPtr)(const char*, const struct model_feature*, u32**, u32*, bool*, GradSplitForceMode, OriginalGraphShapeType) = NULL;
-bool (*hcomFindGroupPtr)(const char*) = NULL;
-HcclResult (*hcomSelectAlgPtr)(s64, const char*, u64, void*, HcclDataType, HcclReduceOp, HcclCMDType, int32_t, bool&, char*) = NULL;
-HcclResult (*hcomCalcAivCoreNumPtr)(const char*, HcclCMDType, u64, void*, HcclDataType, int32_t, char*, u32*) = NULL;
-HcclResult (*hcomSetWorkspaceResourcePtr)(const char*, const char*, rtStream_t*, s32, void*, u64) = NULL;
-HcclResult (*hcomSetGlobalWorkSpacePtr)(const char*, void**, u32) = NULL;
-HcclResult (*hcomSetAivCoreLimitPtr)(const char*, u32) = NULL;
-HcclResult (*hcomReleaseSubCommsPtr)() = NULL;
-HcclResult (*hcomUnloadTaskPtr)(const char*, const char*) = NULL;
-HcclResult (*hcomClearAivSyncBufPtr)(const char*, bool) = NULL;
-HcclResult (*hcomSetAttachedStreamPtr)(const char*, u32, const rtStream_t*, s32) = NULL;
-HcclResult (*hcomSupportDeterministicOptimPtr)(const char*, bool*) = NULL;
-HcclResult (*hcomTbeMemCleanPtr)(int64_t[], int64_t[], uint32_t, rtStream_t, int32_t) = NULL;
-HcclResult (*hcomGetInitStatusPtr)(bool*) = NULL;
-HcclResult (*hcomAllGatherPtr)(const char*, void*, void*, u64, HcclDataType, const char*, rtStream_t) = NULL;
-HcclResult (*hcomAllGatherVPtr)(const char*, const void*, u64, const void*, const void*, const void*, HcclDataType, const char*, rtStream_t) = NULL;
-HcclResult (*hcomAllReducePtr)(const char*, void*, void*, u64, HcclDataType, HcclReduceOp, const char*, rtStream_t) = NULL;
-HcclResult (*hcomReducePtr)(const char*, void*, void*, u64, HcclDataType, HcclReduceOp, u32, const char*, rtStream_t) = NULL;
-HcclResult (*hcomBroadcastPtr)(const char*, void*, u64, HcclDataType, u32, const char*, rtStream_t) = NULL;
-HcclResult (*hcomReduceScatterPtr)(const char*, void*, void*, u64, HcclDataType, HcclReduceOp, const char*, rtStream_t) = NULL;
-HcclResult (*hcomReduceScatterVPtr)(const char*, void*, const void*, const void*, void*, u64, HcclDataType, HcclReduceOp, const char*, rtStream_t) = NULL;
-HcclResult (*hcomSendPtr)(const char*, void*, u64, HcclDataType, u32, u32, const char*, rtStream_t) = NULL;
-HcclResult (*hcomReceivePtr)(const char*, void*, u64, HcclDataType, u32, u32, const char*, rtStream_t) = NULL;
-HcclResult (*hcomAlltoAllVPtr)(const void*, const void*, const void*, HcclDataType, const void*, const void*, const void*, HcclDataType, const char*, rtStream_t, const char*) = NULL;
-HcclResult (*hcomAlltoAllVCPtr)(const void*, const void*, HcclDataType, const void*, HcclDataType, const char*, rtStream_t, const char*) = NULL;
-HcclResult (*hcomAllToAllPtr)(const void*, u64, HcclDataType, const void*, u64, HcclDataType, const char*, rtStream_t, const char*) = NULL;
-HcclResult (*hcomGetHcclCommPtr)(int64_t, std::string&) = NULL;
-HcclResult (*hcomGenerateCclOpTagPtr)(const char*, s64, const char*, char*) = NULL;
-HcclResult (*hcomGetCommCCLBufferSizePtr)(const char*, uint64_t&) = NULL;
-HcclResult (*hcomGetL0TopoTypeExPtr)(const char*, CommTopo*, uint32_t) = NULL;
-HcclResult (*hcomGetRankSizeExPtr)(const char*, uint32_t*, uint32_t) = NULL;
-static HcclResult (*hcomInitByFilePtr)(const char*, const char*) = NULL;
-static HcclResult (*hcomGetWorkspaceSubStreamNumPtr)(const char*, u64&, u64, HcclDataType, u32, HcclReduceOp, u64, HcclCMDType) = NULL;
-static HcclResult (*hcomGetWorkspaceMemSizePtr)(const std::string&, u64, HcclDataType, const char*, u64&) = NULL;
-static HcclResult (*hcomSetAlgorithmPtr)(const char*) = NULL;
-static HcclResult (*hcomGetAlltoAllStagedWorkSpaceMemSizePtr)(const char*, u64*, u64*, HcclDataType, u64*, u64*, HcclDataType, u64&) = NULL;
+HcclResult (*hcomGetRankSizePtr)(const char*, u32*) = nullptr;
+HcclResult (*hcomGetLocalRankSizePtr)(const char*, u32*) = nullptr;
+HcclResult (*hcomGetRankIdPtr)(const char*, u32*) = nullptr;
+HcclResult (*hcomGetLocalRankIdPtr)(const char*, u32*) = nullptr;
+HcclResult (*hcomGetWorldRankFromGroupRankPtr)(const char*, u32, u32*) = nullptr;
+HcclResult (*hcomGetGroupRankFromWorldRankPtr)(u32, const char*, u32*) = nullptr;
+HcclResult (*hcomCreateGroupPtr)(const char*, u32, u32*) = nullptr;
+HcclResult (*hcomDestroyGroupPtr)(const char*) = nullptr;
+HcclResult (*hcomSetGradFusionByIndexPtr)(const char*, u32, const u32*) = nullptr;
+HcclResult (*hcomSetGradFusionBySizePtr)(const char*, u32, const float*) = nullptr;
+HcclResult (*hcomInitByRankTablePtr)(const char*, uint32_t) = nullptr;
+HcclResult (*hcomDestroyPtr)() = nullptr;
+HcclResult (*hcomGetCommHandleByGroupPtr)(const char*, HcclComm*) = nullptr;
+HcclResult (*getGroupNameByOpBaseHcomPtr)(s64, char**) = nullptr;
+HcclResult (*hcomCreateComResourceByCommPtr)(HcclComm, u32, bool, void**, bool) = nullptr;
+void (*hcomTopoInfoRegCallbackPtr)(HcclResult (*)(const char *, uint32_t), void (*)(const char *)) = nullptr;
+HcclResult (*hcomGetandClearOverFlowTasksPtr)(const char*, hccl::HcclDumpInfo**, s32*) = nullptr;
+HcclWorkflowMode (*hcomGetWorkflowModePtr)() = nullptr;
+HcclResult (*hcomSetWorkflowModePtr)(HcclWorkflowMode) = nullptr;
+HcclResult (*hcomCalcOpOnlinePtr)(HcomOpParam*, HcomResResponse*) = nullptr;
+HcclResult (*hcomCalcOpResOfflinePtr)(HcomOpParam*, HcomResResponse*) = nullptr;
+HcclResult (*hcomGetMemTypePtr)(const char*, const char*, bool, u32*, bool*, bool, bool) = nullptr;
+HcclResult (*hcomGetBandWidthPerNPUPtr)(u32, float*) = nullptr;
+HcclResult (*hcomGetServerNumAndDeviceNumPerServerPtr)(u32*, u32*, u32*) = nullptr;
+bool (*hcomGetSecAddrCopyFlagPtr)(const char*) = nullptr;
+HcclResult (*hcomInitByStringPtr)(const char*, const char*, WorkMode, HcomInitConfig*) = nullptr;
+HcclResult (*hcomInitByMasterInfoPtr)(const char*, const char*, const char*, const char*, const char*, HcomInitConfig*) = nullptr;
+HcclResult (*hcomCreateCommCCLbufferPtr)(const char*) = nullptr;
+HcclResult (*hcomGetInCCLbufferPtr)(const char*, void**, u64*) = nullptr;
+HcclResult (*hcomGetOutCCLbufferPtr)(const char*, void**, u64*) = nullptr;
+void (*hcomSetLaunchKernelModePtr)(bool) = nullptr;
+HcclResult (*hcomGetAicpuOpStreamNotifyPtr)(const char*, HcclRtStream*, u8, void**) = nullptr;
+HcclResult (*hcomMc2AiCpuStreamAllocAndGetPtr)(const char*, u32, rtStream_t*) = nullptr;
+void (*hcomSetDumpDebugModePtr)(bool) = nullptr;
+HcclResult (*hcomGetAlgorithmPtr)(u32, char**) = nullptr;
+HcclResult (*hcomGetAlgExecParamPtr)(const char*, const char*, u64, void*, void*, HcclCMDType, bool, HcclDataType, HcclReduceOp, void**, u64*, u32) = nullptr;
+void (*hcomSetAutoTuneModePtr)(bool) = nullptr;
+DevType (*hcomGetDeviceTypePtr)() = nullptr;
+HcclResult (*hcomSetProfilingModePtr)(HcomProfilingMode, const char*) = nullptr;
+HcclResult (*hcomGetSplitStrategyPtr)(const char*, const struct model_feature*, u32**, u32*, bool*, GradSplitForceMode, OriginalGraphShapeType) = nullptr;
+bool (*hcomFindGroupPtr)(const char*) = nullptr;
+HcclResult (*hcomSelectAlgPtr)(s64, const char*, u64, void*, HcclDataType, HcclReduceOp, HcclCMDType, int32_t, bool&, char*) = nullptr;
+HcclResult (*hcomCalcAivCoreNumPtr)(const char*, HcclCMDType, u64, void*, HcclDataType, int32_t, char*, u32*) = nullptr;
+HcclResult (*hcomSetWorkspaceResourcePtr)(const char*, const char*, rtStream_t*, s32, void*, u64) = nullptr;
+HcclResult (*hcomSetGlobalWorkSpacePtr)(const char*, void**, u32) = nullptr;
+HcclResult (*hcomSetAivCoreLimitPtr)(const char*, u32) = nullptr;
+HcclResult (*hcomReleaseSubCommsPtr)() = nullptr;
+HcclResult (*hcomUnloadTaskPtr)(const char*, const char*) = nullptr;
+HcclResult (*hcomClearAivSyncBufPtr)(const char*, bool) = nullptr;
+HcclResult (*hcomSetAttachedStreamPtr)(const char*, u32, const rtStream_t*, s32) = nullptr;
+HcclResult (*hcomSupportDeterministicOptimPtr)(const char*, bool*) = nullptr;
+HcclResult (*hcomTbeMemCleanPtr)(int64_t[], int64_t[], uint32_t, rtStream_t, int32_t) = nullptr;
+HcclResult (*hcomGetInitStatusPtr)(bool*) = nullptr;
+HcclResult (*hcomAllGatherPtr)(const char*, void*, void*, u64, HcclDataType, const char*, rtStream_t) = nullptr;
+HcclResult (*hcomAllGatherVPtr)(const char*, const void*, u64, const void*, const void*, const void*, HcclDataType, const char*, rtStream_t) = nullptr;
+HcclResult (*hcomAllReducePtr)(const char*, void*, void*, u64, HcclDataType, HcclReduceOp, const char*, rtStream_t) = nullptr;
+HcclResult (*hcomReducePtr)(const char*, void*, void*, u64, HcclDataType, HcclReduceOp, u32, const char*, rtStream_t) = nullptr;
+HcclResult (*hcomBroadcastPtr)(const char*, void*, u64, HcclDataType, u32, const char*, rtStream_t) = nullptr;
+HcclResult (*hcomReduceScatterPtr)(const char*, void*, void*, u64, HcclDataType, HcclReduceOp, const char*, rtStream_t) = nullptr;
+HcclResult (*hcomReduceScatterVPtr)(const char*, void*, const void*, const void*, void*, u64, HcclDataType, HcclReduceOp, const char*, rtStream_t) = nullptr;
+HcclResult (*hcomSendPtr)(const char*, void*, u64, HcclDataType, u32, u32, const char*, rtStream_t) = nullptr;
+HcclResult (*hcomReceivePtr)(const char*, void*, u64, HcclDataType, u32, u32, const char*, rtStream_t) = nullptr;
+HcclResult (*hcomAlltoAllVPtr)(const void*, const void*, const void*, HcclDataType, const void*, const void*, const void*, HcclDataType, const char*, rtStream_t, const char*) = nullptr;
+HcclResult (*hcomAlltoAllVCPtr)(const void*, const void*, HcclDataType, const void*, HcclDataType, const char*, rtStream_t, const char*) = nullptr;
+HcclResult (*hcomAllToAllPtr)(const void*, u64, HcclDataType, const void*, u64, HcclDataType, const char*, rtStream_t, const char*) = nullptr;
+HcclResult (*hcomGetHcclCommPtr)(int64_t, std::string&) = nullptr;
+HcclResult (*hcomGenerateCclOpTagPtr)(const char*, s64, const char*, char*) = nullptr;
+HcclResult (*hcomGetCommCCLBufferSizePtr)(const char*, uint64_t&) = nullptr;
+HcclResult (*hcomGetL0TopoTypeExPtr)(const char*, CommTopo*, uint32_t) = nullptr;
+HcclResult (*hcomGetRankSizeExPtr)(const char*, uint32_t*, uint32_t) = nullptr;
+static HcclResult (*hcomInitByFilePtr)(const char*, const char*) = nullptr;
+static HcclResult (*hcomGetWorkspaceSubStreamNumPtr)(const char*, u64&, u64, HcclDataType, u32, HcclReduceOp, u64, HcclCMDType) = nullptr;
+static HcclResult (*hcomGetWorkspaceMemSizePtr)(const std::string&, u64, HcclDataType, const char*, u64&) = nullptr;
+static HcclResult (*hcomSetAlgorithmPtr)(const char*) = nullptr;
+static HcclResult (*hcomGetAlltoAllStagedWorkSpaceMemSizePtr)(const char*, u64*, u64*, HcclDataType, u64*, u64*, HcclDataType, u64&) = nullptr;
 
 // 支持标志（静态，默认 false）
 #define DEFINE_SUPPORT_FLAG(name) static bool g_##name##Supported = false
@@ -173,112 +173,112 @@ DEFINE_SUPPORT_FLAG(HcomGetAlltoAllStagedWorkSpaceMemSize);
 
 // ---------- 桩函数定义 ----------
 static HcclResult StubHcomGetRankSize(const char* group, u32* rankSize) {
-    (void)group; (void)rankSize; HCCL_ERROR("[HcclWrapper] HcomGetRankSize not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)group; (void)rankSize; HCCL_ERROR("[HcclWrapper] HcomGetRankSize not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomGetLocalRankSize(const char* group, u32* localRankSize) {
-    (void)group; (void)localRankSize; HCCL_ERROR("[HcclWrapper] HcomGetLocalRankSize not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)group; (void)localRankSize; HCCL_ERROR("[HcclWrapper] HcomGetLocalRankSize not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomGetRankId(const char* group, u32* rankId) {
-    (void)group; (void)rankId; HCCL_ERROR("[HcclWrapper] HcomGetRankId not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)group; (void)rankId; HCCL_ERROR("[HcclWrapper] HcomGetRankId not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomGetLocalRankId(const char* group, u32* localRankId) {
-    (void)group; (void)localRankId; HCCL_ERROR("[HcclWrapper] HcomGetLocalRankId not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)group; (void)localRankId; HCCL_ERROR("[HcclWrapper] HcomGetLocalRankId not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomGetWorldRankFromGroupRank(const char* group, u32 groupRank, u32* worldRank) {
-    (void)group; (void)groupRank; (void)worldRank; HCCL_ERROR("[HcclWrapper] HcomGetWorldRankFromGroupRank not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)group; (void)groupRank; (void)worldRank; HCCL_ERROR("[HcclWrapper] HcomGetWorldRankFromGroupRank not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomGetGroupRankFromWorldRank(u32 worldRank, const char* group, u32* groupRank) {
-    (void)worldRank; (void)group; (void)groupRank; HCCL_ERROR("[HcclWrapper] HcomGetGroupRankFromWorldRank not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)worldRank; (void)group; (void)groupRank; HCCL_ERROR("[HcclWrapper] HcomGetGroupRankFromWorldRank not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomCreateGroup(const char* group, u32 rankNum, u32* rankIds) {
-    (void)group; (void)rankNum; (void)rankIds; HCCL_ERROR("[HcclWrapper] HcomCreateGroup not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)group; (void)rankNum; (void)rankIds; HCCL_ERROR("[HcclWrapper] HcomCreateGroup not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomDestroyGroup(const char* group) {
-    (void)group; HCCL_ERROR("[HcclWrapper] HcomDestroyGroup not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)group; HCCL_ERROR("[HcclWrapper] HcomDestroyGroup not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomSetGradFusionByIndex(const char* group, u32 segmentNum, const u32* inputIdxList) {
-    (void)group; (void)segmentNum; (void)inputIdxList; HCCL_ERROR("[HcclWrapper] HcomSetGradFusionByIndex not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)group; (void)segmentNum; (void)inputIdxList; HCCL_ERROR("[HcclWrapper] HcomSetGradFusionByIndex not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomSetGradFusionBySize(const char* group, u32 segmentNum, const float* sizeList) {
-    (void)group; (void)segmentNum; (void)sizeList; HCCL_ERROR("[HcclWrapper] HcomSetGradFusionBySize not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)group; (void)segmentNum; (void)sizeList; HCCL_ERROR("[HcclWrapper] HcomSetGradFusionBySize not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomInitByRankTable(const char* rankTable, uint32_t rankId) {
-    (void)rankTable; (void)rankId; HCCL_ERROR("[HcclWrapper] HcomInitByRankTable not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)rankTable; (void)rankId; HCCL_ERROR("[HcclWrapper] HcomInitByRankTable not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomDestroy() {
-    HCCL_ERROR("[HcclWrapper] HcomDestroy not supported"); return HCCL_E_NOT_SUPPORTED;
+    HCCL_ERROR("[HcclWrapper] HcomDestroy not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomGetCommHandleByGroup(const char* group, HcclComm* commHandle) {
-    (void)group; (void)commHandle; HCCL_ERROR("[HcclWrapper] HcomGetCommHandleByGroup not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)group; (void)commHandle; HCCL_ERROR("[HcclWrapper] HcomGetCommHandleByGroup not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubGetGroupNameByOpBaseHcom(s64 opBaseHcom, char** groupname) {
-    (void)opBaseHcom; (void)groupname; HCCL_ERROR("[HcclWrapper] GetGroupNameByOpBaseHcom not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)opBaseHcom; (void)groupname; HCCL_ERROR("[HcclWrapper] GetGroupNameByOpBaseHcom not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomCreateComResourceByComm(HcclComm comm, u32 streamMode, bool isOpbaseMode, void** commContext, bool isMC2) {
-    (void)comm; (void)streamMode; (void)isOpbaseMode; (void)commContext; (void)isMC2; HCCL_ERROR("[HcclWrapper] HcomCreateComResourceByComm not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)comm; (void)streamMode; (void)isOpbaseMode; (void)commContext; (void)isMC2; HCCL_ERROR("[HcclWrapper] HcomCreateComResourceByComm not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static void StubHcomTopoInfoRegCallback(HcclResult (*p1)(const char *, uint32_t), void (*p2)(const char *)) {
     (void)p1; (void)p2; HCCL_ERROR("[HcclWrapper] HcomTopoInfoRegCallback not supported");
 }
 static HcclResult StubHcomGetandClearOverFlowTasks(const char* group, hccl::HcclDumpInfo** hcclDumpInfoPtr, s32* len) {
-    (void)group; (void)hcclDumpInfoPtr; (void)len; HCCL_ERROR("[HcclWrapper] HcomGetandClearOverFlowTasks not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)group; (void)hcclDumpInfoPtr; (void)len; HCCL_ERROR("[HcclWrapper] HcomGetandClearOverFlowTasks not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclWorkflowMode StubHcomGetWorkflowMode() {
     HCCL_ERROR("[HcclWrapper] HcomGetWorkflowMode not supported"); return HcclWorkflowMode::HCCL_WORKFLOW_MODE_RESERVED;
 }
 static HcclResult StubHcomSetWorkflowMode(HcclWorkflowMode mode) {
-    (void)mode; HCCL_ERROR("[HcclWrapper] HcomSetWorkflowMode not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)mode; HCCL_ERROR("[HcclWrapper] HcomSetWorkflowMode not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomCalcOpOnline(HcomOpParam* hcomOpParam, HcomResResponse* hcomResResponse) {
-    (void)hcomOpParam; (void)hcomResResponse; HCCL_ERROR("[HcclWrapper] HcomCalcOpOnline not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)hcomOpParam; (void)hcomResResponse; HCCL_ERROR("[HcclWrapper] HcomCalcOpOnline not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomCalcOpResOffline(HcomOpParam* hcomOpParam, HcomResResponse* hcomResResponse) {
-    (void)hcomOpParam; (void)hcomResResponse; HCCL_ERROR("[HcclWrapper] HcomCalcOpResOffline not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)hcomOpParam; (void)hcomResResponse; HCCL_ERROR("[HcclWrapper] HcomCalcOpResOffline not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomGetMemType(const char* group, const char* socVersion, bool isMalloc, u32* memType, bool* isTsMem, bool withoutImplCompile, bool level2Address) {
-    (void)group; (void)socVersion; (void)isMalloc; (void)memType; (void)isTsMem; (void)withoutImplCompile; (void)level2Address; HCCL_ERROR("[HcclWrapper] HcomGetMemType not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)group; (void)socVersion; (void)isMalloc; (void)memType; (void)isTsMem; (void)withoutImplCompile; (void)level2Address; HCCL_ERROR("[HcclWrapper] HcomGetMemType not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomGetBandWidthPerNPU(u32 level, float* bandWidth) {
-    (void)level; (void)bandWidth; HCCL_ERROR("[HcclWrapper] HcomGetBandWidthPerNPU not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)level; (void)bandWidth; HCCL_ERROR("[HcclWrapper] HcomGetBandWidthPerNPU not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomGetServerNumAndDeviceNumPerServer(u32* serverNum, u32* deviceNumPerServer, u32* deviceNumPerAggregation) {
-    (void)serverNum; (void)deviceNumPerServer; (void)deviceNumPerAggregation; HCCL_ERROR("[HcclWrapper] HcomGetServerNumAndDeviceNumPerServer not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)serverNum; (void)deviceNumPerServer; (void)deviceNumPerAggregation; HCCL_ERROR("[HcclWrapper] HcomGetServerNumAndDeviceNumPerServer not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static bool StubHcomGetSecAddrCopyFlag(const char* socVersion) {
     (void)socVersion; HCCL_ERROR("[HcclWrapper] HcomGetSecAddrCopyFlag not supported"); return false;
 }
 static HcclResult StubHcomInitByString(const char* rankTableM, const char* identify, WorkMode commWorkMode, HcomInitConfig* initConfig) {
-    (void)rankTableM; (void)identify; (void)commWorkMode; (void)initConfig; HCCL_ERROR("[HcclWrapper] HcomInitByString not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)rankTableM; (void)identify; (void)commWorkMode; (void)initConfig; HCCL_ERROR("[HcclWrapper] HcomInitByString not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomInitByMasterInfo(const char* masterIp, const char* masterPort, const char* masterDeviceId, const char* rankSize, const char* rankIp, HcomInitConfig* initConfig) {
-    (void)masterIp; (void)masterPort; (void)masterDeviceId; (void)rankSize; (void)rankIp; (void)initConfig; HCCL_ERROR("[HcclWrapper] HcomInitByMasterInfo not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)masterIp; (void)masterPort; (void)masterDeviceId; (void)rankSize; (void)rankIp; (void)initConfig; HCCL_ERROR("[HcclWrapper] HcomInitByMasterInfo not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomCreateCommCCLbuffer(const char* group) {
-    (void)group; HCCL_ERROR("[HcclWrapper] HcomCreateCommCCLbuffer not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)group; HCCL_ERROR("[HcclWrapper] HcomCreateCommCCLbuffer not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomGetInCCLbuffer(const char* group, void** buffer, u64* size) {
-    (void)group; (void)buffer; (void)size; HCCL_ERROR("[HcclWrapper] HcomGetInCCLbuffer not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)group; (void)buffer; (void)size; HCCL_ERROR("[HcclWrapper] HcomGetInCCLbuffer not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomGetOutCCLbuffer(const char* group, void** buffer, u64* size) {
-    (void)group; (void)buffer; (void)size; HCCL_ERROR("[HcclWrapper] HcomGetOutCCLbuffer not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)group; (void)buffer; (void)size; HCCL_ERROR("[HcclWrapper] HcomGetOutCCLbuffer not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static void StubHcomSetLaunchKernelMode(bool state) {
     (void)state; HCCL_ERROR("[HcclWrapper] HcomSetLaunchKernelMode not supported");
 }
 static HcclResult StubHcomGetAicpuOpStreamNotify(const char* group, HcclRtStream* opStream, u8 aicpuNotifyNum, void** aicpuNotify) {
-    (void)group; (void)opStream; (void)aicpuNotifyNum; (void)aicpuNotify; HCCL_ERROR("[HcclWrapper] HcomGetAicpuOpStreamNotify not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)group; (void)opStream; (void)aicpuNotifyNum; (void)aicpuNotify; HCCL_ERROR("[HcclWrapper] HcomGetAicpuOpStreamNotify not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomMc2AiCpuStreamAllocAndGet(const char* group, u32 streamMode, rtStream_t* aiCpuStream) {
-    (void)group; (void)streamMode; (void)aiCpuStream; HCCL_ERROR("[HcclWrapper] HcomMc2AiCpuStreamAllocAndGet not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)group; (void)streamMode; (void)aiCpuStream; HCCL_ERROR("[HcclWrapper] HcomMc2AiCpuStreamAllocAndGet not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static void StubHcomSetDumpDebugMode(bool dumpDebug) {
     (void)dumpDebug; HCCL_ERROR("[HcclWrapper] HcomSetDumpDebugMode not supported");
 }
 static HcclResult StubHcomGetAlgorithm(u32 level, char** algo) {
-    (void)level; (void)algo; HCCL_ERROR("[HcclWrapper] HcomGetAlgorithm not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)level; (void)algo; HCCL_ERROR("[HcclWrapper] HcomGetAlgorithm not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomGetAlgExecParam(const char* tag, const char* group, u64 count, void* inputPtr, void* outputPtr, HcclCMDType opType, bool clearEnable, HcclDataType dataType, HcclReduceOp op, void** commContext, u64* len, u32 aivCoreLimit) {
-    (void)tag; (void)group; (void)count; (void)inputPtr; (void)outputPtr; (void)opType; (void)clearEnable; (void)dataType; (void)op; (void)commContext; (void)len; (void)aivCoreLimit; HCCL_ERROR("[HcclWrapper] HcomGetAlgExecParam not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)tag; (void)group; (void)count; (void)inputPtr; (void)outputPtr; (void)opType; (void)clearEnable; (void)dataType; (void)op; (void)commContext; (void)len; (void)aivCoreLimit; HCCL_ERROR("[HcclWrapper] HcomGetAlgExecParam not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static void StubHcomSetAutoTuneMode(bool autoTuneMode) {
     (void)autoTuneMode; HCCL_ERROR("[HcclWrapper] HcomSetAutoTuneMode not supported");
@@ -287,136 +287,136 @@ static DevType StubHcomGetDeviceType() {
     HCCL_ERROR("[HcclWrapper] HcomGetDeviceType not supported"); return DevType::DEV_TYPE_910;
 }
 static HcclResult StubHcomSetProfilingMode(HcomProfilingMode profilingMode, const char* profilingOption) {
-    (void)profilingMode; (void)profilingOption; HCCL_ERROR("[HcclWrapper] HcomSetProfilingMode not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)profilingMode; (void)profilingOption; HCCL_ERROR("[HcclWrapper] HcomSetProfilingMode not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomGetSplitStrategy(const char* group, const struct model_feature* feature, u32** segmentIdxPtr, u32* len, bool* configured, GradSplitForceMode force, OriginalGraphShapeType shapeType) {
-    (void)group; (void)feature; (void)segmentIdxPtr; (void)len; (void)configured; (void)force; (void)shapeType; HCCL_ERROR("[HcclWrapper] HcomGetSplitStrategy not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)group; (void)feature; (void)segmentIdxPtr; (void)len; (void)configured; (void)force; (void)shapeType; HCCL_ERROR("[HcclWrapper] HcomGetSplitStrategy not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static bool StubHcomFindGroup(const char* group) {
     (void)group; HCCL_ERROR("[HcclWrapper] HcomFindGroup not supported"); return false;
 }
 static HcclResult StubHcomSelectAlg(s64 comm, const char* group, u64 count, void* counts, HcclDataType dataType, HcclReduceOp op, HcclCMDType opType, int32_t aivCoreLimit, bool& ifAiv, char* algName) {
-    (void)comm; (void)group; (void)count; (void)counts; (void)dataType; (void)op; (void)opType; (void)aivCoreLimit; (void)ifAiv; (void)algName; HCCL_ERROR("[HcclWrapper] HcomSelectAlg not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)comm; (void)group; (void)count; (void)counts; (void)dataType; (void)op; (void)opType; (void)aivCoreLimit; (void)ifAiv; (void)algName; HCCL_ERROR("[HcclWrapper] HcomSelectAlg not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomCalcAivCoreNum(const char* group, HcclCMDType opType, u64 count, void* counts, HcclDataType dataType, int32_t aivCoreLimit, char* algName, u32* numBlocks) {
-    (void)group; (void)opType; (void)count; (void)counts; (void)dataType; (void)aivCoreLimit; (void)algName; (void)numBlocks; HCCL_ERROR("[HcclWrapper] HcomCalcAivCoreNum not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)group; (void)opType; (void)count; (void)counts; (void)dataType; (void)aivCoreLimit; (void)algName; (void)numBlocks; HCCL_ERROR("[HcclWrapper] HcomCalcAivCoreNum not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomSetWorkspaceResource(const char* tag, const char* group, rtStream_t* stream, s32 len, void* memPtr, u64 maxSize) {
-    (void)tag; (void)group; (void)stream; (void)len; (void)memPtr; (void)maxSize; HCCL_ERROR("[HcclWrapper] HcomSetWorkspaceResource not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)tag; (void)group; (void)stream; (void)len; (void)memPtr; (void)maxSize; HCCL_ERROR("[HcclWrapper] HcomSetWorkspaceResource not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomSetGlobalWorkSpace(const char* group, void** globalWorkSpaceAddr, u32 len) {
-    (void)group; (void)globalWorkSpaceAddr; (void)len; HCCL_ERROR("[HcclWrapper] HcomSetGlobalWorkSpace not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)group; (void)globalWorkSpaceAddr; (void)len; HCCL_ERROR("[HcclWrapper] HcomSetGlobalWorkSpace not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomSetAivCoreLimit(const char* group, u32 aivCoreLimit) {
-    (void)group; (void)aivCoreLimit; HCCL_ERROR("[HcclWrapper] HcomSetAivCoreLimit not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)group; (void)aivCoreLimit; HCCL_ERROR("[HcclWrapper] HcomSetAivCoreLimit not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomReleaseSubComms() {
-    HCCL_ERROR("[HcclWrapper] HcomReleaseSubComms not supported"); return HCCL_E_NOT_SUPPORTED;
+    HCCL_ERROR("[HcclWrapper] HcomReleaseSubComms not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomUnloadTask(const char* group, const char* tag) {
-    (void)group; (void)tag; HCCL_ERROR("[HcclWrapper] HcomUnloadTask not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)group; (void)tag; HCCL_ERROR("[HcclWrapper] HcomUnloadTask not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomClearAivSyncBuf(const char* group, bool aivClearEnable) {
-    (void)group; (void)aivClearEnable; HCCL_ERROR("[HcclWrapper] HcomClearAivSyncBuf not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)group; (void)aivClearEnable; HCCL_ERROR("[HcclWrapper] HcomClearAivSyncBuf not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomSetAttachedStream(const char* group, u32 graphId, const rtStream_t* stream, s32 len) {
-    (void)group; (void)graphId; (void)stream; (void)len; HCCL_ERROR("[HcclWrapper] HcomSetAttachedStream not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)group; (void)graphId; (void)stream; (void)len; HCCL_ERROR("[HcclWrapper] HcomSetAttachedStream not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomSupportDeterministicOptim(const char* group, bool* isDeterministicOptim) {
-    (void)group; (void)isDeterministicOptim; HCCL_ERROR("[HcclWrapper] HcomSupportDeterministicOptim not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)group; (void)isDeterministicOptim; HCCL_ERROR("[HcclWrapper] HcomSupportDeterministicOptim not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomTbeMemClean(int64_t addrList[], int64_t sizeList[], uint32_t count, rtStream_t stream, int32_t deviceLogicId) {
-    (void)addrList; (void)sizeList; (void)count; (void)stream; (void)deviceLogicId; HCCL_ERROR("[HcclWrapper] HcomTbeMemClean not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)addrList; (void)sizeList; (void)count; (void)stream; (void)deviceLogicId; HCCL_ERROR("[HcclWrapper] HcomTbeMemClean not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomGetInitStatus(bool* initiated) {
-    (void)initiated; HCCL_ERROR("[HcclWrapper] HcomGetInitStatus not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)initiated; HCCL_ERROR("[HcclWrapper] HcomGetInitStatus not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomAllGather(const char* tag, void* inputPtr, void* outputPtr, u64 inputCount, HcclDataType dataType, const char* group, rtStream_t stream) {
-    (void)tag; (void)inputPtr; (void)outputPtr; (void)inputCount; (void)dataType; (void)group; (void)stream; HCCL_ERROR("[HcclWrapper] HcomAllGather not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)tag; (void)inputPtr; (void)outputPtr; (void)inputCount; (void)dataType; (void)group; (void)stream; HCCL_ERROR("[HcclWrapper] HcomAllGather not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomAllGatherV(const char* tag, const void* sendBuf, u64 sendCount, const void* recvBuf, const void* recvCounts, const void* rdispls, HcclDataType dataType, const char* group, rtStream_t stream) {
-    (void)tag; (void)sendBuf; (void)sendCount; (void)recvBuf; (void)recvCounts; (void)rdispls; (void)dataType; (void)group; (void)stream; HCCL_ERROR("[HcclWrapper] HcomAllGatherV not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)tag; (void)sendBuf; (void)sendCount; (void)recvBuf; (void)recvCounts; (void)rdispls; (void)dataType; (void)group; (void)stream; HCCL_ERROR("[HcclWrapper] HcomAllGatherV not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomAllReduce(const char* tag, void* inputPtr, void* outputPtr, u64 count, HcclDataType dataType, HcclReduceOp op, const char* group, rtStream_t stream) {
-    (void)tag; (void)inputPtr; (void)outputPtr; (void)count; (void)dataType; (void)op; (void)group; (void)stream; HCCL_ERROR("[HcclWrapper] HcomAllReduce not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)tag; (void)inputPtr; (void)outputPtr; (void)count; (void)dataType; (void)op; (void)group; (void)stream; HCCL_ERROR("[HcclWrapper] HcomAllReduce not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomReduce(const char* tag, void* inputPtr, void* outputPtr, u64 count, HcclDataType dataType, HcclReduceOp op, u32 root, const char* group, rtStream_t stream) {
-    (void)tag; (void)inputPtr; (void)outputPtr; (void)count; (void)dataType; (void)op; (void)root; (void)group; (void)stream; HCCL_ERROR("[HcclWrapper] HcomReduce not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)tag; (void)inputPtr; (void)outputPtr; (void)count; (void)dataType; (void)op; (void)root; (void)group; (void)stream; HCCL_ERROR("[HcclWrapper] HcomReduce not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomBroadcast(const char* tag, void* ptr, u64 count, HcclDataType dataType, u32 root, const char* group, rtStream_t stream) {
-    (void)tag; (void)ptr; (void)count; (void)dataType; (void)root; (void)group; (void)stream; HCCL_ERROR("[HcclWrapper] HcomBroadcast not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)tag; (void)ptr; (void)count; (void)dataType; (void)root; (void)group; (void)stream; HCCL_ERROR("[HcclWrapper] HcomBroadcast not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomReduceScatter(const char* tag, void* inputPtr, void* outputPtr, u64 count, HcclDataType dataType, HcclReduceOp op, const char* group, rtStream_t stream) {
-    (void)tag; (void)inputPtr; (void)outputPtr; (void)count; (void)dataType; (void)op; (void)group; (void)stream; HCCL_ERROR("[HcclWrapper] HcomReduceScatter not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)tag; (void)inputPtr; (void)outputPtr; (void)count; (void)dataType; (void)op; (void)group; (void)stream; HCCL_ERROR("[HcclWrapper] HcomReduceScatter not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomReduceScatterV(const char* tag, void* sendBuf, const void* sendCounts, const void* sdispls, void* recvBuf, u64 recvCount, HcclDataType dataType, HcclReduceOp op, const char* group, rtStream_t stream) {
-    (void)tag; (void)sendBuf; (void)sendCounts; (void)sdispls; (void)recvBuf; (void)recvCount; (void)dataType; (void)op; (void)group; (void)stream; HCCL_ERROR("[HcclWrapper] HcomReduceScatterV not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)tag; (void)sendBuf; (void)sendCounts; (void)sdispls; (void)recvBuf; (void)recvCount; (void)dataType; (void)op; (void)group; (void)stream; HCCL_ERROR("[HcclWrapper] HcomReduceScatterV not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomSend(const char* tag, void* inputPtr, u64 count, HcclDataType dataType, u32 destRank, u32 srTag, const char* group, rtStream_t stream) {
-    (void)tag; (void)inputPtr; (void)count; (void)dataType; (void)destRank; (void)srTag; (void)group; (void)stream; HCCL_ERROR("[HcclWrapper] HcomSend not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)tag; (void)inputPtr; (void)count; (void)dataType; (void)destRank; (void)srTag; (void)group; (void)stream; HCCL_ERROR("[HcclWrapper] HcomSend not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomReceive(const char* tag, void* outputPtr, u64 count, HcclDataType dataType, u32 srcRank, u32 srTag, const char* group, rtStream_t stream) {
-    (void)tag; (void)outputPtr; (void)count; (void)dataType; (void)srcRank; (void)srTag; (void)group; (void)stream; HCCL_ERROR("[HcclWrapper] HcomReceive not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)tag; (void)outputPtr; (void)count; (void)dataType; (void)srcRank; (void)srTag; (void)group; (void)stream; HCCL_ERROR("[HcclWrapper] HcomReceive not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomAlltoAllV(const void* sendBuf, const void* sendCounts, const void* sdispls, HcclDataType sendType, const void* recvBuf, const void* recvCounts, const void* rdispls, HcclDataType recvType, const char* group, rtStream_t stream, const char* tag) {
-    (void)sendBuf; (void)sendCounts; (void)sdispls; (void)sendType; (void)recvBuf; (void)recvCounts; (void)rdispls; (void)recvType; (void)group; (void)stream; (void)tag; HCCL_ERROR("[HcclWrapper] HcomAlltoAllV not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)sendBuf; (void)sendCounts; (void)sdispls; (void)sendType; (void)recvBuf; (void)recvCounts; (void)rdispls; (void)recvType; (void)group; (void)stream; (void)tag; HCCL_ERROR("[HcclWrapper] HcomAlltoAllV not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomAlltoAllVC(const void* sendBuf, const void* sendCountMatrix, HcclDataType sendType, const void* recvBuf, HcclDataType recvType, const char* group, rtStream_t stream, const char* tag) {
-    (void)sendBuf; (void)sendCountMatrix; (void)sendType; (void)recvBuf; (void)recvType; (void)group; (void)stream; (void)tag; HCCL_ERROR("[HcclWrapper] HcomAlltoAllVC not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)sendBuf; (void)sendCountMatrix; (void)sendType; (void)recvBuf; (void)recvType; (void)group; (void)stream; (void)tag; HCCL_ERROR("[HcclWrapper] HcomAlltoAllVC not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomAllToAll(const void* sendBuf, u64 sendCount, HcclDataType sendType, const void* recvBuf, u64 recvCount, HcclDataType recvType, const char* group, rtStream_t stream, const char* tag) {
-    (void)sendBuf; (void)sendCount; (void)sendType; (void)recvBuf; (void)recvCount; (void)recvType; (void)group; (void)stream; (void)tag; HCCL_ERROR("[HcclWrapper] HcomAllToAll not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)sendBuf; (void)sendCount; (void)sendType; (void)recvBuf; (void)recvCount; (void)recvType; (void)group; (void)stream; (void)tag; HCCL_ERROR("[HcclWrapper] HcomAllToAll not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomGetHcclComm(int64_t comm, std::string& group) {
-    (void)comm; (void)group; HCCL_ERROR("[HcclWrapper] HcomGetHcclComm not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)comm; (void)group; HCCL_ERROR("[HcclWrapper] HcomGetHcclComm not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomGenerateCclOpTag(const char* opType, s64 hcomComm, const char* group, char* sTag) {
-    (void)opType; (void)hcomComm; (void)group; (void)sTag; HCCL_ERROR("[HcclWrapper] HcomGenerateCclOpTag not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)opType; (void)hcomComm; (void)group; (void)sTag; HCCL_ERROR("[HcclWrapper] HcomGenerateCclOpTag not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomGetCommCCLBufferSize(const char* group, uint64_t& size) {
-    (void)group; (void)size; HCCL_ERROR("[HcclWrapper] HcomGetCommCCLBufferSize not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)group; (void)size; HCCL_ERROR("[HcclWrapper] HcomGetCommCCLBufferSize not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomGetL0TopoTypeEx(const char* group, CommTopo* topoType, uint32_t flag) {
-    (void)group; (void)topoType; (void)flag; HCCL_ERROR("[HcclWrapper] HcomGetL0TopoTypeEx not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)group; (void)topoType; (void)flag; HCCL_ERROR("[HcclWrapper] HcomGetL0TopoTypeEx not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomGetRankSizeEx(const char* group, uint32_t* rankSize, uint32_t flag) {
-    (void)group; (void)rankSize; (void)flag; HCCL_ERROR("[HcclWrapper] HcomGetRankSizeEx not supported"); return HCCL_E_NOT_SUPPORTED;
+    (void)group; (void)rankSize; (void)flag; HCCL_ERROR("[HcclWrapper] HcomGetRankSizeEx not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomInitByFile(const char* rankTablePath, const char* identify) {
     (void)rankTablePath; (void)identify;
     HCCL_ERROR("[HcclWrapper] HcomInitByFile not supported");
-    return HCCL_E_NOT_SUPPORTED;
+    return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomGetWorkspaceSubStreamNum(const char* group, u64& streamNum, u64 dataSize,
     HcclDataType dataType, u32 aivCoreLimit, HcclReduceOp reduceOp, u64 count, HcclCMDType optype) {
     (void)group; (void)streamNum; (void)dataSize; (void)dataType; (void)aivCoreLimit; (void)reduceOp; (void)count; (void)optype;
     HCCL_ERROR("[HcclWrapper] HcomGetWorkspaceSubStreamNum not supported");
-    return HCCL_E_NOT_SUPPORTED;
+    return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomGetWorkspaceMemSize(const std::string& opType, u64 count,
     HcclDataType dataType, const char* group, u64& memSize) {
     (void)opType; (void)count; (void)dataType; (void)group; (void)memSize;
     HCCL_ERROR("[HcclWrapper] HcomGetWorkspaceMemSize not supported");
-    return HCCL_E_NOT_SUPPORTED;
+    return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomSetAlgorithm(const char* algo) {
     (void)algo;
     HCCL_ERROR("[HcclWrapper] HcomSetAlgorithm not supported");
-    return HCCL_E_NOT_SUPPORTED;
+    return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcomGetAlltoAllStagedWorkSpaceMemSize(const char *group, u64 *sendCounts, u64 *sdispls,
     HcclDataType sendType, u64 *recvCounts, u64 *rdispls, HcclDataType recvType, u64 &memSize) {
     (void)group; (void)sendCounts; (void)sdispls; (void)sendType; (void)recvCounts; (void)rdispls; (void)recvType; (void)memSize;
     HCCL_ERROR("[HcclWrapper] HcomGetAlltoAllStagedWorkSpaceMemSize not supported");
-    return HCCL_E_NOT_SUPPORTED;
+    return HCCL_E_NOT_SUPPORT;
 }
 
 // ---------- 初始化函数 ----------
 void HcomDlInit(void* libHcommHandle) {
-    #define SET_PTR(ptr, name, stub, support_flag) \
+    #define SET_PTR(ptr, handle, name, stub, support_flag) \
         do { \
-            ptr = (decltype(ptr))dlsym(libHcommHandle, name); \
-            if (ptr == NULL) { \
+            ptr = (decltype(ptr))dlsym(handle, name); \
+            if (ptr == nullptr) { \
                 ptr = stub; \
                 support_flag = false; \
                 HCCL_DEBUG("[HcclWrapper] %s not supported", name); \
@@ -425,81 +425,81 @@ void HcomDlInit(void* libHcommHandle) {
             } \
         } while(0)
 
-    SET_PTR(hcomGetRankSizePtr, "HcomGetRankSize", StubHcomGetRankSize, g_HcomGetRankSizeSupported);
-    SET_PTR(hcomGetLocalRankSizePtr, "HcomGetLocalRankSize", StubHcomGetLocalRankSize, g_HcomGetLocalRankSizeSupported);
-    SET_PTR(hcomGetRankIdPtr, "HcomGetRankId", StubHcomGetRankId, g_HcomGetRankIdSupported);
-    SET_PTR(hcomGetLocalRankIdPtr, "HcomGetLocalRankId", StubHcomGetLocalRankId, g_HcomGetLocalRankIdSupported);
-    SET_PTR(hcomGetWorldRankFromGroupRankPtr, "HcomGetWorldRankFromGroupRank", StubHcomGetWorldRankFromGroupRank, g_HcomGetWorldRankFromGroupRankSupported);
-    SET_PTR(hcomGetGroupRankFromWorldRankPtr, "HcomGetGroupRankFromWorldRank", StubHcomGetGroupRankFromWorldRank, g_HcomGetGroupRankFromWorldRankSupported);
-    SET_PTR(hcomCreateGroupPtr, "HcomCreateGroup", StubHcomCreateGroup, g_HcomCreateGroupSupported);
-    SET_PTR(hcomDestroyGroupPtr, "HcomDestroyGroup", StubHcomDestroyGroup, g_HcomDestroyGroupSupported);
-    SET_PTR(hcomSetGradFusionByIndexPtr, "HcomSetGradFusionByIndex", StubHcomSetGradFusionByIndex, g_HcomSetGradFusionByIndexSupported);
-    SET_PTR(hcomSetGradFusionBySizePtr, "HcomSetGradFusionBySize", StubHcomSetGradFusionBySize, g_HcomSetGradFusionBySizeSupported);
-    SET_PTR(hcomInitByRankTablePtr, "HcomInitByRankTable", StubHcomInitByRankTable, g_HcomInitByRankTableSupported);
-    SET_PTR(hcomDestroyPtr, "HcomDestroy", StubHcomDestroy, g_HcomDestroySupported);
-    SET_PTR(hcomGetCommHandleByGroupPtr, "HcomGetCommHandleByGroup", StubHcomGetCommHandleByGroup, g_HcomGetCommHandleByGroupSupported);
-    SET_PTR(getGroupNameByOpBaseHcomPtr, "GetGroupNameByOpBaseHcom", StubGetGroupNameByOpBaseHcom, g_GetGroupNameByOpBaseHcomSupported);
-    SET_PTR(hcomCreateComResourceByCommPtr, "HcomCreateComResourceByComm", StubHcomCreateComResourceByComm, g_HcomCreateComResourceByCommSupported);
-    SET_PTR(hcomTopoInfoRegCallbackPtr, "HcomTopoInfoRegCallback", StubHcomTopoInfoRegCallback, g_HcomTopoInfoRegCallbackSupported);
-    SET_PTR(hcomGetandClearOverFlowTasksPtr, "HcomGetandClearOverFlowTasks", StubHcomGetandClearOverFlowTasks, g_HcomGetandClearOverFlowTasksSupported);
-    SET_PTR(hcomGetWorkflowModePtr, "HcomGetWorkflowMode", StubHcomGetWorkflowMode, g_HcomGetWorkflowModeSupported);
-    SET_PTR(hcomSetWorkflowModePtr, "HcomSetWorkflowMode", StubHcomSetWorkflowMode, g_HcomSetWorkflowModeSupported);
-    SET_PTR(hcomCalcOpOnlinePtr, "HcomCalcOpOnline", StubHcomCalcOpOnline, g_HcomCalcOpOnlineSupported);
-    SET_PTR(hcomCalcOpResOfflinePtr, "HcomCalcOpResOffline", StubHcomCalcOpResOffline, g_HcomCalcOpResOfflineSupported);
-    SET_PTR(hcomGetMemTypePtr, "HcomGetMemType", StubHcomGetMemType, g_HcomGetMemTypeSupported);
-    SET_PTR(hcomGetBandWidthPerNPUPtr, "HcomGetBandWidthPerNPU", StubHcomGetBandWidthPerNPU, g_HcomGetBandWidthPerNPUSupported);
-    SET_PTR(hcomGetServerNumAndDeviceNumPerServerPtr, "HcomGetServerNumAndDeviceNumPerServer", StubHcomGetServerNumAndDeviceNumPerServer, g_HcomGetServerNumAndDeviceNumPerServerSupported);
-    SET_PTR(hcomGetSecAddrCopyFlagPtr, "HcomGetSecAddrCopyFlag", StubHcomGetSecAddrCopyFlag, g_HcomGetSecAddrCopyFlagSupported);
-    SET_PTR(hcomInitByStringPtr, "HcomInitByString", StubHcomInitByString, g_HcomInitByStringSupported);
-    SET_PTR(hcomInitByMasterInfoPtr, "HcomInitByMasterInfo", StubHcomInitByMasterInfo, g_HcomInitByMasterInfoSupported);
-    SET_PTR(hcomCreateCommCCLbufferPtr, "HcomCreateCommCCLbuffer", StubHcomCreateCommCCLbuffer, g_HcomCreateCommCCLbufferSupported);
-    SET_PTR(hcomGetInCCLbufferPtr, "HcomGetInCCLbuffer", StubHcomGetInCCLbuffer, g_HcomGetInCCLbufferSupported);
-    SET_PTR(hcomGetOutCCLbufferPtr, "HcomGetOutCCLbuffer", StubHcomGetOutCCLbuffer, g_HcomGetOutCCLbufferSupported);
-    SET_PTR(hcomSetLaunchKernelModePtr, "HcomSetLaunchKernelMode", StubHcomSetLaunchKernelMode, g_HcomSetLaunchKernelModeSupported);
-    SET_PTR(hcomGetAicpuOpStreamNotifyPtr, "HcomGetAicpuOpStreamNotify", StubHcomGetAicpuOpStreamNotify, g_HcomGetAicpuOpStreamNotifySupported);
-    SET_PTR(hcomMc2AiCpuStreamAllocAndGetPtr, "HcomMc2AiCpuStreamAllocAndGet", StubHcomMc2AiCpuStreamAllocAndGet, g_HcomMc2AiCpuStreamAllocAndGetSupported);
-    SET_PTR(hcomSetDumpDebugModePtr, "HcomSetDumpDebugMode", StubHcomSetDumpDebugMode, g_HcomSetDumpDebugModeSupported);
-    SET_PTR(hcomGetAlgorithmPtr, "HcomGetAlgorithm", StubHcomGetAlgorithm, g_HcomGetAlgorithmSupported);
-    SET_PTR(hcomGetAlgExecParamPtr, "HcomGetAlgExecParam", StubHcomGetAlgExecParam, g_HcomGetAlgExecParamSupported);
-    SET_PTR(hcomSetAutoTuneModePtr, "HcomSetAutoTuneMode", StubHcomSetAutoTuneMode, g_HcomSetAutoTuneModeSupported);
-    SET_PTR(hcomGetDeviceTypePtr, "HcomGetDeviceType", StubHcomGetDeviceType, g_HcomGetDeviceTypeSupported);
-    SET_PTR(hcomSetProfilingModePtr, "HcomSetProfilingMode", StubHcomSetProfilingMode, g_HcomSetProfilingModeSupported);
-    SET_PTR(hcomGetSplitStrategyPtr, "HcomGetSplitStrategy", StubHcomGetSplitStrategy, g_HcomGetSplitStrategySupported);
-    SET_PTR(hcomFindGroupPtr, "HcomFindGroup", StubHcomFindGroup, g_HcomFindGroupSupported);
-    SET_PTR(hcomSelectAlgPtr, "HcomSelectAlg", StubHcomSelectAlg, g_HcomSelectAlgSupported);
-    SET_PTR(hcomCalcAivCoreNumPtr, "HcomCalcAivCoreNum", StubHcomCalcAivCoreNum, g_HcomCalcAivCoreNumSupported);
-    SET_PTR(hcomSetWorkspaceResourcePtr, "HcomSetWorkspaceResource", StubHcomSetWorkspaceResource, g_HcomSetWorkspaceResourceSupported);
-    SET_PTR(hcomSetGlobalWorkSpacePtr, "HcomSetGlobalWorkSpace", StubHcomSetGlobalWorkSpace, g_HcomSetGlobalWorkSpaceSupported);
-    SET_PTR(hcomSetAivCoreLimitPtr, "HcomSetAivCoreLimit", StubHcomSetAivCoreLimit, g_HcomSetAivCoreLimitSupported);
-    SET_PTR(hcomReleaseSubCommsPtr, "HcomReleaseSubComms", StubHcomReleaseSubComms, g_HcomReleaseSubCommsSupported);
-    SET_PTR(hcomUnloadTaskPtr, "HcomUnloadTask", StubHcomUnloadTask, g_HcomUnloadTaskSupported);
-    SET_PTR(hcomClearAivSyncBufPtr, "HcomClearAivSyncBuf", StubHcomClearAivSyncBuf, g_HcomClearAivSyncBufSupported);
-    SET_PTR(hcomSetAttachedStreamPtr, "HcomSetAttachedStream", StubHcomSetAttachedStream, g_HcomSetAttachedStreamSupported);
-    SET_PTR(hcomSupportDeterministicOptimPtr, "HcomSupportDeterministicOptim", StubHcomSupportDeterministicOptim, g_HcomSupportDeterministicOptimSupported);
-    SET_PTR(hcomTbeMemCleanPtr, "HcomTbeMemClean", StubHcomTbeMemClean, g_HcomTbeMemCleanSupported);
-    SET_PTR(hcomGetInitStatusPtr, "HcomGetInitStatus", StubHcomGetInitStatus, g_HcomGetInitStatusSupported);
-    SET_PTR(hcomAllGatherPtr, "HcomAllGather", StubHcomAllGather, g_HcomAllGatherSupported);
-    SET_PTR(hcomAllGatherVPtr, "HcomAllGatherV", StubHcomAllGatherV, g_HcomAllGatherVSupported);
-    SET_PTR(hcomAllReducePtr, "HcomAllReduce", StubHcomAllReduce, g_HcomAllReduceSupported);
-    SET_PTR(hcomReducePtr, "HcomReduce", StubHcomReduce, g_HcomReduceSupported);
-    SET_PTR(hcomBroadcastPtr, "HcomBroadcast", StubHcomBroadcast, g_HcomBroadcastSupported);
-    SET_PTR(hcomReduceScatterPtr, "HcomReduceScatter", StubHcomReduceScatter, g_HcomReduceScatterSupported);
-    SET_PTR(hcomReduceScatterVPtr, "HcomReduceScatterV", StubHcomReduceScatterV, g_HcomReduceScatterVSupported);
-    SET_PTR(hcomSendPtr, "HcomSend", StubHcomSend, g_HcomSendSupported);
-    SET_PTR(hcomReceivePtr, "HcomReceive", StubHcomReceive, g_HcomReceiveSupported);
-    SET_PTR(hcomAlltoAllVPtr, "HcomAlltoAllV", StubHcomAlltoAllV, g_HcomAlltoAllVSupported);
-    SET_PTR(hcomAlltoAllVCPtr, "HcomAlltoAllVC", StubHcomAlltoAllVC, g_HcomAlltoAllVCSupported);
-    SET_PTR(hcomAllToAllPtr, "HcomAllToAll", StubHcomAllToAll, g_HcomAllToAllSupported);
-    SET_PTR(hcomGetHcclCommPtr, "HcomGetHcclComm", StubHcomGetHcclComm, g_HcomGetHcclCommSupported);
-    SET_PTR(hcomGenerateCclOpTagPtr, "HcomGenerateCclOpTag", StubHcomGenerateCclOpTag, g_HcomGenerateCclOpTagSupported);
-    SET_PTR(hcomGetCommCCLBufferSizePtr, "HcomGetCommCCLBufferSize", StubHcomGetCommCCLBufferSize, g_HcomGetCommCCLBufferSizeSupported);
-    SET_PTR(hcomGetL0TopoTypeExPtr, "HcomGetL0TopoTypeEx", StubHcomGetL0TopoTypeEx, g_HcomGetL0TopoTypeExSupported);
-    SET_PTR(hcomGetRankSizeExPtr, "HcomGetRankSizeEx", StubHcomGetRankSizeEx, g_HcomGetRankSizeExSupported);
-    SET_PTR(hcomInitByFilePtr, "HcomInitByFile", StubHcomInitByFile, g_HcomInitByFileSupported);
-    SET_PTR(hcomGetWorkspaceSubStreamNumPtr, "HcomGetWorkspaceSubStreamNum", StubHcomGetWorkspaceSubStreamNum, g_HcomGetWorkspaceSubStreamNumSupported);
-    SET_PTR(hcomGetWorkspaceMemSizePtr, "HcomGetWorkspaceMemSize", StubHcomGetWorkspaceMemSize, g_HcomGetWorkspaceMemSizeSupported);
-    SET_PTR(hcomSetAlgorithmPtr, "HcomSetAlgorithm", StubHcomSetAlgorithm, g_HcomSetAlgorithmSupported);
-    SET_PTR(hcomGetAlltoAllStagedWorkSpaceMemSizePtr, "HcomGetAlltoAllStagedWorkSpaceMemSize", StubHcomGetAlltoAllStagedWorkSpaceMemSize, g_HcomGetAlltoAllStagedWorkSpaceMemSizeSupported);
+    SET_PTR(hcomGetRankSizePtr, libHcommHandle, "HcomGetRankSize", StubHcomGetRankSize, g_HcomGetRankSizeSupported);
+    SET_PTR(hcomGetLocalRankSizePtr, libHcommHandle, "HcomGetLocalRankSize", StubHcomGetLocalRankSize, g_HcomGetLocalRankSizeSupported);
+    SET_PTR(hcomGetRankIdPtr, libHcommHandle, "HcomGetRankId", StubHcomGetRankId, g_HcomGetRankIdSupported);
+    SET_PTR(hcomGetLocalRankIdPtr, libHcommHandle, "HcomGetLocalRankId", StubHcomGetLocalRankId, g_HcomGetLocalRankIdSupported);
+    SET_PTR(hcomGetWorldRankFromGroupRankPtr, libHcommHandle, "HcomGetWorldRankFromGroupRank", StubHcomGetWorldRankFromGroupRank, g_HcomGetWorldRankFromGroupRankSupported);
+    SET_PTR(hcomGetGroupRankFromWorldRankPtr, libHcommHandle, "HcomGetGroupRankFromWorldRank", StubHcomGetGroupRankFromWorldRank, g_HcomGetGroupRankFromWorldRankSupported);
+    SET_PTR(hcomCreateGroupPtr, libHcommHandle, "HcomCreateGroup", StubHcomCreateGroup, g_HcomCreateGroupSupported);
+    SET_PTR(hcomDestroyGroupPtr, libHcommHandle, "HcomDestroyGroup", StubHcomDestroyGroup, g_HcomDestroyGroupSupported);
+    SET_PTR(hcomSetGradFusionByIndexPtr, libHcommHandle, "HcomSetGradFusionByIndex", StubHcomSetGradFusionByIndex, g_HcomSetGradFusionByIndexSupported);
+    SET_PTR(hcomSetGradFusionBySizePtr, libHcommHandle, "HcomSetGradFusionBySize", StubHcomSetGradFusionBySize, g_HcomSetGradFusionBySizeSupported);
+    SET_PTR(hcomInitByRankTablePtr, libHcommHandle, "HcomInitByRankTable", StubHcomInitByRankTable, g_HcomInitByRankTableSupported);
+    SET_PTR(hcomDestroyPtr, libHcommHandle, "HcomDestroy", StubHcomDestroy, g_HcomDestroySupported);
+    SET_PTR(hcomGetCommHandleByGroupPtr, libHcommHandle, "HcomGetCommHandleByGroup", StubHcomGetCommHandleByGroup, g_HcomGetCommHandleByGroupSupported);
+    SET_PTR(getGroupNameByOpBaseHcomPtr, libHcommHandle, "GetGroupNameByOpBaseHcom", StubGetGroupNameByOpBaseHcom, g_GetGroupNameByOpBaseHcomSupported);
+    SET_PTR(hcomCreateComResourceByCommPtr, libHcommHandle, "HcomCreateComResourceByComm", StubHcomCreateComResourceByComm, g_HcomCreateComResourceByCommSupported);
+    SET_PTR(hcomTopoInfoRegCallbackPtr, libHcommHandle, "HcomTopoInfoRegCallback", StubHcomTopoInfoRegCallback, g_HcomTopoInfoRegCallbackSupported);
+    SET_PTR(hcomGetandClearOverFlowTasksPtr, libHcommHandle, "HcomGetandClearOverFlowTasks", StubHcomGetandClearOverFlowTasks, g_HcomGetandClearOverFlowTasksSupported);
+    SET_PTR(hcomGetWorkflowModePtr, libHcommHandle, "HcomGetWorkflowMode", StubHcomGetWorkflowMode, g_HcomGetWorkflowModeSupported);
+    SET_PTR(hcomSetWorkflowModePtr, libHcommHandle, "HcomSetWorkflowMode", StubHcomSetWorkflowMode, g_HcomSetWorkflowModeSupported);
+    SET_PTR(hcomCalcOpOnlinePtr, libHcommHandle, "HcomCalcOpOnline", StubHcomCalcOpOnline, g_HcomCalcOpOnlineSupported);
+    SET_PTR(hcomCalcOpResOfflinePtr, libHcommHandle, "HcomCalcOpResOffline", StubHcomCalcOpResOffline, g_HcomCalcOpResOfflineSupported);
+    SET_PTR(hcomGetMemTypePtr, libHcommHandle, "HcomGetMemType", StubHcomGetMemType, g_HcomGetMemTypeSupported);
+    SET_PTR(hcomGetBandWidthPerNPUPtr, libHcommHandle, "HcomGetBandWidthPerNPU", StubHcomGetBandWidthPerNPU, g_HcomGetBandWidthPerNPUSupported);
+    SET_PTR(hcomGetServerNumAndDeviceNumPerServerPtr, libHcommHandle, "HcomGetServerNumAndDeviceNumPerServer", StubHcomGetServerNumAndDeviceNumPerServer, g_HcomGetServerNumAndDeviceNumPerServerSupported);
+    SET_PTR(hcomGetSecAddrCopyFlagPtr, libHcommHandle, "HcomGetSecAddrCopyFlag", StubHcomGetSecAddrCopyFlag, g_HcomGetSecAddrCopyFlagSupported);
+    SET_PTR(hcomInitByStringPtr, libHcommHandle, "HcomInitByString", StubHcomInitByString, g_HcomInitByStringSupported);
+    SET_PTR(hcomInitByMasterInfoPtr, libHcommHandle, "HcomInitByMasterInfo", StubHcomInitByMasterInfo, g_HcomInitByMasterInfoSupported);
+    SET_PTR(hcomCreateCommCCLbufferPtr, libHcommHandle, "HcomCreateCommCCLbuffer", StubHcomCreateCommCCLbuffer, g_HcomCreateCommCCLbufferSupported);
+    SET_PTR(hcomGetInCCLbufferPtr, libHcommHandle, "HcomGetInCCLbuffer", StubHcomGetInCCLbuffer, g_HcomGetInCCLbufferSupported);
+    SET_PTR(hcomGetOutCCLbufferPtr, libHcommHandle, "HcomGetOutCCLbuffer", StubHcomGetOutCCLbuffer, g_HcomGetOutCCLbufferSupported);
+    SET_PTR(hcomSetLaunchKernelModePtr, libHcommHandle, "HcomSetLaunchKernelMode", StubHcomSetLaunchKernelMode, g_HcomSetLaunchKernelModeSupported);
+    SET_PTR(hcomGetAicpuOpStreamNotifyPtr, libHcommHandle, "HcomGetAicpuOpStreamNotify", StubHcomGetAicpuOpStreamNotify, g_HcomGetAicpuOpStreamNotifySupported);
+    SET_PTR(hcomMc2AiCpuStreamAllocAndGetPtr, libHcommHandle, "HcomMc2AiCpuStreamAllocAndGet", StubHcomMc2AiCpuStreamAllocAndGet, g_HcomMc2AiCpuStreamAllocAndGetSupported);
+    SET_PTR(hcomSetDumpDebugModePtr, libHcommHandle, "HcomSetDumpDebugMode", StubHcomSetDumpDebugMode, g_HcomSetDumpDebugModeSupported);
+    SET_PTR(hcomGetAlgorithmPtr, libHcommHandle, "HcomGetAlgorithm", StubHcomGetAlgorithm, g_HcomGetAlgorithmSupported);
+    SET_PTR(hcomGetAlgExecParamPtr, libHcommHandle, "HcomGetAlgExecParam", StubHcomGetAlgExecParam, g_HcomGetAlgExecParamSupported);
+    SET_PTR(hcomSetAutoTuneModePtr, libHcommHandle, "HcomSetAutoTuneMode", StubHcomSetAutoTuneMode, g_HcomSetAutoTuneModeSupported);
+    SET_PTR(hcomGetDeviceTypePtr, libHcommHandle, "HcomGetDeviceType", StubHcomGetDeviceType, g_HcomGetDeviceTypeSupported);
+    SET_PTR(hcomSetProfilingModePtr, libHcommHandle, "HcomSetProfilingMode", StubHcomSetProfilingMode, g_HcomSetProfilingModeSupported);
+    SET_PTR(hcomGetSplitStrategyPtr, libHcommHandle, "HcomGetSplitStrategy", StubHcomGetSplitStrategy, g_HcomGetSplitStrategySupported);
+    SET_PTR(hcomFindGroupPtr, libHcommHandle, "HcomFindGroup", StubHcomFindGroup, g_HcomFindGroupSupported);
+    SET_PTR(hcomSelectAlgPtr, libHcommHandle, "HcomSelectAlg", StubHcomSelectAlg, g_HcomSelectAlgSupported);
+    SET_PTR(hcomCalcAivCoreNumPtr, libHcommHandle, "HcomCalcAivCoreNum", StubHcomCalcAivCoreNum, g_HcomCalcAivCoreNumSupported);
+    SET_PTR(hcomSetWorkspaceResourcePtr, libHcommHandle, "HcomSetWorkspaceResource", StubHcomSetWorkspaceResource, g_HcomSetWorkspaceResourceSupported);
+    SET_PTR(hcomSetGlobalWorkSpacePtr, libHcommHandle, "HcomSetGlobalWorkSpace", StubHcomSetGlobalWorkSpace, g_HcomSetGlobalWorkSpaceSupported);
+    SET_PTR(hcomSetAivCoreLimitPtr, libHcommHandle, "HcomSetAivCoreLimit", StubHcomSetAivCoreLimit, g_HcomSetAivCoreLimitSupported);
+    SET_PTR(hcomReleaseSubCommsPtr, libHcommHandle, "HcomReleaseSubComms", StubHcomReleaseSubComms, g_HcomReleaseSubCommsSupported);
+    SET_PTR(hcomUnloadTaskPtr, libHcommHandle, "HcomUnloadTask", StubHcomUnloadTask, g_HcomUnloadTaskSupported);
+    SET_PTR(hcomClearAivSyncBufPtr, libHcommHandle, "HcomClearAivSyncBuf", StubHcomClearAivSyncBuf, g_HcomClearAivSyncBufSupported);
+    SET_PTR(hcomSetAttachedStreamPtr, libHcommHandle, "HcomSetAttachedStream", StubHcomSetAttachedStream, g_HcomSetAttachedStreamSupported);
+    SET_PTR(hcomSupportDeterministicOptimPtr, libHcommHandle, "HcomSupportDeterministicOptim", StubHcomSupportDeterministicOptim, g_HcomSupportDeterministicOptimSupported);
+    SET_PTR(hcomTbeMemCleanPtr, libHcommHandle, "HcomTbeMemClean", StubHcomTbeMemClean, g_HcomTbeMemCleanSupported);
+    SET_PTR(hcomGetInitStatusPtr, libHcommHandle, "HcomGetInitStatus", StubHcomGetInitStatus, g_HcomGetInitStatusSupported);
+    SET_PTR(hcomAllGatherPtr, libHcommHandle, "HcomAllGather", StubHcomAllGather, g_HcomAllGatherSupported);
+    SET_PTR(hcomAllGatherVPtr, libHcommHandle, "HcomAllGatherV", StubHcomAllGatherV, g_HcomAllGatherVSupported);
+    SET_PTR(hcomAllReducePtr, libHcommHandle, "HcomAllReduce", StubHcomAllReduce, g_HcomAllReduceSupported);
+    SET_PTR(hcomReducePtr, libHcommHandle, "HcomReduce", StubHcomReduce, g_HcomReduceSupported);
+    SET_PTR(hcomBroadcastPtr, libHcommHandle, "HcomBroadcast", StubHcomBroadcast, g_HcomBroadcastSupported);
+    SET_PTR(hcomReduceScatterPtr, libHcommHandle, "HcomReduceScatter", StubHcomReduceScatter, g_HcomReduceScatterSupported);
+    SET_PTR(hcomReduceScatterVPtr, libHcommHandle, "HcomReduceScatterV", StubHcomReduceScatterV, g_HcomReduceScatterVSupported);
+    SET_PTR(hcomSendPtr, libHcommHandle, "HcomSend", StubHcomSend, g_HcomSendSupported);
+    SET_PTR(hcomReceivePtr, libHcommHandle, "HcomReceive", StubHcomReceive, g_HcomReceiveSupported);
+    SET_PTR(hcomAlltoAllVPtr, libHcommHandle, "HcomAlltoAllV", StubHcomAlltoAllV, g_HcomAlltoAllVSupported);
+    SET_PTR(hcomAlltoAllVCPtr, libHcommHandle, "HcomAlltoAllVC", StubHcomAlltoAllVC, g_HcomAlltoAllVCSupported);
+    SET_PTR(hcomAllToAllPtr, libHcommHandle, "HcomAllToAll", StubHcomAllToAll, g_HcomAllToAllSupported);
+    SET_PTR(hcomGetHcclCommPtr, libHcommHandle, "HcomGetHcclComm", StubHcomGetHcclComm, g_HcomGetHcclCommSupported);
+    SET_PTR(hcomGenerateCclOpTagPtr, libHcommHandle, "HcomGenerateCclOpTag", StubHcomGenerateCclOpTag, g_HcomGenerateCclOpTagSupported);
+    SET_PTR(hcomGetCommCCLBufferSizePtr, libHcommHandle, "HcomGetCommCCLBufferSize", StubHcomGetCommCCLBufferSize, g_HcomGetCommCCLBufferSizeSupported);
+    SET_PTR(hcomGetL0TopoTypeExPtr, libHcommHandle, "HcomGetL0TopoTypeEx", StubHcomGetL0TopoTypeEx, g_HcomGetL0TopoTypeExSupported);
+    SET_PTR(hcomGetRankSizeExPtr, libHcommHandle, "HcomGetRankSizeEx", StubHcomGetRankSizeEx, g_HcomGetRankSizeExSupported);
+    SET_PTR(hcomInitByFilePtr, libHcommHandle, "HcomInitByFile", StubHcomInitByFile, g_HcomInitByFileSupported);
+    SET_PTR(hcomGetWorkspaceSubStreamNumPtr, libHcommHandle, "HcomGetWorkspaceSubStreamNum", StubHcomGetWorkspaceSubStreamNum, g_HcomGetWorkspaceSubStreamNumSupported);
+    SET_PTR(hcomGetWorkspaceMemSizePtr, libHcommHandle, "HcomGetWorkspaceMemSize", StubHcomGetWorkspaceMemSize, g_HcomGetWorkspaceMemSizeSupported);
+    SET_PTR(hcomSetAlgorithmPtr, libHcommHandle, "HcomSetAlgorithm", StubHcomSetAlgorithm, g_HcomSetAlgorithmSupported);
+    SET_PTR(hcomGetAlltoAllStagedWorkSpaceMemSizePtr, libHcommHandle, "HcomGetAlltoAllStagedWorkSpaceMemSize", StubHcomGetAlltoAllStagedWorkSpaceMemSize, g_HcomGetAlltoAllStagedWorkSpaceMemSizeSupported);
 
     #undef SET_PTR
 }

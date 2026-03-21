@@ -15,23 +15,23 @@
 #include <stdlib.h>
 
 // 定义全局函数指针（静态）
-static HcclResult (*hcclGetCommHandleByCtxPtr)(void*, void**) = NULL;
-static HcclResult (*hcclReleaseCommPtr)(void*) = NULL;
-static HcclResult (*hcclGetTaskStatusPtr)(void*, void*) = NULL;
-static HcclResult (*hcclCheckFinishByStreamPtr)(void*) = NULL;
-static HcclResult (*hcclPrintTaskExceptionAllCommPtr)(void*) = NULL;
-static HcclResult (*hcclLaunchCcoreWaitPtr)(void*, uint64_t, uint32_t, uint64_t, bool) = NULL;
-static HcclResult (*hcclLaunchCcorePostPtr)(void*, uint64_t, uint32_t, uint64_t) = NULL;
-static HcclResult (*hcclLaunchOpPtr)(void*, void*) = NULL;
-static HcclResult (*hcclGetOpArgsPtr)(void**) = NULL;
-static HcclResult (*hcclFreeOpArgsPtr)(void*) = NULL;
-static HcclResult (*hcclSetOpSrcDataTypePtr)(void*, uint8_t) = NULL;
-static HcclResult (*hcclSetOpDstDataTypePtr)(void*, uint8_t) = NULL;
-static HcclResult (*hcclSetOpReduceTypePtr)(void*, uint32_t) = NULL;
-static HcclResult (*hcclSetOpCountPtr)(void*, uint64_t) = NULL;
-static HcclResult (*hcclSetOpAlgConfigPtr)(void*, char*) = NULL;
-static HcclResult (*hcclSetOpCommEnginePtr)(void*, uint8_t) = NULL;
-static HcclResult (*hcclCommResPreparePtr)(HcclComm, char*, void*, void**) = NULL;
+static HcclResult (*hcclGetCommHandleByCtxPtr)(void*, void**) = nullptr;
+static HcclResult (*hcclReleaseCommPtr)(void*) = nullptr;
+static HcclResult (*hcclGetTaskStatusPtr)(void*, void*) = nullptr;
+static HcclResult (*hcclCheckFinishByStreamPtr)(void*) = nullptr;
+static HcclResult (*hcclPrintTaskExceptionAllCommPtr)(void*) = nullptr;
+static HcclResult (*hcclLaunchCcoreWaitPtr)(void*, uint64_t, uint32_t, uint64_t, bool) = nullptr;
+static HcclResult (*hcclLaunchCcorePostPtr)(void*, uint64_t, uint32_t, uint64_t) = nullptr;
+static HcclResult (*hcclLaunchOpPtr)(void*, void*) = nullptr;
+static HcclResult (*hcclGetOpArgsPtr)(void**) = nullptr;
+static HcclResult (*hcclFreeOpArgsPtr)(void*) = nullptr;
+static HcclResult (*hcclSetOpSrcDataTypePtr)(void*, uint8_t) = nullptr;
+static HcclResult (*hcclSetOpDstDataTypePtr)(void*, uint8_t) = nullptr;
+static HcclResult (*hcclSetOpReduceTypePtr)(void*, uint32_t) = nullptr;
+static HcclResult (*hcclSetOpCountPtr)(void*, uint64_t) = nullptr;
+static HcclResult (*hcclSetOpAlgConfigPtr)(void*, char*) = nullptr;
+static HcclResult (*hcclSetOpCommEnginePtr)(void*, uint8_t) = nullptr;
+static HcclResult (*hcclCommResPreparePtr)(HcclComm, char*, void*, void**) = nullptr;
 
 // 支持标志（静态，默认 false）
 static bool g_hcclGetCommHandleByCtxSupported = false;
@@ -56,95 +56,95 @@ static bool g_hcclCommResPrepareSupported = false;
 static HcclResult StubHcclGetCommHandleByCtx(void* ctx, void** opHandle) {
     (void)ctx; (void)opHandle;
     HCCL_ERROR("[HcclWrapper] HcclGetCommHandleByCtx not supported");
-    return HCCL_E_NOT_SUPPORTED;
+    return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcclReleaseComm(void* opHandle) {
     (void)opHandle;
     HCCL_ERROR("[HcclWrapper] HcclReleaseComm not supported");
-    return HCCL_E_NOT_SUPPORTED;
+    return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcclGetTaskStatus(void* opHandle, void* status) {
     (void)opHandle; (void)status;
     HCCL_ERROR("[HcclWrapper] HcclGetTaskStatus not supported");
-    return HCCL_E_NOT_SUPPORTED;
+    return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcclCheckFinishByStream(void* opHandle) {
     (void)opHandle;
     HCCL_ERROR("[HcclWrapper] HcclCheckFinishByStream not supported");
-    return HCCL_E_NOT_SUPPORTED;
+    return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcclPrintTaskExceptionAllComm(void* opHandle) {
     (void)opHandle;
     HCCL_ERROR("[HcclWrapper] HcclPrintTaskExceptionAllComm not supported");
-    return HCCL_E_NOT_SUPPORTED;
+    return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcclLaunchCcoreWait(void* opHandle, uint64_t waitAddr, uint32_t turnNum, uint64_t turnNumAddr, bool isLast) {
     (void)opHandle; (void)waitAddr; (void)turnNum; (void)turnNumAddr; (void)isLast;
     HCCL_ERROR("[HcclWrapper] HcclLaunchCcoreWait not supported");
-    return HCCL_E_NOT_SUPPORTED;
+    return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcclLaunchCcorePost(void* opHandle, uint64_t recordAddr, uint32_t turnNum, uint64_t turnNumAddr) {
     (void)opHandle; (void)recordAddr; (void)turnNum; (void)turnNumAddr;
     HCCL_ERROR("[HcclWrapper] HcclLaunchCcorePost not supported");
-    return HCCL_E_NOT_SUPPORTED;
+    return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcclLaunchOp(void* opHandle, void* data) {
     (void)opHandle; (void)data;
     HCCL_ERROR("[HcclWrapper] HcclLaunchOp not supported");
-    return HCCL_E_NOT_SUPPORTED;
+    return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcclGetOpArgs(void** opArgs) {
     (void)opArgs;
     HCCL_ERROR("[HcclWrapper] HcclGetOpArgs not supported");
-    return HCCL_E_NOT_SUPPORTED;
+    return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcclFreeOpArgs(void* opArgs) {
     (void)opArgs;
     HCCL_ERROR("[HcclWrapper] HcclFreeOpArgs not supported");
-    return HCCL_E_NOT_SUPPORTED;
+    return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcclSetOpSrcDataType(void* opArgs, uint8_t srcDataType) {
     (void)opArgs; (void)srcDataType;
     HCCL_ERROR("[HcclWrapper] HcclSetOpSrcDataType not supported");
-    return HCCL_E_NOT_SUPPORTED;
+    return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcclSetOpDstDataType(void* opArgs, uint8_t dstDataType) {
     (void)opArgs; (void)dstDataType;
     HCCL_ERROR("[HcclWrapper] HcclSetOpDstDataType not supported");
-    return HCCL_E_NOT_SUPPORTED;
+    return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcclSetOpReduceType(void* opArgs, uint32_t reduceType) {
     (void)opArgs; (void)reduceType;
     HCCL_ERROR("[HcclWrapper] HcclSetOpReduceType not supported");
-    return HCCL_E_NOT_SUPPORTED;
+    return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcclSetOpCount(void* opArgs, uint64_t count) {
     (void)opArgs; (void)count;
     HCCL_ERROR("[HcclWrapper] HcclSetOpCount not supported");
-    return HCCL_E_NOT_SUPPORTED;
+    return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcclSetOpAlgConfig(void* opArgs, char* algConfig) {
     (void)opArgs; (void)algConfig;
     HCCL_ERROR("[HcclWrapper] HcclSetOpAlgConfig not supported");
-    return HCCL_E_NOT_SUPPORTED;
+    return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcclSetOpCommEngine(void* opArgs, uint8_t commEngine) {
     (void)opArgs; (void)commEngine;
     HCCL_ERROR("[HcclWrapper] HcclSetOpCommEngine not supported");
-    return HCCL_E_NOT_SUPPORTED;
+    return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcclCommResPrepare(HcclComm comm, char* opName, void* opArgs, void** addr) {
     (void)comm; (void)opName; (void)opArgs; (void)addr;
     HCCL_ERROR("[HcclWrapper] HcclCommResPrepare not supported");
-    return HCCL_E_NOT_SUPPORTED;
+    return HCCL_E_NOT_SUPPORT;
 }
 
 // ---------- 初始化函数 ----------
 void HcclMc2ExDlInit(void* libHcommHandle) {
-    #define SET_PTR(ptr, name, stub, support_flag) \
+    #define SET_PTR(ptr, handle, name, stub, support_flag) \
         do { \
-            ptr = (decltype(ptr))dlsym(libHcommHandle, name); \
-            if (ptr == NULL) { \
+            ptr = (decltype(ptr))dlsym(handle, name); \
+            if (ptr == nullptr) { \
                 ptr = stub; \
                 support_flag = false; \
                 HCCL_DEBUG("[HcclWrapper] %s not supported", name); \
@@ -153,23 +153,23 @@ void HcclMc2ExDlInit(void* libHcommHandle) {
             } \
         } while(0)
 
-    SET_PTR(hcclGetCommHandleByCtxPtr, "HcclGetCommHandleByCtx", StubHcclGetCommHandleByCtx, g_hcclGetCommHandleByCtxSupported);
-    SET_PTR(hcclReleaseCommPtr, "HcclReleaseComm", StubHcclReleaseComm, g_hcclReleaseCommSupported);
-    SET_PTR(hcclGetTaskStatusPtr, "HcclGetTaskStatus", StubHcclGetTaskStatus, g_hcclGetTaskStatusSupported);
-    SET_PTR(hcclCheckFinishByStreamPtr, "HcclCheckFinishByStream", StubHcclCheckFinishByStream, g_hcclCheckFinishByStreamSupported);
-    SET_PTR(hcclPrintTaskExceptionAllCommPtr, "HcclPrintTaskExceptionAllComm", StubHcclPrintTaskExceptionAllComm, g_hcclPrintTaskExceptionAllCommSupported);
-    SET_PTR(hcclLaunchCcoreWaitPtr, "HcclLaunchCcoreWait", StubHcclLaunchCcoreWait, g_hcclLaunchCcoreWaitSupported);
-    SET_PTR(hcclLaunchCcorePostPtr, "HcclLaunchCcorePost", StubHcclLaunchCcorePost, g_hcclLaunchCcorePostSupported);
-    SET_PTR(hcclLaunchOpPtr, "HcclLaunchOp", StubHcclLaunchOp, g_hcclLaunchOpSupported);
-    SET_PTR(hcclGetOpArgsPtr, "HcclGetOpArgs", StubHcclGetOpArgs, g_hcclGetOpArgsSupported);
-    SET_PTR(hcclFreeOpArgsPtr, "HcclFreeOpArgs", StubHcclFreeOpArgs, g_hcclFreeOpArgsSupported);
-    SET_PTR(hcclSetOpSrcDataTypePtr, "HcclSetOpSrcDataType", StubHcclSetOpSrcDataType, g_hcclSetOpSrcDataTypeSupported);
-    SET_PTR(hcclSetOpDstDataTypePtr, "HcclSetOpDstDataType", StubHcclSetOpDstDataType, g_hcclSetOpDstDataTypeSupported);
-    SET_PTR(hcclSetOpReduceTypePtr, "HcclSetOpReduceType", StubHcclSetOpReduceType, g_hcclSetOpReduceTypeSupported);
-    SET_PTR(hcclSetOpCountPtr, "HcclSetOpCount", StubHcclSetOpCount, g_hcclSetOpCountSupported);
-    SET_PTR(hcclSetOpAlgConfigPtr, "HcclSetOpAlgConfig", StubHcclSetOpAlgConfig, g_hcclSetOpAlgConfigSupported);
-    SET_PTR(hcclSetOpCommEnginePtr, "HcclSetOpCommEngine", StubHcclSetOpCommEngine, g_hcclSetOpCommEngineSupported);
-    SET_PTR(hcclCommResPreparePtr, "HcclCommResPrepare", StubHcclCommResPrepare, g_hcclCommResPrepareSupported);
+    SET_PTR(hcclGetCommHandleByCtxPtr, libHcommHandle, "HcclGetCommHandleByCtx", StubHcclGetCommHandleByCtx, g_hcclGetCommHandleByCtxSupported);
+    SET_PTR(hcclReleaseCommPtr, libHcommHandle, "HcclReleaseComm", StubHcclReleaseComm, g_hcclReleaseCommSupported);
+    SET_PTR(hcclGetTaskStatusPtr, libHcommHandle, "HcclGetTaskStatus", StubHcclGetTaskStatus, g_hcclGetTaskStatusSupported);
+    SET_PTR(hcclCheckFinishByStreamPtr, libHcommHandle, "HcclCheckFinishByStream", StubHcclCheckFinishByStream, g_hcclCheckFinishByStreamSupported);
+    SET_PTR(hcclPrintTaskExceptionAllCommPtr, libHcommHandle, "HcclPrintTaskExceptionAllComm", StubHcclPrintTaskExceptionAllComm, g_hcclPrintTaskExceptionAllCommSupported);
+    SET_PTR(hcclLaunchCcoreWaitPtr, libHcommHandle, "HcclLaunchCcoreWait", StubHcclLaunchCcoreWait, g_hcclLaunchCcoreWaitSupported);
+    SET_PTR(hcclLaunchCcorePostPtr, libHcommHandle, "HcclLaunchCcorePost", StubHcclLaunchCcorePost, g_hcclLaunchCcorePostSupported);
+    SET_PTR(hcclLaunchOpPtr, libHcommHandle, "HcclLaunchOp", StubHcclLaunchOp, g_hcclLaunchOpSupported);
+    SET_PTR(hcclGetOpArgsPtr, libHcommHandle, "HcclGetOpArgs", StubHcclGetOpArgs, g_hcclGetOpArgsSupported);
+    SET_PTR(hcclFreeOpArgsPtr, libHcommHandle, "HcclFreeOpArgs", StubHcclFreeOpArgs, g_hcclFreeOpArgsSupported);
+    SET_PTR(hcclSetOpSrcDataTypePtr, libHcommHandle, "HcclSetOpSrcDataType", StubHcclSetOpSrcDataType, g_hcclSetOpSrcDataTypeSupported);
+    SET_PTR(hcclSetOpDstDataTypePtr, libHcommHandle, "HcclSetOpDstDataType", StubHcclSetOpDstDataType, g_hcclSetOpDstDataTypeSupported);
+    SET_PTR(hcclSetOpReduceTypePtr, libHcommHandle, "HcclSetOpReduceType", StubHcclSetOpReduceType, g_hcclSetOpReduceTypeSupported);
+    SET_PTR(hcclSetOpCountPtr, libHcommHandle, "HcclSetOpCount", StubHcclSetOpCount, g_hcclSetOpCountSupported);
+    SET_PTR(hcclSetOpAlgConfigPtr, libHcommHandle, "HcclSetOpAlgConfig", StubHcclSetOpAlgConfig, g_hcclSetOpAlgConfigSupported);
+    SET_PTR(hcclSetOpCommEnginePtr, libHcommHandle, "HcclSetOpCommEngine", StubHcclSetOpCommEngine, g_hcclSetOpCommEngineSupported);
+    SET_PTR(hcclCommResPreparePtr, libHcommHandle, "HcclCommResPrepare", StubHcclCommResPrepare, g_hcclCommResPrepareSupported);
 
     #undef SET_PTR
 }

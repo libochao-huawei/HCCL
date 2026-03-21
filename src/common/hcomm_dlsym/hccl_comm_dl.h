@@ -18,10 +18,6 @@
 extern "C" {
 #endif
 
-#ifndef HCCL_E_NOT_SUPPORTED
-#define HCCL_E_NOT_SUPPORTED ((HcclResult)(-2))
-#endif
-
 // 对外 API 的函数声明（包装函数）
 HcclResult HcclGetRankId(HcclComm comm, uint32_t* rank);
 HcclResult HcclGetRankSize(HcclComm comm, uint32_t* rankSize);
