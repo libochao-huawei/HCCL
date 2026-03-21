@@ -32,7 +32,7 @@ public:
                                AlgResourceRequest& resourceRequest);
     virtual HcclResult KernelRun(const OpParam& param,
                                  const TemplateDataParams& templateDataParams,
-                                 const TemplateResource& templateResource);
+                                 TemplateResource& templateResource);
     virtual HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx);
                                  
     virtual HcclResult GetRes(AlgResourceRequest& resourceRequest) const;
