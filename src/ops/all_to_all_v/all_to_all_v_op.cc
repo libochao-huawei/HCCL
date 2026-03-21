@@ -461,8 +461,13 @@ HcclResult CheckAlltoAllVInputPara(const HcclComm comm, const void *sendBuf, con
     RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
         std::vector<std::string>({"HcclAlltoAllV", "nullptr", "comm", "non-null pointer"}));
     CHK_PTR_NULL(comm);
+<<<<<<< HEAD
     RPT_INPUT_ERR(sendCounts == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
         std::vector<std::string>({"HcclAlltoAllV", "nullptr", "sendCounts", "non-null pointer"}));
+=======
+    RPT_INPUT_ERR(sendCounts == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
+        std::vector<std::string>({"HcclAlltoAllV", "sendCounts", "nullptr", "please check sendCounts"}));
+>>>>>>> adb9da8 (the check logic is the same as that of Orion)
     CHK_PTR_NULL(sendCounts);
     RPT_INPUT_ERR(sdispls == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
         std::vector<std::string>({"HcclAlltoAllV", "nullptr", "sdispls", "non-null pointer"}));
@@ -490,9 +495,12 @@ HcclResult CheckAlltoAllVCInputPara(const HcclComm comm, const void *sendBuf, co
         std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
         std::vector<std::string>({"HcclAlltoAllVC", "nullptr", "sendCountMatrix", "non-null pointer"}));
     CHK_PTR_NULL(sendCountMatrix);
+<<<<<<< HEAD
     RPT_INPUT_ERR(stream == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
         std::vector<std::string>({"HcclAlltoAllVC", "nullptr", "stream", "non-null pointer"}));
     CHK_PTR_NULL(stream);
+=======
+>>>>>>> adb9da8 (the check logic is the same as that of Orion)
 
     return HCCL_SUCCESS;
 }

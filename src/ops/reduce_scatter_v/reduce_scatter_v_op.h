@@ -46,7 +46,11 @@ HcclResult PrepareReduceScatterVParam(void *sendBuf, const void *sendDispls, con
 
 HcclResult ReduceScatterVExecOp(HcclComm comm, OpParam &param);
 
+<<<<<<< HEAD
 HcclResult CheckReduceScatterVInputParam(const HcclComm comm, const void *sendBuf, const void *recvBuf, uint64_t recvCount,
+=======
+HcclResult CheckReduceScatterVInputPara(const HcclComm comm, const void *sendBuf, const void *recvBuf, uint64_t recvCount,
+>>>>>>> adb9da8 (the check logic is the same as that of Orion)
     const void *sendCounts, const void *sendDispls, const aclrtStream stream);
 
 HcclResult GetAlgResReduceScatterV(HcclComm comm, OpParam &param, std::shared_ptr<InsCollAlgBase> &executor,
