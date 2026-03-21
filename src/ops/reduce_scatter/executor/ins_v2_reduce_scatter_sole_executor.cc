@@ -159,6 +159,34 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchest
         CHK_RET(algTemplate->KernelRun(param, tempAlgParams, templateAlgRes));
         processedDataCount += currDataCount;
     }
+
+    if (loopTimes == 1) {
+        HCCL_INFO("[InsV2ReduceScatterSoleExecutor] loopTimes==1, save fast launch ctx.");
+        u32 threadNum = 1;
+        u32 ccuKernelNum = 1;
+
+        u64 size = CcuFastLaunchCtx.GetCtxSize(threadNum, ccuKernelNum);
+        // 申请ctx
+        void *ctxPtr = nullptr;
+        HCCL_INFO("[InsV2ReduceScatterSoleExecutor][HcclEngineCtxCreate] Tag[%s], size[%llu], ");
+        CHK_RET(HcclEngineCtxCreate(param.comm, param.fastLaunchTag, CommEngine::COMM_ENGINE_CCU, size, &ctxPtr));
+
+        CcuFastLaunchCtx *ccuFastLaunchCtx = reinterpret_cast<CcuFastLaunchCtx*>(ctxPtr);
+        // 1 算法名:
+        CHK_SAFETY_FUNC_RET(strcpy_s(ccuFastLaunchCtx->algName, sizeof(ccuFastLaunchCtx->algName), param.algName));
+
+        // 2 thread
+        ThreadHandle *threads = ccuFastLaunchCtx->GetThreadHandlePtr();
+        threads[0] = templateAlgRes.threads[0]
+            
+        // 3 ccu kernel handle, taskArg入参
+        CcuKernelSubmmitInfo *kernels = ccuFastLaunchCtx->GetCcuKernelSubmmitInfoPtr();
+        kernels[0].kernelHandle = templateAlgRes.ccuKernels[0];
+        memcpy_s(kernels[0].sqeArgs, sizeof(kernels[0].sqeArgs), 
+                 templateAlgRes.submmitInfos[0].sqeArgs, sizeof(templateAlgRes.submmitInfos[0].sqeArgs));
+
+    }
+
     HCCL_INFO("[InsV2ReduceScatterSoleExecutor][OrchestrateLoop] End.");
     return HCCL_SUCCESS;
 }
@@ -166,7 +194,7 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchest
 #ifndef AICPU_COMPILE
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunch(
-        const OpParam &param, const CcuFastRunCtx *resCtx)
+        const OpParam &param, const CcuFastLaunchCtx *resCtx)
 {
     HCCL_INFO("[InsV2ReduceScatterSoleExecutor][FastLaunch] Start.");
     TemplateFastLaunchCtx tempFastLaunchCtx;

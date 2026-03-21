@@ -191,7 +191,7 @@ HcclResult SetOpParamFastLaunchTag(OpParam &param)
     return HcclResult::HCCL_SUCCESS;
 }
 
-bool CcuFastLaunchSupported(HcclComm comm, OpParam &param, CcuFastRunCtx **ccuFastLaunchCtx)
+bool CcuFastLaunchSupported(HcclComm comm, OpParam &param, CcuFastLaunchCtx **ccuFastLaunchCtx)
 {
     param.hcclComm = comm;
     
@@ -216,23 +216,23 @@ bool CcuFastLaunchSupported(HcclComm comm, OpParam &param, CcuFastRunCtx **ccuFa
     void *fastLaunchCtxPtr = nullptr;
     if (HcclEngineCtxGet(comm, param.fastLaunchTag, CommEngine::COMM_ENGINE_CCU, &fastLaunchCtxPtr, &size) == HCCL_SUCCESS) {
         HCCL_INFO("[CcuFastLaunchSupported] get fastLaunchCtx success, size is %u", size);
-        *ccuFastLaunchCtx = reinterpret_cast<CcuFastRunCtx*>(fastLaunchCtxPtr);
+        *ccuFastLaunchCtx = reinterpret_cast<CcuFastLaunchCtx*>(fastLaunchCtxPtr);
         return true;
     }
     return false;
 }
 
-HcclResult HcclExecOpCcuFastLaunch(HcclComm comm, OpParam &param, const CcuFastRunCtx *ccuFastRunCtx)
+HcclResult HcclExecOpCcuFastLaunch(HcclComm comm, OpParam &param, const CcuFastLaunchCtx *ccuFastLaunchCtx)
 {
     HCCL_INFO("[HcclExecOpCcuFastLaunch] HcclExecOpCcuFastLaunch start");
-    std::string algName = ccuFastRunCtx->algName;
+    std::string algName = ccuFastLaunchCtx->algName;
     HCCL_DEBUG("[HcclExecOpCcuFastLaunch] algName: [%s]", algName.c_str());
     std::shared_ptr<InsCollAlgBase> executor = CollAlgExecRegistryV2::Instance().GetAlgExec(param.opType, algName);
     CHK_PRT_RET(
         executor.get() == nullptr, HCCL_ERROR("Fail to find executor for algName[%s]", algName.c_str()), HCCL_E_PARA);
     
     HCCL_INFO("[HcclExecOpCcuFastLaunch] FastLaunch start");
-    CHK_RET(executor->FastLaunch(param, ccuFastRunCtx));
+    CHK_RET(executor->FastLaunch(param, ccuFastLaunchCtx));
     
     HCCL_INFO("[HcclExecOpCcuFastLaunch] HcclExecOpCcuFastLaunch end");
     return HCCL_SUCCESS;
