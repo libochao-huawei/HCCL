@@ -55,9 +55,9 @@ public:
         jettySliceTail_(jettySliceTail), token_(token), srcOffset_(srcOffset),
         dstOffset_(dstOffset), srcStride_(srcStride)
     {
-        HCCL_DEBUG("[CcuTaskArgAllToAllMesh1DMultiJetty] inputAddr: %lu, outputAddr: %lu, token: %lu, sliceSize: %lu, "
+        HCCL_DEBUG("[CcuTaskArgAllToAllMesh1DMultiJetty] inputAddr: %lu, outputAddr: %lu, sliceSize: %lu, "
                    "srcOffset: %lu, dstOffset: %lu, srcStride: %lu",
-                   inputAddr_, outputAddr_, token_, sliceSize_, srcOffset_, dstOffset_,
+                   inputAddr_, outputAddr_, sliceSize_, srcOffset_, dstOffset_,
                    srcStride_);
         for (uint32_t i = 0; i < jettySlice.size(); i++) {
             HCCL_DEBUG("[CcuTaskArgAllToAllMesh1DMultiJetty] jettySlice: %llu, jettySliceTail: %llu", 
