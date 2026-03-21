@@ -72,6 +72,9 @@ HcclResult InsTempAllReduceMesh1DOneShot::KernelRun(const OpParam& param,
     processSize_ = tempAlgParams.sliceSize;
     count_ = tempAlgParams.count;
     dataType_ = param.DataDes.dataType;
+    needAicpuReduce_ = 
+        dataType_ == HcclDataType::HCCL_DATA_TYPE_INT64 || dataType_ == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
+        dataType_ == HcclDataType::HCCL_DATA_TYPE_FP64 || param.reduceType == HcclReduceOp::HCCL_REDUCE_PROD;
     HCCL_INFO("[InsTempAllReduceMesh1DOneShot] Run Start");
     // 这里不支持绕路的时候，应该就用原始的tempInsQues就行
     CHK_PRT_RET(threadNum_ != templateResource.threads.size(),
@@ -81,15 +84,16 @@ HcclResult InsTempAllReduceMesh1DOneShot::KernelRun(const OpParam& param,
     RankSliceInfo sliceInfoVec;
     CHK_RET(CalcSlice(processSize_, sliceInfoVec));
 
-    CHK_RET(RunAllReduce(templateResource.channels, templateResource.threads, tempAlgParams, sliceInfoVec));
+    CHK_RET(RunAllReduce(param, templateResource.channels, templateResource.threads, tempAlgParams, sliceInfoVec));
     HCCL_INFO("[InsTempAllReduceMesh1DOneShot][Run] AllReduceMesh1DOneShot finished: rank[%d] end", myRank_);
     return HCCL_SUCCESS;
 }
 
-HcclResult InsTempAllReduceMesh1DOneShot::RunAllReduce(const std::map<u32, std::vector<ChannelInfo>> &channels,
-                                                        const std::vector<ThreadHandle> &threads,
-                                                        const TemplateDataParams &tempAlgParams,
-                                                        const RankSliceInfo &sliceInfoVec)
+HcclResult InsTempAllReduceMesh1DOneShot::RunAllReduce(const OpParam& param, 
+                                                       const std::map<u32, std::vector<ChannelInfo>> &channels,
+                                                       const std::vector<ThreadHandle> &threads,
+                                                       const TemplateDataParams &tempAlgParams,
+                                                       const RankSliceInfo &sliceInfoVec)
 {
     HCCL_INFO("[InsTempAllReduceMesh1DOneShot][RunAllReduce] send/recv: rank[%d]", myRank_);
 
@@ -154,6 +158,16 @@ HcclResult InsTempAllReduceMesh1DOneShot::RunAllReduce(const std::map<u32, std::
         std::vector<ThreadHandle> subThreads(threads.begin() + 1, threads.end());
         GetNotifyIdxSubToMain(notifyIdxSubToMain_);
         CHK_RET(PostSyncInterThreads(threads[0], subThreads, notifyIdxSubToMain_));
+    }
+
+    // 增加thread synchronize以支持64类数据类型
+    if (needAicpuReduce_) {
+        // 启动任务并等待所有threads任务执行完成
+        CHK_RET(static_cast<HcclResult>(HcommBatchModeEnd(param.algTag)));
+        CHK_RET(static_cast<HcclResult>(HcommBatchModeStart(param.algTag)));
+        for (const auto &thread : threads) {
+            CHK_RET(static_cast<HcclResult>(HcommThreadJoin(thread, CUSTOM_TIMEOUT)));
+        }
     }
 
     HCCL_INFO("[InsTempAllReduceMesh1DOneShot][RunAllReduce] reduce: rank[%d]", myRank_);

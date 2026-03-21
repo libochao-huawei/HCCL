@@ -27,6 +27,7 @@ CANN_3RD_LIB_PATH="${CURRENT_DIR}/third_party"
 CUSTOM_SIGN_SCRIPT="${CURRENT_DIR}/scripts/sign/community_sign_build.py"
 ENABLE_SIGN="false"
 VERSION_INFO="8.5.0"
+BUILD_AARCH="false"
 
 ENABLE_UT="off"
 ENABLE_ST="off"
@@ -389,6 +390,10 @@ while [[ $# -gt 0 ]]; do
         FULL_MODE="true"
         shift
         ;;
+    --build_aarch)
+        BUILD_AARCH="true"
+        shift
+        ;;
     --asan)
         ASAN="true"
         shift
@@ -452,6 +457,10 @@ fi
 
 if [ "${FULL_MODE}" == "true" ];then
     CUSTOM_OPTION="${CUSTOM_OPTION} -DFULL_MODE=ON"
+fi
+
+if [ "${BUILD_AARCH}" == "true" ];then
+    CUSTOM_OPTION="${CUSTOM_OPTION} -DAARCH_MODE=ON"
 fi
 
 if [ "${ASAN}" == "true" ];then
