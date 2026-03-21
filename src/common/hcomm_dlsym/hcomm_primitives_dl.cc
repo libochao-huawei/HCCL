@@ -80,7 +80,6 @@ static bool g_hcommFlushSupported = false;
 static bool g_hcommChannelFenceSupported = false;
 static bool g_hcommWriteWithNotifyNbiOnThreadSupported = false;
 static bool g_hcommFenceOnThreadSupported = false;
-static bool g_hcommFlushSupported = false;
 static bool g_hcommChannelFenceOnThreadSupported = false;
 
 // ---------- 桩函数定义（签名与真实API完全一致）----------
@@ -270,7 +269,7 @@ static int32_t StubHcommWriteWithNotifyNbiOnThread(ThreadHandle thread, ChannelH
 }
 
 static int32_t StubHcommFenceOnThread(ThreadHandle thread) {
-    (void)channel;
+    (void)thread;
     HCCL_ERROR("[HcclWrapper] HcommFenceOnThread not supported");
     return -1;
 }

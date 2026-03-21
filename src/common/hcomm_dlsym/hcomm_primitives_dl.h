@@ -49,7 +49,7 @@ extern int32_t (*hcommFlushPtr)();
 extern int32_t (*hcommChannelFencePtr)(ChannelHandle);
 extern int32_t (*hcommWriteWithNotifyNbiOnThreadPtr)(ThreadHandle, ChannelHandle, void*, const void*, uint64_t, uint32_t);
 extern int32_t (*hcommFenceOnThreadPtr)(ThreadHandle);
-extern int32_t (*hcommChannelFenceOnThreadPtr)(ChannelHandle);
+extern int32_t (*hcommChannelFenceOnThreadPtr)(ThreadHandle, ChannelHandle);
 
 // 宏：将原始API名映射为函数指针调用（保持API名大驼峰）
 #define HcommLocalCopyOnThread               (*hcommLocalCopyOnThreadPtr)
