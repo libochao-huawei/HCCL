@@ -39,6 +39,8 @@ HcclResult HcclRecvCustom(
     param.dataType = dataType;
     param.opType = HcclCMDType::HCCL_CMD_RECEIVE;
 
+    CHK_RET(LoadAICPUKernel());
+
     // ==============================================
     // STEP 1: 解析拓扑信息
     // ==============================================

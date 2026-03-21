@@ -13,11 +13,9 @@ cmake_minimum_required(VERSION 3.16.0)
 # 添加 ASC 和 AICPU 支持
 find_package(ASC REQUIRED)
 find_package(AICPU REQUIRED)
-
 project(hccl_examples_custom_ops_p2p LANGUAGES CXX AICPU ASC) # 支持CXX、AICPU和ASC编译
-set(CMAKE_SYSTEM_PROCESSOR "aarch64") # 在欧拉操作系统中，需要指定处理器为aarch64，否则编译时会报错
-message("CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
 
+set(HCCL_CUSTOM_OPS_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 set(HCCL_CUSTOM_OPS_INCLUDE_LIST
     ${CMAKE_CURRENT_SOURCE_DIR}/inc
     ${CMAKE_CURRENT_SOURCE_DIR}/op_host
@@ -108,6 +106,9 @@ if(KERNEL_MODE)
         -g
         -O0
     )
+    target_link_directories(p2p_aicpu_kernel PRIVATE
+        ${ASCEND_CANN_PACKAGE_PATH}/devlib/device
+    )
     target_link_libraries(p2p_aicpu_kernel PRIVATE
         -Wl,--no-as-needed
         ccl_kernel
@@ -130,14 +131,14 @@ if(KERNEL_MODE)
     )
 else()
     # 安装
-    # install(FILES
-    #     ${BUILD_DEVICE_DIR}/signatures/aicpu_hccl_custom_p2p.tar.gz
-    #     DESTINATION ${CUSTOM_OPS_OPP_AICPU_KERNEL_PATH}
-    # )
-    # install(FILES
-    #     ${AICPU_KERNEL_JSON_FILE}
-    #     DESTINATION ${CUSTOM_OPS_OPP_AICPU_CONFIG_PATH}
-    # )
+    install(FILES
+        ${BUILD_DEVICE_DIR}/signatures/aicpu_hccl_custom_p2p.tar.gz
+        DESTINATION ${CUSTOM_OPS_OPP_AICPU_KERNEL_PATH}
+    )
+    install(FILES
+        ${AICPU_KERNEL_JSON_FILE}
+        DESTINATION ${CUSTOM_OPS_OPP_AICPU_CONFIG_PATH}
+    )
 endif()
 
 # 添加子目录
