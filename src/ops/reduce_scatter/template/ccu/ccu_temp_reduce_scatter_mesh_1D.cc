@@ -79,6 +79,14 @@ HcclResult CcuTempReduceScatterMesh1D::CalcRes(HcclComm comm, const OpParam& par
 
 HcclResult CcuTempReduceScatterMesh1D::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
 {
+    HCCL_DEBUG("[CcuTempReduceScatterMesh1D::FastLaunch] start");
+    HCCL_INFO("[CcuTempReduceScatterMesh1D::FastLaunch] get ccu kernel submitInfo:"
+              "[%llu],[%llu],[%llu],[%llu],[%llu]",
+              tempFastLaunchCtx.ccuKernelSubmitInfos[0].sqeArgs[0],
+              tempFastLaunchCtx.ccuKernelSubmitInfos[0].sqeArgs[1],
+              tempFastLaunchCtx.ccuKernelSubmitInfos[0].sqeArgs[2],
+              tempFastLaunchCtx.ccuKernelSubmitInfos[0].sqeArgs[3],
+              tempFastLaunchCtx.ccuKernelSubmitInfos[0].sqeArgs[4]); // todo: token打印记得删除
     std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgReduceScatterMesh1D>(
         PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr),
         PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr),
@@ -91,7 +99,7 @@ HcclResult CcuTempReduceScatterMesh1D::FastLaunch(const OpParam& param, const Te
     CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0], 
         tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr));
 
-    HCCL_DEBUG("[CcuTempReduceScatterMesh1D::KernelRun] end");
+    HCCL_DEBUG("[CcuTempReduceScatterMesh1D::FastLaunch] end");
     return HcclResult::HCCL_SUCCESS;
 }
 
@@ -127,7 +135,7 @@ HcclResult CcuTempReduceScatterMesh1D::KernelRun(const OpParam& param,
 
     CHK_RET(HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr));
     
-    HCCL_INFO("[CcuTempReduceScatterMesh1D::KernelRun] save ccu kernel submitInfo:", 
+    HCCL_INFO("[CcuTempReduceScatterMesh1D::KernelRun] save ccu kernel submitInfo:"
               "[%llu],[%llu],[%llu],[%llu],[%llu]",
               inputAddr, outputAddr, sliceSize, offset, token); // todo: token打印记得删除
     CcuKernelSubmitInfo subCommInfo;
