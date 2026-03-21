@@ -24,9 +24,6 @@ HcclResult HcclAllReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataT
     HcclReduceOp op, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("Start to run execute HcclAllReduce");
-    if (!HcclCheckAicpuEnableOpen()) {
-        return HcclAllReduceInner(sendBuf, recvBuf, count, dataType, op, comm, stream);
-    }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
     // 非95设备转到老流程
