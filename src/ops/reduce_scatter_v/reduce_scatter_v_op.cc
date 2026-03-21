@@ -186,8 +186,6 @@ if (!paramMem) {
         return HcclResult::HCCL_SUCCESS;
     }
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
-    paramPtr->~OpParam();
-    free(paramMem);
     HCCL_INFO("Execute ReduceScatterVOutPlace success.");
     return HCCL_SUCCESS;
 }
