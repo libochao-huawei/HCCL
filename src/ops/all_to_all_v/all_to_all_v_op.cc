@@ -238,6 +238,9 @@ HcclResult CheckAlltoAllInputPara(const HcclComm comm, const void *sendBuf, cons
     CHK_PRT_RET(sendType != recvType,
         HCCL_ERROR("sendType[%s] and recvType[%s] are not equal, please check params",
             GetDataTypeEnumStr(sendType).c_str(), GetDataTypeEnumStr(recvType).c_str()), HCCL_E_PARA);
+    RPT_INPUT_ERR(stream == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclAlltoAllV", "nullptr", "stream", "non-null pointer"}));
+    CHK_PTR_NULL(stream);
     CHK_PRT_RET(sendBuf == recvBuf,
         HCCL_ERROR("[HcclAlltoAll] sendBuf and recvBuf cannot be same."), HCCL_E_PARA);
 
@@ -250,14 +253,6 @@ HcclResult CheckAlltoAllVInputPara(const HcclComm comm, const void *sendBuf, con
     RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
         std::vector<std::string>({"HcclAlltoAllV", "comm", "nullptr", "please check comm"}));
     CHK_PTR_NULL(comm);
-    RPT_INPUT_ERR(sendBuf == nullptr, "EI0003",\
-        std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-        std::vector<std::string>({"HcclAlltoAllV", "sendBuf", "nullptr", "please check sendBuf"}));
-    CHK_PTR_NULL(sendBuf);
-    RPT_INPUT_ERR(recvBuf == nullptr, "EI0003",\
-        std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-        std::vector<std::string>({"HcclAlltoAllV", "recvBuf", "nullptr", "please check recvBuf"}));
-    CHK_PTR_NULL(recvBuf);
     RPT_INPUT_ERR(sendCounts == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
         std::vector<std::string>({"HcclAlltoAllV", "sendCounts", "nullptr", "please check sendCounts"}));
     CHK_PTR_NULL(sendCounts);
@@ -270,11 +265,9 @@ HcclResult CheckAlltoAllVInputPara(const HcclComm comm, const void *sendBuf, con
     RPT_INPUT_ERR(rdispls == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
         std::vector<std::string>({"HcclAlltoAllV", "rdispls", "nullptr", "please check rdispls"}));
     CHK_PTR_NULL(rdispls);
-    CHK_PRT_RET(sendType != recvType,
-        HCCL_ERROR("sendType[%s] and recvType[%s] are not equal, please check params",
-            GetDataTypeEnumStr(sendType).c_str(), GetDataTypeEnumStr(recvType).c_str()), HCCL_E_PARA);
-    CHK_PRT_RET(sendBuf == recvBuf,
-        HCCL_ERROR("[HcclAlltoAllV] sendBuf and recvBuf cannot be same."), HCCL_E_PARA);
+    RPT_INPUT_ERR(stream == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclAlltoAllV", "nullptr", "stream", "non-null pointer"}));
+    CHK_PTR_NULL(stream);
 
     return HCCL_SUCCESS;
 }
@@ -289,19 +282,6 @@ HcclResult CheckAlltoAllVCInputPara(const HcclComm comm, const void *sendBuf, co
         std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
         std::vector<std::string>({"HcclAlltoAllVC", "sendCountMatrix", "nullptr", "please check sendCountMatrix"}));
     CHK_PTR_NULL(sendCountMatrix);
-    RPT_INPUT_ERR(sendBuf == nullptr, "EI0003",\
-        std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-        std::vector<std::string>({"HcclAlltoAllVC", "sendBuf", "nullptr", "please check sendBuf"}));
-    CHK_PTR_NULL(sendBuf);
-    RPT_INPUT_ERR(recvBuf == nullptr, "EI0003",\
-        std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-        std::vector<std::string>({"HcclAlltoAllVC", "recvBuf", "nullptr", "please check recvBuf"}));
-    CHK_PTR_NULL(recvBuf);
-    CHK_PRT_RET(sendType != recvType,
-        HCCL_ERROR("sendType[%s] and recvType[%s] are not equal, please check params",
-            GetDataTypeEnumStr(sendType).c_str(), GetDataTypeEnumStr(recvType).c_str()), HCCL_E_PARA);
-    CHK_PRT_RET(sendBuf == recvBuf,
-        HCCL_ERROR("[HcclAlltoAllVC] sendBuf and recvBuf cannot be same."), HCCL_E_PARA);
 
     return HCCL_SUCCESS;
 }
