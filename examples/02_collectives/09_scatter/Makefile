@@ -10,7 +10,7 @@
 
 ifndef ASCEND_HOME_PATH
     $(error "ASCEND_HOME_PATH is not set, please ensure CANN is properly installed and \
-             source environment variables by running `source /path/to/Ascend/ascend-toolkit/set_env.sh`")
+             source environment variables by running `source /path/to/Ascend/cann/set_env.sh`")
 endif
 
 CXXFLAGS := -std=c++14 \

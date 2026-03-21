@@ -116,10 +116,10 @@ HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::KernelRun(const OpParam& para
     const uint64_t lastRankSliceSize = lastRankSliceCount * unitSize;
     const uint64_t lastPortSliceSize = lastPortSliceCount * unitSize;
 
-    HCCL_DEBUG("[%s] inputAddr[%llu], outputAddr[%llu], outputToken[%llu], isInplace[%llu], dataSize[%llu], "
+    HCCL_DEBUG("[%s] inputAddr[%llu], outputAddr[%llu], isInplace[%llu], dataSize[%llu], "
                "sliceDivisor[%llu], dataSizePerPort[%llu], dataSizePerRank[%llu], lastRankSliceSize[%llu], "
                "lastPortSliceSize[%llu]",
-               __func__, inputAddr, outputAddr, outputToken, isInplace, dataSize, sliceDivisor, dataSizePerPort,
+               __func__, inputAddr, outputAddr, isInplace, dataSize, sliceDivisor, dataSizePerPort,
                dataSizePerRank, lastRankSliceSize, lastPortSliceSize);
 
     std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAllReduceNhrMem2Mem1DMultiJetty>(
