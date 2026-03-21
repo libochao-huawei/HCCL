@@ -15,6 +15,7 @@
 #include <future>
 #include <map>
 #include <string>
+#include "op_common_graph_mode.h"
 
 using namespace std;
 using namespace ops_hccl;
@@ -23,6 +24,9 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 HcclResult HcclBroadcast(void *buf, uint64_t count, HcclDataType dataType, uint32_t root, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("Start to run execute HcclBroadcast");
+    if (!CheckHCCLIndependentOp()) {
+        return HcclBroadcastInner(buf, count, dataType, root, comm, stream);
+    }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
     // 非95设备转到老流程
@@ -59,6 +63,53 @@ HcclResult HcclBroadcast(void *buf, uint64_t count, HcclDataType dataType, uint3
     // 执行Broadcast
     CHK_RET_AND_PRINT_IDE(BroadcastOutPlace(buf, count, dataType, root, comm, stream, tag),
                           tag.c_str());
+
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclBroadcastGraphMode(void *buf, uint64_t count, HcclDataType dataType, uint32_t root, const char* group, aclrtStream stream, const char* tag, void** streams, size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize)
+{
+    HCCL_INFO("Start to run execute HcclBroadcastGraphMode");
+    // 根据group获取通信域
+    HcclComm comm = nullptr;
+    HCCL_INFO("[HcclBroadcastGraphMode] get group name: %s", group);
+    HcomGetCommHandleByGroup(group, &comm);
+
+    // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
+    CHK_RET(InitEnvConfig());
+
+    // 参数校验等工作
+    CHK_PRT_RET(count == 0, HCCL_WARNING("input count is 0, return broadcast success"), HCCL_SUCCESS);
+    CHK_RET(CheckBroadcastInputPara(comm, buf));
+    u32 rankSize = INVALID_VALUE_RANKSIZE;
+    CHK_RET(HcclGetRankSize(comm, &rankSize));
+    u32 userRank = INVALID_VALUE_RANKID;
+    CHK_RET(HcclGetRankId(comm, &userRank));
+    char commName[COMM_INDENTIFIER_MAX_LENGTH];
+    CHK_RET(HcclGetCommName(comm, commName));
+    const string opTag = "Broadcast_" + string(commName);
+    CHK_RET(HcclCheckTag(opTag.c_str()));
+    CHK_RET(HcclCheckTag(tag));
+    CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), opTag.c_str());
+    CHK_RET(CheckCount(count));
+    CHK_RET(CheckDataType(dataType, false));
+
+    // 拼装ResPackGraphMode
+    ResPackGraphMode resPack;
+    // 设置tag
+    strncpy_s(resPack.tag, sizeof(resPack.tag), tag, sizeof(resPack.tag) - 1);
+    // 设置streams
+    if (streams != nullptr && streamCount > 0) {
+        for (size_t i = 0; i < streamCount; i++) {
+            resPack.streams.push_back(static_cast<aclrtStream>(streams[i]));
+        }
+    }
+    // 设置scratchMem
+    resPack.scratchMemAddr = scratchMemAddr;
+    resPack.scratchMemSize = scratchMemSize;
+
+    // 执行AllGather
+    CHK_RET_AND_PRINT_IDE(BroadcastOutPlaceGraphMode(buf, count, dataType, root, comm, stream, tag, resPack), opTag);
 
     return HCCL_SUCCESS;
 }
@@ -113,20 +164,69 @@ HcclResult BroadcastOutPlace(void *buf, uint64_t count, HcclDataType dataType, u
     param.opType = HcclCMDType::HCCL_CMD_BROADCAST;
     param.enableDetour = false;
     param.deviceType = deviceType;
-
-    std::string algName;
-    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
-    CHK_RET(Selector(comm, param, topoInfo, algName));
-    if (ShouldUseInnerOp(param.opExecuteConfig)) {
-        return HcclBroadcastInner(buf, count, dataType, root, comm, stream);
-    }
     if (userRankSize == 1) {
         HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
         CHK_RET(SingleRankProc(param));
         return HcclResult::HCCL_SUCCESS;
     }
+
+    std::string algName;
+    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
+    CHK_RET(Selector(comm, param, topoInfo, algName));
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
     HCCL_INFO("Execute BroadcastOutPlace success.");
     return HCCL_SUCCESS;
 }
+
+HcclResult BroadcastOutPlaceGraphMode(void *buf, uint64_t count, HcclDataType dataType, uint32_t root, HcclComm comm, aclrtStream stream,
+                                      const std::string &tag, const ResPackGraphMode &resPack)
+{
+    HCCL_INFO("Start to execute BroadcastOutPlaceGraphMode");
+    u32 userRankSize;
+    CHK_RET(HcclGetRankSize(comm, &userRankSize));
+
+    u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
+    u64 inputSize = count * perDataSize;
+    u64 outputSize = inputSize;
+
+    OpParam param;
+    CHK_RET(HcclGetCommName(comm, param.commName));
+    param.stream = stream;
+    param.opMode = OpMode::OFFLOAD;
+
+    DevType deviceType = DevType::DEV_TYPE_COUNT;
+    CHK_RET(hrtGetDeviceType(deviceType));
+
+    // topoInfo的tag，所有相同的算子可以共享
+    int ret = sprintf_s(param.tag, sizeof(param.tag), "%s", tag.c_str());
+    if (ret <= 0) {
+        HCCL_ERROR("failed to fill param.tag");
+        return HCCL_E_INTERNAL;
+    }
+
+    // 参数准备
+    param.inputPtr = buf;
+    param.inputSize = inputSize;
+    param.outputPtr = buf;
+    param.outputSize = outputSize;
+    param.DataDes.count = count;
+    param.DataDes.dataType = dataType;
+    param.root = root;
+    param.opType = HcclCMDType::HCCL_CMD_BROADCAST;
+    param.enableDetour = false;
+    param.deviceType = deviceType;
+    if (userRankSize == 1) {
+        HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
+        CHK_RET(SingleRankProc(param));
+        return HcclResult::HCCL_SUCCESS;
+    }
+
+    std::string algName;
+    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
+    CHK_RET(Selector(comm, param, topoInfo, algName));
+    CHK_RET(HcclExecOpGraphMode(comm, param, topoInfo, algName, resPack));
+    HCCL_INFO("Execute BroadcastOutPlaceGraphMode success.");
+    return HCCL_SUCCESS;
+}
+
 }
