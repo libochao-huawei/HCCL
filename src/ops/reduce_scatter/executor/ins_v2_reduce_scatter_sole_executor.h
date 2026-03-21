@@ -33,7 +33,7 @@ public:
                                     AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
 
 #ifndef AICPU_COMPILE
-    HcclResult FastLaunch(const OpParam &param, const CcuFastRunCtx *resCtx) override;
+    HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *resCtx) override;
 #endif
 
 protected:
