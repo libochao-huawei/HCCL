@@ -14,12 +14,12 @@
 #include "ins_temp_reduce_scatter_nhr.h"
 #include "ins_temp_reduce_scatter_mesh_1D_meshchunk.h"
 #ifndef AICPU_COMPILE
-#include "ccu_temp_reduce_scatter_mesh_1D_mem2mem.h"
+// #include "ccu_temp_reduce_scatter_mesh_1D_mem2mem.h"
 #include "ccu_temp_reduce_scatter_mesh_1D.h"
-#include "ccu_temp_reduce_scatter_nhr_1D_mem2mem.h"
-#include "ccu_temp_reduce_scatter_mesh_1D_2die_mem2mem.h"
-#include "ccu_temp_reduce_scatter_mesh2die.h"
-#include "ccu_temp_reduce_scatter_nhr_1D_multi_jetty_mem2mem.h"
+// #include "ccu_temp_reduce_scatter_nhr_1D_mem2mem.h"
+// #include "ccu_temp_reduce_scatter_mesh_1D_2die_mem2mem.h"
+// #include "ccu_temp_reduce_scatter_mesh2die.h"
+// #include "ccu_temp_reduce_scatter_nhr_1D_multi_jetty_mem2mem.h"
 #endif
 
 namespace ops_hccl {
@@ -170,7 +170,7 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchest
             return HCCL_SUCCESS;
         }
 
-        u64 size = CcuFastLaunchCtx.GetCtxSize(threadNum, ccuKernelNum);
+        u64 size = CcuFastLaunchCtx::GetCtxSize(threadNum, ccuKernelNum);
         // 申请ctx
         void *ctxPtr = nullptr;
         HCCL_INFO("[InsV2ReduceScatterSoleExecutor][HcclEngineCtxCreate] Tag[%s], size[%llu], ");
