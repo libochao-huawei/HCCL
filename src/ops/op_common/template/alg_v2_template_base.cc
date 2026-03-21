@@ -33,7 +33,7 @@ HcclResult InsAlgTemplateBase::FastLaunch(const OpParam& param, const TemplateFa
 {
     (void)param;
     (void)tempFastLaunchCtx;
-    HCCL_ERROR("[InsAlgTemplateBase] Unsupported interface of CcuAlgTemplateBase::FastLaunch!");
+    HCCL_ERROR("[InsAlgTemplateBase] Unsupported interface of InsAlgTemplateBase::FastLaunch!");
     return HcclResult::HCCL_E_INTERNAL;
 }
 

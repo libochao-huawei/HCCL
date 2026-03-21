@@ -43,6 +43,7 @@ constexpr uint32_t MAX_TAG_LENGTH = 255;
 constexpr uint32_t AICPU_CONTROL_NOTIFY_NUM = 2;
 constexpr uint32_t MAX_MEM_TAG_LENGTH = OP_ALG_LENGTH + 32;
 constexpr uint32_t RES_PACK_TAG_LENGTH = 255;
+constexpr uint32_t MAX_TEMP_NUM_IN_ALGO = 8; // 单个算法中最大template数量
 
 // 是否再拆分一个comm头文件
 constexpr u32 LOCAL_NOTIFY_IDX_ZERO = 0;
@@ -258,6 +259,7 @@ struct CcuKernelInfo {
 
 struct CcuKernelSubmitInfo {
     CcuKernelHandle kernelHandle;
+    u32 argNum;
     uint64_t sqeArgs[CCU_MAX_TASK_ARG_NUM];
 };
 
@@ -265,24 +267,24 @@ struct CcuKernelSubmitInfo {
 struct CcuFastLaunchCtx {
     char algName[OP_ALG_LENGTH];
     u32 threadNum;
-    u32 ccuKernelNum;
-    // ThreadHandle threadHandles[];
-    // CcuKernelSubmitInfo ccuKernelSubmitInfo[];
+    u32 ccuKernelNum[MAX_TEMP_NUM_IN_ALGO];  // 每个template的kernel数量
+    // 紧接ThreadHandle数组
+    // 紧接CcuKernelSubmitInfo数组
 
     ThreadHandle *GetThreadHandlePtr() const
     {
-        size_t offset = offsetof(CcuFastLaunchCtx, ccuKernelNum) + sizeof(u32);
+        size_t offset = offsetof(CcuFastLaunchCtx, ccuKernelNum) + sizeof(u32) * MAX_TEMP_NUM_IN_ALGO;
         return reinterpret_cast<ThreadHandle*>(reinterpret_cast<char*>(const_cast<CcuFastLaunchCtx*>(this)) + offset);
     }
     CcuKernelSubmitInfo *GetCcuKernelSubmitInfoPtr() const
     {
-        size_t offset = offsetof(CcuFastLaunchCtx, ccuKernelNum) + sizeof(u32) + sizeof(ThreadHandle) * threadNum;
+        size_t offset = offsetof(CcuFastLaunchCtx, ccuKernelNum) + sizeof(u32) * MAX_TEMP_NUM_IN_ALGO + sizeof(ThreadHandle) * threadNum;
         return reinterpret_cast<CcuKernelSubmitInfo*>(reinterpret_cast<char*>(const_cast<CcuFastLaunchCtx*>(this)) + offset);
     }
 
-    static u64 GetCtxSize(u32 threadNum, u32 ccuKernelNum)
+    static u64 GetCtxSize(u32 threadNum, u32 totalCcuKernelNum)
     {
-        return sizeof(CcuFastLaunchCtx) + sizeof(ThreadHandle) * threadNum + sizeof(CcuKernelSubmitInfo) * ccuKernelNum;
+        return sizeof(CcuFastLaunchCtx) + sizeof(ThreadHandle) * threadNum + sizeof(CcuKernelSubmitInfo) * totalCcuKernelNum;
     }
 };
 
