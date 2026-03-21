@@ -39,6 +39,7 @@
 #include "hccl_aiv_utils.h"
 #include "aiv_kernel_def.h"
 #include "dpu/kernel_launch.h"
+#include "hcomm_host_profiling_dl.h"
 
 #ifdef __cplusplus
 extern "C" {
