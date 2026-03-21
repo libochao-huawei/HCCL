@@ -47,6 +47,9 @@ extern int32_t (*hcommSendRequestPtr)(MsgHandle, const char*, const void*, size_
 extern int32_t (*hcommWaitResponsePtr)(MsgHandle, void*, size_t, uint32_t*);
 extern int32_t (*hcommFlushPtr)();
 extern int32_t (*hcommChannelFencePtr)(ChannelHandle);
+extern int32_t (*hcommWriteWithNotifyNbiOnThreadPtr)(ThreadHandle, ChannelHandle, void*, const void*, uint64_t, uint32_t);
+extern int32_t (*hcommFenceOnThreadPtr)(ThreadHandle);
+extern int32_t (*hcommChannelFenceOnThreadPtr)(ChannelHandle);
 
 // 宏：将原始API名映射为函数指针调用（保持API名大驼峰）
 #define HcommLocalCopyOnThread               (*hcommLocalCopyOnThreadPtr)
@@ -78,6 +81,9 @@ extern int32_t (*hcommChannelFencePtr)(ChannelHandle);
 #define HcommWaitResponse                         (*hcommWaitResponsePtr)
 #define HcommFlush                                 (*hcommFlushPtr)
 #define HcommChannelFence                          (*hcommChannelFencePtr)
+#define HcommWriteWithNotifyNbiOnThread            (*hcommWriteWithNotifyNbiOnThreadPtr)
+#define HcommFenceOnThread                          (*hcommFenceOnThreadPtr)
+#define HcommChannelFenceOnThread                   (*hcommChannelFenceOnThreadPtr)
 
 void HcommPrimitivesDlInit(void* libHcommHandle);  // 本模块独立初始化
 void HcommPrimitivesDlFini(void);                  // 本模块独立销毁

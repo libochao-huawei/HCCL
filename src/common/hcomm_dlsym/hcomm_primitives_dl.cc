@@ -44,6 +44,9 @@ int32_t (*hcommSendRequestPtr)(MsgHandle, const char*, const void*, size_t, uint
 int32_t (*hcommWaitResponsePtr)(MsgHandle, void*, size_t, uint32_t*) = nullptr;
 int32_t (*hcommFlushPtr)() = nullptr;
 int32_t (*hcommChannelFencePtr)(ChannelHandle) = nullptr;
+int32_t (*hcommWriteWithNotifyNbiOnThreadPtr)(ThreadHandle, ChannelHandle, void*, const void*, uint64_t, uint32_t) = nullptr;
+int32_t (*hcommFenceOnThreadPtr)(ThreadHandle) = nullptr;
+int32_t (*hcommChannelFenceOnThreadPtr)(ThreadHandle, ChannelHandle) = nullptr;
 
 // 添加支持标志（静态，默认 false）
 static bool g_hcommLocalCopyOnThreadSupported = false;
@@ -75,6 +78,10 @@ static bool g_hcommSendRequestSupported = false;
 static bool g_hcommWaitResponseSupported = false;
 static bool g_hcommFlushSupported = false;
 static bool g_hcommChannelFenceSupported = false;
+static bool g_hcommWriteWithNotifyNbiOnThreadSupported = false;
+static bool g_hcommFenceOnThreadSupported = false;
+static bool g_hcommFlushSupported = false;
+static bool g_hcommChannelFenceOnThreadSupported = false;
 
 // ---------- 桩函数定义（签名与真实API完全一致）----------
 static int32_t StubHcommLocalCopyOnThread(ThreadHandle thread, void* dst, const void* src, uint64_t len) {
@@ -256,6 +263,23 @@ static int32_t StubHcommChannelFence(ChannelHandle channel) {
     return -1;
 }
 
+static int32_t StubHcommWriteWithNotifyNbiOnThread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t len, uint32_t remoteNotifyIdx) {
+    (void)thread; (void)channel; (void)dst; (void)src; (void)len; (void)remoteNotifyIdx;
+    HCCL_ERROR("[HcclWrapper] HcommWriteWithNotifyNbiOnThread not supported");
+    return -1;
+}
+
+static int32_t StubHcommFenceOnThread(ThreadHandle thread) {
+    (void)channel;
+    HCCL_ERROR("[HcclWrapper] HcommFenceOnThread not supported");
+    return -1;
+}
+static int32_t StubHcommChannelFenceOnThread(ThreadHandle thread, ChannelHandle channel) {
+    (void)channel;
+    HCCL_ERROR("[HcclWrapper] HcommChannelFenceOnThread not supported");
+    return -1;
+}
+
 // ---------- 初始化函数 ----------
 void HcommPrimitivesDlInit(void* libHcommHandle) {
     // 辅助宏：解析符号，失败则指向对应桩函数，同时设置支持标志
@@ -300,6 +324,9 @@ void HcommPrimitivesDlInit(void* libHcommHandle) {
     SET_PTR(hcommWaitResponsePtr, libHcommHandle, "HcommWaitResponse", StubHcommWaitResponse, g_hcommWaitResponseSupported);
     SET_PTR(hcommFlushPtr, libHcommHandle, "HcommFlush", StubHcommFlush, g_hcommFlushSupported);
     SET_PTR(hcommChannelFencePtr, libHcommHandle, "HcommChannelFence", StubHcommChannelFence, g_hcommChannelFenceSupported);
+    SET_PTR(hcommWriteWithNotifyNbiOnThreadPtr, libHcommHandle, "HcommWriteWithNotifyNbiOnThread", StubHcommWriteWithNotifyNbiOnThread, g_hcommWriteWithNotifyNbiOnThreadSupported);
+    SET_PTR(hcommFenceOnThreadPtr, libHcommHandle, "HcommFenceOnThread", StubHcommFenceOnThread, g_hcommFenceOnThreadSupported);
+    SET_PTR(hcommChannelFenceOnThreadPtr, libHcommHandle, "HcommChannelFenceOnThread", StubHcommChannelFenceOnThread, g_hcommChannelFenceOnThreadSupported);
 
     #undef SET_PTR
 }
@@ -334,6 +361,9 @@ void HcommPrimitivesDlFini(void) {
     hcommWaitResponsePtr = StubHcommWaitResponse;
     hcommFlushPtr = StubHcommFlush;
     hcommChannelFencePtr = StubHcommChannelFence;
+    hcommWriteWithNotifyNbiOnThreadPtr = StubHcommWriteWithNotifyNbiOnThread;
+    hcommFenceOnThreadPtr = StubHcommFenceOnThread;
+    hcommChannelFenceOnThreadPtr = StubHcommChannelFenceOnThread;
 }
 
 // ---------- 对外提供的查询接口（判断函数是否存在）----------
@@ -423,4 +453,13 @@ extern "C" bool HcommIsSupportHcommFlush(void) {
 }
 extern "C" bool HcommIsSupportHcommChannelFence(void) {
     return g_hcommChannelFenceSupported;
+}
+extern "C" bool HcommIsSupportHcommWriteWithNotifyNbiOnThread(void) {
+    return g_hcommWriteWithNotifyNbiOnThreadSupported;
+}
+extern "C" bool HcommIsSupportHcommFenceOnThread(void) {
+    return g_hcommFenceOnThreadSupported;
+}
+extern "C" bool HcommIsSupportHcommChannelFenceOnThread(void) {
+    return g_hcommChannelFenceOnThreadSupported;
 }

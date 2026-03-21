@@ -48,6 +48,7 @@ bool HcommIsSupportHcommSendRequest(void);
 bool HcommIsSupportHcommWaitResponse(void);
 bool HcommIsSupportHcommFlush(void);
 bool HcommIsSupportHcommChannelFence(void);
+bool HcommIsSupportHcommWriteWithNotifyNbiOnThread(void);
 
 #ifdef __cplusplus
 }
