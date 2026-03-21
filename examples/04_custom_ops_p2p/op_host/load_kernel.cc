@@ -46,7 +46,7 @@ HcclResult LoadBinaryFromFile(const char *binPath, aclrtBinaryLoadOptionType opt
     CHK_PRT_RET(realpath(binPath, realPath) == nullptr,
         HCCL_ERROR("LoadBinaryFromFile: %s is not a valid real path, err[%d]", binPath, errno),
         HCCL_E_INTERNAL);
-    HCCL_INFO("[LoadBinaryFromFile]realPath: %s", realPath);
+    HCCL_INFO("[LoadBinaryFromFile] realPath: %s", realPath);
 
     aclrtBinaryLoadOptions loadOptions = {0};
     aclrtBinaryLoadOption option;

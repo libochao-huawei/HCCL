@@ -100,6 +100,10 @@ if(KERNEL_MODE)
         -g
         -O0
     )
+    target_link_directories(p2p_aicpu_kernel PRIVATE
+        ${ASCEND_CANN_PACKAGE_PATH}/lib64
+        ${ASCEND_CANN_PACKAGE_PATH}/lib64/device/lib64 # 包含 AICPU 动态链接库
+    )
     target_link_libraries(p2p_aicpu_kernel PRIVATE
         ccl_kernel
     )

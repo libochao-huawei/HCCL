@@ -55,9 +55,11 @@ HcclResult HcclRecvCustom(
     uint64_t size = sizeof(AlgResourceCtx);
     if (HcclEngineCtxGet(comm, param.tag, engine, &ctx, &size) == HCCL_SUCCESS) {
         // device资源已经存在
+        HCCL_INFO("[HcclRecvCustom] Engine context already exists");
         param.resCtx = static_cast<AlgResourceCtx *>(ctx);
     } else {
         // 不存在，新创建Context
+        HCCL_INFO("[HcclRecvCustom] Creating engine context");
         CHK_RET(HcclEngineCtxCreate(comm, param.tag, engine, size, &ctx));
         param.resCtx = static_cast<AlgResourceCtx *>(ctx);
 
@@ -95,10 +97,10 @@ HcclResult HcclRecvCustom(
     // ==============================================
     // STEP 3: 下发 AICPU Kernel
     // ==============================================
-    char *kernelMode = getenv("HCCL_CUSTOM_KERNEL_LAUNCH_MODE");
-    HCCL_INFO("[HcclRecvCustom] Kernel launch mode: %s", kernelMode);
-    KernelLaunchMode mode = (kernelMode != nullptr && strcmp(kernelMode, "binary") == 0)
-            ? KERNEL_LAUNCH_BINARY : KERNEL_LAUNCH_ACLRT;
+    char *kernelMode = getenv("HCCL_CUSTOM_KERNEL_LAUNCH_ASC");
+    HCCL_INFO("[HcclRecvCustom] HCCL_CUSTOM_KERNEL_LAUNCH_ASC: %s", kernelMode);
+    KernelLaunchMode mode = (kernelMode != nullptr && strcmp(kernelMode, "1") == 0)
+            ? KERNEL_LAUNCH_ASC : KERNEL_LAUNCH_ACLRT;
     CHK_RET(LaunchKernel(param, stream, mode));
 
     return HCCL_SUCCESS;

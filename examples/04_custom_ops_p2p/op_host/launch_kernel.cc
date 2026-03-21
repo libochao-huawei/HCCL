@@ -17,15 +17,15 @@ namespace ops_hccl_p2p {
 
 thread_local aclrtNotify g_notifies[AICPU_CONTROL_NOTIFY_NUM];
 
-HcclResult LaunchKernelWithBinary(OpParam &param, aclrtStream stream)
+HcclResult LaunchKernelWithAsc(OpParam &param, aclrtStream stream)
 {
     // Host stream通知Device主thread
     ACLCHECK(aclrtRecordNotify(g_notifies[0], stream));
 
     // 调用使用 ASC 编译的函数，支持 <<<>>> 语法
-    HcclResult ret = LaunchKernelBinary(param, stream);
+    HcclResult ret = LaunchKernelAsc(param, stream);
     if (ret != HCCL_SUCCESS) {
-        HCCL_ERROR("[LaunchKernelWithBinary] Binary mode failed, ret[%d]", ret);
+        HCCL_ERROR("[LaunchKernelWithAsc] Binary mode failed, ret[%d]", ret);
         return ret;
     }
 
@@ -67,11 +67,13 @@ HcclResult LaunchKernelWithAclrt(OpParam &param, aclrtStream stream)
 
 HcclResult LaunchKernel(OpParam &param, aclrtStream stream, KernelLaunchMode mode)
 {
-    if (mode == KERNEL_LAUNCH_BINARY) {
+    if (mode == KERNEL_LAUNCH_ASC) {
         // <<<>>> 尖括号调用方式
-        return LaunchKernelWithBinary(param, stream);
+        HCCL_INFO("[LaunchKernel] Launching kernel with ascendc");
+        return LaunchKernelWithAsc(param, stream);
     } else if (mode == KERNEL_LAUNCH_ACLRT) {
         // 传统 ACL API 方式
+        HCCL_INFO("[LaunchKernel] Launching kernel with aclrt");
         return LaunchKernelWithAclrt(param, stream);
     } else {
         HCCL_ERROR("[LaunchKernel] Invalid launch mode: %d", static_cast<int>(mode));
