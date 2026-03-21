@@ -42,8 +42,11 @@ HcclResult InsCollAlgBase::RestoreChannelMap(const AlgResourceCtxSerializable &r
     return HCCL_SUCCESS;
 }
 
-HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *resCtx) {
-    return HCCL_SUCCESS;
+HcclResult InsCollAlgBase::FastLaunch(const OpParam &param, const CcuFastLaunchCtx *resCtx) {
+    (void)param;
+    (void)resCtx;
+    HCCL_ERROR("[InsCollAlgBase] Unsupported interface of InsCollAlgBase::FastLaunch!");
+    return HcclResult::HCCL_E_INTERNAL;
 }
 
 }
