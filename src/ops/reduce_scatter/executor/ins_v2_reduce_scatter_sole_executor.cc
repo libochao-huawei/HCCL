@@ -14,12 +14,12 @@
 #include "ins_temp_reduce_scatter_nhr.h"
 #include "ins_temp_reduce_scatter_mesh_1D_meshchunk.h"
 #ifndef AICPU_COMPILE
-#include "ccu_temp_reduce_scatter_mesh_1D_mem2mem.h"
+// #include "ccu_temp_reduce_scatter_mesh_1D_mem2mem.h"
 #include "ccu_temp_reduce_scatter_mesh_1D.h"
-#include "ccu_temp_reduce_scatter_nhr_1D_mem2mem.h"
-#include "ccu_temp_reduce_scatter_mesh_1D_2die_mem2mem.h"
-#include "ccu_temp_reduce_scatter_mesh2die.h"
-#include "ccu_temp_reduce_scatter_nhr_1D_multi_jetty_mem2mem.h"
+// #include "ccu_temp_reduce_scatter_nhr_1D_mem2mem.h"
+// #include "ccu_temp_reduce_scatter_mesh_1D_2die_mem2mem.h"
+// #include "ccu_temp_reduce_scatter_mesh2die.h"
+// #include "ccu_temp_reduce_scatter_nhr_1D_multi_jetty_mem2mem.h"
 #endif
 
 namespace ops_hccl {
@@ -169,22 +169,26 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchest
             HCCL_INFO("[InsV2ReduceScatterSoleExecutor] ccu kernel num is 0, no need to save.");
             return HCCL_SUCCESS;
         }
+        HCCL_INFO("[InsV2ReduceScatterSoleExecutor][HcclEngineCtxCreate] threadNum[%llu], ccuKernelNum[%llu]", threadNum, ccuKernelNum);
 
-        u64 size = CcuFastLaunchCtx.GetCtxSize(threadNum, ccuKernelNum);
+        u64 size = CcuFastLaunchCtx::GetCtxSize(threadNum, ccuKernelNum);
         // 申请ctx
         void *ctxPtr = nullptr;
-        HCCL_INFO("[InsV2ReduceScatterSoleExecutor][HcclEngineCtxCreate] Tag[%s], size[%llu], ");
+        HCCL_INFO("[InsV2ReduceScatterSoleExecutor][HcclEngineCtxCreate] Tag[%s], size[%llu]", param.fastLaunchTag, size);
         CHK_RET(HcclEngineCtxCreate(param.hcclComm, param.fastLaunchTag, CommEngine::COMM_ENGINE_CCU, size, &ctxPtr));
 
         CcuFastLaunchCtx *ccuFastLaunchCtx = reinterpret_cast<CcuFastLaunchCtx*>(ctxPtr);
         // 1 算法名:
         CHK_SAFETY_FUNC_RET(strcpy_s(ccuFastLaunchCtx->algName, sizeof(ccuFastLaunchCtx->algName), param.algName));
+        HCCL_INFO("[InsV2ReduceScatterSoleExecutor][CcuFastLaunchCtx] algName[%s]", ccuFastLaunchCtx->algName);
 
         // 2 thread
+        ccuFastLaunchCtx0->threadNum = threadNum;
         ThreadHandle *threads = ccuFastLaunchCtx->GetThreadHandlePtr();
         threads[0] = templateAlgRes.threads[0];
             
         // 3 ccu kernel handle, taskArg入参
+        ccuFastLaunchCtx0->ccuKernelNum = ccuKernelNum;
         CcuKernelSubmitInfo *kernels = ccuFastLaunchCtx->GetCcuKernelSubmitInfoPtr();
         kernels[0].kernelHandle = templateAlgRes.ccuKernels[0];
         memcpy_s(kernels[0].sqeArgs, sizeof(kernels[0].sqeArgs), 
@@ -205,11 +209,15 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLau
     TemplateFastLaunchCtx tempFastLaunchCtx;
     // 1 取线程
     ThreadHandle *threads = resCtx->GetThreadHandlePtr();
+    HCCL_INFO("[InsV2ReduceScatterSoleExecutor][FastLaunch] threadNum[%llu]", resCtx->threadNum);
     tempFastLaunchCtx.threads.assign(threads, threads + resCtx->threadNum);
+    HCCL_INFO("[InsV2ReduceScatterSoleExecutor][FastLaunch] threadNum[%llu]", resCtx->threadNum);
     
     // 2 取arg
     CcuKernelSubmitInfo *ccuKernelSubmitInfos = resCtx->GetCcuKernelSubmitInfoPtr();
+    HCCL_INFO("[InsV2ReduceScatterSoleExecutor][FastLaunch] ccuKernelNum[%llu]", resCtx->ccuKernelNum);
     tempFastLaunchCtx.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + resCtx->ccuKernelNum);
+    HCCL_INFO("[InsV2ReduceScatterSoleExecutor][FastLaunch] ccuKernelNum[%llu]", resCtx->ccuKernelNum);
     tempFastLaunchCtx.buffInfo.inputPtr = param.inputPtr;
     tempFastLaunchCtx.buffInfo.outputPtr = param.outputPtr;
     
