@@ -258,6 +258,7 @@ struct CcuKernelInfo {
 
 struct CcuKernelSubmitInfo {
     CcuKernelHandle kernelHandle;
+    u32 argNum;
     uint64_t sqeArgs[CCU_MAX_TASK_ARG_NUM];
 };
 
