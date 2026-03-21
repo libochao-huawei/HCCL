@@ -40,7 +40,7 @@ HcclResult AivAlgTemplateBase::FastLaunch(const OpParam& param, const TemplateFa
 {
     (void)param;
     (void)tempFastLaunchCtx;
-    HCCL_ERROR("[AivAlgTemplateBase] Unsupported interface of CcuAlgTemplateBase::FastLaunch!");
+    HCCL_ERROR("[AivAlgTemplateBase] Unsupported interface of AivAlgTemplateBase::FastLaunch!");
     return HcclResult::HCCL_E_INTERNAL;
 }
 
