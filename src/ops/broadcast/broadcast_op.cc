@@ -125,7 +125,7 @@ HcclResult CheckBroadcastInputPara(const HcclComm comm, const void *buf)
 HcclResult BroadcastOutPlaceCommon(void *buf, uint64_t count, HcclDataType dataType, uint32_t root, HcclComm comm, aclrtStream stream, const std::string &tag,
                                    OpMode opMode, const ResPackGraphMode &resPack)
 {
-    HCCL_INFO("Start to execute BroadcastOutPlace");
+    HCCL_INFO("Start to execute BroadcastOutPlaceCommon");
     u32 userRankSize;
     CHK_RET(HcclGetRankSize(comm, &userRankSize));
 
@@ -172,7 +172,7 @@ HcclResult BroadcastOutPlaceCommon(void *buf, uint64_t count, HcclDataType dataT
         return HcclResult::HCCL_SUCCESS;
     }
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName, resPack));
-    HCCL_INFO("Execute BroadcastOutPlace success.");
+    HCCL_INFO("Execute BroadcastOutPlaceCommon success.");
     return HCCL_SUCCESS;
 }
 
