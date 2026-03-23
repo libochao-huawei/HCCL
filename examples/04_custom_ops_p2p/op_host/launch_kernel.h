@@ -13,18 +13,9 @@
 
 #include <string>
 
-// 调用方式配置选项
-enum class KernelLaunchMode {
-    // 使用传统 ACL API 方式， 保留位置
-    BINARY      // 使用二进制 <<<>>> 调用方式
-};
-
 namespace ops_hccl_p2p {
 
-// 使用 ASC 编译的二进制调用函数
-extern HcclResult LaunchKernelBinary(OpParam &param, aclrtStream stream);
-
-HcclResult LaunchKernel(OpParam &param, aclrtStream stream, KernelLaunchMode mode = KernelLaunchMode::BINARY);
+HcclResult LaunchKernel(OpParam &param, aclrtStream stream);
 
 extern thread_local aclrtNotify g_notifies[AICPU_CONTROL_NOTIFY_NUM];
 
