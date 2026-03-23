@@ -12,6 +12,7 @@
 #define AUTO_SELECTOR_BASE
 
 #include <string>
+#include <vector>
 #include <unordered_map>
 #include "alg_param.h"
 #include "log.h"
@@ -69,6 +70,34 @@ const std::unordered_map<std::string, std::string> RES_RESUSE_ALG = {
     {"InsSend", "InsSendRecv"},
     {"InsRecv", "InsSendRecv"}
 };
+
+// GCD utility functions for topology matching
+inline u32 GcdTwo(u32 a, u32 b)
+{
+    if (b == 0) {
+        return a;
+    }
+    while (0 != b) {
+        a %= b;
+        std::swap(a, b);
+    }
+    return a;
+}
+
+inline u32 GcdMultiple(const std::vector<u32>& numbers)
+{
+    if (numbers.empty()) {
+        return 1;
+    }
+    uint32_t result = numbers[0];
+    for (size_t i = 1; i < numbers.size(); ++i) {
+        result = GcdTwo(result, numbers[i]);
+        if (result == 1) {
+            return 1;
+        }
+    }
+    return result;
+}
 
 class AutoSelectorBase {
 public:
