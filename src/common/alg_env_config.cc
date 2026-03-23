@@ -29,8 +29,8 @@ HcclResult InitEnvConfig()
     std::lock_guard<std::mutex> lock(g_algEnvConfigMutex);
     // 解析算子展开模式
     HcclResult ret = ParseOpExpansion();
-    RPT_ENV_ERR(ret != HCCL_SUCCESS, "EI0001", std::vector<std::string>({"env","tips"}),\
-        std::vector<std::string>({"HCCL_OP_EXPANSION_MODE", "it should be \"AI_CPU\""}));
+    RPT_ENV_ERR(ret != HCCL_SUCCESS, "EI0001", std::vector<std::string>({"value", "env", "expect"}),\
+        std::vector<std::string>({GET_ENV(MM_ENV_HCCL_OP_EXPANSION_MODE), "HCCL_OP_EXPANSION_MODE", "should be \"AI_CPU\""}));
     CHK_PRT_RET(ret != HCCL_SUCCESS,
         HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse "\
             "HCCL_OP_EXPANSION_MODE failed. errorno[%d]", HCCL_ERROR_CODE(ret), ret), ret);
@@ -41,8 +41,8 @@ HcclResult InitEnvConfig()
 
     // 解析hcclDeterministic,是否为确定性计算
     ret = ParseDeterministic();
-    RPT_ENV_ERR(ret != HCCL_SUCCESS, "EI0001", std::vector<std::string>({"env","tips"}),\
-        std::vector<std::string>({"HCCL_DETERMINISTIC", "Value should be true ,false or strict."}));
+    RPT_ENV_ERR(ret != HCCL_SUCCESS, "EI0001", std::vector<std::string>({"value", "env", "expect"}),\
+        std::vector<std::string>({GetEnv(MM_ENV_HCCL_DETERMINISTIC), "HCCL_DETERMINISTIC", "should be true ,false or strict"}));
     CHK_PRT_RET(ret != HCCL_SUCCESS,
         HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse "
                    "HCCL_DETERMINISTIC failed. errorno[%d]",
@@ -52,11 +52,13 @@ HcclResult InitEnvConfig()
 
     // 解析server内通信方式
     ret = ParseIntraLinkType();
+    std::string userInput = "PCIE enable: "+ std::string(GET_ENV(MM_ENV_HCCL_INTRA_PCIE_ENABLE)) + "or ROCE enable:"
+        + std::string(GET_ENV(MM_ENV_HCCL_INTRA_ROCE_ENABLE));
     RPT_ENV_ERR(ret != HCCL_SUCCESS,
         "EI0001",
-        std::vector<std::string>({"env", "tips"}),
-        std::vector<std::string>({"HCCL_INTRA_PCIE_ENABLE or HCCL_INTRA_ROCE_ENABLE",
-            "Check whether HCCL_INTRA_PCIE_ENABLE or HCCL_INTRA_ROCE_ENABLE is set correctly"}));
+        std::vector<std::string>({"value", "env", "expect"}),
+        std::vector<std::string>({userInput, "HCCL_INTRA_PCIE_ENABLE or HCCL_INTRA_ROCE_ENABLE",
+            "0 or 1 (but not both 1)"}));
     CHK_PRT_RET(ret != HCCL_SUCCESS,
         HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse intra "
                    "comm type failed. errorno[%d]",
@@ -68,8 +70,8 @@ HcclResult InitEnvConfig()
     ret = ParseEntryLogEnable();
     RPT_ENV_ERR(ret != HCCL_SUCCESS,
         "EI0001",
-        std::vector<std::string>({"env", "tips"}),
-        std::vector<std::string>({"HCCL_ENTRY_LOG_ENABLE", "It must be 0 or 1."}));
+        std::vector<std::string>({"value", "env", "expect"}),
+        std::vector<std::string>({GetEnv(MM_ENV_HCCL_ENTRY_LOG_ENABLE), "HCCL_ENTRY_LOG_ENABLE", "must be 0 or 1"}));
     CHK_PRT_RET(ret != HCCL_SUCCESS,
         HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse "
                    "HCCL_ENTRY_LOG_ENABLE failed. errorno[%d]",
@@ -81,8 +83,8 @@ HcclResult InitEnvConfig()
     ret = ParseInterLinkType();
     RPT_ENV_ERR(ret != HCCL_SUCCESS,
         "EI0001",
-        std::vector<std::string>({"env", "tips"}),
-        std::vector<std::string>({"HCCL_INTER_HCCS_DISABLE", "Value should be true or false."}));
+        std::vector<std::string>({"value", "env", "expect"}),
+        std::vector<std::string>({GetEnv(MM_ENV_HCCL_INTER_HCCS_DISABLE), "HCCL_INTER_HCCS_DISABLE", "should be true or false"}));
     CHK_PRT_RET(ret != HCCL_SUCCESS,
         HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse "
                    "HCCL_INTER_HCCS_DISABLE failed. errorno[%d]",
@@ -94,8 +96,8 @@ HcclResult InitEnvConfig()
     ret = ParseRetryEnable();
     RPT_ENV_ERR(ret != HCCL_SUCCESS,
         "EI0001",
-        std::vector<std::string>({"env", "tips"}),
-        std::vector<std::string>({"HCCL_OP_RETRY_ENABLE", "Value should be 0 or 1."}));
+        std::vector<std::string>({"value", "env", "expect"}),
+        std::vector<std::string>({GetEnv(MM_ENV_HCCL_OP_RETRY_ENABLE), "HCCL_OP_RETRY_ENABLE", "should be 0 or 1"}));
     CHK_PRT_RET(ret != HCCL_SUCCESS,
         HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse HCCL_OP_RETRY_ENABLE failed. "
                    "errorno[%d]",
@@ -107,9 +109,9 @@ HcclResult InitEnvConfig()
     ret = ParseHcclAlgo();
     RPT_ENV_ERR(ret != HCCL_SUCCESS,
         "EI0001",
-        std::vector<std::string>({"env", "tips"}),
-        std::vector<std::string>({"HCCL_ALGO",
-            "expect: level0:NA;level1:<algo> or <op0>=level0:NA;level1:<algo0>/<op1>=level0:NA;level1:<algo1>"}));
+        std::vector<std::string>({"value", "env", "expect"}),
+        std::vector<std::string>({GetEnv(MM_ENV_HCCL_ALGO), "HCCL_ALGO",
+            "level0:NA;level1:<algo> or <op0>=level0:NA;level1:<algo0>/<op1>=level0:NA;level1:<algo1>"}));
     CHK_PRT_RET(ret != HCCL_SUCCESS,
         HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse "
                    "hccl algorithm config failed. errorno[%d]",
@@ -118,10 +120,13 @@ HcclResult InitEnvConfig()
         ret);
 
     ret = InitDebugConfigByEnv();
+    char* env = nullptr; // 环境变量值
+    MM_SYS_GET_ENV(MM_ENV_HCCL_DEBUG_CONFIG, env);
+    std::string envValue = env ? std::string(env) : "null";
     RPT_ENV_ERR(ret != HCCL_SUCCESS,
         "EI0001",
-        std::vector<std::string>({"env", "tips"}),
-        std::vector<std::string>({"HCCL_DEBUG_CONFIG", "Please check whether the env is valid"}));
+        std::vector<std::string>({"value", "env", "expect"}),
+        std::vector<std::string>({envValue, "HCCL_DEBUG_CONFIG", "ALG,TASK,RESOURCE,AIV_OPS_EXC(optionally prefixed with'^'"}));
     CHK_PRT_RET(ret != HCCL_SUCCESS,
         HCCL_ERROR("[InitEnvParam]errNo[0x%016llx] In init environment param, parse "
                    "HCCL_DEBUG_CONFIG failed. errorno[%d]",
