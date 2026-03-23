@@ -584,7 +584,6 @@ HcclResult AlltoAllVOutPlaceCommon(const void *sendBuf, const void *sendCounts, 
     const void *recvCounts, const void *rdispls, HcclDataType dataType, HcclComm comm, aclrtStream stream,
     const std::string &tag, HcclCMDType opType, u32 rankSize, bool &useInnerOp, OpMode opMode, const ResPackGraphMode &resPack)
 {
-    HCCL_INFO("Start to execute AlltoAllVOutPlaceGraphMode");
     u32 userRankSize;
     CHK_RET(HcclGetRankSize(comm, &userRankSize));
 
@@ -592,7 +591,7 @@ HcclResult AlltoAllVOutPlaceCommon(const void *sendBuf, const void *sendCounts, 
     void *paramMem = malloc(sizeof(OpParam) + varMemSize);
     if (!paramMem) {
         // 内存分配失败
-        HCCL_ERROR("[AlltoAllVOutPlaceGraphMode] malloc OpParam failed!");
+        HCCL_ERROR("[AlltoAllVOutPlaceCommon] malloc OpParam failed!");
         return HCCL_E_INTERNAL;
     }
     OpParam* tmpParamPtr = new (paramMem) OpParam();
@@ -622,7 +621,6 @@ HcclResult AlltoAllVOutPlaceCommon(const void *sendBuf, const void *sendCounts, 
     }
 
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName, resPack));
-    HCCL_INFO("Execute AlltoAllVOutPlaceGraphMode success.");
     return HCCL_SUCCESS;
 }
 
