@@ -281,7 +281,7 @@ public:
 
     uint64_t len_;
     int32_t tag_;
-    int32_t curTag_;
+    int32_t curTag_{0};
     int32_t numBlocks_;
 
     uint64_t inputSliceStride_;
