@@ -11,6 +11,8 @@
 #include <string>
 #include <memory>
 #include <hccl/hcomm_primitives.h>
+
+#include "log.h"
 #include "common.h"
 #include "exec_op.h"
 

@@ -10,6 +10,7 @@
 
 #include <hccl/hccl_types.h>
 #include <hccl/hcomm_primitives.h>
+#include <hccl/hccl_rank_graph.h>
 #include "log.h"
 #include "common.h"
 #include "hccl_custom_p2p.h"

@@ -13,9 +13,8 @@
 #include <hccl/hcomm_primitives.h>
 #include <aicpu_api.h>
 
+#include "log.h"
 #include "common.h"
-
-using namespace ops_hccl_p2p;
 
 namespace {
 HcclResult ExecOp(OpParam &param, AlgResourceCtx* resCtx)

@@ -9,6 +9,7 @@
  */
 
 #include "exec_op.h"
+#include "log.h"
 
 namespace ops_hccl_p2p {
 HcclResult ExecOp(OpParam &param, AlgResourceCtx* resCtx)
