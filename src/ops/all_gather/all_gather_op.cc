@@ -171,7 +171,12 @@ HcclResult AllGatherOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t sendCo
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));
     if (ShouldUseInnerOp(param.opExecuteConfig)) {
-        return HcclAllGatherInner(sendBuf, recvBuf, sendCount, dataType, comm, stream);
+        if (opMode == OpMode::OPBASE) {
+            return HcclAllGatherInner(sendBuf, recvBuf, sendCount, dataType, comm, stream);
+        } else {
+            HCCL_ERROR("AllGatherGraphMode but not set enable falg.");
+            return HCCL_E_INTERNAL;
+        }
     }
     if (userRankSize == 1) {
         HCCL_WARNING("[%s] rankSize == 1, enter SingleRankProc", __func__);
