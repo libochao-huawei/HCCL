@@ -719,7 +719,7 @@ HcclResult RegGraphModeBuffers(HcclComm comm, const OpParam &param, std::vector<
         return HcclResult::HCCL_E_INTERNAL;
     }
 
-    HCCL_INFO("[RegGraphModeBuffers] graph mode regstry remote buuffer");
+    HCCL_INFO("[RegGraphModeBuffers] graph mode regstry remote buffer");
     if (param.inputPtr != nullptr) {
         HcclMemHandle inputHandle = nullptr;
         CHK_RET(HcclRegstryBuff(comm, inputBuffTag, param.inputPtr, param.inputSize, &inputHandle));
@@ -1119,6 +1119,13 @@ HcclResult HcclCheckTag(const char *tag)
 HcclResult SetOpParamAlgTag(OpParam &param, const std::string &algName)
 {
     std::string temp = algName; // 创建algName的副本
+
+    // 查找是否需要复用algName
+    auto it = RES_RESUSE_ALG.find(temp);
+    if (it != RES_RESUSE_ALG.end()) {
+        temp = it->second;
+    }
+
     const char* launchMode = (((param.engine == CommEngine::COMM_ENGINE_AICPU) ||
                                 (param.engine == CommEngine::COMM_ENGINE_AICPU_TS)) ? "device" : "host");
     // 原有tag + algName + 编排模式，得到基础algTag
@@ -1273,7 +1280,7 @@ HcclResult HcclGetRemoteBuff(HcclComm comm, ChannelHandle channel, const char *m
     CHK_RET(HcclChannelGetRemoteMems(comm, channel, &memNum, &remoteMemList, &memTags));
     HCCL_INFO("[%s] HcclChannelGetRemoteMems memNum[%u]", __func__, memNum);
     for (u32 i=0; i< memNum; i++) {
-        HCCL_INFO("[%s] memNum[%u/%u] memTags[%s]", __func__, i, memNum, memTags[i]);
+        HCCL_INFO("[%s] memNum[%u/%u] memTags[%s]", __func__, i + 1, memNum, memTags[i]);
         if (strcmp(memTags[i], memTag) == 0) {
             *bufferPtr = remoteMemList[i].addr;
             *bufferSize = remoteMemList[i].size;

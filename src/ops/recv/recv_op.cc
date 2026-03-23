@@ -116,7 +116,7 @@ namespace ops_hccl {
         CHK_PRT_RET(userRank == srcRank, HCCL_ERROR("[HcclRecv] srcRank cannot be equal to self."), HcclResult::HCCL_E_NOT_SUPPORT);
         char commName[COMM_INDENTIFIER_MAX_LENGTH];
         CHK_RET(HcclGetCommName(comm, commName));
-        tag = "Recv_" + string(commName) + "_" + std::to_string(srcRank) + "_" + std::to_string(userRank);
+        tag = "SendRecv_" + string(commName) + "_" + std::to_string(srcRank) + "_" + std::to_string(userRank);
         CHK_RET(HcclCheckTag(tag.c_str()));
         CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), tag.c_str());
         CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, srcRank), tag.c_str());

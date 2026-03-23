@@ -116,7 +116,7 @@ namespace ops_hccl {
         CHK_PRT_RET(userRank == destRank, HCCL_ERROR("[HcclSend] destRank cannot be equal to self."), HcclResult::HCCL_E_NOT_SUPPORT);
         char commName[COMM_INDENTIFIER_MAX_LENGTH];
         CHK_RET(HcclGetCommName(comm, commName));
-        tag = "Send_" + string(commName) + "_" + std::to_string(userRank) + "_" + std::to_string(destRank);
+        tag = "SendRecv_" + string(commName) + "_" + std::to_string(userRank) + "_" + std::to_string(destRank);
         CHK_RET(HcclCheckTag(tag.c_str()));
         CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), tag.c_str());
         CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, destRank), tag.c_str());
