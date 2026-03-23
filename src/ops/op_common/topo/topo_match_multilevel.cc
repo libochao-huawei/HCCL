@@ -42,9 +42,14 @@ HcclResult TopoMatchMultilevel::TopoForLayer0(
         if (gcdInstSize > 0 && gcdInstSize < rankNum) {
             // Asymmetric: split this pod into GCD-sized subgroups
             // ranks guaranteed ascending by HcclRankGraphGetRanksByTopoInst (backed by std::set)
-            uint32_t minRank = ranks[0];
-            uint32_t relativeRank = myRank - minRank;
-            uint32_t groupId = relativeRank / gcdInstSize;
+            // Use std::find to locate myRank in the array to handle non-contiguous rank mappings
+            auto it = std::find(ranks, ranks + rankNum, myRank);
+            CHK_PRT_RET(it == ranks + rankNum,
+                HCCL_ERROR("[TopoMatchMultilevel] [TopoForLayer0] myRank [%u] not found in ranks array", myRank),
+                HcclResult::HCCL_E_INTERNAL);
+
+            uint32_t myIdx = static_cast<uint32_t>(it - ranks);
+            uint32_t groupId = myIdx / gcdInstSize;
             uint32_t startIdx = groupId * gcdInstSize;
             uint32_t endIdx = std::min(startIdx + gcdInstSize, rankNum);
             std::vector<uint32_t> rankVecLayer0(ranks + startIdx, ranks + endIdx);
