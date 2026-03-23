@@ -11,13 +11,11 @@
 #ifndef OPS_HCCL_P2P_COMMON_H
 #define OPS_HCCL_P2P_COMMON_H
 
-#include "hccl/hccl_types.h"
-#include "hccl/hccl_res.h"
-#include "hccl/hcomm_primitives.h"
-#include "acl/acl_rt.h"
+#include <hccl/hccl_types.h>
+#include <hccl/hccl_res.h>
+#include <hccl/hcomm_primitives.h>
+#include <acl/acl_rt.h>
 #include "log.h"
-
-namespace ops_hccl_p2p {
 
 constexpr uint32_t NOTIFY_IDX_ACK = 0;
 constexpr uint32_t NOTIFY_IDX_DATA_SIGNAL = 1;
@@ -53,9 +51,16 @@ struct OpParam {
     AlgResourceCtx* resCtx = nullptr;
 };
 
+// 产品类型
+enum DeviceType {
+    DEVICE_TYPE_A2 = 0,
+    DEVICE_TYPE_A3 = 1,
+    DEVICE_TYPE_A5 = 2,
+    DEVICE_TYPE_COUNT = 3
+};
+
 constexpr uint32_t SIZE_TABLE[HCCL_DATA_TYPE_RESERVED] = {sizeof(int8_t), sizeof(int16_t), sizeof(int32_t),
     2, sizeof(float), sizeof(int64_t), sizeof(uint64_t), sizeof(uint8_t), sizeof(uint16_t), sizeof(uint32_t),
     8, 2, 16, 2, 1, 1, 1, 1};
-}
 
 #endif // OPS_HCCL_P2P_COMMON_H
