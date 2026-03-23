@@ -21,23 +21,16 @@ namespace ops_hccl {
 constexpr u32 MAX_RANK_SIZE = 8; // 注意要和device侧的一致
 constexpr u32 MAX_NUM_BLOCKS = 56; // 56-72
  
-constexpr s32 TAG_INIT_VALUE = 1;
-constexpr s32 TAG_RESET_COUNT = 1000;
 constexpr s32 TOPO_LEN = 32;
 
-constexpr u32 AIV_TAG_MOVE_LEFT_BITS = 16;
 constexpr u32 AIV_TAG_ADDR_OFFSET = 16 * 1024;
 constexpr u32 AIV_TOPO_ADDR_OFFSET = 32 * 1024;
 constexpr u32 AIV_TOPO_BUFF_LEN = 8 * 1024;
 constexpr u32 AIV_FLAG_ADDR_OFFSET = 40 * 1024;
 constexpr u32 AIV_FLAG_AREA_SIZE = 1000 * 1024;
-constexpr u32 AIV_FLAG_CLEAR_OFFSET = 1040 * 1024;
 constexpr u32 AIV_TAG_BUFF_LEN = 2 * 1024 * 1024;
-constexpr u32 AIV_LOW_16_BITS = 0xFFFF;
 
 constexpr u32 AIV_ATTRNUM_THREE = 3;
-
-using AivCountTagArray = std::array<s32, MAX_RANK_SIZE>;
 
 enum class KernelArgsType {
     ARGS_TYPE_SERVER = 0, // kernel参数为单机内
