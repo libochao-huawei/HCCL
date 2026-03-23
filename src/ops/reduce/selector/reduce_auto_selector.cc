@@ -221,7 +221,7 @@ SelectorStatus ReduceAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetLaye
         }
     } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
         if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
-            selectAlgName = "ReduceAicpuReduceNHR"
+            selectAlgName = "ReduceAicpuReduceNHR";
         } else {
             selectAlgName = "ReduceNHR";
         }
