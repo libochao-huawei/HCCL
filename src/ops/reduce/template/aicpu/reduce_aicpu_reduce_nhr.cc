@@ -304,9 +304,9 @@ HcclResult ReduceAicpuReduceNHR::GetStepInfoList(std::vector<AicpuNHRStepInfo> &
 
 u32 ReduceAicpuReduceNHR::GetAlgRank(u32 rank) const
 {
-    auto iter = std::find(subCommRanks_[0].begin(), subCommRanks_[0].end(), myRank_);
+    auto iter = std::find(subCommRanks_[0].begin(), subCommRanks_[0].end(), rank);
     if (iter == subCommRanks_[0].end()) {
-        throw std::runtime_error("Cannot find myRank = " + std::to_string(myRank_) + " in subCommRanks_[0]");
+        throw std::runtime_error("Cannot find Rank = " + std::to_string(rank) + " in subCommRanks_[0]");
     }
     return static_cast<u32>(std::distance(subCommRanks_[0].begin(), iter));
 }
