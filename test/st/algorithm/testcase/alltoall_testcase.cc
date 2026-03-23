@@ -34,6 +34,7 @@ protected:
         unsetenv("ENABLE_HOSTDPU");
         unsetenv("ENABLE_HOSTDPU_FOR_LLT");
         unsetenv("HCCL_INDEPENDENT_OP");
+        unsetenv("HCCL_ENABLE_OPEN_AICPU");
     }
     static void SetUpTestCase()
     {}
@@ -51,6 +52,7 @@ protected:
         setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
         setenv("HCCL_BUFFSIZE", "200", 1);
         setenv("HCCL_INDEPENDENT_OP", "1", 1);
+        setenv("HCCL_ENABLE_OPEN_AICPU", "1", 1);
 
         // 设置收发数据量，收发数据量相同
         u64 sendDataCount = dataCount;
@@ -104,9 +106,9 @@ protected:
     void RunHostDpuAlltoAllMeshTest(TopoMeta &topoMeta, HcclDataType dataType, uint64_t dataCount)
     {
         #ifdef MACRO_DEV_TYPE_NEW
-        SimWorld::Global()->Init(topoInfo, DevType::DEV_TYPE_950);
+        SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
         #else
-        SimWorld::Global()->Init(topoInfo, DevType::DEV_TYPE_910_95);
+        SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_910_95);
         #endif
         // 设置环境变量
         setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);

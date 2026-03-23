@@ -26,6 +26,7 @@
 #include "sim_channel.h"
 #include "alg_param.h"
 #include "hcomm_diag.h"
+#include "hccl_comm.h"
 
 using namespace ops_hccl;
 
@@ -802,17 +803,17 @@ int32_t HcommSendRequest(MsgHandle handle, const char *msgTag, const void *src, 
     return 0;
 }
 
-int32_t HcommChannelNotifyRecordOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t remoteNotifyIdx)
-{
-    HcommChannelNotifyRecordOnThread(curThread, channel, remoteNotifyIdx);
-    return 0;
-}
+// int32_t HcommChannelNotifyRecordOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t remoteNotifyIdx)
+// {
+//     HcommChannelNotifyRecordOnThread(curThread, channel, remoteNotifyIdx);
+//     return 0;
+// }
 
-int32_t HcommChannelNotifyWaitOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeout)
-{
-    HcommChannelNotifyWaitOnThread(curThread, channel, localNotifyIdx, timeout);
-    return 0;
-}
+// int32_t HcommChannelNotifyWaitOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeout)
+// {
+//     HcommChannelNotifyWaitOnThread(curThread, channel, localNotifyIdx, timeout);
+//     return 0;
+// }
 
 int32_t HcommChannelFenceOnThread(ThreadHandle thread, ChannelHandle channel)
 {
@@ -928,6 +929,26 @@ HcclResult HcommProfilingReportMainStreamAndFirstTask(ThreadHandle thread)
 }
 
 HcclResult HcommProfilingReportMainStreamAndLastTask(ThreadHandle thread)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+
+
+
+HcclResult HcclConfigGetInfo(HcclComm comm, HcclConfigType cfgType, uint32_t infoLen, void *info)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcomGetCommHandleByGroup(const char *group, HcclComm *commHandle)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclEngineCtxDestroy(HcclComm comm, const char *ctxTag, CommEngine engine)
 {
     HCCL_WARNING("[%s] not support.", __func__);
     return HCCL_SUCCESS;

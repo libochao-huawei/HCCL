@@ -35,6 +35,7 @@ protected:
         unsetenv("HCCL_OP_EXPANSION_MODE");
         unsetenv("HCCL_INDEPENDENT_OP");
         unsetenv("HCCL_BUFFSIZE");
+        unsetenv("HCCL_ENABLE_OPEN_AICPU");
     }
 
     static void SetUpTestCase()
@@ -92,6 +93,7 @@ protected:
         #endif
         setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
         setenv("HCCL_INDEPENDENT_OP", "1", 1);
+        setenv("HCCL_ENABLE_OPEN_AICPU", "1", 1);
 
         std::vector<std::thread> threads;
         u32 rankSize = GetRankSize(topoMeta);

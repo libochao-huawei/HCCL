@@ -47,9 +47,9 @@ void RunAllGatherDPUA5(const TopoMeta &topoMeta, u64 sendCount, HcclDataType dat
 {
     // 仿真模型初始化
     #ifdef MACRO_DEV_TYPE_NEW
-    SimWorld::Global()->Init(topoInfo, DevType::DEV_TYPE_950);
+    SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
     #else
-    SimWorld::Global()->Init(topoInfo, DevType::DEV_TYPE_910_95);
+    SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_910_95);
     #endif
 
     // 设置展开模式为AI_CPU
