@@ -44,11 +44,7 @@ protected:
     void RunAlltoAllVCMeshTest(TopoMeta &topoMeta, uint32_t rankSize, HcclDataType dataType,
                                std::vector<u64> &sendCountMatrix)
     {
-        #ifdef MACRO_DEV_TYPE_NEW
         SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
-        #else
-        SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_910_95);
-        #endif
         // 设置展开模式为HOST_TS
         setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
         setenv("HCCL_BUFFSIZE", "200", 1);
@@ -111,11 +107,7 @@ protected:
 
     void RunHostDpuAlltoAllVCMeshTest(TopoMeta &topoMeta, HcclDataType dataType, std::vector<u64> &sendCountMatrix)
     {
-        #ifdef MACRO_DEV_TYPE_NEW
         SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
-        #else
-        SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_910_95);
-        #endif
         // 设置环境变量
         setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
         setenv("ENABLE_HOSTDPU", "1", 1);

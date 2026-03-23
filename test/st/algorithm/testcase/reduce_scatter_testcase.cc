@@ -49,11 +49,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_001)
         rankSize += elem.size();
     }
 
-    #ifdef MACRO_DEV_TYPE_NEW
     SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
-    #else
-    SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_910_95);
-    #endif
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
@@ -113,11 +109,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_002)
         rankSize += elem.size();
     }
 
-    #ifdef MACRO_DEV_TYPE_NEW
     SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
-    #else
-    SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_910_95);
-    #endif
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
@@ -177,11 +169,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_003)
         rankSize += elem.size();
     }
 
-    #ifdef MACRO_DEV_TYPE_NEW
     SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
-    #else
-    SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_910_95);
-    #endif
 
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
@@ -241,11 +229,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_004)
         rankSize += elem.size();
     }
 
-    #ifdef MACRO_DEV_TYPE_NEW
     SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
-    #else
-    SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_910_95);
-    #endif
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
@@ -305,11 +289,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_005)
         rankSize += elem.size();
     }
 
-    #ifdef MACRO_DEV_TYPE_NEW
     SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
-    #else
-    SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_910_95);
-    #endif
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
@@ -369,11 +349,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_006)
         rankSize += elem.size();
     }
 
-    #ifdef MACRO_DEV_TYPE_NEW
     SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
-    #else
-    SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_910_95);
-    #endif
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
@@ -433,11 +409,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_007)
         rankSize += elem.size();
     }
 
-    #ifdef MACRO_DEV_TYPE_NEW
     SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
-    #else
-    SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_910_95);
-    #endif
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
@@ -497,11 +469,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_008)
         rankSize += elem.size();
     }
 
-    #ifdef MACRO_DEV_TYPE_NEW
     SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
-    #else
-    SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_910_95);
-    #endif
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
@@ -561,11 +529,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_009)
         rankSize += elem.size();
     }
 
-    #ifdef MACRO_DEV_TYPE_NEW
     SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
-    #else
-    SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_910_95);
-    #endif
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
@@ -625,11 +589,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_010)
         rankSize += elem.size();
     }
 
-    #ifdef MACRO_DEV_TYPE_NEW
     SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
-    #else
-    SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_910_95);
-    #endif
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
@@ -689,11 +649,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_011)
         rankSize += elem.size();
     }
 
-    #ifdef MACRO_DEV_TYPE_NEW
     SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
-    #else
-    SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_910_95);
-    #endif
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
@@ -753,11 +709,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_013)
         rankSize += elem.size();
     }
 
-    #ifdef MACRO_DEV_TYPE_NEW
     SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
-    #else
-    SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_910_95);
-    #endif
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
@@ -817,11 +769,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_014)
         rankSize += elem.size();
     }
 
-    #ifdef MACRO_DEV_TYPE_NEW
     SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
-    #else
-    SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_910_95);
-    #endif
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
@@ -881,11 +829,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_016)
         rankSize += elem.size();
     }
 
-    #ifdef MACRO_DEV_TYPE_NEW
     SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
-    #else
-    SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_910_95);
-    #endif
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
@@ -945,11 +889,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_017)
         rankSize += elem.size();
     }
 
-    #ifdef MACRO_DEV_TYPE_NEW
     SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
-    #else
-    SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_910_95);
-    #endif
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
@@ -1009,11 +949,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_018)
         rankSize += elem.size();
     }
 
-    #ifdef MACRO_DEV_TYPE_NEW
     SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
-    #else
-    SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_910_95);
-    #endif
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
@@ -1073,11 +1009,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_019)
         rankSize += elem.size();
     }
 
-    #ifdef MACRO_DEV_TYPE_NEW
     SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
-    #else
-    SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_910_95);
-    #endif
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
@@ -1137,11 +1069,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_020)
         rankSize += elem.size();
     }
 
-    #ifdef MACRO_DEV_TYPE_NEW
     SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
-    #else
-    SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_910_95);
-    #endif
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);

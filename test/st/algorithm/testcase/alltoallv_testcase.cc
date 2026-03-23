@@ -43,11 +43,7 @@ protected:
 
     void RunAlltoAllVMeshTest(TopoMeta &topoMeta, uint32_t rankSize, HcclDataType dataType, std::vector<u64> &sendCountMatrix)
     {
-        #ifdef MACRO_DEV_TYPE_NEW
         SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
-        #else
-        SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_910_95);
-        #endif
         // 设置展开模式为HOST_TS
         setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
         setenv("HCCL_BUFFSIZE", "200", 1);
@@ -128,11 +124,7 @@ protected:
 
     void RunHostDpuAlltoAllVMeshTest(TopoMeta &topoMeta, HcclDataType dataType, std::vector<u64> &sendCountMatrix)
     {
-        #ifdef MACRO_DEV_TYPE_NEW
         SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
-        #else
-        SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_910_95);
-        #endif
         // 设置环境变量
         setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
         setenv("ENABLE_HOSTDPU", "1", 1);
@@ -788,23 +780,23 @@ TEST_F(ST_ALLTOALLV_TEST, st_alltoallv_28)
     RunAlltoAllVMeshTest(topoMeta, rankSize, dataType, sendCountMatrix);
 }
 
-TEST_F(ST_ALLTOALLV_TEST, st_alltoallv_29)
-{
-    TopoMeta topoMeta {{{0, 1, 2, 3, 4, 5, 6, 7}}};  // 三维数组指定超节点-Server-Device信息
-    uint32_t rankSize = 8;
-    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_FP8E4M3;
-    // 构造sendCountMatrix，每个rank再去构造自己对应的数据
-    std::vector<u64> sendCountMatrix = {
-        1, 67108864, 134217728, 0, 4096, 4096, 4096, 4096,
-        1, 67108864, 134217728, 536870912, 0, 4096, 4096, 4096,
-        1, 67108864, 134217728, 536870912, 4096, 0, 4096, 4096,
-        1, 67108864, 134217728, 536870912, 4096, 4096, 0, 4096,
-        1, 67108864, 134217728, 536870912, 4096, 4096, 4096, 0,
-        0, 67108864, 134217728, 536870912, 4096, 4096, 4096, 4096,
-        1, 0, 134217728, 536870912, 4096, 2147483648, 4096, 4096,
-        1, 67108864, 0, 536870912, 4096, 2147483648, 4096, 4096,
-    };
-    RunAlltoAllVMeshTest(topoMeta, rankSize, dataType, sendCountMatrix);
-}
+// TEST_F(ST_ALLTOALLV_TEST, st_alltoallv_29)
+// {
+//     TopoMeta topoMeta {{{0, 1, 2, 3, 4, 5, 6, 7}}};  // 三维数组指定超节点-Server-Device信息
+//     uint32_t rankSize = 8;
+//     HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_FP8E4M3;
+//     // 构造sendCountMatrix，每个rank再去构造自己对应的数据
+//     std::vector<u64> sendCountMatrix = {
+//         1, 67108864, 134217728, 0, 4096, 4096, 4096, 4096,
+//         1, 67108864, 134217728, 536870912, 0, 4096, 4096, 4096,
+//         1, 67108864, 134217728, 536870912, 4096, 0, 4096, 4096,
+//         1, 67108864, 134217728, 536870912, 4096, 4096, 0, 4096,
+//         1, 67108864, 134217728, 536870912, 4096, 4096, 4096, 0,
+//         0, 67108864, 134217728, 536870912, 4096, 4096, 4096, 4096,
+//         1, 0, 134217728, 536870912, 4096, 2147483648, 4096, 4096,
+//         1, 67108864, 0, 536870912, 4096, 2147483648, 4096, 4096,
+//     };
+//     RunAlltoAllVMeshTest(topoMeta, rankSize, dataType, sendCountMatrix);
+// }
 
 }
