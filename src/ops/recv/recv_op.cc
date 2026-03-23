@@ -77,7 +77,11 @@ HcclResult HcclRecvGraphMode(
     // 拼装ResPackGraphMode
     ResPackGraphMode resPack;
     // 设置tag
-    strncpy_s(resPack.tag, sizeof(resPack.tag), tag, sizeof(resPack.tag) - 1);
+    auto fillTagRet = strncpy_s(resPack.tag, sizeof(resPack.tag), tag, sizeof(resPack.tag) - 1);
+    CHK_PRT_RET(
+        fillTagRet != EOK,
+        HCCL_ERROR("[HcclRecvGraphMode] failed to fill resPack.tag, tag %s, return %d.", tag, fillTagRet),
+        HcclResult::HCCL_E_INTERNAL);
     // 设置streams
     if (streams != nullptr && streamCount > 0) {
         for (size_t i = 0; i < streamCount; i++) {
@@ -143,11 +147,11 @@ namespace ops_hccl {
         param.deviceType = deviceType;
 
         // topoInfo的tag，所有相同的算子可以共享
-        int ret = sprintf_s(param.tag, sizeof(param.tag), "%s", tag.c_str());
-        if (ret <= 0) {
-            HCCL_ERROR("failed to fill param.tag");
-            return HcclResult::HCCL_E_INTERNAL;
-        }
+        auto fillTagRet = strncpy_s(param.tag, sizeof(param.tag), tag, sizeof(param.tag) - 1);
+        CHK_PRT_RET(
+            fillTagRet != EOK,
+            HCCL_ERROR("[GenerateRecvOpParam] failed to fill param.tag, tag %s, return %d.", tag, fillTagRet),
+            HcclResult::HCCL_E_INTERNAL);
 
         param.stream = stream;
         param.inputPtr = nullptr;
