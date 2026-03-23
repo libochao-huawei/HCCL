@@ -444,9 +444,9 @@ std::vector<uint64_t> CcuKernelAllReduceMesh1DMem2Mem2DieOneShot::GeneArgs(const
     }
  
     HCCL_INFO("[CcuKernelAllReduceMesh1DMem2Mem2DieOneShot] TaskArgs: myInput[%llu], myOutput[%llu], "
-               "myToken[%llu], myScratch[%llu], sliceSize[%llu], scratchBaseOffset0[%llu], scratchBaseOffset1[%llu], "
+               "myScratch[%llu], sliceSize[%llu], scratchBaseOffset0[%llu], scratchBaseOffset1[%llu], "
                "localReduceSliceOffset0[%llu], localReduceSliceOffset1[%llu]",
-               myInput, myOutput, myToken, myScratch, sliceSize, scratchBaseOffset0, scratchBaseOffset1,
+               myInput, myOutput, myScratch, sliceSize, scratchBaseOffset0, scratchBaseOffset1,
                localReduceSliceOffset0, localReduceSliceOffset1);
     return taskArgs;
 }
