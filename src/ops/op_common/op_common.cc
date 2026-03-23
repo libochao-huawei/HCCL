@@ -28,7 +28,7 @@
 #include "adapter_acl.h"
 #include "topo_host.h"
 #include "adapter_error_manager_pub.h"
-#include "hccl_inner.h"
+#include "hccl_inner_dl.h"
 #include "hccl.h"
 #include "config_log.h"
 #include "workflow.h"
@@ -39,6 +39,7 @@
 #include "hccl_aiv_utils.h"
 #include "aiv_kernel_def.h"
 #include "dpu/kernel_launch.h"
+#include "hcomm_host_profiling_dl.h"
 #include "rt.h"
 #include "dlhcomm_function.h"
 
@@ -46,11 +47,6 @@
 extern "C" {
 #endif
 
-// 兼容性处理
-uint64_t __attribute__((weak)) HcommGetProfilingSysCycleTime();
-HcclResult __attribute__((weak))  HcclDfxRegOpInfo(HcclComm comm, void* dfxOpInfo);
-HcclResult __attribute__((weak)) HcclProfilingReportOp(HcclComm comm, uint64_t beginTime);
-HcclResult __attribute__((weak)) HcclReportAicpuKernel(HcclComm comm, uint64_t beginTime, char *kernelName);
 struct HcclDfxOpInfo {
     CommAbiHeader       header;
     //DfxOpInfo_base
