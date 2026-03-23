@@ -341,6 +341,7 @@ void InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
 
     tempAlgParams.buffInfo.inputSize = param.inputSize;
     tempAlgParams.buffInfo.outputSize = param.outputSize;
+    tempAlgParams.enableRemoteMemAccess = param.opMode == OpMode::OPBASE;
     
     tempAlgParams.count = dataCount;
     tempAlgParams.sliceSize = dataCount * dataTypeSize_;
@@ -369,6 +370,7 @@ void InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
 
     tempAlgParams.buffInfo.inputSize = param.outputSize;
     tempAlgParams.buffInfo.outputSize = param.outputSize;
+    tempAlgParams.enableRemoteMemAccess = param.opMode == OpMode::OPBASE;
 
     tempAlgParams.count = dataCount;
     tempAlgParams.sliceSize = dataCount * dataTypeSize_;

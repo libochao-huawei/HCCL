@@ -38,10 +38,61 @@ HcclResult HcclAllReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataT
     if (GetWorkflowMode() != HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE) {
         return HcclAllReduceInner(sendBuf, recvBuf, count, dataType, op, comm, stream);
     }
+    std::string opTag;
+    CHK_RET(AllReduceInitAndCheck(comm, sendBuf, recvBuf, count, dataType, op, stream, opTag));
+
+    // 执行AllReduce
+    CHK_RET_AND_PRINT_IDE(AllReduceOutPlace(sendBuf, recvBuf, count, dataType, op, comm, stream, opTag),
+                          opTag.c_str());
+
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclAllReduceGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclReduceOp op, const char* group, 
+                                  aclrtStream stream, const char* tag, void** streams, size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize)
+{
+    HCCL_INFO("Start to run execute HcclAllReduceGraphMode");
+    // 根据group获取通信域
+    HcclComm comm = nullptr;
+    HCCL_INFO("[HcclAllReduceGraphMode] get group name: %s", group);
+    CHK_RET(HcomGetCommHandleByGroup(group, &comm));
+    
+    std::string opTag;
+    CHK_RET(AllReduceInitAndCheck(comm, sendBuf, recvBuf, sendCount, dataType, op, stream, opTag));
+
+    // 检查tag有效性
+    CHK_RET(HcclCheckTag(tag));
+    
+    // 拼装ResPackGraphMode
+    ResPackGraphMode resPack;
+    // 设置tag
+    if (strncpy_s(resPack.tag, sizeof(resPack.tag), tag, sizeof(resPack.tag) - 1) != 0) {
+        HCCL_ERROR("failed to fill resPack.tag");
+        return HCCL_E_INTERNAL;
+    }
+    // 设置streams
+    if (streams != nullptr && streamCount > 0) {
+        for (size_t i = 0; i < streamCount; i++) {
+            resPack.streams.push_back(static_cast<aclrtStream>(streams[i]));
+        }
+    }
+    // 设置scratchMem
+    resPack.scratchMemAddr = scratchMemAddr;
+    resPack.scratchMemSize = scratchMemSize;
+    std::string tagStr = tag;
+    // 执行AllReduce
+    CHK_RET_AND_PRINT_IDE(AllReduceOutPlaceGraphMode(sendBuf, recvBuf, sendCount, dataType, op, comm, stream, tagStr, resPack), tagStr.c_str());
+
+    return HCCL_SUCCESS;
+}
+
+namespace ops_hccl {
+HcclResult AllReduceInitAndCheck(HcclComm comm, void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op, aclrtStream stream, std::string &opTag)
+{
     // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
     // A3是：export HCCL_OP_EXPANSION_MODE="AI_CPU"，A5的接口还没提供
     CHK_RET(InitEnvConfig());
-
+    
     // 参数校验等工作
     CHK_PRT_RET(count == 0, HCCL_WARNING("input count is 0, return all reduce success"), HCCL_SUCCESS);
     CHK_RET(CheckAllReduceInputPara(comm, sendBuf, recvBuf, stream));
@@ -57,14 +108,9 @@ HcclResult HcclAllReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataT
     CHK_RET(CheckCount(count));
     CHK_RET(CheckDataType(dataType, true));
 
-    // 执行AllReduce
-    CHK_RET_AND_PRINT_IDE(AllReduceOutPlace(sendBuf, recvBuf, count, dataType, op, comm, stream, tag),
-                          tag.c_str());
-
     return HCCL_SUCCESS;
 }
 
-namespace ops_hccl {
 HcclResult CheckAllReduceInputPara(const HcclComm comm, const void* sendBuf, const void* recvBuf, const aclrtStream stream)
 {
     // 入参合法性校验
@@ -84,8 +130,8 @@ HcclResult CheckAllReduceInputPara(const HcclComm comm, const void* sendBuf, con
     return HCCL_SUCCESS;
 }
 
-HcclResult AllReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType,
-    HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag)
+HcclResult AllReduceOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType,
+                                   HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag, OpMode opMode, const ResPackGraphMode &resPack)
 {
     HCCL_INFO("Start to execute AllReduceOutPlace");
     u32 userRankSize;
@@ -99,7 +145,7 @@ HcclResult AllReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclD
     CHK_RET(HcclGetCommName(comm, param.commName));
     param.stream = stream;
     param.reduceType = op;
-    param.opMode = OpMode::OPBASE;
+    param.opMode = opMode;
 
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
@@ -121,12 +167,18 @@ HcclResult AllReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclD
     param.opType = HcclCMDType::HCCL_CMD_ALLREDUCE;
     param.enableDetour = false;
     param.deviceType = deviceType;
+    param.reduceType = op;
     
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));
     if (ShouldUseInnerOp(param.opExecuteConfig)) {
-        return HcclAllReduceInner(sendBuf, recvBuf, count, dataType, op, comm, stream);
+        if (opMode == OpMode::OPBASE) {
+            return HcclAllReduceInner(sendBuf, recvBuf, count, dataType, op, comm, stream);
+        } else {
+            HCCL_ERROR("AllReduceGraphMode but not set enable flag.");
+            return HCCL_E_INTERNAL;
+        }
     }
     // 单卡校验
     if (userRankSize == 1) {
@@ -138,4 +190,24 @@ HcclResult AllReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclD
     HCCL_INFO("Execute AllReduceOutPlace success.");
     return HCCL_SUCCESS;
 }
+
+HcclResult AllReduceOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op, HcclComm comm,
+                                      aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack)
+{
+    HCCL_INFO("Start to execute AllReduceOutPlaceGraphMode");
+    CHK_RET(AllReduceOutPlaceCommon(sendBuf, recvBuf, count, dataType, op, comm, stream, tag, OpMode::OFFLOAD, resPack));
+    HCCL_INFO("Execute AllReduceOutPlaceGraphMode success.");
+    return HCCL_SUCCESS;
 }
+
+
+HcclResult AllReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op, HcclComm comm,
+                                      aclrtStream stream, const std::string &tag)
+{
+    HCCL_INFO("Start to execute AllReduceOutPlace");
+    CHK_RET(AllReduceOutPlaceCommon(sendBuf, recvBuf, count, dataType, op, comm, stream, tag, OpMode::OPBASE, ResPackGraphMode()));
+    HCCL_INFO("Execute AllReduceOutPlace success.");
+    return HCCL_SUCCESS;
+}
+
+}  // namespace ops_hccl
