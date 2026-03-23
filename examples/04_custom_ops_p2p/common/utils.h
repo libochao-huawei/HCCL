@@ -14,6 +14,6 @@
 #include "common.h"
 
 namespace ops_hccl_p2p {
-DeviceType GetDeviceType();
+HcclResult GetDeviceType(DeviceType *deviceType);
 }
 #endif
