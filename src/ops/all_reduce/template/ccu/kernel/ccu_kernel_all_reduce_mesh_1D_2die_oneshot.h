@@ -55,8 +55,8 @@ public:
         : inputAddr_(inputAddr), outputAddr_(outputAddr), token_(token), scratchAddr_(scratchAddr),
         sliceSize_(sliceSize)
     {
-        HCCL_DEBUG("[CcuTaskArgAllreduceMesh1D2DieOneShot] inputAddr: %lu, outputAddr: %lu, token: %lu, scratchAddr: %lu, "
-                   "sliceSize: %lu, ", inputAddr_, outputAddr_, token_, scratchAddr_, sliceSize_); 
+        HCCL_DEBUG("[CcuTaskArgAllreduceMesh1D2DieOneShot] inputAddr: %lu, outputAddr: %lu, scratchAddr: %lu, "
+                   "sliceSize: %lu, ", inputAddr_, outputAddr_, scratchAddr_, sliceSize_); 
     }
 
     uint64_t inputAddr_;

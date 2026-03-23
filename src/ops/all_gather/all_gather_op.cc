@@ -53,7 +53,7 @@ HcclResult HcclAllGatherGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCou
     // 根据group获取通信域
     HcclComm comm = nullptr;
     HCCL_INFO("[HcclAllGatherGraphMode] get group name: %s", group);
-    HcomGetCommHandleByGroup(group, &comm);
+    CHK_RET(HcomGetCommHandleByGroup(group, &comm));
     
     std::string opTag;
     CHK_RET(AllGatherInitAndCheck(comm, sendBuf, recvBuf, sendCount, dataType, stream, opTag));
@@ -137,7 +137,7 @@ HcclResult AllGatherOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t sendCo
     u32 userRankSize;
     CHK_RET(HcclGetRankSize(comm, &userRankSize));
 
-    u32 perDataSize = SIZE_TABLE[dataType];
+    u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
     u64 inputSize = sendCount * perDataSize;    // all gather 每个rank上一份数据
     u64 outputSize = inputSize * userRankSize;  // 每个卡上结果为rankSize份数据
 
@@ -178,7 +178,26 @@ HcclResult AllGatherOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t sendCo
         CHK_RET(SingleRankProc(param));
         return HcclResult::HCCL_SUCCESS;
     }
-    CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
+    CHK_RET(HcclExecOp(comm, param, topoInfo, algName, resPack));
+    HCCL_INFO("Execute AllGatherOutPlace success.");
+    return HCCL_SUCCESS;
+}
+
+HcclResult AllGatherOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
+                                      aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack)
+{
+    HCCL_INFO("Start to execute AllGatherOutPlaceGraphMode");
+    CHK_RET(AllGatherOutPlaceCommon(sendBuf, recvBuf, sendCount, dataType, comm, stream, tag, OpMode::OFFLOAD, resPack));
+    HCCL_INFO("Execute AllGatherOutPlaceGraphMode success.");
+    return HCCL_SUCCESS;
+}
+
+
+HcclResult AllGatherOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
+                                      aclrtStream stream, const std::string &tag)
+{
+    HCCL_INFO("Start to execute AllGatherOutPlace");
+    CHK_RET(AllGatherOutPlaceCommon(sendBuf, recvBuf, sendCount, dataType, comm, stream, tag, OpMode::OPBASE, ResPackGraphMode()));
     HCCL_INFO("Execute AllGatherOutPlace success.");
     return HCCL_SUCCESS;
 }

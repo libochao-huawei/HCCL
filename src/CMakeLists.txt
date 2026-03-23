@@ -442,7 +442,7 @@ else()
     target_link_libraries(hccl PRIVATE
         $<BUILD_INTERFACE:slog_headers>
         $<BUILD_INTERFACE:msprof_headers>
-        $<BUILD_INTERFACE:runtime_headers>
+        $<BUILD_INTERFACE:npu_runtime_headers>
         $<BUILD_INTERFACE:mmpa_headers>
         -Wl,--no-as-needed
         hcomm

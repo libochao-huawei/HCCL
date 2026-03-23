@@ -77,9 +77,9 @@ public:
           lastSliceSizePerJetty_(lastSliceSizePerJetty), repeatNumInv_(repeatNumInv), inputSliceStride_(inputSliceStride), outputSliceStride_(outputSliceStride), inputRepeatStride_(inputRepeatStride), outputRepeatStride_(outputRepeatStride), isInputOutputEqual_(isInputOutputEqual)
     {
         HCCL_DEBUG("[CcuKernelAllGatherNHR1DMultiJettyMem2Mem] TaskArgs: inputAddr[%llu], outputAddr[%llu], "
-        "token[%llu], sliceSize[%llu], sliceSizePerJetty[%llu], lastSliceSizePerJetty[%llu], repeatNumInv[%llu]," 
+        "sliceSize[%llu], sliceSizePerJetty[%llu], lastSliceSizePerJetty[%llu], repeatNumInv[%llu]," 
         "inputSliceStride[%llu], outputSliceStride[%llu], inputRepeatStride[%llu], outputRepeatStride[%llu], isInputOutputEqual[%llu]",
-        inputAddr, outputAddr, token, sliceSize, sliceSizePerJetty, lastSliceSizePerJetty, repeatNumInv, inputSliceStride, 
+        inputAddr, outputAddr, sliceSize, sliceSizePerJetty, lastSliceSizePerJetty, repeatNumInv, inputSliceStride, 
         outputSliceStride, inputRepeatStride, outputRepeatStride, isInputOutputEqual);
     }
     uint64_t inputAddr_;
