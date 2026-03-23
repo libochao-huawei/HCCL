@@ -190,7 +190,6 @@ else()
         ${TOP_DIR}/abl/atrace/inc/utrace
         ${TOP_DIR}/abl/msprof/inc
         ${TOP_DIR}/abl/libc_sec/include
-        ${TOP_DIR}/abl/mmpa/inc/mmpa
         ${TOP_DIR}/inc/aicpu/common
         ${TOP_DIR}/ace/csruntime/inc/tsch
         ${TOP_DIR}/asl/hss/inc
@@ -204,6 +203,7 @@ else()
         ${TOP_DIR}/runtime/include/external
         ${TOP_DIR}/runtime/include/external/acl
         ${TOP_DIR}/runtime/pkg_inc/base
+        ${TOP_DIR}/runtime/pkg_inc/mmpa
 
         ${TOP_DIR}/open_source/json/include
 
@@ -442,7 +442,7 @@ else()
     target_link_libraries(hccl PRIVATE
         $<BUILD_INTERFACE:slog_headers>
         $<BUILD_INTERFACE:msprof_headers>
-        $<BUILD_INTERFACE:runtime_headers>
+        $<BUILD_INTERFACE:npu_runtime_headers>
         $<BUILD_INTERFACE:mmpa_headers>
         -Wl,--no-as-needed
         hcomm

@@ -509,9 +509,9 @@ std::vector<uint64_t> CcuKernelAllReduceNhr1DMem2MemMultiJetty::GeneArgs(const C
     taskArgs.insert(taskArgs.end(), localCopyGoSizeLastSlice.cbegin(), localCopyGoSizeLastSlice.cend());
 
     HCCL_INFO("[CcuKernelAllReduceNhr1DMem2MemMultiJetty] TaskArgs: inputAddr[%llu], outputAddr[%llu], "
-              "outputToken[%llu], isInplace[%llu], dataSizePerRank[%llu], dataSizePerPort[%llu], "
+              "isInplace[%llu], dataSizePerRank[%llu], dataSizePerPort[%llu], "
               "lastRankSliceSize[%llu], lastPortSliceSize[%llu]",
-              inputAddr, outputAddr, outputToken, isInplace, dataSizePerRank, dataSizePerPort,
+              inputAddr, outputAddr, isInplace, dataSizePerRank, dataSizePerPort,
               lastRankSliceSize, lastPortSliceSize);
 
     return taskArgs;

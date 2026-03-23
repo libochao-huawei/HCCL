@@ -278,10 +278,10 @@ struct AlgHierarchyInfo {
 struct ChannelInfo {
     bool isValid = false;
     u32 remoteRank = INVALID_VALUE_RANKID;
-    CommProtocol protocol;
-    EndpointLocType locationType;
-    u32 notifyNum;
-    ChannelHandle handle;
+    CommProtocol protocol = CommProtocol::COMM_PROTOCOL_RESERVED;
+    EndpointLocType locationType = EndpointLocType::ENDPOINT_LOC_TYPE_RESERVED;
+    u32 notifyNum = 0;
+    ChannelHandle handle = 0;
     HcclMem remoteCclMem; // A5用的
     HcclMem remoteInputGraphMode;   // A5用的, 图模式下远端sendBuf地址
     HcclMem remoteOutputGraphMode;  // A5用的，图模式下远端recvBuf地址
@@ -323,6 +323,7 @@ struct AlgResourceCtxSerializable {
     std::vector<u32> notifyNumPerThread; // 每个thread需要的notify数量
     void* aivCommInfoPtr = nullptr;
     std::vector<ThreadHandle> threads;
+    ThreadHandle unfoldThread = 0; // 展开流thread
     std::vector<std::vector<ChannelInfo>> channels;
     void* commInfoPtr = nullptr;
     // hostdpu
@@ -346,6 +347,7 @@ struct AlgResourceCtxSerializable {
         binaryStream << notifyNumPerThread;
         binaryStream << commInfoPtr;
         binaryStream << threads;
+        binaryStream << unfoldThread;
         binaryStream << channels;
 
         binaryStream << npu2DpuShmemPtr;
@@ -375,6 +377,7 @@ struct AlgResourceCtxSerializable {
         binaryStream >> notifyNumPerThread;
         binaryStream >> commInfoPtr;
         binaryStream >> threads;
+        binaryStream >> unfoldThread;
         binaryStream >> channels;
 
         binaryStream >> npu2DpuShmemPtr;
