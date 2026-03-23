@@ -126,7 +126,7 @@ HcclResult HcclReduceScatterVGraphMode(void *sendBuf,  const void *sendCounts, c
 }
 
 namespace ops_hccl {
-HcclResult CheckReduceScatterVInputPara(
+HcclResult CheckReduceScatterVInputParam(
     const HcclComm comm, const void *sendBuf, const void *recvBuf, uint64_t recvCount,
     const void *sendCounts, const void *sendDispls, const aclrtStream stream)
 {
