@@ -47,6 +47,7 @@ int32_t (*hcommChannelFencePtr)(ChannelHandle) = nullptr;
 int32_t (*hcommWriteWithNotifyNbiOnThreadPtr)(ThreadHandle, ChannelHandle, void*, const void*, uint64_t, uint32_t) = nullptr;
 int32_t (*hcommFenceOnThreadPtr)(ThreadHandle) = nullptr;
 int32_t (*hcommChannelFenceOnThreadPtr)(ThreadHandle, ChannelHandle) = nullptr;
+HcclResult (*hcommThreadJoinPtr)(ThreadHandle, uint32_t) = nullptr;
 
 // 添加支持标志（静态，默认 false）
 static bool g_hcommLocalCopyOnThreadSupported = false;
@@ -81,6 +82,7 @@ static bool g_hcommChannelFenceSupported = false;
 static bool g_hcommWriteWithNotifyNbiOnThreadSupported = false;
 static bool g_hcommFenceOnThreadSupported = false;
 static bool g_hcommChannelFenceOnThreadSupported = false;
+static bool g_hcommThreadJoinSupported = false;
 
 // ---------- 桩函数定义（签名与真实API完全一致）----------
 static int32_t StubHcommLocalCopyOnThread(ThreadHandle thread, void* dst, const void* src, uint64_t len) {
@@ -279,6 +281,12 @@ static int32_t StubHcommChannelFenceOnThread(ThreadHandle thread, ChannelHandle 
     return -1;
 }
 
+static HcclResult StubHcommThreadJoin(ThreadHandle thread, uint32_t timeout) {
+    (void)thread; (void)timeout;
+    HCCL_ERROR("[HcclWrapper] HcommThreadJoin not supported");
+    return HCCL_E_NOT_SUPPORT;
+}
+
 // ---------- 初始化函数 ----------
 void HcommPrimitivesDlInit(void* libHcommHandle) {
     // 辅助宏：解析符号，失败则指向对应桩函数，同时设置支持标志
@@ -326,6 +334,7 @@ void HcommPrimitivesDlInit(void* libHcommHandle) {
     SET_PTR(hcommWriteWithNotifyNbiOnThreadPtr, libHcommHandle, "HcommWriteWithNotifyNbiOnThread", StubHcommWriteWithNotifyNbiOnThread, g_hcommWriteWithNotifyNbiOnThreadSupported);
     SET_PTR(hcommFenceOnThreadPtr, libHcommHandle, "HcommFenceOnThread", StubHcommFenceOnThread, g_hcommFenceOnThreadSupported);
     SET_PTR(hcommChannelFenceOnThreadPtr, libHcommHandle, "HcommChannelFenceOnThread", StubHcommChannelFenceOnThread, g_hcommChannelFenceOnThreadSupported);
+    SET_PTR(hcommThreadJoinPtr, libHcommHandle, "HcommThreadJoin", StubHcommThreadJoin, g_hcommThreadJoinSupported);
 
     #undef SET_PTR
 }
@@ -363,6 +372,7 @@ void HcommPrimitivesDlFini(void) {
     hcommWriteWithNotifyNbiOnThreadPtr = StubHcommWriteWithNotifyNbiOnThread;
     hcommFenceOnThreadPtr = StubHcommFenceOnThread;
     hcommChannelFenceOnThreadPtr = StubHcommChannelFenceOnThread;
+    hcommThreadJoinPtr = StubHcommThreadJoin;
 }
 
 // ---------- 对外提供的查询接口（判断函数是否存在）----------
@@ -461,4 +471,7 @@ extern "C" bool HcommIsSupportHcommFenceOnThread(void) {
 }
 extern "C" bool HcommIsSupportHcommChannelFenceOnThread(void) {
     return g_hcommChannelFenceOnThreadSupported;
+}
+extern "C" bool HcommIsSupportHcommThreadJoin(void) {
+    return g_hcommThreadJoinSupported;
 }
