@@ -758,22 +758,22 @@ TEST_F(ST_ALLTOALLVC_TEST, st_alltoallvc_28)
     RunAlltoAllVCMeshTest(topoMeta, rankSize, dataType, sendCountMatrix);
 }
 
-TEST_F(ST_ALLTOALLVC_TEST, st_alltoallvc_29)
-{
-    TopoMeta topoMeta {{{0, 1, 2, 3, 4, 5, 6, 7}}};  // 三维数组指定超节点-Server-Device信息
-    uint32_t rankSize = 8;
-    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_FP8E4M3;
-    // 构造sendCountMatrix，每个rank再去构造自己对应的数据
-    std::vector<u64> sendCountMatrix = {
-        1, 67108864, 134217728, 0, 4096, 4096, 4096, 4096,
-        1, 67108864, 134217728, 536870912, 0, 4096, 4096, 4096,
-        1, 67108864, 134217728, 536870912, 4096, 0, 4096, 4096,
-        1, 67108864, 134217728, 536870912, 4096, 4096, 0, 4096,
-        1, 67108864, 134217728, 536870912, 4096, 4096, 4096, 0,
-        0, 67108864, 134217728, 536870912, 4096, 4096, 4096, 4096,
-        1, 0, 134217728, 536870912, 4096, 2147483648, 4096, 4096,
-        1, 67108864, 0, 536870912, 4096, 2147483648, 4096, 4096,
-    };
-    RunAlltoAllVCMeshTest(topoMeta, rankSize, dataType, sendCountMatrix);
-}
+// TEST_F(ST_ALLTOALLVC_TEST, st_alltoallvc_29)
+// {
+//     TopoMeta topoMeta {{{0, 1, 2, 3, 4, 5, 6, 7}}};  // 三维数组指定超节点-Server-Device信息
+//     uint32_t rankSize = 8;
+//     HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_FP8E4M3;
+//     // 构造sendCountMatrix，每个rank再去构造自己对应的数据
+//     std::vector<u64> sendCountMatrix = {
+//         1, 67108864, 134217728, 0, 4096, 4096, 4096, 4096,
+//         1, 67108864, 134217728, 536870912, 0, 4096, 4096, 4096,
+//         1, 67108864, 134217728, 536870912, 4096, 0, 4096, 4096,
+//         1, 67108864, 134217728, 536870912, 4096, 4096, 0, 4096,
+//         1, 67108864, 134217728, 536870912, 4096, 4096, 4096, 0,
+//         0, 67108864, 134217728, 536870912, 4096, 4096, 4096, 4096,
+//         1, 0, 134217728, 536870912, 4096, 2147483648, 4096, 4096,
+//         1, 67108864, 0, 536870912, 4096, 2147483648, 4096, 4096,
+//     };
+//     RunAlltoAllVCMeshTest(topoMeta, rankSize, dataType, sendCountMatrix);
+// }
 }

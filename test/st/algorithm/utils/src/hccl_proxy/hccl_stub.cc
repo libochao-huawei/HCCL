@@ -803,18 +803,6 @@ int32_t HcommSendRequest(MsgHandle handle, const char *msgTag, const void *src, 
     return 0;
 }
 
-// int32_t HcommChannelNotifyRecordOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t remoteNotifyIdx)
-// {
-//     HcommChannelNotifyRecordOnThread(curThread, channel, remoteNotifyIdx);
-//     return 0;
-// }
-
-// int32_t HcommChannelNotifyWaitOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeout)
-// {
-//     HcommChannelNotifyWaitOnThread(curThread, channel, localNotifyIdx, timeout);
-//     return 0;
-// }
-
 int32_t HcommChannelFenceOnThread(ThreadHandle thread, ChannelHandle channel)
 {
     HCCL_WARNING("[%s] not support.", __func__);

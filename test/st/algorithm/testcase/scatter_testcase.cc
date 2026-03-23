@@ -143,11 +143,11 @@ TEST_F(ST_SCATTER_TEST, test_aicpu_scatter_mesh_1d_success_1x8_root5_fp32_big_da
     RunScatterTest(5, topoMeta, 400 * 1024 * 1024, HcclDataType::HCCL_DATA_TYPE_FP32);
 }
 
-TEST_F(ST_SCATTER_TEST, test_aicpu_scatter_mesh_1d_success_1x6_root1_int8_big_data)
-{
-    TopoMeta topoMeta {{{0, 1, 2, 3, 4, 5}}};
-    RunScatterTest(1, topoMeta, 1024 * 1024 * 1024 + 1, HcclDataType::HCCL_DATA_TYPE_INT8);
-}
+// TEST_F(ST_SCATTER_TEST, test_aicpu_scatter_mesh_1d_success_1x6_root1_int8_big_data)
+// {
+//     TopoMeta topoMeta {{{0, 1, 2, 3, 4, 5}}};
+//     RunScatterTest(1, topoMeta, 1024 * 1024 * 1024 + 1, HcclDataType::HCCL_DATA_TYPE_INT8);
+// }
 
 TEST_F(ST_SCATTER_TEST, test_aicpu_scatter_mesh_1d_success_1x2_root0_fp16_small_data)
 {

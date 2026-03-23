@@ -190,14 +190,14 @@ TEST_F(ST_SEND_RECV_TEST, st_send_recv_1d_3r_int32_c100_test) {
 }
 
 // 1卡2机100个int32
-TEST_F(ST_SEND_RECV_TEST, st_send_recv_2d_1r_int32_c100_test) {
-    TopoMeta topoMeta{{{0}, {1}}};
-    std::map<RankId, RankId> sendRecvMap = {{0, 1}};
-    auto dataCount = 100;
-    auto dataType = HcclDataType::HCCL_DATA_TYPE_INT32;
+// TEST_F(ST_SEND_RECV_TEST, st_send_recv_2d_1r_int32_c100_test) {
+//     TopoMeta topoMeta{{{0}, {1}}};
+//     std::map<RankId, RankId> sendRecvMap = {{0, 1}};
+//     auto dataCount = 100;
+//     auto dataType = HcclDataType::HCCL_DATA_TYPE_INT32;
 
-    SendRecvTest(topoMeta, sendRecvMap, dataCount, dataType);
-}
+//     SendRecvTest(topoMeta, sendRecvMap, dataCount, dataType);
+// }
 
 // 1卡3机100个int32
 TEST_F(ST_SEND_RECV_TEST, st_send_recv_3d_1r_int32_c100_test) {

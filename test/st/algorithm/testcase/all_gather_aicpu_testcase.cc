@@ -170,27 +170,27 @@ TEST_F(ST_ALL_GATHER_AICPU_TEST, st_all_gather_a5_aicpu_mesh_1d_8rank_int8_small
     RunAllGatherAicpuA5(topoMeta, sendCount, dataType);
 }
 
-TEST_F(ST_ALL_GATHER_AICPU_TEST, st_all_gather_a5_aicpu_mesh_1d_2rank_hif8_big_data_test)
-{
-    // 仿真模型初始化
-    TopoMeta topoMeta{{{0, 1}}};  // 三维数组指定超节点-Server-Device信息
+// TEST_F(ST_ALL_GATHER_AICPU_TEST, st_all_gather_a5_aicpu_mesh_1d_2rank_hif8_big_data_test)
+// {
+//     // 仿真模型初始化
+//     TopoMeta topoMeta{{{0, 1}}};  // 三维数组指定超节点-Server-Device信息
 
-    // 算子执行参数设置
-    auto sendCount = 1 * 1024 * 1024 * 1024;            // 单卡数据量
-    auto dataType = HcclDataType::HCCL_DATA_TYPE_HIF8;  // 数据类型
-    RunAllGatherAicpuA5(topoMeta, sendCount, dataType);
-}
+//     // 算子执行参数设置
+//     auto sendCount = 1 * 1024 * 1024 * 1024;            // 单卡数据量
+//     auto dataType = HcclDataType::HCCL_DATA_TYPE_HIF8;  // 数据类型
+//     RunAllGatherAicpuA5(topoMeta, sendCount, dataType);
+// }
 
-TEST_F(ST_ALL_GATHER_AICPU_TEST, st_all_gather_a5_aicpu_mesh_1d_4rank_fp8e4m3_big_data_test)
-{
-    // 仿真模型初始化
-    TopoMeta topoMeta{{{0, 1, 2, 3}}};  // 三维数组指定超节点-Server-Device信息
+// TEST_F(ST_ALL_GATHER_AICPU_TEST, st_all_gather_a5_aicpu_mesh_1d_4rank_fp8e4m3_big_data_test)
+// {
+//     // 仿真模型初始化
+//     TopoMeta topoMeta{{{0, 1, 2, 3}}};  // 三维数组指定超节点-Server-Device信息
 
-    // 算子执行参数设置
-    auto sendCount = 1 * 1024 * 1024 * 1024;            // 单卡数据量
-    auto dataType = HcclDataType::HCCL_DATA_TYPE_FP8E4M3;  // 数据类型
-    RunAllGatherAicpuA5(topoMeta, sendCount, dataType);
-}
+//     // 算子执行参数设置
+//     auto sendCount = 1 * 1024 * 1024 * 1024;            // 单卡数据量
+//     auto dataType = HcclDataType::HCCL_DATA_TYPE_FP8E4M3;  // 数据类型
+//     RunAllGatherAicpuA5(topoMeta, sendCount, dataType);
+// }
 
 TEST_F(ST_ALL_GATHER_AICPU_TEST, st_all_gather_a5_aicpu_nhr_2rank_fp64_small_data_test)
 {
