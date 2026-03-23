@@ -22,6 +22,7 @@ HcclResult ExecuteSelector::Run(OpParam &opParam, TopoInfoWithNetLayerDetails* t
                                 std::string &selectAlgName) const
 {
     HCCL_DEBUG("[Algo][Selector] Run.");
+    HCCL_DEBUG("[Algo][Selector] extra.");
     std::map<u32, AutoSelectorBase *> selectors = SelectorRegistry::Global()->GetAllSelectors();
 
     if (opParam.isMc2) {
