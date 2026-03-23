@@ -151,6 +151,12 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNe
     u64 dataSize = opParam.DataDes.count * perDataSize;
 
     if (topoInfo->topoLevelNums > 1) {
+        // Level1Nhr 已在 CalcTopoShape 中设置（GCD==1 时为 true）
+        if (topoInfo->Level1Nhr) {
+            selectAlgName = "CcuAllReduceNHR1D";
+            HCCL_INFO("[AllReduceAutoSelector] Level1Nhr=true, select [%s]", selectAlgName.c_str());
+            return SelectorStatus::MATCH;
+        }
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             if (topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] == 1) {
                 selectAlgName = "CcuAllReduceNHR1D";
@@ -263,9 +269,19 @@ SelectorStatus AllReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayer
         opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD;
 
     if (topoInfo->topoLevelNums > 1) {
+<<<<<<< HEAD
         if (isDataTypeOrReduceTypeSpecial) {
             selectAlgName = "InsAllReduceAicpuReduceNHR";
         } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] == 1) {
+=======
+        // Level1Nhr 已在 CalcTopoShape 中设置（GCD==1 时为 true）
+        if (topoInfo->Level1Nhr) {
+            selectAlgName = "InsAllReduceNHR";
+            HCCL_INFO("[AllReduceAutoSelector] Level1Nhr=true, select [%s]", selectAlgName.c_str());
+            return SelectorStatus::MATCH;
+        }
+        if (topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] == 1) {
+>>>>>>> feat(topo): 支持非对称拓扑匹配与Level1Nhr算法选择
             selectAlgName = "InsAllReduceNHR";
         } else if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             selectAlgName = "InsAllReduceParallelMesh1DNHR";
