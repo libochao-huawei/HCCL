@@ -96,6 +96,12 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
         return HCCL_E_PTR;
     }
     CHK_RET(SetCommEngine(param));
+    // AIV_ONLY 模式下禁止回退到非 AIV 引擎，未选中 AIV 时直接返回不支持。
+    if (GetExternalInputHcclAivOnlyMode() && param.engine != CommEngine::COMM_ENGINE_AIV) {
+        HCCL_ERROR("[HcclExecOp] opType[%d] currently do not select aiv mode, aiv only not support.",
+            static_cast<int>(param.opType));
+        return HCCL_E_NOT_SUPPORT;
+    }
     // 如果一开始读取到的Engine不是aicpu，经过算法选择后回退到aipcu，则需要重新LoadAICPUKernel
     if ((param.engine == CommEngine::COMM_ENGINE_AICPU_TS) || (param.engine == CommEngine::COMM_ENGINE_CPU)) {
         HCCL_DEBUG("[Selector] is aicpu mode");
@@ -1158,6 +1164,11 @@ HcclResult SetCommEngine(OpParam &param)
 
 HcclResult SingleRankProc(const OpParam &param)
 {
+    if (GetExternalInputHcclAivOnlyMode()) {
+        HCCL_ERROR("[SingleRankProc] opType[%d] currently do not select aiv mode, aiv only not support, "
+            "please ensure rankNum is greater than one", static_cast<int>(param.opType));
+        return HCCL_E_NOT_SUPPORT;
+    }
     if (param.opType == HcclCMDType::HCCL_CMD_SEND || param.opType == HcclCMDType::HCCL_CMD_RECEIVE) {
         HCCL_WARNING("[%s] ranksize == 1 is not support BATCHSENDRECV SEND RECV", __func__);
         return HcclResult::HCCL_SUCCESS;
@@ -1305,10 +1316,16 @@ HcclResult ApplyOpExpansionMode(OpParam &param, HcclOpExpansionMode finalMode)
             HCCL_DEBUG("[ApplyOpExpansionMode] AICPU mode selected.");
             break;
         case HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV:
-            param.opExecuteConfig = OpExecuteConfig::AIV;
+        //     param.opExecuteConfig = OpExecuteConfig::AIV;
+        //     param.engine = CommEngine::COMM_ENGINE_AIV;
+        //     CHK_RET(RegisterKernel(param.opType, g_aivKernelInfoMap[param.opType].first, g_aivKernelInfoMap[param.opType].second));
+        //     HCCL_DEBUG("[ApplyOpExpansionMode] AIV mode selected.");
+        //     break;
+        // case HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY:
+            param.opExecuteConfig = OpExecuteConfig::AIV_ONLY;
             param.engine = CommEngine::COMM_ENGINE_AIV;
             CHK_RET(RegisterKernel(param.opType, g_aivKernelInfoMap[param.opType].first, g_aivKernelInfoMap[param.opType].second));
-            HCCL_DEBUG("[ApplyOpExpansionMode] AIV mode selected.");
+            HCCL_DEBUG("[ApplyOpExpansionMode] AIV_ONLY mode selected.");
             break;
         case HcclOpExpansionMode::HCCL_OP_EXPANSION_CCU_MS:
             param.opExecuteConfig = OpExecuteConfig::CCU_MS;
@@ -1407,7 +1424,8 @@ bool ShouldUseInnerOp(OpExecuteConfig opExecuteConfig)
                               opExecuteConfig == OpExecuteConfig::HOSTCPU);
     bool isCcuMode = (opExecuteConfig == OpExecuteConfig::CCU_MS || 
                       opExecuteConfig == OpExecuteConfig::CCU_SCHED);
-    bool isAivMode = (opExecuteConfig == OpExecuteConfig::AIV);
+    bool isAivMode = (opExecuteConfig == OpExecuteConfig::AIV ||
+                      opExecuteConfig == OpExecuteConfig::AIV_ONLY);
 
     if (isAicpuOrHostMode) {
         return !HcclCheckAicpuEnableOpen();

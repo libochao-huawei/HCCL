@@ -592,11 +592,53 @@ HcclResult ParseEntryLogEnable()
     return HCCL_SUCCESS;
 }
 
+static HcclResult ApplyOpExpansionMode(const std::string& opExpansionModeEnv, DevType deviceType)
+{
+    if (opExpansionModeEnv == "AI_CPU") {
+        if (deviceType == DevType::DEV_TYPE_910) {
+            HCCL_WARNING("910 do not support AICPU unfold.");
+        } else {
+            g_algEnvConfig.aicpuUnfold = true;
+        }
+    } else if (opExpansionModeEnv == "AIV") {
+        if (g_algEnvConfig.hcclDeterministic == true) {
+            HCCL_WARNING("Deterministic do not support aiv");
+        }
+        g_algEnvConfig.aivMode = true;
+    } else if (opExpansionModeEnv == "AIV_ONLY") {
+        if (g_algEnvConfig.hcclDeterministic == true) {
+            HCCL_WARNING("Deterministic do not support aiv only");
+        }
+        g_algEnvConfig.aivMode = true;
+        g_algEnvConfig.aivOnlyMode = true;
+    } else if (opExpansionModeEnv == "HOST") {
+        g_algEnvConfig.aivMode = false;
+        g_algEnvConfig.aicpuUnfold = false;
+    } else if (opExpansionModeEnv == "HOST_TS") {
+        if (deviceType == DevType::DEV_TYPE_910B) {
+            g_algEnvConfig.enableFfts = false;
+        } else {
+            HCCL_WARNING("deviceType[%u] do not support HOST_TS", deviceType);
+        }
+    } else if (opExpansionModeEnv == "CCU_MS") {
+        // todo: 判断芯片类型
+        g_algEnvConfig.ccuMSMode = true;
+    } else if (opExpansionModeEnv == "CCU_SCHED") {
+        g_algEnvConfig.ccuSchedMode = true;
+    } else {
+        HCCL_ERROR("HCCL_OP_EXPANSION_MODE is set to [%s], which is incorrect. Please check",
+            opExpansionModeEnv.c_str());
+        return HCCL_E_PARA;
+    }
+    return HCCL_SUCCESS;
+}
+
 HcclResult ParseOpExpansion()
 {
     std::string opExpansionModeEnv = GetEnv(MM_ENV_HCCL_OP_EXPANSION_MODE);
     g_algEnvConfig.aicpuUnfold = false;
     g_algEnvConfig.aivMode = false;
+    g_algEnvConfig.aivOnlyMode = false;
     g_algEnvConfig.ccuMSMode = false;
     g_algEnvConfig.ccuSchedMode = false;
 
@@ -612,35 +654,17 @@ HcclResult ParseOpExpansion()
             g_algEnvConfig.aivMode);
         return HCCL_SUCCESS;
     }
-    if (opExpansionModeEnv == "AI_CPU") {
-        if (deviceType == DevType::DEV_TYPE_910) {
-            HCCL_WARNING("910 do not support AICPU unfold.");
-        } else {
-            g_algEnvConfig.aicpuUnfold = true;
-        }
-    } else if (opExpansionModeEnv == "AIV") {
-        if (g_algEnvConfig.hcclDeterministic == true) {
-            HCCL_WARNING("Deterministic do not support aiv");
-        }
-        g_algEnvConfig.aivMode = true;
-    } else if (opExpansionModeEnv == "HOST") {
-        g_algEnvConfig.aivMode = false;
-        g_algEnvConfig.aicpuUnfold = false;
-    } else if (opExpansionModeEnv == "HOST_TS") {
-        if (deviceType == DevType::DEV_TYPE_910B) {
-            g_algEnvConfig.enableFfts = false;
-        } else {
-            HCCL_WARNING("deviceType[%u] do not support HOST_TS", deviceType);
-        }
-    } else if (opExpansionModeEnv == "CCU_MS") {
-        g_algEnvConfig.ccuMSMode = true;
-    } else if (opExpansionModeEnv == "CCU_SCHED") {
-        g_algEnvConfig.ccuSchedMode = true;
-    } else {
-        HCCL_ERROR(
-            "HCCL_OP_EXPANSION_MODE is set to [%s], which is incorrect. Please check", opExpansionModeEnv.c_str());
-        return HCCL_E_PARA;
+    if (opExpansionModeEnv == "AIV") {
+        CHK_RET(ApplyOpExpansionMode("AIV_ONLY", deviceType));
+        HCCL_RUN_INFO("environmental variable HCCL_OP_EXPANSION_MODE is [%s], aicpuUnfold[%u], aivMode[%u], enableFfts[%u]",
+            opExpansionModeEnv.c_str(),
+            g_algEnvConfig.aicpuUnfold,
+            g_algEnvConfig.aivMode,
+            g_algEnvConfig.enableFfts);
+        return HCCL_SUCCESS;
     }
+    // 调用抽取出来的逻辑
+    CHK_RET(ApplyOpExpansionMode(opExpansionModeEnv, deviceType));
     HCCL_RUN_INFO("environmental variable HCCL_OP_EXPANSION_MODE is [%s], aicpuUnfold[%u], aivMode[%u], enableFfts[%u]",
         opExpansionModeEnv.c_str(),
         g_algEnvConfig.aicpuUnfold,
@@ -816,6 +840,11 @@ const bool &GetExternalInputHcclAivMode()
     return g_algEnvConfig.aivMode;
 }
 
+const bool &GetExternalInputHcclAivOnlyMode()
+{
+    return g_algEnvConfig.aivOnlyMode;
+}
+
 const bool &GetExternalInputHcclCcuMSMode()
 {
     return g_algEnvConfig.ccuMSMode;
@@ -865,7 +894,8 @@ bool RunIndependentOpExpansion(DevType deviceType)
     #endif
         return opExpansionModeEnv == "AI_CPU" || opExpansionModeEnv == "HOST_TS" ||
                opExpansionModeEnv == "EmptyString" || opExpansionModeEnv == "AIV" ||
-               opExpansionModeEnv == "CCU_SCHED" || opExpansionModeEnv == "CCU_MS";
+               opExpansionModeEnv == "AIV_ONLY" || opExpansionModeEnv == "CCU_SCHED" ||
+               opExpansionModeEnv == "CCU_MS";
     }
 
     // HOST_TS为Host展开
