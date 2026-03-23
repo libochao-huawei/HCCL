@@ -99,7 +99,7 @@ HcclResult ReduceAicpuReduceNHR::KernelRun(
     CHK_RET(RunGather(channels));
 
     // 4. LocalReduce 阶段
-    CHK_RET(RunReduce(channels));
+    CHK_RET(RunReduce(channels, tempAlgParams, param.algTag));
 
     HCCL_INFO("[ReduceAicpuReduceNHR] rank[%d] KernelRun finished", myRank_);
     return HcclResult::HCCL_SUCCESS;
@@ -142,6 +142,7 @@ HcclResult ReduceAicpuReduceNHR::CalcSlice(u64 chunkSize)
 
 HcclResult ReduceAicpuReduceNHR::PreCopy(const TemplateDataParams &tempAlgParams)
 {
+    HCCL_INFO("[ReduceAicpuReduceNHR][PreCopy] start");
     const BuffInfo &buffInfo = tempAlgParams.buffInfo;
     const u64 sliceSize = tempAlgParams.sliceSize;
 
@@ -154,6 +155,7 @@ HcclResult ReduceAicpuReduceNHR::PreCopy(const TemplateDataParams &tempAlgParams
 
 HcclResult ReduceAicpuReduceNHR::RunGather(const std::map<u32, std::vector<ChannelInfo>> &channels)
 {
+    HCCL_INFO("[ReduceAicpuReduceNHR][RunGather] start");
     u64 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
 
     u32 nSteps = GetNHRStepNum(templateRankSize_);
@@ -189,11 +191,12 @@ HcclResult ReduceAicpuReduceNHR::RunGather(const std::map<u32, std::vector<Chann
             HcclResult::HCCL_E_INTERNAL);
     }
 
+    HCCL_INFO("[ReduceAicpuReduceNHR][RunGather] end");
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult ReduceAicpuReduceNHR::RunReduce(
-    const std::map<u32, std::vector<ChannelInfo>> &channels, const TemplateDataParams &tempAlgParams)
+HcclResult ReduceAicpuReduceNHR::RunReduce(const std::map<u32, std::vector<ChannelInfo>> &channels,
+    const TemplateDataParams &tempAlgParams, const std::string &algTag)
 {
     HCCL_INFO("[ReduceAicpuReduceNHR][RunReduce] start");
     if (myRank_ != root) {
@@ -205,6 +208,11 @@ HcclResult ReduceAicpuReduceNHR::RunReduce(
     const DataSlice srcSlice(buffInfo.hcclBuff.addr, buffInfo.hcclBuffBaseOff, sliceSize, count_);
     const DataSlice srcSlice(buffInfo.outputPtr, buffInfo.outBuffBaseOff, sliceSize, count_);
     CHK_RET(static_cast<HcclResult>(LocalCopy(thread_, srcSlice, dstSlice)));
+
+    CHK_RET(static_cast<HcclResult>(HcommBatchModeEnd(algTag.c_str())));
+    CHK_RET(static_cast<HcclResult>(HcommBatchModeStart(algTag.c_str())));
+    CHK_RET(static_cast<HcclResult>(HcommThreadJoin(thread_, CUSTOM_TIMEOUT)));
+
     for (u32 idx = 1; idx < subCommRanks_.at(0).size(); ++idx) {
         const DataSlice srcSlice(buffInfo.hcclBuff.addr, buffInfo.hcclBuffBaseOff + sliceSize * idx, sliceSize, count_);
 

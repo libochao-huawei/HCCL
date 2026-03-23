@@ -50,7 +50,8 @@ public:
 private:
     HcclResult CalcSlice(const u64 chunkSize);
     HcclResult PreCopy(const TemplateDataParams &tempAlgParams);
-    HcclResult RunReduce(const std::map<u32, std::vector<ChannelInfo>> &channels, const TemplateDataParams &tempAlgParams);
+    HcclResult RunReduce(const std::map<u32, std::vector<ChannelInfo>> &channels,
+        const TemplateDataParams &tempAlgParams, const std::string &algTag);
     HcclResult RunGather(const std::map<u32, std::vector<ChannelInfo>> &channels);
     HcclResult PostCopy(const TemplateDataParams &tempAlgParams);
 
