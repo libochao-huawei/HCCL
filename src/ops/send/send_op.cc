@@ -77,7 +77,11 @@ HcclResult HcclSendGraphMode(
     // 拼装ResPackGraphMode
     ResPackGraphMode resPack;
     // 设置tag
-    strncpy_s(resPack.tag, sizeof(resPack.tag), tag, sizeof(resPack.tag) - 1);
+    s32 fillTagRet = strncpy_s(resPack.tag, sizeof(resPack.tag), tag, sizeof(resPack.tag) - 1);
+    CHK_PRT_RET(
+        fillTagRet != EOK,
+        HCCL_ERROR("[HcclSendGraphMode] failed to fill resPack.tag, tag %s, return %d.", tag, fillTagRet),
+        HCCL_E_MEMORY);
     // 设置streams
     if (streams != nullptr && streamCount > 0) {
         for (size_t i = 0; i < streamCount; i++) {
