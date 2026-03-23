@@ -68,14 +68,14 @@ namespace ops_hccl {
         RPT_INPUT_ERR(
             comm == nullptr,
             "EI0003",
-            std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),
-            std::vector<std::string>({"HcclSend", "comm", "nullptr", "please check comm"}));
+            std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),
+            std::vector<std::string>({"HcclSend", "nullptr", "comm", "non-null pointer"}));
         CHK_PTR_NULL(comm);
         RPT_INPUT_ERR(
             sendBuf == nullptr,
             "EI0003",
-            std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),
-            std::vector<std::string>({"HcclSend", "sendBuf", "nullptr", "please check sendBuf"}));
+            std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),
+            std::vector<std::string>({"HcclSend", "nullptr", "sendBuf", "non-null pointer"}));
         CHK_PTR_NULL(sendBuf);
 
         return HcclResult::HCCL_SUCCESS;
