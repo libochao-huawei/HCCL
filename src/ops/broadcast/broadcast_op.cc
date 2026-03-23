@@ -22,10 +22,14 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 
 HcclResult HcclBroadcast(void *buf, uint64_t count, HcclDataType dataType, uint32_t root, HcclComm comm, aclrtStream stream)
 {
-    HCCL_INFO("Start to run execute HcclBroadcast");
-    if (!HcclCheckAicpuEnableOpen()) {
+    if (!HcclCheckAicpuEnableOpen() && !HcclCheckCcuEnableOpen() && !HcclCheckAivEnableOpen()) {
         return HcclBroadcastInner(buf, count, dataType, root, comm, stream);
     }
+    HCCL_INFO("Start to run execute HcclBroadcast");
+    if (GetHcommVersion() < 90000000) { // compat handle
+        return HcclBroadcastInner(buf, count, dataType, root, comm, stream);
+    }
+
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
     #ifdef MACRO_DEV_TYPE_NEW
