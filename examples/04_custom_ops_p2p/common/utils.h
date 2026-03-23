@@ -8,14 +8,12 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef OPS_HCCL_P2P_EXEC_OP_H
-#define OPS_HCCL_P2P_EXEC_OP_H
+#ifndef OPS_HCCL_P2P_COMMON_UTILS_H
+#define OPS_HCCL_P2P_COMMON_UTILS_H
 
-#include <string>
-#include <hccl/hcomm_primitives.h>
 #include "common.h"
 
 namespace ops_hccl_p2p {
-HcclResult ExecOp(OpParam &param, AlgResourceCtx* resCtx);
+HcclResult GetDeviceType(DeviceType *deviceType);
 }
 #endif
