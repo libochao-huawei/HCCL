@@ -28,8 +28,8 @@ HcclResult HcclReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType
     uint32_t root, HcclComm comm, aclrtStream stream);
 
 HcclResult HcclReduceGraphMode(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
-    uint32_t root, const char* group, aclrtStream stream, const char* tag, void** streams, size_t streamCount,
-    void* scratchMemAddr, uint64_t scratchMemSize);
+    uint32_t root, const char *group, aclrtStream stream, const char *tag, void **streams, size_t streamCount,
+    void *scratchMemAddr, uint64_t scratchMemSize);
 
 #ifdef __cplusplus
 }
@@ -51,6 +51,8 @@ HcclResult CheckReduceInputPara(const HcclComm comm, const void *sendBuf, const 
 
 HcclResult GetAlgResReduce(HcclComm comm, OpParam &param, std::shared_ptr<InsCollAlgBase> &executor, TopoInfoWithNetLayerDetails *topoInfo,
     AlgResourceCtx **resCtx, aclrtNotify *notifies);
+
+HcclResult ReduceInitAndCheck(HcclComm comm, void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, std::string &opTag);
 }  // namespace ops_hccl
 
 #endif

@@ -41,24 +41,9 @@ HcclResult HcclReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType
     if (GetWorkflowMode() != HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE) {
         return HcclReduceInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
     }
-    // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
-    // A3是：export HCCL_OP_EXPANSION_MODE="AI_CPU"，A5的接口还没提供
-    CHK_RET(InitEnvConfig());
 
-    // 参数校验等工作
-    CHK_PRT_RET(count == 0, HCCL_WARNING("input count is 0, return reduce success"), HCCL_SUCCESS);
-    CHK_RET(CheckReduceInputPara(comm, sendBuf, recvBuf));
-    u32 rankSize = INVALID_VALUE_RANKSIZE;
-    CHK_RET(HcclGetRankSize(comm, &rankSize));
-    u32 userRank = INVALID_VALUE_RANKID;
-    CHK_RET(HcclGetRankId(comm, &userRank));
-    char commName[COMM_INDENTIFIER_MAX_LENGTH];
-    CHK_RET(HcclGetCommName(comm, commName));
-    const string tag = "Reduce_" + string(commName);
-    CHK_RET_AND_PRINT_IDE(HcomCheckOpParam(tag.c_str(), count, dataType, stream), tag.c_str());
-    CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), tag.c_str());
-    CHK_RET(CheckCount(count));
-    CHK_RET(CheckDataType(dataType, true));
+    std::string opTag;
+    CHK_RET(ReduceInitAndCheck(comm, sendBuf, recvBuf, count, dataType, opTag));
 
     // 执行Reduce
     CHK_RET_AND_PRINT_IDE(ReduceOutPlace(sendBuf, recvBuf, count, dataType, op, root, comm, stream, tag), tag.c_str());
@@ -75,24 +60,11 @@ HcclResult HcclReduceGraphMode(void *sendBuf, void *recvBuf, uint64_t count, Hcc
     HcclComm comm = nullptr;
     HCCL_INFO("[HcclReduceGraphMode] get group name: %s", group);
     HcomGetCommHandleByGroup(group, &comm);
-    // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
-    CHK_RET(InitEnvConfig());
-    // 参数校验等工作;
-    CHK_RET(CheckReduceInputPara(comm, sendBuf, recvBuf));
 
-    u32 rankSize = INVALID_VALUE_RANKSIZE;
-    CHK_RET(HcclGetRankSize(comm, &rankSize));
+    std::string opTag;
+    CHK_RET(ReduceInitAndCheck(comm, sendBuf, recvBuf, count, dataType, opTag));
 
-    u32 userRank = INVALID_VALUE_RANKID;
-    CHK_RET(HcclGetRankId(comm, &userRank));
-    char commName[COMM_INDENTIFIER_MAX_LENGTH];
-    CHK_RET(HcclGetCommName(comm, commName));
-    const string opTag = "Reduce_" + string(commName);
-    CHK_RET(HcclCheckTag(opTag.c_str()));
     CHK_RET(HcclCheckTag(tag));
-    CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), opTag.c_str());
-    CHK_RET(CheckCount(count));
-    CHK_RET(CheckDataType(dataType, true));
 
     // 拼装ResPackGraphMode
     ResPackGraphMode resPack;
@@ -109,7 +81,7 @@ HcclResult HcclReduceGraphMode(void *sendBuf, void *recvBuf, uint64_t count, Hcc
     resPack.scratchMemSize = scratchMemSize;
 
     // 执行
-    CHK_RET_AND_PRINT_IDE(ReduceOutPlaceGraphMode(sendBuf, recvBuf, count, dataType, op, root, comm, stream, tag, resPack), opTag);
+    CHK_RET_AND_PRINT_IDE(ReduceOutPlaceGraphMode(sendBuf, recvBuf, count, dataType, op, root, comm, stream, std::string(tag), resPack), tag);
 
     return HCCL_SUCCESS;
 }
@@ -135,6 +107,32 @@ HcclResult CheckReduceInputPara(const HcclComm comm, const void* sendBuf, const 
         std::vector<std::string>({"HcclReduce", "recvBuf", "nullptr", "please check recvBuf"}));
     CHK_PTR_NULL(recvBuf);
 
+    return HCCL_SUCCESS;
+}
+
+HcclResult ReduceInitAndCheck(HcclComm comm, void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, std::string &opTag)
+{
+    // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
+    CHK_RET(InitEnvConfig());
+    // 参数校验等工作
+    CHK_PRT_RET(count == 0, HCCL_WARNING("count is 0, return reduce success"), HCCL_SUCCESS);
+    // 检查入参指针有效性
+    CHK_RET(CheckReduceInputPara(comm, sendBuf, recvBuf));
+    // tag有效性，是否过长
+    char commName[COMM_INDENTIFIER_MAX_LENGTH];
+    CHK_RET(HcclGetCommName(comm, commName));
+    opTag = "Reduce_" + string(commName);
+    CHK_RET(HcclCheckTag(opTag.c_str()));
+    // 检查count是否合法（超出系统上限）
+    CHK_RET(CheckCount(count));
+    // 检查数据类型是否支持
+    CHK_RET(CheckDataType(dataType, true));
+    // 检查rank有效性，是否超出rankSize
+    u32 rankSize = INVALID_VALUE_RANKSIZE;
+    CHK_RET(HcclGetRankSize(comm, &rankSize));
+    u32 userRank = INVALID_VALUE_RANKID;
+    CHK_RET(HcclGetRankId(comm, &userRank));
+    CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), opTag.c_str());
     return HCCL_SUCCESS;
 }
 
