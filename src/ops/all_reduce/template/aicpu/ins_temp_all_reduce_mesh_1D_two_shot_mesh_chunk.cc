@@ -352,7 +352,7 @@ void InsTempAllReduceMesh1DTwoShotMeshChunk::GetNotifyIdxSubToMain(std::vector<u
 void InsTempAllReduceMesh1DTwoShotMeshChunk::NotifyIdxMainToSubInRSMeshChunk(std::vector<u32> &notifyIdxMainToSub)
 {
     notifyIdxMainToSub.clear();
-    u32 threadNum = templateRankSize_ > 1 ? templateRankSize_ - 1 : 1;
+    u32 threadNum = templateRankSize_ > 1 ? templateRankSize_ : 1;
     u32 slaveThreadNum = threadNum - 1;
     for (u32 slaveThreadIdx = 0; slaveThreadIdx < slaveThreadNum; slaveThreadIdx++) {
         notifyIdxMainToSub.push_back(1);
@@ -362,7 +362,7 @@ void InsTempAllReduceMesh1DTwoShotMeshChunk::NotifyIdxMainToSubInRSMeshChunk(std
 void InsTempAllReduceMesh1DTwoShotMeshChunk::NotifyIdxSubToMainInRSMeshChunk(std::vector<u32> &notifyIdxSubToMain)
 {
     notifyIdxSubToMain.clear();
-    u32 threadNum = templateRankSize_ > 1 ? templateRankSize_ - 1 : 1;
+    u32 threadNum = templateRankSize_ > 1 ? templateRankSize_ : 1;
     u32 notifyNum = threadNum - 1;
     for (u32 notifyIdx = 0; notifyIdx < notifyNum; notifyIdx++) {
         notifyIdxSubToMain.push_back(notifyIdx + threadNum);
