@@ -8,9 +8,9 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "ins_v2_all_reduce_parallel_executor.cc"
-#include "ins_temp_all_gather_mesh_1D.h"
+#include "ins_v2_all_reduce_parallel_executor.h"
 #include "ins_temp_all_gather_nhr.h"
+#include "ins_temp_all_gather_mesh_1D.h"
 #include "ins_temp_reduce_scatter_nhr.h"
 #include "ins_temp_reduce_scatter_mesh_1D.h"
 #include "topo_match_multilevel.h"
@@ -45,10 +45,10 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 
     // 实例化算法模板类
     // 构建template
-    std::shared_ptr<InsAlgTemplate0> algTemplate0 = std::make_shared<InsAlgTemplate0>(param, topoInfo->userRank, algHierarchyInfo.infos[0]);
-    std::shared_ptr<InsAlgTemplate1> algTemplate1 = std::make_shared<InsAlgTemplate1>(param, topoInfo->userRank, algHierarchyInfo.infos[1]);
-    std::shared_ptr<InsAlgTemplate2> algTemplate2 = std::make_shared<InsAlgTemplate2>(param, topoInfo->userRank, algHierarchyInfo.infos[0]);
-    std::shared_ptr<InsAlgTemplate3> algTemplate3 = std::make_shared<InsAlgTemplate3>(param, topoInfo->userRank, algHierarchyInfo.infos[1]);
+    std::shared_ptr<InsAlgTemplate0> algTemplate0 = std::make_shared<InsAlgTemplate0>(param, topoInfo->userRank, algHierarchyInfo.infos[0]); // RS 框内
+    std::shared_ptr<InsAlgTemplate1> algTemplate1 = std::make_shared<InsAlgTemplate1>(param, topoInfo->userRank, algHierarchyInfo.infos[1]); // RS 框间
+    std::shared_ptr<InsAlgTemplate2> algTemplate2 = std::make_shared<InsAlgTemplate2>(param, topoInfo->userRank, algHierarchyInfo.infos[0]); // AG 框内
+    std::shared_ptr<InsAlgTemplate3> algTemplate3 = std::make_shared<InsAlgTemplate3>(param, topoInfo->userRank, algHierarchyInfo.infos[1]); // AG 框间
 
    // 计算资源
     AlgResourceRequest intraTempRequest;
@@ -126,7 +126,6 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     dataTypeSize_ =  DATATYPE_SIZE_TABLE[param.DataDes.dataType];
     dataSize_ = dataCount_ * dataTypeSize_;
 
-    root_ = param.root; 
     // 获取算法Topo信息
     vTopo_ = resCtx.algHierarchyInfo.infos;         // 本通信域内的通信平面
 
@@ -136,8 +135,6 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     rankSize_ = intraLocalRankSize_ * interLocalRankSize_;
     HCCL_INFO("[Orchestrate] localRankSize: myRank[%d] intraLocalRankSize[%u] interLocalRankSize[%u] rankSize_[%u]",
               myRank_, intraLocalRankSize_, interLocalRankSize_, rankSize_);
-
-    // CHK_RET(CalcLocalRoot());
 
     // 实例化算法模板类
     InsAlgTemplate0 tempAlgIntra(param, resCtx.topoInfo.userRank, resCtx.algHierarchyInfo.infos[0]);
@@ -175,29 +172,11 @@ uint64_t InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTempl
     return count;
 }
 
-// template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2, typename InsAlgTemplate3>
-// HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3>::CalcLocalRoot()
-// {
-//     CHK_PRT_RET(root_ >= rankSize_,
-//         HCCL_ERROR("[CalcLocalRoot] root[%u] is out of rankSize[%u]", root_, rankSize_),
-//         HcclResult::HCCL_E_INTERNAL);
-//     rankIdxLevel0_ = myRank_ % intraLocalRankSize_;
-//     rankIdxLevel1_ = myRank_ / intraLocalRankSize_;
-//     interLocalRoot_ = root_ / intraLocalRankSize_ * intraLocalRankSize_ + rankIdxLevel0_;
-//     intraLocalRoot_ = root_ % intraLocalRankSize_ + rankIdxLevel1_ * intraLocalRankSize_;
-//     HCCL_DEBUG("[DEBUG] new myrank[%u], rankIdxLevel0_[%u] ,rankIdxLevel1_[%u] interlocalroot[%u] intralocalroot[%u]",
-//                myRank_, rankIdxLevel0_,rankIdxLevel1_, interlocalroot, intralocalroot);
-//     HCCL_INFO("[CalcLocalRoot] localRoot: myRank[%d] intraLocalRoot[%u] interLocalRoot[%u]",
-//               myRank_, intraLocalRoot_, interLocalRoot_);
-//     return HcclResult::HCCL_SUCCESS;
-// }
-
 // Aicpu
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2, typename InsAlgTemplate3>
 HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3>::PrepareResForTemplate(
     const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &tempAlgIntra, InsAlgTemplate1 &tempAlgInter, InsAlgTemplate2 &tempAlgIntra1)
 {
-
     AlgResourceRequest intraTempRequest;
     AlgResourceRequest interTempRequest;
     AlgResourceRequest intraTempRequest1;
@@ -212,16 +191,16 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 
     intraThreads_.clear();
     intraThreads_.emplace_back(threads_[1]);
-    if (intraThreadsNum + 2 >= 3){
-        for(u32 i = 3 ; i < intraThreadsNum + 2; i++) {
+    if (intraThreadsNum + 2 >= 3) {
+        for (u32 i = 3 ; i < intraThreadsNum + 2; i++) {
             intraThreads_.emplace_back(threads_[i]);
         }
     }
 
     interThreads_.clear();
     interThreads_.emplace_back(threads_[intraThreadsNumFinal + 2]);
-    if (threads_.size() >= intraThreadsNumFinal + 4){
-        for(u32 i = intraThreadsNumFinal + 4 ; i < threads_.size(); i++) {
+    if (threads_.size() >= intraThreadsNumFinal + 4) {
+        for (u32 i = intraThreadsNumFinal + 4 ; i < threads_.size(); i++) {
             interThreads_.emplace_back(threads_[i]);
         }
     }
@@ -275,14 +254,14 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     intraTempAlgRes.channels = intraLinks_;
     intraTempAlgRes.threads = intraThreads_;
     intraTempAlgRes.aivCommInfoPtr = resCtx.aivCommInfoPtr;
-    for(auto i: intraTempAlgRes.channels) {
+    for (auto i: intraTempAlgRes.channels) {
         HCCL_DEBUG("[InsAllReduceParallelExecutor][PrepareResForTemplateResource],intraTempAlgRes.channels, myRank_[%u], channels[%u]= size[%u] ",
         myRank_, i.first, i.second.size());
     }
     interTempAlgRes.channels = interLinks_;
     interTempAlgRes.threads = interThreads_;
     interTempAlgRes.aivCommInfoPtr = resCtx.aivCommInfoPtr;
-    for(auto i: interTempAlgRes.channels) {
+    for (auto i: interTempAlgRes.channels) {
         HCCL_DEBUG("[InsAllReduceParallelExecutor][PrepareResForTemplateResource],interTempAlgRes.channels, myRank_[%u], channels[%u]= size[%u] ",
         myRank_, i.first, i.second.size());
     }
@@ -300,7 +279,7 @@ void InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
     GenDataParamsAllRank(sliceCount, LocalRankSize, dataParams);
 
     dataParams.buffInfo.inputPtr = dataParams.buffInfo.inBuffType == BufferType::HCCL_BUFFER ? resCtx.cclMem.addr : param.inputPtr;
-    dataParams.buffInfo.outputPtr = dataParams.buffInfo.outBuffType == BufferType::HCCL_BUFFER ? resCtx.cclMem.addr : param.inputPtr;
+    dataParams.buffInfo.outputPtr = dataParams.buffInfo.outBuffType == BufferType::HCCL_BUFFER ? resCtx.cclMem.addr : param.outputPtr;
     dataParams.buffInfo.hcclBuff = resCtx.cclMem;
 
     dataParams.buffInfo.hcclBuffBaseOff = scratchOffsetCount * dataTypeSize_ + hcclBuffOffset;
@@ -328,10 +307,10 @@ void InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
 
     u64 rankStridePart1 = RoundDown(sliceSize, (LocalRankSizePart1 * dataTypeSize_)) * dataTypeSize_;
     for (u32 i = 0; i < LocalRankSizePart1; i++) {
-        curSizePart1 = (i == (LocalRankSizePart1 - 1)) ? (sliceSize - LocalRankSizePart1 * i) : rankStridePart1;
+        curSizePart1 = (i == (LocalRankSizePart1 - 1)) ? (sliceSize - rankStridePart1 * i) : rankStridePart1;
         u64 rankStridePart2 = RoundDown(curSizePart1, (LocalRankSizePart2 * dataTypeSize_)) * dataTypeSize_;
         for (u32 j = 0; j < LocalRankSizePart2; j++) {
-            curSizePart2 = (j == (LocalRankSizePart2 - 1)) ? (curSizePart1 - LocalRankSizePart2 * j) : rankStridePart2;
+            curSizePart2 = (j == (LocalRankSizePart2 - 1)) ? (curSizePart1 - rankStridePart2 * j) : rankStridePart2;
             rankId = i * LocalRankSizePart2 + j;
             dataMap[rankId] = std::make_pair(rankStridePart2, curSizePart2); // sliceSize, tailSize
         }
@@ -341,7 +320,7 @@ void InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
     u64 baseOffAG = 0;
     u64 baseOffRS = 0;
     u64 accumAG = 0;
-    for (u32 i =0; i < LocalRankSizePart1; i++) {
+    for (u32 i = 0; i < LocalRankSizePart1; i++) {
         for (u32 j = 0; j < LocalRankSizePart2; j++) {
             rankId = i * LocalRankSizePart2 + j;
             rankBaseOffIntraAGMap_.insert(std::make_pair(rankId, baseOffAG));
@@ -353,7 +332,7 @@ void InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
         baseOffAG += accumAG;
         accumAG = 0;
     }
-    return
+    return;
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2, typename InsAlgTemplate3>
@@ -371,10 +350,10 @@ void InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
 
     u64 rankStridePart1 = RoundDown(sliceSize, (LocalRankSizePart1 * dataTypeSize_)) * dataTypeSize_;
     for (u32 i = 0; i < LocalRankSizePart1; i++) {
-        curSizePart1 = (i == (LocalRankSizePart1 - 1)) ? (sliceSize - LocalRankSizePart1 * i) : rankStridePart1;
+        curSizePart1 = (i == (LocalRankSizePart1 - 1)) ? (sliceSize - rankStridePart1 * i) : rankStridePart1;
         u64 rankStridePart2 = RoundDown(curSizePart1, (LocalRankSizePart2 * dataTypeSize_)) * dataTypeSize_;
         for (u32 j = 0; j < LocalRankSizePart2; j++) {
-            curSizePart2 = (j == (LocalRankSizePart2 - 1)) ? (curSizePart1 - LocalRankSizePart2 * j) : rankStridePart2;
+            curSizePart2 = (j == (LocalRankSizePart2 - 1)) ? (curSizePart1 - rankStridePart2 * j) : rankStridePart2;
             rankId = j * LocalRankSizePart1 + i;
             dataMap[rankId] = std::make_pair(rankStridePart2, curSizePart2); // sliceSize, tailSize
         }
@@ -384,7 +363,7 @@ void InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
     u64 baseOffAG = 0;
     u64 baseOffRS = 0;
     u64 accumAG = 0;
-    for (u32 i =0; i < LocalRankSizePart1; i++) {
+    for (u32 i = 0; i < LocalRankSizePart1; i++) {
         for (u32 j = 0; j < LocalRankSizePart2; j++) {
             rankId = j * LocalRankSizePart1 + i;
             rankBaseOffInterAGMap_.insert(std::make_pair(rankId, baseOffAG));
@@ -396,7 +375,7 @@ void InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
         baseOffAG += accumAG;
         accumAG = 0;
     }
-    return
+    return;
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2, typename InsAlgTemplate3>
@@ -447,10 +426,8 @@ void InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
     currCountPart0_ = allRankSliceSizeInter_[myRankIdx] / dataTypeSize_;
     dataOffset0Inter_ = dataOffset;
     scratchOffsetCountInterStage1_ = scratchOffsetCount;
-
     return;
 }
-
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2, typename InsAlgTemplate3>
 void InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3>::PrePareDataParamstempAlgIntra(
@@ -488,8 +465,7 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 
     u32 multipleIntra = tempAlgIntra.CalcScratchMultiple(BufferType::INPUT, BufferType::OUTPUT);
     u32 multipleInter = tempAlgInter.CalcScratchMultiple(BufferType::INPUT, BufferType::OUTPUT);
-    if(multipleIntra > 0 || multipleInter > 0) {
-        // TODO: 后期优化
+    if (multipleIntra > 0 || multipleInter > 0) {
         multipleIntra = 3;
         multipleInter = 3;
     }
@@ -515,7 +491,7 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     u64 sliceCountPart0 = static_cast<u64>(float(sliceCount) * dataSplitSize.at(0));
     u64 sliceCountPart1 = sliceCount - sliceCountPart0;
 
-    if(sliceCount == 0){
+    if (sliceCount == 0) {
         HCCL_WARNING("The divisor cannot be zero.");
         return HcclResult::HCCL_SUCCESS;
     }
@@ -652,7 +628,10 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     if (currCountPart0_ > 0) {
         GenDataParamsBufferType(BufferType::HCCL_BUFFER, BufferType::HCCL_BUFFER, BufferType::HCCL_BUFFER, dataParams);
         GenDataParamstempAlg(param, resCtx, dataOffset0Inter_, currCountPart0_, scratchOffsetCountInterStage1_, dataParams, interLocalRankSize_, inputOffset, outputOffset, hcclBuffOffset);
-        dataParams.buffInfo.outputPtr = reinterpret_cast<void*>(reinterpret_cast<char*>(dataParams.buffInfo.outputPtr) + rankBaseOffInterRSMap_.at(myRank_));
+        // dataParams.buffInfo.outputPtr = reinterpret_cast<void*>(reinterpret_cast<char*>(dataParams.buffInfo.outputPtr) + rankBaseOffInterRSMap_.at(myRank_));
+        dataParams.buffInfo.inBuffBaseOff += rankBaseOffInterAGMap_.at(myRank_);
+        dataParams.buffInfo.hcclBuffBaseOff += rankBaseOffInterAGMap_.at(myRank_);
+        dataParams.buffInfo.outBuffBaseOff += rankBaseOffInterAGMap_.at(myRank_);
         CHK_RET(tempAlgInter.KernelRun(param, dataParams, templateResource));
     }
     return HcclResult::HCCL_SUCCESS;
@@ -671,7 +650,10 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     if (currCountPart1_ > 0) {
         GenDataParamsBufferType(BufferType::HCCL_BUFFER, BufferType::HCCL_BUFFER, BufferType::HCCL_BUFFER, dataParams);
         GenDataParamstempAlg(param, resCtx, dataOffset0Intra_, currCountPart1_, scratchOffsetCountIntraStage1_, dataParams, intraLocalRankSize_, inputOffset, outputOffset, hcclBuffOffset);
-        dataParams.buffInfo.outputPtr = reinterpret_cast<void*>(reinterpret_cast<char*>(dataParams.buffInfo.outputPtr) + rankBaseOffIntraRSMap_.at(myRank_));
+        dataParams.buffInfo.inBuffBaseOff += rankBaseOffIntraAGMap_.at(myRank_);
+        dataParams.buffInfo.hcclBuffBaseOff += rankBaseOffIntraAGMap_.at(myRank_);
+        dataParams.buffInfo.outBuffBaseOff += rankBaseOffIntraAGMap_.at(myRank_);
+        // dataParams.buffInfo.outputPtr = reinterpret_cast<void*>(reinterpret_cast<char*>(dataParams.buffInfo.outputPtr) + rankBaseOffIntraRSMap_.at(myRank_));
         CHK_RET(tempAlgIntra.KernelRun(param, dataParams, templateResource));
     }
     return HcclResult::HCCL_SUCCESS;
@@ -692,8 +674,8 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     if (currCountPart0_ > 0) {
         GenDataParamsBufferType(BufferType::HCCL_BUFFER, BufferType::HCCL_BUFFER, BufferType::HCCL_BUFFER, dataParams);
         GenDataParamstempAlg(param, resCtx, dataOffset0Inter_, currCountPart0_, scratchOffsetCountInterStage1_, dataParams, interLocalRankSize_, inputOffset, outputOffset, hcclBuffOffset);
-        dataParams.buffInfo.hcclBuffBaseOff += rankBaseOffInterAGMap_.at(myRank_);
         dataParams.buffInfo.inBuffBaseOff += rankBaseOffInterAGMap_.at(myRank_);
+        dataParams.buffInfo.hcclBuffBaseOff += rankBaseOffInterAGMap_.at(myRank_);
         dataParams.buffInfo.outBuffBaseOff += rankBaseOffInterAGMap_.at(myRank_);
         CHK_RET(tempAlgInter1.KernelRun(param, dataParams, templateResource));
     }
@@ -713,8 +695,8 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     if (currCountPart1_ > 0) {
         GenDataParamsBufferType(BufferType::HCCL_BUFFER, BufferType::HCCL_BUFFER, BufferType::HCCL_BUFFER, dataParams);
         GenDataParamstempAlg(param, resCtx, dataOffset0Intra_, currCountPart1_, scratchOffsetCountIntraStage1_, dataParams, intraLocalRankSize_, inputOffset, outputOffset, hcclBuffOffset);
-        dataParams.buffInfo.hcclBuffBaseOff += rankBaseOffIntraAGMap_.at(myRank_);
         dataParams.buffInfo.inBuffBaseOff += rankBaseOffIntraAGMap_.at(myRank_);
+        dataParams.buffInfo.hcclBuffBaseOff += rankBaseOffIntraAGMap_.at(myRank_);
         dataParams.buffInfo.outBuffBaseOff += rankBaseOffIntraAGMap_.at(myRank_);
         CHK_RET(tempAlgIntra1.KernelRun(param, dataParams, templateResource));
     }
