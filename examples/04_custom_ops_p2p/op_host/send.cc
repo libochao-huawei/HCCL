@@ -77,12 +77,27 @@ HcclResult HcclSendCustom(
         // ==============================================
         // STEP 2.2: 建立通信链路Channel，两个 rank 之间建立 1 个 channel
         // ==============================================
-        HcclChannelDesc channelDesc;
-        CHK_RET(HcclChannelDescInit(&channelDesc, 1));
-        channelDesc.remoteRank = destRank;
-        channelDesc.channelProtocol = CommProtocol::COMM_PROTOCOL_HCCS;
-        channelDesc.notifyNum = 2;
-        CHK_RET(HcclChannelAcquire(comm, engine, &channelDesc, 1, &(resCtxHost.channelHandle)));
+        uint32_t netLayer = 0, listSize = 0;
+        CommLink *linkList = nullptr;
+        CHK_RET(HcclRankGraphGetLinks(comm, netLayer, rank, destRank, &linkList, &listSize));
+
+        HcclChannelDesc desc;
+        CHK_RET(HcclChannelDescInit(&desc, 1));
+        if (listSize != 1) {
+            HCCL_ERROR("[HcclSendCustom] Unsupported listSize=%u on netLayer-0", listSize);
+            return HCCL_E_INTERNAL;
+        }
+        CommLink link = linkList[0];
+        desc.remoteRank = destRank;
+        desc.localEndpoint.protocol = link.srcEndpointDesc.protocol;
+        desc.localEndpoint.commAddr = link.srcEndpointDesc.commAddr;
+        desc.localEndpoint.loc = link.srcEndpointDesc.loc;
+        desc.remoteEndpoint.protocol = link.dstEndpointDesc.protocol;
+        desc.remoteEndpoint.commAddr = link.dstEndpointDesc.commAddr;
+        desc.remoteEndpoint.loc = link.dstEndpointDesc.loc;
+        desc.channelProtocol = link.linkAttr.linkProtocol;
+        desc.notifyNum = 2;
+        CHK_RET(HcclChannelAcquire(comm, engine, &desc, 1, &(resCtxHost.channelHandle)));
 
         // ==============================================
         // STEP 2.3: 获取本端和远端的中转内存
