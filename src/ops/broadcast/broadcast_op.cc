@@ -39,9 +39,6 @@ HcclResult HcclBroadcast(void *buf, uint64_t count, HcclDataType dataType, uint3
     #endif
         return HcclBroadcastInner(buf, count, dataType, root, comm, stream);
     }
-    if (GetWorkflowMode() != HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE) {
-        return HcclBroadcastInner(buf, count, dataType, root, comm, stream);
-    }
 
     std::string opTag;
     CHK_RET(BroadcastInitAndCheck(comm, buf, count, dataType, root, stream, opTag));
