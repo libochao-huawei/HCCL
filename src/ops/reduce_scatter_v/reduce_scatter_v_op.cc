@@ -45,7 +45,7 @@ HcclResult HcclReduceScatterV(void *sendBuf,  const void *sendCounts, const void
 
     // 参数校验等工作;
     // 校验入参
-    CHK_RET(CheckReduceScatterVInputPara(comm, sendBuf, recvBuf, sendCounts, sendDispls, stream));
+    CHK_RET(CheckReduceScatterVInputPara(comm, sendBuf, recvBuf, recvCount, sendCounts, sendDispls, stream));
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     CHK_RET(HcclGetRankSize(comm, &rankSize));
     // 校验sendCounts全部为0的情况
@@ -72,7 +72,7 @@ HcclResult HcclReduceScatterV(void *sendBuf,  const void *sendCounts, const void
 
 namespace ops_hccl {
 HcclResult CheckReduceScatterVInputPara(
-    const HcclComm comm, const void *sendBuf, const void *recvBuf, 
+    const HcclComm comm, const void *sendBuf, const void *recvBuf, uint64_t recvCount,
     const void *sendCounts, const void *sendDispls, const aclrtStream stream)
 {
     // 入参合法性校验
@@ -83,14 +83,6 @@ HcclResult CheckReduceScatterVInputPara(
         std::vector<std::string>({"HcclReduceScatterV", "comm", "nullptr", "please check comm"}));
     CHK_PTR_NULL(comm);
 
-    RPT_INPUT_ERR(sendBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-        std::vector<std::string>({"HcclReduceScatterV", "sendBuf", "nullptr", "please check sendBuf"}));
-    CHK_PTR_NULL(sendBuf);
-
-    RPT_INPUT_ERR(recvBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-        std::vector<std::string>({"HcclReduceScatterV", "recvBuf", "nullptr", "please check recvBuf"}));
-    CHK_PTR_NULL(recvBuf);
-
     RPT_INPUT_ERR(sendCounts == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
         std::vector<std::string>({"HcclReduceScatterV", "sendCounts", "nullptr", "please check sendCounts"}));
     CHK_PTR_NULL(sendCounts);
@@ -98,9 +90,12 @@ HcclResult CheckReduceScatterVInputPara(
     RPT_INPUT_ERR(sendDispls == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
         std::vector<std::string>({"HcclReduceScatterV", "sendDispls", "nullptr", "please check sendDispls"}));
     CHK_PTR_NULL(sendDispls);
-
-    CHK_PRT_RET(sendBuf == recvBuf,
-        HCCL_ERROR("[HcclReduceScatterV] sendBuf and recvBuf cannot be same."), HCCL_E_PARA);
+    if (UNLIKELY(recvCount > 0 && recvBuf == nullptr)) {
+        RPT_INPUT_ERR(true, "EI0003",\
+        std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclReduceScatterV", "nullptr", "recvBuf", "non-null pointer"}));
+        CHK_PTR_NULL(recvBuf);
+    }
 
     return HCCL_SUCCESS;
 }
