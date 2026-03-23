@@ -129,7 +129,7 @@ HcclResult InsTempReduceScatterNHR::PostLocalCopy(const std::vector<ThreadHandle
                               + rpt * tempAlgParams_.outputRepeatStride;
 
         const u64 scOff  = scratchBase + tempAlgParams_.sliceSize * myAlgIdx;
-        const u64 outOff = outBaseOff;
+        const u64 outOff = outBaseOff + myAlgIdx * tempAlgParams_.outputSliceStride;
 
         DataSlice src = DataSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scOff, sliceSize);
         DataSlice dst = DataSlice(tempAlgParams_.buffInfo.outputPtr, outOff, sliceSize);
