@@ -712,8 +712,8 @@ HcclResult RegGraphModeBuffers(HcclComm comm, const OpParam &param, std::vector<
         return HCCL_SUCCESS;
     }
 
-    auto retIn = sprintf_s(inputBuffTag, MAX_MEM_TAG_LENGTH, "%s_%s", param.algTag, "InputBuffer");
-    auto retOut =  sprintf_s(outputBuffTag, MAX_MEM_TAG_LENGTH, "%s_%s", param.algTag, "OutputBuffer");
+    auto retIn = sprintf_s(inputBuffTag, MAX_MEM_TAG_LENGTH, "InputBuffer");
+    auto retOut =  sprintf_s(outputBuffTag, MAX_MEM_TAG_LENGTH, "OutputBuffer");
     if (retIn <= 0 || retOut <= 0){
         HCCL_ERROR("[RegGraphModeBuffers]faled to fill BuffTag");
         return HcclResult::HCCL_E_INTERNAL;
