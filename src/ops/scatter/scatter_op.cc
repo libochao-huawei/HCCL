@@ -69,6 +69,10 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
         return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
     }
 
+    if (deviceType != DevType::DEV_TYPE_910_93 && !HcclCheckAicpuEnableOpen() && !HcclCheckCcuEnableOpen() && !HcclCheckAivEnableOpen()) {
+        return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
+    }
+
     // 图模式引导到老的流程上面
     if (GetWorkflowMode() != HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE) {
         return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
@@ -292,8 +296,7 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
         // cpuTsThread 添加到ctx里
         char* curPtr = reinterpret_cast<char *>(resCtx);
         curPtr = curPtr + sizeof(AlgResourceCtx) - sizeof(TopoInfo) - sizeof(ThreadHandle) - sizeof(uint32_t) * AICPU_CONTROL_NOTIFY_NUM - sizeof(void*); // 偏移指针
-        ACLCHECK(aclrtMemcpy(curPtr, sizeof(ThreadHandle), &exportedAicpuTsThread, sizeof(ThreadHandle),
-            ACL_MEMCPY_HOST_TO_DEVICE));
+        CHK_RET(haclrtMemcpy(curPtr, sizeof(ThreadHandle), &exportedAicpuTsThread, sizeof(ThreadHandle), ACL_MEMCPY_HOST_TO_DEVICE));
     }
     
     // 算法执行

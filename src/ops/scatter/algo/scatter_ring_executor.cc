@@ -102,13 +102,13 @@ HcclResult ScatterRingExecutor::KernelRunLevel2(const OpParam &param, ExecMem &e
         std::unique_ptr<AlgTemplateBase> level2TempAlg;
         if (algType_.algoLevel2 == AlgTypeLevel2::ALG_LEVEL2_NB) {
             level2TempAlg = AlgTemplateRegistry::Instance().GetAlgTemplate(TemplateType::TEMPLATE_SCATTER_NB);
-            HCCL_INFO("[ScatterRingExecutor][KernelRunLevel2] using NB algo inter-superPod.");
+            HCCL_CONFIG_INFO(HCCL_ALG, "[%s] Run TEMPLATE_SCATTER_NB in COMM_LEVEL2", __func__);
         } else if (algType_.algoLevel2 == AlgTypeLevel2::ALG_LEVEL2_NHR) {
             level2TempAlg = AlgTemplateRegistry::Instance().GetAlgTemplate(TemplateType::TEMPLATE_SCATTER_NHR);
-            HCCL_INFO("[ScatterRingExecutor][KernelRunLevel2] using NHR algo inter-superPod.");
+            HCCL_CONFIG_INFO(HCCL_ALG, "[%s] Run TEMPLATE_SCATTER_NHR in COMM_LEVEL2", __func__);
         } else {
             level2TempAlg = AlgTemplateRegistry::Instance().GetAlgTemplate(TemplateType::TEMPLATE_SCATTER_RING);
-            HCCL_INFO("[ScatterRingExecutor][KernelRunLevel2] using ring algo inter-superPod.");
+            HCCL_CONFIG_INFO(HCCL_ALG, "[%s] Run TEMPLATE_SCATTER_RING in COMM_LEVEL2", __func__);
         }
         CHK_SMART_PTR_NULL(level2TempAlg);
 
@@ -147,13 +147,13 @@ HcclResult ScatterRingExecutor::KernelRunLevel1(const OpParam &param, ExecMem &e
         std::unique_ptr<AlgTemplateBase> level1TempAlg;
         if (algType_.algoLevel1 == AlgTypeLevel1::ALG_LEVEL1_NB) {
             level1TempAlg = AlgTemplateRegistry::Instance().GetAlgTemplate(TemplateType::TEMPLATE_SCATTER_NB);
-            HCCL_INFO("[ScatterRingExecutor][KernelRunLevel1] using NB algo inter-server.");
+            HCCL_CONFIG_INFO(HCCL_ALG, "[%s] Run TEMPLATE_SCATTER_NB in COMM_LEVEL1", __func__);
         } else if (algType_.algoLevel1 == AlgTypeLevel1::ALG_LEVEL1_NHR) {
             level1TempAlg = AlgTemplateRegistry::Instance().GetAlgTemplate(TemplateType::TEMPLATE_SCATTER_NHR);
-            HCCL_INFO("[ScatterRingExecutor][KernelRunLevel1] using NHR algo inter-server.");
+            HCCL_CONFIG_INFO(HCCL_ALG, "[%s] Run TEMPLATE_SCATTER_NHR in COMM_LEVEL1", __func__);
         } else {
             level1TempAlg = AlgTemplateRegistry::Instance().GetAlgTemplate(TemplateType::TEMPLATE_SCATTER_RING);
-            HCCL_INFO("[ScatterRingExecutor][KernelRunLevel1] using ring algo inter-server.");
+            HCCL_CONFIG_INFO(HCCL_ALG, "[%s] Run TEMPLATE_SCATTER_RING in COMM_LEVEL1", __func__);
         }
         CHK_SMART_PTR_NULL(level1TempAlg);
         HcclMem level1InputMem = HcclMemRange(execMem.inputMem, level1SliceOffset_, level1SliceSize);
@@ -227,9 +227,11 @@ HcclResult ScatterRingExecutor::MultiRingScatter(HcclMem inputMem, HcclMem outpu
         std::unique_ptr<AlgTemplateBase> tempAlg;
         if (opInfo == nullptr) {
             tempAlg = AlgTemplateRegistry::Instance().GetAlgTemplate(TemplateType::TEMPLATE_SCATTER_RING);
+            HCCL_CONFIG_INFO(HCCL_ALG, "[%s][KernelRun] Run TEMPLATE_SCATTER_RING in COMM_LEVEL0", __func__);
             CHK_SMART_PTR_NULL(tempAlg);
         } else {
             tempAlg = AlgTemplateRegistry::Instance().GetAlgTemplate(TemplateType::TEMPLATE_SCATTER_RING_DIRECT);
+            HCCL_CONFIG_INFO(HCCL_ALG, "[%s][KernelRun] Run TEMPLATE_SCATTER_RING_DIRECT in COMM_LEVEL0", __func__);
             CHK_SMART_PTR_NULL(tempAlg);
             CHK_RET(tempAlg->Prepare(
                 const_cast<HcomCollOpInfo *>(opInfo), topoInfo_->userRank, rankOrder, singleRingSlice));
