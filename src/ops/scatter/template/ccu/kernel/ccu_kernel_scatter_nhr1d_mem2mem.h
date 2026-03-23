@@ -134,10 +134,10 @@ public:
           repeatNum_(repeatNum),
           isOutputScratch_(isOutputScratch)
     {
-        HCCL_DEBUG("[CcuTaskArgScatterNHRMem2Mem1D] inputAddr: %lu, outputAddr: %lu, scratchAddr: %lu, token: %lu, "
+        HCCL_DEBUG("[CcuTaskArgScatterNHRMem2Mem1D] inputAddr: %lu, outputAddr: %lu, scratchAddr: %lu, "
                    "sliceSize: %lu, die0Size: %lu, die1Size: %lu, inputSliceStride: %lu, inputRepeatStride: %lu, "
                    "outputRepeatStride: %lu, repeatNum: %lu, isOutputScratch: %lu",
-                   inputAddr_, outputAddr_, scratchAddr_, token_, sliceSize_, die0Size_, die1Size_,
+                   inputAddr_, outputAddr_, scratchAddr_, sliceSize_, die0Size_, die1Size_,
                    inputSliceStride_, inputRepeatStride_, outputRepeatStride_, repeatNum_, isOutputScratch_);
     }
 
