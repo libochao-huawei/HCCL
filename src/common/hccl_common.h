@@ -18,10 +18,10 @@
 #include <string>
 #include <unordered_map>
 #include <algorithm>
-#include "dtype_common.h"
+#include "dtype_common_dl.h"
 #include "log.h"
 #include "hccl_types.h"
-#include "hccl_res.h"
+#include "hccl_res_dl.h"
 
 #ifndef T_DESC
 #define T_DESC(_msg, _y) ((_y) ? true : false)
@@ -145,9 +145,10 @@ typedef enum {
     HCCL_MEM_TYPE_NUM     ///< 内存类型数量
 } HcclMemType;
 
+
 struct HcclMem {
-    HcclMemType type;
-    void* addr;
-    uint64_t size;
+    HcclMemType type = HcclMemType::HCCL_MEM_TYPE_DEVICE;
+    void* addr = nullptr;
+    uint64_t size = 0;
 };
 #endif // HCCL_COMMON_H
