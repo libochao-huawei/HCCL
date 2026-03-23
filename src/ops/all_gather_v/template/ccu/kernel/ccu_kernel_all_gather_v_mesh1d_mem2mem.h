@@ -50,9 +50,9 @@ public:
         : inputAddr_(inputAddr), outputAddr_(outputAddr), token_(token), mySliceSize_(mySliceSize),
           mySliceSizeOutputOffset_(mySliceSizeOutputOffset)
     {
-        HCCL_DEBUG("[CcuTaskArgAllGatherVMesh1DMem2Mem] inputAddr: %lu, outputAddr: %lu, token: %lu, inputSliceStride: %lu, "
+        HCCL_DEBUG("[CcuTaskArgAllGatherVMesh1DMem2Mem] inputAddr: %lu, outputAddr: %lu, inputSliceStride: %lu, "
                    "outputSliceStride: %lu",
-                   inputAddr_, outputAddr_, token_, mySliceSize, mySliceSizeOutputOffset);
+                   inputAddr_, outputAddr_, mySliceSize, mySliceSizeOutputOffset);
     }
 
     uint64_t inputAddr_;

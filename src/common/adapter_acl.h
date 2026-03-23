@@ -42,6 +42,8 @@ HcclResult hcalrtGetDeviceInfo(u32 deviceId, aclrtDevAttr devAttr, s64 &val);
 
 HcclResult LoadBinaryFromFile(const char *binPath, aclrtBinaryLoadOptionType optionType, uint32_t cpuKernelMode,
     aclrtBinHandle &binHandle);
+
+HcclResult haclrtMemcpy(void *dst, size_t destMax, const void *src, size_t count, aclrtMemcpyKind kind);
 }
 
 #endif // ADAPTER_ACL_H
