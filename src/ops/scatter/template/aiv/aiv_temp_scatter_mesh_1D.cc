@@ -59,7 +59,7 @@ HcclResult AivTempScatterMesh1D::KernelRun(const OpParam& param,
     aivScatterArgs.dataType = dataType_;
     aivScatterArgs.op = param.reduceType;
     aivScatterArgs.root = root_;
-    aivScatterArgs.aivCountTag = (static_cast<uint32_t>(param.aivCountTag) << AIV_TAG_MOVE_LEFT_BITS) | static_cast<uint32_t>(sliceId_);  // 传入aivCountTag，Lauch时重新组装为aivCountTag  // todo
+    aivScatterArgs.aivCountTag = static_cast<uint32_t>(sliceId_);
     aivScatterArgs.buffersIn = templateResource.aivCommInfoPtr;
     aivScatterArgs.stream = param.stream;
     aivScatterArgs.isOpBase = (param.opMode == OpMode::OPBASE);
