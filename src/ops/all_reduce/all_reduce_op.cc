@@ -23,7 +23,14 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 HcclResult HcclAllReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType,
     HcclReduceOp op, HcclComm comm, aclrtStream stream)
 {
+    if (!HcclCheckAicpuEnableOpen() && !HcclCheckCcuEnableOpen() && !HcclCheckAivEnableOpen()) {
+        return HcclAllReduceInner(sendBuf, recvBuf, count, dataType, op, comm, stream);
+    }
     HCCL_INFO("Start to run execute HcclAllReduce");
+    if (GetHcommVersion() < 90000000) { // compat handle
+        return HcclAllReduceInner(sendBuf, recvBuf, count, dataType, op, comm, stream);
+    }
+
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
     // 非95设备转到老流程
@@ -34,14 +41,10 @@ HcclResult HcclAllReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataT
     #endif
         return HcclAllReduceInner(sendBuf, recvBuf, count, dataType, op, comm, stream);
     }
-    // 图模式引导到老的流程上面
-    if (GetWorkflowMode() != HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE) {
-        return HcclAllReduceInner(sendBuf, recvBuf, count, dataType, op, comm, stream);
-    }
+
     // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
     // A3是：export HCCL_OP_EXPANSION_MODE="AI_CPU"，A5的接口还没提供
     CHK_RET(InitEnvConfig());
-
     // 参数校验等工作
     CHK_PRT_RET(count == 0, HCCL_WARNING("input count is 0, return all reduce success"), HCCL_SUCCESS);
     CHK_RET(CheckAllReduceInputPara(comm, sendBuf, recvBuf, stream));
@@ -80,8 +83,6 @@ HcclResult CheckAllReduceInputPara(const HcclComm comm, const void* sendBuf, con
     RPT_INPUT_ERR(recvBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
         std::vector<std::string>({"HcclAllReduce", "recvBuf", "nullptr", "please check recvBuf"}));
     CHK_PTR_NULL(recvBuf);
-    CHK_PRT_RET(sendBuf == recvBuf,
-        HCCL_ERROR("[HcclAllReduce] sendBuf and recvBuf cannot be same."), HCCL_E_PARA);
 
     return HCCL_SUCCESS;
 }
