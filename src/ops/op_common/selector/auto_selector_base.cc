@@ -16,7 +16,7 @@ namespace ops_hccl {
 SelectorStatus AutoSelectorBase::Select(OpParam &opParam, TopoInfoWithNetLayerDetails* topoInfo,
                                         std::string &selectAlgName) const
 {
-    HCCL_DEBUG("[AutoSelectorBase][%s] start, OpExecuteConfig is %d.", opParam.opExecuteConfig);
+    HCCL_DEBUG("[AutoSelectorBase][%s] start, OpExecuteConfig is %d.", __func__, opParam.opExecuteConfig);
     std::map<HcclCMDType, std::vector<HcclAlgoType>> configAlgMap = GetExternalInputHcclAlgoConfigAllType();
     SelectorStatus ret = SelectorStatus::NOT_MATCH;
     bool hostDPUOnly = false;
