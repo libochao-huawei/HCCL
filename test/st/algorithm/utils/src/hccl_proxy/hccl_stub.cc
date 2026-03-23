@@ -933,6 +933,12 @@ HcclResult HcommProfilingReportMainStreamAndLastTask(ThreadHandle thread)
     return HCCL_SUCCESS;
 }
 
+HcclResult HcclThreadResGetInfo(HcclComm comm, ThreadHandle thread, ThreadResType resType, uint32_t infoLen, void **info)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+
 #ifdef __cplusplus
 }
 #endif  // __cplusplus
