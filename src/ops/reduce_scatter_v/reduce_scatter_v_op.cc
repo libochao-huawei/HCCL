@@ -48,7 +48,7 @@ HcclResult HcclReduceScatterV(void *sendBuf,  const void *sendCounts, const void
 
     // 参数校验等工作;
     // 校验入参
-    CHK_RET(CheckReduceScatterVInputPara(comm, sendBuf, recvBuf, recvCount, sendCounts, sendDispls, stream));
+    CHK_RET(CheckReduceScatterVInputParam(comm, sendBuf, recvBuf, recvCount, sendCounts, sendDispls, stream));
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     CHK_RET(HcclGetRankSize(comm, &rankSize));
     // 校验sendCounts全部为0的情况
@@ -85,7 +85,7 @@ HcclResult HcclReduceScatterVGraphMode(void *sendBuf,  const void *sendCounts, c
     // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
     CHK_RET(InitEnvConfig());
     // 参数校验等工作;
-    CHK_RET(CheckReduceScatterVInputPara(comm, sendBuf, recvBuf, sendCounts, sendDispls, stream));
+    CHK_RET(CheckReduceScatterVInputParam(comm, sendBuf, recvBuf, recvCount, sendCounts, sendDispls, stream));
 
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     CHK_RET(HcclGetRankSize(comm, &rankSize));
