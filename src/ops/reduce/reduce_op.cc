@@ -43,7 +43,7 @@ HcclResult HcclReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType
     CHK_RET(ReduceInitAndCheck(comm, sendBuf, recvBuf, count, dataType, opTag));
 
     // 执行Reduce
-    CHK_RET_AND_PRINT_IDE(ReduceOutPlace(sendBuf, recvBuf, count, dataType, op, root, comm, stream, tag), opTag.c_str());
+    CHK_RET_AND_PRINT_IDE(ReduceOutPlace(sendBuf, recvBuf, count, dataType, op, root, comm, stream, opTag), opTag.c_str());
 
     return HCCL_SUCCESS;
 }
@@ -137,22 +137,7 @@ HcclResult ReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclData
     uint32_t root, HcclComm comm, aclrtStream stream, const std::string &tag)
 {
     HCCL_INFO("Start to execute ReduceOutPlace");
-    u32 userRankSize = 0;
-    CHK_RET(HcclGetRankSize(comm, &userRankSize));
-
-    OpParam param;
-    CHK_RET(ReduceConstructOpParam(sendBuf, recvBuf, count, dataType, op, root, comm, stream, tag, param));
-
-    if (userRankSize == 1) {
-        HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
-        CHK_RET(SingleRankProc(param));
-        return HcclResult::HCCL_SUCCESS;
-    }
-
-    std::string algName;
-    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
-    CHK_RET(Selector(comm, param, topoInfo, algName));
-    CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
+    CHK_RET(ReduceOutPlaceCommon(sendBuf, recvBuf, count, dataType, op, root, comm, stream, tag, OpMode::OPBASE, ResPackGraphMode()));
     HCCL_INFO("Execute ReduceOutPlace success.");
     return HCCL_SUCCESS;
 }
@@ -161,21 +146,7 @@ HcclResult ReduceOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t count,
     uint32_t root, HcclComm comm, aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack)
 {
     HCCL_INFO("Start to execute ReduceOutPlaceGraphMode");
-    u32 userRankSize = 0;
-    CHK_RET(HcclGetRankSize(comm, &userRankSize));
-
-    OpParam param;
-    CHK_RET(ReduceConstructOpParam(sendBuf, recvBuf, count, dataType, op, root, comm, stream, tag, param));
-    
-    if (userRankSize == 1) {
-        HCCL_WARNING("[%s] rankSize == 1, enter SingleRankProc", __func__);
-        CHK_RET(SingleRankProc(param));
-        return HcclResult::HCCL_SUCCESS;
-    }
-    std::string algName;
-    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
-    CHK_RET(Selector(comm, param, topoInfo, algName));
-    CHK_RET(HcclExecOpGraphMode(comm, param, topoInfo, algName, resPack));
+    CHK_RET(ReduceOutPlaceCommon(sendBuf, recvBuf, count, dataType, op, root, comm, stream, tag, OpMode::OFFLOAD, resPack));
     HCCL_INFO("Execute ReduceOutPlaceGraphMode success.");
     return HCCL_SUCCESS;
 }
@@ -213,6 +184,33 @@ HcclResult ReduceConstructOpParam(void *sendBuf, void *recvBuf, uint64_t count, 
     param.deviceType = deviceType;
     param.root = root;
 
+    return HCCL_SUCCESS;
+}
+
+HcclResult ReduceOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
+    uint32_t root, HcclComm comm, aclrtStream stream, const std::string &tag, OpMode opMode, const ResPackGraphMode &resPack)
+{
+    HCCL_INFO("Start to execute ReduceOutPlaceCommon");
+    u32 userRankSize = 0;
+    CHK_RET(HcclGetRankSize(comm, &userRankSize));
+
+    OpParam param;
+    CHK_RET(ReduceConstructOpParam(sendBuf, recvBuf, count, dataType, op, root, comm, stream, tag, param));
+
+    if (userRankSize == 1) {
+        HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
+        CHK_RET(SingleRankProc(param));
+        return HcclResult::HCCL_SUCCESS;
+    }
+
+    std::string algName;
+    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
+    CHK_RET(Selector(comm, param, topoInfo, algName));
+    if (ShouldUseInnerOp(param.opExecuteConfig)) {
+        return HcclReduceInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
+    }
+    CHK_RET(HcclExecOp(comm, param, topoInfo, algName, resPack));
+    HCCL_INFO("Execute ReduceOutPlaceCommon success.");
     return HCCL_SUCCESS;
 }
 
