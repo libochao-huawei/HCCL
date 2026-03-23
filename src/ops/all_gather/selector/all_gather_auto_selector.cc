@@ -147,6 +147,12 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
     if (topoInfo->topoLevelNums > 1) {
+        // Level1Nhr 已在 CalcTopoShape 中设置（GCD==1 时为 true）
+        if (topoInfo->Level1Nhr) {
+            selectAlgName = "CcuAllGatherNHR1DMem2Mem";
+            HCCL_INFO("[AllGatherAutoSelector] Level1Nhr=true, select [%s]", selectAlgName.c_str());
+            return SelectorStatus::MATCH;
+        }
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             if (topoInfo->is2DieFullMesh) {
                 HCCL_DEBUG("[AllGatherAutoSelector] 2DieFullMesh is not supported yet for ccu schedule mode.");
@@ -179,6 +185,7 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
     HCCL_INFO("[AllGatherAutoSelector][SelectAicpuAlgo] topoLevelNums=[%d], deviceNumPerModule=[%d], level0Topo=[%d]",
               topoInfo->topoLevelNums, topoInfo->deviceNumPerModule, topoInfo->level0Topo);
     if (topoInfo->topoLevelNums > 1) {
+        // Level1Nhr 已在 CalcTopoShape 中设置（GCD==1 时为 true）
         if (topoInfo->Level1Nhr) {
             selectAlgName = "InsAllGatherNHR";
         } else if (topoInfo->Level0Nhr) {
