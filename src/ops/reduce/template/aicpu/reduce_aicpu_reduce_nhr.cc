@@ -26,7 +26,7 @@ void ReduceAicpuReduceNHR::SetRoot(u32 root)
 }
 
 HcclResult ReduceAicpuReduceNHR::CalcRes(
-    HcclComm comm, const OpParam &param, const TopoInfo *topoInfo, AlgResourceRequest &resourceRequest)
+    HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo, AlgResourceRequest &resourceRequest)
 {
     u32 threadNum = 1;
     resourceRequest.slaveThreadNum = threadNum - 1;
@@ -69,7 +69,7 @@ HcclResult ReduceAicpuReduceNHR::KernelRun(
     thread_ = templateResource.threads.at(0);
     buffInfo_ = tempAlgParams.buffInfo;
 
-    myIdx_ = getMyAlgRank(myRank_);
+    myIdx_ = GetAlgRank(myRank_);
     CHK_PRT_RET(myIdx_ >= templateRankSize_,
         HCCL_ERROR("[ReduceAicpuReduceNHR] rank idx[%u] in virtRankMap is invalid, it should be less than rankSize[%u]",
             myIdx_,
@@ -199,14 +199,14 @@ HcclResult ReduceAicpuReduceNHR::RunReduce(const std::map<u32, std::vector<Chann
     const TemplateDataParams &tempAlgParams, const std::string &algTag)
 {
     HCCL_INFO("[ReduceAicpuReduceNHR][RunReduce] start");
-    if (myRank_ != root) {
+    if (myRank_ != root_) {
         return HCCL_SUCCESS;
     }
 
     const BuffInfo &buffInfo = tempAlgParams.buffInfo;
     const u64 sliceSize = tempAlgParams.sliceSize;
     const DataSlice srcSlice(buffInfo.hcclBuff.addr, buffInfo.hcclBuffBaseOff, sliceSize, count_);
-    const DataSlice srcSlice(buffInfo.outputPtr, buffInfo.outBuffBaseOff, sliceSize, count_);
+    const DataSlice dstSlice(buffInfo.outputPtr, buffInfo.outBuffBaseOff, sliceSize, count_);
     CHK_RET(static_cast<HcclResult>(LocalCopy(thread_, srcSlice, dstSlice)));
 
     CHK_RET(static_cast<HcclResult>(HcommBatchModeEnd(algTag.c_str())));
