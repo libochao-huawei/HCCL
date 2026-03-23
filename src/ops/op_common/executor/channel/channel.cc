@@ -141,6 +141,9 @@ HcclResult GetProtocolByEngine(const OpParam& param, std::vector<CommProtocol> &
             protocols.push_back(CommProtocol::COMM_PROTOCOL_UB_MEM);
             break;
         case CommEngine::COMM_ENGINE_CPU:
+            // level 1到level n-1使用UB协议，server内建联，最外层使用网卡建联
+            protocols.push_back(CommProtocol::COMM_PROTOCOL_UBC_CTP);
+            protocols.push_back(CommProtocol::COMM_PROTOCOL_UBC_TP);
             protocols.push_back(CommProtocol::COMM_PROTOCOL_ROCE);
             break;
         case CommEngine::COMM_ENGINE_CPU_TS:
