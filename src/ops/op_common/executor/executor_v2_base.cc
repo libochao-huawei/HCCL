@@ -49,13 +49,4 @@ HcclResult InsCollAlgBase::FastLaunch(const OpParam &param, const CcuFastLaunchC
     HCCL_ERROR("[InsCollAlgBase] Unsupported interface of InsCollAlgBase::FastLaunch!");
     return HcclResult::HCCL_E_INTERNAL;
 }
-
-HcclResult InsCollAlgBase::FastLaunchSaveCtx(const OpParam &param, const TemplateResource &templateAlgRes)
-{
-    (void)param;
-    (void)templateAlgRes;
-    HCCL_ERROR("[InsCollAlgBase] Unsupported interface of InsCollAlgBase::FastLaunchSaveCtx!");
-    return HcclResult::HCCL_E_INTERNAL;
-}
-
 }

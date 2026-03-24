@@ -231,6 +231,13 @@ HcclResult HcclExecOpCcuFastLaunch(HcclComm comm, OpParam &param, const CcuFastL
     CHK_PRT_RET(
         executor.get() == nullptr, HCCL_ERROR("Fail to find executor for algName[%s]", algName.c_str()), HCCL_E_PARA);
     
+    void *cclBufferAddr;
+    uint64_t cclBufferSize;
+    // 从通信域获取CCL buffer
+    CHK_RET(HcclGetHcclBuffer(comm, &cclBufferAddr, &cclBufferSize));
+    // CCL IN使用所有的CCL Buffer，这个其实就是scratch buffer
+    param.cclMem = HcclMem{HCCL_MEM_TYPE_DEVICE, cclBufferAddr, cclBufferSize};
+    
     HCCL_INFO("[HcclExecOpCcuFastLaunch] FastLaunch start");
     CHK_RET(executor->FastLaunch(param, ccuFastLaunchCtx));
     
