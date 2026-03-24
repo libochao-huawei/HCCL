@@ -74,8 +74,6 @@ protected:
     std::vector<std::map<u32, std::vector<ChannelInfo>>> remoteRankToChannelInfo_;
     std::vector<ThreadHandle> threads_; // 相当于之前的std::vector<InsQuePtr> tempInsQue_;
 
-    u64 myRank_{0};
-    u64 rankSize_{0};
     u64 dataCount_{0};
     u64 dataTypeSize_{0};
     u64 dataSize_{0};

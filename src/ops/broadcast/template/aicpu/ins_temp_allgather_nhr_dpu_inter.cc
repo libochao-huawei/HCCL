@@ -51,7 +51,6 @@ HcclResult InsTempAllGatherNHRDPUInter::KernelRun(const OpParam& param, const Te
         HCCL_DEBUG("[InsTempAllGatherNHRDPUInter][KernelRun] check myRank[%u]", myRank_);
     count_ = tempAlgParams.count;
     dataType_ = param.DataDes.dataType;
-    dataTypeSize_ = DATATYPE_SIZE_TABLE[dataType_];
 
     if (templateResource.threads.size() < 1) {
         HCCL_ERROR("[InsTempAllGatherNHRDPUInter] Rank[%u], required thread error.", myRank_);

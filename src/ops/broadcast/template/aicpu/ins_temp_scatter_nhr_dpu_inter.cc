@@ -349,7 +349,7 @@ HcclResult InsTempScatterNHRDPUInter::BatchRecv(AicpuNHRStepInfo &stepInfo, cons
         u64 srcDstOffset = repeat * templateRankSize_ * sliceSize + tempAlgParam.buffInfo.hcclBuffBaseOff + sliceOffset;
 
         HCCL_INFO("[InsTempScatterNHRDPUInter][BatchRecv]in step [%u]: myRank[%d], fromRank[%d],slicesize is [%u] "
-                  ",srcDstOffset is ",
+                  ",srcDstOffset is [%llu] ",
             i,
             myRank_,
             stepInfo.fromRank,
