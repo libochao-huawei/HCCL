@@ -14,7 +14,7 @@
 #include "hccl_res.h"
 #include "ccu_alg_template_base.h"
 
-// AICPU template 头文件
+// AICPU template 头文件1
 #include "ins_temp_all_gather_mesh_1D.h"
 #include "ins_temp_all_gather_nhr.h"
 
