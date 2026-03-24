@@ -133,6 +133,7 @@ void ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1>::GenTempla
     tempAlgParams0.repeatNum = 1;
     tempAlgParams0.inputRepeatStride = 0;
     tempAlgParams0.outputRepeatStride = 0;
+    tempAlgParams0.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
 
     HCCL_DEBUG(
         "[ReduceParallelExecutor][GenTemplateAlgParamsIntra0] rank[%d] inBuffBaseOff[%llu] "
@@ -180,6 +181,7 @@ void ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1>::GenTempla
     tempAlgParams1.repeatNum = 1;
     tempAlgParams1.inputRepeatStride = 0;
     tempAlgParams1.outputRepeatStride = 0;
+    tempAlgParams1.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
     HCCL_DEBUG("[ReduceParallelExecutor][GenTemplateAlgParams1] rank[%u] inBuffBaseOff[%llu] "
                "outBuffBaseOff[%llu] scratchBuffBaseOff[%llu] sliceSize[%llu] outputSliceStride[%llu]",
         myRank_,
@@ -223,6 +225,7 @@ void ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1>::GenTempla
     tempAlgParams1.repeatNum = 1;
     tempAlgParams1.inputRepeatStride = 0;
     tempAlgParams1.outputRepeatStride = 0;
+    tempAlgParams1.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
     HCCL_DEBUG("[ReduceParallelExecutor][GenTemplateAlgParams1] rank[%u] inBuffBaseOff[%llu] "
                "outBuffBaseOff[%llu] scratchBuffBaseOff[%llu] sliceSize[%llu] outputSliceStride[%llu]",
         myRank_,
