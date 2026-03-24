@@ -667,7 +667,7 @@ HcclResult CcuKernelAlgBase::GroupReduceWithoutMyRank(const std::vector<ChannelH
             goSize.parallelParam.Id(),
             goSize.residual.Id()
         };
-        AddCcuProfiling(groupInfo, channels, dataType, outputDataType, opType, groupOpSize);
+        AddCcuProfiling(groupInfo, ccuChannels, dataType, outputDataType, opType, groupOpSize);
     }
 
     // 第二个loopgroup，包含1或2个loop，搬运n和p部分数据。
@@ -715,7 +715,7 @@ HcclResult CcuKernelAlgBase::GroupReduceWithoutMyRank(const std::vector<ChannelH
             goSize.parallelParam.Id(),
             goSize.residual.Id()
         };
-        AddCcuProfiling(groupInfo, channels, dataType, outputDataType, opType, groupOpSize);
+        AddCcuProfiling(groupInfo, ccuChannels, dataType, outputDataType, opType, groupOpSize);
     }
     return HCCL_SUCCESS;
 }
