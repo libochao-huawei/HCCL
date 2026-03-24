@@ -249,14 +249,6 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleLevel0Algo(const TopoInfo
     return SelectorStatus::MATCH;
 }
 
-bool IsDataTypeOrReduceTypeSpecial(HcclDataType dataType, HcclReduceOp reduceType)
-{
-    return dataType == HcclDataType::HCCL_DATA_TYPE_INT64 ||
-           dataType == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
-           dataType == HcclDataType::HCCL_DATA_TYPE_FP64 ||
-           reduceType == HcclReduceOp::HCCL_REDUCE_PROD;
-}
-
 SelectorStatus AllReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerDetails* topoInfo,
                                                       const OpParam &opParam,
                                                       const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
@@ -323,8 +315,6 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetL
 {
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
-    HcclDataType dataType = opParam.DataDes.dataType;
-    HcclReduceOp reduceType = opParam.reduceType;
 
     bool isDataTypeOrReduceTypeSpecial = 
         opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT64 ||
