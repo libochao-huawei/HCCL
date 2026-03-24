@@ -32,11 +32,13 @@ typedef struct {
 } CommBuffer;
 
 struct AlgResourceCtx {
-    ThreadHandle threadHandle;
+    ThreadHandle cpuThread;
+    ThreadHandle cpuThreadOnAicpu;
+    ThreadHandle aicpuThread;
+    ThreadHandle aicpuThreadOnCpu;
     CommBuffer localBuffer;
     CommBuffer remoteBuffer;
     ChannelHandle channelHandle;
-    uint32_t notifyIds[AICPU_CONTROL_NOTIFY_NUM]; // aicpu 模式下device侧控制notify
 };
 
 struct OpParam {
