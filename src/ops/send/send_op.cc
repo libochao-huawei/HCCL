@@ -57,7 +57,7 @@ HcclResult HcclSend(
 
 HcclResult HcclSendGraphMode(
     void *sendBuf, uint64_t count, HcclDataType dataType, uint32_t destRank, const char* group, aclrtStream stream,
-    const char *tag, void **streams, size_t streamCount, void *scratchMemAddr, uint64_t scratchMemSize)
+    const char *tag, uint32_t srTag, void **streams, size_t streamCount, void *scratchMemAddr, uint64_t scratchMemSize)
 {
     HCCL_INFO("[HcclSendGraphMode] Start.");
     // 根据group获取通信域
@@ -73,6 +73,8 @@ HcclResult HcclSendGraphMode(
     CHK_PRT_RET(count == 0, HCCL_WARNING("[HcclSendGraphMode] input count is 0, return send success"), HcclResult::HCCL_SUCCESS);
     CHK_RET(GetAndCheckSendPara(comm, sendBuf, count, dataType, destRank, rankSize, userRank, opTag));
     CHK_RET(HcclCheckTag(tag));
+    opTag += "_" + std::to_string(srTag);
+    CHK_RET(HcclCheckTag(opTag));
 
     // 拼装ResPackGraphMode
     ResPackGraphMode resPack;
@@ -93,7 +95,7 @@ HcclResult HcclSendGraphMode(
     resPack.scratchMemSize = scratchMemSize;
 
     // 执行Send
-    CHK_RET_AND_PRINT_IDE(SendExec(sendBuf, count, dataType, destRank, comm, stream, rankSize, OpMode::OFFLOAD, tag, resPack), opTag.c_str());
+    CHK_RET_AND_PRINT_IDE(SendExec(sendBuf, count, dataType, destRank, comm, stream, rankSize, OpMode::OFFLOAD, opTag, resPack), opTag.c_str());
 
     HCCL_INFO("[HcclSendGraphMode][%d]->[%d] Success.", userRank, destRank);
     return HcclResult::HCCL_SUCCESS;

@@ -57,7 +57,7 @@ HcclResult HcclRecv(
 
 HcclResult HcclRecvGraphMode(
     void *recvBuf, uint64_t count, HcclDataType dataType, uint32_t srcRank, const char* group, aclrtStream stream,
-    const char* tag, void **streams, size_t streamCount, void *scratchMemAddr, uint64_t scratchMemSize)
+    const char* tag, uint32_t srTag, void **streams, size_t streamCount, void *scratchMemAddr, uint64_t scratchMemSize)
 {
     HCCL_INFO("[HcclRecvGraphMode] Start.");
     // 根据group获取通信域
@@ -73,6 +73,8 @@ HcclResult HcclRecvGraphMode(
     CHK_PRT_RET(count == 0, HCCL_WARNING("[HcclRecvGraphMode] input count is 0, return recv success"), HcclResult::HCCL_SUCCESS);
     CHK_RET(GetAndCheckRecvPara(comm, recvBuf, count, dataType, srcRank, rankSize, userRank, opTag));
     CHK_RET(HcclCheckTag(tag));
+    opTag += "_" + std::to_string(srTag);
+    CHK_RET(HcclCheckTag(opTag));
 
     // 拼装ResPackGraphMode
     ResPackGraphMode resPack;
@@ -93,7 +95,7 @@ HcclResult HcclRecvGraphMode(
     resPack.scratchMemSize = scratchMemSize;
 
     // 执行Recv
-    CHK_RET_AND_PRINT_IDE(RecvExec(recvBuf, count, dataType, srcRank, comm, stream, rankSize, OpMode::OFFLOAD, tag, resPack), opTag.c_str());
+    CHK_RET_AND_PRINT_IDE(RecvExec(recvBuf, count, dataType, srcRank, comm, stream, rankSize, OpMode::OFFLOAD, opTag, resPack), opTag.c_str());
 
     HCCL_INFO("[HcclRecvGraphMode][%d]<-[%d] Success.", userRank, srcRank);
     return HcclResult::HCCL_SUCCESS;
