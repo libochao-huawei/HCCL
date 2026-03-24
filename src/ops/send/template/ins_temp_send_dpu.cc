@@ -34,6 +34,7 @@ HcclResult InsTempSendDpu::CalcRes(
     std::vector<HcclChannelDesc> level0Channels;
     CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
     resourceRequest.channels.push_back(level0Channels);
+        HCCL_INFO("[InsTempSendDpu][CalcRes] Sucessfully calres!");
     return HCCL_SUCCESS;
 }
 
@@ -43,6 +44,12 @@ HcclResult InsTempSendDpu::KernelRun(
 {
     // 得到thread和channel
     recvRank_ = param.sendRecvRemoteRank;
+        threadNum_ = templateResource.threads.size();
+        if (threadNum_ < 1)
+        {
+            HCCL_ERROR("[InsTempSendDpu] Rank [%d], required thread error.", myRank_);
+            return HCCL_E_INTERNAL;
+        }
     thread_ = templateResource.threads[0];
     auto channelIter = templateResource.channels.find(recvRank_);
     if (channelIter == templateResource.channels.end() || channelIter->second.empty()) {
@@ -51,7 +58,6 @@ HcclResult InsTempSendDpu::KernelRun(
         return HCCL_E_INTERNAL;
     }
     sendChannel_ = channelIter->second[0];
-    threadNum_ = templateResource.threads.size();
     processSize_ = tempAlgParams.sliceSize;
     count_ = tempAlgParams.count;
     dataCount_ = param.DataDes.count;
@@ -130,13 +136,9 @@ HcclResult InsTempSendDpu::KernelRun(
         return HcclResult::HCCL_E_NOT_SUPPORT;
     }
 
-    if (threadNum_ < 1) {
-        HCCL_ERROR("[InsTempSendDpu] Rank [%d], required thread error.", myRank_);
-        return HCCL_E_INTERNAL;
+        HCCL_INFO("[InsTempSendDpu] Run End");
+        return HcclResult::HCCL_SUCCESS;
     }
-    HCCL_INFO("[InsTempSendDpu] Run End");
-    return HcclResult::HCCL_SUCCESS;
-}
 
 HcclResult InsTempSendDpu::DPUKernelRun(const TemplateDataParams &tempAlgParam,
     const std::map<u32, std::vector<ChannelInfo>> &channels, const u32 myRank,
@@ -145,6 +147,7 @@ HcclResult InsTempSendDpu::DPUKernelRun(const TemplateDataParams &tempAlgParam,
 #ifndef AICPU_COMPILE
     if (subCommRanks.empty() || subCommRanks[0].size() < 2) {
         HCCL_ERROR("[InsTempSendDpu] [DPUKernelRun] no rank at all!");
+            return HCCL_E_PARA;
     }
     u32 recvRank{0};
     for (auto rankId : subCommRanks[0]) {
@@ -167,7 +170,7 @@ HcclResult InsTempSendDpu::DPUKernelRun(const TemplateDataParams &tempAlgParam,
     DataInfo sendInfo(linkSend, sendSlicesList);
     CHK_PRT_RET(
         SendWrite(sendInfo), HCCL_ERROR("[InsTempSendDpu][DPUKernelRun] Run Send failed"), HcclResult::HCCL_E_INTERNAL);
-    HCCL_INFO("[InsTempSendDpu][DPUKernelRun] Run Send sucess!");
+        HCCL_INFO("[InsTempSendDpu][DPUKernelRun] Run Send success!");
 #endif
     return HCCL_SUCCESS;
 }

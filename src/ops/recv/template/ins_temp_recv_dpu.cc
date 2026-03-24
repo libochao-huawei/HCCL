@@ -32,6 +32,7 @@ HcclResult InsTempRecvDpu::CalcRes(
     std::vector<HcclChannelDesc> level0Channels;
     CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
     resourceRequest.channels.push_back(level0Channels);
+	HCCL_INFO("[InsTempRecvDpu][CalcRes] Sucessfully calres!");
     return HCCL_SUCCESS;
 }
 
@@ -41,6 +42,12 @@ HcclResult InsTempRecvDpu::KernelRun(
 {
     // 得到thread和channel
     sendRank_ = param.sendRecvRemoteRank;
+threadNum_ = templateResource.threads.size();
+        if (threadNum_ < 1)
+        {
+            HCCL_ERROR("[InsTempRecvDpu] Rank [%d], required thread error.", myRank_);
+            return HCCL_E_INTERNAL;
+        }
     thread_ = templateResource.threads[0];
     auto channelIter = templateResource.channels.find(sendRank_);
     if (channelIter == templateResource.channels.end() || channelIter->second.empty()) {
@@ -49,7 +56,6 @@ HcclResult InsTempRecvDpu::KernelRun(
         return HCCL_E_INTERNAL;
     }
     recvChannel_ = channelIter->second[0];
-    threadNum_ = templateResource.threads.size();
     processSize_ = tempAlgParams.sliceSize;
     count_ = tempAlgParams.count;
     dataCount_ = param.DataDes.count;
@@ -136,13 +142,9 @@ HcclResult InsTempRecvDpu::KernelRun(
         return HcclResult::HCCL_E_NOT_SUPPORT;
     }
 
-    if (threadNum_ < 1) {
-        HCCL_ERROR("[InsTempRecvDpu] Rank [%d], required thread error.", myRank_);
-        return HCCL_E_INTERNAL;
+        HCCL_INFO("[InsTempRecvDpu] Run End");
+        return HcclResult::HCCL_SUCCESS;
     }
-    HCCL_INFO("[InsTempRecvDpu] Run End");
-    return HcclResult::HCCL_SUCCESS;
-}
 
 HcclResult InsTempRecvDpu::DPUKernelRun(const TemplateDataParams &tempAlgParam,
     const std::map<u32, std::vector<ChannelInfo>> &channels, const u32 myRank,
@@ -151,6 +153,7 @@ HcclResult InsTempRecvDpu::DPUKernelRun(const TemplateDataParams &tempAlgParam,
 #ifndef AICPU_COMPILE
     if (subCommRanks.empty() || subCommRanks[0].size() < 2) {
         HCCL_ERROR("[InsTempRecvDpu] [DPUKernelRun] no rank at all!");
+return HCCL_E_PARA;
     }
     u32 sendRank{0};
     for (auto rankId : subCommRanks[0]) {
@@ -179,7 +182,7 @@ HcclResult InsTempRecvDpu::DPUKernelRun(const TemplateDataParams &tempAlgParam,
     SlicesList recvSlicesList({remoteInputBuffer}, {localCclBuffer});
     DataInfo recvInfo(linkRecv, recvSlicesList);
     CHK_PRT_RET(RecvWrite(recvInfo), HCCL_ERROR("[InsTempRecvDpu][DPUKernelRun] Run Recv failed"), HcclResult::HCCL_E_INTERNAL);
-    HCCL_INFO("[InsTempRecvDpu][DPUKernelRun] Run Recv sucess!");
+    HCCL_INFO("[InsTempRecvDpu][DPUKernelRun] Run Recv success!");
 #endif
     return HCCL_SUCCESS;
 }
