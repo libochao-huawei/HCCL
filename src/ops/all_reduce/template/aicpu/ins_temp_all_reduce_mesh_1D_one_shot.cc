@@ -178,6 +178,11 @@ HcclResult InsTempAllReduceMesh1DOneShot::PostLocalReduce(const OpParam& param,
             CHK_RET(static_cast<HcclResult>(HcommThreadJoin(thread, CUSTOM_TIMEOUT)));
         }
     }
+
+    DataSlice usrOutSlices = DataSlice(tempAlgParams.buffInfo.outputPtr,
+                                       tempAlgParams.buffInfo.outBuffBaseOff,
+                                       processSize_, count_);
+
     for (u32 rankIdx = 0; rankIdx < subCommRanks_[0].size(); rankIdx++) {
         u32 curRank = rankIdx;
         // 遍历除自身外所有rank，计算reduce(scratch, local-usrout)
