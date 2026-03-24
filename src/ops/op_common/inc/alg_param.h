@@ -41,6 +41,9 @@ constexpr uint32_t OP_ALG_LENGTH = 128; // 存放算法 + host/device标记
 constexpr uint32_t ALG_TAG_LENGTH = TAG_LENGTH + OP_ALG_LENGTH;
 constexpr uint32_t MAX_TAG_LENGTH = 255;
 constexpr uint32_t AICPU_CONTROL_NOTIFY_NUM = 2;
+constexpr uint32_t MAX_MEM_TAG_LENGTH = OP_ALG_LENGTH + 32;
+constexpr uint32_t RES_PACK_TAG_LENGTH = 255;
+constexpr uint32_t MAX_TEMP_NUM_IN_ALGO = 8; // 单个算法中最大template数量
 
 // 是否再拆分一个comm头文件
 constexpr u32 LOCAL_NOTIFY_IDX_ZERO = 0;
@@ -195,7 +198,7 @@ struct TopoInfoWithNetLayerDetails : public TopoInfo { // 通信域拓扑ctx
         binaryStream.Dump(result);
         return result;
     }
-
+ 
     void DeSerialize(std::vector<char> &data)
     {
         BinaryStream binaryStream(data);
@@ -254,28 +257,34 @@ struct CcuKernelInfo {
 // 算法sqe最大个数（alltoallv除外）
 #define CCU_MAX_TASK_ARG_NUM 30
 
-struct CcuKernelSubmmitInfo {
+struct CcuKernelSubmitInfo {
     CcuKernelHandle kernelHandle;
+    u32 argNum;
     uint64_t sqeArgs[CCU_MAX_TASK_ARG_NUM];
 };
 
 // ccu快速下发上下文
-struct CcuFastRunCtx {
+struct CcuFastLaunchCtx {
     char algName[OP_ALG_LENGTH];
     u32 threadNum;
-    u32 ccuKernelNum;
-    // ThreadHandle threadHandles[];
-    // CcuKernelSubmmitInfo ccuKernelSubmmitInfo[];
+    u32 ccuKernelNum[MAX_TEMP_NUM_IN_ALGO];  // 每个template的kernel数量
+    // 紧接ThreadHandle数组
+    // 紧接CcuKernelSubmitInfo数组
 
     ThreadHandle *GetThreadHandlePtr() const
     {
-        size_t offset = offsetof(CcuFastRunCtx, ccuKernelNum) + sizeof(u32);
-        return reinterpret_cast<ThreadHandle*>(reinterpret_cast<char*>(const_cast<CcuFastRunCtx*>(this)) + offset);
+        size_t offset = offsetof(CcuFastLaunchCtx, ccuKernelNum) + sizeof(u32) * MAX_TEMP_NUM_IN_ALGO;
+        return reinterpret_cast<ThreadHandle*>(reinterpret_cast<char*>(const_cast<CcuFastLaunchCtx*>(this)) + offset);
     }
-    CcuKernelSubmmitInfo *GetCcuKernelSubmmitInfoPtr() const
+    CcuKernelSubmitInfo *GetCcuKernelSubmitInfoPtr() const
     {
-        size_t offset = offsetof(CcuFastRunCtx, ccuKernelNum) + sizeof(u32) + sizeof(ThreadHandle) * threadNum;
-        return reinterpret_cast<CcuKernelSubmmitInfo*>(reinterpret_cast<char*>(const_cast<CcuFastRunCtx*>(this)) + offset);
+        size_t offset = offsetof(CcuFastLaunchCtx, ccuKernelNum) + sizeof(u32) * MAX_TEMP_NUM_IN_ALGO + sizeof(ThreadHandle) * threadNum;
+        return reinterpret_cast<CcuKernelSubmitInfo*>(reinterpret_cast<char*>(const_cast<CcuFastLaunchCtx*>(this)) + offset);
+    }
+
+    static u64 GetCtxSize(u32 threadNum, u32 totalCcuKernelNum)
+    {
+        return sizeof(CcuFastLaunchCtx) + sizeof(ThreadHandle) * threadNum + sizeof(CcuKernelSubmitInfo) * totalCcuKernelNum;
     }
 };
 
@@ -309,19 +318,10 @@ struct ChannelInfo {
     u32 notifyNum;
     ChannelHandle handle;
     HcclMem remoteCclMem; // A5用的
-    HcclMem remoteInput;  // A3用的
-    HcclMem remoteOutput; // A3用的
-};
-
-// DPU资源
-struct DPUAlgResourceCtx {
-    uint32_t tempIndex;
-    AlgHierarchyInfo algHierarchyInfo;
-    HcclMem cclInputMem; // 跨Rank缓存Buffer
-    HcclMem cclOutputMem; // 跨Rank缓存Buffer
-    u32 channelNum = 0;
-    ChannelInfo* channels = nullptr;
-    u64 sliceSize = 0;
+    HcclMem remoteInputGraphMode;   // A5用的, 图模式下远端sendBuf地址
+    HcclMem remoteOutputGraphMode;  // A5用的，图模式下远端recvBuf地址
+    HcclMem remoteInput;  // A3用的，cclIn
+    HcclMem remoteOutput; // A3用的, cclOut
 };
 
 // 算法ctx，key为通信域id+算法名，提前在device上
@@ -532,5 +532,28 @@ struct HcomProInfo {
     bool isAiv = false;
     uint8_t reserved[MAX_LENGTH];
 };
-}
+
+// 图模式相关定义
+// 图模式编译阶段资源计算入参
+struct OpParamGraphMode {
+    char opType[64]; // 算子类型
+};
+
+// 图模式编译阶段申请资源
+struct ResResponseGraphMode {
+    u64 opMemSize = 0;  // 额外申请的scratch数量（不包括cclBuff）
+    u32 streamNum = 0;  // 除用户流以外，额外申请的流（不包括算子device展开申请的流）
+    u32 taskNum = 0;    // task数量，一般为前同步 + kernel + 后同步
+    u32 aivCoreNum = 0;
+};
+
+// 图模式执行阶段传入的资源
+struct ResPackGraphMode {
+    char tag[RES_PACK_TAG_LENGTH];
+    std::vector<aclrtStream> streams;
+    void* scratchMemAddr;
+    u64 scratchMemSize;
+};
+
+} 
 #endif

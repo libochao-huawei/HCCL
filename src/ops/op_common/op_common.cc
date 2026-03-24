@@ -86,7 +86,7 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
 {
     HCCL_INFO("Start to execute Selector.");
     param.hcclComm = comm;
-    CHK_RET(HcclGetOpExpansionMode(param));
+    CHK_RET(HcclGetOpExpansionMode(comm, param));
     // 获取基础拓扑
     CHK_RET(HcclCalcTopoInfo(comm, param, topoInfo));
 
@@ -94,13 +94,13 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
     std::shared_ptr<ExecuteSelector> collAlgSelector = std::make_shared<ExecuteSelector>(ExecuteSelector());
     CHK_RET(collAlgSelector->Run(param, topoInfo.get(), algName));
     if (algName == "") {
-        HCCL_ERROR("[SelectorAhead] select algname fail!");
+        HCCL_ERROR("[Selector] select algname fail!");
         return HCCL_E_PTR;
     }
     CHK_RET(SetCommEngine(param));
     // 如果一开始读取到的Engine不是aicpu，经过算法选择后回退到aipcu，则需要重新LoadAICPUKernel
     if ((param.engine == CommEngine::COMM_ENGINE_AICPU_TS) || (param.engine == CommEngine::COMM_ENGINE_CPU)) {
-        HCCL_DEBUG("[SelectorAhead] is aicpu mode");
+        HCCL_DEBUG("[Selector] is aicpu mode");
         CHK_RET(LoadAICPUKernel()); // 该函数内部有防止重复加载的逻辑
     }
     CHK_RET(SetOpParamAlgTag(param, algName));
@@ -108,18 +108,134 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
     return HCCL_SUCCESS;
 }
 
-void SetHcclDfxOpInfoDataCount(HcclDfxOpInfo &dfxOpInfo, const OpParam &param, const u32 &rankSize) {
+uint64_t GetHcclDfxOpInfoDataCount(const OpParam &param, const u32 &rankSize) {
+    u64 sendCount = 0;
     if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL
         || param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV
         || param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
-        u64 sendCount = 0;
         for (u64 i = 0; i < rankSize; i++) {
-            sendCount += *(static_cast<const u64 *>(param.all2AllVDataDes.sendCounts) + i);
+            sendCount += *(reinterpret_cast<const u64*>(param.all2AllVDataDes.sendCounts) + i);
         }
-        dfxOpInfo.dataCount = sendCount;
+    } else if (param.opType == HcclCMDType::HCCL_CMD_ALLGATHER_V) {
+        for (u64 i = 0; i < rankSize; i++) {
+            sendCount += *(reinterpret_cast<const u64*>(param.varData) + i);
+        }
+    } else if (param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V) {
+        for (u64 i = rankSize; i < 2*rankSize; i++) {
+            sendCount += *(reinterpret_cast<const u64*>(param.varData) + i);
+        }
     } else {
-        return;
+        sendCount = static_cast<u64>(param.DataDes.count);
     }
+    return sendCount;
+}
+
+uint32_t GetHcclDfxOpInfoDataType(const OpParam &param) {
+    uint32_t dataType = 0;
+    if (param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V
+        || param.opType == HcclCMDType::HCCL_CMD_ALLGATHER_V) {
+        dataType = static_cast<u32>(param.vDataDes.dataType);
+    } else if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL) {
+        dataType = static_cast<u32>(param.all2AllDataDes.sendType);
+    } else if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV) {
+        dataType = static_cast<u32>(param.all2AllVDataDes.sendType);
+    } else if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
+        dataType = static_cast<u32>(param.all2AllVCDataDes.sendType);
+    } else {
+        dataType = static_cast<u32>(param.DataDes.dataType);
+    }
+    return dataType;
+}
+
+HcclResult SetOpParamFastLaunchTag(OpParam &param)
+{
+    HcclDataType tmpDataType;
+    if(param.opType == HcclCMDType::HCCL_CMD_ALLTOALL || param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
+        param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
+        tmpDataType = param.all2AllVDataDes.sendType;
+    } else {
+        tmpDataType = param.DataDes.dataType;
+    }
+    const std::string dataType = HCOM_DATA_TYPE_STR_MAP.at(tmpDataType);
+    // 通信域tag + 数据类型，得到基础FastLaunchTag
+    int len = snprintf_s(param.fastLaunchTag, sizeof(param.fastLaunchTag), sizeof(param.fastLaunchTag), 
+                         "%s_%s", param.tag, dataType.c_str());
+    if (len < 0|| len >= sizeof(param.algTag)) {
+        HCCL_ERROR("faled to fill param.fastLaunchTag");
+        return HcclResult::HCCL_E_INTERNAL;
+    }
+    
+    size_t remainBytes = sizeof(param.algTag) - len;
+    if (param.opType == HcclCMDType::HCCL_CMD_ALLREDUCE || param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER ||
+        param.opType == HcclCMDType::HCCL_CMD_REDUCE || param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V) {
+        const std::string reduceType = HCOM_REDUCE_OP_STR_MAP.at(param.reduceType);
+        int len2 = snprintf_s(param.fastLaunchTag + len, remainBytes, remainBytes, "_%s", reduceType.c_str());
+        if (len2 < 0|| len >= remainBytes) {
+            HCCL_ERROR("faled to fill param.fastLaunchTag");
+            return HcclResult::HCCL_E_INTERNAL;
+        }
+        len += len2;
+    }
+
+    if (param.opType != HcclCMDType::HCCL_CMD_ALLTOALLV) {
+        remainBytes = sizeof(param.algTag) - len;
+        std::string count = std::to_string(param.DataDes.count); //todo: alltoall 的count不是从这里取
+        int len3 = snprintf_s(param.fastLaunchTag + len, remainBytes, remainBytes, "_%s", count.c_str());
+        if (len3 < 0|| len >= remainBytes) {
+            HCCL_ERROR("faled to fill param.fastLaunchTag");
+            return HcclResult::HCCL_E_INTERNAL;
+        }
+        len += len3;
+    }
+    HCCL_DEBUG("[SetOpParamFastLaunchTag] fastLaunchTag: [%s]", param.fastLaunchTag);
+    return HcclResult::HCCL_SUCCESS;
+}
+
+bool CcuFastLaunchSupported(HcclComm comm, OpParam &param, CcuFastLaunchCtx **ccuFastLaunchCtx)
+{
+    param.hcclComm = comm;
+    
+    // 1. 是ccu模式
+    if (GetExternalInputHcclCcuMSMode()) {
+        HCCL_DEBUG("[HcclExecOp] is ccu ms mode");
+        param.opExecuteConfig = OpExecuteConfig::CCU_MS;
+        param.engine = CommEngine::COMM_ENGINE_CCU;
+    } else if (GetExternalInputHcclCcuSchedMode()) {
+        HCCL_DEBUG("[HcclExecOp] is ccu sched mode");
+        param.opExecuteConfig = OpExecuteConfig::CCU_SCHED;
+        param.engine = CommEngine::COMM_ENGINE_CCU;
+    } else {
+        // 非CCU模式，返回走正常流程
+        return false;
+    }
+
+    CHK_RET(SetOpParamFastLaunchTag(param));
+    
+    // 2. 查到engineCtx
+    uint64_t size = 0;
+    void *fastLaunchCtxPtr = nullptr;
+    if (HcclEngineCtxGet(comm, param.fastLaunchTag, CommEngine::COMM_ENGINE_CCU, &fastLaunchCtxPtr, &size) == HCCL_SUCCESS) {
+        HCCL_INFO("[CcuFastLaunchSupported] get fastLaunchCtx success, size is %u", size);
+        *ccuFastLaunchCtx = reinterpret_cast<CcuFastLaunchCtx*>(fastLaunchCtxPtr);
+        return true;
+    }
+    return false;
+}
+
+HcclResult HcclExecOpCcuFastLaunch(HcclComm comm, OpParam &param, const CcuFastLaunchCtx *ccuFastLaunchCtx)
+{
+    HCCL_INFO("[HcclExecOpCcuFastLaunch] HcclExecOpCcuFastLaunch start");
+    std::string algName = ccuFastLaunchCtx->algName;
+    HCCL_DEBUG("[HcclExecOpCcuFastLaunch] algName: [%s]", algName.c_str());
+    std::shared_ptr<InsCollAlgBase> executor = CollAlgExecRegistryV2::Instance().GetAlgExec(param.opType, algName);
+    CHK_PRT_RET(
+        executor.get() == nullptr, HCCL_ERROR("Fail to find executor for algName[%s]", algName.c_str()), HCCL_E_PARA);
+    
+    HCCL_INFO("[HcclExecOpCcuFastLaunch] FastLaunch start");
+    CHK_RET(executor->FastLaunch(param, ccuFastLaunchCtx));
+    
+    HCCL_INFO("[HcclExecOpCcuFastLaunch] HcclExecOpCcuFastLaunch end");
+    return HCCL_SUCCESS;
 }
 
 HcclResult SetOpParamFastLaunchTag(OpParam &param)
@@ -214,7 +330,7 @@ HcclResult HcclExecOpCcuFastLaunch(HcclComm comm, OpParam &param, const CcuFastR
 }
 
 HcclResult HcclExecOp(HcclComm comm, OpParam &param,
-                      std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo, std::string &algName)
+                      std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo, std::string &algName, const ResPackGraphMode &resPack)
 {
     uint64_t beginTime = HcommGetProfilingSysCycleTime();
     HCCL_INFO("[HcclExecOp]Start to execute HcclExecOp.HcommGetProfilingSysCycleTime.%llu", beginTime);
@@ -240,7 +356,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
 
     ThreadHandle cpuTsThread{0};
     ThreadHandle exportedAicpuTsThread{0};
-    if (param.engine == COMM_ENGINE_AICPU_TS) {
+    if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
         CHK_RET(HcclThreadAcquireWithStream(comm, COMM_ENGINE_CPU_TS, param.stream, 1, &cpuTsThread));
         // Export cpuTsThread
         CHK_RET(HcclThreadExportToCommEngine(comm, 1, &cpuTsThread, COMM_ENGINE_AICPU_TS, &exportedAicpuTsThread));
@@ -253,26 +369,25 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     hcclDfxOpInfo.opMode = static_cast<u32>(param.opMode);
     hcclDfxOpInfo.opType = static_cast<u32>(param.opType);
     hcclDfxOpInfo.reduceOp = static_cast<u32>(param.reduceType);
-    hcclDfxOpInfo.dataType = static_cast<u32>(param.DataDes.dataType);
-    hcclDfxOpInfo.dataCount = static_cast<u32>(param.DataDes.count);
+    hcclDfxOpInfo.dataType = GetHcclDfxOpInfoDataType(param);
+
+    // rankSize获取指定算子的dataCount
+    u32 userRankSize{0};
+    CHK_RET(HcclGetRankSize(comm, &userRankSize));
+    hcclDfxOpInfo.dataCount = GetHcclDfxOpInfoDataCount(param, userRankSize);
     hcclDfxOpInfo.root = param.root;
     hcclDfxOpInfo.engine = param.engine;
     hcclDfxOpInfo.cpuTsThread = cpuTsThread;
     hcclDfxOpInfo.cpuWaitAicpuNotifyIdx = HOST_WAIT_AICPU_NOTIFYIDX;
     s32 sRet = strncpy_s(hcclDfxOpInfo.algTag, ALG_TAG_LENGTH, param.algTag, ALG_TAG_LENGTH);
     CHK_PRT_RET(sRet != EOK, HCCL_ERROR("%s call strncpy_s failed, param.algTag %s,  return %d.", __func__, param.algTag, sRet), HCCL_E_MEMORY);
-
-    // rankSize获取指定算子的dataCount
-    u32 userRankSize{0};
-    CHK_RET(HcclGetRankSize(comm, &userRankSize));
-    SetHcclDfxOpInfoDataCount(hcclDfxOpInfo, param, userRankSize);
     HcclDfxOpInfo *tempOp = &hcclDfxOpInfo;
 
     CHK_RET(HcclDfxRegOpInfo(comm, static_cast<void*>(tempOp)));
     ThreadHandle exportedCpuTsThread;
     ThreadHandle mainThread;
     u32 notifyNumOnMainThread;
-    if (param.engine == COMM_ENGINE_AICPU_TS) {
+    if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
         // 获取主流信息
         CHK_RET(GetMainThreadInfo(comm, param, mainThread, notifyNumOnMainThread));
         // Export mainThread
@@ -297,6 +412,11 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
             std::vector<char> seq(ctx, ctx + param.ctxSize);
             resCtxHost->DeSerialize(seq);
         }
+        int result = sprintf_s(param.algName, sizeof(param.algName), "%s", algName.c_str());
+        if (result <= 0) {
+            HCCL_ERROR("faled to fill param.algName");
+            return HCCL_E_INTERNAL;
+        }
         CHK_RET(executor->Orchestrate(param, *resCtxHost));
     }
     // op上报
@@ -308,6 +428,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
 HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHandle cpuTsThread,
     ThreadHandle exportedCpuTsThread, u32 notifyNumOnMainThread, void *resCtxSequence, std::string &algName)
 {
+    HCCL_DEBUG("[HcclAicpuKernelEntranceLaunch]start to run aicpu kernel");
     // 当前aicpu launch接口只能有一个输入参数，将Context指针放在param参数中
     param.resCtx = resCtxSequence;
     // 将算法名字放在param参数中
@@ -341,13 +462,6 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
     u16 NOTIFY_WAIT_TIME = 27 * 68;
     CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, HOST_WAIT_AICPU_NOTIFYIDX, NOTIFY_WAIT_TIME)));
     
-    if (param.engine == COMM_ENGINE_CPU) {
-        if (aclrtSynchronizeStream(param.stream) != 0) {
-            HCCL_ERROR("[HcclAicpuKernelEntranceLaunch] Stream Synchronize Failed");
-            return HCCL_E_INTERNAL;
-        }
-    }
-
     return HCCL_SUCCESS;
 }
 
@@ -464,12 +578,13 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::shared_ptr<InsCollA
 
     void *ctx = nullptr;
     bool increCreateChannelFlag = false;
-    if (param.opType == HcclCMDType::HCCL_CMD_BATCH_SEND_RECV) {
+    if (param.opType == HcclCMDType::HCCL_CMD_BATCH_SEND_RECV && param.opMode == OpMode::OPBASE) {
         // 增量建链模式
         increCreateChannelFlag = true;
     }
     uint64_t size = 0;
-    if (!increCreateChannelFlag) {
+    // 图模式不支持资源复用，且不存在增量建链场景
+    if (!increCreateChannelFlag && param.opMode == OpMode::OPBASE) {
         void *ctx = nullptr;
         // 这种情况下资源已经有了
         CommEngine ctxEngine = param.engine;
@@ -561,6 +676,7 @@ HcclResult GetAlgResAICPU(HcclComm comm, const OpParam &param, AlgResourceReques
         HcclResult ret = HcclGetChannel(comm, param, resRequest, g_hostCtx.at(tagStr));
         CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("failed to incrementally create channel."), ret);
         // 把device侧此tag的ctx销毁
+        ret = HcclEngineCtxDestroy(comm, param.algTag, param.engine);
         CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("failed to destroy device Ctx."), ret);
         ret = HcclMemcpyCtxHostToDevice(comm, param, g_hostCtx.at(tagStr), resCtxSequence, ctxSize);
         CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("failed to memcpy hostCtx to device."), ret);
@@ -581,7 +697,7 @@ HcclResult HcclMemcpyCtxHostToDevice(HcclComm comm, const OpParam &param,
     // 创建Context, aicpu和host dpu申请device内存
     CHK_RET(HcclEngineCtxCreate(comm, param.algTag, COMM_ENGINE_AICPU_TS, size, &ctx));
     // 从Host内存拷贝到Device Context内存上
-    CHK_RET(HcclEngineCtxCopy(comm, param.engine, param.algTag, seq.data(), size, 0));
+    CHK_RET(HcclEngineCtxCopy(comm, COMM_ENGINE_AICPU_TS, param.algTag, seq.data(), size, 0));
     // 将内存强转为AlgResourceCtx结构体
     *resCtxSequence = ctx;
     ctxSize = size;
@@ -692,7 +808,7 @@ HcclResult GetMainThreadInfo(HcclComm comm, const OpParam &param, ThreadHandle &
     curPtr += sizeof(ThreadHandle);
     u32 *notifyNumPtr = reinterpret_cast<u32 *>(curPtr);
     notifyNum = *notifyNumPtr;
-    HCCL_INFO("[GetMainThreadInfo]threadPtr[%p], thread[%lu], notifyNumPtr[%p], notifyNum[%lu]", 
+    HCCL_INFO("[GetMainThreadInfo]threadPtr[%p], thread[%lu], notifyNumPtr[%p], notifyNum[%lu]",
         threadPtr, thread, notifyNumPtr, notifyNum);
     return HCCL_SUCCESS;
 }
@@ -700,37 +816,126 @@ HcclResult GetMainThreadInfo(HcclComm comm, const OpParam &param, ThreadHandle &
 HcclResult HcclGetChannel(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
                           std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost)
 {
+
     resCtxHost->channels.resize(resRequest.channels.size());
     for (u32 level = 0; level < resRequest.channels.size(); level++) {
         // 获取子通信域的建链请求
         std::vector<HcclChannelDesc> &levelNChannelRequest = resRequest.channels[level];
-        // 获取子通信域的建链数量
-        u32 channelNum = levelNChannelRequest.size();
-        std::vector<ChannelHandle> levelNChannels;
-        levelNChannels.resize(channelNum);
+        std::vector<HcclChannelDesc> deviceChannelRequest;
+        std::vector<HcclChannelDesc> hostChannelRequest;
+        for (auto &channelRequest : levelNChannelRequest) {
+            if (channelRequest.remoteEndpoint.loc.locType == ENDPOINT_LOC_TYPE_DEVICE) {
+                deviceChannelRequest.emplace_back(channelRequest);
+            } else if (channelRequest.remoteEndpoint.loc.locType == ENDPOINT_LOC_TYPE_HOST) {
+                hostChannelRequest.emplace_back(channelRequest);
+            }
+        }
+        // device建链
+        CHK_RET(HcclGetChannelImpl(level, comm, param, deviceChannelRequest, COMM_ENGINE_AICPU_TS, resCtxHost));
+        // host建链
+        CHK_RET(HcclGetChannelImpl(level, comm, param, hostChannelRequest, COMM_ENGINE_CPU, resCtxHost));
+        
+    }
+    return HCCL_SUCCESS;
+}
 
-        if (channelNum > 0) {
-            CHK_RET(HcclChannelAcquire(comm, param.engine, levelNChannelRequest.data(),
-                channelNum, levelNChannels.data()));
+HcclResult HcclGetChannelImpl(const u32 level, HcclComm comm, const OpParam &param, std::vector<HcclChannelDesc>& channelRequest, 
+                              const CommEngine commEngine, std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost) {
+    // 获取子通信域的建链数量
+    if (channelRequest.empty()) {
+        HCCL_INFO("[HcclGetChannelImpl] channelRequest is empty");
+        return HCCL_SUCCESS;
+    }
+    u32 channelNum = channelRequest.size();
+    std::vector<ChannelHandle> levelNChannels;
+    levelNChannels.resize(channelNum);
+    char inputBuffTag[MAX_MEM_TAG_LENGTH];
+    char outputBuffTag[MAX_MEM_TAG_LENGTH];
+    std::vector<HcclMemHandle> memHandles;
+    if (param.opMode == OpMode::OFFLOAD) {
+        HCCL_INFO("[HcclGetChannelImpl] start to RegGraphModeBuffers");
+        CHK_RET(RegGraphModeBuffers(comm, param, channelRequest, inputBuffTag, outputBuffTag, memHandles));
+        for (auto &channelDesc : channelRequest) {
+            channelDesc.memHandles = memHandles.data();
+            channelDesc.memHandleNum = memHandles.size();
+        }
+    }
+    if (channelNum > 0) {
+        CHK_RET(HcclChannelAcquire(comm, commEngine, channelRequest.data(),
+            channelNum, levelNChannels.data()));
+    }
+
+    for (u32 idx = 0; idx < channelNum; idx++) {
+        ChannelInfo channel;
+        // 对于真实建链的链路进行填充
+        const HcclChannelDesc &channelDescNew = channelRequest[idx];
+        channel.isValid = true;
+        channel.remoteRank = channelDescNew.remoteRank;
+        channel.protocol = channelDescNew.channelProtocol;
+        channel.locationType = channelDescNew.remoteEndpoint.loc.locType;
+        channel.notifyNum = channelDescNew.notifyNum;
+        channel.handle = levelNChannels[idx];
+
+        void* remoteCclBufferAddr;
+        uint64_t remoteCclBufferSize;
+        CHK_RET(HcclChannelGetHcclBuffer(comm, levelNChannels[idx], &remoteCclBufferAddr, &remoteCclBufferSize));
+        channel.remoteCclMem = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteCclBufferAddr, remoteCclBufferSize};
+        
+        if (param.opMode == OpMode::OFFLOAD) {
+            CHK_RET(GetGraphModeBuffers(comm, levelNChannels[idx], inputBuffTag, outputBuffTag, channel));
         }
 
-        for (u32 idx = 0; idx < channelNum; idx++) {
-            ChannelInfo channel;
-            // 对于真实建链的链路进行填充
-            HcclChannelDesc &channelDescNew = levelNChannelRequest[idx];
-            channel.isValid = true;
-            channel.remoteRank = channelDescNew.remoteRank;
-            channel.protocol = channelDescNew.channelProtocol;
-            channel.locationType = channelDescNew.remoteEndpoint.loc.locType;
-            channel.notifyNum = channelDescNew.notifyNum;
-            channel.handle = levelNChannels[idx];
 
-            void* remoteBufferAddr;
-            uint64_t remoteBufferSize;
-            CHK_RET(HcclChannelGetHcclBuffer(comm, levelNChannels[idx], &remoteBufferAddr, &remoteBufferSize));
-            channel.remoteCclMem = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteBufferAddr, remoteBufferSize};
-            resCtxHost->channels[level].push_back(channel);
-        }
+        resCtxHost->channels[level].push_back(channel);
+    }
+    return HCCL_SUCCESS;
+}
+
+
+HcclResult RegGraphModeBuffers(HcclComm comm, const OpParam &param, std::vector<HcclChannelDesc>& channelRequest, char* inputBuffTag, char* outputBuffTag, std::vector<HcclMemHandle>& memHandles) {
+    HCCL_INFO("[RegGraphModeBuffers] param.algTag[%s]", param.algTag);
+    if (channelRequest.empty()) {
+        HCCL_INFO("[RegGraphModeBuffers]channelRequest is empty");
+        return HCCL_SUCCESS;
+    }
+
+    auto retIn = sprintf_s(inputBuffTag, MAX_MEM_TAG_LENGTH, "%s_%s", param.algTag, "InputBuffer");
+    auto retOut =  sprintf_s(outputBuffTag, MAX_MEM_TAG_LENGTH, "%s_%s", param.algTag, "OutputBuffer");
+    if (retIn <= 0 || retOut <= 0){
+        HCCL_ERROR("[RegGraphModeBuffers]faled to fill BuffTag");
+        return HcclResult::HCCL_E_INTERNAL;
+    }
+
+    HCCL_INFO("[RegGraphModeBuffers] graph mode regstry remote buuffer");
+    if (param.inputPtr != nullptr) {
+        HcclMemHandle inputHandle = nullptr;
+        CHK_RET(HcclRegstryBuff(comm, inputBuffTag, param.inputPtr, param.inputSize, &inputHandle));
+        CHK_PTR_NULL(inputHandle);
+        memHandles.emplace_back(inputHandle);
+    }
+    if (param.outputPtr != nullptr) {
+        HcclMemHandle outputHandle = nullptr;
+        CHK_RET(HcclRegstryBuff(comm, outputBuffTag, param.outputPtr, param.outputSize, &outputHandle));
+        CHK_PTR_NULL(outputHandle);
+        memHandles.emplace_back(outputHandle);
+    }
+    HCCL_INFO("[RegGraphModeBuffers]memHandles size[%d]", memHandles.size());
+    return HCCL_SUCCESS;
+}
+
+HcclResult GetGraphModeBuffers(HcclComm comm, ChannelHandle channelHandle, const char* inputBuffTag, const char* outputBuffTag, ChannelInfo& channel) {
+    void* remoteInputBufferAddr = nullptr;
+    uint64_t remoteInputBufferSize = 0;
+    CHK_RET(HcclGetRemoteBuff(comm, channelHandle, inputBuffTag, &remoteInputBufferAddr, &remoteInputBufferSize));
+    if (remoteInputBufferAddr != nullptr && remoteInputBufferSize > 0) {
+        channel.remoteInputGraphMode = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteInputBufferAddr, remoteInputBufferSize};
+    }
+
+    void* remoteOutputBufferAddr = nullptr;
+    uint64_t remoteOutputBufferSize = 0;
+    CHK_RET(HcclGetRemoteBuff(comm, channelHandle, outputBuffTag, &remoteOutputBufferAddr, &remoteOutputBufferSize));
+    if (remoteOutputBufferAddr != nullptr && remoteOutputBufferSize > 0) {
+        channel.remoteOutputGraphMode = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteOutputBufferAddr, remoteOutputBufferSize};
     }
     return HCCL_SUCCESS;
 }
@@ -785,11 +990,11 @@ HcclResult HcclGetChannelForCcu(HcclComm comm, const OpParam &param, AlgResource
     // 以kernel为粒度申请channel
     for (CcuKernelInfo& kernelInfo: resRequest.ccuKernelInfos) {
         std::vector<HcclChannelDesc> &kernelChannelRequest = kernelInfo.channels;
-        
+
         u32 channelNum = kernelChannelRequest.size();
         std::vector<ChannelHandle> kernelChannels;
         kernelChannels.resize(channelNum);
-        
+
         if (channelNum > 0) {
             CHK_RET(HcclChannelAcquire(comm, param.engine, kernelChannelRequest.data(),
                 channelNum, kernelChannels.data()));
@@ -826,7 +1031,7 @@ HcclResult HcclGetCcuKernel(HcclComm comm, AlgResourceRequest &resRequest,
             }
             void* kernelArgPtr = static_cast<void*>(kernelInfo.kernelArg.get()); // 保证没有释放
             void* creatorPtr = static_cast<void*>(&kernelInfo.creator);
-            
+
             HCCL_DEBUG("[AllocAlgResource] kernelArgPtr[%p], creator[%p]", kernelArgPtr, &(kernelInfo.creator));
             CcuKernelHandle handle;
             CHK_RET(HcclCcuKernelRegister(comm, &handle, creatorPtr, kernelArgPtr));
@@ -1048,18 +1253,6 @@ HcclResult SetCommEngine(OpParam &param)
     return HCCL_E_NOT_SUPPORT;
 }
 
-bool CheckHCCLIndependentOp() {
-    // 获取环境变量值
-    const char* envValue = std::getenv("HCCL_INDEPENDENT_OP");
-
-    // 检查环境变量是否存在且值为"1"
-    if (envValue != nullptr && std::strcmp(envValue, "1") == 0) {
-        return true;
-    }
-
-    return false;
-}
-
 HcclResult SingleRankProc(const OpParam &param)
 {
     if (param.opType == HcclCMDType::HCCL_CMD_SEND || param.opType == HcclCMDType::HCCL_CMD_RECEIVE) {
@@ -1113,90 +1306,212 @@ HcclResult HcclCheckTag(const char *tag)
 HcclResult SetOpParamAlgTag(OpParam &param, const std::string &algName)
 {
     std::string temp = algName; // 创建algName的副本
-    // 在原先的tag中添加算法名字，得到algTag
-    int ret = sprintf_s(param.algTag, sizeof(param.algTag), "%s_%s", param.tag, temp.c_str());
-    if (ret <= 0) {
-        HCCL_ERROR("faled to fill param.algTag");
-        return HcclResult::HCCL_E_INTERNAL;
-    }
-    // 在algTag中追加编排模式
     const char* launchMode = (((param.engine == CommEngine::COMM_ENGINE_AICPU) ||
-                                (param.engine == CommEngine::COMM_ENGINE_AICPU_TS)) ? "_device" : "_host");
-    ret = strcat_s(param.algTag, sizeof(param.algTag), launchMode);
-    if (ret != 0) {
+                                (param.engine == CommEngine::COMM_ENGINE_AICPU_TS)) ? "device" : "host");
+    // 原有tag + algName + 编排模式，得到基础algTag
+    int len = snprintf_s(param.algTag, sizeof(param.algTag), sizeof(param.algTag), "%s_%s_%s", param.tag, temp.c_str(), launchMode);
+    if (len < 0|| len >= sizeof(param.algTag)) {
         HCCL_ERROR("faled to fill param.algTag");
         return HcclResult::HCCL_E_INTERNAL;
     }
 
     // ccu模式，考虑kernel是否能复用，需要添加dataType和reduceType
-    if (param.engine == CommEngine::COMM_ENGINE_CCU) {
-        HcclDataType tmpDataType;
-        if(param.opType == HcclCMDType::HCCL_CMD_ALLTOALL ||
-           param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
-           param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
-            tmpDataType = param.all2AllVDataDes.sendType;
-        } else {
-            tmpDataType = param.DataDes.dataType;
-        }
-        const std::string dataType = HCOM_DATA_TYPE_STR_MAP.at(tmpDataType);
-        ret = strcat_s(param.algTag, sizeof(param.algTag), dataType.c_str());
-        if (ret != 0) {
-            HCCL_ERROR("failed to fill alg tag with ccu dataType");
-            return HcclResult::HCCL_E_INTERNAL;
-        }
+    if (param.engine == CommEngine::COMM_ENGINE_CCU) { 
+        try{
+            HcclDataType tmpDataType;
+            if(param.opType == HcclCMDType::HCCL_CMD_ALLTOALL ||
+               param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
+               param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
+                tmpDataType = param.all2AllVDataDes.sendType;
+            } else {
+                tmpDataType = param.DataDes.dataType;
+            }
+            std::string ccuExtraTag = "_" + HCOM_DATA_TYPE_STR_MAP.at(tmpDataType);
 
-        if (param.opType == HcclCMDType::HCCL_CMD_ALLREDUCE ||
-            param.opType == HcclCMDType::HCCL_CMD_REDUCE ||
-            param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER ||
-            param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V) {
-            const std::string reduceType = HCOM_REDUCE_OP_STR_MAP.at(param.reduceType);
-            ret = strcat_s(param.algTag, sizeof(param.algTag), reduceType.c_str());
-            if (ret != 0) {
-                HCCL_ERROR("failed to fill alg tag with ccu reduceType");
+            if (param.opType == HcclCMDType::HCCL_CMD_ALLREDUCE ||
+                param.opType == HcclCMDType::HCCL_CMD_REDUCE ||
+                param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER ||
+                param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V) {
+                ccuExtraTag += "_" + HCOM_REDUCE_OP_STR_MAP.at(param.reduceType);
+            }
+            size_t remainBytes = sizeof(param.algTag) - len;
+
+            int len_ccu = snprintf_s(param.algTag + len, remainBytes, remainBytes, "%s", ccuExtraTag.c_str());
+            if (len_ccu < 0 || len_ccu >= sizeof(param.algTag) - len) {
+                HCCL_ERROR("failed to fill alg tag with ccu dataType");
                 return HcclResult::HCCL_E_INTERNAL;
             }
+        }
+        catch (const std::out_of_range& e) {
+            HCCL_ERROR("[SetOpParamAlgTag] dataType or reduceType out of range: %s", e.what());
+            return HCCL_E_PARA;
         }
     }
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult HcclGetOpExpansionMode(OpParam &param)
+HcclResult HcclGetOpExpansionMode(HcclComm comm, OpParam &param)
 {
-    // 因为AICPU是保底的所以这里获取到是AICPU引擎就应该加载Kernel
-    if (GetExternalInputHcclAicpuUnfold() == true) {
-        HCCL_DEBUG("[HcclExecOp] is aicpu mode");
-        param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
-        CHK_RET(LoadAICPUKernel());
-        param.engine = CommEngine::COMM_ENGINE_AICPU_TS;
+    HcclOpExpansionMode finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_INVALID;
+    // 第一步：决定使用哪种模式
+    HcclResult ret = DecideHcclOpExpansionMode(comm, finalMode);
+    if (ret != HCCL_SUCCESS) {
+        HCCL_ERROR("DecideHcclOpExpansionMode failed, ret: %d", ret);
+        return ret;
     }
-    else if (GetExternalInputHcclAivMode() == true) {
-        HCCL_DEBUG("[HcclExecOp] is aiv mode");
-        // 注册AIV kernel二进制
-        CHK_RET(RegisterKernel(param.opType, g_aivKernelInfoMap[param.opType].first, g_aivKernelInfoMap[param.opType].second));
-        param.opExecuteConfig = OpExecuteConfig::AIV;
-        param.engine = CommEngine::COMM_ENGINE_AIV;
-    }
-    else if (GetExternalInputHcclCcuMSMode()) {
-        HCCL_DEBUG("[HcclExecOp] is ccu ms mode");
-        param.opExecuteConfig = OpExecuteConfig::CCU_MS;
-        param.engine = CommEngine::COMM_ENGINE_CCU;
-    }
-    else if (GetExternalInputHcclCcuSchedMode()) {
-        HCCL_DEBUG("[HcclExecOp] is ccu sched mode");
-        param.opExecuteConfig = OpExecuteConfig::CCU_SCHED;
-        param.engine = CommEngine::COMM_ENGINE_CCU;
+
+    // 第二步：应用选择的模式到param
+    ret = ApplyOpExpansionMode(param, finalMode);
+    if (ret != HCCL_SUCCESS) {
+        HCCL_ERROR("ApplyOpExpansionMode failed, ret: %d", ret);
+        return ret;
     }
     return HCCL_SUCCESS;
 }
 
+HcclResult DecideHcclOpExpansionMode(HcclComm comm, HcclOpExpansionMode &finalMode)
+{
+    HcclOpExpansionMode configOpExpansionMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_INVALID;
+    uint32_t infoLen = sizeof(HcclOpExpansionMode);
+    CHK_RET(HcclConfigGetInfo(comm, HcclConfigType::HCCL_CONFIG_TYPE_OP_EXPANSION_MODE, infoLen, &configOpExpansionMode));
+    finalMode = configOpExpansionMode;
+    if (GetExternalInputHcclAicpuUnfold() == true) {
+        finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_AI_CPU;
+    } else if (GetExternalInputHcclAivMode() == true) {
+        finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV;
+    } else if (GetExternalInputHcclCcuMSMode()) {
+        finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_CCU_MS;
+    } else if (GetExternalInputHcclCcuSchedMode()) {
+        finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_CCU_SCHED;
+    }
+
+    if (configOpExpansionMode != finalMode) {
+        HCCL_DEBUG("[DecideHcclOpExpansionMode] configOpExpansionMode: %d, environment mode: %d, conflict, use environment mode.",
+            configOpExpansionMode, finalMode);
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult ApplyOpExpansionMode(OpParam &param, HcclOpExpansionMode finalMode)
+{
+    switch (finalMode) {
+        case HcclOpExpansionMode::HCCL_OP_EXPANSION_AI_CPU:
+            param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
+            param.engine = CommEngine::COMM_ENGINE_AICPU_TS;
+            CHK_RET(LoadAICPUKernel());
+            HCCL_DEBUG("[ApplyOpExpansionMode] AICPU mode selected.");
+            break;
+        case HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV:
+            param.opExecuteConfig = OpExecuteConfig::AIV;
+            param.engine = CommEngine::COMM_ENGINE_AIV;
+            CHK_RET(RegisterKernel(param.opType, g_aivKernelInfoMap[param.opType].first, g_aivKernelInfoMap[param.opType].second));
+            HCCL_DEBUG("[ApplyOpExpansionMode] AIV mode selected.");
+            break;
+        case HcclOpExpansionMode::HCCL_OP_EXPANSION_CCU_MS:
+            param.opExecuteConfig = OpExecuteConfig::CCU_MS;
+            param.engine = CommEngine::COMM_ENGINE_CCU;
+            HCCL_DEBUG("[ApplyOpExpansionMode] CCU_MS mode selected.");
+            break;
+        case HcclOpExpansionMode::HCCL_OP_EXPANSION_CCU_SCHED:
+            param.opExecuteConfig = OpExecuteConfig::CCU_SCHED;
+            param.engine = CommEngine::COMM_ENGINE_CCU;
+            HCCL_DEBUG("[ApplyOpExpansionMode] CCU_SCHED mode selected.");
+            break;
+        default:
+            // 回退到aicpu
+            HCCL_WARNING("[ApplyOpExpansionMode] Invalid HcclOpExpansionMode: %d, fallback to AICPU_TS.", finalMode);
+            param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
+            param.engine = CommEngine::COMM_ENGINE_AICPU_TS;
+            CHK_RET(LoadAICPUKernel());
+            break;
+    }
+    return HcclResult::HCCL_SUCCESS;
+}
+
 bool HcclCheckAicpuEnableOpen()
 {
-    // 获取环境变量值
     const char* envValue = std::getenv("HCCL_ENABLE_OPEN_AICPU");
 
-    // 检查环境变量是否存在且值为"1"
     if (envValue != nullptr && std::strcmp(envValue, "1") == 0) {
         return true;
+    }
+
+    return false;
+}
+
+HcclResult HcclRegstryBuff(HcclComm comm, const char *memTag, void *bufferPtr, uint64_t bufferSize, HcclMemHandle *memHandle)
+{
+    CHK_PTR_NULL(memHandle);
+    CommMem regMem{COMM_MEM_TYPE_DEVICE, bufferPtr, bufferSize};
+    CHK_RET(HcclCommMemReg(comm, memTag, &regMem, memHandle));
+    HCCL_INFO("[%s] regMemAddr[%p] regMemSize[%llu]", __func__, regMem.addr, regMem.size);
+    CHK_PTR_NULL(*memHandle);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclGetRemoteBuff(HcclComm comm, ChannelHandle channel, const char *memTag, void **bufferPtr, uint64_t *bufferSize)
+{
+    CHK_PTR_NULL(bufferPtr);
+    CHK_PTR_NULL(bufferSize);
+
+    u32 memNum;
+    CommMem *remoteMemList;
+    char **memTags;
+    CHK_RET(HcclChannelGetRemoteMems(comm, channel, &memNum, &remoteMemList, &memTags));
+    HCCL_INFO("[%s] HcclChannelGetRemoteMems memNum[%u]", __func__, memNum);
+    for (u32 i=0; i< memNum; i++) {
+        HCCL_INFO("[%s] memNum[%u/%u] memTags[%s]", __func__, i, memNum, memTags[i]);
+        if (strcmp(memTags[i], memTag) == 0) {
+            *bufferPtr = remoteMemList[i].addr;
+            *bufferSize = remoteMemList[i].size;
+            HCCL_INFO("[%s] Found %u memNum[%u/%u] is %u at index %u: addr=%p, size=%llu", __func__, *memTag, 
+                memNum, i, remoteMemList[i].addr, remoteMemList[i].size);
+            break;
+        }
+    }
+    if (*bufferPtr == nullptr) {
+        HCCL_WARNING("[%s] Failed to find %s in remote mem list", __func__, memTag);
+    }
+    return HCCL_SUCCESS;
+}
+
+
+bool HcclCheckCcuEnableOpen()
+{
+    const char* envValue = std::getenv("HCCL_ENABLE_OPEN_CCU");
+
+    if (envValue != nullptr && std::strcmp(envValue, "1") == 0) {
+        return true;
+    }
+
+    return false;
+}
+
+bool HcclCheckAivEnableOpen()
+{
+    const char* envValue = std::getenv("HCCL_ENABLE_OPEN_AIV");
+
+    if (envValue != nullptr && std::strcmp(envValue, "1") == 0) {
+        return true;
+    }
+
+    return false;
+}
+
+bool ShouldUseInnerOp(OpExecuteConfig opExecuteConfig)
+{
+    bool isAicpuOrHostMode = (opExecuteConfig == OpExecuteConfig::AICPU_TS || 
+                              opExecuteConfig == OpExecuteConfig::HOSTCPU);
+    bool isCcuMode = (opExecuteConfig == OpExecuteConfig::CCU_MS || 
+                      opExecuteConfig == OpExecuteConfig::CCU_SCHED);
+    bool isAivMode = (opExecuteConfig == OpExecuteConfig::AIV);
+
+    if (isAicpuOrHostMode) {
+        return !HcclCheckAicpuEnableOpen();
+    } else if (isCcuMode) {
+        return !HcclCheckCcuEnableOpen();
+    } else if (isAivMode) {
+        return !HcclCheckAivEnableOpen();
     }
 
     return false;

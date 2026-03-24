@@ -128,6 +128,73 @@ protected:
 
         SimWorld::Global()->Deinit();
     }
+    void RunReduceDPUCase(const TopoMeta &topoInfo, const u64 dataCount,
+    const HcclDataType dataType, const u32 dataTypeSize, const HcclReduceOp reduceOp, const u32 root)
+    {
+        // 仿真模型初始化
+        #ifdef MACRO_DEV_TYPE_NEW
+        SimWorld::Global()->Init(topoInfo, DevType::DEV_TYPE_950);
+        #else
+        SimWorld::Global()->Init(topoInfo, DevType::DEV_TYPE_910_95);
+        #endif
+
+        // 设置展开模式为HOST_TS
+        setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
+        setenv("ENABLE_HOSTDPU", "1", 1);
+        setenv("ENABLE_HOSTDPU_FOR_LLT", "1", 1);
+        setenv("HCCL_INDEPENDENT_OP", "1", 1);
+
+        // 算子执行参数设置
+        u32 rankSize = 0;
+        for (auto elem : topoInfo[0]) {
+            rankSize += elem.size();
+        }
+
+        // 多线程运行ALL REDUCE ONE SHOT算子
+        std::vector<std::thread> threads;
+        for (auto rankId = 0; rankId < rankSize; ++rankId) {
+            threads.emplace_back([=]() {
+                // 1.SetDevice
+                aclrtSetDevice(rankId);
+
+                // 2.创建流
+                aclrtStream stream = nullptr;
+                aclrtCreateStream(&stream);
+
+                // 3.初始化通信域
+                HcclComm comm = nullptr;
+                CHK_RET(HcclCommInitClusterInfo("./ranktable.json", rankId, &comm));
+
+                void *sendBuf = nullptr;
+                void *recvBuf = nullptr;
+                u64 sendBufSize = dataCount * dataTypeSize;  // 数据量转化为字节数
+                u64 recvBufSize = dataCount * dataTypeSize;
+                // 打桩实现，仿真运行需标记内存是INPUT和OUTPUT
+                aclrtMalloc(&sendBuf, sendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
+                aclrtMalloc(&recvBuf, recvBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
+
+                // 4.算子下发
+                CHK_RET(HcclReduce(sendBuf, recvBuf, dataCount, dataType, reduceOp, root, comm, stream));
+
+                // 5.销毁通信域
+                CHK_RET(HcclCommDestroy(comm));
+                return HCCL_SUCCESS;
+            });
+        }
+
+        // 等待多线程执行完成
+        for (auto& thread : threads) {
+            thread.join();
+        }
+
+        // 结果成图校验
+        auto taskQueues = SimTaskQueue::Global()->GetAllRankTaskQueues();
+        HcclResult res = CheckReduce(taskQueues, rankSize, dataType, dataCount, reduceOp, root);
+        EXPECT_TRUE(res == HCCL_SUCCESS);
+
+        // 资源清理
+        SimWorld::Global()->Deinit();
+    }
 };
 
 TEST_P(ST_REDUCE_TEST, st_reduce_aicpu_test)
@@ -140,6 +207,138 @@ TEST_P(ST_REDUCE_TEST, st_reduce_aicpu_test)
     uint32_t root = std::get<4>(params);
 
     RunReduceTest(topoMeta, recvCount, dataType, reduceOp, root);
+}
+
+TEST_F(ST_REDUCE_TEST, host_dpu_opbase_reduce_1_int8_min)
+{
+    TopoMeta topoMeta{{{0, 1}, {0, 1}}};
+    u64 dataCount = 1;
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_INT8;
+    u32 dataTypeSize = 1;
+    u32 root = 1;
+    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_MIN;
+    RunReduceDPUCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp, root);
+}
+
+TEST_F(ST_REDUCE_TEST, host_dpu_opbase_reduce_1_int8_sum)
+{
+    TopoMeta topoMeta{{{0, 1}, {0, 1}}};
+    u64 dataCount = 1;
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_INT8;
+    u32 dataTypeSize = 1;
+    u32 root = 1;
+    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_SUM;
+    RunReduceDPUCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp, root);
+}
+
+TEST_F(ST_REDUCE_TEST, host_dpu_opbase_reduce_1_fp32_sum)
+{
+    TopoMeta topoMeta{{{0, 1}, {0, 1}}};
+    u64 dataCount = 1;
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_FP32;
+    u32 dataTypeSize = 4;
+    u32 root = 1;
+    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_SUM;
+    RunReduceDPUCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp, root);
+}
+
+TEST_F(ST_REDUCE_TEST, host_dpu_opbase_reduce_100_fp32_sum)
+{
+    TopoMeta topoMeta{{{0, 1}, {0, 1}}};
+    u64 dataCount = 100;
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_FP32;
+    u32 dataTypeSize = 4;
+    u32 root = 0;
+    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_SUM;
+    RunReduceDPUCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp, root);
+}
+
+TEST_F(ST_REDUCE_TEST, host_dpu_opbase_reduce_100_int32_sum)
+{
+    TopoMeta topoMeta{{{0, 1}, {0, 1}}};
+    u64 dataCount = 100;
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_INT32;
+    u32 dataTypeSize = 4;
+    u32 root = 0;
+    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_SUM;
+    RunReduceDPUCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp, root);
+}
+
+TEST_F(ST_REDUCE_TEST, host_dpu_opbase_reduce_100_int16_sum)
+{
+    TopoMeta topoMeta{{{0, 1}, {0, 1}}};
+    u64 dataCount = 100;
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_INT16;
+    u32 dataTypeSize = 2;
+    u32 root = 0;
+    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_SUM;
+    RunReduceDPUCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp, root);
+}
+
+TEST_F(ST_REDUCE_TEST, host_dpu_opbase_reduce_100_int16_max)
+{
+    TopoMeta topoMeta{{{0, 1}, {0, 1}}};
+    u64 dataCount = 100;
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_INT16;
+    u32 dataTypeSize = 2;
+    u32 root = 0;
+    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_MAX;
+    RunReduceDPUCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp, root);
+}
+
+TEST_F(ST_REDUCE_TEST, host_dpu_opbase_reduce_100_bfp16_max)
+{
+    TopoMeta topoMeta{{{0, 1}, {0, 1}}};
+    u64 dataCount = 100;
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_BFP16;
+    u32 dataTypeSize = 2;
+    u32 root = 0;
+    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_MAX;
+    RunReduceDPUCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp, root);
+}
+
+TEST_F(ST_REDUCE_TEST, host_dpu_opbase_reduce_100_fp16_max)
+{
+    TopoMeta topoMeta{{{0, 1}, {0, 1}}};
+    u64 dataCount = 100;
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_FP16;
+    u32 dataTypeSize = 2;
+    u32 root = 0;
+    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_MAX;
+    RunReduceDPUCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp, root);
+}
+
+TEST_F(ST_REDUCE_TEST, host_dpu_opbase_reduce_100_fp32_max)
+{
+    TopoMeta topoMeta{{{0, 1}, {0, 1}}};
+    u64 dataCount = 100;
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_FP16;
+    u32 dataTypeSize = 4;
+    u32 root = 0;
+    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_MAX;
+    RunReduceDPUCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp, root);
+}
+
+TEST_F(ST_REDUCE_TEST, host_dpu_opbase_reduce_100_fp32_max_1)
+{
+    TopoMeta topoMeta{{{0, 1, 2}, {8, 9, 10}}};
+    u64 dataCount = 100;
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_FP16;
+    u32 dataTypeSize = 4;
+    u32 root = 0;
+    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_MAX;
+    RunReduceDPUCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp, root);
+}
+
+TEST_F(ST_REDUCE_TEST, host_dpu_opbase_reduce_100_fp32_max_2)
+{
+    TopoMeta topoMeta{{{0, 1, 2}, {8, 9, 10}}};
+    u64 dataCount = 1;
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_FP16;
+    u32 dataTypeSize = 4;
+    u32 root = 0;
+    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_MAX;
+    RunReduceDPUCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp, root);
 }
 
 TopoMeta GenerateMeshTopoMeta(u32 xSize, u32 ySize = 1, u32 serverSize = 1)

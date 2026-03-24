@@ -30,7 +30,7 @@ struct SliceInfo {
     u64 offset{0};
     u64 size{0};
 };
- 
+
 using RankSliceInfo = std::vector<std::vector<SliceInfo>>;
 
 enum class BufferType {
@@ -171,7 +171,7 @@ struct BuffInfo {
 struct TemplateFastLaunchCtx {
     BuffInfo buffInfo;
     std::vector<ThreadHandle> threads;
-    std::vector<CcuKernelSubmmitInfo> ccuKernelSubmmitInfos;
+    std::vector<CcuKernelSubmitInfo> ccuKernelSubmitInfos;
 };
 
 struct TemplateDataParams {
@@ -184,7 +184,10 @@ struct TemplateDataParams {
     u64 inputRepeatStride{0};
     u64 outputRepeatStride{0};
     u64 tailSize{0};
+    bool enableRemoteMemAccess{false};
     u64 processedDataCount{0};
+    u64 root{0};
+    HcclDataType dataType{HCCL_DATA_TYPE_INT8};
     std::vector<u64> allRankSliceSize;
     std::vector<u64> allRankDispls;
     std::vector<u64> allRankProcessedDataCount;
@@ -206,9 +209,16 @@ struct TemplateDataParams {
         binaryStream << inputRepeatStride;
         binaryStream << outputRepeatStride;
         binaryStream << tailSize;
+        binaryStream << enableRemoteMemAccess;
         binaryStream << allRankSliceSize;
         binaryStream << allRankDispls;
-
+        binaryStream << sendCounts;
+        binaryStream << recvCounts;
+        binaryStream << sdispls;
+        binaryStream << rdispls;
+        binaryStream << allRankProcessedDataCount;
+        binaryStream << root;
+        binaryStream << dataType;
         std::vector<char> result;
         binaryStream.Dump(result);
         return result;
@@ -226,15 +236,25 @@ struct TemplateDataParams {
         binaryStream >> inputRepeatStride;
         binaryStream >> outputRepeatStride;
         binaryStream >> tailSize;
+        binaryStream >> enableRemoteMemAccess;
         binaryStream >> allRankSliceSize;
         binaryStream >> allRankDispls;
+        binaryStream >> sendCounts;
+        binaryStream >> recvCounts;
+        binaryStream >> sdispls;
+        binaryStream >> rdispls;
+        binaryStream >> allRankProcessedDataCount;
+        binaryStream >> root;
+        binaryStream >> dataType;
     }
 };
+
 
 struct TemplateResource {
     std::map<u32, std::vector<ChannelInfo>> channels;
     std::vector<ThreadHandle> threads;
     std::vector<CcuKernelHandle> ccuKernels;
+    std::vector<CcuKernelSubmitInfo> submitInfos;
     void *npu2DpuShmemPtr;
     void *dpu2NpuShmemPtr;
     void* aivCommInfoPtr = nullptr;
@@ -272,6 +292,14 @@ struct DPURunInfo { // AICPU构造信息，写入共享内存
         binaryStream >> myRank;
         binaryStream >> subCommRanks;
     }
+};
+
+struct AlltoAllSendRecvInfo {
+    // 存放数据个数和偏移个数
+    std::vector<u64> sendCounts;
+    std::vector<u64> sendDispls;
+    std::vector<u64> recvCounts;
+    std::vector<u64> recvDispls;
 };
 
 struct AicpuNHRStepInfo {

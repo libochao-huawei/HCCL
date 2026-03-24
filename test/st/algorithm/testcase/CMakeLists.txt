@@ -11,19 +11,24 @@
 set(src_list
     main.cc
     scatter_testcase.cc
+    reduce_scatter_testcase.cc
     all_reduce_testcase.cc
     all_reduce_parallel_testcase.cc
     alltoall_testcase.cc
     alltoallv_testcase.cc
     alltoallvc_testcase.cc
+    all_gather_dpu_testcase.cc
     all_gather_aicpu_testcase.cc
     all_gather_v_testcase.cc
     reduce_testcase.cc
+    dpu_sendrecv_testcase.cc
     send_recv_testcase.cc
     reduce_scatter_v_testcase.cc
     broadcast_testcase.cc
     reduce_scatter_aicpu_testcase.cc
     batch_send_recv_testcase.cc
+    all_reduce_dpu_testcase.cc
+    broadcast_dpu_testcase.cc
 )
 
 add_executable(hccl_checker_ops_stest ${src_list})
@@ -33,6 +38,9 @@ if (BUILD_OPEN_PROJECT)
         # 第三方头文件
         ${THIRD_PARTH_PATH}/gtest_shared/include
         ${THIRD_PARTH_PATH}/gtest_shared/include
+
+        # HCCL仓头文件
+        ${HCCL_DEV_BASE}/src/ops/op_common/inc
 
         # Ascend安装包头文件
         ${ASCEND_HOME_PATH}/include
@@ -45,6 +53,8 @@ if (BUILD_OPEN_PROJECT)
 
         # 本仓代码头文件
         ${HCCL_DEV_BASE}/src/common
+        ${HCCL_DEV_BASE}/src/ops
+        ${HCCL_DEV_BASE}/src/ops/op_common
         ${HCCL_DEV_BASE}/src/ops/op_common/inc
 
         ${UTILS_DIR}/sim_world
