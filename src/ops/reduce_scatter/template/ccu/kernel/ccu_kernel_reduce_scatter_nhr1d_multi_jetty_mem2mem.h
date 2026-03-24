@@ -75,11 +75,11 @@ public:
         sliceLastJettySize_(sliceLastJettySize), repeatNum_(repeatNum),
         inputRepeatStride_(inputRepeatStride), outputRepeatStride_(outputRepeatStride)
     {
-        HCCL_DEBUG("[CcuTaskArgReduceScatterNhrMutilJettyMem2Mem1D] inputAddr: %lu, outputAddr: %lu, token: %lu, "
+        HCCL_DEBUG("[CcuTaskArgReduceScatterNhrMutilJettyMem2Mem1D] inputAddr: %lu, outputAddr: %lu, "
                     "sliceSize: %lu, inputSliceStride: %lu, outputSliceStride: %lu, sliceOneJettySize_: %lu, "
                     "sliceLastJettySize_: %lu, repeatNum: %lu, "
                     "inputRepeatStride: %lu, outputRepeatStride: %lu",
-                   inputAddr_, outputAddr_, token_, sliceSize_, inputSliceStride_, outputSliceStride_,
+                   inputAddr_, outputAddr_, sliceSize_, inputSliceStride_, outputSliceStride_,
                    sliceOneJettySize_, sliceLastJettySize_, repeatNum, inputRepeatStride_,
                    outputRepeatStride_);
     }

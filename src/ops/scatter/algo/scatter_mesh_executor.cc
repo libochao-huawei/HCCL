@@ -99,6 +99,7 @@ HcclResult ScatterMeshExecutor::KernelRun(const OpParam &param, ExecMem &execMem
 
     std::unique_ptr<AlgTemplateBase> level0TempAlg = AlgTemplateRegistry::Instance().GetAlgTemplate(
         TemplateType::TEMPLATE_SCATTER_MESH);
+    HCCL_CONFIG_INFO(HCCL_ALG, "[%s] Run TEMPLATE_SCATTER_MESH in COMM_LEVEL0", __func__);
     CHK_SMART_PTR_NULL(level0TempAlg);
     // 这个prepare接口可以优化掉
     CHK_RET(level0TempAlg->Prepare(level0LocalRank, level0LocalRankSize));
