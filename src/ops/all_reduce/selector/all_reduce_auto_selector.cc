@@ -249,7 +249,7 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleLevel0Algo(const TopoInfo
     return SelectorStatus::MATCH;
 }
 
-bool IsDataTypeOrReduceTypeSpecial(HcclDataType dataType, HcclReduceOp reduceType) const
+bool IsDataTypeOrReduceTypeSpecial(HcclDataType dataType, HcclReduceOp reduceType)
 {
     return dataType == HcclDataType::HCCL_DATA_TYPE_INT64 ||
            dataType == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
