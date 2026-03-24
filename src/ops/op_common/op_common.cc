@@ -329,6 +329,11 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
             std::vector<char> seq(ctx, ctx + param.ctxSize);
             resCtxHost->DeSerialize(seq);
         }
+        int result = sprintf_s(param.algName, sizeof(param.algName), "%s", algName.c_str());
+        if (result <= 0) {
+            HCCL_ERROR("faled to fill param.algName");
+            return HCCL_E_INTERNAL;
+        }
         if (resCtxHost->slaveThreadNum > 0) {
             CHK_RET(CaptureSlaveStreams(comm, param.stream, resCtxHost->threads));
         }
@@ -339,11 +344,6 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
             char *ctx = static_cast<char*>(resCtxSequence);
             std::vector<char> seq(ctx, ctx + param.ctxSize);
             resCtxHost->DeSerialize(seq);
-        }
-        int result = sprintf_s(param.algName, sizeof(param.algName), "%s", algName.c_str());
-        if (result <= 0) {
-            HCCL_ERROR("faled to fill param.algName");
-            return HCCL_E_INTERNAL;
         }
         CHK_RET(executor->Orchestrate(param, *resCtxHost));
     }
