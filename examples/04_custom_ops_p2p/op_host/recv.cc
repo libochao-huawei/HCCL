@@ -67,13 +67,13 @@ HcclResult HcclRecvCustom(
         // ==============================================
         // STEP 2.1: 申请thread
         // ==============================================
-        ACLCHECK(aclrtCreateNotify(&(g_notifies[0]), ACL_NOTIFY_DEFAULT));
-        ACLCHECK(aclrtCreateNotify(&(g_notifies[1]), ACL_NOTIFY_DEFAULT));
-        AlgResourceCtx resCtxHost;
-        for (uint32_t idx = 0; idx < AICPU_CONTROL_NOTIFY_NUM; idx++) {
-            ACLCHECK(aclrtGetNotifyId(g_notifies[idx], &(resCtxHost.notifyIds[idx])));
-        }
-        CHK_RET(HcclThreadAcquire(comm, engine, 1, 0, &(resCtxHost.threadHandle)));
+        // 将传入的stream转换为thread，并申请1个notify；同时导出为AICPU上可用的thread
+        CHK_RET(HcclThreadAcquireWithStream(comm, COMM_ENGINE_CPU_TS, stream, 1, &param.cpuThread));
+        CHK_RET(HcclThreadExportToCommEngine(comm, 1, &cpuThread, COMM_ENGINE_AICPU_TS, &param.cpuThreadOnAicpu));
+
+        // 创建一个AICPU_TS类型的thread，并申请1个notify；同时导出为CPU上可用的thread
+        CHK_RET(HcclThreadAcquire(COMM_ENGINE_AICPU_TS, 1, 1, &param.aicpuThread));
+        CHK_RET(HcclThreadExportToCommEngine(comm, 1, &aicpuThread, COMM_ENGINE_CPU_TS, &param.aicpuThreadOnCpu));
 
         // ==============================================
         // STEP 2.2: 建立通信链路Channel，两个 rank 之间建立 1 个 channel

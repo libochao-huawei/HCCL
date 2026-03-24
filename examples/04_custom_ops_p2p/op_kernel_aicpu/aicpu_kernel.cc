@@ -21,45 +21,21 @@ using namespace ops_hccl_p2p;
 extern "C" unsigned int HcclLaunchP2PAicpuKernel(OpParam *param)
 {
     HCCL_INFO("Entry-%s, commName[%s], tag[%s]", __func__, param->commName, param->tag);
-    if (HcommAcquireComm(param->commName) != HCCL_SUCCESS) { 
-        HCCL_ERROR("%s HcommAcquireComm fail, commName[%s]", __func__, param->commName);
-        return 1;
-    }
-
-    // 获取Device侧主thread
-    ThreadHandle thread = param->resCtx->threadHandle;
-    if (HcommBatchModeStart(param->tag) != HCCL_SUCCESS) {
-        HCCL_ERROR("failed start batch mode");
-        return 1;
-    }
+    CHK_RET(HcommAcquireComm(param->commName));
+    CHK_RET(HcommBatchModeStart(param->tag));
 
     // 主thread等待Host stream的通知
-    if (HcommAclrtNotifyWaitOnThread(thread, param->resCtx->notifyIds[0], CUSTOM_TIMEOUT) != HCCL_SUCCESS) {
-        HCCL_ERROR("failed to wait notify[%d] from host main stream", param->resCtx->notifyIds[0]);
-        return 1;
-    }
+    CHK_RET(HcommThreadNotifyWaitOnThread(param->resCtx->aicpuThread, 0, CUSTOM_TIMEOUT));
 
     // 执行算法编排
-    if (ExecOp(*param, param->resCtx) != HCCL_SUCCESS) {
-        HCCL_ERROR("orchestrate failed for op:%d", param->opType);
-        return 1;
-    }
+    CHK_RET(ExecOp(*param, param->resCtx));
 
     // 主thread通知Host stream
-    if (HcommAclrtNotifyRecordOnThread(thread, param->resCtx->notifyIds[1]) != HCCL_SUCCESS) {
-        HCCL_ERROR("failed to record host main stream");
-        return 1;
-    }
+    CHK_RET(HcommThreadNotifyRecordOnThread(param->resCtx->aicpuThread, param->resCtx->aicpuThreadOnCpu, 0));
 
-    if (HcommBatchModeEnd(param->tag) != HCCL_SUCCESS) {
-        HCCL_ERROR("failed end batch mode");
-        return 1;
-    }
+    CHK_RET(HcommBatchModeEnd(param->tag));
+    CHK_RET(HcommReleaseComm(param->commName));
 
-    if (HcommReleaseComm(param->commName) != HCCL_SUCCESS) {
-        HCCL_ERROR("%s HcommReleaseComm fail, commName[%s]", __func__, param->commName);
-        return 1;
-    }
     HCCL_INFO("%s success, commName[%s], tag[%s]", __func__, param->commName, param->tag);
     return 0;
 }
