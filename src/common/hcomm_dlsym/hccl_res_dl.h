@@ -13,6 +13,8 @@
 
 #include "hccl_res.h"
 
+typedef int32_t(Callback)(uint64_t, int32_t);
+
 #ifdef __cplusplus
 extern "C" {
 #endif
