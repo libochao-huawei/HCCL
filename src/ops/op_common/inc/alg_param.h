@@ -20,9 +20,9 @@
 #include "hccl_common.h"
 #include "hccl_types.h"
 #include "alg_type.h"
-#include "hccl_res.h"
-#include "hcomm_primitives.h"
-#include "hccl_rank_graph.h"
+#include "hccl_res_dl.h"
+#include "hcomm_primitives_dl.h"
+#include "hccl_rank_graph_dl.h"
 #include "binary_stream.h"
 #include "hccl_ccu_res.h"
 
@@ -323,6 +323,7 @@ struct AlgResourceCtxSerializable {
     std::vector<u32> notifyNumPerThread; // 每个thread需要的notify数量
     void* aivCommInfoPtr = nullptr;
     std::vector<ThreadHandle> threads;
+    ThreadHandle unfoldThread = 0; // 展开流thread
     std::vector<std::vector<ChannelInfo>> channels;
     void* commInfoPtr = nullptr;
     // hostdpu
@@ -346,6 +347,7 @@ struct AlgResourceCtxSerializable {
         binaryStream << notifyNumPerThread;
         binaryStream << commInfoPtr;
         binaryStream << threads;
+        binaryStream << unfoldThread;
         binaryStream << channels;
 
         binaryStream << npu2DpuShmemPtr;
@@ -375,6 +377,7 @@ struct AlgResourceCtxSerializable {
         binaryStream >> notifyNumPerThread;
         binaryStream >> commInfoPtr;
         binaryStream >> threads;
+        binaryStream >> unfoldThread;
         binaryStream >> channels;
 
         binaryStream >> npu2DpuShmemPtr;
