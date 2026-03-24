@@ -76,10 +76,10 @@ HcclResult InsV2BroadcastSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     AlgResourceRequest resReqScatterInter;
     AlgResourceRequest resReqAllGatherInter;
 
-    intraScatterTempAlg->CalcRes(comm, param, topoInfo, resReqScatterIntra);
-    intraAllGatherTempAlg->CalcRes(comm, param, topoInfo, resReqAllGatherIntra);
-    interScatterTempAlg->CalcRes(comm, param, topoInfo, resReqScatterInter);
-    interAllGatherTempAlg->CalcRes(comm, param, topoInfo, resReqAllGatherInter);
+    CHK_RET(intraScatterTempAlg->CalcRes(comm, param, topoInfo, resReqScatterIntra));
+    CHK_RET(intraAllGatherTempAlg->CalcRes(comm, param, topoInfo, resReqAllGatherIntra));
+    CHK_RET(interScatterTempAlg->CalcRes(comm, param, topoInfo, resReqScatterInter));
+    CHK_RET(interAllGatherTempAlg->CalcRes(comm, param, topoInfo, resReqAllGatherInter));
 
     // step1在完成后，完成后同步后展开step2，因此slaveThread和对应notify可以复用
     resourceRequest.slaveThreadNum = std::max({resReqScatterIntra.slaveThreadNum,
@@ -131,6 +131,7 @@ HcclResult InsV2BroadcastSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
 {
     myRank_ = resCtx.topoInfo.userRank;
     rankSize_ = resCtx.topoInfo.userRankSize;
+    root_ = param.root;
 
     rankIdxLevel0_ = myRank_ % algHierarchyInfo_.infos[0][0].size();
     rankIdxLevel1_ = myRank_ / algHierarchyInfo_.infos[0][0].size();
@@ -139,14 +140,14 @@ HcclResult InsV2BroadcastSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     rankSizeLevel1_ = algHierarchyInfo_.infos[1][0].size();
 
     // 计算框内的root同号卡
-    intraLocalRoot_ = root_ % rankSizeLevel0_ + rankIdxLevel1_ * rankIdxLevel0_;
+    intraLocalRoot_ = root_ % rankSizeLevel0_ + rankIdxLevel1_ * rankSizeLevel0_;
 
     dataCount_ = param.DataDes.count;
     dataTypeSize_ = SIZE_TABLE[param.DataDes.dataType];
     dataSize_ = dataCount_ * dataTypeSize_;
 
     HCCL_INFO("[InsV2BroadcastSequenceExecutor][InitExecutorInfo] myRank [%u], rankSize [%u], dataTypeSize [%u]",
-        +myRank_,
+        myRank_,
         rankSize_,
         dataTypeSize_);
     return HCCL_SUCCESS;
@@ -213,11 +214,14 @@ HcclResult InsV2BroadcastSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     templateResourceInter.npu2DpuShmemPtr = resCtx.npu2DpuShmemPtr;
     templateResourceInter.dpu2NpuShmemPtr = resCtx.dpu2NpuShmemPtr;
 
+    CHK_PRT_RET(dataTypeSize_ == 0,
+        HCCL_ERROR("[InsV2BroadcastSequenceExecutor] datatypesize is 0"), HCCL_E_PARA);
     // 中转内存单次最多能够接受的output count，注意是count不是size
-    u64 dataTypeSize_ = SIZE_TABLE[param.DataDes.dataType];
-    u64 dataCount_ = param.DataDes.count;
     u64 maxCountPerLoop = tempAlgParamsScatterIntra.buffInfo.hcclBuff.size / HCCL_MIN_SLICE_ALIGN *
                           HCCL_MIN_SLICE_ALIGN / dataTypeSize_;
+
+    CHK_PRT_RET(maxCountPerLoop == 0,
+        HCCL_ERROR("[InsV2BroadcastSequenceExecutor] maxCountPerLoop is 0"), HCCL_E_PARA);
     // 计算loopTimes
     u64 loopTimes = dataCount_ / maxCountPerLoop + static_cast<u64>(dataCount_ % maxCountPerLoop != 0);
     u64 processedDataCount = 0;
@@ -252,7 +256,7 @@ HcclResult InsV2BroadcastSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
         tempAlgParamsScatterIntra.inputRepeatStride = 0;
         tempAlgParamsScatterIntra.outputRepeatStride = 0;
         // 因为只考虑执行0级算法，所以传进template里面的channels就是channels_的第一个vector
-        if(intraLocalRoot_ = root_) {
+        if(intraLocalRoot_ == root_) {
             CHK_RET(algTemplateScatterIntra->KernelRun(param, tempAlgParamsScatterIntra, templateResourceIntra));
         }
 
@@ -398,7 +402,7 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 HcclResult InsV2BroadcastSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2,
     InsAlgTemplate3>::SplitData(const u64 &dataCount, const uint64_t &rankSize, TemplateDataParams &tempAlgParams)
 {
-    u32 sliceNum = rankSize;
+    u64 sliceNum = rankSize;
     tempAlgParams.allRankSliceSize.clear();
     tempAlgParams.allRankDispls.clear();
     tempAlgParams.allRankProcessedDataCount.clear();

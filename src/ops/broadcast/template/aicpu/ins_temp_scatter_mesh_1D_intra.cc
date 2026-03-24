@@ -156,7 +156,7 @@ HcclResult InsTempScatterMesh1DIntra::RunScatter(const std::map<u32, std::vector
     }
 
     if (root_ == u32(myRank_)) { // 本卡也需要搬运一部分数据
-        LocalCopyforMyRank(subCommRanks_[0], tempAlgParams, threads);
+        CHK_RET(LocalCopyforMyRank(subCommRanks_[0], tempAlgParams, threads));
     }
 
     u64 recvSize = tempAlgParams.allRankSliceSize.at(myAlgRank);
