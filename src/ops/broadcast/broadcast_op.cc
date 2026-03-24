@@ -39,7 +39,8 @@ HcclResult HcclBroadcast(void *buf, uint64_t count, HcclDataType dataType, uint3
     #endif
         return HcclBroadcastInner(buf, count, dataType, root, comm, stream);
     }
-
+    
+    CHK_PRT_RET(count == 0, HCCL_WARNING("input count is 0, return broadcast success"), HCCL_SUCCESS);
     std::string opTag;
     CHK_RET(BroadcastInitAndCheck(comm, buf, count, dataType, root, stream, opTag));
 
@@ -57,6 +58,7 @@ HcclResult HcclBroadcastGraphMode(void *buf, uint64_t count, HcclDataType dataTy
     HCCL_INFO("[HcclBroadcastGraphMode] get group name: %s", group);
     HcomGetCommHandleByGroup(group, &comm);
     
+    CHK_PRT_RET(count == 0, HCCL_WARNING("input count is 0, return broadcast success"), HCCL_SUCCESS);
     std::string opTag;
     CHK_RET(BroadcastInitAndCheck(comm, buf, count, dataType, root, stream, opTag));
     
@@ -93,7 +95,6 @@ HcclResult BroadcastInitAndCheck(HcclComm comm, void *buf, uint64_t count, HcclD
     CHK_RET(InitEnvConfig());
 
     // 参数校验等工作
-    CHK_PRT_RET(count == 0, HCCL_WARNING("input count is 0, return broadcast success"), HCCL_SUCCESS);
     CHK_RET(CheckBroadcastInputPara(comm, buf));
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     CHK_RET(HcclGetRankSize(comm, &rankSize));
