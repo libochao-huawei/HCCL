@@ -21,6 +21,7 @@ set(op_host_src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/launch_kernel_asc.asc
 
     ${HCCL_CUSTOM_OPS_ROOT}/common/exec_op.cc
+    ${HCCL_CUSTOM_OPS_ROOT}/common/utils.cc
     ${HCCL_CUSTOM_OPS_ROOT}/op_kernel_aicpu/aicpu_kernel_asc.aicpu
 )
 

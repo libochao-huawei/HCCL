@@ -8,10 +8,12 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include <cstring>
+#include <string>
 #include <acl/acl_rt.h>
 #include <hccl/hccl_types.h>
+#include "log.h"
 #include "utils.h"
+#include "common.h"
 
 namespace ops_hccl_p2p {
 HcclResult GetDeviceType(DeviceType *deviceType) {
