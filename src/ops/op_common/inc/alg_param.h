@@ -267,7 +267,7 @@ struct CcuKernelSubmitInfo {
 struct CcuFastLaunchCtx {
     char algName[OP_ALG_LENGTH];
     u32 threadNum;
-    u32 ccuKernelNum[MAX_TEMP_NUM_IN_ALGO];  // 每个template的kernel数量
+    u32 ccuKernelNum[MAX_TEMP_NUM_IN_ALGO];  // 每次调用KernelRun下发的kernel数量
     // 紧接ThreadHandle数组
     // 紧接CcuKernelSubmitInfo数组
 
@@ -438,6 +438,7 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     u64 inputSize = 0;
     void* outputPtr = nullptr;
     u64 outputSize = 0;
+    HcclMem hcclBuff;   // 当前仅快速下发时使用此处的地址
     HcclReduceOp reduceType = HcclReduceOp::HCCL_REDUCE_RESERVED;
     u32 root = INVALID_VALUE_RANKID;
     u32 sendRecvRemoteRank = INVALID_VALUE_RANKID;
