@@ -22,6 +22,9 @@ endif()
 
 set(INCLUDE_LIST
     ${OPS_BASE_DIR}/include
+    ${OPS_BASE_DIR}/include/pkg_inc
+    ${OPS_BASE_DIR}/include/pkg_inc/hcomm
+    ${OPS_BASE_DIR}/include/pkg_inc/hcomm/ccu
     ${CMAKE_CURRENT_SOURCE_DIR}/common
     ${CMAKE_CURRENT_SOURCE_DIR}/common/hcomm_dlsym
 
