@@ -181,7 +181,13 @@ HcclResult CcuKernelAlgBase::GroupBroadcast(const std::vector<ChannelHandle> &ch
         offsetCfg = GetOffsetParam(moConfig.memSlice, moConfig.msInterleave, 1);
 
         LoopGroup({lc}, {loopParam}, paraCfg, offsetCfg);
-        AddCcuProfiling(goSize, transports, 0xFF, 0xFF, 0xFF, "GroupBroadcast");
+        std::string groupOpSize = "GroupBroadcast";
+        GroupInfo groupInfo {
+            goSize.loopParam.Id(),
+            goSize.parallelParam.Id(),
+            goSize.residual.Id()
+        };
+        AddCcuProfiling(groupInfo, channels, HcclDataType::HCCL_DATA_TYPE_RESERVED, HcclDataType::HCCL_DATA_TYPE_RESERVED, HcclReduceOp::HCCL_REDUCE_RESERVED, groupOpSize);
     }
 
     CCU_IF(goSize.parallelParam != 0)
@@ -210,7 +216,13 @@ HcclResult CcuKernelAlgBase::GroupBroadcast(const std::vector<ChannelHandle> &ch
         offsetCfg = GetOffsetParam(moConfig.memSlice, moConfig.msInterleave, 1);
 
         LoopGroup({lc0, lc1}, {loopCfg0, loopCfg1}, goSize.parallelParam, offsetCfg);
-        AddCcuProfiling(goSize, transports, 0xFF, 0xFF, 0xFF, "GroupBroadcast");
+        std::string groupOpSize = "GroupBroadcast";
+        GroupInfo groupInfo {
+            goSize.loopParam.Id(),
+            goSize.parallelParam.Id(),
+            goSize.residual.Id()
+        };
+        AddCcuProfiling(groupInfo, channels, HcclDataType::HCCL_DATA_TYPE_RESERVED, HcclDataType::HCCL_DATA_TYPE_RESERVED, HcclReduceOp::HCCL_REDUCE_RESERVED, groupOpSize);
     }
     return HCCL_SUCCESS;
 }
@@ -362,7 +374,13 @@ HcclResult CcuKernelAlgBase::GroupReduce(const std::vector<ChannelHandle> &chann
         offsetCfg = GetOffsetParam(moConfig.memSlice, moConfig.msInterleave, 1);
 
         LoopGroup({lc}, {loopParam}, paraCfg, offsetCfg);
-        AddCcuProfiling(goSize, transports, dataType, outputDataType, opType, "GroupReduce");
+        std::string groupOpSize = "GroupReduce";
+        GroupInfo groupInfo {
+            goSize.loopParam.Id(),
+            goSize.parallelParam.Id(),
+            goSize.residual.Id()
+        };
+        AddCcuProfiling(groupInfo, channels, dataType, outputDataType, opType, groupOpSize);
     }
 
     // 第二个loopgroup，包含1或2个loop，搬运n和p部分数据。
@@ -404,7 +422,13 @@ HcclResult CcuKernelAlgBase::GroupReduce(const std::vector<ChannelHandle> &chann
         offsetCfg = GetOffsetParam(moConfig.memSlice, moConfig.msInterleave, 1);
 
         LoopGroup({lc0, lc1}, {loopCfg0, loopCfg1}, goSize.parallelParam, offsetCfg);
-        AddCcuProfiling(goSize, transports, dataType, outputDataType, opType, "GroupReduce");
+        std::string groupOpSize = "GroupReduce";
+        GroupInfo groupInfo {
+            goSize.loopParam.Id(),
+            goSize.parallelParam.Id(),
+            goSize.residual.Id()
+        };
+        AddCcuProfiling(groupInfo, channels, dataType, outputDataType, opType, groupOpSize);
     }
     return HCCL_SUCCESS;
 }
@@ -477,7 +501,13 @@ HcclResult CcuKernelAlgBase::GroupBroadcastWithoutMyRank(const std::vector<Chann
         offsetCfg = GetOffsetParam(moConfig.memSlice, moConfig.msInterleave, 1);
 
         LoopGroup({lc}, {loopParam}, paraCfg, offsetCfg);
-        AddCcuProfiling(goSize, ccuTransports, 0xFF, 0xFF, 0xFF, "GroupBroadcast");
+        std::string groupOpSize = "GroupBroadcast";
+        GroupInfo groupInfo {
+            goSize.loopParam.Id(),
+            goSize.parallelParam.Id(),
+            goSize.residual.Id()
+        };
+        AddCcuProfiling(groupInfo, channels, HcclDataType::HCCL_DATA_TYPE_RESERVED, HcclDataType::HCCL_DATA_TYPE_RESERVED, HcclReduceOp::HCCL_REDUCE_RESERVED, groupOpSize);
     }
 
     CCU_IF(goSize.parallelParam != 0)
@@ -506,7 +536,13 @@ HcclResult CcuKernelAlgBase::GroupBroadcastWithoutMyRank(const std::vector<Chann
         offsetCfg = GetOffsetParam(moConfig.memSlice, moConfig.msInterleave, 1);
 
         LoopGroup({lc0, lc1}, {loopCfg0, loopCfg1}, goSize.parallelParam, offsetCfg);
-        AddCcuProfiling(goSize, ccuTransports, 0xFF, 0xFF, 0xFF, "GroupBroadcast");
+        std::string groupOpSize = "GroupBroadcast";
+        GroupInfo groupInfo {
+            goSize.loopParam.Id(),
+            goSize.parallelParam.Id(),
+            goSize.residual.Id()
+        };
+        AddCcuProfiling(groupInfo, channels, HcclDataType::HCCL_DATA_TYPE_RESERVED, HcclDataType::HCCL_DATA_TYPE_RESERVED, HcclReduceOp::HCCL_REDUCE_RESERVED, groupOpSize);
     }
     return HCCL_SUCCESS;
 }
@@ -625,7 +661,13 @@ HcclResult CcuKernelAlgBase::GroupReduceWithoutMyRank(const std::vector<ChannelH
         offsetCfg = GetOffsetParam(moConfig.memSlice, moConfig.msInterleave, 1);
 
         LoopGroup({lc}, {loopParam}, paraCfg, offsetCfg);
-        AddCcuProfiling(goSize, ccuTransports, dataType, outputDataType, opType, "GroupReduce");
+        std::string groupOpSize = "GroupReduce";
+        GroupInfo groupInfo {
+            goSize.loopParam.Id(),
+            goSize.parallelParam.Id(),
+            goSize.residual.Id()
+        };
+        AddCcuProfiling(groupInfo, channels, dataType, outputDataType, opType, groupOpSize);
     }
 
     // 第二个loopgroup，包含1或2个loop，搬运n和p部分数据。
@@ -667,7 +709,13 @@ HcclResult CcuKernelAlgBase::GroupReduceWithoutMyRank(const std::vector<ChannelH
         offsetCfg = GetOffsetParam(moConfig.memSlice, moConfig.msInterleave, 1);
 
         LoopGroup({lc0, lc1}, {loopCfg0, loopCfg1}, goSize.parallelParam, offsetCfg);
-        AddCcuProfiling(goSize, ccuTransports, dataType, outputDataType, opType, "GroupReduce");
+        std::string groupOpSize = "GroupReduce";
+        GroupInfo groupInfo {
+            goSize.loopParam.Id(),
+            goSize.parallelParam.Id(),
+            goSize.residual.Id()
+        };
+        AddCcuProfiling(groupInfo, channels, dataType, outputDataType, opType, groupOpSize);
     }
     return HCCL_SUCCESS;
 }
