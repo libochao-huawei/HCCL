@@ -17,6 +17,7 @@ constexpr u64 AR_ONESHOT_1D_MAX_DATA_SIZE = 16 * 1024;
 constexpr u64 AR_M2M_1D_MAX_DATA_SIZE = 16 * 1024 * 1024;
 constexpr u64 AR_AICPU_1D_SMALL_DATA_SIZE = 8 * 1024 * 1024;
 constexpr u64 AR_AICPU_1D_MAX_DATA_SIZE = 32 * 1024 * 1024;
+constexpr u64 AR_AICPU_1D_64DATATYPE_DATA_SIZE = 8 * 1024 * 1024;
 constexpr u32 MAX_RANK_NUM_FOR_CONCURRENT_ALGO = 4;
 
 SelectorStatus AllReduceAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
@@ -248,6 +249,14 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleLevel0Algo(const TopoInfo
     return SelectorStatus::MATCH;
 }
 
+bool IsDataTypeOrReduceTypeSpecial(HcclDataType dataType, HcclReduceOp reduceType) const
+{
+    return dataType == HcclDataType::HCCL_DATA_TYPE_INT64 ||
+           dataType == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
+           dataType == HcclDataType::HCCL_DATA_TYPE_FP64 ||
+           reduceType == HcclReduceOp::HCCL_REDUCE_PROD;
+}
+
 SelectorStatus AllReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerDetails* topoInfo,
                                                       const OpParam &opParam,
                                                       const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
@@ -255,25 +264,21 @@ SelectorStatus AllReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayer
 {
     HCCL_DEBUG("[AllReduceAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
 
-    CHK_PRT_RET(opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD,
-        HCCL_ERROR("[AllReduceAutoSelector] ReduceOp [PROD]] is not supported yet for aicpu mode."),
-        SelectorStatus::NOT_MATCH);
+    HcclDataType dataType = opParam.DataDes.dataType;
+    HcclReduceOp reduceType = opParam.reduceType;
 
     if (topoInfo->topoLevelNums > 1) {
-        if (topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] == 1) {
+        if (IsDataTypeOrReduceTypeSpecial(dataType, reduceType)) {
+            selectAlgName = "InsAllReduceAicpuReduceNHR";
+        } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] == 1) {
             selectAlgName = "InsAllReduceNHR";
         } else if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-            selectAlgName = "InsAllReduceParallelRSAG";
+            selectAlgName = "InsAllReduceParallelMesh1DNHR";
         } else {
             return SelectorStatus::NOT_MATCH;
         }
     } else {
         return SelectMeshAlgoAicpu(topoInfo, opParam, selectAlgName);
-    }
-    
-    if (Is64BitDataType(opParam.DataDes.dataType)) {
-        HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64 only support in-box fullmesh algo type now.");
-        return SelectorStatus::NOT_MATCH;
     }
 
     HCCL_DEBUG("[AllReduceAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
@@ -315,11 +320,9 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetL
 {
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
+    HcclDataType dataType = opParam.DataDes.dataType;
+    HcclReduceOp reduceType = opParam.reduceType;
 
-    if (Is64BitDataType(opParam.DataDes.dataType)) {
-        HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64 only support in-box fullmesh algo type now.");
-        return SelectorStatus::NOT_MATCH;
-    }
     double ratio;
     if (topoInfo->userRankSize == 0) {
         HCCL_WARNING("[AllReduceAutoSelector] the selector userRankSize not set");
@@ -329,7 +332,11 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetL
     }
 
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-        if (dataSize <= AR_AICPU_1D_SMALL_DATA_SIZE) {
+        if (IsDataTypeOrReduceTypeSpecial(dataType, reduceType)) {
+            selectAlgName = dataSize <= AR_AICPU_1D_64DATATYPE_DATA_SIZE ?
+                            "InsAllReduceMesh1DOneShot" :
+                            "InsAllReduceMesh1DTwoShot";
+        } else if (dataSize <= AR_AICPU_1D_SMALL_DATA_SIZE) {
             selectAlgName = "InsAllReduceMesh1DOneShot";
         } else if (dataSize * ratio > AR_AICPU_1D_MAX_DATA_SIZE) { 
             selectAlgName = "InsAllReduceMesh1DTwoShotMeshChunk";
@@ -337,9 +344,18 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetL
             selectAlgName = "InsAllReduceMesh1DTwoShot";
         }
     } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
-        selectAlgName = "InsAllReduceNHR";
+        if (IsDataTypeOrReduceTypeSpecial(dataType, reduceType)) {
+            selectAlgName = "InsAllReduceAicpuReduceNHR";
+        } else {
+            selectAlgName = "InsAllReduceNHR";
+        }
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-        return SelectMeshAlgoAicpuUBX(topoInfo, dataSize, selectAlgName);
+        if (IsDataTypeOrReduceTypeSpecial(dataType, reduceType)) {
+            HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64 and PROD reduceType not support now.");
+            return SelectorStatus::NOT_MATCH;
+        } else {
+            return SelectMeshAlgoAicpuUBX(topoInfo, dataSize, selectAlgName); // TODO: 64类特性是否拦截
+        }
     } else {
         HCCL_ERROR("[AllReduceAutoSelector] topo not match");
         return SelectorStatus::NOT_MATCH;
