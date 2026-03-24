@@ -77,26 +77,27 @@ void CcuKernelAllGatherMesh1DWrite::DoGroupBroadcastWrite()
     src.token = token_;
 
     // 构建 dst 数组：dst[0..N-2] = peer 输出位置（按 channel 顺序），dst[N-1] = 本端输出位置
+    // 先通过 CreateLocalAddr 创建 N 个有 context 的槽位，再按 channel 顺序索引赋值
     std::vector<CcuRep::RemoteAddr> dst;
     for (uint64_t i = 0; i < rankSize_; i++) {
-        CcuRep::LocalAddr la = CreateLocalAddr();
-        la.addr  = output_[i];
-        la.token = token_;
-        dst.emplace_back(*reinterpret_cast<CcuRep::RemoteAddr *>(&la));
+        CcuRep::LocalAddr tmp = CreateLocalAddr();
+        dst.emplace_back(*reinterpret_cast<CcuRep::RemoteAddr *>(&tmp));
     }
 
-    // 按 channel 顺序重新排列：peer ranks 在前，self 在末尾 (dst[N-1])
-    std::vector<CcuRep::RemoteAddr> ordered(rankSize_);
-    uint32_t chIdx = 0;
+    uint32_t dstId = 0;
+    uint32_t curId = 0;
     for (uint64_t rankIdx = 0; rankIdx < rankSize_; rankIdx++) {
         if (rankIdx != rankId_) {
-            ordered[chIdx++] = dst[rankIdx];
+            curId = dstId;
+            dstId++;
         } else {
-            ordered[rankSize_ - 1] = dst[rankIdx];
+            curId = rankSize_ - 1;
         }
+        dst[curId].addr  = output_[rankIdx];
+        dst[curId].token = token_;
     }
 
-    GroupBroadcastWrite(channels_, ordered, src, groupOpSize_);
+    GroupBroadcastWrite(channels_, dst, src, groupOpSize_);
 }
 
 HcclResult CcuKernelAllGatherMesh1DWrite::Algorithm()
