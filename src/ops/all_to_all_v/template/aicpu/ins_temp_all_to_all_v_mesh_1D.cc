@@ -41,8 +41,8 @@ HcclResult InsTempAlltoAllVMesh1D::CalcRes(HcclComm comm, const OpParam& param, 
 
 u64 InsTempAlltoAllVMesh1D::CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType)
 {
-     // usrIn和cclBuffer大小相同	 
-     return 1;
+    // usrIn和cclBuffer大小相同
+    return 1;
 }
 
 HcclResult InsTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
