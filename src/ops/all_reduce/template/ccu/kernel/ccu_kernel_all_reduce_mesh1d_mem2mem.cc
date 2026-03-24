@@ -401,10 +401,6 @@ std::vector<uint64_t> CcuKernelAllReduceMeshMem2Mem1D::GeneArgs(const CcuTaskArg
 {
     const CcuTaskArgAllReduceMeshMem2Mem1D *taskArg
         = dynamic_cast<const CcuTaskArgAllReduceMeshMem2Mem1D *>(&arg);
-    // 空指针校验
-    if (taskArg == nullptr) {
-        HCCL_ERROR("CcuKernelAllReduceMeshMem2Mem1D::taskArg ptr is null");
-    }
     uint64_t inputAddr                    = taskArg->inputAddr_;
     uint64_t outputAddr                   = taskArg->outputAddr_;
     uint64_t tokenInfo                    = taskArg->token_;
