@@ -48,6 +48,9 @@ private:
                             const std::vector<ThreadHandle> &threads,
                             const TemplateDataParams &tempAlgParams,
                             const RankSliceInfo &sliceInfoVec);
+    HcclResult PostLocalReduce(const OpParam& param, const std::vector<ThreadHandle> &threads,
+                               const TemplateDataParams &tempAlgParams,
+                               const RankSliceInfo &sliceInfoVec);
     bool needAicpuReduce_{false};
     u64 processSize_{0};
     u64 count_{0};

@@ -85,6 +85,7 @@ HcclResult InsTempAllReduceMesh1DOneShot::KernelRun(const OpParam& param,
     CHK_RET(CalcSlice(processSize_, sliceInfoVec));
 
     CHK_RET(RunAllReduce(param, templateResource.channels, templateResource.threads, tempAlgParams, sliceInfoVec));
+    CHK_PRT(PostLocalReduce(param, templateResource.threads, tempAlgParams, sliceInfoVec));
     HCCL_INFO("[InsTempAllReduceMesh1DOneShot][Run] AllReduceMesh1DOneShot finished: rank[%d] end", myRank_);
     return HCCL_SUCCESS;
 }
@@ -160,6 +161,14 @@ HcclResult InsTempAllReduceMesh1DOneShot::RunAllReduce(const OpParam& param,
         CHK_RET(PostSyncInterThreads(threads[0], subThreads, notifyIdxSubToMain_));
     }
 
+    return HCCL_SUCCESS;
+}
+
+HcclResult InsTempAllReduceMesh1DOneShot::PostLocalReduce(const OpParam& param,
+                                                          const std::vector<ThreadHandle> &threads,
+                                                          const TemplateDataParams &tempAlgParams,
+                                                          const RankSliceInfo &sliceInfoVec) {
+    HCCL_INFO("[InsTempAllReduceMesh1DOneShot][RunAllReduce] reduce: rank[%d]", myRank_);
     // 增加thread synchronize以支持64类数据类型
     if (needAicpuReduce_) {
         // 启动任务并等待所有threads任务执行完成
@@ -169,15 +178,13 @@ HcclResult InsTempAllReduceMesh1DOneShot::RunAllReduce(const OpParam& param,
             CHK_RET(static_cast<HcclResult>(HcommThreadJoin(thread, CUSTOM_TIMEOUT)));
         }
     }
-
-    HCCL_INFO("[InsTempAllReduceMesh1DOneShot][RunAllReduce] reduce: rank[%d]", myRank_);
     for (u32 rankIdx = 0; rankIdx < subCommRanks_[0].size(); rankIdx++) {
         u32 curRank = rankIdx;
         // 遍历除自身外所有rank，计算reduce(scratch, local-usrout)
         if (curRank == myRank_) {
             continue;
         }
-
+        
         // 执行本地归约
         void *RemotePtr = tempAlgParams.buffInfo.hcclBuff.addr;
         u64 curSrcOffset = sliceInfoVec[curRank][0].offset + tempAlgParams.buffInfo.hcclBuffBaseOff;
@@ -187,7 +194,6 @@ HcclResult InsTempAllReduceMesh1DOneShot::RunAllReduce(const OpParam& param,
 
         CHK_RET(static_cast<HcclResult>(LocalReduce(threads[0], curSrcSlice, curDstSlice, dataType_, reduceOp_)));
     }
-
     return HCCL_SUCCESS;
 }
 
