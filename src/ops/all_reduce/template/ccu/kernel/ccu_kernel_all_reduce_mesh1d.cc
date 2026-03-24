@@ -42,6 +42,15 @@ CcuKernelAllReduceMesh1D::CcuKernelAllReduceMesh1D(const CcuKernelArg &arg)
     HCCL_DEBUG("[CcuKernelAllReduceMesh1D] Init, CtxArgs are rankId[%u], rankSize[%u], dataType[%d], "
         "outputDataType[%d], reduceOp[%d]", rankId_, rankSize_, dataType_,
         outputDataType_, reduceOp_);
+    DevType deviceType;
+    CHK_RET(hrtGetDeviceType(deviceType));
+    if(deviceType == DevType::DEV_TYPE_910_95){
+        ccu_version = CcuVersion::CCU_V1;
+    }
+    else if(deviceType == DevType::DEV_TYPE_910_96){
+        ccu_version = CcuVersion::CCU_V2;
+    }
+    HCCL_INFO("[CcuKernelAllReduceMesh1D] ccu_version is [%u]",ccu_version);
 }
 
 void CcuKernelAllReduceMesh1D::RunBroadcast(std::vector<CcuRep::RemoteAddr> &dst, CcuRep::LocalAddr &src)
@@ -176,9 +185,11 @@ std::vector<uint64_t> CcuKernelAllReduceMesh1D::GeneArgs(const CcuTaskArg &arg)
     uint64_t offset     = taskArg->offSet_;
 
     auto goSize = CalGoSize(sliceSize);
+    std::vector<uint64_t>Args={inputAddr, outputAddr, tokenInfo, offset};
+    Args.insert(Args.end(),goSize.begin(),goSize.end());
 
     HCCL_INFO("[CcuKernelAllReduceMesh1D] GeneArgs, taskArg are inputAddr[%llu], outputAddr[%llu], "
-        "offset[%llu], sliceSize[%llu]", inputAddr, outputAddr, offset, sliceSize);
+        "offset[%llu], sliceSize[%llu], Args.size()[%u]", inputAddr, outputAddr, offset, sliceSize, Args.size());
     return {inputAddr, outputAddr, tokenInfo, offset, goSize[0], goSize[1], goSize[2], goSize[3]};
 }
 }
