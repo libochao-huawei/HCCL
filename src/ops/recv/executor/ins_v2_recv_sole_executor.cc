@@ -23,7 +23,7 @@ std::string InsV2RecvSoleExecutor<InsAlgTemplate>::Describe() const
 }
 
 template <typename InsAlgTemplate>
-HcclResult InsV2RecvSoleExecutor<InsAlgTemplate>::CalcRes(HcclComm comm, const OpParam &param, const TopoInfo *topoInfo,
+HcclResult InsV2RecvSoleExecutor<InsAlgTemplate>::CalcRes(HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
     const AlgHierarchyInfoForAllLevel &algHierarchyInfo, AlgResourceRequest &resourceRequest)
 {
     // 变量检查
@@ -42,12 +42,8 @@ HcclResult InsV2RecvSoleExecutor<InsAlgTemplate>::CalcRes(HcclComm comm, const O
         devType_,
         dataType_,
         dataTypeSize_);
-    HCCL_INFO("[InsV2RecvSoleExecutor][CalcRes] algHierarchyInfo size is [%u]", algHierarchyInfo.infos.size());
+    // 在这里计算algHierarchyInfo 只需要两个rank
     algHierarchyInfo_ = algHierarchyInfo;
-    if (algHierarchyInfo_.infos.empty()) {
-        HCCL_ERROR("[InsV2RecvSoleExecutor][CalcRes] algHierarchyInfo infos is empty!");
-        return HCCL_E_PARA;
-    }
     std::shared_ptr<InsAlgTemplate> insTemp =
         std::make_shared<InsAlgTemplate>(param, myRank_, algHierarchyInfo.infos[0]);
     AlgResourceRequest resReq;
@@ -61,11 +57,11 @@ HcclResult InsV2RecvSoleExecutor<InsAlgTemplate>::CalcRes(HcclComm comm, const O
 
 template <typename InsAlgTemplate>
 HcclResult InsV2RecvSoleExecutor<InsAlgTemplate>::CalcAlgHierarchyInfo(
-    HcclComm comm, TopoInfo *topoInfo, AlgHierarchyInfoForAllLevel &algHierarchyInfo)
+    HcclComm comm, TopoInfoWithNetLayerDetails *topoInfo, AlgHierarchyInfoForAllLevel &algHierarchyInfo)
 {
     // AlgHierarchyInfoForAllLevel固定为一层
     CHK_PRT_RET((topoInfo->userRankSize == 0),
-        HCCL_ERROR("[InsV2RecvSoleExecutor][CalcAlgHierarchyInfo] Rank [%u], rankSize is 0.", myRank_),
+        HCCL_ERROR("[InsV2RecvSoleExecutor][CalcAlgHierarchyInfo] Rank [%d], rankSize is 0.", myRank_),
         HcclResult::HCCL_E_PARA);
 
     algHierarchyInfo.infos.resize(1);
@@ -74,7 +70,6 @@ HcclResult InsV2RecvSoleExecutor<InsAlgTemplate>::CalcAlgHierarchyInfo(
     for (uint32_t rankId = 0; rankId < topoInfo->userRankSize; rankId++) {
         algHierarchyInfo.infos[0][0].push_back(rankId);
     }
-    HCCL_INFO("[InsV2RecvSoleExecutor][CalcAlgHierarchyInfo] [%u] Success.", myRank_);
     return HCCL_SUCCESS;
 }
 
@@ -89,17 +84,13 @@ HcclResult InsV2RecvSoleExecutor<InsAlgTemplate>::Orchestrate(
     dataTypeSize_ = SIZE_TABLE[param.DataDes.dataType];
     dataSize_ = dataCount_ * dataTypeSize_;
     dataType_ = param.DataDes.dataType;
-    if (resCtx.threads.empty()) {
-        HCCL_ERROR("[InsV2RecvSoleExecutor][Orchestrate] threads is empty!");
-        return HCCL_E_INTERNAL;
-    }
     thread_ = resCtx.threads.front();
     algHierarchyInfo_.infos.resize(1);
     algHierarchyInfo_.infos[0].resize(1);
     algHierarchyInfo_.infos[0][0].push_back(myRank_);
     algHierarchyInfo_.infos[0][0].push_back(sendRank_);
     CHK_RET(RestoreChannelMap(resCtx, remoteRankToChannelInfo_));
-    if (remoteRankToChannelInfo_.empty() || remoteRankToChannelInfo_[0].empty()) {
+    if (remoteRankToChannelInfo_.empty()) {
         HCCL_ERROR("[InsV2RecvSoleExecutor][Orchestrate] no channel found!");
         return HCCL_E_INTERNAL;
     }
@@ -129,8 +120,7 @@ HcclResult InsV2RecvSoleExecutor<InsAlgTemplate>::Orchestrate(
     templateResource.dpu2NpuShmemPtr = resCtx.dpu2NpuShmemPtr;
     u64 resDataSize = dataSize_;
     maxTmpMemSize_ = std::min<u64>(UB_MAX_DATA_SIZE, resCtx.cclMem.size);  // maxTmpMemSize_取ub和ccl的最小值
-    // u64 maxRoundTransferSize = maxTmpMemSize_ - maxTmpMemSize_ % dataTypeSize_;
-    u64 maxRoundTransferSize = (maxTmpMemSize_ / dataTypeSize_) * dataTypeSize_;
+    u64 maxRoundTransferSize = maxTmpMemSize_ - maxTmpMemSize_ % dataTypeSize_;
     while (resDataSize > 0) {
         u64 transferSize = resDataSize > maxTmpMemSize_ ? maxRoundTransferSize : resDataSize;
         tempAlgParams.sliceSize = transferSize;
@@ -142,5 +132,5 @@ HcclResult InsV2RecvSoleExecutor<InsAlgTemplate>::Orchestrate(
     return HCCL_SUCCESS;
 }
 
-REGISTER_EXECUTOR_IMPL_NO_TOPOMATCH(HcclCMDType::HCCL_CMD_RECEIVE, HostDpuRecv, InsV2RecvSoleExecutor, InsTempRecvDpu);
+REGISTER_EXECUTOR_IMPL_NO_TOPOMATCH(HcclCMDType::HCCL_CMD_RECEIVE, InsRecvDPU, InsV2RecvSoleExecutor, InsTempRecvDpu);
 }  // namespace ops_hccl
