@@ -450,7 +450,7 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     CcuFastLaunchCtx *ccuFastLaunchCtx = reinterpret_cast<CcuFastLaunchCtx*>(ctxPtr);
     // 1 算法名
     CHK_SAFETY_FUNC_RET(strcpy_s(ccuFastLaunchCtx->algName, sizeof(ccuFastLaunchCtx->algName), param.algName));
-    HCCL_INFO("[InsReduceScatterParallelExecutor][CcuFastLaunchCtx] algName[%s]", ccuFastLaunchCtx->algName);
+    HCCL_INFO("[InsReduceScatterParallelExecutor][FastLaunchSaveCtx] algName[%s]", ccuFastLaunchCtx->algName);
 
     // 2 thread
     ccuFastLaunchCtx->threadNum = threadNum;
@@ -477,12 +477,12 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
         kernelSubmitInfos[0] = templateAlgResInter.submitInfos[i];
         kernelSubmitInfos++;
     }
-    for (u32 i = ccuKernelLaunchNumIntra0_; i < ccuKernelLaunchNumIntra1_ + ccuKernelLaunchNumIntra0_; i++) {
-        kernelSubmitInfos[0] = templateAlgResIntra.submitInfos[i];
-        kernelSubmitInfos++;
-    }
     for (u32 i = ccuKernelLaunchNumInter1_; i < ccuKernelLaunchNumInter0_ + ccuKernelLaunchNumInter1_; i++) {
         kernelSubmitInfos[0] = templateAlgResInter.submitInfos[i];
+        kernelSubmitInfos++;
+    }
+    for (u32 i = ccuKernelLaunchNumIntra0_; i < ccuKernelLaunchNumIntra1_ + ccuKernelLaunchNumIntra0_; i++) {
+        kernelSubmitInfos[0] = templateAlgResIntra.submitInfos[i];
         kernelSubmitInfos++;
     }
     return HCCL_SUCCESS;
