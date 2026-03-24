@@ -39,6 +39,13 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
     #else
     if (param->deviceType != DevType::DEV_TYPE_910_95) {
     #endif
+        //判断通信域状态
+        HcclCommStatus commStatus = HcclCommStatus::HCCL_COMM_STATUS_INVALID;
+        CHK_RET(HcclCommGetStatus(comm, &commStatus));
+        if (commStatus != HcclCommStatus::HCCL_COMM_STATUS_READY) {
+            HCCL_ERROR("commStatus is not ready!");
+            return 1;
+        }
         ScatterOpInfo opInfo;
         if (CreateScatter(param, &opInfo) != HCCL_SUCCESS) {
             HCCL_ERROR("%s CreateScatter fail", __func__);
