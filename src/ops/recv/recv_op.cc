@@ -74,7 +74,7 @@ HcclResult HcclRecvGraphMode(
     CHK_RET(GetAndCheckRecvPara(comm, recvBuf, count, dataType, srcRank, rankSize, userRank, opTag));
     CHK_RET(HcclCheckTag(tag));
     opTag += "_" + std::to_string(srTag);
-    CHK_RET(HcclCheckTag(opTag));
+    CHK_RET(HcclCheckTag(opTag.c_str()));
 
     // 拼装ResPackGraphMode
     ResPackGraphMode resPack;
@@ -149,10 +149,10 @@ namespace ops_hccl {
         param.deviceType = deviceType;
 
         // topoInfo的tag，所有相同的算子可以共享
-        auto fillTagRet = strncpy_s(param.tag, sizeof(param.tag), tag, sizeof(param.tag) - 1);
+        auto fillTagRet = strncpy_s(param.tag, sizeof(param.tag), tag.c_str(), sizeof(param.tag) - 1);
         CHK_PRT_RET(
             fillTagRet != EOK,
-            HCCL_ERROR("[GenerateRecvOpParam] failed to fill param.tag, tag %s, return %d.", tag, fillTagRet),
+            HCCL_ERROR("[GenerateRecvOpParam] failed to fill param.tag, tag %s, return %d.", tag.c_str(), fillTagRet),
             HcclResult::HCCL_E_INTERNAL);
 
         param.stream = stream;
