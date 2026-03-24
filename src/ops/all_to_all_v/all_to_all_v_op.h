@@ -41,9 +41,11 @@ constexpr u64 RECV_COUNT_IDX = 1;
 constexpr u64 SEND_DISPL_IDX = 2;
 constexpr u64 RECV_DISPL_IDX = 3;
 HcclResult CheckAlltoAllInputPara(const HcclComm comm, const void *sendBuf, const uint64_t sendCount,
-    const HcclDataType sendType, const void *recvBuf, const uint64_t recvCount, const HcclDataType recvType);
+    const HcclDataType sendType, const void *recvBuf, const uint64_t recvCount,
+    const HcclDataType recvType, const aclrtStream stream);
 HcclResult CheckAlltoAllVInputPara(const HcclComm comm, const void *sendBuf, const void *sendCounts, const void *sdispls,
-    const HcclDataType sendType, const void *recvBuf, const void *recvCounts, const void *rdispls, const HcclDataType recvType);
+    const HcclDataType sendType, const void *recvBuf, const void *recvCounts, const void *rdispls,
+    const HcclDataType recvType, const aclrtStream stream);
 HcclResult CheckAlltoAllVCInputPara(const HcclComm comm, const void *sendBuf, const void *sendCountMatrix,
     const HcclDataType sendType, const void *recvBuf, const HcclDataType recvType);
 HcclResult AlltoAllVOutPlace(const void *sendBuf, const void *sendCounts, const void *sdispls, const void *recvBuf,

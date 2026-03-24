@@ -13,6 +13,7 @@
 #include "aiv_temp_reduce_scatter_mesh_1D.h"
 #include "ins_temp_reduce_scatter_nhr.h"
 #include "ins_temp_reduce_scatter_mesh_1D_meshchunk.h"
+#include "ins_temp_reduce_scatter_aicpu_reduce_nhr.h"
 #ifndef AICPU_COMPILE
 #include "ccu_temp_reduce_scatter_mesh_1D_mem2mem.h"
 #include "ccu_temp_reduce_scatter_mesh_1D.h"
@@ -193,7 +194,7 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLau
     CcuFastLaunchCtx *ccuFastLaunchCtx = reinterpret_cast<CcuFastLaunchCtx*>(ctxPtr);
     // 1 算法名
     CHK_SAFETY_FUNC_RET(strcpy_s(ccuFastLaunchCtx->algName, sizeof(ccuFastLaunchCtx->algName), param.algName));
-    HCCL_INFO("[InsV2ReduceScatterSoleExecutor][CcuFastLaunchCtx] algName[%s]", ccuFastLaunchCtx->algName);
+    HCCL_INFO("[InsV2ReduceScatterSoleExecutor][FastLaunchSaveCtx] algName[%s]", ccuFastLaunchCtx->algName);
 
     // 2 thread
     ccuFastLaunchCtx->threadNum = threadNum;
@@ -202,32 +203,30 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLau
         
     // 3 ccu kernel handle, taskArg入参
     ccuFastLaunchCtx->ccuKernelNum[0] = ccuKernelNum;
-    CcuKernelSubmitInfo *kernels = ccuFastLaunchCtx->GetCcuKernelSubmitInfoPtr();
-    kernels[0].kernelHandle = templateAlgRes.ccuKernels[0];
-    memcpy_s(kernels[0].sqeArgs, sizeof(kernels[0].sqeArgs), 
-             templateAlgRes.submitInfos[0].sqeArgs, sizeof(templateAlgRes.submitInfos[0].sqeArgs));
+    CcuKernelSubmitInfo *kernelSubmitInfos = ccuFastLaunchCtx->GetCcuKernelSubmitInfoPtr();
+    kernelSubmitInfos[0] = templateAlgRes.submitInfos[0];
     return HCCL_SUCCESS;
 }
 #endif
 
-#ifndef AICPU_COMPILE
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunch(
-        const OpParam &param, const CcuFastLaunchCtx *resCtx)
+        const OpParam &param, const CcuFastLaunchCtx *fastLaunchCtx)
 {
     HCCL_INFO("[InsV2ReduceScatterSoleExecutor][FastLaunch] Start.");
     TemplateFastLaunchCtx tempFastLaunchCtx;
     // 1 取thread
-    ThreadHandle *threads = resCtx->GetThreadHandlePtr();
-    tempFastLaunchCtx.threads.assign(threads, threads + resCtx->threadNum);
-    HCCL_INFO("[InsV2ReduceScatterSoleExecutor][FastLaunch] threadNum[%llu]", resCtx->threadNum);
+    ThreadHandle *threads = fastLaunchCtx->GetThreadHandlePtr();
+    tempFastLaunchCtx.threads.assign(threads, threads + fastLaunchCtx->threadNum);
+    HCCL_INFO("[InsV2ReduceScatterSoleExecutor][FastLaunch] threadNum[%llu]", fastLaunchCtx->threadNum);
     
     // 2 取arg
-    CcuKernelSubmitInfo *ccuKernelSubmitInfos = resCtx->GetCcuKernelSubmitInfoPtr();
-    tempFastLaunchCtx.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + resCtx->ccuKernelNum[0]);
-    HCCL_INFO("[InsV2ReduceScatterSoleExecutor][FastLaunch] ccuKernelNum[%llu]", resCtx->ccuKernelNum[0]);
+    CcuKernelSubmitInfo *ccuKernelSubmitInfos = fastLaunchCtx->GetCcuKernelSubmitInfoPtr();
+    tempFastLaunchCtx.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + fastLaunchCtx->ccuKernelNum[0]);
+    HCCL_INFO("[InsV2ReduceScatterSoleExecutor][FastLaunch] ccuKernelNum[%llu]", fastLaunchCtx->ccuKernelNum[0]);
     tempFastLaunchCtx.buffInfo.inputPtr = param.inputPtr;
     tempFastLaunchCtx.buffInfo.outputPtr = param.outputPtr;
+    tempFastLaunchCtx.buffInfo.hcclBuff = param.hcclBuff;
     
     // 3 调template
     std::shared_ptr<InsAlgTemplate> algTemplate = std::make_shared<InsAlgTemplate>();
@@ -244,6 +243,8 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, InsReduceScatterMesh1DMes
     InsTempReduceScatterMesh1DMeshChunk);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, InsReduceScatterNHR, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
     InsTempReduceScatterNHR);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, InsReduceScatterAicpuReduceNHR, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
+    InsTempReduceScatterAicpuReduceNHR);
 #ifndef AICPU_COMPILE
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, AivReduceScatterMesh1D, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
     AivTempReduceScatterMesh1D);
