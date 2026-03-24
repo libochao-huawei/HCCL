@@ -267,7 +267,8 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
         tempAlgParams.buffInfo.hcclBuffBaseOff = 0;
         tempAlgParams.processedDataCount = processedDataCount;
 
-        tempAlgParams.sliceSize = currDataCount * dataTypeSize_; // 这是每次循环处理的数据大小
+        // 单次循环处理的数据量大小
+        u64 maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize_ / rankSize_; // 发往单卡的数据量
         tempAlgParams.tailSize = tempAlgParams.sliceSize;
 
         HCCL_INFO("[InsV2AlltoAllVSoleExecutor] loop [%u] tempAlgParams.inputSliceStride [%u],"
