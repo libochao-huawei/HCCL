@@ -60,14 +60,14 @@ HcclResult HcclSetOpParamGraphModeDataCount(OpParamGraphMode *opParam, const u64
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclSetOpParamGraphModeDataType(OpParamGraphMode *opParam, const HcclDataType *dataType)
+HcclResult HcclSetOpParamGraphModeDataType(OpParamGraphMode *opParam, const HcclDataType dataType)
 {
-    if (opParam == nullptr || dataType == nullptr) {
+    if (opParam == nullptr) {
         return HCCL_E_PARA;
     }
     // 将void*转换为OpParamGraphMode*
     OpParamGraphMode *paramPtr = reinterpret_cast<OpParamGraphMode *>(opParam);
-    memcpy_s(&paramPtr->dataType, sizeof(paramPtr->dataType), &dataType, sizeof(HcclDataType));
+    paramPtr->dataType = dataType;
     return HCCL_SUCCESS;
 }
 
