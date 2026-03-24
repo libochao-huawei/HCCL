@@ -249,14 +249,6 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleLevel0Algo(const TopoInfo
     return SelectorStatus::MATCH;
 }
 
-bool IsDataTypeOrReduceTypeSpecial(HcclDataType dataType, HcclReduceOp reduceType)
-{
-    return dataType == HcclDataType::HCCL_DATA_TYPE_INT64 ||
-           dataType == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
-           dataType == HcclDataType::HCCL_DATA_TYPE_FP64 ||
-           reduceType == HcclReduceOp::HCCL_REDUCE_PROD;
-}
-
 SelectorStatus AllReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerDetails* topoInfo,
                                                       const OpParam &opParam,
                                                       const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
@@ -266,9 +258,14 @@ SelectorStatus AllReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayer
 
     HcclDataType dataType = opParam.DataDes.dataType;
     HcclReduceOp reduceType = opParam.reduceType;
+    isDataTypeOrReduceTypeSpecial_ = 
+        dataType == HcclDataType::HCCL_DATA_TYPE_INT64 ||
+        dataType == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
+        dataType == HcclDataType::HCCL_DATA_TYPE_FP64 ||
+        reduceType == HcclReduceOp::HCCL_REDUCE_PROD;
 
     if (topoInfo->topoLevelNums > 1) {
-        if (IsDataTypeOrReduceTypeSpecial(dataType, reduceType)) {
+        if (isDataTypeOrReduceTypeSpecial_) {
             selectAlgName = "InsAllReduceAicpuReduceNHR";
         } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] == 1) {
             selectAlgName = "InsAllReduceNHR";
@@ -288,6 +285,11 @@ SelectorStatus AllReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayer
 SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpuUBX(const TopoInfoWithNetLayerDetails* topoInfo, const u64 dataSize, 
                                                              std::string &selectAlgName) const
 {
+    if (isDataTypeOrReduceTypeSpecial_) {
+            HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64 and PROD reduceType not support now.");
+            return SelectorStatus::NOT_MATCH;
+    }
+    
     // UBX机型
     bool isMeshNumEqualToClosNum = false;
     bool isClosNumMultipleOfMeshNum = false;
@@ -320,8 +322,6 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetL
 {
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
-    HcclDataType dataType = opParam.DataDes.dataType;
-    HcclReduceOp reduceType = opParam.reduceType;
 
     double ratio;
     if (topoInfo->userRankSize == 0) {
@@ -332,7 +332,7 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetL
     }
 
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-        if (IsDataTypeOrReduceTypeSpecial(dataType, reduceType)) {
+        if (isDataTypeOrReduceTypeSpecial_) {
             selectAlgName = dataSize <= AR_AICPU_1D_64DATATYPE_DATA_SIZE ?
                             "InsAllReduceMesh1DOneShot" :
                             "InsAllReduceMesh1DTwoShot";
@@ -344,18 +344,13 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetL
             selectAlgName = "InsAllReduceMesh1DTwoShot";
         }
     } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
-        if (IsDataTypeOrReduceTypeSpecial(dataType, reduceType)) {
+        if (isDataTypeOrReduceTypeSpecial_) {
             selectAlgName = "InsAllReduceAicpuReduceNHR";
         } else {
             selectAlgName = "InsAllReduceNHR";
         }
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-        if (IsDataTypeOrReduceTypeSpecial(dataType, reduceType)) {
-            HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64 and PROD reduceType not support now.");
-            return SelectorStatus::NOT_MATCH;
-        } else {
-            return SelectMeshAlgoAicpuUBX(topoInfo, dataSize, selectAlgName); // TODO: 64类特性是否拦截
-        }
+        return SelectMeshAlgoAicpuUBX(topoInfo, dataSize, selectAlgName);
     } else {
         HCCL_ERROR("[AllReduceAutoSelector] topo not match");
         return SelectorStatus::NOT_MATCH;
