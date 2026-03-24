@@ -24,7 +24,14 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 HcclResult HcclReduceScatterV(void *sendBuf,  const void *sendCounts, const void *sendDispls, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
     HcclReduceOp op, HcclComm comm, aclrtStream stream)
 {
+    if (!HcclCheckAicpuEnableOpen() && !HcclCheckCcuEnableOpen() && !HcclCheckAivEnableOpen()) {
+        return HcclReduceScatterVInner(sendBuf, sendCounts, sendDispls, recvBuf, recvCount, dataType, op, comm, stream);
+    }
     HCCL_INFO("Start to run execute HcclReduceScatterV");
+    if (GetHcommVersion() < 90000000) { // compat handle
+        return HcclReduceScatterVInner(sendBuf, sendCounts, sendDispls, recvBuf, recvCount, dataType, op, comm, stream);
+    }
+
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
     // 非95设备转到老流程
@@ -35,17 +42,13 @@ HcclResult HcclReduceScatterV(void *sendBuf,  const void *sendCounts, const void
     #endif
         return HcclReduceScatterVInner(sendBuf, sendCounts, sendDispls, recvBuf, recvCount, dataType, op, comm, stream);
     }
-    // 图模式引导到老的流程上面
-    if (GetWorkflowMode() != HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE) {
-        return HcclReduceScatterVInner(sendBuf, sendCounts, sendDispls, recvBuf, recvCount, dataType, op, comm, stream);
-    }
     // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
     // A3是：export HCCL_OP_EXPANSION_MODE="AI_CPU"，A5的接口还没提供
     CHK_RET(InitEnvConfig());
 
     // 参数校验等工作;
     // 校验入参
-    CHK_RET(CheckReduceScatterVInputPara(comm, sendBuf, recvBuf, sendCounts, sendDispls, stream));
+    CHK_RET(CheckReduceScatterVInputPara(comm, sendBuf, recvBuf, recvCount, sendCounts, sendDispls, stream));
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     CHK_RET(HcclGetRankSize(comm, &rankSize));
     // 校验sendCounts全部为0的情况
@@ -72,7 +75,7 @@ HcclResult HcclReduceScatterV(void *sendBuf,  const void *sendCounts, const void
 
 namespace ops_hccl {
 HcclResult CheckReduceScatterVInputPara(
-    const HcclComm comm, const void *sendBuf, const void *recvBuf, 
+    const HcclComm comm, const void *sendBuf, const void *recvBuf, uint64_t recvCount,
     const void *sendCounts, const void *sendDispls, const aclrtStream stream)
 {
     // 入参合法性校验
@@ -83,14 +86,6 @@ HcclResult CheckReduceScatterVInputPara(
         std::vector<std::string>({"HcclReduceScatterV", "comm", "nullptr", "please check comm"}));
     CHK_PTR_NULL(comm);
 
-    RPT_INPUT_ERR(sendBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-        std::vector<std::string>({"HcclReduceScatterV", "sendBuf", "nullptr", "please check sendBuf"}));
-    CHK_PTR_NULL(sendBuf);
-
-    RPT_INPUT_ERR(recvBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-        std::vector<std::string>({"HcclReduceScatterV", "recvBuf", "nullptr", "please check recvBuf"}));
-    CHK_PTR_NULL(recvBuf);
-
     RPT_INPUT_ERR(sendCounts == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
         std::vector<std::string>({"HcclReduceScatterV", "sendCounts", "nullptr", "please check sendCounts"}));
     CHK_PTR_NULL(sendCounts);
@@ -98,9 +93,12 @@ HcclResult CheckReduceScatterVInputPara(
     RPT_INPUT_ERR(sendDispls == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
         std::vector<std::string>({"HcclReduceScatterV", "sendDispls", "nullptr", "please check sendDispls"}));
     CHK_PTR_NULL(sendDispls);
-
-    CHK_PRT_RET(sendBuf == recvBuf,
-        HCCL_ERROR("[HcclReduceScatterV] sendBuf and recvBuf cannot be same."), HCCL_E_PARA);
+    if (UNLIKELY(recvCount > 0 && recvBuf == nullptr)) {
+        RPT_INPUT_ERR(true, "EI0003",\
+        std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclReduceScatterV", "nullptr", "recvBuf", "non-null pointer"}));
+        CHK_PTR_NULL(recvBuf);
+    }
 
     return HCCL_SUCCESS;
 }
@@ -186,8 +184,6 @@ if (!paramMem) {
         return HcclResult::HCCL_SUCCESS;
     }
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
-    paramPtr->~OpParam();
-    free(paramMem);
     HCCL_INFO("Execute ReduceScatterVOutPlace success.");
     return HCCL_SUCCESS;
 }

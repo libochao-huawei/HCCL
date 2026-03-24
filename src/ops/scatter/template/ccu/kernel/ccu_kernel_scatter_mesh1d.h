@@ -81,10 +81,10 @@ public:
           lastSliceSize_(lastSliceSize),
           repeatNum_(repeatNum)
     {
-        HCCL_DEBUG("[CcuTaskArgScatterMesh1D] inputAddr: %lu, outputAddr: %lu, token: %lu, "
+        HCCL_DEBUG("[CcuTaskArgScatterMesh1D] inputAddr: %lu, outputAddr: %lu, "
                    "inputSliceStride: %lu, inputRepeatStride: %lu, outputRepeatStride: %lu, normalSliceSize: %lu, "
                    "lastSliceSize: %lu, repeatNum: %lu",
-                   inputAddr_, outputAddr_, token_, inputSliceStride_, inputRepeatStride_, outputRepeatStride_,
+                   inputAddr_, outputAddr_, inputSliceStride_, inputRepeatStride_, outputRepeatStride_,
                    normalSliceSize_, lastSliceSize_, repeatNum_);
     }
 
