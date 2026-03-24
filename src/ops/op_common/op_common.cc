@@ -1057,6 +1057,7 @@ HcclResult SetCommEngine(OpParam &param)
     };
 
     param.engine = COMM_ENGINE_CPU;
+    param.opExecuteConfig = OpExecuteConfig::HOSTCPU;
     HCCL_INFO("[op_common][SetCommEngine] ENGINE is COMM_ENGINE_CPU.");
     return HCCL_SUCCESS;
 
