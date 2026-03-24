@@ -27,6 +27,10 @@ HcclResult HcclSend(
         return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
     }
     HCCL_INFO("[HcclSend] Start.");
+    if (GetHcommVersion() < 90000000) {
+        return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
+    }
+
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
     #ifdef MACRO_DEV_TYPE_NEW
@@ -34,9 +38,6 @@ HcclResult HcclSend(
     #else
     if (deviceType != DevType::DEV_TYPE_910_95) {
     #endif
-        return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
-    }
-    if (GetWorkflowMode() != HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE) {
         return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
     }
 
