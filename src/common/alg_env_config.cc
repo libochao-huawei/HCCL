@@ -18,6 +18,8 @@
 #include "mmpa_api.h"
 #include "config_log.h"
 #include "sal.h"
+#include "dtype_common_dl.h"
+
 namespace ops_hccl {
 
 static std::mutex g_algEnvConfigMutex;
@@ -805,6 +807,7 @@ const u32 &GetExternalInputIntraRoceSwitch()
 
 const bool &GetExternalInputHcclAicpuUnfold()
 {
+    std::lock_guard<std::mutex> lock(g_algEnvConfigMutex);
     return g_algEnvConfig.aicpuUnfold;
 }
 

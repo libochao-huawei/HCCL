@@ -25,13 +25,15 @@ private:
     SelectorStatus SelectAicpuAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
         const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
         std::string &selectAlgName) const override;
-    SelectorStatus SelectMeshAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
-                                  std::string &selectAlgName) const;
+    SelectorStatus SelectMeshAlgoCcums(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam, std::string &selectAlgName) const;
+    SelectorStatus SelectMeshAlgoCcuSchedule(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam, std::string &selectAlgName) const;
     SelectorStatus SelectAivAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
         const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
         std::string &selectAlgName) const override;
     SelectorStatus SelectMeshAlgoAicpu(const TopoInfoWithNetLayerDetails *topoInfo,
                                        const OpParam &opParam, std::string &selectAlgName) const;
+    SelectorStatus SelectDPUAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam, const std::map<HcclCMDType, 
+                                std::vector<HcclAlgoType>> &configAlgMap, std::string &selectAlgName) const;
 };
 
 }  // namespace ops_hccl

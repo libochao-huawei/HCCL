@@ -20,7 +20,7 @@
 
 using namespace HcclSim;
 using namespace ops_hccl;
-
+namespace checker {
 class ST_ALLTOALLV_TEST : public ::testing::Test {
 protected:
     void SetUp() override
@@ -29,7 +29,11 @@ protected:
     }
     void TearDown() override
     {
+        // 取消设置环境变量
         unsetenv("HCCL_OP_EXPANSION_MODE");
+        unsetenv("ENABLE_HOSTDPU");
+        unsetenv("ENABLE_HOSTDPU_FOR_LLT");
+        unsetenv("HCCL_INDEPENDENT_OP");
     }
     static void SetUpTestCase()
     {}
@@ -119,7 +123,256 @@ protected:
         // 资源清理
         SimWorld::Global()->Deinit();
     }
+
+    void RunHostDpuAlltoAllVMeshTest(TopoMeta &topoMeta, HcclDataType dataType, std::vector<u64> &sendCountMatrix)
+    {
+        #ifdef MACRO_DEV_TYPE_NEW
+        SimWorld::Global()->Init(topoInfo, DevType::DEV_TYPE_950);
+        #else
+        SimWorld::Global()->Init(topoInfo, DevType::DEV_TYPE_910_95);
+        #endif
+        // 设置环境变量
+        setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
+        setenv("ENABLE_HOSTDPU", "1", 1);
+        setenv("ENABLE_HOSTDPU_FOR_LLT", "1", 1);
+        setenv("HCCL_INDEPENDENT_OP", "1", 1);
+
+        // 计算RankSize
+        u32 rankSize = 0;
+        for (const auto &superPod : topoMeta) {
+            for (const auto &server : superPod) {
+                rankSize += server.size();
+            }
+        }
+
+        std::vector<std::thread> threads;
+        for (auto rankId = 0; rankId < rankSize; ++rankId) {
+            threads.emplace_back([=]() {
+                // 1.SetDevice
+                aclrtSetDevice(rankId);
+
+                // 2.创建流
+                aclrtStream stream = nullptr;
+                aclrtCreateStream(&stream);
+
+                // 3.初始化通信域
+                HcclComm comm = nullptr;
+                CHK_RET(HcclCommInitClusterInfo("./ranktable.json", rankId, &comm));
+
+                // 构造数据
+                std::vector<u64> sendCounts(rankSize, 0);
+                std::vector<u64> recvCounts(rankSize, 0);
+                std::vector<u64> sdispls(rankSize, 0);
+                std::vector<u64> rdispls(rankSize, 0);
+
+                u64 sendDataCount = 0;
+                for (u64 i = 0; i < rankSize; i++) {
+                    sendCounts[i] = sendCountMatrix[rankId * rankSize + i];
+                    sdispls[i] = sendDataCount;
+                    sendDataCount += sendCounts[i];
+                }
+
+                u64 recvDataCount = 0;
+                for (u64 i = 0; i < rankSize; i++) {
+                    recvCounts[i] = sendCountMatrix[i * rankSize + rankId];
+                    rdispls[i] = recvDataCount;
+                    recvDataCount += recvCounts[i];
+                }
+
+                void *sendBuf = nullptr;
+                void *recvBuf = nullptr;
+                // 打桩实现，仿真运行需标记内存是INPUT和OUTPUT
+                aclrtMalloc(&sendBuf, sendDataCount * SIZE_TABLE[dataType],
+                            static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
+                aclrtMalloc(&recvBuf, recvDataCount * SIZE_TABLE[dataType],
+                            static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
+
+                // 4.算子下发
+                CHK_RET(HcclAlltoAllV(sendBuf, sendCounts.data(), sdispls.data(), dataType, recvBuf, recvCounts.data(),
+                                      rdispls.data(), dataType, comm, stream));
+
+                // 5.销毁通信域
+                CHK_RET(HcclCommDestroy(comm));
+                return HCCL_SUCCESS;
+            });
+        }
+
+        // 等待多线程执行完成
+        for (auto &thread : threads) {
+            thread.join();
+        }
+
+        // 结果成图校验
+        auto taskQueues = SimTaskQueue::Global()->GetAllRankTaskQueues();
+        HcclResult res = CheckAll2AllV(taskQueues, rankSize, dataType, sendCountMatrix);
+        EXPECT_TRUE(res == HCCL_SUCCESS);
+
+        // 资源清理
+        SimWorld::Global()->Deinit();
+    }
 };
+
+
+TEST_F(ST_ALLTOALLV_TEST, st_alltoallv_hostDpu_test_0)
+{
+    TopoMeta topoMeta{{{0}, {0}}};
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_UINT32;
+
+    // 构造sendCountMatrix，每个rank发送给其他rank的数据量
+    // 矩阵大小：rankSize × rankSize
+    std::vector<u64> sendCountMatrix = {
+        10, 11,
+        1, 2222
+    };
+
+    RunHostDpuAlltoAllVMeshTest(topoMeta, dataType, sendCountMatrix);
+}
+
+TEST_F(ST_ALLTOALLV_TEST, st_alltoallv_hostDpu_test_1)
+{
+    TopoMeta topoMeta{{{0, 1}, {0, 1}}};
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_FP64;
+
+    std::vector<u64> sendCountMatrix = {
+        0, 0, 0, 0,
+        0, 0, 0, 0,
+        0, 0, 0, 0,
+        0, 0, 0, 0
+    };
+
+    RunHostDpuAlltoAllVMeshTest(topoMeta, dataType, sendCountMatrix);
+}
+
+TEST_F(ST_ALLTOALLV_TEST, st_alltoallv_hostDpu_test_2)
+{
+    TopoMeta topoMeta{{{0, 1, 2}, {0}}};
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_INT64;
+
+    std::vector<u64> sendCountMatrix = {
+        0, 50, 25, 209715200,
+        50, 314572800, 30, 80,
+        209715200, 30, 0, 0,
+        75, 0, 45, 209715200
+    };
+    RunHostDpuAlltoAllVMeshTest(topoMeta, dataType, sendCountMatrix);
+}
+
+TEST_F(ST_ALLTOALLV_TEST, st_alltoallv_hostDpu_test_3)
+{
+    TopoMeta topoMeta{{{0, 1}, {0, 1}}};
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_FP32;
+
+    std::vector<u64> sendCountMatrix = {
+        21111, 50, 0, 209715200,
+        50, 314572800, 0, 80,
+        209715200, 0, 0, 21,
+        75, 0, 45, 209235255
+    };
+    RunHostDpuAlltoAllVMeshTest(topoMeta, dataType, sendCountMatrix);
+}
+
+TEST_F(ST_ALLTOALLV_TEST, st_alltoallv_hostDpu_test_4)
+{
+    TopoMeta topoMeta{{{0, 1, 2, 3}, {0}}};
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_FP8E8M0;
+
+    std::vector<u64> sendCountMatrix = {
+        524288000,  0,  0,  0,  0,
+        0,  524288000,  0,  0,  0,
+        0, 0, 524288000, 0, 0,
+        0, 0, 0, 524288000, 0,
+        0, 0, 0, 0, 524288000
+    };
+    RunHostDpuAlltoAllVMeshTest(topoMeta, dataType, sendCountMatrix);
+}
+
+TEST_F(ST_ALLTOALLV_TEST, st_alltoallv_hostDpu_test_5)
+{
+    TopoMeta topoMeta{{{0, 1, 2}, {0, 1, 2}}};
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_INT8;
+
+    std::vector<u64> sendCountMatrix = {
+        1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1
+    };
+
+    RunHostDpuAlltoAllVMeshTest(topoMeta, dataType, sendCountMatrix);
+}
+
+TEST_F(ST_ALLTOALLV_TEST, st_alltoallv_hostDpu_test_6)
+{
+    TopoMeta topoMeta{{{0, 1, 2}, {0, 1, 2}}};
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_HIF8;
+    
+    std::vector<u64> sendCountMatrix = {
+        524288000, 230686721, 356876, 524288000, 5556876, 230686721,
+        1048577, 1025, 230686721, 2097153, 4096, 2097152,
+        524288000, 4096, 230686721, 8197, 230686721, 2097152,
+        230686721, 1048577, 524288000, 2097152, 230686721, 1048577,
+        2097153, 8197, 230686721, 1025, 4096, 524288000,
+        524288000, 2097152, 1048576, 512, 256, 230686721
+    };
+
+    RunHostDpuAlltoAllVMeshTest(topoMeta, dataType, sendCountMatrix);
+}
+
+TEST_F(ST_ALLTOALLV_TEST, st_alltoallv_hostDpu_test_7)
+{
+    TopoMeta topoMeta{{{0, 1, 2}, {0, 1, 2}, {0, 1, 2}}};
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_FP8E5M2;
+    
+    std::vector<u64> sendCountMatrix = {
+        0, 1024, 891289, 671088, 0, 943718, 384, 888, 0,
+        9600, 33, 0, 293601, 0, 30, 1024, 0, 5872025,
+        0, 0, 0, 0, 377487, 4097, 888, 44, 104857,
+        1, 0, 1200, 20, 0, 41943040, 1025, 0, 333,
+        33, 104857, 1, 146800, 85244, 335544, 3, 55, 1,
+        102, 0, 22, 0, 10, 22, 0, 314572800, 1,
+        122, 0, 0, 512, 20546, 2, 7200, 1, 0,
+        0, 55, 11, 1, 0, 55, 2560, 0, 35262,
+        1, 40, 0, 8192, 1025, 0, 1, 33, 384
+    };
+
+    RunHostDpuAlltoAllVMeshTest(topoMeta, dataType, sendCountMatrix);
+}
+
+TEST_F(ST_ALLTOALLV_TEST, st_alltoallv_hostDpu_test_8)
+{
+    TopoMeta topoMeta{{{0, 1}, {0, 1}, {0}, {0}}};
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_UINT8;
+    
+    std::vector<u64> sendCountMatrix = {
+        524288000, 3068, 230686721, 0, 4096, 8193,
+        0, 1025, 0, 0, 4096, 524288000,
+        0, 4096, 230686721, 8197, 5555, 524288000,
+        230686721, 0, 512, 0, 3065, 0,
+        0, 8197, 0, 1025, 4096, 0,
+        2048, 522486, 0, 230686721, 256, 0
+    };
+
+    RunHostDpuAlltoAllVMeshTest(topoMeta, dataType, sendCountMatrix);
+}
+
+TEST_F(ST_ALLTOALLV_TEST, st_alltoallv_hostDpu_test_9)
+{
+    TopoMeta topoMeta{{{0, 1}, {2, 3}, {5, 6}}};
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_FP8E5M2;
+    
+    std::vector<u64> sendCountMatrix = {
+        1, 0, 134217728, 536870912, 67108864, 536870912,
+        1, 67108864, 0, 536870912, 67108864, 536870912,
+        1, 67108864, 134217728, 0, 67108864, 536870912,
+        1, 67108864, 134217728, 536870912, 0, 536870912,
+        1, 67108864, 134217728, 536870912, 67108864, 0,
+        0, 67108864, 134217728, 536870912, 67108864, 536870912,
+    };
+
+RunHostDpuAlltoAllVMeshTest(topoMeta, dataType, sendCountMatrix);
+}
 
 TEST_F(ST_ALLTOALLV_TEST, st_alltoallv_0)
 {
@@ -550,4 +803,6 @@ TEST_F(ST_ALLTOALLV_TEST, st_alltoallv_29)
         1, 67108864, 0, 536870912, 4096, 2147483648, 4096, 4096,
     };
     RunAlltoAllVMeshTest(topoMeta, rankSize, dataType, sendCountMatrix);
+}
+
 }
