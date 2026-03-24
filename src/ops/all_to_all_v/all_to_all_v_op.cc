@@ -209,16 +209,13 @@ HcclResult HcclAlltoAllVC(const void *sendBuf, const void *sendCountMatrix, Hccl
     CHK_RET(CheckDataType(recvType, false));
 
     // 底层走AlltoAllV
-    bool useInnerOp = false;
     CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlace(sendBuf, sendCounts.data(), sdispls.data(),
         recvBuf, recvCounts.data(), rdispls.data(), recvType, comm, stream, tag,
         HcclCMDType::HCCL_CMD_ALLTOALLVC, rankSize, useInnerOp), tag.c_str());
-    if (useInnerOp) {
-        return HcclAlltoAllVCInner(sendBuf, sendCountMatrix, sendType, recvBuf, recvType, comm, stream);
-    }
     return HCCL_SUCCESS;
 }
 
+// 图模式对外接口
 HcclResult HcclAlltoAllGraphMode(const void *sendBuf, uint64_t sendCount, HcclDataType sendType, const void *recvBuf,
     uint64_t recvCount, HcclDataType recvType, const char* group, aclrtStream stream, const char* tag,
     void** streams, size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize)
@@ -232,7 +229,7 @@ HcclResult HcclAlltoAllGraphMode(const void *sendBuf, uint64_t sendCount, HcclDa
     CHK_RET(InitEnvConfig());
 
     // 参数校验等工作
-    CHK_RET(CheckAlltoAllInputPara(comm, sendBuf, sendCount, sendType, recvBuf, recvCount, recvType));
+    CHK_RET(CheckAlltoAllInputPara(comm, sendBuf, sendCount, sendType, recvBuf, recvCount, recvType, stream));
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     CHK_RET(HcclGetRankSize(comm, &rankSize));
     u32 userRank = INVALID_VALUE_RANKID;
@@ -274,14 +271,9 @@ HcclResult HcclAlltoAllGraphMode(const void *sendBuf, uint64_t sendCount, HcclDa
     resPack.scratchMemSize = scratchMemSize;
 
     // 执行AlltoAllV
-    bool useInnerOp = false;
     CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlaceGraphMode(sendBuf, sendCounts.data(), sdispls.data(),
         recvBuf, recvCounts.data(), rdispls.data(), recvType, comm, stream, tag,
-        HcclCMDType::HCCL_CMD_ALLTOALL, rankSize, useInnerOp, resPack), opTag);
-    if (useInnerOp) {
-        return HcclAlltoAllInner(sendBuf, sendCount, sendType, recvBuf, recvCount, recvType, comm, stream);
-    }
-
+        HcclCMDType::HCCL_CMD_ALLTOALL, rankSize, resPack), opTag);
     return HCCL_SUCCESS;
 }
 
@@ -298,7 +290,7 @@ HcclResult HcclAlltoAllVGraphMode(const void *sendBuf, const void *sendCounts, c
     CHK_RET(InitEnvConfig());
 
     // 参数校验等工作
-    CHK_RET(CheckAlltoAllVInputPara(comm, sendBuf, sendCounts, sdispls, sendType, recvBuf, recvCounts, rdispls, recvType));
+    CHK_RET(CheckAlltoAllVInputPara(comm, sendBuf, sendCounts, sdispls, sendType, recvBuf, recvCounts, rdispls, recvType, stream));
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     CHK_RET(HcclGetRankSize(comm, &rankSize));
     u32 userRank = INVALID_VALUE_RANKID;
@@ -335,13 +327,9 @@ HcclResult HcclAlltoAllVGraphMode(const void *sendBuf, const void *sendCounts, c
     resPack.scratchMemSize = scratchMemSize;
 
     // 执行AlltoAllV
-    bool useInnerOp = false;
     CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlaceGraphMode(sendBuf, sendCounts, sdispls,
         recvBuf, recvCounts, rdispls, recvType, comm, stream, tag,
-        HcclCMDType::HCCL_CMD_ALLTOALLV, rankSize, useInnerOp, resPack), opTag);
-    if (useInnerOp) {
-        return HcclAlltoAllVInner(sendBuf, sendCounts, sdispls, sendType, recvBuf, recvCounts, rdispls, recvType, comm, stream);
-    }
+        HcclCMDType::HCCL_CMD_ALLTOALLV, rankSize, resPack), opTag);
     return HCCL_SUCCESS;
 }
 
@@ -358,7 +346,7 @@ HcclResult HcclAlltoAllVCGraphMode(const void *sendBuf, const void *sendCountMat
     CHK_RET(InitEnvConfig());
 
     // 参数校验等工作
-    CHK_RET(CheckAlltoAllVCInputPara(comm, sendBuf, sendCountMatrix, sendType, recvBuf, recvType));
+    CHK_RET(CheckAlltoAllVCInputPara(comm, sendBuf, sendCountMatrix, sendType, recvBuf, recvType, stream));
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     CHK_RET(HcclGetRankSize(comm, &rankSize));
     u32 userRank = INVALID_VALUE_RANKID;
@@ -425,13 +413,9 @@ HcclResult HcclAlltoAllVCGraphMode(const void *sendBuf, const void *sendCountMat
     resPack.scratchMemSize = scratchMemSize;
 
     // 执行AlltoAllV
-    bool useInnerOp = false;
     CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlaceGraphMode(sendBuf, sendCounts.data(), sdispls.data(),
         recvBuf, recvCounts.data(), rdispls.data(), recvType, comm, stream, tag,
-        HcclCMDType::HCCL_CMD_ALLTOALLVC, rankSize, useInnerOp, resPack), opTag);
-    if (useInnerOp) {
-        return HcclAlltoAllVCInner(sendBuf, sendCountMatrix, sendType, recvBuf, recvType, comm, stream);
-    }
+        HcclCMDType::HCCL_CMD_ALLTOALLVC, rankSize, resPack), opTag);
     return HCCL_SUCCESS;
 }
 
@@ -497,7 +481,7 @@ HcclResult CheckAlltoAllVInputPara(const HcclComm comm, const void *sendBuf, con
 }
 
 HcclResult CheckAlltoAllVCInputPara(const HcclComm comm, const void *sendBuf, const void *sendCountMatrix,
-    const HcclDataType sendType, const void *recvBuf, const HcclDataType recvType)
+    const HcclDataType sendType, const void *recvBuf, const HcclDataType recvType, const acltrStream stream)
 {
     RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
         std::vector<std::string>({"HcclAlltoAllVC", "comm", "nullptr", "please check comm"}));
@@ -626,11 +610,16 @@ HcclResult AlltoAllVOutPlaceCommon(const void *sendBuf, const void *sendCounts, 
 
 HcclResult AlltoAllVOutPlaceGraphMode(const void *sendBuf, const void *sendCounts, const void *sdispls, const void *recvBuf,
     const void *recvCounts, const void *rdispls, HcclDataType dataType, HcclComm comm, aclrtStream stream,
-    const std::string &tag, HcclCMDType opType, u32 rankSize, bool &useInnerOp, const ResPackGraphMode &resPack)
+    const std::string &tag, HcclCMDType opType, u32 rankSize, const ResPackGraphMode &resPack)
 {
     HCCL_INFO("Start to execute AlltoAllVOutPlaceGraphMode");
+    bool useInnerOp = false;
     CHK_RET(AlltoAllVOutPlaceCommon(sendBuf, sendCounts, sdispls, recvBuf, recvCounts, rdispls, dataType, comm, stream,
         tag, opType, rankSize, useInnerOp, OpMode::OFFLOAD, resPack));
+    if (useInnerOp) {
+        HCCL_ERROR("should use inner op!");
+        return HCCL_E_INTERNAL;
+    }
     HCCL_INFO("Execute AlltoAllVOutPlaceGraphMode success.");
     return HCCL_SUCCESS;
 }
