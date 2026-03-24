@@ -200,7 +200,7 @@ SelectorStatus ReduceAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetLaye
     HCCL_DEBUG("SelectMeshAlgoAicpu %u", topoInfo->level0Topo);
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
         if (dataSize >= REDUCE_AICPU_1D_MAX_DATA_SIZE) {
-            selectAlgName = "ReduceMesh1D"; // twoshot预留
+            selectAlgName = "ReduceMesh1DTwoShot";
         } else {
             selectAlgName = "ReduceMesh1D";
         }
