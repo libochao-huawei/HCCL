@@ -54,7 +54,7 @@ public:
 
 // write 模式 AllGather Mesh-1D Kernel：
 // 使用 MsWriteNb 将本端 slice 广播至所有 peers，再将各接收 slice 写入对应输出位置。
-// 穿刺版本：rmtMsId=0，数据结果不正确，仅验证控制流。
+// 利用对称 MS 分配，dst=bufs[0]，hcomm 内部解析远端 msId。
 class CcuKernelAllGatherMesh1DWrite : public CcuKernelAlgBase {
 public:
     explicit CcuKernelAllGatherMesh1DWrite(const hcomm::CcuKernelArg &arg);

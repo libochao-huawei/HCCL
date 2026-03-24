@@ -58,7 +58,7 @@ public:
 
 // write 模式 AllReduce Mesh-1D OneShot Kernel：
 // 以 MsWriteNb（TransLocMSToRmtMSInstr）替代 ReadNb，降低小数据延迟。
-// 穿刺版本：rmtMsId 硬编码为 0，用于验证软件控制流。
+// 利用对称 MS 分配，dst=bufs[0]（本地对等 buf），hcomm 内部解析远端 msId。
 class CcuKernelAllReduceMesh1DOneShotWrite : public CcuKernelAlgBase {
 public:
     explicit CcuKernelAllReduceMesh1DOneShotWrite(const hcomm::CcuKernelArg &arg);

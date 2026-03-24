@@ -90,7 +90,7 @@ protected:
     HcclResult GroupCopy(CcuRep::LocalAddr dst, CcuRep::LocalAddr src, GroupOpSize goSize);
 
     // write 模式：本端 MS → 远端 MS（write-with-notify），用于替代 read 模式优化小数据延迟
-    // rmtMsId 在穿刺版本中固定为 0，正式版本由建链交换后传入
+    // 利用对称 MS 分配，MsWriteNb 传 dst=bufs[0]（本地对等 buf），hcomm 内部解析远端 msId
     // 接收方通过 NotifyWait(channel, WRITE_DONE_CKE_IDX, 1) 等待每个 channel 的写完成通知
     static constexpr uint32_t WRITE_DONE_CKE_IDX = 2;
     HcclResult CreateMultiOpWrite(const std::vector<ChannelHandle> &channels, HcclDataType dataType,

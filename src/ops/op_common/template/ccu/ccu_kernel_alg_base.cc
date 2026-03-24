@@ -704,7 +704,7 @@ std::vector<CcuRep::CompletedEvent> CcuKernelAlgBase::CreateBlockCompletedEvent(
 // write 模式：本端 LocalCopy + MsWriteNb + NotifyWait + LocalReduce + LocalCopy
 // 每个 LoopBlock 迭代的流程：
 //   1. LocalCopyNb(bufs[0], src, len) — 本端 HBM → inputMs
-//   2. MsWriteNb(ch[i], bufs[0], len, WRITE_DONE_CKE_IDX, 1, rmtMsId=0) × channelSize
+//   2. MsWriteNb(ch[i], bufs[0], bufs[0], len, WRITE_DONE_CKE_IDX, 1) × channelSize
 //   3. NotifyWait(ch[i], WRITE_DONE_CKE_IDX, 1) × channelSize — 等待每个对端写完成
 //   4. LocalReduceNb(bufs[0..N-1], N, ...) — reduce 所有 MS → 结果在 bufs[0]
 //   5. LocalCopyNb(dst, bufs[0], lenForExpansion) — 结果 MS → 输出 HBM
@@ -741,9 +741,9 @@ HcclResult CcuKernelAlgBase::CreateMultiOpWrite(const std::vector<ChannelHandle>
         LocalCopyNb(bufs[0], src, len, event);
         WaitEvent(event);
 
-        // Step 2: 发送 inputMs 到所有 peers（write-with-notify，穿刺版本 rmtMsId=0）
+        // Step 2: 发送 inputMs 到所有 peers（write-with-notify，利用对称 MS 分配 dst=bufs[0]）
         for (uint32_t i = 0; i < channels.size(); i++) {
-            CHK_RET(MsWriteNb(channels[i], bufs[0], len, WRITE_DONE_CKE_IDX, 1, 0));
+            CHK_RET(MsWriteNb(channels[i], bufs[0], bufs[0], len, WRITE_DONE_CKE_IDX, 1));
         }
 
         // Step 3: 等待每个 peer 的写完成通知（接收方）
@@ -882,9 +882,9 @@ HcclResult CcuKernelAlgBase::CreateMultiOpBroadcastWrite(const std::vector<Chann
         LocalCopyNb(bufs[0], src, len, event);
         WaitEvent(event);
 
-        // Step 2: 广播 inputMs 到所有 peers
+        // Step 2: 广播 inputMs 到所有 peers（利用对称 MS 分配 dst=bufs[0]）
         for (uint32_t i = 0; i < channels.size(); i++) {
-            CHK_RET(MsWriteNb(channels[i], bufs[0], len, WRITE_DONE_CKE_IDX, 1, 0));
+            CHK_RET(MsWriteNb(channels[i], bufs[0], bufs[0], len, WRITE_DONE_CKE_IDX, 1));
         }
 
         // Step 3: 等待每个 peer 写来的 slice 到达
