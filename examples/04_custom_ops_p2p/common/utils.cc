@@ -11,7 +11,9 @@
 #include <cstring>
 #include <acl/acl_rt.h>
 #include <hccl/hccl_types.h>
+#include "log.h"
 #include "utils.h"
+#include "common.h"
 
 namespace ops_hccl_p2p {
 HcclResult GetDeviceType(DeviceType *deviceType) {
