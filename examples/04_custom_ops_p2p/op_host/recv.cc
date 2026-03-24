@@ -12,6 +12,7 @@
 #include <hccl/hcomm_primitives.h>
 #include <hccl/hccl_rank_graph.h>
 #include "log.h"
+#include "utils.h"
 #include "common.h"
 #include "hccl_custom_p2p.h"
 #include "load_kernel.h"
@@ -46,6 +47,8 @@ HcclResult HcclRecvCustom(
     uint32_t rank, rankSize;
     CHK_RET(HcclGetRankId(comm, &rank));
     CHK_RET(HcclGetRankSize(comm, &rankSize));
+    DeviceType devType;
+    CHK_RET(GetDeviceType(&devType));
 
     // ==============================================
     // STEP 2: 创建资源
@@ -63,41 +66,58 @@ HcclResult HcclRecvCustom(
         HCCL_INFO("[HcclRecvCustom] Creating engine context");
         CHK_RET(HcclEngineCtxCreate(comm, param.tag, engine, size, &ctx));
         param.resCtx = static_cast<AlgResourceCtx *>(ctx);
+        AlgResourceCtx resCtxHost;
 
         // ==============================================
         // STEP 2.1: 申请thread
         // ==============================================
-        ACLCHECK(aclrtCreateNotify(&(g_notifies[0]), ACL_NOTIFY_DEFAULT));
-        ACLCHECK(aclrtCreateNotify(&(g_notifies[1]), ACL_NOTIFY_DEFAULT));
-        AlgResourceCtx resCtxHost;
-        for (uint32_t idx = 0; idx < AICPU_CONTROL_NOTIFY_NUM; idx++) {
-            ACLCHECK(aclrtGetNotifyId(g_notifies[idx], &(resCtxHost.notifyIds[idx])));
-        }
-        CHK_RET(HcclThreadAcquire(comm, engine, 1, 0, &(resCtxHost.threadHandle)));
+        // 将传入的stream转换为thread，并申请1个notify；同时导出为AICPU上可用的thread
+        CHK_RET(HcclThreadAcquireWithStream(comm, COMM_ENGINE_CPU_TS, stream, 1, &resCtxHost.cpuThread));
+        CHK_RET(HcclThreadExportToCommEngine(comm, 1, &resCtxHost.cpuThread, COMM_ENGINE_AICPU_TS, &resCtxHost.cpuThreadOnAicpu));
+
+        // 创建一个AICPU_TS类型的thread，并申请1个notify；同时导出为CPU上可用的thread
+        CHK_RET(HcclThreadAcquire(comm, COMM_ENGINE_AICPU_TS, 1, 1, &resCtxHost.aicpuThread));
+        CHK_RET(HcclThreadExportToCommEngine(comm, 1, &resCtxHost.aicpuThread, COMM_ENGINE_CPU_TS, &resCtxHost.aicpuThreadOnCpu));
 
         // ==============================================
         // STEP 2.2: 建立通信链路Channel，两个 rank 之间建立 1 个 channel
         // ==============================================
+        CommProtocol protocol;
+        if (devType == DEVICE_TYPE_A3) {
+            protocol = CommProtocol::COMM_PROTOCOL_HCCS;
+        } else if (devType == DEVICE_TYPE_A5) {
+            protocol = CommProtocol::COMM_PROTOCOL_UBC_CTP;
+        } else {
+            HCCL_ERROR("[HcclSendCustom] Unsupported device type %d", devType);
+            return HCCL_E_NOT_SUPPORT;
+        }
+
         uint32_t netLayer = 0, listSize = 0;
         CommLink *linkList = nullptr;
         CHK_RET(HcclRankGraphGetLinks(comm, netLayer, rank, srcRank, &linkList, &listSize));
 
         HcclChannelDesc desc;
         CHK_RET(HcclChannelDescInit(&desc, 1));
-        if (listSize != 1) {
-            HCCL_ERROR("[HcclRecvCustom] Unsupported listSize=%u on netLayer-0", listSize);
-            return HCCL_E_INTERNAL;
+        bool protocolExists = false;
+        for (uint32_t idx = 0; idx < listSize; idx++) {
+            CommLink link = linkList[idx];
+            if (link.linkAttr.linkProtocol == protocol) {
+                protocolExists = true;
+                desc.remoteRank = srcRank;
+                desc.notifyNum = 2;
+                desc.channelProtocol = link.linkAttr.linkProtocol;
+                desc.localEndpoint.protocol = link.srcEndpointDesc.protocol;
+                desc.localEndpoint.commAddr = link.srcEndpointDesc.commAddr;
+                desc.localEndpoint.loc = link.srcEndpointDesc.loc;
+                desc.remoteEndpoint.protocol = link.dstEndpointDesc.protocol;
+                desc.remoteEndpoint.commAddr = link.dstEndpointDesc.commAddr;
+                desc.remoteEndpoint.loc = link.dstEndpointDesc.loc;
+            }
         }
-        CommLink link = linkList[0];
-        desc.remoteRank = srcRank;
-        desc.localEndpoint.protocol = link.srcEndpointDesc.protocol;
-        desc.localEndpoint.commAddr = link.srcEndpointDesc.commAddr;
-        desc.localEndpoint.loc = link.srcEndpointDesc.loc;
-        desc.remoteEndpoint.protocol = link.dstEndpointDesc.protocol;
-        desc.remoteEndpoint.commAddr = link.dstEndpointDesc.commAddr;
-        desc.remoteEndpoint.loc = link.dstEndpointDesc.loc;
-        desc.channelProtocol = link.linkAttr.linkProtocol;
-        desc.notifyNum = 2;
+        if (!protocolExists) {
+            HCCL_ERROR("[HcclSendCustom] Protocol %d not found between rank %u and rank %u", protocol, rank, srcRank);
+            return HCCL_E_NOT_FOUND;
+        }
         CHK_RET(HcclChannelAcquire(comm, engine, &desc, 1, &(resCtxHost.channelHandle)));
 
         // ==============================================
