@@ -141,6 +141,9 @@ HcclResult GetProtocolByEngine(const OpParam& param, std::vector<CommProtocol> &
             protocols.push_back(CommProtocol::COMM_PROTOCOL_UB_MEM);
             break;
         case CommEngine::COMM_ENGINE_CPU:
+            // level 1到level n-1使用UB协议，server内建联，最外层使用网卡建联
+            protocols.push_back(CommProtocol::COMM_PROTOCOL_UBC_CTP);
+            protocols.push_back(CommProtocol::COMM_PROTOCOL_UBC_TP);
             protocols.push_back(CommProtocol::COMM_PROTOCOL_ROCE);
             break;
         case CommEngine::COMM_ENGINE_CPU_TS:
@@ -521,12 +524,11 @@ HcclResult CalcChannelRequestNHRWithPriorityTopo(HcclComm comm, const OpParam& p
     return HCCL_SUCCESS;
 }
 
-HcclResult CalcChannelRequestP2P(HcclComm comm, const OpParam& param, u32 myRank, u32 remoteRank,
+HcclResult CreateChannelRequestByRankId(HcclComm comm, const OpParam& param, u32 myRank, u32 remoteRank,
     std::vector<HcclChannelDesc> &channels, u32 channelRepeatNum)
 {
 #ifndef AICPU_COMPILE
     channels.clear();
-
     std::vector<CommProtocol> expectedProtocols;
     CHK_RET(GetProtocolByEngine(param, expectedProtocols));
 
@@ -535,8 +537,6 @@ HcclResult CalcChannelRequestP2P(HcclComm comm, const OpParam& param, u32 myRank
     CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
     std::vector<uint32_t> netLayersVector = std::vector<uint32_t>(netLayers, netLayers + netLayerNum);
 
-    bool findFlag = false;
-
     for (auto netLayer : netLayersVector) {
         CommLink *linkList = nullptr;
         u32 listSize;
@@ -544,21 +544,18 @@ HcclResult CalcChannelRequestP2P(HcclComm comm, const OpParam& param, u32 myRank
         if (listSize == 0) {
             continue;
         }
-
         std::vector<CommLink> links(linkList, linkList + listSize);
         bool protocolFound = false;
-        CHK_RET(ProcessLinkForProtocol(comm, expectedProtocols, links, myRank, remoteRank, netLayer, channels,
-            protocolFound, "[CalcChannelRequestP2P]"));
+        CHK_RET(ProcessLinkForProtocol(comm, expectedProtocols, links, myRank, remoteRank, netLayer, channels, protocolFound,
+            std::string("[CreateChannelRequestByRankId]")));
 
         if (channels.size() > 0) {
-            findFlag = true;
             break;
         }
     }
-    if (!findFlag) {
-        HCCL_ERROR("[CalcChannelRequestP2P] My rank %zu has no link with remote rank %zu", myRank, remoteRank);
-        return HCCL_E_NOT_FOUND;
-    }
+    CHK_PRT_RET(channels.size() == 0,
+        HCCL_ERROR("[CreateChannelRequestByRankId] Failed to create channel between myRank=%u and rank=%u, there is no link.",
+            myRank, remoteRank), HcclResult::HCCL_E_INTERNAL);
 
 #endif
     return HCCL_SUCCESS;
