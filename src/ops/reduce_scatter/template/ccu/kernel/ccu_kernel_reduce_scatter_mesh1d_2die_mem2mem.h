@@ -67,10 +67,10 @@ public:
         inputSliceStride_(inputSliceStride), inputRepeatStride_(inputRepeatStride), outputRepeatStride_(outputRepeatStride),
         normalSliceSize_(normalSliceSize), sliceSize_(lastSliceSize), repeatNum_(repeatNum) 
     {
-        HCCL_DEBUG("[CcuTaskArgReduceScatterMeshMem2Mem1D2Die] inputAddr: %lu, outputAddr: %lu, token: %lu, scratchAddr: %lu, "
+        HCCL_DEBUG("[CcuTaskArgReduceScatterMeshMem2Mem1D2Die] inputAddr: %lu, outputAddr: %lu, scratchAddr: %lu, "
                    "inputSliceStride: %lu, inputRepeatStride: %lu, outputRepeatStride: %lu, normalSliceSize: %lu, "
                    "lastSliceSize: %lu, repeatNum: %lu",
-                   inputAddr_, outputAddr_, token_, scratchAddr_, inputSliceStride_, inputRepeatStride_,
+                   inputAddr_, outputAddr_, scratchAddr_, inputSliceStride_, inputRepeatStride_,
                    outputRepeatStride_, normalSliceSize_, sliceSize_, repeatNum_);
     }
  
