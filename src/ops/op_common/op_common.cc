@@ -1146,11 +1146,10 @@ HcclResult SetCommEngine(OpParam &param)
         {OpExecuteConfig::HOSTCPU,    COMM_ENGINE_CPU},
     };
 
-    auto it = ConfigToEngineMap.find(param.opExecuteConfig);
-    if (it != ConfigToEngineMap.end()) {
-        param.engine = it->second;
-        return HCCL_SUCCESS;
-    }
+    param.engine = COMM_ENGINE_CPU;
+    param.opExecuteConfig = OpExecuteConfig::HOSTCPU;
+    HCCL_INFO("[op_common][SetCommEngine] ENGINE is COMM_ENGINE_CPU.");
+    return HCCL_SUCCESS;
 
     HCCL_ERROR("[op_common][SetCommEngine] Unsupported or unknown opExecuteConfig: {%d}", static_cast<int>(param.opExecuteConfig));
     return HCCL_E_NOT_SUPPORT;
