@@ -29,7 +29,7 @@ HcclResult InsTempAllGatherNhrDpuInter::CalcRes(HcclComm comm, const OpParam& pa
     std::vector<HcclChannelDesc> level1Channels;
     CHK_RET(CalcChannelRequestNhr(comm, param, topoInfo, subCommRanks_, level1Channels));
     resourceRequest.channels.push_back(level1Channels);
-    HCCL_INFO("[InsTempAllGatherNhrDpuInter][CalcRes]slaveThreadNum[%u] notifyNumOnMainThread[%u] level1Channels[%u].",
+    HCCL_INFO("[InsTempAllGatherNhrDpuInter][CalcRes]slaveThreadNum[%u] notifyNumOnMainThread[%u] level1Channels[%zu].",
         resourceRequest.slaveThreadNum, resourceRequest.notifyNumOnMainThread, level1Channels.size());
     return HCCL_SUCCESS;
 }
@@ -174,7 +174,7 @@ HcclResult InsTempAllGatherNhrDpuInter::LocalDataCopy(const TemplateDataParams& 
 
         // 数据量为0的数据片无需Copy
     if (sliceSize == 0) {
-        HCCL_INFO("[InsTempAllGatherNhrDpuInter][LocalDataCopy] Rank %d has no data to process.", myRank_);
+        HCCL_INFO("[InsTempAllGatherNhrDpuInter][LocalDataCopy] Rank %u has no data to process.", myRank_);
         return HcclResult::HCCL_SUCCESS;
     }
 
@@ -207,7 +207,7 @@ HcclResult InsTempAllGatherNhrDpuInter::RunNHR(const TemplateDataParams& tempAlg
             AicpuNHRStepInfo stepInfo;
             CHK_RET(GetStepInfo(step, nSteps, stepInfo));
 
-            HCCL_DEBUG("[InsTempAllGatherNhrDpuInter] rank[%d] rankSize[%u] recvFrom[%u] sendTo[%u] step[%u] nSteps[%u] nSlices[%u]",
+            HCCL_DEBUG("[InsTempAllGatherNhrDpuInter] rank[%u] rankSize[%u] recvFrom[%u] sendTo[%u] step[%u] nSteps[%u] nSlices[%u]",
                 myRank_, templateRankSize_, stepInfo.fromRank, stepInfo.toRank, step, nSteps, stepInfo.nSlices);
             
             auto rxChannel = channels.at(GetRankFromMap(stepInfo.fromRank));

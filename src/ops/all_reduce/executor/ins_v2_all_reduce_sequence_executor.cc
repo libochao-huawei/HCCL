@@ -39,7 +39,7 @@ HcclResult InsV2AllReduceSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
 
     algHierarchyInfo_ = algHierarchyInfo;
     HCCL_INFO("[InsV2AllReduceSequenceExecutor][InitCommInfo] myRank [%u], rankSize [%u], devType [%u], redOp [%u], "
-        "dataType [%u] dataTypeSize [%u]", myRank_, rankSize_, devType_, reduceOp_, dataType_, dataTypeSize_);
+        "dataType [%u] dataTypeSize [%llu]", myRank_, rankSize_, devType_, reduceOp_, dataType_, dataTypeSize_);
     return HCCL_SUCCESS;
 }
 
@@ -66,7 +66,7 @@ HcclResult InsV2AllReduceSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     const AlgHierarchyInfoForAllLevel &algHierarchyInfo, AlgResourceRequest &resourceRequest)
 {
     // 初始化一些基本成员变量
-    InitCommInfo(param, topoInfo, algHierarchyInfo);
+    CHK_RET(InitCommInfo(param, topoInfo, algHierarchyInfo));
 
     rankSizeLevel0_ = algHierarchyInfo.infos[0].size();
     rankSizeLevel1_ = algHierarchyInfo.infos[1].size();
@@ -236,7 +236,7 @@ HcclResult InsV2AllReduceSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
         tempAlgParamsStepOne.buffInfo.hcclBuffBaseOff = 0; //CCL-IN
         CHK_RET(SplitData(currDataCount, rankSizeLevel0_, tempAlgParamsStepOne));//计算每个卡对应位置的offset,count,size
         CHK_PRT_RET(tempAlgParamsStepOne.allRankSliceSize.size() != rankSizeLevel0_,
-            HCCL_ERROR("[InsV2AllReduceSequenceExecutor][tempAlgParamsStepOne] slice num[%u] is not equal to rank size[%u].",
+            HCCL_ERROR("[InsV2AllReduceSequenceExecutor][tempAlgParamsStepOne] slice num[%zu] is not equal to rank size[%llu].",
                 tempAlgParamsStepOne.allRankSliceSize.size(),
                 rankSizeLevel0_),
             HcclResult::HCCL_E_INTERNAL);
@@ -247,11 +247,11 @@ HcclResult InsV2AllReduceSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
         tempAlgParamsStepOne.outputSliceStride = 0; // 没用到
 
         
-        HCCL_INFO("[InsV2AllReduceSequenceExecutor] loop [%u] tempAlgParamsStepOne.inputSliceStride [%u],"
-            "tempAlgParamsStepOne.outputSliceStride [%u] tempAlgParamsStepOne.sliceSize [%u]",
+        HCCL_INFO("[InsV2AllReduceSequenceExecutor] loop [%llu] tempAlgParamsStepOne.inputSliceStride [%llu],"
+            "tempAlgParamsStepOne.outputSliceStride [%llu] tempAlgParamsStepOne.sliceSize [%llu]",
             loop, tempAlgParamsStepOne.inputSliceStride, tempAlgParamsStepOne.outputSliceStride, tempAlgParamsStepOne.sliceSize);
-        HCCL_INFO("[InsV2AllReduceSequenceExecutor] loop [%u] tempAlgParamsStepOne.buffInfo.inBuffBaseOff [%u],"
-            "tempAlgParamsStepOne.buffInfo.outBuffBaseOff [%u]",
+        HCCL_INFO("[InsV2AllReduceSequenceExecutor] loop [%llu] tempAlgParamsStepOne.buffInfo.inBuffBaseOff [%llu],"
+            "tempAlgParamsStepOne.buffInfo.outBuffBaseOff [%llu]",
             loop, tempAlgParamsStepOne.buffInfo.inBuffBaseOff, tempAlgParamsStepOne.buffInfo.outBuffBaseOff);
         // 不需要重复
         tempAlgParamsStepOne.repeatNum = 1; 
@@ -273,8 +273,8 @@ HcclResult InsV2AllReduceSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
             CHK_RET(SplitData(
                 tempAlgParamsStepTwo.count, rankSizeLevel1_, tempAlgParamsStepTwo));
             CHK_PRT_RET(tempAlgParamsStepTwo.allRankSliceSize.size() != rankSizeLevel1_,
-                HCCL_ERROR("[InsV2AllReduceSequenceExecutor][tempAlgParamsStepTwo] slice num[%u] is not "
-                           "equal to rank size[%u].",
+                HCCL_ERROR("[InsV2AllReduceSequenceExecutor][tempAlgParamsStepTwo] slice num[%zu] is not "
+                           "equal to rank size[%llu].",
                     tempAlgParamsStepTwo.allRankSliceSize.size(),
                     rankSizeLevel1_),
                 HcclResult::HCCL_E_INTERNAL);
@@ -283,16 +283,16 @@ HcclResult InsV2AllReduceSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
             tempAlgParamsStepTwo.outputSliceStride = 0;  // 没用到
             //
             HCCL_INFO(
-                "[InsV2AllReduceSequenceExecutor] loop [%u] tempAlgParamsStepTwo.inputSliceStride [%u],"
-                "tempAlgParamsStepTwo.outputSliceStride [%u] "
-                "tempAlgParamsStepTwo.sliceSize [%u]",
+                "[InsV2AllReduceSequenceExecutor] loop [%llu] tempAlgParamsStepTwo.inputSliceStride [%llu],"
+                "tempAlgParamsStepTwo.outputSliceStride [%llu] "
+                "tempAlgParamsStepTwo.sliceSize [%llu]",
                 loop,
                 tempAlgParamsStepTwo.inputSliceStride,
                 tempAlgParamsStepTwo.outputSliceStride,
                 tempAlgParamsStepTwo.sliceSize);
-            HCCL_INFO("[InsV2AllReduceSequenceExecutor] loop [%u] "
-                      "tempAlgParamsStepTwo.buffInfo.inBuffBaseOff [%u],"
-                      "tempAlgParamsStepTwo.buffInfo.outBuffBaseOff [%u]",
+            HCCL_INFO("[InsV2AllReduceSequenceExecutor] loop [%llu] "
+                      "tempAlgParamsStepTwo.buffInfo.inBuffBaseOff [%llu],"
+                      "tempAlgParamsStepTwo.buffInfo.outBuffBaseOff [%llu]",
                 loop,
                 tempAlgParamsStepTwo.buffInfo.inBuffBaseOff,
                 tempAlgParamsStepTwo.buffInfo.outBuffBaseOff);
@@ -322,15 +322,15 @@ HcclResult InsV2AllReduceSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
             tempAlgParamsStepThree.inputSliceStride = 0;
             tempAlgParamsStepThree.outputSliceStride = 0;
 
-            HCCL_INFO("[InsV2AllReduceSequenceExecutor] loop [%u] tempAlgParamsStepThree.inputSliceStride [%u],"
-                      "tempAlgParamsStepThree.outputSliceStride [%u] tempAlgParamsStepThree.sliceSize [%u]",
+            HCCL_INFO("[InsV2AllReduceSequenceExecutor] loop [%llu] tempAlgParamsStepThree.inputSliceStride [%llu],"
+                      "tempAlgParamsStepThree.outputSliceStride [%llu] tempAlgParamsStepThree.sliceSize [%llu]",
                 loop,
                 tempAlgParamsStepThree.inputSliceStride,
                 tempAlgParamsStepThree.outputSliceStride,
                 tempAlgParamsStepThree.sliceSize);
             HCCL_INFO(
-                "[InsV2AllReduceSequenceExecutor] loop [%u] tempAlgParamsStepThree.buffInfo.inBuffBaseOff [%u],"
-                "tempAlgParamsStepThree.buffInfo.outBuffBaseOff [%u]",
+                "[InsV2AllReduceSequenceExecutor] loop [%llu] tempAlgParamsStepThree.buffInfo.inBuffBaseOff [%llu],"
+                "tempAlgParamsStepThree.buffInfo.outBuffBaseOff [%llu]",
                 loop,
                 tempAlgParamsStepThree.buffInfo.inBuffBaseOff,
                 tempAlgParamsStepThree.buffInfo.outBuffBaseOff);
@@ -359,11 +359,11 @@ HcclResult InsV2AllReduceSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
         tempAlgParamsStepFour.inputSliceStride = 0;
         tempAlgParamsStepFour.outputSliceStride = 0;
         
-        HCCL_INFO("[InsV2AllReduceSequenceExecutor] loop [%u] tempAlgParamsStepFour.inputSliceStride [%u],"
-            "tempAlgParamsStepFour.outputSliceStride [%u] tempAlgParamsStepFour.sliceSize [%u]",
+        HCCL_INFO("[InsV2AllReduceSequenceExecutor] loop [%llu] tempAlgParamsStepFour.inputSliceStride [%llu],"
+            "tempAlgParamsStepFour.outputSliceStride [%llu] tempAlgParamsStepFour.sliceSize [%llu]",
             loop, tempAlgParamsStepFour.inputSliceStride, tempAlgParamsStepFour.outputSliceStride, tempAlgParamsStepFour.sliceSize);
-        HCCL_INFO("[InsV2AllReduceSequenceExecutor] loop [%u] tempAlgParamsStepFour.buffInfo.inBuffBaseOff [%u],"
-            "tempAlgParamsStepFour.buffInfo.outBuffBaseOff [%u]",
+        HCCL_INFO("[InsV2AllReduceSequenceExecutor] loop [%llu] tempAlgParamsStepFour.buffInfo.inBuffBaseOff [%llu],"
+            "tempAlgParamsStepFour.buffInfo.outBuffBaseOff [%llu]",
             loop, tempAlgParamsStepFour.buffInfo.inBuffBaseOff, tempAlgParamsStepFour.buffInfo.outBuffBaseOff);
 
         tempAlgParamsStepFour.repeatNum = 1; 
@@ -427,7 +427,7 @@ HcclResult InsV2AllReduceSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     }
 
     for (u32 i = 0; i < tempAlgParams.allRankSliceSize.size(); ++i) {
-        HCCL_DEBUG("[InsV2AllReduceSequenceExecutor] SliceInfo: offset[%u] size[%u] count[%u]",
+        HCCL_DEBUG("[InsV2AllReduceSequenceExecutor] SliceInfo: offset[%llu] size[%llu] count[%llu]",
             tempAlgParams.allRankDispls.at(i),
             tempAlgParams.allRankSliceSize.at(i),
             tempAlgParams.allRankProcessedDataCount.at(i));
