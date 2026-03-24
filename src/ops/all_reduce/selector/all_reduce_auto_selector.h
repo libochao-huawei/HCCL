@@ -43,7 +43,6 @@ private:
         std::string &selectAlgName) const;
     SelectorStatus SelectMeshUBXAlgo(const TopoInfoWithNetLayerDetails* topoInfo, std::string &selectAlgName, 
         u64 dataSize) const;
-    bool isDataTypeOrReduceTypeSpecial_{false};
 };
 
 } // namespace ops_hccl
