@@ -524,12 +524,13 @@ HcclResult AlltoAllVConstructOpParam(const void *sendBuf, const void *sendCounts
     param.all2AllVDataDes.sendType = dataType;
     param.all2AllVDataDes.recvType = dataType;
 
-    u64 inputSize = 0;
-    u64 outputSize = 0;
-    for (u64 i = 0; i < userRankSize; i++) {
-        inputSize += static_cast<const u64*>(sendCounts)[i] * SIZE_TABLE[dataType];
-        outputSize += static_cast<const u64*>(recvCounts)[i] * SIZE_TABLE[dataType];
-    }
+    const u64* sendCountsData = static_cast<const u64*>(sendCounts);
+    const u64* recvCountsData = static_cast<const u64*>(recvCounts);
+    const u64* sdisplsData = static_cast<const u64*>(sdispls);
+    const u64* rdisplsData = static_cast<const u64*>(rdispls);
+    // 计算整片数据包含中间间隔的大小，防止图模式注册内存踩踏
+    u64 inputSize = sdisplsData[userRankSize - 1] + sendCountsData[userRankSize - 1];
+    u64 outputSize = rdisplsData[userRankSize - 1] + recvCountsData[userRankSize - 1];
 
     param.inputSize = inputSize;
     param.outputSize = outputSize;
@@ -541,16 +542,16 @@ HcclResult AlltoAllVConstructOpParam(const void *sendBuf, const void *sendCounts
         u64 val = i / rankSize;
         switch(val) {
             case SEND_COUNT_IDX:
-                data[i] = static_cast<const u64*>(sendCounts)[i % rankSize];
+                data[i] = sendCountsData[i % rankSize];
                 break;
             case RECV_COUNT_IDX:
-                data[i] = static_cast<const u64*>(recvCounts)[i % rankSize];
+                data[i] = recvCountsData[i % rankSize];
                 break;
             case SEND_DISPL_IDX:
-                data[i] = static_cast<const u64*>(sdispls)[i % rankSize];
+                data[i] = sdisplsData[i % rankSize];
                 break;
             case RECV_DISPL_IDX:
-                data[i] = static_cast<const u64*>(rdispls)[i % rankSize];
+                data[i] = rdisplsData[i % rankSize];
                 break;
             default:
                 break;
