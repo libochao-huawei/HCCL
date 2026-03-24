@@ -27,10 +27,12 @@ public:
 
 private:
     HcclResult TopoForLayer0(const HcclComm comm, uint32_t& layer0Size, const uint32_t myRank,
-        AlgHierarchyInfoForAllLevel& algHierarchyInfo) const;
+        AlgHierarchyInfoForAllLevel& algHierarchyInfo, uint32_t gcdInstSize = 0) const;
     HcclResult TopoForLayer1(const HcclComm comm, uint32_t& layer0Size, const uint32_t myRank,
         AlgHierarchyInfoForAllLevel& algHierarchyInfo) const;
-    HcclResult CheckVecElementAllSame(const uint32_t* instSizeList, uint32_t listSize) const;
+    bool CheckVecElementAllSame(const uint32_t* instSizeList, uint32_t listSize) const;
+    uint32_t GcdTwo(uint32_t a, uint32_t b) const;
+    uint32_t GcdOfInstSizeList(const uint32_t* instSizeList, uint32_t listSize) const;
 
     template<typename T>
     std::string PrintCArray(const T* values, const u32 valueNum) const
