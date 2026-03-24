@@ -170,6 +170,7 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchest
     return HCCL_SUCCESS;
 }
 
+#ifndef AICPU_COMPILE
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunchSaveCtx(
     const OpParam &param, const TemplateResource &templateAlgRes)
@@ -207,6 +208,7 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLau
              templateAlgRes.submitInfos[0].sqeArgs, sizeof(templateAlgRes.submitInfos[0].sqeArgs));
     return HCCL_SUCCESS;
 }
+#endif
 
 #ifndef AICPU_COMPILE
 template <typename AlgTopoMatch, typename InsAlgTemplate>
