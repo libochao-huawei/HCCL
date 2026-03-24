@@ -450,7 +450,7 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     CcuFastLaunchCtx *ccuFastLaunchCtx = reinterpret_cast<CcuFastLaunchCtx*>(ctxPtr);
     // 1 算法名
     CHK_SAFETY_FUNC_RET(strcpy_s(ccuFastLaunchCtx->algName, sizeof(ccuFastLaunchCtx->algName), param.algName));
-    HCCL_INFO("[InsReduceScatterParallelExecutor][CcuFastLaunchCtx] algName[%s]", ccuFastLaunchCtx->algName);
+    HCCL_INFO("[InsReduceScatterParallelExecutor][FastLaunchSaveCtx] algName[%s]", ccuFastLaunchCtx->algName);
 
     // 2 thread
     ccuFastLaunchCtx->threadNum = threadNum;
@@ -460,30 +460,28 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     }
         
     // 3 ccu kernel handle, taskArg入参
-    ccuFastLaunchCtx->ccuKernelNum[0] = ccuKernelLaunchNumIntra0_;
-    ccuFastLaunchCtx->ccuKernelNum[1] = ccuKernelLaunchNumInter1_;
-    ccuFastLaunchCtx->ccuKernelNum[2] = ccuKernelLaunchNumInter0_;
-    ccuFastLaunchCtx->ccuKernelNum[3] = ccuKernelLaunchNumIntra1_;
+    u32 templateIdx = 0;
+    ccuFastLaunchCtx->ccuKernelNum[templateIdx++] = ccuKernelLaunchNumIntra0_;
+    ccuFastLaunchCtx->ccuKernelNum[templateIdx++] = ccuKernelLaunchNumInter1_;
+    ccuFastLaunchCtx->ccuKernelNum[templateIdx++] = ccuKernelLaunchNumInter0_;
+    ccuFastLaunchCtx->ccuKernelNum[templateIdx++] = ccuKernelLaunchNumIntra1_;
     CcuKernelSubmitInfo *kernelSubmitInfos = ccuFastLaunchCtx->GetCcuKernelSubmitInfoPtr();
     
     for (u32 i = 0; i < threadNum; i++) {
         threads[i] = threads_[i];
     }
+    u32 kernelIdx = 0;
     for (u32 i = 0; i < ccuKernelLaunchNumIntra0_; i++) {
-        kernelSubmitInfos[0] = templateAlgResIntra.submitInfos[i];
-        kernelSubmitInfos++;
+        kernelSubmitInfos[kernelIdx++] = templateAlgResIntra.submitInfos[i];
     }
     for (u32 i = 0; i < ccuKernelLaunchNumInter1_; i++) {
-        kernelSubmitInfos[0] = templateAlgResInter.submitInfos[i];
-        kernelSubmitInfos++;
-    }
-    for (u32 i = ccuKernelLaunchNumIntra0_; i < ccuKernelLaunchNumIntra1_ + ccuKernelLaunchNumIntra0_; i++) {
-        kernelSubmitInfos[0] = templateAlgResIntra.submitInfos[i];
-        kernelSubmitInfos++;
+        kernelSubmitInfos[kernelIdx++] = templateAlgResInter.submitInfos[i];
     }
     for (u32 i = ccuKernelLaunchNumInter1_; i < ccuKernelLaunchNumInter0_ + ccuKernelLaunchNumInter1_; i++) {
-        kernelSubmitInfos[0] = templateAlgResInter.submitInfos[i];
-        kernelSubmitInfos++;
+        kernelSubmitInfos[kernelIdx++] = templateAlgResInter.submitInfos[i];
+    }
+    for (u32 i = ccuKernelLaunchNumIntra0_; i < ccuKernelLaunchNumIntra1_ + ccuKernelLaunchNumIntra0_; i++) {
+        kernelSubmitInfos[kernelIdx++] = templateAlgResIntra.submitInfos[i];
     }
     return HCCL_SUCCESS;
 }
