@@ -592,9 +592,35 @@ HcclResult CalcLevel0TopoShape(const HcclComm comm, TopoInfoWithNetLayerDetails*
     return HCCL_E_INTERNAL;
 }
 
+// 计算 Level1 NHR 标记：当 Level0 GCD 为 1 时，Mesh 无意义，需要退化为单级 NHR
+static HcclResult CalcLevel1Nhr(const HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo)
+{
+    if (topoInfo->topoLevelNums > 1 && !topoInfo->netLayerDetails.instSizeListOfLayer[0].empty()) {
+        const auto& instSizeList = topoInfo->netLayerDetails.instSizeListOfLayer[0];
+        u32 gcd = instSizeList[0];
+        for (size_t i = 1; i < instSizeList.size(); ++i) {
+            u32 a = gcd, b = instSizeList[i];
+            while (b != 0) {
+                a %= b;
+                std::swap(a, b);
+            }
+            gcd = a;
+            if (gcd == 1) {
+                break;  // 早期终止
+            }
+        }
+        if (gcd == 1) {
+            topoInfo->Level1Nhr = true;
+            HCCL_INFO("[TopoHost][CalcLevel1Nhr] Level0 GCD is 1, set Level1Nhr to true");
+        }
+    }
+    return HCCL_SUCCESS;
+}
+
 HcclResult CalcTopoShape(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo)
 {
     CHK_RET(ExtractNetLayerDetails(comm, topoInfo));
+    CHK_RET(CalcLevel1Nhr(comm, topoInfo));
     CHK_RET(ExtractTopoDetails(comm, topoInfo));
     CHK_RET(CalcLevel0TopoShape(comm, topoInfo));
     CHK_RET(Is2DieFullMesh(comm, topoInfo));
