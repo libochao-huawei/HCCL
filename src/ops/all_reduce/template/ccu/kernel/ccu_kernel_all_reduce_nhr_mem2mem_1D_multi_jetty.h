@@ -96,10 +96,10 @@ public:
           lastRankSliceSize_(lastRankSliceSize),
           lastPortSliceSize_(lastPortSliceSize)
     {
-        HCCL_DEBUG("[CcuTaskArgAllReduceNhrMem2Mem1DMultiJetty] inputAddr: %llu, outputAddr: %llu, outputToken: %llu, "
+        HCCL_DEBUG("[CcuTaskArgAllReduceNhrMem2Mem1DMultiJetty] inputAddr: %llu, outputAddr: %llu, "
                    "isInplace: %llu, dataSizePerRank: %llu, dataSizePerPort: %llu, lastRankSliceSize: "
                    "%llu, lastPortSliceSize: %llu",
-                   inputAddr_, outputAddr_, outputToken_, isInplace_, dataSizePerRank_, dataSizePerPort_,
+                   inputAddr_, outputAddr_, isInplace_, dataSizePerRank_, dataSizePerPort_,
                    lastRankSliceSize_, lastPortSliceSize_);
     }
 

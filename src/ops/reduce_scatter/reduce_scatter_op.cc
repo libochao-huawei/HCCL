@@ -23,7 +23,13 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 HcclResult HcclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
     HcclReduceOp op, HcclComm comm, aclrtStream stream)
 {
+    if (!HcclCheckAicpuEnableOpen() && !HcclCheckCcuEnableOpen() && !HcclCheckAivEnableOpen()) {
+        return HcclReduceScatterInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
+    }
     HCCL_INFO("Start to run execute HcclReduceScatter");
+    if (GetHcommVersion() < 90000000) { // compat handle
+        return HcclReduceScatterInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
+    }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
     // 非95设备转到老流程
@@ -34,10 +40,7 @@ HcclResult HcclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, H
 #endif
         return HcclReduceScatterInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
     }
-    // 图模式引导到老的流程上面
-    if (GetWorkflowMode() != HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE) {
-        return HcclReduceScatterInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
-    }
+
     // 入口的地方先解析环境变量
     CHK_RET(InitEnvConfig());
 
@@ -79,8 +82,6 @@ HcclResult CheckReduceScatterInputPara(const HcclComm comm, const void* sendBuf,
     RPT_INPUT_ERR(recvBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
         std::vector<std::string>({"HcclReduceScatter", "recvBuf", "nullptr", "please check recvBuf"}));
     CHK_PTR_NULL(recvBuf);
-    CHK_PRT_RET(sendBuf == recvBuf,
-        HCCL_ERROR("[HcclReduceScatter] sendBuf and recvBuf cannot be same."), HCCL_E_PARA);
 
     return HCCL_SUCCESS;
 }
