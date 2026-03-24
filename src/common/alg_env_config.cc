@@ -636,6 +636,13 @@ HcclResult ParseOpExpansion()
         g_algEnvConfig.ccuMSMode = true;
     } else if (opExpansionModeEnv == "CCU_SCHED") {
         g_algEnvConfig.ccuSchedMode = true;
+    } else if (opExpansionModeEnv == "AICPU_CacheDisable") {
+        if (deviceType == DevType::DEV_TYPE_910) {
+            HCCL_WARNING("910 do not support AICPU unfold.");
+        } else {
+            g_algEnvConfig.aicpuUnfold = true;
+            g_algEnvConfig.aicpuCacheEnable = 0; // Disable aicpu cache
+        }
     } else {
         HCCL_ERROR(
             "HCCL_OP_EXPANSION_MODE is set to [%s], which is incorrect. Please check", opExpansionModeEnv.c_str());
