@@ -256,13 +256,11 @@ SelectorStatus AllReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayer
 {
     HCCL_DEBUG("[AllReduceAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
 
-    HcclDataType dataType = opParam.DataDes.dataType;
-    HcclReduceOp reduceType = opParam.reduceType;
     bool isDataTypeOrReduceTypeSpecial = 
-        dataType == HcclDataType::HCCL_DATA_TYPE_INT64 ||
-        dataType == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
-        dataType == HcclDataType::HCCL_DATA_TYPE_FP64 ||
-        reduceType == HcclReduceOp::HCCL_REDUCE_PROD;
+        opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT64 ||
+        opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
+        opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_FP64 ||
+        opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD;
 
     if (topoInfo->topoLevelNums > 1) {
         if (isDataTypeOrReduceTypeSpecial) {
@@ -319,10 +317,10 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetL
     u64 dataSize = opParam.DataDes.count * perDataSize;
 
     bool isDataTypeOrReduceTypeSpecial = 
-        dataType == HcclDataType::HCCL_DATA_TYPE_INT64 ||
-        dataType == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
-        dataType == HcclDataType::HCCL_DATA_TYPE_FP64 ||
-        reduceType == HcclReduceOp::HCCL_REDUCE_PROD;
+        opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT64 ||
+        opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
+        opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_FP64 ||
+        opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD;
 
     double ratio;
     if (topoInfo->userRankSize == 0) {
