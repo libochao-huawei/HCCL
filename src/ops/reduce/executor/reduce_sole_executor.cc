@@ -101,6 +101,7 @@ HcclResult ReduceSoleExecutor<AlgTopoMatch, AlgTemplate>::OrchestrateLoop(
     tempAlgParams.buffInfo.inBuffType = BufferType::INPUT;
     tempAlgParams.buffInfo.outBuffType = BufferType::OUTPUT;
     tempAlgParams.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
+    tempAlgParams.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
 
     // 构建template
     std::shared_ptr<AlgTemplate> algTemplate =
