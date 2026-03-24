@@ -173,26 +173,6 @@ TEST_F(ST_ALL_REDUCE_DPU_TEST, st_all_reduce_dpu_hcclbuff_add_1)
     HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_SUM;
     RunAllReduceDPUCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp);
 }
- 
-// TEST_F(ST_ALL_REDUCE_DPU_TEST, st_all_reduce_dpu_big_data)
-// {
-//     TopoMeta topoMeta{{{0, 1}, {0, 1}}};
-//     u64 dataCount = 1 * 1024 * 1024 * 1024 + 1;
-//     HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_INT16;
-//     u32 dataTypeSize = 2;
-//     HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_SUM;
-//     RunAllReduceDPUCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp);
-// }
- 
-// TEST_F(ST_ALL_REDUCE_DPU_TEST, st_all_reduce_dpu_ultra_big_data)
-// {
-//     TopoMeta topoMeta{{{0, 1}, {0, 1}}};
-//     u64 dataCount = 4 * 1024 * 1024 * 1024ULL;
-//     HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_INT8;
-//     u32 dataTypeSize = 1;
-//     HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_MIN;
-//     RunAllReduceDPUCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp);
-// }
 
 TEST_F(ST_ALL_REDUCE_DPU_TEST, st_all_reduce_dpu_base_test_eight_server_sole_rank)
 {

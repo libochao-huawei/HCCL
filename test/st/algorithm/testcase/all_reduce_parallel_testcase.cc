@@ -172,23 +172,3 @@ TEST_F(ST_ALL_REDUCE_PARALLEL_TEST, st_all_reduce_hcclbuff_add_1)
     HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_SUM;
     RunAllReduceParallelCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp);
 }
-
-// TEST_F(ST_ALL_REDUCE_PARALLEL_TEST, st_all_reduce_big_data)
-// {
-//     TopoMeta topoMeta{{{0, 1}, {0, 1}}};
-//     u64 dataCount = 1 * 1024 * 1024 * 1024 + 1;
-//     HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_INT16;
-//     u32 dataTypeSize = 2;
-//     HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_SUM;
-//     RunAllReduceParallelCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp);
-// }
-
-// TEST_F(ST_ALL_REDUCE_PARALLEL_TEST, st_all_reduce_ultra_big_data)
-// {
-//     TopoMeta topoMeta{{{0, 1}, {0, 1}}};
-//     u64 dataCount = 4 * 1024 * 1024 * 1024ULL;
-//     HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_INT8;
-//     u32 dataTypeSize = 1;
-//     HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_MIN;
-//     RunAllReduceParallelCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp);
-// }
