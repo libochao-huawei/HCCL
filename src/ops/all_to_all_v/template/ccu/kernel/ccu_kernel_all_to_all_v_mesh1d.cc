@@ -302,7 +302,7 @@ std::vector<uint64_t> CcuKernelAlltoAllVMesh1D::GeneArgs(const CcuTaskArg &arg)
     for (auto val : xnMaxTransportGoSize) {
         processReturn.push_back(val);
     }
-    uint64_t rankSize = taskArg->sliceSize_.size();
+    uint64_t rankSize = taskArg->rankSize;
     for (uint64_t i = 0; i < rankSize; i++) {
         uint64_t tailSize = taskArg->localSendRecvInfo_.sendLength[i] % UB_MAX_TRANS_SIZE;
         uint64_t loopNum = UINT64_MAX - 1 - (taskArg->localSendRecvInfo_.sendLength[i] / UB_MAX_TRANS_SIZE);
@@ -316,10 +316,10 @@ std::vector<uint64_t> CcuKernelAlltoAllVMesh1D::GeneArgs(const CcuTaskArg &arg)
         for (auto val : tailGoSize) {
             processReturn.push_back(val);
         }
-        HCCL_INFO("[AllToAllVAlgo] rankIdx[i] taskArg->sliceSize[%llu]," \
+        HCCL_INFO("[AllToAllVAlgo] rankIdx[i] taskArg->rankSize[%u]," \
             "taskArg->localSendRecvInfo.sendOffset[%llu]," \
             "taskArg->localSendRecvInfo.recvOffset[%llu]",
-            taskArg->sliceSize_[i], taskArg->localSendRecvInfo_.sendOffset[i],
+            taskArg->rankSize, taskArg->localSendRecvInfo_.sendOffset[i],
             taskArg->localSendRecvInfo_.recvOffset[i]);
     }
 

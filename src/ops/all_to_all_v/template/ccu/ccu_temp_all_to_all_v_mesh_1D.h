@@ -35,7 +35,7 @@ public:
 
     HcclResult KernelRun(const OpParam& param,
                          const TemplateDataParams& templateDataParams,
-                         const TemplateResource& templateResource) override;
+                         TemplateResource& templateResource) override;
 
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
 
@@ -44,6 +44,7 @@ public:
         std::vector<u64> &sdispls, std::vector<u64> &rdispls);
 
     void SetA2ASendRecvInfo(const A2ASendRecvInfo &sendRecvInfo);
+    HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx) override;
 
 private:
     A2ASendRecvInfo localSendRecvInfo_;

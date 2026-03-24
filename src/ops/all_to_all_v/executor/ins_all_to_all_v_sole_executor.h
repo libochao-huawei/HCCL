@@ -35,6 +35,11 @@ public:
     
     HcclResult GetAlltoAllLocalSendRecvInfo(const OpParam &param, 
                                             A2ASendRecvInfo &localSendRecvInfo) const;
+                            
+     #ifndef AICPU_COMPILE
+ 	     HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *resCtx) override;
+ 	 #endif
+ 	                                          
 
 protected:
     /* *************** 算法编排 *************** */

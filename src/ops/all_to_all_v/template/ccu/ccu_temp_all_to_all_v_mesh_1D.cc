@@ -110,9 +110,30 @@ void CcuTempAlltoAllVMesh1D::InitInsAlgTemplate(
     }
 }
 
+HcclResult CcuTempAlltoAllVMesh1D::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+{
+    HCCL_INFO("[CcuTempAlltoAllVMesh1D::FastLaunch] start");
+    std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAlltoAllVMesh1D>(
+        PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr),
+ 	    PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr),
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].sqeArgs[2],//token
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].sqeArgs[3],//srcOffset
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].sqeArgs[4],//dstOffset
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].sqeArgs[5],//rankSize
+        localSendRecvInfo_
+    );
+
+    void* taskArgPtr = static_cast<void*>(taskArg.get());
+    CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0], 
+ 	        tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr));
+
+    HCCL_INFO("[CcuTempAlltoAllVMesh1D::FastLaunch] end");
+    return HcclResult::HCCL_SUCCESS;
+}
+
 HcclResult CcuTempAlltoAllVMesh1D::KernelRun(const OpParam& param, 
                                             const TemplateDataParams& templateDataParams,
-                                            const TemplateResource& templateResource)
+                                            TemplateResource& templateResource)
 {
     // 遗留：localSendRecvInfo_ 从哪里传入呢？
     HCCL_INFO("[CcuTempAlltoAllVMesh1D] KernelRun");
@@ -156,16 +177,27 @@ HcclResult CcuTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
     uint64_t token              = hcomm::CcuRep::GetTokenInfo(reinterpret_cast<uint64_t>(buffInfo_.inputPtr),
                                                        static_cast<uint64_t>(buffInfo_.inputSize));
 
+    uint32_t rankSize = tempRankSize_;
+
     HCCL_INFO("[CcuTempAllToAllVMesh1D] Run Init: myRank_[%d], dimSize[%llu], inputAddr[%llu],"\
         "outputAddr[%llu], sliceSize[%llu], srcOffset[%llu], dstOffset[%llu]",
         myRank_, tempRankSize_, inputAddr, outputAddr, sliceSize, srcOffset, dstOffset);
     std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAlltoAllVMesh1D>(
-                inputAddr, outputAddr, sliceSize, token, srcOffset, 
-                dstOffset, localSendRecvInfo_);
+                inputAddr, outputAddr, token, srcOffset, 
+                dstOffset, rankSize, localSendRecvInfo_);
 
     void* taskArgPtr = static_cast<void*>(taskArg.get());
 
     HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr);
+    CcuKernelSubmitInfo subCommInfo;
+    // subCommInfo.sqeArgs[0]=inputAddr;
+ 	// subCommInfo.sqeArgs[1]=outputAddr;
+ 	subCommInfo.sqeArgs[2] = token;
+ 	subCommInfo.sqeArgs[3] = srcOffset;
+    subCommInfo.sqeArgs[4] = dstOffset;
+    subCommInfo.sqeArgs[5] = rankSize;
+    templateResource.submitInfos.push_back(subCommInfo);    
+
     return HcclResult::HCCL_SUCCESS;
 }
 
