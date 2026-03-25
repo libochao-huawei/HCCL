@@ -15,6 +15,7 @@ namespace ops_hccl {
 constexpr u64 RS_MAX_DATA_SIZE = 16 * 1024 * 1024;
 constexpr u64 AR_ONESHOT_1D_MAX_DATA_SIZE = 16 * 1024;
 constexpr u64 AR_M2M_1D_MAX_DATA_SIZE = 8 * 1024 * 1024;
+constexpr u64 AR_WRITE_MODE_MAX_DATA_SIZE = 512 * 1024;
 constexpr u64 AR_AICPU_1D_SMALL_DATA_SIZE = 8 * 1024 * 1024;
 constexpr u64 AR_AICPU_1D_MAX_DATA_SIZE = 32 * 1024 * 1024;
 constexpr u64 AR_AICPU_1D_64P_SMALL_DATA_SIZE = 32 * 1024 * 1024;
@@ -104,8 +105,8 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgo(const TopoInfoWithNetLayerD
         } else if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_NOT_REGULAR) {
             HCCL_DEBUG("[AllReduceAutoSelector][%s] TWO_DIE_NOT_REGULAR not match", __func__);
             return SelectorStatus::NOT_MATCH;
-        } else if (IsSmallData(dataSize)) {
-            selectAlgName = "CcuAllReduceMesh1DOneShot";
+        } else if (dataSize <= AR_WRITE_MODE_MAX_DATA_SIZE) {
+            selectAlgName = "CcuAllReduceMesh1DOneShotWrite";
         } else {
             selectAlgName = "CcuAllReduceMesh1D";
         }
