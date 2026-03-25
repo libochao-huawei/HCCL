@@ -27,11 +27,6 @@ using namespace hccl;
 using namespace ops_hccl;
 thread_local uint32_t curr_dev_id = UINT32_MAX;
 
-// alg_param/hccl_common 会通过 dlsym 头把 API 名映射成函数指针宏，这里需要真实定义桩函数
-#ifdef hrtGetDeviceType
-#undef hrtGetDeviceType
-#endif
-
 extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param);
 
 #ifdef __cplusplus

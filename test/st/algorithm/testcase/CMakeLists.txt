@@ -29,7 +29,6 @@ if (BUILD_OPEN_PROJECT)
         ${THIRD_PARTH_PATH}/gtest_shared/include
 
         # HCCL仓头文件
-        ${HCCL_DEV_BASE}/include
         ${HCCL_DEV_BASE}/src/ops/op_common/inc
 
         # Ascend安装包头文件
@@ -43,7 +42,6 @@ if (BUILD_OPEN_PROJECT)
 
         # 本仓代码头文件
         ${HCCL_DEV_BASE}/src/common
-        ${HCCL_DEV_BASE}/src/common/hcomm_dlsym
         ${HCCL_DEV_BASE}/src/ops
         ${HCCL_DEV_BASE}/src/ops/op_common
         ${HCCL_DEV_BASE}/src/ops/op_common/inc
@@ -64,8 +62,8 @@ if (BUILD_OPEN_PROJECT)
         pthread
         hccl-model-proxy
         hccl-verifier
-        # 链接本地编译的hccl库
-        ${HCCL_DEV_BASE}/build/src/libhccl.so
+        # 链接hccl库
+        ${ASCEND_HOME_PATH}/lib64/libhccl.so
     )
 
     target_compile_options(hccl_checker_ops_stest PRIVATE

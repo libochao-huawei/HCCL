@@ -12,8 +12,6 @@
 #define HCOMM_PRIMITIVES_DL_H
 
 #include "hcomm_primitives.h"   // 原头文件，包含所有类型和定义
-#include "hccl/hccl_types.h"
-#include "hccl/hccl_comm.h"
 
 #ifdef __cplusplus
 extern "C" {

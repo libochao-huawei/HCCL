@@ -11,7 +11,6 @@
 set(INCLUDE_LIST
     ${HCCL_DEV_BASE}/include
     ${HCCL_DEV_BASE}/src/common
-    ${HCCL_DEV_BASE}/src/common/hcomm_dlsym
 
     ${HCCL_DEV_BASE}/src/ops
     ${HCCL_DEV_BASE}/src/ops/op_common
@@ -282,5 +281,4 @@ target_compile_definitions(scatter_aicpu_kernel PRIVATE
 
 target_link_libraries(scatter_aicpu_kernel PRIVATE
     -Wl,--no-as-needed
-    ${HCCL_DEV_BASE}/build/src/libhccl.so
 )

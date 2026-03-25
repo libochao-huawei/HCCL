@@ -284,7 +284,7 @@ static int32_t StubHcommChannelFenceOnThread(ThreadHandle thread, ChannelHandle 
 static int32_t StubHcommThreadJoin(ThreadHandle thread, uint32_t timeout) {
     (void)thread; (void)timeout;
     HCCL_ERROR("[HcclWrapper] HcommThreadJoin not supported");
-    return -1;
+    return HCCL_E_NOT_SUPPORT;
 }
 
 // ---------- 初始化函数 ----------
