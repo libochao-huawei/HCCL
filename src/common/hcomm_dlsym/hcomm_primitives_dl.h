@@ -13,6 +13,7 @@
 
 #include "hcomm_primitives.h"   // 原头文件，包含所有类型和定义
 #include "hccl/hccl_types.h"
+#include "hccl/hccl_comm.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -42,7 +43,7 @@ extern int32_t (*hcommBatchModeStartPtr)(const char*);
 extern int32_t (*hcommBatchModeEndPtr)(const char*);
 extern int32_t (*hcommAcquireCommPtr)(const char*);
 extern int32_t (*hcommReleaseCommPtr)(const char*);
-extern HcclResult (*hcommSymWinGetPeerPointerPtr)(CommSymWindow, size_t, uint32_t, void**);
+extern HcclResult (*hcommSymWinGetPeerPointerPtr)(HcclCommSymWindow, size_t, uint32_t, void**);
 extern int32_t (*hcommThreadSynchronizePtr)(ThreadHandle);
 extern int32_t (*hcommSendRequestPtr)(uint64_t, const char*, const void*, size_t, uint32_t*);
 extern int32_t (*hcommWaitResponsePtr)(uint64_t, void*, size_t, uint32_t*);

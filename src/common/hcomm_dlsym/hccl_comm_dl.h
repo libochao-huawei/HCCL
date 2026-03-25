@@ -13,7 +13,6 @@
 
 #include "hccl/hccl_comm.h"   // 原头文件，包含所有类型和 inline 函数
 #include "hccl/hccl_types.h"
-#include "hccl_config.h"
 #ifdef __cplusplus
 extern "C" {
 #endif

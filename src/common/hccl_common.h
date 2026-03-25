@@ -22,7 +22,6 @@
 #include "log.h"
 #include "hccl_types.h"
 #include "hccl_res_dl.h"
-#include "hccl_config.h"
 
 #ifndef T_DESC
 #define T_DESC(_msg, _y) ((_y) ? true : false)
