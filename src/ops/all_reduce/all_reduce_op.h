@@ -14,7 +14,6 @@
 #include <string>
 #include <memory>
 #include "hccl.h"
-
 #include "alg_param.h"
 #include "executor_v2_base.h"
 #include "alg_type.h"
