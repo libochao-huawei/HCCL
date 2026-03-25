@@ -136,10 +136,14 @@ bool HcclCheckCcuEnableOpen();
 bool HcclCheckAivEnableOpen();
 bool ShouldUseInnerOp(OpExecuteConfig opExecuteConfig);
 
+<<<<<<< HEAD
+bool HcclCheckCommStatus(HcclComm comm);
+=======
 HcclResult HcclRegstryBuff(HcclComm comm, const char *memTag, void *bufferPtr, uint64_t bufferSize, HcclMemHandle *memHandle);
 
 HcclResult HcclGetRemoteBuff(HcclComm comm, ChannelHandle channel, const char *memTag, void **bufferPtr, uint64_t *bufferSize);
 
+>>>>>>> f2ccc6b0dc42e3660ee77c1f998b583eecbb50ea
 }  // namespace ops_hccl
 
 #endif
