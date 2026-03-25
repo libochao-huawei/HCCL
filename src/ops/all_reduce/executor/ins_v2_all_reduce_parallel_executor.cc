@@ -296,86 +296,90 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 void InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3>::CalcInterDataAllRank(
     const u64 sliceCount, const u32 LocalRankSizePart1, const u32 LocalRankSizePart2, std::map<u32, std::pair<u64, u64>>& dataMap)
 {
-    // inter -> [interLocalRankSize, intraLocalRankSize]
     dataMap.clear();
     rankBaseOffIntraAGMap_.clear();
-    rankBaseOffIntraRSMap_.clear();
-    u32 rankId = 0;
-    u64 curSizePart1 = 0;
-    u64 curSizePart2 = 0;
-    u64 sliceSize = sliceCount * dataTypeSize_;
 
-    u64 rankStridePart1 = RoundDown(sliceSize, (LocalRankSizePart1 * dataTypeSize_)) * dataTypeSize_;
-    for (u32 i = 0; i < LocalRankSizePart1; i++) {
-        curSizePart1 = (i == (LocalRankSizePart1 - 1)) ? (sliceSize - rankStridePart1 * i) : rankStridePart1;
-        u64 rankStridePart2 = RoundDown(curSizePart1, (LocalRankSizePart2 * dataTypeSize_)) * dataTypeSize_;
-        for (u32 j = 0; j < LocalRankSizePart2; j++) {
-            curSizePart2 = (j == (LocalRankSizePart2 - 1)) ? (curSizePart1 - rankStridePart2 * j) : rankStridePart2;
-            rankId = i * LocalRankSizePart2 + j;
-            dataMap[rankId] = std::make_pair(rankStridePart2, curSizePart2); // sliceSize, tailSize
-        }
-    }
-
-    rankId = 0;
-    u64 baseOffAG = 0;
-    u64 baseOffRS = 0;
-    u64 accumAG = 0;
-    for (u32 i = 0; i < LocalRankSizePart1; i++) {
-        for (u32 j = 0; j < LocalRankSizePart2; j++) {
-            rankId = i * LocalRankSizePart2 + j;
-            rankBaseOffIntraAGMap_.insert(std::make_pair(rankId, baseOffAG));
-            rankBaseOffIntraRSMap_.insert(std::make_pair(rankId, baseOffRS));
-            u64 result = (j == (LocalRankSizePart2 - 1)) ? dataMap[rankId].second : dataMap[rankId].first;
-            accumAG += result;
-            baseOffRS += result;
-        }
-        baseOffAG += accumAG;
-        accumAG = 0;
-    }
-    return;
+    FillDataMap(sliceCount, LocalRankSizePart1, LocalRankSizePart2, dataMap, true);
+    FillOffsetMaps(dataMap, LocalRankSizePart1, LocalRankSizePart2, rankBaseOffIntraAGMap_, true);
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2, typename InsAlgTemplate3>
 void InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3>::CalcIntraDataAllRank(
     const u64 sliceCount, const u32 LocalRankSizePart1, const u32 LocalRankSizePart2, std::map<u32, std::pair<u64, u64>>& dataMap)
 {
-    // intra -> [intraLocalRankSize, interLocalRankSize]
     dataMap.clear();
     rankBaseOffInterAGMap_.clear();
-    rankBaseOffInterRSMap_.clear();
+
+    FillDataMap(sliceCount, LocalRankSizePart1, LocalRankSizePart2, dataMap, false);
+    FillOffsetMaps(dataMap, LocalRankSizePart1, LocalRankSizePart2, rankBaseOffInterAGMap_, false);
+}
+
+template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2, typename InsAlgTemplate3>
+u32 InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3>::CalcRankIdInter(u32 i, u32 j, u32 part2)
+{
+    return i * part2 + j;
+}
+
+template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2, typename InsAlgTemplate3>
+u32 InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3>::CalcRankIdIntra(u32 i, u32 j, u32 part1)
+{
+    return j * part1 + i;
+}
+
+template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2, typename InsAlgTemplate3>
+void InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3>::FillDataMap(
+    const u64 sliceCount, const u32 part1, const u32 part2,
+    std::map<u32, std::pair<u64, u64>>& dataMap, bool isInter)
+{
+    u64 sliceSize = sliceCount * dataTypeSize_;
+    u64 rankStridePart1 = RoundDown(sliceSize, (part1 * dataTypeSize_)) * dataTypeSize_;
     u32 rankId = 0;
     u64 curSizePart1 = 0;
+    u64 rankStridePart2 = 0;
     u64 curSizePart2 = 0;
-    u64 sliceSize = sliceCount * dataTypeSize_;
 
-    u64 rankStridePart1 = RoundDown(sliceSize, (LocalRankSizePart1 * dataTypeSize_)) * dataTypeSize_;
-    for (u32 i = 0; i < LocalRankSizePart1; i++) {
-        curSizePart1 = (i == (LocalRankSizePart1 - 1)) ? (sliceSize - rankStridePart1 * i) : rankStridePart1;
-        u64 rankStridePart2 = RoundDown(curSizePart1, (LocalRankSizePart2 * dataTypeSize_)) * dataTypeSize_;
-        for (u32 j = 0; j < LocalRankSizePart2; j++) {
-            curSizePart2 = (j == (LocalRankSizePart2 - 1)) ? (curSizePart1 - rankStridePart2 * j) : rankStridePart2;
-            rankId = j * LocalRankSizePart1 + i;
-            dataMap[rankId] = std::make_pair(rankStridePart2, curSizePart2); // sliceSize, tailSize
+    for (u32 i = 0; i < part1; ++i) {
+        curSizePart1 = (i == (part1 - 1)) ? (sliceSize - rankStridePart1 * i) : rankStridePart1;
+        rankStridePart2 = RoundDown(curSizePart1, (part2 * dataTypeSize_)) * dataTypeSize_;
+        for (u32 j = 0; j < part2; ++j) {
+            curSizePart2 = (j == (part2 - 1)) ? (curSizePart1 - rankStridePart2 * j) : rankStridePart2;
+            
+            if (isInter) {
+                rankId = CalcRankIdInter(i, j, part2);
+            } else {
+                rankId = CalcRankIdIntra(i, j, part1);
+            }
+
+            dataMap[rankId] = std::make_pair(rankStridePart2, curSizePart2);
         }
     }
+}
 
-    rankId = 0;
+template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2, typename InsAlgTemplate3>
+void InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3>::FillOffsetMaps(
+    const std::map<u32, std::pair<u64, u64>>& dataMap, const u32 part1, const u32 part2, std::map<u32, u64>& agMap, bool isInter)
+{
     u64 baseOffAG = 0;
-    u64 baseOffRS = 0;
     u64 accumAG = 0;
-    for (u32 i = 0; i < LocalRankSizePart1; i++) {
-        for (u32 j = 0; j < LocalRankSizePart2; j++) {
-            rankId = j * LocalRankSizePart1 + i;
-            rankBaseOffInterAGMap_.insert(std::make_pair(rankId, baseOffAG));
-            rankBaseOffInterRSMap_.insert(std::make_pair(rankId, baseOffRS));
-            u64 result = (j == (LocalRankSizePart2 - 1)) ? dataMap[rankId].second : dataMap[rankId].first;
+    u32 rankId = 0;
+    u64 result = 0;
+
+    for (u32 i = 0; i < part1; ++i) {
+        for (u32 j = 0; j < part2; ++j) {
+            if (isInter) {
+                rankId = CalcRankIdInter(i, j, part2);
+            } else {
+                rankId = CalcRankIdIntra(i, j, part1);
+            }
+
+            agMap.insert(std::make_pair(rankId, baseOffAG));
+
+            result = (j == (part2 - 1)) ? dataMap.find(rankId)->second.second : dataMap.find(rankId)->second.first;
             accumAG += result;
-            baseOffRS += result;
         }
         baseOffAG += accumAG;
         accumAG = 0;
     }
-    return;
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2, typename InsAlgTemplate3>
@@ -539,11 +543,10 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
             tempVirtRankMapIntra_.insert(std::make_pair(resCtx.algHierarchyInfo.infos[1][0][i], i));
         }
 
-        // 第一步开始前同步
-        CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
         CalcIntraDataAllRank(currCountPart0, intraLocalRankSize_, interLocalRankSize_, meshPartDataMap_);
         CalcInterDataAllRank(currCountPart1, interLocalRankSize_, intraLocalRankSize_, nhrPartDataMap_);
-
+        // 第一步开始前同步
+        CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
         RunTemplateIntra0(param, resCtx, dataOffset0, currCountPart0, scratchOffsetCountIntraStage0, tempAlgParamsIntra0, intraTempAlgRes, tempAlgIntra);
         RunTemplateInter1(param, resCtx, dataOffset1, currCountPart1, scratchOffsetCountInterStage0, tempAlgParamsInter1, interTempAlgRes, tempAlgInter);
         // 第一步做完后回到主流做尾同步
