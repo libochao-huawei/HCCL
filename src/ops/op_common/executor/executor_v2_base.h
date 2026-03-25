@@ -43,6 +43,9 @@ public:
     virtual HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) = 0;
     
     virtual HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *resCtx);
+    
+    HcclResult SetTempFastLaunchAddr(TemplateFastLaunchCtx &tempFastLaunchCtx, 
+                            const void* inputPtr, const void* outputPtr, const HcclMem &hcclBuff) const;
 
     HcclResult RestoreChannelMap(const AlgResourceCtxSerializable &resCtx,
                                  std::vector<std::map<u32, std::vector<ChannelInfo>>> &rankIdToChannelInfo) const;
