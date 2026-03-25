@@ -207,7 +207,7 @@ HcclResult ClearAivSyncBuf(const OpParam &param, AlgResourceCtxSerializable& res
 {
     // param 暂时未使用
     static_cast<void>(param);
-    ACLCHECK(aclrtMemcpy(static_cast<u8*>(resCtx.aivCommInfoPtr) + AIV_FLAG_ADDR_OFFSET, AIV_FLAG_AREA_SIZE,
+    CHK_RET(haclrtMemcpy(static_cast<u8*>(resCtx.aivCommInfoPtr) + AIV_FLAG_ADDR_OFFSET, AIV_FLAG_AREA_SIZE,
         static_cast<u8*>(resCtx.aivCommInfoPtr) + AIV_FLAG_CLEAR_OFFSET, AIV_FLAG_AREA_SIZE, ACL_MEMCPY_DEVICE_TO_DEVICE));
     HCCL_INFO("[ClearAivSyncBuf] clearaiv done.");
     return HCCL_SUCCESS;
