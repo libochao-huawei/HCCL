@@ -20,9 +20,9 @@
 #include "hccl_common.h"
 #include "hccl_types.h"
 #include "alg_type.h"
-#include "hccl_res_dl.h"
-#include "hcomm_primitives_dl.h"
-#include "hccl_rank_graph_dl.h"
+#include "hccl_res.h"
+#include "hcomm_primitives.h"
+#include "hccl_rank_graph.h"
 #include "binary_stream.h"
 #include "hccl_ccu_res.h"
 
@@ -197,7 +197,7 @@ struct TopoInfoWithNetLayerDetails : public TopoInfo { // 通信域拓扑ctx
         binaryStream.Dump(result);
         return result;
     }
- 
+
     void DeSerialize(std::vector<char> &data)
     {
         BinaryStream binaryStream(data);
@@ -504,6 +504,10 @@ struct HcomProInfo {
 // 图模式编译阶段资源计算入参
 struct OpParamGraphMode {
     char opType[64]; // 算子类型
+    u64 dataCount;
+    u32 rankSize;
+    HcclDataType dataType;
+    u64 hcclBufferSize;
 };
 
 // 图模式编译阶段申请资源
