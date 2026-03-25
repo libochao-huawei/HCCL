@@ -11,9 +11,9 @@
 #ifndef HCCL_RES_DL_H
 #define HCCL_RES_DL_H
 
+#include "hccl/hccl_types.h"
 #include "hccl_res.h"
-
-typedef int32_t(Callback)(uint64_t, int32_t);
+#include "hccl_res_expt.h"
 
 #ifdef __cplusplus
 extern "C" {
