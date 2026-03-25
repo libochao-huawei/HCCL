@@ -10,6 +10,7 @@
 
 set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/ccu_kernel_all_reduce_mesh1d_one_shot.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/ccu_kernel_all_reduce_mesh1d_one_shot_write.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ccu_kernel_all_reduce_mesh1d.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ccu_kernel_all_reduce_mesh1d_mem2mem.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ccu_kernel_all_reduce_nhr1d_mem2mem.cc
