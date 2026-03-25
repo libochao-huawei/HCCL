@@ -14,7 +14,6 @@
 #include <hccl/hccl_types.h>
 #include <hccl/hccl_comm.h>
 #include <acl/acl.h>
-#include "hccl_config.h"
 
 #ifdef __cplusplus
 extern "C" {

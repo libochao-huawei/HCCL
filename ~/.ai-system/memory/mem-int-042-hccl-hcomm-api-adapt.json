@@ -1,0 +1,31 @@
+{
+  "id": "mem-int-042-hccl-hcomm-api-adapt",
+  "title": "HCCL/HCOMM API adaptation on hcomm-fix-api",
+  "content": "Added a dedicated hccl_config.h to surface the shared enum definitions (HcclOpExpansionMode, HcclConfigType) and the HcclConfigGetInfo prototype so both the public include tree and hccl_comm_dlsym adaptors see the same API surface. Updated the dynamic loader headers to rely on the new config file, aligned the hcomm primitives stub signatures (MsgHandle -> uint64_t) and cc execution helpers (HcclConfigGetInfo reference) and refreshed the hccl stub to bind callbacks through the new handle. These tweaks mirror the hcomm-api-fix branch hits on the include tree while keeping our wrappers and stubs compiling against the reshaped HCOMM headers.",
+  "category": "development",
+  "tags": [
+    "hccl",
+    "hcomm",
+    "api",
+    "config",
+    "build"
+  ],
+  "relatedSkills": [],
+  "relatedMemory": [
+    "mem-int-038-hcomm-staged-api-design-doc",
+    "mem-int-041-hcomm-api-compat-validation"
+  ],
+  "importance": 70,
+  "created": "2026-03-24T17:00:00+08:00",
+  "lastAccessed": "2026-03-24T17:00:00+08:00",
+  "accessCount": 1,
+  "metadata": {
+    "source": "api-adaptation",
+    "confidence": 0.65,
+    "repository": "hccl",
+    "branch": "hcomm-fix-api",
+    "command": "cmake --build build -- -j 8",
+    "log": "/tmp/cmake_build_hccl.log",
+    "firstError": "class ops_hccl::CcuKernelAllreduceMesh1D2DieOneShot has no member named 'LocalNotifyWait'"
+  }
+}

@@ -11,7 +11,6 @@
 #include "hccl/hccl_types.h"
 #include "hccl/base.h"
 #include "hccl_res.h"
-#include "hccl_config.h"
 #include "dtype_common.h"
 #include "hccl_common.h"
 #include "hccl_rank_graph.h"
@@ -30,6 +29,98 @@
 #include "hccl_comm.h"
 
 using namespace ops_hccl;
+
+// alg_param 中引入的 dlsym 头会定义同名宏，这里需要真实定义桩函数
+#ifdef HcommLocalCopyOnThread
+#undef HcommLocalCopyOnThread
+#endif
+#ifdef HcommLocalReduceOnThread
+#undef HcommLocalReduceOnThread
+#endif
+#ifdef HcommThreadNotifyRecordOnThread
+#undef HcommThreadNotifyRecordOnThread
+#endif
+#ifdef HcommThreadNotifyWaitOnThread
+#undef HcommThreadNotifyWaitOnThread
+#endif
+#ifdef HcommAclrtNotifyRecordOnThread
+#undef HcommAclrtNotifyRecordOnThread
+#endif
+#ifdef HcommAclrtNotifyWaitOnThread
+#undef HcommAclrtNotifyWaitOnThread
+#endif
+#ifdef HcommWriteOnThread
+#undef HcommWriteOnThread
+#endif
+#ifdef HcommWriteReduceOnThread
+#undef HcommWriteReduceOnThread
+#endif
+#ifdef HcommWriteWithNotifyOnThread
+#undef HcommWriteWithNotifyOnThread
+#endif
+#ifdef HcommReadOnThread
+#undef HcommReadOnThread
+#endif
+#ifdef HcommReadReduceOnThread
+#undef HcommReadReduceOnThread
+#endif
+#ifdef HcommWriteNbi
+#undef HcommWriteNbi
+#endif
+#ifdef HcommWriteWithNotifyNbi
+#undef HcommWriteWithNotifyNbi
+#endif
+#ifdef HcommReadNbi
+#undef HcommReadNbi
+#endif
+#ifdef HcommChannelNotifyRecordOnThread
+#undef HcommChannelNotifyRecordOnThread
+#endif
+#ifdef HcommChannelNotifyRecord
+#undef HcommChannelNotifyRecord
+#endif
+#ifdef HcommChannelNotifyWaitOnThread
+#undef HcommChannelNotifyWaitOnThread
+#endif
+#ifdef HcommChannelNotifyWait
+#undef HcommChannelNotifyWait
+#endif
+#ifdef HcommBatchModeStart
+#undef HcommBatchModeStart
+#endif
+#ifdef HcommBatchModeEnd
+#undef HcommBatchModeEnd
+#endif
+#ifdef HcommAcquireComm
+#undef HcommAcquireComm
+#endif
+#ifdef HcommReleaseComm
+#undef HcommReleaseComm
+#endif
+#ifdef HcommSymWinGetPeerPointer
+#undef HcommSymWinGetPeerPointer
+#endif
+#ifdef HcommThreadSynchronize
+#undef HcommThreadSynchronize
+#endif
+#ifdef HcommSendRequest
+#undef HcommSendRequest
+#endif
+#ifdef HcommWaitResponse
+#undef HcommWaitResponse
+#endif
+#ifdef HcommWriteWithNotifyNbiOnThread
+#undef HcommWriteWithNotifyNbiOnThread
+#endif
+#ifdef HcommFenceOnThread
+#undef HcommFenceOnThread
+#endif
+#ifdef HcommChannelFenceOnThread
+#undef HcommChannelFenceOnThread
+#endif
+#ifdef HcommThreadJoin
+#undef HcommThreadJoin
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -464,10 +555,10 @@ int32_t HcommWriteOnThread(ThreadHandle thread, ChannelHandle channel, void *dst
     CHK_RET(dstNpu.GetSlice(reinterpret_cast<uint64_t>(dst), len, dstSlice));
 
     // 5.通过抽象链接类型判断链接协议
-    HcclSim::LinkInfo link(reinterpret_cast<HcclSim::SimChannel*>(channel)->GetLinkType());
+    HcclSim::LinkInfo linkInfo{reinterpret_cast<HcclSim::SimChannel*>(channel)->GetLinkType()};
 
     // 6.下发task
-    auto task = std::make_shared<HcclSim::TaskStubWrite>(rmtRank, link, srcSlice, dstSlice);
+    auto task = std::make_shared<HcclSim::TaskStubWrite>(rmtRank, linkInfo, srcSlice, dstSlice);
     HcclSim::SimTaskQueue::Global()->AppendTask(pos, stream, task);
 
     return HCCL_SUCCESS;
@@ -503,10 +594,10 @@ int32_t HcommReadOnThread(ThreadHandle thread, ChannelHandle channel, void *dst,
     CHK_RET(dstNpu.GetSlice(reinterpret_cast<uint64_t>(dst), len, dstSlice));
 
     // 5.通过抽象链接类型判断链接协议
-    HcclSim::LinkInfo link(reinterpret_cast<HcclSim::SimChannel*>(channel)->GetLinkType());
+    HcclSim::LinkInfo linkInfo{reinterpret_cast<HcclSim::SimChannel*>(channel)->GetLinkType()};
 
     // 6.下发task
-    auto task = std::make_shared<HcclSim::TaskStubRead>(rmtRank, link, dstSlice, srcSlice);
+    auto task = std::make_shared<HcclSim::TaskStubRead>(rmtRank, linkInfo, dstSlice, srcSlice);
     HcclSim::SimTaskQueue::Global()->AppendTask(pos, stream, task);
 
     return HCCL_SUCCESS;
@@ -527,13 +618,13 @@ int32_t HcommChannelNotifyRecordOnThread(ThreadHandle thread, ChannelHandle chan
     uint32_t rmtRank = reinterpret_cast<HcclSim::SimChannel*>(channel)->GetRmtRankId();
 
     // 3.通过抽象链接类型判断链接协议
-    HcclSim::LinkInfo link(reinterpret_cast<HcclSim::SimChannel*>(channel)->GetLinkType());
+    HcclSim::LinkInfo linkInfo{reinterpret_cast<HcclSim::SimChannel*>(channel)->GetLinkType()};
 
     // 4.通过channel获得remoteNotify id
     uint32_t rmtNotifyId = reinterpret_cast<HcclSim::SimChannel*>(channel)->GetRmtNotifyIdByIndex(remoteNotifyIdx);
 
     // 5.下发task
-    auto task = std::make_shared<HcclSim::TaskStubPost>(rmtRank, link, rmtNotifyId, HcclSim::NotifyTypeStub::READY, "POST");
+    auto task = std::make_shared<HcclSim::TaskStubPost>(rmtRank, linkInfo, rmtNotifyId, HcclSim::NotifyTypeStub::READY, "POST");
     HcclSim::SimTaskQueue::Global()->AppendTask(pos, stream, task);
 
     return HCCL_SUCCESS;
@@ -557,13 +648,13 @@ int32_t HcommChannelNotifyWaitOnThread(ThreadHandle thread, ChannelHandle channe
     uint32_t rmtRank = reinterpret_cast<HcclSim::SimChannel*>(channel)->GetRmtRankId();
 
     // 3.通过抽象链接类型判断链接协议
-    HcclSim::LinkInfo link(reinterpret_cast<HcclSim::SimChannel*>(channel)->GetLinkType());
+    HcclSim::LinkInfo linkInfo{reinterpret_cast<HcclSim::SimChannel*>(channel)->GetLinkType()};
 
     // 4.通过channel获得remoteNotify id
     uint32_t localNotifyId = reinterpret_cast<HcclSim::SimChannel*>(channel)->GetLocNotifyIdByIndex(localNotifyIdx);
 
     // 5.下发task
-    auto task = std::make_shared<HcclSim::TaskStubWait>(rmtRank, link, localNotifyId, HcclSim::NotifyTypeStub::READY, "WAIT");
+    auto task = std::make_shared<HcclSim::TaskStubWait>(rmtRank, linkInfo, localNotifyId, HcclSim::NotifyTypeStub::READY, "WAIT");
     HcclSim::SimTaskQueue::Global()->AppendTask(pos, stream, task);
 
     return HCCL_SUCCESS;

@@ -29,6 +29,7 @@ if (BUILD_OPEN_PROJECT)
         ${THIRD_PARTH_PATH}/gtest_shared/include
 
         # HCCL仓头文件
+        ${HCCL_DEV_BASE}/include
         ${HCCL_DEV_BASE}/src/ops/op_common/inc
 
         # Ascend安装包头文件
@@ -42,6 +43,7 @@ if (BUILD_OPEN_PROJECT)
 
         # 本仓代码头文件
         ${HCCL_DEV_BASE}/src/common
+        ${HCCL_DEV_BASE}/src/common/hcomm_dlsym
         ${HCCL_DEV_BASE}/src/ops
         ${HCCL_DEV_BASE}/src/ops/op_common
         ${HCCL_DEV_BASE}/src/ops/op_common/inc

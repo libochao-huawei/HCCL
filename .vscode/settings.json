@@ -1,0 +1,21 @@
+{
+    "cmake.configureOnOpen": true,
+    "cmake.exportCompileCommandsFile": true,
+    "cmake.buildDirectory": "${workspaceFolder}/build",
+    "cmake.configureArgs": [
+        "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+        "-DDEVICE_MODE=OFF"
+    ],
+    "cmake.environment": {
+        "ASCEND_CANN_PACKAGE_PATH": "${env:HOME}/Ascend/ascend-toolkit/latest/cann-8.5.0-beta.1"
+    },
+    "files.associations": {
+        "*.h": "cpp",
+        "*.cpp": "cpp",
+        "*.hpp": "cpp",
+        "*.c": "c"
+    },
+    "C_Cpp.errorSquiggles": "Enabled",
+    "C_Cpp.autocomplete": "Default",
+    "C_Cpp.intelliSenseEngine": "Default"
+}
