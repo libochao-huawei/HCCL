@@ -158,7 +158,7 @@ private:
 
     CcuRep::Variable repeatInputOffset_;
     CcuRep::Variable repeatOutputOffset_;
-    CcuRep::Variable myrankInputSliceOffset_;
+    CcuRep::Variable currentRankSliceOutputOffset_;
 
     CcuRep::LocalAddr   localSrc_;
     CcuRep::LocalAddr   localDst_;
