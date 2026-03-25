@@ -27,4 +27,5 @@ HcclResult HcclCalcOpResOfflineGraphMode(OpParamGraphMode *opParam, u64 *opMemSi
 #endif
 namespace ops_hccl {
 HcclResult HcclCalcAicpuResOffline(ResResponseGraphMode *resResponse);
+HcclResult HcclCalcAivResOffline(ResResponseGraphMode *resResponse, OpParamGraphMode *paramPtr);
 } // namespace ops_hccl
