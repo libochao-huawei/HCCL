@@ -89,6 +89,23 @@ protected:
 
     HcclResult GroupCopy(CcuRep::LocalAddr dst, CcuRep::LocalAddr src, GroupOpSize goSize);
 
+    // write 模式：本端 MS → 远端 MS（write-with-notify），用于替代 read 模式优化小数据延迟
+    // 利用对称 MS 分配，MsWriteNb 传 dst=bufs[0]（本地对等 buf），hcomm 内部解析远端 msId
+    // 接收方通过 NotifyWait(channel, WRITE_DONE_CKE_IDX, 1) 等待每个 channel 的写完成通知
+    static constexpr uint32_t WRITE_DONE_CKE_IDX = 2;
+    HcclResult CreateMultiOpWrite(const std::vector<ChannelHandle> &channels, HcclDataType dataType,
+                                   HcclDataType outputDataType, HcclReduceOp opType);
+    HcclResult GroupWrite(const std::vector<ChannelHandle> &channels, CcuRep::LocalAddr dst,
+                          CcuRep::LocalAddr src, GroupOpSize goSize, HcclDataType dataType,
+                          HcclDataType outputDataType, HcclReduceOp opType);
+
+    // write 模式 Broadcast (AllGather)：发送本端 MS 到所有 peers，接收后按各 rank 位置写入输出
+    // dst 为 N 个输出位置（dst[0..N-2] 为 peers，dst[N-1] 为本端），顺序与 channels 一致
+    HcclResult CreateMultiOpBroadcastWrite(const std::vector<ChannelHandle> &channels);
+    HcclResult GroupBroadcastWrite(const std::vector<ChannelHandle> &channels,
+                                    std::vector<CcuRep::RemoteAddr> dst,
+                                    CcuRep::LocalAddr src, GroupOpSize goSize);
+
 private:
     HcclResult CreateMultiOpCopy();
     HcclResult CreateMultiOpBroadcast(const std::vector<ChannelHandle> &channels);
