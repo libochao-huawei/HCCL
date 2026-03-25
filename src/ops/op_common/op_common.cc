@@ -1278,6 +1278,9 @@ HcclResult HcclGetOpExpansionMode(HcclComm comm, OpParam &param)
     return HCCL_SUCCESS;
 }
 
+static constexpr uint32_t opExpansionModeCcuSched = 5;
+static constexpr uint32_t opExpansionModeCcuMs = 4;
+
 HcclResult DecideHcclOpExpansionMode(HcclComm comm, HcclOpExpansionMode &finalMode)
 {
     HcclOpExpansionMode configOpExpansionMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_INVALID;
@@ -1289,9 +1292,9 @@ HcclResult DecideHcclOpExpansionMode(HcclComm comm, HcclOpExpansionMode &finalMo
     } else if (GetExternalInputHcclAivMode() == true) {
         finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_AIV;
     } else if (GetExternalInputHcclCcuMSMode()) {
-        finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_HOST;
+        finalMode = static_cast<HcclOpExpansionMode>(opExpansionModeCcuMs);
     } else if (GetExternalInputHcclCcuSchedMode()) {
-        finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_HOST_TS;
+        finalMode = static_cast<HcclOpExpansionMode>(opExpansionModeCcuSched);
     }
 
     if (configOpExpansionMode != finalMode) {
@@ -1316,12 +1319,12 @@ HcclResult ApplyOpExpansionMode(OpParam &param, HcclOpExpansionMode finalMode)
             CHK_RET(RegisterKernel(param.opType, g_aivKernelInfoMap[param.opType].first, g_aivKernelInfoMap[param.opType].second));
             HCCL_DEBUG("[ApplyOpExpansionMode] AIV mode selected.");
             break;
-        case HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_HOST:
+        case static_cast<HcclOpExpansionMode>(opExpansionModeCcuMs):
             param.opExecuteConfig = OpExecuteConfig::CCU_MS;
             param.engine = CommEngine::COMM_ENGINE_CCU;
             HCCL_DEBUG("[ApplyOpExpansionMode] CCU_MS mode selected.");
             break;
-        case HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_HOST_TS:
+        case static_cast<HcclOpExpansionMode>(opExpansionModeCcuSched):
             param.opExecuteConfig = OpExecuteConfig::CCU_SCHED;
             param.engine = CommEngine::COMM_ENGINE_CCU;
             HCCL_DEBUG("[ApplyOpExpansionMode] CCU_SCHED mode selected.");
