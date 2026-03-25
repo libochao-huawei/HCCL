@@ -1,0 +1,9 @@
+﻿{
+  "HcclLaunchDoubleAllGatherAicpuKernel": {
+    "opInfo": {
+      "opKernelLib": "AICPUKernel",
+      "kernelSo": "libdouble_allgather_aicpu_kernel.so",
+      "functionName": "HcclLaunchDoubleAllGatherAicpuKernel"
+    }
+  }
+}
