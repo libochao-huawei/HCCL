@@ -227,9 +227,7 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLo
         // 3 ccu kernel handle, taskArg入参
         ccuFastLaunchCtx->ccuKernelNum = ccuKernelNum;
         CcuKernelSubmitInfo *kernels = ccuFastLaunchCtx->GetCcuKernelSubmitInfoPtr();
-        kernels[0].kernelHandle = templateAlgRes.ccuKernels[0];
-        memcpy_s(kernels[0].sqeArgs, sizeof(kernels[0].sqeArgs), 
-                 templateAlgRes.submitInfos[0].sqeArgs, sizeof(templateAlgRes.submitInfos[0].sqeArgs));
+        kernels[0] = templateAlgRes.submitInfos[0];
     }
 #endif
 

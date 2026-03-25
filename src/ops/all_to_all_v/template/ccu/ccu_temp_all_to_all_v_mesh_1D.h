@@ -18,6 +18,7 @@ namespace ops_hccl {
 
 class CcuTempAlltoAllVMesh1D : public CcuAlgTemplateBase {
 public:
+    CcuTempAlltoAllVMesh1D() = default; 
     explicit  CcuTempAlltoAllVMesh1D(const OpParam& param, 
                                         const u32 rankId, // 传通信域的rankId，userRank
                                         const std::vector<std::vector<u32>> &subCommRanks);

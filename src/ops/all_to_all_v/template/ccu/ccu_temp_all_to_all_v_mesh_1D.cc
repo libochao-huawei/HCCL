@@ -190,6 +190,7 @@ HcclResult CcuTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
 
     HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr);
     CcuKernelSubmitInfo subCommInfo;
+    subCommInfo.kernelHandle = templateResource.ccuKernels[0];
     // subCommInfo.sqeArgs[0]=inputAddr;
  	// subCommInfo.sqeArgs[1]=outputAddr;
  	subCommInfo.sqeArgs[2] = token;
