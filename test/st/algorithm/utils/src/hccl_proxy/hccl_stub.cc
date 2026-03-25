@@ -11,7 +11,6 @@
 #include "hccl/hccl_types.h"
 #include "hccl/base.h"
 #include "hccl_res.h"
-#include "hccl_config.h"
 #include "dtype_common.h"
 #include "hccl_common.h"
 #include "hccl_rank_graph.h"
@@ -793,7 +792,7 @@ int32_t HcclTaskRegister(HcclComm comm, const char *msgTag, Callback cb)
     return 0;
 }
 
-int32_t HcommSendRequest(uint64_t handle, const char *msgTag, const void *src, size_t sizeByte, uint32_t *msgId)
+int32_t HcommSendRequest(MsgHandle handle, const char *msgTag, const void *src, size_t sizeByte, uint32_t *msgId)
 {
     auto it = dpuCallbackMap.find(msgTag);
     if (it != dpuCallbackMap.end()) {
@@ -810,7 +809,7 @@ int32_t HcommChannelFenceOnThread(ThreadHandle thread, ChannelHandle channel)
     return 0;
 }
 
-int32_t HcommWaitResponse(uint64_t handle, void *dst, size_t sizeByte, uint32_t *msgId)
+int32_t HcommWaitResponse(MsgHandle handle, void *dst, size_t sizeByte, uint32_t *msgId)
 {
     HCCL_WARNING("[%s] not support.", __func__);
     return 0;
