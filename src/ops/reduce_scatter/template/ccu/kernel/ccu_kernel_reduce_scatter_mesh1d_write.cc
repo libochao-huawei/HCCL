@@ -60,6 +60,11 @@ void CcuKernelReduceScatterMesh1DWrite::Presync()
     for (auto &ch : channels_) {
         NotifyWait(ch, RS_PRE_SYNC_CKE_IDX_W, 1);
     }
+    // 初始化 READY 信号：首轮 LoopGroup 需要 READY 已就绪，否则 NotifyWait(READY) 会死等
+    for (auto &ch : channels_) {
+        NotifyRecord(ch, READY_CKE_IDX_0, 1);
+        NotifyRecord(ch, READY_CKE_IDX_1, 1);
+    }
 }
 
 void CcuKernelReduceScatterMesh1DWrite::Postsync()

@@ -91,13 +91,16 @@ protected:
     HcclResult GroupLocalReduce(CcuRep::LocalAddr outDstOrg, std::vector<CcuRep::LocalAddr> &scratchOrg,
         GroupOpSize goSize, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType);
 
-    // write 模式：本端 LocalCopy → bufs[rankId]，MsWriteNb(bufs[rankId], bufs[rankId]) 广播至所有 peers
-    // 利用对称 MS 分配，每个 rank 固定占用 bufs[rankId]，所有 rank 的 MS 布局一致：bufs[R] = rank R 的数据
-    // 接收方通过 NotifyWait(channel, writeDoneCkeIdx, 1) 等待每个 channel 的写完成通知
-    // 双缓冲流水线中 LoopBlock 0 和 LoopBlock 1 必须使用不同的 CKE index，
-    // 否则 CKE bitmask 的幂等性会导致跨迭代事件丢失或误消费
-    static constexpr uint32_t WRITE_DONE_CKE_IDX_0 = 2;  // LoopBlock 0
-    static constexpr uint32_t WRITE_DONE_CKE_IDX_1 = 3;  // LoopBlock 1
+    // write 模式 CKE 分配：
+    // CKE 是 bitmask（OR 置位），跨 rank 异步使用时存在幂等冲突风险。
+    // 为解决快卡/慢卡跨迭代 CKE 信号丢失问题，采用 READY 握手机制：
+    //   - 发送端在 MsWriteNb 前等待 READY_CKE（对端已消费上轮数据）
+    //   - 接收端在 NotifyWait(WRITE_DONE) 后通知 READY_CKE（允许对端发送下轮数据）
+    // 握手依赖链保证 READY 信号不会累积：对端必须消费 READY(N) 后才能产生 READY(N+1)
+    static constexpr uint32_t WRITE_DONE_CKE_IDX_0 = 2;  // LoopBlock 0 写完成通知
+    static constexpr uint32_t WRITE_DONE_CKE_IDX_1 = 3;  // LoopBlock 1 写完成通知
+    static constexpr uint32_t READY_CKE_IDX_0 = 4;       // LoopBlock 0 流控握手
+    static constexpr uint32_t READY_CKE_IDX_1 = 5;       // LoopBlock 1 流控握手
     HcclResult CreateMultiOpWrite(const std::vector<ChannelHandle> &channels, uint32_t rankId,
                                    HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType);
     HcclResult GroupWrite(const std::vector<ChannelHandle> &channels, uint32_t rankId, CcuRep::LocalAddr dst,

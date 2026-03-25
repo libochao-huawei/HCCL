@@ -854,10 +854,14 @@ std::vector<CcuRep::CompletedEvent> CcuKernelAlgBase::CreateBlockCompletedEvent(
 // write 模式：本端 LocalCopy → bufs[rankId]，MsWriteNb(bufs[rankId], bufs[rankId]) 广播至所有 peers
 // 每个 LoopBlock 迭代的流程：
 //   1. LocalCopyNb(bufs[rankId], src, len) — 本端 HBM → 本 rank 固定的 MS slot
-//   2. MsWriteNb(ch[i], bufs[rankId], bufs[rankId], len, ...) × channelSize — 写到所有 peers 的 bufs[rankId]
-//   3. NotifyWait(ch[i], writeDoneCkeIdx, 1) × channelSize — 等待每个对端写完成
-//   4. LocalReduceNb(bufs[0..N-1], N, ...) — reduce 所有 MS → 结果在 bufs[0]
-//   5. LocalCopyNb(dst, bufs[0], lenForExpansion) — 结果 MS → 输出 HBM
+//   2. NotifyWait(READY_CKE) × channelSize — 等待对端已消费上轮数据（流控握手）
+//   3. MsWriteNb(ch[i], bufs[rankId], bufs[rankId], len, ...) × channelSize — 写到所有 peers 的 bufs[rankId]
+//   4. NotifyWait(ch[i], writeDoneCkeIdx, 1) × channelSize — 等待每个对端写完成
+//   5. NotifyRecord(READY_CKE) × channelSize — 通知对端可以发送下轮数据（流控握手）
+//   6. LocalReduceNb(bufs[0..N-1], N, ...) — reduce 所有 MS → 结果在 bufs[0]
+//   7. LocalCopyNb(dst, bufs[0], lenForExpansion) — 结果 MS → 输出 HBM
+// READY 握手解决跨 rank CKE bitmask 幂等冲突：
+//   依赖链保证 READY(N) 被消费后才产生 READY(N+1)，不会累积
 // 所有 rank 的 MS 布局一致：bufs[R] = rank R 的数据，reduce 顺序相同，结果 bit-exact 一致
 HcclResult CcuKernelAlgBase::CreateMultiOpWrite(const std::vector<ChannelHandle> &channels, uint32_t rankId,
                                                  HcclDataType dataType, HcclDataType outputDataType,
@@ -888,30 +892,41 @@ HcclResult CcuKernelAlgBase::CreateMultiOpWrite(const std::vector<ChannelHandle>
         CcuRep::CompletedEvent &event = moRes.completedEvent[index];
 
         uint32_t writeDoneCkeIdx = (index == 0) ? WRITE_DONE_CKE_IDX_0 : WRITE_DONE_CKE_IDX_1;
+        uint32_t readyCkeIdx     = (index == 0) ? READY_CKE_IDX_0 : READY_CKE_IDX_1;
 
         // Step 1: 本端 HBM → bufs[rankId]（每个 rank 固定占用自己的 MS slot）
         event.mask = 1;
         LocalCopyNb(bufs[rankId], src, len, event);
         WaitEvent(event);
 
-        // Step 2: 发送 bufs[rankId] 到所有 peers（对称 MS 分配，远端也写入 bufs[rankId]）
+        // Step 2: 等待对端已消费上轮数据（READY 流控握手）
+        for (uint32_t i = 0; i < channels.size(); i++) {
+            NotifyWait(channels[i], readyCkeIdx, 1);
+        }
+
+        // Step 3: 发送 bufs[rankId] 到所有 peers（对称 MS 分配，远端也写入 bufs[rankId]）
         for (uint32_t i = 0; i < channels.size(); i++) {
             CHK_RET(MsWriteNb(channels[i], bufs[rankId], bufs[rankId], len, writeDoneCkeIdx, 1));
         }
 
-        // Step 3: 等待每个 peer 的写完成通知（接收方）
+        // Step 4: 等待每个 peer 的写完成通知（接收方）
         for (uint32_t i = 0; i < channels.size(); i++) {
             NotifyWait(channels[i], writeDoneCkeIdx, 1);
         }
 
-        // Step 4: 对所有 N 个 MS 做 reduce（bufs[R]=rankR 的数据，所有 rank 顺序一致，结果在 bufs[0]）
+        // Step 5: 通知对端可以发送下轮数据（READY 流控握手）
+        for (uint32_t i = 0; i < channels.size(); i++) {
+            NotifyRecord(channels[i], readyCkeIdx, 1);
+        }
+
+        // Step 6: 对所有 N 个 MS 做 reduce（bufs[R]=rankR 的数据，所有 rank 顺序一致，结果在 bufs[0]）
         if (size > 1) {
             event.mask = 1;
             LocalReduceNb(bufs, size, dataType, outputDataType, opType, len, event);
             WaitEvent(event);
         }
 
-        // Step 5: 结果 MS → 输出 HBM
+        // Step 7: 结果 MS → 输出 HBM
         event.mask = 1;
         LocalCopyNb(dst, bufs[0], lenForExpansion, event);
         WaitEvent(event);
@@ -1033,21 +1048,32 @@ HcclResult CcuKernelAlgBase::CreateMultiOpBroadcastWrite(const std::vector<Chann
 
         // Step 1: 本端 HBM → bufs[rankId]
         uint32_t writeDoneCkeIdx = (index == 0) ? WRITE_DONE_CKE_IDX_0 : WRITE_DONE_CKE_IDX_1;
+        uint32_t readyCkeIdx     = (index == 0) ? READY_CKE_IDX_0 : READY_CKE_IDX_1;
         event.mask = 1;
         LocalCopyNb(bufs[rankId], src, len, event);
         WaitEvent(event);
 
-        // Step 2: 广播 bufs[rankId] 到所有 peers（对称 MS 分配，远端也写入 bufs[rankId]）
+        // Step 2: READY 流控——等待每个 peer 确认已消费上轮数据
+        for (uint32_t i = 0; i < channels.size(); i++) {
+            NotifyWait(channels[i], readyCkeIdx, 1);
+        }
+
+        // Step 3: 广播 bufs[rankId] 到所有 peers（对称 MS 分配，远端也写入 bufs[rankId]）
         for (uint32_t i = 0; i < channels.size(); i++) {
             CHK_RET(MsWriteNb(channels[i], bufs[rankId], bufs[rankId], len, writeDoneCkeIdx, 1));
         }
 
-        // Step 3: 等待每个 peer 写来的 slice 到达
+        // Step 4: 等待每个 peer 写来的 slice 到达
         for (uint32_t i = 0; i < channels.size(); i++) {
             NotifyWait(channels[i], writeDoneCkeIdx, 1);
         }
 
-        // Step 4: 统一将 bufs[R] → dst[R]（bufs[R] = rank R 的数据，dst[R] = rank R 的输出位置）
+        // Step 5: READY 流控——通知每个 peer 本端已消费数据，允许发送下轮
+        for (uint32_t i = 0; i < channels.size(); i++) {
+            NotifyRecord(channels[i], readyCkeIdx, 1);
+        }
+
+        // Step 6: 统一将 bufs[R] → dst[R]（bufs[R] = rank R 的数据，dst[R] = rank R 的输出位置）
         for (uint32_t R = 0; R < size; R++) {
             CcuRep::LocalAddr &localDst = *reinterpret_cast<CcuRep::LocalAddr *>(&dst[R]);
             event.mask = 1 << R;
