@@ -12,9 +12,8 @@
 
 namespace ops_hccl {
 
-constexpr int POST_SYNC_CKE_IDX_W  = 0;
-constexpr int PRE_SYNC_CKE_IDX_W   = 1;
-// WRITE_DONE_CKE_IDX = 2，继承自 CcuKernelAlgBase::WRITE_DONE_CKE_IDX
+constexpr int PRESYNC_CKE_IDX  = 0;   // Presync/Postsync 屏障固定使用 CKE 0
+constexpr int POSTSYNC_CKE_IDX = 0;
 
 CcuKernelAllReduceMesh1DOneShotWrite::CcuKernelAllReduceMesh1DOneShotWrite(const hcomm::CcuKernelArg &arg)
     : CcuKernelAlgBase(arg)
@@ -74,12 +73,12 @@ void CcuKernelAllReduceMesh1DOneShotWrite::LoadArgs()
 void CcuKernelAllReduceMesh1DOneShotWrite::Presync()
 {
     HCCL_INFO("[CcuKernelAllReduceMesh1DOneShotWrite] Presync start");
-    // write 模式不需要交换远端地址，只做同步屏障确保所有 rank 数据就绪
+    // write 模式不需要交换远端地址，只做同步屏障确保所有 rank 数据就绪（CKE 0, bit 1）
     for (auto &ch : channels_) {
-        NotifyRecord(ch, PRE_SYNC_CKE_IDX_W, 1);
+        NotifyRecord(ch, PRESYNC_CKE_IDX, PRE_SYNC_MASK);
     }
     for (auto &ch : channels_) {
-        NotifyWait(ch, PRE_SYNC_CKE_IDX_W, 1);
+        NotifyWait(ch, PRESYNC_CKE_IDX, PRE_SYNC_MASK);
     }
     HCCL_INFO("[CcuKernelAllReduceMesh1DOneShotWrite] Presync end");
 }
@@ -87,11 +86,12 @@ void CcuKernelAllReduceMesh1DOneShotWrite::Presync()
 void CcuKernelAllReduceMesh1DOneShotWrite::Postsync()
 {
     HCCL_INFO("[CcuKernelAllReduceMesh1DOneShotWrite] Postsync start");
+    // 后同步屏障（CKE 0, bit 0）
     for (auto &ch : channels_) {
-        NotifyRecord(ch, POST_SYNC_CKE_IDX_W, 1);
+        NotifyRecord(ch, POSTSYNC_CKE_IDX, POST_SYNC_MASK);
     }
     for (auto &ch : channels_) {
-        NotifyWait(ch, POST_SYNC_CKE_IDX_W, 1);
+        NotifyWait(ch, POSTSYNC_CKE_IDX, POST_SYNC_MASK);
     }
     HCCL_INFO("[CcuKernelAllReduceMesh1DOneShotWrite] Postsync end");
 }

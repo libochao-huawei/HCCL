@@ -91,13 +91,19 @@ protected:
     HcclResult GroupLocalReduce(CcuRep::LocalAddr outDstOrg, std::vector<CcuRep::LocalAddr> &scratchOrg,
         GroupOpSize goSize, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType);
 
-    // write 模式：本端 LocalCopy → bufs[rankId]，MsWriteNb(bufs[rankId], bufs[rankId]) 广播至所有 peers
-    // 利用对称 MS 分配，每个 rank 固定占用 bufs[rankId]，所有 rank 的 MS 布局一致：bufs[R] = rank R 的数据
-    // 接收方通过 NotifyWait(channel, writeDoneCkeIdx, 1) 等待每个 channel 的写完成通知
-    // 双缓冲流水线中 LoopBlock 0 和 LoopBlock 1 必须使用不同的 CKE index，
-    // 否则 CKE bitmask 的幂等性会导致跨迭代事件丢失或误消费
-    static constexpr uint32_t WRITE_DONE_CKE_IDX_0 = 2;  // LoopBlock 0
-    static constexpr uint32_t WRITE_DONE_CKE_IDX_1 = 3;  // LoopBlock 1
+    // write 模式 CKE 分配（同一 CKE index 内用不同 bit 区分场景）：
+    // bit 0 (mask=1): POST_SYNC  — LoopGroup 外，后同步屏障
+    // bit 1 (mask=2): PRE_SYNC   — LoopGroup 外，前同步屏障
+    // bit 2 (mask=4): WRITE_DONE — LoopGroup 内，MsWriteNb 写完成通知
+    // bit 3 (mask=8): READY      — LoopGroup 内，流控握手（对端已消费上轮数据）
+    // CKE index 由 LoopBlock 决定（lc0=0, lc1=1），并行展开时 ckeOffset=1 自动递增
+    // 内外用不同 bit，互不干扰；CKE 0-7 全部可用于并行展开
+    static constexpr uint32_t WRITE_CKE_IDX_0  = 0;  // lc0 基址
+    static constexpr uint32_t WRITE_CKE_IDX_1  = 1;  // lc1 基址
+    static constexpr uint32_t POST_SYNC_MASK   = 1;   // bit 0
+    static constexpr uint32_t PRE_SYNC_MASK    = 2;   // bit 1
+    static constexpr uint32_t WRITE_DONE_MASK  = 4;   // bit 2
+    static constexpr uint32_t READY_MASK       = 8;   // bit 3
     HcclResult CreateMultiOpWrite(const std::vector<ChannelHandle> &channels, uint32_t rankId,
                                    HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType);
     HcclResult GroupWrite(const std::vector<ChannelHandle> &channels, uint32_t rankId, CcuRep::LocalAddr dst,
