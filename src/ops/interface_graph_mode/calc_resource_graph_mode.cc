@@ -225,6 +225,15 @@ HcclResult HcclCalcAivResOffline(ResResponseGraphMode *resResponse, OpParamGraph
     return HCCL_SUCCESS;
 }
 
+HcclResult HcclCalcAivResOffline(ResResponseGraphMode *resResponse, OpParamGraphMode *paramPtr)
+{
+    if (resResponse == nullptr || paramPtr == nullptr || paramPtr->aivCoreLimit == 0) {
+        return HCCL_E_PARA;
+    }
+    resResponse->aivCoreNum = paramPtr->aivCoreLimit;
+    return HCCL_SUCCESS;
+}
+
 // HcclResult HcclCalcAivAlgName(ResResponseGraphMode *resResponse, const char *group, u64 count, void* counts, HcclDataType dataType, HcclReduceOp op,
 //                                     HcclCMDType opType, int32_t aivCoreLimit, bool &ifAiv)
 // {
