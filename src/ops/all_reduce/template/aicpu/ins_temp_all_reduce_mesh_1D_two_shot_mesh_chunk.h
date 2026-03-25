@@ -59,6 +59,8 @@ private:
                             const TemplateDataParams &tempAlgParams, RankSliceInfo &sliceInfoVec);
     void NotifyIdxMainToSubInRSMeshChunk(std::vector<u32> &notifyIdxMainToSub);
     void NotifyIdxSubToMainInRSMeshChunk(std::vector<u32> &notifyIdxSubToMain);
+    void NotifyIdxMainToSubInAG(std::vector<u32> &notifyIdxMainToSub);
+    void NotifyIdxSubToMainInAG(std::vector<u32> &notifyIdxSubToMain);
 
     u64 processSize_{0};
     u64 count_{0};

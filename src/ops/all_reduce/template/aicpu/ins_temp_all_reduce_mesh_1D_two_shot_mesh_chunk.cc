@@ -32,7 +32,7 @@ HcclResult InsTempAllReduceMesh1DTwoShotMeshChunk::CalcRes(
 {
     u32 threadNum = templateRankSize_ > 1 ? templateRankSize_ : 1;
     resourceRequest.slaveThreadNum = threadNum - 1; // 主thread可以通过接口传入的stream来做转换
-    const u32 NOTIFY_NUM_PER_SLAVE_THREAD = 2;
+    const u32 NOTIFY_NUM_PER_SLAVE_THREAD = 3;
     resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, NOTIFY_NUM_PER_SLAVE_THREAD);
     resourceRequest.notifyNumOnMainThread = (threadNum - 1) * NOTIFY_NUM_PER_SLAVE_THREAD;
 
@@ -242,7 +242,7 @@ HcclResult InsTempAllReduceMesh1DTwoShotMeshChunk::RunAllgather(const std::map<u
     // sync:前同步
     if (threadNum_ > 1) {
         std::vector<ThreadHandle> subThreads(threads.begin() + 1, threads.end());
-        GetNotifyIdxMainToSub(notifyIdxMainToSub_);
+        NotifyIdxMainToSubInAG(notifyIdxMainToSub_);
         CHK_RET(PreSyncInterThreads(threads[0], subThreads, notifyIdxMainToSub_));
     }
 
@@ -299,7 +299,7 @@ HcclResult InsTempAllReduceMesh1DTwoShotMeshChunk::RunAllgather(const std::map<u
     }
     if (threadNum_ > 1) {
         std::vector<ThreadHandle> subThreads(threads.begin() + 1, threads.end());
-        GetNotifyIdxSubToMain(notifyIdxSubToMain_);
+        NotifyIdxSubToMainInAG(notifyIdxSubToMain_);
         CHK_RET(PostSyncInterThreads(threads[0], subThreads, notifyIdxSubToMain_));
     }
     return HcclResult::HCCL_SUCCESS;
@@ -366,6 +366,28 @@ void InsTempAllReduceMesh1DTwoShotMeshChunk::NotifyIdxSubToMainInRSMeshChunk(std
     u32 notifyNum = threadNum - 1;
     for (u32 notifyIdx = 0; notifyIdx < notifyNum; notifyIdx++) {
         notifyIdxSubToMain.push_back(notifyIdx + threadNum);
+    }
+}
+
+void InsTempAllReduceMesh1DTwoShotMeshChunk::NotifyIdxMainToSubInAG(std::vector<u32> &notifyIdxMainToSub)
+{
+    notifyIdxMainToSub.clear();
+    u32 threadNum = templateRankSize_ > 1 ? templateRankSize_ : 1;
+    u32 slaveThreadNum = threadNum - 1;
+    u32 AGThreadIndex = 2;
+    for (u32 slaveThreadIdx = 0; slaveThreadIdx < slaveThreadNum; slaveThreadIdx++) {
+        notifyIdxMainToSub.push_back(AGThreadIndex);
+    }
+}
+
+void InsTempAllReduceMesh1DTwoShotMeshChunk::NotifyIdxSubToMainInAG(std::vector<u32> &notifyIdxSubToMain)
+{
+    notifyIdxSubToMain.clear();
+    u32 threadNum = templateRankSize_ > 1 ? templateRankSize_ : 1;
+    u32 notifyNum = threadNum - 1;
+    u32 AGThreadNum = 2;
+    for (u32 notifyIdx = 0; notifyIdx < notifyNum; notifyIdx++) {
+        notifyIdxSubToMain.push_back(notifyIdx + AGThreadNum * threadNum);
     }
 }
 
