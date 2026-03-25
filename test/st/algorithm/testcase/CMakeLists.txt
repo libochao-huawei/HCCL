@@ -64,8 +64,8 @@ if (BUILD_OPEN_PROJECT)
         pthread
         hccl-model-proxy
         hccl-verifier
-        # 链接hccl库
-        ${ASCEND_HOME_PATH}/lib64/libhccl.so
+        # 链接本地编译的hccl库
+        ${HCCL_DEV_BASE}/build/src/libhccl.so
     )
 
     target_compile_options(hccl_checker_ops_stest PRIVATE
