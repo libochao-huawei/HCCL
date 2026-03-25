@@ -32,10 +32,8 @@ typedef struct {
 } CommBuffer;
 
 struct AlgResourceCtx {
-    ThreadHandle cpuThread;
-    ThreadHandle cpuThreadOnAicpu;
     ThreadHandle aicpuThread;
-    ThreadHandle aicpuThreadOnCpu;
+    ThreadHandle cpuThreadOnAicpu;
     CommBuffer localBuffer;
     CommBuffer remoteBuffer;
     ChannelHandle channelHandle;
@@ -49,6 +47,8 @@ struct OpParam {
     uint64_t count = 0;
     HcclDataType dataType = HCCL_DATA_TYPE_RESERVED;
     HcclCMDType opType = HcclCMDType::HCCL_CMD_INVALID;
+    ThreadHandle cpuThread;
+    ThreadHandle aicpuThreadOnCpu;
     AlgResourceCtx* resCtx = nullptr;
 };
 

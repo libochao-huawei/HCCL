@@ -18,8 +18,7 @@ namespace ops_hccl_p2p {
 HcclResult LaunchKernelWithAsc(OpParam &param, aclrtStream stream)
 {
     // Host stream通知Device主thread
-    AlgResourceCtx* ctx = param.resCtx;
-    CHK_RET(HcommThreadNotifyRecordOnThread(ctx->cpuThread, ctx->aicpuThreadOnCpu, 0));
+    CHK_RET(HcommThreadNotifyRecordOnThread(param.cpuThread, param.aicpuThreadOnCpu, 0));
 
     // 调用使用 ASC 编译的函数，支持 <<<>>> 语法
     HcclResult ret = LaunchKernelAsc(param, stream);
@@ -29,7 +28,7 @@ HcclResult LaunchKernelWithAsc(OpParam &param, aclrtStream stream)
     }
 
     // Host stream等待Device的通知
-    CHK_RET(HcommThreadNotifyWaitOnThread(ctx->cpuThread, 0, CUSTOM_TIMEOUT));
+    CHK_RET(HcommThreadNotifyWaitOnThread(param.cpuThread, 0, CUSTOM_TIMEOUT));
     return HCCL_SUCCESS;
 }
 
@@ -39,8 +38,7 @@ HcclResult LaunchKernelWithAclrt(OpParam &param, aclrtStream stream)
     CHK_RET(LoadAICPUKernel());
 
     // Host stream通知Device主thread
-    AlgResourceCtx* ctx = param.resCtx;
-    CHK_RET(HcommThreadNotifyRecordOnThread(ctx->cpuThread, ctx->aicpuThreadOnCpu, 0));
+    CHK_RET(HcommThreadNotifyRecordOnThread(param.cpuThread, param.aicpuThreadOnCpu, 0));
 
     // 获取 Kernel 函数句柄
     std::string kernelName = "HcclLaunchP2PAicpuKernel";
@@ -66,7 +64,7 @@ HcclResult LaunchKernelWithAclrt(OpParam &param, aclrtStream stream)
     ACLCHECK(aclrtLaunchKernelWithConfig(funcHandle, numBlocks, stream, &cfg, argsHandle, nullptr));
 
     // Host stream等待Device的通知
-    CHK_RET(HcommThreadNotifyWaitOnThread(ctx->cpuThread, 0, CUSTOM_TIMEOUT));
+    CHK_RET(HcommThreadNotifyWaitOnThread(param.cpuThread, 0, CUSTOM_TIMEOUT));
     return HCCL_SUCCESS;
 }
 
