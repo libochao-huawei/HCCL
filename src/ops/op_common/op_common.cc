@@ -39,6 +39,8 @@
 #include "hccl_aiv_utils.h"
 #include "aiv_kernel_def.h"
 #include "dpu/kernel_launch.h"
+#include "rt.h"
+#include "dlhcomm_function.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -216,13 +218,27 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
 
     // 算法执行
     if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
+        CHK_RET(GetUnfoldThreadInfo(comm, param, resCtxHost->unfoldThread));
+        // 根据主流的捕获状态决定展开流的状态
+        CHK_RET(CaptureSlaveStreams(comm, param.stream, {mainThread, resCtxHost->unfoldThread}));
         CHK_RET(HcclAicpuKernelEntranceLaunch(comm, param, cpuTsThread, exportedCpuTsThread, notifyNumOnMainThread,
-            resCtxSequence, algName));
+            resCtxSequence, algName, resCtxHost->unfoldThread));
     } else if (param.engine == COMM_ENGINE_AIV) {
         param.resCtx = resCtxSequence;
         AlgResourceCtxSerializable &resCtxHost = *static_cast<AlgResourceCtxSerializable *>(resCtxSequence);
         CHK_RET(HcclAivKernelEntranceLaunch(param, topoInfo, resCtxHost));
         CHK_RET(executor->Orchestrate(param, resCtxHost));
+    } else if (param.engine == COMM_ENGINE_CCU) {
+        if (isResourceReused) {
+            // 复用资源，则需从engineCtx取得res，进行反序列化
+            char *ctx = static_cast<char*>(resCtxSequence);
+            std::vector<char> seq(ctx, ctx + param.ctxSize);
+            resCtxHost->DeSerialize(seq);
+        }
+        if (resCtxHost->slaveThreadNum > 0) {
+            CHK_RET(CaptureSlaveStreams(comm, param.stream, resCtxHost->threads));
+        }
+        CHK_RET(executor->Orchestrate(param, *resCtxHost));
     } else {
         if (isResourceReused) {
             // 复用资源，则需从engineCtx取得res，进行反序列化
@@ -239,7 +255,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
 }
 
 HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHandle cpuTsThread,
-    ThreadHandle exportedCpuTsThread, u32 notifyNumOnMainThread, void *resCtxSequence, std::string &algName)
+    ThreadHandle exportedCpuTsThread, u32 notifyNumOnMainThread, void *resCtxSequence, std::string &algName, ThreadHandle unfoldThread)
 {
     HCCL_DEBUG("[HcclAicpuKernelEntranceLaunch]start to run aicpu kernel");
     // 当前aicpu launch接口只能有一个输入参数，将Context指针放在param参数中
@@ -261,7 +277,7 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
         notifyNumOnMainThread - 1)));
     // AicpuKernel report
     uint64_t beginTime = HcommGetProfilingSysCycleTime();
-    CHK_RET(AicpuKernelLaunch(param));
+    CHK_RET(AicpuKernelLaunch(comm, param, unfoldThread));
     CHK_PTR_NULL(comm);
     std::string kernelName = "HcclLaunchAicpuKernel";
     char* kernelNameCStr = const_cast<char*>(kernelName.c_str());
@@ -270,7 +286,6 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
         HCCL_ERROR("[HcclAicpuKernelEntranceLaunch] HcclReportAicpuKernel failed, beginTime %lu, kernelNameCStr %s, ret %d ", beginTime, kernelNameCStr, ret);
         return ret;
     }
-
     // Host stream等待Device的通知
     u16 NOTIFY_WAIT_TIME = 27 * 68;
     CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, HOST_WAIT_AICPU_NOTIFYIDX, NOTIFY_WAIT_TIME)));
@@ -278,7 +293,7 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
     return HCCL_SUCCESS;
 }
 
-HcclResult AicpuKernelLaunch(OpParam &param)
+HcclResult AicpuKernelLaunch(HcclComm comm, OpParam &param, ThreadHandle unfoldThread)
 {
     std::string kernelName = "HcclLaunchAicpuKernel";
     aclrtFuncHandle funcHandle;
@@ -313,8 +328,18 @@ HcclResult AicpuKernelLaunch(OpParam &param)
     cfg.numAttrs = 1;
     cfg.attrs = &attr;
     constexpr u32 numBlocks = 1;
-    aclError aclRet = aclrtLaunchKernelWithConfig(funcHandle, numBlocks, param.stream, &cfg, argsHandle, nullptr);
-    CHK_PRT_RET(aclRet != ACL_SUCCESS,
+    // 通过Thread获取展开流stream
+    HCCL_INFO("[AicpuKernelLaunch] unfoldThread [%lu]", unfoldThread);
+    void* unfoldStream = nullptr;
+    auto& HcclThreadResGetInfoFunc = ops_hccl::DlHcommFunction::GetInstance();
+    // 如果不支持这个接口则不走提前展开
+    if (!HcclThreadResGetInfoFunc.dlHcclThreadResGetInfo) {
+        ret = aclrtLaunchKernelWithConfig(funcHandle, numBlocks, param.stream, &cfg, argsHandle, nullptr);
+    } else {
+        CHK_RET(HcclThreadResGetInfoFunc.dlHcclThreadResGetInfo(comm, unfoldThread, 0, sizeof(void*), &unfoldStream));
+        ret = aclrtLaunchKernelWithConfig(funcHandle, numBlocks, unfoldStream, &cfg, argsHandle, nullptr); // 提前展开，传入展开流
+    } 
+    CHK_PRT_RET(ret != ACL_SUCCESS,
         HCCL_ERROR("[LoadCustomKernel][aclrtLaunchKernelWithConfig]errNo[0x%016llx] launch kernel failed", ret),
         HCCL_E_OPEN_FILE_FAILURE);
     return HCCL_SUCCESS;
@@ -339,6 +364,38 @@ HcclResult HcclAivKernelEntranceLaunch(OpParam &param, std::unique_ptr<TopoInfoW
     return HCCL_SUCCESS;
 }
 
+HcclResult CaptureSlaveStreams(HcclComm comm, aclrtStream mainStream, const std::vector<ThreadHandle>& threads)
+{
+    aclmdlRI rtModel = nullptr;
+    aclmdlRICaptureStatus captureStatus = aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_NONE;
+    aclError ret = aclmdlRICaptureGetInfo(mainStream, &captureStatus, &rtModel);
+    if (ret == ACL_ERROR_RT_FEATURE_NOT_SUPPORT) {
+        HCCL_WARNING("[%s]Stream capture not support.", __func__);
+        return HCCL_SUCCESS;
+    } else {
+        CHK_PRT_RET(ret != ACL_SUCCESS, HCCL_ERROR("[%s]aclmdlRICaptureGetInfo fail. return[%d].", __func__, ret),
+            HCCL_E_RUNTIME);
+    }
+    if (captureStatus != aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_ACTIVE) {
+        HCCL_INFO("[%s]captureStatus is not active, captureStatus[%d]", __func__, captureStatus);
+        return HCCL_SUCCESS;
+    }
+    //thread[0] is main thread
+    auto& HcclThreadResGetInfoFunc = ops_hccl::DlHcommFunction::GetInstance();
+    for (size_t i = 1; i < threads.size(); ++i) {
+        void* stream = nullptr;
+        CHK_PRT_RET(!HcclThreadResGetInfoFunc.dlHcclThreadResGetInfo, HCCL_ERROR("AclGraph is not support."),
+            HCCL_E_NOT_SUPPORT);
+        CHK_RET(HcclThreadResGetInfoFunc.dlHcclThreadResGetInfo(comm, threads[i], 0, sizeof(void*), &stream));
+        rtError_t addRet = rtStreamAddToModel(stream, rtModel);
+        CHK_PRT_RET(addRet != RT_ERROR_NONE, HCCL_ERROR("[%s]rtStreamAddToModel fail. return[%d].", __func__, addRet),
+            HCCL_E_RUNTIME);
+        HCCL_DEBUG("[%s]add slaveStream to model success, idx[%zu], stream[%p], rtModel[%p]", __func__, i, stream, rtModel);
+    }
+    HCCL_INFO("[%s]success, captured streams to rtmodel:[%p], slaveStreamNum:[%zu]", __func__, rtModel, threads.size() > 0 ? threads.size() - 1 : 0);
+    return HCCL_SUCCESS;
+}
+
 HcclResult HcclCalcTopoInfo(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo)
 {
     HCCL_INFO("[%s] HcclCalcTopoInfo start.", __func__);
@@ -353,7 +410,7 @@ HcclResult HcclCalcTopoInfo(HcclComm comm, OpParam &param, std::unique_ptr<TopoI
         size = seq.size();
         // 创建新的Context保存
         CHK_RET(HcclEngineCtxCreate(comm, param.tag, CommEngine::COMM_ENGINE_CPU_TS, size, &ctx));
-        ACLCHECK(aclrtMemcpy(ctx, size, seq.data(), size, ACL_MEMCPY_HOST_TO_HOST));
+        CHK_SAFETY_FUNC_RET(memcpy_s(ctx, size, seq.data(), size));
         return HCCL_SUCCESS;
     }
     char *ctxTemp = reinterpret_cast<char*>(ctx);
@@ -553,6 +610,10 @@ HcclResult HcclGetThread(
         // maxNotifyNum需要再增加一个用于host-device同步
         CHK_RET(HcclThreadAcquire(comm, COMM_ENGINE_AICPU_TS, threadNum, maxNotifyNum + 1, threads.data()));
         CHK_RET(SaveMainThreadInfo(comm, param, threads[0], maxNotifyNum + 1));
+        // 申请展开流对应的Thread
+        CHK_RET(HcclThreadAcquire(comm, COMM_ENGINE_CPU, 1, 0, &resCtxHost->unfoldThread));
+        CHK_RET(SaveUnfoldThreadInfo(comm, param, resCtxHost->unfoldThread));
+        HCCL_INFO("[HcclGetThread] unfoldThread [%lu]", resCtxHost->unfoldThread);
         HCCL_DEBUG("threads ptr is %p\n", threads.data());
         for (u32 i = 0; i < threadNum; i++) {
             resCtxHost->threads.push_back(threads[i]);
@@ -604,6 +665,39 @@ HcclResult SaveMainThreadInfo(HcclComm comm, const OpParam &param, ThreadHandle 
     *notifyNumPtr = notifyNum;
     HCCL_INFO("[SaveMainThreadInfo]threadPtr[%p], thread[%lu], notifyNumPtr[%p], notifyNum[%lu]", 
         threadPtr, thread, notifyNumPtr, notifyNum);
+    return HCCL_SUCCESS;
+}
+
+HcclResult SaveUnfoldThreadInfo(HcclComm comm, const OpParam &param, ThreadHandle unfoldThread)
+{
+    uint64_t size = sizeof(ThreadHandle);
+    void *ctx = nullptr;
+    // 申请一块host类型内存，保存展开流信息
+    char unfoldAlgTag[ALG_TAG_LENGTH] = {0};
+    int ret = snprintf_s(unfoldAlgTag, sizeof(unfoldAlgTag), sizeof(unfoldAlgTag) - 1, "%s_unfold", param.algTag);
+    CHK_PRT_RET(ret <= 0, HCCL_ERROR("[%s] failed to fill unfoldAlgTag", __func__), HCCL_E_INTERNAL);
+    CHK_RET(HcclEngineCtxCreate(comm, unfoldAlgTag, CommEngine::COMM_ENGINE_CPU_TS, size, &ctx));
+    // 填充主流handle信息
+    ThreadHandle* threadPtr = reinterpret_cast<ThreadHandle *>(ctx);
+    *threadPtr = unfoldThread;
+    HCCL_INFO("[SaveUnfoldThreadInfo]unfoldAlgTag[%s], threadPtr[%p], unfoldThread[%lu]", 
+        unfoldAlgTag, threadPtr, unfoldThread);
+    return HCCL_SUCCESS;
+}
+
+HcclResult GetUnfoldThreadInfo(HcclComm comm, const OpParam &param, ThreadHandle& unfoldThread)
+{
+    uint64_t size = sizeof(ThreadHandle);
+    void *ctx = nullptr;
+    char unfoldAlgTag[ALG_TAG_LENGTH] = {0};
+    int ret = snprintf_s(unfoldAlgTag, sizeof(unfoldAlgTag), sizeof(unfoldAlgTag) - 1, "%s_unfold", param.algTag);
+    CHK_PRT_RET(ret <= 0, HCCL_ERROR("[%s] failed to fill unfoldAlgTag", __func__), HCCL_E_INTERNAL);
+    CHK_RET(HcclEngineCtxGet(comm, unfoldAlgTag, CommEngine::COMM_ENGINE_CPU_TS, &ctx, &size));
+    // 获取展开流handle信息
+    ThreadHandle* threadPtr = reinterpret_cast<ThreadHandle *>(ctx);
+    unfoldThread = *threadPtr;
+    HCCL_INFO("[GetUnfoldThreadInfo]unfoldAlgTag[%s], threadPtr[%p], unfoldThread[%lu]", 
+        unfoldAlgTag, threadPtr, unfoldThread);
     return HCCL_SUCCESS;
 }
 
@@ -948,9 +1042,9 @@ HcclResult HcclAllocAlgResourceAiv(
         }
     }
 
-    ACLCHECK(aclrtMemcpy(resCtxHost->aivCommInfoPtr, MAX_RANK_SIZE * sizeof(void*), buffersIn, MAX_RANK_SIZE * sizeof(void*),
+    CHK_RET(haclrtMemcpy(resCtxHost->aivCommInfoPtr, MAX_RANK_SIZE * sizeof(void*), buffersIn, MAX_RANK_SIZE * sizeof(void*),
         ACL_MEMCPY_HOST_TO_DEVICE));
-    ACLCHECK(aclrtMemcpy(static_cast<u8*>(resCtxHost->aivCommInfoPtr) + AIV_TAG_ADDR_OFFSET, MAX_RANK_SIZE * sizeof(void*),
+    CHK_RET(haclrtMemcpy(static_cast<u8*>(resCtxHost->aivCommInfoPtr) + AIV_TAG_ADDR_OFFSET, MAX_RANK_SIZE * sizeof(void*),
         buffersOut, MAX_RANK_SIZE * sizeof(void*), ACL_MEMCPY_HOST_TO_DEVICE));
 
     HCCL_INFO("[%s] Alloc res success.", __func__);
@@ -1089,11 +1183,11 @@ HcclResult SingleRankProc(const OpParam &param)
     HCCL_INFO("[CommunicatorImpl][%s] sendBuf[%p], recvBuf[%p], len[%llu]", __func__,
               param.inputPtr, param.outputPtr, len);
     if (len > 0) {
-        aclError ret = aclrtMemcpy(param.outputPtr, len, param.inputPtr, len, ACL_MEMCPY_DEVICE_TO_DEVICE);
-        HCCL_DEBUG("Call aclrtMemcpyAsync, return value[%d], para: dstAddr[%p], destMax[%llu], "
+        HcclResult ret = haclrtMemcpy(param.outputPtr, len, param.inputPtr, len, ACL_MEMCPY_DEVICE_TO_DEVICE);
+        HCCL_DEBUG("Call haclrtMemcpy, return value[%d], para: dstAddr[%p], destMax[%llu], "
                 "srcAddr[%p], count[%llu], rtKind[%d]", ret, param.outputPtr, len, param.inputPtr,
                 len, ACL_MEMCPY_DEVICE_TO_DEVICE);
-        if (ret != ACL_SUCCESS) {
+        if (ret != HCCL_SUCCESS) {
             HCCL_ERROR("[SingleRankProc][AsyncCopy][Mem]errNo[0x%016llx] rt memory async copy failed, "
                     "return[%d], para: dstAddr[%p], destMax[%llu], srcAddr[%p], count[%llu], kind[%d].",
                     HCCL_ERROR_CODE(HcclResult::HCCL_E_RUNTIME), ret, param.outputPtr, len, param.inputPtr,

@@ -24,9 +24,6 @@ HcclResult HcclAllGatherV(void *sendBuf, uint64_t sendCount, void *recvBuf, cons
 {
     HCCL_INFO("Start to run execute HcclAllGatherV");
  
-    if (!HcclCheckAicpuEnableOpen()) {
-        return HcclAllGatherVInner(sendBuf, sendCount, recvBuf, recvCounts, recvDispls, dataType, comm, stream);
-    }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
     #ifdef MACRO_DEV_TYPE_NEW
