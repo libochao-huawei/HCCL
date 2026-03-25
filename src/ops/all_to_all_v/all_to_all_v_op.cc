@@ -340,6 +340,11 @@ HcclResult AlltoAllVOutPlace(const void *sendBuf, const void *sendCounts, const 
     param.all2AllVDataDes.sendType = dataType;
     param.all2AllVDataDes.recvType = dataType;
 
+    CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
+ 	if (CcuFastLaunchSupported(comm, param, &ccuFastLaunchCtx)) {
+ 	    return HcclExecOpCcuFastLaunch(comm, param, ccuFastLaunchCtx);
+ 	}
+
     u64 inputSize = 0;
     u64 outputSize = 0;
     for (u64 i = 0; i < userRankSize; i++) {

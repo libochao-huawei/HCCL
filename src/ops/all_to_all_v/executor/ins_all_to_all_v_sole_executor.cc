@@ -225,7 +225,7 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLo
         threads[0] = templateAlgRes.threads[0];
             
         // 3 ccu kernel handle, taskArg入参
-        ccuFastLaunchCtx->ccuKernelNum = ccuKernelNum;
+        ccuFastLaunchCtx->ccuKernelNum[0] = ccuKernelNum;
         CcuKernelSubmitInfo *kernels = ccuFastLaunchCtx->GetCcuKernelSubmitInfoPtr();
         kernels[0] = templateAlgRes.submitInfos[0];
     }
@@ -249,14 +249,13 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunch(
     
     // 2 取arg
     CcuKernelSubmitInfo *ccuKernelSubmitInfos = resCtx->GetCcuKernelSubmitInfoPtr();
-    tempFastLaunchCtx.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + resCtx->ccuKernelNum);
-    HCCL_INFO("[InsAlltoAllVSoleExecutor][FastLaunch] ccuKernelNum[%llu]", resCtx->ccuKernelNum);
+    tempFastLaunchCtx.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + resCtx->ccuKernelNum[0]);
+    HCCL_INFO("[InsAlltoAllVSoleExecutor][FastLaunch] ccuKernelNum[%llu]", resCtx->ccuKernelNum[0]);
     tempFastLaunchCtx.buffInfo.inputPtr = param.inputPtr;
     tempFastLaunchCtx.buffInfo.outputPtr = param.outputPtr;
     
     // 3 调template
     std::shared_ptr<InsAlgTemplate> algTemplate = std::make_shared<InsAlgTemplate>();
-    //algTemplate->SetA2ASendRecvInfo(localSendRecvInfo_);
     CHK_RET(algTemplate->FastLaunch(param, tempFastLaunchCtx));
     HCCL_INFO("[InsAlltoAllVSoleExecutor][FastLaunch] End.");
     return HCCL_SUCCESS;
