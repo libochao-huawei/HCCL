@@ -31,7 +31,7 @@ extern "C" unsigned int HcclLaunchP2PAicpuKernel(OpParam *param)
     CHK_RET(ExecOp(*param, param->resCtx));
 
     // 主thread通知Host stream
-    CHK_RET(HcommThreadNotifyRecordOnThread(param->resCtx->aicpuThread, param->resCtx->aicpuThreadOnCpu, 0));
+    CHK_RET(HcommThreadNotifyRecordOnThread(param->resCtx->aicpuThread, param->resCtx->cpuThreadOnAicpu, 0));
 
     CHK_RET(HcommBatchModeEnd(param->tag));
     CHK_RET(HcommReleaseComm(param->commName));
