@@ -12,12 +12,9 @@
 #include "hccl_res_dl.h"
 #include "hccl_rank_graph_dl.h"
 #include "hcomm_primitives_dl.h"
-#include "hccl_comm_dl.h"
 #include "hccl_inner_dl.h"
 #include "dtype_common_dl.h"
 #include "hcomm_host_profiling_dl.h"
-#include "hccl_one_sided_services_dl.h"
-#include "hccl_ex_dl.h"
 #include "hcom_dl.h"
 #include <pthread.h>
 #include <dlfcn.h>
