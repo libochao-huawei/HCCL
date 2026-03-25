@@ -85,64 +85,64 @@ static bool g_hcommChannelFenceOnThreadSupported = false;
 static bool g_hcommThreadJoinSupported = false;
 
 // ---------- 桩函数定义（签名与真实API完全一致）----------
-static int32_t StubHcommLocalCopyOnThread(ThreadHandle thread, void* dst, const void* src, uint64_t len) {
+int32_t __attribute__((weak)) HcommLocalCopyOnThread(ThreadHandle thread, void* dst, const void* src, uint64_t len) {
     (void)thread; (void)dst; (void)src; (void)len;
     HCCL_ERROR("[HcclWrapper] HcommLocalCopyOnThread not supported");
     return -1;
 }
 
-static int32_t StubHcommLocalReduceOnThread(ThreadHandle thread, void* dst, const void* src, uint64_t count,
+int32_t __attribute__((weak)) HcommLocalReduceOnThread(ThreadHandle thread, void* dst, const void* src, uint64_t count,
                                             HcommDataType dataType, HcommReduceOp reduceOp) {
     (void)thread; (void)dst; (void)src; (void)count; (void)dataType; (void)reduceOp;
     HCCL_ERROR("[HcclWrapper] HcommLocalReduceOnThread not supported");
     return -1;
 }
 
-static int32_t StubHcommThreadNotifyRecordOnThread(ThreadHandle thread, ThreadHandle dstThread, uint32_t dstNotifyIdx) {
+int32_t __attribute__((weak)) HcommThreadNotifyRecordOnThread(ThreadHandle thread, ThreadHandle dstThread, uint32_t dstNotifyIdx) {
     (void)thread; (void)dstThread; (void)dstNotifyIdx;
     HCCL_ERROR("[HcclWrapper] HcommThreadNotifyRecordOnThread not supported");
     return -1;
 }
 
-static int32_t StubHcommThreadNotifyWaitOnThread(ThreadHandle thread, uint32_t notifyIdx, uint32_t timeOut) {
+int32_t __attribute__((weak)) HcommThreadNotifyWaitOnThread(ThreadHandle thread, uint32_t notifyIdx, uint32_t timeOut) {
     (void)thread; (void)notifyIdx; (void)timeOut;
     HCCL_ERROR("[HcclWrapper] HcommThreadNotifyWaitOnThread not supported");
     return -1;
 }
 
-static int32_t StubHcommAclrtNotifyRecordOnThread(ThreadHandle thread, uint64_t dstNotifyId) {
+int32_t __attribute__((weak)) HcommAclrtNotifyRecordOnThread(ThreadHandle thread, uint64_t dstNotifyId) {
     (void)thread; (void)dstNotifyId;
     HCCL_ERROR("[HcclWrapper] HcommAclrtNotifyRecordOnThread not supported");
     return -1;
 }
 
-static int32_t StubHcommAclrtNotifyWaitOnThread(ThreadHandle thread, uint64_t notifyId, uint32_t timeOut) {
+int32_t __attribute__((weak)) HcommAclrtNotifyWaitOnThread(ThreadHandle thread, uint64_t notifyId, uint32_t timeOut) {
     (void)thread; (void)notifyId; (void)timeOut;
     HCCL_ERROR("[HcclWrapper] HcommAclrtNotifyWaitOnThread not supported");
     return -1;
 }
 
-static int32_t StubHcommWriteOnThread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t len) {
+int32_t __attribute__((weak)) HcommWriteOnThread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t len) {
     (void)thread; (void)channel; (void)dst; (void)src; (void)len;
     HCCL_ERROR("[HcclWrapper] HcommWriteOnThread not supported");
     return -1;
 }
 
-static int32_t StubHcommWriteReduceOnThread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src,
+int32_t __attribute__((weak)) HcommWriteReduceOnThread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src,
                                             uint64_t count, HcommDataType dataType, HcommReduceOp reduceOp) {
     (void)thread; (void)channel; (void)dst; (void)src; (void)count; (void)dataType; (void)reduceOp;
     HCCL_ERROR("[HcclWrapper] HcommWriteReduceOnThread not supported");
     return -1;
 }
 
-static int32_t StubHcommWriteWithNotifyOnThread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src,
+int32_t __attribute__((weak)) HcommWriteWithNotifyOnThread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src,
                                                 uint64_t len, uint32_t remoteNotifyIdx) {
     (void)thread; (void)channel; (void)dst; (void)src; (void)len; (void)remoteNotifyIdx;
     HCCL_ERROR("[HcclWrapper] HcommWriteWithNotifyOnThread not supported");
     return -1;
 }
 
-static int32_t StubHcommWriteReduceWithNotifyOnThread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src,
+int32_t __attribute__((weak)) HcommWriteReduceWithNotifyOnThread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src,
                                                       uint64_t count, HcommDataType dataType, HcommReduceOp reduceOp,
                                                       uint32_t remoteNotifyIdx) {
     (void)thread; (void)channel; (void)dst; (void)src; (void)count; (void)dataType; (void)reduceOp; (void)remoteNotifyIdx;
@@ -150,138 +150,138 @@ static int32_t StubHcommWriteReduceWithNotifyOnThread(ThreadHandle thread, Chann
     return -1;
 }
 
-static int32_t StubHcommReadOnThread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t len) {
+int32_t __attribute__((weak)) HcommReadOnThread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t len) {
     (void)thread; (void)channel; (void)dst; (void)src; (void)len;
     HCCL_ERROR("[HcclWrapper] HcommReadOnThread not supported");
     return -1;
 }
 
-static int32_t StubHcommReadReduceOnThread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src,
+int32_t __attribute__((weak)) HcommReadReduceOnThread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src,
                                            uint64_t count, HcommDataType dataType, HcommReduceOp reduceOp) {
     (void)thread; (void)channel; (void)dst; (void)src; (void)count; (void)dataType; (void)reduceOp;
     HCCL_ERROR("[HcclWrapper] HcommReadReduceOnThread not supported");
     return -1;
 }
 
-static int32_t StubHcommWriteNbi(ChannelHandle channel, void* dst, const void* src, uint64_t len) {
+int32_t __attribute__((weak)) HcommWriteNbi(ChannelHandle channel, void* dst, const void* src, uint64_t len) {
     (void)channel; (void)dst; (void)src; (void)len;
     HCCL_ERROR("[HcclWrapper] HcommWriteNbi not supported");
     return -1;
 }
 
-static int32_t StubHcommWriteWithNotifyNbi(ChannelHandle channel, void* dst, const void* src, uint64_t len, uint32_t remoteNotifyIdx) {
+int32_t __attribute__((weak)) HcommWriteWithNotifyNbi(ChannelHandle channel, void* dst, const void* src, uint64_t len, uint32_t remoteNotifyIdx) {
     (void)channel; (void)dst; (void)src; (void)len; (void)remoteNotifyIdx;
     HCCL_ERROR("[HcclWrapper] HcommWriteWithNotifyNbi not supported");
     return -1;
 }
 
-static int32_t StubHcommReadNbi(ChannelHandle channel, void* dst, const void* src, uint64_t len) {
+int32_t __attribute__((weak)) HcommReadNbi(ChannelHandle channel, void* dst, const void* src, uint64_t len) {
     (void)channel; (void)dst; (void)src; (void)len;
     HCCL_ERROR("[HcclWrapper] HcommReadNbi not supported");
     return -1;
 }
 
-static int32_t StubHcommChannelNotifyRecordOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t remoteNotifyIdx) {
+int32_t __attribute__((weak)) HcommChannelNotifyRecordOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t remoteNotifyIdx) {
     (void)thread; (void)channel; (void)remoteNotifyIdx;
     HCCL_ERROR("[HcclWrapper] HcommChannelNotifyRecordOnThread not supported");
     return -1;
 }
 
-static int32_t StubHcommChannelNotifyRecord(ChannelHandle channel, uint32_t remoteNotifyIdx) {
+int32_t __attribute__((weak)) HcommChannelNotifyRecord(ChannelHandle channel, uint32_t remoteNotifyIdx) {
     (void)channel; (void)remoteNotifyIdx;
     HCCL_ERROR("[HcclWrapper] HcommChannelNotifyRecord not supported");
     return -1;
 }
 
-static int32_t StubHcommChannelNotifyWaitOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeout) {
+int32_t __attribute__((weak)) HcommChannelNotifyWaitOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeout) {
     (void)thread; (void)channel; (void)localNotifyIdx; (void)timeout;
     HCCL_ERROR("[HcclWrapper] HcommChannelNotifyWaitOnThread not supported");
     return -1;
 }
 
-static int32_t StubHcommChannelNotifyWait(ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeout) {
+int32_t __attribute__((weak)) HcommChannelNotifyWait(ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeout) {
     (void)channel; (void)localNotifyIdx; (void)timeout;
     HCCL_ERROR("[HcclWrapper] HcommChannelNotifyWait not supported");
     return -1;
 }
 
-static int32_t StubHcommBatchModeStart(const char* batchTag) {
+int32_t __attribute__((weak)) HcommBatchModeStart(const char* batchTag) {
     (void)batchTag;
     HCCL_ERROR("[HcclWrapper] HcommBatchModeStart not supported");
     return -1;
 }
 
-static int32_t StubHcommBatchModeEnd(const char* batchTag) {
+int32_t __attribute__((weak)) HcommBatchModeEnd(const char* batchTag) {
     (void)batchTag;
     HCCL_ERROR("[HcclWrapper] HcommBatchModeEnd not supported");
     return -1;
 }
 
-static int32_t StubHcommAcquireComm(const char* commId) {
+int32_t __attribute__((weak)) HcommAcquireComm(const char* commId) {
     (void)commId;
     HCCL_ERROR("[HcclWrapper] HcommAcquireComm not supported");
     return -1;
 }
 
-static int32_t StubHcommReleaseComm(const char* commId) {
+int32_t __attribute__((weak)) HcommReleaseComm(const char* commId) {
     (void)commId;
     HCCL_ERROR("[HcclWrapper] HcommReleaseComm not supported");
     return -1;
 }
 
-static HcclResult StubHcommSymWinGetPeerPointer(CommSymWindow winHandle, size_t offset, uint32_t peerRank, void** ptr) {
+HcclResult __attribute__((weak)) HcommSymWinGetPeerPointer(CommSymWindow winHandle, size_t offset, uint32_t peerRank, void** ptr) {
     (void)winHandle; (void)offset; (void)peerRank; (void)ptr;
     HCCL_ERROR("[HcclWrapper] HcommSymWinGetPeerPointer not supported");
     return HCCL_E_NOT_SUPPORT;
 }
 
-static int32_t StubHcommThreadSynchronize(ThreadHandle thread) {
+int32_t __attribute__((weak)) HcommThreadSynchronize(ThreadHandle thread) {
     (void)thread;
     HCCL_ERROR("[HcclWrapper] HcommThreadSynchronize not supported");
     return -1;
 }
 
-static int32_t StubHcommSendRequest(MsgHandle handle, const char* msgTag, const void* src, size_t sizeByte, uint32_t* msgId) {
+int32_t __attribute__((weak)) HcommSendRequest(MsgHandle handle, const char* msgTag, const void* src, size_t sizeByte, uint32_t* msgId) {
     (void)handle; (void)msgTag; (void)src; (void)sizeByte; (void)msgId;
     HCCL_ERROR("[HcclWrapper] HcommSendRequest not supported");
     return -1;
 }
 
-static int32_t StubHcommWaitResponse(MsgHandle handle, void* dst, size_t sizeByte, uint32_t* msgId) {
+int32_t __attribute__((weak)) HcommWaitResponse(MsgHandle handle, void* dst, size_t sizeByte, uint32_t* msgId) {
     (void)handle; (void)dst; (void)sizeByte; (void)msgId;
     HCCL_ERROR("[HcclWrapper] HcommWaitResponse not supported");
     return -1;
 }
 
-static int32_t StubHcommFlush() {
+int32_t __attribute__((weak)) HcommFlush() {
     HCCL_ERROR("[HcclWrapper] HcommFlush not supported");
     return -1;
 }
 
-static int32_t StubHcommChannelFence(ChannelHandle channel) {
+int32_t __attribute__((weak)) HcommChannelFence(ChannelHandle channel) {
     (void)channel;
     HCCL_ERROR("[HcclWrapper] HcommChannelFence not supported");
     return -1;
 }
 
-static int32_t StubHcommWriteWithNotifyNbiOnThread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t len, uint32_t remoteNotifyIdx) {
+int32_t __attribute__((weak)) HcommWriteWithNotifyNbiOnThread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t len, uint32_t remoteNotifyIdx) {
     (void)thread; (void)channel; (void)dst; (void)src; (void)len; (void)remoteNotifyIdx;
     HCCL_ERROR("[HcclWrapper] HcommWriteWithNotifyNbiOnThread not supported");
     return -1;
 }
 
-static int32_t StubHcommFenceOnThread(ThreadHandle thread) {
+int32_t __attribute__((weak)) HcommFenceOnThread(ThreadHandle thread) {
     (void)thread;
     HCCL_ERROR("[HcclWrapper] HcommFenceOnThread not supported");
     return -1;
 }
-static int32_t StubHcommChannelFenceOnThread(ThreadHandle thread, ChannelHandle channel) {
+int32_t __attribute__((weak)) HcommChannelFenceOnThread(ThreadHandle thread, ChannelHandle channel) {
     (void)channel;
     HCCL_ERROR("[HcclWrapper] HcommChannelFenceOnThread not supported");
     return -1;
 }
 
-static HcclResult StubHcommThreadJoin(ThreadHandle thread, uint32_t timeout) {
+HcclResult __attribute__((weak)) HcommThreadJoin(ThreadHandle thread, uint32_t timeout) {
     (void)thread; (void)timeout;
     HCCL_ERROR("[HcclWrapper] HcommThreadJoin not supported");
     return HCCL_E_NOT_SUPPORT;
@@ -290,11 +290,10 @@ static HcclResult StubHcommThreadJoin(ThreadHandle thread, uint32_t timeout) {
 // ---------- 初始化函数 ----------
 void HcommPrimitivesDlInit(void* libHcommHandle) {
     // 辅助宏：解析符号，失败则指向对应桩函数，同时设置支持标志
-    #define SET_PTR(ptr, handle, name, stub, support_flag) \
+    #define SET_PTR(ptr, handle, name, support_flag) \
         do { \
             ptr = (decltype(ptr))dlsym(handle, name); \
             if (ptr == nullptr) { \
-                ptr = stub; \
                 support_flag = false; \
                 HCCL_DEBUG("[HcclWrapper] %s not supported", name); \
             } else { \
@@ -302,77 +301,77 @@ void HcommPrimitivesDlInit(void* libHcommHandle) {
             } \
         } while(0)
 
-    SET_PTR(hcommLocalCopyOnThreadPtr, libHcommHandle, "HcommLocalCopyOnThread", StubHcommLocalCopyOnThread, g_hcommLocalCopyOnThreadSupported);
-    SET_PTR(hcommLocalReduceOnThreadPtr, libHcommHandle, "HcommLocalReduceOnThread", StubHcommLocalReduceOnThread, g_hcommLocalReduceOnThreadSupported);
-    SET_PTR(hcommThreadNotifyRecordOnThreadPtr, libHcommHandle, "HcommThreadNotifyRecordOnThread", StubHcommThreadNotifyRecordOnThread, g_hcommThreadNotifyRecordOnThreadSupported);
-    SET_PTR(hcommThreadNotifyWaitOnThreadPtr, libHcommHandle, "HcommThreadNotifyWaitOnThread", StubHcommThreadNotifyWaitOnThread, g_hcommThreadNotifyWaitOnThreadSupported);
-    SET_PTR(hcommAclrtNotifyRecordOnThreadPtr, libHcommHandle, "HcommAclrtNotifyRecordOnThread", StubHcommAclrtNotifyRecordOnThread, g_hcommAclrtNotifyRecordOnThreadSupported);
-    SET_PTR(hcommAclrtNotifyWaitOnThreadPtr, libHcommHandle, "HcommAclrtNotifyWaitOnThread", StubHcommAclrtNotifyWaitOnThread, g_hcommAclrtNotifyWaitOnThreadSupported);
-    SET_PTR(hcommWriteOnThreadPtr, libHcommHandle, "HcommWriteOnThread", StubHcommWriteOnThread, g_hcommWriteOnThreadSupported);
-    SET_PTR(hcommWriteReduceOnThreadPtr, libHcommHandle, "HcommWriteReduceOnThread", StubHcommWriteReduceOnThread, g_hcommWriteReduceOnThreadSupported);
-    SET_PTR(hcommWriteWithNotifyOnThreadPtr, libHcommHandle, "HcommWriteWithNotifyOnThread", StubHcommWriteWithNotifyOnThread, g_hcommWriteWithNotifyOnThreadSupported);
-    SET_PTR(hcommWriteReduceWithNotifyOnThreadPtr, libHcommHandle, "HcommWriteReduceWithNotifyOnThread", StubHcommWriteReduceWithNotifyOnThread, g_hcommWriteReduceWithNotifyOnThreadSupported);
-    SET_PTR(hcommReadOnThreadPtr, libHcommHandle, "HcommReadOnThread", StubHcommReadOnThread, g_hcommReadOnThreadSupported);
-    SET_PTR(hcommReadReduceOnThreadPtr, libHcommHandle, "HcommReadReduceOnThread", StubHcommReadReduceOnThread, g_hcommReadReduceOnThreadSupported);
-    SET_PTR(hcommWriteNbiPtr, libHcommHandle, "HcommWriteNbi", StubHcommWriteNbi, g_hcommWriteNbiSupported);
-    SET_PTR(hcommWriteWithNotifyNbiPtr, libHcommHandle, "HcommWriteWithNotifyNbi", StubHcommWriteWithNotifyNbi, g_hcommWriteWithNotifyNbiSupported);
-    SET_PTR(hcommReadNbiPtr, libHcommHandle, "HcommReadNbi", StubHcommReadNbi, g_hcommReadNbiSupported);
-    SET_PTR(hcommChannelNotifyRecordOnThreadPtr, libHcommHandle, "HcommChannelNotifyRecordOnThread", StubHcommChannelNotifyRecordOnThread, g_hcommChannelNotifyRecordOnThreadSupported);
-    SET_PTR(hcommChannelNotifyRecordPtr, libHcommHandle, "HcommChannelNotifyRecord", StubHcommChannelNotifyRecord, g_hcommChannelNotifyRecordSupported);
-    SET_PTR(hcommChannelNotifyWaitOnThreadPtr, libHcommHandle, "HcommChannelNotifyWaitOnThread", StubHcommChannelNotifyWaitOnThread, g_hcommChannelNotifyWaitOnThreadSupported);
-    SET_PTR(hcommChannelNotifyWaitPtr, libHcommHandle, "HcommChannelNotifyWait", StubHcommChannelNotifyWait, g_hcommChannelNotifyWaitSupported);
-    SET_PTR(hcommBatchModeStartPtr, libHcommHandle, "HcommBatchModeStart", StubHcommBatchModeStart, g_hcommBatchModeStartSupported);
-    SET_PTR(hcommBatchModeEndPtr, libHcommHandle, "HcommBatchModeEnd", StubHcommBatchModeEnd, g_hcommBatchModeEndSupported);
-    SET_PTR(hcommAcquireCommPtr, libHcommHandle, "HcommAcquireComm", StubHcommAcquireComm, g_hcommAcquireCommSupported);
-    SET_PTR(hcommReleaseCommPtr, libHcommHandle, "HcommReleaseComm", StubHcommReleaseComm, g_hcommReleaseCommSupported);
-    SET_PTR(hcommSymWinGetPeerPointerPtr, libHcommHandle, "HcommSymWinGetPeerPointer", StubHcommSymWinGetPeerPointer, g_hcommSymWinGetPeerPointerSupported);
-    SET_PTR(hcommThreadSynchronizePtr, libHcommHandle, "HcommThreadSynchronize", StubHcommThreadSynchronize, g_hcommThreadSynchronizeSupported);
-    SET_PTR(hcommSendRequestPtr, libHcommHandle, "HcommSendRequest", StubHcommSendRequest, g_hcommSendRequestSupported);
-    SET_PTR(hcommWaitResponsePtr, libHcommHandle, "HcommWaitResponse", StubHcommWaitResponse, g_hcommWaitResponseSupported);
-    SET_PTR(hcommFlushPtr, libHcommHandle, "HcommFlush", StubHcommFlush, g_hcommFlushSupported);
-    SET_PTR(hcommChannelFencePtr, libHcommHandle, "HcommChannelFence", StubHcommChannelFence, g_hcommChannelFenceSupported);
-    SET_PTR(hcommWriteWithNotifyNbiOnThreadPtr, libHcommHandle, "HcommWriteWithNotifyNbiOnThread", StubHcommWriteWithNotifyNbiOnThread, g_hcommWriteWithNotifyNbiOnThreadSupported);
-    SET_PTR(hcommFenceOnThreadPtr, libHcommHandle, "HcommFenceOnThread", StubHcommFenceOnThread, g_hcommFenceOnThreadSupported);
-    SET_PTR(hcommChannelFenceOnThreadPtr, libHcommHandle, "HcommChannelFenceOnThread", StubHcommChannelFenceOnThread, g_hcommChannelFenceOnThreadSupported);
-    SET_PTR(hcommThreadJoinPtr, libHcommHandle, "HcommThreadJoin", StubHcommThreadJoin, g_hcommThreadJoinSupported);
+    SET_PTR(hcommLocalCopyOnThreadPtr, libHcommHandle, "HcommLocalCopyOnThread", g_hcommLocalCopyOnThreadSupported);
+    SET_PTR(hcommLocalReduceOnThreadPtr, libHcommHandle, "HcommLocalReduceOnThread", g_hcommLocalReduceOnThreadSupported);
+    SET_PTR(hcommThreadNotifyRecordOnThreadPtr, libHcommHandle, "HcommThreadNotifyRecordOnThread", g_hcommThreadNotifyRecordOnThreadSupported);
+    SET_PTR(hcommThreadNotifyWaitOnThreadPtr, libHcommHandle, "HcommThreadNotifyWaitOnThread", g_hcommThreadNotifyWaitOnThreadSupported);
+    SET_PTR(hcommAclrtNotifyRecordOnThreadPtr, libHcommHandle, "HcommAclrtNotifyRecordOnThread", g_hcommAclrtNotifyRecordOnThreadSupported);
+    SET_PTR(hcommAclrtNotifyWaitOnThreadPtr, libHcommHandle, "HcommAclrtNotifyWaitOnThread", g_hcommAclrtNotifyWaitOnThreadSupported);
+    SET_PTR(hcommWriteOnThreadPtr, libHcommHandle, "HcommWriteOnThread", g_hcommWriteOnThreadSupported);
+    SET_PTR(hcommWriteReduceOnThreadPtr, libHcommHandle, "HcommWriteReduceOnThread", g_hcommWriteReduceOnThreadSupported);
+    SET_PTR(hcommWriteWithNotifyOnThreadPtr, libHcommHandle, "HcommWriteWithNotifyOnThread", g_hcommWriteWithNotifyOnThreadSupported);
+    SET_PTR(hcommWriteReduceWithNotifyOnThreadPtr, libHcommHandle, "HcommWriteReduceWithNotifyOnThread", g_hcommWriteReduceWithNotifyOnThreadSupported);
+    SET_PTR(hcommReadOnThreadPtr, libHcommHandle, "HcommReadOnThread", g_hcommReadOnThreadSupported);
+    SET_PTR(hcommReadReduceOnThreadPtr, libHcommHandle, "HcommReadReduceOnThread", g_hcommReadReduceOnThreadSupported);
+    SET_PTR(hcommWriteNbiPtr, libHcommHandle, "HcommWriteNbi", g_hcommWriteNbiSupported);
+    SET_PTR(hcommWriteWithNotifyNbiPtr, libHcommHandle, "HcommWriteWithNotifyNbi", g_hcommWriteWithNotifyNbiSupported);
+    SET_PTR(hcommReadNbiPtr, libHcommHandle, "HcommReadNbi", g_hcommReadNbiSupported);
+    SET_PTR(hcommChannelNotifyRecordOnThreadPtr, libHcommHandle, "HcommChannelNotifyRecordOnThread", g_hcommChannelNotifyRecordOnThreadSupported);
+    SET_PTR(hcommChannelNotifyRecordPtr, libHcommHandle, "HcommChannelNotifyRecord", g_hcommChannelNotifyRecordSupported);
+    SET_PTR(hcommChannelNotifyWaitOnThreadPtr, libHcommHandle, "HcommChannelNotifyWaitOnThread", g_hcommChannelNotifyWaitOnThreadSupported);
+    SET_PTR(hcommChannelNotifyWaitPtr, libHcommHandle, "HcommChannelNotifyWait", g_hcommChannelNotifyWaitSupported);
+    SET_PTR(hcommBatchModeStartPtr, libHcommHandle, "HcommBatchModeStart", g_hcommBatchModeStartSupported);
+    SET_PTR(hcommBatchModeEndPtr, libHcommHandle, "HcommBatchModeEnd", g_hcommBatchModeEndSupported);
+    SET_PTR(hcommAcquireCommPtr, libHcommHandle, "HcommAcquireComm", g_hcommAcquireCommSupported);
+    SET_PTR(hcommReleaseCommPtr, libHcommHandle, "HcommReleaseComm", g_hcommReleaseCommSupported);
+    SET_PTR(hcommSymWinGetPeerPointerPtr, libHcommHandle, "HcommSymWinGetPeerPointer", g_hcommSymWinGetPeerPointerSupported);
+    SET_PTR(hcommThreadSynchronizePtr, libHcommHandle, "HcommThreadSynchronize", g_hcommThreadSynchronizeSupported);
+    SET_PTR(hcommSendRequestPtr, libHcommHandle, "HcommSendRequest", g_hcommSendRequestSupported);
+    SET_PTR(hcommWaitResponsePtr, libHcommHandle, "HcommWaitResponse", g_hcommWaitResponseSupported);
+    SET_PTR(hcommFlushPtr, libHcommHandle, "HcommFlush", g_hcommFlushSupported);
+    SET_PTR(hcommChannelFencePtr, libHcommHandle, "HcommChannelFence", g_hcommChannelFenceSupported);
+    SET_PTR(hcommWriteWithNotifyNbiOnThreadPtr, libHcommHandle, "HcommWriteWithNotifyNbiOnThread", g_hcommWriteWithNotifyNbiOnThreadSupported);
+    SET_PTR(hcommFenceOnThreadPtr, libHcommHandle, "HcommFenceOnThread", g_hcommFenceOnThreadSupported);
+    SET_PTR(hcommChannelFenceOnThreadPtr, libHcommHandle, "HcommChannelFenceOnThread", g_hcommChannelFenceOnThreadSupported);
+    SET_PTR(hcommThreadJoinPtr, libHcommHandle, "HcommThreadJoin", g_hcommThreadJoinSupported);
 
     #undef SET_PTR
 }
 
 void HcommPrimitivesDlFini(void) {
-    hcommLocalCopyOnThreadPtr = StubHcommLocalCopyOnThread;
-    hcommLocalReduceOnThreadPtr = StubHcommLocalReduceOnThread;
-    hcommThreadNotifyRecordOnThreadPtr = StubHcommThreadNotifyRecordOnThread;
-    hcommThreadNotifyWaitOnThreadPtr = StubHcommThreadNotifyWaitOnThread;
-    hcommAclrtNotifyRecordOnThreadPtr = StubHcommAclrtNotifyRecordOnThread;
-    hcommAclrtNotifyWaitOnThreadPtr = StubHcommAclrtNotifyWaitOnThread;
-    hcommWriteOnThreadPtr = StubHcommWriteOnThread;
-    hcommWriteReduceOnThreadPtr = StubHcommWriteReduceOnThread;
-    hcommWriteWithNotifyOnThreadPtr = StubHcommWriteWithNotifyOnThread;
-    hcommWriteReduceWithNotifyOnThreadPtr = StubHcommWriteReduceWithNotifyOnThread;
-    hcommReadOnThreadPtr = StubHcommReadOnThread;
-    hcommReadReduceOnThreadPtr = StubHcommReadReduceOnThread;
-    hcommWriteNbiPtr = StubHcommWriteNbi;
-    hcommWriteWithNotifyNbiPtr = StubHcommWriteWithNotifyNbi;
-    hcommReadNbiPtr = StubHcommReadNbi;
-    hcommChannelNotifyRecordOnThreadPtr = StubHcommChannelNotifyRecordOnThread;
-    hcommChannelNotifyRecordPtr = StubHcommChannelNotifyRecord;
-    hcommChannelNotifyWaitOnThreadPtr = StubHcommChannelNotifyWaitOnThread;
-    hcommChannelNotifyWaitPtr = StubHcommChannelNotifyWait;
-    hcommBatchModeStartPtr = StubHcommBatchModeStart;
-    hcommBatchModeEndPtr = StubHcommBatchModeEnd;
-    hcommAcquireCommPtr = StubHcommAcquireComm;
-    hcommReleaseCommPtr = StubHcommReleaseComm;
-    hcommSymWinGetPeerPointerPtr = StubHcommSymWinGetPeerPointer;
-    hcommThreadSynchronizePtr = StubHcommThreadSynchronize;
-    hcommSendRequestPtr = StubHcommSendRequest;
-    hcommWaitResponsePtr = StubHcommWaitResponse;
-    hcommFlushPtr = StubHcommFlush;
-    hcommChannelFencePtr = StubHcommChannelFence;
-    hcommWriteWithNotifyNbiOnThreadPtr = StubHcommWriteWithNotifyNbiOnThread;
-    hcommFenceOnThreadPtr = StubHcommFenceOnThread;
-    hcommChannelFenceOnThreadPtr = StubHcommChannelFenceOnThread;
-    hcommThreadJoinPtr = StubHcommThreadJoin;
+    // hcommLocalCopyOnThreadPtr = StubHcommLocalCopyOnThread;
+    // hcommLocalReduceOnThreadPtr = StubHcommLocalReduceOnThread;
+    // hcommThreadNotifyRecordOnThreadPtr = StubHcommThreadNotifyRecordOnThread;
+    // hcommThreadNotifyWaitOnThreadPtr = StubHcommThreadNotifyWaitOnThread;
+    // hcommAclrtNotifyRecordOnThreadPtr = StubHcommAclrtNotifyRecordOnThread;
+    // hcommAclrtNotifyWaitOnThreadPtr = StubHcommAclrtNotifyWaitOnThread;
+    // hcommWriteOnThreadPtr = StubHcommWriteOnThread;
+    // hcommWriteReduceOnThreadPtr = StubHcommWriteReduceOnThread;
+    // hcommWriteWithNotifyOnThreadPtr = StubHcommWriteWithNotifyOnThread;
+    // hcommWriteReduceWithNotifyOnThreadPtr = StubHcommWriteReduceWithNotifyOnThread;
+    // hcommReadOnThreadPtr = StubHcommReadOnThread;
+    // hcommReadReduceOnThreadPtr = StubHcommReadReduceOnThread;
+    // hcommWriteNbiPtr = StubHcommWriteNbi;
+    // hcommWriteWithNotifyNbiPtr = StubHcommWriteWithNotifyNbi;
+    // hcommReadNbiPtr = StubHcommReadNbi;
+    // hcommChannelNotifyRecordOnThreadPtr = StubHcommChannelNotifyRecordOnThread;
+    // hcommChannelNotifyRecordPtr = StubHcommChannelNotifyRecord;
+    // hcommChannelNotifyWaitOnThreadPtr = StubHcommChannelNotifyWaitOnThread;
+    // hcommChannelNotifyWaitPtr = StubHcommChannelNotifyWait;
+    // hcommBatchModeStartPtr = StubHcommBatchModeStart;
+    // hcommBatchModeEndPtr = StubHcommBatchModeEnd;
+    // hcommAcquireCommPtr = StubHcommAcquireComm;
+    // hcommReleaseCommPtr = StubHcommReleaseComm;
+    // hcommSymWinGetPeerPointerPtr = StubHcommSymWinGetPeerPointer;
+    // hcommThreadSynchronizePtr = StubHcommThreadSynchronize;
+    // hcommSendRequestPtr = StubHcommSendRequest;
+    // hcommWaitResponsePtr = StubHcommWaitResponse;
+    // hcommFlushPtr = StubHcommFlush;
+    // hcommChannelFencePtr = StubHcommChannelFence;
+    // hcommWriteWithNotifyNbiOnThreadPtr = StubHcommWriteWithNotifyNbiOnThread;
+    // hcommFenceOnThreadPtr = StubHcommFenceOnThread;
+    // hcommChannelFenceOnThreadPtr = StubHcommChannelFenceOnThread;
+    // hcommThreadJoinPtr = StubHcommThreadJoin;
 }
 
 // ---------- 对外提供的查询接口（判断函数是否存在）----------

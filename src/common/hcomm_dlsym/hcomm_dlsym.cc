@@ -72,12 +72,9 @@ void HcommDlInit(void) {
     HcclResDlInit(gLibHandle);
     HcclRankGraphDlInit(gLibHandle);
     HcommPrimitivesDlInit(gLibHandle);
-    HcclCommDlInit(gLibHandle);
     HcclInnerDlInit(gLibHandle);
     DtypeCommonDlInit(gLibHandle);
     HcommProfilingDlInit(gLibHandle);
-    HcclOneSidedServicesDlInit(gLibHandle);
-    HcclExDlInit(gLibHandle);
     HcomDlInit(gLibHandle);
 }
 
@@ -86,12 +83,9 @@ void HcommDlFini(void) {
         HcclResDlFini();
         HcclRankGraphDlFini();
         HcommPrimitivesDlFini();
-        HcclCommDlFini();
         HcclInnerDlFini();
         DtypeCommonDlFini();
         HcommProfilingDlFini();
-        HcclOneSidedServicesDlFini();
-        HcclExDlFini();
         HcomDlFini();
 
         dlclose(gLibHandle);

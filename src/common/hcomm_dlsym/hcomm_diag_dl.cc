@@ -23,13 +23,13 @@ static bool g_hcommRegOpInfoSupported = false;
 static bool g_hcommRegOpTaskExceptionSupported = false;
 
 // ---------- 桩函数定义 ----------
-static HcclResult StubHcommRegOpInfo(const char* commId, void* opInfo, size_t size) {
+HcclResult __attribute__((weak)) HcommRegOpInfo(const char* commId, void* opInfo, size_t size) {
     (void)commId; (void)opInfo; (void)size;
     HCCL_ERROR("[HcclWrapper] HcommRegOpInfo not supported");
     return HCCL_E_NOT_SUPPORT;
 }
 
-static HcclResult StubHcommRegOpTaskException(const char* commId, HcommGetOpInfoCallback callback) {
+HcclResult __attribute__((weak)) HcommRegOpTaskException(const char* commId, HcommGetOpInfoCallback callback) {
     (void)commId; (void)callback;
     HCCL_ERROR("[HcclWrapper] HcommRegOpTaskException not supported");
     return HCCL_E_NOT_SUPPORT;
@@ -37,11 +37,10 @@ static HcclResult StubHcommRegOpTaskException(const char* commId, HcommGetOpInfo
 
 // 初始化
 void HcommDiagDlInit(void* libHcommHandle) {
-    #define SET_PTR(ptr, handle, name, stub, support_flag) \
+    #define SET_PTR(ptr, handle, name, support_flag) \
         do { \
             ptr = (decltype(ptr))dlsym(handle, name); \
             if (ptr == nullptr) { \
-                ptr = stub; \
                 support_flag = false; \
                 HCCL_DEBUG("[HcclWrapper] %s not supported", name); \
             } else { \
@@ -49,16 +48,16 @@ void HcommDiagDlInit(void* libHcommHandle) {
             } \
         } while(0)
 
-    SET_PTR(hcommRegOpInfoPtr, libHcommHandle, "HcommRegOpInfo", StubHcommRegOpInfo, g_hcommRegOpInfoSupported);
-    SET_PTR(hcommRegOpTaskExceptionPtr, libHcommHandle, "HcommRegOpTaskException", StubHcommRegOpTaskException, g_hcommRegOpTaskExceptionSupported);
+    SET_PTR(hcommRegOpInfoPtr, libHcommHandle, "HcommRegOpInfo", g_hcommRegOpInfoSupported);
+    SET_PTR(hcommRegOpTaskExceptionPtr, libHcommHandle, "HcommRegOpTaskException", g_hcommRegOpTaskExceptionSupported);
 
     #undef SET_PTR
 }
 
 void HcommDiagDlFini(void) {
-    hcommRegOpInfoPtr = StubHcommRegOpInfo;
+    // hcommRegOpInfoPtr = StubHcommRegOpInfo;
     g_hcommRegOpInfoSupported = false;
-    hcommRegOpTaskExceptionPtr = StubHcommRegOpTaskException;
+    // hcommRegOpTaskExceptionPtr = StubHcommRegOpTaskException;
     g_hcommRegOpTaskExceptionSupported = false;
 }
 

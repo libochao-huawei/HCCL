@@ -17,75 +17,45 @@
 extern "C" {
 #endif
 
-// 声明全局函数指针（小驼峰命名）
-extern int32_t (*hcommLocalCopyOnThreadPtr)(ThreadHandle, void*, const void*, uint64_t);
-extern int32_t (*hcommLocalReduceOnThreadPtr)(ThreadHandle, void*, const void*, uint64_t, HcommDataType, HcommReduceOp);
-extern int32_t (*hcommThreadNotifyRecordOnThreadPtr)(ThreadHandle, ThreadHandle, uint32_t);
-extern int32_t (*hcommThreadNotifyWaitOnThreadPtr)(ThreadHandle, uint32_t, uint32_t);
-extern int32_t (*hcommAclrtNotifyRecordOnThreadPtr)(ThreadHandle, uint64_t);
-extern int32_t (*hcommAclrtNotifyWaitOnThreadPtr)(ThreadHandle, uint64_t, uint32_t);
-extern int32_t (*hcommWriteOnThreadPtr)(ThreadHandle, ChannelHandle, void*, const void*, uint64_t);
-extern int32_t (*hcommWriteReduceOnThreadPtr)(ThreadHandle, ChannelHandle, void*, const void*, uint64_t, HcommDataType, HcommReduceOp);
-extern int32_t (*hcommWriteWithNotifyOnThreadPtr)(ThreadHandle, ChannelHandle, void*, const void*, uint64_t, uint32_t);
-extern int32_t (*hcommWriteReduceWithNotifyOnThreadPtr)(ThreadHandle, ChannelHandle, void*, const void*, uint64_t, HcommDataType, HcommReduceOp, uint32_t);
-extern int32_t (*hcommReadOnThreadPtr)(ThreadHandle, ChannelHandle, void*, const void*, uint64_t);
-extern int32_t (*hcommReadReduceOnThreadPtr)(ThreadHandle, ChannelHandle, void*, const void*, uint64_t, HcommDataType, HcommReduceOp);
-extern int32_t (*hcommWriteNbiPtr)(ChannelHandle, void*, const void*, uint64_t);
-extern int32_t (*hcommWriteWithNotifyNbiPtr)(ChannelHandle, void*, const void*, uint64_t, uint32_t);
-extern int32_t (*hcommReadNbiPtr)(ChannelHandle, void*, const void*, uint64_t);
-extern int32_t (*hcommChannelNotifyRecordOnThreadPtr)(ThreadHandle, ChannelHandle, uint32_t);
-extern int32_t (*hcommChannelNotifyRecordPtr)(ChannelHandle, uint32_t);
-extern int32_t (*hcommChannelNotifyWaitOnThreadPtr)(ThreadHandle, ChannelHandle, uint32_t, uint32_t);
-extern int32_t (*hcommChannelNotifyWaitPtr)(ChannelHandle, uint32_t, uint32_t);
-extern int32_t (*hcommBatchModeStartPtr)(const char*);
-extern int32_t (*hcommBatchModeEndPtr)(const char*);
-extern int32_t (*hcommAcquireCommPtr)(const char*);
-extern int32_t (*hcommReleaseCommPtr)(const char*);
-extern HcclResult (*hcommSymWinGetPeerPointerPtr)(CommSymWindow, size_t, uint32_t, void**);
-extern int32_t (*hcommThreadSynchronizePtr)(ThreadHandle);
-extern int32_t (*hcommSendRequestPtr)(MsgHandle, const char*, const void*, size_t, uint32_t*);
-extern int32_t (*hcommWaitResponsePtr)(MsgHandle, void*, size_t, uint32_t*);
-extern int32_t (*hcommFlushPtr)();
-extern int32_t (*hcommChannelFencePtr)(ChannelHandle);
-extern int32_t (*hcommWriteWithNotifyNbiOnThreadPtr)(ThreadHandle, ChannelHandle, void*, const void*, uint64_t, uint32_t);
-extern int32_t (*hcommFenceOnThreadPtr)(ThreadHandle);
-extern int32_t (*hcommChannelFenceOnThreadPtr)(ThreadHandle, ChannelHandle);
-extern HcclResult (*hcommThreadJoinPtr)(ThreadHandle, uint32_t timeout);
-
-// 宏：将原始API名映射为函数指针调用（保持API名大驼峰）
-#define HcommLocalCopyOnThread               (*hcommLocalCopyOnThreadPtr)
-#define HcommLocalReduceOnThread              (*hcommLocalReduceOnThreadPtr)
-#define HcommThreadNotifyRecordOnThread       (*hcommThreadNotifyRecordOnThreadPtr)
-#define HcommThreadNotifyWaitOnThread         (*hcommThreadNotifyWaitOnThreadPtr)
-#define HcommAclrtNotifyRecordOnThread        (*hcommAclrtNotifyRecordOnThreadPtr)
-#define HcommAclrtNotifyWaitOnThread          (*hcommAclrtNotifyWaitOnThreadPtr)
-#define HcommWriteOnThread                     (*hcommWriteOnThreadPtr)
-#define HcommWriteReduceOnThread               (*hcommWriteReduceOnThreadPtr)
-#define HcommWriteWithNotifyOnThread           (*hcommWriteWithNotifyOnThreadPtr)
-#define HcommWriteReduceWithNotifyOnThread     (*hcommWriteReduceWithNotifyOnThreadPtr)
-#define HcommReadOnThread                       (*hcommReadOnThreadPtr)
-#define HcommReadReduceOnThread                 (*hcommReadReduceOnThreadPtr)
-#define HcommWriteNbi                           (*hcommWriteNbiPtr)
-#define HcommWriteWithNotifyNbi                 (*hcommWriteWithNotifyNbiPtr)
-#define HcommReadNbi                            (*hcommReadNbiPtr)
-#define HcommChannelNotifyRecordOnThread        (*hcommChannelNotifyRecordOnThreadPtr)
-#define HcommChannelNotifyRecord                (*hcommChannelNotifyRecordPtr)
-#define HcommChannelNotifyWaitOnThread          (*hcommChannelNotifyWaitOnThreadPtr)
-#define HcommChannelNotifyWait                   (*hcommChannelNotifyWaitPtr)
-#define HcommBatchModeStart                      (*hcommBatchModeStartPtr)
-#define HcommBatchModeEnd                        (*hcommBatchModeEndPtr)
-#define HcommAcquireComm                         (*hcommAcquireCommPtr)
-#define HcommReleaseComm                         (*hcommReleaseCommPtr)
-#define HcommSymWinGetPeerPointer                (*hcommSymWinGetPeerPointerPtr)
-#define HcommThreadSynchronize                    (*hcommThreadSynchronizePtr)
-#define HcommSendRequest                          (*hcommSendRequestPtr)
-#define HcommWaitResponse                         (*hcommWaitResponsePtr)
-#define HcommFlush                                 (*hcommFlushPtr)
-#define HcommChannelFence                          (*hcommChannelFencePtr)
-#define HcommWriteWithNotifyNbiOnThread            (*hcommWriteWithNotifyNbiOnThreadPtr)
-#define HcommFenceOnThread                          (*hcommFenceOnThreadPtr)
-#define HcommChannelFenceOnThread                   (*hcommChannelFenceOnThreadPtr)
-#define HcommThreadJoin                          (*hcommThreadJoinPtr)
+int32_t __attribute__((weak)) HcommLocalCopyOnThread(ThreadHandle thread, void* dst, const void* src, uint64_t len);
+int32_t __attribute__((weak)) HcommLocalReduceOnThread(ThreadHandle thread, void* dst, const void* src, uint64_t count,
+                                            HcommDataType dataType, HcommReduceOp reduceOp);
+int32_t __attribute__((weak)) HcommThreadNotifyRecordOnThread(ThreadHandle thread, ThreadHandle dstThread, uint32_t dstNotifyIdx);
+int32_t __attribute__((weak)) HcommThreadNotifyWaitOnThread(ThreadHandle thread, uint32_t notifyIdx, uint32_t timeOut);
+int32_t __attribute__((weak)) HcommAclrtNotifyRecordOnThread(ThreadHandle thread, uint64_t dstNotifyId);
+int32_t __attribute__((weak)) HcommAclrtNotifyWaitOnThread(ThreadHandle thread, uint64_t notifyId, uint32_t timeOut);
+int32_t __attribute__((weak)) HcommWriteOnThread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t len);
+int32_t __attribute__((weak)) HcommWriteReduceOnThread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src,
+                                            uint64_t count, HcommDataType dataType, HcommReduceOp reduceOp);
+int32_t __attribute__((weak)) HcommWriteWithNotifyOnThread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src,
+                                                uint64_t len, uint32_t remoteNotifyIdx);
+int32_t __attribute__((weak)) HcommWriteReduceWithNotifyOnThread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src,
+                                                      uint64_t count, HcommDataType dataType, HcommReduceOp reduceOp,
+                                                      uint32_t remoteNotifyIdx);
+int32_t __attribute__((weak)) HcommReadOnThread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t len);
+int32_t __attribute__((weak)) HcommReadReduceOnThread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src,
+                                           uint64_t count, HcommDataType dataType, HcommReduceOp reduceOp);
+int32_t __attribute__((weak)) HcommWriteNbi(ChannelHandle channel, void* dst, const void* src, uint64_t len);
+int32_t __attribute__((weak)) HcommWriteWithNotifyNbi(ChannelHandle channel, void* dst, const void* src, uint64_t len, uint32_t remoteNotifyIdx);
+int32_t __attribute__((weak)) HcommReadNbi(ChannelHandle channel, void* dst, const void* src, uint64_t len);
+int32_t __attribute__((weak)) HcommChannelNotifyRecordOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t remoteNotifyIdx);
+int32_t __attribute__((weak)) HcommChannelNotifyRecord(ChannelHandle channel, uint32_t remoteNotifyIdx);
+int32_t __attribute__((weak)) HcommChannelNotifyWaitOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeout);
+int32_t __attribute__((weak)) HcommChannelNotifyWait(ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeout);
+int32_t __attribute__((weak)) HcommBatchModeStart(const char* batchTag);
+int32_t __attribute__((weak)) HcommBatchModeEnd(const char* batchTag);
+int32_t __attribute__((weak)) HcommAcquireComm(const char* commId);
+int32_t __attribute__((weak)) HcommReleaseComm(const char* commId);
+HcclResult __attribute__((weak)) HcommSymWinGetPeerPointer(CommSymWindow winHandle, size_t offset, uint32_t peerRank, void** ptr);
+int32_t __attribute__((weak)) HcommThreadSynchronize(ThreadHandle thread);
+int32_t __attribute__((weak)) HcommSendRequest(MsgHandle handle, const char* msgTag, const void* src, size_t sizeByte, uint32_t* msgId);
+int32_t __attribute__((weak)) HcommWaitResponse(MsgHandle handle, void* dst, size_t sizeByte, uint32_t* msgId);
+int32_t __attribute__((weak)) HcommFlush();
+int32_t __attribute__((weak)) HcommChannelFence(ChannelHandle channel);
+int32_t __attribute__((weak)) HcommWriteWithNotifyNbiOnThread(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t len, uint32_t remoteNotifyIdx);
+int32_t __attribute__((weak)) HcommFenceOnThread(ThreadHandle thread);
+int32_t __attribute__((weak)) HcommChannelFenceOnThread(ThreadHandle thread, ChannelHandle channel);
+HcclResult __attribute__((weak)) HcommThreadJoin(ThreadHandle thread, uint32_t timeout);
 
 void HcommPrimitivesDlInit(void* libHcommHandle);  // 本模块独立初始化
 void HcommPrimitivesDlFini(void);                  // 本模块独立销毁

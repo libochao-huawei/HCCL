@@ -21,7 +21,7 @@ HcclResult (*hrtGetDeviceTypePtr)(DevType &devType) = nullptr;
 static bool g_hrtGetDeviceTypeSupported = false;
 
 // ---------- 桩函数定义 ----------
-static HcclResult StubHrtGetDeviceType(DevType &devType) {
+HcclResult __attribute__((weak)) hrtGetDeviceType(DevType &devType) {
     (void)devType;
     HCCL_ERROR("[HcclWrapper] hrtGetDeviceType not supported");
     return HCCL_E_NOT_SUPPORT;
@@ -29,11 +29,10 @@ static HcclResult StubHrtGetDeviceType(DevType &devType) {
 
 // 初始化
 void DtypeCommonDlInit(void* libHcommHandle) {
-    #define SET_PTR(ptr, handle, name, stub, support_flag) \
+    #define SET_PTR(ptr, handle, name, support_flag) \
         do { \
             ptr = (decltype(ptr))dlsym(handle, name); \
             if (ptr == nullptr) { \
-                ptr = stub; \
                 support_flag = false; \
                 HCCL_DEBUG("[HcclWrapper] %s not supported", name); \
             } else { \
@@ -41,13 +40,12 @@ void DtypeCommonDlInit(void* libHcommHandle) {
             } \
         } while(0)
 
-    SET_PTR(hrtGetDeviceTypePtr, libHcommHandle, "hrtGetDeviceType", StubHrtGetDeviceType, g_hrtGetDeviceTypeSupported);
+    SET_PTR(hrtGetDeviceTypePtr, libHcommHandle, "hrtGetDeviceType", g_hrtGetDeviceTypeSupported);
 
     #undef SET_PTR
 }
 
 void DtypeCommonDlFini(void) {
-    hrtGetDeviceTypePtr = StubHrtGetDeviceType;
     g_hrtGetDeviceTypeSupported = false;
 }
 

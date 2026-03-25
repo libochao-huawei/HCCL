@@ -17,39 +17,39 @@
 extern "C" {
 #endif
 
-// 声明全局函数指针（小驼峰命名）
-extern HcclResult (*hcclAllReduceInnerPtr)(void*, void*, uint64_t, HcclDataType, HcclReduceOp, HcclComm, aclrtStream);
-extern HcclResult (*hcclBroadcastInnerPtr)(void*, uint64_t, HcclDataType, uint32_t, HcclComm, aclrtStream);
-extern HcclResult (*hcclReduceScatterInnerPtr)(void*, void*, uint64_t, HcclDataType, HcclReduceOp, HcclComm, aclrtStream);
-extern HcclResult (*hcclReduceScatterVInnerPtr)(void*, const void*, const void*, void*, uint64_t, HcclDataType, HcclReduceOp, HcclComm, aclrtStream);
-extern HcclResult (*hcclScatterInnerPtr)(void*, void*, uint64_t, HcclDataType, uint32_t, HcclComm, aclrtStream);
-extern HcclResult (*hcclAllGatherInnerPtr)(void*, void*, uint64_t, HcclDataType, HcclComm, aclrtStream);
-extern HcclResult (*hcclAllGatherVInnerPtr)(void*, uint64_t, void*, const void*, const void*, HcclDataType, HcclComm, aclrtStream);
-extern HcclResult (*hcclSendInnerPtr)(void*, uint64_t, HcclDataType, uint32_t, HcclComm, aclrtStream);
-extern HcclResult (*hcclRecvInnerPtr)(void*, uint64_t, HcclDataType, uint32_t, HcclComm, aclrtStream);
-extern HcclResult (*hcclAlltoAllVCInnerPtr)(const void*, const void*, HcclDataType, const void*, HcclDataType, HcclComm, aclrtStream);
-extern HcclResult (*hcclAlltoAllVInnerPtr)(const void*, const void*, const void*, HcclDataType, const void*, const void*, const void*, HcclDataType, HcclComm, aclrtStream);
-extern HcclResult (*hcclAlltoAllInnerPtr)(const void*, uint64_t, HcclDataType, const void*, uint64_t, HcclDataType, HcclComm, aclrtStream);
-extern HcclResult (*hcclReduceInnerPtr)(void*, void*, uint64_t, HcclDataType, HcclReduceOp, uint32_t, HcclComm, aclrtStream);
-extern HcclResult (*hcclBatchSendRecvInnerPtr)(HcclSendRecvItem*, uint32_t, HcclComm, aclrtStream);
-extern HcclResult (*hcclCreateOpResCtxInnerPtr)(HcclComm, uint8_t, HcclDataType, HcclDataType, HcclReduceOp, uint64_t, char*, uint32_t, void**);
-
-// 宏：将原始API名映射为函数指针调用（保持API名大驼峰）
-#define HcclAllReduceInner                (*hcclAllReduceInnerPtr)
-#define HcclBroadcastInner                 (*hcclBroadcastInnerPtr)
-#define HcclReduceScatterInner              (*hcclReduceScatterInnerPtr)
-#define HcclReduceScatterVInner             (*hcclReduceScatterVInnerPtr)
-#define HcclScatterInner                     (*hcclScatterInnerPtr)
-#define HcclAllGatherInner                    (*hcclAllGatherInnerPtr)
-#define HcclAllGatherVInner                   (*hcclAllGatherVInnerPtr)
-#define HcclSendInner                          (*hcclSendInnerPtr)
-#define HcclRecvInner                          (*hcclRecvInnerPtr)
-#define HcclAlltoAllVCInner                    (*hcclAlltoAllVCInnerPtr)
-#define HcclAlltoAllVInner                      (*hcclAlltoAllVInnerPtr)
-#define HcclAlltoAllInner                        (*hcclAlltoAllInnerPtr)
-#define HcclReduceInner                           (*hcclReduceInnerPtr)
-#define HcclBatchSendRecvInner                     (*hcclBatchSendRecvInnerPtr)
-#define HcclCreateOpResCtxInner                     (*hcclCreateOpResCtxInnerPtr)
+HcclResult __attribute__((weak)) HcclAllReduceInner(void* sendBuf, void* recvBuf, uint64_t count, HcclDataType dataType,
+                                         HcclReduceOp op, HcclComm comm, aclrtStream stream);
+HcclResult __attribute__((weak)) HcclBroadcastInner(void* buf, uint64_t count, HcclDataType dataType, uint32_t root,
+                                         HcclComm comm, aclrtStream stream);
+HcclResult __attribute__((weak)) HcclReduceScatterInner(void* sendBuf, void* recvBuf, uint64_t recvCount, HcclDataType dataType,
+                                             HcclReduceOp op, HcclComm comm, aclrtStream stream);
+HcclResult __attribute__((weak)) HcclReduceScatterVInner(void* sendBuf, const void* sendCounts, const void* sendDispls,
+                                              void* recvBuf, uint64_t recvCount, HcclDataType dataType,
+                                              HcclReduceOp op, HcclComm comm, aclrtStream stream);
+HcclResult __attribute__((weak)) HcclScatterInner(void* sendBuf, void* recvBuf, uint64_t recvCount, HcclDataType dataType,
+                                       uint32_t root, HcclComm comm, aclrtStream stream);
+HcclResult __attribute__((weak)) HcclAllGatherInner(void* sendBuf, void* recvBuf, uint64_t sendCount, HcclDataType dataType,
+                                         HcclComm comm, aclrtStream stream);
+HcclResult __attribute__((weak)) HcclAllGatherVInner(void* sendBuf, uint64_t sendCount, void* recvBuf,
+                                          const void* recvCounts, const void* recvDispls,
+                                          HcclDataType dataType, HcclComm comm, aclrtStream stream);
+HcclResult __attribute__((weak)) HcclSendInner(void* sendBuf, uint64_t count, HcclDataType dataType, uint32_t destRank,
+                                    HcclComm comm, aclrtStream stream);
+HcclResult __attribute__((weak)) HcclRecvInner(void* recvBuf, uint64_t count, HcclDataType dataType, uint32_t srcRank,
+                                    HcclComm comm, aclrtStream stream);
+HcclResult __attribute__((weak)) HcclAlltoAllVCInner(const void* sendBuf, const void* sendCountMatrix, HcclDataType sendType,
+                                          const void* recvBuf, HcclDataType recvType, HcclComm comm, aclrtStream stream);
+HcclResult __attribute__((weak)) HcclAlltoAllVInner(const void* sendBuf, const void* sendCounts, const void* sdispls, HcclDataType sendType,
+                                         const void* recvBuf, const void* recvCounts, const void* rdispls, HcclDataType recvType,
+                                         HcclComm comm, aclrtStream stream);
+HcclResult __attribute__((weak)) HcclAlltoAllInner(const void* sendBuf, uint64_t sendCount, HcclDataType sendType,
+                                        const void* recvBuf, uint64_t recvCount, HcclDataType recvType,
+                                        HcclComm comm, aclrtStream stream);
+HcclResult __attribute__((weak)) HcclReduceInner(void* sendBuf, void* recvBuf, uint64_t count, HcclDataType dataType,
+                                      HcclReduceOp op, uint32_t root, HcclComm comm, aclrtStream stream);
+HcclResult __attribute__((weak)) HcclBatchSendRecvInner(HcclSendRecvItem* sendRecvInfo, uint32_t itemNum, HcclComm comm, aclrtStream stream);
+HcclResult __attribute__((weak)) HcclCreateOpResCtxInner(HcclComm comm, uint8_t opType, HcclDataType srcDataType, HcclDataType dstDataType,
+                                              HcclReduceOp reduceType, uint64_t count, char* algConfig, uint32_t commEngine, void** opResCtx);
 
 // 查询函数声明
 bool HcommIsSupportHcclAllReduceInner(void);

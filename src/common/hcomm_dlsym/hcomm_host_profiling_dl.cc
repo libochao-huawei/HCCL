@@ -35,44 +35,44 @@ static bool g_hcclProfilingReportOpSupported = false;
 static bool g_hcclReportAicpuKernelSupported = false;
 
 // ---------- 桩函数定义 ----------
-static HcclResult StubHcommProfilingRegThread(HcomProInfoTmp profInfo, ThreadHandle* threads) {
+HcclResult __attribute__((weak)) HcommProfilingRegThread(HcomProInfoTmp profInfo, ThreadHandle* threads) {
     (void)profInfo; (void)threads;
     HCCL_ERROR("[HcclWrapper] HcommProfilingRegThread not supported");
     return HCCL_E_NOT_SUPPORT;
 }
-static HcclResult StubHcommProfilingUnRegThread(HcomProInfoTmp profInfo, ThreadHandle* threads) {
+HcclResult __attribute__((weak)) HcommProfilingUnRegThread(HcomProInfoTmp profInfo, ThreadHandle* threads) {
     (void)profInfo; (void)threads;
     HCCL_ERROR("[HcclWrapper] HcommProfilingUnRegThread not supported");
     return HCCL_E_NOT_SUPPORT;
 }
-static HcclResult StubHcommProfilingReportKernel(uint64_t beginTime, const char* profName) {
+HcclResult __attribute__((weak)) HcommProfilingReportKernel(uint64_t beginTime, const char* profName) {
     (void)beginTime; (void)profName;
     HCCL_ERROR("[HcclWrapper] HcommProfilingReportKernel not supported");
     return HCCL_E_NOT_SUPPORT;
 }
-static HcclResult StubHcommProfilingReportOp(HcomProInfoTmp profInfo) {
+HcclResult __attribute__((weak)) HcommProfilingReportOp(HcomProInfoTmp profInfo) {
     (void)profInfo;
     HCCL_ERROR("[HcclWrapper] HcommProfilingReportOp not supported");
     return HCCL_E_NOT_SUPPORT;
 }
-static uint64_t StubHcommGetProfilingSysCycleTime() {
+uint64_t __attribute__((weak)) HcommGetProfilingSysCycleTime() {
     HCCL_ERROR("[HcclWrapper] HcommGetProfilingSysCycleTime not supported");
     return 0;
 }
 
-static HcclResult StubHcclDfxRegOpInfo(HcclComm comm, void* dfxOpInfo)
+HcclResult __attribute__((weak)) HcclDfxRegOpInfo(HcclComm comm, void* dfxOpInfo)
 {
     (void)comm; (void)dfxOpInfo;
     HCCL_ERROR("[HcclWrapper] StubHcclDfxRegOpInfo not supported");
     return HCCL_E_NOT_SUPPORT;
 }
-static HcclResult StubHcclProfilingReportOp(HcclComm comm, uint64_t beginTime)
+HcclResult __attribute__((weak)) HcclProfilingReportOp(HcclComm comm, uint64_t beginTime)
 {
     (void)comm; (void)beginTime;
     HCCL_ERROR("[HcclWrapper] HcclProfilingReportOp not supported");
     return HCCL_E_NOT_SUPPORT;
 }
-static HcclResult StubHcclReportAicpuKernel(HcclComm comm, uint64_t beginTime, char *kernelName)
+HcclResult __attribute__((weak)) HcclReportAicpuKernel(HcclComm comm, uint64_t beginTime, char *kernelName)
 {
     (void)comm; (void)beginTime; (void)kernelName;
     HCCL_ERROR("[HcclWrapper] HcclReportAicpuKernel not supported");
@@ -81,11 +81,10 @@ static HcclResult StubHcclReportAicpuKernel(HcclComm comm, uint64_t beginTime, c
 
 // 初始化
 void HcommProfilingDlInit(void* libHcommHandle) {
-    #define SET_PTR(ptr, handle, name, stub, support_flag) \
+    #define SET_PTR(ptr, handle, name, support_flag) \
         do { \
             ptr = (decltype(ptr))dlsym(handle, name); \
             if (ptr == nullptr) { \
-                ptr = stub; \
                 support_flag = false; \
                 HCCL_DEBUG("[HcclWrapper] %s not supported", name); \
             } else { \
@@ -93,35 +92,35 @@ void HcommProfilingDlInit(void* libHcommHandle) {
             } \
         } while(0)
 
-    SET_PTR(hcommProfilingRegThreadPtr, libHcommHandle, "HcommProfilingRegThread", StubHcommProfilingRegThread, g_hcommProfilingRegThreadSupported);
-    SET_PTR(hcommProfilingUnRegThreadPtr, libHcommHandle, "HcommProfilingUnRegThread", StubHcommProfilingUnRegThread, g_hcommProfilingUnRegThreadSupported);
-    SET_PTR(hcommProfilingReportKernelPtr, libHcommHandle, "HcommProfilingReportKernel", StubHcommProfilingReportKernel, g_hcommProfilingReportKernelSupported);
-    SET_PTR(hcommProfilingReportOpPtr, libHcommHandle, "HcommProfilingReportOp", StubHcommProfilingReportOp, g_hcommProfilingReportOpSupported);
-    SET_PTR(hcommGetProfilingSysCycleTimePtr, libHcommHandle, "HcommGetProfilingSysCycleTime", StubHcommGetProfilingSysCycleTime, g_hcommGetProfilingSysCycleTimeSupported);
-    SET_PTR(hcclDfxRegOpInfoPtr, libHcommHandle, "HcclDfxRegOpInfo", StubHcclDfxRegOpInfo, g_hcclDfxRegOpInfoSupported);
-    SET_PTR(hcclProfilingReportOpPtr, libHcommHandle, "HcclProfilingReportOp", StubHcclProfilingReportOp, g_hcclProfilingReportOpSupported);
-    SET_PTR(hcclReportAicpuKernelPtr, libHcommHandle, "HcclReportAicpuKernel", StubHcclReportAicpuKernel, g_hcclReportAicpuKernelSupported);
+    SET_PTR(hcommProfilingRegThreadPtr, libHcommHandle, "HcommProfilingRegThread", g_hcommProfilingRegThreadSupported);
+    SET_PTR(hcommProfilingUnRegThreadPtr, libHcommHandle, "HcommProfilingUnRegThread", g_hcommProfilingUnRegThreadSupported);
+    SET_PTR(hcommProfilingReportKernelPtr, libHcommHandle, "HcommProfilingReportKernel", g_hcommProfilingReportKernelSupported);
+    SET_PTR(hcommProfilingReportOpPtr, libHcommHandle, "HcommProfilingReportOp", g_hcommProfilingReportOpSupported);
+    SET_PTR(hcommGetProfilingSysCycleTimePtr, libHcommHandle, "HcommGetProfilingSysCycleTime", g_hcommGetProfilingSysCycleTimeSupported);
+    SET_PTR(hcclDfxRegOpInfoPtr, libHcommHandle, "HcclDfxRegOpInfo", g_hcclDfxRegOpInfoSupported);
+    SET_PTR(hcclProfilingReportOpPtr, libHcommHandle, "HcclProfilingReportOp", g_hcclProfilingReportOpSupported);
+    SET_PTR(hcclReportAicpuKernelPtr, libHcommHandle, "HcclReportAicpuKernel", g_hcclReportAicpuKernelSupported);
 
     #undef SET_PTR
 }
 
 void HcommProfilingDlFini(void) {
-    hcommProfilingRegThreadPtr = StubHcommProfilingRegThread;
-    g_hcommProfilingRegThreadSupported = false;
-    hcommProfilingUnRegThreadPtr = StubHcommProfilingUnRegThread;
-    g_hcommProfilingUnRegThreadSupported = false;
-    hcommProfilingReportKernelPtr = StubHcommProfilingReportKernel;
-    g_hcommProfilingReportKernelSupported = false;
-    hcommProfilingReportOpPtr = StubHcommProfilingReportOp;
-    g_hcommProfilingReportOpSupported = false;
-    hcommGetProfilingSysCycleTimePtr = StubHcommGetProfilingSysCycleTime;
-    g_hcommGetProfilingSysCycleTimeSupported = false;
-    hcclDfxRegOpInfoPtr = StubHcclDfxRegOpInfo;
-    g_hcclDfxRegOpInfoSupported = false;
-    hcclProfilingReportOpPtr = StubHcclProfilingReportOp;
-    g_hcclProfilingReportOpSupported = false;
-    hcclReportAicpuKernelPtr = StubHcclReportAicpuKernel;
-    g_hcclReportAicpuKernelSupported = false;
+    // hcommProfilingRegThreadPtr = StubHcommProfilingRegThread;
+    // g_hcommProfilingRegThreadSupported = false;
+    // hcommProfilingUnRegThreadPtr = StubHcommProfilingUnRegThread;
+    // g_hcommProfilingUnRegThreadSupported = false;
+    // hcommProfilingReportKernelPtr = StubHcommProfilingReportKernel;
+    // g_hcommProfilingReportKernelSupported = false;
+    // hcommProfilingReportOpPtr = StubHcommProfilingReportOp;
+    // g_hcommProfilingReportOpSupported = false;
+    // hcommGetProfilingSysCycleTimePtr = StubHcommGetProfilingSysCycleTime;
+    // g_hcommGetProfilingSysCycleTimeSupported = false;
+    // hcclDfxRegOpInfoPtr = StubHcclDfxRegOpInfo;
+    // g_hcclDfxRegOpInfoSupported = false;
+    // hcclProfilingReportOpPtr = StubHcclProfilingReportOp;
+    // g_hcclProfilingReportOpSupported = false;
+    // hcclReportAicpuKernelPtr = StubHcclReportAicpuKernel;
+    // g_hcclReportAicpuKernelSupported = false;
 }
 
 // ---------- 对外提供的查询接口 ----------

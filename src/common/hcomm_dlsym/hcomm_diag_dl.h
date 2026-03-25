@@ -17,13 +17,8 @@
 extern "C" {
 #endif
 
-// 声明全局函数指针（小驼峰命名）
-extern HcclResult (*hcommRegOpInfoPtr)(const char*, void*, size_t);
-extern HcclResult (*hcommRegOpTaskExceptionPtr)(const char*, HcommGetOpInfoCallback);
-
-// 宏：将原始API名映射为函数指针调用
-#define HcommRegOpInfo                (*hcommRegOpInfoPtr)
-#define HcommRegOpTaskException        (*hcommRegOpTaskExceptionPtr)
+HcclResult __attribute__((weak)) HcommRegOpInfo(const char* commId, void* opInfo, size_t size);
+HcclResult __attribute__((weak)) HcommRegOpTaskException(const char* commId, HcommGetOpInfoCallback callback);
 
 // 查询函数声明
 bool HcommIsSupportHcommRegOpInfo(void);

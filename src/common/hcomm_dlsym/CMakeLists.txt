@@ -12,12 +12,8 @@ target_sources(hccl PRIVATE
     hccl_res_dl.cc
     hcomm_primitives_dl.cc
     hcomm_dlsym.cc
-    hccl_comm_dl.cc
     hccl_inner_dl.cc
     dtype_common_dl.cc
     hcomm_host_profiling_dl.cc
-    hccl_one_sided_services_dl.cc
-    hccl_ex_dl.cc
     hcom_dl.cc
-    hccl_mc2_ex_dl.cc
 )

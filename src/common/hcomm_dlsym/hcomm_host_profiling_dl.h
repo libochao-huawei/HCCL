@@ -38,26 +38,14 @@ typedef struct HcomProInfoTmp {
     uint8_t reserved[MAX_LENGTH];
 }HcomProInfoTmp;
 
-// 声明全局函数指针（小驼峰命名）
-extern HcclResult (*hcommProfilingRegThreadPtr)(HcomProInfoTmp, ThreadHandle*);
-extern HcclResult (*hcommProfilingUnRegThreadPtr)(HcomProInfoTmp, ThreadHandle*);
-extern HcclResult (*hcommProfilingReportKernelPtr)(uint64_t, const char*);
-extern HcclResult (*hcommProfilingReportOpPtr)(HcomProInfoTmp);
-extern uint64_t (*hcommGetProfilingSysCycleTimePtr)();
-extern HcclResult (*hcclDfxRegOpInfoPtr)(HcclComm comm, void* dfxOpInfo);
-extern HcclResult (*hcclProfilingReportOpPtr)(HcclComm comm, uint64_t beginTime);
-extern HcclResult (*hcclReportAicpuKernelPtr)(HcclComm comm, uint64_t beginTime, char *kernelName);
-
-
-// 宏：将原始API名映射为函数指针调用
-#define HcommProfilingRegThread                (*hcommProfilingRegThreadPtr)
-#define HcommProfilingUnRegThread               (*hcommProfilingUnRegThreadPtr)
-#define HcommProfilingReportKernel               (*hcommProfilingReportKernelPtr)
-#define HcommProfilingReportOp                    (*hcommProfilingReportOpPtr)
-#define HcommGetProfilingSysCycleTime              (*hcommGetProfilingSysCycleTimePtr)
-#define HcclDfxRegOpInfo                         (*hcclDfxRegOpInfoPtr)
-#define HcclProfilingReportOp                         (*hcclProfilingReportOpPtr)
-#define HcclReportAicpuKernel                         (*hcclReportAicpuKernelPtr)
+HcclResult __attribute__((weak)) HcommProfilingRegThread(HcomProInfoTmp profInfo, ThreadHandle* threads);
+HcclResult __attribute__((weak)) HcommProfilingUnRegThread(HcomProInfoTmp profInfo, ThreadHandle* threads);
+HcclResult __attribute__((weak)) HcommProfilingReportKernel(uint64_t beginTime, const char* profName);
+HcclResult __attribute__((weak)) HcommProfilingReportOp(HcomProInfoTmp profInfo);
+uint64_t __attribute__((weak)) HcommGetProfilingSysCycleTime();
+HcclResult __attribute__((weak)) HcclDfxRegOpInfo(HcclComm comm, void* dfxOpInfo);
+HcclResult __attribute__((weak)) HcclProfilingReportOp(HcclComm comm, uint64_t beginTime);
+HcclResult __attribute__((weak)) HcclReportAicpuKernel(HcclComm comm, uint64_t beginTime, char *kernelName);
 
 // 查询函数声明
 bool HcommIsSupportHcommProfilingRegThread(void);

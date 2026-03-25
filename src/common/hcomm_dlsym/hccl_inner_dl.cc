@@ -49,94 +49,94 @@ static bool g_hcclBatchSendRecvInnerSupported = false;
 static bool g_hcclCreateOpResCtxInnerSupported = false;
 
 // ---------- 桩函数定义（签名与真实API完全一致）----------
-static HcclResult StubHcclAllReduceInner(void* sendBuf, void* recvBuf, uint64_t count, HcclDataType dataType,
+HcclResult __attribute__((weak)) HcclAllReduceInner(void* sendBuf, void* recvBuf, uint64_t count, HcclDataType dataType,
                                          HcclReduceOp op, HcclComm comm, aclrtStream stream) {
     (void)sendBuf; (void)recvBuf; (void)count; (void)dataType; (void)op; (void)comm; (void)stream;
     HCCL_ERROR("[HcclWrapper] HcclAllReduceInner not supported");
     return HCCL_E_NOT_SUPPORT;
 }
-static HcclResult StubHcclBroadcastInner(void* buf, uint64_t count, HcclDataType dataType, uint32_t root,
+HcclResult __attribute__((weak)) HcclBroadcastInner(void* buf, uint64_t count, HcclDataType dataType, uint32_t root,
                                          HcclComm comm, aclrtStream stream) {
     (void)buf; (void)count; (void)dataType; (void)root; (void)comm; (void)stream;
     HCCL_ERROR("[HcclWrapper] HcclBroadcastInner not supported");
     return HCCL_E_NOT_SUPPORT;
 }
-static HcclResult StubHcclReduceScatterInner(void* sendBuf, void* recvBuf, uint64_t recvCount, HcclDataType dataType,
+HcclResult __attribute__((weak)) HcclReduceScatterInner(void* sendBuf, void* recvBuf, uint64_t recvCount, HcclDataType dataType,
                                              HcclReduceOp op, HcclComm comm, aclrtStream stream) {
     (void)sendBuf; (void)recvBuf; (void)recvCount; (void)dataType; (void)op; (void)comm; (void)stream;
     HCCL_ERROR("[HcclWrapper] HcclReduceScatterInner not supported");
     return HCCL_E_NOT_SUPPORT;
 }
-static HcclResult StubHcclReduceScatterVInner(void* sendBuf, const void* sendCounts, const void* sendDispls,
+HcclResult __attribute__((weak)) HcclReduceScatterVInner(void* sendBuf, const void* sendCounts, const void* sendDispls,
                                               void* recvBuf, uint64_t recvCount, HcclDataType dataType,
                                               HcclReduceOp op, HcclComm comm, aclrtStream stream) {
     (void)sendBuf; (void)sendCounts; (void)sendDispls; (void)recvBuf; (void)recvCount; (void)dataType; (void)op; (void)comm; (void)stream;
     HCCL_ERROR("[HcclWrapper] HcclReduceScatterVInner not supported");
     return HCCL_E_NOT_SUPPORT;
 }
-static HcclResult StubHcclScatterInner(void* sendBuf, void* recvBuf, uint64_t recvCount, HcclDataType dataType,
+HcclResult __attribute__((weak)) HcclScatterInner(void* sendBuf, void* recvBuf, uint64_t recvCount, HcclDataType dataType,
                                        uint32_t root, HcclComm comm, aclrtStream stream) {
     (void)sendBuf; (void)recvBuf; (void)recvCount; (void)dataType; (void)root; (void)comm; (void)stream;
     HCCL_ERROR("[HcclWrapper] HcclScatterInner not supported");
     return HCCL_E_NOT_SUPPORT;
 }
-static HcclResult StubHcclAllGatherInner(void* sendBuf, void* recvBuf, uint64_t sendCount, HcclDataType dataType,
+HcclResult __attribute__((weak)) HcclAllGatherInner(void* sendBuf, void* recvBuf, uint64_t sendCount, HcclDataType dataType,
                                          HcclComm comm, aclrtStream stream) {
     (void)sendBuf; (void)recvBuf; (void)sendCount; (void)dataType; (void)comm; (void)stream;
     HCCL_ERROR("[HcclWrapper] HcclAllGatherInner not supported");
     return HCCL_E_NOT_SUPPORT;
 }
-static HcclResult StubHcclAllGatherVInner(void* sendBuf, uint64_t sendCount, void* recvBuf,
+HcclResult __attribute__((weak)) HcclAllGatherVInner(void* sendBuf, uint64_t sendCount, void* recvBuf,
                                           const void* recvCounts, const void* recvDispls,
                                           HcclDataType dataType, HcclComm comm, aclrtStream stream) {
     (void)sendBuf; (void)sendCount; (void)recvBuf; (void)recvCounts; (void)recvDispls; (void)dataType; (void)comm; (void)stream;
     HCCL_ERROR("[HcclWrapper] HcclAllGatherVInner not supported");
     return HCCL_E_NOT_SUPPORT;
 }
-static HcclResult StubHcclSendInner(void* sendBuf, uint64_t count, HcclDataType dataType, uint32_t destRank,
+HcclResult __attribute__((weak)) HcclSendInner(void* sendBuf, uint64_t count, HcclDataType dataType, uint32_t destRank,
                                     HcclComm comm, aclrtStream stream) {
     (void)sendBuf; (void)count; (void)dataType; (void)destRank; (void)comm; (void)stream;
     HCCL_ERROR("[HcclWrapper] HcclSendInner not supported");
     return HCCL_E_NOT_SUPPORT;
 }
-static HcclResult StubHcclRecvInner(void* recvBuf, uint64_t count, HcclDataType dataType, uint32_t srcRank,
+HcclResult __attribute__((weak)) HcclRecvInner(void* recvBuf, uint64_t count, HcclDataType dataType, uint32_t srcRank,
                                     HcclComm comm, aclrtStream stream) {
     (void)recvBuf; (void)count; (void)dataType; (void)srcRank; (void)comm; (void)stream;
     HCCL_ERROR("[HcclWrapper] HcclRecvInner not supported");
     return HCCL_E_NOT_SUPPORT;
 }
-static HcclResult StubHcclAlltoAllVCInner(const void* sendBuf, const void* sendCountMatrix, HcclDataType sendType,
+HcclResult __attribute__((weak)) HcclAlltoAllVCInner(const void* sendBuf, const void* sendCountMatrix, HcclDataType sendType,
                                           const void* recvBuf, HcclDataType recvType, HcclComm comm, aclrtStream stream) {
     (void)sendBuf; (void)sendCountMatrix; (void)sendType; (void)recvBuf; (void)recvType; (void)comm; (void)stream;
     HCCL_ERROR("[HcclWrapper] HcclAlltoAllVCInner not supported");
     return HCCL_E_NOT_SUPPORT;
 }
-static HcclResult StubHcclAlltoAllVInner(const void* sendBuf, const void* sendCounts, const void* sdispls, HcclDataType sendType,
+HcclResult __attribute__((weak)) HcclAlltoAllVInner(const void* sendBuf, const void* sendCounts, const void* sdispls, HcclDataType sendType,
                                          const void* recvBuf, const void* recvCounts, const void* rdispls, HcclDataType recvType,
                                          HcclComm comm, aclrtStream stream) {
     (void)sendBuf; (void)sendCounts; (void)sdispls; (void)sendType; (void)recvBuf; (void)recvCounts; (void)rdispls; (void)recvType; (void)comm; (void)stream;
     HCCL_ERROR("[HcclWrapper] HcclAlltoAllVInner not supported");
     return HCCL_E_NOT_SUPPORT;
 }
-static HcclResult StubHcclAlltoAllInner(const void* sendBuf, uint64_t sendCount, HcclDataType sendType,
+HcclResult __attribute__((weak)) HcclAlltoAllInner(const void* sendBuf, uint64_t sendCount, HcclDataType sendType,
                                         const void* recvBuf, uint64_t recvCount, HcclDataType recvType,
                                         HcclComm comm, aclrtStream stream) {
     (void)sendBuf; (void)sendCount; (void)sendType; (void)recvBuf; (void)recvCount; (void)recvType; (void)comm; (void)stream;
     HCCL_ERROR("[HcclWrapper] HcclAlltoAllInner not supported");
     return HCCL_E_NOT_SUPPORT;
 }
-static HcclResult StubHcclReduceInner(void* sendBuf, void* recvBuf, uint64_t count, HcclDataType dataType,
+HcclResult __attribute__((weak)) HcclReduceInner(void* sendBuf, void* recvBuf, uint64_t count, HcclDataType dataType,
                                       HcclReduceOp op, uint32_t root, HcclComm comm, aclrtStream stream) {
     (void)sendBuf; (void)recvBuf; (void)count; (void)dataType; (void)op; (void)root; (void)comm; (void)stream;
     HCCL_ERROR("[HcclWrapper] HcclReduceInner not supported");
     return HCCL_E_NOT_SUPPORT;
 }
-static HcclResult StubHcclBatchSendRecvInner(HcclSendRecvItem* sendRecvInfo, uint32_t itemNum, HcclComm comm, aclrtStream stream) {
+HcclResult __attribute__((weak)) HcclBatchSendRecvInner(HcclSendRecvItem* sendRecvInfo, uint32_t itemNum, HcclComm comm, aclrtStream stream) {
     (void)sendRecvInfo; (void)itemNum; (void)comm; (void)stream;
     HCCL_ERROR("[HcclWrapper] HcclBatchSendRecvInner not supported");
     return HCCL_E_NOT_SUPPORT;
 }
-static HcclResult StubHcclCreateOpResCtxInner(HcclComm comm, uint8_t opType, HcclDataType srcDataType, HcclDataType dstDataType,
+HcclResult __attribute__((weak)) HcclCreateOpResCtxInner(HcclComm comm, uint8_t opType, HcclDataType srcDataType, HcclDataType dstDataType,
                                               HcclReduceOp reduceType, uint64_t count, char* algConfig, uint32_t commEngine, void** opResCtx) {
     (void)comm; (void)opType; (void)srcDataType; (void)dstDataType; (void)reduceType; (void)count; (void)algConfig; (void)commEngine; (void)opResCtx;
     HCCL_ERROR("[HcclWrapper] HcclCreateOpResCtxInner not supported");
@@ -146,11 +146,10 @@ static HcclResult StubHcclCreateOpResCtxInner(HcclComm comm, uint8_t opType, Hcc
 // 初始化
 void HcclInnerDlInit(void* libHcommHandle) {
     // 辅助宏：解析符号，失败则指向对应桩函数，同时设置支持标志
-    #define SET_PTR(ptr, handle, name, stub, support_flag) \
+    #define SET_PTR(ptr, handle, name, support_flag) \
         do { \
             ptr = (decltype(ptr))dlsym(handle, name); \
             if (ptr == nullptr) { \
-                ptr = stub; \
                 support_flag = false; \
                 HCCL_DEBUG("[HcclWrapper] %s not supported", name); \
             } else { \
@@ -158,56 +157,41 @@ void HcclInnerDlInit(void* libHcommHandle) {
             } \
         } while(0)
 
-    SET_PTR(hcclAllReduceInnerPtr, libHcommHandle, "HcclAllReduceInner", StubHcclAllReduceInner, g_hcclAllReduceInnerSupported);
-    SET_PTR(hcclBroadcastInnerPtr, libHcommHandle, "HcclBroadcastInner", StubHcclBroadcastInner, g_hcclBroadcastInnerSupported);
-    SET_PTR(hcclReduceScatterInnerPtr, libHcommHandle, "HcclReduceScatterInner", StubHcclReduceScatterInner, g_hcclReduceScatterInnerSupported);
-    SET_PTR(hcclReduceScatterVInnerPtr, libHcommHandle, "HcclReduceScatterVInner", StubHcclReduceScatterVInner, g_hcclReduceScatterVInnerSupported);
-    SET_PTR(hcclScatterInnerPtr, libHcommHandle, "HcclScatterInner", StubHcclScatterInner, g_hcclScatterInnerSupported);
-    SET_PTR(hcclAllGatherInnerPtr, libHcommHandle, "HcclAllGatherInner", StubHcclAllGatherInner, g_hcclAllGatherInnerSupported);
-    SET_PTR(hcclAllGatherVInnerPtr, libHcommHandle, "HcclAllGatherVInner", StubHcclAllGatherVInner, g_hcclAllGatherVInnerSupported);
-    SET_PTR(hcclSendInnerPtr, libHcommHandle, "HcclSendInner", StubHcclSendInner, g_hcclSendInnerSupported);
-    SET_PTR(hcclRecvInnerPtr, libHcommHandle, "HcclRecvInner", StubHcclRecvInner, g_hcclRecvInnerSupported);
-    SET_PTR(hcclAlltoAllVCInnerPtr, libHcommHandle, "HcclAlltoAllVCInner", StubHcclAlltoAllVCInner, g_hcclAlltoAllVCInnerSupported);
-    SET_PTR(hcclAlltoAllVInnerPtr, libHcommHandle, "HcclAlltoAllVInner", StubHcclAlltoAllVInner, g_hcclAlltoAllVInnerSupported);
-    SET_PTR(hcclAlltoAllInnerPtr, libHcommHandle, "HcclAlltoAllInner", StubHcclAlltoAllInner, g_hcclAlltoAllInnerSupported);
-    SET_PTR(hcclReduceInnerPtr, libHcommHandle, "HcclReduceInner", StubHcclReduceInner, g_hcclReduceInnerSupported);
-    SET_PTR(hcclBatchSendRecvInnerPtr, libHcommHandle, "HcclBatchSendRecvInner", StubHcclBatchSendRecvInner, g_hcclBatchSendRecvInnerSupported);
-    SET_PTR(hcclCreateOpResCtxInnerPtr, libHcommHandle, "HcclCreateOpResCtxInner", StubHcclCreateOpResCtxInner, g_hcclCreateOpResCtxInnerSupported);
+    SET_PTR(hcclAllReduceInnerPtr, libHcommHandle, "HcclAllReduceInner", g_hcclAllReduceInnerSupported);
+    SET_PTR(hcclBroadcastInnerPtr, libHcommHandle, "HcclBroadcastInner", g_hcclBroadcastInnerSupported);
+    SET_PTR(hcclReduceScatterInnerPtr, libHcommHandle, "HcclReduceScatterInner", g_hcclReduceScatterInnerSupported);
+    SET_PTR(hcclReduceScatterVInnerPtr, libHcommHandle, "HcclReduceScatterVInner", g_hcclReduceScatterVInnerSupported);
+    SET_PTR(hcclScatterInnerPtr, libHcommHandle, "HcclScatterInner", g_hcclScatterInnerSupported);
+    SET_PTR(hcclAllGatherInnerPtr, libHcommHandle, "HcclAllGatherInner", g_hcclAllGatherInnerSupported);
+    SET_PTR(hcclAllGatherVInnerPtr, libHcommHandle, "HcclAllGatherVInner", g_hcclAllGatherVInnerSupported);
+    SET_PTR(hcclSendInnerPtr, libHcommHandle, "HcclSendInner", g_hcclSendInnerSupported);
+    SET_PTR(hcclRecvInnerPtr, libHcommHandle, "HcclRecvInner", g_hcclRecvInnerSupported);
+    SET_PTR(hcclAlltoAllVCInnerPtr, libHcommHandle, "HcclAlltoAllVCInner", g_hcclAlltoAllVCInnerSupported);
+    SET_PTR(hcclAlltoAllVInnerPtr, libHcommHandle, "HcclAlltoAllVInner", g_hcclAlltoAllVInnerSupported);
+    SET_PTR(hcclAlltoAllInnerPtr, libHcommHandle, "HcclAlltoAllInner", g_hcclAlltoAllInnerSupported);
+    SET_PTR(hcclReduceInnerPtr, libHcommHandle, "HcclReduceInner", g_hcclReduceInnerSupported);
+    SET_PTR(hcclBatchSendRecvInnerPtr, libHcommHandle, "HcclBatchSendRecvInner", g_hcclBatchSendRecvInnerSupported);
+    SET_PTR(hcclCreateOpResCtxInnerPtr, libHcommHandle, "HcclCreateOpResCtxInner", g_hcclCreateOpResCtxInnerSupported);
 
     #undef SET_PTR
 }
 
 void HcclInnerDlFini(void) {
     // 重置为桩函数，防止fini后误用
-    hcclAllReduceInnerPtr = StubHcclAllReduceInner;
     g_hcclAllReduceInnerSupported = false;
-    hcclBroadcastInnerPtr = StubHcclBroadcastInner;
     g_hcclBroadcastInnerSupported = false;
-    hcclReduceScatterInnerPtr = StubHcclReduceScatterInner;
     g_hcclReduceScatterInnerSupported = false;
-    hcclReduceScatterVInnerPtr = StubHcclReduceScatterVInner;
     g_hcclReduceScatterVInnerSupported = false;
-    hcclScatterInnerPtr = StubHcclScatterInner;
     g_hcclScatterInnerSupported = false;
-    hcclAllGatherInnerPtr = StubHcclAllGatherInner;
     g_hcclAllGatherInnerSupported = false;
-    hcclAllGatherVInnerPtr = StubHcclAllGatherVInner;
     g_hcclAllGatherVInnerSupported = false;
-    hcclSendInnerPtr = StubHcclSendInner;
     g_hcclSendInnerSupported = false;
-    hcclRecvInnerPtr = StubHcclRecvInner;
     g_hcclRecvInnerSupported = false;
-    hcclAlltoAllVCInnerPtr = StubHcclAlltoAllVCInner;
     g_hcclAlltoAllVCInnerSupported = false;
-    hcclAlltoAllVInnerPtr = StubHcclAlltoAllVInner;
     g_hcclAlltoAllVInnerSupported = false;
-    hcclAlltoAllInnerPtr = StubHcclAlltoAllInner;
     g_hcclAlltoAllInnerSupported = false;
-    hcclReduceInnerPtr = StubHcclReduceInner;
     g_hcclReduceInnerSupported = false;
-    hcclBatchSendRecvInnerPtr = StubHcclBatchSendRecvInner;
     g_hcclBatchSendRecvInnerSupported = false;
-    hcclCreateOpResCtxInnerPtr = StubHcclCreateOpResCtxInner;
     g_hcclCreateOpResCtxInnerSupported = false;
 }
 

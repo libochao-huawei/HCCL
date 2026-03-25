@@ -18,33 +18,33 @@ extern "C" {
 #endif
 
 // ---------- 对外API实现（通过函数指针转发）----------
-HcclResult HcclGetHcclBuffer(HcclComm comm, void **buffer, uint64_t *size);
-HcclResult HcclGetRemoteIpcHcclBuf(HcclComm comm, uint64_t remoteRank, void **addr, uint64_t *size);
-HcclResult HcclThreadAcquire(HcclComm comm, CommEngine engine, uint32_t threadNum,
+HcclResult __attribute__((weak)) HcclGetHcclBuffer(HcclComm comm, void **buffer, uint64_t *size);
+HcclResult __attribute__((weak)) HcclGetRemoteIpcHcclBuf(HcclComm comm, uint64_t remoteRank, void **addr, uint64_t *size);
+HcclResult __attribute__((weak)) HcclThreadAcquire(HcclComm comm, CommEngine engine, uint32_t threadNum,
                               uint32_t notifyNumPerThread, ThreadHandle *threads);
-HcclResult HcclThreadAcquireWithStream(HcclComm comm, CommEngine engine, aclrtStream stream,
+HcclResult __attribute__((weak)) HcclThreadAcquireWithStream(HcclComm comm, CommEngine engine, aclrtStream stream,
                                        uint32_t notifyNum, ThreadHandle *thread);
-HcclResult HcclChannelAcquire(HcclComm comm, CommEngine engine, const HcclChannelDesc *channelDescs,
+HcclResult __attribute__((weak)) HcclChannelAcquire(HcclComm comm, CommEngine engine, const HcclChannelDesc *channelDescs,
                               uint32_t channelNum, ChannelHandle *channels);
-HcclResult HcclChannelGetHcclBuffer(HcclComm comm, ChannelHandle channel, void **buffer, uint64_t *size);
-HcclResult HcclEngineCtxCreate(HcclComm comm, const char *ctxTag, CommEngine engine,
+HcclResult __attribute__((weak)) HcclChannelGetHcclBuffer(HcclComm comm, ChannelHandle channel, void **buffer, uint64_t *size);
+HcclResult __attribute__((weak)) HcclEngineCtxCreate(HcclComm comm, const char *ctxTag, CommEngine engine,
                                uint64_t size, void **ctx);
-HcclResult HcclEngineCtxGet(HcclComm comm, const char *ctxTag, CommEngine engine,
+HcclResult __attribute__((weak)) HcclEngineCtxGet(HcclComm comm, const char *ctxTag, CommEngine engine,
                             void **ctx, uint64_t *size);
-HcclResult HcclEngineCtxCopy(HcclComm comm, CommEngine engine, const char *ctxTag,
+HcclResult __attribute__((weak)) HcclEngineCtxCopy(HcclComm comm, CommEngine engine, const char *ctxTag,
                              const void *srcCtx, uint64_t size, uint64_t dstCtxOffset);
-int32_t HcclTaskRegister(HcclComm comm, const char *msgTag, Callback cb);
-int32_t HcclTaskUnRegister(HcclComm comm, const char *msgTag);
-HcclResult HcclDevMemAcquire(HcclComm comm, const char *memTag, uint64_t *size,
+int32_t __attribute__((weak)) HcclTaskRegister(HcclComm comm, const char *msgTag, Callback cb);
+int32_t __attribute__((weak)) HcclTaskUnRegister(HcclComm comm, const char *msgTag);
+HcclResult __attribute__((weak)) HcclDevMemAcquire(HcclComm comm, const char *memTag, uint64_t *size,
                              void **addr, bool *newCreated);
-HcclResult HcclThreadExportToCommEngine(HcclComm comm, uint32_t threadNum,
+HcclResult __attribute__((weak)) HcclThreadExportToCommEngine(HcclComm comm, uint32_t threadNum,
                                         const ThreadHandle *threads, CommEngine dstCommEngine,
                                         ThreadHandle *exportedThreads);
-HcclResult HcclChannelGetRemoteMems(HcclComm comm, ChannelHandle channel,
+HcclResult __attribute__((weak)) HcclChannelGetRemoteMems(HcclComm comm, ChannelHandle channel,
                                    uint32_t *memNum, CommMem **remoteMems, char ***memTags);
-HcclResult HcclCommMemReg(HcclComm comm, const char *memTag, const CommMem *mem,
+HcclResult __attribute__((weak)) HcclCommMemReg(HcclComm comm, const char *memTag, const CommMem *mem,
                           HcclMemHandle *memHandle);
-HcclResult HcclEngineCtxDestroy(HcclComm comm, const char *ctxTag, CommEngine engine);
+HcclResult __attribute__((weak)) HcclEngineCtxDestroy(HcclComm comm, const char *ctxTag, CommEngine engine);
 
 // 动态库管理接口（大驼峰命名）
 void HcclResDlInit(void* libHcommHandle);

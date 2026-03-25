@@ -208,7 +208,7 @@ static HcclResult StubHcomInitByRankTable(const char* rankTable, uint32_t rankId
 static HcclResult StubHcomDestroy() {
     HCCL_ERROR("[HcclWrapper] HcomDestroy not supported"); return HCCL_E_NOT_SUPPORT;
 }
-static HcclResult StubHcomGetCommHandleByGroup(const char* group, HcclComm* commHandle) {
+HcclResult __attribute__((weak)) HcomGetCommHandleByGroup(const char* group, HcclComm* commHandle) {
     (void)group; (void)commHandle; HCCL_ERROR("[HcclWrapper] HcomGetCommHandleByGroup not supported"); return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubGetGroupNameByOpBaseHcom(s64 opBaseHcom, char** groupname) {
@@ -437,7 +437,7 @@ void HcomDlInit(void* libHcommHandle) {
     SET_PTR(hcomSetGradFusionBySizePtr, libHcommHandle, "HcomSetGradFusionBySize", StubHcomSetGradFusionBySize, g_HcomSetGradFusionBySizeSupported);
     SET_PTR(hcomInitByRankTablePtr, libHcommHandle, "HcomInitByRankTable", StubHcomInitByRankTable, g_HcomInitByRankTableSupported);
     SET_PTR(hcomDestroyPtr, libHcommHandle, "HcomDestroy", StubHcomDestroy, g_HcomDestroySupported);
-    SET_PTR(hcomGetCommHandleByGroupPtr, libHcommHandle, "HcomGetCommHandleByGroup", StubHcomGetCommHandleByGroup, g_HcomGetCommHandleByGroupSupported);
+    // SET_PTR(hcomGetCommHandleByGroupPtr, libHcommHandle, "HcomGetCommHandleByGroup", StubHcomGetCommHandleByGroup, g_HcomGetCommHandleByGroupSupported);
     SET_PTR(getGroupNameByOpBaseHcomPtr, libHcommHandle, "GetGroupNameByOpBaseHcom", StubGetGroupNameByOpBaseHcom, g_GetGroupNameByOpBaseHcomSupported);
     SET_PTR(hcomCreateComResourceByCommPtr, libHcommHandle, "HcomCreateComResourceByComm", StubHcomCreateComResourceByComm, g_HcomCreateComResourceByCommSupported);
     SET_PTR(hcomTopoInfoRegCallbackPtr, libHcommHandle, "HcomTopoInfoRegCallback", StubHcomTopoInfoRegCallback, g_HcomTopoInfoRegCallbackSupported);
@@ -520,7 +520,7 @@ void HcomDlFini(void) {
     RESET_PTR(hcomSetGradFusionBySizePtr, StubHcomSetGradFusionBySize, g_HcomSetGradFusionBySizeSupported);
     RESET_PTR(hcomInitByRankTablePtr, StubHcomInitByRankTable, g_HcomInitByRankTableSupported);
     RESET_PTR(hcomDestroyPtr, StubHcomDestroy, g_HcomDestroySupported);
-    RESET_PTR(hcomGetCommHandleByGroupPtr, StubHcomGetCommHandleByGroup, g_HcomGetCommHandleByGroupSupported);
+    // RESET_PTR(hcomGetCommHandleByGroupPtr, StubHcomGetCommHandleByGroup, g_HcomGetCommHandleByGroupSupported);
     RESET_PTR(getGroupNameByOpBaseHcomPtr, StubGetGroupNameByOpBaseHcom, g_GetGroupNameByOpBaseHcomSupported);
     RESET_PTR(hcomCreateComResourceByCommPtr, StubHcomCreateComResourceByComm, g_HcomCreateComResourceByCommSupported);
     RESET_PTR(hcomTopoInfoRegCallbackPtr, StubHcomTopoInfoRegCallback, g_HcomTopoInfoRegCallbackSupported);
@@ -591,234 +591,234 @@ void HcomDlFini(void) {
 extern "C" {
 #endif
 // ---------- 对外API实现（通过函数指针转发）----------
-HcclResult HcomGetRankSize(const char* group, u32* rankSize) {
-    return hcomGetRankSizePtr(group, rankSize);
-}
-HcclResult HcomGetLocalRankSize(const char* group, u32* localRankSize) {
-    return hcomGetLocalRankSizePtr(group, localRankSize);
-}
-HcclResult HcomGetRankId(const char* group, u32* rankId) {
-    return hcomGetRankIdPtr(group, rankId);
-}
-HcclResult HcomGetLocalRankId(const char* group, u32* localRankId) {
-    return hcomGetLocalRankIdPtr(group, localRankId);
-}
-HcclResult HcomGetWorldRankFromGroupRank(const char* group, u32 groupRank, u32* worldRank) {
-    return hcomGetWorldRankFromGroupRankPtr(group, groupRank, worldRank);
-}
-HcclResult HcomGetGroupRankFromWorldRank(u32 worldRank, const char* group, u32* groupRank) {
-    return hcomGetGroupRankFromWorldRankPtr(worldRank, group, groupRank);
-}
-HcclResult HcomCreateGroup(const char* group, u32 rankNum, u32* rankIds) {
-    return hcomCreateGroupPtr(group, rankNum, rankIds);
-}
-HcclResult HcomDestroyGroup(const char* group) {
-    return hcomDestroyGroupPtr(group);
-}
-HcclResult HcomSetGradFusionByIndex(const char* group, u32 segmentNum, const u32* inputIdxList) {
-    return hcomSetGradFusionByIndexPtr(group, segmentNum, inputIdxList);
-}
-HcclResult HcomSetGradFusionBySize(const char* group, u32 segmentNum, const float* sizeList) {
-    return hcomSetGradFusionBySizePtr(group, segmentNum, sizeList);
-}
-HcclResult HcomInitByRankTable(const char* rankTable, uint32_t rankId) {
-    return hcomInitByRankTablePtr(rankTable, rankId);
-}
-HcclResult HcomDestroy() {
-    return hcomDestroyPtr();
-}
-HcclResult HcomGetCommHandleByGroup(const char* group, HcclComm* commHandle) {
-    return hcomGetCommHandleByGroupPtr(group, commHandle);
-}
-HcclResult GetGroupNameByOpBaseHcom(s64 opBaseHcom, char** groupname) {
-    return getGroupNameByOpBaseHcomPtr(opBaseHcom, groupname);
-}
-HcclResult HcomCreateComResourceByComm(HcclComm comm, u32 streamMode, bool isOpbaseMode, void** commContext, bool isMC2) {
-    return hcomCreateComResourceByCommPtr(comm, streamMode, isOpbaseMode, commContext, isMC2);
-}
-void HcomTopoInfoRegCallback(HcclResult (*p1)(const char *, uint32_t), void (*p2)(const char *)) {
-    hcomTopoInfoRegCallbackPtr(p1, p2);
-}
-HcclResult HcomGetandClearOverFlowTasks(const char* group, hccl::HcclDumpInfo** hcclDumpInfoPtr, s32* len) {
-    return hcomGetandClearOverFlowTasksPtr(group, hcclDumpInfoPtr, len);
-}
-HcclWorkflowMode HcomGetWorkflowMode() {
-    return hcomGetWorkflowModePtr();
-}
-HcclResult HcomSetWorkflowMode(HcclWorkflowMode mode) {
-    return hcomSetWorkflowModePtr(mode);
-}
-HcclResult HcomCalcOpOnline(HcomOpParam* hcomOpParam, HcomResResponse* hcomResResponse) {
-    return hcomCalcOpOnlinePtr(hcomOpParam, hcomResResponse);
-}
-HcclResult HcomCalcOpResOffline(HcomOpParam* hcomOpParam, HcomResResponse* hcomResResponse) {
-    return hcomCalcOpResOfflinePtr(hcomOpParam, hcomResResponse);
-}
-HcclResult HcomGetMemType(const char* group, const char* socVersion, bool isMalloc, u32* memType, bool* isTsMem, bool withoutImplCompile, bool level2Address) {
-    return hcomGetMemTypePtr(group, socVersion, isMalloc, memType, isTsMem, withoutImplCompile, level2Address);
-}
-HcclResult HcomGetBandWidthPerNPU(u32 level, float* bandWidth) {
-    return hcomGetBandWidthPerNPUPtr(level, bandWidth);
-}
-HcclResult HcomGetServerNumAndDeviceNumPerServer(u32* serverNum, u32* deviceNumPerServer, u32* deviceNumPerAggregation) {
-    return hcomGetServerNumAndDeviceNumPerServerPtr(serverNum, deviceNumPerServer, deviceNumPerAggregation);
-}
-bool HcomGetSecAddrCopyFlag(const char* socVersion) {
-    return hcomGetSecAddrCopyFlagPtr(socVersion);
-}
-HcclResult HcomInitByString(const char* rankTableM, const char* identify, WorkMode commWorkMode, HcomInitConfig* initConfig) {
-    return hcomInitByStringPtr(rankTableM, identify, commWorkMode, initConfig);
-}
-HcclResult HcomInitByMasterInfo(const char* masterIp, const char* masterPort, const char* masterDeviceId, const char* rankSize, const char* rankIp, HcomInitConfig* initConfig) {
-    return hcomInitByMasterInfoPtr(masterIp, masterPort, masterDeviceId, rankSize, rankIp, initConfig);
-}
-HcclResult HcomCreateCommCCLbuffer(const char* group) {
-    return hcomCreateCommCCLbufferPtr(group);
-}
-HcclResult HcomGetInCCLbuffer(const char* group, void** buffer, u64* size) {
-    return hcomGetInCCLbufferPtr(group, buffer, size);
-}
-HcclResult HcomGetOutCCLbuffer(const char* group, void** buffer, u64* size) {
-    return hcomGetOutCCLbufferPtr(group, buffer, size);
-}
-void HcomSetLaunchKernelMode(bool state) {
-    hcomSetLaunchKernelModePtr(state);
-}
-HcclResult HcomGetAicpuOpStreamNotify(const char* group, HcclRtStream* opStream, u8 aicpuNotifyNum, void** aicpuNotify) {
-    return hcomGetAicpuOpStreamNotifyPtr(group, opStream, aicpuNotifyNum, aicpuNotify);
-}
-HcclResult HcomMc2AiCpuStreamAllocAndGet(const char* group, u32 streamMode, rtStream_t* aiCpuStream) {
-    return hcomMc2AiCpuStreamAllocAndGetPtr(group, streamMode, aiCpuStream);
-}
-void HcomSetDumpDebugMode(bool dumpDebug) {
-    hcomSetDumpDebugModePtr(dumpDebug);
-}
-HcclResult HcomGetAlgorithm(u32 level, char** algo) {
-    return hcomGetAlgorithmPtr(level, algo);
-}
-HcclResult HcomGetAlgExecParam(const char* tag, const char* group, u64 count, void* inputPtr, void* outputPtr, HcclCMDType opType, bool clearEnable, HcclDataType dataType, HcclReduceOp op, void** commContext, u64* len, u32 aivCoreLimit) {
-    return hcomGetAlgExecParamPtr(tag, group, count, inputPtr, outputPtr, opType, clearEnable, dataType, op, commContext, len, aivCoreLimit);
-}
-void HcomSetAutoTuneMode(bool autoTuneMode) {
-    hcomSetAutoTuneModePtr(autoTuneMode);
-}
-DevType HcomGetDeviceType() {
-    return hcomGetDeviceTypePtr();
-}
-HcclResult HcomSetProfilingMode(HcomProfilingMode profilingMode, const char* profilingOption) {
-    return hcomSetProfilingModePtr(profilingMode, profilingOption);
-}
-HcclResult HcomGetSplitStrategy(const char* group, const struct model_feature* feature, u32** segmentIdxPtr, u32* len, bool* configured, GradSplitForceMode force, OriginalGraphShapeType shapeType) {
-    return hcomGetSplitStrategyPtr(group, feature, segmentIdxPtr, len, configured, force, shapeType);
-}
-bool HcomFindGroup(const char* group) {
-    return hcomFindGroupPtr(group);
-}
-HcclResult HcomSelectAlg(s64 comm, const char* group, u64 count, void* counts, HcclDataType dataType, HcclReduceOp op, HcclCMDType opType, int32_t aivCoreLimit, bool& ifAiv, char* algName) {
-    return hcomSelectAlgPtr(comm, group, count, counts, dataType, op, opType, aivCoreLimit, ifAiv, algName);
-}
-HcclResult HcomCalcAivCoreNum(const char* group, HcclCMDType opType, u64 count, void* counts, HcclDataType dataType, int32_t aivCoreLimit, char* algName, u32* numBlocks) {
-    return hcomCalcAivCoreNumPtr(group, opType, count, counts, dataType, aivCoreLimit, algName, numBlocks);
-}
-HcclResult HcomSetWorkspaceResource(const char* tag, const char* group, rtStream_t* stream, s32 len, void* memPtr, u64 maxSize) {
-    return hcomSetWorkspaceResourcePtr(tag, group, stream, len, memPtr, maxSize);
-}
-HcclResult HcomSetGlobalWorkSpace(const char* group, void** globalWorkSpaceAddr, u32 len) {
-    return hcomSetGlobalWorkSpacePtr(group, globalWorkSpaceAddr, len);
-}
-HcclResult HcomSetAivCoreLimit(const char* group, u32 aivCoreLimit) {
-    return hcomSetAivCoreLimitPtr(group, aivCoreLimit);
-}
-HcclResult HcomReleaseSubComms() {
-    return hcomReleaseSubCommsPtr();
-}
-HcclResult HcomUnloadTask(const char* group, const char* tag) {
-    return hcomUnloadTaskPtr(group, tag);
-}
-HcclResult HcomClearAivSyncBuf(const char* group, bool aivClearEnable) {
-    return hcomClearAivSyncBufPtr(group, aivClearEnable);
-}
-HcclResult HcomSetAttachedStream(const char* group, u32 graphId, const rtStream_t* stream, s32 len) {
-    return hcomSetAttachedStreamPtr(group, graphId, stream, len);
-}
-HcclResult HcomSupportDeterministicOptim(const char* group, bool* isDeterministicOptim) {
-    return hcomSupportDeterministicOptimPtr(group, isDeterministicOptim);
-}
-HcclResult HcomTbeMemClean(int64_t addrList[], int64_t sizeList[], uint32_t count, rtStream_t stream, int32_t deviceLogicId) {
-    return hcomTbeMemCleanPtr(addrList, sizeList, count, stream, deviceLogicId);
-}
-HcclResult HcomGetInitStatus(bool* initiated) {
-    return hcomGetInitStatusPtr(initiated);
-}
-HcclResult HcomAllGather(const char* tag, void* inputPtr, void* outputPtr, u64 inputCount, HcclDataType dataType, const char* group, rtStream_t stream) {
-    return hcomAllGatherPtr(tag, inputPtr, outputPtr, inputCount, dataType, group, stream);
-}
-HcclResult HcomAllGatherV(const char* tag, const void* sendBuf, u64 sendCount, const void* recvBuf, const void* recvCounts, const void* rdispls, HcclDataType dataType, const char* group, rtStream_t stream) {
-    return hcomAllGatherVPtr(tag, sendBuf, sendCount, recvBuf, recvCounts, rdispls, dataType, group, stream);
-}
-HcclResult HcomAllReduce(const char* tag, void* inputPtr, void* outputPtr, u64 count, HcclDataType dataType, HcclReduceOp op, const char* group, rtStream_t stream) {
-    return hcomAllReducePtr(tag, inputPtr, outputPtr, count, dataType, op, group, stream);
-}
-HcclResult HcomReduce(const char* tag, void* inputPtr, void* outputPtr, u64 count, HcclDataType dataType, HcclReduceOp op, u32 root, const char* group, rtStream_t stream) {
-    return hcomReducePtr(tag, inputPtr, outputPtr, count, dataType, op, root, group, stream);
-}
-HcclResult HcomBroadcast(const char* tag, void* ptr, u64 count, HcclDataType dataType, u32 root, const char* group, rtStream_t stream) {
-    return hcomBroadcastPtr(tag, ptr, count, dataType, root, group, stream);
-}
-HcclResult HcomReduceScatter(const char* tag, void* inputPtr, void* outputPtr, u64 count, HcclDataType dataType, HcclReduceOp op, const char* group, rtStream_t stream) {
-    return hcomReduceScatterPtr(tag, inputPtr, outputPtr, count, dataType, op, group, stream);
-}
-HcclResult HcomReduceScatterV(const char* tag, void* sendBuf, const void* sendCounts, const void* sdispls, void* recvBuf, u64 recvCount, HcclDataType dataType, HcclReduceOp op, const char* group, rtStream_t stream) {
-    return hcomReduceScatterVPtr(tag, sendBuf, sendCounts, sdispls, recvBuf, recvCount, dataType, op, group, stream);
-}
-HcclResult HcomSend(const char* tag, void* inputPtr, u64 count, HcclDataType dataType, u32 destRank, u32 srTag, const char* group, rtStream_t stream) {
-    return hcomSendPtr(tag, inputPtr, count, dataType, destRank, srTag, group, stream);
-}
-HcclResult HcomReceive(const char* tag, void* outputPtr, u64 count, HcclDataType dataType, u32 srcRank, u32 srTag, const char* group, rtStream_t stream) {
-    return hcomReceivePtr(tag, outputPtr, count, dataType, srcRank, srTag, group, stream);
-}
-HcclResult HcomAlltoAllV(const void* sendBuf, const void* sendCounts, const void* sdispls, HcclDataType sendType, const void* recvBuf, const void* recvCounts, const void* rdispls, HcclDataType recvType, const char* group, rtStream_t stream, const char* tag) {
-    return hcomAlltoAllVPtr(sendBuf, sendCounts, sdispls, sendType, recvBuf, recvCounts, rdispls, recvType, group, stream, tag);
-}
-HcclResult HcomAlltoAllVC(const void* sendBuf, const void* sendCountMatrix, HcclDataType sendType, const void* recvBuf, HcclDataType recvType, const char* group, rtStream_t stream, const char* tag) {
-    return hcomAlltoAllVCPtr(sendBuf, sendCountMatrix, sendType, recvBuf, recvType, group, stream, tag);
-}
-HcclResult HcomAllToAll(const void* sendBuf, u64 sendCount, HcclDataType sendType, const void* recvBuf, u64 recvCount, HcclDataType recvType, const char* group, rtStream_t stream, const char* tag) {
-    return hcomAllToAllPtr(sendBuf, sendCount, sendType, recvBuf, recvCount, recvType, group, stream, tag);
-}
-HcclResult HcomGetHcclComm(int64_t comm, std::string& group) {
-    return hcomGetHcclCommPtr(comm, group);
-}
-HcclResult HcomGenerateCclOpTag(const char* opType, s64 hcomComm, const char* group, char* sTag) {
-    return hcomGenerateCclOpTagPtr(opType, hcomComm, group, sTag);
-}
-HcclResult HcomGetCommCCLBufferSize(const char* group, uint64_t& size) {
-    return hcomGetCommCCLBufferSizePtr(group, size);
-}
-HcclResult HcomGetL0TopoTypeEx(const char* group, CommTopo* topoType, uint32_t flag) {
-    return hcomGetL0TopoTypeExPtr(group, topoType, flag);
-}
-HcclResult HcomGetRankSizeEx(const char* group, uint32_t* rankSize, uint32_t flag) {
-    return hcomGetRankSizeExPtr(group, rankSize, flag);
-}
-HcclResult HcomInitByFile(const char* rankTablePath, const char* identify) {
-    return hcomInitByFilePtr(rankTablePath, identify);
-}
-HcclResult HcomGetWorkspaceSubStreamNum(const char* group, u64& streamNum, u64 dataSize,
-    HcclDataType dataType, u32 aivCoreLimit, HcclReduceOp reduceOp, u64 count, HcclCMDType optype) {
-    return hcomGetWorkspaceSubStreamNumPtr(group, streamNum, dataSize, dataType, aivCoreLimit, reduceOp, count, optype);
-}
-HcclResult HcomGetWorkspaceMemSize(const std::string& opType, u64 count,
-    HcclDataType dataType, const char* group, u64& memSize) {
-    return hcomGetWorkspaceMemSizePtr(opType, count, dataType, group, memSize);
-}
-HcclResult HcomSetAlgorithm(const char* algo) {
-    return hcomSetAlgorithmPtr(algo);
-}
-HcclResult HcomGetAlltoAllStagedWorkSpaceMemSize(const char *group, u64 *sendCounts, u64 *sdispls,
-    HcclDataType sendType, u64 *recvCounts, u64 *rdispls, HcclDataType recvType, u64 &memSize) {
-    return hcomGetAlltoAllStagedWorkSpaceMemSizePtr(group, sendCounts, sdispls, sendType, recvCounts, rdispls, recvType, memSize);
-}
+// HcclResult HcomGetRankSize(const char* group, u32* rankSize) {
+//     return hcomGetRankSizePtr(group, rankSize);
+// }
+// HcclResult HcomGetLocalRankSize(const char* group, u32* localRankSize) {
+//     return hcomGetLocalRankSizePtr(group, localRankSize);
+// }
+// HcclResult HcomGetRankId(const char* group, u32* rankId) {
+//     return hcomGetRankIdPtr(group, rankId);
+// }
+// HcclResult HcomGetLocalRankId(const char* group, u32* localRankId) {
+//     return hcomGetLocalRankIdPtr(group, localRankId);
+// }
+// HcclResult HcomGetWorldRankFromGroupRank(const char* group, u32 groupRank, u32* worldRank) {
+//     return hcomGetWorldRankFromGroupRankPtr(group, groupRank, worldRank);
+// }
+// HcclResult HcomGetGroupRankFromWorldRank(u32 worldRank, const char* group, u32* groupRank) {
+//     return hcomGetGroupRankFromWorldRankPtr(worldRank, group, groupRank);
+// }
+// HcclResult HcomCreateGroup(const char* group, u32 rankNum, u32* rankIds) {
+//     return hcomCreateGroupPtr(group, rankNum, rankIds);
+// }
+// HcclResult HcomDestroyGroup(const char* group) {
+//     return hcomDestroyGroupPtr(group);
+// }
+// HcclResult HcomSetGradFusionByIndex(const char* group, u32 segmentNum, const u32* inputIdxList) {
+//     return hcomSetGradFusionByIndexPtr(group, segmentNum, inputIdxList);
+// }
+// HcclResult HcomSetGradFusionBySize(const char* group, u32 segmentNum, const float* sizeList) {
+//     return hcomSetGradFusionBySizePtr(group, segmentNum, sizeList);
+// }
+// HcclResult HcomInitByRankTable(const char* rankTable, uint32_t rankId) {
+//     return hcomInitByRankTablePtr(rankTable, rankId);
+// }
+// HcclResult HcomDestroy() {
+//     return hcomDestroyPtr();
+// }
+// HcclResult HcomGetCommHandleByGroup(const char* group, HcclComm* commHandle) {
+//     return hcomGetCommHandleByGroupPtr(group, commHandle);
+// }
+// HcclResult GetGroupNameByOpBaseHcom(s64 opBaseHcom, char** groupname) {
+//     return getGroupNameByOpBaseHcomPtr(opBaseHcom, groupname);
+// }
+// HcclResult HcomCreateComResourceByComm(HcclComm comm, u32 streamMode, bool isOpbaseMode, void** commContext, bool isMC2) {
+//     return hcomCreateComResourceByCommPtr(comm, streamMode, isOpbaseMode, commContext, isMC2);
+// }
+// void HcomTopoInfoRegCallback(HcclResult (*p1)(const char *, uint32_t), void (*p2)(const char *)) {
+//     hcomTopoInfoRegCallbackPtr(p1, p2);
+// }
+// HcclResult HcomGetandClearOverFlowTasks(const char* group, hccl::HcclDumpInfo** hcclDumpInfoPtr, s32* len) {
+//     return hcomGetandClearOverFlowTasksPtr(group, hcclDumpInfoPtr, len);
+// }
+// HcclWorkflowMode HcomGetWorkflowMode() {
+//     return hcomGetWorkflowModePtr();
+// }
+// HcclResult HcomSetWorkflowMode(HcclWorkflowMode mode) {
+//     return hcomSetWorkflowModePtr(mode);
+// }
+// HcclResult HcomCalcOpOnline(HcomOpParam* hcomOpParam, HcomResResponse* hcomResResponse) {
+//     return hcomCalcOpOnlinePtr(hcomOpParam, hcomResResponse);
+// }
+// HcclResult HcomCalcOpResOffline(HcomOpParam* hcomOpParam, HcomResResponse* hcomResResponse) {
+//     return hcomCalcOpResOfflinePtr(hcomOpParam, hcomResResponse);
+// }
+// HcclResult HcomGetMemType(const char* group, const char* socVersion, bool isMalloc, u32* memType, bool* isTsMem, bool withoutImplCompile, bool level2Address) {
+//     return hcomGetMemTypePtr(group, socVersion, isMalloc, memType, isTsMem, withoutImplCompile, level2Address);
+// }
+// HcclResult HcomGetBandWidthPerNPU(u32 level, float* bandWidth) {
+//     return hcomGetBandWidthPerNPUPtr(level, bandWidth);
+// }
+// HcclResult HcomGetServerNumAndDeviceNumPerServer(u32* serverNum, u32* deviceNumPerServer, u32* deviceNumPerAggregation) {
+//     return hcomGetServerNumAndDeviceNumPerServerPtr(serverNum, deviceNumPerServer, deviceNumPerAggregation);
+// }
+// bool HcomGetSecAddrCopyFlag(const char* socVersion) {
+//     return hcomGetSecAddrCopyFlagPtr(socVersion);
+// }
+// HcclResult HcomInitByString(const char* rankTableM, const char* identify, WorkMode commWorkMode, HcomInitConfig* initConfig) {
+//     return hcomInitByStringPtr(rankTableM, identify, commWorkMode, initConfig);
+// }
+// HcclResult HcomInitByMasterInfo(const char* masterIp, const char* masterPort, const char* masterDeviceId, const char* rankSize, const char* rankIp, HcomInitConfig* initConfig) {
+//     return hcomInitByMasterInfoPtr(masterIp, masterPort, masterDeviceId, rankSize, rankIp, initConfig);
+// }
+// HcclResult HcomCreateCommCCLbuffer(const char* group) {
+//     return hcomCreateCommCCLbufferPtr(group);
+// }
+// HcclResult HcomGetInCCLbuffer(const char* group, void** buffer, u64* size) {
+//     return hcomGetInCCLbufferPtr(group, buffer, size);
+// }
+// HcclResult HcomGetOutCCLbuffer(const char* group, void** buffer, u64* size) {
+//     return hcomGetOutCCLbufferPtr(group, buffer, size);
+// }
+// void HcomSetLaunchKernelMode(bool state) {
+//     hcomSetLaunchKernelModePtr(state);
+// }
+// HcclResult HcomGetAicpuOpStreamNotify(const char* group, HcclRtStream* opStream, u8 aicpuNotifyNum, void** aicpuNotify) {
+//     return hcomGetAicpuOpStreamNotifyPtr(group, opStream, aicpuNotifyNum, aicpuNotify);
+// }
+// HcclResult HcomMc2AiCpuStreamAllocAndGet(const char* group, u32 streamMode, rtStream_t* aiCpuStream) {
+//     return hcomMc2AiCpuStreamAllocAndGetPtr(group, streamMode, aiCpuStream);
+// }
+// void HcomSetDumpDebugMode(bool dumpDebug) {
+//     hcomSetDumpDebugModePtr(dumpDebug);
+// }
+// HcclResult HcomGetAlgorithm(u32 level, char** algo) {
+//     return hcomGetAlgorithmPtr(level, algo);
+// }
+// HcclResult HcomGetAlgExecParam(const char* tag, const char* group, u64 count, void* inputPtr, void* outputPtr, HcclCMDType opType, bool clearEnable, HcclDataType dataType, HcclReduceOp op, void** commContext, u64* len, u32 aivCoreLimit) {
+//     return hcomGetAlgExecParamPtr(tag, group, count, inputPtr, outputPtr, opType, clearEnable, dataType, op, commContext, len, aivCoreLimit);
+// }
+// void HcomSetAutoTuneMode(bool autoTuneMode) {
+//     hcomSetAutoTuneModePtr(autoTuneMode);
+// }
+// DevType HcomGetDeviceType() {
+//     return hcomGetDeviceTypePtr();
+// }
+// HcclResult HcomSetProfilingMode(HcomProfilingMode profilingMode, const char* profilingOption) {
+//     return hcomSetProfilingModePtr(profilingMode, profilingOption);
+// }
+// HcclResult HcomGetSplitStrategy(const char* group, const struct model_feature* feature, u32** segmentIdxPtr, u32* len, bool* configured, GradSplitForceMode force, OriginalGraphShapeType shapeType) {
+//     return hcomGetSplitStrategyPtr(group, feature, segmentIdxPtr, len, configured, force, shapeType);
+// }
+// bool HcomFindGroup(const char* group) {
+//     return hcomFindGroupPtr(group);
+// }
+// HcclResult HcomSelectAlg(s64 comm, const char* group, u64 count, void* counts, HcclDataType dataType, HcclReduceOp op, HcclCMDType opType, int32_t aivCoreLimit, bool& ifAiv, char* algName) {
+//     return hcomSelectAlgPtr(comm, group, count, counts, dataType, op, opType, aivCoreLimit, ifAiv, algName);
+// }
+// HcclResult HcomCalcAivCoreNum(const char* group, HcclCMDType opType, u64 count, void* counts, HcclDataType dataType, int32_t aivCoreLimit, char* algName, u32* numBlocks) {
+//     return hcomCalcAivCoreNumPtr(group, opType, count, counts, dataType, aivCoreLimit, algName, numBlocks);
+// }
+// HcclResult HcomSetWorkspaceResource(const char* tag, const char* group, rtStream_t* stream, s32 len, void* memPtr, u64 maxSize) {
+//     return hcomSetWorkspaceResourcePtr(tag, group, stream, len, memPtr, maxSize);
+// }
+// HcclResult HcomSetGlobalWorkSpace(const char* group, void** globalWorkSpaceAddr, u32 len) {
+//     return hcomSetGlobalWorkSpacePtr(group, globalWorkSpaceAddr, len);
+// }
+// HcclResult HcomSetAivCoreLimit(const char* group, u32 aivCoreLimit) {
+//     return hcomSetAivCoreLimitPtr(group, aivCoreLimit);
+// }
+// HcclResult HcomReleaseSubComms() {
+//     return hcomReleaseSubCommsPtr();
+// }
+// HcclResult HcomUnloadTask(const char* group, const char* tag) {
+//     return hcomUnloadTaskPtr(group, tag);
+// }
+// HcclResult HcomClearAivSyncBuf(const char* group, bool aivClearEnable) {
+//     return hcomClearAivSyncBufPtr(group, aivClearEnable);
+// }
+// HcclResult HcomSetAttachedStream(const char* group, u32 graphId, const rtStream_t* stream, s32 len) {
+//     return hcomSetAttachedStreamPtr(group, graphId, stream, len);
+// }
+// HcclResult HcomSupportDeterministicOptim(const char* group, bool* isDeterministicOptim) {
+//     return hcomSupportDeterministicOptimPtr(group, isDeterministicOptim);
+// }
+// HcclResult HcomTbeMemClean(int64_t addrList[], int64_t sizeList[], uint32_t count, rtStream_t stream, int32_t deviceLogicId) {
+//     return hcomTbeMemCleanPtr(addrList, sizeList, count, stream, deviceLogicId);
+// }
+// HcclResult HcomGetInitStatus(bool* initiated) {
+//     return hcomGetInitStatusPtr(initiated);
+// }
+// HcclResult HcomAllGather(const char* tag, void* inputPtr, void* outputPtr, u64 inputCount, HcclDataType dataType, const char* group, rtStream_t stream) {
+//     return hcomAllGatherPtr(tag, inputPtr, outputPtr, inputCount, dataType, group, stream);
+// }
+// HcclResult HcomAllGatherV(const char* tag, const void* sendBuf, u64 sendCount, const void* recvBuf, const void* recvCounts, const void* rdispls, HcclDataType dataType, const char* group, rtStream_t stream) {
+//     return hcomAllGatherVPtr(tag, sendBuf, sendCount, recvBuf, recvCounts, rdispls, dataType, group, stream);
+// }
+// HcclResult HcomAllReduce(const char* tag, void* inputPtr, void* outputPtr, u64 count, HcclDataType dataType, HcclReduceOp op, const char* group, rtStream_t stream) {
+//     return hcomAllReducePtr(tag, inputPtr, outputPtr, count, dataType, op, group, stream);
+// }
+// HcclResult HcomReduce(const char* tag, void* inputPtr, void* outputPtr, u64 count, HcclDataType dataType, HcclReduceOp op, u32 root, const char* group, rtStream_t stream) {
+//     return hcomReducePtr(tag, inputPtr, outputPtr, count, dataType, op, root, group, stream);
+// }
+// HcclResult HcomBroadcast(const char* tag, void* ptr, u64 count, HcclDataType dataType, u32 root, const char* group, rtStream_t stream) {
+//     return hcomBroadcastPtr(tag, ptr, count, dataType, root, group, stream);
+// }
+// HcclResult HcomReduceScatter(const char* tag, void* inputPtr, void* outputPtr, u64 count, HcclDataType dataType, HcclReduceOp op, const char* group, rtStream_t stream) {
+//     return hcomReduceScatterPtr(tag, inputPtr, outputPtr, count, dataType, op, group, stream);
+// }
+// HcclResult HcomReduceScatterV(const char* tag, void* sendBuf, const void* sendCounts, const void* sdispls, void* recvBuf, u64 recvCount, HcclDataType dataType, HcclReduceOp op, const char* group, rtStream_t stream) {
+//     return hcomReduceScatterVPtr(tag, sendBuf, sendCounts, sdispls, recvBuf, recvCount, dataType, op, group, stream);
+// }
+// HcclResult HcomSend(const char* tag, void* inputPtr, u64 count, HcclDataType dataType, u32 destRank, u32 srTag, const char* group, rtStream_t stream) {
+//     return hcomSendPtr(tag, inputPtr, count, dataType, destRank, srTag, group, stream);
+// }
+// HcclResult HcomReceive(const char* tag, void* outputPtr, u64 count, HcclDataType dataType, u32 srcRank, u32 srTag, const char* group, rtStream_t stream) {
+//     return hcomReceivePtr(tag, outputPtr, count, dataType, srcRank, srTag, group, stream);
+// }
+// HcclResult HcomAlltoAllV(const void* sendBuf, const void* sendCounts, const void* sdispls, HcclDataType sendType, const void* recvBuf, const void* recvCounts, const void* rdispls, HcclDataType recvType, const char* group, rtStream_t stream, const char* tag) {
+//     return hcomAlltoAllVPtr(sendBuf, sendCounts, sdispls, sendType, recvBuf, recvCounts, rdispls, recvType, group, stream, tag);
+// }
+// HcclResult HcomAlltoAllVC(const void* sendBuf, const void* sendCountMatrix, HcclDataType sendType, const void* recvBuf, HcclDataType recvType, const char* group, rtStream_t stream, const char* tag) {
+//     return hcomAlltoAllVCPtr(sendBuf, sendCountMatrix, sendType, recvBuf, recvType, group, stream, tag);
+// }
+// HcclResult HcomAllToAll(const void* sendBuf, u64 sendCount, HcclDataType sendType, const void* recvBuf, u64 recvCount, HcclDataType recvType, const char* group, rtStream_t stream, const char* tag) {
+//     return hcomAllToAllPtr(sendBuf, sendCount, sendType, recvBuf, recvCount, recvType, group, stream, tag);
+// }
+// HcclResult HcomGetHcclComm(int64_t comm, std::string& group) {
+//     return hcomGetHcclCommPtr(comm, group);
+// }
+// HcclResult HcomGenerateCclOpTag(const char* opType, s64 hcomComm, const char* group, char* sTag) {
+//     return hcomGenerateCclOpTagPtr(opType, hcomComm, group, sTag);
+// }
+// HcclResult HcomGetCommCCLBufferSize(const char* group, uint64_t& size) {
+//     return hcomGetCommCCLBufferSizePtr(group, size);
+// }
+// HcclResult HcomGetL0TopoTypeEx(const char* group, CommTopo* topoType, uint32_t flag) {
+//     return hcomGetL0TopoTypeExPtr(group, topoType, flag);
+// }
+// HcclResult HcomGetRankSizeEx(const char* group, uint32_t* rankSize, uint32_t flag) {
+//     return hcomGetRankSizeExPtr(group, rankSize, flag);
+// }
+// HcclResult HcomInitByFile(const char* rankTablePath, const char* identify) {
+//     return hcomInitByFilePtr(rankTablePath, identify);
+// }
+// HcclResult HcomGetWorkspaceSubStreamNum(const char* group, u64& streamNum, u64 dataSize,
+//     HcclDataType dataType, u32 aivCoreLimit, HcclReduceOp reduceOp, u64 count, HcclCMDType optype) {
+//     return hcomGetWorkspaceSubStreamNumPtr(group, streamNum, dataSize, dataType, aivCoreLimit, reduceOp, count, optype);
+// }
+// HcclResult HcomGetWorkspaceMemSize(const std::string& opType, u64 count,
+//     HcclDataType dataType, const char* group, u64& memSize) {
+//     return hcomGetWorkspaceMemSizePtr(opType, count, dataType, group, memSize);
+// }
+// HcclResult HcomSetAlgorithm(const char* algo) {
+//     return hcomSetAlgorithmPtr(algo);
+// }
+// HcclResult HcomGetAlltoAllStagedWorkSpaceMemSize(const char *group, u64 *sendCounts, u64 *sdispls,
+//     HcclDataType sendType, u64 *recvCounts, u64 *rdispls, HcclDataType recvType, u64 &memSize) {
+//     return hcomGetAlltoAllStagedWorkSpaceMemSizePtr(group, sendCounts, sdispls, sendType, recvCounts, rdispls, recvType, memSize);
+// }
 #ifdef __cplusplus
 }
 #endif

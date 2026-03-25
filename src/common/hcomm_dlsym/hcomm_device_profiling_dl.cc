@@ -36,45 +36,45 @@ static bool g_hcommProfilingReportKernelStartTaskSupported = false;
 static bool g_hcommProfilingReportKernelEndTaskSupported = false;
 
 // ---------- 桩函数定义 ----------
-static HcclResult StubHcommProfilingReportMainStreamAndFirstTask(ThreadHandle thread) {
+HcclResult __attribute__((weak)) HcommProfilingReportMainStreamAndFirstTask(ThreadHandle thread) {
     (void)thread;
     HCCL_ERROR("[HcclWrapper] HcommProfilingReportMainStreamAndFirstTask not supported");
     return HCCL_E_NOT_SUPPORT;
 }
-static HcclResult StubHcommProfilingReportMainStreamAndLastTask(ThreadHandle thread) {
+HcclResult __attribute__((weak)) HcommProfilingReportMainStreamAndLastTask(ThreadHandle thread) {
     (void)thread;
     HCCL_ERROR("[HcclWrapper] HcommProfilingReportMainStreamAndLastTask not supported");
     return HCCL_E_NOT_SUPPORT;
 }
-static HcclResult StubHcommProfilingReportDeviceHcclOpInfo(HcomProInfoTmp profInfo) {
+HcclResult __attribute__((weak)) HcommProfilingReportDeviceHcclOpInfo(HcomProInfoTmp profInfo) {
     (void)profInfo;
     HCCL_ERROR("[HcclWrapper] HcommProfilingReportDeviceHcclOpInfo not supported");
     return HCCL_E_NOT_SUPPORT;
 }
-static HcclResult StubHcommProfilingInit(ThreadHandle* threads, uint32_t threadNum) {
+HcclResult __attribute__((weak)) HcommProfilingInit(ThreadHandle* threads, uint32_t threadNum) {
     (void)threads; (void)threadNum;
     HCCL_ERROR("[HcclWrapper] HcommProfilingInit not supported");
     return HCCL_E_NOT_SUPPORT;
 }
-static HcclResult StubHcommProfilingEnd(ThreadHandle* threads, uint32_t threadNum) {
+HcclResult __attribute__((weak)) HcommProfilingEnd(ThreadHandle* threads, uint32_t threadNum) {
     (void)threads; (void)threadNum;
     HCCL_ERROR("[HcclWrapper] HcommProfilingEnd not supported");
     return HCCL_E_NOT_SUPPORT;
 }
 
-static HcclResult StubHcommProfilingReportDeviceOp(const char* groupname)
+HcclResult __attribute__((weak)) HcommProfilingReportDeviceOp(const char* groupname)
 {
     (void)groupname;
     HCCL_ERROR("[HcclWrapper] HcommProfilingReportDeviceOp not supported");
     return HCCL_E_NOT_SUPPORT;
 }
-static HcclResult StubHcommProfilingReportKernelStartTask(uint64_t thread, const char* groupname)
+HcclResult __attribute__((weak)) HcommProfilingReportKernelStartTask(uint64_t thread, const char* groupname)
 {
     (void)thread; (void)groupname;
     HCCL_ERROR("[HcclWrapper] HcommProfilingReportKernelStartTask not supported");
     return HCCL_E_NOT_SUPPORT;
 }
-static HcclResult StubHcommProfilingReportKernelEndTask(uint64_t thread, const char* groupname)
+HcclResult __attribute__((weak)) HcommProfilingReportKernelEndTask(uint64_t thread, const char* groupname)
 {
     (void)thread; (void)groupname;
     HCCL_ERROR("[HcclWrapper] HcommProfilingReportKernelEndTask not supported");
@@ -84,11 +84,10 @@ static HcclResult StubHcommProfilingReportKernelEndTask(uint64_t thread, const c
 
 // 初始化
 void HcommDeviceProfilingDlInit(void* libHcommHandle) {
-    #define SET_PTR(ptr, handle, name, stub, support_flag) \
+    #define SET_PTR(ptr, handle, name, support_flag) \
         do { \
             ptr = (decltype(ptr))dlsym(handle, name); \
             if (ptr == nullptr) { \
-                ptr = stub; \
                 support_flag = false; \
                 HCCL_DEBUG("[HcclWrapper] %s not supported", name); \
             } else { \
@@ -97,42 +96,42 @@ void HcommDeviceProfilingDlInit(void* libHcommHandle) {
         } while(0)
 
     SET_PTR(hcommProfilingReportMainStreamAndFirstTaskPtr, libHcommHandle, "HcommProfilingReportMainStreamAndFirstTask",
-            StubHcommProfilingReportMainStreamAndFirstTask, g_hcommProfilingReportMainStreamAndFirstTaskSupported);
+            g_hcommProfilingReportMainStreamAndFirstTaskSupported);
     SET_PTR(hcommProfilingReportMainStreamAndLastTaskPtr, libHcommHandle, "HcommProfilingReportMainStreamAndLastTask",
-            StubHcommProfilingReportMainStreamAndLastTask, g_hcommProfilingReportMainStreamAndLastTaskSupported);
+            g_hcommProfilingReportMainStreamAndLastTaskSupported);
     SET_PTR(hcommProfilingReportDeviceHcclOpInfoPtr, libHcommHandle, "HcommProfilingReportDeviceHcclOpInfo",
-            StubHcommProfilingReportDeviceHcclOpInfo, g_hcommProfilingReportDeviceHcclOpInfoSupported);
+            g_hcommProfilingReportDeviceHcclOpInfoSupported);
     SET_PTR(hcommProfilingInitPtr, libHcommHandle, "HcommProfilingInit",
-            StubHcommProfilingInit, g_hcommProfilingInitSupported);
+            g_hcommProfilingInitSupported);
     SET_PTR(hcommProfilingEndPtr, libHcommHandle, "HcommProfilingEnd",
-            StubHcommProfilingEnd, g_hcommProfilingEndSupported);
+            g_hcommProfilingEndSupported);
     SET_PTR(hcommProfilingReportDeviceOpPtr, libHcommHandle, "HcommProfilingReportDeviceOp",
-        StubHcommProfilingReportDeviceOp, g_hcommProfilingReportDeviceOpSupported);
+        g_hcommProfilingReportDeviceOpSupported);
     SET_PTR(hcommProfilingReportKernelStartTaskPtr, libHcommHandle, "HcommProfilingReportKernelStartTask",
-        StubHcommProfilingReportKernelStartTask, g_hcommProfilingReportKernelStartTaskSupported);
+        g_hcommProfilingReportKernelStartTaskSupported);
     SET_PTR(hcommProfilingReportKernelEndTaskPtr, libHcommHandle, "HcommProfilingReportKernelEndTask",
-        StubHcommProfilingReportKernelEndTask, g_hcommProfilingReportKernelEndTaskSupported);
+        g_hcommProfilingReportKernelEndTaskSupported);
 
     #undef SET_PTR
 }
 
 void HcommDeviceProfilingDlFini(void) {
-    hcommProfilingReportMainStreamAndFirstTaskPtr = StubHcommProfilingReportMainStreamAndFirstTask;
-    g_hcommProfilingReportMainStreamAndFirstTaskSupported = false;
-    hcommProfilingReportMainStreamAndLastTaskPtr = StubHcommProfilingReportMainStreamAndLastTask;
-    g_hcommProfilingReportMainStreamAndLastTaskSupported = false;
-    hcommProfilingReportDeviceHcclOpInfoPtr = StubHcommProfilingReportDeviceHcclOpInfo;
-    g_hcommProfilingReportDeviceHcclOpInfoSupported = false;
-    hcommProfilingInitPtr = StubHcommProfilingInit;
-    g_hcommProfilingInitSupported = false;
-    hcommProfilingEndPtr = StubHcommProfilingEnd;
-    g_hcommProfilingEndSupported = false;
-    hcommProfilingReportDeviceOpPtr = StubHcommProfilingReportDeviceOp;
-    g_hcommProfilingReportDeviceOpSupported = false;
-    hcommProfilingReportKernelStartTaskPtr = StubHcommProfilingReportKernelStartTask;
-    g_hcommProfilingReportKernelStartTaskSupported = false;
-    hcommProfilingReportKernelEndTaskPtr = StubHcommProfilingReportKernelEndTask;
-    g_hcommProfilingReportKernelEndTaskSupported = false;
+    // hcommProfilingReportMainStreamAndFirstTaskPtr = StubHcommProfilingReportMainStreamAndFirstTask;
+    // g_hcommProfilingReportMainStreamAndFirstTaskSupported = false;
+    // hcommProfilingReportMainStreamAndLastTaskPtr = StubHcommProfilingReportMainStreamAndLastTask;
+    // g_hcommProfilingReportMainStreamAndLastTaskSupported = false;
+    // hcommProfilingReportDeviceHcclOpInfoPtr = StubHcommProfilingReportDeviceHcclOpInfo;
+    // g_hcommProfilingReportDeviceHcclOpInfoSupported = false;
+    // hcommProfilingInitPtr = StubHcommProfilingInit;
+    // g_hcommProfilingInitSupported = false;
+    // hcommProfilingEndPtr = StubHcommProfilingEnd;
+    // g_hcommProfilingEndSupported = false;
+    // hcommProfilingReportDeviceOpPtr = StubHcommProfilingReportDeviceOp;
+    // g_hcommProfilingReportDeviceOpSupported = false;
+    // hcommProfilingReportKernelStartTaskPtr = StubHcommProfilingReportKernelStartTask;
+    // g_hcommProfilingReportKernelStartTaskSupported = false;
+    // hcommProfilingReportKernelEndTaskPtr = StubHcommProfilingReportKernelEndTask;
+    // g_hcommProfilingReportKernelEndTaskSupported = false;
 }
 
 // ---------- 对外提供的查询接口 ----------

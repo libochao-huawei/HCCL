@@ -51,86 +51,86 @@ static bool g_hcclCommMemRegSupported = false;
 static bool g_hcclEngineCtxDestroySupported = false;
 
 // ---------- 桩函数定义（签名与真实API完全一致）----------
-static HcclResult StubHcclGetHcclBuffer(HcclComm comm, void** buffer, uint64_t* size) {
+HcclResult __attribute__((weak)) HcclGetHcclBuffer(HcclComm comm, void** buffer, uint64_t* size) {
     (void)comm; (void)buffer; (void)size;
     HCCL_ERROR("[HcclWrapper] HcclGetHcclBuffer not supported");
     return HCCL_E_NOT_SUPPORT;
 }
 
-static HcclResult StubHcclGetRemoteIpcHcclBuf(HcclComm comm, uint64_t remoteRank, void** addr, uint64_t* size) {
+HcclResult __attribute__((weak)) HcclGetRemoteIpcHcclBuf(HcclComm comm, uint64_t remoteRank, void** addr, uint64_t* size) {
     (void)comm; (void)remoteRank; (void)addr; (void)size;
     HCCL_ERROR("[HcclWrapper] HcclGetRemoteIpcHcclBuf not supported");
     return HCCL_E_NOT_SUPPORT;
 }
 
-static HcclResult StubHcclThreadAcquire(HcclComm comm, CommEngine engine, uint32_t threadNum,
+HcclResult __attribute__((weak)) HcclThreadAcquire(HcclComm comm, CommEngine engine, uint32_t threadNum,
                                         uint32_t notifyNumPerThread, ThreadHandle* threads) {
     (void)comm; (void)engine; (void)threadNum; (void)notifyNumPerThread; (void)threads;
     HCCL_ERROR("[HcclWrapper] HcclThreadAcquire not supported");
     return HCCL_E_NOT_SUPPORT;
 }
 
-static HcclResult StubHcclThreadAcquireWithStream(HcclComm comm, CommEngine engine, aclrtStream stream,
+HcclResult __attribute__((weak)) HcclThreadAcquireWithStream(HcclComm comm, CommEngine engine, aclrtStream stream,
                                                   uint32_t notifyNum, ThreadHandle* thread) {
     (void)comm; (void)engine; (void)stream; (void)notifyNum; (void)thread;
     HCCL_ERROR("[HcclWrapper] HcclThreadAcquireWithStream not supported");
     return HCCL_E_NOT_SUPPORT;
 }
 
-static HcclResult StubHcclChannelAcquire(HcclComm comm, CommEngine engine, const HcclChannelDesc* channelDescs,
+HcclResult __attribute__((weak)) HcclChannelAcquire(HcclComm comm, CommEngine engine, const HcclChannelDesc* channelDescs,
                                          uint32_t channelNum, ChannelHandle* channels) {
     (void)comm; (void)engine; (void)channelDescs; (void)channelNum; (void)channels;
     HCCL_ERROR("[HcclWrapper] HcclChannelAcquire not supported");
     return HCCL_E_NOT_SUPPORT;
 }
 
-static HcclResult StubHcclChannelGetHcclBuffer(HcclComm comm, ChannelHandle channel, void** buffer, uint64_t* size) {
+HcclResult __attribute__((weak)) HcclChannelGetHcclBuffer(HcclComm comm, ChannelHandle channel, void** buffer, uint64_t* size) {
     (void)comm; (void)channel; (void)buffer; (void)size;
     HCCL_ERROR("[HcclWrapper] HcclChannelGetHcclBuffer not supported");
     return HCCL_E_NOT_SUPPORT;
 }
 
-static HcclResult StubHcclEngineCtxCreate(HcclComm comm, const char* ctxTag, CommEngine engine,
+HcclResult __attribute__((weak)) HcclEngineCtxCreate(HcclComm comm, const char* ctxTag, CommEngine engine,
                                           uint64_t size, void** ctx) {
     (void)comm; (void)ctxTag; (void)engine; (void)size; (void)ctx;
     HCCL_ERROR("[HcclWrapper] HcclEngineCtxCreate not supported");
     return HCCL_E_NOT_SUPPORT;
 }
 
-static HcclResult StubHcclEngineCtxGet(HcclComm comm, const char* ctxTag, CommEngine engine,
+HcclResult __attribute__((weak)) HcclEngineCtxGet(HcclComm comm, const char* ctxTag, CommEngine engine,
                                        void** ctx, uint64_t* size) {
     (void)comm; (void)ctxTag; (void)engine; (void)ctx; (void)size;
     HCCL_ERROR("[HcclWrapper] HcclEngineCtxGet not supported");
     return HCCL_E_NOT_SUPPORT;
 }
 
-static HcclResult StubHcclEngineCtxCopy(HcclComm comm, CommEngine engine, const char* ctxTag,
+HcclResult __attribute__((weak)) HcclEngineCtxCopy(HcclComm comm, CommEngine engine, const char* ctxTag,
                                         const void* srcCtx, uint64_t size, uint64_t dstCtxOffset) {
     (void)comm; (void)engine; (void)ctxTag; (void)srcCtx; (void)size; (void)dstCtxOffset;
     HCCL_ERROR("[HcclWrapper] HcclEngineCtxCopy not supported");
     return HCCL_E_NOT_SUPPORT;
 }
 
-static int32_t StubHcclTaskRegister(HcclComm comm, const char* msgTag, Callback cb) {
+int32_t __attribute__((weak)) HcclTaskRegister(HcclComm comm, const char* msgTag, Callback cb) {
     (void)comm; (void)msgTag; (void)cb;
     HCCL_ERROR("[HcclWrapper] HcclTaskRegister not supported");
     return -1;
 }
 
-static int32_t StubHcclTaskUnRegister(HcclComm comm, const char* msgTag) {
+int32_t __attribute__((weak)) HcclTaskUnRegister(HcclComm comm, const char* msgTag) {
     (void)comm; (void)msgTag;
     HCCL_ERROR("[HcclWrapper] HcclTaskUnRegister not supported");
     return -1;
 }
 
-static HcclResult StubHcclDevMemAcquire(HcclComm comm, const char* memTag, uint64_t* size,
+HcclResult __attribute__((weak)) HcclDevMemAcquire(HcclComm comm, const char* memTag, uint64_t* size,
                                         void** addr, bool* newCreated) {
     (void)comm; (void)memTag; (void)size; (void)addr; (void)newCreated;
     HCCL_ERROR("[HcclWrapper] HcclDevMemAcquire not supported");
     return HCCL_E_NOT_SUPPORT;
 }
 
-static HcclResult StubHcclThreadExportToCommEngine(HcclComm comm, uint32_t threadNum,
+HcclResult __attribute__((weak)) HcclThreadExportToCommEngine(HcclComm comm, uint32_t threadNum,
                                                    const ThreadHandle* threads, CommEngine dstCommEngine,
                                                    ThreadHandle* exportedThreads) {
     (void)comm; (void)threadNum; (void)threads; (void)dstCommEngine; (void)exportedThreads;
@@ -138,21 +138,21 @@ static HcclResult StubHcclThreadExportToCommEngine(HcclComm comm, uint32_t threa
     return HCCL_E_NOT_SUPPORT;
 }
 
-static HcclResult StubHcclChannelGetRemoteMems(HcclComm comm, ChannelHandle channel,
+HcclResult __attribute__((weak)) HcclChannelGetRemoteMems(HcclComm comm, ChannelHandle channel,
                                                uint32_t* memNum, CommMem** remoteMems, char*** memTags) {
     (void)comm; (void)channel; (void)memNum; (void)remoteMems; (void)memTags;
     HCCL_ERROR("[HcclWrapper] HcclChannelGetRemoteMems not supported");
     return HCCL_E_NOT_SUPPORT;
 }
 
-static HcclResult StubHcclCommMemReg(HcclComm comm, const char* memTag, const CommMem* mem,
+HcclResult __attribute__((weak)) HcclCommMemReg(HcclComm comm, const char* memTag, const CommMem* mem,
                                      HcclMemHandle* memHandle) {
     (void)comm; (void)memTag; (void)mem; (void)memHandle;
     HCCL_ERROR("[HcclWrapper] HcclCommMemReg not supported");
     return HCCL_E_NOT_SUPPORT;
 }
 
-static HcclResult StubHcclEngineCtxDestroy(HcclComm comm, const char* ctxTag, CommEngine engine) {
+HcclResult __attribute__((weak)) HcclEngineCtxDestroy(HcclComm comm, const char* ctxTag, CommEngine engine) {
     (void)comm; (void)ctxTag; (void)engine;
     HCCL_ERROR("[HcclWrapper] HcclEngineCtxDestroy not supported");
     return HCCL_E_NOT_SUPPORT;
@@ -161,11 +161,10 @@ static HcclResult StubHcclEngineCtxDestroy(HcclComm comm, const char* ctxTag, Co
 // 初始化
 void HcclResDlInit(void* libHcommHandle) {
     // 辅助宏：解析符号，失败则指向对应桩函数，同时设置支持标志
-    #define SET_PTR(ptr, handle, name, stub, support_flag) \
+    #define SET_PTR(ptr, handle, name, support_flag) \
         do { \
             ptr = (decltype(ptr))dlsym(handle, name); \
             if (ptr == nullptr) { \
-                ptr = stub; \
                 support_flag = false; \
                 HCCL_DEBUG("[HcclWrapper] %s not supported", name); \
             } else { \
@@ -173,106 +172,106 @@ void HcclResDlInit(void* libHcommHandle) {
             } \
         } while(0)
 
-    SET_PTR(hcclGetHcclBufferPtr, libHcommHandle, "HcclGetHcclBuffer", StubHcclGetHcclBuffer, g_hcclGetHcclBufferSupported);
-    SET_PTR(hcclGetRemoteIpcHcclBufPtr, libHcommHandle, "HcclGetRemoteIpcHcclBuf", StubHcclGetRemoteIpcHcclBuf, g_hcclGetRemoteIpcHcclBufSupported);
-    SET_PTR(hcclThreadAcquirePtr, libHcommHandle, "HcclThreadAcquire", StubHcclThreadAcquire, g_hcclThreadAcquireSupported);
-    SET_PTR(hcclThreadAcquireWithStreamPtr, libHcommHandle, "HcclThreadAcquireWithStream", StubHcclThreadAcquireWithStream, g_hcclThreadAcquireWithStreamSupported);
-    SET_PTR(hcclChannelAcquirePtr, libHcommHandle, "HcclChannelAcquire", StubHcclChannelAcquire, g_hcclChannelAcquireSupported);
-    SET_PTR(hcclChannelGetHcclBufferPtr, libHcommHandle, "HcclChannelGetHcclBuffer", StubHcclChannelGetHcclBuffer, g_hcclChannelGetHcclBufferSupported);
-    SET_PTR(hcclEngineCtxCreatePtr, libHcommHandle, "HcclEngineCtxCreate", StubHcclEngineCtxCreate, g_hcclEngineCtxCreateSupported);
-    SET_PTR(hcclEngineCtxGetPtr, libHcommHandle, "HcclEngineCtxGet", StubHcclEngineCtxGet, g_hcclEngineCtxGetSupported);
-    SET_PTR(hcclEngineCtxCopyPtr, libHcommHandle, "HcclEngineCtxCopy", StubHcclEngineCtxCopy, g_hcclEngineCtxCopySupported);
-    SET_PTR(hcclTaskRegisterPtr, libHcommHandle, "HcclTaskRegister", StubHcclTaskRegister, g_hcclTaskRegisterSupported);
-    SET_PTR(hcclTaskUnRegisterPtr, libHcommHandle, "HcclTaskUnRegister", StubHcclTaskUnRegister, g_hcclTaskUnRegisterSupported);
-    SET_PTR(hcclDevMemAcquirePtr, libHcommHandle, "HcclDevMemAcquire", StubHcclDevMemAcquire, g_hcclDevMemAcquireSupported);
-    SET_PTR(hcclThreadExportToCommEnginePtr, libHcommHandle, "HcclThreadExportToCommEngine", StubHcclThreadExportToCommEngine, g_hcclThreadExportToCommEngineSupported);
-    SET_PTR(hcclChannelGetRemoteMemsPtr, libHcommHandle, "HcclChannelGetRemoteMems", StubHcclChannelGetRemoteMems, g_hcclChannelGetRemoteMemsSupported);
-    SET_PTR(hcclCommMemRegPtr, libHcommHandle, "HcclCommMemReg", StubHcclCommMemReg, g_hcclCommMemRegSupported);
-    SET_PTR(hcclEngineCtxDestroyPtr, libHcommHandle, "HcclEngineCtxDestroy", StubHcclEngineCtxDestroy, g_hcclEngineCtxDestroySupported);
+    SET_PTR(hcclGetHcclBufferPtr, libHcommHandle, "HcclGetHcclBuffer", g_hcclGetHcclBufferSupported);
+    SET_PTR(hcclGetRemoteIpcHcclBufPtr, libHcommHandle, "HcclGetRemoteIpcHcclBuf", g_hcclGetRemoteIpcHcclBufSupported);
+    SET_PTR(hcclThreadAcquirePtr, libHcommHandle, "HcclThreadAcquire", g_hcclThreadAcquireSupported);
+    SET_PTR(hcclThreadAcquireWithStreamPtr, libHcommHandle, "HcclThreadAcquireWithStream", g_hcclThreadAcquireWithStreamSupported);
+    SET_PTR(hcclChannelAcquirePtr, libHcommHandle, "HcclChannelAcquire", g_hcclChannelAcquireSupported);
+    SET_PTR(hcclChannelGetHcclBufferPtr, libHcommHandle, "HcclChannelGetHcclBuffer", g_hcclChannelGetHcclBufferSupported);
+    SET_PTR(hcclEngineCtxCreatePtr, libHcommHandle, "HcclEngineCtxCreate", g_hcclEngineCtxCreateSupported);
+    SET_PTR(hcclEngineCtxGetPtr, libHcommHandle, "HcclEngineCtxGet", g_hcclEngineCtxGetSupported);
+    SET_PTR(hcclEngineCtxCopyPtr, libHcommHandle, "HcclEngineCtxCopy", g_hcclEngineCtxCopySupported);
+    SET_PTR(hcclTaskRegisterPtr, libHcommHandle, "HcclTaskRegister", g_hcclTaskRegisterSupported);
+    SET_PTR(hcclTaskUnRegisterPtr, libHcommHandle, "HcclTaskUnRegister", g_hcclTaskUnRegisterSupported);
+    SET_PTR(hcclDevMemAcquirePtr, libHcommHandle, "HcclDevMemAcquire", g_hcclDevMemAcquireSupported);
+    SET_PTR(hcclThreadExportToCommEnginePtr, libHcommHandle, "HcclThreadExportToCommEngine", g_hcclThreadExportToCommEngineSupported);
+    SET_PTR(hcclChannelGetRemoteMemsPtr, libHcommHandle, "HcclChannelGetRemoteMems", g_hcclChannelGetRemoteMemsSupported);
+    SET_PTR(hcclCommMemRegPtr, libHcommHandle, "HcclCommMemReg", g_hcclCommMemRegSupported);
+    SET_PTR(hcclEngineCtxDestroyPtr, libHcommHandle, "HcclEngineCtxDestroy", g_hcclEngineCtxDestroySupported);
 
     #undef SET_PTR
 }
 
 void HcclResDlFini(void) {
     // 重置为桩函数，防止fini后误用
-    hcclGetHcclBufferPtr = StubHcclGetHcclBuffer;
-    hcclGetRemoteIpcHcclBufPtr = StubHcclGetRemoteIpcHcclBuf;
-    hcclThreadAcquirePtr = StubHcclThreadAcquire;
-    hcclThreadAcquireWithStreamPtr = StubHcclThreadAcquireWithStream;
-    hcclChannelAcquirePtr = StubHcclChannelAcquire;
-    hcclChannelGetHcclBufferPtr = StubHcclChannelGetHcclBuffer;
-    hcclEngineCtxCreatePtr = StubHcclEngineCtxCreate;
-    hcclEngineCtxGetPtr = StubHcclEngineCtxGet;
-    hcclEngineCtxCopyPtr = StubHcclEngineCtxCopy;
-    hcclTaskRegisterPtr = StubHcclTaskRegister;
-    hcclTaskUnRegisterPtr = StubHcclTaskUnRegister;
-    hcclDevMemAcquirePtr = StubHcclDevMemAcquire;
-    hcclThreadExportToCommEnginePtr = StubHcclThreadExportToCommEngine;
-    hcclChannelGetRemoteMemsPtr = StubHcclChannelGetRemoteMems;
-    hcclCommMemRegPtr = StubHcclCommMemReg;
-    hcclEngineCtxDestroyPtr = StubHcclEngineCtxDestroy;
+    // hcclGetHcclBufferPtr = StubHcclGetHcclBuffer;
+    // hcclGetRemoteIpcHcclBufPtr = StubHcclGetRemoteIpcHcclBuf;
+    // hcclThreadAcquirePtr = StubHcclThreadAcquire;
+    // hcclThreadAcquireWithStreamPtr = StubHcclThreadAcquireWithStream;
+    // hcclChannelAcquirePtr = StubHcclChannelAcquire;
+    // hcclChannelGetHcclBufferPtr = StubHcclChannelGetHcclBuffer;
+    // hcclEngineCtxCreatePtr = StubHcclEngineCtxCreate;
+    // hcclEngineCtxGetPtr = StubHcclEngineCtxGet;
+    // hcclEngineCtxCopyPtr = StubHcclEngineCtxCopy;
+    // hcclTaskRegisterPtr = StubHcclTaskRegister;
+    // hcclTaskUnRegisterPtr = StubHcclTaskUnRegister;
+    // hcclDevMemAcquirePtr = StubHcclDevMemAcquire;
+    // hcclThreadExportToCommEnginePtr = StubHcclThreadExportToCommEngine;
+    // hcclChannelGetRemoteMemsPtr = StubHcclChannelGetRemoteMems;
+    // hcclCommMemRegPtr = StubHcclCommMemReg;
+    // hcclEngineCtxDestroyPtr = StubHcclEngineCtxDestroy;
 }
 
 // ---------- 对外API实现（通过函数指针转发）----------
-HcclResult HcclGetHcclBuffer(HcclComm comm, void **buffer, uint64_t *size) {
-    return hcclGetHcclBufferPtr(comm, buffer, size);
-}
-HcclResult HcclGetRemoteIpcHcclBuf(HcclComm comm, uint64_t remoteRank, void **addr, uint64_t *size) {
-    return hcclGetRemoteIpcHcclBufPtr(comm, remoteRank, addr, size);
-}
-HcclResult HcclThreadAcquire(HcclComm comm, CommEngine engine, uint32_t threadNum,
-                              uint32_t notifyNumPerThread, ThreadHandle *threads) {
-    return hcclThreadAcquirePtr(comm, engine, threadNum, notifyNumPerThread, threads);
-}
-HcclResult HcclThreadAcquireWithStream(HcclComm comm, CommEngine engine, aclrtStream stream,
-                                       uint32_t notifyNum, ThreadHandle *thread) {
-    return hcclThreadAcquireWithStreamPtr(comm, engine, stream, notifyNum, thread);
-}
-HcclResult HcclChannelAcquire(HcclComm comm, CommEngine engine, const HcclChannelDesc *channelDescs,
-                              uint32_t channelNum, ChannelHandle *channels) {
-    return hcclChannelAcquirePtr(comm, engine, channelDescs, channelNum, channels);
-}
-HcclResult HcclChannelGetHcclBuffer(HcclComm comm, ChannelHandle channel, void **buffer, uint64_t *size) {
-    return hcclChannelGetHcclBufferPtr(comm, channel, buffer, size);
-}
-HcclResult HcclEngineCtxCreate(HcclComm comm, const char *ctxTag, CommEngine engine,
-                               uint64_t size, void **ctx) {
-    return hcclEngineCtxCreatePtr(comm, ctxTag, engine, size, ctx);
-}
-HcclResult HcclEngineCtxGet(HcclComm comm, const char *ctxTag, CommEngine engine,
-                            void **ctx, uint64_t *size) {
-    return hcclEngineCtxGetPtr(comm, ctxTag, engine, ctx, size);
-}
-HcclResult HcclEngineCtxCopy(HcclComm comm, CommEngine engine, const char *ctxTag,
-                             const void *srcCtx, uint64_t size, uint64_t dstCtxOffset) {
-    return hcclEngineCtxCopyPtr(comm, engine, ctxTag, srcCtx, size, dstCtxOffset);
-}
-int32_t HcclTaskRegister(HcclComm comm, const char *msgTag, Callback cb) {
-    return hcclTaskRegisterPtr(comm, msgTag, cb);
-}
-int32_t HcclTaskUnRegister(HcclComm comm, const char *msgTag) {
-    return hcclTaskUnRegisterPtr(comm, msgTag);
-}
-HcclResult HcclDevMemAcquire(HcclComm comm, const char *memTag, uint64_t *size,
-                             void **addr, bool *newCreated) {
-    return hcclDevMemAcquirePtr(comm, memTag, size, addr, newCreated);
-}
-HcclResult HcclThreadExportToCommEngine(HcclComm comm, uint32_t threadNum,
-                                        const ThreadHandle *threads, CommEngine dstCommEngine,
-                                        ThreadHandle *exportedThreads) {
-    return hcclThreadExportToCommEnginePtr(comm, threadNum, threads, dstCommEngine, exportedThreads);
-}
-HcclResult HcclChannelGetRemoteMems(HcclComm comm, ChannelHandle channel,
-                                   uint32_t *memNum, CommMem **remoteMems, char ***memTags) {
-    return hcclChannelGetRemoteMemsPtr(comm, channel, memNum, remoteMems, memTags);
-}
-HcclResult HcclCommMemReg(HcclComm comm, const char *memTag, const CommMem *mem,
-                          HcclMemHandle *memHandle) {
-    return hcclCommMemRegPtr(comm, memTag, mem, memHandle);
-}
-HcclResult HcclEngineCtxDestroy(HcclComm comm, const char *ctxTag, CommEngine engine) {
-    return hcclEngineCtxDestroyPtr(comm, ctxTag, engine);
-}
+// HcclResult HcclGetHcclBuffer(HcclComm comm, void **buffer, uint64_t *size) {
+//     return hcclGetHcclBufferPtr(comm, buffer, size);
+// }
+// HcclResult HcclGetRemoteIpcHcclBuf(HcclComm comm, uint64_t remoteRank, void **addr, uint64_t *size) {
+//     return hcclGetRemoteIpcHcclBufPtr(comm, remoteRank, addr, size);
+// }
+// HcclResult HcclThreadAcquire(HcclComm comm, CommEngine engine, uint32_t threadNum,
+//                               uint32_t notifyNumPerThread, ThreadHandle *threads) {
+//     return hcclThreadAcquirePtr(comm, engine, threadNum, notifyNumPerThread, threads);
+// }
+// HcclResult HcclThreadAcquireWithStream(HcclComm comm, CommEngine engine, aclrtStream stream,
+//                                        uint32_t notifyNum, ThreadHandle *thread) {
+//     return hcclThreadAcquireWithStreamPtr(comm, engine, stream, notifyNum, thread);
+// }
+// HcclResult HcclChannelAcquire(HcclComm comm, CommEngine engine, const HcclChannelDesc *channelDescs,
+//                               uint32_t channelNum, ChannelHandle *channels) {
+//     return hcclChannelAcquirePtr(comm, engine, channelDescs, channelNum, channels);
+// }
+// HcclResult HcclChannelGetHcclBuffer(HcclComm comm, ChannelHandle channel, void **buffer, uint64_t *size) {
+//     return hcclChannelGetHcclBufferPtr(comm, channel, buffer, size);
+// }
+// HcclResult HcclEngineCtxCreate(HcclComm comm, const char *ctxTag, CommEngine engine,
+//                                uint64_t size, void **ctx) {
+//     return hcclEngineCtxCreatePtr(comm, ctxTag, engine, size, ctx);
+// }
+// HcclResult HcclEngineCtxGet(HcclComm comm, const char *ctxTag, CommEngine engine,
+//                             void **ctx, uint64_t *size) {
+//     return hcclEngineCtxGetPtr(comm, ctxTag, engine, ctx, size);
+// }
+// HcclResult HcclEngineCtxCopy(HcclComm comm, CommEngine engine, const char *ctxTag,
+//                              const void *srcCtx, uint64_t size, uint64_t dstCtxOffset) {
+//     return hcclEngineCtxCopyPtr(comm, engine, ctxTag, srcCtx, size, dstCtxOffset);
+// }
+// int32_t HcclTaskRegister(HcclComm comm, const char *msgTag, Callback cb) {
+//     return hcclTaskRegisterPtr(comm, msgTag, cb);
+// }
+// int32_t HcclTaskUnRegister(HcclComm comm, const char *msgTag) {
+//     return hcclTaskUnRegisterPtr(comm, msgTag);
+// }
+// HcclResult HcclDevMemAcquire(HcclComm comm, const char *memTag, uint64_t *size,
+//                              void **addr, bool *newCreated) {
+//     return hcclDevMemAcquirePtr(comm, memTag, size, addr, newCreated);
+// }
+// HcclResult HcclThreadExportToCommEngine(HcclComm comm, uint32_t threadNum,
+//                                         const ThreadHandle *threads, CommEngine dstCommEngine,
+//                                         ThreadHandle *exportedThreads) {
+//     return hcclThreadExportToCommEnginePtr(comm, threadNum, threads, dstCommEngine, exportedThreads);
+// }
+// HcclResult HcclChannelGetRemoteMems(HcclComm comm, ChannelHandle channel,
+//                                    uint32_t *memNum, CommMem **remoteMems, char ***memTags) {
+//     return hcclChannelGetRemoteMemsPtr(comm, channel, memNum, remoteMems, memTags);
+// }
+// HcclResult HcclCommMemReg(HcclComm comm, const char *memTag, const CommMem *mem,
+//                           HcclMemHandle *memHandle) {
+//     return hcclCommMemRegPtr(comm, memTag, mem, memHandle);
+// }
+// HcclResult HcclEngineCtxDestroy(HcclComm comm, const char *ctxTag, CommEngine engine) {
+//     return hcclEngineCtxDestroyPtr(comm, ctxTag, engine);
+// }
 
 // ---------- 对外提供的查询接口（判断函数是否存在）----------
 extern "C" bool HcommIsSupportHcclGetHcclBuffer(void) {

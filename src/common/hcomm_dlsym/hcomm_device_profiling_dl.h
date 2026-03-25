@@ -38,25 +38,14 @@ typedef struct HcomProInfoTmp {
     uint8_t reserved[MAX_LENGTH];
 }HcomProInfoTmp;
 
-// 声明全局函数指针（小驼峰命名）
-extern HcclResult (*hcommProfilingReportMainStreamAndFirstTaskPtr)(ThreadHandle);
-extern HcclResult (*hcommProfilingReportMainStreamAndLastTaskPtr)(ThreadHandle);
-extern HcclResult (*hcommProfilingReportDeviceHcclOpInfoPtr)(HcomProInfoTmp);
-extern HcclResult (*hcommProfilingInitPtr)(ThreadHandle*, uint32_t);
-extern HcclResult (*hcommProfilingEndPtr)(ThreadHandle*, uint32_t);
-extern HcclResult (*hcommProfilingReportDeviceOpPtr)(const char* groupname);
-extern HcclResult (*hcommProfilingReportKernelStartTaskPtr)(uint64_t thread, const char* groupname);
-extern HcclResult (*hcommProfilingReportKernelEndTaskPtr)(uint64_t thread, const char* groupname);
-
-// 宏：将原始API名映射为函数指针调用
-#define HcommProfilingReportMainStreamAndFirstTask                (*hcommProfilingReportMainStreamAndFirstTaskPtr)
-#define HcommProfilingReportMainStreamAndLastTask                 (*hcommProfilingReportMainStreamAndLastTaskPtr)
-#define HcommProfilingReportDeviceHcclOpInfo                       (*hcommProfilingReportDeviceHcclOpInfoPtr)
-#define HcommProfilingInit                                          (*hcommProfilingInitPtr)
-#define HcommProfilingEnd                                           (*hcommProfilingEndPtr)
-#define HcommProfilingReportDeviceOp                                (*hcommProfilingReportDeviceOpPtr)
-#define HcommProfilingReportKernelStartTask                         (*hcommProfilingReportKernelStartTaskPtr)
-#define HcommProfilingReportKernelEndTask                            (*hcommProfilingReportKernelEndTaskPtr)
+HcclResult __attribute__((weak)) HcommProfilingReportMainStreamAndFirstTask(ThreadHandle thread);
+HcclResult __attribute__((weak)) HcommProfilingReportMainStreamAndLastTask(ThreadHandle thread);
+HcclResult __attribute__((weak)) HcommProfilingReportDeviceHcclOpInfo(HcomProInfoTmp profInfo);
+HcclResult __attribute__((weak)) HcommProfilingInit(ThreadHandle* threads, uint32_t threadNum);
+HcclResult __attribute__((weak)) HcommProfilingEnd(ThreadHandle* threads, uint32_t threadNum);
+HcclResult __attribute__((weak)) HcommProfilingReportDeviceOp(const char* groupname);
+HcclResult __attribute__((weak)) HcommProfilingReportKernelStartTask(uint64_t thread, const char* groupname);
+HcclResult __attribute__((weak)) HcommProfilingReportKernelEndTask(uint64_t thread, const char* groupname);
 
 // 查询函数声明
 bool HcommIsSupportHcommProfilingReportMainStreamAndFirstTask(void);

@@ -17,11 +17,7 @@
 extern "C" {
 #endif
 
-// 声明全局函数指针（小驼峰命名）
-extern HcclResult (*hrtGetDeviceTypePtr)(DevType &devType);
-
-// 宏：将原始API名映射为函数指针调用
-#define hrtGetDeviceType                (*hrtGetDeviceTypePtr)
+HcclResult __attribute__((weak)) hrtGetDeviceType(DevType &devType);
 
 // 查询函数声明
 bool HcommIsSupportHrtGetDeviceType(void);

@@ -17,6 +17,8 @@
 extern "C" {
 #endif
 
+HcclResult __attribute__((weak)) HcomGetCommHandleByGroup(const char* group, HcclComm* commHandle);
+
 // 查询函数声明
 bool HcommIsSupportHcomGetRankSize(void);
 bool HcommIsSupportHcomGetLocalRankSize(void);
