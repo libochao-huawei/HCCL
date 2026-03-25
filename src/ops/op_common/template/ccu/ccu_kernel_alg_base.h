@@ -91,8 +91,10 @@ protected:
 
     // write 模式：本端 LocalCopy → bufs[rankId]，MsWriteNb(bufs[rankId], bufs[rankId]) 广播至所有 peers
     // 利用对称 MS 分配，每个 rank 固定占用 bufs[rankId]，所有 rank 的 MS 布局一致：bufs[R] = rank R 的数据
-    // 接收方通过 NotifyWait(channel, WRITE_DONE_CKE_IDX, 1) 等待每个 channel 的写完成通知
-    static constexpr uint32_t WRITE_DONE_CKE_IDX = 2;
+    // 接收方通过 NotifyWait(channel, writeDoneCkeIdx, 1) 等待每个 channel 的写完成通知
+    // 双缓冲流水线中 LoopBlock 0 和 LoopBlock 1 必须使用不同的 CKE index，
+    // 否则 CKE bitmask 的幂等性会导致跨迭代事件丢失或误消费
+    static constexpr uint32_t WRITE_DONE_CKE_IDX[2] = {2, 3};
     HcclResult CreateMultiOpWrite(const std::vector<ChannelHandle> &channels, uint32_t rankId,
                                    HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType);
     HcclResult GroupWrite(const std::vector<ChannelHandle> &channels, uint32_t rankId, CcuRep::LocalAddr dst,
