@@ -99,16 +99,16 @@ HcclResult AllReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclD
     u64 inputSize = outputSize;
 
     OpParam param;
-    CHK_RET(HcclGetCommName(comm, param.commName));
+    CHK_RET(HcclGetCommName(comm, param.commName));// 获取通信名称
     param.stream = stream;
     param.reduceType = op;
     param.opMode = OpMode::OPBASE;
 
     DevType deviceType = DevType::DEV_TYPE_COUNT;
-    CHK_RET(hrtGetDeviceType(deviceType));
+    CHK_RET(hrtGetDeviceType(deviceType));// 获取当前设备类型
 
     // topoInfo的tag，所有相同的算子可以共享
-    int ret = sprintf_s(param.tag, sizeof(param.tag), "%s", tag.c_str());
+    int ret = sprintf_s(param.tag, sizeof(param.tag), "%s", tag.c_str());// 格式化tag
     if (ret <= 0) {
         HCCL_ERROR("failed to fill param.tag");
         return HCCL_E_INTERNAL;
@@ -127,7 +127,7 @@ HcclResult AllReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclD
     
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
-    CHK_RET(Selector(comm, param, topoInfo, algName));
+    CHK_RET(Selector(comm, param, topoInfo, algName));// 选择算法
     if (ShouldUseInnerOp(param.opExecuteConfig)) {
         return HcclAllReduceInner(sendBuf, recvBuf, count, dataType, op, comm, stream);
     }
@@ -137,7 +137,7 @@ HcclResult AllReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclD
         CHK_RET(SingleRankProc(param));
         return HcclResult::HCCL_SUCCESS;
     }
-    CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
+    CHK_RET(HcclExecOp(comm, param, topoInfo, algName));// 执行算子
     HCCL_INFO("Execute AllReduceOutPlace success.");
     return HCCL_SUCCESS;
 }
