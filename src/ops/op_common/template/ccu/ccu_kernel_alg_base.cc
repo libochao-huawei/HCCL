@@ -741,9 +741,9 @@ HcclResult CcuKernelAlgBase::CreateMultiOpWrite(const std::vector<ChannelHandle>
         LocalCopyNb(bufs[0], src, len, event);
         WaitEvent(event);
 
-        // Step 2: 发送 inputMs 到所有 peers（write-with-notify，利用对称 MS 分配 dst=bufs[0]）
+        // Step 2: 发送 inputMs 到所有 peers（写入远端 bufs[i+1]，保留远端 bufs[0] 存放自己的数据）
         for (uint32_t i = 0; i < channels.size(); i++) {
-            CHK_RET(MsWriteNb(channels[i], bufs[0], bufs[0], len, WRITE_DONE_CKE_IDX, 1));
+            CHK_RET(MsWriteNb(channels[i], bufs[0], bufs[i + 1], len, WRITE_DONE_CKE_IDX, 1));
         }
 
         // Step 3: 等待每个 peer 的写完成通知（接收方）
@@ -882,9 +882,9 @@ HcclResult CcuKernelAlgBase::CreateMultiOpBroadcastWrite(const std::vector<Chann
         LocalCopyNb(bufs[0], src, len, event);
         WaitEvent(event);
 
-        // Step 2: 广播 inputMs 到所有 peers（利用对称 MS 分配 dst=bufs[0]）
+        // Step 2: 广播 inputMs 到所有 peers（写入远端 bufs[i+1]，保留远端 bufs[0] 存放自己的数据）
         for (uint32_t i = 0; i < channels.size(); i++) {
-            CHK_RET(MsWriteNb(channels[i], bufs[0], bufs[0], len, WRITE_DONE_CKE_IDX, 1));
+            CHK_RET(MsWriteNb(channels[i], bufs[0], bufs[i + 1], len, WRITE_DONE_CKE_IDX, 1));
         }
 
         // Step 3: 等待每个 peer 写来的 slice 到达
