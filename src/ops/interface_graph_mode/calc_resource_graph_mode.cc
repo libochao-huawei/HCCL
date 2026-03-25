@@ -56,7 +56,7 @@ HcclResult HcclSetOpParamGraphModeDataCount(OpParamGraphMode *opParam, const u64
     }
     // 将void*转换为OpParamGraphMode*
     OpParamGraphMode *paramPtr = reinterpret_cast<OpParamGraphMode *>(opParam);
-    memcpy_s(&paramPtr->dataCount, sizeof(paramPtr->dataCount), &dataCount, sizeof(u64));
+    memcpy_s(&paramPtr->dataCount, sizeof(paramPtr->dataCount), dataCount, sizeof(u64));
     return HCCL_SUCCESS;
 }
 
@@ -78,7 +78,7 @@ HcclResult HcclSetOpParamGraphModeRankSize(OpParamGraphMode *opParam, const u32 
     }
     // 将void*转换为OpParamGraphMode*
     OpParamGraphMode *paramPtr = reinterpret_cast<OpParamGraphMode *>(opParam);
-    memcpy_s(&paramPtr->rankSize, sizeof(paramPtr->rankSize), &rankSize, sizeof(u32));
+    memcpy_s(&paramPtr->rankSize, sizeof(paramPtr->rankSize), rankSize, sizeof(u32));
     return HCCL_SUCCESS;
 }
 
@@ -89,7 +89,7 @@ HcclResult HcclSetOpParamGraphModeHCCLBufferSize(OpParamGraphMode *opParam, cons
     }
     // 将void*转换为OpParamGraphMode*
     OpParamGraphMode *paramPtr = reinterpret_cast<OpParamGraphMode *>(opParam);
-    memcpy_s(&paramPtr->hcclBufferSize, sizeof(paramPtr->hcclBufferSize), &hcclBufferSize, sizeof(u64));
+    memcpy_s(&paramPtr->hcclBufferSize, sizeof(paramPtr->hcclBufferSize), hcclBufferSize, sizeof(u64));
     return HCCL_SUCCESS;
 }
 
