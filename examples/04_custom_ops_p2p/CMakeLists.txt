@@ -110,17 +110,22 @@ if(KERNEL_MODE)
     register_custom_aicpu_target(p2p_aicpu_kernel)
 
     # 打包：AICPU Kernel tar 包
-    package_aicpu_kernel(
-        p2p_aicpu_kernel
-        ${AICPU_KERNEL_TAR_FILE}
-        ${AICPU_KERNEL_JSON_FILE}
+    get_target_property(KERNEL_LIB_PATH p2p_aicpu_kernel LOCATION)
+    pack_targets_and_files(
+        OUTPUT_TARGET "generate_custom_aicpu_package"
+        OUTPUT "aicpu_hccl_custom_p2p.tar.gz"
+        FILES ${KERNEL_PATH}
+        TARGET p2p_aicpu_kernel
+        MANIFEST "bin_hash.cfg"
+        TAR_ROOT_DIR "aicpu_kernels_device"
     )
+
     # 签名：添加 AICPU Kernel tar 包的签名
-    sign_aicpu_kernel(
-        p2p_aicpu_kernel
-        ${AICPU_KERNEL_TAR_FILE}
-        ${CMAKE_CURRENT_SOURCE_DIR}/scripts/hccl_custom_p2p_check_cfg.xml
-        SIGNED_AICPU_KERNEL_TAR_FILE
+    sign_file(
+        INPUT "aicpu_hccl_custom_p2p.tar.gz"
+        CONFIG ${CMAKE_CURRENT_SOURCE_DIR}/scripts/hccl_custom_p2p_check_cfg.xml
+        RESULT_VAR "aicpu_hccl_custom_p2p_sign_file"
+        DEPENDS generate_custom_aicpu_package
     )
 else()
     # 安装
