@@ -24,7 +24,8 @@
 #include <shared_mutex>
 #include <atomic>
 
-namespace ops_hccl{
+using namespace ops_hccl;
+namespace {
     //统计缓存信息
     struct CacheStats {
         std::atomic<uint64_t> hits{0};
