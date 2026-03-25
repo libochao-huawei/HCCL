@@ -244,10 +244,19 @@ HcclResult AllGatherVOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t se
  	param.outputPtr = recvBuf;
  	param.outputSize = outputSize;
  	param.DataDes.count = sendCount;
- 	param.DataDes.dataType = dataType;
- 	param.opType = HcclCMDType::HCCL_CMD_ALLGATHER_V;
- 	param.enableDetour = false;
- 	param.deviceType = deviceType;
+ 	param.vDataDes.dataType = dataType;
+    // 带V算子的参数
+    param.varMemSize = varMemSize;
+    // 从源内存地址按字节直接拷贝数据到目标地址
+    std::vector<u64> merged(userRankSize + userRankSize); 
+    const uint64_t *countsPtr = reinterpret_cast<const uint64_t *>(recvCounts);
+    const uint64_t *displsPtr = reinterpret_cast<const uint64_t *>(recvDispls);
+    std::copy(countsPtr, countsPtr + userRankSize, merged.begin());
+    std::copy(displsPtr, displsPtr + userRankSize, merged.begin() + userRankSize);
+    memcpy_s(param.varData, varMemSize, merged.data(), varMemSize);
+    param.opType = HcclCMDType::HCCL_CMD_ALLGATHER_V;
+    param.enableDetour = false;
+    param.deviceType = deviceType;
  	if (userRankSize == 1) {
  	  	HCCL_WARNING("[%s] rankSize == 1, enter SingleRankProc", __func__);
  	  	CHK_RET(SingleRankProc(param));
