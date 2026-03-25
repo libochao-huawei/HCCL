@@ -13,8 +13,8 @@
 namespace ops_hccl {
 using namespace hcomm;
 
-constexpr int AG_POST_SYNC_CKE_IDX_W = 0;
-constexpr int AG_PRE_SYNC_CKE_IDX_W  = 1;
+constexpr int AG_PRESYNC_CKE_IDX  = 0;
+constexpr int AG_POSTSYNC_CKE_IDX = 0;
 
 CcuKernelAllGatherMesh1DWrite::CcuKernelAllGatherMesh1DWrite(const hcomm::CcuKernelArg &arg)
     : CcuKernelAlgBase(arg)
@@ -53,20 +53,20 @@ void CcuKernelAllGatherMesh1DWrite::LoadArgs()
 void CcuKernelAllGatherMesh1DWrite::Presync()
 {
     for (auto &ch : channels_) {
-        NotifyRecord(ch, AG_PRE_SYNC_CKE_IDX_W, 1);
+        NotifyRecord(ch, AG_PRESYNC_CKE_IDX, PRE_SYNC_MASK);
     }
     for (auto &ch : channels_) {
-        NotifyWait(ch, AG_PRE_SYNC_CKE_IDX_W, 1);
+        NotifyWait(ch, AG_PRESYNC_CKE_IDX, PRE_SYNC_MASK);
     }
 }
 
 void CcuKernelAllGatherMesh1DWrite::Postsync()
 {
     for (auto &ch : channels_) {
-        NotifyRecord(ch, AG_POST_SYNC_CKE_IDX_W, 1);
+        NotifyRecord(ch, AG_POSTSYNC_CKE_IDX, POST_SYNC_MASK);
     }
     for (auto &ch : channels_) {
-        NotifyWait(ch, AG_POST_SYNC_CKE_IDX_W, 1);
+        NotifyWait(ch, AG_POSTSYNC_CKE_IDX, POST_SYNC_MASK);
     }
 }
 
