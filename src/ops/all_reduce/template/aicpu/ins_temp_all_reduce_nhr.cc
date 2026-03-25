@@ -86,7 +86,6 @@ HcclResult InsTempAllReduceNHR::KernelRun(const OpParam& param,
     // 获取当前rank在rank列表中的序号
     CHK_RET(GetAlgRank(myRank_, rankList_, myRankIdx_));
 
-    enableRemoteMemAccess_ = tempAlgParams.enableRemoteMemAccess;
     processSize_ = tempAlgParams.sliceSize;
     count_ = tempAlgParams.count;
     dataType_ = param.DataDes.dataType;

@@ -303,7 +303,7 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
         } else {
             memBlockSize = std::min(static_cast<u64>(UB_MAX_DATA_SIZE), maxTmpMemSize_ / multipleInter) * templateNum;
             interHcclBuffSizeStage0_ = maxTmpMemSize_;
-            interHcclBuffSizeStage0_ = maxTmpMemSize_;
+            interHcclBuffSizeStage1_ = maxTmpMemSize_;
         }
     } else {  // multipleIntra >0 && multipleInter >0, 理论上dataSplitSize[0]=0.5时，scratch buffer利用率最大
         SplitRate = dataSplitSizeList.at(0);
@@ -341,7 +341,6 @@ void InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
 
     tempAlgParams.buffInfo.inputSize = param.inputSize;
     tempAlgParams.buffInfo.outputSize = param.outputSize;
-    tempAlgParams.enableRemoteMemAccess = param.opMode == OpMode::OPBASE;
     
     tempAlgParams.count = dataCount;
     tempAlgParams.sliceSize = dataCount * dataTypeSize_;
@@ -370,7 +369,6 @@ void InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
 
     tempAlgParams.buffInfo.inputSize = param.outputSize;
     tempAlgParams.buffInfo.outputSize = param.outputSize;
-    tempAlgParams.enableRemoteMemAccess = param.opMode == OpMode::OPBASE;
 
     tempAlgParams.count = dataCount;
     tempAlgParams.sliceSize = dataCount * dataTypeSize_;
