@@ -60,7 +60,7 @@ void CcuKernelReduceScatterNHR1DMem2Mem::LoadArgs()
     Load(die0LastSliceSize_);
     Load(die1LastSliceSize_);
     Load(inputSliceStride_);
-    Load(outputSliceStride_);
+    Load(currentRankSliceOutputOffset_);
     Load(inputRepeatStride_);
     Load(outputRepeatStride_);
     Load(repeatNumVar_);
@@ -98,7 +98,6 @@ HcclResult CcuKernelReduceScatterNHR1DMem2Mem::InitResources()
 
     repeatInputOffset_      = CreateVariable();
     repeatOutputOffset_     = CreateVariable();
-    myrankInputSliceOffset_ = CreateVariable();
 
     localSrc_     = CreateLocalAddr();
     localDst_     = CreateLocalAddr();
@@ -155,6 +154,7 @@ void CcuKernelReduceScatterNHR1DMem2Mem::DoRepeatReduceScatterNHR()
     localSrc_.addr += inputSliceOffset[mySubCommRankId_];
     localSrc_.token = token_[myRankIdx_];
     localDst_.addr  = output_;
+    localDst_.addr += currentRankSliceOutputOffset_;
     localDst_.token = token_[myRankIdx_];
 
     bool islastSlice = (mySubCommRankId_ + 1 == dimSize_);
@@ -280,20 +280,21 @@ std::vector<uint64_t> CcuKernelReduceScatterNHR1DMem2Mem::GeneArgs(const CcuTask
     uint64_t die0LastSliceSize  = taskArg->die0LastSliceSize_;
     uint64_t die1LastSliceSize  = taskArg->die1LastSliceSize_;
     uint64_t inputSliceStride   = taskArg->inputSliceStride_;
-    uint64_t outputSliceStride  = taskArg->outputSliceStride_;
+    uint64_t currentRankSliceOutputOffset= taskArg->outputSliceStride_ * rankId_;
     uint64_t inputRepeatStride  = taskArg->inputRepeatStride_;
     uint64_t outputRepeatStride = taskArg->outputRepeatStride_;
     uint64_t repeatNumVar       = UINT64_MAX - taskArg->repeatNum_;
 
     HCCL_INFO("[CcuKernelReduceScatterNHR1DMem2Mem] TaskArgs: inputAddr[%llu], outputAddr[%llu],"
               "die0Size[%llu], die1Size[%llu], die0LastSliceSize[%llu], die1LastSliceSize[%llu],"
-              "inputSliceStride[%llu], outputSliceStride[%llu], inputRepeatStride[%llu], outputRepeatStride[%llu]",
+              "inputSliceStride[%llu], currentRankSliceOutputOffset[%llu], inputRepeatStride[%llu], "
+              "outputRepeatStride[%llu]",
               inputAddr, outputAddr, die0Size, die1Size, die0LastSliceSize, die1LastSliceSize,
-              inputSliceStride, outputSliceStride, inputRepeatStride, outputRepeatStride);
+              inputSliceStride, currentRankSliceOutputOffset, inputRepeatStride, outputRepeatStride);
 
     return {inputAddr,          outputAddr,         token,
             die0Size,           die1Size,           die0LastSliceSize,
-            die1LastSliceSize,  inputSliceStride,   outputSliceStride,
+            die1LastSliceSize,  inputSliceStride,   currentRankSliceOutputOffset,
             inputRepeatStride,  outputRepeatStride, repeatNumVar};
 }
 } // namespace ops_hccl
