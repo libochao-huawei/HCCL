@@ -1,4 +1,4 @@
-# HCCL 代码示例
+﻿# HCCL 代码示例
 
 本目录提供了不同场景下使用 HCCL 接口实现集合通信功能的示例代码。
 
@@ -27,3 +27,7 @@
 ## 自定义点对点通信算子
 
 - [自定义 Send/Recv 算子（基于 AICPU 通信引擎）](./04_custom_ops_p2p/)
+
+## 自定义集合通信算子
+
+- [自定义 Double AllGather 算子（A3 可运行版本）](./07_custom_ops_double_allgather_aicpu/)
