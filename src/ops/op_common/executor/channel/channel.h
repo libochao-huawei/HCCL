@@ -30,14 +30,24 @@ HcclResult CalcLevel1ChannelRequest(const OpParam& param, const TopoInfo* topoIn
     const AlgType& algType, std::vector<HcclChannelDesc> &channels);
 HcclResult CalcLevel2ChannelRequest(const OpParam& param, const TopoInfo* topoInfo, AlgHierarchyInfo& algHierarchyInfo,
     const AlgType& algType, std::vector<HcclChannelDesc> &channels);
-HcclResult CalcChannelRequestMesh1D(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
-    std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels);
-HcclResult CalcChannelRequestNhr(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
-    std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels);
-HcclResult CalcChannelRequestMesh2D(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
-    std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels);
-HcclResult CreateChannelRequestByRankId(HcclComm comm, u32 myRank, u32 remoteRank,
-    std::vector<HcclChannelDesc> &channels);
+HcclResult CalcChannelRequestMesh1D(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
+    const std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels);
+HcclResult CalcChannelRequestNhr(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
+    const std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels);
+HcclResult CalcChannelRequestMesh2D(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
+    const std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels);
+HcclResult CreateChannelRequestByRankId(HcclComm comm, const OpParam& param, u32 myRank, u32 remoteRank,
+    std::vector<HcclChannelDesc> &channels, u32 channelRepeatNum = 1);
+HcclResult CalcChannelRequestMesh1DWithPriorityTopo(HcclComm comm, const OpParam &param, const TopoInfo *topoInfo,
+                                                    const std::vector<std::vector<u32>> &subcommInfo,
+                                                    std::vector<HcclChannelDesc> &channels, CommTopo priorityTopo);
+HcclResult CalcChannelRequestNHRWithPriorityTopo(HcclComm comm, const OpParam &param, const TopoInfo *topoInfo,
+                                                 const std::vector<std::vector<u32>> &subcommInfo,
+                                                 std::vector<HcclChannelDesc> &channels, CommTopo priorityTopo);
+HcclResult GetTopoTypeByLink(HcclComm comm, uint32_t netLayer, CommLink &link, CommTopo &topoType);
+HcclResult ProcessLinksForChannel(HcclComm comm, u32 myRank, u32 rank, std::vector<HcclChannelDesc> &channels,
+                                  CommTopo priorityTopo);
+HcclResult GetProtocolByEngine(const OpParam& param, std::vector<CommProtocol> &protocols);
 }
 
 #endif

@@ -10,38 +10,29 @@
  
 #ifndef INS_ALL_REDUCE_PARALLEL_EXECUTOR
 #define INS_ALL_REDUCE_PARALLEL_EXECUTOR
- 
-#include "alg_param.h"
-#include "topo_host.h"
-#include "channel.h"
-#include "alg_v2_template_base.h"
-#include "utils.h"
-#include "log.h"
-#include "workflow.h"
-#include "sal.h"
-#include "config_log.h"
-#include "executor_v2_base.h"
-#include "coll_alg_v2_exec_registry.h"
-#include "topo_match_base.h"
+
+#include "executor_common_ops.h"
 #include "topo_match_1d.h"
+#include "topo_match_base.h"
 #include "topo_match_multilevel.h"
- 
+#include "topo_match_ubx.h"
+
 namespace ops_hccl {
  
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 class InsAllReduceParallelExecutor : public InsCollAlgBase {
 public:
     explicit InsAllReduceParallelExecutor();
-    ~InsAllReduceParallelExecutor();
+    ~InsAllReduceParallelExecutor() override;
  
     std::string Describe() const override
     {
         return "Instruction based AllReduce Parallel Executor.";
     }
 
-    HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfo* topoInfo,
+    HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo,
         AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
-    HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+    HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
         const AlgHierarchyInfoForAllLevel& algHierarchyInfo, AlgResourceRequest& resourceRequest) override;
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
  
@@ -55,19 +46,15 @@ private:
     HcclResult CalcSendDataSize(u64 &memBlockSize, float &SplitRate, u32 &multipleIntra, u32 &multipleInter);
     
     void GenAlgParamsStage0(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset,
-        const u64 sliceCount, const u64 scratchOffsetCount, TemplateDataParams &dataParams) const;
+        const u64 dataCount, const u64 hcclBuffBaseOff, TemplateDataParams &tempAlgParams) const;
     void GenAlgParamsStage1(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset,
-        const u64 sliceCount, const u64 scratchOffsetCount, TemplateDataParams &dataParams) const;
-    
-    HcclResult PreSync(const std::vector<ThreadHandle> &threads);
-    HcclResult PostSync(const std::vector<ThreadHandle> &threads);
+        const u64 dataCount, const u64 hcclBuffBaseOff, TemplateDataParams &tempAlgParams) const;
 
     std::vector<std::vector<u32>> AlgHierarchyInfoExector;
 
     std::vector<ThreadHandle> threads_;
     std::vector<ThreadHandle> intraThreads_;
     std::vector<ThreadHandle> interThreads_;
-    std::vector<ThreadHandle> syncThreads_;
 
     std::vector<std::map<u32, std::vector<ChannelInfo>>> remoteRankToChannelInfo_;
     std::map<u32, std::vector<ChannelInfo>> intraChannelInfo_;
@@ -80,8 +67,10 @@ private:
     u64 intraHcclBuffSizeStage1_{0};
     u64 interHcclBuffSizeStage1_{0};
 
-    std::vector<u32> preSyncNotifyList_;
-    std::vector<u32> postSyncNotifyList_;
+    ThreadHandle mainThread_{0};
+    std::vector<ThreadHandle> templateMainThreads_;
+    std::vector<u32> syncNotifyOnTemplates_;
+    std::vector<u32> syncNotifyOnMain_;
 };
  
 }  // namespace ops_hccl

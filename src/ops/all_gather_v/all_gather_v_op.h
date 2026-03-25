@@ -35,7 +35,7 @@ namespace ops_hccl {
 HcclResult AllGatherVOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount, const void *recvCounts,
     const void *recvDispls, HcclDataType dataType, HcclComm comm, aclrtStream stream, const std::string &tag);
 
-HcclResult CheckAllGatherVInputPara(HcclComm comm, void *sendBuf, void *recvBuf);
+HcclResult CheckAllGatherVInputPara(const HcclComm comm, const void* sendBuf, const void* recvBuf);
 
 HcclResult AllGatherVExecOp(HcclComm comm, OpParam &param);
 
@@ -45,7 +45,7 @@ HcclResult CheckDataTypeAGV(const HcclDataType dataType);
 
 std::string GetSupportDataTypeAGV();
 
-HcclResult CalcBaseTopoInfoAllGatherV(HcclComm comm, OpParam &param, TopoInfo **topoInfo);
+HcclResult CalcBaseTopoInfoAllGatherV(HcclComm comm, OpParam &param, TopoInfoWithNetLayerDetails **topoInfo);
 
 }  // namespace ops_hccl
 #endif

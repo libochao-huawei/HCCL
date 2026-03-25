@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
  
-#ifndef HCCLV2_REDUCESCATTTER_AUTO_SELECTOR
-#define HCCLV2_REDUCESCATTTER_AUTO_SELECTOR
+#ifndef HCCLV2_ALLGATHERV_AUTO_SELECTOR
+#define HCCLV2_ALLGATHERV_AUTO_SELECTOR
  
 #include "auto_selector_base.h"
  
@@ -17,17 +17,16 @@ namespace ops_hccl {
  
 class AllGatherVAutoSelector : public AutoSelectorBase {
 private:
-    SelectorStatus SelectCcuMsAlgo(TopoInfo *topoInfo, OpParam &opParam,
+    SelectorStatus SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
                                    const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                    std::string &selectAlgName) const override;
-    SelectorStatus SelectCcuScheduleAlgo(TopoInfo *topoInfo, OpParam &opParam,
+    SelectorStatus SelectCcuScheduleAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
                                          const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                          std::string &selectAlgName) const override;
-    SelectorStatus SelectAicpuAlgo(TopoInfo *topoInfo, OpParam &opParam,
+    SelectorStatus SelectAicpuAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
                                    const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                    std::string &selectAlgName) const override;
-    SelectorStatus SelectMeshAlgo(TopoInfo *topoInfo, OpParam &opParam, std::string &selectAlgName) const;
-    SelectorStatus SelectAivAlgo(TopoInfo *topoInfo, OpParam &opParam,
+    SelectorStatus SelectAivAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
                                  const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                  std::string &selectAlgName) const override;
 };

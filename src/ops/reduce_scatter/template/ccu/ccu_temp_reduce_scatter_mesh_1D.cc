@@ -33,7 +33,7 @@ CcuTempReduceScatterMesh1D::~CcuTempReduceScatterMesh1D()
 {
 }
 
-HcclResult CcuTempReduceScatterMesh1D::CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+HcclResult CcuTempReduceScatterMesh1D::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                                                AlgResourceRequest& resourceRequest)
 {
     // 不需要从流
@@ -51,7 +51,18 @@ HcclResult CcuTempReduceScatterMesh1D::CalcRes(HcclComm comm, const OpParam& par
                              return std::make_unique<CcuKernelReduceScatterMesh1D>(arg);
                          };
     std::vector<HcclChannelDesc> channelDescs;
-    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
+        if(topoInfo->level0Topo != Level0Shape::MESH_1D_CLOS) {
+        CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
+    } else {
+        std::vector<HcclChannelDesc> myChannelDescs;
+        CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks_, myChannelDescs, CommTopo::COMM_TOPO_1DMESH));
+        for(auto channel : myChannelDescs) {
+            if(channel.channelProtocol == COMM_PROTOCOL_UBC_CTP) {
+                channelDescs.push_back(channel);
+            }
+        }
+        HCCL_DEBUG("[CcuTempReduceScatterMesh1D::CalcRes] Get Mesh Channel Success!");
+    }
     kernelInfo.kernelArg = std::make_shared<CcuKernelArgReduceScatterMesh1D>(subCommRanks_[0].size(),
                                                                                     mySubCommRank_,
                                                                                     param,
@@ -65,7 +76,6 @@ HcclResult CcuTempReduceScatterMesh1D::CalcRes(HcclComm comm, const OpParam& par
 
     return HcclResult::HCCL_SUCCESS;
 }
-
 
 HcclResult CcuTempReduceScatterMesh1D::KernelRun(const OpParam& param,
                                                  const TemplateDataParams& templateDataParams,
@@ -84,10 +94,10 @@ HcclResult CcuTempReduceScatterMesh1D::KernelRun(const OpParam& param,
                               DataTypeSizeGet(dataType);  // 膨胀的倍数是输出类型/输入类型
     HCCL_INFO("[CcuTempReduceScatterMesh1D::KernelRun] dataType[%d] outputDatatype[%d]", param.DataDes.dataType,
               param.DataDes.outputType);
-    uint64_t inputAddr          = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
+    uint64_t baseInputAddr      = PointerToAddr(buffInfo_.inputPtr);
+    uint64_t inputAddr          = baseInputAddr + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr         = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
-    uint64_t token              = hcomm::CcuRep::GetTokenInfo(reinterpret_cast<uint64_t>(buffInfo_.inputPtr),
-                                                       static_cast<uint64_t>(buffInfo_.inputSize));
+    uint64_t token              = hcomm::CcuRep::GetTokenInfo(baseInputAddr, static_cast<uint64_t>(buffInfo_.inputSize));
     uint64_t sliceSize          = templateDataParams.sliceSize;
     uint64_t inputSliceStride   = templateDataParams.inputSliceStride;
     uint64_t offset             = inputSliceStride * mySubCommRank_;
@@ -108,6 +118,19 @@ u64 CcuTempReduceScatterMesh1D::CalcScratchMultiple(BufferType inBuffType, Buffe
     (void)inBuffType;
     (void)outBuffType;
     return 0;
+}
+
+u64 CcuTempReduceScatterMesh1D::GetThreadNum() const
+{
+    return 1;
+}
+
+HcclResult CcuTempReduceScatterMesh1D::GetRes(AlgResourceRequest& resourceRequest) const
+{
+    resourceRequest.slaveThreadNum = 0;
+    resourceRequest.notifyNumOnMainThread = 0;
+
+    return HCCL_SUCCESS;
 }
 
 } // namespace ops_hccl

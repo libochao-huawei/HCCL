@@ -21,7 +21,7 @@
 using namespace HcclSim;
 using namespace ops_hccl;
 
-class ST_SCATTER_TEST : public ::testing::Test {
+class ST_SCATTER_TEST_A2A3 : public ::testing::Test {
 protected:
     void SetUp() override
     {
@@ -31,6 +31,7 @@ protected:
     {
         unsetenv("HCCL_OP_EXPANSION_MODE");
         unsetenv("HCCL_INDEPENDENT_OP");
+        unsetenv("HCCL_ENABLE_OPEN_AICPU");
     }
     static void SetUpTestCase()
     {}
@@ -38,15 +39,17 @@ protected:
     {}
 };
  
-TEST_F(ST_SCATTER_TEST, st_scatter_opbase_test_origin)
+TEST_F(ST_SCATTER_TEST_A2A3, st_scatter_opbase_test_origin)
 {
     // 仿真模型初始化
     TopoMeta topoMeta {{{0, 1, 2, 3}}};  // 三维数组指定超节点-Server-Device信息
-    SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_910B);
-
+    SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_910B);    
+ 
     // 设置展开模式为HOST_TS
     setenv("HCCL_OP_EXPANSION_MODE", "HOST_TS", 1);
     setenv("HCCL_INDEPENDENT_OP", "1", 1);
+    setenv("HCCL_ENABLE_OPEN_AICPU", "1", 1);
+
     // 算子执行参数设置
     auto root = 0;  // root节点
     auto rankSize = 4;  // 参与集合通信的卡数(同topoMeta卡数一致)

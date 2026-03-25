@@ -7,7 +7,6 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
- 
 #ifndef HCCLV2_REDUCE_AUTO_SELECTOR
 #define HCCLV2_REDUCE_AUTO_SELECTOR
 
@@ -17,20 +16,24 @@ namespace ops_hccl {
 
 class ReduceAutoSelector : public AutoSelectorBase {
 private:
-    SelectorStatus SelectCcuMsAlgo(TopoInfo *topoInfo, OpParam &opParam,
+    SelectorStatus SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
         const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
         std::string &selectAlgName) const override;
-    SelectorStatus SelectCcuScheduleAlgo(TopoInfo *topoInfo, OpParam &opParam,
+    SelectorStatus SelectCcuScheduleAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
         const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
         std::string &selectAlgName) const override;
-    SelectorStatus SelectAicpuAlgo(TopoInfo *topoInfo, OpParam &opParam,
+    SelectorStatus SelectAicpuAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
         const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
         std::string &selectAlgName) const override;
-    SelectorStatus SelectMeshAlgo(TopoInfo *topoInfo, OpParam &opParam, std::string &selectAlgName) const;
-    SelectorStatus SelectAivAlgo(TopoInfo *topoInfo, OpParam &opParam,
+    SelectorStatus SelectMeshAlgoCcums(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam, std::string &selectAlgName) const;
+    SelectorStatus SelectMeshAlgoCcuSchedule(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam, std::string &selectAlgName) const;
+    SelectorStatus SelectAivAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
         const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
         std::string &selectAlgName) const override;
-    SelectorStatus SelectMeshAlgoAicpu(TopoInfo *topoInfo, OpParam &opParam, std::string &selectAlgName) const;
+    SelectorStatus SelectMeshAlgoAicpu(const TopoInfoWithNetLayerDetails *topoInfo,
+                                       const OpParam &opParam, std::string &selectAlgName) const;
+    SelectorStatus SelectDPUAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam, const std::map<HcclCMDType, 
+                                std::vector<HcclAlgoType>> &configAlgMap, std::string &selectAlgName) const;
 };
 
 }  // namespace ops_hccl

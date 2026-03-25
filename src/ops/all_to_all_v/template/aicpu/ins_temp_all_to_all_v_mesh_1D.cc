@@ -22,7 +22,7 @@ InsTempAlltoAllVMesh1D::~InsTempAlltoAllVMesh1D()
 {
 }
 
-HcclResult InsTempAlltoAllVMesh1D::CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+HcclResult InsTempAlltoAllVMesh1D::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
     AlgResourceRequest& resourceRequest)
 {
     u32 threadNum = templateRankSize_;
@@ -54,7 +54,7 @@ HcclResult InsTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
     count_ = tempAlgParams.count;
     dataType_ = param.all2AllVDataDes.sendType;
     dataTypeSize_ = SIZE_TABLE[dataType_];
-    cclBufferCountPerRank_ = tempAlgParams.outputSliceStride / dataTypeSize_;
+    cclBufferCountPerRank_ = tempAlgParams.inputSliceStride / dataTypeSize_;
     HCCL_INFO("[InsTempAlltoAllVMesh1D] Run Start");
 
     if (threadNum_ > 1) {
@@ -171,7 +171,7 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
 }
 
 HcclResult InsTempAlltoAllVMesh1D::PostCopy(
-    const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads)
+    const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads) const
 {
     // ccl buffer的数据搬运到usrout
     for (u32 queIdx = 0; queIdx < threadNum_; queIdx++) {

@@ -1,3 +1,4 @@
+#!/bin/bash
 # -----------------------------------------------------------------------------------------------------------
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
@@ -26,6 +27,7 @@ CANN_3RD_LIB_PATH="${CURRENT_DIR}/third_party"
 CUSTOM_SIGN_SCRIPT="${CURRENT_DIR}/scripts/sign/community_sign_build.py"
 ENABLE_SIGN="false"
 VERSION_INFO="8.5.0"
+BUILD_AARCH="false"
 
 ENABLE_UT="off"
 ENABLE_ST="off"
@@ -109,7 +111,7 @@ function build_test() {
         LIBRARY_DIR="${LIBRARY_DIR}${ASCEND_HOME_PATH}/../../latest/opensdk/opensdk/gtest_shared/lib64:"
     fi
 
-    GCC_MAJOR=`gcc -dumpversion | cut -d. -f1`
+    GCC_MAJOR=$(gcc -dumpversion | cut -d. -f1)
     if [ "${ASAN}" == "true" ];then
         ARCH=$(uname -m)
         if [[ $ARCH == "x86_64" || $ARCH == "i386" || $ARCH == "i686" ]]; then
@@ -193,7 +195,7 @@ function build_ut() {
   local report_dir="${OUTPUT_PATH}/report/ut" && mk_dir "${report_dir}"
   cd "${BUILD_DIR}"
 
-  local LLT_KILL_TIME=1200
+  local llt_kill_time=1200
   CMAKE_ARGS="-DPRODUCT_SIDE=host \
               -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
               -DCMAKE_INSTALL_PREFIX=${OUTPUT_DIR} \
@@ -204,7 +206,7 @@ function build_ut() {
               -DENABLE_UT=${ENABLE_UT} \
               -DENABLE_ST=${ENABLE_ST} \
               -DOUTPUT_PATH=${OUTPUT_PATH} \
- 	          -DLLT_KILL_TIME=${LLT_KILL_TIME}"
+ 	          -DLLT_KILL_TIME=${llt_kill_time}"
 
   echo "CMAKE_ARGS=${CMAKE_ARGS}"
   cmake ${CMAKE_ARGS} ..
@@ -388,6 +390,10 @@ while [[ $# -gt 0 ]]; do
         FULL_MODE="true"
         shift
         ;;
+    --build_aarch)
+        BUILD_AARCH="true"
+        shift
+        ;;
     --asan)
         ASAN="true"
         shift
@@ -451,6 +457,10 @@ fi
 
 if [ "${FULL_MODE}" == "true" ];then
     CUSTOM_OPTION="${CUSTOM_OPTION} -DFULL_MODE=ON"
+fi
+
+if [ "${BUILD_AARCH}" == "true" ];then
+    CUSTOM_OPTION="${CUSTOM_OPTION} -DAARCH_MODE=ON"
 fi
 
 if [ "${ASAN}" == "true" ];then
@@ -520,7 +530,7 @@ elif [ "${FULL_MODE}" == "true" ]; then
     cd .. & cd ${BUILD_DIR}
     CUSTOM_OPTION="${CURRENT_CUSTOM_OPTION} -DDEVICE_MODE=OFF"
     build_package
-    rm -rf ${BUILD_DEVICE_DIR}
+    [ -n "${BUILD_DEVICE_DIR}" ] && rm -rf ${BUILD_DEVICE_DIR}
 else
     CUSTOM_OPTION="${CUSTOM_OPTION} -DDEVICE_MODE=OFF"
     build_package

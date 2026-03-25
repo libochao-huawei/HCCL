@@ -8,26 +8,12 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include "send_op.h"
+#include "op_common_ops.h"
 #include <algorithm>
 #include <future>
 #include <map>
 #include <string>
-#include <hccl/hccl_types.h>
-#include "hccl/base.h"
-#include "sal.h"
-#include "error_codes/rt_error_codes.h"
-#include "mmpa_api.h"
-#include "param_check.h"
-#include "executor_base.h"
-#include "coll_alg_v2_exec_registry.h"
-#include "alg_env_config.h"
-#include "adapter_acl.h"
-#include "adapter_error_manager_pub.h"
-#include "hccl_inner.h"
-#include "hccl.h"
-#include "workflow.h"
-#include "send_op.h"
-#include "op_common.h"
 
 using namespace std;
 using namespace ops_hccl;
@@ -37,24 +23,24 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 HcclResult HcclSend(
     void *sendBuf, uint64_t count, HcclDataType dataType, uint32_t destRank, HcclComm comm, aclrtStream stream)
 {
+    if (!HcclCheckAicpuEnableOpen() && !HcclCheckCcuEnableOpen() && !HcclCheckAivEnableOpen()) {
+        return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
+    }
     HCCL_INFO("[HcclSend] Start.");
-    if (!CheckHCCLIndependentOp()) {
-        return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
-    }
-    // 穿刺的时候只考虑A5
-    DevType deviceType = DevType::DEV_TYPE_COUNT;
-    CHK_RET(hrtGetDeviceType(deviceType));
-    // 非95设备转到老流程
-    if (deviceType != DevType::DEV_TYPE_910_95) {
-        return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
-    }
-    // 图模式引导到老的流程上面
-    if (GetWorkflowMode() != HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE) {
+    if (GetHcommVersion() < 90000000) {
         return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
     }
 
-    // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
-    // A3是：export HCCL_OP_EXPANSION_MODE="AI_CPU"，A5的接口还没提供
+    DevType deviceType = DevType::DEV_TYPE_COUNT;
+    CHK_RET(hrtGetDeviceType(deviceType));
+    #ifdef MACRO_DEV_TYPE_NEW
+    if (deviceType != DevType::DEV_TYPE_950) {
+    #else
+    if (deviceType != DevType::DEV_TYPE_910_95) {
+    #endif
+        return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
+    }
+
     CHK_RET(InitEnvConfig());
 
     // 参数校验
@@ -66,8 +52,7 @@ HcclResult HcclSend(
     CHK_RET(HcclGetRankId(comm, &userRank));
     char commName[COMM_INDENTIFIER_MAX_LENGTH];
     CHK_RET(HcclGetCommName(comm, commName));
-    // 兼容同一通信域本rank既调用了send也调用了recv时重新建链报错
-    const string tag = "SendRecv_" + string(commName) + "_" + std::to_string(userRank) + "_" + std::to_string(destRank);
+    const string tag = "Send_" + string(commName) + "_" + std::to_string(userRank) + "_" + std::to_string(destRank);
     CHK_RET(HcclCheckTag(tag.c_str()));
     CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), tag.c_str());
     CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, destRank), tag.c_str());
@@ -75,7 +60,6 @@ HcclResult HcclSend(
     CHK_RET(CheckCount(count));
     CHK_RET(CheckDataType(dataType, false));
 
-    // 执行Send
     CHK_RET_AND_PRINT_IDE(SendExec(sendBuf, count, dataType, destRank, comm, stream, tag), tag.c_str());
 
     HCCL_INFO("[HcclSend][%d]->[%d] Success.", userRank, destRank);
@@ -83,7 +67,7 @@ HcclResult HcclSend(
 }
 
 namespace ops_hccl {
-    HcclResult CheckSendInputPara(HcclComm comm, const void *sendBuf) {
+    HcclResult CheckSendInputPara(const HcclComm comm, const void *sendBuf) {
         // 入参合法性校验
         RPT_INPUT_ERR(
             comm == nullptr,
@@ -146,7 +130,13 @@ namespace ops_hccl {
             return HcclResult::HCCL_SUCCESS;
         }
 
-        CHK_RET(HcclExecOp(comm, param));
+        std::string algName;
+        std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
+        CHK_RET(Selector(comm, param, topoInfo, algName));
+        if (param.opExecuteConfig != OpExecuteConfig::AICPU_TS && param.opExecuteConfig != OpExecuteConfig::HOSTCPU) {
+            return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
+        }
+        CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
 
         return HcclResult::HCCL_SUCCESS;
     }

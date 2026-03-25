@@ -11,7 +11,6 @@
 #ifndef ALG_V2_TEMPLATE_UTILS
 #define ALG_V2_TEMPLATE_UTILS
 
-#include <cstring>
 #include <vector>
 #include <memory>
 #include <string>
@@ -31,7 +30,7 @@ struct SliceInfo {
     u64 offset{0};
     u64 size{0};
 };
- 
+
 using RankSliceInfo = std::vector<std::vector<SliceInfo>>;
 
 enum class BufferType {
@@ -50,7 +49,6 @@ struct DataSlice {
     DataSlice(void* addr, u64 offset, u64 size, u64 count)
     : addr_(addr), offset_(offset), size_(size), count_(count)
     {
-
     }
 
     DataSlice(void* addr, u64 offset, u64 size)
@@ -77,6 +75,19 @@ struct SlicesList {
         : srcSlices_(srcSlices), dstSlices_(dstSlices)
     {
     }
+};
+
+struct A2ASendRecvInfo {
+    // 存放数据长度和偏移长度
+    std::vector<u64> sendLength;
+    std::vector<u64> sendOffset;
+    std::vector<u64> recvLength;
+    std::vector<u64> recvOffset;
+    // 存放数据个数和偏移个数
+    std::vector<u64> sendCounts;
+    std::vector<u64> sendDispls;
+    std::vector<u64> recvCounts;
+    std::vector<u64> recvDispls;
 };
 
 struct DataInfo {
@@ -167,6 +178,10 @@ struct TemplateDataParams {
     u64 inputRepeatStride{0};
     u64 outputRepeatStride{0};
     u64 tailSize{0};
+    bool enableRemoteMemAccess{false};
+    u64 processedDataCount{0};
+    u64 root{0};
+    HcclDataType dataType{HCCL_DATA_TYPE_INT8};
     std::vector<u64> allRankSliceSize;
     std::vector<u64> allRankDispls;
     std::vector<u64> allRankProcessedDataCount;
@@ -188,9 +203,16 @@ struct TemplateDataParams {
         binaryStream << inputRepeatStride;
         binaryStream << outputRepeatStride;
         binaryStream << tailSize;
+        binaryStream << enableRemoteMemAccess;
         binaryStream << allRankSliceSize;
         binaryStream << allRankDispls;
-
+        binaryStream << sendCounts;
+        binaryStream << recvCounts;
+        binaryStream << sdispls;
+        binaryStream << rdispls;
+        binaryStream << allRankProcessedDataCount;
+        binaryStream << root;
+        binaryStream << dataType;
         std::vector<char> result;
         binaryStream.Dump(result);
         return result;
@@ -208,10 +230,19 @@ struct TemplateDataParams {
         binaryStream >> inputRepeatStride;
         binaryStream >> outputRepeatStride;
         binaryStream >> tailSize;
+        binaryStream >> enableRemoteMemAccess;
         binaryStream >> allRankSliceSize;
         binaryStream >> allRankDispls;
+        binaryStream >> sendCounts;
+        binaryStream >> recvCounts;
+        binaryStream >> sdispls;
+        binaryStream >> rdispls;
+        binaryStream >> allRankProcessedDataCount;
+        binaryStream >> root;
+        binaryStream >> dataType;
     }
 };
+
 
 struct TemplateResource {
     std::map<u32, std::vector<ChannelInfo>> channels;
@@ -256,6 +287,14 @@ struct DPURunInfo { // AICPU构造信息，写入共享内存
     }
 };
 
+struct AlltoAllSendRecvInfo {
+    // 存放数据个数和偏移个数
+    std::vector<u64> sendCounts;
+    std::vector<u64> sendDispls;
+    std::vector<u64> recvCounts;
+    std::vector<u64> recvDispls;
+};
+
 struct AicpuNHRStepInfo {
     u32 step = 0;
     u32 myRank = 0;
@@ -283,6 +322,5 @@ inline u64 RoundUp(const u64 dividend, const u64 divisor)
     }
     return dividend / divisor + ((dividend % divisor != 0) ? 1 : 0);
 }
-
 }
 #endif

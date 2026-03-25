@@ -14,8 +14,6 @@
 #include <memory>
 #include <map>
 #include <vector>
-#include <cstring>
-#include <list>
 #include "alg_template_base.h"
 #include "alg_param.h"
 #include "template_utils.h"
@@ -32,7 +30,7 @@ public:
     virtual ~AivAlgTemplateBase();
 
     virtual std::string Describe() const = 0;
-    virtual HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+    virtual HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                                AlgResourceRequest& resourceRequest);
     virtual u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType);
     virtual HcclResult CalNumBlocks(u32& numBlocks, u64 dataSize, u32 numBlocksLimit);

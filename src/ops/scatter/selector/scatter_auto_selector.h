@@ -18,17 +18,18 @@ namespace ops_hccl {
 
 class ScatterAutoSelector : public AutoSelectorBase {
 private:
-    SelectorStatus SelectCcuMsAlgo(TopoInfo* topoInfo, OpParam &opParam,
+    SelectorStatus SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
                                  const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                  std::string                                 &selectAlgName) const override;
-    SelectorStatus SelectCcuScheduleAlgo(TopoInfo* topoInfo, OpParam &opParam,
+    SelectorStatus SelectCcuScheduleAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
                                  const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                  std::string &selectAlgName) const override;
-    SelectorStatus SelectAicpuAlgo(TopoInfo* topoInfo, OpParam &opParam,
+    SelectorStatus SelectAicpuAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
                                    const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                    std::string                                 &selectAlgName) const override;
-    SelectorStatus SelectAivAlgo(TopoInfo* topoInfo, OpParam &opParam, const std::map<HcclCMDType, 
-                                 std::vector<HcclAlgoType>> &configAlgMap, std::string &selectAlgName) const override;                     
+    SelectorStatus SelectAivAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
+                                 const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+                                 std::string &selectAlgName) const override;                     
 };
 
 } // namespace ops_hccl

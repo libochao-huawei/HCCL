@@ -22,7 +22,7 @@ InsTempReduceScatterNHR::~InsTempReduceScatterNHR()
 {
 }
 
-HcclResult InsTempReduceScatterNHR::CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+HcclResult InsTempReduceScatterNHR::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                                             AlgResourceRequest& resourceRequest) 
 {
     // NHR 需要的 que Num 为 1
@@ -37,7 +37,7 @@ HcclResult InsTempReduceScatterNHR::CalcRes(HcclComm comm, const OpParam& param,
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult InsTempReduceScatterNHR::GetRes(AlgResourceRequest& resourceRequest)
+HcclResult InsTempReduceScatterNHR::GetRes(AlgResourceRequest& resourceRequest) const
 {
     resourceRequest.slaveThreadNum = 0;
     resourceRequest.notifyNumOnMainThread = 0;
@@ -45,7 +45,7 @@ HcclResult InsTempReduceScatterNHR::GetRes(AlgResourceRequest& resourceRequest)
     return HCCL_SUCCESS;
 }
 
-u64 InsTempReduceScatterNHR::GetThreadNum()
+u64 InsTempReduceScatterNHR::GetThreadNum() const
 {
     return 1;
 }
@@ -98,7 +98,6 @@ HcclResult InsTempReduceScatterNHR::LocalDataCopy(const std::vector<ThreadHandle
     }
     return HcclResult::HCCL_SUCCESS;
 }
-
 
 HcclResult InsTempReduceScatterNHR::PostLocalCopy(const std::vector<ThreadHandle> &threads)
 {

@@ -11,7 +11,6 @@
 #ifndef HCCLV2_INS_TEMP_ALL_REDUCE_MESH_1D_ONE_SHOT
 #define HCCLV2_INS_TEMP_ALL_REDUCE_MESH_1D_ONE_SHOT
 
-#include <cstring>
 #include "alg_v2_template_base.h"
 #include "executor_base.h"
 #include "alg_data_trans_wrapper.h"
@@ -35,7 +34,7 @@ public:
     HcclResult KernelRun(const OpParam& param,
                          const TemplateDataParams& tempAlgParams,
                          const TemplateResource& templateResource) override;
-    HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+    HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                         AlgResourceRequest& resourceRequest) override;
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
         
@@ -43,11 +42,16 @@ public:
     void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override;
 
 private:
-    HcclResult CalcSlice(const u64 dataSize, RankSliceInfo &sliceInfoVec);
-    HcclResult RunAllReduce(const std::map<u32, std::vector<ChannelInfo>> &channels,
+    HcclResult CalcSlice(const u64 dataSize, RankSliceInfo &sliceInfoVec) const;
+    HcclResult RunAllReduce(const OpParam& param,
+                            const std::map<u32, std::vector<ChannelInfo>> &channels,
                             const std::vector<ThreadHandle> &threads,
-                            const TemplateDataParams &tempAlgParam,
+                            const TemplateDataParams &tempAlgParams,
                             const RankSliceInfo &sliceInfoVec);
+    HcclResult PostLocalReduce(const OpParam& param, const std::vector<ThreadHandle> &threads,
+                               const TemplateDataParams &tempAlgParams,
+                               const RankSliceInfo &sliceInfoVec);
+    bool needAicpuReduce_{false};
     u64 processSize_{0};
     u64 count_{0};
 };

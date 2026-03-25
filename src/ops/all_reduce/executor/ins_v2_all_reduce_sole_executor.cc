@@ -13,20 +13,29 @@
 #include "ins_temp_all_reduce_mesh_1D_two_shot.h"
 #include "ins_temp_all_reduce_nhr.h"
 #include "ins_temp_all_reduce_mesh_1D_two_shot_mesh_chunk.h"
+#include "ins_temp_all_reduce_aicpu_reduce_nhr.h"
+#ifndef AICPU_COMPILE
 #include "aiv_temp_all_reduce_mesh_1D_oneshot.h"
 #include "aiv_temp_all_reduce_mesh_1D_twoshot.h"
+#include "ccu_temp_all_reduce_mesh_1D_one_shot.h"
+#include "ccu_temp_all_reduce_mesh_1D_mem2mem.h"
+#include "ccu_temp_all_reduce_mesh_1D.h"
+#include "ccu_temp_all_reduce_nhr_1D_mem2mem.h"
+#include "ccu_temp_all_reduce_mesh_1D_2die_oneshot.h"
+#include "ccu_temp_all_reduce_mesh_1D_mem2mem_2die_oneshot.h"
+#include "ccu_temp_all_reduce_nhr_mem2mem_1D_multi_jetty.h"
+#endif
 
 namespace ops_hccl {
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::InsV2AllReduceSoleExecutor()
-{
-    
+{    
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcAlgHierarchyInfo(HcclComm comm,
-    TopoInfo* topoInfo,
+    TopoInfoWithNetLayerDetails* topoInfo,
     AlgHierarchyInfoForAllLevel& algHierarchyInfo)
 {
     // 使用topo match计算AlgHierarchyInfoForAllLevel
@@ -35,11 +44,10 @@ HcclResult InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcAlgHier
     return HCCL_SUCCESS;
 }
 
-
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(
     HcclComm comm, const OpParam& param,
-    const TopoInfo* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
+    const TopoInfoWithNetLayerDetails* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
     AlgResourceRequest& resourceRequest)
 {
     // 构建template
@@ -59,14 +67,13 @@ HcclResult InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     maxTmpMemSize_ = resCtx.cclMem.size;
     // 给channels_和threads_赋值
     threads_ = resCtx.threads;
-    if (param.engine != CommEngine::COMM_ENGINE_AIV) {
+    if (param.engine != CommEngine::COMM_ENGINE_AIV && param.engine != CommEngine::COMM_ENGINE_CCU) {
         CHK_RET(RestoreChannelMap(resCtx, remoteRankToChannelInfo_));
     }
     dataCount_ = param.DataDes.count;
     dataType_ = param.DataDes.dataType;
     dataTypeSize_ =  DATATYPE_SIZE_TABLE[param.DataDes.dataType];
     dataSize_ = dataCount_ * dataTypeSize_;
-
     HcclResult ret = OrchestrateLoop(param, resCtx);
     CHK_PRT_RET(ret != HCCL_SUCCESS,
         HCCL_ERROR("[InsV2AllReduceSoleExecutor][Orchestrate]errNo[0x%016llx] All reduce excutor kernel run failed",
@@ -81,7 +88,10 @@ HcclResult InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     HCCL_INFO("[InsV2AllReduceSoleExecutor][OrchestrateLoop] Start");
     // 准备资源
     TemplateResource templateAlgRes;
-    if (param.engine != CommEngine::COMM_ENGINE_AIV) {
+    if (param.engine == COMM_ENGINE_CCU) {
+        templateAlgRes.ccuKernels = resCtx.ccuKernels;
+    }  
+    if (param.engine != CommEngine::COMM_ENGINE_AIV && remoteRankToChannelInfo_.size() > 0) {
         templateAlgRes.channels = remoteRankToChannelInfo_[0];
     }
     templateAlgRes.threads = resCtx.threads;
@@ -165,10 +175,28 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, InsAllReduceNHR, InsV2AllReduc
     TopoMatch1D, InsTempAllReduceNHR);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, InsAllReduceMesh1DTwoShotMeshChunk, InsV2AllReduceSoleExecutor, 
     TopoMatch1D, InsTempAllReduceMesh1DTwoShotMeshChunk);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, InsAllReduceAicpuReduceNHR, InsV2AllReduceSoleExecutor,
+    TopoMatch1D, InsTempAllReduceAicpuReduceNHR);
+
 #ifndef AICPU_COMPILE
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, AivAllReduceMesh1DOneShot, InsV2AllReduceSoleExecutor, TopoMatch1D,
     AivTempAllReduceMesh1DOneShot);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, AivAllReduceMesh1DTwoShot, InsV2AllReduceSoleExecutor, TopoMatch1D,
     AivTempAllReduceMesh1DTwoShot);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceNHR1D, InsV2AllReduceSoleExecutor, TopoMatch1D,
+                 CcuTempAllReduceNHRMem2Mem1D);
+
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh1DMem2Mem, InsV2AllReduceSoleExecutor,
+                 TopoMatch1D, CcuTempAllReduceMeshMem2Mem1D);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh1D, InsV2AllReduceSoleExecutor, 
+                 TopoMatch1D, CcuTempAllReduceMesh1D);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh2Die, InsV2AllReduceSoleExecutor, TopoMatch1D,
+    CcuTempAllreduceMesh1D2DieOneShot);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh1DOneShot, InsV2AllReduceSoleExecutor,
+    TopoMatch1D, CcuTempAllReduceMesh1DOneShot);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh1DMem2Mem2DieOneShot, InsV2AllReduceSoleExecutor, TopoMatch1D,
+    CcuTempAllReduceMesh1DMem2Mem2DieOneShot);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceNHR1DMem2MemMultiJetty, InsV2AllReduceSoleExecutor, TopoMatch1D,
+    CcuTempAllReduceNhrMem2Mem1DMultiJetty);
 #endif
 }  // namespace ops_hccl

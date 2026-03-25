@@ -20,8 +20,9 @@ TopoMatchMultilevel::~TopoMatchMultilevel()
 {
 }
 
-HcclResult TopoMatchMultilevel::TopoForLayer0(const HcclComm comm, uint32_t &layer0Size, uint32_t myRank,
-                                                  AlgHierarchyInfoForAllLevel& algHierarchyInfo)
+HcclResult TopoMatchMultilevel::TopoForLayer0(
+    const HcclComm comm, uint32_t& layer0Size, const uint32_t myRank,
+    AlgHierarchyInfoForAllLevel& algHierarchyInfo) const
 {
 #ifndef AICPU_COMPILE
     uint32_t *topoInsts;
@@ -59,7 +60,6 @@ HcclResult TopoMatchMultilevel::TopoForLayer0(const HcclComm comm, uint32_t &lay
             uint32_t rankNum;
             CHK_RET(HcclRankGraphGetRanksByTopoInst(comm, 0, topoInsts[idx], &ranks, &rankNum));
 
-            // todo: 接口输出是否按顺序排列，还需要再排序吗？
             std::sort(ranks, ranks + rankNum);
             if (ranks[1] - ranks[0] == 1) {
                 ranks_x.assign(ranks, ranks + rankNum);
@@ -75,8 +75,9 @@ HcclResult TopoMatchMultilevel::TopoForLayer0(const HcclComm comm, uint32_t &lay
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult TopoMatchMultilevel::TopoForLayer1(const HcclComm comm, uint32_t layer0Size, uint32_t myRank,
-                                                  AlgHierarchyInfoForAllLevel& algHierarchyInfo)
+HcclResult TopoMatchMultilevel::TopoForLayer1(
+    const HcclComm comm, uint32_t& layer0Size, const uint32_t myRank,
+    AlgHierarchyInfoForAllLevel& algHierarchyInfo) const
 {
     HCCL_DEBUG("[TopoMatchMultilevel::MeshNHRTopoForLayer1] layer0Size [%d]", layer0Size);
 #ifndef AICPU_COMPILE
@@ -118,7 +119,7 @@ HcclResult TopoMatchMultilevel::TopoForLayer1(const HcclComm comm, uint32_t laye
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult TopoMatchMultilevel::CheckVecElementAllSame(uint32_t *instSizeList, uint32_t listSize)
+HcclResult TopoMatchMultilevel::CheckVecElementAllSame(const uint32_t* instSizeList, uint32_t listSize) const
 {
 #ifndef AICPU_COMPILE
     uint32_t firstSize = instSizeList[0];
@@ -133,17 +134,21 @@ HcclResult TopoMatchMultilevel::CheckVecElementAllSame(uint32_t *instSizeList, u
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult TopoMatchMultilevel::MatchTopo(const HcclComm comm, TopoInfo* topoInfo, AlgHierarchyInfoForAllLevel& algHierarchyInfo)
+HcclResult TopoMatchMultilevel::MatchTopo(const HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo, AlgHierarchyInfoForAllLevel& algHierarchyInfo)
 {
 #ifndef AICPU_COMPILE
-    CHK_PRT_RET(topoInfo->topoLevelNums == 0 || topoInfo->topoLevelNums > 2,
+    CHK_PRT_RET(topoInfo->topoLevelNums == 0 || topoInfo->topoLevelNums > COMM_LAYER_SIZE_2,
         HCCL_ERROR("[CalcTopoLevelNums] topoLevelNum[%u] is invalid.",
             topoInfo->topoLevelNums),
         HCCL_E_INTERNAL);
 
     uint32_t myRank;
     CHK_RET(HcclGetRankId(comm, &myRank));
+    #ifdef MACRO_DEV_TYPE_NEW
+    CHK_PRT_RET(topoInfo->deviceType != DevType::DEV_TYPE_950,
+    #else
     CHK_PRT_RET(topoInfo->deviceType != DevType::DEV_TYPE_910_95,
+    #endif
         HCCL_ERROR("[CollAlgFactory] [TopoMatchMultilevel] Rank [%d], deviceType not supported yet.",
             myRank),
         HcclResult::HCCL_E_PARA);

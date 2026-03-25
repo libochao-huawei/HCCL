@@ -24,6 +24,9 @@ constexpr uint64_t LARGE_COUNT_1024KB = 1024*1024; // Byte, 可掩盖多mission�
 
 constexpr int RANK_SIZE_EIGHT = 8;
 constexpr u32 CCU_MS_MODE = 2;
+constexpr double DEFAULT_RANK_SIZE = 8.0;
+constexpr u64 RS_2D_SMALL_DATA_SIZE = 1024 * 1024;
+constexpr u64 RS_M2M_1D_MAX_DATA_SIZE = 8 * 1024 * 1024;
 
 enum class SelectorStatus { MATCH, NOT_MATCH };
 
@@ -69,34 +72,45 @@ const std::unordered_map<std::string, std::string> RES_RESUSE_ALG = {
 
 class AutoSelectorBase {
 public:
-    SelectorStatus Select(OpParam &opParam, TopoInfo* topoInfo,
-                          std::string &selectAlgName, OpExecuteConfig &opExecuteConfig);
+    SelectorStatus Select(OpParam &opParam, TopoInfoWithNetLayerDetails* topoInfo,
+                          std::string &selectAlgName) const;
     bool IsDefaultAlg(const HcclAlgoType algoType) const;
     bool IsSmallData(const u64 dataSize) const;
     bool IsLargeData(const u64 dataSize) const;
-    virtual SelectorStatus SelectCcuMsAlgo(TopoInfo* topoInfo,
-                                 OpParam &opParam,
+    virtual SelectorStatus SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails* topoInfo,
+                                 const OpParam &opParam,
                                  const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                  std::string &selectAlgName) const;
-    virtual SelectorStatus SelectCcuScheduleAlgo(TopoInfo* topoInfo,
-                                 OpParam &opParam,
+    virtual SelectorStatus SelectCcuScheduleAlgo(const TopoInfoWithNetLayerDetails* topoInfo,
+                                 const OpParam &opParam,
                                  const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                  std::string &selectAlgName) const;
-    virtual SelectorStatus SelectAicpuAlgo(TopoInfo* topoInfo,
-                                   OpParam &opParam,
+    virtual SelectorStatus SelectAicpuAlgo(const TopoInfoWithNetLayerDetails* topoInfo,
+                                   const OpParam &opParam,
                                    const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                    std::string &selectAlgName) const;
-    virtual SelectorStatus SelectAivAlgo(TopoInfo* topoInfo,
-                                   OpParam &opParam,
+    virtual SelectorStatus SelectAivAlgo(const TopoInfoWithNetLayerDetails* topoInfo,
+                                   const OpParam &opParam,
                                    const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                    std::string &selectAlgName) const;
-    virtual SelectorStatus SelectDPUAlgo(TopoInfo* topoInfo,
-                                   OpParam &opParam,
+    virtual SelectorStatus SelectDPUAlgo(const TopoInfoWithNetLayerDetails* topoInfo,
+                                   const OpParam &opParam,
                                    const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                    std::string &selectAlgName) const;
-    HcclResult CheckHostDPUOnly(const TopoInfo* topoInfo, const OpParam &opParam, bool &hostDPUOnly) const;
+    HcclResult CheckHostDPUOnly(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam, bool &hostDPUOnly) const;
     bool IsStarsState(const OpExecuteConfig &opExecuteConfig) const;
+    bool IsLayerAllConnetedWithTopo(const TopoInfoWithNetLayerDetails *topoInfo, const u32 netLayer, const CommTopo topoType) const;
+    HcclResult CheckMeshNumEqualToClosNum(const TopoInfoWithNetLayerDetails *topoInfo, bool &isEqual) const;
+    HcclResult CheckClosNumMultipleOfMeshNum(const TopoInfoWithNetLayerDetails *topoInfo, bool &isMultiple) const;
+    bool IsInputOutputOverlap(const OpParam &opParam) const;
 };
+
+inline bool Is64BitDataType(const HcclDataType dataType)
+{
+    return dataType == HcclDataType::HCCL_DATA_TYPE_INT64 ||
+           dataType == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
+           dataType == HcclDataType::HCCL_DATA_TYPE_FP64;
+}
 
 } // namespace Hccl
 #endif

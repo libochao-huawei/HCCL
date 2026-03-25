@@ -11,38 +11,25 @@
 #ifndef HCCLV2_INS_V2_BROADCAST_SOLE_EXECUTOR_H
 #define HCCLV2_INS_V2_BROADCAST_SOLE_EXECUTOR_H
 
-#include "alg_param.h"
-#include "topo_host.h"
-#include "channel.h"
-#include "alg_v2_template_base.h"
-#include "utils.h"
-#include "log.h"
-#include "workflow.h"
-#include "sal.h"
-#include "config_log.h"
-#include "executor_v2_base.h"
-#include "coll_alg_v2_exec_registry.h"
-#include "topo_match_base.h"
+#include "executor_common_ops.h"
 #include "topo_match_1d.h"
-#include "topo_match_2d.h"
+#include "topo_match_base.h"
 
 namespace ops_hccl {
 
 template <typename AlgTopoMatch, typename InsAlgTemplate> class InsV2BroadcastSoleExecutor : public InsCollAlgBase {
 public:
     explicit InsV2BroadcastSoleExecutor();
-    ~InsV2BroadcastSoleExecutor() = default;
+    ~InsV2BroadcastSoleExecutor() final = default;
 
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
     
     /* *************** 资源计算 *************** */
 
-    HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+    HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                        const AlgHierarchyInfoForAllLevel& algHierarchyInfo, AlgResourceRequest& resourceRequest) override;
 
-    HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfo* topoInfo,  AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
-
-
+    HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo,  AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
 private:
     /* *************** 算法编排 *************** */
     HcclResult OrchestrateLoop(const OpParam &param, const AlgResourceCtxSerializable &resCtx);

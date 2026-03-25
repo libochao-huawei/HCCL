@@ -11,7 +11,6 @@
 #include "ccu_kernel_alg_base.h"
 #include "ccu_kernel_reduce_scatter_mesh1d_mem2mem.h"
 
-
 namespace ops_hccl {
 using namespace hcomm;
 
@@ -72,7 +71,6 @@ HcclResult CcuKernelReduceScatterMesh1DMem2Mem::InitResource()
             CHK_RET(CreateVariable(channels_[channelIdx], TOKEN_XN_ID, &tokenVar));
             token_.push_back(tokenVar);
             channelIdx++;
-
         }
     }
     output_                      = CreateVariable();

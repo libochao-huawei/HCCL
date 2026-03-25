@@ -11,7 +11,16 @@
 #include "topo_match_1d.h"
 #include "ins_temp_all_gather_mesh_1D.h"
 #include "ins_temp_all_gather_nhr.h"
+#ifndef AICPU_COMPILE
 #include "aiv_temp_all_gather_mesh_1D.h"
+#include "ccu_temp_all_gather_mesh_1D_mem2mem.h"
+#include "ccu_temp_all_gather_mesh_1D.h"
+#include "ccu_temp_all_gather_nhr_1D_mem2mem.h"
+#include "ccu_temp_all_gather_2dies_mesh_1d_mem2mem.h"
+#include "ccu_temp_all_gather_2dies_mesh_1D.h"
+#include "ccu_temp_all_gather_nhr_1D_multi_jetty_mem2mem.h"
+#endif
+#include "topo_match_ubx.h"
 namespace ops_hccl {
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
@@ -21,7 +30,7 @@ InsV2AllGatherSoleExecutor<AlgTopoMatch, InsAlgTemplate>::InsV2AllGatherSoleExec
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsV2AllGatherSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcAlgHierarchyInfo(
-    HcclComm comm, TopoInfo *topoInfo, AlgHierarchyInfoForAllLevel &algHierarchyInfo)
+    HcclComm comm, TopoInfoWithNetLayerDetails *topoInfo, AlgHierarchyInfoForAllLevel &algHierarchyInfo)
 {
     // 使用topo match计算AlgHierarchyInfoForAllLevel
     AlgTopoMatch topoMatch;
@@ -31,7 +40,7 @@ HcclResult InsV2AllGatherSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcAlgHier
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsV2AllGatherSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(
-    HcclComm comm, const OpParam &param, const TopoInfo *topoInfo, const AlgHierarchyInfoForAllLevel &algHierarchyInfo,
+    HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo, const AlgHierarchyInfoForAllLevel &algHierarchyInfo,
     AlgResourceRequest &resourceRequest)
 {
     // 构建template
@@ -39,6 +48,7 @@ HcclResult InsV2AllGatherSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(
         std::make_shared<InsAlgTemplate>(param, topoInfo->userRank, algHierarchyInfo.infos[0]);
     // 调用计算资源的函数
     algTemplate->CalcRes(comm, param, topoInfo, resourceRequest);
+    myRank_ = topoInfo->userRank;
     HCCL_DEBUG("[InsV2AllGatherSoleExecutor][CalcRes] myRank[%u], notifyNumOnMainThread[%u], slaveThreadNum[%u], "
                "channels[%u]",
                myRank_, resourceRequest.notifyNumOnMainThread, resourceRequest.slaveThreadNum,
@@ -58,7 +68,7 @@ HcclResult InsV2AllGatherSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     myRank_ = resCtx.topoInfo.userRank;
 
     threads_ = resCtx.threads;
-    if (param.engine != CommEngine::COMM_ENGINE_AIV) {
+    if (param.engine != CommEngine::COMM_ENGINE_AIV && param.engine != CommEngine::COMM_ENGINE_CCU) {
         CHK_RET(RestoreChannelMap(resCtx, remoteRankToChannelInfo_));
     }
     dataCount_ = param.DataDes.count;
@@ -85,7 +95,10 @@ HcclResult InsV2AllGatherSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
 
     // 准备资源
     TemplateResource templateAlgRes;
-    if (param.engine != CommEngine::COMM_ENGINE_AIV) {
+    if (param.engine == COMM_ENGINE_CCU) {
+        templateAlgRes.ccuKernels = resCtx.ccuKernels;
+    }
+    if (param.engine != CommEngine::COMM_ENGINE_AIV && remoteRankToChannelInfo_.size() > 0) {
         templateAlgRes.channels = remoteRankToChannelInfo_[0];
     }
     templateAlgRes.threads = resCtx.threads;
@@ -100,6 +113,7 @@ HcclResult InsV2AllGatherSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     tempAlgParams.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
     tempAlgParams.buffInfo.inputSize = param.inputSize;
     tempAlgParams.buffInfo.outputSize = param.outputSize;
+    tempAlgParams.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
     // 不需要重复
     tempAlgParams.repeatNum = 1;
     tempAlgParams.inputRepeatStride = 0;
@@ -110,7 +124,6 @@ HcclResult InsV2AllGatherSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
               templateAlgRes.channels.size(), templateAlgRes.threads.size());
     // 构建template
     InsAlgTemplate algTemplate(param, resCtx.topoInfo.userRank, resCtx.algHierarchyInfo.infos[0]);
-
     u32 templateScratchMultiplier =
         algTemplate.CalcScratchMultiple(tempAlgParams.buffInfo.inBuffType, tempAlgParams.buffInfo.outBuffType);
     maxTmpMemSize_ = tempAlgParams.buffInfo.hcclBuff.size;
@@ -163,9 +176,38 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherMesh1D, InsV2AllGa
 
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherNHR, InsV2AllGatherSoleExecutor, TopoMatch1D,
                  InsTempAllGatherNHR);
+
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherMesh1DUBX, InsV2AllGatherSoleExecutor, TopoMatchUBX,
+                 InsTempAllGatherMesh1D);
+                 
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherNHRUBX, InsV2AllGatherSoleExecutor, TopoMatchUBX,
+                 InsTempAllGatherNHR);
 #ifndef AICPU_COMPILE
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherMesh1DMem2Mem, InsV2AllGatherSoleExecutor, TopoMatch1D,
+                 CcuTempAllGatherMesh1DMem2Mem);
+
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherMesh1D, InsV2AllGatherSoleExecutor, TopoMatch1D,
+                 CcuTempAllGatherMesh1D);
+
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherNHR1DMem2Mem, InsV2AllGatherSoleExecutor, TopoMatch1D,
+                 CcuTempAllGatherNHR1DMem2Mem);
+
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, AivAllGatherMesh1D, InsV2AllGatherSoleExecutor, TopoMatch1D,
     AivTempAllGatherMesh1D);
-#endif
 
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, CcuKernelAllGather2DiesMeshMem2Mem1D, InsV2AllGatherSoleExecutor, TopoMatch1D,
+    CcuTempAllGather2DiesMeshMem2Mem1D);
+
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, CcuKernelAllGather2DiesMesh1D, InsV2AllGatherSoleExecutor, TopoMatch1D,
+    CcuTempAllGather2DiesMesh1D);
+
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherMesh1DUBX, InsV2AllGatherSoleExecutor, TopoMatchUBX,
+                 CcuTempAllGatherMesh1D);
+
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherNHR1DMem2MemUBX, InsV2AllGatherSoleExecutor, TopoMatchUBX,
+                 CcuTempAllGatherNHR1DMem2Mem);
+                 
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherMesh1DMem2MemUBX, InsV2AllGatherSoleExecutor, TopoMatchUBX,
+                 CcuTempAllGatherMesh1DMem2Mem);
+#endif
 }  // namespace ops_hccl

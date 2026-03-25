@@ -13,11 +13,19 @@
 #include "ins_temp_reduce_scatter_mesh_1D.h"
 #include "ins_temp_reduce_scatter_nhr.h"
 #include "alg_data_trans_wrapper.h"
+#ifndef AICPU_COMPILE
 #include "ccu_temp_reduce_scatter_nhr_1D_mem2mem.h"
 #include "ccu_temp_reduce_scatter_mesh_1D_mem2mem.h"
-
+#include "ccu_temp_reduce_scatter_nhr_1D_multi_jetty_mem2mem.h"
+#endif
 
 namespace ops_hccl {
+
+// 并行执行器中两个 template 算法所需的 notify 数量
+constexpr u32 TEMPLATE_NOTIFY_NUM = 2;
+// 并行执行器中两个 template 算法的主 thread 数量
+constexpr u32 TEMPLATE_MAIN_THREAD_NUM = 2;
+
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::InsReduceScatterParallelExecutor()
     : InsCollAlgBase()
@@ -32,12 +40,28 @@ InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::CalcRes(
     HcclComm comm, const OpParam& param,
-    const TopoInfo* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
+    const TopoInfoWithNetLayerDetails* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
     AlgResourceRequest& resourceRequest)
 {
     // 构建template
-    InsAlgTemplate0 intraTempAlg(param, topoInfo->userRank, algHierarchyInfo.infos[0]);
-    InsAlgTemplate1 interTempAlg(param, topoInfo->userRank, algHierarchyInfo.infos[1]);
+    std::vector<std::vector<u32>> temp0HierarchyInfo;
+    std::vector<std::vector<u32>> temp1HierarchyInfo;
+    if(topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+        temp0HierarchyInfo = {algHierarchyInfo.infos[0][0]};
+        std::vector<u32> closRanks;
+        u32 meshSize = algHierarchyInfo.infos[0][0].size();
+        for(auto rank : algHierarchyInfo.infos[0][1]) {
+            if(rank % meshSize == topoInfo->userRank % meshSize) {
+                closRanks.push_back(rank);
+            }
+        }
+        temp1HierarchyInfo = {closRanks};
+    } else {
+        temp0HierarchyInfo = algHierarchyInfo.infos[0];
+        temp1HierarchyInfo = algHierarchyInfo.infos[1];
+    }
+    InsAlgTemplate0 intraTempAlg(param, topoInfo->userRank, temp0HierarchyInfo);
+    InsAlgTemplate1 interTempAlg(param, topoInfo->userRank, temp1HierarchyInfo);
  
     // 调用计算资源的函数
     AlgResourceRequest intraTempRequest;
@@ -45,9 +69,9 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     intraTempAlg.CalcRes(comm, param, topoInfo, intraTempRequest);
     interTempAlg.CalcRes(comm, param, topoInfo, interTempRequest);
     // 申请一条控制thread作为主thread，该thread仅用于两个template之间同步
-    resourceRequest.notifyNumOnMainThread = 2;
+    resourceRequest.notifyNumOnMainThread = TEMPLATE_NOTIFY_NUM;
     // 由于主thread被单独作为控制thread，因此总的slaveThread需要额外加上两个template的主thread
-    resourceRequest.slaveThreadNum = intraTempRequest.slaveThreadNum + interTempRequest.slaveThreadNum + 2;
+    resourceRequest.slaveThreadNum = intraTempRequest.slaveThreadNum + interTempRequest.slaveThreadNum + TEMPLATE_MAIN_THREAD_NUM;
     // 第一个template的zhuthread需要的notify数量，+1是因为需要和控制thread做同步
     resourceRequest.notifyNumPerThread.emplace_back(intraTempRequest.notifyNumOnMainThread + 1);
     resourceRequest.notifyNumPerThread.insert(resourceRequest.notifyNumPerThread.end(),
@@ -80,7 +104,7 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::CalcAlgHierarchyInfo(
-    HcclComm comm, TopoInfo *topoInfo, AlgHierarchyInfoForAllLevel &algHierarchyInfo)
+    HcclComm comm, TopoInfoWithNetLayerDetails *topoInfo, AlgHierarchyInfoForAllLevel &algHierarchyInfo)
 {
     AlgTopoMatch topoMatch;
     CHK_RET(topoMatch.MatchTopo(comm, topoInfo, algHierarchyInfo));
@@ -204,7 +228,6 @@ void InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTempl
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 void InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::GetParallelDataSplit(std::vector<float> &splitDataSize) const
 {
-    // to do 先做等分，后续根据性能做调整
     double splitData = 0.5;
     splitDataSize.push_back(splitData);
     splitDataSize.push_back(splitData);
@@ -213,9 +236,9 @@ void InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTempl
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::PrepareResForTemplate(
-    const OpParam &param, const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &tempAlgIntra,
-    InsAlgTemplate1 &tempAlgInter)
+    const AlgResourceCtxSerializable &resCtx, const InsAlgTemplate0 &tempAlgIntra, const InsAlgTemplate1 &tempAlgInter)
 {
+    (void) resCtx;
     u64 intraThreadsNum = tempAlgIntra.GetThreadNum();
     u64 interThreadsNum = tempAlgInter.GetThreadNum();
     intraThreads_.assign(threads_.begin() + 1, threads_.begin() + 1 + intraThreadsNum);
@@ -255,18 +278,35 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     dataType_ = param.DataDes.dataType;
     dataTypeSize_ = DATATYPE_SIZE_TABLE[param.DataDes.dataType];
     dataSize_ = dataCount_ * dataTypeSize_;
-    rankSizeLevel0_ = GetRankSize(resCtx.algHierarchyInfo.infos[0]);
-    rankSizeLevel1_ = GetRankSize(resCtx.algHierarchyInfo.infos[1]);
+
+    std::vector<std::vector<u32>> temp0HierarchyInfo;
+    std::vector<std::vector<u32>> temp1HierarchyInfo;
+    if(resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS) {
+        temp0HierarchyInfo = {resCtx.algHierarchyInfo.infos[0][0]};
+        std::vector<u32> closRanks;
+        u32 meshSize = resCtx.algHierarchyInfo.infos[0][0].size();
+        for(auto rank : resCtx.algHierarchyInfo.infos[0][1]) {
+            if(rank % meshSize == resCtx.topoInfo.userRank % meshSize) {
+                closRanks.push_back(rank);
+            }
+        }
+        temp1HierarchyInfo = {closRanks};
+    } else {
+        temp0HierarchyInfo = resCtx.algHierarchyInfo.infos[0];
+        temp1HierarchyInfo = resCtx.algHierarchyInfo.infos[1];
+    }
+
+    rankSizeLevel0_ = GetRankSize(temp0HierarchyInfo);
+    rankSizeLevel1_ = GetRankSize(temp1HierarchyInfo);
     myRank_ = resCtx.topoInfo.userRank;
     rankIdxLevel0_ = myRank_ % rankSizeLevel0_;
     rankIdxLevel1_ = myRank_ / rankSizeLevel0_;
-
     // 实例化算法模板类
     // 构建template
-    InsAlgTemplate0 intraTempAlg(param, resCtx.topoInfo.userRank, resCtx.algHierarchyInfo.infos[0]);
-    InsAlgTemplate1 interTempAlg(param, resCtx.topoInfo.userRank, resCtx.algHierarchyInfo.infos[1]);
+    InsAlgTemplate0 intraTempAlg(param, resCtx.topoInfo.userRank, temp0HierarchyInfo);
+    InsAlgTemplate1 interTempAlg(param, resCtx.topoInfo.userRank, temp1HierarchyInfo);
     // 将计算资源分配个每个算法
-    PrepareResForTemplate(param, resCtx, intraTempAlg, interTempAlg);
+    PrepareResForTemplate(resCtx, intraTempAlg, interTempAlg);
     // 算法展开
     HcclResult ret = OrchestrateLoop(param, resCtx, intraTempAlg, interTempAlg);
     CHK_PRT_RET(
@@ -374,7 +414,7 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 uint64_t InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::GetRankSize(
-    const std::vector<std::vector<u32>> &subCommRanks)
+    const std::vector<std::vector<u32>> &subCommRanks) const
 {
     uint64_t count = 1;
     for (const auto &i : subCommRanks) {
@@ -389,5 +429,7 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, InsReduceSc
 #ifndef AICPU_COMPILE
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterParallelMesh1DNHR,
     InsReduceScatterParallelExecutor, TopoMatchMultilevel, CcuTempReduceScatterMesh1DMem2Mem, CcuTempReduceScatterNHR1DMem2Mem);
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterParallelMesh1DNHRMultiJetty,
+    InsReduceScatterParallelExecutor, TopoMatchUBX, CcuTempReduceScatterMesh1DMem2Mem, CcuTempReduceScatterNhrMultiJettyMem2Mem1D);
 #endif
 }

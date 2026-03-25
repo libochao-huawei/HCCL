@@ -11,14 +11,14 @@
 #ifndef DPU_ALG_DATA_TRANS_WRAPPER
 #define DPU_ALG_DATA_TRANS_WRAPPER
 
-#include "hcomm_primitives.h"
+#include "hcomm_primitives_dl.h"
 #include "hccl_types.h"
 #include "alg_param.h"
 #include "template_utils.h"
 
 namespace ops_hccl {
 
-HcclResult SendWrite(const DataInfo &snedInfo);
+HcclResult SendWrite(const DataInfo &sendInfo);
 HcclResult RecvWrite(const DataInfo &recvInfo);
 HcclResult SendRecvWrite(const SendRecvInfo &sendRecvInfo);
 

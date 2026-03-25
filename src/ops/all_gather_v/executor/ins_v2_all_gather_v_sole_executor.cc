@@ -11,6 +11,10 @@
 #include "ins_v2_all_gather_v_sole_executor.h"
 #include "topo_match_1d.h"
 #include "ins_temp_all_gather_v_mesh_1D.h"
+
+#ifndef AICPU_COMPILE
+#include "ccu_temp_all_gather_v_mesh_1D_mem2mem.h"
+#endif
 namespace ops_hccl {
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
@@ -19,7 +23,7 @@ InsV2AllGatherVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::InsV2AllGatherVSoleEx
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsV2AllGatherVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcAlgHierarchyInfo(
-    HcclComm comm, TopoInfo *topoInfo, AlgHierarchyInfoForAllLevel &algHierarchyInfo)
+    HcclComm comm, TopoInfoWithNetLayerDetails *topoInfo, AlgHierarchyInfoForAllLevel &algHierarchyInfo)
 {
     // 使用topo match计算AlgHierarchyInfoForAllLevel
     AlgTopoMatch topoMatch;
@@ -29,7 +33,7 @@ HcclResult InsV2AllGatherVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcAlgHie
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsV2AllGatherVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(HcclComm comm, const OpParam &param,
-    const TopoInfo *topoInfo, const AlgHierarchyInfoForAllLevel &algHierarchyInfo, AlgResourceRequest &resourceRequest)
+    const TopoInfoWithNetLayerDetails *topoInfo, const AlgHierarchyInfoForAllLevel &algHierarchyInfo, AlgResourceRequest &resourceRequest)
 {
     // 构建template
     std::shared_ptr<InsAlgTemplate> algTemplate =
@@ -47,7 +51,7 @@ HcclResult InsV2AllGatherVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrat
     maxTmpMemSize_ = resCtx.cclMem.size;
     // 给channels_和threads_赋值
     threads_ = resCtx.threads;
-    if (param.engine != CommEngine::COMM_ENGINE_AIV) {
+    if (param.engine != CommEngine::COMM_ENGINE_AIV && param.engine != CommEngine::COMM_ENGINE_CCU) {
         CHK_RET(RestoreChannelMap(resCtx, remoteRankToChannelInfo_));
     }
     dataCount_ = param.DataDes.count;
@@ -72,8 +76,15 @@ HcclResult InsV2AllGatherVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrat
     myRank_ = resCtx.topoInfo.userRank;
     // 准备资源
     TemplateResource templateAlgRes;
-    templateAlgRes.channels = remoteRankToChannelInfo_[0];
+
+    if (param.engine == COMM_ENGINE_CCU) {
+        templateAlgRes.ccuKernels = resCtx.ccuKernels;
+    }
+    if (param.engine != CommEngine::COMM_ENGINE_AIV && remoteRankToChannelInfo_.size() > 0) {
+        templateAlgRes.channels = remoteRankToChannelInfo_[0];
+    }
     templateAlgRes.threads = resCtx.threads;
+
     templateAlgRes.aivCommInfoPtr = resCtx.aivCommInfoPtr;
     // 准备数据
     TemplateDataParams tempAlgParams;
@@ -95,7 +106,7 @@ HcclResult InsV2AllGatherVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrat
     const u64 *varData = reinterpret_cast<const u64 *>(param.varData);
     std::vector<u64> counts;
     counts.assign(varData, varData + rankSize_);
-    tempAlgParams.allRankDispls.assign(varData + rankSize_, varData + rankSize_ * 2);
+    tempAlgParams.allRankDispls.assign(varData + rankSize_, varData + rankSize_ + rankSize_);
     HCCL_DEBUG("[InsV2AllGatherVSoleExecutor][OrchestrateLoop] Rank[%u], inputPtr[%#llx] outputPtr[%#llx], "
                "cclAddr[%#llx], cclSize[%u]",
         myRank_,
@@ -135,10 +146,7 @@ HcclResult InsV2AllGatherVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrat
         tempAlgParams.allRankSliceSize = {};
         for (u64 i = 0; i < rankSize_; i++) {
             tempAlgParams.allRankSliceSize.push_back(
-                ((allRankProcessedDataCount[i] < counts[i])
-                        ? std::min(maxCountPerLoop, counts[i] - allRankProcessedDataCount[i])
-                        : 0) *
-                dataTypeSize_);
+                ((allRankProcessedDataCount[i] < counts[i]) ? std::min(maxCountPerLoop, counts[i] - allRankProcessedDataCount[i]) : 0) * dataTypeSize_);
             if (loop == 0) {
                 tempAlgParams.sliceSize = std::max(tempAlgParams.sliceSize, tempAlgParams.allRankSliceSize[i]);
             }
@@ -181,4 +189,8 @@ HcclResult InsV2AllGatherVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrat
 
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER_V, InsAllGatherVMesh1D, InsV2AllGatherVSoleExecutor, TopoMatch1D,
     InsTempAllGatherVMesh1D);
+#ifndef AICPU_COMPILE
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER_V, CcuAllGatherVMesh1D, InsV2AllGatherVSoleExecutor, TopoMatch1D,
+    CcuTempAllGatherVMesh1DMem2Mem);
+#endif
 }  // namespace ops_hccl

@@ -23,27 +23,28 @@ namespace ops_hccl {
     public:
         std::string Describe() const override;
 
-        // 算法编排
-        HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
-
         HcclResult CalcAlgHierarchyInfo(
-            HcclComm comm, TopoInfo *topoInfo, AlgHierarchyInfoForAllLevel &algHierarchyInfo) override;
+            HcclComm comm, TopoInfoWithNetLayerDetails *topoInfo, AlgHierarchyInfoForAllLevel &algHierarchyInfo) override;
 
         // 资源计算
         HcclResult CalcRes(
-            HcclComm comm, const OpParam &param, const TopoInfo *topoInfo,
+            HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
             const AlgHierarchyInfoForAllLevel &algHierarchyInfo, AlgResourceRequest &resourceRequest) override;
 
+        // 算法编排
+        HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
     protected:
-        HcclResult InitCommInfo(
-            HcclComm comm, const OpParam &param, const TopoInfo *topoInfo,
+        HcclResult InitRecvInfo(
+            const HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
             const AlgHierarchyInfoForAllLevel &algHierarchyInfo);
+        // 图模式
+        HcclResult OrchestrateOffload(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const ThreadHandle &thread, const ChannelInfo &channel);
+        // 单算子
+        HcclResult OrchestrateOpbase(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const ThreadHandle &thread, const ChannelInfo &channel);
 
-        // 单算子还是图模式
+        // 单算子|图模式
         OpMode opMode_;
         u32 remoteRank_;
-      
-        std::vector<ThreadHandle> threads_;
         // 一次搬运最大数据量
         u64 maxLoopTransSize_;
         // 一次搬运最大数据个数

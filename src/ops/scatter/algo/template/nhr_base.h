@@ -38,9 +38,9 @@ public:
     void GetRankMapping(const u32 rankSize, bool keepOrder = false);
 
 protected:
-    void ReorderSequence(u32 start, u32 end, u32 len, std::vector<u32> &tree, std::vector<u32> &tmp);
+    void ReorderSequence(u32 start, u32 end, u32 len, std::vector<u32> &tree, std::vector<u32> &tmp) const;
 
-    u32 GetStepNumInterServer(u32 rankSize);
+    u32 GetStepNumInterServer(u32 rankSize) const;
 
     std::vector<u32> sliceMap_;
 

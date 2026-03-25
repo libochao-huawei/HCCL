@@ -11,18 +11,23 @@
 #include "ins_v2_broadcast_sole_executor.h"
 #include "ins_temp_broadcast_mesh_1D_two_shot.h"
 #include "ins_temp_broadcast_nhr.h"
+#ifndef AICPU_COMPILE
 #include "aiv_temp_broadcast_mesh_1D.h"
+#include "ccu_temp_broadcast_mesh_1D_mem2mem.h"
+#include "ccu_temp_broadcast_mesh_1D.h"
+#include "ccu_temp_broadcast_nhr_1D_mem2mem.h"
+#endif
+
 namespace ops_hccl {
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 InsV2BroadcastSoleExecutor<AlgTopoMatch, InsAlgTemplate>::InsV2BroadcastSoleExecutor()
-{
-    
+{    
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsV2BroadcastSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcAlgHierarchyInfo(
-    HcclComm comm, TopoInfo *topoInfo, AlgHierarchyInfoForAllLevel &algHierarchyInfo)
+    HcclComm comm, TopoInfoWithNetLayerDetails *topoInfo, AlgHierarchyInfoForAllLevel &algHierarchyInfo)
 {
     // 使用topo match计算AlgHierarchyInfoForAllLevel
     AlgTopoMatch topoMatch;
@@ -32,7 +37,7 @@ HcclResult InsV2BroadcastSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcAlgHier
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsV2BroadcastSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(HcclComm comm, const OpParam& param,
-    const TopoInfo* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo, AlgResourceRequest& resourceRequest)
+    const TopoInfoWithNetLayerDetails* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo, AlgResourceRequest& resourceRequest)
 {
     // 构建template
     std::shared_ptr<InsAlgTemplate> algTemplate = std::make_shared<InsAlgTemplate>(param, topoInfo->userRank, algHierarchyInfo.infos[0]);
@@ -50,8 +55,7 @@ HcclResult InsV2BroadcastSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     maxTmpMemSize_ = resCtx.cclMem.size; // maxTmpMemSize_设定为cclIn的大小，op中将申请的HcclBuff全给了cclIn
     // 给channels_和threads_赋值
     threads_ = resCtx.threads;
-    HCCL_INFO("[InsV2BroadcastSoleExecutor][Orchestrate] threads_size[%d]", threads_.size());
-    if (param.engine != CommEngine::COMM_ENGINE_AIV) {
+    if (param.engine != CommEngine::COMM_ENGINE_AIV && param.engine != CommEngine::COMM_ENGINE_CCU) {
         CHK_RET(RestoreChannelMap(resCtx, remoteRankToChannelInfo_));
     }
     dataCount_ = param.DataDes.count;
@@ -72,10 +76,11 @@ HcclResult InsV2BroadcastSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     HCCL_INFO("[InsV2BroadcastSoleExecutor][OrchestrateLoop] Start");
     // 准备资源
     TemplateResource templateAlgRes;
-    if (param.engine != CommEngine::COMM_ENGINE_AIV) {
+    if (param.engine != CommEngine::COMM_ENGINE_AIV && remoteRankToChannelInfo_.size() > 0) {
         templateAlgRes.channels = remoteRankToChannelInfo_[0];
     }
     templateAlgRes.threads = resCtx.threads;
+    templateAlgRes.ccuKernels = resCtx.ccuKernels;
     templateAlgRes.aivCommInfoPtr = resCtx.aivCommInfoPtr;
     // 准备数据
     TemplateDataParams tempAlgParams;
@@ -95,7 +100,6 @@ HcclResult InsV2BroadcastSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     tempAlgParams.repeatNum = 1;
     tempAlgParams.inputRepeatStride = 0;
     tempAlgParams.outputRepeatStride = 0;
-
 
     // 构建template
     std::shared_ptr<InsAlgTemplate> algTemplate = std::make_shared<InsAlgTemplate>(param, resCtx.topoInfo.userRank, resCtx.algHierarchyInfo.infos[0]);
@@ -148,14 +152,19 @@ HcclResult InsV2BroadcastSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     return HCCL_SUCCESS;
 }
 
-
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_BROADCAST, InsBroadcastMesh1DTwoShot, InsV2BroadcastSoleExecutor, TopoMatch1D, 
                  InsTempBroadcastMesh1DTwoShot);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_BROADCAST, InsBroadcastNHR, InsV2BroadcastSoleExecutor, TopoMatch1D,
                 InsTempBroadcastNHR);
 
 #ifndef AICPU_COMPILE
-    REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_BROADCAST, AivBroadcastMesh1D, InsV2BroadcastSoleExecutor, TopoMatch1D,
-                     AivTempBroadcastMesh1D);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_BROADCAST, AivBroadcastMesh1D, InsV2BroadcastSoleExecutor, TopoMatch1D,
+                AivTempBroadcastMesh1D);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_BROADCAST, CcuBroadcastMesh1DMem2Mem, InsV2BroadcastSoleExecutor, TopoMatch1D,
+                CcuTempBroadcastMesh1DMem2Mem);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_BROADCAST, CcuBroadcastMesh1D, InsV2BroadcastSoleExecutor, TopoMatch1D,
+                CcuTempBroadcastMesh1D);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_BROADCAST, CcuBroadcastNHR1DMem2Mem, InsV2BroadcastSoleExecutor, TopoMatch1D,
+                CcuTempBroadcastNHR1DMem2Mem);
 #endif
 }

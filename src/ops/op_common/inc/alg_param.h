@@ -20,9 +20,9 @@
 #include "hccl_common.h"
 #include "hccl_types.h"
 #include "alg_type.h"
-#include "hccl_res.h"
-#include "hcomm_primitives.h"
-#include "hccl_rank_graph.h"
+#include "hccl_res_dl.h"
+#include "hcomm_primitives_dl.h"
+#include "hccl_rank_graph_dl.h"
 #include "binary_stream.h"
 #include "hccl_ccu_res.h"
 
@@ -41,6 +41,8 @@ constexpr uint32_t OP_ALG_LENGTH = 128; // 存放算法 + host/device标记
 constexpr uint32_t ALG_TAG_LENGTH = TAG_LENGTH + OP_ALG_LENGTH;
 constexpr uint32_t MAX_TAG_LENGTH = 255;
 constexpr uint32_t AICPU_CONTROL_NOTIFY_NUM = 2;
+constexpr uint32_t MAX_MEM_TAG_LENGTH = OP_ALG_LENGTH + 32;
+constexpr uint32_t RES_PACK_TAG_LENGTH = 255;
 
 // 是否再拆分一个comm头文件
 constexpr u32 LOCAL_NOTIFY_IDX_ZERO = 0;
@@ -94,11 +96,33 @@ enum class OpMode {
 
 enum class Level0Shape {
     CLOS    = 0,
-    MESH_1D = 1
+    MESH_1D = 1,
+    MESH_1D_CLOS = 2,
 };
 
-// 这个应该是公共的
-struct TopoInfo { // 通信域拓扑ctx
+enum class Level0MeshType {
+    NOT_MESH = 0,
+    SINGLE_DIE = 1,
+    TWO_DIE_REGULAR = 2,
+    TWO_DIE_NOT_REGULAR = 3,
+};
+
+struct NetLayerDetails {
+    u32 netLayerNum;
+    std::vector<u32> netLayers;
+    std::vector<u32> netInstNumOfLayer;
+    std::vector<std::vector<u32>> instSizeListOfLayer;
+    std::vector<u32> localNetInsSizeOfLayer;
+};
+struct TopoInstDetails {
+    u32 topoInstNum;
+    std::vector<u32> sizeOfTopo;
+    std::vector<CommTopo> typeOfTopo;
+    std::vector<std::vector<u32>> ranksInTopo;
+    std::map<CommTopo, std::vector<u32>> rankNumForTopoType;
+};
+
+struct TopoInfo {
     u32 userRank; // rankId
     u32 userRankSize; // 通信域rankSize
     u32 serverIdx = INVALID_UINT; // Server在ranktable中的自然顺序
@@ -114,14 +138,113 @@ struct TopoInfo { // 通信域拓扑ctx
     bool multiModuleDiffDeviceNumMode = false;   // Server间卡数不一致
     bool multiSuperPodDiffServerNumMode = false; // 超节点间Server数不一致
     bool isHCCSSWNumEqualToTwiceSIONum = false; // A3 Server内链路属性
-    u32 topoLevelNums = 0;
-    Level0Shape level0Topo;
     ThreadHandle mainThread;    // 主流对应threadHandle
     u32 notifyNumOnMainThread = 0;  // mainThread上创建的notify数量
 };
 
+// 这个应该是公共的
+struct TopoInfoWithNetLayerDetails : public TopoInfo { // 通信域拓扑ctx
+    u32 topoLevelNums = 0;
+    Level0Shape level0Topo;
+    bool Level0Nhr{false};
+    bool Level1Nhr{false};
+    bool is2DieFullMesh{false};
+    u32 topoInstDetailsOfLayerSize = 0;
+    Level0MeshType level0MeshType;
+    NetLayerDetails netLayerDetails;
+    std::vector<TopoInstDetails> topoInstDetailsOfLayer;
+
+    std::vector<char> Serialize()
+    {
+        BinaryStream binaryStream;
+        binaryStream << userRank;
+        binaryStream << userRankSize;
+        binaryStream << serverIdx;
+        binaryStream << superPodIdx;
+        binaryStream << deviceType;
+        binaryStream << deviceNumPerModule;
+        binaryStream << serverNumPerSuperPod;
+        binaryStream << serverNum;
+        binaryStream << moduleNum;
+        binaryStream << superPodNum;
+        binaryStream << moduleIdx;
+        binaryStream << isDiffDeviceModule;
+        binaryStream << multiModuleDiffDeviceNumMode;
+        binaryStream << multiSuperPodDiffServerNumMode;
+        binaryStream << isHCCSSWNumEqualToTwiceSIONum;
+        binaryStream << mainThread;
+        binaryStream << notifyNumOnMainThread;
+        binaryStream << topoLevelNums;
+        binaryStream << level0Topo;
+        binaryStream << Level0Nhr;
+        binaryStream << Level1Nhr;
+        binaryStream << is2DieFullMesh;
+        binaryStream << topoInstDetailsOfLayerSize;
+        binaryStream << level0MeshType;
+        binaryStream << netLayerDetails.netLayerNum;
+        binaryStream << netLayerDetails.netLayers;
+        binaryStream << netLayerDetails.netInstNumOfLayer;
+        binaryStream << netLayerDetails.instSizeListOfLayer;
+        binaryStream << netLayerDetails.localNetInsSizeOfLayer;
+        for (uint32_t idx = 0; idx < topoInstDetailsOfLayerSize; idx++) {
+            binaryStream << topoInstDetailsOfLayer[idx].topoInstNum;
+            binaryStream << topoInstDetailsOfLayer[idx].sizeOfTopo;
+            binaryStream << topoInstDetailsOfLayer[idx].typeOfTopo;
+            binaryStream << topoInstDetailsOfLayer[idx].ranksInTopo;
+            binaryStream << topoInstDetailsOfLayer[idx].rankNumForTopoType;
+        }
+        std::vector<char> result;
+        binaryStream.Dump(result);
+        return result;
+    }
+ 
+    void DeSerialize(std::vector<char> &data)
+    {
+        BinaryStream binaryStream(data);
+        binaryStream >> userRank;
+        binaryStream >> userRankSize;
+        binaryStream >> serverIdx;
+        binaryStream >> superPodIdx;
+        binaryStream >> deviceType;
+        binaryStream >> deviceNumPerModule;
+        binaryStream >> serverNumPerSuperPod;
+        binaryStream >> serverNum;
+        binaryStream >> moduleNum;
+        binaryStream >> superPodNum;
+        binaryStream >> moduleIdx;
+        binaryStream >> isDiffDeviceModule;
+        binaryStream >> multiModuleDiffDeviceNumMode;
+        binaryStream >> multiSuperPodDiffServerNumMode;
+        binaryStream >> isHCCSSWNumEqualToTwiceSIONum;
+        binaryStream >> mainThread;
+        binaryStream >> notifyNumOnMainThread;
+        binaryStream >> topoLevelNums;
+        binaryStream >> level0Topo;
+        binaryStream >> Level0Nhr;
+        binaryStream >> Level1Nhr;
+        binaryStream >> is2DieFullMesh;
+        binaryStream >> topoInstDetailsOfLayerSize;
+        binaryStream >> level0MeshType;
+        binaryStream >> netLayerDetails.netLayerNum;
+        binaryStream >> netLayerDetails.netLayers;
+        binaryStream >> netLayerDetails.netInstNumOfLayer;
+        binaryStream >> netLayerDetails.instSizeListOfLayer;
+        binaryStream >> netLayerDetails.localNetInsSizeOfLayer;
+        topoInstDetailsOfLayer.resize(topoInstDetailsOfLayerSize);
+        for (uint32_t idx = 0; idx < topoInstDetailsOfLayerSize; idx++) {
+            binaryStream >> topoInstDetailsOfLayer[idx].topoInstNum;
+            binaryStream >> topoInstDetailsOfLayer[idx].sizeOfTopo;
+            binaryStream >> topoInstDetailsOfLayer[idx].typeOfTopo;
+            binaryStream >> topoInstDetailsOfLayer[idx].ranksInTopo;
+            binaryStream >> topoInstDetailsOfLayer[idx].rankNumForTopoType;
+        }
+    }
+};
+
 // ccu kernel register所需信息
 struct CcuKernelInfo {
+    // kernel资源组序号，group号不同时，资源复用
+    u32 resGroup = 0;
     // kernel构造函数
     hcomm::KernelCreator creator;
     // KernelArg实例
@@ -155,24 +278,15 @@ struct AlgHierarchyInfo {
 struct ChannelInfo {
     bool isValid = false;
     u32 remoteRank = INVALID_VALUE_RANKID;
-    CommProtocol protocol;
-    EndpointLocType locationType;
-    u32 notifyNum;
-    ChannelHandle handle;
+    CommProtocol protocol = CommProtocol::COMM_PROTOCOL_RESERVED;
+    EndpointLocType locationType = EndpointLocType::ENDPOINT_LOC_TYPE_RESERVED;
+    u32 notifyNum = 0;
+    ChannelHandle handle = 0;
     HcclMem remoteCclMem; // A5用的
-    HcclMem remoteInput;  // A3用的
-    HcclMem remoteOutput; // A3用的
-};
-
-// DPU资源
-struct DPUAlgResourceCtx {
-    uint32_t tempIndex;
-    AlgHierarchyInfo algHierarchyInfo;
-    HcclMem cclInputMem; // 跨Rank缓存Buffer
-    HcclMem cclOutputMem; // 跨Rank缓存Buffer
-    u32 channelNum = 0;
-    ChannelInfo* channels = nullptr;
-    u64 sliceSize = 0;
+    HcclMem remoteInputGraphMode;   // A5用的, 图模式下远端sendBuf地址
+    HcclMem remoteOutputGraphMode;  // A5用的，图模式下远端recvBuf地址
+    HcclMem remoteInput;  // A3用的，cclIn
+    HcclMem remoteOutput; // A3用的, cclOut
 };
 
 // 算法ctx，key为通信域id+算法名，提前在device上
@@ -207,10 +321,9 @@ struct AlgResourceCtxSerializable {
     u32 notifyNumOnMainThread; // 主流上的notify数量
     u32 slaveThreadNum; // 需要的thread数量
     std::vector<u32> notifyNumPerThread; // 每个thread需要的notify数量
-    uint32_t notifyIds[AICPU_CONTROL_NOTIFY_NUM]; // aicpu 模式下控制notify
-    TopoInfo topoInfo; // 提取的拓扑信息
     void* aivCommInfoPtr = nullptr;
     std::vector<ThreadHandle> threads;
+    ThreadHandle unfoldThread = 0; // 展开流thread
     std::vector<std::vector<ChannelInfo>> channels;
     void* commInfoPtr = nullptr;
     // hostdpu
@@ -219,8 +332,10 @@ struct AlgResourceCtxSerializable {
     // ccu的
     std::vector<u32> ccuKernelNum;
     std::vector<CcuKernelHandle> ccuKernels;
+    u32 topoInfoSeqSize = 0;
+    TopoInfoWithNetLayerDetails topoInfo; // 提取的拓扑信息
 
-    std::vector<char> Serialize() const
+    std::vector<char> Serialize()
     {
         BinaryStream binaryStream;
 
@@ -230,12 +345,9 @@ struct AlgResourceCtxSerializable {
         binaryStream << notifyNumOnMainThread;
         binaryStream << slaveThreadNum;
         binaryStream << notifyNumPerThread;
-        for (uint32_t i = 0; i < AICPU_CONTROL_NOTIFY_NUM; i++) {
-            binaryStream << notifyIds[i];
-        }
-        binaryStream << topoInfo;
         binaryStream << commInfoPtr;
         binaryStream << threads;
+        binaryStream << unfoldThread;
         binaryStream << channels;
 
         binaryStream << npu2DpuShmemPtr;
@@ -243,9 +355,12 @@ struct AlgResourceCtxSerializable {
 
         binaryStream << ccuKernelNum;
         binaryStream << ccuKernels;
-
+        std::vector<char> seq = topoInfo.Serialize();
+        topoInfoSeqSize = seq.size();
+        binaryStream << topoInfoSeqSize;
         std::vector<char> result;
         binaryStream.Dump(result);
+        result.insert(result.end(), seq.begin(), seq.end());
 
         return result;
     }
@@ -260,12 +375,9 @@ struct AlgResourceCtxSerializable {
         binaryStream >> notifyNumOnMainThread;
         binaryStream >> slaveThreadNum;
         binaryStream >> notifyNumPerThread;
-        for (uint32_t i = 0; i < AICPU_CONTROL_NOTIFY_NUM; i++) {
-            binaryStream >> notifyIds[i];
-        }
-        binaryStream >> topoInfo;
         binaryStream >> commInfoPtr;
         binaryStream >> threads;
+        binaryStream >> unfoldThread;
         binaryStream >> channels;
 
         binaryStream >> npu2DpuShmemPtr;
@@ -273,6 +385,12 @@ struct AlgResourceCtxSerializable {
 
         binaryStream >> ccuKernelNum;
         binaryStream >> ccuKernels;
+        binaryStream >> topoInfoSeqSize;
+        size_t startPos = data.size() - topoInfoSeqSize;
+        std::vector<char> tailData(data.begin() + startPos, data.end());
+        TopoInfoWithNetLayerDetails topoTemp;
+        topoTemp.DeSerialize(tailData);
+        topoInfo = std::move(topoTemp);
     }
 };
 
@@ -342,6 +460,7 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     s32 aivCountTag = 0;
     u64 ctxSize = 0;
     void* resCtx = nullptr;
+    ThreadHandle opThread = 0;
     u64 varMemSize{0};
     u8 varData[0];
 };
@@ -361,7 +480,7 @@ struct Slice {
     u64 size{0};    // Slice的数据大小，单位：字节
 };
 
-typedef struct HcomProInfo {
+struct HcomProInfo {
     uint8_t dataType;
     uint8_t cmdType;
     uint64_t dataCount;
@@ -379,6 +498,29 @@ typedef struct HcomProInfo {
     bool isCapture = false;
     bool isAiv = false;
     uint8_t reserved[MAX_LENGTH];
-}HcomProInfo;
-}
+};
+
+// 图模式相关定义
+// 图模式编译阶段资源计算入参
+struct OpParamGraphMode {
+    char opType[64]; // 算子类型
+};
+
+// 图模式编译阶段申请资源
+struct ResResponseGraphMode {
+    u64 opMemSize = 0;  // 额外申请的scratch数量（不包括cclBuff）
+    u32 streamNum = 0;  // 除用户流以外，额外申请的流（不包括算子device展开申请的流）
+    u32 taskNum = 0;    // task数量，一般为前同步 + kernel + 后同步
+    u32 aivCoreNum = 0;
+};
+
+// 图模式执行阶段传入的资源
+struct ResPackGraphMode {
+    char tag[RES_PACK_TAG_LENGTH];
+    std::vector<aclrtStream> streams;
+    void* scratchMemAddr;
+    u64 scratchMemSize;
+};
+
+} 
 #endif

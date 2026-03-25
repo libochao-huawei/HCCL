@@ -11,7 +11,6 @@
 #ifndef AIV_TEMP_ALL_TO_ALL_V_MESH_1D
 #define AIV_TEMP_ALL_TO_ALL_V_MESH_1D
 
-#include <cstring>
 #include "aiv_alg_template_base.h"
 #include "executor_base.h"
 #include "alg_data_trans_wrapper.h"
@@ -30,7 +29,7 @@ public:
         info += std::to_string(tempRankSize_);
         return info;
     }
-    HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+    HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                         AlgResourceRequest& resourceRequest) override;
     HcclResult KernelRun(const OpParam& param,
                          const TemplateDataParams& tempAlgParams,

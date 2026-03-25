@@ -110,6 +110,7 @@ void TopoModel::InitTopoInstsMap(uint32_t serverId, uint32_t rankId, const std::
         // 单Rank场景
         if (rowRankIds.size() == 1 && colRankIds.size() == 1) {
             instId2RankIds_[serverId][rowInstId] = rowRankIds;
+            dev2TopoInsts_[serverId][phyId].push_back(rowInstId);
         }
 
         // 2D场景才有Z轴实例CLOS
@@ -168,6 +169,7 @@ void TopoModel::InitEndpointMap(uint32_t rankId, uint32_t phyId, uint32_t server
     endpoint.loc.device.devPhyId = phyId;
     endpoint.loc.device.superPodIdx = superpodId;
     endpoint.loc.device.serverIdx = serverId;
+    endpoint.loc.locType = EndpointLocType::ENDPOINT_LOC_TYPE_DEVICE;
     rankId2Endpoint_[rankId] = endpoint;
 }
 
@@ -226,7 +228,11 @@ void TopoModel::GetLinks(DevType devType, uint32_t netLayer, uint32_t srcRank, u
         Create910BLinks(srcRank, dstRank);
     } else if (devType == DevType::DEV_TYPE_910_93) {
         Create910CLinks(srcRank, dstRank);
+    #ifdef MACRO_DEV_TYPE_NEW
+    } else if (devType == DevType::DEV_TYPE_950) {
+    #else
     } else if (devType == DevType::DEV_TYPE_910_95) {
+    #endif
         Create910DLinks(srcRank, dstRank);
     }
 
@@ -255,7 +261,11 @@ void TopoModel::GetInstTopoTypeByNetLayer(DevType devType, uint32_t netLayer, Co
             *topoType = CommTopo::COMM_TOPO_1DMESH;
         } else if (devType == DevType::DEV_TYPE_910_93) {
             *topoType = CommTopo::COMM_TOPO_910_93;
+        #ifdef MACRO_DEV_TYPE_NEW
+        } else if (devType == DevType::DEV_TYPE_950) {
+        #else
         } else if (devType == DevType::DEV_TYPE_910_95) {
+        #endif
             *topoType = CommTopo::COMM_TOPO_CUSTOM;  // A5topo使用新API查询
         }
     } else if (netLayer == NetLayerL1) {
@@ -475,7 +485,6 @@ void TopoModel::Init910DLinkMap()
         }
     }
 }
-
 
 bool TopoModel::IsSamePod(uint32_t srcRank, uint32_t dstRank)
 {

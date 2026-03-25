@@ -23,14 +23,14 @@ public:
     {
         return "Topo Match for combined Algorithm: layer 0 Mesh, layer 1 NHR.";
     }
-    HcclResult MatchTopo(const HcclComm comm, TopoInfo* topoInfo, AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
+    HcclResult MatchTopo(const HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo, AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
 
 private:
-    HcclResult TopoForLayer0(const HcclComm comm, uint32_t& layer0Size, uint32_t myRank,
-                                    AlgHierarchyInfoForAllLevel& algHierarchyInfo);
-    HcclResult TopoForLayer1(const HcclComm comm, uint32_t layer0Size, uint32_t myRank,
-                                    AlgHierarchyInfoForAllLevel& algHierarchyInfo);
-    HcclResult CheckVecElementAllSame(uint32_t *instSizeList, uint32_t listSize);
+    HcclResult TopoForLayer0(const HcclComm comm, uint32_t& layer0Size, const uint32_t myRank,
+        AlgHierarchyInfoForAllLevel& algHierarchyInfo) const;
+    HcclResult TopoForLayer1(const HcclComm comm, uint32_t& layer0Size, const uint32_t myRank,
+        AlgHierarchyInfoForAllLevel& algHierarchyInfo) const;
+    HcclResult CheckVecElementAllSame(const uint32_t* instSizeList, uint32_t listSize) const;
 
     template<typename T>
     std::string PrintCArray(const T* values, const u32 valueNum) const

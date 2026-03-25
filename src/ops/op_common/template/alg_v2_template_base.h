@@ -11,10 +11,8 @@
 #ifndef ALG_V2_TEMPLATE_BASE
 #define ALG_V2_TEMPLATE_BASE
 
-#include <cstring>
 #include <vector>
 #include <memory>
-#include <list>
 #include "template_utils.h"
 #include "alg_template_base.h"
 
@@ -40,12 +38,12 @@ public:
         const std::vector<std::vector<uint32_t>>& subCommRanks);
 
     // calculate resources
-    virtual HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+    virtual HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                                AlgResourceRequest& resourceRequest);
-    virtual HcclResult GetRes(AlgResourceRequest& resourceRequest);
+    virtual HcclResult GetRes(AlgResourceRequest& resourceRequest) const;
     virtual u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType);
 
-    virtual u64 GetThreadNum();
+    virtual u64 GetThreadNum() const;
 
     virtual void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub) = 0;
 
@@ -72,6 +70,8 @@ protected:
     std::vector<u32>                 notifyIdxMainToSub_;
     // 用于记录从thread向主thread发送record的时候使用主thread的哪个notify
     std::vector<u32>                 notifyIdxSubToMain_;
+    // 是否可以直接访问对端input/output memory
+    bool                             enableRemoteMemAccess_ = false;
 };
 } // namespace Hccl
 

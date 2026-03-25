@@ -22,8 +22,7 @@ InsTempBroadcastMesh1DTwoShot::~InsTempBroadcastMesh1DTwoShot()
 {
 }
 
-
-HcclResult InsTempBroadcastMesh1DTwoShot::CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo, 
+HcclResult InsTempBroadcastMesh1DTwoShot::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                                                   AlgResourceRequest& resourceRequest)
 {
     // mesh 算法只做level 0 层级的
@@ -35,8 +34,7 @@ HcclResult InsTempBroadcastMesh1DTwoShot::CalcRes(HcclComm comm, const OpParam& 
     return HCCL_SUCCESS;
 }
 
-
-HcclResult InsTempBroadcastMesh1DTwoShot::GetRes(AlgResourceRequest &resourceRequest)
+HcclResult InsTempBroadcastMesh1DTwoShot::GetRes(AlgResourceRequest &resourceRequest) const
 {
     u32 threadNum = templateRankSize_ > 1 ? templateRankSize_ - 1 : 1;
     resourceRequest.slaveThreadNum = threadNum - 1;
@@ -45,7 +43,7 @@ HcclResult InsTempBroadcastMesh1DTwoShot::GetRes(AlgResourceRequest &resourceReq
     }
     resourceRequest.notifyNumOnMainThread = threadNum - 1;
 
-    HCCL_INFO("[InsTempBroadcastMesh1DTwoShot] GetRes. myRank[%d] notifyNumOnMainThread[%d] rankSize[%d] threadNum[%d]", 
+    HCCL_INFO("[InsTempBroadcastMesh1DTwoShot] GetRes. myRank[%d] notifyNumOnMainThread[%d] rankSize[%d] threadNum[%d]",
                myRank_, resourceRequest.notifyNumOnMainThread, templateRankSize_, threadNum);
 
     return HCCL_SUCCESS;
@@ -59,27 +57,27 @@ u64 InsTempBroadcastMesh1DTwoShot::CalcScratchMultiple(BufferType inBuffType, Bu
     return scratchMultiple;
 }
 
-u64 InsTempBroadcastMesh1DTwoShot::GetThreadNum()
+u64 InsTempBroadcastMesh1DTwoShot::GetThreadNum() const
 {
     u32 threadNum = templateRankSize_ > 1 ? templateRankSize_ - 1 : 1;
     return threadNum;
 }
 
 // 按照mesh的方式计算SliceInfo，例如N张卡，就是N份slice
-HcclResult InsTempBroadcastMesh1DTwoShot::CalcDataSliceInfo(const u64 dataSize, RankSliceInfo &sliceInfoVec)
+HcclResult InsTempBroadcastMesh1DTwoShot::CalcDataSliceInfo(const u64 dataSize, RankSliceInfo &sliceInfoVec) const
 {
     HCCL_INFO("[InsTempBroadcastMesh1DTwoShot] CalcDataSliceInfo entry.");
     // 一般情况下，mesh的temp是单级的
     sliceInfoVec.resize(templateRankSize_);
     u64 chunkSize = RoundUp(dataSize, (templateRankSize_ * dataTypeSize_)) * dataTypeSize_;
 
-    HCCL_DEBUG("[InsTempBroadcastMesh1DTwoShot] CalcDataSliceInfo. myRank[%d] dataSize[%d] rankSize[%d] dataTypeSize[%d] chunkSize[%d]", 
+    HCCL_DEBUG("[InsTempBroadcastMesh1DTwoShot] CalcDataSliceInfo. myRank[%d] dataSize[%d] rankSize[%d] dataTypeSize[%d] chunkSize[%d]",
                myRank_, dataSize, templateRankSize_, dataTypeSize_, chunkSize);
     u64 accumOff = 0;
     for (u32 rankIdx = 0; rankIdx < templateRankSize_; rankIdx++) {
         u64       currChunkSize  = ((dataSize - accumOff) > chunkSize) ? chunkSize : (dataSize - accumOff);
         SliceInfo slice          = {accumOff, currChunkSize};
-        HCCL_DEBUG("[InsTempBroadcastMesh1DTwoShot] CalcDataSliceInfo. myRank[%d] offset[%d] dataSize[%d]", 
+        HCCL_DEBUG("[InsTempBroadcastMesh1DTwoShot] CalcDataSliceInfo. myRank[%d] offset[%d] dataSize[%d]",
                     myRank_, accumOff, currChunkSize);
         sliceInfoVec[rankIdx].push_back(slice);
         accumOff += currChunkSize;
@@ -133,7 +131,7 @@ HcclResult InsTempBroadcastMesh1DTwoShot::RootSendData(const u64 memOffset,
                                              const u32 remoteRank,
                                              const TemplateDataParams &tempAlgParams,
                                              const std::vector<ThreadHandle> &threads,
-                                             const u32 id, 
+                                             const u32 id,
                                              const std::map<u32, std::vector<ChannelInfo>> &channels,
                                              const RankSliceInfo &sliceInfoVec) const
 {
@@ -149,8 +147,6 @@ HcclResult InsTempBroadcastMesh1DTwoShot::RootSendData(const u64 memOffset,
 
     const ChannelInfo &linkSend = channels.at(remoteRank)[0];
     void* DstPtr = linkSend.remoteCclMem.addr;
- 
-
 
     DataSlice sendSrcSlice0 = DataSlice(tempAlgParams.buffInfo.inputPtr, sendSrcOffset0, sliceInfoVec[remoteRankIdx][0].size);
     DataSlice sendDstSlice0 = DataSlice(DstPtr, sendDstOffset0, sliceInfoVec[remoteRankIdx][0].size);
@@ -161,11 +157,9 @@ HcclResult InsTempBroadcastMesh1DTwoShot::RootSendData(const u64 memOffset,
     DataInfo sendDataInfo0(linkSend, sendDataSlice0);
     CHK_RET(SendWrite(sendDataInfo0, threads[id]));
 
-
     // root将自己数据分片发送至对端
     u64 sendSrcOffset1 = sliceInfoVec[myRankIdx][0].offset + memOffset;
     u64 sendDstOffset1 = sliceInfoVec[myRankIdx][0].offset;
-
 
     sendDstOffset1 += tempAlgParams.buffInfo.hcclBuffBaseOff;
 
@@ -174,7 +168,7 @@ HcclResult InsTempBroadcastMesh1DTwoShot::RootSendData(const u64 memOffset,
 
     HCCL_DEBUG("[InsTempBroadcastMesh1DTwoShot] RootSendData: sendSrcSlice1.myRank[%d] addr[%p] offset[%d] Size[%d]",
               myRank_, tempAlgParams.buffInfo.inputPtr, sendSrcOffset1, sliceInfoVec[myRankIdx][0].size);
-    HCCL_DEBUG("[InsTempBroadcastMesh1DTwoShot] RootSendData: sendSrcSlice1.myRank[%d] addr[%p] offset[%d] Size[%d]",
+     HCCL_DEBUG("[InsTempBroadcastMesh1DTwoShot] RootSendData: sendSrcSlice1.myRank[%d] addr[%p] offset[%d] Size[%d]",
               myRank_, DstPtr, sendDstOffset1, sliceInfoVec[myRankIdx][0].size);
 
     std::vector<DataSlice> sendSrcSliceVec1 = {sendSrcSlice1};
@@ -190,7 +184,7 @@ HcclResult InsTempBroadcastMesh1DTwoShot::RankRecvData(const u64 memOffset,
                                              const u32 remoteRank,
                                              const TemplateDataParams &tempAlgParams,
                                              const std::vector<ThreadHandle> &threads,
-                                             const u32 id, 
+                                             const u32 id,
                                              const std::map<u32, std::vector<ChannelInfo>> &channels,
                                              const RankSliceInfo &sliceInfoVec) const
 {
@@ -225,13 +219,12 @@ HcclResult InsTempBroadcastMesh1DTwoShot::RankRecvData(const u64 memOffset,
     u64 sendDstOffset1 = sliceInfoVec[rootIdx][0].offset;
     sendDstOffset1 += tempAlgParams.buffInfo.hcclBuffBaseOff;
 
-
     DataSlice recvSrcSlice1 = DataSlice(tempAlgParams.buffInfo.inputPtr, sendSrcOffset1, sliceInfoVec[rootIdx][0].size);
     DataSlice recvDstSlice1 = DataSlice(DstPtr, sendDstOffset1, sliceInfoVec[rootIdx][0].size);
 
     HCCL_DEBUG("[InsTempBroadcastMesh1DTwoShot] RankRecvData: recvSrcSlice1.myRank[%d] addr[%p] offset[%d] Size[%d]",
               myRank_, tempAlgParams.buffInfo.inputPtr, sendSrcOffset1, sliceInfoVec[rootIdx][0].size);
-    HCCL_DEBUG("[InsTempBroadcastMesh1DTwoShot] RankRecvData: recvDstSlice1.myRank[%d] addr[%p] offset[%d] Size[%d]",
+     HCCL_DEBUG("[InsTempBroadcastMesh1DTwoShot] RankRecvData: recvDstSlice1.myRank[%d] addr[%p] offset[%d] Size[%d]",
               myRank_, DstPtr, sendDstOffset1, sliceInfoVec[rootIdx][0].size);
 
     std::vector<DataSlice> recvSrcSliceVec1= {recvSrcSlice1};
@@ -300,7 +293,6 @@ HcclResult InsTempBroadcastMesh1DTwoShot::RunAllGather(const std::vector<u32> &c
     for(u32 i = 0 ; i < commRanks.size(); i++) {
         s32 remoteRank = static_cast<s32>(commRanks[i]);
 
-
         u32 myRankIdx = tempVirtRankMap_.at(myRank_);
         u32 remoteRankIdx = tempVirtRankMap_.at(remoteRank);
 
@@ -314,13 +306,11 @@ HcclResult InsTempBroadcastMesh1DTwoShot::RunAllGather(const std::vector<u32> &c
         sendDstOffset += tempAlgParams.buffInfo.hcclBuffBaseOff;
         recvDstOffset += tempAlgParams.buffInfo.hcclBuffBaseOff;
 
-
         void *SrcPtr = tempAlgParams.buffInfo.hcclBuff.addr;
         void *DstPtr = tempAlgParams.buffInfo.hcclBuff.addr;
 
         const ChannelInfo &linkSendRecv = channels.at(remoteRank)[0];
         void* remoteDstPtr = linkSendRecv.remoteCclMem.addr;
-
 
         DataSlice sendSrcSlice = DataSlice(SrcPtr, sendSrcOffset, sliceInfoVec[myRankIdx][0].size);
         DataSlice sendDstSlice = DataSlice(remoteDstPtr, sendDstOffset, sliceInfoVec[myRankIdx][0].size);
@@ -352,14 +342,13 @@ HcclResult InsTempBroadcastMesh1DTwoShot::RunAllGather(const std::vector<u32> &c
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult InsTempBroadcastMesh1DTwoShot::PostCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads)
+HcclResult InsTempBroadcastMesh1DTwoShot::PostCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads) const
 {
     u64 inOffset = tempAlgParams.buffInfo.hcclBuffBaseOff;
 
     DataSlice usrInSlice = DataSlice(tempAlgParams.buffInfo.hcclBuff.addr, inOffset, tempAlgParams.sliceSize, tempAlgParams.count);
     DataSlice usrOutSlice = DataSlice(tempAlgParams.buffInfo.inputPtr, tempAlgParams.buffInfo.outBuffBaseOff,
                 tempAlgParams.sliceSize, tempAlgParams.count);
-
 
     CHK_RET(LocalCopy(threads[0], usrInSlice, usrOutSlice));
 

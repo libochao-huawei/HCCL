@@ -45,16 +45,13 @@ constexpr u32 BEST_SPLIT_VALUE_SR = 87;
 constexpr u32 BEST_SPLIT_VALUE_DR = 90;
 constexpr u64 HCCL_SPLIT_SIZE_INTER_SERVER = 8388608; // 每卡通信量的切分边界
 
-enum TemplateType {
+enum class TemplateType {
     TEMPLATE_SCATTER_MESH = 0,               // ScatterMesh
     TEMPLATE_SCATTER_RING = 1,               // ScatterRing
     TEMPLATE_SCATTER_NB = 2,                 // ScatterNB
     TEMPLATE_SCATTER_NHR = 3,                // ScatterNHR
     TEMPLATE_SCATTER_RING_DIRECT = 4,        // ScatterRingDirect
-    TEMPLATE_REDUCE_SCATTER_MESH = 5,        // ReduceScatterMesh
 
-    TEMPLATE_REDUCE_SCATTER_HOST_DPU = 100,
-    TEMPLATE_REDUCE_SCATTER_LOCAL_REDUCE = 101,
     TEMPLATE_NATIVE_MAX_NUM,                        // 内置template最大值
 
     TEMPLATE_CUSTOM_BEGIN = 1000,                   // 用户自定义template起始值
@@ -123,9 +120,7 @@ public:
     virtual ~AlgTemplateBase();
 
     virtual HcclResult RunAsync(const u32 rank, const u32 rankSize, std::vector<ChannelInfo> &channels);
-    virtual HcclResult RunAsync(const u32 rank, const u32 rankSize, std::vector<ChannelInfo> &channels, std::vector<ThreadHandle> slaveThreads);
-    virtual HcclResult RunAsync(const DPUAlgResourceCtx *dpuResCtx);
-    /* 12个参数 */
+     /* 12个参数 */
     virtual HcclResult Prepare(HcclMem &inputMem, HcclMem &outputMem, HcclMem &scratchMem, const u64 count,
                          const HcclDataType dataType, ThreadHandle thread,
                          const HcclReduceOp reductionOp = HCCL_REDUCE_RESERVED,
@@ -177,13 +172,13 @@ public:
     }
 
 protected:
-    HcclResult ExecuteBarrier(ChannelInfo &channel, ThreadHandle thread);
-    HcclResult ExecuteBarrier(ChannelInfo &preChannel, ChannelInfo &aftChannel);
-    HcclResult ExecuteBarrier(ChannelInfo &preChannel, ChannelInfo &aftChannel, ThreadHandle thread);
+    HcclResult ExecuteBarrier(ChannelInfo &channel, ThreadHandle thread) const;
+    HcclResult ExecuteBarrier(ChannelInfo &preChannel, ChannelInfo &aftChannel) const;
+    HcclResult ExecuteBarrier(ChannelInfo &preChannel, ChannelInfo &aftChannel, ThreadHandle thread) const;
 
     // 下面这组是否需要？
-    HcclResult ExecuteBarrier(ChannelInfo &preChannel, ChannelInfo &aftChannel, u32 notifyIdx);
-    HcclResult ExecuteBarrier(ChannelInfo &preChannel, ChannelInfo &aftChannel, u32 notifyIdx, ThreadHandle thread);
+    HcclResult ExecuteBarrier(ChannelInfo &preChannel, ChannelInfo &aftChannel, u32 notifyIdx) const;
+    HcclResult ExecuteBarrier(ChannelInfo &preChannel, ChannelInfo &aftChannel, u32 notifyIdx, ThreadHandle thread) const;
 
     std::vector<Slice> slicesDummy_;
     std::vector<Slice> &slices_;

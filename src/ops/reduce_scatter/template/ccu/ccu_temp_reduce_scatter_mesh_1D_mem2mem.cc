@@ -33,7 +33,7 @@ CcuTempReduceScatterMesh1DMem2Mem::~CcuTempReduceScatterMesh1DMem2Mem()
 {
 }
 
-HcclResult CcuTempReduceScatterMesh1DMem2Mem::CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+HcclResult CcuTempReduceScatterMesh1DMem2Mem::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                                                       AlgResourceRequest& resourceRequest)
 {
     // 不需要从流
@@ -51,7 +51,19 @@ HcclResult CcuTempReduceScatterMesh1DMem2Mem::CalcRes(HcclComm comm, const OpPar
                              return std::make_unique<CcuKernelReduceScatterMesh1DMem2Mem>(arg);
                          };
     std::vector<HcclChannelDesc> channelDescs;
-    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
+    if(topoInfo->level0Topo != Level0Shape::MESH_1D_CLOS) {
+        CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
+    } else {
+        std::vector<HcclChannelDesc> myChannelDescs;
+        CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks_, myChannelDescs, CommTopo::COMM_TOPO_1DMESH));
+        for(auto channel : myChannelDescs) {
+            if(channel.channelProtocol == COMM_PROTOCOL_UBC_CTP) {
+                channelDescs.push_back(channel);
+            }
+        }
+        HCCL_DEBUG("[CcuTempReduceScatterMesh1DMem2Mem::CalcRes] Get Mesh Channel Success!");
+    }
+    
     kernelInfo.kernelArg = std::make_shared<CcuKernelArgReduceScatterMesh1DMem2Mem>(subCommRanks_[0].size(),
                                                                                     mySubCommRank_,
                                                                                     param,
@@ -107,12 +119,12 @@ u64 CcuTempReduceScatterMesh1DMem2Mem::CalcScratchMultiple(BufferType inBuffType
     return templateRankSize_;
 }
 
-u64 CcuTempReduceScatterMesh1DMem2Mem::GetThreadNum()
+u64 CcuTempReduceScatterMesh1DMem2Mem::GetThreadNum() const
 {
     return 1;
 }
 
-HcclResult CcuTempReduceScatterMesh1DMem2Mem::GetRes(AlgResourceRequest& resourceRequest)
+HcclResult CcuTempReduceScatterMesh1DMem2Mem::GetRes(AlgResourceRequest& resourceRequest) const
 {
     resourceRequest.slaveThreadNum = 0;
     resourceRequest.notifyNumOnMainThread = 0;

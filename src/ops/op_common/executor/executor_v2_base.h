@@ -31,18 +31,18 @@ public:
 
     virtual std::string Describe() const;
 
-    virtual HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfo* topoInfo,
+    virtual HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo,
                                             AlgHierarchyInfoForAllLevel& algHierarchyInfo) = 0;
 
     virtual HcclResult CalcRes(HcclComm comm, const OpParam& param,
-                               const TopoInfo* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
+                               const TopoInfoWithNetLayerDetails* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
                                AlgResourceRequest& resourceRequest) = 0;
 
     // device
     virtual HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) = 0;
 
     HcclResult RestoreChannelMap(const AlgResourceCtxSerializable &resCtx,
-                                 std::vector<std::map<u32, std::vector<ChannelInfo>>> &rankIdToChannelInfo);
+                                 std::vector<std::map<u32, std::vector<ChannelInfo>>> &rankIdToChannelInfo) const;
 
 protected:
     // CollAlg base params

@@ -11,7 +11,6 @@
 #ifndef INS_TEMP_ALL_TO_ALL_V_MESH_1D_H
 #define INS_TEMP_ALL_TO_ALL_V_MESH_1D_H
 
-#include <cstring>
 #include "alg_v2_template_base.h"
 #include "executor_base.h"
 #include "alg_data_trans_wrapper.h"
@@ -36,7 +35,7 @@ public:
     HcclResult KernelRun(const OpParam& param,
                          const TemplateDataParams& tempAlgParams,
                          const TemplateResource& templateResource) override;
-    HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+    HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                         AlgResourceRequest& resourceRequest) override;
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
 
@@ -46,7 +45,7 @@ public:
 private:
     HcclResult RunALLtoALL(const std::map<u32, std::vector<ChannelInfo>> &channels,
         const std::vector<ThreadHandle> &threads, const TemplateDataParams &tempAlgParams);
-    HcclResult PostCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads);
+    HcclResult PostCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads) const;
 
     u64 count_{0};
     u64 processSize_{0};

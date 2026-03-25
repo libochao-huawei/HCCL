@@ -23,7 +23,7 @@ InsTempReduceScatterMesh1DMeshChunk::~InsTempReduceScatterMesh1DMeshChunk()
 }
 
 HcclResult InsTempReduceScatterMesh1DMeshChunk::CalcRes(
-    HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+    HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
     AlgResourceRequest& resourceRequest)
 {
     u32 threadNum = templateRankSize_ > 1 ? templateRankSize_ - 1 : 1;
@@ -97,7 +97,7 @@ HcclResult InsTempReduceScatterMesh1DMeshChunk::KernelRun(const OpParam& param,
 
 HcclResult InsTempReduceScatterMesh1DMeshChunk::PreCopy(
     const TemplateDataParams &tempAlgParams,
-    const std::vector<ThreadHandle> &threads)
+    const std::vector<ThreadHandle> &threads) const
 {
     HCCL_INFO("[InsTempReduceScatterMesh1DMeshChunk][PreCopy], copy from userIn to scratch");
     for (u32 repeatIdx = 0; repeatIdx < tempAlgParams.repeatNum; repeatIdx++) {

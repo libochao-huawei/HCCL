@@ -13,21 +13,26 @@
 #include "aiv_temp_reduce_scatter_mesh_1D.h"
 #include "ins_temp_reduce_scatter_nhr.h"
 #include "ins_temp_reduce_scatter_mesh_1D_meshchunk.h"
+#include "ins_temp_reduce_scatter_aicpu_reduce_nhr.h"
+#ifndef AICPU_COMPILE
 #include "ccu_temp_reduce_scatter_mesh_1D_mem2mem.h"
 #include "ccu_temp_reduce_scatter_mesh_1D.h"
 #include "ccu_temp_reduce_scatter_nhr_1D_mem2mem.h"
+#include "ccu_temp_reduce_scatter_mesh_1D_2die_mem2mem.h"
+#include "ccu_temp_reduce_scatter_mesh2die.h"
+#include "ccu_temp_reduce_scatter_nhr_1D_multi_jetty_mem2mem.h"
+#endif
 
 namespace ops_hccl {
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::InsV2ReduceScatterSoleExecutor()
 {
-    
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcAlgHierarchyInfo(HcclComm comm,
-    TopoInfo* topoInfo,
+    TopoInfoWithNetLayerDetails* topoInfo,
     AlgHierarchyInfoForAllLevel& algHierarchyInfo)
 {
     // 使用topo match计算AlgHierarchyInfoForAllLevel
@@ -36,15 +41,14 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcAlg
     return HCCL_SUCCESS;
 }
 
-
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(
     HcclComm comm, const OpParam& param,
-    const TopoInfo* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
+    const TopoInfoWithNetLayerDetails* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
     AlgResourceRequest& resourceRequest)
 {
     // 构建template
-    std::shared_ptr<InsAlgTemplate> algTemplate = 
+    std::shared_ptr<InsAlgTemplate> algTemplate =
         std::make_shared<InsAlgTemplate>(param, topoInfo->userRank, algHierarchyInfo.infos[0]);
     // 调用计算资源的函数
     algTemplate->CalcRes(comm, param, topoInfo, resourceRequest);
@@ -84,7 +88,7 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchest
     TemplateResource templateAlgRes;
     if (param.engine == COMM_ENGINE_CCU) {
         templateAlgRes.ccuKernels = resCtx.ccuKernels;
-    } 
+    }
     if (remoteRankToChannelInfo_.size() > 0) {
         templateAlgRes.channels = remoteRankToChannelInfo_[0];
     }
@@ -141,7 +145,7 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchest
         // 这里的stride当成传统意义上的sreide 间隔
         tempAlgParams.inputSliceStride = dataSize_; // 如果是输入，偏移是算子的output datasize
         tempAlgParams.outputSliceStride = maxDataCountPerLoop * dataTypeSize_; // 如果是scratchbuffer，偏移是单次循环处理的最大数据量
-        
+
         HCCL_INFO("[InsV2ReduceScatterSoleExecutor] loop [%u] tempAlgParams.inputSliceStride [%u],"
             "tempAlgParams.outputSliceStride [%u] tempAlgParams.sliceSize [%u]",
             loop, tempAlgParams.inputSliceStride, tempAlgParams.outputSliceStride, tempAlgParams.sliceSize);
@@ -167,6 +171,8 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, InsReduceScatterMesh1DMes
     InsTempReduceScatterMesh1DMeshChunk);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, InsReduceScatterNHR, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
     InsTempReduceScatterNHR);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, InsReduceScatterAicpuReduceNHR, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
+    InsTempReduceScatterAicpuReduceNHR);
 #ifndef AICPU_COMPILE
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, AivReduceScatterMesh1D, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
     AivTempReduceScatterMesh1D);
@@ -177,6 +183,12 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterMesh1D, I
     CcuTempReduceScatterMesh1D);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterNHR1DMem2Mem, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
     CcuTempReduceScatterNHR1DMem2Mem);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterMeshMem2Mem1D2Die, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
+    CcuTempReduceScatterMeshMem2Mem1D2Die);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterMesh2Die, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
+    CcuTempReduceScatterMesh2Die);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterNhr1DMem2MemMultiJetty, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
+ 	     CcuTempReduceScatterNhrMultiJettyMem2Mem1D);
 #endif
 
 }

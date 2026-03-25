@@ -25,7 +25,7 @@ void InsTempScatterMesh1D::SetRoot(u32 root)
     root_ = root;
 }
 
-u64 InsTempScatterMesh1D::GetThreadNum()
+u64 InsTempScatterMesh1D::GetThreadNum() const
 {
     u64 threadNum = templateRankSize_ > 1 ? templateRankSize_ - 1 : 1;
     return threadNum;
@@ -51,7 +51,7 @@ void InsTempScatterMesh1D::GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubT
     }
 }
 
-HcclResult InsTempScatterMesh1D::CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+HcclResult InsTempScatterMesh1D::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                         AlgResourceRequest& resourceRequest)
 {
     // mesh 算法只做level 0 层级的
@@ -124,7 +124,7 @@ HcclResult InsTempScatterMesh1D::KernelRun(const OpParam& param, const TemplateD
 }
 
 HcclResult InsTempScatterMesh1D::PreCopy(
-    const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads)
+    const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads) const
 {
     // 非根节点 或 in/outBuffType均为CCL BUFFER 则跳过前拷贝
     if (u32(myRank_) != root_ || 
@@ -154,7 +154,7 @@ HcclResult InsTempScatterMesh1D::PreCopy(
 }
 
 HcclResult InsTempScatterMesh1D::PostCopy(
-    const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads)
+    const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads) const
 {
     // 通信结束之后，非root rank数据都在 cclBuffer 上，需要搬运到对应的输出位置。
     if (u32(myRank_) == root_ || tempAlgParams.buffInfo.outBuffType == BufferType::HCCL_BUFFER) {

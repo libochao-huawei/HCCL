@@ -11,7 +11,6 @@
 #ifndef INS_TEMP_ALL_REDUCE_1D_MESH_TWO_SHOT
 #define INS_TEMP_ALL_REDUCE_1D_MESH_TWO_SHOT
 
-#include <cstring>
 #include "alg_v2_template_base.h"
 #include "executor_base.h"
 #include "alg_data_trans_wrapper.h"
@@ -41,10 +40,10 @@ public:
     }
 
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
-    HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+    HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
         AlgResourceRequest& resourceRequest) override;
-    HcclResult GetRes(AlgResourceRequest& resourceRequest) override;
-    u64 GetThreadNum() override;
+    HcclResult GetRes(AlgResourceRequest& resourceRequest) const override;
+    u64 GetThreadNum() const override;
 
     void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub) override;
     void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override;
@@ -55,7 +54,7 @@ public:
 private:
     HcclResult SplitData();
 
-    HcclResult RunReduceScatter(const TemplateDataParams &tempAlgParams,
+    HcclResult RunReduceScatter(const OpParam& param, const TemplateDataParams &tempAlgParams,
         const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads);
     HcclResult ScatterData(const TemplateDataParams &tempAlgParams,
         const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads);
@@ -69,6 +68,7 @@ private:
     HcclResult PreSync(const std::vector<ThreadHandle> &threads);
     HcclResult PostSync(const std::vector<ThreadHandle> &threads);
 
+    bool needAicpuReduce_{false};
     u32 dataTypeSize_{0};
     u64 count_{0};
     u64 processSize_{0};

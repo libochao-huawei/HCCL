@@ -1,8 +1,7 @@
 # ----------------------------------------------------------------------------
-# This program is free software, you can redistribute it and/or modify it.
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
-# This file is a part of the CANN Open Software.
-# Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
@@ -21,6 +20,7 @@
 #       [TARGETS target1 [target2 ...]]
 #       [FILES file1 [file2 ...]]
 #       [MANIFEST <manifest_filename>]   # e.g., "aicpu_compat_bin_hash.cfg"
+#       [TAR_ROOT_DIR <directory>]       # e.g., "aicpu_kernels_device" (optional, default: ".")
 #   )
 #
 # Examples:
@@ -38,12 +38,21 @@
 #       TARGETS app
 #       FILES "README.md"
 #   )
+#
+#   # With custom tar root directory
+#   pack_targets_and_files(
+#       OUTPUT aicpu_hcomm.tar.gz
+#       TARGETS ccl_kernel
+#       FILES ${CCL_KERNEL_TAR_LIBS}
+#       MANIFEST "bin_hash.cfg"
+#       TAR_ROOT_DIR "aicpu_kernels_device"
+#   )
 # =============================================================================
 set(_FUNC_CMAKE_DIR "${CMAKE_CURRENT_LIST_DIR}")
 function(pack_targets_and_files)
     cmake_parse_arguments(ARG
         ""
-        "OUTPUT;MANIFEST;OUTPUT_TARGET" 
+        "OUTPUT;MANIFEST;OUTPUT_TARGET;TAR_ROOT_DIR"
         "TARGETS;FILES"
         ${ARGN}
     )
@@ -80,6 +89,14 @@ function(pack_targets_and_files)
         message(FATAL_ERROR "[pack_targets_and_files] No targets or files specified to pack")
     endif()
 
+    if(ARG_TAR_ROOT_DIR)
+        set(staging_subdir "${staging_dir}/${ARG_TAR_ROOT_DIR}")
+        set(tar_src ${ARG_TAR_ROOT_DIR})
+    else()
+        set(staging_subdir "${staging_dir}")
+        set(tar_src ".")
+    endif()
+
     set(manifest_arg "")
     if(ARG_MANIFEST)
         if("${ARG_MANIFEST}" STREQUAL "")
@@ -88,25 +105,25 @@ function(pack_targets_and_files)
         if(IS_ABSOLUTE "${ARG_MANIFEST}")
             message(FATAL_ERROR "[pack] MANIFEST must be relative (e.g., 'sha256sums.cfg')")
         endif()
-        set(manifest_arg -D_MANIFEST_FILE=${staging_dir}/${ARG_MANIFEST})
+        set(manifest_arg -D_MANIFEST_FILE=${staging_subdir}/${ARG_MANIFEST})
     endif()
 
     add_custom_command(
-        OUTPUT ${staging_dir}
-        COMMAND ${CMAKE_COMMAND} -E make_directory "${staging_dir}"
+        OUTPUT ${staging_subdir}
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${staging_subdir}"
         VERBATIM
     )
 
     add_custom_command(
         OUTPUT "${ARG_OUTPUT}"
         COMMAND ${CMAKE_COMMAND}
-            -D _STAGING_DIR=${staging_dir}
+            -D _STAGING_DIR=${staging_subdir}
             ${manifest_arg}
             -D "_ITEMS=$<JOIN:${src_items},;>"
             -P "${_FUNC_CMAKE_DIR}/_pack_stage.cmake"
-        COMMAND ${CMAKE_COMMAND} -E tar "czf" "${ARG_OUTPUT}" .
+        COMMAND ${CMAKE_COMMAND} -E tar "czf" "${ARG_OUTPUT}" ${tar_src}
         WORKING_DIRECTORY ${staging_dir}
-        DEPENDS ${ARG_TARGETS} ${staging_dir}
+        DEPENDS ${ARG_TARGETS} ${staging_subdir}
         COMMENT "Packing with ${ARG_OUTPUT}"
         VERBATIM
     )

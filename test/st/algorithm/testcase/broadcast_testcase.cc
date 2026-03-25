@@ -30,6 +30,7 @@ protected:
     void TearDown() override
     {
         unsetenv("HCCL_OP_EXPANSION_MODE");
+        unsetenv("HCCL_ENABLE_OPEN_AICPU");
     }
     static void SetUpTestCase()
     {}
@@ -39,12 +40,13 @@ protected:
     {
         // 仿真模型初始化
         // TopoMeta topoMeta {{{0, 1, 2, 3}}};  // 三维数组指定超节点-Server-Device信息
-        SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_910_95);
+        SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
     
         // 设置展开模式为HOST_TS
         setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
         setenv("HCCL_INDEPENDENT_OP", "1", 1);
-    
+        setenv("HCCL_ENABLE_OPEN_AICPU", "1", 1);
+
         // // 算子执行参数设置
         // auto rankSize = 4;  // 参与集合通信的卡数(同topoMeta卡数一致)
         // auto count = 100;  // 接收数据量
@@ -311,7 +313,6 @@ TEST_F(ST_BROADCAST_TEST, st_broadcast_a5_aicpu_NHR_one_four_test_bigdata)
     // 仿真模型初始化
     TopoMeta topoMeta {{{0},{0},{0},{0}}};
 
-
     // 算子执行参数设置
     auto rankSize = 4;  // 参与集合通信的卡数(同topoMeta卡数一致)
     uint64_t count = 500000;  // 数据量
@@ -321,7 +322,6 @@ TEST_F(ST_BROADCAST_TEST, st_broadcast_a5_aicpu_NHR_one_four_test_bigdata)
     RunBroadcastTest(topoMeta, rankSize, count, dataType, root, dataTypeSize);
 
 }
-
 
 TEST_F(ST_BROADCAST_TEST, st_broadcast_a5_aicpu_Mesh1DNHR_server_two_two_test)
 {

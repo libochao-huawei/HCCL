@@ -11,7 +11,6 @@
 #ifndef INS_TEMP_REDUCE_SCATTER_1D_DPU
 #define INS_TEMP_REDUCE_SCATTER_1D_DPU
 
-#include <cstring>
 #include "alg_v2_template_base.h"
 #include "alg_v2_template_register.h"
 #include "alg_param.h"
@@ -39,10 +38,10 @@ public:
     HcclResult KernelRun(const OpParam& param,
                         const TemplateDataParams& tempAlgParams,
                         const TemplateResource& templateResource) override;
-    HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo, AlgResourceRequest& resourceRequest) override;
+    HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo, AlgResourceRequest& resourceRequest) override;
     u64 CalcScratchMultiple(BufferType inBufferType, BufferType outBufferType) override;
     HcclResult DPUKernelRun(const TemplateDataParams& tempAlgParams,
-        const std::map<u32, std::vector<ChannelInfo>>& channels, const u32 myRank, const std::vector<std::vector<uint32_t>>& subCommRanks);
+        const std::map<u32, std::vector<ChannelInfo>>& channels, const u32 myRank, const std::vector<std::vector<uint32_t>>& subCommRanks) override;
     HcclResult PostLocalReduce(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads);
 
     void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMianToSub) override {}

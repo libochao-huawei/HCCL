@@ -15,31 +15,29 @@
 #include "hccl/base.h"
 #include "log.h"
 #include "alg_param.h"
-#include "hccl_rank_graph.h"
-#include "hccl_res.h"
-
-
-using namespace ops_hccl;
+#include "hccl_rank_graph_dl.h"
+#include "hccl_res_dl.h"
 
 namespace ops_hccl {
 
 constexpr s32 DEVICE_PER_MODULE_A2 = 8;
-typedef enum {
+enum class HcclNetLayer {
     HCCL_NetLayer_L0 = 0,
     HCCL_NetLayer_L1,
     HCCL_NetLayer_L2,
     HCCL_NetLayer_MAX,
-} HcclNetLayer;
+};
 
 HcclResult InitRankInfo(HcclComm comm, TopoInfo* topoInfo);
+HcclResult InitRankInfo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo);
 
 HcclResult CalcMyRankInfo(HcclComm comm, TopoInfo* topoInfo);
 HcclResult SetServerModuleInfo(HcclComm comm, TopoInfo* topoInfo, const std::unordered_map<u32, u32> &pairLinkCounter);
 HcclResult SetSuperPodInfo(HcclComm comm, TopoInfo* topoInfo);
-bool IsDiffDeviceModule(TopoInfo* topoInfo, const std::unordered_map<u32, u32> &pairLinkCounter);
+bool IsDiffDeviceModule(const TopoInfo* topoInfo, const std::unordered_map<u32, u32> &pairLinkCounter);
 
 HcclResult CalcLinkInfo(TopoInfo* topoInfo, const std::unordered_map<u32, u32> &pairLinkCounter);
-
+HcclResult CalcLevel0MeshType(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo);
 /**
  * Calculates the group index of the current process in the specified network layer.
  * This function determines the position index of the group that the current process belongs to
@@ -72,10 +70,10 @@ HcclResult GetPairLinkCounter(HcclComm comm, TopoInfo* topoInfo, std::unordered_
  * @return HCCL_SUCCESS on success, other values indicate failure
  */
 HcclResult GetModuleIdx(HcclComm comm, TopoInfo* topoInfo);
-HcclResult GetModuleIdxByRank(HcclComm comm, uint32_t rank, TopoInfo* topoInfo, uint32_t &moduleIdx);
+HcclResult GetModuleIdxByRank(HcclComm comm, uint32_t rank, const TopoInfo* topoInfo, uint32_t &moduleIdx);
 HcclResult GetModuleMap(HcclComm comm, TopoInfo* topoInfo, std::map<u32, std::vector<u32>> &moduleMap);
-uint32_t GetCurrentServerStartRank(HcclComm comm, TopoInfo* topoInfo);
-uint32_t GetCurrentServerEndRank(HcclComm comm, TopoInfo* topoInfo);
+uint32_t GetCurrentServerStartRank(HcclComm comm, const TopoInfo* topoInfo);
+uint32_t GetCurrentServerEndRank(HcclComm comm, const TopoInfo* topoInfo);
 HcclResult GetDeviceNumPerModule(HcclComm comm, TopoInfo* topoInfo, std::map<u32, std::vector<u32>> &moduleMap);
 /**
  * Calculates the number of servers per superpod based on netlayer L0 and L1 rank information.
@@ -89,10 +87,16 @@ HcclResult CalculateServersPerSuperPod(const std::vector<uint32_t> &l0Sizes,
                                        const std::vector<uint32_t> &l1Sizes,
                                        std::vector<uint32_t> &serversPerSuperPod);
 
-HcclResult CalcTopoLevelNums(HcclComm comm, TopoInfo* topoInfo);
+HcclResult CalcTopoShape(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo);
 
-HcclResult CalcLevel0TopoShape(HcclComm comm, TopoInfo* topoInfo);
+HcclResult ExtractNetLayerDetails(const HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo);
 
+HcclResult ExtractTopoDetails(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo);
+
+HcclResult Is2DieFullMesh(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo);
+
+template<typename T>
+bool is_uniform(const std::vector<T>& vec);
 }
 
 #endif

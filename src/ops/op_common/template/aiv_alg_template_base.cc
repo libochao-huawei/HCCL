@@ -11,20 +11,16 @@
 #include "aiv_alg_template_base.h"
 
 namespace ops_hccl {
-
-
 AivAlgTemplateBase::AivAlgTemplateBase(const OpParam& param, const u32 rankId, // 传通信域的rankId，userRank
-                                       const std::vector<std::vector<u32>>& subCommRanks)
+                                       const std::vector<std::vector<u32>>& subCommRanks):
+    opMode_(param.opMode),
+    root_(param.root),
+    myRank_(rankId),
+    tempRankSize_(subCommRanks[0].size()),
+    subCommRanks_(subCommRanks),
+    reduceOp_(param.reduceType),
+    enableDetour_(param.enableDetour)
 {
-    opMode_            = param.opMode;
-    root_              = param.root;
-    myRank_            = rankId;
-    tempRankSize_      = subCommRanks[0].size();
-    subCommRanks_      = subCommRanks;
-
-    reduceOp_          = param.reduceType;
-    // 从OpParam中获取
-    enableDetour_      = param.enableDetour;
 }
 
 AivAlgTemplateBase::~AivAlgTemplateBase()
@@ -36,7 +32,7 @@ u64 AivAlgTemplateBase::CalcScratchMultiple(BufferType inBuffType, BufferType ou
     return 1;
 }
 
-HcclResult AivAlgTemplateBase::CalcRes(HcclComm comm, const OpParam& param, const TopoInfo* topoInfo,
+HcclResult AivAlgTemplateBase::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                                        AlgResourceRequest& resourceRequest)
 {
     (void)comm;

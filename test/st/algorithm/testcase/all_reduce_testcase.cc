@@ -1,12 +1,12 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
- * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
- * See LICENSE in the root of the software repository for the full text of the License.
- */
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 
 #include <algorithm>
 #include <thread>
@@ -24,9 +24,11 @@ using namespace ops_hccl;
 
 constexpr u64 AR_AICPU_1D_SMALL_DATA_SIZE = 8 * 1024 * 1024;
 constexpr u64 AR_AICPU_1D_MAX_DATA_SIZE = 32 * 1024 * 1024;
+constexpr u64 AR_AICPU_1D_64DATATYPE_DATA_SIZE = 8 * 1024 * 1024;
 
 static_assert(AR_AICPU_1D_SMALL_DATA_SIZE > 0, "SMALL_DATA_SIZE must be positive");
 static_assert(AR_AICPU_1D_MAX_DATA_SIZE > 0, "MAX_DATA_SIZE must be positive");
+static_assert(AR_AICPU_1D_64DATATYPE_DATA_SIZE > 0, "64DATATYPE_DATA_SIZE must be positive");
 static_assert(AR_AICPU_1D_SMALL_DATA_SIZE <= AR_AICPU_1D_MAX_DATA_SIZE,
              "SMALL_DATA_SIZE cannot be greater than MAX_DATA_SIZE");
 
@@ -39,6 +41,8 @@ protected:
     void TearDown() override
     {
         unsetenv("HCCL_OP_EXPANSION_MODE");
+        unsetenv("HCCL_INDEPENDENT_OP");
+        unsetenv("HCCL_ENABLE_OPEN_AICPU");
     }
     static void SetUpTestCase()
     {}
@@ -50,11 +54,12 @@ void RunAllReduceCase(const TopoMeta &topoInfo, const u64 dataCount,
     const HcclDataType dataType, const u32 dataTypeSize, const HcclReduceOp reduceOp)
 {
     // 仿真模型初始化
-    SimWorld::Global()->Init(topoInfo, DevType::DEV_TYPE_910_95);
+    SimWorld::Global()->Init(topoInfo, DevType::DEV_TYPE_950);
 
     // 设置展开模式为HOST_TS
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
     setenv("HCCL_INDEPENDENT_OP", "1", 1);
+    setenv("HCCL_ENABLE_OPEN_AICPU", "1", 1);
 
     // 算子执行参数设置
     u32 rankSize = 0;
@@ -170,6 +175,37 @@ TEST_F(ST_ALL_REDUCE_TEST, st_all_reduce_1shot_mid_data)
     HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_MAX;
     RunAllReduceCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp);
 }
+
+TEST_F(ST_ALL_REDUCE_TEST, st_all_reduce_1shot_64datatype_prod_small_dataCount)
+{
+    TopoMeta topoMeta{{{0, 1}}};
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_INT64;
+    u32 dataTypeSize = sizeof(double);
+    u64 dataCount = AR_AICPU_1D_64DATATYPE_DATA_SIZE / dataTypeSize - 100;
+    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_PROD;
+    RunAllReduceCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp);
+}
+
+TEST_F(ST_ALL_REDUCE_TEST, st_all_reduce_1shot_64datatype_boundary_dataCount)
+{
+    TopoMeta topoMeta{{{0, 1, 2}}};
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_UINT64;
+    u32 dataTypeSize = sizeof(double);
+    u64 dataCount = AR_AICPU_1D_64DATATYPE_DATA_SIZE / dataTypeSize;
+    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_MAX;
+    RunAllReduceCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp);
+}
+
+TEST_F(ST_ALL_REDUCE_TEST, st_all_reduce_1shot_64datatype_small_dataCount)
+{
+    TopoMeta topoMeta{{{0, 1, 2}}};
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_FP64;
+    u32 dataTypeSize = sizeof(double);
+    u64 dataCount = AR_AICPU_1D_64DATATYPE_DATA_SIZE / dataTypeSize - 13;
+    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_MIN;
+    RunAllReduceCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp);
+}
+
 
 // 2shot
 TEST_F(ST_ALL_REDUCE_TEST, st_all_reduce_2shot_lower_boundary_data)
@@ -293,5 +329,35 @@ TEST_F(ST_ALL_REDUCE_TEST, st_all_reduce_hcclbuff_add_1)
     u32 dataTypeSize = 1;
     u64 dataCount = 200 * 1024 * 1024 + 1;
     HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_MIN;
+    RunAllReduceCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp);
+}
+
+TEST_F(ST_ALL_REDUCE_TEST, st_all_reduce_2shot_64datatype_boundary_dataCount)
+{
+    TopoMeta topoMeta{{{0, 1, 2, 3, 4, 5, 6, 7}}};
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_FP64;
+    u32 dataTypeSize = sizeof(double);
+    u64 dataCount = AR_AICPU_1D_64DATATYPE_DATA_SIZE / dataTypeSize + 1;
+    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_SUM;
+    RunAllReduceCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp);
+}
+
+TEST_F(ST_ALL_REDUCE_TEST, st_all_reduce_2shot_64datatype_prod_mid_dataCount)
+{
+    TopoMeta topoMeta{{{0, 1, 2, 3}}};
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_INT64;
+    u32 dataTypeSize = sizeof(double);
+    u64 dataCount = AR_AICPU_1D_64DATATYPE_DATA_SIZE / dataTypeSize + 2 * 1024;
+    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_PROD;
+    RunAllReduceCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp);
+}
+
+TEST_F(ST_ALL_REDUCE_TEST, st_all_reduce_2shot_64datatype_odd_dataCount)
+{
+    TopoMeta topoMeta{{{0, 1, 2}}};
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_UINT64;
+    u32 dataTypeSize = sizeof(double);
+    u64 dataCount = AR_AICPU_1D_64DATATYPE_DATA_SIZE / dataTypeSize + 13;
+    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_MAX;
     RunAllReduceCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp);
 }
