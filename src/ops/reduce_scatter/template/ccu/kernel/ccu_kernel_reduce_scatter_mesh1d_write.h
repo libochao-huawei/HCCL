@@ -52,8 +52,8 @@ public:
 };
 
 // write 模式 ReduceScatter Mesh-1D Kernel：
-// 穿刺版本：每个 rank 将自己的 input slice 广播给所有 peers（同 AllReduce write 结构），
-// 接收 N-1 个 peers 的写入，reduce 后写入 output。数据结果不正确，仅验证控制流。
+// 每个 rank 将自己的 input slice 广播给所有 peers（同 AllReduce write 结构），
+// 每个 rank 固定使用 bufs[rankId]，接收 N-1 个 peers 的写入，reduce 后写入 output。
 class CcuKernelReduceScatterMesh1DWrite : public CcuKernelAlgBase {
 public:
     explicit CcuKernelReduceScatterMesh1DWrite(const CcuKernelArg &arg);

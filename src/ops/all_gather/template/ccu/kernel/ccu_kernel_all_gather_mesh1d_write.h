@@ -53,8 +53,8 @@ public:
 };
 
 // write 模式 AllGather Mesh-1D Kernel：
-// 使用 MsWriteNb 将本端 slice 广播至所有 peers，再将各接收 slice 写入对应输出位置。
-// 利用对称 MS 分配，dst=bufs[0]，hcomm 内部解析远端 msId。
+// 使用 MsWriteNb 将本端 slice 广播至所有 peers。
+// 每个 rank 固定使用 bufs[rankId]，写完成后 bufs[R] = rank R 的数据，统一拷贝到各输出位置。
 class CcuKernelAllGatherMesh1DWrite : public CcuKernelAlgBase {
 public:
     explicit CcuKernelAllGatherMesh1DWrite(const hcomm::CcuKernelArg &arg);

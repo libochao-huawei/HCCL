@@ -76,28 +76,19 @@ void CcuKernelAllGatherMesh1DWrite::DoGroupBroadcastWrite()
     src.addr  = input_;
     src.token = token_;
 
-    // 构建 dst 数组：dst[0..N-2] = peer 输出位置（按 channel 顺序），dst[N-1] = 本端输出位置
-    // 先通过 CreateLocalAddr 创建 N 个有 context 的槽位，再按 channel 顺序索引赋值
+    // 构建 dst 数组：dst[R] = rank R 的输出位置，与 bufs[R] 一一对应
     std::vector<CcuRep::RemoteAddr> dst;
     for (uint64_t i = 0; i < rankSize_; i++) {
         CcuRep::LocalAddr tmp = CreateLocalAddr();
         dst.emplace_back(*reinterpret_cast<CcuRep::RemoteAddr *>(&tmp));
     }
 
-    uint32_t dstId = 0;
-    uint32_t curId = 0;
-    for (uint64_t rankIdx = 0; rankIdx < rankSize_; rankIdx++) {
-        if (rankIdx != rankId_) {
-            curId = dstId;
-            dstId++;
-        } else {
-            curId = rankSize_ - 1;
-        }
-        dst[curId].addr  = output_[rankIdx];
-        dst[curId].token = token_;
+    for (uint64_t R = 0; R < rankSize_; R++) {
+        dst[R].addr  = output_[R];
+        dst[R].token = token_;
     }
 
-    GroupBroadcastWrite(channels_, dst, src, groupOpSize_);
+    GroupBroadcastWrite(channels_, rankId_, dst, src, groupOpSize_);
 }
 
 HcclResult CcuKernelAllGatherMesh1DWrite::Algorithm()

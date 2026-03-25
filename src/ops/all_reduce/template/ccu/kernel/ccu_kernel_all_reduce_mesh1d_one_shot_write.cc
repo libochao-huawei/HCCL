@@ -107,7 +107,7 @@ void CcuKernelAllReduceMesh1DOneShotWrite::DoGroupWrite()
     dst.addr  = output_;
     dst.token = token_;
 
-    GroupWrite(channels_, dst, src, groupOpSize_, dataType_, outputDataType_, reduceOp_);
+    GroupWrite(channels_, rankId_, dst, src, groupOpSize_, dataType_, outputDataType_, reduceOp_);
     HCCL_INFO("[CcuKernelAllReduceMesh1DOneShotWrite] DoGroupWrite end");
 }
 

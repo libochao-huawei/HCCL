@@ -701,14 +701,15 @@ std::vector<CcuRep::CompletedEvent> CcuKernelAlgBase::CreateBlockCompletedEvent(
     return res;
 }
 
-// write 模式：本端 LocalCopy + MsWriteNb + NotifyWait + LocalReduce + LocalCopy
+// write 模式：本端 LocalCopy → bufs[rankId]，MsWriteNb(bufs[rankId], bufs[rankId]) 广播至所有 peers
 // 每个 LoopBlock 迭代的流程：
-//   1. LocalCopyNb(bufs[0], src, len) — 本端 HBM → inputMs
-//   2. MsWriteNb(ch[i], bufs[0], bufs[0], len, WRITE_DONE_CKE_IDX, 1) × channelSize
+//   1. LocalCopyNb(bufs[rankId], src, len) — 本端 HBM → 本 rank 固定的 MS slot
+//   2. MsWriteNb(ch[i], bufs[rankId], bufs[rankId], len, ...) × channelSize — 写到所有 peers 的 bufs[rankId]
 //   3. NotifyWait(ch[i], WRITE_DONE_CKE_IDX, 1) × channelSize — 等待每个对端写完成
 //   4. LocalReduceNb(bufs[0..N-1], N, ...) — reduce 所有 MS → 结果在 bufs[0]
 //   5. LocalCopyNb(dst, bufs[0], lenForExpansion) — 结果 MS → 输出 HBM
-HcclResult CcuKernelAlgBase::CreateMultiOpWrite(const std::vector<ChannelHandle> &channels,
+// 所有 rank 的 MS 布局一致：bufs[R] = rank R 的数据，reduce 顺序相同，结果 bit-exact 一致
+HcclResult CcuKernelAlgBase::CreateMultiOpWrite(const std::vector<ChannelHandle> &channels, uint32_t rankId,
                                                  HcclDataType dataType, HcclDataType outputDataType,
                                                  HcclReduceOp opType)
 {
@@ -736,14 +737,14 @@ HcclResult CcuKernelAlgBase::CreateMultiOpWrite(const std::vector<ChannelHandle>
                                                moRes.ccuBuf.begin() + index * moConfig.msInterleave + usedBufNum};
         CcuRep::CompletedEvent &event = moRes.completedEvent[index];
 
-        // Step 1: 本端 HBM → inputMs (bufs[0])
+        // Step 1: 本端 HBM → bufs[rankId]（每个 rank 固定占用自己的 MS slot）
         event.mask = 1;
-        LocalCopyNb(bufs[0], src, len, event);
+        LocalCopyNb(bufs[rankId], src, len, event);
         WaitEvent(event);
 
-        // Step 2: 发送 inputMs 到所有 peers（write-with-notify，利用对称 MS 分配 dst=bufs[0]）
+        // Step 2: 发送 bufs[rankId] 到所有 peers（对称 MS 分配，远端也写入 bufs[rankId]）
         for (uint32_t i = 0; i < channels.size(); i++) {
-            CHK_RET(MsWriteNb(channels[i], bufs[0], bufs[0], len, WRITE_DONE_CKE_IDX, 1));
+            CHK_RET(MsWriteNb(channels[i], bufs[rankId], bufs[rankId], len, WRITE_DONE_CKE_IDX, 1));
         }
 
         // Step 3: 等待每个 peer 的写完成通知（接收方）
@@ -751,7 +752,7 @@ HcclResult CcuKernelAlgBase::CreateMultiOpWrite(const std::vector<ChannelHandle>
             NotifyWait(channels[i], WRITE_DONE_CKE_IDX, 1);
         }
 
-        // Step 4: 对所有 N 个 MS 做 reduce（结果在 bufs[0]）
+        // Step 4: 对所有 N 个 MS 做 reduce（bufs[R]=rankR 的数据，所有 rank 顺序一致，结果在 bufs[0]）
         if (size > 1) {
             event.mask = 1;
             LocalReduceNb(bufs, size, dataType, outputDataType, opType, len, event);
@@ -768,11 +769,12 @@ HcclResult CcuKernelAlgBase::CreateMultiOpWrite(const std::vector<ChannelHandle>
     return HCCL_SUCCESS;
 }
 
-HcclResult CcuKernelAlgBase::GroupWrite(const std::vector<ChannelHandle> &channels, CcuRep::LocalAddr dst,
+HcclResult CcuKernelAlgBase::GroupWrite(const std::vector<ChannelHandle> &channels, uint32_t rankId,
+                                         CcuRep::LocalAddr dst,
                                          CcuRep::LocalAddr src, GroupOpSize goSize, HcclDataType dataType,
                                          HcclDataType outputDataType, HcclReduceOp opType)
 {
-    CHK_RET(CreateMultiOpWrite(channels, dataType, outputDataType, opType));
+    CHK_RET(CreateMultiOpWrite(channels, rankId, dataType, outputDataType, opType));
 
     std::string loopType      = GetReduceTypeStr(dataType, opType) + "_write";
     uint32_t    expansionNum  = GetReduceExpansionNum(opType, dataType, outputDataType);
@@ -845,12 +847,12 @@ HcclResult CcuKernelAlgBase::GroupWrite(const std::vector<ChannelHandle> &channe
 
 // write 模式 Broadcast (AllGather)：
 // 每个 LoopBlock 迭代的流程：
-//   1. LocalCopyNb(bufs[0], src, len)  — 本端 HBM → inputMs
-//   2. MsWriteNb(ch[i], bufs[0], ...)  × channelSize — 发送到所有 peers
-//   3. NotifyWait(ch[i], ...)          × channelSize — 等待所有 peers 的写完成
-//   4. LocalCopyNb(dst[N-1], bufs[0], len) — 本端 slice → 本端输出位置
-//   5. LocalCopyNb(dst[i], bufs[i+1], len) × channelSize — 接收 slice → 各 peer 输出位置
-HcclResult CcuKernelAlgBase::CreateMultiOpBroadcastWrite(const std::vector<ChannelHandle> &channels)
+//   1. LocalCopyNb(bufs[rankId], src, len)  — 本端 HBM → bufs[rankId]
+//   2. MsWriteNb(ch[i], bufs[rankId], bufs[rankId], ...) × channelSize — 广播到所有 peers 的 bufs[rankId]
+//   3. NotifyWait(ch[i], ...)              × channelSize — 等待所有 peers 的写完成
+//   4. LocalCopyNb(dst[R], bufs[R], len) × N — 统一将 bufs[R] 拷贝到 rank R 的输出位置
+// 所有 rank 的 MS 布局一致：bufs[R] = rank R 的数据
+HcclResult CcuKernelAlgBase::CreateMultiOpBroadcastWrite(const std::vector<ChannelHandle> &channels, uint32_t rankId)
 {
     AllocGoResource();
 
@@ -877,14 +879,14 @@ HcclResult CcuKernelAlgBase::CreateMultiOpBroadcastWrite(const std::vector<Chann
                                                moRes.ccuBuf.begin() + index * moConfig.msInterleave + size};
         CcuRep::CompletedEvent &event = moRes.completedEvent[index];
 
-        // Step 1: 本端 HBM → inputMs (bufs[0])
+        // Step 1: 本端 HBM → bufs[rankId]
         event.mask = 1;
-        LocalCopyNb(bufs[0], src, len, event);
+        LocalCopyNb(bufs[rankId], src, len, event);
         WaitEvent(event);
 
-        // Step 2: 广播 inputMs 到所有 peers（利用对称 MS 分配 dst=bufs[0]）
+        // Step 2: 广播 bufs[rankId] 到所有 peers（对称 MS 分配，远端也写入 bufs[rankId]）
         for (uint32_t i = 0; i < channels.size(); i++) {
-            CHK_RET(MsWriteNb(channels[i], bufs[0], bufs[0], len, WRITE_DONE_CKE_IDX, 1));
+            CHK_RET(MsWriteNb(channels[i], bufs[rankId], bufs[rankId], len, WRITE_DONE_CKE_IDX, 1));
         }
 
         // Step 3: 等待每个 peer 写来的 slice 到达
@@ -892,16 +894,11 @@ HcclResult CcuKernelAlgBase::CreateMultiOpBroadcastWrite(const std::vector<Chann
             NotifyWait(channels[i], WRITE_DONE_CKE_IDX, 1);
         }
 
-        // Step 4 & 5: 将所有 slice 写入对应输出位置
-        // dst[0..channelSize-1] = peer 输出位置，dst[channelSize] = 本端输出位置
-        CcuRep::LocalAddr &localSelf = *reinterpret_cast<CcuRep::LocalAddr *>(&dst[channelSize]);
-        event.mask = 1 << channelSize;
-        LocalCopyNb(localSelf, bufs[0], len, event); // 本端 slice → 本端输出位置
-
-        for (uint32_t i = 0; i < channels.size(); i++) {
-            CcuRep::LocalAddr &localDst = *reinterpret_cast<CcuRep::LocalAddr *>(&dst[i]);
-            event.mask = 1 << i;
-            LocalCopyNb(localDst, bufs[i + 1], len, event); // 接收 slice → peer 输出位置
+        // Step 4: 统一将 bufs[R] → dst[R]（bufs[R] = rank R 的数据，dst[R] = rank R 的输出位置）
+        for (uint32_t R = 0; R < size; R++) {
+            CcuRep::LocalAddr &localDst = *reinterpret_cast<CcuRep::LocalAddr *>(&dst[R]);
+            event.mask = 1 << R;
+            LocalCopyNb(localDst, bufs[R], len, event);
         }
         event.mask = (1 << size) - 1;
         WaitEvent(event);
@@ -911,11 +908,11 @@ HcclResult CcuKernelAlgBase::CreateMultiOpBroadcastWrite(const std::vector<Chann
     return HCCL_SUCCESS;
 }
 
-HcclResult CcuKernelAlgBase::GroupBroadcastWrite(const std::vector<ChannelHandle> &channels,
+HcclResult CcuKernelAlgBase::GroupBroadcastWrite(const std::vector<ChannelHandle> &channels, uint32_t rankId,
                                                    std::vector<CcuRep::RemoteAddr> dst,
                                                    CcuRep::LocalAddr src, GroupOpSize goSize)
 {
-    CHK_RET(CreateMultiOpBroadcastWrite(channels));
+    CHK_RET(CreateMultiOpBroadcastWrite(channels, rankId));
 
     uint32_t size = channels.size() + 1;
 
