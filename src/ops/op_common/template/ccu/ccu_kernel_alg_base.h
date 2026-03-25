@@ -94,7 +94,8 @@ protected:
     // 接收方通过 NotifyWait(channel, writeDoneCkeIdx, 1) 等待每个 channel 的写完成通知
     // 双缓冲流水线中 LoopBlock 0 和 LoopBlock 1 必须使用不同的 CKE index，
     // 否则 CKE bitmask 的幂等性会导致跨迭代事件丢失或误消费
-    static constexpr uint32_t WRITE_DONE_CKE_IDX[2] = {2, 3};
+    static constexpr uint32_t WRITE_DONE_CKE_IDX_0 = 2;  // LoopBlock 0
+    static constexpr uint32_t WRITE_DONE_CKE_IDX_1 = 3;  // LoopBlock 1
     HcclResult CreateMultiOpWrite(const std::vector<ChannelHandle> &channels, uint32_t rankId,
                                    HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType);
     HcclResult GroupWrite(const std::vector<ChannelHandle> &channels, uint32_t rankId, CcuRep::LocalAddr dst,

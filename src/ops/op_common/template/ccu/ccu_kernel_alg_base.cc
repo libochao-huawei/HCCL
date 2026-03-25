@@ -705,7 +705,7 @@ std::vector<CcuRep::CompletedEvent> CcuKernelAlgBase::CreateBlockCompletedEvent(
 // 每个 LoopBlock 迭代的流程：
 //   1. LocalCopyNb(bufs[rankId], src, len) — 本端 HBM → 本 rank 固定的 MS slot
 //   2. MsWriteNb(ch[i], bufs[rankId], bufs[rankId], len, ...) × channelSize — 写到所有 peers 的 bufs[rankId]
-//   3. NotifyWait(ch[i], WRITE_DONE_CKE_IDX[index], 1) × channelSize — 等待每个对端写完成
+//   3. NotifyWait(ch[i], writeDoneCkeIdx, 1) × channelSize — 等待每个对端写完成
 //   4. LocalReduceNb(bufs[0..N-1], N, ...) — reduce 所有 MS → 结果在 bufs[0]
 //   5. LocalCopyNb(dst, bufs[0], lenForExpansion) — 结果 MS → 输出 HBM
 // 所有 rank 的 MS 布局一致：bufs[R] = rank R 的数据，reduce 顺序相同，结果 bit-exact 一致
@@ -737,6 +737,8 @@ HcclResult CcuKernelAlgBase::CreateMultiOpWrite(const std::vector<ChannelHandle>
                                                moRes.ccuBuf.begin() + index * moConfig.msInterleave + usedBufNum};
         CcuRep::CompletedEvent &event = moRes.completedEvent[index];
 
+        uint32_t writeDoneCkeIdx = (index == 0) ? WRITE_DONE_CKE_IDX_0 : WRITE_DONE_CKE_IDX_1;
+
         // Step 1: 本端 HBM → bufs[rankId]（每个 rank 固定占用自己的 MS slot）
         event.mask = 1;
         LocalCopyNb(bufs[rankId], src, len, event);
@@ -744,12 +746,12 @@ HcclResult CcuKernelAlgBase::CreateMultiOpWrite(const std::vector<ChannelHandle>
 
         // Step 2: 发送 bufs[rankId] 到所有 peers（对称 MS 分配，远端也写入 bufs[rankId]）
         for (uint32_t i = 0; i < channels.size(); i++) {
-            CHK_RET(MsWriteNb(channels[i], bufs[rankId], bufs[rankId], len, WRITE_DONE_CKE_IDX[index], 1));
+            CHK_RET(MsWriteNb(channels[i], bufs[rankId], bufs[rankId], len, writeDoneCkeIdx, 1));
         }
 
         // Step 3: 等待每个 peer 的写完成通知（接收方）
         for (uint32_t i = 0; i < channels.size(); i++) {
-            NotifyWait(channels[i], WRITE_DONE_CKE_IDX[index], 1);
+            NotifyWait(channels[i], writeDoneCkeIdx, 1);
         }
 
         // Step 4: 对所有 N 个 MS 做 reduce（bufs[R]=rankR 的数据，所有 rank 顺序一致，结果在 bufs[0]）
@@ -880,18 +882,19 @@ HcclResult CcuKernelAlgBase::CreateMultiOpBroadcastWrite(const std::vector<Chann
         CcuRep::CompletedEvent &event = moRes.completedEvent[index];
 
         // Step 1: 本端 HBM → bufs[rankId]
+        uint32_t writeDoneCkeIdx = (index == 0) ? WRITE_DONE_CKE_IDX_0 : WRITE_DONE_CKE_IDX_1;
         event.mask = 1;
         LocalCopyNb(bufs[rankId], src, len, event);
         WaitEvent(event);
 
         // Step 2: 广播 bufs[rankId] 到所有 peers（对称 MS 分配，远端也写入 bufs[rankId]）
         for (uint32_t i = 0; i < channels.size(); i++) {
-            CHK_RET(MsWriteNb(channels[i], bufs[rankId], bufs[rankId], len, WRITE_DONE_CKE_IDX[index], 1));
+            CHK_RET(MsWriteNb(channels[i], bufs[rankId], bufs[rankId], len, writeDoneCkeIdx, 1));
         }
 
         // Step 3: 等待每个 peer 写来的 slice 到达
         for (uint32_t i = 0; i < channels.size(); i++) {
-            NotifyWait(channels[i], WRITE_DONE_CKE_IDX[index], 1);
+            NotifyWait(channels[i], writeDoneCkeIdx, 1);
         }
 
         // Step 4: 统一将 bufs[R] → dst[R]（bufs[R] = rank R 的数据，dst[R] = rank R 的输出位置）
