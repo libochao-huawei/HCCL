@@ -210,24 +210,6 @@ namespace ops_hccl{
     thread_local CommDomainCacheManager g_cacheManager;
 }
 
-using HcclGetOpInfoCallback = void (*)(const void *opInfo, char *outPut, size_t size);
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-HcclResult __attribute__((weak)) HcommRegOpInfo(const char *commId, void *opInfo, size_t size);
-HcclResult __attribute__((weak)) HcommRegOpTaskException(const char *commId, HcclGetOpInfoCallback callback);
-
-HcclResult __attribute__((weak)) HcommProfilingReportMainStreamAndFirstTask(ThreadHandle thread);
-HcclResult __attribute__((weak)) HcommProfilingReportMainStreamAndLastTask(ThreadHandle thread);
-// device侧的OP
-HcclResult __attribute__((weak)) HcommProfilingReportDeviceHcclOpInfo(HcomProInfo profInfo);
-HcclResult __attribute__((weak)) HcommProfilingInit(ThreadHandle *threads, u32 threadNum);
-HcclResult __attribute__((weak)) HcommProfilingEnd(ThreadHandle *threads, u32 threadNum);
-#ifdef __cplusplus
-}
-#endif
-
 extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
 {
     if (param == nullptr) {
