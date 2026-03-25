@@ -84,6 +84,14 @@ constexpr u32 HOST_WAIT_AICPU_NOTIFYIDX = 0;// host主流wait aicpu流的notify 
 HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
     std::string &algName)
 {
+    //判断通信域状态
+    HcclCommStatus commStatus = HcclCommStatus::HCCL_COMM_STATUS_UNKNOWN;
+    CHK_RET(HcclCommGetStatus(comm, &commStatus));
+    if (commStatus != HcclCommStatus::HCCL_COMM_STATUS_READY) {
+        HCCL_ERROR("commStatus is not ready!");
+        return HCCL_COMM_STATUS_SUSPENDING;
+    }
+
     HCCL_INFO("Start to execute Selector.");
     param.hcclComm = comm;
     CHK_RET(HcclGetOpExpansionMode(comm, param));
@@ -1187,7 +1195,11 @@ HcclResult ApplyOpExpansionMode(OpParam &param, HcclOpExpansionMode finalMode)
     }
     return HcclResult::HCCL_SUCCESS;
 }
-
+/**
+ * @brief 检查是否开启了AICPU模式
+ * @return true 开启
+ * @return false 未开启
+ */
 bool HcclCheckAicpuEnableOpen()
 {
     const char* envValue = std::getenv("HCCL_ENABLE_OPEN_AICPU");

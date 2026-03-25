@@ -120,6 +120,7 @@ bool HcclCheckCcuEnableOpen();
 bool HcclCheckAivEnableOpen();
 bool ShouldUseInnerOp(OpExecuteConfig opExecuteConfig);
 
+bool HcclCheckCommStatus(HcclComm comm);
 }  // namespace ops_hccl
 
 #endif
