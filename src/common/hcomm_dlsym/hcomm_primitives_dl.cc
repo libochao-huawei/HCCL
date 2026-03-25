@@ -38,7 +38,7 @@ int32_t (*hcommBatchModeStartPtr)(const char*) = nullptr;
 int32_t (*hcommBatchModeEndPtr)(const char*) = nullptr;
 int32_t (*hcommAcquireCommPtr)(const char*) = nullptr;
 int32_t (*hcommReleaseCommPtr)(const char*) = nullptr;
-HcclResult (*hcommSymWinGetPeerPointerPtr)(CommSymWindow, size_t, uint32_t, void**) = nullptr;
+HcclResult (*hcommSymWinGetPeerPointerPtr)(HcclCommSymWindow, size_t, uint32_t, void**) = nullptr;
 int32_t (*hcommThreadSynchronizePtr)(ThreadHandle) = nullptr;
 int32_t (*hcommSendRequestPtr)(uint64_t, const char*, const void*, size_t, uint32_t*) = nullptr;
 int32_t (*hcommWaitResponsePtr)(uint64_t, void*, size_t, uint32_t*) = nullptr;
@@ -229,7 +229,7 @@ static int32_t StubHcommReleaseComm(const char* commId) {
     return -1;
 }
 
-static HcclResult StubHcommSymWinGetPeerPointer(CommSymWindow winHandle, size_t offset, uint32_t peerRank, void** ptr) {
+static HcclResult StubHcommSymWinGetPeerPointer(HcclCommSymWindow winHandle, size_t offset, uint32_t peerRank, void** ptr) {
     (void)winHandle; (void)offset; (void)peerRank; (void)ptr;
     HCCL_ERROR("[HcclWrapper] HcommSymWinGetPeerPointer not supported");
     return HCCL_E_NOT_SUPPORT;
@@ -284,7 +284,7 @@ static int32_t StubHcommChannelFenceOnThread(ThreadHandle thread, ChannelHandle 
 static int32_t StubHcommThreadJoin(ThreadHandle thread, uint32_t timeout) {
     (void)thread; (void)timeout;
     HCCL_ERROR("[HcclWrapper] HcommThreadJoin not supported");
-    return -1;
+    return HCCL_E_NOT_SUPPORT;
 }
 
 // ---------- 初始化函数 ----------
