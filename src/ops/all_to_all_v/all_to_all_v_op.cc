@@ -529,8 +529,18 @@ HcclResult AlltoAllVConstructOpParam(const void *sendBuf, const void *sendCounts
     const u64* sdisplsData = static_cast<const u64*>(sdispls);
     const u64* rdisplsData = static_cast<const u64*>(rdispls);
     // 计算整片数据包含中间间隔的大小，防止图模式注册内存踩踏
-    u64 inputSize = sdisplsData[userRankSize - 1] + sendCountsData[userRankSize - 1];
-    u64 outputSize = rdisplsData[userRankSize - 1] + recvCountsData[userRankSize - 1];
+    u64 inputSize = 0;
+    u64 outputSize = 0;
+    for (u64 i = 0; i < userRankSize; i++) {
+        u64 tmpInputSize = sdisplsData[i] + sendCountsData[i];
+        u64 tmpOutputSize = rdisplsData[i] + recvCountsData[i];
+        if (tmpInputSize > inputSize) {
+            inputSize = tmpInputSize;
+        }
+        if (tmpOutputSize > outputSize) {
+            outputSize = tmpOutputSize;
+        }
+    }
 
     param.inputSize = inputSize;
     param.outputSize = outputSize;
