@@ -13,8 +13,8 @@
 namespace ops_hccl {
 using namespace hcomm;
 
-constexpr int RS_POST_SYNC_CKE_IDX_W = 0;
-constexpr int RS_PRE_SYNC_CKE_IDX_W  = 1;
+constexpr int RS_PRESYNC_CKE_IDX  = 0;
+constexpr int RS_POSTSYNC_CKE_IDX = 0;
 
 CcuKernelReduceScatterMesh1DWrite::CcuKernelReduceScatterMesh1DWrite(const CcuKernelArg &arg)
     : CcuKernelAlgBase(arg)
@@ -55,20 +55,20 @@ void CcuKernelReduceScatterMesh1DWrite::LoadArgs()
 void CcuKernelReduceScatterMesh1DWrite::Presync()
 {
     for (auto &ch : channels_) {
-        NotifyRecord(ch, RS_PRE_SYNC_CKE_IDX_W, 1);
+        NotifyRecord(ch, RS_PRESYNC_CKE_IDX, PRE_SYNC_MASK);
     }
     for (auto &ch : channels_) {
-        NotifyWait(ch, RS_PRE_SYNC_CKE_IDX_W, 1);
+        NotifyWait(ch, RS_PRESYNC_CKE_IDX, PRE_SYNC_MASK);
     }
 }
 
 void CcuKernelReduceScatterMesh1DWrite::Postsync()
 {
     for (auto &ch : channels_) {
-        NotifyRecord(ch, RS_POST_SYNC_CKE_IDX_W, 1);
+        NotifyRecord(ch, RS_POSTSYNC_CKE_IDX, POST_SYNC_MASK);
     }
     for (auto &ch : channels_) {
-        NotifyWait(ch, RS_POST_SYNC_CKE_IDX_W, 1);
+        NotifyWait(ch, RS_POSTSYNC_CKE_IDX, POST_SYNC_MASK);
     }
 }
 
