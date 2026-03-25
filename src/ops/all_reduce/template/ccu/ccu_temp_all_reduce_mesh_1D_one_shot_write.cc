@@ -65,9 +65,8 @@ HcclResult CcuTempAllReduceMesh1DOneShotWrite::KernelRun(const OpParam &param,
                                                           const TemplateDataParams &templateDataParams,
                                                           const TemplateResource &templateResource)
 {
+    static uint32_t roundCounter = 0;
     buffInfo_ = templateDataParams.buffInfo;
-    HCCL_INFO("CcuTempAllReduceMesh1DOneShotWrite KernelRun inputPtr(%p), inputSize(%d)",
-        buffInfo_.inputPtr, buffInfo_.inputSize);
 
     uint64_t inputAddr  = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
@@ -75,13 +74,18 @@ HcclResult CcuTempAllReduceMesh1DOneShotWrite::KernelRun(const OpParam &param,
                                                        static_cast<uint64_t>(buffInfo_.inputSize));
     uint64_t sliceSize  = templateDataParams.sliceSize;
 
+    HCCL_INFO("[AllReduceWrite] KernelRun round[%u], inputAddr[0x%llx], outputAddr[0x%llx], "
+              "sliceSize[%llu], token[0x%llx], rank[%u/%lu]",
+              roundCounter, inputAddr, outputAddr, sliceSize, token, mySubCommRank_, templateRankSize_);
+
     std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAllReduceMesh1DOneShotWrite>(
         inputAddr, outputAddr, sliceSize, token);
 
     CHK_RET(HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0],
                                   templateResource.ccuKernels[0], static_cast<void *>(taskArg.get())));
 
-    HCCL_DEBUG("[CcuTempAllReduceMesh1DOneShotWrite::KernelRun] end");
+    HCCL_INFO("[AllReduceWrite] KernelRun round[%u] end", roundCounter);
+    roundCounter++;
     return HcclResult::HCCL_SUCCESS;
 }
 

@@ -63,9 +63,8 @@ HcclResult CcuTempReduceScatterMesh1DWrite::KernelRun(const OpParam &param,
                                                        const TemplateDataParams &templateDataParams,
                                                        const TemplateResource &templateResource)
 {
+    static uint32_t roundCounter = 0;
     buffInfo_ = templateDataParams.buffInfo;
-    HCCL_INFO("CcuTempReduceScatterMesh1DWrite KernelRun inputPtr(%p), inputSize(%d)",
-        buffInfo_.inputPtr, buffInfo_.inputSize);
 
     uint64_t baseInputAddr = PointerToAddr(buffInfo_.inputPtr);
     uint64_t outputAddr    = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
@@ -76,13 +75,19 @@ HcclResult CcuTempReduceScatterMesh1DWrite::KernelRun(const OpParam &param,
     // 穿刺版本：inputAddr 预先加上 mySubCommRank_ * inputSliceStride，传入已偏移的起始地址
     uint64_t inputAddr     = baseInputAddr + buffInfo_.inBuffBaseOff + mySubCommRank_ * inputSliceStride;
 
+    HCCL_INFO("[ReduceScatterWrite] KernelRun round[%u], inputAddr[0x%llx], outputAddr[0x%llx], "
+              "sliceSize[%llu], token[0x%llx], rank[%u/%lu], inputSliceStride[%llu]",
+              roundCounter, inputAddr, outputAddr, sliceSize, token,
+              mySubCommRank_, templateRankSize_, inputSliceStride);
+
     std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgReduceScatterMesh1DWrite>(
         inputAddr, outputAddr, sliceSize, token);
 
     CHK_RET(HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0],
                                   templateResource.ccuKernels[0], static_cast<void *>(taskArg.get())));
 
-    HCCL_DEBUG("[CcuTempReduceScatterMesh1DWrite::KernelRun] end");
+    HCCL_INFO("[ReduceScatterWrite] KernelRun round[%u] end", roundCounter);
+    roundCounter++;
     return HcclResult::HCCL_SUCCESS;
 }
 

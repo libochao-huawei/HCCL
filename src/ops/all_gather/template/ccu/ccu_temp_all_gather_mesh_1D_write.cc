@@ -63,9 +63,8 @@ HcclResult CcuTempAllGatherMesh1DWrite::KernelRun(const OpParam &param,
                                                     const TemplateDataParams &templateDataParams,
                                                     const TemplateResource &templateResource)
 {
+    static uint32_t roundCounter = 0;
     buffInfo_ = templateDataParams.buffInfo;
-    HCCL_INFO("CcuTempAllGatherMesh1DWrite KernelRun inputPtr(%p), inputSize(%d)",
-        buffInfo_.inputPtr, buffInfo_.inputSize);
 
     uint64_t inputAddr  = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
@@ -76,9 +75,13 @@ HcclResult CcuTempAllGatherMesh1DWrite::KernelRun(const OpParam &param,
     HcclDataType dataType  = param.DataDes.dataType;
     uint64_t     typeSize  = DataTypeSizeGet(dataType);
     if (sliceSize / typeSize == 0) {
-        HCCL_INFO("[CcuTempAllGatherMesh1DWrite] DataCount == 0, skipped.");
+        HCCL_INFO("[AllGatherWrite] DataCount == 0, skipped.");
         return HcclResult::HCCL_SUCCESS;
     }
+
+    HCCL_INFO("[AllGatherWrite] KernelRun round[%u], inputAddr[0x%llx], outputAddr[0x%llx], "
+              "sliceSize[%llu], token[0x%llx], rank[%u/%lu]",
+              roundCounter, inputAddr, outputAddr, sliceSize, token, mySubCommRank_, templateRankSize_);
 
     std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAllGatherMesh1DWrite>(
         inputAddr, outputAddr, token, sliceSize);
@@ -86,7 +89,8 @@ HcclResult CcuTempAllGatherMesh1DWrite::KernelRun(const OpParam &param,
     CHK_RET(HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0],
                                   templateResource.ccuKernels[0], static_cast<void *>(taskArg.get())));
 
-    HCCL_DEBUG("[CcuTempAllGatherMesh1DWrite::KernelRun] end");
+    HCCL_INFO("[AllGatherWrite] KernelRun round[%u] end", roundCounter);
+    roundCounter++;
     return HcclResult::HCCL_SUCCESS;
 }
 
