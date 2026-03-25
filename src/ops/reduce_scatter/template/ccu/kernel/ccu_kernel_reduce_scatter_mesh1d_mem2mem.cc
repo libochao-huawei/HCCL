@@ -75,6 +75,7 @@ HcclResult CcuKernelReduceScatterMesh1DMem2Mem::InitResource()
     }
     output_                      = CreateVariable();
     currentRankSliceInputOffset_ = CreateVariable();
+    currentRankSliceOutputOffset_= CreateVariable();
     normalSliceSize_             = CreateVariable();
     inputRepeatStride_           = CreateVariable();
     outputRepeatStride_          = CreateVariable();
@@ -107,6 +108,7 @@ void CcuKernelReduceScatterMesh1DMem2Mem::LoadArgs()
     Load(token_[rankId_]);
     Load(scratch_[rankId_]);
     Load(currentRankSliceInputOffset_);
+    Load(currentRankSliceOutputOffset_);
     Load(inputRepeatStride_);
     Load(outputRepeatStride_);
     Load(normalSliceSize_);
@@ -146,8 +148,9 @@ void CcuKernelReduceScatterMesh1DMem2Mem::DoReduceScatter()
 
     CcuRep::LocalAddr myOutput = CreateLocalAddr();
     
-    myOutput.addr           = output_;
-    myOutput.token          = token_[rankId_];
+    myOutput.addr   = output_;
+    myOutput.addr  += currentRankSliceOutputOffset_;
+    myOutput.token  = token_[rankId_];
 
     CcuRep::Variable sliceSize = CreateVariable();
     sliceSize = (rankId_ == (rankSize_ - 1)) ? lastSliceSize_: normalSliceSize_;
@@ -399,6 +402,7 @@ std::vector<uint64_t> CcuKernelReduceScatterMesh1DMem2Mem::GeneArgs(const CcuTas
     uint64_t tokenInfo                   = taskArg->token_;
     uint64_t scratchAddr                 = taskArg->scratchAddr_;
     uint64_t currentRankSliceInputOffset = taskArg->inputSliceStride_ * rankId_;
+    uint64_t currentRankSliceOutputOffset= taskArg->outputSliceStride_ * rankId_;
     uint64_t inputRepeatStride           = taskArg->inputRepeatStride_;
     uint64_t outputRepeatStride          = taskArg->outputRepeatStride_;
     uint64_t normalSliceSize             = taskArg->normalSliceSize_;
@@ -410,14 +414,16 @@ std::vector<uint64_t> CcuKernelReduceScatterMesh1DMem2Mem::GeneArgs(const CcuTas
     std::vector<uint64_t> taskArgs = {
         inputAddr,         outputAddr,         tokenInfo,
         scratchAddr,       currentRankSliceInputOffset,
-        inputRepeatStride, outputRepeatStride, normalSliceSize,
-        lastSliceSize,     repeatNum
+        currentRankSliceOutputOffset,          inputRepeatStride,
+        outputRepeatStride, normalSliceSize,   lastSliceSize,
+        repeatNum
     };
 
     HCCL_INFO("[CcuKernelReduceScatterMesh1DMem2Mem] TaskArgs: inputAddr[%llu], outputAddr[%llu], "
-               "scratchAddr[%llu], currentRankSliceInputOffset[%llu], inputRepeatStride[%llu],"
-               "outputRepeatStride[%llu], normalSliceSize[%llu], lastSliceSize[%llu], repeatNum[%llu]",
-               inputAddr, outputAddr, scratchAddr, currentRankSliceInputOffset,
+               "scratchAddr[%llu], currentRankSliceInputOffset[%llu], currentRankSliceInputOffset[%llu], "
+               "inputRepeatStride[%llu], outputRepeatStride[%llu], "
+               "normalSliceSize[%llu], lastSliceSize[%llu], repeatNum[%llu]",
+               inputAddr, outputAddr, scratchAddr, currentRankSliceInputOffset, currentRankSliceInputOffset,
                inputRepeatStride, outputRepeatStride, normalSliceSize, lastSliceSize, repeatNum);
                
     taskArgs.insert(taskArgs.cend(), GoSize.cbegin(), GoSize.cend());
