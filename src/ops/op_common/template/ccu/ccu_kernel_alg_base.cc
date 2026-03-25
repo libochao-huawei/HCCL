@@ -923,4 +923,270 @@ std::vector<CcuRep::CompletedEvent> CcuKernelAlgBase::CreateBlockCompletedEvent(
     return res;
 }
 
+// write 模式：本端 LocalCopy → bufs[rankId]，MsWriteNb(bufs[rankId], bufs[rankId]) 广播至所有 peers
+// 每个 LoopBlock 迭代的流程：
+//   1. LocalCopyNb(bufs[rankId], src, len) — 本端 HBM → 本 rank 固定的 MS slot
+//   2. MsWriteNb(ch[i], bufs[rankId], bufs[rankId], len, ...) × channelSize — 写到所有 peers 的 bufs[rankId]
+//   3. NotifyWait(ch[i], writeDoneCkeIdx, 1) × channelSize — 等待每个对端写完成
+//   4. LocalReduceNb(bufs[0..N-1], N, ...) — reduce 所有 MS → 结果在 bufs[0]
+//   5. LocalCopyNb(dst, bufs[0], lenForExpansion) — 结果 MS → 输出 HBM
+// 所有 rank 的 MS 布局一致：bufs[R] = rank R 的数据，reduce 顺序相同，结果 bit-exact 一致
+HcclResult CcuKernelAlgBase::CreateMultiOpWrite(const std::vector<ChannelHandle> &channels, uint32_t rankId,
+                                                 HcclDataType dataType, HcclDataType outputDataType,
+                                                 HcclReduceOp opType)
+{
+    AllocGoResource();
+
+    std::string loopType = GetReduceTypeStr(dataType, opType) + "_write";
+    if (registeredLoop.find(loopType) != registeredLoop.end()) {
+        return HCCL_SUCCESS;
+    }
+
+    uint32_t channelSize = channels.size();
+    uint32_t size        = channelSize + 1; // N-1 peers + self
+    uint32_t expansionNum = GetReduceExpansionNum(opType, dataType, outputDataType);
+    uint32_t usedBufNum   = size > expansionNum ? size : expansionNum;
+
+    for (int32_t index = 0; index < 2; index++) {
+        CcuRep::LocalAddr src = CreateLocalAddr();
+        CcuRep::LocalAddr dst = CreateLocalAddr();
+        CcuRep::Variable  len = CreateVariable();
+        CcuRep::Variable  lenForExpansion = CreateVariable();
+        CcuRep::LoopBlock lb(this, loopType + "_loop_" + std::to_string(index));
+        lb(src, dst, len, lenForExpansion);
+
+        std::vector<CcuRep::CcuBuf> bufs = {moRes.ccuBuf.begin() + index * moConfig.msInterleave,
+                                               moRes.ccuBuf.begin() + index * moConfig.msInterleave + usedBufNum};
+        CcuRep::CompletedEvent &event = moRes.completedEvent[index];
+
+        uint32_t writeDoneCkeIdx = (index == 0) ? WRITE_DONE_CKE_IDX_0 : WRITE_DONE_CKE_IDX_1;
+
+        // Step 1: 本端 HBM → bufs[rankId]（每个 rank 固定占用自己的 MS slot）
+        event.mask = 1;
+        LocalCopyNb(bufs[rankId], src, len, event);
+        WaitEvent(event);
+
+        // Step 2: 发送 bufs[rankId] 到所有 peers（对称 MS 分配，远端也写入 bufs[rankId]）
+        for (uint32_t i = 0; i < channels.size(); i++) {
+            CHK_RET(MsWriteNb(channels[i], bufs[rankId], bufs[rankId], len, writeDoneCkeIdx, 1));
+        }
+
+        // Step 3: 等待每个 peer 的写完成通知（接收方）
+        for (uint32_t i = 0; i < channels.size(); i++) {
+            NotifyWait(channels[i], writeDoneCkeIdx, 1);
+        }
+
+        // Step 4: 对所有 N 个 MS 做 reduce（bufs[R]=rankR 的数据，所有 rank 顺序一致，结果在 bufs[0]）
+        if (size > 1) {
+            event.mask = 1;
+            LocalReduceNb(bufs, size, dataType, outputDataType, opType, len, event);
+            WaitEvent(event);
+        }
+
+        // Step 5: 结果 MS → 输出 HBM
+        event.mask = 1;
+        LocalCopyNb(dst, bufs[0], lenForExpansion, event);
+        WaitEvent(event);
+    }
+
+    registeredLoop.insert(loopType);
+    return HCCL_SUCCESS;
+}
+
+HcclResult CcuKernelAlgBase::GroupWrite(const std::vector<ChannelHandle> &channels, uint32_t rankId,
+                                         CcuRep::LocalAddr dst,
+                                         CcuRep::LocalAddr src, GroupOpSize goSize, HcclDataType dataType,
+                                         HcclDataType outputDataType, HcclReduceOp opType)
+{
+    CHK_RET(CreateMultiOpWrite(channels, rankId, dataType, outputDataType, opType));
+
+    std::string loopType      = GetReduceTypeStr(dataType, opType) + "_write";
+    uint32_t    expansionNum  = GetReduceExpansionNum(opType, dataType, outputDataType);
+    CcuRep::Variable sliceSizeExpansion = CreateVariable();
+
+    if (expansionNum != 1) {
+        CcuRep::Variable tmp = CreateVariable();
+        tmp = GetExpansionParam(expansionNum);
+        dst.token += tmp;
+    }
+
+    // 第一个 loopgroup：处理 m 部分数据
+    CCU_IF(goSize.loopParam != 0)
+    {
+        CcuRep::Variable loopParam = CreateVariable();
+        loopParam = GetLoopParam(0, moConfig.memSlice * moConfig.loopCount, 0);
+        loopParam += goSize.loopParam;
+
+        CcuRep::Variable sliceSize = CreateVariable();
+        sliceSize          = moConfig.memSlice;
+        sliceSizeExpansion = moConfig.memSlice * expansionNum;
+
+        auto lc = Loop(loopType + "_loop_0")(src, dst, sliceSize, sliceSizeExpansion);
+
+        CcuRep::Variable paraCfg = CreateVariable();
+        paraCfg = GetParallelParam(moConfig.loopCount - 1, 0, 1);
+        CcuRep::Variable offsetCfg = CreateVariable();
+        offsetCfg = GetOffsetParam(moConfig.memSlice, moConfig.msInterleave, 1);
+
+        LoopGroup({lc}, {loopParam}, paraCfg, offsetCfg);
+    }
+
+    // 第二个 loopgroup：处理 n 和 p 部分数据
+    CCU_IF(goSize.parallelParam != 0)
+    {
+        src.addr += goSize.addrOffset;
+        for (uint32_t i = 0; i < expansionNum; i++) {
+            dst.addr += goSize.addrOffset;
+        }
+
+        sliceSizeExpansion = 0;
+        for (uint32_t i = 0; i < expansionNum; i++) {
+            sliceSizeExpansion += goSize.residual;
+        }
+
+        auto lc0 = Loop(loopType + "_loop_0")(src, dst, goSize.residual, sliceSizeExpansion);
+
+        src.addr += goSize.residual;
+        for (uint32_t i = 0; i < expansionNum; i++) {
+            dst.addr += goSize.residual;
+        }
+
+        CcuRep::Variable sliceSize = CreateVariable();
+        sliceSize          = moConfig.memSlice;
+        sliceSizeExpansion = moConfig.memSlice * expansionNum;
+
+        auto lc1 = Loop(loopType + "_loop_1")(src, dst, sliceSize, sliceSizeExpansion);
+
+        CcuRep::Variable loopCfg0 = CreateVariable();
+        loopCfg0 = GetLoopParam(0, 0, 1);
+        CcuRep::Variable loopCfg1 = CreateVariable();
+        loopCfg1 = GetLoopParam(0, 0, 1);
+        CcuRep::Variable offsetCfg = CreateVariable();
+        offsetCfg = GetOffsetParam(moConfig.memSlice, moConfig.msInterleave, 1);
+
+        LoopGroup({lc0, lc1}, {loopCfg0, loopCfg1}, goSize.parallelParam, offsetCfg);
+    }
+    return HCCL_SUCCESS;
+}
+
+// write 模式 Broadcast (AllGather)：
+// 每个 LoopBlock 迭代的流程：
+//   1. LocalCopyNb(bufs[rankId], src, len)  — 本端 HBM → bufs[rankId]
+//   2. MsWriteNb(ch[i], bufs[rankId], bufs[rankId], ...) × channelSize — 广播到所有 peers 的 bufs[rankId]
+//   3. NotifyWait(ch[i], ...)              × channelSize — 等待所有 peers 的写完成
+//   4. LocalCopyNb(dst[R], bufs[R], len) × N — 统一将 bufs[R] 拷贝到 rank R 的输出位置
+// 所有 rank 的 MS 布局一致：bufs[R] = rank R 的数据
+HcclResult CcuKernelAlgBase::CreateMultiOpBroadcastWrite(const std::vector<ChannelHandle> &channels, uint32_t rankId)
+{
+    AllocGoResource();
+
+    std::string loopType = "broadcast_write";
+    if (registeredLoop.find(loopType) != registeredLoop.end()) {
+        return HCCL_SUCCESS;
+    }
+
+    uint32_t channelSize = channels.size();
+    uint32_t size        = channelSize + 1; // N-1 peers + self
+
+    for (int32_t index = 0; index < 2; index++) {
+        CcuRep::LocalAddr src = CreateLocalAddr();
+        std::vector<CcuRep::RemoteAddr> dst;
+        for (uint32_t i = 0; i < size; i++) {
+            CcuRep::LocalAddr tmp = CreateLocalAddr();
+            dst.emplace_back(*reinterpret_cast<CcuRep::RemoteAddr *>(&tmp));
+        }
+        CcuRep::Variable len = CreateVariable();
+        CcuRep::LoopBlock lb(this, loopType + "_loop_" + std::to_string(index));
+        lb(src, dst, len);
+
+        std::vector<CcuRep::CcuBuf> bufs = {moRes.ccuBuf.begin() + index * moConfig.msInterleave,
+                                               moRes.ccuBuf.begin() + index * moConfig.msInterleave + size};
+        CcuRep::CompletedEvent &event = moRes.completedEvent[index];
+
+        // Step 1: 本端 HBM → bufs[rankId]
+        uint32_t writeDoneCkeIdx = (index == 0) ? WRITE_DONE_CKE_IDX_0 : WRITE_DONE_CKE_IDX_1;
+        event.mask = 1;
+        LocalCopyNb(bufs[rankId], src, len, event);
+        WaitEvent(event);
+
+        // Step 2: 广播 bufs[rankId] 到所有 peers（对称 MS 分配，远端也写入 bufs[rankId]）
+        for (uint32_t i = 0; i < channels.size(); i++) {
+            CHK_RET(MsWriteNb(channels[i], bufs[rankId], bufs[rankId], len, writeDoneCkeIdx, 1));
+        }
+
+        // Step 3: 等待每个 peer 写来的 slice 到达
+        for (uint32_t i = 0; i < channels.size(); i++) {
+            NotifyWait(channels[i], writeDoneCkeIdx, 1);
+        }
+
+        // Step 4: 统一将 bufs[R] → dst[R]（bufs[R] = rank R 的数据，dst[R] = rank R 的输出位置）
+        for (uint32_t R = 0; R < size; R++) {
+            CcuRep::LocalAddr &localDst = *reinterpret_cast<CcuRep::LocalAddr *>(&dst[R]);
+            event.mask = 1 << R;
+            LocalCopyNb(localDst, bufs[R], len, event);
+        }
+        event.mask = (1 << size) - 1;
+        WaitEvent(event);
+    }
+
+    registeredLoop.insert(loopType);
+    return HCCL_SUCCESS;
+}
+
+HcclResult CcuKernelAlgBase::GroupBroadcastWrite(const std::vector<ChannelHandle> &channels, uint32_t rankId,
+                                                   std::vector<CcuRep::RemoteAddr> dst,
+                                                   CcuRep::LocalAddr src, GroupOpSize goSize)
+{
+    CHK_RET(CreateMultiOpBroadcastWrite(channels, rankId));
+
+    uint32_t size = channels.size() + 1;
+
+    CCU_IF(goSize.addrOffset != 0)
+    {
+        CcuRep::Variable loopParam = CreateVariable();
+        loopParam = GetLoopParam(0, moConfig.memSlice * moConfig.loopCount, 0);
+        loopParam += goSize.loopParam;
+
+        CcuRep::Variable sliceSize = CreateVariable();
+        sliceSize = moConfig.memSlice;
+        auto lc   = Loop("broadcast_write_loop_0")(src, dst, sliceSize);
+
+        CcuRep::Variable paraCfg = CreateVariable();
+        paraCfg = GetParallelParam(moConfig.loopCount - 1, 0, 1);
+        CcuRep::Variable offsetCfg = CreateVariable();
+        offsetCfg = GetOffsetParam(moConfig.memSlice, moConfig.msInterleave, 1);
+
+        LoopGroup({lc}, {loopParam}, paraCfg, offsetCfg);
+    }
+
+    CCU_IF(goSize.parallelParam != 0)
+    {
+        src.addr += goSize.addrOffset;
+        for (uint32_t i = 0; i < size; i++) {
+            dst[i].addr += goSize.addrOffset;
+        }
+
+        auto lc0 = Loop("broadcast_write_loop_0")(src, dst, goSize.residual);
+
+        src.addr += goSize.residual;
+        for (uint32_t i = 0; i < size; i++) {
+            dst[i].addr += goSize.residual;
+        }
+
+        CcuRep::Variable sliceSize = CreateVariable();
+        sliceSize = moConfig.memSlice;
+        auto lc1  = Loop("broadcast_write_loop_1")(src, dst, sliceSize);
+
+        CcuRep::Variable loopCfg0 = CreateVariable();
+        loopCfg0 = GetLoopParam(0, 0, 1);
+        CcuRep::Variable loopCfg1 = CreateVariable();
+        loopCfg1 = GetLoopParam(0, 0, 1);
+        CcuRep::Variable offsetCfg = CreateVariable();
+        offsetCfg = GetOffsetParam(moConfig.memSlice, moConfig.msInterleave, 1);
+
+        LoopGroup({lc0, lc1}, {loopCfg0, loopCfg1}, goSize.parallelParam, offsetCfg);
+    }
+    return HCCL_SUCCESS;
+}
+
 }
