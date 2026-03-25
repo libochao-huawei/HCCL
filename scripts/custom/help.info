@@ -1,4 +1,0 @@
-  --install                         Install full mode
-    --install-path=<path>           Install product to specific dir path
-  --uninstall                       Uninstall product
-    --install-path=<path>           Uninstall product to specific dir path
