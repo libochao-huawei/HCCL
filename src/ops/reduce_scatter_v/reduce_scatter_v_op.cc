@@ -82,27 +82,26 @@ HcclResult CheckReduceScatterVInputPara(
     const void *sendCounts, const void *sendDispls, const aclrtStream stream)
 {
     // 入参合法性校验
-    RPT_INPUT_ERR(stream == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-        std::vector<std::string>({"HcclReduceScatter", "stream", "nullptr", "please check stream"}));
+    RPT_INPUT_ERR(stream == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclReduceScatterV", "nullptr", "stream", "non-null pointer"}));
     CHK_PTR_NULL(stream);
-    RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-        std::vector<std::string>({"HcclReduceScatterV", "comm", "nullptr", "please check comm"}));
+    RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclReduceScatterV", "nullptr", "comm", "non-null pointer"}));
     CHK_PTR_NULL(comm);
 
-    RPT_INPUT_ERR(sendBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-        std::vector<std::string>({"HcclReduceScatterV", "sendBuf", "nullptr", "please check sendBuf"}));
+    RPT_INPUT_ERR(sendBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclReduceScatterV", "nullptr", "sendBuf", "non-null pointer"}));
     CHK_PTR_NULL(sendBuf);
 
-    RPT_INPUT_ERR(recvBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-        std::vector<std::string>({"HcclReduceScatterV", "recvBuf", "nullptr", "please check recvBuf"}));
+    RPT_INPUT_ERR(recvBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclReduceScatterV", "nullptr", "recvBuf", "non-null pointer"}));
     CHK_PTR_NULL(recvBuf);
-
-    RPT_INPUT_ERR(sendCounts == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-        std::vector<std::string>({"HcclReduceScatterV", "sendCounts", "nullptr", "please check sendCounts"}));
+    RPT_INPUT_ERR(sendCounts == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclReduceScatterV", "nullptr", "sendCounts", "non-null pointer"}));
     CHK_PTR_NULL(sendCounts);
 
-    RPT_INPUT_ERR(sendDispls == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-        std::vector<std::string>({"HcclReduceScatterV", "sendDispls", "nullptr", "please check sendDispls"}));
+    RPT_INPUT_ERR(sendDispls == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclReduceScatterV", "nullptr", "sendDispls", "non-null pointer"}));
     CHK_PTR_NULL(sendDispls);
 
     CHK_PRT_RET(sendBuf == recvBuf,

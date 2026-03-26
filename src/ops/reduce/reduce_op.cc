@@ -76,18 +76,18 @@ HcclResult CheckReduceInputPara(const HcclComm comm, const void* sendBuf, const 
     // 入参合法性校验
     RPT_INPUT_ERR(comm == nullptr,
         "EI0003",
-        std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),
-        std::vector<std::string>({"HcclReduce", "comm", "nullptr", "please check comm"}));
+        std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),
+        std::vector<std::string>({"HcclReduce", "nullptr", "comm", "non-null pointer"}));
     CHK_PTR_NULL(comm);
     RPT_INPUT_ERR(sendBuf == nullptr,
         "EI0003",
-        std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),
-        std::vector<std::string>({"HcclReduce", "sendBuf", "nullptr", "please check recvBuf"}));
+        std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),
+        std::vector<std::string>({"HcclReduce", "nullptr", "sendBuf", "non-null pointer"}));
     CHK_PTR_NULL(sendBuf);
     RPT_INPUT_ERR(recvBuf == nullptr,
         "EI0003",
-        std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),
-        std::vector<std::string>({"HcclReduce", "recvBuf", "nullptr", "please check recvBuf"}));
+        std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),
+        std::vector<std::string>({"HcclReduce", "nullptr", "recvBuf", "non-null pointer"}));
     CHK_PTR_NULL(recvBuf);
 
     return HCCL_SUCCESS;

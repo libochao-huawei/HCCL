@@ -74,8 +74,8 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
     u32 userRank = INVALID_VALUE_RANKID;
     CHK_RET(HcclGetRankId(comm, &userRank));
     if (userRank == root) {     // 本rank为root节点，send_buff不可以为空
-        RPT_INPUT_ERR(sendBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-            std::vector<std::string>({"HcclScatter", "sendBuf", "nullptr", "please check sendBuf"}));
+        RPT_INPUT_ERR(sendBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+            std::vector<std::string>({"HcclScatter", "nullptr", "sendBuf", "non-null pointer"}));
         CHK_PTR_NULL(sendBuf);
     }
     char commName[COMM_INDENTIFIER_MAX_LENGTH];
@@ -128,11 +128,11 @@ constexpr u32 HCCL_INTER_SERVER_RING_ALGO_MAX_SUPPORT_SERVER_NUM = 8; // server 
 HcclResult CheckScatterInputPara(const HcclComm comm, const void *recvBuf)
 {
     // 入参合法性校验
-    RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-        std::vector<std::string>({"HcclScatter", "comm", "nullptr", "please check comm"}));
+    RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclScatter", "nullptr", "comm", "non-null pointer"}));
     CHK_PTR_NULL(comm);
-    RPT_INPUT_ERR(recvBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-        std::vector<std::string>({"HcclScatter", "recvBuf", "nullptr", "please check recvBuf"}));
+    RPT_INPUT_ERR(recvBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclScatter", "nullptr", "recvBuf", "non-null pointer"}));
     CHK_PTR_NULL(recvBuf);
 
     return HCCL_SUCCESS;
