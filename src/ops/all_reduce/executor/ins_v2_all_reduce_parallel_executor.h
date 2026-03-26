@@ -57,7 +57,7 @@ private:
     HcclResult PrepareResForTemplate23(const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &tempAlgIntra,
                                        InsAlgTemplate2 &tempAlgIntra1, InsAlgTemplate3 &tempAlgInter1);
     HcclResult PrepareResForTemplateResource(const AlgResourceCtxSerializable &resCtx, TemplateResource &intraTempAlgRes,
-                                             TemplateResource &interTempAlgRes);
+                                             TemplateResource &interTempAlgRes, bool isRsStage);
     void GenDataParamsBufferType(const BufferType inBuffType, const BufferType outBuffType, const BufferType hcclBuffType,
                                  TemplateDataParams &dataParams) const;
     void GenDataParamstempAlg(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset, const u64 sliceCount,
