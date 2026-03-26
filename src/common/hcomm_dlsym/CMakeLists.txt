@@ -13,7 +13,6 @@ target_sources(hccl PRIVATE
     hcomm_primitives_dl.cc
     hcomm_dlsym.cc
     hccl_inner_dl.cc
-    dtype_common_dl.cc
     hcomm_host_profiling_dl.cc
     hcom_dl.cc
 )

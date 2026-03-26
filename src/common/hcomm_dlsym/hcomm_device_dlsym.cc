@@ -14,7 +14,6 @@
 #include "hcomm_primitives_dl.h"
 #include "hcomm_device_profiling_dl.h"
 #include "hcomm_diag_dl.h"
-#include "dtype_common_dl.h"
 #include <pthread.h>
 #include <dlfcn.h>
 #include <stdio.h>

@@ -19,7 +19,7 @@
 #include "hccl_common.h"
 #include "config_log.h"
 #include "topo.h"
-#include "dtype_common_dl.h"
+#include "dtype_common.h"
 
 constexpr u32 FACTOR_NUM_TWO = 2;
 constexpr s32 DEVICE_PER_MODULE = 8;
