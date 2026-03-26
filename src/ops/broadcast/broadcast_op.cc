@@ -115,7 +115,7 @@ HcclResult BroadcastOutPlace(void *buf, uint64_t count, HcclDataType dataType, u
     param.DataDes.dataType = dataType;
     param.root = root;
     param.opType = HcclCMDType::HCCL_CMD_BROADCAST;
-    param.enableDetour = false;
+    param.detourType = GetExternalInputHcclDetourType();
     param.deviceType = deviceType;
 
     std::string algName;
