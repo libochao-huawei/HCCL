@@ -172,13 +172,12 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::CalcRes(HcclComm comm, const OpPara
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuTempReduceScatterNHR1DMem2Mem::SplitDataFor2Dies(const OpParam& param,
-                                                           const TemplateDataParams& templateDataParams,
-                                                           uint64_t& die0Size, uint64_t& die1Size) const
+HcclResult CcuTempReduceScatterNHR1DMem2Mem::SplitDataFor2Dies(const OpParam& param, const uint64_t sliceSize,
+                                                               uint64_t& die0Size, uint64_t& die1Size) const
 {
     constexpr uint64_t MULTIPLIER = 4;
     uint64_t typeSize = DataTypeSizeGet(param.DataDes.dataType);
-    uint64_t dataCount = (templateDataParams.sliceSize / typeSize);
+    uint64_t dataCount = sliceSize / typeSize;
     
     if (dataCount <= templateRankSize_ * MULTIPLIER) {   // 数据量极小，不划分die
         die0Size = dataCount * typeSize;
@@ -189,7 +188,7 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::SplitDataFor2Dies(const OpParam& pa
     u8 die1BWcoeff = 1;
 
     die0Size = (dataCount * die0BWcoeff / (die0BWcoeff + die1BWcoeff)) * typeSize;
-    die1Size = templateDataParams.sliceSize - die0Size;
+    die1Size = sliceSize - die0Size;
     return HcclResult::HCCL_SUCCESS;
 }                                                            
 
@@ -202,17 +201,21 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::KernelRun(const OpParam& param,
     buffInfo_ = templateDataParams.buffInfo;
     u32 kernelNum = templateResource.ccuKernels.size();
 
-    if (templateDataParams.sliceSize == 0) {
+    if (templateDataParams.sliceSize == 0 && templateDataParams.tailSize == 0) {
         HCCL_INFO("[CcuTempReduceScatterNHR1DMem2Mem] sliceSize is 0, no need do, just success.");
         return HCCL_SUCCESS;
     }
     uint64_t die0Size = 0;
     uint64_t die1Size = 0;
+    uint64_t die0LastSliceSize = 0;
+    uint64_t die1LastSliceSize = 0;
     constexpr uint32_t MAX_DIE_NUM_2 = 2;
     if (kernelNum == MAX_DIE_NUM_2) {
-        SplitDataFor2Dies(param, templateDataParams, die0Size, die1Size);
+        SplitDataFor2Dies(param, templateDataParams.sliceSize, die0Size, die1Size);
+        SplitDataFor2Dies(param, templateDataParams.tailSize, die0LastSliceSize, die1LastSliceSize);
     } else {
         die0Size = templateDataParams.sliceSize;
+        die0LastSliceSize = templateDataParams.tailSize;
     }
     uint64_t inputAddr = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
@@ -224,11 +227,12 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::KernelRun(const OpParam& param,
     uint64_t inputRepeatStride = templateDataParams.inputRepeatStride;
     uint64_t outputRepeatStride = templateDataParams.outputRepeatStride;
     uint64_t repeatNumVar = UINT64_MAX - repeatNum;
-    HCCL_INFO("[CcuTempReduceScatterNHR1DMem2Mem] dimSize[%llu], die0Size[%llu], die1Size[%llu], inputAddr[%llu],"\
-        "outputAddr[%llu], repeatNum[%llu], inputSliceStride[%llu], outputSliceStride[%llu],"\
+    HCCL_INFO("[CcuTempReduceScatterNHR1DMem2Mem] dimSize[%llu], die0Size[%llu], die1Size[%llu],"
+        "die0LastSliceSize[%llu], die1LastSliceSize[%llu], inputAddr[%llu],"
+        "outputAddr[%llu], repeatNum[%llu], inputSliceStride[%llu], outputSliceStride[%llu],"
         "inputRepeatStride[%llu], outputRepeatStride[%llu]",
-        templateRankSize_, die0Size, die1Size, inputAddr, outputAddr, repeatNum, inputSliceStride,
-        outputSliceStride, inputRepeatStride, outputRepeatStride);
+        templateRankSize_, die0Size, die1Size, die0LastSliceSize, die1LastSliceSize, inputAddr, outputAddr, repeatNum,
+        inputSliceStride, outputSliceStride, inputRepeatStride, outputRepeatStride);
 
     // 前流同步
     if (kernelNum > 1) {
@@ -239,13 +243,15 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::KernelRun(const OpParam& param,
     }
 
     for (uint32_t axisId = 0; axisId < kernelNum; axisId++) {
-        if ((axisId == 0 && die0Size == 0) || (axisId == 1 && die1Size == 0)) {
+        if ((axisId == 0 && die0Size == 0 && die0LastSliceSize == 0) 
+            || (axisId == 1 && die1Size == 0 && die1LastSliceSize == 0)) {
             // 数据长度为0的kernel不下发
             continue;
         }
         std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgReduceScatterNHR1D>(
-            inputAddr, outputAddr, token, die0Size, die1Size, inputSliceStride, outputSliceStride, inputRepeatStride,
-            outputRepeatStride, repeatNum);
+            inputAddr, outputAddr, token, die0Size, die1Size, die0LastSliceSize, die1LastSliceSize, 
+            inputSliceStride, outputSliceStride, inputRepeatStride, outputRepeatStride, repeatNum
+        );
 
         void* taskArgPtr = static_cast<void*>(taskArg.get());
 
