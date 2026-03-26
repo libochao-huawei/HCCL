@@ -531,9 +531,9 @@ HcclResult GetAlgResAICPU(HcclComm comm, const OpParam &param, AlgResourceReques
         // 在device侧创建Ctx，并将host资源拷贝到device侧
         ret = HcclMemcpyCtxHostToDevice(comm, param, resCtxHost, resCtxSequence, ctxSize);
         CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("failed to memcpy hostCtx to device."), ret);
-        // 如果是增量建链模式，转移hostCtx的所有权
+        // 如果是增量建链模式，保存 hostCtx 的副本到 g_hostCtx
         if (increCreateChannelFlag) {
-            g_hostCtx[tagStr] = std::move(resCtxHost);
+            g_hostCtx[tagStr] = std::make_unique<AlgResourceCtxSerializable>(*resCtxHost);
         }
     } else {
         // 先比对需要的channel和已建链的channel
@@ -717,19 +717,19 @@ HcclResult SaveUnfoldThreadInfo(HcclComm comm, const OpParam &param, ThreadHandl
 
 HcclResult GetUnfoldThreadInfo(HcclComm comm, const OpParam &param, ThreadHandle& unfoldThread)
 {
-    HCCL_INFO("[%s] start, algTag[%s]", __func__, param.algTag);
+    printf("[%s] start, algTag[%s]\n", __func__, param.algTag);
     uint64_t size = sizeof(ThreadHandle);
-    HCCL_INFO("[%s] sizeof(ThreadHandle)[%lu]", __func__, size);
+    printf("[%s] sizeof(ThreadHandle)[%lu]\n", __func__, size);
     void *ctx = nullptr;
     char unfoldAlgTag[ALG_TAG_LENGTH] = {0};
     int ret = snprintf_s(unfoldAlgTag, sizeof(unfoldAlgTag), sizeof(unfoldAlgTag) - 1, "%s_unfold", param.algTag);
     CHK_PRT_RET(ret <= 0, HCCL_ERROR("[%s] failed to fill unfoldAlgTag", __func__), HCCL_E_INTERNAL);
-    HCCL_INFO("[%s] unfoldAlgTag[%s]", __func__, unfoldAlgTag);
+    printf("[%s] unfoldAlgTag[%s]\n", __func__, unfoldAlgTag);
     
-    HCCL_INFO("[%s] before HcclEngineCtxGet, comm[%p], unfoldAlgTag[%s], engine[COMM_ENGINE_CPU_TS]", 
+    printf("[%s] before HcclEngineCtxGet, comm[%p], unfoldAlgTag[%s], engine[COMM_ENGINE_CPU_TS]\n", 
         __func__, comm, unfoldAlgTag);
     HcclResult res = HcclEngineCtxGet(comm, unfoldAlgTag, CommEngine::COMM_ENGINE_CPU_TS, &ctx, &size);
-    HCCL_INFO("[%s] after HcclEngineCtxGet, res[%d], ctx[%p], size[%lu]", __func__, res, ctx, size);
+    printf("[%s] after HcclEngineCtxGet, res[%d], ctx[%p], size[%lu]\n", __func__, res, ctx, size);
     
     CHK_PRT_RET(res != HCCL_SUCCESS,
         HCCL_ERROR("[%s] HcclEngineCtxGet failed, unfoldAlgTag[%s], engine[COMM_ENGINE_CPU_TS], ret[%d]",
@@ -739,15 +739,15 @@ HcclResult GetUnfoldThreadInfo(HcclComm comm, const OpParam &param, ThreadHandle
     CHK_PRT_RET(size != sizeof(ThreadHandle),
         HCCL_ERROR("[%s] size[%lu] != sizeof(ThreadHandle)[%lu], unfoldAlgTag[%s]",
             __func__, size, sizeof(ThreadHandle), unfoldAlgTag), HCCL_E_INTERNAL);
-    HCCL_INFO("[%s] HcclEngineCtxGet success, ctx[%p], size[%lu], unfoldAlgTag[%s]",
+    printf("[%s] HcclEngineCtxGet success, ctx[%p], size[%lu], unfoldAlgTag[%s]\n",
         __func__, ctx, size, unfoldAlgTag);
     ThreadHandle* threadPtr = reinterpret_cast<ThreadHandle *>(ctx);
-    HCCL_INFO("[%s] threadPtr[%p], unfoldThread[%lu]", __func__, threadPtr, *threadPtr);
+    printf("[%s] threadPtr[%p], unfoldThread[%lu]\n", __func__, threadPtr, *threadPtr);
     unfoldThread = *threadPtr;
     CHK_PRT_RET(unfoldThread == 0,
         HCCL_ERROR("[%s] unfoldThread is 0, unfoldAlgTag[%s], threadPtr[%p]",
             __func__, unfoldAlgTag, threadPtr), HCCL_E_INTERNAL);
-    HCCL_INFO("[%s] success, unfoldAlgTag[%s], threadPtr[%p], unfoldThread[%lu]", 
+    printf("[%s] success, unfoldAlgTag[%s], threadPtr[%p], unfoldThread[%lu]\n", 
         __func__, unfoldAlgTag, threadPtr, unfoldThread);
     return HCCL_SUCCESS;
 }
