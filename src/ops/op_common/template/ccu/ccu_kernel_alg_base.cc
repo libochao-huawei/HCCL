@@ -970,16 +970,6 @@ HcclResult CcuKernelAlgBase::CreateMultiOpWrite(const std::vector<ChannelHandle>
         LocalCopyNb(bufs[rankId], src, len, event);
         WaitEvent(event);
 
-        // Step 2: 通知对端本端 buffer 已就绪，可以写入（READY，bit 3）
-        for (uint32_t i = 0; i < channels.size(); i++) {
-            NotifyRecord(channels[i], ckeIdx, READY_MASK);
-        }
-
-        // Step 3: 等待对端 buffer 就绪（READY，bit 3）
-        for (uint32_t i = 0; i < channels.size(); i++) {
-            NotifyWait(channels[i], ckeIdx, READY_MASK);
-        }
-
         // Step 4: 发送 bufs[rankId] 到所有 peers（对称 MS 分配，远端也写入 bufs[rankId]）
         for (uint32_t i = 0; i < channels.size(); i++) {
             CHK_RET(MsWriteNb(channels[i], bufs[rankId], bufs[rankId], len, ckeIdx, WRITE_DONE_MASK));
@@ -1122,16 +1112,6 @@ HcclResult CcuKernelAlgBase::CreateMultiOpBroadcastWrite(const std::vector<Chann
         event.mask = 1;
         LocalCopyNb(bufs[rankId], src, len, event);
         WaitEvent(event);
-
-        // Step 2: 通知对端本端 buffer 已就绪，可以写入（READY，bit 3）
-        for (uint32_t i = 0; i < channels.size(); i++) {
-            NotifyRecord(channels[i], ckeIdx, READY_MASK);
-        }
-
-        // Step 3: 等待对端 buffer 就绪（READY，bit 3）
-        for (uint32_t i = 0; i < channels.size(); i++) {
-            NotifyWait(channels[i], ckeIdx, READY_MASK);
-        }
 
         // Step 4: 广播 bufs[rankId] 到所有 peers（对称 MS 分配，远端也写入 bufs[rankId]）
         for (uint32_t i = 0; i < channels.size(); i++) {
