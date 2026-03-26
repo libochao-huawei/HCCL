@@ -1,0 +1,13 @@
+﻿<!--
+    AICPU kernel 签名配置。
+    这里的 input/output 文件名要和根 CMakeLists.txt 里定义的 TAR 名保持一致，
+    否则 sign_aicpu_kernel() 在打包阶段会找不到对应文件。
+-->
+<hcomm_check_cfg>
+    <item input="aicpu_hccl_custom_allgather_2in2out.tar.gz"
+          output="aicpu_hccl_custom_allgather_2in2out.tar.gz"
+          type="cms"
+          sign_alg="PSS"
+          tag="ascend_aicpu"
+          nvcnt="0"></item>
+</hcomm_check_cfg>

@@ -1,0 +1,9 @@
+﻿{
+  "HcclLaunchAllGather2In2OutAicpuKernel": {
+    "opInfo": {
+      "opKernelLib": "AICPUKernel",
+      "kernelSo": "liballgather_2in2out_aicpu_kernel.so",
+      "functionName": "HcclLaunchAllGather2In2OutAicpuKernel"
+    }
+  }
+}
