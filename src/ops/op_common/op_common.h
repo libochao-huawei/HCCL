@@ -41,7 +41,7 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam &param, std::shared_ptr<InsCollA
 HcclResult GetAlgResAICPU(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
     std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, TopoInfoWithNetLayerDetails *topoInfo,
     AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence, uint64_t& ctxSize,
-    bool increCreateChannelFlag);
+    bool increCreateChannelFlag, bool &isResourceReused);
 
 HcclResult HcclAllocAlgResourceAICPU(
     HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
@@ -76,7 +76,7 @@ HcclResult HcclAllocAlgResourceAiv(
 HcclResult GetAlgResDPU(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
     std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, TopoInfoWithNetLayerDetails *topoInfo,
     AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence, uint64_t& ctxSize,
-    bool increCreateChannelFlag);
+    bool increCreateChannelFlag, bool &isResourceReused);
 
 HcclResult CheckCount(const u64 count);
 
