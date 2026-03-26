@@ -476,7 +476,7 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 
     u32 multipleIntra = tempAlgIntra.CalcScratchMultiple(BufferType::INPUT, BufferType::OUTPUT);
     u32 multipleInter = tempAlgInter.CalcScratchMultiple(BufferType::INPUT, BufferType::OUTPUT);
-    if(multipleIntra >= 0 || multipleInter >= 0){
+    if(multipleIntra > 0 || multipleInter > 0){
         multipleIntra = 1;
         multipleInter = 1;
     }
