@@ -215,16 +215,8 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     // 算法执行
     if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
         if (isResourceReused) {
-            // 复用资源，从主上下文反序列化获取 unfoldThread
-            CHK_PRT_RET(resCtxSequence == nullptr,
-                HCCL_ERROR("[%s] resCtxSequence is nullptr when isResourceReused is true, algTag[%s]",
-                    __func__, param.algTag), HCCL_E_INTERNAL);
-            CHK_PRT_RET(param.ctxSize == 0,
-                HCCL_ERROR("[%s] param.ctxSize is 0 when isResourceReused is true, algTag[%s]",
-                    __func__, param.algTag), HCCL_E_INTERNAL);
-            char *ctx = static_cast<char*>(resCtxSequence);
-            std::vector<char> seq(ctx, ctx + param.ctxSize);
-            resCtxHost->DeSerialize(seq);
+            // 复用资源时，resCtxHost 已经在 GetAlgResAICPU 中从 g_hostCtx 获取
+            // 不需要再反序列化，直接使用 resCtxHost 中的 unfoldThread
             HCCL_INFO("[%s] resource reused, unfoldThread[%lu], algTag[%s]",
                 __func__, resCtxHost->unfoldThread, param.algTag);
         } else {
@@ -555,7 +547,10 @@ HcclResult GetAlgResAICPU(HcclComm comm, const OpParam &param, AlgResourceReques
                 *resCtxSequence = ctx;
                 ctxSize = size;
                 isResourceReused = true;
-                HCCL_INFO("[%s] resource reused in incremental mode, algTag[%s]", __func__, param.algTag);
+                // 从 g_hostCtx 获取 host 侧上下文，用于后续获取 unfoldThread
+                resCtxHost = std::make_unique<AlgResourceCtxSerializable>(*g_hostCtx.at(tagStr));
+                HCCL_INFO("[%s] resource reused in incremental mode, algTag[%s], unfoldThread[%lu]", 
+                    __func__, param.algTag, resCtxHost->unfoldThread);
             } else {
                 HCCL_ERROR("failed to get device ctx.");
             }
