@@ -70,6 +70,9 @@ SelectorStatus AlltoAllVCAutoSelector::SelectDPUAlgo(
         if ((topoInfo->deviceNumPerModule == 1) || (topoInfo->level0Topo == Level0Shape::MESH_1D)) {
             selectAlgName = "InsAlltoAllVCMesh1DDPU";
             return SelectorStatus::MATCH;
+        } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+            selectAlgName = "InsAlltoAllVCClosMesh1DDPU";
+            return SelectorStatus::MATCH;
         }
     }
  

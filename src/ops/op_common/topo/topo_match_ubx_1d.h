@@ -8,26 +8,26 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef TOPO_MATCH_UBX
-#define TOPO_MATCH_UBX
+#ifndef TOPO_MATCH_UBX_1D
+#define TOPO_MATCH_UBX_1D
 
-#include "topo_match_base.h"
+#include "topo_match_ubx.h"
 
 namespace ops_hccl {
-class TopoMatchUBX : public TopoMatchBase {
+class TopoMatchUBX1d : public TopoMatchUBX {
 public:
-    explicit TopoMatchUBX();
-    ~TopoMatchUBX() override;
+    explicit TopoMatchUBX1d();
+    ~TopoMatchUBX1d() override;
     std::string Describe() const override
     {
-        return "Topo Match for combined Algorithm: layer 0 Mesh, layer 1 NHR.";
+        return "Topo Match for combined Algorithm: layer 0 Clos + Mesh, layer 1 Mesh.";
     }
     HcclResult MatchTopo(const HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo, AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
 protected:
     HcclResult TopoForLayer0(const HcclComm comm, uint32_t& layer0Size, const uint32_t myRank,
                                     AlgHierarchyInfoForAllLevel& algHierarchyInfo) const;
-    virtual HcclResult TopoForLayer1(const HcclComm comm, uint32_t layer0Size, const uint32_t myRank,
-                                    AlgHierarchyInfoForAllLevel& algHierarchyInfo) const;
+    HcclResult TopoForLayer1(const HcclComm comm, uint32_t layer0Size, const uint32_t myRank,
+                                    AlgHierarchyInfoForAllLevel& algHierarchyInfo) const override;
     HcclResult CheckVecElementAllSame(const uint32_t *instSizeList, uint32_t listSize) const;
     template<typename T>
     std::string PrintCArray(const T* values, const u32 valueNum) const
@@ -40,4 +40,4 @@ protected:
     }
 };
 }  // namespace Hccl
-#endif  // !TOPO_MATCH_UBX
+#endif  // !TOPO_MATCH_UBX_MESH_1D
