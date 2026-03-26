@@ -57,10 +57,10 @@ public:
           normalSliceSize_(normalSliceSize), lastSliceSize_(lastSliceSize), mySliceSize_(mySliceSize),
           isInputOutputEqual_(isInputOutputEqual)
     {
-        HCCL_DEBUG("[CcuTaskArgAllReduceMeshMem2Mem1D] inputAddr: %lu, outputAddr: %lu, token: %lu, scratchAddr: %lu, "
+        HCCL_DEBUG("[CcuTaskArgAllReduceMeshMem2Mem1D] inputAddr: %lu, outputAddr: %lu, scratchAddr: %lu, "
             "inputSliceStride: %lu, outputSliceStride: %lu, inputRepeatStride: %lu, outputRepeatStride: %lu, normalSliceSize: %lu, "
             "lastSliceSize: %lu, mySliceSize: %lu, isInputOutputEqual: %lu",
-            inputAddr_, outputAddr_, token_, scratchAddr_, inputSliceStride_, outputSliceStride_, inputRepeatStride_,
+            inputAddr_, outputAddr_, scratchAddr_, inputSliceStride_, outputSliceStride_, inputRepeatStride_,
             outputRepeatStride_, normalSliceSize_, lastSliceSize_, mySliceSize_, isInputOutputEqual_);
     }
 

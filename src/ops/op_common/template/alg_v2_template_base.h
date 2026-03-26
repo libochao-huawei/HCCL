@@ -16,14 +16,6 @@
 #include "template_utils.h"
 #include "alg_template_base.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-int32_t __attribute__((weak)) HcommThreadJoin(ThreadHandle thread, uint32_t timeout);
-#ifdef __cplusplus
-}
-#endif
-
 namespace ops_hccl {
 
 class InsAlgTemplateBase {
@@ -78,6 +70,8 @@ protected:
     std::vector<u32>                 notifyIdxMainToSub_;
     // 用于记录从thread向主thread发送record的时候使用主thread的哪个notify
     std::vector<u32>                 notifyIdxSubToMain_;
+    // 是否可以直接访问对端input/output memory
+    bool                             enableRemoteMemAccess_ = false;
 };
 } // namespace Hccl
 

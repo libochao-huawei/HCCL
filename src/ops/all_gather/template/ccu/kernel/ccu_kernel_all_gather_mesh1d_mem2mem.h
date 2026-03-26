@@ -56,9 +56,9 @@ public:
           outputRepeatStride_(outputRepeatStride), normalSliceSize_(normalSliceSize), lastSliceSize_(lastSliceSize),
           isInputOutputEqual_(isInputOutputEqual)
     {
-        HCCL_DEBUG("[CcuTaskArgAllGatherMesh1DMem2Mem] inputAddr: %lu, outputAddr: %lu, token: %lu, inputSliceStride: %lu, "
+        HCCL_DEBUG("[CcuTaskArgAllGatherMesh1DMem2Mem] inputAddr: %lu, outputAddr: %lu, inputSliceStride: %lu, "
                    "outputSliceStride: %lu",
-                   inputAddr_, outputAddr_, token_, inputSliceStride_, outputSliceStride_);
+                   inputAddr_, outputAddr_, inputSliceStride_, outputSliceStride_);
     }
 
     uint64_t inputAddr_;

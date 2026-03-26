@@ -50,6 +50,10 @@ HcclResult InsTempReduceScatterMesh1D::KernelRun(const OpParam& param,
     const TemplateDataParams& tempAlgParams,
     const TemplateResource& templateResource)
 {
+    if (tempAlgParams.sliceSize == 0 && tempAlgParams.tailSize == 0) {
+        HCCL_DEBUG("[InsTempReduceScatterMesh1D] myRank[%u] sliceSize and tailSize are 0, skip reduce scatter.", myRank_);
+        return HCCL_SUCCESS;
+    }
     threadNum_ = templateResource.threads.size();
     processSize_ = tempAlgParams.sliceSize;
     count_ = tempAlgParams.count;
@@ -65,6 +69,14 @@ HcclResult InsTempReduceScatterMesh1D::KernelRun(const OpParam& param,
         std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
         GetNotifyIdxSubToMain(notifyIdxSubToMain_);
         CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain_));
+    }
+    if (dataType_ == HCCL_DATA_TYPE_INT64 || dataType_ == HCCL_DATA_TYPE_UINT64 || dataType_ == HCCL_DATA_TYPE_FP64
+        || reduceOp_ == HcclReduceOp::HCCL_REDUCE_PROD) {
+        CHK_RET(static_cast<HcclResult>(HcommBatchModeEnd(param.algTag)));
+        CHK_RET(static_cast<HcclResult>(HcommBatchModeStart(param.algTag)));
+        for (const auto &thread : templateResource.threads) {
+            CHK_RET(static_cast<HcclResult>(HcommThreadJoin(thread, CUSTOM_TIMEOUT)));
+        }
     }
     PostCopy(tempAlgParams, templateResource.threads);
     HCCL_INFO("[InsTempReduceScatterMesh1D] Run End");
@@ -112,25 +124,15 @@ HcclResult InsTempReduceScatterMesh1D::RunReduceScatter(
     const TemplateDataParams &tempAlgParam)
 {
     u32 myAlgRank = 0;
-    auto iter = std::find(subCommRanks_[0].begin(), subCommRanks_[0].end(), myRank_);
-    if (iter != subCommRanks_[0].end()) {
-        myAlgRank = std::distance(subCommRanks_[0].begin(), iter);
-    } else {
-        HCCL_ERROR("[InsTempReduceScatterMesh1D][RunReduceScatter] subCommRanks_ or myRank_ is error.");
-        return HCCL_E_INTERNAL;
-    }
+    CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], myAlgRank));
 
     // DMA消减：让thread 0做本地拷贝
     for (u32 repeatIdx = 0; repeatIdx < tempAlgParam.repeatNum; repeatIdx++) {
-        DataSlice srcSlice = DataSlice(tempAlgParam.buffInfo.inputPtr,
-                                       tempAlgParam.buffInfo.inBuffBaseOff +
-                                       repeatIdx * tempAlgParam.inputRepeatStride +
-                                       myAlgRank * tempAlgParam.inputSliceStride,
+        DataSlice srcSlice = DataSlice(tempAlgParam.buffInfo.inputPtr, tempAlgParam.buffInfo.inBuffBaseOff +
+                                       repeatIdx * tempAlgParam.inputRepeatStride + myAlgRank * tempAlgParam.inputSliceStride,
                                        processSize_, count_);
-        DataSlice dstSlice = DataSlice(tempAlgParam.buffInfo.outputPtr,
-                                       tempAlgParam.buffInfo.outBuffBaseOff +
-                                       repeatIdx * tempAlgParam.outputRepeatStride,
-                                       processSize_, count_);
+        DataSlice dstSlice = DataSlice(tempAlgParam.buffInfo.outputPtr, tempAlgParam.buffInfo.outBuffBaseOff +
+                                       repeatIdx * tempAlgParam.outputRepeatStride, processSize_, count_);
         CHK_RET(static_cast<HcclResult>(LocalCopy(threads[0], srcSlice, dstSlice)));
     }
 
