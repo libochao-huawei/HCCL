@@ -12,7 +12,6 @@ set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_broadcast_sequence_executor.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_broadcast_sole_executor.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_broadcast_parallel_executor.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_broadcast_parallel_v2_executor.cc
 )
 
 target_sources(hccl PRIVATE

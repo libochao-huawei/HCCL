@@ -18,10 +18,10 @@
 #include <string>
 #include <unordered_map>
 #include <algorithm>
-#include "dtype_common_dl.h"
+#include "dtype_common.h"
 #include "log.h"
 #include "hccl_types.h"
-#include "hccl_res_dl.h"
+#include "hccl_res.h"
 
 #ifndef T_DESC
 #define T_DESC(_msg, _y) ((_y) ? true : false)
@@ -60,11 +60,6 @@ const std::map<HcclDataType, std::string> HCOM_DATA_TYPE_STR_MAP{
     {HcclDataType::HCCL_DATA_TYPE_FP64, "float64"},
     {HcclDataType::HCCL_DATA_TYPE_BFP16, "bfloat16"},
     {HcclDataType::HCCL_DATA_TYPE_INT128, "int128"},
-    {HcclDataType::HCCL_DATA_TYPE_HIF8, "hif8"},
-    {HcclDataType::HCCL_DATA_TYPE_FP8E4M3, "fp8e4m3"},
-    {HcclDataType::HCCL_DATA_TYPE_FP8E5M2, "fp8e5m2"},
-    {HcclDataType::HCCL_DATA_TYPE_FP8E8M0, "fp8e8m0"},
-    {HcclDataType::HCCL_DATA_TYPE_MXFP8, "mxfp8"},
     {HcclDataType::HCCL_DATA_TYPE_RESERVED, "reserved"}
 };
 
@@ -145,10 +140,9 @@ typedef enum {
     HCCL_MEM_TYPE_NUM     ///< 内存类型数量
 } HcclMemType;
 
-
 struct HcclMem {
-    HcclMemType type = HcclMemType::HCCL_MEM_TYPE_DEVICE;
-    void* addr = nullptr;
-    uint64_t size = 0;
+    HcclMemType type;
+    void* addr;
+    uint64_t size;
 };
 #endif // HCCL_COMMON_H

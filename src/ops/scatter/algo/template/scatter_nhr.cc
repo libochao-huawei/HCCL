@@ -91,7 +91,7 @@ HcclResult ScatterNHR::SdmaRx(ChannelInfo &channelLeft, ChannelInfo &channelRigh
     return HCCL_SUCCESS;
 }
 
-HcclResult ScatterNHR::RdmaTxRx(ChannelInfo &channelLeft, ChannelInfo &channelRight, InterServerAlgoStep &stepInfo) const
+HcclResult ScatterNHR::RdmaTxRx(ChannelInfo &channelLeft, ChannelInfo &channelRight, InterServerAlgoStep &stepInfo)
 {
     HcclResult ret = HCCL_SUCCESS;
 
@@ -120,7 +120,7 @@ HcclResult ScatterNHR::RdmaTxRx(ChannelInfo &channelLeft, ChannelInfo &channelRi
     }
 
     if (barrierSwitchOn_) {
-        CHK_RET(ExecuteBarrierNhr(channelLeft, channelRight));
+        CHK_RET(ExecuteBarrier(channelLeft, channelRight));
     }
     return HCCL_SUCCESS;
 }
@@ -222,7 +222,7 @@ HcclResult ScatterNHR::GetStepInfo(u32 step, u32 nSteps, u32 rank, u32 rankSize,
     return HCCL_SUCCESS;
 }
 
-HcclResult ScatterNHR::ExecuteBarrierNhr(ChannelInfo &channelLeft, ChannelInfo &channelRight) const
+HcclResult ScatterNHR::ExecuteBarrier(ChannelInfo &channelLeft, ChannelInfo &channelRight) const
 {
     if (channelLeft.isValid) {
         CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread_, channelLeft.handle, NOTIFY_IDX_ACK)));

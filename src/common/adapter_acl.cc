@@ -12,7 +12,6 @@
 #include "acl_rt.h"
 #include "workflow.h"
 #include "mmpa_api.h"
-#include "dtype_common_dl.h"
 
 namespace ops_hccl {
 HcclResult haclrtGetDeviceIndexByPhyId(u32 devicePhyId, u32 &deviceLogicId)
@@ -75,6 +74,10 @@ HcclResult haclrtGetCaptureInfo(aclrtStream stream, aclmdlRICaptureStatus &captu
 {
 #ifndef AICPU_COMPILE
     isCapture = false;
+    if (GetWorkflowMode() != HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE) {
+        HCCL_WARNING("[%s]Stream capture only support opbase mode!", __func__);
+        return HCCL_SUCCESS;
+    }
     aclmdlRI rtModel = nullptr;
     aclError ret = aclmdlRICaptureGetInfo(stream, &captureStatus, &rtModel);
     if (ret == ACL_ERROR_RT_FEATURE_NOT_SUPPORT) {
@@ -142,49 +145,6 @@ HcclResult LoadBinaryFromFile(const char *binPath, aclrtBinaryLoadOptionType opt
         HCCL_ERROR("[LoadBinaryFromFile]errNo[0x%016llx] load binary from file error.", aclRet),
         HCCL_E_OPEN_FILE_FAILURE);
 
-    return HCCL_SUCCESS;
-}
-
-HcclResult haclrtMemcpy(void *dst, size_t destMax, const void *src, size_t count, aclrtMemcpyKind kind)
-{
-#ifndef AICPU_COMPILE
-    // 参数有效性检查
-    CHK_PTR_NULL(dst);
-    CHK_PTR_NULL(src);
-    CHK_PRT_RET(count == 0, HCCL_WARNING("[haclrtMemcpy] count is zero"), HCCL_SUCCESS);
-
-    aclmdlRICaptureMode mode = aclmdlRICaptureMode::ACL_MODEL_RI_CAPTURE_MODE_RELAXED;
-    aclError ret = aclmdlRICaptureThreadExchangeMode(&mode);
-    HCCL_DEBUG("Call aclmdlRICaptureThreadExchangeMode mode before: %d, ret: %d", mode, ret);
-    if (ret == ACL_ERROR_RT_FEATURE_NOT_SUPPORT) {
-        HCCL_WARNING("[haclrtMemcpy]aclmdlRICaptureThreadExchangeMode not support!");
-    } else {
-        CHK_PRT_RET(ret != ACL_SUCCESS, HCCL_ERROR("[haclrtMemcpy]aclmdlRICaptureThreadExchangeMode "
-            "failed mode:%d, return value[%d].", mode, ret), HCCL_E_RUNTIME);
-    }
-
-    ret = aclrtMemcpy(dst, destMax, src, count, kind);
-    HCCL_DEBUG("Call aclrtMemcpy, return[%d], para: dstAddr[%p], destMax[%llu], srcAddr[%p], count[%llu], rtKind[%d]",
-        ret, dst, destMax, src, count, kind);
-    if (ret != ACL_SUCCESS) {
-        HCCL_ERROR("[SyncCopy][Mem]errNo[0x%016llx] aclrtMemcpy failed, "
-            "return[%d], para: dstAddr[%p], destMax[%llu], srcAddr[%p], count[%llu], rtKind[%d].",
-            HCCL_ERROR_CODE(HCCL_E_RUNTIME), ret, dst, destMax, src, count, kind);
-        ret = aclmdlRICaptureThreadExchangeMode(&mode);
-        CHK_PRT_RET(ret != ACL_SUCCESS && ret != ACL_ERROR_RT_FEATURE_NOT_SUPPORT, HCCL_ERROR("[haclrtMemcpy]aclmdlRICaptureThreadExchangeMode "
-            "failed mode:%d, return value[%d].", mode, ret), HCCL_E_RUNTIME);
-        return HCCL_E_RUNTIME;
-    }
-
-    ret = aclmdlRICaptureThreadExchangeMode(&mode);
-    HCCL_DEBUG("Call aclmdlRICaptureThreadExchangeMode mode before: %d, ret: %d", mode, ret);
-    if (ret == ACL_ERROR_RT_FEATURE_NOT_SUPPORT) {
-        HCCL_WARNING("[haclrtMemcpy]aclmdlRICaptureThreadExchangeMode not support!");
-    } else {
-        CHK_PRT_RET(ret != ACL_SUCCESS, HCCL_ERROR("[haclrtMemcpy]aclmdlRICaptureThreadExchangeMode "
-            "failed mode:%d, return value[%d].", mode, ret), HCCL_E_RUNTIME);
-    }
-#endif
     return HCCL_SUCCESS;
 }
 

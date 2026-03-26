@@ -52,7 +52,11 @@ SelectorStatus AutoSelectorBase::Select(OpParam &opParam, TopoInfoWithNetLayerDe
     if (IsStarsState(opParam.opExecuteConfig)) {
         ret = SelectAicpuAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
         if (ret == SelectorStatus::MATCH) {
-            opParam.opExecuteConfig = OpExecuteConfig::AICPU_TS;
+            if (opParam.opMode == OpMode::OPBASE) {
+                opParam.opExecuteConfig = OpExecuteConfig::AICPU_TS;
+            } else {
+                opParam.opExecuteConfig = OpExecuteConfig::HOSTCPU_TS;
+            }
         }
     }
     HCCL_INFO("[Algo][AutoSelectorBase] The selected algo is %s, OpExecuteConfig is %d.",
@@ -272,42 +276,6 @@ HcclResult AutoSelectorBase::CheckClosNumMultipleOfMeshNum(const TopoInfoWithNet
     // 检查CLOS数量是否大于1DMESH数量且是1DMESH数量的倍数
     isMultiple = (meshRankNums > 1) && (closRankNums > meshRankNums) && (closRankNums % meshRankNums == 0);
     return HCCL_SUCCESS;
-}
-
-bool AutoSelectorBase::IsInputOutputOverlap(const OpParam &opParam) const
-{
-    CHK_PRT_RET(opParam.inputPtr == nullptr || opParam.outputPtr == nullptr,
-        HCCL_INFO("[Algo][AutoSelectorBase][IsInputOutputOverlap] The input or output buffer is null. Not overlap."),
-        false);
-
-    u64 inputDataSize = opParam.inputSize;
-    u64 outputDataSize = opParam.outputSize;
-
-    CHK_PRT_RET(inputDataSize == 0 || outputDataSize == 0,
-        // 不存在overlap情况
-        HCCL_INFO("[Algo][AutoSelectorBase][IsInputOutputOverlap] The input or output buffer size is 0. Not overlap."),
-        false);
-
-    uintptr_t inputStart = reinterpret_cast<uintptr_t>(opParam.inputPtr);
-    uintptr_t outputStart = reinterpret_cast<uintptr_t>(opParam.outputPtr);
-    uintptr_t inputEnd = inputStart + inputDataSize - 1;
-    uintptr_t outputEnd = outputStart + outputDataSize - 1;
-
-    HCCL_DEBUG("[Algo][AutoSelectorBase][IsInputOutputOverlap] inputStart[%llu], inputEnd[%llu], outputStart[%llu], "
-               "outputEnd[%llu].",
-        inputStart, inputEnd, outputStart, outputEnd);
-
-    CHK_PRT_RET(inputStart <= outputEnd && outputStart <= inputEnd,
-        HCCL_INFO("[Algo][AutoSelectorBase][IsInputOutputOverlap] inputStart[%llu], inputEnd[%llu], outputStart[%llu], "
-                  "outputEnd[%llu]. Overlap detected.",
-            inputStart,
-            inputEnd,
-            outputStart,
-            outputEnd),
-        true);
-
-    HCCL_DEBUG("[Algo][AutoSelectorBase][IsInputOutputOverlap]No overlap between input and output memory.");
-    return false;
 }
 
 }

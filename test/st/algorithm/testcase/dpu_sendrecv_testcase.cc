@@ -69,7 +69,11 @@ void DPUSendRecvTest(
         for (const auto &server : superPod)
             rankSize += server.size();
     // 仿真模型初始化
-    SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
+    #ifdef MACRO_DEV_TYPE_NEW
+    SimWorld::Global()->Init(topoInfo, DevType::DEV_TYPE_950);
+    #else
+    SimWorld::Global()->Init(topoInfo, DevType::DEV_TYPE_910_95);
+    #endif
 
     // 设置展开模式
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);

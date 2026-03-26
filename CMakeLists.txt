@@ -11,7 +11,6 @@ cmake_minimum_required(VERSION 3.16.0)
 option(BUILD_OPEN_PROJECT "Build open hccl project." ON)
 message(STATUS "KERNEL_MODE=${KERNEL_MODE}")
 message(STATUS "BUILD_OPEN_PROJECT=${BUILD_OPEN_PROJECT}")
-message(STATUS "AARCH_MODE=${AARCH_MODE}")
 
 find_program(CCAHE_PROGRAM ccache)
 if(CCAHE_PROGRAM)
@@ -19,10 +18,9 @@ if(CCAHE_PROGRAM)
     set(CMAKE_CXX_COMPILER_LAUNCHER ${CCAHE_PROGRAM})
 endif()
 
-if((BUILD_OPEN_PROJECT AND KERNEL_MODE) OR AARCH_MODE)
+if(BUILD_OPEN_PROJECT AND KERNEL_MODE)
     # need to switch
     set(CMAKE_SYSTEM_NAME Linux)
-    set(CMAKE_SYSTEM_PROCESSOR aarch64)
     #Change the path to the absolute path of the cross compilation tool after the toolkit package is decompressed
     # set cross compile toolchain dir
     set(TOOLCHAIN_DIR ${CUSTOM_ASCEND_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc/)

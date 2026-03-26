@@ -23,11 +23,8 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 HcclResult HcclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
     HcclReduceOp op, HcclComm comm, aclrtStream stream)
 {
-    if (!HcclCheckAicpuEnableOpen() && !HcclCheckCcuEnableOpen() && !HcclCheckAivEnableOpen()) {
-        return HcclReduceScatterInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
-    }
     HCCL_INFO("Start to run execute HcclReduceScatter");
-    if (GetHcommVersion() < 90000000) { // compat handle
+    if (!CheckHCCLIndependentOp()) {
         return HcclReduceScatterInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
     }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
@@ -40,7 +37,10 @@ HcclResult HcclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, H
 #endif
         return HcclReduceScatterInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
     }
-
+    // 图模式引导到老的流程上面
+    if (GetWorkflowMode() != HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE) {
+        return HcclReduceScatterInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
+    }
     // 入口的地方先解析环境变量
     CHK_RET(InitEnvConfig());
 
@@ -82,6 +82,8 @@ HcclResult CheckReduceScatterInputPara(const HcclComm comm, const void* sendBuf,
     RPT_INPUT_ERR(recvBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
         std::vector<std::string>({"HcclReduceScatter", "recvBuf", "nullptr", "please check recvBuf"}));
     CHK_PTR_NULL(recvBuf);
+    CHK_PRT_RET(sendBuf == recvBuf,
+        HCCL_ERROR("[HcclReduceScatter] sendBuf and recvBuf cannot be same."), HCCL_E_PARA);
 
     return HCCL_SUCCESS;
 }
@@ -123,18 +125,15 @@ HcclResult ReduceScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCoun
     param.opType = HcclCMDType::HCCL_CMD_REDUCE_SCATTER;
     param.enableDetour = false;
     param.deviceType = deviceType;
-
-    std::string algName;
-    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
-    CHK_RET(Selector(comm, param, topoInfo, algName));
-    if (ShouldUseInnerOp(param.opExecuteConfig)) {
-        return HcclReduceScatterInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
-    }
     if (userRankSize == 1) {
         HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
         CHK_RET(SingleRankProc(param));
         return HcclResult::HCCL_SUCCESS;
     }
+
+    std::string algName;
+    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
+    CHK_RET(Selector(comm, param, topoInfo, algName));
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
     HCCL_INFO("Execute ReduceScatterOutPlace success.");
     return HCCL_SUCCESS;
