@@ -13,18 +13,23 @@
 
 #include "log.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // 支持标志（静态，默认 false）
 #define DEFINE_SUPPORT_FLAG(name) \
-    static bool g_##name##Supported = false;\
-    extern "C" bool HcommIsSupport##name##(void) {\
-        return g_##name##Supported;\
+    static bool g_##name##Supported = false; \
+    extern "C" bool HcommIsSupport##name##(void) { \
+        return g_##name##Supported; \
     }
 
-#define DECL_SUPPORT_FLAG(name) extern "C" bool HcommIsSupport##name##(void)
+#define DECL_SUPPORT_FLAG(name) \
+    extern "C" bool HcommIsSupport##name##(void)
 
 #define INIT_SUPPORT_FLAG(handle, name) \
     do { \
-        void *ptr = (decltype(ptr))dlsym(handle, name); \
+        void *ptr = dlsym(handle, name); \
         if (ptr == nullptr) { \
             g_##name##Supported = false; \
             HCCL_DEBUG("[HcclWrapper] %s not supported", name); \
@@ -36,12 +41,17 @@
 // 弱符号函数定义
 #define DEFINE_WEAK_FUNC(func_decl) \
     func_decl __attribute__((weak)) \
-    {\
-        HCCL_ERROR("[HcclWrapper] %s not supported", __FUNCTION__);\
-        return HCCL_E_NOT_SUPPORT;\
+    { \
+        HCCL_ERROR("[HcclWrapper] %s not supported", __FUNCTION__); \
+        return HCCL_E_NOT_SUPPORT; \
     }
 
 // 弱符号函数声明
-#define DECL_WEAK_FUNC(func_decl) func_decl __attribute__((weak))
+#define DECL_WEAK_FUNC(func_decl) \
+    func_decl __attribute__((weak))
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // DLSYM_COMMON_H
