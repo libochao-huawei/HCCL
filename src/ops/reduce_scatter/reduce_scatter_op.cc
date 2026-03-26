@@ -160,7 +160,7 @@ static HcclResult PrepareReduceScatterParam(OpParam &param, void *sendBuf, void 
     param.DataDes.count = recvCount;
     param.DataDes.dataType = dataType;
     param.opType = HcclCMDType::HCCL_CMD_REDUCE_SCATTER;
-    param.enableDetour = false;
+    param.detourType = GetExternalInputHcclDetourType();
     param.deviceType = deviceType;
 
     return HCCL_SUCCESS;

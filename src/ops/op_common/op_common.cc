@@ -76,6 +76,15 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
     HCCL_INFO("Start to execute Selector.");
     param.hcclComm = comm;
     CHK_RET(HcclGetOpExpansionMode(comm, param));
+    u32 userRankSize;
+    CHK_RET(HcclGetRankSize(comm, &userRankSize));
+    CHK_PRT_RET(!(((param.detourType == HcclDetourType::HCCL_DETOUR_ENABLE_2P && userRankSize == 2) ||
+                (param.detourType == HcclDetourType::HCCL_DETOUR_ENABLE_4P && userRankSize == 4)) &&
+                (param.opExecuteConfig == OpExecuteConfig::CCU_MS)),
+        HCCL_ERROR("[Selector] Detour only support HCCL_DETOUR_ENABLE_2P and ranksize=2 or "
+                   "HCCL_DETOUR_ENABLE_4P and ranksize=4 in CCU_MS mode, Detour type[%d], rankSize[%u]",
+                    param.detourType, userRankSize),
+        HCCL_E_INTERNAL);
     // 获取基础拓扑
     CHK_RET(HcclCalcTopoInfo(comm, param, topoInfo));
 

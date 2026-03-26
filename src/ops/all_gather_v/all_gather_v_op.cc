@@ -191,7 +191,7 @@ HcclResult AllGatherVOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount,c
     std::copy(displsPtr, displsPtr + userRankSize, merged.begin() + userRankSize);
     memcpy_s(param.varData, varMemSize, merged.data(), varMemSize);
     param.opType = HcclCMDType::HCCL_CMD_ALLGATHER_V;
-    param.enableDetour = false;
+    param.detourType = GetExternalInputHcclDetourType();
     param.deviceType = deviceType;
 
     std::string algName;
