@@ -214,26 +214,8 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
 
     // 算法执行
     if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
-        if (isResourceReused) {
-            CHK_PRT_RET(resCtxSequence == nullptr,
-                HCCL_ERROR("[%s] resCtxSequence is nullptr when isResourceReused is true, algTag[%s]",
-                    __func__, param.algTag), HCCL_E_INTERNAL);
-            CHK_PRT_RET(param.ctxSize == 0,
-                HCCL_ERROR("[%s] param.ctxSize is 0 when isResourceReused is true, algTag[%s]",
-                    __func__, param.algTag), HCCL_E_INTERNAL);
-            char *ctx = static_cast<char*>(resCtxSequence);
-            std::vector<char> seq(ctx, ctx + param.ctxSize);
-            resCtxHost->DeSerialize(seq);
-            HCCL_INFO("[%s] resource reused, unfoldThread[%lu], algTag[%s]",
-                __func__, resCtxHost->unfoldThread, param.algTag);
-        } else {
-            CHK_RET(GetUnfoldThreadInfo(comm, param, resCtxHost->unfoldThread));
-            HCCL_INFO("[%s] first execution, unfoldThread[%lu], algTag[%s]",
-                __func__, resCtxHost->unfoldThread, param.algTag);
-        }
-        CHK_PRT_RET(resCtxHost->unfoldThread == 0,
-            HCCL_ERROR("[%s] unfoldThread is 0, isResourceReused[%d], algTag[%s]",
-                __func__, isResourceReused, param.algTag), HCCL_E_INTERNAL);
+        HCCL_INFO("[%s] first execution, GetUnfoldThreadInfo",__func__); 
+        CHK_RET(GetUnfoldThreadInfo(comm, param, resCtxHost->unfoldThread));
         // 根据主流的捕获状态决定展开流的状态
         CHK_RET(CaptureSlaveStreams(comm, param.stream, {mainThread, resCtxHost->unfoldThread}));
         CHK_RET(HcclAicpuKernelEntranceLaunch(comm, param, cpuTsThread, exportedCpuTsThread, notifyNumOnMainThread,
@@ -685,7 +667,6 @@ HcclResult SaveMainThreadInfo(HcclComm comm, const OpParam &param, ThreadHandle 
 
 HcclResult SaveUnfoldThreadInfo(HcclComm comm, const OpParam &param, ThreadHandle unfoldThread)
 {
-    HCCL_INFO("[%s] start, algTag[%s], unfoldThread[%lu]", __func__, param.algTag, unfoldThread);
     uint64_t size = sizeof(ThreadHandle);
     void *ctx = nullptr;
     // 申请一块host类型内存，保存展开流信息
@@ -723,21 +704,15 @@ HcclResult GetUnfoldThreadInfo(HcclComm comm, const OpParam &param, ThreadHandle
     CHK_PRT_RET(res != HCCL_SUCCESS,
         HCCL_ERROR("[%s] HcclEngineCtxGet failed, unfoldAlgTag[%s], engine[COMM_ENGINE_CPU_TS], ret[%d]",
             __func__, unfoldAlgTag, res), res);
-    
-    HCCL_INFO("[%s] HcclEngineCtxGet success, ctx[%p], size[%lu], unfoldAlgTag[%s]",
-        __func__, ctx, size, unfoldAlgTag);
-    
     CHK_PRT_RET(ctx == nullptr,
         HCCL_ERROR("[%s] ctx is nullptr, unfoldAlgTag[%s]", __func__, unfoldAlgTag), HCCL_E_INTERNAL);
     CHK_PRT_RET(size != sizeof(ThreadHandle),
         HCCL_ERROR("[%s] size[%lu] != sizeof(ThreadHandle)[%lu], unfoldAlgTag[%s]",
             __func__, size, sizeof(ThreadHandle), unfoldAlgTag), HCCL_E_INTERNAL);
-    
+    HCCL_INFO("[%s] HcclEngineCtxGet success, ctx[%p], size[%lu], unfoldAlgTag[%s]",
+        __func__, ctx, size, unfoldAlgTag);
     ThreadHandle* threadPtr = reinterpret_cast<ThreadHandle *>(ctx);
-    HCCL_INFO("[%s] before dereference, threadPtr[%p], sizeof(ThreadHandle)[%lu]",
-        __func__, static_cast<void*>(threadPtr), sizeof(ThreadHandle));
-    HCCL_INFO("[%s] memory content: [0x%lx]", __func__, *static_cast<uint64_t*>(ctx));
-    
+    HCCL_INFO("[%s] threadPtr[%p], unfoldThread[%lu]", __func__, threadPtr, *threadPtr);
     unfoldThread = *threadPtr;
     CHK_PRT_RET(unfoldThread == 0,
         HCCL_ERROR("[%s] unfoldThread is 0, unfoldAlgTag[%s], threadPtr[%p]",
