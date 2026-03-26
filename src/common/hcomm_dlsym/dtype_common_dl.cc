@@ -8,48 +8,15 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "log.h"
 #include "dtype_common_dl.h"
 #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-// 定义全局函数指针
-HcclResult (*hrtGetDeviceTypePtr)(DevType &devType) = nullptr;
-
-// 添加支持标志（静态，默认 false）
-static bool g_hrtGetDeviceTypeSupported = false;
-
-// ---------- 桩函数定义 ----------
-HcclResult __attribute__((weak)) hrtGetDeviceType(DevType &devType) {
-    (void)devType;
-    HCCL_ERROR("[HcclWrapper] hrtGetDeviceType not supported");
-    return HCCL_E_NOT_SUPPORT;
-}
+DEFINE_SUPPORT_FLAG(hrtGetDeviceType);
+DEFINE_WEAK_FUNC(HcclResult hrtGetDeviceType(DevType &devType));
 
 // 初始化
 void DtypeCommonDlInit(void* libHcommHandle) {
-    #define SET_PTR(ptr, handle, name, support_flag) \
-        do { \
-            ptr = (decltype(ptr))dlsym(handle, name); \
-            if (ptr == nullptr) { \
-                support_flag = false; \
-                HCCL_DEBUG("[HcclWrapper] %s not supported", name); \
-            } else { \
-                support_flag = true; \
-            } \
-        } while(0)
-
-    SET_PTR(hrtGetDeviceTypePtr, libHcommHandle, "hrtGetDeviceType", g_hrtGetDeviceTypeSupported);
-
-    #undef SET_PTR
-}
-
-void DtypeCommonDlFini(void) {
-    g_hrtGetDeviceTypeSupported = false;
-}
-
-// ---------- 对外提供的查询接口 ----------
-extern "C" bool HcommIsSupportHrtGetDeviceType(void) {
-    return g_hrtGetDeviceTypeSupported;
+    INIT_SUPPORT_FLAG(libHcommHandle, "hrtGetDeviceType");
 }

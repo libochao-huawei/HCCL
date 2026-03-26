@@ -11,20 +11,20 @@
 #ifndef DTYPE_COMMON_DL_H
 #define DTYPE_COMMON_DL_H
 
+#include "dlsym_common.h"
 #include "dtype_common.h"   // 原始头文件，包含所有 C++ 定义
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-HcclResult __attribute__((weak)) hrtGetDeviceType(DevType &devType);
+// DECL_WEAK_FUNC(hrtGetDeviceType);
 
 // 查询函数声明
-bool HcommIsSupportHrtGetDeviceType(void);
+DECL_SUPPORT_FLAG(hrtGetDeviceType);
 
 // 动态库管理接口
 void DtypeCommonDlInit(void* libHcommHandle);
-void DtypeCommonDlFini(void);
 
 #ifdef __cplusplus
 }
