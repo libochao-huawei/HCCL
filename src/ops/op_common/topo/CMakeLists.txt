@@ -14,6 +14,7 @@ set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/topo_match_base.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/topo_match_multilevel.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/topo_match_ubx.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/topo_match_ubx_1d.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/topo_match_pcie_mix.cc
 )
 
