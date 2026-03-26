@@ -11,19 +11,9 @@
 #ifndef HCCLV2_INS_V2_BROADCAST_SOLE_EXECUTOR_H
 #define HCCLV2_INS_V2_BROADCAST_SOLE_EXECUTOR_H
 
-#include "alg_param.h"
-#include "topo_host.h"
-#include "channel.h"
-#include "alg_v2_template_base.h"
-#include "utils.h"
-#include "log.h"
-#include "workflow.h"
-#include "sal.h"
-#include "config_log.h"
-#include "executor_v2_base.h"
-#include "coll_alg_v2_exec_registry.h"
-#include "topo_match_base.h"
+#include "executor_common_ops.h"
 #include "topo_match_1d.h"
+#include "topo_match_base.h"
 
 namespace ops_hccl {
 
@@ -31,7 +21,7 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 class InsBroadcastParallelExecutor : public InsCollAlgBase {
 public:
     explicit InsBroadcastParallelExecutor();
-    ~InsBroadcastParallelExecutor() = default;
+    ~InsBroadcastParallelExecutor() final = default;
 
     std::string Describe() const override
     {
@@ -46,7 +36,7 @@ public:
 
 private:
     void GetParallelDataSplit(std::vector<float> &splitDataSize) const;
-    uint64_t GetRankSize(const std::vector<std::vector<u32>> &vTopo);
+    uint64_t GetRankSize(const std::vector<std::vector<u32>> &vTopo) const;
     HcclResult CalcLocalRoot();
     // Aicpu
     HcclResult PrepareResForTemplate(const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &tempAlgIntra,

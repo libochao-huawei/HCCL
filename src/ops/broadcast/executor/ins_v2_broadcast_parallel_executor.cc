@@ -219,7 +219,7 @@ void InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2, typename InsAlgTemplate3>
 uint64_t InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3>::GetRankSize(
-    const std::vector<std::vector<u32>> &vTopo)
+    const std::vector<std::vector<u32>> &vTopo) const
 {
     uint64_t count = 1;
     for (const auto &i : vTopo) {
