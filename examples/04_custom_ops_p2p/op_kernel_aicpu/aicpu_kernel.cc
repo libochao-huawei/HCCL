@@ -12,6 +12,7 @@
 #include <memory>
 #include <hccl/hcomm_primitives.h>
 #include "log.h"
+#include "utils.h"
 #include "common.h"
 #include "exec_op.h"
 
@@ -20,6 +21,13 @@ using namespace ops_hccl_p2p;
 extern "C" unsigned int HcclLaunchP2PAicpuKernel(OpParam *param)
 {
     HCCL_INFO("Entry-%s, commName[%s], tag[%s]", __func__, param->commName, param->tag);
+    if (param.devType == DEVICE_TYPE_A2 || param.devType == DEVICE_TYPE_A3) {
+        if (HcommAcquireComm(param->commName) != HCCL_SUCCESS) {
+            HCCL_ERROR("%s HcommAcquireComm fail, commName[%s]", __func__, param->commName);
+            return 1;
+        }
+    }
+
     if (HcommBatchModeStart(param->tag) != HCCL_SUCCESS) {
         HCCL_ERROR("failed start batch mode");
         return 1;
@@ -46,6 +54,13 @@ extern "C" unsigned int HcclLaunchP2PAicpuKernel(OpParam *param)
     if (HcommBatchModeEnd(param->tag) != HCCL_SUCCESS) {
         HCCL_ERROR("failed end batch mode");
         return 1;
+    }
+
+    if (param.devType == DEVICE_TYPE_A2 || param.devType == DEVICE_TYPE_A3) {
+        if (HcommReleaseComm(param->commName) != HCCL_SUCCESS) {
+            HCCL_ERROR("%s HcommReleaseComm fail, commName[%s]", __func__, param->commName);
+            return 1;
+        }
     }
     HCCL_INFO("%s success, commName[%s], tag[%s]", __func__, param->commName, param->tag);
     return 0;

@@ -63,7 +63,7 @@ function(pack_targets_and_files)
     endif()
 
     if(NOT IS_ABSOLUTE "${ARG_OUTPUT}")
-        set(ARG_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${ARG_OUTPUT}")
+        set(ARG_OUTPUT "${CMAKE_BINARY_DIR}/${ARG_OUTPUT}")
     endif()
 
     if(NOT ARG_OUTPUT_TARGET)
@@ -73,7 +73,7 @@ function(pack_targets_and_files)
     # Generate safe target name
     get_filename_component(tar_basename "${ARG_OUTPUT}" NAME_WE)
     string(MAKE_C_IDENTIFIER "pack_${tar_basename}" safe_name)
-    set(staging_dir "${CMAKE_CURRENT_BINARY_DIR}/_${safe_name}_stage")
+    set(staging_dir "${CMAKE_BINARY_DIR}/_${safe_name}_stage")
 
     # --- Collect all source items (as generator expressions) ---
     set(src_items "")
@@ -179,11 +179,11 @@ function(sign_file)
 
     # Normalize input
     if(NOT IS_ABSOLUTE "${ARG_INPUT}")
-        set(ARG_INPUT "${CMAKE_CURRENT_BINARY_DIR}/${ARG_INPUT}")
+        set(ARG_INPUT "${CMAKE_BINARY_DIR}/${ARG_INPUT}")
     endif()
 
-    # Auto output path: ${CMAKE_CURRENT_BINARY_DIR}/signatures
-    set(signatures_dir "${CMAKE_CURRENT_BINARY_DIR}/signatures")
+    # Auto output path: ${CMAKE_BINARY_DIR}/signatures
+    set(signatures_dir "${CMAKE_BINARY_DIR}/signatures")
     get_filename_component(input_name "${ARG_INPUT}" NAME)
     set(output_sig "${signatures_dir}/${input_name}")
 

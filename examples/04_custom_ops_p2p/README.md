@@ -15,13 +15,12 @@
 │   ├── send.cc                         # HcclSendCustom 算子实现源文件
 │   ├── recv.cc                         # HcclRecvCustom 算子实现源文件
 │   ├── load_kernel.cc                  # AICPU Kernel 在 Host 侧的加载逻辑
-│   └── launch_kernel.cc                # AICPU Kernel 在 Host 侧的下发逻辑
+│   ├── launch_kernel.cc                # AICPU Kernel 在 Host 侧的下发逻辑
+│   └── utils.cc                        # 工具模块
 ├── op_kernel_aicpu/
 │   ├── libp2p_aicpu_kernel.json        # AICPU Kernel 算子描述文件
 │   ├── aicpu_kernel.cc                 # AICPU Kernel 实现逻辑
 │   └── exec_op.cc                      # AICPU 算子编排逻辑
-├── common/
-│   └── utils.cc                        # 工具模块
 ├── inc/
 │   ├── hccl_custom_p2p.h               # 自定义 send/recv 算子接口头文件
 │   ├── common.h                        # 公共类型头文件

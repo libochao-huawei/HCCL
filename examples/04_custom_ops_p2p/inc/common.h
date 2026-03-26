@@ -45,6 +45,7 @@ struct OpParam {
     void* inputPtr = nullptr;
     void* outputPtr = nullptr;
     uint64_t count = 0;
+    DeviceType devType;
     HcclDataType dataType = HCCL_DATA_TYPE_RESERVED;
     HcclCMDType opType = HcclCMDType::HCCL_CMD_INVALID;
     ThreadHandle cpuThread;
