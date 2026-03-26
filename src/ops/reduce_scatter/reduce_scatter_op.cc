@@ -121,7 +121,7 @@ HcclResult ReduceScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCoun
     param.DataDes.count = recvCount;
     param.DataDes.dataType = dataType;
     param.opType = HcclCMDType::HCCL_CMD_REDUCE_SCATTER;
-    param.enableDetour = false;
+    param.detourType = GetExternalInputHcclDetourType();
     param.deviceType = deviceType;
 
     std::string algName;
