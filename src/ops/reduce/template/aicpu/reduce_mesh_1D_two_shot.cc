@@ -224,6 +224,8 @@ HcclResult ReduceMesh1DTwoShot::RunGatherToRoot(const TemplateDataParams &tempAl
     const u64 curSliceOffset = sliceInfoList_.at(myIdx_).offset;
     u64 outBuffBaseOffset = tempAlgParam.buffInfo.outBuffBaseOff;
     u64 hcclBuffBaseOffset = tempAlgParam.buffInfo.hcclBuffBaseOff;
+    void* localOutBuffPtr = tempAlgParam.buffInfo.outputPtr;
+    void* localHcclBuffPtr = tempAlgParam.buffInfo.hcclBuff.addr;
     const ThreadHandle &masterThread = threads.at(0);
     const std::vector<ThreadHandle> subThreads(threads.begin() + 1, threads.end());
 
@@ -240,8 +242,8 @@ HcclResult ReduceMesh1DTwoShot::RunGatherToRoot(const TemplateDataParams &tempAl
                 continue;
             }
             if (remoteIdx == myIdx_) {
-                DataSlice copySrcSlice(localInBuffPtr, hcclBuffBaseOffset + curSliceOffset, curSize, curCount);
-                DataSlice copyDstSlice(localHcclBuffPtr, outBuffBaseOffset + curSliceOffset, curSize, curCount);
+                DataSlice copySrcSlice(localHcclBuffPtr, hcclBuffBaseOffset + curSliceOffset, curSize, curCount);
+                DataSlice copyDstSlice(localOutBuffPtr, outBuffBaseOffset + curSliceOffset, curSize, curCount);
                 CHK_PRT_RET(LocalCopy(threads.at(remoteIdx), copySrcSlice, copyDstSlice),
                     HCCL_ERROR("[InsTempReduceMesh1DTwoShot][RunGatherToRoot] LocalCopy failed."),
                     HcclResult::HCCL_E_INTERNAL);
@@ -251,7 +253,7 @@ HcclResult ReduceMesh1DTwoShot::RunGatherToRoot(const TemplateDataParams &tempAl
                 void* remoteHcclBuffPtr = channel.remoteCclMem.addr;
                 
                 DataSlice recvSrcSlice(remoteHcclBuffPtr, hcclBuffBaseOffset + remoteSrcOffset, curSize, curCount);
-                DataSlice recvDstSlice(localInBuffPtr, outBuffBaseOffset + remoteSrcOffset, curSize, curCount);
+                DataSlice recvDstSlice(localOutBuffPtr, outBuffBaseOffset + remoteSrcOffset, curSize, curCount);
                 const SlicesList recvSlicesList({recvSrcSlice}, {recvDstSlice});
                 const DataInfo recvInfo(channel, recvSlicesList);
                 CHK_PRT_RET(RecvRead(recvInfo, threads.at(remoteIdx)),
@@ -261,8 +263,8 @@ HcclResult ReduceMesh1DTwoShot::RunGatherToRoot(const TemplateDataParams &tempAl
         }
     } else { // 非根节点发送数据到根节点
         if (curSliceSize != 0) {
-            DataSlice sendSrcSlice(localInBuffPtr, hcclBuffBaseOffset + curSliceOffset, curSliceSize, curSliceCount);
-            DataSlice sendDstSlice(localHcclBuffPtr, outBuffBaseOffset + curSliceOffset, curSliceSize, curSliceCount);
+            DataSlice sendSrcSlice(localHcclBuffPtr, hcclBuffBaseOffset + curSliceOffset, curSliceSize, curSliceCount);
+            DataSlice sendDstSlice(localOutBuffPtr, outBuffBaseOffset + curSliceOffset, curSliceSize, curSliceCount);
             const SlicesList sendSlicesList({sendSrcSlice}, {sendDstSlice});
             const ChannelInfo &channel = channels.at(subCommRanks_.at(0).at(root_)).at(0);
             const DataInfo sendInfo(channel, sendSlicesList);
