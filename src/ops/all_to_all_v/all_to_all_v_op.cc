@@ -45,7 +45,7 @@ HcclResult HcclAlltoAll(const void *sendBuf, uint64_t sendCount, HcclDataType se
     CHK_RET(InitEnvConfig());
 
     // 参数校验等工作
-    CHK_RET(CheckAlltoAllInputPara(comm, sendBuf, sendCount, sendType, recvBuf, recvCount, recvType));
+    CHK_RET(CheckAlltoAllInputPara(comm, sendBuf, sendCount, sendType, recvBuf, recvCount, recvType, stream));
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     CHK_RET(HcclGetRankSize(comm, &rankSize));
     u32 userRank = INVALID_VALUE_RANKID;
@@ -107,7 +107,7 @@ HcclResult HcclAlltoAllV(const void *sendBuf, const void *sendCounts, const void
     CHK_RET(InitEnvConfig());
 
     // 参数校验等工作
-    CHK_RET(CheckAlltoAllVInputPara(comm, sendBuf, sendCounts, sdispls, sendType, recvBuf, recvCounts, rdispls, recvType));
+    CHK_RET(CheckAlltoAllVInputPara(comm, sendBuf, sendCounts, sdispls, sendType, recvBuf, recvCounts, rdispls, recvType, stream));
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     CHK_RET(HcclGetRankSize(comm, &rankSize));
     u32 userRank = INVALID_VALUE_RANKID;
@@ -158,7 +158,7 @@ HcclResult HcclAlltoAllVC(const void *sendBuf, const void *sendCountMatrix, Hccl
     CHK_RET(InitEnvConfig());
 
     // 参数校验等工作
-    CHK_RET(CheckAlltoAllVCInputPara(comm, sendBuf, sendCountMatrix, sendType, recvBuf, recvType));
+    CHK_RET(CheckAlltoAllVCInputPara(comm, sendBuf, sendCountMatrix, sendType, recvBuf, recvType, stream));
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     CHK_RET(HcclGetRankSize(comm, &rankSize));
     u32 userRank = INVALID_VALUE_RANKID;
@@ -219,6 +219,7 @@ HcclResult HcclAlltoAllVC(const void *sendBuf, const void *sendCountMatrix, Hccl
     return HCCL_SUCCESS;
 }
 
+// 图模式对外接口
 HcclResult HcclAlltoAllGraphMode(const void *sendBuf, uint64_t sendCount, HcclDataType sendType, const void *recvBuf,
     uint64_t recvCount, HcclDataType recvType, const char* group, aclrtStream stream, const char* tag,
     void** streams, size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize)
@@ -232,7 +233,7 @@ HcclResult HcclAlltoAllGraphMode(const void *sendBuf, uint64_t sendCount, HcclDa
     CHK_RET(InitEnvConfig());
 
     // 参数校验等工作
-    CHK_RET(CheckAlltoAllInputPara(comm, sendBuf, sendCount, sendType, recvBuf, recvCount, recvType));
+    CHK_RET(CheckAlltoAllInputPara(comm, sendBuf, sendCount, sendType, recvBuf, recvCount, recvType, stream));
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     CHK_RET(HcclGetRankSize(comm, &rankSize));
     u32 userRank = INVALID_VALUE_RANKID;
@@ -274,14 +275,9 @@ HcclResult HcclAlltoAllGraphMode(const void *sendBuf, uint64_t sendCount, HcclDa
     resPack.scratchMemSize = scratchMemSize;
 
     // 执行AlltoAllV
-    bool useInnerOp = false;
     CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlaceGraphMode(sendBuf, sendCounts.data(), sdispls.data(),
         recvBuf, recvCounts.data(), rdispls.data(), recvType, comm, stream, tag,
-        HcclCMDType::HCCL_CMD_ALLTOALL, rankSize, useInnerOp, resPack), opTag);
-    if (useInnerOp) {
-        return HcclAlltoAllInner(sendBuf, sendCount, sendType, recvBuf, recvCount, recvType, comm, stream);
-    }
-
+        HcclCMDType::HCCL_CMD_ALLTOALL, rankSize, resPack), opTag);
     return HCCL_SUCCESS;
 }
 
@@ -298,7 +294,7 @@ HcclResult HcclAlltoAllVGraphMode(const void *sendBuf, const void *sendCounts, c
     CHK_RET(InitEnvConfig());
 
     // 参数校验等工作
-    CHK_RET(CheckAlltoAllVInputPara(comm, sendBuf, sendCounts, sdispls, sendType, recvBuf, recvCounts, rdispls, recvType));
+    CHK_RET(CheckAlltoAllVInputPara(comm, sendBuf, sendCounts, sdispls, sendType, recvBuf, recvCounts, rdispls, recvType, stream));
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     CHK_RET(HcclGetRankSize(comm, &rankSize));
     u32 userRank = INVALID_VALUE_RANKID;
@@ -335,13 +331,9 @@ HcclResult HcclAlltoAllVGraphMode(const void *sendBuf, const void *sendCounts, c
     resPack.scratchMemSize = scratchMemSize;
 
     // 执行AlltoAllV
-    bool useInnerOp = false;
     CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlaceGraphMode(sendBuf, sendCounts, sdispls,
         recvBuf, recvCounts, rdispls, recvType, comm, stream, tag,
-        HcclCMDType::HCCL_CMD_ALLTOALLV, rankSize, useInnerOp, resPack), opTag);
-    if (useInnerOp) {
-        return HcclAlltoAllVInner(sendBuf, sendCounts, sdispls, sendType, recvBuf, recvCounts, rdispls, recvType, comm, stream);
-    }
+        HcclCMDType::HCCL_CMD_ALLTOALLV, rankSize, resPack), opTag);
     return HCCL_SUCCESS;
 }
 
@@ -358,7 +350,7 @@ HcclResult HcclAlltoAllVCGraphMode(const void *sendBuf, const void *sendCountMat
     CHK_RET(InitEnvConfig());
 
     // 参数校验等工作
-    CHK_RET(CheckAlltoAllVCInputPara(comm, sendBuf, sendCountMatrix, sendType, recvBuf, recvType));
+    CHK_RET(CheckAlltoAllVCInputPara(comm, sendBuf, sendCountMatrix, sendType, recvBuf, recvType, stream));
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     CHK_RET(HcclGetRankSize(comm, &rankSize));
     u32 userRank = INVALID_VALUE_RANKID;
@@ -425,34 +417,31 @@ HcclResult HcclAlltoAllVCGraphMode(const void *sendBuf, const void *sendCountMat
     resPack.scratchMemSize = scratchMemSize;
 
     // 执行AlltoAllV
-    bool useInnerOp = false;
     CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlaceGraphMode(sendBuf, sendCounts.data(), sdispls.data(),
         recvBuf, recvCounts.data(), rdispls.data(), recvType, comm, stream, tag,
-        HcclCMDType::HCCL_CMD_ALLTOALLVC, rankSize, useInnerOp, resPack), opTag);
-    if (useInnerOp) {
-        return HcclAlltoAllVCInner(sendBuf, sendCountMatrix, sendType, recvBuf, recvType, comm, stream);
-    }
+        HcclCMDType::HCCL_CMD_ALLTOALLVC, rankSize, resPack), opTag);
     return HCCL_SUCCESS;
 }
 
 namespace ops_hccl {
 
 HcclResult CheckAlltoAllInputPara(const HcclComm comm, const void *sendBuf, const uint64_t sendCount,
-    const HcclDataType sendType, const void *recvBuf, const uint64_t recvCount, const HcclDataType recvType)
+    const HcclDataType sendType, const void *recvBuf, const uint64_t recvCount,
+    const HcclDataType recvType, const aclrtStream stream)
 {
     // 入参合法性校验
     CHK_PRT_RET(sendCount == 0 && recvCount == 0,
         HCCL_WARNING("sendCount and recvCount are both 0, return AllToAll success"), HCCL_SUCCESS);
-    RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
-        std::vector<std::string>({"HcclAlltoAll", "nullptr", "comm", "non-null pointer"}));
+    RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
+        std::vector<std::string>({"HcclAlltoAll", "comm", "nullptr", "please check comm"}));
     CHK_PTR_NULL(comm);
     RPT_INPUT_ERR(sendBuf == nullptr, "EI0003",\
-        std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
-        std::vector<std::string>({"HcclAlltoAll", "nullptr", "sendBuf", "non-null pointer"}));
+        std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
+        std::vector<std::string>({"HcclAlltoAll", "sendBuf", "nullptr", "please check sendBuf"}));
     CHK_PTR_NULL(sendBuf);
     RPT_INPUT_ERR(recvBuf == nullptr, "EI0003",\
-        std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
-        std::vector<std::string>({"HcclAlltoAll", "nullptr", "recvBuf", "non-null pointer"}));
+        std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
+        std::vector<std::string>({"HcclAlltoAll", "recvBuf", "nullptr", "please check recvBuf"}));
     CHK_PTR_NULL(recvBuf);
     CHK_PRT_RET(sendCount != recvCount,
         HCCL_ERROR("sendCount[%lu] and recvCount[%lu] are not equal, please check params",
@@ -460,6 +449,9 @@ HcclResult CheckAlltoAllInputPara(const HcclComm comm, const void *sendBuf, cons
     CHK_PRT_RET(sendType != recvType,
         HCCL_ERROR("sendType[%s] and recvType[%s] are not equal, please check params",
             GetDataTypeEnumStr(sendType).c_str(), GetDataTypeEnumStr(recvType).c_str()), HCCL_E_PARA);
+    RPT_INPUT_ERR(stream == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclAlltoAllV", "nullptr", "stream", "non-null pointer"}));
+    CHK_PTR_NULL(stream);
     CHK_PRT_RET(sendBuf == recvBuf,
         HCCL_ERROR("[HcclAlltoAll] sendBuf and recvBuf cannot be same."), HCCL_E_PARA);
 
@@ -467,55 +459,41 @@ HcclResult CheckAlltoAllInputPara(const HcclComm comm, const void *sendBuf, cons
 }
 
 HcclResult CheckAlltoAllVInputPara(const HcclComm comm, const void *sendBuf, const void *sendCounts, const void *sdispls,
-    const HcclDataType sendType, const void *recvBuf, const void *recvCounts, const void *rdispls, const HcclDataType recvType)
+    const HcclDataType sendType, const void *recvBuf, const void *recvCounts, const void *rdispls,
+    const HcclDataType recvType, const aclrtStream stream)
 {
-    RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
-        std::vector<std::string>({"HcclAlltoAllV", "nullptr", "comm", "non-null pointer"}));
+    RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
+        std::vector<std::string>({"HcclAlltoAllV", "comm", "nullptr", "please check comm"}));
     CHK_PTR_NULL(comm);
-    RPT_INPUT_ERR(sendCounts == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
-        std::vector<std::string>({"HcclAlltoAllV", "nullptr", "sendCounts", "non-null pointer"}));
+    RPT_INPUT_ERR(sendCounts == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
+        std::vector<std::string>({"HcclAlltoAllV", "sendCounts", "nullptr", "please check sendCounts"}));
     CHK_PTR_NULL(sendCounts);
-    RPT_INPUT_ERR(sdispls == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
-        std::vector<std::string>({"HcclAlltoAllV", "nullptr", "sdispls", "non-null pointer"}));
+    RPT_INPUT_ERR(sdispls == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
+        std::vector<std::string>({"HcclAlltoAllV", "sdispls", "nullptr", "please check sdispls"}));
     CHK_PTR_NULL(sdispls);
-    RPT_INPUT_ERR(recvCounts == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
-        std::vector<std::string>({"HcclAlltoAllV", "nullptr", "recvCounts", "non-null pointer"}));
+    RPT_INPUT_ERR(recvCounts == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
+        std::vector<std::string>({"HcclAlltoAllV", "recvCounts", "nullptr", "please check recvCounts"}));
     CHK_PTR_NULL(recvCounts);
-    RPT_INPUT_ERR(rdispls == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
-        std::vector<std::string>({"HcclAlltoAllV", "nullptr", "rdispls", "non-null pointer"}));
+    RPT_INPUT_ERR(rdispls == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
+        std::vector<std::string>({"HcclAlltoAllV", "rdispls", "nullptr", "please check rdispls"}));
     CHK_PTR_NULL(rdispls);
-    CHK_PRT_RET(sendType != recvType,
-        HCCL_ERROR("sendType[%s] and recvType[%s] are not equal, please check params",
-            GetDataTypeEnumStr(sendType).c_str(), GetDataTypeEnumStr(recvType).c_str()), HCCL_E_PARA);
-    CHK_PRT_RET(sendBuf == recvBuf,
-        HCCL_ERROR("[HcclAlltoAllV] sendBuf and recvBuf cannot be same."), HCCL_E_PARA);
+    RPT_INPUT_ERR(stream == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclAlltoAllV", "nullptr", "stream", "non-null pointer"}));
+    CHK_PTR_NULL(stream);
 
     return HCCL_SUCCESS;
 }
 
 HcclResult CheckAlltoAllVCInputPara(const HcclComm comm, const void *sendBuf, const void *sendCountMatrix,
-    const HcclDataType sendType, const void *recvBuf, const HcclDataType recvType)
+    const HcclDataType sendType, const void *recvBuf, const HcclDataType recvType, const aclrtStream stream)
 {
-    RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
-        std::vector<std::string>({"HcclAlltoAllVC", "nullptr", "comm", "non-null pointer"}));
+    RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
+        std::vector<std::string>({"HcclAlltoAllVC", "comm", "nullptr", "please check comm"}));
     CHK_PTR_NULL(comm);
     RPT_INPUT_ERR(sendCountMatrix == nullptr, "EI0003",\
-        std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
-        std::vector<std::string>({"HcclAlltoAllVC", "nullptr", "sendCountMatrix", "non-null pointer"}));
+        std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
+        std::vector<std::string>({"HcclAlltoAllVC", "sendCountMatrix", "nullptr", "please check sendCountMatrix"}));
     CHK_PTR_NULL(sendCountMatrix);
-    RPT_INPUT_ERR(sendBuf == nullptr, "EI0003",\
-        std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-        std::vector<std::string>({"HcclAlltoAllVC", "sendBuf", "nullptr", "please check sendBuf"}));
-    CHK_PTR_NULL(sendBuf);
-    RPT_INPUT_ERR(recvBuf == nullptr, "EI0003",\
-        std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-        std::vector<std::string>({"HcclAlltoAllVC", "recvBuf", "nullptr", "please check recvBuf"}));
-    CHK_PTR_NULL(recvBuf);
-    CHK_PRT_RET(sendType != recvType,
-        HCCL_ERROR("sendType[%s] and recvType[%s] are not equal, please check params",
-            GetDataTypeEnumStr(sendType).c_str(), GetDataTypeEnumStr(recvType).c_str()), HCCL_E_PARA);
-    CHK_PRT_RET(sendBuf == recvBuf,
-        HCCL_ERROR("[HcclAlltoAllVC] sendBuf and recvBuf cannot be same."), HCCL_E_PARA);
 
     return HCCL_SUCCESS;
 }
@@ -546,11 +524,22 @@ HcclResult AlltoAllVConstructOpParam(const void *sendBuf, const void *sendCounts
     param.all2AllVDataDes.sendType = dataType;
     param.all2AllVDataDes.recvType = dataType;
 
+    const u64* sendCountsData = static_cast<const u64*>(sendCounts);
+    const u64* recvCountsData = static_cast<const u64*>(recvCounts);
+    const u64* sdisplsData = static_cast<const u64*>(sdispls);
+    const u64* rdisplsData = static_cast<const u64*>(rdispls);
+    // 计算整片数据包含中间间隔的大小，防止图模式注册内存踩踏
     u64 inputSize = 0;
     u64 outputSize = 0;
     for (u64 i = 0; i < userRankSize; i++) {
-        inputSize += static_cast<const u64*>(sendCounts)[i] * SIZE_TABLE[dataType];
-        outputSize += static_cast<const u64*>(recvCounts)[i] * SIZE_TABLE[dataType];
+        u64 tmpInputSize = sdisplsData[i] + sendCountsData[i];
+        u64 tmpOutputSize = rdisplsData[i] + recvCountsData[i];
+        if (tmpInputSize > inputSize) {
+            inputSize = tmpInputSize;
+        }
+        if (tmpOutputSize > outputSize) {
+            outputSize = tmpOutputSize;
+        }
     }
 
     param.inputSize = inputSize;
@@ -563,16 +552,16 @@ HcclResult AlltoAllVConstructOpParam(const void *sendBuf, const void *sendCounts
         u64 val = i / rankSize;
         switch(val) {
             case SEND_COUNT_IDX:
-                data[i] = static_cast<const u64*>(sendCounts)[i % rankSize];
+                data[i] = sendCountsData[i % rankSize];
                 break;
             case RECV_COUNT_IDX:
-                data[i] = static_cast<const u64*>(recvCounts)[i % rankSize];
+                data[i] = recvCountsData[i % rankSize];
                 break;
             case SEND_DISPL_IDX:
-                data[i] = static_cast<const u64*>(sdispls)[i % rankSize];
+                data[i] = sdisplsData[i % rankSize];
                 break;
             case RECV_DISPL_IDX:
-                data[i] = static_cast<const u64*>(rdispls)[i % rankSize];
+                data[i] = rdisplsData[i % rankSize];
                 break;
             default:
                 break;
@@ -594,7 +583,6 @@ HcclResult AlltoAllVOutPlaceCommon(const void *sendBuf, const void *sendCounts, 
     const void *recvCounts, const void *rdispls, HcclDataType dataType, HcclComm comm, aclrtStream stream,
     const std::string &tag, HcclCMDType opType, u32 rankSize, bool &useInnerOp, OpMode opMode, const ResPackGraphMode &resPack)
 {
-    HCCL_INFO("Start to execute AlltoAllVOutPlaceGraphMode");
     u32 userRankSize;
     CHK_RET(HcclGetRankSize(comm, &userRankSize));
 
@@ -602,7 +590,7 @@ HcclResult AlltoAllVOutPlaceCommon(const void *sendBuf, const void *sendCounts, 
     void *paramMem = malloc(sizeof(OpParam) + varMemSize);
     if (!paramMem) {
         // 内存分配失败
-        HCCL_ERROR("[AlltoAllVOutPlaceGraphMode] malloc OpParam failed!");
+        HCCL_ERROR("[AlltoAllVOutPlaceCommon] malloc OpParam failed!");
         return HCCL_E_INTERNAL;
     }
     OpParam* tmpParamPtr = new (paramMem) OpParam();
@@ -632,17 +620,21 @@ HcclResult AlltoAllVOutPlaceCommon(const void *sendBuf, const void *sendCounts, 
     }
 
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName, resPack));
-    HCCL_INFO("Execute AlltoAllVOutPlaceGraphMode success.");
     return HCCL_SUCCESS;
 }
 
 HcclResult AlltoAllVOutPlaceGraphMode(const void *sendBuf, const void *sendCounts, const void *sdispls, const void *recvBuf,
     const void *recvCounts, const void *rdispls, HcclDataType dataType, HcclComm comm, aclrtStream stream,
-    const std::string &tag, HcclCMDType opType, u32 rankSize, bool &useInnerOp, const ResPackGraphMode &resPack)
+    const std::string &tag, HcclCMDType opType, u32 rankSize, const ResPackGraphMode &resPack)
 {
     HCCL_INFO("Start to execute AlltoAllVOutPlaceGraphMode");
+    bool useInnerOp = false;
     CHK_RET(AlltoAllVOutPlaceCommon(sendBuf, sendCounts, sdispls, recvBuf, recvCounts, rdispls, dataType, comm, stream,
         tag, opType, rankSize, useInnerOp, OpMode::OFFLOAD, resPack));
+    if (useInnerOp) {
+        HCCL_ERROR("should use inner op!");
+        return HCCL_E_INTERNAL;
+    }
     HCCL_INFO("Execute AlltoAllVOutPlaceGraphMode success.");
     return HCCL_SUCCESS;
 }
