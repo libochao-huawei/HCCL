@@ -24,6 +24,7 @@
 #include "ccu_temp_all_reduce_mesh_1D_2die_oneshot.h"
 #include "ccu_temp_all_reduce_mesh_1D_mem2mem_2die_oneshot.h"
 #include "ccu_temp_all_reduce_nhr_mem2mem_1D_multi_jetty.h"
+#include "ccu_temp_all_reduce_mesh_1D_detour.h"
 #endif
 
 namespace ops_hccl {
@@ -45,16 +46,26 @@ HcclResult InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcAlgHier
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
+HcclResult InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CreateAlgTemplate(const OpParam& param,
+    const TopoInfoWithNetLayerDetails* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo)
+{
+    if (algTemplate_ != nullptr) {
+        return HCCL_SUCCESS;
+    }
+    algTemplate_ = std::make_shared<InsAlgTemplate>(param, topoInfo->userRank, algHierarchyInfo.infos[0]);
+    return HCCL_SUCCESS;
+}
+
+template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(
     HcclComm comm, const OpParam& param,
     const TopoInfoWithNetLayerDetails* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
     AlgResourceRequest& resourceRequest)
 {
     // 构建template
-    std::shared_ptr<InsAlgTemplate> algTemplate = 
-        std::make_shared<InsAlgTemplate>(param, topoInfo->userRank, algHierarchyInfo.infos[0]);
+    CHK_RET(CreateAlgTemplate(param, topoInfo, algHierarchyInfo));
     // 调用计算资源的函数
-    algTemplate->CalcRes(comm, param, topoInfo, resourceRequest);
+    algTemplate_->CalcRes(comm, param, topoInfo, resourceRequest);
     return HCCL_SUCCESS;
 }
 
@@ -113,9 +124,10 @@ HcclResult InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     tempAlgParams.outputRepeatStride = 0;
 
     // 构建template
-    std::shared_ptr<InsAlgTemplate> algTemplate =
-        std::make_shared<InsAlgTemplate>(param, resCtx.topoInfo.userRank, resCtx.algHierarchyInfo.infos[0]);
-    u32 templateScratchMultiplier = algTemplate->CalcScratchMultiple(tempAlgParams.buffInfo.inBuffType,
+    CHK_PRT_RET(algTemplate_ == nullptr && param.engine == COMM_ENGINE_CCU && param.detourType != HcclDetourType::HCCL_DETOUR_DISABLE,
+        HCCL_ERROR("Need to call function[CalcRes] first to init the nums of detour path."), HCCL_E_INTERNAL);
+    CHK_RET(CreateAlgTemplate(param, &resCtx.topoInfo, resCtx.algHierarchyInfo));
+    u32 templateScratchMultiplier = algTemplate_->CalcScratchMultiple(tempAlgParams.buffInfo.inBuffType,
                                                                      tempAlgParams.buffInfo.outBuffType);
 
     // 计算最小传输大小
@@ -161,7 +173,7 @@ HcclResult InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
             "tempAlgParams.buffInfo.outBuffBaseOff [%u]",
             loop, tempAlgParams.buffInfo.inBuffBaseOff, tempAlgParams.buffInfo.outBuffBaseOff);
 
-        CHK_RET(algTemplate->KernelRun(param, tempAlgParams, templateAlgRes));
+        CHK_RET(algTemplate_->KernelRun(param, tempAlgParams, templateAlgRes));
         processedDataCount += currDataCount;
     }
 #ifndef AICPU_COMPILE
@@ -269,5 +281,7 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh1DMem2Mem2DieO
     CcuTempAllReduceMesh1DMem2Mem2DieOneShot);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceNHR1DMem2MemMultiJetty, InsV2AllReduceSoleExecutor, TopoMatch1D,
     CcuTempAllReduceNhrMem2Mem1DMultiJetty);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh1DDetour, InsV2AllReduceSoleExecutor,
+                 TopoMatch1D, CcuTempAllReduceMesh1DDetour); 
 #endif
 }  // namespace ops_hccl
