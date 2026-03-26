@@ -1,6 +1,6 @@
 # -----------------------------------------------------------------------------------------------------------
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
-# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
@@ -9,11 +9,7 @@
 # -----------------------------------------------------------------------------------------------------------
 
 set(src_list
-    ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_reduce_scatter_mesh_1D.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_reduce_scatter_nhr.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_reduce_scatter_mesh_1D_meshchunk.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_reduce_scatter_mesh_1d_dpu.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_reduce_scatter_aicpu_reduce_nhr.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/ccu_kernel_reduce_scatter_v_mesh1d_mem2mem.cc
 )
 
 target_sources(hccl PRIVATE
