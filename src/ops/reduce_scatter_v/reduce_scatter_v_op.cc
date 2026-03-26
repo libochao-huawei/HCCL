@@ -53,9 +53,9 @@ HcclResult HcclReduceScatterV(void *sendBuf,  const void *sendCounts, const void
     CHK_RET(HcclGetRankSize(comm, &rankSize));
     // 校验sendCounts全部为0的情况
     const u64* sendCountsAddr = reinterpret_cast<const u64*>(sendCounts);
-    CHK_PRT_RET(std::all_of(sendCountsAddr, sendCountsAddr + rankSize, [](auto count) { return count == 0; }), 
-            HCCL_WARNING("input all %u elements in sendCounts are 0, return success", rankSize), 
-            HCCL_SUCCESS);  
+    CHK_PRT_RET(std::all_of(sendCountsAddr, sendCountsAddr + rankSize, [](auto count) { return count == 0; }),
+            HCCL_WARNING("input all %u elements in sendCounts are 0, return success", rankSize),
+            HCCL_SUCCESS);
     u32 userRank = INVALID_VALUE_RANKID;
     CHK_RET(HcclGetRankId(comm, &userRank));
     char commName[COMM_INDENTIFIER_MAX_LENGTH];
@@ -119,7 +119,7 @@ HcclResult ReduceScatterVOutPlace(void *sendBuf, const void *sendDispls, const v
 
     void* paramMem = malloc(sizeof(OpParam) + varMemSize);
 
-if (!paramMem) {
+    if (!paramMem) {
         // 内存分配失败
         HCCL_ERROR("[ReduceScatterVOutPlace] malloc OpParam failed!");
         return HCCL_E_INTERNAL;

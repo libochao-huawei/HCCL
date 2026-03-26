@@ -88,7 +88,8 @@ protected:
                              HcclDataType outputDataType, HcclReduceOp opType);
 
     HcclResult GroupCopy(CcuRep::LocalAddr dst, CcuRep::LocalAddr src, GroupOpSize goSize);
-
+    HcclResult GroupLocalReduce(CcuRep::LocalAddr outDstOrg, std::vector<CcuRep::LocalAddr> &scratchOrg,
+        GroupOpSize goSize, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType);
 private:
     HcclResult CreateMultiOpCopy();
     HcclResult CreateMultiOpBroadcast(const std::vector<ChannelHandle> &channels);
@@ -97,6 +98,9 @@ private:
                                    HcclDataType outputDataType, HcclReduceOp opType);
     HcclResult CreateMultiOpReduceWithoutMyRank(const std::vector<ChannelHandle> &ccuChannels, HcclDataType dataType,
                                      HcclDataType outputDataType, HcclReduceOp opType);
+    HcclResult CreateReduceLoop(uint32_t size, HcclDataType dataType, HcclDataType outputDataType,
+        HcclReduceOp opType);
+    std::string GetLoopBlockTag(std::string loopType, int32_t index);
 };
 
 }
