@@ -8,9 +8,6 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include <hccl/hccl_types.h>
-#include <hccl/hcomm_primitives.h>
-#include <hccl/hccl_rank_graph.h>
 #include "log.h"
 #include "utils.h"
 #include "common.h"
@@ -18,7 +15,6 @@
 #include "load_kernel.h"
 #include "launch_kernel.h"
 
-using namespace std;
 using namespace ops_hccl_p2p;
 
 HcclResult HcclRecvCustom(
@@ -47,8 +43,6 @@ HcclResult HcclRecvCustom(
     uint32_t rank, rankSize;
     CHK_RET(HcclGetRankId(comm, &rank));
     CHK_RET(HcclGetRankSize(comm, &rankSize));
-    DeviceType devType;
-    CHK_RET(GetDeviceType(&devType));
 
     // ==============================================
     // STEP 2: 创建资源
@@ -82,44 +76,7 @@ HcclResult HcclRecvCustom(
         // ==============================================
         // STEP 2.2: 建立通信链路Channel，两个 rank 之间建立 1 个 channel
         // ==============================================
-        CommProtocol protocol;
-        if (devType == DEVICE_TYPE_A3) {
-            protocol = CommProtocol::COMM_PROTOCOL_HCCS;
-        } else if (devType == DEVICE_TYPE_A5) {
-            protocol = CommProtocol::COMM_PROTOCOL_UBC_CTP;
-        } else {
-            HCCL_ERROR("[HcclRecvCustom] Unsupported device type %d", devType);
-            return HCCL_E_NOT_SUPPORT;
-        }
-
-        uint32_t netLayer = 0, listSize = 0;
-        CommLink *linkList = nullptr;
-        CHK_RET(HcclRankGraphGetLinks(comm, netLayer, rank, srcRank, &linkList, &listSize));
-
-        HcclChannelDesc desc;
-        CHK_RET(HcclChannelDescInit(&desc, 1));
-        bool protocolExists = false;
-        for (uint32_t idx = 0; idx < listSize; idx++) {
-            CommLink link = linkList[idx];
-            if (link.linkAttr.linkProtocol == protocol) {
-                desc.remoteRank = srcRank;
-                desc.notifyNum = 2;
-                desc.channelProtocol = link.linkAttr.linkProtocol;
-                desc.localEndpoint.protocol = link.srcEndpointDesc.protocol;
-                desc.localEndpoint.commAddr = link.srcEndpointDesc.commAddr;
-                desc.localEndpoint.loc = link.srcEndpointDesc.loc;
-                desc.remoteEndpoint.protocol = link.dstEndpointDesc.protocol;
-                desc.remoteEndpoint.commAddr = link.dstEndpointDesc.commAddr;
-                desc.remoteEndpoint.loc = link.dstEndpointDesc.loc;
-                protocolExists = true;
-                break;
-            }
-        }
-        if (!protocolExists) {
-            HCCL_ERROR("[HcclRecvCustom] Protocol %d not found between rank %u and rank %u", protocol, rank, srcRank);
-            return HCCL_E_NOT_FOUND;
-        }
-        CHK_RET(HcclChannelAcquire(comm, engine, &desc, 1, &(resCtxHost.channelHandle)));
+        CHK_RET(AcquireChannel(comm, engine, rank, srcRank, &(resCtxHost.channelHandle)));
 
         // ==============================================
         // STEP 2.3: 获取本端和远端的中转内存
