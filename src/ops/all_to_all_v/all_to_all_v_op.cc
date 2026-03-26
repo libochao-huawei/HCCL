@@ -161,8 +161,7 @@ HcclResult HcclAlltoAllV(const void *sendBuf, const void *sendCounts, const void
         ACLCHECK(aclrtStreamGetId(stream, &streamId));
         char stackLogBuffer[LOG_TMPBUF_SIZE];
         s32 ret = snprintf_s(stackLogBuffer, LOG_TMPBUF_SIZE, LOG_TMPBUF_SIZE - 1U,
-            "tag[%s], sendBuf[%p], recvBuf[%p], sendCounts[%p], recvCounts[%p], sdispls[%p], rdispls[%p], sendType[%s], recvType[%s],
-            streamId[%d], deviceLogicId[%d]",
+            "tag[%s], sendBuf[%p], recvBuf[%p], sendCounts[%p], recvCounts[%p], sdispls[%p], rdispls[%p], sendType[%s], recvType[%s], streamId[%d], deviceLogicId[%d]",
             tag.c_str(), sendBuf, recvBuf, sendCounts, recvCounts, sdispls, rdispls, GetDataTypeEnumStr(sendType).c_str(),
             GetDataTypeEnumStr(recvType).c_str(), streamId, deviceLogicId);
 
