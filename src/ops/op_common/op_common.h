@@ -63,7 +63,8 @@ HcclResult GetGraphModeBuffers(HcclComm comm, ChannelHandle channelHandle, const
 HcclResult HcclGetCcuKernel(HcclComm comm, AlgResourceRequest &resRequest,
                           std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost);
 
-HcclResult HcclGetChannelForCcu(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest);
+HcclResult HcclGetChannelForCcu(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest, 
+                                std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost);
 
 HcclResult HcclAllocAlgResourceCcu(HcclComm comm, const OpParam& param, AlgResourceRequest& resRequest,
                                    std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost);
@@ -93,6 +94,8 @@ HcclResult GetAlgResDPU(HcclComm comm, const OpParam &param, AlgResourceRequest 
 HcclResult CheckCount(const u64 count);
 
 HcclResult CheckDataType(const HcclDataType dataType, bool needReduce);
+
+HcclResult CheckDetourSupport(HcclComm comm, OpParam &param);
 
 std::string GetSupportDataType(bool needReduce);
 

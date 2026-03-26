@@ -73,6 +73,26 @@ HcclResult CheckAsymmetricTopoSupport(HcclCMDType opType, const TopoInfoWithNetL
     return HCCL_SUCCESS;
 }
 
+HcclResult CheckDetourSupport(HcclComm comm, OpParam &param)
+{
+    u32 userRankSize;
+    CHK_RET(HcclGetRankSize(comm, &userRankSize));
+    CHK_PRT_RET(param.opExecuteConfig != OpExecuteConfig::CCU_MS && param.opExecuteConfig != OpExecuteConfig::CCU_SCHED &&
+                param.detourType != HcclDetourType::HCCL_DETOUR_DISABLE,
+        HCCL_ERROR("[CheckDetourSupport] Detour only support ccu mode."),
+        HCCL_E_NOT_SUPPORT);
+    if ((param.detourType == HcclDetourType::HCCL_DETOUR_ENABLE_2P && userRankSize != 2) ||
+        (param.detourType == HcclDetourType::HCCL_DETOUR_ENABLE_4P && userRankSize != 4 ||
+        param.detourType == HcclDetourType::HCCL_DETOUR_ENABLE_2P_AND_4P)) {
+        HCCL_WARNING("[Selector] Detour only support HCCL_DETOUR_ENABLE_2P and ranksize=2 or "
+            "HCCL_DETOUR_ENABLE_4P and ranksize=4, Detour type[%d], rankSize[%u], reset detour type "
+            "to HCCL_DETOUR_DISABLE",
+            param.detourType, userRankSize);
+        param.detourType = HcclDetourType::HCCL_DETOUR_DISABLE;
+    }
+    return HCCL_SUCCESS;
+}
+
 HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
     std::string &algName)
 {
@@ -90,6 +110,7 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
     CHK_RET(HcclGetOpExpansionMode(comm, param));
     // 获取基础拓扑
     CHK_RET(HcclCalcTopoInfo(comm, param, topoInfo));
+    CHK_RET(CheckDetourSupport(comm, param));
 
     // 检查非对称拓扑支持情况，非对称场景仅 AllGather/AllReduce/ReduceScatter 可用
     CHK_RET(CheckAsymmetricTopoSupport(param.opType, topoInfo.get()));
@@ -1124,18 +1145,20 @@ HcclResult HcclAllocAlgResourceCcu(HcclComm comm, const OpParam& param, AlgResou
     resCtxHost->slaveThreadNum = resRequest.slaveThreadNum;
     resCtxHost->notifyNumPerThread = resRequest.notifyNumPerThread;
     CHK_RET(HcclGetThread(comm, param, resRequest, resCtxHost));
-    CHK_RET(HcclGetChannelForCcu(comm, param, resRequest));
+    CHK_RET(HcclGetChannelForCcu(comm, param, resRequest, resCtxHost));
     CHK_RET(HcclGetCcuKernel(comm, resRequest, resCtxHost));
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclGetChannelForCcu(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest)
+HcclResult HcclGetChannelForCcu(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest, 
+                                std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost)
 {
     // 以kernel为粒度申请channel
     for (CcuKernelInfo& kernelInfo: resRequest.ccuKernelInfos) {
         std::vector<HcclChannelDesc> &kernelChannelRequest = kernelInfo.channels;
 
         u32 channelNum = kernelChannelRequest.size();
+        resCtxHost->channelNums.emplace_back(channelNum);
         std::vector<ChannelHandle> kernelChannels;
         kernelChannels.resize(channelNum);
 

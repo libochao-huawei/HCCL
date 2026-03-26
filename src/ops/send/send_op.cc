@@ -149,7 +149,7 @@ namespace ops_hccl {
         u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType];
         u64 dataSize = count * dataTypeSize;
         param.opType = HcclCMDType::HCCL_CMD_SEND;
-        param.enableDetour = false;
+        param.detourType = GetExternalInputHcclDetourType();
 
         DevType deviceType = DevType::DEV_TYPE_COUNT;
         CHK_RET(hrtGetDeviceType(deviceType));
