@@ -23,7 +23,14 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 HcclResult HcclSend(
     void *sendBuf, uint64_t count, HcclDataType dataType, uint32_t destRank, HcclComm comm, aclrtStream stream)
 {
+    if (!HcclCheckAicpuEnableOpen() && !HcclCheckCcuEnableOpen() && !HcclCheckAivEnableOpen()) {
+        return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
+    }
     HCCL_INFO("[HcclSend] Start.");
+    if (GetHcommVersion() < 90000000) {
+        return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
+    }
+
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
     #ifdef MACRO_DEV_TYPE_NEW
@@ -31,9 +38,6 @@ HcclResult HcclSend(
     #else
     if (deviceType != DevType::DEV_TYPE_910_95) {
     #endif
-        return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
-    }
-    if (GetWorkflowMode() != HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE) {
         return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
     }
 
@@ -68,14 +72,14 @@ namespace ops_hccl {
         RPT_INPUT_ERR(
             comm == nullptr,
             "EI0003",
-            std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),
-            std::vector<std::string>({"HcclSend", "comm", "nullptr", "please check comm"}));
+            std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),
+            std::vector<std::string>({"HcclSend", "nullptr", "comm", "non-null pointer"}));
         CHK_PTR_NULL(comm);
         RPT_INPUT_ERR(
             sendBuf == nullptr,
             "EI0003",
-            std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),
-            std::vector<std::string>({"HcclSend", "sendBuf", "nullptr", "please check sendBuf"}));
+            std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),
+            std::vector<std::string>({"HcclSend", "nullptr", "sendBuf", "non-null pointer"}));
         CHK_PTR_NULL(sendBuf);
 
         return HcclResult::HCCL_SUCCESS;
