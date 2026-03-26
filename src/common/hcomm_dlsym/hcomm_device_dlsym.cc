@@ -48,9 +48,3 @@ void HcommDeviceDlFini(void) {
         gLibHandle = nullptr;
     }
 }
-
-__attribute__((constructor)) void InitHcommDeviceDlsym()
-{
-    static pthread_once_t once = PTHREAD_ONCE_INIT;
-    pthread_once(&once, HcommDeviceDlInit);
-}

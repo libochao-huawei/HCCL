@@ -86,9 +86,3 @@ void HcommDlFini(void) {
         gLibHandle = nullptr;
     }
 }
-
-__attribute__((constructor)) void InitHcommDlsym()
-{
-    static pthread_once_t once = PTHREAD_ONCE_INIT;
-    pthread_once(&once, HcommDlInit);
-}
