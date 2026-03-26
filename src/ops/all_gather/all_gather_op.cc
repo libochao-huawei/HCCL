@@ -164,6 +164,7 @@ HcclResult HcclAllGatherGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCou
 
     return HCCL_SUCCESS;
 }
+}  // namespace ops_hccl
 
 namespace ops_hccl {
 HcclResult CheckAllGatherInputPara(const HcclComm comm, const void* sendBuf, const void* recvBuf, const aclrtStream stream)

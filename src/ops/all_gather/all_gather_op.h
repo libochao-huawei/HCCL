@@ -40,6 +40,7 @@ HcclResult AllGatherOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t sendCo
                                    aclrtStream stream, const std::string &tag, OpMode opMode, const ResPackGraphMode &resPack);
 
 HcclResult CheckAllGatherInputPara(const HcclComm comm, const void* sendBuf, const void* recvBuf, const aclrtStream stream);
+HcclResult AllGatherInitAndCheck(HcclComm comm, void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, aclrtStream stream, std::string &opTag);
 HcclResult AllGatherOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
                                       aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack);
 }
