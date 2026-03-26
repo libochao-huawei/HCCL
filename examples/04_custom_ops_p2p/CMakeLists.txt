@@ -84,9 +84,6 @@ install(FILES
     DESTINATION ${CUSTOM_OPS_OPP_INC_PATH}
 )
 
-set(AICPU_KERNEL_TAR_FILE ${CMAKE_BINARY_DIR}/aicpu_hccl_custom_p2p.tar.gz)
-set(AICPU_KERNEL_JSON_FILE ${CMAKE_CURRENT_SOURCE_DIR}/op_kernel_aicpu/libp2p_aicpu_kernel.json)
-
 if(KERNEL_MODE)
     # AICPU Kernel 动态链接库
     add_library(p2p_aicpu_kernel SHARED)
@@ -110,12 +107,10 @@ if(KERNEL_MODE)
     register_custom_aicpu_target(p2p_aicpu_kernel)
 
     # 打包：AICPU Kernel tar 包
-    get_target_property(KERNEL_LIB_PATH p2p_aicpu_kernel LOCATION)
     pack_targets_and_files(
         OUTPUT_TARGET "generate_custom_aicpu_package"
         OUTPUT "aicpu_hccl_custom_p2p.tar.gz"
-        FILES ${KERNEL_PATH}
-        TARGET p2p_aicpu_kernel
+        TARGETS p2p_aicpu_kernel
         MANIFEST "bin_hash.cfg"
         TAR_ROOT_DIR "aicpu_kernels_device"
     )
@@ -134,7 +129,7 @@ else()
         DESTINATION ${CUSTOM_OPS_OPP_AICPU_KERNEL_PATH}
     )
     install(FILES
-        ${AICPU_KERNEL_JSON_FILE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/op_kernel_aicpu/libp2p_aicpu_kernel.json
         DESTINATION ${CUSTOM_OPS_OPP_AICPU_CONFIG_PATH}
     )
 endif()
