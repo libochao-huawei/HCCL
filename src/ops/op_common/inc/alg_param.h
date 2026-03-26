@@ -20,9 +20,9 @@
 #include "hccl_common.h"
 #include "hccl_types.h"
 #include "alg_type.h"
-#include "hccl_res.h"
-#include "hcomm_primitives.h"
-#include "hccl_rank_graph.h"
+#include "hccl_res_dl.h"
+#include "hcomm_primitives_dl.h"
+#include "hccl_rank_graph_dl.h"
 #include "binary_stream.h"
 #include "hccl_ccu_res.h"
 
@@ -32,7 +32,7 @@ constexpr uint64_t UB_MAX_DATA_SIZE = 256*1024*1024; // Byte, UB协议一次传�
 
 constexpr uint32_t DATATYPE_SIZE_TABLE[HCCL_DATA_TYPE_RESERVED] = {sizeof(int8_t), sizeof(int16_t), sizeof(int32_t),
     2, sizeof(float), sizeof(int64_t), sizeof(uint64_t), sizeof(uint8_t), sizeof(uint16_t), sizeof(uint32_t),
-    8, 2, 16, 2, 1, 1, 1, 1};
+    8, 2, 16, 2, 1, 1, 1, 1, 1};
 
 constexpr u32 COMM_INDENTIFIER_MAX_LENGTH = 128;
 constexpr uint32_t OP_NAME_LENGTH = 32;
