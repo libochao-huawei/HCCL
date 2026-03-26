@@ -48,7 +48,7 @@ HcclResult HcclReduceScatterV(void *sendBuf,  const void *sendCounts, const void
 
     // 参数校验等工作;
     // 校验入参
-    CHK_RET(CheckReduceScatterVInputPara(comm, sendBuf, recvBuf, recvCount, sendCounts, sendDispls, stream));
+    CHK_RET(CheckReduceScatterVInputParam(comm, sendBuf, recvBuf, recvCount, sendCounts, sendDispls, stream));
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     CHK_RET(HcclGetRankSize(comm, &rankSize));
     // 校验sendCounts全部为0的情况
@@ -128,7 +128,7 @@ HcclResult HcclReduceScatterVGraphMode(void *sendBuf,  const void *sendCounts, c
 
 
 namespace ops_hccl {
-HcclResult CheckReduceScatterVInputPara(
+HcclResult CheckReduceScatterVInputParam(
     const HcclComm comm, const void *sendBuf, const void *recvBuf, uint64_t recvCount,
     const void *sendCounts, const void *sendDispls, const aclrtStream stream)
 {
