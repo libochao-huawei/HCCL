@@ -53,9 +53,9 @@ HcclResult HcclReduceScatterV(void *sendBuf,  const void *sendCounts, const void
     CHK_RET(HcclGetRankSize(comm, &rankSize));
     // 校验sendCounts全部为0的情况
     const u64* sendCountsAddr = reinterpret_cast<const u64*>(sendCounts);
-    CHK_PRT_RET(std::all_of(sendCountsAddr, sendCountsAddr + rankSize, [](auto count) { return count == 0; }), 
-            HCCL_WARNING("input all %u elements in sendCounts are 0, return success", rankSize), 
-            HCCL_SUCCESS);  
+    CHK_PRT_RET(std::all_of(sendCountsAddr, sendCountsAddr + rankSize, [](auto count) { return count == 0; }),
+            HCCL_WARNING("input all %u elements in sendCounts are 0, return success", rankSize),
+            HCCL_SUCCESS);
     u32 userRank = INVALID_VALUE_RANKID;
     CHK_RET(HcclGetRankId(comm, &userRank));
     char commName[COMM_INDENTIFIER_MAX_LENGTH];
@@ -131,19 +131,19 @@ HcclResult CheckReduceScatterVInputParam(
     const void *sendCounts, const void *sendDispls, const aclrtStream stream)
 {
     // 入参合法性校验
-    RPT_INPUT_ERR(stream == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-        std::vector<std::string>({"HcclReduceScatter", "stream", "nullptr", "please check stream"}));
+    RPT_INPUT_ERR(stream == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclReduceScatterV", "nullptr", "stream", "non-null pointer"}));
     CHK_PTR_NULL(stream);
-    RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-        std::vector<std::string>({"HcclReduceScatterV", "comm", "nullptr", "please check comm"}));
+    RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclReduceScatterV", "nullptr", "comm", "non-null pointer"}));
     CHK_PTR_NULL(comm);
 
-    RPT_INPUT_ERR(sendCounts == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-        std::vector<std::string>({"HcclReduceScatterV", "sendCounts", "nullptr", "please check sendCounts"}));
+    RPT_INPUT_ERR(sendCounts == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclReduceScatterV", "nullptr", "sendCounts", "non-null pointer"}));
     CHK_PTR_NULL(sendCounts);
 
-    RPT_INPUT_ERR(sendDispls == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-        std::vector<std::string>({"HcclReduceScatterV", "sendDispls", "nullptr", "please check sendDispls"}));
+    RPT_INPUT_ERR(sendDispls == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclReduceScatterV", "nullptr", "sendDispls", "non-null pointer"}));
     CHK_PTR_NULL(sendDispls);
     if (UNLIKELY(recvCount > 0 && recvBuf == nullptr)) {
         RPT_INPUT_ERR(true, "EI0003",\
@@ -160,7 +160,27 @@ HcclResult PrepareReduceScatterVParam(void *sendBuf, const void *sendDispls, con
 {
     u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
     u64 outputSize = recvCount * perDataSize;
-    HCCL_INFO("PrepareReduceScatterVParam[outputSize]:[%u]", outputSize);
+    u64 inputSize = outputSize * userRankSize;
+
+    // 申请OpParam参数结构体内存
+    u64 varMemSize = 2 * userRankSize * sizeof(u64);
+
+    void* paramMem = malloc(sizeof(OpParam) + varMemSize);
+
+    if (!paramMem) {
+        // 内存分配失败
+        HCCL_ERROR("[ReduceScatterVOutPlace] malloc OpParam failed!");
+        return HCCL_E_INTERNAL;
+    }
+    OpParam* tmpParamPtr = new (paramMem) OpParam();
+    auto deleter = [](OpParam* p) {
+        if (p) {
+            p->~OpParam();
+            free(p);
+        }
+     };
+    std::unique_ptr<OpParam, decltype(deleter)> paramPtr(tmpParamPtr, deleter);
+    OpParam& param = *paramPtr;
 
     CHK_RET(HcclGetCommName(comm, param.commName));
     param.stream = stream;
@@ -252,46 +272,4 @@ HcclResult ReduceScatterVOutPlace(void *sendBuf, const void *sendDispls, const v
     HCCL_INFO("Execute ReduceScatterVOutPlace success.");
     return HCCL_SUCCESS;
 }
-
-HcclResult ReduceScatterVOutPlaceGraphMode(void *sendBuf, const void *sendDispls, const void *sendCounts, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
-    HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack)
-{
-    HCCL_INFO("Start to execute ReduceScatterVOutPlaceGraphMode");
-    u32 userRankSize;
-    CHK_RET(HcclGetRankSize(comm, &userRankSize));
-
-    // 申请OpParam参数结构体内存
-    u64 varMemSize = 2 * userRankSize * sizeof(u64);
-
-    void* paramMem = malloc(sizeof(OpParam) + varMemSize);
-
-    if (!paramMem) {
-        // 内存分配失败
-        HCCL_ERROR("[ReduceScatterVOutPlace] malloc OpParam failed!");
-        return HCCL_E_INTERNAL;
-    }
-    OpParam* tmpParamPtr = new (paramMem) OpParam();
-    auto deleter = [](OpParam* p) {
-        if (p) {
-            p->~OpParam();
-            free(p);
-        }
-     };
-    std::unique_ptr<OpParam, decltype(deleter)> paramPtr(tmpParamPtr, deleter);
-    OpParam& param = *paramPtr;
-    CHK_RET(PrepareReduceScatterVParam(sendBuf, sendDispls, sendCounts, recvBuf, recvCount, dataType, op, comm, stream, tag, OpMode::OFFLOAD, userRankSize, varMemSize, param));
-    if (userRankSize == 1) {
-        HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
-        CHK_RET(SingleRankProc(param));
-        return HcclResult::HCCL_SUCCESS;
-    }
-
-    std::string algName;
-    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
-    CHK_RET(Selector(comm, param, topoInfo, algName));
-    CHK_RET(HcclExecOp(comm, param, topoInfo, algName, resPack));
-    HCCL_INFO("Execute ReduceScatterVOutPlaceGraphMode success.");
-    return HCCL_SUCCESS;
-}
-
 }
