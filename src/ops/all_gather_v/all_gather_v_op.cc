@@ -72,7 +72,6 @@ HcclResult HcclAllGatherV(void *sendBuf, uint64_t sendCount, void *recvBuf, cons
     CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), tag.c_str());
     CHK_RET(CheckCount(sendCount));
     CHK_RET(CheckDataType(dataType, false));
-
     // 执行AllGatherV
     CHK_RET_AND_PRINT_IDE(AllGatherVOutPlace(sendBuf, recvBuf, sendCount, recvCounts, recvDispls, dataType, comm, stream, tag), tag.c_str());
     if (GetExternalInputHcclEnableEntryLog()) {
