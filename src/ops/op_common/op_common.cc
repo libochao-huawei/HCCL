@@ -547,8 +547,8 @@ HcclResult GetAlgResAICPU(HcclComm comm, const OpParam &param, AlgResourceReques
                 *resCtxSequence = ctx;
                 ctxSize = size;
                 isResourceReused = true;
-                // 从 g_hostCtx 获取 host 侧上下文，用于后续获取 unfoldThread
-                resCtxHost = std::make_unique<AlgResourceCtxSerializable>(*g_hostCtx.at(tagStr));
+                // 从 g_hostCtx 获取 unfoldThread
+                resCtxHost->unfoldThread = g_hostCtx.at(tagStr)->unfoldThread;
                 HCCL_INFO("[%s] resource reused in incremental mode, algTag[%s], unfoldThread[%lu]", 
                     __func__, param.algTag, resCtxHost->unfoldThread);
             } else {

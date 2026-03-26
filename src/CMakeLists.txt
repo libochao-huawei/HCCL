@@ -425,6 +425,7 @@ target_compile_options(hccl PRIVATE
     $<$<CONFIG:Debug>:-g>
     -std=c++14
     -fstack-protector-all
+    -g
 )
 
 # libhccl
