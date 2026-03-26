@@ -49,7 +49,7 @@ constexpr u64 SEND_COUNT_IDX = 0;
 constexpr u64 RECV_COUNT_IDX = 1;
 constexpr u64 SEND_DISPL_IDX = 2;
 constexpr u64 RECV_DISPL_IDX = 3;
-HcclResult ConvertAlltoAllParam(const u64 recvCount, const u32 rankSize, vector<u64> &sdispls, vector<u64> &rdispls);
+HcclResult ConvertAlltoAllParam(const u64 recvCount, const u32 rankSize, std::vector<u64> &sdispls, std::vector<u64> &rdispls);
 HcclResult ConvertAlltoAllVCParam(const u32 rankSize, const u32 userRank, const void *sendCountMatrix,
     std::vector<u64> &sendCounts, std::vector<u64> &recvCounts, std::vector<u64> &sdispls, std::vector<u64> &rdispls);
 HcclResult GenResPack(const char* tag, void** streams, const size_t streamCount,

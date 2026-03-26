@@ -59,10 +59,10 @@ HcclResult HcclAlltoAll(const void *sendBuf, uint64_t sendCount, HcclDataType se
     CHK_RET(CheckDataType(recvType, false));
 
     // 构造四个矩阵，适配alltoallV的逻辑
-    vector<u64> sdispls(rankSize, 0);
-    vector<u64> rdispls(rankSize, 0);
-    vector<u64> sendCounts(rankSize, recvCount);
-    vector<u64> recvCounts(rankSize, recvCount);
+    std::vector<u64> sdispls(rankSize, 0);
+    std::vector<u64> rdispls(rankSize, 0);
+    std::vector<u64> sendCounts(rankSize, recvCount);
+    std::vector<u64> recvCounts(rankSize, recvCount);
     CHK_RET(ConvertAlltoAllParam(recvCount, rankSize, sdispls, rdispls));
 
     // 底层走AlltoAllV
@@ -211,10 +211,10 @@ HcclResult HcclAlltoAllGraphMode(const void *sendBuf, uint64_t sendCount, HcclDa
     CHK_RET(CheckDataType(recvType, false));
 
     // 构造四个矩阵，适配alltoallV的逻辑
-    vector<u64> sendCounts(rankSize, recvCount);
-    vector<u64> recvCounts(rankSize, recvCount);
-    vector<u64> sdispls(rankSize, 0);
-    vector<u64> rdispls(rankSize, 0);
+    std::vector<u64> sendCounts(rankSize, recvCount);
+    std::vector<u64> recvCounts(rankSize, recvCount);
+    std::vector<u64> sdispls(rankSize, 0);
+    std::vector<u64> rdispls(rankSize, 0);
     CHK_RET(ConvertAlltoAllParam(recvCount, rankSize, sdispls, rdispls));
 
     // 拼装ResPackGraphMode
@@ -338,7 +338,7 @@ HcclResult GenResPack(const char* tag, void** streams, const size_t streamCount,
     return HCCL_SUCCESS;
 }
 
-HcclResult ConvertAlltoAllParam(const u64 recvCount, const u32 rankSize, vector<u64> &sdispls, vector<u64> &rdispls)
+HcclResult ConvertAlltoAllParam(const u64 recvCount, const u32 rankSize, std::vector<u64> &sdispls, std::vector<u64> &rdispls)
 {
     u64 dataCountOffset = 0;
     for (u64 i = 0; i < rankSize; i++) {
