@@ -69,7 +69,6 @@ void HcommDlInit(void) {
     HcclRankGraphDlInit(gLibHandle);
     HcommPrimitivesDlInit(gLibHandle);
     HcclInnerDlInit(gLibHandle);
-    DtypeCommonDlInit(gLibHandle);
     HcommProfilingDlInit(gLibHandle);
     HcomDlInit(gLibHandle);
 }
@@ -80,7 +79,6 @@ void HcommDlFini(void) {
         HcclRankGraphDlFini();
         HcommPrimitivesDlFini();
         HcclInnerDlFini();
-        DtypeCommonDlFini();
         HcommProfilingDlFini();
         HcomDlFini();
 

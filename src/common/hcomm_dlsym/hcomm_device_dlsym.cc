@@ -36,7 +36,6 @@ void HcommDeviceDlInit(void) {
     HcommPrimitivesDlInit(gLibHandle);
     HcommDeviceProfilingDlInit(gLibHandle);
     HcommDiagDlInit(gLibHandle);
-    DtypeCommonDlInit(gLibHandle);
 }
 
 void HcommDeviceDlFini(void) {
@@ -44,7 +43,6 @@ void HcommDeviceDlFini(void) {
         HcommPrimitivesDlFini();
         HcommDeviceProfilingDlFini();
         HcommDiagDlFini();
-        DtypeCommonDlFini();
 
         dlclose(gLibHandle);
         gLibHandle = nullptr;
