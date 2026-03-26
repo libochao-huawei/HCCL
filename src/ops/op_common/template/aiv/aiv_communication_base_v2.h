@@ -67,7 +67,7 @@ enum class CommPattern {
 #define KERNEL_ARGS_DEF \
 GM_ADDR buffIn, \
 uint64_t input, uint64_t output, uint32_t rank, uint32_t rankSize, uint64_t xRankSize,  uint64_t yRankSize, uint64_t zRankSize, uint64_t len, \
-uint32_t dataType, uint32_t reduceOp, uint32_t root, uint32_t tag, \
+uint32_t dataType, uint32_t reduceOp, uint32_t root, uint32_t sliceId, \
 uint64_t inputSliceStride, uint64_t outputSliceStride, uint64_t repeatNum, uint64_t inputRepeatStride, uint64_t outputRepeatStride, \
 bool isOpBase, \
 GM_ADDR headCountMem, \
@@ -78,7 +78,7 @@ KERNEL_ARGS_DEF, ExtraArgs extraArgs
 
 #define KERNEL_ARGS_CALL \
 buffIn, \
-input, output, rank, rankSize, xRankSize, yRankSize, zRankSize, len, dataType, reduceOp, root, tag, \
+input, output, rank, rankSize, xRankSize, yRankSize, zRankSize, len, dataType, reduceOp, root, sliceId, \
 inputSliceStride, outputSliceStride, repeatNum, inputRepeatStride, outputRepeatStride, \
 isOpBase, \
 headCountMem, tailCountMem, addOneMem, counterMemSize, isEnableCounter
@@ -254,7 +254,7 @@ public:
 
     __aicore__ inline void BarrierAll();
 
-    __aicore__ inline bool IsFirstOP(int32_t tag);
+    __aicore__ inline bool IsFirstOP(int32_t sliceId);
 
     __aicore__ inline void BarrierForFirstOP();
 
@@ -333,9 +333,9 @@ __aicore__ inline void AivCommBase::WaitFlag(uint32_t targetRank, uint64_t flag_
     }
 }
 
-__aicore__ inline bool AivCommBase::IsFirstOP(int32_t tag)
+__aicore__ inline bool AivCommBase::IsFirstOP(int32_t sliceId)
 {
-    return GetBlockIdx() == 0 && tag == 1 && tag_ == 1;
+    return GetBlockIdx() == 0 && sliceId == 1 && tag_ == 1;
 }
 
 __aicore__ inline void AivCommBase::BarrierForFirstOP()

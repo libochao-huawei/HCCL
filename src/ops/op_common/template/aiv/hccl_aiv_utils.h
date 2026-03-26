@@ -87,7 +87,7 @@ struct AivOpArgs {
     HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_INT32; 
     HcclReduceOp op = HcclReduceOp::HCCL_REDUCE_SUM;
     u32 root = 0;
-    u32 aivCountTag = 0;
+    u32 sliceId = 0;
     u64 inputSliceStride = 0;
     u64 outputSliceStride = 0;
     u64 repeatNum = 0;

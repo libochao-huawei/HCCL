@@ -74,9 +74,9 @@ public:
         }
     }
 
-    __aicore__ inline void Process(uint32_t tag)
+    __aicore__ inline void Process(uint32_t sliceId)
     {
-        curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (tag & LOW_16_BITS);
+        curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
         if(GetBlockIdx() < coreNumPerStage){ // 0-1
             Producer();
         } else if(GetBlockIdx() < (coreNumPerStage * stageNum)) { // 2-3
@@ -101,10 +101,10 @@ __aicore__ inline void AivReduceScatterV2Mesh1D(EXTERN_KERNEL_ARGS_DEF_V2)
     op.Init(KERNEL_CLASS_INIT, true);
     op.InitCoreInfo(len, inputSliceStride);
     SyncAll<true>();
-    if (op.IsFirstOP(tag)) {
+    if (op.IsFirstOP(sliceId)) {
         op.BarrierForFirstOP();
     }
     SyncAll<true>();
-    op.Process(tag);
+    op.Process(sliceId);
     op.BarrierAll();
 }

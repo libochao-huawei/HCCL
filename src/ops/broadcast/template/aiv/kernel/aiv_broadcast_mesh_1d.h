@@ -21,13 +21,13 @@ public:
     __aicore__ inline AivBroadcastMesh1D() {}
  
     template<typename T>
-    __aicore__ inline void Process(uint64_t curCount, uint64_t tag, uint64_t stride);
+    __aicore__ inline void Process(uint64_t curCount, uint64_t sliceId, uint64_t stride);
 };
  
 template<typename T>
-__aicore__ inline void AivBroadcastMesh1D::Process(uint64_t curCount, uint64_t tag, uint64_t stride)
+__aicore__ inline void AivBroadcastMesh1D::Process(uint64_t curCount, uint64_t sliceId, uint64_t stride)
 {
-    curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (tag & LOW_16_BITS);
+    curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
     uint64_t dataTypeSize = sizeof(T);
     uint64_t curStageCoreNum = CORE_NUMS_ALL / rankSize_ * rankSize_;
     if (block_idx >= curStageCoreNum) {
@@ -60,10 +60,10 @@ __aicore__ inline void AivBroadcastV2Mesh1D(EXTERN_KERNEL_ARGS_DEF_V2)
     AivBroadcastMesh1D op;
     op.Init(KERNEL_CLASS_INIT, true);
     SyncAll<true>();
-    if (op.IsFirstOP(tag)) {
+    if (op.IsFirstOP(sliceId)) {
         op.BarrierForFirstOP();
     }
     SyncAll<true>();
-    op.Process<T>(len, tag, inputSliceStride);
+    op.Process<T>(len, sliceId, inputSliceStride);
     op.BarrierAll();
 }

@@ -34,9 +34,9 @@ public:
         }
     }
  
-    __aicore__ inline void Process(int32_t tag)
+    __aicore__ inline void Process(int32_t sliceId)
     {
-        curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (tag & LOW_16_BITS);
+        curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
         if (rank_ != root_) {
             // 写远端：将自身core负责的Input数据搬运至root的Scratch上
             if (sliceLen_ > 0) {
@@ -100,11 +100,11 @@ __aicore__ inline void AivReduceV2Mesh1D(EXTERN_KERNEL_ARGS_DEF_V2)
     op.Init(KERNEL_CLASS_INIT, true);
     op.InitCoreInfo();
     SyncAll<true>();
-    if (op.IsFirstOP(tag)) {
+    if (op.IsFirstOP(sliceId)) {
         op.BarrierForFirstOP();
     }
     SyncAll<true>();
-    op.Process(tag);
+    op.Process(sliceId);
     op.BarrierAll();
     SyncAll<true>();
 }

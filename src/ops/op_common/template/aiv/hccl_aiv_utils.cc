@@ -185,7 +185,7 @@ HcclResult ExecuteKernelLaunchInner(const AivOpArgs &opArgs, void* args, u32 arg
         "extraArgsPtr [%p] argsSize [%u]", opArgs.input,
         opArgs.output, opArgs.rank, opArgs.rankSize, opArgs.count,
         opArgs.dataType, opArgs.op, opArgs.root,
-        opArgs.aivCountTag, opArgs.isOpBase, args, argsSize);
+        opArgs.sliceId, opArgs.isOpBase, args, argsSize);
 
     aclrtLaunchKernelCfg cfg;
     aclrtLaunchKernelAttr attr[AIV_ATTRNUM_THREE];
@@ -216,7 +216,7 @@ HcclResult ExecuteKernelLaunch(const AivOpArgs &opArgs)
 {
     AivExtraKernelArgs aivExtraKernelArgs {
         opArgs.buffersIn, opArgs.input, opArgs.output,
-        opArgs.rank, opArgs.rankSize, opArgs.xRankSize, opArgs.yRankSize, opArgs.zRankSize, opArgs.count, opArgs.dataType, opArgs.op, opArgs.root, opArgs.aivCountTag,
+        opArgs.rank, opArgs.rankSize, opArgs.xRankSize, opArgs.yRankSize, opArgs.zRankSize, opArgs.count, opArgs.dataType, opArgs.op, opArgs.root, opArgs.sliceId,
         opArgs.inputSliceStride, opArgs.outputSliceStride, opArgs.repeatNum, opArgs.inputRepeatStride, opArgs.outputRepeatStride,
         opArgs.isOpBase,
         reinterpret_cast<void*>(opArgs.counter.headCountMem),

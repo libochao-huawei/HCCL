@@ -74,9 +74,9 @@ public:
         PipeBarrier<PIPE_ALL>();
     }
  
-    __aicore__ inline void Process(uint64_t count, uint64_t tag, uint64_t stride)
+    __aicore__ inline void Process(uint64_t count, uint64_t sliceId, uint64_t stride)
     {
-        curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (tag & LOW_16_BITS);
+        curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
         if (numBlocks_ >= rankSize_) {
             // 核数大于等于ranksize
             InitCoreInfo(count);
@@ -131,12 +131,12 @@ __aicore__ inline void AivAllGatherV2Mesh1D(EXTERN_KERNEL_ARGS_DEF_V2)
     AivAllGatherMesh1D<T> op;
     op.Init(KERNEL_CLASS_INIT, true);
     SyncAll<true>();
-    if (op.IsFirstOP(tag)) {
+    if (op.IsFirstOP(sliceId)) {
         op.BarrierForFirstOP();
     }
     SyncAll<true>();
  
-    op.Process(len, tag, outputSliceStride);
+    op.Process(len, sliceId, outputSliceStride);
     // 执行barrier全同步
     op.BarrierAll();
 }

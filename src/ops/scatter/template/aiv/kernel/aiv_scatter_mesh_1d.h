@@ -75,9 +75,9 @@ public:
         Record(rank_, flag_offset, 0);
     }
  
-    __aicore__ inline void Process(uint64_t curCount, uint32_t tag, uint64_t stride)
+    __aicore__ inline void Process(uint64_t curCount, uint32_t sliceId, uint64_t stride)
     {
-        curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (tag & LOW_16_BITS);
+        curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
         this->curCount = curCount / coreNumPerRank;
         if(rank_ == root_){
             inputGT.SetGlobalBuffer(reinterpret_cast<__gm__ T *>(inputOffset));
@@ -115,10 +115,10 @@ __aicore__ inline void AivScatterV2Mesh1D(EXTERN_KERNEL_ARGS_DEF_V2)
     op.Init(KERNEL_CLASS_INIT, true);
     op.InitCoreInfo(len, inputSliceStride);
     SyncAll<true>();
-    if (op.IsFirstOP(tag)) {
+    if (op.IsFirstOP(sliceId)) {
         op.BarrierForFirstOP();
     }
     SyncAll<true>();
-    op.Process(len, tag, inputSliceStride);
+    op.Process(len, sliceId, inputSliceStride);
     op.BarrierAll();
 }

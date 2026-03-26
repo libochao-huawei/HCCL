@@ -237,16 +237,16 @@ __aicore__ inline void AivAllReduceV2Mesh1DTwoShot(EXTERN_KERNEL_ARGS_DEF_V2)
     AivAllReduceMesh1DTwoShot<T> op;
     op.Init(KERNEL_CLASS_INIT, true);
     SyncAll<true>();
-    if (op.IsFirstOP(tag)) {
+    if (op.IsFirstOP(sliceId)) {
         op.BarrierForFirstOP();
     }
     SyncAll<true>();
     if (rankSize + 1 <= block_num) {
-        op.InitCoreInfo(tag);
+        op.InitCoreInfo(sliceId);
         op.ReduceScatter();
         op.AllGather();
     } else {
-        op.SmallCoreReduceScatter(tag);
+        op.SmallCoreReduceScatter(sliceId);
         op.SmallCoreAllgather();
     }
     op.BarrierAll();

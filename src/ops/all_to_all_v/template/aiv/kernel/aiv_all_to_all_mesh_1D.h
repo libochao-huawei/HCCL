@@ -18,12 +18,12 @@ class AivAlltoAllMesh1D : public AivCommBase {
 public:
     __aicore__ inline AivAlltoAllMesh1D() {}
  
-    __aicore__ inline void InitCommon(uint32_t tag)
+    __aicore__ inline void InitCommon(uint32_t sliceId)
     {
         dataSize_ = len_ * sizeof(T);
         coreIdx_ = GetBlockIdx();
         coreNum_ = numBlocks_;
-        curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (tag & LOW_16_BITS);
+        curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
     }
  
     __aicore__ inline void Process()
@@ -147,9 +147,9 @@ __aicore__ inline void AivAlltoAllV2Mesh1D(EXTERN_KERNEL_ARGS_DEF_V2)
 {
     AivAlltoAllMesh1D<T> op;
     op.Init(KERNEL_CLASS_INIT, true);
-    op.InitCommon(tag);
+    op.InitCommon(sliceId);
     SyncAll<true>();
-    if (op.IsFirstOP(tag)) {
+    if (op.IsFirstOP(sliceId)) {
         op.BarrierForFirstOP();
     }
     SyncAll<true>();
