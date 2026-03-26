@@ -63,6 +63,7 @@ HcclResult InsTempAllGatherNHR::KernelRun(const OpParam &param, const TemplateDa
     threadNum_ = 1;
     tempAlgParams_ = tempAlgParams;
     dataType_ = param.DataDes.dataType;
+    enableRemoteMemAccess_ = tempAlgParams.enableRemoteMemAccess;
     CHK_PRT_RET(threadNum_ != templateResource.threads.size(),
                 HCCL_ERROR("[InsTempAllGatherNHR] Rank [%d], requiredQueNum [%u] not equals templateQueNum [%zu].",
                            myRank_, threadNum_, templateResource.threads.size()),

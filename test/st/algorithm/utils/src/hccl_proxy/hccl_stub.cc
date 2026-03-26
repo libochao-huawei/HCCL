@@ -26,6 +26,7 @@
 #include "sim_channel.h"
 #include "alg_param.h"
 #include "hcomm_diag.h"
+#include "hccl_comm.h"
 
 using namespace ops_hccl;
 
@@ -755,7 +756,7 @@ int32_t HcommReleaseComm(const char* commId)
 }
 
 // stub for host dpu
-int32_t HcommWriteWithNotifyNbi(ChannelHandle channel, void *dst, const void *src,
+int32_t HcommWriteWithNotifyNbiOnThread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src,
     uint64_t len, uint32_t remoteNotifyIdx)
 {
     HcommWriteOnThread(curThread, channel, dst, src, len);
@@ -770,7 +771,7 @@ HcclResult HcclDevMemAcquire(HcclComm comm, const char *memTag, uint64_t *size, 
     return HCCL_SUCCESS;
 }
 
-int32_t HcommFlush()
+int32_t HcommFenceOnThread(ThreadHandle thread)
 {
     HCCL_WARNING("[%s] not support.", __func__);
     return 0;
@@ -802,19 +803,7 @@ int32_t HcommSendRequest(MsgHandle handle, const char *msgTag, const void *src, 
     return 0;
 }
 
-int32_t HcommChannelNotifyRecord(ChannelHandle channel, uint32_t remoteNotifyIdx)
-{
-    HcommChannelNotifyRecordOnThread(curThread, channel, remoteNotifyIdx);
-    return 0;
-}
-
-int32_t HcommChannelNotifyWait(ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeout)
-{
-    HcommChannelNotifyWaitOnThread(curThread, channel, localNotifyIdx, timeout);
-    return 0;
-}
-
-int32_t HcommChannelFence(ChannelHandle channel)
+int32_t HcommChannelFenceOnThread(ThreadHandle thread, ChannelHandle channel)
 {
     HCCL_WARNING("[%s] not support.", __func__);
     return 0;
@@ -928,6 +917,26 @@ HcclResult HcommProfilingReportMainStreamAndFirstTask(ThreadHandle thread)
 }
 
 HcclResult HcommProfilingReportMainStreamAndLastTask(ThreadHandle thread)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+
+
+
+HcclResult HcclConfigGetInfo(HcclComm comm, HcclConfigType cfgType, uint32_t infoLen, void *info)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcomGetCommHandleByGroup(const char *group, HcclComm *commHandle)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclEngineCtxDestroy(HcclComm comm, const char *ctxTag, CommEngine engine)
 {
     HCCL_WARNING("[%s] not support.", __func__);
     return HCCL_SUCCESS;
