@@ -78,13 +78,7 @@ HcclResult HcclSend(
 
     CHK_RET_AND_PRINT_IDE(SendExec(sendBuf, count, dataType, destRank, comm, stream, tag), tag.c_str());
 
-    if (GetExternalInputHcclEnableEntryLog()) {
-        HcclUs endut = TIME_NOW();
-        /* 关键状态记录 */
-        std::string endInfo = "HcclSend:success,take time: " +
-            std::to_string(DURATION_US(endut - startut).count()) + " us, tag: " + tag;
-        HCCL_RUN_INFO("%s", endInfo.c_str());
-    }
+    CHK_RET(LogHcclExit("HcclSend", tag, startut));
 
     HCCL_INFO("[HcclSend][%d]->[%d] Success.", userRank, destRank);
     return HcclResult::HCCL_SUCCESS;

@@ -94,13 +94,7 @@ HcclResult HcclAlltoAll(const void *sendBuf, uint64_t sendCount, HcclDataType se
         recvBuf, recvCounts.data(), rdispls.data(), recvType, comm, stream, tag,
         HcclCMDType::HCCL_CMD_ALLTOALL, rankSize, useInnerOp), tag.c_str());
     
-    if (GetExternalInputHcclEnableEntryLog()) {
-        HcclUs endut = TIME_NOW();
-        /* 关键状态记录 */
-        std::string endInfo = "HcclAlltoAll:success,take time: " +
-            std::to_string(DURATION_US(endut - startut).count()) + " us, tag: " + tag;
-        HCCL_RUN_INFO("%s", endInfo.c_str());
-    }
+    CHK_RET(LogHcclExit("HcclAlltoAll", tag, startut));
 
     if (useInnerOp) {
         return HcclAlltoAllInner(sendBuf, sendCount, sendType, recvBuf, recvCount, recvType, comm, stream);
@@ -175,13 +169,7 @@ HcclResult HcclAlltoAllV(const void *sendBuf, const void *sendCounts, const void
     CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlace(sendBuf, sendCounts, sdispls, recvBuf, recvCounts, rdispls, recvType, comm, stream,
         tag, HcclCMDType::HCCL_CMD_ALLTOALLV, rankSize, useInnerOp), tag.c_str());
     
-    if (GetExternalInputHcclEnableEntryLog()) {
-        HcclUs endut = TIME_NOW();
-        /* 关键状态记录 */
-        std::string endInfo = "HcclAlltoAllV:success,take time: " +
-            std::to_string(DURATION_US(endut - startut).count()) + " us, tag: " + tag;
-        HCCL_RUN_INFO("%s", endInfo.c_str());
-    }
+    CHK_RET(LogHcclExit("HcclAlltoAllV", tag, startut));
 
     if (useInnerOp) {
         return HcclAlltoAllVInner(sendBuf, sendCounts, sdispls, sendType, recvBuf, recvCounts, rdispls, recvType, comm, stream);
@@ -283,13 +271,7 @@ HcclResult HcclAlltoAllVC(const void *sendBuf, const void *sendCountMatrix, Hccl
         recvBuf, recvCounts.data(), rdispls.data(), recvType, comm, stream, tag,
         HcclCMDType::HCCL_CMD_ALLTOALLVC, rankSize, useInnerOp), tag.c_str());
     
-    if (GetExternalInputHcclEnableEntryLog()) {
-        HcclUs endut = TIME_NOW();
-        /* 关键状态记录 */
-        std::string endInfo = "HcclAlltoAllVC:success,take time: " +
-            std::to_string(DURATION_US(endut - startut).count()) + " us, tag: " + tag;
-        HCCL_RUN_INFO("%s", endInfo.c_str());
-    }
+    CHK_RET(LogHcclExit("HcclAlltoAllVC", tag, startut));
 
     if (useInnerOp) {
         return HcclAlltoAllVCInner(sendBuf, sendCountMatrix, sendType, recvBuf, recvType, comm, stream);

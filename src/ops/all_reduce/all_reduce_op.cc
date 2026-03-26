@@ -80,13 +80,7 @@ HcclResult HcclAllReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataT
     CHK_RET_AND_PRINT_IDE(AllReduceOutPlace(sendBuf, recvBuf, count, dataType, op, comm, stream, tag),
                           tag.c_str());
 
-    if (GetExternalInputHcclEnableEntryLog()) {
-        HcclUs endut = TIME_NOW();
-        /* 关键状态记录 */
-        std::string endInfo = "HcclAllReduce:success,take time: " +
-            std::to_string(DURATION_US(endut - startut).count()) + " us, tag: " + tag;
-        HCCL_RUN_INFO("%s", endInfo.c_str());
-    }
+    CHK_RET(LogHcclExit("HcclAllReduce", tag, startut));
 
     return HCCL_SUCCESS;
 }

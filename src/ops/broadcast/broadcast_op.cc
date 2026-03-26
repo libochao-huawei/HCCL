@@ -80,13 +80,7 @@ HcclResult HcclBroadcast(void *buf, uint64_t count, HcclDataType dataType, uint3
     CHK_RET_AND_PRINT_IDE(BroadcastOutPlace(buf, count, dataType, root, comm, stream, tag),
                           tag.c_str());
 
-    if (GetExternalInputHcclEnableEntryLog()) {
-        HcclUs endut = TIME_NOW();
-        /* 关键状态记录 */
-        std::string endInfo = "HcclBroadcast:success,take time: " +
-            std::to_string(DURATION_US(endut - startut).count()) + " us, tag: " + tag;
-        HCCL_RUN_INFO("%s", endInfo.c_str());
-    }
+    CHK_RET(LogHcclExit("HcclBroadcast", tag, startut));
 
     return HCCL_SUCCESS;
 }
