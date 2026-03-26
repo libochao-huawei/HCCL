@@ -59,17 +59,11 @@ HcclResult HcclAlltoAll(const void *sendBuf, uint64_t sendCount, HcclDataType se
     CHK_RET(CheckDataType(recvType, false));
 
     // 构造四个矩阵，适配alltoallV的逻辑
-    u64 dataCountPerRank = recvCount;
-    u64 dataCountOffset = 0;
-    vector<u64> sendCounts(rankSize, dataCountPerRank);
-    vector<u64> recvCounts(rankSize, dataCountPerRank);
-    vector<u64> sdispls(rankSize, dataCountOffset);
-    vector<u64> rdispls(rankSize, dataCountOffset);
-    for (u64 i = 0; i < rankSize; i++) {
-        sdispls[i] = dataCountOffset;
-        rdispls[i] = dataCountOffset;
-        dataCountOffset += dataCountPerRank;
-    }
+    vector<u64> sdispls(rankSize, 0);
+    vector<u64> rdispls(rankSize, 0);
+    vector<u64> sendCounts(rankSize, recvCount);
+    vector<u64> recvCounts(rankSize, recvCount);
+    CHK_RET(ConvertAlltoAllParam(recvCount, rankSize, sdispls, rdispls));
 
     // 底层走AlltoAllV
     bool useInnerOp = false;
@@ -168,21 +162,14 @@ HcclResult HcclAlltoAllVC(const void *sendBuf, const void *sendCountMatrix, Hccl
     const string tag =  "ALLTOALLVC_" + string(commName);
     CHK_RET(HcclCheckTag(tag.c_str()));
 
-    const u64* data = static_cast<const u64*>(sendCountMatrix);
     // 构造四个矩阵，适配alltoallV的逻辑
     std::vector<u64> sendCounts(rankSize, 0);
     std::vector<u64> recvCounts(rankSize, 0);
     std::vector<u64> sdispls(rankSize, 0);
     std::vector<u64> rdispls(rankSize, 0);
-    CHK_RET(ConvertAlltoAllVCParam(rankSize, userRank, data, sendCounts, recvCounts, sdispls, rdispls));
-
-    u64 maxSendRecvCount = 0;
-    for (u64 i = 0; i < rankSize * rankSize; i++) {
-        maxSendRecvCount = max(maxSendRecvCount, data[i]);
-    }
+    CHK_RET(ConvertAlltoAllVCParam(rankSize, userRank, sendCountMatrix, sendCounts, recvCounts, sdispls, rdispls));
 
     CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), tag.c_str());
-    CHK_RET(CheckCount(maxSendRecvCount));
     CHK_RET(CheckDataType(recvType, false));
 
     // 底层走AlltoAllV
@@ -224,17 +211,11 @@ HcclResult HcclAlltoAllGraphMode(const void *sendBuf, uint64_t sendCount, HcclDa
     CHK_RET(CheckDataType(recvType, false));
 
     // 构造四个矩阵，适配alltoallV的逻辑
-    u64 dataCountPerRank = recvCount;
-    u64 dataCountOffset = 0;
-    vector<u64> sendCounts(rankSize, dataCountPerRank);
-    vector<u64> recvCounts(rankSize, dataCountPerRank);
-    vector<u64> sdispls(rankSize, dataCountOffset);
-    vector<u64> rdispls(rankSize, dataCountOffset);
-    for (u64 i = 0; i < rankSize; i++) {
-        sdispls[i] = dataCountOffset;
-        rdispls[i] = dataCountOffset;
-        dataCountOffset += dataCountPerRank;
-    }
+    vector<u64> sendCounts(rankSize, recvCount);
+    vector<u64> recvCounts(rankSize, recvCount);
+    vector<u64> sdispls(rankSize, 0);
+    vector<u64> rdispls(rankSize, 0);
+    CHK_RET(ConvertAlltoAllParam(recvCount, rankSize, sdispls, rdispls));
 
     // 拼装ResPackGraphMode
     ResPackGraphMode resPack;
@@ -316,21 +297,15 @@ HcclResult HcclAlltoAllVCGraphMode(const void *sendBuf, const void *sendCountMat
     CHK_RET(HcclCheckTag(opTag.c_str()));
     CHK_RET(HcclCheckTag(tag));
 
-    const u64* data = static_cast<const u64*>(sendCountMatrix);
     // 构造四个矩阵，适配alltoallV的逻辑
     std::vector<u64> sendCounts(rankSize, 0);
     std::vector<u64> recvCounts(rankSize, 0);
     std::vector<u64> sdispls(rankSize, 0);
     std::vector<u64> rdispls(rankSize, 0);
-    CHK_RET(ConvertAlltoAllVCParam(rankSize, userRank, data, sendCounts, recvCounts, sdispls, rdispls));
-
-    u64 maxSendRecvCount = 0;
-    for (u64 i = 0; i < rankSize * rankSize; i++) {
-        maxSendRecvCount = max(maxSendRecvCount, data[i]);
-    }
+    CHK_RET(ConvertAlltoAllVCParam(rankSize, userRank, sendCountMatrix, sendCounts,
+        recvCounts, sdispls, rdispls));
 
     CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), opTag.c_str());
-    CHK_RET(CheckCount(maxSendRecvCount));
     CHK_RET(CheckDataType(recvType, false));
 
     // 拼装ResPackGraphMode
@@ -363,10 +338,28 @@ HcclResult GenResPack(const char* tag, void** streams, const size_t streamCount,
     return HCCL_SUCCESS;
 }
 
-HcclResult ConvertAlltoAllVCParam(const u32 rankSize, const u32 userRank, const u64* data, std::vector<u64> &sendCounts,
-    std::vector<u64> &recvCounts, std::vector<u64> &sdispls, std::vector<u64> &rdispls)
+HcclResult ConvertAlltoAllParam(const u64 recvCount, const u32 rankSize, vector<u64> &sdispls, vector<u64> &rdispls)
+{
+    u64 dataCountOffset = 0;
+    for (u64 i = 0; i < rankSize; i++) {
+        sdispls[i] = dataCountOffset;
+        rdispls[i] = dataCountOffset;
+        dataCountOffset += recvCount;
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult ConvertAlltoAllVCParam(const u32 rankSize, const u32 userRank, const void *sendCountMatrix,
+    std::vector<u64> &sendCounts, std::vector<u64> &recvCounts, std::vector<u64> &sdispls, std::vector<u64> &rdispls)
 {
     // 取出sendCountMatrix的数据
+    const u64* data = static_cast<const u64*>(sendCountMatrix);
+    u64 maxSendRecvCount = 0;
+    for (u64 i = 0; i < rankSize * rankSize; i++) {
+        maxSendRecvCount = max(maxSendRecvCount, data[i]);
+    }
+    CHK_RET(CheckCount(maxSendRecvCount));
+
     std::vector<std::vector<u64>> outputMatrix;
     outputMatrix.resize(rankSize);
     for (u64 i = 0; i < rankSize; ++i) {
