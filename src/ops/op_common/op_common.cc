@@ -810,13 +810,13 @@ HcclResult RegGraphModeBuffers(HcclComm comm, const OpParam &param, std::vector<
     }
 
     HCCL_INFO("[RegGraphModeBuffers] graph mode regstry remote buuffer");
-    if (param.inputPtr != nullptr) {
+    if (param.inputPtr != nullptr && param.inputSize != 0) {
         HcclMemHandle inputHandle = nullptr;
         CHK_RET(HcclRegstryBuff(comm, inputBuffTag, param.inputPtr, param.inputSize, &inputHandle));
         CHK_PTR_NULL(inputHandle);
         memHandles.emplace_back(inputHandle);
     }
-    if (param.outputPtr != nullptr) {
+    if (param.outputPtr != nullptr && param.outputSize != 0) {
         HcclMemHandle outputHandle = nullptr;
         CHK_RET(HcclRegstryBuff(comm, outputBuffTag, param.outputPtr, param.outputSize, &outputHandle));
         CHK_PTR_NULL(outputHandle);
