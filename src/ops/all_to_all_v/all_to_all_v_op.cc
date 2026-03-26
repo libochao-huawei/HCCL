@@ -592,8 +592,7 @@ HcclResult AlltoAllVConstructOpParam(const void *sendBuf, const void *sendCounts
         rankSize, inputSize, outputSize));
     param.inputSize = inputSize;
     param.outputSize = outputSize;
-
-    param.enableDetour = false;
+    param.detourType = GetExternalInputHcclDetourType();
     param.opType = opType;
 
     CHK_RET(ContructVarData(sendCountsData, recvCountsData, sdisplsData, rdisplsData, rankSize, rankSize, param));
