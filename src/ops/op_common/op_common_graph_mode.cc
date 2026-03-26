@@ -89,8 +89,9 @@ HcclResult HcclExecOpGraphMode(HcclComm comm, OpParam &param,
 
     // 算法执行
     if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
+        CHK_RET(GetUnfoldThreadInfo(comm, param, resCtxHost->unfoldThread));
         CHK_RET(HcclAicpuKernelEntranceLaunch(comm, param, cpuTsThread, exportedCpuTsThread, notifyNumOnMainThread,
-            resCtxSequence, algName));
+            resCtxSequence, algName, resCtxHost->unfoldThread));
     } else if (param.engine == COMM_ENGINE_AIV) {
         param.resCtx = resCtxSequence;
         AlgResourceCtxSerializable &resCtxHost = *static_cast<AlgResourceCtxSerializable *>(resCtxSequence);
@@ -230,7 +231,7 @@ HcclResult HcclAivKernelEntranceLaunchGraphMode(HcclComm comm, OpParam &param, s
     HcclResult ret = GetAivParamStorageByComm(comm, &aivParam);
     if (ret == HCCL_SUCCESS && aivParam != nullptr) {
         isAivClearEnable = aivParam->aivClearEnable;
-        numBlocksLimit = aivParam->aivCoreNum;
+        numBlocksLimit = aivParam->aivCoreLimit;
     }
     CHK_PRT_RET(numBlocksLimit < 1,
         HCCL_ERROR("[%s] block num less than 1, block num[%d]", __func__, numBlocksLimit), HCCL_E_PARA);
