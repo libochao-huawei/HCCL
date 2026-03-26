@@ -174,7 +174,7 @@ HcclResult HcclAlltoAllVC(const void *sendBuf, const void *sendCountMatrix, Hccl
     std::vector<u64> recvCounts(rankSize, 0);
     std::vector<u64> sdispls(rankSize, 0);
     std::vector<u64> rdispls(rankSize, 0);
-    CHK_RET(ConvertAlltoAllVCParam(rankSize, data, sendCounts, recvCounts, sdispls, rdispls));
+    CHK_RET(ConvertAlltoAllVCParam(rankSize, userRank, data, sendCounts, recvCounts, sdispls, rdispls));
 
     u64 maxSendRecvCount = 0;
     for (u64 i = 0; i < rankSize * rankSize; i++) {
@@ -322,7 +322,7 @@ HcclResult HcclAlltoAllVCGraphMode(const void *sendBuf, const void *sendCountMat
     std::vector<u64> recvCounts(rankSize, 0);
     std::vector<u64> sdispls(rankSize, 0);
     std::vector<u64> rdispls(rankSize, 0);
-    CHK_RET(ConvertAlltoAllVCParam(rankSize, data, sendCounts, recvCounts, sdispls, rdispls));
+    CHK_RET(ConvertAlltoAllVCParam(rankSize, userRank, data, sendCounts, recvCounts, sdispls, rdispls));
 
     u64 maxSendRecvCount = 0;
     for (u64 i = 0; i < rankSize * rankSize; i++) {
@@ -363,7 +363,7 @@ HcclResult GenResPack(const char* tag, void** streams, const size_t streamCount,
     return HCCL_SUCCESS;
 }
 
-HcclResult ConvertAlltoAllVCParam(const u32 rankSize, const u64* data, std::vector<u64> &sendCounts,
+HcclResult ConvertAlltoAllVCParam(const u32 rankSize, const u32 userRank, const u64* data, std::vector<u64> &sendCounts,
     std::vector<u64> &recvCounts, std::vector<u64> &sdispls, std::vector<u64> &rdispls)
 {
     // 取出sendCountMatrix的数据
