@@ -253,6 +253,10 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     u64 loopTimes = maxSendOrRecvDataCount / maxDataCountPerLoop +
         static_cast<u64>(maxSendOrRecvDataCount % maxDataCountPerLoop != 0);
     u64 processedDataCount = 0;
+    // 这里用来放每张卡可以用的cclBuffer的大小，数据从ureIn到cclBuffer的时候，以这个量来分隔
+    tempAlgParams.inputSliceStride = maxDataCountPerLoop * dataTypeSize_;
+    // 这里用来放每张卡之间的stride大小
+    tempAlgParams.outputSliceStride = maxSendOrRecvDataCount * dataTypeSize_;
     for (u64 loop = 0; loop < loopTimes; loop++) {
         u64 currDataCount = (loop == loopTimes - 1) ? maxSendOrRecvDataCount - processedDataCount : maxDataCountPerLoop;
 
@@ -265,10 +269,6 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
 
         tempAlgParams.sliceSize = currDataCount * dataTypeSize_; // 这是每次循环处理的数据大小
         tempAlgParams.tailSize = tempAlgParams.sliceSize;
-        // 这里用来放每张卡可以用的cclBuffer的大小，数据从ureIn到cclBuffer的时候，以这个量来分隔
-        tempAlgParams.inputSliceStride = maxDataCountPerLoop * dataTypeSize_;
-        // 这里用来放每张卡之间的stride大小
-        tempAlgParams.outputSliceStride = maxSendOrRecvDataCount * dataTypeSize_;
 
         HCCL_INFO("[InsV2AlltoAllVSoleExecutor] loop [%u] tempAlgParams.inputSliceStride [%u],"
             "tempAlgParams.outputSliceStride [%u] tempAlgParams.sliceSize [%u]",

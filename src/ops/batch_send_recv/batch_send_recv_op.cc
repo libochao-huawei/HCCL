@@ -22,7 +22,14 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 
 HcclResult HcclBatchSendRecv(HcclSendRecvItem *sendRecvInfo, uint32_t itemNum, HcclComm comm, aclrtStream stream)
 {
+    if (!HcclCheckAicpuEnableOpen() && !HcclCheckCcuEnableOpen() && !HcclCheckAivEnableOpen()) {
+        return HcclBatchSendRecvInner(sendRecvInfo, itemNum, comm, stream);
+    }
     HCCL_INFO("Start to run execute HcclBatchSendRecv.");
+    if (GetHcommVersion() < 90000000) {
+        return HcclBatchSendRecvInner(sendRecvInfo, itemNum, comm, stream);
+    }
+
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
     #ifdef MACRO_DEV_TYPE_NEW
@@ -32,9 +39,7 @@ HcclResult HcclBatchSendRecv(HcclSendRecvItem *sendRecvInfo, uint32_t itemNum, H
     #endif
         return HcclBatchSendRecvInner(sendRecvInfo, itemNum, comm, stream);
     }
-    if (GetWorkflowMode() != HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE) {
-        return HcclBatchSendRecvInner(sendRecvInfo, itemNum, comm, stream);
-    }
+
     CHK_RET(InitEnvConfig());
 
     // 参数校验等工作
