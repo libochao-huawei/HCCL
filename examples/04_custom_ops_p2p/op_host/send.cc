@@ -43,8 +43,7 @@ HcclResult HcclSendCustom(
     uint32_t rank, rankSize;
     CHK_RET(HcclGetRankId(comm, &rank));
     CHK_RET(HcclGetRankSize(comm, &rankSize));
-    DeviceType devType;
-    CHK_RET(GetDeviceType(&devType));
+    CHK_RET(GetDeviceType(&param.devType));
 
     // ==============================================
     // STEP 2: 创建资源
@@ -78,7 +77,7 @@ HcclResult HcclSendCustom(
         // ==============================================
         // STEP 2.2: 建立通信链路Channel，两个 rank 之间建立 1 个 channel
         // ==============================================
-        CHK_RET(AcquireChannel(comm, engine, rank, destRank, &(resCtxHost.channelHandle)));
+        CHK_RET(AcquireChannel(comm, engine, param.devType, rank, destRank, &(resCtxHost.channelHandle)));
 
         // ==============================================
         // STEP 2.3: 获取本端和远端的中转内存

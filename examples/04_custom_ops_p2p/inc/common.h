@@ -26,6 +26,13 @@ constexpr uint32_t TAG_LENGTH = OP_NAME_LENGTH + COMM_INDENTIFIER_MAX_LENGTH;
 
 constexpr uint32_t AICPU_CONTROL_NOTIFY_NUM = 2;
 
+// 设备类型
+enum DeviceType {
+    DEVICE_TYPE_A2 = 0,
+    DEVICE_TYPE_A3 = 1,
+    DEVICE_TYPE_A5 = 2,
+};
+
 typedef struct {
     void *addr;
     uint64_t size;
@@ -45,18 +52,12 @@ struct OpParam {
     void* inputPtr = nullptr;
     void* outputPtr = nullptr;
     uint64_t count = 0;
+    DeviceType devType;
     HcclDataType dataType = HCCL_DATA_TYPE_RESERVED;
     HcclCMDType opType = HcclCMDType::HCCL_CMD_INVALID;
     ThreadHandle cpuThread;
     ThreadHandle aicpuThreadOnCpu;
     AlgResourceCtx* resCtx = nullptr;
-};
-
-// 产品类型
-enum DeviceType {
-    DEVICE_TYPE_A2 = 0,
-    DEVICE_TYPE_A3 = 1,
-    DEVICE_TYPE_A5 = 2,
 };
 
 constexpr uint32_t SIZE_TABLE[HCCL_DATA_TYPE_RESERVED] = {sizeof(int8_t), sizeof(int16_t), sizeof(int32_t),
