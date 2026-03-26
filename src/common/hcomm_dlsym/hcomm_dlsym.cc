@@ -57,7 +57,7 @@ bool HcommIsExportThreadSupported()
     }
 }
 
-// 初始化
+// 初始化 
 void HcommDlInit(void) {
     if (gLibHandle != nullptr) return;
 
