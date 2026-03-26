@@ -23,7 +23,7 @@ HcclResult HcclSend(
     void *sendBuf, uint64_t count, HcclDataType dataType, uint32_t destRank, HcclComm comm, aclrtStream stream);
 HcclResult HcclSendGraphMode(
     void *sendBuf, uint64_t count, HcclDataType dataType, uint32_t destRank, const char* group, aclrtStream stream,
-    const char *tag, uint32_t srTag, void **streams, size_t streamCount, void *scratchMemAddr, uint64_t scratchMemSize);
+    const char *tag, void **streams, size_t streamCount, void *scratchMemAddr, uint64_t scratchMemSize);
 
 #ifdef __cplusplus
 }

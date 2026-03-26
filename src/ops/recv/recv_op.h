@@ -22,7 +22,7 @@ HcclResult HcclRecv(
     void *recvBuf, uint64_t count, HcclDataType dataType, uint32_t srcRank, HcclComm comm, aclrtStream stream);
 HcclResult HcclRecvGraphMode(
     void *recvBuf, uint64_t count, HcclDataType dataType, uint32_t srcRank, const char* group, aclrtStream stream,
-    const char* tag, uint32_t srTag, void **streams, size_t streamCount, void *scratchMemAddr, uint64_t scratchMemSize);
+    const char* tag, void **streams, size_t streamCount, void *scratchMemAddr, uint64_t scratchMemSize);
 
 #ifdef __cplusplus
 }
