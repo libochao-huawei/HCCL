@@ -143,6 +143,14 @@ HcclResult __attribute__((weak)) HcclCreateOpResCtxInner(HcclComm comm, uint8_t 
     return HCCL_E_NOT_SUPPORT;
 }
 
+HcclResult HcclConfigGetInfo(HcclComm comm, HcclConfigType cfgType,
+    uint32_t infoLen, void *info)
+{
+    (void)comm; (void)cfgType; (void)infoLen; (void)info;
+    HCCL_ERROR("[HcclWrapper] HcclConfigGetInfo not supported");
+    return HCCL_E_NOT_SUPPORT;
+}
+
 // 初始化
 void HcclInnerDlInit(void* libHcommHandle) {
     // 辅助宏：解析符号，失败则指向对应桩函数，同时设置支持标志
