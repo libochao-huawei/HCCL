@@ -176,6 +176,7 @@ HcclResult HcclCalcAivResOffline(ResResponseGraphMode *resResponse, u32 aivCoreL
         return HCCL_E_PARA;
     }
     resResponse->aivCoreNum = aivCoreLimit;
+    return HCCL_SUCCESS;
 }
 
 // HcclResult HcclCalcAivAlgName(ResResponseGraphMode *resResponse, const char *group, u64 count, void* counts, HcclDataType dataType, HcclReduceOp op,
