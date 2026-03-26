@@ -25,6 +25,7 @@
 #include "hccl_rank_graph.h"
 #include "binary_stream.h"
 #include "hccl_ccu_res.h"
+#include "alg_env_config.h"
 
 namespace ops_hccl {
 
@@ -456,7 +457,7 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     u32 root = INVALID_VALUE_RANKID;
     u32 sendRecvRemoteRank = INVALID_VALUE_RANKID;
     OpMode opMode;
-    bool   enableDetour{false};
+    HcclDetourType detourType {HcclDetourType::HCCL_DETOUR_DISABLE};
     bool   isMc2{false};
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CommEngine engine = CommEngine::COMM_ENGINE_RESERVED;

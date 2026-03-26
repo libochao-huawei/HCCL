@@ -178,7 +178,7 @@ HcclResult AllGatherOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t sendCo
     param.DataDes.count = sendCount;
     param.DataDes.dataType = dataType;
     param.opType = HcclCMDType::HCCL_CMD_ALLGATHER;
-    param.enableDetour = false;
+    param.detourType = GetExternalInputHcclDetourType();
     param.deviceType = deviceType;
 
     std::string algName;
