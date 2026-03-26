@@ -32,6 +32,13 @@ enum class DeterministicEnableLevel {
     DETERMINISTIC_STRICT                // 支持确定性以及规约保序
 };
 
+// HCCL绕路类型
+enum class HcclDetourType {
+    HCCL_DETOUR_DISABLE = 0,            // 绕路不使能，默认为此值
+    HCCL_DETOUR_ENABLE_2P,              // 2p间绕路
+    HCCL_DETOUR_ENABLE_4P,              // 4p间绕路
+    HCCL_DETOUR_ENABLE_2P_AND_4P,       // 2p间和4p间绕路
+}
 struct AlgEnvConfig {
     // 初始化标识
     bool initialized;
@@ -46,6 +53,7 @@ struct AlgEnvConfig {
     bool ccuMSMode;
     bool ccuSchedMode;
     bool enableFfts;
+    HcclDetourType detourType{HcclDetourType::HCCL_DETOUR_DISABLE};
     bool hcclRetryConfig[HCCL_RETRY_ENABLE_LEVEL_NUM];
     std::map<HcclCMDType, std::vector<HcclAlgoType>> hcclAlgoConfig;
 
@@ -120,6 +128,8 @@ HcclResult ParseInterLinkType();
 
 HcclResult ParseOpExpansion();
 
+HcclResult ParseDetourConfig();
+
 HcclResult SplitHcclRetryEnable(const std::string &retryConfig, std::vector<std::string> &retryEnables);
 
 HcclResult CollectRetryEnableFromConfig(const std::vector<std::string> &retryEnables);
@@ -145,6 +155,8 @@ const bool& GetExternalInputInterServerRetryEnable();
 const bool& GetExternalInputInterSuperPodRetryEnable();
 
 const bool& GetExternalInputHcclEnableEntryLog();
+
+const HcclDetourType& GetExternalInputHcclDetourType();
 
 const std::map<HcclCMDType, std::vector<HcclAlgoType>> GetExternalInputHcclAlgoConfigAllType();
 
