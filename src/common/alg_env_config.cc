@@ -210,6 +210,19 @@ HcclResult InitEnvConfig()
             HCCL_ERROR_CODE(ret),
             ret),
         ret);
+    
+    // 解析绕路配置
+    ret = ParseDetourConfig();
+    RPT_ENV_ERR(ret != HCCL_SUCCESS,
+        "EI0001",
+        std::vector<std::string>({"env", "tips"}),
+        std::vector<std::string>({"HCCL_DETOUR", "expect: detour:1 or detour:0"}));
+    CHK_PRT_RET(ret != HCCL_SUCCESS,
+        HCCL_ERROR("[InitEnvParam]errNo[0x%016llx] In init environment param, parse "
+                   "HCCL_DETOUR failed. errorno[%d]",
+            HCCL_ERROR_CODE(ret),
+            ret),
+        ret);
 
     ret = InitDebugConfigByEnv();
     char* env = nullptr;
@@ -908,6 +921,47 @@ HcclResult ParseDeterministic()
 const u32 &GetExternalInputIntraRoceSwitch()
 {
     return g_algEnvConfig.intraRoceSwitch;
+}
+
+HcclResult ParseDetourConfig()
+{
+    std::string detourEnv = "EmptyString";
+    if (getenv("HCCL_DETOUR") != nullptr) {
+        detourEnv = getenv("HCCL_DETOUR");
+    }
+    g_algEnvConfig.detourType = HcclDetourType::HCCL_DETOUR_DISABLE;
+    DevType deviceType;
+    CHK_RET(hrtGetDeviceType(deviceType));
+    #ifdef MACRO_DEV_TYPE_NEW
+    if (deviceType != DevType::DEV_TYPE_950) {
+    #else
+    if (deviceType != DevType::DEV_TYPE_910_95)
+    #endif
+        return HCCL_SUCCESS;
+    }
+    if (detourEnv == "EmptyString") {
+        HCCL_RUN_INFO("HCCL_DETOUR is not set, HCCL detour type is [%u].",
+                        g_algEnvConfig.detourType);
+        return HCCL_SUCCESS;
+    }
+
+    if (detourEnv == "detour:1") {
+        HCCL_RUN_INFO("HCCL detour type is 2P (detour:1).");
+        g_algEnvConfig.detourType = HcclDetourType::HCCL_DETOUR_ENABLE_2P;
+    } else if (detourEnv == "detour:0") {
+        HCCL_RUN_INFO("HCCL detour type is disabled (detour:0).");
+        g_algEnvConfig.detourType = HcclDetourType::HCCL_DETOUR_DISABLE;
+    } else {
+        HCCL_ERROR("environment variable HCCL_DETOUR currently only supports"
+                    "detour:1 and detour:0 or not set.");
+        return HCCL_E_PARA;
+    }
+    return HCCL_SUCCESS;
+}
+
+const HcclDetourType& GetExternalInputHcclDetourType()
+{
+    return g_algEnvConfig.detourType;
 }
 
 const bool &GetExternalInputHcclAicpuUnfold()

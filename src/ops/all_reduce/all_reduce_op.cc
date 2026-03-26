@@ -177,7 +177,7 @@ HcclResult AllReduceOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t count,
     param.DataDes.count = count;
     param.DataDes.dataType = dataType;
     param.opType = HcclCMDType::HCCL_CMD_ALLREDUCE;
-    param.enableDetour = false;
+    param.detourType = GetExternalInputHcclDetourType();
     param.deviceType = deviceType;
     param.reduceType = op;
     
