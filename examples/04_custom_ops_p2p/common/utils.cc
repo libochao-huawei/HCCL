@@ -39,4 +39,46 @@ HcclResult GetDeviceType(DeviceType *deviceType) {
     HCCL_ERROR("[GetDeviceType] Unsupported soc name: %s", socName.c_str());
     return HCCL_E_NOT_SUPPORT;
 }
+
+HcclResult AcquireChannel(HcclComm comm, uint32_t srcRank, uint32_t dstRank, ChannelHandle* channel) {
+        CommProtocol protocol;
+        if (devType == DEVICE_TYPE_A3) {
+            protocol = CommProtocol::COMM_PROTOCOL_HCCS;
+        } else if (devType == DEVICE_TYPE_A5) {
+            protocol = CommProtocol::COMM_PROTOCOL_UBC_CTP;
+        } else {
+            HCCL_ERROR("[AcquireChannel] Unsupported device type %d", devType);
+            return HCCL_E_NOT_SUPPORT;
+        }
+
+        uint32_t netLayer = 0, listSize = 0;
+        CommLink *linkList = nullptr;
+        CHK_RET(HcclRankGraphGetLinks(comm, netLayer, srcRank, dstRank, &linkList, &listSize));
+
+        HcclChannelDesc desc;
+        CHK_RET(HcclChannelDescInit(&desc, 1));
+        bool protocolExists = false;
+        for (uint32_t idx = 0; idx < listSize; idx++) {
+            CommLink link = linkList[idx];
+            if (link.linkAttr.linkProtocol == protocol) {
+                desc.remoteRank = dstRank;
+                desc.notifyNum = 2;
+                desc.channelProtocol = link.linkAttr.linkProtocol;
+                desc.localEndpoint.protocol = link.srcEndpointDesc.protocol;
+                desc.localEndpoint.commAddr = link.srcEndpointDesc.commAddr;
+                desc.localEndpoint.loc = link.srcEndpointDesc.loc;
+                desc.remoteEndpoint.protocol = link.dstEndpointDesc.protocol;
+                desc.remoteEndpoint.commAddr = link.dstEndpointDesc.commAddr;
+                desc.remoteEndpoint.loc = link.dstEndpointDesc.loc;
+                protocolExists = true;
+                break;
+            }
+        }
+        if (!protocolExists) {
+            HCCL_ERROR("[AcquireChannel] Protocol %d not found between rank %u and rank %u", protocol, rank, destRank);
+            return HCCL_E_NOT_FOUND;
+        }
+        CHK_RET(HcclChannelAcquire(comm, engine, &desc, 1, channel));
+        return HCCL_SUCCESS;
+}
 }

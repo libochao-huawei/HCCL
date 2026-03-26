@@ -11,9 +11,11 @@
 #ifndef OPS_HCCL_P2P_COMMON_UTILS_H
 #define OPS_HCCL_P2P_COMMON_UTILS_H
 
+#include <hccl/hccl_res.h>
 #include "common.h"
 
 namespace ops_hccl_p2p {
 HcclResult GetDeviceType(DeviceType *deviceType);
+HcclResult AcquireChannel(HcclComm comm, uint32_t srcRank, uint32_t dstRank, ChannelHandle* channel);
 }
 #endif
