@@ -24,17 +24,31 @@ InsTempDpuAlltoAllMesh::~InsTempDpuAlltoAllMesh() {}
 HcclResult InsTempDpuAlltoAllMesh::CalcRes(HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
                                            AlgResourceRequest &resourceRequest)
 {
-    // 框内threadNum最大取MAX_RANK_NUM_PER_SERVER
-    u32 threadNum = (templateRankSize_ > MAX_RANK_NUM_PER_SERVER) ? MAX_RANK_NUM_PER_SERVER :
+    u32 threadNum = 0;
+    std::vector<HcclChannelDesc> level0Channels;
+    if(topoInfo->level0Topo != Level0Shape::MESH_1D_CLOS) {
+        // 框内threadNum最大取MAX_RANK_NUM_PER_SERVER
+        threadNum = (templateRankSize_ > MAX_RANK_NUM_PER_SERVER) ? MAX_RANK_NUM_PER_SERVER :
                     (templateRankSize_ > 1)                       ? (templateRankSize_ - 1) :
                                                                     1;
+        CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
+
+    } else {
+        u32 innerRankNum = subCommRanks_[0].size();
+        threadNum = (innerRankNum > 1) ? (innerRankNum - 1) : 1;
+        std::set<u32> totalRanks;
+        for (const auto& rankVec : subCommRanks_) 
+            totalRanks.insert(rankVec.begin(), rankVec.end());
+        subCommRanks_ = {{totalRanks.begin(), totalRanks.end()}};
+        CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks_, level0Channels, CommTopo::COMM_TOPO_1DMESH));
+    }
+    // 计算从流以及Notify数量
     resourceRequest.slaveThreadNum = threadNum - 1;
     for (u32 index = 0; index < threadNum - 1; index++) {
         resourceRequest.notifyNumPerThread.push_back(1);
     }
     resourceRequest.notifyNumOnMainThread = threadNum - 1;
-    std::vector<HcclChannelDesc> level0Channels;
-    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
+
     resourceRequest.channels.push_back(level0Channels);
     HCCL_DEBUG("[InsTempDpuAlltoAllMesh][CalcRes] myRank[%u], notifyNumOnMainThread[%u], slaveThreadNum[%u]", myRank_,
                resourceRequest.notifyNumOnMainThread, resourceRequest.slaveThreadNum);
