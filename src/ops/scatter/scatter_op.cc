@@ -104,7 +104,6 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
         std::string logInfo = "Entry-HcclScatter:" + std::string(stackLogBuffer); // capture的entry信息待补充
         HCCL_RUN_INFO("%s", logInfo.c_str());
     }
-            
     CHK_RET_AND_PRINT_IDE(ScatterOutPlace(sendBuf, recvBuf, recvCount, dataType, root, comm, stream, tag), tag.c_str());
 
     if (GetExternalInputHcclEnableEntryLog()) {

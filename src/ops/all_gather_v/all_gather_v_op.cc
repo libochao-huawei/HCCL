@@ -75,6 +75,7 @@ HcclResult HcclAllGatherV(void *sendBuf, uint64_t sendCount, void *recvBuf, cons
 
     // 执行AllGatherV
     CHK_RET_AND_PRINT_IDE(AllGatherVOutPlace(sendBuf, recvBuf, sendCount, recvCounts, recvDispls, dataType, comm, stream, tag), tag.c_str());
+    
     if (GetExternalInputHcclEnableEntryLog()) {
         HcclUs endut = TIME_NOW();
         /* 关键状态记录 */
