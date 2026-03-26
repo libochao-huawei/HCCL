@@ -45,9 +45,12 @@ public:
     HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo, AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
 
 private:
+    static u32 CalcRankIdInter(u32 i, u32 j, u32 part2);
+    static u32 CalcRankIdIntra(u32 i, u32 j, u32 part1);
+    void FillDataMap(const u64 sliceCount, const u32 part1, const u32 part2, std::map<u32, std::pair<u64, u64>>& dataMap, bool isInter);
+    void FillOffsetMaps(const std::map<u32, std::pair<u64, u64>>& dataMap, const u32 part1, const u32 part2, std::map<u32, u64>& agMap, bool isInter);
     void GetParallelDataSplit(std::vector<float> &splitDataSize) const;
     uint64_t GetRankSize(const std::vector<std::vector<u32>> &vTopo);
-    // HcclResult CalcLocalRoot();
     // Aicpu
     HcclResult PrepareResForTemplate(const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &tempAlgIntra,
                                      InsAlgTemplate1 &tempAlgInter, InsAlgTemplate2 &tempAlgIntra1);
@@ -108,13 +111,6 @@ private:
     std::vector<u64> allRankDisplsIntra_;
     u32 intraLocalRankSize_{0};  // server内算法rankSize
     u32 interLocalRankSize_{0};  // server间算法rankSize
-    uint64_t rankIdxLevel0_{0};
-    uint64_t rankIdxLevel1_{0};
-    uint64_t interlocalroot{0};
-    uint64_t intralocalroot{0};
-
-    u32 intraLocalRoot_{0};  // server内算法root
-    u32 interLocalRoot_{0};  // server间算法root
 
     u64 dataOffset0Inter_;
     u64 currCountPart0_;
@@ -127,8 +123,6 @@ private:
     u64 outputPtrOffsetIntra_;
 
     std::vector<std::vector<std::vector<u32>>> vTopo_;
-    std::vector<u32>              virtRanks_;
-    std::map<u32, u32>            virtRankMap_; // 全局RankID:虚拟RankId
 
     std::vector<ThreadHandle> intraThreads_;
     std::vector<ThreadHandle> interThreads_;
