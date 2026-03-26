@@ -15,9 +15,11 @@
 #include "../template/aicpu/reduce_mesh_1D.h"
 #include "../template/aicpu/reduce_nhr.h"
 #include "topo_match_multilevel.h"
+#ifdef FEATURE_SUPPORT_CCU
 #ifndef AICPU_COMPILE
 #include "ccu_temp_reduce_nhr_1D_mem2mem.h"
 #include "ccu_temp_reduce_mesh_1D_mem2mem.h"
+#endif
 #endif
 
 namespace ops_hccl {
@@ -472,8 +474,10 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1>::Cal
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE, ReduceParallelMesh1DNHR, ReduceParallelExecutor,
     TopoMatchMultilevel, ReduceMesh1D, ReduceNHR);
 
+#ifdef FEATURE_SUPPORT_CCU
 #ifndef AICPU_COMPILE
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE, CcuReduceParallelMesh1DNHR, ReduceParallelExecutor,
     TopoMatchMultilevel, CcuTempReduceMesh1DMem2Mem, CcuTempReduceNHR1DMem2Mem);
+#endif
 #endif
 }  // namespace ops_hccl

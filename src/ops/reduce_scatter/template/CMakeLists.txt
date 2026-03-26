@@ -10,4 +10,6 @@
 
 add_subdirectory(aicpu)
 add_subdirectory(aiv)
+if(FEATURE_SUPPORT_CCU)
 add_subdirectory(ccu)
+endif()

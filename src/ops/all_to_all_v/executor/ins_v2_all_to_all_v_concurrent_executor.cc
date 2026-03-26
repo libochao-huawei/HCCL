@@ -10,9 +10,11 @@
 
 #include "channel.h"
 #include "ins_v2_all_to_all_v_concurrent_executor.h"
+#ifdef FEATURE_SUPPORT_CCU
 #ifndef AICPU_COMPILE
 #include "ccu_temp_all_to_all_v_mesh_1D_multi_jetty.h"
 #include "ccu_kernel_all_to_all_v_mesh1d_multi_jetty.h"
+#endif
 #endif
 #include "alg_data_trans_wrapper.h"
 
@@ -183,7 +185,7 @@ HcclResult InsV2AllToAllVConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
         HCCL_ERROR("[InsV2AllToAllVConcurrentExecutor] only support ccu");
         return HCCL_E_NOT_SUPPORT;
     }
-
+#ifdef FEATURE_SUPPORT_CCU
     // 初始化一些基本成员变量
     CHK_RET(InitCommInfo(param, topoInfo));
 
@@ -240,7 +242,7 @@ HcclResult InsV2AllToAllVConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     resourceRequest.ccuKernelNum.emplace_back(resReq1.ccuKernelNum[0]);
     resourceRequest.ccuKernelInfos.emplace_back(resReq0.ccuKernelInfos[0]);
     resourceRequest.ccuKernelInfos.emplace_back(resReq1.ccuKernelInfos[0]);
-
+#endif
     return HCCL_SUCCESS;
 }
 
@@ -348,6 +350,7 @@ HcclResult InsV2AllToAllVConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     return HcclResult::HCCL_SUCCESS;
 }
 
+#ifdef FEATURE_SUPPORT_CCU
 #ifndef AICPU_COMPILE
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLTOALLV,
                                 CcuAllToAllVMesh1DConcurrent,
@@ -355,6 +358,7 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLTOALLV,
                                 TopoMatchUBX,
                                 CcuTempAllToAllVMesh1DMultiJetty,
                                 CcuTempAllToAllVMesh1DMultiJetty);
+#endif
 #endif
 
 }

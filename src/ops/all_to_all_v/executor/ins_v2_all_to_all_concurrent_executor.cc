@@ -9,12 +9,16 @@
  */
 #include "alg_data_trans_wrapper.h"
 #include "channel.h"
+#ifdef FEATURE_SUPPORT_CCU
 #include "hccl_ccu_res.h"
+#endif
 #include "ins_v2_all_to_all_concurrent_executor.h"
 #include "aicpu/ins_temp_all_to_all_v_mesh_1D.h"
 
+#ifdef FEATURE_SUPPORT_CCU
 #ifndef AICPU_COMPILE
 #include "ccu/ccu_temp_all_to_all_mesh1d_multi_jetty.h"
+#endif
 #endif
 
 namespace ops_hccl {
@@ -472,6 +476,7 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLTOALLV,
                                 TopoMatchUBX,
                                 InsTempAlltoAllVMesh1D,
                                 InsTempAlltoAllVMesh1D);
+#ifdef FEATURE_SUPPORT_CCU
 #ifndef AICPU_COMPILE
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLTOALL,
                                 CcuAllToAllMesh1DConcurrent,
@@ -480,5 +485,5 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLTOALL,
                                 CcuTempAllToAllMesh1dMultiJetty,
                                 CcuTempAllToAllMesh1dMultiJetty);
 #endif
-
+#endif
 }
