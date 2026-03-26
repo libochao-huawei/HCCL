@@ -46,22 +46,29 @@ HcclResult AcquireChannel(HcclComm comm, CommEngine engine, uint32_t srcRank, ui
     DeviceType devType;
     CHK_RET(GetDeviceType(&devType));
 
-    CommProtocol protocol;
-    if (devType == DEVICE_TYPE_A3) {
-        protocol = CommProtocol::COMM_PROTOCOL_HCCS;
-    } else if (devType == DEVICE_TYPE_A5) {
-        protocol = CommProtocol::COMM_PROTOCOL_UBC_CTP;
-    } else {
+    if (devType == DEVICE_TYPE_A2 || devType == DEVICE_TYPE_A3) {
+        // Atlas A2/A3 创建 Channel
+        HcclChannelDesc channelDesc;
+        CHK_RET(HcclChannelDescInit(&channelDesc, 1));
+        channelDesc.remoteRank = destRank;
+        channelDesc.channelProtocol = CommProtocol::COMM_PROTOCOL_HCCS;
+        channelDesc.notifyNum = 2;
+        CHK_RET(HcclChannelAcquire(comm, engine, &channelDesc, 1, &(resCtxHost.channelHandle)));
+        return HCCL_SUCCESS;
+    } 
+    if (devType != DEVICE_TYPE_A5) {
         HCCL_ERROR("[AcquireChannel] Unsupported device type %d", devType);
         return HCCL_E_NOT_SUPPORT;
     }
 
+    // Ascend 950 创建 Channel
     uint32_t netLayer = 0, listSize = 0;
     CommLink *linkList = nullptr;
     CHK_RET(HcclRankGraphGetLinks(comm, netLayer, srcRank, dstRank, &linkList, &listSize));
 
     HcclChannelDesc desc;
     CHK_RET(HcclChannelDescInit(&desc, 1));
+    CommProtocol protocol = CommProtocol::COMM_PROTOCOL_UBC_CTP;
     bool protocolExists = false;
     for (uint32_t idx = 0; idx < listSize; idx++) {
         CommLink link = linkList[idx];
