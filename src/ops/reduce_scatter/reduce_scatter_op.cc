@@ -23,6 +23,22 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 HcclResult HcclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
     HcclReduceOp op, HcclComm comm, aclrtStream stream)
 {
+    /* 接口交互信息日志 */
+    if (GetExternalInputHcclEnableEntryLog()) {
+        s32 deviceLogicId = 0;
+        ACLCHECK(aclrtGetDevice(&deviceLogicId));
+        s32 streamId = 0;
+        ACLCHECK(aclrtStreamGetId(stream, &streamId));
+        char stackLogBuffer[LOG_TMPBUF_SIZE];
+        s32 ret = snprintf_s(stackLogBuffer, LOG_TMPBUF_SIZE, LOG_TMPBUF_SIZE - 1U,
+            "tag[%s], sendBuf[%p], recvBuf[%p], recvCount[%llu], dataType[%s], reduceOp[%u], streamId[%d], deviceLogicId[%d]",
+            tag.c_str(), sendBuf, recvBuf, recvCount, GetDataTypeEnumStr(dataType).c_str(), op, streamId, deviceLogicId);
+
+        CHK_PRT_CONT(ret == -1, HCCL_WARNING("Failed to build log info, tag[%s].", tag.c_str()));
+        std::string logInfo = "Entry-HcclReduceScatter:" + std::string(stackLogBuffer);
+        HCCL_RUN_INFO("%s", logInfo.c_str());
+    }
+
     if (!HcclCheckAicpuEnableOpen() && !HcclCheckCcuEnableOpen() && !HcclCheckAivEnableOpen()) {
         return HcclReduceScatterInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
     }
@@ -40,7 +56,7 @@ HcclResult HcclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, H
 #endif
         return HcclReduceScatterInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
     }
-
+    HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
     // 入口的地方先解析环境变量
     CHK_RET(InitEnvConfig());
 
@@ -62,6 +78,14 @@ HcclResult HcclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, H
     // 执行ReduceScatter
     CHK_RET_AND_PRINT_IDE(ReduceScatterOutPlace(sendBuf, recvBuf, recvCount, dataType, op, comm, stream, tag),
                           tag.c_str());
+
+    if (GetExternalInputHcclEnableEntryLog()) {
+        HcclUs endut = TIME_NOW();
+        /* 关键状态记录 */
+        std::string endInfo = "HcclReduceScatter:success,take time: " +
+            std::to_string(DURATION_US(endut - startut).count()) + " us, tag: " + tag;
+        HCCL_RUN_INFO("%s", endInfo.c_str());
+    }
 
     return HCCL_SUCCESS;
 }

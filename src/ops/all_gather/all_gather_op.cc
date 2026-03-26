@@ -24,6 +24,22 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
                          aclrtStream stream)
 {
+    /* 接口交互信息日志 */
+    if (GetExternalInputHcclEnableEntryLog()) {
+        s32 deviceLogicId = 0;
+        ACLCHECK(aclrtGetDevice(&deviceLogicId));
+        s32 streamId = 0;
+        ACLCHECK(aclrtStreamGetId(stream, &streamId));
+        char stackLogBuffer[LOG_TMPBUF_SIZE];
+        s32 ret = snprintf_s(stackLogBuffer, LOG_TMPBUF_SIZE, LOG_TMPBUF_SIZE - 1U,
+            "tag[%s], sendBuf[%p], recvBuf[%p], sendCount[%llu], dataType[%s], streamId[%d], deviceLogicId[%d]",
+            opTag.c_str(), sendBuf, recvBuf, sendCount, GetDataTypeEnumStr(dataType).c_str(), streamId, deviceLogicId);
+
+        CHK_PRT_CONT(ret == -1, HCCL_WARNING("Failed to build log info, tag[%s].", opTag.c_str()));
+        std::string logInfo = "Entry-HcclAllGather:" + std::string(stackLogBuffer);
+        HCCL_RUN_INFO("%s", logInfo.c_str());
+    }
+
     if (!HcclCheckAicpuEnableOpen() && !HcclCheckCcuEnableOpen() && !HcclCheckAivEnableOpen()) {
         return HcclAllGatherInner(sendBuf, recvBuf, sendCount, dataType, comm, stream);
     }
@@ -43,11 +59,21 @@ HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclD
         return HcclAllGatherInner(sendBuf, recvBuf, sendCount, dataType, comm, stream);
     }
     CHK_PRT_RET(sendCount == 0, HCCL_WARNING("input sendCount is 0, return all gather success"), HCCL_SUCCESS);
+
+    HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
     std::string opTag;
     CHK_RET(AllGatherInitAndCheck(comm, sendBuf, recvBuf, sendCount, dataType, stream, opTag));
 
     // 执行AllGather
     CHK_RET_AND_PRINT_IDE(AllGatherOutPlace(sendBuf, recvBuf, sendCount, dataType, comm, stream, opTag), opTag.c_str());
+
+    if (GetExternalInputHcclEnableEntryLog()) {
+        HcclUs endut = TIME_NOW();
+        /* 关键状态记录 */
+        std::string endInfo = "HcclAllGather:success,take time: " +
+            std::to_string(DURATION_US(endut - startut).count()) + " us, tag: " + opTag;
+        HCCL_RUN_INFO("%s", endInfo.c_str());
+    }
 
     return HCCL_SUCCESS;
 }
@@ -55,11 +81,29 @@ HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclD
 HcclResult HcclAllGatherGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, const char* group, aclrtStream stream, const char* tag, void** streams, size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize)
 {
     HCCL_INFO("Start to run execute HcclAllGatherGraphMode");
+        /* 接口交互信息日志 */
+    if (GetExternalInputHcclEnableEntryLog()) {
+        s32 deviceLogicId = 0;
+        ACLCHECK(aclrtGetDevice(&deviceLogicId));
+        s32 streamId = 0;
+        ACLCHECK(aclrtStreamGetId(stream, &streamId));
+        char stackLogBuffer[LOG_TMPBUF_SIZE];
+        s32 ret = snprintf_s(stackLogBuffer, LOG_TMPBUF_SIZE, LOG_TMPBUF_SIZE - 1U,
+            "tag[%s], sendBuf[%p], recvBuf[%p], sendCount[%llu], dataType[%s], streamId[%d], deviceLogicId[%d]",
+            opTag.c_str(), sendBuf, recvBuf, sendCount, GetDataTypeEnumStr(dataType).c_str(), streamId, deviceLogicId);
+
+        CHK_PRT_CONT(ret == -1, HCCL_WARNING("Failed to build log info, tag[%s].", opTag.c_str()));
+        std::string logInfo = "Entry-HcclAllGatherGraphMode:" + std::string(stackLogBuffer);
+        HCCL_RUN_INFO("%s", logInfo.c_str());
+    }
+
     // 根据group获取通信域
     HcclComm comm = nullptr;
     HCCL_INFO("[HcclAllGatherGraphMode] get group name: %s", group);
     CHK_RET(HcomGetCommHandleByGroup(group, &comm));
     CHK_PRT_RET(sendCount == 0, HCCL_WARNING("input sendCount is 0, return all gather success"), HCCL_SUCCESS);
+
+    HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
     std::string opTag;
     CHK_RET(AllGatherInitAndCheck(comm, sendBuf, recvBuf, sendCount, dataType, stream, opTag));
     
@@ -85,7 +129,14 @@ HcclResult HcclAllGatherGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCou
     std::string tagStr = tag;
     // 执行AllGather
     CHK_RET_AND_PRINT_IDE(AllGatherOutPlaceGraphMode(sendBuf, recvBuf, sendCount, dataType, comm, stream, tagStr, resPack), tagStr.c_str());
-
+    
+    if (GetExternalInputHcclEnableEntryLog()) {
+        HcclUs endut = TIME_NOW();
+        /* 关键状态记录 */
+        std::string endInfo = "HcclAllGatherGraphMode:success,take time: " +
+            std::to_string(DURATION_US(endut - startut).count()) + " us, tag: " + tagStr;
+        HCCL_RUN_INFO("%s", endInfo.c_str());
+    }
     return HCCL_SUCCESS;
 }
 namespace ops_hccl {
