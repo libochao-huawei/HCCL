@@ -53,7 +53,10 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(
         return HCCL_E_PARA;
     }
     if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
-        tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[0][1]);    // clos拓扑，包含所有rank
+        tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[0][1]);    // 框内所有卡
+        for (u32 idx = 1; idx < algHierarchyInfo.infos.size(); ++idx) {
+            tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[idx][0]);
+        }
     } else {
         tempAlgHierachyInfo = algHierarchyInfo.infos[0];
     }
@@ -216,10 +219,16 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
 
     std::vector<std::vector<u32>> tempAlgHierachyInfo;
     if (resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS && !resCtx.topoInfo.level0PcieMix) {
-        tempAlgHierachyInfo.push_back(resCtx.algHierarchyInfo.infos[0][1]);
+        std::set<u32> totalRanks(algHierarchyInfo.infos[0][1].begin(), algHierarchyInfo.infos[0][1].end());
+        for (u32 idx = 1; idx < algHierarchyInfo.infos.size(); ++idx) {
+            const auto& rankVec = algHierarchyInfo.infos[idx][0];
+            totalRanks.insert(rankVec.begin(), rankVec.end());
+        }
+        tempAlgHierachyInfo.emplace_back(totalRanks.begin(), totalRanks.end());
     } else {
-        tempAlgHierachyInfo = resCtx.algHierarchyInfo.infos[0];
+        tempAlgHierachyInfo = algHierarchyInfo.infos[0];
     }
+
     // 构建template
     std::shared_ptr<InsAlgTemplate> algTemplate =
         std::make_shared<InsAlgTemplate>(param, resCtx.topoInfo.userRank, tempAlgHierachyInfo);
