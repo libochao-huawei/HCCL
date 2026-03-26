@@ -19,6 +19,7 @@
 #include "ccu_temp_reduce_mesh_1D.h"
 #include "ccu_temp_reduce_nhr_1D_mem2mem.h"
 #endif
+
 namespace ops_hccl {
 
 template <typename AlgTopoMatch, typename AlgTemplate>
