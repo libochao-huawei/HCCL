@@ -68,11 +68,10 @@ HcclResult HcclSendGraphMode(
     CHK_RET(InitEnvConfig());
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     u32 userRank = INVALID_VALUE_RANKID;
-    std::string opTag;
+    std::string opTag(tag ? tag : "");
     // 参数获取和校验
     CHK_PRT_RET(count == 0, HCCL_WARNING("[HcclSendGraphMode] input count is 0, return send success"), HcclResult::HCCL_SUCCESS);
     CHK_RET(GetAndCheckSendPara(comm, sendBuf, count, dataType, destRank, rankSize, userRank, opTag));
-    CHK_RET(HcclCheckTag(tag));
 
     // 拼装ResPackGraphMode
     ResPackGraphMode resPack;
@@ -93,7 +92,7 @@ HcclResult HcclSendGraphMode(
     resPack.scratchMemSize = scratchMemSize;
 
     // 执行Send
-    CHK_RET_AND_PRINT_IDE(SendExec(sendBuf, count, dataType, destRank, comm, stream, rankSize, OpMode::OFFLOAD, tag, resPack), opTag.c_str());
+    CHK_RET_AND_PRINT_IDE(SendExec(sendBuf, count, dataType, destRank, comm, stream, rankSize, OpMode::OFFLOAD, opTag, resPack), opTag.c_str());
 
     HCCL_INFO("[HcclSendGraphMode][%d]->[%d] Success.", userRank, destRank);
     return HcclResult::HCCL_SUCCESS;
@@ -122,9 +121,11 @@ namespace ops_hccl {
         CHK_RET(HcclGetRankSize(comm, &rankSize));
         CHK_RET(HcclGetRankId(comm, &userRank));
         CHK_PRT_RET(userRank == destRank, HCCL_ERROR("[HcclSend] destRank cannot be equal to self."), HcclResult::HCCL_E_NOT_SUPPORT);
-        char commName[COMM_INDENTIFIER_MAX_LENGTH];
-        CHK_RET(HcclGetCommName(comm, commName));
-        tag = "SendRecv_" + string(commName) + "_" + std::to_string(userRank) + "_" + std::to_string(destRank);
+        if (tag.empty()) {
+            char commName[COMM_INDENTIFIER_MAX_LENGTH];
+            CHK_RET(HcclGetCommName(comm, commName));
+            tag = "SendRecv_" + string(commName) + "_" + std::to_string(userRank) + "_" + std::to_string(destRank);
+        }
         CHK_RET(HcclCheckTag(tag.c_str()));
         CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), tag.c_str());
         CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, destRank), tag.c_str());

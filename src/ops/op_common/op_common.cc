@@ -796,7 +796,7 @@ HcclResult HcclGetChannelImpl(const u32 level, HcclComm comm, const OpParam &par
 
 
 HcclResult RegGraphModeBuffers(HcclComm comm, const OpParam &param, std::vector<HcclChannelDesc>& channelRequest, char* inputBuffTag, char* outputBuffTag, std::vector<HcclMemHandle>& memHandles) {
-    HCCL_INFO("[RegGraphModeBuffers] param.algTag[%s]", param.algTag);
+    HCCL_INFO("[RegGraphModeBuffers] param.tag[%s]", param.tag);
     if (channelRequest.empty()) {
         HCCL_INFO("[RegGraphModeBuffers]channelRequest is empty");
         return HCCL_SUCCESS;
@@ -1375,7 +1375,7 @@ HcclResult HcclGetRemoteBuff(HcclComm comm, ChannelHandle channel, const char *m
             *bufferPtr = remoteMemList[i].addr;
             *bufferSize = remoteMemList[i].size;
             HCCL_INFO("[%s] Found %u memNum[%u/%u] is %u at index %u: addr=%p, size=%llu", __func__, *memTag, 
-                memNum, i, remoteMemList[i].addr, remoteMemList[i].size);
+                i + 1, memNum, remoteMemList[i].addr, remoteMemList[i].size);
             break;
         }
     }

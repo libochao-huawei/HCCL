@@ -68,11 +68,10 @@ HcclResult HcclRecvGraphMode(
     CHK_RET(InitEnvConfig());
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     u32 userRank = INVALID_VALUE_RANKID;
-    std::string opTag;
+    std::string opTag(tag ? tag : "");
     // 参数获取和校验
     CHK_PRT_RET(count == 0, HCCL_WARNING("[HcclRecvGraphMode] input count is 0, return recv success"), HcclResult::HCCL_SUCCESS);
     CHK_RET(GetAndCheckRecvPara(comm, recvBuf, count, dataType, srcRank, rankSize, userRank, opTag));
-    CHK_RET(HcclCheckTag(tag));
 
     // 拼装ResPackGraphMode
     ResPackGraphMode resPack;
@@ -93,7 +92,7 @@ HcclResult HcclRecvGraphMode(
     resPack.scratchMemSize = scratchMemSize;
 
     // 执行Recv
-    CHK_RET_AND_PRINT_IDE(RecvExec(recvBuf, count, dataType, srcRank, comm, stream, rankSize, OpMode::OFFLOAD, tag, resPack), opTag.c_str());
+    CHK_RET_AND_PRINT_IDE(RecvExec(recvBuf, count, dataType, srcRank, comm, stream, rankSize, OpMode::OFFLOAD, opTag, resPack), opTag.c_str());
 
     HCCL_INFO("[HcclRecvGraphMode][%d]<-[%d] Success.", userRank, srcRank);
     return HcclResult::HCCL_SUCCESS;
@@ -122,9 +121,11 @@ namespace ops_hccl {
         CHK_RET(HcclGetRankSize(comm, &rankSize));
         CHK_RET(HcclGetRankId(comm, &userRank));
         CHK_PRT_RET(userRank == srcRank, HCCL_ERROR("[HcclRecv] srcRank cannot be equal to self."), HcclResult::HCCL_E_NOT_SUPPORT);
-        char commName[COMM_INDENTIFIER_MAX_LENGTH];
-        CHK_RET(HcclGetCommName(comm, commName));
-        tag = "SendRecv_" + string(commName) + "_" + std::to_string(srcRank) + "_" + std::to_string(userRank);
+        if (tag.empty()) {
+            char commName[COMM_INDENTIFIER_MAX_LENGTH];
+            CHK_RET(HcclGetCommName(comm, commName));
+            tag = "SendRecv_" + string(commName) + "_" + std::to_string(srcRank) + "_" + std::to_string(userRank);
+        }
         CHK_RET(HcclCheckTag(tag.c_str()));
         CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), tag.c_str());
         CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, srcRank), tag.c_str());
