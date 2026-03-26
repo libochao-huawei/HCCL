@@ -21,7 +21,6 @@ extern "C" {
 
 // 动态库管理接口（大驼峰命名）
 void HcommDlInit(void);
-void HcommDlFini(void);
 int GetHcommVersion(void);
 
 // 功能支持情况查询

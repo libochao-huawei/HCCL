@@ -72,17 +72,3 @@ void HcommDlInit(void) {
     HcommProfilingDlInit(gLibHandle);
     HcomDlInit(gLibHandle);
 }
-
-void HcommDlFini(void) {
-    if (gLibHandle) {
-        HcclResDlFini();
-        HcclRankGraphDlFini();
-        HcommPrimitivesDlFini();
-        HcclInnerDlFini();
-        HcommProfilingDlFini();
-        HcomDlFini();
-
-        dlclose(gLibHandle);
-        gLibHandle = nullptr;
-    }
-}
