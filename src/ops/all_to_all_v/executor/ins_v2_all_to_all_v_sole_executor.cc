@@ -213,15 +213,15 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     }
 
     std::vector<std::vector<u32>> tempAlgHierachyInfo;
-    if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-        std::set<u32> totalRanks(algHierarchyInfo.infos[0][1].begin(), algHierarchyInfo.infos[0][1].end());
-        for (u32 idx = 1; idx < algHierarchyInfo.infos.size(); ++idx) {
-            const auto& rankVec = algHierarchyInfo.infos[idx][0];
+    if (resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS) {
+        std::set<u32> totalRanks(resCtx.algHierarchyInfo.infos[0][1].begin(), resCtx.algHierarchyInfo.infos[0][1].end());
+        for (u32 idx = 1; idx < resCtx.algHierarchyInfo.infos.size(); ++idx) {
+            const auto& rankVec = resCtx.algHierarchyInfo.infos[idx][0];
             totalRanks.insert(rankVec.begin(), rankVec.end());
         }
         tempAlgHierachyInfo.emplace_back(totalRanks.begin(), totalRanks.end());
     } else {
-        tempAlgHierachyInfo = algHierarchyInfo.infos[0];
+        tempAlgHierachyInfo = resCtx.algHierarchyInfo.infos[0];
     }
 
     // 构建template
