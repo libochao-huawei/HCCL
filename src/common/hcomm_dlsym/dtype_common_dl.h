@@ -18,8 +18,6 @@
 extern "C" {
 #endif
 
-// DECL_WEAK_FUNC(hrtGetDeviceType);
-
 // 查询函数声明
 DECL_SUPPORT_FLAG(hrtGetDeviceType);
 
