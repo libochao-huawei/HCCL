@@ -16,7 +16,8 @@ InsAlgTemplateBase::InsAlgTemplateBase(
     const OpParam &param, const u32 rankId, // 传通信域的rankId，userRank
     const std::vector<std::vector<u32>> &subCommRanks)
     : opMode_(param.opMode), root_(param.root), myRank_(rankId),
-      subCommRanks_(subCommRanks), reduceOp_(param.reduceType), enableDetour_(param.enableDetour)
+      subCommRanks_(subCommRanks), reduceOp_(param.reduceType),
+      enableDetour_(param.detourType != HcclDetourType::HCCL_DETOUR_DISABLE)
 {
     if (subCommRanks.size() > 1) {
         templateRankSize_ = subCommRanks[0].size() * subCommRanks[1].size();

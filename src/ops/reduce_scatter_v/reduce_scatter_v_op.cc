@@ -220,7 +220,7 @@ HcclResult PrepareReduceScatterVParam(void *sendBuf, const void *sendDispls, con
     const u64* varData = reinterpret_cast<const u64*>(param.varData);
 
     param.opType = HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V;
-    param.enableDetour = false;
+    param.detourType = GetExternalInputHcclDetourType();
     param.deviceType = deviceType;
     return HCCL_SUCCESS;
 }
