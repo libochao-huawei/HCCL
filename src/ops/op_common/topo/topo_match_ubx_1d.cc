@@ -38,11 +38,11 @@ HcclResult TopoMatchUBX1d::TopoForLayer1(const HcclComm comm, uint32_t layer0Siz
     CHK_RET(HcclRankGraphGetRanksByTopoInst(comm, 1, topoInsts[0], &ranks, &rankNum));
     HCCL_DEBUG("[TopoMatchUBX1d::MeshTopoForLayer1] Rank [%d], all [%u] ranks in layer1", myRank, rankNum);
     // 2. 取出每张卡，作为layer1的ranks
-    std::vector<uint32_t> rankVecLayer1WithSameIdx;
+    std::vector<uint32_t> rankVecLayer1;
     for (uint32_t i = 0; i < rankNum; i++) {
         uint32_t rankId = ranks[i];
         if (myRank == rankId) {
-            rankVecLayer1WithSameIdx.push_back(rankId);
+            rankVecLayer1.push_back(rankId);
             continue;
         }
 
@@ -52,9 +52,9 @@ HcclResult TopoMatchUBX1d::TopoForLayer1(const HcclComm comm, uint32_t layer0Siz
         if (linkNum == 0) {
             continue;
         }
-        rankVecLayer1WithSameIdx.push_back(rankId);
+        rankVecLayer1.push_back(rankId);
     }
-    algHierarchyInfo.infos[1].push_back({rankVecLayer1WithSameIdx});
+    algHierarchyInfo.infos[1].push_back({rankVecLayer1});
 #endif
     return HcclResult::HCCL_SUCCESS;
 }
