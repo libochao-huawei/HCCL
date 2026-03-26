@@ -13,6 +13,7 @@
 #include <cstring>
 #include "hcom_dl.h"
 #include "topo_host.h"
+#include "op_common_graph_mode.h"
 
 HcclResult HcclCreateOpParamGraphMode(OpParamGraphMode **opParam)
 {
@@ -177,44 +178,44 @@ HcclResult HcclCalcAivResOffline(ResResponseGraphMode *resResponse, u32 aivCoreL
     resResponse->aivCoreNum = aivCoreLimit;
 }
 
-HcclResult HcclCalcAivAlgName(ResResponseGraphMode *resResponse, const char *group, u64 count, void* counts, HcclDataType dataType, HcclReduceOp op,
-                                    HcclCMDType opType, int32_t aivCoreLimit, bool &ifAiv)
-{
-    if (resResponse == nullptr) {
-        return HCCL_E_PARA;
-    }
-    std::string algName;
+// HcclResult HcclCalcAivAlgName(ResResponseGraphMode *resResponse, const char *group, u64 count, void* counts, HcclDataType dataType, HcclReduceOp op,
+//                                     HcclCMDType opType, int32_t aivCoreLimit, bool &ifAiv)
+// {
+//     if (resResponse == nullptr) {
+//         return HCCL_E_PARA;
+//     }
+//     std::string algName;
 
-    HcclComm comm = nullptr;
-    HcomGetCommHandleByGroup(group, &comm);
-    OpParam param;
-    CHK_RET(HcclGetCommName(comm, param.commName));
-    param.opMode = OpMode::OFFLOAD;
-    param.opExecuteConfig = OpExecuteConfig::AIV;
-    param.engine = CommEngine::COMM_ENGINE_AIV;
-    param.hcclComm = comm;
-    param.opType = opType;
-    param.DataDes.dataType = dataType;
-    param.DataDes.count = count;
-    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
-    // 初始化topoInfo
-    CHK_RET(InitRankInfo(comm, topoInfo.get()));
-    // 算法选择
-    std::shared_ptr<ExecuteSelector> collAlgSelector = std::make_shared<ExecuteSelector>(ExecuteSelector());
-    std::map<u32, AutoSelectorBase *> selectors = SelectorRegistry::Global()->GetAllSelectors();
-    selectors = SelectorRegistry::Global()->GetSelectorsByOpType(param.opType);
-    HCCL_INFO("[Algo][Selector] The selector nums of optype[%d] is [%zu].", param.opType, selectors.size());
-    for (auto iter : selectors) {
-        HCCL_DEBUG("[Algo][Selector] The selector[priority of %llu] is running.", iter.first);
-        if (iter.second->Select(param, topoInfo.get(), algName) == SelectorStatus::MATCH) {
-            HCCL_INFO("[Algo][Selector] The selector[priority of %llu] is matched, the selected algo type is %s",
-                      iter.first, algName.c_str());
-            return HcclResult::HCCL_SUCCESS;
-        }
-    }
-    // ifaiv赋值
-    return HCCL_SUCCESS;
-}
+//     HcclComm comm = nullptr;
+//     HcomGetCommHandleByGroup(group, &comm);
+//     OpParam param;
+//     CHK_RET(HcclGetCommName(comm, param.commName));
+//     param.opMode = OpMode::OFFLOAD;
+//     param.opExecuteConfig = OpExecuteConfig::AIV;
+//     param.engine = CommEngine::COMM_ENGINE_AIV;
+//     param.hcclComm = comm;
+//     param.opType = opType;
+//     param.DataDes.dataType = dataType;
+//     param.DataDes.count = count;
+//     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
+//     // 初始化topoInfo
+//     CHK_RET(InitRankInfo(comm, topoInfo.get()));
+//     // 算法选择
+//     std::shared_ptr<ExecuteSelector> collAlgSelector = std::make_shared<ExecuteSelector>(ExecuteSelector());
+//     std::map<u32, AutoSelectorBase *> selectors = SelectorRegistry::Global()->GetAllSelectors();
+//     selectors = SelectorRegistry::Global()->GetSelectorsByOpType(param.opType);
+//     HCCL_INFO("[Algo][Selector] The selector nums of optype[%d] is [%zu].", param.opType, selectors.size());
+//     for (auto iter : selectors) {
+//         HCCL_DEBUG("[Algo][Selector] The selector[priority of %llu] is running.", iter.first);
+//         if (iter.second->Select(param, topoInfo.get(), algName) == SelectorStatus::MATCH) {
+//             HCCL_INFO("[Algo][Selector] The selector[priority of %llu] is matched, the selected algo type is %s",
+//                       iter.first, algName.c_str());
+//             return HcclResult::HCCL_SUCCESS;
+//         }
+//     }
+//     // ifaiv赋值
+//     return HCCL_SUCCESS;
+// }
 
 HcclResult HcclCalcAivResOffline(ResResponseGraphMode *resResponse, OpParamGraphMode *paramPtr)
 {
