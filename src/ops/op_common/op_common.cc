@@ -667,14 +667,21 @@ HcclResult SaveMainThreadInfo(HcclComm comm, const OpParam &param, ThreadHandle 
 
 HcclResult SaveUnfoldThreadInfo(HcclComm comm, const OpParam &param, ThreadHandle unfoldThread)
 {
+    HCCL_INFO("[%s] start, algTag[%s], unfoldThread[%lu]", __func__, param.algTag, unfoldThread);
     uint64_t size = sizeof(ThreadHandle);
+    HCCL_INFO("[%s] sizeof(ThreadHandle)[%lu]", __func__, size);
     void *ctx = nullptr;
     // 申请一块host类型内存，保存展开流信息
     char unfoldAlgTag[ALG_TAG_LENGTH] = {0};
     int ret = snprintf_s(unfoldAlgTag, sizeof(unfoldAlgTag), sizeof(unfoldAlgTag) - 1, "%s_unfold", param.algTag);
     CHK_PRT_RET(ret <= 0, HCCL_ERROR("[%s] failed to fill unfoldAlgTag", __func__), HCCL_E_INTERNAL);
+    HCCL_INFO("[%s] unfoldAlgTag[%s]", __func__, unfoldAlgTag);
     
+    HCCL_INFO("[%s] before HcclEngineCtxCreate, comm[%p], unfoldAlgTag[%s], engine[COMM_ENGINE_CPU_TS], size[%lu]", 
+        __func__, comm, unfoldAlgTag, size);
     HcclResult res = HcclEngineCtxCreate(comm, unfoldAlgTag, CommEngine::COMM_ENGINE_CPU_TS, size, &ctx);
+    HCCL_INFO("[%s] after HcclEngineCtxCreate, res[%d], ctx[%p]", __func__, res, ctx);
+    
     CHK_PRT_RET(res != HCCL_SUCCESS,
         HCCL_ERROR("[%s] HcclEngineCtxCreate failed, unfoldAlgTag[%s], ret[%d]", __func__, unfoldAlgTag, res), res);
     CHK_PRT_RET(ctx == nullptr,
@@ -686,8 +693,8 @@ HcclResult SaveUnfoldThreadInfo(HcclComm comm, const OpParam &param, ThreadHandl
     // 填充展开流handle信息
     ThreadHandle* threadPtr = reinterpret_cast<ThreadHandle *>(ctx);
     *threadPtr = unfoldThread;
-    HCCL_INFO("[SaveUnfoldThreadInfo]unfoldAlgTag[%s], threadPtr[%p], unfoldThread[%lu]",
-        unfoldAlgTag, threadPtr, unfoldThread);
+    HCCL_INFO("[%s] success, unfoldAlgTag[%s], threadPtr[%p], unfoldThread[%lu], *threadPtr[%lu]",
+        __func__, unfoldAlgTag, threadPtr, unfoldThread, *threadPtr);
     return HCCL_SUCCESS;
 }
 
@@ -695,12 +702,18 @@ HcclResult GetUnfoldThreadInfo(HcclComm comm, const OpParam &param, ThreadHandle
 {
     HCCL_INFO("[%s] start, algTag[%s]", __func__, param.algTag);
     uint64_t size = sizeof(ThreadHandle);
+    HCCL_INFO("[%s] sizeof(ThreadHandle)[%lu]", __func__, size);
     void *ctx = nullptr;
     char unfoldAlgTag[ALG_TAG_LENGTH] = {0};
     int ret = snprintf_s(unfoldAlgTag, sizeof(unfoldAlgTag), sizeof(unfoldAlgTag) - 1, "%s_unfold", param.algTag);
     CHK_PRT_RET(ret <= 0, HCCL_ERROR("[%s] failed to fill unfoldAlgTag", __func__), HCCL_E_INTERNAL);
+    HCCL_INFO("[%s] unfoldAlgTag[%s]", __func__, unfoldAlgTag);
     
+    HCCL_INFO("[%s] before HcclEngineCtxGet, comm[%p], unfoldAlgTag[%s], engine[COMM_ENGINE_CPU_TS]", 
+        __func__, comm, unfoldAlgTag);
     HcclResult res = HcclEngineCtxGet(comm, unfoldAlgTag, CommEngine::COMM_ENGINE_CPU_TS, &ctx, &size);
+    HCCL_INFO("[%s] after HcclEngineCtxGet, res[%d], ctx[%p], size[%lu]", __func__, res, ctx, size);
+    
     CHK_PRT_RET(res != HCCL_SUCCESS,
         HCCL_ERROR("[%s] HcclEngineCtxGet failed, unfoldAlgTag[%s], engine[COMM_ENGINE_CPU_TS], ret[%d]",
             __func__, unfoldAlgTag, res), res);
