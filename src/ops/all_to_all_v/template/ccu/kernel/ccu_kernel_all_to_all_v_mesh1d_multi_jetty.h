@@ -58,9 +58,9 @@ public:
         inputAddr_(inputAddr), outputAddr_(outputAddr), token_(token), srcOffset_(srcOffset), dstOffset_(dstOffset),
         localSendRecvInfo_(localSendRecvInfo)
     {
-        HCCL_DEBUG("[CcuTaskArgAllToAllVMesh1DMultiJetty] inputAddr: %lu, outputAddr: %lu, token: %lu, srcOffset: %lu, "
+        HCCL_DEBUG("[CcuTaskArgAllToAllVMesh1DMultiJetty] inputAddr: %lu, outputAddr: %lu, srcOffset: %lu, "
                    "dstOffset: %lu",
-                   inputAddr_, outputAddr_, token_, srcOffset_, dstOffset_);
+                   inputAddr_, outputAddr_, srcOffset_, dstOffset_);
     }
 
     uint64_t inputAddr_;
