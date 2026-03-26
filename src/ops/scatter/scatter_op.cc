@@ -74,8 +74,8 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
     u32 userRank = INVALID_VALUE_RANKID;
     CHK_RET(HcclGetRankId(comm, &userRank));
     if (userRank == root) {     // 本rank为root节点，send_buff不可以为空
-        RPT_INPUT_ERR(sendBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-            std::vector<std::string>({"HcclScatter", "sendBuf", "nullptr", "please check sendBuf"}));
+        RPT_INPUT_ERR(sendBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+            std::vector<std::string>({"HcclScatter", "nullptr", "sendBuf", "non-null pointer"}));
         CHK_PTR_NULL(sendBuf);
     }
     char commName[COMM_INDENTIFIER_MAX_LENGTH];
@@ -128,11 +128,11 @@ constexpr u32 HCCL_INTER_SERVER_RING_ALGO_MAX_SUPPORT_SERVER_NUM = 8; // server 
 HcclResult CheckScatterInputPara(const HcclComm comm, const void *recvBuf)
 {
     // 入参合法性校验
-    RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-        std::vector<std::string>({"HcclScatter", "comm", "nullptr", "please check comm"}));
+    RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclScatter", "nullptr", "comm", "non-null pointer"}));
     CHK_PTR_NULL(comm);
-    RPT_INPUT_ERR(recvBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-        std::vector<std::string>({"HcclScatter", "recvBuf", "nullptr", "please check recvBuf"}));
+    RPT_INPUT_ERR(recvBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclScatter", "nullptr", "recvBuf", "non-null pointer"}));
     CHK_PTR_NULL(recvBuf);
 
     return HCCL_SUCCESS;
@@ -308,7 +308,7 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
         // 将算法名字放在param参数中
         int result = sprintf_s(param.algName, sizeof(param.algName), "%s", algName.c_str());
         if (result <= 0) {
-            HCCL_ERROR("faled to fill param.algName");
+            HCCL_ERROR("failed to fill param.algName");
             return HCCL_E_INTERNAL;
         }
         std::string algTypeStr = TransferAlgTypeStr(param.algType);
@@ -637,7 +637,7 @@ HcclResult SelectAlg(HcclComm comm, OpParam &param, TopoInfo* topoInfo, AlgType&
     if (isOpBase) {
         int ret = sprintf_s(param.algTag, sizeof(param.algTag), "%s_%s_%u", param.tag, algName.c_str(), param.root);
         if (ret <= 0) {
-            HCCL_ERROR("faled to fill param.algTag");
+            HCCL_ERROR("failed to fill param.algTag");
             return HCCL_E_INTERNAL;
         }
     }
@@ -650,7 +650,7 @@ HcclResult SelectAlg(HcclComm comm, OpParam &param, TopoInfo* topoInfo, AlgType&
                                    (param.engine == CommEngine::COMM_ENGINE_AICPU_TS)) ? "_device" : "_host");
         int ret = strcat_s(param.algTag, sizeof(param.algTag), launchMode);
         if (ret != 0) {
-            HCCL_ERROR("faled to fill param.algTag");
+            HCCL_ERROR("failed to fill param.algTag");
             return HCCL_E_INTERNAL;
         }
 
