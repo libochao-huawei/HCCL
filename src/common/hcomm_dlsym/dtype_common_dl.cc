@@ -13,8 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-DEFINE_SUPPORT_FLAG(hrtGetDeviceType);
-DEFINE_WEAK_FUNC_WITH_HCCLRESULT(HcclResult hrtGetDeviceType(DevType &devType));
+DEFINE_WEAK_FUNC(HcclResult, hrtGetDeviceType, DevType &devType);
 
 // 初始化
 void DtypeCommonDlInit(void* libHcommHandle) {

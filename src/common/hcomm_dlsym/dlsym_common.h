@@ -17,47 +17,32 @@
 extern "C" {
 #endif
 
-// 支持标志（静态，默认 false）
-#define DEFINE_SUPPORT_FLAG(name) \
-    static bool g_##name##Supported = false; \
-    extern "C" bool HcommIsSupport##name(void) { \
-        return g_##name##Supported; \
+#define DEFINE_WEAK_FUNC(type, func_name, ...) \
+    static bool g_##func_name##Supported = false; \
+    extern "C" bool HcommIsSupport##func_name(void) { \
+        return g_##func_name##Supported; \
+    } \
+    type func_name(__VA_ARGS__) __attribute__((weak)); \
+    type func_name(__VA_ARGS__) \
+    { \
+        HCCL_ERROR("[HcclWrapper] %s not supported", __FUNCTION__); \
+        return (type)(-1); \
     }
 
-#define DECL_SUPPORT_FLAG(name) \
-    extern "C" bool HcommIsSupport##name##(void)
+#define DECL_SUPPORT_FLAG(func_name) \
+    extern "C" bool HcommIsSupport##func_name(void)
 
-#define INIT_SUPPORT_FLAG(handle, name) \
+#define INIT_SUPPORT_FLAG(handle, func_name) \
     do { \
-        void *ptr = (void *)dlsym(handle, "name"); \
+        void *ptr = (void *)dlsym(handle, "func_name"); \
         if (ptr == nullptr) { \
-            g_##name##Supported = false; \
-            HCCL_DEBUG("[HcclWrapper] %s not supported", "name"); \
+            g_##func_name##Supported = false; \
+            HCCL_DEBUG("[HcclWrapper] %s not supported", "func_name"); \
         } else { \
-            g_##name##Supported = true; \
+            g_##func_name##Supported = true; \
         } \
     } while(0)
 
-// 弱符号函数定义
-#define DEFINE_WEAK_FUNC_WITH_HCCLRESULT(func_decl) \
-    func_decl __attribute__((weak)); \
-    func_decl \
-    { \
-        HCCL_ERROR("[HcclWrapper] %s not supported", __FUNCTION__); \
-        return HCCL_E_NOT_SUPPORT; \
-    }
-
-#define DEFINE_WEAK_FUNC_WITH_INT32(func_decl) \
-    func_decl __attribute__((weak)); \
-    func_decl \
-    { \
-        HCCL_ERROR("[HcclWrapper] %s not supported", __FUNCTION__); \
-        return -1; \
-    }
-
-// 弱符号函数声明
-#define DECL_WEAK_FUNC(func_decl) \
-    func_decl __attribute__((weak))
 
 #ifdef __cplusplus
 }
