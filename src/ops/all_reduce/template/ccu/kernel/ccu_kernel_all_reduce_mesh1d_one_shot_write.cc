@@ -13,7 +13,7 @@
 namespace ops_hccl {
 
 constexpr int PRESYNC_CKE_IDX  = 0;   // Presync/Postsync 屏障固定使用 CKE 0
-constexpr int POSTSYNC_CKE_IDX = 0;
+constexpr int POSTSYNC_CKE_IDX = 1;
 
 CcuKernelAllReduceMesh1DOneShotWrite::CcuKernelAllReduceMesh1DOneShotWrite(const hcomm::CcuKernelArg &arg)
     : CcuKernelAlgBase(arg)
