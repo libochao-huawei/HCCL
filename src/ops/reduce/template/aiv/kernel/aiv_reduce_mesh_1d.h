@@ -34,9 +34,9 @@ public:
         }
     }
  
-    __aicore__ inline void Process(int32_t tag)
+    __aicore__ inline void Process(int32_t sliceId)
     {
-        tag_ = tag;
+        curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
         if (rank_ != root_) {
             // 写远端：将自身core负责的Input数据搬运至root的Scratch上
             if (sliceLen_ > 0) {
@@ -45,7 +45,7 @@ public:
             }
             // 写同步：将aivTag写入root上的数据同步标志位，表示数据搬运完成
             uint64_t flagOffset = rank_ * block_num + block_idx;
-            Record(root_, flagOffset, tag_);
+            Record(root_, flagOffset, curTag_);
         } else {
             // 本地拷贝：将自身core负责的Input数据搬运至本地Output上
             if (sliceLen_ > 0) {
@@ -59,7 +59,7 @@ public:
                 }
                 // 读同步：阻塞读取本地数据同步标志位，当前aivTag等于读取值时，继续步骤
                 uint64_t flagOffset = dataRank * block_num + block_idx;
-                WaitFlag(rank_, flagOffset, tag_);
+                WaitFlag(rank_, flagOffset, curTag_);
                 // 本地规约：将本地ScratchBuffer上的数据Reduce到本地OutputBuffer上
                 if (sliceLen_ > 0) {
                     srcOffset_ = reinterpret_cast<uint64_t>(GM_IN[root_]) + sliceIdx * dataSize_ + offsetSize_;
@@ -100,11 +100,11 @@ __aicore__ inline void AivReduceV2Mesh1D(EXTERN_KERNEL_ARGS_DEF_V2)
     op.Init(KERNEL_CLASS_INIT, true);
     op.InitCoreInfo();
     SyncAll<true>();
-    if (block_idx == 0 && tag >> AIV_TAG_MOVE_RIGHT_BITS == 1 && (tag & LOW_16_BITS) == 1) {
+    if (op.IsFirstOP(sliceId)) {
         op.BarrierForFirstOP();
     }
     SyncAll<true>();
-    op.Process(tag);
+    op.Process(sliceId);
     op.BarrierAll();
     SyncAll<true>();
 }
