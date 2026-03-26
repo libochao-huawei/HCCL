@@ -400,7 +400,12 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, InsAlltoAllVMesh1DDPU, InsV2Al
     InsTempDpuAlltoAllMesh);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLVC, InsAlltoAllVCMesh1DDPU, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
     InsTempDpuAlltoAllMesh);
-
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, InsAlltoAllClosMesh1DDPU, InsV2AlltoAllVSoleExecutor, TopoMatchUBX1d,
+    InsTempDpuAlltoAllMesh);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, InsAlltoAllVClosMesh1DDPU, InsV2AlltoAllVSoleExecutor, TopoMatchUBX1d,
+    InsTempDpuAlltoAllMesh);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLVC, InsAlltoAllVCClosMesh1DDPU, InsV2AlltoAllVSoleExecutor, TopoMatchUBX1d,
+    InsTempDpuAlltoAllMesh);
 #ifndef AICPU_COMPILE
     REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, CcuAlltoAllMesh1D, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
         CcuTempAlltoAllMesh1D);
