@@ -136,7 +136,7 @@ HcclResult HcclAllGatherGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCou
         HcclUs endut = TIME_NOW();
         /* 关键状态记录 */
         std::string endInfo = "HcclAllGatherGraphMode:success,take time: " +
-            std::to_string(DURATION_US(endut - startut).count()) + " us, tag: " + tagStr;
+            std::to_string(DURATION_US(endut - startut).count()) + " us, tag: " + opTag;
         HCCL_RUN_INFO("%s", endInfo.c_str());
     }
     return HCCL_SUCCESS;
