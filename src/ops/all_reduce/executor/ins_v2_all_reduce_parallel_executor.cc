@@ -15,6 +15,12 @@
 #include "ins_temp_reduce_scatter_mesh_1D.h"
 #include "topo_match_multilevel.h"
 #include <cmath>
+#ifndef AICPU_COMPILE
+#include "ccu_temp_all_gather_nhr_1D_mem2mem.h"
+#include "ccu_temp_all_gather_mesh_1D_mem2mem.h"
+#include "ccu_temp_reduce_scatter_mesh_1D_mem2mem.h"
+#include "ccu_temp_reduce_scatter_nhr_1D_mem2mem.h"
+#endif
 
 namespace ops_hccl {
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2, typename InsAlgTemplate3>
@@ -63,6 +69,19 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     algTemplate2->CalcRes(comm, param, topoInfo, intraTempRequest1);
     algTemplate3->CalcRes(comm, param, topoInfo, interTempRequest1); 
 
+    for (auto &KernelInfo : intraTempRequest.ccuKernelInfos) {
+        KernelInfo.resGroup = 0;
+    }
+    for (auto &KernelInfo : interTempRequest.ccuKernelInfos) {
+        KernelInfo.resGroup = 0;
+    }
+    for (auto &KernelInfo : intraTempRequest1.ccuKernelInfos) {
+        KernelInfo.resGroup = 1;
+    }
+    for (auto &KernelInfo : interTempRequest1.ccuKernelInfos) {
+        KernelInfo.resGroup = 1;
+    }
+
     u32 slaveThreadNumIntra = intraTempRequest.slaveThreadNum;
     if(intraTempRequest.slaveThreadNum >= intraTempRequest1.slaveThreadNum){
         intraTempRequestFinal.notifyNumPerThread = intraTempRequest.notifyNumPerThread;
@@ -90,8 +109,34 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     resourceRequest.notifyNumPerThread.insert(resourceRequest.notifyNumPerThread.end(),
                                               interTempRequestFinal.notifyNumPerThread.begin(),
                                               interTempRequestFinal.notifyNumPerThread.end());
-    resourceRequest.channels.emplace_back(intraTempRequest.channels[0]);
-    resourceRequest.channels.emplace_back(interTempRequest.channels[0]);
+
+    if (param.engine != COMM_ENGINE_CCU) {
+        resourceRequest.channels.emplace_back(intraTempRequest.channels[0]);
+        resourceRequest.channels.emplace_back(interTempRequest.channels[0]);
+    } else {
+        // ccu reduce scatter
+        HCCL_INFO("[InsAllReduceParallelExecutor][CalcRes] intraTemplate has [%d] kernels.", intraTempRequest.ccuKernelNum[0]);
+        resourceRequest.ccuKernelInfos.insert(resourceRequest.ccuKernelInfos.end(),
+                                            intraTempRequest.ccuKernelInfos.begin(),
+                                            intraTempRequest.ccuKernelInfos.end());
+        resourceRequest.ccuKernelNum.emplace_back(intraTempRequest.ccuKernelNum[0]);
+        HCCL_INFO("[InsAllReduceParallelExecutor][CalcRes] interTemplate has [%d] kernels.", interTempRequest.ccuKernelNum[0]);
+        resourceRequest.ccuKernelInfos.insert(resourceRequest.ccuKernelInfos.end(),
+                                            interTempRequest.ccuKernelInfos.begin(),
+                                            interTempRequest.ccuKernelInfos.end());
+        resourceRequest.ccuKernelNum.emplace_back(interTempRequest.ccuKernelNum[0]);
+        // // ccu allgather
+        HCCL_INFO("[InsAllReduceParallelExecutor][CalcRes] intraTemplate1 has [%d] kernels.", intraTempRequest.ccuKernelNum[0]);
+        resourceRequest.ccuKernelInfos.insert(resourceRequest.ccuKernelInfos.end(),
+                                            intraTempRequest1.ccuKernelInfos.begin(),
+                                            intraTempRequest1.ccuKernelInfos.end());
+        resourceRequest.ccuKernelNum.emplace_back(intraTempRequest1.ccuKernelNum[0]);
+        HCCL_INFO("[InsAllReduceParallelExecutor][CalcRes] interTemplate1 has [%d] kernels.", interTempRequest.ccuKernelNum[0]);
+        resourceRequest.ccuKernelInfos.insert(resourceRequest.ccuKernelInfos.end(),
+                                            interTempRequest1.ccuKernelInfos.begin(),
+                                            interTempRequest1.ccuKernelInfos.end());
+        resourceRequest.ccuKernelNum.emplace_back(interTempRequest1.ccuKernelNum[0]);
+    }
 
     HCCL_DEBUG("[InsAllReduceParallelExecutor][CalcRes] myRank[%u], notifyNumOnMainThread[%u], slaveThreadNum[%u], "
                "channels[%u]", myRank_, resourceRequest.notifyNumOnMainThread, resourceRequest.slaveThreadNum,
@@ -249,16 +294,34 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2, typename InsAlgTemplate3>
 HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3>::PrepareResForTemplateResource(
-    const AlgResourceCtxSerializable &resCtx, TemplateResource &intraTempAlgRes, TemplateResource &interTempAlgRes)
+    const OpParam &param, const AlgResourceCtxSerializable &resCtx, TemplateResource &intraTempAlgRes, TemplateResource &interTempAlgRes, bool isRsStage)
 {
-    intraTempAlgRes.channels = intraLinks_;
+    if (param.engine == COMM_ENGINE_CCU) {
+        if (isRsStage) {
+            intraTempAlgRes.ccuKernels.insert(intraTempAlgRes.ccuKernels.end(),
+                                              resCtx.ccuKernels.begin(),
+                                              resCtx.ccuKernels.begin() + resCtx.ccuKernelNum[0]);
+            interTempAlgRes.ccuKernels.insert(interTempAlgRes.ccuKernels.end(),
+                                                resCtx.ccuKernels.begin() + resCtx.ccuKernelNum[0],
+                                                resCtx.ccuKernels.begin() + resCtx.ccuKernelNum[0] + resCtx.ccuKernelNum[1]);
+        } else {
+            intraTempAlgRes.ccuKernels.insert(intraTempAlgRes.ccuKernels.end(),
+                                              resCtx.ccuKernels.begin() + resCtx.ccuKernelNum[0] + resCtx.ccuKernelNum[1],
+                                              resCtx.ccuKernels.begin() + resCtx.ccuKernelNum[0] + resCtx.ccuKernelNum[1] + resCtx.ccuKernelNum[2]);
+            interTempAlgRes.ccuKernels.insert(interTempAlgRes.ccuKernels.end(),
+                                                resCtx.ccuKernels.begin() + resCtx.ccuKernelNum[0] + resCtx.ccuKernelNum[1] + resCtx.ccuKernelNum[2],
+                                                resCtx.ccuKernels.begin() + resCtx.ccuKernelNum[0] + resCtx.ccuKernelNum[1] + resCtx.ccuKernelNum[2] + resCtx.ccuKernelNum[3]);
+        }
+    } else {
+        intraTempAlgRes.channels = intraLinks_;
+        interTempAlgRes.channels = interLinks_;
+    }
     intraTempAlgRes.threads = intraThreads_;
     intraTempAlgRes.aivCommInfoPtr = resCtx.aivCommInfoPtr;
     for (auto i: intraTempAlgRes.channels) {
         HCCL_DEBUG("[InsAllReduceParallelExecutor][PrepareResForTemplateResource],intraTempAlgRes.channels, myRank_[%u], channels[%u]= size[%u] ",
         myRank_, i.first, i.second.size());
     }
-    interTempAlgRes.channels = interLinks_;
     interTempAlgRes.threads = interThreads_;
     interTempAlgRes.aivCommInfoPtr = resCtx.aivCommInfoPtr;
     for (auto i: interTempAlgRes.channels) {
@@ -279,7 +342,10 @@ void InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
     GenDataParamsAllRank(sliceCount, LocalRankSize, dataParams);
 
     dataParams.buffInfo.inputPtr = dataParams.buffInfo.inBuffType == BufferType::HCCL_BUFFER ? resCtx.cclMem.addr : param.inputPtr;
+    dataParams.buffInfo.inputSize = dataParams.buffInfo.inBuffType == BufferType::HCCL_BUFFER ? resCtx.cclMem.size : param.inputSize;
     dataParams.buffInfo.outputPtr = dataParams.buffInfo.outBuffType == BufferType::HCCL_BUFFER ? resCtx.cclMem.addr : param.outputPtr;
+    dataParams.buffInfo.outputSize = dataParams.buffInfo.outBuffType == BufferType::HCCL_BUFFER ? resCtx.cclMem.size : param.outputSize;
+    dataParams.buffInfo.hcclBuff = resCtx.cclMem;
     dataParams.buffInfo.hcclBuff = resCtx.cclMem;
 
     dataParams.buffInfo.hcclBuffBaseOff = scratchOffsetCount * dataTypeSize_ + hcclBuffOffset;
@@ -528,7 +594,7 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
         TemplateResource intraTempAlgRes;
         TemplateResource interTempAlgRes;
         CHK_RET(PrepareResForTemplate(resCtx, tempAlgIntra, tempAlgInter, tempAlgIntra1));
-        PrepareResForTemplateResource(resCtx, intraTempAlgRes, interTempAlgRes);
+        PrepareResForTemplateResource(param, resCtx, intraTempAlgRes, interTempAlgRes, true);
 
         //server 间地址偏移
         for (int i = 0; i < resCtx.algHierarchyInfo.infos[0][0].size(); i++) {
@@ -560,7 +626,7 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
         TemplateResource intraTempAlgRes1;
         TemplateResource interTempAlgRes1;
         CHK_RET(PrepareResForTemplate23(resCtx, tempAlgIntra, tempAlgIntra1, tempAlgInter1));
-        PrepareResForTemplateResource(resCtx, intraTempAlgRes1, interTempAlgRes1);
+        PrepareResForTemplateResource(param, resCtx, intraTempAlgRes1, interTempAlgRes1, false);
 
         // 第三步开始前同步
         CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
@@ -740,4 +806,9 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 // 算法注册
 REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, InsAllReduceParallelRSAG, InsAllReduceParallelExecutor,
     TopoMatchMultilevel, InsTempReduceScatterMesh1D, InsTempReduceScatterNHR, InsTempAllGatherMesh1D, InsTempAllGatherNHR);
+#ifndef AICPU_COMPILE
+REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceParallelMesh1DNHR, InsAllReduceParallelExecutor,
+    TopoMatchMultilevel, CcuTempReduceScatterMesh1DMem2Mem, CcuTempReduceScatterNHR1DMem2Mem, CcuTempAllGatherMesh1DMem2Mem, 
+    CcuTempAllGatherNHR1DMem2Mem);
+#endif
 }  // namespace Hccl
