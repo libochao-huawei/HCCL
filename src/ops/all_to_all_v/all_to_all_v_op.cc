@@ -349,7 +349,7 @@ HcclResult AlltoAllVOutPlace(const void *sendBuf, const void *sendCounts, const 
 
     param.inputSize = inputSize;
     param.outputSize = outputSize;
-    param.enableDetour = false;
+    param.detourType = GetExternalInputHcclDetourType();
     param.opType = opType;
 
     u64* data = reinterpret_cast<u64*>(param.varData);
