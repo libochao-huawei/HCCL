@@ -17,6 +17,15 @@
 
 namespace ops_hccl {
 
+struct SplitSliceInfo {
+    u64 offset{0};
+    u64 size{0};
+    u64 count{0};
+
+    SplitSliceInfo(const u64 offset, const u64 size, const u64 count) 
+    : offset(offset), size(size), count(count) {}
+};
+
 class ReduceMesh1DTwoShot : public InsAlgTemplateBase {
 public:
     explicit ReduceMesh1DTwoShot(const OpParam &param, const u32 rankId,  // 传通信域的rankId，userRank
@@ -54,6 +63,7 @@ private:
     u64 processSize_{0};
     u64 count_{0};
     u32 myIdx_ = UINT32_MAX;  // 本rank在通信域内的索引
+    u32 myRankIdx_{0};
     u32 threadNum_{0};
     std::vector<u32> notifyIdxMainToSub_;
     std::vector<u32> notifyIdxSubToMain_;

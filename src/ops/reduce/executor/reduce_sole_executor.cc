@@ -10,6 +10,7 @@
 
 #include "reduce_sole_executor.h"
 #include "../template/aicpu/reduce_mesh_1D.h"
+#include "../template/aicpu/reduce_mesh_1D_two_shot.h"
 #include "../template/aicpu/reduce_nhr.h"
 #include "../template/aicpu/reduce_aicpu_reduce_nhr.h"
 #include "topo_match_1d.h"
