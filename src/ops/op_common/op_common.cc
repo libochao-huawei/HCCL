@@ -214,8 +214,28 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
 
     // 算法执行
     if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
-        HCCL_INFO("[%s] first execution, GetUnfoldThreadInfo",__func__); 
-        CHK_RET(GetUnfoldThreadInfo(comm, param, resCtxHost->unfoldThread));
+        if (isResourceReused) {
+            // 复用资源，从主上下文反序列化获取 unfoldThread
+            CHK_PRT_RET(resCtxSequence == nullptr,
+                HCCL_ERROR("[%s] resCtxSequence is nullptr when isResourceReused is true, algTag[%s]",
+                    __func__, param.algTag), HCCL_E_INTERNAL);
+            CHK_PRT_RET(param.ctxSize == 0,
+                HCCL_ERROR("[%s] param.ctxSize is 0 when isResourceReused is true, algTag[%s]",
+                    __func__, param.algTag), HCCL_E_INTERNAL);
+            char *ctx = static_cast<char*>(resCtxSequence);
+            std::vector<char> seq(ctx, ctx + param.ctxSize);
+            resCtxHost->DeSerialize(seq);
+            HCCL_INFO("[%s] resource reused, unfoldThread[%lu], algTag[%s]",
+                __func__, resCtxHost->unfoldThread, param.algTag);
+        } else {
+            // 首次执行，从单独的上下文获取 unfoldThread
+            CHK_RET(GetUnfoldThreadInfo(comm, param, resCtxHost->unfoldThread));
+            HCCL_INFO("[%s] first execution, unfoldThread[%lu], algTag[%s]",
+                __func__, resCtxHost->unfoldThread, param.algTag);
+        }
+        CHK_PRT_RET(resCtxHost->unfoldThread == 0,
+            HCCL_ERROR("[%s] unfoldThread is 0, isResourceReused[%d], algTag[%s]",
+                __func__, isResourceReused, param.algTag), HCCL_E_INTERNAL);
         // 根据主流的捕获状态决定展开流的状态
         CHK_RET(CaptureSlaveStreams(comm, param.stream, {mainThread, resCtxHost->unfoldThread}));
         CHK_RET(HcclAicpuKernelEntranceLaunch(comm, param, cpuTsThread, exportedCpuTsThread, notifyNumOnMainThread,
@@ -483,14 +503,14 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::shared_ptr<InsCollA
         // COMM_ENGINE_RESERVED
     } else if (param.engine == COMM_ENGINE_CPU) {
         CHK_RET(GetAlgResDPU(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence,
-            size, increCreateChannelFlag));
+            size, increCreateChannelFlag, isResourceReused));
     } else if (param.engine == COMM_ENGINE_CPU_TS) {
         // COMM_ENGINE_CPU_TS
     } else if (param.engine == COMM_ENGINE_AICPU) {
         // COMM_ENGINE_AICPU
     } else if (param.engine == COMM_ENGINE_AICPU_TS) {
         CHK_RET(GetAlgResAICPU(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence,
-                               size, increCreateChannelFlag));
+                               size, increCreateChannelFlag, isResourceReused));
     } else if (param.engine == COMM_ENGINE_AIV) {
         CHK_RET(GetAlgResAiv(comm, param, resRequest, topoInfo, algHierarchyInfo, resCtxSequence));
     } else if (param.engine == COMM_ENGINE_CCU) {
@@ -505,7 +525,7 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::shared_ptr<InsCollA
 HcclResult GetAlgResAICPU(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
     std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, TopoInfoWithNetLayerDetails *topoInfo,
     AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence, uint64_t& ctxSize,
-    bool increCreateChannelFlag)
+    bool increCreateChannelFlag, bool &isResourceReused)
 {
     std::string tagStr = param.algTag;
     if (!increCreateChannelFlag || g_hostCtx.find(tagStr) == g_hostCtx.end()) {
@@ -534,6 +554,8 @@ HcclResult GetAlgResAICPU(HcclComm comm, const OpParam &param, AlgResourceReques
             if (ret == HCCL_SUCCESS) {
                 *resCtxSequence = ctx;
                 ctxSize = size;
+                isResourceReused = true;
+                HCCL_INFO("[%s] resource reused in incremental mode, algTag[%s]", __func__, param.algTag);
             } else {
                 HCCL_ERROR("failed to get device ctx.");
             }
@@ -1088,7 +1110,7 @@ HcclResult HcclAllocAlgResourceAiv(
 HcclResult GetAlgResDPU(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
     std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, TopoInfoWithNetLayerDetails *topoInfo,
     AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence, uint64_t& ctxSize,
-    bool increCreateChannelFlag)
+    bool increCreateChannelFlag, bool &isResourceReused)
 {
     // 申请共享内存
     uint64_t shmemSize = 100 * 1024 * 1024;
@@ -1100,7 +1122,7 @@ HcclResult GetAlgResDPU(HcclComm comm, const OpParam &param, AlgResourceRequest 
     resCtxHost->dpu2NpuShmemPtr = static_cast<void*>(static_cast<uint8_t*>(shmemPtr) + shmemSize / DPU2NPU_SHMEM_RATIO);
 
     CHK_RET(GetAlgResAICPU(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence,
-                           ctxSize, increCreateChannelFlag));
+                           ctxSize, increCreateChannelFlag, isResourceReused));
 
     HCCL_INFO("Execute GetAlgResAICPU success.");
     return HCCL_SUCCESS;
