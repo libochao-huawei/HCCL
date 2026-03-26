@@ -104,11 +104,10 @@ if(KERNEL_MODE)
     target_link_libraries(p2p_aicpu_kernel PRIVATE
         ccl_kernel
     )
-    register_custom_aicpu_target(p2p_aicpu_kernel)
 
     # 打包：AICPU Kernel tar 包
     pack_targets_and_files(
-        OUTPUT_TARGET "generate_custom_aicpu_package"
+        OUTPUT_TARGET "package_aicpu_hccl_custom_p2p"
         OUTPUT "aicpu_hccl_custom_p2p.tar.gz"
         TARGETS p2p_aicpu_kernel
         MANIFEST "bin_hash.cfg"
@@ -119,9 +118,12 @@ if(KERNEL_MODE)
     sign_file(
         INPUT "aicpu_hccl_custom_p2p.tar.gz"
         CONFIG ${CMAKE_CURRENT_SOURCE_DIR}/scripts/hccl_custom_p2p_check_cfg.xml
-        RESULT_VAR "aicpu_hccl_custom_p2p_sign_file"
-        DEPENDS generate_custom_aicpu_package
+        RESULT_VAR "sign_aicpu_hccl_custom_p2p_result"
+        DEPENDS package_aicpu_hccl_custom_p2p
     )
+
+    # 设置依赖
+    register_custom_aicpu_target(sign_aicpu_hccl_custom_p2p)
 else()
     # 安装
     install(FILES

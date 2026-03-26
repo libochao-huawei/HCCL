@@ -102,7 +102,6 @@ HcclResult HcclSendCustom(
         for (uint32_t idx = 0; idx < listSize; idx++) {
             CommLink link = linkList[idx];
             if (link.linkAttr.linkProtocol == protocol) {
-                protocolExists = true;
                 desc.remoteRank = destRank;
                 desc.notifyNum = 2;
                 desc.channelProtocol = link.linkAttr.linkProtocol;
@@ -112,6 +111,8 @@ HcclResult HcclSendCustom(
                 desc.remoteEndpoint.protocol = link.dstEndpointDesc.protocol;
                 desc.remoteEndpoint.commAddr = link.dstEndpointDesc.commAddr;
                 desc.remoteEndpoint.loc = link.dstEndpointDesc.loc;
+                protocolExists = true;
+                break;
             }
         }
         if (!protocolExists) {

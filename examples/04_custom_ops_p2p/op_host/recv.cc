@@ -88,7 +88,7 @@ HcclResult HcclRecvCustom(
         } else if (devType == DEVICE_TYPE_A5) {
             protocol = CommProtocol::COMM_PROTOCOL_UBC_CTP;
         } else {
-            HCCL_ERROR("[HcclSendCustom] Unsupported device type %d", devType);
+            HCCL_ERROR("[HcclRecvCustom] Unsupported device type %d", devType);
             return HCCL_E_NOT_SUPPORT;
         }
 
@@ -102,7 +102,6 @@ HcclResult HcclRecvCustom(
         for (uint32_t idx = 0; idx < listSize; idx++) {
             CommLink link = linkList[idx];
             if (link.linkAttr.linkProtocol == protocol) {
-                protocolExists = true;
                 desc.remoteRank = srcRank;
                 desc.notifyNum = 2;
                 desc.channelProtocol = link.linkAttr.linkProtocol;
@@ -112,10 +111,12 @@ HcclResult HcclRecvCustom(
                 desc.remoteEndpoint.protocol = link.dstEndpointDesc.protocol;
                 desc.remoteEndpoint.commAddr = link.dstEndpointDesc.commAddr;
                 desc.remoteEndpoint.loc = link.dstEndpointDesc.loc;
+                protocolExists = true;
+                break;
             }
         }
         if (!protocolExists) {
-            HCCL_ERROR("[HcclSendCustom] Protocol %d not found between rank %u and rank %u", protocol, rank, srcRank);
+            HCCL_ERROR("[HcclRecvCustom] Protocol %d not found between rank %u and rank %u", protocol, rank, srcRank);
             return HCCL_E_NOT_FOUND;
         }
         CHK_RET(HcclChannelAcquire(comm, engine, &desc, 1, &(resCtxHost.channelHandle)));
