@@ -190,6 +190,17 @@ HcclResult ReduceMesh1DTwoShot::RunReduceScatter(const TemplateDataParams &tempA
         u64 destOffset = recvSliceOffset + hcclBuffBaseOffset;
         DataSlice finalDstSlice(localHcclBuffPtr, destOffset, recvSliceSize, recvSliceCount);
 
+        // 64位数据或乘积reduce操作需要在aicpu上执行reduce操作
+        if (dataType_ == HcclDataType::HCCL_DATA_TYPE_INT64 || dataType_ == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
+            dataType_ == HcclDataType::HCCL_DATA_TYPE_FP64 || tempAlgParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
+            // 启动任务并等待所有threads任务执行完成
+            CHK_RET(static_cast<HcclResult>(HcommBatchModeEnd(tempAlgParam.algTag)));
+            CHK_RET(static_cast<HcclResult>(HcommBatchModeStart(tempAlgParam.algTag)));
+            for (const auto &thread : threads) {
+                CHK_RET(static_cast<HcclResult>(HcommThreadJoin(thread, CUSTOM_TIMEOUT)));
+            }
+        }
+
         for (u32 remoteIdx = 0; remoteIdx < templateRankSize_; remoteIdx++) {
             if (remoteIdx == myIdx_) {
                 continue;
