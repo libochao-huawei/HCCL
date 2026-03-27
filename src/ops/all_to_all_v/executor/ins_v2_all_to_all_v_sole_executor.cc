@@ -23,6 +23,8 @@
 #define CONST_ONE 1
 #define CONST_TWO 2
 #define CONST_THREE 3
+#define TOPO_INST_NUM 2
+
 namespace ops_hccl {
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
@@ -53,6 +55,7 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(
         return HCCL_E_PARA;
     }
     if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
+        CHK_PRT_RET(algHierarchyInfo.infos[0].size() != TOPO_INST_NUM, HCCL_ERROR("[InsV2AlltoAllVSoleExecutor][CalcRes] algHierarchyInfo.infos[0].size [%zu] with Level0Topo[%u] is not %u", algHierarchyInfo.infos[0].size(), topoInfo->level0Topo, TOPO_INST_NUM), HCCL_E_PARA);
         tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[0][1]);    // 框内所有卡
         for (u32 idx = 1; idx < algHierarchyInfo.infos.size(); ++idx) {
             tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[idx][0]);
