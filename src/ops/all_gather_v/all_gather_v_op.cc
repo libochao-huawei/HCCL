@@ -142,7 +142,8 @@ HcclResult AllGatherVOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount,c
     }  // 结果为recvCount中的数据之和
 
     // 准备OpParam
-    CHK_RET(InitOpParam(sendBuf, recvBuf, sendCount, recvCounts, recvDispls, dataType, comm, stream, &tag, userRankSize, inputSize, outputSize, &param, OpMode::OPBASE))
+    OpParam param;
+    CHK_RET(InitOpParam(sendBuf, recvBuf, sendCount, recvCounts, recvDispls, dataType, comm, stream, &tag, userRankSize, inputSize, outputSize, &param, OpMode::OPBASE));
 
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
@@ -173,8 +174,9 @@ HcclResult AllGatherVOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t se
         outputSize = (outputSize > (u64RecvDispls[i] + u64RecvCount[i]) * perDataSize) ? outputSize : (u64RecvDispls[i] + u64RecvCount[i]) * perDataSize;
     }// 结果为最大的displs加recvcount 	 
     
+    OpParam param;
     // 准备OpParam
-    CHK_RET(InitOpParam(sendBuf, recvBuf, sendCount, recvCounts, recvDispls, dataType, comm, stream, &tag, userRankSize, inputSize, outputSize, &param, OpMode::OFFLOAD))
+    CHK_RET(InitOpParam(sendBuf, recvBuf, sendCount, recvCounts, recvDispls, dataType, comm, stream, &tag, userRankSize, inputSize, outputSize, &param, OpMode::OFFLOAD));
 
  	if (userRankSize == 1) {
  	  	HCCL_WARNING("[%s] rankSize == 1, enter SingleRankProc", __func__);
