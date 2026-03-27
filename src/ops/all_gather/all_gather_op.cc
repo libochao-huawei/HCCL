@@ -75,7 +75,6 @@ HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclD
 HcclResult HcclAllGatherGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, const char* group, aclrtStream stream, const char* tag, void** streams, size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize)
 {
     HCCL_INFO("Start to run execute HcclAllGatherGraphMode");
-
     // 根据group获取通信域
     HcclComm comm = nullptr;
     HCCL_INFO("[HcclAllGatherGraphMode] get group name: %s", group);
