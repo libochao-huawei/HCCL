@@ -457,7 +457,6 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     OpExecuteConfig opExecuteConfig;
     u32 numBlocksLimit = 0;
     bool isAivClearEnable = false;
-    s32 aivCountTag = 0;
     u64 ctxSize = 0;
     void* resCtx = nullptr;
     ThreadHandle opThread = 0;
