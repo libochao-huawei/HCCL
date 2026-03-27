@@ -18,12 +18,12 @@ class AivAlltoAllMesh1D : public AivCommBase {
 public:
     __aicore__ inline AivAlltoAllMesh1D() {}
  
-    __aicore__ inline void InitCommon(uint32_t tag)
+    __aicore__ inline void InitCommon(uint32_t sliceId)
     {
         dataSize_ = len_ * sizeof(T);
         coreIdx_ = GetBlockIdx();
         coreNum_ = numBlocks_;
-        opTag_ = tag;
+        curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
     }
  
     __aicore__ inline void Process()
@@ -61,11 +61,11 @@ private:
         pipe_barrier(PIPE_ALL);
  
         uint64_t setFlagIdx = rank_ * coreNumPerDstRank + coreIdxForDstRank;
-        Record(dstRank, setFlagIdx, opTag_);  // 按照数据源rank编排flag的偏移量
+        Record(dstRank, setFlagIdx, curTag_);  // 按照数据源rank编排flag的偏移量
  
         // PostCopy阶段
         uint64_t waitFlagIdx = coreIdx_;
-        WaitFlag(rank_, waitFlagIdx, opTag_);
+        WaitFlag(rank_, waitFlagIdx, curTag_);
  
         srcOffset_ = reinterpret_cast<uint64_t>(GM_IN[rank_]) + dstRank * dataSize_ + sliceOffsetSize;
         dstOffset_ = output_ + dstRank * outputSliceStride_ + sliceOffsetSize;
@@ -91,7 +91,7 @@ private:
             pipe_barrier(PIPE_ALL);
  
             uint64_t setFlagIdx = rank_;
-            Record(dstRank, setFlagIdx, opTag_);  // 按照数据源rank编排flag的偏移量
+            Record(dstRank, setFlagIdx, curTag_);  // 按照数据源rank编排flag的偏移量
         }
  
         for (uint32_t idx = 0; idx < rankNumPerCore; ++idx) {
@@ -102,7 +102,7 @@ private:
  
             // PostCopy阶段
             uint64_t waitFlagIdx = dstRank;
-            WaitFlag(rank_, waitFlagIdx, opTag_);
+            WaitFlag(rank_, waitFlagIdx, curTag_);
  
             srcOffset_ = reinterpret_cast<uint64_t>(GM_IN[rank_]) + dstRank * dataSize_;
             dstOffset_ = output_ + dstRank * outputSliceStride_;
@@ -133,8 +133,6 @@ private:
         }
     }
  
-    uint32_t opTag_;
- 
     uint32_t coreNum_;
     uint32_t coreIdx_;
  
@@ -149,9 +147,9 @@ __aicore__ inline void AivAlltoAllV2Mesh1D(EXTERN_KERNEL_ARGS_DEF_V2)
 {
     AivAlltoAllMesh1D<T> op;
     op.Init(KERNEL_CLASS_INIT, true);
-    op.InitCommon(tag);
+    op.InitCommon(sliceId);
     SyncAll<true>();
-    if (block_idx == 0 && tag >> AIV_TAG_MOVE_RIGHT_BITS == 1 && (tag & LOW_16_BITS) == 1) {
+    if (op.IsFirstOP(sliceId)) {
         op.BarrierForFirstOP();
     }
     SyncAll<true>();
