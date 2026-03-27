@@ -161,7 +161,7 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     // 给channels_和threads_赋值
     threads_ = resCtx.threads;
     HCCL_INFO("[InsAllReduceParallelExecutor][Orchestrate] threads_size[%d]", threads_.size());
-    if (param.engine != CommEngine::COMM_ENGINE_AIV) {
+    if (param.engine != CommEngine::COMM_ENGINE_AIV && param.engine != CommEngine::COMM_ENGINE_CCU) {
         CHK_RET(RestoreChannelMap(resCtx, remoteRankToChannelInfo_));
         intraLinks_ = remoteRankToChannelInfo_[0];
         interLinks_ = remoteRankToChannelInfo_[1];
@@ -346,7 +346,7 @@ void InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
     dataParams.buffInfo.outputPtr = dataParams.buffInfo.outBuffType == BufferType::HCCL_BUFFER ? resCtx.cclMem.addr : param.outputPtr;
     dataParams.buffInfo.outputSize = dataParams.buffInfo.outBuffType == BufferType::HCCL_BUFFER ? resCtx.cclMem.size : param.outputSize;
     dataParams.buffInfo.hcclBuff = resCtx.cclMem;
-    dataParams.buffInfo.hcclBuff = resCtx.cclMem;
+    dataParams.buffInfo.hcclBuffSize = resCtx.cclMem.size;
 
     dataParams.buffInfo.hcclBuffBaseOff = scratchOffsetCount * dataTypeSize_ + hcclBuffOffset;
     dataParams.buffInfo.inBuffBaseOff = dataParams.buffInfo.inBuffType == BufferType::HCCL_BUFFER ? scratchOffsetCount * dataTypeSize_ + inputOffset: dataOffset;
