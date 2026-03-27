@@ -211,6 +211,7 @@ HcclResult HcclAlltoAllGraphMode(const void *sendBuf, uint64_t sendCount, HcclDa
     HcclComm comm = nullptr;
     HCCL_INFO("[HcclAlltoAllGraphMode] get group name: %s", group);
     HcomGetCommHandleByGroup(group, &comm);
+    HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
     CHK_RET(InitEnvConfig());
 
     // 参数校验等工作
@@ -239,10 +240,16 @@ HcclResult HcclAlltoAllGraphMode(const void *sendBuf, uint64_t sendCount, HcclDa
     ResPackGraphMode resPack;
     CHK_RET(GenResPack(tag, streams, streamCount, scratchMemAddr, scratchMemSize, resPack));
 
+    /* 接口交互信息日志 */
+    CHK_RET(AlltoAllEntryLog(sendBuf, recvBuf, sendCount, recvCount, sendType, recvType, stream, opTag, "HcclAlltoAllGraphMode"));
+
     // 执行AlltoAllV
     CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlaceGraphMode(sendBuf, sendCounts.data(), sdispls.data(),
         recvBuf, recvCounts.data(), rdispls.data(), recvType, comm, stream, tag,
         HcclCMDType::HCCL_CMD_ALLTOALL, rankSize, resPack), opTag);
+
+    CHK_RET(LogHcclExit("HcclAlltoAllGraphMode", opTag, startut));
+
     return HCCL_SUCCESS;
 }
 
@@ -255,6 +262,7 @@ HcclResult HcclAlltoAllVGraphMode(const void *sendBuf, const void *sendCounts, c
     HcclComm comm = nullptr;
     HCCL_INFO("[HcclAlltoAllVGraphMode] get group name: %s", group);
     HcomGetCommHandleByGroup(group, &comm);
+    HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
     CHK_RET(InitEnvConfig());
 
     // 参数校验等工作
@@ -284,10 +292,16 @@ HcclResult HcclAlltoAllVGraphMode(const void *sendBuf, const void *sendCounts, c
     ResPackGraphMode resPack;
     CHK_RET(GenResPack(tag, streams, streamCount, scratchMemAddr, scratchMemSize, resPack));
 
+    /* 接口交互信息日志 */
+    CHK_RET(AlltoAllVEntryLog(sendBuf, recvBuf, sendCounts, recvCounts, sdispls, rdispls, sendType, recvType, stream, opTag, "HcclAlltoAllVGraphMode"));
+
     // 执行AlltoAllV
     CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlaceGraphMode(sendBuf, sendCounts, sdispls,
         recvBuf, recvCounts, rdispls, recvType, comm, stream, tag,
         HcclCMDType::HCCL_CMD_ALLTOALLV, rankSize, resPack), opTag);
+
+    CHK_RET(LogHcclExit("HcclAlltoAllVGraphMode", opTag, startut));
+
     return HCCL_SUCCESS;
 }
 
@@ -300,6 +314,7 @@ HcclResult HcclAlltoAllVCGraphMode(const void *sendBuf, const void *sendCountMat
     HcclComm comm = nullptr;
     HCCL_INFO("[HcclAlltoAllVCGraphMode] get group name: %s", group);
     HcomGetCommHandleByGroup(group, &comm);
+    HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
     CHK_RET(InitEnvConfig());
 
     // 参数校验等工作
@@ -330,10 +345,16 @@ HcclResult HcclAlltoAllVCGraphMode(const void *sendBuf, const void *sendCountMat
     ResPackGraphMode resPack;
     CHK_RET(GenResPack(tag, streams, streamCount, scratchMemAddr, scratchMemSize, resPack));
 
+    /* 接口交互信息日志 */
+    CHK_RET(AlltoAllVCEntryLog(sendBuf, recvBuf, sendCountMatrix, sendType, recvType, stream, opTag, "HcclAlltoAllVCGraphMode"));
+
     // 执行AlltoAllV
     CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlaceGraphMode(sendBuf, sendCounts.data(), sdispls.data(),
         recvBuf, recvCounts.data(), rdispls.data(), recvType, comm, stream, tag,
         HcclCMDType::HCCL_CMD_ALLTOALLVC, rankSize, resPack), opTag);
+
+    CHK_RET(LogHcclExit("HcclAlltoAllVCGraphMode", opTag, startut));
+
     return HCCL_SUCCESS;
 }
 

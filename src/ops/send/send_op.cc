@@ -70,6 +70,7 @@ HcclResult HcclSendGraphMode(
     HCCL_INFO("[HcclSendGraphMode] get group name: %s", group);
     HcomGetCommHandleByGroup(group, &comm);
     
+    HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
     CHK_RET(InitEnvConfig());
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     u32 userRank = INVALID_VALUE_RANKID;
@@ -96,8 +97,13 @@ HcclResult HcclSendGraphMode(
     resPack.scratchMemAddr = scratchMemAddr;
     resPack.scratchMemSize = scratchMemSize;
 
+    /* 接口交互信息日志 */
+    CHK_RET(SendEntryLog(sendBuf, count, dataType, destRank, stream, opTag, "HcclSendGraphMode"));
+
     // 执行Send
     CHK_RET_AND_PRINT_IDE(SendExec(sendBuf, count, dataType, destRank, comm, stream, rankSize, OpMode::OFFLOAD, opTag, resPack), opTag.c_str());
+
+    CHK_RET(LogHcclExit("HcclSendGraphMode", opTag, startut));
 
     HCCL_INFO("[HcclSendGraphMode][%d]->[%d] Success.", userRank, destRank);
     return HcclResult::HCCL_SUCCESS;
