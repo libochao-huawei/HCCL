@@ -43,6 +43,7 @@ struct AlgEnvConfig {
     bool aicpuUnfold; 
     uint8_t aicpuCacheEnable;
     bool aivMode;
+    bool aivOnlyMode;
     bool ccuMSMode;
     bool ccuSchedMode;
     bool enableFfts;
@@ -62,6 +63,7 @@ struct AlgEnvConfig {
         hcclDeterministic = static_cast<u8>(DeterministicEnableLevel::DETERMINISTIC_DISABLE);// 确定性配置 0：不支持；1：支持确定性不支持规约保序；2：支持确定性&规约保序
         enableFfts = true;
         aicpuCacheEnable = 1; // 默认开启aicpu cache (只有当aicpuUnfold为true时才生效)
+        aivOnlyMode = false;
         // 环境变量参数
         for (u32 opType = 0; opType < static_cast<u32>(HcclCMDType::HCCL_CMD_MAX); opType++) {
             hcclAlgoConfig[static_cast<HcclCMDType>(opType)] =
@@ -131,6 +133,8 @@ const u32& GetExternalInputIntraRoceSwitch();
 const bool& GetExternalInputHcclAicpuUnfold();
 
 const bool& GetExternalInputHcclAivMode();
+
+const bool& GetExternalInputHcclAivOnlyMode();
 
 const bool& GetExternalInputHcclCcuMSMode();
 
