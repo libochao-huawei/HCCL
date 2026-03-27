@@ -27,6 +27,9 @@ extern "C" {
 HcclResult HcclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
                              HcclReduceOp op, HcclComm comm, aclrtStream stream);
 
+HcclResult ReduceScatterEntryLog(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType, HcclReduceOp op,
+    aclrtStream stream, const std::string &tag, const std::string &opName);
+
 #ifdef __cplusplus
 }
 #endif

@@ -50,20 +50,7 @@ HcclResult HcclSend(
     CHK_RET(GetAndCheckSendPara(comm, sendBuf, count, dataType, destRank, rankSize, userRank, tag));
 
     /* 接口交互信息日志 */
-    if (GetExternalInputHcclEnableEntryLog()) {
-        s32 deviceLogicId = 0;
-        ACLCHECK(aclrtGetDevice(&deviceLogicId));
-        s32 streamId = 0;
-        ACLCHECK(aclrtStreamGetId(stream, &streamId));
-        char stackLogBuffer[LOG_TMPBUF_SIZE];
-        s32 ret = snprintf_s(stackLogBuffer, LOG_TMPBUF_SIZE, LOG_TMPBUF_SIZE - 1U,
-            "tag[%s], sendBuf[%p], count[%llu], dataType[%s], destRank[%u], streamId[%d], deviceLogicId[%d]",
-            tag.c_str(), sendBuf, count, GetDataTypeEnumStr(dataType).c_str(), destRank, streamId, deviceLogicId);
-
-        CHK_PRT_CONT(ret == -1, HCCL_WARNING("Failed to build log info, tag[%s].", tag.c_str()));
-        std::string logInfo = "Entry-HcclSend:" + std::string(stackLogBuffer);
-        HCCL_RUN_INFO("%s", logInfo.c_str());
-    }
+    CHK_RET(SendEntryLog(sendBuf, count, dataType, destRank, stream, tag, "HcclSend"));
         
     CHK_RET_AND_PRINT_IDE(SendExec(sendBuf, count, dataType, destRank, comm, stream, rankSize, OpMode::OPBASE, tag), tag.c_str());
 
@@ -214,5 +201,25 @@ namespace ops_hccl {
 
         return HcclResult::HCCL_SUCCESS;
     }
+    
+HcclResult SendEntryLog(void *sendBuf, uint64_t count, HcclDataType dataType, uint32_t destRank,
+    aclrtStream stream, const std::string &tag, const std::string &opName)
+{
+    if (GetExternalInputHcclEnableEntryLog()) {
+        s32 deviceLogicId = 0;
+        ACLCHECK(aclrtGetDevice(&deviceLogicId));
+        s32 streamId = 0;
+        ACLCHECK(aclrtStreamGetId(stream, &streamId));
+        char stackLogBuffer[LOG_TMPBUF_SIZE];
+        s32 ret = snprintf_s(stackLogBuffer, LOG_TMPBUF_SIZE, LOG_TMPBUF_SIZE - 1U,
+            "tag[%s], sendBuf[%p], count[%llu], dataType[%s], destRank[%u], streamId[%d], deviceLogicId[%d]",
+            tag.c_str(), sendBuf, count, GetDataTypeEnumStr(dataType).c_str(), destRank, streamId, deviceLogicId);
+
+        CHK_PRT_CONT(ret == -1, HCCL_WARNING("Failed to build log info, tag[%s].", tag.c_str()));
+        std::string logInfo = "Entry-" + opName + ":" + std::string(stackLogBuffer);
+        HCCL_RUN_INFO("%s", logInfo.c_str());
+    }
+    return HCCL_SUCCESS;
+}
 
 } // namespace ops_hccl

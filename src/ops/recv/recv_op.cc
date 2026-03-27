@@ -49,6 +49,9 @@ HcclResult HcclRecv(
     CHK_PRT_RET(count == 0, HCCL_WARNING("[HcclRecv] input count is 0, return recv success"), HcclResult::HCCL_SUCCESS);
     CHK_RET(GetAndCheckRecvPara(comm, recvBuf, count, dataType, srcRank, rankSize, userRank, tag));
 
+    /* 接口交互信息日志 */
+    CHK_RET(RecvEntryLog(recvBuf, count, dataType, srcRank, stream, tag, "HcclRecv"));
+
     CHK_RET_AND_PRINT_IDE(RecvExec(recvBuf, count, dataType, srcRank, comm, stream, rankSize, OpMode::OPBASE, tag), tag.c_str());
 
     HCCL_INFO("[HcclRecv][%d]<-[%d] Success.", userRank, srcRank);
@@ -94,20 +97,7 @@ HcclResult HcclRecvGraphMode(
     resPack.scratchMemSize = scratchMemSize;
 
     /* 接口交互信息日志 */
-    if (GetExternalInputHcclEnableEntryLog()) {
-        s32 deviceLogicId = 0;
-        ACLCHECK(aclrtGetDevice(&deviceLogicId));
-        s32 streamId = 0;
-        ACLCHECK(aclrtStreamGetId(stream, &streamId));
-        char stackLogBuffer[LOG_TMPBUF_SIZE];
-        s32 ret = snprintf_s(stackLogBuffer, LOG_TMPBUF_SIZE, LOG_TMPBUF_SIZE - 1U,
-            "opTag[%s], recvBuf[%p], count[%llu], dataType[%s], srcRank[%u], streamId[%d], deviceLogicId[%d]",
-            opTag.c_str(), recvBuf, count, GetDataTypeEnumStr(dataType).c_str(), srcRank, streamId, deviceLogicId);
-
-        CHK_PRT_CONT(ret == -1, HCCL_WARNING("Failed to build log info, tag[%s].", opTag.c_str()));
-        std::string logInfo = "Entry-HcclRecv:" + std::string(stackLogBuffer);
-        HCCL_RUN_INFO("%s", logInfo.c_str());
-    }
+    CHK_RET(RecvEntryLog(recvBuf, count, dataType, srcRank, stream, opTag, "HcclRecv"));
 
     // 执行Recv
     CHK_RET_AND_PRINT_IDE(RecvExec(recvBuf, count, dataType, srcRank, comm, stream, rankSize, OpMode::OFFLOAD, opTag, resPack), opTag.c_str());
@@ -215,5 +205,25 @@ namespace ops_hccl {
         CHK_RET(HcclExecOp(comm, param, topoInfo, algName, resPack));
 
         return HcclResult::HCCL_SUCCESS;
+    }
+
+    HcclResult RecvEntryLog(void *recvBuf, uint64_t count, HcclDataType dataType, uint32_t srcRank,
+        aclrtStream stream, const std::string &tag, const std::string &opName)
+    {
+        if (GetExternalInputHcclEnableEntryLog()) {
+            s32 deviceLogicId = 0;
+            ACLCHECK(aclrtGetDevice(&deviceLogicId));
+            s32 streamId = 0;
+            ACLCHECK(aclrtStreamGetId(stream, &streamId));
+            char stackLogBuffer[LOG_TMPBUF_SIZE];
+            s32 ret = snprintf_s(stackLogBuffer, LOG_TMPBUF_SIZE, LOG_TMPBUF_SIZE - 1U,
+                "opTag[%s], recvBuf[%p], count[%llu], dataType[%s], srcRank[%u], streamId[%d], deviceLogicId[%d]",
+                tag.c_str(), recvBuf, count, GetDataTypeEnumStr(dataType).c_str(), srcRank, streamId, deviceLogicId);
+
+            CHK_PRT_CONT(ret == -1, HCCL_WARNING("Failed to build log info, tag[%s].", tag.c_str()));
+            std::string logInfo = "Entry-" + opName + ":" + std::string(stackLogBuffer);
+            HCCL_RUN_INFO("%s", logInfo.c_str());
+        }
+        return HCCL_SUCCESS;
     }
 } // namespace ops_hccl
