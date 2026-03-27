@@ -48,7 +48,7 @@ HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclD
     std::string opTag;
     CHK_RET(AllGatherInitAndCheck(comm, sendBuf, recvBuf, sendCount, dataType, stream, opTag));
 
-    CHK_RET(AllGatherEntryLog(sendBuf, recvBuf, sendCount, dataType, opTag, "Entry-HcclAllGather:"));
+    CHK_RET(AllGatherEntryLog(sendBuf, recvBuf, sendCount, dataType, stream, opTag, "Entry-HcclAllGather:"));
 
     // 执行AllGather
     CHK_RET_AND_PRINT_IDE(AllGatherOutPlace(sendBuf, recvBuf, sendCount, dataType, comm, stream, opTag), opTag.c_str());
@@ -92,7 +92,7 @@ HcclResult HcclAllGatherGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCou
     resPack.scratchMemSize = scratchMemSize;
     std::string tagStr = tag;
 
-    CHK_RET(AllGatherEntryLog(sendBuf, recvBuf, sendCount, dataType, opTag, "Entry-HcclAllGatherGraphMode:"));
+    CHK_RET(AllGatherEntryLog(sendBuf, recvBuf, sendCount, dataType, stream, opTag, "Entry-HcclAllGatherGraphMode:"));
 
     // 执行AllGather
     CHK_RET_AND_PRINT_IDE(AllGatherOutPlaceGraphMode(sendBuf, recvBuf, sendCount, dataType, comm, stream, tagStr, resPack), tagStr.c_str());
@@ -219,7 +219,7 @@ HcclResult AllGatherOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount, H
     return HCCL_SUCCESS;
 }
 
-HcclResult AllGatherEntryLog(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, const std::string &tag, const std::string &opName)
+HcclResult AllGatherEntryLog(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, aclrtStream stream, const std::string &tag, const std::string &opName)
 {
     /* 接口交互信息日志 */
     if (GetExternalInputHcclEnableEntryLog()) {
