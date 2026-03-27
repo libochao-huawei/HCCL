@@ -49,6 +49,15 @@ constexpr u64 SEND_COUNT_IDX = 0;
 constexpr u64 RECV_COUNT_IDX = 1;
 constexpr u64 SEND_DISPL_IDX = 2;
 constexpr u64 RECV_DISPL_IDX = 3;
+HcclResult ConvertAlltoAllParam(const u64 recvCount, const u32 rankSize, std::vector<u64> &sdispls, std::vector<u64> &rdispls);
+HcclResult ConvertAlltoAllVCParam(const u32 rankSize, const u32 userRank, const void *sendCountMatrix,
+    std::vector<u64> &sendCounts, std::vector<u64> &recvCounts, std::vector<u64> &sdispls, std::vector<u64> &rdispls);
+HcclResult GenResPack(const char* tag, void** streams, const size_t streamCount,
+    void* scratchMemAddr, const uint64_t scratchMemSize, ResPackGraphMode &resPack);
+HcclResult CalcInputOutputSize(const u64* sendCountsData, const u64* recvCountsData,
+    const u64* sdisplsData, const u64* rdisplsData, const u32 userRankSize, u64 &inputSize, u64 &outputSize);
+HcclResult ContructVarData(const u64* sendCountsData, const u64* recvCountsData, const u64* sdisplsData,
+    const u64* rdisplsData, const u32 userRankSize, const u32 rankSize, OpParam &param);
 HcclResult CheckAlltoAllInputPara(const HcclComm comm, const void *sendBuf, const uint64_t sendCount,
     const HcclDataType sendType, const void *recvBuf, const uint64_t recvCount,
     const HcclDataType recvType, const aclrtStream stream);
