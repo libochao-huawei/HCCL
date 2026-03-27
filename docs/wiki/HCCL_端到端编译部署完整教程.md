@@ -234,6 +234,7 @@ bash build.sh --cann_3rd_lib_path={your_3rd_party_path}
 ```
 - 编译完成后会在./build_out目录下生成 cann-hccl_<version>_linux-<arch>.run 软件包。
 - 其中<version>表示软件版本号，<arch>表示操作系统架构，取值包括“x86_64”与“aarch64”。
+![alt text](image-12.png)
 
 ### 3. 安装 HCCL 软件包
 ```bash
@@ -242,7 +243,7 @@ bash ./build_out/cann-hccl_<version>_linux-<arch>.run --full
 ```
 - 请注意：编译时需要将上述命令中的软件包名称替换为实际软件包名称。
 - 安装完成后，用户编译生成的HCCL软件包会替换已安装CANN Toolkit开发套件包中的HCCL相关软件。
-
+![alt text](image-13.png)
 
 ### 4. 卸载 HCCL 软件包
 ```bash
@@ -259,6 +260,7 @@ bash ./build_out/cann-hccl_<version>_linux-<arch>.run --uninstall
 # 代码仓根目录执行测试命令
 bash build.sh --ut
 ```
+![alt text](image-14.png)
 
 ### 2. ST 测试
 
@@ -266,6 +268,8 @@ bash build.sh --ut
 # 代码仓根目录执行测试命令
 bash build.sh --st
 ```
+
+
 ## 七、学习资源
 
 - WSL官方文档：<https://docs.microsoft.com/zh-cn/windows/wsl/>
