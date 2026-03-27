@@ -147,46 +147,69 @@ uint32_t GetHcclDfxOpInfoDataType(const OpParam &param) {
 
 HcclResult SetOpParamFastLaunchTag(OpParam &param)
 {
-    HcclDataType tmpDataType;
+    // 1. 数据类型
+    const char* dataTypeStr = nullptr;
     if(param.opType == HcclCMDType::HCCL_CMD_ALLTOALL || param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
         param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
-        tmpDataType = param.all2AllVDataDes.sendType;
+        dataTypeStr = GetHcclDataTypeStr(param.all2AllVDataDes.sendType);
     } else {
-        tmpDataType = param.DataDes.dataType;
+        dataTypeStr = GetHcclDataTypeStr(tmpDataType = param.DataDes.dataType);
     }
-    const std::string dataType = HCOM_DATA_TYPE_STR_MAP.at(tmpDataType);
-    // 通信域tag + 数据类型，得到基础FastLaunchTag
-    int len = snprintf_s(param.fastLaunchTag, sizeof(param.fastLaunchTag), sizeof(param.fastLaunchTag), 
-                         "%s_%s", param.tag, dataType.c_str());
-    if (len < 0|| len >= sizeof(param.algTag)) {
-        HCCL_ERROR("faled to fill param.fastLaunchTag");
+    if (UNLIKELY(!dataTypeStr)) {
+        HCCL_ERROR("unsupported data type");
         return HcclResult::HCCL_E_INTERNAL;
     }
-    
-    size_t remainBytes = sizeof(param.algTag) - len;
+    // 2. reduce op
+    const char* reduceOpStr = nullptr;
     if (param.opType == HcclCMDType::HCCL_CMD_ALLREDUCE || param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER ||
-        param.opType == HcclCMDType::HCCL_CMD_REDUCE || param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V) {
-        const std::string reduceType = HCOM_REDUCE_OP_STR_MAP.at(param.reduceType);
-        int len2 = snprintf_s(param.fastLaunchTag + len, remainBytes, remainBytes, "_%s", reduceType.c_str());
-        if (len2 < 0|| len >= remainBytes) {
-            HCCL_ERROR("faled to fill param.fastLaunchTag");
+        param.opType == HcclCMDType::HCCL_CMD_REDUCE    || param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V) {}
+        reduceOpStr = GetHcclReduceOpStr(param.reduceType);
+        if (UNLIKELY(!reduceOpStr)) {
+            HCCL_ERROR("unsupported reduce op");
             return HcclResult::HCCL_E_INTERNAL;
         }
-        len += len2;
+    }
+    // 3. count
+    char countBuf[32];
+    const char* countStr = nullptr;
+    if (param.opType != HcclCMDType::HCCL_CMD_ALLTOALLV) {
+        int countLen = snprintf_s(countBuf, sizeof(countBuf), sizeof(countBuf) - 1, "%llu", static_cast<uint64_t>(param.DataDes.count));
+        if (UNLIKELY(countLen <= 0)) {
+            HCCL_ERROR("failed to format count");
+            return HcclResult::HCCL_E_INTERNAL;
+        }
+        countStr = countBuf;
+    }
+    // 4 一次性拼接
+    char* dst = param.fastLaunchTag;
+    size_t remain = sizeof(param.fastLaunchTag);
+
+    auto append_str = [&](const char* s) -> bool {
+        if (!s) return true;
+        size_t len = strlen(s);
+        if (len >= remain) return false;
+        memcpy(dst, s, len);
+        dst += len;
+        remain -= len;
+        return true;
     }
 
-    if (param.opType != HcclCMDType::HCCL_CMD_ALLTOALLV) {
-        remainBytes = sizeof(param.algTag) - len;
-        std::string count = std::to_string(param.DataDes.count); //todo: alltoall 的count不是从这里取
-        int len3 = snprintf_s(param.fastLaunchTag + len, remainBytes, remainBytes, "_%s", count.c_str());
-        if (len3 < 0|| len >= remainBytes) {
-            HCCL_ERROR("faled to fill param.fastLaunchTag");
-            return HcclResult::HCCL_E_INTERNAL;
-        }
-        len += len3;
+    if (!append_str(param.tag) || !append_str("_") || !append_str(dataTypeStr)) {
+        goto fail;
     }
+    if (reduceOpStr && !append_str("_") || !append_str(reduceOpStr)) {
+        goto fail;
+    }
+    if (countStr && !append_str("_") || !append_str(countStr)) {
+        goto fail;
+    }
+    *dst = '\0';
     HCCL_DEBUG("[SetOpParamFastLaunchTag] fastLaunchTag: [%s]", param.fastLaunchTag);
-    return HcclResult::HCCL_SUCCESS;
+    return HCCL_SUCCESS;
+
+fail:
+    HCCL_ERROR("failed to fill fastLaunchTag");
+    return HcclResult::HCCL_E_INTERNAL;
 }
 
 bool CcuFastLaunchSupported(HcclComm comm, OpParam &param, CcuFastLaunchCtx **ccuFastLaunchCtx)
