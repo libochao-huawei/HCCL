@@ -29,7 +29,7 @@ HcclResult HcclBroadcast(void *buf, uint64_t count, HcclDataType dataType, uint3
     if (GetHcommVersion() < 90000000) { // compat handle
         return HcclBroadcastInner(buf, count, dataType, root, comm, stream);
     }
-    
+
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
     #ifdef MACRO_DEV_TYPE_NEW
@@ -39,6 +39,58 @@ HcclResult HcclBroadcast(void *buf, uint64_t count, HcclDataType dataType, uint3
     #endif
         return HcclBroadcastInner(buf, count, dataType, root, comm, stream);
     }
+    
+    CHK_PRT_RET(count == 0, HCCL_WARNING("input count is 0, return broadcast success"), HCCL_SUCCESS);
+    std::string opTag;
+    CHK_RET(BroadcastInitAndCheck(comm, buf, count, dataType, root, stream, opTag));
+
+    // 执行Broadcast
+    CHK_RET_AND_PRINT_IDE(BroadcastOutPlace(buf, count, dataType, root, comm, stream, opTag),
+                          opTag.c_str());
+
+    return HCCL_SUCCESS;
+}
+HcclResult HcclBroadcastGraphMode(void *buf, uint64_t count, HcclDataType dataType, uint32_t root, const char* group, aclrtStream stream, const char* tag, void** streams, size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize)
+{
+    HCCL_INFO("Start to run execute HcclBroadcastGraphMode");
+    // 根据group获取通信域
+    HcclComm comm = nullptr;
+    HCCL_INFO("[HcclBroadcastGraphMode] get group name: %s", group);
+    HcomGetCommHandleByGroup(group, &comm);
+    
+    CHK_PRT_RET(count == 0, HCCL_WARNING("input count is 0, return broadcast success"), HCCL_SUCCESS);
+    std::string opTag;
+    CHK_RET(BroadcastInitAndCheck(comm, buf, count, dataType, root, stream, opTag));
+    
+    // 检查tag有效性
+    CHK_RET(HcclCheckTag(tag));
+    
+    // 拼装ResPackGraphMode
+    ResPackGraphMode resPack;
+    // 设置tag
+    if (strncpy_s(resPack.tag, sizeof(resPack.tag), tag, sizeof(resPack.tag) - 1) != 0) {
+        HCCL_ERROR("failed to fill resPack.tag");
+        return HCCL_E_INTERNAL;
+    }
+    // 设置streams
+    if (streams != nullptr && streamCount > 0) {
+        for (size_t i = 0; i < streamCount; i++) {
+            resPack.streams.push_back(static_cast<aclrtStream>(streams[i]));
+        }
+    }
+    // 设置scratchMem
+    resPack.scratchMemAddr = scratchMemAddr;
+    resPack.scratchMemSize = scratchMemSize;
+    std::string tagStr = tag;
+    // 执行Broadcast
+    CHK_RET_AND_PRINT_IDE(BroadcastOutPlaceGraphMode(buf, count, dataType, root, comm, stream, tagStr, resPack), tagStr.c_str());
+
+    return HCCL_SUCCESS;
+}
+
+namespace ops_hccl {
+HcclResult BroadcastInitAndCheck(HcclComm comm, void *buf, uint64_t count, HcclDataType dataType, uint32_t root, aclrtStream stream, std::string &opTag)
+{
     // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
     CHK_RET(InitEnvConfig());
 
@@ -61,11 +113,11 @@ HcclResult HcclBroadcast(void *buf, uint64_t count, HcclDataType dataType, uint3
 HcclResult CheckBroadcastInputPara(const HcclComm comm, const void *buf)
 {
     // 入参合法性校验
-    RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
-        std::vector<std::string>({"HcclBroadcast", "nullptr", "comm", "non-null pointer"}));
+    RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
+        std::vector<std::string>({"HcclBroadcast", "comm", "nullptr", "please check comm"}));
     CHK_PTR_NULL(comm);
-    RPT_INPUT_ERR(buf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
-        std::vector<std::string>({"HcclBroadcast", "nullptr", "buf", "non-null pointer"}));
+    RPT_INPUT_ERR(buf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
+        std::vector<std::string>({"HcclBroadcast", "buf", "nullptr", "please check buf"}));
     CHK_PTR_NULL(buf);
 
     return HCCL_SUCCESS;
