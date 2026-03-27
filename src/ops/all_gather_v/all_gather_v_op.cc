@@ -237,6 +237,7 @@ HcclResult InitOpParam(void *sendBuf, void *recvBuf, uint64_t sendCount, const v
     param.deviceType = deviceType;
     paramPtr->~OpParam();
     free(paramMem);
+    return HCCL_SUCCESS;
 }
 
 }  // namespace ops_hccl
