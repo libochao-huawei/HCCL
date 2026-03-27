@@ -53,7 +53,7 @@ HcclResult HcclRecv(
     CHK_RET(RecvEntryLog(recvBuf, count, dataType, srcRank, stream, tag, "HcclRecv"));
 
     CHK_RET_AND_PRINT_IDE(RecvExec(recvBuf, count, dataType, srcRank, comm, stream, rankSize, OpMode::OPBASE, tag), tag.c_str());
-
+    CHK_RET(LogHcclExit("HcclRecv", tag, startut));
     HCCL_INFO("[HcclRecv][%d]<-[%d] Success.", userRank, srcRank);
     return HcclResult::HCCL_SUCCESS;
 }
