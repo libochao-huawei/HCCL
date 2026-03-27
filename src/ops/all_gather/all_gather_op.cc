@@ -48,7 +48,7 @@ HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclD
     std::string opTag;
     CHK_RET(AllGatherInitAndCheck(comm, sendBuf, recvBuf, sendCount, dataType, stream, opTag));
 
-    CHK_RET(AllGatherEntryLog(sendBuf, recvBuf, sendCount, dataType, stream, opTag, "Entry-HcclAllGather:"));
+    CHK_RET(AllGatherEntryLog(sendBuf, recvBuf, sendCount, dataType, stream, opTag, "HcclAllGather"));
 
     // 执行AllGather
     CHK_RET_AND_PRINT_IDE(AllGatherOutPlace(sendBuf, recvBuf, sendCount, dataType, comm, stream, opTag), opTag.c_str());
@@ -92,7 +92,7 @@ HcclResult HcclAllGatherGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCou
     resPack.scratchMemSize = scratchMemSize;
     std::string tagStr = tag;
 
-    CHK_RET(AllGatherEntryLog(sendBuf, recvBuf, sendCount, dataType, stream, opTag, "Entry-HcclAllGatherGraphMode:"));
+    CHK_RET(AllGatherEntryLog(sendBuf, recvBuf, sendCount, dataType, stream, opTag, "HcclAllGatherGraphMode"));
 
     // 执行AllGather
     CHK_RET_AND_PRINT_IDE(AllGatherOutPlaceGraphMode(sendBuf, recvBuf, sendCount, dataType, comm, stream, tagStr, resPack), tagStr.c_str());
@@ -233,7 +233,7 @@ HcclResult AllGatherEntryLog(void *sendBuf, void *recvBuf, uint64_t sendCount, H
             tag.c_str(), sendBuf, recvBuf, sendCount, GetDataTypeEnumStr(dataType).c_str(), streamId, deviceLogicId);
 
         CHK_PRT_CONT(ret == -1, HCCL_WARNING("Failed to build log info, tag[%s].", tag.c_str()));
-        std::string logInfo = opName + std::string(stackLogBuffer);
+        std::string logInfo = "Entry-" + opName + ":" + std::string(stackLogBuffer);
         HCCL_RUN_INFO("%s", logInfo.c_str());
     }
     return HCCL_SUCCESS;

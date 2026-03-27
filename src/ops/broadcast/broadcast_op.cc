@@ -60,7 +60,7 @@ HcclResult HcclBroadcast(void *buf, uint64_t count, HcclDataType dataType, uint3
     CHK_RET(CheckCount(count));
     CHK_RET(CheckDataType(dataType, false));
 
-    CHK_RET(BroadcastEntryLog(buf, count, dataType, root, stream, tag, "Entry-HcclBroadcast:"));
+    CHK_RET(BroadcastEntryLog(buf, count, dataType, root, stream, tag, "HcclBroadcast"));
 
     // 执行Broadcast
     CHK_RET_AND_PRINT_IDE(BroadcastOutPlace(buf, count, dataType, root, comm, stream, tag),
@@ -151,7 +151,7 @@ HcclResult BroadcastEntryLog(void *buf, uint64_t count, HcclDataType dataType, u
             tag.c_str(), buf, count, GetDataTypeEnumStr(dataType).c_str(), root, streamId, deviceLogicId);
 
         CHK_PRT_CONT(ret == -1, HCCL_WARNING("Failed to build log info, tag[%s].", tag.c_str()));
-        std::string logInfo = opName + std::string(stackLogBuffer);
+        std::string logInfo = "Entry-" + opName + ":" + std::string(stackLogBuffer);
         HCCL_RUN_INFO("%s", logInfo.c_str());
     }
     return HCCL_SUCCESS;
