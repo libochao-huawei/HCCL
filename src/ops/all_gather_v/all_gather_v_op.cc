@@ -67,14 +67,14 @@ namespace ops_hccl {
 HcclResult CheckAllGatherVInputPara(const HcclComm comm, const void* sendBuf, const void* recvBuf)
 {
     // 入参合法性校验
-    RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),
-                  std::vector<std::string>({"HcclAllGatherV", "comm", "nullptr", "please check comm"}));
+    RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),
+                  std::vector<std::string>({"HcclAllGatherV", "nullptr", "comm", "non-null pointer"}));
     CHK_PTR_NULL(comm);
-    RPT_INPUT_ERR(sendBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),
-                  std::vector<std::string>({"HcclAllGatherV", "sendBuf", "nullptr", "please check recvBuf"}));
+    RPT_INPUT_ERR(sendBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),
+                  std::vector<std::string>({"HcclAllGatherV", "nullptr", "sendBuf", "non-null pointer"}));
     CHK_PTR_NULL(sendBuf);
-    RPT_INPUT_ERR(recvBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),
-                  std::vector<std::string>({"HcclAllGatherV", "recvBuf", "nullptr", "please check recvBuf"}));
+    RPT_INPUT_ERR(recvBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),
+                  std::vector<std::string>({"HcclAllGatherV", "nullptr", "recvBuf", "non-null pointer"}));
     CHK_PTR_NULL(recvBuf);
  
     return HCCL_SUCCESS;
