@@ -187,7 +187,7 @@ HcclResult InsTempAllReduceMesh1DTwoShotMeshChunk::ReduceScatterMeshChunk(const 
             sliceTxOffset_ += sliceSize[toRank][m];
         }
 
-        const ChannelInfo &linkRecv = channels.at(fromRank)[0]; // linkRecv - 从fromRank接收的链路
+        const ChannelInfo &linkRecv = channels.at(toRank)[0]; // linkRecv - 从fromRank接收的链路
         const ChannelInfo &linkSend = channels.at(toRank)[0]; // linkSend - 向toRank发送的链路
 
         std::vector<DataSlice> rxSrcSlices;
