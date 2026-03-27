@@ -151,7 +151,7 @@ extern "C" {
 #endif
 
 HcclResult HcclSetAivCoreLimitGraphMode(const char *group, u32 aivCoreLimit);
-HcclResult HcclSetAivSyncBufGraphMode(const char *group, bool aivClearEnable);
+HcclResult HcclClearAivSyncBufGraphMode(const char *group, bool aivClearEnable);
 
 #ifdef __cplusplus
 }

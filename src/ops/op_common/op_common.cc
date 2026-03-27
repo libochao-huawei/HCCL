@@ -1476,10 +1476,10 @@ HcclResult HcclSetAivCoreLimitGraphMode(const char *group, u32 aivCoreLimit)
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclSetAivSyncBufGraphMode(const char *group, bool aivClearEnable)
+HcclResult HcclClearAivSyncBufGraphMode(const char *group, bool aivClearEnable)
 {
     if (group == nullptr) {
-        HCCL_ERROR("[HcclSetAivSyncBufGraphMode] group is nullptr");
+        HCCL_ERROR("[HcclClearAivSyncBufGraphMode] group is nullptr");
         return HCCL_E_PARA;
     }
     
@@ -1488,7 +1488,7 @@ HcclResult HcclSetAivSyncBufGraphMode(const char *group, bool aivClearEnable)
     
     aivParam->aivClearEnable = aivClearEnable;
     
-    HCCL_INFO("[HcclSetAivSyncBufGraphMode] Set aivClearEnable[%d] for group[%s]", aivClearEnable, group);
+    HCCL_INFO("[HcclClearAivSyncBufGraphMode] Set aivClearEnable[%d] for group[%s]", aivClearEnable, group);
     
     return HCCL_SUCCESS;
 }
