@@ -241,7 +241,7 @@ bash ./build_out/cann-hccl_<version>_linux-<arch>.run --full
 ```
 - 请注意：编译时需要将上述命令中的软件包名称替换为实际软件包名称。
 - 安装完成后，用户编译生成的HCCL软件包会替换已安装CANN Toolkit开发套件包中的HCCL相关软件。
-![安装HCCL](image-11.png)
+![安装HCCL](image-12.png)
 
 ### 4. 卸载 HCCL 软件包
 ```bash
