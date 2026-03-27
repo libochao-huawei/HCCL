@@ -57,6 +57,17 @@ private:
     HcclResult RunGatherToRoot(const TemplateDataParams &tempAlgParam, const std::map<u32, std::vector<ChannelInfo>> &channels,
         const std::vector<ThreadHandle> &threads);
 
+    HcclResult GatherLocalData(const TemplateDataParams &tempAlgParam, const std::vector<ThreadHandle> &threads);
+    HcclResult GatherRemoteData(const TemplateDataParams &tempAlgParam,
+        const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads);
+    HcclResult SendToRoot(const TemplateDataParams &tempAlgParam,
+        const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads);
+
+    HcclResult SendRecvDataToPeers(const TemplateDataParams &tempAlgParam,
+        const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads);
+    HcclResult DoLocalReduce(const TemplateDataParams &tempAlgParam, const OpParam &param,
+        const std::vector<ThreadHandle> &threads);
+
     void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub) override;
     void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override;
 
