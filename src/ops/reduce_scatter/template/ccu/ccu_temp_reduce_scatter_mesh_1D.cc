@@ -80,14 +80,14 @@ HcclResult CcuTempReduceScatterMesh1D::CalcRes(HcclComm comm, const OpParam& par
 HcclResult CcuTempReduceScatterMesh1D::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
 {
     HCCL_DEBUG("[CcuTempReduceScatterMesh1D::FastLaunch] start");
-    std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgReduceScatterMesh1D>(
+    CcuTaskArgReduceScatterMesh1D taskArg(
         PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + tempFastLaunchCtx.ccuKernelSubmitInfos[0].sqeArgs[0],
         PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + tempFastLaunchCtx.ccuKernelSubmitInfos[0].sqeArgs[1],
         tempFastLaunchCtx.ccuKernelSubmitInfos[0].sqeArgs[2],
         tempFastLaunchCtx.ccuKernelSubmitInfos[0].sqeArgs[3],
         tempFastLaunchCtx.ccuKernelSubmitInfos[0].sqeArgs[4]);
 
-    void* taskArgPtr = static_cast<void*>(taskArg.get());
+    void* taskArgPtr = static_cast<void*>(&taskArg);
 
     CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0], 
         tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr));

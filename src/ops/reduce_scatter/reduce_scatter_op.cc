@@ -23,7 +23,7 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 HcclResult HcclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
     HcclReduceOp op, HcclComm comm, aclrtStream stream)
 {
-    if (!HcclCheckAicpuEnableOpen() && !HcclCheckCcuEnableOpen() && !HcclCheckAivEnableOpen()) {
+    if (!HcclCheckCcuEnableOpen() && !HcclCheckAicpuEnableOpen() && !HcclCheckAivEnableOpen()) {
         return HcclReduceScatterInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
     }
     HCCL_INFO("Start to run execute HcclReduceScatter");
@@ -51,17 +51,12 @@ HcclResult HcclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, H
     CHK_RET(HcclGetRankSize(comm, &rankSize));
     u32 userRank = INVALID_VALUE_RANKID;
     CHK_RET(HcclGetRankId(comm, &userRank));
-    char commName[COMM_INDENTIFIER_MAX_LENGTH];
-    CHK_RET(HcclGetCommName(comm, commName));
-    const string tag = "ReduceScatter_" + string(commName);
-    CHK_RET(HcclCheckTag(tag.c_str()));
-    CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), tag.c_str());
+    CHK_RET(HcomCheckUserRank(rankSize, userRank));
     CHK_RET(CheckCount(recvCount));
     CHK_RET(CheckDataType(dataType, true));
 
     // 执行ReduceScatter
-    CHK_RET_AND_PRINT_IDE(ReduceScatterOutPlace(sendBuf, recvBuf, recvCount, dataType, op, comm, stream, tag),
-                          tag.c_str());
+    CHK_RET(ReduceScatterOutPlace(sendBuf, recvBuf, recvCount, dataType, op, comm, stream, rankSize));
 
     return HCCL_SUCCESS;
 }
@@ -87,11 +82,9 @@ HcclResult CheckReduceScatterInputPara(const HcclComm comm, const void* sendBuf,
 }
 
 HcclResult ReduceScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
-    HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag)
+    HcclReduceOp op, HcclComm comm, aclrtStream stream, u32 userRankSize)
 {
     HCCL_INFO("Start to execute ReduceScatterOutPlace");
-    u32 userRankSize;
-    CHK_RET(HcclGetRankSize(comm, &userRankSize));
 
     u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
     u64 outputSize = recvCount * perDataSize;
@@ -107,11 +100,12 @@ HcclResult ReduceScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCoun
     CHK_RET(hrtGetDeviceType(deviceType));
 
     // topoInfo的tag，所有相同的算子可以共享
-    int ret = sprintf_s(param.tag, sizeof(param.tag), "%s", tag.c_str());
+    int ret = sprintf_s(param.tag, sizeof(param.tag), "ReduceScatter_%s", param.commName);
     if (ret <= 0) {
         HCCL_ERROR("failed to fill param.tag");
         return HCCL_E_INTERNAL;
     }
+    CHK_RET(HcclCheckTag(param.tag));
 
     // 参数准备
     param.inputPtr = sendBuf;

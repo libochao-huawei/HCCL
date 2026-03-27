@@ -147,46 +147,69 @@ uint32_t GetHcclDfxOpInfoDataType(const OpParam &param) {
 
 HcclResult SetOpParamFastLaunchTag(OpParam &param)
 {
-    HcclDataType tmpDataType;
+    // 1. 数据类型
+    const char* dataTypeStr = nullptr;
     if(param.opType == HcclCMDType::HCCL_CMD_ALLTOALL || param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
         param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
-        tmpDataType = param.all2AllVDataDes.sendType;
+        dataTypeStr = GetHcclDataTypeStr(param.all2AllVDataDes.sendType);
     } else {
-        tmpDataType = param.DataDes.dataType;
+        dataTypeStr = GetHcclDataTypeStr(tmpDataType = param.DataDes.dataType);
     }
-    const std::string dataType = HCOM_DATA_TYPE_STR_MAP.at(tmpDataType);
-    // 通信域tag + 数据类型，得到基础FastLaunchTag
-    int len = snprintf_s(param.fastLaunchTag, sizeof(param.fastLaunchTag), sizeof(param.fastLaunchTag), 
-                         "%s_%s", param.tag, dataType.c_str());
-    if (len < 0|| len >= sizeof(param.algTag)) {
-        HCCL_ERROR("faled to fill param.fastLaunchTag");
+    if (UNLIKELY(!dataTypeStr)) {
+        HCCL_ERROR("unsupported data type");
         return HcclResult::HCCL_E_INTERNAL;
     }
-    
-    size_t remainBytes = sizeof(param.algTag) - len;
+    // 2. reduce op
+    const char* reduceOpStr = nullptr;
     if (param.opType == HcclCMDType::HCCL_CMD_ALLREDUCE || param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER ||
-        param.opType == HcclCMDType::HCCL_CMD_REDUCE || param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V) {
-        const std::string reduceType = HCOM_REDUCE_OP_STR_MAP.at(param.reduceType);
-        int len2 = snprintf_s(param.fastLaunchTag + len, remainBytes, remainBytes, "_%s", reduceType.c_str());
-        if (len2 < 0|| len >= remainBytes) {
-            HCCL_ERROR("faled to fill param.fastLaunchTag");
+        param.opType == HcclCMDType::HCCL_CMD_REDUCE    || param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V) {}
+        reduceOpStr = GetHcclReduceOpStr(param.reduceType);
+        if (UNLIKELY(!reduceOpStr)) {
+            HCCL_ERROR("unsupported reduce op");
             return HcclResult::HCCL_E_INTERNAL;
         }
-        len += len2;
+    }
+    // 3. count
+    char countBuf[32];
+    const char* countStr = nullptr;
+    if (param.opType != HcclCMDType::HCCL_CMD_ALLTOALLV) {
+        int countLen = snprintf_s(countBuf, sizeof(countBuf), sizeof(countBuf) - 1, "%llu", static_cast<uint64_t>(param.DataDes.count));
+        if (UNLIKELY(countLen <= 0)) {
+            HCCL_ERROR("failed to format count");
+            return HcclResult::HCCL_E_INTERNAL;
+        }
+        countStr = countBuf;
+    }
+    // 4 一次性拼接
+    char* dst = param.fastLaunchTag;
+    size_t remain = sizeof(param.fastLaunchTag);
+
+    auto append_str = [&](const char* s) -> bool {
+        if (!s) return true;
+        size_t len = strlen(s);
+        if (len >= remain) return false;
+        memcpy(dst, s, len);
+        dst += len;
+        remain -= len;
+        return true;
     }
 
-    if (param.opType != HcclCMDType::HCCL_CMD_ALLTOALLV) {
-        remainBytes = sizeof(param.algTag) - len;
-        std::string count = std::to_string(param.DataDes.count); //todo: alltoall 的count不是从这里取
-        int len3 = snprintf_s(param.fastLaunchTag + len, remainBytes, remainBytes, "_%s", count.c_str());
-        if (len3 < 0|| len >= remainBytes) {
-            HCCL_ERROR("faled to fill param.fastLaunchTag");
-            return HcclResult::HCCL_E_INTERNAL;
-        }
-        len += len3;
+    if (!append_str(param.tag) || !append_str("_") || !append_str(dataTypeStr)) {
+        goto fail;
     }
+    if (reduceOpStr && !append_str("_") || !append_str(reduceOpStr)) {
+        goto fail;
+    }
+    if (countStr && !append_str("_") || !append_str(countStr)) {
+        goto fail;
+    }
+    *dst = '\0';
     HCCL_DEBUG("[SetOpParamFastLaunchTag] fastLaunchTag: [%s]", param.fastLaunchTag);
-    return HcclResult::HCCL_SUCCESS;
+    return HCCL_SUCCESS;
+
+fail:
+    HCCL_ERROR("failed to fill fastLaunchTag");
+    return HcclResult::HCCL_E_INTERNAL;
 }
 
 bool CcuFastLaunchSupported(HcclComm comm, OpParam &param, CcuFastLaunchCtx **ccuFastLaunchCtx)
@@ -225,7 +248,7 @@ HcclResult HcclExecOpCcuFastLaunch(HcclComm comm, OpParam &param, const CcuFastL
     HCCL_INFO("[HcclExecOpCcuFastLaunch] HcclExecOpCcuFastLaunch start");
     std::string algName = ccuFastLaunchCtx->algName;
     HCCL_DEBUG("[HcclExecOpCcuFastLaunch] algName: [%s]", algName.c_str());
-    std::shared_ptr<InsCollAlgBase> executor = CollAlgExecRegistryV2::Instance().GetAlgExec(param.opType, algName);
+    std::unique_ptr<InsCollAlgBase> executor = CollAlgExecRegistryV2::Instance().GetAlgExec(param.opType, algName);
     CHK_PRT_RET(
         executor.get() == nullptr, HCCL_ERROR("Fail to find executor for algName[%s]", algName.c_str()), HCCL_E_PARA);
     
@@ -258,7 +281,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
         return HCCL_E_INTERNAL;
     }
 
-    std::shared_ptr<InsCollAlgBase> executor = CollAlgExecRegistryV2::Instance().GetAlgExec(param.opType, algName);
+    std::unique_ptr<InsCollAlgBase> executor = CollAlgExecRegistryV2::Instance().GetAlgExec(param.opType, algName);
     CHK_PRT_RET(
         executor.get() == nullptr, HCCL_ERROR("Fail to find executor for algName[%s]", algName.c_str()), HCCL_E_PARA);
 
@@ -540,7 +563,7 @@ void CompReqChannelWithExistChannel(const std::vector<std::vector<ChannelInfo>>&
     return;
 }
 
-HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::shared_ptr<InsCollAlgBase>& executor, TopoInfoWithNetLayerDetails* topoInfo,
+HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollAlgBase>& executor, TopoInfoWithNetLayerDetails* topoInfo,
                          std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, void** resCtxSequence, bool &isResourceReused)
 {
     HCCL_INFO("Start to execute HcclGetAlgRes.");
@@ -1173,7 +1196,7 @@ HcclResult GetAlgResDPU(HcclComm comm, const OpParam &param, AlgResourceRequest 
 
 HcclResult CheckCount(const u64 count)
 {
-    if (count > SYS_MAX_COUNT) {
+    if (UNLIKELY(count > SYS_MAX_COUNT)) {
         HCCL_ERROR("[Check][Count]errNo[0x%016llx] count[%llu] is invalid(bigger than MAX count[%llu])",
                     HCCL_ERROR_CODE(HCCL_E_PARA), count, SYS_MAX_COUNT);
         return HCCL_E_PARA;
@@ -1302,7 +1325,7 @@ HcclResult HcclCheckTag(const char *tag)
     CHK_PTR_NULL(tag);
 
     u32 tagLen = strnlen(tag, TAG_MAX_LEN + 1);
-    if (tagLen == (TAG_MAX_LEN + 1) || tagLen == 0) {
+    if (UNLIKELY((tagLen == (TAG_MAX_LEN + 1) || tagLen == 0)) {
         HCCL_ERROR("[Check][Tag]errNo[0x%016llx] tag is too long", HCOM_ERROR_CODE(HCCL_E_PARA));
         return HCCL_E_PARA;
     }

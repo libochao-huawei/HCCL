@@ -33,7 +33,7 @@ HcclResult HcclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, H
 
 namespace ops_hccl {
 HcclResult ReduceScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
-    HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag);
+    HcclReduceOp op, HcclComm comm, aclrtStream stream, u32 userRankSize);
 
 HcclResult ReduceScatterExecOp(HcclComm comm, OpParam &param);
 

@@ -254,7 +254,7 @@ struct CcuKernelInfo {
     std::vector<HcclChannelDesc> channels;
 };
 
-// 算法sqe最大个数（alltoallv除外）
+// 算法taskArg入参最大个数，用于快速下发缓存
 #define CCU_MAX_TASK_ARG_NUM 30
 
 struct CcuKernelSubmitInfo {
