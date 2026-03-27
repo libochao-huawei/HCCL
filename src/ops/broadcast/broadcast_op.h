@@ -35,7 +35,7 @@ HcclResult BroadcastOutPlace(void *buf, uint64_t count, HcclDataType dataType, u
 
 
 HcclResult CheckBroadcastInputPara(const HcclComm comm, const void *buf);
-BroadcastEntryLog(void *buf, uint64_t count, HcclDataType dataType, uint32_t root, aclrtStream stream, const std::string &tag, const std::string &opName);
+HcclResult BroadcastEntryLog(void *buf, uint64_t count, HcclDataType dataType, uint32_t root, aclrtStream stream, const std::string &tag, const std::string &opName);
 }
 
 #endif
