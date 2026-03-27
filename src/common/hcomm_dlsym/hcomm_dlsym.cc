@@ -14,7 +14,6 @@
 #include "hcomm_primitives_dl.h"
 #include "hccl_inner_dl.h"
 #include "hcomm_host_profiling_dl.h"
-#include "hcom_dl.h"
 #include <pthread.h>
 #include <dlfcn.h>
 #include <stdio.h>
@@ -70,19 +69,4 @@ void HcommDlInit(void) {
     HcommPrimitivesDlInit(gLibHandle);
     HcclInnerDlInit(gLibHandle);
     HcommProfilingDlInit(gLibHandle);
-    HcomDlInit(gLibHandle);
-}
-
-void HcommDlFini(void) {
-    if (gLibHandle) {
-        HcclResDlFini();
-        HcclRankGraphDlFini();
-        HcommPrimitivesDlFini();
-        HcclInnerDlFini();
-        HcommProfilingDlFini();
-        HcomDlFini();
-
-        dlclose(gLibHandle);
-        gLibHandle = nullptr;
-    }
 }

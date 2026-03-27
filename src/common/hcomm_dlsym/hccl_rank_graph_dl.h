@@ -11,32 +11,14 @@
 #ifndef HCCL_RANK_GRAPH_DL_H
 #define HCCL_RANK_GRAPH_DL_H
 
+#include "dlsym_common.h"
 #include "hccl_rank_graph.h"   // 原头文件，包含所有类型和 inline 函数
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-HcclResult __attribute__((weak)) HcclRankGraphGetLayers(HcclComm comm, uint32_t** netLayers, uint32_t* netLayerNum);
-HcclResult __attribute__((weak)) HcclRankGraphGetRanksByLayer(HcclComm comm, uint32_t netLayer, uint32_t** ranks, uint32_t* rankNum);
-HcclResult __attribute__((weak)) HcclRankGraphGetRankSizeByLayer(HcclComm comm, uint32_t netLayer, uint32_t* rankNum);
-HcclResult __attribute__((weak)) HcclRankGraphGetTopoTypeByLayer(HcclComm comm, uint32_t netLayer, CommTopo* topoType);
-HcclResult __attribute__((weak)) HcclRankGraphGetInstSizeListByLayer(HcclComm comm, uint32_t netLayer, uint32_t** instSizeList, uint32_t* listSize);
-HcclResult __attribute__((weak)) HcclRankGraphGetLinks(HcclComm comm, uint32_t netLayer, uint32_t srcRank, uint32_t dstRank,
-                                 CommLink** links, uint32_t* linkNum);
-HcclResult __attribute__((weak)) HcclRankGraphGetTopoInstsByLayer(HcclComm comm, uint32_t netLayer, uint32_t** topoInsts, uint32_t* topoInstNum);
-HcclResult __attribute__((weak)) HcclRankGraphGetTopoType(HcclComm comm, uint32_t netLayer, uint32_t topoInstId, CommTopo* topoType);
-HcclResult __attribute__((weak)) HcclRankGraphGetRanksByTopoInst(HcclComm comm, uint32_t netLayer, uint32_t topoInstId,
-                                          uint32_t** ranks, uint32_t* rankNum);
-HcclResult __attribute__((weak)) HcclGetHeterogMode(HcclComm comm, HcclHeterogMode* mode);
-HcclResult __attribute__((weak)) HcclRankGraphGetEndpointNum(HcclComm comm, uint32_t layer, uint32_t topoInstId, uint32_t* num);
-HcclResult __attribute__((weak)) HcclRankGraphGetEndpointDesc(HcclComm comm, uint32_t layer, uint32_t topoInstId,
-                                        uint32_t* descNum, EndpointDesc* endpointDesc);
-HcclResult __attribute__((weak)) HcclRankGraphGetEndpointInfo(HcclComm comm, uint32_t rankId, const EndpointDesc* endpointDesc,
-                                        EndpointAttr endpointAttr, uint32_t infoLen, void* info);
-
 void HcclRankGraphDlInit(void* libHcommHandle);
-void HcclRankGraphDlFini(void);
 
 #ifdef __cplusplus
 }

@@ -11,6 +11,7 @@
 #ifndef HCOMM_DEVICE_PROFILING_DL_H
 #define HCOMM_DEVICE_PROFILING_DL_H
 
+#include "dlsym_common.h"
 #include "hccl_res_dl.h"
 
 #ifdef __cplusplus
@@ -38,28 +39,17 @@ typedef struct HcomProInfoTmp {
     uint8_t reserved[MAX_LENGTH];
 }HcomProInfoTmp;
 
-HcclResult __attribute__((weak)) HcommProfilingReportMainStreamAndFirstTask(ThreadHandle thread);
-HcclResult __attribute__((weak)) HcommProfilingReportMainStreamAndLastTask(ThreadHandle thread);
-HcclResult __attribute__((weak)) HcommProfilingReportDeviceHcclOpInfo(HcomProInfoTmp profInfo);
-HcclResult __attribute__((weak)) HcommProfilingInit(ThreadHandle* threads, uint32_t threadNum);
-HcclResult __attribute__((weak)) HcommProfilingEnd(ThreadHandle* threads, uint32_t threadNum);
-HcclResult __attribute__((weak)) HcommProfilingReportDeviceOp(const char* groupname);
-HcclResult __attribute__((weak)) HcommProfilingReportKernelStartTask(uint64_t thread, const char* groupname);
-HcclResult __attribute__((weak)) HcommProfilingReportKernelEndTask(uint64_t thread, const char* groupname);
-
-// 查询函数声明
-bool HcommIsSupportHcommProfilingReportMainStreamAndFirstTask(void);
-bool HcommIsSupportHcommProfilingReportMainStreamAndLastTask(void);
-bool HcommIsSupportHcommProfilingReportDeviceHcclOpInfo(void);
-bool HcommIsSupportHcommProfilingInit(void);
-bool HcommIsSupportHcommProfilingEnd(void);
-bool HcommIsSupportHcommProfilingReportDeviceOp(void);
-bool HcommIsSupportHcommProfilingReportKernelStartTask(void);
-bool HcommIsSupportHcommProfilingReportKernelEndTask(void);
+DECL_WEAK_FUNC(HcclResult, HcommProfilingReportMainStreamAndFirstTask, ThreadHandle thread);
+DECL_WEAK_FUNC(HcclResult, HcommProfilingReportMainStreamAndLastTask, ThreadHandle thread);
+DECL_WEAK_FUNC(HcclResult, HcommProfilingReportDeviceHcclOpInfo, HcomProInfoTmp profInfo);
+DECL_WEAK_FUNC(HcclResult, HcommProfilingInit, ThreadHandle* threads, uint32_t threadNum);
+DECL_WEAK_FUNC(HcclResult, HcommProfilingEnd, ThreadHandle* threads, uint32_t threadNum);
+DECL_WEAK_FUNC(HcclResult, HcommProfilingReportDeviceOp, const char* groupname);
+DECL_WEAK_FUNC(HcclResult, HcommProfilingReportKernelStartTask, uint64_t thread, const char* groupname);
+DECL_WEAK_FUNC(HcclResult, HcommProfilingReportKernelEndTask, uint64_t thread, const char* groupname);
 
 // 动态库管理接口
 void HcommDeviceProfilingDlInit(void* libHcommHandle);
-void HcommDeviceProfilingDlFini(void);
 
 #ifdef __cplusplus
 }
