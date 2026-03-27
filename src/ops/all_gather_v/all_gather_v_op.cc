@@ -203,28 +203,28 @@ HcclResult InitOpParam(void *sendBuf, void *recvBuf, uint64_t sendCount, const v
  	OpParam* paramPtr = new (paramMem) OpParam();
  	param = paramPtr; 
     CHK_RET(HcclGetCommName(comm, param->commName));
- 	param->stream = stream;
- 	param->opMode = opMode;
+ 	param.stream = stream;
+ 	param.opMode = opMode;
  	  	 
     DevType deviceType = DevType::DEV_TYPE_COUNT;
  	CHK_RET(hrtGetDeviceType(deviceType));
  	  	 
  	// topoInfo的tag，所有相同的算子可以共享
- 	int ret = sprintf_s(param->tag, sizeof(param->tag), "%s", tag.c_str());
+ 	int ret = sprintf_s(param.tag, sizeof(param.tag), "%s", tag.c_str());
  	if (ret <= 0) {
  	  	HCCL_ERROR("failed to fill param.tag");
  	  	return HCCL_E_INTERNAL;
  	}
  	  	 
  	// 参数准备
- 	param->inputPtr = sendBuf;
- 	param->inputSize = inputSize;
- 	param->outputPtr = recvBuf;
- 	param->outputSize = outputSize;
- 	param->DataDes.count = sendCount;
- 	param->vDataDes.dataType = dataType;
+ 	param.inputPtr = sendBuf;
+ 	param.inputSize = inputSize;
+ 	param.outputPtr = recvBuf;
+ 	param.outputSize = outputSize;
+ 	param.DataDes.count = sendCount;
+ 	param.vDataDes.dataType = dataType;
     // 带V算子的参数
-    param->varMemSize = varMemSize;
+    param.varMemSize = varMemSize;
     // 从源内存地址按字节直接拷贝数据到目标地址
     std::vector<u64> merged(userRankSize + userRankSize); 
     const uint64_t *countsPtr = reinterpret_cast<const uint64_t *>(recvCounts);
@@ -232,9 +232,9 @@ HcclResult InitOpParam(void *sendBuf, void *recvBuf, uint64_t sendCount, const v
     std::copy(countsPtr, countsPtr + userRankSize, merged.begin());
     std::copy(displsPtr, displsPtr + userRankSize, merged.begin() + userRankSize);
     memcpy_s(param->varData, varMemSize, merged.data(), varMemSize);
-    param->opType = HcclCMDType::HCCL_CMD_ALLGATHER_V;
-    param->enableDetour = false;
-    param->deviceType = deviceType;
+    param.opType = HcclCMDType::HCCL_CMD_ALLGATHER_V;
+    param.enableDetour = false;
+    param.deviceType = deviceType;
     paramPtr->~OpParam();
     free(paramMem);
 }
