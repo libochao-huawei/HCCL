@@ -74,7 +74,7 @@ HcclResult HcclReduceScatterV(void *sendBuf,  const void *sendCounts, const void
     CHK_RET_AND_PRINT_IDE(ReduceScatterVOutPlace(sendBuf, sendDispls, sendCounts, recvBuf, recvCount, dataType, op, comm, stream, tag),
                           tag.c_str());
 
-    CHK_RET(LogHcclExit("ReduceScatterV", opTag, startut));
+    CHK_RET(LogHcclExit("ReduceScatterV", tag, startut));
 
     return HCCL_SUCCESS;
 }
