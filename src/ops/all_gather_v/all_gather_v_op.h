@@ -56,7 +56,7 @@ std::string GetSupportDataTypeAGV();
 HcclResult CalcBaseTopoInfoAllGatherV(HcclComm comm, OpParam &param, TopoInfoWithNetLayerDetails **topoInfo);
 
 HcclResult InitOpParam(void *sendBuf, void *recvBuf, uint64_t sendCount, const void *recvCounts,const void *recvDispls, HcclDataType dataType, HcclComm comm, 
-    aclrtStream stream, const std::string &tag, u32 userRankSize, u64 inputSize, u64 outputSize, OpParam* &param, OpMode opMode)；
+    aclrtStream stream, const std::string &tag, u32 userRankSize, u64 inputSize, u64 outputSize, OpParam* &param, OpMode opMode);
 
 }  // namespace ops_hccl
 #endif
