@@ -128,7 +128,6 @@ target_sources(hccl_compat PRIVATE
     hcomm_dlsym.cc
     hccl_inner_dl.cc
     hcomm_host_profiling_dl.cc
-    hcom_dl.cc
 )
 
 if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))

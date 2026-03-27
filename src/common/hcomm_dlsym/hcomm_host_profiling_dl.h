@@ -11,6 +11,7 @@
 #ifndef HCOMM_HOST_PROFILING_DL_H
 #define HCOMM_HOST_PROFILING_DL_H
 
+#include "dlsym_common.h"
 #include "hccl_res_dl.h"
 
 #ifdef __cplusplus
@@ -38,28 +39,8 @@ typedef struct HcomProInfoTmp {
     uint8_t reserved[MAX_LENGTH];
 }HcomProInfoTmp;
 
-HcclResult __attribute__((weak)) HcommProfilingRegThread(HcomProInfoTmp profInfo, ThreadHandle* threads);
-HcclResult __attribute__((weak)) HcommProfilingUnRegThread(HcomProInfoTmp profInfo, ThreadHandle* threads);
-HcclResult __attribute__((weak)) HcommProfilingReportKernel(uint64_t beginTime, const char* profName);
-HcclResult __attribute__((weak)) HcommProfilingReportOp(HcomProInfoTmp profInfo);
-uint64_t __attribute__((weak)) HcommGetProfilingSysCycleTime();
-HcclResult __attribute__((weak)) HcclDfxRegOpInfo(HcclComm comm, void* dfxOpInfo);
-HcclResult __attribute__((weak)) HcclProfilingReportOp(HcclComm comm, uint64_t beginTime);
-HcclResult __attribute__((weak)) HcclReportAicpuKernel(HcclComm comm, uint64_t beginTime, char *kernelName);
-
-// 查询函数声明
-bool HcommIsSupportHcommProfilingRegThread(void);
-bool HcommIsSupportHcommProfilingUnRegThread(void);
-bool HcommIsSupportHcommProfilingReportKernel(void);
-bool HcommIsSupportHcommProfilingReportOp(void);
-bool HcommIsSupportHcommGetProfilingSysCycleTime(void);
-bool HcommIsSupportHcclDfxRegOpInfo(void);
-bool HcommIsSupportHcclProfilingReportOp(void);
-bool HcommIsSupportHcclProfilingReportOp(void);
-
 // 动态库管理接口
 void HcommProfilingDlInit(void* libHcommHandle);
-void HcommProfilingDlFini(void);
 
 #ifdef __cplusplus
 }

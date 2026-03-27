@@ -11,22 +11,18 @@
 #ifndef HCOMM_DIAG_DL_H
 #define HCOMM_DIAG_DL_H
 
+#include "dlsym_common.h"
 #include "hcomm_diag.h"   // 原始头文件，包含所有声明和类型定义
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-HcclResult __attribute__((weak)) HcommRegOpInfo(const char* commId, void* opInfo, size_t size);
-HcclResult __attribute__((weak)) HcommRegOpTaskException(const char* commId, HcommGetOpInfoCallback callback);
-
-// 查询函数声明
-bool HcommIsSupportHcommRegOpInfo(void);
-bool HcommIsSupportHcommRegOpTaskException(void);
+DECL_SUPPORT_FLAG(HcommRegOpInfo);
+DECL_SUPPORT_FLAG(HcommRegOpTaskException);
 
 // 动态库管理接口
 void HcommDiagDlInit(void* libHcommHandle);
-void HcommDiagDlFini(void);
 
 #ifdef __cplusplus
 }

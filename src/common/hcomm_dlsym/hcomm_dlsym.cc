@@ -70,5 +70,4 @@ void HcommDlInit(void) {
     HcommPrimitivesDlInit(gLibHandle);
     HcclInnerDlInit(gLibHandle);
     HcommProfilingDlInit(gLibHandle);
-    HcomDlInit(gLibHandle);
 }
