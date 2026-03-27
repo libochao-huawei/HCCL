@@ -153,31 +153,22 @@ HcclResult SetOpParamFastLaunchTag(OpParam &param)
         param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
         dataTypeStr = GetHcclDataTypeStr(param.all2AllVDataDes.sendType);
     } else {
-        dataTypeStr = GetHcclDataTypeStr(tmpDataType = param.DataDes.dataType);
+        dataTypeStr = GetHcclDataTypeStr(param.DataDes.dataType);
     }
-    if (UNLIKELY(!dataTypeStr)) {
-        HCCL_ERROR("unsupported data type");
-        return HcclResult::HCCL_E_INTERNAL;
-    }
+    CHK_PRT_RET((!dataTypeStr), "unsupported data type", HcclResult::HCCL_E_INTERNAL);
     // 2. reduce op
     const char* reduceOpStr = nullptr;
     if (param.opType == HcclCMDType::HCCL_CMD_ALLREDUCE || param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER ||
         param.opType == HcclCMDType::HCCL_CMD_REDUCE    || param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V) {}
         reduceOpStr = GetHcclReduceOpStr(param.reduceType);
-        if (UNLIKELY(!reduceOpStr)) {
-            HCCL_ERROR("unsupported reduce op");
-            return HcclResult::HCCL_E_INTERNAL;
-        }
+        CHK_PRT_RET((!reduceOpStr), "unsupported reduce op", HcclResult::HCCL_E_INTERNAL);
     }
     // 3. count
     char countBuf[32];
     const char* countStr = nullptr;
     if (param.opType != HcclCMDType::HCCL_CMD_ALLTOALLV) {
         int countLen = snprintf_s(countBuf, sizeof(countBuf), sizeof(countBuf) - 1, "%llu", static_cast<uint64_t>(param.DataDes.count));
-        if (UNLIKELY(countLen <= 0)) {
-            HCCL_ERROR("failed to format count");
-            return HcclResult::HCCL_E_INTERNAL;
-        }
+        CHK_PRT_RET((countLen <= 0), "failed to format count", HcclResult::HCCL_E_INTERNAL);
         countStr = countBuf;
     }
     // 4 一次性拼接
@@ -192,20 +183,20 @@ HcclResult SetOpParamFastLaunchTag(OpParam &param)
         dst += len;
         remain -= len;
         return true;
-    }
+    };
 
     if (!append_str(param.tag) || !append_str("_") || !append_str(dataTypeStr)) {
         goto fail;
     }
-    if (reduceOpStr && !append_str("_") || !append_str(reduceOpStr)) {
+    if (reduceOpStr && (!append_str("_")) || !append_str(reduceOpStr)) {
         goto fail;
     }
-    if (countStr && !append_str("_") || !append_str(countStr)) {
+    if (countStr && (!append_str("_")) || !append_str(countStr)) {
         goto fail;
     }
     *dst = '\0';
     HCCL_DEBUG("[SetOpParamFastLaunchTag] fastLaunchTag: [%s]", param.fastLaunchTag);
-    return HCCL_SUCCESS;
+    return HcclResult::HCCL_SUCCESS;
 
 fail:
     HCCL_ERROR("failed to fill fastLaunchTag");
