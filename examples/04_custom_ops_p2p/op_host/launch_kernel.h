@@ -21,6 +21,8 @@ enum class KernelLaunchMode {
 
 namespace ops_hccl_p2p {
 
+extern thread_local aclrtNotify g_notifies[AICPU_CONTROL_NOTIFY_NUM];
+
 // 使用 ASC 编译的二进制调用函数
 extern HcclResult LaunchKernelBinary(OpParam &param, aclrtStream stream);
 
