@@ -17,6 +17,9 @@
 extern "C" {
 #endif
 
+#define DECL_WEAK_FUNC(type, func_name, ...) \
+    type func_name(__VA_ARGS__) __attribute__((weak));
+
 #define DEFINE_WEAK_FUNC(type, func_name, ...) \
     static bool g_##func_name##Supported = false; \
     extern "C" bool HcommIsSupport##func_name(void) { \

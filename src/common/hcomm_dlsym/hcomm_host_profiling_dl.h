@@ -39,6 +39,15 @@ typedef struct HcomProInfoTmp {
     uint8_t reserved[MAX_LENGTH];
 }HcomProInfoTmp;
 
+DECL_WEAK_FUNC(HcclResult, HcommProfilingRegThread, HcomProInfoTmp profInfo, ThreadHandle* threads);
+DECL_WEAK_FUNC(HcclResult, HcommProfilingUnRegThread, HcomProInfoTmp profInfo, ThreadHandle* threads);
+DECL_WEAK_FUNC(HcclResult, HcommProfilingReportKernel, uint64_t beginTime, const char* profName);
+DECL_WEAK_FUNC(HcclResult, HcommProfilingReportOp, HcomProInfoTmp profInfo);
+DECL_WEAK_FUNC(uint64_t, HcommGetProfilingSysCycleTime);
+DECL_WEAK_FUNC(HcclResult, HcclDfxRegOpInfo, HcclComm comm, void* dfxOpInfo);
+DECL_WEAK_FUNC(HcclResult, HcclProfilingReportOp, HcclComm comm, uint64_t beginTime);
+DECL_WEAK_FUNC(HcclResult, HcclReportAicpuKernel, HcclComm comm, uint64_t beginTime, char *kernelName);
+
 // 动态库管理接口
 void HcommProfilingDlInit(void* libHcommHandle);
 
