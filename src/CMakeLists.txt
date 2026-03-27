@@ -388,6 +388,7 @@ target_compile_options(hccl PRIVATE
     -fno-common
     -fno-strict-aliasing
     -pipe
+    -O3
     $<$<CONFIG:Release>:-O3>
     $<$<CONFIG:Debug>:-g>
     -std=c++14
