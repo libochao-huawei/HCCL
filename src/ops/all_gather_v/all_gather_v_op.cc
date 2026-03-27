@@ -143,7 +143,7 @@ HcclResult AllGatherVOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount,c
 
     // 准备OpParam
     OpParam param;
-    CHK_RET(InitOpParam(sendBuf, recvBuf, sendCount, recvCounts, recvDispls, dataType, comm, stream, &tag, userRankSize, inputSize, outputSize, &param, OpMode::OPBASE));
+    CHK_RET(InitOpParam(sendBuf, recvBuf, sendCount, recvCounts, recvDispls, dataType, comm, stream, tag, userRankSize, inputSize, outputSize, &param, OpMode::OPBASE));
 
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
@@ -174,7 +174,7 @@ HcclResult AllGatherVOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t se
     
     OpParam param;
     // 准备OpParam
-    CHK_RET(InitOpParam(sendBuf, recvBuf, sendCount, recvCounts, recvDispls, dataType, comm, stream, &tag, userRankSize, inputSize, outputSize, &param, OpMode::OFFLOAD));
+    CHK_RET(InitOpParam(sendBuf, recvBuf, sendCount, recvCounts, recvDispls, dataType, comm, stream, tag, userRankSize, inputSize, outputSize, &param, OpMode::OFFLOAD));
 
  	if (userRankSize == 1) {
  	  	HCCL_WARNING("[%s] rankSize == 1, enter SingleRankProc", __func__);
@@ -201,10 +201,10 @@ HcclResult InitOpParam(void *sendBuf, void *recvBuf, uint64_t sendCount, const v
  	    return HCCL_E_INTERNAL;
  	} 
  	OpParam* paramPtr = new (paramMem) OpParam();
- 	param = *paramPtr; 
-    CHK_RET(HcclGetCommName(comm, param.commName));
- 	param.stream = stream;
- 	param.opMode = opMode;
+ 	param = paramPtr; 
+    CHK_RET(HcclGetCommName(comm, param->commName));
+ 	param->stream = stream;
+ 	param->opMode = opMode;
  	  	 
     DevType deviceType = DevType::DEV_TYPE_COUNT;
  	CHK_RET(hrtGetDeviceType(deviceType));
@@ -217,12 +217,12 @@ HcclResult InitOpParam(void *sendBuf, void *recvBuf, uint64_t sendCount, const v
  	}
  	  	 
  	// 参数准备
- 	param.inputPtr = sendBuf;
- 	param.inputSize = inputSize;
- 	param.outputPtr = recvBuf;
- 	param.outputSize = outputSize;
- 	param.DataDes.count = sendCount;
- 	param.vDataDes.dataType = dataType;
+ 	param->inputPtr = sendBuf;
+ 	param->inputSize = inputSize;
+ 	param->outputPtr = recvBuf;
+ 	param->outputSize = outputSize;
+ 	param->DataDes.count = sendCount;
+ 	param->vDataDes.dataType = dataType;
     // 带V算子的参数
     param->varMemSize = varMemSize;
     // 从源内存地址按字节直接拷贝数据到目标地址
