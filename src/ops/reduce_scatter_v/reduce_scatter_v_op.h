@@ -54,6 +54,9 @@ HcclResult GetAlgResReduceScatterV(HcclComm comm, OpParam &param, std::shared_pt
 
 HcclResult CheckDataTypeRSV(const HcclDataType dataType, bool needReduce);
 
+HcclResult ReduceScatterVOutPlaceCommon(void *sendBuf, const void *sendDispls, const void *sendCounts, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
+    HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag, OpMode opMode, const ResPackGraphMode &resPack);
+
 std::string GetSupportDataTypeRSV(bool needReduce);
 
 }
