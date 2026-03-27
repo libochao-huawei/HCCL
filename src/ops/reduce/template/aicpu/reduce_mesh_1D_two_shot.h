@@ -52,7 +52,7 @@ public:
 
 private:
     HcclResult CalcSlice();
-    HcclResult RunReduceScatter(const TemplateDataParams &tempAlgParam, const std::map<u32, std::vector<ChannelInfo>> &channels,
+    HcclResult RunReduceScatter(const TemplateDataParams &tempAlgParam, const OpParam &param, const std::map<u32, std::vector<ChannelInfo>> &channels,
         const std::vector<ThreadHandle> &threads);
     HcclResult RunGatherToRoot(const TemplateDataParams &tempAlgParam, const std::map<u32, std::vector<ChannelInfo>> &channels,
         const std::vector<ThreadHandle> &threads);

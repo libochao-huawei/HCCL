@@ -86,7 +86,7 @@ HcclResult ReduceMesh1DTwoShot::KernelRun(
         "[KernelRun] sliceSize: %u, count_: %u, typeSize: %u", tempAlgParams.sliceSize, count_, SIZE_TABLE[dataType_]);
     const std::map<u32, std::vector<ChannelInfo>> &channels = templateResource.channels;
     CHK_RET(CalcSlice());
-    CHK_RET(RunReduceScatter(tempAlgParams, channels, threads));
+    CHK_RET(RunReduceScatter(tempAlgParams, param, channels, threads));
     CHK_RET(RunGatherToRoot(tempAlgParams, channels, threads));
     
     return HCCL_SUCCESS;
@@ -118,7 +118,7 @@ HcclResult ReduceMesh1DTwoShot::CalcSlice()
     return HCCL_SUCCESS;
 }
 
-HcclResult ReduceMesh1DTwoShot::RunReduceScatter(const TemplateDataParams &tempAlgParam,
+HcclResult ReduceMesh1DTwoShot::RunReduceScatter(const TemplateDataParams &tempAlgParam, const OpParam &param,
     const std::map<u32, std::vector<ChannelInfo>> &channels,
     const std::vector<ThreadHandle> &threads)
 {
@@ -192,10 +192,10 @@ HcclResult ReduceMesh1DTwoShot::RunReduceScatter(const TemplateDataParams &tempA
 
         // 64位数据或乘积reduce操作需要在aicpu上执行reduce操作
         if (dataType_ == HcclDataType::HCCL_DATA_TYPE_INT64 || dataType_ == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
-            dataType_ == HcclDataType::HCCL_DATA_TYPE_FP64 || tempAlgParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
+            dataType_ == HcclDataType::HCCL_DATA_TYPE_FP64 || param.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
             // 启动任务并等待所有threads任务执行完成
-            CHK_RET(static_cast<HcclResult>(HcommBatchModeEnd(tempAlgParam.algTag)));
-            CHK_RET(static_cast<HcclResult>(HcommBatchModeStart(tempAlgParam.algTag)));
+            CHK_RET(static_cast<HcclResult>(HcommBatchModeEnd(param.algTag)));
+            CHK_RET(static_cast<HcclResult>(HcommBatchModeStart(param.algTag)));
             for (const auto &thread : threads) {
                 CHK_RET(static_cast<HcclResult>(HcommThreadJoin(thread, CUSTOM_TIMEOUT)));
             }
