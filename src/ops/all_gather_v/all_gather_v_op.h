@@ -34,8 +34,8 @@ HcclResult HcclAllGatherV(void *sendBuf, uint64_t sendCount, void *recvBuf, cons
 namespace ops_hccl {
 HcclResult AllGatherVOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount, const void *recvCounts,
     const void *recvDispls, HcclDataType dataType, HcclComm comm, aclrtStream stream, const std::string &tag);
-HcclResult AllGatherVEntryLog(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType,
-    aclrtStream stream, const std::string &tag, const std::string &opName);
+HcclResult AllGatherVEntryLog(void *sendBuf, void *recvBuf, uint64_t sendCount, const void *recvCounts, const void *recvDispls,
+    HcclDataType dataType, aclrtStream stream, const std::string &tag, const std::string &opName);
 HcclResult CheckAllGatherVInputPara(const HcclComm comm, const void* sendBuf, const void* recvBuf);
 
 HcclResult AllGatherVExecOp(HcclComm comm, OpParam &param);

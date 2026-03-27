@@ -57,7 +57,7 @@ HcclResult HcclAllGatherV(void *sendBuf, uint64_t sendCount, void *recvBuf, cons
     CHK_RET(CheckCount(sendCount));
     CHK_RET(CheckDataType(dataType, false));
             
-    CHK_RET(AllGatherVEntryLog(sendBuf, recvBuf, sendCount, dataType, stream, tag, "HcclAllGatherV"));
+    CHK_RET(AllGatherVEntryLog(sendBuf, recvBuf, sendCount, recvCounts, recvDispls, dataType, stream, tag, "HcclAllGatherV"));
 
     // 执行AllGatherV
     CHK_RET_AND_PRINT_IDE(AllGatherVOutPlace(sendBuf, recvBuf, sendCount, recvCounts, recvDispls, dataType, comm, stream, tag), tag.c_str());
@@ -156,8 +156,8 @@ HcclResult AllGatherVOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount,c
     return HCCL_SUCCESS;
 }
 
-HcclResult AllGatherVEntryLog(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType,
-    aclrtStream stream, const std::string &tag, const std::string &opName)
+HcclResult AllGatherVEntryLog(void *sendBuf, void *recvBuf, uint64_t sendCount, const void *recvCounts, const void *recvDispls,
+    HcclDataType dataType, aclrtStream stream, const std::string &tag, const std::string &opName)
 {
     if (GetExternalInputHcclEnableEntryLog()) {
         s32 deviceLogicId = 0;
@@ -166,8 +166,8 @@ HcclResult AllGatherVEntryLog(void *sendBuf, void *recvBuf, uint64_t sendCount, 
         ACLCHECK(aclrtStreamGetId(stream, &streamId));
         char stackLogBuffer[LOG_TMPBUF_SIZE];
         s32 ret = snprintf_s(stackLogBuffer, LOG_TMPBUF_SIZE, LOG_TMPBUF_SIZE - 1U,
-            "tag[%s], sendBuf[%p], recvBuf[%p], sendCount[%llu], dataType[%s], streamId[%d], deviceLogicId[%d]",
-            tag.c_str(), sendBuf, recvBuf, sendCount, GetDataTypeEnumStr(dataType).c_str(), streamId, deviceLogicId);
+            "tag[%s], sendBuf[%p], recvBuf[%p], sendCount[%llu], recvCounts[%p], recvDispls[%p], dataType[%s], streamId[%d], deviceLogicId[%d]",
+            tag.c_str(), sendBuf, recvBuf, sendCount, recvCounts, recvDispls, GetDataTypeEnumStr(dataType).c_str(), streamId, deviceLogicId);
 
         CHK_PRT_CONT(ret == -1, HCCL_WARNING("Failed to build log info, tag[%s].", tag.c_str()));
         std::string logInfo = "Entry-" + opName + ":" + std::string(stackLogBuffer);
