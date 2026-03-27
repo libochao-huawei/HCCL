@@ -152,8 +152,6 @@ HcclResult AllGatherVOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount,c
         return HcclAllGatherVInner(sendBuf, sendCount, recvBuf, recvCounts, recvDispls, dataType, comm, stream);
     }
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
-    paramPtr->~OpParam();
-    free(paramMem);
     HCCL_INFO("Execute AllGatherVOutPlace success.");
     return HCCL_SUCCESS;
 }
@@ -223,8 +221,8 @@ HcclResult InitOpParam(void *sendBuf, void *recvBuf, uint64_t sendCount, const v
  	param->inputSize = inputSize;
  	param->outputPtr = recvBuf;
  	param->outputSize = outputSize;
- 	param->DataDes.count = sendCount;
- 	param->vDataDes.dataType = dataType;
+ 	param->DataDes->count = sendCount;
+ 	param->vDataDes->dataType = dataType;
     // 带V算子的参数
     param->varMemSize = varMemSize;
     // 从源内存地址按字节直接拷贝数据到目标地址
@@ -237,6 +235,8 @@ HcclResult InitOpParam(void *sendBuf, void *recvBuf, uint64_t sendCount, const v
     param->opType = HcclCMDType::HCCL_CMD_ALLGATHER_V;
     param->enableDetour = false;
     param->deviceType = deviceType;
+    paramPtr->~OpParam();
+    free(paramMem);
 }
 
 }  // namespace ops_hccl
