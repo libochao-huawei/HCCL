@@ -56,7 +56,7 @@ private:
                                      InsAlgTemplate1 &tempAlgInter, InsAlgTemplate2 &tempAlgIntra1);
     HcclResult PrepareResForTemplate23(const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &tempAlgIntra,
                                        InsAlgTemplate2 &tempAlgIntra1, InsAlgTemplate3 &tempAlgInter1);
-    HcclResult PrepareResForTemplateResource(const AlgResourceCtxSerializable &resCtx, TemplateResource &intraTempAlgRes,
+    HcclResult PrepareResForTemplateResource(const OpParam &param, const AlgResourceCtxSerializable &resCtx, TemplateResource &intraTempAlgRes,
                                              TemplateResource &interTempAlgRes, bool isRsStage);
     void GenDataParamsBufferType(const BufferType inBuffType, const BufferType outBuffType, const BufferType hcclBuffType,
                                  TemplateDataParams &dataParams) const;

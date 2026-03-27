@@ -294,10 +294,10 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2, typename InsAlgTemplate3>
 HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3>::PrepareResForTemplateResource(
-    const AlgResourceCtxSerializable &resCtx, TemplateResource &intraTempAlgRes, TemplateResource &interTempAlgRes, bool isRsStage)
+    const OpParam &param, const AlgResourceCtxSerializable &resCtx, TemplateResource &intraTempAlgRes, TemplateResource &interTempAlgRes, bool isRsStage)
 {
     if (param.engine == COMM_ENGINE_CCU) {
-        if (isScatter) {
+        if (isRsStage) {
             intraTempAlgRes.ccuKernels.insert(intraTempAlgRes.ccuKernels.end(),
                                               resCtx.ccuKernels.begin(),
                                               resCtx.ccuKernels.begin() + resCtx.ccuKernelNum[0]);
@@ -598,7 +598,7 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
         TemplateResource intraTempAlgRes;
         TemplateResource interTempAlgRes;
         CHK_RET(PrepareResForTemplate(resCtx, tempAlgIntra, tempAlgInter, tempAlgIntra1));
-        PrepareResForTemplateResource(resCtx, intraTempAlgRes, interTempAlgRes, true);
+        PrepareResForTemplateResource(param, resCtx, intraTempAlgRes, interTempAlgRes, true);
 
         //server 间地址偏移
         for (int i = 0; i < resCtx.algHierarchyInfo.infos[0][0].size(); i++) {
@@ -629,7 +629,7 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
         TemplateResource intraTempAlgRes1;
         TemplateResource interTempAlgRes1;
         CHK_RET(PrepareResForTemplate23(resCtx, tempAlgIntra, tempAlgIntra1, tempAlgInter1));
-        PrepareResForTemplateResource(resCtx, intraTempAlgRes1, interTempAlgRes1, false);
+        PrepareResForTemplateResource(param, resCtx, intraTempAlgRes1, interTempAlgRes1, false);
 
         // 第三步开始前同步
         CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
