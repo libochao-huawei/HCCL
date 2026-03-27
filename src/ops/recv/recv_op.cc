@@ -64,6 +64,8 @@ HcclResult HcclRecvGraphMode(
     HcclComm comm = nullptr;
     HCCL_INFO("[HcclRecvGraphMode] get group name: %s", group);
     HcomGetCommHandleByGroup(group, &comm);
+    
+    HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
 
     CHK_RET(InitEnvConfig());
     u32 rankSize = INVALID_VALUE_RANKSIZE;
