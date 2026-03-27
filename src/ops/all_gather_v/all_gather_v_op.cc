@@ -201,7 +201,7 @@ HcclResult InitOpParam(void *sendBuf, void *recvBuf, uint64_t sendCount, const v
  	    return HCCL_E_INTERNAL;
  	} 
  	OpParam* paramPtr = new (paramMem) OpParam();
- 	param = paramPtr; 
+ 	param = *paramPtr; 
     CHK_RET(HcclGetCommName(comm, param.commName));
  	param.stream = stream;
  	param.opMode = opMode;
