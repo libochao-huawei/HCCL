@@ -266,10 +266,7 @@ bash build.sh --ut
 # 代码仓根目录执行测试命令
 bash build.sh --st
 ```
-
-
-
-## 八、学习资源
+## 七、学习资源
 
 - WSL官方文档：<https://docs.microsoft.com/zh-cn/windows/wsl/>
 - Ubuntu官方文档：<https://ubuntu.com/server/docs>
