@@ -259,32 +259,40 @@ struct CcuKernelInfo {
 
 struct CcuKernelSubmitInfo {
     CcuKernelHandle kernelHandle;
-    u32 argNum;
-    uint64_t sqeArgs[CCU_MAX_TASK_ARG_NUM];
+    uint64_t cachedArgs[CCU_MAX_TASK_ARG_NUM];
 };
 
 // ccu快速下发上下文
 struct CcuFastLaunchCtx {
     char algName[OP_ALG_LENGTH];
     u32 threadNum;
-    u32 ccuKernelNum[MAX_TEMP_NUM_IN_ALGO];  // 每次调用KernelRun下发的kernel数量
+    u32 ccuKernelNum[MAX_TEMP_NUM_IN_ALGO];  // 每次调用template的KernelRun下发的kernel数量
     // 紧接ThreadHandle数组
     // 紧接CcuKernelSubmitInfo数组
 
     ThreadHandle *GetThreadHandlePtr() const
     {
-        size_t offset = offsetof(CcuFastLaunchCtx, ccuKernelNum) + sizeof(u32) * MAX_TEMP_NUM_IN_ALGO;
-        return reinterpret_cast<ThreadHandle*>(reinterpret_cast<char*>(const_cast<CcuFastLaunchCtx*>(this)) + offset);
+        size_t offset = offsetof(CcuFastLaunchCtx, ccuKernelNum)
+                        + sizeof(u32) * MAX_TEMP_NUM_IN_ALGO;
+        return reinterpret_cast<ThreadHandle*>(
+                    reinterpret_cast<char*>(const_cast<CcuFastLaunchCtx*>(this)) + offset
+                );
     }
     CcuKernelSubmitInfo *GetCcuKernelSubmitInfoPtr() const
     {
-        size_t offset = offsetof(CcuFastLaunchCtx, ccuKernelNum) + sizeof(u32) * MAX_TEMP_NUM_IN_ALGO + sizeof(ThreadHandle) * threadNum;
-        return reinterpret_cast<CcuKernelSubmitInfo*>(reinterpret_cast<char*>(const_cast<CcuFastLaunchCtx*>(this)) + offset);
+        size_t offset = offsetof(CcuFastLaunchCtx, ccuKernelNum)
+                        + sizeof(u32) * MAX_TEMP_NUM_IN_ALGO 
+                        + sizeof(ThreadHandle) * threadNum;
+        return reinterpret_cast<CcuKernelSubmitInfo*>(
+                    reinterpret_cast<char*>(const_cast<CcuFastLaunchCtx*>(this)) + offset
+                );
     }
 
     static u64 GetCtxSize(u32 threadNum, u32 totalCcuKernelNum)
     {
-        return sizeof(CcuFastLaunchCtx) + sizeof(ThreadHandle) * threadNum + sizeof(CcuKernelSubmitInfo) * totalCcuKernelNum;
+        return sizeof(CcuFastLaunchCtx) 
+               + sizeof(ThreadHandle) * threadNum 
+               + sizeof(CcuKernelSubmitInfo) * totalCcuKernelNum;
     }
 };
 
