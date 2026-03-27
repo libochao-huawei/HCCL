@@ -184,6 +184,8 @@ HcclResult PrepareReduceScatterVParam(void *sendBuf, const void *sendDispls, con
     param.outputPtr = recvBuf;
     param.outputSize = outputSize;
     param.vDataDes.dataType = dataType;
+    const void *temp = sendCounts;
+    param.vDataDes.counts = const_cast<void*>(temp);
 
     HCCL_INFO("PrepareReduceScatterVParam: sendBuf:[%u]", sendBuf);
     HCCL_INFO("PrepareReduceScatterVParam: recvBuf:[%u]", recvBuf);
@@ -218,43 +220,7 @@ HcclResult ReduceScatterVOutPlace(void *sendBuf, const void *sendDispls, const v
     HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag)
 {
     HCCL_INFO("Start to execute ReduceScatterVOutPlace");
-    u32 userRankSize;
-    CHK_RET(HcclGetRankSize(comm, &userRankSize));
-
-    u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
-    u64 outputSize = recvCount * perDataSize;
-    u64 inputSize = outputSize * userRankSize;
-
-    // 申请OpParam参数结构体内存
-    u64 varMemSize = 2 * userRankSize * sizeof(u64);
-
-    void* paramMem = malloc(sizeof(OpParam) + varMemSize);
-
-    if (!paramMem) {
-        // 内存分配失败
-        HCCL_ERROR("[ReduceScatterVOutPlace] malloc OpParam failed!");
-        return HCCL_E_INTERNAL;
-    }
-    OpParam* tmpParamPtr = new (paramMem) OpParam();
-    auto deleter = [](OpParam* p) {
-        if (p) {
-            p->~OpParam();
-            free(p);
-        }
-     };
-    std::unique_ptr<OpParam, decltype(deleter)> paramPtr(tmpParamPtr, deleter);
-    OpParam& param = *paramPtr;
-    CHK_RET(PrepareReduceScatterVParam(sendBuf, sendDispls, sendCounts, recvBuf, recvCount, dataType, op, comm, stream, tag, OpMode::OPBASE, userRankSize, varMemSize, param));
-    if (userRankSize == 1) {
-        HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
-        CHK_RET(SingleRankProc(param));
-        return HcclResult::HCCL_SUCCESS;
-    }
-
-    std::string algName;
-    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
-    CHK_RET(Selector(comm, param, topoInfo, algName));
-    CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
+    CHK_RET(ReduceScatterVOutPlaceCommon(sendBuf, sendDispls, sendCounts, recvBuf, recvCount, dataType, op, comm, stream, tag, OpMode::OPBASE, ResPackGraphMode()));
     HCCL_INFO("Execute ReduceScatterVOutPlace success.");
     return HCCL_SUCCESS;
 }
@@ -264,6 +230,15 @@ HcclResult ReduceScatterVOutPlaceGraphMode(void *sendBuf, const void *sendDispls
     HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack)
 {
     HCCL_INFO("Start to execute ReduceScatterVOutPlaceGraphMode");
+    CHK_RET(ReduceScatterVOutPlaceCommon(sendBuf, sendDispls, sendCounts, recvBuf, recvCount, dataType, op, comm, stream, tag, OpMode::OFFLOAD, resPack));
+    HCCL_INFO("Execute ReduceScatterVOutPlaceGraphMode success.");
+    return HCCL_SUCCESS;
+}
+
+
+HcclResult ReduceScatterVOutPlaceCommon(void *sendBuf, const void *sendDispls, const void *sendCounts, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
+    HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag, OpMode opMode, const ResPackGraphMode &resPack)
+{
     u32 userRankSize;
     CHK_RET(HcclGetRankSize(comm, &userRankSize));
 
@@ -274,7 +249,7 @@ HcclResult ReduceScatterVOutPlaceGraphMode(void *sendBuf, const void *sendDispls
 
     if (!paramMem) {
         // 内存分配失败
-        HCCL_ERROR("[ReduceScatterVOutPlaceGraphMode] malloc OpParam failed!");
+        HCCL_ERROR("[ReduceScatterVOutPlaceCommon] malloc OpParam failed!");
         return HCCL_E_INTERNAL;
     }
     OpParam* tmpParamPtr = new (paramMem) OpParam();
@@ -286,18 +261,19 @@ HcclResult ReduceScatterVOutPlaceGraphMode(void *sendBuf, const void *sendDispls
      };
     std::unique_ptr<OpParam, decltype(deleter)> paramPtr(tmpParamPtr, deleter);
     OpParam& param = *paramPtr;
-    CHK_RET(PrepareReduceScatterVParam(sendBuf, sendDispls, sendCounts, recvBuf, recvCount, dataType, op, comm, stream, tag, OpMode::OFFLOAD, userRankSize, varMemSize, param));
+
+    CHK_RET(PrepareReduceScatterVParam(sendBuf, sendDispls, sendCounts, recvBuf, recvCount, dataType, op, comm, stream, tag, opMode, userRankSize, varMemSize, param));
+    
+    std::string algName;
+    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
+    CHK_RET(Selector(comm, param, topoInfo, algName));
+    
     if (userRankSize == 1) {
         HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
         CHK_RET(SingleRankProc(param));
         return HcclResult::HCCL_SUCCESS;
     }
-
-    std::string algName;
-    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
-    CHK_RET(Selector(comm, param, topoInfo, algName));
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName, resPack));
-    HCCL_INFO("Execute ReduceScatterVOutPlaceGraphMode success.");
     return HCCL_SUCCESS;
 }
 
