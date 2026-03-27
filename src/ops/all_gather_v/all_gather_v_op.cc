@@ -143,7 +143,7 @@ HcclResult AllGatherVOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount,c
 
     // 准备OpParam
     OpParam param;
-    CHK_RET(InitOpParam(sendBuf, recvBuf, sendCount, recvCounts, recvDispls, dataType, comm, stream, tag, userRankSize, inputSize, outputSize, &param, OpMode::OPBASE));
+    CHK_RET(InitOpParam(sendBuf, recvBuf, sendCount, recvCounts, recvDispls, dataType, comm, stream, tag, userRankSize, inputSize, outputSize, param, OpMode::OPBASE));
 
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
@@ -174,7 +174,7 @@ HcclResult AllGatherVOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t se
     
     OpParam param;
     // 准备OpParam
-    CHK_RET(InitOpParam(sendBuf, recvBuf, sendCount, recvCounts, recvDispls, dataType, comm, stream, tag, userRankSize, inputSize, outputSize, &param, OpMode::OFFLOAD));
+    CHK_RET(InitOpParam(sendBuf, recvBuf, sendCount, recvCounts, recvDispls, dataType, comm, stream, tag, userRankSize, inputSize, outputSize, param, OpMode::OFFLOAD));
 
  	if (userRankSize == 1) {
  	  	HCCL_WARNING("[%s] rankSize == 1, enter SingleRankProc", __func__);
@@ -210,7 +210,7 @@ HcclResult InitOpParam(void *sendBuf, void *recvBuf, uint64_t sendCount, const v
  	CHK_RET(hrtGetDeviceType(deviceType));
  	  	 
  	// topoInfo的tag，所有相同的算子可以共享
- 	int ret = sprintf_s(param.tag, sizeof(param.tag), "%s", tag.c_str());
+ 	int ret = sprintf_s(param->tag, sizeof(param->tag), "%s", tag.c_str());
  	if (ret <= 0) {
  	  	HCCL_ERROR("failed to fill param.tag");
  	  	return HCCL_E_INTERNAL;
@@ -231,10 +231,10 @@ HcclResult InitOpParam(void *sendBuf, void *recvBuf, uint64_t sendCount, const v
     const uint64_t *displsPtr = reinterpret_cast<const uint64_t *>(recvDispls);
     std::copy(countsPtr, countsPtr + userRankSize, merged.begin());
     std::copy(displsPtr, displsPtr + userRankSize, merged.begin() + userRankSize);
-    memcpy_s(param.varData, varMemSize, merged.data(), varMemSize);
-    param.opType = HcclCMDType::HCCL_CMD_ALLGATHER_V;
-    param.enableDetour = false;
-    param.deviceType = deviceType;
+    memcpy_s(param->varData, varMemSize, merged.data(), varMemSize);
+    param->opType = HcclCMDType::HCCL_CMD_ALLGATHER_V;
+    param->enableDetour = false;
+    param->deviceType = deviceType;
     paramPtr->~OpParam();
     free(paramMem);
 }
