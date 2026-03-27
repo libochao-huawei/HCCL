@@ -118,21 +118,13 @@ HcclResult ReduceMesh1DTwoShot::CalcSlice()
     return HCCL_SUCCESS;
 }
 
-HcclResult ReduceMesh1DTwoShot::RunReduceScatter(const TemplateDataParams &tempAlgParam, const OpParam &param,
-    const std::map<u32, std::vector<ChannelInfo>> &channels,
-    const std::vector<ThreadHandle> &threads)
+HcclResult ReduceMesh1DTwoShot::SendRecvDataToPeers(const TemplateDataParams &tempAlgParam,
+    const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads)
 {
     void* localInBuffPtr = tempAlgParam.buffInfo.inputPtr;
     void* localHcclBuffPtr = tempAlgParam.buffInfo.hcclBuff.addr;
     u64 inBuffBaseOffset = tempAlgParam.buffInfo.inBuffBaseOff;
     u64 hcclBuffBaseOffset = tempAlgParam.buffInfo.hcclBuffBaseOff;
-    const ThreadHandle &masterThread = threads.at(0);
-    const std::vector<ThreadHandle> subThreads(threads.begin() + 1, threads.end());
-
-    // 主从队列同步
-    if (threads.size() > 1u) {
-        CHK_RET(PreSyncInterThreads(masterThread, subThreads, notifyIdxMainToSub_));
-    }
 
     const u64 recvSliceSize = sliceInfoList_.at(myIdx_).size;
     const u64 recvSliceCount = sliceInfoList_.at(myIdx_).count;
@@ -143,7 +135,6 @@ HcclResult ReduceMesh1DTwoShot::RunReduceScatter(const TemplateDataParams &tempA
         u64 sendSliceCount = sliceInfoList_.at(remoteIdx).count;
         u64 sendSliceOffset = sliceInfoList_.at(remoteIdx).offset;
 
-        // 发送和接收数据量都为0的时候，既不发送也不接收
         if (sendSliceSize == 0 && recvSliceSize == 0) {
             continue;
         }
@@ -152,10 +143,9 @@ HcclResult ReduceMesh1DTwoShot::RunReduceScatter(const TemplateDataParams &tempA
             DataSlice copySrcSlice(localInBuffPtr, inBuffBaseOffset + sendSliceOffset, sendSliceSize, sendSliceCount);
             DataSlice copyDstSlice(localHcclBuffPtr, hcclBuffBaseOffset + sendSliceOffset, sendSliceSize, sendSliceCount);
             CHK_PRT_RET(LocalCopy(threads.at(remoteIdx), copySrcSlice, copyDstSlice),
-                HCCL_ERROR("[InsTempReduceMesh1DTwoShot][RunReduceScatter] LocalCopy failed."),
+                HCCL_ERROR("[InsTempReduceMesh1DTwoShot][SendRecvDataToPeers] LocalCopy failed."),
                 HcclResult::HCCL_E_INTERNAL);
         } else {
-            // 数据片序号不等于自身rank序号时，跨rank发送和接收数据
             u32 remoteRank = rankList_.at(remoteIdx);
             const ChannelInfo &sendRecvChannel = channels.at(remoteRank).at(0);
             void* remoteInBuffPtr = sendRecvChannel.remoteCclMem.addr;
@@ -165,58 +155,85 @@ HcclResult ReduceMesh1DTwoShot::RunReduceScatter(const TemplateDataParams &tempA
             DataSlice sendDstSlice(remoteHcclBuffPtr, hcclBuffBaseOffset + recvSliceOffset, sendSliceSize, sendSliceCount);
             std::vector<DataSlice> sendSrcSlicesList{sendSrcSlice};
             std::vector<DataSlice> sendDstSlicesList{sendDstSlice};
-            
+
             DataSlice recvSrcSlice(remoteInBuffPtr, inBuffBaseOffset + recvSliceOffset, recvSliceSize, recvSliceCount);
             DataSlice recvDstSlice(localHcclBuffPtr, hcclBuffBaseOffset + sendSliceOffset, recvSliceSize, recvSliceCount);
             std::vector<DataSlice> recvSrcSlicesList{recvSrcSlice};
             std::vector<DataSlice> recvDstSlicesList{recvDstSlice};
 
-            TxRxChannels sendRecvChannels(sendRecvChannel, sendRecvChannel);  // 收发双向用同一个Channel
+            TxRxChannels sendRecvChannels(sendRecvChannel, sendRecvChannel);
             TxRxSlicesList sendRecvSlicesList({sendSrcSlicesList, sendDstSlicesList},
                 {recvSrcSlicesList, recvDstSlicesList});
             SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
             CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads.at(remoteIdx)),
-                HCCL_ERROR("[InsTempReduceMesh1DTwoShot][RunReduceScatter] SendRecv failed."),
+                HCCL_ERROR("[InsTempReduceMesh1DTwoShot][SendRecvDataToPeers] SendRecv failed."),
                 HcclResult::HCCL_E_INTERNAL);
         }
     }
+    return HCCL_SUCCESS;
+}
 
-    // 主从队列同步
+HcclResult ReduceMesh1DTwoShot::DoLocalReduce(const TemplateDataParams &tempAlgParam, const OpParam &param,
+    const std::vector<ThreadHandle> &threads)
+{
+    void* localHcclBuffPtr = tempAlgParam.buffInfo.hcclBuff.addr;
+    u64 hcclBuffBaseOffset = tempAlgParam.buffInfo.hcclBuffBaseOff;
+
+    const u64 recvSliceSize = sliceInfoList_.at(myIdx_).size;
+    const u64 recvSliceCount = sliceInfoList_.at(myIdx_).count;
+    const u64 recvSliceOffset = sliceInfoList_.at(myIdx_).offset;
+
+    if (recvSliceSize == 0) {
+        return HCCL_SUCCESS;
+    }
+
+    u64 destOffset = recvSliceOffset + hcclBuffBaseOffset;
+    DataSlice finalDstSlice(localHcclBuffPtr, destOffset, recvSliceSize, recvSliceCount);
+
+    if (dataType_ == HcclDataType::HCCL_DATA_TYPE_INT64 || dataType_ == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
+        dataType_ == HcclDataType::HCCL_DATA_TYPE_FP64 || param.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
+        CHK_RET(static_cast<HcclResult>(HcommBatchModeEnd(param.algTag)));
+        CHK_RET(static_cast<HcclResult>(HcommBatchModeStart(param.algTag)));
+        for (const auto &thread : threads) {
+            CHK_RET(static_cast<HcclResult>(HcommThreadJoin(thread, CUSTOM_TIMEOUT)));
+        }
+    }
+
+    for (u32 remoteIdx = 0; remoteIdx < templateRankSize_; remoteIdx++) {
+        if (remoteIdx == myIdx_) {
+            continue;
+        }
+        DataSlice curSrcSlice(localHcclBuffPtr, sliceInfoList_.at(remoteIdx).offset + hcclBuffBaseOffset, recvSliceSize, recvSliceCount);
+        CHK_PRT_RET(LocalReduce(threads.at(0), curSrcSlice, finalDstSlice, dataType_, reduceOp_),
+            HCCL_ERROR("[InsTempReduceMesh1DTwoShot][DoLocalReduce] LocalReduce failed."),
+            HcclResult::HCCL_E_INTERNAL);
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult ReduceMesh1DTwoShot::RunReduceScatter(const TemplateDataParams &tempAlgParam, const OpParam &param,
+    const std::map<u32, std::vector<ChannelInfo>> &channels,
+    const std::vector<ThreadHandle> &threads)
+{
+    const ThreadHandle &masterThread = threads.at(0);
+    const std::vector<ThreadHandle> subThreads(threads.begin() + 1, threads.end());
+
+    if (threads.size() > 1u) {
+        CHK_RET(PreSyncInterThreads(masterThread, subThreads, notifyIdxMainToSub_));
+    }
+
+    CHK_RET(SendRecvDataToPeers(tempAlgParam, channels, threads));
+
     if (threads.size() > 1u) {
         CHK_RET(PostSyncInterThreads(masterThread, subThreads, notifyIdxSubToMain_));
     }
 
-    if (recvSliceSize != 0){
-        u64 destOffset = recvSliceOffset + hcclBuffBaseOffset;
-        DataSlice finalDstSlice(localHcclBuffPtr, destOffset, recvSliceSize, recvSliceCount);
-
-        // 64位数据或乘积reduce操作需要在aicpu上执行reduce操作
-        if (dataType_ == HcclDataType::HCCL_DATA_TYPE_INT64 || dataType_ == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
-            dataType_ == HcclDataType::HCCL_DATA_TYPE_FP64 || param.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
-            // 启动任务并等待所有threads任务执行完成
-            CHK_RET(static_cast<HcclResult>(HcommBatchModeEnd(param.algTag)));
-            CHK_RET(static_cast<HcclResult>(HcommBatchModeStart(param.algTag)));
-            for (const auto &thread : threads) {
-                CHK_RET(static_cast<HcclResult>(HcommThreadJoin(thread, CUSTOM_TIMEOUT)));
-            }
-        }
-
-        for (u32 remoteIdx = 0; remoteIdx < templateRankSize_; remoteIdx++) {
-            if (remoteIdx == myIdx_) {
-                continue;
-            }
-            DataSlice curSrcSlice(localHcclBuffPtr, sliceInfoList_.at(remoteIdx).offset + hcclBuffBaseOffset, recvSliceSize, recvSliceCount);
-            CHK_PRT_RET(LocalReduce(threads.at(0), curSrcSlice, finalDstSlice, dataType_, reduceOp_),
-                HCCL_ERROR("[InsTempReduceMesh1DTwoShot][RunReduceScatter] LocalReduce failed."),
-                HcclResult::HCCL_E_INTERNAL);
-        }
-    }
+    CHK_RET(DoLocalReduce(tempAlgParam, param, threads));
 
     return HCCL_SUCCESS;
 }
 
-HcclResult ReduceMesh1DTwoShot::RunGatherToRoot(const TemplateDataParams &tempAlgParam,
-    const std::map<u32, std::vector<ChannelInfo>> &channels,
+HcclResult ReduceMesh1DTwoShot::GatherLocalData(const TemplateDataParams &tempAlgParam,
     const std::vector<ThreadHandle> &threads)
 {
     const u64 curSliceSize = sliceInfoList_.at(myIdx_).size;
@@ -226,55 +243,92 @@ HcclResult ReduceMesh1DTwoShot::RunGatherToRoot(const TemplateDataParams &tempAl
     u64 hcclBuffBaseOffset = tempAlgParam.buffInfo.hcclBuffBaseOff;
     void* localOutBuffPtr = tempAlgParam.buffInfo.outputPtr;
     void* localHcclBuffPtr = tempAlgParam.buffInfo.hcclBuff.addr;
+
+    if (curSliceSize == 0) {
+        return HCCL_SUCCESS;
+    }
+    DataSlice copySrcSlice(localHcclBuffPtr, hcclBuffBaseOffset + curSliceOffset, curSliceSize, curSliceCount);
+    DataSlice copyDstSlice(localOutBuffPtr, outBuffBaseOffset + curSliceOffset, curSliceSize, curSliceCount);
+    CHK_PRT_RET(LocalCopy(threads.at(myIdx_), copySrcSlice, copyDstSlice),
+        HCCL_ERROR("[InsTempReduceMesh1DTwoShot][GatherLocalData] LocalCopy failed."),
+        HcclResult::HCCL_E_INTERNAL);
+    return HCCL_SUCCESS;
+}
+
+HcclResult ReduceMesh1DTwoShot::GatherRemoteData(const TemplateDataParams &tempAlgParam,
+    const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads)
+{
+    u64 outBuffBaseOffset = tempAlgParam.buffInfo.outBuffBaseOff;
+    u64 hcclBuffBaseOffset = tempAlgParam.buffInfo.hcclBuffBaseOff;
+    void* localOutBuffPtr = tempAlgParam.buffInfo.outputPtr;
+
+    for (u32 remoteIdx = 0; remoteIdx < templateRankSize_; remoteIdx++) {
+        if (remoteIdx == myIdx_) {
+            continue;
+        }
+        u64 curSize = sliceInfoList_.at(remoteIdx).size;
+        u64 curCount = sliceInfoList_.at(remoteIdx).count;
+        if (curSize == 0) {
+            continue;
+        }
+        u64 remoteSrcOffset = sliceInfoList_.at(remoteIdx).offset;
+        const ChannelInfo &channel = channels.at(subCommRanks_.at(0).at(remoteIdx)).at(0);
+        void* remoteHcclBuffPtr = channel.remoteCclMem.addr;
+
+        DataSlice recvSrcSlice(remoteHcclBuffPtr, hcclBuffBaseOffset + remoteSrcOffset, curSize, curCount);
+        DataSlice recvDstSlice(localOutBuffPtr, outBuffBaseOffset + remoteSrcOffset, curSize, curCount);
+        const SlicesList recvSlicesList({recvSrcSlice}, {recvDstSlice});
+        const DataInfo recvInfo(channel, recvSlicesList);
+        CHK_PRT_RET(RecvRead(recvInfo, threads.at(remoteIdx)),
+            HCCL_ERROR("[InsTempReduceMesh1DTwoShot][GatherRemoteData] RecvRead failed."),
+            HcclResult::HCCL_E_INTERNAL);
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult ReduceMesh1DTwoShot::SendToRoot(const TemplateDataParams &tempAlgParam,
+    const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads)
+{
+    const u64 curSliceSize = sliceInfoList_.at(myIdx_).size;
+    const u64 curSliceCount = sliceInfoList_.at(myIdx_).count;
+    const u64 curSliceOffset = sliceInfoList_.at(myIdx_).offset;
+    u64 outBuffBaseOffset = tempAlgParam.buffInfo.outBuffBaseOff;
+    u64 hcclBuffBaseOffset = tempAlgParam.buffInfo.hcclBuffBaseOff;
+    void* localOutBuffPtr = tempAlgParam.buffInfo.outputPtr;
+    void* localHcclBuffPtr = tempAlgParam.buffInfo.hcclBuff.addr;
+
+    if (curSliceSize == 0) {
+        return HCCL_SUCCESS;
+    }
+    DataSlice sendSrcSlice(localHcclBuffPtr, hcclBuffBaseOffset + curSliceOffset, curSliceSize, curSliceCount);
+    DataSlice sendDstSlice(localOutBuffPtr, outBuffBaseOffset + curSliceOffset, curSliceSize, curSliceCount);
+    const SlicesList sendSlicesList({sendSrcSlice}, {sendDstSlice});
+    const ChannelInfo &channel = channels.at(subCommRanks_.at(0).at(root_)).at(0);
+    const DataInfo sendInfo(channel, sendSlicesList);
+    CHK_PRT_RET(SendRead(sendInfo, threads.at(root_)),
+        HCCL_ERROR("[InsTempReduceMesh1DTwoShot][SendToRoot] SendRead failed."),
+        HcclResult::HCCL_E_INTERNAL);
+    return HCCL_SUCCESS;
+}
+
+HcclResult ReduceMesh1DTwoShot::RunGatherToRoot(const TemplateDataParams &tempAlgParam,
+    const std::map<u32, std::vector<ChannelInfo>> &channels,
+    const std::vector<ThreadHandle> &threads)
+{
     const ThreadHandle &masterThread = threads.at(0);
     const std::vector<ThreadHandle> subThreads(threads.begin() + 1, threads.end());
 
-    // 主从队列同步
     if (threads.size() > 1u) {
         CHK_RET(PreSyncInterThreads(masterThread, subThreads, notifyIdxMainToSub_));
     }
 
     if (static_cast<u32>(myIdx_) == root_) {
-        for (u32 remoteIdx = 0; remoteIdx < templateRankSize_; remoteIdx++) {
-            u64 curSize = sliceInfoList_.at(remoteIdx).size;
-            u64 curCount = sliceInfoList_.at(remoteIdx).count;
-            if (curSize == 0) {
-                continue;
-            }
-            if (remoteIdx == myIdx_) {
-                DataSlice copySrcSlice(localHcclBuffPtr, hcclBuffBaseOffset + curSliceOffset, curSize, curCount);
-                DataSlice copyDstSlice(localOutBuffPtr, outBuffBaseOffset + curSliceOffset, curSize, curCount);
-                CHK_PRT_RET(LocalCopy(threads.at(remoteIdx), copySrcSlice, copyDstSlice),
-                    HCCL_ERROR("[InsTempReduceMesh1DTwoShot][RunGatherToRoot] LocalCopy failed."),
-                    HcclResult::HCCL_E_INTERNAL);
-            } else {
-                u64 remoteSrcOffset = sliceInfoList_.at(remoteIdx).offset;
-                const ChannelInfo &channel = channels.at(subCommRanks_.at(0).at(remoteIdx)).at(0);
-                void* remoteHcclBuffPtr = channel.remoteCclMem.addr;
-                
-                DataSlice recvSrcSlice(remoteHcclBuffPtr, hcclBuffBaseOffset + remoteSrcOffset, curSize, curCount);
-                DataSlice recvDstSlice(localOutBuffPtr, outBuffBaseOffset + remoteSrcOffset, curSize, curCount);
-                const SlicesList recvSlicesList({recvSrcSlice}, {recvDstSlice});
-                const DataInfo recvInfo(channel, recvSlicesList);
-                CHK_PRT_RET(RecvRead(recvInfo, threads.at(remoteIdx)),
-                    HCCL_ERROR("[InsTempReduceMesh1DTwoShot][RunGatherToRoot] RecvRead failed."),
-                    HcclResult::HCCL_E_INTERNAL);
-            }
-        }
-    } else { // 非根节点发送数据到根节点
-        if (curSliceSize != 0) {
-            DataSlice sendSrcSlice(localHcclBuffPtr, hcclBuffBaseOffset + curSliceOffset, curSliceSize, curSliceCount);
-            DataSlice sendDstSlice(localOutBuffPtr, outBuffBaseOffset + curSliceOffset, curSliceSize, curSliceCount);
-            const SlicesList sendSlicesList({sendSrcSlice}, {sendDstSlice});
-            const ChannelInfo &channel = channels.at(subCommRanks_.at(0).at(root_)).at(0);
-            const DataInfo sendInfo(channel, sendSlicesList);
-            CHK_PRT_RET(SendRead(sendInfo, threads.at(root_)),
-                HCCL_ERROR("[InsTempReduceMesh1DTwoShot][RunGatherToRoot] SendRead failed."),
-                HcclResult::HCCL_E_INTERNAL);
-        } 
-    }    
+        CHK_RET(GatherLocalData(tempAlgParam, threads));
+        CHK_RET(GatherRemoteData(tempAlgParam, channels, threads));
+    } else {
+        CHK_RET(SendToRoot(tempAlgParam, channels, threads));
+    }
 
-    // 主从队列同步
     if (threads.size() > 1u) {
         CHK_RET(PostSyncInterThreads(masterThread, subThreads, notifyIdxSubToMain_));
     }
