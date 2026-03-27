@@ -28,7 +28,7 @@
 #include "adapter_acl.h"
 #include "topo_host.h"
 #include "adapter_error_manager_pub.h"
-#include "hccl_inner_dl.h"
+#include "hccl_inner.h"
 #include "hccl.h"
 #include "config_log.h"
 #include "workflow.h"
@@ -224,6 +224,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
         AlgResourceCtxSerializable &resCtxHost = *static_cast<AlgResourceCtxSerializable *>(resCtxSequence);
         CHK_RET(HcclAivKernelEntranceLaunch(param, topoInfo, resCtxHost));
         CHK_RET(executor->Orchestrate(param, resCtxHost));
+#ifdef FEATURE_SUPPORT_CCU
     } else if (param.engine == COMM_ENGINE_CCU) {
         if (isResourceReused) {
             // 复用资源，则需从engineCtx取得res，进行反序列化
@@ -235,6 +236,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
             CHK_RET(CaptureSlaveStreams(comm, param.stream, resCtxHost->threads));
         }
         CHK_RET(executor->Orchestrate(param, *resCtxHost));
+#endif
     } else {
         if (isResourceReused) {
             // 复用资源，则需从engineCtx取得res，进行反序列化
@@ -487,8 +489,10 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::shared_ptr<InsCollA
                                size, increCreateChannelFlag));
     } else if (param.engine == COMM_ENGINE_AIV) {
         CHK_RET(GetAlgResAiv(comm, param, resRequest, topoInfo, algHierarchyInfo, resCtxSequence));
+#ifdef FEATURE_SUPPORT_CCU
     } else if (param.engine == COMM_ENGINE_CCU) {
         CHK_RET(GetAlgResCcu(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence, size));
+#endif
     } else {
         HCCL_ERROR("fail to get engine.", HCCL_E_PARA);
     }
@@ -838,6 +842,7 @@ HcclResult GetGraphModeBuffers(HcclComm comm, ChannelHandle channelHandle, const
     return HCCL_SUCCESS;
 }
 
+#ifdef FEATURE_SUPPORT_CCU
 HcclResult GetAlgResCcu(HcclComm comm, const OpParam& param, AlgResourceRequest& resRequest,
                         std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, TopoInfoWithNetLayerDetails* topoInfo,
                         AlgHierarchyInfoForAllLevel& algHierarchyInfo, void **resCtxSequence, uint64_t& ctxSize)
@@ -941,6 +946,7 @@ HcclResult HcclGetCcuKernel(HcclComm comm, AlgResourceRequest &resRequest,
     resCtxHost->ccuKernelNum = resRequest.ccuKernelNum;
     return HCCL_SUCCESS;
 }
+#endif
 
 HcclResult GetAlgResAiv(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest, TopoInfoWithNetLayerDetails *topoInfo,
     AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence)

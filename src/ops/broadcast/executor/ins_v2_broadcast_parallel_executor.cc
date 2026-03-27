@@ -12,9 +12,11 @@
 #include "ins_temp_broadcast_mesh_1D_two_shot.h"
 #include "ins_temp_broadcast_nhr.h"
 #include "topo_match_multilevel.h"
+#ifdef FEATURE_SUPPORT_CCU
 #ifndef AICPU_COMPILE
 #include "ccu_temp_broadcast_mesh_1D_mem2mem.h"
 #include "ccu_temp_broadcast_nhr_1D_mem2mem.h"
+#endif
 #endif
 
 namespace ops_hccl {
@@ -384,8 +386,10 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_BROADCAST, InsBroadcastParallelMesh1DNHR, InsBroadcastParallelExecutor,
     TopoMatchMultilevel, InsTempBroadcastMesh1DTwoShot, InsTempBroadcastNHR);
 
+#ifdef FEATURE_SUPPORT_CCU
 #ifndef AICPU_COMPILE
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_BROADCAST, CcuBroadcastParallelMesh1DNHR, InsBroadcastParallelExecutor,
     TopoMatchMultilevel, CcuTempBroadcastMesh1DMem2Mem, CcuTempBroadcastNHR1DMem2Mem);
+#endif
 #endif
 }  // namespace Hccl

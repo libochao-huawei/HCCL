@@ -14,6 +14,7 @@
 #include "ins_temp_reduce_scatter_nhr.h"
 #include "ins_temp_reduce_scatter_mesh_1D_meshchunk.h"
 #include "ins_temp_reduce_scatter_aicpu_reduce_nhr.h"
+#ifdef FEATURE_SUPPORT_CCU
 #ifndef AICPU_COMPILE
 #include "ccu_temp_reduce_scatter_mesh_1D_mem2mem.h"
 #include "ccu_temp_reduce_scatter_mesh_1D.h"
@@ -21,6 +22,7 @@
 #include "ccu_temp_reduce_scatter_mesh_1D_2die_mem2mem.h"
 #include "ccu_temp_reduce_scatter_mesh2die.h"
 #include "ccu_temp_reduce_scatter_nhr_1D_multi_jetty_mem2mem.h"
+#endif
 #endif
 
 namespace ops_hccl {
@@ -176,7 +178,7 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, InsReduceScatterAicpuRedu
 #ifndef AICPU_COMPILE
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, AivReduceScatterMesh1D, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
     AivTempReduceScatterMesh1D);
-
+#ifdef FEATURE_SUPPORT_CCU
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterMesh1DMem2Mem, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
     CcuTempReduceScatterMesh1DMem2Mem);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterMesh1D, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
@@ -189,6 +191,7 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterMesh2Die,
     CcuTempReduceScatterMesh2Die);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterNhr1DMem2MemMultiJetty, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
  	     CcuTempReduceScatterNhrMultiJettyMem2Mem1D);
+#endif
 #endif
 
 }

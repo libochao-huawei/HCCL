@@ -13,10 +13,12 @@
 #include "ins_all_reduce_parallel_executor.h"
 #include "ins_temp_all_reduce_mesh_1D_two_shot.h"
 #include "ins_temp_all_reduce_nhr.h"
+#ifdef FEATURE_SUPPORT_CCU
 #ifndef AICPU_COMPILE
 #include "ccu_temp_all_reduce_mesh_1D_mem2mem.h"
 #include "ccu_temp_all_reduce_nhr_1D_mem2mem.h"
 #include "ccu_temp_all_reduce_nhr_mem2mem_1D_multi_jetty.h"
+#endif
 #endif
 
 namespace ops_hccl {
@@ -381,10 +383,12 @@ void InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, InsAllReduceParallelMesh1DNHR,
     InsAllReduceParallelExecutor, TopoMatchMultilevel, InsTempAllReduceMesh1DTwoShot, InsTempAllReduceNHR);
 
+#ifdef FEATURE_SUPPORT_CCU
 #ifndef AICPU_COMPILE
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceParallelMesh1DNHR, 
     InsAllReduceParallelExecutor, TopoMatchMultilevel, CcuTempAllReduceMeshMem2Mem1D, CcuTempAllReduceNHRMem2Mem1D);
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceParallelNHR1DMutiJetty, 
     InsAllReduceParallelExecutor, TopoMatchUBX, CcuTempAllReduceMeshMem2Mem1D, CcuTempAllReduceNhrMem2Mem1DMultiJetty);
+#endif
 #endif
 }

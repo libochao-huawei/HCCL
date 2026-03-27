@@ -12,7 +12,9 @@ add_subdirectory(aiv)
 add_subdirectory(registry)
 add_subdirectory(wrapper)
 add_subdirectory(dpu)
+if(FEATURE_SUPPORT_CCU)
 add_subdirectory(ccu)
+endif()
 
 set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/alg_template_base.cc
@@ -20,9 +22,14 @@ set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/aiv_alg_template_base.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/template_utils.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/aiv_alg_template_base.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/ccu_alg_template_base.cc
 )
 
 target_sources(hccl PRIVATE
     ${src_list}
 )
+
+if(FEATURE_SUPPORT_CCU)
+target_sources(hccl PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/ccu_alg_template_base.cc
+)
+endif()
