@@ -172,7 +172,7 @@ HcclResult AllGatherVOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t se
         outputSize = (outputSize > (u64RecvDispls[i] + u64RecvCount[i]) * perDataSize) ? outputSize : (u64RecvDispls[i] + u64RecvCount[i]) * perDataSize;
     }// 结果为最大的displs加recvcount 	 
     
-    OpParam param;
+    OpParam *param;
     // 准备OpParam
     CHK_RET(InitOpParam(sendBuf, recvBuf, sendCount, recvCounts, recvDispls, dataType, comm, stream, tag, userRankSize, inputSize, outputSize, param, OpMode::OFFLOAD));
 
