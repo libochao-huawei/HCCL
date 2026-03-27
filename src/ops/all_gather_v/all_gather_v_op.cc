@@ -190,7 +190,7 @@ HcclResult AllGatherVOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t se
 }
 
 HcclResult InitOpParam(void *sendBuf, void *recvBuf, uint64_t sendCount, const void *recvCounts,const void *recvDispls, HcclDataType dataType, HcclComm comm, 
-    aclrtStream stream, const std::string &tag, u32 userRankSize, u64 inputSize, u64 outputSize, OpParam param, OpMode opMode) 
+    aclrtStream stream, const std::string &tag, u32 userRankSize, u64 inputSize, u64 outputSize, OpParam& param, OpMode opMode) 
 {
     // 申请OpParam参数结构体内存
  	u64 varMemSize = (userRankSize + userRankSize) * sizeof(u64);
@@ -201,7 +201,7 @@ HcclResult InitOpParam(void *sendBuf, void *recvBuf, uint64_t sendCount, const v
  	    return HCCL_E_INTERNAL;
  	} 
  	OpParam* paramPtr = new (paramMem) OpParam();
- 	*param = paramPtr; 
+ 	param = paramPtr; 
     CHK_RET(HcclGetCommName(comm, param.commName));
  	param.stream = stream;
  	param.opMode = opMode;
