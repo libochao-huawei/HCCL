@@ -7,10 +7,8 @@
 - [三、Ubuntu 环境配置](#三ubuntu-环境配置)
 - [四、CANN Toolkit 安装](#四cann-toolkit-安装)
 - [五、HCCL 源码编译](#五hccl-源码编译)
-- [六、HCCL 安装](#六hccl-安装)
-- [七、单元测试（UT）](#七单元测试ut)
-- [八、上板测试](#八上板测试)
-- [九、常见问题](#九常见问题)
+- [六、执行测试用例](#六执行测试用例)
+- [七、学习资源](#七学习资源)
 
 ***
 
@@ -46,13 +44,13 @@
 ```powershell
 dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
 ```
-![alt text](image-2.png)
+![启用WSL功能](image-1.png)
 #### 2. 启用虚拟机平台
 
 ```powershell
 dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
 ```
-![alt text](image-3.png)
+![启用虚拟机平台](image-2.png)
 
 #### 3. 重启电脑
 - 执行完上述命令后，重启电脑，以确保所有更改生效。
@@ -71,7 +69,7 @@ wsl --shutdown
 ```powershell
 wsl --help
 ```
-![alt text](image-5.png)
+![WSL帮助文档](image-3.png)
 
 ### Ubuntu 20.04 安装
 #### 1. 以管理员身份打开PowerShell
@@ -83,15 +81,15 @@ wsl --help
 ```powershell
 wsl --list --online
 ```
-![alt text](image-1.png)
+![查看可用的在线OS列表](image-4.png)
 
 #### 3. 安装Ubuntu 20.04 并设置用户和密码
 
 ```powershell
 wsl --install Ubuntu-20.04
 ```
-![alt text](image.png)
-- 用户名：建议使用小写字母，如 `yourname `
+![安装Ubuntu 20.04](image-5.png)
+- 用户名：建议使用小写字母，如 `yourname`
 - 密码：输入时不会显示，输入后按回车确认
 
 #### 4. 启动Ubuntu 20.04
@@ -107,7 +105,7 @@ exit
 ```powershell
 wsl --set-default Ubuntu-20.04
 ```
-![alt text](image-4.png)
+![设置Ubuntu 20.04为默认版本](image-6.png)
 
 #### 7. Ubuntu 访问路径
 ```powershell
@@ -172,8 +170,8 @@ chmod +x Ascend-cann-toolkit_<version>_linux-<arch>.run
 # 安装（--install-path为可选参数，用于指定安装路径）
 bash Ascend-cann-toolkit_<version>_linux-<arch>.run --full --install-path=/usr/local/Ascend
 ```
-![alt text](image-7.png)
-![alt text](image-9.png)
+![安装CANN Toolkit 1](image-7.png)
+![安装CANN Toolkit 2](image-8.png)
 **参数说明：**
 
 - `<version>`: CANN包版本号
@@ -186,7 +184,7 @@ bash Ascend-cann-toolkit_<version>_linux-<arch>.run --full --install-path=/usr/l
 # 默认路径，root用户安装
 source /usr/local/Ascend/cann/set_env.sh
 ```
-![alt text](image-8.png)
+![设置CANN环境变量](image-9.png)
 
 ### 4. 验证CANN安装
 
@@ -196,7 +194,7 @@ source /usr/local/Ascend/cann/set_env.sh
  # 查看CANN ops算子包的version字段提供的版本信息（默认路径安装）。
  cat /usr/local/Ascend/cann/<arch>-linux/ascend_ops_install.info
 ```
-![alt text](image-10.png)
+![验证CANN安装](image-10.png)
 
 ## 五、HCCL 源码编译
 
@@ -234,7 +232,7 @@ bash build.sh --cann_3rd_lib_path={your_3rd_party_path}
 ```
 - 编译完成后会在./build_out目录下生成 cann-hccl_<version>_linux-<arch>.run 软件包。
 - 其中<version>表示软件版本号，<arch>表示操作系统架构，取值包括“x86_64”与“aarch64”。
-![alt text](image-12.png)
+![HCCL编译结果](image-11.png)
 
 ### 3. 安装 HCCL 软件包
 ```bash
@@ -243,7 +241,7 @@ bash ./build_out/cann-hccl_<version>_linux-<arch>.run --full
 ```
 - 请注意：编译时需要将上述命令中的软件包名称替换为实际软件包名称。
 - 安装完成后，用户编译生成的HCCL软件包会替换已安装CANN Toolkit开发套件包中的HCCL相关软件。
-![alt text](image-13.png)
+![安装HCCL](image-11.png)
 
 ### 4. 卸载 HCCL 软件包
 ```bash
@@ -260,7 +258,7 @@ bash ./build_out/cann-hccl_<version>_linux-<arch>.run --uninstall
 # 代码仓根目录执行测试命令
 bash build.sh --ut
 ```
-![alt text](image-14.png)
+![UT测试结果](image-13.png)
 
 ### 2. ST 测试
 
