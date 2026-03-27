@@ -28,7 +28,7 @@ extern "C" {
     type func_name(__VA_ARGS__) __attribute__((weak)); \
     type func_name(__VA_ARGS__) \
     { \
-        HCCL_ERROR("[HcclWrapper] %s not supported", __FUNCTION__); \
+        HCCL_ERROR("[HcclWrapper] %s not supported", __func__); \
         return (type)(-1); \
     }
 
@@ -37,10 +37,10 @@ extern "C" {
 
 #define INIT_SUPPORT_FLAG(handle, func_name) \
     do { \
-        void *ptr = (void *)dlsym(handle, "func_name"); \
+        void *ptr = (void *)dlsym(handle, #func_name); \
         if (ptr == nullptr) { \
             g_##func_name##Supported = false; \
-            HCCL_DEBUG("[HcclWrapper] %s not supported", "func_name"); \
+            HCCL_DEBUG("[HcclWrapper] %s not supported", #func_name); \
         } else { \
             g_##func_name##Supported = true; \
         } \
