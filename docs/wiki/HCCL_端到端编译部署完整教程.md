@@ -273,5 +273,5 @@ bash build.sh --st
 - WSL官方文档：<https://docs.microsoft.com/zh-cn/windows/wsl/>
 - Ubuntu官方文档：<https://ubuntu.com/server/docs>
 - CANN官方文档：<https://www.hiascend.com/document>
-- HCCL API文档：<https://www.hiascend.com/document>
+- HCCL API文档：<https://gitcode.com/cann/hccl/blob/64655ffe967b0270de91992a0c819ecd58a4e4c2/docs/README.md>
 - Linux命令参考：<https://linux.die.net/>
