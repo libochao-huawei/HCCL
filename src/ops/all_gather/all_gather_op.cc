@@ -151,7 +151,6 @@ HcclResult AllGatherOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t sendCo
                                    aclrtStream stream, const std::string &tag, OpMode opMode, const ResPackGraphMode &resPack)
 {
     HCCL_INFO("Start to execute AllGatherOutPlaceCommon");
-
     u32 userRankSize;
     CHK_RET(HcclGetRankSize(comm, &userRankSize));
 
