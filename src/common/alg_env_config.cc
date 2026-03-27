@@ -12,6 +12,7 @@
 #include <sstream>
 #include <string>
 #include <algorithm>
+#include <regex>
 
 #include "log.h"
 #include "adapter_error_manager_pub.h"
@@ -36,6 +37,49 @@ std::string GetEnv(mmEnvId IdName)
     } else {
         return "EmptyString";
     }
+}
+
+HcclResult ParseExecTimeout()
+{
+    std::string execTimeOutEnv = GetEnv(MM_ENV_HCCL_EXEC_TIMEOUT);
+    if (execTimeOutEnv == "EmptyString") {
+        g_algEnvConfig.execTimeOutSet = false;
+        g_algEnvConfig.execTimeout = 0;
+        return HCCL_SUCCESS;
+    }
+
+    std::regex validFormat(R"(^\d+(\.\d{1,2})?$)");
+    if (!std::regex_match(execTimeOutEnv, validFormat)) {
+        HCCL_WARNING("[ParseExecTimeout] HCCL_EXEC_TIMEOUT[%s] format is invalid, use default.",
+            execTimeOutEnv.c_str());
+        g_algEnvConfig.execTimeOutSet = false;
+        g_algEnvConfig.execTimeout = 0;
+        return HCCL_E_PARA;
+    }
+
+    double execTimeOut = 0;
+    if (SalStrToDouble(execTimeOutEnv, execTimeOut) != HCCL_SUCCESS) {
+        HCCL_WARNING("[ParseExecTimeout] HCCL_EXEC_TIMEOUT[%s] parse failed, use default.",
+            execTimeOutEnv.c_str());
+        g_algEnvConfig.execTimeOutSet = false;
+        g_algEnvConfig.execTimeout = 0;
+        return HCCL_E_PARA;
+    }
+
+    g_algEnvConfig.execTimeOutSet = true;
+    g_algEnvConfig.execTimeout = execTimeOut;
+    return HCCL_SUCCESS;
+}
+
+bool GetExternalInputExecTimeout(double &execTimeOut)
+{
+    std::lock_guard<std::mutex> lock(g_algEnvConfigMutex);
+    if (!g_algEnvConfig.execTimeOutSet) {
+        return false;
+    }
+
+    execTimeOut = g_algEnvConfig.execTimeout;
+    return true;
 }
 
 /* 入口 */
@@ -118,6 +162,15 @@ HcclResult InitEnvConfig()
             HCCL_ERROR_CODE(ret),
             ret),
         ret);
+
+    // 解析执行超时
+    ret = ParseExecTimeout();
+    RPT_ENV_ERR(ret != HCCL_SUCCESS, "EI0001", std::vector<std::string>({"value", "env", "expect"}),
+        std::vector<std::string>({GetEnv(MM_ENV_HCCL_EXEC_TIMEOUT), "HCCL_EXEC_TIMEOUT",
+        "a non-negative number with up to 2 decimals"}));
+    CHK_PRT_RET(ret != HCCL_SUCCESS,
+        HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse HCCL_EXEC_TIMEOUT failed. "
+            "errorno[%d]", HCCL_ERROR_CODE(ret), ret), ret);
 
     // 解析算法配置
     ret = ParseHcclAlgo();
