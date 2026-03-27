@@ -346,17 +346,12 @@ HcclResult HcclAivKernelEntranceLaunch(OpParam &param, std::unique_ptr<TopoInfoW
 {
     HCCL_INFO("[%s] algTag[%s] commModeTag[%s] resCtx(Host)[%p] aivCommInfoPtr(Device)[%p]", __func__,
         param.algTag, param.commModeTag, param.resCtx, resCtxHost.aivCommInfoPtr);
-    CHK_RET(GetAivCountTag(param.commModeTag, topoInfo->userRank, param.aivCountTag)); // commTag需要拼接单算子或者图模式
     u32 numBlocksLimit = MAX_NUM_BLOCKS;
     ACLCHECK(aclrtGetResInCurrentThread(ACL_RT_DEV_RES_VECTOR_CORE, &numBlocksLimit));
     CHK_PRT_RET(numBlocksLimit < 1,
         HCCL_ERROR("[%s] block num less than 1, block num[%d]", __func__, numBlocksLimit), HCCL_E_PARA);
     param.numBlocksLimit = numBlocksLimit;
     HCCL_INFO("[%s] Aiv core limit is [%d].", __func__, numBlocksLimit);
-    bool isAivClearEnable = false; // 图模式首算子，暂不支持
-    if (isAivClearEnable || param.aivCountTag == 1) {
-        CHK_RET(ClearAivSyncBuf(param, resCtxHost));
-    }
     return HCCL_SUCCESS;
 }
 
@@ -810,13 +805,13 @@ HcclResult RegGraphModeBuffers(HcclComm comm, const OpParam &param, std::vector<
     }
 
     HCCL_INFO("[RegGraphModeBuffers] graph mode regstry remote buffer");
-    if (param.inputPtr != nullptr) {
+    if (param.inputPtr != nullptr && param.inputSize != 0) {
         HcclMemHandle inputHandle = nullptr;
         CHK_RET(HcclRegstryBuff(comm, inputBuffTag, param.inputPtr, param.inputSize, &inputHandle));
         CHK_PTR_NULL(inputHandle);
         memHandles.emplace_back(inputHandle);
     }
-    if (param.outputPtr != nullptr) {
+    if (param.outputPtr != nullptr && param.outputSize != 0) {
         HcclMemHandle outputHandle = nullptr;
         CHK_RET(HcclRegstryBuff(comm, outputBuffTag, param.outputPtr, param.outputSize, &outputHandle));
         CHK_PTR_NULL(outputHandle);

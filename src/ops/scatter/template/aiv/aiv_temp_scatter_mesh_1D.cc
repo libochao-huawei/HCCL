@@ -47,7 +47,7 @@ HcclResult AivTempScatterMesh1D::KernelRun(const OpParam& param,
 {
     HCCL_INFO("[AivTempScatterMesh1D] KernelRun start");
 
-    IncSliceId();  // 自动增长sliceId，传入aivCountTag
+    IncSliceId();  // 自动增长sliceId，传入sliceId
     dataType_ = param.DataDes.dataType;
     AivOpArgs aivScatterArgs;
     aivScatterArgs.cmdType = HcclCMDType::HCCL_CMD_SCATTER;
@@ -59,7 +59,7 @@ HcclResult AivTempScatterMesh1D::KernelRun(const OpParam& param,
     aivScatterArgs.dataType = dataType_;
     aivScatterArgs.op = param.reduceType;
     aivScatterArgs.root = root_;
-    aivScatterArgs.aivCountTag = (static_cast<uint32_t>(param.aivCountTag) << AIV_TAG_MOVE_LEFT_BITS) | static_cast<uint32_t>(sliceId_);  // 传入aivCountTag，Lauch时重新组装为aivCountTag  // todo
+    aivScatterArgs.sliceId = static_cast<uint32_t>(sliceId_);
     aivScatterArgs.buffersIn = templateResource.aivCommInfoPtr;
     aivScatterArgs.stream = param.stream;
     aivScatterArgs.isOpBase = (param.opMode == OpMode::OPBASE);
