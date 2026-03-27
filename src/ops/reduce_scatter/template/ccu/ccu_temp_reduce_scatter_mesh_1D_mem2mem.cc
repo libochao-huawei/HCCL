@@ -84,6 +84,7 @@ HcclResult CcuTempReduceScatterMesh1DMem2Mem::KernelRun(const OpParam& param,
 {   
     if (templateDataParams.sliceSize == 0 && templateDataParams.tailSize == 0) {
         HCCL_INFO("[CcuTempReduceScatterMesh1DMem2Mem] sliceSize is 0, no need to do, just success.");
+        return HCCL_SUCCESS;
     }
     buffInfo_ = templateDataParams.buffInfo;
 
