@@ -27,6 +27,9 @@ extern "C" {
 HcclResult HcclAllReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType,
                              HcclReduceOp op, HcclComm comm, aclrtStream stream);
 
+HcclResult AllReduceEntryLog(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
+    aclrtStream stream, const std::string &tag, const std::string &opName);
+
 #ifdef __cplusplus
 }
 #endif

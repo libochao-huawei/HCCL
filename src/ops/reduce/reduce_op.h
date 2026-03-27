@@ -27,8 +27,11 @@ extern "C" {
 HcclResult HcclReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
     uint32_t root, HcclComm comm, aclrtStream stream);
 
+HcclResult ReduceEntryLog(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
+    uint32_t root, aclrtStream stream, const std::string &tag, const std::string &opName);
+
 #ifdef __cplusplus
-}
+}  // extern "C"
 #endif
 
 namespace ops_hccl {
