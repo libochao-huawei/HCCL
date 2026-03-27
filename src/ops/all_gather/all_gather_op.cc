@@ -47,22 +47,8 @@ HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclD
     HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
     std::string opTag;
     CHK_RET(AllGatherInitAndCheck(comm, sendBuf, recvBuf, sendCount, dataType, stream, opTag));
-    
-    /* 接口交互信息日志 */
-    if (GetExternalInputHcclEnableEntryLog()) {
-        s32 deviceLogicId = 0;
-        ACLCHECK(aclrtGetDevice(&deviceLogicId));
-        s32 streamId = 0;
-        ACLCHECK(aclrtStreamGetId(stream, &streamId));
-        char stackLogBuffer[LOG_TMPBUF_SIZE];
-        s32 ret = snprintf_s(stackLogBuffer, LOG_TMPBUF_SIZE, LOG_TMPBUF_SIZE - 1U,
-            "tag[%s], sendBuf[%p], recvBuf[%p], sendCount[%llu], dataType[%s], streamId[%d], deviceLogicId[%d]",
-            opTag.c_str(), sendBuf, recvBuf, sendCount, GetDataTypeEnumStr(dataType).c_str(), streamId, deviceLogicId);
 
-        CHK_PRT_CONT(ret == -1, HCCL_WARNING("Failed to build log info, tag[%s].", opTag.c_str()));
-        std::string logInfo = "Entry-HcclAllGather:" + std::string(stackLogBuffer);
-        HCCL_RUN_INFO("%s", logInfo.c_str());
-    }
+    CHK_RET(AllGatherEntryLog(sendBuf, recvBuf, sendCount, dataType, opTag, "Entry-HcclAllGather:"));
 
     // 执行AllGather
     CHK_RET_AND_PRINT_IDE(AllGatherOutPlace(sendBuf, recvBuf, sendCount, dataType, comm, stream, opTag), opTag.c_str());
@@ -106,32 +92,13 @@ HcclResult HcclAllGatherGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCou
     resPack.scratchMemSize = scratchMemSize;
     std::string tagStr = tag;
 
-    /* 接口交互信息日志 */
-    if (GetExternalInputHcclEnableEntryLog()) {
-        s32 deviceLogicId = 0;
-        ACLCHECK(aclrtGetDevice(&deviceLogicId));
-        s32 streamId = 0;
-        ACLCHECK(aclrtStreamGetId(stream, &streamId));
-        char stackLogBuffer[LOG_TMPBUF_SIZE];
-        s32 ret = snprintf_s(stackLogBuffer, LOG_TMPBUF_SIZE, LOG_TMPBUF_SIZE - 1U,
-            "tag[%s], sendBuf[%p], recvBuf[%p], sendCount[%llu], dataType[%s], streamId[%d], deviceLogicId[%d]",
-            opTag.c_str(), sendBuf, recvBuf, sendCount, GetDataTypeEnumStr(dataType).c_str(), streamId, deviceLogicId);
-
-        CHK_PRT_CONT(ret == -1, HCCL_WARNING("Failed to build log info, tag[%s].", opTag.c_str()));
-        std::string logInfo = "Entry-HcclAllGatherGraphMode:" + std::string(stackLogBuffer);
-        HCCL_RUN_INFO("%s", logInfo.c_str());
-    }
+    CHK_RET(AllGatherEntryLog(sendBuf, recvBuf, sendCount, dataType, opTag, "Entry-HcclAllGatherGraphMode:"));
 
     // 执行AllGather
     CHK_RET_AND_PRINT_IDE(AllGatherOutPlaceGraphMode(sendBuf, recvBuf, sendCount, dataType, comm, stream, tagStr, resPack), tagStr.c_str());
 
-    if (GetExternalInputHcclEnableEntryLog()) {
-        HcclUs endut = TIME_NOW();
-        /* 关键状态记录 */
-        std::string endInfo = "HcclAllGatherGraphMode:success,take time: " +
-            std::to_string(DURATION_US(endut - startut).count()) + " us, tag: " + opTag;
-        HCCL_RUN_INFO("%s", endInfo.c_str());
-    }
+    CHK_RET(LogHcclExit("HcclAllGatherGraphMode", opTag, startut));
+
     return HCCL_SUCCESS;
 }
 namespace ops_hccl {
@@ -184,6 +151,23 @@ HcclResult AllGatherOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t sendCo
                                    aclrtStream stream, const std::string &tag, OpMode opMode, const ResPackGraphMode &resPack)
 {
     HCCL_INFO("Start to execute AllGatherOutPlaceCommon");
+
+    /* 接口交互信息日志 */
+    if (GetExternalInputHcclEnableEntryLog()) {
+        s32 deviceLogicId = 0;
+        ACLCHECK(aclrtGetDevice(&deviceLogicId));
+        s32 streamId = 0;
+        ACLCHECK(aclrtStreamGetId(stream, &streamId));
+        char stackLogBuffer[LOG_TMPBUF_SIZE];
+        s32 ret = snprintf_s(stackLogBuffer, LOG_TMPBUF_SIZE, LOG_TMPBUF_SIZE - 1U,
+            "tag[%s], sendBuf[%p], recvBuf[%p], sendCount[%llu], dataType[%s], streamId[%d], deviceLogicId[%d]",
+            opTag.c_str(), sendBuf, recvBuf, sendCount, GetDataTypeEnumStr(dataType).c_str(), streamId, deviceLogicId);
+
+        CHK_PRT_CONT(ret == -1, HCCL_WARNING("Failed to build log info, tag[%s].", opTag.c_str()));
+        std::string logInfo = "Entry-HcclAllGatherGraphMode:" + std::string(stackLogBuffer);
+        HCCL_RUN_INFO("%s", logInfo.c_str());
+    }
+    
     u32 userRankSize;
     CHK_RET(HcclGetRankSize(comm, &userRankSize));
 
@@ -252,4 +236,23 @@ HcclResult AllGatherOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount, H
     return HCCL_SUCCESS;
 }
 
+HcclResult AllGatherEntryLog(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, const std::string &tag, const std::string &opName)
+{
+    /* 接口交互信息日志 */
+    if (GetExternalInputHcclEnableEntryLog()) {
+        s32 deviceLogicId = 0;
+        ACLCHECK(aclrtGetDevice(&deviceLogicId));
+        s32 streamId = 0;
+        ACLCHECK(aclrtStreamGetId(stream, &streamId));
+        char stackLogBuffer[LOG_TMPBUF_SIZE];
+        s32 ret = snprintf_s(stackLogBuffer, LOG_TMPBUF_SIZE, LOG_TMPBUF_SIZE - 1U,
+            "tag[%s], sendBuf[%p], recvBuf[%p], sendCount[%llu], dataType[%s], streamId[%d], deviceLogicId[%d]",
+            tag.c_str(), sendBuf, recvBuf, sendCount, GetDataTypeEnumStr(dataType).c_str(), streamId, deviceLogicId);
+
+        CHK_PRT_CONT(ret == -1, HCCL_WARNING("Failed to build log info, tag[%s].", tag.c_str()));
+        std::string logInfo = opName + std::string(stackLogBuffer);
+        HCCL_RUN_INFO("%s", logInfo.c_str());
+    }
+    return HCCL_SUCCESS;
+}
 }  // namespace ops_hccl
