@@ -132,32 +132,6 @@ HcclResult CheckReduceScatterInputPara(const HcclComm comm, const void* sendBuf,
     return HCCL_SUCCESS;
 }
 
-HcclResult ReduceScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
-    HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag)
-{
-    HCCL_INFO("Start to execute ReduceScatterOutPlace");
-    OpParam param;
-    CHK_RET(PrepareReduceScatterParam(param, sendBuf, recvBuf, recvCount, dataType, op, comm, stream, tag,
- 	    OpMode::OPBASE));
-    u32 userRankSize;
-    CHK_RET(HcclGetRankSize(comm, &userRankSize));
-
-    std::string algName;
-    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
-    CHK_RET(Selector(comm, param, topoInfo, algName));
-    if (ShouldUseInnerOp(param.opExecuteConfig)) {
-        return HcclReduceScatterInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
-    }
-    if (userRankSize == 1) {
-        HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
-        CHK_RET(SingleRankProc(param));
-        return HcclResult::HCCL_SUCCESS;
-    }
-    CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
-    HCCL_INFO("Execute ReduceScatterOutPlace success.");
-    return HCCL_SUCCESS;
-}
-
 static HcclResult PrepareReduceScatterParam(OpParam &param, void *sendBuf, void *recvBuf, uint64_t recvCount,
     HcclDataType dataType, HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag,
  	OpMode opMode)
@@ -193,6 +167,32 @@ static HcclResult PrepareReduceScatterParam(OpParam &param, void *sendBuf, void 
     param.enableDetour = false;
     param.deviceType = deviceType;
 
+    return HCCL_SUCCESS;
+}
+
+HcclResult ReduceScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
+    HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag)
+{
+    HCCL_INFO("Start to execute ReduceScatterOutPlace");
+    OpParam param;
+    CHK_RET(PrepareReduceScatterParam(param, sendBuf, recvBuf, recvCount, dataType, op, comm, stream, tag,
+ 	    OpMode::OPBASE));
+    u32 userRankSize;
+    CHK_RET(HcclGetRankSize(comm, &userRankSize));
+
+    std::string algName;
+    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
+    CHK_RET(Selector(comm, param, topoInfo, algName));
+    if (ShouldUseInnerOp(param.opExecuteConfig)) {
+        return HcclReduceScatterInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
+    }
+    if (userRankSize == 1) {
+        HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
+        CHK_RET(SingleRankProc(param));
+        return HcclResult::HCCL_SUCCESS;
+    }
+    CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
+    HCCL_INFO("Execute ReduceScatterOutPlace success.");
     return HCCL_SUCCESS;
 }
 
