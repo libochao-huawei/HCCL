@@ -178,10 +178,6 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::FastLaunch(const OpParam& param, co
     u32 kernelNum = tempFastLaunchCtx.ccuKernelSubmitInfos.size();
     buffInfo_ = tempFastLaunchCtx.buffInfo;
     const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].sqeArgs;
-    HCCL_INFO("[CcuTempReduceScatterMesh1D::FastLaunch] get ccu kernel submitInfo:"
-              "[%llu],[%llu],[%llu],[%llu],[%llu],[%llu],[%llu],[%llu],[%llu],[%llu]",
-              args[0], args[1], args[2], args[3], args[4], 
-              args[5], args[6], args[7], args[8], args[9]);
     // 前流同步
     if (kernelNum > 1) {
         std::vector<ThreadHandle> subThreads(tempFastLaunchCtx.threads.begin() + 1, tempFastLaunchCtx.threads.end());
@@ -295,10 +291,6 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::KernelRun(const OpParam& param,
         CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain));
     }
     // 所有task下发完后再保存参数信息
-    HCCL_INFO("[CcuTempReduceScatterMesh1DMem2Mem::KernelRun] save ccu kernel submitInfo:"
-              "[%llu],[%llu],[%llu],[%llu],[%llu],[%llu],[%llu],[%llu],[%llu]",
-              inputAddr, outputAddr, die0Size, die1Size, inputSliceStride, outputSliceStride, inputRepeatStride,
-              outputRepeatStride, repeatNum);
     CcuKernelSubmitInfo submitInfo;
     submitInfo.sqeArgs[0]=buffInfo_.inBuffBaseOff;  // input、ouput只存对应的偏移
     submitInfo.sqeArgs[1]=buffInfo_.outBuffBaseOff;

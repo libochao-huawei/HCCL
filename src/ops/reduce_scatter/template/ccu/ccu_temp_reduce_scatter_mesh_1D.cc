@@ -129,9 +129,6 @@ HcclResult CcuTempReduceScatterMesh1D::KernelRun(const OpParam& param,
 
     CHK_RET(HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr));
     
-    HCCL_INFO("[CcuTempReduceScatterMesh1D::KernelRun] save ccu kernel submitInfo:"
-              "[%llu],[%llu],[%llu],[%llu],[%llu]",
-              inputAddr, outputAddr, sliceSize, offset, token); // todo: token打印记得删除
     CcuKernelSubmitInfo submitInfo;
     submitInfo.kernelHandle = templateResource.ccuKernels[0];
     submitInfo.sqeArgs[0]=buffInfo_.inBuffBaseOff;

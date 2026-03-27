@@ -83,10 +83,6 @@ HcclResult CcuTempReduceScatterMesh1DMem2Mem::FastLaunch(const OpParam& param, c
     HCCL_DEBUG("[CcuTempReduceScatterMesh1DMem2Mem::FastLaunch] start");
     const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].sqeArgs;
     buffInfo_ = tempFastLaunchCtx.buffInfo;
-    HCCL_INFO("[CcuTempReduceScatterMesh1DMem2Mem::FastLaunch] get ccu kernel submitInfo:"
-              "[%llu],[%llu],[%llu],[%llu],[%llu],[%llu],[%llu],[%llu],[%llu],[%llu]",
-              args[0], args[1], args[2], args[3], args[4], 
-              args[5], args[6], args[7], args[8], args[9]);
     CcuTaskArgReduceScatterMesh1DMem2Mem taskArg(
         PointerToAddr(buffInfo_.inputPtr) + args[0],
         PointerToAddr(buffInfo_.outputPtr) + args[1],
@@ -131,10 +127,6 @@ HcclResult CcuTempReduceScatterMesh1DMem2Mem::KernelRun(const OpParam& param,
 
     CHK_RET(HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr));
     
-    HCCL_INFO("[CcuTempReduceScatterMesh1DMem2Mem::KernelRun] save ccu kernel submitInfo:"
-              "[%llu],[%llu],[%llu],[%llu],[%llu],[%llu],[%llu],[%llu],[%llu]",
-              inputAddr, outputAddr, scratchAddr, inputSliceStride, inputRepeatStride,
-              outputRepeatStride, normalSliceSize, lastSliceSize, repeatNum);
     CcuKernelSubmitInfo submitInfo;
     submitInfo.kernelHandle = templateResource.ccuKernels[0];
     submitInfo.sqeArgs[0]=buffInfo_.inBuffBaseOff; // input、output、scratch只存对应的偏移
