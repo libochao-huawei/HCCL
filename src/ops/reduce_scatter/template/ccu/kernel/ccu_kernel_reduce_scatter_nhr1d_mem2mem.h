@@ -73,18 +73,20 @@ public:
 class CcuTaskArgReduceScatterNHR1D : public CcuTaskArg {
 public:
     explicit CcuTaskArgReduceScatterNHR1D(uint64_t inputAddr, uint64_t outputAddr, uint64_t token, uint64_t die0Size,
-                                      uint64_t die1Size, uint64_t inputSliceStride, uint64_t outputSliceStride,
+                                      uint64_t die1Size, uint64_t die0LastSliceSize, uint64_t die1LastSliceSize,
+                                      uint64_t inputSliceStride, uint64_t outputSliceStride,
                                       uint64_t inputRepeatStride, uint64_t outputRepeatStride, uint64_t repeatNum)
         : inputAddr_(inputAddr), outputAddr_(outputAddr),
-          token_(token), die0Size_(die0Size), die1Size_(die1Size), inputSliceStride_(inputSliceStride),
+          token_(token), die0Size_(die0Size), die1Size_(die1Size), die0LastSliceSize_(die0LastSliceSize),
+          die1LastSliceSize_(die1LastSliceSize), inputSliceStride_(inputSliceStride),
           outputSliceStride_(outputSliceStride), inputRepeatStride_(inputRepeatStride),
           outputRepeatStride_(outputRepeatStride), repeatNum_(repeatNum)
     {
-        HCCL_DEBUG("[CcuTaskArgReduceScatterNHR1D]: inputAddr: %lu, outputAddr: %lu, die0Size: %lu, die1Size: %lu, "
-                   "inputSliceStride: %lu, outputSliceStride: %lu, inputRepeatStride: %lu, outputRepeatStride: %lu, "
-                   "repeatNum: %lu",
-                   inputAddr_, outputAddr_, die0Size_, die1Size_, inputSliceStride_, outputSliceStride_,
-                   inputRepeatStride_, outputRepeatStride_, repeatNum_);
+        HCCL_INFO("[CcuTaskArgReduceScatterNHR1D]: inputAddr: %lu, outputAddr: %lu, die0Size: %lu, die1Size: %lu, "
+                   "die0LastSliceSize: %lu, die1LastSliceSize: %lu, inputSliceStride: %lu, outputSliceStride: %lu,"
+                   "inputRepeatStride: %lu, outputRepeatStride: %lu, repeatNum: %lu",
+                   inputAddr_, outputAddr_, die0Size_, die1Size_, die0LastSliceSize_, die1LastSliceSize_,
+                   inputSliceStride_, outputSliceStride_, inputRepeatStride_, outputRepeatStride_, repeatNum_);
     }
 
     uint64_t inputAddr_;
@@ -92,6 +94,8 @@ public:
     uint64_t token_;
     uint64_t die0Size_;
     uint64_t die1Size_;
+    uint64_t die0LastSliceSize_;
+    uint64_t die1LastSliceSize_;
     uint64_t inputSliceStride_;
     uint64_t outputSliceStride_;
     uint64_t inputRepeatStride_;
@@ -115,7 +119,8 @@ private:
     void DoRepeatReduceScatterNHR();
     void DoRepeatReduceScatterNHRSingleStep(const NHRStepInfo &nhrStepInfo,
         const std::vector<CcuRep::Variable> &inputSliceOffset);
-    void DoRepeatWriteReduceSlices(const u32 &toRank, CcuRep::LocalAddr &src, CcuRep::RemoteAddr &dst);
+    void DoRepeatWriteReduceSlices(const u32 &toRank, CcuRep::LocalAddr &src, CcuRep::RemoteAddr &dst,
+                                   const bool islastSlice);
 
     // 构造函数中
     uint32_t mySubCommRankId_{0};
@@ -138,8 +143,9 @@ private:
     std::vector<CcuRep::Variable> token_;
     CcuRep::Variable die0Size_;
     CcuRep::Variable die1Size_;
+    CcuRep::Variable die0LastSliceSize_;
+    CcuRep::Variable die1LastSliceSize_;
     CcuRep::Variable inputSliceStride_;
-    CcuRep::Variable outputSliceStride_;
     CcuRep::Variable inputRepeatStride_;
     CcuRep::Variable outputRepeatStride_;
     CcuRep::Variable repeatNumVar_;
@@ -151,7 +157,7 @@ private:
 
     CcuRep::Variable repeatInputOffset_;
     CcuRep::Variable repeatOutputOffset_;
-    CcuRep::Variable myrankInputSliceOffset_;
+    CcuRep::Variable currentRankSliceOutputOffset_;
 
     CcuRep::LocalAddr   localSrc_;
     CcuRep::LocalAddr   localDst_;
