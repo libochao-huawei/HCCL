@@ -106,6 +106,7 @@ HcclResult InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     tempAlgParams.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
     tempAlgParams.buffInfo.inputSize = param.inputSize;
     tempAlgParams.buffInfo.outputSize = param.outputSize;
+    tempAlgParams.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
     // 不需要重复；repeat用于处理rank存在多块不连续数据块的情况（all-reduce不涉及）
     tempAlgParams.repeatNum = 1;
     tempAlgParams.inputRepeatStride = 0;
