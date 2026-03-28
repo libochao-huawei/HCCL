@@ -189,7 +189,7 @@ HcclResult AllGatherVOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t sendC
 }
 
 HcclResult PrepareAllGatherVParam(void *sendBuf, void *recvBuf, uint64_t sendCount, const void *recvCounts, const void *recvDispls, HcclDataType dataType,
-     HcclComm comm, aclrtStream stream, const std::string &tag, u32 userRankSize, u64 varMemSize, OpParam &param) 
+     HcclComm comm, aclrtStream stream, const std::string &tag,  OpMode opMode, u32 userRankSize, u64 varMemSize, OpParam &param) 
 {
     u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
     u64 inputSize = sendCount * perDataSize;    // all gather v 每个rank上一份数据
@@ -229,8 +229,6 @@ HcclResult PrepareAllGatherVParam(void *sendBuf, void *recvBuf, uint64_t sendCou
     std::vector<u64> countsAndDispls(userRankSize*2);
     const u64* recvCountsAddr = reinterpret_cast<const u64*>(recvCounts);
     const u64* recvDisplsAddr = reinterpret_cast<const u64*>(recvDispls);
-
-    param.inputSize = (sendDisplsAddr[userRankSize-1] + sendCountsAddr[userRankSize-1]) * perDataSize;
 
     std::copy(recvCountsAddr, recvCountsAddr + userRankSize, countsAndDispls.begin());
     std::copy(recvDisplsAddr, recvDisplsAddr + userRankSize, countsAndDispls.begin() + userRankSize);
