@@ -967,33 +967,33 @@ HcclResult CcuKernelAlgBase::CreateMultiOpWrite(const std::vector<ChannelHandle>
 
         // Step 1: 本端 HBM → bufs[rankId]（每个 rank 固定占用自己的 MS slot）
         event.mask = 1;
-        LocalCopyNb(bufs[0], src, len, event);
+        LocalCopyNb(bufs[rankId], src, len, event);
         WaitEvent(event);
 
-        event.mask = 1;
-        LocalCopyNb(bufs[1], src, len, event);
-        WaitEvent(event);
+        // Step 4: 发送 bufs[rankId] 到所有 peers（对称 MS 分配，远端也写入 bufs[rankId]）
+        for (uint32_t i = 0; i < channels.size(); i++) {
+            CHK_RET(MsWriteNb(channels[i], bufs[rankId], bufs[rankId], len, ckeIdx, WRITE_DONE_MASK));
+        }
 
-        // // Step 4: 发送 bufs[rankId] 到所有 peers（对称 MS 分配，远端也写入 bufs[rankId]）
-        // for (uint32_t i = 0; i < channels.size(); i++) {
-        //     CHK_RET(MsWriteNb(channels[i], bufs[0], bufs[i+1], len, ckeIdx, WRITE_DONE_MASK));
-        // }
-
-        // // Step 5: 等待每个 peer 的写完成通知（WRITE_DONE，bit 2）
-        // for (uint32_t i = 0; i < channels.size(); i++) {
-        //     NotifyWait(channels[i], ckeIdx, WRITE_DONE_MASK);
-        // }
+        // Step 5: 等待每个 peer 的写完成通知（WRITE_DONE，bit 2）
+        for (uint32_t i = 0; i < channels.size(); i++) {
+            NotifyWait(channels[i], ckeIdx, WRITE_DONE_MASK);
+        }
 
         // Step 6: 对所有 N 个 MS 做 reduce（bufs[R]=rankR 的数据，所有 rank 顺序一致，结果在 bufs[0]）
         if (size > 1) {
-            event.mask = 1;
+            event.mask = 2;
             LocalReduceNb(bufs, size, dataType, outputDataType, opType, len, event);
             WaitEvent(event);
         }
 
         // Step 7: 结果 MS → 输出 HBM
-        event.mask = 1;
+        event.mask = 4;
         LocalCopyNb(dst, bufs[0], lenForExpansion, event);
+        WaitEvent(event);
+
+        event.mask = 8;
+        LocalCopyNb(bufs[0], src, len, event);
         WaitEvent(event);
     }
 
