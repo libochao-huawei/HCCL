@@ -146,8 +146,8 @@ HcclResult AllGatherVOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t se
 }
 
 
-HcclResult AllGatherVOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t sendCount, const void *recvCounts,const void *recvDispls, HcclDataType dataType, HcclComm comm, 
-    aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack)
+HcclResult AllGatherVOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t sendCount, const void *recvCounts, const void *recvDispls, HcclDataType dataType, HcclComm comm, 
+    aclrtStream stream, const std::string &tag, OpMode opMode, const ResPackGraphMode &resPack)
 {
     u32 userRankSize;
  	CHK_RET(HcclGetRankSize(comm, &userRankSize));
@@ -170,7 +170,7 @@ HcclResult AllGatherVOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t sendC
     std::unique_ptr<OpParam, decltype(deleter)> paramPtr(tmpParamPtr, deleter);
     OpParam& param = *paramPtr;
 
-    CHK_RET(PrepareAllGatherVParam(sendBuf, inputSize, recvBuf, outputSize, sendCount, dataType, comm, stream, tag, opMode, userRankSize, varMemSize, param));
+    CHK_RET(PrepareAllGatherVParam(sendBuf, recvBuf, sendCount, recvCounts, recvDispls, dataType, comm, stream, tag, opMode, userRankSize, varMemSize, param));
     
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
@@ -188,8 +188,8 @@ HcclResult AllGatherVOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t sendC
     return HCCL_SUCCESS;
 }
 
-HcclResult PrepareAllGatherVParam(void *sendBuf, const void *sendDispls, const void *sendCounts, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
-    HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag, u32 userRankSize, u64 varMemSize, OpParam &param) 
+HcclResult PrepareAllGatherVParam(void *sendBuf, void *recvBuf, uint64_t sendCount, const void *recvCounts, const void *recvDispls, HcclDataType dataType,
+     HcclComm comm, aclrtStream stream, const std::string &tag, u32 userRankSize, u64 varMemSize, OpParam &param) 
 {
     u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
     u64 inputSize = sendCount * perDataSize;    // all gather v 每个rank上一份数据
