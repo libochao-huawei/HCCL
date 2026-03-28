@@ -503,6 +503,10 @@ struct HcomProInfo {
 // 图模式编译阶段资源计算入参
 struct OpParamGraphMode {
     char opType[64]; // 算子类型
+    u64 dataCount;
+    u32 rankSize;
+    HcclDataType dataType;
+    u64 hcclBufferSize; 
 };
 
 // 图模式编译阶段申请资源
