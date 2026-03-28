@@ -152,8 +152,8 @@ HcclResult AllGatherVOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount,c
     OpParam* paramPtr = new (paramMem) OpParam();
     OpParam& param = *paramPtr;
     CHK_RET(HcclGetCommName(comm, param.commName));
-    param.stream = stream;
     param.opMode = OpMode::OPBASE;
+    param.stream = stream;
  
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
@@ -166,12 +166,12 @@ HcclResult AllGatherVOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount,c
     }
  
     // 参数准备
-    param.inputPtr = sendBuf;
-    param.inputSize = inputSize;
-    param.outputPtr = recvBuf;
     param.outputSize = outputSize;
     param.DataDes.count = sendCount;
     param.vDataDes.dataType = dataType;
+    param.inputPtr = sendBuf;
+    param.inputSize = inputSize;
+    param.outputPtr = recvBuf;
 
     // 带V算子的参数
     param.varMemSize = varMemSize;
@@ -225,8 +225,7 @@ HcclResult AllGatherVOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t se
  	OpParam* paramPtr = new (paramMem) OpParam();
  	OpParam& param = *paramPtr; 
     CHK_RET(HcclGetCommName(comm, param.commName));
- 	param.stream = stream;
- 	param.opMode = OpMode::OPBASE;
+ 	param.stream = stream, param.opMode = OpMode::OFFLOAD;
  	  	 
     DevType deviceType = DevType::DEV_TYPE_COUNT;
  	CHK_RET(hrtGetDeviceType(deviceType));
@@ -239,12 +238,7 @@ HcclResult AllGatherVOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t se
  	}
  	  	 
  	// 参数准备
- 	param.inputPtr = sendBuf;
- 	param.inputSize = inputSize;
- 	param.outputPtr = recvBuf;
- 	param.outputSize = outputSize;
- 	param.DataDes.count = sendCount;
- 	param.vDataDes.dataType = dataType;
+ 	param.inputPtr = sendBuf, param.inputSize = inputSize, param.outputPtr = recvBuf, param.outputSize = outputSize, param.DataDes.count = sendCount, param.vDataDes.dataType = dataType;
     // 带V算子的参数
     param.varMemSize = varMemSize;
     // 从源内存地址按字节直接拷贝数据到目标地址
@@ -254,9 +248,7 @@ HcclResult AllGatherVOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t se
     std::copy(countsPtr, countsPtr + userRankSize, merged.begin());
     std::copy(displsPtr, displsPtr + userRankSize, merged.begin() + userRankSize);
     memcpy_s(param.varData, varMemSize, merged.data(), varMemSize);
-    param.opType = HcclCMDType::HCCL_CMD_ALLGATHER_V;
-    param.enableDetour = false;
-    param.deviceType = deviceType;
+    param.opType = HcclCMDType::HCCL_CMD_ALLGATHER_V, param.enableDetour = false, param.deviceType = deviceType;
  	if (userRankSize == 1) {
  	  	HCCL_WARNING("[%s] rankSize == 1, enter SingleRankProc", __func__);
  	  	CHK_RET(SingleRankProc(param));
