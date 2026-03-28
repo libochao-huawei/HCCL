@@ -59,7 +59,7 @@ HcclResult AllGatherVOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t sendC
     aclrtStream stream, const std::string &tag, OpMode opMode, const ResPackGraphMode &resPack);
 
 HcclResult PrepareAllGatherVParam(void *sendBuf, void *recvBuf, uint64_t sendCount, const void *recvCounts, const void *recvDispls, HcclDataType dataType,
-     HcclComm comm, aclrtStream stream, const std::string &tag, u32 userRankSize, u64 varMemSize, OpParam &param); 
+     HcclComm comm, aclrtStream stream, const std::string &tag,  OpMode opMode, u32 userRankSize, u64 varMemSize, OpParam &param); 
 
 }  // namespace ops_hccl
 #endif
