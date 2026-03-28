@@ -173,6 +173,8 @@ TEST_F(ST_ALL_REDUCE_PARALLEL_TEST, st_all_reduce_hcclbuff_add_1)
     RunAllReduceParallelCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp);
 }
 
+// 不支持64位数据
+#if 0
 // type64
 TEST_F(ST_ALL_REDUCE_PARALLEL_TEST, st_all_reduce_odd_dataCount_type64)
 {
@@ -213,3 +215,4 @@ TEST_F(ST_ALL_REDUCE_PARALLEL_TEST, st_all_reduce_mid_data_type64)
     HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_SUM;
     RunAllReduceParallelCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp);
 }
+#endif

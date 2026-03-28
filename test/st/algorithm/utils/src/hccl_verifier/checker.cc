@@ -55,7 +55,7 @@ HcclResult Checker::GenAndCheckGraph(AllRankTaskQueues& allRankTaskQueues, TaskC
     }
 
     // 打印Task队列
-    PrintTask(allRankTaskQueues);
+    // PrintTask(allRankTaskQueues);
 
     // 1. 检查从流
     HCCL_INFO("1. 检查从流");
