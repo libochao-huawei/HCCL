@@ -76,7 +76,7 @@ HcclResult CcuKernelReduceScatterNHR1DMem2Mem::InitResources()
     die1LastSliceSize_  = CreateVariable();
     sliceSize_          = CreateVariable();
     inputSliceStride_   = CreateVariable();
-    outputSliceStride_  = CreateVariable();
+    currentRankSliceOutputOffset_  = CreateVariable();
     inputRepeatStride_  = CreateVariable();
     outputRepeatStride_ = CreateVariable();
     event_              = CreateCompletedEvent();
@@ -178,6 +178,9 @@ void CcuKernelReduceScatterNHR1DMem2Mem::DoRepeatReduceScatterNHR()
         CCU_IF(localSliceSize != 0) {
             LocalCopyNb(localDst_, localSrc_, localSliceSize, event_);
         }
+        CCU_IF(localSliceSize == 0) {
+            RecordEvent(event_);
+        }  
         WaitEvent(event_);
         isRepeatIter_ = 1;
     }
@@ -248,6 +251,9 @@ void CcuKernelReduceScatterNHR1DMem2Mem::DoRepeatWriteReduceSlices(const u32 &to
         event_.SetMask(1);
         CCU_IF(sliceSize_ != 0) {
             WriteReduceNb(sendChannel, dst, src, sliceSize_, dataType_, reduceOp_, event_);
+        }
+        CCU_IF(sliceSize_ == 0) {
+            RecordEvent(event_);
         }
         WaitEvent(event_);
         isRepeatIter_ = 1;
