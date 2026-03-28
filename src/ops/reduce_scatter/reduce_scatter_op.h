@@ -27,8 +27,9 @@ extern "C" {
 HcclResult HcclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
                              HcclReduceOp op, HcclComm comm, aclrtStream stream);
 
-HcclResult ReduceScatterEntryLog(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType, HcclReduceOp op,
-    aclrtStream stream, const std::string &tag, const std::string &opName);
+HcclResult HcclReduceScatterGraphMode(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
+ 	HcclReduceOp op, const char* group, aclrtStream stream, const char* tag, void** streams,
+ 	size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize);
 
 #ifdef __cplusplus
 }
@@ -38,16 +39,18 @@ namespace ops_hccl {
 HcclResult ReduceScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
     HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag);
 
+HcclResult ReduceScatterOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
+ 	HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack);
+
 HcclResult ReduceScatterExecOp(HcclComm comm, OpParam &param);
 
 HcclResult CheckReduceScatterInputPara(const HcclComm comm, const void* sendBuf, const void* recvBuf, const aclrtStream stream);
 
 HcclResult GetAlgResReduceScatter(HcclComm comm, OpParam &param, std::shared_ptr<InsCollAlgBase> &executor,
     TopoInfoWithNetLayerDetails* topoInfo, AlgResourceCtx** resCtx, aclrtNotify* notifies);
-
-HcclResult CheckDataTypeRS(const HcclDataType dataType, bool needReduce);
-
-std::string GetSupportDataTypeRS(bool needReduce);
+    
+HcclResult ReduceScatterEntryLog(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType, HcclReduceOp op,
+    aclrtStream stream, const std::string &tag, const std::string &opName);
 
 }
 

@@ -27,6 +27,10 @@
 #include "alg_param.h"
 #include "hcomm_diag.h"
 #include "hccl_comm.h"
+#include "hcomm_primitives_dl.h"
+#include "hccl_res_dl.h"
+#include "hcomm_diag_dl.h"
+#include "hccl_inner_dl.h"
 
 using namespace ops_hccl;
 
@@ -176,112 +180,6 @@ HcclResult HcclGetHeterogMode(HcclComm comm, HcclHeterogMode *mode)
     return HCCL_SUCCESS;
 }
 
-// Inner后缀算子尚未实现走原始流程
-HcclResult HcclScatterInner(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType, uint32_t root,
-    HcclComm comm, aclrtStream stream)
-{
-    HCCL_ERROR("[%s] not support", __func__);
-    return HCCL_E_NOT_SUPPORT;
-}
-
-HcclResult HcclAllReduceInner(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
-    HcclComm comm, aclrtStream stream)
-{
-    HCCL_ERROR("[%s] not support", __func__);
-    return HCCL_E_NOT_SUPPORT;
-}
-
-HcclResult HcclBroadcastInner(void *buf, uint64_t count, HcclDataType dataType, uint32_t root, HcclComm comm,
-    aclrtStream stream)
-{
-    HCCL_ERROR("[%s] not support", __func__);
-    return HCCL_E_NOT_SUPPORT;
-}
-
-HcclResult HcclReduceScatterInner(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
-    HcclReduceOp op, HcclComm comm, aclrtStream stream)
-{
-    HCCL_ERROR("[%s] not support", __func__);
-    return HCCL_E_NOT_SUPPORT;
-}
-
-HcclResult HcclReduceScatterVInner(void *sendBuf, const void *sendCounts, const void *sendDispls, void *recvBuf,
-    uint64_t recvCount, HcclDataType dataType, HcclReduceOp op, HcclComm comm, aclrtStream stream)
-{
-    HCCL_ERROR("[%s] not support", __func__);
-    return HCCL_E_NOT_SUPPORT;
-}
-
-HcclResult HcclAllGatherInner(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
-    aclrtStream stream)
-{
-    HCCL_ERROR("[%s] not support", __func__);
-    return HCCL_E_NOT_SUPPORT;
-}
-
-HcclResult HcclAllGatherVInner(void *sendBuf, uint64_t sendCount, void *recvBuf, const void *recvCounts,
-    const void *recvDispls, HcclDataType dataType, HcclComm comm, aclrtStream stream)
-{
-    HCCL_ERROR("[%s] not support", __func__);
-    return HCCL_E_NOT_SUPPORT;
-}
-
-HcclResult HcclSendInner(void *sendBuf, uint64_t count, HcclDataType dataType, uint32_t destRank, HcclComm comm,
-    aclrtStream stream)
-{
-    HCCL_ERROR("[%s] not support", __func__);
-    return HCCL_E_NOT_SUPPORT;
-}
-
-HcclResult HcclRecvInner(void *recvBuf, uint64_t count, HcclDataType dataType, uint32_t srcRank, HcclComm comm,
-    aclrtStream stream)
-{
-    HCCL_ERROR("[%s] not support", __func__);
-    return HCCL_E_NOT_SUPPORT;
-}
-
-HcclResult HcclAlltoAllVCInner(const void *sendBuf, const void *sendCountMatrix, HcclDataType sendType,
-    const void *recvBuf, HcclDataType recvType, HcclComm comm, aclrtStream stream)
-{
-    HCCL_ERROR("[%s] not support", __func__);
-    return HCCL_E_NOT_SUPPORT;
-}
-
-HcclResult HcclAlltoAllVInner(const void *sendBuf, const void *sendCounts, const void *sdispls, HcclDataType sendType,
-    const void *recvBuf, const void *recvCounts, const void *rdispls, HcclDataType recvType, HcclComm comm,
-    aclrtStream stream)
-{
-    HCCL_ERROR("[%s] not support", __func__);
-    return HCCL_E_NOT_SUPPORT;
-}
-
-HcclResult HcclAlltoAllInner(const void *sendBuf, uint64_t sendCount, HcclDataType sendType, const void *recvBuf,
-    uint64_t recvCount, HcclDataType recvType, HcclComm comm, aclrtStream stream)
-{
-    HCCL_ERROR("[%s] not support", __func__);
-    return HCCL_E_NOT_SUPPORT;
-}
-
-HcclResult HcclReduceInner(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
-    uint32_t root, HcclComm comm, aclrtStream stream)
-{
-    HCCL_ERROR("[%s] not support", __func__);
-    return HCCL_E_NOT_SUPPORT;
-}
-
-HcclResult HcclBatchSendRecvInner(HcclSendRecvItem *sendRecvInfo, uint32_t itemNum, HcclComm comm, aclrtStream stream)
-{
-    HCCL_ERROR("[%s] not support", __func__);
-    return HCCL_E_NOT_SUPPORT;
-}
-
-HcclResult HcclCreateOpResCtxInner(HcclComm comm, uint8_t opType, HcclDataType srcDataType, HcclDataType dstDataType,
-    HcclReduceOp reduceType, uint64_t count, char *algConfig, uint32_t commEngine, void **opResCtx)
-{
-    HCCL_ERROR("[%s] not support", __func__);
-    return HCCL_E_NOT_SUPPORT;
-}
-
 HcclResult HcclGetHcclBuffer(HcclComm comm, void **buffer, uint64_t *size)
 {
     auto simComm = static_cast<HcclSim::SimCommunicator*>(comm);
@@ -366,7 +264,7 @@ HcclResult HcclCommDestroy(HcclComm comm)
     return HCCL_SUCCESS;
 }
 
-int32_t HcommThreadNotifyWaitOnThread(ThreadHandle thread, uint32_t notifyIdx, uint32_t timeout)
+static int32_t HcommThreadNotifyWaitOnThreadStub(ThreadHandle thread, uint32_t notifyIdx, uint32_t timeout)
 {
     // timeout 暂时未使用
     static_cast<void>(timeout);
@@ -387,7 +285,7 @@ int32_t HcommThreadNotifyWaitOnThread(ThreadHandle thread, uint32_t notifyIdx, u
     return HCCL_SUCCESS;
 }
 
-int32_t HcommThreadNotifyRecordOnThread(ThreadHandle thread, ThreadHandle dstThread, uint32_t dstNotifyIdx)
+static int32_t HcommThreadNotifyRecordOnThreadStub(ThreadHandle thread, ThreadHandle dstThread, uint32_t dstNotifyIdx)
 {
     // 1.获取当前rankId,NpuPos和stream
     uint32_t curRank = reinterpret_cast<HcclSim::SimHcclThread*>(thread)->GetCurRank();
@@ -405,7 +303,7 @@ int32_t HcommThreadNotifyRecordOnThread(ThreadHandle thread, ThreadHandle dstThr
     return HCCL_SUCCESS;
 }
 
-int32_t HcommLocalCopyOnThread(ThreadHandle thread, void *dst, const void *src, uint64_t len)
+static int32_t HcommLocalCopyOnThreadStub(ThreadHandle thread, void *dst, const void *src, uint64_t len)
 {
     CHK_PTR_NULL(dst);
     CHK_PTR_NULL(src);
@@ -433,7 +331,7 @@ int32_t HcommLocalCopyOnThread(ThreadHandle thread, void *dst, const void *src, 
     return HCCL_SUCCESS;
 }
 
-int32_t HcommWriteOnThread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t len)
+static int32_t HcommWriteOnThreadStub(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t len)
 {
     CHK_PTR_NULL(dst);
     CHK_PTR_NULL(src);
@@ -472,7 +370,7 @@ int32_t HcommWriteOnThread(ThreadHandle thread, ChannelHandle channel, void *dst
     return HCCL_SUCCESS;
 }
 
-int32_t HcommReadOnThread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t len)
+static int32_t HcommReadOnThreadStub(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t len)
 {
     CHK_PTR_NULL(dst);
     CHK_PTR_NULL(src);
@@ -511,7 +409,7 @@ int32_t HcommReadOnThread(ThreadHandle thread, ChannelHandle channel, void *dst,
     return HCCL_SUCCESS;
 }
 
-int32_t HcommChannelNotifyRecordOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t remoteNotifyIdx)
+static int32_t HcommChannelNotifyRecordOnThreadStub(ThreadHandle thread, ChannelHandle channel, uint32_t remoteNotifyIdx)
 {
     // 1.获取当前rankId,NpuPos和stream
     uint32_t curRank = reinterpret_cast<HcclSim::SimHcclThread*>(thread)->GetCurRank();
@@ -538,7 +436,7 @@ int32_t HcommChannelNotifyRecordOnThread(ThreadHandle thread, ChannelHandle chan
     return HCCL_SUCCESS;
 }
 
-int32_t HcommChannelNotifyWaitOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeout)
+static int32_t HcommChannelNotifyWaitOnThreadStub(ThreadHandle thread, ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeout)
 {
     //timeout 不参与 taskstubwait的构造
     static_cast<void>(timeout);
@@ -568,7 +466,7 @@ int32_t HcommChannelNotifyWaitOnThread(ThreadHandle thread, ChannelHandle channe
     return HCCL_SUCCESS;
 }
 
-int32_t HcommLocalReduceOnThread(ThreadHandle thread, void *dst, const void *src, uint64_t count,
+static int32_t HcommLocalReduceOnThreadStub(ThreadHandle thread, void *dst, const void *src, uint64_t count,
     HcommDataType dataType, HcommReduceOp reduceOp)
 {
     CHK_PTR_NULL(dst);
@@ -598,7 +496,7 @@ int32_t HcommLocalReduceOnThread(ThreadHandle thread, void *dst, const void *src
     return HCCL_SUCCESS;
 }
 
-int32_t HcommWriteReduceOnThread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src,
+static int32_t HcommWriteReduceOnThreadStub(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src,
     uint64_t count, HcommDataType dataType, HcommReduceOp reduceOp)
 {
     CHK_PTR_NULL(dst);
@@ -639,7 +537,7 @@ int32_t HcommWriteReduceOnThread(ThreadHandle thread, ChannelHandle channel, voi
     return HCCL_SUCCESS;
 }
 
-int32_t HcommReadReduceOnThread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src,
+static int32_t HcommReadReduceOnThreadStub(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src,
     uint64_t count, HcommDataType dataType, HcommReduceOp reduceOp)
 {
     CHK_PTR_NULL(dst);
@@ -679,7 +577,7 @@ int32_t HcommReadReduceOnThread(ThreadHandle thread, ChannelHandle channel, void
     return HCCL_SUCCESS;
 }
 
-int32_t HcommAclrtNotifyRecordOnThread(ThreadHandle thread, uint64_t dstNotifyId)
+static int32_t HcommAclrtNotifyRecordOnThreadStub(ThreadHandle thread, uint64_t dstNotifyId)
 {
     auto curRank = reinterpret_cast<HcclSim::SimHcclThread*>(thread)->GetCurRank();
     auto npuPos = HcclSim::SimWorld::Global()->GetNpuPosByRankId(curRank);
@@ -690,7 +588,7 @@ int32_t HcommAclrtNotifyRecordOnThread(ThreadHandle thread, uint64_t dstNotifyId
     return HCCL_SUCCESS;
 }
 
-int32_t HcommAclrtNotifyWaitOnThread(ThreadHandle thread, uint64_t notifyId, uint32_t timeOut)
+static int32_t HcommAclrtNotifyWaitOnThreadStub(ThreadHandle thread, uint64_t notifyId, uint32_t timeOut)
 {
     auto curRank = reinterpret_cast<HcclSim::SimHcclThread*>(thread)->GetCurRank();
     auto npuPos = HcclSim::SimWorld::Global()->GetNpuPosByRankId(curRank);
@@ -720,7 +618,7 @@ HcclResult CommWriteReduceWithNotify(ThreadHandle thread, ChannelHandle channel,
     return HCCL_E_NOT_SUPPORT;
 }
 
-int32_t HcommWriteWithNotifyOnThread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src,
+static int32_t HcommWriteWithNotifyOnThreadStub(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src,
     uint64_t len, uint32_t remoteNotifyIdx)
 {
     HCCL_ERROR("[%s] not support.", __func__);
@@ -733,34 +631,34 @@ HcclResult CommFence(ThreadHandle thread, ChannelHandle channel)
     return HCCL_E_NOT_SUPPORT;
 }
 
-int32_t HcommBatchModeStart(const char *batchTag)
+static int32_t HcommBatchModeStartStub(const char *batchTag)
 {
     HCCL_WARNING("[%s] not support.", __func__);
     return HCCL_SUCCESS;
 }
 
-int32_t HcommBatchModeEnd(const char *batchTag)
+static int32_t HcommBatchModeEndStub(const char *batchTag)
 {
     HCCL_WARNING("[%s] not support.", __func__);
     return HCCL_SUCCESS;
 }
 
-int32_t HcommAcquireComm(const char* commId)
+static int32_t HcommAcquireCommStub(const char* commId)
 {
     return 0;
 }
 
-int32_t HcommReleaseComm(const char* commId)
+static int32_t HcommReleaseCommStub(const char* commId)
 {
     return 0;
 }
 
 // stub for host dpu
-int32_t HcommWriteWithNotifyNbiOnThread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src,
+static int32_t HcommWriteWithNotifyNbiOnThreadStub(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src,
     uint64_t len, uint32_t remoteNotifyIdx)
 {
-    HcommWriteOnThread(curThread, channel, dst, src, len);
-    HcommChannelNotifyRecordOnThread(curThread, channel, remoteNotifyIdx);
+    HcommWriteOnThreadStub(curThread, channel, dst, src, len);
+    HcommChannelNotifyRecordOnThreadStub(curThread, channel, remoteNotifyIdx);
     return 0;
 }
 
@@ -771,13 +669,13 @@ HcclResult HcclDevMemAcquire(HcclComm comm, const char *memTag, uint64_t *size, 
     return HCCL_SUCCESS;
 }
 
-int32_t HcommFenceOnThread(ThreadHandle thread)
+static int32_t HcommFenceOnThreadStub(ThreadHandle thread)
 {
     HCCL_WARNING("[%s] not support.", __func__);
     return 0;
 }
 
-int32_t HcommThreadSynchronize(ThreadHandle thread)
+static int32_t HcommThreadSynchronizeStub(ThreadHandle thread)
 {
     // 这里记录当前thread，因为dpu侧拿不到thread了
     curThread = thread;
@@ -792,7 +690,7 @@ int32_t HcclTaskRegister(HcclComm comm, const char *msgTag, Callback cb)
     return 0;
 }
 
-int32_t HcommSendRequest(MsgHandle handle, const char *msgTag, const void *src, size_t sizeByte, uint32_t *msgId)
+static int32_t HcommSendRequestStub(MsgHandle handle, const char *msgTag, const void *src, size_t sizeByte, uint32_t *msgId)
 {
     auto it = dpuCallbackMap.find(msgTag);
     if (it != dpuCallbackMap.end()) {
@@ -803,13 +701,13 @@ int32_t HcommSendRequest(MsgHandle handle, const char *msgTag, const void *src, 
     return 0;
 }
 
-int32_t HcommChannelFenceOnThread(ThreadHandle thread, ChannelHandle channel)
+static int32_t HcommChannelFenceOnThreadStub(ThreadHandle thread, ChannelHandle channel)
 {
     HCCL_WARNING("[%s] not support.", __func__);
     return 0;
 }
 
-int32_t HcommWaitResponse(MsgHandle handle, void *dst, size_t sizeByte, uint32_t *msgId)
+static int32_t HcommWaitResponseStub(MsgHandle handle, void *dst, size_t sizeByte, uint32_t *msgId)
 {
     HCCL_WARNING("[%s] not support.", __func__);
     return 0;
@@ -828,101 +726,11 @@ HcclResult HcclCommMemReg(HcclComm comm, const char *memTag, const CommMem *mem,
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclThreadExportToCommEngine(HcclComm comm, uint32_t threadNum, const ThreadHandle *threads, CommEngine dstCommEngine, ThreadHandle *exportedThreads)
+static HcclResult HcclThreadExportToCommEngineStub(HcclComm comm, uint32_t threadNum, const ThreadHandle *threads, CommEngine dstCommEngine, ThreadHandle *exportedThreads)
 {
     *exportedThreads = *const_cast<const ThreadHandle*>(threads);
     return HCCL_SUCCESS;
 }
-
-uint64_t HcommGetProfilingSysCycleTime()
-{
-    return 0;
-}
-
-HcclResult HcommProfilingRegThread(HcomProInfo proInfo, ThreadHandle *threads)
-{
-    HCCL_WARNING("[%s] not support.", __func__);
-    return HCCL_SUCCESS;
-}
-
-HcclResult HcommProfilingUnRegThread(HcomProInfo proInfo, ThreadHandle *threads)
-{
-    HCCL_WARNING("[%s] not support.", __func__);
-    return HCCL_SUCCESS;
-}
-
-HcclResult HcommProfilingReportKernel(uint64_t beginTime, const char *profName)
-{
-    HCCL_WARNING("[%s] not support.", __func__);
-    return HCCL_SUCCESS;
-}
-
-HcclResult HcommProfilingReportOp(HcomProInfo proInfo)
-{
-    HCCL_WARNING("[%s] not support.", __func__);
-    return HCCL_SUCCESS;
-}
-
-HcclResult HcommRegOpInfo(const char* commId, void* opInfo, size_t size)
-{
-    HCCL_WARNING("[%s] not support.", __func__);
-    return HCCL_SUCCESS;
-}
-
-HcclResult HcommRegOpTaskException(const char* commId, HcommGetOpInfoCallback callback)
-{
-    HCCL_WARNING("[%s] not support.", __func__);
-    return HCCL_SUCCESS;
-}
-
-HcclResult HcclDfxRegOpInfo(HcclComm comm, void* dfxOpInfo)
-{
-    HCCL_WARNING("[%s] not support.", __func__);
-    return HCCL_SUCCESS;
-}
-
-HcclResult HcclProfilingReportOp(HcclComm comm, uint64_t beginTime)
-{
-    HCCL_WARNING("[%s] not support.", __func__);
-    return HCCL_SUCCESS;
-}
-
-HcclResult HcclReportAicpuKernel(HcclComm comm, uint64_t beginTime, char *kernelName)
-{
-    HCCL_WARNING("[%s] not support.", __func__);
-    return HCCL_SUCCESS;
-}
-
-HcclResult HcommProfilingReportDeviceOp(const char* groupname)
-{
-    HCCL_WARNING("[%s] not support.", __func__);
-    return HCCL_SUCCESS;
-}
-HcclResult HcommProfilingReportKernelStartTask(uint64_t thread, const char* groupname)
-{
-    HCCL_WARNING("[%s] not support.", __func__);
-    return HCCL_SUCCESS;
-}
-
-HcclResult HcommProfilingReportKernelEndTask(uint64_t thread, const char* groupname)
-{
-    HCCL_WARNING("[%s] not support.", __func__);
-    return HCCL_SUCCESS;
-}
-
-HcclResult HcommProfilingReportMainStreamAndFirstTask(ThreadHandle thread)
-{
-    HCCL_WARNING("[%s] not support.", __func__);
-    return HCCL_SUCCESS;
-}
-
-HcclResult HcommProfilingReportMainStreamAndLastTask(ThreadHandle thread)
-{
-    HCCL_WARNING("[%s] not support.", __func__);
-    return HCCL_SUCCESS;
-}
-
-
 
 HcclResult HcclConfigGetInfo(HcclComm comm, HcclConfigType cfgType, uint32_t infoLen, void *info)
 {
@@ -940,6 +748,109 @@ HcclResult HcclEngineCtxDestroy(HcclComm comm, const char *ctxTag, CommEngine en
 {
     HCCL_WARNING("[%s] not support.", __func__);
     return HCCL_SUCCESS;
+}
+
+static HcclResult HcommThreadJoinStub(ThreadHandle thread, uint32_t timeout)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+
+static int32_t HcommWriteReduceWithNotifyOnThreadStub(ThreadHandle thread, ChannelHandle channel, void* dst, const void* src,
+    uint64_t count, HcommDataType dataType, HcommReduceOp reduceOp, uint32_t remoteNotifyIdx)
+{
+    HCCL_ERROR("[%s] not support.", __func__);
+    return -1;
+}
+
+static int32_t HcommWriteNbiStub(ChannelHandle channel, void* dst, const void* src, uint64_t len)
+{
+    HCCL_ERROR("[%s] not support.", __func__);
+    return -1;
+}
+
+static int32_t HcommWriteWithNotifyNbiStub(ChannelHandle channel, void* dst, const void* src, uint64_t len, uint32_t remoteNotifyIdx)
+{
+    HCCL_ERROR("[%s] not support.", __func__);
+    return -1;
+}
+
+static int32_t HcommReadNbiStub(ChannelHandle channel, void* dst, const void* src, uint64_t len)
+{
+    HCCL_ERROR("[%s] not support.", __func__);
+    return -1;
+}
+
+static int32_t HcommChannelNotifyRecordStub(ChannelHandle channel, uint32_t remoteNotifyIdx)
+{
+    HCCL_ERROR("[%s] not support.", __func__);
+    return -1;
+}
+
+static int32_t HcommChannelNotifyWaitStub(ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeout)
+{
+    HCCL_ERROR("[%s] not support.", __func__);
+    return -1;
+}
+
+static int32_t HcommFlushStub()
+{
+    HCCL_ERROR("[%s] not support.", __func__);
+    return -1;
+}
+
+static int32_t HcommChannelFenceStub(ChannelHandle channel)
+{
+    HCCL_ERROR("[%s] not support.", __func__);
+    return -1;
+}
+
+static HcclResult HcommSymWinGetPeerPointerStub(CommSymWindow winHandle, size_t offset, uint32_t peerRank, void** ptr)
+{
+    HCCL_ERROR("[%s] not support.", __func__);
+    return HCCL_E_NOT_SUPPORT;
+}
+
+HcclResult (*hcclThreadExportToCommEnginePtr)(HcclComm, uint32_t, const ThreadHandle*, CommEngine, ThreadHandle*) = nullptr;
+
+void InitHcclHcommDlStubFunc()
+{
+    hcommLocalCopyOnThreadPtr = HcommLocalCopyOnThreadStub;
+    hcommLocalReduceOnThreadPtr = HcommLocalReduceOnThreadStub;
+    hcommThreadNotifyRecordOnThreadPtr = HcommThreadNotifyRecordOnThreadStub;
+    hcommThreadNotifyWaitOnThreadPtr = HcommThreadNotifyWaitOnThreadStub;
+    hcommAclrtNotifyRecordOnThreadPtr = HcommAclrtNotifyRecordOnThreadStub;
+    hcommAclrtNotifyWaitOnThreadPtr = HcommAclrtNotifyWaitOnThreadStub;
+    hcommWriteOnThreadPtr = HcommWriteOnThreadStub;
+    hcommWriteReduceOnThreadPtr = HcommWriteReduceOnThreadStub;
+    hcommWriteWithNotifyOnThreadPtr = HcommWriteWithNotifyOnThreadStub;
+    hcommReadOnThreadPtr = HcommReadOnThreadStub;
+    hcommReadReduceOnThreadPtr = HcommReadReduceOnThreadStub;
+    hcommChannelNotifyRecordOnThreadPtr = HcommChannelNotifyRecordOnThreadStub;
+    hcommChannelNotifyWaitOnThreadPtr = HcommChannelNotifyWaitOnThreadStub;
+    hcommBatchModeStartPtr = HcommBatchModeStartStub;
+    hcommBatchModeEndPtr = HcommBatchModeEndStub;
+    hcommAcquireCommPtr = HcommAcquireCommStub;
+    hcommReleaseCommPtr = HcommReleaseCommStub;
+    hcommThreadSynchronizePtr = HcommThreadSynchronizeStub;
+    hcommSendRequestPtr = HcommSendRequestStub;
+    hcommWaitResponsePtr = HcommWaitResponseStub;
+    hcommFenceOnThreadPtr = HcommFenceOnThreadStub;
+    hcommChannelFenceOnThreadPtr = HcommChannelFenceOnThreadStub;
+    hcommThreadJoinPtr = HcommThreadJoinStub;
+    hcclThreadExportToCommEnginePtr = HcclThreadExportToCommEngineStub;
+    hcommWriteWithNotifyNbiOnThreadPtr = HcommWriteWithNotifyNbiOnThreadStub;
+
+    // 暂未支持，空实现
+    hcommWriteReduceWithNotifyOnThreadPtr = HcommWriteReduceWithNotifyOnThreadStub;
+    hcommWriteNbiPtr = HcommWriteNbiStub;
+    hcommWriteWithNotifyNbiPtr = HcommWriteWithNotifyNbiStub;
+    hcommReadNbiPtr = HcommReadNbiStub;
+    hcommChannelNotifyRecordPtr = HcommChannelNotifyRecordStub;
+    hcommChannelNotifyWaitPtr = HcommChannelNotifyWaitStub;
+    hcommFlushPtr = HcommFlushStub;
+    hcommChannelFencePtr = HcommChannelFenceStub;
+    hcommSymWinGetPeerPointerPtr = HcommSymWinGetPeerPointerStub;
 }
 
 #ifdef __cplusplus
