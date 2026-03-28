@@ -39,14 +39,19 @@ HcclResult HcclBroadcast(void *buf, uint64_t count, HcclDataType dataType, uint3
     #endif
         return HcclBroadcastInner(buf, count, dataType, root, comm, stream);
     }
+    HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
     
     CHK_PRT_RET(count == 0, HCCL_WARNING("input count is 0, return broadcast success"), HCCL_SUCCESS);
     std::string opTag;
     CHK_RET(BroadcastInitAndCheck(comm, buf, count, dataType, root, stream, opTag));
 
+    CHK_RET(BroadcastEntryLog(buf, count, dataType, root, stream, opTag, "HcclBroadcast"));
+
     // 执行Broadcast
     CHK_RET_AND_PRINT_IDE(BroadcastOutPlace(buf, count, dataType, root, comm, stream, opTag),
                           opTag.c_str());
+
+    CHK_RET(LogHcclExit("HcclBroadcast", opTag, startut));
 
     return HCCL_SUCCESS;
 }
@@ -57,7 +62,7 @@ HcclResult HcclBroadcastGraphMode(void *buf, uint64_t count, HcclDataType dataTy
     HcclComm comm = nullptr;
     HCCL_INFO("[HcclBroadcastGraphMode] get group name: %s", group);
     HcomGetCommHandleByGroup(group, &comm);
-    
+    HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
     CHK_PRT_RET(count == 0, HCCL_WARNING("input count is 0, return broadcast success"), HCCL_SUCCESS);
     std::string opTag;
     CHK_RET(BroadcastInitAndCheck(comm, buf, count, dataType, root, stream, opTag));
@@ -82,8 +87,13 @@ HcclResult HcclBroadcastGraphMode(void *buf, uint64_t count, HcclDataType dataTy
     resPack.scratchMemAddr = scratchMemAddr;
     resPack.scratchMemSize = scratchMemSize;
     std::string tagStr = tag;
+
+    CHK_RET(BroadcastEntryLog(buf, count, dataType, root, stream, opTag, "HcclBroadcastGraphMode"));
+
     // 执行Broadcast
     CHK_RET_AND_PRINT_IDE(BroadcastOutPlaceGraphMode(buf, count, dataType, root, comm, stream, tagStr, resPack), tagStr.c_str());
+
+    CHK_RET(LogHcclExit("HcclBroadcastGraphMode", opTag, startut));
 
     return HCCL_SUCCESS;
 }
@@ -107,6 +117,7 @@ HcclResult BroadcastInitAndCheck(HcclComm comm, void *buf, uint64_t count, HcclD
     CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), opTag.c_str());
     CHK_RET(CheckCount(count));
     CHK_RET(CheckDataType(dataType, false));
+
     return HCCL_SUCCESS;
 }
 
@@ -193,6 +204,25 @@ HcclResult BroadcastOutPlace(void *buf, uint64_t count, HcclDataType dataType, u
     HCCL_INFO("Start to execute BroadcastOutPlace");
     CHK_RET(BroadcastOutPlaceCommon(buf, count, dataType, root, comm, stream, tag, OpMode::OPBASE, ResPackGraphMode()));
     HCCL_INFO("Execute BroadcastOutPlace success.");
+    return HCCL_SUCCESS;
+}
+
+HcclResult BroadcastEntryLog(void *buf, uint64_t count, HcclDataType dataType, uint32_t root, aclrtStream stream, const std::string &tag, const std::string &opName)
+{
+    if (GetExternalInputHcclEnableEntryLog()) {
+        s32 deviceLogicId = 0;
+        ACLCHECK(aclrtGetDevice(&deviceLogicId));
+        s32 streamId = 0;
+        ACLCHECK(aclrtStreamGetId(stream, &streamId));
+        char stackLogBuffer[LOG_TMPBUF_SIZE];
+        s32 ret = snprintf_s(stackLogBuffer, LOG_TMPBUF_SIZE, LOG_TMPBUF_SIZE - 1U,
+            "tag[%s], buf[%p], count[%llu], dataType[%s], root[%u], streamId[%d], deviceLogicId[%d]",
+            tag.c_str(), buf, count, GetDataTypeEnumStr(dataType).c_str(), root, streamId, deviceLogicId);
+
+        CHK_PRT_CONT(ret == -1, HCCL_WARNING("Failed to build log info, tag[%s].", tag.c_str()));
+        std::string logInfo = "Entry-" + opName + ":" + std::string(stackLogBuffer);
+        HCCL_RUN_INFO("%s", logInfo.c_str());
+    }
     return HCCL_SUCCESS;
 }
 

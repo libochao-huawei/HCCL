@@ -40,7 +40,7 @@ HcclResult HcclSend(
     #endif
         return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
     }
-
+    HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
     CHK_RET(InitEnvConfig());
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     u32 userRank = INVALID_VALUE_RANKID;
@@ -49,7 +49,12 @@ HcclResult HcclSend(
     CHK_PRT_RET(count == 0, HCCL_WARNING("[HcclSend] input count is 0, return send success"), HcclResult::HCCL_SUCCESS);
     CHK_RET(GetAndCheckSendPara(comm, sendBuf, count, dataType, destRank, rankSize, userRank, tag));
 
+    /* 接口交互信息日志 */
+    CHK_RET(SendEntryLog(sendBuf, count, dataType, destRank, stream, tag, "HcclSend"));
+        
     CHK_RET_AND_PRINT_IDE(SendExec(sendBuf, count, dataType, destRank, comm, stream, rankSize, OpMode::OPBASE, tag), tag.c_str());
+
+    CHK_RET(LogHcclExit("HcclSend", tag, startut));
 
     HCCL_INFO("[HcclSend][%d]->[%d] Success.", userRank, destRank);
     return HcclResult::HCCL_SUCCESS;
@@ -65,6 +70,7 @@ HcclResult HcclSendGraphMode(
     HCCL_INFO("[HcclSendGraphMode] get group name: %s", group);
     HcomGetCommHandleByGroup(group, &comm);
     
+    HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
     CHK_RET(InitEnvConfig());
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     u32 userRank = INVALID_VALUE_RANKID;
@@ -91,8 +97,13 @@ HcclResult HcclSendGraphMode(
     resPack.scratchMemAddr = scratchMemAddr;
     resPack.scratchMemSize = scratchMemSize;
 
+    /* 接口交互信息日志 */
+    CHK_RET(SendEntryLog(sendBuf, count, dataType, destRank, stream, opTag, "HcclSendGraphMode"));
+
     // 执行Send
     CHK_RET_AND_PRINT_IDE(SendExec(sendBuf, count, dataType, destRank, comm, stream, rankSize, OpMode::OFFLOAD, opTag, resPack), opTag.c_str());
+
+    CHK_RET(LogHcclExit("HcclSendGraphMode", opTag, startut));
 
     HCCL_INFO("[HcclSendGraphMode][%d]->[%d] Success.", userRank, destRank);
     return HcclResult::HCCL_SUCCESS;
@@ -196,5 +207,25 @@ namespace ops_hccl {
 
         return HcclResult::HCCL_SUCCESS;
     }
+    
+HcclResult SendEntryLog(void *sendBuf, uint64_t count, HcclDataType dataType, uint32_t destRank,
+    aclrtStream stream, const std::string &tag, const std::string &opName)
+{
+    if (GetExternalInputHcclEnableEntryLog()) {
+        s32 deviceLogicId = 0;
+        ACLCHECK(aclrtGetDevice(&deviceLogicId));
+        s32 streamId = 0;
+        ACLCHECK(aclrtStreamGetId(stream, &streamId));
+        char stackLogBuffer[LOG_TMPBUF_SIZE];
+        s32 ret = snprintf_s(stackLogBuffer, LOG_TMPBUF_SIZE, LOG_TMPBUF_SIZE - 1U,
+            "tag[%s], sendBuf[%p], count[%llu], dataType[%s], destRank[%u], streamId[%d], deviceLogicId[%d]",
+            tag.c_str(), sendBuf, count, GetDataTypeEnumStr(dataType).c_str(), destRank, streamId, deviceLogicId);
+
+        CHK_PRT_CONT(ret == -1, HCCL_WARNING("Failed to build log info, tag[%s].", tag.c_str()));
+        std::string logInfo = "Entry-" + opName + ":" + std::string(stackLogBuffer);
+        HCCL_RUN_INFO("%s", logInfo.c_str());
+    }
+    return HCCL_SUCCESS;
+}
 
 } // namespace ops_hccl

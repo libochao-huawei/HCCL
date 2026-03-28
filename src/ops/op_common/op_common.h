@@ -142,6 +142,8 @@ HcclResult HcclRegstryBuff(HcclComm comm, const char *memTag, void *bufferPtr, u
 
 HcclResult HcclGetRemoteBuff(HcclComm comm, ChannelHandle channel, const char *memTag, void **bufferPtr, uint64_t *bufferSize);
 
+HcclResult LogHcclExit(const std::string &opName, const std::string &tag, HcclUs startut);
+
 }  // namespace ops_hccl
 
 #endif
