@@ -213,7 +213,7 @@ HcclResult InsTempScatterMesh1D::RunMesh(const std::map<u32, std::vector<Channel
                 HCCL_DEBUG("[InsTempScatterMesh1D][RunMesh] dstOffset[%d], txDstPtr[%d]", dstOffset, txDstPtr);
                 DataSlice srcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr, srcOffset, curSliceSize, curCount);
                 HCCL_DEBUG("[InsTempScatterMesh1D][RunMesh] got srcSlice");
-                DataSlice dstSlice = DataSlice(remoteCclBuffAddr, dstOffset, curSliceSize, curCount);
+                DataSlice dstSlice = DataSlice(txDstPtr, dstOffset, curSliceSize, curCount);
                 HCCL_DEBUG("[InsTempScatterMesh1D][RunMesh] got dstSlice");
                 SlicesList txSlicesList({srcSlice}, {dstSlice});
 
