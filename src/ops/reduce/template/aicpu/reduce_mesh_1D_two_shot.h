@@ -68,6 +68,17 @@ private:
     HcclResult DoLocalReduce(const TemplateDataParams &tempAlgParam, const OpParam &param,
         const std::vector<ThreadHandle> &threads);
 
+    struct LocalSliceInfo {
+        u64 sliceSize;
+        u64 sliceCount;
+        u64 sliceOffset;
+        u64 outBuffBaseOffset;
+        u64 hcclBuffBaseOffset;
+        void* localOutBuffPtr;
+        void* localHcclBuffPtr;
+    };
+    LocalSliceInfo GetLocalSliceInfo(const TemplateDataParams &tempAlgParam) const;
+
     void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub) override;
     void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override;
 
