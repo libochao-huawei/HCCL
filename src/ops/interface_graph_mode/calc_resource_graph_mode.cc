@@ -218,10 +218,9 @@ HcclResult CalcTaskNum(OpParamGraphMode *opParam, u32 &ccuTaskNum)
     } else if (opParam->opType == HCCL_KERNEL_OP_TYPE_ALLTOALLV || opParam->opType == HCCL_KERNEL_OP_TYPE_ALLTOALLVC) {
         ccuTaskNum = 1;
     } else if (opParam->opType == HCCL_KERNEL_OP_TYPE_REDUCE) { // reduce 
-        //maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize;
-        //loopTimes = dataCount / maxDataCountPerLoop + static_cast<u64>(dataCount % maxDataCountPerLoop != 0);
-        //ccuTaskNum = loopTimes * 18;
-        ccuTaskNum = 1;
+        maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize;
+        loopTimes = dataCount / maxDataCountPerLoop + static_cast<u64>(dataCount % maxDataCountPerLoop != 0);
+        ccuTaskNum = loopTimes * 18;
     } else if (opParam->opType == HCCL_KERNEL_OP_TYPE_BROADCAST) { // broadcast 还要写
         maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize;
         loopTimes = dataCount / maxDataCountPerLoop + static_cast<u64>(dataCount % maxDataCountPerLoop != 0);
