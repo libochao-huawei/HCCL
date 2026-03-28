@@ -96,7 +96,7 @@ HcclResult HcclAllReduceGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCou
     std::string tagStr = tag;
 
     /* 接口交互信息日志 */
-    CHK_RET(AllReduceEntryLog(sendBuf, recvBuf, count, dataType, op, stream, opTag, "HcclAllReduceGraphMode"));
+    CHK_RET(AllReduceEntryLog(sendBuf, recvBuf, sendCount, dataType, op, stream, opTag, "HcclAllReduceGraphMode"));
     // 执行AllReduce
     CHK_RET_AND_PRINT_IDE(AllReduceOutPlaceGraphMode(sendBuf, recvBuf, sendCount, dataType, op, comm, stream, tagStr, resPack), tagStr.c_str());
     CHK_RET(LogHcclExit("HcclAllReduceGraphMode", opTag, startut));
@@ -208,7 +208,6 @@ HcclResult AllReduceOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t count,
     return HCCL_SUCCESS;
 }
 
-<<<<<<< HEAD
 HcclResult AllReduceEntryLog(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
     aclrtStream stream, const std::string &tag, const std::string &opName)
 {
@@ -230,7 +229,6 @@ HcclResult AllReduceEntryLog(void *sendBuf, void *recvBuf, uint64_t count, HcclD
 }
 
 }
-=======
 HcclResult AllReduceOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op, HcclComm comm,
                                       aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack)
 {
@@ -251,4 +249,3 @@ HcclResult AllReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclD
 }
 
 }  // namespace ops_hccl
->>>>>>> origin/master
