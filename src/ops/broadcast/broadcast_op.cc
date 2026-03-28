@@ -49,7 +49,7 @@ HcclResult HcclBroadcast(void *buf, uint64_t count, HcclDataType dataType, uint3
 
     // 执行Broadcast
     CHK_RET_AND_PRINT_IDE(BroadcastOutPlace(buf, count, dataType, root, comm, stream, opTag),
-                          tag.c_str());
+                          opTag.c_str());
 
     CHK_RET(LogHcclExit("HcclBroadcast", opTag, startut));
 
