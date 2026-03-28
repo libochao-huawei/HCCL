@@ -214,11 +214,12 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
 
     // 算法执行
     if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
-        CHK_RET(GetUnfoldThreadInfo(comm, param, resCtxHost->unfoldThread));
+        ThreadHandle unfoldThread;
+        CHK_RET(GetUnfoldThreadInfo(comm, param, unfoldThread));
         // 根据主流的捕获状态决定展开流的状态
-        CHK_RET(CaptureSlaveStreams(comm, param.stream, {mainThread, resCtxHost->unfoldThread}));
+        CHK_RET(CaptureSlaveStreams(comm, param.stream, {mainThread, unfoldThread}));
         CHK_RET(HcclAicpuKernelEntranceLaunch(comm, param, cpuTsThread, exportedCpuTsThread, notifyNumOnMainThread,
-            resCtxSequence, algName, resCtxHost->unfoldThread));
+            resCtxSequence, algName, unfoldThread));
     } else if (param.engine == COMM_ENGINE_AIV) {
         param.resCtx = resCtxSequence;
         AlgResourceCtxSerializable &resCtxHost = *static_cast<AlgResourceCtxSerializable *>(resCtxSequence);
