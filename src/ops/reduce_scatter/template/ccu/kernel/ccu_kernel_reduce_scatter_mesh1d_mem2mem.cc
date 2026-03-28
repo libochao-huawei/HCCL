@@ -422,11 +422,11 @@ std::vector<uint64_t> CcuKernelReduceScatterMesh1DMem2Mem::GeneArgs(const CcuTas
     };
 
     HCCL_INFO("[CcuKernelReduceScatterMesh1DMem2Mem] TaskArgs: inputAddr[%llu], outputAddr[%llu], "
-               "scratchAddr[%llu], currentRankSliceInputOffset[%llu], currentRankSliceInputOffset[%llu], "
+               "scratchAddr[%llu], currentRankSliceInputOffset[%llu], currentRankSliceOutputOffset[%llu], "
                "inputRepeatStride[%llu], outputRepeatStride[%llu], "
                "normalSliceSize[%llu], lastSliceSize[%llu], repeatNum[%llu]",
-               inputAddr, outputAddr, scratchAddr, currentRankSliceInputOffset, currentRankSliceInputOffset,
-               inputRepeatStride, outputRepeatStride, normalSliceSize, lastSliceSize, repeatNum);
+               inputAddr, outputAddr, scratchAddr, currentRankSliceInputOffset, currentRankSliceOutputOffset,
+               inputRepeatStride, outputRepeatStride, normalSliceSize, lastSliceSize, UINT64_MAX - repeatNum);
                
     taskArgs.insert(taskArgs.cend(), GoSize.cbegin(), GoSize.cend());
     return taskArgs;
