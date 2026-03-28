@@ -56,7 +56,7 @@ protected:
     HcclDataType                     dataType_;
     // 从OpParam中获取
     bool                             enableDetour_ = false;
-    u32                              sliceId_ = 0; // 用于组装aivCountTag
+    u32                              sliceId_ = 0;
 };
 
 } // namespace Hccl

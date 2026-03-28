@@ -74,7 +74,7 @@ namespace ops_hccl {
         resourceRequest.slaveThreadNum = 0;
 
         std::vector<HcclChannelDesc> level0Channels;
-        CHK_RET(CreateChannelRequestByRankId(comm, myRank_, remoteRank_, level0Channels));
+        CHK_RET(CreateChannelRequestByRankId(comm, param, myRank_, remoteRank_, level0Channels));
         resourceRequest.channels.push_back(level0Channels);
 
         HCCL_DEBUG("[InsRecvExecutor][CalcRes][%d]<-[%d] Success.", myRank_, remoteRank_);
@@ -120,7 +120,7 @@ namespace ops_hccl {
 
     HcclResult InsRecvExecutor::OrchestrateOffload(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const ThreadHandle &thread, const ChannelInfo &channel) {
         (void) resCtx;
-        void *srcBufferPtr = static_cast<void *>(channel.remoteInput.addr);
+        void *srcBufferPtr = static_cast<void *>(channel.remoteInputGraphMode.addr);
         // 图模式直接到本端output buffer
         void *dstBufferPtr = static_cast<void *>(param.outputPtr);
         // UB传输最大数据量

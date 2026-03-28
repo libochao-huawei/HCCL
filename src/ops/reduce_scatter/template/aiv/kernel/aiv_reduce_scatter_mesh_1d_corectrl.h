@@ -76,12 +76,12 @@ public:
         valid_ = true;
     }
 
-    __aicore__ inline void Process(uint32_t tag)
+    __aicore__ inline void Process(uint32_t sliceId)
     {
         if (!valid_) {
             return;
         }
-        curTag_ = static_cast<int32_t>(tag);
+        curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
 
         for (uint32_t p = producerBegin_; p < producerEnd_; ++p) {
             ProducerOne(p);
@@ -105,7 +105,6 @@ private:
     uint32_t producerEnd_ = 0;
     uint32_t consumerBegin_ = 0;
     uint32_t consumerEnd_ = 0;
-    int32_t  curTag_ = 0;
     uint64_t outputOffset_ = 0;
     uint64_t inputOffVec_[MAX_RANK_SIZE];
     uint64_t consumProcessNum_ = 0;
@@ -168,16 +167,12 @@ __aicore__ inline void AivReduceScatterV2Mesh1DCoreCtrl(EXTERN_KERNEL_ARGS_DEF_V
     AivReduceScatterMesh1DCoreCtrl<T> op;
     op.Init(KERNEL_CLASS_INIT, true);
     op.InitCoreInfo(len, inputSliceStride);
-
     SyncAll<true>();
-    if (block_idx == 0 &&
-        (tag >> AIV_TAG_MOVE_RIGHT_BITS) == 1 &&
-        (tag & LOW_16_BITS) == 1) {
+    if (op.IsFirstOP(sliceId)) {
         op.BarrierForFirstOP();
     }
     SyncAll<true>();
-
-    op.Process(tag);
+    op.Process(sliceId);
     op.BarrierAll();
 }
 

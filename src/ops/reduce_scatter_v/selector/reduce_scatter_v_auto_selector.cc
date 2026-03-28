@@ -76,7 +76,7 @@ SelectorStatus ReduceScatterVAutoSelector::SelectMeshAlgoCcums(const TopoInfoWit
         }
     } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
         HCCL_WARNING("[ReduceScatterVAutoSelector] level0Topo[%d] is not supported yet for ccu_ms mode.",
-                topoInfo->level0Topo);  
+                topoInfo->level0Topo);
         return SelectorStatus::NOT_MATCH;
     } else {
         HCCL_WARNING("[ReduceScatterVAutoSelector] level0Topo[%d] is not supported yet for ccu_ms mode.",
@@ -103,14 +103,20 @@ SelectorStatus ReduceScatterVAutoSelector::SelectCcuScheduleAlgo(const TopoInfoW
         return SelectorStatus::NOT_MATCH;
     }
 
+    // 调度模式使用 MS 进行规约后不支持 int8
+    CHK_PRT_RET(opParam.vDataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT8,
+        HCCL_WARNING("[Algo][ReduceScatterVAutoSelector] dataType[%d] is not supported yet for ccu schedule mode.",
+            opParam.vDataDes.dataType),
+        SelectorStatus::NOT_MATCH);
+
     if (topoInfo->topoLevelNums > 1) {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             if (topoInfo->netLayerDetails.localNetInsSizeOfLayer.at(0) > 1) {
                 selectAlgName = "CcuReduceScatterVParallelMesh1DNHR";
-                return SelectorStatus::MATCH;
+                return SelectorStatus::NOT_MATCH;
             } else {
                 selectAlgName = "CcuReduceScatterVNHR1DMem2Mem";
-                return SelectorStatus::MATCH;
+                return SelectorStatus::NOT_MATCH;
             }
         } else {
             HCCL_WARNING("[SelectCcuScheduleAlgo] layer0Shape[%d] is not supported yet for ccu schedule mode.",
@@ -132,12 +138,12 @@ SelectorStatus ReduceScatterVAutoSelector::SelectMeshAlgoCcuSchedule(const TopoI
             HCCL_WARNING("[ReduceScatterVAutoSelector] 2DieFullMesh is not supported yet for ccu schedule mode.");
             return SelectorStatus::NOT_MATCH;
         } else {
-            selectAlgName = "CcuReduceScatterVMeshMem2Mem1D";
+            selectAlgName = "CcuReduceScatterVMesh1D";
         }
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
         if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
             // MESH_1D 即可链接所有卡， 使用 MESH_1D 算法
-            selectAlgName = "CcuReduceScatterVMeshMem2Mem1D";
+            selectAlgName = "CcuReduceScatterVMesh1D";
         } else {
             HCCL_WARNING("[ReduceScatterVAutoSelector] level0Topo[%d] is not supported yet for ccu schedule mode.",
                 topoInfo->level0Topo);
@@ -168,7 +174,7 @@ SelectorStatus ReduceScatterVAutoSelector::SelectAicpuAlgo(const TopoInfoWithNet
         HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64 only support in-box fullmesh algo type now.");
         return SelectorStatus::NOT_MATCH;
     }
-    
+
     if (topoInfo->topoLevelNums > 1) {
         HCCL_WARNING("[ReduceScatterVAutoSelector] layerNum > 1 is not supported yet for aicpu_schedule mode.");
         return SelectorStatus::NOT_MATCH;
@@ -181,7 +187,7 @@ SelectorStatus ReduceScatterVAutoSelector::SelectAicpuAlgo(const TopoInfoWithNet
 
 SelectorStatus ReduceScatterVAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                           std::string &selectAlgName) const
-{   
+{
     (void) opParam;
     if (topoInfo->level0Topo == Level0Shape::MESH_1D){
         selectAlgName = "InsReduceScatterVMesh1D";
@@ -197,23 +203,8 @@ SelectorStatus ReduceScatterVAutoSelector::SelectAivAlgo(const TopoInfoWithNetLa
                                                        std::string &selectAlgName) const
 {
     HCCL_DEBUG("[ReduceScatterVAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
-    (void)configAlgMap;
-
-    //aiv 模式不支持 PROD
-    CHK_PRT_RET(opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD,
-        HCCL_WARNING("[ReduceScatterVAutoSelector] ReduceOp[%d] is not supported yet for aiv mode.",
-            opParam.reduceType),
-        SelectorStatus::NOT_MATCH);
-
-    if (opParam.vDataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT64 ||
-        opParam.vDataDes.dataType == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
-        opParam.vDataDes.dataType == HcclDataType::HCCL_DATA_TYPE_FP64) {
-        HCCL_WARNING("[Algo][ReduceScatterVAutoSelector] aiv mode not support INT64, UINT64, FP64.");
-        return SelectorStatus::NOT_MATCH;
-    }
-
-    selectAlgName = "AivReduceScatterVMesh1D";
-    return SelectorStatus::MATCH;
+    HCCL_DEBUG("[Algo][ReduceScatterVAutoSelector] is not supported yet for AIV mode, reverting to AICPU mode.");
+    return SelectorStatus::NOT_MATCH;
 }
 
 REGISTER_SELECTOR_BY_OPTYPE(HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V, 18, ReduceScatterVAutoSelector);
