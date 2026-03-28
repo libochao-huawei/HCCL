@@ -126,12 +126,75 @@ HcclResult CheckAllGatherVInputPara(const HcclComm comm, const void* sendBuf, co
  
     return HCCL_SUCCESS;
 }
-
+ 
 HcclResult AllGatherVOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount,const void *recvCounts,const void *recvDispls,
     HcclDataType dataType, HcclComm comm, aclrtStream stream, const std::string &tag)
 {
     HCCL_INFO("Start to execute AllGatherVOutPlace");
-    CHK_RET(AllGatherVOutPlaceCommon(sendBuf, recvBuf, sendCount, recvCounts, recvDispls, dataType, comm, stream, tag, OpMode::OPBASE, ResPackGraphMode()));
+    u32 userRankSize;
+    CHK_RET(HcclGetRankSize(comm, &userRankSize));
+    u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
+    u64 inputSize = sendCount * perDataSize;    // all gather v 每个rank上一份数据
+    u64 outputSize = 0;  
+    const u64 *u64RecvCount = reinterpret_cast<const u64 *>(recvCounts);
+    for (u64 i = 0; i < userRankSize; i++) {
+        outputSize += u64RecvCount[i] * perDataSize;
+    }  // 结果为recvCount中的数据之和
+
+    // 申请OpParam参数结构体内存
+    u64 varMemSize = (userRankSize + userRankSize) * sizeof(u64);
+    void* paramMem = malloc(sizeof(OpParam) + varMemSize);
+    if (!paramMem) {
+        // 内存分配失败
+        HCCL_ERROR("malloc OpParam failed!");
+        return HCCL_E_INTERNAL;
+    }
+    OpParam* paramPtr = new (paramMem) OpParam();
+    OpParam& param = *paramPtr;
+    CHK_RET(HcclGetCommName(comm, param.commName));
+    param.stream = stream;
+    param.opMode = OpMode::OPBASE;
+ 
+    DevType deviceType = DevType::DEV_TYPE_COUNT;
+    CHK_RET(hrtGetDeviceType(deviceType));
+ 
+    // topoInfo的tag，所有相同的算子可以共享
+    int ret = sprintf_s(param.tag, sizeof(param.tag), "%s", tag.c_str());
+    if (ret <= 0) {
+        HCCL_ERROR("failed to fill param.tag");
+        return HCCL_E_INTERNAL;
+    }
+ 
+    // 参数准备
+    param.inputPtr = sendBuf;
+    param.inputSize = inputSize;
+    param.outputPtr = recvBuf;
+    param.outputSize = outputSize;
+    param.DataDes.count = sendCount;
+    param.vDataDes.dataType = dataType;
+
+    // 带V算子的参数
+    param.varMemSize = varMemSize;
+    // 从源内存地址按字节直接拷贝数据到目标地址
+    std::vector<u64> merged(userRankSize + userRankSize); 
+    const uint64_t *countsPtr = reinterpret_cast<const uint64_t *>(recvCounts);
+    const uint64_t *displsPtr = reinterpret_cast<const uint64_t *>(recvDispls);
+    std::copy(countsPtr, countsPtr + userRankSize, merged.begin());
+    std::copy(displsPtr, displsPtr + userRankSize, merged.begin() + userRankSize);
+    memcpy_s(param.varData, varMemSize, merged.data(), varMemSize);
+    param.opType = HcclCMDType::HCCL_CMD_ALLGATHER_V;
+    param.enableDetour = false;
+    param.deviceType = deviceType;
+
+    std::string algName;
+    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
+    CHK_RET(Selector(comm, param, topoInfo, algName));
+    if (ShouldUseInnerOp(param.opExecuteConfig)) {
+        return HcclAllGatherVInner(sendBuf, sendCount, recvBuf, recvCounts, recvDispls, dataType, comm, stream);
+    }
+    CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
+    paramPtr->~OpParam();
+    free(paramMem);
     HCCL_INFO("Execute AllGatherVOutPlace success.");
     return HCCL_SUCCESS;
 }
@@ -139,19 +202,19 @@ HcclResult AllGatherVOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount,c
 HcclResult AllGatherVOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCount, const void *recvCounts,const void *recvDispls, HcclDataType dataType, HcclComm comm, 
     aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack)
 {
-    HCCL_INFO("Start to execute AllGatherVOutPlace");
-    CHK_RET(AllGatherVOutPlaceCommon(sendBuf, recvBuf, sendCount, recvCounts, recvDispls, dataType, comm, stream, tag, OpMode::OFFLOAD, resPack));
-    HCCL_INFO("Execute AllGatherVOutPlace success.");
-    return HCCL_SUCCESS;
-}
-
-
-HcclResult AllGatherVOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t sendCount, const void *recvCounts, const void *recvDispls, HcclDataType dataType, HcclComm comm, 
-    aclrtStream stream, const std::string &tag, OpMode opMode, const ResPackGraphMode &resPack)
-{
-    u32 userRankSize;
+ 	HCCL_INFO("Start to execute AllGatherVOutPlaceGraphMode");
+ 	u32 userRankSize;
  	CHK_RET(HcclGetRankSize(comm, &userRankSize));
-    // 申请OpParam参数结构体内存
+ 	  	 
+ 	u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
+ 	u64 inputSize = sendCount * perDataSize;    // all gather v 每个rank上一份数据
+ 	u64 outputSize = 0;  
+    const u64 *u64RecvCount = reinterpret_cast<const u64 *>(recvCounts);
+    const u64 *u64RecvDispls = reinterpret_cast<const u64 *>(recvDispls);
+    for (u64 i = 0; i < userRankSize; i++) {
+        outputSize = (outputSize > (u64RecvDispls[i] + u64RecvCount[i]) * perDataSize) ? outputSize : (u64RecvDispls[i] + u64RecvCount[i]) * perDataSize;
+    }// 结果为最大的displs加recvcount 	 
+ 	// 申请OpParam参数结构体内存
  	u64 varMemSize = (userRankSize + userRankSize) * sizeof(u64);
  	void* paramMem = malloc(sizeof(OpParam) + varMemSize);
  	if (!paramMem) {
@@ -159,52 +222,12 @@ HcclResult AllGatherVOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t sendC
  	    HCCL_ERROR("malloc OpParam failed!");
  	    return HCCL_E_INTERNAL;
  	} 
-
-    OpParam* tmpParamPtr = new (paramMem) OpParam();
-    auto deleter = [](OpParam* p) {
-        if (p) {
-            p->~OpParam();
-            free(p);
-        }
-     };
-    std::unique_ptr<OpParam, decltype(deleter)> paramPtr(tmpParamPtr, deleter);
-    OpParam& param = *paramPtr;
-
-    CHK_RET(PrepareAllGatherVParam(sendBuf, recvBuf, sendCount, recvCounts, recvDispls, dataType, comm, stream, tag, opMode, userRankSize, varMemSize, param));
-    
-    std::string algName;
-    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
-    CHK_RET(Selector(comm, param, topoInfo, algName));
-    if (ShouldUseInnerOp(param.opExecuteConfig)) {
-        return HcclAllGatherInner(sendBuf, recvBuf, sendCount, dataType, comm, stream);
-    }
-    if (userRankSize == 1) {
-        HCCL_WARNING("[%s] rankSize == 1, enter SingleRankProc", __func__);
-        CHK_RET(SingleRankProc(param));
-        return HcclResult::HCCL_SUCCESS;
-    }
-    CHK_RET(HcclExecOp(comm, param, topoInfo, algName, resPack));
-    HCCL_INFO("Execute AllGatherOutPlace success.");
-    return HCCL_SUCCESS;
-}
-
-HcclResult PrepareAllGatherVParam(void *sendBuf, void *recvBuf, uint64_t sendCount, const void *recvCounts, const void *recvDispls, HcclDataType dataType,
-     HcclComm comm, aclrtStream stream, const std::string &tag,  OpMode opMode, u32 userRankSize, u64 varMemSize, OpParam &param) 
-{
-    u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
-    u64 inputSize = sendCount * perDataSize;    // all gather v 每个rank上一份数据
- 	u64 outputSize = 0;  
-    const u64 *u64RecvCount = reinterpret_cast<const u64 *>(recvCounts);
-    const u64 *u64RecvDispls = reinterpret_cast<const u64 *>(recvDispls);
-    for (u64 i = 0; i < userRankSize; i++) {
-        outputSize = (outputSize > (u64RecvDispls[i] + u64RecvCount[i]) * perDataSize) ? outputSize : (u64RecvDispls[i] + u64RecvCount[i]) * perDataSize;
-    }// 结果为最大的displs加recvcount 	 
-    HCCL_INFO("PrepareAllGatherVParam[outputSize]:[%u]", outputSize);
-
+ 	OpParam* paramPtr = new (paramMem) OpParam();
+ 	OpParam& param = *paramPtr; 
     CHK_RET(HcclGetCommName(comm, param.commName));
-    param.stream = stream;
-    param.opMode = opMode;
-
+ 	param.stream = stream;
+ 	param.opMode = OpMode::OPBASE;
+ 	  	 
     DevType deviceType = DevType::DEV_TYPE_COUNT;
  	CHK_RET(hrtGetDeviceType(deviceType));
  	  	 
@@ -214,6 +237,7 @@ HcclResult PrepareAllGatherVParam(void *sendBuf, void *recvBuf, uint64_t sendCou
  	  	HCCL_ERROR("failed to fill param.tag");
  	  	return HCCL_E_INTERNAL;
  	}
+ 	  	 
  	// 参数准备
  	param.inputPtr = sendBuf;
  	param.inputSize = inputSize;
@@ -221,31 +245,29 @@ HcclResult PrepareAllGatherVParam(void *sendBuf, void *recvBuf, uint64_t sendCou
  	param.outputSize = outputSize;
  	param.DataDes.count = sendCount;
  	param.vDataDes.dataType = dataType;
-
-    HCCL_INFO("PrepareAllGatherVParam: sendBuf:[%u]", sendBuf);
-    HCCL_INFO("PrepareAllGatherVParam: recvBuf:[%u]", recvBuf);
-    HCCL_INFO("PrepareAllGatherVParam: sendCount:[%u]", sendCount);
-
-    std::vector<u64> countsAndDispls(userRankSize*2);
-    const u64* recvCountsAddr = reinterpret_cast<const u64*>(recvCounts);
-    const u64* recvDisplsAddr = reinterpret_cast<const u64*>(recvDispls);
-
-    std::copy(recvCountsAddr, recvCountsAddr + userRankSize, countsAndDispls.begin());
-    std::copy(recvDisplsAddr, recvDisplsAddr + userRankSize, countsAndDispls.begin() + userRankSize);
+    // 带V算子的参数
     param.varMemSize = varMemSize;
-
-    for (u64 i=0; i < countsAndDispls.size();++i) {
-        HCCL_INFO("PrepareReduceScatterVParam: countsAndDispls[%u]:[%u]", i, countsAndDispls[i]);
-    }
-
     // 从源内存地址按字节直接拷贝数据到目标地址
-    memcpy_s(param.varData, varMemSize, countsAndDispls.data(), varMemSize);
-    const u64* varData = reinterpret_cast<const u64*>(param.varData);
-
+    std::vector<u64> merged(userRankSize + userRankSize); 
+    const uint64_t *countsPtr = reinterpret_cast<const uint64_t *>(recvCounts);
+    const uint64_t *displsPtr = reinterpret_cast<const uint64_t *>(recvDispls);
+    std::copy(countsPtr, countsPtr + userRankSize, merged.begin());
+    std::copy(displsPtr, displsPtr + userRankSize, merged.begin() + userRankSize);
+    memcpy_s(param.varData, varMemSize, merged.data(), varMemSize);
     param.opType = HcclCMDType::HCCL_CMD_ALLGATHER_V;
     param.enableDetour = false;
     param.deviceType = deviceType;
-    return HCCL_SUCCESS;
+ 	if (userRankSize == 1) {
+ 	  	HCCL_WARNING("[%s] rankSize == 1, enter SingleRankProc", __func__);
+ 	  	CHK_RET(SingleRankProc(param));
+ 	  	return HcclResult::HCCL_SUCCESS;
+ 	}
+ 	std::string algName;
+ 	std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
+ 	CHK_RET(Selector(comm, param, topoInfo, algName));
+ 	CHK_RET(HcclExecOp(comm, param, topoInfo, algName, resPack));
+ 	HCCL_INFO("Execute AllGatherVOutPlaceGraphMode success.");
+ 	return HCCL_SUCCESS;
 }
 
 }  // namespace ops_hccl
