@@ -163,10 +163,10 @@ HcclResult AllGatherVOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t sendC
     OpParam* tmpParamPtr = new (paramMem) OpParam();
     auto deleter = [](OpParam* p) {
         if (p) {
-            p -> OpParam();
+            p->~OpParam();
             free(p);
         }
-    };
+     };
     std::unique_ptr<OpParam, decltype(deleter)> paramPtr(tmpParamPtr, deleter);
     OpParam& param = *paramPtr;
 
