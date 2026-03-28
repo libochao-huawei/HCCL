@@ -233,22 +233,29 @@ HcclResult ReduceMesh1DTwoShot::RunReduceScatter(const TemplateDataParams &tempA
     return HCCL_SUCCESS;
 }
 
+ReduceMesh1DTwoShot::LocalSliceInfo ReduceMesh1DTwoShot::GetLocalSliceInfo(const TemplateDataParams &tempAlgParam) const
+{
+    LocalSliceInfo info;
+    info.sliceSize = sliceInfoList_.at(myIdx_).size;
+    info.sliceCount = sliceInfoList_.at(myIdx_).count;
+    info.sliceOffset = sliceInfoList_.at(myIdx_).offset;
+    info.outBuffBaseOffset = tempAlgParam.buffInfo.outBuffBaseOff;
+    info.hcclBuffBaseOffset = tempAlgParam.buffInfo.hcclBuffBaseOff;
+    info.localOutBuffPtr = tempAlgParam.buffInfo.outputPtr;
+    info.localHcclBuffPtr = tempAlgParam.buffInfo.hcclBuff.addr;
+    return info;
+}
+
 HcclResult ReduceMesh1DTwoShot::GatherLocalData(const TemplateDataParams &tempAlgParam,
     const std::vector<ThreadHandle> &threads)
 {
-    const u64 curSliceSize = sliceInfoList_.at(myIdx_).size;
-    const u64 curSliceCount = sliceInfoList_.at(myIdx_).count;
-    const u64 curSliceOffset = sliceInfoList_.at(myIdx_).offset;
-    u64 outBuffBaseOffset = tempAlgParam.buffInfo.outBuffBaseOff;
-    u64 hcclBuffBaseOffset = tempAlgParam.buffInfo.hcclBuffBaseOff;
-    void* localOutBuffPtr = tempAlgParam.buffInfo.outputPtr;
-    void* localHcclBuffPtr = tempAlgParam.buffInfo.hcclBuff.addr;
+    LocalSliceInfo info = GetLocalSliceInfo(tempAlgParam);
 
-    if (curSliceSize == 0) {
+    if (info.sliceSize == 0) {
         return HCCL_SUCCESS;
     }
-    DataSlice copySrcSlice(localHcclBuffPtr, hcclBuffBaseOffset + curSliceOffset, curSliceSize, curSliceCount);
-    DataSlice copyDstSlice(localOutBuffPtr, outBuffBaseOffset + curSliceOffset, curSliceSize, curSliceCount);
+    DataSlice copySrcSlice(info.localHcclBuffPtr, info.hcclBuffBaseOffset + info.sliceOffset, info.sliceSize, info.sliceCount);
+    DataSlice copyDstSlice(info.localOutBuffPtr, info.outBuffBaseOffset + info.sliceOffset, info.sliceSize, info.sliceCount);
     CHK_PRT_RET(LocalCopy(threads.at(myIdx_), copySrcSlice, copyDstSlice),
         HCCL_ERROR("[InsTempReduceMesh1DTwoShot][GatherLocalData] LocalCopy failed."),
         HcclResult::HCCL_E_INTERNAL);
@@ -289,19 +296,13 @@ HcclResult ReduceMesh1DTwoShot::GatherRemoteData(const TemplateDataParams &tempA
 HcclResult ReduceMesh1DTwoShot::SendToRoot(const TemplateDataParams &tempAlgParam,
     const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads)
 {
-    const u64 curSliceSize = sliceInfoList_.at(myIdx_).size;
-    const u64 curSliceCount = sliceInfoList_.at(myIdx_).count;
-    const u64 curSliceOffset = sliceInfoList_.at(myIdx_).offset;
-    u64 outBuffBaseOffset = tempAlgParam.buffInfo.outBuffBaseOff;
-    u64 hcclBuffBaseOffset = tempAlgParam.buffInfo.hcclBuffBaseOff;
-    void* localOutBuffPtr = tempAlgParam.buffInfo.outputPtr;
-    void* localHcclBuffPtr = tempAlgParam.buffInfo.hcclBuff.addr;
+    LocalSliceInfo info = GetLocalSliceInfo(tempAlgParam);
 
-    if (curSliceSize == 0) {
+    if (info.sliceSize == 0) {
         return HCCL_SUCCESS;
     }
-    DataSlice sendSrcSlice(localHcclBuffPtr, hcclBuffBaseOffset + curSliceOffset, curSliceSize, curSliceCount);
-    DataSlice sendDstSlice(localOutBuffPtr, outBuffBaseOffset + curSliceOffset, curSliceSize, curSliceCount);
+    DataSlice sendSrcSlice(info.localHcclBuffPtr, info.hcclBuffBaseOffset + info.sliceOffset, info.sliceSize, info.sliceCount);
+    DataSlice sendDstSlice(info.localOutBuffPtr, info.outBuffBaseOffset + info.sliceOffset, info.sliceSize, info.sliceCount);
     const SlicesList sendSlicesList({sendSrcSlice}, {sendDstSlice});
     const ChannelInfo &channel = channels.at(subCommRanks_.at(0).at(root_)).at(0);
     const DataInfo sendInfo(channel, sendSlicesList);
