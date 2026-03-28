@@ -81,7 +81,11 @@ HcclResult CcuTempReduceScatterMesh1DMem2Mem::CalcRes(HcclComm comm, const OpPar
 HcclResult CcuTempReduceScatterMesh1DMem2Mem::KernelRun(const OpParam& param,
                                                         const TemplateDataParams& templateDataParams,
                                                         const TemplateResource& templateResource)
-{
+{   
+    if (templateDataParams.sliceSize == 0 && templateDataParams.tailSize == 0) {
+        HCCL_INFO("[CcuTempReduceScatterMesh1DMem2Mem] sliceSize is 0, no need to do, just success.");
+        return HCCL_SUCCESS;
+    }
     buffInfo_ = templateDataParams.buffInfo;
 
     uint64_t repeatNumTmp       = templateDataParams.repeatNum;

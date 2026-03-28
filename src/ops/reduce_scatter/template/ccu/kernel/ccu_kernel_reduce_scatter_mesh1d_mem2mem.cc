@@ -80,6 +80,7 @@ HcclResult CcuKernelReduceScatterMesh1DMem2Mem::InitResource()
     inputRepeatStride_           = CreateVariable();
     outputRepeatStride_          = CreateVariable();
     repeatNum_                   = CreateVariable();
+    lastSliceSize_               = CreateVariable();
     flag_                        = CreateVariable();
     GoSize_                      = CreateGroupOpSize();
 
