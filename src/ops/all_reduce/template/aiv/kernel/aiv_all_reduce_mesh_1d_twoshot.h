@@ -30,7 +30,6 @@ public:
     uint64_t innerChunkSize;
     uint64_t rankChunkStride;
     uint64_t innerChunkStride;
-    int32_t  curTag;
  
     uint64_t ipc_reduce_flag_offset{1024};
  
@@ -41,7 +40,7 @@ public:
 */
 __aicore__ inline void InitCoreInfo(uint32_t stepTag)
 {
-    curTag             = static_cast<int32_t>(stepTag);
+    curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (stepTag & LOW_16_BITS);
     uint64_t dataCount = len_;
     // aiv core 划分
     // 1D rankSize_ <=16； coreNumPerRank*(ranksize_+1)一定比numBlocks_小，否则就需要一个aicore处理多个rank的数据
@@ -93,13 +92,13 @@ __aicore__ inline void ReduceScatter()
             pipe_barrier(PIPE_ALL);
         }
         // set flag
-        Record(targetRank, rank_ * coreNumPerRank + inner_id, curTag);
+        Record(targetRank, rank_ * coreNumPerRank + inner_id, curTag_);
     } else if (GetBlockIdx() < coreNumTotal) {
         if (innerChunkSize > 0) {
             // 等待当前slice的数据都已送到
             for (uint32_t i = 0; i < rankSize_; i++) {
                 // check flag
-                WaitFlag(rank_, i * coreNumPerRank + inner_id, curTag);
+                WaitFlag(rank_, i * coreNumPerRank + inner_id, curTag_);
                 if (i == 0) { // 需要等待第0个rank的scatter数据到达，但是不能自身重复reduce
                     continue;
                 }
@@ -113,7 +112,7 @@ __aicore__ inline void ReduceScatter()
             }
         }
         // set flag
-        Record(rank_, ipc_reduce_flag_offset + inner_id, curTag);
+        Record(rank_, ipc_reduce_flag_offset + inner_id, curTag_);
     }
 }
  
@@ -127,7 +126,7 @@ __aicore__ inline void AllGather()
             return;
         }
         // waitflag
-        WaitFlag(targetRank, ipc_reduce_flag_offset + inner_id, curTag);
+        WaitFlag(targetRank, ipc_reduce_flag_offset + inner_id, curTag_);
  
         // gather
         uint64_t inputOffset
@@ -154,7 +153,7 @@ __aicore__ inline void SmallCoreReduceScatter(uint32_t stepTag)
     uint64_t dataCount     = len_;
     rankChunkStride        = RoundUPAiv(dataCount, rankSize_);
     ipc_reduce_flag_offset = rankSize_;
-    curTag                 = static_cast<int32_t>(stepTag);
+    curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (stepTag & LOW_16_BITS);
  
     // scatter
     for (uint32_t i = 0; block_idx + i * numBlocks_ < rankSize_; i++) {
@@ -171,7 +170,7 @@ __aicore__ inline void SmallCoreReduceScatter(uint32_t stepTag)
             pipe_barrier(PIPE_ALL);
         }
         // set flag
-        Record(targetRank, rank_, curTag);
+        Record(targetRank, rank_, curTag_);
     }
     // reduce
     if (block_idx == numBlocks_ - 1) {
@@ -182,7 +181,7 @@ __aicore__ inline void SmallCoreReduceScatter(uint32_t stepTag)
         ;
         if (myRankChuckSize > 0) {
             for (uint32_t i = 0; i < rankSize_; i++) {
-                WaitFlag(rank_, i, curTag);
+                WaitFlag(rank_, i, curTag_);
                 if (i == 0) { // 需要等待第0个rank的scatter数据到达，但是不能自身重复reduce
                     continue;
                 }
@@ -193,7 +192,7 @@ __aicore__ inline void SmallCoreReduceScatter(uint32_t stepTag)
                 pipe_barrier(PIPE_ALL);
             }
         }
-        Record(rank_, ipc_reduce_flag_offset + 1, curTag);
+        Record(rank_, ipc_reduce_flag_offset + 1, curTag_);
     }
 }
  
@@ -215,7 +214,7 @@ __aicore__ inline void SmallCoreAllgather()
         }
  
         // waitflag
-        WaitFlag(targetRank, ipc_reduce_flag_offset + 1, curTag);
+        WaitFlag(targetRank, ipc_reduce_flag_offset + 1, curTag_);
  
         // gather
         uint64_t inputOffset  = reinterpret_cast<uint64_t>(GM_IN[targetRank]);
@@ -238,16 +237,16 @@ __aicore__ inline void AivAllReduceV2Mesh1DTwoShot(EXTERN_KERNEL_ARGS_DEF_V2)
     AivAllReduceMesh1DTwoShot<T> op;
     op.Init(KERNEL_CLASS_INIT, true);
     SyncAll<true>();
-    if (block_idx == 0 && tag >> AIV_TAG_MOVE_RIGHT_BITS == 1 && (tag & LOW_16_BITS) == 1) {
+    if (op.IsFirstOP(sliceId)) {
         op.BarrierForFirstOP();
     }
     SyncAll<true>();
     if (rankSize + 1 <= block_num) {
-        op.InitCoreInfo(tag);
+        op.InitCoreInfo(sliceId);
         op.ReduceScatter();
         op.AllGather();
     } else {
-        op.SmallCoreReduceScatter(tag);
+        op.SmallCoreReduceScatter(sliceId);
         op.SmallCoreAllgather();
     }
     op.BarrierAll();
