@@ -23,7 +23,14 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 HcclResult HcclReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
     uint32_t root, HcclComm comm, aclrtStream stream)
 {
+    if (!HcclCheckAicpuEnableOpen() && !HcclCheckCcuEnableOpen() && !HcclCheckAivEnableOpen()) {
+        return HcclReduceInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
+    }
     HCCL_INFO("Start to run execute HcclReduce");
+    if (GetHcommVersion() < 90000000) { // compat handle
+        return HcclReduceInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
+    }
+
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
     // 非95设备转到老流程
@@ -34,10 +41,7 @@ HcclResult HcclReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType
     #endif
         return HcclReduceInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
     }
-    // 图模式引导到老的流程上面
-    if (GetWorkflowMode() != HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE) {
-        return HcclReduceInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
-    }
+
     // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
     // A3是：export HCCL_OP_EXPANSION_MODE="AI_CPU"，A5的接口还没提供
     CHK_RET(InitEnvConfig());
@@ -70,18 +74,18 @@ HcclResult CheckReduceInputPara(const HcclComm comm, const void* sendBuf, const 
     // 入参合法性校验
     RPT_INPUT_ERR(comm == nullptr,
         "EI0003",
-        std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),
-        std::vector<std::string>({"HcclReduce", "comm", "nullptr", "please check comm"}));
+        std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),
+        std::vector<std::string>({"HcclReduce", "nullptr", "comm", "non-null pointer"}));
     CHK_PTR_NULL(comm);
     RPT_INPUT_ERR(sendBuf == nullptr,
         "EI0003",
-        std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),
-        std::vector<std::string>({"HcclReduce", "sendBuf", "nullptr", "please check recvBuf"}));
+        std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),
+        std::vector<std::string>({"HcclReduce", "nullptr", "sendBuf", "non-null pointer"}));
     CHK_PTR_NULL(sendBuf);
     RPT_INPUT_ERR(recvBuf == nullptr,
         "EI0003",
-        std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),
-        std::vector<std::string>({"HcclReduce", "recvBuf", "nullptr", "please check recvBuf"}));
+        std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),
+        std::vector<std::string>({"HcclReduce", "nullptr", "recvBuf", "non-null pointer"}));
     CHK_PTR_NULL(recvBuf);
 
     return HCCL_SUCCESS;
