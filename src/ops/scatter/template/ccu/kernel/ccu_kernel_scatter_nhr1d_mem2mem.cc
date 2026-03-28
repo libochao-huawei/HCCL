@@ -338,7 +338,7 @@ void CcuKernelScatterNHR1DMem2Mem::DoScatterNHRSingleStep(const NHRStepInfo &nhr
             u32 sendSliceIdx = sendSliceIdxList[i];
             bool isLastSlice = false;
             if (sendSliceIdx == dimSize_ -1) {
-                isLastSlice == true;
+                isLastSlice = true;
             }
             // 每16个slice需要等待一次（RANK_NUM_PER_CKE = 16）
             if (i != 0 && i % RANK_NUM_PER_CKE == 0) {

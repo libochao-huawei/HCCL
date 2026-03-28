@@ -144,7 +144,6 @@ void CcuKernelScatterMesh1D::DoRepeatScatter()
             inputMem_[curId].addr += currentRankSliceInputOffset_;  // 每张卡加上偏移量
             outputMem_[curId].addr += outputSliceStride_;
         }
-        outputMem_[curId].addr = output_[curId];  // 设置每张卡的输出地址
     }
     if (rankId_ == rootId_) {
         CCU_WHILE(repeatNum_ != UINT64_MAX)
