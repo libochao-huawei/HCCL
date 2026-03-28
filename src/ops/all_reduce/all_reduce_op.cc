@@ -228,7 +228,6 @@ HcclResult AllReduceEntryLog(void *sendBuf, void *recvBuf, uint64_t count, HcclD
     return HCCL_SUCCESS;
 }
 
-}
 HcclResult AllReduceOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op, HcclComm comm,
                                       aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack)
 {
