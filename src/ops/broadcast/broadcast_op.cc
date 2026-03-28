@@ -62,7 +62,7 @@ HcclResult HcclBroadcastGraphMode(void *buf, uint64_t count, HcclDataType dataTy
     HcclComm comm = nullptr;
     HCCL_INFO("[HcclBroadcastGraphMode] get group name: %s", group);
     HcomGetCommHandleByGroup(group, &comm);
-    
+    HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
     CHK_PRT_RET(count == 0, HCCL_WARNING("input count is 0, return broadcast success"), HCCL_SUCCESS);
     std::string opTag;
     CHK_RET(BroadcastInitAndCheck(comm, buf, count, dataType, root, stream, opTag));
