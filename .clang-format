@@ -11,7 +11,7 @@ AlignConsecutiveAssignments: false
 AlignConsecutiveDeclarations: false
 
 # 转义换行对齐
-AlignEscapedNewlinesLeft: false
+AlignEscapedNewlines: DontAlign
 
 # 操作数对齐
 AlignOperands: true
@@ -101,7 +101,7 @@ ColumnLimit: 120
 CommentPragmas: '^ IWYU pragma:'
 
 # 构造函数初始化列表在一行或每行一个
-ConstructorInitializerAllOnOneLineOrOnePerLine: false
+PackConstructorInitializers: CurrentLine
 
 # 构造函数初始化宽度
 ConstructorInitializerIndentWidth: 4
@@ -122,14 +122,14 @@ DisableFormat: false
 ExperimentalAutoDetectBinPacking: false
 
 # foreach宏
-ForEachMacros: [ foreach, Q_FOREACH, BOOST_FOREACH ]
+ForEachMacros: [ foreach ]
 
 # 包含分类
 IncludeCategories:
-  - Regex: '^"(llvm|llvm-c|clang|clang-c)/'
-    Priority: 2
-  - Regex: '^(<|"(gtest|lsl|json)/)'
+  - Regex: '^<'
     Priority: 3
+  - Regex: '^"hccl'
+    Priority: 2
   - Regex: '.*'
     Priority: 1
 
