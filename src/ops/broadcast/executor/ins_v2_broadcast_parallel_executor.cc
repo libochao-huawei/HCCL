@@ -573,7 +573,7 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
         CHK_RET(PrepareResForTemplate23(resCtx, tempAlgIntra, tempAlgIntra1, tempAlgInter1));
         TemplateResource intraTempAlgRes1;
         TemplateResource interTempAlgRes1;
-        PrepareResForTemplateResource(param, resCtx, intraTempAlgRes1, interTempAlgRes1, true);
+        PrepareResForTemplateResource(param, resCtx, intraTempAlgRes1, interTempAlgRes1, false);
 
         // 第三步开始前同步
         CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
