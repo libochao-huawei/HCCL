@@ -1,67 +1,45 @@
-# 指定格式化语言为c++
 Language: Cpp
 
-# 访问修饰符缩进
 AccessModifierOffset: -4
 
-# 连续复制对齐
 AlignConsecutiveAssignments: false
 
-# 连续声明对齐
 AlignConsecutiveDeclarations: false
 
-# 转义换行对齐
 AlignEscapedNewlines: DontAlign
 
-# 操作数对齐
 AlignOperands: true
 
-# 尾随注释对齐
 AlignTrailingComments: true
 
-# 允许所有参数在下一行
 AllowAllArgumentsOnNextLine: true
 
-# 允许短lambda在单行
 AllowShortLambdasOnASingleLine: Empty
 
-# 允许声明参数在下一行
 AllowAllParametersOfDeclarationOnNextLine: false
 
-# 允许短块在单行
 AllowShortBlocksOnASingleLine: false
 
-# 允许短case标签在单行
 AllowShortCaseLabelsOnASingleLine: false
 
-# 允许短函数在单行
 AllowShortFunctionsOnASingleLine: false
 
-# 允许短if语句在单行
 AllowShortIfStatementsOnASingleLine: false
 
-# 允许短循环在单行
 AllowShortLoopsOnASingleLine: false
 
-# 总是在定义返回类型后换行
 AlwaysBreakAfterDefinitionReturnType: None
 
-# 总是在多行字符串前换行
 AlwaysBreakBeforeMultilineStrings: false
 
-# 总是换行模板声明
 AlwaysBreakTemplateDeclarations: MultiLine
 
-# 打包参数
 BinPackArguments: true
 
-# 打包参数
 BinPackParameters: true
 
-# 开括号后对齐
 AlignAfterOpenBracket: DontAlign
 
-# 大括号换行设置
 BraceWrapping:
   AfterCaseLabel: false
   AfterClass: false
@@ -79,52 +57,36 @@ BraceWrapping:
   SplitEmptyRecord: true
   SplitEmptyNamespace: true
 
-# 在二元操作符前换行
 BreakBeforeBinaryOperators: All
 
-# 在大括号前换行
 BreakBeforeBraces: Custom
 
-# 在三元操作符前换行
 BreakBeforeTernaryOperators: true
 
-# 在构造函数初始化列表的逗号前换行
 BreakConstructorInitializersBeforeComma: false
 
-# 在继承列表后换行
 BreakInheritanceList: AfterColon
 
-# 列限制
 ColumnLimit: 120
 
-# 注释指令
 CommentPragmas: '^ IWYU pragma:'
 
-# 构造函数初始化列表在一行或每行一个
 PackConstructorInitializers: CurrentLine
 
-# 构造函数初始化宽度
 ConstructorInitializerIndentWidth: 4
 
-# 续行缩进宽度
 ContinuationIndentWidth: 4
 
-# C++11花括号列表样式
 Cpp11BracedListStyle: true
 
-# 派生指针对齐
 DerivePointerAlignment: false
 
-# 禁用格式化
 DisableFormat: false
 
-# 实验性自动检测打包
 ExperimentalAutoDetectBinPacking: false
 
-# foreach宏
 ForEachMacros: [ foreach ]
 
-# 包含分类
 IncludeCategories:
   - Regex: '^<'
     Priority: 3
@@ -133,31 +95,22 @@ IncludeCategories:
   - Regex: '.*'
     Priority: 1
 
-# 缩进case标签
 IndentCaseLabels: true
 
-# 缩进宽度
 IndentWidth: 4
 
-# 缩进包装函数名
 IndentWrappedFunctionNames: false
 
-# 保持块开始的空行
 KeepEmptyLinesAtTheStartOfBlocks: false
 
-# 宏块开始
 MacroBlockBegin: ''
 
-# 宏块结束
 MacroBlockEnd: ''
 
-# 最大空行数
 MaxEmptyLinesToKeep: 1
 
-# 命名空间缩进
 NamespaceIndentation: Inner
 
-# 换行惩罚
 PenaltyBreakBeforeFirstCallParameter: 19
 PenaltyBreakComment: 300
 PenaltyBreakFirstLessLess: 120
@@ -165,53 +118,36 @@ PenaltyBreakString: 1000
 PenaltyExcessCharacter: 1000000
 PenaltyReturnTypeOnItsOwnLine: 60
 
-# 指针对齐
 PointerAlignment: Right
 
-# 重新格式化注释
 ReflowComments: true
 
-# 排序包含
 SortIncludes: false
 
-# C风格强制转换后空格
 SpaceAfterCStyleCast: false
 
-# 赋值操作符前空格
 SpaceBeforeAssignmentOperators: true
 
-# 括号前空格
 SpaceBeforeParens: ControlStatements
 
-# 空括号内空格
 SpaceInEmptyParentheses: false
 
-# 尾随注释前空格
 SpacesBeforeTrailingComments: 1
 
-# 角括号内空格
 SpacesInAngles: false
 
-# 容器字面量内空格
 SpacesInContainerLiterals: true
 
-# C风格强制转换括号内空格
 SpacesInCStyleCastParentheses: false
 
-# 括号内空格
 SpacesInParentheses: false
 
-# 方括号内空格
 SpacesInSquareBrackets: false
 
-# 标准
 Standard: Latest
 
-# 制表符宽度
 TabWidth: 4
 
-# 使用制表符
 UseTab: Never
 
-# 使用CRLF
 UseCRLF: false
