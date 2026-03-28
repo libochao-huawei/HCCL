@@ -17,7 +17,7 @@ set(src_list
     all_gather_v_testcase.cc
     broadcast_testcase.cc
     reduce_scatter_aicpu_testcase.cc
-    batch_send_recv_testcase.cc
+    send_recv_testcase.cc
 )
 
 add_executable(hccl_checker_ops_stest ${src_list})
@@ -45,6 +45,7 @@ if (BUILD_OPEN_PROJECT)
         ${HCCL_DEV_BASE}/src/ops
         ${HCCL_DEV_BASE}/src/ops/op_common
         ${HCCL_DEV_BASE}/src/ops/op_common/inc
+        ${HCCL_DEV_BASE}/src/common/hcomm_dlsym
 
         ${UTILS_DIR}/sim_world
         ${UTILS_DIR}/common/utils

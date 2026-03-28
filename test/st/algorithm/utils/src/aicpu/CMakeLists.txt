@@ -118,6 +118,7 @@ set(INCLUDE_LIST
     ${HCCL_DEV_BASE}/src/ops/batch_send_recv
     ${HCCL_DEV_BASE}/src/ops/batch_send_recv/executor
     ${HCCL_DEV_BASE}/src/ops/batch_send_recv/selector
+    ${HCCL_DEV_BASE}/src/common/hcomm_dlsym
 )
 
 list(APPEND INCLUDE_LIST
