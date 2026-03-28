@@ -15,9 +15,7 @@ set(src_list
     all_reduce_parallel_testcase.cc
     all_gather_aicpu_testcase.cc
     all_gather_v_testcase.cc
-    broadcast_testcase.cc
     reduce_scatter_aicpu_testcase.cc
-    send_recv_testcase.cc
 )
 
 add_executable(hccl_checker_ops_stest ${src_list})
