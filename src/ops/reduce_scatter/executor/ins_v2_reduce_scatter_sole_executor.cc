@@ -132,6 +132,7 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchest
         HCCL_ERROR("[InsV2ReduceScatterSoleExecutor][OrchestrateOpbase] maxDataCountPerLoop is 0"), HCCL_E_INTERNAL);
     // 计算loopTimes
     u64 loopTimes = dataCount_ / maxDataCountPerLoop + static_cast<u64>(dataCount_ % maxDataCountPerLoop != 0);
+    tempAlgParams.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
     u64 processedDataCount = 0;
     for (u64 loop = 0; loop < loopTimes; loop++) {
         u64 currDataCount = (loop == loopTimes - 1) ? dataCount_ - processedDataCount : maxDataCountPerLoop;
@@ -144,7 +145,7 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchest
         tempAlgParams.tailSize = tempAlgParams.sliceSize;
         // 这里的stride当成传统意义上的sreide 间隔
         tempAlgParams.inputSliceStride = dataSize_; // 如果是输入，偏移是算子的output datasize
-        tempAlgParams.outputSliceStride = 0; // 如果是scratchbuffer，偏移是单次循环处理的最大数据量
+        tempAlgParams.outputSliceStride = 0;
 
         HCCL_INFO("[InsV2ReduceScatterSoleExecutor] loop [%u] tempAlgParams.inputSliceStride [%u],"
             "tempAlgParams.outputSliceStride [%u] tempAlgParams.sliceSize [%u]",
