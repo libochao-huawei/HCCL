@@ -146,7 +146,6 @@ private:
     CcuRep::Variable die0LastSliceSize_;
     CcuRep::Variable die1LastSliceSize_;
     CcuRep::Variable inputSliceStride_;
-    CcuRep::Variable outputSliceStride_;
     CcuRep::Variable inputRepeatStride_;
     CcuRep::Variable outputRepeatStride_;
     CcuRep::Variable repeatNumVar_;

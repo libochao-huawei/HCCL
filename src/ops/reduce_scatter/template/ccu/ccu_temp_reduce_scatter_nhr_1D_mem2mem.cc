@@ -201,7 +201,7 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::KernelRun(const OpParam& param,
     buffInfo_ = templateDataParams.buffInfo;
     u32 kernelNum = templateResource.ccuKernels.size();
 
-    if (templateDataParams.sliceSize == 0) {
+    if (templateDataParams.sliceSize == 0 && templateDataParams.tailSize == 0) {
         HCCL_INFO("[CcuTempReduceScatterNHR1DMem2Mem] sliceSize is 0, no need do, just success.");
         return HCCL_SUCCESS;
     }
