@@ -895,12 +895,12 @@ HcclResult CcuKernelAlgBase::CreateMultiOpWrite(const std::vector<ChannelHandle>
 
         // Step 1: 本端 HBM → bufs[rankId]（每个 rank 固定占用自己的 MS slot）
         event.mask = 1;
-        LocalCopyNb(bufs[rankId], src, len, event);
+        LocalCopyNb(bufs[0], src, len, event);
         WaitEvent(event);
 
         // Step 4: 发送 bufs[rankId] 到所有 peers（对称 MS 分配，远端也写入 bufs[rankId]）
         for (uint32_t i = 0; i < channels.size(); i++) {
-            CHK_RET(MsWriteNb(channels[i], bufs[rankId], bufs[rankId], len, ckeIdx, WRITE_DONE_MASK));
+            CHK_RET(MsWriteNb(channels[i], bufs[0], bufs[i+1], len, ckeIdx, WRITE_DONE_MASK));
         }
 
         // Step 5: 等待每个 peer 的写完成通知（WRITE_DONE，bit 2）
