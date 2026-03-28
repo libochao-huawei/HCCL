@@ -31,7 +31,7 @@ HcclResult ReduceEntryLog(void *sendBuf, void *recvBuf, uint64_t count, HcclData
     uint32_t root, aclrtStream stream, const std::string &tag, const std::string &opName);
 
 #ifdef __cplusplus
-}  // extern "C"
+}
 #endif
 
 namespace ops_hccl {

@@ -97,12 +97,12 @@ HcclResult HcclRecvGraphMode(
     resPack.scratchMemSize = scratchMemSize;
 
     /* 接口交互信息日志 */
-    CHK_RET(RecvEntryLog(recvBuf, count, dataType, srcRank, stream, opTag, "HcclRecv"));
+    CHK_RET(RecvEntryLog(recvBuf, count, dataType, srcRank, stream, opTag, "HcclRecvGraphMode"));
 
     // 执行Recv
     CHK_RET_AND_PRINT_IDE(RecvExec(recvBuf, count, dataType, srcRank, comm, stream, rankSize, OpMode::OFFLOAD, opTag, resPack), opTag.c_str());
 
-    CHK_RET(LogHcclExit("HcclRecv", opTag, startut));
+    CHK_RET(LogHcclExit("HcclRecvGraphMode", opTag, startut));
         
     HCCL_INFO("[HcclRecvGraphMode][%d]<-[%d] Success.", userRank, srcRank);
     return HcclResult::HCCL_SUCCESS;
