@@ -193,7 +193,7 @@ HcclResult ProcessLinkForProtocol(HcclComm comm, const std::vector<CommProtocol>
                 CHK_RET(CreateChannelFromLink(comm, myRank, remoteRank, netLayer, idx, linkList[idx],
                     funcName, channels));
                 protocolFound = true;
-                break;
+                // break;
             }
         }
         if (protocolFound) {
