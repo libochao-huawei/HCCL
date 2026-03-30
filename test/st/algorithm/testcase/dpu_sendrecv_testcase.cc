@@ -50,6 +50,9 @@ protected:
     void TearDown() override
     {
         unsetenv("HCCL_OP_EXPANSION_MODE");
+        unsetenv("ENABLE_HOSTDPU_FOR_LLT");
+        unsetenv("HCCL_INDEPENDENT_OP");
+        unsetenv("HCCL_ENABLE_OPEN_AICPU");
     }
 
     static void SetUpTestCase()
@@ -73,9 +76,9 @@ void DPUSendRecvTest(
 
     // 设置展开模式
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
-    setenv("ENABLE_HOSTDPU", "1", 1);
     setenv("ENABLE_HOSTDPU_FOR_LLT", "1", 1);
     setenv("HCCL_INDEPENDENT_OP", "1", 1);
+    setenv("HCCL_ENABLE_OPEN_AICPU", "1", 1);
 
     // 多线程运行send&recv算子
     std::vector<std::thread> threads;

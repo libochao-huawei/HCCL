@@ -63,7 +63,6 @@ HcclResult MultiThreadExecOp(u32 rankSize, u64 sendBufSize, u64 sendCount, HcclD
             // 打桩实现，仿真运行需标记内存是INPUT和OUTPUT
             aclrtMalloc(&sendBuf, totalSendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
             aclrtMalloc(&recvBuf, totalSendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
-            printf("ADDR rankId:%u, sendBuf:%lx, recvBuf:%lx, totalSendBufSize:%lx\n", rankId, (uint64_t)sendBuf, (uint64_t)recvBuf, (uint64_t)totalSendBufSize);
             std::vector<HcclSendRecvItem> sendRecvInfo;
             sendRecvInfo.reserve(rankSize * 2);
             void* curSendBuf = sendBuf;
@@ -347,7 +346,6 @@ HcclResult ZeroItemTest(u32 rankSize, u64 sendBufSize, u64 sendCount, HcclDataTy
             // 打桩实现，仿真运行需标记内存是INPUT和OUTPUT
             aclrtMalloc(&sendBuf, totalSendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
             aclrtMalloc(&recvBuf, totalSendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
-            printf("ADDR rankId:%u, sendBuf:%lx, recvBuf:%lx, totalSendBufSize:%lx\n", rankId, (uint64_t)sendBuf, (uint64_t)recvBuf, (uint64_t)totalSendBufSize);
             std::vector<HcclSendRecvItem> sendRecvInfo;
             sendRecvInfo.reserve(rankSize * 2);
             void* curSendBuf = sendBuf;

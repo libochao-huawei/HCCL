@@ -30,9 +30,9 @@ protected:
     void TearDown() override
     {
         unsetenv("HCCL_OP_EXPANSION_MODE");
-        unsetenv("ENABLE_HOSTDPU");
         unsetenv("ENABLE_HOSTDPU_FOR_LLT");
         unsetenv("HCCL_INDEPENDENT_OP");
+        unsetenv("HCCL_ENABLE_OPEN_AICPU");
     }
     static void SetUpTestCase()
     {}
@@ -53,9 +53,9 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_001)
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
-    setenv("ENABLE_HOSTDPU", "1", 1);
     setenv("ENABLE_HOSTDPU_FOR_LLT", "1", 1);
     setenv("HCCL_INDEPENDENT_OP", "1", 1);
+    setenv("HCCL_ENABLE_OPEN_AICPU", "1", 1);
 
     // 算子执行参数设置
     auto recvCount = 1; // 接收数据量
@@ -113,9 +113,9 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_002)
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
-    setenv("ENABLE_HOSTDPU", "1", 1);
     setenv("ENABLE_HOSTDPU_FOR_LLT", "1", 1);
     setenv("HCCL_INDEPENDENT_OP", "1", 1);
+    setenv("HCCL_ENABLE_OPEN_AICPU", "1", 1);
 
     // 算子执行参数设置
     auto recvCount = 100 * 1024 * 1024; // 接收数据量
@@ -173,9 +173,9 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_003)
 
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
-    setenv("ENABLE_HOSTDPU", "1", 1);
     setenv("ENABLE_HOSTDPU_FOR_LLT", "1", 1);
     setenv("HCCL_INDEPENDENT_OP", "1", 1);
+    setenv("HCCL_ENABLE_OPEN_AICPU", "1", 1);
 
     // 算子执行参数设置
     auto recvCount = 100 * 1024 * 1024; // 接收数据量
@@ -233,9 +233,9 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_004)
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
-    setenv("ENABLE_HOSTDPU", "1", 1);
     setenv("ENABLE_HOSTDPU_FOR_LLT", "1", 1);
     setenv("HCCL_INDEPENDENT_OP", "1", 1);
+    setenv("HCCL_ENABLE_OPEN_AICPU", "1", 1);
 
     // 算子执行参数设置
     auto recvCount = 100 * 1024 * 1024; // 接收数据量
@@ -293,9 +293,9 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_005)
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
-    setenv("ENABLE_HOSTDPU", "1", 1);
     setenv("ENABLE_HOSTDPU_FOR_LLT", "1", 1);
     setenv("HCCL_INDEPENDENT_OP", "1", 1);
+    setenv("HCCL_ENABLE_OPEN_AICPU", "1", 1);
 
     // 算子执行参数设置
     auto recvCount = 1 * 1024 * 1024; // 接收数据量
@@ -353,9 +353,9 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_006)
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
-    setenv("ENABLE_HOSTDPU", "1", 1);
     setenv("ENABLE_HOSTDPU_FOR_LLT", "1", 1);
     setenv("HCCL_INDEPENDENT_OP", "1", 1);
+    setenv("HCCL_ENABLE_OPEN_AICPU", "1", 1);
 
     // 算子执行参数设置
     auto recvCount = 1 * 1024 * 1024; // 接收数据量
@@ -413,9 +413,9 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_007)
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
-    setenv("ENABLE_HOSTDPU", "1", 1);
     setenv("ENABLE_HOSTDPU_FOR_LLT", "1", 1);
     setenv("HCCL_INDEPENDENT_OP", "1", 1);
+    setenv("HCCL_ENABLE_OPEN_AICPU", "1", 1);
 
     // 算子执行参数设置
     auto recvCount = 1 * 1024 * 1024; // 接收数据量
@@ -473,9 +473,9 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_008)
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
-    setenv("ENABLE_HOSTDPU", "1", 1);
     setenv("ENABLE_HOSTDPU_FOR_LLT", "1", 1);
     setenv("HCCL_INDEPENDENT_OP", "1", 1);
+    setenv("HCCL_ENABLE_OPEN_AICPU", "1", 1);
 
     // 算子执行参数设置
     auto recvCount = 1 * 1024 * 1024; // 接收数据量
@@ -533,9 +533,9 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_009)
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
-    setenv("ENABLE_HOSTDPU", "1", 1);
     setenv("ENABLE_HOSTDPU_FOR_LLT", "1", 1);
     setenv("HCCL_INDEPENDENT_OP", "1", 1);
+    setenv("HCCL_ENABLE_OPEN_AICPU", "1", 1);
 
     // 算子执行参数设置
     auto recvCount = 1 * 1024 * 1024; // 接收数据量
@@ -593,9 +593,9 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_010)
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
-    setenv("ENABLE_HOSTDPU", "1", 1);
     setenv("ENABLE_HOSTDPU_FOR_LLT", "1", 1);
     setenv("HCCL_INDEPENDENT_OP", "1", 1);
+    setenv("HCCL_ENABLE_OPEN_AICPU", "1", 1);
 
     // 算子执行参数设置
     auto recvCount = 1 * 1024 * 1024; // 接收数据量
@@ -653,9 +653,9 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_011)
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
-    setenv("ENABLE_HOSTDPU", "1", 1);
     setenv("ENABLE_HOSTDPU_FOR_LLT", "1", 1);
     setenv("HCCL_INDEPENDENT_OP", "1", 1);
+    setenv("HCCL_ENABLE_OPEN_AICPU", "1", 1);
 
     // 算子执行参数设置
     auto recvCount = 1 * 1024 * 1024; // 接收数据量
@@ -713,9 +713,9 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_013)
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
-    setenv("ENABLE_HOSTDPU", "1", 1);
     setenv("ENABLE_HOSTDPU_FOR_LLT", "1", 1);
     setenv("HCCL_INDEPENDENT_OP", "1", 1);
+    setenv("HCCL_ENABLE_OPEN_AICPU", "1", 1);
 
     // 算子执行参数设置
     auto recvCount = 1 * 1024 * 1024; // 接收数据量
@@ -773,9 +773,9 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_014)
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
-    setenv("ENABLE_HOSTDPU", "1", 1);
     setenv("ENABLE_HOSTDPU_FOR_LLT", "1", 1);
     setenv("HCCL_INDEPENDENT_OP", "1", 1);
+    setenv("HCCL_ENABLE_OPEN_AICPU", "1", 1);
 
     // 算子执行参数设置
     auto recvCount = 1 * 1024 * 1024; // 接收数据量
@@ -833,9 +833,9 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_016)
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
-    setenv("ENABLE_HOSTDPU", "1", 1);
     setenv("ENABLE_HOSTDPU_FOR_LLT", "1", 1);
     setenv("HCCL_INDEPENDENT_OP", "1", 1);
+    setenv("HCCL_ENABLE_OPEN_AICPU", "1", 1);
 
     // 算子执行参数设置
     auto recvCount = 1 * 1024 * 1024; // 接收数据量
@@ -893,9 +893,9 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_017)
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
-    setenv("ENABLE_HOSTDPU", "1", 1);
     setenv("ENABLE_HOSTDPU_FOR_LLT", "1", 1);
     setenv("HCCL_INDEPENDENT_OP", "1", 1);
+    setenv("HCCL_ENABLE_OPEN_AICPU", "1", 1);
 
     // 算子执行参数设置
     auto recvCount = 1 * 1024 * 1024; // 接收数据量
@@ -953,9 +953,9 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_018)
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
-    setenv("ENABLE_HOSTDPU", "1", 1);
     setenv("ENABLE_HOSTDPU_FOR_LLT", "1", 1);
     setenv("HCCL_INDEPENDENT_OP", "1", 1);
+    setenv("HCCL_ENABLE_OPEN_AICPU", "1", 1);
 
     // 算子执行参数设置
     auto recvCount = 1 * 1024 * 1024; // 接收数据量
@@ -1013,9 +1013,9 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_019)
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
-    setenv("ENABLE_HOSTDPU", "1", 1);
     setenv("ENABLE_HOSTDPU_FOR_LLT", "1", 1);
     setenv("HCCL_INDEPENDENT_OP", "1", 1);
+    setenv("HCCL_ENABLE_OPEN_AICPU", "1", 1);
 
     // 算子执行参数设置
     auto recvCount = 1 * 1024 * 1024; // 接收数据量
@@ -1073,9 +1073,9 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_020)
  
     // 设置展开模式为AI_CPU
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
-    setenv("ENABLE_HOSTDPU", "1", 1);
     setenv("ENABLE_HOSTDPU_FOR_LLT", "1", 1);
     setenv("HCCL_INDEPENDENT_OP", "1", 1);
+    setenv("HCCL_ENABLE_OPEN_AICPU", "1", 1);
 
     // 算子执行参数设置
     auto recvCount = 1 * 1024 * 1024; // 接收数据量
