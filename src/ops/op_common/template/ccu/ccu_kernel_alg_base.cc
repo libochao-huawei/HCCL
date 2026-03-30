@@ -959,27 +959,28 @@ HcclResult CcuKernelAlgBase::CreateMultiOpWrite(const std::vector<ChannelHandle>
         CcuRep::LoopBlock lb(this, loopType + "_loop_" + std::to_string(index));
         lb(src, dst, len, lenForExpansion);
 
-        std::vector<CcuRep::CcuBuf> bufs = {moRes.ccuBuf.begin() + index * moConfig.msInterleave,
-                                               moRes.ccuBuf.begin() + index * moConfig.msInterleave + usedBufNum};
+        std::vector<CcuRep::CcuBuf> bufs = {moRes.ccuBuf.begin() + index * (moConfig.msInterleave + 1）,
+                                               moRes.ccuBuf.begin() + index * (moConfig.msInterleave +1) + usedBufNum + 1};
         CcuRep::CompletedEvent &event = moRes.completedEvent[index];
 
-        uint32_t ckeIdx = (index == 0) ? WRITE_CKE_IDX_0 : WRITE_CKE_IDX_1;
+        uint32_t ckeIdx = (index == 0) ? 2 : 3;
 
         // Step 1: 本端 HBM → bufs[rankId]（每个 rank 固定占用自己的 MS slot）
         event.mask = 1;
-        LocalCopyNb(bufs[rankId], src, len, event);
+        LocalCopyNb(bufs[0], src, len, event);
         WaitEvent(event);
 
-        if (rankId != 0) {
-            // Step 2: 等待所有 peer 准备好（READY，bit 1）
-            event.mask = 8;
-            LocalCopyNb(bufs[0], src, len, event);
-            WaitEvent(event);
-        }
+        event.mask = 1;
+        LocalCopyNb(bufs[bufs.size() - 1], src, len, event);
+        WaitEvent(event);
 
         // Step 4: 发送 bufs[rankId] 到所有 peers（对称 MS 分配，远端也写入 bufs[rankId]）
         for (uint32_t i = 0; i < channels.size(); i++) {
-            CHK_RET(MsWriteNb(channels[i], bufs[rankId], bufs[rankId], len, ckeIdx, WRITE_DONE_MASK));
+            if (i < rankId) {
+                CHK_RET(MsWriteNb(channels[i], bufs[bufs.size() - 1], bufs[rankId], len, ckeIdx, WRITE_DONE_MASK));
+            } else {
+                CHK_RET(MsWriteNb(channels[i], bufs[bufs.size() - 1], bufs[rankId + 1], len, ckeIdx, WRITE_DONE_MASK));
+            }
         }
 
         // Step 5: 等待每个 peer 的写完成通知（WRITE_DONE，bit 2）
