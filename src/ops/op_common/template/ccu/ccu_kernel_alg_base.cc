@@ -36,7 +36,6 @@ void CcuKernelAlgBase::AllocGoResource(uint32_t parallelDim, uint32_t msPerLoop)
     moConfig.loopCount = parallelDim;
     // 算法配置的msPerLoop * CcuRep::CCU_MS_SIZE覆盖默认配置，msPerLoop默认为1
     moConfig.memSlice = msPerLoop * CcuRep::CCU_MS_SIZE;
-    moConfig.msInterleave = 9;
     HCCL_INFO("[AllocGoResource]moConfig: loopCount = %u, msInterleave = %u", moConfig.loopCount, moConfig.msInterleave);
 
     // 简单实现,只需要申请一次资源
@@ -939,7 +938,9 @@ HcclResult CcuKernelAlgBase::CreateMultiOpWrite(const std::vector<ChannelHandle>
                                                  HcclDataType dataType, HcclDataType outputDataType,
                                                  HcclReduceOp opType)
 {
-    moConfig.msInterleave = channels.size() + 1;
+    uint32_t channelSize = channels.size();
+    uint32_t size        = channelSize + 1; // N-1 peers + self
+    moConfig.msInterleave = size + 1;
     AllocGoResource();
 
     std::string loopType = GetReduceTypeStr(dataType, opType) + "_write";
@@ -947,8 +948,6 @@ HcclResult CcuKernelAlgBase::CreateMultiOpWrite(const std::vector<ChannelHandle>
         return HCCL_SUCCESS;
     }
 
-    uint32_t channelSize = channels.size();
-    uint32_t size        = channelSize + 1; // N-1 peers + self
     uint32_t expansionNum = GetReduceExpansionNum(opType, dataType, outputDataType);
     uint32_t usedBufNum   = size > expansionNum ? size : expansionNum;
 
@@ -966,24 +965,41 @@ HcclResult CcuKernelAlgBase::CreateMultiOpWrite(const std::vector<ChannelHandle>
 
         uint32_t ckeIdx = (index == 0) ? 2 : 3;
 
-        // Step 1: 本端 HBM → bufs[rankId]（每个 rank 固定占用自己的 MS slot）
         event.mask = 1;
-        LocalCopyNb(bufs[rankId], src, len, event);
+        LocalCopyNb(bufs[bufs.size() - 1], src, len, event);
         WaitEvent(event);
 
-        if (rankId == 0) {
-            event.mask = 1;
-            LocalCopyNb(bufs[bufs.size() - 1], src, len, event);
-            WaitEvent(event);
-            for (uint32_t i = 0; i < channels.size(); i++) {
+        // Step 4: 发送 bufs[rankId] 到所有 peers（对称 MS 分配，远端也写入 bufs[rankId]）
+        for (uint32_t i = 0; i < channels.size(); i++) {
+            if (i < rankId) {
                 CHK_RET(MsWriteNb(channels[i], bufs[bufs.size() - 1], bufs[rankId], len, ckeIdx, WRITE_DONE_MASK));
-            }
-        } else {
-            // Step 4: 发送 bufs[rankId] 到所有 peers（对称 MS 分配，远端也写入 bufs[rankId]）
-            for (uint32_t i = 0; i < channels.size(); i++) {
-                CHK_RET(MsWriteNb(channels[i], bufs[rankId], bufs[rankId], len, ckeIdx, WRITE_DONE_MASK));
+            } else {
+                CHK_RET(MsWriteNb(channels[i], bufs[bufs.size() - 1], bufs[rankId + 1], len, ckeIdx, WRITE_DONE_MASK));
             }
         }
+
+        event.mask = 1;
+        LocalCopyNb(bufs[0], src, len, event);
+        WaitEvent(event);
+
+        // // Step 1: 本端 HBM → bufs[rankId]（每个 rank 固定占用自己的 MS slot）
+        // event.mask = 1;
+        // LocalCopyNb(bufs[rankId], src, len, event);
+        // WaitEvent(event);
+
+        // if (rankId == 0) {
+        //     event.mask = 1;
+        //     LocalCopyNb(bufs[bufs.size() - 1], src, len, event);
+        //     WaitEvent(event);
+        //     for (uint32_t i = 0; i < channels.size(); i++) {
+        //         CHK_RET(MsWriteNb(channels[i], bufs[bufs.size() - 1], bufs[rankId], len, ckeIdx, WRITE_DONE_MASK));
+        //     }
+        // } else {
+        //     // Step 4: 发送 bufs[rankId] 到所有 peers（对称 MS 分配，远端也写入 bufs[rankId]）
+        //     for (uint32_t i = 0; i < channels.size(); i++) {
+        //         CHK_RET(MsWriteNb(channels[i], bufs[rankId], bufs[rankId], len, ckeIdx, WRITE_DONE_MASK));
+        //     }
+        // }
 
         // Step 5: 等待每个 peer 的写完成通知（WRITE_DONE，bit 2）
         for (uint32_t i = 0; i < channels.size(); i++) {
