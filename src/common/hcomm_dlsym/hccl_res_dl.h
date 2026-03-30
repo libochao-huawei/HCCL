@@ -11,9 +11,8 @@
 #ifndef HCCL_RES_DL_H
 #define HCCL_RES_DL_H
 
-#include "hccl/hccl_types.h"
 #include "hccl_res.h"
-#include "hccl_res_expt.h"
+#include "hcomm_primitives.h"
 
 #ifdef __cplusplus
 extern "C" {
