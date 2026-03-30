@@ -240,12 +240,8 @@ HcclResult CcuTempScatterNHR1DMem2Mem::KernelRun(const OpParam &param, const Tem
     uint64_t inputRepeatStride = templateDataParams.inputRepeatStride;
     uint64_t outputRepeatStride = templateDataParams.outputRepeatStride;
     uint64_t isOutputScratch = (buffInfo_.outBuffType == BufferType::HCCL_BUFFER) ? 1 : 0;
-    uint64_t isInputOutputEqual;
-    if (mySubCommRank_ == subCommRootId_) {
-        isInputOutputEqual = (inputAddr == outputAddr) ? 1 : 0;
-    } else {
-        isInputOutputEqual = (scratchAddr == outputAddr) ? 1 : 0;
-    }
+    uint64_t isInputOutputEqual = (inputAddr == outputAddr) ? 1 : 0;
+
     uint64_t die0TailSize = templateDataParams.tailSize / kernelNum;
     uint64_t die1TailSize = templateDataParams.tailSize - die0TailSize;
     HCCL_INFO("[CcuTempScatterNHR1DMem2Mem] dimSize[%llu], inputAddr[%llu], outputAddr[%llu], scratchAddr[%llu],"

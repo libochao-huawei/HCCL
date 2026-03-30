@@ -89,6 +89,7 @@ HcclResult CcuKernelScatterNHR1DMem2Mem::InitResource()
     isInputOutputEqual_ = CreateVariable();
     die0TailSize_ = CreateVariable();
     die1TailSize_ = CreateVariable();
+    isSliceSizeZero_ = CreateVariable();
 
     // 创建输入和输出变量
     input_ = CreateVariable();
@@ -145,6 +146,7 @@ void CcuKernelScatterNHR1DMem2Mem::LoadArgs()
     Load(isInputOutputEqual_);
     Load(die0TailSize_);
     Load(die1TailSize_);
+    Load(isSliceSizeZero_);
     HCCL_INFO("[CcuKernelScatterNHR1DMem2Mem] LoadArgs run finished");
 }
 
@@ -254,7 +256,16 @@ void CcuKernelScatterNHR1DMem2Mem::DoScatterNHR()
                         RecordEvent(event_);
                     } else {
                         CCU_IF(isInputOutputEqual_ != 1) {
-                            DoLocalCopyNb(dstMem_, srcMem_, cursliceSize_, event_);
+                            if (rankId_ == rootId_) {
+                                DoLocalCopyNb(dstMem_, srcMem_, cursliceSize_, event_);
+                            } else {
+                                CCU_IF(isSliceSizeZero_ != 1) {
+                                    DoLocalCopyNb(dstMem_, srcMem_, cursliceSize_, event_);
+                                }
+                                CCU_IF(isSliceSizeZero_ == 1) {
+                                    RecordEvent(event_);
+                                }
+                            }
                         }
                         CCU_IF(isInputOutputEqual_ == 1) {
                             RecordEvent(event_);
@@ -415,12 +426,12 @@ void CcuKernelScatterNHR1DMem2Mem::DoSendRecvSlice(
             // 第一轮执行时，如果是die1，需要跳过die0的数据
             if (axisId_ == 1) {
                 if (isLastSlice) {
-                    srcMem_.addr += die0TailSize_;
-                    dstMem_.addr += die0TailSize_;
+                    src.addr += die0TailSize_;
+                    dst.addr += die0TailSize_;
                 }
                 else {
-                    srcMem_.addr += die0Size_;
-                    dstMem_.addr += die0Size_;  
+                    src.addr += die0Size_;
+                    dst.addr += die0Size_;  
                 }
             }
         }
@@ -504,12 +515,13 @@ std::vector<uint64_t> CcuKernelScatterNHR1DMem2Mem::GeneArgs(const CcuTaskArg &a
     uint64_t isInputOutputEqual = taskArg->isInputOutputEqual_;
     uint64_t die0TailSize = taskArg->die0TailSize_;
     uint64_t die1TailSize = taskArg->die1TailSize_;
+    uint64_t isSliceSizeZero = (taskArg->sliceSize_ == 0);
 
     HCCL_INFO(
         "[CcuKernelScatterNHR1DMem2Mem] TaskArgs: rankId_[%u], inputAddr[%llu], outputAddr[%llu], scratchAddr[%llu], "
         "die0Size[%llu], die1Size[%llu], inputSliceStride[%llu], outputSliceStride[%llu], curScratchStride[%llu], "
         "inputRepeatStride[%llu], outputRepeatStride[%llu], repeatNumVar[%llu], isOutputScratch[%llu], isInputOutputEqual[%llu], "
-        "die0TailSize[%llu], die1TailSize[%llu]",
+        "die0TailSize[%llu], die1TailSize[%llu], isSliceSizeZero[%llu]",
         rankId_,
         inputAddr,
         outputAddr,
@@ -525,7 +537,8 @@ std::vector<uint64_t> CcuKernelScatterNHR1DMem2Mem::GeneArgs(const CcuTaskArg &a
         isOutputScratch,
         isInputOutputEqual,
         die0TailSize,
-        die1TailSize);
+        die1TailSize,
+        isSliceSizeZero);
 
     return {inputAddr,
         outputAddr,
@@ -542,7 +555,8 @@ std::vector<uint64_t> CcuKernelScatterNHR1DMem2Mem::GeneArgs(const CcuTaskArg &a
         isOutputScratch,
         isInputOutputEqual,
         die0TailSize,
-        die1TailSize};
+        die1TailSize,
+        isSliceSizeZero};
 }
 
 }  // namespace ops_hccl

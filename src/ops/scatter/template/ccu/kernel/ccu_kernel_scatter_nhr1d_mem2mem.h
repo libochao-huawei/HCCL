@@ -229,6 +229,7 @@ private:
     CcuRep::Variable isInputOutputEqual_;             // 输入输出地址是否相等
     CcuRep::Variable die0TailSize_;                   // die0尾块数据大小
     CcuRep::Variable die1TailSize_;                   // die1尾块数据大小
+    CcuRep::Variable isSliceSizeZero;
 
     // 临时变量
     CcuRep::Variable repeatNumVarTemp_;                // 临时重复次数变量
