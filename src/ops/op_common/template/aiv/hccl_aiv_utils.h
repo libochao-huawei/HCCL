@@ -176,7 +176,7 @@ using AivSuperKernelArgs = struct AivSuperKernelArgsDef {
     AivSuperKernelArgsDef() {}
 };
 
-HcclResult RegisterKernel(HcclCMDType cmdType, const std::string &aivBinaryName, const std::vector<AivKernelInfo> &aivKernelInfoList);
+HcclResult RegisterKernel();
 
 HcclResult UnRegisterAivKernel();
 

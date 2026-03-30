@@ -37,7 +37,6 @@
 #include "alg_type.h"
 #include "op_common.h"
 #include "hccl_aiv_utils.h"
-#include "aiv_kernel_def.h"
 #include "dpu/kernel_launch.h"
 #include "hcomm_host_profiling_dl.h"
 #include "rt.h"
@@ -1355,7 +1354,7 @@ HcclResult DecideHcclOpExpansionMode(HcclComm comm, HcclOpExpansionMode &finalMo
     if (GetExternalInputHcclAicpuUnfold() == true) {
         finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_AI_CPU;
     } else if (GetExternalInputHcclAivOnlyMode() == true) {
-        finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY;
+        finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV;
     } else if (GetExternalInputHcclAivMode() == true) {
         finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV;
     } else if (GetExternalInputHcclCcuMSMode()) {
@@ -1383,15 +1382,15 @@ HcclResult ApplyOpExpansionMode(OpParam &param, HcclOpExpansionMode finalMode)
         case HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV:
             param.opExecuteConfig = OpExecuteConfig::AIV;
             param.engine = CommEngine::COMM_ENGINE_AIV;
-            CHK_RET(RegisterKernel(param.opType, g_aivKernelInfoMap[param.opType].first, g_aivKernelInfoMap[param.opType].second));
+            CHK_RET(RegisterKernel());
             HCCL_DEBUG("[ApplyOpExpansionMode] AIV mode selected.");
             break;
-        case HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY:
-            param.opExecuteConfig = OpExecuteConfig::AIV_ONLY;
-            param.engine = CommEngine::COMM_ENGINE_AIV;
-            CHK_RET(RegisterKernel(param.opType, g_aivKernelInfoMap[param.opType].first, g_aivKernelInfoMap[param.opType].second));
-            HCCL_DEBUG("[ApplyOpExpansionMode] AIV_ONLY mode selected.");
-            break;
+        // case HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV:
+        //     param.opExecuteConfig = OpExecuteConfig::AIV_ONLY;
+        //     param.engine = CommEngine::COMM_ENGINE_AIV;
+        //     CHK_RET(RegisterKernel(param.opType, g_aivKernelInfoMap[param.opType].first, g_aivKernelInfoMap[param.opType].second));
+        //     HCCL_DEBUG("[ApplyOpExpansionMode] AIV_ONLY mode selected.");
+        //     break;
         case HcclOpExpansionMode::HCCL_OP_EXPANSION_CCU_MS:
             param.opExecuteConfig = OpExecuteConfig::CCU_MS;
             param.engine = CommEngine::COMM_ENGINE_CCU;

@@ -16,6 +16,7 @@
 #include "mmpa_api.h"
 #include "adapter_acl.h"
 #include "hccl_aiv_utils.h"
+#include "aiv_kernel_def.h"
 #include "universal_concurrent_map.h"
 #include "alg_env_config.h"
 
@@ -35,6 +36,7 @@ static bool g_init = false;
 static mutex g_mut;
 static aclrtBinHandle g_binHandle;
 static std::unordered_map<s8*, aclrtFuncHandle> g_aivFuncMap;
+static std::unordered_map<s8*, std::string> g_aivNameMap;
 
 thread_local std::shared_ptr<InsQueue> g_recordingQueue = nullptr;
 thread_local u64 g_baseInputAddr = 0;
@@ -174,6 +176,7 @@ HcclResult RegisterBinaryKernel(const char* funcName, const aclrtBinHandle binHa
         HCCL_E_NOT_FOUND);
 
     g_aivFuncMap[const_cast<s8*>(funcKey)] = funcHandle;
+    g_aivNameMap[const_cast<s8*>(funcKey)] = std::string(funcName);
 
     return HCCL_SUCCESS;
 }
@@ -188,28 +191,34 @@ HcclResult GetKernelFunc(aclrtFuncHandle& funcHandle, const s8* funcKey)
 }
 
 // Kernel注册入口，全局只需要初始化一次
-HcclResult RegisterKernel(HcclCMDType cmdType, const std::string &aivBinaryName, const std::vector<AivKernelInfo> &aivKernelInfoList)
+HcclResult RegisterKernel()
 {
     lock_guard<mutex> guard(g_mut);
     if (g_init) {
         return HCCL_SUCCESS;
     }
 
-    HcclResult ret;
-    string binFilePath;
-    ret = GetAivOpBinaryPath(aivBinaryName, binFilePath);
-    CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("[AIV][RegisterKernel] get aiv op binary path failed"), HCCL_E_RUNTIME);
+    for (const auto& item : g_aivKernelInfoMap) {
+        const HcclCMDType cmdType = item.first;
+        const std::string& aivBinaryName = item.second.first;
+        const std::vector<AivKernelInfo>& aivKernelInfoList = item.second.second;
 
-    ret = LoadBinaryFromFile(binFilePath.c_str(), ACL_RT_BINARY_LOAD_OPT_LAZY_LOAD, 1, g_binHandle);
-    CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("[AIV][RegisterKernel] read aiv kernel bin file failed"),
-        HCCL_E_RUNTIME);
+        HcclResult ret;
+        string binFilePath;
+        ret = GetAivOpBinaryPath(aivBinaryName, binFilePath);
+        CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("[AIV][RegisterKernel] get aiv op binary path failed"), HCCL_E_RUNTIME);
 
-    for (auto &aivKernelInfo: aivKernelInfoList) {
-        ret = RegisterBinaryKernel(aivKernelInfo.kernelName, g_binHandle,
-            GetFuncKey(cmdType, aivKernelInfo.dataType, aivKernelInfo.argsType));
-        CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("[AIV][RegisterKernel] register binary kernel for kernelName[%s] "
-            "cmdType[%d] dataType[%s] argsType[%d] failed", aivKernelInfo.kernelName, cmdType,
-            GetDataTypeEnumStr(aivKernelInfo.dataType).c_str(), aivKernelInfo.argsType), HCCL_E_RUNTIME);
+        ret = LoadBinaryFromFile(binFilePath.c_str(), ACL_RT_BINARY_LOAD_OPT_LAZY_LOAD, 1, g_binHandle);
+        CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("[AIV][RegisterKernel] read aiv kernel bin file failed"),
+            HCCL_E_RUNTIME);
+
+        for (auto &aivKernelInfo: aivKernelInfoList) {
+            ret = RegisterBinaryKernel(aivKernelInfo.kernelName, g_binHandle,
+                GetFuncKey(cmdType, aivKernelInfo.dataType, aivKernelInfo.argsType));
+            CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("[AIV][RegisterKernel] register binary kernel for kernelName[%s] "
+                "cmdType[%d] dataType[%s] argsType[%d] failed", aivKernelInfo.kernelName, cmdType,
+                GetDataTypeEnumStr(aivKernelInfo.dataType).c_str(), aivKernelInfo.argsType), HCCL_E_RUNTIME);
+        }
     }
 
     g_init = true;
@@ -257,13 +266,25 @@ HcclResult ExecuteKernelLaunchInner(const AivOpArgs &opArgs, void* args, u32 arg
         attr[0].id, attr[0].value.schemMode, attr[1].id, attr[1].value.timeoutUs.timeoutLow,
         attr[1].value.timeoutUs.timeoutHigh, attr[2].id, attr[2].value.engineType, cfg.numAttrs);
 
+    s8* funcKey = GetFuncKey(opArgs.cmdType, opArgs.dataType, opArgs.argsType);
     aclrtFuncHandle funcHandle;
-    HcclResult ret = GetKernelFunc(funcHandle, GetFuncKey(opArgs.cmdType, opArgs.dataType, opArgs.argsType));
+    HcclResult ret = GetKernelFunc(funcHandle, funcKey);
     CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("[ExecuteKernelLaunchInner] errNo[0x%016llx] GetKernelFunc failed, "
         "return[%d]", HCCL_ERROR_CODE(HCCL_E_RUNTIME), ret), HCCL_E_RUNTIME);
 
     aclError aclRet = aclrtLaunchKernelWithHostArgs(funcHandle, opArgs.numBlocks, opArgs.stream,
         &cfg, args, argsSize, nullptr, 0);
+    if (aclRet == ACL_ERROR_RT_INVALID_HANDLE) {
+        HCCL_WARNING("[ExecuteKernelLaunchInner] handle invalid, retry to get function");
+        if (g_aivNameMap.find(funcKey) != g_aivNameMap.end()) {
+            const std::string& kernelName = g_aivNameMap[funcKey];
+            aclRet = aclrtBinaryGetFunction(g_binHandle, kernelName.c_str(), &funcHandle);
+            CHK_PRT_RET(aclRet != ACL_SUCCESS, HCCL_ERROR("[ExecuteKernelLaunchInner] retry get function failed, error[%d]", aclRet), HCCL_E_RUNTIME);
+            g_aivFuncMap[funcKey] = funcHandle;
+            aclRet = aclrtLaunchKernelWithHostArgs(funcHandle, opArgs.numBlocks, opArgs.stream,
+                &cfg, args, argsSize, nullptr, 0);
+        }
+    }
     CHK_PRT_RET(aclRet != ACL_SUCCESS, HCCL_ERROR("[ExecuteKernelLaunchInner]errNo[0x%016llx] aclrtLaunchKernelWithHostArgs error[%d].",
         HCCL_ERROR_CODE(HCCL_E_RUNTIME), aclRet), HCCL_E_RUNTIME);
     return HCCL_SUCCESS;
