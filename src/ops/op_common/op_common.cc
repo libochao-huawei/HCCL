@@ -49,6 +49,7 @@ uint64_t __attribute__((weak)) HcommGetProfilingSysCycleTime();
 HcclResult __attribute__((weak))  HcclDfxRegOpInfo(HcclComm comm, void* dfxOpInfo);
 HcclResult __attribute__((weak)) HcclProfilingReportOp(HcclComm comm, uint64_t beginTime);
 HcclResult __attribute__((weak)) HcclReportAicpuKernel(HcclComm comm, uint64_t beginTime, char *kernelName);
+HcclResult __attribute__((weak)) HcclReportAivKernel(HcclComm comm, uint64_t beginTime);
 struct HcclDfxOpInfo {
     CommAbiHeader       header;
     //DfxOpInfo_base
@@ -219,10 +220,12 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
         CHK_RET(HcclAicpuKernelEntranceLaunch(comm, param, cpuTsThread, exportedCpuTsThread, notifyNumOnMainThread,
             resCtxSequence, algName));
     } else if (param.engine == COMM_ENGINE_AIV) {
+        uint64_t aivBeginTime = HcommGetProfilingSysCycleTime();
         param.resCtx = resCtxSequence;
         AlgResourceCtxSerializable &resCtxHost = *static_cast<AlgResourceCtxSerializable *>(resCtxSequence);
         CHK_RET(HcclAivKernelEntranceLaunch(param, topoInfo, resCtxHost));
         CHK_RET(executor->Orchestrate(param, resCtxHost));
+        CHK_RET(HcclReportAivKernel(comm, aivBeginTime));
     } else {
         if (isResourceReused) {
             // 复用资源，则需从engineCtx取得res，进行反序列化
