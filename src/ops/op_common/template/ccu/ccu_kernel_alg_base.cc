@@ -970,6 +970,13 @@ HcclResult CcuKernelAlgBase::CreateMultiOpWrite(const std::vector<ChannelHandle>
         LocalCopyNb(bufs[rankId], src, len, event);
         WaitEvent(event);
 
+        if (rankId != 0) {
+            // Step 2: 等待所有 peer 准备好（READY，bit 1）
+            event.mask = 8;
+            LocalCopyNb(bufs[0], src, len, event);
+            WaitEvent(event);
+        }
+
         // Step 4: 发送 bufs[rankId] 到所有 peers（对称 MS 分配，远端也写入 bufs[rankId]）
         for (uint32_t i = 0; i < channels.size(); i++) {
             CHK_RET(MsWriteNb(channels[i], bufs[rankId], bufs[rankId], len, ckeIdx, WRITE_DONE_MASK));
@@ -990,10 +997,6 @@ HcclResult CcuKernelAlgBase::CreateMultiOpWrite(const std::vector<ChannelHandle>
         // Step 7: 结果 MS → 输出 HBM
         event.mask = 4;
         LocalCopyNb(dst, bufs[0], lenForExpansion, event);
-        WaitEvent(event);
-
-        event.mask = 8;
-        LocalCopyNb(bufs[0], src, len, event);
         WaitEvent(event);
     }
 
