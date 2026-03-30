@@ -1385,12 +1385,12 @@ HcclResult ApplyOpExpansionMode(OpParam &param, HcclOpExpansionMode finalMode)
             CHK_RET(RegisterKernel());
             HCCL_DEBUG("[ApplyOpExpansionMode] AIV mode selected.");
             break;
-        case HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV:
-            param.opExecuteConfig = OpExecuteConfig::AIV_ONLY;
-            param.engine = CommEngine::COMM_ENGINE_AIV;
-            CHK_RET(RegisterKernel(param.opType, g_aivKernelInfoMap[param.opType].first, g_aivKernelInfoMap[param.opType].second));
-            HCCL_DEBUG("[ApplyOpExpansionMode] AIV_ONLY mode selected.");
-            break;
+        // case HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV:
+        //     param.opExecuteConfig = OpExecuteConfig::AIV_ONLY;
+        //     param.engine = CommEngine::COMM_ENGINE_AIV;
+        //     CHK_RET(RegisterKernel(param.opType, g_aivKernelInfoMap[param.opType].first, g_aivKernelInfoMap[param.opType].second));
+        //     HCCL_DEBUG("[ApplyOpExpansionMode] AIV_ONLY mode selected.");
+        //     break;
         case HcclOpExpansionMode::HCCL_OP_EXPANSION_CCU_MS:
             param.opExecuteConfig = OpExecuteConfig::CCU_MS;
             param.engine = CommEngine::COMM_ENGINE_CCU;
