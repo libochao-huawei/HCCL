@@ -13,11 +13,9 @@ cmake_minimum_required(VERSION 3.16.0)
 # 添加 ASC 和 AICPU 支持
 find_package(ASC REQUIRED)
 find_package(AICPU REQUIRED)
-
 project(hccl_examples_custom_ops_p2p LANGUAGES CXX AICPU ASC) # 支持CXX、AICPU和ASC编译
-set(CMAKE_SYSTEM_PROCESSOR "aarch64") # 在欧拉操作系统中，需要指定处理器为aarch64，否则编译时会报错
-message("CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
 
+set(HCCL_CUSTOM_OPS_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 set(HCCL_CUSTOM_OPS_INCLUDE_LIST
     ${CMAKE_CURRENT_SOURCE_DIR}/inc
     ${CMAKE_CURRENT_SOURCE_DIR}/op_host
@@ -27,12 +25,7 @@ set(HCCL_CUSTOM_OPS_INCLUDE_LIST
     ${ASCEND_CANN_PACKAGE_PATH}/include
     ${ASCEND_CANN_PACKAGE_PATH}/include/hccl
     ${ASCEND_CANN_PACKAGE_PATH}/include/mmpa
-    ${ASCEND_CANN_PACKAGE_PATH}/asc/include/aicpu_api  # 包含 AICPU 头文件，否则编译时aicpu_api.h无法找到
-)
-
-set_source_files_properties(
-    ${CMAKE_CURRENT_SOURCE_DIR}/op_kernel_aicpu/aicpu_kernel_asc.aicpu
-    PROPERTIES LANGUAGE AICPU
+    ${ASCEND_CANN_PACKAGE_PATH}/asc/include/aicpu_api
 )
 
 # Host 动态链接库
@@ -43,11 +36,12 @@ target_include_directories(hccl_custom_p2p PRIVATE
     ${HCCL_CUSTOM_OPS_INCLUDE_LIST}
 )
 target_compile_options(hccl_custom_p2p PRIVATE
+    -U_FORTIFY_SOURCE
     -Werror
     -fno-common
     -fno-strict-aliasing
     -pipe
-    -g -O2
+    -g -O0
     -std=c++14
     -fstack-protector-all
 )
@@ -61,14 +55,13 @@ target_link_options(hccl_custom_p2p PRIVATE
     -Wl,-z,noexecstack
 )
 target_compile_options(hccl_custom_p2p PRIVATE
-    $<$<COMPILE_LANGUAGE:ASC>: --npu-arch=dav-2201>
+    $<$<COMPILE_LANGUAGE:ASC>:--npu-arch=dav-2201>  # Atlas A2/A3系列产品
 )
 target_link_directories(hccl_custom_p2p PRIVATE
     ${ASCEND_CANN_PACKAGE_PATH}/lib64
     ${ASCEND_CANN_PACKAGE_PATH}/lib64/device/lib64 # 包含 AICPU 动态链接库
 )
 target_link_libraries(hccl_custom_p2p PRIVATE
-    -Wl,--no-as-needed
     hcomm
     c_sec
     unified_dlog
@@ -81,8 +74,6 @@ target_link_libraries(hccl_custom_p2p PRIVATE
     mmpa
     error_manager
     ascend_dump
-
-    -Wl,--no-as-needed
 )
 install(TARGETS hccl_custom_p2p
     LIBRARY DESTINATION ${CUSTOM_OPS_OPP_LIB_PATH}
@@ -91,9 +82,6 @@ install(FILES
     inc/hccl_custom_p2p.h
     DESTINATION ${CUSTOM_OPS_OPP_INC_PATH}
 )
-
-set(AICPU_KERNEL_TAR_FILE ${CMAKE_BINARY_DIR}/aicpu_hccl_custom_p2p.tar.gz)
-set(AICPU_KERNEL_JSON_FILE ${CMAKE_CURRENT_SOURCE_DIR}/op_kernel_aicpu/libp2p_aicpu_kernel.json)
 
 if(KERNEL_MODE)
     # AICPU Kernel 动态链接库
@@ -108,36 +96,43 @@ if(KERNEL_MODE)
         -g
         -O0
     )
-    target_link_libraries(p2p_aicpu_kernel PRIVATE
-        -Wl,--no-as-needed
-        ccl_kernel
-        -Wl,--no-as-needed
+    target_link_directories(p2p_aicpu_kernel PRIVATE
+        ${ASCEND_CANN_PACKAGE_PATH}/lib64/device/lib64
+        ${ASCEND_CANN_PACKAGE_PATH}/devlib/device
     )
-    register_custom_aicpu_target(p2p_aicpu_kernel)
+    target_link_libraries(p2p_aicpu_kernel PRIVATE
+        ccl_kernel
+    )
 
     # 打包：AICPU Kernel tar 包
-    package_aicpu_kernel(
-        p2p_aicpu_kernel
-        ${AICPU_KERNEL_TAR_FILE}
-        ${AICPU_KERNEL_JSON_FILE}
+    pack_targets_and_files(
+        OUTPUT_TARGET "package_aicpu_hccl_custom_p2p"
+        OUTPUT "aicpu_hccl_custom_p2p.tar.gz"
+        TARGETS p2p_aicpu_kernel
+        MANIFEST "bin_hash.cfg"
+        TAR_ROOT_DIR "aicpu_kernels_device"
     )
+
     # 签名：添加 AICPU Kernel tar 包的签名
-    sign_aicpu_kernel(
-        p2p_aicpu_kernel
-        ${AICPU_KERNEL_TAR_FILE}
-        ${CMAKE_CURRENT_SOURCE_DIR}/scripts/hccl_custom_p2p_check_cfg.xml
-        SIGNED_AICPU_KERNEL_TAR_FILE
+    sign_file(
+        INPUT "aicpu_hccl_custom_p2p.tar.gz"
+        CONFIG ${CMAKE_CURRENT_SOURCE_DIR}/scripts/hccl_custom_p2p_check_cfg.xml
+        RESULT_VAR "sign_aicpu_hccl_custom_p2p_result"
+        DEPENDS package_aicpu_hccl_custom_p2p
     )
+
+    # 设置依赖
+    register_custom_aicpu_target(sign_aicpu_hccl_custom_p2p)
 else()
     # 安装
-    # install(FILES
-    #     ${BUILD_DEVICE_DIR}/signatures/aicpu_hccl_custom_p2p.tar.gz
-    #     DESTINATION ${CUSTOM_OPS_OPP_AICPU_KERNEL_PATH}
-    # )
-    # install(FILES
-    #     ${AICPU_KERNEL_JSON_FILE}
-    #     DESTINATION ${CUSTOM_OPS_OPP_AICPU_CONFIG_PATH}
-    # )
+    install(FILES
+        ${BUILD_DEVICE_DIR}/signatures/aicpu_hccl_custom_p2p.tar.gz
+        DESTINATION ${CUSTOM_OPS_OPP_AICPU_KERNEL_PATH}
+    )
+    install(FILES
+        ${CMAKE_CURRENT_SOURCE_DIR}/op_kernel_aicpu/libp2p_aicpu_kernel.json
+        DESTINATION ${CUSTOM_OPS_OPP_AICPU_CONFIG_PATH}
+    )
 endif()
 
 # 添加子目录

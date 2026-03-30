@@ -54,7 +54,7 @@ public:
         CpGM2GM((__gm__ T *)outputOffset, (__gm__ T *)inputOffset, len_);
         pipe_barrier(PIPE_ALL);
         uint64_t flag_offset =  0;
-        Record(targetRank, flag_offset, curTag);
+        Record(targetRank, flag_offset, curTag_);
     }
  
     __aicore__ inline void Consumer()
@@ -65,7 +65,7 @@ public:
         }else{
             flag_offset = 0;
         }
-        WaitFlag(rank_, flag_offset, curTag);
+        WaitFlag(rank_, flag_offset, curTag_);
         CpGM2GM((__gm__ T *)output_, (__gm__ T *)GM_IN[rank_], len_);
     }
  
@@ -75,19 +75,19 @@ public:
         Record(rank_, flag_offset, 0);
     }
  
-    __aicore__ inline void Process(uint64_t curCount, uint32_t curTag, uint64_t stride)
+    __aicore__ inline void Process(uint64_t curCount, uint32_t sliceId, uint64_t stride)
     {
-        this->curTag = static_cast<int32_t>(curTag);
+        curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
         this->curCount = curCount / coreNumPerRank;
         if(rank_ == root_){
             inputGT.SetGlobalBuffer(reinterpret_cast<__gm__ T *>(inputOffset));
             outputGT.SetGlobalBuffer(reinterpret_cast<__gm__ T *>(outputOffset));
             if(block_idx < coreNumPerStage){
                 Producer();
-                WaitFlag(rank_, BARRIER_OFFSET / FLAG_SIZE, curTag);
+                WaitFlag(rank_, BARRIER_OFFSET / FLAG_SIZE, curTag_);
             } else if(block_idx < coreNumPerStage + coreNumPerRank){
                 Consumer();
-                Record(rank_, BARRIER_OFFSET / FLAG_SIZE, curTag);
+                Record(rank_, BARRIER_OFFSET / FLAG_SIZE, curTag_);
             }
         } else {
             outputGT.SetGlobalBuffer(reinterpret_cast<__gm__ T *>(outputOffset));
@@ -102,7 +102,6 @@ public:
     GM_ADDR peerMemThisCore;
     uint64_t inputOffset;
     uint64_t outputOffset;
-    int32_t curTag;
     uint64_t curCount;
     uint64_t dataBufferSize;
     GlobalTensor<T> inputGT;
@@ -116,10 +115,10 @@ __aicore__ inline void AivScatterV2Mesh1D(EXTERN_KERNEL_ARGS_DEF_V2)
     op.Init(KERNEL_CLASS_INIT, true);
     op.InitCoreInfo(len, inputSliceStride);
     SyncAll<true>();
-    if (block_idx == 0 && tag >> AIV_TAG_MOVE_RIGHT_BITS == 1 && (tag & LOW_16_BITS) == 1) {
+    if (op.IsFirstOP(sliceId)) {
         op.BarrierForFirstOP();
     }
     SyncAll<true>();
-    op.Process(len, tag, inputSliceStride);
+    op.Process(len, sliceId, inputSliceStride);
     op.BarrierAll();
 }

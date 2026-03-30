@@ -100,7 +100,13 @@ HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::KernelRun(const OpParam& para
 
     const uint64_t inputAddr = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     const uint64_t outputAddr = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
-    const uint64_t outputToken = hcomm::CcuRep::GetTokenInfo(PointerToAddr(buffInfo_.outputPtr), buffInfo_.outputSize);
+    uint64_t outputToken;
+    {
+        auto tokenBuffInfo = buffInfo_;
+        tokenBuffInfo.inputPtr = nullptr; // 让 GetToken 走 outputPtr 分支
+        tokenBuffInfo.inputSize = 0;
+        CHK_RET(GetToken(tokenBuffInfo, outputToken));
+    }
     const uint64_t isInplace = inputAddr == outputAddr ? 1 : 0;
     const uint64_t dataCount = templateDataParams.count; // 总count数
     const uint64_t unitSize = DataTypeSizeGet(dataType_);
@@ -116,10 +122,10 @@ HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::KernelRun(const OpParam& para
     const uint64_t lastRankSliceSize = lastRankSliceCount * unitSize;
     const uint64_t lastPortSliceSize = lastPortSliceCount * unitSize;
 
-    HCCL_DEBUG("[%s] inputAddr[%llu], outputAddr[%llu], outputToken[%llu], isInplace[%llu], dataSize[%llu], "
+    HCCL_DEBUG("[%s] inputAddr[%llu], outputAddr[%llu], isInplace[%llu], dataSize[%llu], "
                "sliceDivisor[%llu], dataSizePerPort[%llu], dataSizePerRank[%llu], lastRankSliceSize[%llu], "
                "lastPortSliceSize[%llu]",
-               __func__, inputAddr, outputAddr, outputToken, isInplace, dataSize, sliceDivisor, dataSizePerPort,
+               __func__, inputAddr, outputAddr, isInplace, dataSize, sliceDivisor, dataSizePerPort,
                dataSizePerRank, lastRankSliceSize, lastPortSliceSize);
 
     std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAllReduceNhrMem2Mem1DMultiJetty>(

@@ -63,7 +63,7 @@ public:
         PipeBarrier<PIPE_ALL>();
         uint64_t flag_offset = block_idx;
         WaitFlag(rank_, flag_offset, 0);
-        Record(rank_, flag_offset, curTag);
+        Record(rank_, flag_offset, curTag_);
     }
  
     __aicore__ inline void Consumer()
@@ -72,13 +72,13 @@ public:
             return;
         }
         uint64_t flag_offset = rank_ * coreNumPerRank + coreIndex;
-        WaitFlag(targetRank, flag_offset, curTag);
+        WaitFlag(targetRank, flag_offset, curTag_);
         Record(targetRank, flag_offset, 0);
         CpGM2GM((__gm__ T *)recvOutputOffset, (__gm__ T *)recvInputOffset, recvCurCount);
         PipeBarrier<PIPE_ALL>(); // 核内自己的同步
     }
  
-    __aicore__ inline void Process(uint64_t len, uint32_t tag, ExtraArgs &extraArgs)
+    __aicore__ inline void Process(uint64_t len, uint32_t sliceId, ExtraArgs &extraArgs)
     {
         // 先看一个或者多个核处理一张卡数据的情况
         coreNumPerRank = numBlocks_ / rankSize_;
@@ -91,7 +91,7 @@ public:
             return;
         }
  
-        curTag = static_cast<int32_t>(tag);
+        curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
         cclBufferCountPerRank = len;
  
         // 运行过程中用到的所有flag，先置为0，后面会复用
@@ -136,8 +136,7 @@ public:
             processedDataCount += currDataCount;
         }
     }
- 
-    int32_t curTag;
+
     uint32_t coreCount;
     uint32_t coreNumPerRank;
     uint32_t targetRank;
@@ -157,10 +156,10 @@ __aicore__ inline void AivAlltoAllVV2Mesh1D(EXTERN_KERNEL_ARGS_DEF_V2)
     AivAlltoAllVMesh1D<T> op;
     op.Init(KERNEL_CLASS_INIT, true);
     SyncAll<true>();
-    if (block_idx == 0 && tag >> AIV_TAG_MOVE_RIGHT_BITS == 1 && (tag & LOW_16_BITS) == 1) {
+    if (op.IsFirstOP(sliceId)) {
         op.BarrierForFirstOP();
     }
     SyncAll<true>();
-    op.Process(len, tag, extraArgs);
+    op.Process(len, sliceId, extraArgs);
     op.BarrierAll();
 }
