@@ -53,6 +53,8 @@ else()
 
         ${TOP_DIR}/open_source/json/include
 
+        ${TOP_DIR}/hccl/src/common
+
         ${TOP_DIR}/hcomm/inc
         ${TOP_DIR}/hcomm/inc/hccl
         ${TOP_DIR}/hcomm/pkg_inc
@@ -60,7 +62,6 @@ else()
         ${TOP_DIR}/hcomm/pkg_inc/hcomm/ccu
         ${TOP_DIR}/hcomm/include
         ${TOP_DIR}/hcomm/include/hccl
-        ${TOP_DIR}/hcomm/src/common
     )
 endif()
 
