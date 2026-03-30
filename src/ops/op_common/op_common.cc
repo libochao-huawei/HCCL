@@ -29,6 +29,7 @@
 #include "topo_host.h"
 #include "adapter_error_manager_pub.h"
 #include "hccl_inner_dl.h"
+#include "../../common/hcomm_dlsym/hccl_comm_dl.h"
 #include "hccl.h"
 #include "config_log.h"
 #include "workflow.h"
@@ -79,6 +80,26 @@ thread_local std::map<std::string, HcclMemHandle> g_memHandleCache; // 当前AIV
 thread_local std::map<std::string, std::unique_ptr<AlgResourceCtxSerializable>> g_hostCtx;
 constexpr u32 HOST_WAIT_AICPU_NOTIFYIDX = 0;// host主流wait aicpu流的notify idx
 
+// 检查非对称拓扑支持情况
+// 仅 AllGather, AllReduce, ReduceScatter 支持跨框非对称拓扑，其他算子拦截
+HcclResult CheckAsymmetricTopoSupport(HcclCMDType opType, const TopoInfoWithNetLayerDetails* topoInfo)
+{
+    // 仅在跨框非对称场景下检查
+    if (topoInfo->topoLevelNums > 1 && topoInfo->multiModuleDiffDeviceNumMode) {
+        // 三个已适配非对称的算子：AllGather, AllReduce, ReduceScatter
+        bool isSupportedOp = (opType == HcclCMDType::HCCL_CMD_ALLGATHER ||
+                             opType == HcclCMDType::HCCL_CMD_ALLREDUCE ||
+                             opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER);
+        if (!isSupportedOp) {
+            HCCL_ERROR("[CheckAsymmetricTopoSupport] OpType[%d] does not support asymmetric topology "
+                "(multi-module diff device num mode), only ALLGATHER/ALLREDUCE/REDUCE_SCATTER are supported.",
+                opType);
+            return HCCL_E_NOT_SUPPORT;
+        }
+    }
+    return HCCL_SUCCESS;
+}
+
 HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
     std::string &algName)
 {
@@ -87,6 +108,9 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
     CHK_RET(HcclGetOpExpansionMode(comm, param));
     // 获取基础拓扑
     CHK_RET(HcclCalcTopoInfo(comm, param, topoInfo));
+
+    // 检查非对称拓扑支持情况，非对称场景仅 AllGather/AllReduce/ReduceScatter 可用
+    CHK_RET(CheckAsymmetricTopoSupport(param.opType, topoInfo.get()));
 
     // 算法选择，选择完后顺便param.algTag设置了，资源的保存是以算子+算法为单位
     std::shared_ptr<ExecuteSelector> collAlgSelector = std::make_shared<ExecuteSelector>(ExecuteSelector());
@@ -214,11 +238,12 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
 
     // 算法执行
     if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
-        CHK_RET(GetUnfoldThreadInfo(comm, param, resCtxHost->unfoldThread));
+        ThreadHandle unfoldThread;
+        CHK_RET(GetUnfoldThreadInfo(comm, param, unfoldThread));
         // 根据主流的捕获状态决定展开流的状态
-        CHK_RET(CaptureSlaveStreams(comm, param.stream, {mainThread, resCtxHost->unfoldThread}));
+        CHK_RET(CaptureSlaveStreams(comm, param.stream, {mainThread, unfoldThread}));
         CHK_RET(HcclAicpuKernelEntranceLaunch(comm, param, cpuTsThread, exportedCpuTsThread, notifyNumOnMainThread,
-            resCtxSequence, algName, resCtxHost->unfoldThread));
+            resCtxSequence, algName, unfoldThread));
     } else if (param.engine == COMM_ENGINE_AIV) {
         param.resCtx = resCtxSequence;
         AlgResourceCtxSerializable &resCtxHost = *static_cast<AlgResourceCtxSerializable *>(resCtxSequence);
@@ -1273,6 +1298,9 @@ HcclResult HcclGetOpExpansionMode(HcclComm comm, OpParam &param)
     return HCCL_SUCCESS;
 }
 
+static constexpr uint32_t opExpansionModeCcuSched = 5;
+static constexpr uint32_t opExpansionModeCcuMs = 4;
+
 HcclResult DecideHcclOpExpansionMode(HcclComm comm, HcclOpExpansionMode &finalMode)
 {
     HcclOpExpansionMode configOpExpansionMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_INVALID;
@@ -1280,13 +1308,13 @@ HcclResult DecideHcclOpExpansionMode(HcclComm comm, HcclOpExpansionMode &finalMo
     CHK_RET(HcclConfigGetInfo(comm, HcclConfigType::HCCL_CONFIG_TYPE_OP_EXPANSION_MODE, infoLen, &configOpExpansionMode));
     finalMode = configOpExpansionMode;
     if (GetExternalInputHcclAicpuUnfold() == true) {
-        finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_AI_CPU;
+        finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_AI_CPU;
     } else if (GetExternalInputHcclAivMode() == true) {
-        finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV;
+        finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_AIV;
     } else if (GetExternalInputHcclCcuMSMode()) {
-        finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_CCU_MS;
+        finalMode = static_cast<HcclOpExpansionMode>(opExpansionModeCcuMs);
     } else if (GetExternalInputHcclCcuSchedMode()) {
-        finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_CCU_SCHED;
+        finalMode = static_cast<HcclOpExpansionMode>(opExpansionModeCcuSched);
     }
 
     if (configOpExpansionMode != finalMode) {
@@ -1299,24 +1327,24 @@ HcclResult DecideHcclOpExpansionMode(HcclComm comm, HcclOpExpansionMode &finalMo
 HcclResult ApplyOpExpansionMode(OpParam &param, HcclOpExpansionMode finalMode)
 {
     switch (finalMode) {
-        case HcclOpExpansionMode::HCCL_OP_EXPANSION_AI_CPU:
+        case HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_AI_CPU:
             param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
             param.engine = CommEngine::COMM_ENGINE_AICPU_TS;
             CHK_RET(LoadAICPUKernel());
             HCCL_DEBUG("[ApplyOpExpansionMode] AICPU mode selected.");
             break;
-        case HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV:
+        case HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_AIV:
             param.opExecuteConfig = OpExecuteConfig::AIV;
             param.engine = CommEngine::COMM_ENGINE_AIV;
             CHK_RET(RegisterKernel(param.opType, g_aivKernelInfoMap[param.opType].first, g_aivKernelInfoMap[param.opType].second));
             HCCL_DEBUG("[ApplyOpExpansionMode] AIV mode selected.");
             break;
-        case HcclOpExpansionMode::HCCL_OP_EXPANSION_CCU_MS:
+        case static_cast<HcclOpExpansionMode>(opExpansionModeCcuMs):
             param.opExecuteConfig = OpExecuteConfig::CCU_MS;
             param.engine = CommEngine::COMM_ENGINE_CCU;
             HCCL_DEBUG("[ApplyOpExpansionMode] CCU_MS mode selected.");
             break;
-        case HcclOpExpansionMode::HCCL_OP_EXPANSION_CCU_SCHED:
+        case static_cast<HcclOpExpansionMode>(opExpansionModeCcuSched):
             param.opExecuteConfig = OpExecuteConfig::CCU_SCHED;
             param.engine = CommEngine::COMM_ENGINE_CCU;
             HCCL_DEBUG("[ApplyOpExpansionMode] CCU_SCHED mode selected.");
@@ -1419,6 +1447,17 @@ bool ShouldUseInnerOp(OpExecuteConfig opExecuteConfig)
     }
 
     return false;
+}
+
+HcclResult LogHcclExit(const std::string &opName, const std::string &tag, HcclUs startut)
+{
+    if (GetExternalInputHcclEnableEntryLog()) {
+        HcclUs endut = TIME_NOW();
+        std::string endInfo = opName + ":success,take time: " +
+            std::to_string(DURATION_US(endut - startut).count()) + " us, tag: " + tag;
+        HCCL_RUN_INFO("%s", endInfo.c_str());
+    }
+    return HCCL_SUCCESS;
 }
 
 }  // namespace ops_hccl

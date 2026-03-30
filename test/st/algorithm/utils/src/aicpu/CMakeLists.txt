@@ -11,6 +11,7 @@
 set(INCLUDE_LIST
     ${HCCL_DEV_BASE}/include
     ${HCCL_DEV_BASE}/src/common
+    ${HCCL_DEV_BASE}/src/common/hcomm_dlsym
 
     ${HCCL_DEV_BASE}/src/ops
     ${HCCL_DEV_BASE}/src/ops/op_common
@@ -118,6 +119,7 @@ set(INCLUDE_LIST
     ${HCCL_DEV_BASE}/src/ops/batch_send_recv
     ${HCCL_DEV_BASE}/src/ops/batch_send_recv/executor
     ${HCCL_DEV_BASE}/src/ops/batch_send_recv/selector
+    ${HCCL_DEV_BASE}/src/common/hcomm_dlsym
 )
 
 list(APPEND INCLUDE_LIST
@@ -126,6 +128,7 @@ list(APPEND INCLUDE_LIST
 
     # hcomm头文件
     ${ASCEND_HOME_PATH}/include/hccl
+    ${ASCEND_HOME_PATH}/include/hcomm
 
     # runtime头文件
     ${ASCEND_HOME_PATH}/include/
