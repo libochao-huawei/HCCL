@@ -1354,7 +1354,7 @@ HcclResult DecideHcclOpExpansionMode(HcclComm comm, HcclOpExpansionMode &finalMo
     if (GetExternalInputHcclAicpuUnfold() == true) {
         finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_AI_CPU;
     } else if (GetExternalInputHcclAivOnlyMode() == true) {
-        finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY;
+        finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV;
     } else if (GetExternalInputHcclAivMode() == true) {
         finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV;
     } else if (GetExternalInputHcclCcuMSMode()) {
