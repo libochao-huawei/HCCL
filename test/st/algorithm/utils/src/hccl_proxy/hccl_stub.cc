@@ -38,6 +38,7 @@ using namespace ops_hccl;
 extern "C" {
 #endif  // __cplusplus
 
+std::mutex g_mutex;
 thread_local ThreadHandle curThread;
 
 HcclResult HcclRankGraphGetRankSizeByLayer(HcclComm comm, uint32_t netLayer, uint32_t *rankNum)
@@ -412,6 +413,7 @@ static int32_t HcommReadOnThreadStub(ThreadHandle thread, ChannelHandle channel,
 static int32_t HcommChannelNotifyRecordOnThreadStub(ThreadHandle thread, ChannelHandle channel, uint32_t remoteNotifyIdx)
 {
     // 1.获取当前rankId,NpuPos和stream
+    thread = (thread == 0) ? curThread : thread; // DPU模式使用AICPU的thread
     uint32_t curRank = reinterpret_cast<HcclSim::SimHcclThread*>(thread)->GetCurRank();
 
     NpuPos pos = HcclSim::SimWorld::Global()->GetNpuPosByRankId(curRank);
@@ -442,6 +444,7 @@ static int32_t HcommChannelNotifyWaitOnThreadStub(ThreadHandle thread, ChannelHa
     static_cast<void>(timeout);
 
     // 1.获取当前rankId,NpuPos和stream
+    thread = (thread == 0) ? curThread : thread;
     uint32_t curRank = reinterpret_cast<HcclSim::SimHcclThread*>(thread)->GetCurRank();
 
     NpuPos pos = HcclSim::SimWorld::Global()->GetNpuPosByRankId(curRank);
@@ -686,13 +689,17 @@ typedef std::function<int32_t(uint64_t, int32_t)> CallbackStub;
 std::map<std::string, CallbackStub> dpuCallbackMap;
 int32_t HcclTaskRegister(HcclComm comm, const char *msgTag, Callback cb)
 {
-    dpuCallbackMap[msgTag] = std::function<int32_t(uint64_t, int32_t)>(cb);
+    std::string msgTagStr(msgTag);
+    std::lock_guard<std::mutex> lock(g_mutex);
+    dpuCallbackMap[msgTagStr] = std::function<int32_t(uint64_t, int32_t)>(cb);
     return 0;
 }
 
 static int32_t HcommSendRequestStub(MsgHandle handle, const char *msgTag, const void *src, size_t sizeByte, uint32_t *msgId)
 {
-    auto it = dpuCallbackMap.find(msgTag);
+    std::string msgTagStr(msgTag);
+    std::lock_guard<std::mutex> lock(g_mutex);
+    auto it = dpuCallbackMap.find(msgTagStr);
     if (it != dpuCallbackMap.end()) {
         it->second(reinterpret_cast<uint64_t>(src), sizeByte);
     } else {
