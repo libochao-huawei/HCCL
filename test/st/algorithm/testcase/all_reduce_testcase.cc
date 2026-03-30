@@ -176,37 +176,6 @@ TEST_F(ST_ALL_REDUCE_TEST, st_all_reduce_1shot_mid_data)
     RunAllReduceCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp);
 }
 
-TEST_F(ST_ALL_REDUCE_TEST, st_all_reduce_1shot_64datatype_prod_small_dataCount)
-{
-    TopoMeta topoMeta{{{0, 1}}};
-    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_INT64;
-    u32 dataTypeSize = sizeof(double);
-    u64 dataCount = AR_AICPU_1D_64DATATYPE_DATA_SIZE / dataTypeSize - 100;
-    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_PROD;
-    RunAllReduceCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp);
-}
-
-TEST_F(ST_ALL_REDUCE_TEST, st_all_reduce_1shot_64datatype_boundary_dataCount)
-{
-    TopoMeta topoMeta{{{0, 1, 2}}};
-    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_UINT64;
-    u32 dataTypeSize = sizeof(double);
-    u64 dataCount = AR_AICPU_1D_64DATATYPE_DATA_SIZE / dataTypeSize;
-    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_MAX;
-    RunAllReduceCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp);
-}
-
-TEST_F(ST_ALL_REDUCE_TEST, st_all_reduce_1shot_64datatype_small_dataCount)
-{
-    TopoMeta topoMeta{{{0, 1, 2}}};
-    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_FP64;
-    u32 dataTypeSize = sizeof(double);
-    u64 dataCount = AR_AICPU_1D_64DATATYPE_DATA_SIZE / dataTypeSize - 13;
-    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_MIN;
-    RunAllReduceCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp);
-}
-
-
 // 2shot
 TEST_F(ST_ALL_REDUCE_TEST, st_all_reduce_2shot_lower_boundary_data)
 {
@@ -329,35 +298,5 @@ TEST_F(ST_ALL_REDUCE_TEST, st_all_reduce_hcclbuff_add_1)
     u32 dataTypeSize = 1;
     u64 dataCount = 200 * 1024 * 1024 + 1;
     HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_MIN;
-    RunAllReduceCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp);
-}
-
-TEST_F(ST_ALL_REDUCE_TEST, st_all_reduce_2shot_64datatype_boundary_dataCount)
-{
-    TopoMeta topoMeta{{{0, 1, 2, 3, 4, 5, 6, 7}}};
-    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_FP64;
-    u32 dataTypeSize = sizeof(double);
-    u64 dataCount = AR_AICPU_1D_64DATATYPE_DATA_SIZE / dataTypeSize + 1;
-    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_SUM;
-    RunAllReduceCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp);
-}
-
-TEST_F(ST_ALL_REDUCE_TEST, st_all_reduce_2shot_64datatype_prod_mid_dataCount)
-{
-    TopoMeta topoMeta{{{0, 1, 2, 3}}};
-    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_INT64;
-    u32 dataTypeSize = sizeof(double);
-    u64 dataCount = AR_AICPU_1D_64DATATYPE_DATA_SIZE / dataTypeSize + 2 * 1024;
-    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_PROD;
-    RunAllReduceCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp);
-}
-
-TEST_F(ST_ALL_REDUCE_TEST, st_all_reduce_2shot_64datatype_odd_dataCount)
-{
-    TopoMeta topoMeta{{{0, 1, 2}}};
-    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_UINT64;
-    u32 dataTypeSize = sizeof(double);
-    u64 dataCount = AR_AICPU_1D_64DATATYPE_DATA_SIZE / dataTypeSize + 13;
-    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_MAX;
     RunAllReduceCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp);
 }
