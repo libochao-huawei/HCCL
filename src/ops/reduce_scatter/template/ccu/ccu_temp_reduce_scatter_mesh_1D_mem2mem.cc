@@ -81,7 +81,11 @@ HcclResult CcuTempReduceScatterMesh1DMem2Mem::CalcRes(HcclComm comm, const OpPar
 HcclResult CcuTempReduceScatterMesh1DMem2Mem::KernelRun(const OpParam& param,
                                                         const TemplateDataParams& templateDataParams,
                                                         const TemplateResource& templateResource)
-{
+{   
+    if (templateDataParams.sliceSize == 0 && templateDataParams.tailSize == 0) {
+        HCCL_INFO("[CcuTempReduceScatterMesh1DMem2Mem] sliceSize is 0, no need to do, just success.");
+        return HCCL_SUCCESS;
+    }
     buffInfo_ = templateDataParams.buffInfo;
 
     uint64_t repeatNumTmp       = templateDataParams.repeatNum;
@@ -91,6 +95,7 @@ HcclResult CcuTempReduceScatterMesh1DMem2Mem::KernelRun(const OpParam& param,
     CHK_RET(GetToken(buffInfo_, token));
     uint64_t scratchAddr        = PointerToAddr(buffInfo_.hcclBuff.addr) + buffInfo_.hcclBuffBaseOff;
     uint64_t inputSliceStride   = templateDataParams.inputSliceStride;
+    uint64_t outputSliceStride  = templateDataParams.outputSliceStride;
     uint64_t inputRepeatStride  = templateDataParams.inputRepeatStride;
     uint64_t outputRepeatStride = templateDataParams.outputRepeatStride;
     uint64_t normalSliceSize    = templateDataParams.sliceSize;
@@ -99,7 +104,7 @@ HcclResult CcuTempReduceScatterMesh1DMem2Mem::KernelRun(const OpParam& param,
     uint64_t repeatNum = UINT64_MAX - repeatNumTmp;
 
     std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgReduceScatterMesh1DMem2Mem>(
-        inputAddr, outputAddr, token, scratchAddr, inputSliceStride, inputRepeatStride, outputRepeatStride,
+        inputAddr, outputAddr, token, scratchAddr, inputSliceStride, outputSliceStride, inputRepeatStride, outputRepeatStride,
         normalSliceSize, lastSliceSize, repeatNum);
 
     void* taskArgPtr = static_cast<void*>(taskArg.get());
