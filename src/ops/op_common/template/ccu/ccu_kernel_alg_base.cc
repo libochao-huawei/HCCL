@@ -36,7 +36,7 @@ void CcuKernelAlgBase::AllocGoResource(uint32_t parallelDim, uint32_t msPerLoop)
     moConfig.loopCount = parallelDim;
     // 算法配置的msPerLoop * CcuRep::CCU_MS_SIZE覆盖默认配置，msPerLoop默认为1
     moConfig.memSlice = msPerLoop * CcuRep::CCU_MS_SIZE;
-
+    moConfig.msInterleave = 9;
     HCCL_INFO("[AllocGoResource]moConfig: loopCount = %u, msInterleave = %u", moConfig.loopCount, moConfig.msInterleave);
 
     // 简单实现,只需要申请一次资源
@@ -939,6 +939,7 @@ HcclResult CcuKernelAlgBase::CreateMultiOpWrite(const std::vector<ChannelHandle>
                                                  HcclDataType dataType, HcclDataType outputDataType,
                                                  HcclReduceOp opType)
 {
+    moConfig.msInterleave = channels.size() + 1;
     AllocGoResource();
 
     std::string loopType = GetReduceTypeStr(dataType, opType) + "_write";
@@ -959,8 +960,8 @@ HcclResult CcuKernelAlgBase::CreateMultiOpWrite(const std::vector<ChannelHandle>
         CcuRep::LoopBlock lb(this, loopType + "_loop_" + std::to_string(index));
         lb(src, dst, len, lenForExpansion);
 
-        std::vector<CcuRep::CcuBuf> bufs = {moRes.ccuBuf.begin() + index * (moConfig.msInterleave + 1),
-                                               moRes.ccuBuf.begin() + index * (moConfig.msInterleave +1) + usedBufNum + 1};
+        std::vector<CcuRep::CcuBuf> bufs = {moRes.ccuBuf.begin() + index * (moConfig.msInterleave),
+                                               moRes.ccuBuf.begin() + index * (moConfig.msInterleave) + usedBufNum + 1};
         CcuRep::CompletedEvent &event = moRes.completedEvent[index];
 
         uint32_t ckeIdx = (index == 0) ? 2 : 3;
