@@ -1229,7 +1229,7 @@ HcclResult HcclCheckTag(const char *tag)
 
 HcclResult SetOpParamAlgTag(OpParam &param, const std::string &algName)
 {
-    std::string temp = algName; // 创建algName的副本
+    std::string temp = algName; // 创建algName的副本 
 
     const char* launchMode = (((param.engine == CommEngine::COMM_ENGINE_AICPU) ||
                                 (param.engine == CommEngine::COMM_ENGINE_AICPU_TS)) ? "device" : "host");
