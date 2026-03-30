@@ -33,6 +33,7 @@ target_link_libraries(hccl-model-proxy PUBLIC
     hcomm
     unified_dlog
     mmpa
+    acl_rt
     scatter_aicpu_kernel
 )
 
@@ -69,6 +70,7 @@ if (BUILD_OPEN_PROJECT)
         ${HCCL_DEV_BASE}/src/ops
         ${HCCL_DEV_BASE}/src/ops/inc
         ${HCCL_DEV_BASE}/src/ops/op_common/inc
+        ${HCCL_DEV_BASE}/src/common/hcomm_dlsym
     )
 endif()
 

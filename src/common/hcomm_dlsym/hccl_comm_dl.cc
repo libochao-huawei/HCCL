@@ -35,6 +35,7 @@ const char* (*hcclGetErrorStringPtr)(HcclResult) = nullptr;
 uint32_t (*hcclGetCommConfigCapabilityPtr)(void) = nullptr;
 HcclResult (*hcclCommSuspendPtr)(HcclComm) = nullptr;
 HcclResult (*hcclCommResumePtr)(HcclComm) = nullptr;
+HcclResult (*hcclCommGetStatusPtr)(HcclComm, HcclCommStatus*) = nullptr;
 HcclResult (*hcclCommSetMemoryRangePtr)(HcclComm, void*, size_t, size_t, uint64_t) = nullptr;
 HcclResult (*hcclCommUnsetMemoryRangePtr)(HcclComm, void*) = nullptr;
 HcclResult (*hcclCommActivateCommMemoryPtr)(HcclComm, void*, size_t, size_t, aclrtDrvMemHandle, uint64_t) = nullptr;
@@ -80,6 +81,7 @@ static bool g_hcclGetErrorStringSupported = false;
 static bool g_hcclGetCommConfigCapabilitySupported = false;
 static bool g_hcclCommSuspendSupported = false;
 static bool g_hcclCommResumeSupported = false;
+static bool g_hcclCommGetStatusSupported = false;
 static bool g_hcclCommSetMemoryRangeSupported = false;
 static bool g_hcclCommUnsetMemoryRangeSupported = false;
 static bool g_hcclCommActivateCommMemorySupported = false;
@@ -202,6 +204,12 @@ static HcclResult StubHcclCommSuspend(HcclComm comm) {
 static HcclResult StubHcclCommResume(HcclComm comm) {
     (void)comm;
     HCCL_ERROR("[HcclWrapper] HcclCommResume not supported");
+    return HCCL_E_NOT_SUPPORT;
+}
+static HcclResult StubHcclCommGetStatus(HcclComm comm, HcclCommStatus* status) {
+    (void)comm;
+    (void)status;
+    HCCL_ERROR("[HcclWrapper] HcclCommGetStatus not supported");
     return HCCL_E_NOT_SUPPORT;
 }
 static HcclResult StubHcclCommSetMemoryRange(HcclComm comm, void* baseVirPtr, size_t size, size_t alignment, uint64_t flags) {
@@ -346,6 +354,7 @@ void HcclCommDlInit(void* libHcommHandle) {
     SET_PTR(hcclGetCommConfigCapabilityPtr, libHcommHandle, "HcclGetCommConfigCapability", StubHcclGetCommConfigCapability, g_hcclGetCommConfigCapabilitySupported);
     SET_PTR(hcclCommSuspendPtr, libHcommHandle, "HcclCommSuspend", StubHcclCommSuspend, g_hcclCommSuspendSupported);
     SET_PTR(hcclCommResumePtr, libHcommHandle, "HcclCommResume", StubHcclCommResume, g_hcclCommResumeSupported);
+    SET_PTR(hcclCommGetStatusPtr, libHcommHandle, "HcclCommGetStatus", StubHcclCommGetStatus, g_hcclCommGetStatusSupported);
     SET_PTR(hcclCommSetMemoryRangePtr, libHcommHandle, "HcclCommSetMemoryRange", StubHcclCommSetMemoryRange, g_hcclCommSetMemoryRangeSupported);
     SET_PTR(hcclCommUnsetMemoryRangePtr, libHcommHandle, "HcclCommUnsetMemoryRange", StubHcclCommUnsetMemoryRange, g_hcclCommUnsetMemoryRangeSupported);
     SET_PTR(hcclCommActivateCommMemoryPtr, libHcommHandle, "HcclCommActivateCommMemory", StubHcclCommActivateCommMemory, g_hcclCommActivateCommMemorySupported);
@@ -411,6 +420,8 @@ void HcclCommDlFini(void) {
     g_hcclCommSuspendSupported = false;
     hcclCommResumePtr = StubHcclCommResume;
     g_hcclCommResumeSupported = false;
+    hcclCommGetStatusPtr = StubHcclCommGetStatus;
+    g_hcclCommGetStatusSupported = false;
     hcclCommSetMemoryRangePtr = StubHcclCommSetMemoryRange;
     g_hcclCommSetMemoryRangeSupported = false;
     hcclCommUnsetMemoryRangePtr = StubHcclCommUnsetMemoryRange;
@@ -516,6 +527,9 @@ HcclResult HcclCommSuspend(HcclComm comm) {
 HcclResult HcclCommResume(HcclComm comm) {
     return hcclCommResumePtr(comm);
 }
+HcclResult HcclCommGetStatus(HcclComm comm, HcclCommStatus *status) {
+    return hcclCommGetStatusPtr(comm, status);
+}
 HcclResult HcclCommSetMemoryRange(HcclComm comm, void* baseVirPtr, size_t size, size_t alignment, uint64_t flags) {
     return hcclCommSetMemoryRangePtr(comm, baseVirPtr, size, alignment, flags);
 }
@@ -609,6 +623,7 @@ extern "C" bool HcommIsSupportHcclGetErrorString(void) { return g_hcclGetErrorSt
 extern "C" bool HcommIsSupportHcclGetCommConfigCapability(void) { return g_hcclGetCommConfigCapabilitySupported; }
 extern "C" bool HcommIsSupportHcclCommSuspend(void) { return g_hcclCommSuspendSupported; }
 extern "C" bool HcommIsSupportHcclCommResume(void) { return g_hcclCommResumeSupported; }
+extern "C" bool HcommIsSupportHcclCommGetStatus(void) { return g_hcclCommGetStatusSupported; }
 extern "C" bool HcommIsSupportHcclCommSetMemoryRange(void) { return g_hcclCommSetMemoryRangeSupported; }
 extern "C" bool HcommIsSupportHcclCommUnsetMemoryRange(void) { return g_hcclCommUnsetMemoryRangeSupported; }
 extern "C" bool HcommIsSupportHcclCommActivateCommMemory(void) { return g_hcclCommActivateCommMemorySupported; }
