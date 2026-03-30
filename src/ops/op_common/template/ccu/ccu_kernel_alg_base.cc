@@ -19,7 +19,7 @@ HcclResult CcuKernelAlgBase::LocalReduceNb(const std::vector<CcuRep::CcuBuf> &bu
                      const CcuRep::Variable &len, CcuRep::CompletedEvent event)
 {
     (void)count;
-    return CcuKernel::LocalReduceNb(bufs.data(), bufs.size(), dataType, outputDataType, opType, len, event);
+    return CcuKernel::LocalReduceNb(bufs.data(), count, dataType, outputDataType, opType, len, event);
 }
 
 void CcuKernelAlgBase::AllocGoResource(uint32_t parallelDim, uint32_t msPerLoop)
