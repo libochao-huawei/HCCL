@@ -1159,135 +1159,16 @@ HcclResult GetAlgResAiv(HcclComm comm, const OpParam &param, AlgResourceRequest 
     AlgResourceCtxSerializable* resCtxHost = static_cast<AlgResourceCtxSerializable *>(*resCtxSequence);
     resCtxHost->topoInfo = *topoInfo;
     resCtxHost->algHierarchyInfo = algHierarchyInfo;
-    if (param.opMode == OpMode::OFFLOAD) {
-        CHK_RET(HcclAllocAlgResourceAivGraphMode(comm, param, resRequest, resCtxHost));
-    } else {
-        CHK_RET(HcclAllocAlgResourceAiv(comm, param, resRequest, resCtxHost));
-    }
+    // if (param.opMode == OpMode::OFFLOAD) {
+    //     CHK_RET(HcclGetChannel(comm, param, resRequest, resCtxHost));
+    // }
+    CHK_RET(HcclAllocAlgResourceAiv(comm, param, resRequest, resCtxHost));
     return HCCL_SUCCESS;
 }
 
 HcclResult HcclAllocAlgResourceAivGraphMode(
     HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest, AlgResourceCtxSerializable* resCtxHost)
 {
-    HCCL_INFO("[%s]Start to execute.", __func__);
-    
-    // 注册输入输出缓冲区
-    char inputBuffTag[MAX_MEM_TAG_LENGTH];
-    char outputBuffTag[MAX_MEM_TAG_LENGTH];
-    auto retIn = sprintf_s(inputBuffTag, sizeof(inputBuffTag), "%s_%s", param.algTag, "InputBuffer");
-    auto retOut = sprintf_s(outputBuffTag, sizeof(outputBuffTag), "%s_%s", param.algTag, "OutputBuffer");
-    if (retIn <= 0 || retOut <= 0){
-        HCCL_ERROR("[%s]Failed to fill BuffTag", __func__);
-        return HcclResult::HCCL_E_INTERNAL;
-    }
-    
-    std::vector<HcclMemHandle> memHandles;
-    HcclMemHandle aivCommMemHandle; // AIV通信信息内存句柄
-    
-    // 获取或创建AIV通信信息内存
-    uint64_t commInfoSize = 0;
-    if (HcclEngineCtxGet(comm, param.commModeTag, param.engine, &(resCtxHost->aivCommInfoPtr), &commInfoSize) != HCCL_SUCCESS) {
-        CHK_RET(HcclEngineCtxCreate(comm, param.commModeTag, param.engine, AIV_TAG_BUFF_LEN, &(resCtxHost->aivCommInfoPtr)));
-        ACLCHECK(aclrtMemset(resCtxHost->aivCommInfoPtr, AIV_TAG_BUFF_LEN, 0, AIV_TAG_BUFF_LEN));
-        
-        // 注册AIV通信信息内存
-        CommMem regMem{COMM_MEM_TYPE_DEVICE, resCtxHost->aivCommInfoPtr, AIV_TAG_BUFF_LEN};
-        CHK_RET(HcclCommMemReg(comm, param.commModeTag, &regMem, &aivCommMemHandle));
-        g_memHandleCache[param.commModeTag] = aivCommMemHandle;
-    } else {
-        if (g_memHandleCache.find(param.commModeTag) == g_memHandleCache.end()) {
-            HCCL_ERROR("[%s]aiv memHandle not found in map", __func__);
-            return HCCL_E_INTERNAL;
-        }
-        aivCommMemHandle = g_memHandleCache[param.commModeTag];
-    }
-    HCCL_INFO("[%s]commModeTag[%s] regMemAddr[%p] memHandle[%p]", __func__, param.commModeTag, resCtxHost->aivCommInfoPtr,
-        aivCommMemHandle);
-    
-    // 注册输入输出缓冲区
-    HcclMemHandle inputMemHandle, outputMemHandle;
-    CHK_RET(HcclRegstryBuffGraphMode(comm, inputBuffTag, param.inputPtr, param.inputSize, &inputMemHandle));
-    CHK_RET(HcclRegstryBuffGraphMode(comm, outputBuffTag, param.outputPtr, param.outputSize, &outputMemHandle));
-    
-    // 收集所有内存句柄
-    memHandles.push_back(aivCommMemHandle);
-    memHandles.push_back(inputMemHandle);
-    memHandles.push_back(outputMemHandle);
-    
-    // 从通信域获取ccl buffer
-    void* cclBufferAddr;
-    uint64_t cclBufferSize;
-    CHK_RET(HcclGetHcclBuffer(comm, &cclBufferAddr, &cclBufferSize));
-    HCCL_INFO("[%s]local cclBufferAddr[%p] cclBufferSize[%llu]", __func__, cclBufferAddr, cclBufferSize);
-    resCtxHost->cclMem = HcclMem{HCCL_MEM_TYPE_DEVICE, cclBufferAddr, cclBufferSize};
-    
-    void* buffersIn[MAX_RANK_SIZE] = {};
-    void* buffersOut[MAX_RANK_SIZE] = {};
-    void* inputBuffers[MAX_RANK_SIZE] = {};
-    void* outputBuffers[MAX_RANK_SIZE] = {};
-    
-    buffersIn[resCtxHost->topoInfo.userRank] = cclBufferAddr;
-    buffersOut[resCtxHost->topoInfo.userRank] = resCtxHost->aivCommInfoPtr;
-    inputBuffers[resCtxHost->topoInfo.userRank] = param.inputPtr;
-    outputBuffers[resCtxHost->topoInfo.userRank] = param.outputPtr;
-    
-    // 迭代每个子通信域的建链请求，创建链路
-    for (u32 level = 0; level < resRequest.channels.size(); level++) {
-        // 获取子通信域的建链请求
-        std::vector<HcclChannelDesc> &levelNChannelRequest = resRequest.channels[level];
-        for (auto &channelDesc : levelNChannelRequest) {
-            channelDesc.memHandles = memHandles.data();
-            channelDesc.memHandleNum = memHandles.size();
-        }
-        // 获取子通信域的建链数量
-        u32 validChannelNum = levelNChannelRequest.size();
-        std::vector<ChannelHandle> levelNChannels;
-        levelNChannels.resize(validChannelNum);
-        HCCL_INFO("[%s]level[%u] validChannelNum[%u]", __func__, level, validChannelNum);
-        
-        if (validChannelNum > 0) {
-            CHK_RET(HcclChannelAcquire(comm, param.engine, levelNChannelRequest.data(), validChannelNum, levelNChannels.data()));
-        }
-        
-        for (u32 idx = 0; idx < validChannelNum; idx++) {
-            HcclChannelDesc &channelDesc = levelNChannelRequest[idx];
-            void* remoteBufferAddr;
-            uint64_t remoteBufferSize;
-            
-            CHK_RET(HcclChannelGetHcclBuffer(comm, levelNChannels[idx], &remoteBufferAddr, &remoteBufferSize));
-            HCCL_INFO("[%s]remoteRank[%u] cclBufferAddr[%p] cclBufferSize[%llu]", __func__, channelDesc.remoteRank,
-                remoteBufferAddr, remoteBufferSize);
-            buffersIn[channelDesc.remoteRank] = remoteBufferAddr;
-            
-            // 获取远程内存
-            u32 memNum;
-            CommMem* remoteMems;
-            char** memTags;
-            CHK_RET(HcclChannelGetRemoteMems(comm, levelNChannels[idx], &memNum, &remoteMems, &memTags));
-            CHK_PRT_RET(memNum != 3, HCCL_ERROR("[%s] memNum[%u] not equal to 3", __func__, memNum), HCCL_E_PARA);
-            HCCL_INFO("[%s]remoteRank[%u] memNum[%u] regMemAddr[%p] regMemSize[%llu] memTag0[%s] memTag1[%s] memTag2[%s]", __func__,
-                channelDesc.remoteRank, memNum, remoteMems[0].addr, remoteMems[0].size, memTags[0], memTags[1], memTags[2]);
-            // 解析内存标签并存储对应地址
-            for (u32 i = 0; i < memNum; i++) {
-                if (strcmp(memTags[i], param.commModeTag) == 0) {
-                    buffersOut[channelDesc.remoteRank] = remoteMems[i].addr;
-                } else if (strcmp(memTags[i], inputBuffTag) == 0) {
-                    inputBuffers[channelDesc.remoteRank] = remoteMems[i].addr;
-                } else if (strcmp(memTags[i], outputBuffTag) == 0) {
-                    outputBuffers[channelDesc.remoteRank] = remoteMems[i].addr;
-                }
-            }
-        }
-    }
-    
-    // 拷贝缓冲区地址到设备
-    ACLCHECK(aclrtMemcpy(resCtxHost->aivCommInfoPtr, MAX_RANK_SIZE * sizeof(void*), buffersIn, MAX_RANK_SIZE * sizeof(void*), ACL_MEMCPY_HOST_TO_DEVICE));
-    ACLCHECK(aclrtMemcpy(static_cast<u8*>(resCtxHost->aivCommInfoPtr) + AIV_TAG_ADDR_OFFSET, MAX_RANK_SIZE * sizeof(void*), buffersOut, MAX_RANK_SIZE * sizeof(void*), ACL_MEMCPY_HOST_TO_DEVICE));
-    ACLCHECK(aclrtMemcpy(static_cast<u8*>(resCtxHost->aivCommInfoPtr) + 2 * AIV_TAG_ADDR_OFFSET, MAX_RANK_SIZE * sizeof(void*), inputBuffers, MAX_RANK_SIZE * sizeof(void*), ACL_MEMCPY_HOST_TO_DEVICE));
-    ACLCHECK(aclrtMemcpy(static_cast<u8*>(resCtxHost->aivCommInfoPtr) + 3 * AIV_TAG_ADDR_OFFSET, MAX_RANK_SIZE * sizeof(void*), outputBuffers, MAX_RANK_SIZE * sizeof(void*), ACL_MEMCPY_HOST_TO_DEVICE));
-    
-    HCCL_INFO("[%s] Alloc res success.", __func__);
     return HCCL_SUCCESS;
 }
 
