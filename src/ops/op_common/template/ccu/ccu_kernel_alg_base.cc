@@ -867,6 +867,7 @@ HcclResult CcuKernelAlgBase::CreateMultiOpWrite(const std::vector<ChannelHandle>
                                                  HcclDataType dataType, HcclDataType outputDataType,
                                                  HcclReduceOp opType)
 {
+    moConfig.msInterleave = channels.size() + 1;
     AllocGoResource();
 
     std::string loopType = GetReduceTypeStr(dataType, opType) + "_write";
@@ -887,8 +888,8 @@ HcclResult CcuKernelAlgBase::CreateMultiOpWrite(const std::vector<ChannelHandle>
         CcuRep::LoopBlock lb(this, loopType + "_loop_" + std::to_string(index));
         lb(src, dst, len, lenForExpansion);
 
-        std::vector<CcuRep::CcuBuf> bufs = {moRes.ccuBuf.begin() + index * (moConfig.msInterleave + 1),
-                                               moRes.ccuBuf.begin() + index * (moConfig.msInterleave +1) + usedBufNum + 1};
+        std::vector<CcuRep::CcuBuf> bufs = {moRes.ccuBuf.begin() + index * (moConfig.msInterleave),
+                                               moRes.ccuBuf.begin() + index * (moConfig.msInterleave) + usedBufNum + 1};
         CcuRep::CompletedEvent &event = moRes.completedEvent[index];
 
         uint32_t ckeIdx = (index == 0) ? 2 : 3;
