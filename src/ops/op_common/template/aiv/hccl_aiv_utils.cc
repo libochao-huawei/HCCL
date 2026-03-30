@@ -198,9 +198,10 @@ HcclResult RegisterKernel()
         return HCCL_SUCCESS;
     }
 
-    for (const auto& [cmdType, kernelConfig] : g_aivKernelInfoMap) {
-        const std::string& aivBinaryName = kernelConfig.first;
-        const std::vector<AivKernelInfo>& aivKernelInfoList = kernelConfig.second;
+    for (const auto& item : g_aivKernelInfoMap) {
+        const HcclCMDType cmdType = item.first;
+        const std::string& aivBinaryName = item.second.first;
+        const std::vector<AivKernelInfo>& aivKernelInfoList = item.second.second;
 
         HcclResult ret;
         string binFilePath;
