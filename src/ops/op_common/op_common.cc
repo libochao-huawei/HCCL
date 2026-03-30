@@ -79,6 +79,26 @@ thread_local std::map<std::string, HcclMemHandle> g_memHandleCache; // 当前AIV
 thread_local std::map<std::string, std::unique_ptr<AlgResourceCtxSerializable>> g_hostCtx;
 constexpr u32 HOST_WAIT_AICPU_NOTIFYIDX = 0;// host主流wait aicpu流的notify idx
 
+// 检查非对称拓扑支持情况
+// 仅 AllGather, AllReduce, ReduceScatter 支持跨框非对称拓扑，其他算子拦截
+HcclResult CheckAsymmetricTopoSupport(HcclCMDType opType, const TopoInfoWithNetLayerDetails* topoInfo)
+{
+    // 仅在跨框非对称场景下检查
+    if (topoInfo->topoLevelNums > 1 && topoInfo->multiModuleDiffDeviceNumMode) {
+        // 三个已适配非对称的算子：AllGather, AllReduce, ReduceScatter
+        bool isSupportedOp = (opType == HcclCMDType::HCCL_CMD_ALLGATHER ||
+                             opType == HcclCMDType::HCCL_CMD_ALLREDUCE ||
+                             opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER);
+        if (!isSupportedOp) {
+            HCCL_ERROR("[CheckAsymmetricTopoSupport] OpType[%d] does not support asymmetric topology "
+                "(multi-module diff device num mode), only ALLGATHER/ALLREDUCE/REDUCE_SCATTER are supported.",
+                opType);
+            return HCCL_E_NOT_SUPPORT;
+        }
+    }
+    return HCCL_SUCCESS;
+}
+
 HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
     std::string &algName)
 {
@@ -87,6 +107,9 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
     CHK_RET(HcclGetOpExpansionMode(comm, param));
     // 获取基础拓扑
     CHK_RET(HcclCalcTopoInfo(comm, param, topoInfo));
+
+    // 检查非对称拓扑支持情况，非对称场景仅 AllGather/AllReduce/ReduceScatter 可用
+    CHK_RET(CheckAsymmetricTopoSupport(param.opType, topoInfo.get()));
 
     // 算法选择，选择完后顺便param.algTag设置了，资源的保存是以算子+算法为单位
     std::shared_ptr<ExecuteSelector> collAlgSelector = std::make_shared<ExecuteSelector>(ExecuteSelector());
@@ -312,11 +335,12 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
 
     // 算法执行
     if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
-        CHK_RET(GetUnfoldThreadInfo(comm, param, resCtxHost->unfoldThread));
+        ThreadHandle unfoldThread;
+        CHK_RET(GetUnfoldThreadInfo(comm, param, unfoldThread));
         // 根据主流的捕获状态决定展开流的状态
-        CHK_RET(CaptureSlaveStreams(comm, param.stream, {mainThread, resCtxHost->unfoldThread}));
+        CHK_RET(CaptureSlaveStreams(comm, param.stream, {mainThread, unfoldThread}));
         CHK_RET(HcclAicpuKernelEntranceLaunch(comm, param, cpuTsThread, exportedCpuTsThread, notifyNumOnMainThread,
-            resCtxSequence, algName, resCtxHost->unfoldThread));
+            resCtxSequence, algName, unfoldThread));
     } else if (param.engine == COMM_ENGINE_AIV) {
         param.resCtx = resCtxSequence;
         AlgResourceCtxSerializable &resCtxHost = *static_cast<AlgResourceCtxSerializable *>(resCtxSequence);
@@ -907,7 +931,7 @@ HcclResult RegGraphModeBuffers(HcclComm comm, const OpParam &param, std::vector<
         return HcclResult::HCCL_E_INTERNAL;
     }
 
-    HCCL_INFO("[RegGraphModeBuffers] graph mode regstry remote buffer");
+    HCCL_INFO("[RegGraphModeBuffers] graph mode regstry remote buuffer");
     if (param.inputPtr != nullptr && param.inputSize != 0) {
         HcclMemHandle inputHandle = nullptr;
         CHK_RET(HcclRegstryBuff(comm, inputBuffTag, param.inputPtr, param.inputSize, &inputHandle));
@@ -1522,6 +1546,17 @@ bool ShouldUseInnerOp(OpExecuteConfig opExecuteConfig)
     }
 
     return false;
+}
+
+HcclResult LogHcclExit(const std::string &opName, const std::string &tag, HcclUs startut)
+{
+    if (GetExternalInputHcclEnableEntryLog()) {
+        HcclUs endut = TIME_NOW();
+        std::string endInfo = opName + ":success,take time: " +
+            std::to_string(DURATION_US(endut - startut).count()) + " us, tag: " + tag;
+        HCCL_RUN_INFO("%s", endInfo.c_str());
+    }
+    return HCCL_SUCCESS;
 }
 
 }  // namespace ops_hccl
