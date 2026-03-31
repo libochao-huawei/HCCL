@@ -39,6 +39,12 @@ HcclResult AllGatherBatchSmallCountExecutor::ValidateParam() const
         HCCL_ERROR("localBuffer is not ready");
         return HCCL_E_INTERNAL;
     }
+    if (GetPerRankWindowCapacity() == 0) {
+        HCCL_ERROR("localBuffer capacity per rank is zero, localBufferSize=%llu, rankSize=%u",
+            static_cast<unsigned long long>(resCtx_.localBuffer.size),
+            param_.topoInfo.rankSize);
+        return HCCL_E_INTERNAL;
+    }
     for (uint32_t itemIdx = 0; itemIdx < param_.itemCount; ++itemIdx) {
         const BatchItemParam &item = param_.items[itemIdx];
         if (item.sendBuf == nullptr || item.recvBuf == nullptr) {
@@ -51,6 +57,19 @@ HcclResult AllGatherBatchSmallCountExecutor::ValidateParam() const
         }
     }
     return HCCL_SUCCESS;
+}
+
+uint64_t AllGatherBatchSmallCountExecutor::GetPerRankWindowCapacity() const
+{
+    if (param_.topoInfo.rankSize == 0) {
+        return 0;
+    }
+    return resCtx_.localBuffer.size / param_.topoInfo.rankSize;
+}
+
+uint8_t *AllGatherBatchSmallCountExecutor::GetRankWindowBase(const WindowRange &window, uint32_t rank) const
+{
+    return static_cast<uint8_t *>(resCtx_.localBuffer.addr) + (window.packedBytes * rank);
 }
 
 HcclResult AllGatherBatchSmallCountExecutor::AdvancePosition(uint32_t &itemIdx, uint64_t &offsetBytes) const
@@ -88,8 +107,8 @@ HcclResult AllGatherBatchSmallCountExecutor::LocateWindowEnd(
 
 HcclResult AllGatherBatchSmallCountExecutor::BuildFirstWindow(WindowRange &window) const
 {
-    // 第一窗口按 localBuffer 容量截断，这样单窗口和多窗口模型都能共用同一套边界逻辑。
-    const uint64_t packedBytes = std::min(param_.totalInputBytes, resCtx_.localBuffer.size);
+    // gathered 结果要按 rank 拆槽放回同一个 localBuffer，因此每轮窗口最多只能占用 localBuffer/rankSize。
+    const uint64_t packedBytes = std::min(param_.totalInputBytes, GetPerRankWindowCapacity());
     window.startItemIdx = 0;
     window.startOffsetBytes = 0;
     window.packedBytes = packedBytes;
@@ -115,7 +134,7 @@ HcclResult AllGatherBatchSmallCountExecutor::BuildNextWindow(
 
     next.startItemIdx = nextItemIdx;
     next.startOffsetBytes = nextOffsetBytes;
-    next.packedBytes = std::min(remainingBytes, resCtx_.localBuffer.size);
+    next.packedBytes = std::min(remainingBytes, GetPerRankWindowCapacity());
     HCCL_CHK_RET(LocateWindowEnd(nextItemIdx, nextOffsetBytes, next.packedBytes, next.endItemIdx, next.endOffsetBytes));
     hasNext = true;
     return HCCL_SUCCESS;
@@ -123,8 +142,8 @@ HcclResult AllGatherBatchSmallCountExecutor::BuildNextWindow(
 
 HcclResult AllGatherBatchSmallCountExecutor::Pack(const WindowRange &window) const
 {
-    // Pack 把多个离散 item 的数据按窗口顺序写进连续的 localBuffer。
-    uint8_t *dst = static_cast<uint8_t *>(resCtx_.localBuffer.addr);
+    // Pack 现在把本 rank 的窗口打到 localBuffer 的“本 rank 槽位”，后续通信层会补齐其它 rank 的槽位。
+    uint8_t *dst = GetRankWindowBase(window, param_.topoInfo.rank);
     uint64_t packedOffset = 0;
     uint32_t itemIdx = window.startItemIdx;
     uint64_t offsetBytes = window.startOffsetBytes;
@@ -149,26 +168,28 @@ HcclResult AllGatherBatchSmallCountExecutor::Pack(const WindowRange &window) con
 
 HcclResult AllGatherBatchSmallCountExecutor::Unpack(const WindowRange &window) const
 {
-    // 当前阶段先做 rankSize==1 的本地闭环：把连续缓冲区的数据拆回各 recvBuf。
-    uint8_t *src = static_cast<uint8_t *>(resCtx_.localBuffer.addr);
-    uint64_t packedOffset = 0;
-    uint32_t itemIdx = window.startItemIdx;
-    uint64_t offsetBytes = window.startOffsetBytes;
+    // gathered 结果以“rank 槽位 + 槽内 packed 顺序”存放在 localBuffer 中，这里再拆回每个 item 的 recvBuf。
+    for (uint32_t rank = 0; rank < param_.topoInfo.rankSize; ++rank) {
+        uint8_t *src = GetRankWindowBase(window, rank);
+        uint64_t packedOffset = 0;
+        uint32_t itemIdx = window.startItemIdx;
+        uint64_t offsetBytes = window.startOffsetBytes;
 
-    while (packedOffset < window.packedBytes && itemIdx < param_.itemCount) {
-        const BatchItemParam &item = param_.items[itemIdx];
-        const uint64_t itemRemaining = CalcRemainingBytes(item, offsetBytes);
-        const uint64_t copyBytes = std::min(itemRemaining, window.packedBytes - packedOffset);
-        void *dst = static_cast<uint8_t *>(item.recvBuf) + offsetBytes;
-        int32_t ret = HcommLocalCopyOnThread(resCtx_.threadHandle, dst, src + packedOffset, copyBytes);
-        if (ret != HCCL_SUCCESS) {
-            HCCL_ERROR("unpack local copy failed, ret=%d", ret);
-            return static_cast<HcclResult>(ret);
+        while (packedOffset < window.packedBytes && itemIdx < param_.itemCount) {
+            const BatchItemParam &item = param_.items[itemIdx];
+            const uint64_t itemRemaining = CalcRemainingBytes(item, offsetBytes);
+            const uint64_t copyBytes = std::min(itemRemaining, window.packedBytes - packedOffset);
+            uint8_t *dst = static_cast<uint8_t *>(item.recvBuf) + (rank * item.sendBytes) + offsetBytes;
+            int32_t ret = HcommLocalCopyOnThread(resCtx_.threadHandle, dst, src + packedOffset, copyBytes);
+            if (ret != HCCL_SUCCESS) {
+                HCCL_ERROR("unpack local copy failed, rank=%u, ret=%d", rank, ret);
+                return static_cast<HcclResult>(ret);
+            }
+
+            packedOffset += copyBytes;
+            offsetBytes += copyBytes;
+            HCCL_CHK_RET(AdvancePosition(itemIdx, offsetBytes));
         }
-
-        packedOffset += copyBytes;
-        offsetBytes += copyBytes;
-        HCCL_CHK_RET(AdvancePosition(itemIdx, offsetBytes));
     }
     return HCCL_SUCCESS;
 }
@@ -181,15 +202,16 @@ HcclResult AllGatherBatchSmallCountExecutor::Orchestrate()
     HCCL_CHK_RET(BuildFirstWindow(window));
 
     while (true) {
-        HCCL_INFO("executor window ready: startItem=%u, packedBytes=%llu, localBufferSize=%llu",
+        HCCL_INFO("executor window ready: startItem=%u, packedBytes=%llu, perRankCapacity=%llu, rankSize=%u",
             window.startItemIdx,
             static_cast<unsigned long long>(window.packedBytes),
-            static_cast<unsigned long long>(resCtx_.localBuffer.size));
+            static_cast<unsigned long long>(GetPerRankWindowCapacity()),
+            param_.topoInfo.rankSize);
 
         HCCL_CHK_RET(Pack(window));
 
-        // 阶段 5 开始把 Pack/通信/Unpack 串成完整循环。
-        AllGatherHDStageCore hdStageCore(param_, resCtx_);
+        // 这轮起，通信层按窗口大小真正收齐所有 rank 的槽位，再由 Unpack 拆回每个 item。
+        AllGatherHDStageCore hdStageCore(param_, resCtx_, window.packedBytes);
         HcclResult commRet = hdStageCore.RunAsync();
         if (commRet != HCCL_SUCCESS) {
             return commRet;

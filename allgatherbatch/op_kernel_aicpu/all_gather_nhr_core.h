@@ -18,9 +18,9 @@ struct NHRStepInfo {
 
 class AllGatherNHRCore {
 public:
-    AllGatherNHRCore(const OpParam &param, AlgResourceCtx &resCtx);
+    AllGatherNHRCore(const OpParam &param, AlgResourceCtx &resCtx, uint64_t packedBytes);
 
-    // NHR 子模板入口：先把跨 rank 的步进关系算出来，真正的数据搬运留到后续阶段接入。
+    // NHR 子模板入口：校验当前窗口的通信资源，并把远端 rank 的窗口数据拉回本地 rank 槽位。
     HcclResult RunAsync();
 
 private:
@@ -28,9 +28,14 @@ private:
     uint32_t CalcStepNum(uint32_t rankSize) const;
     HcclResult GetStepInfo(uint32_t step, uint32_t nSteps, NHRStepInfo &stepInfo) const;
     HcclResult BuildStepPlan(std::vector<NHRStepInfo> &stepPlan) const;
+    const ChannelResource *FindChannel(uint32_t remoteRank) const;
+    uint8_t *GetRankBuffer(uint32_t rank) const;
+    HcclResult NotifyLocalReady() const;
+    HcclResult ReadRemoteRanks() const;
 
     const OpParam &param_;
     AlgResourceCtx &resCtx_;
+    uint64_t packedBytes_;
 };
 
 }  // namespace ops_hccl_allgatherbatch

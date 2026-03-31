@@ -15,7 +15,7 @@ struct HDStagePlan {
 
 class AllGatherHDStageCore {
 public:
-    AllGatherHDStageCore(const OpParam &param, AlgResourceCtx &resCtx);
+    AllGatherHDStageCore(const OpParam &param, AlgResourceCtx &resCtx, uint64_t packedBytes);
 
     // HDStage 总控入口：决定先走 noPower 路径还是 power 路径，并串起 NHR 子模板。
     HcclResult RunAsync();
@@ -27,6 +27,7 @@ private:
 
     const OpParam &param_;
     AlgResourceCtx &resCtx_;
+    uint64_t packedBytes_;
 };
 
 }  // namespace ops_hccl_allgatherbatch

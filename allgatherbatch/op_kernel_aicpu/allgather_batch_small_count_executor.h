@@ -24,6 +24,8 @@ private:
     HcclResult AdvancePosition(uint32_t &itemIdx, uint64_t &offsetBytes) const;
     HcclResult LocateWindowEnd(uint32_t startItemIdx, uint64_t startOffsetBytes, uint64_t packedBytes,
         uint32_t &endItemIdx, uint64_t &endOffsetBytes) const;
+    uint64_t GetPerRankWindowCapacity() const;
+    uint8_t *GetRankWindowBase(const WindowRange &window, uint32_t rank) const;
 
     const OpParam &param_;
     AlgResourceCtx &resCtx_;

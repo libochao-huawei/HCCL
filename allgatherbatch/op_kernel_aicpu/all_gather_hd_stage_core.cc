@@ -19,8 +19,8 @@ uint32_t CalcTrailingPowerSteps(uint32_t rankSize)
 
 }  // namespace
 
-AllGatherHDStageCore::AllGatherHDStageCore(const OpParam &param, AlgResourceCtx &resCtx)
-    : param_(param), resCtx_(resCtx)
+AllGatherHDStageCore::AllGatherHDStageCore(const OpParam &param, AlgResourceCtx &resCtx, uint64_t packedBytes)
+    : param_(param), resCtx_(resCtx), packedBytes_(packedBytes)
 {
 }
 
@@ -44,19 +44,21 @@ HcclResult AllGatherHDStageCore::BuildStagePlan(HDStagePlan &plan) const
 HcclResult AllGatherHDStageCore::RunNoPowerPath(const HDStagePlan &plan) const
 {
     (void)plan;
-    AllGatherNHRCore nhrCore(param_, resCtx_);
+    AllGatherNHRCore nhrCore(param_, resCtx_, packedBytes_);
     return nhrCore.RunAsync();
 }
 
 HcclResult AllGatherHDStageCore::RunPowerPath(const HDStagePlan &plan) const
 {
-    HCCL_INFO("HDStage power path planned: rank=%u, rankSize=%u, powerSteps=%u",
+    HCCL_INFO("HDStage power path planned: rank=%u, rankSize=%u, powerSteps=%u, packedBytes=%llu",
         param_.topoInfo.rank,
         param_.topoInfo.rankSize,
-        plan.powerSteps);
+        plan.powerSteps,
+        static_cast<unsigned long long>(packedBytes_));
 
-    // 阶段 4 先把 power 路径的决策层建起来，实际的数据交换留到后续阶段接入。
-    return HCCL_E_NOT_SUPPORT;
+    // 当前 custom-op 方案先让 power 路径复用同一套最小 NHR 数据面，保证所有 rank 都能回收到完整窗口。
+    AllGatherNHRCore nhrCore(param_, resCtx_, packedBytes_);
+    return nhrCore.RunAsync();
 }
 
 HcclResult AllGatherHDStageCore::RunAsync()
@@ -68,11 +70,12 @@ HcclResult AllGatherHDStageCore::RunAsync()
 
     HDStagePlan plan;
     HCCL_CHK_RET(BuildStagePlan(plan));
-    HCCL_INFO("HDStage plan ready: rank=%u, rankSize=%u, noPower=%u, powerSteps=%u",
+    HCCL_INFO("HDStage plan ready: rank=%u, rankSize=%u, noPower=%u, powerSteps=%u, packedBytes=%llu",
         param_.topoInfo.rank,
         param_.topoInfo.rankSize,
         plan.noPower,
-        plan.powerSteps);
+        plan.powerSteps,
+        static_cast<unsigned long long>(packedBytes_));
 
     if (plan.needNoPowerPath) {
         HcclResult ret = RunNoPowerPath(plan);
