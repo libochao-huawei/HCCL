@@ -88,7 +88,7 @@ HcclResult CcuTempReduceScatterMesh1DMem2Mem::FastLaunch(const OpParam& param, c
         PointerToAddr(buffInfo_.outputPtr) + args[1],
         args[2], 
         PointerToAddr(buffInfo_.hcclBuff.addr) + args[3], 
-        args[4], args[5], args[6], args[7], args[8], args[9]);
+        args[4], args[5], args[6], args[7], args[8], args[9], args[10]);
 
     void* taskArgPtr = static_cast<void*>(&taskArg);
 
@@ -134,16 +134,9 @@ HcclResult CcuTempReduceScatterMesh1DMem2Mem::KernelRun(const OpParam& param,
     
     CcuKernelSubmitInfo submitInfo;
     submitInfo.kernelHandle = templateResource.ccuKernels[0];
-    submitInfo.cachedArgs[0]=buffInfo_.inBuffBaseOff; // input、output、scratch只存对应的偏移
-    submitInfo.cachedArgs[1]=buffInfo_.outBuffBaseOff;
-    submitInfo.cachedArgs[2]=token;
-    submitInfo.cachedArgs[3]=buffInfo_.hcclBuffBaseOff;
-    submitInfo.cachedArgs[4]=inputSliceStride;
-    submitInfo.cachedArgs[5]=inputRepeatStride;
-    submitInfo.cachedArgs[6]=outputRepeatStride;
-    submitInfo.cachedArgs[7]=normalSliceSize;
-    submitInfo.cachedArgs[8]=lastSliceSize;
-    submitInfo.cachedArgs[9]=repeatNum;
+    CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, token, buffInfo_.hcclBuffBaseOff,
+        inputSliceStride, outputSliceStride, inputRepeatStride, outputRepeatStride, normalSliceSize, lastSliceSize,
+        repeatNum));
     templateResource.submitInfos.push_back(submitInfo);
 
     HCCL_DEBUG("[CcuTempReduceScatterMesh1DMem2Mem::KernelRun] end");
