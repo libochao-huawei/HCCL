@@ -16,6 +16,11 @@
 #include "kernel/ccu_kernel_all_to_all_v_mesh1d.h"
 #include "ccu_temp_all_to_all_v_mesh_1D.h"
 
+#define CONST_ZERO 0
+#define CONST_ONE 1
+#define CONST_TWO 2
+#define CONST_THREE 3
+
 namespace ops_hccl {
 
 CcuTempAlltoAllVMesh1D::CcuTempAlltoAllVMesh1D(const OpParam& param, const u32 rankId,
@@ -113,15 +118,70 @@ void CcuTempAlltoAllVMesh1D::InitInsAlgTemplate(
 HcclResult CcuTempAlltoAllVMesh1D::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
 {
     HCCL_INFO("[CcuTempAlltoAllVMesh1D::FastLaunch] start");
+    uint64_t rankSize_ = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[5];
+    HcclDataType dataType_ = param.all2AllVDataDes.sendType;
+    uint64_t dataTypeSize_ =  SIZE_TABLE[dataType_];
+    
+    A2ASendRecvInfo localSendRecvInfo;
+    localSendRecvInfo.sendCounts.resize(rankSize_, 0);
+    localSendRecvInfo.sendDispls.resize(rankSize_, 0);
+    localSendRecvInfo.sendLength.resize(rankSize_, 0);
+    localSendRecvInfo.sendOffset.resize(rankSize_, 0);
+
+    localSendRecvInfo.recvCounts.resize(rankSize_, 0);
+    localSendRecvInfo.recvDispls.resize(rankSize_, 0);
+    localSendRecvInfo.recvLength.resize(rankSize_, 0);
+    localSendRecvInfo.recvOffset.resize(rankSize_, 0);
+
+    CHK_PRT_RET(param.varMemSize != ALL_TO_ALL_V_VECTOR_NUM * rankSize_ * sizeof(u64),
+    HCCL_ERROR("[InsV2AlltoAllVSoleExecutor][OrchestrateLoop] param.varMemSize [%llu] is invalid",
+        param.varMemSize), HCCL_E_PARA);
+
+    const u64* data = reinterpret_cast<const u64*>(param.varData);
+    for (u64 i = 0; i < ALL_TO_ALL_V_VECTOR_NUM * rankSize_; i++) {
+        u64 val = i / rankSize_;
+        u64 curRank = i % rankSize_;
+        switch(val) {
+            case CONST_ZERO:
+                localSendRecvInfo.sendCounts[curRank] = data[i];
+                localSendRecvInfo.sendLength[curRank] = data[i] * dataTypeSize_;
+                HCCL_INFO("data[i]: %u, localSendRecvInfo.sendLength: %u", data[i], localSendRecvInfo.sendLength[curRank]);
+                break;
+            case CONST_ONE:
+                localSendRecvInfo.recvCounts[curRank] = data[i];
+                localSendRecvInfo.recvLength[curRank] = data[i] * dataTypeSize_;
+                HCCL_INFO("data[i]: %u, localSendRecvInfo.recvLength: %u", data[i], localSendRecvInfo.recvLength[curRank]);
+                break;
+            case CONST_TWO:
+                localSendRecvInfo.sendDispls[curRank] = data[i];
+                localSendRecvInfo.sendOffset[curRank] = data[i] * dataTypeSize_;
+                HCCL_INFO("data[i]: %u, localSendRecvInfo.sendOffset: %u", data[i], localSendRecvInfo.sendOffset[curRank]);
+                break;
+            case CONST_THREE:
+                localSendRecvInfo.recvDispls[curRank] = data[i];
+                localSendRecvInfo.recvOffset[curRank] = data[i] * dataTypeSize_;
+                HCCL_INFO("data[i]: %u, localSendRecvInfo.recvOffset: %u", data[i], localSendRecvInfo.recvOffset[curRank]);
+                break;
+            default:
+                break;
+        }
+    }
     std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAlltoAllVMesh1D>(
-        PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr),
- 	    PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr),
-        tempFastLaunchCtx.ccuKernelSubmitInfos[0].sqeArgs[2],//token
-        tempFastLaunchCtx.ccuKernelSubmitInfos[0].sqeArgs[3],//srcOffset
-        tempFastLaunchCtx.ccuKernelSubmitInfos[0].sqeArgs[4],//dstOffset
-        tempFastLaunchCtx.ccuKernelSubmitInfos[0].sqeArgs[5],//rankSize
-        localSendRecvInfo_
+        PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[0],
+ 	    PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[1],
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[2],//token
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[3],//srcOffset
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[4],//dstOffset
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[5],//rankSize
+        localSendRecvInfo
     );
+
+    HCCL_INFO("[CcuTempAlltoAllVMesh1D::FastLaunch]: inputPtr[%llu], outputPtr[%llu]"
+    "srcOffset[%llu], dstOffset[%llu], rankSize[%llu]",
+    PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr), PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr),
+    tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[3],
+    tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[4],
+    tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[5]);
 
     void* taskArgPtr = static_cast<void*>(taskArg.get());
     CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0], 
@@ -191,12 +251,12 @@ HcclResult CcuTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
     HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr);
     CcuKernelSubmitInfo subCommInfo;
     subCommInfo.kernelHandle = templateResource.ccuKernels[0];
-    // subCommInfo.sqeArgs[0]=inputAddr;
- 	// subCommInfo.sqeArgs[1]=outputAddr;
- 	subCommInfo.sqeArgs[2] = token;
- 	subCommInfo.sqeArgs[3] = srcOffset;
-    subCommInfo.sqeArgs[4] = dstOffset;
-    subCommInfo.sqeArgs[5] = rankSize;
+    subCommInfo.cachedArgs[0] = buffInfo_.inBuffBaseOff;
+ 	subCommInfo.cachedArgs[1] = buffInfo_.outBuffBaseOff;
+ 	subCommInfo.cachedArgs[2] = token;
+ 	subCommInfo.cachedArgs[3] = srcOffset;
+    subCommInfo.cachedArgs[4] = dstOffset;
+    subCommInfo.cachedArgs[5] = rankSize;
     templateResource.submitInfos.push_back(subCommInfo);    
 
     return HcclResult::HCCL_SUCCESS;

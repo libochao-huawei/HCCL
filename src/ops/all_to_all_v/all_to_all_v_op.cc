@@ -565,11 +565,6 @@ HcclResult AlltoAllVConstructOpParam(const void *sendBuf, const void *sendCounts
     param.all2AllVDataDes.sendType = dataType;
     param.all2AllVDataDes.recvType = dataType;
 
-    CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
- 	if (CcuFastLaunchSupported(comm, param, &ccuFastLaunchCtx)) {
- 	    return HcclExecOpCcuFastLaunch(comm, param, ccuFastLaunchCtx);
- 	}
-
     const u64* sendCountsData = static_cast<const u64*>(sendCounts);
     const u64* recvCountsData = static_cast<const u64*>(recvCounts);
     const u64* sdisplsData = static_cast<const u64*>(sdispls);
@@ -625,6 +620,11 @@ HcclResult AlltoAllVOutPlaceCommon(const void *sendBuf, const void *sendCounts, 
 
     CHK_RET(AlltoAllVConstructOpParam(sendBuf, sendCounts, sdispls, recvBuf, recvCounts, rdispls, dataType,
         comm, stream, tag, opType, rankSize, opMode, varMemSize, param));
+    
+    CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
+ 	if (CcuFastLaunchSupported(comm, param, &ccuFastLaunchCtx)) {
+ 	    return HcclExecOpCcuFastLaunch(comm, param, ccuFastLaunchCtx);
+ 	}
 
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
