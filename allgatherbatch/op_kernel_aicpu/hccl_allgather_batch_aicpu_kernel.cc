@@ -1,6 +1,23 @@
 ﻿#include "common.h"
 #include "exec_op.h"
 
+namespace {
+
+const char *ToCommModeString(ops_hccl_allgatherbatch::BatchCommMode commMode)
+{
+    using ops_hccl_allgatherbatch::BatchCommMode;
+    switch (commMode) {
+        case BatchCommMode::kSingleServer:
+            return "single-server";
+        case BatchCommMode::kCrossServer:
+            return "cross-server";
+        default:
+            return "unknown";
+    }
+}
+
+}
+
 extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
     ops_hccl_allgatherbatch::OpParam *param)
 {
@@ -9,6 +26,15 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
     if (param == nullptr || param->resCtx == nullptr) {
         return 1;
     }
+
+    HCCL_INFO("AICPU kernel enter: rank=%u, rankSize=%u, commMode=%s, serverIdx=%u, serverCount=%u, intraServerRankCount=%u, crossServerRankCount=%u",
+        param->topoInfo.rank,
+        param->topoInfo.rankSize,
+        ToCommModeString(param->commMode),
+        param->topoInfo.serverIdx,
+        param->topoInfo.serverCount,
+        param->intraServerRankCount,
+        param->crossServerRankCount);
 
     // Device 入口负责把 Host 下发的控制协议转成完整的设备侧执行时序。
     if (HcommAcquireComm(param->commName) != HCCL_SUCCESS) {

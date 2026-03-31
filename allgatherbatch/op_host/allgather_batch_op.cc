@@ -140,6 +140,18 @@ void FillCommModeInfo(OpParam &param)
     }
 }
 
+const char *ToCommModeString(BatchCommMode commMode)
+{
+    switch (commMode) {
+        case BatchCommMode::kSingleServer:
+            return "single-server";
+        case BatchCommMode::kCrossServer:
+            return "cross-server";
+        default:
+            return "unknown";
+    }
+}
+
 HcclResult BuildFreshResourceCtx(HcclComm comm, const BatchTopoInfo &topoInfo, AlgResourceCtx &resCtx)
 {
     // 先准备主线程和本地 HCCL buffer，它们是 Pack/Unpack 和 AICPU 控制流的最小前提。
@@ -222,6 +234,17 @@ HcclResult AllGatherBatchOp::Exec(
 
     OpParam param;
     HCCL_CHK_RET(PrepareOpParam(items, itemCount, comm, param));
+    HCCL_CHK_RET(ValidateTopo(param.topoInfo));
+
+    HCCL_INFO("Host op prepared: rank=%u, rankSize=%u, commMode=%s, serverIdx=%u, serverCount=%u, superPodIdx=%u, intraServerRankCount=%u, crossServerRankCount=%u",
+        param.topoInfo.rank,
+        param.topoInfo.rankSize,
+        ToCommModeString(param.commMode),
+        param.topoInfo.serverIdx,
+        param.topoInfo.serverCount,
+        param.topoInfo.superPodIdx,
+        param.intraServerRankCount,
+        param.crossServerRankCount);
 
     AlgResourceCtx *resCtx = nullptr;
     HCCL_CHK_RET(GetAlgRes(comm, param, &resCtx));
@@ -257,6 +280,23 @@ HcclResult AllGatherBatchOp::Validate(
             HCCL_ERROR("item %u dataType=%d is unsupported", idx, static_cast<int>(items[idx].dataType));
             return HCCL_E_NOT_SUPPORT;
         }
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult AllGatherBatchOp::ValidateTopo(const BatchTopoInfo &topoInfo) const
+{
+    if (topoInfo.rankSize == 0) {
+        HCCL_ERROR("rankSize is zero after topo preparation");
+        return HCCL_E_PARA;
+    }
+    if (topoInfo.serverCount == 0) {
+        HCCL_ERROR("serverCount is zero after topo preparation");
+        return HCCL_E_INTERNAL;
+    }
+    if (topoInfo.serverIdx >= topoInfo.serverCount) {
+        HCCL_ERROR("serverIdx=%u is out of range, serverCount=%u", topoInfo.serverIdx, topoInfo.serverCount);
+        return HCCL_E_INTERNAL;
     }
     return HCCL_SUCCESS;
 }
