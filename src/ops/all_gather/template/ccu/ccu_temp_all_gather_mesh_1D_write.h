@@ -18,6 +18,7 @@ namespace ops_hccl {
 
 class CcuTempAllGatherMesh1DWrite : public CcuAlgTemplateBase {
 public:
+    CcuTempAllGatherMesh1DWrite() = default;
     explicit CcuTempAllGatherMesh1DWrite(const OpParam &param, const u32 rankId,
                                           const std::vector<std::vector<u32>> &subCommRanks);
     ~CcuTempAllGatherMesh1DWrite() override;
@@ -26,7 +27,7 @@ public:
                        AlgResourceRequest &resourceRequest) override;
     HcclResult KernelRun(const OpParam &param,
                          const TemplateDataParams &templateDataParams,
-                         const TemplateResource &templateResource) override;
+                         TemplateResource &templateResource) override;
     std::string Describe() const override
     {
         return StringFormat("Template of CcuTempAllGatherMesh1DWrite subCommRanks_[0].size() [%u].",

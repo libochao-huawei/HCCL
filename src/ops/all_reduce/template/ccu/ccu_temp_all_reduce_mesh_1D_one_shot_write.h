@@ -20,6 +20,7 @@ namespace ops_hccl {
 // 使用 MsWriteNb 替代 ReadNb，降低小数据（≤512KB）延迟。
 class CcuTempAllReduceMesh1DOneShotWrite : public CcuAlgTemplateBase {
 public:
+    CcuTempAllReduceMesh1DOneShotWrite() = default;
     explicit CcuTempAllReduceMesh1DOneShotWrite(const OpParam &param,
                                                 const u32 rankId,
                                                 const std::vector<std::vector<u32>> &subCommRanks);
@@ -30,7 +31,7 @@ public:
 
     HcclResult KernelRun(const OpParam &param,
                          const TemplateDataParams &templateDataParams,
-                         const TemplateResource &templateResource) override;
+                         TemplateResource &templateResource) override;
 
     std::string Describe() const override
     {

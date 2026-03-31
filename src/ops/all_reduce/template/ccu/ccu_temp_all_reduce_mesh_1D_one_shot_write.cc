@@ -63,7 +63,7 @@ HcclResult CcuTempAllReduceMesh1DOneShotWrite::CalcRes(HcclComm comm, const OpPa
 
 HcclResult CcuTempAllReduceMesh1DOneShotWrite::KernelRun(const OpParam &param,
                                                           const TemplateDataParams &templateDataParams,
-                                                          const TemplateResource &templateResource)
+                                                          TemplateResource &templateResource)
 {
     static uint32_t roundCounter = 0;
     buffInfo_ = templateDataParams.buffInfo;
