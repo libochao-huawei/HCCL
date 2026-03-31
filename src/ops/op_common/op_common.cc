@@ -275,7 +275,7 @@ HcclResult HcclExecOpCcuFastLaunch(HcclComm comm, OpParam &param, const CcuFastL
 }
 
 HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
-                                std::shared_ptr<InsCollAlgBase> executor,
+                                std::unique_ptr<InsCollAlgBase> &executor,
                                 AlgResourceCtxSerializable &resCtxHost)
 {
     // Cache Logic
