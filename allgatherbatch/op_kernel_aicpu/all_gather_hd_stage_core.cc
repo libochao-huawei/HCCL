@@ -17,11 +17,12 @@ uint32_t CalcTrailingPowerSteps(uint32_t rankSize)
     return steps;
 }
 
-uint32_t CountCrossServerChannels(const OpParam &param, const AlgResourceCtx &resCtx)
+uint32_t CountChannelsByScope(const OpParam &param, const AlgResourceCtx &resCtx, bool crossServer)
 {
     uint32_t count = 0;
     for (uint32_t idx = 0; idx < resCtx.channelCount; ++idx) {
-        if (resCtx.channels[idx].remoteServerIdx != param.topoInfo.serverIdx) {
+        const bool isCrossServer = (resCtx.channels[idx].remoteServerIdx != param.topoInfo.serverIdx);
+        if (isCrossServer == crossServer) {
             ++count;
         }
     }
@@ -47,6 +48,31 @@ AllGatherHDStageCore::AllGatherHDStageCore(const OpParam &param, AlgResourceCtx 
 {
 }
 
+HcclResult AllGatherHDStageCore::ValidateStageInput() const
+{
+    if (param_.commMode == BatchCommMode::kUnknown) {
+        HCCL_ERROR("HDStage commMode is unknown");
+        return HCCL_E_INTERNAL;
+    }
+    if (param_.topoInfo.rankSize == 0) {
+        HCCL_ERROR("HDStage rankSize is zero");
+        return HCCL_E_PARA;
+    }
+    if (packedBytes_ == 0) {
+        HCCL_ERROR("HDStage packedBytes is zero");
+        return HCCL_E_PARA;
+    }
+
+    const uint64_t totalBytes = packedBytes_ * param_.topoInfo.rankSize;
+    if (resCtx_.localBuffer.addr == nullptr || resCtx_.localBuffer.size < totalBytes) {
+        HCCL_ERROR("HDStage localBuffer is too small, need=%llu, actual=%llu",
+            static_cast<unsigned long long>(totalBytes),
+            static_cast<unsigned long long>(resCtx_.localBuffer.size));
+        return HCCL_E_INTERNAL;
+    }
+    return HCCL_SUCCESS;
+}
+
 HcclResult AllGatherHDStageCore::BuildStagePlan(HDStagePlan &plan) const
 {
     const uint32_t rankSize = param_.topoInfo.rankSize;
@@ -64,9 +90,50 @@ HcclResult AllGatherHDStageCore::BuildStagePlan(HDStagePlan &plan) const
     return HCCL_SUCCESS;
 }
 
+HcclResult AllGatherHDStageCore::ValidateStagePlan(const HDStagePlan &plan) const
+{
+    const uint32_t crossServerChannels = CountChannelsByScope(param_, resCtx_, true);
+    const uint32_t intraServerChannels = CountChannelsByScope(param_, resCtx_, false);
+    const uint32_t powerFactor = (plan.powerSteps == 0) ? 1U : (1U << plan.powerSteps);
+
+    // HDStage 这一层把 stage 计划和链路 scope 再对一次，避免“前后层都能跑，但 stage 假设不成立”的问题。
+    if (plan.noPower == 0) {
+        HCCL_ERROR("HDStage noPower is zero");
+        return HCCL_E_INTERNAL;
+    }
+    if ((plan.noPower * powerFactor) != param_.topoInfo.rankSize) {
+        HCCL_ERROR("HDStage plan mismatch, noPower=%u, powerFactor=%u, rankSize=%u",
+            plan.noPower,
+            powerFactor,
+            param_.topoInfo.rankSize);
+        return HCCL_E_INTERNAL;
+    }
+    if (intraServerChannels + crossServerChannels != resCtx_.channelCount) {
+        HCCL_ERROR("HDStage channel scope split is inconsistent, intra=%u, cross=%u, channelCount=%u",
+            intraServerChannels,
+            crossServerChannels,
+            resCtx_.channelCount);
+        return HCCL_E_INTERNAL;
+    }
+    if (param_.commMode == BatchCommMode::kSingleServer && crossServerChannels != 0) {
+        HCCL_ERROR("HDStage single-server mode unexpectedly has cross-server channels=%u", crossServerChannels);
+        return HCCL_E_INTERNAL;
+    }
+    if (param_.commMode == BatchCommMode::kCrossServer && crossServerChannels == 0) {
+        HCCL_ERROR("HDStage cross-server mode has no cross-server channels");
+        return HCCL_E_INTERNAL;
+    }
+    return HCCL_SUCCESS;
+}
+
 HcclResult AllGatherHDStageCore::RunNoPowerPath(const HDStagePlan &plan) const
 {
-    (void)plan;
+    HCCL_INFO("HDStage noPower path: rank=%u, noPower=%u, powerSteps=%u, packedBytes=%llu",
+        param_.topoInfo.rank,
+        plan.noPower,
+        plan.powerSteps,
+        static_cast<unsigned long long>(packedBytes_));
+
     AllGatherNHRCore nhrCore(param_, resCtx_, packedBytes_);
     return nhrCore.RunAsync();
 }
@@ -92,11 +159,14 @@ HcclResult AllGatherHDStageCore::RunAsync()
         return HCCL_SUCCESS;
     }
 
+    HCCL_CHK_RET(ValidateStageInput());
+
     HDStagePlan plan;
     HCCL_CHK_RET(BuildStagePlan(plan));
+    HCCL_CHK_RET(ValidateStagePlan(plan));
 
-    const uint32_t crossServerChannels = CountCrossServerChannels(param_, resCtx_);
-    const uint32_t intraServerChannels = resCtx_.channelCount - crossServerChannels;
+    const uint32_t crossServerChannels = CountChannelsByScope(param_, resCtx_, true);
+    const uint32_t intraServerChannels = CountChannelsByScope(param_, resCtx_, false);
     HCCL_INFO("HDStage plan ready: rank=%u, rankSize=%u, commMode=%s, serverIdx=%u, intraServerRankCount=%u, crossServerRankCount=%u, noPower=%u, powerSteps=%u, packedBytes=%llu, intraServerChannels=%u, crossServerChannels=%u",
         param_.topoInfo.rank,
         param_.topoInfo.rankSize,

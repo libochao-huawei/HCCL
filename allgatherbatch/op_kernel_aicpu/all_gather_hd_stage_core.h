@@ -21,7 +21,9 @@ public:
     HcclResult RunAsync();
 
 private:
+    HcclResult ValidateStageInput() const;
     HcclResult BuildStagePlan(HDStagePlan &plan) const;
+    HcclResult ValidateStagePlan(const HDStagePlan &plan) const;
     HcclResult RunNoPowerPath(const HDStagePlan &plan) const;
     HcclResult RunPowerPath(const HDStagePlan &plan) const;
 
