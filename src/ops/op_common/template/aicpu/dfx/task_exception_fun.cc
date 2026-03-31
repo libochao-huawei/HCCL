@@ -76,20 +76,20 @@ uint32_t GetHcclDfxOpInfoDataType(const OpParam &param) {
 HcclResult ConvertToHcclDfxOpInfo(OpParam *param, HcclDfxOpInfo *hcclDfxOpInfo)
 {
     CHK_PTR_NULL(param);
-    hcclDfxOpInfo.opMode = static_cast<u32>(param->opMode);
-    hcclDfxOpInfo.opType = static_cast<u32>(param->opType);
-    hcclDfxOpInfo.reduceOp = static_cast<u32>(param->reduceType);
-    hcclDfxOpInfo.dataType = GetHcclDfxOpInfoDataType(*param);
+    hcclDfxOpInfo->opMode = static_cast<u32>(param->opMode);
+    hcclDfxOpInfo->opType = static_cast<u32>(param->opType);
+    hcclDfxOpInfo->reduceOp = static_cast<u32>(param->reduceType);
+    hcclDfxOpInfo->dataType = GetHcclDfxOpInfoDataType(*param);
 
     // rankSize获取指定算子的dataCount
     u32 userRankSize{0};
     CHK_RET(HcclGetRankSize(comm, &userRankSize));
-    hcclDfxOpInfo.dataCount = GetHcclDfxOpInfoDataCount(param, userRankSize);
-    hcclDfxOpInfo.root = param->root;
-    hcclDfxOpInfo.engine = param->engine;
-    hcclDfxOpInfo.cpuTsThread = cpuTsThread;
+    hcclDfxOpInfo->dataCount = GetHcclDfxOpInfoDataCount(*param, userRankSize);
+    hcclDfxOpInfo->root = param->root;
+    hcclDfxOpInfo->engine = param->engine;
+    hcclDfxOpInfo->cpuTsThread = cpuTsThread;
 
-    s32 sRet = strncpy_s(hcclDfxOpInfo.algTag, ALG_TAG_LENGTH, param.algTag, ALG_TAG_LENGTH);
+    s32 sRet = strncpy_s(hcclDfxOpInfo->algTag, ALG_TAG_LENGTH, param->algTag, ALG_TAG_LENGTH);
     CHK_PRT_RET(sRet != EOK, HCCL_ERROR("%s call strncpy_s failed, param.algTag %s,  return %d.", __func__, param.algTag, sRet), HCCL_E_MEMORY);
 
     hcclDfxOpInfo->cpuWaitAicpuNotifyIdx = param->aicpuRecordCpuIdx;
