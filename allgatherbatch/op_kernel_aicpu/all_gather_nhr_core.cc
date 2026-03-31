@@ -58,6 +58,58 @@ HcclResult AllGatherNHRCore::ValidateCommState() const
     return HCCL_SUCCESS;
 }
 
+HcclResult AllGatherNHRCore::ValidateChannelMetadata() const
+{
+    const uint32_t intraServerChannels = CountChannelsByScope(false);
+    const uint32_t crossServerChannels = CountChannelsByScope(true);
+    const uint32_t expectedIntraServerChannels = (param_.intraServerRankCount == 0) ? 0 : (param_.intraServerRankCount - 1);
+
+    // 这里再从通信层视角收一次 Host 下发的模式和资源元数据，避免协议或 server 归属异常直接进入 notify/read。
+    for (uint32_t idx = 0; idx < resCtx_.channelCount; ++idx) {
+        const ChannelResource &channel = resCtx_.channels[idx];
+        if (channel.protocol == COMM_PROTOCOL_RESERVED) {
+            HCCL_ERROR("channel %u has reserved protocol", idx);
+            return HCCL_E_INTERNAL;
+        }
+        if (channel.remoteSuperPodIdx != param_.topoInfo.superPodIdx) {
+            HCCL_ERROR("channel %u crosses superPod unexpectedly, local=%u remote=%u",
+                idx,
+                param_.topoInfo.superPodIdx,
+                channel.remoteSuperPodIdx);
+            return HCCL_E_INTERNAL;
+        }
+        if (channel.remoteRank >= param_.topoInfo.rankSize) {
+            HCCL_ERROR("channel %u remoteRank=%u is out of range, rankSize=%u",
+                idx,
+                channel.remoteRank,
+                param_.topoInfo.rankSize);
+            return HCCL_E_INTERNAL;
+        }
+    }
+
+    if (intraServerChannels != expectedIntraServerChannels) {
+        HCCL_ERROR("intra-server channel count mismatch, expected=%u, actual=%u",
+            expectedIntraServerChannels,
+            intraServerChannels);
+        return HCCL_E_INTERNAL;
+    }
+    if (crossServerChannels != param_.crossServerRankCount) {
+        HCCL_ERROR("cross-server channel count mismatch, expected=%u, actual=%u",
+            param_.crossServerRankCount,
+            crossServerChannels);
+        return HCCL_E_INTERNAL;
+    }
+    if (param_.commMode == BatchCommMode::kSingleServer && crossServerChannels != 0) {
+        HCCL_ERROR("single-server mode unexpectedly has cross-server channels=%u", crossServerChannels);
+        return HCCL_E_INTERNAL;
+    }
+    if (param_.commMode == BatchCommMode::kCrossServer && crossServerChannels == 0) {
+        HCCL_ERROR("cross-server mode has no cross-server channels");
+        return HCCL_E_INTERNAL;
+    }
+    return HCCL_SUCCESS;
+}
+
 uint32_t AllGatherNHRCore::CalcStepNum(uint32_t rankSize) const
 {
     uint32_t nSteps = 0;
@@ -221,6 +273,7 @@ HcclResult AllGatherNHRCore::RunAsync()
     }
 
     HCCL_CHK_RET(ValidateCommState());
+    HCCL_CHK_RET(ValidateChannelMetadata());
 
     std::vector<NHRStepInfo> stepPlan;
     HCCL_CHK_RET(BuildStepPlan(stepPlan));
