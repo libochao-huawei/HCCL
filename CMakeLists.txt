@@ -9,8 +9,10 @@
 # -----------------------------------------------------------------------------------------------------------
 cmake_minimum_required(VERSION 3.16.0)
 option(BUILD_OPEN_PROJECT "Build open hccl project." ON)
+option(STATIC_MODE "Build static library mode." OFF)
 message(STATUS "KERNEL_MODE=${KERNEL_MODE}")
 message(STATUS "BUILD_OPEN_PROJECT=${BUILD_OPEN_PROJECT}")
+message(STATUS "STATIC_MODE=${STATIC_MODE}")
 message(STATUS "AARCH_MODE=${AARCH_MODE}")
 
 find_program(CCAHE_PROGRAM ccache)
