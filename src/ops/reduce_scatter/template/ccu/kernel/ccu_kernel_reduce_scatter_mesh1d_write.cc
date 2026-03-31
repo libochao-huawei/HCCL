@@ -74,17 +74,19 @@ void CcuKernelReduceScatterMesh1DWrite::Postsync()
 
 void CcuKernelReduceScatterMesh1DWrite::DoGroupWrite()
 {
-    // 穿刺版本：src = 本 rank 的输入 slice（inputAddr 已在 GeneArgs 中加上 rankId * sliceSize + offset）
-    // dst = 本 rank 的输出（reduce 结果写入 outputAddr）
+    // Write模式：srcs包含所有rank对应的slice地址，每个slice发送到对应的rank
+    // 先实现单slice场景，后续完善多slice偏移逻辑
+    std::vector<CcuRep::LocalAddr> srcs;
     CcuRep::LocalAddr src = CreateLocalAddr();
     src.addr  = input_;
     src.token = token_;
+    srcs.push_back(src);
 
     CcuRep::LocalAddr dst = CreateLocalAddr();
     dst.addr  = output_;
     dst.token = token_;
 
-    GroupReduceScatterWrite(channels_, rankId_, dst, src, groupOpSize_, dataType_, outputDataType_, reduceOp_);
+    GroupReduceScatterWrite(channels_, rankId_, dst, srcs, groupOpSize_, dataType_, outputDataType_, reduceOp_);
 }
 
 HcclResult CcuKernelReduceScatterMesh1DWrite::Algorithm()
