@@ -6,37 +6,9 @@ namespace ops_hccl_allgatherbatch {
 
 namespace {
 
-const char *ToCommModeString(BatchCommMode commMode)
-{
-    switch (commMode) {
-        case BatchCommMode::kSingleServer:
-            return "single-server";
-        case BatchCommMode::kCrossServer:
-            return "cross-server";
-        default:
-            return "unknown";
-    }
-}
-
 const char *ToScopeString(bool crossServer)
 {
     return crossServer ? "cross-server" : "intra-server";
-}
-
-const char *ToProtocolString(CommProtocol protocol)
-{
-    switch (protocol) {
-        case COMM_PROTOCOL_HCCS:
-            return "HCCS";
-        case COMM_PROTOCOL_ROCE:
-            return "ROCE";
-        case COMM_PROTOCOL_PCIE:
-            return "PCIE";
-        case COMM_PROTOCOL_SIO:
-            return "SIO";
-        default:
-            return "RESERVED";
-    }
 }
 
 }  // namespace
@@ -60,8 +32,8 @@ HcclResult AllGatherNHRCore::ValidateCommState() const
         HCCL_ERROR("packedBytes is zero");
         return HCCL_E_PARA;
     }
-    if (param_.commMode == BatchCommMode::kUnknown) {
-        HCCL_ERROR("commMode is unknown");
+    if (!IsValidCommMode(param_.commMode)) {
+        HCCL_ERROR("commMode is invalid");
         return HCCL_E_INTERNAL;
     }
 
@@ -133,6 +105,35 @@ HcclResult AllGatherNHRCore::ValidateChannelMetadata() const
     }
     if (param_.commMode == BatchCommMode::kCrossServer && crossServerChannels == 0) {
         HCCL_ERROR("cross-server mode has no cross-server channels");
+        return HCCL_E_INTERNAL;
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult AllGatherNHRCore::ValidateProtocolDistribution() const
+{
+    const uint32_t intraRecognized = CountRecognizedChannelsByScope(false);
+    const uint32_t crossRecognized = CountRecognizedChannelsByScope(true);
+    const uint32_t intraChannels = CountChannelsByScope(false);
+    const uint32_t crossChannels = CountChannelsByScope(true);
+
+    // 协议维度已经进入控制流，这里要求 scope 内的 channel 都能被已知协议解释，不再只做日志统计。
+    if (intraRecognized != intraChannels) {
+        HCCL_ERROR("intra-server protocol distribution mismatch, recognized=%u, actual=%u",
+            intraRecognized,
+            intraChannels);
+        return HCCL_E_INTERNAL;
+    }
+    if (crossRecognized != crossChannels) {
+        HCCL_ERROR("cross-server protocol distribution mismatch, recognized=%u, actual=%u",
+            crossRecognized,
+            crossChannels);
+        return HCCL_E_INTERNAL;
+    }
+    if (resCtx_.channelCount != (intraRecognized + crossRecognized)) {
+        HCCL_ERROR("protocol distribution total mismatch, recognized=%u, channelCount=%u",
+            intraRecognized + crossRecognized,
+            resCtx_.channelCount);
         return HCCL_E_INTERNAL;
     }
     return HCCL_SUCCESS;
@@ -230,6 +231,14 @@ uint32_t AllGatherNHRCore::CountChannelsByProtocol(bool crossServer, CommProtoco
         }
     }
     return count;
+}
+
+uint32_t AllGatherNHRCore::CountRecognizedChannelsByScope(bool crossServer) const
+{
+    return CountChannelsByProtocol(crossServer, COMM_PROTOCOL_HCCS) +
+        CountChannelsByProtocol(crossServer, COMM_PROTOCOL_ROCE) +
+        CountChannelsByProtocol(crossServer, COMM_PROTOCOL_PCIE) +
+        CountChannelsByProtocol(crossServer, COMM_PROTOCOL_SIO);
 }
 
 HcclResult AllGatherNHRCore::NotifyReadyByScopeAndProtocol(bool crossServer, CommProtocol protocol) const
@@ -342,6 +351,7 @@ HcclResult AllGatherNHRCore::RunAsync()
 
     HCCL_CHK_RET(ValidateCommState());
     HCCL_CHK_RET(ValidateChannelMetadata());
+    HCCL_CHK_RET(ValidateProtocolDistribution());
 
     std::vector<NHRStepInfo> stepPlan;
     HCCL_CHK_RET(BuildStepPlan(stepPlan));
