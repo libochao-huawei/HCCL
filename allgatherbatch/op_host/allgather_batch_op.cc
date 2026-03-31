@@ -8,39 +8,86 @@
 
 namespace ops_hccl_allgatherbatch {
 
+namespace {
+
+HcclResult EnsureControlNotifies(AlgResourceCtx &resCtx)
+{
+    // Host 侧保留两类控制 notify：启动 device 执行、等待 device 完成。
+    for (uint32_t idx = 0; idx < kAllGatherBatchControlNotifyNum; ++idx) {
+        if (g_allGatherBatchNotifies[idx] == nullptr) {
+            ACL_CHK(aclrtCreateNotify(&g_allGatherBatchNotifies[idx], ACL_NOTIFY_DEFAULT));
+        }
+        ACL_CHK(aclrtGetNotifyId(g_allGatherBatchNotifies[idx], &resCtx.controlNotifyIds[idx]));
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult BuildFreshResourceCtx(HcclComm comm, AlgResourceCtx &resCtx)
+{
+    // 阶段 2 先把主线程和本地 HCCL buffer 申请起来，channel 会在后续阶段按执行器需求补齐。
+    void *localBuffer = nullptr;
+    HCCL_CHK_RET(EnsureControlNotifies(resCtx));
+    HCCL_CHK_RET(HcclThreadAcquire(comm, COMM_ENGINE_AICPU, 1, 0, &resCtx.threadHandle));
+    HCCL_CHK_RET(HcclGetHcclBuffer(comm, &localBuffer, &resCtx.localBuffer.size));
+    resCtx.localBuffer.addr = localBuffer;
+    resCtx.channelCount = 0;
+    return HCCL_SUCCESS;
+}
+
+}  // namespace
+
 HcclResult AllGatherBatchOp::Exec(
     const HcclAllGatherItem *items, uint32_t itemCount, HcclComm comm, aclrtStream stream)
 {
-    HCCL_BATCH_CHK_RET(Validate(items, itemCount, comm, stream));
+    // Host 侧主流程先固定成三段：校验/封装 -> 资源准备 -> load + launch。
+    HCCL_CHK_RET(Validate(items, itemCount, comm, stream));
 
     OpParam param;
-    HCCL_BATCH_CHK_RET(PrepareOpParam(items, itemCount, comm, param));
+    HCCL_CHK_RET(PrepareOpParam(items, itemCount, comm, param));
 
-    AlgResourceCtx resCtx;
-    HCCL_BATCH_CHK_RET(GetAlgRes(comm, param.topoInfo, resCtx));
-    param.resCtx = &resCtx;
+    AlgResourceCtx *resCtx = nullptr;
+    HCCL_CHK_RET(GetAlgRes(comm, param, &resCtx));
+    param.resCtx = resCtx;
 
-    HCCL_BATCH_CHK_RET(LoadAndLaunch(param, stream));
+    HCCL_CHK_RET(LoadAndLaunch(param, stream));
     return HCCL_SUCCESS;
 }
 
 HcclResult AllGatherBatchOp::Validate(
     const HcclAllGatherItem *items, uint32_t itemCount, HcclComm comm, aclrtStream stream) const
 {
-    HCCL_BATCH_CHK_PTR(items);
-    HCCL_BATCH_CHK_PTR(comm);
-    HCCL_BATCH_CHK_PTR(stream);
+    HCCL_CHK_PTR(items);
+    HCCL_CHK_PTR(comm);
+    HCCL_CHK_PTR(stream);
     if (itemCount == 0 || itemCount > kAllGatherBatchMaxItems) {
-        HCCL_BATCH_ERROR("invalid itemCount=%u", itemCount);
+        HCCL_ERROR("invalid itemCount=%u", itemCount);
         return HCCL_E_PARA;
+    }
+
+    for (uint32_t idx = 0; idx < itemCount; ++idx) {
+        if (!IsAligned32(items[idx].sendBuf)) {
+            HCCL_ERROR("item %u sendBuf is not 32B aligned", idx);
+            return HCCL_E_PARA;
+        }
+        HCCL_CHK_PTR(items[idx].recvBuf);
+        if (items[idx].sendCount == 0) {
+            HCCL_ERROR("item %u sendCount is zero", idx);
+            return HCCL_E_PARA;
+        }
+        if (!IsSupportedDataType(items[idx].dataType)) {
+            HCCL_ERROR("item %u dataType=%d is unsupported", idx, static_cast<int>(items[idx].dataType));
+            return HCCL_E_NOT_SUPPORT;
+        }
     }
     return HCCL_SUCCESS;
 }
 
 HcclResult AllGatherBatchOp::PrepareTopoInfo(HcclComm comm, BatchTopoInfo &topoInfo) const
 {
-    HCCL_BATCH_CHK_RET(HcclGetRankId(comm, &topoInfo.rank));
-    HCCL_BATCH_CHK_RET(HcclGetRankSize(comm, &topoInfo.rankSize));
+    HCCL_CHK_RET(HcclGetRankId(comm, &topoInfo.rank));
+    HCCL_CHK_RET(HcclGetRankSize(comm, &topoInfo.rankSize));
+
+    // 当前只先收集公共接口稳定可得的信息，server 维度细节等后续跨 server 阶段再补。
     topoInfo.serverCount = 0;
     topoInfo.serverIdx = 0;
     topoInfo.superPodIdx = 0;
@@ -50,34 +97,63 @@ HcclResult AllGatherBatchOp::PrepareTopoInfo(HcclComm comm, BatchTopoInfo &topoI
 HcclResult AllGatherBatchOp::PrepareOpParam(
     const HcclAllGatherItem *items, uint32_t itemCount, HcclComm comm, OpParam &param) const
 {
-    (void)items;
-    std::snprintf(param.tag, sizeof(param.tag), "%s", "allgatherbatch");
-    HCCL_BATCH_CHK_RET(HcclGetCommName(comm, param.commName));
-    HCCL_BATCH_CHK_RET(PrepareTopoInfo(comm, param.topoInfo));
+    // OpParam 在这一阶段先承载稳定的 launch 入参：tag、comm 名称、topo 基本信息、总字节量。
+    std::snprintf(param.tag, sizeof(param.tag), "%s", kAllGatherBatchCtxTag);
+    HCCL_CHK_RET(HcclGetCommName(comm, param.commName));
+    HCCL_CHK_RET(PrepareTopoInfo(comm, param.topoInfo));
+
     param.itemCount = itemCount;
     param.appendedItemBytes = static_cast<uint64_t>(itemCount) * sizeof(BatchItemParam);
-    param.windowBytes = 0;
     param.totalInputBytes = 0;
     param.totalOutputBytes = 0;
+
+    for (uint32_t idx = 0; idx < itemCount; ++idx) {
+        const uint64_t elementSize = GetDataTypeSize(items[idx].dataType);
+        const uint64_t bytes = items[idx].sendCount * elementSize;
+        param.totalInputBytes += bytes;
+        param.totalOutputBytes += bytes * param.topoInfo.rankSize;
+    }
+
+    // 后续执行器会根据 buffer 和算法约束重算窗口，这里先把总输入量作为初始窗口上界。
+    param.windowBytes = param.totalInputBytes;
     return HCCL_SUCCESS;
 }
 
 HcclResult AllGatherBatchOp::GetAlgRes(
-    HcclComm comm, const BatchTopoInfo &topoInfo, AlgResourceCtx &resCtx) const
+    HcclComm comm, const OpParam &param, AlgResourceCtx **resCtx) const
 {
-    (void)topoInfo;
-    void *localBuffer = nullptr;
-    HCCL_BATCH_CHK_RET(HcclThreadAcquire(comm, COMM_ENGINE_AICPU, 1, 0, &resCtx.threadHandle));
-    HCCL_BATCH_CHK_RET(HcclGetHcclBuffer(comm, &localBuffer, &resCtx.localBuffer.size));
-    resCtx.localBuffer.addr = localBuffer;
-    resCtx.channelCount = 0;
+    HCCL_CHK_PTR(resCtx);
+
+    void *ctx = nullptr;
+    uint64_t ctxSize = sizeof(AlgResourceCtx);
+    const CommEngine engine = COMM_ENGINE_AICPU;
+
+    // 优先复用 engine context 里的 device 侧资源，避免同一 comm 反复申请。
+    HcclResult ret = HcclEngineCtxGet(comm, param.tag, engine, &ctx, &ctxSize);
+    if (ret == HCCL_SUCCESS) {
+        *resCtx = static_cast<AlgResourceCtx *>(ctx);
+        return HCCL_SUCCESS;
+    }
+    if (ret != HCCL_E_NOT_FOUND && ret != HCCL_E_UNAVAIL) {
+        return ret;
+    }
+
+    // 缓存未命中时，先创建 device context，再把 host 临时组织的资源信息拷过去。
+    HCCL_CHK_RET(HcclEngineCtxCreate(comm, param.tag, engine, sizeof(AlgResourceCtx), &ctx));
+
+    AlgResourceCtx hostResCtx;
+    HCCL_CHK_RET(BuildFreshResourceCtx(comm, hostResCtx));
+    HCCL_CHK_RET(HcclEngineCtxCopy(comm, engine, param.tag, &hostResCtx, sizeof(AlgResourceCtx), 0));
+
+    *resCtx = static_cast<AlgResourceCtx *>(ctx);
     return HCCL_SUCCESS;
 }
 
 HcclResult AllGatherBatchOp::LoadAndLaunch(const OpParam &param, aclrtStream stream) const
 {
-    HCCL_BATCH_CHK_RET(LoadAICPUKernel());
-    HCCL_BATCH_CHK_RET(LaunchKernel(param, stream));
+    // load 和 launch 先保持独立，后面接 Device 真正入口时不用再拆 Host 主流程。
+    HCCL_CHK_RET(LoadAICPUKernel());
+    HCCL_CHK_RET(LaunchKernel(param, stream));
     return HCCL_SUCCESS;
 }
 

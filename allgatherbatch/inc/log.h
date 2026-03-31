@@ -22,7 +22,7 @@ enum LogLevel {
 #endif
 
 #ifdef HOST_COMPILE
-#define HCCL_BATCH_LOG(level, prefix, format, ...)                                \
+#define HCCL_LOG(level, prefix, format, ...)                                \
     do {                                                                          \
         if (LOG_LEVEL <= level) {                                                 \
             std::printf("[%s][%s][%s:%d] " format "\n", prefix, __func__,       \
@@ -30,36 +30,36 @@ enum LogLevel {
         }                                                                         \
     } while (0)
 #else
-#define HCCL_BATCH_LOG(level, prefix, format, ...) do {} while (0)
+#define HCCL_LOG(level, prefix, format, ...) do {} while (0)
 #endif
 
-#define HCCL_BATCH_DEBUG(format, ...) HCCL_BATCH_LOG(LOG_LEVEL_DEBUG, "DEBUG", format, ##__VA_ARGS__)
-#define HCCL_BATCH_INFO(format, ...) HCCL_BATCH_LOG(LOG_LEVEL_INFO, "INFO", format, ##__VA_ARGS__)
-#define HCCL_BATCH_WARNING(format, ...) HCCL_BATCH_LOG(LOG_LEVEL_WARNING, "WARN", format, ##__VA_ARGS__)
-#define HCCL_BATCH_ERROR(format, ...) HCCL_BATCH_LOG(LOG_LEVEL_ERROR, "ERROR", format, ##__VA_ARGS__)
+#define HCCL_DEBUG(format, ...) HCCL_LOG(LOG_LEVEL_DEBUG, "DEBUG", format, ##__VA_ARGS__)
+#define HCCL_INFO(format, ...) HCCL_LOG(LOG_LEVEL_INFO, "INFO", format, ##__VA_ARGS__)
+#define HCCL_WARNING(format, ...) HCCL_LOG(LOG_LEVEL_WARNING, "WARN", format, ##__VA_ARGS__)
+#define HCCL_ERROR(format, ...) HCCL_LOG(LOG_LEVEL_ERROR, "ERROR", format, ##__VA_ARGS__)
 
-#define HCCL_BATCH_CHK_PTR(ptr)                                                    \
+#define HCCL_CHK_PTR(ptr)                                                    \
     do {                                                                           \
         if (UNLIKELY((ptr) == nullptr)) {                                          \
-            HCCL_BATCH_ERROR("pointer %s is null", #ptr);                         \
+            HCCL_ERROR("pointer %s is null", #ptr);                         \
             return HCCL_E_PTR;                                                     \
         }                                                                          \
     } while (0)
 
-#define HCCL_BATCH_CHK_RET(call)                                                   \
+#define HCCL_CHK_RET(call)                                                   \
     do {                                                                           \
         HcclResult hcclRet = (call);                                               \
         if (UNLIKELY(hcclRet != HCCL_SUCCESS)) {                                   \
-            HCCL_BATCH_ERROR("call failed, ret=%d", static_cast<int>(hcclRet));   \
+            HCCL_ERROR("call failed, ret=%d", static_cast<int>(hcclRet));   \
             return hcclRet;                                                        \
         }                                                                          \
     } while (0)
 
-#define HCCL_BATCH_ACL_CHK(call)                                                   \
+#define ACL_CHK(call)                                                   \
     do {                                                                           \
         aclError aclRet = (call);                                                  \
         if (UNLIKELY(aclRet != ACL_SUCCESS)) {                                     \
-            HCCL_BATCH_ERROR("acl call failed, ret=%d", static_cast<int>(aclRet));\
+            HCCL_ERROR("acl call failed, ret=%d", static_cast<int>(aclRet));\
             return HCCL_E_RUNTIME;                                                 \
         }                                                                          \
     } while (0)

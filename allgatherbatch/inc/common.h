@@ -1,8 +1,8 @@
 ﻿#ifndef HCCL_ALLGATHERBATCH_COMMON_H
 #define HCCL_ALLGATHERBATCH_COMMON_H
 
-#include <cstdint>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 
 #include "acl/acl_rt.h"
@@ -16,10 +16,14 @@ namespace ops_hccl_allgatherbatch {
 
 constexpr uint32_t kAllGatherBatchMaxItems = 8;
 constexpr uint32_t kAllGatherBatchControlNotifyNum = 2;
+constexpr uint32_t kAllGatherBatchControlNotifyStart = 0;
+constexpr uint32_t kAllGatherBatchControlNotifyDone = 1;
 constexpr uint32_t kAllGatherBatchMaxChannels = 32;
 constexpr uint32_t kAllGatherBatchCustomTimeoutMs = 1800;
 constexpr uint32_t kAllGatherBatchOpNameLength = 64;
 constexpr uint32_t kAllGatherBatchTagLength = HCCL_RES_TAG_MAX_LEN + 1;
+constexpr char kAllGatherBatchCtxTag[] = "allgatherbatch";
+constexpr char kAllGatherBatchKernelName[] = "HcclAllGatherBatchAicpuKernel";
 
 enum class BatchKernelOpType : uint32_t {
     kAllGatherBatch = 1,
@@ -116,6 +120,11 @@ inline HcommDataType ToHcommDataType(HcclDataType dataType)
 inline bool IsSupportedDataType(HcclDataType dataType)
 {
     return GetDataTypeSize(dataType) != 0;
+}
+
+inline bool IsAligned32(const void *ptr)
+{
+    return ptr != nullptr && ((reinterpret_cast<uintptr_t>(ptr) & 0x1fU) == 0);
 }
 
 }  // namespace ops_hccl_allgatherbatch

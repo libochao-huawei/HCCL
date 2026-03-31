@@ -6,6 +6,7 @@
 namespace ops_hccl_allgatherbatch {
 
 HcclResult LaunchKernel(const OpParam &param, aclrtStream stream);
+extern thread_local aclrtNotify g_allGatherBatchNotifies[kAllGatherBatchControlNotifyNum];
 
 }  // namespace ops_hccl_allgatherbatch
 

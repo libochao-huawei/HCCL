@@ -13,8 +13,9 @@ HcclResult AllGatherNHRCore::RunAsync()
 {
     (void)param_;
     (void)resCtx_;
-    HCCL_BATCH_INFO("phase 1 stub: NHR core not implemented yet");
+    HCCL_INFO("phase 1 stub: NHR core not implemented yet");
     return HCCL_E_NOT_SUPPORT;
 }
 
 }  // namespace ops_hccl_allgatherbatch
+

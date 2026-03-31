@@ -5,7 +5,8 @@
 
 namespace ops_hccl_allgatherbatch {
 
-HcclResult ExecOp(OpParam &param, AlgResourceCtx *resCtx);
+// Device 侧执行入口，负责把 launch 参数转交给执行器主控。
+HcclResult ExecOp(const OpParam &param, AlgResourceCtx *resCtx);
 
 }  // namespace ops_hccl_allgatherbatch
 

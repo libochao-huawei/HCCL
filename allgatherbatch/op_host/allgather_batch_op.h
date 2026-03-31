@@ -14,7 +14,7 @@ private:
     HcclResult Validate(const HcclAllGatherItem *items, uint32_t itemCount, HcclComm comm, aclrtStream stream) const;
     HcclResult PrepareTopoInfo(HcclComm comm, BatchTopoInfo &topoInfo) const;
     HcclResult PrepareOpParam(const HcclAllGatherItem *items, uint32_t itemCount, HcclComm comm, OpParam &param) const;
-    HcclResult GetAlgRes(HcclComm comm, const BatchTopoInfo &topoInfo, AlgResourceCtx &resCtx) const;
+    HcclResult GetAlgRes(HcclComm comm, const OpParam &param, AlgResourceCtx **resCtx) const;
     HcclResult LoadAndLaunch(const OpParam &param, aclrtStream stream) const;
 };
 
