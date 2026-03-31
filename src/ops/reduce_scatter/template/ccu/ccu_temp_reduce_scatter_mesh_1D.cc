@@ -131,11 +131,7 @@ HcclResult CcuTempReduceScatterMesh1D::KernelRun(const OpParam& param,
     
     CcuKernelSubmitInfo submitInfo;
     submitInfo.kernelHandle = templateResource.ccuKernels[0];
-    submitInfo.cachedArgs[0]=buffInfo_.inBuffBaseOff;
-    submitInfo.cachedArgs[1]=buffInfo_.outBuffBaseOff;
-    submitInfo.cachedArgs[2]=sliceSize;
-    submitInfo.cachedArgs[3]=offset;
-    submitInfo.cachedArgs[4]=token;
+    CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, sliceSize, offset, token));
     templateResource.submitInfos.push_back(submitInfo);
 
     HCCL_DEBUG("[CcuTempReduceScatterMesh1D::KernelRun] end");
