@@ -65,6 +65,7 @@ HcclResult AllGatherBatchOp::Validate(
     }
 
     for (uint32_t idx = 0; idx < itemCount; ++idx) {
+        HCCL_CHK_PTR(items[idx].sendBuf);
         if (!IsAligned32(items[idx].sendBuf)) {
             HCCL_ERROR("item %u sendBuf is not 32B aligned", idx);
             return HCCL_E_PARA;
@@ -107,11 +108,18 @@ HcclResult AllGatherBatchOp::PrepareOpParam(
     param.totalInputBytes = 0;
     param.totalOutputBytes = 0;
 
+    // 当前 custom-op 方案把 item 描述符内联在 OpParam 里，先保证 Host/Device 协议简单稳定。
     for (uint32_t idx = 0; idx < itemCount; ++idx) {
-        const uint64_t elementSize = GetDataTypeSize(items[idx].dataType);
-        const uint64_t bytes = items[idx].sendCount * elementSize;
-        param.totalInputBytes += bytes;
-        param.totalOutputBytes += bytes * param.topoInfo.rankSize;
+        BatchItemParam &itemParam = param.items[idx];
+        itemParam.sendBuf = items[idx].sendBuf;
+        itemParam.recvBuf = items[idx].recvBuf;
+        itemParam.sendCount = items[idx].sendCount;
+        itemParam.dataType = items[idx].dataType;
+        itemParam.elementSize = GetDataTypeSize(items[idx].dataType);
+        itemParam.sendBytes = itemParam.sendCount * itemParam.elementSize;
+
+        param.totalInputBytes += itemParam.sendBytes;
+        param.totalOutputBytes += itemParam.sendBytes * param.topoInfo.rankSize;
     }
 
     // 后续执行器会根据 buffer 和算法约束重算窗口，这里先把总输入量作为初始窗口上界。

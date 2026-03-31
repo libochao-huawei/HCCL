@@ -1,9 +1,20 @@
 ﻿#include "allgather_batch_small_count_executor.h"
 
+#include <algorithm>
+
 #include "all_gather_hd_stage_core.h"
 #include "log.h"
 
 namespace ops_hccl_allgatherbatch {
+
+namespace {
+
+uint64_t CalcRemainingBytes(const BatchItemParam &item, uint64_t offsetBytes)
+{
+    return (offsetBytes < item.sendBytes) ? (item.sendBytes - offsetBytes) : 0;
+}
+
+}  // namespace
 
 AllGatherBatchSmallCountExecutor::AllGatherBatchSmallCountExecutor(const OpParam &param, AlgResourceCtx &resCtx)
     : param_(param), resCtx_(resCtx)
@@ -28,17 +39,137 @@ HcclResult AllGatherBatchSmallCountExecutor::ValidateParam() const
         HCCL_ERROR("localBuffer is not ready");
         return HCCL_E_INTERNAL;
     }
+    for (uint32_t itemIdx = 0; itemIdx < param_.itemCount; ++itemIdx) {
+        const BatchItemParam &item = param_.items[itemIdx];
+        if (item.sendBuf == nullptr || item.recvBuf == nullptr) {
+            HCCL_ERROR("item %u buffer is null", itemIdx);
+            return HCCL_E_PTR;
+        }
+        if (item.sendBytes == 0) {
+            HCCL_ERROR("item %u sendBytes is zero", itemIdx);
+            return HCCL_E_PARA;
+        }
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult AllGatherBatchSmallCountExecutor::AdvancePosition(uint32_t &itemIdx, uint64_t &offsetBytes) const
+{
+    while (itemIdx < param_.itemCount && offsetBytes >= param_.items[itemIdx].sendBytes) {
+        ++itemIdx;
+        offsetBytes = 0;
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult AllGatherBatchSmallCountExecutor::LocateWindowEnd(
+    uint32_t startItemIdx,
+    uint64_t startOffsetBytes,
+    uint64_t packedBytes,
+    uint32_t &endItemIdx,
+    uint64_t &endOffsetBytes) const
+{
+    uint32_t itemIdx = startItemIdx;
+    uint64_t offsetBytes = startOffsetBytes;
+    uint64_t remaining = packedBytes;
+
+    while (remaining > 0 && itemIdx < param_.itemCount) {
+        const uint64_t itemRemaining = CalcRemainingBytes(param_.items[itemIdx], offsetBytes);
+        const uint64_t currentBytes = std::min(itemRemaining, remaining);
+        remaining -= currentBytes;
+        offsetBytes += currentBytes;
+        HCCL_CHK_RET(AdvancePosition(itemIdx, offsetBytes));
+    }
+
+    endItemIdx = itemIdx;
+    endOffsetBytes = offsetBytes;
     return HCCL_SUCCESS;
 }
 
 HcclResult AllGatherBatchSmallCountExecutor::BuildFirstWindow(WindowRange &window) const
 {
-    // 阶段 3 先把窗口模型立起来：默认只有一个覆盖全部输入的初始窗口。
+    // 第一窗口按 localBuffer 容量截断，这样单窗口和多窗口模型都能共用同一套边界逻辑。
+    const uint64_t packedBytes = std::min(param_.totalInputBytes, resCtx_.localBuffer.size);
     window.startItemIdx = 0;
     window.startOffsetBytes = 0;
-    window.endItemIdx = param_.itemCount - 1;
-    window.endOffsetBytes = 0;
-    window.packedBytes = param_.windowBytes;
+    window.packedBytes = packedBytes;
+    return LocateWindowEnd(0, 0, packedBytes, window.endItemIdx, window.endOffsetBytes);
+}
+
+HcclResult AllGatherBatchSmallCountExecutor::BuildNextWindow(
+    const WindowRange &current, WindowRange &next, bool &hasNext) const
+{
+    uint32_t nextItemIdx = current.endItemIdx;
+    uint64_t nextOffsetBytes = current.endOffsetBytes;
+    HCCL_CHK_RET(AdvancePosition(nextItemIdx, nextOffsetBytes));
+
+    if (nextItemIdx >= param_.itemCount) {
+        hasNext = false;
+        return HCCL_SUCCESS;
+    }
+
+    uint64_t remainingBytes = 0;
+    for (uint32_t itemIdx = nextItemIdx; itemIdx < param_.itemCount; ++itemIdx) {
+        remainingBytes += CalcRemainingBytes(param_.items[itemIdx], (itemIdx == nextItemIdx) ? nextOffsetBytes : 0);
+    }
+
+    next.startItemIdx = nextItemIdx;
+    next.startOffsetBytes = nextOffsetBytes;
+    next.packedBytes = std::min(remainingBytes, resCtx_.localBuffer.size);
+    HCCL_CHK_RET(LocateWindowEnd(nextItemIdx, nextOffsetBytes, next.packedBytes, next.endItemIdx, next.endOffsetBytes));
+    hasNext = true;
+    return HCCL_SUCCESS;
+}
+
+HcclResult AllGatherBatchSmallCountExecutor::Pack(const WindowRange &window) const
+{
+    // Pack 把多个离散 item 的数据按窗口顺序写进连续的 localBuffer。
+    uint8_t *dst = static_cast<uint8_t *>(resCtx_.localBuffer.addr);
+    uint64_t packedOffset = 0;
+    uint32_t itemIdx = window.startItemIdx;
+    uint64_t offsetBytes = window.startOffsetBytes;
+
+    while (packedOffset < window.packedBytes && itemIdx < param_.itemCount) {
+        const BatchItemParam &item = param_.items[itemIdx];
+        const uint64_t itemRemaining = CalcRemainingBytes(item, offsetBytes);
+        const uint64_t copyBytes = std::min(itemRemaining, window.packedBytes - packedOffset);
+        const void *src = static_cast<const uint8_t *>(item.sendBuf) + offsetBytes;
+        int32_t ret = HcommLocalCopyOnThread(resCtx_.threadHandle, dst + packedOffset, src, copyBytes);
+        if (ret != HCCL_SUCCESS) {
+            HCCL_ERROR("pack local copy failed, ret=%d", ret);
+            return static_cast<HcclResult>(ret);
+        }
+
+        packedOffset += copyBytes;
+        offsetBytes += copyBytes;
+        HCCL_CHK_RET(AdvancePosition(itemIdx, offsetBytes));
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult AllGatherBatchSmallCountExecutor::Unpack(const WindowRange &window) const
+{
+    // 当前阶段先做 rankSize==1 的本地闭环：把连续缓冲区的数据拆回各 recvBuf。
+    uint8_t *src = static_cast<uint8_t *>(resCtx_.localBuffer.addr);
+    uint64_t packedOffset = 0;
+    uint32_t itemIdx = window.startItemIdx;
+    uint64_t offsetBytes = window.startOffsetBytes;
+
+    while (packedOffset < window.packedBytes && itemIdx < param_.itemCount) {
+        const BatchItemParam &item = param_.items[itemIdx];
+        const uint64_t itemRemaining = CalcRemainingBytes(item, offsetBytes);
+        const uint64_t copyBytes = std::min(itemRemaining, window.packedBytes - packedOffset);
+        void *dst = static_cast<uint8_t *>(item.recvBuf) + offsetBytes;
+        int32_t ret = HcommLocalCopyOnThread(resCtx_.threadHandle, dst, src + packedOffset, copyBytes);
+        if (ret != HCCL_SUCCESS) {
+            HCCL_ERROR("unpack local copy failed, ret=%d", ret);
+            return static_cast<HcclResult>(ret);
+        }
+
+        packedOffset += copyBytes;
+        offsetBytes += copyBytes;
+        HCCL_CHK_RET(AdvancePosition(itemIdx, offsetBytes));
+    }
     return HCCL_SUCCESS;
 }
 
@@ -46,17 +177,34 @@ HcclResult AllGatherBatchSmallCountExecutor::Orchestrate()
 {
     HCCL_CHK_RET(ValidateParam());
 
-    WindowRange firstWindow;
-    HCCL_CHK_RET(BuildFirstWindow(firstWindow));
+    WindowRange window;
+    HCCL_CHK_RET(BuildFirstWindow(window));
 
-    HCCL_INFO("executor window ready: itemCount=%u, windowBytes=%llu, localBufferSize=%llu",
-        param_.itemCount,
-        static_cast<unsigned long long>(firstWindow.packedBytes),
-        static_cast<unsigned long long>(resCtx_.localBuffer.size));
+    while (true) {
+        HCCL_INFO("executor window ready: startItem=%u, packedBytes=%llu, localBufferSize=%llu",
+            window.startItemIdx,
+            static_cast<unsigned long long>(window.packedBytes),
+            static_cast<unsigned long long>(resCtx_.localBuffer.size));
 
-    // 阶段 4 开始把执行器真正接到 HDStageCore 上，通信细节继续在后续阶段补齐。
-    AllGatherHDStageCore hdStageCore(param_, resCtx_);
-    return hdStageCore.RunAsync();
+        HCCL_CHK_RET(Pack(window));
+
+        // 阶段 5 开始把 Pack/通信/Unpack 串成完整循环。
+        AllGatherHDStageCore hdStageCore(param_, resCtx_);
+        HcclResult commRet = hdStageCore.RunAsync();
+        if (commRet != HCCL_SUCCESS) {
+            return commRet;
+        }
+
+        HCCL_CHK_RET(Unpack(window));
+
+        bool hasNext = false;
+        WindowRange nextWindow;
+        HCCL_CHK_RET(BuildNextWindow(window, nextWindow, hasNext));
+        if (!hasNext) {
+            return HCCL_SUCCESS;
+        }
+        window = nextWindow;
+    }
 }
 
 }  // namespace ops_hccl_allgatherbatch

@@ -66,6 +66,7 @@ struct BatchItemParam {
     uint64_t sendCount = 0;
     HcclDataType dataType = HCCL_DATA_TYPE_RESERVED;
     uint64_t elementSize = 0;
+    uint64_t sendBytes = 0;
 };
 
 struct OpParam {
@@ -79,6 +80,7 @@ struct OpParam {
     uint64_t totalInputBytes = 0;
     uint64_t totalOutputBytes = 0;
     uint64_t windowBytes = 0;
+    BatchItemParam items[kAllGatherBatchMaxItems] {};
     AlgResourceCtx *resCtx = nullptr;
 };
 
