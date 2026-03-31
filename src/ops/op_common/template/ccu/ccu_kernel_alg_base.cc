@@ -36,6 +36,7 @@ void CcuKernelAlgBase::AllocGoResource(uint32_t parallelDim, uint32_t msPerLoop)
     moConfig.loopCount = parallelDim;
     // 算法配置的msPerLoop * CcuRep::CCU_MS_SIZE覆盖默认配置，msPerLoop默认为1
     moConfig.memSlice = msPerLoop * CcuRep::CCU_MS_SIZE;
+    moConfig.msInterleave = 16;
     HCCL_INFO("[AllocGoResource]moConfig: loopCount = %u, msInterleave = %u", moConfig.loopCount, moConfig.msInterleave);
 
     // 简单实现,只需要申请一次资源
@@ -1080,6 +1081,180 @@ HcclResult CcuKernelAlgBase::GroupWrite(const std::vector<ChannelHandle> &channe
         sliceSizeExpansion = moConfig.memSlice * expansionNum;
 
         auto lc1 = Loop(loopType + "_loop_1")(src, dst, sliceSize, sliceSizeExpansion);
+
+        CcuRep::Variable loopCfg0 = CreateVariable();
+        loopCfg0 = GetLoopParam(0, 0, 1);
+        CcuRep::Variable loopCfg1 = CreateVariable();
+        loopCfg1 = GetLoopParam(0, 0, 1);
+        CcuRep::Variable offsetCfg = CreateVariable();
+        offsetCfg = GetOffsetParam(moConfig.memSlice, moConfig.msInterleave, 1);
+
+        LoopGroup({lc0, lc1}, {loopCfg0, loopCfg1}, goSize.parallelParam, offsetCfg);
+    }
+    return HCCL_SUCCESS;
+}
+
+// write 模式 ReduceScatter：
+// 每个 LoopBlock 迭代的流程：
+//   1. LocalCopyNb(send_bufs[R], src + R*sliceSize, len) — 拷贝需要发送的slice到发送buf，跳过自己的slice
+//   2. MsWriteNb(ch[i], send_bufs[R], recv_bufs[myRankId], len) × channelSize — 发送每个slice到对应rank
+//   3. LocalCopyNb(recv_bufs[myRankId], src + myRankId*sliceSize, len) — 并行拷贝本端自己的slice到接收buf
+//   4. NotifyWait(ch[i], ...) × channelSize — 等待所有对端写完成
+//   5. LocalReduceNb(recv_bufs, size, ...) — reduce所有接收buf，结果在recv_bufs[0]
+//   6. LocalCopyNb(dst, recv_bufs[0], len) — 结果拷贝到输出
+// MS布局：每个双buffer组占 2*size 个MS，前size个是接收buf，后size个是发送buf
+HcclResult CcuKernelAlgBase::CreateMultiOpReduceScatterWrite(const std::vector<ChannelHandle> &channels, uint32_t rankId,
+                                                              HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType)
+{
+    uint32_t channelSize = channels.size();
+    uint32_t size        = channelSize + 1; // N-1 peers + self
+    moConfig.msInterleave = 2 * size; // 双buffer各占size个MS，总共2*size
+    AllocGoResource();
+
+    std::string loopType = GetReduceTypeStr(dataType, opType) + "_reduce_scatter_write";
+    if (registeredLoop.find(loopType) != registeredLoop.end()) {
+        return HCCL_SUCCESS;
+    }
+
+    uint32_t expansionNum = GetReduceExpansionNum(opType, dataType, outputDataType);
+    uint32_t usedBufNum   = size > expansionNum ? size : expansionNum;
+
+    for (int32_t index = 0; index < 2; index++) {
+        std::vector<CcuRep::LocalAddr> srcs;
+        srcs.reserve(size);
+        for (uint32_t i = 0; i < size; i++) {
+            srcs.push_back(CreateLocalAddr());
+        }
+        CcuRep::LocalAddr dst = CreateLocalAddr();
+        CcuRep::Variable  len = CreateVariable();
+        CcuRep::Variable  lenForExpansion = CreateVariable();
+        CcuRep::LoopBlock lb(this, loopType + "_loop_" + std::to_string(index));
+        lb(srcs, dst, len, lenForExpansion);
+
+        // MS布局：前usedBufNum个是接收buf，后usedBufNum个是发送buf
+        std::vector<CcuRep::CcuBuf> recv_bufs = {moRes.ccuBuf.begin() + index * moConfig.msInterleave,
+                                                 moRes.ccuBuf.begin() + index * moConfig.msInterleave + usedBufNum};
+        std::vector<CcuRep::CcuBuf> send_bufs = {moRes.ccuBuf.begin() + index * moConfig.msInterleave + usedBufNum,
+                                                 moRes.ccuBuf.begin() + index * moConfig.msInterleave + 2 * usedBufNum};
+        CcuRep::CompletedEvent &event = moRes.completedEvent[index];
+
+        uint32_t ckeIdx = (index == 0) ? WRITE_CKE_IDX_0 : WRITE_CKE_IDX_1;
+
+        // Step 1: 拷贝本端各个slice到对应的发送buf
+        event.mask = (1 << size) - 1;
+        for (uint32_t i = 0; i < size; i++) {
+            if (i == rankId) {
+                continue;
+            }
+            LocalCopyNb(send_bufs[i], srcs[i], len, event);
+        }
+        WaitEvent(event);
+
+        // Step 2: 异步发送本端各个slice到对应rank的接收buf
+        for (uint32_t i = 0; i < channels.size(); i++) {
+            if (i < rankId) {
+                CHK_RET(MsWriteNb(channels[i], send_bufs[i], recv_bufs[rankId], len, ckeIdx, WRITE_DONE_MASK));
+            } else {
+                CHK_RET(MsWriteNb(channels[i], send_bufs[i+1], recv_bufs[rankId], len, ckeIdx, WRITE_DONE_MASK));
+            }
+        }
+
+        // Step 3: 并行拷贝本端自己的slice到接收buf，掩盖网络传输时间
+        event.mask = 1;
+        LocalCopyNb(recv_bufs[rankId], srcs[rankId], len, event);
+        WaitEvent(event);
+
+        // Step 4: 等待所有对端写完成通知
+        for (uint32_t i = 0; i < channels.size(); i++) {
+            NotifyWait(channels[i], ckeIdx, WRITE_DONE_MASK);
+        }
+
+        // Step 5: 对所有接收buf做reduce
+        if (size > 1) {
+            event.mask = 2;
+            LocalReduceNb(recv_bufs, size, dataType, outputDataType, opType, len, event);
+            WaitEvent(event);
+        }
+
+        // Step 6: 结果拷贝到输出
+        event.mask = 4;
+        LocalCopyNb(dst, recv_bufs[0], lenForExpansion, event);
+        WaitEvent(event);
+    }
+
+    registeredLoop.insert(loopType);
+    return HCCL_SUCCESS;
+}
+
+HcclResult CcuKernelAlgBase::GroupReduceScatterWrite(const std::vector<ChannelHandle> &channels, uint32_t rankId, CcuRep::LocalAddr dst,
+                                                      std::vector<CcuRep::LocalAddr> srcs, GroupOpSize goSize, HcclDataType dataType,
+                                                      HcclDataType outputDataType, HcclReduceOp opType)
+{
+    CHK_RET(CreateMultiOpReduceScatterWrite(channels, rankId, dataType, outputDataType, opType));
+
+    std::string loopType      = GetReduceTypeStr(dataType, opType) + "_reduce_scatter_write";
+    uint32_t    expansionNum  = GetReduceExpansionNum(opType, dataType, outputDataType);
+    CcuRep::Variable sliceSizeExpansion = CreateVariable();
+
+    if (expansionNum != 1) {
+        CcuRep::Variable tmp = CreateVariable();
+        tmp = GetExpansionParam(expansionNum);
+        dst.token += tmp;
+    }
+
+    // 第一个 loopgroup：处理 m 部分数据
+    CCU_IF(goSize.loopParam != 0)
+    {
+        CcuRep::Variable loopParam = CreateVariable();
+        loopParam = GetLoopParam(0, moConfig.memSlice * moConfig.loopCount, 0);
+        loopParam += goSize.loopParam;
+
+        CcuRep::Variable sliceSize = CreateVariable();
+        sliceSize          = moConfig.memSlice;
+        sliceSizeExpansion = moConfig.memSlice * expansionNum;
+
+        auto lc = Loop(loopType + "_loop_0")(srcs, dst, sliceSize, sliceSizeExpansion);
+
+        CcuRep::Variable paraCfg = CreateVariable();
+        paraCfg = GetParallelParam(moConfig.loopCount - 1, 0, 1);
+        CcuRep::Variable offsetCfg = CreateVariable();
+        offsetCfg = GetOffsetParam(moConfig.memSlice, moConfig.msInterleave, 1);
+
+        LoopGroup({lc}, {loopParam}, paraCfg, offsetCfg);
+    }
+
+    // 第二个 loopgroup：处理 n 和 p 部分数据
+    CCU_IF(goSize.parallelParam != 0)
+    {
+        // 处理所有src的地址偏移
+        
+        for (size_t i = 0; i < srcs.size(); i++) {
+            srcs[i].addr += goSize.addrOffset;
+        }
+        for (uint32_t i = 0; i < expansionNum; i++) {
+            dst.addr += goSize.addrOffset;
+        }
+
+        sliceSizeExpansion = 0;
+        for (uint32_t i = 0; i < expansionNum; i++) {
+            sliceSizeExpansion += goSize.residual;
+        }
+
+        auto lc0 = Loop(loopType + "_loop_0")(srcs, dst, goSize.residual, sliceSizeExpansion);
+
+        // 偏移到下一个块
+        for (size_t i = 0; i < srcs.size(); i++) {
+            srcs[i].addr += goSize.residual;
+        }
+        for (uint32_t i = 0; i < expansionNum; i++) {
+            dst.addr += goSize.residual;
+        }
+
+        CcuRep::Variable sliceSize = CreateVariable();
+        sliceSize          = moConfig.memSlice;
+        sliceSizeExpansion = moConfig.memSlice * expansionNum;
+
+        auto lc1 = Loop(loopType + "_loop_1")(srcs, dst, sliceSize, sliceSizeExpansion);
 
         CcuRep::Variable loopCfg0 = CreateVariable();
         loopCfg0 = GetLoopParam(0, 0, 1);
