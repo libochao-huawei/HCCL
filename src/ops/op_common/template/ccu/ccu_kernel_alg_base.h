@@ -120,7 +120,7 @@ protected:
     HcclResult CreateMultiOpReduceScatterWrite(const std::vector<ChannelHandle> &channels, uint32_t rankId,
                                                 HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType);
     HcclResult GroupReduceScatterWrite(const std::vector<ChannelHandle> &channels, uint32_t rankId, CcuRep::LocalAddr dst,
-                                        const std::vector<CcuRep::LocalAddr>& srcs, GroupOpSize goSize, HcclDataType dataType,
+                                        std::vector<CcuRep::LocalAddr> srcs, GroupOpSize goSize, HcclDataType dataType,
                                         HcclDataType outputDataType, HcclReduceOp opType);
 
 private:
