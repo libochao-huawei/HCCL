@@ -14,6 +14,18 @@ uint64_t CalcRemainingBytes(const BatchItemParam &item, uint64_t offsetBytes)
     return (offsetBytes < item.sendBytes) ? (item.sendBytes - offsetBytes) : 0;
 }
 
+const char *ToCommModeString(BatchCommMode commMode)
+{
+    switch (commMode) {
+        case BatchCommMode::kSingleServer:
+            return "single-server";
+        case BatchCommMode::kCrossServer:
+            return "cross-server";
+        default:
+            return "unknown";
+    }
+}
+
 }  // namespace
 
 AllGatherBatchSmallCountExecutor::AllGatherBatchSmallCountExecutor(const OpParam &param, AlgResourceCtx &resCtx)
@@ -31,6 +43,10 @@ HcclResult AllGatherBatchSmallCountExecutor::ValidateParam() const
         HCCL_ERROR("param.resCtx is null");
         return HCCL_E_PTR;
     }
+    if (param_.commMode == BatchCommMode::kUnknown) {
+        HCCL_ERROR("commMode is unknown");
+        return HCCL_E_INTERNAL;
+    }
     if (resCtx_.threadHandle == 0) {
         HCCL_ERROR("threadHandle is invalid");
         return HCCL_E_INTERNAL;
@@ -45,6 +61,10 @@ HcclResult AllGatherBatchSmallCountExecutor::ValidateParam() const
             param_.topoInfo.rankSize);
         return HCCL_E_INTERNAL;
     }
+    if (param_.totalInputBytes == 0) {
+        HCCL_ERROR("totalInputBytes is zero");
+        return HCCL_E_PARA;
+    }
     for (uint32_t itemIdx = 0; itemIdx < param_.itemCount; ++itemIdx) {
         const BatchItemParam &item = param_.items[itemIdx];
         if (item.sendBuf == nullptr || item.recvBuf == nullptr) {
@@ -55,6 +75,54 @@ HcclResult AllGatherBatchSmallCountExecutor::ValidateParam() const
             HCCL_ERROR("item %u sendBytes is zero", itemIdx);
             return HCCL_E_PARA;
         }
+    }
+    return HCCL_SUCCESS;
+}
+
+uint32_t AllGatherBatchSmallCountExecutor::CountCrossServerChannels() const
+{
+    uint32_t count = 0;
+    for (uint32_t idx = 0; idx < resCtx_.channelCount; ++idx) {
+        if (resCtx_.channels[idx].remoteServerIdx != param_.topoInfo.serverIdx) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+HcclResult AllGatherBatchSmallCountExecutor::ValidateModeConsistency() const
+{
+    const uint32_t crossServerChannels = CountCrossServerChannels();
+
+    // Host 已经把 commMode 和 rank 分布写进 OpParam，这里再在 Device 入口收一层，避免后续窗口循环建立在错误前提上。
+    if (param_.commMode == BatchCommMode::kSingleServer) {
+        if (param_.crossServerRankCount != 0) {
+            HCCL_ERROR("single-server mode has crossServerRankCount=%u", param_.crossServerRankCount);
+            return HCCL_E_INTERNAL;
+        }
+        if (crossServerChannels != 0) {
+            HCCL_ERROR("single-server mode unexpectedly has cross-server channels=%u", crossServerChannels);
+            return HCCL_E_INTERNAL;
+        }
+    }
+
+    if (param_.commMode == BatchCommMode::kCrossServer) {
+        if (param_.crossServerRankCount == 0) {
+            HCCL_ERROR("cross-server mode has zero crossServerRankCount");
+            return HCCL_E_INTERNAL;
+        }
+        if (crossServerChannels == 0) {
+            HCCL_ERROR("cross-server mode has zero cross-server channels");
+            return HCCL_E_INTERNAL;
+        }
+    }
+
+    if (param_.intraServerRankCount + param_.crossServerRankCount < param_.topoInfo.rankSize) {
+        HCCL_ERROR("rank distribution is inconsistent, intra=%u, cross=%u, rankSize=%u",
+            param_.intraServerRankCount,
+            param_.crossServerRankCount,
+            param_.topoInfo.rankSize);
+        return HCCL_E_INTERNAL;
     }
     return HCCL_SUCCESS;
 }
@@ -197,9 +265,20 @@ HcclResult AllGatherBatchSmallCountExecutor::Unpack(const WindowRange &window) c
 HcclResult AllGatherBatchSmallCountExecutor::Orchestrate()
 {
     HCCL_CHK_RET(ValidateParam());
+    HCCL_CHK_RET(ValidateModeConsistency());
 
     WindowRange window;
     HCCL_CHK_RET(BuildFirstWindow(window));
+
+    const uint32_t crossServerChannels = CountCrossServerChannels();
+    HCCL_INFO("executor start: rank=%u, rankSize=%u, commMode=%s, intraServerRankCount=%u, crossServerRankCount=%u, perRankCapacity=%llu, crossServerChannels=%u",
+        param_.topoInfo.rank,
+        param_.topoInfo.rankSize,
+        ToCommModeString(param_.commMode),
+        param_.intraServerRankCount,
+        param_.crossServerRankCount,
+        static_cast<unsigned long long>(GetPerRankWindowCapacity()),
+        crossServerChannels);
 
     while (true) {
         HCCL_INFO("executor window ready: startItem=%u, packedBytes=%llu, perRankCapacity=%llu, rankSize=%u",
