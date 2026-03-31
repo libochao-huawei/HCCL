@@ -120,6 +120,7 @@ HcclResult InsTempScatterNHR::GetStepInfo(u32 step, u32 nSteps, AicpuNHRStepInfo
 HcclResult InsTempScatterNHR::KernelRun(const OpParam& param, const TemplateDataParams &tempAlgParams,
                      const TemplateResource& templateResource)
 {
+    enableRemoteMemAccess_ = tempAlgParams.enableRemoteMemAccess;
     threadNum_ =  subCommRanks_.size();
     processSize_ = tempAlgParams.sliceSize;
     count_ = tempAlgParams.count;
@@ -168,7 +169,7 @@ HcclResult InsTempScatterNHR::PostCopy(
         u64 dstOffset = tempAlgParams.buffInfo.outBuffBaseOff + r * tempAlgParams.sliceSize;
         DataSlice srcSlice = DataSlice(tempAlgParams.buffInfo.hcclBuff.addr, srcOffset, processSize_, count_);
         DataSlice dstSlice = DataSlice(tempAlgParams.buffInfo.outputPtr, dstOffset, processSize_, count_);
-        if (tempAlgParams.buffInfo.outBuffType == BufferType::HCCL_BUFFER && srcOffset == dstOffset) {
+        if ((tempAlgParams.buffInfo.outBuffType == BufferType::HCCL_BUFFER && srcOffset == dstOffset) || enableRemoteMemAccess_) {
             continue;
         }
         CHK_RET(static_cast<HcclResult>(LocalCopy(threads.at(0), srcSlice, dstSlice)));
