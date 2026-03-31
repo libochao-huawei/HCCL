@@ -22,6 +22,7 @@ ASAN="false"
 COV="false"
 CUSTOM_OPTION="-DCMAKE_INSTALL_PREFIX=${OUTPUT_DIR}"
 FULL_MODE="false"  # 新增变量，用于控制是否全量构建
+STATIC_MODE="false"  # 新增变量，用于控制是否静态编译
 KERNEL="false"  # 新增变量，用于控制是否只编译 ccl_kernel.so
 CANN_3RD_LIB_PATH="${CURRENT_DIR}/third_party"
 CUSTOM_SIGN_SCRIPT="${CURRENT_DIR}/scripts/sign/community_sign_build.py"
@@ -181,6 +182,160 @@ function build_kernel() {
     build scatter_aicpu_kernel
 }
 
+function build_static() {
+    log "Info: Starting static library build"
+
+    # 步骤1: 构建设备端AICPU包
+    log "Info: Building device-side AICPU package"
+    cd ..
+    mkdir -p ${BUILD_DEVICE_DIR}
+    cd ${BUILD_DEVICE_DIR}
+    CURRENT_CUSTOM_OPTION="${CUSTOM_OPTION}"
+    CUSTOM_OPTION="${CURRENT_CUSTOM_OPTION} -DFULL_MODE=ON -DDEVICE_MODE=ON -DKERNEL_MODE=ON -DCUSTOM_SIGN_SCRIPT=${CUSTOM_SIGN_SCRIPT} -DENABLE_SIGN=${ENABLE_SIGN} -DVERSION_INFO=${VERSION_INFO}"
+    build_device
+
+    # 检查AICPU tar包是否生成
+    local AICPU_TAR="${BUILD_DEVICE_DIR}/aicpu_hccl.tar.gz"
+    if [ ! -f "${AICPU_TAR}" ]; then
+        log "Error: AICPU tar package not found: ${AICPU_TAR}"
+        exit 1
+    fi
+    log "Info: AICPU tar package generated: ${AICPU_TAR}"
+
+    # 步骤2: 构建主机端静态库
+    log "Info: Building host-side static library"
+    cd "${CURRENT_DIR}" && cd "${BUILD_DIR}"
+    CUSTOM_OPTION="${CURRENT_CUSTOM_OPTION} -DDEVICE_MODE=OFF -DSTATIC_MODE=ON"
+    cmake_config
+
+    # 构建hccl_static目标
+    build hccl_static
+
+    # 构建AIV算子目标
+    log "Info: Building AIV operator targets"
+    build hccl_aiv_all_gather_op_910_95 hccl_aiv_all_reduce_op_910_95 hccl_aiv_all_to_all_v_op_910_95 hccl_aiv_all_to_all_op_910_95 hccl_aiv_broadcast_op_910_95 hccl_aiv_reduce_op_910_95 hccl_aiv_reduce_scatter_op_910_95 hccl_aiv_scatter_op_910_95
+
+    # 检查静态库是否生成
+    local STATIC_LIB="${BUILD_DIR}/libhccl_static.a"
+    if [ ! -f "${STATIC_LIB}" ]; then
+        log "Error: Static library not found at expected location: ${STATIC_LIB}"
+        exit 1
+    fi
+    log "Info: Static library generated: ${STATIC_LIB}"
+
+    # 步骤3: 解压静态库为.o文件
+    log "Info: Extracting object files from static library"
+    local EXTRACT_DIR="${BUILD_DIR}/static_extract"
+    mkdir -p ${EXTRACT_DIR}
+    cd ${EXTRACT_DIR}
+
+    # 解压静态库中的所有.o文件
+    if ! ar -x "${STATIC_LIB}"; then
+        log "Error: Failed to extract object files from static library"
+        exit 1
+    fi
+
+    local OBJ_COUNT=0
+    if ls -1 *.o 1>/dev/null 2>&1; then
+        OBJ_COUNT=$(ls -1 *.o | wc -l)
+    fi
+    log "Info: Extracted ${OBJ_COUNT} object files"
+
+    # 步骤4: 将AICPU tar包转换为二进制对象文件
+    log "Info: Converting AICPU tar package to binary object"
+    local AICPU_OBJ="${EXTRACT_DIR}/aicpu_hccl_tar.o"
+    if ! ld -r -b binary -o ${AICPU_OBJ} ${AICPU_TAR}; then
+        log "Error: Failed to convert AICPU tar to binary object"
+        exit 1
+    fi
+
+    # 步骤5: 收集AIV算子文件
+    log "Info: Collecting AIV operator files"
+    local AIV_FILES=()
+
+    # 在build目录中查找AIV算子文件
+    cd ${BUILD_DIR}
+    # 使用简单模式查找AIV文件
+    while IFS= read -r aiv_file; do
+        AIV_FILES+=("${aiv_file}")
+        log "Info: Found AIV operator file: ${aiv_file}"
+    done < <(find . -name "hccl_aiv_*.o" -type f 2>/dev/null)
+
+    log "Info: Total AIV files found: ${#AIV_FILES[@]}"
+    if [ ${#AIV_FILES[@]} -eq 0 ]; then
+        log "Info: No AIV operator files found, continuing without AIV embedding"
+    fi
+
+    # 将AIV算子文件转换为二进制对象
+    cd ${EXTRACT_DIR}
+    local AIV_CONVERTED_COUNT=0
+    for aiv_file in "${AIV_FILES[@]}"; do
+        local aiv_basename=$(basename "${aiv_file}" .o)
+        # 清理文件名，将非字母数字字符替换为下划线
+        local clean_name=$(echo "${aiv_basename}" | sed 's/[^a-zA-Z0-9]/_/g')
+        local aiv_embed_obj="${EXTRACT_DIR}/${clean_name}_embed.o"
+
+        # 检查文件是否存在
+        if [ ! -f "${aiv_file}" ]; then
+            log "Warning: AIV file not found: ${aiv_file}"
+            continue
+        fi
+
+        # 使用ld将.o文件转换为二进制对象
+        if ld -r -b binary -o "${aiv_embed_obj}" "${aiv_file}" 2>/dev/null; then
+            log "Info: Converted AIV file: ${aiv_file} -> ${aiv_embed_obj}"
+            AIV_CONVERTED_COUNT=$((AIV_CONVERTED_COUNT + 1))
+        else
+            log "Warning: Failed to convert AIV file to binary object: ${aiv_file}"
+            # 尝试使用objcopy作为备选方案
+            if command -v objcopy >/dev/null 2>&1; then
+                log "Info: Trying objcopy as alternative for: ${aiv_file}"
+                if objcopy -I binary -O elf64-x86-64 --binary-architecture=i386:x86-64 "${aiv_file}" "${aiv_embed_obj}" 2>/dev/null; then
+                    log "Info: Converted with objcopy: ${aiv_file} -> ${aiv_embed_obj}"
+                    AIV_CONVERTED_COUNT=$((AIV_CONVERTED_COUNT + 1))
+                fi
+            fi
+        fi
+    done
+    log "Info: Successfully converted ${AIV_CONVERTED_COUNT} AIV files"
+
+    # 步骤6: 将所有.o文件打包成最终的静态库
+    log "Info: Creating final static library libhccl_static.a"
+    cd ${EXTRACT_DIR}
+    local FINAL_STATIC_LIB="${OUTPUT_DIR}/lib/libhccl_static_final.a"
+    mkdir -p $(dirname ${FINAL_STATIC_LIB})
+
+    # 创建最终的静态库
+    if ! ar rcs ${FINAL_STATIC_LIB} *.o; then
+        log "Error: Failed to create final static library"
+        exit 1
+    fi
+
+    # 验证最终静态库
+    local FINAL_OBJ_COUNT=$(ar t ${FINAL_STATIC_LIB} | wc -l)
+    log "Info: Final static library created: ${FINAL_STATIC_LIB}"
+    log "Info: Contains ${FINAL_OBJ_COUNT} object files"
+
+    # 步骤7: 复制到标准输出位置
+    local OUTPUT_STATIC_LIB="${OUTPUT_DIR}/lib/libhccl_static.a"
+    mkdir -p $(dirname ${OUTPUT_STATIC_LIB})
+    if ! cp ${FINAL_STATIC_LIB} ${OUTPUT_STATIC_LIB}; then
+        log "Error: Failed to copy final static library to output location"
+        exit 1
+    fi
+    log "Info: Static library copied to: ${OUTPUT_STATIC_LIB}"
+
+    # 步骤8: 清理临时目录
+    log "Info: Cleaning up temporary files"
+    rm -rf ${EXTRACT_DIR}
+
+    # 清理build_device目录
+    [ -n "${BUILD_DEVICE_DIR}" ] && rm -rf ${BUILD_DEVICE_DIR}
+
+    log "Info: Static library build completed successfully"
+    log "Info: Output: ${OUTPUT_STATIC_LIB}"
+}
+
 function mk_dir() {
   local create_dir="$1"  # the target to make
   mkdir -pv "${create_dir}"
@@ -309,6 +464,8 @@ function usage() {
   echo "                   Set custom ops name to <OPS>"
   echo "    --vendor=<VENDOR>"
   echo "                   Set custom ops vendor to <VENDOR>"
+  echo "    --static"
+  echo "                   Enable static library build mode"
   echo ""
 }
 
@@ -390,6 +547,10 @@ while [[ $# -gt 0 ]]; do
         FULL_MODE="true"
         shift
         ;;
+    --static)
+        STATIC_MODE="true"
+        shift
+        ;;
     --build_aarch)
         BUILD_AARCH="true"
         shift
@@ -457,6 +618,10 @@ fi
 
 if [ "${FULL_MODE}" == "true" ];then
     CUSTOM_OPTION="${CUSTOM_OPTION} -DFULL_MODE=ON"
+fi
+
+if [ "${STATIC_MODE}" == "true" ];then
+    CUSTOM_OPTION="${CUSTOM_OPTION} -DSTATIC_MODE=ON"
 fi
 
 if [ "${BUILD_AARCH}" == "true" ];then
@@ -531,6 +696,8 @@ elif [ "${FULL_MODE}" == "true" ]; then
     CUSTOM_OPTION="${CURRENT_CUSTOM_OPTION} -DDEVICE_MODE=OFF"
     build_package
     [ -n "${BUILD_DEVICE_DIR}" ] && rm -rf ${BUILD_DEVICE_DIR}
+elif [ "${STATIC_MODE}" == "true" ]; then
+    build_static
 else
     CUSTOM_OPTION="${CUSTOM_OPTION} -DDEVICE_MODE=OFF"
     build_package
