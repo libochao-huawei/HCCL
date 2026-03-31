@@ -1,6 +1,7 @@
 ﻿#include <algorithm>
 #include <atomic>
 #include <cerrno>
+#include <chrono>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -20,6 +21,8 @@ struct TestOptions {
     uint64_t scaleCount = 128;
     uint32_t requestedDeviceCount = 0;
     uint32_t printCount = 8;
+    uint32_t warmupIters = 1;
+    uint32_t measureIters = 1;
     bool verifyOutput = true;
 };
 
@@ -67,12 +70,15 @@ struct ThreadContext {
 void PrintUsage(const char *prog)
 {
     std::cout << "Usage: " << prog
-              << " [--token-bytes N] [--scale-count N] [--devices N] [--print-count N] [--no-verify]"
+              << " [--token-bytes N] [--scale-count N] [--devices N] [--print-count N]"
+              << " [--warmup N] [--iters N] [--no-verify]"
               << std::endl;
     std::cout << "  --token-bytes  int8 token bytes per rank, default 327680" << std::endl;
     std::cout << "  --scale-count  fp32 scale element count per rank, default 128" << std::endl;
     std::cout << "  --devices      number of devices to use, default all visible devices" << std::endl;
     std::cout << "  --print-count  number of values shown in preview, default 8" << std::endl;
+    std::cout << "  --warmup       warmup iteration count before timing, default 1" << std::endl;
+    std::cout << "  --iters        measured iteration count, default 1" << std::endl;
     std::cout << "  --no-verify    skip host-side output verification" << std::endl;
 }
 
@@ -136,6 +142,16 @@ bool ParseArgs(int argc, char *argv[], TestOptions &options)
         } else if (arg == "--print-count") {
             if (!ParseUint32(argv[++idx], options.printCount)) {
                 std::cerr << "invalid print count" << std::endl;
+                return false;
+            }
+        } else if (arg == "--warmup") {
+            if (!ParseUint32(argv[++idx], options.warmupIters)) {
+                std::cerr << "invalid warmup count" << std::endl;
+                return false;
+            }
+        } else if (arg == "--iters") {
+            if (!ParseUint32(argv[++idx], options.measureIters) || options.measureIters == 0) {
+                std::cerr << "invalid measure iteration count" << std::endl;
                 return false;
             }
         } else {
@@ -286,8 +302,26 @@ int RunOnDevice(void *arg)
         ++itemCount;
     }
 
-    HCCLCHECK_GOTO(HcclAllGatherBatch(items, itemCount, hcclComm, stream));
-    ACLCHECK_GOTO(aclrtSynchronizeStream(stream));
+    // testcase 模仿样例的线程/comm/stream 组织方式，同时补一个最基础的 warmup + timing。
+    for (uint32_t iter = 0; iter < ctx->options.warmupIters; ++iter) {
+        HCCLCHECK_GOTO(HcclAllGatherBatch(items, itemCount, hcclComm, stream));
+        ACLCHECK_GOTO(aclrtSynchronizeStream(stream));
+    }
+
+    const auto timeStart = std::chrono::steady_clock::now();
+    for (uint32_t iter = 0; iter < ctx->options.measureIters; ++iter) {
+        HCCLCHECK_GOTO(HcclAllGatherBatch(items, itemCount, hcclComm, stream));
+        ACLCHECK_GOTO(aclrtSynchronizeStream(stream));
+    }
+    const auto timeEnd = std::chrono::steady_clock::now();
+    const double totalUs = static_cast<double>(
+        std::chrono::duration_cast<std::chrono::microseconds>(timeEnd - timeStart).count());
+    const double avgUs = totalUs / static_cast<double>(ctx->options.measureIters);
+    std::cout << "rank " << ctx->device
+              << " timing: warmup=" << ctx->options.warmupIters
+              << ", iters=" << ctx->options.measureIters
+              << ", total_us=" << totalUs
+              << ", avg_us=" << avgUs << std::endl;
 
     ACLCHECK_GOTO(
         aclrtMemcpy(token.recvHost, token.recvBytes, token.recvDevice, token.recvBytes, ACL_MEMCPY_DEVICE_TO_HOST));
@@ -394,6 +428,8 @@ int main(int argc, char *argv[])
         std::cout << "allgatherbatch testcase starts with devices=" << usedDeviceCount
                   << ", tokenBytes=" << options.tokenBytes
                   << ", scaleCount=" << options.scaleCount
+                  << ", warmup=" << options.warmupIters
+                  << ", iters=" << options.measureIters
                   << ", verify=" << (options.verifyOutput ? "on" : "off") << std::endl;
 
         aclRet = aclrtSetDevice(0);
