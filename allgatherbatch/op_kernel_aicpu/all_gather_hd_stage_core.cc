@@ -40,16 +40,12 @@ uint32_t CountChannelsByProtocol(const AlgResourceCtx &resCtx, CommProtocol prot
     return count;
 }
 
-const char *ToCommModeString(BatchCommMode commMode)
+uint32_t CountRecognizedChannels(const AlgResourceCtx &resCtx)
 {
-    switch (commMode) {
-        case BatchCommMode::kSingleServer:
-            return "single-server";
-        case BatchCommMode::kCrossServer:
-            return "cross-server";
-        default:
-            return "unknown";
-    }
+    return CountChannelsByProtocol(resCtx, COMM_PROTOCOL_HCCS) +
+        CountChannelsByProtocol(resCtx, COMM_PROTOCOL_ROCE) +
+        CountChannelsByProtocol(resCtx, COMM_PROTOCOL_PCIE) +
+        CountChannelsByProtocol(resCtx, COMM_PROTOCOL_SIO);
 }
 
 }  // namespace
@@ -61,8 +57,8 @@ AllGatherHDStageCore::AllGatherHDStageCore(const OpParam &param, AlgResourceCtx 
 
 HcclResult AllGatherHDStageCore::ValidateStageInput() const
 {
-    if (param_.commMode == BatchCommMode::kUnknown) {
-        HCCL_ERROR("HDStage commMode is unknown");
+    if (!IsValidCommMode(param_.commMode)) {
+        HCCL_ERROR("HDStage commMode is invalid");
         return HCCL_E_INTERNAL;
     }
     if (param_.topoInfo.rankSize == 0) {
@@ -137,6 +133,20 @@ HcclResult AllGatherHDStageCore::ValidateStagePlan(const HDStagePlan &plan) cons
     return HCCL_SUCCESS;
 }
 
+HcclResult AllGatherHDStageCore::ValidateProtocolDistribution() const
+{
+    const uint32_t recognizedChannels = CountRecognizedChannels(resCtx_);
+
+    // Stage 层也要求资源里的协议分布是自洽的，避免把“未知协议”静默带入 NHR 子模板。
+    if (recognizedChannels != resCtx_.channelCount) {
+        HCCL_ERROR("HDStage protocol distribution mismatch, recognized=%u, channelCount=%u",
+            recognizedChannels,
+            resCtx_.channelCount);
+        return HCCL_E_INTERNAL;
+    }
+    return HCCL_SUCCESS;
+}
+
 HcclResult AllGatherHDStageCore::RunNoPowerPath(const HDStagePlan &plan) const
 {
     HCCL_INFO("HDStage noPower path: rank=%u, noPower=%u, powerSteps=%u, packedBytes=%llu",
@@ -175,6 +185,7 @@ HcclResult AllGatherHDStageCore::RunAsync()
     HDStagePlan plan;
     HCCL_CHK_RET(BuildStagePlan(plan));
     HCCL_CHK_RET(ValidateStagePlan(plan));
+    HCCL_CHK_RET(ValidateProtocolDistribution());
 
     const uint32_t crossServerChannels = CountChannelsByScope(param_, resCtx_, true);
     const uint32_t intraServerChannels = CountChannelsByScope(param_, resCtx_, false);
@@ -196,6 +207,7 @@ HcclResult AllGatherHDStageCore::RunAsync()
         CountChannelsByProtocol(resCtx_, COMM_PROTOCOL_SIO));
 
     if (plan.needNoPowerPath) {
+        HCCL_INFO("HDStage dispatch noPower path first");
         HcclResult ret = RunNoPowerPath(plan);
         if (ret != HCCL_SUCCESS) {
             return ret;
@@ -203,9 +215,11 @@ HcclResult AllGatherHDStageCore::RunAsync()
     }
 
     if (plan.needPowerPath) {
+        HCCL_INFO("HDStage dispatch power path after noPower=%s", plan.needNoPowerPath ? "true" : "false");
         return RunPowerPath(plan);
     }
 
+    HCCL_INFO("HDStage completes without extra power path");
     return HCCL_SUCCESS;
 }
 
