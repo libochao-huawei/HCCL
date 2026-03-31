@@ -11,6 +11,14 @@ namespace ops_hccl_allgatherbatch {
 
 namespace {
 
+struct ChannelLinkInfo {
+    CommProtocol protocol = COMM_PROTOCOL_RESERVED;
+    uint32_t localServerIdx = 0;
+    uint32_t localSuperPodIdx = 0;
+    uint32_t remoteServerIdx = 0;
+    uint32_t remoteSuperPodIdx = 0;
+};
+
 HcclResult EnsureControlNotifies(AlgResourceCtx &resCtx)
 {
     // Host 侧保留两类控制 notify：启动 device 执行、等待 device 完成。
@@ -30,7 +38,7 @@ HcclResult QueryNetLayers(HcclComm comm, uint32_t **netLayers, uint32_t *netLaye
     return HcclRankGraphGetLayers(comm, netLayers, netLayerNum);
 }
 
-HcclResult QueryChannelProtocol(HcclComm comm, uint32_t localRank, uint32_t remoteRank, CommProtocol &protocol)
+HcclResult QueryChannelLinkInfo(HcclComm comm, uint32_t localRank, uint32_t remoteRank, ChannelLinkInfo &info)
 {
     uint32_t *netLayers = nullptr;
     uint32_t netLayerNum = 0;
@@ -41,12 +49,16 @@ HcclResult QueryChannelProtocol(HcclComm comm, uint32_t localRank, uint32_t remo
         uint32_t linkNum = 0;
         HcclResult ret = HcclRankGraphGetLinks(comm, netLayers[idx], localRank, remoteRank, &links, &linkNum);
         if (ret == HCCL_SUCCESS && links != nullptr && linkNum > 0) {
-            protocol = links[0].linkAttr.linkProtocol;
+            info.protocol = links[0].linkAttr.linkProtocol;
+            info.localServerIdx = links[0].srcEndpointDesc.loc.device.serverIdx;
+            info.localSuperPodIdx = links[0].srcEndpointDesc.loc.device.superPodIdx;
+            info.remoteServerIdx = links[0].dstEndpointDesc.loc.device.serverIdx;
+            info.remoteSuperPodIdx = links[0].dstEndpointDesc.loc.device.superPodIdx;
             return HCCL_SUCCESS;
         }
     }
 
-    HCCL_ERROR("failed to query link protocol between rank=%u and remoteRank=%u", localRank, remoteRank);
+    HCCL_ERROR("failed to query link info between rank=%u and remoteRank=%u", localRank, remoteRank);
     return HCCL_E_NOT_FOUND;
 }
 
@@ -100,15 +112,14 @@ HcclResult FillEndpointLocation(HcclComm comm, BatchTopoInfo &topoInfo)
         return HCCL_SUCCESS;
     }
 
-    CommLink *links = nullptr;
-    uint32_t linkNum = 0;
-    ret = HcclRankGraphGetLinks(comm, 0, topoInfo.rank, peerRank, &links, &linkNum);
-    if (ret != HCCL_SUCCESS || links == nullptr || linkNum == 0) {
+    ChannelLinkInfo linkInfo;
+    ret = QueryChannelLinkInfo(comm, topoInfo.rank, peerRank, linkInfo);
+    if (ret != HCCL_SUCCESS) {
         return HCCL_SUCCESS;
     }
 
-    topoInfo.serverIdx = links[0].srcEndpointDesc.loc.device.serverIdx;
-    topoInfo.superPodIdx = links[0].srcEndpointDesc.loc.device.superPodIdx;
+    topoInfo.serverIdx = linkInfo.localServerIdx;
+    topoInfo.superPodIdx = linkInfo.localSuperPodIdx;
     return HCCL_SUCCESS;
 }
 
@@ -123,7 +134,7 @@ HcclResult BuildFreshResourceCtx(HcclComm comm, const BatchTopoInfo &topoInfo, A
     resCtx.channelCount = 0;
 
     // 多 rank 时，按“本 rank 到其它 rank 各建 1 条 channel”的最小模型申请资源。
-    // 这里不再硬编码 HCCS，而是按 rank graph 查询每个对端的真实链路协议，为跨 server 场景留出正确协议入口。
+    // 这里不再硬编码 HCCS，而是按 rank graph 查询每个对端的真实链路协议和位置信息。
     if (topoInfo.rankSize <= 1) {
         return HCCL_SUCCESS;
     }
@@ -134,6 +145,7 @@ HcclResult BuildFreshResourceCtx(HcclComm comm, const BatchTopoInfo &topoInfo, A
 
     HcclChannelDesc channelDescs[kAllGatherBatchMaxChannels];
     ChannelHandle channelHandles[kAllGatherBatchMaxChannels] = {0};
+    ChannelLinkInfo linkInfos[kAllGatherBatchMaxChannels];
     HcclChannelDescInit(channelDescs, kAllGatherBatchMaxChannels);
 
     uint32_t channelCount = 0;
@@ -142,10 +154,18 @@ HcclResult BuildFreshResourceCtx(HcclComm comm, const BatchTopoInfo &topoInfo, A
             continue;
         }
 
-        CommProtocol protocol = COMM_PROTOCOL_RESERVED;
-        HCCL_CHK_RET(QueryChannelProtocol(comm, topoInfo.rank, remoteRank, protocol));
+        HCCL_CHK_RET(QueryChannelLinkInfo(comm, topoInfo.rank, remoteRank, linkInfos[channelCount]));
+        if (linkInfos[channelCount].localSuperPodIdx != linkInfos[channelCount].remoteSuperPodIdx) {
+            HCCL_ERROR("cross-superpod link is not supported, rank=%u(superPod=%u) remoteRank=%u(superPod=%u)",
+                topoInfo.rank,
+                linkInfos[channelCount].localSuperPodIdx,
+                remoteRank,
+                linkInfos[channelCount].remoteSuperPodIdx);
+            return HCCL_E_NOT_SUPPORT;
+        }
+
         channelDescs[channelCount].remoteRank = remoteRank;
-        channelDescs[channelCount].channelProtocol = protocol;
+        channelDescs[channelCount].channelProtocol = linkInfos[channelCount].protocol;
         channelDescs[channelCount].notifyNum = 2;
         ++channelCount;
     }
@@ -160,6 +180,9 @@ HcclResult BuildFreshResourceCtx(HcclComm comm, const BatchTopoInfo &topoInfo, A
     for (uint32_t idx = 0; idx < channelCount; ++idx) {
         resCtx.channels[idx].handle = channelHandles[idx];
         resCtx.channels[idx].remoteRank = channelDescs[idx].remoteRank;
+        resCtx.channels[idx].remoteServerIdx = linkInfos[idx].remoteServerIdx;
+        resCtx.channels[idx].remoteSuperPodIdx = linkInfos[idx].remoteSuperPodIdx;
+        resCtx.channels[idx].protocol = linkInfos[idx].protocol;
         resCtx.channels[idx].localNotifyIdx = 0;
         resCtx.channels[idx].remoteNotifyIdx = 0;
         HCCL_CHK_RET(HcclChannelGetHcclBuffer(

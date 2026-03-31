@@ -37,6 +37,9 @@ struct CommBuffer {
 struct ChannelResource {
     ChannelHandle handle = 0;
     uint32_t remoteRank = 0;
+    uint32_t remoteServerIdx = 0;
+    uint32_t remoteSuperPodIdx = 0;
+    CommProtocol protocol = COMM_PROTOCOL_RESERVED;
     uint32_t localNotifyIdx = 0;
     uint32_t remoteNotifyIdx = 0;
     CommBuffer remoteBuffer {};
