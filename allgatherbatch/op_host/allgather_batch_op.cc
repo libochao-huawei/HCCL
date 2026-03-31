@@ -234,6 +234,94 @@ HcclResult ValidatePreparedParam(const OpParam &param)
     return HCCL_SUCCESS;
 }
 
+uint32_t CountChannelsByProtocol(const AlgResourceCtx &resCtx, CommProtocol protocol)
+{
+    uint32_t count = 0;
+    for (uint32_t idx = 0; idx < resCtx.channelCount; ++idx) {
+        if (resCtx.channels[idx].protocol == protocol) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+uint32_t CountCrossServerChannels(const BatchTopoInfo &topoInfo, const AlgResourceCtx &resCtx)
+{
+    uint32_t count = 0;
+    for (uint32_t idx = 0; idx < resCtx.channelCount; ++idx) {
+        if (resCtx.channels[idx].remoteServerIdx != topoInfo.serverIdx) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+HcclResult ValidatePreparedResourceCtx(const OpParam &param)
+{
+    HCCL_CHK_PTR(param.resCtx);
+    const AlgResourceCtx &resCtx = *param.resCtx;
+
+    if (resCtx.threadHandle == 0) {
+        HCCL_ERROR("prepared resCtx threadHandle is invalid");
+        return HCCL_E_INTERNAL;
+    }
+    if (resCtx.localBuffer.addr == nullptr || resCtx.localBuffer.size == 0) {
+        HCCL_ERROR("prepared resCtx localBuffer is invalid");
+        return HCCL_E_INTERNAL;
+    }
+    if (param.topoInfo.rankSize > 1 && resCtx.channelCount + 1 < param.topoInfo.rankSize) {
+        HCCL_ERROR("prepared resCtx channelCount=%u is insufficient for rankSize=%u",
+            resCtx.channelCount,
+            param.topoInfo.rankSize);
+        return HCCL_E_INTERNAL;
+    }
+
+    const uint32_t crossServerChannels = CountCrossServerChannels(param.topoInfo, resCtx);
+    const uint32_t intraServerChannels = resCtx.channelCount - crossServerChannels;
+    if (intraServerChannels + crossServerChannels != resCtx.channelCount) {
+        HCCL_ERROR("prepared resCtx channel split is inconsistent, intra=%u, cross=%u, channelCount=%u",
+            intraServerChannels,
+            crossServerChannels,
+            resCtx.channelCount);
+        return HCCL_E_INTERNAL;
+    }
+    if (param.commMode == BatchCommMode::kSingleServer && crossServerChannels != 0) {
+        HCCL_ERROR("single-server resCtx unexpectedly has crossServerChannels=%u", crossServerChannels);
+        return HCCL_E_INTERNAL;
+    }
+    if (param.commMode == BatchCommMode::kCrossServer && crossServerChannels != param.crossServerRankCount) {
+        HCCL_ERROR("cross-server resCtx mismatch, channels=%u, expected=%u",
+            crossServerChannels,
+            param.crossServerRankCount);
+        return HCCL_E_INTERNAL;
+    }
+
+    // Host 在 launch 前把资源协议也收一遍，尽量让错误停在资源准备阶段而不是设备执行阶段。
+    for (uint32_t idx = 0; idx < resCtx.channelCount; ++idx) {
+        const ChannelResource &channel = resCtx.channels[idx];
+        if (channel.protocol == COMM_PROTOCOL_RESERVED) {
+            HCCL_ERROR("prepared channel %u has reserved protocol", idx);
+            return HCCL_E_INTERNAL;
+        }
+        if (channel.remoteRank == param.topoInfo.rank || channel.remoteRank >= param.topoInfo.rankSize) {
+            HCCL_ERROR("prepared channel %u remoteRank=%u is invalid", idx, channel.remoteRank);
+            return HCCL_E_INTERNAL;
+        }
+        if (channel.remoteSuperPodIdx != param.topoInfo.superPodIdx) {
+            HCCL_ERROR("prepared channel %u crosses superPod unexpectedly, local=%u, remote=%u",
+                idx,
+                param.topoInfo.superPodIdx,
+                channel.remoteSuperPodIdx);
+            return HCCL_E_INTERNAL;
+        }
+        if (channel.remoteBuffer.addr == nullptr || channel.remoteBuffer.size == 0) {
+            HCCL_ERROR("prepared channel %u remoteBuffer is invalid", idx);
+            return HCCL_E_INTERNAL;
+        }
+    }
+    return HCCL_SUCCESS;
+}
+
 HcclResult BuildFreshResourceCtx(HcclComm comm, const BatchTopoInfo &topoInfo, AlgResourceCtx &resCtx)
 {
     // 先准备主线程和本地 HCCL buffer，它们是 Pack/Unpack 和 AICPU 控制流的最小前提。
@@ -332,6 +420,17 @@ HcclResult AllGatherBatchOp::Exec(
     AlgResourceCtx *resCtx = nullptr;
     HCCL_CHK_RET(GetAlgRes(comm, param, &resCtx));
     param.resCtx = resCtx;
+    HCCL_CHK_RET(ValidatePreparedResourceCtx(param));
+
+    HCCL_INFO("Host resources ready: rank=%u, commMode=%s, channelCount=%u, crossServerChannels=%u, hccs=%u, roce=%u, pcie=%u, sio=%u",
+        param.topoInfo.rank,
+        ToCommModeString(param.commMode),
+        param.resCtx->channelCount,
+        CountCrossServerChannels(param.topoInfo, *param.resCtx),
+        CountChannelsByProtocol(*param.resCtx, COMM_PROTOCOL_HCCS),
+        CountChannelsByProtocol(*param.resCtx, COMM_PROTOCOL_ROCE),
+        CountChannelsByProtocol(*param.resCtx, COMM_PROTOCOL_PCIE),
+        CountChannelsByProtocol(*param.resCtx, COMM_PROTOCOL_SIO));
 
     HCCL_CHK_RET(LoadAndLaunch(param, stream));
     return HCCL_SUCCESS;

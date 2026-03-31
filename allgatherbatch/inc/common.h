@@ -153,6 +153,22 @@ inline const char *ToCommModeString(BatchCommMode commMode)
     }
 }
 
+inline const char *ToProtocolString(CommProtocol protocol)
+{
+    switch (protocol) {
+        case COMM_PROTOCOL_HCCS:
+            return "HCCS";
+        case COMM_PROTOCOL_ROCE:
+            return "ROCE";
+        case COMM_PROTOCOL_PCIE:
+            return "PCIE";
+        case COMM_PROTOCOL_SIO:
+            return "SIO";
+        default:
+            return "RESERVED";
+    }
+}
+
 inline bool IsValidCommMode(BatchCommMode commMode)
 {
     return commMode == BatchCommMode::kSingleServer || commMode == BatchCommMode::kCrossServer;
