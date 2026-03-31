@@ -20,6 +20,13 @@ TopoMatchUBX1d::~TopoMatchUBX1d()
 {
 }
 
+HcclResult TopoMatchUBX1d::MatchTopo(const HcclComm comm,
+                                        TopoInfoWithNetLayerDetails* topoInfo,
+                                        AlgHierarchyInfoForAllLevel& algHierarchyInfo)
+{
+    return TopoMatchUBX::MatchTopo(comm, topoInfo, algHierarchyInfo);
+}
+
 HcclResult TopoMatchUBX1d::TopoForLayer1(const HcclComm comm, uint32_t layer0Size, const uint32_t myRank,
                                                   AlgHierarchyInfoForAllLevel& algHierarchyInfo) const
 {

@@ -41,6 +41,7 @@ struct AlgEnvConfig {
     u32 intraRoceSwitch;    // server内的通信方式 与intraPcieSwitch组合使用，默认为0
     u8 hcclDeterministic;
     bool aicpuUnfold; 
+    uint8_t aicpuCacheEnable;
     bool aivMode;
     bool ccuMSMode;
     bool ccuSchedMode;
@@ -60,6 +61,7 @@ struct AlgEnvConfig {
         intraRoceSwitch = 0;     // server内的通信方式 与intraPcieSwitch组合使用，默认为0
         hcclDeterministic = static_cast<u8>(DeterministicEnableLevel::DETERMINISTIC_DISABLE);// 确定性配置 0：不支持；1：支持确定性不支持规约保序；2：支持确定性&规约保序
         enableFfts = true;
+        aicpuCacheEnable = 1; // 默认开启aicpu cache (只有当aicpuUnfold为true时才生效)
         // 环境变量参数
         for (u32 opType = 0; opType < static_cast<u32>(HcclCMDType::HCCL_CMD_MAX); opType++) {
             hcclAlgoConfig[static_cast<HcclCMDType>(opType)] =
