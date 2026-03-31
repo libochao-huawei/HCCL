@@ -34,22 +34,65 @@ HcclResult CreateScatter(OpParam *param, ScatterOpInfo *opInfo)
     return HCCL_SUCCESS;
 }
 
-HcclResult ConvertToHcclDfxOpInfo(OpParam *param, HcclDfxOpInfo *dfxOpInfo)
+uint64_t GetHcclDfxOpInfoDataCount(const OpParam &param, const u32 &rankSize) {
+    u64 sendCount = 0;
+    if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL
+        || param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV
+        || param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
+        for (u64 i = 0; i < rankSize; i++) {
+            sendCount += *(reinterpret_cast<const u64*>(param.all2AllVDataDes.sendCounts) + i);
+        }
+    } else if (param.opType == HcclCMDType::HCCL_CMD_ALLGATHER_V) {
+        for (u64 i = 0; i < rankSize; i++) {
+            sendCount += *(reinterpret_cast<const u64*>(param.varData) + i);
+        }
+    } else if (param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V) {
+        for (u64 i = rankSize; i < 2*rankSize; i++) {
+            sendCount += *(reinterpret_cast<const u64*>(param.varData) + i);
+        }
+    } else {
+        sendCount = static_cast<u64>(param.DataDes.count);
+    }
+    return sendCount;
+}
+
+uint32_t GetHcclDfxOpInfoDataType(const OpParam &param) {
+    uint32_t dataType = 0;
+    if (param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V
+        || param.opType == HcclCMDType::HCCL_CMD_ALLGATHER_V) {
+        dataType = static_cast<u32>(param.vDataDes.dataType);
+    } else if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL) {
+        dataType = static_cast<u32>(param.all2AllDataDes.sendType);
+    } else if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV) {
+        dataType = static_cast<u32>(param.all2AllVDataDes.sendType);
+    } else if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
+        dataType = static_cast<u32>(param.all2AllVCDataDes.sendType);
+    } else {
+        dataType = static_cast<u32>(param.DataDes.dataType);
+    }
+    return dataType;
+}
+
+HcclResult ConvertToHcclDfxOpInfo(OpParam *param, HcclDfxOpInfo *hcclDfxOpInfo)
 {
     CHK_PTR_NULL(param);
-    auto dfxOpInfo = std::make_shared<HcclDfxOpInfo>();
-    dfxOpInfo->opMode = param->opMode;
-    dfxOpInfo->opType = param->opType;
-    dfxOpInfo->reduceOp = param->reduceType;
-    dfxOpInfo->dataType = param->dataType;
-    dfxOpInfo->outputType = param->outputType;
-    dfxOpInfo->dataCount = param->count;
-    dfxOpInfo->root = param->root;
-    s32 sret = memcpy_s(dfxOpInfo->algTag, sizeof(dfxOpInfo->algTag), param->algTag, strlen(param->algTagv) + 1);
-    CHK_PRT_RET(sret != EOK, HCCL_ERROR("ConvertToHcclDfxOpInfo memcpy information failed, errorno [%d].", sret), HCCL_E_MEMORY);
-    dfxOpInfo->engine = param->engine;
-    dfxOpInfo->cpuTsThread = param->opThread;
-    dfxOpInfo->cpuWaitAicpuNotifyIdx = param->aicpuRecordCpuIdx;
+    hcclDfxOpInfo.opMode = static_cast<u32>(param->opMode);
+    hcclDfxOpInfo.opType = static_cast<u32>(param->opType);
+    hcclDfxOpInfo.reduceOp = static_cast<u32>(param->reduceType);
+    hcclDfxOpInfo.dataType = GetHcclDfxOpInfoDataType(*param);
+
+    // rankSize获取指定算子的dataCount
+    u32 userRankSize{0};
+    CHK_RET(HcclGetRankSize(comm, &userRankSize));
+    hcclDfxOpInfo.dataCount = GetHcclDfxOpInfoDataCount(param, userRankSize);
+    hcclDfxOpInfo.root = param->root;
+    hcclDfxOpInfo.engine = param->engine;
+    hcclDfxOpInfo.cpuTsThread = cpuTsThread;
+
+    s32 sRet = strncpy_s(hcclDfxOpInfo.algTag, ALG_TAG_LENGTH, param.algTag, ALG_TAG_LENGTH);
+    CHK_PRT_RET(sRet != EOK, HCCL_ERROR("%s call strncpy_s failed, param.algTag %s,  return %d.", __func__, param.algTag, sRet), HCCL_E_MEMORY);
+
+    hcclDfxOpInfo->cpuWaitAicpuNotifyIdx = param->aicpuRecordCpuIdx;
     
     return HCCL_SUCCESS;
 }

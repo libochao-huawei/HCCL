@@ -20,6 +20,7 @@
 #include "kernel_launch.h"
 #include "hcomm_diag_dl.h"
 #include "hcomm_device_profiling_dl.h"
+#include "hccl_diag.h"
 #include <unordered_map>
 #include <shared_mutex>
 #include <atomic>
@@ -302,7 +303,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             HCCL_ERROR("failed set batch mode, tag is %s.", param->algTag);
             return 1;
         }
-        HcclDfxOpInfo dfxOpInfo;
+        HcclDfxOpInfo dfxOpInfo{};
         ConvertToHcclDfxOpInfo(param, &dfxOpInfo);
         HcclDfxRegOpInfoByCommId(param->commName, &dfxOpInfo);
         // 上报主流和第一个task  wait之前
