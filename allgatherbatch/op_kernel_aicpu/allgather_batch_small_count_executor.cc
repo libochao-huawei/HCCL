@@ -26,6 +26,11 @@ const char *ToCommModeString(BatchCommMode commMode)
     }
 }
 
+const char *ToWindowScopeString(BatchCommMode commMode)
+{
+    return (commMode == BatchCommMode::kCrossServer) ? "cross-server" : "single-server";
+}
+
 }  // namespace
 
 AllGatherBatchSmallCountExecutor::AllGatherBatchSmallCountExecutor(const OpParam &param, AlgResourceCtx &resCtx)
@@ -151,6 +156,78 @@ HcclResult AllGatherBatchSmallCountExecutor::ValidateModeConsistency() const
     return HCCL_SUCCESS;
 }
 
+HcclResult AllGatherBatchSmallCountExecutor::ValidateWindow(const WindowRange &window) const
+{
+    if (window.packedBytes == 0) {
+        HCCL_ERROR("window packedBytes is zero");
+        return HCCL_E_INTERNAL;
+    }
+    if (window.startItemIdx >= param_.itemCount) {
+        HCCL_ERROR("window startItemIdx=%u is out of range, itemCount=%u",
+            window.startItemIdx,
+            param_.itemCount);
+        return HCCL_E_INTERNAL;
+    }
+    if (window.startOffsetBytes >= param_.items[window.startItemIdx].sendBytes) {
+        HCCL_ERROR("window startOffset=%llu is invalid for item=%u, itemBytes=%llu",
+            static_cast<unsigned long long>(window.startOffsetBytes),
+            window.startItemIdx,
+            static_cast<unsigned long long>(param_.items[window.startItemIdx].sendBytes));
+        return HCCL_E_INTERNAL;
+    }
+    if (window.endItemIdx > param_.itemCount) {
+        HCCL_ERROR("window endItemIdx=%u exceeds itemCount=%u", window.endItemIdx, param_.itemCount);
+        return HCCL_E_INTERNAL;
+    }
+    if (window.endItemIdx == param_.itemCount) {
+        if (window.endOffsetBytes != 0) {
+            HCCL_ERROR("terminal window endOffsetBytes=%llu must be zero",
+                static_cast<unsigned long long>(window.endOffsetBytes));
+            return HCCL_E_INTERNAL;
+        }
+    } else if (window.endOffsetBytes >= param_.items[window.endItemIdx].sendBytes) {
+        HCCL_ERROR("window endOffset=%llu is invalid for item=%u, itemBytes=%llu",
+            static_cast<unsigned long long>(window.endOffsetBytes),
+            window.endItemIdx,
+            static_cast<unsigned long long>(param_.items[window.endItemIdx].sendBytes));
+        return HCCL_E_INTERNAL;
+    }
+
+    const uint64_t coveredBytes = CalcWindowCoveredBytes(window);
+    if (coveredBytes != window.packedBytes) {
+        HCCL_ERROR("window bytes mismatch, covered=%llu, packed=%llu",
+            static_cast<unsigned long long>(coveredBytes),
+            static_cast<unsigned long long>(window.packedBytes));
+        return HCCL_E_INTERNAL;
+    }
+    if (window.packedBytes > GetPerRankWindowCapacity()) {
+        HCCL_ERROR("window packedBytes=%llu exceeds per-rank capacity=%llu",
+            static_cast<unsigned long long>(window.packedBytes),
+            static_cast<unsigned long long>(GetPerRankWindowCapacity()));
+        return HCCL_E_INTERNAL;
+    }
+    return HCCL_SUCCESS;
+}
+
+uint64_t AllGatherBatchSmallCountExecutor::CalcWindowCoveredBytes(const WindowRange &window) const
+{
+    uint64_t coveredBytes = 0;
+    uint32_t itemIdx = window.startItemIdx;
+    uint64_t offsetBytes = window.startOffsetBytes;
+
+    while (itemIdx < param_.itemCount) {
+        if (itemIdx == window.endItemIdx) {
+            coveredBytes += (window.endOffsetBytes - offsetBytes);
+            return coveredBytes;
+        }
+
+        coveredBytes += CalcRemainingBytes(param_.items[itemIdx], offsetBytes);
+        ++itemIdx;
+        offsetBytes = 0;
+    }
+    return coveredBytes;
+}
+
 uint64_t AllGatherBatchSmallCountExecutor::GetPerRankWindowCapacity() const
 {
     if (param_.topoInfo.rankSize == 0) {
@@ -204,12 +281,15 @@ HcclResult AllGatherBatchSmallCountExecutor::BuildFirstWindow(WindowRange &windo
     window.startItemIdx = 0;
     window.startOffsetBytes = 0;
     window.packedBytes = packedBytes;
-    return LocateWindowEnd(0, 0, packedBytes, window.endItemIdx, window.endOffsetBytes);
+    HCCL_CHK_RET(LocateWindowEnd(0, 0, packedBytes, window.endItemIdx, window.endOffsetBytes));
+    return ValidateWindow(window);
 }
 
 HcclResult AllGatherBatchSmallCountExecutor::BuildNextWindow(
     const WindowRange &current, WindowRange &next, bool &hasNext) const
 {
+    HCCL_CHK_RET(ValidateWindow(current));
+
     uint32_t nextItemIdx = current.endItemIdx;
     uint64_t nextOffsetBytes = current.endOffsetBytes;
     HCCL_CHK_RET(AdvancePosition(nextItemIdx, nextOffsetBytes));
@@ -228,12 +308,15 @@ HcclResult AllGatherBatchSmallCountExecutor::BuildNextWindow(
     next.startOffsetBytes = nextOffsetBytes;
     next.packedBytes = std::min(remainingBytes, GetPerRankWindowCapacity());
     HCCL_CHK_RET(LocateWindowEnd(nextItemIdx, nextOffsetBytes, next.packedBytes, next.endItemIdx, next.endOffsetBytes));
+    HCCL_CHK_RET(ValidateWindow(next));
     hasNext = true;
     return HCCL_SUCCESS;
 }
 
 HcclResult AllGatherBatchSmallCountExecutor::Pack(const WindowRange &window) const
 {
+    HCCL_CHK_RET(ValidateWindow(window));
+
     // Pack 现在把本 rank 的窗口打到 localBuffer 的“本 rank 槽位”，后续通信层会补齐其它 rank 的槽位。
     uint8_t *dst = GetRankWindowBase(window, param_.topoInfo.rank);
     uint64_t packedOffset = 0;
@@ -255,11 +338,24 @@ HcclResult AllGatherBatchSmallCountExecutor::Pack(const WindowRange &window) con
         offsetBytes += copyBytes;
         HCCL_CHK_RET(AdvancePosition(itemIdx, offsetBytes));
     }
+
+    if (packedOffset != window.packedBytes || itemIdx != window.endItemIdx || offsetBytes != window.endOffsetBytes) {
+        HCCL_ERROR("pack window mismatch, packedOffset=%llu/%llu, end=(%u,%llu), expectedEnd=(%u,%llu)",
+            static_cast<unsigned long long>(packedOffset),
+            static_cast<unsigned long long>(window.packedBytes),
+            itemIdx,
+            static_cast<unsigned long long>(offsetBytes),
+            window.endItemIdx,
+            static_cast<unsigned long long>(window.endOffsetBytes));
+        return HCCL_E_INTERNAL;
+    }
     return HCCL_SUCCESS;
 }
 
 HcclResult AllGatherBatchSmallCountExecutor::Unpack(const WindowRange &window) const
 {
+    HCCL_CHK_RET(ValidateWindow(window));
+
     // gathered 结果以“rank 槽位 + 槽内 packed 顺序”存放在 localBuffer 中，这里再拆回每个 item 的 recvBuf。
     for (uint32_t rank = 0; rank < param_.topoInfo.rankSize; ++rank) {
         uint8_t *src = GetRankWindowBase(window, rank);
@@ -282,6 +378,18 @@ HcclResult AllGatherBatchSmallCountExecutor::Unpack(const WindowRange &window) c
             offsetBytes += copyBytes;
             HCCL_CHK_RET(AdvancePosition(itemIdx, offsetBytes));
         }
+
+        if (packedOffset != window.packedBytes || itemIdx != window.endItemIdx || offsetBytes != window.endOffsetBytes) {
+            HCCL_ERROR("unpack window mismatch, rank=%u, packedOffset=%llu/%llu, end=(%u,%llu), expectedEnd=(%u,%llu)",
+                rank,
+                static_cast<unsigned long long>(packedOffset),
+                static_cast<unsigned long long>(window.packedBytes),
+                itemIdx,
+                static_cast<unsigned long long>(offsetBytes),
+                window.endItemIdx,
+                static_cast<unsigned long long>(window.endOffsetBytes));
+            return HCCL_E_INTERNAL;
+        }
     }
     return HCCL_SUCCESS;
 }
@@ -295,18 +403,24 @@ HcclResult AllGatherBatchSmallCountExecutor::Orchestrate()
     HCCL_CHK_RET(BuildFirstWindow(window));
 
     const uint32_t crossServerChannels = CountCrossServerChannels();
-    HCCL_INFO("executor start: rank=%u, rankSize=%u, commMode=%s, intraServerRankCount=%u, crossServerRankCount=%u, perRankCapacity=%llu, crossServerChannels=%u",
+    HCCL_INFO("executor start: rank=%u, rankSize=%u, commMode=%s, windowScope=%s, intraServerRankCount=%u, crossServerRankCount=%u, perRankCapacity=%llu, crossServerChannels=%u",
         param_.topoInfo.rank,
         param_.topoInfo.rankSize,
         ToCommModeString(param_.commMode),
+        ToWindowScopeString(param_.commMode),
         param_.intraServerRankCount,
         param_.crossServerRankCount,
         static_cast<unsigned long long>(GetPerRankWindowCapacity()),
         crossServerChannels);
 
     while (true) {
-        HCCL_INFO("executor window ready: startItem=%u, packedBytes=%llu, perRankCapacity=%llu, rankSize=%u",
+        HCCL_CHK_RET(ValidateWindow(window));
+        HCCL_INFO("executor window ready: scope=%s, start=(%u,%llu), end=(%u,%llu), packedBytes=%llu, perRankCapacity=%llu, rankSize=%u",
+            ToWindowScopeString(param_.commMode),
             window.startItemIdx,
+            static_cast<unsigned long long>(window.startOffsetBytes),
+            window.endItemIdx,
+            static_cast<unsigned long long>(window.endOffsetBytes),
             static_cast<unsigned long long>(window.packedBytes),
             static_cast<unsigned long long>(GetPerRankWindowCapacity()),
             param_.topoInfo.rankSize);

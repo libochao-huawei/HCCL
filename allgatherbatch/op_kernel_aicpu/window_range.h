@@ -10,7 +10,9 @@ struct WindowRange {
     uint32_t startItemIdx = 0;
     uint64_t startOffsetBytes = 0;
 
-    // 当前窗口覆盖到哪个 item 结束。endOffsetBytes 的精确语义在阶段 5 再细化。
+    // 当前窗口的结束位置采用“尾后游标”语义：
+    // 1. 如果 endItemIdx < itemCount，则 [endItemIdx, endOffsetBytes) 是下一个未处理位置。
+    // 2. 如果 endItemIdx == itemCount，则表示窗口正好覆盖到了全部输入末尾，此时 endOffsetBytes 应为 0。
     uint32_t endItemIdx = 0;
     uint64_t endOffsetBytes = 0;
 
