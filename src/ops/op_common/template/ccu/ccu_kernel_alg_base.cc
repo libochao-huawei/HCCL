@@ -1103,7 +1103,7 @@ HcclResult CcuKernelAlgBase::CreateMultiOpReduceScatterWrite(const std::vector<C
 }
 
 HcclResult CcuKernelAlgBase::GroupReduceScatterWrite(const std::vector<ChannelHandle> &channels, uint32_t rankId, CcuRep::LocalAddr dst,
-                                                      CcuRep::LocalAddr src, GroupOpSize goSize, HcclDataType dataType,
+                                                      const std::vector<CcuRep::LocalAddr>& srcs, GroupOpSize goSize, HcclDataType dataType,
                                                       HcclDataType outputDataType, HcclReduceOp opType)
 {
     CHK_RET(CreateMultiOpReduceScatterWrite(channels, rankId, dataType, outputDataType, opType));
@@ -1129,7 +1129,8 @@ HcclResult CcuKernelAlgBase::GroupReduceScatterWrite(const std::vector<ChannelHa
         sliceSize          = moConfig.memSlice;
         sliceSizeExpansion = moConfig.memSlice * expansionNum;
 
-        auto lc = Loop(loopType + "_loop_0")(src, dst, sliceSize, sliceSizeExpansion);
+        // 先支持单src场景，后续完善多slice处理
+        auto lc = Loop(loopType + "_loop_0")(srcs[0], dst, sliceSize, sliceSizeExpansion);
 
         CcuRep::Variable paraCfg = CreateVariable();
         paraCfg = GetParallelParam(moConfig.loopCount - 1, 0, 1);
@@ -1142,7 +1143,11 @@ HcclResult CcuKernelAlgBase::GroupReduceScatterWrite(const std::vector<ChannelHa
     // 第二个 loopgroup：处理 n 和 p 部分数据
     CCU_IF(goSize.parallelParam != 0)
     {
-        src.addr += goSize.addrOffset;
+        // 处理所有src的地址偏移
+        std::vector<CcuRep::LocalAddr> srcsOffset = srcs;
+        for (size_t i = 0; i < srcsOffset.size(); i++) {
+            srcsOffset[i].addr += goSize.addrOffset;
+        }
         for (uint32_t i = 0; i < expansionNum; i++) {
             dst.addr += goSize.addrOffset;
         }
@@ -1152,9 +1157,16 @@ HcclResult CcuKernelAlgBase::GroupReduceScatterWrite(const std::vector<ChannelHa
             sliceSizeExpansion += goSize.residual;
         }
 
-        auto lc0 = Loop(loopType + "_loop_0")(src, dst, goSize.residual, sliceSizeExpansion);
+        std::vector<CcuRep::LoopCall> loops;
+        // 为每个src创建对应的loop调用（residual部分）
+        for (size_t i = 0; i < srcsOffset.size(); i++) {
+            loops.emplace_back(Loop(loopType + "_loop_0")(srcsOffset[i], dst, goSize.residual, sliceSizeExpansion));
+        }
 
-        src.addr += goSize.residual;
+        // 偏移到下一个块
+        for (size_t i = 0; i < srcsOffset.size(); i++) {
+            srcsOffset[i].addr += goSize.residual;
+        }
         for (uint32_t i = 0; i < expansionNum; i++) {
             dst.addr += goSize.residual;
         }
@@ -1163,7 +1175,10 @@ HcclResult CcuKernelAlgBase::GroupReduceScatterWrite(const std::vector<ChannelHa
         sliceSize          = moConfig.memSlice;
         sliceSizeExpansion = moConfig.memSlice * expansionNum;
 
-        auto lc1 = Loop(loopType + "_loop_1")(src, dst, sliceSize, sliceSizeExpansion);
+        // 为每个src创建对应的loop调用（剩余块部分）
+        for (size_t i = 0; i < srcsOffset.size(); i++) {
+            loops.emplace_back(Loop(loopType + "_loop_1")(srcsOffset[i], dst, sliceSize, sliceSizeExpansion));
+        }
 
         CcuRep::Variable loopCfg0 = CreateVariable();
         loopCfg0 = GetLoopParam(0, 0, 1);
@@ -1172,7 +1187,7 @@ HcclResult CcuKernelAlgBase::GroupReduceScatterWrite(const std::vector<ChannelHa
         CcuRep::Variable offsetCfg = CreateVariable();
         offsetCfg = GetOffsetParam(moConfig.memSlice, moConfig.msInterleave, 1);
 
-        LoopGroup({lc0, lc1}, {loopCfg0, loopCfg1}, goSize.parallelParam, offsetCfg);
+        LoopGroup(loops, {loopCfg0, loopCfg1}, goSize.parallelParam, offsetCfg);
     }
     return HCCL_SUCCESS;
 }
