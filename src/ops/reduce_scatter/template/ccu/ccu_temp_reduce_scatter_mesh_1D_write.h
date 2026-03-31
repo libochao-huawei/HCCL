@@ -18,6 +18,7 @@ namespace ops_hccl {
 
 class CcuTempReduceScatterMesh1DWrite : public CcuAlgTemplateBase {
 public:
+    CcuTempReduceScatterMesh1DWrite() = default;
     explicit CcuTempReduceScatterMesh1DWrite(const OpParam &param, const u32 rankId,
                                               const std::vector<std::vector<u32>> &subCommRanks);
     ~CcuTempReduceScatterMesh1DWrite() override;
@@ -26,7 +27,7 @@ public:
                        AlgResourceRequest &resourceRequest) override;
     HcclResult KernelRun(const OpParam &param,
                          const TemplateDataParams &templateDataParams,
-                         const TemplateResource &templateResource) override;
+                         TemplateResource &templateResource) override;
     std::string Describe() const override
     {
         return StringFormat("Template of CcuTempReduceScatterMesh1DWrite subCommRanks_[0].size() [%u].",
