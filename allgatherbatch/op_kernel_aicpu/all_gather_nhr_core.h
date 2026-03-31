@@ -33,8 +33,10 @@ private:
     uint8_t *GetRankBuffer(uint32_t rank) const;
     bool IsCrossServerChannel(const ChannelResource &channel) const;
     uint32_t CountChannelsByScope(bool crossServer) const;
-    HcclResult NotifyReadyByScope(bool crossServer) const;
-    HcclResult ReadRemoteRanksByScope(bool crossServer) const;
+    uint32_t CountChannelsByProtocol(bool crossServer, CommProtocol protocol) const;
+    HcclResult NotifyReadyByScopeAndProtocol(bool crossServer, CommProtocol protocol) const;
+    HcclResult ReadRemoteRanksByScopeAndProtocol(bool crossServer, CommProtocol protocol) const;
+    HcclResult RunScope(bool crossServer) const;
 
     const OpParam &param_;
     AlgResourceCtx &resCtx_;

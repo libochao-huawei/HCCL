@@ -29,6 +29,17 @@ uint32_t CountChannelsByScope(const OpParam &param, const AlgResourceCtx &resCtx
     return count;
 }
 
+uint32_t CountChannelsByProtocol(const AlgResourceCtx &resCtx, CommProtocol protocol)
+{
+    uint32_t count = 0;
+    for (uint32_t idx = 0; idx < resCtx.channelCount; ++idx) {
+        if (resCtx.channels[idx].protocol == protocol) {
+            ++count;
+        }
+    }
+    return count;
+}
+
 const char *ToCommModeString(BatchCommMode commMode)
 {
     switch (commMode) {
@@ -167,7 +178,7 @@ HcclResult AllGatherHDStageCore::RunAsync()
 
     const uint32_t crossServerChannels = CountChannelsByScope(param_, resCtx_, true);
     const uint32_t intraServerChannels = CountChannelsByScope(param_, resCtx_, false);
-    HCCL_INFO("HDStage plan ready: rank=%u, rankSize=%u, commMode=%s, serverIdx=%u, intraServerRankCount=%u, crossServerRankCount=%u, noPower=%u, powerSteps=%u, packedBytes=%llu, intraServerChannels=%u, crossServerChannels=%u",
+    HCCL_INFO("HDStage plan ready: rank=%u, rankSize=%u, commMode=%s, serverIdx=%u, intraServerRankCount=%u, crossServerRankCount=%u, noPower=%u, powerSteps=%u, packedBytes=%llu, intraServerChannels=%u, crossServerChannels=%u, hccs=%u, roce=%u, pcie=%u, sio=%u",
         param_.topoInfo.rank,
         param_.topoInfo.rankSize,
         ToCommModeString(param_.commMode),
@@ -178,7 +189,11 @@ HcclResult AllGatherHDStageCore::RunAsync()
         plan.powerSteps,
         static_cast<unsigned long long>(packedBytes_),
         intraServerChannels,
-        crossServerChannels);
+        crossServerChannels,
+        CountChannelsByProtocol(resCtx_, COMM_PROTOCOL_HCCS),
+        CountChannelsByProtocol(resCtx_, COMM_PROTOCOL_ROCE),
+        CountChannelsByProtocol(resCtx_, COMM_PROTOCOL_PCIE),
+        CountChannelsByProtocol(resCtx_, COMM_PROTOCOL_SIO));
 
     if (plan.needNoPowerPath) {
         HcclResult ret = RunNoPowerPath(plan);

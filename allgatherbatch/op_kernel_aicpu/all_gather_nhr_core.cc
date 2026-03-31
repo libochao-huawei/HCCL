@@ -18,6 +18,27 @@ const char *ToCommModeString(BatchCommMode commMode)
     }
 }
 
+const char *ToScopeString(bool crossServer)
+{
+    return crossServer ? "cross-server" : "intra-server";
+}
+
+const char *ToProtocolString(CommProtocol protocol)
+{
+    switch (protocol) {
+        case COMM_PROTOCOL_HCCS:
+            return "HCCS";
+        case COMM_PROTOCOL_ROCE:
+            return "ROCE";
+        case COMM_PROTOCOL_PCIE:
+            return "PCIE";
+        case COMM_PROTOCOL_SIO:
+            return "SIO";
+        default:
+            return "RESERVED";
+    }
+}
+
 }  // namespace
 
 AllGatherNHRCore::AllGatherNHRCore(const OpParam &param, AlgResourceCtx &resCtx, uint64_t packedBytes)
@@ -199,11 +220,24 @@ uint32_t AllGatherNHRCore::CountChannelsByScope(bool crossServer) const
     return count;
 }
 
-HcclResult AllGatherNHRCore::NotifyReadyByScope(bool crossServer) const
+uint32_t AllGatherNHRCore::CountChannelsByProtocol(bool crossServer, CommProtocol protocol) const
 {
-    const char *scope = crossServer ? "cross-server" : "intra-server";
+    uint32_t count = 0;
+    for (uint32_t idx = 0; idx < resCtx_.channelCount; ++idx) {
+        const ChannelResource &channel = resCtx_.channels[idx];
+        if (IsCrossServerChannel(channel) == crossServer && channel.protocol == protocol) {
+            ++count;
+        }
+    }
+    return count;
+}
 
-    // 先按 scope 分开处理，对后面区分 server 内和 server 间不同同步策略更友好。
+HcclResult AllGatherNHRCore::NotifyReadyByScopeAndProtocol(bool crossServer, CommProtocol protocol) const
+{
+    const char *scope = ToScopeString(crossServer);
+    const char *protocolName = ToProtocolString(protocol);
+
+    // 当前不同协议仍复用同一套原语，但先把协议维度变成显式分支点，后面细化链路策略时不用重拆控制骨架。
     for (uint32_t remoteRank = 0; remoteRank < param_.topoInfo.rankSize; ++remoteRank) {
         if (remoteRank == param_.topoInfo.rank) {
             continue;
@@ -213,7 +247,7 @@ HcclResult AllGatherNHRCore::NotifyReadyByScope(bool crossServer) const
             HCCL_ERROR("channel to remoteRank=%u is missing", remoteRank);
             return HCCL_E_NOT_FOUND;
         }
-        if (IsCrossServerChannel(*channel) != crossServer) {
+        if (IsCrossServerChannel(*channel) != crossServer || channel->protocol != protocol) {
             continue;
         }
 
@@ -222,18 +256,18 @@ HcclResult AllGatherNHRCore::NotifyReadyByScope(bool crossServer) const
             channel->handle,
             channel->remoteNotifyIdx);
         if (ret != HCCL_SUCCESS) {
-            HCCL_ERROR("%s notify record failed, remoteRank=%u, ret=%d", scope, remoteRank, ret);
+            HCCL_ERROR("%s/%s notify record failed, remoteRank=%u, ret=%d", scope, protocolName, remoteRank, ret);
             return static_cast<HcclResult>(ret);
         }
     }
     return HCCL_SUCCESS;
 }
 
-HcclResult AllGatherNHRCore::ReadRemoteRanksByScope(bool crossServer) const
+HcclResult AllGatherNHRCore::ReadRemoteRanksByScopeAndProtocol(bool crossServer, CommProtocol protocol) const
 {
-    const char *scope = crossServer ? "cross-server" : "intra-server";
+    const char *scope = ToScopeString(crossServer);
+    const char *protocolName = ToProtocolString(protocol);
 
-    // 当前同 server 和跨 server 仍复用同一套 remote-read 原语，但这里已经把两类链路分 scope 串起来了。
     for (uint32_t remoteRank = 0; remoteRank < param_.topoInfo.rankSize; ++remoteRank) {
         if (remoteRank == param_.topoInfo.rank) {
             continue;
@@ -243,11 +277,11 @@ HcclResult AllGatherNHRCore::ReadRemoteRanksByScope(bool crossServer) const
             HCCL_ERROR("channel to remoteRank=%u is missing", remoteRank);
             return HCCL_E_NOT_FOUND;
         }
-        if (IsCrossServerChannel(*channel) != crossServer) {
+        if (IsCrossServerChannel(*channel) != crossServer || channel->protocol != protocol) {
             continue;
         }
         if (channel->remoteBuffer.addr == nullptr || channel->remoteBuffer.size < (packedBytes_ * param_.topoInfo.rankSize)) {
-            HCCL_ERROR("%s remote buffer for rank=%u is too small", scope, remoteRank);
+            HCCL_ERROR("%s/%s remote buffer for rank=%u is too small", scope, protocolName, remoteRank);
             return HCCL_E_INTERNAL;
         }
 
@@ -257,7 +291,7 @@ HcclResult AllGatherNHRCore::ReadRemoteRanksByScope(bool crossServer) const
             channel->localNotifyIdx,
             kAllGatherBatchCustomTimeoutMs);
         if (ret != HCCL_SUCCESS) {
-            HCCL_ERROR("%s notify wait failed, remoteRank=%u, ret=%d", scope, remoteRank, ret);
+            HCCL_ERROR("%s/%s notify wait failed, remoteRank=%u, ret=%d", scope, protocolName, remoteRank, ret);
             return static_cast<HcclResult>(ret);
         }
 
@@ -265,9 +299,36 @@ HcclResult AllGatherNHRCore::ReadRemoteRanksByScope(bool crossServer) const
         const void *src = static_cast<const uint8_t *>(channel->remoteBuffer.addr) + (packedBytes_ * remoteRank);
         ret = HcommReadOnThread(resCtx_.threadHandle, channel->handle, dst, src, packedBytes_);
         if (ret != HCCL_SUCCESS) {
-            HCCL_ERROR("%s remote read failed, remoteRank=%u, ret=%d", scope, remoteRank, ret);
+            HCCL_ERROR("%s/%s remote read failed, remoteRank=%u, ret=%d", scope, protocolName, remoteRank, ret);
             return static_cast<HcclResult>(ret);
         }
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult AllGatherNHRCore::RunScope(bool crossServer) const
+{
+    static const CommProtocol kProtocolOrder[] = {
+        COMM_PROTOCOL_HCCS,
+        COMM_PROTOCOL_ROCE,
+        COMM_PROTOCOL_PCIE,
+        COMM_PROTOCOL_SIO,
+    };
+
+    const char *scope = ToScopeString(crossServer);
+    for (CommProtocol protocol : kProtocolOrder) {
+        const uint32_t channelCount = CountChannelsByProtocol(crossServer, protocol);
+        if (channelCount == 0) {
+            continue;
+        }
+
+        HCCL_INFO("NHR scope dispatch: scope=%s, protocol=%s, channels=%u, packedBytes=%llu",
+            scope,
+            ToProtocolString(protocol),
+            channelCount,
+            static_cast<unsigned long long>(packedBytes_));
+        HCCL_CHK_RET(NotifyReadyByScopeAndProtocol(crossServer, protocol));
+        HCCL_CHK_RET(ReadRemoteRanksByScopeAndProtocol(crossServer, protocol));
     }
     return HCCL_SUCCESS;
 }
@@ -287,7 +348,7 @@ HcclResult AllGatherNHRCore::RunAsync()
 
     const uint32_t intraServerChannels = CountChannelsByScope(false);
     const uint32_t crossServerChannels = CountChannelsByScope(true);
-    HCCL_INFO("NHR core step plan ready: rank=%u, rankSize=%u, commMode=%s, intraServerRankCount=%u, crossServerRankCount=%u, steps=%u, packedBytes=%llu, channelCount=%u, intraServerChannels=%u, crossServerChannels=%u",
+    HCCL_INFO("NHR core step plan ready: rank=%u, rankSize=%u, commMode=%s, intraServerRankCount=%u, crossServerRankCount=%u, steps=%u, packedBytes=%llu, channelCount=%u, intraServerChannels=%u, crossServerChannels=%u, hccs=%u, roce=%u, pcie=%u, sio=%u",
         param_.topoInfo.rank,
         param_.topoInfo.rankSize,
         ToCommModeString(param_.commMode),
@@ -297,14 +358,16 @@ HcclResult AllGatherNHRCore::RunAsync()
         static_cast<unsigned long long>(packedBytes_),
         resCtx_.channelCount,
         intraServerChannels,
-        crossServerChannels);
+        crossServerChannels,
+        CountChannelsByProtocol(false, COMM_PROTOCOL_HCCS) + CountChannelsByProtocol(true, COMM_PROTOCOL_HCCS),
+        CountChannelsByProtocol(false, COMM_PROTOCOL_ROCE) + CountChannelsByProtocol(true, COMM_PROTOCOL_ROCE),
+        CountChannelsByProtocol(false, COMM_PROTOCOL_PCIE) + CountChannelsByProtocol(true, COMM_PROTOCOL_PCIE),
+        CountChannelsByProtocol(false, COMM_PROTOCOL_SIO) + CountChannelsByProtocol(true, COMM_PROTOCOL_SIO));
 
-    // 这里先保留 NHR 的控制层边界，但数据面已经按同 server / 跨 server 两个 scope 分开组织。
-    HCCL_CHK_RET(NotifyReadyByScope(false));
-    HCCL_CHK_RET(ReadRemoteRanksByScope(false));
+    // 这里先保留 NHR 的控制层边界，但数据面已经按 scope + protocol 两个维度分开组织。
+    HCCL_CHK_RET(RunScope(false));
     if (param_.commMode == BatchCommMode::kCrossServer) {
-        HCCL_CHK_RET(NotifyReadyByScope(true));
-        HCCL_CHK_RET(ReadRemoteRanksByScope(true));
+        HCCL_CHK_RET(RunScope(true));
     }
     return HCCL_SUCCESS;
 }
