@@ -188,16 +188,50 @@ HcclResult FillCommModeInfo(HcclComm comm, OpParam &param)
     return HCCL_SUCCESS;
 }
 
-const char *ToCommModeString(BatchCommMode commMode)
+HcclResult ValidatePreparedParam(const OpParam &param)
 {
-    switch (commMode) {
-        case BatchCommMode::kSingleServer:
-            return "single-server";
-        case BatchCommMode::kCrossServer:
-            return "cross-server";
-        default:
-            return "unknown";
+    // Host 在 launch 前把共享协议字段再核一遍，尽量把问题拦在 Device 启动之前。
+    if (!IsValidCommMode(param.commMode)) {
+        HCCL_ERROR("prepared param commMode is invalid");
+        return HCCL_E_INTERNAL;
     }
+    if (param.itemCount == 0 || param.itemCount > kAllGatherBatchMaxItems) {
+        HCCL_ERROR("prepared param itemCount=%u is invalid", param.itemCount);
+        return HCCL_E_INTERNAL;
+    }
+    if (param.topoInfo.rankSize == 0 || param.topoInfo.rank >= param.topoInfo.rankSize) {
+        HCCL_ERROR("prepared topo rank/rankSize is invalid, rank=%u, rankSize=%u",
+            param.topoInfo.rank,
+            param.topoInfo.rankSize);
+        return HCCL_E_INTERNAL;
+    }
+    if (param.intraServerRankCount == 0) {
+        HCCL_ERROR("prepared intraServerRankCount is zero");
+        return HCCL_E_INTERNAL;
+    }
+    if (param.intraServerRankCount + param.crossServerRankCount != param.topoInfo.rankSize) {
+        HCCL_ERROR("prepared rank distribution mismatch, intra=%u, cross=%u, rankSize=%u",
+            param.intraServerRankCount,
+            param.crossServerRankCount,
+            param.topoInfo.rankSize);
+        return HCCL_E_INTERNAL;
+    }
+    if (param.commMode == BatchCommMode::kSingleServer && param.crossServerRankCount != 0) {
+        HCCL_ERROR("single-server param unexpectedly has crossServerRankCount=%u", param.crossServerRankCount);
+        return HCCL_E_INTERNAL;
+    }
+    if (param.commMode == BatchCommMode::kCrossServer && param.crossServerRankCount == 0) {
+        HCCL_ERROR("cross-server param has zero crossServerRankCount");
+        return HCCL_E_INTERNAL;
+    }
+    if (param.totalInputBytes == 0 || param.totalOutputBytes == 0 || param.windowBytes == 0) {
+        HCCL_ERROR("prepared byte sizes are invalid, input=%llu, output=%llu, window=%llu",
+            static_cast<unsigned long long>(param.totalInputBytes),
+            static_cast<unsigned long long>(param.totalOutputBytes),
+            static_cast<unsigned long long>(param.windowBytes));
+        return HCCL_E_INTERNAL;
+    }
+    return HCCL_SUCCESS;
 }
 
 HcclResult BuildFreshResourceCtx(HcclComm comm, const BatchTopoInfo &topoInfo, AlgResourceCtx &resCtx)
@@ -283,6 +317,7 @@ HcclResult AllGatherBatchOp::Exec(
     OpParam param;
     HCCL_CHK_RET(PrepareOpParam(items, itemCount, comm, param));
     HCCL_CHK_RET(ValidateTopo(param.topoInfo));
+    HCCL_CHK_RET(ValidatePreparedParam(param));
 
     HCCL_INFO("Host op prepared: rank=%u, rankSize=%u, commMode=%s, serverIdx=%u, serverCount=%u, superPodIdx=%u, intraServerRankCount=%u, crossServerRankCount=%u",
         param.topoInfo.rank,

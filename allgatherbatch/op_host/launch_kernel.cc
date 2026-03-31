@@ -9,9 +9,47 @@ namespace ops_hccl_allgatherbatch {
 
 thread_local aclrtNotify g_allGatherBatchNotifies[kAllGatherBatchControlNotifyNum] = {nullptr};
 
+namespace {
+
+HcclResult ValidateLaunchParam(const OpParam &param)
+{
+    if (!IsValidCommMode(param.commMode)) {
+        HCCL_ERROR("launch param commMode is invalid");
+        return HCCL_E_INTERNAL;
+    }
+    if (param.resCtx == nullptr) {
+        HCCL_ERROR("launch param resCtx is null");
+        return HCCL_E_PTR;
+    }
+    if (param.itemCount == 0 || param.itemCount > kAllGatherBatchMaxItems) {
+        HCCL_ERROR("launch param itemCount=%u is invalid", param.itemCount);
+        return HCCL_E_INTERNAL;
+    }
+    if (param.topoInfo.rankSize == 0 || param.topoInfo.rank >= param.topoInfo.rankSize) {
+        HCCL_ERROR("launch topo rank/rankSize is invalid, rank=%u, rankSize=%u",
+            param.topoInfo.rank,
+            param.topoInfo.rankSize);
+        return HCCL_E_INTERNAL;
+    }
+    if (param.resCtx->threadHandle == 0) {
+        HCCL_ERROR("launch param threadHandle is invalid");
+        return HCCL_E_INTERNAL;
+    }
+    if (param.totalInputBytes == 0 || param.windowBytes == 0) {
+        HCCL_ERROR("launch byte sizes are invalid, input=%llu, window=%llu",
+            static_cast<unsigned long long>(param.totalInputBytes),
+            static_cast<unsigned long long>(param.windowBytes));
+        return HCCL_E_INTERNAL;
+    }
+    return HCCL_SUCCESS;
+}
+
+}  // namespace
+
 HcclResult LaunchKernel(const OpParam &param, aclrtStream stream)
 {
     HCCL_CHK_PTR(stream);
+    HCCL_CHK_RET(ValidateLaunchParam(param));
     HCCL_CHK_RET(LoadAICPUKernel());
 
     if (g_allGatherBatchNotifies[kAllGatherBatchControlNotifyStart] == nullptr ||
@@ -19,6 +57,15 @@ HcclResult LaunchKernel(const OpParam &param, aclrtStream stream)
         HCCL_ERROR("host control notify is not ready");
         return HCCL_E_INTERNAL;
     }
+
+    HCCL_INFO("Host launch begin: rank=%u, rankSize=%u, commMode=%s, itemCount=%u, totalInputBytes=%llu, windowBytes=%llu, channelCount=%u",
+        param.topoInfo.rank,
+        param.topoInfo.rankSize,
+        ToCommModeString(param.commMode),
+        param.itemCount,
+        static_cast<unsigned long long>(param.totalInputBytes),
+        static_cast<unsigned long long>(param.windowBytes),
+        param.resCtx->channelCount);
 
     // Host stream 先发启动通知，Device 侧主线程收到后才真正进入执行器。
     ACL_CHK(aclrtRecordNotify(g_allGatherBatchNotifies[kAllGatherBatchControlNotifyStart], stream));
@@ -48,6 +95,11 @@ HcclResult LaunchKernel(const OpParam &param, aclrtStream stream)
         g_allGatherBatchNotifies[kAllGatherBatchControlNotifyDone],
         stream,
         kAllGatherBatchCustomTimeoutMs));
+
+    HCCL_INFO("Host launch done: rank=%u, commMode=%s, itemCount=%u",
+        param.topoInfo.rank,
+        ToCommModeString(param.commMode),
+        param.itemCount);
     return HCCL_SUCCESS;
 }
 

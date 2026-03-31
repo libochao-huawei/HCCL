@@ -141,6 +141,23 @@ inline bool IsAligned32(const void *ptr)
     return ptr != nullptr && ((reinterpret_cast<uintptr_t>(ptr) & 0x1fU) == 0);
 }
 
+inline const char *ToCommModeString(BatchCommMode commMode)
+{
+    switch (commMode) {
+        case BatchCommMode::kSingleServer:
+            return "single-server";
+        case BatchCommMode::kCrossServer:
+            return "cross-server";
+        default:
+            return "unknown";
+    }
+}
+
+inline bool IsValidCommMode(BatchCommMode commMode)
+{
+    return commMode == BatchCommMode::kSingleServer || commMode == BatchCommMode::kCrossServer;
+}
+
 }  // namespace ops_hccl_allgatherbatch
 
 #endif

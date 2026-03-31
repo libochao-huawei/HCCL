@@ -1,23 +1,6 @@
 ﻿#include "common.h"
 #include "exec_op.h"
 
-namespace {
-
-const char *ToCommModeString(ops_hccl_allgatherbatch::BatchCommMode commMode)
-{
-    using ops_hccl_allgatherbatch::BatchCommMode;
-    switch (commMode) {
-        case BatchCommMode::kSingleServer:
-            return "single-server";
-        case BatchCommMode::kCrossServer:
-            return "cross-server";
-        default:
-            return "unknown";
-    }
-}
-
-}
-
 extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
     ops_hccl_allgatherbatch::OpParam *param)
 {
@@ -26,15 +9,43 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
     if (param == nullptr || param->resCtx == nullptr) {
         return 1;
     }
+    if (!IsValidCommMode(param->commMode)) {
+        HCCL_ERROR("AICPU kernel received invalid commMode");
+        return 1;
+    }
+    if (param->itemCount == 0 || param->itemCount > kAllGatherBatchMaxItems) {
+        HCCL_ERROR("AICPU kernel received invalid itemCount=%u", param->itemCount);
+        return 1;
+    }
+    if (param->topoInfo.rankSize == 0 || param->topoInfo.rank >= param->topoInfo.rankSize) {
+        HCCL_ERROR("AICPU kernel received invalid rank/rankSize, rank=%u, rankSize=%u",
+            param->topoInfo.rank,
+            param->topoInfo.rankSize);
+        return 1;
+    }
+    if (param->intraServerRankCount + param->crossServerRankCount != param->topoInfo.rankSize) {
+        HCCL_ERROR("AICPU kernel received inconsistent rank distribution, intra=%u, cross=%u, rankSize=%u",
+            param->intraServerRankCount,
+            param->crossServerRankCount,
+            param->topoInfo.rankSize);
+        return 1;
+    }
+    if (param->resCtx->threadHandle == 0) {
+        HCCL_ERROR("AICPU kernel received invalid threadHandle");
+        return 1;
+    }
 
-    HCCL_INFO("AICPU kernel enter: rank=%u, rankSize=%u, commMode=%s, serverIdx=%u, serverCount=%u, intraServerRankCount=%u, crossServerRankCount=%u",
+    HCCL_INFO("AICPU kernel enter: rank=%u, rankSize=%u, commMode=%s, serverIdx=%u, serverCount=%u, intraServerRankCount=%u, crossServerRankCount=%u, channelCount=%u, totalInputBytes=%llu, windowBytes=%llu",
         param->topoInfo.rank,
         param->topoInfo.rankSize,
         ToCommModeString(param->commMode),
         param->topoInfo.serverIdx,
         param->topoInfo.serverCount,
         param->intraServerRankCount,
-        param->crossServerRankCount);
+        param->crossServerRankCount,
+        param->resCtx->channelCount,
+        static_cast<unsigned long long>(param->totalInputBytes),
+        static_cast<unsigned long long>(param->windowBytes));
 
     // Device 入口负责把 Host 下发的控制协议转成完整的设备侧执行时序。
     if (HcommAcquireComm(param->commName) != HCCL_SUCCESS) {
@@ -87,5 +98,9 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
         return 1;
     }
 
+    HCCL_INFO("AICPU kernel done: rank=%u, commMode=%s, itemCount=%u",
+        param->topoInfo.rank,
+        ToCommModeString(param->commMode),
+        param->itemCount);
     return 0;
 }
