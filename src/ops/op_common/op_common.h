@@ -69,7 +69,7 @@ HcclResult GetAlgResCcu(HcclComm comm, const OpParam& param, AlgResourceRequest&
 
 HcclResult SetOpParamFastLaunchTag(OpParam &param);
 
-bool CcuFastLaunchSupported(HcclComm comm, OpParam &param, CcuFastLaunchCtx **ccuFastLaunchCtx);
+bool ShouldGoCcuFastLaunch(HcclComm comm, OpParam &param, CcuFastLaunchCtx **ccuFastLaunchCtx);
 
 HcclResult HcclExecOpCcuFastLaunch(HcclComm comm, OpParam &param, const CcuFastLaunchCtx *ccuFastLaunchCtx);
 
@@ -148,7 +148,7 @@ HcclResult HcclRegstryBuff(HcclComm comm, const char *memTag, void *bufferPtr, u
 
 HcclResult HcclGetRemoteBuff(HcclComm comm, ChannelHandle channel, const char *memTag, void **bufferPtr, uint64_t *bufferSize);
 
-HcclResult LogHcclExit(const std::string &opName, const std::string &tag, HcclUs startut);
+HcclResult LogHcclExit(const std::string &opName, const char *tag, HcclUs startut);
 
 }  // namespace ops_hccl
 
