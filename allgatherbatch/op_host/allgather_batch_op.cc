@@ -22,15 +22,59 @@ HcclResult EnsureControlNotifies(AlgResourceCtx &resCtx)
     return HCCL_SUCCESS;
 }
 
-HcclResult BuildFreshResourceCtx(HcclComm comm, AlgResourceCtx &resCtx)
+HcclResult BuildFreshResourceCtx(HcclComm comm, const BatchTopoInfo &topoInfo, AlgResourceCtx &resCtx)
 {
-    // 阶段 2 先把主线程和本地 HCCL buffer 申请起来，channel 会在后续阶段按执行器需求补齐。
+    // 先准备主线程和本地 HCCL buffer，它们是 Pack/Unpack 和 AICPU 控制流的最小前提。
     void *localBuffer = nullptr;
     HCCL_CHK_RET(EnsureControlNotifies(resCtx));
     HCCL_CHK_RET(HcclThreadAcquire(comm, COMM_ENGINE_AICPU, 1, 0, &resCtx.threadHandle));
     HCCL_CHK_RET(HcclGetHcclBuffer(comm, &localBuffer, &resCtx.localBuffer.size));
     resCtx.localBuffer.addr = localBuffer;
     resCtx.channelCount = 0;
+
+    // 多 rank 时，先按“本 rank 到其它 rank 各建 1 条 channel”的最小模型申请资源。
+    if (topoInfo.rankSize <= 1) {
+        return HCCL_SUCCESS;
+    }
+    if (topoInfo.rankSize - 1 > kAllGatherBatchMaxChannels) {
+        HCCL_ERROR("rankSize=%u exceeds max channel capacity=%u", topoInfo.rankSize, kAllGatherBatchMaxChannels);
+        return HCCL_E_NOT_SUPPORT;
+    }
+
+    HcclChannelDesc channelDescs[kAllGatherBatchMaxChannels];
+    ChannelHandle channelHandles[kAllGatherBatchMaxChannels] = {0};
+    HcclChannelDescInit(channelDescs, kAllGatherBatchMaxChannels);
+
+    uint32_t channelCount = 0;
+    for (uint32_t remoteRank = 0; remoteRank < topoInfo.rankSize; ++remoteRank) {
+        if (remoteRank == topoInfo.rank) {
+            continue;
+        }
+        channelDescs[channelCount].remoteRank = remoteRank;
+        channelDescs[channelCount].channelProtocol = CommProtocol::COMM_PROTOCOL_HCCS;
+        channelDescs[channelCount].notifyNum = 2;
+        ++channelCount;
+    }
+
+    HCCL_CHK_RET(HcclChannelAcquire(
+        comm,
+        COMM_ENGINE_AICPU,
+        channelDescs,
+        channelCount,
+        channelHandles));
+
+    for (uint32_t idx = 0; idx < channelCount; ++idx) {
+        resCtx.channels[idx].handle = channelHandles[idx];
+        resCtx.channels[idx].remoteRank = channelDescs[idx].remoteRank;
+        resCtx.channels[idx].localNotifyIdx = 0;
+        resCtx.channels[idx].remoteNotifyIdx = 0;
+        HCCL_CHK_RET(HcclChannelGetHcclBuffer(
+            comm,
+            channelHandles[idx],
+            &resCtx.channels[idx].remoteBuffer.addr,
+            &resCtx.channels[idx].remoteBuffer.size));
+    }
+    resCtx.channelCount = channelCount;
     return HCCL_SUCCESS;
 }
 
@@ -150,7 +194,7 @@ HcclResult AllGatherBatchOp::GetAlgRes(
     HCCL_CHK_RET(HcclEngineCtxCreate(comm, param.tag, engine, sizeof(AlgResourceCtx), &ctx));
 
     AlgResourceCtx hostResCtx;
-    HCCL_CHK_RET(BuildFreshResourceCtx(comm, hostResCtx));
+    HCCL_CHK_RET(BuildFreshResourceCtx(comm, param.topoInfo, hostResCtx));
     HCCL_CHK_RET(HcclEngineCtxCopy(comm, engine, param.tag, &hostResCtx, sizeof(AlgResourceCtx), 0));
 
     *resCtx = static_cast<AlgResourceCtx *>(ctx);
