@@ -1021,6 +1021,171 @@ HcclResult CcuKernelAlgBase::GroupWrite(const std::vector<ChannelHandle> &channe
     return HCCL_SUCCESS;
 }
 
+// write 模式 ReduceScatter：
+// 每个 LoopBlock 迭代的流程：
+//   1. LocalCopyNb(send_bufs[R], src + R*sliceSize, len) — 拷贝需要发送的slice到发送buf，跳过自己的slice
+//   2. MsWriteNb(ch[i], send_bufs[R], recv_bufs[myRankId], len) × channelSize — 发送每个slice到对应rank
+//   3. LocalCopyNb(recv_bufs[myRankId], src + myRankId*sliceSize, len) — 并行拷贝本端自己的slice到接收buf
+//   4. NotifyWait(ch[i], ...) × channelSize — 等待所有对端写完成
+//   5. LocalReduceNb(recv_bufs, size, ...) — reduce所有接收buf，结果在recv_bufs[0]
+//   6. LocalCopyNb(dst, recv_bufs[0], len) — 结果拷贝到输出
+// MS布局：每个双buffer组占 2*size 个MS，前size个是接收buf，后size个是发送buf
+HcclResult CcuKernelAlgBase::CreateMultiOpReduceScatterWrite(const std::vector<ChannelHandle> &channels, uint32_t rankId,
+                                                              HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType)
+{
+    uint32_t channelSize = channels.size();
+    uint32_t size        = channelSize + 1; // N-1 peers + self
+    moConfig.msInterleave = 2 * size; // 双buffer各占size个MS，总共2*size
+    AllocGoResource();
+
+    std::string loopType = GetReduceTypeStr(dataType, opType) + "_reduce_scatter_write";
+    if (registeredLoop.find(loopType) != registeredLoop.end()) {
+        return HCCL_SUCCESS;
+    }
+
+    uint32_t expansionNum = GetReduceExpansionNum(opType, dataType, outputDataType);
+    uint32_t usedBufNum   = size > expansionNum ? size : expansionNum;
+
+    for (int32_t index = 0; index < 2; index++) {
+        CcuRep::LocalAddr src = CreateLocalAddr();
+        CcuRep::LocalAddr dst = CreateLocalAddr();
+        CcuRep::Variable  len = CreateVariable();
+        CcuRep::Variable  lenForExpansion = CreateVariable();
+        CcuRep::LoopBlock lb(this, loopType + "_loop_" + std::to_string(index));
+        lb(src, dst, len, lenForExpansion);
+
+        // MS布局：前usedBufNum个是接收buf，后usedBufNum个是发送buf
+        std::vector<CcuRep::CcuBuf> recv_bufs = {moRes.ccuBuf.begin() + index * moConfig.msInterleave,
+                                                 moRes.ccuBuf.begin() + index * moConfig.msInterleave + usedBufNum};
+        std::vector<CcuRep::CcuBuf> send_bufs = {moRes.ccuBuf.begin() + index * moConfig.msInterleave + usedBufNum,
+                                                 moRes.ccuBuf.begin() + index * moConfig.msInterleave + 2 * usedBufNum};
+        CcuRep::CompletedEvent &event = moRes.completedEvent[index];
+
+        uint32_t ckeIdx = (index == 0) ? WRITE_CKE_IDX_0 : WRITE_CKE_IDX_1;
+
+        // Step 1: 拷贝需要发往其他rank的slice到发送buf，跳过自己的slice
+        for (uint32_t R = 0; R < size; R++) {
+            if (R == rankId) continue;
+            event.mask = 1 << R;
+            // src地址已经是当前loop处理的偏移位置，加上R*len得到对应rank的slice地址
+            LocalCopyNb(send_bufs[R], src + R * len, len, event);
+        }
+        // 等待所有发送buf拷贝完成
+        event.mask = (1 << size) - 1;
+        event.mask &= ~(1 << rankId); // 去掉自己的位
+        WaitEvent(event);
+
+        // Step 2: 异步发送所有slice到对应rank的recv_bufs[rankId]位置
+        for (uint32_t R = 0; R < size; R++) {
+            if (R == rankId) continue;
+            // 计算channel索引：rank < rankId时索引为R，否则为R-1
+            uint32_t chIdx = (R < rankId) ? R : R - 1;
+            // 写往rank R的recv_bufs[rankId]位置，对称布局
+            CHK_RET(MsWriteNb(channels[chIdx], send_bufs[R], recv_bufs[rankId], len, ckeIdx, WRITE_DONE_MASK));
+        }
+
+        // Step 3: 并行拷贝本端自己的slice到接收buf，掩盖网络传输时间
+        event.mask = 1 << rankId;
+        LocalCopyNb(recv_bufs[rankId], src + rankId * len, len, event);
+        WaitEvent(event);
+
+        // Step 4: 等待所有对端写完成通知
+        for (uint32_t i = 0; i < channels.size(); i++) {
+            NotifyWait(channels[i], ckeIdx, WRITE_DONE_MASK);
+        }
+
+        // Step 5: 对所有接收buf做reduce
+        if (size > 1) {
+            event.mask = 2;
+            LocalReduceNb(recv_bufs, size, dataType, outputDataType, opType, len, event);
+            WaitEvent(event);
+        }
+
+        // Step 6: 结果拷贝到输出
+        event.mask = 4;
+        LocalCopyNb(dst, recv_bufs[0], lenForExpansion, event);
+        WaitEvent(event);
+    }
+
+    registeredLoop.insert(loopType);
+    return HCCL_SUCCESS;
+}
+
+HcclResult CcuKernelAlgBase::GroupReduceScatterWrite(const std::vector<ChannelHandle> &channels, uint32_t rankId, CcuRep::LocalAddr dst,
+                                                      CcuRep::LocalAddr src, GroupOpSize goSize, HcclDataType dataType,
+                                                      HcclDataType outputDataType, HcclReduceOp opType)
+{
+    CHK_RET(CreateMultiOpReduceScatterWrite(channels, rankId, dataType, outputDataType, opType));
+
+    std::string loopType      = GetReduceTypeStr(dataType, opType) + "_reduce_scatter_write";
+    uint32_t    expansionNum  = GetReduceExpansionNum(opType, dataType, outputDataType);
+    CcuRep::Variable sliceSizeExpansion = CreateVariable();
+
+    if (expansionNum != 1) {
+        CcuRep::Variable tmp = CreateVariable();
+        tmp = GetExpansionParam(expansionNum);
+        dst.token += tmp;
+    }
+
+    // 第一个 loopgroup：处理 m 部分数据
+    CCU_IF(goSize.loopParam != 0)
+    {
+        CcuRep::Variable loopParam = CreateVariable();
+        loopParam = GetLoopParam(0, moConfig.memSlice * moConfig.loopCount, 0);
+        loopParam += goSize.loopParam;
+
+        CcuRep::Variable sliceSize = CreateVariable();
+        sliceSize          = moConfig.memSlice;
+        sliceSizeExpansion = moConfig.memSlice * expansionNum;
+
+        auto lc = Loop(loopType + "_loop_0")(src, dst, sliceSize, sliceSizeExpansion);
+
+        CcuRep::Variable paraCfg = CreateVariable();
+        paraCfg = GetParallelParam(moConfig.loopCount - 1, 0, 1);
+        CcuRep::Variable offsetCfg = CreateVariable();
+        offsetCfg = GetOffsetParam(moConfig.memSlice, moConfig.msInterleave, 1);
+
+        LoopGroup({lc}, {loopParam}, paraCfg, offsetCfg);
+    }
+
+    // 第二个 loopgroup：处理 n 和 p 部分数据
+    CCU_IF(goSize.parallelParam != 0)
+    {
+        src.addr += goSize.addrOffset;
+        for (uint32_t i = 0; i < expansionNum; i++) {
+            dst.addr += goSize.addrOffset;
+        }
+
+        sliceSizeExpansion = 0;
+        for (uint32_t i = 0; i < expansionNum; i++) {
+            sliceSizeExpansion += goSize.residual;
+        }
+
+        auto lc0 = Loop(loopType + "_loop_0")(src, dst, goSize.residual, sliceSizeExpansion);
+
+        src.addr += goSize.residual;
+        for (uint32_t i = 0; i < expansionNum; i++) {
+            dst.addr += goSize.residual;
+        }
+
+        CcuRep::Variable sliceSize = CreateVariable();
+        sliceSize          = moConfig.memSlice;
+        sliceSizeExpansion = moConfig.memSlice * expansionNum;
+
+        auto lc1 = Loop(loopType + "_loop_1")(src, dst, sliceSize, sliceSizeExpansion);
+
+        CcuRep::Variable loopCfg0 = CreateVariable();
+        loopCfg0 = GetLoopParam(0, 0, 1);
+        CcuRep::Variable loopCfg1 = CreateVariable();
+        loopCfg1 = GetLoopParam(0, 0, 1);
+        CcuRep::Variable offsetCfg = CreateVariable();
+        offsetCfg = GetOffsetParam(moConfig.memSlice, moConfig.msInterleave, 1);
+
+        LoopGroup({lc0, lc1}, {loopCfg0, loopCfg1}, goSize.parallelParam, offsetCfg);
+    }
+    return HCCL_SUCCESS;
+}
+
 // write 模式 Broadcast (AllGather)：
 // 每个 LoopBlock 迭代的流程：
 //   1. LocalCopyNb(bufs[rankId], src, len)  — 本端 HBM → bufs[rankId]

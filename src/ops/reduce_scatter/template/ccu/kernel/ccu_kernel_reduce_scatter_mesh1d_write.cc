@@ -84,7 +84,7 @@ void CcuKernelReduceScatterMesh1DWrite::DoGroupWrite()
     dst.addr  = output_;
     dst.token = token_;
 
-    GroupWrite(channels_, rankId_, dst, src, groupOpSize_, dataType_, outputDataType_, reduceOp_);
+    GroupReduceScatterWrite(channels_, rankId_, dst, src, groupOpSize_, dataType_, outputDataType_, reduceOp_);
 }
 
 HcclResult CcuKernelReduceScatterMesh1DWrite::Algorithm()
