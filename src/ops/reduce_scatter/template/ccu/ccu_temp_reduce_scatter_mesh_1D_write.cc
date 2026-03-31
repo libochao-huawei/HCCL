@@ -61,7 +61,7 @@ HcclResult CcuTempReduceScatterMesh1DWrite::CalcRes(HcclComm comm, const OpParam
 
 HcclResult CcuTempReduceScatterMesh1DWrite::KernelRun(const OpParam &param,
                                                        const TemplateDataParams &templateDataParams,
-                                                       const TemplateResource &templateResource)
+                                                       TemplateResource &templateResource)
 {
     static uint32_t roundCounter = 0;
     buffInfo_ = templateDataParams.buffInfo;
