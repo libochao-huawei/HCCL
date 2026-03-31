@@ -374,6 +374,11 @@ aclError aclmdlRICaptureThreadExchangeMode(aclmdlRICaptureMode *mode)
     return ACL_SUCCESS;
 }
 
+aclError aclrtGetOpTimeOutInterval(uint64_t *interval)
+{
+    return ACL_SUCCESS;
+}
+
 void InitRtDlStubFunc()
 {
     hrtGetDeviceTypePtr = hrtGetDeviceTypeStub;
