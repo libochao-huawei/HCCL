@@ -349,6 +349,7 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
     HCCL_DEBUG("[HcclAicpuKernelEntranceLaunch]start to run aicpu kernel");
     // 当前aicpu launch接口只能有一个输入参数，将Context指针放在param参数中
     param.resCtx = resCtxSequence;
+    param.aicpuRecordCpuIdx = HOST_WAIT_AICPU_NOTIFYIDX;
     // 将算法名字放在param参数中
     int result = sprintf_s(param.algName, sizeof(param.algName), "%s", algName.c_str());
     if (result <= 0) {
@@ -377,7 +378,6 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
     }
     // Host stream等待Device的通知
     u16 NOTIFY_WAIT_TIME = 27 * 68;
-    param.aicpuRecordCpuIdx = HOST_WAIT_AICPU_NOTIFYIDX;
     CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, HOST_WAIT_AICPU_NOTIFYIDX, NOTIFY_WAIT_TIME)));
 
     return HCCL_SUCCESS;

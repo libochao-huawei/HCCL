@@ -34,7 +34,7 @@ HcclResult CreateScatter(OpParam *param, ScatterOpInfo *opInfo)
     return HCCL_SUCCESS;
 }
 
-std::shared_ptr<HcclDfxOpInfo> ConvertToHcclDfxOpInfo(OpParam *param)
+HcclResult ConvertToHcclDfxOpInfo(OpParam *param, HcclDfxOpInfo *dfxOpInfo)
 {
     CHK_PTR_NULL(param);
     auto dfxOpInfo = std::make_shared<HcclDfxOpInfo>();
@@ -51,7 +51,7 @@ std::shared_ptr<HcclDfxOpInfo> ConvertToHcclDfxOpInfo(OpParam *param)
     dfxOpInfo->cpuTsThread = param->opThread;
     dfxOpInfo->cpuWaitAicpuNotifyIdx = param->aicpuRecordCpuIdx;
     
-    return dfxOpInfo;
+    return HCCL_SUCCESS;
 }
 
 void GetScatterOpInfo(const void *opInfo, char *outPut, size_t size)
