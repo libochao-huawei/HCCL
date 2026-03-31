@@ -28,6 +28,18 @@ uint32_t CountCrossServerChannels(const OpParam &param, const AlgResourceCtx &re
     return count;
 }
 
+const char *ToCommModeString(BatchCommMode commMode)
+{
+    switch (commMode) {
+        case BatchCommMode::kSingleServer:
+            return "single-server";
+        case BatchCommMode::kCrossServer:
+            return "cross-server";
+        default:
+            return "unknown";
+    }
+}
+
 }  // namespace
 
 AllGatherHDStageCore::AllGatherHDStageCore(const OpParam &param, AlgResourceCtx &resCtx, uint64_t packedBytes)
@@ -61,9 +73,10 @@ HcclResult AllGatherHDStageCore::RunNoPowerPath(const HDStagePlan &plan) const
 
 HcclResult AllGatherHDStageCore::RunPowerPath(const HDStagePlan &plan) const
 {
-    HCCL_INFO("HDStage power path planned: rank=%u, rankSize=%u, powerSteps=%u, packedBytes=%llu",
+    HCCL_INFO("HDStage power path planned: rank=%u, rankSize=%u, commMode=%s, powerSteps=%u, packedBytes=%llu",
         param_.topoInfo.rank,
         param_.topoInfo.rankSize,
+        ToCommModeString(param_.commMode),
         plan.powerSteps,
         static_cast<unsigned long long>(packedBytes_));
 
@@ -84,10 +97,13 @@ HcclResult AllGatherHDStageCore::RunAsync()
 
     const uint32_t crossServerChannels = CountCrossServerChannels(param_, resCtx_);
     const uint32_t intraServerChannels = resCtx_.channelCount - crossServerChannels;
-    HCCL_INFO("HDStage plan ready: rank=%u, rankSize=%u, serverIdx=%u, noPower=%u, powerSteps=%u, packedBytes=%llu, intraServerChannels=%u, crossServerChannels=%u",
+    HCCL_INFO("HDStage plan ready: rank=%u, rankSize=%u, commMode=%s, serverIdx=%u, intraServerRankCount=%u, crossServerRankCount=%u, noPower=%u, powerSteps=%u, packedBytes=%llu, intraServerChannels=%u, crossServerChannels=%u",
         param_.topoInfo.rank,
         param_.topoInfo.rankSize,
+        ToCommModeString(param_.commMode),
         param_.topoInfo.serverIdx,
+        param_.intraServerRankCount,
+        param_.crossServerRankCount,
         plan.noPower,
         plan.powerSteps,
         static_cast<unsigned long long>(packedBytes_),

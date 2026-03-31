@@ -123,6 +123,23 @@ HcclResult FillEndpointLocation(HcclComm comm, BatchTopoInfo &topoInfo)
     return HCCL_SUCCESS;
 }
 
+BatchCommMode DetermineCommMode(const BatchTopoInfo &topoInfo)
+{
+    return (topoInfo.serverCount > 1U) ? BatchCommMode::kCrossServer : BatchCommMode::kSingleServer;
+}
+
+void FillCommModeInfo(OpParam &param)
+{
+    param.commMode = DetermineCommMode(param.topoInfo);
+    if (param.commMode == BatchCommMode::kCrossServer && param.topoInfo.serverCount > 0) {
+        param.intraServerRankCount = param.topoInfo.rankSize / param.topoInfo.serverCount;
+        param.crossServerRankCount = param.topoInfo.rankSize - param.intraServerRankCount;
+    } else {
+        param.intraServerRankCount = param.topoInfo.rankSize;
+        param.crossServerRankCount = 0;
+    }
+}
+
 HcclResult BuildFreshResourceCtx(HcclComm comm, const BatchTopoInfo &topoInfo, AlgResourceCtx &resCtx)
 {
     // 先准备主线程和本地 HCCL buffer，它们是 Pack/Unpack 和 AICPU 控制流的最小前提。
@@ -262,10 +279,11 @@ HcclResult AllGatherBatchOp::PrepareTopoInfo(HcclComm comm, BatchTopoInfo &topoI
 HcclResult AllGatherBatchOp::PrepareOpParam(
     const HcclAllGatherItem *items, uint32_t itemCount, HcclComm comm, OpParam &param) const
 {
-    // OpParam 在这一阶段先承载稳定的 launch 入参：tag、comm 名称、topo 基本信息、总字节量。
+    // OpParam 在这一阶段先承载稳定的 launch 入参：tag、comm 名称、topo 基本信息、通信模式和总字节量。
     std::snprintf(param.tag, sizeof(param.tag), "%s", kAllGatherBatchCtxTag);
     HCCL_CHK_RET(HcclGetCommName(comm, param.commName));
     HCCL_CHK_RET(PrepareTopoInfo(comm, param.topoInfo));
+    FillCommModeInfo(param);
 
     param.itemCount = itemCount;
     param.appendedItemBytes = static_cast<uint64_t>(itemCount) * sizeof(BatchItemParam);

@@ -29,6 +29,12 @@ enum class BatchKernelOpType : uint32_t {
     kAllGatherBatch = 1,
 };
 
+enum class BatchCommMode : uint32_t {
+    kUnknown = 0,
+    kSingleServer = 1,
+    kCrossServer = 2,
+};
+
 struct CommBuffer {
     void *addr = nullptr;
     uint64_t size = 0;
@@ -77,7 +83,10 @@ struct OpParam {
     char commName[COMM_NAME_MAX_LENGTH] = {0};
     BatchTopoInfo topoInfo {};
     BatchKernelOpType opType = BatchKernelOpType::kAllGatherBatch;
+    BatchCommMode commMode = BatchCommMode::kUnknown;
     uint32_t itemCount = 0;
+    uint32_t intraServerRankCount = 0;
+    uint32_t crossServerRankCount = 0;
     uint32_t reserved0 = 0;
     uint64_t appendedItemBytes = 0;
     uint64_t totalInputBytes = 0;

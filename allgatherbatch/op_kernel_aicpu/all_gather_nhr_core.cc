@@ -4,6 +4,22 @@
 
 namespace ops_hccl_allgatherbatch {
 
+namespace {
+
+const char *ToCommModeString(BatchCommMode commMode)
+{
+    switch (commMode) {
+        case BatchCommMode::kSingleServer:
+            return "single-server";
+        case BatchCommMode::kCrossServer:
+            return "cross-server";
+        default:
+            return "unknown";
+    }
+}
+
+}  // namespace
+
 AllGatherNHRCore::AllGatherNHRCore(const OpParam &param, AlgResourceCtx &resCtx, uint64_t packedBytes)
     : param_(param), resCtx_(resCtx), packedBytes_(packedBytes)
 {
@@ -22,6 +38,10 @@ HcclResult AllGatherNHRCore::ValidateCommState() const
     if (packedBytes_ == 0) {
         HCCL_ERROR("packedBytes is zero");
         return HCCL_E_PARA;
+    }
+    if (param_.commMode == BatchCommMode::kUnknown) {
+        HCCL_ERROR("commMode is unknown");
+        return HCCL_E_INTERNAL;
     }
 
     const uint64_t totalBytes = packedBytes_ * param_.topoInfo.rankSize;
@@ -207,9 +227,12 @@ HcclResult AllGatherNHRCore::RunAsync()
 
     const uint32_t intraServerChannels = CountChannelsByScope(false);
     const uint32_t crossServerChannels = CountChannelsByScope(true);
-    HCCL_INFO("NHR core step plan ready: rank=%u, rankSize=%u, steps=%u, packedBytes=%llu, channelCount=%u, intraServerChannels=%u, crossServerChannels=%u",
+    HCCL_INFO("NHR core step plan ready: rank=%u, rankSize=%u, commMode=%s, intraServerRankCount=%u, crossServerRankCount=%u, steps=%u, packedBytes=%llu, channelCount=%u, intraServerChannels=%u, crossServerChannels=%u",
         param_.topoInfo.rank,
         param_.topoInfo.rankSize,
+        ToCommModeString(param_.commMode),
+        param_.intraServerRankCount,
+        param_.crossServerRankCount,
         static_cast<unsigned int>(stepPlan.size()),
         static_cast<unsigned long long>(packedBytes_),
         resCtx_.channelCount,
@@ -219,8 +242,10 @@ HcclResult AllGatherNHRCore::RunAsync()
     // 这里先保留 NHR 的控制层边界，但数据面已经按同 server / 跨 server 两个 scope 分开组织。
     HCCL_CHK_RET(NotifyReadyByScope(false));
     HCCL_CHK_RET(ReadRemoteRanksByScope(false));
-    HCCL_CHK_RET(NotifyReadyByScope(true));
-    HCCL_CHK_RET(ReadRemoteRanksByScope(true));
+    if (param_.commMode == BatchCommMode::kCrossServer) {
+        HCCL_CHK_RET(NotifyReadyByScope(true));
+        HCCL_CHK_RET(ReadRemoteRanksByScope(true));
+    }
     return HCCL_SUCCESS;
 }
 
