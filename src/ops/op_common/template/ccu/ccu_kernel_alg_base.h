@@ -116,6 +116,12 @@ protected:
     HcclResult GroupBroadcastWrite(const std::vector<ChannelHandle> &channels, uint32_t rankId,
                                     std::vector<CcuRep::RemoteAddr> dst,
                                     CcuRep::LocalAddr src, GroupOpSize goSize);
+    // write 模式 ReduceScatter：本端拆分N个slice发送到对应rank，接收其他rank发送的对应本端slice，reduce后输出
+    HcclResult CreateMultiOpReduceScatterWrite(const std::vector<ChannelHandle> &channels, uint32_t rankId,
+                                                HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType);
+    HcclResult GroupReduceScatterWrite(const std::vector<ChannelHandle> &channels, uint32_t rankId, CcuRep::LocalAddr dst,
+                                        std::vector<CcuRep::LocalAddr> srcs, GroupOpSize goSize, HcclDataType dataType,
+                                        HcclDataType outputDataType, HcclReduceOp opType);
 
 private:
     HcclResult CreateMultiOpCopy();
