@@ -20,8 +20,196 @@
 #include "kernel_launch.h"
 #include "hcomm_diag_dl.h"
 #include "hcomm_device_profiling_dl.h"
+#include <unordered_map>
+#include <shared_mutex>
+#include <atomic>
 
 using namespace ops_hccl;
+namespace {
+    //统计缓存信息
+    struct CacheStats {
+        std::atomic<uint64_t> hits{0};
+        std::atomic<uint64_t> misses{0};
+
+        double hitRate() const {
+            uint64_t total = hits + misses;
+            return total > 0 ? static_cast<double>(hits) / total : 0.0;
+        }
+
+        void Reset() {
+            hits = 0;
+            misses = 0;
+        }
+    };
+
+    //通信域缓存
+    class CommDomainCache {
+        public:
+            explicit CommDomainCache(const std::string& commName) : commName_(commName) {}
+
+            const std::string& GetCommName() const {return commName_; }
+
+            //获得缓存项，返回指针。不存在则返回 nullptr
+            AlgResourceCtxSerializable* Get(const std::string& algTag) {
+                std::shared_lock<std::shared_timed_mutex> lock(mutex_);
+                auto it = cache_.find(algTag);
+                return it != cache_.end() ? &it->second : nullptr;
+            }
+
+            //缓存算法
+            void Put(const std::string& algTag, const AlgResourceCtxSerializable& value) {
+                std::unique_lock<std::shared_timed_mutex> lock(mutex_);
+                cache_[algTag] = value;
+            }
+
+            //移除特定算法
+            bool Remove(const std::string& algTag) {
+                std::unique_lock<std::shared_timed_mutex> lock(mutex_);
+                return cache_.erase(algTag) > 0;
+            }
+
+            //清空所有缓存项
+            void Clear() {
+                std::unique_lock<std::shared_timed_mutex> lock(mutex_);
+                cache_.clear();
+            }
+
+            CacheStats& GetStats() { return stats_; }
+            const CacheStats& GetStats() const { return stats_; }
+
+            size_t GetCacheSize() const {
+                std::shared_lock<std::shared_timed_mutex> lock(mutex_);
+                return cache_.size();
+            }
+
+        private:
+            std::string commName_;
+            std::unordered_map<std::string, AlgResourceCtxSerializable> cache_;
+            CacheStats stats_;
+            mutable std::shared_timed_mutex mutex_;
+     };
+
+    //通信域缓存管理器
+    class CommDomainCacheManager {
+        public:
+            //获取算法缓存
+            AlgResourceCtxSerializable* Get(const std::string& algTag, const std::string& paramCommName) {
+                std::string commName = ExtractCommName(algTag);
+                //提取失败时使用参数中的commName
+                if (commName.empty()) commName = paramCommName;
+
+                CommDomainCache* commCache = GetOrCreateComm(commName);
+                if (commCache) {
+                    auto& stats = commCache->GetStats();
+                    auto result = commCache->Get(algTag);
+                    if (result) {
+                        stats.hits++;
+                        return result;
+                    }
+                    stats.misses++;
+                }
+                return nullptr;
+            }
+
+            //缓存算法结果
+            void Put(const std::string& algTag, const AlgResourceCtxSerializable& value, const std::string& paramCommName) {
+                std::string commName = ExtractCommName(algTag);
+                if (commName.empty()) commName = paramCommName;
+
+                CommDomainCache* commCache = GetOrCreateComm(commName);
+                if (commCache) {
+                    commCache->Put(algTag, value);
+                }
+            }
+
+            //释放通信域缓存
+            bool ReleaseComm(const std::string& commName) {
+                std::unique_lock<std::shared_timed_mutex> lock(mapMutex_);
+                return commCaches_.erase(commName) > 0;
+            }
+
+            //获得通信域统计信息
+            bool GetCommStats(const std::string& commName, CacheStats& outStats, size_t& outCacheSize) const {
+                std::shared_lock<std::shared_timed_mutex> lock(mapMutex_);
+                auto it = commCaches_.find(commName);
+                if (it != commCaches_.end()) {
+                    outStats.hits = it->second.GetStats().hits.load();
+                    outStats.misses = it->second.GetStats().misses.load();
+                    outCacheSize = it->second.GetCacheSize();
+                    return true;
+                }
+                return false;
+            }
+
+            //获得全局统计信息
+            void GetGlobalStats(size_t& totalCommDomains, size_t& totalcacheEntries, uint64_t& totalHits, uint64_t& totalMisses) const {
+                std::shared_lock<std::shared_timed_mutex> lock(mapMutex_);
+                totalCommDomains = commCaches_.size();
+                totalcacheEntries = 0;
+                totalHits = 0;
+                totalMisses = 0;
+                for (const auto& [commName, commCache] : commCaches_) {
+                    totalcacheEntries += commCache.GetCacheSize();
+                    totalHits += commCache.GetStats().hits.load();
+                    totalMisses += commCache.GetStats().misses.load();
+                }
+            }
+
+            //清空所有缓存
+            void ClearAll() {
+                std::unique_lock<std::shared_timed_mutex> lock(mapMutex_);
+                commCaches_.clear();
+            }
+
+            //从algTag中提取通信域名称
+            std::string ExtractCommName(const std::string& algTag) {
+                size_t firstUnderscore = algTag.find('_');
+                if (firstUnderscore == std::string::npos) return "";
+
+                size_t secondUnderscore = algTag.find('_', firstUnderscore + 1);
+                if (secondUnderscore == std::string::npos) return "";
+
+                return algTag.substr(firstUnderscore+1, secondUnderscore - firstUnderscore - 1);
+            }
+
+        private:
+            //获取或创建通信域缓存
+            CommDomainCache* GetOrCreateComm(const std::string& commName) {
+                //先尝试读锁快速寻找
+                {
+                    std::shared_lock<std::shared_timed_mutex> lock(mapMutex_);
+                    auto it = commCaches_.find(commName);
+                    if (it != commCaches_.end()) {
+                        return &it->second;
+                    }
+                }
+
+                //未找到，获取写锁创建
+                {
+                    std::unique_lock<std::shared_timed_mutex> lock(mapMutex_);
+                    //双重检查
+                    auto it = commCaches_.find(commName);
+                    if (it != commCaches_.end()) {
+                        return &it->second;
+                    }
+
+                    //创建新的通信域缓存
+                    auto result = commCaches_.emplace(
+                        std::piecewise_construct,
+                        std::forward_as_tuple(commName),
+                        std::forward_as_tuple(commName)
+                    );
+                    return &result.first->second;
+                }
+            }
+
+            mutable std::shared_timed_mutex mapMutex_;
+            std::unordered_map<std::string, CommDomainCache> commCaches_;
+    };
+
+    //全局缓存管理器实例
+    thread_local CommDomainCacheManager g_cacheManager;
+}
 
 extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
 {
@@ -69,9 +257,29 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
     #endif
         AlgResourceCtxSerializable resCtx;
 
-        char *ctx = static_cast<char *>(param->resCtx);
-        std::vector<char> seq(ctx, ctx + param->ctxSize);
-        resCtx.DeSerialize(seq);
+        //通过缓存实现反序列化优化
+        AlgResourceCtxSerializable* cachedResCtx = g_cacheManager.Get(param->algTag, param->commName);
+        if (cachedResCtx != nullptr) {
+            HCCL_INFO("[%s] Cache HIT for algTag[%s]", __func__, param->algTag);
+            std::string commName = g_cacheManager.ExtractCommName(param->algTag);
+            if (commName.empty()) commName = param->commName;
+
+            CacheStats stats;
+            size_t cacheSize;
+            if (g_cacheManager.GetCommStats(commName, stats, cacheSize)) {
+                HCCL_DEBUG("[%s] comm[%s] hitRate=%.2f%%, cacheSize=%zu",
+                __func__, commName.c_str(), stats.hitRate() * 100, cacheSize);
+            resCtx = *cachedResCtx;
+            }
+        } else {
+            //未命中，进行反序列化并存入缓存
+            char *ctx = static_cast<char *>(param->resCtx);
+            std::vector<char> seq(ctx, ctx + param->ctxSize);
+            resCtx.DeSerialize(seq);
+            g_cacheManager.Put(param->algTag, resCtx, param->commName);
+            HCCL_INFO("[%s] Cache MISS and stored for algTag[%s]", __func__, param->algTag);
+        }
+
         // 还原变长指针
         HcclResult ret = HCCL_SUCCESS;
         if (param->opType == HCCL_CMD_BATCH_SEND_RECV) {

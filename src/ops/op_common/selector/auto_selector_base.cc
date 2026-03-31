@@ -16,7 +16,7 @@ namespace ops_hccl {
 SelectorStatus AutoSelectorBase::Select(OpParam &opParam, TopoInfoWithNetLayerDetails* topoInfo,
                                         std::string &selectAlgName) const
 {
-    HCCL_DEBUG("[AutoSelectorBase][%s] start", __func__);
+    HCCL_DEBUG("[AutoSelectorBase][%s] start, OpExecuteConfig is %d.", __func__, opParam.opExecuteConfig);
     std::map<HcclCMDType, std::vector<HcclAlgoType>> configAlgMap = GetExternalInputHcclAlgoConfigAllType();
     SelectorStatus ret = SelectorStatus::NOT_MATCH;
     bool hostDPUOnly = false;
@@ -41,13 +41,8 @@ SelectorStatus AutoSelectorBase::Select(OpParam &opParam, TopoInfoWithNetLayerDe
             return ret;
         }
     }
-    if (opParam.opExecuteConfig == OpExecuteConfig::AIV) {
-        ret = SelectAivAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
-        if (ret == SelectorStatus::NOT_MATCH) {
-            opParam.opExecuteConfig = OpExecuteConfig::CCU_FAIL;
-        } else {
-            return ret;
-        }
+    if (ProcessAivConfig(opParam, topoInfo, configAlgMap, selectAlgName, ret)) {
+        return ret;
     }
     if (IsStarsState(opParam.opExecuteConfig)) {
         ret = SelectAicpuAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
@@ -308,6 +303,27 @@ bool AutoSelectorBase::IsInputOutputOverlap(const OpParam &opParam) const
 
     HCCL_DEBUG("[Algo][AutoSelectorBase][IsInputOutputOverlap]No overlap between input and output memory.");
     return false;
+}
+
+bool AutoSelectorBase::ProcessAivConfig(OpParam &opParam, TopoInfoWithNetLayerDetails* topoInfo,
+                                        const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+                                        std::string &selectAlgName, SelectorStatus &ret) const
+{
+    if (opParam.opExecuteConfig != OpExecuteConfig::AIV && opParam.opExecuteConfig != OpExecuteConfig::AIV_ONLY) {
+        return false; 
+    }
+
+    ret = SelectAivAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
+    if (ret == SelectorStatus::NOT_MATCH) {
+        if (opParam.opExecuteConfig == OpExecuteConfig::AIV_ONLY) {
+            HCCL_ERROR("[Algo][AutoSelectorBase] Failed to select AIV algorithm while configured as AIV_ONLY.");
+            return true;
+        }
+        opParam.opExecuteConfig = OpExecuteConfig::CCU_FAIL;
+        return false; 
+    } 
+    
+    return true; 
 }
 
 }
