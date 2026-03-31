@@ -2,6 +2,7 @@
 
 #include <cstdio>
 
+#include "hccl/hccl_rank_graph.h"
 #include "launch_kernel.h"
 #include "load_kernel.h"
 #include "log.h"
@@ -22,6 +23,95 @@ HcclResult EnsureControlNotifies(AlgResourceCtx &resCtx)
     return HCCL_SUCCESS;
 }
 
+HcclResult QueryNetLayers(HcclComm comm, uint32_t **netLayers, uint32_t *netLayerNum)
+{
+    HCCL_CHK_PTR(netLayers);
+    HCCL_CHK_PTR(netLayerNum);
+    return HcclRankGraphGetLayers(comm, netLayers, netLayerNum);
+}
+
+HcclResult QueryChannelProtocol(HcclComm comm, uint32_t localRank, uint32_t remoteRank, CommProtocol &protocol)
+{
+    uint32_t *netLayers = nullptr;
+    uint32_t netLayerNum = 0;
+    HCCL_CHK_RET(QueryNetLayers(comm, &netLayers, &netLayerNum));
+
+    for (uint32_t idx = 0; idx < netLayerNum; ++idx) {
+        CommLink *links = nullptr;
+        uint32_t linkNum = 0;
+        HcclResult ret = HcclRankGraphGetLinks(comm, netLayers[idx], localRank, remoteRank, &links, &linkNum);
+        if (ret == HCCL_SUCCESS && links != nullptr && linkNum > 0) {
+            protocol = links[0].linkAttr.linkProtocol;
+            return HCCL_SUCCESS;
+        }
+    }
+
+    HCCL_ERROR("failed to query link protocol between rank=%u and remoteRank=%u", localRank, remoteRank);
+    return HCCL_E_NOT_FOUND;
+}
+
+HcclResult FillServerGroupInfo(HcclComm comm, BatchTopoInfo &topoInfo)
+{
+    uint32_t *instSizeList = nullptr;
+    uint32_t instListSize = 0;
+    HcclResult ret = HcclRankGraphGetInstSizeListByLayer(comm, 0, &instSizeList, &instListSize);
+    if (ret != HCCL_SUCCESS || instSizeList == nullptr || instListSize == 0) {
+        // 单机或简单场景下 rank graph 可能拿不到更细粒度 server 信息，这里回退到默认值。
+        topoInfo.serverCount = 1;
+        topoInfo.serverIdx = 0;
+        return HCCL_SUCCESS;
+    }
+
+    topoInfo.serverCount = instListSize;
+    uint32_t rankBase = 0;
+    for (uint32_t serverIdx = 0; serverIdx < instListSize; ++serverIdx) {
+        const uint32_t rankEnd = rankBase + instSizeList[serverIdx];
+        if (topoInfo.rank < rankEnd) {
+            topoInfo.serverIdx = serverIdx;
+            return HCCL_SUCCESS;
+        }
+        rankBase = rankEnd;
+    }
+
+    topoInfo.serverIdx = 0;
+    return HCCL_SUCCESS;
+}
+
+HcclResult FillEndpointLocation(HcclComm comm, BatchTopoInfo &topoInfo)
+{
+    uint32_t *serverRanks = nullptr;
+    uint32_t serverRankNum = 0;
+    HcclResult ret = HcclRankGraphGetRanksByLayer(comm, 0, &serverRanks, &serverRankNum);
+    if (ret != HCCL_SUCCESS || serverRanks == nullptr || serverRankNum == 0) {
+        return HCCL_SUCCESS;
+    }
+
+    uint32_t peerRank = topoInfo.rank;
+    for (uint32_t idx = 0; idx < serverRankNum; ++idx) {
+        if (serverRanks[idx] != topoInfo.rank) {
+            peerRank = serverRanks[idx];
+            break;
+        }
+    }
+    if (peerRank == topoInfo.rank && topoInfo.rankSize > 1) {
+        peerRank = (topoInfo.rank == 0) ? 1 : 0;
+    }
+    if (peerRank == topoInfo.rank) {
+        return HCCL_SUCCESS;
+    }
+
+    CommLink *links = nullptr;
+    uint32_t linkNum = 0;
+    ret = HcclRankGraphGetLinks(comm, 0, topoInfo.rank, peerRank, &links, &linkNum);
+    if (ret != HCCL_SUCCESS || links == nullptr || linkNum == 0) {
+        return HCCL_SUCCESS;
+    }
+
+    topoInfo.serverIdx = links[0].srcEndpointDesc.loc.device.serverIdx;
+    topoInfo.superPodIdx = links[0].srcEndpointDesc.loc.device.superPodIdx;
+    return HCCL_SUCCESS;
+}
+
 HcclResult BuildFreshResourceCtx(HcclComm comm, const BatchTopoInfo &topoInfo, AlgResourceCtx &resCtx)
 {
     // 先准备主线程和本地 HCCL buffer，它们是 Pack/Unpack 和 AICPU 控制流的最小前提。
@@ -32,7 +122,8 @@ HcclResult BuildFreshResourceCtx(HcclComm comm, const BatchTopoInfo &topoInfo, A
     resCtx.localBuffer.addr = localBuffer;
     resCtx.channelCount = 0;
 
-    // 多 rank 时，先按“本 rank 到其它 rank 各建 1 条 channel”的最小模型申请资源。
+    // 多 rank 时，按“本 rank 到其它 rank 各建 1 条 channel”的最小模型申请资源。
+    // 这里不再硬编码 HCCS，而是按 rank graph 查询每个对端的真实链路协议，为跨 server 场景留出正确协议入口。
     if (topoInfo.rankSize <= 1) {
         return HCCL_SUCCESS;
     }
@@ -50,8 +141,11 @@ HcclResult BuildFreshResourceCtx(HcclComm comm, const BatchTopoInfo &topoInfo, A
         if (remoteRank == topoInfo.rank) {
             continue;
         }
+
+        CommProtocol protocol = COMM_PROTOCOL_RESERVED;
+        HCCL_CHK_RET(QueryChannelProtocol(comm, topoInfo.rank, remoteRank, protocol));
         channelDescs[channelCount].remoteRank = remoteRank;
-        channelDescs[channelCount].channelProtocol = CommProtocol::COMM_PROTOCOL_HCCS;
+        channelDescs[channelCount].channelProtocol = protocol;
         channelDescs[channelCount].notifyNum = 2;
         ++channelCount;
     }
@@ -132,10 +226,13 @@ HcclResult AllGatherBatchOp::PrepareTopoInfo(HcclComm comm, BatchTopoInfo &topoI
     HCCL_CHK_RET(HcclGetRankId(comm, &topoInfo.rank));
     HCCL_CHK_RET(HcclGetRankSize(comm, &topoInfo.rankSize));
 
-    // 当前只先收集公共接口稳定可得的信息，server 维度细节等后续跨 server 阶段再补。
-    topoInfo.serverCount = 0;
+    topoInfo.serverCount = 1;
     topoInfo.serverIdx = 0;
     topoInfo.superPodIdx = 0;
+
+    // 这里开始使用 hcomm 的公开 rank graph 接口，补齐跨 server 场景至少需要的 server 归属与分组规模。
+    HCCL_CHK_RET(FillServerGroupInfo(comm, topoInfo));
+    HCCL_CHK_RET(FillEndpointLocation(comm, topoInfo));
     return HCCL_SUCCESS;
 }
 
