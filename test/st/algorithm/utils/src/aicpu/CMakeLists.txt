@@ -118,6 +118,7 @@ set(INCLUDE_LIST
     ${HCCL_DEV_BASE}/src/ops/batch_send_recv
     ${HCCL_DEV_BASE}/src/ops/batch_send_recv/executor
     ${HCCL_DEV_BASE}/src/ops/batch_send_recv/selector
+    ${HCCL_DEV_BASE}/src/common/hcomm_dlsym
 )
 
 list(APPEND INCLUDE_LIST
@@ -240,6 +241,7 @@ add_library(scatter_aicpu_kernel SHARED
     ${HCCL_DEV_BASE}/src/ops/all_reduce/template/aicpu/ins_temp_all_reduce_mesh_1D_one_shot.cc
     ${HCCL_DEV_BASE}/src/ops/all_reduce/template/aicpu/ins_temp_all_reduce_mesh_1D_two_shot.cc
     ${HCCL_DEV_BASE}/src/ops/all_reduce/template/aicpu/ins_temp_all_reduce_nhr.cc
+    ${HCCL_DEV_BASE}/src/ops/all_reduce/template/aicpu/ins_temp_all_reduce_aicpu_reduce_nhr.cc
     ${HCCL_DEV_BASE}/src/ops/all_reduce/template/aicpu/ins_temp_all_reduce_mesh_1D_two_shot_mesh_chunk.cc
 
     ${HCCL_DEV_BASE}/src/ops/broadcast/executor/ins_v2_broadcast_sole_executor.cc

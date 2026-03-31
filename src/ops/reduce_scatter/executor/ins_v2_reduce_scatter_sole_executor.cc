@@ -132,6 +132,7 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchest
         HCCL_ERROR("[InsV2ReduceScatterSoleExecutor][OrchestrateOpbase] maxDataCountPerLoop is 0"), HCCL_E_INTERNAL);
     // 计算loopTimes
     u64 loopTimes = dataCount_ / maxDataCountPerLoop + static_cast<u64>(dataCount_ % maxDataCountPerLoop != 0);
+    tempAlgParams.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
     u64 processedDataCount = 0;
     for (u64 loop = 0; loop < loopTimes; loop++) {
         u64 currDataCount = (loop == loopTimes - 1) ? dataCount_ - processedDataCount : maxDataCountPerLoop;
@@ -228,7 +229,7 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLau
     tempFastLaunchCtx.buffInfo.hcclBuff = param.hcclBuff;
     
     // 3 调template
-    std::shared_ptr<InsAlgTemplate> algTemplate = std::make_shared<InsAlgTemplate>();
+    std::unique_ptr<InsAlgTemplate> algTemplate = std::make_unique<InsAlgTemplate>();
     CHK_RET(algTemplate->FastLaunch(param, tempFastLaunchCtx));
     HCCL_INFO("[InsV2ReduceScatterSoleExecutor][FastLaunch] End.");
     return HCCL_SUCCESS;

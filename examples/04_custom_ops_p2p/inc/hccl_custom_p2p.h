@@ -11,10 +11,10 @@
 #ifndef OPS_HCCL_P2P_CUSTOM_P2P_H
 #define OPS_HCCL_P2P_CUSTOM_P2P_H
 
-#include "hccl/hccl_comm.h"
-#include "hccl/hccl_res.h"
-#include "hccl/hccl_types.h"
-#include "acl/acl.h"
+#include <acl/acl.h>
+#include <hccl/hccl_comm.h>
+#include <hccl/hccl_res.h>
+#include <hccl/hccl_types.h>
 
 #ifdef __cplusplus
 extern "C" {

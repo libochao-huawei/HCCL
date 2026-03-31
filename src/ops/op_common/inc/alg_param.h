@@ -32,7 +32,7 @@ constexpr uint64_t UB_MAX_DATA_SIZE = 256*1024*1024; // Byte, UB协议一次传�
 
 constexpr uint32_t DATATYPE_SIZE_TABLE[HCCL_DATA_TYPE_RESERVED] = {sizeof(int8_t), sizeof(int16_t), sizeof(int32_t),
     2, sizeof(float), sizeof(int64_t), sizeof(uint64_t), sizeof(uint8_t), sizeof(uint16_t), sizeof(uint32_t),
-    8, 2, 16, 2, 1, 1, 1, 1};
+    8, 2, 16, 2, 1, 1, 1, 1, 1};
 
 constexpr u32 COMM_INDENTIFIER_MAX_LENGTH = 128;
 constexpr uint32_t OP_NAME_LENGTH = 32;
@@ -254,37 +254,45 @@ struct CcuKernelInfo {
     std::vector<HcclChannelDesc> channels;
 };
 
-// 算法sqe最大个数（alltoallv除外）
+// 算法taskArg入参最大个数，用于快速下发缓存
 #define CCU_MAX_TASK_ARG_NUM 30
 
 struct CcuKernelSubmitInfo {
     CcuKernelHandle kernelHandle;
-    u32 argNum;
-    uint64_t sqeArgs[CCU_MAX_TASK_ARG_NUM];
+    uint64_t cachedArgs[CCU_MAX_TASK_ARG_NUM];
 };
 
 // ccu快速下发上下文
 struct CcuFastLaunchCtx {
     char algName[OP_ALG_LENGTH];
     u32 threadNum;
-    u32 ccuKernelNum[MAX_TEMP_NUM_IN_ALGO];  // 每次调用KernelRun下发的kernel数量
+    u32 ccuKernelNum[MAX_TEMP_NUM_IN_ALGO];  // 每次调用template的KernelRun下发的kernel数量
     // 紧接ThreadHandle数组
     // 紧接CcuKernelSubmitInfo数组
 
     ThreadHandle *GetThreadHandlePtr() const
     {
-        size_t offset = offsetof(CcuFastLaunchCtx, ccuKernelNum) + sizeof(u32) * MAX_TEMP_NUM_IN_ALGO;
-        return reinterpret_cast<ThreadHandle*>(reinterpret_cast<char*>(const_cast<CcuFastLaunchCtx*>(this)) + offset);
+        size_t offset = offsetof(CcuFastLaunchCtx, ccuKernelNum)
+                        + sizeof(u32) * MAX_TEMP_NUM_IN_ALGO;
+        return reinterpret_cast<ThreadHandle*>(
+                    reinterpret_cast<char*>(const_cast<CcuFastLaunchCtx*>(this)) + offset
+                );
     }
     CcuKernelSubmitInfo *GetCcuKernelSubmitInfoPtr() const
     {
-        size_t offset = offsetof(CcuFastLaunchCtx, ccuKernelNum) + sizeof(u32) * MAX_TEMP_NUM_IN_ALGO + sizeof(ThreadHandle) * threadNum;
-        return reinterpret_cast<CcuKernelSubmitInfo*>(reinterpret_cast<char*>(const_cast<CcuFastLaunchCtx*>(this)) + offset);
+        size_t offset = offsetof(CcuFastLaunchCtx, ccuKernelNum)
+                        + sizeof(u32) * MAX_TEMP_NUM_IN_ALGO 
+                        + sizeof(ThreadHandle) * threadNum;
+        return reinterpret_cast<CcuKernelSubmitInfo*>(
+                    reinterpret_cast<char*>(const_cast<CcuFastLaunchCtx*>(this)) + offset
+                );
     }
 
     static u64 GetCtxSize(u32 threadNum, u32 totalCcuKernelNum)
     {
-        return sizeof(CcuFastLaunchCtx) + sizeof(ThreadHandle) * threadNum + sizeof(CcuKernelSubmitInfo) * totalCcuKernelNum;
+        return sizeof(CcuFastLaunchCtx) 
+               + sizeof(ThreadHandle) * threadNum 
+               + sizeof(CcuKernelSubmitInfo) * totalCcuKernelNum;
     }
 };
 
@@ -494,7 +502,6 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     OpExecuteConfig opExecuteConfig;
     u32 numBlocksLimit = 0;
     bool isAivClearEnable = false;
-    s32 aivCountTag = 0;
     u64 ctxSize = 0;
     void* resCtx = nullptr;
     ThreadHandle opThread = 0;
