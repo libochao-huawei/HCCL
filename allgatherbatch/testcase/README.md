@@ -41,6 +41,18 @@ make test-single-item
 - `test-single-item`
   只保留 token item，把 `scale-count` 固定为 `0`
 
+## 方式三：使用 run.sh
+
+如果你已经把可执行文件构建出来，也可以直接用目录里的轻量脚本切场景：
+
+```bash
+./run.sh
+./run.sh fast
+./run.sh single-item --no-verify
+```
+
+它会自动带上对应场景的默认参数；你仍然可以在后面继续追加自己的参数覆盖默认值。
+
 ## 自定义数据量
 
 支持的关键参数：
