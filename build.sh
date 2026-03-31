@@ -22,6 +22,7 @@ ASAN="false"
 COV="false"
 CUSTOM_OPTION="-DCMAKE_INSTALL_PREFIX=${OUTPUT_DIR}"
 FULL_MODE="false"  # 新增变量，用于控制是否全量构建
+STATIC_MODE="false"  # 新增变量，用于控制是否静态编译
 KERNEL="false"  # 新增变量，用于控制是否只编译 ccl_kernel.so
 CANN_3RD_LIB_PATH="${CURRENT_DIR}/third_party"
 CUSTOM_SIGN_SCRIPT="${CURRENT_DIR}/scripts/sign/community_sign_build.py"
@@ -181,6 +182,32 @@ function build_kernel() {
     build scatter_aicpu_kernel
 }
 
+function build_static() {
+    log "Info: Starting static library build"
+
+    # 1. 构建设备端AICPU包（与动态编译共享）
+    log "Info: Building device-side AICPU package"
+    cd ..
+    mkdir -p ${BUILD_DEVICE_DIR}
+    cd ${BUILD_DEVICE_DIR}
+    CURRENT_CUSTOM_OPTION="${CUSTOM_OPTION}"
+    CUSTOM_OPTION="${CURRENT_CUSTOM_OPTION} -DFULL_MODE=ON -DDEVICE_MODE=ON -DKERNEL_MODE=ON -DCUSTOM_SIGN_SCRIPT=${CUSTOM_SIGN_SCRIPT} -DENABLE_SIGN=${ENABLE_SIGN} -DVERSION_INFO=${VERSION_INFO}"
+    build_device
+
+    # 2. 构建静态库（CMake处理所有嵌入逻辑）
+    log "Info: Building host-side static library"
+    cd "${CURRENT_DIR}" && cd "${BUILD_DIR}"
+    CUSTOM_OPTION="${CURRENT_CUSTOM_OPTION} -DDEVICE_MODE=OFF -DSTATIC_MODE=ON"
+    cmake_config
+    build hccl_static_package  # CMake目标，包含所有嵌入逻辑
+
+    # 清理build_device目录
+    [ -n "${BUILD_DEVICE_DIR}" ] && rm -rf ${BUILD_DEVICE_DIR}
+
+    log "Info: Static library build completed successfully"
+    log "Info: Output: ${OUTPUT_DIR}/lib/libhccl_static.a"
+}
+
 function mk_dir() {
   local create_dir="$1"  # the target to make
   mkdir -pv "${create_dir}"
@@ -309,6 +336,8 @@ function usage() {
   echo "                   Set custom ops name to <OPS>"
   echo "    --vendor=<VENDOR>"
   echo "                   Set custom ops vendor to <VENDOR>"
+  echo "    --static"
+  echo "                   Enable static library build mode"
   echo ""
 }
 
@@ -390,6 +419,10 @@ while [[ $# -gt 0 ]]; do
         FULL_MODE="true"
         shift
         ;;
+    --static)
+        STATIC_MODE="true"
+        shift
+        ;;
     --build_aarch)
         BUILD_AARCH="true"
         shift
@@ -457,6 +490,10 @@ fi
 
 if [ "${FULL_MODE}" == "true" ];then
     CUSTOM_OPTION="${CUSTOM_OPTION} -DFULL_MODE=ON"
+fi
+
+if [ "${STATIC_MODE}" == "true" ];then
+    CUSTOM_OPTION="${CUSTOM_OPTION} -DSTATIC_MODE=ON"
 fi
 
 if [ "${BUILD_AARCH}" == "true" ];then
@@ -531,6 +568,8 @@ elif [ "${FULL_MODE}" == "true" ]; then
     CUSTOM_OPTION="${CURRENT_CUSTOM_OPTION} -DDEVICE_MODE=OFF"
     build_package
     [ -n "${BUILD_DEVICE_DIR}" ] && rm -rf ${BUILD_DEVICE_DIR}
+elif [ "${STATIC_MODE}" == "true" ]; then
+    build_static
 else
     CUSTOM_OPTION="${CUSTOM_OPTION} -DDEVICE_MODE=OFF"
     build_package

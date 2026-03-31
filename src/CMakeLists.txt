@@ -366,8 +366,8 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
     )
 
     target_link_directories(scatter_aicpu_kernel PRIVATE
- 	    ${ASCEND_CANN_PACKAGE_PATH}/devlib/device
- 	)
+      ${ASCEND_CANN_PACKAGE_PATH}/devlib/device
+  )
 
     target_link_libraries(scatter_aicpu_kernel PRIVATE
         -Wl,--no-as-needed
@@ -381,7 +381,12 @@ endif()
 
 add_definitions(-DORION_MODE)
 
-add_library(hccl SHARED)
+if(STATIC_MODE)
+    add_library(hccl STATIC)
+    set_target_properties(hccl PROPERTIES OUTPUT_NAME "hccl_static")
+else()
+    add_library(hccl SHARED)
+endif()
 
 if(NOT KERNEL_MODE)
     # 基于ini生成json文件
@@ -398,52 +403,49 @@ if(NOT KERNEL_MODE)
     add_dependencies(hccl aicpu_kernel_json)
 endif()
 
+set(TARGET_NAME hccl)
+
+set(HCCT_TARGET ${TARGET_NAME})
+
 if(BUILD_OPEN_PROJECT)
-    target_compile_definitions(hccl PRIVATE
+    target_compile_definitions(${TARGET_NAME} PRIVATE
         OPEN_BUILD_PROJECT
         $<$<STREQUAL:${PRODUCT_SIDE},host>:_GLIBCXX_USE_CXX11_ABI=0>
     )
 else()
-    target_compile_definitions(hccl PRIVATE
+    target_compile_definitions(${TARGET_NAME} PRIVATE
         $<$<STREQUAL:${PRODUCT_SIDE},host>:_GLIBCXX_USE_CXX11_ABI=0>
     )
 endif()
 
-target_include_directories(hccl PRIVATE
+target_include_directories(${TARGET_NAME} PRIVATE
     ${INCLUDE_LIST}
 )
 
-target_compile_definitions(hccl PRIVATE
+target_compile_definitions(${TARGET_NAME} PRIVATE
     -DHOST_COMPILE
 )
 
-target_compile_options(hccl PRIVATE
+target_compile_options(${TARGET_NAME} PRIVATE
     -Werror
     -fno-common
     -fno-strict-aliasing
     -pipe
-    -O3
-    $<$<CONFIG:Debug>:-g>
-    -std=c++14
+    $<$<CONFIG:Release>:-O3>
+    $<$<CONFIG:Debug>:-O3 -g>
+    $<$<COMPILE_LANGUAGE:CXX>:-std=c++14>
     -fstack-protector-all
 )
 
 # libhccl
-target_link_options(hccl PRIVATE
-    -Wl,-z,relro
-    -Wl,-z,now
-    -Wl,-z,noexecstack
-    $<$<CONFIG:Release>:-s>
-)
-
-target_link_directories(hccl PRIVATE
+target_link_directories(${TARGET_NAME} PRIVATE
     ${ASCEND_CANN_PACKAGE_PATH}/lib64
 )
 
-add_dependencies(hccl hccl_compat)
+add_dependencies(${TARGET_NAME} hccl_compat)
 
 if(BUILD_OPEN_PROJECT)
-    target_link_libraries(hccl PRIVATE
+    target_link_libraries(${TARGET_NAME} PRIVATE
         -Wl,--no-as-needed
         hcomm
         hccl_compat
@@ -454,7 +456,7 @@ if(BUILD_OPEN_PROJECT)
         -Wl,--no-as-needed
     )
 else()
-    target_link_libraries(hccl PRIVATE
+    target_link_libraries(${TARGET_NAME} PRIVATE
         $<BUILD_INTERFACE:slog_headers>
         $<BUILD_INTERFACE:msprof_headers>
         $<BUILD_INTERFACE:npu_runtime_headers>
@@ -471,17 +473,99 @@ else()
     )
 endif()
 
-install(TARGETS hccl
-    LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} OPTIONAL
+if(NOT STATIC_MODE)
+    target_link_options(${TARGET_NAME} PRIVATE
+        -Wl,-z,relro
+        -Wl,-z,now
+        -Wl,-z,noexecstack
+        $<$<CONFIG:Release>:-s>
+    )
+endif()
+
+target_link_directories(${TARGET_NAME} PRIVATE
+    ${ASCEND_CANN_PACKAGE_PATH}/lib64
 )
-if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
-    install(TARGETS scatter_aicpu_kernel
+
+if(STATIC_MODE)
+    target_link_libraries(hccl PRIVATE
+        hcomm
+        acl_rt
+        c_sec
+        unified_dlog
+        mmpa
+    )
+else()
+    if(BUILD_OPEN_PROJECT)
+        target_link_libraries(hccl PRIVATE
+            -Wl,--no-as-needed
+            hcomm
+            acl_rt
+            c_sec
+            unified_dlog
+            mmpa
+            -Wl,--no-as-needed
+        )
+    else()
+        target_link_libraries(hccl PRIVATE
+            $<BUILD_INTERFACE:slog_headers>
+            $<BUILD_INTERFACE:msprof_headers>
+            $<BUILD_INTERFACE:npu_runtime_headers>
+            $<BUILD_INTERFACE:mmpa_headers>
+            -Wl,--no-as-needed
+            hcomm
+            acl_rt
+            c_sec
+            unified_dlog
+            mmpa
+            -Wl,--no-as-needed
+            ofed_headers
+        )
+    endif()
+endif()
+
+if(STATIC_MODE)
+    install(TARGETS hccl
+        ARCHIVE DESTINATION ${INSTALL_LIBRARY_DIR} OPTIONAL
+    )
+else()
+    install(TARGETS hccl
         LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} OPTIONAL
     )
 endif()
 
+if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
+    if(STATIC_MODE)
+        install(TARGETS scatter_aicpu_kernel
+            LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} OPTIONAL
+        )
+    else()
+        install(TARGETS scatter_aicpu_kernel
+            LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} OPTIONAL
+        )
+    endif()
+endif()
+
 add_subdirectory(common)
 add_subdirectory(ops)
+
+# 定义AIV算子聚合目标
+set(AIV_TARGETS
+    hccl_aiv_all_gather_op_910_95
+    hccl_aiv_all_reduce_op_910_95
+    hccl_aiv_all_to_all_v_op_910_95
+    hccl_aiv_all_to_all_op_910_95
+    hccl_aiv_broadcast_op_910_95
+    hccl_aiv_reduce_op_910_95
+    hccl_aiv_reduce_scatter_op_910_95
+    hccl_aiv_scatter_op_910_95
+)
+
+add_custom_target(aiv_all_targets)
+foreach(target ${AIV_TARGETS})
+    if(TARGET ${target})
+        add_dependencies(aiv_all_targets ${target})
+    endif()
+endforeach()
 
 if(DEVICE_MODE AND KERNEL_MODE)
     set(CCL_KERNEL_TAR_DIR ${OPS_BASE_DIR}/build_device/ccl_kernel_tar_pkg/aicpu_kernels_device)
@@ -501,5 +585,89 @@ if(DEVICE_MODE AND KERNEL_MODE)
         COMMAND ${CMAKE_COMMAND} -E make_directory ${AICPU_CUSTOM_DIR}
         COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:scatter_aicpu_kernel> ${AICPU_CUSTOM_DIR}/libscatter_aicpu_kernel.so
         COMMENT "Copying libscatter_aicpu_kernel.so to ${AICPU_CUSTOM_DIR}/libscatter_aicpu_kernel.so"
+    )
+endif()
+
+# 静态库特殊处理：嵌入二进制文件
+if(STATIC_MODE)
+    # 添加静态库恢复代码
+    set(STATIC_RESTORE_SRC ${CMAKE_CURRENT_SOURCE_DIR}/common/static_restore.c)
+    if(NOT EXISTS ${STATIC_RESTORE_SRC})
+        file(WRITE ${STATIC_RESTORE_SRC} "/* Static restore implementation will be generated during build */\n")
+    endif()
+
+    # 架构检测，用于设置正确的ld仿真模式
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+        set(LD_EMULATION "aarch64linux")
+    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "arm")
+        set(LD_EMULATION "armelf_linux_eabi")
+    else()
+        set(LD_EMULATION "elf_x86_64")
+    endif()
+    message(STATUS "Static build: detected processor ${CMAKE_SYSTEM_PROCESSOR}, using ld emulation: ${LD_EMULATION}")
+
+    # 静态库构建完成后的最终处理
+    add_custom_target(hccl_static_package ALL DEPENDS hccl aiv_all_targets)
+
+    # 获取AICPU tar包的路径
+    set(AICPU_TAR_PATH "${CMAKE_BINARY_DIR}/../build_device/aicpu_hccl.tar.gz")
+
+    # 检查AICPU tar包是否存在
+    if(NOT EXISTS "${AICPU_TAR_PATH}")
+        message(WARNING "AICPU tar package not found at: ${AICPU_TAR_PATH}")
+        message(STATUS "This may be expected if device build failed or hasn't run yet")
+    else()
+        message(STATUS "AICPU tar package found: ${AICPU_TAR_PATH}")
+        file(SIZE "${AICPU_TAR_PATH}" AICPU_TAR_SIZE)
+        message(STATUS "AICPU tar package size: ${AICPU_TAR_SIZE} bytes")
+    endif()
+
+    # 查找AIV算子文件
+    file(GLOB_RECURSE AIV_FILES "${CMAKE_BINARY_DIR}/*/hccl_aiv_*.o")
+    list(LENGTH AIV_FILES AIV_FILE_COUNT)
+    if(AIV_FILE_COUNT GREATER 0)
+        message(STATUS "Found ${AIV_FILE_COUNT} AIV operator files")
+        # 记录前几个文件以便调试
+        math(EXPR SHOW_COUNT "min(5, ${AIV_FILE_COUNT})")
+        foreach(i RANGE 0 ${SHOW_COUNT})
+            if(i LESS AIV_FILE_COUNT)
+                list(GET AIV_FILES ${i} AIV_FILE)
+                message(STATUS "  AIV file ${i}: ${AIV_FILE}")
+            endif()
+        endforeach()
+    else()
+        message(WARNING "No AIV operator files found in ${CMAKE_BINARY_DIR}")
+        message(STATUS "This may be expected if AIV operators are not built")
+    endif()
+
+    # 设置最终输出路径
+    set(FINAL_STATIC_LIB "${CMAKE_BINARY_DIR}/src/libhccl_static.a")
+    set(OUTPUT_STATIC_LIB "${CMAKE_INSTALL_PREFIX}/lib/libhccl_static.a")
+
+    # 创建临时目录
+    set(EXTRACT_DIR "${CMAKE_BINARY_DIR}/static_extract")
+
+    add_custom_command(
+        TARGET hccl_static_package
+        POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${EXTRACT_DIR}
+        # 步骤1: 提取原始静态库中的所有.o文件
+        COMMAND cd ${EXTRACT_DIR} && ar -x "${FINAL_STATIC_LIB}"
+        # 步骤2: 将AICPU tar包转换为二进制对象文件（使用相对路径避免路径污染符号名）
+        # 首先检查文件是否存在
+        COMMAND bash -c "if [ ! -f \"${CMAKE_BINARY_DIR}/../build_device/aicpu_hccl.tar.gz\" ]; then echo 'ERROR: AICPU tar package not found: ${CMAKE_BINARY_DIR}/../build_device/aicpu_hccl.tar.gz'; exit 1; fi"
+        # 尝试带仿真模式，如果失败则不带仿真模式
+        COMMAND bash -c "cd \"${CMAKE_BINARY_DIR}/../build_device\" && (ld -r -b binary -m ${LD_EMULATION} -o \"${EXTRACT_DIR}/aicpu_hccl_tar.o\" aicpu_hccl.tar.gz || ld -r -b binary -o \"${EXTRACT_DIR}/aicpu_hccl_tar.o\" aicpu_hccl.tar.gz || (echo 'ERROR: Failed to convert AICPU tar to binary object'; exit 1))"
+        # 步骤3: 验证二进制符号是否正确生成
+        COMMAND bash -c "if nm \"${EXTRACT_DIR}/aicpu_hccl_tar.o\" 2>/dev/null | grep -q '_binary_aicpu_hccl_tar_gz_start'; then echo 'AICPU binary symbols verified'; else echo 'Warning: AICPU binary symbols may be incorrect'; fi"
+        # 步骤4: 转换所有AIV算子文件为二进制对象
+        COMMAND bash -c "cd ${EXTRACT_DIR} && CONVERTED_COUNT=0; for aiv_file in ${AIV_FILES}; do if [ ! -f \"$$aiv_file\" ]; then echo \"WARNING: AIV file not found: $$aiv_file\"; continue; fi; aiv_basename=$$(basename \"$$aiv_file\" .o); clean_name=$$(echo \"$$aiv_basename\" | sed 's/[^a-zA-Z0-9]/_/g'); echo \"Processing AIV file: $$aiv_file -> $${clean_name}_embed.o\"; (cd \"$$(dirname \"$$aiv_file\")\" && (ld -r -b binary -m ${LD_EMULATION} -o \"${EXTRACT_DIR}/$${clean_name}_embed.o\" \"$$(basename \"$$aiv_file\")\" 2>/dev/null || ld -r -b binary -o \"${EXTRACT_DIR}/$${clean_name}_embed.o\" \"$$(basename \"$$aiv_file\")\" 2>/dev/null)) && CONVERTED_COUNT=$$((CONVERTED_COUNT + 1)) || echo \"WARNING: Failed to convert AIV file: $$aiv_file\"; done; echo \"Successfully converted $$CONVERTED_COUNT out of ${AIV_FILE_COUNT} AIV files\""
+        # 步骤5: 创建最终的静态库
+        COMMAND cd ${EXTRACT_DIR} && ar rcs "${OUTPUT_STATIC_LIB}" *.o
+        # 步骤6: 验证最终静态库
+        COMMAND bash -c "echo 'Verifying final static library...'; if [ ! -f \"${OUTPUT_STATIC_LIB}\" ]; then echo 'ERROR: Final static library not created: ${OUTPUT_STATIC_LIB}'; exit 1; fi; OBJECT_COUNT=$$(ar t \"${OUTPUT_STATIC_LIB}\" 2>/dev/null | wc -l); echo \"Final static library contains $$OBJECT_COUNT object files\"; if ar t \"${OUTPUT_STATIC_LIB}\" 2>/dev/null | grep -q 'aicpu_hccl_tar.o'; then echo '✓ AICPU tar embedded successfully'; else echo 'WARNING: AICPU tar not found in final static library'; fi; AIV_EMBED_COUNT=$$(ar t \"${OUTPUT_STATIC_LIB}\" 2>/dev/null | grep -c '_embed.o'); echo \"✓ $$AIV_EMBED_COUNT AIV operator files embedded\"; if [ $$OBJECT_COUNT -gt 0 ]; then echo '✓ Static library embedding completed successfully'; else echo 'ERROR: Static library is empty'; exit 1; fi"
+        # 步骤7: 清理临时目录
+        COMMAND ${CMAKE_COMMAND} -E remove_directory ${EXTRACT_DIR}
+        COMMENT "Processing static library embedding: AICPU tar and AIV operators"
     )
 endif()
