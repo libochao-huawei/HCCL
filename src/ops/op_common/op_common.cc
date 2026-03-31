@@ -212,7 +212,7 @@ HcclResult SetOpParamFastLaunchTag(OpParam &param)
     return HcclResult::HCCL_SUCCESS;
 }
 
-bool CcuFastLaunchSupported(HcclComm comm, OpParam &param, CcuFastLaunchCtx **ccuFastLaunchCtx)
+bool ShouldGoCcuFastLaunch(HcclComm comm, OpParam &param, CcuFastLaunchCtx **ccuFastLaunchCtx)
 {
     param.hcclComm = comm;
     
@@ -236,7 +236,7 @@ bool CcuFastLaunchSupported(HcclComm comm, OpParam &param, CcuFastLaunchCtx **cc
     uint64_t size = 0;
     void *fastLaunchCtxPtr = nullptr;
     if (HcclEngineCtxGet(comm, param.fastLaunchTag, CommEngine::COMM_ENGINE_CCU, &fastLaunchCtxPtr, &size) == HCCL_SUCCESS) {
-        HCCL_INFO("[CcuFastLaunchSupported] get fastLaunchCtx success, size is %u", size);
+        HCCL_INFO("[ShouldGoCcuFastLaunch] get fastLaunchCtx success, size is %u", size);
         *ccuFastLaunchCtx = reinterpret_cast<CcuFastLaunchCtx*>(fastLaunchCtxPtr);
         return true;
     }
@@ -1548,7 +1548,7 @@ bool ShouldUseInnerOp(OpExecuteConfig opExecuteConfig)
     return false;
 }
 
-HcclResult LogHcclExit(const std::string &opName, const std::string &tag, HcclUs startut)
+HcclResult LogHcclExit(const std::string &opName, const char *tag, HcclUs startut)
 {
     if (GetExternalInputHcclEnableEntryLog()) {
         HcclUs endut = TIME_NOW();
