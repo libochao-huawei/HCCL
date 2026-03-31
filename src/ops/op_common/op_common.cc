@@ -316,7 +316,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     } else if (param.engine == COMM_ENGINE_AIV) {
         param.resCtx = resCtxSequence;
         AlgResourceCtxSerializable &aivResCtxHost = *static_cast<AlgResourceCtxSerializable *>(resCtxSequence);
-        CHK_RET(HcclAivKernelEntranceLaunch(param, topoInfo, aivResCtxHost));
+        CHK_RET(HcclAivKernelEntranceLaunch(comm, param, topoInfo, aivResCtxHost));
         CHK_RET(ExecuteAivCacheLogic(param, algName, executor, aivResCtxHost));
     } else if (param.engine == COMM_ENGINE_CCU) {
         if (isResourceReused) {
