@@ -912,17 +912,27 @@ HcclResult CcuKernelAlgBase::CreateMultiOpWrite(const std::vector<ChannelHandle>
         // **********************************
         // 方案二，保证各个端计算顺序一致
         // Step 1: 本端 HBM → bufs[rankId]（每个 rank 固定占用自己的 MS slot）
-        event.mask = 1;
-        LocalCopyNb(bufs[bufs.size() - 1], src, len, event);
-        WaitEvent(event);
+        if (rankId == 0) {
+            event.mask = 1;
+            LocalCopyNb(bufs[bufs.size() - 1], src, len, event);
+            WaitEvent(event);
 
-        for (uint32_t i = 0; i < channels.size(); i++) {
-            CHK_RET(MsWriteNb(channels[i], bufs[bufs.size() - 1], bufs[rankId], len, ckeIdx, WRITE_DONE_MASK));
+            for (uint32_t i = 0; i < channels.size(); i++) {
+                CHK_RET(MsWriteNb(channels[i], bufs[bufs.size() - 1], bufs[rankId], len, ckeIdx, WRITE_DONE_MASK));
+            }
+            event.mask = 1;
+            LocalCopyNb(bufs[0], src, len, event);
+            WaitEvent(event);
+            
+        } else {
+            event.mask = 1;
+            LocalCopyNb(bufs[rankId], src, len, event);
+            WaitEvent(event);
+
+            for (uint32_t i = 0; i < channels.size(); i++) {
+                CHK_RET(MsWriteNb(channels[i], bufs[rankId], bufs[rankId], len, ckeIdx, WRITE_DONE_MASK));
+            }
         }
-
-        event.mask = 1;
-        LocalCopyNb(bufs[rankId], src, len, event);
-        WaitEvent(event);
 
         // Step 5: 等待每个 peer 的写完成通知（WRITE_DONE，bit 2）
         for (uint32_t i = 0; i < channels.size(); i++) {
