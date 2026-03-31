@@ -104,9 +104,27 @@ uint8_t *AllGatherNHRCore::GetRankBuffer(uint32_t rank) const
     return static_cast<uint8_t *>(resCtx_.localBuffer.addr) + (packedBytes_ * rank);
 }
 
-HcclResult AllGatherNHRCore::NotifyLocalReady() const
+bool AllGatherNHRCore::IsCrossServerChannel(const ChannelResource &channel) const
 {
-    // 每个 rank 在开始 remote read 前，先把“本 rank 槽位已就绪”的信号发给所有对端。
+    return channel.remoteServerIdx != param_.topoInfo.serverIdx;
+}
+
+uint32_t AllGatherNHRCore::CountChannelsByScope(bool crossServer) const
+{
+    uint32_t count = 0;
+    for (uint32_t idx = 0; idx < resCtx_.channelCount; ++idx) {
+        if (IsCrossServerChannel(resCtx_.channels[idx]) == crossServer) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+HcclResult AllGatherNHRCore::NotifyReadyByScope(bool crossServer) const
+{
+    const char *scope = crossServer ? "cross-server" : "intra-server";
+
+    // 先按 scope 分开处理，对后面区分 server 内和 server 间不同同步策略更友好。
     for (uint32_t remoteRank = 0; remoteRank < param_.topoInfo.rankSize; ++remoteRank) {
         if (remoteRank == param_.topoInfo.rank) {
             continue;
@@ -115,6 +133,9 @@ HcclResult AllGatherNHRCore::NotifyLocalReady() const
         if (channel == nullptr) {
             HCCL_ERROR("channel to remoteRank=%u is missing", remoteRank);
             return HCCL_E_NOT_FOUND;
+        }
+        if (IsCrossServerChannel(*channel) != crossServer) {
+            continue;
         }
 
         const int32_t ret = HcommChannelNotifyRecordOnThread(
@@ -122,16 +143,18 @@ HcclResult AllGatherNHRCore::NotifyLocalReady() const
             channel->handle,
             channel->remoteNotifyIdx);
         if (ret != HCCL_SUCCESS) {
-            HCCL_ERROR("notify record failed, remoteRank=%u, ret=%d", remoteRank, ret);
+            HCCL_ERROR("%s notify record failed, remoteRank=%u, ret=%d", scope, remoteRank, ret);
             return static_cast<HcclResult>(ret);
         }
     }
     return HCCL_SUCCESS;
 }
 
-HcclResult AllGatherNHRCore::ReadRemoteRanks() const
+HcclResult AllGatherNHRCore::ReadRemoteRanksByScope(bool crossServer) const
 {
-    // 当前最小实现采用“一跳拉取”：等远端 rank 宣告其槽位 ready，再直接从远端 localBuffer 的 rank 槽位读回本地。
+    const char *scope = crossServer ? "cross-server" : "intra-server";
+
+    // 当前同 server 和跨 server 仍复用同一套 remote-read 原语，但这里已经把两类链路分 scope 串起来了。
     for (uint32_t remoteRank = 0; remoteRank < param_.topoInfo.rankSize; ++remoteRank) {
         if (remoteRank == param_.topoInfo.rank) {
             continue;
@@ -141,8 +164,11 @@ HcclResult AllGatherNHRCore::ReadRemoteRanks() const
             HCCL_ERROR("channel to remoteRank=%u is missing", remoteRank);
             return HCCL_E_NOT_FOUND;
         }
+        if (IsCrossServerChannel(*channel) != crossServer) {
+            continue;
+        }
         if (channel->remoteBuffer.addr == nullptr || channel->remoteBuffer.size < (packedBytes_ * param_.topoInfo.rankSize)) {
-            HCCL_ERROR("remote buffer for rank=%u is too small", remoteRank);
+            HCCL_ERROR("%s remote buffer for rank=%u is too small", scope, remoteRank);
             return HCCL_E_INTERNAL;
         }
 
@@ -152,7 +178,7 @@ HcclResult AllGatherNHRCore::ReadRemoteRanks() const
             channel->localNotifyIdx,
             kAllGatherBatchCustomTimeoutMs);
         if (ret != HCCL_SUCCESS) {
-            HCCL_ERROR("notify wait failed, remoteRank=%u, ret=%d", remoteRank, ret);
+            HCCL_ERROR("%s notify wait failed, remoteRank=%u, ret=%d", scope, remoteRank, ret);
             return static_cast<HcclResult>(ret);
         }
 
@@ -160,7 +186,7 @@ HcclResult AllGatherNHRCore::ReadRemoteRanks() const
         const void *src = static_cast<const uint8_t *>(channel->remoteBuffer.addr) + (packedBytes_ * remoteRank);
         ret = HcommReadOnThread(resCtx_.threadHandle, channel->handle, dst, src, packedBytes_);
         if (ret != HCCL_SUCCESS) {
-            HCCL_ERROR("remote read failed, remoteRank=%u, ret=%d", remoteRank, ret);
+            HCCL_ERROR("%s remote read failed, remoteRank=%u, ret=%d", scope, remoteRank, ret);
             return static_cast<HcclResult>(ret);
         }
     }
@@ -179,16 +205,22 @@ HcclResult AllGatherNHRCore::RunAsync()
     std::vector<NHRStepInfo> stepPlan;
     HCCL_CHK_RET(BuildStepPlan(stepPlan));
 
-    HCCL_INFO("NHR core step plan ready: rank=%u, rankSize=%u, steps=%u, packedBytes=%llu, channelCount=%u",
+    const uint32_t intraServerChannels = CountChannelsByScope(false);
+    const uint32_t crossServerChannels = CountChannelsByScope(true);
+    HCCL_INFO("NHR core step plan ready: rank=%u, rankSize=%u, steps=%u, packedBytes=%llu, channelCount=%u, intraServerChannels=%u, crossServerChannels=%u",
         param_.topoInfo.rank,
         param_.topoInfo.rankSize,
         static_cast<unsigned int>(stepPlan.size()),
         static_cast<unsigned long long>(packedBytes_),
-        resCtx_.channelCount);
+        resCtx_.channelCount,
+        intraServerChannels,
+        crossServerChannels);
 
-    // 这里先保留 NHR 的控制层边界，但数据面用最小的一跳 remote-read 闭环把所有 rank 槽位收齐。
-    HCCL_CHK_RET(NotifyLocalReady());
-    HCCL_CHK_RET(ReadRemoteRanks());
+    // 这里先保留 NHR 的控制层边界，但数据面已经按同 server / 跨 server 两个 scope 分开组织。
+    HCCL_CHK_RET(NotifyReadyByScope(false));
+    HCCL_CHK_RET(ReadRemoteRanksByScope(false));
+    HCCL_CHK_RET(NotifyReadyByScope(true));
+    HCCL_CHK_RET(ReadRemoteRanksByScope(true));
     return HCCL_SUCCESS;
 }
 

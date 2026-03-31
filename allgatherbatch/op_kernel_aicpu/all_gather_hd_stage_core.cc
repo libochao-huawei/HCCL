@@ -17,6 +17,17 @@ uint32_t CalcTrailingPowerSteps(uint32_t rankSize)
     return steps;
 }
 
+uint32_t CountCrossServerChannels(const OpParam &param, const AlgResourceCtx &resCtx)
+{
+    uint32_t count = 0;
+    for (uint32_t idx = 0; idx < resCtx.channelCount; ++idx) {
+        if (resCtx.channels[idx].remoteServerIdx != param.topoInfo.serverIdx) {
+            ++count;
+        }
+    }
+    return count;
+}
+
 }  // namespace
 
 AllGatherHDStageCore::AllGatherHDStageCore(const OpParam &param, AlgResourceCtx &resCtx, uint64_t packedBytes)
@@ -70,12 +81,18 @@ HcclResult AllGatherHDStageCore::RunAsync()
 
     HDStagePlan plan;
     HCCL_CHK_RET(BuildStagePlan(plan));
-    HCCL_INFO("HDStage plan ready: rank=%u, rankSize=%u, noPower=%u, powerSteps=%u, packedBytes=%llu",
+
+    const uint32_t crossServerChannels = CountCrossServerChannels(param_, resCtx_);
+    const uint32_t intraServerChannels = resCtx_.channelCount - crossServerChannels;
+    HCCL_INFO("HDStage plan ready: rank=%u, rankSize=%u, serverIdx=%u, noPower=%u, powerSteps=%u, packedBytes=%llu, intraServerChannels=%u, crossServerChannels=%u",
         param_.topoInfo.rank,
         param_.topoInfo.rankSize,
+        param_.topoInfo.serverIdx,
         plan.noPower,
         plan.powerSteps,
-        static_cast<unsigned long long>(packedBytes_));
+        static_cast<unsigned long long>(packedBytes_),
+        intraServerChannels,
+        crossServerChannels);
 
     if (plan.needNoPowerPath) {
         HcclResult ret = RunNoPowerPath(plan);

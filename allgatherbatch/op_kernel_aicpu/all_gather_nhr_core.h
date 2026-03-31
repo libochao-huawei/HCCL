@@ -30,8 +30,10 @@ private:
     HcclResult BuildStepPlan(std::vector<NHRStepInfo> &stepPlan) const;
     const ChannelResource *FindChannel(uint32_t remoteRank) const;
     uint8_t *GetRankBuffer(uint32_t rank) const;
-    HcclResult NotifyLocalReady() const;
-    HcclResult ReadRemoteRanks() const;
+    bool IsCrossServerChannel(const ChannelResource &channel) const;
+    uint32_t CountChannelsByScope(bool crossServer) const;
+    HcclResult NotifyReadyByScope(bool crossServer) const;
+    HcclResult ReadRemoteRanksByScope(bool crossServer) const;
 
     const OpParam &param_;
     AlgResourceCtx &resCtx_;
