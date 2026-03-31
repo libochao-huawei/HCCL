@@ -6,16 +6,26 @@ namespace ops_hccl_allgatherbatch {
 
 namespace {
 
-const char *ToCommModeString(BatchCommMode commMode)
+uint32_t CountChannelsByProtocol(const AlgResourceCtx &resCtx, CommProtocol protocol)
 {
-    switch (commMode) {
-        case BatchCommMode::kSingleServer:
-            return "single-server";
-        case BatchCommMode::kCrossServer:
-            return "cross-server";
-        default:
-            return "unknown";
+    uint32_t count = 0;
+    for (uint32_t idx = 0; idx < resCtx.channelCount; ++idx) {
+        if (resCtx.channels[idx].protocol == protocol) {
+            ++count;
+        }
     }
+    return count;
+}
+
+uint32_t CountCrossServerChannels(const OpParam &param, const AlgResourceCtx &resCtx)
+{
+    uint32_t count = 0;
+    for (uint32_t idx = 0; idx < resCtx.channelCount; ++idx) {
+        if (resCtx.channels[idx].remoteServerIdx != param.topoInfo.serverIdx) {
+            ++count;
+        }
+    }
+    return count;
 }
 
 }
@@ -23,11 +33,16 @@ const char *ToCommModeString(BatchCommMode commMode)
 HcclResult ExecOp(const OpParam &param, AlgResourceCtx *resCtx)
 {
     HCCL_CHK_PTR(resCtx);
-    HCCL_INFO("ExecOp dispatch: rank=%u, rankSize=%u, commMode=%s, channelCount=%u",
+    HCCL_INFO("ExecOp dispatch: rank=%u, rankSize=%u, commMode=%s, channelCount=%u, crossServerChannels=%u, hccs=%u, roce=%u, pcie=%u, sio=%u",
         param.topoInfo.rank,
         param.topoInfo.rankSize,
         ToCommModeString(param.commMode),
-        resCtx->channelCount);
+        resCtx->channelCount,
+        CountCrossServerChannels(param, *resCtx),
+        CountChannelsByProtocol(*resCtx, COMM_PROTOCOL_HCCS),
+        CountChannelsByProtocol(*resCtx, COMM_PROTOCOL_ROCE),
+        CountChannelsByProtocol(*resCtx, COMM_PROTOCOL_PCIE),
+        CountChannelsByProtocol(*resCtx, COMM_PROTOCOL_SIO));
 
     // ExecOp 本身不承载算法细节，只负责做最薄的一层参数转发和入口日志。
     AllGatherBatchSmallCountExecutor executor(param, *resCtx);

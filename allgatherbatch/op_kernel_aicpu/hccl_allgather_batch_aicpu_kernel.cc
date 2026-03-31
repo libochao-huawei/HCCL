@@ -1,6 +1,96 @@
 ﻿#include "common.h"
 #include "exec_op.h"
 
+namespace {
+
+using namespace ops_hccl_allgatherbatch;
+
+uint32_t CountChannelsByProtocol(const AlgResourceCtx &resCtx, CommProtocol protocol)
+{
+    uint32_t count = 0;
+    for (uint32_t idx = 0; idx < resCtx.channelCount; ++idx) {
+        if (resCtx.channels[idx].protocol == protocol) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+uint32_t CountCrossServerChannels(const OpParam &param)
+{
+    uint32_t count = 0;
+    for (uint32_t idx = 0; idx < param.resCtx->channelCount; ++idx) {
+        if (param.resCtx->channels[idx].remoteServerIdx != param.topoInfo.serverIdx) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+HcclResult ValidateKernelResourceCtx(const OpParam &param)
+{
+    const AlgResourceCtx &resCtx = *param.resCtx;
+    if (resCtx.threadHandle == 0) {
+        HCCL_ERROR("AICPU kernel received invalid threadHandle");
+        return HCCL_E_INTERNAL;
+    }
+    if (resCtx.localBuffer.addr == nullptr || resCtx.localBuffer.size == 0) {
+        HCCL_ERROR("AICPU kernel received invalid localBuffer");
+        return HCCL_E_INTERNAL;
+    }
+    if (param.topoInfo.rankSize > 1 && resCtx.channelCount + 1 < param.topoInfo.rankSize) {
+        HCCL_ERROR("AICPU kernel channelCount=%u is insufficient for rankSize=%u",
+            resCtx.channelCount,
+            param.topoInfo.rankSize);
+        return HCCL_E_INTERNAL;
+    }
+
+    const uint32_t crossServerChannels = CountCrossServerChannels(param);
+    const uint32_t recognizedChannels =
+        CountChannelsByProtocol(resCtx, COMM_PROTOCOL_HCCS) +
+        CountChannelsByProtocol(resCtx, COMM_PROTOCOL_ROCE) +
+        CountChannelsByProtocol(resCtx, COMM_PROTOCOL_PCIE) +
+        CountChannelsByProtocol(resCtx, COMM_PROTOCOL_SIO);
+    if (recognizedChannels != resCtx.channelCount) {
+        HCCL_ERROR("AICPU kernel protocol distribution mismatch, recognized=%u, channelCount=%u",
+            recognizedChannels,
+            resCtx.channelCount);
+        return HCCL_E_INTERNAL;
+    }
+    if (param.commMode == BatchCommMode::kSingleServer && crossServerChannels != 0) {
+        HCCL_ERROR("AICPU kernel single-server mode unexpectedly has crossServerChannels=%u", crossServerChannels);
+        return HCCL_E_INTERNAL;
+    }
+    if (param.commMode == BatchCommMode::kCrossServer && crossServerChannels != param.crossServerRankCount) {
+        HCCL_ERROR("AICPU kernel cross-server channel mismatch, channels=%u, expected=%u",
+            crossServerChannels,
+            param.crossServerRankCount);
+        return HCCL_E_INTERNAL;
+    }
+
+    for (uint32_t idx = 0; idx < resCtx.channelCount; ++idx) {
+        const ChannelResource &channel = resCtx.channels[idx];
+        if (channel.remoteRank == param.topoInfo.rank || channel.remoteRank >= param.topoInfo.rankSize) {
+            HCCL_ERROR("AICPU kernel channel %u remoteRank=%u is invalid", idx, channel.remoteRank);
+            return HCCL_E_INTERNAL;
+        }
+        if (channel.remoteSuperPodIdx != param.topoInfo.superPodIdx) {
+            HCCL_ERROR("AICPU kernel channel %u crosses superPod unexpectedly, local=%u, remote=%u",
+                idx,
+                param.topoInfo.superPodIdx,
+                channel.remoteSuperPodIdx);
+            return HCCL_E_INTERNAL;
+        }
+        if (channel.remoteBuffer.addr == nullptr || channel.remoteBuffer.size == 0) {
+            HCCL_ERROR("AICPU kernel channel %u remoteBuffer is invalid", idx);
+            return HCCL_E_INTERNAL;
+        }
+    }
+    return HCCL_SUCCESS;
+}
+
+}
+
 extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
     ops_hccl_allgatherbatch::OpParam *param)
 {
@@ -30,12 +120,11 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
             param->topoInfo.rankSize);
         return 1;
     }
-    if (param->resCtx->threadHandle == 0) {
-        HCCL_ERROR("AICPU kernel received invalid threadHandle");
+    if (ValidateKernelResourceCtx(*param) != HCCL_SUCCESS) {
         return 1;
     }
 
-    HCCL_INFO("AICPU kernel enter: rank=%u, rankSize=%u, commMode=%s, serverIdx=%u, serverCount=%u, intraServerRankCount=%u, crossServerRankCount=%u, channelCount=%u, totalInputBytes=%llu, windowBytes=%llu",
+    HCCL_INFO("AICPU kernel enter: rank=%u, rankSize=%u, commMode=%s, serverIdx=%u, serverCount=%u, intraServerRankCount=%u, crossServerRankCount=%u, channelCount=%u, crossServerChannels=%u, totalInputBytes=%llu, windowBytes=%llu, hccs=%u, roce=%u, pcie=%u, sio=%u",
         param->topoInfo.rank,
         param->topoInfo.rankSize,
         ToCommModeString(param->commMode),
@@ -44,8 +133,13 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
         param->intraServerRankCount,
         param->crossServerRankCount,
         param->resCtx->channelCount,
+        CountCrossServerChannels(*param),
         static_cast<unsigned long long>(param->totalInputBytes),
-        static_cast<unsigned long long>(param->windowBytes));
+        static_cast<unsigned long long>(param->windowBytes),
+        CountChannelsByProtocol(*param->resCtx, COMM_PROTOCOL_HCCS),
+        CountChannelsByProtocol(*param->resCtx, COMM_PROTOCOL_ROCE),
+        CountChannelsByProtocol(*param->resCtx, COMM_PROTOCOL_PCIE),
+        CountChannelsByProtocol(*param->resCtx, COMM_PROTOCOL_SIO));
 
     // Device 入口负责把 Host 下发的控制协议转成完整的设备侧执行时序。
     if (HcommAcquireComm(param->commName) != HCCL_SUCCESS) {
