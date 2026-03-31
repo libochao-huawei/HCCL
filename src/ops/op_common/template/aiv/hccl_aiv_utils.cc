@@ -12,10 +12,12 @@
 #include <vector>
 #include <iostream>
 #include <fstream>
+#include <limits>
 #include "mmpa_api.h"
 #include "adapter_acl.h"
 #include "hccl_aiv_utils.h"
 #include "universal_concurrent_map.h"
+#include "alg_env_config.h"
 
 using namespace std;
 using namespace ops_hccl;
@@ -33,6 +35,57 @@ static bool g_init = false;
 static mutex g_mut;
 static aclrtBinHandle g_binHandle;
 static std::unordered_map<s8*, aclrtFuncHandle> g_aivFuncMap;
+
+thread_local std::shared_ptr<InsQueue> g_recordingQueue = nullptr;
+thread_local u64 g_baseInputAddr = 0;
+thread_local u64 g_baseOutputAddr = 0;
+static HcclResult GetMinAndMaxNpuSchedTimeOut(u64 &minNpuSchedTimeout, u64 &maxNpuSchedTimeout)
+{
+    uint64_t interval = 0;
+    aclError aclRet = aclrtGetOpTimeOutInterval(&interval);
+    CHK_PRT_RET(aclRet != ACL_SUCCESS, HCCL_WARNING("[GetMinAndMaxNpuSchedTimeOut] get timeout interval failed, ret[%d].",
+        aclRet), HCCL_E_RUNTIME);
+
+    constexpr u64 MAX_INTERVAL = 254;
+    minNpuSchedTimeout = interval;
+    maxNpuSchedTimeout = MAX_INTERVAL * interval;
+    return HCCL_SUCCESS;
+}
+
+static u32 GetAivTimeout()
+{
+    double execTimeOut = 0;
+    if (!GetExternalInputExecTimeout(execTimeOut)) {
+        return CUSTOM_TIMEOUT * TIME_S_TO_US;
+    }
+    
+    u32 timeout = CUSTOM_TIMEOUT * TIME_S_TO_US;
+    double timeoutUs = execTimeOut * TIME_S_TO_US;
+    if (timeoutUs > static_cast<double>(std::numeric_limits<s32>::max())) {
+        HCCL_WARNING("[GetAivTimeout]Get input timeout[%.2f] is out of valid range.", timeoutUs);
+        return CUSTOM_TIMEOUT * TIME_S_TO_US;
+    }
+
+    u32 timeoutUsInt = static_cast<u32>(timeoutUs);
+    if (timeoutUsInt == 0) {
+        timeoutUsInt = CUSTOM_TIMEOUT * TIME_S_TO_US;
+    }
+
+    u64 minNpuSchedTimeout = 0;
+    u64 maxNpuSchedTimeout = 0;
+    if (GetMinAndMaxNpuSchedTimeOut(minNpuSchedTimeout, maxNpuSchedTimeout) != HCCL_SUCCESS) {
+        HCCL_WARNING("[GetAivTimeout] get npu sched timeout range failed, use default[%u]us.", CUSTOM_TIMEOUT * TIME_S_TO_US);
+        return CUSTOM_TIMEOUT * TIME_S_TO_US;
+    }
+
+    timeout = (timeoutUsInt < minNpuSchedTimeout) ? minNpuSchedTimeout
+                : (timeoutUsInt > maxNpuSchedTimeout) ? maxNpuSchedTimeout
+                : timeoutUsInt;
+    HCCL_INFO("[GetAivTimeout]timeout[%u]us, execTimeOut[%.2f]s, minNpuSchedTimeout[%u]us, maxNpuSchedTimeout[%u]us.",
+        timeout, execTimeOut, minNpuSchedTimeout, maxNpuSchedTimeout);
+
+    return timeout;
+}
 
 using AivExtraKernelArgs = struct AivExtraKernelArgsDef {
     const void* buffersIn; // 注册的CCLIN地址，所有卡可访问
@@ -192,12 +245,17 @@ HcclResult ExecuteKernelLaunchInner(const AivOpArgs &opArgs, void* args, u32 arg
     attr[0].id = ACL_RT_LAUNCH_KERNEL_ATTR_SCHEM_MODE;
     attr[0].value.schemMode = 1;
     attr[1].id = ACL_RT_LAUNCH_KERNEL_ATTR_TIMEOUT_US;
-    attr[1].value.timeoutUs.timeoutLow = CUSTOM_TIMEOUT * TIME_S_TO_US;
+    attr[1].value.timeoutUs.timeoutLow = GetAivTimeout();
     attr[1].value.timeoutUs.timeoutHigh = 0;
     attr[2].id = ACL_RT_LAUNCH_KERNEL_ATTR_ENGINE_TYPE;
     attr[2].value.engineType = ACL_RT_ENGINE_TYPE_AIV;
     cfg.numAttrs = AIV_ATTRNUM_THREE;
     cfg.attrs = attr;
+
+    HCCL_INFO("[ExecuteKernelLaunchInner] KernelAttr attr[0]: id=%u, schemMode=%u; attr[1]: id=%u, timeoutLow=%u, "
+        "timeoutHigh=%u; attr[2]: id=%u, engineType=%u; cfg: numAttrs=%u",
+        attr[0].id, attr[0].value.schemMode, attr[1].id, attr[1].value.timeoutUs.timeoutLow,
+        attr[1].value.timeoutUs.timeoutHigh, attr[2].id, attr[2].value.engineType, cfg.numAttrs);
 
     aclrtFuncHandle funcHandle;
     HcclResult ret = GetKernelFunc(funcHandle, GetFuncKey(opArgs.cmdType, opArgs.dataType, opArgs.argsType));
@@ -214,6 +272,26 @@ HcclResult ExecuteKernelLaunchInner(const AivOpArgs &opArgs, void* args, u32 arg
 // Kernel单次调用Launch外部接口
 HcclResult ExecuteKernelLaunch(const AivOpArgs &opArgs)
 {
+    // Recording Logic
+    if (g_recordingQueue) {
+        AivInstruction ins;
+        ins.opArgs = opArgs;
+        // Calculate offsets
+        // Note: opArgs.input is absolute address.
+        if (opArgs.input >= g_baseInputAddr) {
+             ins.inputOffset = opArgs.input - g_baseInputAddr;
+        } else {
+             ins.inputOffset = 0;
+        }
+        
+        if (opArgs.output >= g_baseOutputAddr) {
+             ins.outputOffset = opArgs.output - g_baseOutputAddr;
+        } else {
+             ins.outputOffset = 0;
+        }
+        g_recordingQueue->push_back(ins);
+    }
+
     AivExtraKernelArgs aivExtraKernelArgs {
         opArgs.buffersIn, opArgs.input, opArgs.output,
         opArgs.rank, opArgs.rankSize, opArgs.xRankSize, opArgs.yRankSize, opArgs.zRankSize, opArgs.count, opArgs.dataType, opArgs.op, opArgs.root, opArgs.sliceId,
