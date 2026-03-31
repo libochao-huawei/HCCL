@@ -1,0 +1,123 @@
+﻿#ifndef HCCL_ALLGATHERBATCH_COMMON_H
+#define HCCL_ALLGATHERBATCH_COMMON_H
+
+#include <cstdint>
+#include <cstddef>
+#include <cstring>
+
+#include "acl/acl_rt.h"
+#include "hccl/hccl_comm.h"
+#include "hccl/hccl_res.h"
+#include "hccl/hccl_types.h"
+#include "hccl/hcomm_primitives.h"
+#include "log.h"
+
+namespace ops_hccl_allgatherbatch {
+
+constexpr uint32_t kAllGatherBatchMaxItems = 8;
+constexpr uint32_t kAllGatherBatchControlNotifyNum = 2;
+constexpr uint32_t kAllGatherBatchMaxChannels = 32;
+constexpr uint32_t kAllGatherBatchCustomTimeoutMs = 1800;
+constexpr uint32_t kAllGatherBatchOpNameLength = 64;
+constexpr uint32_t kAllGatherBatchTagLength = HCCL_RES_TAG_MAX_LEN + 1;
+
+enum class BatchKernelOpType : uint32_t {
+    kAllGatherBatch = 1,
+};
+
+struct CommBuffer {
+    void *addr = nullptr;
+    uint64_t size = 0;
+};
+
+struct ChannelResource {
+    ChannelHandle handle = 0;
+    uint32_t remoteRank = 0;
+    uint32_t localNotifyIdx = 0;
+    uint32_t remoteNotifyIdx = 0;
+    CommBuffer remoteBuffer {};
+};
+
+struct BatchTopoInfo {
+    uint32_t rank = 0;
+    uint32_t rankSize = 0;
+    uint32_t serverIdx = 0;
+    uint32_t serverCount = 0;
+    uint32_t superPodIdx = 0;
+    uint32_t reserved = 0;
+};
+
+struct AlgResourceCtx {
+    ThreadHandle threadHandle = 0;
+    uint32_t controlNotifyIds[kAllGatherBatchControlNotifyNum] = {0};
+    uint32_t channelCount = 0;
+    uint32_t reserved = 0;
+    CommBuffer localBuffer {};
+    ChannelResource channels[kAllGatherBatchMaxChannels] {};
+};
+
+struct BatchItemParam {
+    void *sendBuf = nullptr;
+    void *recvBuf = nullptr;
+    uint64_t sendCount = 0;
+    HcclDataType dataType = HCCL_DATA_TYPE_RESERVED;
+    uint64_t elementSize = 0;
+};
+
+struct OpParam {
+    char tag[kAllGatherBatchTagLength] = {0};
+    char commName[COMM_NAME_MAX_LENGTH] = {0};
+    BatchTopoInfo topoInfo {};
+    BatchKernelOpType opType = BatchKernelOpType::kAllGatherBatch;
+    uint32_t itemCount = 0;
+    uint32_t reserved0 = 0;
+    uint64_t appendedItemBytes = 0;
+    uint64_t totalInputBytes = 0;
+    uint64_t totalOutputBytes = 0;
+    uint64_t windowBytes = 0;
+    AlgResourceCtx *resCtx = nullptr;
+};
+
+inline uint64_t GetDataTypeSize(HcclDataType dataType)
+{
+    switch (dataType) {
+        case HCCL_DATA_TYPE_INT8:
+        case HCCL_DATA_TYPE_UINT8:
+        case HCCL_DATA_TYPE_HIF8:
+        case HCCL_DATA_TYPE_FP8E4M3:
+        case HCCL_DATA_TYPE_FP8E5M2:
+        case HCCL_DATA_TYPE_FP8E8M0:
+            return 1;
+        case HCCL_DATA_TYPE_INT16:
+        case HCCL_DATA_TYPE_FP16:
+        case HCCL_DATA_TYPE_UINT16:
+        case HCCL_DATA_TYPE_BFP16:
+            return 2;
+        case HCCL_DATA_TYPE_INT32:
+        case HCCL_DATA_TYPE_FP32:
+        case HCCL_DATA_TYPE_UINT32:
+            return 4;
+        case HCCL_DATA_TYPE_INT64:
+        case HCCL_DATA_TYPE_UINT64:
+        case HCCL_DATA_TYPE_FP64:
+            return 8;
+        case HCCL_DATA_TYPE_INT128:
+            return 16;
+        default:
+            return 0;
+    }
+}
+
+inline HcommDataType ToHcommDataType(HcclDataType dataType)
+{
+    return static_cast<HcommDataType>(dataType);
+}
+
+inline bool IsSupportedDataType(HcclDataType dataType)
+{
+    return GetDataTypeSize(dataType) != 0;
+}
+
+}  // namespace ops_hccl_allgatherbatch
+
+#endif

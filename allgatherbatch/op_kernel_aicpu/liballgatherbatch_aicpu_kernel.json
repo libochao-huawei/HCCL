@@ -1,0 +1,9 @@
+﻿{
+  "HcclAllGatherBatchAicpuKernel": {
+    "opInfo": {
+      "opKernelLib": "AICPUKernel",
+      "kernelSo": "liballgatherbatch_aicpu_kernel.so",
+      "functionName": "HcclAllGatherBatchAicpuKernel"
+    }
+  }
+}
