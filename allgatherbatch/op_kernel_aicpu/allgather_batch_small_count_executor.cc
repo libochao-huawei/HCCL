@@ -1,5 +1,6 @@
 ﻿#include "allgather_batch_small_count_executor.h"
 
+#include "all_gather_hd_stage_core.h"
 #include "log.h"
 
 namespace ops_hccl_allgatherbatch {
@@ -48,13 +49,14 @@ HcclResult AllGatherBatchSmallCountExecutor::Orchestrate()
     WindowRange firstWindow;
     HCCL_CHK_RET(BuildFirstWindow(firstWindow));
 
-    // 阶段 3 到这里为止：执行器已经建立好最小的控制骨架。
-    // 真正的 Pack/通信/Unpack 会在阶段 4/5 分别接入。
-    HCCL_INFO("executor skeleton ready: itemCount=%u, windowBytes=%llu, localBufferSize=%llu",
+    HCCL_INFO("executor window ready: itemCount=%u, windowBytes=%llu, localBufferSize=%llu",
         param_.itemCount,
         static_cast<unsigned long long>(firstWindow.packedBytes),
         static_cast<unsigned long long>(resCtx_.localBuffer.size));
-    return HCCL_E_NOT_SUPPORT;
+
+    // 阶段 4 开始把执行器真正接到 HDStageCore 上，通信细节继续在后续阶段补齐。
+    AllGatherHDStageCore hdStageCore(param_, resCtx_);
+    return hdStageCore.RunAsync();
 }
 
 }  // namespace ops_hccl_allgatherbatch
