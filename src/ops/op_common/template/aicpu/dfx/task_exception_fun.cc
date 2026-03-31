@@ -34,6 +34,26 @@ HcclResult CreateScatter(OpParam *param, ScatterOpInfo *opInfo)
     return HCCL_SUCCESS;
 }
 
+std::shared_ptr<HcclDfxOpInfo> ConvertToHcclDfxOpInfo(OpParam *param)
+{
+    CHK_PTR_NULL(param);
+    auto dfxOpInfo = std::make_shared<HcclDfxOpInfo>();
+    dfxOpInfo->opMode = param->opMode;
+    dfxOpInfo->opType = param->opType;
+    dfxOpInfo->reduceOp = param->reduceType;
+    dfxOpInfo->dataType = param->dataType;
+    dfxOpInfo->outputType = param->outputType;
+    dfxOpInfo->dataCount = param->count;
+    dfxOpInfo->root = param->root;
+    s32 sret = memcpy_s(dfxOpInfo->algTag, sizeof(dfxOpInfo->algTag), param->algTag, strlen(param->algTagv) + 1);
+    CHK_PRT_RET(sret != EOK, HCCL_ERROR("ConvertToHcclDfxOpInfo memcpy information failed, errorno [%d].", sret), HCCL_E_MEMORY);
+    dfxOpInfo->engine = param->engine;
+    dfxOpInfo->cpuTsThread = param->opThread;
+    dfxOpInfo->cpuWaitAicpuNotifyIdx = param->aicpuRecordCpuIdx;
+    
+    return dfxOpInfo;
+}
+
 void GetScatterOpInfo(const void *opInfo, char *outPut, size_t size)
 {
     const ScatterOpInfo *info = reinterpret_cast<const ScatterOpInfo *>(opInfo);

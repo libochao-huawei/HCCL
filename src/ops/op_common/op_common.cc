@@ -377,7 +377,7 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
     }
     // Host stream等待Device的通知
     u16 NOTIFY_WAIT_TIME = 27 * 68;
-    param.notifyIdx = HOST_WAIT_AICPU_NOTIFYIDX;
+    param.aicpuRecordCpuIdx = HOST_WAIT_AICPU_NOTIFYIDX;
     CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, HOST_WAIT_AICPU_NOTIFYIDX, NOTIFY_WAIT_TIME)));
 
     return HCCL_SUCCESS;
