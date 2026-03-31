@@ -103,6 +103,11 @@ public:
     HcclResult CheckMeshNumEqualToClosNum(const TopoInfoWithNetLayerDetails *topoInfo, bool &isEqual) const;
     HcclResult CheckClosNumMultipleOfMeshNum(const TopoInfoWithNetLayerDetails *topoInfo, bool &isMultiple) const;
     bool IsInputOutputOverlap(const OpParam &opParam) const;
+
+private:
+    bool ProcessAivConfig(OpParam &opParam, TopoInfoWithNetLayerDetails* topoInfo,
+                          const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+                          std::string &selectAlgName, SelectorStatus &ret) const;
 };
 
 inline bool Is64BitDataType(const HcclDataType dataType)
