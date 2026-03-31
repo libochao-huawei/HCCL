@@ -231,7 +231,7 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLau
     tempFastLaunchCtx.buffInfo.hcclBuff = param.hcclBuff;
     
     // 3 调template
-    std::shared_ptr<InsAlgTemplate> algTemplate = std::make_shared<InsAlgTemplate>();
+    std::unique_ptr<InsAlgTemplate> algTemplate = std::make_unique<InsAlgTemplate>();
     CHK_RET(algTemplate->FastLaunch(param, tempFastLaunchCtx));
     HCCL_INFO("[InsV2ReduceScatterSoleExecutor][FastLaunch] End.");
     return HCCL_SUCCESS;

@@ -177,11 +177,7 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::FastLaunch(const OpParam& param, co
     HCCL_DEBUG("[CcuTempReduceScatterMesh1D::FastLaunch] start");
     u32 kernelNum = tempFastLaunchCtx.ccuKernelSubmitInfos.size();
     buffInfo_ = tempFastLaunchCtx.buffInfo;
-    const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].sqeArgs;
-    HCCL_INFO("[CcuTempReduceScatterMesh1D::FastLaunch] get ccu kernel submitInfo:"
-              "[%llu],[%llu],[%llu],[%llu],[%llu],[%llu],[%llu],[%llu],[%llu],[%llu]",
-              args[0], args[1], args[2], args[3], args[4], 
-              args[5], args[6], args[7], args[8], args[9]);
+    const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
     // 前流同步
     if (kernelNum > 1) {
         std::vector<ThreadHandle> subThreads(tempFastLaunchCtx.threads.begin() + 1, tempFastLaunchCtx.threads.end());
@@ -190,12 +186,12 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::FastLaunch(const OpParam& param, co
     }
 
     for (u32 kernelIdx = 0; kernelIdx < kernelNum; kernelIdx++) {
-        std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgReduceScatterNHR1D>(
+        CcuTaskArgReduceScatterNHR1D taskArg(
             PointerToAddr(buffInfo_.inputPtr) + args[0],
             PointerToAddr(buffInfo_.outputPtr) + args[1],
             args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9]);
     
-        void* taskArgPtr = static_cast<void*>(taskArg.get());
+        void* taskArgPtr = static_cast<void*>(&taskArg);
     
         CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0], 
             tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr));
@@ -295,21 +291,17 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::KernelRun(const OpParam& param,
         CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain));
     }
     // 所有task下发完后再保存参数信息
-    HCCL_INFO("[CcuTempReduceScatterMesh1DMem2Mem::KernelRun] save ccu kernel submitInfo:"
-              "[%llu],[%llu],[%llu],[%llu],[%llu],[%llu],[%llu],[%llu],[%llu]",
-              inputAddr, outputAddr, die0Size, die1Size, inputSliceStride, outputSliceStride, inputRepeatStride,
-              outputRepeatStride, repeatNum);
     CcuKernelSubmitInfo submitInfo;
-    submitInfo.sqeArgs[0]=buffInfo_.inBuffBaseOff;  // input、ouput只存对应的偏移
-    submitInfo.sqeArgs[1]=buffInfo_.outBuffBaseOff;
-    submitInfo.sqeArgs[2]=token;
-    submitInfo.sqeArgs[3]=die0Size;
-    submitInfo.sqeArgs[4]=die1Size;
-    submitInfo.sqeArgs[5]=inputSliceStride;
-    submitInfo.sqeArgs[6]=outputSliceStride;
-    submitInfo.sqeArgs[7]=inputRepeatStride;
-    submitInfo.sqeArgs[8]=outputRepeatStride;
-    submitInfo.sqeArgs[9]=repeatNum;
+    submitInfo.cachedArgs[0]=buffInfo_.inBuffBaseOff;  // input、ouput只存对应的偏移
+    submitInfo.cachedArgs[1]=buffInfo_.outBuffBaseOff;
+    submitInfo.cachedArgs[2]=token;
+    submitInfo.cachedArgs[3]=die0Size;
+    submitInfo.cachedArgs[4]=die1Size;
+    submitInfo.cachedArgs[5]=inputSliceStride;
+    submitInfo.cachedArgs[6]=outputSliceStride;
+    submitInfo.cachedArgs[7]=inputRepeatStride;
+    submitInfo.cachedArgs[8]=outputRepeatStride;
+    submitInfo.cachedArgs[9]=repeatNum;
     for (u32 i = 0; i < kernelNum; i++) { 
         // 2个kernel的TaskArg相同
         submitInfo.kernelHandle = templateResource.ccuKernels[i];

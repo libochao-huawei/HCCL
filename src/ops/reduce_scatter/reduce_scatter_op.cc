@@ -23,7 +23,7 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 HcclResult HcclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
     HcclReduceOp op, HcclComm comm, aclrtStream stream)
 {
-    if (!HcclCheckAicpuEnableOpen() && !HcclCheckCcuEnableOpen() && !HcclCheckAivEnableOpen()) {
+    if (!HcclCheckCcuEnableOpen() && !HcclCheckAicpuEnableOpen() && !HcclCheckAivEnableOpen()) {
         return HcclReduceScatterInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
     }
     HCCL_INFO("Start to run execute HcclReduceScatter");
@@ -50,11 +50,7 @@ HcclResult HcclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, H
     CHK_RET(HcclGetRankSize(comm, &rankSize));
     u32 userRank = INVALID_VALUE_RANKID;
     CHK_RET(HcclGetRankId(comm, &userRank));
-    char commName[COMM_INDENTIFIER_MAX_LENGTH];
-    CHK_RET(HcclGetCommName(comm, commName));
-    const string tag = "ReduceScatter_" + string(commName);
-    CHK_RET(HcclCheckTag(tag.c_str()));
-    CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), tag.c_str());
+    CHK_RET(HcomCheckUserRank(rankSize, userRank));
     CHK_RET(CheckCount(recvCount));
     CHK_RET(CheckDataType(dataType, true));
 
@@ -62,8 +58,7 @@ HcclResult HcclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, H
     CHK_RET(ReduceScatterEntryLog(sendBuf, recvBuf, recvCount, dataType, op, stream, tag, "HcclReduceScatter"));
 
     // 执行ReduceScatter
-    CHK_RET_AND_PRINT_IDE(ReduceScatterOutPlace(sendBuf, recvBuf, recvCount, dataType, op, comm, stream, tag),
-                          tag.c_str());
+    CHK_RET(ReduceScatterOutPlace(sendBuf, recvBuf, recvCount, dataType, op, comm, stream, rankSize));
 
     CHK_RET(LogHcclExit("HcclReduceScatter", tag, startut));
 
@@ -139,7 +134,7 @@ HcclResult CheckReduceScatterInputPara(const HcclComm comm, const void* sendBuf,
 }
 
 static HcclResult PrepareReduceScatterParam(OpParam &param, void *sendBuf, void *recvBuf, uint64_t recvCount,
-    HcclDataType dataType, HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag,
+    HcclDataType dataType, HcclReduceOp op, HcclComm comm, aclrtStream stream, u32 userRankSize,
  	OpMode opMode)
 {
     u32 userRankSize;
@@ -157,11 +152,10 @@ static HcclResult PrepareReduceScatterParam(OpParam &param, void *sendBuf, void 
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
 
-    int ret = sprintf_s(param.tag, sizeof(param.tag), "%s", tag.c_str());
-    if (ret <= 0) {
-        HCCL_ERROR("failed to fill param.tag");
-        return HCCL_E_INTERNAL;
-    }
+    // topoInfo的tag，所有相同的算子可以共享
+    int ret = sprintf_s(param.tag, sizeof(param.tag), "ReduceScatter_%s", param.commName);
+    CHK_PRT_RET((ret <= 0), "failed to fill param.tag", HCCL_E_INTERNAL);
+    CHK_RET(HcclCheckTag(param.tag));
 
     param.inputPtr = sendBuf;
     param.inputSize = inputSize;
@@ -172,26 +166,22 @@ static HcclResult PrepareReduceScatterParam(OpParam &param, void *sendBuf, void 
     param.opType = HcclCMDType::HCCL_CMD_REDUCE_SCATTER;
     param.enableDetour = false;
     param.deviceType = deviceType;
-   
     return HCCL_SUCCESS;
 }
 
 HcclResult ReduceScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
-    HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag)
+    HcclReduceOp op, HcclComm comm, aclrtStream stream, u32 userRankSize)
 {
     HCCL_INFO("Start to execute ReduceScatterOutPlace");
     OpParam param;
-    CHK_RET(PrepareReduceScatterParam(param, sendBuf, recvBuf, recvCount, dataType, op, comm, stream, tag,
+    CHK_RET(PrepareReduceScatterParam(param, sendBuf, recvBuf, recvCount, dataType, op, comm, stream, userRankSize,
  	    OpMode::OPBASE));
-    
+
     CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
     if (CcuFastLaunchSupported(comm, param, &ccuFastLaunchCtx)) {
         return HcclExecOpCcuFastLaunch(comm, param, ccuFastLaunchCtx);
     }
     
-    u32 userRankSize;
-    CHK_RET(HcclGetRankSize(comm, &userRankSize));
-
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));

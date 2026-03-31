@@ -248,7 +248,7 @@ HcclResult HcclExecOpCcuFastLaunch(HcclComm comm, OpParam &param, const CcuFastL
     HCCL_INFO("[HcclExecOpCcuFastLaunch] HcclExecOpCcuFastLaunch start");
     std::string algName = ccuFastLaunchCtx->algName;
     HCCL_DEBUG("[HcclExecOpCcuFastLaunch] algName: [%s]", algName.c_str());
-    std::shared_ptr<InsCollAlgBase> executor = CollAlgExecRegistryV2::Instance().GetAlgExec(param.opType, algName);
+    std::unique_ptr<InsCollAlgBase> executor = CollAlgExecRegistryV2::Instance().GetAlgExec(param.opType, algName);
     CHK_PRT_RET(
         executor.get() == nullptr, HCCL_ERROR("Fail to find executor for algName[%s]", algName.c_str()), HCCL_E_PARA);
     
@@ -281,7 +281,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
         return HCCL_E_INTERNAL;
     }
 
-    std::shared_ptr<InsCollAlgBase> executor = CollAlgExecRegistryV2::Instance().GetAlgExec(param.opType, algName);
+    std::unique_ptr<InsCollAlgBase> executor = CollAlgExecRegistryV2::Instance().GetAlgExec(param.opType, algName);
     CHK_PRT_RET(
         executor.get() == nullptr, HCCL_ERROR("Fail to find executor for algName[%s]", algName.c_str()), HCCL_E_PARA);
 
@@ -353,6 +353,11 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
             std::vector<char> seq(ctx, ctx + param.ctxSize);
             resCtxHost->DeSerialize(seq);
         }
+        int result = sprintf_s(param.algName, sizeof(param.algName), "%s", algName.c_str());
+        if (result <= 0) {
+            HCCL_ERROR("faled to fill param.algName");
+            return HCCL_E_INTERNAL;
+        }
         if (resCtxHost->slaveThreadNum > 0) {
             CHK_RET(CaptureSlaveStreams(comm, param.stream, resCtxHost->threads));
         }
@@ -363,11 +368,6 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
             char *ctx = static_cast<char*>(resCtxSequence);
             std::vector<char> seq(ctx, ctx + param.ctxSize);
             resCtxHost->DeSerialize(seq);
-        }
-        int result = sprintf_s(param.algName, sizeof(param.algName), "%s", algName.c_str());
-        if (result <= 0) {
-            HCCL_ERROR("faled to fill param.algName");
-            return HCCL_E_INTERNAL;
         }
         CHK_RET(executor->Orchestrate(param, *resCtxHost));
     }
@@ -559,7 +559,7 @@ void CompReqChannelWithExistChannel(const std::vector<std::vector<ChannelInfo>>&
     return;
 }
 
-HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::shared_ptr<InsCollAlgBase>& executor, TopoInfoWithNetLayerDetails* topoInfo,
+HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollAlgBase>& executor, TopoInfoWithNetLayerDetails* topoInfo,
                          std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, void** resCtxSequence, bool &isResourceReused)
 {
     HCCL_INFO("Start to execute HcclGetAlgRes.");
@@ -1192,7 +1192,7 @@ HcclResult GetAlgResDPU(HcclComm comm, const OpParam &param, AlgResourceRequest 
 
 HcclResult CheckCount(const u64 count)
 {
-    if (count > SYS_MAX_COUNT) {
+    if (UNLIKELY(count > SYS_MAX_COUNT)) {
         HCCL_ERROR("[Check][Count]errNo[0x%016llx] count[%llu] is invalid(bigger than MAX count[%llu])",
                     HCCL_ERROR_CODE(HCCL_E_PARA), count, SYS_MAX_COUNT);
         return HCCL_E_PARA;
@@ -1323,7 +1323,7 @@ HcclResult HcclCheckTag(const char *tag)
     CHK_PTR_NULL(tag);
 
     u32 tagLen = strnlen(tag, TAG_MAX_LEN + 1);
-    if (tagLen == (TAG_MAX_LEN + 1) || tagLen == 0) {
+    if (UNLIKELY((tagLen == (TAG_MAX_LEN + 1) || tagLen == 0))) {
         HCCL_ERROR("[Check][Tag]errNo[0x%016llx] tag is too long", HCOM_ERROR_CODE(HCCL_E_PARA));
         return HCCL_E_PARA;
     }
