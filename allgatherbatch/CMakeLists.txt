@@ -84,3 +84,7 @@ endif()
 
 add_subdirectory(op_host)
 add_subdirectory(op_kernel_aicpu)
+
+if(NOT KERNEL_MODE)
+    add_subdirectory(testcase)
+endif()
