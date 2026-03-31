@@ -322,9 +322,9 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     } else if (param.engine == COMM_ENGINE_AIV) {
         uint64_t aivBeginTime = HcommGetProfilingSysCycleTime();
         param.resCtx = resCtxSequence;
-        AlgResourceCtxSerializable &resCtxHost = *static_cast<AlgResourceCtxSerializable *>(resCtxSequence);
-        CHK_RET(HcclAivKernelEntranceLaunch(param, topoInfo, resCtxHost));
-        CHK_RET(executor->Orchestrate(param, resCtxHost));
+        AlgResourceCtxSerializable &aivResCtxHost = *static_cast<AlgResourceCtxSerializable *>(resCtxSequence);
+        CHK_RET(HcclAivKernelEntranceLaunch(param, topoInfo, aivResCtxHost));
+        CHK_RET(ExecuteAivCacheLogic(param, algName, executor, aivResCtxHost));
         CHK_RET(HcclReportAivKernel(comm, aivBeginTime));
     } else if (param.engine == COMM_ENGINE_CCU) {
         if (isResourceReused) {
