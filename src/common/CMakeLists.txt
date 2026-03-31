@@ -22,7 +22,18 @@ set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/compat.cc
 )
 
-target_sources(hccl PRIVATE
+# 在静态模式下添加static_restore.c
+message(STATUS "STATIC_MODE = ${STATIC_MODE}")
+if(STATIC_MODE)
+    list(APPEND src_list ${CMAKE_CURRENT_SOURCE_DIR}/static_restore.c)
+    message(STATUS "Added static_restore.c to src_list")
+    # 设置static_restore.c为C语言文件
+    set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/static_restore.c PROPERTIES LANGUAGE C)
+endif()
+
+message(STATUS "TARGET_NAME = ${TARGET_NAME}")
+message(STATUS "src_list contains ${src_list}")
+target_sources(${TARGET_NAME} PRIVATE
     ${src_list}
 )
 
