@@ -27,8 +27,19 @@
 
 ```bash
 make
-make test
+make test-default
+make test-fast
+make test-single-item
 ```
+
+几个预设目标的含义：
+
+- `test-default`
+  默认双 item 场景，贴近设计文档里 `token + scale` 的组合
+- `test-fast`
+  更小的数据量和较少 item，适合先做链路冒烟
+- `test-single-item`
+  只保留 token item，把 `scale-count` 固定为 `0`
 
 ## 自定义数据量
 
@@ -61,7 +72,9 @@ make test
 
 ```bash
 make test TOKEN_BYTES=65536 SCALE_COUNT=0 DEVICES=4 WARMUP=2 ITERS=20
-make test TOKEN_BYTES=327680 SCALE_COUNT=128 DEVICES=8 EXTRA_ARGS=--no-verify
+make test-default TOKEN_BYTES=327680 SCALE_COUNT=128 DEVICES=8
+make test-fast
+make test-single-item EXTRA_ARGS=--no-verify
 ```
 
 ## 当前 testcase 做了什么
