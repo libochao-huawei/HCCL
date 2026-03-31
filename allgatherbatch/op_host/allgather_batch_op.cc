@@ -31,6 +31,13 @@ HcclResult EnsureControlNotifies(AlgResourceCtx &resCtx)
     return HCCL_SUCCESS;
 }
 
+HcclResult QueryServerInstSizeList(HcclComm comm, uint32_t **instSizeList, uint32_t *instListSize)
+{
+    HCCL_CHK_PTR(instSizeList);
+    HCCL_CHK_PTR(instListSize);
+    return HcclRankGraphGetInstSizeListByLayer(comm, 0, instSizeList, instListSize);
+}
+
 HcclResult QueryNetLayers(HcclComm comm, uint32_t **netLayers, uint32_t *netLayerNum)
 {
     HCCL_CHK_PTR(netLayers);
@@ -66,7 +73,7 @@ HcclResult FillServerGroupInfo(HcclComm comm, BatchTopoInfo &topoInfo)
 {
     uint32_t *instSizeList = nullptr;
     uint32_t instListSize = 0;
-    HcclResult ret = HcclRankGraphGetInstSizeListByLayer(comm, 0, &instSizeList, &instListSize);
+    HcclResult ret = QueryServerInstSizeList(comm, &instSizeList, &instListSize);
     if (ret != HCCL_SUCCESS || instSizeList == nullptr || instListSize == 0) {
         // 单机或简单场景下 rank graph 可能拿不到更细粒度 server 信息，这里回退到默认值。
         topoInfo.serverCount = 1;
@@ -128,16 +135,57 @@ BatchCommMode DetermineCommMode(const BatchTopoInfo &topoInfo)
     return (topoInfo.serverCount > 1U) ? BatchCommMode::kCrossServer : BatchCommMode::kSingleServer;
 }
 
-void FillCommModeInfo(OpParam &param)
+HcclResult QueryLocalServerRankCount(HcclComm comm, const BatchTopoInfo &topoInfo, uint32_t &localServerRankCount)
+{
+    uint32_t *instSizeList = nullptr;
+    uint32_t instListSize = 0;
+    HcclResult ret = QueryServerInstSizeList(comm, &instSizeList, &instListSize);
+    if (ret != HCCL_SUCCESS || instSizeList == nullptr || instListSize == 0) {
+        localServerRankCount = topoInfo.rankSize;
+        return HCCL_SUCCESS;
+    }
+    if (topoInfo.serverIdx >= instListSize) {
+        HCCL_ERROR("serverIdx=%u is out of range for instListSize=%u", topoInfo.serverIdx, instListSize);
+        return HCCL_E_INTERNAL;
+    }
+
+    uint64_t totalRanks = 0;
+    for (uint32_t idx = 0; idx < instListSize; ++idx) {
+        totalRanks += instSizeList[idx];
+    }
+    if (totalRanks != topoInfo.rankSize) {
+        HCCL_ERROR("rank graph inst size sum=%llu mismatches rankSize=%u",
+            static_cast<unsigned long long>(totalRanks),
+            topoInfo.rankSize);
+        return HCCL_E_INTERNAL;
+    }
+
+    localServerRankCount = instSizeList[topoInfo.serverIdx];
+    if (localServerRankCount == 0 || localServerRankCount > topoInfo.rankSize) {
+        HCCL_ERROR("local server rank count=%u is invalid, rankSize=%u", localServerRankCount, topoInfo.rankSize);
+        return HCCL_E_INTERNAL;
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult FillCommModeInfo(HcclComm comm, OpParam &param)
 {
     param.commMode = DetermineCommMode(param.topoInfo);
-    if (param.commMode == BatchCommMode::kCrossServer && param.topoInfo.serverCount > 0) {
-        param.intraServerRankCount = param.topoInfo.rankSize / param.topoInfo.serverCount;
-        param.crossServerRankCount = param.topoInfo.rankSize - param.intraServerRankCount;
-    } else {
+    HCCL_CHK_RET(QueryLocalServerRankCount(comm, param.topoInfo, param.intraServerRankCount));
+    if (param.intraServerRankCount > param.topoInfo.rankSize) {
+        HCCL_ERROR("intraServerRankCount=%u exceeds rankSize=%u",
+            param.intraServerRankCount,
+            param.topoInfo.rankSize);
+        return HCCL_E_INTERNAL;
+    }
+
+    // 这里直接以 rank graph 的 server 分组结果作为 Host/Device 共享事实源，避免跨 server 时靠平均分推断本地规模。
+    param.crossServerRankCount = param.topoInfo.rankSize - param.intraServerRankCount;
+    if (param.commMode == BatchCommMode::kSingleServer) {
         param.intraServerRankCount = param.topoInfo.rankSize;
         param.crossServerRankCount = 0;
     }
+    return HCCL_SUCCESS;
 }
 
 const char *ToCommModeString(BatchCommMode commMode)
@@ -294,6 +342,10 @@ HcclResult AllGatherBatchOp::ValidateTopo(const BatchTopoInfo &topoInfo) const
         HCCL_ERROR("serverCount is zero after topo preparation");
         return HCCL_E_INTERNAL;
     }
+    if (topoInfo.serverCount > topoInfo.rankSize) {
+        HCCL_ERROR("serverCount=%u exceeds rankSize=%u", topoInfo.serverCount, topoInfo.rankSize);
+        return HCCL_E_INTERNAL;
+    }
     if (topoInfo.serverIdx >= topoInfo.serverCount) {
         HCCL_ERROR("serverIdx=%u is out of range, serverCount=%u", topoInfo.serverIdx, topoInfo.serverCount);
         return HCCL_E_INTERNAL;
@@ -323,7 +375,7 @@ HcclResult AllGatherBatchOp::PrepareOpParam(
     std::snprintf(param.tag, sizeof(param.tag), "%s", kAllGatherBatchCtxTag);
     HCCL_CHK_RET(HcclGetCommName(comm, param.commName));
     HCCL_CHK_RET(PrepareTopoInfo(comm, param.topoInfo));
-    FillCommModeInfo(param);
+    HCCL_CHK_RET(FillCommModeInfo(comm, param));
 
     param.itemCount = itemCount;
     param.appendedItemBytes = static_cast<uint64_t>(itemCount) * sizeof(BatchItemParam);

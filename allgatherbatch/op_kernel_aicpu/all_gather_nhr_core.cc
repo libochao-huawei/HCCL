@@ -87,6 +87,13 @@ HcclResult AllGatherNHRCore::ValidateChannelMetadata() const
         }
     }
 
+    if (intraServerChannels + crossServerChannels != resCtx_.channelCount) {
+        HCCL_ERROR("channel scope split is inconsistent, intra=%u, cross=%u, channelCount=%u",
+            intraServerChannels,
+            crossServerChannels,
+            resCtx_.channelCount);
+        return HCCL_E_INTERNAL;
+    }
     if (intraServerChannels != expectedIntraServerChannels) {
         HCCL_ERROR("intra-server channel count mismatch, expected=%u, actual=%u",
             expectedIntraServerChannels,
