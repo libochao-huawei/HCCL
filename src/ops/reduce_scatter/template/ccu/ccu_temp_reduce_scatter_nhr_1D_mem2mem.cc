@@ -189,7 +189,7 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::FastLaunch(const OpParam& param, co
         CcuTaskArgReduceScatterNHR1D taskArg(
             PointerToAddr(buffInfo_.inputPtr) + args[0],
             PointerToAddr(buffInfo_.outputPtr) + args[1],
-            args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9]);
+            args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11]);
     
         void* taskArgPtr = static_cast<void*>(&taskArg);
     
@@ -298,16 +298,9 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::KernelRun(const OpParam& param,
     }
     // 所有task下发完后再保存参数信息
     CcuKernelSubmitInfo submitInfo;
-    submitInfo.cachedArgs[0]=buffInfo_.inBuffBaseOff;  // input、ouput只存对应的偏移
-    submitInfo.cachedArgs[1]=buffInfo_.outBuffBaseOff;
-    submitInfo.cachedArgs[2]=token;
-    submitInfo.cachedArgs[3]=die0Size;
-    submitInfo.cachedArgs[4]=die1Size;
-    submitInfo.cachedArgs[5]=inputSliceStride;
-    submitInfo.cachedArgs[6]=outputSliceStride;
-    submitInfo.cachedArgs[7]=inputRepeatStride;
-    submitInfo.cachedArgs[8]=outputRepeatStride;
-    submitInfo.cachedArgs[9]=repeatNum;
+    CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, token, die0Size, die1Size,
+        die0LastSliceSize, die1LastSliceSize, inputSliceStride, outputSliceStride, inputRepeatStride,
+        outputRepeatStride, repeatNum));
     for (u32 i = 0; i < kernelNum; i++) { 
         // 2个kernel的TaskArg相同
         submitInfo.kernelHandle = templateResource.ccuKernels[i];

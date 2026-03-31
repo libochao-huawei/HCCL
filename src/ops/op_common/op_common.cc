@@ -185,38 +185,32 @@ HcclResult SetOpParamFastLaunchTag(OpParam &param)
     } else {
         tmpDataType = param.DataDes.dataType;
     }
-    const std::string dataType = HCOM_DATA_TYPE_STR_MAP.at(tmpDataType);
-    // 通信域tag + 数据类型，得到基础FastLaunchTag
-    int len = snprintf_s(param.fastLaunchTag, sizeof(param.fastLaunchTag), sizeof(param.fastLaunchTag), 
-                         "%s_%s", param.tag, dataType.c_str());
-    if (len < 0|| len >= sizeof(param.algTag)) {
-        HCCL_ERROR("faled to fill param.fastLaunchTag");
-        return HcclResult::HCCL_E_INTERNAL;
-    }
     
-    size_t remainBytes = sizeof(param.algTag) - len;
+    const std::string dataType = HCOM_DATA_TYPE_STR_MAP.at(tmpDataType);
+    // 1.通信域tag + 数据类型，得到基础FastLaunchTag
+    std::string tagBuilder = param.tag + "_" + dataType;
+    // 2.reduceType
     if (param.opType == HcclCMDType::HCCL_CMD_ALLREDUCE || param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER ||
         param.opType == HcclCMDType::HCCL_CMD_REDUCE || param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V) {
         const std::string reduceType = HCOM_REDUCE_OP_STR_MAP.at(param.reduceType);
-        int len2 = snprintf_s(param.fastLaunchTag + len, remainBytes, remainBytes, "_%s", reduceType.c_str());
-        if (len2 < 0|| len >= remainBytes) {
-            HCCL_ERROR("faled to fill param.fastLaunchTag");
-            return HcclResult::HCCL_E_INTERNAL;
-        }
-        len += len2;
+        tagBuilder += "_" + reduceType;
     }
-
+    // 3.count
     if (param.opType != HcclCMDType::HCCL_CMD_ALLTOALLV) {
-        remainBytes = sizeof(param.algTag) - len;
         std::string count = std::to_string(param.DataDes.count); //todo: alltoall 的count不是从这里取
-        int len3 = snprintf_s(param.fastLaunchTag + len, remainBytes, remainBytes, "_%s", count.c_str());
-        if (len3 < 0|| len >= remainBytes) {
-            HCCL_ERROR("faled to fill param.fastLaunchTag");
-            return HcclResult::HCCL_E_INTERNAL;
-        }
-        len += len3;
+        tagBuilder += "_" + count;
     }
-    HCCL_DEBUG("[SetOpParamFastLaunchTag] fastLaunchTag: [%s]", param.fastLaunchTag);
+    // 4.root
+    if (param.opType == HcclCMDType::HCCL_CMD_REDUCE || param.opType == HcclCMDType::HCCL_CMD_SCATTER ||
+        param.opType == HcclCMDType::HCCL_CMD_BROADCAST) {
+        std::string root = std::to_string(param.root);
+        tagBuilder += "_r" + root;
+    }
+    CHK_PRT_RET((tagBuilder.length() >= sizeof(param.fastLaunchTag)), 
+        "failed to fill fastLaunchTag, tag too long", HcclResult::HCCL_E_INTERNAL);
+    snprintf_s(param.fastLaunchTag, sizeof(param.fastLaunchTag), sizeof(param.fastLaunchTag), "%s", tagBuilder.c_str());
+
+    HCCL_INFO("[SetOpParamFastLaunchTag] fastLaunchTag: [%s]", param.fastLaunchTag);
     return HcclResult::HCCL_SUCCESS;
 }
 
@@ -275,7 +269,7 @@ HcclResult HcclExecOpCcuFastLaunch(HcclComm comm, OpParam &param, const CcuFastL
 }
 
 HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
-                                std::shared_ptr<InsCollAlgBase> executor,
+                                std::unique_ptr<InsCollAlgBase> &executor,
                                 AlgResourceCtxSerializable &resCtxHost)
 {
     // Cache Logic
