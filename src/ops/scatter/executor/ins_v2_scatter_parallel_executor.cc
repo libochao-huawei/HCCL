@@ -438,7 +438,7 @@ HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
         TemplateResource templateAlgResIntra, templateAlgResInter;
         ThreadHandle *threads = ctx->GetThreadHandlePtr();
         threads_.assign(threads, threads + ctx->threadNum);
-        PrepareResForTemplate(intraTempAlg, interTempAlg);
+        PrepareResForTemplate(intraTempAlg);
 
         CcuKernelSubmitInfo *ccuKernelSubmitInfos = ctx->GetCcuKernelSubmitInfoPtr();
 
