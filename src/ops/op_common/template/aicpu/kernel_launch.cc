@@ -307,7 +307,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         // 要在下第一个task之前上报
         HcclDfxOpInfo dfxOpInfo{};
         CHK_RET(ConvertToHcclDfxOpInfo(param, &dfxOpInfo));
-        CHK_RET((param->commName, (void *)&dfxOpInfo));
+        CHK_RET(HcclDfxRegOpInfoByCommId(param->commName, (void *)&dfxOpInfo));
         // 上报主流和第一个task  wait之前
         if (HcommProfilingReportKernelStartTask(thread, param->commName) != HCCL_SUCCESS) {
             HCCL_ERROR("%sfailed to report MainStream And FirstTask, thread %lu, param->commName %s.", __func__, thread, param->commName);
