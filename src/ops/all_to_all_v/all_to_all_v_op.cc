@@ -200,8 +200,8 @@ HcclResult HcclAlltoAllVC(const void *sendBuf, const void *sendCountMatrix, Hccl
 
 // 图模式对外接口
 HcclResult HcclAlltoAllGraphMode(const void *sendBuf, uint64_t sendCount, HcclDataType sendType, const void *recvBuf,
-    uint64_t recvCount, HcclDataType recvType, const char* group, aclrtStream stream, const char* tag,
-    void** streams, size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize)
+    uint64_t recvCount, HcclDataType recvType, uint64_t strideCount, const char* group, aclrtStream stream,
+    const char* tag, void** streams, size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize)
 {
     HCCL_INFO("Start to run execute HcclAlltoAllGraphMode");
     // 根据group获取通信域
@@ -685,7 +685,8 @@ HcclResult AlltoAllVOutPlace(const void *sendBuf, const void *sendCounts, const 
 }
 
 HcclResult AlltoAllEntryLog(const void *sendBuf, const void *recvBuf, uint64_t sendCount, uint64_t recvCount,
-    HcclDataType sendType, HcclDataType recvType, aclrtStream stream, const std::string &tag, const std::string &opName)
+    HcclDataType sendType, HcclDataType recvType, aclrtStream stream,const std::string &tag,
+    const std::string &opName)
 {
     if (GetExternalInputHcclEnableEntryLog()) {
         s32 deviceLogicId = 0;
