@@ -89,61 +89,31 @@ uint32_t AllGatherBatchSmallCountExecutor::CountCrossServerChannels() const
 
 HcclResult AllGatherBatchSmallCountExecutor::ValidateModeConsistency() const
 {
-    const uint32_t crossServerChannels = CountCrossServerChannels();
-    const uint32_t intraServerChannels = resCtx_.channelCount - crossServerChannels;
+    const ResourceStats stats = CollectResourceStats(param_, resCtx_);
 
     // Host 已经把 commMode 和 rank 分布写进 OpParam，这里再在 Device 入口收一层，避免后续窗口循环建立在错误前提上。
-    if (param_.intraServerRankCount == 0) {
-        HCCL_ERROR("intraServerRankCount is zero");
-        return HCCL_E_INTERNAL;
-    }
-    if (param_.intraServerRankCount + param_.crossServerRankCount != param_.topoInfo.rankSize) {
-        HCCL_ERROR("rank distribution is inconsistent, intra=%u, cross=%u, rankSize=%u",
+    if (!HasConsistentRankDistribution(param_)) {
+        HCCL_ERROR("rank distribution is inconsistent, commMode=%s, intra=%u, cross=%u, rankSize=%u",
+            ToCommModeString(param_.commMode),
             param_.intraServerRankCount,
             param_.crossServerRankCount,
             param_.topoInfo.rankSize);
         return HCCL_E_INTERNAL;
     }
-    if (intraServerChannels + crossServerChannels != resCtx_.channelCount) {
+    if (stats.intraServerChannels + stats.crossServerChannels != resCtx_.channelCount) {
         HCCL_ERROR("channel scope split is inconsistent, intra=%u, cross=%u, channelCount=%u",
-            intraServerChannels,
-            crossServerChannels,
+            stats.intraServerChannels,
+            stats.crossServerChannels,
             resCtx_.channelCount);
         return HCCL_E_INTERNAL;
     }
-
-    if (param_.commMode == BatchCommMode::kSingleServer) {
-        if (param_.intraServerRankCount != param_.topoInfo.rankSize) {
-            HCCL_ERROR("single-server mode has intraServerRankCount=%u, rankSize=%u",
-                param_.intraServerRankCount,
-                param_.topoInfo.rankSize);
-            return HCCL_E_INTERNAL;
-        }
-        if (param_.crossServerRankCount != 0) {
-            HCCL_ERROR("single-server mode has crossServerRankCount=%u", param_.crossServerRankCount);
-            return HCCL_E_INTERNAL;
-        }
-        if (crossServerChannels != 0) {
-            HCCL_ERROR("single-server mode unexpectedly has cross-server channels=%u", crossServerChannels);
-            return HCCL_E_INTERNAL;
-        }
+    if (param_.commMode == BatchCommMode::kSingleServer && stats.crossServerChannels != 0) {
+        HCCL_ERROR("single-server mode unexpectedly has cross-server channels=%u", stats.crossServerChannels);
+        return HCCL_E_INTERNAL;
     }
-
-    if (param_.commMode == BatchCommMode::kCrossServer) {
-        if (param_.intraServerRankCount >= param_.topoInfo.rankSize) {
-            HCCL_ERROR("cross-server mode has invalid intraServerRankCount=%u, rankSize=%u",
-                param_.intraServerRankCount,
-                param_.topoInfo.rankSize);
-            return HCCL_E_INTERNAL;
-        }
-        if (param_.crossServerRankCount == 0) {
-            HCCL_ERROR("cross-server mode has zero crossServerRankCount");
-            return HCCL_E_INTERNAL;
-        }
-        if (crossServerChannels == 0) {
-            HCCL_ERROR("cross-server mode has zero cross-server channels");
-            return HCCL_E_INTERNAL;
-        }
+    if (param_.commMode == BatchCommMode::kCrossServer && stats.crossServerChannels == 0) {
+        HCCL_ERROR("cross-server mode has zero cross-server channels");
+        return HCCL_E_INTERNAL;
     }
     return HCCL_SUCCESS;
 }

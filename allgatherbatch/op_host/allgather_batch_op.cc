@@ -202,23 +202,12 @@ HcclResult ValidatePreparedParam(const OpParam &param)
             param.topoInfo.rankSize);
         return HCCL_E_INTERNAL;
     }
-    if (param.intraServerRankCount == 0) {
-        HCCL_ERROR("prepared intraServerRankCount is zero");
-        return HCCL_E_INTERNAL;
-    }
-    if (param.intraServerRankCount + param.crossServerRankCount != param.topoInfo.rankSize) {
-        HCCL_ERROR("prepared rank distribution mismatch, intra=%u, cross=%u, rankSize=%u",
+    if (!HasConsistentRankDistribution(param)) {
+        HCCL_ERROR("prepared rank distribution is inconsistent, commMode=%s, intra=%u, cross=%u, rankSize=%u",
+            ToCommModeString(param.commMode),
             param.intraServerRankCount,
             param.crossServerRankCount,
             param.topoInfo.rankSize);
-        return HCCL_E_INTERNAL;
-    }
-    if (param.commMode == BatchCommMode::kSingleServer && param.crossServerRankCount != 0) {
-        HCCL_ERROR("single-server param unexpectedly has crossServerRankCount=%u", param.crossServerRankCount);
-        return HCCL_E_INTERNAL;
-    }
-    if (param.commMode == BatchCommMode::kCrossServer && param.crossServerRankCount == 0) {
-        HCCL_ERROR("cross-server param has zero crossServerRankCount");
         return HCCL_E_INTERNAL;
     }
     if (param.totalInputBytes == 0 || param.totalOutputBytes == 0 || param.windowBytes == 0) {
@@ -402,17 +391,18 @@ HcclResult AllGatherBatchOp::Exec(
     param.resCtx = resCtx;
     HCCL_CHK_RET(ValidatePreparedResourceCtx(param));
 
+    const ResourceStats stats = CollectResourceStats(param, *param.resCtx);
     HCCL_INFO("Host resources ready: rank=%u, commMode=%s, channelCount=%u, crossServerChannels=%u, perRankCapacity=%llu, maxWindowBytes=%llu, hccs=%u, roce=%u, pcie=%u, sio=%u",
         param.topoInfo.rank,
         ToCommModeString(param.commMode),
         param.resCtx->channelCount,
-        CountCrossServerChannels(param.topoInfo, *param.resCtx),
-        static_cast<unsigned long long>(GetPerRankWindowCapacity(param, *param.resCtx)),
-        static_cast<unsigned long long>(GetMaxWindowBytes(param, *param.resCtx)),
-        CountChannelsByProtocol(*param.resCtx, COMM_PROTOCOL_HCCS),
-        CountChannelsByProtocol(*param.resCtx, COMM_PROTOCOL_ROCE),
-        CountChannelsByProtocol(*param.resCtx, COMM_PROTOCOL_PCIE),
-        CountChannelsByProtocol(*param.resCtx, COMM_PROTOCOL_SIO));
+        stats.crossServerChannels,
+        static_cast<unsigned long long>(stats.perRankCapacity),
+        static_cast<unsigned long long>(stats.maxWindowBytes),
+        stats.hccsChannels,
+        stats.roceChannels,
+        stats.pcieChannels,
+        stats.sioChannels);
 
     HCCL_CHK_RET(LoadAndLaunch(param, stream));
     return HCCL_SUCCESS;
