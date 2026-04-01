@@ -62,6 +62,7 @@ protected:
     // dataInfo
     HcclDataType  dataType_;
     u64           dataCount_ = 0;
+    u64           strideCount_ = 0;
 
     u64           maxTmpMemSize_ = 0;
 

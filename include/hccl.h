@@ -220,7 +220,7 @@ extern HcclResult HcclAlltoAllV(const void *sendBuf, const void *sendCounts, con
  */
 extern HcclResult HcclAlltoAll(const void *sendBuf, uint64_t sendCount, HcclDataType sendType,
                                const void *recvBuf, uint64_t recvCount, HcclDataType recvType,
-                               HcclComm comm, aclrtStream stream);
+                               uint64_t strideCount, HcclComm comm, aclrtStream stream);
 
 /**
  * @brief Reduce operator.
