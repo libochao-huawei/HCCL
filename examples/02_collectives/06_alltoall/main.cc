@@ -49,7 +49,8 @@ int Sample(void *arg)
     void *recvBuf = nullptr;
     uint32_t device = ctx->device;
     uint64_t count = ctx->devCount;
-    size_t mallocSize = count * sizeof(float);
+    uint64_t strideCount = 5;
+    size_t mallocSize = strideCount * count * sizeof(float);
 
     // 设置当前线程操作的设备
     ACLCHECK(aclrtSetDevice(static_cast<int32_t>(device)));
@@ -62,8 +63,8 @@ int Sample(void *arg)
     void *hostBuf = nullptr;
     ACLCHECK(aclrtMallocHost(&hostBuf, mallocSize));
     float *tmpHostBuff = static_cast<float *>(hostBuf);
-    for (uint64_t i = 0; i < count; ++i) {
-        tmpHostBuff[i] = static_cast<float>(device);
+    for (uint64_t i = 0; i < count * strideCount; ++i) {
+        tmpHostBuff[i] = strideCount * count * static_cast<float>(device) + i;
     }
     // 将 Host 侧输入数据拷贝到 Device 侧
     ACLCHECK(aclrtMemcpy(sendBuf, mallocSize, hostBuf, mallocSize, ACL_MEMCPY_HOST_TO_DEVICE));
@@ -80,7 +81,7 @@ int Sample(void *arg)
 
     // 执行 AlltoAll，向通信域内所有 rank 发送相同数据量的数据，并从所有 rank 接收相同数据量的数据
     uint64_t perCount = count / ctx->devCount;
-    HCCLCHECK(HcclAlltoAll(sendBuf, perCount, HCCL_DATA_TYPE_FP32, recvBuf, perCount, HCCL_DATA_TYPE_FP32, hcclComm, stream));
+    HCCLCHECK(HcclAlltoAll(sendBuf, perCount, HCCL_DATA_TYPE_FP32, recvBuf, perCount, HCCL_DATA_TYPE_FP32, strideCount, hcclComm, stream));
     // 阻塞等待任务流中的集合通信任务执行完成
     ACLCHECK(aclrtSynchronizeStream(stream));
 
