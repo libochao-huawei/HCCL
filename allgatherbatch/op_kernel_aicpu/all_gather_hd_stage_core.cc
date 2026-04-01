@@ -17,6 +17,17 @@ uint32_t CalcTrailingPowerSteps(uint32_t rankSize)
     return steps;
 }
 
+uint32_t CalcFinalSteps(uint32_t powerSteps)
+{
+    if (powerSteps >= 2U) {
+        return 2U;
+    }
+    if (powerSteps >= 1U) {
+        return 1U;
+    }
+    return 0U;
+}
+
 uint32_t CountChannelsByScope(const OpParam &param, const AlgResourceCtx &resCtx, bool crossServer)
 {
     uint32_t count = 0;
@@ -46,6 +57,27 @@ uint32_t CountRecognizedChannels(const AlgResourceCtx &resCtx)
         CountChannelsByProtocol(resCtx, COMM_PROTOCOL_ROCE) +
         CountChannelsByProtocol(resCtx, COMM_PROTOCOL_PCIE) +
         CountChannelsByProtocol(resCtx, COMM_PROTOCOL_SIO);
+}
+
+uint32_t CountPrimaryPaths(const HDStagePlan &plan)
+{
+    return static_cast<uint32_t>(plan.useNoPowerAsPrimary) +
+        static_cast<uint32_t>(plan.usePowerAsPrimary) +
+        static_cast<uint32_t>(plan.useFinalAsPrimary);
+}
+
+const char *SelectPrimaryPath(const HDStagePlan &plan)
+{
+    if (plan.useNoPowerAsPrimary) {
+        return "noPower";
+    }
+    if (plan.usePowerAsPrimary) {
+        return "power";
+    }
+    if (plan.useFinalAsPrimary) {
+        return "final";
+    }
+    return "none";
 }
 
 }  // namespace
@@ -88,12 +120,24 @@ HcclResult AllGatherHDStageCore::BuildStagePlan(HDStagePlan &plan) const
         return HCCL_E_PARA;
     }
 
+    // 这里沿用设计稿和 hcomm HDStage 的拆解思路：
+    // 1. noPower 负责非 2 次幂部分。
+    // 2. power 负责 powerSteps 中去掉 finalSteps 后的主阶段。
+    // 3. final 负责最后 0/1/2 步的收尾语义。
     plan.powerSteps = CalcTrailingPowerSteps(rankSize);
-    const uint32_t powerFactor = (plan.powerSteps == 0) ? 1U : (1U << plan.powerSteps);
-    plan.noPower = rankSize / powerFactor;
-    plan.finalSteps = 0;
+    plan.powerFactor = (plan.powerSteps == 0U) ? 1U : (1U << plan.powerSteps);
+    plan.noPower = rankSize / plan.powerFactor;
+    plan.finalSteps = CalcFinalSteps(plan.powerSteps);
+    plan.remainingPowerSteps = (plan.powerSteps > plan.finalSteps) ? (plan.powerSteps - plan.finalSteps) : 0U;
     plan.needNoPowerPath = (plan.noPower > 1U);
-    plan.needPowerPath = (plan.powerSteps > plan.finalSteps);
+    plan.needPowerPath = (plan.remainingPowerSteps >= 1U);
+    plan.needFinalPath = (rankSize > 1U);
+
+    // 当前 public-header 方案下，NHR 仍是唯一的数据面实现，因此三个阶段里只选一个主路径真正落通信。
+    // 这样既保留 HDStage 的阶段语义，也避免最小数据面被重复执行多次。
+    plan.useNoPowerAsPrimary = plan.needNoPowerPath;
+    plan.usePowerAsPrimary = (!plan.useNoPowerAsPrimary && plan.needPowerPath);
+    plan.useFinalAsPrimary = (!plan.useNoPowerAsPrimary && !plan.usePowerAsPrimary && plan.needFinalPath);
     return HCCL_SUCCESS;
 }
 
@@ -101,18 +145,35 @@ HcclResult AllGatherHDStageCore::ValidateStagePlan(const HDStagePlan &plan) cons
 {
     const uint32_t crossServerChannels = CountChannelsByScope(param_, resCtx_, true);
     const uint32_t intraServerChannels = CountChannelsByScope(param_, resCtx_, false);
-    const uint32_t powerFactor = (plan.powerSteps == 0) ? 1U : (1U << plan.powerSteps);
 
     // HDStage 这一层把 stage 计划和链路 scope 再对一次，避免“前后层都能跑，但 stage 假设不成立”的问题。
     if (plan.noPower == 0) {
         HCCL_ERROR("HDStage noPower is zero");
         return HCCL_E_INTERNAL;
     }
-    if ((plan.noPower * powerFactor) != param_.topoInfo.rankSize) {
+    if ((plan.noPower * plan.powerFactor) != param_.topoInfo.rankSize) {
         HCCL_ERROR("HDStage plan mismatch, noPower=%u, powerFactor=%u, rankSize=%u",
             plan.noPower,
-            powerFactor,
+            plan.powerFactor,
             param_.topoInfo.rankSize);
+        return HCCL_E_INTERNAL;
+    }
+    if (plan.finalSteps > plan.powerSteps) {
+        HCCL_ERROR("HDStage finalSteps exceeds powerSteps, finalSteps=%u, powerSteps=%u",
+            plan.finalSteps,
+            plan.powerSteps);
+        return HCCL_E_INTERNAL;
+    }
+    if (plan.remainingPowerSteps + plan.finalSteps != plan.powerSteps) {
+        HCCL_ERROR("HDStage power split mismatch, remainingPowerSteps=%u, finalSteps=%u, powerSteps=%u",
+            plan.remainingPowerSteps,
+            plan.finalSteps,
+            plan.powerSteps);
+        return HCCL_E_INTERNAL;
+    }
+    if (CountPrimaryPaths(plan) != 1U) {
+        HCCL_ERROR("HDStage primary path selection is invalid, primaryCount=%u",
+            CountPrimaryPaths(plan));
         return HCCL_E_INTERNAL;
     }
     if (intraServerChannels + crossServerChannels != resCtx_.channelCount) {
@@ -147,30 +208,103 @@ HcclResult AllGatherHDStageCore::ValidateProtocolDistribution() const
     return HCCL_SUCCESS;
 }
 
-HcclResult AllGatherHDStageCore::RunNoPowerPath(const HDStagePlan &plan) const
+HcclResult AllGatherHDStageCore::RunNHR(const char *pathTag) const
 {
-    HCCL_INFO("HDStage noPower path: rank=%u, noPower=%u, powerSteps=%u, packedBytes=%llu",
+    HCCL_INFO("HDStage delegates data movement to NHR: path=%s, rank=%u, packedBytes=%llu",
+        pathTag,
         param_.topoInfo.rank,
-        plan.noPower,
-        plan.powerSteps,
         static_cast<unsigned long long>(packedBytes_));
-
     AllGatherNHRCore nhrCore(param_, resCtx_, packedBytes_);
     return nhrCore.RunAsync();
 }
 
+HcclResult AllGatherHDStageCore::RunNoPowerPath(const HDStagePlan &plan) const
+{
+    HCCL_INFO("HDStage noPower path: rank=%u, noPower=%u, powerSteps=%u, primary=%s, packedBytes=%llu",
+        param_.topoInfo.rank,
+        plan.noPower,
+        plan.powerSteps,
+        plan.useNoPowerAsPrimary ? "true" : "false",
+        static_cast<unsigned long long>(packedBytes_));
+
+    if (!plan.useNoPowerAsPrimary) {
+        HCCL_INFO("HDStage noPower path is structural only in current implementation");
+        return HCCL_SUCCESS;
+    }
+    return RunNHR("noPower");
+}
+
 HcclResult AllGatherHDStageCore::RunPowerPath(const HDStagePlan &plan) const
 {
-    HCCL_INFO("HDStage power path planned: rank=%u, rankSize=%u, commMode=%s, powerSteps=%u, packedBytes=%llu",
+    HCCL_INFO("HDStage power path: rank=%u, rankSize=%u, commMode=%s, remainingPowerSteps=%u, finalSteps=%u, primary=%s, packedBytes=%llu",
         param_.topoInfo.rank,
         param_.topoInfo.rankSize,
         ToCommModeString(param_.commMode),
-        plan.powerSteps,
+        plan.remainingPowerSteps,
+        plan.finalSteps,
+        plan.usePowerAsPrimary ? "true" : "false",
         static_cast<unsigned long long>(packedBytes_));
 
-    // 当前 custom-op 方案先让 power 路径复用同一套最小 NHR 数据面，保证所有 rank 都能回收到完整窗口。
-    AllGatherNHRCore nhrCore(param_, resCtx_, packedBytes_);
-    return nhrCore.RunAsync();
+    if (!plan.usePowerAsPrimary) {
+        HCCL_INFO("HDStage power path is structural only in current implementation");
+        return HCCL_SUCCESS;
+    }
+    return RunNHR("power");
+}
+
+HcclResult AllGatherHDStageCore::RunFinalDirect(const HDStagePlan &plan) const
+{
+    HCCL_INFO("HDStage final direct path: rank=%u, primary=%s, packedBytes=%llu",
+        param_.topoInfo.rank,
+        plan.useFinalAsPrimary ? "true" : "false",
+        static_cast<unsigned long long>(packedBytes_));
+
+    if (!plan.useFinalAsPrimary) {
+        return HCCL_SUCCESS;
+    }
+    return RunNHR("final-direct");
+}
+
+HcclResult AllGatherHDStageCore::RunFinalLastOne(const HDStagePlan &plan) const
+{
+    HCCL_INFO("HDStage final last-one path: rank=%u, powerSteps=%u, primary=%s, packedBytes=%llu",
+        param_.topoInfo.rank,
+        plan.powerSteps,
+        plan.useFinalAsPrimary ? "true" : "false",
+        static_cast<unsigned long long>(packedBytes_));
+
+    if (!plan.useFinalAsPrimary) {
+        return HCCL_SUCCESS;
+    }
+    return RunNHR("final-last-one");
+}
+
+HcclResult AllGatherHDStageCore::RunFinalLastTwo(const HDStagePlan &plan) const
+{
+    HCCL_INFO("HDStage final last-two path: rank=%u, powerSteps=%u, primary=%s, packedBytes=%llu",
+        param_.topoInfo.rank,
+        plan.powerSteps,
+        plan.useFinalAsPrimary ? "true" : "false",
+        static_cast<unsigned long long>(packedBytes_));
+
+    if (!plan.useFinalAsPrimary) {
+        return HCCL_SUCCESS;
+    }
+    return RunNHR("final-last-two");
+}
+
+HcclResult AllGatherHDStageCore::RunFinalPath(const HDStagePlan &plan) const
+{
+    // final path 负责表达 HDStage 最后 0/1/2 步的收尾语义。
+    // 在当前 custom-op 版本里，如果主通信已经在 noPower/power 阶段完成，这里只保留结构和日志；
+    // 如果前面没有主通信路径，则由 final path 接管真正的数据面执行。
+    if (plan.finalSteps >= 2U) {
+        return RunFinalLastTwo(plan);
+    }
+    if (plan.finalSteps == 1U) {
+        return RunFinalLastOne(plan);
+    }
+    return RunFinalDirect(plan);
 }
 
 HcclResult AllGatherHDStageCore::RunAsync()
@@ -189,7 +323,7 @@ HcclResult AllGatherHDStageCore::RunAsync()
 
     const uint32_t crossServerChannels = CountChannelsByScope(param_, resCtx_, true);
     const uint32_t intraServerChannels = CountChannelsByScope(param_, resCtx_, false);
-    HCCL_INFO("HDStage plan ready: rank=%u, rankSize=%u, commMode=%s, serverIdx=%u, intraServerRankCount=%u, crossServerRankCount=%u, noPower=%u, powerSteps=%u, packedBytes=%llu, intraServerChannels=%u, crossServerChannels=%u, hccs=%u, roce=%u, pcie=%u, sio=%u",
+    HCCL_INFO("HDStage plan ready: rank=%u, rankSize=%u, commMode=%s, serverIdx=%u, intraServerRankCount=%u, crossServerRankCount=%u, noPower=%u, powerFactor=%u, powerSteps=%u, remainingPowerSteps=%u, finalSteps=%u, primaryPath=%s, packedBytes=%llu, intraServerChannels=%u, crossServerChannels=%u, hccs=%u, roce=%u, pcie=%u, sio=%u",
         param_.topoInfo.rank,
         param_.topoInfo.rankSize,
         ToCommModeString(param_.commMode),
@@ -197,7 +331,11 @@ HcclResult AllGatherHDStageCore::RunAsync()
         param_.intraServerRankCount,
         param_.crossServerRankCount,
         plan.noPower,
+        plan.powerFactor,
         plan.powerSteps,
+        plan.remainingPowerSteps,
+        plan.finalSteps,
+        SelectPrimaryPath(plan),
         static_cast<unsigned long long>(packedBytes_),
         intraServerChannels,
         crossServerChannels,
@@ -207,19 +345,16 @@ HcclResult AllGatherHDStageCore::RunAsync()
         CountChannelsByProtocol(resCtx_, COMM_PROTOCOL_SIO));
 
     if (plan.needNoPowerPath) {
-        HCCL_INFO("HDStage dispatch noPower path first");
-        HcclResult ret = RunNoPowerPath(plan);
-        if (ret != HCCL_SUCCESS) {
-            return ret;
-        }
+        HCCL_CHK_RET(RunNoPowerPath(plan));
     }
-
     if (plan.needPowerPath) {
-        HCCL_INFO("HDStage dispatch power path after noPower=%s", plan.needNoPowerPath ? "true" : "false");
-        return RunPowerPath(plan);
+        HCCL_CHK_RET(RunPowerPath(plan));
+    }
+    if (plan.needFinalPath) {
+        HCCL_CHK_RET(RunFinalPath(plan));
     }
 
-    HCCL_INFO("HDStage completes without extra power path");
+    HCCL_INFO("HDStage finished: rank=%u, primaryPath=%s", param_.topoInfo.rank, SelectPrimaryPath(plan));
     return HCCL_SUCCESS;
 }
 
