@@ -103,6 +103,26 @@ void CcuTempAlltoAllMesh1D::InitInsAlgTemplate(
     }
 }
 
+HcclResult CcuTempAlltoAllMesh1D::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+{
+     HCCL_INFO("[CcuTempAlltoAllMesh1D::FastLaunch] start");
+     std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAlltoAllMesh1D>(
+        PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[0],
+ 	    PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[1],
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[2],
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[3],
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[4],
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[5],
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[6]        
+    );
+
+    void* taskArgPtr = static_cast<void*>(taskArg.get());
+    CHK_RET(HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr));
+
+    HCCL_INFO("[CcuTempAlltoAllMesh1D::FastLaunch] end");
+    return HcclResult::HCCL_SUCCESS;
+}
+
 HcclResult CcuTempAlltoAllMesh1D::KernelRun(const OpParam& param,
                                             const TemplateDataParams& templateDataParams,
                                             TemplateResource& templateResource)
@@ -155,6 +175,17 @@ HcclResult CcuTempAlltoAllMesh1D::KernelRun(const OpParam& param,
 
     HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr);
     
+    CcuKernelSubmitInfo subCommInfo;
+    subCommInfo.kernelHandle = templateResource.ccuKernels[0];
+    subCommInfo.cachedArgs[0] = buffInfo_.inBuffBaseOff;
+ 	subCommInfo.cachedArgs[1] = buffInfo_.outBuffBaseOff;
+ 	subCommInfo.cachedArgs[2] = sliceSize;
+ 	subCommInfo.cachedArgs[3] = token;
+    subCommInfo.cachedArgs[4] = srcOffset;
+    subCommInfo.cachedArgs[5] = dstOffset;
+    subCommInfo.cachedArgs[6] = srcStride;
+    templateResource.submitInfos.push_back(subCommInfo);
+     
     HCCL_DEBUG("[CcuTempAlltoAllMesh1D::KernelRun] end");
 
     return HcclResult::HCCL_SUCCESS;
