@@ -55,7 +55,10 @@ HcclResult InsTempReduceScatterNHR::KernelRun(const OpParam& param,
                                               const TemplateResource& templateResource)
 {
     HCCL_INFO("[InsTempReduceScatterNHR] GenExtIns start");
-
+    if (tempAlgParams.sliceSize == 0 && tempAlgParams.tailSize == 0) {
+        HCCL_INFO("[InsTempReduceScatterNHR] sliceSize and tailSize are both 0, skip");
+        return HCCL_SUCCESS;
+    }
     tempAlgParams_       = tempAlgParams;
     channels_            = templateResource.channels;
     dataType_ = param.DataDes.dataType;
@@ -77,7 +80,11 @@ HcclResult InsTempReduceScatterNHR::LocalDataCopy(const std::vector<ThreadHandle
         HCCL_ERROR("[InsTempReduceScatterNHR][LocalDataCopy] empty threads"), HcclResult::HCCL_E_INTERNAL);
     ThreadHandle q = threads[0];
     const u64 rptNum = std::max<u64>(1, tempAlgParams_.repeatNum);
-    for (u32 localRandId = 0; localRandId < templateRankSize_; ++localRandId) { 
+    for (u32 localRandId = 0; localRandId < templateRankSize_; ++localRandId) {
+        u64 sliceSize = tempAlgParams_.sliceSize;
+        if (localRandId == templateRankSize_ - 1 && tempAlgParams_.tailSize > 0) {
+            sliceSize = tempAlgParams_.tailSize;
+        }
         for (u64 rpt = 0; rpt < rptNum; ++rpt) {
             const u64 inBaseOff = tempAlgParams_.buffInfo.inBuffBaseOff +
                                   rpt * tempAlgParams_.inputRepeatStride;
@@ -87,8 +94,8 @@ HcclResult InsTempReduceScatterNHR::LocalDataCopy(const std::vector<ThreadHandle
             const u64 inOff = inBaseOff + localRandId * tempAlgParams_.inputSliceStride;
             const u64 scOff = scratchBase + localRandId * tempAlgParams_.sliceSize;
 
-            DataSlice src = DataSlice(tempAlgParams_.buffInfo.inputPtr, inOff, tempAlgParams_.sliceSize);
-            DataSlice dst = DataSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scOff, tempAlgParams_.sliceSize);
+            DataSlice src = DataSlice(tempAlgParams_.buffInfo.inputPtr, inOff, sliceSize);
+            DataSlice dst = DataSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scOff, sliceSize);
 
             // 如果源地址和目标地址相同，则不需要做拷贝
             if (tempAlgParams_.buffInfo.inBuffType != tempAlgParams_.buffInfo.hcclBuffType || inOff != scOff) { 
@@ -106,6 +113,12 @@ HcclResult InsTempReduceScatterNHR::PostLocalCopy(const std::vector<ThreadHandle
 
     u32 myAlgIdx = 0;
     CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], myAlgIdx));
+    u64 sliceSize = 0;
+    if (myAlgIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize > 0) {
+        sliceSize = tempAlgParams_.tailSize;
+    } else {
+        sliceSize = tempAlgParams_.sliceSize;
+    }
     ThreadHandle q = threads[0];
 
     const u64 rptNum = std::max<u64>(1, tempAlgParams_.repeatNum);
@@ -116,10 +129,10 @@ HcclResult InsTempReduceScatterNHR::PostLocalCopy(const std::vector<ThreadHandle
                               + rpt * tempAlgParams_.outputRepeatStride;
 
         const u64 scOff  = scratchBase + tempAlgParams_.sliceSize * myAlgIdx;
-        const u64 outOff = outBaseOff;
+        const u64 outOff = outBaseOff + myAlgIdx * tempAlgParams_.outputSliceStride;
 
-        DataSlice src = DataSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scOff, tempAlgParams_.sliceSize);
-        DataSlice dst = DataSlice(tempAlgParams_.buffInfo.outputPtr, outOff, tempAlgParams_.sliceSize);
+        DataSlice src = DataSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scOff, sliceSize);
+        DataSlice dst = DataSlice(tempAlgParams_.buffInfo.outputPtr, outOff, sliceSize);
 
         if (tempAlgParams_.buffInfo.hcclBuffType != tempAlgParams_.buffInfo.outBuffType || scOff != outOff) {
             CHK_RET(LocalCopy(q, src, dst));
@@ -159,7 +172,6 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
                         channels_[recvFromRank].size() == 0 || channels_[sendToRank].size() == 0,
                         HCCL_ERROR("[RS-NHR][RunNHR] link missing: recvFrom=%d sendTo=%d", recvFromRank, sendToRank),
                 HcclResult::HCCL_E_INTERNAL);
-
             ChannelInfo linkRecv = channels_[recvFromRank].at(0);
             ChannelInfo linkSend = channels_[sendToRank].at(0);
 
@@ -179,11 +191,16 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
                 const u64 txScOff = scratchBase + tempAlgParams_.sliceSize * txIdx;
                 const u64 rxScOff = scratchBase + tempAlgParams_.sliceSize * rxIdx;
 
+                const u64 txSliceSize = (txIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize > 0) ?
+                    tempAlgParams_.tailSize : tempAlgParams_.sliceSize;
+                const u64 rxSliceSize = (rxIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize > 0) ?
+                    tempAlgParams_.tailSize : tempAlgParams_.sliceSize;
+
                 DataSlice txSrcSlice = DataSlice(tempAlgParams_.buffInfo.hcclBuff.addr, txScOff,
-                    tempAlgParams_.sliceSize, tempAlgParams_.count); // 发送源
+                    txSliceSize, txSliceSize / DATATYPE_SIZE_TABLE[dataType_]); // 发送源
                 DataSlice txDstSlice = DataSlice(remoteCclBuffAddr, txScOff,
-                    tempAlgParams_.sliceSize, tempAlgParams_.count);  // 发送目标
-                DataSlice rxSlice = DataSlice(tempAlgParams_.buffInfo.hcclBuff.addr, rxScOff, tempAlgParams_.sliceSize);
+                    txSliceSize, txSliceSize / DATATYPE_SIZE_TABLE[dataType_]);  // 发送目标
+                DataSlice rxSlice = DataSlice(tempAlgParams_.buffInfo.hcclBuff.addr, rxScOff, rxSliceSize, rxSliceSize / DATATYPE_SIZE_TABLE[dataType_]);
                 txSrcSlices.push_back(txSrcSlice);
                 txDstSlices.push_back(txDstSlice);
                 rxSlices.emplace_back(rxSlice);

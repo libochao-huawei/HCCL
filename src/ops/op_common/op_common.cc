@@ -216,6 +216,18 @@ HcclResult SetOpParamFastLaunchTag(OpParam &param)
         }
         len += len3;
     }
+
+    if (param.opType == HcclCMDType::HCCL_CMD_REDUCE || param.opType == HcclCMDType::HCCL_CMD_SCATTER ||
+        param.opType == HcclCMDType::HCCL_CMD_BROADCAST) {
+        remainBytes = sizeof(param.algTag) - len;
+        std::string root = std::to_string(param.root);
+        int len4 = snprintf_s(param.fastLaunchTag + len, remainBytes, remainBytes, "_r%s", root.c_str());
+        if (len4 < 0|| len >= remainBytes) {
+            HCCL_ERROR("faled to fill param.fastLaunchTag");
+            return HcclResult::HCCL_E_INTERNAL;
+        }
+        len += len4;
+    }
     HCCL_DEBUG("[SetOpParamFastLaunchTag] fastLaunchTag: [%s]", param.fastLaunchTag);
     return HcclResult::HCCL_SUCCESS;
 }
@@ -275,7 +287,7 @@ HcclResult HcclExecOpCcuFastLaunch(HcclComm comm, OpParam &param, const CcuFastL
 }
 
 HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
-                                std::shared_ptr<InsCollAlgBase> executor,
+                                std::unique_ptr<InsCollAlgBase> &executor,
                                 AlgResourceCtxSerializable &resCtxHost)
 {
     // Cache Logic
