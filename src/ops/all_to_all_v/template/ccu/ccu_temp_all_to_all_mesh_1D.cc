@@ -117,7 +117,8 @@ HcclResult CcuTempAlltoAllMesh1D::FastLaunch(const OpParam& param, const Templat
     );
 
     void* taskArgPtr = static_cast<void*>(taskArg.get());
-    CHK_RET(HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr));
+    CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0], 
+ 	        tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr));
 
     HCCL_INFO("[CcuTempAlltoAllMesh1D::FastLaunch] end");
     return HcclResult::HCCL_SUCCESS;
@@ -169,7 +170,7 @@ HcclResult CcuTempAlltoAllMesh1D::KernelRun(const OpParam& param,
         "outputAddr[%llu], sliceSize[%llu], srcOffset[%llu], dstOffset[%llu]",
         loadFromMem, myRank_, dimSize[0], inputAddr, outputAddr, sliceSize, srcOffset, dstOffset);
     std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAlltoAllMesh1D>(
-            inputAddr, outputAddr, sliceSize, token, srcOffset, dstOffset, srcStride, loadFromMem);
+            inputAddr, outputAddr, sliceSize, token, srcOffset, dstOffset, srcStride);
 
     void* taskArgPtr = static_cast<void*>(taskArg.get());
 
