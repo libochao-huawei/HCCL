@@ -303,9 +303,11 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             HCCL_ERROR("failed set batch mode, tag is %s.", param->algTag);
             return 1;
         }
+
+        // 要在下第一个task之前上报
         HcclDfxOpInfo dfxOpInfo{};
-        ConvertToHcclDfxOpInfo(param, &dfxOpInfo);
-        HcclDfxRegOpInfoByCommId(param->commName, &dfxOpInfo);
+        CHK_RET(ConvertToHcclDfxOpInfo(param, &dfxOpInfo));
+        CHK_RET((param->commName, (void *)&dfxOpInfo));
         // 上报主流和第一个task  wait之前
         if (HcommProfilingReportKernelStartTask(thread, param->commName) != HCCL_SUCCESS) {
             HCCL_ERROR("%sfailed to report MainStream And FirstTask, thread %lu, param->commName %s.", __func__, thread, param->commName);

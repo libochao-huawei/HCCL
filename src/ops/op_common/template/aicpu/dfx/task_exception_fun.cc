@@ -15,6 +15,7 @@
 #include <memory>
 #include "log.h"
 #include "alg_param.h"
+#include "hccl_comm_dl.h"
 
 namespace ops_hccl {
 HcclResult CreateScatter(OpParam *param, ScatterOpInfo *opInfo)
@@ -83,14 +84,14 @@ HcclResult ConvertToHcclDfxOpInfo(OpParam *param, HcclDfxOpInfo *hcclDfxOpInfo)
 
     // rankSize获取指定算子的dataCount
     u32 userRankSize{0};
-    CHK_RET(HcclGetRankSize(comm, &userRankSize));
+    CHK_RET(HcclGetRankSize(static_cast<HcclComm>(param->hcclComm), &userRankSize));
     hcclDfxOpInfo->dataCount = GetHcclDfxOpInfoDataCount(*param, userRankSize);
     hcclDfxOpInfo->root = param->root;
     hcclDfxOpInfo->engine = param->engine;
-    hcclDfxOpInfo->cpuTsThread = cpuTsThread;
+    hcclDfxOpInfo->cpuTsThread = param->opThread;
 
     s32 sRet = strncpy_s(hcclDfxOpInfo->algTag, ALG_TAG_LENGTH, param->algTag, ALG_TAG_LENGTH);
-    CHK_PRT_RET(sRet != EOK, HCCL_ERROR("%s call strncpy_s failed, param.algTag %s,  return %d.", __func__, param.algTag, sRet), HCCL_E_MEMORY);
+    CHK_PRT_RET(sRet != EOK, HCCL_ERROR("%s call strncpy_s failed, param.algTag %s,  return %d.", __func__, param->algTag, sRet), HCCL_E_MEMORY);
 
     hcclDfxOpInfo->cpuWaitAicpuNotifyIdx = param->aicpuRecordCpuIdx;
     
