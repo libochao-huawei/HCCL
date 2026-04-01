@@ -6,6 +6,41 @@
 
 ## 目录说明
 
+```text
+hccl/allgatherbatch/
+├─ README.md
+├─ CMakeLists.txt
+├─ inc/
+│  ├─ allgather_batch.h
+│  ├─ common.h
+│  └─ log.h
+├─ op_host/
+│  ├─ CMakeLists.txt
+│  ├─ allgather_batch.cc
+│  ├─ launch_kernel.cc
+│  ├─ launch_kernel.h
+│  ├─ load_kernel.cc
+│  └─ load_kernel.h
+├─ op_kernel_aicpu/
+│  ├─ CMakeLists.txt
+│  ├─ hccl_allgather_batch_aicpu_kernel.cc
+│  ├─ exec_op.cc
+│  ├─ exec_op.h
+│  ├─ allgather_batch_small_count_executor.cc
+│  ├─ allgather_batch_small_count_executor.h
+│  ├─ window_range.h
+│  ├─ all_gather_hd_stage_core.cc
+│  ├─ all_gather_hd_stage_core.h
+│  ├─ all_gather_nhr_core.cc
+│  └─ all_gather_nhr_core.h
+└─ testcase/
+   ├─ CMakeLists.txt
+   ├─ Makefile
+   ├─ README.md
+   ├─ main.cc
+   └─ run.sh
+```
+
 - `inc/`
   放公开 API 头文件，以及 Host 和 Device 共用的协议定义。
 - `op_host/`
@@ -35,7 +70,7 @@
 
 - 公开 API：`inc/allgather_batch.h`
 - 共享协议：`inc/common.h`
-- Host 入口：`op_host/allgather_batch_op.cc`
+- Host 入口：`op_host/allgather_batch.cc`
 - Device 入口：`op_kernel_aicpu/hccl_allgather_batch_aicpu_kernel.cc`
 - 执行器：`op_kernel_aicpu/allgather_batch_small_count_executor.cc`
 - 测试样例：`testcase/main.cc`
