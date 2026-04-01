@@ -1,3 +1,12 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 
 #include <string>
 #include "ins_send_dpu_executor.h"
@@ -12,8 +21,7 @@ namespace ops_hccl {
     }
 
     template <typename InsAlgTemplate>
-    HcclResult InsSendDpuExecutor<InsAlgTemplate>::InitCommInfo(
-        HcclComm comm, const OpParam &param, TopoInfoWithNetLayerDetails *topoInfo,
+    HcclResult InsSendDpuExecutor<InsAlgTemplate>::InitCommInfo(HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
         const AlgHierarchyInfoForAllLevel &algHierarchyInfo);
     {
         myRank_ = topoInfo->userRank;
@@ -23,8 +31,6 @@ namespace ops_hccl {
         dataCount_ = param.DataDes.count;
         dataType_ = param.DataDes.dataType;
         dataTypeSize_ = static_cast<u64>(DATATYPE_SIZE_TABLE[dataType_]);
-
-        algHierarchyInfo_ = algHierarchyInfo;
 
         HCCL_INFO(
             "[InsSendDpuExecutor][InitCommInfo] myRank [%u], remoteRank [%u], rankSize [%u], devType [%u], "
@@ -41,8 +47,7 @@ namespace ops_hccl {
         // 初始化一些基本成员变量
         myRank_ = topoInfo->userRank;
         HCCL_DEBUG("[InsSendDpuExecutor][CalcAlgHierarchyInfo][%d] Start.", myRank_);
-        CHK_PRT_RET(
-            topoInfo->userRankSize == 0,
+        CHK_PRT_RET((topoInfo->userRankSize == 0),
             HCCL_ERROR("[InsSendDpuExecutor][CalcAlgHierarchyInfo] Rank [%d], rankSize is 0.", myRank_),
             HcclResult::HCCL_E_PARA);
         
@@ -56,18 +61,17 @@ namespace ops_hccl {
 
         algHierarchyInfo_ = algHierarchyInfo;
         
-        HCCL_DEBUG("[InsSendDpuExecutor][CalcAlgHierarchyInfo][%d] Success", myRank_);
+        HCCL_DEBUG("[InsSendDpuExecutor][CalcAlgHierarchyInfo][%d] Success.", myRank_);
         return HcclResult::HCCL_SUCCESS;
     }
 
     template <typename InsAlgTemplate>
-    HcclResult InsSendDpuExecutor<InsAlgTemplate>::CalcRes(
-        HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
+    HcclResult InsSendDpuExecutor<InsAlgTemplate>::CalcRes(HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
         const AlgHierarchyInfoForAllLevel &algHierarchyInfo, AlgResourceRequest &resourceRequest)
     {
         // 初始化一些基本成员变量
         InitCommInfo(comm, param, topoInfo, algHierarchyInfo);
-        HCCL_DEBUG("[InsSendDpuExecutor][CalcRes][%d]<-[%d] Start.", myRank_, remoteRank_);
+        HCCL_DEBUG("[InsSendDpuExecutor][CalcRes][%d]->[%d] Start.", myRank_, remoteRank_);
 
         resourceRequest.notifyNumOnMainThread = 0;
         resourceRequest.slaveThreadNum = 0;
@@ -76,14 +80,16 @@ namespace ops_hccl {
         CHK_RET(CreateChannelRequestByRankId(comm, myRank_, remoteRank_, level0Channels));
         resourceRequest.channels.push_back(level0Channels);
 
-        HCCL_DEBUG("[InsSendDpuExecutor][CalcRes][%d]<-[%d] Success.", myRank_, remoteRank_);
+        HCCL_DEBUG("[InsSendDpuExecutor][CalcRes][%d]->[%d] Success.", myRank_, remoteRank_);
         return HcclResult::HCCL_SUCCESS;
     }
 
     template <typename InsAlgTemplate>
-    HcclResult InsSendDpuExecutor<InsAlgTemplate>::Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx)
+    HcclResult InsSendDpuExecutor<InsAlgTemplate>::Orchestrate(const OpParam &param,
+        const AlgResourceCtxSerializable &resCtx)
     {
         HCCL_DEBUG("[InsSendDpuExecutor][Orchestrate][%d]->[%d] Start.", myRank_, remoteRank_);
+
         opMode_ = param.opMode;
         myRank_ = resCtx.topoInfo.userRank;
         remoteRank_ = param.sendRecvRemoteRank;
@@ -92,8 +98,8 @@ namespace ops_hccl {
         CHK_RET(RestoreChannelMap(resCtx, remoteRankToChannelInfo_));
 
         TemplateDataParams tempAlgParams;
-        tempAlgParams.buffInfo.outputPtr = param.outputPtr;
-        tempAlgParams.buffInfo.outputSize = param.outputSize;
+        tempAlgParams.buffInfo.inputPtr = param.inputPtr;
+        tempAlgParams.buffInfo.inputSize = param.inputSize;
         tempAlgParams.buffInfo.hcclBuff = resCtx.cclMem;
 
         // 构造template资源

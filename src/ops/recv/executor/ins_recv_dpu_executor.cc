@@ -1,3 +1,12 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 
 #include "ins_recv_dpu_executor.h"
 #include "alg_data_trans_wrapper.h"
@@ -12,7 +21,7 @@ namespace ops_hccl {
 
     template <typename InsAlgTemplate>
     HcclResult InsRecvDpuExecutor<InsAlgTemplate>::InitCommInfo(
-        HcclComm comm, const OpParam &param, TopoInfoWithNetLayerDetails *topoInfo,
+        HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
         const AlgHierarchyInfoForAllLevel &algHierarchyInfo);
     {
         myRank_ = topoInfo->userRank;
@@ -53,7 +62,7 @@ namespace ops_hccl {
             algHierarchyInfo.infos[0][0].push_back(rankId);
         }
         
-        HCCL_DEBUG("[InsRecvDpuExecutor][CalcAlgHierarchyInfo][%d] Success", myRank_);
+        HCCL_DEBUG("[InsRecvDpuExecutor][CalcAlgHierarchyInfo][%d] Success.", myRank_);
         return HcclResult::HCCL_SUCCESS;
     }
 
@@ -81,6 +90,7 @@ namespace ops_hccl {
     HcclResult InsRecvDpuExecutor<InsAlgTemplate>::Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx)
     {
         HCCL_DEBUG("[InsRecvDpuExecutor][Orchestrate][%d]->[%d] Start.", myRank_, remoteRank_);
+
         opMode_ = param.opMode;
         myRank_ = resCtx.topoInfo.userRank;
         remoteRank_ = param.sendRecvRemoteRank;

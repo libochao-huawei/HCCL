@@ -55,7 +55,7 @@ HcclResult HcclSend(
 
     bool hostDPUOnly = false;
     if (CheckHostDPUOnly(comm, hostDPUOnly) == HCCL_SUCCESS && hostDPUOnly == true) {
-        return HcclSendv2(sendBuf, count, dataType, srcRank, comm, stream);
+        return HcclSendv2(sendBuf, count, dataType, destRank, comm, stream);
     }
 
     if (!HcclCheckAicpuEnableOpen() && !HcclCheckCcuEnableOpen() && !HcclCheckAivEnableOpen()) {
@@ -76,7 +76,7 @@ HcclResult HcclSend(
         return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
     }
 
-    ret = HcclSendv2(sendBuf, count, dataType, srcRank, comm, stream);
+    ret = HcclSendv2(sendBuf, count, dataType, destRank, comm, stream);
     return ret;
 }
 

@@ -38,25 +38,25 @@ HcclResult InsTempRecvDpu::CalcRes(HcclComm comm, const OpParam &param, const To
     std::vector<HcclChannelDesc> level1Channels;
     CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level1Channels));
     resourceRequest.channels.push_back(level1Channels);
-    HCCL_INFO("[InsTempReduceScatterMeshSeqInter][CalcRes]slaveThreadNum[%d], notifyNumPerThread [%d], notifyNumOnMainThread [%d], "
+    HCCL_INFO("[InsTempReduceScatterMeshSeqInter][CalcRes]slaveThreadNum[%u], notifyNumPerThread [%u], notifyNumOnMainThread [%u], "
         "level1Channels [%u].",
         resourceRequest.slaveThreadNum, resourceRequest.notifyNumPerThread, resourceRequest.notifyNumOnMainThread,
         level1Channels.size());
     return HCCL_SUCCESS;
 }
 
-u64 CalcScratchMultiple(BufferType inBufferType, BufferType outBufferType)
+u64 InsTempRecvDpu::CalcScratchMultiple(BufferType inBufferType, BufferType outBufferType)
 {
     (void) inBufferType;
     (void) outBufferType;
-    u64 scratchMultipe = subCommRanks_[0].size();
+    u64 scratchMultiple = subCommRanks_[0].size();
     HCCL_INFO(
-        "[InsTempRecvDpu][CalcScratchMultiple] templateScratchMultiplier [%llu]", scratchMultipe);
-    return scratchMultipe;
+        "[InsTempRecvDpu][CalcScratchMultiple] templateScratchMultiplier [%llu]", scratchMultiple);
+    return scratchMultiple;
 }
 
-HcclResult InsTempRecvDpu::KernelRun(
-    const OpParam &param, const TemplateDataParams &tempAlgParams, const TemplateResource &templateResource)
+HcclResult InsTempRecvDpu::KernelRun(const OpParam &param, const TemplateDataParams &tempAlgParams,
+                                     const TemplateResource &templateResource)
 {
     threadNum_ = templateResource.threads.size();
     processSize_ = tempAlgParams.sliceSize;
@@ -64,11 +64,11 @@ HcclResult InsTempRecvDpu::KernelRun(
     dataType_ = param.DataDes.dataType;
 
     if (threadNum_ < 1) {
-        HCCL_ERROR("[InsTempRecvDpu] Rank [%d], required thread error", myRank_);
+        HCCL_ERROR("[InsTempRecvDpu] Rank [%d], required thread error.", myRank_);
         return HCCL_E_INTERNAL;
     }
 
-    // 转化成eager-mode，保障AICPU指令下发执行完成
+    // 转换成eager-mode，保障AICPU指令下发执行完成
     if (HcommBatchModeEnd(param.algTag) != HCCL_SUCCESS) {
         HCCL_ERROR("failed set eager mode, tag is %s.", param.algTag);
         return HCCL_E_INTERNAL;
@@ -89,7 +89,7 @@ HcclResult InsTempRecvDpu::KernelRun(
     auto dpuRunInfoSeqData = dpuRunInfo.Serialize();
     if (HcommSendRequest(reinterpret_cast<uint64_t>(templateResource.npu2DpuShmemPtr), param.algTag,
         static_cast<void *>(dpuRunInfoSeqData.data()), dpuRunInfoSeqData.size(), &sendMsgId) != 0) {
-        HCCL_ERROR("HcommRecvRequest failed");
+        HCCL_ERROR("InsTempRecvDpu HcommRecvRequest failed");
         return HCCL_E_INTERNAL;
     }
 
@@ -99,7 +99,7 @@ HcclResult InsTempRecvDpu::KernelRun(
     void *recvData = nullptr;
     u32 recvMsgId = 0;
     if (HcommWaitResponse(reinterpret_cast<uint64_t>(templateResource.dpu2NpuShmemPtr), recvData, 0, &recvMsgId) != 0) {
-        HCCL_ERROR("HcommWaitResponse failed");
+        HCCL_ERROR("InsTempRecvDpu HcommWaitResponse failed");
         return HCCL_E_INTERNAL;
     }
 
@@ -120,7 +120,7 @@ HcclResult InsTempRecvDpu::KernelRun(
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult InsTempRecvDpu::DPUKernelRun(const TemplateDataParams &tempAlgParam,
+HcclResult InsTempRecvDpu::DPUKernelRun(const TemplateDataParams &tempAlgParams,
     const std::map<u32, std::vector<ChannelInfo>> &channels, const u32 myRank,
     const std::vector<std::vector<uint32_t>> &subCommRanks)
 {
@@ -128,7 +128,7 @@ HcclResult InsTempRecvDpu::DPUKernelRun(const TemplateDataParams &tempAlgParam,
     std::vector<u32> rankIds = subCommRanks[0];
 
     for (u32 rankIdx = 0; rankIdx < rankIds.size(); rankIdx++) {
-        if (rankId == myRank) {
+        if (rankIdx == myRank) {
             continue;
         }
 

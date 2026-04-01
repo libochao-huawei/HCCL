@@ -589,7 +589,7 @@ HcclResult CalcLevel0TopoShape(const HcclComm comm, TopoInfoWithNetLayerDetails*
         return HCCL_SUCCESS;
     }
     topoInfo->level0Topo = Level0Shape::CLOS;
-    // HCCL_ERROR("Unkown topo for level 0, topoInstNum[%u]", topoInstNum);
+    // HCCL_ERROR("Unkown topo for level 0, topoInstNum[%u]", topoInstNum); // AIWAN
     return HCCL_SUCCESS;
 }
 

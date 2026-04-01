@@ -27,36 +27,36 @@ InsTempSendDpu::~InsTempSendDpu()
 }
 
 // ! 已编码完成
-HcclResult InsTempSendDpu::CalcRes(
-    HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo, AlgResourceRequest &resourceRequest)
+HcclResult InsTempSendDpu::CalcRes(HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
+                                            AlgResourceRequest &resourceRequest)
 {
-    resourceRequest.slaveThreadNum = 0;
+    // host网卡资源，不新增从流和对应Notify，只申请DPU上面
+    resourceRequest.slaveThreadNum = 0; // 主thread可以通过接口传入的stream来做转换
     resourceRequest.notifyNumPerThread = {};
     resourceRequest.notifyNumOnMainThread = 0;
     
     std::vector<HcclChannelDesc> level1Channels;
     CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level1Channels));
     resourceRequest.channels.push_back(level1Channels);
-    HCCL_INFO("[InsTempReduceScatterMeshSeqInter][CalcRes]slaveThreadNum[%d], notifyNumPerThread [%d], notifyNumOnMainThread [%d], "
+    HCCL_INFO("[InsTempReduceScatterMeshSeqInter][CalcRes]slaveThreadNum[%u], notifyNumPerThread [%u], notifyNumOnMainThread [%u], "
         "level1Channels [%u].",
         resourceRequest.slaveThreadNum, resourceRequest.notifyNumPerThread, resourceRequest.notifyNumOnMainThread,
         level1Channels.size());
     return HCCL_SUCCESS;
 }
 
-u64 CalcScratchMultiple(BufferType inBufferType, BufferType outBufferType)
+u64 InsTempSendDpu::CalcScratchMultiple(BufferType inBufferType, BufferType outBufferType)
 {
     (void) inBufferType;
     (void) outBufferType;
-    u64 scratchMultipe = subCommRanks_[0].size();
+    u64 scratchMultiple = subCommRanks_[0].size();
     HCCL_INFO(
-        "[InsTempSendDpu][CalcScratchMultiple] templateScratchMultiplier [%llu]", scratchMultipe);
-    return scratchMultipe;
+        "[InsTempSendDpu][CalcScratchMultiple] templateScratchMultiplier [%llu]", scratchMultiple);
+    return scratchMultiple;
 }
 
-// ! 基本编码完成，剩余数据序列化
-HcclResult InsTempSendDpu::KernelRun(
-    const OpParam &param, const TemplateDataParams &tempAlgParams, const TemplateResource &templateResource)
+HcclResult InsTempSendDpu::KernelRun(const OpParam &param, const TemplateDataParams &tempAlgParams,
+                                     const TemplateResource &templateResource)
 {
     threadNum_ = templateResource.threads.size();
     processSize_ = tempAlgParams.sliceSize;
@@ -89,7 +89,7 @@ HcclResult InsTempSendDpu::KernelRun(
     auto dpuRunInfoSeqData = dpuRunInfo.Serialize();
     if (HcommSendRequest(reinterpret_cast<uint64_t>(templateResource.npu2DpuShmemPtr), param.algTag,
         static_cast<void *>(dpuRunInfoSeqData.data()), dpuRunInfoSeqData.size(), &sendMsgId) != 0) {
-        HCCL_ERROR("HcommSendRequest failed");
+        HCCL_ERROR("InsTempSendDpu HcommSendRequest failed");
         return HCCL_E_INTERNAL;
     }
 
@@ -120,7 +120,7 @@ HcclResult InsTempSendDpu::KernelRun(
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult InsTempSendDpu::DPUKernelRun(const TemplateDataParams &tempAlgParam,
+HcclResult InsTempSendDpu::DPUKernelRun(const TemplateDataParams &tempAlgParams,
     const std::map<u32, std::vector<ChannelInfo>> &channels, const u32 myRank,
     const std::vector<std::vector<uint32_t>> &subCommRanks)
 {
@@ -128,7 +128,7 @@ HcclResult InsTempSendDpu::DPUKernelRun(const TemplateDataParams &tempAlgParam,
     std::vector<u32> rankIds = subCommRanks[0];
 
     for (u32 rankIdx = 0; rankIdx < rankIds.size(); rankIdx++) {
-        if (rankId == myRank) {
+        if (rankIdx == myRank) {
             continue;
         }
 
@@ -159,7 +159,7 @@ HcclResult InsTempSendDpu::DPUKernelRun(const TemplateDataParams &tempAlgParam,
 
             // 后同步
             CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWait(channels.at(rankIdx)[0].handle, 2, 120000)));
-            CHK_RET(static_cast<HcclResult>HcommFlush());
+            CHK_RET(static_cast<HcclResult>(HcommFlush()));
         }
     }
 #endif
