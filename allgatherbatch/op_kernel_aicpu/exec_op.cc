@@ -4,41 +4,16 @@
 
 namespace ops_hccl_allgatherbatch {
 
-namespace {
-
-uint32_t CountChannelsByProtocol(const AlgResourceCtx &resCtx, CommProtocol protocol)
-{
-    uint32_t count = 0;
-    for (uint32_t idx = 0; idx < resCtx.channelCount; ++idx) {
-        if (resCtx.channels[idx].protocol == protocol) {
-            ++count;
-        }
-    }
-    return count;
-}
-
-uint32_t CountCrossServerChannels(const OpParam &param, const AlgResourceCtx &resCtx)
-{
-    uint32_t count = 0;
-    for (uint32_t idx = 0; idx < resCtx.channelCount; ++idx) {
-        if (resCtx.channels[idx].remoteServerIdx != param.topoInfo.serverIdx) {
-            ++count;
-        }
-    }
-    return count;
-}
-
-}
-
 HcclResult ExecOp(const OpParam &param, AlgResourceCtx *resCtx)
 {
     HCCL_CHK_PTR(resCtx);
-    HCCL_INFO("ExecOp dispatch: rank=%u, rankSize=%u, commMode=%s, channelCount=%u, crossServerChannels=%u, hccs=%u, roce=%u, pcie=%u, sio=%u",
+    HCCL_INFO("ExecOp dispatch: rank=%u, rankSize=%u, commMode=%s, channelCount=%u, crossServerChannels=%u, perRankCapacity=%llu, hccs=%u, roce=%u, pcie=%u, sio=%u",
         param.topoInfo.rank,
         param.topoInfo.rankSize,
         ToCommModeString(param.commMode),
         resCtx->channelCount,
-        CountCrossServerChannels(param, *resCtx),
+        CountCrossServerChannels(param.topoInfo, *resCtx),
+        static_cast<unsigned long long>(GetPerRankWindowCapacity(param, *resCtx)),
         CountChannelsByProtocol(*resCtx, COMM_PROTOCOL_HCCS),
         CountChannelsByProtocol(*resCtx, COMM_PROTOCOL_ROCE),
         CountChannelsByProtocol(*resCtx, COMM_PROTOCOL_PCIE),
@@ -50,3 +25,4 @@ HcclResult ExecOp(const OpParam &param, AlgResourceCtx *resCtx)
 }
 
 }  // namespace ops_hccl_allgatherbatch
+

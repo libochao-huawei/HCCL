@@ -254,6 +254,7 @@ HcclResult ValidatePreparedResourceCtx(const OpParam &param)
     const uint32_t crossServerChannels = CountCrossServerChannels(param.topoInfo, resCtx);
     const uint32_t intraServerChannels = resCtx.channelCount - crossServerChannels;
     const uint64_t perRankWindowCapacity = GetPerRankWindowCapacity(param, resCtx);
+    const uint64_t maxWindowBytes = perRankWindowCapacity;
     if (intraServerChannels + crossServerChannels != resCtx.channelCount) {
         HCCL_ERROR("prepared resCtx channel split is inconsistent, intra=%u, cross=%u, channelCount=%u",
             intraServerChannels,
@@ -271,10 +272,8 @@ HcclResult ValidatePreparedResourceCtx(const OpParam &param)
             param.crossServerRankCount);
         return HCCL_E_INTERNAL;
     }
-    if (param.windowBytes > perRankWindowCapacity) {
-        HCCL_ERROR("prepared windowBytes=%llu exceeds per-rank capacity=%llu",
-            static_cast<unsigned long long>(param.windowBytes),
-            static_cast<unsigned long long>(perRankWindowCapacity));
+    if (maxWindowBytes == 0) {
+        HCCL_ERROR("prepared maxWindowBytes is zero");
         return HCCL_E_INTERNAL;
     }
 
@@ -300,10 +299,10 @@ HcclResult ValidatePreparedResourceCtx(const OpParam &param)
             HCCL_ERROR("prepared channel %u remoteBuffer is invalid", idx);
             return HCCL_E_INTERNAL;
         }
-        if (channel.remoteBuffer.size < (param.windowBytes * param.topoInfo.rankSize)) {
+        if (channel.remoteBuffer.size < (maxWindowBytes * param.topoInfo.rankSize)) {
             HCCL_ERROR("prepared channel %u remoteBuffer too small, need=%llu, actual=%llu",
                 idx,
-                static_cast<unsigned long long>(param.windowBytes * param.topoInfo.rankSize),
+                static_cast<unsigned long long>(maxWindowBytes * param.topoInfo.rankSize),
                 static_cast<unsigned long long>(channel.remoteBuffer.size));
             return HCCL_E_INTERNAL;
         }
@@ -553,3 +552,4 @@ HcclResult AllGatherBatchOp::LoadAndLaunch(const OpParam &param, aclrtStream str
 }
 
 }  // namespace ops_hccl_allgatherbatch
+

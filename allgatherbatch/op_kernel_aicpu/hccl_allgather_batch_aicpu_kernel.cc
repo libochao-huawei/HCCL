@@ -5,31 +5,12 @@ namespace {
 
 using namespace ops_hccl_allgatherbatch;
 
-uint32_t CountChannelsByProtocol(const AlgResourceCtx &resCtx, CommProtocol protocol)
-{
-    uint32_t count = 0;
-    for (uint32_t idx = 0; idx < resCtx.channelCount; ++idx) {
-        if (resCtx.channels[idx].protocol == protocol) {
-            ++count;
-        }
-    }
-    return count;
-}
-
-uint32_t CountCrossServerChannels(const OpParam &param)
-{
-    uint32_t count = 0;
-    for (uint32_t idx = 0; idx < param.resCtx->channelCount; ++idx) {
-        if (param.resCtx->channels[idx].remoteServerIdx != param.topoInfo.serverIdx) {
-            ++count;
-        }
-    }
-    return count;
-}
-
 HcclResult ValidateKernelResourceCtx(const OpParam &param)
 {
     const AlgResourceCtx &resCtx = *param.resCtx;
+    const uint32_t crossServerChannels = CountCrossServerChannels(param.topoInfo, resCtx);
+    const uint64_t perRankCapacity = GetPerRankWindowCapacity(param, resCtx);
+    const uint64_t maxWindowBytes = perRankCapacity;
     if (resCtx.threadHandle == 0) {
         HCCL_ERROR("AICPU kernel received invalid threadHandle");
         return HCCL_E_INTERNAL;
@@ -44,16 +25,14 @@ HcclResult ValidateKernelResourceCtx(const OpParam &param)
             param.topoInfo.rankSize);
         return HCCL_E_INTERNAL;
     }
+    if (maxWindowBytes == 0) {
+        HCCL_ERROR("AICPU kernel maxWindowBytes is zero");
+        return HCCL_E_INTERNAL;
+    }
 
-    const uint32_t crossServerChannels = CountCrossServerChannels(param);
-    const uint32_t recognizedChannels =
-        CountChannelsByProtocol(resCtx, COMM_PROTOCOL_HCCS) +
-        CountChannelsByProtocol(resCtx, COMM_PROTOCOL_ROCE) +
-        CountChannelsByProtocol(resCtx, COMM_PROTOCOL_PCIE) +
-        CountChannelsByProtocol(resCtx, COMM_PROTOCOL_SIO);
-    if (recognizedChannels != resCtx.channelCount) {
+    if (CountRecognizedProtocols(resCtx) != resCtx.channelCount) {
         HCCL_ERROR("AICPU kernel protocol distribution mismatch, recognized=%u, channelCount=%u",
-            recognizedChannels,
+            CountRecognizedProtocols(resCtx),
             resCtx.channelCount);
         return HCCL_E_INTERNAL;
     }
@@ -68,6 +47,7 @@ HcclResult ValidateKernelResourceCtx(const OpParam &param)
         return HCCL_E_INTERNAL;
     }
 
+    // Device 入口在真正执行前把资源容量再核一遍，避免窗口大小和远端 buffer 大小不一致时进入通信原语。
     for (uint32_t idx = 0; idx < resCtx.channelCount; ++idx) {
         const ChannelResource &channel = resCtx.channels[idx];
         if (channel.remoteRank == param.topoInfo.rank || channel.remoteRank >= param.topoInfo.rankSize) {
@@ -85,11 +65,18 @@ HcclResult ValidateKernelResourceCtx(const OpParam &param)
             HCCL_ERROR("AICPU kernel channel %u remoteBuffer is invalid", idx);
             return HCCL_E_INTERNAL;
         }
+        if (channel.remoteBuffer.size < (maxWindowBytes * param.topoInfo.rankSize)) {
+            HCCL_ERROR("AICPU kernel channel %u remoteBuffer too small, need=%llu, actual=%llu",
+                idx,
+                static_cast<unsigned long long>(maxWindowBytes * param.topoInfo.rankSize),
+                static_cast<unsigned long long>(channel.remoteBuffer.size));
+            return HCCL_E_INTERNAL;
+        }
     }
     return HCCL_SUCCESS;
 }
 
-}
+}  // namespace
 
 extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
     ops_hccl_allgatherbatch::OpParam *param)
@@ -124,7 +111,7 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
         return 1;
     }
 
-    HCCL_INFO("AICPU kernel enter: rank=%u, rankSize=%u, commMode=%s, serverIdx=%u, serverCount=%u, intraServerRankCount=%u, crossServerRankCount=%u, channelCount=%u, crossServerChannels=%u, totalInputBytes=%llu, windowBytes=%llu, hccs=%u, roce=%u, pcie=%u, sio=%u",
+    HCCL_INFO("AICPU kernel enter: rank=%u, rankSize=%u, commMode=%s, serverIdx=%u, serverCount=%u, intraServerRankCount=%u, crossServerRankCount=%u, channelCount=%u, crossServerChannels=%u, perRankCapacity=%llu, totalInputBytes=%llu, windowBytes=%llu, hccs=%u, roce=%u, pcie=%u, sio=%u",
         param->topoInfo.rank,
         param->topoInfo.rankSize,
         ToCommModeString(param->commMode),
@@ -133,7 +120,8 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
         param->intraServerRankCount,
         param->crossServerRankCount,
         param->resCtx->channelCount,
-        CountCrossServerChannels(*param),
+        CountCrossServerChannels(param->topoInfo, *param->resCtx),
+        static_cast<unsigned long long>(GetPerRankWindowCapacity(*param, *param->resCtx)),
         static_cast<unsigned long long>(param->totalInputBytes),
         static_cast<unsigned long long>(param->windowBytes),
         CountChannelsByProtocol(*param->resCtx, COMM_PROTOCOL_HCCS),
@@ -198,3 +186,4 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
         param->itemCount);
     return 0;
 }
+

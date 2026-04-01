@@ -14,18 +14,6 @@ uint64_t CalcRemainingBytes(const BatchItemParam &item, uint64_t offsetBytes)
     return (offsetBytes < item.sendBytes) ? (item.sendBytes - offsetBytes) : 0;
 }
 
-const char *ToCommModeString(BatchCommMode commMode)
-{
-    switch (commMode) {
-        case BatchCommMode::kSingleServer:
-            return "single-server";
-        case BatchCommMode::kCrossServer:
-            return "cross-server";
-        default:
-            return "unknown";
-    }
-}
-
 const char *ToWindowScopeString(BatchCommMode commMode)
 {
     return (commMode == BatchCommMode::kCrossServer) ? "cross-server" : "single-server";
@@ -48,8 +36,8 @@ HcclResult AllGatherBatchSmallCountExecutor::ValidateParam() const
         HCCL_ERROR("param.resCtx is null");
         return HCCL_E_PTR;
     }
-    if (param_.commMode == BatchCommMode::kUnknown) {
-        HCCL_ERROR("commMode is unknown");
+    if (!IsValidCommMode(param_.commMode)) {
+        HCCL_ERROR("commMode is invalid");
         return HCCL_E_INTERNAL;
     }
     if (resCtx_.threadHandle == 0) {
@@ -70,6 +58,16 @@ HcclResult AllGatherBatchSmallCountExecutor::ValidateParam() const
         HCCL_ERROR("totalInputBytes is zero");
         return HCCL_E_PARA;
     }
+    if (param_.windowBytes == 0) {
+        HCCL_ERROR("windowBytes is zero");
+        return HCCL_E_INTERNAL;
+    }
+    if (CountRecognizedProtocols(resCtx_) != resCtx_.channelCount) {
+        HCCL_ERROR("recognized protocol count=%u does not match channelCount=%u",
+            CountRecognizedProtocols(resCtx_),
+            resCtx_.channelCount);
+        return HCCL_E_INTERNAL;
+    }
     for (uint32_t itemIdx = 0; itemIdx < param_.itemCount; ++itemIdx) {
         const BatchItemParam &item = param_.items[itemIdx];
         if (item.sendBuf == nullptr || item.recvBuf == nullptr) {
@@ -86,13 +84,7 @@ HcclResult AllGatherBatchSmallCountExecutor::ValidateParam() const
 
 uint32_t AllGatherBatchSmallCountExecutor::CountCrossServerChannels() const
 {
-    uint32_t count = 0;
-    for (uint32_t idx = 0; idx < resCtx_.channelCount; ++idx) {
-        if (resCtx_.channels[idx].remoteServerIdx != param_.topoInfo.serverIdx) {
-            ++count;
-        }
-    }
-    return count;
+    return ops_hccl_allgatherbatch::CountCrossServerChannels(param_.topoInfo, resCtx_);
 }
 
 HcclResult AllGatherBatchSmallCountExecutor::ValidateModeConsistency() const
@@ -206,6 +198,12 @@ HcclResult AllGatherBatchSmallCountExecutor::ValidateWindow(const WindowRange &w
             static_cast<unsigned long long>(GetPerRankWindowCapacity()));
         return HCCL_E_INTERNAL;
     }
+    if (window.packedBytes > param_.windowBytes) {
+        HCCL_ERROR("window packedBytes=%llu exceeds param windowBytes=%llu",
+            static_cast<unsigned long long>(window.packedBytes),
+            static_cast<unsigned long long>(param_.windowBytes));
+        return HCCL_E_INTERNAL;
+    }
     return HCCL_SUCCESS;
 }
 
@@ -230,10 +228,7 @@ uint64_t AllGatherBatchSmallCountExecutor::CalcWindowCoveredBytes(const WindowRa
 
 uint64_t AllGatherBatchSmallCountExecutor::GetPerRankWindowCapacity() const
 {
-    if (param_.topoInfo.rankSize == 0) {
-        return 0;
-    }
-    return resCtx_.localBuffer.size / param_.topoInfo.rankSize;
+    return ops_hccl_allgatherbatch::GetPerRankWindowCapacity(param_, resCtx_);
 }
 
 uint8_t *AllGatherBatchSmallCountExecutor::GetRankWindowBase(const WindowRange &window, uint32_t rank) const
@@ -277,7 +272,7 @@ HcclResult AllGatherBatchSmallCountExecutor::LocateWindowEnd(
 HcclResult AllGatherBatchSmallCountExecutor::BuildFirstWindow(WindowRange &window) const
 {
     // gathered 结果要按 rank 拆槽放回同一个 localBuffer，因此每轮窗口最多只能占用 localBuffer/rankSize。
-    const uint64_t packedBytes = std::min(param_.totalInputBytes, GetPerRankWindowCapacity());
+    const uint64_t packedBytes = std::min(std::min(param_.totalInputBytes, param_.windowBytes), GetPerRankWindowCapacity());
     window.startItemIdx = 0;
     window.startOffsetBytes = 0;
     window.packedBytes = packedBytes;
@@ -306,7 +301,7 @@ HcclResult AllGatherBatchSmallCountExecutor::BuildNextWindow(
 
     next.startItemIdx = nextItemIdx;
     next.startOffsetBytes = nextOffsetBytes;
-    next.packedBytes = std::min(remainingBytes, GetPerRankWindowCapacity());
+    next.packedBytes = std::min(std::min(remainingBytes, param_.windowBytes), GetPerRankWindowCapacity());
     HCCL_CHK_RET(LocateWindowEnd(nextItemIdx, nextOffsetBytes, next.packedBytes, next.endItemIdx, next.endOffsetBytes));
     HCCL_CHK_RET(ValidateWindow(next));
     hasNext = true;
@@ -415,13 +410,14 @@ HcclResult AllGatherBatchSmallCountExecutor::Orchestrate()
 
     while (true) {
         HCCL_CHK_RET(ValidateWindow(window));
-        HCCL_INFO("executor window ready: scope=%s, start=(%u,%llu), end=(%u,%llu), packedBytes=%llu, perRankCapacity=%llu, rankSize=%u",
+        HCCL_INFO("executor window ready: scope=%s, start=(%u,%llu), end=(%u,%llu), packedBytes=%llu, paramWindowBytes=%llu, perRankCapacity=%llu, rankSize=%u",
             ToWindowScopeString(param_.commMode),
             window.startItemIdx,
             static_cast<unsigned long long>(window.startOffsetBytes),
             window.endItemIdx,
             static_cast<unsigned long long>(window.endOffsetBytes),
             static_cast<unsigned long long>(window.packedBytes),
+            static_cast<unsigned long long>(param_.windowBytes),
             static_cast<unsigned long long>(GetPerRankWindowCapacity()),
             param_.topoInfo.rankSize);
 
@@ -447,3 +443,4 @@ HcclResult AllGatherBatchSmallCountExecutor::Orchestrate()
 }
 
 }  // namespace ops_hccl_allgatherbatch
+
