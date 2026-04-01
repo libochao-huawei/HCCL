@@ -25,13 +25,13 @@ extern "C" {
 #endif
 
 HcclResult HcclAlltoAll(const void *sendBuf, uint64_t sendCount, HcclDataType sendType, const void *recvBuf,
-    uint64_t recvCount, HcclDataType recvType, HcclComm comm, aclrtStream stream);
+    uint64_t recvCount, HcclDataType recvType, uint64_t strideCount, HcclComm comm, aclrtStream stream);
 HcclResult HcclAlltoAllV(const void *sendBuf, const void *sendCounts, const void *sdispls, HcclDataType sendType,
     const void *recvBuf, const void *recvCounts, const void *rdispls, HcclDataType recvType, HcclComm comm, aclrtStream stream);
 HcclResult HcclAlltoAllVC(const void *sendBuf, const void *sendCountMatrix, HcclDataType sendType,
     const void *recvBuf, HcclDataType recvType, HcclComm comm, aclrtStream stream);
 HcclResult HcclAlltoAllGraphMode(const void *sendBuf, uint64_t sendCount, HcclDataType sendType, const void *recvBuf,
-    uint64_t recvCount, HcclDataType recvType, const char* group, aclrtStream stream, const char* tag,
+    uint64_t recvCount, HcclDataType recvType, uint64_t strideCount, const char* group, aclrtStream stream, const char* tag,
     void** streams, size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize);
 HcclResult HcclAlltoAllVGraphMode(const void *sendBuf, const void *sendCounts, const void *sdispls, HcclDataType sendType,
     const void *recvBuf, const void *recvCounts, const void *rdispls, HcclDataType recvType, const char* group, aclrtStream stream, const char* tag,
@@ -48,7 +48,8 @@ constexpr u64 SEND_COUNT_IDX = 0;
 constexpr u64 RECV_COUNT_IDX = 1;
 constexpr u64 SEND_DISPL_IDX = 2;
 constexpr u64 RECV_DISPL_IDX = 3;
-HcclResult ConvertAlltoAllParam(const u64 recvCount, const u32 rankSize, std::vector<u64> &sdispls, std::vector<u64> &rdispls);
+HcclResult ConvertAlltoAllParam(const u64 recvCount, const u32 rankSize, std::vector<u64> &sdispls,
+    std::vector<u64> &rdispls, uint64_t strideCount);
 HcclResult ConvertAlltoAllVCParam(const u32 rankSize, const u32 userRank, const void *sendCountMatrix,
     std::vector<u64> &sendCounts, std::vector<u64> &recvCounts, std::vector<u64> &sdispls, std::vector<u64> &rdispls);
 HcclResult GenResPack(const char* tag, void** streams, const size_t streamCount,
@@ -78,7 +79,8 @@ HcclResult AlltoAllVOutPlaceGraphMode(const void *sendBuf, const void *sendCount
     const void *recvCounts, const void *rdispls, HcclDataType dataType, HcclComm comm, aclrtStream stream,
     const std::string &tag, HcclCMDType opType, u32 rankSize, const ResPackGraphMode &resPack);
 HcclResult AlltoAllEntryLog(const void *sendBuf, const void *recvBuf, uint64_t sendCount, uint64_t recvCount,
-    HcclDataType sendType, HcclDataType recvType, aclrtStream stream, const std::string &tag, const std::string &opName);
+    HcclDataType sendType, HcclDataType recvType, uint64_t strideCount, aclrtStream stream,
+    const std::string &tag, const std::string &opName);
 HcclResult AlltoAllVEntryLog(const void *sendBuf, const void *recvBuf, const void *sendCounts, const void *recvCounts,
     const void *sdispls, const void *rdispls, HcclDataType sendType, HcclDataType recvType, aclrtStream stream,
     const std::string &tag, const std::string &opName);
