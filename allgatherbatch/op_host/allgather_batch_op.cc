@@ -254,7 +254,7 @@ HcclResult ValidatePreparedResourceCtx(const OpParam &param)
     const uint32_t crossServerChannels = CountCrossServerChannels(param.topoInfo, resCtx);
     const uint32_t intraServerChannels = resCtx.channelCount - crossServerChannels;
     const uint64_t perRankWindowCapacity = GetPerRankWindowCapacity(param, resCtx);
-    const uint64_t maxWindowBytes = perRankWindowCapacity;
+    const uint64_t maxWindowBytes = GetMaxWindowBytes(param, resCtx);
     if (intraServerChannels + crossServerChannels != resCtx.channelCount) {
         HCCL_ERROR("prepared resCtx channel split is inconsistent, intra=%u, cross=%u, channelCount=%u",
             intraServerChannels,

@@ -112,10 +112,10 @@ HcclResult AllGatherHDStageCore::ValidateStageInput() const
             static_cast<unsigned long long>(param_.windowBytes));
         return HCCL_E_INTERNAL;
     }
-    if (packedBytes_ > GetPerRankWindowCapacity(param_, resCtx_)) {
-        HCCL_ERROR("HDStage packedBytes=%llu exceeds per-rank capacity=%llu",
+    if (packedBytes_ > GetMaxWindowBytes(param_, resCtx_)) {
+        HCCL_ERROR("HDStage packedBytes=%llu exceeds maxWindowBytes=%llu",
             static_cast<unsigned long long>(packedBytes_),
-            static_cast<unsigned long long>(GetPerRankWindowCapacity(param_, resCtx_)));
+            static_cast<unsigned long long>(GetMaxWindowBytes(param_, resCtx_)));
         return HCCL_E_INTERNAL;
     }
 
@@ -340,7 +340,7 @@ HcclResult AllGatherHDStageCore::RunAsync()
 
     const uint32_t crossServerChannels = CountChannelsByScope(param_, resCtx_, true);
     const uint32_t intraServerChannels = CountChannelsByScope(param_, resCtx_, false);
-    HCCL_INFO("HDStage plan ready: rank=%u, rankSize=%u, commMode=%s, serverIdx=%u, intraServerRankCount=%u, crossServerRankCount=%u, noPower=%u, powerFactor=%u, powerSteps=%u, remainingPowerSteps=%u, finalSteps=%u, primaryPath=%s, packedBytes=%llu, paramWindowBytes=%llu, perRankCapacity=%llu, intraServerChannels=%u, crossServerChannels=%u, hccs=%u, roce=%u, pcie=%u, sio=%u",
+    HCCL_INFO("HDStage plan ready: rank=%u, rankSize=%u, commMode=%s, serverIdx=%u, intraServerRankCount=%u, crossServerRankCount=%u, noPower=%u, powerFactor=%u, powerSteps=%u, remainingPowerSteps=%u, finalSteps=%u, primaryPath=%s, packedBytes=%llu, paramWindowBytes=%llu, maxWindowBytes=%llu, intraServerChannels=%u, crossServerChannels=%u, hccs=%u, roce=%u, pcie=%u, sio=%u",
         param_.topoInfo.rank,
         param_.topoInfo.rankSize,
         ToCommModeString(param_.commMode),
@@ -355,7 +355,7 @@ HcclResult AllGatherHDStageCore::RunAsync()
         SelectPrimaryPath(plan),
         static_cast<unsigned long long>(packedBytes_),
         static_cast<unsigned long long>(param_.windowBytes),
-        static_cast<unsigned long long>(GetPerRankWindowCapacity(param_, resCtx_)),
+        static_cast<unsigned long long>(GetMaxWindowBytes(param_, resCtx_)),
         intraServerChannels,
         crossServerChannels,
         CountChannelsByProtocol(resCtx_, COMM_PROTOCOL_HCCS),
@@ -378,3 +378,4 @@ HcclResult AllGatherHDStageCore::RunAsync()
 }
 
 }  // namespace ops_hccl_allgatherbatch
+

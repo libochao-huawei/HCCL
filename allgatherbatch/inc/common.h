@@ -182,6 +182,15 @@ inline uint64_t GetPerRankWindowCapacity(const OpParam &param, const AlgResource
     return resCtx.localBuffer.size / param.topoInfo.rankSize;
 }
 
+inline uint64_t GetMaxWindowBytes(const OpParam &param, const AlgResourceCtx &resCtx)
+{
+    const uint64_t perRankCapacity = GetPerRankWindowCapacity(param, resCtx);
+    if (param.windowBytes == 0 || perRankCapacity == 0) {
+        return 0;
+    }
+    return (param.windowBytes < perRankCapacity) ? param.windowBytes : perRankCapacity;
+}
+
 inline uint32_t CountChannelsByProtocol(const AlgResourceCtx &resCtx, CommProtocol protocol)
 {
     uint32_t count = 0;

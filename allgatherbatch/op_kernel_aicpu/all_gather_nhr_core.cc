@@ -47,10 +47,10 @@ HcclResult AllGatherNHRCore::ValidateCommState() const
             static_cast<unsigned long long>(param_.windowBytes));
         return HCCL_E_INTERNAL;
     }
-    if (packedBytes_ > GetPerRankWindowCapacity(param_, resCtx_)) {
-        HCCL_ERROR("packedBytes=%llu exceeds per-rank capacity=%llu",
+    if (packedBytes_ > GetMaxWindowBytes(param_, resCtx_)) {
+        HCCL_ERROR("packedBytes=%llu exceeds maxWindowBytes=%llu",
             static_cast<unsigned long long>(packedBytes_),
-            static_cast<unsigned long long>(GetPerRankWindowCapacity(param_, resCtx_)));
+            static_cast<unsigned long long>(GetMaxWindowBytes(param_, resCtx_)));
         return HCCL_E_INTERNAL;
     }
 
@@ -447,7 +447,7 @@ HcclResult AllGatherNHRCore::RunAsync()
 
     const uint32_t intraServerChannels = CountChannelsByScope(false);
     const uint32_t crossServerChannels = CountChannelsByScope(true);
-    HCCL_INFO("NHR core step plan ready: rank=%u, rankSize=%u, commMode=%s, intraServerRankCount=%u, crossServerRankCount=%u, steps=%u, packedBytes=%llu, paramWindowBytes=%llu, perRankCapacity=%llu, channelCount=%u, intraServerChannels=%u, crossServerChannels=%u, hccs=%u, roce=%u, pcie=%u, sio=%u",
+    HCCL_INFO("NHR core step plan ready: rank=%u, rankSize=%u, commMode=%s, intraServerRankCount=%u, crossServerRankCount=%u, steps=%u, packedBytes=%llu, paramWindowBytes=%llu, maxWindowBytes=%llu, channelCount=%u, intraServerChannels=%u, crossServerChannels=%u, hccs=%u, roce=%u, pcie=%u, sio=%u",
         param_.topoInfo.rank,
         param_.topoInfo.rankSize,
         ToCommModeString(param_.commMode),
@@ -456,7 +456,7 @@ HcclResult AllGatherNHRCore::RunAsync()
         static_cast<unsigned int>(stepPlan.size()),
         static_cast<unsigned long long>(packedBytes_),
         static_cast<unsigned long long>(param_.windowBytes),
-        static_cast<unsigned long long>(GetPerRankWindowCapacity(param_, resCtx_)),
+        static_cast<unsigned long long>(GetMaxWindowBytes(param_, resCtx_)),
         resCtx_.channelCount,
         intraServerChannels,
         crossServerChannels,
@@ -474,3 +474,4 @@ HcclResult AllGatherNHRCore::RunAsync()
 }
 
 }  // namespace ops_hccl_allgatherbatch
+

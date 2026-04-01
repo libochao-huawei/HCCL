@@ -10,7 +10,7 @@ HcclResult ValidateKernelResourceCtx(const OpParam &param)
     const AlgResourceCtx &resCtx = *param.resCtx;
     const uint32_t crossServerChannels = CountCrossServerChannels(param.topoInfo, resCtx);
     const uint64_t perRankCapacity = GetPerRankWindowCapacity(param, resCtx);
-    const uint64_t maxWindowBytes = perRankCapacity;
+    const uint64_t maxWindowBytes = GetMaxWindowBytes(param, resCtx);
     if (resCtx.threadHandle == 0) {
         HCCL_ERROR("AICPU kernel received invalid threadHandle");
         return HCCL_E_INTERNAL;

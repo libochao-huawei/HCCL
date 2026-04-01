@@ -272,7 +272,7 @@ HcclResult AllGatherBatchSmallCountExecutor::LocateWindowEnd(
 HcclResult AllGatherBatchSmallCountExecutor::BuildFirstWindow(WindowRange &window) const
 {
     // gathered 结果要按 rank 拆槽放回同一个 localBuffer，因此每轮窗口最多只能占用 localBuffer/rankSize。
-    const uint64_t packedBytes = std::min(std::min(param_.totalInputBytes, param_.windowBytes), GetPerRankWindowCapacity());
+    const uint64_t packedBytes = std::min(param_.totalInputBytes, GetMaxWindowBytes(param_, resCtx_));
     window.startItemIdx = 0;
     window.startOffsetBytes = 0;
     window.packedBytes = packedBytes;
@@ -301,7 +301,7 @@ HcclResult AllGatherBatchSmallCountExecutor::BuildNextWindow(
 
     next.startItemIdx = nextItemIdx;
     next.startOffsetBytes = nextOffsetBytes;
-    next.packedBytes = std::min(std::min(remainingBytes, param_.windowBytes), GetPerRankWindowCapacity());
+    next.packedBytes = std::min(remainingBytes, GetMaxWindowBytes(param_, resCtx_));
     HCCL_CHK_RET(LocateWindowEnd(nextItemIdx, nextOffsetBytes, next.packedBytes, next.endItemIdx, next.endOffsetBytes));
     HCCL_CHK_RET(ValidateWindow(next));
     hasNext = true;
@@ -443,4 +443,5 @@ HcclResult AllGatherBatchSmallCountExecutor::Orchestrate()
 }
 
 }  // namespace ops_hccl_allgatherbatch
+
 
