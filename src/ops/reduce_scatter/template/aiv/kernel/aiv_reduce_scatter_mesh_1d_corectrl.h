@@ -19,7 +19,6 @@ using namespace AscendC;
 template<typename T>
 class AivReduceScatterMesh1DCoreCtrl : public AivCommBase {
     constexpr static uint32_t STAGE_NUM = 2;
-    constexpr static uint32_t MAX_RANK_SIZE = 8;
 public:
     __aicore__ inline AivReduceScatterMesh1DCoreCtrl() {}
 

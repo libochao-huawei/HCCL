@@ -277,7 +277,7 @@ SelectorStatus AllReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayer
         } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] == 1) {
             selectAlgName = "InsAllReduceNHR";
         } else if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-            selectAlgName = "InsAllReduceParallelMesh1DNHR";
+            selectAlgName = "InsAllReduceParallelRSAG";
         } else {
             return SelectorStatus::NOT_MATCH;
         }
