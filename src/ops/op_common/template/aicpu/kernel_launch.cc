@@ -23,6 +23,15 @@
 #include <unordered_map>
 #include <shared_mutex>
 #include <atomic>
+#include "hccl_diag.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+HcclResult __attribute__((weak)) HcclDfxRegOpInfoByCommId(char* commId, void* hcclDfxOpInfo);
+#ifdef __cplusplus
+}
+#endif
 
 using namespace ops_hccl;
 namespace {
@@ -302,6 +311,11 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             HCCL_ERROR("failed set batch mode, tag is %s.", param->algTag);
             return 1;
         }
+
+        // 要在下第一个task之前上报
+        HcclDfxOpInfo dfxOpInfo{};
+        CHK_RET(ConvertToHcclDfxOpInfo(param, &dfxOpInfo));
+        CHK_RET(HcclDfxRegOpInfoByCommId(param->commName, (void *)&dfxOpInfo));
 
         // 上报主流和第一个task  wait之前
         if (HcommProfilingReportKernelStartTask(thread, param->commName) != HCCL_SUCCESS) {
