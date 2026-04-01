@@ -1,4 +1,4 @@
-ï»¿#include "launch_kernel.h"
+#include "launch_kernel.h"
 
 #include <string>
 
@@ -13,43 +13,12 @@ namespace {
 
 HcclResult ValidateLaunchParam(const OpParam &param)
 {
-    if (!IsValidCommMode(param.commMode)) {
-        HCCL_ERROR("launch param commMode is invalid");
-        return HCCL_E_INTERNAL;
-    }
     if (param.resCtx == nullptr) {
         HCCL_ERROR("launch param resCtx is null");
         return HCCL_E_PTR;
     }
-    if (param.itemCount == 0 || param.itemCount > kAllGatherBatchMaxItems) {
-        HCCL_ERROR("launch param itemCount=%u is invalid", param.itemCount);
-        return HCCL_E_INTERNAL;
-    }
-    if (param.topoInfo.rankSize == 0 || param.topoInfo.rank >= param.topoInfo.rankSize) {
-        HCCL_ERROR("launch topo rank/rankSize is invalid, rank=%u, rankSize=%u",
-            param.topoInfo.rank,
-            param.topoInfo.rankSize);
-        return HCCL_E_INTERNAL;
-    }
-    if (!HasConsistentRankDistribution(param)) {
-        HCCL_ERROR("launch rank distribution is inconsistent, commMode=%s, intra=%u, cross=%u, rankSize=%u",
-            ToCommModeString(param.commMode),
-            param.intraServerRankCount,
-            param.crossServerRankCount,
-            param.topoInfo.rankSize);
-        return HCCL_E_INTERNAL;
-    }
-    if (param.resCtx->threadHandle == 0) {
-        HCCL_ERROR("launch param threadHandle is invalid");
-        return HCCL_E_INTERNAL;
-    }
-    if (param.totalInputBytes == 0 || param.windowBytes == 0) {
-        HCCL_ERROR("launch byte sizes are invalid, input=%llu, window=%llu",
-            static_cast<unsigned long long>(param.totalInputBytes),
-            static_cast<unsigned long long>(param.windowBytes));
-        return HCCL_E_INTERNAL;
-    }
-    return HCCL_SUCCESS;
+    HCCL_CHK_RET(ValidateBasicOpParam(param, "launch param"));
+    return ValidateBasicResourceCtx(param, *param.resCtx, "launch resCtx");
 }
 
 }  // namespace
@@ -78,10 +47,10 @@ HcclResult LaunchKernel(const OpParam &param, aclrtStream stream)
         param.resCtx->channelCount,
         stats.crossServerChannels);
 
-    // Host stream å…ˆå‘å¯åŠ¨é€šçŸ¥ï¼ŒDevice ä¾§ä¸»çº¿ç¨‹æ”¶åˆ°åæ‰çœŸæ­£è¿›å…¥æ‰§è¡Œå™¨ã€‚
+    // Host stream ÏÈ·¢Æô¶¯Í¨Öª£¬Device ²àÖ÷Ïß³ÌÊÕµ½ºó²ÅÕæÕı½øÈëÖ´ĞĞÆ÷¡£
     ACL_CHK(aclrtRecordNotify(g_allGatherBatchNotifies[kAllGatherBatchControlNotifyStart], stream));
 
-    // æŠŠ Host ä¾§ç»„ç»‡å¥½çš„ OpParam ä½œä¸ºå”¯ä¸€ launch å…¥å‚å¸¦åˆ° AICPU kernel å…¥å£ã€‚
+    // °Ñ Host ²à×éÖ¯ºÃµÄ OpParam ×÷ÎªÎ¨Ò» launch Èë²Î´øµ½ AICPU kernel Èë¿Ú¡£
     aclrtFuncHandle funcHandle = nullptr;
     aclrtArgsHandle argsHandle = nullptr;
     aclrtParamHandle paramHandle = nullptr;
@@ -98,10 +67,10 @@ HcclResult LaunchKernel(const OpParam &param, aclrtStream stream)
     cfg.attrs = &attr;
     constexpr uint32_t blockDim = 1;
 
-    // Device å…¥å£å…ˆè·‘æ§åˆ¶å£³ï¼Œå†äº¤ç»™ ExecOp / Executor / HDStageCoreã€‚
+    // Device Èë¿ÚÏÈÅÜ¿ØÖÆ¿Ç£¬ÔÙ½»¸ø ExecOp / Executor / HDStageCore¡£
     ACL_CHK(aclrtLaunchKernelWithConfig(funcHandle, blockDim, stream, &cfg, argsHandle, nullptr));
 
-    // Host ç­‰å¾… Device ä¾§å®Œæˆé€šçŸ¥ï¼Œå½¢æˆå®Œæ•´çš„å¯åŠ¨/ç»“æŸé—­ç¯ã€‚
+    // Host µÈ´ı Device ²àÍê³ÉÍ¨Öª£¬ĞÎ³ÉÍêÕûµÄÆô¶¯/½áÊø±Õ»·¡£
     ACL_CHK(aclrtWaitAndResetNotify(
         g_allGatherBatchNotifies[kAllGatherBatchControlNotifyDone],
         stream,
@@ -115,4 +84,5 @@ HcclResult LaunchKernel(const OpParam &param, aclrtStream stream)
 }
 
 }  // namespace ops_hccl_allgatherbatch
+
 

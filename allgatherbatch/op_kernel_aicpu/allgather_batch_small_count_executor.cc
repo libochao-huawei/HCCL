@@ -1,4 +1,4 @@
-ï»¿#include "allgather_batch_small_count_executor.h"
+#include "allgather_batch_small_count_executor.h"
 
 #include <algorithm>
 
@@ -28,46 +28,13 @@ AllGatherBatchSmallCountExecutor::AllGatherBatchSmallCountExecutor(const OpParam
 
 HcclResult AllGatherBatchSmallCountExecutor::ValidateParam() const
 {
-    if (param_.itemCount == 0 || param_.itemCount > kAllGatherBatchMaxItems) {
-        HCCL_ERROR("invalid itemCount=%u", param_.itemCount);
-        return HCCL_E_PARA;
-    }
     if (param_.resCtx == nullptr) {
         HCCL_ERROR("param.resCtx is null");
         return HCCL_E_PTR;
     }
-    if (!IsValidCommMode(param_.commMode)) {
-        HCCL_ERROR("commMode is invalid");
-        return HCCL_E_INTERNAL;
-    }
-    if (resCtx_.threadHandle == 0) {
-        HCCL_ERROR("threadHandle is invalid");
-        return HCCL_E_INTERNAL;
-    }
-    if (resCtx_.localBuffer.addr == nullptr || resCtx_.localBuffer.size == 0) {
-        HCCL_ERROR("localBuffer is not ready");
-        return HCCL_E_INTERNAL;
-    }
-    if (GetPerRankWindowCapacity() == 0) {
-        HCCL_ERROR("localBuffer capacity per rank is zero, localBufferSize=%llu, rankSize=%u",
-            static_cast<unsigned long long>(resCtx_.localBuffer.size),
-            param_.topoInfo.rankSize);
-        return HCCL_E_INTERNAL;
-    }
-    if (param_.totalInputBytes == 0) {
-        HCCL_ERROR("totalInputBytes is zero");
-        return HCCL_E_PARA;
-    }
-    if (param_.windowBytes == 0) {
-        HCCL_ERROR("windowBytes is zero");
-        return HCCL_E_INTERNAL;
-    }
-    if (CountRecognizedProtocols(resCtx_) != resCtx_.channelCount) {
-        HCCL_ERROR("recognized protocol count=%u does not match channelCount=%u",
-            CountRecognizedProtocols(resCtx_),
-            resCtx_.channelCount);
-        return HCCL_E_INTERNAL;
-    }
+    HCCL_CHK_RET(ValidateBasicOpParam(param_, "executor param"));
+    HCCL_CHK_RET(ValidateBasicResourceCtx(param_, resCtx_, "executor resCtx"));
+
     for (uint32_t itemIdx = 0; itemIdx < param_.itemCount; ++itemIdx) {
         const BatchItemParam &item = param_.items[itemIdx];
         if (item.sendBuf == nullptr || item.recvBuf == nullptr) {
@@ -90,29 +57,20 @@ uint32_t AllGatherBatchSmallCountExecutor::CountCrossServerChannels() const
 HcclResult AllGatherBatchSmallCountExecutor::ValidateModeConsistency() const
 {
     const ResourceStats stats = CollectResourceStats(param_, resCtx_);
+    const uint32_t expectedIntraServerChannels =
+        (param_.intraServerRankCount == 0U) ? 0U : (param_.intraServerRankCount - 1U);
 
-    // Host å·²ç»æŠŠ commMode å’Œ rank åˆ†å¸ƒå†™è¿› OpParamï¼Œè¿™é‡Œå†åœ¨ Device å…¥å£æ”¶ä¸€å±‚ï¼Œé¿å…åŽç»­çª—å£å¾ªçŽ¯å»ºç«‹åœ¨é”™è¯¯å‰æä¸Šã€‚
-    if (!HasConsistentRankDistribution(param_)) {
-        HCCL_ERROR("rank distribution is inconsistent, commMode=%s, intra=%u, cross=%u, rankSize=%u",
-            ToCommModeString(param_.commMode),
-            param_.intraServerRankCount,
+    // Host ÒÑ¾­°Ñ commMode ºÍ rank ·Ö²¼Ð´½ø OpParam£¬ÕâÀïÔÙÔÚ Device Èë¿ÚÊÕÒ»²ãÖ´ÐÐÆ÷ÌØÓÐµÄÁ´Â·¼ÙÉè¡£
+    if (stats.intraServerChannels != expectedIntraServerChannels) {
+        HCCL_ERROR("executor intra-server channel mismatch, expected=%u, actual=%u",
+            expectedIntraServerChannels,
+            stats.intraServerChannels);
+        return HCCL_E_INTERNAL;
+    }
+    if (stats.crossServerChannels != param_.crossServerRankCount) {
+        HCCL_ERROR("executor cross-server channel mismatch, expected=%u, actual=%u",
             param_.crossServerRankCount,
-            param_.topoInfo.rankSize);
-        return HCCL_E_INTERNAL;
-    }
-    if (stats.intraServerChannels + stats.crossServerChannels != resCtx_.channelCount) {
-        HCCL_ERROR("channel scope split is inconsistent, intra=%u, cross=%u, channelCount=%u",
-            stats.intraServerChannels,
-            stats.crossServerChannels,
-            resCtx_.channelCount);
-        return HCCL_E_INTERNAL;
-    }
-    if (param_.commMode == BatchCommMode::kSingleServer && stats.crossServerChannels != 0) {
-        HCCL_ERROR("single-server mode unexpectedly has cross-server channels=%u", stats.crossServerChannels);
-        return HCCL_E_INTERNAL;
-    }
-    if (param_.commMode == BatchCommMode::kCrossServer && stats.crossServerChannels == 0) {
-        HCCL_ERROR("cross-server mode has zero cross-server channels");
+            stats.crossServerChannels);
         return HCCL_E_INTERNAL;
     }
     return HCCL_SUCCESS;
@@ -241,7 +199,7 @@ HcclResult AllGatherBatchSmallCountExecutor::LocateWindowEnd(
 
 HcclResult AllGatherBatchSmallCountExecutor::BuildFirstWindow(WindowRange &window) const
 {
-    // gathered ç»“æžœè¦æŒ‰ rank æ‹†æ§½æ”¾å›žåŒä¸€ä¸ª localBufferï¼Œå› æ­¤æ¯è½®çª—å£æœ€å¤šåªèƒ½å ç”¨ localBuffer/rankSizeã€‚
+    // gathered ½á¹ûÒª°´ rank ²ð²Û·Å»ØÍ¬Ò»¸ö localBuffer£¬Òò´ËÃ¿ÂÖ´°¿Ú×î¶àÖ»ÄÜÕ¼ÓÃ localBuffer/rankSize¡£
     const uint64_t packedBytes = std::min(param_.totalInputBytes, GetMaxWindowBytes(param_, resCtx_));
     window.startItemIdx = 0;
     window.startOffsetBytes = 0;
@@ -282,7 +240,7 @@ HcclResult AllGatherBatchSmallCountExecutor::Pack(const WindowRange &window) con
 {
     HCCL_CHK_RET(ValidateWindow(window));
 
-    // Pack çŽ°åœ¨æŠŠæœ¬ rank çš„çª—å£æ‰“åˆ° localBuffer çš„â€œæœ¬ rank æ§½ä½â€ï¼ŒåŽç»­é€šä¿¡å±‚ä¼šè¡¥é½å…¶å®ƒ rank çš„æ§½ä½ã€‚
+    // Pack ÏÖÔÚ°Ñ±¾ rank µÄ´°¿Ú´òµ½ localBuffer µÄ¡°±¾ rank ²ÛÎ»¡±£¬ºóÐøÍ¨ÐÅ²ã»á²¹ÆëÆäËü rank µÄ²ÛÎ»¡£
     uint8_t *dst = GetRankWindowBase(window, param_.topoInfo.rank);
     uint64_t packedOffset = 0;
     uint32_t itemIdx = window.startItemIdx;
@@ -321,7 +279,7 @@ HcclResult AllGatherBatchSmallCountExecutor::Unpack(const WindowRange &window) c
 {
     HCCL_CHK_RET(ValidateWindow(window));
 
-    // gathered ç»“æžœä»¥â€œrank æ§½ä½ + æ§½å†… packed é¡ºåºâ€å­˜æ”¾åœ¨ localBuffer ä¸­ï¼Œè¿™é‡Œå†æ‹†å›žæ¯ä¸ª item çš„ recvBufã€‚
+    // gathered ½á¹ûÒÔ¡°rank ²ÛÎ» + ²ÛÄÚ packed Ë³Ðò¡±´æ·ÅÔÚ localBuffer ÖÐ£¬ÕâÀïÔÙ²ð»ØÃ¿¸ö item µÄ recvBuf¡£
     for (uint32_t rank = 0; rank < param_.topoInfo.rankSize; ++rank) {
         uint8_t *src = GetRankWindowBase(window, rank);
         uint64_t packedOffset = 0;
@@ -396,7 +354,7 @@ HcclResult AllGatherBatchSmallCountExecutor::Orchestrate()
 
         HCCL_CHK_RET(Pack(window));
 
-        // è¿™è½®èµ·ï¼Œé€šä¿¡å±‚æŒ‰çª—å£å¤§å°çœŸæ­£æ”¶é½æ‰€æœ‰ rank çš„æ§½ä½ï¼Œå†ç”± Unpack æ‹†å›žæ¯ä¸ª itemã€‚
+        // ÕâÂÖÆð£¬Í¨ÐÅ²ã°´´°¿Ú´óÐ¡ÕæÕýÊÕÆëËùÓÐ rank µÄ²ÛÎ»£¬ÔÙÓÉ Unpack ²ð»ØÃ¿¸ö item¡£
         AllGatherHDStageCore hdStageCore(param_, resCtx_, window.packedBytes);
         HcclResult commRet = hdStageCore.RunAsync();
         if (commRet != HCCL_SUCCESS) {
@@ -416,4 +374,5 @@ HcclResult AllGatherBatchSmallCountExecutor::Orchestrate()
 }
 
 }  // namespace ops_hccl_allgatherbatch
+
 

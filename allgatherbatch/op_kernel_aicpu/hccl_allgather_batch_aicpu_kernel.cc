@@ -1,4 +1,4 @@
-ï»¿#include "common.h"
+#include "common.h"
 #include "exec_op.h"
 
 namespace {
@@ -9,42 +9,10 @@ HcclResult ValidateKernelResourceCtx(const OpParam &param)
 {
     const AlgResourceCtx &resCtx = *param.resCtx;
     const ResourceStats stats = CollectResourceStats(param, resCtx);
-    if (resCtx.threadHandle == 0) {
-        HCCL_ERROR("AICPU kernel received invalid threadHandle");
-        return HCCL_E_INTERNAL;
-    }
-    if (resCtx.localBuffer.addr == nullptr || resCtx.localBuffer.size == 0) {
-        HCCL_ERROR("AICPU kernel received invalid localBuffer");
-        return HCCL_E_INTERNAL;
-    }
-    if (param.topoInfo.rankSize > 1 && resCtx.channelCount + 1 < param.topoInfo.rankSize) {
-        HCCL_ERROR("AICPU kernel channelCount=%u is insufficient for rankSize=%u",
-            resCtx.channelCount,
-            param.topoInfo.rankSize);
-        return HCCL_E_INTERNAL;
-    }
-    if (stats.maxWindowBytes == 0) {
-        HCCL_ERROR("AICPU kernel maxWindowBytes is zero");
-        return HCCL_E_INTERNAL;
-    }
-    if (stats.recognizedProtocols != resCtx.channelCount) {
-        HCCL_ERROR("AICPU kernel protocol distribution mismatch, recognized=%u, channelCount=%u",
-            stats.recognizedProtocols,
-            resCtx.channelCount);
-        return HCCL_E_INTERNAL;
-    }
-    if (param.commMode == BatchCommMode::kSingleServer && stats.crossServerChannels != 0) {
-        HCCL_ERROR("AICPU kernel single-server mode unexpectedly has crossServerChannels=%u", stats.crossServerChannels);
-        return HCCL_E_INTERNAL;
-    }
-    if (param.commMode == BatchCommMode::kCrossServer && stats.crossServerChannels != param.crossServerRankCount) {
-        HCCL_ERROR("AICPU kernel cross-server channel mismatch, channels=%u, expected=%u",
-            stats.crossServerChannels,
-            param.crossServerRankCount);
-        return HCCL_E_INTERNAL;
-    }
 
-    // Device å…¥å£åœ¨çœŸæ­£æ‰§è¡Œå‰æŠŠèµ„æºå®¹é‡å†æ ¸ä¸€éï¼Œé¿å…çª—å£å¤§å°å’Œè¿œç«¯ buffer å¤§å°ä¸ä¸€è‡´æ—¶è¿›å…¥é€šä¿¡åŽŸè¯­ã€‚
+    HCCL_CHK_RET(ValidateBasicResourceCtx(param, resCtx, "AICPU kernel resCtx"));
+
+    // Device Èë¿ÚÔÚÕæÕýÖ´ÐÐÇ°°Ñ×ÊÔ´ÈÝÁ¿ÔÙºËÒ»±é£¬±ÜÃâ´°¿Ú´óÐ¡ºÍÔ¶¶Ë buffer ´óÐ¡²»Ò»ÖÂÊ±½øÈëÍ¨ÐÅÔ­Óï¡£
     for (uint32_t idx = 0; idx < resCtx.channelCount; ++idx) {
         const ChannelResource &channel = resCtx.channels[idx];
         if (channel.remoteRank == param.topoInfo.rank || channel.remoteRank >= param.topoInfo.rankSize) {
@@ -83,26 +51,7 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
     if (param == nullptr || param->resCtx == nullptr) {
         return 1;
     }
-    if (!IsValidCommMode(param->commMode)) {
-        HCCL_ERROR("AICPU kernel received invalid commMode");
-        return 1;
-    }
-    if (param->itemCount == 0 || param->itemCount > kAllGatherBatchMaxItems) {
-        HCCL_ERROR("AICPU kernel received invalid itemCount=%u", param->itemCount);
-        return 1;
-    }
-    if (param->topoInfo.rankSize == 0 || param->topoInfo.rank >= param->topoInfo.rankSize) {
-        HCCL_ERROR("AICPU kernel received invalid rank/rankSize, rank=%u, rankSize=%u",
-            param->topoInfo.rank,
-            param->topoInfo.rankSize);
-        return 1;
-    }
-    if (!HasConsistentRankDistribution(*param)) {
-        HCCL_ERROR("AICPU kernel received inconsistent rank distribution, commMode=%s, intra=%u, cross=%u, rankSize=%u",
-            ToCommModeString(param->commMode),
-            param->intraServerRankCount,
-            param->crossServerRankCount,
-            param->topoInfo.rankSize);
+    if (ValidateBasicOpParam(*param, "AICPU kernel param") != HCCL_SUCCESS) {
         return 1;
     }
     if (ValidateKernelResourceCtx(*param) != HCCL_SUCCESS) {
@@ -129,7 +78,7 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
         stats.pcieChannels,
         stats.sioChannels);
 
-    // Device å…¥å£è´Ÿè´£æŠŠ Host ä¸‹å‘çš„æŽ§åˆ¶åè®®è½¬æˆå®Œæ•´çš„è®¾å¤‡ä¾§æ‰§è¡Œæ—¶åºã€‚
+    // Device Èë¿Ú¸ºÔð°Ñ Host ÏÂ·¢µÄ¿ØÖÆÐ­Òé×ª³ÉÍêÕûµÄÉè±¸²àÖ´ÐÐÊ±Ðò¡£
     if (HcommAcquireComm(param->commName) != HCCL_SUCCESS) {
         HCCL_ERROR("HcommAcquireComm failed, commName=%s", param->commName);
         return 1;
@@ -186,4 +135,6 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
         param->itemCount);
     return 0;
 }
+
+
 

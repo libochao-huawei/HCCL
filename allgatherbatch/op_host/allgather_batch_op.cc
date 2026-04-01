@@ -1,4 +1,4 @@
-ï»¿#include "allgather_batch_op.h"
+#include "allgather_batch_op.h"
 
 #include <cstdio>
 
@@ -21,7 +21,7 @@ struct ChannelLinkInfo {
 
 HcclResult EnsureControlNotifies(AlgResourceCtx &resCtx)
 {
-    // Host ä¾§ä¿ç•™ä¸¤ç±»æ§åˆ¶ notifyï¼šå¯åŠ¨ device æ‰§è¡Œã€ç­‰å¾… device å®Œæˆã€‚
+    // Host ²à±£ÁôÁ½Àà¿ØÖÆ notify£ºÆô¶¯ device Ö´ĞĞ¡¢µÈ´ı device Íê³É¡£
     for (uint32_t idx = 0; idx < kAllGatherBatchControlNotifyNum; ++idx) {
         if (g_allGatherBatchNotifies[idx] == nullptr) {
             ACL_CHK(aclrtCreateNotify(&g_allGatherBatchNotifies[idx], ACL_NOTIFY_DEFAULT));
@@ -188,36 +188,7 @@ HcclResult FillCommModeInfo(HcclComm comm, OpParam &param)
 
 HcclResult ValidatePreparedParam(const OpParam &param)
 {
-    if (!IsValidCommMode(param.commMode)) {
-        HCCL_ERROR("prepared param commMode is invalid");
-        return HCCL_E_INTERNAL;
-    }
-    if (param.itemCount == 0 || param.itemCount > kAllGatherBatchMaxItems) {
-        HCCL_ERROR("prepared param itemCount=%u is invalid", param.itemCount);
-        return HCCL_E_INTERNAL;
-    }
-    if (param.topoInfo.rankSize == 0 || param.topoInfo.rank >= param.topoInfo.rankSize) {
-        HCCL_ERROR("prepared topo rank/rankSize is invalid, rank=%u, rankSize=%u",
-            param.topoInfo.rank,
-            param.topoInfo.rankSize);
-        return HCCL_E_INTERNAL;
-    }
-    if (!HasConsistentRankDistribution(param)) {
-        HCCL_ERROR("prepared rank distribution is inconsistent, commMode=%s, intra=%u, cross=%u, rankSize=%u",
-            ToCommModeString(param.commMode),
-            param.intraServerRankCount,
-            param.crossServerRankCount,
-            param.topoInfo.rankSize);
-        return HCCL_E_INTERNAL;
-    }
-    if (param.totalInputBytes == 0 || param.totalOutputBytes == 0 || param.windowBytes == 0) {
-        HCCL_ERROR("prepared byte sizes are invalid, input=%llu, output=%llu, window=%llu",
-            static_cast<unsigned long long>(param.totalInputBytes),
-            static_cast<unsigned long long>(param.totalOutputBytes),
-            static_cast<unsigned long long>(param.windowBytes));
-        return HCCL_E_INTERNAL;
-    }
-    return HCCL_SUCCESS;
+    return ValidateBasicOpParam(param, "prepared param");
 }
 
 HcclResult ValidatePreparedResourceCtx(const OpParam &param)
@@ -226,43 +197,9 @@ HcclResult ValidatePreparedResourceCtx(const OpParam &param)
     const AlgResourceCtx &resCtx = *param.resCtx;
     const ResourceStats stats = CollectResourceStats(param, resCtx);
 
-    if (resCtx.threadHandle == 0) {
-        HCCL_ERROR("prepared resCtx threadHandle is invalid");
-        return HCCL_E_INTERNAL;
-    }
-    if (resCtx.localBuffer.addr == nullptr || resCtx.localBuffer.size == 0) {
-        HCCL_ERROR("prepared resCtx localBuffer is invalid");
-        return HCCL_E_INTERNAL;
-    }
-    if (param.topoInfo.rankSize > 1 && resCtx.channelCount + 1 < param.topoInfo.rankSize) {
-        HCCL_ERROR("prepared resCtx channelCount=%u is insufficient for rankSize=%u",
-            resCtx.channelCount,
-            param.topoInfo.rankSize);
-        return HCCL_E_INTERNAL;
-    }
-    if (stats.intraServerChannels + stats.crossServerChannels != resCtx.channelCount) {
-        HCCL_ERROR("prepared resCtx channel split is inconsistent, intra=%u, cross=%u, channelCount=%u",
-            stats.intraServerChannels,
-            stats.crossServerChannels,
-            resCtx.channelCount);
-        return HCCL_E_INTERNAL;
-    }
-    if (param.commMode == BatchCommMode::kSingleServer && stats.crossServerChannels != 0) {
-        HCCL_ERROR("single-server resCtx unexpectedly has crossServerChannels=%u", stats.crossServerChannels);
-        return HCCL_E_INTERNAL;
-    }
-    if (param.commMode == BatchCommMode::kCrossServer && stats.crossServerChannels != param.crossServerRankCount) {
-        HCCL_ERROR("cross-server resCtx mismatch, channels=%u, expected=%u",
-            stats.crossServerChannels,
-            param.crossServerRankCount);
-        return HCCL_E_INTERNAL;
-    }
-    if (stats.maxWindowBytes == 0) {
-        HCCL_ERROR("prepared maxWindowBytes is zero");
-        return HCCL_E_INTERNAL;
-    }
+    HCCL_CHK_RET(ValidateBasicResourceCtx(param, resCtx, "prepared resCtx"));
 
-    // Host åœ¨ launch å‰æŠŠèµ„æºåè®®ä¹Ÿæ”¶ä¸€éï¼Œå°½é‡è®©é”™è¯¯åœåœ¨èµ„æºå‡†å¤‡é˜¶æ®µè€Œä¸æ˜¯è®¾å¤‡æ‰§è¡Œé˜¶æ®µã€‚
+    // Host ÔÚ launch Ç°°Ñ×ÊÔ´Ğ­ÒéÒ²ÊÕÒ»±é£¬¾¡Á¿ÈÃ´íÎóÍ£ÔÚ×ÊÔ´×¼±¸½×¶Î¶ø²»ÊÇÉè±¸Ö´ĞĞ½×¶Î¡£
     for (uint32_t idx = 0; idx < resCtx.channelCount; ++idx) {
         const ChannelResource &channel = resCtx.channels[idx];
         if (channel.protocol == COMM_PROTOCOL_RESERVED) {
@@ -539,4 +476,5 @@ HcclResult AllGatherBatchOp::LoadAndLaunch(const OpParam &param, aclrtStream str
 }
 
 }  // namespace ops_hccl_allgatherbatch
+
 

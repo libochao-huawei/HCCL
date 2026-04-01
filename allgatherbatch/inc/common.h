@@ -1,4 +1,4 @@
-﻿#ifndef HCCL_ALLGATHERBATCH_COMMON_H
+#ifndef HCCL_ALLGATHERBATCH_COMMON_H
 #define HCCL_ALLGATHERBATCH_COMMON_H
 
 #include <cstddef>
@@ -257,7 +257,99 @@ inline bool HasConsistentRankDistribution(const OpParam &param)
         ((param.commMode == BatchCommMode::kSingleServer && param.crossServerRankCount == 0) ||
          (param.commMode == BatchCommMode::kCrossServer && param.crossServerRankCount != 0));
 }
+
+inline HcclResult ValidateBasicOpParam(const OpParam &param, const char *stageTag)
+{
+    if (!IsValidCommMode(param.commMode)) {
+        HCCL_ERROR("%s commMode is invalid", stageTag);
+        return HCCL_E_INTERNAL;
+    }
+    if (param.itemCount == 0 || param.itemCount > kAllGatherBatchMaxItems) {
+        HCCL_ERROR("%s itemCount=%u is invalid", stageTag, param.itemCount);
+        return HCCL_E_INTERNAL;
+    }
+    if (param.topoInfo.rankSize == 0 || param.topoInfo.rank >= param.topoInfo.rankSize) {
+        HCCL_ERROR("%s topo rank/rankSize is invalid, rank=%u, rankSize=%u",
+            stageTag,
+            param.topoInfo.rank,
+            param.topoInfo.rankSize);
+        return HCCL_E_INTERNAL;
+    }
+    if (!HasConsistentRankDistribution(param)) {
+        HCCL_ERROR("%s rank distribution is inconsistent, commMode=%s, intra=%u, cross=%u, rankSize=%u",
+            stageTag,
+            ToCommModeString(param.commMode),
+            param.intraServerRankCount,
+            param.crossServerRankCount,
+            param.topoInfo.rankSize);
+        return HCCL_E_INTERNAL;
+    }
+    if (param.totalInputBytes == 0 || param.totalOutputBytes == 0 || param.windowBytes == 0) {
+        HCCL_ERROR("%s byte sizes are invalid, input=%llu, output=%llu, window=%llu",
+            stageTag,
+            static_cast<unsigned long long>(param.totalInputBytes),
+            static_cast<unsigned long long>(param.totalOutputBytes),
+            static_cast<unsigned long long>(param.windowBytes));
+        return HCCL_E_INTERNAL;
+    }
+    return HCCL_SUCCESS;
+}
+
+inline HcclResult ValidateBasicResourceCtx(const OpParam &param, const AlgResourceCtx &resCtx, const char *stageTag)
+{
+    const ResourceStats stats = CollectResourceStats(param, resCtx);
+
+    if (resCtx.threadHandle == 0) {
+        HCCL_ERROR("%s threadHandle is invalid", stageTag);
+        return HCCL_E_INTERNAL;
+    }
+    if (resCtx.localBuffer.addr == nullptr || resCtx.localBuffer.size == 0) {
+        HCCL_ERROR("%s localBuffer is invalid", stageTag);
+        return HCCL_E_INTERNAL;
+    }
+    if (param.topoInfo.rankSize > 1 && resCtx.channelCount + 1 < param.topoInfo.rankSize) {
+        HCCL_ERROR("%s channelCount=%u is insufficient for rankSize=%u",
+            stageTag,
+            resCtx.channelCount,
+            param.topoInfo.rankSize);
+        return HCCL_E_INTERNAL;
+    }
+    if (stats.intraServerChannels + stats.crossServerChannels != resCtx.channelCount) {
+        HCCL_ERROR("%s channel split is inconsistent, intra=%u, cross=%u, channelCount=%u",
+            stageTag,
+            stats.intraServerChannels,
+            stats.crossServerChannels,
+            resCtx.channelCount);
+        return HCCL_E_INTERNAL;
+    }
+    if (stats.maxWindowBytes == 0) {
+        HCCL_ERROR("%s maxWindowBytes is zero", stageTag);
+        return HCCL_E_INTERNAL;
+    }
+    if (stats.recognizedProtocols != resCtx.channelCount) {
+        HCCL_ERROR("%s protocol distribution mismatch, recognized=%u, channelCount=%u",
+            stageTag,
+            stats.recognizedProtocols,
+            resCtx.channelCount);
+        return HCCL_E_INTERNAL;
+    }
+    if (param.commMode == BatchCommMode::kSingleServer && stats.crossServerChannels != 0) {
+        HCCL_ERROR("%s unexpectedly has crossServerChannels=%u in single-server mode",
+            stageTag,
+            stats.crossServerChannels);
+        return HCCL_E_INTERNAL;
+    }
+    if (param.commMode == BatchCommMode::kCrossServer && stats.crossServerChannels != param.crossServerRankCount) {
+        HCCL_ERROR("%s cross-server channel mismatch, channels=%u, expected=%u",
+            stageTag,
+            stats.crossServerChannels,
+            param.crossServerRankCount);
+        return HCCL_E_INTERNAL;
+    }
+    return HCCL_SUCCESS;
+}
 }  // namespace ops_hccl_allgatherbatch
 
 #endif
+
 
