@@ -60,6 +60,8 @@ struct BatchTopoInfo {
     uint32_t reserved = 0;
 };
 
+// Host 侧准备并拷到 Device 的资源上下文.
+// 里面保存执行线程、本地 staging buffer 和对端 channel 信息。
 struct AlgResourceCtx {
     ThreadHandle threadHandle = 0;
     uint32_t controlNotifyIds[kAllGatherBatchControlNotifyNum] = {0};
@@ -78,6 +80,8 @@ struct BatchItemParam {
     uint64_t sendBytes = 0;
 };
 
+// Host 下发到 Device 的 launch 参数。
+// 里面包含拓扑信息、通信模式、展平后的 item 元数据以及资源上下文指针。
 struct OpParam {
     char tag[kAllGatherBatchTagLength] = {0};
     char commName[COMM_NAME_MAX_LENGTH] = {0};
@@ -352,7 +356,7 @@ inline HcclResult ValidateRemoteChannelResources(const OpParam &param, const Alg
 {
     const ResourceStats stats = CollectResourceStats(param, resCtx);
 
-    // 这层检查专门约束每条远端 channel 的 endpoint / buffer 元数据，Host 和 Device 共用同一份规则。
+    // 这一层专门约束每条远端 channel 的 endpoint / buffer 元数据，Host 和 Device 共用同一套规则。
     for (uint32_t idx = 0; idx < resCtx.channelCount; ++idx) {
         const ChannelResource &channel = resCtx.channels[idx];
         if (channel.protocol == COMM_PROTOCOL_RESERVED) {
@@ -389,6 +393,10 @@ inline HcclResult ValidateRemoteChannelResources(const OpParam &param, const Alg
 }  // namespace ops_hccl_allgatherbatch
 
 #endif
+
+
+
+
 
 
 

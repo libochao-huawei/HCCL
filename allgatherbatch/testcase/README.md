@@ -1,29 +1,31 @@
-ï»¿# AllGatherBatch Testcase
+# AllGatherBatch Testcase
 
-è¿™ä¸ªç›®å½•ä¸‹çš„ testcase å‚è€ƒäº† `04_custom_ops_p2p` testcase çš„ç»„ç»‡æ–¹å¼ï¼š
+Ä¿Â¼×ÜÀÀ¿É²Î¿¼ÉÏÒ»¼¶µÄ `../README.md`¡£
 
-- `aclInit -> HcclGetRootInfo -> å¤šçº¿ç¨‹å¤š device -> HcclCommInitRootInfo`
-- æ¯ä¸ªçº¿ç¨‹ç‹¬ç«‹åˆ›å»º `stream`
-- æ¯ä¸ªçº¿ç¨‹ç‹¬ç«‹ç”³è¯· host/device buffer
-- è°ƒç”¨è‡ªå®šä¹‰æ¥å£ `HcclAllGatherBatch`
+Õâ¸öÄ¿Â¼ÏÂµÄ testcase ²Î¿¼ÁË `04_custom_ops_p2p` testcase µÄ×éÖ¯·½Ê½£º
 
-## è¿è¡Œå‰æ
+- `aclInit -> HcclGetRootInfo -> ¶àÏß³Ì¶à device -> HcclCommInitRootInfo`
+- Ã¿¸öÏß³Ì¶ÀÁ¢´´½¨ `stream`
+- Ã¿¸öÏß³Ì¶ÀÁ¢ÉêÇë host/device buffer
+- µ÷ÓÃ×Ô¶¨Òå½Ó¿Ú `HcclAllGatherBatch`
 
-- å·²æ­£ç¡® source Ascend/CANN ç¯å¢ƒ
-- è‡ªå®šä¹‰ç®—å­åº“å·²å®‰è£…åˆ° `${ASCEND_HOME_PATH}/opp/vendors/cust/`
-- è¿è¡Œç¯å¢ƒä¸­å¯ä»¥è®¿é—®ç›®æ ‡ NPU è®¾å¤‡
+## ÔËĞĞÇ°Ìá
 
-## æ–¹å¼ä¸€ï¼šCMake ç”Ÿæˆçš„å¯æ‰§è¡Œæ–‡ä»¶
+- ÒÑÕıÈ· source Ascend/CANN »·¾³
+- ×Ô¶¨ÒåËã×Ó¿âÒÑ°²×°µ½ `${ASCEND_HOME_PATH}/opp/vendors/cust/`
+- ÔËĞĞ»·¾³ÖĞ¿ÉÒÔ·ÃÎÊÄ¿±ê NPU Éè±¸
 
-å¦‚æœå·²ç»é€šè¿‡ä¸Šå±‚ `CMake` æ„å»ºå‡º `allgatherbatch_testcase`ï¼Œå¯ä»¥ç›´æ¥è¿è¡Œï¼š
+## ·½Ê½Ò»£ºCMake Éú³ÉµÄ¿ÉÖ´ĞĞÎÄ¼ş
+
+Èç¹ûÒÑ¾­Í¨¹ıÉÏ²ã `CMake` ¹¹½¨³ö `allgatherbatch_testcase`£¬¿ÉÒÔÖ±½ÓÔËĞĞ£º
 
 ```bash
 ./allgatherbatch_testcase --token-bytes 327680 --scale-count 128 --devices 8
 ```
 
-## æ–¹å¼äºŒï¼šä½¿ç”¨ testcase ç›®å½•ä¸‹çš„ Makefile
+## ·½Ê½¶ş£ºÊ¹ÓÃ testcase Ä¿Â¼ÏÂµÄ Makefile
 
-è¿™ä¸ªç›®å½•é¢å¤–æä¾›äº†ä¸€ä¸ªå’Œæ ·ä¾‹é£æ ¼æ¥è¿‘çš„ `Makefile`ï¼š
+Õâ¸öÄ¿Â¼¶îÍâÌá¹©ÁËÒ»¸öºÍÑùÀı·ç¸ñ½Ó½üµÄ `Makefile`£º
 
 ```bash
 make
@@ -32,18 +34,18 @@ make test-fast
 make test-single-item
 ```
 
-å‡ ä¸ªé¢„è®¾ç›®æ ‡çš„å«ä¹‰ï¼š
+¼¸¸öÔ¤ÉèÄ¿±êµÄº¬Òå£º
 
 - `test-default`
-  é»˜è®¤åŒ item åœºæ™¯ï¼Œè´´è¿‘è®¾è®¡æ–‡æ¡£é‡Œ `token + scale` çš„ç»„åˆ
+  Ä¬ÈÏË« item ³¡¾°£¬Ìù½üÉè¼ÆÎÄµµÀï `token + scale` µÄ×éºÏ
 - `test-fast`
-  æ›´å°çš„æ•°æ®é‡å’Œè¾ƒå°‘ itemï¼Œé€‚åˆå…ˆåšé“¾è·¯å†’çƒŸ
+  ¸üĞ¡µÄÊı¾İÁ¿ºÍ½ÏÉÙ item£¬ÊÊºÏÏÈ×öÁ´Â·Ã°ÑÌ
 - `test-single-item`
-  åªä¿ç•™ token itemï¼ŒæŠŠ `scale-count` å›ºå®šä¸º `0`
+  Ö»±£Áô token item£¬°Ñ `scale-count` ¹Ì¶¨Îª `0`
 
-## æ–¹å¼ä¸‰ï¼šä½¿ç”¨ run.sh
+## ·½Ê½Èı£ºÊ¹ÓÃ run.sh
 
-å¦‚æœä½ å·²ç»æŠŠå¯æ‰§è¡Œæ–‡ä»¶æ„å»ºå‡ºæ¥ï¼Œä¹Ÿå¯ä»¥ç›´æ¥ç”¨ç›®å½•é‡Œçš„è½»é‡è„šæœ¬åˆ‡åœºæ™¯ï¼š
+Èç¹ûÄãÒÑ¾­°Ñ¿ÉÖ´ĞĞÎÄ¼ş¹¹½¨³öÀ´£¬Ò²¿ÉÒÔÖ±½ÓÓÃÄ¿Â¼ÀïµÄÇáÁ¿½Å±¾ÇĞ³¡¾°£º
 
 ```bash
 ./run.sh
@@ -51,28 +53,28 @@ make test-single-item
 ./run.sh single-item --no-verify
 ```
 
-å®ƒä¼šè‡ªåŠ¨å¸¦ä¸Šå¯¹åº”åœºæ™¯çš„é»˜è®¤å‚æ•°ï¼›ä½ ä»ç„¶å¯ä»¥åœ¨åé¢ç»§ç»­è¿½åŠ è‡ªå·±çš„å‚æ•°è¦†ç›–é»˜è®¤å€¼ã€‚
+Ëü»á×Ô¶¯´øÉÏ¶ÔÓ¦³¡¾°µÄÄ¬ÈÏ²ÎÊı£»ÄãÈÔÈ»¿ÉÒÔÔÚºóÃæ¼ÌĞø×·¼Ó×Ô¼ºµÄ²ÎÊı¸²¸ÇÄ¬ÈÏÖµ¡£
 
-## è‡ªå®šä¹‰æ•°æ®é‡
+## ×Ô¶¨ÒåÊı¾İÁ¿
 
-æ”¯æŒçš„å…³é”®å‚æ•°ï¼š
+Ö§³ÖµÄ¹Ø¼ü²ÎÊı£º
 
 - `--token-bytes N`
-  æ¯ä¸ª rank çš„ int8 token å­—èŠ‚æ•°
+  Ã¿¸ö rank µÄ int8 token ×Ö½ÚÊı
 - `--scale-count N`
-  æ¯ä¸ª rank çš„ fp32 scale å…ƒç´ æ•°
+  Ã¿¸ö rank µÄ fp32 scale ÔªËØÊı
 - `--devices N`
-  ä½¿ç”¨çš„ device æ•°é‡
+  Ê¹ÓÃµÄ device ÊıÁ¿
 - `--print-count N`
-  æ¯ä¸ª rank preview æ—¶æ‰“å°çš„å…ƒç´ ä¸ªæ•°
+  Ã¿¸ö rank preview Ê±´òÓ¡µÄÔªËØ¸öÊı
 - `--warmup N`
-  æ­£å¼è®¡æ—¶å‰çš„ warmup æ¬¡æ•°
+  ÕıÊ½¼ÆÊ±Ç°µÄ warmup ´ÎÊı
 - `--iters N`
-  æ­£å¼è®¡æ—¶æ¬¡æ•°
+  ÕıÊ½¼ÆÊ±´ÎÊı
 - `--no-verify`
-  è·³è¿‡ host ä¾§ç»“æœæ ¡éªŒ
+  Ìø¹ı host ²à½á¹ûĞ£Ñé
 
-ç¤ºä¾‹ï¼š
+Ê¾Àı£º
 
 ```bash
 ./allgatherbatch_testcase --token-bytes 65536 --scale-count 0 --devices 4 --warmup 2 --iters 20
@@ -80,7 +82,7 @@ make test-single-item
 ./allgatherbatch_testcase --token-bytes 327680 --scale-count 128 --devices 8 --no-verify
 ```
 
-å¦‚æœæ›´ä¹ æƒ¯ `make test` é£æ ¼ï¼Œä¹Ÿå¯ä»¥æŠŠå‚æ•°å†™æˆå˜é‡ï¼š
+Èç¹û¸üÏ°¹ß `make test` ·ç¸ñ£¬Ò²¿ÉÒÔ°Ñ²ÎÊıĞ´³É±äÁ¿£º
 
 ```bash
 make test TOKEN_BYTES=65536 SCALE_COUNT=0 DEVICES=4 WARMUP=2 ITERS=20
@@ -89,19 +91,22 @@ make test-fast
 make test-single-item EXTRA_ARGS=--no-verify
 ```
 
-## å½“å‰ testcase åšäº†ä»€ä¹ˆ
+## µ±Ç° testcase ×öÁËÊ²Ã´
 
-- æ„é€  1 ä¸ªæˆ– 2 ä¸ª item
+- ¹¹Ôì 1 ¸ö»ò 2 ¸ö item
   - token item: `int8`
   - scale item: `fp32`
-- æ¯ä¸ª rank çš„è¾“å…¥æ•°æ®éƒ½æŒ‰å›ºå®šè§„åˆ™å¡«å……ï¼Œä¾¿äºæ ¡éªŒè¾“å‡º
-- è¿è¡Œç»“æŸåä¼šï¼š
-  - æ‰“å°æ¯ä¸ª rank çš„å¹³å‡è€—æ—¶
-  - æ‰“å°è¾“å‡º preview
-  - é»˜è®¤æ‰§è¡Œ host ä¾§ç»“æœæ ¡éªŒ
+- Ã¿¸ö rank µÄÊäÈëÊı¾İ¶¼°´¹Ì¶¨¹æÔòÌî³ä£¬±ãÓÚĞ£ÑéÊä³ö
+- ÔËĞĞ½áÊøºó»á£º
+  - ´òÓ¡Ã¿¸ö rank µÄÆ½¾ùºÄÊ±
+  - ´òÓ¡Êä³ö preview
+  - Ä¬ÈÏÖ´ĞĞ host ²à½á¹ûĞ£Ñé
 
-## å½“å‰ testcase æ²¡åšä»€ä¹ˆ
+## µ±Ç° testcase Ã»×öÊ²Ã´
 
-- è¿˜æ²¡æœ‰è¦†ç›–æ›´å¤šå¼‚å¸¸è·¯å¾„
-- è¿˜æ²¡æœ‰å’ŒåŒ `HcclAllGather` åŸºçº¿åšåŒç¨‹åºå†…å¯¹æ¯”
-- è¿˜æ²¡æœ‰åš profiling æ¥å…¥
+- »¹Ã»ÓĞ¸²¸Ç¸ü¶àÒì³£Â·¾¶
+- »¹Ã»ÓĞºÍË« `HcclAllGather` »ùÏß×öÍ¬³ÌĞòÄÚ¶Ô±È
+- »¹Ã»ÓĞ×ö profiling ½ÓÈë
+
+
+

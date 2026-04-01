@@ -1,4 +1,4 @@
-ï»¿#ifndef HCCL_ALLGATHERBATCH_API_H
+#ifndef HCCL_ALLGATHERBATCH_API_H
 #define HCCL_ALLGATHERBATCH_API_H
 
 #include <cstdint>
@@ -11,6 +11,8 @@
 extern "C" {
 #endif
 
+// ¶ÔÍâ±©Â¶µÄ item ÃèÊö·û¡£
+// sendCount µÄµ¥Î»ÊÇ dataType ¶ÔÓ¦µÄÔªËØ¸öÊı£¬¶ø²»ÊÇ×Ö½ÚÊı¡£
 typedef struct HcclAllGatherItemDef {
     void *sendBuf;
     void *recvBuf;
@@ -18,6 +20,8 @@ typedef struct HcclAllGatherItemDef {
     HcclDataType dataType;
 } HcclAllGatherItem;
 
+// °Ñ¶à¸ö AllGather ¸ºÔØºÏ²¢³ÉÒ»´Î×Ô¶¨ÒåËã×Óµ÷ÓÃ¡£
+// µ±Ç°ÊµÏÖÖ÷ÒªÃæÏò A3 ºÍÍ¬Ò» superpod ÄÚµÄ¶à server ³¡¾°¡£
 HcclResult HcclAllGatherBatch(
     const HcclAllGatherItem *items, uint32_t itemCount, HcclComm comm, aclrtStream stream);
 
