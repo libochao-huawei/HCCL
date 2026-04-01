@@ -178,7 +178,7 @@ HcclResult CheckCalcResInputGraphMode(const OpParamGraphMode *opParam, const u64
 
 HcclResult HcclCalcCcuResOffline(OpParamGraphMode *opParam, ResResponseGraphMode *resResponse)
 {
-    HCCL_INFO("Entry HcclCalcCcuResOffline");
+    HCCL_INFO("Entry HcclCalcCcuResOffline.");
     if (resResponse == nullptr || opParam == nullptr) {
         return HCCL_E_PARA;
     }
@@ -193,12 +193,13 @@ HcclResult HcclCalcCcuResOffline(OpParamGraphMode *opParam, ResResponseGraphMode
     resResponse->opMemSize = std::max(resResponse->opMemSize, ccuOpMemSize);
     resResponse->streamNum = std::max(resResponse->streamNum, ccuStreamNum);
     resResponse->taskNum = std::max(resResponse->taskNum, ccuTaskNum);
+    HCCL_INFO("[HcclCalcCcuResOffline] opMemSize[%llu], streamNum[%llu], taskNum[%llu]", resResponse->opMemSize, resResponse->streamNum, resResponse->taskNum);
     return HCCL_SUCCESS;
 }
 
 HcclResult CalcTaskNum(OpParamGraphMode *opParam, u32 &ccuTaskNum)
 {
-    HCCL_INFO("Entry CalcTaskNum");
+    HCCL_INFO("[CalcTaskNum] begin");
     u64 scratchBufferSize = opParam->hcclBufferSize;
     u64 transportBoundDataSize = UB_MAX_DATA_SIZE;
     u64 dataCount = opParam->dataCount;
@@ -208,19 +209,19 @@ HcclResult CalcTaskNum(OpParamGraphMode *opParam, u32 &ccuTaskNum)
     u64 maxDataSizePerLoop = std::min(transportBoundDataSize, scratchBufferSize);
     u64 maxDataCountPerLoop;
     u64 loopTimes;
-    HCCL_INFO("[CalcTaskNum] opType[%s] scratchBufferSize[%llu] dataCount[%llu] rankSize[%llu]", 
-            opParam->opType, scratchBufferSize, dataCount, rankSize);
-    if (opParam->opType == HCCL_KERNEL_OP_TYPE_ALLTOALL) { // alltoall
+    HCCL_INFO("[CalcTaskNum] opType[%s] scratchBufferSize[%llu] dataCount[%llu] rankSize[%llu] maxDataSizePerLoop[%llu]", 
+            opParam->opType, scratchBufferSize, dataCount, rankSize, maxDataSizePerLoop);
+    if (opParam->opType == HCCL_KERNEL_OP_TYPE_ALLTOALL) {
         maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize / rankSize;
         loopTimes = dataCount / maxDataCountPerLoop + static_cast<u64>(dataCount % maxDataCountPerLoop != 0);
         ccuTaskNum = loopTimes;
     } else if (opParam->opType == HCCL_KERNEL_OP_TYPE_ALLTOALLV || opParam->opType == HCCL_KERNEL_OP_TYPE_ALLTOALLVC) {
         ccuTaskNum = 1;
-    } else if (opParam->opType == HCCL_KERNEL_OP_TYPE_REDUCE) { // reduce 
+    } else if (opParam->opType == HCCL_KERNEL_OP_TYPE_REDUCE) { 
         maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize;
         loopTimes = dataCount / maxDataCountPerLoop + static_cast<u64>(dataCount % maxDataCountPerLoop != 0);
         ccuTaskNum = loopTimes * 18;
-    } else if (opParam->opType == HCCL_KERNEL_OP_TYPE_BROADCAST) { // broadcast 还要写
+    } else if (opParam->opType == HCCL_KERNEL_OP_TYPE_BROADCAST) {
         maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize;
         loopTimes = dataCount / maxDataCountPerLoop + static_cast<u64>(dataCount % maxDataCountPerLoop != 0);
         ccuTaskNum = loopTimes * 18;
@@ -243,8 +244,7 @@ HcclResult CalcTaskNum(OpParamGraphMode *opParam, u32 &ccuTaskNum)
         loopTimes = dataCount / maxDataCountPerLoop + static_cast<u64>(dataCount % maxDataCountPerLoop != 0);
         ccuTaskNum = loopTimes * 18;
     }
-    HCCL_INFO("[CalcTaskNum] opType[%s] ccuTaskNum[%llu]", 
-            opParam->opType, ccuTaskNum);
+    HCCL_INFO("[CalcTaskNum] end.");
     return HCCL_SUCCESS;
 }
 } // namespace ops_hccl
