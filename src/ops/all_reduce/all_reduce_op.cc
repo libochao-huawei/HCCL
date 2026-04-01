@@ -151,9 +151,6 @@ HcclResult AllReduceOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t count,
                                    HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag, OpMode opMode, const ResPackGraphMode &resPack)
 {
     HCCL_INFO("Start to execute AllReduceOutPlace");
-    u32 userRankSize;
-    CHK_RET(HcclGetRankSize(comm, &userRankSize));
-
     u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
     u64 outputSize = count * perDataSize;
     u64 inputSize = outputSize;
@@ -186,6 +183,11 @@ HcclResult AllReduceOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t count,
     param.deviceType = deviceType;
     param.reduceType = op;
     
+    CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
+    if ((opMode == OpMode::OPBASE) && ShouldGoCcuFastLaunch(comm, param, &ccuFastLaunchCtx)) {
+        return HcclExecOpCcuFastLaunch(comm, param, ccuFastLaunchCtx);
+    }
+
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));
@@ -198,6 +200,8 @@ HcclResult AllReduceOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t count,
         }
     }
     // 单卡校验
+    u32 userRankSize;
+    CHK_RET(HcclGetRankSize(comm, &userRankSize));
     if (userRankSize == 1) {
         HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
         CHK_RET(SingleRankProc(param));
