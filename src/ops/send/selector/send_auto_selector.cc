@@ -19,7 +19,7 @@ namespace ops_hccl {
         (void) topoInfo;
         HCCL_INFO("[SendAutoSelector][SelectAicpuAlgo] opType:%d", opParam.opType);
 
-        selectAlgName = "InsSend";
+        selectAlgName = "InsDpuSend"; // AIWAN
         return SelectorStatus::MATCH;
     }
 

@@ -20,27 +20,9 @@ using namespace ops_hccl;
 
 extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 
-HcclResult HcclSend(
+HcclResult HcclSendv2(
     void *sendBuf, uint64_t count, HcclDataType dataType, uint32_t destRank, HcclComm comm, aclrtStream stream)
 {
-    if (!HcclCheckAicpuEnableOpen() && !HcclCheckCcuEnableOpen() && !HcclCheckAivEnableOpen()) {
-        return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
-    }
-    HCCL_INFO("[HcclSend] Start.");
-    if (GetHcommVersion() < 90000000) {
-        return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
-    }
-
-    DevType deviceType = DevType::DEV_TYPE_COUNT;
-    CHK_RET(hrtGetDeviceType(deviceType));
-    #ifdef MACRO_DEV_TYPE_NEW
-    if (deviceType != DevType::DEV_TYPE_950) {
-    #else
-    if (deviceType != DevType::DEV_TYPE_910_95) {
-    #endif
-        return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
-    }
-
     CHK_RET(InitEnvConfig());
 
     // 参数校验
@@ -64,6 +46,38 @@ HcclResult HcclSend(
 
     HCCL_INFO("[HcclSend][%d]->[%d] Success.", userRank, destRank);
     return HcclResult::HCCL_SUCCESS;
+}
+
+HcclResult HcclSend(
+    void *sendBuf, uint64_t count, HcclDataType dataType, uint32_t destRank, HcclComm comm, aclrtStream stream)
+{
+    HcclResult ret = HcclResult::HCCL_SUCCESS;
+
+    bool hostDPUOnly = false;
+    if (CheckHostDPUOnly(comm, hostDPUOnly) == HCCL_SUCCESS && hostDPUOnly == true) {
+        return HcclSendv2(sendBuf, count, dataType, srcRank, comm, stream);
+    }
+
+    if (!HcclCheckAicpuEnableOpen() && !HcclCheckCcuEnableOpen() && !HcclCheckAivEnableOpen()) {
+        return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
+    }
+    HCCL_INFO("[HcclSend] Start.");
+    if (GetHcommVersion() < 90000000) {
+        return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
+    }
+
+    DevType deviceType = DevType::DEV_TYPE_COUNT;
+    CHK_RET(hrtGetDeviceType(deviceType));
+#ifdef MACRO_DEV_TYPE_NEW
+    if (deviceType != DevType::DEV_TYPE_950) {
+#else
+    if (deviceType != DevType::DEV_TYPE_910_95) {
+#endif
+        return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
+    }
+
+    ret = HcclSendv2(sendBuf, count, dataType, srcRank, comm, stream);
+    return ret;
 }
 
 namespace ops_hccl {

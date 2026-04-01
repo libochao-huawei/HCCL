@@ -588,8 +588,9 @@ HcclResult CalcLevel0TopoShape(const HcclComm comm, TopoInfoWithNetLayerDetails*
         topoInfo->level0Topo = Level0Shape::MESH_1D_CLOS;
         return HCCL_SUCCESS;
     }
-    HCCL_ERROR("Unkown topo for level 0, topoInstNum[%u]", topoInstNum);
-    return HCCL_E_INTERNAL;
+    topoInfo->level0Topo = Level0Shape::CLOS;
+    // HCCL_ERROR("Unkown topo for level 0, topoInstNum[%u]", topoInstNum);
+    return HCCL_SUCCESS;
 }
 
 HcclResult CalcTopoShape(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo)
@@ -852,6 +853,12 @@ HcclResult CalcLevel0MeshType(HcclComm comm, TopoInfoWithNetLayerDetails *topoIn
         HCCL_INFO(
             "[Topo][CalcLevel0MeshType] linkNum on 2 dies are not off by 1. Not regular shape.");
     }
+    return HCCL_SUCCESS;
+}
+
+HcclResult CheckHostDPUOnly(HcclComm comm, bool &hostDPUOnly)
+{
+    hostDPUOnly = true;
     return HCCL_SUCCESS;
 }
 }

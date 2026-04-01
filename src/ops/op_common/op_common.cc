@@ -1262,14 +1262,14 @@ HcclResult HcclGetOpExpansionMode(HcclComm comm, OpParam &param)
 {
     HcclOpExpansionMode finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_INVALID;
     // 第一步：决定使用哪种模式
-    HcclResult ret = DecideHcclOpExpansionMode(comm, finalMode);
-    if (ret != HCCL_SUCCESS) {
-        HCCL_ERROR("DecideHcclOpExpansionMode failed, ret: %d", ret);
-        return ret;
-    }
+    // HcclResult ret = DecideHcclOpExpansionMode(comm, finalMode);
+    // if (ret != HCCL_SUCCESS) {
+    //     HCCL_ERROR("DecideHcclOpExpansionMode failed, ret: %d", ret);
+    //     return ret;
+    // }
 
     // 第二步：应用选择的模式到param
-    ret = ApplyOpExpansionMode(param, finalMode);
+    HcclResult ret = ApplyOpExpansionMode(param, finalMode);
     if (ret != HCCL_SUCCESS) {
         HCCL_ERROR("ApplyOpExpansionMode failed, ret: %d", ret);
         return ret;
