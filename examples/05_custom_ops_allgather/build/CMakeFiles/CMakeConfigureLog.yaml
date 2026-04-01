@@ -1,0 +1,299 @@
+
+---
+events:
+  -
+    kind: "find_package-v1"
+    backtrace:
+      - "CMakeLists.txt:13 (find_package)"
+    name: "ASC"
+    configs:
+      -
+        filename: "ASC.cps"
+        kind: "cps"
+      -
+        filename: "asc.cps"
+        kind: "cps"
+      -
+        filename: "ASCConfig.cmake"
+        kind: "cmake"
+      -
+        filename: "asc-config.cmake"
+        kind: "cmake"
+    version_request:
+      exact: false
+    settings:
+      required: "required_explicit"
+      quiet: false
+      global: false
+      policy_scope: true
+      bypass_provider: false
+      names:
+        - "ASC"
+      path_suffixes:
+        - ""
+      paths:
+        CMAKE_FIND_USE_CMAKE_PATH: true
+        CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+        CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+        CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+        CMAKE_FIND_USE_INSTALL_PREFIX: true
+        CMAKE_FIND_USE_PACKAGE_ROOT_PATH: true
+        CMAKE_FIND_USE_CMAKE_PACKAGE_REGISTRY: true
+        CMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY: true
+        CMAKE_FIND_ROOT_PATH_MODE: "BOTH"
+    candidates:
+      -
+        path: "D:/CODE_source/hccl/examples/05_custom_ops_allgather/build/CMakeFiles/pkgRedirects/ASCConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "D:/CODE_source/hccl/examples/05_custom_ops_allgather/build/CMakeFiles/pkgRedirects/asc-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "D:/CODE_source/hccl/examples/05_custom_ops_allgather/build/CMakeFiles/pkgRedirects/lib/cps/ASC.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "D:/CODE_source/hccl/examples/05_custom_ops_allgather/build/CMakeFiles/pkgRedirects/lib/cps/asc.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "D:/CODE_source/hccl/examples/05_custom_ops_allgather/build/CMakeFiles/pkgRedirects/share/cps/ASC.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "D:/CODE_source/hccl/examples/05_custom_ops_allgather/build/CMakeFiles/pkgRedirects/share/cps/asc.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "D:/VSCode_x86/install/Microsoft VS Code/ASCConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "D:/VSCode_x86/install/Microsoft VS Code/asc-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "D:/VSCode_x86/install/Microsoft VS Code/lib/cps/ASC.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "D:/VSCode_x86/install/Microsoft VS Code/lib/cps/asc.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "D:/VSCode_x86/install/Microsoft VS Code/share/cps/ASC.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "D:/VSCode_x86/install/Microsoft VS Code/share/cps/asc.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/SysWOW64/ASCConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/SysWOW64/asc-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/SysWOW64/lib/cps/ASC.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/SysWOW64/lib/cps/asc.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/SysWOW64/share/cps/ASC.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/SysWOW64/share/cps/asc.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/ASCConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/asc-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/lib/cps/ASC.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/lib/cps/asc.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/share/cps/ASC.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/share/cps/asc.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/SysWOW64/wbem/ASCConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/SysWOW64/wbem/asc-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/SysWOW64/wbem/lib/cps/ASC.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/SysWOW64/wbem/lib/cps/asc.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/SysWOW64/wbem/share/cps/ASC.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/SysWOW64/wbem/share/cps/asc.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/SysWOW64/WindowsPowerShell/v1.0/ASCConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/SysWOW64/WindowsPowerShell/v1.0/asc-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/SysWOW64/WindowsPowerShell/v1.0/lib/cps/ASC.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/SysWOW64/WindowsPowerShell/v1.0/lib/cps/asc.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/SysWOW64/WindowsPowerShell/v1.0/share/cps/ASC.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/SysWOW64/WindowsPowerShell/v1.0/share/cps/asc.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "D:/Git/install/Git/cmd/ASCConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "D:/Git/install/Git/cmd/asc-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "D:/Git/install/Git/cmd/lib/cps/ASC.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "D:/Git/install/Git/cmd/lib/cps/asc.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "D:/Git/install/Git/cmd/share/cps/ASC.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "D:/Git/install/Git/cmd/share/cps/asc.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "D:/Cmake/install/ASCConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "D:/Cmake/install/asc-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "D:/Cmake/install/lib/cps/ASC.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "D:/Cmake/install/lib/cps/asc.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "D:/Cmake/install/share/cps/ASC.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "D:/Cmake/install/share/cps/asc.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/30463/AppData/Local/node-v24.14.0-win-x64/ASCConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/30463/AppData/Local/node-v24.14.0-win-x64/asc-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/30463/AppData/Local/node-v24.14.0-win-x64/lib/cps/ASC.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/30463/AppData/Local/node-v24.14.0-win-x64/lib/cps/asc.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/30463/AppData/Local/node-v24.14.0-win-x64/share/cps/ASC.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/30463/AppData/Local/node-v24.14.0-win-x64/share/cps/asc.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/30463/AppData/Local/Microsoft/WindowsApps/ASCConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/30463/AppData/Local/Microsoft/WindowsApps/asc-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/30463/AppData/Local/Microsoft/WindowsApps/lib/cps/ASC.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/30463/AppData/Local/Microsoft/WindowsApps/lib/cps/asc.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/30463/AppData/Local/Microsoft/WindowsApps/share/cps/ASC.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/30463/AppData/Local/Microsoft/WindowsApps/share/cps/asc.cps"
+        mode: "cps"
+        reason: "no_exist"
+    found: null
+    search_context:
+      ENV{PATH}:
+        - "D:\\VSCode_x86\\install\\Microsoft VS Code"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "D:\\Git\\install\\Git\\cmd"
+        - "D:\\Cmake\\install\\bin"
+        - "C:\\Users\\30463\\AppData\\Local\\node-v24.14.0-win-x64"
+        - "C:\\Users\\30463\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "D:\\VSCode_x86\\install\\Microsoft VS Code\\bin"
+...
