@@ -102,6 +102,23 @@ HcclResult AllGatherHDStageCore::ValidateStageInput() const
         return HCCL_E_PARA;
     }
 
+    if (param_.windowBytes == 0) {
+        HCCL_ERROR("HDStage windowBytes is zero");
+        return HCCL_E_INTERNAL;
+    }
+    if (packedBytes_ > param_.windowBytes) {
+        HCCL_ERROR("HDStage packedBytes=%llu exceeds param windowBytes=%llu",
+            static_cast<unsigned long long>(packedBytes_),
+            static_cast<unsigned long long>(param_.windowBytes));
+        return HCCL_E_INTERNAL;
+    }
+    if (packedBytes_ > GetPerRankWindowCapacity(param_, resCtx_)) {
+        HCCL_ERROR("HDStage packedBytes=%llu exceeds per-rank capacity=%llu",
+            static_cast<unsigned long long>(packedBytes_),
+            static_cast<unsigned long long>(GetPerRankWindowCapacity(param_, resCtx_)));
+        return HCCL_E_INTERNAL;
+    }
+
     const uint64_t totalBytes = packedBytes_ * param_.topoInfo.rankSize;
     if (resCtx_.localBuffer.addr == nullptr || resCtx_.localBuffer.size < totalBytes) {
         HCCL_ERROR("HDStage localBuffer is too small, need=%llu, actual=%llu",
@@ -323,7 +340,7 @@ HcclResult AllGatherHDStageCore::RunAsync()
 
     const uint32_t crossServerChannels = CountChannelsByScope(param_, resCtx_, true);
     const uint32_t intraServerChannels = CountChannelsByScope(param_, resCtx_, false);
-    HCCL_INFO("HDStage plan ready: rank=%u, rankSize=%u, commMode=%s, serverIdx=%u, intraServerRankCount=%u, crossServerRankCount=%u, noPower=%u, powerFactor=%u, powerSteps=%u, remainingPowerSteps=%u, finalSteps=%u, primaryPath=%s, packedBytes=%llu, intraServerChannels=%u, crossServerChannels=%u, hccs=%u, roce=%u, pcie=%u, sio=%u",
+    HCCL_INFO("HDStage plan ready: rank=%u, rankSize=%u, commMode=%s, serverIdx=%u, intraServerRankCount=%u, crossServerRankCount=%u, noPower=%u, powerFactor=%u, powerSteps=%u, remainingPowerSteps=%u, finalSteps=%u, primaryPath=%s, packedBytes=%llu, paramWindowBytes=%llu, perRankCapacity=%llu, intraServerChannels=%u, crossServerChannels=%u, hccs=%u, roce=%u, pcie=%u, sio=%u",
         param_.topoInfo.rank,
         param_.topoInfo.rankSize,
         ToCommModeString(param_.commMode),
@@ -337,6 +354,8 @@ HcclResult AllGatherHDStageCore::RunAsync()
         plan.finalSteps,
         SelectPrimaryPath(plan),
         static_cast<unsigned long long>(packedBytes_),
+        static_cast<unsigned long long>(param_.windowBytes),
+        static_cast<unsigned long long>(GetPerRankWindowCapacity(param_, resCtx_)),
         intraServerChannels,
         crossServerChannels,
         CountChannelsByProtocol(resCtx_, COMM_PROTOCOL_HCCS),
