@@ -10,6 +10,8 @@
 
 #include "ins_temp_dpu_alltoall_mesh.h"
 
+#define NET_NUM 2
+
 namespace ops_hccl {
 
 InsTempDpuAlltoAllMesh::InsTempDpuAlltoAllMesh() {}
