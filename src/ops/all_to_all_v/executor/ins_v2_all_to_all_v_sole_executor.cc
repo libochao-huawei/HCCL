@@ -310,7 +310,7 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     }
 
 #ifndef AICPU_COMPILE
-    if (looptimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU) {
+    if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU) {
         CHK_RET(FastLaunchSaveCtx(param, templateAlgRes));
     }
 #endif
@@ -324,7 +324,7 @@ template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunchSaveCtx(
     const OpParam &param, const TemplateResource &templateAlgRes)
 {
-    HCCL_INFO("[InsV2AlltoAllVSoleExecutor] looptimes==1, save fast launch ctx.");
+    HCCL_INFO("[InsV2AlltoAllVSoleExecutor] loopTimes==1, save fast launch ctx.");
     u32 threadNum = 1;
     u32 ccuKernelNum = templateAlgRes.submitInfos.size();
     if (ccuKernelNum < 1) {
