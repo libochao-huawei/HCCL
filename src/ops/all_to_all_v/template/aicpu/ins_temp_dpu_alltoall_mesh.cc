@@ -49,6 +49,7 @@ HcclResult InsTempDpuAlltoAllMesh::CalcRes(HcclComm comm, const OpParam &param, 
     }
     resourceRequest.notifyNumOnMainThread = threadNum - 1;
 
+
     resourceRequest.channels.push_back(level0Channels);
     HCCL_DEBUG("[InsTempDpuAlltoAllMesh][CalcRes] myRank[%u], notifyNumOnMainThread[%u], slaveThreadNum[%u]", myRank_,
                resourceRequest.notifyNumOnMainThread, resourceRequest.slaveThreadNum);

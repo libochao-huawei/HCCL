@@ -78,6 +78,7 @@ namespace ops_hccl {
 thread_local std::map<std::string, HcclMemHandle> g_memHandleCache; // 当前AIV存放注册内存的memHandle使用
 // 用于维护增量建链算子的host ctx信息
 thread_local std::map<std::string, std::unique_ptr<AlgResourceCtxSerializable>> g_hostCtx;
+thread_local std::map<AivOpCacheArgs, std::shared_ptr<InsQueue>> g_hcclCacheMap;
 constexpr u32 HOST_WAIT_AICPU_NOTIFYIDX = 0;// host主流wait aicpu流的notify idx
 
 // 检查非对称拓扑支持情况
@@ -120,6 +121,12 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
         return HCCL_E_PTR;
     }
     CHK_RET(SetCommEngine(param));
+    // AIV_ONLY 模式下禁止回退到非 AIV 引擎，未选中 AIV 时直接返回不支持。
+    if (GetExternalInputHcclAivOnlyMode() && param.engine != CommEngine::COMM_ENGINE_AIV) {
+        HCCL_ERROR("[HcclExecOp] opType[%d] currently do not select aiv mode, aiv only not support.",
+            static_cast<int>(param.opType));
+        return HCCL_E_NOT_SUPPORT;
+    }
     // 如果一开始读取到的Engine不是aicpu，经过算法选择后回退到aipcu，则需要重新LoadAICPUKernel
     if ((param.engine == CommEngine::COMM_ENGINE_AICPU_TS) || (param.engine == CommEngine::COMM_ENGINE_CPU)) {
         HCCL_DEBUG("[Selector] is aicpu mode");
@@ -167,6 +174,67 @@ uint32_t GetHcclDfxOpInfoDataType(const OpParam &param) {
         dataType = static_cast<u32>(param.DataDes.dataType);
     }
     return dataType;
+}
+
+HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
+                                std::shared_ptr<InsCollAlgBase> executor,
+                                AlgResourceCtxSerializable &resCtxHost)
+{
+    // Cache Logic
+    bool useCache = (param.opType != HCCL_CMD_ALLTOALLV && param.opType != HCCL_CMD_ALLTOALLVC && 
+                     param.opType != HCCL_CMD_ALLGATHER_V && param.opType != HCCL_CMD_REDUCE_SCATTER_V);
+    
+    AivOpCacheArgs cacheKey = {};
+    if (useCache) {
+        cacheKey.commName = param.commName;
+        cacheKey.algName = algName;
+        cacheKey.opType = param.opType;
+        cacheKey.root = param.root;
+        cacheKey.reduceOp = param.reduceType;
+
+        if (param.opType == HCCL_CMD_ALLTOALL) {
+            cacheKey.sendType = param.all2AllDataDes.sendType;
+            cacheKey.recvType = param.all2AllDataDes.recvType;
+            cacheKey.sendCount = param.all2AllDataDes.sendCount;
+            cacheKey.recvCount = param.all2AllDataDes.recvCount;
+        } else {
+            cacheKey.count = param.DataDes.count;
+            cacheKey.dataType = param.DataDes.dataType;
+        }
+    }
+
+    if (useCache && g_hcclCacheMap.find(cacheKey) != g_hcclCacheMap.end()) {
+        // Hit
+        auto queue = g_hcclCacheMap[cacheKey];
+        for (auto& ins : *queue) {
+            AivOpArgs newArgs = ins.opArgs;
+            newArgs.stream = param.stream;
+            
+            // Update addresses
+            newArgs.input = (u64)param.inputPtr + ins.inputOffset;
+            newArgs.output = (u64)param.outputPtr + ins.outputOffset;
+            
+            CHK_RET(ExecuteKernelLaunch(newArgs));
+        }
+    } else {
+        // Miss
+        if (useCache) {
+            g_recordingQueue = std::make_shared<InsQueue>();
+            g_baseInputAddr = (u64)param.inputPtr;
+            g_baseOutputAddr = (u64)param.outputPtr;
+        }
+
+        CHK_RET(executor->Orchestrate(param, resCtxHost));
+
+        if (useCache && g_recordingQueue) {
+            g_hcclCacheMap[cacheKey] = g_recordingQueue;
+            g_recordingQueue = nullptr;
+            g_baseInputAddr = 0;
+            g_baseOutputAddr = 0;
+        }
+    }
+
+    return HCCL_SUCCESS;
 }
 
 HcclResult HcclExecOp(HcclComm comm, OpParam &param,
@@ -246,9 +314,9 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
             resCtxSequence, algName, unfoldThread));
     } else if (param.engine == COMM_ENGINE_AIV) {
         param.resCtx = resCtxSequence;
-        AlgResourceCtxSerializable &resCtxHost = *static_cast<AlgResourceCtxSerializable *>(resCtxSequence);
-        CHK_RET(HcclAivKernelEntranceLaunch(param, topoInfo, resCtxHost));
-        CHK_RET(executor->Orchestrate(param, resCtxHost));
+        AlgResourceCtxSerializable &aivResCtxHost = *static_cast<AlgResourceCtxSerializable *>(resCtxSequence);
+        CHK_RET(HcclAivKernelEntranceLaunch(param, topoInfo, aivResCtxHost));
+        CHK_RET(ExecuteAivCacheLogic(param, algName, executor, aivResCtxHost));
     } else if (param.engine == COMM_ENGINE_CCU) {
         if (isResourceReused) {
             // 复用资源，则需从engineCtx取得res，进行反序列化
@@ -1180,6 +1248,11 @@ HcclResult SetCommEngine(OpParam &param)
 
 HcclResult SingleRankProc(const OpParam &param)
 {
+    if (GetExternalInputHcclAivOnlyMode()) {
+        HCCL_ERROR("[SingleRankProc] opType[%d] currently do not select aiv mode, aiv only not support, "
+            "please ensure rankNum is greater than one", static_cast<int>(param.opType));
+        return HCCL_E_NOT_SUPPORT;
+    }
     if (param.opType == HcclCMDType::HCCL_CMD_SEND || param.opType == HcclCMDType::HCCL_CMD_RECEIVE) {
         HCCL_WARNING("[%s] ranksize == 1 is not support BATCHSENDRECV SEND RECV", __func__);
         return HcclResult::HCCL_SUCCESS;
@@ -1309,6 +1382,8 @@ HcclResult DecideHcclOpExpansionMode(HcclComm comm, HcclOpExpansionMode &finalMo
     finalMode = configOpExpansionMode;
     if (GetExternalInputHcclAicpuUnfold() == true) {
         finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_AI_CPU;
+    } else if (GetExternalInputHcclAivOnlyMode() == true) {
+        finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY;
     } else if (GetExternalInputHcclAivMode() == true) {
         finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_AIV;
     } else if (GetExternalInputHcclCcuMSMode()) {
@@ -1338,6 +1413,12 @@ HcclResult ApplyOpExpansionMode(OpParam &param, HcclOpExpansionMode finalMode)
             param.engine = CommEngine::COMM_ENGINE_AIV;
             CHK_RET(RegisterKernel(param.opType, g_aivKernelInfoMap[param.opType].first, g_aivKernelInfoMap[param.opType].second));
             HCCL_DEBUG("[ApplyOpExpansionMode] AIV mode selected.");
+            break;
+        case HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY:
+            param.opExecuteConfig = OpExecuteConfig::AIV_ONLY;
+            param.engine = CommEngine::COMM_ENGINE_AIV;
+            CHK_RET(RegisterKernel(param.opType, g_aivKernelInfoMap[param.opType].first, g_aivKernelInfoMap[param.opType].second));
+            HCCL_DEBUG("[ApplyOpExpansionMode] AIV_ONLY mode selected.");
             break;
         case static_cast<HcclOpExpansionMode>(opExpansionModeCcuMs):
             param.opExecuteConfig = OpExecuteConfig::CCU_MS;
@@ -1436,7 +1517,8 @@ bool ShouldUseInnerOp(OpExecuteConfig opExecuteConfig)
                               opExecuteConfig == OpExecuteConfig::HOSTCPU);
     bool isCcuMode = (opExecuteConfig == OpExecuteConfig::CCU_MS ||
                       opExecuteConfig == OpExecuteConfig::CCU_SCHED);
-    bool isAivMode = (opExecuteConfig == OpExecuteConfig::AIV);
+    bool isAivMode = (opExecuteConfig == OpExecuteConfig::AIV ||
+                      opExecuteConfig == OpExecuteConfig::AIV_ONLY);
 
     if (isAicpuOrHostMode) {
         return !HcclCheckAicpuEnableOpen();

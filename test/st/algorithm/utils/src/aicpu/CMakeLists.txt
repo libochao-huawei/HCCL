@@ -238,7 +238,7 @@ add_library(scatter_aicpu_kernel SHARED
     ${HCCL_DEV_BASE}/src/ops/recv/template/ins_temp_recv_dpu.cc
 
     ${HCCL_DEV_BASE}/src/ops/all_reduce/executor/ins_v2_all_reduce_sole_executor.cc
-    ${HCCL_DEV_BASE}/src/ops/all_reduce/executor/ins_all_reduce_parallel_executor.cc
+    ${HCCL_DEV_BASE}/src/ops/all_reduce/executor/ins_v2_all_reduce_parallel_executor.cc
     ${HCCL_DEV_BASE}/src/ops/all_reduce/executor/ins_v2_all_reduce_sequence_executor.cc
     ${HCCL_DEV_BASE}/src/ops/all_reduce/template/aicpu/ins_temp_all_reduce_mesh_1D_one_shot.cc
     ${HCCL_DEV_BASE}/src/ops/all_reduce/template/aicpu/ins_temp_all_reduce_mesh_1D_two_shot.cc
