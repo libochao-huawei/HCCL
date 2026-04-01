@@ -17,6 +17,7 @@
 namespace ops_hccl {
 class CcuTempScatterNHR1DMem2Mem : public CcuAlgTemplateBase {
 public:
+    CcuTempScatterNHR1DMem2Mem() = default;
     explicit CcuTempScatterNHR1DMem2Mem(const OpParam& param, 
                                               const u32 rankId, // 传通信域的rankId，userRank
                                               const std::vector<std::vector<u32>> &subCommRanks);
@@ -30,7 +31,7 @@ public:
 
     HcclResult KernelRun(const OpParam& param,
                         const TemplateDataParams& templateDataParams,
-                        const TemplateResource& templateResource) override;
+                        TemplateResource& templateResource) override;
 
     HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                        AlgResourceRequest& resourceRequest) override;
@@ -39,7 +40,7 @@ public:
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
     void SetRoot(u32 root);
     HcclResult GetRes(AlgResourceRequest& resourceRequest) const override;
-
+    HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx) override;
 private:
     uint32_t mySubCommRank_ = 0;
     uint32_t subCommRootId_ = 0;
