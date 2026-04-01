@@ -22,7 +22,6 @@
 #include "log.h"
 #include "alg_param.h"
 #include "sim_task_queue.h"
-#include "dtype_common_dl.h"
 #include "hccl_dl_stub.h"
 
 using namespace hccl;
