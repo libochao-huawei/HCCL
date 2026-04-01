@@ -55,9 +55,9 @@ HcclResult InsTempReduceScatterMesh1D::KernelRun(const OpParam& param,
         return HCCL_SUCCESS;
     }
     threadNum_ = templateResource.threads.size();
-    processSize_ = tempAlgParams.sliceSize;
-    count_ = tempAlgParams.count;
     dataType_ = param.DataDes.dataType;
+    processSize_ = tempAlgParams.sliceSize;
+    count_ = tempAlgParams.sliceSize / DATATYPE_SIZE_TABLE[dataType_];
     HCCL_INFO("[InsTempReduceScatterMesh1D] Run Start");
     if (threadNum_ > 1) {
         std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
@@ -98,6 +98,18 @@ HcclResult InsTempReduceScatterMesh1D::PostCopy(const TemplateDataParams &tempAl
     HCCL_INFO("[InsTempReduceScatterMesh1D][PostCopy], copy from cclBuffer to userOut");
     // 先把本卡的数据从userIn搬运到userOut，然后再在userOut上做规约
     HCCL_INFO("[InsTempReduceScatterMesh1D][PostCopy]tempAlgParams.repeatNum=%llu", tempAlgParams.repeatNum);
+    u32 myAlgRank = 0;
+    u64 buffSliceStride = 0;
+    CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], myAlgRank));
+    if (myAlgRank == templateRankSize_ - 1 && tempAlgParams.tailSize > 0) {
+        processSize_ = tempAlgParams.tailSize;
+        count_ = tempAlgParams.tailSize / DATATYPE_SIZE_TABLE[dataType_];
+        buffSliceStride = tempAlgParams.tailSize;
+    } else {
+        processSize_ = tempAlgParams.sliceSize;
+        count_ = tempAlgParams.sliceSize / DATATYPE_SIZE_TABLE[dataType_];
+        buffSliceStride = tempAlgParams.sliceSize;
+    }
     for (u32 repeatIdx = 0; repeatIdx < tempAlgParams.repeatNum; repeatIdx++) {
         // 把其他卡的数据input累加到output
         for (u32 tmpRank = 0; tmpRank < templateRankSize_; tmpRank++) {
@@ -105,11 +117,12 @@ HcclResult InsTempReduceScatterMesh1D::PostCopy(const TemplateDataParams &tempAl
                 DataSlice srcSlice = DataSlice(tempAlgParams.buffInfo.hcclBuff.addr,
                                                tempAlgParams.buffInfo.hcclBuffBaseOff
                                                + repeatIdx * tempAlgParams.outputRepeatStride
-                                               + tmpRank * tempAlgParams.outputSliceStride,
+                                               + tmpRank * buffSliceStride,
                                                processSize_, count_);
                 DataSlice dstSlice = DataSlice(tempAlgParams.buffInfo.outputPtr,
                                                tempAlgParams.buffInfo.outBuffBaseOff
-                                               + repeatIdx * tempAlgParams.outputRepeatStride,
+                                               + repeatIdx * tempAlgParams.outputRepeatStride
+                                               + rankIdx * tempAlgParams.outputSliceStride,
                                                processSize_, count_);
                 CHK_RET(static_cast<HcclResult>(LocalReduce(threads[0], srcSlice, dstSlice, dataType_, reduceOp_)));
             }
@@ -127,20 +140,36 @@ HcclResult InsTempReduceScatterMesh1D::RunReduceScatter(
     CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], myAlgRank));
 
     // DMA消减：让thread 0做本地拷贝
-    for (u32 repeatIdx = 0; repeatIdx < tempAlgParam.repeatNum; repeatIdx++) {
-        DataSlice srcSlice = DataSlice(tempAlgParam.buffInfo.inputPtr, tempAlgParam.buffInfo.inBuffBaseOff +
-                                       repeatIdx * tempAlgParam.inputRepeatStride + myAlgRank * tempAlgParam.inputSliceStride,
-                                       processSize_, count_);
-        DataSlice dstSlice = DataSlice(tempAlgParam.buffInfo.outputPtr, tempAlgParam.buffInfo.outBuffBaseOff +
-                                       repeatIdx * tempAlgParam.outputRepeatStride, processSize_, count_);
-        CHK_RET(static_cast<HcclResult>(LocalCopy(threads[0], srcSlice, dstSlice)));
+    if (tempAlgParam.buffInfo.inBuffType != tempAlgParam.buffInfo.outBuffType ||
+        tempAlgParam.buffInfo.inBuffBaseOff != tempAlgParam.buffInfo.outBuffBaseOff) {
+        for (u32 repeatIdx = 0; repeatIdx < tempAlgParam.repeatNum; repeatIdx++) {
+            u64 sliceSize = processSize_;
+            u64 sliceCount = count_;
+            if (myAlgRank == templateRankSize_ - 1 && tempAlgParam.tailSize > 0) {
+                sliceSize = tempAlgParam.tailSize;
+                sliceCount = tempAlgParam.tailSize / DATATYPE_SIZE_TABLE[dataType_];
+            }
+            DataSlice srcSlice = DataSlice(tempAlgParam.buffInfo.inputPtr, tempAlgParam.buffInfo.inBuffBaseOff +
+                                        repeatIdx * tempAlgParam.inputRepeatStride + myAlgRank * tempAlgParam.inputSliceStride,
+                                        sliceSize, sliceCount);
+            DataSlice dstSlice = DataSlice(tempAlgParam.buffInfo.outputPtr, tempAlgParam.buffInfo.outBuffBaseOff +
+                                        repeatIdx * tempAlgParam.outputRepeatStride + myAlgRank * tempAlgParam.outputSliceStride,
+                                        sliceSize, sliceCount);
+            CHK_RET(static_cast<HcclResult>(LocalCopy(threads[0], srcSlice, dstSlice)));
+        }
     }
 
     for (u32 queIdx = 1; queIdx < threadNum_; queIdx++) {
         u32 nextRank = (myAlgRank + queIdx) % templateRankSize_; // 这里取的虚拟rankId
-        // u32 remoteRank = tempVTopo_[0][nextRank]; // 这里取的全局rankId
+        u64 sliceSize = processSize_;
+        u64 sliceCount = count_;
+        u64 outputSliceStride = tempAlgParam.sliceSize;
+        if ((nextRank == templateRankSize_ - 1) && (tempAlgParam.tailSize > 0)) {
+            sliceSize = tempAlgParam.tailSize;
+            sliceCount = tempAlgParam.tailSize / DATATYPE_SIZE_TABLE[dataType_];
+            outputSliceStride = tempAlgParam.tailSize;
+        }
         u32 remoteRank = subCommRanks_[0][nextRank];
-
         HCCL_DEBUG("[InsTempReduceScatterMesh1D][RunReduceScatter] myRank[%d], toRank[%d], fromRank[%d]",
                    myRank_, remoteRank, remoteRank);
         const ChannelInfo &linkSend = channels.at(remoteRank)[0];
@@ -156,18 +185,18 @@ HcclResult InsTempReduceScatterMesh1D::RunReduceScatter(
             // 在reduce_scatter_op.cc的创建channels的环节中获取到了remote的HcclBuff的地址
             void* remoteCclBuffAddr = linkSend.remoteCclMem.addr;
             // 在接收的时候接收源应该是远端地址，但是由于rs的mesh算法用的是write，所以rx不用care
-            DataSlice rxSrcSlice = DataSlice(tempAlgParam.buffInfo.inputPtr, tempAlgParam.buffInfo.inBuffBaseOff + 
+            DataSlice rxSrcSlice = DataSlice(remoteCclBuffAddr, tempAlgParam.buffInfo.inBuffBaseOff + 
                 repeatIdx * tempAlgParam.inputRepeatStride + myAlgRank * tempAlgParam.inputSliceStride,
-                processSize_, count_); // 接收源
+                sliceSize, sliceCount); // 接收源
             DataSlice rxDstSlice = DataSlice(tempAlgParam.buffInfo.hcclBuff.addr,
                 tempAlgParam.buffInfo.hcclBuffBaseOff +  repeatIdx * tempAlgParam.outputRepeatStride +
-                nextRank * tempAlgParam.outputSliceStride, processSize_, count_); // 接收目标
+                nextRank * outputSliceStride, sliceSize, sliceCount); // 接收目标
             DataSlice txSrcSlice = DataSlice(tempAlgParam.buffInfo.inputPtr, tempAlgParam.buffInfo.inBuffBaseOff +
                 repeatIdx * tempAlgParam.inputRepeatStride + nextRank * tempAlgParam.inputSliceStride,
-                processSize_, count_); // 发送源
+                sliceSize, sliceCount); // 发送源
             DataSlice txDstSlice = DataSlice(remoteCclBuffAddr, tempAlgParam.buffInfo.hcclBuffBaseOff +
-                repeatIdx * tempAlgParam.outputRepeatStride + myAlgRank * tempAlgParam.outputSliceStride,
-                processSize_, count_);  // 发送目标
+                repeatIdx * tempAlgParam.outputRepeatStride + myAlgRank * outputSliceStride,
+                sliceSize, sliceCount);  // 发送目标
 
             rxSrcSlices.push_back(rxSrcSlice);
             rxDstSlices.push_back(rxDstSlice);
