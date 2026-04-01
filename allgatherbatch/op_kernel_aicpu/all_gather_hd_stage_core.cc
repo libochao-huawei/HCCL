@@ -1,4 +1,4 @@
-ï»¿#include "all_gather_hd_stage_core.h"
+#include "all_gather_hd_stage_core.h"
 
 #include "all_gather_nhr_core.h"
 #include "log.h"
@@ -89,8 +89,18 @@ AllGatherHDStageCore::AllGatherHDStageCore(const OpParam &param, AlgResourceCtx 
 
 HcclResult AllGatherHDStageCore::ValidateStageInput() const
 {
+    const ResourceStats stats = CollectResourceStats(param_, resCtx_);
+
     if (!IsValidCommMode(param_.commMode)) {
         HCCL_ERROR("HDStage commMode is invalid");
+        return HCCL_E_INTERNAL;
+    }
+    if (!HasConsistentRankDistribution(param_)) {
+        HCCL_ERROR("HDStage rank distribution is inconsistent, commMode=%s, intra=%u, cross=%u, rankSize=%u",
+            ToCommModeString(param_.commMode),
+            param_.intraServerRankCount,
+            param_.crossServerRankCount,
+            param_.topoInfo.rankSize);
         return HCCL_E_INTERNAL;
     }
     if (param_.topoInfo.rankSize == 0) {
@@ -112,10 +122,10 @@ HcclResult AllGatherHDStageCore::ValidateStageInput() const
             static_cast<unsigned long long>(param_.windowBytes));
         return HCCL_E_INTERNAL;
     }
-    if (packedBytes_ > GetMaxWindowBytes(param_, resCtx_)) {
+    if (packedBytes_ > stats.maxWindowBytes) {
         HCCL_ERROR("HDStage packedBytes=%llu exceeds maxWindowBytes=%llu",
             static_cast<unsigned long long>(packedBytes_),
-            static_cast<unsigned long long>(GetMaxWindowBytes(param_, resCtx_)));
+            static_cast<unsigned long long>(stats.maxWindowBytes));
         return HCCL_E_INTERNAL;
     }
 
@@ -137,10 +147,10 @@ HcclResult AllGatherHDStageCore::BuildStagePlan(HDStagePlan &plan) const
         return HCCL_E_PARA;
     }
 
-    // è¿™é‡Œæ²¿ç”¨è®¾è®¡ç¨¿å’Œ hcomm HDStage çš„æ‹†è§£æ€è·¯ï¼š
-    // 1. noPower è´Ÿè´£é 2 æ¬¡å¹‚éƒ¨åˆ†ã€‚
-    // 2. power è´Ÿè´£ powerSteps ä¸­å»æ‰ finalSteps åçš„ä¸»é˜¶æ®µã€‚
-    // 3. final è´Ÿè´£æœ€å 0/1/2 æ­¥çš„æ”¶å°¾è¯­ä¹‰ã€‚
+    // ÕâÀïÑØÓÃÉè¼Æ¸åºÍ hcomm HDStage µÄ²ğ½âË¼Â·£º
+    // 1. noPower ¸ºÔğ·Ç 2 ´ÎÃİ²¿·Ö¡£
+    // 2. power ¸ºÔğ powerSteps ÖĞÈ¥µô finalSteps ºóµÄÖ÷½×¶Î¡£
+    // 3. final ¸ºÔğ×îºó 0/1/2 ²½µÄÊÕÎ²ÓïÒå¡£
     plan.powerSteps = CalcTrailingPowerSteps(rankSize);
     plan.powerFactor = (plan.powerSteps == 0U) ? 1U : (1U << plan.powerSteps);
     plan.noPower = rankSize / plan.powerFactor;
@@ -150,8 +160,8 @@ HcclResult AllGatherHDStageCore::BuildStagePlan(HDStagePlan &plan) const
     plan.needPowerPath = (plan.remainingPowerSteps >= 1U);
     plan.needFinalPath = (rankSize > 1U);
 
-    // å½“å‰ public-header æ–¹æ¡ˆä¸‹ï¼ŒNHR ä»æ˜¯å”¯ä¸€çš„æ•°æ®é¢å®ç°ï¼Œå› æ­¤ä¸‰ä¸ªé˜¶æ®µé‡Œåªé€‰ä¸€ä¸ªä¸»è·¯å¾„çœŸæ­£è½é€šä¿¡ã€‚
-    // è¿™æ ·æ—¢ä¿ç•™ HDStage çš„é˜¶æ®µè¯­ä¹‰ï¼Œä¹Ÿé¿å…æœ€å°æ•°æ®é¢è¢«é‡å¤æ‰§è¡Œå¤šæ¬¡ã€‚
+    // µ±Ç° public-header ·½°¸ÏÂ£¬NHR ÈÔÊÇÎ¨Ò»µÄÊı¾İÃæÊµÏÖ£¬Òò´ËÈı¸ö½×¶ÎÀïÖ»Ñ¡Ò»¸öÖ÷Â·¾¶ÕæÕıÂäÍ¨ĞÅ¡£
+    // ÕâÑù¼È±£Áô HDStage µÄ½×¶ÎÓïÒå£¬Ò²±ÜÃâ×îĞ¡Êı¾İÃæ±»ÖØ¸´Ö´ĞĞ¶à´Î¡£
     plan.useNoPowerAsPrimary = plan.needNoPowerPath;
     plan.usePowerAsPrimary = (!plan.useNoPowerAsPrimary && plan.needPowerPath);
     plan.useFinalAsPrimary = (!plan.useNoPowerAsPrimary && !plan.usePowerAsPrimary && plan.needFinalPath);
@@ -160,10 +170,9 @@ HcclResult AllGatherHDStageCore::BuildStagePlan(HDStagePlan &plan) const
 
 HcclResult AllGatherHDStageCore::ValidateStagePlan(const HDStagePlan &plan) const
 {
-    const uint32_t crossServerChannels = CountChannelsByScope(param_, resCtx_, true);
-    const uint32_t intraServerChannels = CountChannelsByScope(param_, resCtx_, false);
+    const ResourceStats stats = CollectResourceStats(param_, resCtx_);
 
-    // HDStage è¿™ä¸€å±‚æŠŠ stage è®¡åˆ’å’Œé“¾è·¯ scope å†å¯¹ä¸€æ¬¡ï¼Œé¿å…â€œå‰åå±‚éƒ½èƒ½è·‘ï¼Œä½† stage å‡è®¾ä¸æˆç«‹â€çš„é—®é¢˜ã€‚
+    // HDStage ÕâÒ»²ã°Ñ stage ¼Æ»®ºÍÁ´Â· scope ÔÙ¶ÔÒ»´Î£¬±ÜÃâ¡°Ç°ºó²ã¶¼ÄÜÅÜ£¬µ« stage ¼ÙÉè²»³ÉÁ¢¡±µÄÎÊÌâ¡£
     if (plan.noPower == 0) {
         HCCL_ERROR("HDStage noPower is zero");
         return HCCL_E_INTERNAL;
@@ -193,18 +202,18 @@ HcclResult AllGatherHDStageCore::ValidateStagePlan(const HDStagePlan &plan) cons
             CountPrimaryPaths(plan));
         return HCCL_E_INTERNAL;
     }
-    if (intraServerChannels + crossServerChannels != resCtx_.channelCount) {
+    if (stats.intraServerChannels + stats.crossServerChannels != resCtx_.channelCount) {
         HCCL_ERROR("HDStage channel scope split is inconsistent, intra=%u, cross=%u, channelCount=%u",
-            intraServerChannels,
-            crossServerChannels,
+            stats.intraServerChannels,
+            stats.crossServerChannels,
             resCtx_.channelCount);
         return HCCL_E_INTERNAL;
     }
-    if (param_.commMode == BatchCommMode::kSingleServer && crossServerChannels != 0) {
-        HCCL_ERROR("HDStage single-server mode unexpectedly has cross-server channels=%u", crossServerChannels);
+    if (param_.commMode == BatchCommMode::kSingleServer && stats.crossServerChannels != 0) {
+        HCCL_ERROR("HDStage single-server mode unexpectedly has cross-server channels=%u", stats.crossServerChannels);
         return HCCL_E_INTERNAL;
     }
-    if (param_.commMode == BatchCommMode::kCrossServer && crossServerChannels == 0) {
+    if (param_.commMode == BatchCommMode::kCrossServer && stats.crossServerChannels == 0) {
         HCCL_ERROR("HDStage cross-server mode has no cross-server channels");
         return HCCL_E_INTERNAL;
     }
@@ -213,12 +222,12 @@ HcclResult AllGatherHDStageCore::ValidateStagePlan(const HDStagePlan &plan) cons
 
 HcclResult AllGatherHDStageCore::ValidateProtocolDistribution() const
 {
-    const uint32_t recognizedChannels = CountRecognizedChannels(resCtx_);
+    const ResourceStats stats = CollectResourceStats(param_, resCtx_);
 
-    // Stage å±‚ä¹Ÿè¦æ±‚èµ„æºé‡Œçš„åè®®åˆ†å¸ƒæ˜¯è‡ªæ´½çš„ï¼Œé¿å…æŠŠâ€œæœªçŸ¥åè®®â€é™é»˜å¸¦å…¥ NHR å­æ¨¡æ¿ã€‚
-    if (recognizedChannels != resCtx_.channelCount) {
+    // Stage ²ãÒ²ÒªÇó×ÊÔ´ÀïµÄĞ­Òé·Ö²¼ÊÇ×ÔÇ¢µÄ£¬±ÜÃâ°Ñ¡°Î´ÖªĞ­Òé¡±¾²Ä¬´øÈë NHR ×ÓÄ£°å¡£
+    if (stats.recognizedProtocols != resCtx_.channelCount) {
         HCCL_ERROR("HDStage protocol distribution mismatch, recognized=%u, channelCount=%u",
-            recognizedChannels,
+            stats.recognizedProtocols,
             resCtx_.channelCount);
         return HCCL_E_INTERNAL;
     }
@@ -312,9 +321,9 @@ HcclResult AllGatherHDStageCore::RunFinalLastTwo(const HDStagePlan &plan) const
 
 HcclResult AllGatherHDStageCore::RunFinalPath(const HDStagePlan &plan) const
 {
-    // final path è´Ÿè´£è¡¨è¾¾ HDStage æœ€å 0/1/2 æ­¥çš„æ”¶å°¾è¯­ä¹‰ã€‚
-    // åœ¨å½“å‰ custom-op ç‰ˆæœ¬é‡Œï¼Œå¦‚æœä¸»é€šä¿¡å·²ç»åœ¨ noPower/power é˜¶æ®µå®Œæˆï¼Œè¿™é‡Œåªä¿ç•™ç»“æ„å’Œæ—¥å¿—ï¼›
-    // å¦‚æœå‰é¢æ²¡æœ‰ä¸»é€šä¿¡è·¯å¾„ï¼Œåˆ™ç”± final path æ¥ç®¡çœŸæ­£çš„æ•°æ®é¢æ‰§è¡Œã€‚
+    // final path ¸ºÔğ±í´ï HDStage ×îºó 0/1/2 ²½µÄÊÕÎ²ÓïÒå¡£
+    // ÔÚµ±Ç° custom-op °æ±¾Àï£¬Èç¹ûÖ÷Í¨ĞÅÒÑ¾­ÔÚ noPower/power ½×¶ÎÍê³É£¬ÕâÀïÖ»±£Áô½á¹¹ºÍÈÕÖ¾£»
+    // Èç¹ûÇ°ÃæÃ»ÓĞÖ÷Í¨ĞÅÂ·¾¶£¬ÔòÓÉ final path ½Ó¹ÜÕæÕıµÄÊı¾İÃæÖ´ĞĞ¡£
     if (plan.finalSteps >= 2U) {
         return RunFinalLastTwo(plan);
     }
@@ -338,8 +347,7 @@ HcclResult AllGatherHDStageCore::RunAsync()
     HCCL_CHK_RET(ValidateStagePlan(plan));
     HCCL_CHK_RET(ValidateProtocolDistribution());
 
-    const uint32_t crossServerChannels = CountChannelsByScope(param_, resCtx_, true);
-    const uint32_t intraServerChannels = CountChannelsByScope(param_, resCtx_, false);
+    const ResourceStats stats = CollectResourceStats(param_, resCtx_);
     HCCL_INFO("HDStage plan ready: rank=%u, rankSize=%u, commMode=%s, serverIdx=%u, intraServerRankCount=%u, crossServerRankCount=%u, noPower=%u, powerFactor=%u, powerSteps=%u, remainingPowerSteps=%u, finalSteps=%u, primaryPath=%s, packedBytes=%llu, paramWindowBytes=%llu, maxWindowBytes=%llu, intraServerChannels=%u, crossServerChannels=%u, hccs=%u, roce=%u, pcie=%u, sio=%u",
         param_.topoInfo.rank,
         param_.topoInfo.rankSize,
@@ -355,13 +363,13 @@ HcclResult AllGatherHDStageCore::RunAsync()
         SelectPrimaryPath(plan),
         static_cast<unsigned long long>(packedBytes_),
         static_cast<unsigned long long>(param_.windowBytes),
-        static_cast<unsigned long long>(GetMaxWindowBytes(param_, resCtx_)),
-        intraServerChannels,
-        crossServerChannels,
-        CountChannelsByProtocol(resCtx_, COMM_PROTOCOL_HCCS),
-        CountChannelsByProtocol(resCtx_, COMM_PROTOCOL_ROCE),
-        CountChannelsByProtocol(resCtx_, COMM_PROTOCOL_PCIE),
-        CountChannelsByProtocol(resCtx_, COMM_PROTOCOL_SIO));
+        static_cast<unsigned long long>(stats.maxWindowBytes),
+        stats.intraServerChannels,
+        stats.crossServerChannels,
+        stats.hccsChannels,
+        stats.roceChannels,
+        stats.pcieChannels,
+        stats.sioChannels);
 
     if (plan.needNoPowerPath) {
         HCCL_CHK_RET(RunNoPowerPath(plan));
@@ -378,4 +386,6 @@ HcclResult AllGatherHDStageCore::RunAsync()
 }
 
 }  // namespace ops_hccl_allgatherbatch
+
+
 
