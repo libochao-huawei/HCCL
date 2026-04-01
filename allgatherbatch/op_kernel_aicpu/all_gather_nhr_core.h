@@ -27,18 +27,22 @@ private:
     HcclResult ValidateCommState() const;
     HcclResult ValidateChannelMetadata() const;
     HcclResult ValidateProtocolDistribution() const;
+    HcclResult ValidateStepPlan(const std::vector<NHRStepInfo> &stepPlan) const;
     uint32_t CalcStepNum(uint32_t rankSize) const;
     HcclResult GetStepInfo(uint32_t step, uint32_t nSteps, NHRStepInfo &stepInfo) const;
     HcclResult BuildStepPlan(std::vector<NHRStepInfo> &stepPlan) const;
     const ChannelResource *FindChannel(uint32_t remoteRank) const;
     uint8_t *GetRankBuffer(uint32_t rank) const;
     bool IsCrossServerChannel(const ChannelResource &channel) const;
+    bool MatchChannel(const ChannelResource &channel, bool crossServer, CommProtocol protocol) const;
     uint32_t CountChannelsByScope(bool crossServer) const;
     uint32_t CountChannelsByProtocol(bool crossServer, CommProtocol protocol) const;
     uint32_t CountRecognizedChannelsByScope(bool crossServer) const;
-    HcclResult NotifyReadyByScopeAndProtocol(bool crossServer, CommProtocol protocol) const;
-    HcclResult ReadRemoteRanksByScopeAndProtocol(bool crossServer, CommProtocol protocol) const;
-    HcclResult RunScope(bool crossServer) const;
+    HcclResult NotifyReadyToRank(uint32_t remoteRank, bool crossServer, CommProtocol protocol) const;
+    HcclResult ReadFromRank(uint32_t remoteRank, bool crossServer, CommProtocol protocol) const;
+    HcclResult RunProtocolStep(const NHRStepInfo &stepInfo, bool crossServer, CommProtocol protocol) const;
+    HcclResult RunProtocol(bool crossServer, CommProtocol protocol, const std::vector<NHRStepInfo> &stepPlan) const;
+    HcclResult RunScope(bool crossServer, const std::vector<NHRStepInfo> &stepPlan) const;
 
     const OpParam &param_;
     AlgResourceCtx &resCtx_;
