@@ -34,12 +34,10 @@ HcclResult InsTempDpuAlltoAllMesh::CalcRes(HcclComm comm, const OpParam &param, 
         CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
 
     } else {
-        u32 innerRankNum = subCommRanks_[0].size();
-        threadNum = (innerRankNum > 1) ? (innerRankNum - 1) : 1;
-        std::set<u32> totalRanks;
-        for (const auto& rankVec : subCommRanks_) 
-            totalRanks.insert(rankVec.begin(), rankVec.end());
-        subCommRanks_ = {{totalRanks.begin(), totalRanks.end()}};
+        CHK_PRT_RET(subCommRanks_.size() != NET_NUM, HCCL_ERROR("[InsTempDpuAlltoAllMesh][CalcRes] subCommRankNum[%zu] is not [%u]", subCommRanks_.size(), NET_NUM), HCCL_E_PARA);
+        u32 intraRankNum = subCommRanks_[0].size();
+        threadNum = (intraRankNum > 1) ? (intraRankNum - 1) : 1;
+        subCommRanks_ = {subCommRanks_[1]};
         CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks_, level0Channels, CommTopo::COMM_TOPO_1DMESH));
     }
     // 计算从流以及Notify数量
