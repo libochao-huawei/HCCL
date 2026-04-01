@@ -14,6 +14,7 @@
 #include <string>
 #include "hccl/base.h"
 #include "alg_param.h"
+#include "hccl_diag.h"
 
 namespace ops_hccl {
 
@@ -29,6 +30,8 @@ struct ScatterOpInfo {
 };
 
 HcclResult CreateScatter(OpParam *param, ScatterOpInfo *opInfo);
+
+HcclResult ConvertToHcclDfxOpInfo(OpParam *param, HcclDfxOpInfo *dfxOpInfo);
 
 void GetScatterOpInfo(const void *opInfo, char *outPut, size_t size);
 
