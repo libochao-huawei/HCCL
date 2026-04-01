@@ -23,7 +23,7 @@
 #define CONST_ONE 1
 #define CONST_TWO 2
 #define CONST_THREE 3
-#define TOPO_INST_NUM 2
+#define INST_NUM_NET 2
 
 namespace ops_hccl {
 
@@ -54,11 +54,16 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(
         HCCL_ERROR("algHierarchyInfo level num is zero!");
         return HCCL_E_PARA;
     }
+
     if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
-        CHK_PRT_RET(algHierarchyInfo.infos[0].size() != TOPO_INST_NUM, HCCL_ERROR("[InsV2AlltoAllVSoleExecutor][CalcRes] algHierarchyInfo.infos[0].size [%zu] with Level0Topo[%u] is not %u", algHierarchyInfo.infos[0].size(), topoInfo->level0Topo, TOPO_INST_NUM), HCCL_E_PARA);
-        tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[0][1]);    // 框内所有卡
-        for (u32 idx = 1; idx < algHierarchyInfo.infos.size(); ++idx) {
-            tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[idx][0]);
+        CHK_PRT_RET(algHierarchyInfo.infos[0].size() != INST_NUM_NET, HCCL_ERROR("[InsV2AlltoAllVSoleExecutor][CalcRes] algHierarchyInfo.infos[0].size [%zu] with Level0Topo[%u] is not %u", algHierarchyInfo.infos[0].size(), topoInfo->level0Topo, INST_NUM_NET), HCCL_E_PARA);
+
+        if (topoInfo->topoLevelNums == 1 || param.engine == CommEngine::COMM_ENGINE_AIV || param.engine == CommEngine::COMM_ENGINE_CCU){
+            tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[1][0]);
+        } else {
+            CHK_PRT_RET(algHierarchyInfo.infos[0][1].size() <= algHierarchyInfo.infos[1][0].size(), HCCL_ERROR("[InsV2AlltoAllVSoleExecutor][CalcRes] ranknum [%zu] in Layer0 with Level0Topo[%u] is no greater than ranknum [%zu] in Layer1", algHierarchyInfo.infos[0][1].size(), topoInfo->level0Topo, algHierarchyInfo.infos[1][0].size()), HCCL_E_PARA);
+            tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[0][1]); // 跨框时，增加框内通信域，用于AICPU框内申请流资源
+            tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[1][0]);
         }
     } else {
         tempAlgHierachyInfo = algHierarchyInfo.infos[0];
@@ -222,12 +227,7 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
 
     std::vector<std::vector<u32>> tempAlgHierachyInfo;
     if (resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS && !resCtx.topoInfo.level0PcieMix) {
-        std::set<u32> totalRanks(resCtx.algHierarchyInfo.infos[0][1].begin(), resCtx.algHierarchyInfo.infos[0][1].end());
-        for (u32 idx = 1; idx < resCtx.algHierarchyInfo.infos.size(); ++idx) {
-            const auto& rankVec = resCtx.algHierarchyInfo.infos[idx][0];
-            totalRanks.insert(rankVec.begin(), rankVec.end());
-        }
-        tempAlgHierachyInfo.emplace_back(totalRanks.begin(), totalRanks.end());
+        tempAlgHierachyInfo = resCtx.algHierarchyInfo.infos[1];
     } else {
         tempAlgHierachyInfo = resCtx.algHierarchyInfo.infos[0];
     }
@@ -428,6 +428,6 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLVC, InsAlltoAllVCClosMesh1DDPU, I
     REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, CcuAllToAllMesh2Die, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
     CcuTempAllToAllMesh2Die);
     REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, CcuAlltoAllMesh1DMultiJetty, InsV2AlltoAllVSoleExecutor,
-                    TopoMatchUBX, CcuTempAllToAllMesh1dMultiJetty);
+                    TopoMatchUBX1d, CcuTempAllToAllMesh1dMultiJetty);
 #endif
 }  // namespace Hccl
