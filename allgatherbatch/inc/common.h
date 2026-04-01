@@ -174,6 +174,44 @@ inline bool IsValidCommMode(BatchCommMode commMode)
     return commMode == BatchCommMode::kSingleServer || commMode == BatchCommMode::kCrossServer;
 }
 
+inline uint64_t GetPerRankWindowCapacity(const OpParam &param, const AlgResourceCtx &resCtx)
+{
+    if (param.topoInfo.rankSize == 0) {
+        return 0;
+    }
+    return resCtx.localBuffer.size / param.topoInfo.rankSize;
+}
+
+inline uint32_t CountChannelsByProtocol(const AlgResourceCtx &resCtx, CommProtocol protocol)
+{
+    uint32_t count = 0;
+    for (uint32_t idx = 0; idx < resCtx.channelCount; ++idx) {
+        if (resCtx.channels[idx].protocol == protocol) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+inline uint32_t CountCrossServerChannels(const BatchTopoInfo &topoInfo, const AlgResourceCtx &resCtx)
+{
+    uint32_t count = 0;
+    for (uint32_t idx = 0; idx < resCtx.channelCount; ++idx) {
+        if (resCtx.channels[idx].remoteServerIdx != topoInfo.serverIdx) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+inline uint32_t CountRecognizedProtocols(const AlgResourceCtx &resCtx)
+{
+    return CountChannelsByProtocol(resCtx, COMM_PROTOCOL_HCCS) +
+        CountChannelsByProtocol(resCtx, COMM_PROTOCOL_ROCE) +
+        CountChannelsByProtocol(resCtx, COMM_PROTOCOL_PCIE) +
+        CountChannelsByProtocol(resCtx, COMM_PROTOCOL_SIO);
+}
+
 }  // namespace ops_hccl_allgatherbatch
 
 #endif

@@ -75,7 +75,6 @@ HcclResult FillServerGroupInfo(HcclComm comm, BatchTopoInfo &topoInfo)
     uint32_t instListSize = 0;
     HcclResult ret = QueryServerInstSizeList(comm, &instSizeList, &instListSize);
     if (ret != HCCL_SUCCESS || instSizeList == nullptr || instListSize == 0) {
-        // 单机或简单场景下 rank graph 可能拿不到更细粒度 server 信息，这里回退到默认值。
         topoInfo.serverCount = 1;
         topoInfo.serverIdx = 0;
         return HCCL_SUCCESS;
@@ -179,7 +178,6 @@ HcclResult FillCommModeInfo(HcclComm comm, OpParam &param)
         return HCCL_E_INTERNAL;
     }
 
-    // 这里直接以 rank graph 的 server 分组结果作为 Host/Device 共享事实源，避免跨 server 时靠平均分推断本地规模。
     param.crossServerRankCount = param.topoInfo.rankSize - param.intraServerRankCount;
     if (param.commMode == BatchCommMode::kSingleServer) {
         param.intraServerRankCount = param.topoInfo.rankSize;
@@ -190,7 +188,6 @@ HcclResult FillCommModeInfo(HcclComm comm, OpParam &param)
 
 HcclResult ValidatePreparedParam(const OpParam &param)
 {
-    // Host 在 launch 前把共享协议字段再核一遍，尽量把问题拦在 Device 启动之前。
     if (!IsValidCommMode(param.commMode)) {
         HCCL_ERROR("prepared param commMode is invalid");
         return HCCL_E_INTERNAL;
@@ -234,28 +231,6 @@ HcclResult ValidatePreparedParam(const OpParam &param)
     return HCCL_SUCCESS;
 }
 
-uint32_t CountChannelsByProtocol(const AlgResourceCtx &resCtx, CommProtocol protocol)
-{
-    uint32_t count = 0;
-    for (uint32_t idx = 0; idx < resCtx.channelCount; ++idx) {
-        if (resCtx.channels[idx].protocol == protocol) {
-            ++count;
-        }
-    }
-    return count;
-}
-
-uint32_t CountCrossServerChannels(const BatchTopoInfo &topoInfo, const AlgResourceCtx &resCtx)
-{
-    uint32_t count = 0;
-    for (uint32_t idx = 0; idx < resCtx.channelCount; ++idx) {
-        if (resCtx.channels[idx].remoteServerIdx != topoInfo.serverIdx) {
-            ++count;
-        }
-    }
-    return count;
-}
-
 HcclResult ValidatePreparedResourceCtx(const OpParam &param)
 {
     HCCL_CHK_PTR(param.resCtx);
@@ -278,6 +253,7 @@ HcclResult ValidatePreparedResourceCtx(const OpParam &param)
 
     const uint32_t crossServerChannels = CountCrossServerChannels(param.topoInfo, resCtx);
     const uint32_t intraServerChannels = resCtx.channelCount - crossServerChannels;
+    const uint64_t perRankWindowCapacity = GetPerRankWindowCapacity(param, resCtx);
     if (intraServerChannels + crossServerChannels != resCtx.channelCount) {
         HCCL_ERROR("prepared resCtx channel split is inconsistent, intra=%u, cross=%u, channelCount=%u",
             intraServerChannels,
@@ -293,6 +269,12 @@ HcclResult ValidatePreparedResourceCtx(const OpParam &param)
         HCCL_ERROR("cross-server resCtx mismatch, channels=%u, expected=%u",
             crossServerChannels,
             param.crossServerRankCount);
+        return HCCL_E_INTERNAL;
+    }
+    if (param.windowBytes > perRankWindowCapacity) {
+        HCCL_ERROR("prepared windowBytes=%llu exceeds per-rank capacity=%llu",
+            static_cast<unsigned long long>(param.windowBytes),
+            static_cast<unsigned long long>(perRankWindowCapacity));
         return HCCL_E_INTERNAL;
     }
 
@@ -318,13 +300,19 @@ HcclResult ValidatePreparedResourceCtx(const OpParam &param)
             HCCL_ERROR("prepared channel %u remoteBuffer is invalid", idx);
             return HCCL_E_INTERNAL;
         }
+        if (channel.remoteBuffer.size < (param.windowBytes * param.topoInfo.rankSize)) {
+            HCCL_ERROR("prepared channel %u remoteBuffer too small, need=%llu, actual=%llu",
+                idx,
+                static_cast<unsigned long long>(param.windowBytes * param.topoInfo.rankSize),
+                static_cast<unsigned long long>(channel.remoteBuffer.size));
+            return HCCL_E_INTERNAL;
+        }
     }
     return HCCL_SUCCESS;
 }
 
 HcclResult BuildFreshResourceCtx(HcclComm comm, const BatchTopoInfo &topoInfo, AlgResourceCtx &resCtx)
 {
-    // 先准备主线程和本地 HCCL buffer，它们是 Pack/Unpack 和 AICPU 控制流的最小前提。
     void *localBuffer = nullptr;
     HCCL_CHK_RET(EnsureControlNotifies(resCtx));
     HCCL_CHK_RET(HcclThreadAcquire(comm, COMM_ENGINE_AICPU, 1, 0, &resCtx.threadHandle));
@@ -332,8 +320,6 @@ HcclResult BuildFreshResourceCtx(HcclComm comm, const BatchTopoInfo &topoInfo, A
     resCtx.localBuffer.addr = localBuffer;
     resCtx.channelCount = 0;
 
-    // 多 rank 时，按“本 rank 到其它 rank 各建 1 条 channel”的最小模型申请资源。
-    // 这里不再硬编码 HCCS，而是按 rank graph 查询每个对端的真实链路协议和位置信息。
     if (topoInfo.rankSize <= 1) {
         return HCCL_SUCCESS;
     }
@@ -399,7 +385,6 @@ HcclResult BuildFreshResourceCtx(HcclComm comm, const BatchTopoInfo &topoInfo, A
 HcclResult AllGatherBatchOp::Exec(
     const HcclAllGatherItem *items, uint32_t itemCount, HcclComm comm, aclrtStream stream)
 {
-    // Host 侧主流程先固定成三段：校验/封装 -> 资源准备 -> load + launch。
     HCCL_CHK_RET(Validate(items, itemCount, comm, stream));
 
     OpParam param;
@@ -422,11 +407,12 @@ HcclResult AllGatherBatchOp::Exec(
     param.resCtx = resCtx;
     HCCL_CHK_RET(ValidatePreparedResourceCtx(param));
 
-    HCCL_INFO("Host resources ready: rank=%u, commMode=%s, channelCount=%u, crossServerChannels=%u, hccs=%u, roce=%u, pcie=%u, sio=%u",
+    HCCL_INFO("Host resources ready: rank=%u, commMode=%s, channelCount=%u, crossServerChannels=%u, perRankCapacity=%llu, hccs=%u, roce=%u, pcie=%u, sio=%u",
         param.topoInfo.rank,
         ToCommModeString(param.commMode),
         param.resCtx->channelCount,
         CountCrossServerChannels(param.topoInfo, *param.resCtx),
+        static_cast<unsigned long long>(GetPerRankWindowCapacity(param, *param.resCtx)),
         CountChannelsByProtocol(*param.resCtx, COMM_PROTOCOL_HCCS),
         CountChannelsByProtocol(*param.resCtx, COMM_PROTOCOL_ROCE),
         CountChannelsByProtocol(*param.resCtx, COMM_PROTOCOL_PCIE),
@@ -496,7 +482,6 @@ HcclResult AllGatherBatchOp::PrepareTopoInfo(HcclComm comm, BatchTopoInfo &topoI
     topoInfo.serverIdx = 0;
     topoInfo.superPodIdx = 0;
 
-    // 这里开始使用 hcomm 的公开 rank graph 接口，补齐跨 server 场景至少需要的 server 归属与分组规模。
     HCCL_CHK_RET(FillServerGroupInfo(comm, topoInfo));
     HCCL_CHK_RET(FillEndpointLocation(comm, topoInfo));
     return HCCL_SUCCESS;
@@ -505,7 +490,6 @@ HcclResult AllGatherBatchOp::PrepareTopoInfo(HcclComm comm, BatchTopoInfo &topoI
 HcclResult AllGatherBatchOp::PrepareOpParam(
     const HcclAllGatherItem *items, uint32_t itemCount, HcclComm comm, OpParam &param) const
 {
-    // OpParam 在这一阶段先承载稳定的 launch 入参：tag、comm 名称、topo 基本信息、通信模式和总字节量。
     std::snprintf(param.tag, sizeof(param.tag), "%s", kAllGatherBatchCtxTag);
     HCCL_CHK_RET(HcclGetCommName(comm, param.commName));
     HCCL_CHK_RET(PrepareTopoInfo(comm, param.topoInfo));
@@ -516,7 +500,6 @@ HcclResult AllGatherBatchOp::PrepareOpParam(
     param.totalInputBytes = 0;
     param.totalOutputBytes = 0;
 
-    // 当前 custom-op 方案把 item 描述符内联在 OpParam 里，先保证 Host/Device 协议简单稳定。
     for (uint32_t idx = 0; idx < itemCount; ++idx) {
         BatchItemParam &itemParam = param.items[idx];
         itemParam.sendBuf = items[idx].sendBuf;
@@ -530,7 +513,6 @@ HcclResult AllGatherBatchOp::PrepareOpParam(
         param.totalOutputBytes += itemParam.sendBytes * param.topoInfo.rankSize;
     }
 
-    // 后续执行器会根据 buffer 和算法约束重算窗口，这里先把总输入量作为初始窗口上界。
     param.windowBytes = param.totalInputBytes;
     return HCCL_SUCCESS;
 }
@@ -544,7 +526,6 @@ HcclResult AllGatherBatchOp::GetAlgRes(
     uint64_t ctxSize = sizeof(AlgResourceCtx);
     const CommEngine engine = COMM_ENGINE_AICPU;
 
-    // 优先复用 engine context 里的 device 侧资源，避免同一 comm 反复申请。
     HcclResult ret = HcclEngineCtxGet(comm, param.tag, engine, &ctx, &ctxSize);
     if (ret == HCCL_SUCCESS) {
         *resCtx = static_cast<AlgResourceCtx *>(ctx);
@@ -554,7 +535,6 @@ HcclResult AllGatherBatchOp::GetAlgRes(
         return ret;
     }
 
-    // 缓存未命中时，先创建 device context，再把 host 临时组织的资源信息拷过去。
     HCCL_CHK_RET(HcclEngineCtxCreate(comm, param.tag, engine, sizeof(AlgResourceCtx), &ctx));
 
     AlgResourceCtx hostResCtx;
@@ -567,7 +547,6 @@ HcclResult AllGatherBatchOp::GetAlgRes(
 
 HcclResult AllGatherBatchOp::LoadAndLaunch(const OpParam &param, aclrtStream stream) const
 {
-    // load 和 launch 先保持独立，后面接 Device 真正入口时不用再拆 Host 主流程。
     HCCL_CHK_RET(LoadAICPUKernel());
     HCCL_CHK_RET(LaunchKernel(param, stream));
     return HCCL_SUCCESS;
