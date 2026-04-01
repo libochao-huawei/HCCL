@@ -58,6 +58,12 @@ static HcclResult HcommRegOpTaskExceptionStub(const char* commId, HcommGetOpInfo
     return HCCL_SUCCESS;
 }
 
+static HcclResult HcclDfxRegOpInfoByCommIdStub(char* commId, void* hcclDfxOpInfo)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+
 static HcclResult HcclReportAicpuKernelStub(HcclComm comm, uint64_t beginTime, char *kernelName)
 {
     HCCL_WARNING("[%s] not support.", __func__);
@@ -131,6 +137,7 @@ HcclResult (*hcommProfilingReportKernelStartTaskPtr)(uint64_t thread, const char
 HcclResult (*hcommProfilingReportKernelEndTaskPtr)(uint64_t thread, const char* groupname) = nullptr;
 HcclResult (*hcommRegOpInfoPtr)(const char*, void*, size_t) = nullptr;
 HcclResult (*hcommRegOpTaskExceptionPtr)(const char*, HcommGetOpInfoCallback) = nullptr;
+HcclResult (*hcclDfxRegOpInfoByCommIdPtr)(char*, void*) = nullptr;
 
 void InitHcclProfilingDfxDlStubFunc()
 {
@@ -149,6 +156,7 @@ void InitHcclProfilingDfxDlStubFunc()
     hcclReportAicpuKernelPtr = HcclReportAicpuKernelStub;
     hcommRegOpInfoPtr = HcommRegOpInfoStub;
     hcommRegOpTaskExceptionPtr = HcommRegOpTaskExceptionStub;
+    hcclDfxRegOpInfoByCommIdPtr = HcclDfxRegOpInfoByCommIdStub;
 }
 
 #ifdef __cplusplus

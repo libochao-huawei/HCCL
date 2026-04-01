@@ -507,6 +507,8 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     ThreadHandle opThread = 0;
     u64 varMemSize{0};
     u8 varData[0];
+    u32 aicpuRecordCpuIdx = 0;
+    u32 rankSize = 0;
 };
 
 struct AlgDesc {
