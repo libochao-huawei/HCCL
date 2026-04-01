@@ -85,7 +85,7 @@ HcclResult CcuTempScatterMesh1D::FastLaunch(const OpParam& param, const Template
     HCCL_DEBUG("[CcuTempScatterMesh1D::FastLaunch] start");
     const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
     buffInfo_ = tempFastLaunchCtx.buffInfo;
-    CcuTaskArgReduceScatterMesh1DMem2Mem taskArg(
+    CcuTaskArgScatterMesh1D taskArg(
             PointerToAddr(buffInfo_.inputPtr) + args[0],
             PointerToAddr(buffInfo_.outputPtr) + args[1],
             args[2],args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10]);

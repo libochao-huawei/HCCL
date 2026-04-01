@@ -66,6 +66,7 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
 
     HcclUs startut = TIME_NOW(); // 走老流程的判断时间不统计在内
 
+    OpParam param;
     // 参数校验等工作
     CHK_PRT_RET(recvCount == 0, HCCL_WARNING("input recvCount is 0, return scatter success"), HCCL_SUCCESS);
     CHK_RET(CheckScatterInputPara(comm, recvBuf));
