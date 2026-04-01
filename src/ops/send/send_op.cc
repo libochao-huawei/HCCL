@@ -77,6 +77,7 @@ HcclResult HcclSend(
     }
 
     ret = HcclSendv2(sendBuf, count, dataType, destRank, comm, stream);
+    
     return ret;
 }
 

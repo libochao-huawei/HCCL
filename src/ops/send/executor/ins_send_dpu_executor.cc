@@ -22,7 +22,7 @@ namespace ops_hccl {
 
     template <typename InsAlgTemplate>
     HcclResult InsSendDpuExecutor<InsAlgTemplate>::InitCommInfo(HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
-        const AlgHierarchyInfoForAllLevel &algHierarchyInfo);
+        const AlgHierarchyInfoForAllLevel &algHierarchyInfo)
     {
         myRank_ = topoInfo->userRank;
         rankSize_ = topoInfo->userRankSize;
@@ -32,8 +32,7 @@ namespace ops_hccl {
         dataType_ = param.DataDes.dataType;
         dataTypeSize_ = static_cast<u64>(DATATYPE_SIZE_TABLE[dataType_]);
 
-        HCCL_INFO(
-            "[InsSendDpuExecutor][InitCommInfo] myRank [%u], remoteRank [%u], rankSize [%u], devType [%u], "
+        HCCL_INFO("[InsSendDpuExecutor][InitCommInfo] myRank [%u], remoteRank [%u], rankSize [%u], devType [%u], "
             "dataType [%u], dataTypeSize[%u]",
             myRank_, remoteRank_, rankSize_, devType_, dataType_, dataTypeSize_);
         
@@ -41,8 +40,8 @@ namespace ops_hccl {
     }
 
     template <typename InsAlgTemplate>
-    HcclResult InsSendDpuExecutor<InsAlgTemplate>::CalcAlgHierarchyInfo(
-        HcclComm comm, TopoInfoWithNetLayerDetails *topoInfo, AlgHierarchyInfoForAllLevel &algHierarchyInfo)
+    HcclResult InsSendDpuExecutor<InsAlgTemplate>::CalcAlgHierarchyInfo(HcclComm comm, TopoInfoWithNetLayerDetails *topoInfo,
+        AlgHierarchyInfoForAllLevel &algHierarchyInfo)
     {
         // 初始化一些基本成员变量
         myRank_ = topoInfo->userRank;

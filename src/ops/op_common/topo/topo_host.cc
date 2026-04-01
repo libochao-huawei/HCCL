@@ -861,4 +861,5 @@ HcclResult CheckHostDPUOnly(HcclComm comm, bool &hostDPUOnly)
     hostDPUOnly = true;
     return HCCL_SUCCESS;
 }
+
 }

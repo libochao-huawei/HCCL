@@ -1260,8 +1260,8 @@ HcclResult SetOpParamAlgTag(OpParam &param, const std::string &algName)
 
 HcclResult HcclGetOpExpansionMode(HcclComm comm, OpParam &param)
 {
-    HcclOpExpansionMode finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_AI_CPU;
-    // 第一步：决定使用哪种模式
+    HcclOpExpansionMode finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_AI_CPU;  // AIWAN TODO
+    // // 第一步：决定使用哪种模式
     // HcclResult ret = DecideHcclOpExpansionMode(comm, finalMode);
     // if (ret != HCCL_SUCCESS) {
     //     HCCL_ERROR("DecideHcclOpExpansionMode failed, ret: %d", ret);

@@ -22,7 +22,7 @@ namespace ops_hccl {
     template <typename InsAlgTemplate>
     HcclResult InsRecvDpuExecutor<InsAlgTemplate>::InitCommInfo(
         HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
-        const AlgHierarchyInfoForAllLevel &algHierarchyInfo);
+        const AlgHierarchyInfoForAllLevel &algHierarchyInfo)
     {
         myRank_ = topoInfo->userRank;
         rankSize_ = topoInfo->userRankSize;

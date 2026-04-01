@@ -41,7 +41,7 @@ namespace ops_hccl {
             const AlgHierarchyInfoForAllLevel &algHierarchyInfo);
         // 单算子还是图模式
         OpMode opMode_;
-        u32 remoteRank;
+        u32 remoteRank_;
         u32 myRank_;
         std::vector<ThreadHandle> threads_;
         // 一次搬运最大数据量

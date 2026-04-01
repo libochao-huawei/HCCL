@@ -36,14 +36,14 @@ public:
     }
 
     // 现在的RunAsync就是之前的GenExtIns
-    HcclResult KernelRun(const OpParam &param, const TemplateDataParams &tempAlgParams,
-        const TemplateResource &templateResource) override;
+    HcclResult KernelRun(const OpParam &param,
+                        const TemplateDataParams &tempAlgParams,
+                        const TemplateResource &templateResource) override;
     HcclResult CalcRes(
         HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo, AlgResourceRequest &resourceRequest) override;
     u64 CalcScratchMultiple(BufferType inBufferType, BufferType outBufferType) override;
     HcclResult DPUKernelRun(const TemplateDataParams &tempAlgParam,
-        const std::map<u32, std::vector<ChannelInfo>> &channels, const u32 myRank,
-        const std::vector<std::vector<uint32_t>> &subCommRanks);
+        const std::map<u32, std::vector<ChannelInfo>> &channels, const u32 myRank, const std::vector<std::vector<uint32_t>> &subCommRanks);
     
     void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub) override{};
     void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override{};
