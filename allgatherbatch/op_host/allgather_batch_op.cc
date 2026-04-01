@@ -195,41 +195,9 @@ HcclResult ValidatePreparedResourceCtx(const OpParam &param)
 {
     HCCL_CHK_PTR(param.resCtx);
     const AlgResourceCtx &resCtx = *param.resCtx;
-    const ResourceStats stats = CollectResourceStats(param, resCtx);
 
     HCCL_CHK_RET(ValidateBasicResourceCtx(param, resCtx, "prepared resCtx"));
-
-    // Host 在 launch 前把资源协议也收一遍，尽量让错误停在资源准备阶段而不是设备执行阶段。
-    for (uint32_t idx = 0; idx < resCtx.channelCount; ++idx) {
-        const ChannelResource &channel = resCtx.channels[idx];
-        if (channel.protocol == COMM_PROTOCOL_RESERVED) {
-            HCCL_ERROR("prepared channel %u has reserved protocol", idx);
-            return HCCL_E_INTERNAL;
-        }
-        if (channel.remoteRank == param.topoInfo.rank || channel.remoteRank >= param.topoInfo.rankSize) {
-            HCCL_ERROR("prepared channel %u remoteRank=%u is invalid", idx, channel.remoteRank);
-            return HCCL_E_INTERNAL;
-        }
-        if (channel.remoteSuperPodIdx != param.topoInfo.superPodIdx) {
-            HCCL_ERROR("prepared channel %u crosses superPod unexpectedly, local=%u, remote=%u",
-                idx,
-                param.topoInfo.superPodIdx,
-                channel.remoteSuperPodIdx);
-            return HCCL_E_INTERNAL;
-        }
-        if (channel.remoteBuffer.addr == nullptr || channel.remoteBuffer.size == 0) {
-            HCCL_ERROR("prepared channel %u remoteBuffer is invalid", idx);
-            return HCCL_E_INTERNAL;
-        }
-        if (channel.remoteBuffer.size < (stats.maxWindowBytes * param.topoInfo.rankSize)) {
-            HCCL_ERROR("prepared channel %u remoteBuffer too small, need=%llu, actual=%llu",
-                idx,
-                static_cast<unsigned long long>(stats.maxWindowBytes * param.topoInfo.rankSize),
-                static_cast<unsigned long long>(channel.remoteBuffer.size));
-            return HCCL_E_INTERNAL;
-        }
-    }
-    return HCCL_SUCCESS;
+    return ValidateRemoteChannelResources(param, resCtx, "prepared");
 }
 
 HcclResult BuildFreshResourceCtx(HcclComm comm, const BatchTopoInfo &topoInfo, AlgResourceCtx &resCtx)
@@ -476,5 +444,6 @@ HcclResult AllGatherBatchOp::LoadAndLaunch(const OpParam &param, aclrtStream str
 }
 
 }  // namespace ops_hccl_allgatherbatch
+
 
 

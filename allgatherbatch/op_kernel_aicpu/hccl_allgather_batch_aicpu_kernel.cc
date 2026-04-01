@@ -8,37 +8,9 @@ using namespace ops_hccl_allgatherbatch;
 HcclResult ValidateKernelResourceCtx(const OpParam &param)
 {
     const AlgResourceCtx &resCtx = *param.resCtx;
-    const ResourceStats stats = CollectResourceStats(param, resCtx);
 
     HCCL_CHK_RET(ValidateBasicResourceCtx(param, resCtx, "AICPU kernel resCtx"));
-
-    // Device 入口在真正执行前把资源容量再核一遍，避免窗口大小和远端 buffer 大小不一致时进入通信原语。
-    for (uint32_t idx = 0; idx < resCtx.channelCount; ++idx) {
-        const ChannelResource &channel = resCtx.channels[idx];
-        if (channel.remoteRank == param.topoInfo.rank || channel.remoteRank >= param.topoInfo.rankSize) {
-            HCCL_ERROR("AICPU kernel channel %u remoteRank=%u is invalid", idx, channel.remoteRank);
-            return HCCL_E_INTERNAL;
-        }
-        if (channel.remoteSuperPodIdx != param.topoInfo.superPodIdx) {
-            HCCL_ERROR("AICPU kernel channel %u crosses superPod unexpectedly, local=%u, remote=%u",
-                idx,
-                param.topoInfo.superPodIdx,
-                channel.remoteSuperPodIdx);
-            return HCCL_E_INTERNAL;
-        }
-        if (channel.remoteBuffer.addr == nullptr || channel.remoteBuffer.size == 0) {
-            HCCL_ERROR("AICPU kernel channel %u remoteBuffer is invalid", idx);
-            return HCCL_E_INTERNAL;
-        }
-        if (channel.remoteBuffer.size < (stats.maxWindowBytes * param.topoInfo.rankSize)) {
-            HCCL_ERROR("AICPU kernel channel %u remoteBuffer too small, need=%llu, actual=%llu",
-                idx,
-                static_cast<unsigned long long>(stats.maxWindowBytes * param.topoInfo.rankSize),
-                static_cast<unsigned long long>(channel.remoteBuffer.size));
-            return HCCL_E_INTERNAL;
-        }
-    }
-    return HCCL_SUCCESS;
+    return ValidateRemoteChannelResources(param, resCtx, "AICPU kernel");
 }
 
 }  // namespace
@@ -135,6 +107,7 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
         param->itemCount);
     return 0;
 }
+
 
 
 

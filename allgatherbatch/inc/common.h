@@ -348,8 +348,47 @@ inline HcclResult ValidateBasicResourceCtx(const OpParam &param, const AlgResour
     }
     return HCCL_SUCCESS;
 }
+inline HcclResult ValidateRemoteChannelResources(const OpParam &param, const AlgResourceCtx &resCtx, const char *stageTag)
+{
+    const ResourceStats stats = CollectResourceStats(param, resCtx);
+
+    // 这层检查专门约束每条远端 channel 的 endpoint / buffer 元数据，Host 和 Device 共用同一份规则。
+    for (uint32_t idx = 0; idx < resCtx.channelCount; ++idx) {
+        const ChannelResource &channel = resCtx.channels[idx];
+        if (channel.protocol == COMM_PROTOCOL_RESERVED) {
+            HCCL_ERROR("%s channel %u has reserved protocol", stageTag, idx);
+            return HCCL_E_INTERNAL;
+        }
+        if (channel.remoteRank == param.topoInfo.rank || channel.remoteRank >= param.topoInfo.rankSize) {
+            HCCL_ERROR("%s channel %u remoteRank=%u is invalid", stageTag, idx, channel.remoteRank);
+            return HCCL_E_INTERNAL;
+        }
+        if (channel.remoteSuperPodIdx != param.topoInfo.superPodIdx) {
+            HCCL_ERROR("%s channel %u crosses superPod unexpectedly, local=%u, remote=%u",
+                stageTag,
+                idx,
+                param.topoInfo.superPodIdx,
+                channel.remoteSuperPodIdx);
+            return HCCL_E_INTERNAL;
+        }
+        if (channel.remoteBuffer.addr == nullptr || channel.remoteBuffer.size == 0) {
+            HCCL_ERROR("%s channel %u remoteBuffer is invalid", stageTag, idx);
+            return HCCL_E_INTERNAL;
+        }
+        if (channel.remoteBuffer.size < (stats.maxWindowBytes * param.topoInfo.rankSize)) {
+            HCCL_ERROR("%s channel %u remoteBuffer too small, need=%llu, actual=%llu",
+                stageTag,
+                idx,
+                static_cast<unsigned long long>(stats.maxWindowBytes * param.topoInfo.rankSize),
+                static_cast<unsigned long long>(channel.remoteBuffer.size));
+            return HCCL_E_INTERNAL;
+        }
+    }
+    return HCCL_SUCCESS;
+}
 }  // namespace ops_hccl_allgatherbatch
 
 #endif
+
 
 
