@@ -253,7 +253,6 @@ HcclResult ValidatePreparedResourceCtx(const OpParam &param)
 
     const uint32_t crossServerChannels = CountCrossServerChannels(param.topoInfo, resCtx);
     const uint32_t intraServerChannels = resCtx.channelCount - crossServerChannels;
-    const uint64_t perRankWindowCapacity = GetPerRankWindowCapacity(param, resCtx);
     const uint64_t maxWindowBytes = GetMaxWindowBytes(param, resCtx);
     if (intraServerChannels + crossServerChannels != resCtx.channelCount) {
         HCCL_ERROR("prepared resCtx channel split is inconsistent, intra=%u, cross=%u, channelCount=%u",
@@ -406,12 +405,13 @@ HcclResult AllGatherBatchOp::Exec(
     param.resCtx = resCtx;
     HCCL_CHK_RET(ValidatePreparedResourceCtx(param));
 
-    HCCL_INFO("Host resources ready: rank=%u, commMode=%s, channelCount=%u, crossServerChannels=%u, perRankCapacity=%llu, hccs=%u, roce=%u, pcie=%u, sio=%u",
+    HCCL_INFO("Host resources ready: rank=%u, commMode=%s, channelCount=%u, crossServerChannels=%u, perRankCapacity=%llu, maxWindowBytes=%llu, hccs=%u, roce=%u, pcie=%u, sio=%u",
         param.topoInfo.rank,
         ToCommModeString(param.commMode),
         param.resCtx->channelCount,
         CountCrossServerChannels(param.topoInfo, *param.resCtx),
         static_cast<unsigned long long>(GetPerRankWindowCapacity(param, *param.resCtx)),
+        static_cast<unsigned long long>(GetMaxWindowBytes(param, *param.resCtx)),
         CountChannelsByProtocol(*param.resCtx, COMM_PROTOCOL_HCCS),
         CountChannelsByProtocol(*param.resCtx, COMM_PROTOCOL_ROCE),
         CountChannelsByProtocol(*param.resCtx, COMM_PROTOCOL_PCIE),

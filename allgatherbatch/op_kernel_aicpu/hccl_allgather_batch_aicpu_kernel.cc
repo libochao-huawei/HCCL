@@ -9,7 +9,6 @@ HcclResult ValidateKernelResourceCtx(const OpParam &param)
 {
     const AlgResourceCtx &resCtx = *param.resCtx;
     const uint32_t crossServerChannels = CountCrossServerChannels(param.topoInfo, resCtx);
-    const uint64_t perRankCapacity = GetPerRankWindowCapacity(param, resCtx);
     const uint64_t maxWindowBytes = GetMaxWindowBytes(param, resCtx);
     if (resCtx.threadHandle == 0) {
         HCCL_ERROR("AICPU kernel received invalid threadHandle");
@@ -111,7 +110,7 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
         return 1;
     }
 
-    HCCL_INFO("AICPU kernel enter: rank=%u, rankSize=%u, commMode=%s, serverIdx=%u, serverCount=%u, intraServerRankCount=%u, crossServerRankCount=%u, channelCount=%u, crossServerChannels=%u, perRankCapacity=%llu, totalInputBytes=%llu, windowBytes=%llu, hccs=%u, roce=%u, pcie=%u, sio=%u",
+    HCCL_INFO("AICPU kernel enter: rank=%u, rankSize=%u, commMode=%s, serverIdx=%u, serverCount=%u, intraServerRankCount=%u, crossServerRankCount=%u, channelCount=%u, crossServerChannels=%u, perRankCapacity=%llu, maxWindowBytes=%llu, totalInputBytes=%llu, windowBytes=%llu, hccs=%u, roce=%u, pcie=%u, sio=%u",
         param->topoInfo.rank,
         param->topoInfo.rankSize,
         ToCommModeString(param->commMode),
@@ -122,6 +121,7 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
         param->resCtx->channelCount,
         CountCrossServerChannels(param->topoInfo, *param->resCtx),
         static_cast<unsigned long long>(GetPerRankWindowCapacity(*param, *param->resCtx)),
+        static_cast<unsigned long long>(GetMaxWindowBytes(*param, *param->resCtx)),
         static_cast<unsigned long long>(param->totalInputBytes),
         static_cast<unsigned long long>(param->windowBytes),
         CountChannelsByProtocol(*param->resCtx, COMM_PROTOCOL_HCCS),

@@ -7,13 +7,14 @@ namespace ops_hccl_allgatherbatch {
 HcclResult ExecOp(const OpParam &param, AlgResourceCtx *resCtx)
 {
     HCCL_CHK_PTR(resCtx);
-    HCCL_INFO("ExecOp dispatch: rank=%u, rankSize=%u, commMode=%s, channelCount=%u, crossServerChannels=%u, perRankCapacity=%llu, hccs=%u, roce=%u, pcie=%u, sio=%u",
+    HCCL_INFO("ExecOp dispatch: rank=%u, rankSize=%u, commMode=%s, channelCount=%u, crossServerChannels=%u, perRankCapacity=%llu, maxWindowBytes=%llu, hccs=%u, roce=%u, pcie=%u, sio=%u",
         param.topoInfo.rank,
         param.topoInfo.rankSize,
         ToCommModeString(param.commMode),
         resCtx->channelCount,
         CountCrossServerChannels(param.topoInfo, *resCtx),
         static_cast<unsigned long long>(GetPerRankWindowCapacity(param, *resCtx)),
+        static_cast<unsigned long long>(GetMaxWindowBytes(param, *resCtx)),
         CountChannelsByProtocol(*resCtx, COMM_PROTOCOL_HCCS),
         CountChannelsByProtocol(*resCtx, COMM_PROTOCOL_ROCE),
         CountChannelsByProtocol(*resCtx, COMM_PROTOCOL_PCIE),

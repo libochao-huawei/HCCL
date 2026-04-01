@@ -398,7 +398,7 @@ HcclResult AllGatherBatchSmallCountExecutor::Orchestrate()
     HCCL_CHK_RET(BuildFirstWindow(window));
 
     const uint32_t crossServerChannels = CountCrossServerChannels();
-    HCCL_INFO("executor start: rank=%u, rankSize=%u, commMode=%s, windowScope=%s, intraServerRankCount=%u, crossServerRankCount=%u, perRankCapacity=%llu, crossServerChannels=%u",
+    HCCL_INFO("executor start: rank=%u, rankSize=%u, commMode=%s, windowScope=%s, intraServerRankCount=%u, crossServerRankCount=%u, perRankCapacity=%llu, maxWindowBytes=%llu, crossServerChannels=%u",
         param_.topoInfo.rank,
         param_.topoInfo.rankSize,
         ToCommModeString(param_.commMode),
@@ -406,11 +406,12 @@ HcclResult AllGatherBatchSmallCountExecutor::Orchestrate()
         param_.intraServerRankCount,
         param_.crossServerRankCount,
         static_cast<unsigned long long>(GetPerRankWindowCapacity()),
+        static_cast<unsigned long long>(GetMaxWindowBytes(param_, resCtx_)),
         crossServerChannels);
 
     while (true) {
         HCCL_CHK_RET(ValidateWindow(window));
-        HCCL_INFO("executor window ready: scope=%s, start=(%u,%llu), end=(%u,%llu), packedBytes=%llu, paramWindowBytes=%llu, perRankCapacity=%llu, rankSize=%u",
+        HCCL_INFO("executor window ready: scope=%s, start=(%u,%llu), end=(%u,%llu), packedBytes=%llu, paramWindowBytes=%llu, perRankCapacity=%llu, maxWindowBytes=%llu, rankSize=%u",
             ToWindowScopeString(param_.commMode),
             window.startItemIdx,
             static_cast<unsigned long long>(window.startOffsetBytes),
@@ -419,6 +420,7 @@ HcclResult AllGatherBatchSmallCountExecutor::Orchestrate()
             static_cast<unsigned long long>(window.packedBytes),
             static_cast<unsigned long long>(param_.windowBytes),
             static_cast<unsigned long long>(GetPerRankWindowCapacity()),
+            static_cast<unsigned long long>(GetMaxWindowBytes(param_, resCtx_)),
             param_.topoInfo.rankSize);
 
         HCCL_CHK_RET(Pack(window));
@@ -443,5 +445,4 @@ HcclResult AllGatherBatchSmallCountExecutor::Orchestrate()
 }
 
 }  // namespace ops_hccl_allgatherbatch
-
 
