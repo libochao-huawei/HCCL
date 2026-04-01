@@ -221,6 +221,43 @@ inline uint32_t CountRecognizedProtocols(const AlgResourceCtx &resCtx)
         CountChannelsByProtocol(resCtx, COMM_PROTOCOL_SIO);
 }
 
+
+struct ResourceStats {
+    uint32_t crossServerChannels = 0;
+    uint32_t intraServerChannels = 0;
+    uint32_t hccsChannels = 0;
+    uint32_t roceChannels = 0;
+    uint32_t pcieChannels = 0;
+    uint32_t sioChannels = 0;
+    uint32_t recognizedProtocols = 0;
+    uint64_t perRankCapacity = 0;
+    uint64_t maxWindowBytes = 0;
+};
+
+inline ResourceStats CollectResourceStats(const OpParam &param, const AlgResourceCtx &resCtx)
+{
+    ResourceStats stats;
+    stats.crossServerChannels = CountCrossServerChannels(param.topoInfo, resCtx);
+    stats.intraServerChannels = resCtx.channelCount - stats.crossServerChannels;
+    stats.hccsChannels = CountChannelsByProtocol(resCtx, COMM_PROTOCOL_HCCS);
+    stats.roceChannels = CountChannelsByProtocol(resCtx, COMM_PROTOCOL_ROCE);
+    stats.pcieChannels = CountChannelsByProtocol(resCtx, COMM_PROTOCOL_PCIE);
+    stats.sioChannels = CountChannelsByProtocol(resCtx, COMM_PROTOCOL_SIO);
+    stats.recognizedProtocols = stats.hccsChannels + stats.roceChannels + stats.pcieChannels + stats.sioChannels;
+    stats.perRankCapacity = GetPerRankWindowCapacity(param, resCtx);
+    stats.maxWindowBytes = GetMaxWindowBytes(param, resCtx);
+    return stats;
+}
+
+inline bool HasConsistentRankDistribution(const OpParam &param)
+{
+    return param.topoInfo.rankSize != 0 &&
+        param.intraServerRankCount != 0 &&
+        (param.intraServerRankCount + param.crossServerRankCount == param.topoInfo.rankSize) &&
+        ((param.commMode == BatchCommMode::kSingleServer && param.crossServerRankCount == 0) ||
+         (param.commMode == BatchCommMode::kCrossServer && param.crossServerRankCount != 0));
+}
 }  // namespace ops_hccl_allgatherbatch
 
 #endif
+

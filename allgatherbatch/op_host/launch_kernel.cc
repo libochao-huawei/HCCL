@@ -31,6 +31,14 @@ HcclResult ValidateLaunchParam(const OpParam &param)
             param.topoInfo.rankSize);
         return HCCL_E_INTERNAL;
     }
+    if (!HasConsistentRankDistribution(param)) {
+        HCCL_ERROR("launch rank distribution is inconsistent, commMode=%s, intra=%u, cross=%u, rankSize=%u",
+            ToCommModeString(param.commMode),
+            param.intraServerRankCount,
+            param.crossServerRankCount,
+            param.topoInfo.rankSize);
+        return HCCL_E_INTERNAL;
+    }
     if (param.resCtx->threadHandle == 0) {
         HCCL_ERROR("launch param threadHandle is invalid");
         return HCCL_E_INTERNAL;
@@ -58,14 +66,17 @@ HcclResult LaunchKernel(const OpParam &param, aclrtStream stream)
         return HCCL_E_INTERNAL;
     }
 
-    HCCL_INFO("Host launch begin: rank=%u, rankSize=%u, commMode=%s, itemCount=%u, totalInputBytes=%llu, windowBytes=%llu, channelCount=%u",
+    const ResourceStats stats = CollectResourceStats(param, *param.resCtx);
+    HCCL_INFO("Host launch begin: rank=%u, rankSize=%u, commMode=%s, itemCount=%u, totalInputBytes=%llu, windowBytes=%llu, maxWindowBytes=%llu, channelCount=%u, crossServerChannels=%u",
         param.topoInfo.rank,
         param.topoInfo.rankSize,
         ToCommModeString(param.commMode),
         param.itemCount,
         static_cast<unsigned long long>(param.totalInputBytes),
         static_cast<unsigned long long>(param.windowBytes),
-        param.resCtx->channelCount);
+        static_cast<unsigned long long>(stats.maxWindowBytes),
+        param.resCtx->channelCount,
+        stats.crossServerChannels);
 
     // Host stream 先发启动通知，Device 侧主线程收到后才真正进入执行器。
     ACL_CHK(aclrtRecordNotify(g_allGatherBatchNotifies[kAllGatherBatchControlNotifyStart], stream));
@@ -104,3 +115,4 @@ HcclResult LaunchKernel(const OpParam &param, aclrtStream stream)
 }
 
 }  // namespace ops_hccl_allgatherbatch
+

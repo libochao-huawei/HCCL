@@ -398,6 +398,7 @@ HcclResult AllGatherBatchSmallCountExecutor::Orchestrate()
     HCCL_CHK_RET(BuildFirstWindow(window));
 
     const uint32_t crossServerChannels = CountCrossServerChannels();
+    const ResourceStats stats = CollectResourceStats(param_, resCtx_);
     HCCL_INFO("executor start: rank=%u, rankSize=%u, commMode=%s, windowScope=%s, intraServerRankCount=%u, crossServerRankCount=%u, perRankCapacity=%llu, maxWindowBytes=%llu, crossServerChannels=%u",
         param_.topoInfo.rank,
         param_.topoInfo.rankSize,
@@ -405,8 +406,8 @@ HcclResult AllGatherBatchSmallCountExecutor::Orchestrate()
         ToWindowScopeString(param_.commMode),
         param_.intraServerRankCount,
         param_.crossServerRankCount,
-        static_cast<unsigned long long>(GetPerRankWindowCapacity()),
-        static_cast<unsigned long long>(GetMaxWindowBytes(param_, resCtx_)),
+        static_cast<unsigned long long>(stats.perRankCapacity),
+        static_cast<unsigned long long>(stats.maxWindowBytes),
         crossServerChannels);
 
     while (true) {

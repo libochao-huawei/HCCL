@@ -235,6 +235,7 @@ HcclResult ValidatePreparedResourceCtx(const OpParam &param)
 {
     HCCL_CHK_PTR(param.resCtx);
     const AlgResourceCtx &resCtx = *param.resCtx;
+    const ResourceStats stats = CollectResourceStats(param, resCtx);
 
     if (resCtx.threadHandle == 0) {
         HCCL_ERROR("prepared resCtx threadHandle is invalid");
@@ -250,28 +251,24 @@ HcclResult ValidatePreparedResourceCtx(const OpParam &param)
             param.topoInfo.rankSize);
         return HCCL_E_INTERNAL;
     }
-
-    const uint32_t crossServerChannels = CountCrossServerChannels(param.topoInfo, resCtx);
-    const uint32_t intraServerChannels = resCtx.channelCount - crossServerChannels;
-    const uint64_t maxWindowBytes = GetMaxWindowBytes(param, resCtx);
-    if (intraServerChannels + crossServerChannels != resCtx.channelCount) {
+    if (stats.intraServerChannels + stats.crossServerChannels != resCtx.channelCount) {
         HCCL_ERROR("prepared resCtx channel split is inconsistent, intra=%u, cross=%u, channelCount=%u",
-            intraServerChannels,
-            crossServerChannels,
+            stats.intraServerChannels,
+            stats.crossServerChannels,
             resCtx.channelCount);
         return HCCL_E_INTERNAL;
     }
-    if (param.commMode == BatchCommMode::kSingleServer && crossServerChannels != 0) {
-        HCCL_ERROR("single-server resCtx unexpectedly has crossServerChannels=%u", crossServerChannels);
+    if (param.commMode == BatchCommMode::kSingleServer && stats.crossServerChannels != 0) {
+        HCCL_ERROR("single-server resCtx unexpectedly has crossServerChannels=%u", stats.crossServerChannels);
         return HCCL_E_INTERNAL;
     }
-    if (param.commMode == BatchCommMode::kCrossServer && crossServerChannels != param.crossServerRankCount) {
+    if (param.commMode == BatchCommMode::kCrossServer && stats.crossServerChannels != param.crossServerRankCount) {
         HCCL_ERROR("cross-server resCtx mismatch, channels=%u, expected=%u",
-            crossServerChannels,
+            stats.crossServerChannels,
             param.crossServerRankCount);
         return HCCL_E_INTERNAL;
     }
-    if (maxWindowBytes == 0) {
+    if (stats.maxWindowBytes == 0) {
         HCCL_ERROR("prepared maxWindowBytes is zero");
         return HCCL_E_INTERNAL;
     }
@@ -298,10 +295,10 @@ HcclResult ValidatePreparedResourceCtx(const OpParam &param)
             HCCL_ERROR("prepared channel %u remoteBuffer is invalid", idx);
             return HCCL_E_INTERNAL;
         }
-        if (channel.remoteBuffer.size < (maxWindowBytes * param.topoInfo.rankSize)) {
+        if (channel.remoteBuffer.size < (stats.maxWindowBytes * param.topoInfo.rankSize)) {
             HCCL_ERROR("prepared channel %u remoteBuffer too small, need=%llu, actual=%llu",
                 idx,
-                static_cast<unsigned long long>(maxWindowBytes * param.topoInfo.rankSize),
+                static_cast<unsigned long long>(stats.maxWindowBytes * param.topoInfo.rankSize),
                 static_cast<unsigned long long>(channel.remoteBuffer.size));
             return HCCL_E_INTERNAL;
         }
