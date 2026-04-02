@@ -94,6 +94,10 @@ HcclResult CheckDataType(const HcclDataType dataType, bool needReduce);
 
 std::string GetSupportDataType(bool needReduce);
 
+HcclResult CheckReduceOp(const HcclDataType dataType, const HcclReduceOp op);
+
+std::string GetReduceOpSupportDataType();
+
 HcclResult SetCommEngine(OpParam &param);
 
 void CompReqChannelWithExistChannel(const std::vector<std::vector<ChannelInfo>>& existChannels,
@@ -154,6 +158,14 @@ HcclResult HcclGetRemoteBuff(HcclComm comm, ChannelHandle channel, const char *m
 
 HcclResult LogHcclExit(const std::string &opName, const char *tag, HcclUs startut);
 
+bool Is64BitDataType(const HcclDataType dataType)
+{
+    return dataType == HcclDataType::HCCL_DATA_TYPE_INT64 ||
+           dataType == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
+           dataType == HcclDataType::HCCL_DATA_TYPE_FP64;
+}
+
 }  // namespace ops_hccl
+
 
 #endif
