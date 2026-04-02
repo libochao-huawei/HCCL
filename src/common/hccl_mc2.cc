@@ -14,6 +14,9 @@
 #include "alg_env_config.h"
 #include "hccl_inner.h"
 #include "param_check.h"
+#include "topo_host.h"
+#include <vector>
+
 
 using namespace ops_hccl;
 
@@ -162,4 +165,212 @@ HcclResult HcclCreateOpResCtx(HcclComm comm, uint8_t opType, void *opArgs, void 
         opArgsPtr->reduceType, opArgsPtr->count, opArgsPtr->algConfig, opArgsPtr->commEngine, opResCtx));
 
     return HCCL_SUCCESS;
+}
+
+constexpr uint32_t INIT_TILING_VERSION = 100U;
+constexpr uint32_t MAX_CC_TILING_NUM = 8U;
+struct Mc2InitTilingInner {
+    uint32_t version;
+    uint32_t mc2HcommCnt;
+    uint32_t offset[MAX_CC_TILING_NUM];
+    uint8_t debugMode;
+    uint8_t preparePosition;
+    uint16_t queueNum;
+    uint16_t commBlockNum;
+    uint8_t devType;
+    char reserved[17];
+};
+
+constexpr uint32_t GROUP_NAME_SIZE = 128U;
+constexpr uint32_t ALG_CONFIG_SIZE = 128U;
+struct Mc2CcTilingInner {
+    uint8_t skipLocalRankCopy;
+    uint8_t skipBufferWindowCopy;
+    uint8_t stepSize;
+    uint8_t version;
+    char reserved[9];
+    uint8_t commEngine;
+    uint8_t srcDataType;
+    uint8_t dstDataType;
+    char groupName[GROUP_NAME_SIZE];
+    char algConfig[ALG_CONFIG_SIZE];
+    uint32_t opType;
+    uint32_t reduceType;
+};
+
+struct AlgInfo {
+    uint64_t offset;
+    uint64_t opParam;
+};
+
+struct OpResCtx {
+    uint64_t workSpace;
+    uint64_t workSpaceSize;
+    uint64_t rankId;
+    uint64_t rankSize;
+    AlgInfo algInfo[MAX_CC_TILING_NUM];
+};
+
+HcclResult CheckInputParam(const HcclComm comm, const void* mc2Tiling, const aclrtStream stream)
+{   
+    // 检查comm是否为空指针
+    RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclAllocComResourceByTiling", "nullptr", "comm", "non-null pointer"}));
+    CHK_PTR_NULL(comm);
+    
+    // 检查sendBuf是否为空指针
+    RPT_INPUT_ERR(mc2Tiling == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclAllocComResourceByTiling", "nullptr", "mc2Tiling", "non-null pointer"}));
+    CHK_PTR_NULL(mc2Tiling);
+    
+    // 检查stream是否为空指针
+    RPT_INPUT_ERR(stream == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclAllocComResourceByTiling", "nullptr", "stream", "non-null pointer"}));
+    CHK_PTR_NULL(stream);
+
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclGetTilingList(const void *mc2Tiling, const void *p[], uint32_t &cnt)
+{
+    const u32 *versionPtr = static_cast<const u32 *>(mc2Tiling);
+    const u32 version = *(versionPtr++);
+    CHK_PRT_RET(version < MC2_TILING_VERSION, HCCL_ERROR("Invalid tiling version %u.", version), HCCL_E_PARA);
+
+    cnt = *(versionPtr++);
+    CHK_PRT_RET(cnt > MAX_HCOM_NUM, HCCL_ERROR("Invalid hcom tiling number %u.", cnt), HCCL_E_PARA);
+
+    u64 serverCfgAddr = reinterpret_cast<u64>(versionPtr) + sizeof(Mc2ServerCfg);
+    for (uint32_t i = 0U; i < MAX_CC_TILING_NUM; ++i) {
+        p[i] = reinterpret_cast<const void *>(reinterpret_cast<const u8 *>(mc2Tiling) + versionPtr[i]);
+    }
+    HCCL_INFO("HcclGetTilingList version[%u] cnt[%u]", version, cnt);
+    return HCCL_SUCCESS;
+}
+
+HcclResult CheckIsReduce(const Mc2CcTilingInner *ccTiling, bool *isReduce)
+{
+    if (ccTiling->opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER || ccTiling->opType == HcclCMDType::HCCL_CMD_REDUCE ||
+        ccTiling->opType == HcclCMDType::HCCL_CMD_ALLREDUCE) {
+        *isReduce = true;
+    } else {
+        *isReduce = false;
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclCreateOpResCtx(HcclComm comm, const std::string &ctxTag, const std::vector<OpParam> &opParamVec, void* mc2Tiling, void** opResCtx)
+{
+    OpResCtx resCtx;
+    Mc2InitTilingInner *initTiling = static_cast<Mc2InitTilingInner *>(mc2Tiling);
+
+    // 1. 申请存放OpParam的内存空间
+    uint64_t opParamAddr[opParamVec.size()];
+    uint64_t opParamSize = sizeof(OpParam);
+    bool first = true;
+    for (uint32_t i = 0U; i < opParamVec.size(); ++i) {
+        // 申请硬件内存
+        CHK_RET(HcclDevMemAcquire(comm, nullptr, &opParamSize, reinterpret_cast<void **>(opParamAddr[i]), &first));
+        // 复制数据到硬件内存
+        CHK_RET(aclrtMemcpy(reinterpret_cast<void **>(opParamAddr[i]),  opParamSize, &opParamVec[i], opParamSize, aclrtMemcpyKind(1)));
+        // 记录OpParam的地址
+        resCtx.algInfo[i].opParam = opParamAddr[i];
+        // 记录OpParam的偏移量
+        resCtx.algInfo[i].offset = initTiling->offset[i];
+    }
+
+    // 2. 申请WorkSpace的内存空间
+    uint64_t memSize = 20 * 1024 * 1024;
+    resCtx.workSpaceSize = memSize;
+    // 申请硬件内存
+    CHK_RET(HcclDevMemAcquire(comm, nullptr, &memSize, reinterpret_cast<void **>(resCtx.workSpace), &first));
+
+    // 3. 申请OpResCtx的内存空间
+    CHK_RET(HcclDevMemAcquire(comm, nullptr, sizeof(OpResCtx), reinterpret_cast<void **>(opResCtx), &first));
+
+    // 4. 复制OpResCtx到硬件内存
+    CHK_RET(aclrtMemcpy(opResCtx, sizeof(OpResCtx), &resCtx, sizeof(OpResCtx), aclrtMemcpyKind(1)));
+
+
+
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclAllocComResourceByTiling(HcclComm comm, void *stream, void* mc2Tiling, void** opResCtx)
+{
+    HCCL_INFO("Start to run execute HcclReduceScatter");
+    // 记录开始时间，用于性能统计
+    HcclUs startut = TIME_NOW();
+    // 获取设备类型
+    DevType deviceType = DevType::DEV_TYPE_COUNT;opParamVec
+    CHK_RET(hrtGetDeviceType(deviceType));
+    
+    // 检查设备类型是否支持新流程，950或910_95支持新流程，其他设备走老流程
+    if (deviceType != DevType::DEV_TYPE_950) {
+        HCCL_ERROR("[%s] invalid deviceType[%u]", __func__, deviceType);
+        return HCCL_E_NOT_SUPPORT;
+    }
+
+    // 初始化环境变量配置，解析HCCL相关的环境变量
+    // 包括算子展开模式、确定性计算、通信方式、日志开关等配置
+    CHK_RET(InitEnvConfig());
+    
+    // 检查输入参数的合法性（comm、sendBuf、recvBuf、stream不能为空）
+    CHK_RET(CheckInputParam(comm, mc2Tiling, stream));
+    
+    // 获取通信域中的rank数量
+    u32 rankSize = INVALID_VALUE_RANKSIZE;
+    CHK_RET(HcclGetRankSize(comm, &rankSize));
+    
+    // 获取当前rank的ID
+    u32 userRank = INVALID_VALUE_RANKID;
+    CHK_RET(HcclGetRankId(comm, &userRank));
+    
+    // 获取通信域名称
+    char commName[COMM_INDENTIFIER_MAX_LENGTH];
+    CHK_RET(HcclGetCommName(comm, commName));
+
+    const void *ccTilingList[MAX_HCOM_NUM];
+    uint32_t tilingNum;
+    CHK_RET(HcclGetTilingList(mc2Tiling, ccTilingList, tilingNum));
+
+    // 构造操作标签，用于日志、错误追踪、topo资源管理
+    // topoTag = ccTilingList->opType + commName
+    // ctxTag = ccTilingList->groupName + "_" + ccTilingList[0]->opType + "_" + ccTilingList[0]->algConfig + "_" + ccTilingList[0]->commEngine
+    std::string topoTag[MAX_CC_TILING_NUM];
+    std::string ctxTag;
+    for (uint32_t i = 0U; i < tilingNum; ++i) {
+        const Mc2CcTilingInner *ccTiling = static_cast<const Mc2CcTilingInner *>(ccTilingList[i]);
+        topoTag[i] = std::to_string(ccTiling->opType) + "_" + std::to_string(ccTiling->srcDataType) + "_" + std::string(commName);
+        // 检查标签的合法性
+        CHK_RET(HcclCheckTag(topoTag[i].c_str()));
+        // 检查是否为reduce类型
+        bool isReduce;
+        CHK_RET(CheckIsReduce(ccTiling, &isReduce));
+        // 检查数据类型的合法性
+        CHK_RET(CheckDataType(ccTiling->srcDataType, isReduce));
+
+        if (i == 0) {
+            ctxTag = std::string(ccTiling->groupName) + "_" + std::string(ccTiling->opType) + "_" + std::string(ccTiling->algConfig) + "_" + std::string(ccTiling->commEngine);
+        } else {
+            ctxTag += "_" + std::string(ccTiling->opType) + "_" + std::string(ccTiling->algConfig) + "_" + std::string(ccTiling->commEngine);
+        }
+    }
+
+    // TODO:记录接口入口日志，包含所有关键参数信息
+
+    // 检查userRank是否在有效范围内
+    CHK_RET(HcomCheckUserRank(rankSize, userRank));
+
+    std::vector<OpParam> opParamVec(tilingNum);
+    for (uint32_t i = 0U; i < tilingNum; ++i) {
+        // TODO: 根据topoTag[i] 获取opParam[i]的参数
+    }
+
+    // TODO: 根据ctxTag 申请通信资源
+    CHK_RET(HcclCreateOpResCtx(comm, ctxTag, opParamVec.data(), mc2Tiling, opResCtx));
+    
+    // 记录退出日志和性能统计信息
+    CHK_RET(LogHcclExit("HcclAllocComResourceByTiling", tag, startut));
+
 }
