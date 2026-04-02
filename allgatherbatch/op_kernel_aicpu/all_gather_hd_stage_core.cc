@@ -1,4 +1,4 @@
-#include "all_gather_hd_stage_core.h"
+ï»¿#include "all_gather_hd_stage_core.h"
 
 #include "all_gather_nhr_core.h"
 #include "log.h"
@@ -32,31 +32,12 @@ uint32_t CountChannelsByScope(const OpParam &param, const AlgResourceCtx &resCtx
 {
     uint32_t count = 0;
     for (uint32_t idx = 0; idx < resCtx.channelCount; ++idx) {
-        const bool isCrossServer = (resCtx.channels[idx].remoteServerIdx != param.topoInfo.serverIdx);
+        const bool isCrossServer = (GetChannel(resCtx, idx).remoteServerIdx != param.topoInfo.serverIdx);
         if (isCrossServer == crossServer) {
             ++count;
         }
     }
     return count;
-}
-
-uint32_t CountChannelsByProtocol(const AlgResourceCtx &resCtx, CommProtocol protocol)
-{
-    uint32_t count = 0;
-    for (uint32_t idx = 0; idx < resCtx.channelCount; ++idx) {
-        if (resCtx.channels[idx].protocol == protocol) {
-            ++count;
-        }
-    }
-    return count;
-}
-
-uint32_t CountRecognizedChannels(const AlgResourceCtx &resCtx)
-{
-    return CountChannelsByProtocol(resCtx, COMM_PROTOCOL_HCCS) +
-        CountChannelsByProtocol(resCtx, COMM_PROTOCOL_ROCE) +
-        CountChannelsByProtocol(resCtx, COMM_PROTOCOL_PCIE) +
-        CountChannelsByProtocol(resCtx, COMM_PROTOCOL_SIO);
 }
 
 uint32_t CountPrimaryPaths(const HDStagePlan &plan)
@@ -87,6 +68,7 @@ AllGatherHDStageCore::AllGatherHDStageCore(const OpParam &param, AlgResourceCtx 
 {
 }
 
+// Stage å±‚å…ˆå…œä½â€œè¿™ä¸ªçª—å£æ˜¯å¦é€‚åˆè¿›å…¥ HDStageâ€è¿™ä¸€å±‚å‡è®¾ï¼Œé¿å…ä¸‹æ¸¸ NHR åœ¨é”™è¯¯è¾“å…¥ä¸Šç»§ç»­æ”¾å¤§é—®é¢˜ã€‚
 HcclResult AllGatherHDStageCore::ValidateStageInput() const
 {
     const ResourceStats stats = CollectResourceStats(param_, resCtx_);
@@ -147,10 +129,10 @@ HcclResult AllGatherHDStageCore::BuildStagePlan(HDStagePlan &plan) const
         return HCCL_E_PARA;
     }
 
-    // ÕâÀïÑØÓÃÉè¼Æ¸åºÍ hcomm HDStage µÄ²ð½âË¼Â·£º
-    // 1. noPower ¸ºÔð·Ç 2 ´ÎÃÝ²¿·Ö¡£
-    // 2. power ¸ºÔð powerSteps ÖÐÈ¥µô finalSteps ºóµÄÖ÷½×¶Î¡£
-    // 3. final ¸ºÔð×îºó 0/1/2 ²½µÄÊÕÎ²ÓïÒå¡£
+    // è¿™é‡Œæ²¿ç”¨è®¾è®¡ç¨¿å’Œ hcomm HDStage çš„æ‹†è§£æ€è·¯ï¼š
+    // 1. noPower è´Ÿè´£éž 2 æ¬¡å¹‚éƒ¨åˆ†ã€‚
+    // 2. power è´Ÿè´£ powerSteps ä¸­åŽ»æŽ‰ finalSteps åŽçš„ä¸»é˜¶æ®µã€‚
+    // 3. final è´Ÿè´£æœ€åŽ 0/1/2 æ­¥çš„æ”¶å°¾è¯­ä¹‰ã€‚
     plan.powerSteps = CalcTrailingPowerSteps(rankSize);
     plan.powerFactor = (plan.powerSteps == 0U) ? 1U : (1U << plan.powerSteps);
     plan.noPower = rankSize / plan.powerFactor;
@@ -160,8 +142,8 @@ HcclResult AllGatherHDStageCore::BuildStagePlan(HDStagePlan &plan) const
     plan.needPowerPath = (plan.remainingPowerSteps >= 1U);
     plan.needFinalPath = (rankSize > 1U);
 
-    // µ±Ç° public-header ·½°¸ÏÂ£¬NHR ÈÔÊÇÎ¨Ò»µÄÊý¾ÝÃæÊµÏÖ£¬Òò´ËÈý¸ö½×¶ÎÀïÖ»Ñ¡Ò»¸öÖ÷Â·¾¶ÕæÕýÂäÍ¨ÐÅ¡£
-    // ÕâÑù¼È±£Áô HDStage µÄ½×¶ÎÓïÒå£¬Ò²±ÜÃâ×îÐ¡Êý¾ÝÃæ±»ÖØ¸´Ö´ÐÐ¶à´Î¡£
+    // å½“å‰ public-header æ–¹æ¡ˆä¸‹ï¼ŒNHR ä»æ˜¯å”¯ä¸€çš„æ•°æ®é¢å®žçŽ°ï¼Œå› æ­¤ä¸‰ä¸ªé˜¶æ®µé‡Œåªé€‰ä¸€ä¸ªä¸»è·¯å¾„çœŸæ­£è½é€šä¿¡ã€‚
+    // è¿™æ ·æ—¢ä¿ç•™ HDStage çš„é˜¶æ®µè¯­ä¹‰ï¼Œä¹Ÿé¿å…æœ€å°æ•°æ®é¢è¢«é‡å¤æ‰§è¡Œå¤šæ¬¡ã€‚
     plan.useNoPowerAsPrimary = plan.needNoPowerPath;
     plan.usePowerAsPrimary = (!plan.useNoPowerAsPrimary && plan.needPowerPath);
     plan.useFinalAsPrimary = (!plan.useNoPowerAsPrimary && !plan.usePowerAsPrimary && plan.needFinalPath);
@@ -172,7 +154,7 @@ HcclResult AllGatherHDStageCore::ValidateStagePlan(const HDStagePlan &plan) cons
 {
     const ResourceStats stats = CollectResourceStats(param_, resCtx_);
 
-    // HDStage ÕâÒ»²ã°Ñ stage ¼Æ»®ºÍÁ´Â· scope ÔÙ¶ÔÒ»´Î£¬±ÜÃâ¡°Ç°ºó²ã¶¼ÄÜÅÜ£¬µ« stage ¼ÙÉè²»³ÉÁ¢¡±µÄÎÊÌâ¡£
+    // HDStage è¿™ä¸€å±‚æŠŠ stage è®¡åˆ’å’Œé“¾è·¯ scope å†å¯¹ä¸€æ¬¡ï¼Œé¿å…â€œå‰åŽå±‚éƒ½èƒ½è·‘ï¼Œä½† stage å‡è®¾ä¸æˆç«‹â€çš„é—®é¢˜ã€‚
     if (plan.noPower == 0) {
         HCCL_ERROR("HDStage noPower is zero");
         return HCCL_E_INTERNAL;
@@ -224,7 +206,7 @@ HcclResult AllGatherHDStageCore::ValidateProtocolDistribution() const
 {
     const ResourceStats stats = CollectResourceStats(param_, resCtx_);
 
-    // Stage ²ãÒ²ÒªÇó×ÊÔ´ÀïµÄÐ­Òé·Ö²¼ÊÇ×ÔÇ¢µÄ£¬±ÜÃâ°Ñ¡°Î´ÖªÐ­Òé¡±¾²Ä¬´øÈë NHR ×ÓÄ£°å¡£
+    // Stage å±‚ä¹Ÿè¦æ±‚èµ„æºé‡Œçš„åè®®åˆ†å¸ƒæ˜¯è‡ªæ´½çš„ï¼Œé¿å…æŠŠâ€œæœªçŸ¥åè®®â€é™é»˜å¸¦å…¥ NHR å­æ¨¡æ¿ã€‚
     if (stats.recognizedProtocols != resCtx_.channelCount) {
         HCCL_ERROR("HDStage protocol distribution mismatch, recognized=%u, channelCount=%u",
             stats.recognizedProtocols,
@@ -234,6 +216,8 @@ HcclResult AllGatherHDStageCore::ValidateProtocolDistribution() const
     return HCCL_SUCCESS;
 }
 
+// å½“å‰ public-header ç‰ˆæœ¬ä¸‹ï¼ŒHDStage ä»æŠŠçœŸæ­£çš„æ•°æ®æ¬è¿å§”æ‰˜ç»™ NHRï¼›
+// HDStage è‡ªå·±ä¸»è¦è´Ÿè´£é˜¶æ®µè§„åˆ’ã€è·¯å¾„é€‰æ‹©å’Œå‰ç½®æ ¡éªŒã€‚
 HcclResult AllGatherHDStageCore::RunNHR(const char *pathTag) const
 {
     HCCL_INFO("HDStage delegates data movement to NHR: path=%s, rank=%u, packedBytes=%llu",
@@ -321,9 +305,9 @@ HcclResult AllGatherHDStageCore::RunFinalLastTwo(const HDStagePlan &plan) const
 
 HcclResult AllGatherHDStageCore::RunFinalPath(const HDStagePlan &plan) const
 {
-    // final path ¸ºÔð±í´ï HDStage ×îºó 0/1/2 ²½µÄÊÕÎ²ÓïÒå¡£
-    // ÔÚµ±Ç° custom-op °æ±¾Àï£¬Èç¹ûÖ÷Í¨ÐÅÒÑ¾­ÔÚ noPower/power ½×¶ÎÍê³É£¬ÕâÀïÖ»±£Áô½á¹¹ºÍÈÕÖ¾£»
-    // Èç¹ûÇ°ÃæÃ»ÓÐÖ÷Í¨ÐÅÂ·¾¶£¬ÔòÓÉ final path ½Ó¹ÜÕæÕýµÄÊý¾ÝÃæÖ´ÐÐ¡£
+    // final path è´Ÿè´£è¡¨è¾¾ HDStage æœ€åŽ 0/1/2 æ­¥çš„æ”¶å°¾è¯­ä¹‰ã€‚
+    // åœ¨å½“å‰ custom-op ç‰ˆæœ¬é‡Œï¼Œå¦‚æžœä¸»é€šä¿¡å·²ç»åœ¨ noPower/power é˜¶æ®µå®Œæˆï¼Œè¿™é‡Œåªä¿ç•™ç»“æž„å’Œæ—¥å¿—ï¼›
+    // å¦‚æžœå‰é¢æ²¡æœ‰ä¸»é€šä¿¡è·¯å¾„ï¼Œåˆ™ç”± final path æŽ¥ç®¡çœŸæ­£çš„æ•°æ®é¢æ‰§è¡Œã€‚
     if (plan.finalSteps >= 2U) {
         return RunFinalLastTwo(plan);
     }
@@ -386,6 +370,9 @@ HcclResult AllGatherHDStageCore::RunAsync()
 }
 
 }  // namespace ops_hccl_allgatherbatch
+
+
+
 
 
 

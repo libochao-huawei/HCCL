@@ -1,4 +1,4 @@
-#include "all_gather_nhr_core.h"
+ï»¿#include "all_gather_nhr_core.h"
 
 #include "log.h"
 
@@ -71,9 +71,12 @@ HcclResult AllGatherNHRCore::ValidateCommState() const
             static_cast<unsigned long long>(resCtx_.localBuffer.size));
         return HCCL_E_INTERNAL;
     }
-    if (param_.topoInfo.rankSize > 1 && resCtx_.channelCount + 1 < param_.topoInfo.rankSize) {
-        HCCL_WARNING("channelCount=%u is insufficient for rankSize=%u", resCtx_.channelCount, param_.topoInfo.rankSize);
-        return HCCL_E_NOT_SUPPORT;
+    // NHR å½“å‰ä¹Ÿæ˜¯ fullmesh å‰æï¼Œé€šä¿¡æ ¸å¿ƒè‡ªå·±å†æ”¶ä¸€æ¬¡ channel æ•°ï¼Œé¿å… Host/Device åè®®æ¼‚ç§»ã€‚
+    if (resCtx_.channelCount != GetExpectedFullMeshChannelCount(param_)) {
+        HCCL_ERROR("channelCount=%u mismatches expected fullmesh count=%u",
+            resCtx_.channelCount,
+            GetExpectedFullMeshChannelCount(param_));
+        return HCCL_E_INTERNAL;
     }
     return HCCL_SUCCESS;
 }
@@ -83,9 +86,9 @@ HcclResult AllGatherNHRCore::ValidateChannelMetadata() const
     const ResourceStats stats = CollectResourceStats(param_, resCtx_);
     const uint32_t expectedIntraServerChannels = (param_.intraServerRankCount == 0) ? 0 : (param_.intraServerRankCount - 1);
 
-    // ÕâÀïÔÙ´ÓÍ¨ĞÅ²ãÊÓ½ÇÊÕÒ»´Î Host ÏÂ·¢µÄÄ£Ê½ºÍ×ÊÔ´ÔªÊı¾İ£¬±ÜÃâĞ­Òé»ò server ¹éÊôÒì³£Ö±½Ó½øÈë notify/read¡£
+    // è¿™é‡Œå†ä»é€šä¿¡å±‚è§†è§’æ”¶ä¸€æ¬¡ Host ä¸‹å‘çš„æ¨¡å¼å’Œèµ„æºå…ƒæ•°æ®ï¼Œé¿å…åè®®æˆ– server å½’å±å¼‚å¸¸ç›´æ¥è¿›å…¥ notify/readã€‚
     for (uint32_t idx = 0; idx < resCtx_.channelCount; ++idx) {
-        const ChannelResource &channel = resCtx_.channels[idx];
+        const ChannelResource &channel = GetChannel(resCtx_, idx);
         if (channel.protocol == COMM_PROTOCOL_RESERVED) {
             HCCL_ERROR("channel %u has reserved protocol", idx);
             return HCCL_E_INTERNAL;
@@ -143,7 +146,7 @@ HcclResult AllGatherNHRCore::ValidateProtocolDistribution() const
     const uint32_t intraChannels = CountChannelsByScope(false);
     const uint32_t crossChannels = CountChannelsByScope(true);
 
-    // Ğ­ÒéÎ¬¶ÈÒÑ¾­½øÈë¿ØÖÆÁ÷£¬ÕâÀïÒªÇó scope ÄÚµÄ channel ¶¼ÄÜ±»ÒÑÖªĞ­Òé½âÊÍ£¬²»ÔÙÖ»×öÈÕÖ¾Í³¼Æ¡£
+    // åè®®ç»´åº¦å·²ç»è¿›å…¥æ§åˆ¶æµï¼Œè¿™é‡Œè¦æ±‚ scope å†…çš„ channel éƒ½èƒ½è¢«å·²çŸ¥åè®®è§£é‡Šï¼Œä¸å†åªåšæ—¥å¿—ç»Ÿè®¡ã€‚
     if (intraRecognized != intraChannels) {
         HCCL_ERROR("intra-server protocol distribution mismatch, recognized=%u, actual=%u",
             intraRecognized,
@@ -175,7 +178,7 @@ HcclResult AllGatherNHRCore::ValidateStepPlan(const std::vector<NHRStepInfo> &st
         return HCCL_E_INTERNAL;
     }
 
-    // Õâ²ã¼ì²é°Ñ¡°Ëã³öÀ´µÄ step ¼Æ»®¡±ÕıÊ½±ä³ÉÖ´ĞĞÇ°ÖÃÌõ¼ş£¬¶ø²»Ö»ÊÇµ÷ÊÔĞÅÏ¢¡£
+    // è¿™å±‚æ£€æŸ¥æŠŠâ€œç®—å‡ºæ¥çš„ step è®¡åˆ’â€æ­£å¼å˜æˆæ‰§è¡Œå‰ç½®æ¡ä»¶ï¼Œè€Œä¸åªæ˜¯è°ƒè¯•ä¿¡æ¯ã€‚
     for (const NHRStepInfo &stepInfo : stepPlan) {
         if (stepInfo.fromRank >= param_.topoInfo.rankSize || stepInfo.toRank >= param_.topoInfo.rankSize) {
             HCCL_ERROR("step[%u] rank mapping is invalid, fromRank=%u, toRank=%u, rankSize=%u",
@@ -233,7 +236,7 @@ HcclResult AllGatherNHRCore::GetStepInfo(uint32_t step, uint32_t nSteps, NHRStep
     stepInfo.txItemOrder.clear();
     stepInfo.rxItemOrder.clear();
 
-    // µ±Ç° public-header ·½°¸»¹Ã»ÓĞ×ö slice merge£¬Òò´ËÏÈ°´ item Ë³Ğò½¨Á¢×îĞ¡²½½ø¼Æ»®¡£
+    // å½“å‰ public-header æ–¹æ¡ˆè¿˜æ²¡æœ‰åš slice mergeï¼Œå› æ­¤å…ˆæŒ‰ item é¡ºåºå»ºç«‹æœ€å°æ­¥è¿›è®¡åˆ’ã€‚
     for (uint32_t itemIdx = 0; itemIdx < param_.itemCount; ++itemIdx) {
         stepInfo.txItemOrder.push_back(itemIdx);
         stepInfo.rxItemOrder.push_back(itemIdx);
@@ -263,8 +266,8 @@ HcclResult AllGatherNHRCore::BuildStepPlan(std::vector<NHRStepInfo> &stepPlan) c
 const ChannelResource *AllGatherNHRCore::FindChannel(uint32_t remoteRank) const
 {
     for (uint32_t idx = 0; idx < resCtx_.channelCount; ++idx) {
-        if (resCtx_.channels[idx].remoteRank == remoteRank) {
-            return &resCtx_.channels[idx];
+        if (GetChannel(resCtx_, idx).remoteRank == remoteRank) {
+            return &GetChannel(resCtx_, idx);
         }
     }
     return nullptr;
@@ -289,7 +292,7 @@ uint32_t AllGatherNHRCore::CountChannelsByScope(bool crossServer) const
 {
     uint32_t count = 0;
     for (uint32_t idx = 0; idx < resCtx_.channelCount; ++idx) {
-        if (IsCrossServerChannel(resCtx_.channels[idx]) == crossServer) {
+        if (IsCrossServerChannel(GetChannel(resCtx_, idx)) == crossServer) {
             ++count;
         }
     }
@@ -300,7 +303,7 @@ uint32_t AllGatherNHRCore::CountChannelsByProtocol(bool crossServer, CommProtoco
 {
     uint32_t count = 0;
     for (uint32_t idx = 0; idx < resCtx_.channelCount; ++idx) {
-        const ChannelResource &channel = resCtx_.channels[idx];
+        const ChannelResource &channel = GetChannel(resCtx_, idx);
         if (MatchChannel(channel, crossServer, protocol)) {
             ++count;
         }
@@ -382,8 +385,8 @@ HcclResult AllGatherNHRCore::RunProtocolStep(const NHRStepInfo &stepInfo, bool c
     const char *scope = ToScopeString(crossServer);
     const char *protocolName = ToProtocolString(protocol);
 
-    // ÕâÒ»²ã¿ªÊ¼ÕæÕıÊ¹ÓÃ step plan£ºÃ¿Ò»²½¶¼ÏÔÊ½¼ÇÂ¼ sendTo / recvFrom£¬
-    // ºóÃæÈç¹ûÒªÒıÈë¸üÏñÕıÊ½ÊµÏÖµÄ slice ×éºÏ»òË«Ïò²ßÂÔ£¬¾Í¿ÉÒÔÖ±½ÓÔÚ step Î¬¶ÈÏ¸»¯¡£
+    // è¿™ä¸€å±‚å¼€å§‹çœŸæ­£ä½¿ç”¨ step planï¼šæ¯ä¸€æ­¥éƒ½æ˜¾å¼è®°å½• sendTo / recvFromï¼Œ
+    // åé¢å¦‚æœè¦å¼•å…¥æ›´åƒæ­£å¼å®ç°çš„ slice ç»„åˆæˆ–åŒå‘ç­–ç•¥ï¼Œå°±å¯ä»¥ç›´æ¥åœ¨ step ç»´åº¦ç»†åŒ–ã€‚
     HCCL_INFO("NHR protocol step: step=%u, scope=%s, protocol=%s, sendTo=%u, recvFrom=%u, txItems=%u, rxItems=%u",
         stepInfo.step,
         scope,
@@ -473,7 +476,7 @@ HcclResult AllGatherNHRCore::RunAsync()
         stats.pcieChannels,
         stats.sioChannels);
 
-    // ÕâÀïÏÈ±£Áô NHR µÄ¿ØÖÆ²ã±ß½ç£¬µ«Ö´ĞĞË³ĞòÒÑ¾­°´ step -> scope -> protocol Èı²ã×éÖ¯¡£
+    // è¿™é‡Œå…ˆä¿ç•™ NHR çš„æ§åˆ¶å±‚è¾¹ç•Œï¼Œä½†æ‰§è¡Œé¡ºåºå·²ç»æŒ‰ step -> scope -> protocol ä¸‰å±‚ç»„ç»‡ã€‚
     HCCL_CHK_RET(RunScope(false, stepPlan));
     if (param_.commMode == BatchCommMode::kCrossServer) {
         HCCL_CHK_RET(RunScope(true, stepPlan));
@@ -482,6 +485,10 @@ HcclResult AllGatherNHRCore::RunAsync()
 }
 
 }  // namespace ops_hccl_allgatherbatch
+
+
+
+
 
 
 

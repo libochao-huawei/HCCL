@@ -1,4 +1,4 @@
-#ifndef HCCL_ALLGATHERBATCH_COMMON_H
+ï»¿#ifndef HCCL_ALLGATHERBATCH_COMMON_H
 #define HCCL_ALLGATHERBATCH_COMMON_H
 
 #include <cstddef>
@@ -18,7 +18,6 @@ constexpr uint32_t kAllGatherBatchMaxItems = 8;
 constexpr uint32_t kAllGatherBatchControlNotifyNum = 2;
 constexpr uint32_t kAllGatherBatchControlNotifyStart = 0;
 constexpr uint32_t kAllGatherBatchControlNotifyDone = 1;
-constexpr uint32_t kAllGatherBatchMaxChannels = 32;
 constexpr uint32_t kAllGatherBatchCustomTimeoutMs = 1800;
 constexpr uint32_t kAllGatherBatchOpNameLength = 64;
 constexpr uint32_t kAllGatherBatchTagLength = HCCL_RES_TAG_MAX_LEN + 1;
@@ -60,15 +59,14 @@ struct BatchTopoInfo {
     uint32_t reserved = 0;
 };
 
-// Host ²à×¼±¸²¢¿½µ½ Device µÄ×ÊÔ´ÉÏÏÂÎÄ.
-// ÀïÃæ±£´æÖ´ĞĞÏß³Ì¡¢±¾µØ staging buffer ºÍ¶Ô¶Ë channel ĞÅÏ¢¡£
+// Host ä¾§å‡†å¤‡å¹¶æ‹·åˆ° Device çš„èµ„æºä¸Šä¸‹æ–‡ã€‚
+// é‡‡ç”¨â€œå›ºå®šå¤´ + å˜é•¿å°¾éƒ¨ channel åŒºâ€çš„å¸ƒå±€ï¼Œé¿å…å›ºå®š channel ä¸Šé™ã€‚
 struct AlgResourceCtx {
     ThreadHandle threadHandle = 0;
     uint32_t controlNotifyIds[kAllGatherBatchControlNotifyNum] = {0};
     uint32_t channelCount = 0;
-    uint32_t reserved = 0;
+    uint32_t channelOffset = 0;
     CommBuffer localBuffer {};
-    ChannelResource channels[kAllGatherBatchMaxChannels] {};
 };
 
 struct BatchItemParam {
@@ -80,8 +78,8 @@ struct BatchItemParam {
     uint64_t sendBytes = 0;
 };
 
-// Host ÏÂ·¢µ½ Device µÄ launch ²ÎÊı¡£
-// ÀïÃæ°üº¬ÍØÆËĞÅÏ¢¡¢Í¨ĞÅÄ£Ê½¡¢Õ¹Æ½ºóµÄ item ÔªÊı¾İÒÔ¼°×ÊÔ´ÉÏÏÂÎÄÖ¸Õë¡£
+// Host ä¸‹å‘åˆ° Device çš„ launch å‚æ•°ã€‚
+// é‡Œé¢åŒ…å«æ‹“æ‰‘ä¿¡æ¯ã€é€šä¿¡æ¨¡å¼ã€å±•å¹³åçš„ item å…ƒæ•°æ®ä»¥åŠèµ„æºä¸Šä¸‹æ–‡æŒ‡é’ˆã€‚
 struct OpParam {
     char tag[kAllGatherBatchTagLength] = {0};
     char commName[COMM_NAME_MAX_LENGTH] = {0};
@@ -178,6 +176,46 @@ inline bool IsValidCommMode(BatchCommMode commMode)
     return commMode == BatchCommMode::kSingleServer || commMode == BatchCommMode::kCrossServer;
 }
 
+// å½“å‰ç‰ˆæœ¬æ˜ç¡®å‡è®¾ fullmeshï¼šé™¤äº†æœ¬ rank ä¹‹å¤–ï¼Œå…¶ä½™æ¯ä¸ª rank éƒ½æœ‰ä¸€æ¡ channelã€‚
+inline uint32_t GetExpectedFullMeshChannelCount(uint32_t rankSize)
+{
+    return (rankSize > 0) ? (rankSize - 1) : 0;
+}
+
+inline uint32_t GetExpectedFullMeshChannelCount(const OpParam &param)
+{
+    return GetExpectedFullMeshChannelCount(param.topoInfo.rankSize);
+}
+
+// åŠ¨æ€ channel åŒºç»Ÿä¸€é€šè¿‡ helper è®¿é—®ï¼Œé¿å… Host å’Œ Device ç»§ç»­ä¾èµ–å›ºå®šæ•°ç»„å¸ƒå±€ã€‚
+inline const ChannelResource *GetChannelArray(const AlgResourceCtx &resCtx)
+{
+    if (resCtx.channelCount == 0) {
+        return nullptr;
+    }
+    return reinterpret_cast<const ChannelResource *>(
+        reinterpret_cast<const uint8_t *>(&resCtx) + resCtx.channelOffset);
+}
+
+inline ChannelResource *GetChannelArray(AlgResourceCtx &resCtx)
+{
+    if (resCtx.channelCount == 0) {
+        return nullptr;
+    }
+    return reinterpret_cast<ChannelResource *>(
+        reinterpret_cast<uint8_t *>(&resCtx) + resCtx.channelOffset);
+}
+
+inline const ChannelResource &GetChannel(const AlgResourceCtx &resCtx, uint32_t idx)
+{
+    return GetChannelArray(resCtx)[idx];
+}
+
+inline ChannelResource &GetChannel(AlgResourceCtx &resCtx, uint32_t idx)
+{
+    return GetChannelArray(resCtx)[idx];
+}
+
 inline uint64_t GetPerRankWindowCapacity(const OpParam &param, const AlgResourceCtx &resCtx)
 {
     if (param.topoInfo.rankSize == 0) {
@@ -199,7 +237,7 @@ inline uint32_t CountChannelsByProtocol(const AlgResourceCtx &resCtx, CommProtoc
 {
     uint32_t count = 0;
     for (uint32_t idx = 0; idx < resCtx.channelCount; ++idx) {
-        if (resCtx.channels[idx].protocol == protocol) {
+        if (GetChannel(resCtx, idx).protocol == protocol) {
             ++count;
         }
     }
@@ -210,7 +248,7 @@ inline uint32_t CountCrossServerChannels(const BatchTopoInfo &topoInfo, const Al
 {
     uint32_t count = 0;
     for (uint32_t idx = 0; idx < resCtx.channelCount; ++idx) {
-        if (resCtx.channels[idx].remoteServerIdx != topoInfo.serverIdx) {
+        if (GetChannel(resCtx, idx).remoteServerIdx != topoInfo.serverIdx) {
             ++count;
         }
     }
@@ -224,7 +262,6 @@ inline uint32_t CountRecognizedProtocols(const AlgResourceCtx &resCtx)
         CountChannelsByProtocol(resCtx, COMM_PROTOCOL_PCIE) +
         CountChannelsByProtocol(resCtx, COMM_PROTOCOL_SIO);
 }
-
 
 struct ResourceStats {
     uint32_t crossServerChannels = 0;
@@ -299,9 +336,11 @@ inline HcclResult ValidateBasicOpParam(const OpParam &param, const char *stageTa
     return HCCL_SUCCESS;
 }
 
+// åŸºç¡€èµ„æºæ ¡éªŒåœ¨ Hostã€kernel å…¥å£ã€executor ç­‰å¤šå±‚å¤ç”¨ï¼Œç¡®ä¿å¤§å®¶å¯¹ fullmesh èµ„æºå½¢æ€çš„ç†è§£ä¸€è‡´ã€‚
 inline HcclResult ValidateBasicResourceCtx(const OpParam &param, const AlgResourceCtx &resCtx, const char *stageTag)
 {
     const ResourceStats stats = CollectResourceStats(param, resCtx);
+    const uint32_t expectedChannelCount = GetExpectedFullMeshChannelCount(param);
 
     if (resCtx.threadHandle == 0) {
         HCCL_ERROR("%s threadHandle is invalid", stageTag);
@@ -311,11 +350,15 @@ inline HcclResult ValidateBasicResourceCtx(const OpParam &param, const AlgResour
         HCCL_ERROR("%s localBuffer is invalid", stageTag);
         return HCCL_E_INTERNAL;
     }
-    if (param.topoInfo.rankSize > 1 && resCtx.channelCount + 1 < param.topoInfo.rankSize) {
-        HCCL_ERROR("%s channelCount=%u is insufficient for rankSize=%u",
+    if (resCtx.channelCount > 0 && resCtx.channelOffset < sizeof(AlgResourceCtx)) {
+        HCCL_ERROR("%s channelOffset=%u is invalid", stageTag, resCtx.channelOffset);
+        return HCCL_E_INTERNAL;
+    }
+    if (resCtx.channelCount != expectedChannelCount) {
+        HCCL_ERROR("%s fullmesh channelCount mismatch, actual=%u, expected=%u",
             stageTag,
             resCtx.channelCount,
-            param.topoInfo.rankSize);
+            expectedChannelCount);
         return HCCL_E_INTERNAL;
     }
     if (stats.intraServerChannels + stats.crossServerChannels != resCtx.channelCount) {
@@ -352,13 +395,14 @@ inline HcclResult ValidateBasicResourceCtx(const OpParam &param, const AlgResour
     }
     return HCCL_SUCCESS;
 }
+
 inline HcclResult ValidateRemoteChannelResources(const OpParam &param, const AlgResourceCtx &resCtx, const char *stageTag)
 {
     const ResourceStats stats = CollectResourceStats(param, resCtx);
 
-    // ÕâÒ»²ã×¨ÃÅÔ¼ÊøÃ¿ÌõÔ¶¶Ë channel µÄ endpoint / buffer ÔªÊı¾İ£¬Host ºÍ Device ¹²ÓÃÍ¬Ò»Ì×¹æÔò¡£
+    // è¿™ä¸€å±‚ä¸“é—¨çº¦æŸæ¯æ¡è¿œç«¯ channel çš„ endpoint / buffer å…ƒæ•°æ®ï¼ŒHost å’Œ Device å…±ç”¨åŒä¸€å¥—è§„åˆ™ã€‚
     for (uint32_t idx = 0; idx < resCtx.channelCount; ++idx) {
-        const ChannelResource &channel = resCtx.channels[idx];
+        const ChannelResource &channel = GetChannel(resCtx, idx);
         if (channel.protocol == COMM_PROTOCOL_RESERVED) {
             HCCL_ERROR("%s channel %u has reserved protocol", stageTag, idx);
             return HCCL_E_INTERNAL;
@@ -390,13 +434,10 @@ inline HcclResult ValidateRemoteChannelResources(const OpParam &param, const Alg
     }
     return HCCL_SUCCESS;
 }
+
 }  // namespace ops_hccl_allgatherbatch
 
 #endif
-
-
-
-
 
 
 

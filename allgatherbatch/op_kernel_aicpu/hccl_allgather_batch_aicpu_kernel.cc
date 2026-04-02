@@ -1,10 +1,11 @@
-#include "common.h"
+﻿#include "common.h"
 #include "exec_op.h"
 
 namespace {
 
 using namespace ops_hccl_allgatherbatch;
 
+// kernel 入口先把 Host 下发的动态资源协议再核一遍，避免旧 cache 或错误 launch 参数把问题带进 Device 主循环。
 HcclResult ValidateKernelResourceCtx(const OpParam &param)
 {
     const AlgResourceCtx &resCtx = *param.resCtx;
@@ -50,7 +51,7 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
         stats.pcieChannels,
         stats.sioChannels);
 
-    // Device ��ڸ���� Host �·��Ŀ���Э��ת���������豸��ִ��ʱ��
+    // Device 入口负责把 Host 下发的控制协议转成完整的设备侧执行时序。
     if (HcommAcquireComm(param->commName) != HCCL_SUCCESS) {
         HCCL_ERROR("HcommAcquireComm failed, commName=%s", param->commName);
         return 1;
@@ -107,6 +108,8 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
         param->itemCount);
     return 0;
 }
+
+
 
 
 

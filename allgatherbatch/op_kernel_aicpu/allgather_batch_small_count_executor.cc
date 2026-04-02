@@ -1,4 +1,4 @@
-#include "allgather_batch_small_count_executor.h"
+ï»¿#include "allgather_batch_small_count_executor.h"
 
 #include <algorithm>
 
@@ -26,6 +26,7 @@ AllGatherBatchSmallCountExecutor::AllGatherBatchSmallCountExecutor(const OpParam
 {
 }
 
+// æ‰§è¡Œå™¨è¿™ä¸€å±‚åªæ ¡éªŒâ€œçª—å£åŒ–æ‰§è¡ŒçœŸæ­£ä¾èµ–çš„è¾“å…¥â€ï¼Œæ¯”å¦‚ item å…ƒæ•°æ®ã€èµ„æºä¸Šä¸‹æ–‡å’ŒåŸºç¡€ fullmesh èµ„æºå½¢æ€ã€‚
 HcclResult AllGatherBatchSmallCountExecutor::ValidateParam() const
 {
     if (param_.resCtx == nullptr) {
@@ -60,7 +61,7 @@ HcclResult AllGatherBatchSmallCountExecutor::ValidateModeConsistency() const
     const uint32_t expectedIntraServerChannels =
         (param_.intraServerRankCount == 0U) ? 0U : (param_.intraServerRankCount - 1U);
 
-    // Host ÒÑ¾­°Ñ commMode ºÍ rank ·Ö²¼Ğ´½ø OpParam£¬ÕâÀïÔÙÔÚ Device Èë¿ÚÊÕÒ»²ãÖ´ĞĞÆ÷ÌØÓĞµÄÁ´Â·¼ÙÉè¡£
+    // Host å·²ç»æŠŠ commMode å’Œ rank åˆ†å¸ƒå†™è¿› OpParamï¼Œè¿™é‡Œå†åœ¨ Device å…¥å£æ”¶ä¸€å±‚æ‰§è¡Œå™¨ç‰¹æœ‰çš„é“¾è·¯å‡è®¾ã€‚
     if (stats.intraServerChannels != expectedIntraServerChannels) {
         HCCL_ERROR("executor intra-server channel mismatch, expected=%u, actual=%u",
             expectedIntraServerChannels,
@@ -76,6 +77,7 @@ HcclResult AllGatherBatchSmallCountExecutor::ValidateModeConsistency() const
     return HCCL_SUCCESS;
 }
 
+// WindowRange æ˜¯ Pack/é€šä¿¡/Unpack å…±ç”¨çš„è¾¹ç•ŒåˆåŒï¼Œè¿™é‡Œé›†ä¸­ä¿è¯å®ƒçš„å°¾åæ¸¸æ ‡è¯­ä¹‰å’Œå­—èŠ‚è¦†ç›–èŒƒå›´æ­£ç¡®ã€‚
 HcclResult AllGatherBatchSmallCountExecutor::ValidateWindow(const WindowRange &window) const
 {
     if (window.packedBytes == 0) {
@@ -199,7 +201,7 @@ HcclResult AllGatherBatchSmallCountExecutor::LocateWindowEnd(
 
 HcclResult AllGatherBatchSmallCountExecutor::BuildFirstWindow(WindowRange &window) const
 {
-    // gathered ½á¹ûÒª°´ rank ²ğ²Û·Å»ØÍ¬Ò»¸ö localBuffer£¬Òò´ËÃ¿ÂÖ´°¿Ú×î¶àÖ»ÄÜÕ¼ÓÃ localBuffer/rankSize¡£
+    // gathered ç»“æœè¦æŒ‰ rank æ‹†æ§½æ”¾å›åŒä¸€ä¸ª localBufferï¼Œå› æ­¤æ¯è½®çª—å£æœ€å¤šåªèƒ½å ç”¨ localBuffer/rankSizeã€‚
     const uint64_t packedBytes = std::min(param_.totalInputBytes, GetMaxWindowBytes(param_, resCtx_));
     window.startItemIdx = 0;
     window.startOffsetBytes = 0;
@@ -208,6 +210,7 @@ HcclResult AllGatherBatchSmallCountExecutor::BuildFirstWindow(WindowRange &windo
     return ValidateWindow(window);
 }
 
+// å¤šçª—å£è·¯å¾„é€šè¿‡â€œå½“å‰ä½ç½® + æœ€å¤§å•çª—å£å®¹é‡â€æ¨è¿›ï¼Œé¿å… Host åœ¨å¤§è¾“å…¥åœºæ™¯ä¸‹è¢«è¿«ä¸€æ¬¡æ€§åƒå®Œæ•´ä¸ª batchã€‚
 HcclResult AllGatherBatchSmallCountExecutor::BuildNextWindow(
     const WindowRange &current, WindowRange &next, bool &hasNext) const
 {
@@ -240,7 +243,7 @@ HcclResult AllGatherBatchSmallCountExecutor::Pack(const WindowRange &window) con
 {
     HCCL_CHK_RET(ValidateWindow(window));
 
-    // Pack ÏÖÔÚ°Ñ±¾ rank µÄ´°¿Ú´òµ½ localBuffer µÄ¡°±¾ rank ²ÛÎ»¡±£¬ºóĞøÍ¨ĞÅ²ã»á²¹ÆëÆäËü rank µÄ²ÛÎ»¡£
+    // Pack ç°åœ¨æŠŠæœ¬ rank çš„çª—å£æ‰“åˆ° localBuffer çš„â€œæœ¬ rank æ§½ä½â€ï¼Œåç»­é€šä¿¡å±‚ä¼šè¡¥é½å…¶å®ƒ rank çš„æ§½ä½ã€‚
     uint8_t *dst = GetRankWindowBase(window, param_.topoInfo.rank);
     uint64_t packedOffset = 0;
     uint32_t itemIdx = window.startItemIdx;
@@ -279,7 +282,7 @@ HcclResult AllGatherBatchSmallCountExecutor::Unpack(const WindowRange &window) c
 {
     HCCL_CHK_RET(ValidateWindow(window));
 
-    // gathered ½á¹ûÒÔ¡°rank ²ÛÎ» + ²ÛÄÚ packed Ë³Ğò¡±´æ·ÅÔÚ localBuffer ÖĞ£¬ÕâÀïÔÙ²ğ»ØÃ¿¸ö item µÄ recvBuf¡£
+    // gathered ç»“æœä»¥â€œrank æ§½ä½ + æ§½å†… packed é¡ºåºâ€å­˜æ”¾åœ¨ localBuffer ä¸­ï¼Œè¿™é‡Œå†æ‹†å›æ¯ä¸ª item çš„ recvBufã€‚
     for (uint32_t rank = 0; rank < param_.topoInfo.rankSize; ++rank) {
         uint8_t *src = GetRankWindowBase(window, rank);
         uint64_t packedOffset = 0;
@@ -354,7 +357,7 @@ HcclResult AllGatherBatchSmallCountExecutor::Orchestrate()
 
         HCCL_CHK_RET(Pack(window));
 
-        // ÕâÂÖÆğ£¬Í¨ĞÅ²ã°´´°¿Ú´óĞ¡ÕæÕıÊÕÆëËùÓĞ rank µÄ²ÛÎ»£¬ÔÙÓÉ Unpack ²ğ»ØÃ¿¸ö item¡£
+        // è¿™è½®èµ·ï¼Œé€šä¿¡å±‚æŒ‰çª—å£å¤§å°çœŸæ­£æ”¶é½æ‰€æœ‰ rank çš„æ§½ä½ï¼Œå†ç”± Unpack æ‹†å›æ¯ä¸ª itemã€‚
         AllGatherHDStageCore hdStageCore(param_, resCtx_, window.packedBytes);
         HcclResult commRet = hdStageCore.RunAsync();
         if (commRet != HCCL_SUCCESS) {
@@ -374,5 +377,7 @@ HcclResult AllGatherBatchSmallCountExecutor::Orchestrate()
 }
 
 }  // namespace ops_hccl_allgatherbatch
+
+
 
 

@@ -1,12 +1,15 @@
-#include "allgather_batch.h"
+﻿#include "allgather_batch.h"
 
 #include <cstdio>
+#include <memory>
+#include <vector>
 
 #include "common.h"
 #include "hccl/hccl_rank_graph.h"
 #include "launch_kernel.h"
 #include "load_kernel.h"
 #include "log.h"
+#include "resource_request.h"
 
 namespace ops_hccl_allgatherbatch {
 
@@ -22,7 +25,7 @@ struct ChannelLinkInfo {
 
 HcclResult EnsureControlNotifies(AlgResourceCtx &resCtx)
 {
-    // Host �ౣ��������� notify������ device ִ�С��ȴ� device ��ɡ�
+    // Host 侧保留两类控制 notify：启动 device 执行、等待 device 完成。
     for (uint32_t idx = 0; idx < kAllGatherBatchControlNotifyNum; ++idx) {
         if (g_allGatherBatchNotifies[idx] == nullptr) {
             ACL_CHK(aclrtCreateNotify(&g_allGatherBatchNotifies[idx], ACL_NOTIFY_DEFAULT));
@@ -294,85 +297,147 @@ HcclResult ValidatePreparedResourceCtx(const OpParam &param)
     return ValidateRemoteChannelResources(param, resCtx, "prepared");
 }
 
-HcclResult BuildFreshResourceCtx(HcclComm comm, const BatchTopoInfo &topoInfo, AlgResourceCtx &resCtx)
+// 资源请求阶段先把“需要和哪些 rank 建链”算清楚，再交给 GetAlgRes 真正申请资源。
+HcclResult CalcFullMeshResourceRequest(HcclComm comm, const OpParam &param, BatchResourceRequest &request)
 {
-    void *localBuffer = nullptr;
-    HCCL_CHK_RET(EnsureControlNotifies(resCtx));
-    HCCL_CHK_RET(HcclThreadAcquire(comm, COMM_ENGINE_AICPU, 1, 0, &resCtx.threadHandle));
-    HCCL_CHK_RET(HcclGetHcclBuffer(comm, &localBuffer, &resCtx.localBuffer.size));
-    resCtx.localBuffer.addr = localBuffer;
-    resCtx.channelCount = 0;
+    request.threadNum = 1;
+    request.controlNotifyNum = kAllGatherBatchControlNotifyNum;
+    request.localBufferBytes = 0;
+    request.commMode = param.commMode;
+    request.channelCount = GetExpectedFullMeshChannelCount(param);
+    request.channels.clear();
+    request.channels.reserve(request.channelCount);
 
-    if (topoInfo.rankSize <= 1) {
-        return HCCL_SUCCESS;
-    }
-    if (topoInfo.rankSize - 1 > kAllGatherBatchMaxChannels) {
-        HCCL_ERROR("rankSize=%u exceeds max channel capacity=%u", topoInfo.rankSize, kAllGatherBatchMaxChannels);
-        return HCCL_E_NOT_SUPPORT;
-    }
-
-    HcclChannelDesc channelDescs[kAllGatherBatchMaxChannels];
-    ChannelHandle channelHandles[kAllGatherBatchMaxChannels] = {0};
-    ChannelLinkInfo linkInfos[kAllGatherBatchMaxChannels];
-    HcclChannelDescInit(channelDescs, kAllGatherBatchMaxChannels);
-
-    uint32_t channelCount = 0;
-    for (uint32_t remoteRank = 0; remoteRank < topoInfo.rankSize; ++remoteRank) {
-        if (remoteRank == topoInfo.rank) {
+    for (uint32_t remoteRank = 0; remoteRank < param.topoInfo.rankSize; ++remoteRank) {
+        if (remoteRank == param.topoInfo.rank) {
             continue;
         }
 
-        HCCL_CHK_RET(QueryChannelLinkInfo(comm, topoInfo.rank, remoteRank, linkInfos[channelCount]));
-        if (linkInfos[channelCount].localSuperPodIdx != linkInfos[channelCount].remoteSuperPodIdx) {
+        ChannelLinkInfo linkInfo;
+        HCCL_CHK_RET(QueryChannelLinkInfo(comm, param.topoInfo.rank, remoteRank, linkInfo));
+        if (linkInfo.localSuperPodIdx != linkInfo.remoteSuperPodIdx) {
             HCCL_ERROR("cross-superpod link is not supported, rank=%u(superPod=%u) remoteRank=%u(superPod=%u)",
-                topoInfo.rank,
-                linkInfos[channelCount].localSuperPodIdx,
+                param.topoInfo.rank,
+                linkInfo.localSuperPodIdx,
                 remoteRank,
-                linkInfos[channelCount].remoteSuperPodIdx);
+                linkInfo.remoteSuperPodIdx);
             return HCCL_E_NOT_SUPPORT;
         }
 
-        channelDescs[channelCount].remoteRank = remoteRank;
-        channelDescs[channelCount].channelProtocol = linkInfos[channelCount].protocol;
-        channelDescs[channelCount].notifyNum = 2;
-        ++channelCount;
+        ChannelRequest channelRequest;
+        channelRequest.remoteRank = remoteRank;
+        channelRequest.remoteServerIdx = linkInfo.remoteServerIdx;
+        channelRequest.remoteSuperPodIdx = linkInfo.remoteSuperPodIdx;
+        channelRequest.protocol = linkInfo.protocol;
+        channelRequest.notifyNum = 2;
+        request.channels.push_back(channelRequest);
+    }
+
+    request.channelCount = static_cast<uint32_t>(request.channels.size());
+    if (request.channelCount != GetExpectedFullMeshChannelCount(param)) {
+        HCCL_ERROR("fullmesh request channelCount mismatch, actual=%u, expected=%u",
+            request.channelCount,
+            GetExpectedFullMeshChannelCount(param));
+        return HCCL_E_INTERNAL;
+    }
+    return HCCL_SUCCESS;
+}
+
+// context 大小由真实 channel 数决定，避免固定 32 条 channel 的静态上限。
+uint64_t CalcAlgResourceCtxSize(const BatchResourceRequest &request)
+{
+    return sizeof(AlgResourceCtx) +
+        static_cast<uint64_t>(request.channelCount) * sizeof(ChannelResource);
+}
+
+// 先初始化固定头，尾部 channel 区由 AllocAlgResource 继续填充。
+void InitAlgResourceCtxHeader(const BatchResourceRequest &request, AlgResourceCtx &resCtx)
+{
+    resCtx.channelCount = request.channelCount;
+    resCtx.channelOffset = sizeof(AlgResourceCtx);
+}
+
+// 真正的资源申请只消费 request，不再自己重算拓扑和 remote rank 集合。
+HcclResult AllocAlgResource(
+    HcclComm comm,
+    const OpParam &param,
+    const BatchResourceRequest &request,
+    AlgResourceCtx &resCtx)
+{
+    void *localBuffer = nullptr;
+    HCCL_CHK_RET(EnsureControlNotifies(resCtx));
+    HCCL_CHK_RET(HcclThreadAcquire(comm, COMM_ENGINE_AICPU, request.threadNum, 0, &resCtx.threadHandle));
+    HCCL_CHK_RET(HcclGetHcclBuffer(comm, &localBuffer, &resCtx.localBuffer.size));
+    resCtx.localBuffer.addr = localBuffer;
+
+    if (request.channelCount == 0) {
+        return HCCL_SUCCESS;
+    }
+
+    std::vector<HcclChannelDesc> channelDescs(request.channelCount);
+    std::vector<ChannelHandle> channelHandles(request.channelCount, 0);
+    HcclChannelDescInit(channelDescs.data(), request.channelCount);
+
+    for (uint32_t idx = 0; idx < request.channelCount; ++idx) {
+        channelDescs[idx].remoteRank = request.channels[idx].remoteRank;
+        channelDescs[idx].channelProtocol = request.channels[idx].protocol;
+        channelDescs[idx].notifyNum = request.channels[idx].notifyNum;
     }
 
     HCCL_CHK_RET(HcclChannelAcquire(
         comm,
         COMM_ENGINE_AICPU,
-        channelDescs,
-        channelCount,
-        channelHandles));
+        channelDescs.data(),
+        request.channelCount,
+        channelHandles.data()));
 
-    for (uint32_t idx = 0; idx < channelCount; ++idx) {
-        resCtx.channels[idx].handle = channelHandles[idx];
-        resCtx.channels[idx].remoteRank = channelDescs[idx].remoteRank;
-        resCtx.channels[idx].remoteServerIdx = linkInfos[idx].remoteServerIdx;
-        resCtx.channels[idx].remoteSuperPodIdx = linkInfos[idx].remoteSuperPodIdx;
-        resCtx.channels[idx].protocol = linkInfos[idx].protocol;
-        resCtx.channels[idx].localNotifyIdx = 0;
-        resCtx.channels[idx].remoteNotifyIdx = 0;
+    ChannelResource *channels = GetChannelArray(resCtx);
+    for (uint32_t idx = 0; idx < request.channelCount; ++idx) {
+        channels[idx].handle = channelHandles[idx];
+        channels[idx].remoteRank = request.channels[idx].remoteRank;
+        channels[idx].remoteServerIdx = request.channels[idx].remoteServerIdx;
+        channels[idx].remoteSuperPodIdx = request.channels[idx].remoteSuperPodIdx;
+        channels[idx].protocol = request.channels[idx].protocol;
+        channels[idx].localNotifyIdx = 0;
+        channels[idx].remoteNotifyIdx = 0;
         HCCL_CHK_RET(HcclChannelGetHcclBuffer(
             comm,
             channelHandles[idx],
-            &resCtx.channels[idx].remoteBuffer.addr,
-            &resCtx.channels[idx].remoteBuffer.size));
+            &channels[idx].remoteBuffer.addr,
+            &channels[idx].remoteBuffer.size));
     }
-    resCtx.channelCount = channelCount;
+
+    const uint32_t expectedChannelCount = GetExpectedFullMeshChannelCount(param);
+    if (resCtx.channelCount != expectedChannelCount) {
+        HCCL_ERROR("allocated channelCount mismatch, actual=%u, expected=%u",
+            resCtx.channelCount,
+            expectedChannelCount);
+        return HCCL_E_INTERNAL;
+    }
     return HCCL_SUCCESS;
 }
 
+// Host 侧资源链现在固定为：CalcFullMeshResourceRequest -> 动态 ctxSize -> AllocAlgResource。
 HcclResult GetAlgRes(HcclComm comm, const OpParam &param, AlgResourceCtx **resCtx)
 {
     HCCL_CHK_PTR(resCtx);
 
+    BatchResourceRequest request;
+    HCCL_CHK_RET(CalcFullMeshResourceRequest(comm, param, request));
+
     void *ctx = nullptr;
-    uint64_t ctxSize = sizeof(AlgResourceCtx);
+    uint64_t ctxSize = CalcAlgResourceCtxSize(request);
+    const uint64_t expectedCtxSize = ctxSize;
     const CommEngine engine = COMM_ENGINE_AICPU;
 
     HcclResult ret = HcclEngineCtxGet(comm, param.tag, engine, &ctx, &ctxSize);
     if (ret == HCCL_SUCCESS) {
+        if (ctxSize != expectedCtxSize) {
+            HCCL_ERROR("cached ctx size mismatch, actual=%llu, expected=%llu",
+                static_cast<unsigned long long>(ctxSize),
+                static_cast<unsigned long long>(expectedCtxSize));
+            return HCCL_E_INTERNAL;
+        }
         *resCtx = static_cast<AlgResourceCtx *>(ctx);
         return HCCL_SUCCESS;
     }
@@ -380,11 +445,19 @@ HcclResult GetAlgRes(HcclComm comm, const OpParam &param, AlgResourceCtx **resCt
         return ret;
     }
 
-    HCCL_CHK_RET(HcclEngineCtxCreate(comm, param.tag, engine, sizeof(AlgResourceCtx), &ctx));
+    HCCL_CHK_RET(HcclEngineCtxCreate(comm, param.tag, engine, expectedCtxSize, &ctx));
 
-    AlgResourceCtx hostResCtx;
-    HCCL_CHK_RET(BuildFreshResourceCtx(comm, param.topoInfo, hostResCtx));
-    HCCL_CHK_RET(HcclEngineCtxCopy(comm, engine, param.tag, &hostResCtx, sizeof(AlgResourceCtx), 0));
+    std::unique_ptr<uint8_t[]> hostResBytes(new (std::nothrow) uint8_t[expectedCtxSize]());
+    if (!hostResBytes) {
+        HCCL_ERROR("failed to allocate host resource buffer, size=%llu",
+            static_cast<unsigned long long>(expectedCtxSize));
+        return HCCL_E_MEMORY;
+    }
+
+    AlgResourceCtx *hostResCtx = reinterpret_cast<AlgResourceCtx *>(hostResBytes.get());
+    InitAlgResourceCtxHeader(request, *hostResCtx);
+    HCCL_CHK_RET(AllocAlgResource(comm, param, request, *hostResCtx));
+    HCCL_CHK_RET(HcclEngineCtxCopy(comm, engine, param.tag, hostResCtx, expectedCtxSize, 0));
 
     *resCtx = static_cast<AlgResourceCtx *>(ctx);
     return HCCL_SUCCESS;
@@ -406,7 +479,7 @@ HcclResult HcclAllGatherBatch(
 {
     using namespace ops_hccl_allgatherbatch;
 
-    // ���������ֻ����������־����ϸ����/ģʽ��Ϣ���� Host ����·���õ� topo ���ٴ�ӡ��
+    // 对外入口先只保留轻量日志，详细拓扑/模式信息交给 Host 主链路在拿到 topo 后再打印。
     HCCL_INFO("HcclAllGatherBatch invoked: itemCount=%u", itemCount);
 
     HCCL_CHK_RET(ValidateItems(items, itemCount, comm, stream));
@@ -447,4 +520,5 @@ HcclResult HcclAllGatherBatch(
     HCCL_CHK_RET(LoadAndLaunch(param, stream));
     return HCCL_SUCCESS;
 }
+
 
