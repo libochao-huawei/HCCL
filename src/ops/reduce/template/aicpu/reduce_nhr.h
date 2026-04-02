@@ -19,6 +19,7 @@ namespace ops_hccl {
 
 class ReduceNHR : public InsAlgTemplateBase {
 public:
+    ReduceNHR() = default;
     explicit ReduceNHR(const OpParam &param, const u32 rankId,  // 传通信域的rankId，userRank
         const std::vector<std::vector<u32>> &subCommRanks);
 
