@@ -12,7 +12,7 @@
 #include "hccl/hcom.h"
 #include <cstddef>
 #include <cstring>
-#include "hcom_dl.h"
+#include "hcom.h"
 
 HcclResult HcclCreateOpParamGraphMode(OpParamGraphMode **opParam)
 {
