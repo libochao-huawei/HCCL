@@ -11,7 +11,7 @@
 #include "calc_resource_graph_mode.h"
 #include <cstddef>
 #include <cstring>
-#include "hcom_dl.h"
+#include "hcom.h"
 
 HcclResult HcclCreateOpParamGraphMode(OpParamGraphMode **opParam)
 {
