@@ -19,6 +19,7 @@ namespace ops_hccl {
 
 class InsTempAlltoAllVMesh1D : public InsAlgTemplateBase {
 public:
+    InsTempAlltoAllVMesh1D() = default;
     explicit InsTempAlltoAllVMesh1D(const OpParam& param, const u32 rankId,
         const std::vector<std::vector<u32>> &subCommRanks);
 
