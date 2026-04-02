@@ -1332,17 +1332,17 @@ HcclResult CheckReduceOp(const HcclDataType dataType, const HcclReduceOp op)
     if (op == HcclReduceOp::HCCL_REDUCE_PROD) {
         if (!Is64BitDataType(dataType)) {
             RPT_INPUT_ERR(true, "EI0003", infoTitle, std::vector<std::string>({"CheckReduceOp", GetReduceOpEnumStr(op), "ReduceOp",
-                GetReduceOpSupportDataType()}));
+                GetReduceProdSupportDataType()}));
             HCCL_ERROR("[Check][ReduceOp][DataType]errNo[0x%016llx] reduceop is [%s] data type[%s] not supported, support range=[%s]",
                         HCCL_ERROR_CODE(HCCL_E_NOT_SUPPORT), GetReduceOpEnumStr(op), GetDataTypeEnumStr(dataType).c_str(),
-                        GetReduceOpSupportDataType().c_str());
+                        GetReduceProdSupportDataType().c_str());
             return HCCL_E_NOT_SUPPORT;
         }
     }
     return HCCL_SUCCESS;
 }
 
-std::string GetReduceOpSupportDataType()
+std::string GetReduceProdSupportDataType()
 {
     std::vector<HcclDataType> supportList = {HCCL_DATA_TYPE_INT64, HCCL_DATA_TYPE_UINT64, HCCL_DATA_TYPE_FP64};
     std::string supportInfo = "";

@@ -96,7 +96,7 @@ std::string GetSupportDataType(bool needReduce);
 
 HcclResult CheckReduceOp(const HcclDataType dataType, const HcclReduceOp op);
 
-std::string GetReduceOpSupportDataType();
+std::string GetReduceProdSupportDataType();
 
 HcclResult SetCommEngine(OpParam &param);
 
