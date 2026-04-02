@@ -193,7 +193,6 @@ HcclResult ProcessLinkForProtocol(HcclComm comm, const std::vector<CommProtocol>
                 CHK_RET(CreateChannelFromLink(comm, myRank, remoteRank, netLayer, idx, linkList[idx],
                     funcName, channels));
                 protocolFound = true;
-                break;
             }
         }
         if (protocolFound) {
@@ -546,8 +545,10 @@ HcclResult CreateChannelRequestByRankId(HcclComm comm, const OpParam& param, u32
         }
         std::vector<CommLink> links(linkList, linkList + listSize);
         bool protocolFound = false;
-        CHK_RET(ProcessLinkForProtocol(comm, expectedProtocols, links, myRank, remoteRank, netLayer, channels, protocolFound,
-            std::string("[CreateChannelRequestByRankId]")));
+        for (u32 i = 0; i < channelRepeatNum; i++) {
+            CHK_RET(ProcessLinkForProtocol(comm, expectedProtocols, links, myRank, remoteRank, netLayer, channels, protocolFound,
+                std::string("[CreateChannelRequestByRankId]")));
+        }
 
         if (channels.size() > 0) {
             break;

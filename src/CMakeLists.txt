@@ -150,6 +150,7 @@ if(BUILD_OPEN_PROJECT)
 
         # hcomm头文件
         ${ASCEND_CANN_PACKAGE_PATH}/include/hccl
+        ${ASCEND_CANN_PACKAGE_PATH}/include/hcomm
 
         # runtime头文件
         ${ASCEND_CANN_PACKAGE_PATH}/include/
@@ -229,11 +230,7 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         ${CMAKE_CURRENT_SOURCE_DIR}/common/log.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/common/adapter_error_manager_pub.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/common/alg_env_config.cc
-        ${CMAKE_CURRENT_SOURCE_DIR}/common/hcomm_dlsym/hcomm_device_dlsym.cc
-        ${CMAKE_CURRENT_SOURCE_DIR}/common/hcomm_dlsym/hcomm_primitives_dl.cc
-        ${CMAKE_CURRENT_SOURCE_DIR}/common/hcomm_dlsym/hcomm_diag_dl.cc
-        ${CMAKE_CURRENT_SOURCE_DIR}/common/hcomm_dlsym/hcomm_device_profiling_dl.cc
-        ${CMAKE_CURRENT_SOURCE_DIR}/common/hcomm_dlsym/dtype_common_dl.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/common/device_compat.cc
 
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/executor/channel/channel.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/executor/channel/channel_request.cc
@@ -319,7 +316,7 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_to_all_v/template/aicpu/ins_temp_dpu_alltoall_mesh.cc
 
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_v2_all_reduce_sole_executor.cc
-        ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_all_reduce_parallel_executor.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_v2_all_reduce_parallel_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_v2_all_reduce_sequence_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/template/aicpu/ins_temp_all_reduce_mesh_1D_one_shot.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/template/aicpu/ins_temp_all_reduce_mesh_1D_two_shot.cc
@@ -374,8 +371,12 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
 
     target_link_libraries(scatter_aicpu_kernel PRIVATE
         -Wl,--no-as-needed
+        ccl_kernel
+        hccl_kernel_compat
         -Wl,--no-as-needed
     )
+
+    add_dependencies(scatter_aicpu_kernel hccl_kernel_compat)
 endif()
 
 add_definitions(-DORION_MODE)
@@ -421,7 +422,7 @@ target_compile_options(hccl PRIVATE
     -fno-common
     -fno-strict-aliasing
     -pipe
-    $<$<CONFIG:Release>:-O3>
+    -O3
     $<$<CONFIG:Debug>:-g>
     -std=c++14
     -fstack-protector-all
@@ -439,10 +440,13 @@ target_link_directories(hccl PRIVATE
     ${ASCEND_CANN_PACKAGE_PATH}/lib64
 )
 
+add_dependencies(hccl hccl_compat)
+
 if(BUILD_OPEN_PROJECT)
     target_link_libraries(hccl PRIVATE
         -Wl,--no-as-needed
         hcomm
+        hccl_compat
         acl_rt
         c_sec
         unified_dlog
@@ -457,6 +461,7 @@ else()
         $<BUILD_INTERFACE:mmpa_headers>
         -Wl,--no-as-needed
         hcomm
+        hccl_compat
         acl_rt
         c_sec
         unified_dlog
@@ -485,7 +490,8 @@ if(DEVICE_MODE AND KERNEL_MODE)
         POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory ${CCL_KERNEL_TAR_DIR}
         COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:scatter_aicpu_kernel> ${CCL_KERNEL_TAR_DIR}
-        COMMENT "Copying libscatter_aicpu_kernel.so to ${CCL_KERNEL_TAR_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:hccl_kernel_compat> ${CCL_KERNEL_TAR_DIR}
+        COMMENT "Copying libscatter_aicpu_kernel.so&libhccl_kernel_compat.so to ${CCL_KERNEL_TAR_DIR}"
     )
 
     set(AICPU_CUSTOM_DIR ${OPS_BASE_DIR}/build_device/aicpu_custom/)

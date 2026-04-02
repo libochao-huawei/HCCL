@@ -40,6 +40,9 @@ namespace ops_hccl {
         void *recvBuf, uint64_t count, HcclDataType dataType, uint32_t srcRank,
         const HcclComm comm, const aclrtStream stream, const u32 &rankSize,
         const OpMode &opMode, const std::string &tag, const ResPackGraphMode &resPack = ResPackGraphMode());
+    HcclResult RecvEntryLog(void *recvBuf, uint64_t count, HcclDataType dataType, uint32_t srcRank,
+        aclrtStream stream, const std::string &tag, const std::string &opName);
+
 } // namespace ops_hccl
 
 #endif // ifndef OPS_HCCL_SRC_OPS_RECV_OP

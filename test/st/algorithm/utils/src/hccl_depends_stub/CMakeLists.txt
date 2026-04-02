@@ -37,3 +37,13 @@ target_compile_options(mmpa PRIVATE
     -g
     -O0
 )
+
+add_library(acl_rt SHARED hccl_depends_stub.cc)
+target_compile_options(acl_rt PRIVATE
+    -std=c++14
+    -fno-common
+    -fno-strict-aliasing
+    -pipe
+    -g
+    -O0
+)
