@@ -245,7 +245,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     HCCL_INFO("[HcclExecOp]Start to execute HcclExecOp.HcommGetProfilingSysCycleTime.%llu", beginTime);
     // 在原先的commName中添加执行模式，得到commModeTag
     param.hcclComm = comm;
-    bool isOpBase = true;
+    bool isOpBase = param.opMode == OpMode::OPBASE;
     const char* opModeStr = isOpBase ? "_opbase" : "_offload";
     auto ret = sprintf_s(param.commModeTag, sizeof(param.commModeTag), "%s_%s", param.commName, opModeStr);
     if (ret <= 0) {
