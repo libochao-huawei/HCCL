@@ -82,7 +82,6 @@ HcclResult HcclReduceScatterVGraphMode(void *sendBuf,  const void *sendCounts, c
     HcclComm comm = nullptr;
     HCCL_INFO("[HcclReduceScatterVGraphMode] get group name: %s", group);
     HcomGetCommHandleByGroup(group, &comm);
-    // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
     CHK_RET(InitEnvConfig());
     // 参数校验等工作;
     CHK_RET(CheckReduceScatterVInputParam(comm, sendBuf, recvBuf, recvCount, sendCounts, sendDispls, stream));
@@ -102,6 +101,7 @@ HcclResult HcclReduceScatterVGraphMode(void *sendBuf,  const void *sendCounts, c
     CHK_RET(HcclCheckTag(opTag.c_str()));
     CHK_RET(HcclCheckTag(tag));
     CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), opTag.c_str());
+    HCCL_INFO("PrepareReduceScatterVParam: recvCount:[%u]", recvCount);
     CHK_RET(CheckCount(recvCount));
     CHK_RET(CheckDataType(dataType, true));
 
