@@ -42,7 +42,7 @@
 #include "hcomm_host_profiling_dl.h"
 #include "rt.h"
 #include "dlhcomm_function.h"
-#include "hcom_dl.h"
+#include "hcom.h"
 
 #ifdef __cplusplus
 extern "C" {
