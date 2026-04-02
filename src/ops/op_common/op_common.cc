@@ -196,15 +196,8 @@ HcclResult SetOpParamFastLaunchTag(OpParam &param)
     }
     // 3.count
     if (param.opType != HcclCMDType::HCCL_CMD_ALLTOALLV) {
-        if (param.opType != HcclCMDType::HCCL_CMD_ALLTOALL) {
-            std::string count = std::to_string(param.DataDes.count); // todo: alltoall 的count不是从这里取
-        } else {
-            u64 sendCount = 0;
-            for (u64 i = 0; i < rankSize; i++) {
-                sendCount += *(reinterpret_cast<const u64 *>(param.all2AllVDataDes.sendCounts) + i);
-                std::string count = std::to_string(sendCount);
-            }
-        }
+        std::string count = (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL) ? std::to_string(*reinterpret_cast<u64*>(param.all2AllVDataDes.sendCounts)) : 
+        std::to_string(param.DataDes.count); // todo: alltoall 的count不是从这里取
         tagBuilder += "_" + count;
     }
 
