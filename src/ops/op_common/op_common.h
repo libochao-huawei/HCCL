@@ -158,13 +158,6 @@ HcclResult HcclGetRemoteBuff(HcclComm comm, ChannelHandle channel, const char *m
 
 HcclResult LogHcclExit(const std::string &opName, const char *tag, HcclUs startut);
 
-bool Is64BitDataType(const HcclDataType dataType)
-{
-    return dataType == HcclDataType::HCCL_DATA_TYPE_INT64 ||
-           dataType == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
-           dataType == HcclDataType::HCCL_DATA_TYPE_FP64;
-}
-
 }  // namespace ops_hccl
 
 
