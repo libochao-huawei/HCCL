@@ -200,49 +200,66 @@ HcclResult HcclCalcCcuResOffline(OpParamGraphMode *opParam, ResResponseGraphMode
 HcclResult CalcTaskNum(OpParamGraphMode *opParam, u32 &ccuTaskNum)
 {
     HCCL_INFO("[CalcTaskNum] begin");
+    if (opParam->hcclBufferSize == 0 || opParam->rankSize == 0) {
+        ccuTaskNum = GE_PARALLEL;
+        return HCCL_SUCCESS;
+    }
+
+    u64 dataCount = opParam->dataCount;
+    u64 rankSize = opParam->rankSize;
     u64 scratchBufferSize = opParam->hcclBufferSize;
     u64 transportBoundDataSize = UB_MAX_DATA_SIZE;
-    u64 dataCount = opParam->dataCount;
     u64 dataType = opParam->dataType;
     u64 dataTypeSize = DATATYPE_SIZE_TABLE[dataType];
-    u64 rankSize = opParam->rankSize;
-    u64 maxDataSizePerLoop = std::min(transportBoundDataSize, scratchBufferSize);
+    u64 maxDataSizePerLoop;
     u64 maxDataCountPerLoop;
     u64 loopTimes;
     HCCL_INFO("[CalcTaskNum] opType[%s] scratchBufferSize[%llu] dataCount[%llu] rankSize[%llu] maxDataSizePerLoop[%llu]", 
             opParam->opType, scratchBufferSize, dataCount, rankSize, maxDataSizePerLoop);
     if (opParam->opType == HCCL_KERNEL_OP_TYPE_ALLTOALL) {
+        maxDataSizePerLoop = transportBoundDataSize;
         maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize / rankSize;
         loopTimes = dataCount / maxDataCountPerLoop + static_cast<u64>(dataCount % maxDataCountPerLoop != 0);
         ccuTaskNum = loopTimes;
     } else if (opParam->opType == HCCL_KERNEL_OP_TYPE_ALLTOALLV || opParam->opType == HCCL_KERNEL_OP_TYPE_ALLTOALLVC) {
         ccuTaskNum = 1;
     } else if (opParam->opType == HCCL_KERNEL_OP_TYPE_REDUCE) { 
+        maxDataSizePerLoop = std::min(transportBoundDataSize, scratchBufferSize);
         maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize;
         loopTimes = dataCount / maxDataCountPerLoop + static_cast<u64>(dataCount % maxDataCountPerLoop != 0);
-        ccuTaskNum = loopTimes * 18;
+        ccuTaskNum = loopTimes * GE_PARALLEL;
     } else if (opParam->opType == HCCL_KERNEL_OP_TYPE_BROADCAST) {
+        maxDataSizePerLoop = transportBoundDataSize;
         maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize;
         loopTimes = dataCount / maxDataCountPerLoop + static_cast<u64>(dataCount % maxDataCountPerLoop != 0);
-        ccuTaskNum = loopTimes * 18;
+        ccuTaskNum = loopTimes * GE_PARALLEL;
     } else if (opParam->opType == HCCL_KERNEL_OP_TYPE_ALLGATHER) {
+        maxDataSizePerLoop = transportBoundDataSize;
         maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize;
         loopTimes = dataCount / maxDataCountPerLoop + static_cast<u64>(dataCount % maxDataCountPerLoop != 0);
-        ccuTaskNum = loopTimes * 18;
+        ccuTaskNum = loopTimes * GE_PARALLEL;
     } else if (opParam->opType == HCCL_KERNEL_OP_TYPE_REDUCESCATTER) {
+        maxDataSizePerLoop = std::min(transportBoundDataSize, scratchBufferSize);
         maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize;
         loopTimes = dataCount / maxDataCountPerLoop + static_cast<u64>(dataCount % maxDataCountPerLoop != 0);
-        ccuTaskNum = loopTimes * 18;
+        ccuTaskNum = loopTimes * GE_PARALLEL;
     } else if (opParam->opType == HCCL_KERNEL_OP_TYPE_ALLREDUCE) {
+        maxDataSizePerLoop = std::min(transportBoundDataSize, scratchBufferSize);
         u64 scratchBoundDataSize = scratchBufferSize / rankSize / 128 * 128;
         maxDataSizePerLoop = std::min(transportBoundDataSize, scratchBoundDataSize);
         maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize;
         loopTimes = dataCount / maxDataCountPerLoop + static_cast<u64>(dataCount % maxDataCountPerLoop != 0);
-        ccuTaskNum = loopTimes * 18;
+        ccuTaskNum = loopTimes * GE_PARALLEL;
     } else if (opParam->opType == HCCL_KERNEL_OP_TYPE_SCATTER) {
+        maxDataSizePerLoop = std::min(transportBoundDataSize, scratchBufferSize);
         maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize;
         loopTimes = dataCount / maxDataCountPerLoop + static_cast<u64>(dataCount % maxDataCountPerLoop != 0);
-        ccuTaskNum = loopTimes * 18;
+        ccuTaskNum = loopTimes * GE_PARALLEL;
+    } else if (opParam->opType == HCCL_KERNEL_OP_TYPE_ALLGATHERV) {
+        maxDataSizePerLoop = transportBoundDataSize;
+        maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize;
+        loopTimes = dataCount / maxDataCountPerLoop + static_cast<u64>(dataCount % maxDataCountPerLoop != 0);
+        ccuTaskNum = loopTimes * GE_PARALLEL;
     }
     HCCL_INFO("[CalcTaskNum] end.");
     return HCCL_SUCCESS;
