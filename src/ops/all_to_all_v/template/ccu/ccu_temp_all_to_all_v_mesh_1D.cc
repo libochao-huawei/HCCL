@@ -251,12 +251,8 @@ HcclResult CcuTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
     HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr);
     CcuKernelSubmitInfo subCommInfo;
     subCommInfo.kernelHandle = templateResource.ccuKernels[0];
-    subCommInfo.cachedArgs[0] = buffInfo_.inBuffBaseOff;
- 	subCommInfo.cachedArgs[1] = buffInfo_.outBuffBaseOff;
- 	subCommInfo.cachedArgs[2] = token;
- 	subCommInfo.cachedArgs[3] = srcOffset;
-    subCommInfo.cachedArgs[4] = dstOffset;
-    subCommInfo.cachedArgs[5] = rankSize;
+    CHK_RET(FillCachedArgs(subCommInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, 
+        token, srcOffset, dstOffset, rankSize));
     templateResource.submitInfos.push_back(subCommInfo);    
 
     return HcclResult::HCCL_SUCCESS;

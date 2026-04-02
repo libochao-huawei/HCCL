@@ -208,9 +208,7 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLau
     kernelSubmitInfos[0] = templateAlgRes.submitInfos[0];
     return HCCL_SUCCESS;
 }
-#endif
 
-#ifndef AICPU_COMPILE
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunch(
         const OpParam &param, const CcuFastLaunchCtx *fastLaunchCtx)

@@ -178,13 +178,8 @@ HcclResult CcuTempAlltoAllMesh1D::KernelRun(const OpParam& param,
     
     CcuKernelSubmitInfo subCommInfo;
     subCommInfo.kernelHandle = templateResource.ccuKernels[0];
-    subCommInfo.cachedArgs[0] = buffInfo_.inBuffBaseOff;
- 	subCommInfo.cachedArgs[1] = buffInfo_.outBuffBaseOff;
- 	subCommInfo.cachedArgs[2] = sliceSize;
- 	subCommInfo.cachedArgs[3] = token;
-    subCommInfo.cachedArgs[4] = srcOffset;
-    subCommInfo.cachedArgs[5] = dstOffset;
-    subCommInfo.cachedArgs[6] = srcStride;
+    CHK_RET(FillCachedArgs(subCommInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, sliceSize, 
+        token, srcOffset, dstOffset, srcStride));
     templateResource.submitInfos.push_back(subCommInfo);
      
     HCCL_DEBUG("[CcuTempAlltoAllMesh1D::KernelRun] end");
