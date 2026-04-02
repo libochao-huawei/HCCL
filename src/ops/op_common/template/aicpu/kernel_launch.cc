@@ -20,10 +20,11 @@
 #include "kernel_launch.h"
 #include "hcomm_diag_dl.h"
 #include "hcomm_device_profiling_dl.h"
-#include "hccl_comm_dl.h"
+#include "hccl.h"
 #include <unordered_map>
 #include <shared_mutex>
 #include <atomic>
+#include "hccl/hccl_comm.h"
 
 using namespace ops_hccl;
 namespace {
