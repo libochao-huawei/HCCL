@@ -33,6 +33,12 @@ public:
     HcclResult CalcAlgHierarchyInfo(
         HcclComm comm, TopoInfoWithNetLayerDetails *topoInfo, AlgHierarchyInfoForAllLevel &algHierarchyInfo) override;
 
+#ifndef AICPU_COMPILE
+    HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *resCtx) override;
+    HcclResult FastLaunchSaveCtx(const OpParam &param, const TemplateResource &templateAlgResIntra,
+                                 const TemplateResource &templateAlgResInter);
+#endif
+
 protected:
     /* *************** 算法编排 *************** */
     HcclResult OrchestrateLoop(const OpParam &param, const AlgResourceCtxSerializable &resCtx,
@@ -67,6 +73,11 @@ private:
     std::vector<ThreadHandle> interThreads_;
     std::map<u32, std::vector<ChannelInfo>> intraLinkMap_;
     std::map<u32, std::vector<ChannelInfo>> interLinkMap_;
+
+    u32 ccuKernelLaunchNumIntra0_{0};
+    u32 ccuKernelLaunchNumInter0_{0};
+    u32 ccuKernelLaunchNumIntra1_{0};
+    u32 ccuKernelLaunchNumInter1_{0};
 };
 }  // namespace ops_hccl
 
