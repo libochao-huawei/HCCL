@@ -99,7 +99,7 @@ HcclResult AivTempBroadcastMesh1D::KernelRun(const OpParam& param,
     aivBroadcastArgs.inputRepeatStride = tempAlgParams.inputRepeatStride;
     aivBroadcastArgs.outputRepeatStride = tempAlgParams.outputRepeatStride;
 
-    ExecuteKernelLaunch(aivBroadcastArgs);
+    CHK_RET(ExecuteKernelLaunch(aivBroadcastArgs));
 
     HCCL_INFO("[AivTempBroadcastMesh1D] KernelRun finished");
     return HcclResult::HCCL_SUCCESS;
