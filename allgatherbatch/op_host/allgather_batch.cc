@@ -23,14 +23,14 @@ struct ChannelLinkInfo {
     uint32_t remoteSuperPodIdx = 0;
 };
 
-HcclResult EnsureControlNotifies(AlgResourceCtx &resCtx)
+HcclResult EnsureControlNotifies(OpParam &param)
 {
-    // Host 侧保留两类控制 notify：启动 device 执行、等待 device 完成。
+    // 控制 notify 属于“本次 launch 的控制面参数”，不能再固化进可缓存的 AlgResourceCtx。
     for (uint32_t idx = 0; idx < kAllGatherBatchControlNotifyNum; ++idx) {
         if (g_allGatherBatchNotifies[idx] == nullptr) {
             ACL_CHK(aclrtCreateNotify(&g_allGatherBatchNotifies[idx], ACL_NOTIFY_DEFAULT));
         }
-        ACL_CHK(aclrtGetNotifyId(g_allGatherBatchNotifies[idx], &resCtx.controlNotifyIds[idx]));
+        ACL_CHK(aclrtGetNotifyId(g_allGatherBatchNotifies[idx], &param.controlNotifyIds[idx]));
     }
     return HCCL_SUCCESS;
 }
@@ -412,7 +412,6 @@ HcclResult AllocAlgResource(
     AlgResourceCtx &resCtx)
 {
     void *localBuffer = nullptr;
-    HCCL_CHK_RET(EnsureControlNotifies(resCtx));
     HCCL_CHK_RET(HcclThreadAcquire(comm, COMM_ENGINE_AICPU, request.threadNum, 0, &resCtx.threadHandle));
     HCCL_CHK_RET(HcclGetHcclBuffer(comm, &localBuffer, &resCtx.localBuffer.size));
     resCtx.localBuffer.addr = localBuffer;
@@ -533,6 +532,7 @@ HcclResult HcclAllGatherBatch(
 
     OpParam param;
     HCCL_CHK_RET(PrepareOpParam(items, itemCount, comm, param));
+    HCCL_CHK_RET(EnsureControlNotifies(param));
     HCCL_CHK_RET(ValidateTopo(param.topoInfo));
     HCCL_CHK_RET(ValidatePreparedParam(param));
 
@@ -567,5 +567,3 @@ HcclResult HcclAllGatherBatch(
     HCCL_CHK_RET(LoadAndLaunch(param, stream));
     return HCCL_SUCCESS;
 }
-
-

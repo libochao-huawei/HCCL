@@ -63,7 +63,6 @@ struct BatchTopoInfo {
 // 采用“固定头 + 变长尾部 channel 区”的布局，避免固定 channel 上限。
 struct AlgResourceCtx {
     ThreadHandle threadHandle = 0;
-    uint32_t controlNotifyIds[kAllGatherBatchControlNotifyNum] = {0};
     uint32_t channelCount = 0;
     uint32_t channelOffset = 0;
     CommBuffer localBuffer {};
@@ -90,6 +89,7 @@ struct OpParam {
     uint32_t intraServerRankCount = 0;
     uint32_t crossServerRankCount = 0;
     uint32_t reserved0 = 0;
+    uint32_t controlNotifyIds[kAllGatherBatchControlNotifyNum] = {0};
     uint64_t totalInputBytes = 0;
     uint64_t totalOutputBytes = 0;
     uint64_t windowBytes = 0;
@@ -322,6 +322,14 @@ inline HcclResult ValidateBasicOpParam(const OpParam &param, const char *stageTa
             param.intraServerRankCount,
             param.crossServerRankCount,
             param.topoInfo.rankSize);
+        return HCCL_E_INTERNAL;
+    }
+    if (param.controlNotifyIds[kAllGatherBatchControlNotifyStart] == 0 ||
+        param.controlNotifyIds[kAllGatherBatchControlNotifyDone] == 0) {
+        HCCL_ERROR("%s control notify ids are invalid, start=%u, done=%u",
+            stageTag,
+            param.controlNotifyIds[kAllGatherBatchControlNotifyStart],
+            param.controlNotifyIds[kAllGatherBatchControlNotifyDone]);
         return HCCL_E_INTERNAL;
     }
     if (param.totalInputBytes == 0 || param.totalOutputBytes == 0 || param.windowBytes == 0) {

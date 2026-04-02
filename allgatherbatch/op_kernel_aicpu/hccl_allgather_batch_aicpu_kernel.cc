@@ -66,7 +66,7 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
 
     if (HcommAclrtNotifyWaitOnThread(
             thread,
-            param->resCtx->controlNotifyIds[kAllGatherBatchControlNotifyStart],
+            param->controlNotifyIds[kAllGatherBatchControlNotifyStart],
             kAllGatherBatchCustomTimeoutMs) != HCCL_SUCCESS) {
         HCCL_ERROR("wait host start notify failed, tag=%s", param->tag);
         (void)HcommBatchModeEnd(param->tag);
@@ -84,7 +84,7 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
 
     if (HcommAclrtNotifyRecordOnThread(
             thread,
-            param->resCtx->controlNotifyIds[kAllGatherBatchControlNotifyDone]) != HCCL_SUCCESS) {
+            param->controlNotifyIds[kAllGatherBatchControlNotifyDone]) != HCCL_SUCCESS) {
         HCCL_ERROR("record host done notify failed, tag=%s", param->tag);
         (void)HcommBatchModeEnd(param->tag);
         (void)HcommReleaseComm(param->commName);
@@ -108,9 +108,3 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
         param->itemCount);
     return 0;
 }
-
-
-
-
-
-
