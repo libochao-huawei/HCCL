@@ -208,15 +208,15 @@ function build_static() {
     CUSTOM_OPTION="${CURRENT_CUSTOM_OPTION} -DDEVICE_MODE=OFF -DSTATIC_MODE=ON"
     cmake_config
 
-    # 构建hccl_static目标
-    build hccl_static
+    # 构建hccl静态库目标
+    build hccl
 
     # 构建AIV算子目标
     log "Info: Building AIV operator targets"
     build aiv_all_targets
 
     # 检查静态库是否生成
-    local STATIC_LIB="${BUILD_DIR}/libhccl_static.a"
+    local STATIC_LIB="${BUILD_DIR}/src/libhccl_static.a"
     if [ ! -f "${STATIC_LIB}" ]; then
         log "Error: Static library not found at expected location: ${STATIC_LIB}"
         exit 1
@@ -253,13 +253,11 @@ function build_static() {
     log "Info: Collecting AIV operator files"
     local AIV_FILES=()
 
-    # 在build目录中查找AIV算子文件
-    cd ${BUILD_DIR}
-    # 使用简单模式查找AIV文件
+    # 在build目录中查找AIV算子文件（使用绝对路径，避免后续cd导致找不到文件）
     while IFS= read -r aiv_file; do
         AIV_FILES+=("${aiv_file}")
         log "Info: Found AIV operator file: ${aiv_file}"
-    done < <(find . -name "hccl_aiv_*.o" -type f 2>/dev/null)
+    done < <(find "${BUILD_DIR}" -name "hccl_aiv_*.o" -type f 2>/dev/null)
 
     log "Info: Total AIV files found: ${#AIV_FILES[@]}"
     if [ ${#AIV_FILES[@]} -eq 0 ]; then
@@ -329,7 +327,7 @@ function build_static() {
     log "Info: Cleaning up temporary files"
     rm -rf ${EXTRACT_DIR}
 
-    # 清理build_device目录
+    清理build_device目录
     [ -n "${BUILD_DEVICE_DIR}" ] && rm -rf ${BUILD_DEVICE_DIR}
 
     log "Info: Static library build completed successfully"

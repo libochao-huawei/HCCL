@@ -382,9 +382,8 @@ endif()
 add_definitions(-DORION_MODE)
 
 if(STATIC_MODE)
-    add_library(hccl_static STATIC)
-    # Create alias so subdirectories can still reference hccl
-    add_library(hccl ALIAS hccl_static)
+    add_library(hccl STATIC)
+    set_target_properties(hccl PROPERTIES OUTPUT_NAME "hccl_static")
 else()
     add_library(hccl SHARED)
 endif()
@@ -401,18 +400,10 @@ if(NOT KERNEL_MODE)
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libscatter_aicpu_kernel.json
         DESTINATION ${INSTALL_AICPU_KERNEL_JSON_DIR} OPTIONAL
     )
-    if(STATIC_MODE)
-        add_dependencies(hccl_static aicpu_kernel_json)
-    else()
-        add_dependencies(hccl aicpu_kernel_json)
-    endif()
+    add_dependencies(hccl aicpu_kernel_json)
 endif()
 
-if(STATIC_MODE)
-    set(TARGET_NAME hccl_static)
-else()
-    set(TARGET_NAME hccl)
-endif()
+set(TARGET_NAME hccl)
 
 set(HCCT_TARGET ${TARGET_NAME})
 
@@ -442,7 +433,7 @@ target_compile_options(${TARGET_NAME} PRIVATE
     -pipe
     $<$<CONFIG:Release>:-O3>
     $<$<CONFIG:Debug>:-O3 -g>
-    -std=c++14
+    $<$<COMPILE_LANGUAGE:CXX>:-std=c++14>
     -fstack-protector-all
 )
 
@@ -496,24 +487,13 @@ target_link_directories(${TARGET_NAME} PRIVATE
 )
 
 if(STATIC_MODE)
-    # 静态库链接选项
-    if(BUILD_OPEN_PROJECT)
-        target_link_libraries(hccl_static PRIVATE
-            hcomm
-            acl_rt
-            c_sec
-            unified_dlog
-            mmpa
-        )
-    else()
-        target_link_libraries(hccl_static PRIVATE
-            hcomm
-            acl_rt
-            c_sec
-            unified_dlog
-            mmpa
-        )
-    endif()
+    target_link_libraries(hccl PRIVATE
+        hcomm
+        acl_rt
+        c_sec
+        unified_dlog
+        mmpa
+    )
 else()
     if(BUILD_OPEN_PROJECT)
         target_link_libraries(hccl PRIVATE
@@ -544,7 +524,7 @@ else()
 endif()
 
 if(STATIC_MODE)
-    install(TARGETS hccl_static
+    install(TARGETS hccl
         ARCHIVE DESTINATION ${INSTALL_LIBRARY_DIR} OPTIONAL
     )
 else()
@@ -616,17 +596,16 @@ if(STATIC_MODE)
         file(WRITE ${STATIC_RESTORE_SRC} "/* Static restore implementation will be generated during build */\n")
     endif()
 
-    target_sources(hccl_static PRIVATE ${STATIC_RESTORE_SRC})
+    target_sources(hccl PRIVATE ${STATIC_RESTORE_SRC})
 
     # 创建自定义目标来处理静态库的最终打包
-    add_custom_target(package_static_lib DEPENDS hccl_static)
+    add_custom_target(package_static_lib DEPENDS hccl)
 
     # 添加后构建步骤来嵌入二进制文件
     add_custom_command(
         TARGET package_static_lib
         POST_BUILD
-        COMMENT "Processing static library embedding..."
+        COMMAND ${CMAKE_COMMAND} -E echo "Processing static library embedding..."
     )
 endif()
 
-# 在静态模式下，hccl是hccl_static的别名，不需要复制属性
