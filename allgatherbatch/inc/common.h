@@ -90,7 +90,6 @@ struct OpParam {
     uint32_t intraServerRankCount = 0;
     uint32_t crossServerRankCount = 0;
     uint32_t reserved0 = 0;
-    uint64_t appendedItemBytes = 0;
     uint64_t totalInputBytes = 0;
     uint64_t totalOutputBytes = 0;
     uint64_t windowBytes = 0;
@@ -438,6 +437,3 @@ inline HcclResult ValidateRemoteChannelResources(const OpParam &param, const Alg
 }  // namespace ops_hccl_allgatherbatch
 
 #endif
-
-
-

@@ -262,7 +262,6 @@ HcclResult PrepareOpParam(const HcclAllGatherItem *items, uint32_t itemCount, Hc
     HCCL_CHK_RET(FillCommModeInfo(comm, param));
 
     param.itemCount = itemCount;
-    param.appendedItemBytes = static_cast<uint64_t>(itemCount) * sizeof(BatchItemParam);
     param.totalInputBytes = 0;
     param.totalOutputBytes = 0;
 
