@@ -622,7 +622,7 @@ HcclResult AlltoAllVOutPlaceCommon(const void *sendBuf, const void *sendCounts, 
         comm, stream, tag, opType, rankSize, opMode, varMemSize, param));
     
     CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
- 	if (CcuFastLaunchSupported(comm, param, &ccuFastLaunchCtx)) {
+ 	if (ShouldGoCcuFastLaunch(comm, param, &ccuFastLaunchCtx)) {
  	    return HcclExecOpCcuFastLaunch(comm, param, ccuFastLaunchCtx);
  	}
 
