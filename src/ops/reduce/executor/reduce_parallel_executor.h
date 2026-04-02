@@ -47,8 +47,7 @@ private:
     uint64_t GetRankSize(const std::vector<std::vector<u32>> &vTopo) const;
     HcclResult CalcLocalRoot();
 
-    HcclResult PrepareResForReduceScatter();
-    HcclResult PrepareResForAllGather();
+    HcclResult PrepareResForStage(u32 stage);
     TemplateDataParams GenDataParamsTempAlg(u32 dataSliceIdx, u32 stageIdx, u32 stepIdx, bool isInter);
 
     HcclResult OrchestrateImpl();
