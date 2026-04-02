@@ -176,7 +176,7 @@ HcclResult SetOpParamFastLaunchTag(OpParam &param)
         tagBuilder += "_r" + root;
     }
     CHK_PRT_RET((tagBuilder.length() >= sizeof(param.fastLaunchTag)), 
-        "failed to fill fastLaunchTag, tag too long", HcclResult::HCCL_E_INTERNAL);
+        HCCL_ERROR("failed to fill fastLaunchTag, tag too long"), HcclResult::HCCL_E_INTERNAL);
     snprintf_s(param.fastLaunchTag, sizeof(param.fastLaunchTag), sizeof(param.fastLaunchTag), "%s", tagBuilder.c_str());
 
     HCCL_INFO("[SetOpParamFastLaunchTag] fastLaunchTag: [%s]", param.fastLaunchTag);
