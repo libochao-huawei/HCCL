@@ -42,7 +42,7 @@
 #include "rt.h"
 #include "dlhcomm_function.h"
 #include "hccl_diag.h"
-#include "hcom_dl.h"
+#include "hcom.h"
 
 #ifdef __cplusplus
 extern "C" {
