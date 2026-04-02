@@ -112,7 +112,6 @@ HcclResult HcclReduceScatterVGraphMode(void *sendBuf,  const void *sendCounts, c
     CHK_RET(CheckCount(recvCount));
     CHK_RET(CheckDataType(dataType, true));
 
-
     // 拼装ResPackGraphMode
     ResPackGraphMode resPack;
     // 设置tag
