@@ -63,6 +63,7 @@ if (BUILD_OPEN_PROJECT)
         hccl-verifier
         # 链接hccl库
         ${ASCEND_HOME_PATH}/lib64/libhccl.so
+        -ldl
     )
 
     target_compile_options(hccl_checker_ops_stest PRIVATE
