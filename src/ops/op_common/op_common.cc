@@ -375,10 +375,12 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
         CHK_RET(HcclAicpuKernelEntranceLaunch(comm, param, cpuTsThread, exportedCpuTsThread, notifyNumOnMainThread,
             resCtxSequence, algName, unfoldThread));
     } else if (param.engine == COMM_ENGINE_AIV) {
+        uint64_t aivBeginTime = HcommGetProfilingSysCycleTime();
         param.resCtx = resCtxSequence;
         AlgResourceCtxSerializable &aivResCtxHost = *static_cast<AlgResourceCtxSerializable *>(resCtxSequence);
         CHK_RET(HcclAivKernelEntranceLaunch(param, topoInfo, aivResCtxHost));
         CHK_RET(ExecuteAivCacheLogic(param, algName, executor, aivResCtxHost));
+        CHK_RET(HcclReportAivKernel(comm, aivBeginTime));
     } else if (param.engine == COMM_ENGINE_CCU) {
         if (isResourceReused) {
             // 复用资源，则需从engineCtx取得res，进行反序列化
