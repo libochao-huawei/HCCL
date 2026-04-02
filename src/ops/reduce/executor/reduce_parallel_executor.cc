@@ -91,7 +91,7 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
 
     resourceRequest.notifyNumOnMainThread = 1 + 1;  // 用于intra和inter两个template间同步
     // intra主流 + intra从流 + inter主流 + inter从流
-    resourceRequest.slaveThreadNum = 2 + slaveThreadNumIntraMax + 2 + slaveThreadNumInterMax;
+    resourceRequest.slaveThreadNum = stageSize_ + slaveThreadNumIntraMax + stageSize_ + slaveThreadNumInterMax;
     resourceRequest.notifyNumPerThread.emplace_back(reduceScatterIntraTempRequest.notifyNumOnMainThread + 1);
     resourceRequest.notifyNumPerThread.emplace_back(allGatherIntraTempRequest.notifyNumOnMainThread + 1);
     resourceRequest.notifyNumPerThread.insert(resourceRequest.notifyNumPerThread.end(),
@@ -191,72 +191,34 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
 template <typename AlgTopoMatch, typename AlgTemplate0, typename AlgTemplate1, typename AlgTemplate2,
     typename AlgTemplate3>
 HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgTemplate2,
-    AlgTemplate3>::PrepareResForReduceScatter()
+    AlgTemplate3>::PrepareResForStage(u32 stage)
 {
-    AlgResourceRequest reduceScatterIntraTempRequest;
-    AlgResourceRequest reduceScatterInterTempRequest;
-    AlgResourceRequest allGatherIntraTempRequest;
-    algTemplatePtrArr_.at(0).at(0)->GetRes(reduceScatterIntraTempRequest);
-    algTemplatePtrArr_.at(0).at(1)->GetRes(reduceScatterInterTempRequest);
-    algTemplatePtrArr_.at(1).at(0)->GetRes(allGatherIntraTempRequest);
-    u32 reduceScatterIntraThreadsNum = reduceScatterIntraTempRequest.slaveThreadNum + 1;
-    u32 allGatherIntraThreadsNum = allGatherIntraTempRequest.slaveThreadNum + 1;
-    u32 intraThreadsNumMax = std::max(reduceScatterIntraThreadsNum, allGatherIntraThreadsNum);
-    
-    intraThreads_ = {threads_.at(1)};
-    for (u32 i = 3; i < reduceScatterIntraThreadsNum + 2; i++) {
-        intraThreads_.emplace_back(threads_.at(i));
+    std::array<std::array<AlgResourceRequest, stepSize_>, stageSize_> tempRequestArr;
+    std::array<u32, stageSize_> intraThreadsNum;
+    for (u32 stageIdx = 0; stageIdx < stageSize_; stageIdx++) {
+        for (u32 stepIdx = 0; stepIdx < stepSize_; stepIdx++) {
+            algTemplatePtrArr_.at(stageIdx).at(stepIdx)->GetRes(tempRequestArr.at(stageIdx).at(stepIdx));
+        }
+        intraThreadsNum.at(stageIdx) = tempRequestArr.at(stageIdx).at(0).slaveThreadNum + 1;
     }
 
-    interThreads_ = {threads_.at(intraThreadsNumMax + 2)};
-    for (u32 i = intraThreadsNumMax + 4; i < threads_.size(); i++) {
-        interThreads_.emplace_back(threads_.at(i));
-    }
-    
-    // 用于两个算法同步
+    u32 intraThreadsNumMax = std::max(intraThreadsNum.at(0), intraThreadsNum.at(1));
+
+    // 第0条流是全局主流
+    intraThreads_ = {threads_.at(1 + stage)};
+    intraThreads_.insert(intraThreads_.end(),
+        threads_.begin() + stageSize_ + 1,
+        threads_.begin() + stageSize_ + intraThreadsNum.at(stage));
+    interThreads_ = {threads_.at(intraThreadsNumMax + stageSize_ + stage)};
+    interThreads_.insert(interThreads_.end(),
+        threads_.begin() + intraThreadsNumMax + stageSize_ + stageSize_,
+        threads_.end());
+
     mainThread_ = threads_.at(0);
     templateMainThreads_ = {intraThreads_.at(0), interThreads_.at(0)};
 
-    u32 intraNotifyOnMainThread = reduceScatterIntraTempRequest.notifyNumOnMainThread;
-    u32 interNotifyOnMainThread = reduceScatterInterTempRequest.notifyNumOnMainThread;
-    syncNotifyOnTemplates_ = {intraNotifyOnMainThread, interNotifyOnMainThread};
-    syncNotifyOnMain_ = {0, 1};
-
-    intraTempAlgRes_.channels = intraLinks_;
-    intraTempAlgRes_.threads = intraThreads_;
-    intraTempAlgRes_.aivCommInfoPtr = resCtx_.aivCommInfoPtr;
-
-    interTempAlgRes_.channels = interLinks_;
-    interTempAlgRes_.threads = interThreads_;
-    interTempAlgRes_.aivCommInfoPtr = resCtx_.aivCommInfoPtr;
-
-    return HCCL_SUCCESS;
-}
-
-template <typename AlgTopoMatch, typename AlgTemplate0, typename AlgTemplate1, typename AlgTemplate2,
-    typename AlgTemplate3>
-HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgTemplate2,
-    AlgTemplate3>::PrepareResForAllGather()
-{
-    AlgResourceRequest reduceScatterIntraTempRequest;
-    AlgResourceRequest allGatherIntraTempRequest;
-    AlgResourceRequest allGatherInterTempRequest;
-    algTemplatePtrArr_.at(0).at(0)->GetRes(reduceScatterIntraTempRequest);
-    algTemplatePtrArr_.at(1).at(1)->GetRes(allGatherInterTempRequest);
-    algTemplatePtrArr_.at(1).at(0)->GetRes(allGatherIntraTempRequest);
-    u32 reduceScatterIntraThreadsNum = reduceScatterIntraTempRequest.slaveThreadNum + 1;
-    u32 allGatherIntraThreadsNum = allGatherIntraTempRequest.slaveThreadNum + 1;
-    u32 intraThreadsNumMax = std::max(reduceScatterIntraThreadsNum, allGatherIntraThreadsNum);
-    
-    intraThreads_.assign(threads_.begin() + 2, threads_.begin() + allGatherIntraThreadsNum + 2);
-    interThreads_.assign(threads_.begin() + intraThreadsNumMax + 3, threads_.end());
-    
-    // 用于两个算法同步
-    mainThread_ = threads_.at(0);
-    templateMainThreads_ = {intraThreads_.at(0), interThreads_.at(0)};
-
-    u32 intraNotifyOnMainThread = allGatherIntraTempRequest.notifyNumOnMainThread;
-    u32 interNotifyOnMainThread = allGatherInterTempRequest.notifyNumOnMainThread;
+    u32 intraNotifyOnMainThread = tempRequestArr.at(stage).at(0).notifyNumOnMainThread;
+    u32 interNotifyOnMainThread = tempRequestArr.at(stage).at(1).notifyNumOnMainThread;
     syncNotifyOnTemplates_ = {intraNotifyOnMainThread, interNotifyOnMainThread};
     syncNotifyOnMain_ = {0, 1};
 
@@ -395,11 +357,8 @@ HcclResult
 
         for (u32 stageIdx = 0; stageIdx < 2; stageIdx++) {
             // 计算算法模板所需资源
-            if (stageIdx == 0) {
-                CHK_RET(PrepareResForReduceScatter());
-            } else {
-                CHK_RET(PrepareResForAllGather());
-            }
+            CHK_RET(PrepareResForStage(stageIdx));
+            // 每个阶段分2步执行任务编排
             for (u32 stepIdx = 0; stepIdx < 2; stepIdx++) {
                 CHK_RET(OrchestrateStep(stageIdx, stepIdx));
             }
