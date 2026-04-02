@@ -47,6 +47,7 @@ DECL_WEAK_FUNC(uint64_t, HcommGetProfilingSysCycleTime);
 DECL_WEAK_FUNC(HcclResult, HcclDfxRegOpInfoByCommId, char* commId, void* hcclDfxOpInfo);
 DECL_WEAK_FUNC(HcclResult, HcclProfilingReportOp, HcclComm comm, uint64_t beginTime);
 DECL_WEAK_FUNC(HcclResult, HcclReportAicpuKernel, HcclComm comm, uint64_t beginTime, char *kernelName);
+DECL_WEAK_FUNC(HcclResult, HcclReportAivKernel, HcclComm comm, uint64_t beginTime);
 
 // 动态库管理接口
 void HcommProfilingDlInit(void* libHcommHandle);
