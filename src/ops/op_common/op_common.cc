@@ -44,6 +44,16 @@
 #include "dlhcomm_function.h"
 #include "hccl_diag.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+HcclResult __attribute__((weak)) HcclReportAivKernel(HcclComm comm, uint64_t beginTime);
+
+#ifdef __cplusplus
+}
+#endif
+
 namespace ops_hccl {
 thread_local std::map<std::string, HcclMemHandle> g_memHandleCache; // 当前AIV存放注册内存的memHandle使用
 // 用于维护增量建链算子的host ctx信息
@@ -375,10 +385,12 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
         CHK_RET(HcclAicpuKernelEntranceLaunch(comm, param, cpuTsThread, exportedCpuTsThread, notifyNumOnMainThread,
             resCtxSequence, algName, unfoldThread));
     } else if (param.engine == COMM_ENGINE_AIV) {
+        uint64_t aivBeginTime = HcommGetProfilingSysCycleTime();
         param.resCtx = resCtxSequence;
         AlgResourceCtxSerializable &aivResCtxHost = *static_cast<AlgResourceCtxSerializable *>(resCtxSequence);
         CHK_RET(HcclAivKernelEntranceLaunch(param, topoInfo, aivResCtxHost));
         CHK_RET(ExecuteAivCacheLogic(param, algName, executor, aivResCtxHost));
+        CHK_RET(HcclReportAivKernel(comm, aivBeginTime));
     } else if (param.engine == COMM_ENGINE_CCU) {
         if (isResourceReused) {
             // 复用资源，则需从engineCtx取得res，进行反序列化
