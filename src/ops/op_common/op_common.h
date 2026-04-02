@@ -160,5 +160,4 @@ HcclResult LogHcclExit(const std::string &opName, const char *tag, HcclUs startu
 
 }  // namespace ops_hccl
 
-
 #endif
