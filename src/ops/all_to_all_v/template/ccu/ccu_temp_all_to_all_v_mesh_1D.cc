@@ -176,7 +176,7 @@ HcclResult CcuTempAlltoAllVMesh1D::FastLaunch(const OpParam& param, const Templa
         localSendRecvInfo
     );
 
-    HCCL_INFO("[CcuTempAlltoAllVMesh1D::FastLaunch]: inputPtr[%llu], outputPtr[%llu]"
+    HCCL_INFO("[CcuTempAlltoAllVMesh1D::FastLaunch]: inputPtr[%llu], outputPtr[%llu],"
     "srcOffset[%llu], dstOffset[%llu], rankSize[%llu]",
     PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr), PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr),
     tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[3],
