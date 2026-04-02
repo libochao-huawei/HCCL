@@ -203,7 +203,7 @@ HcclResult InsV2ReduceScatterSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
         tempAlgParamsInter.tailSize = tempAlgParamsInter.sliceSize;
         // 这里的stride当成传统意义上的sreide 间隔
         tempAlgParamsInter.inputSliceStride = dataSize_; // ccl-in按照rank偏移量，每次偏移是单次循环最大数据量
-        tempAlgParamsInter.outputSliceStride = currDataCount * dataTypeSize_; // 如果是scratchbuffer，偏移是单次循环处理的最大数据量
+        tempAlgParamsInter.outputSliceStride = 0;
         
         HCCL_INFO("[InsV2ReduceScatterSequenceExecutor] loop [%u] tempAlgParamsInter.inputSliceStride [%u],"
             "tempAlgParamsInter.outputSliceStride [%u] tempAlgParamsInter.sliceSize [%u]",
