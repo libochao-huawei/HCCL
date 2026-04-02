@@ -53,7 +53,7 @@ HcclResult CcuTempReduceMesh1D::CalcRes(HcclComm comm, const OpParam& param, con
                          };
     std::vector<HcclChannelDesc> channelDescs;
     CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
-    kernelInfo.kernelArg = std::make_shared<CcuKernelArgReduceMesh1D>(subCommRanks_[0].size(),
+    kernelInfo.kernelArg = std::make_unique<CcuKernelArgReduceMesh1D>(subCommRanks_[0].size(),
                                                                              mySubCommRank_,
                                                                              mySubCommRoot_,
                                                                              param,

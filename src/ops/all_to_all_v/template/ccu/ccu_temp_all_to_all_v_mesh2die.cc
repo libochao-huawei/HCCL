@@ -56,7 +56,7 @@ HcclResult CcuTempAlltoAllVMesh2Die::CalcRes(HcclComm comm, const OpParam &param
             return std::make_unique<CcuKernelAllToAllVMesh2Die>(arg);
         };
         const bool withMyRank = channels_[dieId].size() < channels_[1 - dieId].size();
-        auto kernelArg = std::make_shared<CcuKernelArgAllToAllVMesh2Die>(myRank_, param, subCommRanks_, withMyRank,
+        auto kernelArg = std::make_unique<CcuKernelArgAllToAllVMesh2Die>(myRank_, param, subCommRanks_, withMyRank,
             rankGroup_[dieId]);
         kernelInfo.kernelArg = kernelArg;
         kernelInfo.channels = channels_[dieId];

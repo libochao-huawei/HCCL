@@ -96,7 +96,7 @@ HcclResult CcuTempAllReduceMeshMem2Mem1D::CalcRes(HcclComm comm, const OpParam& 
         }
         HCCL_DEBUG("[CcuTempReduceScatterMesh1DMem2Mem::CalcRes] Get Mesh Channel Success!");
     }
-    kernelInfo.kernelArg = std::make_shared<CcuKernelArgAllReduceMeshMem2Mem1D>(subCommRanks_[0].size(),
+    kernelInfo.kernelArg = std::make_unique<CcuKernelArgAllReduceMeshMem2Mem1D>(subCommRanks_[0].size(),
                                                                                     mySubCommRank_,
                                                                                     param,
                                                                                     subCommRanks_);

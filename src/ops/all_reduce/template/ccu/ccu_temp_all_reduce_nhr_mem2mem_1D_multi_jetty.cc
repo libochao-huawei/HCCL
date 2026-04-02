@@ -75,7 +75,7 @@ HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::CalcRes(HcclComm comm, const 
         return std::make_unique<CcuKernelAllReduceNhr1DMem2MemMultiJetty>(arg);
     };
 
-    kernelInfo.kernelArg = std::make_shared<CcuKernelArgAllReduceNhrMem2Mem1DMultiJetty>(
+    kernelInfo.kernelArg = std::make_unique<CcuKernelArgAllReduceNhrMem2Mem1DMultiJetty>(
         templateRankSize_, localRank_, portNum_, param, algStepInfoList, channelIdxMap, subCommRanks_);
 
     kernelInfo.channels = channelDescs;

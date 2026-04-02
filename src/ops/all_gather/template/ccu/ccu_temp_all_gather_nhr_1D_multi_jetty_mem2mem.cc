@@ -75,7 +75,7 @@ HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::CalcRes(HcclComm comm, const 
 
     CHK_RET(CalcNHRInfo(stepInfoVector)); // NHR算法编排参数
 
-    kernelInfo.kernelArg = std::make_shared<CcuKernelArgAllGatherNHR1DMultiJettyMem2Mem>(subCommRanks_[0].size(),
+    kernelInfo.kernelArg = std::make_unique<CcuKernelArgAllGatherNHR1DMultiJettyMem2Mem>(subCommRanks_[0].size(),
                                                                                     mySubCommRank_,
                                                                                     param,
                                                                                     jettyNum_,

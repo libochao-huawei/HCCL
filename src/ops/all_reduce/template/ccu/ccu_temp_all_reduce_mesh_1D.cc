@@ -90,7 +90,7 @@ HcclResult CcuTempAllReduceMesh1D::CalcRes(HcclComm comm, const OpParam& param, 
     CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs);
     std::vector<uint64_t> dimSize;
     dimSize.emplace_back(subCommRanks_[0].size());
-    kernelInfo.kernelArg = std::make_shared<CcuKernelArgAllReduceMesh1D>(dimSize,
+    kernelInfo.kernelArg = std::make_unique<CcuKernelArgAllReduceMesh1D>(dimSize,
                                                                         mySubCommRank_,
                                                                         param,
                                                                         subCommRanks_);

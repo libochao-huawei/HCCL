@@ -56,7 +56,7 @@ HcclResult CcuTempAllToAllMesh1dMultiJetty::CalcRes(HcclComm comm, const OpParam
                              return std::make_unique<CcuKernelAllToAllMesh1DMultiJetty>(arg);
                          };
 
-    kernelInfo.kernelArg = std::make_shared<CcuKernelArgAllToAllMesh1DMultiJetty>(templateRankSize_,
+    kernelInfo.kernelArg = std::make_unique<CcuKernelArgAllToAllMesh1DMultiJetty>(templateRankSize_,
                                                                                     myRank_,
                                                                                     param,
                                                                                     subCommRanks_,

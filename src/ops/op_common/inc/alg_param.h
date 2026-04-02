@@ -249,7 +249,7 @@ struct CcuKernelInfo {
     // kernel构造函数
     hcomm::KernelCreator creator;
     // KernelArg实例
-    std::shared_ptr<hcomm::CcuKernelArg> kernelArg;
+    std::unique_ptr<hcomm::CcuKernelArg> kernelArg;
     // kernel所需channel
     std::vector<HcclChannelDesc> channels;
 };

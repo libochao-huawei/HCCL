@@ -65,7 +65,7 @@ HcclResult CcuTempAllGatherMesh1D::CalcRes(HcclComm comm, const OpParam& param, 
     }
     HCCL_DEBUG("[CcuTempAllGatherMesh1D::CalcRes] Get Mesh Channel Success!");
 
-    kernelInfo.kernelArg = std::make_shared<CcuKernelArgAllGatherMesh1D>(subCommRanks_[0].size(),
+    kernelInfo.kernelArg = std::make_unique<CcuKernelArgAllGatherMesh1D>(subCommRanks_[0].size(),
                                                                                     mySubCommRank_,
                                                                                     param,
                                                                                     subCommRanks_);

@@ -157,7 +157,7 @@ HcclResult CcuTempReduceNHR1DMem2Mem::CalcRes(HcclComm comm, const OpParam& para
         kernelInfo.creator = [](const hcomm::CcuKernelArg &arg) {
                                 return std::make_unique<CcuKernelReduceNHR1DMem2Mem>(arg);
                             };
-        kernelInfo.kernelArg = std::make_shared<CcuKernelArgReduceNHR1D>(subCommRanks_[0].size(),
+        kernelInfo.kernelArg = std::make_unique<CcuKernelArgReduceNHR1D>(subCommRanks_[0].size(),
                                                                          mySubCommRank_,
                                                                          rootId_,
                                                                          kernelIdx, 

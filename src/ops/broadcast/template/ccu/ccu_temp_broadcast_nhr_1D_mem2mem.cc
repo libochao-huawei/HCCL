@@ -169,7 +169,7 @@ HcclResult CcuTempBroadcastNHR1DMem2Mem::CalcRes(HcclComm comm, const OpParam& p
         kernelInfo.creator = [](const hcomm::CcuKernelArg &arg) {
                                 return std::make_unique<CcuKernelBroadcastNhr1DMem2Mem>(arg);
                             };
-        kernelInfo.kernelArg = std::make_shared<CcuKernelArgBroadcastNhr1DMem2Mem>(myRank_,  // 通信域全局rankid
+        kernelInfo.kernelArg = std::make_unique<CcuKernelArgBroadcastNhr1DMem2Mem>(myRank_,  // 通信域全局rankid
                                                                                 kernelIdx,
                                                                                 enableDieNum,
                                                                                 subCommRanks_[0],

@@ -51,7 +51,7 @@ HcclResult CcuTempAlltoAllMesh1D::CalcRes(HcclComm comm, const OpParam& param, c
                          };
     std::vector<HcclChannelDesc> channelDescs;
     CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
-    kernelInfo.kernelArg = std::make_shared<CcuKernelArgAlltoAllMesh1D>(subCommRanks_[0].size(),
+    kernelInfo.kernelArg = std::make_unique<CcuKernelArgAlltoAllMesh1D>(subCommRanks_[0].size(),
                                                                         mySubCommRank_,
                                                                         param.isMc2, // loadFromMem_
                                                                         param,

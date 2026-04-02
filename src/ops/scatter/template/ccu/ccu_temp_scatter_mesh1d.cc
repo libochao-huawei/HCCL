@@ -68,7 +68,7 @@ HcclResult CcuTempScatterMesh1D::CalcRes(HcclComm comm, const OpParam &param, co
     };
     std::vector<HcclChannelDesc> channelDescs;
     CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
-    kernelInfo.kernelArg = std::make_shared<CcuKernelArgScatterMesh1D>(subCommRanks_[0].size(), mySubCommRank_,
+    kernelInfo.kernelArg = std::make_unique<CcuKernelArgScatterMesh1D>(subCommRanks_[0].size(), mySubCommRank_,
                                                                               subCommRootId_, param, subCommRanks_);
     kernelInfo.channels = channelDescs;
     resourceRequest.ccuKernelInfos.push_back(kernelInfo);

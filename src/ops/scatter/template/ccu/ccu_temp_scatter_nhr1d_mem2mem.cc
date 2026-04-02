@@ -170,7 +170,7 @@ HcclResult CcuTempScatterNHR1DMem2Mem::CalcRes(HcclComm comm, const OpParam &par
         kernelInfo.creator = [](const hcomm::CcuKernelArg &arg) {
             return std::make_unique<CcuKernelScatterNHR1DMem2Mem>(arg);
         };
-        kernelInfo.kernelArg = std::make_shared<CcuKernelArgScatterNHRMem2Mem1D>(
+        kernelInfo.kernelArg = std::make_unique<CcuKernelArgScatterNHRMem2Mem1D>(
             subCommRanks_[0].size(),
             mySubCommRank_,  // 子通信域rankid
             subCommRootId_, kernelIdx, enableDieNum, stepInfoVector, rank2ChannelIdx, param, subCommRanks_);

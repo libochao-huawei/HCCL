@@ -62,7 +62,7 @@ HcclResult CcuTempReduceScatterMesh2Die::CalcRes(HcclComm comm, const OpParam &p
             return std::make_unique<CcuKernelReduceScatterMesh2Die>(arg);
         };
         const bool rmtReduceWithMyRank = channels_[dieId].size() > channels_[1 - dieId].size() ? false : true;
-        auto kernelArg = std::make_shared<CcuKernelArgReduceScatterMesh2Die>(rankSize, mySubCommRank_, param, subCommRanks_,
+        auto kernelArg = std::make_unique<CcuKernelArgReduceScatterMesh2Die>(rankSize, mySubCommRank_, param, subCommRanks_,
             rmtReduceWithMyRank);
         kernelInfo.kernelArg = kernelArg;
         kernelInfo.channels = channels_[dieId];

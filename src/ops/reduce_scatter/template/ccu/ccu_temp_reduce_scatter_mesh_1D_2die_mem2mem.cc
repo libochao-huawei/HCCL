@@ -84,7 +84,7 @@ HcclResult CcuTempReduceScatterMeshMem2Mem1D2Die::CalcRes(HcclComm comm, const O
                             };
  
         isReduceToOuput = channelDescsVec[dieId].size() > channelDescsVec[1 - dieId].size() ? false : true;
-        kernelInfo.kernelArg = std::make_shared<CcuKernelArgReduceScatterMeshMem2Mem1D2Die>(templateRankSize_,
+        kernelInfo.kernelArg = std::make_unique<CcuKernelArgReduceScatterMeshMem2Mem1D2Die>(templateRankSize_,
                                                                                         subRankGroup[dieId].size(),
                                                                                         isReduceToOuput,
                                                                                         myRank_,

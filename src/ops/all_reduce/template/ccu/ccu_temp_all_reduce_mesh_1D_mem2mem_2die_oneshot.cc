@@ -72,7 +72,7 @@ HcclResult CcuTempAllReduceMesh1DMem2Mem2DieOneShot::CalcRes(HcclComm comm, cons
                                 return std::make_unique<CcuKernelAllReduceMesh1DMem2Mem2DieOneShot>(arg);
                             };
         bool rmtReduceWithMyRank = channelsForDie[die].size() > channelsForDie[1 - die].size() ? false : true;
-        kernelInfo.kernelArg = std::make_shared<CcuKernelArgAllReduceMesh1DMem2Mem2DieOneShot>(subCommRanks_[0].size(),
+        kernelInfo.kernelArg = std::make_unique<CcuKernelArgAllReduceMesh1DMem2Mem2DieOneShot>(subCommRanks_[0].size(),
                                                                                     mySubCommRank_,
                                                                                     param,
                                                                                     kernelRanks[die],

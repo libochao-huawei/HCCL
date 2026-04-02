@@ -67,14 +67,14 @@ HcclResult CcuTempAllGather2DiesMeshMem2Mem1D::CalcRes(HcclComm comm, const OpPa
         if0HandleSelfRank = false;
     }
     if (rankIdGroup0.size() != 0) {
-        kernelInfo0.kernelArg = std::make_shared<CcuKernelArgAllGather2DiesMeshMem2Mem1D>(subCommRanks_[0].size(),
+        kernelInfo0.kernelArg = std::make_unique<CcuKernelArgAllGather2DiesMeshMem2Mem1D>(subCommRanks_[0].size(),
                                                                                          rankId, rankIdGroup0,
                                                                                          if0HandleSelfRank,
                                                                                          subCommRanks_,
                                                                                          param);
     }
     if (rankIdGroup1.size() != 0) {
-        kernelInfo1.kernelArg = std::make_shared<CcuKernelArgAllGather2DiesMeshMem2Mem1D>(subCommRanks_[0].size(),
+        kernelInfo1.kernelArg = std::make_unique<CcuKernelArgAllGather2DiesMeshMem2Mem1D>(subCommRanks_[0].size(),
                                                                                          rankId, rankIdGroup1,
                                                                                          !if0HandleSelfRank,
                                                                                          subCommRanks_,

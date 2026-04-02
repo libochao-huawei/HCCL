@@ -81,7 +81,7 @@ HcclResult CcuTempAllreduceMesh1D2DieOneShot::CalcRes(HcclComm comm, const OpPar
             groupRanksforDie[die].push_back(mySubCommRank_);
         }
 
-        kernelInfo.kernelArg = std::make_shared<CcuKernelArgAllreduceMesh1D2DieOneShot>(groupRanksforDie[die].size(),
+        kernelInfo.kernelArg = std::make_unique<CcuKernelArgAllreduceMesh1D2DieOneShot>(groupRanksforDie[die].size(),
                                                                                         mySubCommRank_,
                                                                                         param,
                                                                                         groupRanksforDie,

@@ -118,7 +118,7 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::CalcRes(HcclComm comm, const OpParam& p
         kernelInfo.creator = [](const hcomm::CcuKernelArg &arg) {
                                 return std::make_unique<CcuKernelAllGatherNHR1DMem2Mem>(arg);
                             };
-        kernelInfo.kernelArg = std::make_shared<CcuKernelArgAllGatherNHR1D>(subCommRanks_[0].size(),
+        kernelInfo.kernelArg = std::make_unique<CcuKernelArgAllGatherNHR1D>(subCommRanks_[0].size(),
                                                                                 mySubCommRank_,
                                                                                 kernelIdx, stepInfoVector, rank2ChannelIdx,
                                                                                 param, subCommRanks_, enableDieNum);

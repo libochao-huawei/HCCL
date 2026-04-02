@@ -58,7 +58,7 @@ HcclResult CcuTempBroadcastMesh1DMem2Mem::CalcRes(HcclComm comm, const OpParam& 
                          };
     std::vector<HcclChannelDesc> channelDescs;
     CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
-    kernelInfo.kernelArg = std::make_shared<CcuKernelArgBroadcastMesh1DMem2Mem>(subCommRanks_[0].size(),
+    kernelInfo.kernelArg = std::make_unique<CcuKernelArgBroadcastMesh1DMem2Mem>(subCommRanks_[0].size(),
                                                                                     mySubCommRank_,
                                                                                     subCommRootId_ ,
                                                                                     param,
