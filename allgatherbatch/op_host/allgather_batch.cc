@@ -79,9 +79,10 @@ HcclResult FillServerGroupInfo(HcclComm comm, BatchTopoInfo &topoInfo)
     uint32_t instListSize = 0;
     HcclResult ret = QueryServerInstSizeList(comm, &instSizeList, &instListSize);
     if (ret != HCCL_SUCCESS || instSizeList == nullptr || instListSize == 0) {
-        topoInfo.serverCount = 1;
-        topoInfo.serverIdx = 0;
-        return HCCL_SUCCESS;
+        HCCL_ERROR("failed to resolve server groups from rank graph, ret=%d, instListSize=%u",
+            static_cast<int>(ret),
+            instListSize);
+        return (ret == HCCL_SUCCESS) ? HCCL_E_NOT_FOUND : ret;
     }
 
     topoInfo.serverCount = instListSize;
@@ -95,8 +96,8 @@ HcclResult FillServerGroupInfo(HcclComm comm, BatchTopoInfo &topoInfo)
         rankBase = rankEnd;
     }
 
-    topoInfo.serverIdx = 0;
-    return HCCL_SUCCESS;
+    HCCL_ERROR("failed to map rank=%u into server groups, serverCount=%u", topoInfo.rank, instListSize);
+    return HCCL_E_INTERNAL;
 }
 
 HcclResult FillEndpointLocation(HcclComm comm, BatchTopoInfo &topoInfo)
@@ -105,7 +106,13 @@ HcclResult FillEndpointLocation(HcclComm comm, BatchTopoInfo &topoInfo)
     uint32_t serverRankNum = 0;
     HcclResult ret = HcclRankGraphGetRanksByLayer(comm, 0, &serverRanks, &serverRankNum);
     if (ret != HCCL_SUCCESS || serverRanks == nullptr || serverRankNum == 0) {
-        return HCCL_SUCCESS;
+        if (topoInfo.rankSize <= 1U) {
+            return HCCL_SUCCESS;
+        }
+        HCCL_ERROR("failed to resolve endpoint ranks from rank graph, ret=%d, serverRankNum=%u",
+            static_cast<int>(ret),
+            serverRankNum);
+        return (ret == HCCL_SUCCESS) ? HCCL_E_NOT_FOUND : ret;
     }
 
     uint32_t peerRank = topoInfo.rank;
@@ -115,20 +122,24 @@ HcclResult FillEndpointLocation(HcclComm comm, BatchTopoInfo &topoInfo)
             break;
         }
     }
-    if (peerRank == topoInfo.rank && topoInfo.rankSize > 1) {
-        peerRank = (topoInfo.rank == 0) ? 1 : 0;
+    if (peerRank == topoInfo.rank && topoInfo.rankSize > 1U) {
+        HCCL_ERROR("failed to find endpoint peer rank for rank=%u, rankSize=%u", topoInfo.rank, topoInfo.rankSize);
+        return HCCL_E_INTERNAL;
     }
     if (peerRank == topoInfo.rank) {
         return HCCL_SUCCESS;
     }
 
     ChannelLinkInfo linkInfo;
-    ret = QueryChannelLinkInfo(comm, topoInfo.rank, peerRank, linkInfo);
-    if (ret != HCCL_SUCCESS) {
-        return HCCL_SUCCESS;
+    HCCL_CHK_RET(QueryChannelLinkInfo(comm, topoInfo.rank, peerRank, linkInfo));
+    if (topoInfo.serverIdx != linkInfo.localServerIdx) {
+        HCCL_ERROR("serverIdx mismatch between server groups and endpoint links, rank=%u, groupedServerIdx=%u, linkServerIdx=%u",
+            topoInfo.rank,
+            topoInfo.serverIdx,
+            linkInfo.localServerIdx);
+        return HCCL_E_INTERNAL;
     }
 
-    topoInfo.serverIdx = linkInfo.localServerIdx;
     topoInfo.superPodIdx = linkInfo.localSuperPodIdx;
     return HCCL_SUCCESS;
 }
@@ -144,8 +155,10 @@ HcclResult QueryLocalServerRankCount(HcclComm comm, const BatchTopoInfo &topoInf
     uint32_t instListSize = 0;
     HcclResult ret = QueryServerInstSizeList(comm, &instSizeList, &instListSize);
     if (ret != HCCL_SUCCESS || instSizeList == nullptr || instListSize == 0) {
-        localServerRankCount = topoInfo.rankSize;
-        return HCCL_SUCCESS;
+        HCCL_ERROR("failed to resolve local server rank count from rank graph, ret=%d, instListSize=%u",
+            static_cast<int>(ret),
+            instListSize);
+        return (ret == HCCL_SUCCESS) ? HCCL_E_NOT_FOUND : ret;
     }
     if (topoInfo.serverIdx >= instListSize) {
         HCCL_ERROR("serverIdx=%u is out of range for instListSize=%u", topoInfo.serverIdx, instListSize);
@@ -171,17 +184,52 @@ HcclResult QueryLocalServerRankCount(HcclComm comm, const BatchTopoInfo &topoInf
     return HCCL_SUCCESS;
 }
 
-HcclResult FillCommModeInfo(HcclComm comm, OpParam &param)
+HcclResult ValidateResolvedTopoInfo(const BatchTopoInfo &topoInfo, uint32_t localServerRankCount)
 {
-    param.commMode = DetermineCommMode(param.topoInfo);
-    HCCL_CHK_RET(QueryLocalServerRankCount(comm, param.topoInfo, param.intraServerRankCount));
-    if (param.intraServerRankCount > param.topoInfo.rankSize) {
-        HCCL_ERROR("intraServerRankCount=%u exceeds rankSize=%u",
-            param.intraServerRankCount,
-            param.topoInfo.rankSize);
+    // 拓扑一旦用于 commMode 和 fullmesh 资源申请，就必须是可自洽的“可信拓扑”，不能再静默降级。
+    if (topoInfo.rankSize == 0) {
+        HCCL_ERROR("resolved topo rankSize is zero");
         return HCCL_E_INTERNAL;
     }
+    if (topoInfo.serverCount == 0 || topoInfo.serverCount > topoInfo.rankSize) {
+        HCCL_ERROR("resolved topo serverCount=%u is invalid for rankSize=%u",
+            topoInfo.serverCount,
+            topoInfo.rankSize);
+        return HCCL_E_INTERNAL;
+    }
+    if (topoInfo.serverIdx >= topoInfo.serverCount) {
+        HCCL_ERROR("resolved topo serverIdx=%u is out of range, serverCount=%u",
+            topoInfo.serverIdx,
+            topoInfo.serverCount);
+        return HCCL_E_INTERNAL;
+    }
+    if (localServerRankCount == 0 || localServerRankCount > topoInfo.rankSize) {
+        HCCL_ERROR("resolved localServerRankCount=%u is invalid, rankSize=%u",
+            localServerRankCount,
+            topoInfo.rankSize);
+        return HCCL_E_INTERNAL;
+    }
+    if (topoInfo.serverCount == 1U && localServerRankCount != topoInfo.rankSize) {
+        HCCL_ERROR("single-server topo mismatch, localServerRankCount=%u, rankSize=%u",
+            localServerRankCount,
+            topoInfo.rankSize);
+        return HCCL_E_INTERNAL;
+    }
+    if (topoInfo.serverCount > 1U && localServerRankCount >= topoInfo.rankSize) {
+        HCCL_ERROR("cross-server topo mismatch, localServerRankCount=%u, rankSize=%u",
+            localServerRankCount,
+            topoInfo.rankSize);
+        return HCCL_E_INTERNAL;
+    }
+    return HCCL_SUCCESS;
+}
 
+HcclResult FillCommModeInfo(HcclComm comm, OpParam &param)
+{
+    HCCL_CHK_RET(QueryLocalServerRankCount(comm, param.topoInfo, param.intraServerRankCount));
+    HCCL_CHK_RET(ValidateResolvedTopoInfo(param.topoInfo, param.intraServerRankCount));
+
+    param.commMode = DetermineCommMode(param.topoInfo);
     param.crossServerRankCount = param.topoInfo.rankSize - param.intraServerRankCount;
     if (param.commMode == BatchCommMode::kSingleServer) {
         param.intraServerRankCount = param.topoInfo.rankSize;
