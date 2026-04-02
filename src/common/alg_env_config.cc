@@ -12,7 +12,6 @@
 #include <sstream>
 #include <string>
 #include <algorithm>
-#include <regex>
 
 #include "log.h"
 #include "adapter_error_manager_pub.h"
@@ -39,6 +38,33 @@ std::string GetEnv(mmEnvId IdName)
     }
 }
 
+static bool IsValidTimeoutFormat(const std::string &str)
+{
+    if (str.empty()) return false;
+    
+    size_t dotPos = str.find('.');
+    size_t pos = 0;
+    
+    // 检查小数点前的数字
+    while (pos < str.length() && pos != dotPos) {
+        if (!std::isdigit(str[pos])) return false;
+        pos++;
+    }
+    
+    // 如果有小数点，检查小数部分
+    if (dotPos != std::string::npos) {
+        if (dotPos == 0 || dotPos == str.length() - 1) return false;
+        size_t decimalLen = str.length() - dotPos - 1;
+        if (decimalLen > 2) return false; // 最多2位小数
+        
+        for (size_t i = dotPos + 1; i < str.length(); i++) {
+            if (!std::isdigit(str[i])) return false;
+        }
+    }
+    
+    return true;
+}
+
 HcclResult ParseExecTimeout()
 {
     std::string execTimeOutEnv = GetEnv(MM_ENV_HCCL_EXEC_TIMEOUT);
@@ -48,8 +74,7 @@ HcclResult ParseExecTimeout()
         return HCCL_SUCCESS;
     }
 
-    std::regex validFormat(R"(^\d+(\.\d{1,2})?$)");
-    if (!std::regex_match(execTimeOutEnv, validFormat)) {
+    if (!IsValidTimeoutFormat(execTimeOutEnv)) {
         HCCL_WARNING("[ParseExecTimeout] HCCL_EXEC_TIMEOUT[%s] format is invalid, use default.",
             execTimeOutEnv.c_str());
         g_algEnvConfig.execTimeOutSet = false;
@@ -652,25 +677,37 @@ HcclResult ParseEntryLogEnable()
 
 HcclResult ParseOpExpansion()
 {
-    std::string opExpansionModeEnv = GetEnv(MM_ENV_HCCL_OP_EXPANSION_MODE);
+    const std::string &opExpansionModeEnv = GetEnv(MM_ENV_HCCL_OP_EXPANSION_MODE);
     g_algEnvConfig.aicpuUnfold = false;
     g_algEnvConfig.aivMode = false;
     g_algEnvConfig.aivOnlyMode = false;
     g_algEnvConfig.ccuMSMode = false;
     g_algEnvConfig.ccuSchedMode = false;
 
-    DevType deviceType;
-    CHK_RET(hrtGetDeviceType(deviceType));
-    // 910_93默认打开AICPU展开
-    if (deviceType == DevType::DEV_TYPE_910_93) {
-        g_algEnvConfig.aicpuUnfold = true;
-    }
+    if (opExpansionModeEnv == "CCU_MS") {
+        g_algEnvConfig.ccuMSMode = true;
+        return HCCL_SUCCESS;
+    } 
+    
+    if (opExpansionModeEnv == "CCU_SCHED") {
+        g_algEnvConfig.ccuSchedMode = true;
+        return HCCL_SUCCESS;
+    } 
+
     if (opExpansionModeEnv == "EmptyString") {
         HCCL_RUN_INFO("HCCL_OP_EXPANSION_MODE is not set, aicpuUnfold is [%u], aivMode is [%u]",
             g_algEnvConfig.aicpuUnfold,
             g_algEnvConfig.aivMode);
         return HCCL_SUCCESS;
     }
+    
+    DevType deviceType;
+    CHK_RET(hrtGetDeviceType(deviceType));
+    // 910_93默认打开AICPU展开
+    if (deviceType == DevType::DEV_TYPE_910_93) {
+        g_algEnvConfig.aicpuUnfold = true;
+    }
+
     if (opExpansionModeEnv == "AI_CPU") {
         if (deviceType == DevType::DEV_TYPE_910) {
             HCCL_WARNING("910 do not support AICPU unfold.");
@@ -697,10 +734,6 @@ HcclResult ParseOpExpansion()
         } else {
             HCCL_WARNING("deviceType[%u] do not support HOST_TS", deviceType);
         }
-    } else if (opExpansionModeEnv == "CCU_MS") {
-        g_algEnvConfig.ccuMSMode = true;
-    } else if (opExpansionModeEnv == "CCU_SCHED") {
-        g_algEnvConfig.ccuSchedMode = true;
     } else if (opExpansionModeEnv == "AICPU_CacheDisable") {
         if (deviceType == DevType::DEV_TYPE_910) {
             HCCL_WARNING("910 do not support AICPU unfold.");
@@ -713,7 +746,7 @@ HcclResult ParseOpExpansion()
             "HCCL_OP_EXPANSION_MODE is set to [%s], which is incorrect. Please check", opExpansionModeEnv.c_str());
         return HCCL_E_PARA;
     }
-    HCCL_RUN_INFO("environmental variable HCCL_OP_EXPANSION_MODE is [%s], aicpuUnfold[%u], aivMode[%u], enableFfts[%u]",
+    HCCL_INFO("environmental variable HCCL_OP_EXPANSION_MODE is [%s], aicpuUnfold[%u], aivMode[%u], enableFfts[%u]",
         opExpansionModeEnv.c_str(),
         g_algEnvConfig.aicpuUnfold,
         g_algEnvConfig.aivMode,
