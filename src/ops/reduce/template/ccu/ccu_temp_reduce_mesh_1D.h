@@ -37,6 +37,8 @@ public:
                          const TemplateDataParams& templateDataParams,
                          TemplateResource& templateResource) override;
 
+    HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx) override;
+
 private:
     uint32_t mySubCommRank_ = 0;
     uint32_t mySubCommRoot_ = 0;
