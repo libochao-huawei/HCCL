@@ -68,7 +68,7 @@ HcclResult AivTempAllReduceMesh1DOneShot::KernelRun(const OpParam& param,
 {
     HCCL_INFO("[AivTempAllReduceMesh1DOneShot] KernelRun start");
 
-    IncSliceId();  // 自动增长sliceId，传入aivCountTag
+    IncSliceId();  // 自动增长sliceId，传入sliceId
     dataType_ = param.DataDes.dataType;
     AivOpArgs aivAllReduceArgs;
     aivAllReduceArgs.cmdType = HcclCMDType::HCCL_CMD_ALLREDUCE;
@@ -80,7 +80,7 @@ HcclResult AivTempAllReduceMesh1DOneShot::KernelRun(const OpParam& param,
     aivAllReduceArgs.dataType = dataType_;
     aivAllReduceArgs.op = param.reduceType;
     aivAllReduceArgs.root = root_;
-    aivAllReduceArgs.aivCountTag = (static_cast<uint32_t>(param.aivCountTag) << AIV_TAG_MOVE_LEFT_BITS) | static_cast<uint32_t>(sliceId_);  // 传入aivCountTag，Lauch时重新组装为aivCountTag
+    aivAllReduceArgs.sliceId = static_cast<uint32_t>(sliceId_);
     aivAllReduceArgs.buffersIn = templateResource.aivCommInfoPtr;
     aivAllReduceArgs.stream = param.stream;
     aivAllReduceArgs.isOpBase = (param.opMode == OpMode::OPBASE);

@@ -18,9 +18,8 @@ class AivAllGatherMesh1D : public AivCommBase {
 public:
     __aicore__ inline AivAllGatherMesh1D() {}
  
-    __aicore__ inline void InitCoreInfo(uint64_t len, int32_t tag) //len is input length
+    __aicore__ inline void InitCoreInfo(uint64_t len) //len is input length
     {
-        curTag = tag;
         // 每个核处理 len/coreCount 个数据
         uint32_t coreId = GetBlockIdx();
         uint32_t coreCount = numBlocks_;
@@ -58,7 +57,7 @@ public:
  
         // 步骤2: 设置完成拷贝flag
         uint64_t flagOffset = numBlocks_ * rankSize_ * FLAG_SIZE;
-        Record(rank_, GetBlockIdx() * FLAG_SIZE + flagOffset, curTag);
+        Record(rank_, GetBlockIdx() * FLAG_SIZE + flagOffset, curTag_);
         PipeBarrier<PIPE_ALL>();
  
         // 步骤3: 循环对每一个rank执行CpGM2GM将数据写入output
@@ -68,26 +67,27 @@ public:
             auto output = reinterpret_cast<__gm__ T *>(output_ + rank * stride + coreOffset);
             PipeBarrier<PIPE_ALL>();
  
-            WaitFlag(rank, GetBlockIdx() * FLAG_SIZE + flagOffset, curTag);
+            WaitFlag(rank, GetBlockIdx() * FLAG_SIZE + flagOffset, curTag_);
             // 使用 CpGM2GM 直接拷贝数据
             CpGM2GM(output, gmOthers, curCount);
         }
         PipeBarrier<PIPE_ALL>();
     }
  
-    __aicore__ inline void Process(uint64_t count, uint64_t tag, uint64_t stride)
+    __aicore__ inline void Process(uint64_t count, uint64_t sliceId, uint64_t stride)
     {
+        curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
         if (numBlocks_ >= rankSize_) {
             // 核数大于等于ranksize
-            InitCoreInfo(count, tag);
+            InitCoreInfo(count);
             Run(count, stride);
         } else {
             // 核数小于ranksize
-            RunCtrlCore(count, tag, stride);
+            RunCtrlCore(count, stride);
         }
     }
  
-    __aicore__ inline void RunCtrlCore(uint64_t count, uint64_t tag, uint64_t stride)
+    __aicore__ inline void RunCtrlCore(uint64_t count, uint64_t stride)
     {
         // 核数小于ranksize
         if (block_idx >= numBlocks_) {
@@ -101,13 +101,13 @@ public:
         auto gmIn = reinterpret_cast<__gm__ T *>(reinterpret_cast<uint64_t>(GM_IN[rank_]) + block_idx * countPerCore * dataTypeSize);
         CpGM2GM(gmIn, input + block_idx * countPerCore * dataTypeSize, curCountCore);
         PipeBarrier<PIPE_ALL>();
-        Record(rank_, block_idx, tag);
+        Record(rank_, block_idx, curTag_);
         for (uint32_t idx = 0; idx < numBlocks_; idx++) {
-            WaitFlag(rank_, idx, tag);
+            WaitFlag(rank_, idx, curTag_);
             Record(rank_, idx, 0);
         }
         if (block_idx == 0) {
-            Record(rank_, rank_, tag);
+            Record(rank_, rank_, curTag_);
         }
         // 每个核分配多个rank搬运数据从gm到对端output
         uint32_t perCoreRankNum = rankSize_ / numBlocks_;
@@ -116,13 +116,12 @@ public:
         for (uint32_t rank = startRank; rank < startRank + curCoreRankNum; rank++) {
             auto gmOthers = reinterpret_cast<__gm__ T *>(reinterpret_cast<uint64_t>(GM_IN[rank]));
             auto output = reinterpret_cast<__gm__ T *>(output_ + rank * stride);
-            WaitFlag(rank, rank, tag);
+            WaitFlag(rank, rank, curTag_);
             CpGM2GM(output, gmOthers, count);
             PipeBarrier<PIPE_ALL>();
         }
     }
     uint64_t coreOffset;
-    int32_t curTag;
     uint64_t curCount;
 };
  
@@ -132,12 +131,12 @@ __aicore__ inline void AivAllGatherV2Mesh1D(EXTERN_KERNEL_ARGS_DEF_V2)
     AivAllGatherMesh1D<T> op;
     op.Init(KERNEL_CLASS_INIT, true);
     SyncAll<true>();
-    if (block_idx == 0 && tag >> AIV_TAG_MOVE_RIGHT_BITS == 1 && (tag & LOW_16_BITS) == 1) {
+    if (op.IsFirstOP(sliceId)) {
         op.BarrierForFirstOP();
     }
     SyncAll<true>();
  
-    op.Process(len, tag, outputSliceStride);
+    op.Process(len, sliceId, outputSliceStride);
     // 执行barrier全同步
     op.BarrierAll();
 }

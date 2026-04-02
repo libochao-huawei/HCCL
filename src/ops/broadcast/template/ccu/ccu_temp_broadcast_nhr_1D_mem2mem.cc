@@ -212,7 +212,7 @@ HcclResult CcuTempBroadcastNHR1DMem2Mem::SplitDataFor2Dies(const OpParam& param,
 
 HcclResult CcuTempBroadcastNHR1DMem2Mem::KernelRun(const OpParam& param,
                                                        const TemplateDataParams& templateDataParams,
-                                                       const TemplateResource& templateResource)
+                                                       TemplateResource& templateResource)
 {
     HCCL_INFO("[CcuTempBroadcastNHR1DMem2Mem] Template KernelRun start.");
     opMode_ = param.opMode;
@@ -233,8 +233,8 @@ HcclResult CcuTempBroadcastNHR1DMem2Mem::KernelRun(const OpParam& param,
     }
     uint64_t inputAddr = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
-    uint64_t token = hcomm::CcuRep::GetTokenInfo(reinterpret_cast<uint64_t>(buffInfo_.inputPtr),
-                                                       static_cast<uint64_t>(buffInfo_.inputSize));
+    uint64_t token;
+    CHK_RET(GetToken(buffInfo_, token));
     uint64_t die0SliceSize = die0Size / templateRankSize_;
     uint64_t die0LastSliceSize   = die0Size % templateRankSize_ + die0SliceSize;
     uint64_t die1SliceSize = die1Size / templateRankSize_;

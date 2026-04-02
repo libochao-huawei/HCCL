@@ -41,7 +41,7 @@ HcclResult HcclReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType
     #endif
         return HcclReduceInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
     }
-
+    HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
     // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
     // A3是：export HCCL_OP_EXPANSION_MODE="AI_CPU"，A5的接口还没提供
     CHK_RET(InitEnvConfig());
@@ -60,9 +60,15 @@ HcclResult HcclReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType
     CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), tag.c_str());
     CHK_RET(CheckCount(count));
     CHK_RET(CheckDataType(dataType, true));
+    CHK_RET(CheckReduceOp(dataType, op));
+
+    /* 接口交互信息日志 */
+    CHK_RET(ReduceEntryLog(sendBuf, recvBuf, count, dataType, op, root, stream, tag, "HcclReduce"));
 
     // 执行Reduce
     CHK_RET_AND_PRINT_IDE(ReduceOutPlace(sendBuf, recvBuf, count, dataType, op, root, comm, stream, tag), tag.c_str());
+
+    CHK_RET(LogHcclExit("HcclReduce", tag.c_str(), startut));
 
     return HCCL_SUCCESS;
 }
@@ -74,18 +80,18 @@ HcclResult CheckReduceInputPara(const HcclComm comm, const void* sendBuf, const 
     // 入参合法性校验
     RPT_INPUT_ERR(comm == nullptr,
         "EI0003",
-        std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),
-        std::vector<std::string>({"HcclReduce", "comm", "nullptr", "please check comm"}));
+        std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),
+        std::vector<std::string>({"HcclReduce", "nullptr", "comm", "non-null pointer"}));
     CHK_PTR_NULL(comm);
     RPT_INPUT_ERR(sendBuf == nullptr,
         "EI0003",
-        std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),
-        std::vector<std::string>({"HcclReduce", "sendBuf", "nullptr", "please check recvBuf"}));
+        std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),
+        std::vector<std::string>({"HcclReduce", "nullptr", "sendBuf", "non-null pointer"}));
     CHK_PTR_NULL(sendBuf);
     RPT_INPUT_ERR(recvBuf == nullptr,
         "EI0003",
-        std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),
-        std::vector<std::string>({"HcclReduce", "recvBuf", "nullptr", "please check recvBuf"}));
+        std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),
+        std::vector<std::string>({"HcclReduce", "nullptr", "recvBuf", "non-null pointer"}));
     CHK_PTR_NULL(recvBuf);
 
     return HCCL_SUCCESS;
@@ -144,4 +150,25 @@ HcclResult ReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclData
     HCCL_INFO("Execute ReduceOutPlace success.");
     return HCCL_SUCCESS;
 }
+
+HcclResult ReduceEntryLog(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
+    uint32_t root, aclrtStream stream, const std::string &tag, const std::string &opName)
+{
+    if (GetExternalInputHcclEnableEntryLog()) {
+        s32 deviceLogicId = 0;
+        ACLCHECK(aclrtGetDevice(&deviceLogicId));
+        s32 streamId = 0;
+        ACLCHECK(aclrtStreamGetId(stream, &streamId));
+        char stackLogBuffer[LOG_TMPBUF_SIZE];
+        s32 ret = snprintf_s(stackLogBuffer, LOG_TMPBUF_SIZE, LOG_TMPBUF_SIZE - 1U,
+            "tag[%s], sendBuf[%p], recvBuf[%p], count[%llu], dataType[%s], reduceOp[%s], root[%u], streamId[%d], deviceLogicId[%d]",
+            tag.c_str(), sendBuf, recvBuf, count, GetDataTypeEnumStr(dataType).c_str(), GetReduceOpEnumStr(op).c_str(), root, streamId, deviceLogicId);
+
+        CHK_PRT_CONT(ret == -1, HCCL_WARNING("Failed to build log info, tag[%s].", tag.c_str()));
+        std::string logInfo = "Entry-" + opName + ":" + std::string(stackLogBuffer);
+        HCCL_RUN_INFO("%s", logInfo.c_str());
+    }
+    return HCCL_SUCCESS;
+}
+
 }  // namespace ops_hccl

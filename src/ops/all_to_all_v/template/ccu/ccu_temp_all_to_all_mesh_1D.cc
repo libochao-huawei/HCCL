@@ -105,7 +105,7 @@ void CcuTempAlltoAllMesh1D::InitInsAlgTemplate(
 
 HcclResult CcuTempAlltoAllMesh1D::KernelRun(const OpParam& param,
                                             const TemplateDataParams& templateDataParams,
-                                            const TemplateResource& templateResource)
+                                            TemplateResource& templateResource)
 {
     HCCL_INFO("[CcuTempAllToAllMesh1D] Run");
     buffInfo_ = templateDataParams.buffInfo;
@@ -121,8 +121,8 @@ HcclResult CcuTempAlltoAllMesh1D::KernelRun(const OpParam& param,
     uint64_t                                repeatNumTmp  = templateDataParams.repeatNum;
     uint64_t inputAddr          = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr         = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
-    uint64_t token              = hcomm::CcuRep::GetTokenInfo(reinterpret_cast<uint64_t>(buffInfo_.inputPtr),
-                                                       static_cast<uint64_t>(buffInfo_.inputSize));
+    uint64_t token;
+    CHK_RET(GetToken(buffInfo_, token));
     
     uint64_t srcStride = templateDataParams.outputSliceStride;
     uint64_t dstStride = templateDataParams.outputSliceStride;

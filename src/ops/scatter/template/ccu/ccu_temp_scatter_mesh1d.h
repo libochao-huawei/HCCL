@@ -33,11 +33,12 @@ public:
                        AlgResourceRequest &resourceRequest) override;
 
     HcclResult KernelRun(const OpParam &param, const TemplateDataParams &templateDataParams,
-                         const TemplateResource &templateResource) override;
+                         TemplateResource& templateResource) override;
 
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
     u64 GetThreadNum() const override;
     void SetRoot(u32 root);
+    HcclResult GetRes(AlgResourceRequest& resourceRequest) const override;
 
 private:
     uint32_t mySubCommRank_ = 0;

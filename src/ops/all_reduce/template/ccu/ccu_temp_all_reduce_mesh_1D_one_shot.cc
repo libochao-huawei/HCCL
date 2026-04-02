@@ -71,14 +71,14 @@ HcclResult CcuTempAllReduceMesh1DOneShot::CalcRes(HcclComm comm, const OpParam& 
 
 HcclResult CcuTempAllReduceMesh1DOneShot::KernelRun(const OpParam& param,
                                                     const TemplateDataParams& templateDataParams,
-                                                    const TemplateResource& templateResource)
+                                                    TemplateResource& templateResource)
 {
     buffInfo_ = templateDataParams.buffInfo;
     HCCL_INFO("CcuTempAllReduceMesh1DOneShot KernelRun inputPtr(%p), inputSize(%d)", buffInfo_.inputPtr, buffInfo_.inputSize);
     uint64_t inputAddr = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
-    uint64_t token = hcomm::CcuRep::GetTokenInfo(reinterpret_cast<uint64_t>(buffInfo_.inputPtr),
-                                                 static_cast<uint64_t>(buffInfo_.inputSize));
+    uint64_t token;
+    CHK_RET(GetToken(buffInfo_, token));
     uint64_t sliceSize = templateDataParams.sliceSize;
 
     std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAllReduceMesh1DOneShot>(

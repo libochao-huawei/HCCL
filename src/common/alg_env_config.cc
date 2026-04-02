@@ -18,123 +18,13 @@
 #include "mmpa_api.h"
 #include "config_log.h"
 #include "sal.h"
-#include "dtype_common_dl.h"
+#include "dtype_common.h"
 
 namespace ops_hccl {
 
 static std::mutex g_algEnvConfigMutex;
 static thread_local AlgEnvConfig g_algEnvConfig;
 
-/* 入口 */
-HcclResult InitEnvConfig()
-{
-    std::lock_guard<std::mutex> lock(g_algEnvConfigMutex);
-    // 解析算子展开模式
-    HcclResult ret = ParseOpExpansion();
-    RPT_ENV_ERR(ret != HCCL_SUCCESS, "EI0001", std::vector<std::string>({"env","tips"}),\
-        std::vector<std::string>({"HCCL_OP_EXPANSION_MODE", "it should be \"AI_CPU\""}));
-    CHK_PRT_RET(ret != HCCL_SUCCESS,
-        HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse "\
-            "HCCL_OP_EXPANSION_MODE failed. errorno[%d]", HCCL_ERROR_CODE(ret), ret), ret);
-    
-    if (g_algEnvConfig.initialized) {
-        return HCCL_SUCCESS;
-    }
-
-    // 解析hcclDeterministic,是否为确定性计算
-    ret = ParseDeterministic();
-    RPT_ENV_ERR(ret != HCCL_SUCCESS, "EI0001", std::vector<std::string>({"env","tips"}),\
-        std::vector<std::string>({"HCCL_DETERMINISTIC", "Value should be true ,false or strict."}));
-    CHK_PRT_RET(ret != HCCL_SUCCESS,
-        HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse "
-                   "HCCL_DETERMINISTIC failed. errorno[%d]",
-            HCCL_ERROR_CODE(ret),
-            ret),
-        ret);
-
-    // 解析server内通信方式
-    ret = ParseIntraLinkType();
-    RPT_ENV_ERR(ret != HCCL_SUCCESS,
-        "EI0001",
-        std::vector<std::string>({"env", "tips"}),
-        std::vector<std::string>({"HCCL_INTRA_PCIE_ENABLE or HCCL_INTRA_ROCE_ENABLE",
-            "Check whether HCCL_INTRA_PCIE_ENABLE or HCCL_INTRA_ROCE_ENABLE is set correctly"}));
-    CHK_PRT_RET(ret != HCCL_SUCCESS,
-        HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse intra "
-                   "comm type failed. errorno[%d]",
-            HCCL_ERROR_CODE(ret),
-            ret),
-        ret);
-
-    // 解析Entry日志开关
-    ret = ParseEntryLogEnable();
-    RPT_ENV_ERR(ret != HCCL_SUCCESS,
-        "EI0001",
-        std::vector<std::string>({"env", "tips"}),
-        std::vector<std::string>({"HCCL_ENTRY_LOG_ENABLE", "It must be 0 or 1."}));
-    CHK_PRT_RET(ret != HCCL_SUCCESS,
-        HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse "
-                   "HCCL_ENTRY_LOG_ENABLE failed. errorno[%d]",
-            HCCL_ERROR_CODE(ret),
-            ret),
-        ret);
-
-    // 解析超节点内节点间链路选择开关
-    ret = ParseInterLinkType();
-    RPT_ENV_ERR(ret != HCCL_SUCCESS,
-        "EI0001",
-        std::vector<std::string>({"env", "tips"}),
-        std::vector<std::string>({"HCCL_INTER_HCCS_DISABLE", "Value should be true or false."}));
-    CHK_PRT_RET(ret != HCCL_SUCCESS,
-        HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse "
-                   "HCCL_INTER_HCCS_DISABLE failed. errorno[%d]",
-            HCCL_ERROR_CODE(ret),
-            ret),
-        ret);
-
-    // 解析重执行设置
-    ret = ParseRetryEnable();
-    RPT_ENV_ERR(ret != HCCL_SUCCESS,
-        "EI0001",
-        std::vector<std::string>({"env", "tips"}),
-        std::vector<std::string>({"HCCL_OP_RETRY_ENABLE", "Value should be 0 or 1."}));
-    CHK_PRT_RET(ret != HCCL_SUCCESS,
-        HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse HCCL_OP_RETRY_ENABLE failed. "
-                   "errorno[%d]",
-            HCCL_ERROR_CODE(ret),
-            ret),
-        ret);
-
-    // 解析算法配置
-    ret = ParseHcclAlgo();
-    RPT_ENV_ERR(ret != HCCL_SUCCESS,
-        "EI0001",
-        std::vector<std::string>({"env", "tips"}),
-        std::vector<std::string>({"HCCL_ALGO",
-            "expect: level0:NA;level1:<algo> or <op0>=level0:NA;level1:<algo0>/<op1>=level0:NA;level1:<algo1>"}));
-    CHK_PRT_RET(ret != HCCL_SUCCESS,
-        HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse "
-                   "hccl algorithm config failed. errorno[%d]",
-            HCCL_ERROR_CODE(ret),
-            ret),
-        ret);
-
-    ret = InitDebugConfigByEnv();
-    RPT_ENV_ERR(ret != HCCL_SUCCESS,
-        "EI0001",
-        std::vector<std::string>({"env", "tips"}),
-        std::vector<std::string>({"HCCL_DEBUG_CONFIG", "Please check whether the env is valid"}));
-    CHK_PRT_RET(ret != HCCL_SUCCESS,
-        HCCL_ERROR("[InitEnvParam]errNo[0x%016llx] In init environment param, parse "
-                   "HCCL_DEBUG_CONFIG failed. errorno[%d]",
-            HCCL_ERROR_CODE(ret),
-            ret),
-        ret);
-
-    g_algEnvConfig.initialized = true;
-
-    return HCCL_SUCCESS;
-}
 std::string GetEnv(mmEnvId IdName)
 {
     constexpr size_t MAX_ENV_VALUE_SIZE = 1024;
@@ -146,6 +36,199 @@ std::string GetEnv(mmEnvId IdName)
     } else {
         return "EmptyString";
     }
+}
+
+static bool IsValidTimeoutFormat(const std::string &str)
+{
+    if (str.empty()) return false;
+    
+    size_t dotPos = str.find('.');
+    size_t pos = 0;
+    
+    // 检查小数点前的数字
+    while (pos < str.length() && pos != dotPos) {
+        if (!std::isdigit(str[pos])) return false;
+        pos++;
+    }
+    
+    // 如果有小数点，检查小数部分
+    if (dotPos != std::string::npos) {
+        if (dotPos == 0 || dotPos == str.length() - 1) return false;
+        size_t decimalLen = str.length() - dotPos - 1;
+        if (decimalLen > 2) return false; // 最多2位小数
+        
+        for (size_t i = dotPos + 1; i < str.length(); i++) {
+            if (!std::isdigit(str[i])) return false;
+        }
+    }
+    
+    return true;
+}
+
+HcclResult ParseExecTimeout()
+{
+    std::string execTimeOutEnv = GetEnv(MM_ENV_HCCL_EXEC_TIMEOUT);
+    if (execTimeOutEnv == "EmptyString") {
+        g_algEnvConfig.execTimeOutSet = false;
+        g_algEnvConfig.execTimeout = 0;
+        return HCCL_SUCCESS;
+    }
+
+    if (!IsValidTimeoutFormat(execTimeOutEnv)) {
+        HCCL_WARNING("[ParseExecTimeout] HCCL_EXEC_TIMEOUT[%s] format is invalid, use default.",
+            execTimeOutEnv.c_str());
+        g_algEnvConfig.execTimeOutSet = false;
+        g_algEnvConfig.execTimeout = 0;
+        return HCCL_E_PARA;
+    }
+
+    double execTimeOut = 0;
+    if (SalStrToDouble(execTimeOutEnv, execTimeOut) != HCCL_SUCCESS) {
+        HCCL_WARNING("[ParseExecTimeout] HCCL_EXEC_TIMEOUT[%s] parse failed, use default.",
+            execTimeOutEnv.c_str());
+        g_algEnvConfig.execTimeOutSet = false;
+        g_algEnvConfig.execTimeout = 0;
+        return HCCL_E_PARA;
+    }
+
+    g_algEnvConfig.execTimeOutSet = true;
+    g_algEnvConfig.execTimeout = execTimeOut;
+    return HCCL_SUCCESS;
+}
+
+bool GetExternalInputExecTimeout(double &execTimeOut)
+{
+    std::lock_guard<std::mutex> lock(g_algEnvConfigMutex);
+    if (!g_algEnvConfig.execTimeOutSet) {
+        return false;
+    }
+
+    execTimeOut = g_algEnvConfig.execTimeout;
+    return true;
+}
+
+/* 入口 */
+HcclResult InitEnvConfig()
+{
+    std::lock_guard<std::mutex> lock(g_algEnvConfigMutex);
+    // 解析算子展开模式
+    HcclResult ret = ParseOpExpansion();
+    RPT_ENV_ERR(ret != HCCL_SUCCESS, "EI0001", std::vector<std::string>({"value", "env", "expect"}),\
+        std::vector<std::string>({GetEnv(MM_ENV_HCCL_OP_EXPANSION_MODE), "HCCL_OP_EXPANSION_MODE", "should be \"AI_CPU\""}));
+    CHK_PRT_RET(ret != HCCL_SUCCESS,
+        HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse "\
+            "HCCL_OP_EXPANSION_MODE failed. errorno[%d]", HCCL_ERROR_CODE(ret), ret), ret);
+    
+    if (g_algEnvConfig.initialized) {
+        return HCCL_SUCCESS;
+    }
+
+    // 解析hcclDeterministic,是否为确定性计算
+    ret = ParseDeterministic();
+    RPT_ENV_ERR(ret != HCCL_SUCCESS, "EI0001", std::vector<std::string>({"value", "env", "expect"}),\
+        std::vector<std::string>({GetEnv(MM_ENV_HCCL_DETERMINISTIC), "HCCL_DETERMINISTIC", "should be true ,false or strict"}));
+    CHK_PRT_RET(ret != HCCL_SUCCESS,
+        HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse "
+                   "HCCL_DETERMINISTIC failed. errorno[%d]",
+            HCCL_ERROR_CODE(ret),
+            ret),
+        ret);
+
+    // 解析server内通信方式
+    ret = ParseIntraLinkType();
+    RPT_ENV_ERR(ret != HCCL_SUCCESS,
+        "EI0001",
+        std::vector<std::string>({"value", "env", "expect"}),
+        std::vector<std::string>({"PCIE enable: " + std::string(GetEnv(MM_ENV_HCCL_INTRA_PCIE_ENABLE)) + " or ROCE enable: "
+        + std::string(GetEnv(MM_ENV_HCCL_INTRA_ROCE_ENABLE)), "HCCL_INTRA_PCIE_ENABLE or HCCL_INTRA_ROCE_ENABLE",
+            "0 or 1 (but not both 1)"}));
+    CHK_PRT_RET(ret != HCCL_SUCCESS,
+        HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse intra "
+                   "comm type failed. errorno[%d]",
+            HCCL_ERROR_CODE(ret),
+            ret),
+        ret);
+
+    // 解析Entry日志开关
+    ret = ParseEntryLogEnable();
+    RPT_ENV_ERR(ret != HCCL_SUCCESS,
+        "EI0001",
+        std::vector<std::string>({"value", "env", "expect"}),
+        std::vector<std::string>({GetEnv(MM_ENV_HCCL_ENTRY_LOG_ENABLE), "HCCL_ENTRY_LOG_ENABLE", "must be 0 or 1"}));
+    CHK_PRT_RET(ret != HCCL_SUCCESS,
+        HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse "
+                   "HCCL_ENTRY_LOG_ENABLE failed. errorno[%d]",
+            HCCL_ERROR_CODE(ret),
+            ret),
+        ret);
+
+    // 解析超节点内节点间链路选择开关
+    ret = ParseInterLinkType();
+    RPT_ENV_ERR(ret != HCCL_SUCCESS,
+        "EI0001",
+        std::vector<std::string>({"value", "env", "expect"}),
+        std::vector<std::string>({GetEnv(MM_ENV_HCCL_INTER_HCCS_DISABLE), "HCCL_INTER_HCCS_DISABLE", "should be true or false"}));
+    CHK_PRT_RET(ret != HCCL_SUCCESS,
+        HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse "
+                   "HCCL_INTER_HCCS_DISABLE failed. errorno[%d]",
+            HCCL_ERROR_CODE(ret),
+            ret),
+        ret);
+
+    // 解析重执行设置
+    ret = ParseRetryEnable();
+    RPT_ENV_ERR(ret != HCCL_SUCCESS,
+        "EI0001",
+        std::vector<std::string>({"value", "env", "expect"}),
+        std::vector<std::string>({GetEnv(MM_ENV_HCCL_OP_RETRY_ENABLE), "HCCL_OP_RETRY_ENABLE", "should be 0 or 1"}));
+    CHK_PRT_RET(ret != HCCL_SUCCESS,
+        HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse HCCL_OP_RETRY_ENABLE failed. "
+                   "errorno[%d]",
+            HCCL_ERROR_CODE(ret),
+            ret),
+        ret);
+
+    // 解析执行超时
+    ret = ParseExecTimeout();
+    RPT_ENV_ERR(ret != HCCL_SUCCESS, "EI0001", std::vector<std::string>({"value", "env", "expect"}),
+        std::vector<std::string>({GetEnv(MM_ENV_HCCL_EXEC_TIMEOUT), "HCCL_EXEC_TIMEOUT",
+        "a non-negative number with up to 2 decimals"}));
+    CHK_PRT_RET(ret != HCCL_SUCCESS,
+        HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse HCCL_EXEC_TIMEOUT failed. "
+            "errorno[%d]", HCCL_ERROR_CODE(ret), ret), ret);
+
+    // 解析算法配置
+    ret = ParseHcclAlgo();
+    RPT_ENV_ERR(ret != HCCL_SUCCESS,
+        "EI0001",
+        std::vector<std::string>({"value", "env", "expect"}),
+        std::vector<std::string>({GetEnv(MM_ENV_HCCL_ALGO), "HCCL_ALGO",
+            "level0:NA;level1:<algo> or <op0>=level0:NA;level1:<algo0>/<op1>=level0:NA;level1:<algo1>"}));
+    CHK_PRT_RET(ret != HCCL_SUCCESS,
+        HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse "
+                   "hccl algorithm config failed. errorno[%d]",
+            HCCL_ERROR_CODE(ret),
+            ret),
+        ret);
+
+    ret = InitDebugConfigByEnv();
+    char* env = nullptr;
+    MM_SYS_GET_ENV(MM_ENV_HCCL_DEBUG_CONFIG, env);
+    std::string envValue = (env != nullptr) ? std::string(env) : "null";
+    RPT_ENV_ERR(ret != HCCL_SUCCESS,
+        "EI0001",
+        std::vector<std::string>({"value", "env", "expect"}),
+        std::vector<std::string>({envValue, "HCCL_DEBUG_CONFIG", "ALG,TASK,RESOURCE,AIV_OPS_EXC(optionally prefixed with '^')"}));
+    CHK_PRT_RET(ret != HCCL_SUCCESS,
+        HCCL_ERROR("[InitEnvParam]errNo[0x%016llx] In init environment param, parse "
+                   "HCCL_DEBUG_CONFIG failed. errorno[%d]",
+            HCCL_ERROR_CODE(ret),
+            ret),
+        ret);
+
+    g_algEnvConfig.initialized = true;
+
+    return HCCL_SUCCESS;
 }
 
 HcclResult ParseHcclAlgo()
@@ -594,24 +677,37 @@ HcclResult ParseEntryLogEnable()
 
 HcclResult ParseOpExpansion()
 {
-    std::string opExpansionModeEnv = GetEnv(MM_ENV_HCCL_OP_EXPANSION_MODE);
+    const std::string &opExpansionModeEnv = GetEnv(MM_ENV_HCCL_OP_EXPANSION_MODE);
     g_algEnvConfig.aicpuUnfold = false;
     g_algEnvConfig.aivMode = false;
+    g_algEnvConfig.aivOnlyMode = false;
     g_algEnvConfig.ccuMSMode = false;
     g_algEnvConfig.ccuSchedMode = false;
 
+    if (opExpansionModeEnv == "CCU_MS") {
+        g_algEnvConfig.ccuMSMode = true;
+        return HCCL_SUCCESS;
+    } 
+    
+    if (opExpansionModeEnv == "CCU_SCHED") {
+        g_algEnvConfig.ccuSchedMode = true;
+        return HCCL_SUCCESS;
+    } 
+    
     DevType deviceType;
     CHK_RET(hrtGetDeviceType(deviceType));
     // 910_93默认打开AICPU展开
     if (deviceType == DevType::DEV_TYPE_910_93) {
         g_algEnvConfig.aicpuUnfold = true;
     }
+
     if (opExpansionModeEnv == "EmptyString") {
         HCCL_RUN_INFO("HCCL_OP_EXPANSION_MODE is not set, aicpuUnfold is [%u], aivMode is [%u]",
             g_algEnvConfig.aicpuUnfold,
             g_algEnvConfig.aivMode);
         return HCCL_SUCCESS;
     }
+
     if (opExpansionModeEnv == "AI_CPU") {
         if (deviceType == DevType::DEV_TYPE_910) {
             HCCL_WARNING("910 do not support AICPU unfold.");
@@ -623,6 +719,12 @@ HcclResult ParseOpExpansion()
             HCCL_WARNING("Deterministic do not support aiv");
         }
         g_algEnvConfig.aivMode = true;
+    } else if (opExpansionModeEnv == "AIV_ONLY") {
+        if (g_algEnvConfig.hcclDeterministic == true) {
+            HCCL_WARNING("Deterministic do not support aiv only");
+        }
+        g_algEnvConfig.aivMode = true;
+        g_algEnvConfig.aivOnlyMode = true;
     } else if (opExpansionModeEnv == "HOST") {
         g_algEnvConfig.aivMode = false;
         g_algEnvConfig.aicpuUnfold = false;
@@ -632,16 +734,19 @@ HcclResult ParseOpExpansion()
         } else {
             HCCL_WARNING("deviceType[%u] do not support HOST_TS", deviceType);
         }
-    } else if (opExpansionModeEnv == "CCU_MS") {
-        g_algEnvConfig.ccuMSMode = true;
-    } else if (opExpansionModeEnv == "CCU_SCHED") {
-        g_algEnvConfig.ccuSchedMode = true;
+    } else if (opExpansionModeEnv == "AICPU_CacheDisable") {
+        if (deviceType == DevType::DEV_TYPE_910) {
+            HCCL_WARNING("910 do not support AICPU unfold.");
+        } else {
+            g_algEnvConfig.aicpuUnfold = true;
+            g_algEnvConfig.aicpuCacheEnable = 0; // Disable aicpu cache
+        }
     } else {
         HCCL_ERROR(
             "HCCL_OP_EXPANSION_MODE is set to [%s], which is incorrect. Please check", opExpansionModeEnv.c_str());
         return HCCL_E_PARA;
     }
-    HCCL_RUN_INFO("environmental variable HCCL_OP_EXPANSION_MODE is [%s], aicpuUnfold[%u], aivMode[%u], enableFfts[%u]",
+    HCCL_INFO("environmental variable HCCL_OP_EXPANSION_MODE is [%s], aicpuUnfold[%u], aivMode[%u], enableFfts[%u]",
         opExpansionModeEnv.c_str(),
         g_algEnvConfig.aicpuUnfold,
         g_algEnvConfig.aivMode,
@@ -816,6 +921,11 @@ const bool &GetExternalInputHcclAivMode()
     return g_algEnvConfig.aivMode;
 }
 
+const bool &GetExternalInputHcclAivOnlyMode()
+{
+    return g_algEnvConfig.aivOnlyMode;
+}
+
 const bool &GetExternalInputHcclCcuMSMode()
 {
     return g_algEnvConfig.ccuMSMode;
@@ -865,7 +975,8 @@ bool RunIndependentOpExpansion(DevType deviceType)
     #endif
         return opExpansionModeEnv == "AI_CPU" || opExpansionModeEnv == "HOST_TS" ||
                opExpansionModeEnv == "EmptyString" || opExpansionModeEnv == "AIV" ||
-               opExpansionModeEnv == "CCU_SCHED" || opExpansionModeEnv == "CCU_MS";
+               opExpansionModeEnv == "AIV_ONLY" || opExpansionModeEnv == "CCU_SCHED" ||
+               opExpansionModeEnv == "CCU_MS";
     }
 
     // HOST_TS为Host展开

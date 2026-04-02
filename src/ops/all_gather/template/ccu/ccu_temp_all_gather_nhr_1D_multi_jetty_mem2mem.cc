@@ -157,14 +157,15 @@ uint32_t CcuTempAllGatherNHR1DMultiJettyMem2Mem::RemoteRankId2RankId(const uint3
 
 HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::KernelRun(const OpParam& param,
                                                         const TemplateDataParams& templateDataParams,
-                                                        const TemplateResource& templateResource)
+                                                        TemplateResource& templateResource)
 {
     HCCL_INFO("[CcuTempAllGatherNHR1DMultiJettyMem2Mem] Template Run start.");
     buffInfo_ = templateDataParams.buffInfo;
 
     uint64_t inputAddr             = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr            = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
-    uint64_t token                 = hcomm::CcuRep::GetTokenInfo(PointerToAddr(buffInfo_.inputPtr), buffInfo_.inputSize);
+    uint64_t token;
+    CHK_RET(GetToken(buffInfo_, token));
     
     uint64_t isInputOutputEqual    = buffInfo_.inputPtr == buffInfo_.outputPtr ? 1 : 0;
     uint64_t sliceSize             = templateDataParams.sliceSize;

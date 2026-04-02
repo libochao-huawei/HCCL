@@ -32,7 +32,8 @@ public:
                                AlgResourceRequest& resourceRequest);
     virtual HcclResult KernelRun(const OpParam& param,
                                  const TemplateDataParams& templateDataParams,
-                                 const TemplateResource& templateResource);
+                                 TemplateResource& templateResource);
+    virtual HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx);
                                  
     virtual HcclResult GetRes(AlgResourceRequest& resourceRequest) const;
     virtual u64 GetThreadNum() const;
@@ -40,6 +41,8 @@ public:
     virtual u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType);
 
     uint64_t PointerToAddr(void* pointer) const;
+    
+    HcclResult GetToken(const BuffInfo &buffinfo, uint64_t &token) const;
 
     HcclResult GetChannelDieId(HcclComm comm, uint32_t rankId, const HcclChannelDesc& channelDesc, uint32_t& dieId) const;
 
@@ -55,6 +58,14 @@ protected:
     std::vector<std::vector<u32>> subCommRanks_;
     HcclResult RestoreChannelMap(const std::vector<HcclChannelDesc>& channelDescs,
                                  std::map<u32, std::vector<HcclChannelDesc>>& rankIdToChannelDesc) const;
+                        
+    HcclResult SelectChannelToVec(const HcclComm comm, const u32 myRankId, const u32 rmtRankId,
+        const std::map<u32, std::vector<HcclChannelDesc>> &rankIdToChannelDesc, const u32 dieId, 
+        std::map<u32, u32>& rank2ChannelIdx, std::vector<HcclChannelDesc>& channels);
+    
+    HcclResult GetDieInfoFromChannelDescs(HcclComm comm, 
+        const std::map<u32, std::vector<HcclChannelDesc>> &rankIdToChannelDesc, 
+        u32 myRankId, uint32_t &dieNum, uint32_t &dieId);
 };
 }
 #endif // HCCLV2_CCU_ALG_TEMPLATE_BASE

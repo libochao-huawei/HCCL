@@ -56,7 +56,7 @@ HcclResult AivTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
 {
     HCCL_INFO("[AivTempAlltoAllVMesh1D] KernelRun start");
 
-    IncSliceId();  // 自动增长sliceId，传入aivCountTag
+    IncSliceId();  // 自动增长sliceId，传入sliceId
     dataType_ = param.all2AllVDataDes.sendType;
     AivOpArgs aivAlltoAllVArgs;
     aivAlltoAllVArgs.cmdType = HcclCMDType::HCCL_CMD_ALLTOALLV;
@@ -68,7 +68,7 @@ HcclResult AivTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
     aivAlltoAllVArgs.dataType = dataType_;
     aivAlltoAllVArgs.op = param.reduceType;
     aivAlltoAllVArgs.root = root_;
-    aivAlltoAllVArgs.aivCountTag = (static_cast<uint32_t>(param.aivCountTag) << AIV_TAG_MOVE_LEFT_BITS) | static_cast<uint32_t>(sliceId_);  // 传入aivCountTag，Lauch时重新组装为aivCountTag  // todo
+    aivAlltoAllVArgs.sliceId = static_cast<uint32_t>(sliceId_);
     aivAlltoAllVArgs.buffersIn = templateResource.aivCommInfoPtr;
     aivAlltoAllVArgs.stream = param.stream;
     aivAlltoAllVArgs.isOpBase = (param.opMode == OpMode::OPBASE);

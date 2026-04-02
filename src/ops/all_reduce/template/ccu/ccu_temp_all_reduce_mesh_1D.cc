@@ -134,7 +134,7 @@ HcclResult CcuTempAllReduceMesh1D::CheckCcuDataType() const
 }
 
 HcclResult CcuTempAllReduceMesh1D::KernelRun(const OpParam& param, const TemplateDataParams& templateDataParams,
-                                             const TemplateResource& templateResource)
+                                             TemplateResource& templateResource)
 {
     if (outputDataType_ == HcclDataType::HCCL_DATA_TYPE_RESERVED) {
         outputDataType_ = dataType_;
@@ -146,8 +146,8 @@ HcclResult CcuTempAllReduceMesh1D::KernelRun(const OpParam& param, const Templat
 
     uint64_t inputAddr          = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr         = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
-    uint64_t token              = hcomm::CcuRep::GetTokenInfo(reinterpret_cast<uint64_t>(buffInfo_.inputPtr),
-                                                       static_cast<uint64_t>(buffInfo_.inputSize));  
+    uint64_t token;
+    CHK_RET(GetToken(buffInfo_, token));
 
     uint64_t sliceSize = sliceInfoVec[myRank_][0].size;  // 获取本rank需要处理的数据量
     uint64_t offSet = sliceInfoVec[myRank_][0].offset;   // 自己需要 reduce 的数据基于 inputAddr 的偏移

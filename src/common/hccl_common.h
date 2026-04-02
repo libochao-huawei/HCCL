@@ -18,10 +18,10 @@
 #include <string>
 #include <unordered_map>
 #include <algorithm>
-#include "dtype_common_dl.h"
+#include "dtype_common.h"
 #include "log.h"
 #include "hccl_types.h"
-#include "hccl_res_dl.h"
+#include "hccl_res.h"
 
 #ifndef T_DESC
 #define T_DESC(_msg, _y) ((_y) ? true : false)
@@ -64,9 +64,40 @@ const std::map<HcclDataType, std::string> HCOM_DATA_TYPE_STR_MAP{
     {HcclDataType::HCCL_DATA_TYPE_FP8E4M3, "fp8e4m3"},
     {HcclDataType::HCCL_DATA_TYPE_FP8E5M2, "fp8e5m2"},
     {HcclDataType::HCCL_DATA_TYPE_FP8E8M0, "fp8e8m0"},
+#if defined(HCCL_DATA_TYPE_MXFP8)
     {HcclDataType::HCCL_DATA_TYPE_MXFP8, "mxfp8"},
+#endif
     {HcclDataType::HCCL_DATA_TYPE_RESERVED, "reserved"}
 };
+
+// 返回const char*，避免string和map查找开销
+inline const char* GetHcclDataTypeStr(HcclDataType type) noexcept
+{
+    switch (type)
+    {
+        case HcclDataType::HCCL_DATA_TYPE_INT8: return "int8";
+        case HcclDataType::HCCL_DATA_TYPE_INT16: return "int16";
+        case HcclDataType::HCCL_DATA_TYPE_INT32: return "int32";
+        case HcclDataType::HCCL_DATA_TYPE_INT64: return "int64";
+        case HcclDataType::HCCL_DATA_TYPE_UINT64: return "uint64";
+        case HcclDataType::HCCL_DATA_TYPE_FP16: return "float16";
+        case HcclDataType::HCCL_DATA_TYPE_FP32: return "float32";
+        case HcclDataType::HCCL_DATA_TYPE_UINT8: return "uint8";
+        case HcclDataType::HCCL_DATA_TYPE_UINT16: return "uint16";
+        case HcclDataType::HCCL_DATA_TYPE_UINT32: return "uint32";
+        case HcclDataType::HCCL_DATA_TYPE_FP64: return "float64";
+        case HcclDataType::HCCL_DATA_TYPE_BFP16: return "bfloat16";
+        case HcclDataType::HCCL_DATA_TYPE_INT128: return "int128";
+        case HcclDataType::HCCL_DATA_TYPE_HIF8: return "hif8";
+        case HcclDataType::HCCL_DATA_TYPE_FP8E4M3: return "fp8e4m3";
+        case HcclDataType::HCCL_DATA_TYPE_FP8E5M2: return "fp8e5m2";
+        case HcclDataType::HCCL_DATA_TYPE_FP8E8M0: return "fp8e8m0";
+        case HcclDataType::HCCL_DATA_TYPE_MXFP8: return "mxfp8";
+        case HcclDataType::HCCL_DATA_TYPE_RESERVED: return "reserved";
+        default:
+            return nullptr;
+    }
+}
 
 inline std::string GetDataTypeEnumStr(HcclDataType dataType)
 {
@@ -85,6 +116,20 @@ const std::map<HcclReduceOp, std::string> HCOM_REDUCE_OP_STR_MAP{
     {HcclReduceOp::HCCL_REDUCE_MIN, "min"},
     {HcclReduceOp::HCCL_REDUCE_RESERVED, "reserved"}
 };
+
+inline const char* GetHcclReduceOpStr(HcclReduceOp op) noexcept
+{
+    switch (op)
+    {
+        case HcclReduceOp::HCCL_REDUCE_SUM:         return "sum";
+        case HcclReduceOp::HCCL_REDUCE_PROD:        return "prod";
+        case HcclReduceOp::HCCL_REDUCE_MAX:         return "max";
+        case HcclReduceOp::HCCL_REDUCE_MIN:         return "min";
+        case HcclReduceOp::HCCL_REDUCE_RESERVED:    return "reserved";
+        default:
+            return nullptr;
+    }
+}
 
 inline std::string GetReduceOpEnumStr(HcclReduceOp reduceOp)
 {
@@ -139,11 +184,13 @@ enum class HcclRtDeviceInfoType {
  * @enum HcclMemType
  * @brief 内存类型枚举定义
  */
+#if !defined(HCCL_MEM_TYPE_DEVICE)
 typedef enum {
     HCCL_MEM_TYPE_DEVICE, ///< 设备侧内存（如NPU等）
     HCCL_MEM_TYPE_HOST,   ///< 主机侧内存
     HCCL_MEM_TYPE_NUM     ///< 内存类型数量
 } HcclMemType;
+#endif
 
 
 struct HcclMem {

@@ -39,7 +39,7 @@ HcclResult HcclBatchSendRecv(HcclSendRecvItem *sendRecvInfo, uint32_t itemNum, H
     #endif
         return HcclBatchSendRecvInner(sendRecvInfo, itemNum, comm, stream);
     }
-
+    HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
     CHK_RET(InitEnvConfig());
 
     // 参数校验等工作
@@ -59,9 +59,14 @@ HcclResult HcclBatchSendRecv(HcclSendRecvItem *sendRecvInfo, uint32_t itemNum, H
     CHK_RET(HcclCheckTag(tag.c_str()));
     CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), tag.c_str());
 
+    /* 接口交互信息日志 */
+    CHK_RET(BatchSendRecvEntryLog(itemNum, stream, tag, "HcclBatchSendRecv"));
+
     // 执行BatchSendRecv
     CHK_RET_AND_PRINT_IDE(BatchSendRecvOutPlace(sendRecvInfo, itemNum, comm, stream, tag),
                           tag.c_str());
+
+    CHK_RET(LogHcclExit("HcclBatchSendRecv", tag.c_str(), startut));
 
     return HCCL_SUCCESS;
 }
@@ -70,14 +75,14 @@ namespace ops_hccl {
 HcclResult CheckBatchSendRecvInputPara(const HcclComm &comm, const HcclSendRecvItem *sendRecvInfo, const aclrtStream stream)
 {
     // 入参合法性校验
-    RPT_INPUT_ERR(stream == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-        std::vector<std::string>({"HcclBatchSendRecv", "stream", "nullptr", "please check stream"}));
+    RPT_INPUT_ERR(stream == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclBatchSendRecv", "nullptr", "stream", "non-null pointer"}));
     CHK_PTR_NULL(stream);
-    RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-        std::vector<std::string>({"HcclBatchSendRecv", "comm", "nullptr", "please check comm"}));
+    RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclBatchSendRecv", "nullptr", "comm", "non-null pointer"}));
     CHK_PTR_NULL(comm);
-    RPT_INPUT_ERR(sendRecvInfo == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-        std::vector<std::string>({"HcclBatchSendRecv", "sendRecvInfo", "nullptr", "please check sendRecvInfo"}));
+    RPT_INPUT_ERR(sendRecvInfo == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclBatchSendRecv", "nullptr", "sendRecvInfo", "non-null pointer"}));
     CHK_PTR_NULL(sendRecvInfo);
 
     return HCCL_SUCCESS;
@@ -138,4 +143,22 @@ HcclResult BatchSendRecvOutPlace(HcclSendRecvItem *sendRecvInfo, uint32_t itemNu
     return HCCL_SUCCESS;
 }
 
+HcclResult BatchSendRecvEntryLog(uint32_t itemNum, aclrtStream stream, const std::string &tag, const std::string &opName)
+{
+    if (GetExternalInputHcclEnableEntryLog()) {
+        s32 deviceLogicId = 0;
+        ACLCHECK(aclrtGetDevice(&deviceLogicId));
+        s32 streamId = 0;
+        ACLCHECK(aclrtStreamGetId(stream, &streamId));
+        char stackLogBuffer[LOG_TMPBUF_SIZE];
+        s32 ret = snprintf_s(stackLogBuffer, LOG_TMPBUF_SIZE, LOG_TMPBUF_SIZE - 1U,
+            "tag[%s], itemNum[%u], streamId[%d], deviceLogicId[%d]",
+            tag.c_str(), itemNum, streamId, deviceLogicId);
+
+        CHK_PRT_CONT(ret == -1, HCCL_WARNING("Failed to build log info, tag[%s].", tag.c_str()));
+        std::string logInfo = "Entry-" + opName + ":" + std::string(stackLogBuffer);
+        HCCL_RUN_INFO("%s", logInfo.c_str());
+    }
+    return HCCL_SUCCESS;
+}
 }
