@@ -23,7 +23,7 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 HcclResult HcclReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
     uint32_t root, HcclComm comm, aclrtStream stream)
 {
-    if (!HcclCheckAicpuEnableOpen() && !HcclCheckCcuEnableOpen() && !HcclCheckAivEnableOpen()) {
+    if (!HcclCheckCcuEnableOpen() && !HcclCheckAicpuEnableOpen() && !HcclCheckAivEnableOpen()) {
         return HcclReduceInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
     }
     HCCL_INFO("Start to run execute HcclReduce");
@@ -62,7 +62,7 @@ HcclResult HcclReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType
     CHK_RET(CheckDataType(dataType, true));
 
     /* 接口交互信息日志 */
-    CHK_RET(ReduceEntryLog(sendBuf, recvBuf, count, dataType, op, root, stream, tag, "HcclReduce"));
+    CHK_RET(ReduceEntryLog(sendBuf, recvBuf, count, dataType, op, root, stream, tag.c_str(), "HcclReduce"));
 
     // 执行Reduce
     CHK_RET_AND_PRINT_IDE(ReduceOutPlace(sendBuf, recvBuf, count, dataType, op, root, comm, stream, tag), tag.c_str());
@@ -134,6 +134,11 @@ HcclResult ReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclData
     param.deviceType = deviceType;
     param.root = root;
 
+    CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
+    if (ShouldGoCcuFastLaunch(comm, param, &ccuFastLaunchCtx)) {
+        return HcclExecOpCcuFastLaunch(comm, param, ccuFastLaunchCtx);
+    }
+
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));
@@ -151,7 +156,7 @@ HcclResult ReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclData
 }
 
 HcclResult ReduceEntryLog(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
-    uint32_t root, aclrtStream stream, const std::string &tag, const std::string &opName)
+    uint32_t root, aclrtStream stream, const char *tag, const std::string &opName)
 {
     if (GetExternalInputHcclEnableEntryLog()) {
         s32 deviceLogicId = 0;
