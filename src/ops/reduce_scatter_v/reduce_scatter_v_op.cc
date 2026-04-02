@@ -109,6 +109,7 @@ HcclResult HcclReduceScatterVGraphMode(void *sendBuf,  const void *sendCounts, c
     CHK_RET(HcclCheckTag(opTag.c_str()));
     CHK_RET(HcclCheckTag(tag));
     CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), opTag.c_str());
+    HCCL_INFO("PrepareReduceScatterVParam: recvCount:[%u]", recvCount);
     CHK_RET(CheckCount(recvCount));
     CHK_RET(CheckDataType(dataType, true));
 
@@ -307,4 +308,5 @@ HcclResult ReduceScatterVEntryLog(void *sendBuf, const void *sendCounts, const v
     }
     return HCCL_SUCCESS;
 }
+
 }
