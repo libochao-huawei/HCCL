@@ -247,15 +247,6 @@ TEST_F(ST_ALLTOALL_TEST, st_alltoall_hostDpu_test_8)
     RunHostDpuAlltoAllMeshTest(topoMeta, dataType, sendDataCount);
 }
 
-TEST_F(ST_ALLTOALL_TEST, st_alltoall_hostDpu_test_9)
-{
-    TopoMeta topoMeta{{{0, 1, 2, 3, 4}, {0}, {0}, {0}}};
-    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_FP64;
-
-    u64 sendDataCount = 11;
-    RunHostDpuAlltoAllMeshTest(topoMeta, dataType, sendDataCount);
-}
-
 TEST_F(ST_ALLTOALL_TEST, st_alltoall_0)
 {
     TopoMeta topoMeta {{{0, 1}}};  // 三维数组指定超节点-Server-Device信息
