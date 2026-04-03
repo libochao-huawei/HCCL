@@ -18,6 +18,7 @@ namespace ops_hccl {
 
 class InsTempAllGatherMesh1D : public InsAlgTemplateBase {
 public:
+    InsTempAllGatherMesh1D() = default;
     explicit InsTempAllGatherMesh1D(const OpParam &param, const u32 rankId,  // 传通信域的rankId，userRank
                                     const std::vector<std::vector<u32>> &subCommRanks);
     // Host侧调用
@@ -30,7 +31,7 @@ public:
         return info;
     }
     HcclResult KernelRun(const OpParam &param, const TemplateDataParams &tempAlgParams,
-                         const TemplateResource &templateResource) override;
+                         TemplateResource &templateResource) override;
     HcclResult CalcRes(HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
                        AlgResourceRequest &resourceRequest) override;
     HcclResult GetRes(AlgResourceRequest &resourceRequest) const override;
