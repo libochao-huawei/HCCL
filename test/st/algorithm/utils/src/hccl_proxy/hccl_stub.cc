@@ -516,6 +516,9 @@ int32_t HcommReadOnThread(ThreadHandle thread, ChannelHandle channel, void *dst,
 
 int32_t HcommChannelNotifyRecordOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t remoteNotifyIdx)
 {
+    if (thread == 0) {
+        thread = curThread;
+    }
     // 1.获取当前rankId,NpuPos和stream
     thread = (thread == 0) ? curThread : thread; // DPU模式使用AICPU的thread
     uint32_t curRank = reinterpret_cast<HcclSim::SimHcclThread*>(thread)->GetCurRank();
@@ -545,6 +548,9 @@ int32_t HcommChannelNotifyRecordOnThread(ThreadHandle thread, ChannelHandle chan
 int32_t HcommChannelNotifyWaitOnThread(ThreadHandle thread, ChannelHandle channel,
     uint32_t localNotifyIdx, uint32_t timeout)
 {
+    if (thread == 0) {
+        thread = curThread;
+    }
     // timeout 不参与 taskstubwait的构造
     static_cast<void>(timeout);
 
