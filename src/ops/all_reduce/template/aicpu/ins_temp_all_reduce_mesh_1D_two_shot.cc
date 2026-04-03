@@ -75,7 +75,7 @@ void InsTempAllReduceMesh1DTwoShot::GetNotifyIdxSubToMain(std::vector<u32> &noti
 }
 
 HcclResult InsTempAllReduceMesh1DTwoShot::KernelRun(const OpParam& param, 
-    const TemplateDataParams& tempAlgParams, const TemplateResource& templateResource)
+    const TemplateDataParams& tempAlgParams, TemplateResource& templateResource)
 {
     HCCL_INFO("[InsTempAllReduceMesh1DTwoShot] KernelRun Start.");
 
