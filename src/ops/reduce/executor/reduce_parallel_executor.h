@@ -13,6 +13,7 @@
 
 #include "alg_param.h"
 #include "alg_v2_template_base.h"
+#include "template_base.h"
 #include "executor_v2_base.h"
 
 namespace ops_hccl {
@@ -80,7 +81,7 @@ private:
 
     std::vector<ThreadHandle> threads_;
 
-    std::array<std::array<std::shared_ptr<InsAlgTemplateBase>, dataSplitPart_>, stageSize_> algTemplatePtrArr_{{}};
+    std::array<std::array<std::shared_ptr<TemplateBase>, dataSplitPart_>, stageSize_> algTemplatePtrArr_{{}};
 
     OpParam param_;
     AlgResourceCtxSerializable resCtx_;
