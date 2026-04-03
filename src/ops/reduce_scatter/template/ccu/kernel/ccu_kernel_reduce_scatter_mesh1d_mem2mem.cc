@@ -172,8 +172,9 @@ void CcuKernelReduceScatterMesh1DMem2Mem::DoReduceScatter()
         // 等读完所有对端
         event_.SetMask((1 << rankSize_) - 1);
         WaitEvent(event_);
-
+        HCCL_INFO("[CcuKernelReduceScatterMesh1DMem2Mem] preReduceLoopGrouprun");
         ReduceLoopGroup(myOutput, myInput_, scratchMem_, GoSize_, dataType_, outputDataType_, reduceOp_);
+        HCCL_INFO("[CcuKernelReduceScatterMesh1DMem2Mem] preReduceLoopGroupend");
     }
 
 }
