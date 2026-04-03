@@ -864,6 +864,12 @@ HcclResult HcclEngineCtxDestroy(HcclComm comm, const char *ctxTag, CommEngine en
     return HCCL_SUCCESS;
 }
 
+HcclResult HcclCommGetStatus(HcclComm comm, HcclCommStatus *status)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+
 HcclResult HcommThreadJoin(ThreadHandle thread, uint32_t timeout)
 {
     HCCL_WARNING("[%s] not support.", __func__);
