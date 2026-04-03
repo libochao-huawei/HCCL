@@ -16,7 +16,6 @@ import json
 import os
 import stat
 from collections import defaultdict
-from distutils import util
 
 
 COLOR_BOLD = "\033[1m"
