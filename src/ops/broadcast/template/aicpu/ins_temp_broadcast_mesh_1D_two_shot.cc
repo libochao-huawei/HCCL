@@ -395,7 +395,7 @@ void InsTempBroadcastMesh1DTwoShot::SetRoot(u32 root)
 }
 
 HcclResult InsTempBroadcastMesh1DTwoShot::KernelRun(const OpParam& param, const TemplateDataParams& tempAlgParams,
-                                          const TemplateResource& templateResource)
+                                          TemplateResource& templateResource)
 {
     HCCL_INFO("[InsTempBroadcastMesh1DTwoShot] BroadcastMesh1DTwoShot entry.");
     HCCL_DEBUG("[InsTempBroadcastMesh1DTwoShot] BroadcastMesh1DTwoShot rank[%d] slicesize[%d] count[%d].",

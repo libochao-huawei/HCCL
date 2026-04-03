@@ -31,6 +31,7 @@ using NHRStepInfo = struct NHRStepInfoDef {
 namespace ops_hccl {
 class CcuTempAllGatherNHR1DMem2Mem : public CcuAlgTemplateBase {
 public:
+    CcuTempAllGatherNHR1DMem2Mem() = default;
     explicit CcuTempAllGatherNHR1DMem2Mem(const OpParam& param, 
                                               const u32 rankId, // 传通信域的rankId，userRank
                                               const std::vector<std::vector<u32>> &subCommRanks);
