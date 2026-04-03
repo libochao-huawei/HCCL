@@ -47,7 +47,7 @@ u64 InsTempReduceScatterVMesh1D::CalcScratchMultiple(BufferType inBuffType, Buff
 
 HcclResult InsTempReduceScatterVMesh1D::KernelRun(const OpParam& param,
     const TemplateDataParams& tempAlgParams,
-    const TemplateResource& templateResource)
+    TemplateResource& templateResource)
 {
     threadNum_ = templateResource.threads.size();
     dataType_ = param.vDataDes.dataType;
