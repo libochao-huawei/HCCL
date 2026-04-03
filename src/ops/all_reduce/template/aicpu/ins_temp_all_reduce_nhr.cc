@@ -65,7 +65,7 @@ void InsTempAllReduceNHR::GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubTo
 }
 
 HcclResult InsTempAllReduceNHR::KernelRun(const OpParam& param, 
-    const TemplateDataParams& tempAlgParams, const TemplateResource& templateResource)
+    const TemplateDataParams& tempAlgParams, TemplateResource& templateResource)
 {
     HCCL_INFO("[InsTempAllReduceNHR] KernelRun Start.");
 
