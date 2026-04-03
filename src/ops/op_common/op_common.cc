@@ -42,6 +42,7 @@
 #include "rt.h"
 #include "dlhcomm_function.h"
 #include "hccl_diag.h"
+#include "aiv_kernel_def.h"
 
 namespace ops_hccl {
 thread_local std::map<std::string, HcclMemHandle> g_memHandleCache; // 当前AIV存放注册内存的memHandle使用
@@ -1508,17 +1509,25 @@ HcclResult ApplyOpExpansionMode(OpParam &param, HcclOpExpansionMode finalMode)
             HCCL_DEBUG("[ApplyOpExpansionMode] AICPU mode selected.");
             break;
         case HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_AIV:
-            param.opExecuteConfig = OpExecuteConfig::AIV;
-            param.engine = CommEngine::COMM_ENGINE_AIV;
-            CHK_RET(RegisterKernel());
-            HCCL_DEBUG("[ApplyOpExpansionMode] AIV mode selected.");
-            break;
+            if (g_aivKernelInfoMap.find(param.opType) != g_aivKernelInfoMap.end()) {
+                param.opExecuteConfig = OpExecuteConfig::AIV;
+                param.engine = CommEngine::COMM_ENGINE_AIV;
+                CHK_RET(RegisterKernel());
+                HCCL_DEBUG("[ApplyOpExpansionMode] AIV mode selected.");
+                break;
+            } else {
+                HCCL_WARNING("[ApplyOpExpansionMode] opType %d is not supported in aiv mode.", param.opType);
+            }
         case HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY:
-            param.opExecuteConfig = OpExecuteConfig::AIV_ONLY;
-            param.engine = CommEngine::COMM_ENGINE_AIV;
-            CHK_RET(RegisterKernel());
-            HCCL_DEBUG("[ApplyOpExpansionMode] AIV_ONLY mode selected.");
-            break;
+            if (g_aivKernelInfoMap.find(param.opType) != g_aivKernelInfoMap.end()) {
+                param.opExecuteConfig = OpExecuteConfig::AIV_ONLY;
+                param.engine = CommEngine::COMM_ENGINE_AIV;
+                CHK_RET(RegisterKernel());
+                HCCL_DEBUG("[ApplyOpExpansionMode] AIV_ONLY mode selected.");
+                break;
+            } else {
+                HCCL_WARNING("[ApplyOpExpansionMode] opType %d is not supported in aiv mode.", param.opType);
+            }
         case static_cast<HcclOpExpansionMode>(opExpansionModeCcuMs):
             param.opExecuteConfig = OpExecuteConfig::CCU_MS;
             param.engine = CommEngine::COMM_ENGINE_CCU;
