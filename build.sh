@@ -242,9 +242,12 @@ function build_static() {
     log "Info: Extracted ${OBJ_COUNT} object files"
 
     # 步骤4: 将AICPU tar包转换为二进制对象文件
+    # 必须用纯文件名调用 ld，否则路径会嵌入符号名
+    # (如 _binary__root_xxx_aicpu_hccl_tar_gz_start 而非 _binary_aicpu_hccl_tar_gz_start)
     log "Info: Converting AICPU tar package to binary object"
     local AICPU_OBJ="${EXTRACT_DIR}/aicpu_hccl_tar.o"
-    if ! ld -r -b binary -o ${AICPU_OBJ} ${AICPU_TAR}; then
+    cp "${AICPU_TAR}" "${EXTRACT_DIR}/aicpu_hccl.tar.gz"
+    if ! (cd "${EXTRACT_DIR}" && ld -r -b binary -o aicpu_hccl_tar.o aicpu_hccl.tar.gz); then
         log "Error: Failed to convert AICPU tar to binary object"
         exit 1
     fi
@@ -265,12 +268,13 @@ function build_static() {
     fi
 
     # 将AIV算子文件转换为二进制对象
+    # 同样使用纯文件名调用 ld，避免路径嵌入符号名
     cd ${EXTRACT_DIR}
     local AIV_CONVERTED_COUNT=0
     for aiv_file in "${AIV_FILES[@]}"; do
-        local aiv_basename=$(basename "${aiv_file}" .o)
-        # 清理文件名，将非字母数字字符替换为下划线
-        local clean_name=$(echo "${aiv_basename}" | sed 's/[^a-zA-Z0-9]/_/g')
+        local aiv_basename=$(basename "${aiv_file}")
+        # 清理文件名（去掉 .o 后缀），将非字母数字字符替换为下划线
+        local clean_name=$(echo "${aiv_basename%.o}" | sed 's/[^a-zA-Z0-9]/_/g')
         local aiv_embed_obj="${EXTRACT_DIR}/${clean_name}_embed.o"
 
         # 检查文件是否存在
@@ -279,17 +283,20 @@ function build_static() {
             continue
         fi
 
-        # 使用ld将.o文件转换为二进制对象
-        if ld -r -b binary -o "${aiv_embed_obj}" "${aiv_file}" 2>/dev/null; then
-            log "Info: Converted AIV file: ${aiv_file} -> ${aiv_embed_obj}"
+        # 拷贝到工作目录，用纯文件名调用 ld（若已在同目录则跳过拷贝）
+        local aiv_src_dir=$(dirname "${aiv_file}")
+        if [ "$(cd "${aiv_src_dir}" && pwd)" != "$(cd "${EXTRACT_DIR}" && pwd)" ]; then
+            cp "${aiv_file}" "${EXTRACT_DIR}/${aiv_basename}"
+        fi
+        if (cd "${EXTRACT_DIR}" && ld -r -b binary -o "${clean_name}_embed.o" "${aiv_basename}" 2>/dev/null); then
+            log "Info: Converted AIV file: ${aiv_basename} -> ${clean_name}_embed.o"
             AIV_CONVERTED_COUNT=$((AIV_CONVERTED_COUNT + 1))
         else
-            log "Warning: Failed to convert AIV file to binary object: ${aiv_file}"
-            # 尝试使用objcopy作为备选方案
+            log "Warning: Failed to convert AIV file to binary object: ${aiv_basename}"
             if command -v objcopy >/dev/null 2>&1; then
-                log "Info: Trying objcopy as alternative for: ${aiv_file}"
-                if objcopy -I binary -O elf64-x86-64 --binary-architecture=i386:x86-64 "${aiv_file}" "${aiv_embed_obj}" 2>/dev/null; then
-                    log "Info: Converted with objcopy: ${aiv_file} -> ${aiv_embed_obj}"
+                log "Info: Trying objcopy as alternative for: ${aiv_basename}"
+                if (cd "${EXTRACT_DIR}" && objcopy -I binary -O elf64-x86-64 --binary-architecture=i386:x86-64 "${aiv_basename}" "${clean_name}_embed.o" 2>/dev/null); then
+                    log "Info: Converted with objcopy: ${aiv_basename} -> ${clean_name}_embed.o"
                     AIV_CONVERTED_COUNT=$((AIV_CONVERTED_COUNT + 1))
                 fi
             fi
