@@ -118,7 +118,7 @@ HcclResult InsTempScatterNHR::GetStepInfo(u32 step, u32 nSteps, AicpuNHRStepInfo
 }
 
 HcclResult InsTempScatterNHR::KernelRun(const OpParam& param, const TemplateDataParams &tempAlgParams,
-                     const TemplateResource& templateResource)
+                     TemplateResource& templateResource)
 {
     u32 myAlgRank = 0;
     CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], myAlgRank));

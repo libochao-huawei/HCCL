@@ -87,7 +87,7 @@ u64 InsTempScatterMesh1D::CalcScratchMultiple(BufferType inBuffType, BufferType 
 }
 
 HcclResult InsTempScatterMesh1D::KernelRun(const OpParam& param, const TemplateDataParams &tempAlgParams,
-                     const TemplateResource& templateResource)
+                     TemplateResource& templateResource)
 {
     for (const auto& item : templateResource.channels) {
         u32 key = item.first;
