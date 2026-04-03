@@ -64,6 +64,7 @@ void CcuKernelReduceScatterNHR1DMem2Mem::LoadArgs()
     Load(inputRepeatStride_);
     Load(outputRepeatStride_);
     Load(repeatNumVar_);
+    Load(isInputOutputEqual_);
     repeatNumVarTemp_ = repeatNumVar_;
     HCCL_INFO("[CcuKernelReduceScatterNHR1DMem2Mem] LoadArgs run finished");
 }
@@ -82,11 +83,12 @@ HcclResult CcuKernelReduceScatterNHR1DMem2Mem::InitResources()
     event_              = CreateCompletedEvent();
     repeatNumVar_       = CreateVariable();
     repeatNumVarTemp_   = CreateVariable();
+    isInputOutputEqual_ = CreateVariable();
 
     output_ = CreateVariable();
     for (uint32_t channelIdx = 0; channelIdx < localSize_; channelIdx++) {
         HCCL_INFO("[CcuKernelReduceScatterNHR1DMem2Mem] mySubCommRankId[%u], channelId[%u]", mySubCommRankId_, channelIdx);
-        
+
         CcuRep::Variable inputVar, tokenVar;
         CHK_RET(CreateVariable(channels_[channelIdx], INPUT_XN_ID, &inputVar));
         input_.push_back(inputVar); // 获取channel中id=0的Var来传递output
@@ -125,7 +127,7 @@ void CcuKernelReduceScatterNHR1DMem2Mem::PreSync()
 void CcuKernelReduceScatterNHR1DMem2Mem::PostSync()
 {
     for (ChannelHandle channel : channels_) {
-        NotifyRecord(channel, CKE_IDX_0, 1 << POST_SYNC_ID);     
+        NotifyRecord(channel, CKE_IDX_0, 1 << POST_SYNC_ID);
     }
     for (ChannelHandle channel : channels_) {
         NotifyWait(channel, CKE_IDX_0, 1 << POST_SYNC_ID);
@@ -176,11 +178,16 @@ void CcuKernelReduceScatterNHR1DMem2Mem::DoRepeatReduceScatterNHR()
                                                           : (islastSlice? die1LastSliceSize_ : die1Size_);
         event_.SetMask(1);
         CCU_IF(localSliceSize != 0) {
-            LocalCopyNb(localDst_, localSrc_, localSliceSize, event_);
+            CCU_IF(isInputOutputEqual_ == 0) {
+                LocalCopyNb(localDst_, localSrc_, localSliceSize, event_);
+            }
+            CCU_IF(isInputOutputEqual_ != 0) {
+                RecordEvent(event_);
+            }
         }
         CCU_IF(localSliceSize == 0) {
             RecordEvent(event_);
-        }  
+        }
         WaitEvent(event_);
         isRepeatIter_ = 1;
     }
@@ -196,7 +203,7 @@ void CcuKernelReduceScatterNHR1DMem2Mem::DoRepeatReduceScatterNHRSingleStep(cons
     const std::vector<u32> &sendSliceIdxList = nhrStepInfo.txSliceIdxs;
     remoteDst_.token = token_[toRankIdx];
     localSrc_.token = token_[myRankIdx_];
-    
+
     bool islastSlice = false;
 
     // 通知fromRank，可以写入
@@ -210,7 +217,7 @@ void CcuKernelReduceScatterNHR1DMem2Mem::DoRepeatReduceScatterNHRSingleStep(cons
         remoteDst_.addr += inputSliceOffset[sendSliceIdx];
         localSrc_.addr = input_[myRankIdx_];
         localSrc_.addr += inputSliceOffset[sendSliceIdx];
-        
+
         islastSlice = (sendSliceIdx + 1 == dimSize_);
         DoRepeatWriteReduceSlices(nhrStepInfo.toRank, localSrc_, remoteDst_, islastSlice);
     }
@@ -234,7 +241,7 @@ void CcuKernelReduceScatterNHR1DMem2Mem::DoRepeatWriteReduceSlices(const u32 &to
         CCU_IF(repeatNumVarTemp_ != UINT64_MAX) {
             repeatNumVarTemp_ += repeatNumAdd;
         }
-        
+
         CCU_IF(isRepeatIter_ == 1) {
             src.addr += inputRepeatStride_;
             dst.addr += inputRepeatStride_;
@@ -247,7 +254,7 @@ void CcuKernelReduceScatterNHR1DMem2Mem::DoRepeatWriteReduceSlices(const u32 &to
         }
         sliceSize_ = (axisId_ == 0) ? (islastSlice? die0LastSliceSize_ : die0Size_)
                                     : (islastSlice? die1LastSliceSize_ : die1Size_);
-    
+
         event_.SetMask(1);
         CCU_IF(sliceSize_ != 0) {
             WriteReduceNb(sendChannel, dst, src, sliceSize_, dataType_, reduceOp_, event_);
@@ -290,6 +297,7 @@ std::vector<uint64_t> CcuKernelReduceScatterNHR1DMem2Mem::GeneArgs(const CcuTask
     uint64_t inputRepeatStride  = taskArg->inputRepeatStride_;
     uint64_t outputRepeatStride = taskArg->outputRepeatStride_;
     uint64_t repeatNumVar       = UINT64_MAX - taskArg->repeatNum_;
+    uint64_t isInputOutputEqual_= taskArg->isInputOutputEqual_;
 
     HCCL_INFO("[CcuKernelReduceScatterNHR1DMem2Mem] TaskArgs: inputAddr[%llu], outputAddr[%llu],"
               "die0Size[%llu], die1Size[%llu], die0LastSliceSize[%llu], die1LastSliceSize[%llu],"
@@ -301,6 +309,6 @@ std::vector<uint64_t> CcuKernelReduceScatterNHR1DMem2Mem::GeneArgs(const CcuTask
     return {inputAddr,          outputAddr,         token,
             die0Size,           die1Size,           die0LastSliceSize,
             die1LastSliceSize,  inputSliceStride,   currentRankSliceOutputOffset,
-            inputRepeatStride,  outputRepeatStride, repeatNumVar};
+            inputRepeatStride,  outputRepeatStride, repeatNumVar, isInputOutputEqual_};
 }
 } // namespace ops_hccl
