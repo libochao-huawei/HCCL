@@ -18,7 +18,7 @@
 
 namespace ops_hccl {
 
-class InsAlgTemplateBase {
+class InsAlgTemplateBase : public TemplateBase{
 public:
     explicit InsAlgTemplateBase() {};
     explicit InsAlgTemplateBase(const OpParam& param, const u32 rankId, // 传通信域的rankId，userRank
