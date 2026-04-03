@@ -57,7 +57,7 @@ u64 InsTempAllGatherVMesh1D::CalcScratchMultiple(BufferType inBuffType, BufferTy
 }
  
 HcclResult InsTempAllGatherVMesh1D::KernelRun(const OpParam &param, const TemplateDataParams &tempAlgParams,
-                                             const TemplateResource &templateResource)
+                                             TemplateResource &templateResource)
 {
     enableRemoteMemAccess_ = tempAlgParams.enableRemoteMemAccess;
     HCCL_INFO("[InsTempAllGatherVMesh1D] Run start");
