@@ -147,6 +147,9 @@ HcclResult InsV2ReduceScatterSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
     HcclMem cclOutMem = {resCtx.cclMem.type , cclOutAddr, resCtx.cclMem.size / 2};
     // 声明框内templateargs，user in搬运到ccl in，最终规约到ccl in
     TemplateDataParams tempAlgParamsInter;
+    tempAlgParamsInter.buffInfo.inBuffType = BufferType::INPUT;
+    tempAlgParamsInter.buffInfo.outBuffType = BufferType::HCCL_BUFFER;
+    tempAlgParamsInter.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
     tempAlgParamsInter.buffInfo.inputPtr = param.inputPtr;
     tempAlgParamsInter.buffInfo.outputPtr = cclOutMem.addr;
     tempAlgParamsInter.buffInfo.hcclBuff = cclInMem; // ! 待验证这样使用是否能正常输出到CCL-IN，或者这里改用CCL-OUT
@@ -203,7 +206,7 @@ HcclResult InsV2ReduceScatterSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
         tempAlgParamsInter.tailSize = tempAlgParamsInter.sliceSize;
         // 这里的stride当成传统意义上的sreide 间隔
         tempAlgParamsInter.inputSliceStride = dataSize_; // ccl-in按照rank偏移量，每次偏移是单次循环最大数据量
-        tempAlgParamsInter.outputSliceStride = currDataCount * dataTypeSize_; // 如果是scratchbuffer，偏移是单次循环处理的最大数据量
+        tempAlgParamsInter.outputSliceStride = 0; // 如果是scratchbuffer，偏移是单次循环处理的最大数据量
         
         HCCL_INFO("[InsV2ReduceScatterSequenceExecutor] loop [%u] tempAlgParamsInter.inputSliceStride [%u],"
             "tempAlgParamsInter.outputSliceStride [%u] tempAlgParamsInter.sliceSize [%u]",
