@@ -1,9 +1,14 @@
-﻿#include "all_gather_hd_stage_core.h"
+#include "all_gather_hd_stage_core.h"
+
 #include <vector>
+
 #include "all_gather_nhr_core.h"
 #include "log.h"
+
 namespace ops_hccl_allgatherbatch {
+
 namespace {
+
 uint32_t CalcTrailingPowerSteps(uint32_t rankSize)
 {
     uint32_t steps = 0;
@@ -13,6 +18,7 @@ uint32_t CalcTrailingPowerSteps(uint32_t rankSize)
     }
     return steps;
 }
+
 uint32_t CalcFinalSteps(uint32_t powerSteps)
 {
     if (powerSteps >= 2U) {
@@ -23,12 +29,14 @@ uint32_t CalcFinalSteps(uint32_t powerSteps)
     }
     return 0U;
 }
+
 }  // namespace
+
 AllGatherHDStageCore::AllGatherHDStageCore(const OpParam &param, AlgResourceCtx &resCtx, uint64_t packedBytes)
     : param_(param), resCtx_(resCtx), packedBytes_(packedBytes)
 {
 }
-// Stage ??????????????? HDStage??????????? NHR ?????????????
+
 HcclResult AllGatherHDStageCore::ValidateStageInput() const
 {
     const ResourceStats stats = CollectResourceStats(param_, resCtx_);
@@ -77,6 +85,7 @@ HcclResult AllGatherHDStageCore::ValidateStageInput() const
     }
     return HCCL_SUCCESS;
 }
+
 HcclResult AllGatherHDStageCore::BuildStagePlan(HDStagePlan &plan) const
 {
     const uint32_t rankSize = param_.topoInfo.rankSize;
@@ -84,10 +93,6 @@ HcclResult AllGatherHDStageCore::BuildStagePlan(HDStagePlan &plan) const
         HCCL_ERROR("rankSize is zero");
         return HCCL_E_PARA;
     }
-    // ?????????????????
-    // 1. noPower ??? 2 ????????????? NHR?
-    // 2. power ??? 2 ?????? final ??????
-    // 3. final ???? 0/1/2 ???????
     plan.powerSteps = CalcTrailingPowerSteps(rankSize);
     plan.powerFactor = (plan.powerSteps == 0U) ? 1U : (1U << plan.powerSteps);
     plan.noPower = rankSize / plan.powerFactor;
@@ -98,6 +103,7 @@ HcclResult AllGatherHDStageCore::BuildStagePlan(HDStagePlan &plan) const
     plan.needFinalPath = (rankSize > 1U);
     return HCCL_SUCCESS;
 }
+
 HcclResult AllGatherHDStageCore::ValidateStagePlan(const HDStagePlan &plan) const
 {
     const ResourceStats stats = CollectResourceStats(param_, resCtx_);
@@ -142,6 +148,7 @@ HcclResult AllGatherHDStageCore::ValidateStagePlan(const HDStagePlan &plan) cons
     }
     return HCCL_SUCCESS;
 }
+
 HcclResult AllGatherHDStageCore::ValidateProtocolDistribution() const
 {
     const ResourceStats stats = CollectResourceStats(param_, resCtx_);
@@ -153,7 +160,8 @@ HcclResult AllGatherHDStageCore::ValidateProtocolDistribution() const
     }
     return HCCL_SUCCESS;
 }
-HcclResult AllGatherHDStageCore::BuildNHRSubgroupCtx(const HDStagePlan &plan, NHRSubgroupCtx &subgroupCtx) const
+
+HcclResult AllGatherHDStageCore::BuildNHRRunCtx(const HDStagePlan &plan, NHRRunCtx &runCtx) const
 {
     if (!plan.needNoPowerPath) {
         HCCL_ERROR("HDStage noPower subgroup is requested while noPower path is disabled");
@@ -165,35 +173,51 @@ HcclResult AllGatherHDStageCore::BuildNHRSubgroupCtx(const HDStagePlan &plan, NH
             plan.powerFactor);
         return HCCL_E_INTERNAL;
     }
+
     const uint32_t rank = param_.topoInfo.rank;
     const uint32_t group = rank / plan.powerFactor;
     const uint32_t groupIdx = rank % plan.powerFactor;
-    subgroupCtx.subgroupRank = group;
-    subgroupCtx.subgroupSize = plan.noPower;
-    subgroupCtx.baseOffset = 0;
-    subgroupCtx.subgroupRanks.clear();
-    subgroupCtx.subgroupRanks.reserve(plan.noPower);
+    runCtx.rank = group;
+    runCtx.rankSize = plan.noPower;
+    runCtx.packedBytes = packedBytes_;
+    runCtx.baseOffset = 0;
+    runCtx.inputBase = static_cast<uint8_t *>(resCtx_.localBuffer.addr);
+    runCtx.outputBase = static_cast<uint8_t *>(resCtx_.localBuffer.addr);
+    runCtx.keepOrder = true;
+    runCtx.subgroupRanks.clear();
+    runCtx.slices.clear();
+    runCtx.subgroupRanks.reserve(plan.noPower);
+    runCtx.slices.reserve(plan.noPower);
     for (uint32_t idx = 0; idx < plan.noPower; ++idx) {
-        subgroupCtx.subgroupRanks.push_back(idx * plan.powerFactor + groupIdx);
+        const uint32_t globalRank = idx * plan.powerFactor + groupIdx;
+        runCtx.subgroupRanks.push_back(globalRank);
+        runCtx.slices.push_back(LocalSlice { packedBytes_ * globalRank, packedBytes_ });
+        if (globalRank == rank) {
+            continue;
+        }
+        if (FindChannel(globalRank) == nullptr) {
+            HCCL_ERROR("HDStage subgroup channel is missing, globalRank=%u", globalRank);
+            return HCCL_E_NOT_FOUND;
+        }
     }
-    if (subgroupCtx.subgroupRank >= subgroupCtx.subgroupSize) {
+    if (runCtx.rank >= runCtx.rankSize) {
         HCCL_ERROR("HDStage subgroupRank=%u is out of range, subgroupSize=%u",
-            subgroupCtx.subgroupRank,
-            subgroupCtx.subgroupSize);
+            runCtx.rank,
+            runCtx.rankSize);
         return HCCL_E_INTERNAL;
     }
-    HCCL_INFO("HDStage built NHR subgroup: rank=%u, group=%u, groupIdx=%u, subgroupRank=%u, subgroupSize=%u",
+    HCCL_INFO("HDStage built NHR run ctx: rank=%u, group=%u, groupIdx=%u, subgroupRank=%u, subgroupSize=%u, sliceCount=%u",
         rank,
         group,
         groupIdx,
-        subgroupCtx.subgroupRank,
-        subgroupCtx.subgroupSize);
+        runCtx.rank,
+        runCtx.rankSize,
+        static_cast<uint32_t>(runCtx.slices.size()));
     return HCCL_SUCCESS;
 }
+
 HcclResult AllGatherHDStageCore::RunPreCopy() const
 {
-    // ?? custom-op ?????????????? Pack ?????
-    // HDStage ?????? PreCopy ?????????????????????
     uint8_t *localRankBase = static_cast<uint8_t *>(resCtx_.localBuffer.addr) +
         (packedBytes_ * param_.topoInfo.rank);
     if (localRankBase == nullptr) {
@@ -206,18 +230,20 @@ HcclResult AllGatherHDStageCore::RunPreCopy() const
         localRankBase);
     return HCCL_SUCCESS;
 }
-// HDStage ? NoPower ???????????????????????? NHR?
-HcclResult AllGatherHDStageCore::RunNHR(const char *pathTag, const NHRSubgroupCtx &subgroupCtx) const
+
+HcclResult AllGatherHDStageCore::RunNHR(const char *pathTag, const NHRRunCtx &runCtx) const
 {
-    HCCL_INFO("HDStage delegates subgroup to NHR: path=%s, rank=%u, packedBytes=%llu, subgroupRank=%u, subgroupSize=%u",
+    HCCL_INFO("HDStage delegates subgroup to NHR: path=%s, rank=%u, packedBytes=%llu, subgroupRank=%u, subgroupSize=%u, sliceCount=%u",
         pathTag,
         param_.topoInfo.rank,
         static_cast<unsigned long long>(packedBytes_),
-        subgroupCtx.subgroupRank,
-        subgroupCtx.subgroupSize);
-    AllGatherNHRCore nhrCore(param_, resCtx_, packedBytes_, subgroupCtx);
+        runCtx.rank,
+        runCtx.rankSize,
+        static_cast<uint32_t>(runCtx.slices.size()));
+    AllGatherNHRCore nhrCore(param_, resCtx_, packedBytes_, runCtx);
     return nhrCore.RunAsync();
 }
+
 const ChannelResource *AllGatherHDStageCore::FindChannel(uint32_t remoteRank) const
 {
     for (uint32_t idx = 0; idx < resCtx_.channelCount; ++idx) {
@@ -228,6 +254,7 @@ const ChannelResource *AllGatherHDStageCore::FindChannel(uint32_t remoteRank) co
     }
     return nullptr;
 }
+
 HcclResult AllGatherHDStageCore::BuildPartnerRanksForBit(
     const HDStagePlan &plan, uint32_t bit, std::vector<uint32_t> &partnerRanks) const
 {
@@ -259,6 +286,7 @@ HcclResult AllGatherHDStageCore::BuildPartnerRanksForBit(
     }
     return HCCL_SUCCESS;
 }
+
 HcclResult AllGatherHDStageCore::ReadPartnerRanks(
     uint32_t partnerRank, const std::vector<uint32_t> &partnerRanks, const char *stageTag) const
 {
@@ -308,6 +336,7 @@ HcclResult AllGatherHDStageCore::ReadPartnerRanks(
     }
     return HCCL_SUCCESS;
 }
+
 HcclResult AllGatherHDStageCore::RunPowerBit(const HDStagePlan &plan, uint32_t bit, const char *stageTag) const
 {
     const uint32_t rank = param_.topoInfo.rank;
@@ -326,6 +355,7 @@ HcclResult AllGatherHDStageCore::RunPowerBit(const HDStagePlan &plan, uint32_t b
         static_cast<unsigned long long>(packedBytes_));
     return ReadPartnerRanks(partnerRank, partnerRanks, stageTag);
 }
+
 HcclResult AllGatherHDStageCore::RunAllGatherNoPower(const HDStagePlan &plan) const
 {
     HCCL_INFO("HDStage noPower stage: rank=%u, noPower=%u, powerSteps=%u, packedBytes=%llu",
@@ -337,10 +367,11 @@ HcclResult AllGatherHDStageCore::RunAllGatherNoPower(const HDStagePlan &plan) co
         HCCL_INFO("HDStage noPower stage is skipped because noPower <= 1");
         return HCCL_SUCCESS;
     }
-    NHRSubgroupCtx subgroupCtx;
-    HCCL_CHK_RET(BuildNHRSubgroupCtx(plan, subgroupCtx));
-    return RunNHR("noPower", subgroupCtx);
+    NHRRunCtx runCtx;
+    HCCL_CHK_RET(BuildNHRRunCtx(plan, runCtx));
+    return RunNHR("noPower", runCtx);
 }
+
 HcclResult AllGatherHDStageCore::RunAllGatherPower(const HDStagePlan &plan) const
 {
     HCCL_INFO("HDStage power stage: rank=%u, rankSize=%u, commMode=%s, remainingPowerSteps=%u, finalSteps=%u, packedBytes=%llu",
@@ -360,16 +391,16 @@ HcclResult AllGatherHDStageCore::RunAllGatherPower(const HDStagePlan &plan) cons
     }
     return HCCL_SUCCESS;
 }
+
 HcclResult AllGatherHDStageCore::RunAllGatherLast(const HDStagePlan &plan) const
 {
     HCCL_INFO("HDStage last stage: rank=%u, needFinal=%s, packedBytes=%llu",
         param_.topoInfo.rank,
         plan.needFinalPath ? "true" : "false",
         static_cast<unsigned long long>(packedBytes_));
-    // finalSteps == 0 ???? power bit ??????? NoPower/Power ?????
-    // ????????????????????????????
     return HCCL_SUCCESS;
 }
+
 HcclResult AllGatherHDStageCore::RunAllGatherLastOne(const HDStagePlan &plan) const
 {
     HCCL_INFO("HDStage last-one stage: rank=%u, powerSteps=%u, needFinal=%s, packedBytes=%llu",
@@ -383,6 +414,7 @@ HcclResult AllGatherHDStageCore::RunAllGatherLastOne(const HDStagePlan &plan) co
     HCCL_CHK_RET(RunPowerBit(plan, 0U, "lastOne"));
     return HCCL_SUCCESS;
 }
+
 HcclResult AllGatherHDStageCore::RunAllGatherLastTwo(const HDStagePlan &plan) const
 {
     HCCL_INFO("HDStage last-two stage: rank=%u, powerSteps=%u, needFinal=%s, packedBytes=%llu",
@@ -397,6 +429,7 @@ HcclResult AllGatherHDStageCore::RunAllGatherLastTwo(const HDStagePlan &plan) co
     HCCL_CHK_RET(RunPowerBit(plan, 0U, "lastTwo-0"));
     return HCCL_SUCCESS;
 }
+
 HcclResult AllGatherHDStageCore::RunAllGatherFinal(const HDStagePlan &plan) const
 {
     if (!plan.needFinalPath) {
@@ -411,6 +444,7 @@ HcclResult AllGatherHDStageCore::RunAllGatherFinal(const HDStagePlan &plan) cons
     }
     return RunAllGatherLast(plan);
 }
+
 HcclResult AllGatherHDStageCore::RunAllGatherStage(const HDStagePlan &plan) const
 {
     HCCL_CHK_RET(RunPreCopy());
@@ -425,6 +459,7 @@ HcclResult AllGatherHDStageCore::RunAllGatherStage(const HDStagePlan &plan) cons
     }
     return HCCL_SUCCESS;
 }
+
 HcclResult AllGatherHDStageCore::RunAsync()
 {
     if (param_.topoInfo.rankSize == 1) {
@@ -466,4 +501,5 @@ HcclResult AllGatherHDStageCore::RunAsync()
         plan.needFinalPath ? "true" : "false");
     return HCCL_SUCCESS;
 }
+
 }  // namespace ops_hccl_allgatherbatch

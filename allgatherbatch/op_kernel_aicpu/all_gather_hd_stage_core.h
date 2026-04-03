@@ -1,9 +1,9 @@
-﻿#ifndef HCCL_ALLGATHERBATCH_HD_STAGE_CORE_H
+#ifndef HCCL_ALLGATHERBATCH_HD_STAGE_CORE_H
 #define HCCL_ALLGATHERBATCH_HD_STAGE_CORE_H
 #include <vector>
 #include "common.h"
 namespace ops_hccl_allgatherbatch {
-struct NHRSubgroupCtx;
+struct NHRRunCtx;
 struct HDStagePlan {
     uint32_t powerFactor = 1;
     uint32_t powerSteps = 0;
@@ -24,10 +24,10 @@ private:
     HcclResult BuildStagePlan(HDStagePlan &plan) const;
     HcclResult ValidateStagePlan(const HDStagePlan &plan) const;
     HcclResult ValidateProtocolDistribution() const;
-    HcclResult BuildNHRSubgroupCtx(const HDStagePlan &plan, NHRSubgroupCtx &subgroupCtx) const;
+    HcclResult BuildNHRRunCtx(const HDStagePlan &plan, NHRRunCtx &runCtx) const;
     HcclResult RunAllGatherStage(const HDStagePlan &plan) const;
     HcclResult RunPreCopy() const;
-    HcclResult RunNHR(const char *pathTag, const NHRSubgroupCtx &subgroupCtx) const;
+    HcclResult RunNHR(const char *pathTag, const NHRRunCtx &runCtx) const;
     HcclResult RunAllGatherNoPower(const HDStagePlan &plan) const;
     HcclResult RunAllGatherPower(const HDStagePlan &plan) const;
     HcclResult RunAllGatherFinal(const HDStagePlan &plan) const;
