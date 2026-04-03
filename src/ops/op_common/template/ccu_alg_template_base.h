@@ -13,12 +13,13 @@
 
 #include "template_utils.h"
 #include "alg_param.h"
+#include "template_base.h"
 
 namespace ops_hccl {
 
 constexpr uint32_t CCU_DIE_NUM_MAX_2 = 2;
 
-class CcuAlgTemplateBase {
+class CcuAlgTemplateBase : public TemplateBase {
 public:
     explicit CcuAlgTemplateBase();
     explicit CcuAlgTemplateBase(const OpParam& param, const u32 rankId, // 传通信域的rankId，userRank
