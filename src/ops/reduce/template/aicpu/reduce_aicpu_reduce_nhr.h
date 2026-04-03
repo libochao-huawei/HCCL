@@ -20,6 +20,7 @@ namespace ops_hccl {
 
 class ReduceAicpuReduceNHR : public InsAlgTemplateBase {
 public:
+    ReduceAicpuReduceNHR() = default;
     explicit ReduceAicpuReduceNHR(const OpParam &param, const u32 rankId,  // 传通信域的rankId，userRank
         const std::vector<std::vector<u32>> &subCommRanks);
 
@@ -34,7 +35,7 @@ public:
 
     // 现在的Kernel就是之前的GenExtIns
     HcclResult KernelRun(const OpParam &param, const TemplateDataParams &tempAlgParams,
-        const TemplateResource &templateResource) override;
+        TemplateResource &templateResource) override;
     void SetRoot(u32 root);
     HcclResult CalcRes(
         HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo, AlgResourceRequest &resourceRequest) override;

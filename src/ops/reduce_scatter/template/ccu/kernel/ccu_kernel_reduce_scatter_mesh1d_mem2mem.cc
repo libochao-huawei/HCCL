@@ -27,9 +27,16 @@ CcuKernelReduceScatterMesh1DMem2Mem::CcuKernelReduceScatterMesh1DMem2Mem(const C
 {
     const CcuKernelArgReduceScatterMesh1DMem2Mem *kernelArg
         = dynamic_cast<const CcuKernelArgReduceScatterMesh1DMem2Mem *>(&arg);
+    if (!kernelArg) {
+        HCCL_ERROR("Dynamic cast failed!");
+    }
+    HCCL_DEBUG("channels size: %zu", kernelArg->channels.size());
     rankId_         = kernelArg->rankId_;
+    HCCL_DEBUG("rankId_ assigned: %u", rankId_);
     rankSize_       = kernelArg->dimSize_;
+    HCCL_DEBUG("rankSize_ assigned: %u", rankSize_);
     channels_       = kernelArg->channels;
+    HCCL_DEBUG("channels_ assigned, size: %zu", channels_.size());
     dataType_       = kernelArg->opParam_.DataDes.dataType;
     outputDataType_ = kernelArg->opParam_.DataDes.outputType;
     if (outputDataType_ == HcclDataType::HCCL_DATA_TYPE_RESERVED) {
