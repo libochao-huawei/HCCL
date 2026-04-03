@@ -191,7 +191,7 @@ HcclResult AllGatherVOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount,c
     param.inputPtr = sendBuf;
     param.inputSize = inputSize;
     param.outputPtr = recvBuf;
-    const void *temp = sendCount;
+    const void *temp = recvCounts;
     param.vDataDes.counts = const_cast<void*>(temp);
 
     // 带V算子的参数
@@ -285,7 +285,7 @@ HcclResult AllGatherVOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t se
  	// 参数准备
  	param.inputPtr = sendBuf, param.inputSize = inputSize, param.outputPtr = recvBuf, param.outputSize = outputSize, param.DataDes.count = sendCount, param.vDataDes.dataType = dataType;
     // 带V算子的参数
-    const void *temp = sendCount;
+    const void *temp = recvCounts;
     param.varMemSize = varMemSize, param.vDataDes.counts = const_cast<void*>(temp);
     // 从源内存地址按字节直接拷贝数据到目标地址
     std::vector<u64> merged(userRankSize + userRankSize); 
