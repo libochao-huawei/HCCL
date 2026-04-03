@@ -63,7 +63,7 @@ void InsTempAllReduceAicpuReduceNHR::GetNotifyIdxSubToMain(std::vector<u32> &not
 }
 
 HcclResult InsTempAllReduceAicpuReduceNHR::KernelRun(
-    const OpParam &param, const TemplateDataParams &tempAlgParams, const TemplateResource &templateResource)
+    const OpParam &param, const TemplateDataParams &tempAlgParams, TemplateResource &templateResource)
 {
     HCCL_INFO("[InsTempAllReduceAicpuReduceNHR] rank[%d] KernelRun start", myRank_);
     // 处理数据量为0的场景
