@@ -42,7 +42,7 @@ namespace ops_hccl
 
     // ! 基本编码完成，剩余数据序列化
     HcclResult InsTempRecvDpu::KernelRun(
-        const OpParam &param, const TemplateDataParams &tempAlgParams, const TemplateResource &templateResource)
+        const OpParam &param, const TemplateDataParams &tempAlgParams, TemplateResource &templateResource)
     {
         // 得到thread和channel
         sendRank_ = param.sendRecvRemoteRank;
