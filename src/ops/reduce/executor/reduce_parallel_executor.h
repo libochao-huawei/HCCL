@@ -11,8 +11,7 @@
 #ifndef HCCL_REDUCE_PARALLEL_EXECUTOR_H
 #define HCCL_REDUCE_PARALLEL_EXECUTOR_H
 
-#include "alg_param.h"
-#include "alg_v2_template_base.h"
+#include "common_alg_template_base.h"
 #include "executor_v2_base.h"
 
 namespace ops_hccl {
@@ -80,7 +79,7 @@ private:
 
     std::vector<ThreadHandle> threads_;
 
-    std::array<std::array<std::shared_ptr<InsAlgTemplateBase>, dataSplitPart_>, stageSize_> algTemplatePtrArr_{{}};
+    std::array<std::array<std::shared_ptr<CommonAlgTemplateBase>, dataSplitPart_>, stageSize_> algTemplatePtrArr_{{}};
 
     OpParam param_;
     AlgResourceCtxSerializable resCtx_;

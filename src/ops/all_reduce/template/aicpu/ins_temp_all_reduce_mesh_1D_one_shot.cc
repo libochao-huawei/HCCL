@@ -66,7 +66,7 @@ HcclResult InsTempAllReduceMesh1DOneShot::CalcSlice(const u64 dataSize, RankSlic
 
 HcclResult InsTempAllReduceMesh1DOneShot::KernelRun(const OpParam& param,
     const TemplateDataParams& tempAlgParams,
-    const TemplateResource& templateResource)
+    TemplateResource& templateResource)
 {
     threadNum_ = templateResource.threads.size();
     processSize_ = tempAlgParams.sliceSize;
