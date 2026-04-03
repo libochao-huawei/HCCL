@@ -82,10 +82,9 @@ HcclResult HcclCalcOpResOnlineGraphMode(OpParamGraphMode *opParam, u64 *opMemSiz
     HCCL_INFO("Start to calc op resource online.");
     // aicpu引擎计算资源
     ops_hccl::HcclCalcAicpuResOffline(&resResponse);
-
-    // 其他引擎补充在下面
     // aiv引擎计算资源
  	ops_hccl::HcclCalcAivResOffline(&resResponse, paramPtr);
+    // 其他引擎补充在下面
 
     // 将结果复制到输出参数
     *opMemSize = resResponse.opMemSize;

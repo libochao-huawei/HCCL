@@ -1157,9 +1157,7 @@ HcclResult GetAlgResAiv(HcclComm comm, const OpParam &param, AlgResourceRequest 
     AlgResourceCtxSerializable* resCtxHost = static_cast<AlgResourceCtxSerializable *>(*resCtxSequence);
     resCtxHost->topoInfo = *topoInfo;
     resCtxHost->algHierarchyInfo = algHierarchyInfo;
-    // if (param.opMode == OpMode::OFFLOAD) {
-    //     CHK_RET(HcclGetChannel(comm, param, resRequest, resCtxHost));
-    // }
+
     CHK_RET(HcclAllocAlgResourceAiv(comm, param, resRequest, resCtxHost));
     return HCCL_SUCCESS;
 }
