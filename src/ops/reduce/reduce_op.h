@@ -32,8 +32,8 @@ HcclResult HcclReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType
 #endif
 
 namespace ops_hccl {
-HcclResult ReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
-    uint32_t root, HcclComm comm, aclrtStream stream, const std::string &tag);
+HcclResult ReduceOutPlace(OpParam &param, void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
+    uint32_t root, HcclComm comm, aclrtStream stream, u32 userRankSize);
 
 HcclResult ReduceExecOp(HcclComm comm, OpParam &param);
 

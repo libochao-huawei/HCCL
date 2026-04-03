@@ -18,6 +18,7 @@ namespace ops_hccl {
 
 class InsTempAllGatherNHR : public InsAlgTemplateBase {
 public:
+    InsTempAllGatherNHR() = default;
     explicit InsTempAllGatherNHR(const OpParam &param, const u32 rankId,
                                  const std::vector<std::vector<u32>> &subCommRanks);
     ~InsTempAllGatherNHR() override;
@@ -30,7 +31,7 @@ public:
     }
 
     HcclResult KernelRun(const OpParam &param, const TemplateDataParams &tempAlgParams,
-                         const TemplateResource &templateResource) override;
+                         TemplateResource &templateResource) override;
     HcclResult CalcRes(HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
                        AlgResourceRequest &resourceRequest) override;
     HcclResult GetRes(AlgResourceRequest &resourceRequest) const override;
