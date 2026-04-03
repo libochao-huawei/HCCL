@@ -76,6 +76,7 @@ private:
                                         TemplateResource& templateResource, InsAlgTemplate3 &tempAlgInter1);
     HcclResult GenInsQues(const OpParam &param, const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &tempAlgIntra0,
                           InsAlgTemplate1 &tempAlgInter0, InsAlgTemplate2 &tempAlgIntra1, InsAlgTemplate3 &tempAlgInter1);
+#ifndef AICPU_COMPILE
     HcclResult FastLaunchTemplateIntra0(const OpParam &param, const u32 kernelNum,
                                         TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate0 &tempAlgIntra);
     HcclResult FastLaunchTemplateInter1(const OpParam &param, const u32 kernelNum,
@@ -92,7 +93,6 @@ private:
                                         TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate2 &tempAlgIntra);
     HcclResult FastLaunchTemplateInter11(const OpParam &param, const u32 kernelNum,
                                         TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate3 &tempAlgIntra);
-#ifndef AICPU_COMPILE
     HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *resCtx) override;
     HcclResult FastLaunchSaveCtx(const OpParam &param, const TemplateResource &templateAlgResIntra,
                                  const TemplateResource &templateAlgResInter, const TemplateResource &intraTempAlgRes1,
