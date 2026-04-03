@@ -20,6 +20,7 @@ namespace ops_hccl {
 
 class ReduceAicpuReduceNHR : public InsAlgTemplateBase {
 public:
+    ReduceAicpuReduceNHR() = default;
     explicit ReduceAicpuReduceNHR(const OpParam &param, const u32 rankId,  // 传通信域的rankId，userRank
         const std::vector<std::vector<u32>> &subCommRanks);
 
