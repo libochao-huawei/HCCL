@@ -21,6 +21,7 @@ namespace ops_hccl {
 
 class InsTempBroadcastMesh1DTwoShot : public InsAlgTemplateBase {
 public:
+    InsTempBroadcastMesh1DTwoShot() = default;
     explicit InsTempBroadcastMesh1DTwoShot(const OpParam& param, const u32 rankId, // 传通信域的rankId，userRank
                                         const std::vector<std::vector<u32>> &subCommRanks);
     ~InsTempBroadcastMesh1DTwoShot() override;
