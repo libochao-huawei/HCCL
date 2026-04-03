@@ -44,7 +44,7 @@ HcclResult HcclAllGatherV(void *sendBuf, uint64_t sendCount, void *recvBuf, cons
     CHK_RET(InitEnvConfig());
     // 参数校验等工作
     CHK_PRT_RET(sendCount == 0, HCCL_WARNING("input recvCount is 0, return all gather success"), HCCL_SUCCESS);
-    CHK_RET(CheckAllGatherVInputPara(comm, sendBuf, recvBuf));
+    CHK_RET(CheckAllGatherVInputPara(comm, sendBuf, recvBuf, recvCounts, recvDispls, stream));
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     CHK_RET(HcclGetRankSize(comm, &rankSize));
     u32 userRank = INVALID_VALUE_RANKID;
@@ -81,7 +81,7 @@ HcclResult HcclAllGatherVGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCo
  	// 参数校验等工作
  	CHK_PRT_RET(sendCount == 0, HCCL_WARNING("input sendCount is 0, return all gather success"), HCCL_SUCCESS);
  	// 检查入参指针有效性
- 	CHK_RET(CheckAllGatherVInputPara(comm, sendBuf, recvBuf));
+ 	CHK_RET(CheckAllGatherVInputPara(comm, sendBuf, recvBuf, recvCounts, recvDispls, stream));
  	// tag有效性,是否过长
  	char commName[COMM_INDENTIFIER_MAX_LENGTH];
  	CHK_RET(HcclGetCommName(comm, commName));
@@ -122,7 +122,7 @@ HcclResult HcclAllGatherVGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCo
 }
  	
 namespace ops_hccl {
-HcclResult CheckAllGatherVInputPara(const HcclComm comm, const void* sendBuf, const void* recvBuf)
+HcclResult CheckAllGatherVInputPara(const HcclComm comm, const void* sendBuf, const void* recvBuf, const void *recvCounts, const void *recvDispls, const aclrtStream stream)
 {
     // 入参合法性校验
     RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),
@@ -134,7 +134,15 @@ HcclResult CheckAllGatherVInputPara(const HcclComm comm, const void* sendBuf, co
     RPT_INPUT_ERR(recvBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),
                   std::vector<std::string>({"HcclAllGatherV", "nullptr", "recvBuf", "non-null pointer"}));
     CHK_PTR_NULL(recvBuf);
- 
+    RPT_INPUT_ERR(recvCounts == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclAllGatherV", "nullptr", "recvCounts", "non-null pointer"}));
+    CHK_PTR_NULL(recvCounts);
+    RPT_INPUT_ERR(recvDispls == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclAllGatherV", "nullptr", "recvDispls", "non-null pointer"}));
+    CHK_PTR_NULL(recvDispls);
+    RPT_INPUT_ERR(stream == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclAllGatherV", "nullptr", "stream", "non-null pointer"}));
+    CHK_PTR_NULL(stream);
     return HCCL_SUCCESS;
 }
  
