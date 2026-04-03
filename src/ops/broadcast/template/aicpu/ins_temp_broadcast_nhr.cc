@@ -408,7 +408,7 @@ void InsTempBroadcastNHR::SetRoot(u32 root)
 }
 
 HcclResult InsTempBroadcastNHR::KernelRun(const OpParam& param, const TemplateDataParams& tempAlgParams,
-                                          const TemplateResource& templateResource)
+                                          TemplateResource& templateResource)
 {
     buffInfo_     = tempAlgParams.buffInfo;
     dataTypeSize_  = DATATYPE_SIZE_TABLE[dataType_];

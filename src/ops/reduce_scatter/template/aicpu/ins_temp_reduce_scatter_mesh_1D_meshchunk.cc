@@ -67,7 +67,7 @@ HcclResult InsTempReduceScatterMesh1DMeshChunk::CalcSliceInfoVec(const u64 &data
 
 HcclResult InsTempReduceScatterMesh1DMeshChunk::KernelRun(const OpParam& param,
     const TemplateDataParams& tempAlgParams,
-    const TemplateResource& templateResource)
+    TemplateResource& templateResource)
 {
     threadNum_ = templateResource.threads.size();
     processSize_ = tempAlgParams.sliceSize;

@@ -100,7 +100,7 @@ HcclResult AivTempAllGatherMesh1D::KernelRun(const OpParam& param,
     aivAllGatherArgs.inputRepeatStride = tempAlgParams.inputRepeatStride;
     aivAllGatherArgs.outputRepeatStride = tempAlgParams.outputRepeatStride;
 
-    ExecuteKernelLaunch(aivAllGatherArgs);
+    CHK_RET(ExecuteKernelLaunch(aivAllGatherArgs));
 
     HCCL_INFO("[AivTempAllGatherMesh1D] KernelRun finished");
     return HcclResult::HCCL_SUCCESS;

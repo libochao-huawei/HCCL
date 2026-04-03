@@ -26,6 +26,7 @@ set(HCCL_CUSTOM_OPS_INCLUDE_LIST
     ${ASCEND_CANN_PACKAGE_PATH}/include/hccl
     ${ASCEND_CANN_PACKAGE_PATH}/include/mmpa
     ${ASCEND_CANN_PACKAGE_PATH}/asc/include/aicpu_api
+    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc
 )
 
 # Host 动态链接库
