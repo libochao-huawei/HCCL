@@ -1508,17 +1508,25 @@ HcclResult ApplyOpExpansionMode(OpParam &param, HcclOpExpansionMode finalMode)
             HCCL_DEBUG("[ApplyOpExpansionMode] AICPU mode selected.");
             break;
         case HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_AIV:
-            param.opExecuteConfig = OpExecuteConfig::AIV;
-            param.engine = CommEngine::COMM_ENGINE_AIV;
-            CHK_RET(RegisterKernel());
-            HCCL_DEBUG("[ApplyOpExpansionMode] AIV mode selected.");
-            break;
+            if (g_aivKernelInfoMap.find(param.opType) != g_aivKernelInfoMap.end()) {
+                param.opExecuteConfig = OpExecuteConfig::AIV;
+                param.engine = CommEngine::COMM_ENGINE_AIV;
+                CHK_RET(RegisterKernel());
+                HCCL_DEBUG("[ApplyOpExpansionMode] AIV mode selected.");
+                break;
+            } else {
+                HCCL_WARNING("[ApplyOpExpansionMode] opType %d is not supported.", param.Optype);
+            }
         case HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY:
-            param.opExecuteConfig = OpExecuteConfig::AIV_ONLY;
-            param.engine = CommEngine::COMM_ENGINE_AIV;
-            CHK_RET(RegisterKernel());
-            HCCL_DEBUG("[ApplyOpExpansionMode] AIV_ONLY mode selected.");
-            break;
+            if (g_aivKernelInfoMap.find(param.opType) != g_aivKernelInfoMap.end()) {
+                param.opExecuteConfig = OpExecuteConfig::AIV_ONLY;
+                param.engine = CommEngine::COMM_ENGINE_AIV;
+                CHK_RET(RegisterKernel());
+                HCCL_DEBUG("[ApplyOpExpansionMode] AIV_ONLY mode selected.");
+                break;
+            } else {
+                HCCL_WARNING("[ApplyOpExpansionMode] opType %d is not supported.", param.Optype);
+            }
         case static_cast<HcclOpExpansionMode>(opExpansionModeCcuMs):
             param.opExecuteConfig = OpExecuteConfig::CCU_MS;
             param.engine = CommEngine::COMM_ENGINE_CCU;
