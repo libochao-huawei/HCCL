@@ -8,6 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include <hccl/hccl_res_expt.h>
+
 #include "log.h"
 #include "utils.h"
 #include "common.h"
