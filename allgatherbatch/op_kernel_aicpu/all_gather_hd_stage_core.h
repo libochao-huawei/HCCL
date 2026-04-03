@@ -34,6 +34,7 @@ private:
     HcclResult RunAllGatherLast(const HDStagePlan &plan) const;
     HcclResult RunAllGatherLastOne(const HDStagePlan &plan) const;
     HcclResult RunAllGatherLastTwo(const HDStagePlan &plan) const;
+    bool CanSkipLastStage(const HDStagePlan &plan) const;
     HcclResult RunPowerBit(const HDStagePlan &plan, uint32_t bit, const char *stageTag) const;
     HcclResult BuildPartnerRanksForBit(const HDStagePlan &plan, uint32_t bit, std::vector<uint32_t> &partnerRanks) const;
     HcclResult ReadPartnerRanks(uint32_t partnerRank, const std::vector<uint32_t> &partnerRanks, const char *stageTag) const;

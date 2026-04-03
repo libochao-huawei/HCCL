@@ -622,8 +622,10 @@ HcclResult AllGatherNHRCore::RdmaTxRx(
                 ret);
             return static_cast<HcclResult>(ret);
         }
+        // For ROCE we still materialize the agreed rxSlices locally after the peer signals completion,
+        // so each step ends with the received slices visible in outputBase.
+        HCCL_CHK_RET(Rx(*channelLeft, rxSlices));
     }
-    (void)rxSlices;
     return HCCL_SUCCESS;
 }
 

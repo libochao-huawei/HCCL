@@ -392,13 +392,36 @@ HcclResult AllGatherHDStageCore::RunAllGatherPower(const HDStagePlan &plan) cons
     return HCCL_SUCCESS;
 }
 
+bool AllGatherHDStageCore::CanSkipLastStage(const HDStagePlan &plan) const
+{
+    return plan.needFinalPath &&
+        plan.finalSteps == 0U &&
+        !plan.needPowerPath &&
+        plan.needNoPowerPath &&
+        plan.powerSteps == 0U &&
+        plan.powerFactor == 1U &&
+        plan.noPower == param_.topoInfo.rankSize;
+}
+
 HcclResult AllGatherHDStageCore::RunAllGatherLast(const HDStagePlan &plan) const
 {
     HCCL_INFO("HDStage last stage: rank=%u, needFinal=%s, packedBytes=%llu",
         param_.topoInfo.rank,
         plan.needFinalPath ? "true" : "false",
         static_cast<unsigned long long>(packedBytes_));
-    return HCCL_SUCCESS;
+    if (CanSkipLastStage(plan)) {
+        HCCL_INFO("HDStage last stage is a legal no-op because noPower already covers all rank slots");
+        return HCCL_SUCCESS;
+    }
+    HCCL_ERROR("HDStage last stage is reached with unfinished rank-slot convergence, rank=%u, rankSize=%u, noPower=%u, powerFactor=%u, powerSteps=%u, remainingPowerSteps=%u, finalSteps=%u",
+        param_.topoInfo.rank,
+        param_.topoInfo.rankSize,
+        plan.noPower,
+        plan.powerFactor,
+        plan.powerSteps,
+        plan.remainingPowerSteps,
+        plan.finalSteps);
+    return HCCL_E_INTERNAL;
 }
 
 HcclResult AllGatherHDStageCore::RunAllGatherLastOne(const HDStagePlan &plan) const
