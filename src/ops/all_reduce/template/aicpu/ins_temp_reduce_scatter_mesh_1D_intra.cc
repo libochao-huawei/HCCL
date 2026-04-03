@@ -45,7 +45,7 @@ u64 InsTempReduceScatterMesh1DIntra::CalcScratchMultiple(BufferType inBuffType, 
 }
 
 HcclResult InsTempReduceScatterMesh1DIntra::KernelRun(
-    const OpParam& param, const TemplateDataParams& tempAlgParams, const TemplateResource& templateResource)
+    const OpParam& param, const TemplateDataParams& tempAlgParams, TemplateResource& templateResource)
 {
     threadNum_ = templateResource.threads.size();
     count_ = tempAlgParams.count;

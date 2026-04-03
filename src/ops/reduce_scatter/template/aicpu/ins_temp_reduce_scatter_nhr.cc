@@ -52,7 +52,7 @@ u64 InsTempReduceScatterNHR::GetThreadNum() const
 
 HcclResult InsTempReduceScatterNHR::KernelRun(const OpParam& param,
                                               const TemplateDataParams& tempAlgParams,
-                                              const TemplateResource& templateResource)
+                                              TemplateResource& templateResource)
 {
     HCCL_INFO("[InsTempReduceScatterNHR] GenExtIns start");
     if (tempAlgParams.sliceSize == 0 && tempAlgParams.tailSize == 0) {
