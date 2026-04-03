@@ -270,7 +270,6 @@ HcclResult AllGatherVOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t se
  	OpParam* paramPtr = new (paramMem) OpParam();
  	OpParam& param = *paramPtr; 
     CHK_RET(HcclGetCommName(comm, param.commName));
- 	param.stream = stream, param.opMode = OpMode::OFFLOAD;
  	  	 
     DevType deviceType = DevType::DEV_TYPE_COUNT;
  	CHK_RET(hrtGetDeviceType(deviceType));
@@ -284,7 +283,7 @@ HcclResult AllGatherVOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t se
  	  	 
  	// 参数准备
     const void *temp = recvCounts;
- 	param.inputPtr = sendBuf, param.inputSize = inputSize, param.outputPtr = recvBuf, param.outputSize = outputSize, param.DataDes.count = sendCount, param.vDataDes.dataType = dataType, param.varMemSize = varMemSize, param.vDataDes.counts = const_cast<void*>(temp);
+ 	param.stream = stream, param.opMode = OpMode::OFFLOAD, param.inputPtr = sendBuf, param.inputSize = inputSize, param.outputPtr = recvBuf, param.outputSize = outputSize, param.DataDes.count = sendCount, param.vDataDes.dataType = dataType, param.varMemSize = varMemSize, param.vDataDes.counts = const_cast<void*>(temp);
     // 从源内存地址按字节直接拷贝数据到目标地址
     std::vector<u64> merged(userRankSize + userRankSize); 
     const uint64_t *countsPtr = reinterpret_cast<const uint64_t *>(recvCounts);
