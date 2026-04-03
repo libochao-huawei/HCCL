@@ -1,5 +1,7 @@
 ﻿#include "all_gather_nhr_core.h"
 
+#include <algorithm>
+
 #include "log.h"
 
 namespace ops_hccl_allgatherbatch {
@@ -13,20 +15,61 @@ const char *ToScopeString(bool crossServer)
 
 }  // namespace
 
-AllGatherNHRCore::AllGatherNHRCore(const OpParam &param, AlgResourceCtx &resCtx, uint64_t packedBytes)
-    : param_(param), resCtx_(resCtx), packedBytes_(packedBytes)
+AllGatherNHRCore::AllGatherNHRCore(
+    const OpParam &param,
+    AlgResourceCtx &resCtx,
+    uint64_t packedBytes,
+    const NHRSubgroupCtx &subgroupCtx)
+    : param_(param), resCtx_(resCtx), packedBytes_(packedBytes), subgroupCtx_(subgroupCtx)
 {
+}
+
+bool AllGatherNHRCore::HasSubgroup() const
+{
+    return subgroupCtx_.subgroupSize > 0;
+}
+
+uint32_t AllGatherNHRCore::GetEffectiveRank() const
+{
+    return HasSubgroup() ? subgroupCtx_.subgroupRank : param_.topoInfo.rank;
+}
+
+uint32_t AllGatherNHRCore::GetEffectiveRankSize() const
+{
+    return HasSubgroup() ? subgroupCtx_.subgroupSize : param_.topoInfo.rankSize;
+}
+
+bool AllGatherNHRCore::IsRankInActiveView(uint32_t rank) const
+{
+    if (!HasSubgroup()) {
+        return rank < param_.topoInfo.rankSize;
+    }
+    return std::find(subgroupCtx_.subgroupRanks.begin(), subgroupCtx_.subgroupRanks.end(), rank) !=
+        subgroupCtx_.subgroupRanks.end();
 }
 
 HcclResult AllGatherNHRCore::ValidateCommState() const
 {
     const ResourceStats stats = CollectResourceStats(param_, resCtx_);
+    const uint32_t effectiveRank = GetEffectiveRank();
+    const uint32_t effectiveRankSize = GetEffectiveRankSize();
 
     if (param_.topoInfo.rankSize == 0) {
         HCCL_ERROR("rankSize is zero");
         return HCCL_E_PARA;
     }
-    if (param_.topoInfo.rank >= param_.topoInfo.rankSize) {
+    if (HasSubgroup()) {
+        if (subgroupCtx_.subgroupRanks.size() != subgroupCtx_.subgroupSize) {
+            HCCL_ERROR("subgroup rank list size mismatch, subgroupSize=%u, actual=%u",
+                subgroupCtx_.subgroupSize,
+                static_cast<uint32_t>(subgroupCtx_.subgroupRanks.size()));
+            return HCCL_E_INTERNAL;
+        }
+        if (effectiveRank >= effectiveRankSize) {
+            HCCL_ERROR("subgroupRank=%u is out of range, subgroupSize=%u", effectiveRank, effectiveRankSize);
+            return HCCL_E_INTERNAL;
+        }
+    } else if (param_.topoInfo.rank >= param_.topoInfo.rankSize) {
         HCCL_ERROR("rank=%u is out of range, rankSize=%u", param_.topoInfo.rank, param_.topoInfo.rankSize);
         return HCCL_E_PARA;
     }
@@ -46,7 +89,6 @@ HcclResult AllGatherNHRCore::ValidateCommState() const
             param_.topoInfo.rankSize);
         return HCCL_E_INTERNAL;
     }
-
     if (param_.windowBytes == 0) {
         HCCL_ERROR("windowBytes is zero");
         return HCCL_E_INTERNAL;
@@ -63,7 +105,6 @@ HcclResult AllGatherNHRCore::ValidateCommState() const
             static_cast<unsigned long long>(stats.maxWindowBytes));
         return HCCL_E_INTERNAL;
     }
-
     const uint64_t totalBytes = packedBytes_ * param_.topoInfo.rankSize;
     if (resCtx_.localBuffer.addr == nullptr || resCtx_.localBuffer.size < totalBytes) {
         HCCL_ERROR("localBuffer is too small, need=%llu, actual=%llu",
@@ -71,8 +112,7 @@ HcclResult AllGatherNHRCore::ValidateCommState() const
             static_cast<unsigned long long>(resCtx_.localBuffer.size));
         return HCCL_E_INTERNAL;
     }
-    // NHR 当前也是 fullmesh 前提，通信核心自己再收一次 channel 数，避免 Host/Device 协议漂移。
-    if (resCtx_.channelCount != GetExpectedFullMeshChannelCount(param_)) {
+    if (!HasSubgroup() && resCtx_.channelCount != GetExpectedFullMeshChannelCount(param_)) {
         HCCL_ERROR("channelCount=%u mismatches expected fullmesh count=%u",
             resCtx_.channelCount,
             GetExpectedFullMeshChannelCount(param_));
@@ -84,9 +124,7 @@ HcclResult AllGatherNHRCore::ValidateCommState() const
 HcclResult AllGatherNHRCore::ValidateChannelMetadata() const
 {
     const ResourceStats stats = CollectResourceStats(param_, resCtx_);
-    const uint32_t expectedIntraServerChannels = (param_.intraServerRankCount == 0) ? 0 : (param_.intraServerRankCount - 1);
 
-    // 这里再从通信层视角收一次 Host 下发的模式和资源元数据，避免协议或 server 归属异常直接进入 notify/read。
     for (uint32_t idx = 0; idx < resCtx_.channelCount; ++idx) {
         const ChannelResource &channel = GetChannel(resCtx_, idx);
         if (channel.protocol == COMM_PROTOCOL_RESERVED) {
@@ -108,7 +146,20 @@ HcclResult AllGatherNHRCore::ValidateChannelMetadata() const
             return HCCL_E_INTERNAL;
         }
     }
+    if (HasSubgroup()) {
+        for (uint32_t rank : subgroupCtx_.subgroupRanks) {
+            if (rank == param_.topoInfo.rank) {
+                continue;
+            }
+            if (FindChannel(rank) == nullptr) {
+                HCCL_ERROR("subgroup channel to remoteRank=%u is missing", rank);
+                return HCCL_E_NOT_FOUND;
+            }
+        }
+        return HCCL_SUCCESS;
+    }
 
+    const uint32_t expectedIntraServerChannels = (param_.intraServerRankCount == 0) ? 0 : (param_.intraServerRankCount - 1);
     if (stats.intraServerChannels + stats.crossServerChannels != resCtx_.channelCount) {
         HCCL_ERROR("channel scope split is inconsistent, intra=%u, cross=%u, channelCount=%u",
             stats.intraServerChannels,
@@ -146,7 +197,6 @@ HcclResult AllGatherNHRCore::ValidateProtocolDistribution() const
     const uint32_t intraChannels = CountChannelsByScope(false);
     const uint32_t crossChannels = CountChannelsByScope(true);
 
-    // 协议维度已经进入控制流，这里要求 scope 内的 channel 都能被已知协议解释，不再只做日志统计。
     if (intraRecognized != intraChannels) {
         HCCL_ERROR("intra-server protocol distribution mismatch, recognized=%u, actual=%u",
             intraRecognized,
@@ -159,26 +209,19 @@ HcclResult AllGatherNHRCore::ValidateProtocolDistribution() const
             crossChannels);
         return HCCL_E_INTERNAL;
     }
-    if (resCtx_.channelCount != (intraRecognized + crossRecognized)) {
-        HCCL_ERROR("protocol distribution total mismatch, recognized=%u, channelCount=%u",
-            intraRecognized + crossRecognized,
-            resCtx_.channelCount);
-        return HCCL_E_INTERNAL;
-    }
     return HCCL_SUCCESS;
 }
 
 HcclResult AllGatherNHRCore::ValidateStepPlan(const std::vector<NHRStepInfo> &stepPlan) const
 {
-    if (param_.topoInfo.rankSize <= 1) {
+    if (GetEffectiveRankSize() <= 1U) {
         return HCCL_SUCCESS;
     }
     if (stepPlan.empty()) {
-        HCCL_ERROR("stepPlan is empty for rankSize=%u", param_.topoInfo.rankSize);
+        HCCL_ERROR("stepPlan is empty for rankSize=%u", GetEffectiveRankSize());
         return HCCL_E_INTERNAL;
     }
 
-    // 这层检查把“算出来的 step 计划”正式变成执行前置条件，而不只是调试信息。
     for (const NHRStepInfo &stepInfo : stepPlan) {
         if (stepInfo.fromRank >= param_.topoInfo.rankSize || stepInfo.toRank >= param_.topoInfo.rankSize) {
             HCCL_ERROR("step[%u] rank mapping is invalid, fromRank=%u, toRank=%u, rankSize=%u",
@@ -186,6 +229,13 @@ HcclResult AllGatherNHRCore::ValidateStepPlan(const std::vector<NHRStepInfo> &st
                 stepInfo.fromRank,
                 stepInfo.toRank,
                 param_.topoInfo.rankSize);
+            return HCCL_E_INTERNAL;
+        }
+        if (!IsRankInActiveView(stepInfo.fromRank) || !IsRankInActiveView(stepInfo.toRank)) {
+            HCCL_ERROR("step[%u] rank mapping escapes subgroup view, fromRank=%u, toRank=%u",
+                stepInfo.step,
+                stepInfo.fromRank,
+                stepInfo.toRank);
             return HCCL_E_INTERNAL;
         }
         if (stepInfo.txItemOrder.size() != param_.itemCount || stepInfo.rxItemOrder.size() != param_.itemCount) {
@@ -223,31 +273,29 @@ uint32_t AllGatherNHRCore::CalcStepNum(uint32_t rankSize) const
 
 HcclResult AllGatherNHRCore::GetStepInfo(uint32_t step, uint32_t nSteps, NHRStepInfo &stepInfo) const
 {
-    const uint32_t rank = param_.topoInfo.rank;
-    const uint32_t rankSize = param_.topoInfo.rankSize;
+    const uint32_t rank = GetEffectiveRank();
+    const uint32_t rankSize = GetEffectiveRankSize();
     const uint32_t deltaRank = 1U << (nSteps - 1U - step);
-    const uint32_t fromRank = (rank + rankSize - deltaRank) % rankSize;
-    const uint32_t toRank = (rank + deltaRank) % rankSize;
+    const uint32_t fromRankIdx = (rank + rankSize - deltaRank) % rankSize;
+    const uint32_t toRankIdx = (rank + deltaRank) % rankSize;
 
     stepInfo.step = step;
-    stepInfo.fromRank = fromRank;
-    stepInfo.toRank = toRank;
+    stepInfo.fromRank = HasSubgroup() ? subgroupCtx_.subgroupRanks[fromRankIdx] : fromRankIdx;
+    stepInfo.toRank = HasSubgroup() ? subgroupCtx_.subgroupRanks[toRankIdx] : toRankIdx;
     stepInfo.sliceCount = 1;
     stepInfo.txItemOrder.clear();
     stepInfo.rxItemOrder.clear();
 
-    // 当前 public-header 方案还没有做 slice merge，因此先按 item 顺序建立最小步进计划。
     for (uint32_t itemIdx = 0; itemIdx < param_.itemCount; ++itemIdx) {
         stepInfo.txItemOrder.push_back(itemIdx);
         stepInfo.rxItemOrder.push_back(itemIdx);
     }
     return HCCL_SUCCESS;
 }
-
 HcclResult AllGatherNHRCore::BuildStepPlan(std::vector<NHRStepInfo> &stepPlan) const
 {
-    const uint32_t rankSize = param_.topoInfo.rankSize;
-    if (rankSize <= 1) {
+    const uint32_t rankSize = GetEffectiveRankSize();
+    if (rankSize <= 1U) {
         stepPlan.clear();
         return HCCL_SUCCESS;
     }
@@ -265,6 +313,9 @@ HcclResult AllGatherNHRCore::BuildStepPlan(std::vector<NHRStepInfo> &stepPlan) c
 
 const ChannelResource *AllGatherNHRCore::FindChannel(uint32_t remoteRank) const
 {
+    if (HasSubgroup() && !IsRankInActiveView(remoteRank)) {
+        return nullptr;
+    }
     for (uint32_t idx = 0; idx < resCtx_.channelCount; ++idx) {
         if (GetChannel(resCtx_, idx).remoteRank == remoteRank) {
             return &GetChannel(resCtx_, idx);
@@ -275,7 +326,7 @@ const ChannelResource *AllGatherNHRCore::FindChannel(uint32_t remoteRank) const
 
 uint8_t *AllGatherNHRCore::GetRankBuffer(uint32_t rank) const
 {
-    return static_cast<uint8_t *>(resCtx_.localBuffer.addr) + (packedBytes_ * rank);
+    return static_cast<uint8_t *>(resCtx_.localBuffer.addr) + (packedBytes_ * rank) + subgroupCtx_.baseOffset;
 }
 
 bool AllGatherNHRCore::IsCrossServerChannel(const ChannelResource &channel) const
@@ -285,14 +336,20 @@ bool AllGatherNHRCore::IsCrossServerChannel(const ChannelResource &channel) cons
 
 bool AllGatherNHRCore::MatchChannel(const ChannelResource &channel, bool crossServer, CommProtocol protocol) const
 {
-    return IsCrossServerChannel(channel) == crossServer && channel.protocol == protocol;
+    return IsRankInActiveView(channel.remoteRank) &&
+        IsCrossServerChannel(channel) == crossServer &&
+        channel.protocol == protocol;
 }
 
 uint32_t AllGatherNHRCore::CountChannelsByScope(bool crossServer) const
 {
     uint32_t count = 0;
     for (uint32_t idx = 0; idx < resCtx_.channelCount; ++idx) {
-        if (IsCrossServerChannel(GetChannel(resCtx_, idx)) == crossServer) {
+        const ChannelResource &channel = GetChannel(resCtx_, idx);
+        if (!IsRankInActiveView(channel.remoteRank)) {
+            continue;
+        }
+        if (IsCrossServerChannel(channel) == crossServer) {
             ++count;
         }
     }
@@ -371,7 +428,8 @@ HcclResult AllGatherNHRCore::ReadFromRank(uint32_t remoteRank, bool crossServer,
     }
 
     void *dst = GetRankBuffer(remoteRank);
-    const void *src = static_cast<const uint8_t *>(channel->remoteBuffer.addr) + (packedBytes_ * remoteRank);
+    const void *src = static_cast<const uint8_t *>(channel->remoteBuffer.addr) +
+        (packedBytes_ * remoteRank) + subgroupCtx_.baseOffset;
     ret = HcommReadOnThread(resCtx_.threadHandle, channel->handle, dst, src, packedBytes_);
     if (ret != HCCL_SUCCESS) {
         HCCL_ERROR("%s/%s remote read failed, remoteRank=%u, ret=%d", scope, protocolName, remoteRank, ret);
@@ -385,8 +443,6 @@ HcclResult AllGatherNHRCore::RunProtocolStep(const NHRStepInfo &stepInfo, bool c
     const char *scope = ToScopeString(crossServer);
     const char *protocolName = ToProtocolString(protocol);
 
-    // 这一层开始真正使用 step plan：每一步都显式记录 sendTo / recvFrom，
-    // 后面如果要引入更像正式实现的 slice 组合或双向策略，就可以直接在 step 维度细化。
     HCCL_INFO("NHR protocol step: step=%u, scope=%s, protocol=%s, sendTo=%u, recvFrom=%u, txItems=%u, rxItems=%u",
         stepInfo.step,
         scope,
@@ -444,8 +500,8 @@ HcclResult AllGatherNHRCore::RunScope(bool crossServer, const std::vector<NHRSte
 
 HcclResult AllGatherNHRCore::RunAsync()
 {
-    if (param_.topoInfo.rankSize == 1) {
-        HCCL_INFO("NHR core fast path: rankSize=1, no inter-rank communication needed");
+    if (GetEffectiveRankSize() <= 1U) {
+        HCCL_INFO("NHR core fast path: effectiveRankSize=%u, no inter-rank communication needed", GetEffectiveRankSize());
         return HCCL_SUCCESS;
     }
 
@@ -458,9 +514,11 @@ HcclResult AllGatherNHRCore::RunAsync()
     HCCL_CHK_RET(ValidateStepPlan(stepPlan));
 
     const ResourceStats stats = CollectResourceStats(param_, resCtx_);
-    HCCL_INFO("NHR core step plan ready: rank=%u, rankSize=%u, commMode=%s, intraServerRankCount=%u, crossServerRankCount=%u, steps=%u, packedBytes=%llu, paramWindowBytes=%llu, maxWindowBytes=%llu, channelCount=%u, intraServerChannels=%u, crossServerChannels=%u, hccs=%u, roce=%u, pcie=%u, sio=%u",
+    HCCL_INFO("NHR core step plan ready: rank=%u, rankSize=%u, effectiveRank=%u, effectiveRankSize=%u, commMode=%s, intraServerRankCount=%u, crossServerRankCount=%u, steps=%u, packedBytes=%llu, paramWindowBytes=%llu, maxWindowBytes=%llu, channelCount=%u, intraServerChannels=%u, crossServerChannels=%u, hccs=%u, roce=%u, pcie=%u, sio=%u",
         param_.topoInfo.rank,
         param_.topoInfo.rankSize,
+        GetEffectiveRank(),
+        GetEffectiveRankSize(),
         ToCommModeString(param_.commMode),
         param_.intraServerRankCount,
         param_.crossServerRankCount,
@@ -469,26 +527,18 @@ HcclResult AllGatherNHRCore::RunAsync()
         static_cast<unsigned long long>(param_.windowBytes),
         static_cast<unsigned long long>(stats.maxWindowBytes),
         resCtx_.channelCount,
-        stats.intraServerChannels,
-        stats.crossServerChannels,
-        stats.hccsChannels,
-        stats.roceChannels,
-        stats.pcieChannels,
-        stats.sioChannels);
+        CountChannelsByScope(false),
+        CountChannelsByScope(true),
+        CountChannelsByProtocol(false, COMM_PROTOCOL_HCCS) + CountChannelsByProtocol(true, COMM_PROTOCOL_HCCS),
+        CountChannelsByProtocol(false, COMM_PROTOCOL_ROCE) + CountChannelsByProtocol(true, COMM_PROTOCOL_ROCE),
+        CountChannelsByProtocol(false, COMM_PROTOCOL_PCIE) + CountChannelsByProtocol(true, COMM_PROTOCOL_PCIE),
+        CountChannelsByProtocol(false, COMM_PROTOCOL_SIO) + CountChannelsByProtocol(true, COMM_PROTOCOL_SIO));
 
-    // 这里先保留 NHR 的控制层边界，但执行顺序已经按 step -> scope -> protocol 三层组织。
     HCCL_CHK_RET(RunScope(false, stepPlan));
-    if (param_.commMode == BatchCommMode::kCrossServer) {
+    if (CountChannelsByScope(true) != 0U) {
         HCCL_CHK_RET(RunScope(true, stepPlan));
     }
     return HCCL_SUCCESS;
 }
 
 }  // namespace ops_hccl_allgatherbatch
-
-
-
-
-
-
-

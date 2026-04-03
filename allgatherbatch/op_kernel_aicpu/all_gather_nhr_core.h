@@ -1,12 +1,14 @@
 ﻿#ifndef HCCL_ALLGATHERBATCH_NHR_CORE_H
 #define HCCL_ALLGATHERBATCH_NHR_CORE_H
-
 #include <vector>
-
 #include "common.h"
-
 namespace ops_hccl_allgatherbatch {
-
+struct NHRSubgroupCtx {
+    uint32_t subgroupRank = 0;
+    uint32_t subgroupSize = 0;
+    uint64_t baseOffset = 0;
+    std::vector<uint32_t> subgroupRanks;
+};
 struct NHRStepInfo {
     uint32_t step = 0;
     uint32_t fromRank = 0;
@@ -15,15 +17,20 @@ struct NHRStepInfo {
     std::vector<uint32_t> txItemOrder;
     std::vector<uint32_t> rxItemOrder;
 };
-
 class AllGatherNHRCore {
 public:
-    AllGatherNHRCore(const OpParam &param, AlgResourceCtx &resCtx, uint64_t packedBytes);
-
-    // NHR 子模板入口：校验当前窗口的通信资源，并把远端 rank 的窗口数据拉回本地 rank 槽位。
+    AllGatherNHRCore(
+        const OpParam &param,
+        AlgResourceCtx &resCtx,
+        uint64_t packedBytes,
+        const NHRSubgroupCtx &subgroupCtx = NHRSubgroupCtx {});
+    // NHR ???????????????????? step ??????? rank ??????
     HcclResult RunAsync();
-
 private:
+    bool HasSubgroup() const;
+    uint32_t GetEffectiveRank() const;
+    uint32_t GetEffectiveRankSize() const;
+    bool IsRankInActiveView(uint32_t rank) const;
     HcclResult ValidateCommState() const;
     HcclResult ValidateChannelMetadata() const;
     HcclResult ValidateProtocolDistribution() const;
@@ -43,12 +50,10 @@ private:
     HcclResult RunProtocolStep(const NHRStepInfo &stepInfo, bool crossServer, CommProtocol protocol) const;
     HcclResult RunProtocol(bool crossServer, CommProtocol protocol, const std::vector<NHRStepInfo> &stepPlan) const;
     HcclResult RunScope(bool crossServer, const std::vector<NHRStepInfo> &stepPlan) const;
-
     const OpParam &param_;
     AlgResourceCtx &resCtx_;
     uint64_t packedBytes_;
+    NHRSubgroupCtx subgroupCtx_;
 };
-
 }  // namespace ops_hccl_allgatherbatch
-
 #endif
