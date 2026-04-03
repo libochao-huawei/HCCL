@@ -34,7 +34,6 @@ DECL_WEAK_FUNC(HcclResult, HcclCommGetStatus, HcclComm comm, HcclCommStatusTmp *
 
 void HcommPrimitivesDlInit(void* libHcommHandle);  // 本模块独立初始化
 
-
 #ifdef __cplusplus
 }
 #endif

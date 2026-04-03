@@ -236,7 +236,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         HcclCommStatusTmp commStatus = HcclCommStatusTmp::HCCL_COMM_STATUS_INVALID;
         CHK_RET(HcclCommGetStatus(param->hcclComm, &commStatus));
         if (commStatus != HcclCommStatusTmp::HCCL_COMM_STATUS_READY) {
-            HCCL_ERROR("%s commStatus is not ready!", __func__);
+            HCCL_ERROR("%s commStatus is not ready!, commStatus = %d", __func__, static_cast<int>(commStatus));
             return 1;
         }
         ScatterOpInfo opInfo;

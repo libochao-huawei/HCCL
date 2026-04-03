@@ -78,7 +78,7 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
     HcclCommStatusTmp commStatus = HcclCommStatusTmp::HCCL_COMM_STATUS_INVALID;
     CHK_RET(HcclCommGetStatus(comm, &commStatus));
     if (commStatus != HcclCommStatusTmp::HCCL_COMM_STATUS_READY) {
-        HCCL_ERROR("commStatus is not ready!");
+        HCCL_ERROR("commStatus is not ready!, commStatus = %d", static_cast<int>(commStatus));
         return HCCL_E_SUSPENDING;
     }
     HCCL_INFO("Start to execute Selector.");
