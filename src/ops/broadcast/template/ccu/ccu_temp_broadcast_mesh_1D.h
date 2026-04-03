@@ -18,6 +18,7 @@ namespace ops_hccl {
 
 class CcuTempBroadcastMesh1D : public CcuAlgTemplateBase {
 public:
+    CcuTempBroadcastMesh1D() = default;
     explicit  CcuTempBroadcastMesh1D(const OpParam& param,
                                                 const u32 rankId, // 传通信域的rankId，userRank
                                                 const std::vector<std::vector<u32>> &subCommRanks);
@@ -36,6 +37,7 @@ public:
     HcclResult KernelRun(const OpParam& param,
                          const TemplateDataParams& templateDataParams,
                          TemplateResource& templateResource) override;
+    HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx) override;
 };
 }// namespace ops_hccl
 

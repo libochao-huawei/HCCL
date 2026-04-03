@@ -18,6 +18,7 @@ namespace ops_hccl {
 
 class InsTempAllGatherNHR : public InsAlgTemplateBase {
 public:
+    InsTempAllGatherNHR() = default;
     explicit InsTempAllGatherNHR(const OpParam &param, const u32 rankId,
                                  const std::vector<std::vector<u32>> &subCommRanks);
     ~InsTempAllGatherNHR() override;
