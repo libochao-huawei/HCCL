@@ -48,7 +48,7 @@ u64 InsTempReduceScatterMesh1D::CalcScratchMultiple(BufferType inBuffType, Buffe
 
 HcclResult InsTempReduceScatterMesh1D::KernelRun(const OpParam& param,
     const TemplateDataParams& tempAlgParams,
-    const TemplateResource& templateResource)
+    TemplateResource& templateResource)
 {
     if (tempAlgParams.sliceSize == 0 && tempAlgParams.tailSize == 0) {
         HCCL_DEBUG("[InsTempReduceScatterMesh1D] myRank[%u] sliceSize and tailSize are 0, skip reduce scatter.", myRank_);
