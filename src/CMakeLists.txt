@@ -352,6 +352,7 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         $<$<CONFIG:Debug>:-g>
         $<$<CONFIG:Release>:-O3>
         -fstack-protector-all
+        -Werror
     )
 
     target_link_options(scatter_aicpu_kernel PRIVATE
