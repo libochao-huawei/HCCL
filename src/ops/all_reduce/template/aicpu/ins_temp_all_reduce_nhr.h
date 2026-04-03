@@ -61,7 +61,7 @@ public:
     void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override;
     
     HcclResult KernelRun(const OpParam& param, const TemplateDataParams& tempAlgParams,
-        const TemplateResource& templateResource) override;
+        TemplateResource& templateResource) override;
 
 private:
     HcclResult SplitData();
