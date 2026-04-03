@@ -23,6 +23,9 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 HcclResult HcclReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
     uint32_t root, HcclComm comm, aclrtStream stream)
 {
+    if (!HcclCheckCcuEnableOpen() && !HcclCheckAicpuEnableOpen() && !HcclCheckAivEnableOpen()) {
+        return HcclReduceInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
+    }
     HCCL_INFO("Start to run execute HcclReduce");
     if (GetHcommVersion() < 90000000) { // compat handle
         return HcclReduceInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
@@ -57,10 +60,9 @@ HcclResult HcclReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType
     CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), tag.c_str());
     CHK_RET(CheckCount(count));
     CHK_RET(CheckDataType(dataType, true));
-    CHK_RET(CheckReduceOp(dataType, op));
 
     /* 接口交互信息日志 */
-    CHK_RET(ReduceEntryLog(sendBuf, recvBuf, count, dataType, op, root, stream, tag, "HcclReduce"));
+    CHK_RET(ReduceEntryLog(sendBuf, recvBuf, count, dataType, op, root, stream, tag.c_str(), "HcclReduce"));
 
     // 执行Reduce
     CHK_RET_AND_PRINT_IDE(ReduceOutPlace(sendBuf, recvBuf, count, dataType, op, root, comm, stream, tag), tag.c_str());
@@ -132,6 +134,11 @@ HcclResult ReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclData
     param.deviceType = deviceType;
     param.root = root;
 
+    CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
+    if (ShouldGoCcuFastLaunch(comm, param, &ccuFastLaunchCtx)) {
+        return HcclExecOpCcuFastLaunch(comm, param, ccuFastLaunchCtx);
+    }
+
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));
@@ -149,7 +156,7 @@ HcclResult ReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclData
 }
 
 HcclResult ReduceEntryLog(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
-    uint32_t root, aclrtStream stream, const std::string &tag, const std::string &opName)
+    uint32_t root, aclrtStream stream, const char *tag, const std::string &opName)
 {
     if (GetExternalInputHcclEnableEntryLog()) {
         s32 deviceLogicId = 0;
@@ -159,9 +166,9 @@ HcclResult ReduceEntryLog(void *sendBuf, void *recvBuf, uint64_t count, HcclData
         char stackLogBuffer[LOG_TMPBUF_SIZE];
         s32 ret = snprintf_s(stackLogBuffer, LOG_TMPBUF_SIZE, LOG_TMPBUF_SIZE - 1U,
             "tag[%s], sendBuf[%p], recvBuf[%p], count[%llu], dataType[%s], reduceOp[%s], root[%u], streamId[%d], deviceLogicId[%d]",
-            tag.c_str(), sendBuf, recvBuf, count, GetDataTypeEnumStr(dataType).c_str(), GetReduceOpEnumStr(op).c_str(), root, streamId, deviceLogicId);
+            tag, sendBuf, recvBuf, count, GetDataTypeEnumStr(dataType).c_str(), GetReduceOpEnumStr(op).c_str(), root, streamId, deviceLogicId);
 
-        CHK_PRT_CONT(ret == -1, HCCL_WARNING("Failed to build log info, tag[%s].", tag.c_str()));
+        CHK_PRT_CONT(ret == -1, HCCL_WARNING("Failed to build log info, tag[%s].", tag));
         std::string logInfo = "Entry-" + opName + ":" + std::string(stackLogBuffer);
         HCCL_RUN_INFO("%s", logInfo.c_str());
     }
