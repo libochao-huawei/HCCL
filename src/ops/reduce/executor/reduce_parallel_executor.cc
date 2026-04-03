@@ -405,7 +405,7 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
         return HCCL_SUCCESS;
     }
     const TemplateDataParams dataParams = GenDataParamsTempAlg(dataSliceIdx, stageIdx, stepIdx, isInter);
-    const TemplateResource tempAlgRes = isInter ? interTempAlgRes_ : intraTempAlgRes_;
+    TemplateResource tempAlgRes = isInter ? interTempAlgRes_ : intraTempAlgRes_;
     CHK_RET(algTemplatePtrArr_.at(stageIdx).at(isInter)->KernelRun(param_, dataParams, tempAlgRes));
     return HCCL_SUCCESS;
 }
