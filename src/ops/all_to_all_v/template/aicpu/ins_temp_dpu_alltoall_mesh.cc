@@ -52,7 +52,7 @@ u64 InsTempDpuAlltoAllMesh::CalcScratchMultiple(BufferType inBuffType, BufferTyp
 }
 
 HcclResult InsTempDpuAlltoAllMesh::KernelRun(const OpParam &param, const TemplateDataParams &tempAlgParams,
-                                             const TemplateResource &templateResource)
+                                             TemplateResource &templateResource)
 {
     // HCCL_BUF均分为CCL_IN和CCL_OUT两部分
     halfMaxTmpMemSize_ = tempAlgParams.buffInfo.hcclBuff.size / CCLBUF_SPLIT_PARTS;
