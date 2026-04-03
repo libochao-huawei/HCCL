@@ -36,7 +36,7 @@ public:
                     AlgResourceRequest& resourceRequest) override;
     HcclResult KernelRun(const OpParam& param,
                          const TemplateDataParams& tempAlgParams,
-                         const TemplateResource& templateResource) override;
+                         TemplateResource& templateResource) override;
     
     HcclResult PreCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads,
                         const RankSliceInfo &sliceInfoVec);

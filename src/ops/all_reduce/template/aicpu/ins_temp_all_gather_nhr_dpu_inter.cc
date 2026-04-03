@@ -45,7 +45,7 @@ u64 InsTempAllGatherNhrDpuInter::CalcScratchMultiple(BufferType inBufferType, Bu
 }
 
 HcclResult InsTempAllGatherNhrDpuInter::KernelRun(const OpParam& param, const TemplateDataParams& tempAlgParams,
-    const TemplateResource& templateResource)
+    TemplateResource& templateResource)
 {
     HCCL_INFO("[InsTempAllGatherNhrDpuInter] Run Start");
 
