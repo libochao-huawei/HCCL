@@ -149,7 +149,9 @@ namespace {
                 totalcacheEntries = 0;
                 totalHits = 0;
                 totalMisses = 0;
-                for (const auto& [commName, commCache] : commCaches_) {
+                for (const auto& pair : commCaches_) {
+                    const auto& commName = pair.first;
+                    const auto& commCache = pair.second;
                     totalcacheEntries += commCache.GetCacheSize();
                     totalHits += commCache.GetStats().hits.load();
                     totalMisses += commCache.GetStats().misses.load();
