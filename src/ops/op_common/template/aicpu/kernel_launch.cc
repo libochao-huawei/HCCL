@@ -25,6 +25,7 @@
 #include <atomic>
 #include "hccl/hccl_comm.h"
 #include "hccl_diag.h"
+#include "hcomm_primitives_dl.h"
 
 using namespace ops_hccl;
 namespace {
@@ -232,9 +233,9 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
     if (param->deviceType != DevType::DEV_TYPE_910_95) {
     #endif
         //判断通信域状态
-        HcclCommStatus commStatus = HcclCommStatus::HCCL_COMM_STATUS_INVALID;
+        HcclCommStatusTmp commStatus = HcclCommStatusTmp::HCCL_COMM_STATUS_INVALID;
         CHK_RET(HcclCommGetStatus(param->hcclComm, &commStatus));
-        if (commStatus != HcclCommStatus::HCCL_COMM_STATUS_READY) {
+        if (commStatus != HcclCommStatusTmp::HCCL_COMM_STATUS_READY) {
             HCCL_ERROR("%s commStatus is not ready!", __func__);
             return 1;
         }
