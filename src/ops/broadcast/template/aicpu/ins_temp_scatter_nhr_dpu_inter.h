@@ -37,7 +37,7 @@ public:
  
     HcclResult KernelRun(const OpParam& param,
                          const TemplateDataParams &tempAlgParams,
-                         const TemplateResource& templateResource) override;
+                         TemplateResource& templateResource) override;
     HcclResult DPUKernelRun(const TemplateDataParams& tempAlgParams,
                             const std::map<u32, std::vector<ChannelInfo>>& channels,
                             const u32 myRank,

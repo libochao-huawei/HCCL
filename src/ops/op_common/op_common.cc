@@ -37,11 +37,48 @@
 #include "alg_type.h"
 #include "op_common.h"
 #include "hccl_aiv_utils.h"
+#include "aiv_kernel_def.h"
 #include "dpu/kernel_launch.h"
 #include "hcomm_host_profiling_dl.h"
 #include "rt.h"
 #include "dlhcomm_function.h"
-#include "hccl_diag.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// 兼容性处理
+uint64_t __attribute__((weak)) HcommGetProfilingSysCycleTime();
+HcclResult __attribute__((weak))  HcclDfxRegOpInfo(HcclComm comm, void* dfxOpInfo);
+HcclResult __attribute__((weak)) HcclProfilingReportOp(HcclComm comm, uint64_t beginTime);
+HcclResult __attribute__((weak)) HcclReportAicpuKernel(HcclComm comm, uint64_t beginTime, char *kernelName);
+HcclResult __attribute__((weak)) HcclReportAivKernel(HcclComm comm, uint64_t beginTime);
+
+struct HcclDfxOpInfo {
+    CommAbiHeader       header;
+    //DfxOpInfo_base
+    uint64_t            beginTime = 0;
+    uint64_t            endTime = 0;
+    //baseCollOperator
+    uint32_t            opMode = 0; // 单算子和图模式
+    uint32_t            opType = 0; // 算子名称类型
+    uint32_t            reduceOp = 0;
+    uint32_t            dataType = 0;
+    uint32_t            outputType = 0; //暂不删除，考虑后续算子使用
+    uint64_t            dataCount = 0;
+    uint32_t            root = INVALID_VALUE_RANKID;
+    char                algTag[288]; // 算法名 = "算子类型 + 通信域id + 选择的算法"
+    CommEngine          engine = COMM_ENGINE_RESERVED;
+    //task_exception
+    uint64_t            cpuTsThread = 0; // host侧算子主流的threadhandle
+    uint32_t            cpuWaitAicpuNotifyIdx = INVALID_UINT; // host wait device notifyIdx
+    uint32_t            cpuWaitAicpuNotifyId = INVALID_UINT; // host wait device notifyId
+    int8_t              reserve[128]; // 预留扩展字段
+};
+
+#ifdef __cplusplus
+}
+#endif
 
 namespace ops_hccl {
 thread_local std::map<std::string, HcclMemHandle> g_memHandleCache; // 当前AIV存放注册内存的memHandle使用
@@ -154,7 +191,7 @@ HcclResult SetOpParamFastLaunchTag(OpParam &param)
     } else {
         tmpDataType = param.DataDes.dataType;
     }
-    
+
     const std::string dataType = HCOM_DATA_TYPE_STR_MAP.at(tmpDataType);
     // 1.通信域tag + 数据类型，得到基础FastLaunchTag
     std::string tagBuilder = std::string(param.tag) + "_" + dataType;
@@ -175,8 +212,8 @@ HcclResult SetOpParamFastLaunchTag(OpParam &param)
         std::string root = std::to_string(param.root);
         tagBuilder += "_r" + root;
     }
-    CHK_PRT_RET((tagBuilder.length() >= sizeof(param.fastLaunchTag)), 
-        "failed to fill fastLaunchTag, tag too long", HcclResult::HCCL_E_INTERNAL);
+    CHK_PRT_RET((tagBuilder.length() >= sizeof(param.fastLaunchTag)),
+        HCCL_ERROR("failed to fill fastLaunchTag, tag too long"), HcclResult::HCCL_E_INTERNAL);
     snprintf_s(param.fastLaunchTag, sizeof(param.fastLaunchTag), sizeof(param.fastLaunchTag), "%s", tagBuilder.c_str());
 
     HCCL_INFO("[SetOpParamFastLaunchTag] fastLaunchTag: [%s]", param.fastLaunchTag);
@@ -186,7 +223,7 @@ HcclResult SetOpParamFastLaunchTag(OpParam &param)
 bool ShouldGoCcuFastLaunch(HcclComm comm, OpParam &param, CcuFastLaunchCtx **ccuFastLaunchCtx)
 {
     param.hcclComm = comm;
-    
+
     // 1. 是ccu模式
     if (GetExternalInputHcclCcuMSMode()) {
         HCCL_DEBUG("[HcclExecOp] is ccu ms mode");
@@ -202,7 +239,7 @@ bool ShouldGoCcuFastLaunch(HcclComm comm, OpParam &param, CcuFastLaunchCtx **ccu
     }
 
     CHK_RET(SetOpParamFastLaunchTag(param));
-    
+
     // 2. 查到engineCtx
     uint64_t size = 0;
     void *fastLaunchCtxPtr = nullptr;
@@ -222,17 +259,17 @@ HcclResult HcclExecOpCcuFastLaunch(HcclComm comm, OpParam &param, const CcuFastL
     std::unique_ptr<InsCollAlgBase> executor = CollAlgExecRegistryV2::Instance().GetAlgExec(param.opType, algName);
     CHK_PRT_RET(
         executor.get() == nullptr, HCCL_ERROR("Fail to find executor for algName[%s]", algName.c_str()), HCCL_E_PARA);
-    
+
     void *cclBufferAddr;
     uint64_t cclBufferSize;
     // 从通信域获取CCL buffer
     CHK_RET(HcclGetHcclBuffer(comm, &cclBufferAddr, &cclBufferSize));
     // CCL IN使用所有的CCL Buffer，这个其实就是scratch buffer
     param.hcclBuff = HcclMem{HCCL_MEM_TYPE_DEVICE, cclBufferAddr, cclBufferSize};
-    
+
     HCCL_INFO("[HcclExecOpCcuFastLaunch] FastLaunch start");
     CHK_RET(executor->FastLaunch(param, ccuFastLaunchCtx));
-    
+
     HCCL_INFO("[HcclExecOpCcuFastLaunch] HcclExecOpCcuFastLaunch end");
     return HCCL_SUCCESS;
 }
@@ -242,9 +279,9 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
                                 AlgResourceCtxSerializable &resCtxHost)
 {
     // Cache Logic
-    bool useCache = (param.opType != HCCL_CMD_ALLTOALLV && param.opType != HCCL_CMD_ALLTOALLVC && 
+    bool useCache = (param.opType != HCCL_CMD_ALLTOALLV && param.opType != HCCL_CMD_ALLTOALLVC &&
                      param.opType != HCCL_CMD_ALLGATHER_V && param.opType != HCCL_CMD_REDUCE_SCATTER_V);
-    
+
     AivOpCacheArgs cacheKey = {};
     if (useCache) {
         cacheKey.commName = param.commName;
@@ -270,11 +307,11 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
         for (auto& ins : *queue) {
             AivOpArgs newArgs = ins.opArgs;
             newArgs.stream = param.stream;
-            
+
             // Update addresses
             newArgs.input = (u64)param.inputPtr + ins.inputOffset;
             newArgs.output = (u64)param.outputPtr + ins.outputOffset;
-            
+
             CHK_RET(ExecuteKernelLaunch(newArgs));
         }
     } else {
@@ -343,16 +380,15 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     u32 userRankSize{0};
     CHK_RET(HcclGetRankSize(comm, &userRankSize));
     hcclDfxOpInfo.dataCount = GetHcclDfxOpInfoDataCount(param, userRankSize);
-    param.dataCount = hcclDfxOpInfo.dataCount;
     hcclDfxOpInfo.root = param.root;
     hcclDfxOpInfo.engine = param.engine;
     hcclDfxOpInfo.cpuTsThread = cpuTsThread;
     hcclDfxOpInfo.cpuWaitAicpuNotifyIdx = HOST_WAIT_AICPU_NOTIFYIDX;
     s32 sRet = strncpy_s(hcclDfxOpInfo.algTag, ALG_TAG_LENGTH, param.algTag, ALG_TAG_LENGTH);
-    CHK_PRT_RET(sRet != EOK, HCCL_ERROR("%s call strncpy_s failed, param.algTag %s,  return %d.",
-        __func__, param.algTag, sRet), HCCL_E_MEMORY);
+    CHK_PRT_RET(sRet != EOK, HCCL_ERROR("%s call strncpy_s failed, param.algTag %s,  return %d.", __func__, param.algTag, sRet), HCCL_E_MEMORY);
+    HcclDfxOpInfo *tempOp = &hcclDfxOpInfo;
 
-    CHK_RET(HcclDfxRegOpInfoByCommId(param.commName, reinterpret_cast<void*>(&hcclDfxOpInfo)));
+    CHK_RET(HcclDfxRegOpInfo(comm, static_cast<void*>(tempOp)));
     ThreadHandle exportedCpuTsThread;
     ThreadHandle mainThread;
     u32 notifyNumOnMainThread;
@@ -417,7 +453,6 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
     HCCL_DEBUG("[HcclAicpuKernelEntranceLaunch]start to run aicpu kernel");
     // 当前aicpu launch接口只能有一个输入参数，将Context指针放在param参数中
     param.resCtx = resCtxSequence;
-    param.aicpuRecordCpuIdx = HOST_WAIT_AICPU_NOTIFYIDX;
     // 将算法名字放在param参数中
     int result = sprintf_s(param.algName, sizeof(param.algName), "%s", algName.c_str());
     if (result <= 0) {
@@ -446,7 +481,7 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
     }
     // Host stream等待Device的通知
     u16 NOTIFY_WAIT_TIME = 27 * 68;
-    CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, param.aicpuRecordCpuIdx, NOTIFY_WAIT_TIME)));
+    CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, HOST_WAIT_AICPU_NOTIFYIDX, NOTIFY_WAIT_TIME)));
 
     return HCCL_SUCCESS;
 }
@@ -1291,36 +1326,6 @@ std::string GetSupportDataType(bool needReduce)
     return supportInfo;
 }
 
-HcclResult CheckReduceOp(const HcclDataType dataType, const HcclReduceOp op)
-{
-    const std::vector<std::string> infoTitle({"ccl_op", "value", "parameter", "expect"});
-    if (op == HcclReduceOp::HCCL_REDUCE_PROD) {
-        if (!Is64BitDataType(dataType)) {
-            RPT_INPUT_ERR(true, "EI0003", infoTitle, std::vector<std::string>({"CheckReduceOp", GetReduceOpEnumStr(op), "ReduceOp",
-                GetReduceProdSupportDataType()}));
-            HCCL_ERROR("[Check][ReduceOp][DataType]errNo[0x%016llx] reduceop is [%s] data type[%s] not supported, support range=[%s]",
-                        HCCL_ERROR_CODE(HCCL_E_NOT_SUPPORT), GetReduceOpEnumStr(op), GetDataTypeEnumStr(dataType).c_str(),
-                        GetReduceProdSupportDataType().c_str());
-            return HCCL_E_NOT_SUPPORT;
-        }
-    }
-    return HCCL_SUCCESS;
-}
-
-std::string GetReduceProdSupportDataType()
-{
-    std::vector<HcclDataType> supportList = {HCCL_DATA_TYPE_INT64, HCCL_DATA_TYPE_UINT64, HCCL_DATA_TYPE_FP64};
-    std::string supportInfo = "";
-    for (u32 i = 0; i < supportList.size(); i++) {
-        if (i != 0) {
-            supportInfo += ", ";
-        }
-        supportInfo += GetDataTypeEnumStr(supportList[i]);
-    }
-
-    return supportInfo;
-}
-
 HcclResult SetCommEngine(OpParam &param)
 {
     // 使用一个静态的映射表来关联配置和引擎值
@@ -1510,13 +1515,13 @@ HcclResult ApplyOpExpansionMode(OpParam &param, HcclOpExpansionMode finalMode)
         case HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_AIV:
             param.opExecuteConfig = OpExecuteConfig::AIV;
             param.engine = CommEngine::COMM_ENGINE_AIV;
-            CHK_RET(RegisterKernel());
+            CHK_RET(RegisterKernel(param.opType, g_aivKernelInfoMap[param.opType].first, g_aivKernelInfoMap[param.opType].second));
             HCCL_DEBUG("[ApplyOpExpansionMode] AIV mode selected.");
             break;
         case HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY:
             param.opExecuteConfig = OpExecuteConfig::AIV_ONLY;
             param.engine = CommEngine::COMM_ENGINE_AIV;
-            CHK_RET(RegisterKernel());
+            CHK_RET(RegisterKernel(param.opType, g_aivKernelInfoMap[param.opType].first, g_aivKernelInfoMap[param.opType].second));
             HCCL_DEBUG("[ApplyOpExpansionMode] AIV_ONLY mode selected.");
             break;
         case static_cast<HcclOpExpansionMode>(opExpansionModeCcuMs):
@@ -1545,10 +1550,10 @@ bool HcclCheckAicpuEnableOpen()
     const char* envValue = std::getenv("HCCL_ENABLE_OPEN_AICPU");
 
     if (envValue != nullptr && std::strcmp(envValue, "1") == 0) {
-        return false;
+        return true;
     }
 
-    return true;
+    return false;
 }
 
 HcclResult HcclRegstryBuff(HcclComm comm, const char *memTag, void *bufferPtr, uint64_t bufferSize, HcclMemHandle *memHandle)
