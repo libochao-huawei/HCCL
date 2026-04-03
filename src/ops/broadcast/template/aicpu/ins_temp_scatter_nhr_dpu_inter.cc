@@ -118,7 +118,7 @@ HcclResult InsTempScatterNHRDPUInter::GetStepInfo(u32 step, u32 nSteps, AicpuNHR
 }
  
 HcclResult InsTempScatterNHRDPUInter::KernelRun(const OpParam& param, const TemplateDataParams &tempAlgParams,
-    const TemplateResource& templateResource)
+    TemplateResource& templateResource)
 {
     HCCL_INFO("[InsTempScatterNHRDPUInter] Run Start");
     
