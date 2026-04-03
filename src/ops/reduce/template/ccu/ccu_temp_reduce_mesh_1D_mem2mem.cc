@@ -80,6 +80,26 @@ HcclResult CcuTempReduceMesh1DMem2Mem::CalcRes(HcclComm comm, const OpParam& par
     return HcclResult::HCCL_SUCCESS;
 }
 
+HcclResult CcuTempReduceMesh1DMem2Mem::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+{
+    HCCL_DEBUG("[CcuTempReduceMesh1DMem2Mem::FastLaunch] start");
+    const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
+    buffInfo_ = tempFastLaunchCtx.buffInfo;
+    CcuTaskArgReduceMeshMem2Mem1D taskArg(
+        PointerToAddr(buffInfo_.inputPtr) + args[0],
+        PointerToAddr(buffInfo_.outputPtr) + args[1],
+        args[2], args[3], args[4], args[5], args[6],
+        args[7], args[8], args[9], args[10], args[11]);
+
+    void* taskArgPtr = static_cast<void*>(&taskArg);
+
+    CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0],
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr));
+
+    HCCL_DEBUG("[CcuTempReduceMesh1DMem2Mem::FastLaunch] end");
+    return HcclResult::HCCL_SUCCESS;
+}
+
 HcclResult CcuTempReduceMesh1DMem2Mem::KernelRun(const OpParam& param,
                                                  const TemplateDataParams& templateDataParams,
                                                  TemplateResource& templateResource)
@@ -96,7 +116,7 @@ HcclResult CcuTempReduceMesh1DMem2Mem::KernelRun(const OpParam& param,
     HCCL_INFO("buffInfo_.inputSize: %d", buffInfo_.inputSize);
     uint64_t                               token;
     CHK_RET(GetToken(buffInfo_, token));
-    uint64_t                               repeatNum          = templateDataParams.repeatNum;                                                                                 
+    uint64_t                               repeatNum          = templateDataParams.repeatNum;
     uint64_t                               inputRepeatStride  = templateDataParams.inputRepeatStride;
     uint64_t                               outputRepeatStride = templateDataParams.outputRepeatStride;
     uint64_t                               normalSliceSize    = templateDataParams.sliceSize;
@@ -119,6 +139,12 @@ HcclResult CcuTempReduceMesh1DMem2Mem::KernelRun(const OpParam& param,
     void* taskArgPtr = static_cast<void*>(taskArg.get());
 
     HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr);
+
+    CcuKernelSubmitInfo submitInfo;
+    submitInfo.kernelHandle = templateResource.ccuKernels[0];
+    CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, token, bigDataSliceNum, bigDataSliceSize,
+    smallDataSliceNum, smallDataSliceSize, inputRepeatStride, outputRepeatStride, normalSliceSize, lastSliceSize, repeatNumVar));
+    templateResource.submitInfos.push_back(submitInfo);
     
     HCCL_DEBUG("[CcuTempReduceMesh1DMem2Mem::KernelRun] end");
 

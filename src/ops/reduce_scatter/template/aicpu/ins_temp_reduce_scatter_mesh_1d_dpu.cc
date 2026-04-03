@@ -58,7 +58,7 @@ u64 InsTempReduceScatterMesh1dDpu::CalcScratchMultiple(BufferType inBufferType, 
 // ! 基本编码完成，剩余数据序列化
 HcclResult InsTempReduceScatterMesh1dDpu::KernelRun(const OpParam& param,
                                                     const TemplateDataParams& tempAlgParams,
-                                                    const TemplateResource& templateResource)
+                                                    TemplateResource& templateResource)
 {
     threadNum_ = templateResource.threads.size();
     processSize_ = tempAlgParams.sliceSize;
