@@ -54,7 +54,7 @@ u64 ReduceNHR::CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType
 }
 
 HcclResult ReduceNHR::KernelRun(
-    const OpParam &param, const TemplateDataParams &tempAlgParams, const TemplateResource &templateResource)
+    const OpParam &param, const TemplateDataParams &tempAlgParams, TemplateResource &templateResource)
 {
     HCCL_INFO("[ReduceNHR] rank[%d] KernelRun start", myRank_);
     // 处理数据量为0的场景
