@@ -20,11 +20,11 @@
 #include "kernel_launch.h"
 #include "hcomm_diag_dl.h"
 #include "hcomm_device_profiling_dl.h"
-#include "hccl.h"
 #include <unordered_map>
 #include <shared_mutex>
 #include <atomic>
 #include "hccl/hccl_comm.h"
+#include "hccl_diag.h"
 
 using namespace ops_hccl;
 namespace {
@@ -150,7 +150,9 @@ namespace {
                 totalcacheEntries = 0;
                 totalHits = 0;
                 totalMisses = 0;
-                for (const auto& [commName, commCache] : commCaches_) {
+                for (const auto& pair : commCaches_) {
+                    const auto& commName = pair.first;
+                    const auto& commCache = pair.second;
                     totalcacheEntries += commCache.GetCacheSize();
                     totalHits += commCache.GetStats().hits.load();
                     totalMisses += commCache.GetStats().misses.load();
@@ -309,6 +311,17 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         ThreadHandle thread = resCtx.threads[0];
         if (HcommBatchModeStart(param->algTag) != HCCL_SUCCESS) {
             HCCL_ERROR("failed set batch mode, tag is %s.", param->algTag);
+            return 1;
+        }
+
+        // 要在下第一个task之前上报
+        HcclDfxOpInfo dfxOpInfo{};
+        if (ConvertToHcclDfxOpInfo(param, &dfxOpInfo) != HCCL_SUCCESS) {
+            HCCL_ERROR("ConvertToHcclDfxOpInfo fail, commName is %s, tag is %s", param->commName, param->algTag);
+            return 1;
+        }
+        if (HcclDfxRegOpInfoByCommId(param->commName, reinterpret_cast<void *>(&dfxOpInfo)) != HCCL_SUCCESS) {
+            HCCL_ERROR("HcclDfxRegOpInfoByCommId fail, commName is %s, tag is %s", param->commName, param->algTag);
             return 1;
         }
 
