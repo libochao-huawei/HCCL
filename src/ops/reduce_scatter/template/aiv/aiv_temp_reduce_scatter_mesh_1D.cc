@@ -109,7 +109,7 @@ HcclResult AivTempReduceScatterMesh1D::KernelRun(const OpParam& param,
     aivReduceScatterArgs.inputRepeatStride = tempAlgParams.inputRepeatStride;
     aivReduceScatterArgs.outputRepeatStride = tempAlgParams.outputRepeatStride;
 
-    ExecuteKernelLaunch(aivReduceScatterArgs);
+    CHK_RET(ExecuteKernelLaunch(aivReduceScatterArgs));
 
     HCCL_INFO("[AivTempReduceScatterMesh1D] KernelRun finished");
     return HcclResult::HCCL_SUCCESS;

@@ -22,9 +22,6 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 HcclResult HcclAllGatherV(void *sendBuf, uint64_t sendCount, void *recvBuf, const void *recvCounts,
     const void *recvDispls, HcclDataType dataType, HcclComm comm, aclrtStream stream)
 {
-    if (!HcclCheckAicpuEnableOpen() && !HcclCheckCcuEnableOpen() && !HcclCheckAivEnableOpen()) {
-        return HcclAllGatherVInner(sendBuf, sendCount, recvBuf, recvCounts, recvDispls, dataType, comm, stream);
-    }
     HCCL_INFO("Start to run execute HcclAllGatherV");
     if (GetHcommVersion() < 90000000) { // compat handle
         return HcclAllGatherVInner(sendBuf, sendCount, recvBuf, recvCounts, recvDispls, dataType, comm, stream);
@@ -62,7 +59,7 @@ HcclResult HcclAllGatherV(void *sendBuf, uint64_t sendCount, void *recvBuf, cons
     // 执行AllGatherV
     CHK_RET_AND_PRINT_IDE(AllGatherVOutPlace(sendBuf, recvBuf, sendCount, recvCounts, recvDispls, dataType, comm, stream, tag), tag.c_str());
 
-    CHK_RET(LogHcclExit("HcclAllGatherV", tag, startut));
+    CHK_RET(LogHcclExit("HcclAllGatherV", tag.c_str(), startut));
 
     return HCCL_SUCCESS;
 }
@@ -116,7 +113,7 @@ HcclResult HcclAllGatherVGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCo
  	CHK_RET(AllGatherVEntryLog(sendBuf, recvBuf, sendCount, recvCounts, recvDispls, dataType, stream, opTag, "HcclAllGatherVGraphMode"));  	 
  	// 执行AllGatherV
  	CHK_RET_AND_PRINT_IDE(AllGatherVOutPlaceGraphMode(sendBuf, recvBuf, sendCount, recvCounts, recvDispls, dataType, comm, stream, tag, resPack), opTag);
- 	CHK_RET(LogHcclExit("HcclAllGatherVGraphMode", opTag, startut));
+ 	CHK_RET(LogHcclExit("HcclAllGatherVGraphMode", opTag.c_str(), startut));
 
  	return HCCL_SUCCESS;
 }
