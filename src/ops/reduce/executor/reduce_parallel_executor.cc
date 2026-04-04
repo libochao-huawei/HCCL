@@ -247,12 +247,10 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
 
     // 第0条流是全局主流
     intraThreads_ = {threads_.at(1 + stage)};
-    intraThreads_.insert(intraThreads_.end(),
-        threads_.begin() + stageSize_ + 1,
+    intraThreads_.insert(intraThreads_.end(), threads_.begin() + stageSize_ + 1,
         threads_.begin() + stageSize_ + intraThreadsNum.at(stage));
     interThreads_ = {threads_.at(intraThreadsNumMax + stageSize_ + stage)};
-    interThreads_.insert(interThreads_.end(),
-        threads_.begin() + intraThreadsNumMax + stageSize_ + stageSize_,
+    interThreads_.insert(interThreads_.end(), threads_.begin() + intraThreadsNumMax + stageSize_ + stageSize_,
         threads_.end());
 
     mainThread_ = threads_.at(0);
