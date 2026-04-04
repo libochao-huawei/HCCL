@@ -247,12 +247,10 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
 
     // 第0条流是全局主流
     intraThreads_ = {threads_.at(1 + stage)};
-    intraThreads_.insert(intraThreads_.end(),
-        threads_.begin() + stageSize_ + 1,
+    intraThreads_.insert(intraThreads_.end(), threads_.begin() + stageSize_ + 1,
         threads_.begin() + stageSize_ + intraThreadsNum.at(stage));
     interThreads_ = {threads_.at(intraThreadsNumMax + stageSize_ + stage)};
-    interThreads_.insert(interThreads_.end(),
-        threads_.begin() + intraThreadsNumMax + stageSize_ + stageSize_,
+    interThreads_.insert(interThreads_.end(), threads_.begin() + intraThreadsNumMax + stageSize_ + stageSize_,
         threads_.end());
 
     mainThread_ = threads_.at(0);
@@ -267,15 +265,12 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
         intraTempAlgRes_.ccuKernels.clear();
         interTempAlgRes_.ccuKernels.clear();
         if (stage == 0) {
-            intraTempAlgRes_.ccuKernels.insert(intraTempAlgRes_.ccuKernels.end(),
-                                               resCtx_.ccuKernels.begin(),
+            intraTempAlgRes_.ccuKernels.insert(intraTempAlgRes_.ccuKernels.end(), resCtx_.ccuKernels.begin(),
                                                resCtx_.ccuKernels.begin() + resCtx_.ccuKernelNum[0]);
-            interTempAlgRes_.ccuKernels.insert(interTempAlgRes_.ccuKernels.end(),
-                                               resCtx_.ccuKernels.begin() + resCtx_.ccuKernelNum[0],
+            interTempAlgRes_.ccuKernels.insert(interTempAlgRes_.ccuKernels.end(), resCtx_.ccuKernels.begin() + resCtx_.ccuKernelNum[0],
                                                resCtx_.ccuKernels.begin() + resCtx_.ccuKernelNum[0] + resCtx_.ccuKernelNum[1]);
         } else {
-            intraTempAlgRes_.ccuKernels.insert(intraTempAlgRes_.ccuKernels.end(),
-                                               resCtx_.ccuKernels.begin() + resCtx_.ccuKernelNum[0] + resCtx_.ccuKernelNum[1],
+            intraTempAlgRes_.ccuKernels.insert(intraTempAlgRes_.ccuKernels.end(), resCtx_.ccuKernels.begin() + resCtx_.ccuKernelNum[0] + resCtx_.ccuKernelNum[1],
                                                resCtx_.ccuKernels.begin() + resCtx_.ccuKernelNum[0] + resCtx_.ccuKernelNum[1] + resCtx_.ccuKernelNum[2]);
             interTempAlgRes_.ccuKernels.insert(interTempAlgRes_.ccuKernels.end(),
                                                resCtx_.ccuKernels.begin() + resCtx_.ccuKernelNum[0] + resCtx_.ccuKernelNum[1] + resCtx_.ccuKernelNum[2],
