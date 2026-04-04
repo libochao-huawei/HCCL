@@ -81,6 +81,20 @@ extern HcclResult HcclKfcOpArgsSetCommEngine(void *opArgs, uint8_t commEngine);
 */
 extern HcclResult HcclCreateOpResCtx(HcclComm comm, uint8_t opType, void *opArgs, void **opResCtx);
 
+
+/**
+ * @brief Allocate communication resource by MC2 Tiling data
+ * @param comm A pointer identifying the communication resource based on.
+ * @param stream A pointer identifying the stream information.
+ * @param mc2Tiling MC2 tiling data structure containing algorithm configuration.
+ * @param opResCtx Output pointer to store the created communication context.
+ * @return HcclResult - HCCL_SUCCESS on success, error code otherwise.
+ *
+ * @note This interface is used for MC2 compilation scenario to pre-allocate
+ *       communication resources based on tiling information.
+ */
+extern HcclResult HcclAllocComResourceByTiling(HcclComm comm, void *stream, void* mc2Tiling, void** opResCtx);
+
 #ifdef __cplusplus
 }
 #endif  // __cplusplus
