@@ -11,14 +11,11 @@
 #ifndef ALG_V2_TEMPLATE_BASE
 #define ALG_V2_TEMPLATE_BASE
 
-#include <vector>
-#include <memory>
-#include "template_utils.h"
-#include "alg_template_base.h"
+#include "common_alg_template_base.h"
 
 namespace ops_hccl {
 
-class InsAlgTemplateBase {
+class InsAlgTemplateBase : public CommonAlgTemplateBase {
 public:
     explicit InsAlgTemplateBase() {};
     explicit InsAlgTemplateBase(const OpParam& param, const u32 rankId, // 传通信域的rankId，userRank
@@ -26,25 +23,24 @@ public:
 
     virtual ~InsAlgTemplateBase();
 
-    virtual std::string Describe() const = 0;
+    virtual std::string Describe() const override = 0;
 
     // 将原来的 InsQuePtr替换为ThreadHandle, 将tempLinks换位channels
     virtual HcclResult KernelRun(const OpParam& param,
                                  const TemplateDataParams& tempAlgParams,
-                                 const TemplateResource& templateResource);
-    virtual HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx);
+                                 TemplateResource& templateResource) override;
+    virtual HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx) override;
+
+    virtual HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
+                               AlgResourceRequest& resourceRequest) override;
+    virtual HcclResult GetRes(AlgResourceRequest& resourceRequest) const override;
+    virtual u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
+
+    virtual u64 GetThreadNum() const override;
 
     virtual HcclResult DPUKernelRun(const TemplateDataParams& tempAlgParam,
         const std::map<u32, std::vector<ChannelInfo>>& channels, const u32 myRank,
         const std::vector<std::vector<uint32_t>>& subCommRanks);
-
-    // calculate resources
-    virtual HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
-                               AlgResourceRequest& resourceRequest);
-    virtual HcclResult GetRes(AlgResourceRequest& resourceRequest) const;
-    virtual u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType);
-
-    virtual u64 GetThreadNum() const;
 
     virtual void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub) = 0;
 
