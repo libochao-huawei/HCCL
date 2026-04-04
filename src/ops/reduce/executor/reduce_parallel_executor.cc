@@ -256,9 +256,8 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
     mainThread_ = threads_.at(0);
     templateMainThreads_ = {intraThreads_.at(0), interThreads_.at(0)};
 
-    u32 intraNotifyOnMainThread = tempRequestArr.at(stage).at(0).notifyNumOnMainThread;
-    u32 interNotifyOnMainThread = tempRequestArr.at(stage).at(1).notifyNumOnMainThread;
-    syncNotifyOnTemplates_ = {intraNotifyOnMainThread, interNotifyOnMainThread};
+    syncNotifyOnTemplates_ = {tempRequestArr.at(stage).at(0).notifyNumOnMainThread,
+                              tempRequestArr.at(stage).at(1).notifyNumOnMainThread};
     syncNotifyOnMain_ = {0, 1};
 
     if (param_.engine == COMM_ENGINE_CCU) {
