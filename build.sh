@@ -249,15 +249,24 @@ function run_st() {
 }
 
 function build_custom() {
-    # 编译 Host 包
-    log "Info: build_custom_host"
-    cd ${BUILD_DIR}
-    cmake_config "-DENABLE_CUSTOM=ON
+    local current_custom_option="${CUSTOM_OPTION}"
+    local custom_common_option="-DENABLE_CUSTOM=ON \
                   -DCUSTOM_OPS_PATH=${CUSTOM_OPS_PATH} \
                   -DCUSTOM_OPS_NAME=${CUSTOM_OPS_NAME} \
                   -DCUSTOM_OPS_VENDOR=${CUSTOM_OPS_VENDOR} \
                   -DVERSION_INFO=${VERSION_INFO}"
-    # 打包 run 包
+
+    log "Info: build_custom_device"
+    mkdir -p ${BUILD_DEVICE_DIR}
+    cd ${BUILD_DEVICE_DIR}
+    CUSTOM_OPTION="${current_custom_option} ${custom_common_option} -DDEVICE_MODE=ON -DKERNEL_MODE=ON"
+    cmake_config
+    build ${CUSTOM_OPS_NAME}_aicpu_kernel
+
+    log "Info: build_custom_host"
+    cd ${BUILD_DIR}
+    CUSTOM_OPTION="${current_custom_option} ${custom_common_option} -DDEVICE_MODE=OFF"
+    cmake_config
     build package
 }
 

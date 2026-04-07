@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.16.0)
 
+if(NOT CMAKE_SYSTEM_PROCESSOR)
+    set(CMAKE_SYSTEM_PROCESSOR "aarch64")
+endif()
+
 find_package(ASC REQUIRED)
 find_package(AICPU REQUIRED)
 
