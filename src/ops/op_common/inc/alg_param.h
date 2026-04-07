@@ -60,6 +60,8 @@ constexpr u64 ALL_TO_ALL_V_VECTOR_NUM = 4;
 constexpr u64 REDUCE_SCATTER_V_VECTOR_NUM = 2;
 constexpr u64 ALL_GATHER_V_VECTOR_NUM = 2;
 
+constexpr uint64_t GE_PARALLEL = 36;
+
 enum class TopoType {
     TOPO_TYPE_COMMON = 0,           // 普通拓扑类型 ，default单层拓扑使用
     TOPO_TYPE_8P_RING = 1,          // 特殊场景, 服务器内8 rank组成一个ring，4个逻辑环
@@ -550,6 +552,10 @@ struct HcomProInfo {
 // 图模式编译阶段资源计算入参
 struct OpParamGraphMode {
     char opType[64]; // 算子类型
+    u64 dataCount;
+    u32 rankSize;
+    HcclDataType dataType;
+    u64 hcclBufferSize;
 };
 
 // 图模式编译阶段申请资源
