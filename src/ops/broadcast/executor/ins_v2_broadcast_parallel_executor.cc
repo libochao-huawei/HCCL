@@ -371,8 +371,8 @@ void InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
 {
     dataParams.buffInfo.inputPtr = dataParams.buffInfo.inBuffType == BufferType::HCCL_BUFFER ? resCtx.cclMem.addr : param.inputPtr;
     dataParams.buffInfo.outputPtr = dataParams.buffInfo.outBuffType == BufferType::HCCL_BUFFER ? resCtx.cclMem.addr : param.inputPtr;
-    dataParams.buffInfo.inputSize = param.inputSize;
-    dataParams.buffInfo.outputSize = param.outputSize;
+    dataParams.buffInfo.inputSize = dataParams.buffInfo.inBuffType == BufferType::HCCL_BUFFER ? resCtx.cclMem.size : param.inputSize;
+    dataParams.buffInfo.outputSize = dataParams.buffInfo.outBuffType == BufferType::HCCL_BUFFER ? resCtx.cclMem.size : param.outputSize;
     dataParams.buffInfo.hcclBuff = resCtx.cclMem;
     dataParams.buffInfo.hcclBuffBaseOff = scratchOffsetCount * dataTypeSize_;
     dataParams.buffInfo.inBuffBaseOff = dataParams.buffInfo.inBuffType == BufferType::HCCL_BUFFER ? dataParams.buffInfo.hcclBuffBaseOff : dataOffset;
@@ -530,17 +530,14 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     TemplateDataParams tempAlgParamsInter11;
     TemplateDataParams tempAlgParamsIntra11;
 
-    TemplateResource intraTempAlgRes;
-    TemplateResource interTempAlgRes;
-    TemplateResource intraTempAlgRes1;
-    TemplateResource interTempAlgRes1;
-
     for (u32 loopIndex = 0; loopIndex < loopTimes; loopIndex++) {
         u64 currCountPart0 = (loopIndex == loopTimes - 1) ? finalSliceCountPart0 : sliceCountPart0;
         u64 currCountPart1 = (loopIndex == loopTimes - 1) ? finalSliceCountPart1 : sliceCountPart1;
         u64 dataOffset0 = loopIndex * sliceCount * dataTypeSize_;
         u64 dataOffset1 = dataOffset0 + currCountPart0 * dataTypeSize_;
         // 计算算法模板所需资源
+        TemplateResource intraTempAlgRes;
+        TemplateResource interTempAlgRes;
         CHK_RET(PrepareResForTemplate(tempAlgIntra, tempAlgInter, tempAlgIntra1));
         PrepareResForTemplateResource(param, resCtx, intraTempAlgRes, interTempAlgRes, true);
 
@@ -583,6 +580,8 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     }
 #endif
         // 计算算法模板所需资源 InsAlgTemplate2 &tempAlgIntra1, InsAlgTemplate3 &tempAlgInter1
+        TemplateResource intraTempAlgRes1;
+        TemplateResource interTempAlgRes1;
         CHK_RET(PrepareResForTemplate23(tempAlgIntra, tempAlgIntra1, tempAlgInter1));
         PrepareResForTemplateResource(param, resCtx, intraTempAlgRes1, interTempAlgRes1, false);
 
@@ -604,13 +603,12 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
         RunTemplateInter11(param, resCtx, dataOffset1, currCountPart1, scratchOffsetCountInterStage0, tempAlgParamsInter11, interTempAlgRes1, tempAlgInter1);
         // 第四步做完后回到主流做尾同步
         CHK_RET(PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_));
-    }
-
 #ifndef AICPU_COMPILE
     if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU) {
         CHK_RET(FastLaunchSaveCtx(param, intraTempAlgRes, interTempAlgRes, intraTempAlgRes1, interTempAlgRes1));
     }
 #endif
+    }
 
     HCCL_INFO("[InsBroadcastParallelExecutor][GenInsQues] End.myRank[%u]", myRank_);
     return HcclResult::HCCL_SUCCESS;
