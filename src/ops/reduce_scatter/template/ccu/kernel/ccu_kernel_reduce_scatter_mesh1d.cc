@@ -134,4 +134,42 @@ std::vector<uint64_t> CcuKernelReduceScatterMesh1D::GeneArgs(const CcuTaskArg &a
                inputAddr, outputAddr, offset, sliceSize);
     return {inputAddr, outputAddr, tokenInfo, offset, goSize[0], goSize[1], goSize[2], goSize[3]};
 }
+
+HcclResult CcuKernelReduceScatterMesh1D::GeneTaskParam(const CcuTaskArg &arg, std::vector<CcuTaskParam> &taskParams)
+{
+    const CcuTaskArgReduceScatterMesh1D* taskArg = dynamic_cast<const CcuTaskArgReduceScatterMesh1D*>(&arg);
+    if (!taskArg) {
+        HCCL_ERROR("[CcuKernelReduceScatterMesh1D] GeneTaskParam failed, invalid task arg");
+        return HcclResult::HCCL_E_PARA;
+    }
+    if (taskArg->FastLaunchCtxPtr_ && cache.count(reinterpret_cast<const std::uintptr_t>(taskArg->FastLaunchCtxPtr_))) {
+        taskParams = cache[reinterpret_cast<const std::uintptr_t>(taskArg->FastLaunchCtxPtr_)];
+        return HcclResult::HCCL_SUCCESS;
+    }
+    CcuKernelAlgBase::GeneTaskParam(arg, taskParams);
+    if (taskArg->FastLaunchCtxPtr_) {
+        cache.emplace(reinterpret_cast<const std::uintptr_t>(taskArg->FastLaunchCtxPtr_), taskParams);
+    }
+    return HcclResult::HCCL_SUCCESS;
+}
+
+HcclResult CcuKernelReduceScatterMesh1D::GetCcuProfilingInfo(
+    const CcuTaskArg &arg, std::vector<CcuProfilingInfo> &allCcuProfilingInfo)
+{
+    const CcuTaskArgReduceScatterMesh1D *taskArg = dynamic_cast<const CcuTaskArgReduceScatterMesh1D *>(&arg);
+    if (!taskArg) {
+        HCCL_ERROR("[CcuKernelReduceScatterMesh1D] GetCcuProfilingInfo failed, invalid task arg");
+        return HCCL_E_PARA;
+    }
+    if (taskArg->FastLaunchCtxPtr_
+        && cache1.count(reinterpret_cast<const std::uintptr_t>(taskArg->FastLaunchCtxPtr_))) {
+        allCcuProfilingInfo = cache1[reinterpret_cast<const std::uintptr_t>(taskArg->FastLaunchCtxPtr_)];
+        return HcclResult::HCCL_SUCCESS;
+    }
+    CcuKernelAlgBase::GetCcuProfilingInfo(arg, allCcuProfilingInfo);
+    if (taskArg->FastLaunchCtxPtr_) {
+        cache1.emplace(reinterpret_cast<const std::uintptr_t>(taskArg->FastLaunchCtxPtr_), allCcuProfilingInfo);
+    }
+    return HcclResult::HCCL_SUCCESS;
+}
 } // namespace ops_hccl

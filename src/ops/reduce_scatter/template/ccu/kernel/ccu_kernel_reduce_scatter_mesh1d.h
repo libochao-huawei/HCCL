@@ -11,11 +11,14 @@
 #ifndef HCCL_CCU_KERNEL_REDUCE_SCATTER_MESH_1D
 #define HCCL_CCU_KERNEL_REDUCE_SCATTER_MESH_1D
 
+#include <unordered_map>
 #include <vector>
 #include <ios>
 #include "ccu_kernel.h"
 #include "ccu_kernel_utils.h"
 #include "ccu_kernel_alg_base.h"
+#include "ccu_task_param_v1.h"
+#include "ccu_rep_context_v1.h"
 
 namespace ops_hccl {
 using namespace hcomm;
@@ -47,12 +50,18 @@ public:
 
 class CcuTaskArgReduceScatterMesh1D : public CcuTaskArg {
 public:
-    explicit CcuTaskArgReduceScatterMesh1D(uint64_t inputAddr, uint64_t outputAddr, uint64_t sliceSize, uint64_t offset,
-        uint64_t token) :
-        inputAddr_(inputAddr), outputAddr_(outputAddr), sliceSize_(sliceSize), offset_(offset), token_(token)
+    explicit CcuTaskArgReduceScatterMesh1D(uint64_t inputAddr, uint64_t outputAddr,
+                                           uint64_t sliceSize, uint64_t offset,
+                                           uint64_t token, const void* fastLaunchCtxPtr = nullptr) :
+        inputAddr_(inputAddr),
+        outputAddr_(outputAddr),
+        sliceSize_(sliceSize),
+        offset_(offset),
+        token_(token),
+        FastLaunchCtxPtr_(fastLaunchCtxPtr)
     {
-        HCCL_DEBUG("[CcuTaskArgReduceScatterMesh1D] inputAddr: %lu, outputAddr: %lu, sliceSize: %lu, offset: %lu",
-                   inputAddr_, outputAddr_, sliceSize_, offset_);
+        HCCL_DEBUG("[CcuTaskArgReduceScatterMesh1D] inputAddr: %lu, outputAddr: %lu, sliceSize: %lu, offset: %lu, FastLaunchCtxPtr: %p",
+                   inputAddr_, outputAddr_, sliceSize_, offset_, FastLaunchCtxPtr_);
     }
 
     uint64_t inputAddr_;
@@ -60,6 +69,7 @@ public:
     uint64_t sliceSize_;
     uint64_t offset_;
     uint64_t token_;
+    const void* FastLaunchCtxPtr_ = nullptr; // 用于fast launch时传递非标准参数
 };
 
 class CcuKernelReduceScatterMesh1D : public CcuKernelAlgBase {
@@ -69,6 +79,8 @@ public:
 
     HcclResult Algorithm() override;
     std::vector<uint64_t> GeneArgs(const CcuTaskArg &arg) override;
+    HcclResult GeneTaskParam(const CcuTaskArg &arg, std::vector<CcuTaskParam> &taskParams) override;
+    HcclResult GetCcuProfilingInfo(const CcuTaskArg &arg, std::vector<CcuProfilingInfo> &allCcuProfilingInfo) override;
 private:
     uint64_t rankSize_{0};
     uint32_t rankId_{0};
@@ -81,6 +93,8 @@ private:
     std::vector<CcuRep::Variable> token_;
     CcuRep::Variable offset_;
     GroupOpSize groupOpSize_;
+    std::unordered_map<std::uintptr_t, std::vector<CcuTaskParam>> cache;
+    std::unordered_map<std::uintptr_t, std::vector<CcuProfilingInfo>> cache1;
 };
 } // namespace ops_hccl
 
