@@ -1,4 +1,4 @@
-﻿#include "allgather_batch.h"
+#include "allgather_batch.h"
 
 #include <cstdio>
 #include <memory>
@@ -28,9 +28,9 @@ HcclResult EnsureControlNotifies(OpParam &param)
     // 控制 notify 属于“本次 launch 的控制面参数”，不能再固化进可缓存的 AlgResourceCtx。
     for (uint32_t idx = 0; idx < kAllGatherBatchControlNotifyNum; ++idx) {
         if (g_allGatherBatchNotifies[idx] == nullptr) {
-            ACL_CHK(aclrtCreateNotify(&g_allGatherBatchNotifies[idx], ACL_NOTIFY_DEFAULT));
+            ACLCHECK(aclrtCreateNotify(&g_allGatherBatchNotifies[idx], ACL_NOTIFY_DEFAULT));
         }
-        ACL_CHK(aclrtGetNotifyId(g_allGatherBatchNotifies[idx], &param.controlNotifyIds[idx]));
+        ACLCHECK(aclrtGetNotifyId(g_allGatherBatchNotifies[idx], &param.controlNotifyIds[idx]));
     }
     return HCCL_SUCCESS;
 }
@@ -426,7 +426,7 @@ HcclResult AllocAlgResource(
 
     for (uint32_t idx = 0; idx < request.channelCount; ++idx) {
         channelDescs[idx].remoteRank = request.channels[idx].remoteRank;
-        channelDescs[idx].channelProtocol = request.channels[idx].protocol;
+        channelDescs[idx].channelProtocol = CommProtocol::COMM_PROTOCOL_HCCS;
         channelDescs[idx].notifyNum = request.channels[idx].notifyNum;
     }
 
@@ -489,20 +489,17 @@ HcclResult GetAlgRes(HcclComm comm, const OpParam &param, AlgResourceCtx **resCt
     }
 
     HCCL_CHK_RET(HcclEngineCtxCreate(comm, param.tag, engine, expectedCtxSize, &ctx));
+    // 将内存强转为AlgResourceCtx结构体
+    *resCtx = static_cast<AlgResourceCtx *>(ctx);
 
-    std::unique_ptr<uint8_t[]> hostResBytes(new (std::nothrow) uint8_t[expectedCtxSize]());
-    if (!hostResBytes) {
-        HCCL_ERROR("failed to allocate host resource buffer, size=%llu",
-            static_cast<unsigned long long>(expectedCtxSize));
-        return HCCL_E_MEMORY;
-    }
+    AlgResourceCtx *hostResCtx;
+    // AICPU模式下分配一块Host内存用于填充资源
+    ACLCHECK(aclrtMallocHost(reinterpret_cast<void**>(&hostResCtx), expectedCtxSize));
 
-    AlgResourceCtx *hostResCtx = reinterpret_cast<AlgResourceCtx *>(hostResBytes.get());
     InitAlgResourceCtxHeader(request, *hostResCtx);
     HCCL_CHK_RET(AllocAlgResource(comm, param, request, *hostResCtx));
     HCCL_CHK_RET(HcclEngineCtxCopy(comm, engine, param.tag, hostResCtx, expectedCtxSize, 0));
-
-    *resCtx = static_cast<AlgResourceCtx *>(ctx);
+    ACLCHECK(aclrtFreeHost(hostResCtx));
     return HCCL_SUCCESS;
 }
 

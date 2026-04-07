@@ -55,7 +55,7 @@ enum LogLevel {
         }                                                                          \
     } while (0)
 
-#define ACL_CHK(call)                                                   \
+#define ACLCHECK(call)                                                   \
     do {                                                                           \
         aclError aclRet = (call);                                                  \
         if (UNLIKELY(aclRet != ACL_SUCCESS)) {                                     \
