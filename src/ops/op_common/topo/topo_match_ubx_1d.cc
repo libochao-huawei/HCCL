@@ -20,9 +20,8 @@ TopoMatchUBX1d::~TopoMatchUBX1d()
 {
 }
 
-HcclResult TopoMatchUBX1d::MatchTopo(const HcclComm comm,
-                                        TopoInfoWithNetLayerDetails* topoInfo,
-                                        AlgHierarchyInfoForAllLevel& algHierarchyInfo)
+HcclResult TopoMatchUBX1d::MatchTopo(const HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo,
+                                     AlgHierarchyInfoForAllLevel& algHierarchyInfo)
 {
 #ifndef AICPU_COMPILE
     constexpr uint32_t EXPECTED_TOPO_LEVEL_NUM_2 = 2;
@@ -46,7 +45,7 @@ HcclResult TopoMatchUBX1d::MatchTopo(const HcclComm comm,
     CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &layerNum));
 
     HCCL_DEBUG("[CollAlgFactory] [TopoMatchUBX] Rank [%d], netLayers[%u][%s]",
-                myRank, layerNum, PrintCArray<uint32_t>(netLayers, layerNum).c_str());
+               myRank, layerNum, PrintCArray<uint32_t>(netLayers, layerNum).c_str());
 
     // 2. 获取每个pod上rank数量以及pod数量
     uint32_t *instSizeList;
@@ -69,7 +68,7 @@ HcclResult TopoMatchUBX1d::MatchTopo(const HcclComm comm,
 }
 
 HcclResult TopoMatchUBX1d::TopoForLayer1(const HcclComm comm, uint32_t layer0Size, const uint32_t myRank,
-                                                  AlgHierarchyInfoForAllLevel& algHierarchyInfo) const
+                                         AlgHierarchyInfoForAllLevel& algHierarchyInfo) const
 {
     HCCL_DEBUG("[TopoMatchUBX1d::MeshTopoForLayer1] layer0Size [%d]", layer0Size);
 #ifndef AICPU_COMPILE
