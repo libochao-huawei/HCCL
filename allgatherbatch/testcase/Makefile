@@ -1,4 +1,4 @@
-﻿# -----------------------------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------------------------------------
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This testcase Makefile follows the same direct-build style as examples/04_custom_ops_p2p/testcase.
 # It is intended for quick local bring-up when the custom op has already been installed to the CANN custom path.
@@ -22,8 +22,9 @@ CXXFLAGS := -std=c++14 \
 SOURCES = main.cc
 ASCEND_INC_DIR = ${ASCEND_HOME_PATH}/include
 ASCEND_LIB_DIR = ${ASCEND_HOME_PATH}/lib64
-CUSTOM_INC_DIR = ${ASCEND_HOME_PATH}/opp/vendors/cust/include
-CUSTOM_LIB_DIR = ${ASCEND_HOME_PATH}/opp/vendors/cust/lib64
+CUSTOM_VENDOR ?= cust
+CUSTOM_INC_DIR = ${ASCEND_HOME_PATH}/opp/vendors/$(CUSTOM_VENDOR)/include
+CUSTOM_LIB_DIR = ${ASCEND_HOME_PATH}/opp/vendors/$(CUSTOM_VENDOR)/lib64
 TARGET = allgatherbatch_testcase
 
 # Default run arguments can be overridden from command line, for example:
@@ -110,6 +111,7 @@ help:
 	@echo "  help              - Show this help"
 	@echo ""
 	@echo "Variables for test/test-default:"
+	@echo "  CUSTOM_VENDOR installed custom-op vendor, default $(CUSTOM_VENDOR)"
 	@echo "  TOKEN_BYTES  int8 token bytes per rank, default $(TOKEN_BYTES)"
 	@echo "  SCALE_COUNT  fp32 scale count per rank, default $(SCALE_COUNT)"
 	@echo "  DEVICES      device count to launch, default $(DEVICES)"
@@ -119,7 +121,7 @@ help:
 	@echo "  EXTRA_ARGS   extra flags, for example EXTRA_ARGS=--no-verify"
 	@echo ""
 	@echo "Examples:"
-	@echo "  make test TOKEN_BYTES=65536 SCALE_COUNT=0 DEVICES=4 WARMUP=2 ITERS=20"
+	@echo "  make test CUSTOM_VENDOR=cust TOKEN_BYTES=65536 SCALE_COUNT=0 DEVICES=4 WARMUP=2 ITERS=20"
 	@echo "  make test-fast"
 	@echo "  make test-single-item EXTRA_ARGS=--no-verify"
 	@echo ""

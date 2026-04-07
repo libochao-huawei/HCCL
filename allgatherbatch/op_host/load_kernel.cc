@@ -1,4 +1,4 @@
-﻿#include "load_kernel.h"
+#include "load_kernel.h"
 
 #include <cstdlib>
 #include <limits.h>
@@ -8,6 +8,20 @@
 #include "mmpa_api.h"
 
 namespace ops_hccl_allgatherbatch {
+
+namespace {
+
+const char *GetCustomOpsVendor()
+{
+#ifdef CUSTOM_OPS_VENDOR_STR
+    if (CUSTOM_OPS_VENDOR_STR[0] != '\0') {
+        return CUSTOM_OPS_VENDOR_STR;
+    }
+#endif
+    return "cust";
+}
+
+}  // namespace
 
 thread_local aclrtBinHandle g_allGatherBatchKernelHandle = nullptr;
 
@@ -24,8 +38,8 @@ HcclResult GetKernelConfigPath(std::string &jsonPath)
         HCCL_WARNING("ASCEND_HOME_PATH is not set, fallback to %s", basePath.c_str());
     }
 
-    // 当前按 custom op 的安装路径约定去找 JSON，后面只要产物落位不变，Host 侧无需改逻辑。
-    jsonPath = basePath + "/opp/vendors/cust/aicpu/config/liballgatherbatch_aicpu_kernel.json";
+    const char *vendor = GetCustomOpsVendor();
+    jsonPath = basePath + "/opp/vendors/" + vendor + "/aicpu/config/liballgatherbatch_aicpu_kernel.json";
     return HCCL_SUCCESS;
 }
 
@@ -56,7 +70,6 @@ static HcclResult LoadBinaryFromFile(const char *jsonPath, aclrtBinHandle &binHa
 
 HcclResult LoadAICPUKernel()
 {
-    // Kernel load 做成 thread_local 缓存，避免同一线程上重复 load 同一个 JSON/so。
     if (g_allGatherBatchKernelHandle != nullptr) {
         return HCCL_SUCCESS;
     }

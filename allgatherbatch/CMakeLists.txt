@@ -1,15 +1,22 @@
-﻿cmake_minimum_required(VERSION 3.16.0)
-project(hccl_allgatherbatch_custom_ops)
+cmake_minimum_required(VERSION 3.16.0)
+
+find_package(ASC REQUIRED)
+find_package(AICPU REQUIRED)
+
+project(hccl_allgatherbatch_custom_ops LANGUAGES CXX AICPU ASC)
 
 set(ALLGATHERBATCH_INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}/inc
     ${CMAKE_CURRENT_SOURCE_DIR}/op_host
     ${CMAKE_CURRENT_SOURCE_DIR}/op_kernel_aicpu
     ${ASCEND_CANN_PACKAGE_PATH}/include
+    ${ASCEND_CANN_PACKAGE_PATH}/include/hccl
     ${ASCEND_CANN_PACKAGE_PATH}/include/mmpa
+    ${ASCEND_CANN_PACKAGE_PATH}/asc/include/aicpu_api
 )
 
 add_library(hccl_allgatherbatch SHARED)
+set_target_properties(hccl_allgatherbatch PROPERTIES LINKER_LANGUAGE CXX)
 target_include_directories(hccl_allgatherbatch PRIVATE
     ${ALLGATHERBATCH_INCLUDE_DIRS}
 )
@@ -25,17 +32,30 @@ target_compile_options(hccl_allgatherbatch PRIVATE
 target_compile_definitions(hccl_allgatherbatch PRIVATE
     _GLIBCXX_USE_CXX11_ABI=0
     -DHOST_COMPILE
+    CUSTOM_OPS_VENDOR_STR="${CUSTOM_OPS_VENDOR}"
 )
 target_link_options(hccl_allgatherbatch PRIVATE
     -Wl,-z,relro
     -Wl,-z,now
     -Wl,-z,noexecstack
 )
+target_link_directories(hccl_allgatherbatch PRIVATE
+    ${ASCEND_CANN_PACKAGE_PATH}/lib64
+    ${ASCEND_CANN_PACKAGE_PATH}/lib64/device/lib64
+)
 target_link_libraries(hccl_allgatherbatch PRIVATE
     -Wl,--no-as-needed
     hcomm
     c_sec
     unified_dlog
+    ascendc_runtime
+    profapi
+    ascendalog
+    ascendcl
+    runtime
+    mmpa
+    error_manager
+    ascend_dump
     -Wl,--no-as-needed
 )
 install(TARGETS hccl_allgatherbatch
@@ -50,6 +70,7 @@ set(AICPU_KERNEL_TAR_FILE ${CMAKE_BINARY_DIR}/aicpu_allgatherbatch.tar.gz)
 set(AICPU_KERNEL_JSON_FILE ${CMAKE_CURRENT_SOURCE_DIR}/op_kernel_aicpu/liballgatherbatch_aicpu_kernel.json)
 if(KERNEL_MODE)
     add_library(allgatherbatch_aicpu_kernel SHARED)
+    set_target_properties(allgatherbatch_aicpu_kernel PROPERTIES LINKER_LANGUAGE CXX)
     target_include_directories(allgatherbatch_aicpu_kernel PRIVATE
         ${ALLGATHERBATCH_INCLUDE_DIRS}
     )
@@ -73,7 +94,7 @@ if(KERNEL_MODE)
     )
 else()
     install(FILES
-        ${BUILD_DEVICE_DIR}/signatures/aicpu_allgatherbatch.tar.gz
+        ${BUILD_DEVICE_DIR}/aicpu_allgatherbatch.tar.gz
         DESTINATION ${CUSTOM_OPS_OPP_AICPU_KERNEL_PATH}
     )
     install(FILES

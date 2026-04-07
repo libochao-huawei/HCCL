@@ -1,4 +1,4 @@
-﻿# AllGatherBatch Testcase
+# AllGatherBatch Testcase
 
 目录总览可参考上一级的 [../README.md](../README.md)。
 
@@ -15,8 +15,10 @@
 运行前需要满足以下条件：
 
 - 已正确 `source` Ascend/CANN 环境
-- 自定义算子库已安装到 `${ASCEND_HOME_PATH}/opp/vendors/cust/`
+- 自定义算子库已安装到 `${ASCEND_HOME_PATH}/opp/vendors/<vendor>/`
 - 运行环境中可以访问目标 NPU 设备
+
+如果使用默认 vendor `cust`，则实际安装目录就是 `${ASCEND_HOME_PATH}/opp/vendors/cust/`。
 
 ## 二、准备 Ascend/CANN 环境
 
@@ -41,13 +43,13 @@ echo $ASCEND_CANN_PACKAGE_PATH
 
 ```bash
 cd hccl
-bash build.sh --vendor=cust --ops=allgatherbatch --custom_ops_path=./allgatherbatch
+bash build.sh --vendor=<vendor> --ops=allgatherbatch --custom_ops_path=./allgatherbatch
 ```
 
 其中：
 
-- `--vendor=cust`
-  表示安装到 `opp/vendors/cust`
+- `--vendor=<vendor>`
+  表示安装到 `opp/vendors/<vendor>`
 - `--ops=allgatherbatch`
   表示自定义算子名称
 - `--custom_ops_path=./allgatherbatch`
@@ -77,18 +79,18 @@ cd hccl
 
 安装完成后，至少应能看到以下文件：
 
-- 头文件：`${ASCEND_HOME_PATH}/opp/vendors/cust/include/allgather_batch.h`
-- 动态库：`${ASCEND_HOME_PATH}/opp/vendors/cust/lib64/libhccl_allgatherbatch.so`
-- AICPU 算子描述文件：`${ASCEND_HOME_PATH}/opp/vendors/cust/aicpu/config/liballgatherbatch_aicpu_kernel.json`
-- AICPU 算子包：`${ASCEND_HOME_PATH}/opp/vendors/cust/aicpu/kernel/aicpu_allgatherbatch.tar.gz`
+- 头文件：`${ASCEND_HOME_PATH}/opp/vendors/<vendor>/include/allgather_batch.h`
+- 动态库：`${ASCEND_HOME_PATH}/opp/vendors/<vendor>/lib64/libhccl_allgatherbatch.so`
+- AICPU 算子描述文件：`${ASCEND_HOME_PATH}/opp/vendors/<vendor>/aicpu/config/liballgatherbatch_aicpu_kernel.json`
+- AICPU 算子包：`${ASCEND_HOME_PATH}/opp/vendors/<vendor>/aicpu/kernel/aicpu_allgatherbatch.tar.gz`
 
 可以用下面的命令快速确认：
 
 ```bash
-ls ${ASCEND_HOME_PATH}/opp/vendors/cust/include/allgather_batch.h
-ls ${ASCEND_HOME_PATH}/opp/vendors/cust/lib64/libhccl_allgatherbatch.so
-ls ${ASCEND_HOME_PATH}/opp/vendors/cust/aicpu/config/liballgatherbatch_aicpu_kernel.json
-ls ${ASCEND_HOME_PATH}/opp/vendors/cust/aicpu/kernel/aicpu_allgatherbatch.tar.gz
+ls ${ASCEND_HOME_PATH}/opp/vendors/<vendor>/include/allgather_batch.h
+ls ${ASCEND_HOME_PATH}/opp/vendors/<vendor>/lib64/libhccl_allgatherbatch.so
+ls ${ASCEND_HOME_PATH}/opp/vendors/<vendor>/aicpu/config/liballgatherbatch_aicpu_kernel.json
+ls ${ASCEND_HOME_PATH}/opp/vendors/<vendor>/aicpu/kernel/aicpu_allgatherbatch.tar.gz
 ```
 
 ## 五、AICPU 相关注意事项
@@ -120,10 +122,10 @@ vim /usr/local/Ascend/cann/conf/ascend_package_load.ini
 name:aicpu_allgatherbatch.tar.gz
 install_path:2
 optional:true
-package_path:opp/vendors/cust/aicpu/kernel
+package_path:opp/vendors/<vendor>/aicpu/kernel
 ```
 
-如果你的机器使用的是其他 CANN 安装路径，请按实际路径修改。
+如果你的机器使用的是其他 CANN 安装路径或 vendor 名称，请按实际路径修改。
 
 ## 六、编译 testcase
 
@@ -139,7 +141,7 @@ cmake -S . -B build \
   -DENABLE_CUSTOM=ON \
   -DCUSTOM_OPS_PATH=./allgatherbatch \
   -DCUSTOM_OPS_NAME=allgatherbatch \
-  -DCUSTOM_OPS_VENDOR=cust
+  -DCUSTOM_OPS_VENDOR=<vendor>
 cmake --build build -j
 ```
 
@@ -151,7 +153,7 @@ hccl/build/allgatherbatch/testcase/allgatherbatch_testcase
 
 ### 方式二：使用 testcase 目录下的 Makefile
 
-这个目录额外提供了一个更接近样例风格的 `Makefile`，依赖已安装到 `${ASCEND_HOME_PATH}/opp/vendors/cust/` 的头文件和库。
+这个目录额外提供了一个更接近样例风格的 `Makefile`，依赖已安装到 `${ASCEND_HOME_PATH}/opp/vendors/<vendor>/` 的头文件和库。
 
 在 `hccl/allgatherbatch/testcase` 目录下执行：
 
@@ -195,7 +197,7 @@ make test-single-item
 如果已经构建出 `allgatherbatch_testcase`，也可以用目录里的轻量脚本切场景：
 
 ```bash
-export LD_LIBRARY_PATH=${ASCEND_HOME_PATH}/opp/vendors/cust/lib64:${ASCEND_HOME_PATH}/lib64:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=${ASCEND_HOME_PATH}/opp/vendors/<vendor>/lib64:${ASCEND_HOME_PATH}/lib64:$LD_LIBRARY_PATH
 ./run.sh
 ./run.sh fast
 ./run.sh single-item --no-verify
@@ -236,8 +238,8 @@ export LD_LIBRARY_PATH=${ASCEND_HOME_PATH}/opp/vendors/cust/lib64:${ASCEND_HOME_
 如果更习惯 `make test` 风格，也可以把参数写成变量：
 
 ```bash
-make test TOKEN_BYTES=65536 SCALE_COUNT=0 DEVICES=4 WARMUP=2 ITERS=20
-make test-default TOKEN_BYTES=327680 SCALE_COUNT=128 DEVICES=8
+make test CUSTOM_VENDOR=<vendor> TOKEN_BYTES=65536 SCALE_COUNT=0 DEVICES=4 WARMUP=2 ITERS=20
+make test-default CUSTOM_VENDOR=<vendor>
 make test-fast
 make test-single-item EXTRA_ARGS=--no-verify
 ```

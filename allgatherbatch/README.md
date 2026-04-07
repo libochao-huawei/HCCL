@@ -1,76 +1,77 @@
 # AllGatherBatch
 
-`hccl/allgatherbatch` ÊÇÒ»¸ö×Ô°üº¬µÄÅúÁ¿ AllGather ×Ô¶¨ÒåËã×ÓÊµÏÖ¡£
-ËüÕûÌå²Î¿¼ `04_custom_ops_p2p` µÄ×éÖ¯·½Ê½£º
-Ö»ĞŞ¸Ä±¾Ä¿Â¼´úÂë£¬²¢ÇÒ½öÒÀÀµ `hcomm` ¹«¹²Í·ÎÄ¼şÓë ACL ¹«¹²Í·ÎÄ¼ş¡£
+`hccl/allgatherbatch` æ˜¯ä¸€ä¸ªè‡ªåŒ…å«çš„æ‰¹é‡ AllGather è‡ªå®šä¹‰ç®—å­å®ç°ã€‚
+å·¥ç¨‹æ•´ä½“å‚è€ƒ `examples/04_custom_ops_p2p` çš„ç»„ç»‡æ–¹å¼ï¼Œå½“å‰æ‰€æœ‰è‡ªå®šä¹‰é€»è¾‘éƒ½æ”¶æ•›åœ¨æœ¬ç›®å½•å†…ã€‚
 
-## Ä¿Â¼ËµÃ÷
+## ç›®å½•ç»“æ„
 
 ```text
 hccl/allgatherbatch/
-©À©¤ README.md
-©À©¤ CMakeLists.txt
-©À©¤ inc/
-©¦  ©À©¤ allgather_batch.h
-©¦  ©À©¤ common.h
-©¦  ©¸©¤ log.h
-©À©¤ op_host/
-©¦  ©À©¤ CMakeLists.txt
-©¦  ©À©¤ allgather_batch.cc
-©¦  ©À©¤ launch_kernel.cc
-©¦  ©À©¤ launch_kernel.h
-©¦  ©À©¤ load_kernel.cc
-©¦  ©¸©¤ load_kernel.h
-©À©¤ op_kernel_aicpu/
-©¦  ©À©¤ CMakeLists.txt
-©¦  ©À©¤ hccl_allgather_batch_aicpu_kernel.cc
-©¦  ©À©¤ exec_op.cc
-©¦  ©À©¤ exec_op.h
-©¦  ©À©¤ allgather_batch_small_count_executor.cc
-©¦  ©À©¤ allgather_batch_small_count_executor.h
-©¦  ©À©¤ window_range.h
-©¦  ©À©¤ all_gather_hd_stage_core.cc
-©¦  ©À©¤ all_gather_hd_stage_core.h
-©¦  ©À©¤ all_gather_nhr_core.cc
-©¦  ©¸©¤ all_gather_nhr_core.h
-©¸©¤ testcase/
-   ©À©¤ CMakeLists.txt
-   ©À©¤ Makefile
-   ©À©¤ README.md
-   ©À©¤ main.cc
-   ©¸©¤ run.sh
+â”œâ”€ README.md
+â”œâ”€ CMakeLists.txt
+â”œâ”€ inc/
+â”‚  â”œâ”€ allgather_batch.h
+â”‚  â”œâ”€ common.h
+â”‚  â”œâ”€ log.h
+â”‚  â””â”€ resource_request.h
+â”œâ”€ op_host/
+â”‚  â”œâ”€ CMakeLists.txt
+â”‚  â”œâ”€ allgather_batch.cc
+â”‚  â”œâ”€ load_kernel.cc
+â”‚  â”œâ”€ load_kernel.h
+â”‚  â”œâ”€ launch_kernel.cc
+â”‚  â””â”€ launch_kernel.h
+â”œâ”€ op_kernel_aicpu/
+â”‚  â”œâ”€ CMakeLists.txt
+â”‚  â”œâ”€ hccl_allgather_batch_aicpu_kernel.cc
+â”‚  â”œâ”€ exec_op.cc
+â”‚  â”œâ”€ exec_op.h
+â”‚  â”œâ”€ allgather_batch_small_count_executor.cc
+â”‚  â”œâ”€ allgather_batch_small_count_executor.h
+â”‚  â”œâ”€ window_range.h
+â”‚  â”œâ”€ all_gather_hd_stage_core.cc
+â”‚  â”œâ”€ all_gather_hd_stage_core.h
+â”‚  â”œâ”€ all_gather_nhr_core.cc
+â”‚  â”œâ”€ all_gather_nhr_core.h
+â”‚  â””â”€ liballgatherbatch_aicpu_kernel.json
+â””â”€ testcase/
+   â”œâ”€ CMakeLists.txt
+   â”œâ”€ Makefile
+   â”œâ”€ README.md
+   â”œâ”€ main.cc
+   â””â”€ run.sh
 ```
 
+## æ¨¡å—è¯´æ˜
+
 - `inc/`
-  ·Å¹«¿ª API Í·ÎÄ¼ş£¬ÒÔ¼° Host ºÍ Device ¹²ÓÃµÄĞ­Òé¶¨Òå¡£
+  æ”¾å…¬å¼€ APIã€Host/Device å…±äº«åè®®ã€æ—¥å¿—å®å’Œèµ„æºè¯·æ±‚å®šä¹‰ã€‚
 - `op_host/`
-  ·Å Host ²àÈë¿Ú¡¢ÍØÆË×¼±¸¡¢×ÊÔ´ÉêÇë¡¢kernel load ºÍ launch Âß¼­¡£
+  æ”¾ Host ä¾§å…¥å£ã€æ‹“æ‰‘è§£æã€èµ„æºç”³è¯·ã€AICPU kernel åŠ è½½å’Œ launch é€»è¾‘ã€‚
 - `op_kernel_aicpu/`
-  ·Å Device ²à kernel Èë¿Ú¡¢Ö´ĞĞÆ÷¡¢HDStage core ºÍ NHR core¡£
+  æ”¾ Device ä¾§å…¥å£ã€æ‰§è¡Œå™¨ã€`HDStage` coreã€`NHR` core å’Œ AICPU kernel JSONã€‚
 - `testcase/`
-  ·Å¿ÉÔËĞĞÑùÀı¡¢Makefile ¸¨ÖúÈë¿ÚºÍÊ¹ÓÃËµÃ÷¡£
+  æ”¾å¯è¿è¡Œæ ·ä¾‹ã€Makefile å’Œä½¿ç”¨è¯´æ˜ã€‚
 
-## Ö÷Á÷³Ì
+## ä¸»æµç¨‹
 
-1. `HcclAllGatherBatch` Ğ£ÑéÓÃ»§´«ÈëµÄ item£¬²¢¹¹Ôì `OpParam`¡£
-2. Host ²à×¼±¸ `TopoInfo`¡¢`AlgResourceCtx`£¬È»ºóÏÂ·¢ AICPU kernel¡£
-3. Device ²à´Ó `ExecOp` ½øÈëÖ´ĞĞÆ÷Ö÷Ñ­»·£¬°´
-   `Pack -> HDStageCore -> NHRCore -> Unpack`
-   ÕâÌõÁ´Â·Ö´ĞĞ¡£
-4. `testcase` Ä¿Â¼Ìá¹©ÁË¿Éµ÷ `token bytes / scale count / devices / warmup / iters` µÄÑùÀı³ÌĞò¡£
+1. `HcclAllGatherBatch` æ ¡éªŒè¾“å…¥å¹¶æ„é€  `OpParam`ã€‚
+2. Host ä¾§å‡†å¤‡æ‹“æ‰‘ä¿¡æ¯ã€èµ„æºè¯·æ±‚å’ŒåŠ¨æ€ `AlgResourceCtx`ï¼Œç„¶ååŠ è½½å¹¶ä¸‹å‘ AICPU kernelã€‚
+3. Device ä¾§ä» `ExecOp` è¿›å…¥æ‰§è¡Œå™¨ï¼ŒæŒ‰ `Pack -> HDStageCore -> NHRCore -> Unpack` çš„é“¾è·¯æ‰§è¡Œã€‚
+4. `testcase` ç›®å½•æä¾›å¯è°ƒ `token bytes / scale count / devices / warmup / iters` çš„æ ·ä¾‹ç¨‹åºã€‚
 
-## µ±Ç°·¶Î§
+## å½“å‰èŒƒå›´
 
-- Ö§³Öµ¥ server ºÍ³¬½ÚµãÄÚ¿ç server ³¡¾°¡£
-- ²»Ö§³Ö¿ç superpod Á´Â·¡£
-- µ±È«²¿Êı¾İ·Å²»½øµ¥´Î±¾µØ´°¿ÚÊ±£¬»á×Ô¶¯×ß´°¿Ú»¯Ö´ĞĞ¡£
-- ËùÓĞ×Ô¶¨ÒåÂß¼­¶¼ÊÕÁ²ÔÚ `hccl/allgatherbatch` Ä¿Â¼ÏÂ¡£
+- æ”¯æŒå• server å’ŒåŒä¸€ superpod å†…çš„è·¨ server åœºæ™¯ã€‚
+- ä¸æ”¯æŒè·¨ superpod é“¾è·¯ã€‚
+- å½“å‰èµ„æºæ¨¡å‹æŒ‰ fullmesh å»ºé“¾ï¼šæ¯ä¸ª rank ä¸å…¶ä½™ rank éƒ½å»ºç«‹ channelã€‚
+- å½“å…¨éƒ¨æ•°æ®æ— æ³•æ”¾è¿›å•æ¬¡æœ¬åœ°çª—å£æ—¶ï¼Œä¼šè‡ªåŠ¨åˆ‡æˆå¤šçª—å£æ‰§è¡Œã€‚
 
-## ÍÆ¼öÔÄ¶ÁÈë¿Ú
+## æ¨èé˜…è¯»å…¥å£
 
-- ¹«¿ª API£º`inc/allgather_batch.h`
-- ¹²ÏíĞ­Òé£º`inc/common.h`
-- Host Èë¿Ú£º`op_host/allgather_batch.cc`
-- Device Èë¿Ú£º`op_kernel_aicpu/hccl_allgather_batch_aicpu_kernel.cc`
-- Ö´ĞĞÆ÷£º`op_kernel_aicpu/allgather_batch_small_count_executor.cc`
-- ²âÊÔÑùÀı£º`testcase/main.cc`
+- å…¬å¼€ APIï¼š`inc/allgather_batch.h`
+- å…±äº«åè®®ï¼š`inc/common.h`
+- Host ä¸»é“¾ï¼š`op_host/allgather_batch.cc`
+- Device å…¥å£ï¼š`op_kernel_aicpu/hccl_allgather_batch_aicpu_kernel.cc`
+- æ‰§è¡Œå™¨ï¼š`op_kernel_aicpu/allgather_batch_small_count_executor.cc`
+- æµ‹è¯•æ ·ä¾‹ï¼š`testcase/main.cc`
