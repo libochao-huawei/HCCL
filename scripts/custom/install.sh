@@ -72,8 +72,8 @@ if [ -n "${INSTALL_PATH}" ]; then
     fi
 
     # 若指定目录为 cann 的上级目录，则重新指定为 cann 目录
-    INSTALL_PATH=${INSTALL_PATH%*/}
-    if [[ "${INSTALL_PATH}" == */cann ]] || [[ "${INSTALL_PATH}" == */cann-* ]]; then
+    INSTALL_PATH=$(realpath "${INSTALL_PATH}")
+    if [[ "${INSTALL_PATH}" == */Ascend/cann ]] || [[ "${INSTALL_PATH}" == */Ascend/cann-* ]]; then
         target_install_path="${INSTALL_PATH}"
     else
         target_install_path="${INSTALL_PATH}/cann"
