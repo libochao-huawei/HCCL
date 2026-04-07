@@ -214,8 +214,8 @@ HcclResult CalcTaskNum(OpParamGraphMode *opParam, u32 &ccuTaskNum)
     u64 maxDataSizePerLoop;
     u64 maxDataCountPerLoop;
     u64 loopTimes;
-    HCCL_INFO("[CalcTaskNum] opType[%s] scratchBufferSize[%llu] dataCount[%llu] rankSize[%llu] maxDataSizePerLoop[%llu]", 
-            opParam->opType, scratchBufferSize, dataCount, rankSize, maxDataSizePerLoop);
+    HCCL_INFO("[CalcTaskNum] opType[%s] scratchBufferSize[%llu] dataCount[%llu] rankSize[%llu]", 
+            opParam->opType, scratchBufferSize, dataCount, rankSize);
     if (opParam->opType == HCCL_KERNEL_OP_TYPE_ALLTOALL) {
         maxDataSizePerLoop = transportBoundDataSize;
         maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize / rankSize;
@@ -266,6 +266,8 @@ HcclResult CalcTaskNum(OpParamGraphMode *opParam, u32 &ccuTaskNum)
         loopTimes = dataCount / maxDataCountPerLoop + static_cast<u64>(dataCount % maxDataCountPerLoop != 0);
         ccuTaskNum = loopTimes * GE_PARALLEL;
     }
+    HCCL_INFO("[CalcTaskNum] maxDataSizePerLoop[%llu] maxDataCountPerLoop[%llu] loopTimes[%llu] ccuTaskNum[%llu]", 
+            maxDataSizePerLoop, maxDataCountPerLoop, loopTimes, ccuTaskNum);
     HCCL_INFO("[CalcTaskNum] end.");
     return HCCL_SUCCESS;
 }
