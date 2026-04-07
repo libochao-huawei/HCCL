@@ -19,6 +19,7 @@ namespace ops_hccl {
 
 class InsTempAllReduceMesh1DOneShot : public InsAlgTemplateBase {
 public:
+    InsTempAllReduceMesh1DOneShot() = default;
     explicit InsTempAllReduceMesh1DOneShot(const OpParam& param, const u32 rankId, // 传通信域的rankId，userRank
                                         const std::vector<std::vector<u32>> &subCommRanks);
     ~InsTempAllReduceMesh1DOneShot() override;
