@@ -32,7 +32,7 @@ constexpr uint64_t UB_MAX_DATA_SIZE = 256*1024*1024; // Byte, UB协议一次传�
 
 constexpr uint32_t DATATYPE_SIZE_TABLE[HCCL_DATA_TYPE_RESERVED] = {sizeof(int8_t), sizeof(int16_t), sizeof(int32_t),
     2, sizeof(float), sizeof(int64_t), sizeof(uint64_t), sizeof(uint8_t), sizeof(uint16_t), sizeof(uint32_t),
-    8, 2, 16, 2, 1, 1, 1, 1, 1};
+    8, 2, 16, 2, 1, 1, 1, 1};
 
 constexpr u32 COMM_INDENTIFIER_MAX_LENGTH = 128;
 constexpr uint32_t OP_NAME_LENGTH = 32;
@@ -505,6 +505,8 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     u64 ctxSize = 0;
     void* resCtx = nullptr;
     ThreadHandle opThread = 0;
+    u32 aicpuRecordCpuIdx = 0; // aicpu record host的notifyIdx
+    u32 dataCount = 0; // 算子上报dfx的数据量
     u64 varMemSize{0};
     u8 varData[0];
 };
