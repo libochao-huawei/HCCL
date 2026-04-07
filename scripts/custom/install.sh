@@ -73,7 +73,7 @@ if [ -n "${INSTALL_PATH}" ]; then
 
     # 若指定目录为 cann 的上级目录，则重新指定为 cann 目录
     INSTALL_PATH=${INSTALL_PATH%*/}
-    if [[ "${INSTALL_PATH}" == */cann ]] || [[ "${INSTALL_PATH}" == */cann-* ]]; then
+    if [[ "${INSTALL_PATH}" == */Ascend/cann ]] || [[ "${INSTALL_PATH}" == */Ascend/cann-* ]]; then
         target_install_path="${INSTALL_PATH}"
     else
         target_install_path="${INSTALL_PATH}/cann"
@@ -155,7 +155,7 @@ install() {
 
     # 如果有冲突文件且非安静模式，提示用户进行卸载
     if [ ${#conflict_files[@]} -gt 0 ] && [ "$QUIET" != "y" ]; then
-        echo "Files already exist in the target directory. Do you want to uninstall them first? (y/N):"
+        echo "Files already exist in the target directory. Dow you want to uninstall them first? (y/N):"
         read -r user_input
         if [ "$user_input" = "y" ] || [ "$user_input" = "Y" ]; then
             uninstall
