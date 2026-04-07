@@ -24,7 +24,48 @@ HcclResult TopoMatchUBX1d::MatchTopo(const HcclComm comm,
                                         TopoInfoWithNetLayerDetails* topoInfo,
                                         AlgHierarchyInfoForAllLevel& algHierarchyInfo)
 {
-    return TopoMatchUBX::MatchTopo(comm, topoInfo, algHierarchyInfo);
+#ifndef AICPU_COMPILE
+    constexpr uint32_t EXPECTED_TOPO_LEVEL_NUM_2 = 2;
+    CHK_PRT_RET(topoInfo->topoLevelNums == 0 || topoInfo->topoLevelNums > EXPECTED_TOPO_LEVEL_NUM_2,
+        HCCL_ERROR("[CalcTopoLevelNums] topoLevelNum[%u] is invalid.",
+            topoInfo->topoLevelNums),
+        HCCL_E_INTERNAL);
+    uint32_t myRank;
+    CHK_RET(HcclGetRankId(comm, &myRank));
+#ifdef MACRO_DEV_TYPE_NEW
+    CHK_PRT_RET(topoInfo->deviceType != DevType::DEV_TYPE_950,
+#else
+    CHK_PRT_RET(topoInfo->deviceType != DevType::DEV_TYPE_910_95,
+#endif
+        HCCL_ERROR("[CollAlgFactory] [TopoMatchUBX] Rank [%d], deviceType not supported yet.",
+            myRank),
+        HcclResult::HCCL_E_PARA);
+    // 1.获取并校验通信层数
+    uint32_t *netLayers;
+    uint32_t layerNum = 0;
+    CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &layerNum));
+
+    HCCL_DEBUG("[CollAlgFactory] [TopoMatchUBX] Rank [%d], netLayers[%u][%s]",
+                myRank, layerNum, PrintCArray<uint32_t>(netLayers, layerNum).c_str());
+
+    // 2. 获取每个pod上rank数量以及pod数量
+    uint32_t *instSizeList;
+    uint32_t listSize = 0;
+    CHK_RET(HcclRankGraphGetInstSizeListByLayer(comm, 0, &instSizeList, &listSize));
+    HCCL_INFO("[CollAlgFactory] [TopoMatchUBX] Rank [%d], [%u] pods ,ranksize on each pod :[%s]",
+        myRank,
+        listSize,
+        PrintCArray<uint32_t>(instSizeList, listSize).c_str());
+    // 3. 计算layer0的topo
+    algHierarchyInfo.infos.resize(COMM_LAYER_SIZE_2);
+    uint32_t layer0Size = 0;
+    CHK_RET(TopoMatchUBX::TopoForLayer0(comm, layer0Size, myRank, algHierarchyInfo));
+    // 4. 计算layer1的topo
+    if (layerNum >= COMM_LAYER_SIZE_2) {
+        CHK_RET(TopoForLayer1(comm, layer0Size, myRank, algHierarchyInfo));
+    }
+#endif
+    return HcclResult::HCCL_SUCCESS;
 }
 
 HcclResult TopoMatchUBX1d::TopoForLayer1(const HcclComm comm, uint32_t layer0Size, const uint32_t myRank,
@@ -52,7 +93,7 @@ HcclResult TopoMatchUBX1d::TopoForLayer1(const HcclComm comm, uint32_t layer0Siz
             rankVecLayer1.push_back(rankId);
             continue;
         }
-
+ 
         CommLink *links;
         uint32_t linkNum = 0;
         HcclRankGraphGetLinks(comm, 1, myRank, rankId, &links, &linkNum);
