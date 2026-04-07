@@ -48,16 +48,16 @@ HcclResult LaunchKernel(const OpParam &param, aclrtStream stream)
         stats.crossServerChannels);
 
     // Host stream 先发启动通知，Device 侧主线程收到后才真正进入执行器。
-    ACL_CHK(aclrtRecordNotify(g_allGatherBatchNotifies[kAllGatherBatchControlNotifyStart], stream));
+    ACLCHECK(aclrtRecordNotify(g_allGatherBatchNotifies[kAllGatherBatchControlNotifyStart], stream));
 
     // 把 Host 侧组织好的 OpParam 作为唯一 launch 入参带到 AICPU kernel 入口。
     aclrtFuncHandle funcHandle = nullptr;
     aclrtArgsHandle argsHandle = nullptr;
     aclrtParamHandle paramHandle = nullptr;
-    ACL_CHK(aclrtBinaryGetFunction(g_allGatherBatchKernelHandle, kAllGatherBatchKernelName, &funcHandle));
-    ACL_CHK(aclrtKernelArgsInit(funcHandle, &argsHandle));
-    ACL_CHK(aclrtKernelArgsAppend(argsHandle, const_cast<OpParam *>(&param), sizeof(OpParam), &paramHandle));
-    ACL_CHK(aclrtKernelArgsFinalize(argsHandle));
+    ACLCHECK(aclrtBinaryGetFunction(g_allGatherBatchKernelHandle, kAllGatherBatchKernelName, &funcHandle));
+    ACLCHECK(aclrtKernelArgsInit(funcHandle, &argsHandle));
+    ACLCHECK(aclrtKernelArgsAppend(argsHandle, const_cast<OpParam *>(&param), sizeof(OpParam), &paramHandle));
+    ACLCHECK(aclrtKernelArgsFinalize(argsHandle));
 
     aclrtLaunchKernelAttr attr;
     attr.id = ACL_RT_LAUNCH_KERNEL_ATTR_TIMEOUT;
@@ -68,10 +68,10 @@ HcclResult LaunchKernel(const OpParam &param, aclrtStream stream)
     constexpr uint32_t blockDim = 1;
 
     // Device 入口先跑控制壳，再交给 ExecOp / Executor / HDStageCore。
-    ACL_CHK(aclrtLaunchKernelWithConfig(funcHandle, blockDim, stream, &cfg, argsHandle, nullptr));
+    ACLCHECK(aclrtLaunchKernelWithConfig(funcHandle, blockDim, stream, &cfg, argsHandle, nullptr));
 
     // Host 等待 Device 侧完成通知，形成完整的启动/结束闭环。
-    ACL_CHK(aclrtWaitAndResetNotify(
+    ACLCHECK(aclrtWaitAndResetNotify(
         g_allGatherBatchNotifies[kAllGatherBatchControlNotifyDone],
         stream,
         kAllGatherBatchCustomTimeoutMs));
