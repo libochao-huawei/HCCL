@@ -27,8 +27,11 @@ InsTempAlltoAllVMesh1D::~InsTempAlltoAllVMesh1D()
 HcclResult InsTempAlltoAllVMesh1D::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
     AlgResourceRequest& resourceRequest)
 {
-    if(topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && topoInfo->topoLevelNums > 1) {
-        CHK_PRT_RET(subCommRanks_.size() != NET_NUM, HCCL_ERROR("[InsTempAlltoAllVMesh1D][CalcRes] subCommRankNum[%zu] is not [%u]", subCommRanks_.size(), NET_NUM), HCCL_E_PARA);
+    if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && topoInfo->topoLevelNums > 1) {
+        CHK_PRT_RET(subCommRanks_.size() != NET_NUM,
+                    HCCL_ERROR("[InsTempAlltoAllVMesh1D][CalcRes] subCommRankNum[%zu] is not [%u]",
+                               subCommRanks_.size(), NET_NUM),
+                    HCCL_E_PARA);
         subCommRanks_ = {subCommRanks_[1]};
         templateRankSize_ = subCommRanks_[1].size();
     }
