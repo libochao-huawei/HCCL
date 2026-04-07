@@ -490,6 +490,9 @@ HcclResult CheckAlltoAllVCInputPara(const HcclComm comm, const void *sendBuf, co
         std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
         std::vector<std::string>({"HcclAlltoAllVC", "nullptr", "sendCountMatrix", "non-null pointer"}));
     CHK_PTR_NULL(sendCountMatrix);
+    RPT_INPUT_ERR(stream == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclAlltoAllVC", "nullptr", "stream", "non-null pointer"}));
+    CHK_PTR_NULL(stream);
 
     return HCCL_SUCCESS;
 }
