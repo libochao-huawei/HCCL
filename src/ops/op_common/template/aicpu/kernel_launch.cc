@@ -25,7 +25,6 @@
 #include <atomic>
 #include "hccl/hccl_comm.h"
 #include "hccl_diag.h"
-#include "hcomm_primitives_dl.h"
 
 using namespace ops_hccl;
 namespace {
