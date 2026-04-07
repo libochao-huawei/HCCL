@@ -379,7 +379,7 @@ HcclResult InsTempBroadcastNHR::BatchSR(AicpuNHRStepInfo &stepInfo, const std::m
         DataSlice txSrcSlice = DataSlice(BuffAddr, memOffset + sliceInfoVec[txId][0].offset, sliceInfoVec[txId][0].size);
         DataSlice txDstSlice = DataSlice(remoteSendBuffAddr, memOffset + sliceInfoVec[txId][0].offset, sliceInfoVec[txId][0].size);
         txSrcSlices.push_back(txSrcSlice);
-        txSrcSlices.push_back(txDstSlice);
+        txDstSlices.push_back(txDstSlice);
     }
     SlicesList txSlicesList(txSrcSlices, txSrcSlices);
     std::vector<DataSlice> rxSrcSlices;
