@@ -5,6 +5,8 @@ find_package(AICPU REQUIRED)
 
 project(hccl_allgatherbatch_custom_ops LANGUAGES CXX AICPU ASC)
 
+set(CMAKE_SYSTEM_PROCESSOR "aarch64")
+
 set(ALLGATHERBATCH_INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}/inc
     ${CMAKE_CURRENT_SOURCE_DIR}/op_host
