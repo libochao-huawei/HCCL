@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 SCENARIO="${1:-default}"
@@ -49,10 +49,15 @@ esac
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET="${SCRIPT_DIR}/allgatherbatch_testcase"
+CUSTOM_VENDOR="${CUSTOM_VENDOR:-cust}"
 
 if [[ ! -x "${TARGET}" ]]; then
   echo "${TARGET} not found, build it first with CMake or make" >&2
   exit 1
+fi
+
+if [[ -n "${ASCEND_HOME_PATH:-}" ]]; then
+  export LD_LIBRARY_PATH="${ASCEND_HOME_PATH}/opp/vendors/${CUSTOM_VENDOR}/lib64:${ASCEND_HOME_PATH}/lib64:${LD_LIBRARY_PATH:-}"
 fi
 
 exec "${TARGET}" \

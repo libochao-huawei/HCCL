@@ -252,6 +252,8 @@ int RunOnDevice(void *arg)
     aclrtStream stream = nullptr;
     BatchItemBuffer token;
     BatchItemBuffer scale;
+    HcclAllGatherItem items[2] = {};
+    uint32_t itemCount = 0;
 
     token.sendCount = ctx->options.tokenBytes;
     token.sendBytes = static_cast<size_t>(ctx->options.tokenBytes);
@@ -287,8 +289,6 @@ int RunOnDevice(void *arg)
             aclrtMemcpy(scale.sendDevice, scale.sendBytes, scale.sendHost, scale.sendBytes, ACL_MEMCPY_HOST_TO_DEVICE));
     }
 
-    HcclAllGatherItem items[2] = {};
-    uint32_t itemCount = 0;
     items[itemCount].sendBuf = token.sendDevice;
     items[itemCount].recvBuf = token.recvDevice;
     items[itemCount].sendCount = token.sendCount;
@@ -308,20 +308,22 @@ int RunOnDevice(void *arg)
         ACLCHECK_GOTO(aclrtSynchronizeStream(stream));
     }
 
-    const auto timeStart = std::chrono::steady_clock::now();
-    for (uint32_t iter = 0; iter < ctx->options.measureIters; ++iter) {
-        HCCLCHECK_GOTO(HcclAllGatherBatch(items, itemCount, hcclComm, stream));
-        ACLCHECK_GOTO(aclrtSynchronizeStream(stream));
+    {
+        const auto timeStart = std::chrono::steady_clock::now();
+        for (uint32_t iter = 0; iter < ctx->options.measureIters; ++iter) {
+            HCCLCHECK_GOTO(HcclAllGatherBatch(items, itemCount, hcclComm, stream));
+            ACLCHECK_GOTO(aclrtSynchronizeStream(stream));
+        }
+        const auto timeEnd = std::chrono::steady_clock::now();
+        const double totalUs = static_cast<double>(
+            std::chrono::duration_cast<std::chrono::microseconds>(timeEnd - timeStart).count());
+        const double avgUs = totalUs / static_cast<double>(ctx->options.measureIters);
+        std::cout << "rank " << ctx->device
+                  << " timing: warmup=" << ctx->options.warmupIters
+                  << ", iters=" << ctx->options.measureIters
+                  << ", total_us=" << totalUs
+                  << ", avg_us=" << avgUs << std::endl;
     }
-    const auto timeEnd = std::chrono::steady_clock::now();
-    const double totalUs = static_cast<double>(
-        std::chrono::duration_cast<std::chrono::microseconds>(timeEnd - timeStart).count());
-    const double avgUs = totalUs / static_cast<double>(ctx->options.measureIters);
-    std::cout << "rank " << ctx->device
-              << " timing: warmup=" << ctx->options.warmupIters
-              << ", iters=" << ctx->options.measureIters
-              << ", total_us=" << totalUs
-              << ", avg_us=" << avgUs << std::endl;
 
     ACLCHECK_GOTO(
         aclrtMemcpy(token.recvHost, token.recvBytes, token.recvDevice, token.recvBytes, ACL_MEMCPY_DEVICE_TO_HOST));

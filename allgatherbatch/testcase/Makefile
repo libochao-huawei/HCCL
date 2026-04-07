@@ -25,6 +25,7 @@ ASCEND_LIB_DIR = ${ASCEND_HOME_PATH}/lib64
 CUSTOM_VENDOR ?= cust
 CUSTOM_INC_DIR = ${ASCEND_HOME_PATH}/opp/vendors/$(CUSTOM_VENDOR)/include
 CUSTOM_LIB_DIR = ${ASCEND_HOME_PATH}/opp/vendors/$(CUSTOM_VENDOR)/lib64
+RPATH_FLAGS = -Wl,-rpath,$(ASCEND_LIB_DIR) -Wl,-rpath,${CUSTOM_LIB_DIR}
 TARGET = allgatherbatch_testcase
 
 # Default run arguments can be overridden from command line, for example:
@@ -48,7 +49,7 @@ SINGLE_DEVICES ?= 8
 SINGLE_WARMUP ?= 1
 SINGLE_ITERS ?= 5
 
-LIBS = -L$(ASCEND_LIB_DIR) -lascendcl -lhcomm -L${CUSTOM_LIB_DIR} -lhccl_allgatherbatch
+LIBS = $(RPATH_FLAGS) -L$(ASCEND_LIB_DIR) -lascendcl -lhcomm -L${CUSTOM_LIB_DIR} -lhccl_allgatherbatch
 INCS = -I$(ASCEND_INC_DIR) -I${CUSTOM_INC_DIR}
 RUN_ARGS = --token-bytes $(TOKEN_BYTES) \
            --scale-count $(SCALE_COUNT) \

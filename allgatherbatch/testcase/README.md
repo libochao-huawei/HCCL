@@ -63,7 +63,7 @@ bash build.sh --vendor=<vendor> --ops=allgatherbatch --custom_ops_path=./allgath
 
 ```bash
 cd hccl
-./build_out/cann-allgatherbatch_linux-<arch>.run --install --install-path=<ascend_cann_path>
+./build_out/cann-hccl_custom_allgatherbatch_linux-<arch>.run --install --install-path=<ascend_cann_path>
 ```
 
 其中：
@@ -74,7 +74,7 @@ cd hccl
 例如：
 
 ```bash
-./build_out/cann-allgatherbatch_linux-x86_64.run --install --install-path=${ASCEND_HOME_PATH}
+./build_out/cann-hccl_custom_allgatherbatch_linux-x86_64.run --install --install-path=${ASCEND_HOME_PATH}
 ```
 
 安装完成后，至少应能看到以下文件：
