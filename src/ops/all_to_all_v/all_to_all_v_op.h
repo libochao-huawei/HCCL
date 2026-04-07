@@ -74,7 +74,7 @@ HcclResult AlltoAllVOutPlaceCommon(OpParam &param, const void *sendBuf, const vo
 HcclResult AlltoAllVOutPlace(OpParam &param, const void *sendBuf, const void *sendCounts, const void *sdispls, const void *recvBuf,
     const void *recvCounts, const void *rdispls, HcclDataType dataType, HcclComm comm, aclrtStream stream,
     HcclCMDType opType, u32 rankSize, bool &useInnerOp);
-HcclResult AlltoAllVOutPlaceGraphMode(const void *sendBuf, const void *sendCounts, const void *sdispls, const void *recvBuf,
+HcclResult AlltoAllVOutPlaceGraphMode(OpParam &param, const void *sendBuf, const void *sendCounts, const void *sdispls, const void *recvBuf,
     const void *recvCounts, const void *rdispls, HcclDataType dataType, HcclComm comm, aclrtStream stream,
     const std::string &tag, HcclCMDType opType, u32 rankSize, const ResPackGraphMode &resPack);
 HcclResult AlltoAllEntryLog(const void *sendBuf, const void *recvBuf, uint64_t sendCount, uint64_t recvCount,

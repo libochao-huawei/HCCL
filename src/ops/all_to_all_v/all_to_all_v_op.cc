@@ -218,19 +218,21 @@ HcclResult HcclAlltoAllGraphMode(const void *sendBuf, uint64_t sendCount, HcclDa
     HcomGetCommHandleByGroup(group, &comm);
     HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
     CHK_RET(InitEnvConfig());
-
+    
+    OpParam param;
     // 参数校验等工作
     CHK_RET(CheckAlltoAllInputPara(comm, sendBuf, sendCount, sendType, recvBuf, recvCount, recvType, stream));
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     CHK_RET(HcclGetRankSize(comm, &rankSize));
     u32 userRank = INVALID_VALUE_RANKID;
     CHK_RET(HcclGetRankId(comm, &userRank));
-    char commName[COMM_INDENTIFIER_MAX_LENGTH];
-    CHK_RET(HcclGetCommName(comm, commName));
-    const string opTag = "AlltoAll_" + string(commName);
-    CHK_RET(HcclCheckTag(opTag.c_str()));
+    CHK_RET(HcomCheckUserRank(rankSize, userRank));
+    CHK_RET(HcclGetCommName(comm, param.commName));
+
+    int ret = sprintf_s(param.tag, sizeof(param.tag), "AlltoAll_%s", param.commName);
+    CHK_PRT_RET((ret <= 0), "failed to fill param.tag", HCCL_E_INTERNAL);
+    CHK_RET(HcclCheckTag(param.tag));    
     CHK_RET(HcclCheckTag(tag));
-    CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), opTag.c_str());
     CHK_RET(CheckCount(recvCount));
     CHK_RET(CheckDataType(recvType, false));
 
@@ -246,14 +248,14 @@ HcclResult HcclAlltoAllGraphMode(const void *sendBuf, uint64_t sendCount, HcclDa
     CHK_RET(GenResPack(tag, streams, streamCount, scratchMemAddr, scratchMemSize, resPack));
 
     /* 接口交互信息日志 */
-    CHK_RET(AlltoAllEntryLog(sendBuf, recvBuf, sendCount, recvCount, sendType, recvType, stream, opTag.c_str(), "HcclAlltoAllGraphMode"));
+    CHK_RET(AlltoAllEntryLog(sendBuf, recvBuf, sendCount, recvCount, sendType, recvType, stream, param.tag, "HcclAlltoAllGraphMode"));
 
     // 执行AlltoAllV
-    CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlaceGraphMode(sendBuf, sendCounts.data(), sdispls.data(),
+    CHK_RET(AlltoAllVOutPlaceGraphMode(param, sendBuf, sendCounts.data(), sdispls.data(),
         recvBuf, recvCounts.data(), rdispls.data(), recvType, comm, stream, tag,
-        HcclCMDType::HCCL_CMD_ALLTOALL, rankSize, resPack), opTag);
+        HcclCMDType::HCCL_CMD_ALLTOALL, rankSize, resPack));
 
-    CHK_RET(LogHcclExit("HcclAlltoAllGraphMode", opTag.c_str(), startut));
+    CHK_RET(LogHcclExit("HcclAlltoAllGraphMode", param.tag, startut));
 
     return HCCL_SUCCESS;
 }
@@ -270,17 +272,18 @@ HcclResult HcclAlltoAllVGraphMode(const void *sendBuf, const void *sendCounts, c
     HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
     CHK_RET(InitEnvConfig());
 
+    OpParam param;
     // 参数校验等工作
     CHK_RET(CheckAlltoAllVInputPara(comm, sendBuf, sendCounts, sdispls, sendType, recvBuf, recvCounts, rdispls, recvType, stream));
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     CHK_RET(HcclGetRankSize(comm, &rankSize));
     u32 userRank = INVALID_VALUE_RANKID;
     CHK_RET(HcclGetRankId(comm, &userRank));
-    char commName[COMM_INDENTIFIER_MAX_LENGTH];
-    CHK_RET(HcclGetCommName(comm, commName));
-
-    const string opTag = "AlltoAllV_" + string(commName);
-    CHK_RET(HcclCheckTag(opTag.c_str()));
+    CHK_RET(HcomCheckUserRank(rankSize, userRank));
+    CHK_RET(HcclGetCommName(comm, param.commName));
+    int ret = sprintf_s(param.tag, sizeof(param.tag), "AlltoAllV_%s", param.commName);
+    CHK_PRT_RET((ret <= 0), "failed to fill param.tag", HCCL_E_INTERNAL);
+    CHK_RET(HcclCheckTag(param.tag));
     CHK_RET(HcclCheckTag(tag));
 
     u64 maxSendRecvCount = 0;
@@ -289,7 +292,6 @@ HcclResult HcclAlltoAllVGraphMode(const void *sendBuf, const void *sendCounts, c
         maxSendRecvCount = max(maxSendRecvCount, static_cast<const u64 *>(recvCounts)[i]);
     }
 
-    CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), opTag.c_str());
     CHK_RET(CheckCount(maxSendRecvCount));
     CHK_RET(CheckDataType(recvType, false));
 
@@ -298,14 +300,14 @@ HcclResult HcclAlltoAllVGraphMode(const void *sendBuf, const void *sendCounts, c
     CHK_RET(GenResPack(tag, streams, streamCount, scratchMemAddr, scratchMemSize, resPack));
 
     /* 接口交互信息日志 */
-    CHK_RET(AlltoAllVEntryLog(sendBuf, recvBuf, sendCounts, recvCounts, sdispls, rdispls, sendType, recvType, stream, opTag.c_str(), "HcclAlltoAllVGraphMode"));
+    CHK_RET(AlltoAllVEntryLog(sendBuf, recvBuf, sendCounts, recvCounts, sdispls, rdispls, sendType, recvType, stream, param.tag, "HcclAlltoAllVGraphMode"));
 
     // 执行AlltoAllV
-    CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlaceGraphMode(sendBuf, sendCounts, sdispls,
+    CHK_RET(AlltoAllVOutPlaceGraphMode(param, sendBuf, sendCounts, sdispls,
         recvBuf, recvCounts, rdispls, recvType, comm, stream, tag,
-        HcclCMDType::HCCL_CMD_ALLTOALLV, rankSize, resPack), opTag);
+        HcclCMDType::HCCL_CMD_ALLTOALLV, rankSize, resPack));
 
-    CHK_RET(LogHcclExit("HcclAlltoAllVGraphMode", opTag.c_str(), startut));
+    CHK_RET(LogHcclExit("HcclAlltoAllVGraphMode", param.tag, startut));
 
     return HCCL_SUCCESS;
 }
@@ -322,17 +324,19 @@ HcclResult HcclAlltoAllVCGraphMode(const void *sendBuf, const void *sendCountMat
     HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
     CHK_RET(InitEnvConfig());
 
+    OpParam param;
     // 参数校验等工作
     CHK_RET(CheckAlltoAllVCInputPara(comm, sendBuf, sendCountMatrix, sendType, recvBuf, recvType, stream));
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     CHK_RET(HcclGetRankSize(comm, &rankSize));
     u32 userRank = INVALID_VALUE_RANKID;
     CHK_RET(HcclGetRankId(comm, &userRank));
-    char commName[COMM_INDENTIFIER_MAX_LENGTH];
-    CHK_RET(HcclGetCommName(comm, commName));
+    CHK_RET(HcomCheckUserRank(rankSize, userRank));
+    CHK_RET(HcclGetCommName(comm, param.commName));
 
-    const string opTag = "AlltoAllVC_" + string(commName);
-    CHK_RET(HcclCheckTag(opTag.c_str()));
+    int ret = sprintf_s(param.tag, sizeof(param.tag), "AlltoAllVC_%s", param.commName);
+    CHK_PRT_RET((ret <= 0), "failed to fill param.tag", HCCL_E_INTERNAL);
+    CHK_RET(HcclCheckTag(param.tag));
     CHK_RET(HcclCheckTag(tag));
 
     // 构造四个矩阵，适配alltoallV的逻辑
@@ -343,7 +347,6 @@ HcclResult HcclAlltoAllVCGraphMode(const void *sendBuf, const void *sendCountMat
     CHK_RET(ConvertAlltoAllVCParam(rankSize, userRank, sendCountMatrix, sendCounts,
         recvCounts, sdispls, rdispls));
 
-    CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), opTag.c_str());
     CHK_RET(CheckDataType(recvType, false));
 
     // 拼装ResPackGraphMode
@@ -351,14 +354,14 @@ HcclResult HcclAlltoAllVCGraphMode(const void *sendBuf, const void *sendCountMat
     CHK_RET(GenResPack(tag, streams, streamCount, scratchMemAddr, scratchMemSize, resPack));
 
     /* 接口交互信息日志 */
-    CHK_RET(AlltoAllVCEntryLog(sendBuf, recvBuf, sendCountMatrix, sendType, recvType, stream, opTag.c_str(), "HcclAlltoAllVCGraphMode"));
+    CHK_RET(AlltoAllVCEntryLog(sendBuf, recvBuf, sendCountMatrix, sendType, recvType, stream, param.tag, "HcclAlltoAllVCGraphMode"));
 
     // 执行AlltoAllV
-    CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlaceGraphMode(sendBuf, sendCounts.data(), sdispls.data(),
+    CHK_RET(AlltoAllVOutPlaceGraphMode(param, sendBuf, sendCounts.data(), sdispls.data(),
         recvBuf, recvCounts.data(), rdispls.data(), recvType, comm, stream, tag,
-        HcclCMDType::HCCL_CMD_ALLTOALLVC, rankSize, resPack), opTag);
+        HcclCMDType::HCCL_CMD_ALLTOALLVC, rankSize, resPack));
 
-    CHK_RET(LogHcclExit("HcclAlltoAllVCGraphMode", opTag.c_str(), startut));
+    CHK_RET(LogHcclExit("HcclAlltoAllVCGraphMode", param.tag, startut));
 
     return HCCL_SUCCESS;
 }
@@ -633,7 +636,7 @@ HcclResult AlltoAllVOutPlaceCommon(OpParam &param, const void *sendBuf, const vo
     return HCCL_SUCCESS;
 }
 
-HcclResult AlltoAllVOutPlaceGraphMode(const void *sendBuf, const void *sendCounts, const void *sdispls, const void *recvBuf,
+HcclResult AlltoAllVOutPlaceGraphMode(OpParam &param, const void *sendBuf, const void *sendCounts, const void *sdispls, const void *recvBuf,
     const void *recvCounts, const void *rdispls, HcclDataType dataType, HcclComm comm, aclrtStream stream,
     const std::string &tag, HcclCMDType opType, u32 rankSize, const ResPackGraphMode &resPack)
 {
