@@ -196,11 +196,6 @@ HcclResult InsTempDpuAlltoAllMesh::SendRecvData(const OpParam &param, const std:
     // AICPU部分数据传输
     u32 threadIdx = 0;
     for (u32 i = 0; i < commRanks.size(); i++) {
-        if (threadIdx >= threadNum_) {
-            HCCL_ERROR("[InsTempDpuAlltoAllMesh] [SendRecvData] thread index [%u] exceeds thread count [%u]", threadIdx,
-                       threadNum_);
-            return HCCL_E_INTERNAL;
-        }
         u32 remoteRank = commRanks[i];
         if (remoteRank == myRank_) {
             HCCL_INFO("[InsTempDpuAlltoAllMesh] [SendRecvData] myRank[%u] is eaqul with remoteRank[%u] skip aicpu data "
@@ -226,6 +221,12 @@ HcclResult InsTempDpuAlltoAllMesh::SendRecvData(const OpParam &param, const std:
                          "AICPU , the EndpointLocType must be DEVICE",
                          myRank_, remoteRank);
             continue;
+        }
+
+        if (threadIdx >= threadNum_) {
+            HCCL_ERROR("[InsTempDpuAlltoAllMesh] [SendRecvData] thread index [%u] exceeds thread count [%u]", threadIdx,
+                       threadNum_);
+            return HCCL_E_INTERNAL;
         }
 
         u64 sendCount = tempAlgParams.sendCounts[remoteRank];
@@ -377,10 +378,7 @@ HcclResult InsTempDpuAlltoAllMesh::PostCopyDataToRecvBuf(const std::vector<u32> 
 void InsTempDpuAlltoAllMesh::GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub)
 {
     notifyIdxMainToSub.clear();
-    u32 threadNum = (templateRankSize_ > MAX_RANK_NUM_PER_SERVER) ? MAX_RANK_NUM_PER_SERVER :
-                    (templateRankSize_ > 1)                       ? (templateRankSize_ - 1) :
-                                                                    1;
-    u32 slaveThreadNum = threadNum - 1;
+    u32 slaveThreadNum = threadNum_ - 1;
     for (u32 slaveThreadIdx = 0; slaveThreadIdx < slaveThreadNum; slaveThreadIdx++) {
         notifyIdxMainToSub.push_back(0);
     }
@@ -389,10 +387,7 @@ void InsTempDpuAlltoAllMesh::GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMa
 void InsTempDpuAlltoAllMesh::GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain)
 {
     notifyIdxSubToMain.clear();
-    u32 threadNum = (templateRankSize_ > MAX_RANK_NUM_PER_SERVER) ? MAX_RANK_NUM_PER_SERVER :
-                    (templateRankSize_ > 1)                       ? (templateRankSize_ - 1) :
-                                                                    1;
-    u32 notifyNum = threadNum - 1;
+    u32 notifyNum = threadNum_ - 1;
     for (u32 notifyIdx = 0; notifyIdx < notifyNum; notifyIdx++) {
         notifyIdxSubToMain.push_back(notifyIdx);
     }
