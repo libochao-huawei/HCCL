@@ -20,7 +20,7 @@ using namespace ops_hccl;
 
 extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 
-HcclResult HcclSend(
+HcclResult HcclSendv2(
     void *sendBuf, uint64_t count, HcclDataType dataType, uint32_t destRank, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("[HcclSend] Start.");

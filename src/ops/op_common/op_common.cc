@@ -494,8 +494,14 @@ HcclResult AicpuKernelLaunch(HcclComm comm, OpParam &param, ThreadHandle unfoldT
     if (!HcclThreadResGetInfoFunc.dlHcclThreadResGetInfo || param.opMode == OpMode::OFFLOAD) {
         ret = aclrtLaunchKernelWithConfig(funcHandle, numBlocks, param.stream, &cfg, argsHandle, nullptr);
     } else {
-        CHK_RET(HcclThreadResGetInfoFunc.dlHcclThreadResGetInfo(comm, unfoldThread, 0, sizeof(void*), &unfoldStream));
-        ret = aclrtLaunchKernelWithConfig(funcHandle, numBlocks, unfoldStream, &cfg, argsHandle, nullptr); // 提前展开，传入展开流
+        HcclResult ret1 = HcclThreadResGetInfoFunc.dlHcclThreadResGetInfo(comm, unfoldThread, 0, sizeof(void*), &unfoldStream);
+        if (ret1 == HCCL_E_NOT_SUPPORT) { // AIWAN TODO
+            ret = aclrtLaunchKernelWithConfig(funcHandle, numBlocks, param.stream, &cfg, argsHandle, nullptr);
+        } else if (ret1 != HCCL_SUCCESS) {
+            return ret1;
+        } else {
+            ret = aclrtLaunchKernelWithConfig(funcHandle, numBlocks, unfoldStream, &cfg, argsHandle, nullptr); // 提前展开，传入展开流
+        }
     }
     CHK_PRT_RET(ret != ACL_SUCCESS,
         HCCL_ERROR("[LoadCustomKernel][aclrtLaunchKernelWithConfig]errNo[0x%016llx] launch kernel failed", ret),
@@ -884,9 +890,9 @@ HcclResult HcclGetChannel(HcclComm comm, const OpParam &param, AlgResourceReques
         std::vector<HcclChannelDesc> deviceChannelRequest;
         std::vector<HcclChannelDesc> hostChannelRequest;
         for (auto &channelRequest : levelNChannelRequest) {
-            if (channelRequest.remoteEndpoint.loc.locType == ENDPOINT_LOC_TYPE_DEVICE) {
+            if (channelRequest.localEndpoint.loc.locType == ENDPOINT_LOC_TYPE_DEVICE) { // AIWAN TODO:判断local的更合理？
                 deviceChannelRequest.emplace_back(channelRequest);
-            } else if (channelRequest.remoteEndpoint.loc.locType == ENDPOINT_LOC_TYPE_HOST) {
+            } else if (channelRequest.localEndpoint.loc.locType == ENDPOINT_LOC_TYPE_HOST) {
                 hostChannelRequest.emplace_back(channelRequest);
             }
         }
@@ -1453,16 +1459,16 @@ HcclResult SetOpParamAlgTag(OpParam &param, const std::string &algName)
 
 HcclResult HcclGetOpExpansionMode(HcclComm comm, OpParam &param)
 {
-    HcclOpExpansionMode finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_INVALID;
-    // 第一步：决定使用哪种模式
-    HcclResult ret = DecideHcclOpExpansionMode(comm, finalMode);
-    if (ret != HCCL_SUCCESS) {
-        HCCL_ERROR("DecideHcclOpExpansionMode failed, ret: %d", ret);
-        return ret;
-    }
+    HcclOpExpansionMode finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_AI_CPU;  // AIWAN TODO
+    // // 第一步：决定使用哪种模式
+    // HcclResult ret = DecideHcclOpExpansionMode(comm, finalMode);
+    // if (ret != HCCL_SUCCESS) {
+    //     HCCL_ERROR("DecideHcclOpExpansionMode failed, ret: %d", ret);
+    //     return ret;
+    // }
 
     // 第二步：应用选择的模式到param
-    ret = ApplyOpExpansionMode(param, finalMode);
+    HcclResult ret = ApplyOpExpansionMode(param, finalMode);
     if (ret != HCCL_SUCCESS) {
         HCCL_ERROR("ApplyOpExpansionMode failed, ret: %d", ret);
         return ret;

@@ -20,7 +20,7 @@ using namespace ops_hccl;
 
 extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 
-HcclResult HcclRecv(
+HcclResult HcclRecvV2(
     void *recvBuf, uint64_t count, HcclDataType dataType, uint32_t srcRank, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("[HcclRecv] Start.");

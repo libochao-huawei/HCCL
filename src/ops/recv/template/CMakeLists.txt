@@ -8,9 +8,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-set(src_list
-    ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_recv_dpu.cc
-)
+add_subdirectory(aicpu)
 
 target_sources(hccl PRIVATE
     ${src_list}

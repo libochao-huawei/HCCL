@@ -123,11 +123,13 @@ set(INCLUDE_LIST
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/executor
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/selector
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/template
+    ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/template/aicpu
 
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/executor
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/selector
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/template
+    ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/template/aicpu
 
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce/executor
@@ -337,11 +339,13 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/template/registry/alg_v2_template_register.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/batch_send_recv/executor/ins_v2_batch_send_recv_executor.cc
 
-        ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/template/ins_temp_send_dpu.cc
-        ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/template/ins_temp_recv_dpu.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/executor/ins_send_dpu_executor.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/executor/ins_recv_dpu_executor.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/template/aicpu/ins_temp_send_dpu.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/template/aicpu/ins_temp_recv_dpu.cc
 
-        ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/executor/ins_v2_recv_sole_executor.cc
-        ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/executor/ins_v2_send_sole_executor.cc
+        # ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/executor/ins_v2_recv_sole_executor.cc // AIWAN TODO
+        # ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/executor/ins_v2_send_sole_executor.cc
     )
 
     target_include_directories(scatter_aicpu_kernel PRIVATE
