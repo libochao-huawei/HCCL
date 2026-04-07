@@ -109,7 +109,7 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1>::Gen
     TemplateDataParams &tempAlgParams0) const
 {
     CHK_PTR_NULL(param.inputPtr);
-    CHK_PTR_NULL(param.resCtx.cclMem.addr);
+    CHK_PTR_NULL(resCtx.cclMem.addr);
     tempAlgParams0.buffInfo.inBuffType = BufferType::INPUT;
     tempAlgParams0.buffInfo.inputPtr = param.inputPtr;
     tempAlgParams0.buffInfo.outBuffType = BufferType::HCCL_BUFFER;
