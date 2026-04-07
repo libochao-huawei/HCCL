@@ -28,6 +28,7 @@ struct SplitSliceInfo {
 
 class InsTempAllReduceMesh1DTwoShot : public InsAlgTemplateBase {
 public:
+    InsTempAllReduceMesh1DTwoShot() = default;
     explicit InsTempAllReduceMesh1DTwoShot(const OpParam& param, const u32 rankId,
         const std::vector<std::vector<u32>> &subCommRanks);
     ~InsTempAllReduceMesh1DTwoShot() override;
