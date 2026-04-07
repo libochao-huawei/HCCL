@@ -23,9 +23,6 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 HcclResult HcclAlltoAll(const void *sendBuf, uint64_t sendCount, HcclDataType sendType, const void *recvBuf,
     uint64_t recvCount, HcclDataType recvType, HcclComm comm, aclrtStream stream)
 {
-    if (!HcclCheckAicpuEnableOpen() && !HcclCheckCcuEnableOpen() && !HcclCheckAivEnableOpen()) {
-        return HcclAlltoAllInner(sendBuf, sendCount, sendType, recvBuf, recvCount, recvType, comm, stream);
-    }
     HCCL_INFO("Start to run execute HcclAlltoAll");
     if (GetHcommVersion() < 90000000) { // compat handle
         return HcclAlltoAllInner(sendBuf, sendCount, sendType, recvBuf, recvCount, recvType, comm, stream);
@@ -41,6 +38,8 @@ HcclResult HcclAlltoAll(const void *sendBuf, uint64_t sendCount, HcclDataType se
     #endif
         return HcclAlltoAllInner(sendBuf, sendCount, sendType, recvBuf, recvCount, recvType, comm, stream);
     }
+    CHK_PRT_RET(sendCount == 0 && recvCount == 0,
+        HCCL_WARNING("sendCount and recvCount are both 0, return AllToAll success"), HCCL_SUCCESS);
     HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
     CHK_RET(InitEnvConfig());
 
@@ -87,9 +86,6 @@ HcclResult HcclAlltoAll(const void *sendBuf, uint64_t sendCount, HcclDataType se
 HcclResult HcclAlltoAllV(const void *sendBuf, const void *sendCounts, const void *sdispls, HcclDataType sendType,
     const void *recvBuf, const void *recvCounts, const void *rdispls, HcclDataType recvType, HcclComm comm, aclrtStream stream)
 {
-    if (!HcclCheckAicpuEnableOpen() && !HcclCheckCcuEnableOpen() && !HcclCheckAivEnableOpen()) {
-        return HcclAlltoAllVInner(sendBuf, sendCounts, sdispls, sendType, recvBuf, recvCounts, rdispls, recvType, comm, stream);
-    }
     HCCL_INFO("Start to run execute HcclAlltoAllV");
     if (GetHcommVersion() < 90000000) { // compat handle
         return HcclAlltoAllVInner(sendBuf, sendCounts, sdispls, sendType, recvBuf, recvCounts, rdispls, recvType, comm, stream);
@@ -150,9 +146,6 @@ HcclResult HcclAlltoAllV(const void *sendBuf, const void *sendCounts, const void
 HcclResult HcclAlltoAllVC(const void *sendBuf, const void *sendCountMatrix, HcclDataType sendType,
     const void *recvBuf, HcclDataType recvType, HcclComm comm, aclrtStream stream)
 {
-    if (!HcclCheckAicpuEnableOpen() && !HcclCheckCcuEnableOpen() && !HcclCheckAivEnableOpen()) {
-        return HcclAlltoAllVCInner(sendBuf, sendCountMatrix, sendType, recvBuf, recvType, comm, stream);
-    }
     HCCL_INFO("Start to run execute HcclAlltoAllVC");
 
     DevType deviceType = DevType::DEV_TYPE_COUNT;
@@ -216,7 +209,9 @@ HcclResult HcclAlltoAllGraphMode(const void *sendBuf, uint64_t sendCount, HcclDa
     HcclComm comm = nullptr;
     HCCL_INFO("[HcclAlltoAllGraphMode] get group name: %s", group);
     HcomGetCommHandleByGroup(group, &comm);
-    HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
+    CHK_PRT_RET(sendCount == 0 && recvCount == 0,
+        HCCL_WARNING("sendCount and recvCount are both 0, return AllToAll success"), HCCL_SUCCESS);
+    HcclUs startut = TIME_NOW();
     CHK_RET(InitEnvConfig());
     
     OpParam param;
@@ -437,8 +432,6 @@ HcclResult CheckAlltoAllInputPara(const HcclComm comm, const void *sendBuf, cons
     const HcclDataType recvType, const aclrtStream stream)
 {
     // 入参合法性校验
-    CHK_PRT_RET(sendCount == 0 && recvCount == 0,
-        HCCL_WARNING("sendCount and recvCount are both 0, return AllToAll success"), HCCL_SUCCESS);
     RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
         std::vector<std::string>({"HcclAlltoAll", "nullptr", "comm", "non-null pointer"}));
     CHK_PTR_NULL(comm);
@@ -472,12 +465,18 @@ HcclResult CheckAlltoAllVInputPara(const HcclComm comm, const void *sendBuf, con
     RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
         std::vector<std::string>({"HcclAlltoAllV", "nullptr", "comm", "non-null pointer"}));
     CHK_PTR_NULL(comm);
+    RPT_INPUT_ERR(sendBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclAlltoAllV", "nullptr", "sendBuf", "non-null pointer"}));
+    CHK_PTR_NULL(sendBuf);
     RPT_INPUT_ERR(sendCounts == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
         std::vector<std::string>({"HcclAlltoAllV", "nullptr", "sendCounts", "non-null pointer"}));
     CHK_PTR_NULL(sendCounts);
     RPT_INPUT_ERR(sdispls == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
         std::vector<std::string>({"HcclAlltoAllV", "nullptr", "sdispls", "non-null pointer"}));
     CHK_PTR_NULL(sdispls);
+    RPT_INPUT_ERR(recvBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclAlltoAllV", "nullptr", "recvBuf", "non-null pointer"}));
+    CHK_PTR_NULL(recvBuf);
     RPT_INPUT_ERR(recvCounts == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
         std::vector<std::string>({"HcclAlltoAllV", "nullptr", "recvCounts", "non-null pointer"}));
     CHK_PTR_NULL(recvCounts);
@@ -497,10 +496,16 @@ HcclResult CheckAlltoAllVCInputPara(const HcclComm comm, const void *sendBuf, co
     RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
         std::vector<std::string>({"HcclAlltoAllVC", "nullptr", "comm", "non-null pointer"}));
     CHK_PTR_NULL(comm);
+    RPT_INPUT_ERR(sendBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclAlltoAllVC", "nullptr", "sendBuf", "non-null pointer"}));
+    CHK_PTR_NULL(sendBuf);
     RPT_INPUT_ERR(sendCountMatrix == nullptr, "EI0003",\
         std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
         std::vector<std::string>({"HcclAlltoAllVC", "nullptr", "sendCountMatrix", "non-null pointer"}));
     CHK_PTR_NULL(sendCountMatrix);
+    RPT_INPUT_ERR(recvBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclAlltoAllVC", "nullptr", "recvBuf", "non-null pointer"}));
+    CHK_PTR_NULL(recvBuf);
 
     return HCCL_SUCCESS;
 }
