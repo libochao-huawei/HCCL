@@ -55,7 +55,7 @@ private:
     HcclResult GetStepInfo(u32 step, u32 nSteps, AicpuNHRStepInfo &stepInfo) const;
     std::pair<std::vector<DataSlice>, std::vector<DataSlice>> getTxRxSlices(
         const AicpuNHRStepInfo &stepInfo, const std::map<u32, std::vector<ChannelInfo>> &channels);
-    u32 getMyAlgRank() const;
+    HcclResult getMyAlgRank();
 
     ThreadHandle thread_;
     BuffInfo buffInfo_;

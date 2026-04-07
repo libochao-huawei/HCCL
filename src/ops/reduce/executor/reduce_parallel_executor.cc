@@ -48,6 +48,9 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1>::Cal
     root_ = param.root;
     intraLocalRankSize_ = GetRankSize(algHierarchyInfo.infos[0]);
     interLocalRankSize_ = GetRankSize(algHierarchyInfo.infos[1]);
+    rankSize_ = intraLocalRankSize_ * interLocalRankSize_;
+    HCCL_INFO("[CalcRes] localRankSize: myRank[%d] intraLocalRankSize[%u] interLocalRankSize[%u] rankSize_[%u]",
+              myRank_, intraLocalRankSize_, interLocalRankSize_, rankSize_);
     CHK_RET(CalcLocalRoot());
     intraTempAlg.SetRoot(intraLocalRoot_);
     interTempAlg.SetRoot(interLocalRoot_);
@@ -87,7 +90,6 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1>::Cal
         resourceRequest.ccuKernelNum.emplace_back(interTempRequest.ccuKernelNum[0]);
     }
 
-    myRank_ = topoInfo->userRank;
     HCCL_DEBUG("Need Resource notifyNumOnMainThread[%d], channels[%d], slaveThreadNum[%d] | intraTemplate "
                "notifyNumOnMainThread[%d], channels[%d] | interTemplate notifyNumOnMainThread[%d], channels[%d]",
         resourceRequest.notifyNumOnMainThread,
@@ -102,10 +104,12 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1>::Cal
 }
 
 template <typename AlgTopoMatch, typename AlgTemplate0, typename AlgTemplate1>
-void ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1>::GenTemplateAlgParams0(const OpParam &param,
+HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1>::GenTemplateAlgParams0(const OpParam &param,
     const AlgResourceCtxSerializable &resCtx, u64 dataOffset, u64 dataCountPerLoopAxis0, u64 scratchOffset,
     TemplateDataParams &tempAlgParams0) const
 {
+    CHK_PTR_NULL(param.inputPtr);
+    CHK_PTR_NULL(resCtx.cclMem.addr);
     tempAlgParams0.buffInfo.inBuffType = BufferType::INPUT;
     tempAlgParams0.buffInfo.inputPtr = param.inputPtr;
     tempAlgParams0.buffInfo.outBuffType = BufferType::HCCL_BUFFER;
@@ -144,14 +148,16 @@ void ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1>::GenTempla
         interLocalRankSize_,
         rankIdxLevel0_,
         rankIdxLevel1_);
-    return;
+    return HCCL_SUCCESS;
 }
 
 template <typename AlgTopoMatch, typename AlgTemplate0, typename AlgTemplate1>
-void ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1>::GenTemplateAlgParamsIntra1(const OpParam &param,
+HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1>::GenTemplateAlgParamsIntra1(const OpParam &param,
     const AlgResourceCtxSerializable &resCtx, u64 dataOffset, u64 dataCountPerLoopAxis1, u64 scratchOffset,
     u64 othScratchOffset, TemplateDataParams &tempAlgParams1) const
 {
+    CHK_PTR_NULL(resCtx.cclMem.addr);
+    CHK_PTR_NULL(param.outputPtr);
     tempAlgParams1.buffInfo.inBuffType = BufferType::HCCL_BUFFER;
     tempAlgParams1.buffInfo.inputPtr = resCtx.cclMem.addr;
     tempAlgParams1.buffInfo.outBuffType = BufferType::OUTPUT;
@@ -184,15 +190,17 @@ void ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1>::GenTempla
         tempAlgParams1.buffInfo.hcclBuffBaseOff,
         tempAlgParams1.sliceSize,
         tempAlgParams1.outputSliceStride);
-    return;
+    return HCCL_SUCCESS;
 }
 
 template <typename AlgTopoMatch, typename AlgTemplate0, typename AlgTemplate1>
-void ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1>::GenTemplateAlgParamsInter1(const OpParam &param,
+HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1>::GenTemplateAlgParamsInter1(const OpParam &param,
     const AlgResourceCtxSerializable &resCtx, u64 dataOffset, u64 dataCountPerLoopAxis1, u64 scratchOffset,
     u64 othScratchOffset, TemplateDataParams &tempAlgParams1) const
 {
     (void)scratchOffset;
+    CHK_PTR_NULL(resCtx.cclMem.addr);
+    CHK_PTR_NULL(param.outputPtr);
     tempAlgParams1.buffInfo.inBuffType = BufferType::HCCL_BUFFER;
     tempAlgParams1.buffInfo.inputPtr = resCtx.cclMem.addr;
     tempAlgParams1.buffInfo.outBuffType = BufferType::OUTPUT;
@@ -227,7 +235,7 @@ void ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1>::GenTempla
         tempAlgParams1.buffInfo.hcclBuffBaseOff,
         tempAlgParams1.sliceSize,
         tempAlgParams1.outputSliceStride);
-    return;
+    return HCCL_SUCCESS;
 }
 
 template <typename AlgTopoMatch, typename AlgTemplate0, typename AlgTemplate1>
@@ -263,6 +271,9 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1>::Orc
 
     intraLocalRankSize_ = GetRankSize(resCtx.algHierarchyInfo.infos[0]);
     interLocalRankSize_ = GetRankSize(resCtx.algHierarchyInfo.infos[1]);
+    rankSize_ = intraLocalRankSize_ * interLocalRankSize_;
+    HCCL_INFO("[Orchestrate] localRankSize: myRank[%d] intraLocalRankSize[%u] interLocalRankSize[%u] rankSize_[%u]",
+              myRank_, intraLocalRankSize_, interLocalRankSize_, rankSize_);
     rankIdxLevel0_ = myRank_ % intraLocalRankSize_;
     rankIdxLevel1_ = myRank_ / intraLocalRankSize_;
     CHK_RET(CalcLocalRoot());
@@ -299,10 +310,12 @@ template <typename AlgTopoMatch, typename AlgTemplate0, typename AlgTemplate1>
 HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1>::PrepareResForTemplate(
     AlgTemplate0 &tempAlgIntra, AlgTemplate1 &tempAlgInter)
 {
-    AlgResourceRequest intraTempRequest;
-    AlgResourceRequest interTempRequest;
     u64 intraThreadsNum = tempAlgIntra.GetThreadNum();
     u64 interThreadsNum = tempAlgInter.GetThreadNum();
+    CHK_PRT_RET(intraThreadsNum + 1 >= threads_.size(),
+        HCCL_ERROR("[ReduceParallelExecutor][PrepareResForTemplate] intraThreadsNum[%u] threads_.size()[%u]",
+            intraThreadsNum, threads_.size()),
+        HCCL_E_PARA);
     HCCL_DEBUG("[ReduceParallelExecutor][PrepareResForTemplate]myRank_[%d], threads_[%d], intraThreadsNum[%d], "
                "interThreadsNum[%d]",
         myRank_,
@@ -407,13 +420,13 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1>::Orc
         u64 dataOffset0 = loopIndex * maxCountPerLoop * dataTypeSize_;
         u64 dataOffset1 = dataOffset0 + dataCountPerLoopAxis0 * dataTypeSize_;
         // 数据0的server内的mesh算法
-        GenTemplateAlgParams0(
-            paramIntra, resCtx, dataOffset0, dataCountPerLoopAxis0, intraScratchOffset, tempAlgParamsIntra0);
+        CHK_RET(GenTemplateAlgParams0(
+            paramIntra, resCtx, dataOffset0, dataCountPerLoopAxis0, intraScratchOffset, tempAlgParamsIntra0));
         // 把每个template需要的queue传进去，比如stars的mesh要传多条queue
         CHK_RET(tempAlgIntra.KernelRun(paramIntra, tempAlgParamsIntra0, intraTempAlgRes));
         // 数据1的server间的nhr算法
-        GenTemplateAlgParams0(
-            paramInter, resCtx, dataOffset1, dataCountPerLoopAxis1, interScratchOffset, tempAlgParamsInter1);
+        CHK_RET(GenTemplateAlgParams0(
+            paramInter, resCtx, dataOffset1, dataCountPerLoopAxis1, interScratchOffset, tempAlgParamsInter1));
         CHK_RET(tempAlgInter.KernelRun(paramInter, tempAlgParamsInter1, interTempAlgRes));
         // 第一步做完后回到主流做尾同步
         CHK_RET(PostSyncInterThreads(threads_.at(0), {intraThreads_.at(0), interThreads_.at(0)}, {0, 1}));
@@ -427,24 +440,24 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1>::Orc
         CHK_RET(PreSyncInterThreads(threads_.at(0), {intraThreads_.at(0), interThreads_.at(0)}, {0, 0}));
         if (myRank_ == intraLocalRoot_) {
             // 数据0的server间的nhr算法
-            GenTemplateAlgParamsInter1(paramInter,
+            CHK_RET(GenTemplateAlgParamsInter1(paramInter,
                 resCtx,
                 dataOffset0,
                 dataCountPerLoopAxis0,
                 interScratchOffset,
                 intraScratchOffset,
-                tempAlgParamsInter0);
+                tempAlgParamsInter0));
             CHK_RET(tempAlgInter.KernelRun(paramInter, tempAlgParamsInter0, interTempAlgRes));
         }
         // 数据1的server内的mesh算法
         if (myRank_ == interLocalRoot_) {
-            GenTemplateAlgParamsIntra1(paramIntra,
+            CHK_RET(GenTemplateAlgParamsIntra1(paramIntra,
                 resCtx,
                 dataOffset1,
                 dataCountPerLoopAxis1,
                 intraScratchOffset,
                 interScratchOffset,
-                tempAlgParamsIntra1);
+                tempAlgParamsIntra1));
             CHK_RET(tempAlgIntra.KernelRun(paramIntra, tempAlgParamsIntra1, intraTempAlgRes));
         }
         // 尾同步
@@ -456,8 +469,9 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1>::Orc
 template <typename AlgTopoMatch, typename AlgTemplate0, typename AlgTemplate1>
 HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1>::CalcLocalRoot()
 {
-    CHK_PRT_RET(
-        root_ == UINT32_MAX, HCCL_ERROR("[CalcLocalRoot] root[%u] is invalid", root_), HcclResult::HCCL_E_INTERNAL);
+    CHK_PRT_RET(root_ >= rankSize_,
+        HCCL_ERROR("[CalcLocalRoot] root[%u] is out of rankSize[%u]", root_, rankSize_),
+        HcclResult::HCCL_E_INTERNAL);
 
     intraLocalRoot_ = intraLocalRankSize_ * (myRank_ / intraLocalRankSize_) + (root_ % intraLocalRankSize_);
     interLocalRoot_ = intraLocalRankSize_ * (root_ / intraLocalRankSize_) + (myRank_ % intraLocalRankSize_);

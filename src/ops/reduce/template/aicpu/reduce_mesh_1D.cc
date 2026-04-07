@@ -30,6 +30,7 @@ void ReduceMesh1D::SetRoot(u32 root) const
 HcclResult ReduceMesh1D::CalcRes(
     HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo, AlgResourceRequest &resourceRequest)
 {
+    CHK_PTR_NULL(topoInfo);
     threadNum_ = templateRankSize_ > 1 ? templateRankSize_ : 1;
     resourceRequest.slaveThreadNum = threadNum_ - 1;
     for (u32 index = 0; index < threadNum_ - 1; index++) {
@@ -114,8 +115,6 @@ HcclResult ReduceMesh1D::RunReduce(const std::map<u32, std::vector<ChannelInfo>>
             // 启动任务并等待所有threads任务执行完成
             CHK_RET(static_cast<HcclResult>(HcommBatchModeEnd(param.algTag)));
             CHK_RET(static_cast<HcclResult>(HcommBatchModeStart(param.algTag)));
-            for (const auto &thread : threads) {
-            }
         }
         // 规约数据
         CHK_RET(ReduceData(tempAlgParam, threads));
