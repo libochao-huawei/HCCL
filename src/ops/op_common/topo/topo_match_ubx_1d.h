@@ -29,15 +29,6 @@ protected:
                                     AlgHierarchyInfoForAllLevel& algHierarchyInfo) const;
     HcclResult TopoForLayer1(const HcclComm comm, uint32_t layer0Size, const uint32_t myRank,
                                     AlgHierarchyInfoForAllLevel& algHierarchyInfo) const override;
-    template<typename T>
-    std::string PrintCArray(const T* values, const u32 valueNum) const
-    {
-        std::ostringstream oss;
-        for (u32 i = 0; i < valueNum; i++) {
-            oss << values[i] << " ";
-        }
-        return oss.str();
-    }
 };
 }  // namespace Hccl
 #endif  // !TOPO_MATCH_UBX_MESH_1D
