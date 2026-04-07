@@ -23,11 +23,6 @@ struct ChannelLinkInfo {
     uint32_t remoteSuperPodIdx = 0;
 };
 
-bool IsSupportedChannelProtocol(CommProtocol protocol)
-{
-    return protocol == COMM_PROTOCOL_HCCS || protocol == COMM_PROTOCOL_ROCE;
-}
-
 HcclResult EnsureControlNotifies(OpParam &param)
 {
     // 控制 notify 属于“本次 launch 的控制面参数”，不能再固化进可缓存的 AlgResourceCtx。
@@ -60,39 +55,18 @@ HcclResult QueryChannelLinkInfo(HcclComm comm, uint32_t localRank, uint32_t remo
     uint32_t netLayerNum = 0;
     HCCL_CHK_RET(QueryNetLayers(comm, &netLayers, &netLayerNum));
 
-    ChannelLinkInfo fallbackInfo;
-    bool hasFallback = false;
     for (uint32_t idx = 0; idx < netLayerNum; ++idx) {
         CommLink *links = nullptr;
         uint32_t linkNum = 0;
         HcclResult ret = HcclRankGraphGetLinks(comm, netLayers[idx], localRank, remoteRank, &links, &linkNum);
-        if (ret != HCCL_SUCCESS || links == nullptr || linkNum == 0) {
-            continue;
+        if (ret == HCCL_SUCCESS && links != nullptr && linkNum > 0) {
+            info.protocol = links[0].linkAttr.linkProtocol;
+            info.localServerIdx = links[0].srcEndpointDesc.loc.device.serverIdx;
+            info.localSuperPodIdx = links[0].srcEndpointDesc.loc.device.superPodIdx;
+            info.remoteServerIdx = links[0].dstEndpointDesc.loc.device.serverIdx;
+            info.remoteSuperPodIdx = links[0].dstEndpointDesc.loc.device.superPodIdx;
+            return HCCL_SUCCESS;
         }
-        for (uint32_t linkIdx = 0; linkIdx < linkNum; ++linkIdx) {
-            ChannelLinkInfo candidate;
-            candidate.protocol = links[linkIdx].linkAttr.linkProtocol;
-            candidate.localServerIdx = links[linkIdx].srcEndpointDesc.loc.device.serverIdx;
-            candidate.localSuperPodIdx = links[linkIdx].srcEndpointDesc.loc.device.superPodIdx;
-            candidate.remoteServerIdx = links[linkIdx].dstEndpointDesc.loc.device.serverIdx;
-            candidate.remoteSuperPodIdx = links[linkIdx].dstEndpointDesc.loc.device.superPodIdx;
-            if (!hasFallback) {
-                fallbackInfo = candidate;
-                hasFallback = true;
-            }
-            if (IsSupportedChannelProtocol(candidate.protocol)) {
-                info = candidate;
-                return HCCL_SUCCESS;
-            }
-        }
-    }
-
-    if (hasFallback) {
-        HCCL_ERROR("no supported channel protocol between rank=%u and remoteRank=%u, firstProtocol=%s",
-            localRank,
-            remoteRank,
-            ToProtocolString(fallbackInfo.protocol));
-        return HCCL_E_NOT_SUPPORT;
     }
 
     HCCL_ERROR("failed to query link info between rank=%u and remoteRank=%u", localRank, remoteRank);
