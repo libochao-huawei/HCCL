@@ -2,9 +2,9 @@
 
 ## 🔥Latest News
 
-- [2025/11/30] HCCL项目正式开源。
+- [2025/11/30] HCCL项目正式开源。 
 
-## 🚀 概述
+## 🚀 概述 
 
 集合通信库（Huawei Collective Communication Library，简称HCCL）是基于昇腾AI处理器的高性能集合通信库，为计算集群提供高性能、高可靠的通信方案，具备以下核心功能：
 
