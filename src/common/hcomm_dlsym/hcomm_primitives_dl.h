@@ -19,12 +19,12 @@
 extern "C" {
 #endif
 
-typedef enum {
+enum HcclCommStatusTmp {
     HCCL_COMM_STATUS_READY = 0,
     HCCL_COMM_STATUS_SUSPENDING = 1,
     HCCL_COMM_STATUS_INVALID = 254,
     HCCL_COMM_STATUS_RESERVED = 255
-} HcclCommStatusTmp;
+};
 
 DECL_WEAK_FUNC(int32_t, HcommThreadSynchronize, ThreadHandle thread);
 DECL_WEAK_FUNC(int32_t, HcommSendRequest, uint64_t handle, const char* msgTag, const void* src, size_t sizeByte, uint32_t* msgId);
