@@ -42,7 +42,7 @@ HcclResult InsTempDpuAlltoAllMesh::CalcRes(HcclComm comm, const OpParam &param, 
         threadNum = (intraRankNum > 1) ? (intraRankNum - 1) : 1;
         subCommRanks_ = {subCommRanks_[1]};
         CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks_,
-                                                        level0Channels, CommTopo::COMM_TOPO_1DMESH));
+                                                         level0Channels, CommTopo::COMM_TOPO_1DMESH));
     }
     // 计算从流以及Notify数量
     resourceRequest.slaveThreadNum = threadNum - 1;
