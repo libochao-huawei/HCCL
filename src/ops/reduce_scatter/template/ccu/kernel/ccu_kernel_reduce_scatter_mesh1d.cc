@@ -134,4 +134,25 @@ std::vector<uint64_t> CcuKernelReduceScatterMesh1D::GeneArgs(const CcuTaskArg &a
                inputAddr, outputAddr, offset, sliceSize);
     return {inputAddr, outputAddr, tokenInfo, offset, goSize[0], goSize[1], goSize[2], goSize[3]};
 }
+
+HcclResult CcuKernelReduceScatterMesh1D::GeneTaskParam(const CcuTaskArg &arg, std::vector<CcuTaskParam> &taskParams)
+{
+    const CcuTaskArgReduceScatterMesh1D* taskArg = dynamic_cast<const CcuTaskArgReduceScatterMesh1D*>(&arg);
+    if (taskArg && !taskArg->FastLaunchCtxPtr_) {
+        CcuKernelAlgBase::GeneTaskParam(arg, taskParams);
+        cache[taskArg->FastLaunchCtxPtr_] = taskParams;
+    }
+    taskParams = cache[taskArg->FastLaunchCtxPtr_];
+    return HcclResult::HCCL_SUCCESS;
+}
+HcclResult CcuKernelReduceScatterMesh1D::GetCcuProfilingInfo(const CcuTaskArg &arg, std::vector<CcuProfilingInfo> &allCcuProfilingInfo)
+{
+    const CcuTaskArgReduceScatterMesh1D* taskArg = dynamic_cast<const CcuTaskArgReduceScatterMesh1D*>(&arg);
+    if (taskArg && !taskArg->FastLaunchCtxPtr_) {
+        CcuKernelAlgBase::GetCcuProfilingInfo(arg, allCcuProfilingInfo);
+        cache1[taskArg->FastLaunchCtxPtr_] = allCcuProfilingInfo;
+    }
+    allCcuProfilingInfo = cache1[taskArg->FastLaunchCtxPtr_];
+    return HcclResult::HCCL_SUCCESS;
+}
 } // namespace ops_hccl
