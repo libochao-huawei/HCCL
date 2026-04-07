@@ -87,7 +87,19 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     // 给channels_和threads_赋值
     threads_ = resCtx.threads;
     if (param.engine != CommEngine::COMM_ENGINE_AIV && param.engine != CommEngine::COMM_ENGINE_CCU) {
-        CHK_RET(RestoreChannelMap(resCtx, remoteRankToChannelInfo_));
+        if (resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS) {
+            CHK_PRT_RET(resCtx.channels.size() != CONST_ONE,
+                        HCCL_ERROR("[InsV2AlltoAllVSoleExecutor][Orchestrate] resCtx.channels.size[%zu] is not [%u]",
+                                   resCtx.channels.size(), CONST_ONE),
+                        HCCL_E_PARA); // 框内和跨框场景都使用1D算法
+            remoteRankToChannelInfo_.resize(CONST_ONE);
+            for (auto &channel : resCtx.channels[0]) {
+                u32 remoteRank = channel.remoteRank;
+                remoteRankToChannelInfo_[0][remoteRank].push_back(channel);
+            }
+        } else {
+            CHK_RET(RestoreChannelMap(resCtx, remoteRankToChannelInfo_));
+        }
     }
 
     dataType_ = param.all2AllVDataDes.sendType;
