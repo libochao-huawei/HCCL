@@ -142,18 +142,13 @@ HcclResult CheckAllReduceInputPara(const HcclComm comm, const void* sendBuf, con
     return HCCL_SUCCESS;
 }
 
-HcclResult AllReduceOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType,
-                                   HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag, OpMode opMode, const ResPackGraphMode &resPack)
+HcclResult FillAllReduceOpParam(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType,
+                                HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag, OpMode opMode, OpParam &param)
 {
-    HCCL_INFO("Start to execute AllReduceOutPlace");
-    u32 userRankSize;
-    CHK_RET(HcclGetRankSize(comm, &userRankSize));
-
     u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
     u64 outputSize = count * perDataSize;
     u64 inputSize = outputSize;
 
-    OpParam param;
     CHK_RET(HcclGetCommName(comm, param.commName));
     param.stream = stream;
     param.reduceType = op;
@@ -180,7 +175,22 @@ HcclResult AllReduceOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t count,
     param.enableDetour = false;
     param.deviceType = deviceType;
     param.reduceType = op;
+    return HCCL_SUCCESS;
+}
+
+HcclResult AllReduceOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType,
+                                   HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag, OpMode opMode, const ResPackGraphMode &resPack)
+{
+    HCCL_INFO("Start to execute AllReduceOutPlace");
+
+    OpParam param;
+    CHK_RET(FillAllReduceOpParam(sendBuf, recvBuf, count, dataType, op, comm, stream, tag, opMode, param));
     
+    CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
+    if ((opMode == OpMode::OPBASE) && ShouldGoCcuFastLaunch(comm, param, &ccuFastLaunchCtx)) {
+        return HcclExecOpCcuFastLaunch(comm, param, ccuFastLaunchCtx);
+    }
+
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));
@@ -188,6 +198,8 @@ HcclResult AllReduceOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t count,
         return HcclAllReduceInner(sendBuf, recvBuf, count, dataType, op, comm, stream);
     }
     // 单卡校验
+    u32 userRankSize;
+    CHK_RET(HcclGetRankSize(comm, &userRankSize));
     if (userRankSize == 1) {
         HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
         CHK_RET(SingleRankProc(param));
