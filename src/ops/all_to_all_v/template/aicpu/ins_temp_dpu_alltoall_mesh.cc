@@ -28,13 +28,12 @@ HcclResult InsTempDpuAlltoAllMesh::CalcRes(HcclComm comm, const OpParam &param, 
 {
     u32 threadNum = 0;
     std::vector<HcclChannelDesc> level0Channels;
-    if(topoInfo->level0Topo != Level0Shape::MESH_1D_CLOS) {
+    if (topoInfo->level0Topo != Level0Shape::MESH_1D_CLOS) {
         // 框内threadNum最大取MAX_RANK_NUM_PER_SERVER
         threadNum = (templateRankSize_ > MAX_RANK_NUM_PER_SERVER) ? MAX_RANK_NUM_PER_SERVER :
                     (templateRankSize_ > 1)                       ? (templateRankSize_ - 1) :
                                                                     1;
         CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
-
     } else {
         CHK_PRT_RET(subCommRanks_.size() != NET_NUM,
                     HCCL_ERROR("[InsTempDpuAlltoAllMesh][CalcRes] subCommRankNum[%zu] is not [%u]",
@@ -42,7 +41,8 @@ HcclResult InsTempDpuAlltoAllMesh::CalcRes(HcclComm comm, const OpParam &param, 
         u32 intraRankNum = subCommRanks_[0].size();
         threadNum = (intraRankNum > 1) ? (intraRankNum - 1) : 1;
         subCommRanks_ = {subCommRanks_[1]};
-        CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks_, level0Channels, CommTopo::COMM_TOPO_1DMESH));
+        CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks_,
+                                                        level0Channels, CommTopo::COMM_TOPO_1DMESH));
     }
     // 计算从流以及Notify数量
     resourceRequest.slaveThreadNum = threadNum - 1;
