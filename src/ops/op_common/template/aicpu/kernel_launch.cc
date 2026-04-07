@@ -233,9 +233,9 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
     if (param->deviceType != DevType::DEV_TYPE_910_95) {
     #endif
         //判断通信域状态
-        HcclCommStatusTmp commStatus = HcclCommStatusTmp::HCCL_COMM_STATUS_INVALID;
+        HcclCommStatusTmp commStatus = HcclCommStatusTmp::HCCL_COMM_STATUS_INVALID_TMP;
         CHK_RET(HcclCommGetStatus(param->hcclComm, &commStatus));
-        if (commStatus != HcclCommStatusTmp::HCCL_COMM_STATUS_READY) {
+        if (commStatus != HcclCommStatusTmp::HCCL_COMM_STATUS_READY_TMP) {
             HCCL_ERROR("%s commStatus is not ready!, commStatus = %d", __func__, static_cast<int>(commStatus));
             return 1;
         }

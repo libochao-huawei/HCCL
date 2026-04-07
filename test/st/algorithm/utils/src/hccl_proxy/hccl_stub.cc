@@ -867,7 +867,7 @@ HcclResult HcclEngineCtxDestroy(HcclComm comm, const char *ctxTag, CommEngine en
 
 HcclResult HcclCommGetStatus(HcclComm comm, HcclCommStatusTmp *status)
 {
-    *status = HcclCommStatusTmp::HCCL_COMM_STATUS_READY;
+    *status = HcclCommStatusTmp::HCCL_COMM_STATUS_READY_TMP;
     HCCL_WARNING("[%s] not support.", __func__);
     return HCCL_SUCCESS;
 }
