@@ -85,8 +85,8 @@ HcclResult CcuTempReduceScatterMesh1D::FastLaunch(const OpParam& param, const Te
         PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[1],
         tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[2],
         tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[3],
-        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[4]);
-
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[4],
+        tempFastLaunchCtx);
     void* taskArgPtr = static_cast<void*>(&taskArg);
 
     CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0], 
@@ -123,7 +123,7 @@ HcclResult CcuTempReduceScatterMesh1D::KernelRun(const OpParam& param,
     uint64_t offset             = inputSliceStride * mySubCommRank_;
     
     std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgReduceScatterMesh1D>(
-        inputAddr, outputAddr, sliceSize, offset, token);
+        inputAddr, outputAddr, sliceSize, offset, token, nullptr);
 
     void* taskArgPtr = static_cast<void*>(taskArg.get());
 

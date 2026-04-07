@@ -183,10 +183,332 @@ HcclResult SetOpParamFastLaunchTag(OpParam &param)
     return HcclResult::HCCL_SUCCESS;
 }
 
+// ===== [1] include 区域新增 =====
+#include <array>
+#include <cstdint>
+
+// ===== [2] namespace ops_hccl 内，现有 thread_local 变量后新增 =====
+struct TagKey128 {
+    u64 lo {0};
+    u64 hi {0};
+
+    bool operator==(const TagKey128 &other) const
+    {
+        return lo == other.lo && hi == other.hi;
+    }
+};
+
+struct FastLaunchTlsEntry {
+    bool valid {false};
+    TagKey128 key {};
+    HcclComm comm {nullptr};
+    void *ctx {nullptr};
+    u64 size {0};
+};
+
+constexpr size_t FAST_LAUNCH_TLS_BUCKET_NUM = 64;
+thread_local std::array<FastLaunchTlsEntry, FAST_LAUNCH_TLS_BUCKET_NUM> g_ccuFastLaunchTlsCache;
+
+// splitmix64: 快速整数混合
+static inline u64 Mix64(u64 x)
+{
+    x += 0x9e3779b97f4a7c15ULL;
+    x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9ULL;
+    x = (x ^ (x >> 27)) * 0x94d049bb133111ebULL;
+    return x ^ (x >> 31);
+}
+
+static inline u64 HashTagCStr(const char *s)
+{
+    // FNV-1a 64
+    u64 h = 1469598103934665603ULL;
+    while (s != nullptr && *s != '\0') {
+        h ^= static_cast<u8>(*s++);
+        h *= 1099511628211ULL;
+    }
+    return h;
+}
+
+static inline bool IsReduceLikeOp(HcclCMDType opType)
+{
+    return (opType == HcclCMDType::HCCL_CMD_ALLREDUCE ||
+            opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER ||
+            opType == HcclCMDType::HCCL_CMD_REDUCE ||
+            opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V);
+}
+
+static inline bool HasRootField(HcclCMDType opType)
+{
+    return (opType == HcclCMDType::HCCL_CMD_REDUCE ||
+            opType == HcclCMDType::HCCL_CMD_SCATTER ||
+            opType == HcclCMDType::HCCL_CMD_BROADCAST);
+}
+
+static inline HcclDataType GetFastLaunchDataType(const OpParam &param)
+{
+    if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL ||
+        param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
+        param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
+        return param.all2AllVDataDes.sendType;
+    }
+    return param.DataDes.dataType;
+}
+
+static inline TagKey128 BuildTagKey128(const OpParam &param, HcclComm comm)
+{
+    const HcclDataType dt = GetFastLaunchDataType(param);
+    const bool hasReduce = IsReduceLikeOp(param.opType);
+    const bool hasCount = (param.opType != HcclCMDType::HCCL_CMD_ALLTOALLV);
+    const bool hasRoot = HasRootField(param.opType);
+
+    // flags: bit0 hasReduce, bit1 hasCount, bit2 hasRoot
+    u64 flags = (hasReduce ? 1ULL : 0ULL) |
+                (hasCount  ? 2ULL : 0ULL) |
+                (hasRoot   ? 4ULL : 0ULL);
+
+    u64 reduce = hasReduce ? static_cast<u64>(param.reduceType) : 0ULL;
+    u64 count  = hasCount ? static_cast<u64>(param.DataDes.count) : 0ULL;
+    u64 root   = hasRoot ? static_cast<u64>(param.root) : 0ULL;
+
+    u64 tagHash = HashTagCStr(param.tag);
+    u64 commBits = static_cast<u64>(reinterpret_cast<uintptr_t>(comm));
+
+    TagKey128 key;
+    key.lo = Mix64(tagHash ^ (commBits << 1) ^ static_cast<u64>(param.opType));
+    key.hi = Mix64(static_cast<u64>(dt) |
+                   (reduce << 16) ^
+                   (count << 24) ^
+                   (root << 3) ^
+                   (flags << 56));
+    return key;
+}
+
+static inline size_t FastLaunchBucket(const TagKey128 &key)
+{
+    return static_cast<size_t>((key.lo ^ key.hi) & (FAST_LAUNCH_TLS_BUCKET_NUM - 1));
+}
+
+static inline bool TryGetFastLaunchTls(const TagKey128 &key, HcclComm comm, CcuFastLaunchCtx **ctx)
+{
+    FastLaunchTlsEntry &entry = g_ccuFastLaunchTlsCache[FastLaunchBucket(key)];
+    if (entry.valid && entry.comm == comm && entry.key == key && entry.ctx != nullptr) {
+        *ctx = reinterpret_cast<CcuFastLaunchCtx *>(entry.ctx);
+        return true;
+    }
+    return false;
+}
+
+static inline void PutFastLaunchTls(const TagKey128 &key, HcclComm comm, void *ctx, u64 size)
+{
+    FastLaunchTlsEntry &entry = g_ccuFastLaunchTlsCache[FastLaunchBucket(key)];
+    entry.valid = true;
+    entry.key = key;
+    entry.comm = comm;
+    entry.ctx = ctx;
+    entry.size = size;
+}
+
+// ===== [3] ShouldGoCcuFastLaunch 改造 =====
 bool ShouldGoCcuFastLaunch(HcclComm comm, OpParam &param, CcuFastLaunchCtx **ccuFastLaunchCtx)
 {
+    // 1. 是ccu模式
+    if (GetExternalInputHcclCcuMSMode()) {
+        HCCL_DEBUG("[HcclExecOp] is ccu ms mode");
+        param.opExecuteConfig = OpExecuteConfig::CCU_MS;
+        param.engine = CommEngine::COMM_ENGINE_CCU;
+    } else if (GetExternalInputHcclCcuSchedMode()) {
+        HCCL_DEBUG("[HcclExecOp] is ccu sched mode");
+        param.opExecuteConfig = OpExecuteConfig::CCU_SCHED;
+        param.engine = CommEngine::COMM_ENGINE_CCU;
+    } else {
+        return false;
+    }
     param.hcclComm = comm;
-    
+
+    // 2. 新路径：TagKey128 + TLS cache（零分配、无锁）
+    TagKey128 key = BuildTagKey128(param, comm);
+    if (TryGetFastLaunchTls(key, comm, ccuFastLaunchCtx)) {
+        HCCL_DEBUG("[ShouldGoCcuFastLaunch] hit tls key cache");
+        return true;
+    }
+
+    // 3. 回退路径：保持原有外部接口和行为
+    CHK_RET(SetOpParamFastLaunchTag(param));
+
+    u64 size = 0;
+    void *fastLaunchCtxPtr = nullptr;
+    if (HcclEngineCtxGet(comm, param.fastLaunchTag, CommEngine::COMM_ENGINE_CCU, &fastLaunchCtxPtr, &size) == HCCL_SUCCESS) {
+        HCCL_INFO("[ShouldGoCcuFastLaunch] get fastLaunchCtx success, size is %u", size);
+        PutFastLaunchTls(key, comm, fastLaunchCtxPtr, size);
+        *ccuFastLaunchCtx = reinterpret_cast<CcuFastLaunchCtx *>(fastLaunchCtxPtr);
+        return true;
+    }
+    return false;
+}
+// ===== [1] include 区域新增 =====
+#include <array>
+#include <cstdint>
+
+// ===== [2] namespace ops_hccl 内，现有 thread_local 变量后新增 =====
+struct TagKey128 {
+    u64 lo {0};
+    u64 hi {0};
+
+    bool operator==(const TagKey128 &other) const
+    {
+        return lo == other.lo && hi == other.hi;
+    }
+};
+
+struct FastLaunchTlsEntry {
+    bool valid {false};
+    TagKey128 key {};
+    HcclComm comm {nullptr};
+    void *ctx {nullptr};
+    u64 size {0};
+};
+
+constexpr size_t FAST_LAUNCH_TLS_BUCKET_NUM = 64;
+thread_local std::array<FastLaunchTlsEntry, FAST_LAUNCH_TLS_BUCKET_NUM> g_ccuFastLaunchTlsCache;
+
+// splitmix64: 快速整数混合
+static inline u64 Mix64(u64 x)
+{
+    x += 0x9e3779b97f4a7c15ULL;
+    x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9ULL;
+    x = (x ^ (x >> 27)) * 0x94d049bb133111ebULL;
+    return x ^ (x >> 31);
+}
+
+static inline u64 HashTagCStr(const char *s)
+{
+    // FNV-1a 64
+    u64 h = 1469598103934665603ULL;
+    while (s != nullptr && *s != '\0') {
+        h ^= static_cast<u8>(*s++);
+        h *= 1099511628211ULL;
+    }
+    return h;
+}
+
+static inline bool IsReduceLikeOp(HcclCMDType opType)
+{
+    return (opType == HcclCMDType::HCCL_CMD_ALLREDUCE ||
+            opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER ||
+            opType == HcclCMDType::HCCL_CMD_REDUCE ||
+            opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V);
+}
+
+static inline bool HasRootField(HcclCMDType opType)
+{
+    return (opType == HcclCMDType::HCCL_CMD_REDUCE ||
+            opType == HcclCMDType::HCCL_CMD_SCATTER ||
+            opType == HcclCMDType::HCCL_CMD_BROADCAST);
+}
+
+static inline HcclDataType GetFastLaunchDataType(const OpParam &param)
+{
+    if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL ||
+        param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
+        param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
+        return param.all2AllVDataDes.sendType;
+    }
+    return param.DataDes.dataType;
+}
+
+static inline TagKey128 BuildTagKey128(const OpParam &param, HcclComm comm)
+{
+    const HcclDataType dt = GetFastLaunchDataType(param);
+    const bool hasReduce = IsReduceLikeOp(param.opType);
+    const bool hasCount = (param.opType != HcclCMDType::HCCL_CMD_ALLTOALLV);
+    const bool hasRoot = HasRootField(param.opType);
+
+    // flags: bit0 hasReduce, bit1 hasCount, bit2 hasRoot
+    u64 flags = (hasReduce ? 1ULL : 0ULL) |
+                (hasCount  ? 2ULL : 0ULL) |
+                (hasRoot   ? 4ULL : 0ULL);
+
+    u64 reduce = hasReduce ? static_cast<u64>(param.reduceType) : 0ULL;
+    u64 count  = hasCount ? static_cast<u64>(param.DataDes.count) : 0ULL;
+    u64 root   = hasRoot ? static_cast<u64>(param.root) : 0ULL;
+
+    u64 tagHash = HashTagCStr(param.tag);
+    u64 commBits = static_cast<u64>(reinterpret_cast<uintptr_t>(comm));
+
+    TagKey128 key;
+    key.lo = Mix64(tagHash ^ (commBits << 1) ^ static_cast<u64>(param.opType));
+    key.hi = Mix64(static_cast<u64>(dt) |
+                   (reduce << 16) ^
+                   (count << 24) ^
+                   (root << 3) ^
+                   (flags << 56));
+    return key;
+}
+
+static inline size_t FastLaunchBucket(const TagKey128 &key)
+{
+    return static_cast<size_t>((key.lo ^ key.hi) & (FAST_LAUNCH_TLS_BUCKET_NUM - 1));
+}
+
+static inline bool TryGetFastLaunchTls(const TagKey128 &key, HcclComm comm, CcuFastLaunchCtx **ctx)
+{
+    FastLaunchTlsEntry &entry = g_ccuFastLaunchTlsCache[FastLaunchBucket(key)];
+    if (entry.valid && entry.comm == comm && entry.key == key && entry.ctx != nullptr) {
+        *ctx = reinterpret_cast<CcuFastLaunchCtx *>(entry.ctx);
+        return true;
+    }
+    return false;
+}
+
+static inline void PutFastLaunchTls(const TagKey128 &key, HcclComm comm, void *ctx, u64 size)
+{
+    FastLaunchTlsEntry &entry = g_ccuFastLaunchTlsCache[FastLaunchBucket(key)];
+    entry.valid = true;
+    entry.key = key;
+    entry.comm = comm;
+    entry.ctx = ctx;
+    entry.size = size;
+}
+
+// ===== [3] ShouldGoCcuFastLaunch 改造 =====
+bool ShouldGoCcuFastLaunch(HcclComm comm, OpParam &param, CcuFastLaunchCtx **ccuFastLaunchCtx)
+{
+    // 1. 是ccu模式
+    if (GetExternalInputHcclCcuMSMode()) {
+        HCCL_DEBUG("[HcclExecOp] is ccu ms mode");
+        param.opExecuteConfig = OpExecuteConfig::CCU_MS;
+        param.engine = CommEngine::COMM_ENGINE_CCU;
+    } else if (GetExternalInputHcclCcuSchedMode()) {
+        HCCL_DEBUG("[HcclExecOp] is ccu sched mode");
+        param.opExecuteConfig = OpExecuteConfig::CCU_SCHED;
+        param.engine = CommEngine::COMM_ENGINE_CCU;
+    } else {
+        return false;
+    }
+    param.hcclComm = comm;
+
+    // 2. 新路径：TagKey128 + TLS cache（零分配、无锁）
+    TagKey128 key = BuildTagKey128(param, comm);
+    if (TryGetFastLaunchTls(key, comm, ccuFastLaunchCtx)) {
+        HCCL_DEBUG("[ShouldGoCcuFastLaunch] hit tls key cache");
+        return true;
+    }
+
+    // 3. 回退路径：保持原有外部接口和行为
+    CHK_RET(SetOpParamFastLaunchTag(param));
+
+    u64 size = 0;
+    void *fastLaunchCtxPtr = nullptr;
+    if (HcclEngineCtxGet(comm, param.fastLaunchTag, CommEngine::COMM_ENGINE_CCU, &fastLaunchCtxPtr, &size) == HCCL_SUCCESS) {
+        HCCL_INFO("[ShouldGoCcuFastLaunch] get fastLaunchCtx success, size is %u", size);
+        PutFastLaunchTls(key, comm, fastLaunchCtxPtr, size);
+        *ccuFastLaunchCtx = reinterpret_cast<CcuFastLaunchCtx *>(fastLaunchCtxPtr);
+        return true;
+    }
+    return false;
+}
+bool ShouldGoCcuFastLaunch(HcclComm comm, OpParam &param, CcuFastLaunchCtx **ccuFastLaunchCtx)
+{
     // 1. 是ccu模式
     if (GetExternalInputHcclCcuMSMode()) {
         HCCL_DEBUG("[HcclExecOp] is ccu ms mode");
@@ -200,7 +522,7 @@ bool ShouldGoCcuFastLaunch(HcclComm comm, OpParam &param, CcuFastLaunchCtx **ccu
         // 非CCU模式，返回走正常流程
         return false;
     }
-
+    param.hcclComm = comm;
     CHK_RET(SetOpParamFastLaunchTag(param));
     
     // 2. 查到engineCtx
