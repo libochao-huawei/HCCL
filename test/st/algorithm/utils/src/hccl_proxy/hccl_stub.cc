@@ -28,7 +28,6 @@
 #include "hcomm_diag.h"
 #include "hccl_comm.h"
 #include "hccl_res_expt.h"
-#include "hcomm_primitives_dl.h"
 
 using namespace ops_hccl;
 using namespace HcclSim;
@@ -861,13 +860,6 @@ HcclResult HcomGetCommHandleByGroup(const char *group, HcclComm *commHandle)
 
 HcclResult HcclEngineCtxDestroy(HcclComm comm, const char *ctxTag, CommEngine engine)
 {
-    HCCL_WARNING("[%s] not support.", __func__);
-    return HCCL_SUCCESS;
-}
-
-HcclResult HcclCommGetStatus(HcclComm comm, HcclCommStatusTmp *status)
-{
-    *status = HcclCommStatusTmp::HCCL_COMM_STATUS_READY_TMP;
     HCCL_WARNING("[%s] not support.", __func__);
     return HCCL_SUCCESS;
 }
