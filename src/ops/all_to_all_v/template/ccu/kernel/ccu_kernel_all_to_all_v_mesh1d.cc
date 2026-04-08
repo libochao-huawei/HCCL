@@ -288,8 +288,7 @@ std::vector<uint64_t> CcuKernelAlltoAllVMesh1D::GeneArgs(const CcuTaskArg &arg)
     uint64_t dstOffset = taskArg->dstOffset_;
     uint32_t myRank = taskArg->myRank_;
 
-    HCCL_INFO("[AllToAllVAlgo] inputAddr[%llu], outputAddr[%llu],"
-              "srcOffset[%llu], dstOffset[%llu]",
+    HCCL_INFO("[AllToAllVAlgo] inputAddr[%llu], outputAddr[%llu], srcOffset[%llu], dstOffset[%llu]",
               inputAddr, outputAddr, srcOffset, dstOffset);
     std::vector<uint64_t> processReturn = {inputAddr, outputAddr, tokenInfo, srcOffset, dstOffset};
 
@@ -325,8 +324,7 @@ std::vector<uint64_t> CcuKernelAlltoAllVMesh1D::GeneArgs(const CcuTaskArg &arg)
             processReturn.push_back(val);
         }
     }
-    HCCL_INFO("[AllToAllVAlgo] rankIdx[i] taskArg->rankSize_[%u],"
-              "taskArg->localSendRecvInfo.sendOffset[%llu],"
+    HCCL_INFO("[AllToAllVAlgo] rankIdx[i] taskArg->rankSize_[%u], taskArg->localSendRecvInfo.sendOffset[%llu],"
               "taskArg->localSendRecvInfo.recvOffset[%llu]",
         taskArg->rankSize_, taskArg->localSendRecvInfo_.sendOffset[i], taskArg->localSendRecvInfo_.recvOffset[i]);
     }
