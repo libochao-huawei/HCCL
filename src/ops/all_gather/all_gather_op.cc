@@ -24,6 +24,9 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
                          aclrtStream stream)
 {
+    if (!HcclCheckAicpuEnableOpen() && !HcclCheckCcuEnableOpen() && !HcclCheckAivEnableOpen()) {
+        return HcclAllGatherInner(sendBuf, recvBuf, sendCount, dataType, comm, stream);
+    }
     HCCL_INFO("Start to run execute HcclAllGather");
 
     if (GetHcommVersion() < 90000000) { // compat handle
@@ -50,7 +53,7 @@ HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclD
     // 执行AllGather
     CHK_RET_AND_PRINT_IDE(AllGatherOutPlace(sendBuf, recvBuf, sendCount, dataType, comm, stream, opTag), opTag.c_str());
 
-    CHK_RET(LogHcclExit("HcclAllGather", opTag.c_str(), startut));
+    CHK_RET(LogHcclExit("HcclAllGather", opTag, startut));
 
     return HCCL_SUCCESS;
 }
@@ -94,7 +97,7 @@ HcclResult HcclAllGatherGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCou
     // 执行AllGather
     CHK_RET_AND_PRINT_IDE(AllGatherOutPlaceGraphMode(sendBuf, recvBuf, sendCount, dataType, comm, stream, tagStr, resPack), tagStr.c_str());
 
-    CHK_RET(LogHcclExit("HcclAllGatherGraphMode", opTag.c_str(), startut));
+    CHK_RET(LogHcclExit("HcclAllGatherGraphMode", opTag, startut));
 
     return HCCL_SUCCESS;
 }

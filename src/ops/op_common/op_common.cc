@@ -492,8 +492,10 @@ HcclResult AicpuKernelLaunch(HcclComm comm, OpParam &param, ThreadHandle unfoldT
     auto& HcclThreadResGetInfoFunc = ops_hccl::DlHcommFunction::GetInstance();
     // 如果不支持这个接口则不走提前展开
     if (!HcclThreadResGetInfoFunc.dlHcclThreadResGetInfo || param.opMode == OpMode::OFFLOAD) {
+        HCCL_INFO("[AicpuKernelLaunch] OFFLOAD");
         ret = aclrtLaunchKernelWithConfig(funcHandle, numBlocks, param.stream, &cfg, argsHandle, nullptr);
     } else {
+        HCCL_INFO("[AicpuKernelLaunch] NO OFFLOAD");
         CHK_RET(HcclThreadResGetInfoFunc.dlHcclThreadResGetInfo(comm, unfoldThread, 0, sizeof(void*), &unfoldStream));
         ret = aclrtLaunchKernelWithConfig(funcHandle, numBlocks, unfoldStream, &cfg, argsHandle, nullptr); // 提前展开，传入展开流
     }

@@ -68,6 +68,9 @@ protected:
     // dataSize
     u64           dataSize_ = 0;
     u64           dataTypeSize_ = 0;
+
+    // strideSize
+    u64           strideSize_ = 1;
 };
 
 } // namespace Hccl
