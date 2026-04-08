@@ -22,7 +22,7 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 
 
 HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
-                         aclrtStream stream)
+                         aclrtStream stream, uint64_t strideCount)
 {
     HCCL_INFO("Start to run execute HcclAllGather");
 
@@ -48,7 +48,7 @@ HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclD
     CHK_RET(AllGatherEntryLog(sendBuf, recvBuf, sendCount, dataType, stream, opTag, "HcclAllGather"));
 
     // 执行AllGather
-    CHK_RET_AND_PRINT_IDE(AllGatherOutPlace(sendBuf, recvBuf, sendCount, dataType, comm, stream, opTag), opTag.c_str());
+    CHK_RET_AND_PRINT_IDE(AllGatherOutPlace(sendBuf, recvBuf, sendCount, dataType, comm, stream, opTag, strideCount), opTag.c_str());
 
     CHK_RET(LogHcclExit("HcclAllGather", opTag.c_str(), startut));
 
@@ -145,7 +145,8 @@ HcclResult CheckAllGatherInputPara(const HcclComm comm, const void* sendBuf, con
 }
 
 HcclResult AllGatherOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
-                                   aclrtStream stream, const std::string &tag, OpMode opMode, const ResPackGraphMode &resPack)
+                                   aclrtStream stream, const std::string &tag, OpMode opMode, const ResPackGraphMode &resPack,
+                                   uint64_t strideCount)
 {
     HCCL_INFO("Start to execute AllGatherOutPlaceCommon");
     u32 userRankSize;
@@ -180,6 +181,7 @@ HcclResult AllGatherOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t sendCo
     param.opType = HcclCMDType::HCCL_CMD_ALLGATHER;
     param.enableDetour = false;
     param.deviceType = deviceType;
+    param.DataDes.strideCount = strideCount;
 
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
@@ -201,17 +203,17 @@ HcclResult AllGatherOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t sen
                                       aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack)
 {
     HCCL_INFO("Start to execute AllGatherOutPlaceGraphMode");
-    CHK_RET(AllGatherOutPlaceCommon(sendBuf, recvBuf, sendCount, dataType, comm, stream, tag, OpMode::OFFLOAD, resPack));
+    CHK_RET(AllGatherOutPlaceCommon(sendBuf, recvBuf, sendCount, dataType, comm, stream, tag, OpMode::OFFLOAD, resPack, strideCount));
     HCCL_INFO("Execute AllGatherOutPlaceGraphMode success.");
     return HCCL_SUCCESS;
 }
 
 
 HcclResult AllGatherOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
-                                      aclrtStream stream, const std::string &tag)
+                                      aclrtStream stream, const std::string &tag, uint64_t strideCount)
 {
     HCCL_INFO("Start to execute AllGatherOutPlace");
-    CHK_RET(AllGatherOutPlaceCommon(sendBuf, recvBuf, sendCount, dataType, comm, stream, tag, OpMode::OPBASE, ResPackGraphMode()));
+    CHK_RET(AllGatherOutPlaceCommon(sendBuf, recvBuf, sendCount, dataType, comm, stream, tag, OpMode::OPBASE, ResPackGraphMode()), strideCount);
     HCCL_INFO("Execute AllGatherOutPlace success.");
     return HCCL_SUCCESS;
 }
