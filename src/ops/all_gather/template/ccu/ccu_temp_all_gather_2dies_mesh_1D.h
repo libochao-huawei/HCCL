@@ -20,6 +20,7 @@ using RankGroup = std::vector<RankId>;
 
 class CcuTempAllGather2DiesMesh1D : public CcuAlgTemplateBase {
 public:
+    CcuTempAllGather2DiesMesh1D() = default;
     explicit  CcuTempAllGather2DiesMesh1D(const OpParam& param, 
                                                 const u32 rankId, // 传通信域的rankId，userRank
                                                 const std::vector<std::vector<u32>> &subCommRanks);
