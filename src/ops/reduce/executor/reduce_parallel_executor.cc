@@ -247,20 +247,17 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
 
     // 第0条流是全局主流
     intraThreads_ = {threads_.at(1 + stage)};
-    intraThreads_.insert(intraThreads_.end(),
-        threads_.begin() + stageSize_ + 1,
+    intraThreads_.insert(intraThreads_.end(), threads_.begin() + stageSize_ + 1,
         threads_.begin() + stageSize_ + intraThreadsNum.at(stage));
     interThreads_ = {threads_.at(intraThreadsNumMax + stageSize_ + stage)};
-    interThreads_.insert(interThreads_.end(),
-        threads_.begin() + intraThreadsNumMax + stageSize_ + stageSize_,
+    interThreads_.insert(interThreads_.end(), threads_.begin() + intraThreadsNumMax + stageSize_ + stageSize_,
         threads_.end());
 
     mainThread_ = threads_.at(0);
     templateMainThreads_ = {intraThreads_.at(0), interThreads_.at(0)};
 
-    u32 intraNotifyOnMainThread = tempRequestArr.at(stage).at(0).notifyNumOnMainThread;
-    u32 interNotifyOnMainThread = tempRequestArr.at(stage).at(1).notifyNumOnMainThread;
-    syncNotifyOnTemplates_ = {intraNotifyOnMainThread, interNotifyOnMainThread};
+    syncNotifyOnTemplates_ = {tempRequestArr.at(stage).at(0).notifyNumOnMainThread,
+                              tempRequestArr.at(stage).at(1).notifyNumOnMainThread};
     syncNotifyOnMain_ = {0, 1};
 
     return HCCL_SUCCESS;
@@ -272,6 +269,8 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
     AlgTemplate3>::PrepareResForStage2(u32 stage)
 {
     if (param_.engine == COMM_ENGINE_CCU) {
+        tempAlgResArr_.at(stage * 2).ccuKernels.clear();
+        tempAlgResArr_.at(stage * 2 + 1).ccuKernels.clear();
         if (stage == 0) {
             tempAlgResArr_.at(stage * 2).ccuKernels.insert(tempAlgResArr_.at(stage * 2).ccuKernels.end(),
                                                resCtx_.ccuKernels.begin(),
