@@ -43,7 +43,7 @@ HcclResult InsV2BroadcastSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(Hcc
     std::shared_ptr<InsAlgTemplate> algTemplate = std::make_shared<InsAlgTemplate>(param, topoInfo->userRank, algHierarchyInfo.infos[0]);
 
     // 调用计算资源的函数
-    algTemplate->CalcRes(comm, param, topoInfo, resourceRequest);
+    CHK_RET(algTemplate->CalcRes(comm, param, topoInfo, resourceRequest));
     // 在comb_exector或是parallel_exector中合并两个template的资源
     return HCCL_SUCCESS;
 }
