@@ -382,7 +382,9 @@ void InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
     dataParams.inputRepeatStride = 0;
     dataParams.outputRepeatStride = 0;
     HCCL_INFO("[InsBroadcastParallelExecutor][GenDataParamstempAlg]myRank_[%u] hcclBuffBaseOff[%llu]",myRank_, dataParams.buffInfo.hcclBuffBaseOff);
-
+	CHK_PTR_NULL(dataParams.buffInfo.inputPtr);
+ 	CHK_PTR_NULL(dataParams.buffInfo.outputPtr);
+ 	CHK_PTR_NULL(dataParams.buffInfo.hcclBuff.addr);
     return;
 }
 
