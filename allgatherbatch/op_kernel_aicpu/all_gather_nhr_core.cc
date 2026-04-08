@@ -135,9 +135,6 @@ HcclResult AllGatherNHRCore::ValidateStepPlan(const std::vector<InterServerAlgoS
 {
     const uint32_t rankSize = GetEffectiveRankSize();
     const uint32_t sliceCount = static_cast<uint32_t>(runCtx_.slices.size());
-    if (rankSize <= 1U) {
-        return HCCL_SUCCESS;
-    }
     if (stepPlan.empty()) {
         HCCL_ERROR("NHR stepPlan is empty for rankSize=%u", rankSize);
         return HCCL_E_INTERNAL;
@@ -299,11 +296,6 @@ HcclResult AllGatherNHRCore::GetStepInfo(uint32_t step, uint32_t nSteps, InterSe
 HcclResult AllGatherNHRCore::BuildStepPlan(std::vector<InterServerAlgoStep> &stepPlan) const
 {
     const uint32_t rankSize = GetEffectiveRankSize();
-    if (rankSize <= 1U) {
-        stepPlan.clear();
-        return HCCL_SUCCESS;
-    }
-
     const uint32_t nSteps = GetStepNumInterServer(rankSize);
     stepPlan.clear();
     stepPlan.reserve(nSteps);
