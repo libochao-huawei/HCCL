@@ -17,7 +17,6 @@ public:
 
 private:
     HcclResult ValidateParam() const;
-    HcclResult ValidateModeConsistency() const;
     HcclResult ValidateWindow(const WindowRange &window) const;
     HcclResult BuildFirstWindow(WindowRange &window) const;
     HcclResult BuildNextWindow(const WindowRange &current, WindowRange &next, bool &hasNext) const;
@@ -29,7 +28,6 @@ private:
     uint64_t CalcWindowCoveredBytes(const WindowRange &window) const;
     uint64_t GetPerRankWindowCapacity() const;
     uint8_t *GetRankWindowBase(const WindowRange &window, uint32_t rank) const;
-    uint32_t CountCrossServerChannels() const;
 
     const OpParam &param_;
     AlgResourceCtx &resCtx_;
