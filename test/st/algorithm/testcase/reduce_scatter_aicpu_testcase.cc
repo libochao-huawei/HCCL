@@ -96,6 +96,10 @@ void RunReduceScatterAicpuA5(const TopoMeta &topoMeta, const u64 &recvCount, con
  
             // 5.销毁通信域
             CHK_RET(HcclCommDestroy(comm));
+            // 6.释放内存
+            aclrtDestroyStream(stream);
+            aclrtFree(sendBuf);
+            aclrtFree(recvBuf);
             return HCCL_SUCCESS;
         });
     }

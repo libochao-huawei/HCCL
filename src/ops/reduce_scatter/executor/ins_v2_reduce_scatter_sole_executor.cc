@@ -123,6 +123,10 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchest
         maxDataSizePerLoop = transportBoundDataSize;
     }
     // 单次循环处理的数据量大小
+    // 增加对dataTypeSize_ == 0的校验防止除0错误
+    CHK_PRT_RET(dataTypeSize_ == 0,
+        HCCL_ERROR("[InsV2ReduceScatterSoleExecutor][OrchestrateOpbase] dataTypeSize_ is 0"), HCCL_E_INTERNAL);
+    // 计算单次循环处理的数据量大小
     u64 maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize_;
     HCCL_INFO(
         "[InsV2ReduceScatterSoleExecutor][OrchestrateOpbase] maxDataCountPerLoop[%llu], maxDataSizePerLoop[%llu], "
@@ -224,6 +228,9 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLau
     CcuKernelSubmitInfo *ccuKernelSubmitInfos = fastLaunchCtx->GetCcuKernelSubmitInfoPtr();
     tempFastLaunchCtx.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + fastLaunchCtx->ccuKernelNum[0]);
     HCCL_INFO("[InsV2ReduceScatterSoleExecutor][FastLaunch] ccuKernelNum[%llu]", fastLaunchCtx->ccuKernelNum[0]);
+    // 增加对inputPtr和outputPtr是否为nullptr的校验防止空指针异常
+    CHK_PRT_RET(param.inputPtr == nullptr || param.outputPtr == nullptr,
+        HCCL_ERROR("[InsV2ReduceScatterSoleExecutor][FastLaunch] inputPtr or outputPtr is nullptr"), HCCL_E_INTERNAL);
     tempFastLaunchCtx.buffInfo.inputPtr = param.inputPtr;
     tempFastLaunchCtx.buffInfo.outputPtr = param.outputPtr;
     tempFastLaunchCtx.buffInfo.hcclBuff = param.hcclBuff;
