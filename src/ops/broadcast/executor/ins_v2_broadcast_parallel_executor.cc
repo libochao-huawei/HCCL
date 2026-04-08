@@ -230,9 +230,7 @@ void InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
     dataParams.buffInfo.hcclBuffBaseOff = scratchOffsetCount * dataTypeSize_;
     dataParams.sliceSize = sliceCount * dataTypeSize_;
     dataParams.count = sliceCount;
-	CHK_PTR_NULL(dataParams.buffInfo.inputPtr);
- 	CHK_PTR_NULL(dataParams.buffInfo.outputPtr);
- 	CHK_PTR_NULL(dataParams.buffInfo.hcclBuff.addr);
+
     dataParams.inputSliceStride = 0;
     dataParams.outputSliceStride = 0;
     dataParams.repeatNum = 1;
@@ -247,6 +245,10 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 {
     HCCL_INFO("[InsBroadcastParallelExecutor] AlgTemplate intra server is [%s]", tempAlgIntra.Describe().c_str());
     HCCL_INFO("[InsBroadcastParallelExecutor] AlgTemplate inter server is [%s]", tempAlgInter.Describe().c_str());
+
+    CHK_PTR_NULL(param.inputPtr);
+    CHK_PTR_NULL(param.outputPtr);
+    CHK_PTR_NULL(resCtx.cclMem.addr);
 
     TemplateResource intraTempAlgRes;
     TemplateResource interTempAlgRes;

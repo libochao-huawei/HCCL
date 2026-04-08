@@ -89,9 +89,9 @@ HcclResult InsV2BroadcastSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     tempAlgParams.buffInfo.inBuffType = BufferType::INPUT;
     tempAlgParams.buffInfo.outBuffType = BufferType::INPUT;
     tempAlgParams.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
-	CHK_PTR_NULL(tempAlgParams.buffInfo.inputPtr);
- 	CHK_PTR_NULL(tempAlgParams.buffInfo.outputPtr);
- 	CHK_PTR_NULL(tempAlgParams.buffInfo.hcclBuff.addr);
+    CHK_PTR_NULL(tempAlgParams.buffInfo.inputPtr);
+    CHK_PTR_NULL(tempAlgParams.buffInfo.outputPtr);
+    CHK_PTR_NULL(tempAlgParams.buffInfo.hcclBuff.addr);
     tempAlgParams.buffInfo.hcclBuffBaseOff = 0;
     tempAlgParams.inputSliceStride = 0;
     tempAlgParams.outputSliceStride = 0;
