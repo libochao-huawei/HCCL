@@ -196,9 +196,10 @@ HcclResult HcclBroadcastInner(
 }
 
 HcclResult HcclReduceScatterInner(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
-    HcclReduceOp op, HcclComm comm, aclrtStream stream)
+    HcclReduceOp op, uint64_t strideCount, HcclComm comm, aclrtStream stream)
 {
     HCCL_ERROR("[%s] not support", __func__);
+    (void)strideCount;  // suppress unused warning
     return HCCL_E_NOT_SUPPORT;
 }
 

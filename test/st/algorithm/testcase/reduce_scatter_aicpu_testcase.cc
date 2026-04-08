@@ -92,7 +92,7 @@ void RunReduceScatterAicpuA5(const TopoMeta &topoMeta, const u64 &recvCount, con
             aclrtMalloc(&recvBuf, recvBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
  
             // 4.算子下发
-            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, comm, stream));
+            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, 0 /* strideCount */, comm, stream));
  
             // 5.销毁通信域
             CHK_RET(HcclCommDestroy(comm));
