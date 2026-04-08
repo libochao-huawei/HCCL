@@ -81,7 +81,7 @@ int Sample(void *arg)
     ACLCHECK(aclrtCreateStream(&stream));
 
     // 执行 ReduceScatter，将所有 rank 的 sendBuf 相加后，再把结果按照 rank_id 顺序均匀分散到各个 rank 的 recvBuf
-    HCCLCHECK(HcclReduceScatter(sendBuf, recvBuf, recvCount, HCCL_DATA_TYPE_FP32, HCCL_REDUCE_SUM, hcclComm, stream));
+    HCCLCHECK(HcclReduceScatter(sendBuf, recvBuf, recvCount, HCCL_DATA_TYPE_FP32, HCCL_REDUCE_SUM, 0, hcclComm, stream));
     // 阻塞等待任务流中的集合通信任务执行完成
     ACLCHECK(aclrtSynchronizeStream(stream));
 
