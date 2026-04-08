@@ -50,16 +50,16 @@ u64 ReduceMesh1DTwoShot::CalcScratchMultiple(BufferType inBuffType, BufferType o
 }
 
 HcclResult ReduceMesh1DTwoShot::KernelRun(
-    const OpParam &param, const TemplateDataParams &tempAlgParams, const TemplateResource &templateResource)
+    const OpParam &param, const TemplateDataParams &tempAlgParams, TemplateResource &templateResource)
 {
     HCCL_INFO("[ReduceMesh1DTwoShot] rank[%d] KernelRun start", myRank_);
     // 处理数据量为0的场景
     CHK_PRT_RET(
-        tempAlgParams.sliceSize == 0, HCCL_INFO("[ReduceMesh1D] sliceSize is 0, no need to process"), HCCL_SUCCESS);
+        tempAlgParams.sliceSize == 0, HCCL_INFO("[ReduceMesh1DTwoShot] sliceSize is 0, no need to process"), HCCL_SUCCESS);
 
-    CHK_PRT_RET(templateRankSize_ == 0, HCCL_ERROR("[ReduceMesh1D] rankSize is 0"), HcclResult::HCCL_E_INTERNAL);
+    CHK_PRT_RET(templateRankSize_ == 0, HCCL_ERROR("[ReduceMesh1DTwoShot] rankSize is 0"), HcclResult::HCCL_E_INTERNAL);
 
-    CHK_PRT_RET(root_ == UINT32_MAX, HCCL_ERROR("[ReduceMesh1D] root is invalid"), HcclResult::HCCL_E_INTERNAL);
+    CHK_PRT_RET(root_ == UINT32_MAX, HCCL_ERROR("[ReduceMesh1DTwoShot] root is invalid"), HcclResult::HCCL_E_INTERNAL);
 
     const std::vector<ThreadHandle> &threads = templateResource.threads;
     threadNum_ = templateRankSize_;
