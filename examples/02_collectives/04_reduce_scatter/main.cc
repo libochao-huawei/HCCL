@@ -16,6 +16,7 @@
 #include <chrono>
 #include <atomic>
 #include <cstring>
+#include <cmath>
 
 #include "hccl/hccl.h"
 #include "hccl/hccl_types.h"
@@ -41,6 +42,7 @@ struct ThreadContext {
     uint32_t device;
     uint32_t devCount;
     uint64_t strideCount;
+    bool testPass;
 };
 
 int Sample(void *arg)
@@ -50,8 +52,8 @@ int Sample(void *arg)
     void *recvBuf = nullptr;
     uint32_t device = ctx->device;
     uint64_t sendCount = ctx->devCount;
-    uint64_t recvCount = 1U;
-    size_t sendSize = sendCount * sizeof(float);
+    uint64_t recvCount = sendCount;
+    size_t sendSize = static_cast<size_t>(ctx->devCount) * sendCount * sizeof(float);
     size_t recvSize = recvCount * sizeof(float);
 
     // 设置当前线程操作的设备
@@ -67,7 +69,7 @@ int Sample(void *arg)
     float *tmpHostBuff = static_cast<float *>(hostBuf);
     // sendBuf[row][col] = row * sendCount + col
     for (uint32_t row = 0; row < ctx->devCount; ++row) {
-        for (uint32_t col = 0; col < recvCount; ++col) {
+        for (uint32_t col = 0; col < sendCount; ++col) {
             tmpHostBuff[row * sendCount + col] = static_cast<float>(row * sendCount + col);
         }
     }
@@ -97,20 +99,23 @@ int Sample(void *arg)
     float *tmpResBuff = static_cast<float *>(resultBuff);
 
     // 计算预期值并验证
+    bool pass = true;
     for (uint32_t recvIdx = 0; recvIdx < recvCount; ++recvIdx) {
         float expectedVal = 0.0f;
         for (uint32_t r = 0; r < ctx->devCount; ++r) {
             expectedVal += static_cast<float>(r * sendCount + recvIdx);
         }
         float actualVal = tmpResBuff[recvIdx];
-        if (actualVal != expectedVal) {
+        if (fabsf(actualVal - expectedVal) > 1e-6f) {
             printf("[FAIL] rankId=%u, recvIdx=%u, actual=%.1f, expected=%.1f\n",
                    ctx->device, recvIdx, actualVal, expectedVal);
+            pass = false;
         } else {
             printf("[PASS] rankId=%u, recvIdx=%u, value=%.1f\n",
                    ctx->device, recvIdx, actualVal);
         }
     }
+    ctx->testPass = pass;
     ACLCHECK(aclrtFreeHost(resultBuff));
 
     // 释放资源
@@ -158,10 +163,21 @@ int main()
             args[i].device = i;
             args[i].devCount = devCount;
             args[i].strideCount = tc.strideCount;
+            args[i].testPass = true;
             threads[i] = std::thread(Sample, (void *)&args[i]);
         }
+
+        bool allPass = true;
         for (uint32_t i = 0; i < devCount; i++) {
             threads[i].join();
+            if (!args[i].testPass) {
+                allPass = false;
+            }
+        }
+        if (allPass) {
+            std::cout << "=== All tests PASSED ===" << std::endl;
+        } else {
+            std::cout << "=== Some tests FAILED ===" << std::endl;
         }
     }
 
