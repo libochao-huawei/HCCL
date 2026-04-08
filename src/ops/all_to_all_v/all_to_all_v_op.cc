@@ -548,10 +548,6 @@ HcclResult AlltoAllVConstructOpParam(const void *sendBuf, const void *sendCounts
     const void *recvCounts, const void *rdispls, HcclDataType dataType, HcclComm comm, aclrtStream stream,
     const std::string &tag, HcclCMDType opType, u32 rankSize, OpMode opMode, u64 varMemSize, OpParam &param)
 {
-    u32 userRankSize;
-    CHK_RET(HcclGetRankSize(comm, &userRankSize));
-
-    CHK_RET(HcclGetCommName(comm, param.commName));
     param.stream = stream;
     param.opMode = opMode;
     DevType deviceType = DevType::DEV_TYPE_COUNT;
@@ -603,10 +599,7 @@ HcclResult AlltoAllVOutPlaceCommon(const void *sendBuf, const void *sendCounts, 
     const void *recvCounts, const void *rdispls, HcclDataType dataType, HcclComm comm, aclrtStream stream,
     const std::string &tag, HcclCMDType opType, u32 rankSize, bool &useInnerOp, OpMode opMode, const ResPackGraphMode &resPack)
 {
-    u32 userRankSize;
-    CHK_RET(HcclGetRankSize(comm, &userRankSize));
-
-    u64 varMemSize = ALL_TO_ALL_V_VECTOR_NUM * userRankSize * sizeof(u64);
+    u64 varMemSize = ALL_TO_ALL_V_VECTOR_NUM * rankSize * sizeof(u64);
     void *paramMem = malloc(sizeof(OpParam) + varMemSize);
     if (!paramMem) {
         // 内存分配失败

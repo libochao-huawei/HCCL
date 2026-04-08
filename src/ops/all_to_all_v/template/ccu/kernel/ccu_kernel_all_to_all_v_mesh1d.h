@@ -51,9 +51,9 @@ public:
 class CcuTaskArgAlltoAllVMesh1D : public hcomm::CcuTaskArg {
 public:
     explicit CcuTaskArgAlltoAllVMesh1D(uint64_t inputAddr, uint64_t outputAddr,
-        uint64_t token, uint64_t srcOffset, uint64_t dstOffset, uint32_t rankSize, const A2ASendRecvInfo& localSendRecvInfo) :
+        uint64_t token, uint64_t srcOffset, uint64_t dstOffset, uint32_t rankSize, uint32_t myRank, const A2ASendRecvInfo& localSendRecvInfo) :
         inputAddr_(inputAddr), outputAddr_(outputAddr), token_(token), 
-        srcOffset_(srcOffset), dstOffset_(dstOffset), rankSize_(rankSize), localSendRecvInfo_(localSendRecvInfo)
+        srcOffset_(srcOffset), dstOffset_(dstOffset), rankSize_(rankSize), myRank_(myRank), localSendRecvInfo_(localSendRecvInfo)
     {
         HCCL_DEBUG("[CcuTaskArgAlltoAllVMesh1D] inputAddr: %lu, outputAddr: %lu, rankSize: %lu, "
                    "srcOffset: %lu, dstOffset: %lu",
@@ -66,6 +66,7 @@ public:
     uint64_t srcOffset_;
     uint64_t dstOffset_;
     uint32_t rankSize_;
+    uint32_t myRank_;
     A2ASendRecvInfo localSendRecvInfo_;
 };
 
