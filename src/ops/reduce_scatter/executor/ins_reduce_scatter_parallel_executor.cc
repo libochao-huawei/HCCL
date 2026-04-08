@@ -77,6 +77,10 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     resourceRequest.notifyNumPerThread.insert(resourceRequest.notifyNumPerThread.end(),
                                               interTempRequest.notifyNumPerThread.begin(),
                                               interTempRequest.notifyNumPerThread.end());
+    if (intraTempRequest.channels.size() == 0 || intraTempRequest.ccuKernelNum.size() == 0) {
+        HCCL_ERROR("intraTempRequest.channels size is 0 or intraTempRequest.ccuKernelNum size is 0");
+        return HCCL_E_INTERNAL;
+    }
     if (param.engine != COMM_ENGINE_CCU) {
         resourceRequest.channels.emplace_back(intraTempRequest.channels[0]);
         resourceRequest.channels.emplace_back(interTempRequest.channels[0]);
