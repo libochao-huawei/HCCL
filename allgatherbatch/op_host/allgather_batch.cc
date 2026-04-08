@@ -480,11 +480,9 @@ HcclResult GetAlgRes(HcclComm comm, const OpParam &param, AlgResourceCtx **resCt
     }
 
     HCCL_CHK_RET(HcclEngineCtxCreate(comm, param.tag, engine, expectedCtxSize, &ctx));
-    // 将内存强转为AlgResourceCtx结构体
     *resCtx = static_cast<AlgResourceCtx *>(ctx);
 
     AlgResourceCtx *hostResCtx;
-    // AICPU模式下分配一块Host内存用于填充资源
     ACLCHECK(aclrtMallocHost(reinterpret_cast<void**>(&hostResCtx), expectedCtxSize));
 
     InitAlgResourceCtxHeader(request, *hostResCtx);

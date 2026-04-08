@@ -20,10 +20,8 @@ HcclResult LaunchKernel(const OpParam &param, aclrtStream stream)
         return HCCL_E_INTERNAL;
     }
 
-    // Host stream 先发启动通知，Device 侧主线程收到后才真正进入执行器。
     ACLCHECK(aclrtRecordNotify(g_allGatherBatchNotifies[kAllGatherBatchControlNotifyStart], stream));
 
-    // 把 Host 侧组织好的 OpParam 作为唯一 launch 入参带到 AICPU kernel 入口。
     aclrtFuncHandle funcHandle = nullptr;
     aclrtArgsHandle argsHandle = nullptr;
     aclrtParamHandle paramHandle = nullptr;
@@ -40,10 +38,8 @@ HcclResult LaunchKernel(const OpParam &param, aclrtStream stream)
     cfg.attrs = &attr;
     constexpr uint32_t blockDim = 1;
 
-    // Device 入口先跑控制壳，再交给 ExecOp / Executor / HDStageCore。
     ACLCHECK(aclrtLaunchKernelWithConfig(funcHandle, blockDim, stream, &cfg, argsHandle, nullptr));
 
-    // Host 等待 Device 侧完成通知，形成完整的启动/结束闭环。
     ACLCHECK(aclrtWaitAndResetNotify(
         g_allGatherBatchNotifies[kAllGatherBatchControlNotifyDone],
         stream,
