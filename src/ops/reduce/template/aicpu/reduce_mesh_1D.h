@@ -19,6 +19,7 @@ namespace ops_hccl {
 
 class ReduceMesh1D : public InsAlgTemplateBase {
 public:
+    ReduceMesh1D() = default;
     explicit ReduceMesh1D(const OpParam &param, const u32 rankId,  // 传通信域的rankId，userRank
         const std::vector<std::vector<u32>> &subCommRanks);
 
