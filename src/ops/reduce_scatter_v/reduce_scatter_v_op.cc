@@ -24,9 +24,6 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 HcclResult HcclReduceScatterV(void *sendBuf,  const void *sendCounts, const void *sendDispls, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
     HcclReduceOp op, HcclComm comm, aclrtStream stream)
 {
-    if (!HcclCheckAicpuEnableOpen() && !HcclCheckCcuEnableOpen() && !HcclCheckAivEnableOpen()) {
-        return HcclReduceScatterVInner(sendBuf, sendCounts, sendDispls, recvBuf, recvCount, dataType, op, comm, stream);
-    }
     HCCL_INFO("Start to run execute HcclReduceScatterV");
     if (GetHcommVersion() < 90000000) { // compat handle
         return HcclReduceScatterVInner(sendBuf, sendCounts, sendDispls, recvBuf, recvCount, dataType, op, comm, stream);
@@ -74,7 +71,7 @@ HcclResult HcclReduceScatterV(void *sendBuf,  const void *sendCounts, const void
     CHK_RET_AND_PRINT_IDE(ReduceScatterVOutPlace(sendBuf, sendDispls, sendCounts, recvBuf, recvCount, dataType, op, comm, stream, tag),
                           tag.c_str());
 
-    CHK_RET(LogHcclExit("ReduceScatterV", tag, startut));
+    CHK_RET(LogHcclExit("ReduceScatterV", tag.c_str(), startut));
 
     return HCCL_SUCCESS;
 }
@@ -132,7 +129,7 @@ HcclResult HcclReduceScatterVGraphMode(void *sendBuf,  const void *sendCounts, c
     // 执行
     CHK_RET_AND_PRINT_IDE(ReduceScatterVOutPlaceGraphMode(sendBuf, sendDispls, sendCounts, recvBuf, recvCount, dataType, op, comm, stream, tag, resPack), opTag);
 
-    CHK_RET(LogHcclExit("HcclReduceScatterVGraphMode", opTag, startut));
+    CHK_RET(LogHcclExit("HcclReduceScatterVGraphMode", opTag.c_str(), startut));
 
     return HCCL_SUCCESS;
 }

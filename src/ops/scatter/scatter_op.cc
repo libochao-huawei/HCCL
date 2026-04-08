@@ -58,7 +58,8 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
         return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
     }
 
-    if (deviceType != DevType::DEV_TYPE_910_93 && !HcclCheckAicpuEnableOpen() && !HcclCheckCcuEnableOpen() && !HcclCheckAivEnableOpen()) {
+    // 图模式引导到老的流程上面
+    if (GetWorkflowMode() != HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE) {
         return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
     }
 
@@ -107,7 +108,7 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
 
     CHK_RET_AND_PRINT_IDE(ScatterOutPlace(sendBuf, recvBuf, recvCount, dataType, root, comm, stream, tag), tag.c_str());
 
-    CHK_RET(LogHcclExit("HcclScatter", tag, startut));
+    CHK_RET(LogHcclExit("HcclScatter", tag.c_str(), startut));
     return HCCL_SUCCESS;
 }
 

@@ -52,7 +52,7 @@ u64 InsTempReduceScatterAicpuReduceNHR::GetThreadNum() const
 
 HcclResult InsTempReduceScatterAicpuReduceNHR::KernelRun(const OpParam& param,
                                               const TemplateDataParams& tempAlgParams,
-                                              const TemplateResource& templateResource)
+                                              TemplateResource& templateResource)
 {
     HCCL_INFO("[InsTempReduceScatterAicpuReduceNHR] KernelRun start");
 
