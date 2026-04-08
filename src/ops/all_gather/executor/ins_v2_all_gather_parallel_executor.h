@@ -51,6 +51,8 @@ protected:
     void GetParallelDataSplit(std::vector<float> &splitDataSize) const;
     HcclResult PrepareResForTemplate(InsAlgTemplate0 &tempAlgIntra, InsAlgTemplate1 &tempAlgInter);
     uint64_t GetRankSize(const std::vector<std::vector<u32>> &vTopo) const;
+    HcclResult CalculateHierarchyInfo(const TopoInfoWithNetLayerDetails &topoInfo, const AlgHierarchyInfoForAllLevel &algHierarchyInfo, 
+        std::vector<std::vector<u32>> &intraHierarchyInfo, std::vector<std::vector<u32>> &interHierarchyInfo);
 
     uint64_t rankSizeLevel0_{0};
     uint64_t rankSizeLevel1_{0};
