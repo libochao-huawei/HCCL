@@ -246,7 +246,7 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     u64 interThreadsNum = tempAlgInter.GetThreadNum();
     // 增加对threads_的校验防止assign出现异常
     if (threads_.size() < intraThreadsNum + interThreadsNum + 1) {
-        return HCCL_ERROR_INVALID_PARAM;
+        return HCCL_E_PARA;
     }
     intraThreads_.assign(threads_.begin() + 1, threads_.begin() + 1 + intraThreadsNum);
     interThreads_.assign(threads_.begin() + 1 + intraThreadsNum, threads_.end());
