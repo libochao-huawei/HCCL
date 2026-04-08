@@ -40,7 +40,7 @@ HcclResult InsV2BroadcastSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(Hcc
     std::shared_ptr<InsAlgTemplate> algTemplate = std::make_shared<InsAlgTemplate>(param, topoInfo->userRank, algHierarchyInfo.infos[0]);
 
     // 调用计算资源的函数
-    algTemplate->CalcRes(comm, param, topoInfo, resourceRequest);
+    CHK_RET(algTemplate->CalcRes(comm, param, topoInfo, resourceRequest));
     // 在comb_exector或是parallel_exector中合并两个template的资源
     return HCCL_SUCCESS;
 }
@@ -89,7 +89,9 @@ HcclResult InsV2BroadcastSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     tempAlgParams.buffInfo.inBuffType = BufferType::INPUT;
     tempAlgParams.buffInfo.outBuffType = BufferType::INPUT;
     tempAlgParams.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
-
+    CHK_PTR_NULL(tempAlgParams.buffInfo.inputPtr);
+    CHK_PTR_NULL(tempAlgParams.buffInfo.outputPtr);
+    CHK_PTR_NULL(tempAlgParams.buffInfo.hcclBuff.addr);
     tempAlgParams.buffInfo.hcclBuffBaseOff = 0;
     tempAlgParams.inputSliceStride = 0;
     tempAlgParams.outputSliceStride = 0;

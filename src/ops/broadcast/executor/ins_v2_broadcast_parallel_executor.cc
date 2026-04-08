@@ -246,6 +246,10 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     HCCL_INFO("[InsBroadcastParallelExecutor] AlgTemplate intra server is [%s]", tempAlgIntra.Describe().c_str());
     HCCL_INFO("[InsBroadcastParallelExecutor] AlgTemplate inter server is [%s]", tempAlgInter.Describe().c_str());
 
+    CHK_PTR_NULL(param.inputPtr);
+    CHK_PTR_NULL(param.outputPtr);
+    CHK_PTR_NULL(resCtx.cclMem.addr);
+
     TemplateResource intraTempAlgRes;
     TemplateResource interTempAlgRes;
     if (param.engine == COMM_ENGINE_CCU) {

@@ -164,7 +164,7 @@ HcclResult InsTempBroadcastMesh1DTwoShot::RootSendData(const u64 memOffset,
     sendDstOffset1 += tempAlgParams.buffInfo.hcclBuffBaseOff;
 
     DataSlice sendSrcSlice1 = DataSlice(tempAlgParams.buffInfo.inputPtr, sendSrcOffset1, sliceInfoVec[myRankIdx][0].size);
-    DataSlice sendDstSlice1 = DataSlice(DstPtr, sendDstOffset1, sendDstOffset1);
+    DataSlice sendDstSlice1 = DataSlice(DstPtr, sendDstOffset1,  sliceInfoVec[myRankIdx][0].size);
 
     HCCL_DEBUG("[InsTempBroadcastMesh1DTwoShot] RootSendData: sendSrcSlice1.myRank[%d] addr[%p] offset[%d] Size[%d]",
               myRank_, tempAlgParams.buffInfo.inputPtr, sendSrcOffset1, sliceInfoVec[myRankIdx][0].size);
@@ -368,7 +368,7 @@ HcclResult InsTempBroadcastMesh1DTwoShot::KernelRun(const OpParam& param, const 
     HCCL_DEBUG("[InsTempBroadcastMesh1DTwoShot] BroadcastMesh1DTwoShot rank[%d] slicesize[%d] count[%d].",
                myRank_, tempAlgParams.sliceSize, tempAlgParams.count);
     dataType_ = param.DataDes.dataType;
-    dataTypeSize_  = tempAlgParams.sliceSize/tempAlgParams.count;
+    dataTypeSize_  = DATATYPE_SIZE_TABLE[dataType_];
 
     for (int i = 0; i < subCommRanks_[0].size(); i++) {
         tempVirtRankMap_.insert(std::make_pair(subCommRanks_[0][i], i));
@@ -379,7 +379,7 @@ HcclResult InsTempBroadcastMesh1DTwoShot::KernelRun(const OpParam& param, const 
 
     threadNum_ = templateResource.threads.size();
 
-    HCCL_INFO("[InsTempBroadcastMesh1DTwoShot Run]RankID:[%d], root:[%u]", myRank_, root_);
+    HCCL_INFO("[InsTempBroadcastMesh1DTwoShot Run]RankID:[%d], root:[%u], threadNum_:[%u]", myRank_, root_, threadNum_);
 
     std::vector<u32> scatterCommRanks;
     CHK_RET(CalcCommRankSetforScatter(templateRankSize_, scatterCommRanks));  // 计算scatter步骤的通信对象
