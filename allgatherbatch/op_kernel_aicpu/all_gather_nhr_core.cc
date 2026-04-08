@@ -75,7 +75,6 @@ uint32_t AllGatherNHRCore::GetSliceGroupSize() const
 
 HcclResult AllGatherNHRCore::ValidateCommState() const
 {
-    const ResourceStats stats = CollectResourceStats(param_, resCtx_);
     if (param_.topoInfo.rankSize == 0) {
         HCCL_ERROR("NHR rankSize is zero");
         return HCCL_E_PARA;
@@ -105,20 +104,6 @@ HcclResult AllGatherNHRCore::ValidateCommState() const
         return HCCL_E_INTERNAL;
     }
 
-    if (param_.windowBytes == 0 || packedBytes_ > param_.windowBytes || packedBytes_ > stats.maxWindowBytes) {
-        HCCL_ERROR("NHR window is invalid, packedBytes=%llu, windowBytes=%llu, maxWindowBytes=%llu",
-            static_cast<unsigned long long>(packedBytes_),
-            static_cast<unsigned long long>(param_.windowBytes),
-            static_cast<unsigned long long>(stats.maxWindowBytes));
-        return HCCL_E_INTERNAL;
-    }
-    const uint64_t totalBytes = packedBytes_ * param_.topoInfo.rankSize;
-    if (resCtx_.localBuffer.addr == nullptr || resCtx_.localBuffer.size < totalBytes) {
-        HCCL_ERROR("NHR localBuffer is too small, need=%llu, actual=%llu",
-            static_cast<unsigned long long>(totalBytes),
-            static_cast<unsigned long long>(resCtx_.localBuffer.size));
-        return HCCL_E_INTERNAL;
-    }
     for (size_t idx = 0; idx < runCtx_.subgroupRanks.size(); ++idx) {
         if (runCtx_.subgroupRanks[idx] >= param_.topoInfo.rankSize) {
             HCCL_ERROR("NHR subgroup rank is out of range, subgroupIdx=%u, globalRank=%u, rankSize=%u",
@@ -145,21 +130,6 @@ HcclResult AllGatherNHRCore::ValidateCommState() const
     return HCCL_SUCCESS;
 }
 
-HcclResult AllGatherNHRCore::ValidateChannelMetadata() const
-{
-    for (uint32_t subgroupRank = 0; subgroupRank < runCtx_.rankSize; ++subgroupRank) {
-        const uint32_t remoteGlobalRank = runCtx_.subgroupRanks[subgroupRank];
-        if (remoteGlobalRank == param_.topoInfo.rank) {
-            continue;
-        }
-        const ChannelResource *channel = FindChannelByGlobalRank(remoteGlobalRank);
-        if (channel == nullptr) {
-            HCCL_ERROR("NHR channel is missing, remoteRank=%u", remoteGlobalRank);
-            return HCCL_E_NOT_FOUND;
-        }
-    }
-    return HCCL_SUCCESS;
-}
 
 HcclResult AllGatherNHRCore::ValidateStepPlan(const std::vector<InterServerAlgoStep> &stepPlan) const
 {
@@ -622,7 +592,6 @@ HcclResult AllGatherNHRCore::RunAsync()
     }
 
     HCCL_CHK_RET(ValidateCommState());
-    HCCL_CHK_RET(ValidateChannelMetadata());
 
     GetRankMapping(GetEffectiveRankSize(), runCtx_.keepOrder);
 

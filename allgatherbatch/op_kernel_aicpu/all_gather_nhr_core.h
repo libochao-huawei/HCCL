@@ -50,7 +50,6 @@ private:
     uint32_t GetEffectiveRankSize() const;
     uint32_t GetSliceGroupSize() const;
     HcclResult ValidateCommState() const;
-    HcclResult ValidateChannelMetadata() const;
     HcclResult ValidateStepPlan(const std::vector<InterServerAlgoStep> &stepPlan) const;
     void GetRankMapping(uint32_t rankSize, bool keepOrder);
     void ReorderSequence(

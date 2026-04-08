@@ -39,7 +39,6 @@ AllGatherHDStageCore::AllGatherHDStageCore(const OpParam &param, AlgResourceCtx 
 
 HcclResult AllGatherHDStageCore::ValidateStageInput() const
 {
-    const ResourceStats stats = CollectResourceStats(param_, resCtx_);
 
     if (param_.topoInfo.rankSize == 0) {
         HCCL_ERROR("HDStage rankSize is zero");
@@ -48,29 +47,6 @@ HcclResult AllGatherHDStageCore::ValidateStageInput() const
     if (packedBytes_ == 0) {
         HCCL_ERROR("HDStage packedBytes is zero");
         return HCCL_E_PARA;
-    }
-    if (param_.windowBytes == 0) {
-        HCCL_ERROR("HDStage windowBytes is zero");
-        return HCCL_E_INTERNAL;
-    }
-    if (packedBytes_ > param_.windowBytes) {
-        HCCL_ERROR("HDStage packedBytes=%llu exceeds param windowBytes=%llu",
-            static_cast<unsigned long long>(packedBytes_),
-            static_cast<unsigned long long>(param_.windowBytes));
-        return HCCL_E_INTERNAL;
-    }
-    if (packedBytes_ > stats.maxWindowBytes) {
-        HCCL_ERROR("HDStage packedBytes=%llu exceeds maxWindowBytes=%llu",
-            static_cast<unsigned long long>(packedBytes_),
-            static_cast<unsigned long long>(stats.maxWindowBytes));
-        return HCCL_E_INTERNAL;
-    }
-    const uint64_t totalBytes = packedBytes_ * param_.topoInfo.rankSize;
-    if (resCtx_.localBuffer.addr == nullptr || resCtx_.localBuffer.size < totalBytes) {
-        HCCL_ERROR("HDStage localBuffer is too small, need=%llu, actual=%llu",
-            static_cast<unsigned long long>(totalBytes),
-            static_cast<unsigned long long>(resCtx_.localBuffer.size));
-        return HCCL_E_INTERNAL;
     }
     return HCCL_SUCCESS;
 }
@@ -154,13 +130,6 @@ HcclResult AllGatherHDStageCore::BuildNHRRunCtx(const HDStagePlan &plan, NHRRunC
         const uint32_t globalRank = idx * plan.powerFactor + groupIdx;
         runCtx.subgroupRanks.push_back(globalRank);
         runCtx.slices.push_back(LocalSlice { packedBytes_ * globalRank, packedBytes_ });
-        if (globalRank == rank) {
-            continue;
-        }
-        if (FindChannel(globalRank) == nullptr) {
-            HCCL_ERROR("HDStage subgroup channel is missing, globalRank=%u", globalRank);
-            return HCCL_E_NOT_FOUND;
-        }
     }
     if (runCtx.rank >= runCtx.rankSize) {
         HCCL_ERROR("HDStage subgroupRank=%u is out of range, subgroupSize=%u",
@@ -257,14 +226,6 @@ HcclResult AllGatherHDStageCore::ReadPartnerRanks(
         HCCL_ERROR("HDStage %s channel to partnerRank=%u is missing", stageTag, partnerRank);
         return HCCL_E_NOT_FOUND;
     }
-    if (channel->remoteBuffer.addr == nullptr ||
-        channel->remoteBuffer.size < (packedBytes_ * param_.topoInfo.rankSize)) {
-        HCCL_ERROR("HDStage %s remote buffer is too small, partnerRank=%u, need=%llu, actual=%llu",
-            stageTag,
-            partnerRank,
-            static_cast<unsigned long long>(packedBytes_ * param_.topoInfo.rankSize),
-            static_cast<unsigned long long>(channel->remoteBuffer.size));
-        return HCCL_E_INTERNAL;
     }
     int32_t ret = HcommChannelNotifyRecordOnThread(
         resCtx_.threadHandle,
