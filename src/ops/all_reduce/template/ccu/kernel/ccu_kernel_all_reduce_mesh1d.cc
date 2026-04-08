@@ -166,9 +166,6 @@ HcclResult CcuKernelAllReduceMesh1D::Algorithm()
 std::vector<uint64_t> CcuKernelAllReduceMesh1D::GeneArgs(const CcuTaskArg &arg)
 {
     const CcuTaskArgAllReduceMesh1D *taskArg = dynamic_cast<const CcuTaskArgAllReduceMesh1D *>(&arg);
-    if (taskArg == nullptr) {
-        HCCL_ERROR("CcuKernelAllReduceMesh1D::taskArg ptr is null");
-    }
     uint64_t inputAddr  = taskArg->inputAddr_;
     uint64_t outputAddr = taskArg->outputAddr_;
     uint64_t tokenInfo  = taskArg->token_;
