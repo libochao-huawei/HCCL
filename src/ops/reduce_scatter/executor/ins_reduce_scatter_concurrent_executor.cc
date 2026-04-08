@@ -302,6 +302,7 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
     reduceOp_ = param.reduceType;
     dataType_ = param.DataDes.dataType;
     dataCount_ = param.DataDes.count; // recvCount
+    strideCount_ = param.DataDes.strideCount;
     dataTypeSize_ = SIZE_TABLE[param.DataDes.dataType];
 
     algHierarchyInfo_ = algHierarchyInfo;
@@ -318,6 +319,7 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
     rankSize_ = resCtx.topoInfo.userRankSize;
 
     dataCount_ = param.DataDes.count;
+    strideCount_ = param.DataDes.strideCount;
     dataTypeSize_ =  SIZE_TABLE[param.DataDes.dataType];
     dataSize_ = dataCount_ * dataTypeSize_;
     dataType_ = param.DataDes.dataType;
@@ -340,7 +342,9 @@ void InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     tempAlgParams.buffInfo.outBuffBaseOff = dataOffset;
     tempAlgParams.sliceSize = dataCountforTemp * dataTypeSize_;
     tempAlgParams.tailSize = tempAlgParams.sliceSize;
-    tempAlgParams.inputSliceStride = dataSize_; // 输出长度
+    tempAlgParams.inputSliceStride = (strideCount_ == 0)
+                                     ? dataSize_
+                                     : strideCount_ * dataTypeSize_; // 输出长度
     tempAlgParams.outputSliceStride = maxCountPerLoop * dataTypeSize_; // 如果是scratchbuffer，偏移是单次循环处理的最大数据量
 }
 
