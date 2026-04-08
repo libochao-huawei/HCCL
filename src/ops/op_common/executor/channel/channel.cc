@@ -319,24 +319,52 @@ HcclResult AddChannelsDetour(std::map<u32, std::vector<u32>> &channelsMap, std::
     return HCCL_SUCCESS;
 }
 
-HcclResult ClassifyDetourChannels(CommLink &link, u32 index, std::vector<u32> &directChannels, std::vector<u32> &sendChannels,
-                                  std::vector<u32> &recvChannels)
-{
-    if (link.linkAttr.hop == 1) {
+HcclResult ClassifyDetourChannels(std::vector<CommLink> &allLinks, u32 index, std::vector<HcclChannelDesc> &channels, u32 myRank, HcclDetourType &detourType, 
+                                  std::vector<u32> &directChannels, std::vector<u32> &sendChannels, std::vector<u32> &recvChannels)
+{   
+    u64 half = allLinks.size() - 1 / 2;
+    u32 channelIdx = channels.size() - allLinks.size() + index;
+    if (allLinks[index].linkAttr.hop == 1) {
         // direct链路
-        directChannels.emplace_back(index);
-    } else if (link.direction == COMM_LINK_DIRECTION_SEND_ONLY) {
-        // sendOnly绕路链路
-        sendChannels.emplace_back(index);
-    } else if (link.direction == COMM_LINK_DIRECTION_RECV_ONLY) {
-        // recvOnly绕路链路
-        recvChannels.emplace_back(index);
+        HCCL_INFO("[zzy][ClassifyDetourChannels] direct");
+        directChannels.emplace_back(channelIdx);
+    } else if (detourType == HcclDetourType::HCCL_DETOUR_ENABLE_2P) {
+        if (index < half && myRank == 0 || index >= half && myRank == 1) {
+            // sendOnly绕路链路
+            HCCL_INFO("[zzy][ClassifyDetourChannels] sendonly");
+            sendChannels.emplace_back(channelIdx);
+        } else if (index < half && myRank == 1 || index >= half && myRank == 0) {
+            // recvOnly绕路链路
+            HCCL_INFO("[zzy][ClassifyDetourChannels] recvonly");
+            recvChannels.emplace_back(channelIdx);
+        }
+    } else if (detourType == HcclDetourType::HCCL_DETOUR_ENABLE_4P) {
+        if (allLinks.size() == 2) {
+            channels.emplace_back(channels[channelIdx]);
+            sendChannels.emplace_back(channelIdx);
+            recvChannels.emplace_back(channelIdx + 1);
+        }
     }
     return HCCL_SUCCESS;
 }
 
+void LinkDFX(CommLink &link)
+{
+    HCCL_INFO("[zzy] hop[%u], direction[%d]", link.linkAttr.hop, link.direction);
+    u32 idx = 0;
+    for(uint8_t d : link.srcEndpointDesc.commAddr.eid) {
+        HCCL_INFO("[zzy] link src eid[%d] is [%02hhX]", idx, d);
+        idx++;
+    }
+    u32 idx = 0;
+    for(uint8_t d : link.dstEndpointDesc.commAddr.eid) {
+        HCCL_INFO("[zzy] link dst eid[%d] is [%02hhX]", idx, d);
+        idx++;
+    }
+}
+
 HcclResult ClassifyDetourChannelsEveryLayers(HcclComm &comm, u32 myRank, u32 rank, std::vector<uint32_t> &netLayersVector, std::vector<CommProtocol> &expectedProtocols,
-                                             std::vector<u32> &directChannels, std::vector<u32> &sendChannels, std::vector<u32> &recvChannels,
+                                             HcclDetourType &detourType, std::vector<u32> &directChannels, std::vector<u32> &sendChannels, std::vector<u32> &recvChannels,
                                              std::vector<HcclChannelDesc> &channels)
 {
     for (auto netLayer : netLayersVector) {
@@ -347,6 +375,7 @@ HcclResult ClassifyDetourChannelsEveryLayers(HcclComm &comm, u32 myRank, u32 ran
             HCCL_ERROR("[ClassifyDetourChannelsEveryLayers] the nums of link is 0, myRank[%u], remoteRank[%u]",
                 myRank, rank), HcclResult::HCCL_E_INTERNAL);
         std::vector<CommLink> links(linkList, linkList + listSize);
+        std::vector<CommLink> allLinks;
         CommLink priorLink;
         u64 linkCounts = 0;
         for (u32 idx = 0; idx < listSize; idx++) {
@@ -360,18 +389,19 @@ HcclResult ClassifyDetourChannelsEveryLayers(HcclComm &comm, u32 myRank, u32 ran
             }
             if (isFound && (linkCounts == 0 || !IsSameLink(priorLink, link))) {
                 CHK_RET(CreateChannelFromLink(comm, myRank, rank, netLayer, idx, link, "ClassifyDetourChannelsEveryLayers", channels));
-                CHK_RET(ClassifyDetourChannels(link, channels.size() - 1, directChannels, sendChannels, recvChannels));
+                allLinks.emplace_back(link);
                 priorLink = link;
                 linkCounts++;
             }
         }
+        for (u32 idx = 0; idx < allLinks.size(); idx++) {
+            HCCL_INFO("[zzy] idx is [%u]", idx);
+            LinkDFX(allLinks[idx]);
+            CHK_RET(ClassifyDetourChannels(allLinks, idx, channels, myRank, detourType, directChannels, sendChannels, recvChannels));
+        }
         CHK_PRT_RET(sendChannels.size() != recvChannels.size(),
             HCCL_ERROR("[ClassifyDetourChannelsEveryLayers] sendChannels.size()[%llu] != recvChannels.size()[%llu]",
                 sendChannels.size(), recvChannels.size()), HcclResult::HCCL_E_INTERNAL);
-        // 与某个rank的commlink条数 = 1条直连链路 + (绕路的节点个数 * 2)条绕路链路，send recv各一条
-        CHK_PRT_RET((linkCounts & 1) == 0,
-            HCCL_ERROR("[ClassifyDetourChannelsEveryLayers] The num[%llu] of links is not right, remoteRank is [%llu]",
-                linkCounts, rank), HcclResult::HCCL_E_INTERNAL);
     }
     return HCCL_SUCCESS;
 }
@@ -407,7 +437,7 @@ HcclResult CalcChannelRequestMesh1DDetour(HcclComm comm, const OpParam& param, c
         uint32_t netLayerNum;
         CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
         std::vector<uint32_t> netLayersVector(netLayers, netLayers + netLayerNum);
-        CHK_RET(ClassifyDetourChannelsEveryLayers(comm, myRank, rank, netLayersVector, expectedProtocols,
+        CHK_RET(ClassifyDetourChannelsEveryLayers(comm, myRank, rank, netLayersVector, expectedProtocols, param.detourType, 
                 directChannelsMap[rank], sendChannelsMap[rank], recvChannelsMap[rank], channels));
     }
     CHK_RET(AddChannelsDetour(directChannelsMap, channelsIndexVec, myRank, subcommInfo[COMM_LEVEL0], "direct"));
