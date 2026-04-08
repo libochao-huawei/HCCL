@@ -205,7 +205,7 @@ HcclResult AllGatherVOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount,c
     param.deviceType = deviceType;
     if (userRankSize == 1) {
  	  	HCCL_WARNING("[%s] rankSize == 1, enter SingleRankProc", __func__);
- 	  	CHK_RET(SingleRankProc(param));
+        CHK_RET(SingleRankProc(comm, param));
  	  	return HcclResult::HCCL_SUCCESS;
  	}
 
@@ -291,7 +291,7 @@ HcclResult AllGatherVOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t se
     param.opType = HcclCMDType::HCCL_CMD_ALLGATHER_V, param.enableDetour = false, param.deviceType = deviceType;
  	if (userRankSize == 1) {
  	  	HCCL_WARNING("[%s] rankSize == 1, enter SingleRankProc", __func__);
- 	  	CHK_RET(SingleRankProc(param));
+        CHK_RET(SingleRankProc(comm, param));
  	  	return HcclResult::HCCL_SUCCESS;
  	}
  	std::string algName;
