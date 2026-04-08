@@ -43,28 +43,15 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     // 构建template
     std::vector<std::vector<u32>> intraHierarchyInfo;
     std::vector<std::vector<u32>> interHierarchyInfo;
-    if(topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-        intraHierarchyInfo = {algHierarchyInfo.infos[0][0]};
-        std::vector<u32> closRanks;
-        u32 meshSize = algHierarchyInfo.infos[0][0].size();
-        for(auto rank : algHierarchyInfo.infos[0][1]) {
-            if(rank % meshSize == topoInfo->userRank % meshSize) {
-                closRanks.push_back(rank);
-            }
-        }
-        interHierarchyInfo = {closRanks};
-    } else {
-        intraHierarchyInfo = algHierarchyInfo.infos[0];
-        interHierarchyInfo = algHierarchyInfo.infos[1];
-    }
+    CHK_RET(CalculateHierarchyInfo(*topoInfo, algHierarchyInfo, intraHierarchyInfo, interHierarchyInfo));
     InsAlgTemplate0 intraTempAlg(param, topoInfo->userRank, intraHierarchyInfo);
     InsAlgTemplate1 interTempAlg(param, topoInfo->userRank, interHierarchyInfo);
 
     // 调用计算资源的函数
     AlgResourceRequest intraTempRequest;
     AlgResourceRequest interTempRequest;
-    intraTempAlg.CalcRes(comm, param, topoInfo, intraTempRequest);
-    interTempAlg.CalcRes(comm, param, topoInfo, interTempRequest);
+    CHK_RET(intraTempAlg.CalcRes(comm, param, topoInfo, intraTempRequest));
+    CHK_RET(interTempAlg.CalcRes(comm, param, topoInfo, interTempRequest));
     constexpr u32 SUB_MAIN_THREAD_NUM = 2;
     resourceRequest.notifyNumOnMainThread = SUB_MAIN_THREAD_NUM;  // 用于两个template间同步
     resourceRequest.slaveThreadNum = intraTempRequest.slaveThreadNum + interTempRequest.slaveThreadNum + SUB_MAIN_THREAD_NUM;
@@ -77,6 +64,9 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
                                               interTempRequest.notifyNumPerThread.begin(),
                                               interTempRequest.notifyNumPerThread.end());
     if (param.engine != COMM_ENGINE_CCU) {
+        CHK_PRT_RET(intraTempRequest.channels.empty() || interTempRequest.channels.empty(), 
+                    HCCL_ERROR("intraTempRequest.channels or interTempRequest.channels is empty"), 
+                    HCCL_E_PARA);
         resourceRequest.channels.emplace_back(intraTempRequest.channels[0]);
         resourceRequest.channels.emplace_back(interTempRequest.channels[0]);
     } else {
@@ -269,20 +259,9 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     dataTypeSize_ = DATATYPE_SIZE_TABLE[param.DataDes.dataType];
     dataSize_ = dataCount_ * dataTypeSize_;
 
-    if(resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS) {
-        intraHierarchyInfo_ = {resCtx.algHierarchyInfo.infos[0][0]};
-        std::vector<u32> closRanks;
-        u32 meshSize = resCtx.algHierarchyInfo.infos[0][0].size();
-        for(auto rank : resCtx.algHierarchyInfo.infos[0][1]) {
-            if(rank % meshSize == resCtx.topoInfo.userRank % meshSize) {
-                closRanks.push_back(rank);
-            }
-        }
-        interHierarchyInfo_ = {closRanks};
-    } else {
-        intraHierarchyInfo_ = resCtx.algHierarchyInfo.infos[0];
-        interHierarchyInfo_ = resCtx.algHierarchyInfo.infos[1];
-    }
+    
+    CHK_RET(CalculateHierarchyInfo(resCtx.topoInfo, resCtx.algHierarchyInfo, intraHierarchyInfo_, interHierarchyInfo_));
+
     rankSizeLevel0_ = GetRankSize(intraHierarchyInfo_);
     rankSizeLevel1_ = GetRankSize(interHierarchyInfo_);
     rankIdxLevel0_ = myRank_ % rankSizeLevel0_;
@@ -432,7 +411,42 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
         CHK_RET(PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_));
     }
     return HcclResult::HCCL_SUCCESS;
-};
+}
+
+template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
+HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::CalculateHierarchyInfo(
+    const TopoInfoWithNetLayerDetails &topoInfo, const AlgHierarchyInfoForAllLevel &algHierarchyInfo, 
+    std::vector<std::vector<u32>> &intraHierarchyInfo, std::vector<std::vector<u32>> &interHierarchyInfo) {
+    CHK_PRT_RET(
+        algHierarchyInfo.infos.empty() || algHierarchyInfo.infos[0].empty(),
+        HCCL_ERROR("[InsV2AllGatherParallelExecutor] algHierarchyInfo.infos is wrong"), HCCL_E_PARA
+    );
+    constexpr u32 TOPO_NUM = 2;
+    if(topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS) {
+        CHK_PRT_RET(
+            algHierarchyInfo.infos[0].size() < TOPO_NUM || algHierarchyInfo.infos[0][0].empty() || algHierarchyInfo.infos[0][1].empty(),
+            HCCL_ERROR("[InsV2AllGatherParallelExecutor][MESH_1D_CLOS] algHierarchyInfo.infos[0] is wrong"), HCCL_E_PARA
+        );
+        intraHierarchyInfo = {algHierarchyInfo.infos[0][0]};
+        std::vector<u32> closRanks;
+
+        u32 meshSize = algHierarchyInfo.infos[0][0].size();
+        for(auto rank : algHierarchyInfo.infos[0][1]) {
+            if(rank % meshSize == topoInfo.userRank % meshSize) {
+                closRanks.push_back(rank);
+            }
+        }
+        interHierarchyInfo = {closRanks};
+    } else {
+        CHK_PRT_RET(
+            algHierarchyInfo.infos.size() < TOPO_NUM || algHierarchyInfo.infos[1].empty(),
+            HCCL_ERROR("[InsV2AllGatherParallelExecutor] algHierarchyInfo.infos wrong"), HCCL_E_PARA
+        );
+        intraHierarchyInfo = algHierarchyInfo.infos[0];
+        interHierarchyInfo = algHierarchyInfo.infos[1];
+    }
+    return HCCL_SUCCESS;
+}
 
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherParallelMesh1DNHR,
                                InsV2AllGatherParallelExecutor, TopoMatchMultilevel, InsTempAllGatherMesh1D,
@@ -440,4 +454,5 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherPara
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherParallelMesh1DNHRUBX,
                                InsV2AllGatherParallelExecutor, TopoMatchUBX, InsTempAllGatherMesh1D,
                                InsTempAllGatherNHR);
+
 }
