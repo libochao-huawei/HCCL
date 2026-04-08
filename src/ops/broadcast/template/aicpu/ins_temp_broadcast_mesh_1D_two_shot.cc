@@ -418,7 +418,7 @@ HcclResult InsTempBroadcastMesh1DTwoShot::KernelRun(const OpParam& param, const 
 
     threadNum_ = templateResource.threads.size();
 
-    HCCL_INFO("[InsTempBroadcastMesh1DTwoShot Run]RankID:[%d], root:[%u]", myRank_, root_);
+    HCCL_INFO("[InsTempBroadcastMesh1DTwoShot Run]RankID:[%d], root:[%u], threadNum_:[%u]", myRank_, root_, threadNum_);
 
     std::vector<u32> scatterCommRanks;
     CHK_RET(CalcCommRankSetforScatter(templateRankSize_, scatterCommRanks));  // 计算scatter步骤的通信对象
