@@ -451,13 +451,19 @@ HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
         tempFastLaunchCtxIntra0.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[0]);
         ccuKernelSubmitInfos += ctx->ccuKernelNum[0];
         //把每个template需要的queue传进去，比如stars的mesh要传多条queue
-        CHK_RET(intraTempAlg.FastLaunch(param, tempFastLaunchCtxIntra0));
+        if (ctx->ccuKernelNum[0] > 0)
+        {
+            CHK_RET(intraTempAlg.FastLaunch(param, tempFastLaunchCtxIntra0));
+        }
         //数据1的server间的nhr算法
         CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxInter1, param.inputPtr, param.hcclBuff.addr, param.hcclBuff));
         tempFastLaunchCtxInter1.threads = interThreads_;
         tempFastLaunchCtxInter1.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[1]);
         ccuKernelSubmitInfos += ctx->ccuKernelNum[1];
-        CHK_RET(interTempAlg.FastLaunch(param, tempFastLaunchCtxInter1));
+        if (ctx->ccuKernelNum[1] > 0)
+        {
+            CHK_RET(interTempAlg.FastLaunch(param, tempFastLaunchCtxInter1));
+        }
         //第一步做完后回到主流做尾同步
         PostSyncInterTemplates();
 
@@ -516,7 +522,7 @@ void InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
 {
     tempAlgParamsInter0.buffInfo.inputPtr = resCtx.cclMem.addr;
     tempAlgParamsInter0.buffInfo.outputPtr = param.outputPtr;
-    tempAlgParamsInter0.buffInfo.inputSize = param.inputSize;
+    tempAlgParamsInter0.buffInfo.inputSize = resCtx.cclMem.size;
     tempAlgParamsInter0.buffInfo.outputSize = param.outputSize;
     tempAlgParamsInter0.buffInfo.hcclBuff = resCtx.cclMem;
     tempAlgParamsInter0.buffInfo.inBuffType = BufferType::HCCL_BUFFER;
@@ -570,7 +576,7 @@ void InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
 {
     tempAlgParamsIntra1.buffInfo.inputPtr = resCtx.cclMem.addr;
     tempAlgParamsIntra1.buffInfo.outputPtr = param.outputPtr;
-    tempAlgParamsIntra1.buffInfo.inputSize = param.inputSize;
+    tempAlgParamsIntra1.buffInfo.inputSize = resCtx.cclMem.size;
     tempAlgParamsIntra1.buffInfo.outputSize = param.outputSize;
     tempAlgParamsIntra1.buffInfo.hcclBuff = resCtx.cclMem;
     tempAlgParamsIntra1.buffInfo.inBuffType = BufferType::HCCL_BUFFER;
