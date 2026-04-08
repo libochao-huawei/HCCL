@@ -28,6 +28,19 @@ SelectorStatus AlltoAllVAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNe
         return SelectorStatus::NOT_MATCH;
     }
 
+    HcclAlgoType levleAlgo = HcclAlgoType::HCCL_ALGO_TYPE_DEFAULT;
+    auto it = configAlgMap.find(opParam.opType);
+    if ((it != configAlgMap.end()) && (it->second.size() > 0)) {
+        levleAlgo = it->second[4];
+    }
+
+    // === OMNI BEGIN === 
+    if (levleAlgo == HcclAlgoType::HCCL_ALGO_TYPE_OMNI) {
+        selectAlgName = "CcuOMNI";
+        return SelectorStatus::MATCH;
+    }
+    // === OMNI END === 
+
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
         if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
             selectAlgName = "CcuAllToAllVMesh2Die";
@@ -54,6 +67,29 @@ SelectorStatus AlltoAllVAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNe
         return SelectorStatus::NOT_MATCH;
     }
     return SelectorStatus::MATCH;
+}
+
+// OMNI
+SelectorStatus AlltoAllVAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails* topoInfo,
+                                                    const OpParam &opParam,
+                                                    const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+                                                    std::string &selectAlgName) const
+{
+    HcclAlgoType levle0Algo = HcclAlgoType::HCCL_ALGO_TYPE_DEFAULT;
+    HcclAlgoType levleAlgo = HcclAlgoType::HCCL_ALGO_TYPE_DEFAULT;
+    auto it = configAlgMap.find(opParam.opType);
+    if ((it != configAlgMap.end()) && (it->second.size() > 0)) {
+        levle0Algo = it->second[0];
+        levleAlgo = it->second[4];
+    }
+
+    if (levleAlgo == HcclAlgoType::HCCL_ALGO_TYPE_OMNI) {
+        selectAlgName = "CcuOMNI";
+        return SelectorStatus::MATCH;
+    }
+
+    HCCL_WARNING("[Algo][AlltoAllVCAutoSelector] is not supported yet for ccu_ms mode, reset to default.");
+    return SelectorStatus::NOT_MATCH;
 }
 
 SelectorStatus AlltoAllVAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerDetails* topoInfo,

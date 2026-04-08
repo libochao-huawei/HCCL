@@ -27,6 +27,7 @@ HcclResult CollAlgExecRegistryV2::Register(const HcclCMDType type, const std::st
         return HcclResult::HCCL_E_INTERNAL;
     }
     execCreators_[type].emplace(tag, collExecCreator);
+    HCCL_DEBUG("[CollAlgExecRegistryV2] type %u, tag [%s]", type, tag.c_str());
     return HcclResult::HCCL_SUCCESS;
 }
 

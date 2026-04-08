@@ -95,8 +95,9 @@ constexpr u32 HCCL_ALGO_LEVEL_0 = 0;        // HCCL 算法层级0
 constexpr u32 HCCL_ALGO_LEVEL_1 = 1;        // HCCL 算法层级1
 constexpr u32 HCCL_ALGO_LEVEL_2 = 2;        // HCCL 算法层级2
 constexpr u32 HCCL_ALGO_LEVEL_3 = 3;        // HCCL 算法层级3
-constexpr u32 HCCL_ALGO_LEVEL_NUM = 4;      // HCCL 算法层级最多4级
+constexpr u32 HCCL_ALGO_LEVEL_NUM = 5;      // HCCL 算法层级最多5级 增加了OMNI
 constexpr u32 HCCL_INVALID_PORT = 65536;  // HCCL 默认无效端口号
+constexpr u32 HCCL_ALGO_LEVEL = 4;        // HCCL OMNI
 
 inline std::string GetDataTypeEnumStr(u32 dataType)
 {
