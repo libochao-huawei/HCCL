@@ -18,6 +18,7 @@ namespace ops_hccl {
 
 class CcuTempAlltoAllMesh1D : public CcuAlgTemplateBase {
 public:
+    CcuTempAlltoAllMesh1D() = default;
     explicit  CcuTempAlltoAllMesh1D(const OpParam& param, 
                                         const u32 rankId, // 传通信域的rankId，userRank
                                         const std::vector<std::vector<u32>> &subCommRanks);
@@ -42,6 +43,9 @@ public:
     void InitInsAlgTemplate(
         std::vector<u64> &sendCounts, std::vector<u64> &recvCounts,
         std::vector<u64> &sdispls, std::vector<u64> &rdispls);
+
+    HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx) override;
+
 private:
     A2ASendRecvInfo localSendRecvInfo_;
     u32             concurrentSendRecvNum_ = 8;
