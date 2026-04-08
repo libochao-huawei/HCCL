@@ -303,24 +303,33 @@ std::vector<uint64_t> CcuKernelAlltoAllVMesh1D::GeneArgs(const CcuTaskArg &arg)
         processReturn.push_back(val);
     }
     uint64_t rankSize = taskArg->rankSize_;
-
-    uint64_t tailSize = taskArg->localSendRecvInfo_.sendLength[myRank] % UB_MAX_TRANS_SIZE;
-    uint64_t loopNum = UINT64_MAX - 1 - (taskArg->localSendRecvInfo_.sendLength[myRank] / UB_MAX_TRANS_SIZE);
-    uint64_t sendOffset = taskArg->localSendRecvInfo_.sendOffset[myRank];
-    uint64_t recvOffset = taskArg->localSendRecvInfo_.recvOffset[myRank];
-    auto tailGoSize = CalGoSize(tailSize);
+    for (uint64_t i = 0; i < rankSize; i++) {
+    uint64_t tailSize = taskArg->localSendRecvInfo_.sendLength[i] % UB_MAX_TRANS_SIZE;
+    uint64_t loopNum = UINT64_MAX - 1 - (taskArg->localSendRecvInfo_.sendLength[i] / UB_MAX_TRANS_SIZE);
+    uint64_t sendOffset = taskArg->localSendRecvInfo_.sendOffset[i];
+    uint64_t recvOffset = taskArg->localSendRecvInfo_.recvOffset[i];
+    
     processReturn.push_back(tailSize);
     processReturn.push_back(loopNum);
     processReturn.push_back(sendOffset);
     processReturn.push_back(recvOffset);
-    for (auto val : tailGoSize) {
-        processReturn.push_back(val);
+    std::vector<uint64_t> virTailSize;
+    virTailSize.resize(ALL_TO_ALL_V_VECTOR_NUM, 0);
+    if (i == myRank) {
+        auto tailGoSize = CalGoSize(tailSize);
+        for (auto val : tailGoSize) {
+            processReturn.push_back(val);
+        }
+    } else {
+        for (auto val : virTailSize) {
+            processReturn.push_back(val);
+        }
     }
-    HCCL_INFO("[AllToAllVAlgo] rankIdx[myRank] taskArg->rankSize_[%u],"
+    HCCL_INFO("[AllToAllVAlgo] rankIdx[i] taskArg->rankSize_[%u],"
               "taskArg->localSendRecvInfo.sendOffset[%llu],"
               "taskArg->localSendRecvInfo.recvOffset[%llu]",
-        taskArg->rankSize_, taskArg->localSendRecvInfo_.sendOffset[myRank], taskArg->localSendRecvInfo_.recvOffset[myRank]);
-
+        taskArg->rankSize_, taskArg->localSendRecvInfo_.sendOffset[i], taskArg->localSendRecvInfo_.recvOffset[i]);
+    }
     return processReturn;
 }
 

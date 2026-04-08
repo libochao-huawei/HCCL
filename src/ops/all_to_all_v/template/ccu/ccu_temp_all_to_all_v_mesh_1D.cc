@@ -119,7 +119,6 @@ HcclResult CcuTempAlltoAllVMesh1D::FastLaunch(const OpParam& param, const Templa
 {
     HCCL_INFO("[CcuTempAlltoAllVMesh1D::FastLaunch] start");
     uint64_t rankSize_ = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[5];
-    uint32_t myRank = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[6];
     HcclDataType dataType_ = param.all2AllVDataDes.sendType;
     uint64_t dataTypeSize_ =  SIZE_TABLE[dataType_];
     
@@ -139,19 +138,21 @@ HcclResult CcuTempAlltoAllVMesh1D::FastLaunch(const OpParam& param, const Templa
         param.varMemSize), HCCL_E_PARA);
 
     const u64* data = reinterpret_cast<const u64*>(param.varData);
-    for (u64 i = 0; i < ALL_TO_ALL_V_VECTOR_NUM; i++) {
-        switch(i) {
+    for (u64 i = 0; i < ALL_TO_ALL_V_VECTOR_NUM * rankSize_ ; i++) {
+        u64 val = i / rankSize_;
+ 	    u64 curRank = i % rankSize_;
+        switch(val) {
             case CONST_ZERO:
-                localSendRecvInfo.sendLength[myRank] = data[i] * dataTypeSize_;
-                HCCL_INFO("data[i]: %u, localSendRecvInfo.sendLength: %u", data[i], localSendRecvInfo.sendLength[myRank]);
+                localSendRecvInfo.sendLength[curRank] = data[i] * dataTypeSize_;
+                HCCL_INFO("data[i]: %u, localSendRecvInfo.sendLength: %u", data[i], localSendRecvInfo.sendLength[curRank]);
                 break;
             case CONST_TWO:
-                localSendRecvInfo.sendOffset[myRank] = data[i] * dataTypeSize_;
-                HCCL_INFO("data[i]: %u, localSendRecvInfo.sendOffset: %u", data[i], localSendRecvInfo.sendOffset[myRank]);
+                localSendRecvInfo.sendOffset[curRank] = data[i] * dataTypeSize_;
+                HCCL_INFO("data[i]: %u, localSendRecvInfo.sendOffset: %u", data[i], localSendRecvInfo.sendOffset[curRank]);
                 break;
             case CONST_THREE:
-                localSendRecvInfo.recvOffset[myRank] = data[i] * dataTypeSize_;
-                HCCL_INFO("data[i]: %u, localSendRecvInfo.recvOffset: %u", data[i], localSendRecvInfo.recvOffset[myRank]);
+                localSendRecvInfo.recvOffset[curRank] = data[i] * dataTypeSize_;
+                HCCL_INFO("data[i]: %u, localSendRecvInfo.recvOffset: %u", data[i], localSendRecvInfo.recvOffset[curRank]);
                 break;
             default:
                 break;
