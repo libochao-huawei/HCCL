@@ -85,6 +85,8 @@ HcclResult InsV2AllGatherSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     reduceOp_ = param.reduceType;
     algHierarchyInfo_ = resCtx.algHierarchyInfo;
     threads_ = resCtx.threads;
+    strideSize_ = param.DataDes.strideCount * dataTypeSize_;
+    HCCL_INFO("[InsV2AllGatherSequenceExecutor][Orchestrate] strideCount=%lu, strideSize_=%lu", param.DataDes.strideCount, strideSize_);
     rankSizeLevel0_ = algHierarchyInfo_.infos[0][0].size();
     rankSizeLevel1_ = algHierarchyInfo_.infos[1][0].size();
     CHK_RET(RestoreChannelMap(resCtx, remoteRankToChannelInfo_));
@@ -158,7 +160,7 @@ HcclResult InsV2AllGatherSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
         interTempDataParams.tailSize = interTempDataParams.sliceSize;
         // 这里的stride当成传统意义上的stride间隔
         interTempDataParams.inputSliceStride = 0;
-        interTempDataParams.outputSliceStride = dataSize_ * rankSizeLevel0_;
+        interTempDataParams.outputSliceStride = (strideSize_ == 0 ? dataSize_ : strideSize_) * rankSizeLevel0_;
 
         interTempDataParams.repeatNum = 1;
         interTempDataParams.inputRepeatStride = 0;
@@ -185,7 +187,7 @@ HcclResult InsV2AllGatherSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
         intraTempDataParams.tailSize = intraTempDataParams.sliceSize;
         // 这里的stride当成传统意义上的stride间隔
         intraTempDataParams.inputSliceStride = dataSize_;
-        intraTempDataParams.outputSliceStride = dataSize_;
+        intraTempDataParams.outputSliceStride = strideSize_ == 0 ? dataSize_ : strideSize_;
 
         intraTempDataParams.repeatNum = rankSizeLevel1_;
         intraTempDataParams.inputRepeatStride = dataSize_ * rankSizeLevel0_;

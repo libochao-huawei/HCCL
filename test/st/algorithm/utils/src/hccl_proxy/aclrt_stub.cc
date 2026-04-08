@@ -284,6 +284,7 @@ aclError aclrtLaunchKernelWithConfig(aclrtFuncHandle funcHandle, uint32_t numBlo
     aclrtStream stream, aclrtLaunchKernelCfg *cfg,
     aclrtArgsHandle argsHandle, void *reserve)
 {
+    HCCL_INFO("Enter aclrtLaunchKernelWithConfig.")
     if (argsHandle == nullptr || stream == nullptr) {
         HCCL_ERROR("[aclrtLaunchKernelWithConfig] invalid input argsHandle or stream");
         return ACL_ERROR_INVALID_PARAM;
