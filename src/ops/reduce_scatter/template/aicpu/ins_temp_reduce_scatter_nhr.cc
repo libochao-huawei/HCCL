@@ -237,6 +237,10 @@ HcclResult InsTempReduceScatterNHR::GetStepInfoList(std::vector<AicpuNHRStepInfo
     CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], u32x));
     stepInfoList.clear();
 
+    // 添加对templateRankSize_ == 0的校验防止除0错误
+    CHK_PRT_RET(templateRankSize_ == 0,
+        HCCL_ERROR("[InsTempReduceScatterNHR][GetStepInfoList] templateRankSize_ is 0"), HCCL_E_INTERNAL);
+    // 计算轮数
     u32 nSteps = GetNHRStepNum(templateRankSize_);
     stepInfoList.resize(nSteps);
     for (u32 step = 0; step < nSteps; step++) {
