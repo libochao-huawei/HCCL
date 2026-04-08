@@ -40,18 +40,7 @@ AllGatherHDStageCore::AllGatherHDStageCore(const OpParam &param, AlgResourceCtx 
 HcclResult AllGatherHDStageCore::ValidateStageInput() const
 {
     const ResourceStats stats = CollectResourceStats(param_, resCtx_);
-    if (!IsValidCommMode(param_.commMode)) {
-        HCCL_ERROR("HDStage commMode is invalid");
-        return HCCL_E_INTERNAL;
-    }
-    if (!HasConsistentRankDistribution(param_)) {
-        HCCL_ERROR("HDStage rank distribution is inconsistent, commMode=%s, intra=%u, cross=%u, rankSize=%u",
-            ToCommModeString(param_.commMode),
-            param_.intraServerRankCount,
-            param_.crossServerRankCount,
-            param_.topoInfo.rankSize);
-        return HCCL_E_INTERNAL;
-    }
+
     if (param_.topoInfo.rankSize == 0) {
         HCCL_ERROR("HDStage rankSize is zero");
         return HCCL_E_PARA;
@@ -106,7 +95,6 @@ HcclResult AllGatherHDStageCore::BuildStagePlan(HDStagePlan &plan) const
 
 HcclResult AllGatherHDStageCore::ValidateStagePlan(const HDStagePlan &plan) const
 {
-    const ResourceStats stats = CollectResourceStats(param_, resCtx_);
     if (plan.noPower == 0) {
         HCCL_ERROR("HDStage noPower is zero");
         return HCCL_E_INTERNAL;
@@ -131,21 +119,7 @@ HcclResult AllGatherHDStageCore::ValidateStagePlan(const HDStagePlan &plan) cons
             plan.powerSteps);
         return HCCL_E_INTERNAL;
     }
-    if (stats.intraServerChannels + stats.crossServerChannels != resCtx_.channelCount) {
-        HCCL_ERROR("HDStage channel scope split is inconsistent, intra=%u, cross=%u, channelCount=%u",
-            stats.intraServerChannels,
-            stats.crossServerChannels,
-            resCtx_.channelCount);
-        return HCCL_E_INTERNAL;
-    }
-    if (param_.commMode == BatchCommMode::kSingleServer && stats.crossServerChannels != 0) {
-        HCCL_ERROR("HDStage single-server mode unexpectedly has cross-server channels=%u", stats.crossServerChannels);
-        return HCCL_E_INTERNAL;
-    }
-    if (param_.commMode == BatchCommMode::kCrossServer && stats.crossServerChannels == 0) {
-        HCCL_ERROR("HDStage cross-server mode has no cross-server channels");
-        return HCCL_E_INTERNAL;
-    }
+
     return HCCL_SUCCESS;
 }
 

@@ -8,14 +8,6 @@ namespace ops_hccl_allgatherbatch {
 
 namespace {
 
-bool IsRecognizedProtocol(CommProtocol protocol)
-{
-    return protocol == COMM_PROTOCOL_HCCS ||
-        protocol == COMM_PROTOCOL_ROCE ||
-        protocol == COMM_PROTOCOL_PCIE ||
-        protocol == COMM_PROTOCOL_SIO;
-}
-
 bool IsRoceProtocol(CommProtocol protocol)
 {
     return protocol == COMM_PROTOCOL_ROCE;
@@ -112,18 +104,7 @@ HcclResult AllGatherNHRCore::ValidateCommState() const
         HCCL_ERROR("NHR input/output base is null, input=%p, output=%p", runCtx_.inputBase, runCtx_.outputBase);
         return HCCL_E_INTERNAL;
     }
-    if (!IsValidCommMode(param_.commMode)) {
-        HCCL_ERROR("NHR commMode is invalid");
-        return HCCL_E_INTERNAL;
-    }
-    if (!HasConsistentRankDistribution(param_)) {
-        HCCL_ERROR("NHR rank distribution is inconsistent, commMode=%s, intra=%u, cross=%u, rankSize=%u",
-            ToCommModeString(param_.commMode),
-            param_.intraServerRankCount,
-            param_.crossServerRankCount,
-            param_.topoInfo.rankSize);
-        return HCCL_E_INTERNAL;
-    }
+
     if (param_.windowBytes == 0 || packedBytes_ > param_.windowBytes || packedBytes_ > stats.maxWindowBytes) {
         HCCL_ERROR("NHR window is invalid, packedBytes=%llu, windowBytes=%llu, maxWindowBytes=%llu",
             static_cast<unsigned long long>(packedBytes_),
@@ -175,41 +156,6 @@ HcclResult AllGatherNHRCore::ValidateChannelMetadata() const
         if (channel == nullptr) {
             HCCL_ERROR("NHR channel is missing, remoteRank=%u", remoteGlobalRank);
             return HCCL_E_NOT_FOUND;
-        }
-        if (channel->remoteSuperPodIdx != param_.topoInfo.superPodIdx) {
-            HCCL_ERROR("NHR channel crosses superPod unexpectedly, local=%u remote=%u",
-                param_.topoInfo.superPodIdx,
-                channel->remoteSuperPodIdx);
-            return HCCL_E_INTERNAL;
-        }
-        if (channel->remoteBuffer.addr == nullptr || channel->remoteBuffer.size < resCtx_.localBuffer.size) {
-            HCCL_ERROR("NHR remote buffer is invalid, remoteRank=%u, need=%llu, actual=%llu",
-                remoteGlobalRank,
-                static_cast<unsigned long long>(resCtx_.localBuffer.size),
-                static_cast<unsigned long long>(channel->remoteBuffer.size));
-            return HCCL_E_INTERNAL;
-        }
-    }
-    return HCCL_SUCCESS;
-}
-
-HcclResult AllGatherNHRCore::ValidateProtocolDistribution() const
-{
-    for (uint32_t subgroupRank = 0; subgroupRank < runCtx_.rankSize; ++subgroupRank) {
-        const uint32_t remoteGlobalRank = runCtx_.subgroupRanks[subgroupRank];
-        if (remoteGlobalRank == param_.topoInfo.rank) {
-            continue;
-        }
-        const ChannelResource *channel = FindChannelByGlobalRank(remoteGlobalRank);
-        if (channel == nullptr) {
-            HCCL_ERROR("NHR channel is missing during protocol validation, remoteRank=%u", remoteGlobalRank);
-            return HCCL_E_NOT_FOUND;
-        }
-        if (!IsRecognizedProtocol(channel->protocol)) {
-            HCCL_ERROR("NHR channel protocol is not recognized, remoteRank=%u, protocol=%s",
-                remoteGlobalRank,
-                ToProtocolString(channel->protocol));
-            return HCCL_E_INTERNAL;
         }
     }
     return HCCL_SUCCESS;
@@ -677,7 +623,6 @@ HcclResult AllGatherNHRCore::RunAsync()
 
     HCCL_CHK_RET(ValidateCommState());
     HCCL_CHK_RET(ValidateChannelMetadata());
-    HCCL_CHK_RET(ValidateProtocolDistribution());
 
     GetRankMapping(GetEffectiveRankSize(), runCtx_.keepOrder);
 

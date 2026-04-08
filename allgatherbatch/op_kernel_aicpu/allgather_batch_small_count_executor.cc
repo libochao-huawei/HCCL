@@ -26,16 +26,9 @@ AllGatherBatchSmallCountExecutor::AllGatherBatchSmallCountExecutor(const OpParam
 {
 }
 
-// 执行器这一层只校验“窗口化执行真正依赖的输入”，比如 item 元数据、资源上下文和基础 fullmesh 资源形态。
+// 基础参数和资源形态已经在 Device 入口统一校验，这里只保留窗口化执行自身依赖的 item 元数据检查。
 HcclResult AllGatherBatchSmallCountExecutor::ValidateParam() const
 {
-    if (param_.resCtx == nullptr) {
-        HCCL_ERROR("param.resCtx is null");
-        return HCCL_E_PTR;
-    }
-    HCCL_CHK_RET(ValidateBasicOpParam(param_, "executor param"));
-    HCCL_CHK_RET(ValidateBasicResourceCtx(param_, resCtx_, "executor resCtx"));
-
     for (uint32_t itemIdx = 0; itemIdx < param_.itemCount; ++itemIdx) {
         const BatchItemParam &item = param_.items[itemIdx];
         if (item.sendBuf == nullptr || item.recvBuf == nullptr) {
@@ -48,11 +41,6 @@ HcclResult AllGatherBatchSmallCountExecutor::ValidateParam() const
         }
     }
     return HCCL_SUCCESS;
-}
-
-uint32_t AllGatherBatchSmallCountExecutor::CountCrossServerChannels() const
-{
-    return ops_hccl_allgatherbatch::CountCrossServerChannels(param_.topoInfo, resCtx_);
 }
 
 // WindowRange 是 Pack/通信/Unpack 共用的边界合同，这里集中保证它的尾后游标语义和字节覆盖范围正确。
@@ -341,7 +329,3 @@ HcclResult AllGatherBatchSmallCountExecutor::Orchestrate()
 }
 
 }  // namespace ops_hccl_allgatherbatch
-
-
-
-
