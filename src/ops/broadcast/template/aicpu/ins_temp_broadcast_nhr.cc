@@ -371,7 +371,7 @@ HcclResult InsTempBroadcastNHR::BatchSR(AicpuNHRStepInfo &stepInfo, const std::m
         DataSlice txSrcSlice = DataSlice(buffInfo_.hcclBuff.addr, memOffset + sliceInfoVec[txId][0].offset, sliceInfoVec[txId][0].size);
         DataSlice txDstSlice = DataSlice(remoteSendCclBuffAddr, memOffset + sliceInfoVec[txId][0].offset, sliceInfoVec[txId][0].size);
         txSrcSlices.push_back(txSrcSlice);
-        txSrcSlices.push_back(txDstSlice);
+        txDstSlices.push_back(txDstSlice);
     }
     SlicesList txSlicesList(txSrcSlices, txSrcSlices);
     std::vector<DataSlice> rxSrcSlices;
@@ -402,7 +402,8 @@ HcclResult InsTempBroadcastNHR::KernelRun(const OpParam& param, const TemplateDa
                                           const TemplateResource& templateResource)
 {
     buffInfo_     = tempAlgParams.buffInfo;
-    dataTypeSize_ = tempAlgParams.sliceSize/tempAlgParams.count;
+    dataType_ = param.DataDes.dataType;
+    dataTypeSize_ = DATATYPE_SIZE_TABLE[dataType_];
     HCCL_INFO("[InsTempBroadcastNHR] BroadcastNHR entry.");
 
     for (int i = 0; i < subCommRanks_[0].size(); i++) {
@@ -411,7 +412,10 @@ HcclResult InsTempBroadcastNHR::KernelRun(const OpParam& param, const TemplateDa
     }
     RankSliceInfo sliceInfoVec;
     CHK_RET(CalcDataSliceInfo(tempAlgParams.sliceSize, sliceInfoVec));
-    threadNum_ = templateResource.threads.size();
+    threadNum_ = 1;
+ 	CHK_PRT_RET(threadNum_ != templateResource.threads.size(),
+ 	            HCCL_ERROR("[InsTempBroadcastNHR] Rank [%d], requiredQue [%u] not equals templateQueNum [%zu].", myRank_,
+ 	            threadNum_, templateResource.threads.size()), HcclResult::HCCL_E_INTERNAL);
     HCCL_INFO("[InsTempBroadcastNHR Run]RankID:[%d], root:[%u]", myRank_, root_);
 
     CHK_RET(PreCopy(tempAlgParams, templateResource.threads));
