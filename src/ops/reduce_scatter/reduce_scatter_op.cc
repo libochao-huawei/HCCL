@@ -1,12 +1,12 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
- * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
- * See LICENSE in the root of the software repository for the full text of the License.
- */
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 
 #include "reduce_scatter_op.h"
 #include "op_common_ops.h"
@@ -21,9 +21,9 @@ using namespace ops_hccl;
 extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 
 HcclResult HcclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
-    HcclReduceOp op, HcclComm comm, aclrtStream stream)
+    HcclReduceOp op, uint64_t strideCount, HcclComm comm, aclrtStream stream)
 {
-    HCCL_INFO("Start to run execute HcclReduceScatter");
+    HCCL_INFO("Start to run execute HcclReduceScatter, strideCount[%llu]", strideCount);
     if (GetHcommVersion() < 90000000) { // compat handle
         return HcclReduceScatterInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
     }
@@ -43,7 +43,7 @@ HcclResult HcclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, H
     OpParam param;
     // 参数校验等工作
     CHK_PRT_RET(recvCount == 0, HCCL_WARNING("input recvCount is 0, return reduce scatter success"), HCCL_SUCCESS);
-    CHK_RET(CheckReduceScatterInputPara(comm, sendBuf, recvBuf, stream));
+    CHK_RET(CheckReduceScatterInputPara(comm, sendBuf, recvBuf, strideCount, stream));
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     CHK_RET(HcclGetRankSize(comm, &rankSize));
     u32 userRank = INVALID_VALUE_RANKID;
@@ -59,10 +59,10 @@ HcclResult HcclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, H
     CHK_RET(CheckReduceOp(dataType, op));
 
     /* 接口交互信息日志 */
-    CHK_RET(ReduceScatterEntryLog(sendBuf, recvBuf, recvCount, dataType, op, stream, param.tag, "HcclReduceScatter"));
+    CHK_RET(ReduceScatterEntryLog(sendBuf, recvBuf, recvCount, dataType, op, strideCount, stream, param.tag, "HcclReduceScatter"));
 
     // 执行ReduceScatter
-    CHK_RET(ReduceScatterOutPlace(param, sendBuf, recvBuf, recvCount, dataType, op, comm, stream, rankSize));
+    CHK_RET(ReduceScatterOutPlace(param, sendBuf, recvBuf, recvCount, dataType, op, strideCount, comm, stream, rankSize));
 
     CHK_RET(LogHcclExit("HcclReduceScatter", param.tag, startut));
 
@@ -70,17 +70,17 @@ HcclResult HcclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, H
 }
 
 HcclResult HcclReduceScatterGraphMode(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
- 	     HcclReduceOp op, const char* group, aclrtStream stream, const char* tag, void** streams,
+ 	     HcclReduceOp op, uint64_t strideCount, const char* group, aclrtStream stream, const char* tag, void** streams,
  	     size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize)
 {
-    HCCL_INFO("Start to run execute HcclReduceScatterGraphMode");
+    HCCL_INFO("Start to run execute HcclReduceScatterGraphMode, strideCount[%llu]", strideCount);
     HcclComm comm = nullptr;
     HcomGetCommHandleByGroup(group, &comm);
     HCCL_INFO("[HcclReduceScatterGraphMode] get group name: %s", group);
     HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
     CHK_RET(InitEnvConfig());
     CHK_PRT_RET(recvCount == 0, HCCL_WARNING("input recvCount is 0, return reduce scatter success"), HCCL_SUCCESS);
-    CHK_RET(CheckReduceScatterInputPara(comm, sendBuf, recvBuf, stream));
+    CHK_RET(CheckReduceScatterInputPara(comm, sendBuf, recvBuf, strideCount, stream));
 
     char commName[COMM_INDENTIFIER_MAX_LENGTH];
     CHK_RET(HcclGetCommName(comm, commName));
@@ -110,16 +110,17 @@ HcclResult HcclReduceScatterGraphMode(void *sendBuf, void *recvBuf, uint64_t rec
     resPack.scratchMemAddr = scratchMemAddr;
     resPack.scratchMemSize = scratchMemSize;
     /* 接口交互信息日志 */
-    CHK_RET(ReduceScatterEntryLog(sendBuf, recvBuf, recvCount, dataType, op, stream, opTag.c_str(), "HcclReduceScatterGraphMode"));
+    CHK_RET(ReduceScatterEntryLog(sendBuf, recvBuf, recvCount, dataType, op, strideCount, stream, opTag.c_str(), "HcclReduceScatterGraphMode"));
     CHK_RET_AND_PRINT_IDE(
-        ReduceScatterOutPlaceGraphMode(sendBuf, recvBuf, recvCount, dataType, op, comm, stream, tag, resPack),
+        ReduceScatterOutPlaceGraphMode(sendBuf, recvBuf, recvCount, dataType, op, strideCount, comm, stream, tag, resPack),
         opTag);
     CHK_RET(LogHcclExit("HcclReduceScatterGraphMode", opTag.c_str(), startut));
     return HCCL_SUCCESS;
 }
 
 namespace ops_hccl {
-HcclResult CheckReduceScatterInputPara(const HcclComm comm, const void* sendBuf, const void* recvBuf, const aclrtStream stream)
+HcclResult CheckReduceScatterInputPara(const HcclComm comm, const void* sendBuf, const void* recvBuf,
+    uint64_t strideCount, const aclrtStream stream)
 {
     // 入参合法性校验
     RPT_INPUT_ERR(stream == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
@@ -139,7 +140,7 @@ HcclResult CheckReduceScatterInputPara(const HcclComm comm, const void* sendBuf,
 }
 
 static HcclResult PrepareReduceScatterParam(OpParam &param, void *sendBuf, void *recvBuf, uint64_t recvCount,
-    HcclDataType dataType, HcclReduceOp op, HcclComm comm, aclrtStream stream, u32 userRankSize,
+    HcclDataType dataType, HcclReduceOp op, uint64_t strideCount, HcclComm comm, aclrtStream stream, u32 userRankSize,
  	OpMode opMode)
 {
     u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
@@ -159,6 +160,7 @@ static HcclResult PrepareReduceScatterParam(OpParam &param, void *sendBuf, void 
     param.outputSize = outputSize;
     param.DataDes.count = recvCount;
     param.DataDes.dataType = dataType;
+    param.DataDes.strideCount = strideCount;
     param.opType = HcclCMDType::HCCL_CMD_REDUCE_SCATTER;
     param.enableDetour = false;
     param.deviceType = deviceType;
@@ -167,10 +169,10 @@ static HcclResult PrepareReduceScatterParam(OpParam &param, void *sendBuf, void 
 }
 
 HcclResult ReduceScatterOutPlace(OpParam &param, void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
-    HcclReduceOp op, HcclComm comm, aclrtStream stream, u32 userRankSize)
+    HcclReduceOp op, uint64_t strideCount, HcclComm comm, aclrtStream stream, u32 userRankSize)
 {
-    HCCL_INFO("Start to execute ReduceScatterOutPlace");
-    CHK_RET(PrepareReduceScatterParam(param, sendBuf, recvBuf, recvCount, dataType, op, comm, stream, userRankSize,
+    HCCL_INFO("[ReduceScatterOutPlace] strideCount[%llu]", strideCount);
+    CHK_RET(PrepareReduceScatterParam(param, sendBuf, recvBuf, recvCount, dataType, op, strideCount, comm, stream, userRankSize,
  	    OpMode::OPBASE));
 
     CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
@@ -195,7 +197,7 @@ HcclResult ReduceScatterOutPlace(OpParam &param, void *sendBuf, void *recvBuf, u
 }
 
 HcclResult ReduceScatterEntryLog(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType, HcclReduceOp op,
-    aclrtStream stream, const char *tag, const std::string &opName)
+    uint64_t strideCount, aclrtStream stream, const char *tag, const std::string &opName)
 {
     if (GetExternalInputHcclEnableEntryLog()) {
         s32 deviceLogicId = 0;
@@ -204,8 +206,9 @@ HcclResult ReduceScatterEntryLog(void *sendBuf, void *recvBuf, uint64_t recvCoun
         ACLCHECK(aclrtStreamGetId(stream, &streamId));
         char stackLogBuffer[LOG_TMPBUF_SIZE];
         s32 ret = snprintf_s(stackLogBuffer, LOG_TMPBUF_SIZE, LOG_TMPBUF_SIZE - 1U,
-            "tag[%s], sendBuf[%p], recvBuf[%p], recvCount[%llu], dataType[%s], reduceOp[%s], streamId[%d], deviceLogicId[%d]",
-            tag, sendBuf, recvBuf, recvCount, GetDataTypeEnumStr(dataType).c_str(), GetReduceOpEnumStr(op).c_str(), streamId, deviceLogicId);
+            "tag[%s], sendBuf[%p], recvBuf[%p], recvCount[%llu], dataType[%s], reduceOp[%s], strideCount[%llu], streamId[%d], deviceLogicId[%d]",
+            tag, sendBuf, recvBuf, recvCount, GetDataTypeEnumStr(dataType).c_str(), GetReduceOpEnumStr(op).c_str(),
+            strideCount, streamId, deviceLogicId);
 
         CHK_PRT_CONT(ret == -1, HCCL_WARNING("Failed to build log info, tag[%s].", tag));
         std::string logInfo = "Entry-" + opName + ":" + std::string(stackLogBuffer);
@@ -215,14 +218,14 @@ HcclResult ReduceScatterEntryLog(void *sendBuf, void *recvBuf, uint64_t recvCoun
 }
 
 HcclResult ReduceScatterOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
- 	HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack)
+ 	HcclReduceOp op, uint64_t strideCount, HcclComm comm, aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack)
 {
-    HCCL_INFO("Start to execute ReduceScatterOutPlaceGraphMode");
+    HCCL_INFO("[ReduceScatterOutPlaceGraphMode] strideCount[%llu]", strideCount);
     OpParam param;
     u32 userRankSize;
     CHK_RET(HcclGetRankSize(comm, &userRankSize));
     
-    CHK_RET(PrepareReduceScatterParam(param, sendBuf, recvBuf, recvCount, dataType, op, comm, stream, userRankSize,
+    CHK_RET(PrepareReduceScatterParam(param, sendBuf, recvBuf, recvCount, dataType, op, strideCount, comm, stream, userRankSize,
         OpMode::OFFLOAD));
 
     if (userRankSize == 1) {
