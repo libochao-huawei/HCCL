@@ -368,7 +368,7 @@ HcclResult InsTempBroadcastMesh1DTwoShot::KernelRun(const OpParam& param, const 
     HCCL_DEBUG("[InsTempBroadcastMesh1DTwoShot] BroadcastMesh1DTwoShot rank[%d] slicesize[%d] count[%d].",
                myRank_, tempAlgParams.sliceSize, tempAlgParams.count);
     dataType_ = param.DataDes.dataType;
-    dataTypeSize_  = tempAlgParams.sliceSize/tempAlgParams.count;
+    dataTypeSize_  = DATATYPE_SIZE_TABLE[dataType_];
 
     for (int i = 0; i < subCommRanks_[0].size(); i++) {
         tempVirtRankMap_.insert(std::make_pair(subCommRanks_[0][i], i));

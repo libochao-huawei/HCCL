@@ -402,7 +402,8 @@ HcclResult InsTempBroadcastNHR::KernelRun(const OpParam& param, const TemplateDa
                                           const TemplateResource& templateResource)
 {
     buffInfo_     = tempAlgParams.buffInfo;
-    dataTypeSize_ = tempAlgParams.sliceSize/tempAlgParams.count;
+    dataType_ = param.DataDes.dataType;
+    dataTypeSize_ = DATATYPE_SIZE_TABLE[dataType_];
     HCCL_INFO("[InsTempBroadcastNHR] BroadcastNHR entry.");
 
     for (int i = 0; i < subCommRanks_[0].size(); i++) {
