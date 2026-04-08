@@ -11,12 +11,15 @@
 #ifndef HCCL_CCU_KERNEL_REDUCE_SCATTER_MESH_1D_MEM2MEM
 #define HCCL_CCU_KERNEL_REDUCE_SCATTER_MESH_1D_MEM2MEM
 
+#include <unordered_map>
 #include <vector>
 #include <ios>
 #include "utils.h"
 #include "ccu_kernel.h"
 #include "ccu_kernel_utils.h"
 #include "ccu_kernel_alg_base.h"
+#include "ccu_task_param_v1.h"
+#include "ccu_rep_context_v1.h"
 
 namespace ops_hccl {
 using namespace hcomm;
@@ -55,7 +58,7 @@ public:
         : inputAddr_(inputAddr), outputAddr_(outputAddr), token_(token), scratchAddr_(scratchAddr),
         inputSliceStride_(inputSliceStride), outputSliceStride_(outputSliceStride), 
         inputRepeatStride_(inputRepeatStride), outputRepeatStride_(outputRepeatStride),
-        normalSliceSize_(normalSliceSize), lastSliceSize_(lastSliceSize), repeatNum_(repeatNum) 
+        normalSliceSize_(normalSliceSize), lastSliceSize_(lastSliceSize), repeatNum_(repeatNum)
     {
         HCCL_INFO("[CcuTaskArgReduceScatterMesh1DMem2Mem] inputAddr: %lu, outputAddr: %lu, scratchAddr: %lu, "
                    "inputSliceStride: %lu, outputSliceStride: %lu, inputRepeatStride: %lu, "
@@ -76,6 +79,7 @@ public:
     uint64_t normalSliceSize_;
     uint64_t lastSliceSize_;
     uint64_t repeatNum_;
+    std::uintptr_t fastLaunchCacheKey_ = 0;
 };
 
 class CcuKernelReduceScatterMesh1DMem2Mem : public CcuKernelAlgBase {
@@ -85,6 +89,9 @@ public:
 
     HcclResult Algorithm() override;
     std::vector<uint64_t> GeneArgs(const CcuTaskArg &arg) override;
+    HcclResult GeneTaskParam(const CcuTaskArg &arg, std::vector<CcuTaskParam> &taskParams) override;
+    HcclResult GetCcuProfilingInfo(const CcuTaskArg &arg,
+        std::vector<CcuProfilingInfo> &allCcuProfilingInfo) override;
 
 private:
     HcclResult InitResource();
@@ -125,6 +132,8 @@ private:
     std::vector<CcuRep::LocalAddr>      scratchMem_;
     CcuRep::CompletedEvent event_;
     CcuRep::Variable flag_; // 用以判断是否是第一次重复
+    std::unordered_map<std::uintptr_t, std::vector<CcuTaskParam>> cache;
+    std::unordered_map<std::uintptr_t, std::vector<CcuProfilingInfo>> cache1;
 };
 
 }// namespace ops_hccl

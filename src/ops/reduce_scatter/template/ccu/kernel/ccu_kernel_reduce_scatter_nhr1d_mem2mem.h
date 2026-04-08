@@ -11,12 +11,10 @@
 #ifndef HCCL_CCU_KERNEL_REDUCE_SCATTER_NHR_1D
 #define HCCL_CCU_KERNEL_REDUCE_SCATTER_NHR_1D
 
-#include <memory>
 #include <map>
+#include <cstdint>
+#include <unordered_map>
 #include <vector>
-#include <ios>
-#include "utils.h"
-#include "ccu_kernel.h"
 #include "ccu_kernel_utils.h"
 #include "ccu_kernel_alg_base.h"
 
@@ -84,9 +82,9 @@ public:
     {
         HCCL_INFO("[CcuTaskArgReduceScatterNHR1D]: inputAddr: %lu, outputAddr: %lu, die0Size: %lu, die1Size: %lu, "
                    "die0LastSliceSize: %lu, die1LastSliceSize: %lu, inputSliceStride: %lu, outputSliceStride: %lu,"
-                   "inputRepeatStride: %lu, outputRepeatStride: %lu, repeatNum: %lu",
+                                     "inputRepeatStride: %lu, outputRepeatStride: %lu, repeatNum: %lu",
                    inputAddr_, outputAddr_, die0Size_, die1Size_, die0LastSliceSize_, die1LastSliceSize_,
-                   inputSliceStride_, outputSliceStride_, inputRepeatStride_, outputRepeatStride_, repeatNum_);
+                                     inputSliceStride_, outputSliceStride_, inputRepeatStride_, outputRepeatStride_, repeatNum_);
     }
 
     uint64_t inputAddr_;
@@ -102,6 +100,7 @@ public:
     uint64_t outputRepeatStride_;
     uint64_t repeatNum_;
     uint64_t isInputOutputEqual_;
+    std::uintptr_t fastLaunchCacheKey_ = 0;
 };
 
 class CcuKernelReduceScatterNHR1DMem2Mem : public CcuKernelAlgBase {
@@ -111,6 +110,9 @@ public:
 
     HcclResult Algorithm() override;
     std::vector<uint64_t> GeneArgs(const CcuTaskArg &arg) override;
+    HcclResult GeneTaskParam(const CcuTaskArg &arg, std::vector<CcuTaskParam> &taskParams) override;
+    HcclResult GetCcuProfilingInfo(const CcuTaskArg &arg,
+        std::vector<CcuProfilingInfo> &allCcuProfilingInfo) override;
 private:
     void LoadArgs();
     HcclResult InitResources();
@@ -165,6 +167,9 @@ private:
     CcuRep::LocalAddr   localDst_;
     CcuRep::RemoteAddr  remoteDst_;
     CcuRep::Variable    isRepeatIter_; // 用于判断是否是第一次循环
+
+    std::unordered_map<std::uintptr_t, std::vector<CcuTaskParam>> cache;
+    std::unordered_map<std::uintptr_t, std::vector<CcuProfilingInfo>> cache1;
 };
 } // namespace ops_hccl
 

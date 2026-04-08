@@ -23,7 +23,7 @@ target_compile_options(hccl-model-proxy PRIVATE
     -fno-common
     -fno-strict-aliasing
     -pipe
-    -O0
+    -O3
     -g
     -D_GLIBCXX_USE_CXX11_ABI=0
 )

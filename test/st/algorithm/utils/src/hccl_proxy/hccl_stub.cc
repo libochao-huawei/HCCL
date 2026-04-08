@@ -38,6 +38,7 @@ extern "C" {
 
 std::mutex g_mutex;
 thread_local ThreadHandle curThread;
+const char *COMM_RESERVE_CTX_TAG = "";
 
 HcclResult HcclRankGraphGetRankSizeByLayer(HcclComm comm, uint32_t netLayer, uint32_t *rankNum)
 {
@@ -303,9 +304,22 @@ HcclResult HcclChannelAcquire(HcclComm comm, CommEngine engine,
 
 HcclResult HcclEngineCtxCreate(HcclComm comm, const char *ctxTag, CommEngine engine, uint64_t size, void **ctx)
 {
+    CHK_PTR_NULL(comm);
+    CHK_PTR_NULL(ctx);
+    const char *ctxTagTmp = (ctxTag == nullptr) ? COMM_RESERVE_CTX_TAG : ctxTag;
+    CHK_PRT_RET(strlen(ctxTagTmp) > HCCL_RES_TAG_MAX_LEN,
+        HCCL_ERROR("[%s] ctxTag length exceeds maximum length, ctxTag length[%zu], max length[%d]",
+            __func__, strlen(ctxTagTmp), HCCL_RES_TAG_MAX_LEN), HCCL_E_PARA);
+    CHK_PRT_RET(size == 0, HCCL_ERROR("[%s] Invalid CtxSize, CtxSize[%llu]", __func__, size), HCCL_E_PARA);
     auto simComm = static_cast<HcclSim::SimCommunicator*>(comm);
     CHK_PTR_NULL(simComm);
-    return simComm->contextManager_->CreateCommEngineCtx(std::string(ctxTag), engine, size, ctx);
+    HcclResult ret = simComm->contextManager_->CreateCommEngineCtx(std::string(ctxTagTmp), engine, size, ctx);
+    CHK_PRT_RET(ret != HCCL_SUCCESS,
+        HCCL_ERROR("[%s] Failed to create CommEngineCtx with ctxTag[%s], engine[%d], ctx size[%llu], ret[%d]",
+            __func__, ctxTagTmp, engine, size, ret), ret);
+    HCCL_INFO("[%s] success, ctxTag[%s], engine[%d], size[%llu], ctx[%p], group[%s]",
+        __func__, ctxTagTmp, engine, size, *ctx, simComm->GetIdentifier().c_str());
+    return HCCL_SUCCESS;
 }
 
 HcclResult HcclChannelGetHcclBuffer(HcclComm comm, ChannelHandle channel, void **buffer, uint64_t *size)
@@ -333,25 +347,43 @@ HcclResult HcclThreadAcquireWithStream(
 
 HcclResult HcclEngineCtxGet(HcclComm comm, const char *engineTag, CommEngine engine, void **ctx, uint64_t *size)
 {
+    CHK_PTR_NULL(comm);
+    CHK_PTR_NULL(ctx);
+    CHK_PTR_NULL(size);
+    const char *ctxTagTmp = (engineTag == nullptr) ? COMM_RESERVE_CTX_TAG : engineTag;
+    CHK_PRT_RET(strlen(ctxTagTmp) > HCCL_RES_TAG_MAX_LEN,
+        HCCL_ERROR("[%s] ctxTag length exceeds maximum length, ctxTag length[%zu], max length[%d]",
+            __func__, strlen(ctxTagTmp), HCCL_RES_TAG_MAX_LEN), HCCL_E_PARA);
     auto simComm = static_cast<HcclSim::SimCommunicator*>(comm);
     CHK_PTR_NULL(simComm);
-    return simComm->contextManager_->GetCommEngineCtx(std::string(engineTag), engine, ctx, size);
+    HcclResult ret = simComm->contextManager_->GetCommEngineCtx(std::string(ctxTagTmp), engine, ctx, size);
+    CHK_PRT_RET(ret != HCCL_SUCCESS,
+        HCCL_WARNING("[%s] Failed to get CommEngineCtx with ctxTag[%s], engine[%d], ret[%d]",
+            __func__, ctxTagTmp, engine, ret), ret);
+    HCCL_INFO("[%s] success, ctxTag[%s], engine[%d], ctx[%p], size[%llu], group[%s]",
+        __func__, ctxTagTmp, engine, *ctx, *size, simComm->GetIdentifier().c_str());
+    return HCCL_SUCCESS;
 }
 
 HcclResult HcclEngineCtxCopy(HcclComm comm, CommEngine engine, const char *ctxTag, const void *srcCtx,
     uint64_t size, uint64_t dstCtxOffset)
 {
-    // HOST场景下srcCtx就是创建的EngineCtx内存地址，无需拷贝
-    if (engine == CommEngine::COMM_ENGINE_AICPU_TS || engine == CommEngine::COMM_ENGINE_AICPU) {
-        uint64_t size = 0;
-        void *ctx = nullptr;
-        auto simComm = static_cast<HcclSim::SimCommunicator*>(comm);
-        CHK_PTR_NULL(simComm);
-        simComm->contextManager_->GetCommEngineCtx(std::string(ctxTag), engine, &ctx, &size);
-        if (ctx != nullptr && size > 0) {
-            memcpy(ctx, srcCtx, size);
-        }
-    }
+    CHK_PTR_NULL(comm);
+    CHK_PTR_NULL(srcCtx);
+    const char *ctxTagTmp = (ctxTag == nullptr) ? COMM_RESERVE_CTX_TAG : ctxTag;
+    CHK_PRT_RET(strlen(ctxTagTmp) > HCCL_RES_TAG_MAX_LEN,
+        HCCL_ERROR("[%s] ctxTag length exceeds maximum length, ctxTag length[%zu], max length[%d]",
+            __func__, strlen(ctxTagTmp), HCCL_RES_TAG_MAX_LEN), HCCL_E_PARA);
+    CHK_PRT_RET(size == 0, HCCL_ERROR("[%s] Invalid size, size[%llu]", __func__, size), HCCL_E_PARA);
+    auto simComm = static_cast<HcclSim::SimCommunicator*>(comm);
+    CHK_PTR_NULL(simComm);
+    HcclResult ret = simComm->contextManager_->CopyCommEngineCtx(std::string(ctxTagTmp), engine, srcCtx, size,
+        dstCtxOffset);
+    CHK_PRT_RET(ret != HCCL_SUCCESS,
+        HCCL_ERROR("[%s] Failed to copy CommEngineCtx with ctxTag[%s], engine[%d], size[%llu], dstCtxOffset[%llu], ret[%d]",
+            __func__, ctxTagTmp, engine, size, dstCtxOffset, ret), ret);
+    HCCL_INFO("[%s] success, ctxTag[%s], engine[%d], srcCtx[%p], size[%llu], dstCtxOffset[%llu], group[%s]",
+        __func__, ctxTagTmp, engine, srcCtx, size, dstCtxOffset, simComm->GetIdentifier().c_str());
     return HCCL_SUCCESS;
 }
 
@@ -860,7 +892,19 @@ HcclResult HcomGetCommHandleByGroup(const char *group, HcclComm *commHandle)
 
 HcclResult HcclEngineCtxDestroy(HcclComm comm, const char *ctxTag, CommEngine engine)
 {
-    HCCL_WARNING("[%s] not support.", __func__);
+    CHK_PTR_NULL(comm);
+    const char *ctxTagTmp = (ctxTag == nullptr) ? COMM_RESERVE_CTX_TAG : ctxTag;
+    CHK_PRT_RET(strlen(ctxTagTmp) > HCCL_RES_TAG_MAX_LEN,
+        HCCL_ERROR("[%s] ctxTag length exceeds maximum length, ctxTag length[%zu], max length[%d]",
+            __func__, strlen(ctxTagTmp), HCCL_RES_TAG_MAX_LEN), HCCL_E_PARA);
+    auto simComm = static_cast<HcclSim::SimCommunicator*>(comm);
+    CHK_PTR_NULL(simComm);
+    HcclResult ret = simComm->contextManager_->DestroyCommEngineCtx(std::string(ctxTagTmp), engine);
+    CHK_PRT_RET(ret != HCCL_SUCCESS,
+        HCCL_ERROR("[%s] Failed to destroy CommEngineCtx, ctxTag[%s], engine[%d], ret[%d]",
+            __func__, ctxTagTmp, engine, ret), ret);
+    HCCL_INFO("[%s] success, ctxTag[%s], engine[%d], group[%s]",
+        __func__, ctxTagTmp, engine, simComm->GetIdentifier().c_str());
     return HCCL_SUCCESS;
 }
 
