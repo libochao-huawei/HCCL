@@ -230,7 +230,9 @@ void InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
     dataParams.buffInfo.hcclBuffBaseOff = scratchOffsetCount * dataTypeSize_;
     dataParams.sliceSize = sliceCount * dataTypeSize_;
     dataParams.count = sliceCount;
-
+	CHK_PTR_NULL(dataParams.buffInfo.inputPtr);
+ 	CHK_PTR_NULL(dataParams.buffInfo.outputPtr);
+ 	CHK_PTR_NULL(dataParams.buffInfo.hcclBuff.addr);
     dataParams.inputSliceStride = 0;
     dataParams.outputSliceStride = 0;
     dataParams.repeatNum = 1;
