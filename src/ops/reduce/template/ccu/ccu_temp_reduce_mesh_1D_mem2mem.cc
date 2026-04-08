@@ -82,7 +82,7 @@ HcclResult CcuTempReduceMesh1DMem2Mem::CalcRes(HcclComm comm, const OpParam& par
 
 HcclResult CcuTempReduceMesh1DMem2Mem::KernelRun(const OpParam& param,
                                                  const TemplateDataParams& templateDataParams,
-                                                 const TemplateResource& templateResource)
+                                                 TemplateResource& templateResource)
 {
     if (templateDataParams.sliceSize == 0) {
         HCCL_INFO("[CcuTempReduceMesh1DMem2Mem] sliceSize is 0, no need do, just success.");
@@ -94,8 +94,8 @@ HcclResult CcuTempReduceMesh1DMem2Mem::KernelRun(const OpParam& param,
     uint64_t                               inputAddr          = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t                               outputAddr         = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
     HCCL_INFO("buffInfo_.inputSize: %d", buffInfo_.inputSize);
-    uint64_t                               token              = hcomm::CcuRep::GetTokenInfo(reinterpret_cast<uint64_t>(buffInfo_.inputPtr),
-                                                                                     static_cast<uint64_t>(buffInfo_.inputSize));
+    uint64_t                               token;
+    CHK_RET(GetToken(buffInfo_, token));
     uint64_t                               repeatNum          = templateDataParams.repeatNum;                                                                                 
     uint64_t                               inputRepeatStride  = templateDataParams.inputRepeatStride;
     uint64_t                               outputRepeatStride = templateDataParams.outputRepeatStride;

@@ -19,6 +19,7 @@ namespace ops_hccl {
 
 class InsTempReduceScatterMesh1DMeshChunk : public InsAlgTemplateBase {
 public:
+    InsTempReduceScatterMesh1DMeshChunk() = default;
     explicit InsTempReduceScatterMesh1DMeshChunk(const OpParam& param, const u32 rankId, // 传通信域的rankId，userRank
                                         const std::vector<std::vector<u32>> &subCommRanks);
     ~InsTempReduceScatterMesh1DMeshChunk() override;
@@ -32,7 +33,7 @@ public:
 
     HcclResult KernelRun(const OpParam& param,
                          const TemplateDataParams& tempAlgParams,
-                         const TemplateResource& templateResource) override;
+                         TemplateResource& templateResource) override;
     HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                         AlgResourceRequest& resourceRequest) override;
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
@@ -53,6 +54,8 @@ private:
         const TemplateDataParams &tempAlgParams, const std::vector<uint64_t> &sliceSize, const u32 &repeatIdx,
         const u32 &myAlgRank, uint64_t &sliceSendOffset_, uint64_t &sliceRecvOffset_,
         const uint64_t &sliceRecvBaseOffset);
+    void NotifyIdxMainToSubInMeshChunk(std::vector<u32> &notifyIdxMainToSub);
+    void NotifyIdxSubToMainInMeshChunk(std::vector<u32> &notifyIdxSubToMain);
     u64 processSize_{0};
     u32 rankIdx_{0};
     u64 count_{0};

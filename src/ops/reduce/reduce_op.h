@@ -56,6 +56,8 @@ HcclResult ReduceInitAndCheck(HcclComm comm, void *sendBuf, void *recvBuf, uint6
 
 HcclResult ReduceOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
     uint32_t root, HcclComm comm, aclrtStream stream, const std::string &tag, OpMode opMode, const ResPackGraphMode &resPack);
+HcclResult ReduceEntryLog(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
+    uint32_t root, aclrtStream stream, const std::string &tag, const std::string &opName);
 }  // namespace ops_hccl
 
 #endif

@@ -34,7 +34,7 @@ public:
 
     HcclResult KernelRun(const OpParam& param,
                          const TemplateDataParams &tempAlgParams,
-                         const TemplateResource& templateResource) override;
+                         TemplateResource& templateResource) override;
     HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                         AlgResourceRequest& resourceRequest) override;
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
@@ -42,6 +42,7 @@ public:
     void SetRoot(u32 root);
     void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub) override;
     void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override;
+    HcclResult GetRes(AlgResourceRequest &resourceReques) const override;
 
 private:
     HcclResult PreCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads) const;

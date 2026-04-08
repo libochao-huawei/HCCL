@@ -65,7 +65,7 @@ void InsTempAllReduceNHR::GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubTo
 }
 
 HcclResult InsTempAllReduceNHR::KernelRun(const OpParam& param, 
-    const TemplateDataParams& tempAlgParams, const TemplateResource& templateResource)
+    const TemplateDataParams& tempAlgParams, TemplateResource& templateResource)
 {
     HCCL_INFO("[InsTempAllReduceNHR] KernelRun Start.");
 
@@ -89,7 +89,7 @@ HcclResult InsTempAllReduceNHR::KernelRun(const OpParam& param,
     processSize_ = tempAlgParams.sliceSize;
     count_ = tempAlgParams.count;
     dataType_ = param.DataDes.dataType;
-    dataTypeSize_ = SIZE_TABLE[dataType_];
+    dataTypeSize_ = DATATYPE_SIZE_TABLE[dataType_];
 
     if (count_ == 0) {
         HCCL_WARNING("[InsTempAllReduceNHR][KernelRun] data count is 0.");

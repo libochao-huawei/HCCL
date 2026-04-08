@@ -361,6 +361,22 @@ rtError_t rtStreamAddToModel(rtStream_t stm, rtModel_t captureMdl)
     return RT_ERROR_NONE;
 }
 
+aclError aclsysGetVersionNum(char* pkgNname, int32_t* versionNum)
+{
+    *versionNum = 90000009;
+    return ACL_SUCCESS;
+}
+
+aclError aclmdlRICaptureThreadExchangeMode(aclmdlRICaptureMode *mode)
+{
+    return ACL_SUCCESS;
+}
+
+aclError aclrtGetOpTimeOutInterval(uint64_t *interval)
+{
+    return ACL_SUCCESS;
+}
+
 #ifdef __cplusplus
 }
 #endif  // __cplusplus

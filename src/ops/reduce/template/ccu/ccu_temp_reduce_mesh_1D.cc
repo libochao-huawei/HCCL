@@ -70,14 +70,14 @@ HcclResult CcuTempReduceMesh1D::CalcRes(HcclComm comm, const OpParam& param, con
 
 HcclResult CcuTempReduceMesh1D::KernelRun(const OpParam& param,
                                           const TemplateDataParams& templateDataParams,
-                                          const TemplateResource& templateResource)
+                                          TemplateResource& templateResource)
 {
     buffInfo_ = templateDataParams.buffInfo;
 
     uint64_t                      inputAddr               = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t                      outputAddr              = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
-    uint64_t                      token                   = hcomm::CcuRep::GetTokenInfo(reinterpret_cast<uint64_t>(buffInfo_.inputPtr),
-                                                            static_cast<uint64_t>(buffInfo_.inputSize));
+    uint64_t                      token;
+    CHK_RET(GetToken(buffInfo_, token));
     uint64_t                      inputSliceStride        = templateDataParams.inputSliceStride;
     uint64_t                      outputSliceStride       = templateDataParams.outputSliceStride;
     uint64_t                      repeatNum               = templateDataParams.repeatNum;

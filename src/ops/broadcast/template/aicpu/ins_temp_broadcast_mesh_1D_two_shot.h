@@ -34,7 +34,7 @@ public:
 
     HcclResult KernelRun(const OpParam& param,
                          const TemplateDataParams &tempAlgParams,
-                         const TemplateResource& templateResource) override;
+                         TemplateResource& templateResource) override;
     HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo, 
                        AlgResourceRequest& resourceRequest) override;
     HcclResult GetRes(AlgResourceRequest &resourceRequest) const override;
@@ -61,6 +61,8 @@ private:
 
     u64 dataTypeSize_{0};
     std::map<u32, u32> tempVirtRankMap_;
+    BufferType srcBufferType_ = BufferType::INPUT;
+    BufferType dstBufferType_ = BufferType::INPUT;
 };
 
 } // namespace Hccl

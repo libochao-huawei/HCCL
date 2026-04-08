@@ -24,9 +24,11 @@ using namespace ops_hccl;
 
 constexpr u64 AR_AICPU_1D_SMALL_DATA_SIZE = 8 * 1024 * 1024;
 constexpr u64 AR_AICPU_1D_MAX_DATA_SIZE = 32 * 1024 * 1024;
+constexpr u64 AR_AICPU_1D_64DATATYPE_DATA_SIZE = 8 * 1024 * 1024;
 
 static_assert(AR_AICPU_1D_SMALL_DATA_SIZE > 0, "SMALL_DATA_SIZE must be positive");
 static_assert(AR_AICPU_1D_MAX_DATA_SIZE > 0, "MAX_DATA_SIZE must be positive");
+static_assert(AR_AICPU_1D_64DATATYPE_DATA_SIZE > 0, "64DATATYPE_DATA_SIZE must be positive");
 static_assert(AR_AICPU_1D_SMALL_DATA_SIZE <= AR_AICPU_1D_MAX_DATA_SIZE,
              "SMALL_DATA_SIZE cannot be greater than MAX_DATA_SIZE");
 
@@ -57,7 +59,7 @@ void RunAllReduceCase(const TopoMeta &topoInfo, const u64 dataCount,
     // 设置展开模式为HOST_TS
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
     setenv("HCCL_INDEPENDENT_OP", "1", 1);
-    setenv("HCCL_ENABLE_OPEN_AICPU", "1", 1);
+    
 
     // 算子执行参数设置
     u32 rankSize = 0;

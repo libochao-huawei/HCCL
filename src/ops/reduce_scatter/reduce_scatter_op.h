@@ -27,13 +27,20 @@ extern "C" {
 HcclResult HcclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
                              HcclReduceOp op, HcclComm comm, aclrtStream stream);
 
+HcclResult HcclReduceScatterGraphMode(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
+ 	HcclReduceOp op, const char* group, aclrtStream stream, const char* tag, void** streams,
+ 	size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize);
+
 #ifdef __cplusplus
 }
 #endif
 
 namespace ops_hccl {
-HcclResult ReduceScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
-    HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag);
+HcclResult ReduceScatterOutPlace(OpParam &param, void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
+    HcclReduceOp op, HcclComm comm, aclrtStream stream, u32 userRankSize);
+
+HcclResult ReduceScatterOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
+ 	HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack);
 
 HcclResult ReduceScatterExecOp(HcclComm comm, OpParam &param);
 
@@ -41,10 +48,9 @@ HcclResult CheckReduceScatterInputPara(const HcclComm comm, const void* sendBuf,
 
 HcclResult GetAlgResReduceScatter(HcclComm comm, OpParam &param, std::shared_ptr<InsCollAlgBase> &executor,
     TopoInfoWithNetLayerDetails* topoInfo, AlgResourceCtx** resCtx, aclrtNotify* notifies);
-
-HcclResult CheckDataTypeRS(const HcclDataType dataType, bool needReduce);
-
-std::string GetSupportDataTypeRS(bool needReduce);
+    
+HcclResult ReduceScatterEntryLog(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType, HcclReduceOp op,
+    aclrtStream stream, const char *tag, const std::string &opName);
 
 }
 

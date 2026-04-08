@@ -135,11 +135,14 @@ HcclResult GenerateCcuKernelSignature(hcomm::CcuKernelSignature &sig, const std:
     sig.Append<std::string>(name);
     if (opParam.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER ||
         opParam.opType == HcclCMDType::HCCL_CMD_ALLREDUCE ||
-        opParam.opType == HcclCMDType::HCCL_CMD_REDUCE ||
-        opParam.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V) {
+        opParam.opType == HcclCMDType::HCCL_CMD_REDUCE) {
         sig.Append<uint8_t>(uint8_t(opParam.reduceType));
         sig.Append<uint8_t>(uint8_t(opParam.DataDes.dataType));
         sig.Append<uint8_t>(uint8_t(opParam.DataDes.outputType));
+    }
+    if (opParam.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V) {
+        sig.Append<std::string>(GetReduceTypeStr(opParam.vDataDes.dataType, opParam.reduceType));
+        sig.Append<char>('_');
     }
     if (opParam.opType == HcclCMDType::HCCL_CMD_REDUCE ||
         opParam.opType == HcclCMDType::HCCL_CMD_BROADCAST ||
@@ -161,6 +164,7 @@ HcclResult GenerateCcuKernelSignature(hcomm::CcuKernelSignature &sig, const std:
         HCCL_ERROR("[GenerateCcuKernelSignature] failed: unexpected tempVTopoSize[%u]", subCommRanks.size());
         return HcclResult::HCCL_E_INTERNAL;
     }
+    HCCL_INFO("[GenerateCcuKernelSignature] success: %s", sig.Describe().c_str());
     return HcclResult::HCCL_SUCCESS;
 }
 }

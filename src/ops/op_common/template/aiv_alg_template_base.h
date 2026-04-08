@@ -25,6 +25,7 @@ constexpr uint64_t MAX_DIM_NUM = 3;
 
 class AivAlgTemplateBase {
 public:
+    explicit AivAlgTemplateBase();
     explicit AivAlgTemplateBase(const OpParam& param, const u32 rankId, // 传通信域的rankId，userRank
                                 const std::vector<std::vector<u32>> &subCommRanks);
     virtual ~AivAlgTemplateBase();
@@ -37,6 +38,7 @@ public:
     virtual HcclResult KernelRun(const OpParam& param,
                                  const TemplateDataParams& tempAlgParams,
                                  const TemplateResource& templateResource);
+    virtual HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx);
     // Sync
     HcclResult PreSync(const u32 queIdx, const std::vector<ThreadHandle> &threads) const;
     HcclResult PostSync(const u32 queIdx, const std::vector<ThreadHandle> &threads) const;
@@ -56,7 +58,7 @@ protected:
     HcclDataType                     dataType_;
     // 从OpParam中获取
     bool                             enableDetour_ = false;
-    u32                              sliceId_ = 0; // 用于组装aivCountTag
+    u32                              sliceId_ = 0;
 };
 
 } // namespace Hccl

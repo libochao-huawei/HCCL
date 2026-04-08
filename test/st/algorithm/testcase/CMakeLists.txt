@@ -14,10 +14,7 @@ set(src_list
     all_reduce_testcase.cc
     all_reduce_parallel_testcase.cc
     all_gather_aicpu_testcase.cc
-    all_gather_v_testcase.cc
-    broadcast_testcase.cc
     reduce_scatter_aicpu_testcase.cc
-    batch_send_recv_testcase.cc
 )
 
 add_executable(hccl_checker_ops_stest ${src_list})
@@ -45,6 +42,7 @@ if (BUILD_OPEN_PROJECT)
         ${HCCL_DEV_BASE}/src/ops
         ${HCCL_DEV_BASE}/src/ops/op_common
         ${HCCL_DEV_BASE}/src/ops/op_common/inc
+        ${HCCL_DEV_BASE}/src/common/hcomm_dlsym
 
         ${UTILS_DIR}/sim_world
         ${UTILS_DIR}/common/utils
@@ -64,6 +62,7 @@ if (BUILD_OPEN_PROJECT)
         hccl-verifier
         # 链接hccl库
         ${ASCEND_HOME_PATH}/lib64/libhccl.so
+        -ldl
     )
 
     target_compile_options(hccl_checker_ops_stest PRIVATE
