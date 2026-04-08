@@ -22,6 +22,7 @@ HcclResult SimThreadMgr::CommEngineToNotifyLoadType(CommEngine engine, NotifyLoa
     switch (engine) {
         case 0: // COMM_ENGINE_CPU
         case 1: // COMM_ENGINE_CPU_TS
+        case COMM_ENGINE_CCU:
             type =  NotifyLoadType::HOST_NOTIFY;
             break;
         case COMM_ENGINE_AICPU:

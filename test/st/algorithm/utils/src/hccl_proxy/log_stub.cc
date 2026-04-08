@@ -19,7 +19,7 @@
 #include <unistd.h>
 #include <securec.h>
 
-uint32_t logLevel = 0x03;  // ERROR级别
+uint32_t logLevel = 0x00;  // DEBUG级别，便于ST场景下观察fast-launch链路日志
 constexpr int TIME_FROM_1900 = 1900;
 constexpr int LOG_STUB_BUFFER_SIZE = 1024;
 std::map<int, std::string> LOG_LEVEL_STR_MAP = {

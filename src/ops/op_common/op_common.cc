@@ -9,15 +9,19 @@
  */
 
 #include <algorithm>
+#include <array>
+#include <cstdint>
 #include <future>
 #include <map>
-#include <string>
 #include <memory>
+#include <string>
+#include <unordered_map>
 #include <cstdlib>  // 包含getenv函数
 #include <cstring>  // 包含strcmp函数
 #include <stdexcept>
 #include <hccl/hccl_types.h>
 #include "hccl/base.h"
+#include "log.h"
 #include "sal.h"
 #include "error_codes/rt_error_codes.h"
 #include "mmpa_api.h"
@@ -148,46 +152,212 @@ uint32_t GetHcclDfxOpInfoDataType(const OpParam &param) {
 HcclResult SetOpParamFastLaunchTag(OpParam &param)
 {
     HcclDataType tmpDataType;
-    if(param.opType == HcclCMDType::HCCL_CMD_ALLTOALL || param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
+    if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL ||
+        param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
         param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
         tmpDataType = param.all2AllVDataDes.sendType;
     } else {
         tmpDataType = param.DataDes.dataType;
     }
-    
-    const std::string dataType = HCOM_DATA_TYPE_STR_MAP.at(tmpDataType);
-    // 1.通信域tag + 数据类型，得到基础FastLaunchTag
-    std::string tagBuilder = std::string(param.tag) + "_" + dataType;
-    // 2.reduceType
-    if (param.opType == HcclCMDType::HCCL_CMD_ALLREDUCE || param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER ||
-        param.opType == HcclCMDType::HCCL_CMD_REDUCE || param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V) {
-        const std::string reduceType = HCOM_REDUCE_OP_STR_MAP.at(param.reduceType);
-        tagBuilder += "_" + reduceType;
+
+    const char *dataTypeStr = HCOM_DATA_TYPE_STR_MAP.at(tmpDataType).c_str();
+    const bool hasReduce =
+        (param.opType == HcclCMDType::HCCL_CMD_ALLREDUCE ||
+         param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER ||
+         param.opType == HcclCMDType::HCCL_CMD_REDUCE ||
+         param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V);
+
+    const bool hasCount = (param.opType != HcclCMDType::HCCL_CMD_ALLTOALLV);
+
+    const bool hasRoot =
+        (param.opType == HcclCMDType::HCCL_CMD_REDUCE ||
+         param.opType == HcclCMDType::HCCL_CMD_SCATTER ||
+         param.opType == HcclCMDType::HCCL_CMD_BROADCAST);
+
+    const char *reduceTypeStr = hasReduce ? HCOM_REDUCE_OP_STR_MAP.at(param.reduceType).c_str() : nullptr;
+
+    int ret;
+    if (hasReduce && hasCount && hasRoot) {
+        ret = snprintf_s(param.fastLaunchTag, sizeof(param.fastLaunchTag), sizeof(param.fastLaunchTag),
+            "%s_%s_%s_%llu_r%u",
+            param.tag, dataTypeStr, reduceTypeStr,
+            static_cast<unsigned long long>(param.DataDes.count), param.root);
+    } else if (hasReduce && hasCount) {
+        ret = snprintf_s(param.fastLaunchTag, sizeof(param.fastLaunchTag), sizeof(param.fastLaunchTag),
+            "%s_%s_%s_%llu",
+            param.tag, dataTypeStr, reduceTypeStr,
+            static_cast<unsigned long long>(param.DataDes.count));
+    } else if (hasCount && hasRoot) {
+        ret = snprintf_s(param.fastLaunchTag, sizeof(param.fastLaunchTag), sizeof(param.fastLaunchTag),
+            "%s_%s_%llu_r%u",
+            param.tag, dataTypeStr,
+            static_cast<unsigned long long>(param.DataDes.count), param.root);
+    } else if (hasCount) {
+        ret = snprintf_s(param.fastLaunchTag, sizeof(param.fastLaunchTag), sizeof(param.fastLaunchTag),
+            "%s_%s_%llu",
+            param.tag, dataTypeStr,
+            static_cast<unsigned long long>(param.DataDes.count));
+    } else {
+        ret = snprintf_s(param.fastLaunchTag, sizeof(param.fastLaunchTag), sizeof(param.fastLaunchTag),
+            "%s_%s",
+            param.tag, dataTypeStr);
     }
-    // 3.count
-    if (param.opType != HcclCMDType::HCCL_CMD_ALLTOALLV) {
-        std::string count = std::to_string(param.DataDes.count); //todo: alltoall 的count不是从这里取
-        tagBuilder += "_" + count;
-    }
-    // 4.root
-    if (param.opType == HcclCMDType::HCCL_CMD_REDUCE || param.opType == HcclCMDType::HCCL_CMD_SCATTER ||
-        param.opType == HcclCMDType::HCCL_CMD_BROADCAST) {
-        std::string root = std::to_string(param.root);
-        tagBuilder += "_r" + root;
-    }
-    CHK_PRT_RET((tagBuilder.length() >= sizeof(param.fastLaunchTag)), 
-        "failed to fill fastLaunchTag, tag too long", HcclResult::HCCL_E_INTERNAL);
-    snprintf_s(param.fastLaunchTag, sizeof(param.fastLaunchTag), sizeof(param.fastLaunchTag), "%s", tagBuilder.c_str());
+
+    CHK_PRT_RET(ret < 0 || static_cast<size_t>(ret) >= sizeof(param.fastLaunchTag),
+        HCCL_ERROR("failed to fill fastLaunchTag, tag too long"), HcclResult::HCCL_E_INTERNAL);
 
     HCCL_INFO("[SetOpParamFastLaunchTag] fastLaunchTag: [%s]", param.fastLaunchTag);
     return HcclResult::HCCL_SUCCESS;
 }
 
+// 一级缓存：超轻量 TLS 直访（small key 版本，便于解释和维护）
+struct FastLaunchSmallKey {
+    u32 opType {0};
+    u32 dataType {0};
+    u32 mode {0};
+    u32 reduceOrRoot {0};
+    u64 count {0};
+    u64 commBits {0};
+
+    bool operator==(const FastLaunchSmallKey &other) const noexcept
+    {
+        return opType == other.opType &&
+               dataType == other.dataType &&
+               mode == other.mode &&
+               reduceOrRoot == other.reduceOrRoot &&
+               count == other.count &&
+               commBits == other.commBits;
+    }
+};
+
+struct FastLaunchSmallKeyHasher {
+    size_t operator()(const FastLaunchSmallKey &key) const noexcept
+    {
+        const u64 h0 = (static_cast<u64>(key.opType) << 32) ^ key.dataType;
+        const u64 h1 = (static_cast<u64>(key.mode) << 32) ^ key.reduceOrRoot;
+        const u64 h2 = key.count ^ (key.commBits >> 4);
+        return static_cast<size_t>(h0 ^ (h1 << 1) ^ (h2 << 2));
+    }
+};
+
+struct FastLaunchTlsEntry {
+    bool valid {false};
+    FastLaunchSmallKey key {};
+    HcclComm comm {nullptr};
+    void *ctx {nullptr};
+    u64 size {0};
+};
+
+// 一级缓存桶数建议调大
+constexpr size_t FAST_LAUNCH_TLS_BUCKET_NUM = 256;
+
+// 二级缓存上限，避免 thread_local unordered_map 无限膨胀
+constexpr size_t FAST_LAUNCH_L2_CACHE_LIMIT = 256;
+
+thread_local std::array<FastLaunchTlsEntry, FAST_LAUNCH_TLS_BUCKET_NUM> g_ccuFastLaunchTlsCache;
+thread_local std::unordered_map<FastLaunchSmallKey, void*, FastLaunchSmallKeyHasher> g_ccuFastLaunchL2Cache;
+
+static inline bool IsReduceLikeOp(HcclCMDType opType)
+{
+    return (opType == HcclCMDType::HCCL_CMD_ALLREDUCE ||
+            opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER ||
+            opType == HcclCMDType::HCCL_CMD_REDUCE ||
+            opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V);
+}
+
+static inline bool HasRootField(HcclCMDType opType)
+{
+    return (opType == HcclCMDType::HCCL_CMD_REDUCE ||
+            opType == HcclCMDType::HCCL_CMD_SCATTER ||
+            opType == HcclCMDType::HCCL_CMD_BROADCAST);
+}
+
+static inline HcclDataType GetFastLaunchDataType(const OpParam &param)
+{
+    if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL ||
+        param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
+        param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
+        return param.all2AllVDataDes.sendType;
+    }
+    return param.DataDes.dataType;
+}
+
+// old colCcuParamMapping 风格：小结构 key，不依赖字符串 hash
+static inline FastLaunchSmallKey BuildFastLaunchSmallKey(const OpParam &param, HcclComm comm)
+{
+    const bool hasReduce = IsReduceLikeOp(param.opType);
+    const bool hasRoot = HasRootField(param.opType);
+    const bool hasCount = (param.opType != HcclCMDType::HCCL_CMD_ALLTOALLV);
+
+    FastLaunchSmallKey key;
+    key.opType = static_cast<u32>(param.opType);
+    key.dataType = static_cast<u32>(GetFastLaunchDataType(param));
+    key.mode = static_cast<u32>(param.opExecuteConfig);
+    key.reduceOrRoot = hasRoot ? static_cast<u32>(param.root) :
+        (hasReduce ? static_cast<u32>(param.reduceType) : 0U);
+    key.count = hasCount ? static_cast<u64>(param.DataDes.count) : 0ULL;
+    key.commBits = static_cast<u64>(reinterpret_cast<uintptr_t>(comm));
+    return key;
+}
+
+static inline size_t FastLaunchBucket(const FastLaunchSmallKey &key)
+{
+    FastLaunchSmallKeyHasher hasher;
+    return hasher(key) & (FAST_LAUNCH_TLS_BUCKET_NUM - 1);
+}
+
+// 一级缓存查找
+static inline bool TryGetFastLaunchTlsL1(const FastLaunchSmallKey &key, HcclComm comm, CcuFastLaunchCtx **ctx)
+{
+    FastLaunchTlsEntry &entry = g_ccuFastLaunchTlsCache[FastLaunchBucket(key)];
+    if (entry.valid && entry.comm == comm && entry.key == key && entry.ctx != nullptr) {
+        *ctx = reinterpret_cast<CcuFastLaunchCtx *>(entry.ctx);
+        return true;
+    }
+    return false;
+}
+
+// 二级缓存查找
+static inline bool TryGetFastLaunchTlsL2(const FastLaunchSmallKey &key, CcuFastLaunchCtx **ctx)
+{
+    auto it = g_ccuFastLaunchL2Cache.find(key);
+    if (it != g_ccuFastLaunchL2Cache.end() && it->second != nullptr) {
+        *ctx = reinterpret_cast<CcuFastLaunchCtx *>(it->second);
+        return true;
+    }
+    return false;
+}
+
+// 写一级缓存
+static inline void PutFastLaunchTlsL1(const FastLaunchSmallKey &key, HcclComm comm, void *ctx, u64 size)
+{
+    FastLaunchTlsEntry &entry = g_ccuFastLaunchTlsCache[FastLaunchBucket(key)];
+    entry.valid = true;
+    entry.key = key;
+    entry.comm = comm;
+    entry.ctx = ctx;
+    entry.size = size;
+}
+
+// 写二级缓存
+static inline void PutFastLaunchTlsL2(const FastLaunchSmallKey &key, void *ctx)
+{
+    if (UNLIKELY(g_ccuFastLaunchL2Cache.empty())) {
+        g_ccuFastLaunchL2Cache.reserve(FAST_LAUNCH_L2_CACHE_LIMIT);
+    }
+
+    // 简单控容，避免 thread_local map 无限制膨胀
+    if (UNLIKELY(g_ccuFastLaunchL2Cache.size() >= FAST_LAUNCH_L2_CACHE_LIMIT)) {
+        g_ccuFastLaunchL2Cache.clear();
+        g_ccuFastLaunchL2Cache.reserve(FAST_LAUNCH_L2_CACHE_LIMIT);
+    }
+
+    g_ccuFastLaunchL2Cache[key] = ctx;
+}
+
 bool ShouldGoCcuFastLaunch(HcclComm comm, OpParam &param, CcuFastLaunchCtx **ccuFastLaunchCtx)
 {
-    param.hcclComm = comm;
-    
-    // 1. 是ccu模式
+    // 1. 判断是否 CCU 模式
     if (GetExternalInputHcclCcuMSMode()) {
         HCCL_DEBUG("[HcclExecOp] is ccu ms mode");
         param.opExecuteConfig = OpExecuteConfig::CCU_MS;
@@ -197,18 +367,41 @@ bool ShouldGoCcuFastLaunch(HcclComm comm, OpParam &param, CcuFastLaunchCtx **ccu
         param.opExecuteConfig = OpExecuteConfig::CCU_SCHED;
         param.engine = CommEngine::COMM_ENGINE_CCU;
     } else {
-        // 非CCU模式，返回走正常流程
+        return false;
+    }
+    param.hcclComm = comm;
+
+    // 2. 构造 small key
+    FastLaunchSmallKey key = BuildFastLaunchSmallKey(param, comm);
+
+    // 3. 一级缓存：数组直访，最快
+    if (TryGetFastLaunchTlsL1(key, comm, ccuFastLaunchCtx)) {
+        HCCL_DEBUG("[ShouldGoCcuFastLaunch] hit fast launch L1 TLS cache");
+        return true;
+    }
+
+    // 4. 二级缓存：thread_local unordered_map，补足 L1 冲突覆盖
+    if (TryGetFastLaunchTlsL2(key, ccuFastLaunchCtx)) {
+        HCCL_DEBUG("[ShouldGoCcuFastLaunch] hit fast launch L2 TLS cache");
+        PutFastLaunchTlsL1(key, comm, *ccuFastLaunchCtx, 0);
+        return true;
+    }
+
+    // 5. 回退：走原有逻辑
+    HcclResult ret = SetOpParamFastLaunchTag(param);
+    if (ret != HCCL_SUCCESS) {
+        HCCL_ERROR("[ShouldGoCcuFastLaunch] build fastLaunchTag failed, ret=%d", ret);
         return false;
     }
 
-    CHK_RET(SetOpParamFastLaunchTag(param));
-    
-    // 2. 查到engineCtx
     uint64_t size = 0;
     void *fastLaunchCtxPtr = nullptr;
-    if (HcclEngineCtxGet(comm, param.fastLaunchTag, CommEngine::COMM_ENGINE_CCU, &fastLaunchCtxPtr, &size) == HCCL_SUCCESS) {
+    if (HcclEngineCtxGet(comm, param.fastLaunchTag, CommEngine::COMM_ENGINE_CCU,
+                         &fastLaunchCtxPtr, &size) == HCCL_SUCCESS) {
         HCCL_INFO("[ShouldGoCcuFastLaunch] get fastLaunchCtx success, size is %u", size);
-        *ccuFastLaunchCtx = reinterpret_cast<CcuFastLaunchCtx*>(fastLaunchCtxPtr);
+        PutFastLaunchTlsL1(key, comm, fastLaunchCtxPtr, size);
+        PutFastLaunchTlsL2(key, fastLaunchCtxPtr);
+        *ccuFastLaunchCtx = reinterpret_cast<CcuFastLaunchCtx *>(fastLaunchCtxPtr);
         return true;
     }
     return false;
