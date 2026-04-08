@@ -250,11 +250,17 @@ int RunOnDevice(void *arg)
 
     HcclComm hcclComm = nullptr;
     aclrtStream stream = nullptr;
+    aclrtStream syncStream = nullptr;
+    aclrtEvent startEvent = nullptr;
+    aclrtEvent endEvent = nullptr;
+    aclrtEvent syncEvent = nullptr;
+
     BatchItemBuffer token;
     BatchItemBuffer scale;
     HcclAllGatherItem items[2] = {};
     uint32_t itemCount = 0;
 
+    // 1. 参数初始化
     token.sendCount = ctx->options.tokenBytes;
     token.sendBytes = static_cast<size_t>(ctx->options.tokenBytes);
     token.recvBytes = static_cast<size_t>(ctx->options.tokenBytes * ctx->rankSize);
@@ -265,10 +271,20 @@ int RunOnDevice(void *arg)
     scale.recvBytes = static_cast<size_t>(ctx->options.scaleCount * ctx->rankSize * sizeof(float));
     scale.dataType = HCCL_DATA_TYPE_FP32;
 
+    // 2. 环境初始化与资源创建
     ACLCHECK_GOTO(aclrtSetDevice(static_cast<int32_t>(ctx->device)));
     HCCLCHECK_GOTO(HcclCommInitRootInfo(ctx->rankSize, ctx->rootInfo, ctx->device, &hcclComm));
     ACLCHECK_GOTO(aclrtCreateStream(&stream));
 
+    // 创建计时和同步所需的 Event/Stream
+    ACLCHECK_GOTO(aclrtCreateEvent(&startEvent));
+    ACLCHECK_GOTO(aclrtCreateEvent(&endEvent));
+    if (ctx->options.onlyDeviceExecTime) {
+        ACLCHECK_GOTO(aclrtCreateStream(&syncStream));
+        ACLCHECK_GOTO(aclrtCreateEventWithFlag(&syncEvent, ACL_EVENT_SYNC));
+    }
+
+    // 3. 内存分配与数据准备
     ACLCHECK_GOTO(aclrtMalloc(&token.sendDevice, token.sendBytes, ACL_MEM_MALLOC_HUGE_ONLY));
     ACLCHECK_GOTO(aclrtMalloc(&token.recvDevice, token.recvBytes, ACL_MEM_MALLOC_HUGE_ONLY));
     ACLCHECK_GOTO(aclrtMallocHost(&token.sendHost, token.sendBytes));
@@ -289,6 +305,7 @@ int RunOnDevice(void *arg)
             aclrtMemcpy(scale.sendDevice, scale.sendBytes, scale.sendHost, scale.sendBytes, ACL_MEMCPY_HOST_TO_DEVICE));
     }
 
+    // 4. 组装 Batch 任务
     items[itemCount].sendBuf = token.sendDevice;
     items[itemCount].recvBuf = token.recvDevice;
     items[itemCount].sendCount = token.sendCount;
@@ -302,27 +319,49 @@ int RunOnDevice(void *arg)
         ++itemCount;
     }
 
-    // testcase 模仿样例的线程/comm/stream 组织方式，同时补一个最基础的 warmup + timing。
-    for (uint32_t iter = 0; iter < ctx->options.warmupIters; ++iter) {
-        HCCLCHECK_GOTO(HcclAllGatherBatch(items, itemCount, hcclComm, stream));
-        ACLCHECK_GOTO(aclrtSynchronizeStream(stream));
+    // 5. 性能统计逻辑：Gate 阻塞（如果开启 onlyDeviceExecTime）
+    if (ctx->options.onlyDeviceExecTime) {
+        ACLCHECK_GOTO(aclrtStreamWaitEvent(stream, syncEvent));
+        ACLCHECK_GOTO(aclrtResetEvent(syncEvent, stream));
     }
 
+    // 6. Warmup
+    for (uint32_t iter = 0; iter < ctx->options.warmupIters; ++iter) {
+        HCCLCHECK_GOTO(HcclAllGatherBatch(items, itemCount, hcclComm, stream));
+    }
+
+    // 7. 正式测量执行
+    ACLCHECK_GOTO(aclrtRecordEvent(startEvent, stream));
+    for (uint32_t iter = 0; iter < ctx->options.measureIters; ++iter) {
+        HCCLCHECK_GOTO(HcclAllGatherBatch(items, itemCount, hcclComm, stream));
+    }
+    ACLCHECK_GOTO(aclrtRecordEvent(endEvent, stream));
     {
-        const auto timeStart = std::chrono::steady_clock::now();
-        for (uint32_t iter = 0; iter < ctx->options.measureIters; ++iter) {
-            HCCLCHECK_GOTO(HcclAllGatherBatch(items, itemCount, hcclComm, stream));
-            ACLCHECK_GOTO(aclrtSynchronizeStream(stream));
+        // 8. 触发执行（针对 onlyDeviceExecTime 模式）
+        if (ctx->options.onlyDeviceExecTime) {
+            int sleepTime = 50 + ctx->options.warmupIters * 2 + ctx->options.measureIters * 2;
+            std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
+            ACLCHECK_GOTO(aclrtRecordEvent(syncEvent, syncStream)); 
         }
-        const auto timeEnd = std::chrono::steady_clock::now();
-        const double totalUs = static_cast<double>(
-            std::chrono::duration_cast<std::chrono::microseconds>(timeEnd - timeStart).count());
-        const double avgUs = totalUs / static_cast<double>(ctx->options.measureIters);
-        std::cout << "rank " << ctx->device
-                  << " timing: warmup=" << ctx->options.warmupIters
-                  << ", iters=" << ctx->options.measureIters
-                  << ", total_us=" << totalUs
-                  << ", avg_us=" << avgUs << std::endl;
+    }
+    // 9. 同步并计算时间与带宽
+    ACLCHECK_GOTO(aclrtSynchronizeStream(stream));
+
+    if (ctx->device == 0) {
+        float ms = 0;
+        ACLCHECK_GOTO(aclrtEventElapsedTime(&ms, startEvent, endEvent));
+        
+        // 统计所有参与计算的 buffer 总大小
+        size_t totalBytes = token.sendBytes + (ctx->options.scaleCount > 0 ? scale.sendBytes : 0);
+        unsigned long long dataSize = static_cast<unsigned long long>(totalBytes * ctx->rankSize);
+        
+        double total_time_us = static_cast<double>(ms * 1000.0f);
+        double average_time_us = total_time_us / ctx->options.measureIters;
+        
+        constexpr double B_US_TO_GB_S = 1.0E6 / 1.0E9;
+        double algorithm_bandwith_GBytes_s = static_cast<double>(dataSize) / average_time_us * B_US_TO_GB_S;
+
+        printf("%-17llu | %-14.2f | %-20.5f | success \n", dataSize, average_time_us, algorithm_bandwith_GBytes_s);
     }
 
     ACLCHECK_GOTO(
@@ -340,20 +379,22 @@ int RunOnDevice(void *arg)
         goto CLEANUP;
     }
 
-    if (ctx->options.scaleCount > 0) {
-        ACLCHECK_GOTO(
-            aclrtMemcpy(scale.recvHost, scale.recvBytes, scale.recvDevice, scale.recvBytes, ACL_MEMCPY_DEVICE_TO_HOST));
-        PrintScalePreview(
-            static_cast<const float *>(scale.recvHost),
-            ctx->options.scaleCount,
-            ctx->rankSize,
-            ctx->options.printCount,
-            ctx->device);
+    {
+        if (ctx->options.scaleCount > 0) {
+            ACLCHECK_GOTO(
+                aclrtMemcpy(scale.recvHost, scale.recvBytes, scale.recvDevice, scale.recvBytes, ACL_MEMCPY_DEVICE_TO_HOST));
+            PrintScalePreview(
+                static_cast<const float *>(scale.recvHost),
+                ctx->options.scaleCount,
+                ctx->rankSize,
+                ctx->options.printCount,
+                ctx->device);
 
-        if (ctx->options.verifyOutput &&
-            !VerifyScaleOutput(static_cast<const float *>(scale.recvHost), ctx->options.scaleCount, ctx->rankSize)) {
-            status = 1;
-            goto CLEANUP;
+            if (ctx->options.verifyOutput &&
+                !VerifyScaleOutput(static_cast<const float *>(scale.recvHost), ctx->options.scaleCount, ctx->rankSize)) {
+                status = 1;
+                goto CLEANUP;
+            }
         }
     }
 
