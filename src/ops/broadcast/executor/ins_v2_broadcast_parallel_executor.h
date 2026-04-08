@@ -33,6 +33,12 @@ public:
     // AICPU 接口
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
     HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo, AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
+#ifndef AICPU_COMPILE
+    HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *resCtx) override;
+    HcclResult FastLaunchSaveCtx(const OpParam &param, const TemplateResource &templateAlgResIntra,
+                                 const TemplateResource &templateAlgResInter, const TemplateResource &intraTempAlgRes1,
+                                 const TemplateResource &interTempAlgRes1);
+#endif
 
 private:
     void GetParallelDataSplit(std::vector<float> &splitDataSize) const;
@@ -92,12 +98,6 @@ private:
                                         TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate2 &tempAlgIntra);
     HcclResult FastLaunchTemplateInter11(const OpParam &param, const u32 kernelNum,
                                         TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate3 &tempAlgIntra);
-#ifndef AICPU_COMPILE
-    HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *resCtx) override;
-    HcclResult FastLaunchSaveCtx(const OpParam &param, const TemplateResource &templateAlgResIntra,
-                                 const TemplateResource &templateAlgResInter, const TemplateResource &intraTempAlgRes1,
-                                 const TemplateResource &interTempAlgRes1);
-#endif
     // rounddown func for uint
     inline u64 RoundDown(u64 dividend, u64 divisor) const
     {
