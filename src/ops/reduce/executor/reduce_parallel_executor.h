@@ -42,11 +42,11 @@ protected:
     std::vector<ThreadHandle> threads_;
 
 private:
-    void GenTemplateAlgParams0(const OpParam &param, const AlgResourceCtxSerializable &resCtx, u64 dataOffset,
+    HcclResult GenTemplateAlgParams0(const OpParam &param, const AlgResourceCtxSerializable &resCtx, u64 dataOffset,
         u64 dataCountPerLoopAxis0, u64 scratchOffset, TemplateDataParams &tempAlgParams0) const;
-    void GenTemplateAlgParamsIntra1(const OpParam &param, const AlgResourceCtxSerializable &resCtx, u64 dataOffset,
+    HcclResult GenTemplateAlgParamsIntra1(const OpParam &param, const AlgResourceCtxSerializable &resCtx, u64 dataOffset,
         u64 dataCountPerLoopAxis1, u64 scratchOffset, u64 othScratchOffset, TemplateDataParams &tempAlgParams1) const;
-    void GenTemplateAlgParamsInter1(const OpParam &param, const AlgResourceCtxSerializable &resCtx, u64 dataOffset,
+    HcclResult GenTemplateAlgParamsInter1(const OpParam &param, const AlgResourceCtxSerializable &resCtx, u64 dataOffset,
         u64 dataCountPerLoopAxis1, u64 scratchOffset, u64 othScratchOffset, TemplateDataParams &tempAlgParams1) const;
     HcclResult PrepareResForTemplate(AlgTemplate0 &tempAlgIntra, AlgTemplate1 &tempAlgInter);
     void GetParallelDataSplit(std::vector<float> &splitDataSize) const;
