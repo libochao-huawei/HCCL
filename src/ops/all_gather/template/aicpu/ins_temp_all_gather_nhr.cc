@@ -24,11 +24,11 @@ InsTempAllGatherNHR::~InsTempAllGatherNHR() {}
 HcclResult InsTempAllGatherNHR::CalcRes(HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
                                         AlgResourceRequest &resourceRequest)
 {
+    CHK_RET(topoInfo);
     GetRes(resourceRequest);
     std::vector<HcclChannelDesc> level1Channels;
     CHK_RET(CalcChannelRequestNhr(comm, param, topoInfo, subCommRanks_, level1Channels));
     resourceRequest.channels.push_back(level1Channels);
-    HCCL_WARNING("Resource calculation is temporarily not performed in the template.");
     return HCCL_SUCCESS;
 }
 HcclResult InsTempAllGatherNHR::GetRes(AlgResourceRequest &resourceRequest) const
@@ -62,6 +62,9 @@ HcclResult InsTempAllGatherNHR::KernelRun(const OpParam &param, const TemplateDa
     }
     threadNum_ = 1;
     tempAlgParams_ = tempAlgParams;
+    CHK_PTR_NULL(tempAlgParams.buffInfo.inputPtr);
+    CHK_PTR_NULL(tempAlgParams.buffInfo.outputPtr);
+    CHK_PRT_NULL(tempAlgParams.buffInfo.hcclBuff.addr);
     CHK_PRT_RET(threadNum_ != templateResource.threads.size(),
                 HCCL_ERROR("[InsTempAllGatherNHR] Rank [%d], requiredQueNum [%u] not equals templateQueNum [%zu].",
                            myRank_, threadNum_, templateResource.threads.size()),
@@ -141,7 +144,12 @@ HcclResult InsTempAllGatherNHR::GetStepInfo(u32 step, u32 nSteps, AicpuNHRStepIn
     stepInfo.rxSliceIdxs.clear();
     stepInfo.step = step;
     stepInfo.myRank = myAlgRank;
-
+    CHK_PRT_RET(templateRankSize_ == 0,
+                HCCL_ERROR("[InsTempAllGatherNHR]templateRankSize_ is 0"),
+                HCCL_E_PARA);
+    CHK_PRT_RET(step >= nSteps,
+            HCCL_ERROR("[InsTempAllGatherNHR]step >= nSteps"),
+            HCCL_E_PARA);
     u32 deltaRank = 1 << (nSteps - 1 - step);
     u32 recvFrom = (myAlgRank + templateRankSize_ - deltaRank) % templateRankSize_;
     u32 sendTo = (myAlgRank + deltaRank) % templateRankSize_;
@@ -185,7 +193,7 @@ HcclResult InsTempAllGatherNHR::LocalDataCopy(const std::vector<ThreadHandle> &t
         DataSlice srcSlices(tempAlgParams_.buffInfo.inputPtr, inOff, tempAlgParams_.sliceSize, tempAlgParams_.count);
         DataSlice dstSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scOff, tempAlgParams_.sliceSize,
                            tempAlgParams_.count);
-        LocalCopy(threads[0], srcSlices, dstSlice);
+        CHK_RET(LocalCopy(threads[0], srcSlices, dstSlice));
     }
     return HcclResult::HCCL_SUCCESS;
 }
@@ -206,7 +214,7 @@ HcclResult InsTempAllGatherNHR::PostLocalCopy(const std::vector<ThreadHandle> &t
                                tempAlgParams_.count);
             DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outOffset, tempAlgParams_.sliceSize,
                                tempAlgParams_.count);
-            LocalCopy(threads[0], srcSlice, dstSlice);
+            CHK_RET(LocalCopy(threads[0], srcSlice, dstSlice));
         }
     }
     return HcclResult::HCCL_SUCCESS;
