@@ -40,6 +40,7 @@ struct ThreadContext {
     HcclRootInfo *rootInfo;
     uint32_t device;
     uint32_t devCount;
+    uint64_t strideCount;
 };
 
 int Sample(void *arg)
@@ -60,12 +61,15 @@ int Sample(void *arg)
     ACLCHECK(aclrtMalloc(&sendBuf, sendSize, ACL_MEM_MALLOC_HUGE_ONLY));
     ACLCHECK(aclrtMalloc(&recvBuf, recvSize, ACL_MEM_MALLOC_HUGE_ONLY));
 
-    // 申请 Host 内存用于存放输入数据，并将内容初始化为：0~7
+    // 申请 Host 内存用于存放输入数据，并按逻辑 2D 布局初始化
     void *hostBuf = nullptr;
     ACLCHECK(aclrtMallocHost(&hostBuf, sendSize));
     float *tmpHostBuff = static_cast<float *>(hostBuf);
-    for (uint64_t i = 0; i < sendCount; ++i) {
-        tmpHostBuff[i] = static_cast<float>(i);
+    // sendBuf[row][col] = row * sendCount + col
+    for (uint32_t row = 0; row < ctx->devCount; ++row) {
+        for (uint32_t col = 0; col < recvCount; ++col) {
+            tmpHostBuff[row * sendCount + col] = static_cast<float>(row * sendCount + col);
+        }
     }
     // 将 Host 侧输入数据拷贝到 Device 侧
     ACLCHECK(aclrtMemcpy(sendBuf, sendSize, hostBuf, sendSize, ACL_MEMCPY_HOST_TO_DEVICE));
@@ -81,7 +85,7 @@ int Sample(void *arg)
     ACLCHECK(aclrtCreateStream(&stream));
 
     // 执行 ReduceScatter，将所有 rank 的 sendBuf 相加后，再把结果按照 rank_id 顺序均匀分散到各个 rank 的 recvBuf
-    HCCLCHECK(HcclReduceScatter(sendBuf, recvBuf, recvCount, HCCL_DATA_TYPE_FP32, HCCL_REDUCE_SUM, 0, hcclComm, stream));
+    HCCLCHECK(HcclReduceScatter(sendBuf, recvBuf, recvCount, HCCL_DATA_TYPE_FP32, HCCL_REDUCE_SUM, ctx->strideCount, hcclComm, stream));
     // 阻塞等待任务流中的集合通信任务执行完成
     ACLCHECK(aclrtSynchronizeStream(stream));
 
@@ -91,11 +95,22 @@ int Sample(void *arg)
     ACLCHECK(aclrtMallocHost(&resultBuff, recvSize));
     ACLCHECK(aclrtMemcpy(resultBuff, recvSize, recvBuf, recvSize, ACL_MEMCPY_DEVICE_TO_HOST));
     float *tmpResBuff = static_cast<float *>(resultBuff);
-    std::cout << "rankId: " << ctx->device << ", output: [";
-    for (uint32_t i = 0; i < recvCount; ++i) {
-        std::cout << " " << tmpResBuff[i];
+
+    // 计算预期值并验证
+    for (uint32_t recvIdx = 0; recvIdx < recvCount; ++recvIdx) {
+        float expectedVal = 0.0f;
+        for (uint32_t r = 0; r < ctx->devCount; ++r) {
+            expectedVal += static_cast<float>(r * sendCount + recvIdx);
+        }
+        float actualVal = tmpResBuff[recvIdx];
+        if (actualVal != expectedVal) {
+            printf("[FAIL] rankId=%u, recvIdx=%u, actual=%.1f, expected=%.1f\n",
+                   ctx->device, recvIdx, actualVal, expectedVal);
+        } else {
+            printf("[PASS] rankId=%u, recvIdx=%u, value=%.1f\n",
+                   ctx->device, recvIdx, actualVal);
+        }
     }
-    std::cout << " ]" << std::endl;
     ACLCHECK(aclrtFreeHost(resultBuff));
 
     // 释放资源
@@ -123,17 +138,31 @@ int main()
     HcclRootInfo *rootInfo = (HcclRootInfo *)rootInfoBuf;
     HCCLCHECK(HcclGetRootInfo(rootInfo));
 
-    // 启动线程执行集合通信操作
-    std::vector<std::thread> threads(devCount);
-    std::vector<ThreadContext> args(devCount);
-    for (uint32_t i = 0; i < devCount; i++) {
-        args[i].rootInfo = rootInfo;
-        args[i].device = i;
-        args[i].devCount = devCount;
-        threads[i] = std::thread(Sample, (void *)&args[i]);
-    }
-    for (uint32_t i = 0; i < devCount; i++) {
-        threads[i].join();
+    // 测试用例配置
+    const uint64_t sendCountBase = devCount;
+    struct TestCaseConfig { uint64_t strideCount; const char* desc; };
+    TestCaseConfig testCases[] = {
+        { 0,                       "stride=0 (continuous)" },
+        { sendCountBase,           "stride=sendCount" },
+        { sendCountBase * 2,       "stride=2*sendCount" },
+    };
+
+    for (const auto& tc : testCases) {
+        std::cout << "\n=== Test: strideCount=" << tc.strideCount
+                  << " (" << tc.desc << ") ===" << std::endl;
+
+        std::vector<std::thread> threads(devCount);
+        std::vector<ThreadContext> args(devCount);
+        for (uint32_t i = 0; i < devCount; i++) {
+            args[i].rootInfo = rootInfo;
+            args[i].device = i;
+            args[i].devCount = devCount;
+            args[i].strideCount = tc.strideCount;
+            threads[i] = std::thread(Sample, (void *)&args[i]);
+        }
+        for (uint32_t i = 0; i < devCount; i++) {
+            threads[i].join();
+        }
     }
 
     // 释放资源
