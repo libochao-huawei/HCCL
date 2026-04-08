@@ -8,32 +8,28 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef INS_TEMP_RECV_DPU
-#define INS_TEMP_RECV_DPU
-
+#ifndef INS_TEMP_SEND_DPU
+#define INS_TEMP_SEND_DPU
 #include <cstring>
-#include <vector>
-#include <map>
-#include <string>
 #include "alg_v2_template_base.h"
 #include "alg_v2_template_register.h"
+#include "alg_param.h"
 #include "executor_base.h"
 #include "alg_data_trans_wrapper.h"
 #include "dpu_alg_data_trans_wrapper.h"
-#include "hccl_res.h"
 
 namespace ops_hccl {
 
-class InsTempRecvDpu : public InsAlgTemplateBase {
+class InsTempSendDpu : public InsAlgTemplateBase {
 public:
-    explicit InsTempRecvDpu();
-    explicit InsTempRecvDpu(const OpParam &param, const u32 rankId,  // 传通信域的rankId，userRank
+    explicit InsTempSendDpu();
+    explicit InsTempSendDpu(const OpParam &param, const u32 rankId,  // 传通信域的rankId，userRank
         const std::vector<std::vector<u32>> &subCommRanks);
-    ~InsTempRecvDpu() override;
+    ~InsTempSendDpu() override;
 
     std::string Describe() const override
     {
-        std::string info = "Template of Receive with tempRankSize ";
+        std::string info = "Template of reduce scatter Mesh with tempRankSize ";
         info += std::to_string(templateRankSize_);
         return info;
     }
@@ -42,24 +38,17 @@ public:
         TemplateResource &templateResource) override;
     HcclResult CalcRes(
         HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo, AlgResourceRequest &resourceRequest) override;
+    u64 CalcScratchMultiple(BufferType inBufferType, BufferType outBufferType) override;
     HcclResult DPUKernelRun(const TemplateDataParams &tempAlgParam,
-        const std::map<u32, std::vector<ChannelInfo>> &channels, const u32 myRank,
-        const std::vector<std::vector<uint32_t>> &subCommRanks);
+        const std::map<u32, std::vector<ChannelInfo>> &channels, const u32 myRank, const std::vector<std::vector<uint32_t>> &subCommRanks);
+    
     void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub) override{};
     void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override{};
 
 private:
-    u32 sendRank_{0};
     u64 count_{0};
     u64 processSize_{0};
-    u64 dataCount_{0};
-    u64 dataTypeSize_{0};
-    u64 dataSize_{0};
-    HcclDataType dataType_;
-    ChannelInfo recvChannel_;  // 只有一个channel
-    ThreadHandle thread_;      // 只涉及一个thread
 };
 
-}  // namespace ops_hccl
-// #endif  //OPEN_HCCL_INS_TEMP_RECV_DPU
-#endif
+}  // namespace Hccl
+#endif  /* INS_TEMP_SEND_DPU */

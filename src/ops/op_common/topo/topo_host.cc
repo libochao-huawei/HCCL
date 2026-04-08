@@ -9,6 +9,7 @@
  */
 
 #include <numeric>
+#include <vector>
 #include "topo_host.h"
 #include "hccl_rank_graph.h"
 #include "hcomm_primitives.h"
@@ -588,8 +589,9 @@ HcclResult CalcLevel0TopoShape(const HcclComm comm, TopoInfoWithNetLayerDetails*
         topoInfo->level0Topo = Level0Shape::MESH_1D_CLOS;
         return HCCL_SUCCESS;
     }
+    topoInfo->level0Topo = Level0Shape::CLOS;
     HCCL_ERROR("Unkown topo for level 0, topoInstNum[%u]", topoInstNum);
-    return HCCL_E_INTERNAL;
+    return HCCL_SUCCESS;
 }
 
 // 计算 Level1 NHR 标记：当 Level0 GCD 为 1 时，Mesh 无意义，需要退化为单级 NHR
@@ -880,4 +882,100 @@ HcclResult CalcLevel0MeshType(HcclComm comm, TopoInfoWithNetLayerDetails *topoIn
     }
     return HCCL_SUCCESS;
 }
+
+HcclResult CheckHostDpuOnly(HcclComm comm, bool &hostDPUOnly)
+{
+    hostDPUOnly = false;
+
+    // 1. 获取 rankSize，如果只有一个 rank，不使用 HostDPU
+    u32 rankSize = 0;
+    CHK_RET(HcclGetRankSize(comm, &rankSize));
+    if (rankSize == 1) {
+        HCCL_INFO("Not using hostdpu because rankSize is 1");
+        return HCCL_SUCCESS;
+    }
+
+    // 2. 检查是否支持 rank graph 接口，不支持则不使用 HostDPU
+    if (!HcommIsSupportHcclRankGraphGetLayers()) {
+        HCCL_DEBUG("HcclRankGraphGetLayers not supported, skip HostDPU check");
+        return HCCL_SUCCESS;
+    }
+
+    // 3. 获取网络层信息
+    uint32_t *netLayers = nullptr;
+    uint32_t netLayerNum = 0;
+    CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
+    if ((netLayers == nullptr) || (netLayerNum == 0)) {
+        HCCL_WARNING("HcclRankGraphGetLayers fail");
+        return HCCL_E_INTERNAL;
+    }
+
+    // 4. 只校验最后一个 level（跨机通信只看最后一层）
+    uint32_t lastLayer = netLayers[netLayerNum - 1];
+
+    uint32_t *topoInsts = nullptr;
+    uint32_t topoInsNum = 0;
+    CHK_RET(HcclRankGraphGetTopoInstsByLayer(comm, lastLayer, &topoInsts, &topoInsNum));
+    if ((topoInsts == nullptr) || (topoInsNum == 0)) {
+        HCCL_WARNING("HcclRankGraphGetTopoInstsByLayer fail, netLayer[%u]", lastLayer);
+        return HCCL_E_INTERNAL;
+    }
+
+    // 5. 遍历 topoInst 检查
+    for (uint32_t topoInsIdx = 0; topoInsIdx < topoInsNum; topoInsIdx++) {
+        uint32_t topoInstId = topoInsts[topoInsIdx];
+
+        // 检查是否是 COMM_TOPO_CLOS 类型
+        CommTopo topoType;
+        CHK_RET(HcclRankGraphGetTopoType(comm, lastLayer, topoInstId, &topoType));
+        if (topoType != COMM_TOPO_CLOS) {
+            HCCL_DEBUG("Not using hostdpu because topo type is not COMM_TOPO_CLOS, topoType[%d]", topoType);
+            continue;
+        }
+
+        // 检查所有 rank 是否完全连通
+        uint32_t *ranks = nullptr;
+        uint32_t rankNum = 0;
+        CHK_RET(HcclRankGraphGetRanksByTopoInst(comm, lastLayer, topoInstId, &ranks, &rankNum));
+        if (rankNum != rankSize) {
+            HCCL_DEBUG("Not using hostdpu because rank is not fully connected, rankNum[%u] != rankSize[%u]",
+                rankNum, rankSize);
+            continue;
+        }
+
+        // 获取 endpoint 数量
+        uint32_t endPointNums = 0;
+        CHK_RET(HcclRankGraphGetEndpointNum(comm, lastLayer, topoInstId, &endPointNums));
+        if (endPointNums == 0) {
+            continue;
+        }
+
+        // 分配 endpoint 描述数组
+        std::vector<EndpointDesc> endPointDescs(endPointNums);
+        CHK_RET(HcclRankGraphGetEndpointDesc(comm, lastLayer, topoInstId, &endPointNums, endPointDescs.data()));
+
+        // 检查 locType：只要有 Device 类型 endpoint 就不使用 HostDPU
+        bool hasHostEndpoint = false;
+        for (uint32_t endPointIdx = 0; endPointIdx < endPointNums; endPointIdx++) {
+            const EndpointDesc &endPointDesc = endPointDescs[endPointIdx];
+            if (endPointDesc.loc.locType == ENDPOINT_LOC_TYPE_DEVICE) {
+                HCCL_INFO("Not using hostdpu because there is device endpoint in netLayer[%u]", lastLayer);
+                return HCCL_SUCCESS;  // 有 Device endpoint，不使用 HostDPU
+            } else if (endPointDesc.loc.locType == ENDPOINT_LOC_TYPE_HOST) {
+                HCCL_DEBUG("Found host endpoint in netLayer[%u]", lastLayer);
+                hasHostEndpoint = true;
+            }
+        }
+
+        // 如果此 topoInst 有 Host endpoint 且没有 Device endpoint，则使用 HostDPU
+        if (hasHostEndpoint) {
+            hostDPUOnly = true;
+            HCCL_INFO("Using host dpu trans for topoInstId[%u]", topoInstId);
+            return HCCL_SUCCESS;
+        }
+    }
+
+    return HCCL_SUCCESS;
+}
+
 }

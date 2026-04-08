@@ -29,7 +29,7 @@ namespace ops_hccl {
     {
         (void)topoInfo;
         HCCL_INFO("[SendAutoSelector][SelectDPUAlgo] opType:%d", opParam.opType);
-        selectAlgName = "InsSendDPU";
+        selectAlgName = "opv2_insSendHostDpu"; // opv2流程
         return SelectorStatus::MATCH;
     }
 

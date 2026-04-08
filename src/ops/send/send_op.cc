@@ -20,23 +20,10 @@ using namespace ops_hccl;
 
 extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 
-HcclResult HcclSend(
+HcclResult HcclSendv2(
     void *sendBuf, uint64_t count, HcclDataType dataType, uint32_t destRank, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("[HcclSend] Start.");
-    if (GetHcommVersion() < 90000000) {
-        return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
-    }
-
-    DevType deviceType = DevType::DEV_TYPE_COUNT;
-    CHK_RET(hrtGetDeviceType(deviceType));
-    #ifdef MACRO_DEV_TYPE_NEW
-    if (deviceType != DevType::DEV_TYPE_950) {
-    #else
-    if (deviceType != DevType::DEV_TYPE_910_95) {
-    #endif
-        return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
-    }
     HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
     CHK_RET(InitEnvConfig());
     u32 rankSize = INVALID_VALUE_RANKSIZE;
@@ -55,6 +42,33 @@ HcclResult HcclSend(
 
     HCCL_INFO("[HcclSend][%d]->[%d] Success.", userRank, destRank);
     return HcclResult::HCCL_SUCCESS;
+}
+
+HcclResult HcclSend(
+    void *sendBuf, uint64_t count, HcclDataType dataType, uint32_t destRank, HcclComm comm, aclrtStream stream)
+{
+    HCCL_INFO("[HcclSend] Start.");
+
+    bool hostDpuOnly = false;
+    if (CheckHostDpuOnly(comm, hostDpuOnly) == HCCL_SUCCESS && hostDpuOnly == true) {
+        return HcclRecvV2(recvBuf, count, dataType, srcRank, comm, stream);
+    }
+
+    if (GetHcommVersion() < 90000000) {
+        return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
+    }
+
+    DevType deviceType = DevType::DEV_TYPE_COUNT;
+    CHK_RET(hrtGetDeviceType(deviceType));
+    #ifdef MACRO_DEV_TYPE_NEW
+    if (deviceType != DevType::DEV_TYPE_950) {
+    #else
+    if (deviceType != DevType::DEV_TYPE_910_95) {
+    #endif
+        return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
+    }
+    
+    return HcclSendv2(sendBuf, count, dataType, destRank, comm, stream);
 }
 
 HcclResult HcclSendGraphMode(
