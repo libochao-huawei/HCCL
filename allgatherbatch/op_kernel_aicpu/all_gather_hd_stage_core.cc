@@ -226,7 +226,6 @@ HcclResult AllGatherHDStageCore::ReadPartnerRanks(
         HCCL_ERROR("HDStage %s channel to partnerRank=%u is missing", stageTag, partnerRank);
         return HCCL_E_NOT_FOUND;
     }
-    }
     int32_t ret = HcommChannelNotifyRecordOnThread(
         resCtx_.threadHandle,
         channel->handle,
