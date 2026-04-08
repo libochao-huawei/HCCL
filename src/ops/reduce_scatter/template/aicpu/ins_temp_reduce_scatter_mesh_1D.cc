@@ -36,7 +36,7 @@ HcclResult InsTempReduceScatterMesh1D::CalcRes(HcclComm comm, const OpParam& par
     // 添加对topoInfo是否为空的校验防止空指针异常
     CHK_PRT_RET(topoInfo == nullptr,
         HCCL_ERROR("[InsTempReduceScatterMesh1D][CalcRes] topoInfo is nullptr"), HCCL_E_INTERNAL);
-    CHK_PRT_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
+    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
     resourceRequest.channels.push_back(level0Channels);
     HCCL_DEBUG("[InsTempReduceScatterMesh1D][CalcRes] myRank[%u], notifyNumOnMainThread[%u], slaveThreadNum[%u]",
                 myRank_, resourceRequest.notifyNumOnMainThread, resourceRequest.slaveThreadNum);
