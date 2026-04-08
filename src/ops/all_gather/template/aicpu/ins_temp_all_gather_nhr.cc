@@ -28,7 +28,6 @@ HcclResult InsTempAllGatherNHR::CalcRes(HcclComm comm, const OpParam &param, con
     std::vector<HcclChannelDesc> level1Channels;
     CHK_RET(CalcChannelRequestNhr(comm, param, topoInfo, subCommRanks_, level1Channels));
     resourceRequest.channels.push_back(level1Channels);
-    HCCL_WARNING("Resource calculation is temporarily not performed in the template.");
     return HCCL_SUCCESS;
 }
 HcclResult InsTempAllGatherNHR::GetRes(AlgResourceRequest &resourceRequest) const
@@ -60,8 +59,14 @@ HcclResult InsTempAllGatherNHR::KernelRun(const OpParam &param, const TemplateDa
         HCCL_INFO("[InsTempAllGatherNHR] Rank [%d], get slicesize zero.", myRank_);
         return HCCL_SUCCESS;
     }
+    CHK_PRT_RET(templateRankSize_ == 0,
+            HCCL_ERROR("[InsTempAllGatherNHR]templateRankSize_ is 0"),
+            HCCL_E_PARA);
     threadNum_ = 1;
     tempAlgParams_ = tempAlgParams;
+    CHK_PTR_NULL(tempAlgParams.buffInfo.inputPtr);
+    CHK_PTR_NULL(tempAlgParams.buffInfo.outputPtr);
+    CHK_PTR_NULL(tempAlgParams.buffInfo.hcclBuff.addr);
     CHK_PRT_RET(threadNum_ != templateResource.threads.size(),
                 HCCL_ERROR("[InsTempAllGatherNHR] Rank [%d], requiredQueNum [%u] not equals templateQueNum [%zu].",
                            myRank_, threadNum_, templateResource.threads.size()),
@@ -87,8 +92,15 @@ HcclResult InsTempAllGatherNHR::RunAllGatherNHR(const std::vector<ThreadHandle> 
             AicpuNHRStepInfo stepInfo;
             CHK_RET(GetStepInfo(step, nSteps, stepInfo));  // 计算当前step要通信的卡，数据
 
-            const ChannelInfo &channelRecv = channels.at(GetRankFromMap(stepInfo.fromRank))[0];
-            const ChannelInfo &channelSend = channels.at(GetRankFromMap(stepInfo.toRank))[0];
+            u32 recvRank = GetRankFromMap(stepInfo.fromRank);
+             CHK_PRT_RET( channels.count(recvRank) == 0 || channels.at(recvRank).empty(),
+                HCCL_ERROR("[InsTempAllGatherNHR] recv rank %u not found in channels map or channel is empty", recvRank), HCCL_E_INTERNAL);
+            const ChannelInfo &channelRecv =  channels.at(recvRank)[0];
+            
+            u32 sendRank = GetRankFromMap(stepInfo.toRank);
+            CHK_PRT_RET( channels.count(sendRank) == 0 || channels.at(sendRank).empty(),
+                HCCL_ERROR("[InsTempAllGatherNHR] send rank %u not found in channels map or channel is empty", sendRank), HCCL_E_INTERNAL);
+            const ChannelInfo &channelSend =  channels.at(sendRank)[0];
             // 构造SendRecv， 都是Scratch到Scratch的传输，没有DMA消减
             std::vector<DataSlice> txSrcSlices;
             std::vector<DataSlice> txDstSlices;
@@ -141,7 +153,6 @@ HcclResult InsTempAllGatherNHR::GetStepInfo(u32 step, u32 nSteps, AicpuNHRStepIn
     stepInfo.rxSliceIdxs.clear();
     stepInfo.step = step;
     stepInfo.myRank = myAlgRank;
-
     u32 deltaRank = 1 << (nSteps - 1 - step);
     u32 recvFrom = (myAlgRank + templateRankSize_ - deltaRank) % templateRankSize_;
     u32 sendTo = (myAlgRank + deltaRank) % templateRankSize_;
@@ -185,7 +196,7 @@ HcclResult InsTempAllGatherNHR::LocalDataCopy(const std::vector<ThreadHandle> &t
         DataSlice srcSlices(tempAlgParams_.buffInfo.inputPtr, inOff, tempAlgParams_.sliceSize, tempAlgParams_.count);
         DataSlice dstSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scOff, tempAlgParams_.sliceSize,
                            tempAlgParams_.count);
-        LocalCopy(threads[0], srcSlices, dstSlice);
+        CHK_RET(LocalCopy(threads[0], srcSlices, dstSlice));
     }
     return HcclResult::HCCL_SUCCESS;
 }
@@ -206,7 +217,7 @@ HcclResult InsTempAllGatherNHR::PostLocalCopy(const std::vector<ThreadHandle> &t
                                tempAlgParams_.count);
             DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outOffset, tempAlgParams_.sliceSize,
                                tempAlgParams_.count);
-            LocalCopy(threads[0], srcSlice, dstSlice);
+            CHK_RET(LocalCopy(threads[0], srcSlice, dstSlice));
         }
     }
     return HcclResult::HCCL_SUCCESS;
