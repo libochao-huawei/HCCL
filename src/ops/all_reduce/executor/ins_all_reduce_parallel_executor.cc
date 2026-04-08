@@ -114,6 +114,10 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     // 初始化资源信息
     maxTmpMemSize_ = resCtx.cclMem.size;
     threads_ = resCtx.threads;
+    constexpr u32 PARALLEL_TOPO_NUM = 2;
+    CHK_PRT_RET(resCtx.algHierarchyInfo.infos.size() == 0 || resCtx.algHierarchyInfo.infos[0].size() < PARALLEL_TOPO_NUM,
+        HCCL_ERROR("[InsAllReduceParallelExecutor][Orchestrate] infos list size[%u][%u] not match parallel",
+            resCtx.algHierarchyInfo.infos.size(), resCtx.algHierarchyInfo.infos[0].size()), HcclResult::HCCL_E_INTERNAL);
 
     std::vector<std::vector<u32>> temp0HierarchyInfo;
     std::vector<std::vector<u32>> temp1HierarchyInfo;
@@ -121,6 +125,11 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
         temp0HierarchyInfo = {resCtx.algHierarchyInfo.infos[0][0]};
         std::vector<u32> closRanks;
         u32 meshSize = resCtx.algHierarchyInfo.infos[0][0].size();
+        if (meshSize == 0) {
+            HCCL_ERROR("[InsAllReduceParallelExecutor][Orchestrate] meshSize is 0");
+            return HcclResult::HCCL_E_INTERNAL;
+        }
+
         for(auto rank : resCtx.algHierarchyInfo.infos[0][1]) {
             if(rank % meshSize == resCtx.topoInfo.userRank % meshSize) {
                 closRanks.push_back(rank);
@@ -298,13 +307,17 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
         } else {
             memBlockSize = std::min(static_cast<u64>(UB_MAX_DATA_SIZE), maxTmpMemSize_ / multipleInter) * templateNum;
             interHcclBuffSizeStage0_ = maxTmpMemSize_;
-            interHcclBuffSizeStage0_ = maxTmpMemSize_;
+            interHcclBuffSizeStage1_ = maxTmpMemSize_;
         }
     } else {  // multipleIntra >0 && multipleInter >0, 理论上dataSplitSize[0]=0.5时，scratch buffer利用率最大
         SplitRate = dataSplitSizeList.at(0);
         u32 subMultiple0 = static_cast<u32>(std::ceil(SplitRate * multipleIntra + (1 - SplitRate) * multipleInter));
         u32 subMultiple1 = static_cast<u32>(std::ceil((1 - SplitRate) * multipleIntra + SplitRate * multipleInter));
         u64 totalScratchMultiple = std::max(subMultiple0, subMultiple1);
+        if (totalScratchMultiple == 0) {
+            HCCL_ERROR("[InsAllReduceParallelExecutor][CalcSendDataSize] totalScratchMultiple is 0");
+            return HcclResult::HCCL_E_INTERNAL;
+        }
         memBlockSize = std::min(static_cast<u64>(UB_MAX_DATA_SIZE), maxTmpMemSize_ / totalScratchMultiple);
 
         parallelHcclBuffOffsetStage0_ = static_cast<u64>(memBlockSize * SplitRate * multipleIntra);
@@ -312,7 +325,7 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
         intraHcclBuffSizeStage0_ = parallelHcclBuffOffsetStage0_;
         interHcclBuffSizeStage0_ = parallelHcclBuffOffsetStage1_;
         intraHcclBuffSizeStage1_ = parallelHcclBuffOffsetStage1_;
-        interHcclBuffSizeStage0_ = parallelHcclBuffOffsetStage0_;
+        interHcclBuffSizeStage1_ = parallelHcclBuffOffsetStage0_;
     }
     return HCCL_SUCCESS;
 }
