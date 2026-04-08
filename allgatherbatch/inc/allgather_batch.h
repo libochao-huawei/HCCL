@@ -21,6 +21,9 @@ typedef struct HcclAllGatherItemDef {
 HcclResult HcclAllGatherBatch(
     const HcclAllGatherItem *items, uint32_t itemCount, HcclComm comm, aclrtStream stream);
 
+HcclResult HcclAllGatherBatchProfilingReset(void);
+HcclResult HcclAllGatherBatchProfilingDump(void);
+
 #ifdef __cplusplus
 }
 #endif

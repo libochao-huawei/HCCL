@@ -1,9 +1,10 @@
-﻿#ifndef HCCL_ALLGATHERBATCH_COMMON_H
+#ifndef HCCL_ALLGATHERBATCH_COMMON_H
 #define HCCL_ALLGATHERBATCH_COMMON_H
 
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <chrono>
 
 #include "acl/acl_rt.h"
 #include "hccl/hccl_comm.h"
@@ -61,11 +62,32 @@ struct BatchTopoInfo {
 
 // Host 侧准备并拷到 Device 的资源上下文。
 // 采用“固定头 + 变长尾部 channel 区”的布局，避免固定 channel 上限。
+struct BatchProfilingStats {
+    uint64_t callCount = 0;
+    uint64_t totalWindowCount = 0;
+    uint64_t totalKernelUs = 0;
+    uint64_t totalExecUs = 0;
+    uint64_t totalPackUs = 0;
+    uint64_t totalHdStageUs = 0;
+    uint64_t totalUnpackUs = 0;
+    uint64_t lastWindowCount = 0;
+    uint64_t lastKernelUs = 0;
+    uint64_t lastExecUs = 0;
+    uint64_t lastPackUs = 0;
+    uint64_t lastHdStageUs = 0;
+    uint64_t lastUnpackUs = 0;
+    uint64_t localBufferBytes = 0;
+    uint64_t perRankCapacity = 0;
+    uint64_t maxWindowBytes = 0;
+    uint64_t totalInputBytes = 0;
+};
+
 struct AlgResourceCtx {
     ThreadHandle threadHandle = 0;
     uint32_t channelCount = 0;
     uint32_t channelOffset = 0;
     CommBuffer localBuffer {};
+    BatchProfilingStats profiling {};
 };
 
 struct BatchItemParam {
@@ -96,6 +118,13 @@ struct OpParam {
     BatchItemParam items[kAllGatherBatchMaxItems] {};
     AlgResourceCtx *resCtx = nullptr;
 };
+
+inline uint64_t GetSteadyClockUs()
+{
+    return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count());
+}
+
 
 inline uint64_t GetDataTypeSize(HcclDataType dataType)
 {

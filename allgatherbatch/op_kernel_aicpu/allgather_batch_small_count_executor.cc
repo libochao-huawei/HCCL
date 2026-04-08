@@ -285,12 +285,19 @@ HcclResult AllGatherBatchSmallCountExecutor::Unpack(const WindowRange &window) c
 
 HcclResult AllGatherBatchSmallCountExecutor::Orchestrate()
 {
+    const uint64_t execStartUs = GetSteadyClockUs();
+    uint64_t packUs = 0;
+    uint64_t hdStageUs = 0;
+    uint64_t unpackUs = 0;
+    uint64_t windowCount = 0;
+
     HCCL_CHK_RET(ValidateParam());
 
     WindowRange window;
     HCCL_CHK_RET(BuildFirstWindow(window));
 
     while (true) {
+        ++windowCount;
         HCCL_INFO("executor window ready: scope=%s, start=(%u,%llu), end=(%u,%llu), packedBytes=%llu, paramWindowBytes=%llu, perRankCapacity=%llu, maxWindowBytes=%llu, rankSize=%u",
             ToWindowScopeString(param_.commMode),
             window.startItemIdx,
@@ -303,21 +310,43 @@ HcclResult AllGatherBatchSmallCountExecutor::Orchestrate()
             static_cast<unsigned long long>(GetMaxWindowBytes(param_, resCtx_)),
             param_.topoInfo.rankSize);
 
+        uint64_t stageStartUs = GetSteadyClockUs();
         HCCL_CHK_RET(Pack(window));
+        packUs += (GetSteadyClockUs() - stageStartUs);
 
-        // 这轮起，通信层按窗口大小真正收齐所有 rank 的槽位，再由 Unpack 拆回每个 item。
+        stageStartUs = GetSteadyClockUs();
         AllGatherHDStageCore hdStageCore(param_, resCtx_, window.packedBytes);
         HcclResult commRet = hdStageCore.RunAsync();
+        hdStageUs += (GetSteadyClockUs() - stageStartUs);
         if (commRet != HCCL_SUCCESS) {
             return commRet;
         }
 
+        stageStartUs = GetSteadyClockUs();
         HCCL_CHK_RET(Unpack(window));
+        unpackUs += (GetSteadyClockUs() - stageStartUs);
 
         bool hasNext = false;
         WindowRange nextWindow;
         HCCL_CHK_RET(BuildNextWindow(window, nextWindow, hasNext));
         if (!hasNext) {
+            BatchProfilingStats &profiling = resCtx_.profiling;
+            const uint64_t execUs = GetSteadyClockUs() - execStartUs;
+            profiling.callCount += 1;
+            profiling.totalWindowCount += windowCount;
+            profiling.totalExecUs += execUs;
+            profiling.totalPackUs += packUs;
+            profiling.totalHdStageUs += hdStageUs;
+            profiling.totalUnpackUs += unpackUs;
+            profiling.lastWindowCount = windowCount;
+            profiling.lastExecUs = execUs;
+            profiling.lastPackUs = packUs;
+            profiling.lastHdStageUs = hdStageUs;
+            profiling.lastUnpackUs = unpackUs;
+            profiling.localBufferBytes = resCtx_.localBuffer.size;
+            profiling.perRankCapacity = GetPerRankWindowCapacity();
+            profiling.maxWindowBytes = GetMaxWindowBytes(param_, resCtx_);
+            profiling.totalInputBytes = param_.totalInputBytes;
             return HCCL_SUCCESS;
         }
         window = nextWindow;

@@ -1,4 +1,4 @@
-﻿#include <algorithm>
+#include <algorithm>
 #include <atomic>
 #include <cerrno>
 #include <chrono>
@@ -514,6 +514,7 @@ int main(int argc, char *argv[])
         }
 
         std::atomic<int> firstFailure(0);
+        (void)HcclAllGatherBatchProfilingReset();
         std::vector<std::thread> threads(usedDeviceCount);
         std::vector<ThreadContext> contexts(usedDeviceCount);
         for (uint32_t rank = 0; rank < usedDeviceCount; ++rank) {
@@ -528,6 +529,7 @@ int main(int argc, char *argv[])
         for (uint32_t rank = 0; rank < usedDeviceCount; ++rank) {
             threads[rank].join();
         }
+        (void)HcclAllGatherBatchProfilingDump();
         status = firstFailure.load();
     } while (false);
 

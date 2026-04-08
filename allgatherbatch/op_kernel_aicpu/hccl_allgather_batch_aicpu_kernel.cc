@@ -1,4 +1,4 @@
-﻿#include "common.h"
+#include "common.h"
 #include "exec_op.h"
 
 namespace {
@@ -30,6 +30,8 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
     if (ValidateKernelResourceCtx(*param) != HCCL_SUCCESS) {
         return 1;
     }
+
+    const uint64_t kernelStartUs = GetSteadyClockUs();
 
     // Device 入口负责把 Host 下发的控制协议转成完整的设备侧执行时序。
     if (HcommAcquireComm(param->commName) != HCCL_SUCCESS) {
@@ -81,6 +83,10 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
         HCCL_ERROR("HcommReleaseComm failed, commName=%s", param->commName);
         return 1;
     }
+
+    const uint64_t kernelUs = GetSteadyClockUs() - kernelStartUs;
+    param->resCtx->profiling.totalKernelUs += kernelUs;
+    param->resCtx->profiling.lastKernelUs = kernelUs;
 
     HCCL_INFO("AICPU kernel done: rank=%u, commMode=%s, itemCount=%u",
         param->topoInfo.rank,
