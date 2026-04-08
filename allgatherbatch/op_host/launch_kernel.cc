@@ -12,13 +12,6 @@ thread_local aclrtNotify g_allGatherBatchNotifies[kAllGatherBatchControlNotifyNu
 HcclResult LaunchKernel(const OpParam &param, aclrtStream stream)
 {
     HCCL_CHK_PTR(stream);
-    HCCL_CHK_RET(LoadAICPUKernel());
-
-    if (g_allGatherBatchNotifies[kAllGatherBatchControlNotifyStart] == nullptr ||
-        g_allGatherBatchNotifies[kAllGatherBatchControlNotifyDone] == nullptr) {
-        HCCL_ERROR("host control notify is not ready");
-        return HCCL_E_INTERNAL;
-    }
 
     ACLCHECK(aclrtRecordNotify(g_allGatherBatchNotifies[kAllGatherBatchControlNotifyStart], stream));
 

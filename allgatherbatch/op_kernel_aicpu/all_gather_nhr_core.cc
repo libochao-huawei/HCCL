@@ -258,10 +258,6 @@ HcclResult AllGatherNHRCore::GetStepInfo(uint32_t step, uint32_t nSteps, InterSe
     const uint32_t rank = GetEffectiveRank();
     const uint32_t rankSize = GetEffectiveRankSize();
     const uint32_t sliceGroupSize = GetSliceGroupSize();
-    if (sliceGroupSize == 0U) {
-        HCCL_ERROR("NHR sliceGroupSize is zero");
-        return HCCL_E_INTERNAL;
-    }
 
     stepInfo.step = step;
     stepInfo.myRank = rank;
