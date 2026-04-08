@@ -59,6 +59,9 @@ HcclResult InsTempAllGatherMesh1D::KernelRun(const OpParam &param, const Templat
         HCCL_INFO("[InsTempAllGatherMesh1D] Rank [%d], get slicesize zero.", myRank_);
         return HCCL_SUCCESS;
     }
+    CHK_PTR_NULL(tempAlgParams.buffInfo.inputPtr);
+    CHK_PTR_NULL(tempAlgParams.buffInfo.outputPtr);
+    CHK_PTR_NULL(tempAlgParams.buffInfo.hcclBuff.addr);
     threadNum_ = templateResource.threads.size();
     tempAlgParams_ = tempAlgParams;
     HCCL_DEBUG("[InsTempAllGatherMesh1D] Rank [%d], get threadNum_[%d].", myRank_, threadNum_);
@@ -192,7 +195,7 @@ HcclResult InsTempAllGatherMesh1D::LocalDataCopy(const std::vector<ThreadHandle>
                    "outOff[%d] sliceSize[%d] count[%d].",
                    myRank_, myAlgRank, outBaseOff, outOff, tempAlgParams_.sliceSize, tempAlgParams_.count);
 
-        LocalCopy(threads[0], srcSlice, dstSlice);
+        CHK_RET(LocalCopy(threads[0], srcSlice, dstSlice));
     }
     return HcclResult::HCCL_SUCCESS;
 }
@@ -221,7 +224,7 @@ HcclResult InsTempAllGatherMesh1D::PostLocalCopy(const std::vector<ThreadHandle>
             HCCL_DEBUG("[InsTempAllGatherMesh1D] LocalDataCopy RankID [%d] dataRank [%d] dataAlgRank[%d] "
                        "scratchBase[%d] outBaseOff[%d] scratchOffset[%d] outOffset[%d].",
                        myRank_, rank, algRank, outBaseOff, outBaseOff, scratchOffset, outOffset);
-            LocalCopy(threads[0], srcSlice, dstSlice);
+            CHK_RET(LocalCopy(threads[0], srcSlice, dstSlice));
         }
     }
     return HcclResult::HCCL_SUCCESS;
