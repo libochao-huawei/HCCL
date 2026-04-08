@@ -53,7 +53,6 @@ SelectorStatus AlltoAllVCAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLaye
                                                       const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                       std::string &selectAlgName) const
 {
-    (void) topoInfo;
     std::vector<HcclAlgoType> algos = std::vector<HcclAlgoType>(HCCL_ALGO_LEVEL_NUM, HcclAlgoType::HCCL_ALGO_TYPE_DEFAULT);
     auto it = configAlgMap.find(opParam.opType);
     if (it != configAlgMap.end()) {
@@ -69,9 +68,10 @@ SelectorStatus AlltoAllVCAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLaye
 
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
         selectAlgName = "InsAlltoAllVCMesh1D";
+        return SelectorStatus::MATCH;
     }
 
-    return SelectorStatus::MATCH;
+    return SelectorStatus::NOT_MATCH;
 }
 
 REGISTER_SELECTOR_BY_OPTYPE(HcclCMDType::HCCL_CMD_ALLTOALLVC, 18, AlltoAllVCAutoSelector);
