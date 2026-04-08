@@ -1083,6 +1083,8 @@ HcclResult HcclGetCcuKernel(HcclComm comm, AlgResourceRequest &resRequest,
     for (auto t: resRequest.ccuKernelNum) {
         totalKernelNum += t;
     }
+
+    HCCL_DEBUG("totalKernelNum %u, resRequest.ccuKernelInfos size %u", totalKernelNum, resRequest.ccuKernelInfos.size());
     CHK_PRT_RET(totalKernelNum != resRequest.ccuKernelInfos.size(),
         HCCL_ERROR("[HcclGetCcuKernel]ccuKernel num not match!"),
         HCCL_E_INTERNAL);
