@@ -54,10 +54,6 @@ HcclResult AllGatherHDStageCore::ValidateStageInput() const
 HcclResult AllGatherHDStageCore::BuildStagePlan(HDStagePlan &plan) const
 {
     const uint32_t rankSize = param_.topoInfo.rankSize;
-    if (rankSize == 0) {
-        HCCL_ERROR("rankSize is zero");
-        return HCCL_E_PARA;
-    }
     plan.powerSteps = CalcTrailingPowerSteps(rankSize);
     plan.powerFactor = (plan.powerSteps == 0U) ? 1U : (1U << plan.powerSteps);
     plan.noPower = rankSize / plan.powerFactor;

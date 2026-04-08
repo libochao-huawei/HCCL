@@ -1,4 +1,4 @@
-﻿#include "allgather_batch_small_count_executor.h"
+#include "allgather_batch_small_count_executor.h"
 
 #include <algorithm>
 
@@ -180,7 +180,6 @@ HcclResult AllGatherBatchSmallCountExecutor::BuildFirstWindow(WindowRange &windo
 HcclResult AllGatherBatchSmallCountExecutor::BuildNextWindow(
     const WindowRange &current, WindowRange &next, bool &hasNext) const
 {
-    HCCL_CHK_RET(ValidateWindow(current));
 
     uint32_t nextItemIdx = current.endItemIdx;
     uint64_t nextOffsetBytes = current.endOffsetBytes;
@@ -207,7 +206,6 @@ HcclResult AllGatherBatchSmallCountExecutor::BuildNextWindow(
 
 HcclResult AllGatherBatchSmallCountExecutor::Pack(const WindowRange &window) const
 {
-    HCCL_CHK_RET(ValidateWindow(window));
 
     // Pack 现在把本 rank 的窗口打到 localBuffer 的“本 rank 槽位”，后续通信层会补齐其它 rank 的槽位。
     uint8_t *dst = GetRankWindowBase(window, param_.topoInfo.rank);
@@ -246,7 +244,6 @@ HcclResult AllGatherBatchSmallCountExecutor::Pack(const WindowRange &window) con
 
 HcclResult AllGatherBatchSmallCountExecutor::Unpack(const WindowRange &window) const
 {
-    HCCL_CHK_RET(ValidateWindow(window));
 
     // gathered 结果以“rank 槽位 + 槽内 packed 顺序”存放在 localBuffer 中，这里再拆回每个 item 的 recvBuf。
     for (uint32_t rank = 0; rank < param_.topoInfo.rankSize; ++rank) {
@@ -294,7 +291,6 @@ HcclResult AllGatherBatchSmallCountExecutor::Orchestrate()
     HCCL_CHK_RET(BuildFirstWindow(window));
 
     while (true) {
-        HCCL_CHK_RET(ValidateWindow(window));
         HCCL_INFO("executor window ready: scope=%s, start=(%u,%llu), end=(%u,%llu), packedBytes=%llu, paramWindowBytes=%llu, perRankCapacity=%llu, maxWindowBytes=%llu, rankSize=%u",
             ToWindowScopeString(param_.commMode),
             window.startItemIdx,

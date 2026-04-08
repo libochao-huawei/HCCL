@@ -25,7 +25,7 @@ struct ChannelLinkInfo {
 
 HcclResult EnsureControlNotifies(OpParam &param)
 {
-    // 控制 notify 属于“本次 launch 的控制面参数”，不能再固化进可缓存的 AlgResourceCtx。
+    // control notify 为本次 launch 的控制参数，不写入缓存资源。
     for (uint32_t idx = 0; idx < kAllGatherBatchControlNotifyNum; ++idx) {
         if (g_allGatherBatchNotifies[idx] == nullptr) {
             ACLCHECK(aclrtCreateNotify(&g_allGatherBatchNotifies[idx], ACL_NOTIFY_DEFAULT));
@@ -186,7 +186,7 @@ HcclResult QueryLocalServerRankCount(HcclComm comm, const BatchTopoInfo &topoInf
 
 HcclResult ValidateResolvedTopoInfo(const BatchTopoInfo &topoInfo, uint32_t localServerRankCount)
 {
-    // 拓扑一旦用于 commMode 和 fullmesh 资源申请，就必须是可自洽的“可信拓扑”，不能再静默降级。
+    // 拓扑用于资源申请后必须自洽，不能静默降级。
     if (topoInfo.rankSize == 0) {
         HCCL_ERROR("resolved topo rankSize is zero");
         return HCCL_E_INTERNAL;
@@ -267,27 +267,6 @@ HcclResult ValidateItems(const HcclAllGatherItem *items, uint32_t itemCount, Hcc
     return HCCL_SUCCESS;
 }
 
-HcclResult ValidateTopo(const BatchTopoInfo &topoInfo)
-{
-    if (topoInfo.rankSize == 0) {
-        HCCL_ERROR("rankSize is zero after topo preparation");
-        return HCCL_E_PARA;
-    }
-    if (topoInfo.serverCount == 0) {
-        HCCL_ERROR("serverCount is zero after topo preparation");
-        return HCCL_E_INTERNAL;
-    }
-    if (topoInfo.serverCount > topoInfo.rankSize) {
-        HCCL_ERROR("serverCount=%u exceeds rankSize=%u", topoInfo.serverCount, topoInfo.rankSize);
-        return HCCL_E_INTERNAL;
-    }
-    if (topoInfo.serverIdx >= topoInfo.serverCount) {
-        HCCL_ERROR("serverIdx=%u is out of range, serverCount=%u", topoInfo.serverIdx, topoInfo.serverCount);
-        return HCCL_E_INTERNAL;
-    }
-    return HCCL_SUCCESS;
-}
-
 HcclResult PrepareTopoInfo(HcclComm comm, BatchTopoInfo &topoInfo)
 {
     HCCL_CHK_RET(HcclGetRankId(comm, &topoInfo.rank));
@@ -335,7 +314,7 @@ HcclResult ValidatePreparedParam(const OpParam &param)
     return ValidateBasicOpParam(param, "prepared param");
 }
 
-// 资源请求阶段先把“需要和哪些 rank 建链”算清楚，再交给 GetAlgRes 真正申请资源。
+// 先构建 fullmesh peer 列表，再按 request 申请资源。
 HcclResult CalcFullMeshResourceRequest(HcclComm comm, const OpParam &param, BatchResourceRequest &request)
 {
     request.threadNum = 1;
@@ -381,21 +360,21 @@ HcclResult CalcFullMeshResourceRequest(HcclComm comm, const OpParam &param, Batc
     return HCCL_SUCCESS;
 }
 
-// context 大小由真实 channel 数决定，避免固定 32 条 channel 的静态上限。
+// context 大小由真实 channel 数决定，避免固定 32 条 channel 上限。
 uint64_t CalcAlgResourceCtxSize(const BatchResourceRequest &request)
 {
     return sizeof(AlgResourceCtx) +
         static_cast<uint64_t>(request.channelCount) * sizeof(ChannelResource);
 }
 
-// 先初始化固定头，尾部 channel 区由 AllocAlgResource 继续填充。
+// 先初始化固定头，尾部 channel 数组由 AllocAlgResource 填充。
 void InitAlgResourceCtxHeader(const BatchResourceRequest &request, AlgResourceCtx &resCtx)
 {
     resCtx.channelCount = request.channelCount;
     resCtx.channelOffset = sizeof(AlgResourceCtx);
 }
 
-// 真正的资源申请只消费 request，不再自己重算拓扑和 remote rank 集合。
+// 资源申请直接消费 request，不再重复推导拓扑和 remote rank。
 HcclResult AllocAlgResource(
     HcclComm comm,
     const OpParam &param,
@@ -454,7 +433,7 @@ HcclResult AllocAlgResource(
     return HCCL_SUCCESS;
 }
 
-// Host 侧资源链现在固定为：CalcFullMeshResourceRequest -> 动态 ctxSize -> AllocAlgResource。
+// Host 侧资源流程固定为：CalcFullMeshResourceRequest -> 动态 ctxSize -> AllocAlgResource。
 HcclResult GetAlgRes(HcclComm comm, const OpParam &param, AlgResourceCtx **resCtx)
 {
     HCCL_CHK_PTR(resCtx);
@@ -508,7 +487,7 @@ HcclResult HcclAllGatherBatch(
 {
     using namespace ops_hccl_allgatherbatch;
 
-    // 对外入口先只保留轻量日志，详细拓扑/模式信息交给 Host 主链路在拿到 topo 后再打印。
+    // 对外入口只打印轻量日志，详细 topo 信息稍后输出。
     HCCL_INFO("HcclAllGatherBatch invoked: itemCount=%u", itemCount);
 
     HCCL_CHK_RET(ValidateItems(items, itemCount, comm, stream));
@@ -516,7 +495,6 @@ HcclResult HcclAllGatherBatch(
     OpParam param;
     HCCL_CHK_RET(PrepareOpParam(items, itemCount, comm, param));
     HCCL_CHK_RET(EnsureControlNotifies(param));
-    HCCL_CHK_RET(ValidateTopo(param.topoInfo));
     HCCL_CHK_RET(ValidatePreparedParam(param));
 
     HCCL_INFO("Host op prepared: rank=%u, rankSize=%u, commMode=%s, serverIdx=%u, serverCount=%u, superPodIdx=%u, intraServerRankCount=%u, crossServerRankCount=%u",
