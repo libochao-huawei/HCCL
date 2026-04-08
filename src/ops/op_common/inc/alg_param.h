@@ -555,7 +555,6 @@ struct OpParamGraphMode {
     u64 dataCount;
     u32 rankSize;
     u64 hcclBufferSize;
-    char opTypeStr[64]; // 算子类型
     // Aiv参数
     s64 comm;
     char group[MAX_LENGTH];
