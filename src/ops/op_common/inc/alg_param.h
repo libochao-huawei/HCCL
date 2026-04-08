@@ -465,7 +465,7 @@ struct OpParam { // 不申请ctx，每个算子单独下发
             u64 count;
             HcclDataType dataType;
             HcclDataType outputType;
-            u64 strideCount;
+            u64 strideCount = 1;
         } DataDes = {0, HCCL_DATA_TYPE_RESERVED, HCCL_DATA_TYPE_RESERVED, 0};
         struct {
             HcclDataType sendType;
