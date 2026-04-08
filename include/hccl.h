@@ -33,7 +33,7 @@ extern "C" {
  * @return HcclResult
  */
 extern HcclResult HcclAllReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType,
-    HcclReduceOp op, HcclComm comm, aclrtStream stream);
+    HcclReduceOp op, HcclComm comm, aclrtStream stream, uint64_t strideCount);
 
 /**
  * @brief Broadcast operator.
