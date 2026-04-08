@@ -382,9 +382,7 @@ void InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
     dataParams.inputRepeatStride = 0;
     dataParams.outputRepeatStride = 0;
     HCCL_INFO("[InsBroadcastParallelExecutor][GenDataParamstempAlg]myRank_[%u] hcclBuffBaseOff[%llu]",myRank_, dataParams.buffInfo.hcclBuffBaseOff);
-	CHK_PTR_NULL(dataParams.buffInfo.inputPtr);
- 	CHK_PTR_NULL(dataParams.buffInfo.outputPtr);
- 	CHK_PTR_NULL(dataParams.buffInfo.hcclBuff.addr);
+    
     return;
 }
 
@@ -472,6 +470,10 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 {
     HCCL_INFO("[InsBroadcastParallelExecutor] AlgTemplate intra server is [%s]", tempAlgIntra.Describe().c_str());
     HCCL_INFO("[InsBroadcastParallelExecutor] AlgTemplate inter server is [%s]", tempAlgInter.Describe().c_str());
+
+    CHK_PTR_NULL(param.inputPtr);
+    CHK_PTR_NULL(param.outputPtr);
+    CHK_PTR_NULL(resCtx.cclMem.addr);
 
     std::vector<float> dataSplitSize;
     GetParallelDataSplit(dataSplitSize);
