@@ -108,6 +108,9 @@ HcclResult InsTempAllReduceMesh1DTwoShotMeshChunk::KernelRun(const OpParam& para
 
     RankSliceInfo sliceInfoVec;
     CHK_RET(CalcSliceInfoVec(tempAlgParams.sliceSize, sliceInfoVec));
+    CHK_PRT_RET(sliceInfoVec.size() != templateRankSize_,
+            HCCL_ERROR("[InsTempAllReduceMesh1DTwoShotMeshChunk][KernelRun] slice num[%u] is not equal to rank size[%u].",
+                sliceInfoVec.size(), templateRankSize_), HcclResult::HCCL_E_INTERNAL);
 
     HCCL_INFO("[InsTempAllReduceMesh1DTwoShotMeshChunk][PreCopy] Rank [%d].", myRank_);
     CHK_RET(PreCopy(tempAlgParams, templateResource.threads, sliceInfoVec));
@@ -245,7 +248,8 @@ HcclResult InsTempAllReduceMesh1DTwoShotMeshChunk::RunAllgather(const std::map<u
         NotifyIdxMainToSubInAG(notifyIdxMainToSub_);
         CHK_RET(PreSyncInterThreads(threads[0], subThreads, notifyIdxMainToSub_));
     }
-
+    CHK_PRT_RET(channels.size() < templateRankSize_, 
+            HCCL_ERROR("channels size is [%u], templateRankSize_ is [%u]", channels.size(), templateRankSize_), HcclResult::HCCL_E_INTERNAL);
     // allgather
     for (u32 rankId = 0; rankId < templateRankSize_; rankId++) {
         if (u32(myAlgRank_) == rankId) {

@@ -301,7 +301,12 @@ HcclResult InsTempAllReduceNHR::GetReduceScatterStepInfoList(std::vector<NHRStep
     stepInfoList.clear();
 
     u32 nSteps = GetNHRStepNum();
-    stepInfoList.resize(nSteps);
+    try {
+            stepInfoList.resize(nSteps);
+        } catch (const std::bad_alloc&) {
+            HCCL_ERROR("Failed to allocate memory for stepInfoList");
+            return HcclResult::HCCL_E_INTERNAL;
+        }
     for (u32 step = 0; step < nSteps; step++) {
         // 计算通信对象
         u32 deltaRank = 1 << step;
