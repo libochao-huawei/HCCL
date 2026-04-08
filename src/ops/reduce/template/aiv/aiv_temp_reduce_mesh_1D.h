@@ -19,6 +19,7 @@ namespace ops_hccl {
 
 class AivTempReduceMesh1D : public AivAlgTemplateBase {
 public:
+    AivTempReduceMesh1D() = default;
     explicit AivTempReduceMesh1D(const OpParam& param, const u32 rankId, // 传通信域的rankId，userRank
                                         const std::vector<std::vector<u32>> &subCommRanks);
     ~AivTempReduceMesh1D() override;
