@@ -131,7 +131,7 @@ void InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplat
     tempAlgParamsIntra0.tailSize = tempAlgParamsIntra0.sliceSize;
 
     tempAlgParamsIntra0.inputSliceStride = 0;
-    tempAlgParamsIntra0.outputSliceStride = dataSize_;
+    tempAlgParamsIntra0.outputSliceStride = strideSize_ == 0 ? dataSize_ : strideSize_;;
     tempAlgParamsIntra0.repeatNum = 1;
     tempAlgParamsIntra0.inputRepeatStride = 0;
     tempAlgParamsIntra0.outputRepeatStride = 0;
@@ -168,7 +168,7 @@ void InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplat
     tempAlgParamsInter0.tailSize = tempAlgParamsInter0.sliceSize;
 
     tempAlgParamsInter0.inputSliceStride = dataSize_ * rankSizeLevel0_;
-    tempAlgParamsInter0.outputSliceStride = dataSize_ * rankSizeLevel0_;
+    tempAlgParamsInter0.outputSliceStride = (strideSize_ == 0 ? dataSize_ : strideSize_) * rankSizeLevel0_;
     tempAlgParamsInter0.repeatNum = rankSizeLevel0_;
     tempAlgParamsInter0.inputRepeatStride = dataSize_;
     tempAlgParamsInter0.outputRepeatStride = dataSize_;
@@ -203,7 +203,7 @@ void InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplat
     tempAlgParamsInter1.tailSize = tempAlgParamsInter1.sliceSize;
 
     tempAlgParamsInter1.inputSliceStride = 0;
-    tempAlgParamsInter1.outputSliceStride = dataSize_ * rankSizeLevel0_;
+    tempAlgParamsInter1.outputSliceStride = (strideSize_ == 0 ? dataSize_ : strideSize_) * rankSizeLevel0_;
     tempAlgParamsInter1.repeatNum = 1;
     tempAlgParamsInter1.inputRepeatStride = 0;
     tempAlgParamsInter1.outputRepeatStride = 0;
@@ -237,7 +237,7 @@ void InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplat
     tempAlgParamsIntra1.tailSize = tempAlgParamsIntra1.sliceSize;
 
     tempAlgParamsIntra1.inputSliceStride = dataSize_;
-    tempAlgParamsIntra1.outputSliceStride = dataSize_;
+    tempAlgParamsIntra1.outputSliceStride = strideSize_ == 0 ? dataSize_ : strideSize_;
     tempAlgParamsIntra1.repeatNum = rankSizeLevel1_;
     tempAlgParamsIntra1.inputRepeatStride = dataSize_ * rankSizeLevel0_;
     tempAlgParamsIntra1.outputRepeatStride = dataSize_ * rankSizeLevel0_;
@@ -281,6 +281,8 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     dataType_ = param.DataDes.dataType;
     dataTypeSize_ = DATATYPE_SIZE_TABLE[param.DataDes.dataType];
     dataSize_ = dataCount_ * dataTypeSize_;
+    strideSize_ = param.DataDes.strideCount * dataTypeSize_;
+    HCCL_INFO("[InsV2AllGatherParallelExecutor][Orchestrate] strideCount=%lu, strideSize_=%lu", param.DataDes.strideCount, strideSize_);
 
     if(resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS) {
         intraHierarchyInfo_ = {resCtx.algHierarchyInfo.infos[0][0]};
