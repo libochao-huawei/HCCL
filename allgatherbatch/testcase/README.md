@@ -100,8 +100,27 @@ ls ${ASCEND_HOME_PATH}/opp/vendors/<vendor>/aicpu/kernel/aicpu_allgatherbatch.ta
 如果运行环境开启了自定义 AICPU 算子验签，可能需要先检查相关开关。参考 `04_custom_ops_p2p` 样例，可以先查询：
 
 ```bash
+# 查询AI CPU算子用户自定义验签能力使能状态
+# False：关闭用户自定义验签能力
+# True：开启用户自定义验签能力
 for i in {0..7}; do npu-smi info -t custom-op-secverify-enable -i $i; done
+
+# 设置AI CPU算子用户自定义验签能力使能状态，使能开关
+for i in {0..7}; do npu-smi set -t custom-op-secverify-enable -i $i -d 1; done
+
+# 查询AI CPU算子验签模式
+# 0：关闭验证，不验签
+# 1：华为证书，使用华为证书验签（默认）
+# 2：客户自定义证书
+# 3：华为证书、客户自定义证书
+# 4：开源社区证书
+# 5：华为证书、开源社区证书
+# 6：客户自定义证书、开源社区证书
+# 7：华为证书、客户自定义证书、开源社区证书
 for i in {0..7}; do npu-smi info -t custom-op-secverify-mode -i $i; done
+
+# 设置AI CPU算子验签模式，关闭验签
+for i in {0..7}; do npu-smi set -t custom-op-secverify-mode -i $i -d 0; done
 ```
 
 如果你的环境要求关闭验签或切换模式，请按现场规范执行；这一步通常依赖管理员权限。
@@ -123,7 +142,16 @@ name:aicpu_allgatherbatch.tar.gz
 install_path:2
 optional:true
 package_path:opp/vendors/<vendor>/aicpu/kernel
+load_as_per_soc:false
 ```
+
+各字段含义如下：
+
+- `name`: tar 包文件名
+- `install_path`: 安装到 Device 侧的路径
+- `optional`: 默认为 true
+- `package_path`: tar 包在Host侧CANN Toolkit包下的相对路径
+- `load_as_per_soc`: 是否每种芯片类型都加载
 
 如果你的机器使用的是其他 CANN 安装路径或 vendor 名称，请按实际路径修改。
 
@@ -224,6 +252,14 @@ export LD_LIBRARY_PATH=${ASCEND_HOME_PATH}/opp/vendors/<vendor>/lib64:${ASCEND_H
   正式计时前的 warmup 次数
 - `--iters N`
   正式计时次数
+- `--no-verify`
+  跳过 host 侧结果校验
+
+示例：
+
+```bash
+./allgatherbatch_testcase --token-bytes 65536 --scale-count 0 --devices 4 --warmup 2 --iters 20
+./allgatherbatch_testcase --token-bytes 327680 --scale-count 128 --devices 8 --war
 - `--only-device-exec-time`
   通过同步 gate 延后工作队列真正开始执行，让计时更接近 device 执行时间
 - `--no-verify`
