@@ -16,6 +16,7 @@
 namespace ops_hccl {
 class CcuTempAllGather2DiesMeshMem2Mem1D : public CcuAlgTemplateBase {
 public:
+    CcuTempAllGather2DiesMeshMem2Mem1D() = default;
     explicit  CcuTempAllGather2DiesMeshMem2Mem1D(const OpParam& param, 
                                                 const u32 rankId,
                                                 const std::vector<std::vector<u32>> &subCommRanks);
