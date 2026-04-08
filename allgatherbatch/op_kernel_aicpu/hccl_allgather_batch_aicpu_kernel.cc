@@ -31,26 +31,6 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
         return 1;
     }
 
-    const ResourceStats stats = CollectResourceStats(*param, *param->resCtx);
-    HCCL_INFO("AICPU kernel enter: rank=%u, rankSize=%u, commMode=%s, serverIdx=%u, serverCount=%u, intraServerRankCount=%u, crossServerRankCount=%u, channelCount=%u, crossServerChannels=%u, perRankCapacity=%llu, maxWindowBytes=%llu, totalInputBytes=%llu, windowBytes=%llu, hccs=%u, roce=%u, pcie=%u, sio=%u",
-        param->topoInfo.rank,
-        param->topoInfo.rankSize,
-        ToCommModeString(param->commMode),
-        param->topoInfo.serverIdx,
-        param->topoInfo.serverCount,
-        param->intraServerRankCount,
-        param->crossServerRankCount,
-        param->resCtx->channelCount,
-        stats.crossServerChannels,
-        static_cast<unsigned long long>(stats.perRankCapacity),
-        static_cast<unsigned long long>(stats.maxWindowBytes),
-        static_cast<unsigned long long>(param->totalInputBytes),
-        static_cast<unsigned long long>(param->windowBytes),
-        stats.hccsChannels,
-        stats.roceChannels,
-        stats.pcieChannels,
-        stats.sioChannels);
-
     // Device 入口负责把 Host 下发的控制协议转成完整的设备侧执行时序。
     if (HcommAcquireComm(param->commName) != HCCL_SUCCESS) {
         HCCL_ERROR("HcommAcquireComm failed, commName=%s", param->commName);
