@@ -116,7 +116,7 @@ HcclResult ReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclData
     // topoInfo的tag，所有相同的算子可以共享
     int ret = sprintf_s(param.tag, sizeof(param.tag), "%s", tag.c_str());
     if (ret <= 0) {
-        HCCL_ERROR("failed to fill param.tag");
+        HCCL_ERROR("failed to fill param.tag.");
         return HCCL_E_INTERNAL;
     }
 
