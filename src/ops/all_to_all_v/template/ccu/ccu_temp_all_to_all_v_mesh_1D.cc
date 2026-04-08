@@ -121,6 +121,8 @@ HcclResult CcuTempAlltoAllVMesh1D::FastLaunch(const OpParam& param, const Templa
     uint64_t rankSize_ = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[5];
     HcclDataType dataType_ = param.all2AllVDataDes.sendType;
     uint64_t dataTypeSize_ =  SIZE_TABLE[dataType_];
+    CHK_PRT_RET(param.varMemSize != ALL_TO_ALL_V_VECTOR_NUM * rankSize_ * sizeof(u64),
+    HCCL_ERROR("[InsV2AlltoAllVSoleExecutor][OrchestrateLoop] param.varMemSize [%llu] is invalid", param.varMemSize), HCCL_E_PARA);
     
     A2ASendRecvInfo localSendRecvInfo;
     localSendRecvInfo.recvCounts.resize(rankSize_, 0);
@@ -132,9 +134,6 @@ HcclResult CcuTempAlltoAllVMesh1D::FastLaunch(const OpParam& param, const Templa
     localSendRecvInfo.sendLength.resize(rankSize_, 0);
     localSendRecvInfo.sendOffset.resize(rankSize_, 0);
 
-    CHK_PRT_RET(param.varMemSize != ALL_TO_ALL_V_VECTOR_NUM * rankSize_ * sizeof(u64),
-    HCCL_ERROR("[InsV2AlltoAllVSoleExecutor][OrchestrateLoop] param.varMemSize [%llu] is invalid", param.varMemSize), HCCL_E_PARA);
-
     const u64* data = reinterpret_cast<const u64*>(param.varData);
     for (u64 i = 0; i < ALL_TO_ALL_V_VECTOR_NUM * rankSize_ ; i++) {
         u64 val = i / rankSize_;
@@ -142,15 +141,12 @@ HcclResult CcuTempAlltoAllVMesh1D::FastLaunch(const OpParam& param, const Templa
         switch(val) {
             case CONST_ZERO:
                 localSendRecvInfo.sendLength[curRank] = data[i] * dataTypeSize_;
-                HCCL_INFO("data[i]: %u, localSendRecvInfo.sendLength: %u", data[i], localSendRecvInfo.sendLength[curRank]);
                 break;
             case CONST_TWO:
                 localSendRecvInfo.sendOffset[curRank] = data[i] * dataTypeSize_;
-                HCCL_INFO("data[i]: %u, localSendRecvInfo.sendOffset: %u", data[i], localSendRecvInfo.sendOffset[curRank]);
                 break;
             case CONST_THREE:
                 localSendRecvInfo.recvOffset[curRank] = data[i] * dataTypeSize_;
-                HCCL_INFO("data[i]: %u, localSendRecvInfo.recvOffset: %u", data[i], localSendRecvInfo.recvOffset[curRank]);
                 break;
             default:
                 break;
@@ -173,7 +169,6 @@ HcclResult CcuTempAlltoAllVMesh1D::FastLaunch(const OpParam& param, const Templa
 
     void* taskArgPtr = static_cast<void*>(taskArg.get());
     CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0], tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr));
-
     HCCL_INFO("[CcuTempAlltoAllVMesh1D::FastLaunch] end");
     return HcclResult::HCCL_SUCCESS;
 }
