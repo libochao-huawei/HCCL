@@ -52,7 +52,7 @@ u64 ReduceMesh1D::CalcScratchMultiple(BufferType inBuffType, BufferType outBuffT
 }
 
 HcclResult ReduceMesh1D::KernelRun(
-    const OpParam &param, const TemplateDataParams &tempAlgParams, const TemplateResource &templateResource)
+    const OpParam &param, const TemplateDataParams &tempAlgParams, TemplateResource &templateResource)
 {
     HCCL_INFO("[ReduceMesh1D] rank[%d] KernelRun start", myRank_);
     // 处理数据量为0的场景

@@ -39,7 +39,7 @@ HcclResult InsAlgTemplateBase::FastLaunch(const OpParam& param, const TemplateFa
 
 HcclResult InsAlgTemplateBase::KernelRun(const OpParam& param,
                                          const TemplateDataParams& tempAlgParams,
-                                         const TemplateResource& templateResource)
+                                         TemplateResource& templateResource)
 {
     (void)param;
     (void)tempAlgParams;

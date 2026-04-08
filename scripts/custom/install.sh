@@ -63,8 +63,8 @@ if [ -n "${INSTALL_PATH}" ]; then
         log "[ERROR] use absolute path for --install-path argument"
         exit 1
     fi
-    if [ ! -d ${INSTALL_PATH} ]; then
-        mkdir -p ${INSTALL_PATH} >> /dev/null 2>&1
+    if [ ! -d "${INSTALL_PATH}" ]; then
+        mkdir -p "${INSTALL_PATH}" >> /dev/null 2>&1
         if [ $? -ne 0 ]; then
             log "[ERROR] create ${INSTALL_PATH} failed"
             exit 1
@@ -72,22 +72,22 @@ if [ -n "${INSTALL_PATH}" ]; then
     fi
 
     # 若指定目录为 cann 的上级目录，则重新指定为 cann 目录
-    INSTALL_PATH=${INSTALL_PATH%*/}
-    if [[ "${INSTALL_PATH}" == */cann ]] || [[ "${INSTALL_PATH}" == */cann-* ]]; then
+    INSTALL_PATH=$(realpath "${INSTALL_PATH}")
+    if [[ "${INSTALL_PATH}" == */Ascend/cann ]] || [[ "${INSTALL_PATH}" == */Ascend/cann-* ]]; then
         target_install_path="${INSTALL_PATH}"
     else
         target_install_path="${INSTALL_PATH}/cann"
     fi
 
 elif [ -n "${ASCEND_CUSTOM_OPP_PATH}" ]; then
-    if [ ! -d ${ASCEND_CUSTOM_OPP_PATH} ]; then
-        mkdir -p ${ASCEND_CUSTOM_OPP_PATH} >> /dev/null 2>&1
+    if [ ! -d "${ASCEND_CUSTOM_OPP_PATH}" ]; then
+        mkdir -p "${ASCEND_CUSTOM_OPP_PATH}" >> /dev/null 2>&1
         if [ $? -ne 0 ]; then
             log "[ERROR] create ${ASCEND_CUSTOM_OPP_PATH} failed"
             exit 1
         fi
     fi
-    target_install_path=${ASCEND_CUSTOM_OPP_PATH}
+    target_install_path="${ASCEND_CUSTOM_OPP_PATH}"
 else
     if [ "x${ASCEND_OPP_PATH}" == "x" ]; then
         log "[ERROR] env ASCEND_OPP_PATH no exist"

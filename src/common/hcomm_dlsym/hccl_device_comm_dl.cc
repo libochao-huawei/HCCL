@@ -8,22 +8,14 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCCL_COMM_DL_H
-#define HCCL_COMM_DL_H
+#include "hccl_comm_dl.h"
+#include <dlfcn.h>
+#include <stdio.h>
+#include <stdlib.h>
 
-#include "dlsym_common.h"
-#include "hccl_comm.h"   // 原始头文件，包含所有类型和声明
+DEFINE_WEAK_FUNC(HcclResult, HcclCommGetStatus, const char* commId, HcclCommStatusTmp *status);
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-DECL
-
-void HcclCommDlInit(void* libHcommHandle);
-
-#ifdef __cplusplus
+// 初始化
+void HcclDeviceCommDlInit(void* libHcommHandle) {
+    INIT_SUPPORT_FLAG(libHcommHandle, HcclCommGetStatus);
 }
-#endif
-
-#endif // HCCL_COMM_DL_H

@@ -28,6 +28,7 @@
 #include "hcomm_diag.h"
 #include "hccl_comm.h"
 #include "hccl_res_expt.h"
+#include "hccl_host_comm_dl.h"
 
 using namespace ops_hccl;
 using namespace HcclSim;
@@ -755,6 +756,13 @@ int32_t HcommBatchModeEnd(const char *batchTag)
 int32_t HcommAcquireComm(const char* commId)
 {
     return 0;
+}
+
+HcclResult HcclCommGetStatus(const char* commId, HcclCommStatusTmp *status)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    *status = HcclCommStatusTmp::HCCL_COMM_STATUS_READY;
+    return HCCL_SUCCESS;
 }
 
 int32_t HcommReleaseComm(const char* commId)

@@ -226,22 +226,26 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         HCCL_ERROR("%s HcommAcquireComm fail, commName[%s]", __func__, param->commName);
         return 1;
     }
+
+    if (param->deviceType == DevType::DEV_TYPE_910_95) {
+        //判断通信域状态
+        HcclCommStatusTmp commStatus = HcclCommStatusTmp::HCCL_COMM_STATUS_INVALID;
+        auto ret = HcclCommGetStatus(param->commName, &commStatus);
+        if (ret != HCCL_SUCCESS) {
+            HCCL_ERROR("%s HcclCommGetStatus fail, commName[%s], ret = %d", __func__, param->commName, ret);
+            return 1;
+        }
+        if (commStatus != HcclCommStatusTmp::HCCL_COMM_STATUS_READY) {
+            HCCL_ERROR("%s commStatus is not ready!, commStatus = %d", __func__, static_cast<int>(commStatus));
+            return 1;
+        }
+    }
+
     #ifdef MACRO_DEV_TYPE_NEW
     if (param->deviceType != DevType::DEV_TYPE_950) {
     #else
     if (param->deviceType != DevType::DEV_TYPE_910_95) {
     #endif
-        //判断通信域状态
-        HcclCommStatus commStatus = HcclCommStatus::HCCL_COMM_STATUS_INVALID;
-        auto ret = HcclCommGetStatusDevice(param->hcclComm, &commStatus);
-        if (ret != HCCL_SUCCESS) {
-            HCCL_ERROR("%s HcclCommGetStatus fail, commName[%s], ret = %d", __func__, param->commName, ret);
-            return 1;
-        }
-        if (commStatus != HcclCommStatus::HCCL_COMM_STATUS_READY) {
-            HCCL_ERROR("%s commStatus is not ready!, commStatus = %d", __func__, static_cast<int>(commStatus));
-            return 1;
-        }
         ScatterOpInfo opInfo;
         if (CreateScatter(param, &opInfo) != HCCL_SUCCESS) {
             HCCL_ERROR("%s CreateScatter fail", __func__);

@@ -33,7 +33,7 @@ public:
 
     // 现在的Kernel就是之前的GenExtIns
     HcclResult KernelRun(const OpParam &param, const TemplateDataParams &tempAlgParams,
-        const TemplateResource &templateResource) override;
+        TemplateResource &templateResource) override;
     void SetRoot(u32 root) const;
     HcclResult CalcRes(
         HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo, AlgResourceRequest &resourceRequest) override;
