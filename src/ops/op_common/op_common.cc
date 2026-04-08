@@ -75,9 +75,9 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
     std::string &algName)
 {
     //判断通信域状态
-    HcclCommStatus commStatus = HcclCommStatus::HCCL_COMM_STATUS_INVALID;
-    CHK_RET(HcclCommGetStatus(comm, &commStatus));
-    if (commStatus != HcclCommStatus::HCCL_COMM_STATUS_READY) {
+    HcclCommStatusTmp commStatus = HcclCommStatusTmp::HCCL_COMM_STATUS_INVALID;
+    CHK_RET(HcclCommGetStatus(param->commName, &commStatus));
+    if (commStatus != HcclCommStatusTmp::HCCL_COMM_STATUS_READY) {
         HCCL_ERROR("commStatus is not ready!, commStatus = %d", static_cast<int>(commStatus));
         return HCCL_E_SUSPENDING;
     }
@@ -1251,7 +1251,7 @@ HcclResult CheckDataType(const HcclDataType dataType, bool needReduce)
             (dataType == HCCL_DATA_TYPE_UINT32)  || (dataType == HCCL_DATA_TYPE_INT128)  ||
             (dataType == HCCL_DATA_TYPE_HIF8)    || (dataType == HCCL_DATA_TYPE_FP8E4M3) ||
             (dataType == HCCL_DATA_TYPE_FP8E5M2) || (dataType == HCCL_DATA_TYPE_FP8E8M0) ||
-            (dataType == HCCL_DATA_TYPE_MXFP8) || (dataType == HCCL_DATA_TYPE_RESERVED)) {
+            (dataType == HCCL_DATA_TYPE_RESERVED)) {
             RPT_INPUT_ERR(true, "EI0003", infoTitle, std::vector<std::string>({"CheckDataType", GetDataTypeEnumStr(dataType), "dataType",
                 GetSupportDataType(needReduce)}));
             HCCL_ERROR("[Check][DataType]errNo[0x%016llx] data type[%s] not supported, support range=[%s]",
@@ -1284,7 +1284,7 @@ std::string GetSupportDataType(bool needReduce)
         supportList.insert(supportList.end(), {HCCL_DATA_TYPE_UINT8, HCCL_DATA_TYPE_UINT16,
                                                HCCL_DATA_TYPE_UINT32, HCCL_DATA_TYPE_UINT64, HCCL_DATA_TYPE_FP64,
                                                HCCL_DATA_TYPE_HIF8, HCCL_DATA_TYPE_FP8E4M3,  HCCL_DATA_TYPE_FP8E5M2,
-                                               HCCL_DATA_TYPE_FP8E8M0, HCCL_DATA_TYPE_MXFP8});
+                                               HCCL_DATA_TYPE_FP8E8M0});
         supportList.push_back(HCCL_DATA_TYPE_BFP16);
     }
 

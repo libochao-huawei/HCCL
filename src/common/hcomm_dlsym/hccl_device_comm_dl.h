@@ -8,14 +8,29 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "hccl_comm_dl.h"
-#include <dlfcn.h>
-#include <stdio.h>
-#include <stdlib.h>
+#ifndef HCCL_COMM_DL_H
+#define HCCL_COMM_DL_H
 
-DEFINE_WEAK_FUNC(HcclResult, HcclCommGetStatus, HcclComm comm, HcclCommStatus *status);
+#include "dlsym_common.h"
+#include "hccl_comm.h"   // 原始头文件，包含所有类型和声明
 
-// 初始化
-void HcclCommDlInit(void* libHcommHandle) {
-    INIT_SUPPORT_FLAG(libHcommHandle, HcclCommGetStatus);
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef enum HcclCommStatusTmp {
+    HCCL_COMM_STATUS_READY = 0,
+    HCCL_COMM_STATUS_SUSPENDING = 1,
+    HCCL_COMM_STATUS_INVALID = 254,
+    HCCL_COMM_STATUS_RESERVED = 255
+} HcclCommStatusTmp;
+
+DECL_SUPPORT_FLAG(HcclCommGetStatus);
+
+void HcclDeviceCommDlInit(void* libHcommHandle);
+
+#ifdef __cplusplus
 }
+#endif
+
+#endif // HCCL_COMM_DL_H
