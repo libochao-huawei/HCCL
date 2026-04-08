@@ -172,7 +172,7 @@ HcclResult CcuTempAllReduceMesh1DDetour::CalcRes(HcclComm comm, const OpParam& p
 }
 
 HcclResult CcuTempAllReduceMesh1DDetour::KernelRun(const OpParam& param, const TemplateDataParams& templateDataParams,
-                                                   const TemplateResource& templateResource)
+                                                   TemplateResource& templateResource)
 {
     buffInfo_ = templateDataParams.buffInfo;
     RankSliceInfo sliceInfoVec;
