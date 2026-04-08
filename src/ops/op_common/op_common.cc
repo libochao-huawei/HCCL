@@ -1445,7 +1445,7 @@ HcclResult SetCommEngine(OpParam &param)
     return HCCL_E_NOT_SUPPORT;
 }
 
-HcclResult SingleRankProc(const OpParam &param)
+HcclResult SingleRankProc(HcclComm comm, const OpParam &param)
 {
     if (GetExternalInputHcclAivOnlyMode()) {
         HCCL_ERROR("[SingleRankProc] opType[%d] currently do not select aiv mode, aiv only not support, "
@@ -1470,20 +1470,32 @@ HcclResult SingleRankProc(const OpParam &param)
         len = DATATYPE_SIZE_TABLE[param.DataDes.dataType] * param.DataDes.count;
     }
 
-    HCCL_INFO("[CommunicatorImpl][%s] sendBuf[%p], recvBuf[%p], len[%llu]", __func__,
-              param.inputPtr, param.outputPtr, len);
+    HCCL_INFO("[%s] sendBuf[%p], recvBuf[%p], len[%llu]", __func__, param.inputPtr, param.outputPtr, len);
     if (len > 0) {
-        HcclResult ret = haclrtMemcpy(param.outputPtr, len, param.inputPtr, len, ACL_MEMCPY_DEVICE_TO_DEVICE);
-        HCCL_DEBUG("Call haclrtMemcpy, return value[%d], para: dstAddr[%p], destMax[%llu], "
-                "srcAddr[%p], count[%llu], rtKind[%d]", ret, param.outputPtr, len, param.inputPtr,
-                len, ACL_MEMCPY_DEVICE_TO_DEVICE);
-        if (ret != HCCL_SUCCESS) {
-            HCCL_ERROR("[SingleRankProc][AsyncCopy][Mem]errNo[0x%016llx] rt memory async copy failed, "
-                    "return[%d], para: dstAddr[%p], destMax[%llu], srcAddr[%p], count[%llu], kind[%d].",
-                    HCCL_ERROR_CODE(HcclResult::HCCL_E_RUNTIME), ret, param.outputPtr, len, param.inputPtr,
-                    len, ACL_MEMCPY_DEVICE_TO_DEVICE);
-            return HcclResult::HCCL_E_RUNTIME;
-        }
+        ThreadHandle cpuTsThread{0};
+        CHK_RET(HcclThreadAcquireWithStream(comm, COMM_ENGINE_CPU_TS, param.stream, 0, &cpuTsThread));
+        // Op注册
+        HcclDfxOpInfo hcclDfxOpInfo{};
+        hcclDfxOpInfo.opMode = static_cast<u32>(param.opMode);
+        hcclDfxOpInfo.opType = static_cast<u32>(param.opType);
+        hcclDfxOpInfo.reduceOp = static_cast<u32>(param.reduceType);
+        CHK_RET(GetHcclDfxOpInfoDataType(param, hcclDfxOpInfo.dataType));
+
+        // rankSize获取指定算子的dataCount
+        u32 userRankSize{0};
+        CHK_RET(HcclGetRankSize(comm, &userRankSize));
+        CHK_RET(GetHcclDfxOpInfoDataCount(param, userRankSize, hcclDfxOpInfo.dataCount));
+        hcclDfxOpInfo.root = param.root;
+        hcclDfxOpInfo.engine = param.engine;
+        hcclDfxOpInfo.cpuTsThread = cpuTsThread;
+        hcclDfxOpInfo.cpuWaitAicpuNotifyIdx = HOST_WAIT_AICPU_NOTIFYIDX;
+        CHK_RET(SetOpParamAlgTag(param, "SingleRankProc"));
+        s32 sRet = strncpy_s(hcclDfxOpInfo.algTag, ALG_TAG_LENGTH, param.algTag, ALG_TAG_LENGTH);
+        CHK_PRT_RET(sRet != EOK, HCCL_ERROR("%s call strncpy_s failed, param.algTag %s,  return %d.",
+            __func__, param.algTag, sRet), HCCL_E_MEMORY);
+
+        CHK_RET(HcclDfxRegOpInfoByCommId(param.commName, reinterpret_cast<void*>(&hcclDfxOpInfo)));
+        CHK_RET(static_cast<HcclResult>(HcommLocalCopyOnThread(cpuTsThread, param.outputPtr, param.inputPtr, len)));
     }
     return HcclResult::HCCL_SUCCESS;
 }
