@@ -34,6 +34,7 @@ SelectorStatus AlltoAllAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNet
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                     std::string &selectAlgName) const
 {
+    CHK_PTR_NULL(topoInfo);
     if (topoInfo->topoLevelNums > 1) {
         HCCL_WARNING("[Algo][AlltoAllAutoSelector] levelNum > 1 is not supported yet for ccu_schedule mode.");
         return SelectorStatus::NOT_MATCH;
@@ -45,7 +46,7 @@ SelectorStatus AlltoAllAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNet
         } else if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_NOT_REGULAR) {
             HCCL_INFO("[Algo][%s] TWO_DIE_NOT_REGULAR not match", __func__);
             return SelectorStatus::NOT_MATCH;
-        } else if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
+        } else {
             HCCL_INFO("Setlect CcuAlltoAllMesh1D!");
             selectAlgName = "CcuAlltoAllMesh1D";
         }
@@ -103,6 +104,8 @@ SelectorStatus AlltoAllAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerD
         } else {
             selectAlgName = "InsAlltoAllMesh1D";
         }
+    } else {
+        return SelectorStatus::NOT_MATCH;
     }
 
     return SelectorStatus::MATCH;
