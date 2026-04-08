@@ -23,7 +23,7 @@ extern "C" {
 #endif
 
 HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
-                         aclrtStream stream);
+                         aclrtStream stream, uint64_t strideCount);
 HcclResult HcclAllGatherGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, const char* group, 
                                   aclrtStream stream, const char *tag, void **streams, size_t streamCount, void *scratchMemAddr, uint64_t scratchMemSize);
 #ifdef __cplusplus
@@ -32,11 +32,11 @@ HcclResult HcclAllGatherGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCou
 
 namespace ops_hccl {
 HcclResult AllGatherOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
-                             aclrtStream stream, const std::string &tag);
+                             aclrtStream stream, const std::string &tag, uint64_t strideCount);
 HcclResult AllGatherOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
                                       aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack);
 HcclResult AllGatherOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
-                                   aclrtStream stream, const std::string &tag, OpMode opMode, const ResPackGraphMode &resPack);
+                                   aclrtStream stream, const std::string &tag, OpMode opMode, const ResPackGraphMode &resPack, uint64_t strideCount);
 
 HcclResult CheckAllGatherInputPara(const HcclComm comm, const void* sendBuf, const void* recvBuf, const aclrtStream stream);
 
