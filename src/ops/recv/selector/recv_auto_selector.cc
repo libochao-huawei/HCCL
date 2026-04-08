@@ -28,7 +28,7 @@ namespace ops_hccl {
         (void)topoInfo;
         HCCL_INFO("[RecvAutoSelector][SelectDPUAlgo] opType:%d", opParam.opType);
     
-        selectAlgName = "InsRecvDPU";
+        selectAlgName = "opv2_insRecvHostDpu";  // opv2流程
         return SelectorStatus::MATCH;
     }
 
