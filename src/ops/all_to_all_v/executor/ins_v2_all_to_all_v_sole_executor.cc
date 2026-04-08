@@ -49,10 +49,6 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(
         return HCCL_E_PARA;
     }
     if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-        if (algHierarchyInfo.infos[0].size() < 2) {
-            HCCL_ERROR("algHierarchyInfo level0 should have at least 2 elements!");
-            return HCCL_E_PARA;
-        }
         tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[0][1]);    // clos拓扑，包含所有rank
     } else {
         tempAlgHierachyInfo = algHierarchyInfo.infos[0];
