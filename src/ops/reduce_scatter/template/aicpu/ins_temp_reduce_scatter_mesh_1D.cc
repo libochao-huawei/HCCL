@@ -33,6 +33,9 @@ HcclResult InsTempReduceScatterMesh1D::CalcRes(HcclComm comm, const OpParam& par
     resourceRequest.notifyNumOnMainThread = threadNum - 1;
 
     std::vector<HcclChannelDesc> level0Channels;
+    // 校验topoInfo是否为空
+    CHK_PRT_RET(topoInfo == nullptr,
+        HCCL_ERROR("[InsTempReduceScatterMesh1D][CalcRes] topoInfo is nullptr"), HCCL_E_PARA);
     CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
     resourceRequest.channels.push_back(level0Channels);
     HCCL_DEBUG("[InsTempReduceScatterMesh1D][CalcRes] myRank[%u], notifyNumOnMainThread[%u], slaveThreadNum[%u]",
@@ -79,7 +82,7 @@ HcclResult InsTempReduceScatterMesh1D::PostCopy(const TemplateDataParams &tempAl
     if (iter != subCommRanks_[0].end()) {
         rankIdx = std::distance(subCommRanks_[0].begin(), iter);
     } else {
-        HCCL_ERROR("[InsTempReduceScatterMesh1D][RunReduceScatter] subCommRanks_ or myRank_ is error.");
+        HCCL_ERROR("[InsTempReduceScatterMesh1D][PostCopy] subCommRanks_ or myRank_ is error.");
         return HCCL_E_INTERNAL;
     }
     // 如果是单算子模式, 并且是最后一步算子，需要将数据从 cclBuffer 拷贝到 userOut
