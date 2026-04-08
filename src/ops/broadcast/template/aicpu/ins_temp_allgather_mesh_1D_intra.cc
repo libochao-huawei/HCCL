@@ -54,7 +54,7 @@ u64 InsTempAllGatherMesh1DIntra::CalcScratchMultiple(BufferType inBuffType, Buff
 }
  
 HcclResult InsTempAllGatherMesh1DIntra::KernelRun(const OpParam &param, const TemplateDataParams &tempAlgParams,
-    const TemplateResource &templateResource)
+    TemplateResource &templateResource)
 {
     HCCL_INFO("[InsTempAllGatherMesh1DIntra] Run start");
 
