@@ -277,6 +277,7 @@ HcclResult ReduceScatterVOutPlaceCommon(void *sendBuf, const void *sendDispls, c
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));
     
+    HCCL_INFO("[ReduceScatterVOutPlace] userRankSize: %u", userRankSize);
     if (userRankSize == 1) {
         HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
         CHK_RET(SingleRankProc(param));
