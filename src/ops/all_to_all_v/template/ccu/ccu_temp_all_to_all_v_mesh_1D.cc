@@ -152,13 +152,12 @@ HcclResult CcuTempAlltoAllVMesh1D::FastLaunch(const OpParam& param, const Templa
                 break;
         }
     }
+
     std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAlltoAllVMesh1D>(
         PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[0],
  	    PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[1],
-        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[2],//token
-        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[3],//srcOffset
-        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[4],//dstOffset
-        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[5],//rankSize
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[2], tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[3],
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[4], tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[5],
         tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[6], localSendRecvInfo);
 
     HCCL_INFO("[CcuTempAlltoAllVMesh1D::FastLaunch]: inputPtr[%llu], outputPtr[%llu],"
