@@ -548,6 +548,7 @@ HcclResult AlltoAllVConstructOpParam(const void *sendBuf, const void *sendCounts
     const void *recvCounts, const void *rdispls, HcclDataType dataType, HcclComm comm, aclrtStream stream,
     const std::string &tag, HcclCMDType opType, u32 rankSize, OpMode opMode, u64 varMemSize, OpParam &param)
 {
+    CHK_RET(HcclGetCommName(comm, param.commName));
     param.stream = stream;
     param.opMode = opMode;
     DevType deviceType = DevType::DEV_TYPE_COUNT;
