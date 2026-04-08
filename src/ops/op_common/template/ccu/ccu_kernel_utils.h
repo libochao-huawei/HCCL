@@ -11,10 +11,10 @@
 #ifndef HCCL_CCU_KERNEL_UTILS_H_
 #define HCCL_CCU_KERNEL_UTILS_H_
 
+#include <cstdint>
 #include <vector>
-#include <queue>
 #include "alg_param.h"
-#include "ccu_kernel.h"
+#include "ccu_kernel_signature.h"
 
 
 namespace ops_hccl {
@@ -25,6 +25,23 @@ constexpr uint64_t MAX_LOOP_GROUP_TRANS_SIZE = 256 * 1024 * 1024;  // 暂时为 
 constexpr uint64_t TAIL_MI0_LOOP_NUM = 128;
 constexpr uint64_t TAIL_MI1_LOOP_NUM = 64;
 constexpr uint64_t MESH_2D_NUM = 2;
+constexpr size_t FAST_LAUNCH_KERNEL_CACHE_LIMIT = 128;
+
+inline std::uintptr_t GetFastLaunchCtxKey(const void *fastLaunchCtxPtr) noexcept
+{
+    return reinterpret_cast<std::uintptr_t>(fastLaunchCtxPtr);
+}
+
+template <typename Cache>
+inline void PrepareFastLaunchKernelCache(Cache &cache)
+{
+    if (cache.size() < FAST_LAUNCH_KERNEL_CACHE_LIMIT) {
+        return;
+    }
+
+    cache.clear();
+    cache.reserve(FAST_LAUNCH_KERNEL_CACHE_LIMIT);
+}
 
 uint64_t CalcLGMaxTransSize();
 

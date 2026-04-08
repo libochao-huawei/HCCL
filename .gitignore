@@ -1,0 +1,14 @@
+/build/
+/output
+/build_device
+/build_out
+/build_hccd
+/third_party
+/.idea
+/openssl--src
+/build_pkg_device
+/build_pkg_host
+/openssl-host-src
+/openssl-device-src
+*.pyc
+/.cache
