@@ -25,7 +25,7 @@ struct ChannelLinkInfo {
 
 HcclResult EnsureControlNotifies(OpParam &param)
 {
-    // control notify 为本次 launch 的控制参数，不写入缓存资源。
+    // 控制 notify 属于本次 launch 的控制参数，不写入缓存资源。
     for (uint32_t idx = 0; idx < kAllGatherBatchControlNotifyNum; ++idx) {
         if (g_allGatherBatchNotifies[idx] == nullptr) {
             ACLCHECK(aclrtCreateNotify(&g_allGatherBatchNotifies[idx], ACL_NOTIFY_DEFAULT));
@@ -175,12 +175,7 @@ HcclResult QueryLocalServerRankCount(HcclComm comm, const BatchTopoInfo &topoInf
             topoInfo.rankSize);
         return HCCL_E_INTERNAL;
     }
-
     localServerRankCount = instSizeList[topoInfo.serverIdx];
-    if (localServerRankCount == 0 || localServerRankCount > topoInfo.rankSize) {
-        HCCL_ERROR("local server rank count=%u is invalid, rankSize=%u", localServerRankCount, topoInfo.rankSize);
-        return HCCL_E_INTERNAL;
-    }
     return HCCL_SUCCESS;
 }
 
