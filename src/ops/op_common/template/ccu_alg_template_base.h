@@ -41,6 +41,7 @@ public:
     virtual u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType);
 
     uint64_t PointerToAddr(void* pointer) const;
+    std::uintptr_t GetFastLaunchCacheKey(const TemplateFastLaunchCtx& tempFastLaunchCtx, u32 kernelIdx) const;
     
     HcclResult GetToken(const BuffInfo &buffinfo, uint64_t &token) const;
 

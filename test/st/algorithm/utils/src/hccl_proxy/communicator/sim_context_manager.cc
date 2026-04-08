@@ -30,6 +30,7 @@ SimContextMgr::~SimContextMgr()
 HcclResult SimContextMgr::CreateCommEngineCtx(const std::string &tag, CommEngine engine, uint64_t size, void **ctx)
 {
     CHK_PTR_NULL(ctx);
+    std::lock_guard<std::mutex> lock(mutex_);
     
     // 阻止重复创建
     if (contextMap_.find(tag) != contextMap_.end()) {
@@ -40,9 +41,10 @@ HcclResult SimContextMgr::CreateCommEngineCtx(const std::string &tag, CommEngine
     }
 
     void* ctxMem = nullptr;
-    // 暂时只支持HOST类型
+    // 仿真场景下当前仅使用HOST内存，行为尽量对齐hcomm中的host侧CCU/CPU上下文逻辑
     HcclMemType type;
-    if (engine == COMM_ENGINE_CPU || engine == COMM_ENGINE_CPU_TS || engine == COMM_ENGINE_AICPU_TS || engine == COMM_ENGINE_AICPU) {
+    if (engine == COMM_ENGINE_CPU || engine == COMM_ENGINE_CPU_TS || engine == COMM_ENGINE_CCU ||
+        engine == COMM_ENGINE_AICPU_TS || engine == COMM_ENGINE_AICPU) {
         type = HCCL_MEM_TYPE_HOST;  // LLT模式AICPU也分配HOST内存
         ctxMem = malloc(size);
         CHK_PTR_NULL(ctxMem);
@@ -63,6 +65,9 @@ HcclResult SimContextMgr::CreateCommEngineCtx(const std::string &tag, CommEngine
 
 HcclResult SimContextMgr::GetCommEngineCtx(const std::string &tag, CommEngine engine, void **ctx, uint64_t *size)
 {
+    CHK_PTR_NULL(ctx);
+    CHK_PTR_NULL(size);
+    std::lock_guard<std::mutex> lock(mutex_);
     // Ctx未创建返回
     if (contextMap_.find(tag) == contextMap_.end()) {
         HCCL_INFO("[%s] not exist a context with tag[%s]", __func__, tag.c_str());
@@ -81,27 +86,57 @@ HcclResult SimContextMgr::GetCommEngineCtx(const std::string &tag, CommEngine en
     return HCCL_SUCCESS;
 }
 
-HcclResult SimContextMgr::DestroyCommEngineCtx(const HcclMem *engineCtx)
+HcclResult SimContextMgr::CopyCommEngineCtx(const std::string &tag, CommEngine engine, const void *srcCtx,
+    uint64_t size, uint64_t dstCtxOffset)
 {
-    CHK_PTR_NULL(engineCtx);
+    CHK_PTR_NULL(srcCtx);
+    std::lock_guard<std::mutex> lock(mutex_);
 
-    // Ctx不存在返回错误
-    if (tagMap_.find(*engineCtx) == tagMap_.end()) {
-        HCCL_ERROR("[%s]The provided engineCtx does not exist.", __func__);
+    if (contextMap_.find(tag) == contextMap_.end()) {
+        HCCL_ERROR("[%s] not exist a context with tag[%s]", __func__, tag.c_str());
+        return HCCL_E_PARA;
+    }
+    auto &engineCtxMap = contextMap_[tag];
+    if (engineCtxMap.find(engine) == engineCtxMap.end()) {
+        HCCL_ERROR("[%s] not exist a context with tag[%s], engine[%d]", __func__, tag.c_str(), engine);
         return HCCL_E_PARA;
     }
 
-    // Ctx存在进行销毁
-    contextMap_[tagMap_[*engineCtx]].erase(engineMap_[*engineCtx]);
-    if (contextMap_[tagMap_[*engineCtx]].empty()) {
-        contextMap_.erase(tagMap_[*engineCtx]);
+    HcclMem &memInfo = engineCtxMap[engine];
+    CHK_PRT_RET(dstCtxOffset + size > memInfo.size,
+        HCCL_ERROR("[%s] copy engine ctx failed: buffer overflow detected, tag[%s], engine[%d], dstSize[%llu], dstCtxOffset[%llu], copySize[%llu]",
+            __func__, tag.c_str(), engine, memInfo.size, dstCtxOffset, size), HCCL_E_PARA);
+    CHK_SAFETY_FUNC_RET(memcpy_s(reinterpret_cast<uint8_t *>(memInfo.addr) + dstCtxOffset, size, srcCtx, size));
+    HCCL_INFO("[%s] copy engine ctx success, tag[%s], engine[%d]", __func__, tag.c_str(), engine);
+    return HCCL_SUCCESS;
+}
+
+HcclResult SimContextMgr::DestroyCommEngineCtx(const std::string &tag, CommEngine engine)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    if (contextMap_.find(tag) == contextMap_.end()) {
+        HCCL_ERROR("[%s] not exist a context with tag[%s]", __func__, tag.c_str());
+        return HCCL_E_PARA;
     }
-    tagMap_.erase(*engineCtx);
-    engineMap_.erase(*engineCtx);
+    auto &engineCtxMap = contextMap_[tag];
+    if (engineCtxMap.find(engine) == engineCtxMap.end()) {
+        HCCL_ERROR("[%s] not exist a context with tag[%s], engine[%d]", __func__, tag.c_str(), engine);
+        return HCCL_E_PARA;
+    }
 
-    free(engineCtx->addr); // 暂时只支持HOST类型
+    HcclMem memInfo = engineCtxMap[engine];
 
-    HCCL_INFO("[%s] destroy context success", __func__);
+    engineCtxMap.erase(engine);
+    if (engineCtxMap.empty()) {
+        contextMap_.erase(tag);
+    }
+    tagMap_.erase(memInfo);
+    engineMap_.erase(memInfo);
+
+    free(memInfo.addr); // 仿真场景当前仅支持HOST类型
+
+    HCCL_INFO("[%s] destroy context success, tag[%s], engine[%d]", __func__, tag.c_str(), engine);
     return HCCL_SUCCESS;
 }
 
