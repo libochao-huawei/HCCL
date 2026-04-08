@@ -365,6 +365,7 @@ uint64_t CalcAlgResourceCtxSize(const BatchResourceRequest &request)
 // 先初始化固定头，尾部 channel 数组由 AllocAlgResource 填充。
 void InitAlgResourceCtxHeader(const BatchResourceRequest &request, AlgResourceCtx &resCtx)
 {
+    std::memset(&resCtx, 0, sizeof(AlgResourceCtx));
     resCtx.channelCount = request.channelCount;
     resCtx.channelOffset = sizeof(AlgResourceCtx);
 }
