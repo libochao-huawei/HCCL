@@ -47,12 +47,18 @@ private:
     HcclResult CalcLocalRoot();
 
     HcclResult PrepareResForStage(u32 stage);
+    HcclResult PrepareResForStage2(u32 stage);
     TemplateDataParams GenDataParamsTempAlg(u32 dataSliceIdx, u32 stageIdx, u32 stepIdx, bool isInter);
 
     HcclResult OrchestrateImpl();
     HcclResult OrchestrateLoop(u32 loopTimes, u64 maxCountPerLoop);
     HcclResult OrchestrateStep(u32 stageIdx, u32 stepIdx);
     HcclResult RunTemplate(u32 dataSliceIdx, u32 stageIdx, u32 stepIdx, bool isInter);
+
+#ifndef AICPU_COMPILE
+    HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *resCtx) override;
+    HcclResult FastLaunchSaveCtx();
+#endif
 
     u32 intraLocalRankSize_{0};     // server内算法rankSize
     u32 interLocalRankSize_{0};     // server间算法rankSize
@@ -69,6 +75,15 @@ private:
     std::vector<ThreadHandle> intraThreads_;
     std::vector<ThreadHandle> interThreads_;
 
+    u32 ccuKernelLaunchNumIntra0_{0};
+    u32 ccuKernelLaunchNumInter0_{0};
+    u32 ccuKernelLaunchNumIntra1_{0};
+    u32 ccuKernelLaunchNumInter1_{0};
+    u32 ccuKernelLaunchNumIntra01_{0};
+    u32 ccuKernelLaunchNumInter01_{0};
+    u32 ccuKernelLaunchNumIntra11_{0};
+    u32 ccuKernelLaunchNumInter11_{0};
+
     ThreadHandle mainThread_;
     std::vector<ThreadHandle> templateMainThreads_;
     std::vector<u32> syncNotifyOnTemplates_;
@@ -83,8 +98,7 @@ private:
 
     OpParam param_;
     AlgResourceCtxSerializable resCtx_;
-    TemplateResource intraTempAlgRes_;
-    TemplateResource interTempAlgRes_;
+    std::array<TemplateResource, 4> tempAlgResArr_{};
     std::array<u64, dataSplitPart_> dataOffsetPerLoop_{0, 0};
     std::array<u64, dataSplitPart_> dataCountPerLoop_{0, 0};
 };
