@@ -383,7 +383,10 @@ add_definitions(-DORION_MODE)
 
 if(STATIC_MODE)
     add_library(hccl STATIC)
-    set_target_properties(hccl PROPERTIES OUTPUT_NAME "hccl_static")
+    set_target_properties(hccl PROPERTIES
+        OUTPUT_NAME "hccl_static"
+        POSITION_INDEPENDENT_CODE ON
+    )
 else()
     add_library(hccl SHARED)
 endif()
