@@ -23,6 +23,7 @@ struct TestOptions {
     uint32_t printCount = 8;
     uint32_t warmupIters = 1;
     uint32_t measureIters = 1;
+    bool onlyDeviceExecTime = false;
     bool verifyOutput = true;
 };
 
@@ -71,7 +72,7 @@ void PrintUsage(const char *prog)
 {
     std::cout << "Usage: " << prog
               << " [--token-bytes N] [--scale-count N] [--devices N] [--print-count N]"
-              << " [--warmup N] [--iters N] [--no-verify]"
+              << " [--warmup N] [--iters N] [--only-device-exec-time] [--no-verify]"
               << std::endl;
     std::cout << "  --token-bytes  int8 token bytes per rank, default 327680" << std::endl;
     std::cout << "  --scale-count  fp32 scale element count per rank, default 128" << std::endl;
@@ -79,6 +80,7 @@ void PrintUsage(const char *prog)
     std::cout << "  --print-count  number of values shown in preview, default 8" << std::endl;
     std::cout << "  --warmup       warmup iteration count before timing, default 1" << std::endl;
     std::cout << "  --iters        measured iteration count, default 1" << std::endl;
+    std::cout << "  --only-device-exec-time  gate the work queue so timing is closer to device execution" << std::endl;
     std::cout << "  --no-verify    skip host-side output verification" << std::endl;
 }
 
@@ -117,6 +119,10 @@ bool ParseArgs(int argc, char *argv[], TestOptions &options)
         }
         if (arg == "--no-verify") {
             options.verifyOutput = false;
+            continue;
+        }
+        if (arg == "--only-device-exec-time") {
+            options.onlyDeviceExecTime = true;
             continue;
         }
         if (idx + 1 >= argc) {
@@ -336,13 +342,11 @@ int RunOnDevice(void *arg)
         HCCLCHECK_GOTO(HcclAllGatherBatch(items, itemCount, hcclComm, stream));
     }
     ACLCHECK_GOTO(aclrtRecordEvent(endEvent, stream));
-    {
+    if (ctx->options.onlyDeviceExecTime) {
         // 8. 触发执行（针对 onlyDeviceExecTime 模式）
-        if (ctx->options.onlyDeviceExecTime) {
-            int sleepTime = 50 + ctx->options.warmupIters * 2 + ctx->options.measureIters * 2;
-            std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
-            ACLCHECK_GOTO(aclrtRecordEvent(syncEvent, syncStream)); 
-        }
+        int sleepTime = 50 + ctx->options.warmupIters * 2 + ctx->options.measureIters * 2;
+        std::this_thread::sleep_for(std::chrono::milliseconds(sleepTime));
+        ACLCHECK_GOTO(aclrtRecordEvent(syncEvent, syncStream));
     }
     // 9. 同步并计算时间与带宽
     ACLCHECK_GOTO(aclrtSynchronizeStream(stream));
@@ -399,6 +403,18 @@ int RunOnDevice(void *arg)
     }
 
 CLEANUP:
+    if (startEvent != nullptr) {
+        (void)aclrtDestroyEvent(startEvent);
+    }
+    if (endEvent != nullptr) {
+        (void)aclrtDestroyEvent(endEvent);
+    }
+    if (syncEvent != nullptr) {
+        (void)aclrtDestroyEvent(syncEvent);
+    }
+    if (syncStream != nullptr) {
+        (void)aclrtDestroyStream(syncStream);
+    }
     if (hcclComm != nullptr) {
         (void)HcclCommDestroy(hcclComm);
     }
@@ -473,6 +489,7 @@ int main(int argc, char *argv[])
                   << ", scaleCount=" << options.scaleCount
                   << ", warmup=" << options.warmupIters
                   << ", iters=" << options.measureIters
+                  << ", onlyDeviceExecTime=" << (options.onlyDeviceExecTime ? "on" : "off")
                   << ", verify=" << (options.verifyOutput ? "on" : "off") << std::endl;
 
         aclRet = aclrtSetDevice(0);

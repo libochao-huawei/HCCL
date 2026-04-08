@@ -1,4 +1,4 @@
-# AllGatherBatch Testcase
+﻿# AllGatherBatch Testcase
 
 目录总览可参考上一级的 [../README.md](../README.md)。
 
@@ -224,6 +224,8 @@ export LD_LIBRARY_PATH=${ASCEND_HOME_PATH}/opp/vendors/<vendor>/lib64:${ASCEND_H
   正式计时前的 warmup 次数
 - `--iters N`
   正式计时次数
+- `--only-device-exec-time`
+  通过同步 gate 延后工作队列真正开始执行，让计时更接近 device 执行时间
 - `--no-verify`
   跳过 host 侧结果校验
 
@@ -232,6 +234,7 @@ export LD_LIBRARY_PATH=${ASCEND_HOME_PATH}/opp/vendors/<vendor>/lib64:${ASCEND_H
 ```bash
 ./allgatherbatch_testcase --token-bytes 65536 --scale-count 0 --devices 4 --warmup 2 --iters 20
 ./allgatherbatch_testcase --token-bytes 327680 --scale-count 128 --devices 8 --warmup 3 --iters 10
+./allgatherbatch_testcase --token-bytes 327680 --scale-count 128 --devices 8 --only-device-exec-time
 ./allgatherbatch_testcase --token-bytes 327680 --scale-count 128 --devices 8 --no-verify
 ```
 
