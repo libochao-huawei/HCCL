@@ -335,15 +335,6 @@ HcclResult ValidatePreparedParam(const OpParam &param)
     return ValidateBasicOpParam(param, "prepared param");
 }
 
-HcclResult ValidatePreparedResourceCtx(const OpParam &param)
-{
-    HCCL_CHK_PTR(param.resCtx);
-    const AlgResourceCtx &resCtx = *param.resCtx;
-
-    HCCL_CHK_RET(ValidateBasicResourceCtx(param, resCtx, "prepared resCtx"));
-    return ValidateRemoteChannelResources(param, resCtx, "prepared");
-}
-
 // 资源请求阶段先把“需要和哪些 rank 建链”算清楚，再交给 GetAlgRes 真正申请资源。
 HcclResult CalcFullMeshResourceRequest(HcclComm comm, const OpParam &param, BatchResourceRequest &request)
 {
@@ -543,20 +534,6 @@ HcclResult HcclAllGatherBatch(
     AlgResourceCtx *resCtx = nullptr;
     HCCL_CHK_RET(GetAlgRes(comm, param, &resCtx));
     param.resCtx = resCtx;
-    HCCL_CHK_RET(ValidatePreparedResourceCtx(param));
-
-    const ResourceStats stats = CollectResourceStats(param, *param.resCtx);
-    HCCL_INFO("Host resources ready: rank=%u, commMode=%s, channelCount=%u, crossServerChannels=%u, perRankCapacity=%llu, maxWindowBytes=%llu, hccs=%u, roce=%u, pcie=%u, sio=%u",
-        param.topoInfo.rank,
-        ToCommModeString(param.commMode),
-        param.resCtx->channelCount,
-        stats.crossServerChannels,
-        static_cast<unsigned long long>(stats.perRankCapacity),
-        static_cast<unsigned long long>(stats.maxWindowBytes),
-        stats.hccsChannels,
-        stats.roceChannels,
-        stats.pcieChannels,
-        stats.sioChannels);
 
     HCCL_CHK_RET(LoadAndLaunch(param, stream));
     return HCCL_SUCCESS;

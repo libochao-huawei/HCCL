@@ -55,28 +55,6 @@ uint32_t AllGatherBatchSmallCountExecutor::CountCrossServerChannels() const
     return ops_hccl_allgatherbatch::CountCrossServerChannels(param_.topoInfo, resCtx_);
 }
 
-HcclResult AllGatherBatchSmallCountExecutor::ValidateModeConsistency() const
-{
-    const ResourceStats stats = CollectResourceStats(param_, resCtx_);
-    const uint32_t expectedIntraServerChannels =
-        (param_.intraServerRankCount == 0U) ? 0U : (param_.intraServerRankCount - 1U);
-
-    // Host 已经把 commMode 和 rank 分布写进 OpParam，这里再在 Device 入口收一层执行器特有的链路假设。
-    if (stats.intraServerChannels != expectedIntraServerChannels) {
-        HCCL_ERROR("executor intra-server channel mismatch, expected=%u, actual=%u",
-            expectedIntraServerChannels,
-            stats.intraServerChannels);
-        return HCCL_E_INTERNAL;
-    }
-    if (stats.crossServerChannels != param_.crossServerRankCount) {
-        HCCL_ERROR("executor cross-server channel mismatch, expected=%u, actual=%u",
-            param_.crossServerRankCount,
-            stats.crossServerChannels);
-        return HCCL_E_INTERNAL;
-    }
-    return HCCL_SUCCESS;
-}
-
 // WindowRange 是 Pack/通信/Unpack 共用的边界合同，这里集中保证它的尾后游标语义和字节覆盖范围正确。
 HcclResult AllGatherBatchSmallCountExecutor::ValidateWindow(const WindowRange &window) const
 {
@@ -323,23 +301,9 @@ HcclResult AllGatherBatchSmallCountExecutor::Unpack(const WindowRange &window) c
 HcclResult AllGatherBatchSmallCountExecutor::Orchestrate()
 {
     HCCL_CHK_RET(ValidateParam());
-    HCCL_CHK_RET(ValidateModeConsistency());
 
     WindowRange window;
     HCCL_CHK_RET(BuildFirstWindow(window));
-
-    const uint32_t crossServerChannels = CountCrossServerChannels();
-    const ResourceStats stats = CollectResourceStats(param_, resCtx_);
-    HCCL_INFO("executor start: rank=%u, rankSize=%u, commMode=%s, windowScope=%s, intraServerRankCount=%u, crossServerRankCount=%u, perRankCapacity=%llu, maxWindowBytes=%llu, crossServerChannels=%u",
-        param_.topoInfo.rank,
-        param_.topoInfo.rankSize,
-        ToCommModeString(param_.commMode),
-        ToWindowScopeString(param_.commMode),
-        param_.intraServerRankCount,
-        param_.crossServerRankCount,
-        static_cast<unsigned long long>(stats.perRankCapacity),
-        static_cast<unsigned long long>(stats.maxWindowBytes),
-        crossServerChannels);
 
     while (true) {
         HCCL_CHK_RET(ValidateWindow(window));

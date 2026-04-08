@@ -149,18 +149,6 @@ HcclResult AllGatherHDStageCore::ValidateStagePlan(const HDStagePlan &plan) cons
     return HCCL_SUCCESS;
 }
 
-HcclResult AllGatherHDStageCore::ValidateProtocolDistribution() const
-{
-    const ResourceStats stats = CollectResourceStats(param_, resCtx_);
-    if (stats.recognizedProtocols != resCtx_.channelCount) {
-        HCCL_ERROR("HDStage protocol distribution mismatch, recognized=%u, channelCount=%u",
-            stats.recognizedProtocols,
-            resCtx_.channelCount);
-        return HCCL_E_INTERNAL;
-    }
-    return HCCL_SUCCESS;
-}
-
 HcclResult AllGatherHDStageCore::BuildNHRRunCtx(const HDStagePlan &plan, NHRRunCtx &runCtx) const
 {
     if (!plan.needNoPowerPath) {
@@ -493,29 +481,6 @@ HcclResult AllGatherHDStageCore::RunAsync()
     HDStagePlan plan;
     HCCL_CHK_RET(BuildStagePlan(plan));
     HCCL_CHK_RET(ValidateStagePlan(plan));
-    HCCL_CHK_RET(ValidateProtocolDistribution());
-    const ResourceStats stats = CollectResourceStats(param_, resCtx_);
-    HCCL_INFO("HDStage plan ready: rank=%u, rankSize=%u, commMode=%s, serverIdx=%u, intraServerRankCount=%u, crossServerRankCount=%u, noPower=%u, powerFactor=%u, powerSteps=%u, remainingPowerSteps=%u, finalSteps=%u, packedBytes=%llu, paramWindowBytes=%llu, maxWindowBytes=%llu, intraServerChannels=%u, crossServerChannels=%u, hccs=%u, roce=%u, pcie=%u, sio=%u",
-        param_.topoInfo.rank,
-        param_.topoInfo.rankSize,
-        ToCommModeString(param_.commMode),
-        param_.topoInfo.serverIdx,
-        param_.intraServerRankCount,
-        param_.crossServerRankCount,
-        plan.noPower,
-        plan.powerFactor,
-        plan.powerSteps,
-        plan.remainingPowerSteps,
-        plan.finalSteps,
-        static_cast<unsigned long long>(packedBytes_),
-        static_cast<unsigned long long>(param_.windowBytes),
-        static_cast<unsigned long long>(stats.maxWindowBytes),
-        stats.intraServerChannels,
-        stats.crossServerChannels,
-        stats.hccsChannels,
-        stats.roceChannels,
-        stats.pcieChannels,
-        stats.sioChannels);
     HCCL_CHK_RET(RunAllGatherStage(plan));
     HCCL_INFO("HDStage finished: rank=%u, noPower=%s, power=%s, final=%s",
         param_.topoInfo.rank,
