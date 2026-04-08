@@ -11,17 +11,26 @@
 #ifndef HCCL_REDUCE_PARALLEL_EXECUTOR_H
 #define HCCL_REDUCE_PARALLEL_EXECUTOR_H
 
-#include "executor_common_ops.h"
-#include "topo_match_base.h"
+#include "common_alg_template_base.h"
+#include "executor_v2_base.h"
 
 namespace ops_hccl {
-template <typename AlgTopoMatch, typename AlgTemplate0, typename AlgTemplate1>
+template <typename AlgTopoMatch, typename AlgTemplate0, typename AlgTemplate1, typename AlgTemplate2,
+    typename AlgTemplate3>
 class ReduceParallelExecutor : public InsCollAlgBase {
 public:
-    static constexpr u32 templateNum_{2};
+    static constexpr u32 dataSplitPart_{2};             // 每次loop中将数据拆分为2份
+    static constexpr long double dataSplitSize0_{0.5};  // 每次loop中将数据拆分为2份，第一份占2份的比例
+    static constexpr u32 stageSize_{2};
+    static constexpr u32 stepSize_{2};
 
     explicit ReduceParallelExecutor();
     ~ReduceParallelExecutor() override = default;
+
+    std::string Describe() const override
+    {
+        return "Reduce Parallel Executor.";
+    }
 
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
 
@@ -33,40 +42,51 @@ public:
     HcclResult CalcAlgHierarchyInfo(
         HcclComm comm, TopoInfoWithNetLayerDetails *topoInfo, AlgHierarchyInfoForAllLevel &algHierarchyInfo) override;
 
-protected:
-    /* *************** 算法编排 *************** */
-    HcclResult OrchestrateLoop(const OpParam &param, const AlgResourceCtxSerializable &resCtx,
-        AlgTemplate0 &tempAlgIntra, AlgTemplate1 &tempAlgInter);
-
-    std::vector<std::map<u32, std::vector<ChannelInfo>>> remoteRankToChannelInfo_;
-    std::vector<ThreadHandle> threads_;
-
 private:
-    void GenTemplateAlgParams0(const OpParam &param, const AlgResourceCtxSerializable &resCtx, u64 dataOffset,
-        u64 dataCountPerLoopAxis0, u64 scratchOffset, TemplateDataParams &tempAlgParams0) const;
-    void GenTemplateAlgParamsIntra1(const OpParam &param, const AlgResourceCtxSerializable &resCtx, u64 dataOffset,
-        u64 dataCountPerLoopAxis1, u64 scratchOffset, u64 othScratchOffset, TemplateDataParams &tempAlgParams1) const;
-    void GenTemplateAlgParamsInter1(const OpParam &param, const AlgResourceCtxSerializable &resCtx, u64 dataOffset,
-        u64 dataCountPerLoopAxis1, u64 scratchOffset, u64 othScratchOffset, TemplateDataParams &tempAlgParams1) const;
-    HcclResult PrepareResForTemplate(AlgTemplate0 &tempAlgIntra, AlgTemplate1 &tempAlgInter);
-    void GetParallelDataSplit(std::vector<float> &splitDataSize) const;
     uint64_t GetRankSize(const std::vector<std::vector<u32>> &vTopo) const;
-
     HcclResult CalcLocalRoot();
 
-    u32 intraLocalRankSize_{0};  // server内算法rankSize
-    u32 interLocalRankSize_{0};  // server间算法rankSize
-    u32 intraLocalRoot_ = UINT32_MAX;
-    u32 interLocalRoot_ = UINT32_MAX;
+    HcclResult PrepareResForStage(u32 stage);
+    TemplateDataParams GenDataParamsTempAlg(u32 dataSliceIdx, u32 stageIdx, u32 stepIdx, bool isInter);
 
+    HcclResult OrchestrateImpl();
+    HcclResult OrchestrateLoop(u32 loopTimes, u64 maxCountPerLoop);
+    HcclResult OrchestrateStep(u32 stageIdx, u32 stepIdx);
+    HcclResult RunTemplate(u32 dataSliceIdx, u32 stageIdx, u32 stepIdx, bool isInter);
+
+    u32 intraLocalRankSize_{0};     // server内算法rankSize
+    u32 interLocalRankSize_{0};     // server间算法rankSize
     uint64_t rankIdxLevel0_{0};
     uint64_t rankIdxLevel1_{0};
-    std::vector<u32>          notifyIdxControlToTemplates_;
-    std::vector<u32>          notifyIdxTemplatesToControl_;
+
+    u32 intraLocalRoot_{0};     // server内算法root
+    u32 interLocalRoot_{0};     // server间算法root
+
+    std::vector<std::vector<std::vector<u32>>> vTopo_;
+    std::vector<u32> virtRanks_;
+    std::array<std::map<u32, u32>, dataSplitPart_> virtRankMap_;
+
     std::vector<ThreadHandle> intraThreads_;
     std::vector<ThreadHandle> interThreads_;
-    std::map<u32, std::vector<ChannelInfo>> intraLinkMap_;
-    std::map<u32, std::vector<ChannelInfo>> interLinkMap_;
+
+    ThreadHandle mainThread_;
+    std::vector<ThreadHandle> templateMainThreads_;
+    std::vector<u32> syncNotifyOnTemplates_;
+    std::vector<u32> syncNotifyOnMain_;
+
+    std::map<u32, std::vector<ChannelInfo>> intraLinks_;
+    std::map<u32, std::vector<ChannelInfo>> interLinks_;
+
+    std::vector<ThreadHandle> threads_;
+
+    std::array<std::array<std::shared_ptr<CommonAlgTemplateBase>, dataSplitPart_>, stageSize_> algTemplatePtrArr_{{}};
+
+    OpParam param_;
+    AlgResourceCtxSerializable resCtx_;
+    TemplateResource intraTempAlgRes_;
+    TemplateResource interTempAlgRes_;
+    std::array<u64, dataSplitPart_> dataOffsetPerLoop_{0, 0};
+    std::array<u64, dataSplitPart_> dataCountPerLoop_{0, 0};
 };
 }  // namespace ops_hccl
 

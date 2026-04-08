@@ -75,7 +75,7 @@ HcclResult InsTempAllReduceMesh1DTwoShotMeshChunk::CalcSliceInfoVec(const u64 &d
 
 HcclResult InsTempAllReduceMesh1DTwoShotMeshChunk::KernelRun(const OpParam& param,
     const TemplateDataParams& tempAlgParams,
-    const TemplateResource& templateResource)
+    TemplateResource& templateResource)
 {
     HCCL_INFO("[InsTempAllReduceMesh1DTwoShotMeshChunk] Run Start");
     threadNum_ = templateResource.threads.size();

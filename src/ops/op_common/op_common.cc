@@ -37,48 +37,11 @@
 #include "alg_type.h"
 #include "op_common.h"
 #include "hccl_aiv_utils.h"
-#include "aiv_kernel_def.h"
 #include "dpu/kernel_launch.h"
 #include "hcomm_host_profiling_dl.h"
 #include "rt.h"
 #include "dlhcomm_function.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-// 兼容性处理
-uint64_t __attribute__((weak)) HcommGetProfilingSysCycleTime();
-HcclResult __attribute__((weak))  HcclDfxRegOpInfo(HcclComm comm, void* dfxOpInfo);
-HcclResult __attribute__((weak)) HcclProfilingReportOp(HcclComm comm, uint64_t beginTime);
-HcclResult __attribute__((weak)) HcclReportAicpuKernel(HcclComm comm, uint64_t beginTime, char *kernelName);
-HcclResult __attribute__((weak)) HcclReportAivKernel(HcclComm comm, uint64_t beginTime);
-
-struct HcclDfxOpInfo {
-    CommAbiHeader       header;
-    //DfxOpInfo_base
-    uint64_t            beginTime = 0;
-    uint64_t            endTime = 0;
-    //baseCollOperator
-    uint32_t            opMode = 0; // 单算子和图模式
-    uint32_t            opType = 0; // 算子名称类型
-    uint32_t            reduceOp = 0;
-    uint32_t            dataType = 0;
-    uint32_t            outputType = 0; //暂不删除，考虑后续算子使用
-    uint64_t            dataCount = 0;
-    uint32_t            root = INVALID_VALUE_RANKID;
-    char                algTag[288]; // 算法名 = "算子类型 + 通信域id + 选择的算法"
-    CommEngine          engine = COMM_ENGINE_RESERVED;
-    //task_exception
-    uint64_t            cpuTsThread = 0; // host侧算子主流的threadhandle
-    uint32_t            cpuWaitAicpuNotifyIdx = INVALID_UINT; // host wait device notifyIdx
-    uint32_t            cpuWaitAicpuNotifyId = INVALID_UINT; // host wait device notifyId
-    int8_t              reserve[128]; // 预留扩展字段
-};
-
-#ifdef __cplusplus
-}
-#endif
+#include "hccl_diag.h"
 
 namespace ops_hccl {
 thread_local std::map<std::string, HcclMemHandle> g_memHandleCache; // 当前AIV存放注册内存的memHandle使用
@@ -380,15 +343,16 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     u32 userRankSize{0};
     CHK_RET(HcclGetRankSize(comm, &userRankSize));
     hcclDfxOpInfo.dataCount = GetHcclDfxOpInfoDataCount(param, userRankSize);
+    param.dataCount = hcclDfxOpInfo.dataCount;
     hcclDfxOpInfo.root = param.root;
     hcclDfxOpInfo.engine = param.engine;
     hcclDfxOpInfo.cpuTsThread = cpuTsThread;
     hcclDfxOpInfo.cpuWaitAicpuNotifyIdx = HOST_WAIT_AICPU_NOTIFYIDX;
     s32 sRet = strncpy_s(hcclDfxOpInfo.algTag, ALG_TAG_LENGTH, param.algTag, ALG_TAG_LENGTH);
-    CHK_PRT_RET(sRet != EOK, HCCL_ERROR("%s call strncpy_s failed, param.algTag %s,  return %d.", __func__, param.algTag, sRet), HCCL_E_MEMORY);
-    HcclDfxOpInfo *tempOp = &hcclDfxOpInfo;
+    CHK_PRT_RET(sRet != EOK, HCCL_ERROR("%s call strncpy_s failed, param.algTag %s,  return %d.",
+        __func__, param.algTag, sRet), HCCL_E_MEMORY);
 
-    CHK_RET(HcclDfxRegOpInfo(comm, static_cast<void*>(tempOp)));
+    CHK_RET(HcclDfxRegOpInfoByCommId(param.commName, reinterpret_cast<void*>(&hcclDfxOpInfo)));
     ThreadHandle exportedCpuTsThread;
     ThreadHandle mainThread;
     u32 notifyNumOnMainThread;
@@ -453,6 +417,7 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
     HCCL_DEBUG("[HcclAicpuKernelEntranceLaunch]start to run aicpu kernel");
     // 当前aicpu launch接口只能有一个输入参数，将Context指针放在param参数中
     param.resCtx = resCtxSequence;
+    param.aicpuRecordCpuIdx = HOST_WAIT_AICPU_NOTIFYIDX;
     // 将算法名字放在param参数中
     int result = sprintf_s(param.algName, sizeof(param.algName), "%s", algName.c_str());
     if (result <= 0) {
@@ -481,7 +446,7 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
     }
     // Host stream等待Device的通知
     u16 NOTIFY_WAIT_TIME = 27 * 68;
-    CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, HOST_WAIT_AICPU_NOTIFYIDX, NOTIFY_WAIT_TIME)));
+    CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, param.aicpuRecordCpuIdx, NOTIFY_WAIT_TIME)));
 
     return HCCL_SUCCESS;
 }
@@ -1278,7 +1243,7 @@ HcclResult CheckDataType(const HcclDataType dataType, bool needReduce)
             (dataType == HCCL_DATA_TYPE_UINT32)  || (dataType == HCCL_DATA_TYPE_INT128)  ||
             (dataType == HCCL_DATA_TYPE_HIF8)    || (dataType == HCCL_DATA_TYPE_FP8E4M3) ||
             (dataType == HCCL_DATA_TYPE_FP8E5M2) || (dataType == HCCL_DATA_TYPE_FP8E8M0) ||
-            (dataType == HCCL_DATA_TYPE_MXFP8) || (dataType == HCCL_DATA_TYPE_RESERVED)) {
+            (dataType == HCCL_DATA_TYPE_RESERVED)) {
             RPT_INPUT_ERR(true, "EI0003", infoTitle, std::vector<std::string>({"CheckDataType", GetDataTypeEnumStr(dataType), "dataType",
                 GetSupportDataType(needReduce)}));
             HCCL_ERROR("[Check][DataType]errNo[0x%016llx] data type[%s] not supported, support range=[%s]",
@@ -1311,7 +1276,7 @@ std::string GetSupportDataType(bool needReduce)
         supportList.insert(supportList.end(), {HCCL_DATA_TYPE_UINT8, HCCL_DATA_TYPE_UINT16,
                                                HCCL_DATA_TYPE_UINT32, HCCL_DATA_TYPE_UINT64, HCCL_DATA_TYPE_FP64,
                                                HCCL_DATA_TYPE_HIF8, HCCL_DATA_TYPE_FP8E4M3,  HCCL_DATA_TYPE_FP8E5M2,
-                                               HCCL_DATA_TYPE_FP8E8M0, HCCL_DATA_TYPE_MXFP8});
+                                               HCCL_DATA_TYPE_FP8E8M0});
         supportList.push_back(HCCL_DATA_TYPE_BFP16);
     }
 
@@ -1545,13 +1510,13 @@ HcclResult ApplyOpExpansionMode(OpParam &param, HcclOpExpansionMode finalMode)
         case HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_AIV:
             param.opExecuteConfig = OpExecuteConfig::AIV;
             param.engine = CommEngine::COMM_ENGINE_AIV;
-            CHK_RET(RegisterKernel(param.opType, g_aivKernelInfoMap[param.opType].first, g_aivKernelInfoMap[param.opType].second));
+            CHK_RET(RegisterKernel());
             HCCL_DEBUG("[ApplyOpExpansionMode] AIV mode selected.");
             break;
         case HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY:
             param.opExecuteConfig = OpExecuteConfig::AIV_ONLY;
             param.engine = CommEngine::COMM_ENGINE_AIV;
-            CHK_RET(RegisterKernel(param.opType, g_aivKernelInfoMap[param.opType].first, g_aivKernelInfoMap[param.opType].second));
+            CHK_RET(RegisterKernel());
             HCCL_DEBUG("[ApplyOpExpansionMode] AIV_ONLY mode selected.");
             break;
         case static_cast<HcclOpExpansionMode>(opExpansionModeCcuMs):
@@ -1580,10 +1545,10 @@ bool HcclCheckAicpuEnableOpen()
     const char* envValue = std::getenv("HCCL_ENABLE_OPEN_AICPU");
 
     if (envValue != nullptr && std::strcmp(envValue, "1") == 0) {
-        return true;
+        return false;
     }
 
-    return false;
+    return true;
 }
 
 HcclResult HcclRegstryBuff(HcclComm comm, const char *memTag, void *bufferPtr, uint64_t bufferSize, HcclMemHandle *memHandle)
