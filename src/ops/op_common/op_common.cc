@@ -17,6 +17,7 @@
 #include <cstring>  // 包含strcmp函数
 #include <stdexcept>
 #include <hccl/hccl_types.h>
+#include <hccl/hccl_comm.h>
 #include "hccl/base.h"
 #include "sal.h"
 #include "error_codes/rt_error_codes.h"
@@ -74,10 +75,10 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
     std::string &algName)
 {
     //判断通信域状态
-    HcclCommStatus commStatus = HcclCommStatus::HCCL_COMM_STATUS_INVALID;
-    CHK_RET(HcclCommGetStatus(comm, &commStatus));
-    if (commStatus != HcclCommStatus::HCCL_COMM_STATUS_READY) {
-        HCCL_ERROR("commStatus is not ready!");
+    HcclCommStatusTmp commStatus = HcclCommStatusTmp::HCCL_COMM_STATUS_INVALID;
+    CHK_RET(HcclCommGetStatus(param->commName, &commStatus));
+    if (commStatus != HcclCommStatusTmp::HCCL_COMM_STATUS_READY) {
+        HCCL_ERROR("commStatus is not ready!, commStatus = %d", static_cast<int>(commStatus));
         return HCCL_E_SUSPENDING;
     }
     HCCL_INFO("Start to execute Selector.");
