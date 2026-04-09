@@ -1,4 +1,4 @@
-﻿# AllGatherBatch Testcase
+# AllGatherBatch Testcase
 
 目录总览可参考上一级的 [../README.md](../README.md)。
 
@@ -297,5 +297,24 @@ make test-single-item EXTRA_ARGS=--no-verify
 ## 十、当前 testcase 没做什么
 
 - 还没有覆盖更多异常路径
-- 还没有和双 `HcclAllGather` 基线做同程序内对比
+- 已支持在同一 testcase 中切换 `custom` / `baseline` / `both` 三种执行模式
 - 还没有做 profiling 接入
+
+## 十一、Batch 与双 AllGather 基线对比
+
+当前 testcase 已支持通过 `--mode` 切换执行路径：
+
+- `--mode custom`
+  - 调用 `HcclAllGatherBatch`
+- `--mode baseline`
+  - 对 `token` 和 `scale` 依次调用标准 `HcclAllGather`
+- `--mode both`
+  - 先跑 `custom`，再跑 `baseline`，最后打印 `delta(us)` 和 `speedup`
+
+示例：
+
+```bash
+./allgatherbatch_testcase --token-bytes 327680 --scale-count 128 --devices 8 --mode custom
+./allgatherbatch_testcase --token-bytes 327680 --scale-count 128 --devices 8 --mode baseline
+./allgatherbatch_testcase --token-bytes 327680 --scale-count 128 --devices 8 --mode both
+```
