@@ -22,15 +22,15 @@ namespace ops_hccl {
 
 class CcuKernelArgAllGatherMeshDetour1D : public hcomm::CcuKernelArg {
 public:
-    explicit CcuKernelArgAllGatherMeshDetour1D(uint64_t dimSize, uint32_t rankId, const OpParam& opParam,
+    explicit CcuKernelArgAllGatherMeshDetour1D(std::vector<uint64_t> dimSize, uint32_t rankId, const OpParam& opParam,
                                                     const std::vector<std::vector<uint32_t>>& subCommRanks, 
-                                                    uint64_t singleTransportSize, uint64_t detourPathNum, 
+                                                    uint64_t singleChannelSize, uint64_t detourPathNum, 
                                                     uint64_t pathNumPerPeer, std::vector<u32> &channelsIndexVec)
         : dimSize_(dimSize),
           rankId_(rankId),
           opParam_(opParam),
           subCommRanks_(subCommRanks),
-          singleTransportSize_(singleTransportSize),
+          singleChannelSize_(singleChannelSize),
           detourPathNum_(detourPathNum),
           pathNumPerPeer_(pathNumPerPeer),
           channelsIndexVec_(channelsIndexVec)
@@ -44,11 +44,11 @@ public:
         GenerateCcuKernelSignature(signature, "CcuKernelArgAllGatherMeshDetour1D", opParam_, subCommRanks_);
         return signature;
     }
-    uint64_t                                dimSize_;
+    std::vector<uint64_t>                                dimSize_;
     uint32_t                                rankId_;
     OpParam                                 opParam_;
     std::vector<std::vector<uint32_t>>      subCommRanks_;
-    uint64_t singleTransportSize_;
+    uint64_t singleChannelSize_;
     uint64_t detourPathNum_;
     uint64_t pathNumPerPeer_;
     std::vector<u32> channelsIndexVec_;
@@ -62,9 +62,9 @@ public:
         : inputAddr_(inputAddr), outputAddr_(outputAddr), token_(token), baseOffset_(baseOffset), tailOffset_(tailOffset),
         tailSize_(tailSize), loopIterNum_(loopIterNum), lengths_(lengths) 
     {
-        HCCL_DEBUG("[CcuTaskArgAllGatherMeshDetour1D] inputAddr: %lu, outputAddr: %lu, token: %lu, offset: %lu, "
-                   "sliceSize: %lu",
-                   inputAddr_, outputAddr_, token_, offset_, sliceSize_);
+        HCCL_DEBUG("[CcuTaskArgAllGatherMeshDetour1D] inputAddr: %lu, outputAddr: %lu, baseOffset: %lu, offset: %lu, "
+                   "tailOffset: %lu, tailSize: %lu, tailloopIterNumSize: %lu, lengths: %lu",
+                   inputAddr_, outputAddr_, token_, baseOffset_, tailOffset, tailSize_, loopIterNum_, lengths_);
     }
 
     uint64_t inputAddr_;
@@ -82,25 +82,25 @@ public:
     CcuKernelAllGatherMeshDetour1D(const hcomm::CcuKernelArg &arg);
     ~CcuKernelAllGatherMeshDetour1D() override {}
 
-    HcclResult Algorithm();
+    HcclResult Algorithm() override;
     std::vector<uint64_t> GeneArgs(const hcomm::CcuTaskArg &arg) override;
 
 private:
-    void ProcessTransports(const std::vector<CcuTransport *> &transports);
+    void ProcessChannels(const std::vector<ChannelHandle> &channels);
     void AllocDetourRes();
     void CreateMultiOpBroadcastDetour();
-    void GroupBroadcastDetour(std::vector<CcuRep::Variable> &lengths, std::vector<CcuRep::Memory> &src,
-        std::vector<CcuRep::Memory> &dst);
+    void GroupBroadcastDetour(std::vector<CcuRep::Variable> &lengths, std::vector<CcuRep::LocalAddr> &src,
+        std::vector<CcuRep::RemoteAddr> &dst);
     void FirstStep();
     void SecondStep();
 
-    // ctx args
+    // kernel args
     uint64_t rankSize_{0};
     uint32_t rankId_{0};
-    uint64_t singleTransportSize_{0};  // 每个loop单次传输的总数据量，通信域级别
+    uint64_t singleChannelSize_{0};  // 每个loop单次传输的总数据量，通信域级别
     uint64_t detourPathNum_{0};
     uint64_t pathNumPerPeer_{0};  // 到每个rank有几个transport，包括重复的
-    std::vector<std::vector<CcuTransport*>> detourTransports_;  // 默认是transport的每rankSize-1个为一组，第一组是直连链路
+    std::vector<std::vector<ChannelHandle>> detourChannels_;  // 默认是transport的每rankSize-1个为一组，第一组是直连链路
 
     // task args
     CcuRep::Variable input_;

@@ -88,11 +88,11 @@ HcclResult CcuTempAllGatherMesh1DDetour::CalcRes(HcclComm comm, const OpParam& p
     CcuKernelInfo kernelInfo;
     
     kernelInfo.creator = [](const hcomm::CcuKernelArg &arg) {
-                             return std::make_unique<CcuKernelAllGatherMesh1DDetour>(arg);
+                             return std::make_unique<CcuKernelAllGatherMeshDetour1D>(arg);
                          };
     std::vector<uint64_t> dimSize;
     dimSize.emplace_back(subCommRanks_[0].size());
-    kernelInfo.kernelArg = std::make_shared<CcuKernelArgAllGatherMesh1DDetour>(dimSize,
+    kernelInfo.kernelArg = std::make_shared<CcuKernelArgAllGatherMeshDetour1D>(dimSize,
                                                                         mySubCommRank_,
                                                                         param,
                                                                         subCommRanks_,
@@ -128,7 +128,7 @@ HcclResult CcuTempAllGatherMesh1DDetour::KernelRun(const OpParam& param,
     uint64_t iterNum;
     CalcDetourOffset(sliceSize, tailOffset, tailSize, iterNum);
  
-    std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAllGatherMesh1DDetour>(inputAddr, outputAddr, offSet, token, iterNum,
+    std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAllGatherMeshDetour1D>(inputAddr, outputAddr, offSet, token, iterNum,
         tailOffset, tailSize, lengths_);
     HCCL_INFO("[CcuTempAllGatherMeshDetour1D] Run Init: myRank_[%d], inputAddr[%llu], outputAddr[%llu],"\
         "sliceSize[%llu], offset[%llu], iterNum[%llu], tailOffset[%llu], tailSize[%llu], singleTransferSize_[%u], detourPathNum_[%u], pathNumPerPeer_[%u]",
