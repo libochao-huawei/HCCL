@@ -272,7 +272,7 @@ HcclResult ScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, Hcc
     return HCCL_SUCCESS;
 }
 
-aclrtNotify g_notifies[AICPU_CONTROL_NOTIFY_NUM];
+std::map<HcclComm, NotifyArray> g_notifiesMap;
 /* 执行通信算子 */
 HcclResult ExecOp(HcclComm comm, OpParam &param)
 {
@@ -295,7 +295,10 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
     // 获取资源
     AlgResourceCtx* resCtx;
 
-    CHK_RET(GetAlgRes(comm, param, executor, topoInfo, algType, &resCtx, g_notifies));
+    if (g_notifiesMap.find(comm) == g_notifiesMap.end()) {
+        g_notifiesMap[comm].fill(0);
+    }
+    CHK_RET(GetAlgRes(comm, param, executor, topoInfo, algType, &resCtx, g_notifiesMap[comm]));
 
     // 算法执行
     if (param.engine == COMM_ENGINE_AICPU_TS) {
@@ -309,7 +312,7 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
         }
 
         // Host stream通知Device主thread
-        if (aclrtRecordNotify(g_notifies[0], param.stream) != ACL_SUCCESS) {
+        if (aclrtRecordNotify(g_notifiesMap[comm][0], param.stream) != ACL_SUCCESS) {
             HCCL_ERROR("failed to record aicpu stream");
             return HCCL_E_INTERNAL;
         }
@@ -356,7 +359,7 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
                     HCCL_ERROR("[LoadCustomKernel][aclrtLaunchKernelWithConfig]errNo[0x%016llx] launch kernel failed", ret), HCCL_E_OPEN_FILE_FAILURE);
 
         // Host stream等待Device的通知
-        if (aclrtWaitAndResetNotify(g_notifies[1], param.stream, CUSTOM_TIMEOUT) != ACL_SUCCESS) {
+        if (aclrtWaitAndResetNotify(g_notifiesMap[comm][1], param.stream, CUSTOM_TIMEOUT) != ACL_SUCCESS) {
             HCCL_ERROR("failed to wait from aicpu stream");
             return HCCL_E_INTERNAL;
         }
@@ -637,7 +640,7 @@ HcclResult SelectAlg(HcclComm comm, OpParam &param, TopoInfo* topoInfo, AlgType&
 }
 
 HcclResult GetAlgRes(HcclComm comm, OpParam &param, std::unique_ptr<ExecutorBase> &executor,
-    TopoInfo* topoInfo, AlgType& algType, AlgResourceCtx** resCtx, aclrtNotify* notifies)
+    TopoInfo* topoInfo, AlgType& algType, AlgResourceCtx** resCtx, NotifyArray &notifies)
 {
     // 这种情况下资源已经有了
     void *ctx = nullptr;
@@ -696,7 +699,7 @@ HcclResult GetAlgRes(HcclComm comm, OpParam &param, std::unique_ptr<ExecutorBase
 }
 
 HcclResult AllocAlgResource(HcclComm comm, const OpParam& param, AlgResourceRequest &resRequest,
-    AlgResourceCtx* resCtxHost, aclrtNotify* notifies)
+    AlgResourceCtx* resCtxHost, NotifyArray &notifies)
 {
     void* cclBufferAddr;
     uint64_t cclBufferSize;
@@ -714,12 +717,12 @@ HcclResult AllocAlgResource(HcclComm comm, const OpParam& param, AlgResourceRequ
 
     #define ACL_NOTIFY_DEFAULT          0x00000000U
     // 先使用acl接口来分配notify
-    if (aclrtCreateNotify(&(notifies[0]), ACL_NOTIFY_DEFAULT) != ACL_SUCCESS) {
+    if (notifies[0] == 0 && aclrtCreateNotify(&(notifies[0]), ACL_NOTIFY_DEFAULT) != ACL_SUCCESS) {
         HCCL_ERROR("failed to alloc notify");
         return HCCL_E_INTERNAL;
     }
 
-    if (aclrtCreateNotify(&(notifies[1]), ACL_NOTIFY_DEFAULT) != ACL_SUCCESS) {
+    if (notifies[1] == 0 && aclrtCreateNotify(&(notifies[1]), ACL_NOTIFY_DEFAULT) != ACL_SUCCESS) {
         HCCL_ERROR("failed to alloc notify");
         return HCCL_E_INTERNAL;
     }
