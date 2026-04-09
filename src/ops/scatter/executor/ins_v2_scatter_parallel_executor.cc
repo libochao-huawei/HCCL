@@ -34,7 +34,7 @@ HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 {
     CHK_PTR_NULL(topoInfo);
     CHK_PRT_RET(algHierarchyInfo.infos.empty(), 
-                HCCL_ERROR("[InsV2ScatterParallelExecutor][CalcRes] algHierarchyInfo.infos is empty")
+                HCCL_ERROR("[InsV2ScatterParallelExecutor][CalcRes] algHierarchyInfo.infos is empty"),
                 HCCL_E_PARA);
     // 构建template
     std::shared_ptr<InsAlgTemplate0> intraAlgTemplate =

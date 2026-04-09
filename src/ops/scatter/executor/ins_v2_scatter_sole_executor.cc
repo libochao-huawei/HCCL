@@ -35,7 +35,7 @@ HcclResult InsV2ScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(HcclC
 {
     CHK_PTR_NULL(topoInfo);
     CHK_PRT_RET(algHierarchyInfo.infos.empty(), 
-                HCCL_ERROR("[InsV2ScatterSoleExecutor][CalcRes] algHierarchyInfo.infos is empty")
+                HCCL_ERROR("[InsV2ScatterSoleExecutor][CalcRes] algHierarchyInfo.infos is empty"),
                 HCCL_E_PARA);
     // 构建template
     std::shared_ptr<InsAlgTemplate> algTemplate = std::make_shared<InsAlgTemplate>(param, topoInfo->userRank, algHierarchyInfo.infos[0]);
@@ -74,7 +74,7 @@ HcclResult InsV2ScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLo
 {
     HCCL_INFO("[InsV2ScatterSoleExecutor][OrchestrateLoop] Start");
     CHK_PRT_RET(resCtx.algHierarchyInfo.infos.empty(), 
-                HCCL_ERROR("[InsV2ScatterSoleExecutor][OrchestrateLoop] algHierarchyInfo.infos is empty")
+                HCCL_ERROR("[InsV2ScatterSoleExecutor][OrchestrateLoop] algHierarchyInfo.infos is empty"),
                 HCCL_E_PARA);
 
     // 准备资源
