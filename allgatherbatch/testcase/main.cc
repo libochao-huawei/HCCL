@@ -370,12 +370,12 @@ int RunOnDevice(void *arg)
 
     ACLCHECK_GOTO(
         aclrtMemcpy(token.recvHost, token.recvBytes, token.recvDevice, token.recvBytes, ACL_MEMCPY_DEVICE_TO_HOST));
-    PrintTokenPreview(
-        static_cast<const uint8_t *>(token.recvHost),
-        ctx->options.tokenBytes,
-        ctx->rankSize,
-        ctx->options.printCount,
-        ctx->device);
+    // PrintTokenPreview(
+    //     static_cast<const uint8_t *>(token.recvHost),
+    //     ctx->options.tokenBytes,
+    //     ctx->rankSize,
+    //     ctx->options.printCount,
+    //     ctx->device);
 
     if (ctx->options.verifyOutput &&
         !VerifyTokenOutput(static_cast<const uint8_t *>(token.recvHost), ctx->options.tokenBytes, ctx->rankSize)) {
@@ -387,12 +387,12 @@ int RunOnDevice(void *arg)
         if (ctx->options.scaleCount > 0) {
             ACLCHECK_GOTO(
                 aclrtMemcpy(scale.recvHost, scale.recvBytes, scale.recvDevice, scale.recvBytes, ACL_MEMCPY_DEVICE_TO_HOST));
-            PrintScalePreview(
-                static_cast<const float *>(scale.recvHost),
-                ctx->options.scaleCount,
-                ctx->rankSize,
-                ctx->options.printCount,
-                ctx->device);
+            // PrintScalePreview(
+            //     static_cast<const float *>(scale.recvHost),
+            //     ctx->options.scaleCount,
+            //     ctx->rankSize,
+            //     ctx->options.printCount,
+            //     ctx->device);
 
             if (ctx->options.verifyOutput &&
                 !VerifyScaleOutput(static_cast<const float *>(scale.recvHost), ctx->options.scaleCount, ctx->rankSize)) {
