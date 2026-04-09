@@ -14,7 +14,8 @@
 #include "hcomm_primitives_dl.h"
 #include "hccl_inner_dl.h"
 #include "hcomm_host_profiling_dl.h"
-#include "hccl_comm_dl.h"
+#include "hccl_host_comm_dl.h"
+#include "hccl_device_comm_dl.h"
 #include <pthread.h>
 #include <dlfcn.h>
 #include <stdio.h>

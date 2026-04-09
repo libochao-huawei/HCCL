@@ -26,9 +26,9 @@
 #include "sim_channel.h"
 #include "alg_param.h"
 #include "hcomm_diag.h"
-#include "hccl_comm.h"
 #include "hccl_res_expt.h"
 #include "hccl_host_comm_dl.h"
+#include "hccl_device_comm_dl.h"
 
 using namespace ops_hccl;
 using namespace HcclSim;

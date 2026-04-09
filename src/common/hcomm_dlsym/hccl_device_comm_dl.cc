@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "hccl_comm_dl.h"
+#include "hccl_device_comm_dl.h"
 #include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
