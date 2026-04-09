@@ -406,9 +406,6 @@ HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
         ccuFastLaunchCtx->ccuKernelNum[templateIdx++] = ccuKernelLaunchNumIntra1_;
         CcuKernelSubmitInfo *kernelSubmitInfos = ccuFastLaunchCtx->GetCcuKernelSubmitInfoPtr();
 
-        for (u32 i = 0; i < threadNum; i++) {
-            threads[i] = threads_[i];
-        }
         u32 kernelIdx = 0;
         for (u32 i = 0; i < ccuKernelLaunchNumIntra0_; i++) {
             kernelSubmitInfos[kernelIdx++] = templateAlgResIntra.submitInfos[i];
