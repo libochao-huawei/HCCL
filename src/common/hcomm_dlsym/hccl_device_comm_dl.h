@@ -19,7 +19,7 @@ extern "C" {
 #endif
 
 DECL_SUPPORT_FLAG(HcclCommGetStatus);
-DECL_WEAK_FUNC(HcclResult, HcclCommGetStatus, const char* commId, HcclCommStatus *status);
+
 void HcclDeviceCommDlInit(void* libHcommHandle);
 
 #ifdef __cplusplus
