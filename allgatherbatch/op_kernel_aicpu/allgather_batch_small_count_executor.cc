@@ -21,8 +21,9 @@ const char *ToWindowScopeString(BatchCommMode commMode)
 
 }  // namespace
 
-AllGatherBatchSmallCountExecutor::AllGatherBatchSmallCountExecutor(const OpParam &param, AlgResourceCtx &resCtx)
-    : param_(param), resCtx_(resCtx)
+AllGatherBatchSmallCountExecutor::AllGatherBatchSmallCountExecutor(
+    const OpParam &param, AlgResourceCtx &resCtx, BatchCallProfiling &profiling)
+    : param_(param), resCtx_(resCtx), profiling_(profiling)
 {
 }
 
@@ -180,7 +181,6 @@ HcclResult AllGatherBatchSmallCountExecutor::BuildFirstWindow(WindowRange &windo
 HcclResult AllGatherBatchSmallCountExecutor::BuildNextWindow(
     const WindowRange &current, WindowRange &next, bool &hasNext) const
 {
-
     uint32_t nextItemIdx = current.endItemIdx;
     uint64_t nextOffsetBytes = current.endOffsetBytes;
     HCCL_CHK_RET(AdvancePosition(nextItemIdx, nextOffsetBytes));
@@ -206,7 +206,6 @@ HcclResult AllGatherBatchSmallCountExecutor::BuildNextWindow(
 
 HcclResult AllGatherBatchSmallCountExecutor::Pack(const WindowRange &window) const
 {
-
     // Pack 现在把本 rank 的窗口打到 localBuffer 的“本 rank 槽位”，后续通信层会补齐其它 rank 的槽位。
     uint8_t *dst = GetRankWindowBase(window, param_.topoInfo.rank);
     uint64_t packedOffset = 0;
@@ -244,7 +243,6 @@ HcclResult AllGatherBatchSmallCountExecutor::Pack(const WindowRange &window) con
 
 HcclResult AllGatherBatchSmallCountExecutor::Unpack(const WindowRange &window) const
 {
-
     // gathered 结果以“rank 槽位 + 槽内 packed 顺序”存放在 localBuffer 中，这里再拆回每个 item 的 recvBuf。
     for (uint32_t rank = 0; rank < param_.topoInfo.rankSize; ++rank) {
         uint8_t *src = GetRankWindowBase(window, rank);
@@ -291,6 +289,7 @@ HcclResult AllGatherBatchSmallCountExecutor::Orchestrate()
     HCCL_CHK_RET(BuildFirstWindow(window));
 
     while (true) {
+        ++profiling_.windowCount;
         HCCL_INFO("executor window ready: scope=%s, start=(%u,%llu), end=(%u,%llu), packedBytes=%llu, paramWindowBytes=%llu, perRankCapacity=%llu, maxWindowBytes=%llu, rankSize=%u",
             ToWindowScopeString(param_.commMode),
             window.startItemIdx,
@@ -303,16 +302,22 @@ HcclResult AllGatherBatchSmallCountExecutor::Orchestrate()
             static_cast<unsigned long long>(GetMaxWindowBytes(param_, resCtx_)),
             param_.topoInfo.rankSize);
 
+        const uint64_t packStartUs = GetCurrentTimeUs();
         HCCL_CHK_RET(Pack(window));
+        profiling_.packUs += (GetCurrentTimeUs() - packStartUs);
 
         // 这轮起，通信层按窗口大小真正收齐所有 rank 的槽位，再由 Unpack 拆回每个 item。
         AllGatherHDStageCore hdStageCore(param_, resCtx_, window.packedBytes);
+        const uint64_t hdStageStartUs = GetCurrentTimeUs();
         HcclResult commRet = hdStageCore.RunAsync();
+        profiling_.hdStageUs += (GetCurrentTimeUs() - hdStageStartUs);
         if (commRet != HCCL_SUCCESS) {
             return commRet;
         }
 
+        const uint64_t unpackStartUs = GetCurrentTimeUs();
         HCCL_CHK_RET(Unpack(window));
+        profiling_.unpackUs += (GetCurrentTimeUs() - unpackStartUs);
 
         bool hasNext = false;
         WindowRange nextWindow;

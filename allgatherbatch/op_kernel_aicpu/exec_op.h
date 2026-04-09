@@ -5,7 +5,7 @@
 
 namespace ops_hccl_allgatherbatch {
 
-HcclResult ExecOp(const OpParam &param, AlgResourceCtx *resCtx);
+HcclResult ExecOp(const OpParam &param, AlgResourceCtx *resCtx, BatchCallProfiling &profiling);
 
 }  // namespace ops_hccl_allgatherbatch
 

@@ -1,17 +1,46 @@
-﻿#include "common.h"
+#include "common.h"
 #include "exec_op.h"
 
 namespace {
 
 using namespace ops_hccl_allgatherbatch;
 
-// kernel 入口先把 Host 下发的动态资源协议再核一遍，避免旧 cache 或错误 launch 参数把问题带进 Device 主循环。
 HcclResult ValidateKernelResourceCtx(const OpParam &param)
 {
     const AlgResourceCtx &resCtx = *param.resCtx;
-
     HCCL_CHK_RET(ValidateBasicResourceCtx(param, resCtx, "AICPU kernel resCtx"));
     return ValidateRemoteChannelResources(param, resCtx, "AICPU kernel");
+}
+
+void ResetBatchCallProfiling(BatchCallProfiling &profiling, const OpParam &param, const AlgResourceCtx &resCtx)
+{
+    profiling = {};
+    profiling.rank = param.topoInfo.rank;
+    profiling.rankSize = param.topoInfo.rankSize;
+    profiling.itemCount = param.itemCount;
+    profiling.commMode = param.commMode;
+    profiling.totalInputBytes = param.totalInputBytes;
+    profiling.localBufferBytes = resCtx.localBuffer.size;
+    profiling.maxWindowBytes = GetMaxWindowBytes(param, resCtx);
+}
+
+void PrintBatchCallProfiling(const BatchCallProfiling &profiling)
+{
+    HCCL_RUN_INFO(
+        "AGB_CALL rank=%u/%u items=%u windows=%u comm=%s us{kernel=%llu exec=%llu pack=%llu hd=%llu unpack=%llu} bytes{input=%llu local=%llu maxWin=%llu}",
+        profiling.rank,
+        profiling.rankSize,
+        profiling.itemCount,
+        profiling.windowCount,
+        ToCommModeString(profiling.commMode),
+        static_cast<unsigned long long>(profiling.kernelUs),
+        static_cast<unsigned long long>(profiling.execUs),
+        static_cast<unsigned long long>(profiling.packUs),
+        static_cast<unsigned long long>(profiling.hdStageUs),
+        static_cast<unsigned long long>(profiling.unpackUs),
+        static_cast<unsigned long long>(profiling.totalInputBytes),
+        static_cast<unsigned long long>(profiling.localBufferBytes),
+        static_cast<unsigned long long>(profiling.maxWindowBytes));
 }
 
 }  // namespace
@@ -31,7 +60,9 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
         return 1;
     }
 
-    // Device 入口负责把 Host 下发的控制协议转成完整的设备侧执行时序。
+    BatchCallProfiling profiling {};
+    ResetBatchCallProfiling(profiling, *param, *param->resCtx);
+
     if (HcommAcquireComm(param->commName) != HCCL_SUCCESS) {
         HCCL_ERROR("HcommAcquireComm failed, commName=%s", param->commName);
         return 1;
@@ -54,7 +85,8 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
         return 1;
     }
 
-    HcclResult ret = ExecOp(*param, param->resCtx);
+    const uint64_t kernelStartUs = GetCurrentTimeUs();
+    HcclResult ret = ExecOp(*param, param->resCtx, profiling);
     if (ret != HCCL_SUCCESS) {
         HCCL_ERROR("ExecOp failed, ret=%d", static_cast<int>(ret));
         (void)HcommBatchModeEnd(param->tag);
@@ -82,9 +114,7 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
         return 1;
     }
 
-    HCCL_INFO("AICPU kernel done: rank=%u, commMode=%s, itemCount=%u",
-        param->topoInfo.rank,
-        ToCommModeString(param->commMode),
-        param->itemCount);
+    profiling.kernelUs += (GetCurrentTimeUs() - kernelStartUs);
+    PrintBatchCallProfiling(profiling);
     return 0;
 }
