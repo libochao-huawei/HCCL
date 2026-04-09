@@ -244,7 +244,7 @@ HcclResult ScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, Hcc
     return HCCL_SUCCESS;
 }
 
-aclrtNotify g_notifies[AICPU_CONTROL_NOTIFY_NUM];
+thread_local std::map<HcclComm, NotifyArray> g_notifiesMap;
 /* 执行通信算子 */
 HcclResult ExecOp(HcclComm comm, OpParam &param)
 {
@@ -266,6 +266,10 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
 
     // 获取资源
     AlgResourceCtx* resCtx;
+
+    if (g_notifiesMap.find(comm) == g_notifiesMap.end()) {
+        g_notifiesMap[comm].fill(0);
+    }
     ThreadHandle cpuTsThread = 0;
     ThreadHandle exportedAicpuTsThread = 0;
     ThreadHandle exportedCpuTsThread = 0;
@@ -316,7 +320,7 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
             CHK_RET(static_cast<HcclResult>(HcommThreadNotifyRecordOnThread(cpuTsThread, exportedCpuTsThread,
                 topoInfo->notifyNumOnMainThread)));
         } else {
-            if (aclrtRecordNotify(g_notifies[0], param.stream) != ACL_SUCCESS) {
+            if (aclrtRecordNotify(g_notifiesMap[comm][0], param.stream) != ACL_SUCCESS) {
                 HCCL_ERROR("failed to record aicpu stream");
                 return HCCL_E_INTERNAL;
             }
@@ -379,7 +383,7 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
         if (HcommIsExportThreadSupported()) {
             CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, 0, NOTIFY_DEFAULT_WAIT_TIME)));
         } else {
-            if (aclrtWaitAndResetNotify(g_notifies[1], param.stream, CUSTOM_TIMEOUT) != ACL_SUCCESS) {
+            if (aclrtWaitAndResetNotify(g_notifiesMap[comm][1], param.stream, CUSTOM_TIMEOUT) != ACL_SUCCESS) {
                 HCCL_ERROR("failed to wait from aicpu stream");
                 return HCCL_E_INTERNAL;
  	        }
@@ -752,12 +756,12 @@ HcclResult AllocAlgResource(HcclComm comm, const OpParam& param, AlgResourceRequ
     if (!HcommIsExportThreadSupported()) {
         #define ACL_NOTIFY_DEFAULT          0x00000000U
         // 先使用acl接口来分配notify
-        if (aclrtCreateNotify(&(g_notifies[0]), ACL_NOTIFY_DEFAULT) != ACL_SUCCESS) {
+        if (g_notifiesMap[comm][0] == 0 && aclrtCreateNotify(&(g_notifiesMap[comm][0]), ACL_NOTIFY_DEFAULT) != ACL_SUCCESS) {
             HCCL_ERROR("failed to alloc notify");
             return HCCL_E_INTERNAL;
         }
 
-        if (aclrtCreateNotify(&(g_notifies[1]), ACL_NOTIFY_DEFAULT) != ACL_SUCCESS) {
+        if (g_notifiesMap[comm][1] == 0 && aclrtCreateNotify(&(g_notifiesMap[comm][1]), ACL_NOTIFY_DEFAULT) != ACL_SUCCESS) {
             HCCL_ERROR("failed to alloc notify");
             return HCCL_E_INTERNAL;
         }
