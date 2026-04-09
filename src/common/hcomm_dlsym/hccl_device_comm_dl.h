@@ -26,7 +26,7 @@ typedef enum HcclCommStatusTmp {
 } HcclCommStatusTmp;
 
 DECL_SUPPORT_FLAG(HcclCommGetStatus);
-
+DECL_WEAK_FUNC(HcclResult, HcclCommGetStatus, const char* commId, HcclCommStatusTmp *status);
 void HcclDeviceCommDlInit(void* libHcommHandle);
 
 #ifdef __cplusplus
