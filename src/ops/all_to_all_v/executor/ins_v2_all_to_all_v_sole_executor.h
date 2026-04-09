@@ -26,16 +26,16 @@ public:
 
     /* *************** 资源计算 *************** */
 
+    HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo,
+                                    AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
+
     HcclResult CalcRes(HcclComm comm, const OpParam& param,
                        const TopoInfoWithNetLayerDetails* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
                        AlgResourceRequest& resourceRequest) override;
 
-    HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo,
-                                    AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
-
 #ifndef AICPU_COMPILE
- 	HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *resCtx) override;
     HcclResult FastLaunchSaveCtx(const OpParam &param, const TemplateResource &templateAlgRes);
+ 	HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *resCtx) override;    
 #endif
 
 protected:
