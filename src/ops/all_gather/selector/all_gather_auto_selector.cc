@@ -43,7 +43,11 @@ SelectorStatus AllGatherAutoSelector::SelectMeshAlgo(const TopoInfoWithNetLayerD
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-        selectAlgName = "CcuAllGatherMesh1D";
+        if (opParam.detourType != HcclDetourType::HCCL_DETOUR_DISABLE) {
+            selectAlgName = "CcuAllGatherMesh1DDetour";
+        } else {
+            selectAlgName = "CcuAllGatherMesh1D";
+        }
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
         // UBX机型
         bool isMeshNumEqualToClosNum = false;
