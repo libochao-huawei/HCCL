@@ -758,10 +758,10 @@ int32_t HcommAcquireComm(const char* commId)
     return 0;
 }
 
-HcclResult HcclCommGetStatus(const char* commId, HcclCommStatusTmp *status)
+HcclResult HcclCommGetStatus(const char* commId, HcclCommStatus *status)
 {
     HCCL_WARNING("[%s] not support.", __func__);
-    *status = HcclCommStatusTmp::HCCL_COMM_STATUS_READY;
+    *status = HCCL_COMM_STATUS_READY;
     return HCCL_SUCCESS;
 }
 

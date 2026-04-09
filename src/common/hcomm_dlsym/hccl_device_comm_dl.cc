@@ -13,7 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-DEFINE_WEAK_FUNC(HcclResult, HcclCommGetStatus, const char* commId, HcclCommStatusTmp *status);
+DEFINE_WEAK_FUNC(HcclResult, HcclCommGetStatus, const char* commId, HcclCommStatus *status);
 
 // 初始化
 void HcclDeviceCommDlInit(void* libHcommHandle) {

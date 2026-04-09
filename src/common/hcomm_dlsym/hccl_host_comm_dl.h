@@ -18,13 +18,6 @@
 extern "C" {
 #endif
 
-typedef enum HcclCommStatusTmp {
-    HCCL_COMM_STATUS_READY = 0,
-    HCCL_COMM_STATUS_SUSPENDING = 1,
-    HCCL_COMM_STATUS_INVALID = 254,
-    HCCL_COMM_STATUS_RESERVED = 255
-} HcclCommStatusTmp;
-
 DECL_SUPPORT_FLAG(HcclCommGetStatus);
 
 void HcclCommDlInit(void* libHcommHandle);
