@@ -379,7 +379,7 @@ HcclResult InsTempBroadcastNHR::BatchSR(AicpuNHRStepInfo &stepInfo, const std::m
         DataSlice txSrcSlice = DataSlice(BuffAddr, memOffset + sliceInfoVec[txId][0].offset, sliceInfoVec[txId][0].size);
         DataSlice txDstSlice = DataSlice(remoteSendBuffAddr, memOffset + sliceInfoVec[txId][0].offset, sliceInfoVec[txId][0].size);
         txSrcSlices.push_back(txSrcSlice);
-        txSrcSlices.push_back(txDstSlice);
+        txDstSlices.push_back(txDstSlice);
     }
     SlicesList txSlicesList(txSrcSlices, txSrcSlices);
     std::vector<DataSlice> rxSrcSlices;
@@ -420,7 +420,10 @@ HcclResult InsTempBroadcastNHR::KernelRun(const OpParam& param, const TemplateDa
     }
     RankSliceInfo sliceInfoVec;
     CHK_RET(CalcDataSliceInfo(tempAlgParams.sliceSize, sliceInfoVec));
-    threadNum_ = templateResource.threads.size();
+    threadNum_ = 1;
+    CHK_PRT_RET(threadNum_ != templateResource.threads.size(),
+                HCCL_ERROR("[InsTempBroadcastNHR] Rank [%d], requiredQue [%u] not equals templateQueNum [%zu].", myRank_,
+                threadNum_, templateResource.threads.size()), HcclResult::HCCL_E_INTERNAL);
     HCCL_INFO("[InsTempBroadcastNHR Run]RankID:[%d], root:[%u]", myRank_, root_);
 
     CHK_RET(PreCopy(tempAlgParams, templateResource.threads));
