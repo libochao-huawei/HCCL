@@ -1133,18 +1133,20 @@ HcclResult HcclAllocAlgResourceCcu(HcclComm comm, const OpParam& param, AlgResou
     resCtxHost->slaveThreadNum = resRequest.slaveThreadNum;
     resCtxHost->notifyNumPerThread = resRequest.notifyNumPerThread;
     CHK_RET(HcclGetThread(comm, param, resRequest, resCtxHost));
-    CHK_RET(HcclGetChannelForCcu(comm, param, resRequest));
+    CHK_RET(HcclGetChannelForCcu(comm, param, resRequest, resCtxHost));
     CHK_RET(HcclGetCcuKernel(comm, resRequest, resCtxHost));
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclGetChannelForCcu(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest)
+HcclResult HcclGetChannelForCcu(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest, 
+                                std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost)
 {
     // 以kernel为粒度申请channel
     for (CcuKernelInfo& kernelInfo: resRequest.ccuKernelInfos) {
         std::vector<HcclChannelDesc> &kernelChannelRequest = kernelInfo.channels;
 
         u32 channelNum = kernelChannelRequest.size();
+        resCtxHost->channelNums.emplace_back(channelNum);
         std::vector<ChannelHandle> kernelChannels;
         kernelChannels.resize(channelNum);
 
