@@ -65,7 +65,7 @@ SelectorStatus AllReduceAutoSelector::SelectMeshUBXAlgo(const TopoInfoWithNetLay
         // 4P mesh
         if (IsSmallData(dataSize)) {
             // 小数据量，用1d mesh算法
-            selectAlgName = "CcuAllReduceMesh1D";
+            selectAlgName = "CcuAllReduceMesh1DOneShot";
         } else {
             // 大数据量，用mesh+clos并行算法
             selectAlgName = "CcuAllReduceConcurrentMs";
@@ -73,10 +73,8 @@ SelectorStatus AllReduceAutoSelector::SelectMeshUBXAlgo(const TopoInfoWithNetLay
     } else if (isClosNumMultipleOfMeshNum && !IsSmallData(dataSize)) {
         HCCL_DEBUG("[AllReduceAutoSelector][%s] MESH_1D_CLOS not match.", __func__);
         return SelectorStatus::NOT_MATCH;
-    } else if (dataSize / topoInfo->userRankSize > AR_ONESHOT_1D_MAX_DATA_SIZE) {
-        selectAlgName = "CcuAllReduceMesh1D";
     } else {
-        selectAlgName = "CcuAllReduceMesh1DOneShot";
+        selectAlgName = "CcuAllReduceMesh1D";
     }
 
     HCCL_DEBUG("[AllReduceAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
