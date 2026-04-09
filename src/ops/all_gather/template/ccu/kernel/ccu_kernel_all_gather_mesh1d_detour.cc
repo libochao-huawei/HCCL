@@ -9,8 +9,9 @@
  */
 
 #include "ccu_kernel_all_gather_mesh1d_detour.h"
-#include "ccu_instruction_all_gather_mesh1d_detour.h"
-#include "ccu_assist.h"
+#include "ccu_kernel_alg_base.h"
+#include "ccu_kernel_utils.h"
+#include "ccu_kernel.h"
 
 namespace Hccl {
 
