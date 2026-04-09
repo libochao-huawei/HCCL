@@ -68,6 +68,11 @@ private:
     u32 intraLocalRoot_{0};     // server内算法root
     u32 interLocalRoot_{0};     // server间算法root
 
+    ThreadHandle mainThread_;
+    std::vector<ThreadHandle> templateMainThreads_;
+    std::vector<u32> syncNotifyOnTemplates_;
+    std::vector<u32> syncNotifyOnMain_;
+
     std::vector<std::vector<std::vector<u32>>> vTopo_;
     std::vector<u32> virtRanks_;
     std::array<std::map<u32, u32>, dataSplitPart_> virtRankMap_;
@@ -75,19 +80,14 @@ private:
     std::vector<ThreadHandle> intraThreads_;
     std::vector<ThreadHandle> interThreads_;
 
-    u32 ccuKernelLaunchNumIntra0_{0};
-    u32 ccuKernelLaunchNumInter0_{0};
-    u32 ccuKernelLaunchNumIntra1_{0};
-    u32 ccuKernelLaunchNumInter1_{0};
-    u32 ccuKernelLaunchNumIntra01_{0};
-    u32 ccuKernelLaunchNumInter01_{0};
-    u32 ccuKernelLaunchNumIntra11_{0};
-    u32 ccuKernelLaunchNumInter11_{0};
-
-    ThreadHandle mainThread_;
-    std::vector<ThreadHandle> templateMainThreads_;
-    std::vector<u32> syncNotifyOnTemplates_;
-    std::vector<u32> syncNotifyOnMain_;
+    u32 ccuKernelLaunchNumRSIntra0_{0};
+    u32 ccuKernelLaunchNumRSInter0_{0};
+    u32 ccuKernelLaunchNumRSIntra1_{0};
+    u32 ccuKernelLaunchNumRSInter1_{0};
+    u32 ccuKernelLaunchNumAGIntra0_{0};
+    u32 ccuKernelLaunchNumAGInter0_{0};
+    u32 ccuKernelLaunchNumAGIntra1_{0};
+    u32 ccuKernelLaunchNumAGInter1_{0};
 
     std::map<u32, std::vector<ChannelInfo>> intraLinks_;
     std::map<u32, std::vector<ChannelInfo>> interLinks_;

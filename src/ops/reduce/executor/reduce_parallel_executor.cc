@@ -435,14 +435,14 @@ HcclResult
 #ifndef AICPU_COMPILE
                 if (loopTimes == 1 && param_.engine == CommEngine::COMM_ENGINE_CCU) {
                     if (stageIdx == 0 && stepIdx == 0) {
-                        ccuKernelLaunchNumIntra0_ = tempAlgResArr_.at(0).submitInfos.size();
-                        ccuKernelLaunchNumInter1_ = tempAlgResArr_.at(1).submitInfos.size();
+                        ccuKernelLaunchNumRSIntra0_ = tempAlgResArr_.at(0).submitInfos.size();
+                        ccuKernelLaunchNumRSInter1_ = tempAlgResArr_.at(1).submitInfos.size();
                     } else if (stageIdx == 0 && stepIdx == 1) {
-                        ccuKernelLaunchNumInter0_ = tempAlgResArr_.at(1).submitInfos.size() - ccuKernelLaunchNumInter1_;
-                        ccuKernelLaunchNumIntra1_ = tempAlgResArr_.at(0).submitInfos.size() - ccuKernelLaunchNumIntra0_;
+                        ccuKernelLaunchNumRSInter0_ = tempAlgResArr_.at(1).submitInfos.size() - ccuKernelLaunchNumRSInter1_;
+                        ccuKernelLaunchNumRSIntra1_ = tempAlgResArr_.at(0).submitInfos.size() - ccuKernelLaunchNumRSIntra0_;
                     } else if (stageIdx == 1 && stepIdx == 0) {
-                        ccuKernelLaunchNumInter01_ = tempAlgResArr_.at(3).submitInfos.size();
-                        ccuKernelLaunchNumIntra11_ = tempAlgResArr_.at(2).submitInfos.size();
+                        ccuKernelLaunchNumAGInter0_ = tempAlgResArr_.at(3).submitInfos.size();
+                        ccuKernelLaunchNumAGIntra1_ = tempAlgResArr_.at(2).submitInfos.size();
                     } else if (stageIdx == 1 && stepIdx == 1) {
                         CHK_RET(FastLaunchSaveCtx());
                     }
@@ -502,11 +502,11 @@ template <typename AlgTopoMatch, typename AlgTemplate0, typename AlgTemplate1, t
 HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgTemplate2, AlgTemplate3>::FastLaunchSaveCtx()
 {
     HCCL_INFO("[ReduceParallelExecutor][FastLaunchSaveCtx] loopTimes==1, save fast launch ctx.");
-    ccuKernelLaunchNumIntra01_ = tempAlgResArr_.at(2).submitInfos.size() - ccuKernelLaunchNumIntra11_;
-    ccuKernelLaunchNumInter11_ = tempAlgResArr_.at(3).submitInfos.size() - ccuKernelLaunchNumInter01_;
+    ccuKernelLaunchNumAGIntra0_ = tempAlgResArr_.at(2).submitInfos.size() - ccuKernelLaunchNumAGIntra1_;
+    ccuKernelLaunchNumAGInter1_ = tempAlgResArr_.at(3).submitInfos.size() - ccuKernelLaunchNumAGInter0_;
     u32 threadNum = threads_.size();
-    u32 ccuKernelNum = ccuKernelLaunchNumIntra1_ + ccuKernelLaunchNumInter0_ + ccuKernelLaunchNumIntra0_ + ccuKernelLaunchNumInter1_ +
-                        ccuKernelLaunchNumIntra11_ + ccuKernelLaunchNumInter01_ + ccuKernelLaunchNumIntra01_ + ccuKernelLaunchNumInter11_;
+    u32 ccuKernelNum = ccuKernelLaunchNumRSIntra1_ + ccuKernelLaunchNumRSInter0_ + ccuKernelLaunchNumRSIntra0_ + ccuKernelLaunchNumRSInter1_ +
+                        ccuKernelLaunchNumAGIntra1_ + ccuKernelLaunchNumAGInter0_ + ccuKernelLaunchNumAGIntra0_ + ccuKernelLaunchNumAGInter1_;
     if (ccuKernelNum < 1) {
         HCCL_INFO("[ReduceParallelExecutor][FastLaunchSaveCtx] ccu kernel num is 0, no need to save.");
         return HCCL_SUCCESS;
@@ -534,42 +534,42 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
     // 3 ccu kernel handle, taskArg入参
     u32 templateIdx = 0;
     // reduce_scatter
-    ccuFastLaunchCtx->ccuKernelNum[templateIdx++] = ccuKernelLaunchNumIntra0_;
-    ccuFastLaunchCtx->ccuKernelNum[templateIdx++] = ccuKernelLaunchNumInter1_;
-    ccuFastLaunchCtx->ccuKernelNum[templateIdx++] = ccuKernelLaunchNumInter0_;
-    ccuFastLaunchCtx->ccuKernelNum[templateIdx++] = ccuKernelLaunchNumIntra1_;
+    ccuFastLaunchCtx->ccuKernelNum[templateIdx++] = ccuKernelLaunchNumRSIntra0_;
+    ccuFastLaunchCtx->ccuKernelNum[templateIdx++] = ccuKernelLaunchNumRSInter1_;
+    ccuFastLaunchCtx->ccuKernelNum[templateIdx++] = ccuKernelLaunchNumRSInter0_;
+    ccuFastLaunchCtx->ccuKernelNum[templateIdx++] = ccuKernelLaunchNumRSIntra1_;
     // allgather
-    ccuFastLaunchCtx->ccuKernelNum[templateIdx++] = ccuKernelLaunchNumInter01_;
-    ccuFastLaunchCtx->ccuKernelNum[templateIdx++] = ccuKernelLaunchNumIntra11_;
-    ccuFastLaunchCtx->ccuKernelNum[templateIdx++] = ccuKernelLaunchNumIntra01_;
-    ccuFastLaunchCtx->ccuKernelNum[templateIdx++] = ccuKernelLaunchNumInter11_;
+    ccuFastLaunchCtx->ccuKernelNum[templateIdx++] = ccuKernelLaunchNumAGInter0_;
+    ccuFastLaunchCtx->ccuKernelNum[templateIdx++] = ccuKernelLaunchNumAGIntra1_;
+    ccuFastLaunchCtx->ccuKernelNum[templateIdx++] = ccuKernelLaunchNumAGIntra0_;
+    ccuFastLaunchCtx->ccuKernelNum[templateIdx++] = ccuKernelLaunchNumAGInter1_;
     CcuKernelSubmitInfo *kernelSubmitInfos = ccuFastLaunchCtx->GetCcuKernelSubmitInfoPtr();
 
     u32 kernelIdx = 0;
     // reduce_scatter
-    for (u32 i = 0; i < ccuKernelLaunchNumIntra0_; i++) {
+    for (u32 i = 0; i < ccuKernelLaunchNumRSIntra0_; i++) {
         kernelSubmitInfos[kernelIdx++] = tempAlgResArr_.at(0).submitInfos[i];
     }
-    for (u32 i = 0; i < ccuKernelLaunchNumInter1_; i++) {
+    for (u32 i = 0; i < ccuKernelLaunchNumRSInter1_; i++) {
         kernelSubmitInfos[kernelIdx++] = tempAlgResArr_.at(1).submitInfos[i];
     }
-    for (u32 i = ccuKernelLaunchNumInter1_; i < ccuKernelLaunchNumInter0_ + ccuKernelLaunchNumInter1_; i++) {
+    for (u32 i = ccuKernelLaunchNumRSInter1_; i < ccuKernelLaunchNumRSInter0_ + ccuKernelLaunchNumRSInter1_; i++) {
         kernelSubmitInfos[kernelIdx++] = tempAlgResArr_.at(1).submitInfos[i];
     }
-    for (u32 i = ccuKernelLaunchNumIntra0_; i < ccuKernelLaunchNumIntra1_ + ccuKernelLaunchNumIntra0_; i++) {
+    for (u32 i = ccuKernelLaunchNumRSIntra0_; i < ccuKernelLaunchNumRSIntra1_ + ccuKernelLaunchNumRSIntra0_; i++) {
         kernelSubmitInfos[kernelIdx++] = tempAlgResArr_.at(0).submitInfos[i];
     }
     // allgather
-    for (u32 i = 0; i < ccuKernelLaunchNumInter01_; i++) {
+    for (u32 i = 0; i < ccuKernelLaunchNumAGInter0_; i++) {
         kernelSubmitInfos[kernelIdx++] = tempAlgResArr_.at(3).submitInfos[i];
     }
-    for (u32 i = 0; i < ccuKernelLaunchNumIntra11_; i++) {
+    for (u32 i = 0; i < ccuKernelLaunchNumAGIntra1_; i++) {
         kernelSubmitInfos[kernelIdx++] = tempAlgResArr_.at(2).submitInfos[i];
     }
-    for (u32 i = ccuKernelLaunchNumIntra11_; i < ccuKernelLaunchNumIntra01_ + ccuKernelLaunchNumIntra11_; i++) {
+    for (u32 i = ccuKernelLaunchNumAGIntra1_; i < ccuKernelLaunchNumAGIntra0_ + ccuKernelLaunchNumAGIntra1_; i++) {
         kernelSubmitInfos[kernelIdx++] = tempAlgResArr_.at(2).submitInfos[i];
     }
-    for (u32 i = ccuKernelLaunchNumInter01_; i < ccuKernelLaunchNumInter01_ + ccuKernelLaunchNumInter11_; i++) {
+    for (u32 i = ccuKernelLaunchNumAGInter0_; i < ccuKernelLaunchNumAGInter0_ + ccuKernelLaunchNumAGInter1_; i++) {
         kernelSubmitInfos[kernelIdx++] = tempAlgResArr_.at(3).submitInfos[i];
     }
     return HCCL_SUCCESS;

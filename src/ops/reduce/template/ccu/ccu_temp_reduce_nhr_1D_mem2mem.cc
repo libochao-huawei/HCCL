@@ -182,7 +182,7 @@ HcclResult CcuTempReduceNHR1DMem2Mem::FastLaunch(const OpParam& param, const Tem
     HCCL_DEBUG("[CcuTempReduceNHR1DMem2Mem::FastLaunch] start");
     u32 kernelNum = tempFastLaunchCtx.ccuKernelSubmitInfos.size();
     buffInfo_ = tempFastLaunchCtx.buffInfo;
-    const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
+    const uint64_t *cachedArgs = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
     // 前流同步
     if (kernelNum > 1) {
         std::vector<ThreadHandle> subThreads(tempFastLaunchCtx.threads.begin() + 1, tempFastLaunchCtx.threads.end());
@@ -192,9 +192,10 @@ HcclResult CcuTempReduceNHR1DMem2Mem::FastLaunch(const OpParam& param, const Tem
 
     for (u32 kernelIdx = 0; kernelIdx < kernelNum; kernelIdx++) {
         CcuTaskArgReduceNHR1D taskArg(
-            PointerToAddr(buffInfo_.inputPtr) + args[0],
-            PointerToAddr(buffInfo_.outputPtr) + args[1],
-            args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9]);
+            PointerToAddr(buffInfo_.inputPtr) + cachedArgs[0],
+            PointerToAddr(buffInfo_.outputPtr) + cachedArgs[1],
+            cachedArgs[2], cachedArgs[3], cachedArgs[4], cachedArgs[5],
+            cachedArgs[6], cachedArgs[7], cachedArgs[8], cachedArgs[9]);
 
         void* taskArgPtr = static_cast<void*>(&taskArg);
 
@@ -213,22 +214,22 @@ HcclResult CcuTempReduceNHR1DMem2Mem::FastLaunch(const OpParam& param, const Tem
 
 HcclResult CcuTempReduceNHR1DMem2Mem::SplitDataFor2Dies(const OpParam& param,
                                                         const TemplateDataParams& templateDataParams,
-                                                        uint64_t& die0Size, uint64_t& die1Size) const
+                                                        uint64_t& die0DataSize, uint64_t& die1DataSize) const
 {
     constexpr uint64_t MULTIPLIER = 4;
-    uint64_t typeSize = DataTypeSizeGet(param.DataDes.dataType);
-    uint64_t dataCount = (templateDataParams.sliceSize / typeSize);
+    uint64_t dataTypeSize = DataTypeSizeGet(param.DataDes.dataType);
+    uint64_t totalDataCount = (templateDataParams.sliceSize / dataTypeSize);
 
-    if (dataCount <= templateRankSize_ * MULTIPLIER) {   // 数据量极小，不划分die
-        die0Size = dataCount * typeSize;
-        die1Size = 0;
+    if (totalDataCount <= templateRankSize_ * MULTIPLIER) {   // 数据量极小，不划分die
+        die0DataSize = totalDataCount * dataTypeSize;
+        die1DataSize = 0;
         return HcclResult::HCCL_SUCCESS;
     }
     u8 die0PortGroupSize = 1;
     u8 die1PortGroupSize = 1;
 
-    die0Size = (dataCount * die0PortGroupSize / (die0PortGroupSize + die1PortGroupSize)) * typeSize;
-    die1Size = templateDataParams.sliceSize - die0Size;
+    die0DataSize = (totalDataCount * die0PortGroupSize / (die0PortGroupSize + die1PortGroupSize)) * dataTypeSize;
+    die1DataSize = templateDataParams.sliceSize - die0DataSize;
     return HcclResult::HCCL_SUCCESS;
 }
 

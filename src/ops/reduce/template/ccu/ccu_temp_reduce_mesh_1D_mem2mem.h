@@ -33,15 +33,17 @@ public:
 
     void SetRoot(u32 root);
 
+    HcclResult KernelRun(const OpParam& param,
+                         const TemplateDataParams& templateDataParams,
+                         TemplateResource& templateResource) override;
+
+    HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx) override;
+
     HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                        AlgResourceRequest& resourceRequest) override;
 
     HcclResult GetRes(AlgResourceRequest& resourceRequest) const override;
     u64 GetThreadNum() const override;
-    HcclResult KernelRun(const OpParam& param,
-                         const TemplateDataParams& templateDataParams,
-                         TemplateResource& templateResource) override;
-    HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx) override;
 
 private:
     uint32_t mySubCommRank_ = 0;
