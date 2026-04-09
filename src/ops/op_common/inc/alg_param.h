@@ -369,6 +369,7 @@ struct AlgResourceCtxSerializable {
     std::vector<ThreadHandle> threads;
     ThreadHandle unfoldThread = 0; // 展开流thread
     std::vector<std::vector<ChannelInfo>> channels;
+    std::vector<u32> channelNums;
     void* commInfoPtr = nullptr;
     // hostdpu
     void *npu2DpuShmemPtr = nullptr;
