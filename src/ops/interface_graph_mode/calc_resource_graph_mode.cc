@@ -12,6 +12,7 @@
 #include "hccl/hcom.h"
 #include <cstddef>
 #include <cstring>
+#include "hcom.h"
 
 HcclResult HcclCreateOpParamGraphMode(OpParamGraphMode **opParam)
 {
@@ -92,6 +93,24 @@ HcclResult HcclSetOpParamGraphModeHCCLBufferSize(OpParamGraphMode *opParam, cons
     memcpy_s(&paramPtr->hcclBufferSize, sizeof(paramPtr->hcclBufferSize), hcclBufferSize, sizeof(u64));
     return HCCL_SUCCESS;
 }
+HcclResult HcclSetAivSelectOpParamGraphMode(OpParamGraphMode *opParam, const char *group, u64 count, void *counts, 
+ 	                                        HcclDataType dataType, HcclReduceOp op, HcclCMDType opTypeAiv, u32 aivCoreLimit, bool &ifAiv)
+ 	 {
+ 	     if (opParam == nullptr || group == nullptr) {
+ 	         return HCCL_E_PARA;
+ 	     }
+ 	     // 将void*转换为OpParamGraphMode*
+ 	     OpParamGraphMode *paramPtr = reinterpret_cast<OpParamGraphMode *>(opParam);
+ 	     strncpy_s(paramPtr->group, sizeof(paramPtr->group), group, sizeof(paramPtr->group) - 1);
+ 	     paramPtr->count = count;
+ 	     paramPtr->counts = counts;
+ 	     paramPtr->dataType = dataType;
+ 	     paramPtr->op = op;
+ 	     paramPtr->opTypeAiv = opTypeAiv;
+ 	     paramPtr->aivCoreLimit = aivCoreLimit;
+ 	     paramPtr->ifAiv = ifAiv;
+ 	     return HCCL_SUCCESS;
+ 	 }
 
 HcclResult HcclCalcOpResOnlineGraphMode(OpParamGraphMode *opParam, u64 *opMemSize, u32 *streamNum, u32 *taskNum, u32 *aivCoreNum)
 {
@@ -110,6 +129,9 @@ HcclResult HcclCalcOpResOnlineGraphMode(OpParamGraphMode *opParam, u64 *opMemSiz
 
     // ccu引擎计算资源
     ops_hccl::HcclCalcCcuResOffline(opParam, &resResponse);
+
+    // aiv引擎计算资源
+ 	ops_hccl::HcclCalcAivResOffline(&resResponse, paramPtr);
 
     // 将结果复制到输出参数
     *opMemSize = resResponse.opMemSize;
@@ -139,6 +161,8 @@ HcclResult HcclCalcOpResOfflineGraphMode(OpParamGraphMode *opParam, u64 *opMemSi
     ops_hccl::HcclCalcCcuResOffline(opParam, &resResponse);
 
     // 其他引擎补充在下面
+    // aiv引擎计算资源
+ 	ops_hccl::HcclCalcAivResOffline(&resResponse, paramPtr);
 
     // 将结果复制到输出参数
     *opMemSize = resResponse.opMemSize;
@@ -162,6 +186,15 @@ HcclResult HcclCalcAicpuResOffline(ResResponseGraphMode *resResponse)
     resResponse->opMemSize = std::max(resResponse->opMemSize, aicpuOpMemSize);
     resResponse->streamNum = std::max(resResponse->streamNum, aicpuStreamNum);
     resResponse->taskNum = std::max(resResponse->taskNum, aicpuTaskNum);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclCalcAivResOffline(ResResponseGraphMode *resResponse, OpParamGraphMode *paramPtr)
+{
+    if (resResponse == nullptr || paramPtr == nullptr || paramPtr->aivCoreLimit == 0) {
+        return HCCL_E_PARA;
+    }
+    resResponse->aivCoreNum = paramPtr->aivCoreLimit;
     return HCCL_SUCCESS;
 }
 
