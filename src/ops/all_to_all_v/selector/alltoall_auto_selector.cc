@@ -48,7 +48,7 @@ SelectorStatus AlltoAllAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNet
         } else if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_NOT_REGULAR) {
             HCCL_DEBUG("[AlltoAllAutoSelector][%s] TWO_DIE_NOT_REGULAR not match", __func__);
             return SelectorStatus::NOT_MATCH;
-        } else if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
+        } else {
             selectAlgName = "CcuAlltoAllMesh1D";
         }
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
