@@ -347,8 +347,9 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             return 1;
         }
 
-        if (HcommProfilingReportDeviceOp(param->commName) != HCCL_SUCCESS) {
-            HCCL_ERROR("%s HcommProfilingReportDeviceOp fail, commName[%s]", __func__, param->commName);
+        // 上报主流和最后一个task 在notify之后
+        if (HcommProfilingReportKernelEndTask(thread, param->commName) != HCCL_SUCCESS) {
+            HCCL_ERROR("%s failed to report MainStream And LastTask, thread %lu, param->commName %s.",  __func__, thread, param->commName);
             return 1;
         }
 
@@ -358,9 +359,8 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         CHK_RET(static_cast<HcclResult>(HcommThreadNotifyRecordOnThread(thread, exportedAicpuTsThread,
             DEFAULT_NOTIFY_IDX)));
 
-        // 上报主流和最后一个task 在notify之后
-        if (HcommProfilingReportKernelEndTask(thread, param->commName) != HCCL_SUCCESS) {
-            HCCL_ERROR("%s failed to report MainStream And LastTask, thread %lu, param->commName %s.",  __func__, thread, param->commName);
+        if (HcommProfilingReportDeviceOp(param->commName) != HCCL_SUCCESS) {
+            HCCL_ERROR("%s HcommProfilingReportDeviceOp fail, commName[%s]", __func__, param->commName);
             return 1;
         }
         
