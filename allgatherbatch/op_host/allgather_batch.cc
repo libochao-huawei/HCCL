@@ -1,4 +1,4 @@
-#include "allgather_batch.h"
+﻿#include "allgather_batch.h"
 
 #include <cstdio>
 #include <memory>
@@ -10,6 +10,7 @@
 #include "load_kernel.h"
 #include "log.h"
 #include "resource_request.h"
+#include "../../src/common/hcomm_dlsym/hcomm_dlsym.h"
 
 namespace ops_hccl_allgatherbatch {
 
@@ -22,6 +23,23 @@ struct ChannelLinkInfo {
     uint32_t remoteServerIdx = 0;
     uint32_t remoteSuperPodIdx = 0;
 };
+
+HcclResult ValidateLastTwoThreadSupport()
+{
+    if (!HcommIsSupportHcclThreadAcquire()) {
+        HCCL_ERROR("lastTwo parallel requires HcclThreadAcquire support");
+        return HCCL_E_NOT_SUPPORT;
+    }
+    if (!HcommIsSupportHcommThreadNotifyRecordOnThread()) {
+        HCCL_ERROR("lastTwo parallel requires HcommThreadNotifyRecordOnThread support");
+        return HCCL_E_NOT_SUPPORT;
+    }
+    if (!HcommIsSupportHcommThreadNotifyWaitOnThread()) {
+        HCCL_ERROR("lastTwo parallel requires HcommThreadNotifyWaitOnThread support");
+        return HCCL_E_NOT_SUPPORT;
+    }
+    return HCCL_SUCCESS;
+}
 
 HcclResult EnsureControlNotifies(OpParam &param)
 {
@@ -312,8 +330,11 @@ HcclResult ValidatePreparedParam(const OpParam &param)
 // 先构建 fullmesh peer 列表，再按 request 申请资源。
 HcclResult CalcFullMeshResourceRequest(HcclComm comm, const OpParam &param, BatchResourceRequest &request)
 {
-    request.threadNum = 1;
+    request.threadNum = 1 + kAllGatherBatchLastTwoWorkerCount;
     request.controlNotifyNum = kAllGatherBatchControlNotifyNum;
+    request.mainThreadNotifyNum = kAllGatherBatchLastTwoWorkerCount;
+    request.lastTwoWorkerCount = kAllGatherBatchLastTwoWorkerCount;
+    request.workerNotifyNum = 1;
     request.localBufferBytes = 0;
     request.commMode = param.commMode;
     request.channelCount = GetExpectedFullMeshChannelCount(param);
@@ -365,8 +386,18 @@ uint64_t CalcAlgResourceCtxSize(const BatchResourceRequest &request)
 // 先初始化固定头，尾部 channel 数组由 AllocAlgResource 填充。
 void InitAlgResourceCtxHeader(const BatchResourceRequest &request, AlgResourceCtx &resCtx)
 {
+    resCtx.threadHandle = 0;
+    resCtx.mainThreadHandle = 0;
+    resCtx.lastTwoWorkerCount = request.lastTwoWorkerCount;
+    resCtx.reserved0 = 0;
+    for (uint32_t idx = 0; idx < kAllGatherBatchLastTwoWorkerCount; ++idx) {
+        resCtx.lastTwoWorkerThreads[idx] = 0;
+        resCtx.lastTwoMainNotifyIds[idx] = idx;
+        resCtx.lastTwoWorkerNotifyIds[idx] = 0;
+    }
     resCtx.channelCount = request.channelCount;
     resCtx.channelOffset = sizeof(AlgResourceCtx);
+    resCtx.localBuffer = {};
 }
 
 // 资源申请直接消费 request，不再重复推导拓扑和 remote rank。
@@ -377,7 +408,23 @@ HcclResult AllocAlgResource(
     AlgResourceCtx &resCtx)
 {
     void *localBuffer = nullptr;
-    HCCL_CHK_RET(HcclThreadAcquire(comm, COMM_ENGINE_AICPU, request.threadNum, 0, &resCtx.threadHandle));
+    HCCL_CHK_RET(HcclThreadAcquire(
+        comm,
+        COMM_ENGINE_AICPU,
+        1,
+        request.mainThreadNotifyNum,
+        &resCtx.mainThreadHandle));
+    resCtx.threadHandle = resCtx.mainThreadHandle;
+    for (uint32_t idx = 0; idx < request.lastTwoWorkerCount; ++idx) {
+        HCCL_CHK_RET(HcclThreadAcquire(
+            comm,
+            COMM_ENGINE_AICPU,
+            1,
+            request.workerNotifyNum,
+            &resCtx.lastTwoWorkerThreads[idx]));
+        resCtx.lastTwoMainNotifyIds[idx] = idx;
+        resCtx.lastTwoWorkerNotifyIds[idx] = 0;
+    }
     HCCL_CHK_RET(HcclGetHcclBuffer(comm, &localBuffer, &resCtx.localBuffer.size));
     resCtx.localBuffer.addr = localBuffer;
 
@@ -432,6 +479,8 @@ HcclResult AllocAlgResource(
 HcclResult GetAlgRes(HcclComm comm, const OpParam &param, AlgResourceCtx **resCtx)
 {
     HCCL_CHK_PTR(resCtx);
+
+    HCCL_CHK_RET(ValidateLastTwoThreadSupport());
 
     BatchResourceRequest request;
     HCCL_CHK_RET(CalcFullMeshResourceRequest(comm, param, request));

@@ -1,4 +1,4 @@
-#include "common.h"
+﻿#include "common.h"
 #include "exec_op.h"
 
 namespace {
@@ -68,7 +68,7 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
         return 1;
     }
 
-    ThreadHandle thread = param->resCtx->threadHandle;
+    ThreadHandle thread = param->resCtx->mainThreadHandle;
     if (HcommBatchModeStart(param->tag) != HCCL_SUCCESS) {
         HCCL_ERROR("HcommBatchModeStart failed, tag=%s", param->tag);
         (void)HcommReleaseComm(param->commName);
