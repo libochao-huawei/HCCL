@@ -1,10 +1,11 @@
-#ifndef HCCL_ALLGATHERBATCH_COMMON_H
+﻿#ifndef HCCL_ALLGATHERBATCH_COMMON_H
 #define HCCL_ALLGATHERBATCH_COMMON_H
 
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <vector>
 
 #include "acl/acl_rt.h"
 #include "hccl/hccl_comm.h"
@@ -12,6 +13,7 @@
 #include "hccl/hccl_types.h"
 #include "hccl/hcomm_primitives.h"
 #include "log.h"
+#include "window_range.h"
 
 namespace ops_hccl_allgatherbatch {
 
@@ -95,7 +97,7 @@ struct BatchItemParam {
 };
 
 // Host 下发到 Device 的 launch 参数。
-// 里面包含拓扑信息、通信模式、展平后的 item 元数据以及资源上下文指针。
+// 里面包含拓扑信息、通信模式、展开后的 item 元数据以及资源上下文指针。
 struct OpParam {
     char tag[kAllGatherBatchTagLength] = {0};
     char commName[COMM_NAME_MAX_LENGTH] = {0};
@@ -113,6 +115,151 @@ struct OpParam {
     BatchItemParam items[kAllGatherBatchMaxItems] {};
     AlgResourceCtx *resCtx = nullptr;
 };
+
+struct WindowStageSlice {
+    uint32_t rank = 0;
+    uint32_t itemIdx = 0;
+    uint64_t itemOffsetBytes = 0;
+    uint64_t rankOffsetBytes = 0;
+    uint64_t stageOffsetBytes = 0;
+    uint64_t size = 0;
+};
+
+struct WindowStageLayout {
+    uint32_t rankSize = 0;
+    uint32_t powerSteps = 0;
+    uint32_t powerFactor = 1;
+    uint32_t noPower = 1;
+    uint64_t packedBytes = 0;
+    uint64_t totalBytes = 0;
+    std::vector<uint64_t> rankBaseOffsets;
+    std::vector<WindowStageSlice> localSlices;
+    std::vector<WindowStageSlice> perRankSlices;
+};
+
+inline uint32_t CalcStagePowerSteps(uint32_t rankSize)
+{
+    uint32_t steps = 0;
+    while ((rankSize & 1U) == 0U && rankSize > 1U) {
+        rankSize >>= 1U;
+        ++steps;
+    }
+    return steps;
+}
+
+inline uint32_t ReverseLowerBits(uint32_t value, uint32_t bitCount)
+{
+    uint32_t reversed = 0;
+    for (uint32_t bit = 0; bit < bitCount; ++bit) {
+        reversed = (reversed << 1U) | ((value >> bit) & 1U);
+    }
+    return reversed;
+}
+
+inline WindowStageLayout BuildWindowStageLayout(uint32_t rankSize)
+{
+    WindowStageLayout layout;
+    layout.rankSize = rankSize;
+    layout.powerSteps = CalcStagePowerSteps(rankSize);
+    layout.powerFactor = (layout.powerSteps == 0U) ? 1U : (1U << layout.powerSteps);
+    layout.noPower = (layout.powerFactor == 0U) ? 0U : (rankSize / layout.powerFactor);
+    return layout;
+}
+
+inline bool IsValidWindowStageLayout(const WindowStageLayout &layout)
+{
+    if (layout.rankSize == 0U ||
+        layout.powerFactor == 0U ||
+        layout.noPower == 0U ||
+        (layout.powerFactor * layout.noPower != layout.rankSize)) {
+        return false;
+    }
+
+    if (!layout.rankBaseOffsets.empty() && layout.rankBaseOffsets.size() != layout.rankSize) {
+        return false;
+    }
+    if (layout.packedBytes == 0) {
+        return layout.totalBytes == 0 &&
+            layout.rankBaseOffsets.empty() &&
+            layout.localSlices.empty() &&
+            layout.perRankSlices.empty();
+    }
+    if (layout.totalBytes != (layout.packedBytes * layout.rankSize)) {
+        return false;
+    }
+    if (layout.rankBaseOffsets.size() != layout.rankSize) {
+        return false;
+    }
+    if (layout.localSlices.empty()) {
+        return false;
+    }
+    return !layout.perRankSlices.empty();
+}
+
+inline uint32_t GetStageRankIndex(const WindowStageLayout &layout, uint32_t rank)
+{
+    const uint32_t group = rank / layout.powerFactor;
+    const uint32_t groupIdx = rank % layout.powerFactor;
+    const uint32_t stageGroupIdx = ReverseLowerBits(groupIdx, layout.powerSteps);
+    return (stageGroupIdx * layout.noPower) + group;
+}
+
+inline uint64_t GetStageRankBaseOffset(const WindowStageLayout &layout, uint32_t rank)
+{
+    if (!layout.rankBaseOffsets.empty()) {
+        return layout.rankBaseOffsets[rank];
+    }
+    return layout.packedBytes * GetStageRankIndex(layout, rank);
+}
+
+inline WindowStageLayout BuildWindowStageLayout(const OpParam &param, const WindowRange &window)
+{
+    WindowStageLayout layout = BuildWindowStageLayout(param.topoInfo.rankSize);
+    layout.packedBytes = window.packedBytes;
+    layout.totalBytes = window.packedBytes * param.topoInfo.rankSize;
+    layout.rankBaseOffsets.reserve(param.topoInfo.rankSize);
+    for (uint32_t rank = 0; rank < param.topoInfo.rankSize; ++rank) {
+        layout.rankBaseOffsets.push_back(window.packedBytes * GetStageRankIndex(layout, rank));
+    }
+
+    uint64_t packedOffset = 0;
+    uint32_t itemIdx = window.startItemIdx;
+    uint64_t itemOffsetBytes = window.startOffsetBytes;
+    const uint64_t localRankBase = GetStageRankBaseOffset(layout, param.topoInfo.rank);
+    while (packedOffset < window.packedBytes && itemIdx < param.itemCount) {
+        const BatchItemParam &item = param.items[itemIdx];
+        const uint64_t itemRemaining = (itemOffsetBytes < item.sendBytes) ? (item.sendBytes - itemOffsetBytes) : 0;
+        const uint64_t copyBytes = ((window.packedBytes - packedOffset) < itemRemaining) ?
+            (window.packedBytes - packedOffset) : itemRemaining;
+        if (copyBytes == 0) {
+            break;
+        }
+
+        WindowStageSlice localSlice;
+        localSlice.rank = param.topoInfo.rank;
+        localSlice.itemIdx = itemIdx;
+        localSlice.itemOffsetBytes = itemOffsetBytes;
+        localSlice.rankOffsetBytes = packedOffset;
+        localSlice.stageOffsetBytes = localRankBase + packedOffset;
+        localSlice.size = copyBytes;
+        layout.localSlices.push_back(localSlice);
+
+        for (uint32_t rank = 0; rank < param.topoInfo.rankSize; ++rank) {
+            WindowStageSlice rankSlice = localSlice;
+            rankSlice.rank = rank;
+            rankSlice.stageOffsetBytes = GetStageRankBaseOffset(layout, rank) + localSlice.rankOffsetBytes;
+            layout.perRankSlices.push_back(rankSlice);
+        }
+
+        packedOffset += copyBytes;
+        itemOffsetBytes += copyBytes;
+        if (itemOffsetBytes >= item.sendBytes) {
+            ++itemIdx;
+            itemOffsetBytes = 0;
+        }
+    }
+    return layout;
+}
 
 inline uint64_t GetCurrentTimeUs()
 {
@@ -198,7 +345,7 @@ inline bool IsValidCommMode(BatchCommMode commMode)
     return commMode == BatchCommMode::kSingleServer || commMode == BatchCommMode::kCrossServer;
 }
 
-// 当前版本明确假设 fullmesh：除了本 rank 之外，其余每个 rank 都有一条 channel。
+// 当前版本明确假设 fullmesh：除本 rank 外，其余每个 rank 都有一条 channel。
 inline uint32_t GetExpectedFullMeshChannelCount(uint32_t rankSize)
 {
     return (rankSize > 0) ? (rankSize - 1) : 0;
@@ -366,7 +513,7 @@ inline HcclResult ValidateBasicOpParam(const OpParam &param, const char *stageTa
     return HCCL_SUCCESS;
 }
 
-// 基础资源校验在 Host、kernel 入口、executor 等多层复用，确保大家对 fullmesh 资源形态的理解一致。
+// 基础资源校验会在 Host、kernel 入口、executor 等多层复用，确保大家对 fullmesh 资源形态的理解一致。
 inline HcclResult ValidateBasicResourceCtx(const OpParam &param, const AlgResourceCtx &resCtx, const char *stageTag)
 {
     const ResourceStats stats = CollectResourceStats(param, resCtx);
@@ -430,7 +577,7 @@ inline HcclResult ValidateRemoteChannelResources(const OpParam &param, const Alg
 {
     const ResourceStats stats = CollectResourceStats(param, resCtx);
 
-    // 这一层专门约束每条远端 channel 的 endpoint / buffer 元数据，Host 和 Device 共用同一套规则。
+    // 这一层专门约束每条远端 channel 的 endpoint 和 buffer 元数据，Host 和 Device 复用同一套规则。
     for (uint32_t idx = 0; idx < resCtx.channelCount; ++idx) {
         const ChannelResource &channel = GetChannel(resCtx, idx);
         if (channel.protocol == COMM_PROTOCOL_RESERVED) {
@@ -468,3 +615,6 @@ inline HcclResult ValidateRemoteChannelResources(const OpParam &param, const Alg
 }  // namespace ops_hccl_allgatherbatch
 
 #endif
+
+
+

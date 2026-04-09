@@ -1,4 +1,4 @@
-#include "all_gather_nhr_core.h"
+﻿#include "all_gather_nhr_core.h"
 
 #include <algorithm>
 
@@ -46,10 +46,22 @@ void AllGatherNHRCore::InitDefaultRunCtx()
             runCtx_.subgroupRanks.push_back(rank);
         }
     }
-    if (runCtx_.slices.empty()) {
-        runCtx_.slices.reserve(runCtx_.subgroupRanks.size());
-        for (uint32_t globalRank : runCtx_.subgroupRanks) {
-            runCtx_.slices.push_back(LocalSlice { packedBytes_ * globalRank, packedBytes_ });
+    if (!runCtx_.preparedOutputLayout && runCtx_.inputBase == runCtx_.outputBase) {
+        runCtx_.preparedOutputLayout = true;
+    }
+    if (runCtx_.sliceGroupSize == 0U && !runCtx_.sliceTemplate.empty()) {
+        runCtx_.sliceGroupSize = static_cast<uint32_t>(runCtx_.sliceTemplate.size());
+    }
+    if (runCtx_.slices.empty() &&
+        runCtx_.sliceGroupSize != 0U &&
+        !runCtx_.sliceTemplate.empty() &&
+        runCtx_.rankBaseOffsets.size() == runCtx_.subgroupRanks.size()) {
+        runCtx_.slices.reserve(runCtx_.subgroupRanks.size() * runCtx_.sliceGroupSize);
+        for (size_t rankIdx = 0; rankIdx < runCtx_.rankBaseOffsets.size(); ++rankIdx) {
+            const uint64_t rankBaseOffset = runCtx_.rankBaseOffsets[rankIdx];
+            for (const LocalSlice &slice : runCtx_.sliceTemplate) {
+                runCtx_.slices.push_back(LocalSlice { rankBaseOffset + slice.offset, slice.size });
+            }
         }
     }
 }
@@ -66,6 +78,9 @@ uint32_t AllGatherNHRCore::GetEffectiveRankSize() const
 
 uint32_t AllGatherNHRCore::GetSliceGroupSize() const
 {
+    if (runCtx_.sliceGroupSize != 0U) {
+        return runCtx_.sliceGroupSize;
+    }
     const uint32_t rankSize = GetEffectiveRankSize();
     if (rankSize == 0 || runCtx_.slices.empty()) {
         return 0;
@@ -93,14 +108,33 @@ HcclResult AllGatherNHRCore::ValidateCommState() const
             static_cast<uint32_t>(runCtx_.subgroupRanks.size()));
         return HCCL_E_INTERNAL;
     }
-    if (runCtx_.slices.empty() || (runCtx_.slices.size() % runCtx_.rankSize) != 0U) {
-        HCCL_ERROR("NHR slices are invalid, sliceCount=%u, rankSize=%u",
-            static_cast<uint32_t>(runCtx_.slices.size()),
-            runCtx_.rankSize);
-        return HCCL_E_INTERNAL;
-    }
     if (runCtx_.inputBase == nullptr || runCtx_.outputBase == nullptr) {
         HCCL_ERROR("NHR input/output base is null, input=%p, output=%p", runCtx_.inputBase, runCtx_.outputBase);
+        return HCCL_E_INTERNAL;
+    }
+
+    const uint32_t sliceGroupSize = GetSliceGroupSize();
+    if (sliceGroupSize == 0U) {
+        HCCL_ERROR("NHR sliceGroupSize is zero");
+        return HCCL_E_INTERNAL;
+    }
+    if (!runCtx_.sliceTemplate.empty() && runCtx_.sliceTemplate.size() != sliceGroupSize) {
+        HCCL_ERROR("NHR sliceTemplate size mismatch, template=%u, sliceGroupSize=%u",
+            static_cast<uint32_t>(runCtx_.sliceTemplate.size()),
+            sliceGroupSize);
+        return HCCL_E_INTERNAL;
+    }
+    if (!runCtx_.rankBaseOffsets.empty() && runCtx_.rankBaseOffsets.size() != runCtx_.subgroupRanks.size()) {
+        HCCL_ERROR("NHR rankBaseOffsets mismatch, baseOffsets=%u, subgroupRanks=%u",
+            static_cast<uint32_t>(runCtx_.rankBaseOffsets.size()),
+            static_cast<uint32_t>(runCtx_.subgroupRanks.size()));
+        return HCCL_E_INTERNAL;
+    }
+    if (runCtx_.slices.empty() || runCtx_.slices.size() != (runCtx_.rankSize * sliceGroupSize)) {
+        HCCL_ERROR("NHR slices are invalid, sliceCount=%u, rankSize=%u, sliceGroupSize=%u",
+            static_cast<uint32_t>(runCtx_.slices.size()),
+            runCtx_.rankSize,
+            sliceGroupSize);
         return HCCL_E_INTERNAL;
     }
 
@@ -130,7 +164,38 @@ HcclResult AllGatherNHRCore::ValidateCommState() const
     return HCCL_SUCCESS;
 }
 
+HcclResult AllGatherNHRCore::PreCopyToOutputLayout()
+{
+    if (runCtx_.preparedOutputLayout || runCtx_.inputBase == runCtx_.outputBase) {
+        runCtx_.preparedOutputLayout = true;
+        return HCCL_SUCCESS;
+    }
+    if (runCtx_.sliceTemplate.empty() || runCtx_.rankBaseOffsets.size() != runCtx_.subgroupRanks.size() ||
+        runCtx_.rank >= runCtx_.rankBaseOffsets.size()) {
+        HCCL_ERROR("NHR output layout is not prepared and cannot be precopied, rank=%u, template=%u, baseOffsets=%u",
+            runCtx_.rank,
+            static_cast<uint32_t>(runCtx_.sliceTemplate.size()),
+            static_cast<uint32_t>(runCtx_.rankBaseOffsets.size()));
+        return HCCL_E_INTERNAL;
+    }
 
+    const uint64_t localBaseOffset = runCtx_.rankBaseOffsets[runCtx_.rank];
+    for (const LocalSlice &slice : runCtx_.sliceTemplate) {
+        void *dst = static_cast<uint8_t *>(runCtx_.outputBase) + localBaseOffset + slice.offset;
+        const void *src = static_cast<const uint8_t *>(runCtx_.inputBase) + slice.offset;
+        const int32_t ret = HcommLocalCopyOnThread(resCtx_.threadHandle, dst, src, slice.size);
+        if (ret != HCCL_SUCCESS) {
+            HCCL_ERROR("NHR precopy failed, rank=%u, offset=%llu, size=%llu, ret=%d",
+                runCtx_.rank,
+                static_cast<unsigned long long>(slice.offset),
+                static_cast<unsigned long long>(slice.size),
+                ret);
+            return static_cast<HcclResult>(ret);
+        }
+    }
+    runCtx_.preparedOutputLayout = true;
+    return HCCL_SUCCESS;
+}
 HcclResult AllGatherNHRCore::ValidateStepPlan(const std::vector<InterServerAlgoStep> &stepPlan) const
 {
     const uint32_t rankSize = GetEffectiveRankSize();
@@ -580,6 +645,7 @@ HcclResult AllGatherNHRCore::RunAsync()
     }
 
     HCCL_CHK_RET(ValidateCommState());
+    HCCL_CHK_RET(PreCopyToOutputLayout());
 
     GetRankMapping(GetEffectiveRankSize(), runCtx_.keepOrder);
 
@@ -604,5 +670,9 @@ HcclResult AllGatherNHRCore::RunAsync()
         GetEffectiveRankSize());
     return HCCL_SUCCESS;
 }
-
 }  // namespace ops_hccl_allgatherbatch
+
+
+
+
+

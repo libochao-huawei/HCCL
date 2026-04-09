@@ -1,4 +1,4 @@
-#include "allgather_batch_small_count_executor.h"
+﻿#include "allgather_batch_small_count_executor.h"
 
 #include <algorithm>
 
@@ -23,13 +23,20 @@ const char *ToWindowScopeString(BatchCommMode commMode)
 
 AllGatherBatchSmallCountExecutor::AllGatherBatchSmallCountExecutor(
     const OpParam &param, AlgResourceCtx &resCtx, BatchCallProfiling &profiling)
-    : param_(param), resCtx_(resCtx), profiling_(profiling)
+    : param_(param), resCtx_(resCtx), profiling_(profiling), stageLayout_(BuildWindowStageLayout(param.topoInfo.rankSize))
 {
 }
 
-// 基础参数和资源形态已经在 Device 入口统一校验，这里只保留窗口化执行自身依赖的 item 元数据检查。
 HcclResult AllGatherBatchSmallCountExecutor::ValidateParam() const
 {
+    if (!IsValidWindowStageLayout(stageLayout_)) {
+        HCCL_ERROR("stage layout is invalid, rankSize=%u, powerSteps=%u, powerFactor=%u, noPower=%u",
+            stageLayout_.rankSize,
+            stageLayout_.powerSteps,
+            stageLayout_.powerFactor,
+            stageLayout_.noPower);
+        return HCCL_E_INTERNAL;
+    }
     for (uint32_t itemIdx = 0; itemIdx < param_.itemCount; ++itemIdx) {
         const BatchItemParam &item = param_.items[itemIdx];
         if (item.sendBuf == nullptr || item.recvBuf == nullptr) {
@@ -44,7 +51,6 @@ HcclResult AllGatherBatchSmallCountExecutor::ValidateParam() const
     return HCCL_SUCCESS;
 }
 
-// WindowRange 是 Pack/通信/Unpack 共用的边界合同，这里集中保证它的尾后游标语义和字节覆盖范围正确。
 HcclResult AllGatherBatchSmallCountExecutor::ValidateWindow(const WindowRange &window) const
 {
     if (window.packedBytes == 0) {
@@ -128,9 +134,9 @@ uint64_t AllGatherBatchSmallCountExecutor::GetPerRankWindowCapacity() const
     return ops_hccl_allgatherbatch::GetPerRankWindowCapacity(param_, resCtx_);
 }
 
-uint8_t *AllGatherBatchSmallCountExecutor::GetRankWindowBase(const WindowRange &window, uint32_t rank) const
+uint8_t *AllGatherBatchSmallCountExecutor::GetStageRankWindowBase(const WindowStageLayout &layout, uint32_t rank) const
 {
-    return static_cast<uint8_t *>(resCtx_.localBuffer.addr) + (window.packedBytes * rank);
+    return static_cast<uint8_t *>(resCtx_.localBuffer.addr) + GetStageRankBaseOffset(layout, rank);
 }
 
 HcclResult AllGatherBatchSmallCountExecutor::AdvancePosition(uint32_t &itemIdx, uint64_t &offsetBytes) const
@@ -168,7 +174,6 @@ HcclResult AllGatherBatchSmallCountExecutor::LocateWindowEnd(
 
 HcclResult AllGatherBatchSmallCountExecutor::BuildFirstWindow(WindowRange &window) const
 {
-    // gathered 结果要按 rank 拆槽放回同一个 localBuffer，因此每轮窗口最多只能占用 localBuffer/rankSize。
     const uint64_t packedBytes = std::min(param_.totalInputBytes, GetMaxWindowBytes(param_, resCtx_));
     window.startItemIdx = 0;
     window.startOffsetBytes = 0;
@@ -177,7 +182,6 @@ HcclResult AllGatherBatchSmallCountExecutor::BuildFirstWindow(WindowRange &windo
     return ValidateWindow(window);
 }
 
-// 多窗口路径通过“当前位置 + 最大单窗口容量”推进，避免 Host 在大输入场景下被迫一次性吃完整个 batch。
 HcclResult AllGatherBatchSmallCountExecutor::BuildNextWindow(
     const WindowRange &current, WindowRange &next, bool &hasNext) const
 {
@@ -204,78 +208,50 @@ HcclResult AllGatherBatchSmallCountExecutor::BuildNextWindow(
     return HCCL_SUCCESS;
 }
 
-HcclResult AllGatherBatchSmallCountExecutor::Pack(const WindowRange &window) const
+HcclResult AllGatherBatchSmallCountExecutor::Pack(const WindowStageLayout &layout) const
 {
-    // Pack 现在把本 rank 的窗口打到 localBuffer 的“本 rank 槽位”，后续通信层会补齐其它 rank 的槽位。
-    uint8_t *dst = GetRankWindowBase(window, param_.topoInfo.rank);
-    uint64_t packedOffset = 0;
-    uint32_t itemIdx = window.startItemIdx;
-    uint64_t offsetBytes = window.startOffsetBytes;
-
-    while (packedOffset < window.packedBytes && itemIdx < param_.itemCount) {
-        const BatchItemParam &item = param_.items[itemIdx];
-        const uint64_t itemRemaining = CalcRemainingBytes(item, offsetBytes);
-        const uint64_t copyBytes = std::min(itemRemaining, window.packedBytes - packedOffset);
-        const void *src = static_cast<const uint8_t *>(item.sendBuf) + offsetBytes;
-        int32_t ret = HcommLocalCopyOnThread(resCtx_.threadHandle, dst + packedOffset, src, copyBytes);
-        if (ret != HCCL_SUCCESS) {
-            HCCL_ERROR("pack local copy failed, ret=%d", ret);
-            return static_cast<HcclResult>(ret);
-        }
-
-        packedOffset += copyBytes;
-        offsetBytes += copyBytes;
-        HCCL_CHK_RET(AdvancePosition(itemIdx, offsetBytes));
+    if (!IsValidWindowStageLayout(layout)) {
+        HCCL_ERROR("pack layout is invalid");
+        return HCCL_E_INTERNAL;
     }
 
-    if (packedOffset != window.packedBytes || itemIdx != window.endItemIdx || offsetBytes != window.endOffsetBytes) {
-        HCCL_ERROR("pack window mismatch, packedOffset=%llu/%llu, end=(%u,%llu), expectedEnd=(%u,%llu)",
-            static_cast<unsigned long long>(packedOffset),
-            static_cast<unsigned long long>(window.packedBytes),
-            itemIdx,
-            static_cast<unsigned long long>(offsetBytes),
-            window.endItemIdx,
-            static_cast<unsigned long long>(window.endOffsetBytes));
-        return HCCL_E_INTERNAL;
+    for (const WindowStageSlice &slice : layout.localSlices) {
+        const BatchItemParam &item = param_.items[slice.itemIdx];
+        const void *src = static_cast<const uint8_t *>(item.sendBuf) + slice.itemOffsetBytes;
+        void *dst = static_cast<uint8_t *>(resCtx_.localBuffer.addr) + slice.stageOffsetBytes;
+        const int32_t ret = HcommLocalCopyOnThread(resCtx_.threadHandle, dst, src, slice.size);
+        if (ret != HCCL_SUCCESS) {
+            HCCL_ERROR("pack local copy failed, item=%u, rankOffset=%llu, size=%llu, ret=%d",
+                slice.itemIdx,
+                static_cast<unsigned long long>(slice.rankOffsetBytes),
+                static_cast<unsigned long long>(slice.size),
+                ret);
+            return static_cast<HcclResult>(ret);
+        }
     }
     return HCCL_SUCCESS;
 }
 
-HcclResult AllGatherBatchSmallCountExecutor::Unpack(const WindowRange &window) const
+HcclResult AllGatherBatchSmallCountExecutor::Unpack(const WindowStageLayout &layout) const
 {
-    // gathered 结果以“rank 槽位 + 槽内 packed 顺序”存放在 localBuffer 中，这里再拆回每个 item 的 recvBuf。
-    for (uint32_t rank = 0; rank < param_.topoInfo.rankSize; ++rank) {
-        uint8_t *src = GetRankWindowBase(window, rank);
-        uint64_t packedOffset = 0;
-        uint32_t itemIdx = window.startItemIdx;
-        uint64_t offsetBytes = window.startOffsetBytes;
+    if (!IsValidWindowStageLayout(layout)) {
+        HCCL_ERROR("unpack layout is invalid");
+        return HCCL_E_INTERNAL;
+    }
 
-        while (packedOffset < window.packedBytes && itemIdx < param_.itemCount) {
-            const BatchItemParam &item = param_.items[itemIdx];
-            const uint64_t itemRemaining = CalcRemainingBytes(item, offsetBytes);
-            const uint64_t copyBytes = std::min(itemRemaining, window.packedBytes - packedOffset);
-            uint8_t *dst = static_cast<uint8_t *>(item.recvBuf) + (rank * item.sendBytes) + offsetBytes;
-            int32_t ret = HcommLocalCopyOnThread(resCtx_.threadHandle, dst, src + packedOffset, copyBytes);
-            if (ret != HCCL_SUCCESS) {
-                HCCL_ERROR("unpack local copy failed, rank=%u, ret=%d", rank, ret);
-                return static_cast<HcclResult>(ret);
-            }
-
-            packedOffset += copyBytes;
-            offsetBytes += copyBytes;
-            HCCL_CHK_RET(AdvancePosition(itemIdx, offsetBytes));
-        }
-
-        if (packedOffset != window.packedBytes || itemIdx != window.endItemIdx || offsetBytes != window.endOffsetBytes) {
-            HCCL_ERROR("unpack window mismatch, rank=%u, packedOffset=%llu/%llu, end=(%u,%llu), expectedEnd=(%u,%llu)",
-                rank,
-                static_cast<unsigned long long>(packedOffset),
-                static_cast<unsigned long long>(window.packedBytes),
-                itemIdx,
-                static_cast<unsigned long long>(offsetBytes),
-                window.endItemIdx,
-                static_cast<unsigned long long>(window.endOffsetBytes));
-            return HCCL_E_INTERNAL;
+    for (const WindowStageSlice &slice : layout.perRankSlices) {
+        const BatchItemParam &item = param_.items[slice.itemIdx];
+        const void *src = static_cast<const uint8_t *>(resCtx_.localBuffer.addr) + slice.stageOffsetBytes;
+        uint8_t *dst = static_cast<uint8_t *>(item.recvBuf) + (slice.rank * item.sendBytes) + slice.itemOffsetBytes;
+        const int32_t ret = HcommLocalCopyOnThread(resCtx_.threadHandle, dst, src, slice.size);
+        if (ret != HCCL_SUCCESS) {
+            HCCL_ERROR("unpack local copy failed, rank=%u, item=%u, itemOffset=%llu, size=%llu, ret=%d",
+                slice.rank,
+                slice.itemIdx,
+                static_cast<unsigned long long>(slice.itemOffsetBytes),
+                static_cast<unsigned long long>(slice.size),
+                ret);
+            return static_cast<HcclResult>(ret);
         }
     }
     return HCCL_SUCCESS;
@@ -289,8 +265,24 @@ HcclResult AllGatherBatchSmallCountExecutor::Orchestrate()
     HCCL_CHK_RET(BuildFirstWindow(window));
 
     while (true) {
+        const WindowStageLayout layout = BuildWindowStageLayout(param_, window);
+        if (!IsValidWindowStageLayout(layout)) {
+            HCCL_ERROR("window stage layout is invalid, packedBytes=%llu, rankSize=%u, localSlices=%u, perRankSlices=%u",
+                static_cast<unsigned long long>(layout.packedBytes),
+                layout.rankSize,
+                static_cast<uint32_t>(layout.localSlices.size()),
+                static_cast<uint32_t>(layout.perRankSlices.size()));
+            return HCCL_E_INTERNAL;
+        }
+        if (layout.totalBytes > resCtx_.localBuffer.size) {
+            HCCL_ERROR("window stage layout exceeds localBuffer, totalBytes=%llu, localBuffer=%llu",
+                static_cast<unsigned long long>(layout.totalBytes),
+                static_cast<unsigned long long>(resCtx_.localBuffer.size));
+            return HCCL_E_INTERNAL;
+        }
+
         ++profiling_.windowCount;
-        HCCL_INFO("executor window ready: scope=%s, start=(%u,%llu), end=(%u,%llu), packedBytes=%llu, paramWindowBytes=%llu, perRankCapacity=%llu, maxWindowBytes=%llu, rankSize=%u",
+        HCCL_INFO("executor window ready: scope=%s, start=(%u,%llu), end=(%u,%llu), packedBytes=%llu, paramWindowBytes=%llu, perRankCapacity=%llu, maxWindowBytes=%llu, rankSize=%u, stagePowerSteps=%u, stageNoPower=%u, localSlices=%u",
             ToWindowScopeString(param_.commMode),
             window.startItemIdx,
             static_cast<unsigned long long>(window.startOffsetBytes),
@@ -300,14 +292,16 @@ HcclResult AllGatherBatchSmallCountExecutor::Orchestrate()
             static_cast<unsigned long long>(param_.windowBytes),
             static_cast<unsigned long long>(GetPerRankWindowCapacity()),
             static_cast<unsigned long long>(GetMaxWindowBytes(param_, resCtx_)),
-            param_.topoInfo.rankSize);
+            param_.topoInfo.rankSize,
+            layout.powerSteps,
+            layout.noPower,
+            static_cast<uint32_t>(layout.localSlices.size()));
 
         const uint64_t packStartUs = GetCurrentTimeUs();
-        HCCL_CHK_RET(Pack(window));
+        HCCL_CHK_RET(Pack(layout));
         profiling_.packUs += (GetCurrentTimeUs() - packStartUs);
 
-        // 这轮起，通信层按窗口大小真正收齐所有 rank 的槽位，再由 Unpack 拆回每个 item。
-        AllGatherHDStageCore hdStageCore(param_, resCtx_, window.packedBytes);
+        AllGatherHDStageCore hdStageCore(param_, resCtx_, layout);
         const uint64_t hdStageStartUs = GetCurrentTimeUs();
         HcclResult commRet = hdStageCore.RunAsync();
         profiling_.hdStageUs += (GetCurrentTimeUs() - hdStageStartUs);
@@ -316,7 +310,7 @@ HcclResult AllGatherBatchSmallCountExecutor::Orchestrate()
         }
 
         const uint64_t unpackStartUs = GetCurrentTimeUs();
-        HCCL_CHK_RET(Unpack(window));
+        HCCL_CHK_RET(Unpack(layout));
         profiling_.unpackUs += (GetCurrentTimeUs() - unpackStartUs);
 
         bool hasNext = false;
