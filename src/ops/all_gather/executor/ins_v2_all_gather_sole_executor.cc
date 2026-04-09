@@ -40,7 +40,7 @@ HcclResult InsV2AllGatherSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcAlgHier
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
-HcclResult InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CreateAlgTemplate(const OpParam& param,
+HcclResult InsV2AllGatherSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CreateAlgTemplate(const OpParam& param,
     const TopoInfoWithNetLayerDetails* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo)
 {
     if (algTemplate_ != nullptr) {
