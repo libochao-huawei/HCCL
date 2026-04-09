@@ -26,7 +26,6 @@
 #include "hccl/hccl_comm.h"
 #include "hccl_diag.h"
 
-
 using namespace ops_hccl;
 namespace {
     //统计缓存信息
