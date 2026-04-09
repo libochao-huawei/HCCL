@@ -78,7 +78,7 @@ u64 InsTempScatterMesh1D::CalcScratchMultiple(BufferType inBuffType, BufferType 
 HcclResult InsTempScatterMesh1D::KernelRun(const OpParam& param, const TemplateDataParams &tempAlgParams,
                      const TemplateResource& templateResource)
 {   
-    CHK_PRT_RET(channels.size() < subCommRanks_[0].size(), 
+    CHK_PRT_RET(templateResource.channels.size() < subCommRanks_[0].size(), 
             HCCL_ERROR("[InsTempScatterMesh1D][KernelRun] channels size is not equal to subCommRanks size"), 
             HCCL_E_INTERNAL);
     for (const auto& item : templateResource.channels) {
