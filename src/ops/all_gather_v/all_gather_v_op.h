@@ -35,7 +35,7 @@ namespace ops_hccl {
 HcclResult AllGatherVOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount, const void *recvCounts,
     const void *recvDispls, HcclDataType dataType, HcclComm comm, aclrtStream stream, const std::string &tag);
 
-HcclResult CheckAllGatherVInputPara(const HcclComm comm, const void* sendBuf, const void* recvBuf);
+HcclResult CheckAllGatherVInputPara(const HcclComm comm, const void* sendBuf, const void* recvBuf, const void *recvCounts, const void *recvDispls, const aclrtStream stream);
 
 HcclResult AllGatherVExecOp(HcclComm comm, OpParam &param);
 
