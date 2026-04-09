@@ -1,4 +1,4 @@
-﻿#ifndef HCCL_ALLGATHERBATCH_SMALL_COUNT_EXECUTOR_H
+#ifndef HCCL_ALLGATHERBATCH_SMALL_COUNT_EXECUTOR_H
 #define HCCL_ALLGATHERBATCH_SMALL_COUNT_EXECUTOR_H
 
 #include <cstdint>
@@ -10,9 +10,7 @@ namespace ops_hccl_allgatherbatch {
 
 class AllGatherBatchSmallCountExecutor {
 public:
-    AllGatherBatchSmallCountExecutor(const OpParam &param, AlgResourceCtx &resCtx);
-
-    // Device 侧主控入口：校验参数、建立窗口边界，再把控制流交给后续阶段的通信核心。
+    AllGatherBatchSmallCountExecutor(const OpParam &param, AlgResourceCtx &resCtx, BatchCallProfiling &profiling);
     HcclResult Orchestrate();
 
 private:
@@ -31,6 +29,7 @@ private:
 
     const OpParam &param_;
     AlgResourceCtx &resCtx_;
+    BatchCallProfiling &profiling_;
 };
 
 }  // namespace ops_hccl_allgatherbatch

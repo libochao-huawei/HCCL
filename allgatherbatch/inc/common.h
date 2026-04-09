@@ -1,6 +1,7 @@
-﻿#ifndef HCCL_ALLGATHERBATCH_COMMON_H
+#ifndef HCCL_ALLGATHERBATCH_COMMON_H
 #define HCCL_ALLGATHERBATCH_COMMON_H
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -68,6 +69,22 @@ struct AlgResourceCtx {
     CommBuffer localBuffer {};
 };
 
+struct BatchCallProfiling {
+    uint32_t rank = 0;
+    uint32_t rankSize = 0;
+    uint32_t itemCount = 0;
+    uint32_t windowCount = 0;
+    BatchCommMode commMode = BatchCommMode::kUnknown;
+    uint64_t totalInputBytes = 0;
+    uint64_t localBufferBytes = 0;
+    uint64_t maxWindowBytes = 0;
+    uint64_t kernelUs = 0;
+    uint64_t execUs = 0;
+    uint64_t packUs = 0;
+    uint64_t hdStageUs = 0;
+    uint64_t unpackUs = 0;
+};
+
 struct BatchItemParam {
     void *sendBuf = nullptr;
     void *recvBuf = nullptr;
@@ -96,6 +113,12 @@ struct OpParam {
     BatchItemParam items[kAllGatherBatchMaxItems] {};
     AlgResourceCtx *resCtx = nullptr;
 };
+
+inline uint64_t GetCurrentTimeUs()
+{
+    const auto now = std::chrono::steady_clock::now().time_since_epoch();
+    return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(now).count());
+}
 
 inline uint64_t GetDataTypeSize(HcclDataType dataType)
 {
