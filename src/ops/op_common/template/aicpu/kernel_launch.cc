@@ -271,7 +271,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             HCCL_ERROR("%s commStatus is not ready!, commStatus = %d", __func__, static_cast<int>(commStatus));
             return 1;
         }
-        
+
         AlgResourceCtxSerializable resCtx;
 
         //通过缓存实现反序列化优化
