@@ -24,14 +24,16 @@ class CcuKernelArgAllGatherMeshDetour1D : public hcomm::CcuKernelArg {
 public:
     explicit CcuKernelArgAllGatherMeshDetour1D(uint64_t dimSize, uint32_t rankId, const OpParam& opParam,
                                                     const std::vector<std::vector<uint32_t>>& subCommRanks, 
-                                                    uint64_t singleTransportSize, uint64_t detourPathNum, uint64_t pathNumPerPeer)
+                                                    uint64_t singleTransportSize, uint64_t detourPathNum, 
+                                                    uint64_t pathNumPerPeer, std::vector<u32> &channelsIndexVec)
         : dimSize_(dimSize),
           rankId_(rankId),
           opParam_(opParam),
           subCommRanks_(subCommRanks),
           singleTransportSize_(singleTransportSize),
           detourPathNum_(detourPathNum),
-          pathNumPerPeer_(pathNumPerPeer)
+          pathNumPerPeer_(pathNumPerPeer),
+          channelsIndexVec_(channelsIndexVec)
     {
         HCCL_DEBUG("[CcuKernelArgAllGatherMeshDetour1D] dimSize: %lu, rankId: %u",
                    dimSize_, rankId_);
@@ -49,6 +51,7 @@ public:
     uint64_t singleTransportSize_;
     uint64_t detourPathNum_;
     uint64_t pathNumPerPeer_;
+    std::vector<u32> channelsIndexVec_;
 };
 
 class CcuTaskArgAllGatherMeshDetour1D : public hcomm::CcuTaskArg {

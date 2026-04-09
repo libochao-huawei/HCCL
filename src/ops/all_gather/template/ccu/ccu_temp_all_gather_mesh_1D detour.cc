@@ -64,7 +64,8 @@ HcclResult CcuTempAllGatherMesh1DDetour::CalcRes(HcclComm comm, const OpParam& p
     CHK_PRT_RET(templateRankSize_ != 2 && templateRankSize_ != 4,
         HCCL_INFO("[CcuTempAllGatherMesh1DDetour] Invalid RankSize[%u].", templateRankSize_), HcclResult::HCCL_E_INTERNAL);
     std::vector<HcclChannelDesc> channelDescs;
-    CHK_RET(CalcChannelRequestMesh1DDetour(comm, param, topoInfo, subCommRanks_, channelDescs));
+    std::vector<u32> channelsIndexVec;
+    CHK_RET(CalcChannelRequestMesh1DDetour(comm, param, topoInfo, subCommRanks_, channelDescs, channelsIndexVec));
     CHK_RET(RestoreChannelMap(channelDescs, rankIdToChannelDesc_));
     CHK_RET(ProcessDetourChannels(channelDescs));
  
@@ -97,7 +98,8 @@ HcclResult CcuTempAllGatherMesh1DDetour::CalcRes(HcclComm comm, const OpParam& p
                                                                         subCommRanks_,
                                                                         singleTransferSize_,
                                                                         detourPathNum_,
-                                                                        pathNumPerPeer_);
+                                                                        pathNumPerPeer_,
+                                                                        channelsIndexVec);
     kernelInfo.channels = channelDescs;
     resourceRequest.ccuKernelInfos.push_back(kernelInfo);
  
