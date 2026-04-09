@@ -24,6 +24,7 @@ target_compile_definitions(allgatherbatch_testcase PRIVATE
 )
 target_link_libraries(allgatherbatch_testcase PRIVATE
     hccl_allgatherbatch
+    hccl
     hcomm
     ascendcl
     Threads::Threads
