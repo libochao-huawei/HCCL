@@ -152,46 +152,13 @@ bool IsAiCpuMode(DevType deviceType, u32 rankSize)
     return false;
 }
 
-HcclResult ScatterOutPlace(OpParam &param, void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType, uint32_t root,
-    HcclComm comm, aclrtStream stream, u32 userRankSize)
+HcclResult ScatterExecOp(OpParam &param, void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType, uint32_t root,
+    HcclComm comm, aclrtStream stream, u32 userRankSize, uint64_t beginTime)
 {
-    uint64_t beginTime;
-    if (HcommIsProfilingSupported()) {
-        beginTime = HcommGetProfilingSysCycleTime();
-    }
-
-    u32 perDataSize = SIZE_TABLE[dataType];
-    u64 outputSize = recvCount * perDataSize;
-    u64 inputSize = outputSize * userRankSize;
-
-    param.stream = stream;
-    param.opMode = OpMode::OPBASE;
-
-    DevType deviceType = DevType::DEV_TYPE_COUNT;
-    CHK_RET(hrtGetDeviceType(deviceType));
-    if (IsAiCpuMode(deviceType, userRankSize)) {
-        HCCL_DEBUG("is aicpu mode");
-        CHK_RET(LoadAICPUKernel());
-        param.engine = CommEngine::COMM_ENGINE_AICPU_TS;
-    } else {
-        HCCL_DEBUG("is host mode");
-        param.engine = CommEngine::COMM_ENGINE_CPU_TS;
-    }
-
-    param.inputPtr = sendBuf;
-    param.inputSize = inputSize;
-    param.outputPtr = recvBuf;
-    param.outputSize = outputSize;
-    param.DataDes.count = recvCount;
-    param.DataDes.dataType = dataType;
-    param.root = root;
-    param.opType = HcclCMDType::HCCL_CMD_SCATTER;
-    param.deviceType = deviceType;
-
     #ifdef MACRO_DEV_TYPE_NEW
-    if (deviceType == DevType::DEV_TYPE_950 && (GetHcommVersion() >= 90000000)) {
+    if (param.deviceType == DevType::DEV_TYPE_950 && (GetHcommVersion() >= 90000000)) {
     #else
-    if (deviceType == DevType::DEV_TYPE_910_95) {
+    if (param.deviceType == DevType::DEV_TYPE_910_95) {
     #endif
         CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
         if (ShouldGoCcuFastLaunch(comm, param, &ccuFastLaunchCtx)) {
@@ -236,6 +203,46 @@ HcclResult ScatterOutPlace(OpParam &param, void *sendBuf, void *recvBuf, uint64_
             }
         }
     }
+    return HCCL_SUCCESS;
+}
+
+HcclResult ScatterOutPlace(OpParam &param, void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType, uint32_t root,
+    HcclComm comm, aclrtStream stream, u32 userRankSize)
+{
+    uint64_t beginTime;
+    if (HcommIsProfilingSupported()) {
+        beginTime = HcommGetProfilingSysCycleTime();
+    }
+
+    u32 perDataSize = SIZE_TABLE[dataType];
+    u64 outputSize = recvCount * perDataSize;
+    u64 inputSize = outputSize * userRankSize;
+
+    param.stream = stream;
+    param.opMode = OpMode::OPBASE;
+
+    DevType deviceType = DevType::DEV_TYPE_COUNT;
+    CHK_RET(hrtGetDeviceType(deviceType));
+    if (IsAiCpuMode(deviceType, userRankSize)) {
+        HCCL_DEBUG("is aicpu mode");
+        CHK_RET(LoadAICPUKernel());
+        param.engine = CommEngine::COMM_ENGINE_AICPU_TS;
+    } else {
+        HCCL_DEBUG("is host mode");
+        param.engine = CommEngine::COMM_ENGINE_CPU_TS;
+    }
+
+    param.inputPtr = sendBuf;
+    param.inputSize = inputSize;
+    param.outputPtr = recvBuf;
+    param.outputSize = outputSize;
+    param.DataDes.count = recvCount;
+    param.DataDes.dataType = dataType;
+    param.root = root;
+    param.opType = HcclCMDType::HCCL_CMD_SCATTER;
+    param.deviceType = deviceType;
+
+    CHK_RET(ScatterExecOp(param, sendBuf, recvBuf, recvCount, dataType, root, comm, stream, userRankSize, beginTime));
     HCCL_INFO("Execute ScatterOutPlace success.");
     return HCCL_SUCCESS;
 }
