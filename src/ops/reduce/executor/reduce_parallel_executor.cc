@@ -34,6 +34,7 @@ HcclResult
     ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgTemplate2, AlgTemplate3>::CalcAlgHierarchyInfo(
         HcclComm comm, TopoInfoWithNetLayerDetails *topoInfo, AlgHierarchyInfoForAllLevel &algHierarchyInfo)
 {
+    CHK_PTR_NULL(topoInfo);
     AlgTopoMatch topoMatch;
     CHK_RET(topoMatch.MatchTopo(comm, topoInfo, algHierarchyInfo));
     return HCCL_SUCCESS;
@@ -45,6 +46,7 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
     HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
     const AlgHierarchyInfoForAllLevel &algHierarchyInfo, AlgResourceRequest &resourceRequest)
 {
+    CHK_PTR_NULL(topoInfo);
     myRank_ = topoInfo->userRank;
     HCCL_INFO("[ReduceParallelExecutor] CalcRes start, rank[%d]", myRank_);
 
@@ -106,7 +108,7 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
         interTempRequestFinal.notifyNumPerThread = allGatherInterTempRequest.notifyNumPerThread;
     }
 
-    resourceRequest.notifyNumOnMainThread = 1 + 1;  // 用于intra和inter两个template间同步
+    resourceRequest.notifyNumOnMainThread = stageSize_;  // 用于intra和inter两个template间同步
     // intra主流 + intra从流 + inter主流 + inter从流
     resourceRequest.slaveThreadNum = stageSize_ + slaveThreadNumIntraMax + stageSize_ + slaveThreadNumInterMax;
     resourceRequest.notifyNumPerThread.emplace_back(reduceScatterIntraTempRequest.notifyNumOnMainThread + 1);
@@ -146,8 +148,6 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
         resourceRequest.ccuKernelNum.emplace_back(allGatherInterTempRequest.ccuKernelNum[0]);
     }
 
-    myRank_ = topoInfo->userRank;
-
     return HCCL_SUCCESS;
 }
 
@@ -157,6 +157,12 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
 {
     CHK_PRT_RET(root_ >= rankSize_,
         HCCL_ERROR("[ReduceParallelExecutor][CalcLocalRoot] root[%u] is out of rankSize[%u]", root_, rankSize_),
+        HcclResult::HCCL_E_INTERNAL);
+    CHK_PRT_RET(intraLocalRankSize_ == 0,
+        HCCL_ERROR("[ReduceParallelExecutor][CalcLocalRoot] intraLocalRankSize_ is 0"),
+        HcclResult::HCCL_E_INTERNAL);
+    CHK_PRT_RET(interLocalRankSize_ == 0,
+        HCCL_ERROR("[ReduceParallelExecutor][CalcLocalRoot] interLocalRankSize_ is 0"),
         HcclResult::HCCL_E_INTERNAL);
     rankIdxLevel0_ = myRank_ % intraLocalRankSize_;
     rankIdxLevel1_ = myRank_ / intraLocalRankSize_;
@@ -191,7 +197,10 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
     maxTmpMemSize_ = resCtx.cclMem.size;  // maxTmpMemSize_设定为cclIn的大小，op中将申请的HcclBuff全给了cclIn
     myRank_ = resCtx.topoInfo.userRank;
     threads_ = resCtx.threads;
+    CHK_PTR_NULL(param.inputPtr);
+    CHK_PTR_NULL(param.outputPtr);
     param_ = param;
+    CHK_PTR_NULL(resCtx.cclMem.addr);
     resCtx_ = resCtx;
     HCCL_INFO("[ReduceParallelExecutor][Orchestrate] threads_ size[%d]", threads_.size());
     if (param.engine != CommEngine::COMM_ENGINE_AIV && param.engine != CommEngine::COMM_ENGINE_CCU) {
@@ -244,17 +253,24 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
     }
 
     u32 intraThreadsNumMax = std::max(intraThreadsNum.at(0), intraThreadsNum.at(1));
+    u32 interThreadsNumMax = std::max(tempRequestArr.at(0).at(1).slaveThreadNum + 1,
+                                      tempRequestArr.at(1).at(1).slaveThreadNum + 1);
+    // 预期threads数量= 全局主流 + intra主流  +        intra从流         + inter主流   +          inter从流 
+    u32 expectedThreadsNum = 1 + stageSize_ + (intraThreadsNumMax - 1) + stageSize_ + (interThreadsNumMax - 1);
+    CHK_PRT_RET(threads_.size() == rankSize_,
+        HCCL_ERROR("[ReduceParallelExecutor][CalcLocalRoot] root[%u] is out of rankSize[%u]", root_, rankSize_),
+        HcclResult::HCCL_E_INTERNAL);
 
     // 第0条流是全局主流
-    intraThreads_ = {threads_.at(1 + stage)};
-    intraThreads_.insert(intraThreads_.end(), threads_.begin() + stageSize_ + 1,
+    intraTempAlgRes_.threads = {threads_.at(1 + stage)};
+    intraTempAlgRes_.threads.insert(intraTempAlgRes_.threads.end(), threads_.begin() + stageSize_ + 1,
         threads_.begin() + stageSize_ + intraThreadsNum.at(stage));
-    interThreads_ = {threads_.at(intraThreadsNumMax + stageSize_ + stage)};
-    interThreads_.insert(interThreads_.end(), threads_.begin() + intraThreadsNumMax + stageSize_ + stageSize_,
-        threads_.end());
+    interTempAlgRes_.threads = {threads_.at(intraThreadsNumMax + stageSize_ + stage)};
+    interTempAlgRes_.threads.insert(interTempAlgRes_.threads.end(),
+        threads_.begin() + intraThreadsNumMax + stageSize_ + stageSize_, threads_.end());
 
     mainThread_ = threads_.at(0);
-    templateMainThreads_ = {intraThreads_.at(0), interThreads_.at(0)};
+    templateMainThreads_ = {intraTempAlgRes_.threads.at(0), interTempAlgRes_.threads.at(0)};
 
     syncNotifyOnTemplates_ = {tempRequestArr.at(stage).at(0).notifyNumOnMainThread,
                               tempRequestArr.at(stage).at(1).notifyNumOnMainThread};
@@ -280,10 +296,7 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
         interTempAlgRes_.channels = interLinks_;
     }
 
-    intraTempAlgRes_.threads = intraThreads_;
     intraTempAlgRes_.aivCommInfoPtr = resCtx_.aivCommInfoPtr;
-
-    interTempAlgRes_.threads = interThreads_;
     interTempAlgRes_.aivCommInfoPtr = resCtx_.aivCommInfoPtr;
 
     return HCCL_SUCCESS;
@@ -384,7 +397,9 @@ HcclResult
     const long double totalScratchMultiple = scratchMultipleIntra + 1.0;
 
     const u64 scratchMemBlockSize = maxTmpMemSize_ / totalScratchMultiple;
+    CHK_PRT_RET(dataTypeSize_ == 0, "[ReduceParallelExecutor][OrchestrateImpl] dataTypeSize_ is 0", HCCL_E_INTERNAL);
     const u64 maxCountPerLoop = std::min<u64>(scratchMemBlockSize, UB_MAX_DATA_SIZE) / dataTypeSize_;
+    CHK_PRT_RET(maxCountPerLoop == 0, "[ReduceParallelExecutor][OrchestrateImpl] maxCountPerLoop is 0", HCCL_E_INTERNAL);
     const u32 loopTimes = dataCount_ / maxCountPerLoop + ((dataCount_ % maxCountPerLoop == 0) ? 0 : 1);
 
     for (u32 isInter = 0; isInter < dataSplitPart_; isInter++) {

@@ -30,6 +30,7 @@ void ReduceMesh1D::SetRoot(u32 root) const
 HcclResult ReduceMesh1D::CalcRes(
     HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo, AlgResourceRequest &resourceRequest)
 {
+    CHK_PTR_NULL(topoInfo);
     threadNum_ = templateRankSize_ > 1 ? templateRankSize_ : 1;
     resourceRequest.slaveThreadNum = threadNum_ - 1;
     for (u32 index = 0; index < threadNum_ - 1; index++) {
