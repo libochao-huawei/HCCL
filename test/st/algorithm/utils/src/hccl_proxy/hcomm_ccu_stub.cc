@@ -10,10 +10,22 @@
 
 #include "ccu_kernel.h"
 #include "ccu_rep_loopcall_v1.h"
+#include <mutex>
+#include <unordered_map>
 #include <vector>
 #include <string>
 
 using namespace hcomm::CcuRep;
+
+namespace {
+struct RegisteredCcuKernel {
+    std::unique_ptr<hcomm::CcuKernel> kernel;
+    std::mutex launchMutex;
+};
+
+std::mutex g_ccuKernelMutex;
+std::unordered_map<CcuKernelHandle, std::shared_ptr<RegisteredCcuKernel>> g_ccuKernelRegistry;
+}
 
 namespace hcomm {
 
@@ -47,6 +59,13 @@ HcclResult CcuKernel::GeneTaskParam(const CcuTaskArg &arg, std::vector<CcuTaskPa
 HcclResult CcuKernel::Algorithm() { return HCCL_SUCCESS; }
 
 std::vector<uint64_t> CcuKernel::GeneArgs(const CcuTaskArg &arg) { return {}; }
+
+HcclResult CcuKernel::GetCcuProfilingInfo(const CcuTaskArg &arg,
+    std::vector<CcuProfilingInfo> &allCcuProfilingInfo)
+{
+    allCcuProfilingInfo.clear();
+    return HCCL_SUCCESS;
+}
 
 HcclResult CcuKernel::CreateVariable(const ChannelHandle channel, uint32_t varIndex, Variable *var) const
 {
@@ -356,16 +375,76 @@ extern "C" {
 
 HcclResult HcclCcuKernelRegister(HcclComm comm, CcuKernelHandle *kernelHandle, void *kernelCreator, void *kernelArg)
 {
+    if (comm == nullptr || kernelHandle == nullptr || kernelCreator == nullptr || kernelArg == nullptr) {
+        return HCCL_E_PARA;
+    }
+
+    hcomm::KernelCreator creator = *reinterpret_cast<hcomm::KernelCreator *>(kernelCreator);
+    const auto &arg = *reinterpret_cast<hcomm::CcuKernelArg *>(kernelArg);
+
+    auto registeredKernel = std::make_shared<RegisteredCcuKernel>();
+    registeredKernel->kernel = creator(arg);
+    if (registeredKernel->kernel == nullptr) {
+        return HCCL_E_INTERNAL;
+    }
+
+    CcuKernelHandle handle = reinterpret_cast<CcuKernelHandle>(registeredKernel.get());
+    {
+        std::lock_guard<std::mutex> lock(g_ccuKernelMutex);
+        g_ccuKernelRegistry.emplace(handle, std::move(registeredKernel));
+    }
+    *kernelHandle = handle;
+
     return HCCL_SUCCESS;
 }
 
 HcclResult HcclCcuKernelRegisterFinish(HcclComm comm)
 {
-    return HCCL_SUCCESS;
+    return (comm == nullptr) ? HCCL_E_PARA : HCCL_SUCCESS;
 }
 
 HcclResult HcclCcuKernelLaunch(HcclComm comm, const ThreadHandle threadHandle, const CcuKernelHandle KernelHandle, void *taskArgs)
 {
+    (void)threadHandle;
+    if (comm == nullptr || taskArgs == nullptr || KernelHandle == 0) {
+        return HCCL_E_PARA;
+    }
+
+    std::shared_ptr<RegisteredCcuKernel> registeredKernel;
+    {
+        std::lock_guard<std::mutex> lock(g_ccuKernelMutex);
+        auto it = g_ccuKernelRegistry.find(KernelHandle);
+        if (it == g_ccuKernelRegistry.end()) {
+            return HCCL_E_NOT_FOUND;
+        }
+        registeredKernel = it->second;
+    }
+
+    if (registeredKernel == nullptr || registeredKernel->kernel == nullptr) {
+        return HCCL_E_INTERNAL;
+    }
+
+    std::lock_guard<std::mutex> launchLock(registeredKernel->launchMutex);
+    hcomm::CcuKernel *kernel = registeredKernel->kernel.get();
+
+    HcclResult ret = kernel->Init();
+    if (ret != HCCL_SUCCESS) {
+        return ret;
+    }
+
+    auto *taskArg = reinterpret_cast<hcomm::CcuTaskArg *>(taskArgs);
+    std::vector<hcomm::CcuTaskParam> taskParams;
+    ret = kernel->GeneTaskParam(*taskArg, taskParams);
+    if (ret != HCCL_SUCCESS) {
+        return ret;
+    }
+
+    std::vector<hcomm::CcuProfilingInfo> allCcuProfilingInfo;
+    ret = kernel->GetCcuProfilingInfo(*taskArg, allCcuProfilingInfo);
+    if (ret != HCCL_SUCCESS) {
+        return ret;
+    }
+
     return HCCL_SUCCESS;
 }
 

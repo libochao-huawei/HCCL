@@ -14,6 +14,7 @@ set(src_list
     all_reduce_testcase.cc
     all_reduce_parallel_testcase.cc
     all_gather_aicpu_testcase.cc
+    reduce_scatter_testcase.cc
     reduce_scatter_aicpu_testcase.cc
 )
 
@@ -71,7 +72,7 @@ if (BUILD_OPEN_PROJECT)
         -fno-common
         -fno-strict-aliasing
         -pipe
-        -O0
+        -O3
         -g
         -D_GLIBCXX_USE_CXX11_ABI=0
     )

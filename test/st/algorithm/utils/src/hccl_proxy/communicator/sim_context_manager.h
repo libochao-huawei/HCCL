@@ -12,6 +12,7 @@
 #define SIM_CONTEXT_MANAGER_H
 
 #include <functional>
+#include <mutex>
 #include <unordered_map>
 #include "hccl/hccl_types.h"
 #include "dtype_common.h"
@@ -54,12 +55,15 @@ public:
 
     HcclResult CreateCommEngineCtx(const std::string &tag, CommEngine engine, uint64_t size, void **ctx);
     HcclResult GetCommEngineCtx(const std::string &tag, CommEngine engine, void **ctx, uint64_t *size);
-    HcclResult DestroyCommEngineCtx(const HcclMem *engineCtx);
+    HcclResult CopyCommEngineCtx(const std::string &tag, CommEngine engine, const void *srcCtx, uint64_t size,
+        uint64_t dstCtxOffset);
+    HcclResult DestroyCommEngineCtx(const std::string &tag, CommEngine engine);
 
 private:
     std::unordered_map<std::string, std::unordered_map<CommEngine, HcclMem>> contextMap_;
     std::unordered_map<HcclMem, std::string, HcclMemHash, HcclMemEqual> tagMap_;
     std::unordered_map<HcclMem, CommEngine, HcclMemHash, HcclMemEqual> engineMap_;
+    std::mutex mutex_;
 };
 
 }   // namespace HcclSim
