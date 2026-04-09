@@ -82,7 +82,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_001)
             aclrtMalloc(&sendBuf, sendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
             aclrtMalloc(&recvBuf, recvBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
             // 4.算子下发
-            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, comm, stream));
+            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, 0 /* strideCount */, comm, stream));
             // 5.销毁通信域
             CHK_RET(HcclCommDestroy(comm));
             return HCCL_SUCCESS;
@@ -142,7 +142,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_002)
             aclrtMalloc(&sendBuf, sendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
             aclrtMalloc(&recvBuf, recvBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
             // 4.算子下发
-            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, comm, stream));
+            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, 0 /* strideCount */, comm, stream));
             // 5.销毁通信域
             CHK_RET(HcclCommDestroy(comm));
             return HCCL_SUCCESS;
@@ -202,7 +202,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_003)
             aclrtMalloc(&sendBuf, sendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
             aclrtMalloc(&recvBuf, recvBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
             // 4.算子下发
-            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, comm, stream));
+            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, 0 /* strideCount */, comm, stream));
             // 5.销毁通信域
             CHK_RET(HcclCommDestroy(comm));
             return HCCL_SUCCESS;
@@ -262,7 +262,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_004)
             aclrtMalloc(&sendBuf, sendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
             aclrtMalloc(&recvBuf, recvBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
             // 4.算子下发
-            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, comm, stream));
+            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, 0 /* strideCount */, comm, stream));
             // 5.销毁通信域
             CHK_RET(HcclCommDestroy(comm));
             return HCCL_SUCCESS;
@@ -322,7 +322,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_005)
             aclrtMalloc(&sendBuf, sendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
             aclrtMalloc(&recvBuf, recvBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
             // 4.算子下发
-            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, comm, stream));
+            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, 0 /* strideCount */, comm, stream));
             // 5.销毁通信域
             CHK_RET(HcclCommDestroy(comm));
             return HCCL_SUCCESS;
@@ -382,7 +382,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_006)
             aclrtMalloc(&sendBuf, sendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
             aclrtMalloc(&recvBuf, recvBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
             // 4.算子下发
-            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, comm, stream));
+            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, 0 /* strideCount */, comm, stream));
             // 5.销毁通信域
             CHK_RET(HcclCommDestroy(comm));
             return HCCL_SUCCESS;
@@ -442,7 +442,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_007)
             aclrtMalloc(&sendBuf, sendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
             aclrtMalloc(&recvBuf, recvBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
             // 4.算子下发
-            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, comm, stream));
+            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, 0 /* strideCount */, comm, stream));
             // 5.销毁通信域
             CHK_RET(HcclCommDestroy(comm));
             return HCCL_SUCCESS;
@@ -502,7 +502,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_008)
             aclrtMalloc(&sendBuf, sendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
             aclrtMalloc(&recvBuf, recvBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
             // 4.算子下发
-            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, comm, stream));
+            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, 0 /* strideCount */, comm, stream));
             // 5.销毁通信域
             CHK_RET(HcclCommDestroy(comm));
             return HCCL_SUCCESS;
@@ -562,7 +562,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_009)
             aclrtMalloc(&sendBuf, sendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
             aclrtMalloc(&recvBuf, recvBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
             // 4.算子下发
-            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, comm, stream));
+            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, 0 /* strideCount */, comm, stream));
             // 5.销毁通信域
             CHK_RET(HcclCommDestroy(comm));
             return HCCL_SUCCESS;
@@ -622,7 +622,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_010)
             aclrtMalloc(&sendBuf, sendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
             aclrtMalloc(&recvBuf, recvBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
             // 4.算子下发
-            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, comm, stream));
+            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, 0 /* strideCount */, comm, stream));
             // 5.销毁通信域
             CHK_RET(HcclCommDestroy(comm));
             return HCCL_SUCCESS;
@@ -682,7 +682,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_011)
             aclrtMalloc(&sendBuf, sendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
             aclrtMalloc(&recvBuf, recvBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
             // 4.算子下发
-            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, comm, stream));
+            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, 0 /* strideCount */, comm, stream));
             // 5.销毁通信域
             CHK_RET(HcclCommDestroy(comm));
             return HCCL_SUCCESS;
@@ -742,7 +742,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_013)
             aclrtMalloc(&sendBuf, sendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
             aclrtMalloc(&recvBuf, recvBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
             // 4.算子下发
-            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, comm, stream));
+            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, 0 /* strideCount */, comm, stream));
             // 5.销毁通信域
             CHK_RET(HcclCommDestroy(comm));
             return HCCL_SUCCESS;
@@ -802,7 +802,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_014)
             aclrtMalloc(&sendBuf, sendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
             aclrtMalloc(&recvBuf, recvBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
             // 4.算子下发
-            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, comm, stream));
+            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, 0 /* strideCount */, comm, stream));
             // 5.销毁通信域
             CHK_RET(HcclCommDestroy(comm));
             return HCCL_SUCCESS;
@@ -862,7 +862,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_016)
             aclrtMalloc(&sendBuf, sendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
             aclrtMalloc(&recvBuf, recvBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
             // 4.算子下发
-            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, comm, stream));
+            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, 0 /* strideCount */, comm, stream));
             // 5.销毁通信域
             CHK_RET(HcclCommDestroy(comm));
             return HCCL_SUCCESS;
@@ -922,7 +922,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_017)
             aclrtMalloc(&sendBuf, sendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
             aclrtMalloc(&recvBuf, recvBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
             // 4.算子下发
-            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, comm, stream));
+            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, 0 /* strideCount */, comm, stream));
             // 5.销毁通信域
             CHK_RET(HcclCommDestroy(comm));
             return HCCL_SUCCESS;
@@ -982,7 +982,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_018)
             aclrtMalloc(&sendBuf, sendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
             aclrtMalloc(&recvBuf, recvBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
             // 4.算子下发
-            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, comm, stream));
+            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, 0 /* strideCount */, comm, stream));
             // 5.销毁通信域
             CHK_RET(HcclCommDestroy(comm));
             return HCCL_SUCCESS;
@@ -1042,7 +1042,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_019)
             aclrtMalloc(&sendBuf, sendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
             aclrtMalloc(&recvBuf, recvBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
             // 4.算子下发
-            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, comm, stream));
+            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, 0 /* strideCount */, comm, stream));
             // 5.销毁通信域
             CHK_RET(HcclCommDestroy(comm));
             return HCCL_SUCCESS;
@@ -1102,7 +1102,7 @@ TEST_F(ST_REDUCE_SCATTER_TEST, test_host_dpu_reducescatter_020)
             aclrtMalloc(&sendBuf, sendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
             aclrtMalloc(&recvBuf, recvBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
             // 4.算子下发
-            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, comm, stream));
+            CHK_RET(HcclReduceScatter(sendBuf, recvBuf, recvCount, dataType, reduceOp, 0 /* strideCount */, comm, stream));
             // 5.销毁通信域
             CHK_RET(HcclCommDestroy(comm));
             return HCCL_SUCCESS;

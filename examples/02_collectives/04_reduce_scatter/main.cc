@@ -50,7 +50,8 @@ int Sample(void *arg)
     uint32_t device = ctx->device;
     uint64_t sendCount = ctx->devCount;
     uint64_t recvCount = 1U;
-    size_t sendSize = sendCount * sizeof(float);
+    uint64_t strideCount = 3U;
+    size_t sendSize = sendCount * sizeof(float) * strideCount;
     size_t recvSize = recvCount * sizeof(float);
 
     // 设置当前线程操作的设备
@@ -64,7 +65,7 @@ int Sample(void *arg)
     void *hostBuf = nullptr;
     ACLCHECK(aclrtMallocHost(&hostBuf, sendSize));
     float *tmpHostBuff = static_cast<float *>(hostBuf);
-    for (uint64_t i = 0; i < sendCount; ++i) {
+    for (uint64_t i = 0; i < sendCount * strideCount; ++i) {
         tmpHostBuff[i] = static_cast<float>(i);
     }
     // 将 Host 侧输入数据拷贝到 Device 侧
@@ -81,7 +82,7 @@ int Sample(void *arg)
     ACLCHECK(aclrtCreateStream(&stream));
 
     // 执行 ReduceScatter，将所有 rank 的 sendBuf 相加后，再把结果按照 rank_id 顺序均匀分散到各个 rank 的 recvBuf
-    HCCLCHECK(HcclReduceScatter(sendBuf, recvBuf, recvCount, HCCL_DATA_TYPE_FP32, HCCL_REDUCE_SUM, hcclComm, stream));
+    HCCLCHECK(HcclReduceScatter(sendBuf, recvBuf, recvCount, HCCL_DATA_TYPE_FP32, HCCL_REDUCE_SUM, strideCount, hcclComm, stream));
     // 阻塞等待任务流中的集合通信任务执行完成
     ACLCHECK(aclrtSynchronizeStream(stream));
 

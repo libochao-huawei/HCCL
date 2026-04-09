@@ -59,12 +59,14 @@ extern HcclResult HcclBroadcast(void *buf, uint64_t count, HcclDataType dataType
  * @param dataType The data type of the operator, must be one of the following types: int8, int16, int32, int64,
  * float16, float32, bfp16.
  * @param op The reduction type of the operator, must be one of the following types: sum, min, max, prod.
+ * @param strideCount An integer(u64) identifying the stride count between adjacent data blocks.
+ *                    0 means continuous layout (default).
  * @param comm A pointer identifying the communication resource based on.
  * @param stream A pointer identifying the stream information.
  * @return HcclResult
  */
 extern HcclResult HcclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
-    HcclReduceOp op, HcclComm comm, aclrtStream stream);
+    HcclReduceOp op, uint64_t strideCount, HcclComm comm, aclrtStream stream);
 
 /**
  * @brief ReduceScatterV operator.
