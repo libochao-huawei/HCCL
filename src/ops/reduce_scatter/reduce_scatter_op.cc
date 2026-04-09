@@ -164,6 +164,7 @@ static HcclResult PrepareReduceScatterParam(OpParam &param, void *sendBuf, void 
     param.opType = HcclCMDType::HCCL_CMD_REDUCE_SCATTER;
     param.enableDetour = false;
     param.deviceType = deviceType;
+    HCCL_INFO("[PrepareReduceScatterParam] param.DataDes.strideCount = %llu\n", param.DataDes.strideCount);
 
     return HCCL_SUCCESS;
 }
@@ -174,18 +175,24 @@ HcclResult ReduceScatterOutPlace(OpParam &param, void *sendBuf, void *recvBuf, u
     HCCL_INFO("[ReduceScatterOutPlace] strideCount[%llu]", strideCount);
     CHK_RET(PrepareReduceScatterParam(param, sendBuf, recvBuf, recvCount, dataType, op, strideCount, comm, stream, userRankSize,
  	    OpMode::OPBASE));
-
+    HCCL_INFO("[ReduceScatterOutPlace] After PrepareReduceScatterParam");
     CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
     if (ShouldGoCcuFastLaunch(comm, param, &ccuFastLaunchCtx)) {
+        HCCL_INFO("[ReduceScatterOutPlace] ShouldGoCcuFastLaunch");
         return HcclExecOpCcuFastLaunch(comm, param, ccuFastLaunchCtx);
     }
     
+    HCCL_INFO("[ReduceScatterOutPlace] not ShouldGoCcuFastLaunch");
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
+    HCCL_INFO("[ReduceScatterOutPlace] before Selector");
     CHK_RET(Selector(comm, param, topoInfo, algName));
-    if (ShouldUseInnerOp(param.opExecuteConfig)) {
+    HCCL_INFO("[ReduceScatterOutPlace] after Selector");
+    if (false && ShouldUseInnerOp(param.opExecuteConfig)) {
+        HCCL_INFO("[ReduceScatterOutPlace] ShouldUseInnerOp");
         return HcclReduceScatterInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
     }
+    HCCL_INFO("[ReduceScatterOutPlace] not ShouldUseInnerOp");
     if (userRankSize == 1) {
         HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
         CHK_RET(SingleRankProc(param));

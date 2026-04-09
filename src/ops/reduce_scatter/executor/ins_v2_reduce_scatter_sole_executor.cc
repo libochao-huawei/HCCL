@@ -73,6 +73,9 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchest
     dataTypeSize_ =  DATATYPE_SIZE_TABLE[param.DataDes.dataType];
     dataSize_ = dataCount_ * dataTypeSize_;
 
+    HCCL_INFO("[InsV2ReduceScatterSoleExecutor] strideCount_ = param.DataDes.strideCount = %llu",
+            strideCount_);
+
     HcclResult ret = OrchestrateLoop(param, resCtx);
     CHK_PRT_RET(ret != HCCL_SUCCESS,
         HCCL_ERROR("[InsV2ReduceScatterSoleExecutor][Orchestrate]errNo[0x%016llx] Reduce scatter excutor kernel run failed",
@@ -150,9 +153,9 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchest
                                         : strideCount_ * dataTypeSize_; // 如果是输入，偏移是算子的output datasize
         tempAlgParams.outputSliceStride = 0;
 
-        HCCL_INFO("[InsV2ReduceScatterSoleExecutor] loop [%u] tempAlgParams.inputSliceStride [%u],"
+        HCCL_INFO("[InsV2ReduceScatterSoleExecutor] loop [%u] strideCount_ [%llu] tempAlgParams.inputSliceStride [%u],"
             "tempAlgParams.outputSliceStride [%u] tempAlgParams.sliceSize [%u]",
-            loop, tempAlgParams.inputSliceStride, tempAlgParams.outputSliceStride, tempAlgParams.sliceSize);
+            loop, strideCount_, tempAlgParams.inputSliceStride, tempAlgParams.outputSliceStride, tempAlgParams.sliceSize);
         HCCL_INFO("[InsV2ReduceScatterSoleExecutor] loop [%u] tempAlgParams.buffInfo.inBuffBaseOff [%u],"
             "tempAlgParams.buffInfo.outBuffBaseOff [%u]",
             loop, tempAlgParams.buffInfo.inBuffBaseOff, tempAlgParams.buffInfo.outBuffBaseOff);
