@@ -11,8 +11,8 @@
 #include "channel.h"
 #include "hccl_ccu_res.h"
 #include "ccu_assist_pub.h"
-#include "ccu_kernel_all_gather_mesh1d.h"
-#include "ccu_temp_all_gather_mesh_1D.h"
+#include "ccu_kernel_all_gather_mesh1d_detour.h"
+#include "ccu_temp_all_gather_mesh_1D_detour.h"
 
 namespace ops_hccl {
 
