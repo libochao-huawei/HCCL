@@ -76,7 +76,7 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
 {
     //判断通信域状态
     HcclCommStatus commStatus = HCCL_COMM_STATUS_INVALID;
-    CHK_RET(HcclCommGetStatusByName(param.commName, &commStatus));
+    CHK_RET(HcclCommGetStatus(param.commName, &commStatus));
     if (commStatus != HCCL_COMM_STATUS_READY) {
         HCCL_ERROR("commStatus is not ready!, commStatus = %d", static_cast<int>(commStatus));
         return HCCL_E_SUSPENDING;
