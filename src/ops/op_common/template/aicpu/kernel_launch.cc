@@ -263,9 +263,9 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
     #endif
         //判断通信域状态
         HcclCommStatusTmp commStatus = HcclCommStatusTmp::HCCL_COMM_STATUS_INVALID;
-        auto ret = HcclCommGetStatus(param->commName, &commStatus);
-        if (ret != HCCL_SUCCESS) {
-            HCCL_ERROR("%s HcclCommGetStatus fail, commName[%s], ret = %d", __func__, param->commName, ret);
+        auto statusRet = HcclCommGetStatus(param->commName, &commStatus);
+        if (statusRet != HCCL_SUCCESS) {
+            HCCL_ERROR("%s HcclCommGetStatus fail, commName[%s], ret = %d", __func__, param->commName, statusRet);
             return 1;
         }
         if (commStatus != HcclCommStatusTmp::HCCL_COMM_STATUS_READY) {
