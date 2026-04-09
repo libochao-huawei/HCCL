@@ -20,23 +20,10 @@ using namespace ops_hccl;
 
 extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 
-HcclResult HcclRecv(
+HcclResult HcclRecvV2(
     void *recvBuf, uint64_t count, HcclDataType dataType, uint32_t srcRank, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("[HcclRecv] Start.");
-    if (GetHcommVersion() < 90000000) {
-        return HcclRecvInner(recvBuf, count, dataType, srcRank, comm, stream);
-    }
-
-    DevType deviceType = DevType::DEV_TYPE_COUNT;
-    CHK_RET(hrtGetDeviceType(deviceType));
-    #ifdef MACRO_DEV_TYPE_NEW
-    if (deviceType != DevType::DEV_TYPE_950) {
-    #else
-    if (deviceType != DevType::DEV_TYPE_910_95) {
-    #endif
-        return HcclRecvInner(recvBuf, count, dataType, srcRank, comm, stream);
-    }
     HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
     CHK_RET(InitEnvConfig());
     u32 rankSize = INVALID_VALUE_RANKSIZE;
@@ -53,6 +40,33 @@ HcclResult HcclRecv(
     CHK_RET(LogHcclExit("HcclRecv", tag.c_str(), startut));
     HCCL_INFO("[HcclRecv][%d]<-[%d] Success.", userRank, srcRank);
     return HcclResult::HCCL_SUCCESS;
+}
+
+HcclResult HcclRecv(
+    void *recvBuf, uint64_t count, HcclDataType dataType, uint32_t srcRank, HcclComm comm, aclrtStream stream)
+{
+    HCCL_INFO("[HcclRecv] Start.");
+
+    bool hostDpuOnly = false;
+    if (CheckHostDpuOnly(comm, hostDpuOnly) == HCCL_SUCCESS && hostDpuOnly == true) {
+        return HcclRecvV2(recvBuf, count, dataType, srcRank, comm, stream);
+    }
+
+    if (GetHcommVersion() < 90000000) {
+        return HcclRecvInner(recvBuf, count, dataType, srcRank, comm, stream);
+    }
+
+    DevType deviceType = DevType::DEV_TYPE_COUNT;
+    CHK_RET(hrtGetDeviceType(deviceType));
+    #ifdef MACRO_DEV_TYPE_NEW
+    if (deviceType != DevType::DEV_TYPE_950) {
+    #else
+    if (deviceType != DevType::DEV_TYPE_910_95) {
+    #endif
+        return HcclRecvInner(recvBuf, count, dataType, srcRank, comm, stream);
+    }
+
+    return HcclRecvV2(recvBuf, count, dataType, srcRank, comm, stream);
 }
 
 HcclResult HcclRecvGraphMode(
