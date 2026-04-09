@@ -164,6 +164,7 @@ static HcclResult PrepareReduceScatterParam(OpParam &param, void *sendBuf, void 
     param.opType = HcclCMDType::HCCL_CMD_REDUCE_SCATTER;
     param.enableDetour = false;
     param.deviceType = deviceType;
+    HCCL_INFO("[PrepareReduceScatterParam] param.DataDes.strideCount = %llu\n", param.DataDes.strideCount);
 
     return HCCL_SUCCESS;
 }
