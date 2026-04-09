@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCCL_COMM_DL_H
-#define HCCL_COMM_DL_H
+#ifndef HCCL_DEVICE_COMM_DL_H
+#define HCCL_DEVICE_COMM_DL_H
 
 #include "dlsym_common.h"
 #include "hccl_comm.h"   // 原始头文件，包含所有类型和声明
