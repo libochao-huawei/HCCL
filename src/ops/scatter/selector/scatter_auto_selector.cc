@@ -68,6 +68,7 @@ SelectorStatus ScatterAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerDe
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                                     std::string &selectAlgName) const
 {
+    CHK_PTR_NULL(topoInfo);
     if (topoInfo->topoLevelNums > 1) {
         if (topoInfo->deviceNumPerModule <= 1) {
             selectAlgName = "InsScatterNHR";
