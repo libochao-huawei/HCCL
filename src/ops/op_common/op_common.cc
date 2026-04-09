@@ -1250,7 +1250,7 @@ HcclResult CheckDataType(const HcclDataType dataType, bool needReduce)
             (dataType == HCCL_DATA_TYPE_UINT32)  || (dataType == HCCL_DATA_TYPE_INT128)  ||
             (dataType == HCCL_DATA_TYPE_HIF8)    || (dataType == HCCL_DATA_TYPE_FP8E4M3) ||
             (dataType == HCCL_DATA_TYPE_FP8E5M2) || (dataType == HCCL_DATA_TYPE_FP8E8M0) ||
-            (dataType == HCCL_DATA_TYPE_MXFP8) || (dataType == HCCL_DATA_TYPE_RESERVED)) {
+            (dataType == HCCL_DATA_TYPE_RESERVED)) {
             RPT_INPUT_ERR(true, "EI0003", infoTitle, std::vector<std::string>({"CheckDataType", GetDataTypeEnumStr(dataType), "dataType",
                 GetSupportDataType(needReduce)}));
             HCCL_ERROR("[Check][DataType]errNo[0x%016llx] data type[%s] not supported, support range=[%s]",
@@ -1283,7 +1283,7 @@ std::string GetSupportDataType(bool needReduce)
         supportList.insert(supportList.end(), {HCCL_DATA_TYPE_UINT8, HCCL_DATA_TYPE_UINT16,
                                                HCCL_DATA_TYPE_UINT32, HCCL_DATA_TYPE_UINT64, HCCL_DATA_TYPE_FP64,
                                                HCCL_DATA_TYPE_HIF8, HCCL_DATA_TYPE_FP8E4M3,  HCCL_DATA_TYPE_FP8E5M2,
-                                               HCCL_DATA_TYPE_FP8E8M0, HCCL_DATA_TYPE_MXFP8});
+                                               HCCL_DATA_TYPE_FP8E8M0});
         supportList.push_back(HCCL_DATA_TYPE_BFP16);
     }
 
@@ -1306,7 +1306,7 @@ HcclResult CheckReduceOp(const HcclDataType dataType, const HcclReduceOp op)
             RPT_INPUT_ERR(true, "EI0003", infoTitle, std::vector<std::string>({"CheckReduceOp", GetReduceOpEnumStr(op), "ReduceOp",
                 GetReduceProdSupportDataType()}));
             HCCL_ERROR("[Check][ReduceOp][DataType]errNo[0x%016llx] reduceop is [%s] data type[%s] not supported, support range=[%s]",
-                        HCCL_ERROR_CODE(HCCL_E_NOT_SUPPORT), GetReduceOpEnumStr(op), GetDataTypeEnumStr(dataType).c_str(),
+                        HCCL_ERROR_CODE(HCCL_E_NOT_SUPPORT), GetReduceOpEnumStr(op).c_str(), GetDataTypeEnumStr(dataType).c_str(),
                         GetReduceProdSupportDataType().c_str());
             return HCCL_E_NOT_SUPPORT;
         }
@@ -1552,10 +1552,10 @@ bool HcclCheckAicpuEnableOpen()
     const char* envValue = std::getenv("HCCL_ENABLE_OPEN_AICPU");
 
     if (envValue != nullptr && std::strcmp(envValue, "1") == 0) {
-        return true;
+        return false;
     }
 
-    return false;
+    return true;
 }
 
 HcclResult HcclRegstryBuff(HcclComm comm, const char *memTag, void *bufferPtr, uint64_t bufferSize, HcclMemHandle *memHandle)

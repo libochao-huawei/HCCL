@@ -64,9 +64,6 @@ const std::map<HcclDataType, std::string> HCOM_DATA_TYPE_STR_MAP{
     {HcclDataType::HCCL_DATA_TYPE_FP8E4M3, "fp8e4m3"},
     {HcclDataType::HCCL_DATA_TYPE_FP8E5M2, "fp8e5m2"},
     {HcclDataType::HCCL_DATA_TYPE_FP8E8M0, "fp8e8m0"},
-#if defined(HCCL_DATA_TYPE_MXFP8)
-    {HcclDataType::HCCL_DATA_TYPE_MXFP8, "mxfp8"},
-#endif
     {HcclDataType::HCCL_DATA_TYPE_RESERVED, "reserved"}
 };
 
@@ -92,7 +89,6 @@ inline const char* GetHcclDataTypeStr(HcclDataType type) noexcept
         case HcclDataType::HCCL_DATA_TYPE_FP8E4M3: return "fp8e4m3";
         case HcclDataType::HCCL_DATA_TYPE_FP8E5M2: return "fp8e5m2";
         case HcclDataType::HCCL_DATA_TYPE_FP8E8M0: return "fp8e8m0";
-        case HcclDataType::HCCL_DATA_TYPE_MXFP8: return "mxfp8";
         case HcclDataType::HCCL_DATA_TYPE_RESERVED: return "reserved";
         default:
             return nullptr;
