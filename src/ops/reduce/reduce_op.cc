@@ -44,10 +44,11 @@ HcclResult HcclReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType
     std::string opTag;
     CHK_RET(ReduceInitAndCheck(comm, sendBuf, recvBuf, count, dataType, op, stream, opTag));
 
-    CHK_RET(ReduceEntryLog(sendBuf, recvBuf, count, dataType, op, root, stream, tag, "HcclReduce"));
+    CHK_RET(ReduceEntryLog(sendBuf, recvBuf, count, dataType, op, root, stream, opTag, "HcclReduce"));
 
     // 执行Reduce
-    CHK_RET_AND_PRINT_IDE(ReduceOutPlace(sendBuf, recvBuf, count, dataType, op, root, comm, stream, opTag), opTag.c_str());
+    CHK_RET_AND_PRINT_IDE(ReduceOutPlace(sendBuf, recvBuf, count, dataType, op, root, comm, stream, opTag),
+        opTag.c_str());
 
     CHK_RET(LogHcclExit("HcclReduce", opTag.c_str(), startut));
 
@@ -86,12 +87,13 @@ HcclResult HcclReduceGraphMode(void *sendBuf, void *recvBuf, uint64_t count, Hcc
     resPack.scratchMemAddr = scratchMemAddr;
     resPack.scratchMemSize = scratchMemSize;
 
-    CHK_RET(ReduceEntryLog(sendBuf, recvBuf, count, dataType, op, root, stream, tag, "HcclReduceGraphMode"));
+    CHK_RET(ReduceEntryLog(sendBuf, recvBuf, count, dataType, op, root, stream, opTag, "HcclReduceGraphMode"));
 
     // 执行
-    CHK_RET_AND_PRINT_IDE(ReduceOutPlaceGraphMode(sendBuf, recvBuf, count, dataType, op, root, comm, stream, std::string(tag), resPack), tag);
+    CHK_RET_AND_PRINT_IDE(ReduceOutPlaceGraphMode(sendBuf, recvBuf, count, dataType, op, root, comm, stream,
+        std::string(tag), resPack), tag);
 
-    CHK_RET(LogHcclExit("HcclReduceGraphMode", tag.c_str(), startut));
+    CHK_RET(LogHcclExit("HcclReduceGraphMode", opTag.c_str(), startut));
 
     return HCCL_SUCCESS;
 }
@@ -123,8 +125,8 @@ HcclResult CheckReduceInputPara(const HcclComm comm, const void* sendBuf, const 
     return HCCL_SUCCESS;
 }
 
-HcclResult ReduceInitAndCheck(HcclComm comm, void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
-    aclrtStream stream, std::string &opTag)
+HcclResult ReduceInitAndCheck(HcclComm comm, void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType,
+    HcclReduceOp op, aclrtStream stream, std::string &opTag)
 {
     // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
     CHK_RET(InitEnvConfig());
@@ -153,7 +155,8 @@ HcclResult ReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclData
     uint32_t root, HcclComm comm, aclrtStream stream, const std::string &tag)
 {
     HCCL_INFO("Start to execute ReduceOutPlace");
-    CHK_RET(ReduceOutPlaceCommon(sendBuf, recvBuf, count, dataType, op, root, comm, stream, tag, OpMode::OPBASE, ResPackGraphMode()));
+    CHK_RET(ReduceOutPlaceCommon(sendBuf, recvBuf, count, dataType, op, root, comm, stream, tag, OpMode::OPBASE,
+        ResPackGraphMode()));
     HCCL_INFO("Execute ReduceOutPlace success.");
     return HCCL_SUCCESS;
 }
@@ -162,7 +165,8 @@ HcclResult ReduceOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t count,
     uint32_t root, HcclComm comm, aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack)
 {
     HCCL_INFO("Start to execute ReduceOutPlaceGraphMode");
-    CHK_RET(ReduceOutPlaceCommon(sendBuf, recvBuf, count, dataType, op, root, comm, stream, tag, OpMode::OFFLOAD, resPack));
+    CHK_RET(ReduceOutPlaceCommon(sendBuf, recvBuf, count, dataType, op, root, comm, stream, tag, OpMode::OFFLOAD,
+        resPack));
     HCCL_INFO("Execute ReduceOutPlaceGraphMode success.");
     return HCCL_SUCCESS;
 }
