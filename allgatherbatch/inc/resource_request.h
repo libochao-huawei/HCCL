@@ -20,6 +20,9 @@ struct ChannelRequest {
 struct BatchResourceRequest {
     uint32_t threadNum = 1;
     uint32_t controlNotifyNum = kAllGatherBatchControlNotifyNum;
+    uint32_t mainThreadNotifyNum = 0;
+    uint32_t lastTwoWorkerCount = 0;
+    uint32_t workerNotifyNum = 0;
     uint32_t channelCount = 0;
     uint64_t localBufferBytes = 0;
     BatchCommMode commMode = BatchCommMode::kUnknown;
@@ -29,5 +32,3 @@ struct BatchResourceRequest {
 }  // namespace ops_hccl_allgatherbatch
 
 #endif
-
-

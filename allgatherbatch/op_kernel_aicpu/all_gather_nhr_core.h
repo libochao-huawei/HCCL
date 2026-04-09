@@ -1,4 +1,4 @@
-#ifndef HCCL_ALLGATHERBATCH_NHR_CORE_H
+﻿#ifndef HCCL_ALLGATHERBATCH_NHR_CORE_H
 #define HCCL_ALLGATHERBATCH_NHR_CORE_H
 
 #include <vector>
@@ -25,11 +25,15 @@ struct InterServerAlgoStep {
 struct NHRRunCtx {
     uint32_t rank = 0;
     uint32_t rankSize = 0;
+    uint32_t sliceGroupSize = 0;
     uint64_t packedBytes = 0;
     uint64_t baseOffset = 0;
     uint8_t *inputBase = nullptr;
     uint8_t *outputBase = nullptr;
     bool keepOrder = true;
+    bool preparedOutputLayout = false;
+    std::vector<LocalSlice> sliceTemplate;
+    std::vector<uint64_t> rankBaseOffsets;
     std::vector<LocalSlice> slices;
     std::vector<uint32_t> subgroupRanks;
 };
@@ -51,6 +55,7 @@ private:
     uint32_t GetSliceGroupSize() const;
     HcclResult ValidateCommState() const;
     HcclResult ValidateStepPlan(const std::vector<InterServerAlgoStep> &stepPlan) const;
+    HcclResult PreCopyToOutputLayout();
     void GetRankMapping(uint32_t rankSize, bool keepOrder);
     void ReorderSequence(
         uint32_t start,
