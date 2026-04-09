@@ -25,6 +25,7 @@
 #include <atomic>
 #include "hccl/hccl_comm.h"
 #include "hccl_diag.h"
+#include "hccl_device_comm_dl.h"
 
 using namespace ops_hccl;
 namespace {
