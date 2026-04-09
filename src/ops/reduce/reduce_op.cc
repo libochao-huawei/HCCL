@@ -42,7 +42,7 @@ HcclResult HcclReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType
     CHK_PRT_RET(count == 0, HCCL_WARNING("input count is 0, return reduce success"), HCCL_SUCCESS);
 
     std::string opTag;
-    CHK_RET(ReduceInitAndCheck(comm, sendBuf, recvBuf, count, dataType, opTag));
+    CHK_RET(ReduceInitAndCheck(comm, sendBuf, recvBuf, count, dataType, op, stream, opTag));
 
     CHK_RET(ReduceEntryLog(sendBuf, recvBuf, count, dataType, op, root, stream, tag, "HcclReduce"));
 
@@ -68,7 +68,7 @@ HcclResult HcclReduceGraphMode(void *sendBuf, void *recvBuf, uint64_t count, Hcc
     CHK_PRT_RET(count == 0, HCCL_WARNING("input count is 0, return reduce success"), HCCL_SUCCESS);
 
     std::string opTag;
-    CHK_RET(ReduceInitAndCheck(comm, sendBuf, recvBuf, count, dataType, opTag));
+    CHK_RET(ReduceInitAndCheck(comm, sendBuf, recvBuf, count, dataType, op, stream, opTag));
 
     CHK_RET(HcclCheckTag(tag));
 
@@ -98,7 +98,7 @@ HcclResult HcclReduceGraphMode(void *sendBuf, void *recvBuf, uint64_t count, Hcc
 
 namespace ops_hccl {
 // 除了错误都是公共的
-HcclResult CheckReduceInputPara(const HcclComm comm, const void* sendBuf, const void* recvBuf)
+HcclResult CheckReduceInputPara(const HcclComm comm, const void* sendBuf, const void* recvBuf, const aclrtStream stream)
 {
     // 入参合法性校验
     RPT_INPUT_ERR(comm == nullptr,
@@ -116,16 +116,20 @@ HcclResult CheckReduceInputPara(const HcclComm comm, const void* sendBuf, const 
         std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),
         std::vector<std::string>({"HcclReduce", "nullptr", "recvBuf", "non-null pointer"}));
     CHK_PTR_NULL(recvBuf);
+    RPT_INPUT_ERR(stream == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclReduce", "nullptr", "stream", "non-null pointer"}));
+    CHK_PTR_NULL(stream);
 
     return HCCL_SUCCESS;
 }
 
-HcclResult ReduceInitAndCheck(HcclComm comm, void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, std::string &opTag)
+HcclResult ReduceInitAndCheck(HcclComm comm, void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
+    aclrtStream stream, std::string &opTag)
 {
     // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
     CHK_RET(InitEnvConfig());
     // 检查入参指针有效性
-    CHK_RET(CheckReduceInputPara(comm, sendBuf, recvBuf));
+    CHK_RET(CheckReduceInputPara(comm, sendBuf, recvBuf, stream));
     // tag有效性，是否过长
     char commName[COMM_INDENTIFIER_MAX_LENGTH];
     CHK_RET(HcclGetCommName(comm, commName));

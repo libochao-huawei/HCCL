@@ -47,12 +47,13 @@ HcclResult ReduceConstructOpParam(void *sendBuf, void *recvBuf, uint64_t count, 
 
 HcclResult ReduceExecOp(HcclComm comm, OpParam &param);
 
-HcclResult CheckReduceInputPara(const HcclComm comm, const void *sendBuf, const void *recvBuf);
+HcclResult CheckReduceInputPara(const HcclComm comm, const void *sendBuf, const void *recvBuf, const aclrtStream stream);
 
 HcclResult GetAlgResReduce(HcclComm comm, OpParam &param, std::shared_ptr<InsCollAlgBase> &executor, TopoInfoWithNetLayerDetails *topoInfo,
     AlgResourceCtx **resCtx, aclrtNotify *notifies);
 
-HcclResult ReduceInitAndCheck(HcclComm comm, void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, std::string &opTag);
+HcclResult ReduceInitAndCheck(HcclComm comm, void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
+    aclrtStream stream, std::string &opTag);
 
 HcclResult ReduceOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
     uint32_t root, HcclComm comm, aclrtStream stream, const std::string &tag, OpMode opMode, const ResPackGraphMode &resPack);
