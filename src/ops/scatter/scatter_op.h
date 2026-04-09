@@ -30,6 +30,8 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDat
 #endif
 
 namespace ops_hccl {
+using NotifyArray = std::array<aclrtNotify, AICPU_CONTROL_NOTIFY_NUM>;
+
 HcclResult ScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType, uint32_t root,
     HcclComm comm, aclrtStream stream, const std::string &tag);
 
@@ -40,12 +42,12 @@ HcclResult CalcBaseTopoInfo(HcclComm comm, OpParam &param, TopoInfo** topoInfo);
 HcclResult SelectAlg(HcclComm comm, OpParam &param, TopoInfo* topoInfo, AlgType& algType, std::string &algName);
 
 HcclResult GetAlgRes(HcclComm comm, OpParam &param, std::unique_ptr<ExecutorBase> &executor,
-    TopoInfo* topoInfo, AlgType& algType, AlgResourceCtx** resCtx, aclrtNotify* notifies);
+    TopoInfo* topoInfo, AlgType& algType, AlgResourceCtx** resCtx, NotifyArray &notifies);
 
 HcclResult GetAlgType(TopoInfo* topoInfo, HcclCMDType opType, AlgType& algType);
 
 HcclResult AllocAlgResource(HcclComm comm, const OpParam& param, AlgResourceRequest &resRequest,
-    AlgResourceCtx* resCtxHost, aclrtNotify* notifies);
+    AlgResourceCtx* resCtxHost, NotifyArray &notifies);
 
 HcclResult SetAlgoLevel0(TopoInfo* topoInfo, HcclAlgoType algoConfig, AlgTypeLevel0 &algType);
 
