@@ -227,6 +227,20 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         return 1;
     }
 
+    if (param->deviceType == DevType::DEV_TYPE_910_95) {
+        //判断通信域状态
+        HcclCommStatusTmp commStatus = HcclCommStatusTmp::HCCL_COMM_STATUS_INVALID;
+        auto ret = HcclCommGetStatus(param->commName, &commStatus);
+        if (ret != HCCL_SUCCESS) {
+            HCCL_ERROR("%s HcclCommGetStatus fail, commName[%s], ret = %d", __func__, param->commName, ret);
+            return 1;
+        }
+        if (commStatus != HcclCommStatusTmp::HCCL_COMM_STATUS_READY) {
+            HCCL_ERROR("%s commStatus is not ready!, commStatus = %d", __func__, static_cast<int>(commStatus));
+            return 1;
+        }
+    }
+
     #ifdef MACRO_DEV_TYPE_NEW
     if (param->deviceType != DevType::DEV_TYPE_950) {
     #else
@@ -271,7 +285,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             HCCL_ERROR("%s commStatus is not ready!, commStatus = %d", __func__, static_cast<int>(commStatus));
             return 1;
         }
-        
+
         AlgResourceCtxSerializable resCtx;
 
         //通过缓存实现反序列化优化
