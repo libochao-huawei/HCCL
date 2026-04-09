@@ -28,6 +28,8 @@ CcuKernelReduceScatterNHR1DMem2Mem::CcuKernelReduceScatterNHR1DMem2Mem(const Ccu
     : CcuKernelAlgBase(arg)
 {
     const CcuKernelArgReduceScatterNHR1D *kernelArg = dynamic_cast<const CcuKernelArgReduceScatterNHR1D *>(&arg);
+    cache.reserve(FAST_LAUNCH_KERNEL_CACHE_LIMIT);
+    cache1.reserve(FAST_LAUNCH_KERNEL_CACHE_LIMIT);
     mySubCommRankId_= kernelArg->mySubCommRankId_;   // 虚拟rankid，用于获取本rank对应的输入偏移
     axisId_         = kernelArg->axisId_;
     channels_       = kernelArg->channels;
@@ -310,5 +312,65 @@ std::vector<uint64_t> CcuKernelReduceScatterNHR1DMem2Mem::GeneArgs(const CcuTask
             die0Size,           die1Size,           die0LastSliceSize,
             die1LastSliceSize,  inputSliceStride,   currentRankSliceOutputOffset,
             inputRepeatStride,  outputRepeatStride, repeatNumVar, isInputOutputEqual_};
+}
+
+HcclResult CcuKernelReduceScatterNHR1DMem2Mem::GeneTaskParam(
+    const CcuTaskArg &arg, std::vector<CcuTaskParam> &taskParams)
+{
+    const CcuTaskArgReduceScatterNHR1D *taskArg = dynamic_cast<const CcuTaskArgReduceScatterNHR1D *>(&arg);
+    if (!taskArg) {
+        HCCL_ERROR("[CcuKernelReduceScatterNHR1DMem2Mem] GeneTaskParam failed, invalid task arg");
+        return HcclResult::HCCL_E_PARA;
+    }
+    const std::uintptr_t fastLaunchCtxKey = taskArg->fastLaunchCacheKey_;
+    if (fastLaunchCtxKey != 0) {
+        auto fastLaunchIter = cache.find(fastLaunchCtxKey);
+        if (fastLaunchIter != cache.end()) {
+            taskParams = fastLaunchIter->second;
+            return HcclResult::HCCL_SUCCESS;
+        }
+
+        PrepareFastLaunchKernelCache(cache);
+        auto insertRet = cache.emplace(fastLaunchCtxKey, std::vector<CcuTaskParam>{});
+        HcclResult ret = CcuKernelAlgBase::GeneTaskParam(arg, insertRet.first->second);
+        if (ret != HCCL_SUCCESS) {
+            cache.erase(insertRet.first);
+            return ret;
+        }
+        taskParams = insertRet.first->second;
+        return HcclResult::HCCL_SUCCESS;
+    }
+
+    return CcuKernelAlgBase::GeneTaskParam(arg, taskParams);
+}
+
+HcclResult CcuKernelReduceScatterNHR1DMem2Mem::GetCcuProfilingInfo(
+    const CcuTaskArg &arg, std::vector<CcuProfilingInfo> &allCcuProfilingInfo)
+{
+    const CcuTaskArgReduceScatterNHR1D *taskArg = dynamic_cast<const CcuTaskArgReduceScatterNHR1D *>(&arg);
+    if (!taskArg) {
+        HCCL_ERROR("[CcuKernelReduceScatterNHR1DMem2Mem] GetCcuProfilingInfo failed, invalid task arg");
+        return HCCL_E_PARA;
+    }
+    const std::uintptr_t fastLaunchCtxKey = taskArg->fastLaunchCacheKey_;
+    if (fastLaunchCtxKey != 0) {
+        auto fastLaunchIter = cache1.find(fastLaunchCtxKey);
+        if (fastLaunchIter != cache1.end()) {
+            allCcuProfilingInfo = fastLaunchIter->second;
+            return HcclResult::HCCL_SUCCESS;
+        }
+
+        PrepareFastLaunchKernelCache(cache1);
+        auto insertRet = cache1.emplace(fastLaunchCtxKey, std::vector<CcuProfilingInfo>{});
+        HcclResult ret = CcuKernelAlgBase::GetCcuProfilingInfo(arg, insertRet.first->second);
+        if (ret != HCCL_SUCCESS) {
+            cache1.erase(insertRet.first);
+            return ret;
+        }
+        allCcuProfilingInfo = insertRet.first->second;
+        return HcclResult::HCCL_SUCCESS;
+    }
+
+    return CcuKernelAlgBase::GetCcuProfilingInfo(arg, allCcuProfilingInfo);
 }
 } // namespace ops_hccl

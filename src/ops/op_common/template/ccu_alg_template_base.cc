@@ -86,6 +86,20 @@ uint64_t CcuAlgTemplateBase::PointerToAddr(void* pointer) const
     }
 }
 
+std::uintptr_t CcuAlgTemplateBase::GetFastLaunchCacheKey(const TemplateFastLaunchCtx& tempFastLaunchCtx, u32 kernelIdx) const
+{
+    if (tempFastLaunchCtx.ccuKernelSubmitInfosBase != nullptr &&
+        kernelIdx < tempFastLaunchCtx.ccuKernelSubmitInfos.size()) {
+        return reinterpret_cast<std::uintptr_t>(&tempFastLaunchCtx.ccuKernelSubmitInfosBase[kernelIdx]);
+    }
+
+    if (kernelIdx < tempFastLaunchCtx.ccuKernelSubmitInfos.size()) {
+        return reinterpret_cast<std::uintptr_t>(&tempFastLaunchCtx.ccuKernelSubmitInfos[kernelIdx]);
+    }
+
+    return reinterpret_cast<std::uintptr_t>(&tempFastLaunchCtx.buffInfo);
+}
+
 HcclResult CcuAlgTemplateBase::RestoreChannelMap(const std::vector<HcclChannelDesc>& channelDescs,
                                                  std::map<u32, std::vector<HcclChannelDesc>>& rankIdToChannelDesc) const
 {
