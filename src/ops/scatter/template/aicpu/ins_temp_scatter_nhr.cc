@@ -133,9 +133,9 @@ HcclResult InsTempScatterNHR::KernelRun(const OpParam& param, const TemplateData
     CHK_PRT_RET(threadNum_ != templateResource.threads.size(),
         HCCL_ERROR("[InsTempScatterNHR] Rank [%d], requiredThread Error.", myRank_),
         HcclResult::HCCL_E_INTERNAL);
-    CHK_PTR_NULL(templateResource.buffInfo.hcclBuff.addr);
-    CHK_PTR_NULL(templateResource.buffInfo.inputPtr);
-    CHK_PTR_NULL(templateResource.buffInfo.outputPtr);
+    CHK_PTR_NULL(tempAlgParams.buffInfo.hcclBuff.addr);
+    CHK_PTR_NULL(tempAlgParams.buffInfo.inputPtr);
+    CHK_PTR_NULL(tempAlgParams.buffInfo.outputPtr);
     CHK_RET(PreCopy(tempAlgParams, templateResource.threads));
     CHK_RET(RunNHR(templateResource.channels, templateResource.threads, tempAlgParams));
     CHK_RET(PostCopy(tempAlgParams, templateResource.threads));

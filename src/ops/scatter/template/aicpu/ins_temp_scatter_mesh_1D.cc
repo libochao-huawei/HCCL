@@ -92,9 +92,9 @@ HcclResult InsTempScatterMesh1D::KernelRun(const OpParam& param, const TemplateD
     processSize_ = tempAlgParams.sliceSize;
     count_ = tempAlgParams.count;
     dataType_ = param.DataDes.dataType;
-    CHK_PTR_NULL(templateResource.buffInfo.hcclBuff.addr);
-    CHK_PTR_NULL(templateResource.buffInfo.inputPtr);
-    CHK_PTR_NULL(templateResource.buffInfo.outputPtr);
+    CHK_PTR_NULL(tempAlgParams.buffInfo.hcclBuff.addr);
+    CHK_PTR_NULL(tempAlgParams.buffInfo.inputPtr);
+    CHK_PTR_NULL(tempAlgParams.buffInfo.outputPtr);
     HCCL_INFO("[InsTempScatterMesh1D] Run Start");
     CHK_RET(PreCopy(tempAlgParams, templateResource.threads));
     if (threadNum_ > 1) {
