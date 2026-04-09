@@ -73,8 +73,10 @@ SelectorStatus AllReduceAutoSelector::SelectMeshUBXAlgo(const TopoInfoWithNetLay
     } else if (isClosNumMultipleOfMeshNum && !IsSmallData(dataSize)) {
         HCCL_DEBUG("[AllReduceAutoSelector][%s] MESH_1D_CLOS not match.", __func__);
         return SelectorStatus::NOT_MATCH;
-    } else {
+    } else if (dataSize / topoInfo->userRankSize > AR_ONESHOT_1D_MAX_DATA_SIZE) {
         selectAlgName = "CcuAllReduceMesh1D";
+    } else {
+        selectAlgName = "CcuAllReduceMesh1DOneShot";
     }
 
     HCCL_DEBUG("[AllReduceAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
@@ -106,22 +108,10 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgo(const TopoInfoWithNetLayerD
             selectAlgName = "CcuAllReduceMesh1D";
         }
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-        if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
-            if (IsInputOutputOverlap(opParam) == true) {
-                // 不支持 inplace 场景
-                return SelectorStatus::NOT_MATCH;
-            }
-            if (dataSize / topoInfo->userRankSize > AR_ONESHOT_1D_MAX_DATA_SIZE) {
-                selectAlgName = "CcuAllReduceMesh1D";
-            } else {
-                selectAlgName = "CcuAllReduceMesh1DOneShot";
-            }
-        } else { // MS 不支持
-            HCCL_DEBUG("[AllReduceAutoSelector] level0Shape[%d] is not supported yet for ccu_ms mode.",
-                        topoInfo->level0Topo);
+        if (IsInputOutputOverlap(opParam) == true) {
+            // 不支持 inplace 场景
             return SelectorStatus::NOT_MATCH;
         }
-    } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
         return SelectMeshUBXAlgo(topoInfo, selectAlgName, dataSize);
     } else {
         HCCL_DEBUG("[AllReduceAutoSelector] level0Topo[%u] is not supported yet.", topoInfo->level0Topo);
@@ -184,13 +174,6 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNe
 SelectorStatus AllReduceAutoSelector::SelectCcuScheduleLevel0UBXAlgo(const TopoInfoWithNetLayerDetails* topoInfo, 
     std::string &selectAlgName, const u64 dataSize) const
 {
-    // UBX机型
-    bool isMeshNumEqualToClosNum = false;
-    bool isClosNumMultipleOfMeshNum = false;
-    CHK_PRT_RET(CheckMeshNumEqualToClosNum(topoInfo, isMeshNumEqualToClosNum) != HCCL_SUCCESS,
-        HCCL_DEBUG("[AllReduceAutoSelector] CheckMeshNumEqualToClosNum failed."), SelectorStatus::NOT_MATCH);
-    CHK_PRT_RET(CheckClosNumMultipleOfMeshNum(topoInfo, isClosNumMultipleOfMeshNum) != HCCL_SUCCESS,
-        HCCL_DEBUG("[AllReduceAutoSelector] CheckClosNumMultipleOfMeshNum failed."), SelectorStatus::NOT_MATCH);
     if (isMeshNumEqualToClosNum && topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO) {
         // 4P mesh
         if (IsSmallData(dataSize)) {
