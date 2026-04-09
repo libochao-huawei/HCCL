@@ -12,6 +12,11 @@
 #include "op_common_ops.h"
 #include "topo_host.h"
 #include <algorithm>
+#include <array>
+#include <cctype>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <future>
 #include <map>
 #include <string>
@@ -70,8 +75,8 @@ HcclResult HcclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, H
 }
 
 HcclResult HcclReduceScatterGraphMode(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
- 	     HcclReduceOp op, const char* group, aclrtStream stream, const char* tag, void** streams,
- 	     size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize)
+             HcclReduceOp op, const char* group, aclrtStream stream, const char* tag, void** streams,
+             size_t streamCount, void* scratchMemAddr, uint64_t scratchMemSize)
 {
     HCCL_INFO("Start to run execute HcclReduceScatterGraphMode");
     HcclComm comm = nullptr;
@@ -171,7 +176,7 @@ HcclResult ReduceScatterOutPlace(OpParam &param, void *sendBuf, void *recvBuf, u
 {
     HCCL_INFO("Start to execute ReduceScatterOutPlace");
     CHK_RET(PrepareReduceScatterParam(param, sendBuf, recvBuf, recvCount, dataType, op, comm, stream, userRankSize,
- 	    OpMode::OPBASE));
+            OpMode::OPBASE));
 
     CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
     if (ShouldGoCcuFastLaunch(comm, param, &ccuFastLaunchCtx)) {
