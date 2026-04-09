@@ -106,7 +106,7 @@ HcclResult HcclSetAivSelectOpParamGraphMode(OpParamGraphMode *opParam, const cha
  	     paramPtr->counts = counts;
  	     paramPtr->dataType = dataType;
  	     paramPtr->op = op;
- 	     paramPtr->opType = opTypeAiv;
+ 	     paramPtr->opTypeAiv = opTypeAiv;
  	     paramPtr->aivCoreLimit = aivCoreLimit;
  	     paramPtr->ifAiv = ifAiv;
  	     return HCCL_SUCCESS;
