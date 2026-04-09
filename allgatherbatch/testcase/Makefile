@@ -49,7 +49,7 @@ SINGLE_DEVICES ?= 8
 SINGLE_WARMUP ?= 1
 SINGLE_ITERS ?= 5
 
-LIBS = $(RPATH_FLAGS) -L$(ASCEND_LIB_DIR) -lascendcl -lhcomm -L${CUSTOM_LIB_DIR} -lhccl_allgatherbatch
+LIBS = $(RPATH_FLAGS) -L$(ASCEND_LIB_DIR) -lascendcl -lhccl -lhcomm -L${CUSTOM_LIB_DIR} -lhccl_allgatherbatch
 INCS = -I$(ASCEND_INC_DIR) -I${CUSTOM_INC_DIR}
 RUN_ARGS = --token-bytes $(TOKEN_BYTES) \
            --scale-count $(SCALE_COUNT) \
@@ -67,10 +67,10 @@ test: all
 	export LD_LIBRARY_PATH=${CUSTOM_LIB_DIR}:${ASCEND_LIB_DIR}:$${LD_LIBRARY_PATH}; \
 	./$(TARGET) $(RUN_ARGS)
 
-# 默认双 item 场景，贴近设计文档的典型输入规模。
+# 默认双 item 场景，贴近设计文档里的 token + scale 组合。
 test-default: test
 
-# 快速冒烟场景，适合先确认 runtime 和自定义算子链路是否通。
+# 更小的冒烟场景，适合先确认 runtime 链路是否打通。
 test-fast: all
 	export LD_LIBRARY_PATH=${CUSTOM_LIB_DIR}:${ASCEND_LIB_DIR}:$${LD_LIBRARY_PATH}; \
 	./$(TARGET) \
@@ -82,7 +82,7 @@ test-fast: all
 	    --iters $(FAST_ITERS) \
 	    $(EXTRA_ARGS)
 
-# 单 item 场景，快速观察只有 token item 时的行为。
+# 单 item 场景，只保留 token。
 test-single-item: all
 	export LD_LIBRARY_PATH=${CUSTOM_LIB_DIR}:${ASCEND_LIB_DIR}:$${LD_LIBRARY_PATH}; \
 	./$(TARGET) \
@@ -119,10 +119,11 @@ help:
 	@echo "  PRINT_COUNT  preview element count, default $(PRINT_COUNT)"
 	@echo "  WARMUP       warmup iterations, default $(WARMUP)"
 	@echo "  ITERS        measured iterations, default $(ITERS)"
-	@echo "  EXTRA_ARGS   extra flags, for example EXTRA_ARGS=--no-verify"
+	@echo "  EXTRA_ARGS   extra flags, for example EXTRA_ARGS=--mode both"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make test CUSTOM_VENDOR=cust TOKEN_BYTES=65536 SCALE_COUNT=0 DEVICES=4 WARMUP=2 ITERS=20"
+	@echo "  make test EXTRA_ARGS=\"--mode baseline\""
 	@echo "  make test-fast"
 	@echo "  make test-single-item EXTRA_ARGS=--no-verify"
 	@echo ""
