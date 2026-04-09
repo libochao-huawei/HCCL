@@ -9,15 +9,20 @@
  */
 
 #include <algorithm>
+#include <cstdint>
+#include <cstdio>
 #include <future>
 #include <map>
-#include <string>
 #include <memory>
+#include <string>
+#include <unordered_map>
 #include <cstdlib>  // 包含getenv函数
 #include <cstring>  // 包含strcmp函数
 #include <stdexcept>
 #include <hccl/hccl_types.h>
 #include "hccl/base.h"
+#include "log.h"
+#include "scoped_perf_timer.h"
 #include "sal.h"
 #include "error_codes/rt_error_codes.h"
 #include "mmpa_api.h"
@@ -49,6 +54,65 @@ thread_local std::map<std::string, HcclMemHandle> g_memHandleCache; // 当前AIV
 thread_local std::map<std::string, std::unique_ptr<AlgResourceCtxSerializable>> g_hostCtx;
 thread_local std::map<AivOpCacheArgs, std::shared_ptr<InsQueue>> g_hcclCacheMap;
 constexpr u32 HOST_WAIT_AICPU_NOTIFYIDX = 0;// host主流wait aicpu流的notify idx
+constexpr const char *HCCL_RS_PERF_STAGE_ENV = "HCCL_RS_PERF_STAGE";
+constexpr const char *HCCL_RS_PERF_SLOW_US_ENV = "HCCL_RS_PERF_SLOW_US";
+constexpr const char *HCCL_RS_PERF_VERBOSE_ENV = "HCCL_RS_PERF_VERBOSE";
+
+static bool IsEnvEnabled(const char *envName)
+{
+    const char *envValue = std::getenv(envName);
+    if (envValue == nullptr) {
+        return false;
+    }
+    return strcmp(envValue, "0") != 0 && strcasecmp(envValue, "false") != 0 &&
+        strcasecmp(envValue, "off") != 0 && strcasecmp(envValue, "no") != 0;
+}
+
+static u64 GetEnvU64(const char *envName, u64 defaultValue)
+{
+    const char *envValue = std::getenv(envName);
+    if (envValue == nullptr || envValue[0] == '\0') {
+        return defaultValue;
+    }
+    char *endPtr = nullptr;
+    unsigned long long parsedValue = strtoull(envValue, &endPtr, 10);
+    if (endPtr == envValue) {
+        return defaultValue;
+    }
+    return static_cast<u64>(parsedValue);
+}
+
+static bool ShouldTraceReduceScatterPerf(HcclCMDType opType)
+{
+    return (opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER) && IsEnvEnabled(HCCL_RS_PERF_STAGE_ENV);
+}
+
+static void PrintReduceScatterPerfLine(const char *scope, const OpParam &param, const std::string &algName,
+    const char *path, bool isResourceReused, u64 totalUs, const std::string &stageInfo)
+{
+    if (!ShouldTraceReduceScatterPerf(param.opType)) {
+        return;
+    }
+    const bool verbose = IsEnvEnabled(HCCL_RS_PERF_VERBOSE_ENV);
+    const u64 slowUs = GetEnvU64(HCCL_RS_PERF_SLOW_US_ENV, 0);
+    if (!verbose && slowUs > 0 && totalUs < slowUs) {
+        return;
+    }
+
+    std::fprintf(stderr,
+        "[PerfStage][%s] tag[%s], algTag[%s], engine[%d], opMode[%d], reuse[%d], path[%s], alg[%s], total[%llu]us, stages{%s}\n",
+        scope,
+        param.tag,
+        param.algTag,
+        static_cast<int>(param.engine),
+        static_cast<int>(param.opMode),
+        isResourceReused ? 1 : 0,
+        path == nullptr ? "NA" : path,
+        algName.empty() ? "NA" : algName.c_str(),
+        static_cast<unsigned long long>(totalUs),
+        stageInfo.empty() ? "none" : stageInfo.c_str());
+    std::fflush(stderr);
+}
 
 // 检查非对称拓扑支持情况
 // 仅 AllGather, AllReduce, ReduceScatter 支持跨框非对称拓扑，其他算子拦截
@@ -148,46 +212,195 @@ uint32_t GetHcclDfxOpInfoDataType(const OpParam &param) {
 HcclResult SetOpParamFastLaunchTag(OpParam &param)
 {
     HcclDataType tmpDataType;
-    if(param.opType == HcclCMDType::HCCL_CMD_ALLTOALL || param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
+    if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL ||
+        param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
         param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
         tmpDataType = param.all2AllVDataDes.sendType;
     } else {
         tmpDataType = param.DataDes.dataType;
     }
-    
-    const std::string dataType = HCOM_DATA_TYPE_STR_MAP.at(tmpDataType);
-    // 1.通信域tag + 数据类型，得到基础FastLaunchTag
-    std::string tagBuilder = std::string(param.tag) + "_" + dataType;
-    // 2.reduceType
-    if (param.opType == HcclCMDType::HCCL_CMD_ALLREDUCE || param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER ||
-        param.opType == HcclCMDType::HCCL_CMD_REDUCE || param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V) {
-        const std::string reduceType = HCOM_REDUCE_OP_STR_MAP.at(param.reduceType);
-        tagBuilder += "_" + reduceType;
+
+    const char *dataTypeStr = HCOM_DATA_TYPE_STR_MAP.at(tmpDataType).c_str();
+    const bool hasReduce =
+        (param.opType == HcclCMDType::HCCL_CMD_ALLREDUCE ||
+         param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER ||
+         param.opType == HcclCMDType::HCCL_CMD_REDUCE ||
+         param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V);
+
+    const bool hasCount = (param.opType != HcclCMDType::HCCL_CMD_ALLTOALLV);
+
+    const bool hasRoot =
+        (param.opType == HcclCMDType::HCCL_CMD_REDUCE ||
+         param.opType == HcclCMDType::HCCL_CMD_SCATTER ||
+         param.opType == HcclCMDType::HCCL_CMD_BROADCAST);
+
+    const char *reduceTypeStr = hasReduce ? HCOM_REDUCE_OP_STR_MAP.at(param.reduceType).c_str() : nullptr;
+
+    int ret;
+    if (hasReduce && hasCount && hasRoot) {
+        ret = snprintf_s(param.fastLaunchTag, sizeof(param.fastLaunchTag), sizeof(param.fastLaunchTag),
+            "%s_%s_%s_%llu_r%u",
+            param.tag, dataTypeStr, reduceTypeStr,
+            static_cast<unsigned long long>(param.DataDes.count), param.root);
+    } else if (hasReduce && hasCount) {
+        ret = snprintf_s(param.fastLaunchTag, sizeof(param.fastLaunchTag), sizeof(param.fastLaunchTag),
+            "%s_%s_%s_%llu",
+            param.tag, dataTypeStr, reduceTypeStr,
+            static_cast<unsigned long long>(param.DataDes.count));
+    } else if (hasCount && hasRoot) {
+        ret = snprintf_s(param.fastLaunchTag, sizeof(param.fastLaunchTag), sizeof(param.fastLaunchTag),
+            "%s_%s_%llu_r%u",
+            param.tag, dataTypeStr,
+            static_cast<unsigned long long>(param.DataDes.count), param.root);
+    } else if (hasCount) {
+        ret = snprintf_s(param.fastLaunchTag, sizeof(param.fastLaunchTag), sizeof(param.fastLaunchTag),
+            "%s_%s_%llu",
+            param.tag, dataTypeStr,
+            static_cast<unsigned long long>(param.DataDes.count));
+    } else {
+        ret = snprintf_s(param.fastLaunchTag, sizeof(param.fastLaunchTag), sizeof(param.fastLaunchTag),
+            "%s_%s",
+            param.tag, dataTypeStr);
     }
-    // 3.count
-    if (param.opType != HcclCMDType::HCCL_CMD_ALLTOALLV) {
-        std::string count = std::to_string(param.DataDes.count); //todo: alltoall 的count不是从这里取
-        tagBuilder += "_" + count;
-    }
-    // 4.root
-    if (param.opType == HcclCMDType::HCCL_CMD_REDUCE || param.opType == HcclCMDType::HCCL_CMD_SCATTER ||
-        param.opType == HcclCMDType::HCCL_CMD_BROADCAST) {
-        std::string root = std::to_string(param.root);
-        tagBuilder += "_r" + root;
-    }
-    CHK_PRT_RET((tagBuilder.length() >= sizeof(param.fastLaunchTag)), 
-        "failed to fill fastLaunchTag, tag too long", HcclResult::HCCL_E_INTERNAL);
-    snprintf_s(param.fastLaunchTag, sizeof(param.fastLaunchTag), sizeof(param.fastLaunchTag), "%s", tagBuilder.c_str());
+
+    CHK_PRT_RET(ret < 0 || static_cast<size_t>(ret) >= sizeof(param.fastLaunchTag),
+        HCCL_ERROR("failed to fill fastLaunchTag, tag too long"), HcclResult::HCCL_E_INTERNAL);
 
     HCCL_INFO("[SetOpParamFastLaunchTag] fastLaunchTag: [%s]", param.fastLaunchTag);
     return HcclResult::HCCL_SUCCESS;
 }
 
+// Fast-launch 热路径缓存：单个 TLS unordered_map，降低层级复杂度并减少冲突抖动。
+// 注意：reduceType 和 root 必须拆开保存，避免 REDUCE 场景下不同 reduceType 错命中。
+struct FastLaunchSmallKey {
+    u32 opType {0};
+    u32 dataType {0};
+    u32 mode {0};
+    u32 reduceType {0};
+    u32 root {0};
+    u64 count {0};
+    u64 tagHash {0};
+
+    bool operator==(const FastLaunchSmallKey &other) const noexcept
+    {
+        return opType == other.opType &&
+               dataType == other.dataType &&
+               mode == other.mode &&
+               reduceType == other.reduceType &&
+               root == other.root &&
+               count == other.count &&
+               tagHash == other.tagHash;
+    }
+};
+
+struct FastLaunchSmallKeyHasher {
+    size_t operator()(const FastLaunchSmallKey &key) const noexcept
+    {
+        const u64 h0 = (static_cast<u64>(key.opType) << 32) ^ key.dataType;
+        const u64 h1 = (static_cast<u64>(key.mode) << 32) ^ key.reduceType;
+        const u64 h2 = (static_cast<u64>(key.root) << 32) ^
+            static_cast<u32>(key.count ^ (key.count >> 32));
+        const u64 h3 = key.tagHash ^ (key.tagHash >> 33);
+        return static_cast<size_t>(h0 ^ (h1 << 1) ^ (h2 << 2) ^ (h3 << 3));
+    }
+};
+
+thread_local std::unordered_map<FastLaunchSmallKey, void *, FastLaunchSmallKeyHasher> g_ccuFastLaunchCache;
+
+static inline bool IsReduceLikeOp(HcclCMDType opType)
+{
+    return (opType == HcclCMDType::HCCL_CMD_ALLREDUCE ||
+            opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER ||
+            opType == HcclCMDType::HCCL_CMD_REDUCE ||
+            opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V);
+}
+
+static inline bool HasRootField(HcclCMDType opType)
+{
+    return (opType == HcclCMDType::HCCL_CMD_REDUCE ||
+            opType == HcclCMDType::HCCL_CMD_SCATTER ||
+            opType == HcclCMDType::HCCL_CMD_BROADCAST);
+}
+
+static inline HcclDataType GetFastLaunchDataType(const OpParam &param)
+{
+    if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL ||
+        param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
+        param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
+        return param.all2AllVDataDes.sendType;
+    }
+    return param.DataDes.dataType;
+}
+
+static inline u64 HashFastLaunchTag(const char *tag)
+{
+    constexpr u64 FNV_OFFSET_BASIS = 1469598103934665603ULL;
+    constexpr u64 FNV_PRIME = 1099511628211ULL;
+
+    u64 hash = FNV_OFFSET_BASIS;
+    if (tag == nullptr) {
+        return hash;
+    }
+
+    const unsigned char *ptr = reinterpret_cast<const unsigned char *>(tag);
+    while (*ptr != '\0') {
+        hash ^= static_cast<u64>(*ptr++);
+        hash *= FNV_PRIME;
+    }
+    return hash;
+}
+
+// old colCcuParamMapping 风格：小结构 key，不依赖 fastLaunchTag 字符串拼接
+static inline FastLaunchSmallKey BuildFastLaunchSmallKey(const OpParam &param)
+{
+    const bool hasReduce = IsReduceLikeOp(param.opType);
+    const bool hasRoot = HasRootField(param.opType);
+    const bool hasCount = (param.opType != HcclCMDType::HCCL_CMD_ALLTOALLV);
+
+    FastLaunchSmallKey key;
+    key.opType = static_cast<u32>(param.opType);
+    key.dataType = static_cast<u32>(GetFastLaunchDataType(param));
+    key.mode = static_cast<u32>(param.opExecuteConfig);
+    key.reduceType = hasReduce ? static_cast<u32>(param.reduceType) : 0U;
+    key.root = hasRoot ? static_cast<u32>(param.root) : 0U;
+    key.count = hasCount ? static_cast<u64>(param.DataDes.count) : 0ULL;
+    key.tagHash = HashFastLaunchTag(param.tag);
+    return key;
+}
+
+static inline bool TryGetFastLaunchTlsCache(const FastLaunchSmallKey &key, CcuFastLaunchCtx **ctx)
+{
+    auto it = g_ccuFastLaunchCache.find(key);
+    if (it != g_ccuFastLaunchCache.end() && it->second != nullptr) {
+        *ctx = reinterpret_cast<CcuFastLaunchCtx *>(it->second);
+        return true;
+    }
+    return false;
+}
+
+static inline void PutFastLaunchTlsCache(const FastLaunchSmallKey &key, void *ctx)
+{
+    auto it = g_ccuFastLaunchCache.find(key);
+    if (it != g_ccuFastLaunchCache.end()) {
+        it->second = ctx;
+        return;
+    }
+
+    g_ccuFastLaunchCache.emplace(key, ctx);
+}
+
 bool ShouldGoCcuFastLaunch(HcclComm comm, OpParam &param, CcuFastLaunchCtx **ccuFastLaunchCtx)
 {
-    param.hcclComm = comm;
-    
-    // 1. 是ccu模式
+    const bool tracePerf = ShouldTraceReduceScatterPerf(param.opType);
+    const u64 slowUs = tracePerf ? GetEnvU64(HCCL_RS_PERF_SLOW_US_ENV, 0) : 0;
+    HCCL_SCOPED_PERF_ERR_IF(totalScopedZone, "op_common/ShouldGoCcuFastLaunch", tracePerf, slowUs);
+    totalScopedZone.AppendExtra("tag[" + std::string(param.tag) + "]");
+    totalScopedZone.AppendExtra("count[" +
+        std::to_string(static_cast<unsigned long long>(param.DataDes.count)) + "]");
+    const HcclUs startUs = tracePerf ? TIME_NOW() : HcclUs{};
+    const char *path = "not_ccu";
+
+    // 1. 判断是否 CCU 模式
     if (GetExternalInputHcclCcuMSMode()) {
         HCCL_DEBUG("[HcclExecOp] is ccu ms mode");
         param.opExecuteConfig = OpExecuteConfig::CCU_MS;
@@ -197,19 +410,72 @@ bool ShouldGoCcuFastLaunch(HcclComm comm, OpParam &param, CcuFastLaunchCtx **ccu
         param.opExecuteConfig = OpExecuteConfig::CCU_SCHED;
         param.engine = CommEngine::COMM_ENGINE_CCU;
     } else {
-        // 非CCU模式，返回走正常流程
+        return false;
+    }
+    path = "ctx_miss";
+    param.hcclComm = comm;
+
+    // 2. 构造 small key
+    FastLaunchSmallKey key;
+    {
+        HCCL_SCOPED_PERF_ERR_IF(buildKeyScopedZone, "op_common/ShouldGoCcuFastLaunch/BuildSmallKey",
+            tracePerf, slowUs);
+        key = BuildFastLaunchSmallKey(param);
+    }
+
+    // 3. 单个 TLS unordered_map：热路径直接命中，避免多级缓存冲突抖动
+    bool tlsCacheHit = false;
+    {
+        HCCL_SCOPED_PERF_ERR_IF(tlsLookupScopedZone, "op_common/ShouldGoCcuFastLaunch/TlsCacheLookup",
+            tracePerf, slowUs);
+        tlsCacheHit = TryGetFastLaunchTlsCache(key, ccuFastLaunchCtx);
+    }
+    if (tlsCacheHit) {
+        HCCL_DEBUG("[ShouldGoCcuFastLaunch] hit fast launch TLS cache");
+        if (tracePerf) {
+            const u64 totalUs = static_cast<u64>(DURATION_US(TIME_NOW() - startUs).count());
+            PrintReduceScatterPerfLine("ShouldGoCcuFastLaunch", param, "NA", "tls_cache_hit", true, totalUs,
+                "mode_check+tls_lookup");
+        }
+        return true;
+    }
+
+    // 4. miss 时回退：走原有 fastLaunchTag + engineCtx 查询逻辑
+    HcclResult ret;
+    {
+        HCCL_SCOPED_PERF_ERR_IF(buildTagScopedZone, "op_common/ShouldGoCcuFastLaunch/BuildFastLaunchTag",
+            tracePerf, slowUs);
+        ret = SetOpParamFastLaunchTag(param);
+    }
+    if (ret != HCCL_SUCCESS) {
+        HCCL_ERROR("[ShouldGoCcuFastLaunch] build fastLaunchTag failed, ret=%d", ret);
         return false;
     }
 
-    CHK_RET(SetOpParamFastLaunchTag(param));
-    
-    // 2. 查到engineCtx
     uint64_t size = 0;
     void *fastLaunchCtxPtr = nullptr;
-    if (HcclEngineCtxGet(comm, param.fastLaunchTag, CommEngine::COMM_ENGINE_CCU, &fastLaunchCtxPtr, &size) == HCCL_SUCCESS) {
+    HcclResult ctxGetRet;
+    {
+        HCCL_SCOPED_PERF_ERR_IF(engineCtxScopedZone, "op_common/ShouldGoCcuFastLaunch/EngineCtxLookup",
+            tracePerf, slowUs);
+        ctxGetRet = HcclEngineCtxGet(comm, param.fastLaunchTag, CommEngine::COMM_ENGINE_CCU,
+            &fastLaunchCtxPtr, &size);
+    }
+    if (ctxGetRet == HCCL_SUCCESS) {
         HCCL_INFO("[ShouldGoCcuFastLaunch] get fastLaunchCtx success, size is %u", size);
-        *ccuFastLaunchCtx = reinterpret_cast<CcuFastLaunchCtx*>(fastLaunchCtxPtr);
+        PutFastLaunchTlsCache(key, fastLaunchCtxPtr);
+        *ccuFastLaunchCtx = reinterpret_cast<CcuFastLaunchCtx *>(fastLaunchCtxPtr);
+        if (tracePerf) {
+            const u64 totalUs = static_cast<u64>(DURATION_US(TIME_NOW() - startUs).count());
+            PrintReduceScatterPerfLine("ShouldGoCcuFastLaunch", param, "NA", "engine_ctx_hit", true, totalUs,
+                "mode_check+ctx_lookup");
+        }
         return true;
+    }
+    if (tracePerf) {
+        const u64 totalUs = static_cast<u64>(DURATION_US(TIME_NOW() - startUs).count());
+        PrintReduceScatterPerfLine("ShouldGoCcuFastLaunch", param, "NA", path, false, totalUs,
+            "mode_check+ctx_lookup");
     }
     return false;
 }
@@ -217,22 +483,60 @@ bool ShouldGoCcuFastLaunch(HcclComm comm, OpParam &param, CcuFastLaunchCtx **ccu
 HcclResult HcclExecOpCcuFastLaunch(HcclComm comm, OpParam &param, const CcuFastLaunchCtx *ccuFastLaunchCtx)
 {
     HCCL_INFO("[HcclExecOpCcuFastLaunch] HcclExecOpCcuFastLaunch start");
+    const bool tracePerf = ShouldTraceReduceScatterPerf(param.opType);
+    const u64 slowUs = tracePerf ? GetEnvU64(HCCL_RS_PERF_SLOW_US_ENV, 0) : 0;
+    HCCL_SCOPED_PERF_ERR_IF(totalScopedZone, "op_common/HcclExecOpCcuFastLaunch", tracePerf, slowUs);
+    totalScopedZone.AppendExtra("tag[" + std::string(param.tag) + "]");
+    const HcclUs totalStartUs = tracePerf ? TIME_NOW() : HcclUs{};
+
     std::string algName = ccuFastLaunchCtx->algName;
+    totalScopedZone.AppendExtra("alg[" + algName + "]");
     HCCL_DEBUG("[HcclExecOpCcuFastLaunch] algName: [%s]", algName.c_str());
-    std::unique_ptr<InsCollAlgBase> executor = CollAlgExecRegistryV2::Instance().GetAlgExec(param.opType, algName);
+
+    u64 getExecutorUs = 0;
+    std::unique_ptr<InsCollAlgBase> executor;
+    {
+        HCCL_SCOPED_PERF_ERR_IF(getExecutorScopedZone, "op_common/HcclExecOpCcuFastLaunch/GetExecutor",
+            tracePerf, slowUs);
+        const HcclUs getExecutorStartUs = tracePerf ? TIME_NOW() : HcclUs{};
+        executor = CollAlgExecRegistryV2::Instance().GetAlgExec(param.opType, algName);
+        getExecutorUs = tracePerf ?
+            static_cast<u64>(DURATION_US(TIME_NOW() - getExecutorStartUs).count()) : 0;
+    }
     CHK_PRT_RET(
         executor.get() == nullptr, HCCL_ERROR("Fail to find executor for algName[%s]", algName.c_str()), HCCL_E_PARA);
-    
+
     void *cclBufferAddr;
     uint64_t cclBufferSize;
-    // 从通信域获取CCL buffer
-    CHK_RET(HcclGetHcclBuffer(comm, &cclBufferAddr, &cclBufferSize));
+    u64 getBuffUs = 0;
+    {
+        HCCL_SCOPED_PERF_ERR_IF(getBufferScopedZone, "op_common/HcclExecOpCcuFastLaunch/GetHcclBuffer",
+            tracePerf, slowUs);
+        const HcclUs getBuffStartUs = tracePerf ? TIME_NOW() : HcclUs{};
+        CHK_RET(HcclGetHcclBuffer(comm, &cclBufferAddr, &cclBufferSize));
+        getBuffUs = tracePerf ? static_cast<u64>(DURATION_US(TIME_NOW() - getBuffStartUs).count()) : 0;
+    }
     // CCL IN使用所有的CCL Buffer，这个其实就是scratch buffer
     param.hcclBuff = HcclMem{HCCL_MEM_TYPE_DEVICE, cclBufferAddr, cclBufferSize};
-    
+
     HCCL_INFO("[HcclExecOpCcuFastLaunch] FastLaunch start");
-    CHK_RET(executor->FastLaunch(param, ccuFastLaunchCtx));
-    
+    u64 fastLaunchUs = 0;
+    {
+        HCCL_SCOPED_PERF_ERR_IF(fastLaunchScopedZone, "op_common/HcclExecOpCcuFastLaunch/FastLaunch",
+            tracePerf, slowUs);
+        const HcclUs fastLaunchStartUs = tracePerf ? TIME_NOW() : HcclUs{};
+        CHK_RET(executor->FastLaunch(param, ccuFastLaunchCtx));
+        fastLaunchUs = tracePerf ? static_cast<u64>(DURATION_US(TIME_NOW() - fastLaunchStartUs).count()) : 0;
+    }
+
+    if (tracePerf) {
+        const u64 totalUs = static_cast<u64>(DURATION_US(TIME_NOW() - totalStartUs).count());
+        const std::string stageInfo = "GetExecutor[" + std::to_string(getExecutorUs) + "]us, GetHcclBuffer[" +
+            std::to_string(getBuffUs) + "]us, FastLaunch[" + std::to_string(fastLaunchUs) + "]us";
+        PrintReduceScatterPerfLine("HcclExecOpCcuFastLaunch", param, algName, "fast_launch", true, totalUs,
+            stageInfo);
+    }
+
     HCCL_INFO("[HcclExecOpCcuFastLaunch] HcclExecOpCcuFastLaunch end");
     return HCCL_SUCCESS;
 }
@@ -300,6 +604,23 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
 HcclResult HcclExecOp(HcclComm comm, OpParam &param,
                       std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo, std::string &algName, const ResPackGraphMode &resPack)
 {
+    const bool tracePerf = ShouldTraceReduceScatterPerf(param.opType);
+    const u64 slowUs = tracePerf ? GetEnvU64(HCCL_RS_PERF_SLOW_US_ENV, 0) : 0;
+    HCCL_SCOPED_PERF_ERR_IF(totalScopedZone, "op_common/HcclExecOp", tracePerf, slowUs);
+    totalScopedZone.AppendExtra("tag[" + std::string(param.tag) + "]");
+    totalScopedZone.AppendExtra("alg[" + algName + "]");
+    const HcclUs totalStartUs = tracePerf ? TIME_NOW() : HcclUs{};
+    u64 getExecutorUs = 0;
+    u64 acquireThreadUs = 0;
+    u64 getAlgResUs = 0;
+    u64 dfxRegUs = 0;
+    u64 getRankSizeUs = 0;
+    u64 deserializeUs = 0;
+    u64 captureSlaveUs = 0;
+    u64 orchestrateUs = 0;
+    u64 profilingUs = 0;
+    const char *path = "normal";
+
     uint64_t beginTime = HcommGetProfilingSysCycleTime();
     HCCL_INFO("[HcclExecOp]Start to execute HcclExecOp.HcommGetProfilingSysCycleTime.%llu", beginTime);
     // 在原先的commName中添加执行模式，得到commModeTag
@@ -312,7 +633,15 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
         return HCCL_E_INTERNAL;
     }
 
-    std::unique_ptr<InsCollAlgBase> executor = CollAlgExecRegistryV2::Instance().GetAlgExec(param.opType, algName);
+    std::unique_ptr<InsCollAlgBase> executor;
+    {
+        HCCL_SCOPED_PERF_ERR_IF(getExecutorScopedZone, "op_common/HcclExecOp/GetExecutor", tracePerf, slowUs);
+        const HcclUs getExecutorStartUs = tracePerf ? TIME_NOW() : HcclUs{};
+        executor = CollAlgExecRegistryV2::Instance().GetAlgExec(param.opType, algName);
+        if (tracePerf) {
+            getExecutorUs = static_cast<u64>(DURATION_US(TIME_NOW() - getExecutorStartUs).count());
+        }
+    }
     CHK_PRT_RET(
         executor.get() == nullptr, HCCL_ERROR("Fail to find executor for algName[%s]", algName.c_str()), HCCL_E_PARA);
 
@@ -325,12 +654,25 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     ThreadHandle cpuTsThread{0};
     ThreadHandle exportedAicpuTsThread{0};
     if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
+        HCCL_SCOPED_PERF_ERR_IF(acquireThreadScopedZone, "op_common/HcclExecOp/AcquireThread",
+            tracePerf, slowUs);
+        const HcclUs acquireThreadStartUs = tracePerf ? TIME_NOW() : HcclUs{};
         CHK_RET(HcclThreadAcquireWithStream(comm, COMM_ENGINE_CPU_TS, param.stream, 1, &cpuTsThread));
         // Export cpuTsThread
         CHK_RET(HcclThreadExportToCommEngine(comm, 1, &cpuTsThread, COMM_ENGINE_AICPU_TS, &exportedAicpuTsThread));
+        if (tracePerf) {
+            acquireThreadUs = static_cast<u64>(DURATION_US(TIME_NOW() - acquireThreadStartUs).count());
+        }
     }
 
-    CHK_RET(HcclGetAlgRes(comm, param, executor, topoInfo.get(), resCtxHost, &resCtxSequence, isResourceReused));
+    {
+        HCCL_SCOPED_PERF_ERR_IF(getAlgResScopedZone, "op_common/HcclExecOp/GetAlgRes", tracePerf, slowUs);
+        const HcclUs getAlgResStartUs = tracePerf ? TIME_NOW() : HcclUs{};
+        CHK_RET(HcclGetAlgRes(comm, param, executor, topoInfo.get(), resCtxHost, &resCtxSequence, isResourceReused));
+        if (tracePerf) {
+            getAlgResUs = static_cast<u64>(DURATION_US(TIME_NOW() - getAlgResStartUs).count());
+        }
+    }
 
     // Op注册
     HcclDfxOpInfo hcclDfxOpInfo{};
@@ -341,7 +683,14 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
 
     // rankSize获取指定算子的dataCount
     u32 userRankSize{0};
-    CHK_RET(HcclGetRankSize(comm, &userRankSize));
+    {
+        HCCL_SCOPED_PERF_ERR_IF(getRankSizeScopedZone, "op_common/HcclExecOp/GetRankSize", tracePerf, slowUs);
+        const HcclUs getRankSizeStartUs = tracePerf ? TIME_NOW() : HcclUs{};
+        CHK_RET(HcclGetRankSize(comm, &userRankSize));
+        if (tracePerf) {
+            getRankSizeUs = static_cast<u64>(DURATION_US(TIME_NOW() - getRankSizeStartUs).count());
+        }
+    }
     hcclDfxOpInfo.dataCount = GetHcclDfxOpInfoDataCount(param, userRankSize);
     param.dataCount = hcclDfxOpInfo.dataCount;
     hcclDfxOpInfo.root = param.root;
@@ -352,7 +701,14 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     CHK_PRT_RET(sRet != EOK, HCCL_ERROR("%s call strncpy_s failed, param.algTag %s,  return %d.",
         __func__, param.algTag, sRet), HCCL_E_MEMORY);
 
-    CHK_RET(HcclDfxRegOpInfoByCommId(param.commName, reinterpret_cast<void*>(&hcclDfxOpInfo)));
+    {
+        HCCL_SCOPED_PERF_ERR_IF(dfxRegScopedZone, "op_common/HcclExecOp/DfxReg", tracePerf, slowUs);
+        const HcclUs dfxRegStartUs = tracePerf ? TIME_NOW() : HcclUs{};
+        CHK_RET(HcclDfxRegOpInfoByCommId(param.commName, reinterpret_cast<void*>(&hcclDfxOpInfo)));
+        if (tracePerf) {
+            dfxRegUs = static_cast<u64>(DURATION_US(TIME_NOW() - dfxRegStartUs).count());
+        }
+    }
     ThreadHandle exportedCpuTsThread;
     ThreadHandle mainThread;
     u32 notifyNumOnMainThread;
@@ -381,11 +737,18 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
         CHK_RET(ExecuteAivCacheLogic(param, algName, executor, aivResCtxHost));
         CHK_RET(HcclReportAivKernel(comm, aivBeginTime));
     } else if (param.engine == COMM_ENGINE_CCU) {
+        path = "ccu";
         if (isResourceReused) {
+            HCCL_SCOPED_PERF_ERR_IF(deserializeScopedZone, "op_common/HcclExecOp/DeSerialize",
+                tracePerf, slowUs);
+            const HcclUs deserializeStartUs = tracePerf ? TIME_NOW() : HcclUs{};
             // 复用资源，则需从engineCtx取得res，进行反序列化
             char *ctx = static_cast<char*>(resCtxSequence);
             std::vector<char> seq(ctx, ctx + param.ctxSize);
             resCtxHost->DeSerialize(seq);
+            if (tracePerf) {
+                deserializeUs = static_cast<u64>(DURATION_US(TIME_NOW() - deserializeStartUs).count());
+            }
         }
         int result = sprintf_s(param.algName, sizeof(param.algName), "%s", algName.c_str());
         if (result <= 0) {
@@ -393,20 +756,67 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
             return HCCL_E_INTERNAL;
         }
         if (resCtxHost->slaveThreadNum > 0) {
+            HCCL_SCOPED_PERF_ERR_IF(captureSlaveScopedZone, "op_common/HcclExecOp/CaptureSlave",
+                tracePerf, slowUs);
+            const HcclUs captureSlaveStartUs = tracePerf ? TIME_NOW() : HcclUs{};
             CHK_RET(CaptureSlaveStreams(comm, param.stream, resCtxHost->threads));
+            if (tracePerf) {
+                captureSlaveUs = static_cast<u64>(DURATION_US(TIME_NOW() - captureSlaveStartUs).count());
+            }
         }
-        CHK_RET(executor->Orchestrate(param, *resCtxHost));
+        {
+            HCCL_SCOPED_PERF_ERR_IF(orchestrateScopedZone, "op_common/HcclExecOp/Orchestrate",
+                tracePerf, slowUs);
+            const HcclUs orchestrateStartUs = tracePerf ? TIME_NOW() : HcclUs{};
+            CHK_RET(executor->Orchestrate(param, *resCtxHost));
+            if (tracePerf) {
+                orchestrateUs = static_cast<u64>(DURATION_US(TIME_NOW() - orchestrateStartUs).count());
+            }
+        }
     } else {
+        path = "other_engine";
         if (isResourceReused) {
+            HCCL_SCOPED_PERF_ERR_IF(deserializeScopedZone, "op_common/HcclExecOp/DeSerialize",
+                tracePerf, slowUs);
+            const HcclUs deserializeStartUs = tracePerf ? TIME_NOW() : HcclUs{};
             // 复用资源，则需从engineCtx取得res，进行反序列化
             char *ctx = static_cast<char*>(resCtxSequence);
             std::vector<char> seq(ctx, ctx + param.ctxSize);
             resCtxHost->DeSerialize(seq);
+            if (tracePerf) {
+                deserializeUs = static_cast<u64>(DURATION_US(TIME_NOW() - deserializeStartUs).count());
+            }
         }
-        CHK_RET(executor->Orchestrate(param, *resCtxHost));
+        {
+            HCCL_SCOPED_PERF_ERR_IF(orchestrateScopedZone, "op_common/HcclExecOp/Orchestrate",
+                tracePerf, slowUs);
+            const HcclUs orchestrateStartUs = tracePerf ? TIME_NOW() : HcclUs{};
+            CHK_RET(executor->Orchestrate(param, *resCtxHost));
+            if (tracePerf) {
+                orchestrateUs = static_cast<u64>(DURATION_US(TIME_NOW() - orchestrateStartUs).count());
+            }
+        }
     }
     // op上报
-    CHK_RET(HcclProfilingReportOp(comm, beginTime));
+    {
+        HCCL_SCOPED_PERF_ERR_IF(profilingScopedZone, "op_common/HcclExecOp/ProfilingReport",
+            tracePerf, slowUs);
+        const HcclUs profilingStartUs = tracePerf ? TIME_NOW() : HcclUs{};
+        CHK_RET(HcclProfilingReportOp(comm, beginTime));
+        if (tracePerf) {
+            profilingUs = static_cast<u64>(DURATION_US(TIME_NOW() - profilingStartUs).count());
+        }
+    }
+    if (tracePerf) {
+        const u64 totalUs = static_cast<u64>(DURATION_US(TIME_NOW() - totalStartUs).count());
+        const std::string stageInfo =
+            "GetExecutor[" + std::to_string(getExecutorUs) + "]us, AcquireThread[" + std::to_string(acquireThreadUs) +
+            "]us, GetAlgRes[" + std::to_string(getAlgResUs) + "]us, GetRankSize[" + std::to_string(getRankSizeUs) +
+            "]us, DfxReg[" + std::to_string(dfxRegUs) + "]us, DeSerialize[" + std::to_string(deserializeUs) +
+            "]us, CaptureSlave[" + std::to_string(captureSlaveUs) + "]us, Orchestrate[" + std::to_string(orchestrateUs) +
+            "]us, ProfilingReport[" + std::to_string(profilingUs) + "]us";
+        PrintReduceScatterPerfLine("HcclExecOp", param, algName, path, isResourceReused, totalUs, stageInfo);
+    }
     HCCL_INFO("Execute HcclExecOp success.");
     return HCCL_SUCCESS;
 }
@@ -598,6 +1008,12 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
                          std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, void** resCtxSequence, bool &isResourceReused)
 {
     HCCL_INFO("Start to execute HcclGetAlgRes.");
+    const bool tracePerf = ShouldTraceReduceScatterPerf(param.opType);
+    const u64 slowUs = tracePerf ? GetEnvU64(HCCL_RS_PERF_SLOW_US_ENV, 0) : 0;
+    HCCL_SCOPED_PERF_ERR_IF(totalScopedZone, "op_common/HcclGetAlgRes", tracePerf, slowUs);
+    totalScopedZone.AppendExtra("tag[" + std::string(param.tag) + "]");
+    const HcclUs totalStartUs = tracePerf ? TIME_NOW() : HcclUs{};
+    const char *path = "alloc_new";
 
     void *ctx = nullptr;
     bool increCreateChannelFlag = false;
@@ -618,21 +1034,39 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
             // host dpu申请device内存用于存放resctx
             ctxEngine = COMM_ENGINE_AICPU_TS;
         }
-        if (HcclEngineCtxGet(comm, param.algTag, ctxEngine, &ctx, &size) == HCCL_SUCCESS) {
+        HcclResult ctxGetRet;
+        {
+            HCCL_SCOPED_PERF_ERR_IF(engineCtxReuseScopedZone, "op_common/HcclGetAlgRes/EngineCtxGetReuse",
+                tracePerf, slowUs);
+            ctxGetRet = HcclEngineCtxGet(comm, param.algTag, ctxEngine, &ctx, &size);
+        }
+        if (ctxGetRet == HCCL_SUCCESS) {
             HCCL_DEBUG("Already have context, skip create, ctxSize is %u", param.ctxSize);
             isResourceReused = true;
             *resCtxSequence = ctx;
             param.ctxSize = size;
+            if (tracePerf) {
+                const u64 totalUs = static_cast<u64>(DURATION_US(TIME_NOW() - totalStartUs).count());
+                PrintReduceScatterPerfLine("HcclGetAlgRes", param, "NA", "engine_ctx_reuse_hit", true, totalUs,
+                    "EngineCtxGetReuseHit");
+            }
             return HCCL_SUCCESS;
         }
     }
 
     // 计算AlgHierarchyInfo
     AlgHierarchyInfoForAllLevel algHierarchyInfo;  // 分级通信域信息{localRankId, localRankSize}
-    CHK_RET(executor->CalcAlgHierarchyInfo(comm, topoInfo, algHierarchyInfo));
+    {
+        HCCL_SCOPED_PERF_ERR_IF(calcHierarchyScopedZone, "op_common/HcclGetAlgRes/CalcAlgHierarchyInfo",
+            tracePerf, slowUs);
+        CHK_RET(executor->CalcAlgHierarchyInfo(comm, topoInfo, algHierarchyInfo));
+    }
     // 资源计算
     AlgResourceRequest resRequest;
-    CHK_RET(executor->CalcRes(comm, param, topoInfo, algHierarchyInfo, resRequest));
+    {
+        HCCL_SCOPED_PERF_ERR_IF(calcResScopedZone, "op_common/HcclGetAlgRes/CalcRes", tracePerf, slowUs);
+        CHK_RET(executor->CalcRes(comm, param, topoInfo, algHierarchyInfo, resRequest));
+    }
 
     // host侧资源
     if (param.engine == COMM_ENGINE_RESERVED) {
@@ -655,6 +1089,11 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
         HCCL_ERROR("fail to get engine.", HCCL_E_PARA);
     }
     param.ctxSize = size;
+    if (tracePerf) {
+        const u64 totalUs = static_cast<u64>(DURATION_US(TIME_NOW() - totalStartUs).count());
+        PrintReduceScatterPerfLine("HcclGetAlgRes", param, "NA", path, isResourceReused, totalUs,
+            "CalcAlgHierarchyInfo+CalcRes+AllocRes");
+    }
     return HCCL_SUCCESS;
 }
 
