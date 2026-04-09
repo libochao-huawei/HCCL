@@ -262,15 +262,15 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
         HcclResult::HCCL_E_INTERNAL);
 
     // 第0条流是全局主流
-    intraThreads_ = {threads_.at(1 + stage)};
-    intraThreads_.insert(intraThreads_.end(), threads_.begin() + stageSize_ + 1,
+    intraTempAlgRes_.threads = {threads_.at(1 + stage)};
+    intraTempAlgRes_.threads.insert(intraTempAlgRes_.threads.end(), threads_.begin() + stageSize_ + 1,
         threads_.begin() + stageSize_ + intraThreadsNum.at(stage));
-    interThreads_ = {threads_.at(intraThreadsNumMax + stageSize_ + stage)};
-    interThreads_.insert(interThreads_.end(), threads_.begin() + intraThreadsNumMax + stageSize_ + stageSize_,
-        threads_.end());
+    interTempAlgRes_.threads = {threads_.at(intraThreadsNumMax + stageSize_ + stage)};
+    interTempAlgRes_.threads.insert(interTempAlgRes_.threads.end(),
+        threads_.begin() + intraThreadsNumMax + stageSize_ + stageSize_, threads_.end());
 
     mainThread_ = threads_.at(0);
-    templateMainThreads_ = {intraThreads_.at(0), interThreads_.at(0)};
+    templateMainThreads_ = {intraTempAlgRes_.threads.at(0), interTempAlgRes_.threads.at(0)};
 
     syncNotifyOnTemplates_ = {tempRequestArr.at(stage).at(0).notifyNumOnMainThread,
                               tempRequestArr.at(stage).at(1).notifyNumOnMainThread};
@@ -296,10 +296,7 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
         interTempAlgRes_.channels = interLinks_;
     }
 
-    intraTempAlgRes_.threads = intraThreads_;
     intraTempAlgRes_.aivCommInfoPtr = resCtx_.aivCommInfoPtr;
-
-    interTempAlgRes_.threads = interThreads_;
     interTempAlgRes_.aivCommInfoPtr = resCtx_.aivCommInfoPtr;
 
     return HCCL_SUCCESS;
