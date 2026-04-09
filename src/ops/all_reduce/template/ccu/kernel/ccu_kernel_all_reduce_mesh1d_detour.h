@@ -79,6 +79,15 @@ private:
     void ReduceScatterSecondStep();
     void AllGatherFirstStep();
     void AllGatherSecondStep();
+    void InitResources();
+    void PreSync();
+    void PostSync();
+    void CreateResource(uint32_t msInterleave);
+    void DoLocalReduce(HcclDataType &dataType, HcclDataType &outputDataType, HcclReduceOp &opType, 
+                       std::vector<std::vector<CcuRep::CcuBuf>> &bufs, std::vector<CcuRep::Variable> &lengths, 
+                       std::vector<CcuRep::CompletedEvent> &sems);
+    void CreateReduceLoop(HcclDataType &dataType, HcclDataType &outputDataType, HcclReduceOp &opType);
+    void CreateBroadcastLoop();
 
     uint64_t rankSize_{0};
     uint32_t rankId_{0};
