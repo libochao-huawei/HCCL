@@ -551,7 +551,7 @@ struct HcomProInfo {
 // 图模式相关定义
 // 图模式编译阶段资源计算入参
 struct OpParamGraphMode {
-    char opTypeStr[64]; // 算子类型
+    char opType[64]; // 算子类型
     u64 dataCount;
     u32 rankSize;
     u64 hcclBufferSize;
@@ -562,7 +562,7 @@ struct OpParamGraphMode {
     void* counts = nullptr;
     HcclDataType dataType = HCCL_DATA_TYPE_RESERVED;
     HcclReduceOp op = HcclReduceOp::HCCL_REDUCE_RESERVED;
-    HcclCMDType opType = HcclCMDType::HCCL_CMD_INVALID;
+    HcclCMDType opTypeAiv = HcclCMDType::HCCL_CMD_INVALID;
     u32 aivCoreLimit = 0;
     bool ifAiv = false;
 };
