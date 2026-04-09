@@ -174,7 +174,7 @@ HcclResult FillAllReduceOpParam(void *sendBuf, void *recvBuf, uint64_t count, Hc
 }
 
 HcclResult AllReduceOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType,
-                                   HcclReduceOp op, HcclComm comm, aclrtStream stream, const std::string &tag, OpMode opMode, const ResPackGraphMode &resPack, OpParam &param)
+                                   HcclReduceOp op, HcclComm comm, aclrtStream stream, OpMode opMode, const ResPackGraphMode &resPack, OpParam &param)
 {
     HCCL_INFO("Start to execute AllReduceOutPlace");
 

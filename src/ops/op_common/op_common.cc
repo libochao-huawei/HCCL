@@ -145,6 +145,84 @@ uint32_t GetHcclDfxOpInfoDataType(const OpParam &param) {
     return dataType;
 }
 
+HcclResult AppendFastLaunchTag(OpParam &param, const char* dataTypeStr, 
+    const char* reduceOpStr, const char* countStr, const char* rootStr)
+{
+    char* dst = param.fastLaunchTag;
+    size_t remain = sizeof(param.fastLaunchTag);
+
+    auto append_str = [&](const char* s) -> bool {
+        if (!s) return true;
+        size_t len = strlen(s);
+        if (len >= remain) return false;
+        memcpy(dst, s, len);
+        dst += len;
+        remain -= len;
+        return true;
+    };
+
+    if (!append_str(param.tag) || !append_str("_") || !append_str(dataTypeStr)) {
+        goto fail;
+    }
+    if (reduceOpStr && (!append_str("_")) || !append_str(reduceOpStr)) {
+        goto fail;
+    }
+    if (countStr && (!append_str("_")) || !append_str(countStr)) {
+        goto fail;
+    }
+    if (rootStr && (!append_str("_r")) || !append_str(rootStr)) {
+        goto fail;
+    }
+    *dst = '\0';
+    HCCL_DEBUG("[SetOpParamFastLaunchTag] fastLaunchTag: [%s]", param.fastLaunchTag);
+    return HcclResult::HCCL_SUCCESS;
+
+fail:
+    HCCL_ERROR("failed to fill fastLaunchTag");
+    return HcclResult::HCCL_E_INTERNAL;
+}
+
+HcclResult SetOpParamFastLaunchTag(OpParam &param)
+{
+    // 1. 数据类型
+    const char* dataTypeStr = nullptr;
+    if(param.opType == HcclCMDType::HCCL_CMD_ALLTOALL || param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
+        param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
+        dataTypeStr = GetHcclDataTypeStr(param.all2AllVDataDes.sendType);
+    } else {
+        dataTypeStr = GetHcclDataTypeStr(param.DataDes.dataType);
+    }
+    CHK_PRT_RET((!dataTypeStr), HCCL_ERROR("unsupported data type"), HcclResult::HCCL_E_INTERNAL);
+    // 2. reduce op
+    const char* reduceOpStr = nullptr;
+    if (param.opType == HcclCMDType::HCCL_CMD_ALLREDUCE || param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER ||
+        param.opType == HcclCMDType::HCCL_CMD_REDUCE    || param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V) {
+        reduceOpStr = GetHcclReduceOpStr(param.reduceType);
+        CHK_PRT_RET((!reduceOpStr), HCCL_ERROR("unsupported reduce op"), HcclResult::HCCL_E_INTERNAL);
+    }
+    // 3. count
+    char countBuf[32];
+    const char* countStr = nullptr;
+    if (param.opType != HcclCMDType::HCCL_CMD_ALLTOALLV) {
+        u64 count = (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL) ? *reinterpret_cast<u64*>(param.all2AllVDataDes.sendCounts)
+                                                                     : param.DataDes.count;
+        int countLen = snprintf_s(countBuf, sizeof(countBuf), sizeof(countBuf) - 1, "%llu", count);
+        CHK_PRT_RET((countLen <= 0), HCCL_ERROR("failed to format count"), HcclResult::HCCL_E_INTERNAL);
+        countStr = countBuf;
+    }
+    // 4. root
+    char rootBuf[10];
+    const char* rootStr = nullptr;
+    if (param.opType == HcclCMDType::HCCL_CMD_REDUCE || param.opType == HcclCMDType::HCCL_CMD_SCATTER ||
+        param.opType == HcclCMDType::HCCL_CMD_BROADCAST) {
+        int rootLen = snprintf_s(rootBuf, sizeof(rootBuf), sizeof(rootBuf) - 1, "%llu", static_cast<uint64_t>(param.root));
+        CHK_PRT_RET((rootLen <= 0), HCCL_ERROR("failed to format root"), HcclResult::HCCL_E_INTERNAL);
+        rootStr = rootBuf;
+    }
+    // 5 一次性拼接
+    return AppendFastLaunchTag(param, dataTypeStr, reduceOpStr, countStr, rootStr);
+}
+
 HcclResult SetOpParamFastLaunchTag(OpParam &param)
 {
     HcclDataType tmpDataType;
