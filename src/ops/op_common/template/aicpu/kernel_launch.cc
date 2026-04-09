@@ -259,28 +259,33 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
     if (param->deviceType == DevType::DEV_TYPE_910_95) {
     #endif
         AlgResourceCtxSerializable resCtx;
-
-        //通过缓存实现反序列化优化
-        AlgResourceCtxSerializable* cachedResCtx = g_cacheManager.Get(param->algTag, param->commName);
-        if (cachedResCtx != nullptr) {
-            HCCL_INFO("[%s] Cache HIT for algTag[%s]", __func__, param->algTag);
-            std::string commName = g_cacheManager.ExtractCommName(param->algTag);
-            if (commName.empty()) commName = param->commName;
-
-            CacheStats stats;
-            size_t cacheSize;
-            if (g_cacheManager.GetCommStats(commName, stats, cacheSize)) {
-                HCCL_DEBUG("[%s] comm[%s] hitRate=%.2f%%, cacheSize=%zu",
-                __func__, commName.c_str(), stats.hitRate() * 100, cacheSize);
-            resCtx = *cachedResCtx;
-            }
-        } else {
-            //未命中，进行反序列化并存入缓存
+        if (param->opType == HcclCMDType::HCCL_CMD_BATCH_SEND_RECV) {
             char *ctx = static_cast<char *>(param->resCtx);
             std::vector<char> seq(ctx, ctx + param->ctxSize);
             resCtx.DeSerialize(seq);
-            g_cacheManager.Put(param->algTag, resCtx, param->commName);
-            HCCL_INFO("[%s] Cache MISS and stored for algTag[%s]", __func__, param->algTag);
+        } else {
+            //通过缓存实现反序列化优化
+            AlgResourceCtxSerializable* cachedResCtx = g_cacheManager.Get(param->algTag, param->commName);
+            if (cachedResCtx != nullptr) {
+                HCCL_INFO("[%s] Cache HIT for algTag[%s]", __func__, param->algTag);
+                std::string commName = g_cacheManager.ExtractCommName(param->algTag);
+                if (commName.empty()) commName = param->commName;
+
+                CacheStats stats;
+                size_t cacheSize;
+                if (g_cacheManager.GetCommStats(commName, stats, cacheSize)) {
+                    HCCL_DEBUG("[%s] comm[%s] hitRate=%.2f%%, cacheSize=%zu",
+                    __func__, commName.c_str(), stats.hitRate() * 100, cacheSize);
+                resCtx = *cachedResCtx;
+                }
+            } else {
+                //未命中，进行反序列化并存入缓存
+                char *ctx = static_cast<char *>(param->resCtx);
+                std::vector<char> seq(ctx, ctx + param->ctxSize);
+                resCtx.DeSerialize(seq);
+                g_cacheManager.Put(param->algTag, resCtx, param->commName);
+                HCCL_INFO("[%s] Cache MISS and stored for algTag[%s]", __func__, param->algTag);
+            }
         }
 
         // 还原变长指针
