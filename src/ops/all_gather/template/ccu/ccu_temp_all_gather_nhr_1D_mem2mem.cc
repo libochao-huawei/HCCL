@@ -96,10 +96,10 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::FastLaunch(const OpParam& param, const 
             PointerToAddr(buffInfo_.outputPtr) + args[1],
             args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12]);
 
-        void* taskArgPtr = static_cast<void*>(&taskArg);
+        void* taskArgPointer = static_cast<void*>(&taskArg);
 
         CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0],
-            tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr));
+            tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPointer));
     }
     // 后流同步
     if (kernelNum > 1) {

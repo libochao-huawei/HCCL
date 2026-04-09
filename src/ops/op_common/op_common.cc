@@ -155,7 +155,7 @@ HcclResult AppendFastLaunchTag(OpParam &param, const char* dataTypeStr,
         if (!s) return true;
         size_t len = strlen(s);
         if (len >= remain) return false;
-        memcpy(dst, s, len);
+        memcpy_s(dst, remain, s, len);
         dst += len;
         remain -= len;
         return true;
