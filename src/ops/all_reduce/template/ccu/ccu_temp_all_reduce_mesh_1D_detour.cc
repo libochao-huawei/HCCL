@@ -130,7 +130,7 @@ HcclResult CcuTempAllReduceMesh1DDetour::CalcRes(HcclComm comm, const OpParam& p
 {   
     // 当前仅支持2P或4P
     CHK_PRT_RET(templateRankSize_ != 2 && templateRankSize_ != 4,
-        HCCL_INFO("[CcuTempAllReduceMeshDetour1D] Invalid RankSize[%u].", templateRankSize_), HcclResult::HCCL_E_INTERNAL);
+        HCCL_ERROR("[CcuTempAllReduceMeshDetour1D] Invalid RankSize[%u].", templateRankSize_), HcclResult::HCCL_E_INTERNAL);
     std::vector<HcclChannelDesc> channelDescs;
     std::vector<u32> channelsIndexVec;
     CHK_RET(CalcChannelRequestMesh1DDetour(comm, param, topoInfo, subCommRanks_, channelDescs, channelsIndexVec));
@@ -173,7 +173,10 @@ HcclResult CcuTempAllReduceMesh1DDetour::CalcRes(HcclComm comm, const OpParam& p
 
 HcclResult CcuTempAllReduceMesh1DDetour::KernelRun(const OpParam& param, const TemplateDataParams& templateDataParams,
                                                    TemplateResource& templateResource)
-{
+{   
+    u32 linkNum = templateResource.channelNums[0];
+    pathNumPerPeer_ = (templateRankSize_ == 2) ? ((linkNum - 1) / 2 + 1) : (1 + 2);
+    HCCL_INFO("[zzy] pathNumPerPeer_[%llu], linkNum[%u]", pathNumPerPeer_, linkNum);
     buffInfo_ = templateDataParams.buffInfo;
     RankSliceInfo sliceInfoVec;
     CHK_RET(CalcSliceInfo(templateDataParams.sliceSize, sliceInfoVec));
