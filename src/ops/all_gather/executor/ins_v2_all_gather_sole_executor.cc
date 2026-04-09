@@ -294,7 +294,7 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherNHR1DMem2MemUBX, I
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherMesh1DMem2MemUBX, InsV2AllGatherSoleExecutor, TopoMatchUBX,
                  CcuTempAllGatherMesh1DMem2Mem);
 
-REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherMesh1DDetour, InsV2AllReduceSoleExecutor, TopoMatch1D, 
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherMesh1DDetour, InsV2AllGatherSoleExecutor, TopoMatch1D, 
                 CcuTempAllGatherMesh1DDetour);
 #endif
 }  // namespace ops_hccl
