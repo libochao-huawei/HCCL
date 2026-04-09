@@ -18,7 +18,7 @@
 extern "C" {
 #endif
 
-DECL_SUPPORT_FLAG(HcclCommGetStatus);
+DECL_SUPPORT_FLAG(HcclCommGetStatusByName);
 
 void HcclDeviceCommDlInit(void* libHcommHandle);
 

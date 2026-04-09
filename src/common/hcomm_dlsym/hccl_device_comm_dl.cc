@@ -13,9 +13,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-DEFINE_WEAK_FUNC(HcclResult, HcclCommGetStatus, const char* commId, HcclCommStatus *status);
+DEFINE_WEAK_FUNC(HcclResult, HcclCommGetStatusByName, const char* commId, HcclCommStatus *status);
 
 // 初始化
 void HcclDeviceCommDlInit(void* libHcommHandle) {
-    INIT_SUPPORT_FLAG(libHcommHandle, HcclCommGetStatus);
+    INIT_SUPPORT_FLAG(libHcommHandle, HcclCommGetStatusByName);
 }
