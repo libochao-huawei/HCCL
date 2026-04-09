@@ -127,7 +127,7 @@ HcclResult InsTempScatterNHR::KernelRun(const OpParam& param, const TemplateData
     dataType_ = param.DataDes.dataType;
     HCCL_INFO("[InsTempScatterNHR] queNum_ =  [%d], threads size = [%d]", threadNum_, templateResource.threads.size());
     HCCL_INFO("[InsTempScatterNHR] Run Start");
-    CHK_PRT_RET(threads.empty(), 
+    CHK_PRT_RET(templateResource.threads.empty(), 
         HCCL_ERROR("[InsTempScatterNHR][KernelRun] threads is empty"), 
         HCCL_E_INTERNAL);
     CHK_PRT_RET(threadNum_ != templateResource.threads.size(),
