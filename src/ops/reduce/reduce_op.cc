@@ -285,7 +285,7 @@ HcclResult ReduceOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t count, Hc
 }
 
 HcclResult ReduceEntryLog(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
-    uint32_t root, aclrtStream stream, const std::string &tag, const std::string &opName)
+    uint32_t root, aclrtStream stream, const char *tag, const std::string &opName)
 {
     if (GetExternalInputHcclEnableEntryLog()) {
         s32 deviceLogicId = 0;
