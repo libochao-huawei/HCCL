@@ -18,7 +18,8 @@
 extern "C" {
 #endif
 
-DECL_SUPPORT_FLAG(HcclCommGetStatus);
+DECL_SUPPORT_FLAG(HcclCommGetStatusTmp);
+DECL_WEAK_FUNC(HcclResult, HcclCommGetStatusTmp, const char* commId, HcclCommStatus *status);
 
 void HcclCommDlInit(void* libHcommHandle);
 
