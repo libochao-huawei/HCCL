@@ -159,6 +159,8 @@ void CcuKernelAllGatherMeshDetour1D::CreateMultiOpBroadcastDetour()
             for (uint64_t j = 0; j < rankSize_ - 1; j++) {
                 WriteNb(detourChannels_[i][j], dst[i * rankSize_ + j], bufs[i], lengths[i], sems[i]);
             }
+            localDst_.addr = dst[i * rankSize_ + rankSize_ - 1].addr;
+            localDst_.token = dst[i * rankSize_ + rankSize_ - 1].token;
             LocalCopyNb(localDst_, bufs[i], lengths[i], sems[i]);
         }
         // 等待给所有远端写完数据
