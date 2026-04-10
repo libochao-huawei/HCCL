@@ -45,7 +45,9 @@ HcclResult HcclReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType
     CHK_PRT_RET(count == 0, HCCL_WARNING("input count is 0, return reduce success"), HCCL_SUCCESS);
 
     std::string opTag;
+    HCCL_INFO("xjhlog1 count is [%lu]", count);
     CHK_RET(ReduceInitAndCheck(comm, sendBuf, recvBuf, count, dataType, op, stream, opTag));
+    HCCL_INFO("xjhlog2 count is [%lu]", count);
 
     CHK_RET(ReduceEntryLog(sendBuf, recvBuf, count, dataType, op, root, stream, opTag, "HcclReduce"));
 
@@ -158,6 +160,7 @@ HcclResult ReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclData
     uint32_t root, HcclComm comm, aclrtStream stream, const std::string &tag)
 {
     HCCL_INFO("Start to execute ReduceOutPlace");
+    HCCL_INFO("xjhlog3 count is [%lu]", count);
     CHK_RET(ReduceOutPlaceCommon(sendBuf, recvBuf, count, dataType, op, root, comm, stream, tag, OpMode::OPBASE,
         ResPackGraphMode()));
     HCCL_INFO("Execute ReduceOutPlace success.");
@@ -218,7 +221,10 @@ HcclResult ReduceOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t count, Hc
     CHK_RET(HcclGetRankSize(comm, &userRankSize));
 
     OpParam param;
+    HCCL_INFO("xjhlog4 count is [%lu]", count);
     CHK_RET(ReduceConstructOpParam(sendBuf, recvBuf, count, dataType, op, root, comm, stream, tag, param));
+    HCCL_INFO("xjhlog5 count is [%lu]", count);
+    HCCL_INFO("xjhlog6 count is [%lu]", param.DataDes.count);
 
     CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
     if ((opMode == OpMode::OPBASE) && ShouldGoCcuFastLaunch(comm, param, &ccuFastLaunchCtx)) {
