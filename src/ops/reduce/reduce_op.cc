@@ -295,9 +295,9 @@ HcclResult ReduceEntryLog(void *sendBuf, void *recvBuf, uint64_t count, HcclData
         char stackLogBuffer[LOG_TMPBUF_SIZE];
         s32 ret = snprintf_s(stackLogBuffer, LOG_TMPBUF_SIZE, LOG_TMPBUF_SIZE - 1U,
             "tag[%s], sendBuf[%p], recvBuf[%p], count[%llu], dataType[%s], reduceOp[%s], root[%u], streamId[%d], deviceLogicId[%d]",
-            tag.c_str(), sendBuf, recvBuf, count, GetDataTypeEnumStr(dataType).c_str(), GetReduceOpEnumStr(op).c_str(), root, streamId, deviceLogicId);
+            tag, sendBuf, recvBuf, count, GetDataTypeEnumStr(dataType).c_str(), GetReduceOpEnumStr(op).c_str(), root, streamId, deviceLogicId);
 
-        CHK_PRT_CONT(ret == -1, HCCL_WARNING("Failed to build log info, tag[%s].", tag.c_str()));
+        CHK_PRT_CONT(ret == -1, HCCL_WARNING("Failed to build log info, tag[%s].", tag));
         std::string logInfo = "Entry-" + opName + ":" + std::string(stackLogBuffer);
         HCCL_RUN_INFO("%s", logInfo.c_str());
     }
