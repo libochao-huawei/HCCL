@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ProjectIdCacheService">
-    <option name="lastModifyFilePath" value="$PROJECT_DIR$/src/ops/all_gather/template/ccu/ccu_temp_all_gather_nhr_1D_mem2mem.cc" />
+    <option name="lastModifyFilePath" value="$PROJECT_DIR$/src/ops/reduce/reduce_op.cc" />
   </component>
 </project>

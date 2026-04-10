@@ -44,18 +44,16 @@ HcclResult HcclReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType
     HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
     CHK_PRT_RET(count == 0, HCCL_WARNING("input count is 0, return reduce success"), HCCL_SUCCESS);
 
-    std::string opTag;
-    HCCL_INFO("xjhlog1 count is [%lu]", count);
-    CHK_RET(ReduceInitAndCheck(comm, sendBuf, recvBuf, count, dataType, op, stream, opTag));
-    HCCL_INFO("xjhlog2 count is [%lu]", count);
+    OpParam param;
+    CHK_RET(ReduceInitAndCheck(comm, sendBuf, recvBuf, count, dataType, op, stream, param));
 
-    CHK_RET(ReduceEntryLog(sendBuf, recvBuf, count, dataType, op, root, stream, opTag, "HcclReduce"));
+    CHK_RET(ReduceEntryLog(sendBuf, recvBuf, count, dataType, op, root, stream, param.tag, "HcclReduce"));
 
     // 执行Reduce
-    CHK_RET_AND_PRINT_IDE(ReduceOutPlace(sendBuf, recvBuf, count, dataType, op, root, comm, stream, opTag),
-        opTag.c_str());
+    CHK_RET_AND_PRINT_IDE(ReduceOutPlace(sendBuf, recvBuf, count, dataType, op, root, comm, stream),
+        param.tag);
 
-    CHK_RET(LogHcclExit("HcclReduce", opTag.c_str(), startut));
+    CHK_RET(LogHcclExit("HcclReduce", param.tag, startut));
 
     return HCCL_SUCCESS;
 }
@@ -66,6 +64,7 @@ HcclResult HcclReduceGraphMode(void *sendBuf, void *recvBuf, uint64_t count, Hcc
 {
     HCCL_INFO("Start to run execute HcclReduceGraphMode");
     // 根据group获取通信域
+    OpParam param;
     HcclComm comm = nullptr;
     HCCL_INFO("[HcclReduceGraphMode] get group name: %s", group);
     HcomGetCommHandleByGroup(group, &comm);
@@ -73,8 +72,7 @@ HcclResult HcclReduceGraphMode(void *sendBuf, void *recvBuf, uint64_t count, Hcc
     HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
     CHK_PRT_RET(count == 0, HCCL_WARNING("input count is 0, return reduce success"), HCCL_SUCCESS);
 
-    std::string opTag;
-    CHK_RET(ReduceInitAndCheck(comm, sendBuf, recvBuf, count, dataType, op, stream, opTag));
+    CHK_RET(ReduceInitAndCheck(comm, sendBuf, recvBuf, count, dataType, op, stream, param));
 
     CHK_RET(HcclCheckTag(tag));
 
@@ -92,13 +90,13 @@ HcclResult HcclReduceGraphMode(void *sendBuf, void *recvBuf, uint64_t count, Hcc
     resPack.scratchMemAddr = scratchMemAddr;
     resPack.scratchMemSize = scratchMemSize;
 
-    CHK_RET(ReduceEntryLog(sendBuf, recvBuf, count, dataType, op, root, stream, opTag, "HcclReduceGraphMode"));
+    CHK_RET(ReduceEntryLog(sendBuf, recvBuf, count, dataType, op, root, stream, param.tag, "HcclReduceGraphMode"));
 
     // 执行
     CHK_RET_AND_PRINT_IDE(ReduceOutPlaceGraphMode(sendBuf, recvBuf, count, dataType, op, root, comm, stream,
         std::string(tag), resPack), tag);
 
-    CHK_RET(LogHcclExit("HcclReduceGraphMode", opTag.c_str(), startut));
+    CHK_RET(LogHcclExit("HcclReduceGraphMode", param.tag, startut));
 
     return HCCL_SUCCESS;
 }
@@ -131,17 +129,17 @@ HcclResult CheckReduceInputPara(const HcclComm comm, const void* sendBuf, const 
 }
 
 HcclResult ReduceInitAndCheck(HcclComm comm, void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType,
-    HcclReduceOp op, aclrtStream stream, std::string &opTag)
+    HcclReduceOp op, aclrtStream stream, OpParam &param)
 {
     // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
     CHK_RET(InitEnvConfig());
     // 检查入参指针有效性
     CHK_RET(CheckReduceInputPara(comm, sendBuf, recvBuf, stream));
     // tag有效性，是否过长
-    char commName[COMM_INDENTIFIER_MAX_LENGTH];
-    CHK_RET(HcclGetCommName(comm, commName));
-    opTag = "Reduce_" + string(commName);
-    CHK_RET(HcclCheckTag(opTag.c_str()));
+    CHK_RET(HcclGetCommName(comm, param.commName));
+    int ret = sprintf_s(param.tag, sizeof(param.tag), "Reduce_%s", param.commName);
+    CHK_PRT_RET((ret <= 0), "failed to fill param.tag", HCCL_E_INTERNAL);
+    CHK_RET(HcclCheckTag(param.tag));
     // 检查count是否合法（超出系统上限）
     CHK_RET(CheckCount(count));
     // 检查数据类型是否支持
@@ -152,17 +150,58 @@ HcclResult ReduceInitAndCheck(HcclComm comm, void *sendBuf, void *recvBuf, uint6
     CHK_RET(HcclGetRankSize(comm, &rankSize));
     u32 userRank = INVALID_VALUE_RANKID;
     CHK_RET(HcclGetRankId(comm, &userRank));
-    CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), opTag.c_str());
+    CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), param.tag);
     return HCCL_SUCCESS;
 }
 
-HcclResult ReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
-    uint32_t root, HcclComm comm, aclrtStream stream, const std::string &tag)
+HcclResult ReduceOutPlace(OpParam &param, void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
+    uint32_t root, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("Start to execute ReduceOutPlace");
-    HCCL_INFO("xjhlog3 count is [%lu]", count);
-    CHK_RET(ReduceOutPlaceCommon(sendBuf, recvBuf, count, dataType, op, root, comm, stream, tag, OpMode::OPBASE,
-        ResPackGraphMode()));
+    u32 userRankSize = 0;
+    CHK_RET(HcclGetRankSize(comm, &userRankSize));
+
+    u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
+    u64 totalSize = count * perDataSize;
+
+    CHK_RET(HcclGetCommName(comm, param.commName));
+    param.stream = stream;
+    param.reduceType = op;
+    param.opMode = OpMode::OPBASE;
+
+    DevType deviceType = DevType::DEV_TYPE_COUNT;
+    CHK_RET(hrtGetDeviceType(deviceType));
+
+    // 参数准备
+    param.inputPtr = sendBuf;
+    param.inputSize = totalSize;
+    param.outputPtr = recvBuf;
+    param.outputSize = totalSize;
+    param.DataDes.count = count;
+    param.DataDes.dataType = dataType;
+    param.opType = HcclCMDType::HCCL_CMD_REDUCE;
+    param.enableDetour = false;
+    param.deviceType = deviceType;
+    param.root = root;
+
+    CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
+    if (ShouldGoCcuFastLaunch(comm, param, &ccuFastLaunchCtx)) {
+        return HcclExecOpCcuFastLaunch(comm, param, ccuFastLaunchCtx);
+    }
+
+    if (userRankSize == 1) {
+        HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
+        CHK_RET(SingleRankProc(param));
+        return HcclResult::HCCL_SUCCESS;
+    }
+
+    std::string algName;
+    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
+    CHK_RET(Selector(comm, param, topoInfo, algName));
+    if (ShouldUseInnerOp(param.opExecuteConfig)) {
+        return HcclReduceInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
+    }
+    CHK_RET(HcclExecOp(comm, param, topoInfo, algName, resPack));
     HCCL_INFO("Execute ReduceOutPlace success.");
     return HCCL_SUCCESS;
 }
@@ -221,10 +260,7 @@ HcclResult ReduceOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t count, Hc
     CHK_RET(HcclGetRankSize(comm, &userRankSize));
 
     OpParam param;
-    HCCL_INFO("xjhlog4 count is [%lu]", count);
     CHK_RET(ReduceConstructOpParam(sendBuf, recvBuf, count, dataType, op, root, comm, stream, tag, param));
-    HCCL_INFO("xjhlog5 count is [%lu]", count);
-    HCCL_INFO("xjhlog6 count is [%lu]", param.DataDes.count);
 
     CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
     if ((opMode == OpMode::OPBASE) && ShouldGoCcuFastLaunch(comm, param, &ccuFastLaunchCtx)) {
