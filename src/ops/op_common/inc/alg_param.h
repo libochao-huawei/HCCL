@@ -32,7 +32,7 @@ constexpr uint64_t UB_MAX_DATA_SIZE = 256*1024*1024; // Byte, UB协议一次传�
 
 constexpr uint32_t DATATYPE_SIZE_TABLE[HCCL_DATA_TYPE_RESERVED] = {sizeof(int8_t), sizeof(int16_t), sizeof(int32_t),
     2, sizeof(float), sizeof(int64_t), sizeof(uint64_t), sizeof(uint8_t), sizeof(uint16_t), sizeof(uint32_t),
-    8, 2, 16, 2, 1, 1, 1, 1, 1};
+    8, 2, 16, 2, 1, 1, 1, 1};
 
 constexpr u32 COMM_INDENTIFIER_MAX_LENGTH = 128;
 constexpr uint32_t OP_NAME_LENGTH = 32;
@@ -59,6 +59,8 @@ constexpr u32 ALG_MAX_LENGTH = 128;
 constexpr u64 ALL_TO_ALL_V_VECTOR_NUM = 4;
 constexpr u64 REDUCE_SCATTER_V_VECTOR_NUM = 2;
 constexpr u64 ALL_GATHER_V_VECTOR_NUM = 2;
+
+constexpr uint64_t GE_PARALLEL = 36;
 
 enum class TopoType {
     TOPO_TYPE_COMMON = 0,           // 普通拓扑类型 ，default单层拓扑使用
@@ -452,6 +454,7 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     HcclMem hcclBuff;   // 当前仅快速下发时使用此处的地址
     HcclReduceOp reduceType = HcclReduceOp::HCCL_REDUCE_RESERVED;
     u32 root = INVALID_VALUE_RANKID;
+    u32 userRank = INVALID_VALUE_RANKID;
     u32 sendRecvRemoteRank = INVALID_VALUE_RANKID;
     OpMode opMode;
     bool   enableDetour{false};
@@ -505,6 +508,8 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     u64 ctxSize = 0;
     void* resCtx = nullptr;
     ThreadHandle opThread = 0;
+    u32 aicpuRecordCpuIdx = 0; // aicpu record host的notifyIdx
+    u32 dataCount = 0; // 算子上报dfx的数据量
     u64 varMemSize{0};
     u8 varData[0];
 };
@@ -548,6 +553,10 @@ struct HcomProInfo {
 // 图模式编译阶段资源计算入参
 struct OpParamGraphMode {
     char opType[64]; // 算子类型
+    u64 dataCount;
+    u32 rankSize;
+    HcclDataType dataType;
+    u64 hcclBufferSize;
 };
 
 // 图模式编译阶段申请资源

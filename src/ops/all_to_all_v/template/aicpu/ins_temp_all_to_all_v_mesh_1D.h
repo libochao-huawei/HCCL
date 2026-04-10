@@ -19,6 +19,7 @@ namespace ops_hccl {
 
 class InsTempAlltoAllVMesh1D : public InsAlgTemplateBase {
 public:
+    InsTempAlltoAllVMesh1D() = default;
     explicit InsTempAlltoAllVMesh1D(const OpParam& param, const u32 rankId,
         const std::vector<std::vector<u32>> &subCommRanks);
 
@@ -34,7 +35,7 @@ public:
     // 现在的RunAsync就是之前的GenExtIns
     HcclResult KernelRun(const OpParam& param,
                          const TemplateDataParams& tempAlgParams,
-                         const TemplateResource& templateResource) override;
+                         TemplateResource& templateResource) override;
     HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                         AlgResourceRequest& resourceRequest) override;
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;

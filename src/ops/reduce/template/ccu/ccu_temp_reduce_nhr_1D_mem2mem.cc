@@ -177,24 +177,59 @@ HcclResult CcuTempReduceNHR1DMem2Mem::CalcRes(HcclComm comm, const OpParam& para
     return HcclResult::HCCL_SUCCESS;
 }
 
+HcclResult CcuTempReduceNHR1DMem2Mem::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+{
+    HCCL_DEBUG("[CcuTempReduceNHR1DMem2Mem::FastLaunch] start");
+    u32 kernelNum = tempFastLaunchCtx.ccuKernelSubmitInfos.size();
+    buffInfo_ = tempFastLaunchCtx.buffInfo;
+    const uint64_t *cachedArgs = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
+    // 前流同步
+    if (kernelNum > 1) {
+        std::vector<ThreadHandle> subThreads(tempFastLaunchCtx.threads.begin() + 1, tempFastLaunchCtx.threads.end());
+        std::vector<u32> notifyIdxMainToSub(1, 0);
+        CHK_RET(PreSyncInterThreads(tempFastLaunchCtx.threads[0], subThreads, notifyIdxMainToSub));
+    }
+
+    for (u32 kernelIdx = 0; kernelIdx < kernelNum; kernelIdx++) {
+        CcuTaskArgReduceNHR1D taskArg(
+            PointerToAddr(buffInfo_.inputPtr) + cachedArgs[0],
+            PointerToAddr(buffInfo_.outputPtr) + cachedArgs[1],
+            cachedArgs[2], cachedArgs[3], cachedArgs[4], cachedArgs[5],
+            cachedArgs[6], cachedArgs[7], cachedArgs[8], cachedArgs[9]);
+
+        void* taskArgPtr = static_cast<void*>(&taskArg);
+
+        CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0],
+            tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr));
+    }
+    // 后流同步
+    if (kernelNum > 1) {
+        std::vector<ThreadHandle> subThreads(tempFastLaunchCtx.threads.begin() + 1, tempFastLaunchCtx.threads.end());
+        std::vector<u32> notifyIdxSubToMain(1, 0);
+        CHK_RET(PostSyncInterThreads(tempFastLaunchCtx.threads[0], subThreads, notifyIdxSubToMain));
+    }
+    HCCL_DEBUG("[CcuTempReduceNHR1DMem2Mem::FastLaunch] end");
+    return HcclResult::HCCL_SUCCESS;
+}
+
 HcclResult CcuTempReduceNHR1DMem2Mem::SplitDataFor2Dies(const OpParam& param,
                                                         const TemplateDataParams& templateDataParams,
-                                                        uint64_t& die0Size, uint64_t& die1Size) const
+                                                        uint64_t& die0DataSize, uint64_t& die1DataSize) const
 {
     constexpr uint64_t MULTIPLIER = 4;
-    uint64_t typeSize = DataTypeSizeGet(param.DataDes.dataType);
-    uint64_t dataCount = (templateDataParams.sliceSize / typeSize);
-    
-    if (dataCount <= templateRankSize_ * MULTIPLIER) {   // 数据量极小，不划分die
-        die0Size = dataCount * typeSize;
-        die1Size = 0;
+    uint64_t dataTypeSize = DataTypeSizeGet(param.DataDes.dataType);
+    uint64_t totalDataCount = (templateDataParams.sliceSize / dataTypeSize);
+
+    if (totalDataCount <= templateRankSize_ * MULTIPLIER) {   // 数据量极小，不划分die
+        die0DataSize = totalDataCount * dataTypeSize;
+        die1DataSize = 0;
         return HcclResult::HCCL_SUCCESS;
     }
     u8 die0PortGroupSize = 1;
     u8 die1PortGroupSize = 1;
 
-    die0Size = (dataCount * die0PortGroupSize / (die0PortGroupSize + die1PortGroupSize)) * typeSize;
-    die1Size = templateDataParams.sliceSize - die0Size;
+    die0DataSize = (totalDataCount * die0PortGroupSize / (die0PortGroupSize + die1PortGroupSize)) * dataTypeSize;
+    die1DataSize = templateDataParams.sliceSize - die0DataSize;
     return HcclResult::HCCL_SUCCESS;
 }
 
@@ -244,7 +279,7 @@ HcclResult CcuTempReduceNHR1DMem2Mem::KernelRun(const OpParam& param,
                                                 TemplateResource& templateResource)
 {
     HCCL_INFO("[CcuTempReduceNHR1DMem2Mem] Template KernelRun start.");
-    
+
     u32 kernelNum = templateResource.ccuKernels.size();
 
     if (templateDataParams.sliceSize == 0) {
@@ -283,7 +318,7 @@ HcclResult CcuTempReduceNHR1DMem2Mem::KernelRun(const OpParam& param,
     if (kernelNum > 1) {
         std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
         std::vector<u32> notifyIdxMainToSub(1, 0);
-        
+
         CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub));
     }
 
@@ -304,8 +339,19 @@ HcclResult CcuTempReduceNHR1DMem2Mem::KernelRun(const OpParam& param,
     if (kernelNum > 1) {
         std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
         std::vector<u32> notifyIdxSubToMain(1, 0);
-        
+
         CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain));
+    }
+
+    // 所有task下发完后再保存参数信息
+    CcuKernelSubmitInfo submitInfo;
+    CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, token, isInputOutputEqual, die0Size,
+    die1Size, die0SliceInfoVec[0][0].size, die1SliceInfoVec[0][0].size, die0SliceInfoVec[templateRankSize_ - 1][0].size,
+    die1SliceInfoVec[templateRankSize_ - 1][0].size));
+    for (u32 i = 0; i < kernelNum; i++) {
+        // 2个kernel的TaskArg相同
+        submitInfo.kernelHandle = templateResource.ccuKernels[i];
+        templateResource.submitInfos.push_back(submitInfo);
     }
 
     HCCL_INFO("[CcuTempReduceNHR1DMem2Mem] Template Run for all steps Ends.");

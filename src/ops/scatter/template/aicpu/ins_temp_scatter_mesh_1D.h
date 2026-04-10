@@ -19,6 +19,7 @@ namespace ops_hccl {
 
 class InsTempScatterMesh1D : public InsAlgTemplateBase {
 public:
+    InsTempScatterMesh1D() = default;
     explicit InsTempScatterMesh1D(const OpParam& param, const u32 rankId, // 传通信域的rankId，userRank
                                 const std::vector<std::vector<u32>> &subCommRanks);
     ~InsTempScatterMesh1D() override;
@@ -34,7 +35,7 @@ public:
 
     HcclResult KernelRun(const OpParam& param,
                          const TemplateDataParams &tempAlgParams,
-                         const TemplateResource& templateResource) override;
+                         TemplateResource& templateResource) override;
     HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                         AlgResourceRequest& resourceRequest) override;
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
