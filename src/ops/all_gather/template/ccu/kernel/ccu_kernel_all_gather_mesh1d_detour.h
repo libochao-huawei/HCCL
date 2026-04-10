@@ -111,6 +111,7 @@ private:
     CcuRep::Variable loopIterNum_;  // for detour loopgroup only
     std::vector<CcuRep::Variable> lengths_;  // 每组transport对应一个len
     GroupOpSize groupOpSize_;  // 只处理尾块
+    std::vector<u32> channelsIndexVec_;
 };
 
 }// namespace ops_hccl

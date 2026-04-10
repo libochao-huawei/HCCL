@@ -24,6 +24,10 @@ constexpr int CKE_IDX_0 = 0;
 
 void CcuKernelAllGatherMeshDetour1D::ProcessChannels(const std::vector<ChannelHandle> &channels)
 {
+    HCCL_INFO("[CcuKernelAllReduceMesh1DDetour] channel.size[%zu]", channels.size());
+    if (channels.size() < rankSize_ -1) {
+        HCCL_ERROR("CcuKernelAllReduceMesh1DDetour channels_ size is less");
+    }
     // 构建detourChannel
     for (uint64_t i = 0; i < pathNumPerPeer_; i++) {
         // 到每个对端有pathNum个channel，故detourChannel中共有pathNum组
@@ -33,14 +37,14 @@ void CcuKernelAllGatherMeshDetour1D::ProcessChannels(const std::vector<ChannelHa
     for (uint64_t i = 0; i < directPathNum; i++) {
         // 有pathNum-detourPathNum组的直连链路，每组重复
         for (uint64_t j = 0; j < rankSize_ - 1; j++) {
-            detourChannels_[i].emplace_back(channels[j]);
+            detourChannels_[i].emplace_back(channels[channelsIndexVec_[j]]);
         }
         HCCL_INFO("Add directChannels[%llu], size[%zu]", i, detourChannels_[i].size());
     }
     for (uint64_t i = 0; i < detourPathNum_; i++) {
         // 有detourPathNum组的绕路链路，只添加sendOnly的channel
         for (uint64_t j = 0; j < rankSize_ - 1; j++) {
-            detourChannels_[i + directPathNum].emplace_back(channels[(i + 1) * (rankSize_ - 1) + j]);
+            detourChannels_[i + directPathNum].emplace_back(channels[channelsIndexVec_[(i + 1) * (rankSize_ - 1) + j]]);
         }
         HCCL_INFO("Add detourChannels_[%llu], size[%zu]", i, detourChannels_[i].size());
     }
@@ -64,6 +68,7 @@ CcuKernelAllGatherMeshDetour1D::CcuKernelAllGatherMeshDetour1D(const hcomm::CcuK
     detourPathNum_ = kernelArg->detourPathNum_;
     pathNumPerPeer_ = kernelArg->pathNumPerPeer_;
     channels_ = kernelArg->channels;
+    channelsIndexVec_ = kernelArg->channelsIndexVec_;
 
     ProcessChannels(channels_);
 

@@ -113,6 +113,10 @@ HcclResult CcuTempAllGatherMesh1DDetour::KernelRun(const OpParam& param,
                                                    const TemplateDataParams& templateDataParams,
                                                    const TemplateResource& templateResource)
 {
+    u32 linkNum = templateResource.channelNums.size() > 0 ? templateResource.channelNums[0] : 0;
+    pathNumPerPeer_ = (templateRankSize_ == 2) ? ((linkNum - 1) / 2 + 1) : (1 + 2);
+    HCCL_INFO("[CcuTempAllReduceMesh1DDetour][KernelRun] pathNumPerPeer_[%llu], linkNum[%u]", pathNumPerPeer_, linkNum);
+    
     buffInfo_ = templateDataParams.buffInfo;
     RankSliceInfo sliceInfoVec;
     CHK_RET(CalcSliceInfo(templateDataParams.sliceSize, sliceInfoVec));
@@ -188,6 +192,10 @@ void CcuTempAllGatherMesh1DDetour::CalcDetourOffset(
     iterNum = sliceSize / loopSize;
     tailSize = sliceSize % loopSize;
     tailOffset = sliceSize - tailSize;
+    lengths_.clear(); //多轮情况下每轮需要清零
+    for (u32 i = 0; i < pathNumPerPeer_; i++) {
+        lengths_.emplace_back(MS_SIZE);
+    }
     return;
 }
 } // namespace ops_hccl
