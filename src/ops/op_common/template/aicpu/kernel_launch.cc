@@ -264,14 +264,16 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         //判断通信域状态
         HcommReleaseComm(param->commName);
         HcclCommStatus commStatus = HCCL_COMM_STATUS_INVALID;
-        auto statusRet = HcclCommGetStatus(param->commName, &commStatus);
-        if (statusRet != HCCL_SUCCESS) {
-            HCCL_ERROR("%s HcclCommGetStatus fail, commName[%s], ret = %d", __func__, param->commName, statusRet);
-            return 1;
-        }
-        if (commStatus != HCCL_COMM_STATUS_READY) {
-            HCCL_ERROR("%s commStatus is not ready!, commStatus = %d", __func__, static_cast<int>(commStatus));
-            return 1;
+        if (HcommIsSupportHcclCommGetStatus()) {
+            auto statusRet = HcclCommGetStatus(param->commName, &commStatus);
+            if (statusRet != HCCL_SUCCESS) {
+                HCCL_ERROR("%s HcclCommGetStatus fail, commName[%s], ret = %d", __func__, param->commName, statusRet);
+                return 1;
+            }
+            if (commStatus != HCCL_COMM_STATUS_READY) {
+                HCCL_ERROR("%s commStatus is not ready!, commStatus = %d", __func__, static_cast<int>(commStatus));
+                return 1;
+            }
         }
 
         AlgResourceCtxSerializable resCtx;
