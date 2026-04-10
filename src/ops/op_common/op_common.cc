@@ -73,6 +73,22 @@ HcclResult CheckAsymmetricTopoSupport(HcclCMDType opType, const TopoInfoWithNetL
     return HCCL_SUCCESS;
 }
 
+HcclResult CheckDetourSupport(HcclComm comm, OpParam &param)
+{
+    u32 userRankSize;
+    CHK_RET(HcclGetRankSize(comm, &userRankSize));
+    if ((param.detourType == HcclDetourType::HCCL_DETOUR_ENABLE_2P && userRankSize != 2) ||
+        (param.detourType == HcclDetourType::HCCL_DETOUR_ENABLE_4P && userRankSize != 4 ||
+        param.detourType == HcclDetourType::HCCL_DETOUR_ENABLE_2P_AND_4P)) {
+        HCCL_WARNING("[Selector] Detour only support HCCL_DETOUR_ENABLE_2P and ranksize=2 or "
+            "HCCL_DETOUR_ENABLE_4P and ranksize=4, Detour type[%d], rankSize[%u], reset detour type "
+            "to HCCL_DETOUR_DISABLE",
+            param.detourType, userRankSize);
+        param.detourType = HcclDetourType::HCCL_DETOUR_DISABLE;
+    }
+    return HCCL_SUCCESS;
+}
+
 HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
     std::string &algName)
 {
@@ -88,17 +104,9 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
     HCCL_INFO("Start to execute Selector.");
     param.hcclComm = comm;
     CHK_RET(HcclGetOpExpansionMode(comm, param));
-    u32 userRankSize;
-    CHK_RET(HcclGetRankSize(comm, &userRankSize));
-    CHK_PRT_RET(!(((param.detourType == HcclDetourType::HCCL_DETOUR_ENABLE_2P && userRankSize == 2) ||
-                (param.detourType == HcclDetourType::HCCL_DETOUR_ENABLE_4P && userRankSize == 4)) &&
-                (param.opExecuteConfig == OpExecuteConfig::CCU_MS)),
-        HCCL_ERROR("[Selector] Detour only support HCCL_DETOUR_ENABLE_2P and ranksize=2 or "
-                   "HCCL_DETOUR_ENABLE_4P and ranksize=4 in CCU_MS mode, Detour type[%d], rankSize[%u]",
-                    param.detourType, userRankSize),
-        HCCL_E_INTERNAL);
     // 获取基础拓扑
     CHK_RET(HcclCalcTopoInfo(comm, param, topoInfo));
+    CHK_RET(CheckDetourSupport(comm, param));
 
     // 检查非对称拓扑支持情况，非对称场景仅 AllGather/AllReduce/ReduceScatter 可用
     CHK_RET(CheckAsymmetricTopoSupport(param.opType, topoInfo.get()));
