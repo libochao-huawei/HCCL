@@ -128,7 +128,7 @@ void CcuKernelAllGatherMeshDetour1D::CreateMultiOpBroadcastDetour()
         std::vector<CcuRep::LocalAddr> src;  // 每组channel对应一个src
         std::vector<CcuRep::RemoteAddr> dst;  // 每组channel对应rankSize_个dst
         std::vector<CcuRep::Variable> lengths;
-        CcuRep::LocalAddr localDst_;
+        CcuRep::LocalAddr localDst_ = CreateLocalAddr();
         for (uint64_t i = 0; i < pathNumPerPeer_; i++) {
             lengths.emplace_back(CreateVariable());
             src.emplace_back(CreateLocalAddr());
