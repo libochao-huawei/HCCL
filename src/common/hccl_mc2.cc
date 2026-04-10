@@ -240,7 +240,7 @@ HcclResult HcclAllocComResourceByTiling(HcclComm comm, void *stream, void* mc2Ti
     std::vector<OpParam> opParamVec(tilingNum);
     for (uint32_t i = 0U; i < tilingNum; ++i) {
         // TODO: 根据topoTag[i] 获取opParam[i]的参数
-        CHK_RET(GetOpParam(comm, topoTag[i].c_str(), static_cast<const Mc2CcTilingInner*>(ccTilingList[i]), opParamVec[i]));
+        CHK_RET(GetOpParam(comm, stream, topoTag[i].c_str(), static_cast<const Mc2CcTilingInner*>(ccTilingList[i]), opParamVec[i]));
     }
 
     // TODO: 根据ctxTag 申请通信资源 ，并返回OpResCtx的地址
