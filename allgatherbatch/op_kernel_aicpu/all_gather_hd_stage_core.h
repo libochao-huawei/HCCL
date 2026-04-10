@@ -1,4 +1,4 @@
-﻿#ifndef HCCL_ALLGATHERBATCH_HD_STAGE_CORE_H
+#ifndef HCCL_ALLGATHERBATCH_HD_STAGE_CORE_H
 #define HCCL_ALLGATHERBATCH_HD_STAGE_CORE_H
 
 #include <vector>
@@ -31,14 +31,13 @@ struct LastTwoCopyTask {
     bool isLocal = false;
     std::vector<StageCopySlice> slices;
 };
-struct PowerPeerTask {
-    uint32_t remoteRank = 0;
-    std::vector<StageCopySlice> slices;
-};
 struct PowerStepTask {
     uint32_t bit = 0;
+    uint32_t remoteRank = 0;
     uint64_t totalBytes = 0;
-    std::vector<PowerPeerTask> peers;
+    uint64_t localOffset = 0;
+    uint64_t remoteOffset = 0;
+    uint64_t size = 0;
 };
 
 class AllGatherHDStageCore {
@@ -51,6 +50,7 @@ private:
     HcclResult BuildStagePlan(HDStagePlan &plan) const;
     HcclResult ValidateStagePlan(const HDStagePlan &plan) const;
     HcclResult BuildNHRRunCtx(const HDStagePlan &plan, NHRRunCtx &runCtx) const;
+    HcclResult ValidatePreparedNHRLayout(const HDStagePlan &plan, const NHRRunCtx &runCtx) const;
     HcclResult RunAllGatherStage(const HDStagePlan &plan) const;
     HcclResult RunPreCopy() const;
     HcclResult RunNHR(const char *pathTag, const NHRRunCtx &runCtx) const;
@@ -60,21 +60,13 @@ private:
     HcclResult RunAllGatherLast(const HDStagePlan &plan) const;
     HcclResult RunAllGatherLastOne(const HDStagePlan &plan) const;
     HcclResult RunAllGatherLastTwo(const HDStagePlan &plan) const;
+    HcclResult BuildFinalCopyTasks(uint32_t subgroupSize, std::vector<LastTwoCopyTask> &tasks) const;
+    HcclResult ValidateFinalCopyTasks(uint32_t subgroupSize, const std::vector<LastTwoCopyTask> &tasks) const;
     HcclResult BuildLastTwoTasks(const HDStagePlan &plan, std::vector<LastTwoCopyTask> &tasks) const;
     HcclResult RunLastTwoLocalTask(const LastTwoCopyTask &task, const char *stageTag) const;
-    HcclResult RunLastTwoWorkerTask(
-        const LastTwoCopyTask &task,
-        ThreadHandle workerThread,
-        uint32_t workerNotifyIdx,
-        uint32_t doneNotifyIdx,
-        const char *stageTag) const;
-    HcclResult WaitLastTwoWorkers(uint32_t workerCount, const char *stageTag) const;
-    HcclResult RunAllGatherLastTwoParallel(const HDStagePlan &plan) const;
-    bool CanSkipLastStage(const HDStagePlan &plan) const;
+    HcclResult RunRemoteTaskOnMainThread(const LastTwoCopyTask &task, const char *stageTag) const;
     HcclResult RunPowerBit(const PowerStepTask &stepTask, const char *stageTag) const;
     HcclResult BuildPowerStepTask(const HDStagePlan &plan, uint32_t bit, PowerStepTask &stepTask) const;
-    void MergeContiguousSlices(std::vector<StageCopySlice> &stepSlices) const;
-    HcclResult ReadPowerPeerTask(const PowerPeerTask &peerTask, const char *stageTag) const;
     const ChannelResource *FindChannel(uint32_t remoteRank) const;
 
     const OpParam &param_;
@@ -86,4 +78,5 @@ private:
 }  // namespace ops_hccl_allgatherbatch
 
 #endif
+
 
