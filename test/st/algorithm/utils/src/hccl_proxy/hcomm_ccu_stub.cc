@@ -306,6 +306,11 @@ CcuArithmeticOperator<Variable, Address> Variable::operator+(const Address &addr
     return CcuArithmeticOperator<Variable, Address>(*this, addrB, CcuArithmeticOperatorType::ADDITION);
 }
 
+CcuArithmeticOperator<Variable, Address> Address::operator+(const Variable &varB) const
+{
+    return CcuArithmeticOperator<Variable, Address>(varB, *this, CcuArithmeticOperatorType::ADDITION);
+}
+
 void Variable::operator+=(const Variable &other) {}
 
 CcuRelationalOperator<Variable, uint64_t> Variable::operator!=(uint64_t immediate) const
