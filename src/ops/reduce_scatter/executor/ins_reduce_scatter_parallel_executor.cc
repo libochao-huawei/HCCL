@@ -236,6 +236,12 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     (void) resCtx;
     u64 intraThreadsNum = tempAlgIntra.GetThreadNum();
     u64 interThreadsNum = tempAlgInter.GetThreadNum();
+    // 增加对threads_的校验
+    if (threads_.size() < intraThreadsNum + interThreadsNum + 1) {
+        HCCL_ERROR("[InsReduceScatterParallelExecutor][PrepareResForTemplate] threads size is %d, but intraThreadsNum is %d, interThreadsNum is %d",
+            threads_.size(), intraThreadsNum, interThreadsNum);
+        return HCCL_E_PARA;
+    }
     intraThreads_.assign(threads_.begin() + 1, threads_.begin() + 1 + intraThreadsNum);
     interThreads_.assign(threads_.begin() + 1 + intraThreadsNum, threads_.end());
     // 用于两个算法同步

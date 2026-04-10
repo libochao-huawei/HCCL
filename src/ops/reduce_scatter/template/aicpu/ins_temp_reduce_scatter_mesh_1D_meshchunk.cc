@@ -231,6 +231,8 @@ HcclResult InsTempReduceScatterMesh1DMeshChunk::PostCopy(
     HCCL_INFO("[InsTempReduceScatterMesh1DMeshChunk][PostCopy], copy from scratch to userOut");
     u32 myAlgRank;
     CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], myAlgRank));
+    CHK_PRT_RET(threads.empty(),
+        HCCL_ERROR("[InsTempReduceScatterMesh1DMeshChunk][PostCopy] threads is empty"), HCCL_E_PARA);
     // 先把本卡的数据从input搬运到output
     for (u32 repeatIdx = 0; repeatIdx < tempAlgParams.repeatNum; repeatIdx++) {
         DataSlice myRankSlice = DataSlice(tempAlgParams.buffInfo.hcclBuff.addr,

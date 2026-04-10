@@ -248,9 +248,6 @@ HcclResult InsTempAllReduceMesh1DTwoShotMeshChunk::RunAllgather(const std::map<u
         CHK_RET(PreSyncInterThreads(threads[0], subThreads, notifyIdxMainToSub_));
     }
 
-    CHK_PRT_RET(channels.size() < templateRankSize_, 
-        HCCL_ERROR("channels size is [%u], templateRankSize_ is [%u]", channels.size(), templateRankSize_), HcclResult::HCCL_E_INTERNAL);
-
     // allgather
     for (u32 rankId = 0; rankId < templateRankSize_; rankId++) {
         if (u32(myAlgRank_) == rankId) {

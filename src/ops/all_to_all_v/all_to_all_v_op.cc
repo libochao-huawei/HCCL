@@ -171,6 +171,7 @@ HcclResult HcclAlltoAllVC(const void *sendBuf, const void *sendCountMatrix, Hccl
     CHK_RET(HcclGetCommName(comm, commName));
     const string tag =  "ALLTOALLVC_" + string(commName);
     CHK_RET(HcclCheckTag(tag.c_str()));
+    CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), tag.c_str());
 
     // 取出sendCountMatrix的数据
     std::vector<std::vector<u64>> outputMatrix;
@@ -204,11 +205,10 @@ HcclResult HcclAlltoAllVC(const void *sendBuf, const void *sendCountMatrix, Hccl
     }
 
     u64 maxSendRecvCount = 0;
-    for (u64 i = 0; i < rankSize * rankSize; i++) {
+    for (u64 i = 0; i < static_cast<u64>(rankSize) * rankSize; i++) {
         maxSendRecvCount = max(maxSendRecvCount, data[i]);
     }
 
-    CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), tag.c_str());
     CHK_RET(CheckCount(maxSendRecvCount));
     CHK_RET(CheckDataType(recvType, false));
 
