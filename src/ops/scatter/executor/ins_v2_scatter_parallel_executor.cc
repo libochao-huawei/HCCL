@@ -330,6 +330,14 @@ HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
             rankSizeLevel1_,
             root_ / rankSizeLevel0_ * rankSizeLevel0_ + rankIdxLevel0_,
             root_ % rankSizeLevel0_ + rankIdxLevel1_ * rankSizeLevel0_);
+
+#ifndef AICPU_COMPILE
+        if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU) {
+            ccuKernelLaunchNumIntra0_ = intraTemplateAlgRes.submitInfos.size();
+            ccuKernelLaunchNumInter1_ = interTemplateAlgRes.submitInfos.size();
+        }
+#endif
+
         // 第二步开始前同步
         PreSyncInterTemplates();
         // 数据0的server间的nhr算法
@@ -346,9 +354,100 @@ HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
         CHK_RET(tempAlgIntra.KernelRun(param, tempAlgParamsIntra1, intraTemplateAlgRes));
         // 尾同步
         PostSyncInterTemplates();
+
+#ifndef AICPU_COMPILE
+        if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU) {
+            CHK_RET(FastLaunchSaveCtx(param, intraTemplateAlgRes, interTemplateAlgRes));
+        }
+#endif
     }
     return HcclResult::HCCL_SUCCESS;
 }
+
+#ifndef AICPU_COMPILE
+template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
+HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::FastLaunchSaveCtx(
+        const OpParam &param, const TemplateResource &templateAlgResIntra, const TemplateResource &templateAlgResInter)
+{
+    HCCL_INFO("[InsV2ScatterParallelExecutor] loopTimes==1, save fast launch ctx.");
+    ccuKernelLaunchNumIntra1_ = templateAlgResIntra.submitInfos.size() - ccuKernelLaunchNumIntra0_;
+    ccuKernelLaunchNumInter0_ = templateAlgResInter.submitInfos.size() - ccuKernelLaunchNumInter1_;
+    u32 threadNum = threads_.size();
+    u32 ccuKernelNum = ccuKernelLaunchNumIntra1_ + ccuKernelLaunchNumInter0_ + ccuKernelLaunchNumIntra0_ + ccuKernelLaunchNumInter1_;
+    if (ccuKernelNum < 1) {
+        HCCL_INFO("[InsV2ScatterParallelExecutor] ccu kernel num is 0, no need to save.");
+        return HCCL_SUCCESS;
+    }
+    HCCL_INFO("[InsV2ScatterParallelExecutor][HcclEngineCtxCreate] threadNum[%llu], ccuKernelNum[%llu]", threadNum, ccuKernelNum);
+
+    std::vector<u32> ccuKernelNumList = {ccuKernelLaunchNumIntra0_, ccuKernelLaunchNumInter1_, ccuKernelLaunchNumInter0_, ccuKernelLaunchNumIntra1_};
+    std::vector<std::vector<CcuKernelSubmitInfo>> submitInfosList = {templateAlgResIntra.submitInfos, templateAlgResInter.submitInfos};
+    return FastLaunchSaveCtxTwoTemplate(param, threadNum, ccuKernelNum, threads_, ccuKernelNumList, submitInfosList);
+    
+}
+
+template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
+HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::FastLaunch(
+        const OpParam &param, const CcuFastLaunchCtx *ctx)
+{
+    InsAlgTemplate0 intraTempAlg{};
+    InsAlgTemplate1 interTempAlg{};
+
+    TemplateFastLaunchCtx tempFastLaunchCtxIntra0, tempFastLaunchCtxInter0;
+    TemplateFastLaunchCtx tempFastLaunchCtxInter1, tempFastLaunchCtxIntra1;
+
+    TemplateResource templateAlgResIntra, templateAlgResInter;
+    ThreadHandle *threads = ctx->GetThreadHandlePtr();
+    threads_.assign(threads, threads + ctx->threadNum);
+    PrepareResForTemplate(intraTempAlg);
+
+    CcuKernelSubmitInfo *ccuKernelSubmitInfos = ctx->GetCcuKernelSubmitInfoPtr();
+
+    //第一步开始前同步
+    HCCL_INFO("[InsV2ScatterParallelExecutor][FastLaunch] Intra0 ccuKernelNum[%llu]", ctx->ccuKernelNum[0]);
+    PreSyncInterTemplates();
+    //数据0的server内的mesh算法
+    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxIntra0, param.inputPtr, param.hcclBuff.addr, param.hcclBuff));
+    tempFastLaunchCtxIntra0.threads = intraThreads_;
+    tempFastLaunchCtxIntra0.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[0]);
+    ccuKernelSubmitInfos += ctx->ccuKernelNum[0];
+    //把每个template需要的queue传进去，比如stars的mesh要传多条queue
+    if (ctx->ccuKernelNum[0] > 0)
+    {
+        CHK_RET(intraTempAlg.FastLaunch(param, tempFastLaunchCtxIntra0));
+    }
+    //数据1的server间的nhr算法
+    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxInter1, param.inputPtr, param.hcclBuff.addr, param.hcclBuff));
+    tempFastLaunchCtxInter1.threads = interThreads_;
+    tempFastLaunchCtxInter1.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[1]);
+    ccuKernelSubmitInfos += ctx->ccuKernelNum[1];
+    if (ctx->ccuKernelNum[1] > 0)
+    {
+        CHK_RET(interTempAlg.FastLaunch(param, tempFastLaunchCtxInter1));
+    }
+    //第一步做完后回到主流做尾同步
+    PostSyncInterTemplates();
+
+    //第二步开始前同步
+    PreSyncInterTemplates();
+    //数据0的server间的nhr算法
+    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxInter0, param.hcclBuff.addr, param.outputPtr, param.hcclBuff));
+    tempFastLaunchCtxInter0.threads = interThreads_;
+    tempFastLaunchCtxInter0.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[2]);
+    ccuKernelSubmitInfos += ctx->ccuKernelNum[2];
+    CHK_RET(interTempAlg.FastLaunch(param, tempFastLaunchCtxInter0));
+    //数据1的server内的mesh算法
+    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxIntra1, param.hcclBuff.addr, param.outputPtr, param.hcclBuff));
+    tempFastLaunchCtxIntra1.threads = intraThreads_;
+    tempFastLaunchCtxIntra1.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[3]);
+    CHK_RET(intraTempAlg.FastLaunch(param, tempFastLaunchCtxIntra1));
+    //尾同步
+    PostSyncInterTemplates();
+
+    HCCL_INFO("[InsV2ScatterParallelExecutor][FastLaunch] End.");
+    return HCCL_SUCCESS;
+}
+#endif
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 void InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::GenTemplateAlgParamsIntra0(
@@ -384,7 +483,7 @@ void InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
 {
     tempAlgParamsInter0.buffInfo.inputPtr = resCtx.cclMem.addr;
     tempAlgParamsInter0.buffInfo.outputPtr = param.outputPtr;
-    tempAlgParamsInter0.buffInfo.inputSize = param.inputSize;
+    tempAlgParamsInter0.buffInfo.inputSize = resCtx.cclMem.size;
     tempAlgParamsInter0.buffInfo.outputSize = param.outputSize;
     tempAlgParamsInter0.buffInfo.hcclBuff = resCtx.cclMem;
     tempAlgParamsInter0.buffInfo.inBuffType = BufferType::HCCL_BUFFER;
@@ -438,7 +537,7 @@ void InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
 {
     tempAlgParamsIntra1.buffInfo.inputPtr = resCtx.cclMem.addr;
     tempAlgParamsIntra1.buffInfo.outputPtr = param.outputPtr;
-    tempAlgParamsIntra1.buffInfo.inputSize = param.inputSize;
+    tempAlgParamsIntra1.buffInfo.inputSize = resCtx.cclMem.size;
     tempAlgParamsIntra1.buffInfo.outputSize = param.outputSize;
     tempAlgParamsIntra1.buffInfo.hcclBuff = resCtx.cclMem;
     tempAlgParamsIntra1.buffInfo.inBuffType = BufferType::HCCL_BUFFER;

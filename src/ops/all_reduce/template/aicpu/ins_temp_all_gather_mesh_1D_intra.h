@@ -19,6 +19,7 @@ namespace ops_hccl {
 
 class InsTempAllGatherMesh1dIntra : public InsAlgTemplateBase {
 public:
+    InsTempAllGatherMesh1dIntra() = default;
     explicit InsTempAllGatherMesh1dIntra(const OpParam &param, const u32 rankId,  // 传通信域的rankId，userRank
                                     const std::vector<std::vector<u32>> &subCommRanks);
     // Host侧调用

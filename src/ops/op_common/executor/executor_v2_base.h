@@ -53,6 +53,9 @@ public:
     HcclResult CalAllLevelEndpointAttrBwCoeff(HcclComm comm, uint32_t rankId, uint32_t levelSize,
         std::vector<std::vector<EndpointAttrBwCoeff>> &endpointAttrBw);
 
+    HcclResult FastLaunchSaveCtxTwoTemplate(const OpParam &param, const u32 threadNum, const u32 ccuKernelNum, 
+                                            const std::vector<ThreadHandle> &threads_, const std::vector<u32> &ccuKernelNumList, 
+                                            const std::vector<std::vector<CcuKernelSubmitInfo>> &submitInfosList);
 protected:
     // CollAlg base params
     u32           myRank_   = INVALID_VALUE_RANKID;
