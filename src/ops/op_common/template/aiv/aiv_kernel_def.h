@@ -100,6 +100,21 @@ static std::vector<AivKernelInfo> g_alltoallvAivKernelInfoList = {
 };
 static std::string g_alltoallvAivBinaryName = "hccl_aiv_all_to_all_v_op_910_95.o";
 
+static std::vector<AivKernelInfo> g_omniAivKernelInfoList = {
+    {"omni_aiv_half", HcclDataType::HCCL_DATA_TYPE_FP16},
+    {"omni_aiv_int16_t", HcclDataType::HCCL_DATA_TYPE_INT16},
+    {"omni_aiv_uint16_t", HcclDataType::HCCL_DATA_TYPE_UINT16},
+    {"omni_aiv_float", HcclDataType::HCCL_DATA_TYPE_FP32},
+    {"omni_aiv_int32_t", HcclDataType::HCCL_DATA_TYPE_INT32},
+    {"omni_aiv_uint32_t", HcclDataType::HCCL_DATA_TYPE_UINT32},
+    {"omni_aiv_int8_t", HcclDataType::HCCL_DATA_TYPE_INT8},
+    {"omni_aiv_uint8_t", HcclDataType::HCCL_DATA_TYPE_UINT8},
+    {"omni_aiv_bfloat16_t", HcclDataType::HCCL_DATA_TYPE_BFP16},
+    {"omni_aiv_uint64_t", HcclDataType::HCCL_DATA_TYPE_UINT64},
+    {"omni_aiv_int64_t", HcclDataType::HCCL_DATA_TYPE_INT64},
+};
+static std::string g_omniAivBinaryName = "hccl_aiv_all_to_all_v_op_910_95.o";
+
 static std::vector<AivKernelInfo> g_scatterAivKernelInfoList = {
     {"aiv_scatter_half", HcclDataType::HCCL_DATA_TYPE_FP16},
     {"aiv_scatter_int16_t", HcclDataType::HCCL_DATA_TYPE_INT16},
