@@ -1,4 +1,4 @@
-Ôªø#include "allgather_batch.h"
+#include "allgather_batch.h"
 
 #include <cstdio>
 #include <memory>
@@ -23,9 +23,71 @@ struct ChannelLinkInfo {
     uint32_t remoteSuperPodIdx = 0;
 };
 
+bool IsAligned32(const void *ptr)
+{
+    return (reinterpret_cast<uintptr_t>(ptr) & 31U) == 0U;
+}
+
+bool IsSupportedDataType(HcclDataType dataType)
+{
+    switch (dataType) {
+        case HCCL_DATA_TYPE_INT8:
+        case HCCL_DATA_TYPE_INT16:
+        case HCCL_DATA_TYPE_INT32:
+        case HCCL_DATA_TYPE_FP16:
+        case HCCL_DATA_TYPE_FP32:
+        case HCCL_DATA_TYPE_INT64:
+        case HCCL_DATA_TYPE_UINT64:
+        case HCCL_DATA_TYPE_UINT8:
+        case HCCL_DATA_TYPE_UINT16:
+        case HCCL_DATA_TYPE_UINT32:
+        case HCCL_DATA_TYPE_FP64:
+        case HCCL_DATA_TYPE_BFP16:
+        case HCCL_DATA_TYPE_INT128:
+        case HCCL_DATA_TYPE_HIF8:
+        case HCCL_DATA_TYPE_FP8E4M3:
+        case HCCL_DATA_TYPE_FP8E5M2:
+        case HCCL_DATA_TYPE_FP8E8M0:
+        case HCCL_DATA_TYPE_MXFP8:
+            return true;
+        default:
+            return false;
+    }
+}
+
+uint64_t GetDataTypeSize(HcclDataType dataType)
+{
+    switch (dataType) {
+        case HCCL_DATA_TYPE_INT8:
+        case HCCL_DATA_TYPE_UINT8:
+        case HCCL_DATA_TYPE_HIF8:
+        case HCCL_DATA_TYPE_FP8E4M3:
+        case HCCL_DATA_TYPE_FP8E5M2:
+        case HCCL_DATA_TYPE_FP8E8M0:
+        case HCCL_DATA_TYPE_MXFP8:
+            return 1U;
+        case HCCL_DATA_TYPE_INT16:
+        case HCCL_DATA_TYPE_FP16:
+        case HCCL_DATA_TYPE_UINT16:
+        case HCCL_DATA_TYPE_BFP16:
+            return 2U;
+        case HCCL_DATA_TYPE_INT32:
+        case HCCL_DATA_TYPE_FP32:
+        case HCCL_DATA_TYPE_UINT32:
+            return 4U;
+        case HCCL_DATA_TYPE_INT64:
+        case HCCL_DATA_TYPE_UINT64:
+        case HCCL_DATA_TYPE_FP64:
+            return 8U;
+        case HCCL_DATA_TYPE_INT128:
+            return 16U;
+        default:
+            return 0U;
+    }
+}
 HcclResult EnsureControlNotifies(OpParam &param)
 {
-    // ÊéßÂà∂ notify Â±û‰∫éÊú¨Ê¨° launch ÁöÑÊéßÂà∂ÂèÇÊï∞Ôºå‰∏çÂÜôÂÖ•ÁºìÂ≠òËµÑÊ∫ê„ÄÇ
+    // øÿ÷∆ notify  Ù”⁄±æ¥Œ launch µƒøÿ÷∆≤Œ ˝£¨≤ª–¥»Îª∫¥Ê◊ ‘¥°£
     for (uint32_t idx = 0; idx < kAllGatherBatchControlNotifyNum; ++idx) {
         if (g_allGatherBatchNotifies[idx] == nullptr) {
             ACLCHECK(aclrtCreateNotify(&g_allGatherBatchNotifies[idx], ACL_NOTIFY_DEFAULT));
@@ -181,7 +243,7 @@ HcclResult QueryLocalServerRankCount(HcclComm comm, const BatchTopoInfo &topoInf
 
 HcclResult ValidateResolvedTopoInfo(const BatchTopoInfo &topoInfo, uint32_t localServerRankCount)
 {
-    // ÊãìÊâëÁî®‰∫éËµÑÊ∫êÁî≥ËØ∑ÂêéÂøÖÈ°ªËá™Ê¥ΩÔºå‰∏çËÉΩÈùôÈªòÈôçÁ∫ß„ÄÇ
+    // Õÿ∆À”√”⁄◊ ‘¥…Í«Î∫Û±ÿ–Î◊‘«¢£¨≤ªƒ‹æ≤ƒ¨Ωµº∂°£
     if (topoInfo.rankSize == 0) {
         HCCL_ERROR("resolved topo rankSize is zero");
         return HCCL_E_INTERNAL;
@@ -309,7 +371,7 @@ HcclResult ValidatePreparedParam(const OpParam &param)
     return ValidateBasicOpParam(param, "prepared param");
 }
 
-// ÂÖàÊûÑÂª∫ fullmesh peer ÂàóË°®ÔºåÂÜçÊåâ request Áî≥ËØ∑ËµÑÊ∫ê„ÄÇ
+// œ»ππΩ® fullmesh peer ¡–±Ì£¨‘Ÿ∞¥ request …Í«Î◊ ‘¥°£
 HcclResult CalcFullMeshResourceRequest(HcclComm comm, const OpParam &param, BatchResourceRequest &request)
 {
     request.threadNum = 1 + kAllGatherBatchLastTwoWorkerCount;
@@ -358,14 +420,14 @@ HcclResult CalcFullMeshResourceRequest(HcclComm comm, const OpParam &param, Batc
     return HCCL_SUCCESS;
 }
 
-// context Â§ßÂ∞èÁî±ÁúüÂÆû channel Êï∞ÂÜ≥ÂÆöÔºåÈÅøÂÖçÂõ∫ÂÆö 32 Êù° channel ‰∏äÈôê„ÄÇ
+// context ¥Û–°”…’Ê µ channel  ˝æˆ∂®£¨±‹√‚πÃ∂® 32 Ãı channel …œœﬁ°£
 uint64_t CalcAlgResourceCtxSize(const BatchResourceRequest &request)
 {
     return sizeof(AlgResourceCtx) +
         static_cast<uint64_t>(request.channelCount) * sizeof(ChannelResource);
 }
 
-// ÂÖàÂàùÂßãÂåñÂõ∫ÂÆöÂ§¥ÔºåÂ∞æÈÉ® channel Êï∞ÁªÑÁî± AllocAlgResource Â°´ÂÖÖ„ÄÇ
+// œ»≥ı ºªØπÃ∂®Õ∑£¨Œ≤≤ø channel  ˝◊È”… AllocAlgResource ÃÓ≥‰°£
 void InitAlgResourceCtxHeader(const BatchResourceRequest &request, AlgResourceCtx &resCtx)
 {
     resCtx.threadHandle = 0;
@@ -382,7 +444,7 @@ void InitAlgResourceCtxHeader(const BatchResourceRequest &request, AlgResourceCt
     resCtx.localBuffer = {};
 }
 
-// ËµÑÊ∫êÁî≥ËØ∑Áõ¥Êé•Ê∂àË¥π requestÔºå‰∏çÂÜçÈáçÂ§çÊé®ÂØºÊãìÊâëÂíå remote rank„ÄÇ
+// ◊ ‘¥…Í«Î÷±Ω”œ˚∑— request£¨≤ª‘Ÿ÷ÿ∏¥Õ∆µºÕÿ∆À∫Õ remote rank°£
 HcclResult AllocAlgResource(
     HcclComm comm,
     const OpParam &param,
@@ -457,7 +519,7 @@ HcclResult AllocAlgResource(
     return HCCL_SUCCESS;
 }
 
-// Host ‰æßËµÑÊ∫êÊµÅÁ®ãÂõ∫ÂÆö‰∏∫ÔºöCalcFullMeshResourceRequest -> Âä®ÊÄÅ ctxSize -> AllocAlgResource„ÄÇ
+// Host ≤‡◊ ‘¥¡˜≥ÃπÃ∂®Œ™£∫CalcFullMeshResourceRequest -> ∂ØÃ¨ ctxSize -> AllocAlgResource°£
 HcclResult GetAlgRes(HcclComm comm, const OpParam &param, AlgResourceCtx **resCtx)
 {
     HCCL_CHK_PTR(resCtx);
@@ -486,7 +548,7 @@ HcclResult GetAlgRes(HcclComm comm, const OpParam &param, AlgResourceCtx **resCt
     *resCtx = static_cast<AlgResourceCtx *>(ctx);
 
     AlgResourceCtx *hostResCtx;
-    ACLCHECK(aclrtMallocHost(reinterpret_cast<void**>(&hostResCtx), expectedCtxSize));
+    ACLCHECK(aclrtMallocHost(reinterpret_cast<void **>(&hostResCtx), expectedCtxSize));
 
     InitAlgResourceCtxHeader(request, *hostResCtx);
     HCCL_CHK_RET(AllocAlgResource(comm, param, request, *hostResCtx));
@@ -511,7 +573,7 @@ HcclResult HcclAllGatherBatch(
 {
     using namespace ops_hccl_allgatherbatch;
 
-    // ÂØπÂ§ñÂÖ•Âè£Âè™ÊâìÂç∞ËΩªÈáèÊó•ÂøóÔºåËØ¶ÁªÜ topo ‰ø°ÊÅØÁ®çÂêéËæìÂá∫„ÄÇ
+    // ∂‘Õ‚»Îø⁄÷ª¥Ú”°«·¡ø»’÷æ£¨œÍœ∏ topo –≈œ¢…‘∫Û ‰≥ˆ°£
     HCCL_INFO("HcclAllGatherBatch invoked: itemCount=%u", itemCount);
 
     HCCL_CHK_RET(ValidateItems(items, itemCount, comm, stream));
