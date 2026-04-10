@@ -114,7 +114,7 @@ extern HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, 
  * @return HcclResult
  */
 extern HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType,
-    HcclComm comm, aclrtStream stream);
+    HcclComm comm, aclrtStream stream, uint64_t strideCount);
 
 /**
  * @brief AllGatherV operator.
