@@ -37,5 +37,5 @@ void HcommDeviceDlInit(void) {
     HcommPrimitivesDlInit(gLibHandle);
     HcommDeviceProfilingDlInit(gLibHandle);
     HcommDiagDlInit(gLibHandle);
-    HcommDeviceCommDlInit(gLibHandle);
+    HcclDeviceCommDlInit(gLibHandle);
 }
