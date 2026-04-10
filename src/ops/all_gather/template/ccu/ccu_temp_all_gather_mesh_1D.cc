@@ -79,6 +79,25 @@ HcclResult CcuTempAllGatherMesh1D::CalcRes(HcclComm comm, const OpParam& param, 
     return HcclResult::HCCL_SUCCESS;
 }
 
+HcclResult CcuTempAllGatherMesh1D::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+{
+    HCCL_DEBUG("[CcuTempAllGatherMesh1D::FastLaunch] start");
+    CcuTaskArgAllGatherMesh1D taskArg(
+        PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[0],
+        PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[1],
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[2],
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[3],
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[4]);
+
+    void* taskArgPtr = static_cast<void*>(&taskArg);
+
+    CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0], 
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr));
+
+    HCCL_DEBUG("[CcuTempAllGatherMesh1D::FastLaunch] end");
+    return HcclResult::HCCL_SUCCESS;
+}
+
 HcclResult CcuTempAllGatherMesh1D::KernelRun(const OpParam& param,
                                              const TemplateDataParams& templateDataParams,
                                              TemplateResource& templateResource)
@@ -109,6 +128,13 @@ HcclResult CcuTempAllGatherMesh1D::KernelRun(const OpParam& param,
     void* taskArgPtr = static_cast<void*>(taskArg.get());
 
     CHK_RET(HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr));
+
+    CcuKernelSubmitInfo submitInfo;
+    submitInfo.kernelHandle = templateResource.ccuKernels[0];
+    CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, token, offset, sliceSize));
+    templateResource.submitInfos.push_back(submitInfo);
+
+    HCCL_INFO("[CcuTempAllGatherMesh1D::KernelRun] end");
 
     return HcclResult::HCCL_SUCCESS;
 }

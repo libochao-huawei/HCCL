@@ -47,12 +47,18 @@ private:
     HcclResult CalcLocalRoot();
 
     HcclResult PrepareResForStage(u32 stage);
+    HcclResult PrepareResForStage2(u32 stage);
     TemplateDataParams GenDataParamsTempAlg(u32 dataSliceIdx, u32 stageIdx, u32 stepIdx, bool isInter);
 
     HcclResult OrchestrateImpl();
     HcclResult OrchestrateLoop(u32 loopTimes, u64 maxCountPerLoop);
     HcclResult OrchestrateStep(u32 stageIdx, u32 stepIdx);
     HcclResult RunTemplate(u32 dataSliceIdx, u32 stageIdx, u32 stepIdx, bool isInter);
+
+#ifndef AICPU_COMPILE
+    HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *resCtx) override;
+    HcclResult FastLaunchSaveCtx();
+#endif
 
     u32 intraLocalRankSize_{0};     // server内算法rankSize
     u32 interLocalRankSize_{0};     // server间算法rankSize
@@ -62,6 +68,11 @@ private:
     u32 intraLocalRoot_{0};     // server内算法root
     u32 interLocalRoot_{0};     // server间算法root
 
+    ThreadHandle mainThread_;
+    std::vector<ThreadHandle> templateMainThreads_;
+    std::vector<u32> syncNotifyOnTemplates_;
+    std::vector<u32> syncNotifyOnMain_;
+
     std::vector<std::vector<std::vector<u32>>> vTopo_;
     std::vector<u32> virtRanks_;
     std::array<std::map<u32, u32>, dataSplitPart_> virtRankMap_;
@@ -69,10 +80,14 @@ private:
     std::vector<ThreadHandle> intraThreads_;
     std::vector<ThreadHandle> interThreads_;
 
-    ThreadHandle mainThread_;
-    std::vector<ThreadHandle> templateMainThreads_;
-    std::vector<u32> syncNotifyOnTemplates_;
-    std::vector<u32> syncNotifyOnMain_;
+    u32 ccuKernelLaunchNumRSIntra0_{0};
+    u32 ccuKernelLaunchNumRSInter0_{0};
+    u32 ccuKernelLaunchNumRSIntra1_{0};
+    u32 ccuKernelLaunchNumRSInter1_{0};
+    u32 ccuKernelLaunchNumAGIntra0_{0};
+    u32 ccuKernelLaunchNumAGInter0_{0};
+    u32 ccuKernelLaunchNumAGIntra1_{0};
+    u32 ccuKernelLaunchNumAGInter1_{0};
 
     std::map<u32, std::vector<ChannelInfo>> intraLinks_;
     std::map<u32, std::vector<ChannelInfo>> interLinks_;
@@ -83,8 +98,7 @@ private:
 
     OpParam param_;
     AlgResourceCtxSerializable resCtx_;
-    TemplateResource intraTempAlgRes_;
-    TemplateResource interTempAlgRes_;
+    std::array<TemplateResource, 4> tempAlgResArr_{};
     std::array<u64, dataSplitPart_> dataOffsetPerLoop_{0, 0};
     std::array<u64, dataSplitPart_> dataCountPerLoop_{0, 0};
 };

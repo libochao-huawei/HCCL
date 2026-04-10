@@ -36,8 +36,14 @@ HcclResult HcclReduceGraphMode(void *sendBuf, void *recvBuf, uint64_t count, Hcc
 #endif
 
 namespace ops_hccl {
-HcclResult ReduceOutPlace(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
-    uint32_t root, HcclComm comm, aclrtStream stream, const std::string &tag);
+HcclResult ReduceOutPlace(OpParam &param, void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
+    uint32_t root, HcclComm comm, aclrtStream stream, u32 userRankSize);
+
+HcclResult ReduceOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
+    uint32_t root, HcclComm comm, aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack);
+
+HcclResult ReduceConstructOpParam(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
+    uint32_t root, HcclComm comm, aclrtStream stream, const std::string &tag, OpParam &param);
 
 HcclResult ReduceOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
     uint32_t root, HcclComm comm, aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack);
@@ -58,7 +64,7 @@ HcclResult ReduceInitAndCheck(HcclComm comm, void *sendBuf, void *recvBuf, uint6
 HcclResult ReduceOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
     uint32_t root, HcclComm comm, aclrtStream stream, const std::string &tag, OpMode opMode, const ResPackGraphMode &resPack);
 HcclResult ReduceEntryLog(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
-    uint32_t root, aclrtStream stream, const std::string &tag, const std::string &opName);
+    uint32_t root, aclrtStream stream, const char *tag, const std::string &opName);
 }  // namespace ops_hccl
 
 #endif

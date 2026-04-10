@@ -445,49 +445,9 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     }
     HCCL_INFO("[InsReduceScatterParallelExecutor][HcclEngineCtxCreate] threadNum[%llu], ccuKernelNum[%llu]", threadNum, ccuKernelNum);
 
-    u64 size = CcuFastLaunchCtx::GetCtxSize(threadNum, ccuKernelNum);
-    // 申请ctx
-    void *ctxPtr = nullptr;
-    HCCL_INFO("[InsReduceScatterParallelExecutor][HcclEngineCtxCreate] Tag[%s], size[%llu]", param.fastLaunchTag, size);
-    CHK_RET(HcclEngineCtxCreate(param.hcclComm, param.fastLaunchTag, CommEngine::COMM_ENGINE_CCU, size, &ctxPtr));
-
-    CcuFastLaunchCtx *ccuFastLaunchCtx = reinterpret_cast<CcuFastLaunchCtx*>(ctxPtr);
-    // 1 算法名
-    CHK_SAFETY_FUNC_RET(strcpy_s(ccuFastLaunchCtx->algName, sizeof(ccuFastLaunchCtx->algName), param.algName));
-    HCCL_INFO("[InsReduceScatterParallelExecutor][FastLaunchSaveCtx] algName[%s]", ccuFastLaunchCtx->algName);
-
-    // 2 thread
-    ccuFastLaunchCtx->threadNum = threadNum;
-    ThreadHandle *threads = ccuFastLaunchCtx->GetThreadHandlePtr();
-    for (u32 i = 0; i < threadNum; i++) {
-        threads[i] = threads_[i];
-    }
-        
-    // 3 ccu kernel handle, taskArg入参
-    u32 templateIdx = 0;
-    ccuFastLaunchCtx->ccuKernelNum[templateIdx++] = ccuKernelLaunchNumIntra0_;
-    ccuFastLaunchCtx->ccuKernelNum[templateIdx++] = ccuKernelLaunchNumInter1_;
-    ccuFastLaunchCtx->ccuKernelNum[templateIdx++] = ccuKernelLaunchNumInter0_;
-    ccuFastLaunchCtx->ccuKernelNum[templateIdx++] = ccuKernelLaunchNumIntra1_;
-    CcuKernelSubmitInfo *kernelSubmitInfos = ccuFastLaunchCtx->GetCcuKernelSubmitInfoPtr();
-    
-    for (u32 i = 0; i < threadNum; i++) {
-        threads[i] = threads_[i];
-    }
-    u32 kernelIdx = 0;
-    for (u32 i = 0; i < ccuKernelLaunchNumIntra0_; i++) {
-        kernelSubmitInfos[kernelIdx++] = templateAlgResIntra.submitInfos[i];
-    }
-    for (u32 i = 0; i < ccuKernelLaunchNumInter1_; i++) {
-        kernelSubmitInfos[kernelIdx++] = templateAlgResInter.submitInfos[i];
-    }
-    for (u32 i = ccuKernelLaunchNumInter1_; i < ccuKernelLaunchNumInter0_ + ccuKernelLaunchNumInter1_; i++) {
-        kernelSubmitInfos[kernelIdx++] = templateAlgResInter.submitInfos[i];
-    }
-    for (u32 i = ccuKernelLaunchNumIntra0_; i < ccuKernelLaunchNumIntra1_ + ccuKernelLaunchNumIntra0_; i++) {
-        kernelSubmitInfos[kernelIdx++] = templateAlgResIntra.submitInfos[i];
-    }
-    return HCCL_SUCCESS;
+    std::vector<u32> ccuKernelNumList = {ccuKernelLaunchNumIntra0_, ccuKernelLaunchNumInter1_, ccuKernelLaunchNumInter0_, ccuKernelLaunchNumIntra1_};
+    std::vector<std::vector<CcuKernelSubmitInfo>> submitInfosList = {templateAlgResIntra.submitInfos, templateAlgResInter.submitInfos};
+    return FastLaunchSaveCtxTwoTemplate(param, threadNum, ccuKernelNum, threads_, ccuKernelNumList, submitInfosList);
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
