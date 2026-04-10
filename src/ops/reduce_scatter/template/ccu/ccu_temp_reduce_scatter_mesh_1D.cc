@@ -46,10 +46,9 @@ HcclResult CcuTempReduceScatterMesh1D::CalcRes(HcclComm comm, const OpParam& par
 
     // 创建每个kernel的ctxArg，放入kernelInfo, 然后将kernelinfo放入resourceRequest.ccuKernelInfos
     CcuKernelInfo kernelInfo;
+    kernelInfo.kernelFuncName = "CcuKernelReduceScatterMesh1D";
+    kernelInfo.kernelFunc = reinterpret_cast<void *>(CcuKernelReduceScatterMesh1D);
     
-    kernelInfo.creator = [](const hcomm::CcuKernelArg &arg) {
-                             return std::make_unique<CcuKernelReduceScatterMesh1D>(arg);
-                         };
     std::vector<HcclChannelDesc> channelDescs;
         if(topoInfo->level0Topo != Level0Shape::MESH_1D_CLOS) {
         CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
@@ -63,10 +62,8 @@ HcclResult CcuTempReduceScatterMesh1D::CalcRes(HcclComm comm, const OpParam& par
         }
         HCCL_DEBUG("[CcuTempReduceScatterMesh1D::CalcRes] Get Mesh Channel Success!");
     }
-    kernelInfo.kernelArg = std::make_shared<CcuKernelArgReduceScatterMesh1D>(subCommRanks_[0].size(),
-                                                                                    mySubCommRank_,
-                                                                                    param,
-                                                                                    subCommRanks_);
+    CcuKernelArgReduceScatterMesh1D kernelArg = {subCommRanks_[0].size(), mySubCommRank_, param, subCommRanks_};
+    kernelInfo.kernelArg = static_cast<CcuKernelArg>(&kernelArg);
     kernelInfo.channels = channelDescs;
     resourceRequest.ccuKernelInfos.push_back(kernelInfo);
 
@@ -80,17 +77,19 @@ HcclResult CcuTempReduceScatterMesh1D::CalcRes(HcclComm comm, const OpParam& par
 HcclResult CcuTempReduceScatterMesh1D::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
 {
     HCCL_DEBUG("[CcuTempReduceScatterMesh1D::FastLaunch] start");
-    CcuTaskArgReduceScatterMesh1D taskArg(
-        PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[0],
-        PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[1],
-        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[2],
-        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[3],
-        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[4]);
+    const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
+    constexpr u32 inputIdx = 0;
+    constexpr u32 outputIdx = 1;
+    constexpr u32 inputOffsetIdx = 8;
+    constexpr u32 outputOffsetIdx = 9;
+    uint64_t argSize = 8;
 
-    void* taskArgPtr = static_cast<void*>(&taskArg);
+    args[inputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + args[inputOffsetIdx];
+    args[outputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + args[outputOffsetIdx];
 
-    CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0], 
-        tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr));
+    void *taskArgs = reinterpret_cast<void*>(args);
+    CHK_RET(HcclCcuKernelLaunch(tempFastLaunchCtx.threads[0], 
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgs, argSize));
 
     HCCL_DEBUG("[CcuTempReduceScatterMesh1D::FastLaunch] end");
     return HcclResult::HCCL_SUCCESS;
@@ -121,17 +120,21 @@ HcclResult CcuTempReduceScatterMesh1D::KernelRun(const OpParam& param,
     uint64_t sliceSize          = templateDataParams.sliceSize;
     uint64_t inputSliceStride   = templateDataParams.inputSliceStride;
     uint64_t offset             = inputSliceStride * mySubCommRank_;
-    
-    std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgReduceScatterMesh1D>(
-        inputAddr, outputAddr, sliceSize, offset, token);
+    auto     goSize             = CalGoSize(sliceSize);
 
-    void* taskArgPtr = static_cast<void*>(taskArg.get());
+    std::vector<uint64> taskArgs = {inputAddr, outputAddr, token, offset, goSize[0], goSize[1], goSize[2], goSize[3]};
+    uint64_t argSize = 8;
 
-    CHK_RET(HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr));
+    HCCL_INFO("[CcuTempReduceScatterMesh1D::KernelRun] TaskArgs: inputAddr[%llu], outputAddr[%llu], "
+               "offset[%llu], sliceSize[%llu]",
+               inputAddr, outputAddr, offset, sliceSize);
+    CHK_RET(HcclCcuKernelLaunch(templateResource.threads[0], templateResource.ccuKernels[0], taskArgs.data(), argSize));
     
     CcuKernelSubmitInfo submitInfo;
     submitInfo.kernelHandle = templateResource.ccuKernels[0];
-    CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, sliceSize, offset, token));
+    CHK_RET(FillCachedArgs(submitInfo, inputAddr, outputAddr, token, offset,
+        goSize[0], goSize[1], goSize[2], goSize[3],
+        buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff)); // input和output的offset追加在最后
     templateResource.submitInfos.push_back(submitInfo);
 
     HCCL_DEBUG("[CcuTempReduceScatterMesh1D::KernelRun] end");
