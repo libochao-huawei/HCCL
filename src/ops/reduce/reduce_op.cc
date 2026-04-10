@@ -50,7 +50,7 @@ HcclResult HcclReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType
     CHK_RET(ReduceEntryLog(sendBuf, recvBuf, count, dataType, op, root, stream, param.tag, "HcclReduce"));
 
     // 执行Reduce
-    CHK_RET_AND_PRINT_IDE(ReduceOutPlace(sendBuf, recvBuf, count, dataType, op, root, comm, stream),
+    CHK_RET_AND_PRINT_IDE(ReduceOutPlace(param, sendBuf, recvBuf, count, dataType, op, root, comm, stream),
         param.tag);
 
     CHK_RET(LogHcclExit("HcclReduce", param.tag, startut));
@@ -201,7 +201,7 @@ HcclResult ReduceOutPlace(OpParam &param, void *sendBuf, void *recvBuf, uint64_t
     if (ShouldUseInnerOp(param.opExecuteConfig)) {
         return HcclReduceInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
     }
-    CHK_RET(HcclExecOp(comm, param, topoInfo, algName, resPack));
+    CHK_RET(HcclExecOp(comm, param, topoInfo, algName, ResPackGraphMode()));
     HCCL_INFO("Execute ReduceOutPlace success.");
     return HCCL_SUCCESS;
 }
