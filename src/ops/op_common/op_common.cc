@@ -17,6 +17,7 @@
 #include <cstring>  // 包含strcmp函数
 #include <stdexcept>
 #include <hccl/hccl_types.h>
+#include <hccl/hccl_comm.h>
 #include "hccl/base.h"
 #include "sal.h"
 #include "error_codes/rt_error_codes.h"
@@ -39,6 +40,7 @@
 #include "hccl_aiv_utils.h"
 #include "dpu/kernel_launch.h"
 #include "hcomm_host_profiling_dl.h"
+#include "hccl_host_comm_dl.h"
 #include "rt.h"
 #include "dlhcomm_function.h"
 #include "hccl_diag.h"
@@ -73,6 +75,15 @@ HcclResult CheckAsymmetricTopoSupport(HcclCMDType opType, const TopoInfoWithNetL
 HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
     std::string &algName)
 {
+    //判断通信域状态
+    HcclCommStatus commStatus = HCCL_COMM_STATUS_INVALID;
+    if (HcommIsSupportHcclCommGetStatus()) {
+        CHK_RET(HcclCommGetStatus(param.commName, &commStatus));
+        if (commStatus != HCCL_COMM_STATUS_READY) {
+            HCCL_ERROR("commStatus is not ready!, commStatus = %d", static_cast<int>(commStatus));
+            return HCCL_E_SUSPENDING;
+        }
+    }
     HCCL_INFO("Start to execute Selector.");
     param.hcclComm = comm;
     CHK_RET(HcclGetOpExpansionMode(comm, param));
