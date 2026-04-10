@@ -43,7 +43,6 @@
 #include "rt.h"
 #include "dlhcomm_function.h"
 #include "hccl_diag.h"
-#include "hccl_host_comm_dl.h"
 
 namespace ops_hccl {
 thread_local std::map<std::string, HcclMemHandle> g_memHandleCache; // 当前AIV存放注册内存的memHandle使用
@@ -77,8 +76,8 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
 {
     //判断通信域状态
     HcclCommStatus commStatus = HCCL_COMM_STATUS_INVALID;
-    CHK_RET(HcclCommGetStatusTmp(param.commName, &commStatus));
-    HCCL_ERROR("hcclhostHcclCommGetStatusTmp,commStatus = %d", static_cast<int>(commStatus));   
+    CHK_RET(HcclCommGetStatus(param.commName, &commStatus));
+    HCCL_ERROR("hcclhostHcclCommGetStatus,commStatus = %d", static_cast<int>(commStatus));   
     if (commStatus != HCCL_COMM_STATUS_READY) {
         HCCL_ERROR("commStatus is not ready!, commStatus = %d", static_cast<int>(commStatus));
         return HCCL_E_SUSPENDING;
