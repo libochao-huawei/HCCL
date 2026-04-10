@@ -265,7 +265,6 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         HcommReleaseComm(param->commName);
         HcclCommStatus commStatus = HCCL_COMM_STATUS_INVALID;
         auto statusRet = HcclCommGetStatus(param->commName, &commStatus);
-        HCCL_ERROR("hccldeviceHcclCommGetStatus,commStatus = %d", static_cast<int>(commStatus));
         if (statusRet != HCCL_SUCCESS) {
             HCCL_ERROR("%s HcclCommGetStatus fail, commName[%s], ret = %d", __func__, param->commName, statusRet);
             return 1;
