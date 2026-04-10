@@ -33,11 +33,8 @@ public:
 protected:
     /* *************** 算法编排 *************** */
     HcclResult OrchestrateLoop(const OpParam &param, const AlgResourceCtxSerializable &resCtx);
-    HcclResult CreateAlgTemplate(const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
-                                const AlgHierarchyInfoForAllLevel& algHierarchyInfo);
     std::vector<std::map<u32, std::vector<ChannelInfo>>> remoteRankToChannelInfo_;
     std::vector<ThreadHandle> threads_;
-    std::shared_ptr<InsAlgTemplate> algTemplate_;
 };
 }
 
