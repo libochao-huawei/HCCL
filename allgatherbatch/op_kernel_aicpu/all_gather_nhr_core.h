@@ -1,4 +1,4 @@
-Ôªø#ifndef HCCL_ALLGATHERBATCH_NHR_CORE_H
+#ifndef HCCL_ALLGATHERBATCH_NHR_CORE_H
 #define HCCL_ALLGATHERBATCH_NHR_CORE_H
 
 #include <vector>
@@ -25,16 +25,19 @@ struct InterServerAlgoStep {
 struct NHRRunCtx {
     uint32_t rank = 0;
     uint32_t rankSize = 0;
-    uint32_t sliceGroupSize = 0;
     uint64_t packedBytes = 0;
     uint64_t baseOffset = 0;
     uint8_t *inputBase = nullptr;
     uint8_t *outputBase = nullptr;
+    // ∂‘∆Î hcomm ‘≠∞Ê Prepare(bool needMerge) ”Ô“Â£∫
+    // needMerge=true  ± π”√ ˜”≥…‰≤¢‘ –Ì∫œ≤¢¡¨–¯ slice£ª
+    // false  ±◊ﬂ±£–Ú rank mapping°£
+    bool needMerge = false;
     bool keepOrder = true;
-    bool preparedOutputLayout = false;
+    // Preferred formal inputs for subgroup layout.
     std::vector<LocalSlice> sliceTemplate;
+    // rankBaseOffsets is indexed by noPower workspace slot after noPowerMap remap, not by raw subgroup rank.
     std::vector<uint64_t> rankBaseOffsets;
-    std::vector<LocalSlice> slices;
     std::vector<uint32_t> subgroupRanks;
 };
 
@@ -50,12 +53,15 @@ public:
 
 private:
     void InitDefaultRunCtx();
+    void BuildDefaultSlices();
+    void BuildEffectiveSlices();
     uint32_t GetEffectiveRank() const;
     uint32_t GetEffectiveRankSize() const;
     uint32_t GetSliceGroupSize() const;
+    const std::vector<LocalSlice> &GetEffectiveSlices() const;
     HcclResult ValidateCommState() const;
-    HcclResult ValidateStepPlan(const std::vector<InterServerAlgoStep> &stepPlan) const;
-    HcclResult PreCopyToOutputLayout();
+    HcclResult LocalDataCopy();
+    HcclResult PostLocalCopy() const;
     void GetRankMapping(uint32_t rankSize, bool keepOrder);
     void ReorderSequence(
         uint32_t start,
@@ -65,8 +71,7 @@ private:
         std::vector<uint32_t> &tmp) const;
     uint32_t GetStepNumInterServer(uint32_t rankSize) const;
     HcclResult GetStepInfo(uint32_t step, uint32_t nSteps, InterServerAlgoStep &stepInfo) const;
-    HcclResult BuildStepPlan(std::vector<InterServerAlgoStep> &stepPlan) const;
-    HcclResult RunAllGather(const std::vector<InterServerAlgoStep> &stepPlan) const;
+    HcclResult RunAllGather() const;
     HcclResult BuildStepSlices(
         const InterServerAlgoStep &stepInfo,
         std::vector<LocalSlice> &txSlices,
@@ -92,6 +97,7 @@ private:
     AlgResourceCtx &resCtx_;
     uint64_t packedBytes_;
     NHRRunCtx runCtx_;
+    std::vector<LocalSlice> effectiveSlices_;
     std::vector<uint32_t> sliceMap_;
 };
 

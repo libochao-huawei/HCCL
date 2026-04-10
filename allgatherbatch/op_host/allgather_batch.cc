@@ -15,6 +15,15 @@ namespace ops_hccl_allgatherbatch {
 
 namespace {
 
+extern "C" bool HcommIsSupportHcclThreadAcquire(void);
+extern "C" bool HcommIsSupportHcommThreadNotifyRecordOnThread(void);
+extern "C" bool HcommIsSupportHcommThreadNotifyWaitOnThread(void);
+extern "C" bool HcommIsSupportHcommWriteOnThread(void);
+extern "C" bool HcommIsSupportHcommReadOnThread(void);
+extern "C" bool HcommIsSupportHcommLocalCopyOnThread(void);
+extern "C" bool HcommIsSupportHcommChannelNotifyRecordOnThread(void);
+extern "C" bool HcommIsSupportHcommChannelNotifyWaitOnThread(void);
+
 struct ChannelLinkInfo {
     CommProtocol protocol = COMM_PROTOCOL_RESERVED;
     uint32_t localServerIdx = 0;
@@ -147,6 +156,31 @@ HcclResult FillEndpointLocation(HcclComm comm, BatchTopoInfo &topoInfo)
 BatchCommMode DetermineCommMode(const BatchTopoInfo &topoInfo)
 {
     return (topoInfo.serverCount > 1U) ? BatchCommMode::kCrossServer : BatchCommMode::kSingleServer;
+}
+
+HcclResult ValidateRuntimeSupport()
+{
+    if (!HcommIsSupportHcclThreadAcquire()) {
+        HCCL_ERROR("HcclThreadAcquire is not supported");
+        return HCCL_E_NOT_SUPPORT;
+    }
+    if (!HcommIsSupportHcommThreadNotifyRecordOnThread() || !HcommIsSupportHcommThreadNotifyWaitOnThread()) {
+        HCCL_ERROR("thread notify on thread is not supported");
+        return HCCL_E_NOT_SUPPORT;
+    }
+    if (!HcommIsSupportHcommWriteOnThread() || !HcommIsSupportHcommReadOnThread()) {
+        HCCL_ERROR("read/write on thread is not supported");
+        return HCCL_E_NOT_SUPPORT;
+    }
+    if (!HcommIsSupportHcommLocalCopyOnThread()) {
+        HCCL_ERROR("local copy on thread is not supported");
+        return HCCL_E_NOT_SUPPORT;
+    }
+    if (!HcommIsSupportHcommChannelNotifyRecordOnThread() || !HcommIsSupportHcommChannelNotifyWaitOnThread()) {
+        HCCL_ERROR("channel notify on thread is not supported");
+        return HCCL_E_NOT_SUPPORT;
+    }
+    return HCCL_SUCCESS;
 }
 
 HcclResult QueryLocalServerRankCount(HcclComm comm, const BatchTopoInfo &topoInfo, uint32_t &localServerRankCount)
@@ -462,6 +496,8 @@ HcclResult GetAlgRes(HcclComm comm, const OpParam &param, AlgResourceCtx **resCt
 {
     HCCL_CHK_PTR(resCtx);
 
+    HCCL_CHK_RET(ValidateRuntimeSupport());
+
     BatchResourceRequest request;
     HCCL_CHK_RET(CalcFullMeshResourceRequest(comm, param, request));
 
@@ -486,7 +522,7 @@ HcclResult GetAlgRes(HcclComm comm, const OpParam &param, AlgResourceCtx **resCt
     *resCtx = static_cast<AlgResourceCtx *>(ctx);
 
     AlgResourceCtx *hostResCtx;
-    ACLCHECK(aclrtMallocHost(reinterpret_cast<void**>(&hostResCtx), expectedCtxSize));
+    ACLCHECK(aclrtMallocHost(reinterpret_cast<void **>(&hostResCtx), expectedCtxSize));
 
     InitAlgResourceCtxHeader(request, *hostResCtx);
     HCCL_CHK_RET(AllocAlgResource(comm, param, request, *hostResCtx));

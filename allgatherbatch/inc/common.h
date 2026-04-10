@@ -1,4 +1,4 @@
-ï»¿#ifndef HCCL_ALLGATHERBATCH_COMMON_H
+#ifndef HCCL_ALLGATHERBATCH_COMMON_H
 #define HCCL_ALLGATHERBATCH_COMMON_H
 
 #include <chrono>
@@ -13,7 +13,6 @@
 #include "hccl/hccl_types.h"
 #include "hccl/hcomm_primitives.h"
 #include "log.h"
-#include "window_range.h"
 
 namespace ops_hccl_allgatherbatch {
 
@@ -22,6 +21,9 @@ constexpr uint32_t kAllGatherBatchControlNotifyNum = 2;
 constexpr uint32_t kAllGatherBatchControlNotifyStart = 0;
 constexpr uint32_t kAllGatherBatchControlNotifyDone = 1;
 constexpr uint32_t kAllGatherBatchLastTwoWorkerCount = 3;
+constexpr uint32_t kAllGatherBatchNotifyIdxAck = 0;
+constexpr uint32_t kAllGatherBatchNotifyIdxDataSignal = 1;
+constexpr uint32_t kAllGatherBatchNotifyIdxFinAck = 2;
 constexpr uint32_t kAllGatherBatchCustomTimeoutMs = 1800;
 constexpr uint32_t kAllGatherBatchOpNameLength = 64;
 constexpr uint32_t kAllGatherBatchTagLength = HCCL_RES_TAG_MAX_LEN + 1;
@@ -63,10 +65,10 @@ struct BatchTopoInfo {
     uint32_t reserved = 0;
 };
 
-// Host ä¾§å‡†å¤‡å¹¶æ‹·åˆ° Device çš„èµ„æºä¸Šä¸‹æ–‡ã€‚
-// é‡‡ç”¨â€œå›ºå®šå¤´ + å˜é•¿å°¾éƒ¨ channel åŒºâ€çš„å¸ƒå±€ï¼Œé¿å…å›ºå®š channel ä¸Šé™ã€‚
+// Host ²à×¼±¸²¢¿½µ½ Device µÄ×ÊÔ´ÉÏÏÂÎÄ¡£
+// ²ÉÓÃ¡°¹Ì¶¨Í· + ±ä³¤Î²²¿ channel Çø¡±µÄ²¼¾Ö£¬±ÜÃâ¹Ì¶¨ channel ÉÏÏŞ¡£
 struct AlgResourceCtx {
-    // threadHandle ä»…ä½œä¸ºæ—§æ§åˆ¶é“¾å…¼å®¹å­—æ®µä¿ç•™ï¼Œæ­£å¼èµ„æºåˆåŒä»¥ mainThreadHandle ä¸ºå‡†ã€‚
+    // threadHandle ½ö×÷Îª¾É¿ØÖÆÁ´¼æÈİ×Ö¶Î±£Áô£¬ÕıÊ½×ÊÔ´ºÏÍ¬ÒÔ mainThreadHandle Îª×¼¡£
     ThreadHandle threadHandle = 0;
     ThreadHandle mainThreadHandle = 0;
     uint32_t lastTwoWorkerCount = 0;
@@ -104,8 +106,8 @@ struct BatchItemParam {
     uint64_t sendBytes = 0;
 };
 
-// Host ä¸‹å‘åˆ° Device çš„ launch å‚æ•°ã€‚
-// é‡Œé¢åŒ…å«æ‹“æ‰‘ä¿¡æ¯ã€é€šä¿¡æ¨¡å¼ã€å±•å¼€åçš„ item å…ƒæ•°æ®ä»¥åŠèµ„æºä¸Šä¸‹æ–‡æŒ‡é’ˆã€‚
+// Host ÏÂ·¢µ½ Device µÄ launch ²ÎÊı¡£
+// ÀïÃæ°üº¬ÍØÆËĞÅÏ¢¡¢Í¨ĞÅÄ£Ê½¡¢Õ¹¿ªºóµÄ item ÔªÊı¾İÒÔ¼°×ÊÔ´ÉÏÏÂÎÄÖ¸Õë¡£
 struct OpParam {
     char tag[kAllGatherBatchTagLength] = {0};
     char commName[COMM_NAME_MAX_LENGTH] = {0};
@@ -164,6 +166,72 @@ inline uint32_t ReverseLowerBits(uint32_t value, uint32_t bitCount)
     return reversed;
 }
 
+inline void ReorderNoPowerSequence(
+    uint32_t start,
+    uint32_t end,
+    uint32_t len,
+    std::vector<uint32_t> &tree,
+    std::vector<uint32_t> &tmp)
+{
+    for (uint32_t idx = start; idx < end; ++idx) {
+        const uint32_t offset = idx - start;
+        if ((offset & 1U) == 0U) {
+            tmp[start + offset / 2U] = tree[idx];
+        } else {
+            tmp[start + (offset + len) / 2U] = tree[idx];
+        }
+    }
+}
+
+inline uint32_t GetNoPowerMappedIndex(uint32_t noPower, uint32_t group)
+{
+    if (noPower <= 1U) {
+        return group;
+    }
+    std::vector<uint32_t> tree;
+    tree.reserve(noPower);
+    for (uint32_t idx = 0; idx < noPower; ++idx) {
+        tree.push_back(idx);
+    }
+
+    std::vector<uint32_t> tmp(noPower, 0U);
+    uint32_t nSteps = 0;
+    for (uint32_t value = noPower - 1U; value != 0U; value >>= 1U) {
+        ++nSteps;
+    }
+    uint32_t len = noPower;
+    for (uint32_t step = 0; step < nSteps; ++step) {
+        const uint32_t nSlices = (noPower - 1U + (1U << step)) / (1U << (step + 1U));
+        if (nSlices <= 1U) {
+            break;
+        }
+
+        bool endFlag = false;
+        for (uint32_t part = 0; part * len < noPower; ++part) {
+            const uint32_t start = part * len;
+            const uint32_t end = std::min(start + len, noPower);
+            ReorderNoPowerSequence(start, end, len, tree, tmp);
+            if (((end - start) & 1U) == 1U) {
+                endFlag = true;
+            }
+        }
+        tree = tmp;
+        if (endFlag) {
+            break;
+        }
+        len >>= 1U;
+    }
+
+    std::vector<uint32_t> mapped(noPower, 0U);
+    for (uint32_t idx = 0; idx < noPower; ++idx) {
+        mapped[tree[idx]] = idx;
+    }
+    return mapped[group];
+}
+
+inline uint32_t GetStageRankIndex(const WindowStageLayout &layout, uint32_t rank);
+inline uint64_t GetStageRankBaseOffset(const WindowStageLayout &layout, uint32_t rank);
+
 inline WindowStageLayout BuildWindowStageLayout(uint32_t rankSize)
 {
     WindowStageLayout layout;
@@ -171,6 +239,39 @@ inline WindowStageLayout BuildWindowStageLayout(uint32_t rankSize)
     layout.powerSteps = CalcStagePowerSteps(rankSize);
     layout.powerFactor = (layout.powerSteps == 0U) ? 1U : (1U << layout.powerSteps);
     layout.noPower = (layout.powerFactor == 0U) ? 0U : (rankSize / layout.powerFactor);
+    return layout;
+}
+
+inline WindowStageLayout BuildSingleItemStageLayout(uint32_t rankSize, uint32_t localRank, uint64_t packedBytes)
+{
+    WindowStageLayout layout = BuildWindowStageLayout(rankSize);
+    layout.packedBytes = packedBytes;
+    layout.totalBytes = packedBytes * rankSize;
+    layout.rankBaseOffsets.reserve(rankSize);
+    for (uint32_t rank = 0; rank < rankSize; ++rank) {
+        layout.rankBaseOffsets.push_back(packedBytes * GetStageRankIndex(layout, rank));
+    }
+    if (packedBytes == 0U || localRank >= rankSize) {
+        return layout;
+    }
+
+    const uint64_t localRankBase = GetStageRankBaseOffset(layout, localRank);
+    WindowStageSlice localSlice;
+    localSlice.rank = localRank;
+    localSlice.itemIdx = 0;
+    localSlice.itemOffsetBytes = 0;
+    localSlice.rankOffsetBytes = 0;
+    localSlice.stageOffsetBytes = localRankBase;
+    localSlice.size = packedBytes;
+    layout.localSlices.push_back(localSlice);
+
+    layout.perRankSlices.reserve(rankSize);
+    for (uint32_t rank = 0; rank < rankSize; ++rank) {
+        WindowStageSlice rankSlice = localSlice;
+        rankSlice.rank = rank;
+        rankSlice.stageOffsetBytes = GetStageRankBaseOffset(layout, rank);
+        layout.perRankSlices.push_back(rankSlice);
+    }
     return layout;
 }
 
@@ -209,7 +310,8 @@ inline uint32_t GetStageRankIndex(const WindowStageLayout &layout, uint32_t rank
     const uint32_t group = rank / layout.powerFactor;
     const uint32_t groupIdx = rank % layout.powerFactor;
     const uint32_t stageGroupIdx = ReverseLowerBits(groupIdx, layout.powerSteps);
-    return (stageGroupIdx * layout.noPower) + group;
+    const uint32_t mappedGroup = GetNoPowerMappedIndex(layout.noPower, group);
+    return (stageGroupIdx * layout.noPower) + mappedGroup;
 }
 
 inline uint64_t GetStageRankBaseOffset(const WindowStageLayout &layout, uint32_t rank)
@@ -220,424 +322,7 @@ inline uint64_t GetStageRankBaseOffset(const WindowStageLayout &layout, uint32_t
     return layout.packedBytes * GetStageRankIndex(layout, rank);
 }
 
-inline WindowStageLayout BuildWindowStageLayout(const OpParam &param, const WindowRange &window)
-{
-    WindowStageLayout layout = BuildWindowStageLayout(param.topoInfo.rankSize);
-    layout.packedBytes = window.packedBytes;
-    layout.totalBytes = window.packedBytes * param.topoInfo.rankSize;
-    layout.rankBaseOffsets.reserve(param.topoInfo.rankSize);
-    for (uint32_t rank = 0; rank < param.topoInfo.rankSize; ++rank) {
-        layout.rankBaseOffsets.push_back(window.packedBytes * GetStageRankIndex(layout, rank));
-    }
-
-    uint64_t packedOffset = 0;
-    uint32_t itemIdx = window.startItemIdx;
-    uint64_t itemOffsetBytes = window.startOffsetBytes;
-    const uint64_t localRankBase = GetStageRankBaseOffset(layout, param.topoInfo.rank);
-    while (packedOffset < window.packedBytes && itemIdx < param.itemCount) {
-        const BatchItemParam &item = param.items[itemIdx];
-        const uint64_t itemRemaining = (itemOffsetBytes < item.sendBytes) ? (item.sendBytes - itemOffsetBytes) : 0;
-        const uint64_t copyBytes = ((window.packedBytes - packedOffset) < itemRemaining) ?
-            (window.packedBytes - packedOffset) : itemRemaining;
-        if (copyBytes == 0) {
-            break;
-        }
-
-        WindowStageSlice localSlice;
-        localSlice.rank = param.topoInfo.rank;
-        localSlice.itemIdx = itemIdx;
-        localSlice.itemOffsetBytes = itemOffsetBytes;
-        localSlice.rankOffsetBytes = packedOffset;
-        localSlice.stageOffsetBytes = localRankBase + packedOffset;
-        localSlice.size = copyBytes;
-        layout.localSlices.push_back(localSlice);
-
-        for (uint32_t rank = 0; rank < param.topoInfo.rankSize; ++rank) {
-            WindowStageSlice rankSlice = localSlice;
-            rankSlice.rank = rank;
-            rankSlice.stageOffsetBytes = GetStageRankBaseOffset(layout, rank) + localSlice.rankOffsetBytes;
-            layout.perRankSlices.push_back(rankSlice);
-        }
-
-        packedOffset += copyBytes;
-        itemOffsetBytes += copyBytes;
-        if (itemOffsetBytes >= item.sendBytes) {
-            ++itemIdx;
-            itemOffsetBytes = 0;
-        }
-    }
-    return layout;
-}
-
-inline uint64_t GetCurrentTimeUs()
-{
-    const auto now = std::chrono::steady_clock::now().time_since_epoch();
-    return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(now).count());
-}
-
-inline uint64_t GetDataTypeSize(HcclDataType dataType)
-{
-    switch (dataType) {
-        case HCCL_DATA_TYPE_INT8:
-        case HCCL_DATA_TYPE_UINT8:
-        case HCCL_DATA_TYPE_HIF8:
-        case HCCL_DATA_TYPE_FP8E4M3:
-        case HCCL_DATA_TYPE_FP8E5M2:
-        case HCCL_DATA_TYPE_FP8E8M0:
-            return 1;
-        case HCCL_DATA_TYPE_INT16:
-        case HCCL_DATA_TYPE_FP16:
-        case HCCL_DATA_TYPE_UINT16:
-        case HCCL_DATA_TYPE_BFP16:
-            return 2;
-        case HCCL_DATA_TYPE_INT32:
-        case HCCL_DATA_TYPE_FP32:
-        case HCCL_DATA_TYPE_UINT32:
-            return 4;
-        case HCCL_DATA_TYPE_INT64:
-        case HCCL_DATA_TYPE_UINT64:
-        case HCCL_DATA_TYPE_FP64:
-            return 8;
-        case HCCL_DATA_TYPE_INT128:
-            return 16;
-        default:
-            return 0;
-    }
-}
-
-inline HcommDataType ToHcommDataType(HcclDataType dataType)
-{
-    return static_cast<HcommDataType>(dataType);
-}
-
-inline bool IsSupportedDataType(HcclDataType dataType)
-{
-    return GetDataTypeSize(dataType) != 0;
-}
-
-inline bool IsAligned32(const void *ptr)
-{
-    return ptr != nullptr && ((reinterpret_cast<uintptr_t>(ptr) & 0x1fU) == 0);
-}
-
-inline const char *ToCommModeString(BatchCommMode commMode)
-{
-    switch (commMode) {
-        case BatchCommMode::kSingleServer:
-            return "single-server";
-        case BatchCommMode::kCrossServer:
-            return "cross-server";
-        default:
-            return "unknown";
-    }
-}
-
-inline const char *ToProtocolString(CommProtocol protocol)
-{
-    switch (protocol) {
-        case COMM_PROTOCOL_HCCS:
-            return "HCCS";
-        case COMM_PROTOCOL_ROCE:
-            return "ROCE";
-        case COMM_PROTOCOL_PCIE:
-            return "PCIE";
-        case COMM_PROTOCOL_SIO:
-            return "SIO";
-        default:
-            return "RESERVED";
-    }
-}
-
-inline bool IsValidCommMode(BatchCommMode commMode)
-{
-    return commMode == BatchCommMode::kSingleServer || commMode == BatchCommMode::kCrossServer;
-}
-
-// å½“å‰ç‰ˆæœ¬æ˜ç¡®å‡è®¾ fullmeshï¼šé™¤æœ¬ rank å¤–ï¼Œå…¶ä½™æ¯ä¸ª rank éƒ½æœ‰ä¸€æ¡ channelã€‚
-inline uint32_t GetExpectedFullMeshChannelCount(uint32_t rankSize)
-{
-    return (rankSize > 0) ? (rankSize - 1) : 0;
-}
-
-inline uint32_t GetExpectedFullMeshChannelCount(const OpParam &param)
-{
-    return GetExpectedFullMeshChannelCount(param.topoInfo.rankSize);
-}
-
-// åŠ¨æ€ channel åŒºç»Ÿä¸€é€šè¿‡ helper è®¿é—®ï¼Œé¿å… Host å’Œ Device ç»§ç»­ä¾èµ–å›ºå®šæ•°ç»„å¸ƒå±€ã€‚
-inline const ChannelResource *GetChannelArray(const AlgResourceCtx &resCtx)
-{
-    if (resCtx.channelCount == 0) {
-        return nullptr;
-    }
-    return reinterpret_cast<const ChannelResource *>(
-        reinterpret_cast<const uint8_t *>(&resCtx) + resCtx.channelOffset);
-}
-
-inline ChannelResource *GetChannelArray(AlgResourceCtx &resCtx)
-{
-    if (resCtx.channelCount == 0) {
-        return nullptr;
-    }
-    return reinterpret_cast<ChannelResource *>(
-        reinterpret_cast<uint8_t *>(&resCtx) + resCtx.channelOffset);
-}
-
-inline const ChannelResource &GetChannel(const AlgResourceCtx &resCtx, uint32_t idx)
-{
-    return GetChannelArray(resCtx)[idx];
-}
-
-inline ChannelResource &GetChannel(AlgResourceCtx &resCtx, uint32_t idx)
-{
-    return GetChannelArray(resCtx)[idx];
-}
-
-inline uint64_t GetPerRankWindowCapacity(const OpParam &param, const AlgResourceCtx &resCtx)
-{
-    if (param.topoInfo.rankSize == 0) {
-        return 0;
-    }
-    return resCtx.localBuffer.size / param.topoInfo.rankSize;
-}
-
-inline uint64_t GetMaxWindowBytes(const OpParam &param, const AlgResourceCtx &resCtx)
-{
-    const uint64_t perRankCapacity = GetPerRankWindowCapacity(param, resCtx);
-    if (param.windowBytes == 0 || perRankCapacity == 0) {
-        return 0;
-    }
-    return (param.windowBytes < perRankCapacity) ? param.windowBytes : perRankCapacity;
-}
-
-inline uint32_t CountChannelsByProtocol(const AlgResourceCtx &resCtx, CommProtocol protocol)
-{
-    uint32_t count = 0;
-    for (uint32_t idx = 0; idx < resCtx.channelCount; ++idx) {
-        if (GetChannel(resCtx, idx).protocol == protocol) {
-            ++count;
-        }
-    }
-    return count;
-}
-
-inline uint32_t CountCrossServerChannels(const BatchTopoInfo &topoInfo, const AlgResourceCtx &resCtx)
-{
-    uint32_t count = 0;
-    for (uint32_t idx = 0; idx < resCtx.channelCount; ++idx) {
-        if (GetChannel(resCtx, idx).remoteServerIdx != topoInfo.serverIdx) {
-            ++count;
-        }
-    }
-    return count;
-}
-
-inline uint32_t CountRecognizedProtocols(const AlgResourceCtx &resCtx)
-{
-    return CountChannelsByProtocol(resCtx, COMM_PROTOCOL_HCCS) +
-        CountChannelsByProtocol(resCtx, COMM_PROTOCOL_ROCE) +
-        CountChannelsByProtocol(resCtx, COMM_PROTOCOL_PCIE) +
-        CountChannelsByProtocol(resCtx, COMM_PROTOCOL_SIO);
-}
-
-struct ResourceStats {
-    uint32_t crossServerChannels = 0;
-    uint32_t intraServerChannels = 0;
-    uint32_t hccsChannels = 0;
-    uint32_t roceChannels = 0;
-    uint32_t pcieChannels = 0;
-    uint32_t sioChannels = 0;
-    uint32_t recognizedProtocols = 0;
-    uint64_t perRankCapacity = 0;
-    uint64_t maxWindowBytes = 0;
-};
-
-inline ResourceStats CollectResourceStats(const OpParam &param, const AlgResourceCtx &resCtx)
-{
-    ResourceStats stats;
-    stats.crossServerChannels = CountCrossServerChannels(param.topoInfo, resCtx);
-    stats.intraServerChannels = resCtx.channelCount - stats.crossServerChannels;
-    stats.hccsChannels = CountChannelsByProtocol(resCtx, COMM_PROTOCOL_HCCS);
-    stats.roceChannels = CountChannelsByProtocol(resCtx, COMM_PROTOCOL_ROCE);
-    stats.pcieChannels = CountChannelsByProtocol(resCtx, COMM_PROTOCOL_PCIE);
-    stats.sioChannels = CountChannelsByProtocol(resCtx, COMM_PROTOCOL_SIO);
-    stats.recognizedProtocols = stats.hccsChannels + stats.roceChannels + stats.pcieChannels + stats.sioChannels;
-    stats.perRankCapacity = GetPerRankWindowCapacity(param, resCtx);
-    stats.maxWindowBytes = GetMaxWindowBytes(param, resCtx);
-    return stats;
-}
-
-inline bool HasConsistentRankDistribution(const OpParam &param)
-{
-    return param.topoInfo.rankSize != 0 &&
-        param.intraServerRankCount != 0 &&
-        (param.intraServerRankCount + param.crossServerRankCount == param.topoInfo.rankSize) &&
-        ((param.commMode == BatchCommMode::kSingleServer && param.crossServerRankCount == 0) ||
-         (param.commMode == BatchCommMode::kCrossServer && param.crossServerRankCount != 0));
-}
-
-inline HcclResult ValidateBasicOpParam(const OpParam &param, const char *stageTag)
-{
-    if (!IsValidCommMode(param.commMode)) {
-        HCCL_ERROR("%s commMode is invalid", stageTag);
-        return HCCL_E_INTERNAL;
-    }
-    if (param.itemCount == 0 || param.itemCount > kAllGatherBatchMaxItems) {
-        HCCL_ERROR("%s itemCount=%u is invalid", stageTag, param.itemCount);
-        return HCCL_E_INTERNAL;
-    }
-    if (param.topoInfo.rankSize == 0 || param.topoInfo.rank >= param.topoInfo.rankSize) {
-        HCCL_ERROR("%s topo rank/rankSize is invalid, rank=%u, rankSize=%u",
-            stageTag,
-            param.topoInfo.rank,
-            param.topoInfo.rankSize);
-        return HCCL_E_INTERNAL;
-    }
-    if (!HasConsistentRankDistribution(param)) {
-        HCCL_ERROR("%s rank distribution is inconsistent, commMode=%s, intra=%u, cross=%u, rankSize=%u",
-            stageTag,
-            ToCommModeString(param.commMode),
-            param.intraServerRankCount,
-            param.crossServerRankCount,
-            param.topoInfo.rankSize);
-        return HCCL_E_INTERNAL;
-    }
-    if (param.controlNotifyIds[kAllGatherBatchControlNotifyStart] == 0 ||
-        param.controlNotifyIds[kAllGatherBatchControlNotifyDone] == 0) {
-        HCCL_ERROR("%s control notify ids are invalid, start=%u, done=%u",
-            stageTag,
-            param.controlNotifyIds[kAllGatherBatchControlNotifyStart],
-            param.controlNotifyIds[kAllGatherBatchControlNotifyDone]);
-        return HCCL_E_INTERNAL;
-    }
-    if (param.totalInputBytes == 0 || param.totalOutputBytes == 0 || param.windowBytes == 0) {
-        HCCL_ERROR("%s byte sizes are invalid, input=%llu, output=%llu, window=%llu",
-            stageTag,
-            static_cast<unsigned long long>(param.totalInputBytes),
-            static_cast<unsigned long long>(param.totalOutputBytes),
-            static_cast<unsigned long long>(param.windowBytes));
-        return HCCL_E_INTERNAL;
-    }
-    return HCCL_SUCCESS;
-}
-
-// åŸºç¡€èµ„æºæ ¡éªŒä¼šåœ¨ Hostã€kernel å…¥å£ã€executor ç­‰å¤šå±‚å¤ç”¨ï¼Œç¡®ä¿å¤§å®¶å¯¹ fullmesh èµ„æºå½¢æ€çš„ç†è§£ä¸€è‡´ã€‚
-inline HcclResult ValidateBasicResourceCtx(const OpParam &param, const AlgResourceCtx &resCtx, const char *stageTag)
-{
-    const ResourceStats stats = CollectResourceStats(param, resCtx);
-    const uint32_t expectedChannelCount = GetExpectedFullMeshChannelCount(param);
-
-    if (resCtx.mainThreadHandle == 0) {
-        HCCL_ERROR("%s mainThreadHandle is invalid", stageTag);
-        return HCCL_E_INTERNAL;
-    }
-    if (resCtx.lastTwoWorkerCount != kAllGatherBatchLastTwoWorkerCount) {
-        HCCL_ERROR("%s lastTwoWorkerCount mismatch, actual=%u, expected=%u",
-            stageTag,
-            resCtx.lastTwoWorkerCount,
-            kAllGatherBatchLastTwoWorkerCount);
-        return HCCL_E_INTERNAL;
-    }
-    for (uint32_t idx = 0; idx < resCtx.lastTwoWorkerCount; ++idx) {
-        if (resCtx.lastTwoWorkerThreads[idx] == 0) {
-            HCCL_ERROR("%s lastTwo worker[%u] thread handle is invalid", stageTag, idx);
-            return HCCL_E_INTERNAL;
-        }
-    }
-    if (resCtx.localBuffer.addr == nullptr || resCtx.localBuffer.size == 0) {
-        HCCL_ERROR("%s localBuffer is invalid", stageTag);
-        return HCCL_E_INTERNAL;
-    }
-    if (resCtx.channelCount > 0 && resCtx.channelOffset < sizeof(AlgResourceCtx)) {
-        HCCL_ERROR("%s channelOffset=%u is invalid", stageTag, resCtx.channelOffset);
-        return HCCL_E_INTERNAL;
-    }
-    if (resCtx.channelCount != expectedChannelCount) {
-        HCCL_ERROR("%s fullmesh channelCount mismatch, actual=%u, expected=%u",
-            stageTag,
-            resCtx.channelCount,
-            expectedChannelCount);
-        return HCCL_E_INTERNAL;
-    }
-    if (stats.intraServerChannels + stats.crossServerChannels != resCtx.channelCount) {
-        HCCL_ERROR("%s channel split is inconsistent, intra=%u, cross=%u, channelCount=%u",
-            stageTag,
-            stats.intraServerChannels,
-            stats.crossServerChannels,
-            resCtx.channelCount);
-        return HCCL_E_INTERNAL;
-    }
-    if (stats.maxWindowBytes == 0) {
-        HCCL_ERROR("%s maxWindowBytes is zero", stageTag);
-        return HCCL_E_INTERNAL;
-    }
-    if (stats.recognizedProtocols != resCtx.channelCount) {
-        HCCL_ERROR("%s protocol distribution mismatch, recognized=%u, channelCount=%u",
-            stageTag,
-            stats.recognizedProtocols,
-            resCtx.channelCount);
-        return HCCL_E_INTERNAL;
-    }
-    if (param.commMode == BatchCommMode::kSingleServer && stats.crossServerChannels != 0) {
-        HCCL_ERROR("%s unexpectedly has crossServerChannels=%u in single-server mode",
-            stageTag,
-            stats.crossServerChannels);
-        return HCCL_E_INTERNAL;
-    }
-    if (param.commMode == BatchCommMode::kCrossServer && stats.crossServerChannels != param.crossServerRankCount) {
-        HCCL_ERROR("%s cross-server channel mismatch, channels=%u, expected=%u",
-            stageTag,
-            stats.crossServerChannels,
-            param.crossServerRankCount);
-        return HCCL_E_INTERNAL;
-    }
-    return HCCL_SUCCESS;
-}
-
-inline HcclResult ValidateRemoteChannelResources(const OpParam &param, const AlgResourceCtx &resCtx, const char *stageTag)
-{
-    const ResourceStats stats = CollectResourceStats(param, resCtx);
-
-    // è¿™ä¸€å±‚ä¸“é—¨çº¦æŸæ¯æ¡è¿œç«¯ channel çš„ endpoint å’Œ buffer å…ƒæ•°æ®ï¼ŒHost å’Œ Device å¤ç”¨åŒä¸€å¥—è§„åˆ™ã€‚
-    for (uint32_t idx = 0; idx < resCtx.channelCount; ++idx) {
-        const ChannelResource &channel = GetChannel(resCtx, idx);
-        if (channel.protocol == COMM_PROTOCOL_RESERVED) {
-            HCCL_ERROR("%s channel %u has reserved protocol", stageTag, idx);
-            return HCCL_E_INTERNAL;
-        }
-        if (channel.remoteRank == param.topoInfo.rank || channel.remoteRank >= param.topoInfo.rankSize) {
-            HCCL_ERROR("%s channel %u remoteRank=%u is invalid", stageTag, idx, channel.remoteRank);
-            return HCCL_E_INTERNAL;
-        }
-        if (channel.remoteSuperPodIdx != param.topoInfo.superPodIdx) {
-            HCCL_ERROR("%s channel %u crosses superPod unexpectedly, local=%u, remote=%u",
-                stageTag,
-                idx,
-                param.topoInfo.superPodIdx,
-                channel.remoteSuperPodIdx);
-            return HCCL_E_INTERNAL;
-        }
-        if (channel.remoteBuffer.addr == nullptr || channel.remoteBuffer.size == 0) {
-            HCCL_ERROR("%s channel %u remoteBuffer is invalid", stageTag, idx);
-            return HCCL_E_INTERNAL;
-        }
-        if (channel.remoteBuffer.size < (stats.maxWindowBytes * param.topoInfo.rankSize)) {
-            HCCL_ERROR("%s channel %u remoteBuffer too small, need=%llu, actual=%llu",
-                stageTag,
-                idx,
-                static_cast<unsigned long long>(stats.maxWindowBytes * param.topoInfo.rankSize),
-                static_cast<unsigned long long>(channel.remoteBuffer.size));
-            return HCCL_E_INTERNAL;
-        }
-    }
-    return HCCL_SUCCESS;
-}
 
 }  // namespace ops_hccl_allgatherbatch
 
 #endif
-
-
-
-
-
