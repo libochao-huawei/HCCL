@@ -1,4 +1,4 @@
-ï»¿#include "all_gather_nhr_core.h"
+#include "all_gather_nhr_core.h"
 
 #include <algorithm>
 
@@ -13,6 +13,11 @@ bool IsRoceProtocol(CommProtocol protocol)
     return protocol == COMM_PROTOCOL_ROCE;
 }
 
+bool ShouldUseSdmaPath(CommProtocol leftProtocol, CommProtocol rightProtocol)
+{
+    return !IsRoceProtocol(leftProtocol) && !IsRoceProtocol(rightProtocol);
+}
+
 }  // namespace
 
 AllGatherNHRCore::AllGatherNHRCore(
@@ -24,6 +29,31 @@ AllGatherNHRCore::AllGatherNHRCore(
 {
     InitDefaultRunCtx();
 }
+
+void AllGatherNHRCore::BuildDefaultSlices()
+{
+    runCtx_.sliceTemplate.clear();
+    runCtx_.sliceTemplate.push_back(LocalSlice { 0, runCtx_.packedBytes });
+    runCtx_.rankBaseOffsets.clear();
+    runCtx_.rankBaseOffsets.reserve(runCtx_.rankSize);
+    for (uint32_t rank = 0; rank < runCtx_.rankSize; ++rank) {
+        runCtx_.rankBaseOffsets.push_back(static_cast<uint64_t>(rank) * runCtx_.packedBytes);
+    }
+}
+
+void AllGatherNHRCore::BuildEffectiveSlices()
+{
+    effectiveSlices_.clear();
+    effectiveSlices_.reserve(runCtx_.rankBaseOffsets.size() * runCtx_.sliceTemplate.size());
+    for (size_t rankIdx = 0; rankIdx < runCtx_.rankBaseOffsets.size(); ++rankIdx) {
+        const uint64_t rankBaseOffset = runCtx_.rankBaseOffsets[rankIdx];
+        for (const LocalSlice &slice : runCtx_.sliceTemplate) {
+            effectiveSlices_.push_back(LocalSlice { rankBaseOffset + slice.offset, slice.size });
+        }
+    }
+}
+
+
 
 void AllGatherNHRCore::InitDefaultRunCtx()
 {
@@ -40,30 +70,19 @@ void AllGatherNHRCore::InitDefaultRunCtx()
     if (runCtx_.outputBase == nullptr) {
         runCtx_.outputBase = static_cast<uint8_t *>(resCtx_.localBuffer.addr);
     }
+    if (runCtx_.needMerge) {
+        runCtx_.keepOrder = false;
+    }
     if (runCtx_.subgroupRanks.empty()) {
         runCtx_.subgroupRanks.reserve(runCtx_.rankSize);
         for (uint32_t rank = 0; rank < runCtx_.rankSize; ++rank) {
             runCtx_.subgroupRanks.push_back(rank);
         }
     }
-    if (!runCtx_.preparedOutputLayout && runCtx_.inputBase == runCtx_.outputBase) {
-        runCtx_.preparedOutputLayout = true;
+    if (runCtx_.sliceTemplate.empty() && runCtx_.rankBaseOffsets.empty()) {
+        BuildDefaultSlices();
     }
-    if (runCtx_.sliceGroupSize == 0U && !runCtx_.sliceTemplate.empty()) {
-        runCtx_.sliceGroupSize = static_cast<uint32_t>(runCtx_.sliceTemplate.size());
-    }
-    if (runCtx_.slices.empty() &&
-        runCtx_.sliceGroupSize != 0U &&
-        !runCtx_.sliceTemplate.empty() &&
-        runCtx_.rankBaseOffsets.size() == runCtx_.subgroupRanks.size()) {
-        runCtx_.slices.reserve(runCtx_.subgroupRanks.size() * runCtx_.sliceGroupSize);
-        for (size_t rankIdx = 0; rankIdx < runCtx_.rankBaseOffsets.size(); ++rankIdx) {
-            const uint64_t rankBaseOffset = runCtx_.rankBaseOffsets[rankIdx];
-            for (const LocalSlice &slice : runCtx_.sliceTemplate) {
-                runCtx_.slices.push_back(LocalSlice { rankBaseOffset + slice.offset, slice.size });
-            }
-        }
-    }
+    BuildEffectiveSlices();
 }
 
 uint32_t AllGatherNHRCore::GetEffectiveRank() const
@@ -78,14 +97,12 @@ uint32_t AllGatherNHRCore::GetEffectiveRankSize() const
 
 uint32_t AllGatherNHRCore::GetSliceGroupSize() const
 {
-    if (runCtx_.sliceGroupSize != 0U) {
-        return runCtx_.sliceGroupSize;
-    }
-    const uint32_t rankSize = GetEffectiveRankSize();
-    if (rankSize == 0 || runCtx_.slices.empty()) {
-        return 0;
-    }
-    return static_cast<uint32_t>(runCtx_.slices.size() / rankSize);
+    return static_cast<uint32_t>(runCtx_.sliceTemplate.size());
+}
+
+const std::vector<LocalSlice> &AllGatherNHRCore::GetEffectiveSlices() const
+{
+    return effectiveSlices_;
 }
 
 HcclResult AllGatherNHRCore::ValidateCommState() const
@@ -112,10 +129,23 @@ HcclResult AllGatherNHRCore::ValidateCommState() const
         HCCL_ERROR("NHR input/output base is null, input=%p, output=%p", runCtx_.inputBase, runCtx_.outputBase);
         return HCCL_E_INTERNAL;
     }
+    if (runCtx_.sliceTemplate.empty() || runCtx_.rankBaseOffsets.size() != runCtx_.rankSize) {
+        HCCL_ERROR("NHR formal layout is incomplete, sliceTemplate=%u, rankBaseOffsets=%u, rankSize=%u",
+            static_cast<uint32_t>(runCtx_.sliceTemplate.size()),
+            static_cast<uint32_t>(runCtx_.rankBaseOffsets.size()),
+            runCtx_.rankSize);
+        return HCCL_E_INTERNAL;
+    }
+    if (runCtx_.rankBaseOffsets.size() != runCtx_.subgroupRanks.size()) {
+        HCCL_ERROR("NHR rankBaseOffsets mismatch, baseOffsets=%u, subgroupRanks=%u",
+            static_cast<uint32_t>(runCtx_.rankBaseOffsets.size()),
+            static_cast<uint32_t>(runCtx_.subgroupRanks.size()));
+        return HCCL_E_INTERNAL;
+    }
 
     const uint32_t sliceGroupSize = GetSliceGroupSize();
     if (sliceGroupSize == 0U) {
-        HCCL_ERROR("NHR sliceGroupSize is zero");
+        HCCL_ERROR("NHR effective slice group size is zero");
         return HCCL_E_INTERNAL;
     }
     if (!runCtx_.sliceTemplate.empty() && runCtx_.sliceTemplate.size() != sliceGroupSize) {
@@ -124,15 +154,10 @@ HcclResult AllGatherNHRCore::ValidateCommState() const
             sliceGroupSize);
         return HCCL_E_INTERNAL;
     }
-    if (!runCtx_.rankBaseOffsets.empty() && runCtx_.rankBaseOffsets.size() != runCtx_.subgroupRanks.size()) {
-        HCCL_ERROR("NHR rankBaseOffsets mismatch, baseOffsets=%u, subgroupRanks=%u",
-            static_cast<uint32_t>(runCtx_.rankBaseOffsets.size()),
-            static_cast<uint32_t>(runCtx_.subgroupRanks.size()));
-        return HCCL_E_INTERNAL;
-    }
-    if (runCtx_.slices.empty() || runCtx_.slices.size() != (runCtx_.rankSize * sliceGroupSize)) {
-        HCCL_ERROR("NHR slices are invalid, sliceCount=%u, rankSize=%u, sliceGroupSize=%u",
-            static_cast<uint32_t>(runCtx_.slices.size()),
+    const std::vector<LocalSlice> &effectiveSlices = GetEffectiveSlices();
+    if (effectiveSlices.empty() || effectiveSlices.size() != (runCtx_.rankSize * sliceGroupSize)) {
+        HCCL_ERROR("NHR effective slices are invalid, sliceCount=%u, rankSize=%u, sliceGroupSize=%u",
+            static_cast<uint32_t>(effectiveSlices.size()),
             runCtx_.rankSize,
             sliceGroupSize);
         return HCCL_E_INTERNAL;
@@ -147,7 +172,7 @@ HcclResult AllGatherNHRCore::ValidateCommState() const
             return HCCL_E_INTERNAL;
         }
     }
-    for (const LocalSlice &slice : runCtx_.slices) {
+    for (const LocalSlice &slice : effectiveSlices) {
         if (slice.size == 0) {
             HCCL_ERROR("NHR slice size is zero, offset=%llu", static_cast<unsigned long long>(slice.offset));
             return HCCL_E_INTERNAL;
@@ -163,93 +188,65 @@ HcclResult AllGatherNHRCore::ValidateCommState() const
     }
     return HCCL_SUCCESS;
 }
-
-HcclResult AllGatherNHRCore::PreCopyToOutputLayout()
+HcclResult AllGatherNHRCore::LocalDataCopy()
 {
-    if (runCtx_.preparedOutputLayout || runCtx_.inputBase == runCtx_.outputBase) {
-        runCtx_.preparedOutputLayout = true;
-        return HCCL_SUCCESS;
+    if (sliceMap_.size() != runCtx_.rankSize) {
+        HCCL_ERROR("NHR sliceMap size mismatch, sliceMap=%u, rankSize=%u",
+            static_cast<uint32_t>(sliceMap_.size()),
+            runCtx_.rankSize);
+        return HCCL_E_INTERNAL;
     }
     if (runCtx_.sliceTemplate.empty() || runCtx_.rankBaseOffsets.size() != runCtx_.subgroupRanks.size() ||
         runCtx_.rank >= runCtx_.rankBaseOffsets.size()) {
-        HCCL_ERROR("NHR output layout is not prepared and cannot be precopied, rank=%u, template=%u, baseOffsets=%u",
+        HCCL_ERROR("NHR local copy layout is incomplete, rank=%u, template=%u, baseOffsets=%u, subgroupRanks=%u",
             runCtx_.rank,
             static_cast<uint32_t>(runCtx_.sliceTemplate.size()),
+            static_cast<uint32_t>(runCtx_.rankBaseOffsets.size()),
+            static_cast<uint32_t>(runCtx_.subgroupRanks.size()));
+        return HCCL_E_INTERNAL;
+    }
+
+    const uint32_t sourceRankIdx = runCtx_.rank;
+    const uint32_t targetRankIdx = sliceMap_[runCtx_.rank];
+    if (targetRankIdx >= runCtx_.rankBaseOffsets.size()) {
+        HCCL_ERROR("NHR local copy target idx is out of range, source=%u, target=%u, baseOffsets=%u",
+            sourceRankIdx,
+            targetRankIdx,
             static_cast<uint32_t>(runCtx_.rankBaseOffsets.size()));
         return HCCL_E_INTERNAL;
     }
 
-    const uint64_t localBaseOffset = runCtx_.rankBaseOffsets[runCtx_.rank];
+    if (runCtx_.inputBase == runCtx_.outputBase) {
+        // Align with hcomm noPower main path: PreCopy has already placed the local rank data
+        // into the noPowerMap[group] workspace slot, so in-place input/output needs no extra local move.
+        return HCCL_SUCCESS;
+    }
+
+
+    const uint64_t targetBaseOffset = runCtx_.rankBaseOffsets[targetRankIdx];
     for (const LocalSlice &slice : runCtx_.sliceTemplate) {
-        void *dst = static_cast<uint8_t *>(runCtx_.outputBase) + localBaseOffset + slice.offset;
+        void *dst = static_cast<uint8_t *>(runCtx_.outputBase) + targetBaseOffset + slice.offset;
         const void *src = static_cast<const uint8_t *>(runCtx_.inputBase) + slice.offset;
         const int32_t ret = HcommLocalCopyOnThread(resCtx_.mainThreadHandle, dst, src, slice.size);
         if (ret != HCCL_SUCCESS) {
-            HCCL_ERROR("NHR precopy failed, rank=%u, offset=%llu, size=%llu, ret=%d",
+            HCCL_ERROR("NHR local copy failed, rank=%u, targetBase=%llu, offset=%llu, size=%llu, ret=%d",
                 runCtx_.rank,
+                static_cast<unsigned long long>(targetBaseOffset),
                 static_cast<unsigned long long>(slice.offset),
                 static_cast<unsigned long long>(slice.size),
                 ret);
             return static_cast<HcclResult>(ret);
         }
     }
-    runCtx_.preparedOutputLayout = true;
-    return HCCL_SUCCESS;
-}
-HcclResult AllGatherNHRCore::ValidateStepPlan(const std::vector<InterServerAlgoStep> &stepPlan) const
-{
-    const uint32_t rankSize = GetEffectiveRankSize();
-    const uint32_t sliceCount = static_cast<uint32_t>(runCtx_.slices.size());
-    if (stepPlan.empty()) {
-        HCCL_ERROR("NHR stepPlan is empty for rankSize=%u", rankSize);
-        return HCCL_E_INTERNAL;
-    }
-    for (const InterServerAlgoStep &stepInfo : stepPlan) {
-        if (stepInfo.myRank != GetEffectiveRank()) {
-            HCCL_ERROR("NHR step[%u] myRank mismatch, expected=%u, actual=%u",
-                stepInfo.step,
-                GetEffectiveRank(),
-                stepInfo.myRank);
-            return HCCL_E_INTERNAL;
-        }
-        if (stepInfo.fromRank >= rankSize || stepInfo.toRank >= rankSize) {
-            HCCL_ERROR("NHR step[%u] peer is out of range, from=%u, to=%u, rankSize=%u",
-                stepInfo.step,
-                stepInfo.fromRank,
-                stepInfo.toRank,
-                rankSize);
-            return HCCL_E_INTERNAL;
-        }
-        if (stepInfo.txSliceIdxs.size() != stepInfo.nSlices || stepInfo.rxSliceIdxs.size() != stepInfo.nSlices) {
-            HCCL_ERROR("NHR step[%u] slice count mismatch, nSlices=%u, tx=%u, rx=%u",
-                stepInfo.step,
-                stepInfo.nSlices,
-                static_cast<uint32_t>(stepInfo.txSliceIdxs.size()),
-                static_cast<uint32_t>(stepInfo.rxSliceIdxs.size()));
-            return HCCL_E_INTERNAL;
-        }
-        for (uint32_t sliceIdx : stepInfo.txSliceIdxs) {
-            if (sliceIdx >= sliceCount) {
-                HCCL_ERROR("NHR step[%u] txSliceIdx=%u is invalid, sliceCount=%u",
-                    stepInfo.step,
-                    sliceIdx,
-                    sliceCount);
-                return HCCL_E_INTERNAL;
-            }
-        }
-        for (uint32_t sliceIdx : stepInfo.rxSliceIdxs) {
-            if (sliceIdx >= sliceCount) {
-                HCCL_ERROR("NHR step[%u] rxSliceIdx=%u is invalid, sliceCount=%u",
-                    stepInfo.step,
-                    sliceIdx,
-                    sliceCount);
-                return HCCL_E_INTERNAL;
-            }
-        }
-    }
     return HCCL_SUCCESS;
 }
 
+HcclResult AllGatherNHRCore::PostLocalCopy() const
+{
+    // µ±Ç° custom-op µÄ NHR Êä³ö»º³åÇø¾ÍÊÇºóÐø HDStage ¼ÌÐøÏû·ÑµÄÕýÊ½¹¤×÷Çø£¬
+    // ¶ÔÓ¦ hcomm Ö¸Áî°æµÄ post-copy ÓïÒå£¬ÕâÒ»ÂÖ²»ÐèÒª¶îÍâ°Ñ scratch Ð´»Øµ½±ð´¦¡£
+    return HCCL_SUCCESS;
+}
 void AllGatherNHRCore::GetRankMapping(uint32_t rankSize, bool keepOrder)
 {
     std::vector<uint32_t> tree;
@@ -340,6 +337,8 @@ HcclResult AllGatherNHRCore::GetStepInfo(uint32_t step, uint32_t nSteps, InterSe
     stepInfo.nSlices = nSlices * sliceGroupSize;
     stepInfo.toRank = sendTo;
     stepInfo.fromRank = recvFrom;
+    stepInfo.txSliceIdxs.reserve(stepInfo.nSlices);
+    stepInfo.rxSliceIdxs.reserve(stepInfo.nSlices);
 
     for (uint32_t idx = 0; idx < nSlices; ++idx) {
         for (uint32_t subIdx = 0; subIdx < sliceGroupSize; ++subIdx) {
@@ -354,34 +353,33 @@ HcclResult AllGatherNHRCore::GetStepInfo(uint32_t step, uint32_t nSteps, InterSe
     return HCCL_SUCCESS;
 }
 
-HcclResult AllGatherNHRCore::BuildStepPlan(std::vector<InterServerAlgoStep> &stepPlan) const
-{
-    const uint32_t rankSize = GetEffectiveRankSize();
-    const uint32_t nSteps = GetStepNumInterServer(rankSize);
-    stepPlan.clear();
-    stepPlan.reserve(nSteps);
-    for (uint32_t step = 0; step < nSteps; ++step) {
-        InterServerAlgoStep stepInfo;
-        HCCL_CHK_RET(GetStepInfo(step, nSteps, stepInfo));
-        stepPlan.push_back(stepInfo);
-    }
-    return HCCL_SUCCESS;
-}
-
 HcclResult AllGatherNHRCore::BuildStepSlices(
     const InterServerAlgoStep &stepInfo,
     std::vector<LocalSlice> &txSlices,
     std::vector<LocalSlice> &rxSlices) const
 {
+    const std::vector<LocalSlice> &effectiveSlices = GetEffectiveSlices();
     txSlices.clear();
     rxSlices.clear();
     txSlices.reserve(stepInfo.txSliceIdxs.size());
     rxSlices.reserve(stepInfo.rxSliceIdxs.size());
     for (uint32_t sliceIdx : stepInfo.txSliceIdxs) {
-        txSlices.push_back(runCtx_.slices[sliceIdx]);
+        if (sliceIdx >= effectiveSlices.size()) {
+            HCCL_ERROR("NHR tx slice index is out of range, sliceIdx=%u, sliceCount=%u",
+                sliceIdx,
+                static_cast<uint32_t>(effectiveSlices.size()));
+            return HCCL_E_INTERNAL;
+        }
+        txSlices.push_back(effectiveSlices[sliceIdx]);
     }
     for (uint32_t sliceIdx : stepInfo.rxSliceIdxs) {
-        rxSlices.push_back(runCtx_.slices[sliceIdx]);
+        if (sliceIdx >= effectiveSlices.size()) {
+            HCCL_ERROR("NHR rx slice index is out of range, sliceIdx=%u, sliceCount=%u",
+                sliceIdx,
+                static_cast<uint32_t>(effectiveSlices.size()));
+            return HCCL_E_INTERNAL;
+        }
+        rxSlices.push_back(effectiveSlices[sliceIdx]);
     }
     MergeSlices(txSlices);
     MergeSlices(rxSlices);
@@ -390,7 +388,7 @@ HcclResult AllGatherNHRCore::BuildStepSlices(
 
 void AllGatherNHRCore::MergeSlices(std::vector<LocalSlice> &slices) const
 {
-    if (slices.size() <= 1U) {
+    if (!runCtx_.needMerge || slices.size() <= 1U) {
         return;
     }
     std::sort(slices.begin(), slices.end(), [](const LocalSlice &lhs, const LocalSlice &rhs) {
@@ -480,7 +478,7 @@ HcclResult AllGatherNHRCore::SdmaRx(
         const int32_t ret = HcommChannelNotifyRecordOnThread(
             resCtx_.mainThreadHandle,
             channelRight->handle,
-            0U);
+            kAllGatherBatchNotifyIdxAck);
         if (ret != HCCL_SUCCESS) {
             HCCL_ERROR("NHR step[%u] ack record failed, toRank=%u, ret=%d",
                 stepInfo.step,
@@ -493,7 +491,7 @@ HcclResult AllGatherNHRCore::SdmaRx(
         int32_t ret = HcommChannelNotifyWaitOnThread(
             resCtx_.mainThreadHandle,
             channelLeft->handle,
-            0U,
+            kAllGatherBatchNotifyIdxAck,
             kAllGatherBatchCustomTimeoutMs);
         if (ret != HCCL_SUCCESS) {
             HCCL_ERROR("NHR step[%u] ack wait failed, fromRank=%u, ret=%d",
@@ -506,7 +504,7 @@ HcclResult AllGatherNHRCore::SdmaRx(
         ret = HcommChannelNotifyRecordOnThread(
             resCtx_.mainThreadHandle,
             channelLeft->handle,
-            1U);
+            kAllGatherBatchNotifyIdxDataSignal);
         if (ret != HCCL_SUCCESS) {
             HCCL_ERROR("NHR step[%u] data record failed, fromRank=%u, ret=%d",
                 stepInfo.step,
@@ -519,7 +517,7 @@ HcclResult AllGatherNHRCore::SdmaRx(
         const int32_t ret = HcommChannelNotifyWaitOnThread(
             resCtx_.mainThreadHandle,
             channelRight->handle,
-            1U,
+            kAllGatherBatchNotifyIdxDataSignal,
             kAllGatherBatchCustomTimeoutMs);
         if (ret != HCCL_SUCCESS) {
             HCCL_ERROR("NHR step[%u] data wait failed, toRank=%u, ret=%d",
@@ -543,7 +541,7 @@ HcclResult AllGatherNHRCore::RdmaTxRx(
         const int32_t ret = HcommChannelNotifyRecordOnThread(
             resCtx_.mainThreadHandle,
             channelLeft->handle,
-            0U);
+            kAllGatherBatchNotifyIdxAck);
         if (ret != HCCL_SUCCESS) {
             HCCL_ERROR("NHR step[%u] left ack record failed, fromRank=%u, ret=%d",
                 stepInfo.step,
@@ -556,7 +554,7 @@ HcclResult AllGatherNHRCore::RdmaTxRx(
         int32_t ret = HcommChannelNotifyWaitOnThread(
             resCtx_.mainThreadHandle,
             channelRight->handle,
-            0U,
+            kAllGatherBatchNotifyIdxAck,
             kAllGatherBatchCustomTimeoutMs);
         if (ret != HCCL_SUCCESS) {
             HCCL_ERROR("NHR step[%u] right ack wait failed, toRank=%u, ret=%d",
@@ -569,7 +567,7 @@ HcclResult AllGatherNHRCore::RdmaTxRx(
         ret = HcommChannelNotifyRecordOnThread(
             resCtx_.mainThreadHandle,
             channelRight->handle,
-            1U);
+            kAllGatherBatchNotifyIdxDataSignal);
         if (ret != HCCL_SUCCESS) {
             HCCL_ERROR("NHR step[%u] right data record failed, toRank=%u, ret=%d",
                 stepInfo.step,
@@ -579,10 +577,10 @@ HcclResult AllGatherNHRCore::RdmaTxRx(
         }
     }
     if (channelLeft != nullptr) {
-        const int32_t ret = HcommChannelNotifyWaitOnThread(
+        int32_t ret = HcommChannelNotifyWaitOnThread(
             resCtx_.mainThreadHandle,
             channelLeft->handle,
-            1U,
+            kAllGatherBatchNotifyIdxDataSignal,
             kAllGatherBatchCustomTimeoutMs);
         if (ret != HCCL_SUCCESS) {
             HCCL_ERROR("NHR step[%u] left data wait failed, fromRank=%u, ret=%d",
@@ -591,16 +589,46 @@ HcclResult AllGatherNHRCore::RdmaTxRx(
                 ret);
             return static_cast<HcclResult>(ret);
         }
-        // For ROCE we still materialize the agreed rxSlices locally after the peer signals completion,
-        // so each step ends with the received slices visible in outputBase.
         HCCL_CHK_RET(Rx(*channelLeft, rxSlices));
+        ret = HcommChannelNotifyRecordOnThread(
+            resCtx_.mainThreadHandle,
+            channelLeft->handle,
+            kAllGatherBatchNotifyIdxFinAck);
+        if (ret != HCCL_SUCCESS) {
+            HCCL_ERROR("NHR step[%u] left fin record failed, fromRank=%u, ret=%d",
+                stepInfo.step,
+                channelLeft->remoteRank,
+                ret);
+            return static_cast<HcclResult>(ret);
+        }
+    }
+    if (channelRight != nullptr) {
+        const int32_t ret = HcommChannelNotifyWaitOnThread(
+            resCtx_.mainThreadHandle,
+            channelRight->handle,
+            kAllGatherBatchNotifyIdxFinAck,
+            kAllGatherBatchCustomTimeoutMs);
+        if (ret != HCCL_SUCCESS) {
+            HCCL_ERROR("NHR step[%u] right fin wait failed, toRank=%u, ret=%d",
+                stepInfo.step,
+                channelRight->remoteRank,
+                ret);
+            return static_cast<HcclResult>(ret);
+        }
     }
     return HCCL_SUCCESS;
 }
 
-HcclResult AllGatherNHRCore::RunAllGather(const std::vector<InterServerAlgoStep> &stepPlan) const
+HcclResult AllGatherNHRCore::RunAllGather() const
 {
-    for (const InterServerAlgoStep &stepInfo : stepPlan) {
+    const uint32_t rankSize = GetEffectiveRankSize();
+    const uint32_t nSteps = GetStepNumInterServer(rankSize);
+    std::vector<LocalSlice> txSlices;
+    std::vector<LocalSlice> rxSlices;
+    for (uint32_t step = 0; step < nSteps; ++step) {
+        InterServerAlgoStep stepInfo;
+        HCCL_CHK_RET(GetStepInfo(step, nSteps, stepInfo));
+
         const ChannelResource *channelLeft = FindChannelBySubgroupRank(stepInfo.fromRank);
         const ChannelResource *channelRight = FindChannelBySubgroupRank(stepInfo.toRank);
         if (channelLeft == nullptr || channelRight == nullptr) {
@@ -611,8 +639,6 @@ HcclResult AllGatherNHRCore::RunAllGather(const std::vector<InterServerAlgoStep>
             return HCCL_E_NOT_FOUND;
         }
 
-        std::vector<LocalSlice> txSlices;
-        std::vector<LocalSlice> rxSlices;
         HCCL_CHK_RET(BuildStepSlices(stepInfo, txSlices, rxSlices));
 
         HCCL_INFO("NHR step ready: subgroupRank=%u, subgroupSize=%u, step=%u, fromRank=%u(global=%u), toRank=%u(global=%u), mergedTxSlices=%u, mergedRxSlices=%u, protocolLeft=%s, protocolRight=%s",
@@ -628,7 +654,7 @@ HcclResult AllGatherNHRCore::RunAllGather(const std::vector<InterServerAlgoStep>
             ToProtocolString(channelLeft->protocol),
             ToProtocolString(channelRight->protocol));
 
-        if (!IsRoceProtocol(channelLeft->protocol) || !IsRoceProtocol(channelRight->protocol)) {
+        if (ShouldUseSdmaPath(channelLeft->protocol, channelRight->protocol)) {
             HCCL_CHK_RET(SdmaRx(channelLeft, channelRight, rxSlices, stepInfo));
         } else {
             HCCL_CHK_RET(RdmaTxRx(channelLeft, channelRight, txSlices, rxSlices, stepInfo));
@@ -639,41 +665,39 @@ HcclResult AllGatherNHRCore::RunAllGather(const std::vector<InterServerAlgoStep>
 
 HcclResult AllGatherNHRCore::RunAsync()
 {
-    if (GetEffectiveRankSize() <= 1U) {
-        HCCL_INFO("NHR fast path: rankSize=%u", GetEffectiveRankSize());
-        return HCCL_SUCCESS;
+    HCCL_CHK_RET(ValidateCommState());
+
+    const uint32_t rankSize = GetEffectiveRankSize();
+    const bool keepOrder = runCtx_.needMerge ? false : runCtx_.keepOrder;
+    GetRankMapping(rankSize, keepOrder);
+
+    HCCL_CHK_RET(LocalDataCopy());
+
+    if (rankSize <= 1U) {
+        HCCL_INFO("NHR fast path: rankSize=%u", rankSize);
+        return PostLocalCopy();
     }
 
-    HCCL_CHK_RET(ValidateCommState());
-    HCCL_CHK_RET(PreCopyToOutputLayout());
-
-    GetRankMapping(GetEffectiveRankSize(), runCtx_.keepOrder);
-
-    std::vector<InterServerAlgoStep> stepPlan;
-    HCCL_CHK_RET(BuildStepPlan(stepPlan));
-    HCCL_CHK_RET(ValidateStepPlan(stepPlan));
-
-    HCCL_INFO("NHR plan ready: rank=%u, subgroupRank=%u, subgroupSize=%u, stepCount=%u, sliceCount=%u, sliceGroupSize=%u, packedBytes=%llu, keepOrder=%s",
+    const uint32_t stepCount = GetStepNumInterServer(rankSize);
+    HCCL_INFO("NHR plan ready: rank=%u, subgroupRank=%u, subgroupSize=%u, stepCount=%u, sliceCount=%u, sliceGroupSize=%u, packedBytes=%llu, needMerge=%s, keepOrder=%s, localCopyMode=%s",
         param_.topoInfo.rank,
         GetEffectiveRank(),
-        GetEffectiveRankSize(),
-        static_cast<uint32_t>(stepPlan.size()),
-        static_cast<uint32_t>(runCtx_.slices.size()),
+        rankSize,
+        stepCount,
+        static_cast<uint32_t>(GetEffectiveSlices().size()),
         GetSliceGroupSize(),
         static_cast<unsigned long long>(packedBytes_),
-        runCtx_.keepOrder ? "true" : "false");
+        runCtx_.needMerge ? "true" : "false",
+        keepOrder ? "true" : "false",
+        (runCtx_.inputBase == runCtx_.outputBase) ? "inplace" : "out-of-place");
 
-    HCCL_CHK_RET(RunAllGather(stepPlan));
+    HCCL_CHK_RET(RunAllGather());
+    HCCL_CHK_RET(PostLocalCopy());
     HCCL_INFO("NHR finished: rank=%u, subgroupRank=%u, subgroupSize=%u",
         param_.topoInfo.rank,
         GetEffectiveRank(),
-        GetEffectiveRankSize());
+        rankSize);
     return HCCL_SUCCESS;
 }
+
 }  // namespace ops_hccl_allgatherbatch
-
-
-
-
-
-

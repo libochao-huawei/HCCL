@@ -5,13 +5,6 @@ namespace {
 
 using namespace ops_hccl_allgatherbatch;
 
-HcclResult ValidateKernelResourceCtx(const OpParam &param)
-{
-    const AlgResourceCtx &resCtx = *param.resCtx;
-    HCCL_CHK_RET(ValidateBasicResourceCtx(param, resCtx, "AICPU kernel resCtx"));
-    return ValidateRemoteChannelResources(param, resCtx, "AICPU kernel");
-}
-
 void ResetBatchCallProfiling(BatchCallProfiling &profiling, const OpParam &param, const AlgResourceCtx &resCtx)
 {
     profiling = {};
@@ -54,9 +47,6 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
         return 1;
     }
     if (ValidateBasicOpParam(*param, "AICPU kernel param") != HCCL_SUCCESS) {
-        return 1;
-    }
-    if (ValidateKernelResourceCtx(*param) != HCCL_SUCCESS) {
         return 1;
     }
 
