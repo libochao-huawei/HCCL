@@ -93,6 +93,8 @@ HcclResult CheckCount(const u64 count);
 
 HcclResult CheckDataType(const HcclDataType dataType, bool needReduce);
 
+HcclResult CheckDetourSupport(HcclComm comm, OpParam &param);
+
 std::string GetSupportDataType(bool needReduce);
 
 HcclResult CheckReduceOp(const HcclDataType dataType, const HcclReduceOp op);
