@@ -95,6 +95,7 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::FastLaunch(const OpParam& param, const 
             PointerToAddr(buffInfo_.inputPtr) + args[0],
             PointerToAddr(buffInfo_.outputPtr) + args[1],
             args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12]);
+        HCCL_INFO("[CcuTempAllGatherNHR1DMem2Mem::KernelRun] args[0][%lu], args[1][%lu], args[2][%lu], args[3][%lu]， args[4][%lu]， args[5][%lu]， args[6][%lu]， args[7][%lu]， args[8][%lu]， args[9][%lu]， args[10][%lu]， args[11][%lu]， args[12][%lu]", args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12]);
 
         void* taskArgPointer = static_cast<void*>(&taskArg);
 
@@ -266,6 +267,10 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::KernelRun(const OpParam& param,
     CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, token, die0Size, die1Size,
         repeatNum, inputSliceStride, outputSliceStride, inputRepeatStride, outputRepeatStride,
         isInputOutputEqual, die0LastSize, die1LastSize));
+    HCCL_INFO("[CcuTempAllGatherNHR1DMem2Mem::KernelRun] buffInfo_.inBuffBaseOff [%lu], buffInfo_.outBuffBaseOff [%lu], token [%lu], die0Size [%lu], die1Size [%lu], repeatNum [%lu], inputSliceStride [%lu], outputSliceStride [%lu], inputRepeatStride [%lu], outputRepeatStride [%lu], isInputOutputEqual [%lu], die0LastSize [%lu], die1LastSize [%lu]",
+    buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, token, die0Size, die1Size,
+        repeatNum, inputSliceStride, outputSliceStride, inputRepeatStride, outputRepeatStride,
+        isInputOutputEqual, die0LastSize, die1LastSize);
     for (u32 i = 0; i < kernelNum; i++) {
         // 2个kernel的TaskArg相同
         submitInfo.kernelHandle = templateResource.ccuKernels[i];

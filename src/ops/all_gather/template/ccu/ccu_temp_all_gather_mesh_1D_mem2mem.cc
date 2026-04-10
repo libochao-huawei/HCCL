@@ -87,6 +87,8 @@ HcclResult CcuTempAllGatherMesh1DMem2Mem::FastLaunch(const OpParam& param, const
         PointerToAddr(buffInfo_.outputPtr) + args[1],
         args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10]);
 
+    HCCL_INFO("[CcuTempAllGatherMesh1DMem2Mem::KernelRun] args[0][%lu], args[1][%lu], args[2][%lu], args[3][%lu]， args[4][%lu]， args[5][%lu]， args[6][%lu]， args[7][%lu]， args[8][%lu]， args[9][%lu]， args[10][%lu]", args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10]);
+
     void* taskArgPtr = static_cast<void*>(&taskArg);
 
     CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0],
@@ -141,6 +143,10 @@ HcclResult CcuTempAllGatherMesh1DMem2Mem::KernelRun(const OpParam& param,
     CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, token, inputSliceStride,
         outputSliceStride, repeatNum, inputRepeatStride, outputRepeatStride, normalSliceSize, lastSliceSize,
         isInputOutputEqual));
+    HCCL_INFO("[CcuTempAllGatherMesh1DMem2Mem::KernelRun] buffInfo_.inBuffBaseOff [%lu], buffInfo_.outBuffBaseOff [%lu], token [%lu], inputSliceStride [%lu], outputSliceStride [%lu], repeatNum [%lu], inputRepeatStride [%lu], outputRepeatStride [%lu], normalSliceSize [%lu], lastSliceSize [%lu], isInputOutputEqual [%lu]",
+    buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, token, inputSliceStride,
+         outputSliceStride, repeatNum, inputRepeatStride, outputRepeatStride, normalSliceSize, lastSliceSize,
+         isInputOutputEqual);
     templateResource.submitInfos.push_back(submitInfo);
 
     HCCL_DEBUG("[CcuTempAllGatherMesh1DMem2Mem::KernelRun] end");
