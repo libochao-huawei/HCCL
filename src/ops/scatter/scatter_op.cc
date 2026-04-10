@@ -67,6 +67,7 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
 
     HcclUs startut = TIME_NOW(); // 走老流程的判断时间不统计在内
 
+    OpParam param;
     // 参数校验等工作
     CHK_PRT_RET(recvCount == 0, HCCL_WARNING("input recvCount is 0, return scatter success"), HCCL_SUCCESS);
     CHK_RET(CheckScatterInputPara(comm, recvBuf));
@@ -79,16 +80,17 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
             std::vector<std::string>({"HcclScatter", "nullptr", "sendBuf", "non-null pointer"}));
         CHK_PTR_NULL(sendBuf);
     }
-    char commName[COMM_INDENTIFIER_MAX_LENGTH];
-    CHK_RET(HcclGetCommName(comm, commName));
-    const string tag = "Scatter_" + string(commName);
-    CHK_RET(HcclCheckTag(tag.c_str()));
-    CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, root), tag.c_str());
+    CHK_RET(HcomCheckUserRank(rankSize, root));
     CHK_RET(CheckCount(recvCount));
     CHK_RET(CheckDataType(dataType, false));
+    CHK_RET(HcclGetCommName(comm, param.commName));
+    // topoInfo的tag，所有相同的算子可以共享
+    int ret = sprintf_s(param.tag, sizeof(param.tag), "Scatter_%s", param.commName);
+    CHK_PRT_RET((ret <= 0), "failed to fill param.tag", HCCL_E_INTERNAL);
+    CHK_RET(HcclCheckTag(param.tag));
 
     HCCL_DEBUG("HCCL_KEY_INFO: tag[%s], input_ptr[%p], output_ptr[%p], recvCount[%llu], data_type[%s], root[%u]",
-        tag.c_str(), sendBuf, recvBuf, recvCount, GetDataTypeEnumStr(dataType).c_str(), root);
+               param.tag, sendBuf, recvBuf, recvCount, GetDataTypeEnumStr(dataType).c_str(), root);
 
     /* 接口交互信息日志 */
     if (GetExternalInputHcclEnableEntryLog()) {
@@ -99,16 +101,16 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
         char stackLogBuffer[LOG_TMPBUF_SIZE];
         s32 ret = snprintf_s(stackLogBuffer, LOG_TMPBUF_SIZE, LOG_TMPBUF_SIZE - 1U,
             "tag[%s], sendBuf[%p], recvBuf[%p], recvCount[%llu], dataType[%s], root[%u], streamId[%d], deviceLogicId[%d]",
-            tag.c_str(), sendBuf, recvBuf, recvCount, GetDataTypeEnumStr(dataType).c_str(), root, streamId, deviceLogicId);
+                             param.tag, sendBuf, recvBuf, recvCount, GetDataTypeEnumStr(dataType).c_str(), root, streamId, deviceLogicId);
 
-        CHK_PRT_CONT(ret == -1, HCCL_WARNING("Failed to build log info, tag[%s].", tag.c_str()));
+        CHK_PRT_CONT(ret == -1, HCCL_WARNING("Failed to build log info, tag[%s].", param.tag));
         std::string logInfo = "Entry-HcclScatter:" + std::string(stackLogBuffer); // capture的entry信息待补充
         HCCL_RUN_INFO("%s", logInfo.c_str());
     }
 
-    CHK_RET_AND_PRINT_IDE(ScatterOutPlace(sendBuf, recvBuf, recvCount, dataType, root, comm, stream, tag), tag.c_str());
+    CHK_RET(ScatterOutPlace(param, sendBuf, recvBuf, recvCount, dataType, root, comm, stream, rankSize));
 
-    CHK_RET(LogHcclExit("HcclScatter", tag.c_str(), startut));
+    CHK_RET(LogHcclExit("HcclScatter", param.tag, startut));
     return HCCL_SUCCESS;
 }
 
@@ -150,57 +152,18 @@ bool IsAiCpuMode(DevType deviceType, u32 rankSize)
     return false;
 }
 
-HcclResult ScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType, uint32_t root,
-    HcclComm comm, aclrtStream stream, const std::string &tag)
+HcclResult ScatterExecOp(OpParam &param, void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType, uint32_t root,
+    HcclComm comm, aclrtStream stream, u32 userRankSize, uint64_t beginTime)
 {
-    uint64_t beginTime;
-    if (HcommIsProfilingSupported()) {
-        beginTime = HcommGetProfilingSysCycleTime();
-    } 
-    u32 userRankSize;
-    CHK_RET(HcclGetRankSize(comm, &userRankSize));
-
-    u32 perDataSize = SIZE_TABLE[dataType];
-    u64 outputSize = recvCount * perDataSize;
-    u64 inputSize = outputSize * userRankSize;
-
-    OpParam param;
-    param.stream = stream;
-    param.opMode = OpMode::OPBASE;
-
-    DevType deviceType = DevType::DEV_TYPE_COUNT;
-    CHK_RET(hrtGetDeviceType(deviceType));
-    if (IsAiCpuMode(deviceType, userRankSize)) {
-        HCCL_DEBUG("is aicpu mode");
-        CHK_RET(LoadAICPUKernel());
-        param.engine = CommEngine::COMM_ENGINE_AICPU_TS;
-    } else {
-        HCCL_DEBUG("is host mode");
-        param.engine = CommEngine::COMM_ENGINE_CPU_TS;
-    }
-
-    int ret = sprintf_s(param.tag, sizeof(param.tag), "%s", tag.c_str());  // topoInfo的tag，所有算子可以共享
-    if (ret <= 0) {
-        HCCL_ERROR("failed to fill param.tag");
-        return HCCL_E_INTERNAL;
-    }
-    CHK_RET(HcclGetCommName(comm, param.commName));
-
-    param.inputPtr = sendBuf;
-    param.inputSize = inputSize;
-    param.outputPtr = recvBuf;
-    param.outputSize = outputSize;
-    param.DataDes.count = recvCount;
-    param.DataDes.dataType = dataType;
-    param.root = root;
-    param.opType = HcclCMDType::HCCL_CMD_SCATTER;
-    param.deviceType = deviceType;
-
     #ifdef MACRO_DEV_TYPE_NEW
-    if (deviceType == DevType::DEV_TYPE_950 && (GetHcommVersion() >= 90000000)) {
+    if (param.deviceType == DevType::DEV_TYPE_950 && (GetHcommVersion() >= 90000000)) {
     #else
-    if (deviceType == DevType::DEV_TYPE_910_95) {
+    if (param.deviceType == DevType::DEV_TYPE_910_95) {
     #endif
+        CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
+        if (ShouldGoCcuFastLaunch(comm, param, &ccuFastLaunchCtx)) {
+            return HcclExecOpCcuFastLaunch(comm, param, ccuFastLaunchCtx);
+        }
         std::string algName;
         std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
         CHK_RET(Selector(comm, param, topoInfo, algName));
@@ -240,6 +203,46 @@ HcclResult ScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, Hcc
             }
         }
     }
+    return HCCL_SUCCESS;
+}
+
+HcclResult ScatterOutPlace(OpParam &param, void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType, uint32_t root,
+    HcclComm comm, aclrtStream stream, u32 userRankSize)
+{
+    uint64_t beginTime;
+    if (HcommIsProfilingSupported()) {
+        beginTime = HcommGetProfilingSysCycleTime();
+    }
+
+    u32 perDataSize = SIZE_TABLE[dataType];
+    u64 outputSize = recvCount * perDataSize;
+    u64 inputSize = outputSize * userRankSize;
+
+    param.stream = stream;
+    param.opMode = OpMode::OPBASE;
+
+    DevType deviceType = DevType::DEV_TYPE_COUNT;
+    CHK_RET(hrtGetDeviceType(deviceType));
+    if (IsAiCpuMode(deviceType, userRankSize)) {
+        HCCL_DEBUG("is aicpu mode");
+        CHK_RET(LoadAICPUKernel());
+        param.engine = CommEngine::COMM_ENGINE_AICPU_TS;
+    } else {
+        HCCL_DEBUG("is host mode");
+        param.engine = CommEngine::COMM_ENGINE_CPU_TS;
+    }
+
+    param.inputPtr = sendBuf;
+    param.inputSize = inputSize;
+    param.outputPtr = recvBuf;
+    param.outputSize = outputSize;
+    param.DataDes.count = recvCount;
+    param.DataDes.dataType = dataType;
+    param.root = root;
+    param.opType = HcclCMDType::HCCL_CMD_SCATTER;
+    param.deviceType = deviceType;
+
+    CHK_RET(ScatterExecOp(param, sendBuf, recvBuf, recvCount, dataType, root, comm, stream, userRankSize, beginTime));
     HCCL_INFO("Execute ScatterOutPlace success.");
     return HCCL_SUCCESS;
 }

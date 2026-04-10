@@ -23,6 +23,9 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 HcclResult HcclReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
     uint32_t root, HcclComm comm, aclrtStream stream)
 {
+    if (!HcclCheckCcuEnableOpen() && !HcclCheckAicpuEnableOpen() && !HcclCheckAivEnableOpen()) {
+        return HcclReduceInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
+    }
     HCCL_INFO("Start to run execute HcclReduce");
     if (GetHcommVersion() < 90000000) { // compat handle
         return HcclReduceInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
@@ -216,6 +219,11 @@ HcclResult ReduceOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t count, Hc
 
     OpParam param;
     CHK_RET(ReduceConstructOpParam(sendBuf, recvBuf, count, dataType, op, root, comm, stream, tag, param));
+
+    CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
+    if ((opMode == OpMode::OPBASE) && ShouldGoCcuFastLaunch(comm, param, &ccuFastLaunchCtx)) {
+        return HcclExecOpCcuFastLaunch(comm, param, ccuFastLaunchCtx);
+    }
 
     if (userRankSize == 1) {
         HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);

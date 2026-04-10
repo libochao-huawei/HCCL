@@ -19,6 +19,7 @@ namespace ops_hccl {
 
 class AivTempAllGatherMesh1D : public AivAlgTemplateBase {
 public:
+    AivTempAllGatherMesh1D() = default;
     explicit AivTempAllGatherMesh1D(const OpParam& param, const u32 rankId, // 传通信域的rankId，userRank
                                         const std::vector<std::vector<u32>> &subCommRanks);
     ~AivTempAllGatherMesh1D() override;

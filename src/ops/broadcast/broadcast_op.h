@@ -33,16 +33,16 @@ HcclResult HcclBroadcastGraphMode(void *buf, uint64_t count, HcclDataType dataTy
 #endif
 
 namespace ops_hccl {
-HcclResult BroadcastOutPlace(void *buf, uint64_t count, HcclDataType dataType, uint32_t root, HcclComm comm, aclrtStream stream, const std::string &tag);
+HcclResult BroadcastOutPlace(OpParam &param, void *buf, uint64_t count, HcclDataType dataType, uint32_t root, HcclComm comm, aclrtStream stream);
 HcclResult BroadcastOutPlaceGraphMode(void *buf, uint64_t count, HcclDataType dataType, uint32_t root, HcclComm comm, aclrtStream stream, const std::string &tag,
                              const ResPackGraphMode &resPack);
-HcclResult BroadcastOutPlaceCommon(void *buf, uint64_t count, HcclDataType dataType, uint32_t root, HcclComm comm, aclrtStream stream, const std::string &tag,
+HcclResult BroadcastOutPlaceCommon(void *buf, uint64_t count, HcclDataType dataType, uint32_t root, HcclComm comm, aclrtStream stream,
                              OpMode opMode, const ResPackGraphMode &resPack);
 
-HcclResult BroadcastInitAndCheck(HcclComm comm, void *buf, uint64_t count, HcclDataType dataType, uint32_t root, aclrtStream stream, std::string &opTag);
+HcclResult BroadcastInitAndCheck(HcclComm comm, void *buf, uint64_t count, HcclDataType dataType, uint32_t root, aclrtStream stream, OpParam &param);
 
 HcclResult CheckBroadcastInputPara(const HcclComm comm, const void *buf);
-HcclResult BroadcastEntryLog(void *buf, uint64_t count, HcclDataType dataType, uint32_t root, aclrtStream stream, const std::string &tag, const std::string &opName);
+HcclResult BroadcastEntryLog(void *buf, uint64_t count, HcclDataType dataType, uint32_t root, aclrtStream stream, const char *tag, const std::string &opName);
 }
 
 #endif
