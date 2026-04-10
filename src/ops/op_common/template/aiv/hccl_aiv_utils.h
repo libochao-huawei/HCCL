@@ -63,6 +63,8 @@ struct ExtraArgs {
     u64 sendDispls[MAX_RANK_SIZE] = {};
     u64 recvCounts[MAX_RANK_SIZE] = {};
     u64 recvDispls[MAX_RANK_SIZE] = {};
+    u64 omniInfoAddr = 0;
+    u64 omniInfoSize = 0;
 };
 
 // 算子计数信息

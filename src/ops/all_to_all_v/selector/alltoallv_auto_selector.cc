@@ -143,6 +143,11 @@ SelectorStatus AlltoAllVAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDe
     HCCL_INFO("[AlltoAllV] hccl algo op config: config opType:%d, level0:%u, level1:%u, level2:%u, level3:%u",
               opParam.opType, algos.at(INDEX_0), algos.at(INDEX_1), algos.at(INDEX_2), algos.at(INDEX_3));
 
+    if (algos.size() > HCCL_ALGO_LEVEL && algos.at(HCCL_ALGO_LEVEL) == HcclAlgoType::HCCL_ALGO_TYPE_OMNI) {
+        selectAlgName = "AivHcclOmni";
+        return SelectorStatus::MATCH;
+    }
+
     selectAlgName = "AivAlltoAllVMesh1D";
 
     return SelectorStatus::MATCH;

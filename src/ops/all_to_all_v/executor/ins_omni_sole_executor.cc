@@ -8,6 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include <cstdlib>
 #include <fstream>
 #include "template_utils.h"
 #include "ins_omni_sole_executor.h"
@@ -61,30 +62,26 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::InitCommInfo(const
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 uint32_t InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ReadBits(std::ifstream& file, uint64_t offset, size_t numBits) {
     uint32_t result = 0;
-    uint8_t byte;
     size_t bitsRead = 0;
-    size_t bitsLeftInByte = 8; // 每个字节有8位
+    const uint64_t byteOffset = offset / 8;
+    const size_t bitOffset = offset % 8;
+    const size_t totalBits = bitOffset + numBits;
+    const size_t totalBytes = (totalBits + 7) / 8;
+    std::vector<uint8_t> bytes(totalBytes, 0);
 
-    file.seekg(offset); // 定位到正确的偏移位置
-
-    while (bitsRead < numBits && file.read(reinterpret_cast<char*>(&byte), 1)) {
-        size_t bitsToRead = std::min(numBits - bitsRead, bitsLeftInByte);
-        result = (result << bitsToRead) | (byte >> (8 - bitsToRead));
-        bitsRead += bitsToRead;
-        bitsLeftInByte -= bitsToRead;
-        if (bitsLeftInByte == 0) {
-            byte = 0; // 重置byte以读取下一个字节的数据
-            bitsLeftInByte = 8;
-        } else {
-            byte &= (1 << bitsLeftInByte) - 1; // 清除已读部分
-        }
+    file.clear();
+    file.seekg(byteOffset, std::ios::beg);
+    if (!file.read(reinterpret_cast<char*>(bytes.data()), totalBytes)) {
+        return 0;
     }
-
-    // 如果需要，可以右移以对齐高位到uint32_t的最低位
-    if (bitsRead < numBits) {
-        result >>= (32 - bitsRead); // 右移以对齐高位到最低位
+    while (bitsRead < numBits) {
+        const size_t absBit = bitOffset + bitsRead;
+        const size_t curByteIdx = absBit / 8;
+        const size_t curBitIdx = absBit % 8;
+        const uint8_t bit = (bytes[curByteIdx] >> (7 - curBitIdx)) & 0x1;
+        result = (result << 1) | bit;
+        bitsRead++;
     }
-
     return result;
 }
 
@@ -92,9 +89,11 @@ template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ParseXmlInfo(const OpParam& param,
     const TopoInfoWithNetLayerDetails* topoInfo)
 {
-    std::ifstream file("example.bin", std::ios::binary);
+    const char *omniBinPath = std::getenv("HCCL_OMNI_BIN_PATH");
+    const char *binPath = (omniBinPath != nullptr && omniBinPath[0] != '\0') ? omniBinPath : "example.bin";
+    std::ifstream file(binPath, std::ios::binary);
     if (!file) {
-        std::cerr << "can not open file" << std::endl;
+        HCCL_ERROR("[InsOmniSoleExecutor][ParseXmlInfo] can not open omni bin file [%s].", binPath);
         return HCCL_E_PARA;
     }
     XmlInfo xmlInfo;
@@ -218,7 +217,6 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ParseXmlInfo(const
         }
         xmlInfo.vecSendRecvInfo.push_back(omniSendRecvInfo);
 
-        file.seekg(offset); // 定位到正确的偏移位置
     } while(file.peek() != EOF);
 
     // // 解析bin文件 读取内容存入xmlInfo结构体中
@@ -362,6 +360,7 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ParseXmlInfo(const
     
 
 
+    xmlInfo_ = std::move(xmlInfo);
     return HCCL_SUCCESS;
 
 }
@@ -434,11 +433,15 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLoop(
     }
     if (param.engine == COMM_ENGINE_CCU) {
         templateAlgRes.ccuKernels = resCtx.ccuKernels;
+    } else if (param.engine == COMM_ENGINE_AIV) {
+        templateAlgRes.aivCommInfoPtr = resCtx.aivCommInfoPtr;
     }
     templateAlgRes.threads = resCtx.threads;
 
-    //计算loop  ccu 不用cclbuff，根据UB_MAX_DATA_SIZE来计算
     u64 maxCountPerLoop = static_cast<u64>(UB_MAX_DATA_SIZE) / dataTypeSize_;
+    if (param.engine == COMM_ENGINE_AIV) {
+        maxCountPerLoop = std::max<u64>(1, resCtx.cclMem.size / dataTypeSize_);
+    }
     u32 loopTimes = dataCount_ / maxCountPerLoop + ((dataCount_ % maxCountPerLoop == 0) ? 0 : 1);
     HCCL_INFO("[InsOmniSoleExecutor][OrchestrateLoop]loopTimes = [%u]", loopTimes);
 
@@ -450,7 +453,8 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLoop(
         tempAlgParams.buffInfo.inputPtr = param.inputPtr;
         tempAlgParams.buffInfo.outputPtr = param.outputPtr;
         tempAlgParams.buffInfo.hcclBuff = resCtx.cclMem;
-        tempAlgParams.sliceSize = currDataCount * dataTypeSize_ / xmlInfo_.vecSendRecvInfo[0].sliceNum;
+        const u64 sliceNum = xmlInfo_.vecSendRecvInfo.empty() ? 1 : std::max<u64>(1, xmlInfo_.vecSendRecvInfo[0].sliceNum);
+        tempAlgParams.sliceSize = currDataCount * dataTypeSize_ / sliceNum;
         tempAlgParams.buffInfo.inBuffBaseOff = processedDataCount * dataTypeSize_;
         tempAlgParams.buffInfo.outBuffBaseOff = processedDataCount * dataTypeSize_;
         tempAlgParams.buffInfo.hcclBuffBaseOff = 0;
@@ -474,5 +478,11 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV,
                 InsOmniSoleExecutor,
                 TopoMatch1D,
                 CcuTempOmni);
+
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV,
+                AivHcclOmni,
+                InsOmniSoleExecutor,
+                TopoMatch1D,
+                AivTempOmni);
 
 }

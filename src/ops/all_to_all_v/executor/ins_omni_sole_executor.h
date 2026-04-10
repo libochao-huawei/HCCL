@@ -16,6 +16,7 @@
 #include "topo_match_base.h"
 #include "topo_match_ubx.h"
 #include "ccu_temp_omni.h"
+#include "aiv_temp_omni.h"
 
 namespace ops_hccl {
 template <typename AlgTopoMatch, typename InsAlgTemplate> class InsOmniSoleExecutor : public InsCollAlgBase {

@@ -8,10 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include <mutex>
-#include <vector>
-#include <iostream>
 #include <fstream>
+#include <iostream>
+#include <mutex>
+#include <unordered_map>
+#include <vector>
 #include "mmpa_api.h"
 #include "adapter_acl.h"
 #include "hccl_aiv_utils.h"
@@ -29,9 +30,8 @@ constexpr u32 MAX_BIN_FILE_SIZE = 100 * 1024 * 1024; // 最大读取100m的bin f
 
 constexpr s32 RESET_TAIL_SYNC_TAG = 2;
 
-static bool g_init = false;
 static mutex g_mut;
-static aclrtBinHandle g_binHandle;
+static std::unordered_map<std::string, aclrtBinHandle> g_binHandleMap;
 static std::unordered_map<s8*, aclrtFuncHandle> g_aivFuncMap;
 
 using AivExtraKernelArgs = struct AivExtraKernelArgsDef {
@@ -115,6 +115,10 @@ HcclResult RegisterBinaryKernel(const char* funcName, const aclrtBinHandle binHa
         return HCCL_E_PARA;
     }
 
+    if (g_aivFuncMap.find(const_cast<s8*>(funcKey)) != g_aivFuncMap.end()) {
+        return HCCL_SUCCESS;
+    }
+
     aclrtFuncHandle funcHandle;
     aclError aclRet = aclrtBinaryGetFunction(binHandle, funcName, &funcHandle);
     CHK_PRT_RET(aclRet != ACL_SUCCESS, HCCL_ERROR("[RegisterBinaryKernel]errNo[0x%016llx] get function from binary error.", aclRet),
@@ -134,32 +138,34 @@ HcclResult GetKernelFunc(aclrtFuncHandle& funcHandle, const s8* funcKey)
     return HCCL_SUCCESS;
 }
 
-// Kernel注册入口，全局只需要初始化一次
+// Kernel注册入口，允许按binary和funcKey增量注册
 HcclResult RegisterKernel(HcclCMDType cmdType, const std::string &aivBinaryName, const std::vector<AivKernelInfo> &aivKernelInfoList)
 {
     lock_guard<mutex> guard(g_mut);
-    if (g_init) {
-        return HCCL_SUCCESS;
-    }
 
     HcclResult ret;
     string binFilePath;
     ret = GetAivOpBinaryPath(aivBinaryName, binFilePath);
     CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("[AIV][RegisterKernel] get aiv op binary path failed"), HCCL_E_RUNTIME);
 
-    ret = LoadBinaryFromFile(binFilePath.c_str(), ACL_RT_BINARY_LOAD_OPT_LAZY_LOAD, 1, g_binHandle);
-    CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("[AIV][RegisterKernel] read aiv kernel bin file failed"),
-        HCCL_E_RUNTIME);
+    aclrtBinHandle binHandle;
+    auto handleIter = g_binHandleMap.find(aivBinaryName);
+    if (handleIter == g_binHandleMap.end()) {
+        ret = LoadBinaryFromFile(binFilePath.c_str(), ACL_RT_BINARY_LOAD_OPT_LAZY_LOAD, 1, binHandle);
+        CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("[AIV][RegisterKernel] read aiv kernel bin file failed"),
+            HCCL_E_RUNTIME);
+        g_binHandleMap[aivBinaryName] = binHandle;
+    } else {
+        binHandle = handleIter->second;
+    }
 
     for (auto &aivKernelInfo: aivKernelInfoList) {
-        ret = RegisterBinaryKernel(aivKernelInfo.kernelName, g_binHandle,
+        ret = RegisterBinaryKernel(aivKernelInfo.kernelName, binHandle,
             GetFuncKey(cmdType, aivKernelInfo.dataType, aivKernelInfo.argsType));
         CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("[AIV][RegisterKernel] register binary kernel for kernelName[%s] "
             "cmdType[%d] dataType[%s] argsType[%d] failed", aivKernelInfo.kernelName, cmdType,
             GetDataTypeEnumStr(aivKernelInfo.dataType).c_str(), aivKernelInfo.argsType), HCCL_E_RUNTIME);
     }
-
-    g_init = true;
 
     return HCCL_SUCCESS;
 }
@@ -167,13 +173,11 @@ HcclResult RegisterKernel(HcclCMDType cmdType, const std::string &aivBinaryName,
 HcclResult UnRegisterAivKernel()
 {
     lock_guard<mutex> guard(g_mut);
-    if (g_init) {
-        ACLCHECK(aclrtBinaryUnLoad(g_binHandle));
-        g_aivFuncMap.clear();
-
-        g_init = false;
+    for (auto &binHandlePair : g_binHandleMap) {
+        ACLCHECK(aclrtBinaryUnLoad(binHandlePair.second));
     }
-
+    g_binHandleMap.clear();
+    g_aivFuncMap.clear();
     return HCCL_SUCCESS;
 }
 

@@ -1129,8 +1129,14 @@ HcclResult HcclGetOpExpansionMode(OpParam &param)
     }
     else if (GetExternalInputHcclAivMode() == true) {
         HCCL_DEBUG("[HcclExecOp] is aiv mode");
-        // 注册AIV kernel二进制
-        CHK_RET(RegisterKernel(param.opType, g_aivKernelInfoMap[param.opType].first, g_aivKernelInfoMap[param.opType].second));
+        const std::vector<HcclAlgoType> algConfig = GetExternalInputHcclAlgoConfig(param.opType);
+        const bool isOmni = (algConfig.size() > HCCL_ALGO_LEVEL) &&
+            (algConfig[HCCL_ALGO_LEVEL] == HcclAlgoType::HCCL_ALGO_TYPE_OMNI);
+        if (isOmni) {
+            CHK_RET(RegisterKernel(param.opType, g_omniAivBinaryName, g_omniAivKernelInfoList));
+        } else {
+            CHK_RET(RegisterKernel(param.opType, g_aivKernelInfoMap[param.opType].first, g_aivKernelInfoMap[param.opType].second));
+        }
         param.opExecuteConfig = OpExecuteConfig::AIV;
         param.engine = CommEngine::COMM_ENGINE_AIV;
     }
