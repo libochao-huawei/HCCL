@@ -259,7 +259,6 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     dataTypeSize_ = DATATYPE_SIZE_TABLE[param.DataDes.dataType];
     dataSize_ = dataCount_ * dataTypeSize_;
 
-    
     CHK_RET(CalculateHierarchyInfo(resCtx.topoInfo, resCtx.algHierarchyInfo, intraHierarchyInfo_, interHierarchyInfo_));
 
     rankSizeLevel0_ = GetRankSize(intraHierarchyInfo_);
@@ -416,7 +415,8 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::CalculateHierarchyInfo(
     const TopoInfoWithNetLayerDetails &topoInfo, const AlgHierarchyInfoForAllLevel &algHierarchyInfo, 
-    std::vector<std::vector<u32>> &intraHierarchyInfo, std::vector<std::vector<u32>> &interHierarchyInfo) {
+    std::vector<std::vector<u32>> &intraHierarchyInfo, std::vector<std::vector<u32>> &interHierarchyInfo) const
+{
     CHK_PRT_RET(
         algHierarchyInfo.infos.empty() || algHierarchyInfo.infos[0].empty(),
         HCCL_ERROR("[InsV2AllGatherParallelExecutor] algHierarchyInfo.infos is wrong"), HCCL_E_PARA
