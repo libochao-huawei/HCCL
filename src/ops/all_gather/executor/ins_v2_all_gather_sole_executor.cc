@@ -40,25 +40,15 @@ HcclResult InsV2AllGatherSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcAlgHier
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
-HcclResult InsV2AllGatherSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CreateAlgTemplate(const OpParam& param,
-    const TopoInfoWithNetLayerDetails* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo)
-{
-    if (algTemplate_ != nullptr) {
-        return HCCL_SUCCESS;
-    }
-    algTemplate_ = std::make_shared<InsAlgTemplate>(param, topoInfo->userRank, algHierarchyInfo.infos[0]);
-    return HCCL_SUCCESS;
-}
-
-template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsV2AllGatherSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(
     HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo, const AlgHierarchyInfoForAllLevel &algHierarchyInfo,
     AlgResourceRequest &resourceRequest)
 {
     // 构建template
-    CHK_RET(CreateAlgTemplate(param, topoInfo, algHierarchyInfo));
+    std::shared_ptr<InsAlgTemplate> algTemplate = 
+                std::make_shared<InsAlgTemplate>(param, topoInfo->userRank, algHierarchyInfo.infos[0]);
     // 调用计算资源的函数
-    algTemplate_->CalcRes(comm, param, topoInfo, resourceRequest);
+    algTemplate->CalcRes(comm, param, topoInfo, resourceRequest);
     myRank_ = topoInfo->userRank;
     HCCL_DEBUG("[InsV2AllGatherSoleExecutor][CalcRes] myRank[%u], notifyNumOnMainThread[%u], slaveThreadNum[%u], "
                "channels[%u]",
@@ -108,6 +98,7 @@ HcclResult InsV2AllGatherSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     TemplateResource templateAlgRes;
     if (param.engine == COMM_ENGINE_CCU) {
         templateAlgRes.ccuKernels = resCtx.ccuKernels;
+        templateAlgRes.channelNums = resCtx.channelNums;
     }
     if (param.engine != CommEngine::COMM_ENGINE_AIV && remoteRankToChannelInfo_.size() > 0) {
         templateAlgRes.channels = remoteRankToChannelInfo_[0];
@@ -134,11 +125,10 @@ HcclResult InsV2AllGatherSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
               myRank_, param.inputPtr, param.outputPtr, resCtx.cclMem.addr, resCtx.cclMem.size,
               templateAlgRes.channels.size(), templateAlgRes.threads.size());
     // 构建template
-    CHK_PRT_RET(algTemplate_ == nullptr && param.engine == COMM_ENGINE_CCU && param.detourType != HcclDetourType::HCCL_DETOUR_DISABLE,
-        HCCL_ERROR("Need to call function[CalcRes] first to init the nums of detour path."), HCCL_E_INTERNAL);
-    CHK_RET(CreateAlgTemplate(param, &resCtx.topoInfo, resCtx.algHierarchyInfo));
-    u32 templateScratchMultiplier = algTemplate_->CalcScratchMultiple(tempAlgParams.buffInfo.inBuffType,
-                                                                     tempAlgParams.buffInfo.outBuffType);
+    std::shared_ptr<InsAlgTemplate> algTemplate = 
+            std::make_shared<InsAlgTemplate>(param, resCtx.topoInfo.userRank, resCtx.algHierarchyInfo.infos[0]);
+    u32 templateScratchMultiplier = algTemplate->CalcScratchMultiple(tempAlgParams.buffInfo.inBuffType, tempAlgParams.buffInfo.outBuffType);
+
     maxTmpMemSize_ = tempAlgParams.buffInfo.hcclBuff.size;
     // 中转内存单次最多能够接受的output count，注意是count不是size
     u64 transportBoundDataSize = UB_MAX_DATA_SIZE;
@@ -177,7 +167,7 @@ HcclResult InsV2AllGatherSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
                   "tempAlgParams.buffInfo.outBuffBaseOff [%u]",
                   myRank_, loop, tempAlgParams.buffInfo.inBuffBaseOff, tempAlgParams.buffInfo.outBuffBaseOff);
 
-        CHK_RET(algTemplate_->KernelRun(param, tempAlgParams, templateAlgRes));
+        CHK_RET(algTemplate->KernelRun(param, tempAlgParams, templateAlgRes));
         processedDataCount += currDataCount;
     }
     HCCL_INFO("[InsV2AllGatherSoleExecutor][OrchestrateLoop] End.");
