@@ -261,7 +261,6 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
     if (param->deviceType == DevType::DEV_TYPE_910_95) {
     #endif
         //判断通信域状态
-        HcommReleaseComm(param->commName);
         HcclCommStatus commStatus = HCCL_COMM_STATUS_INVALID;
         if (HcommIsSupportHcclCommGetStatus()) {
             auto statusRet = HcclCommGetStatus(param->commName, &commStatus);

@@ -112,6 +112,8 @@ HcclResult HcclAlltoAllV(const void *sendBuf, const void *sendCounts, const void
     CHK_RET(HcclGetCommName(comm, commName));
     const string tag =  "ALLTOALLV_" + string(commName);
     CHK_RET(HcclCheckTag(tag.c_str()));
+    CHK_RET(CheckBufNullptr(reinterpret_cast<const u64*>(sendCounts), rankSize, sendBuf, std::string(__func__), "sendBuf"));
+    CHK_RET(CheckBufNullptr(reinterpret_cast<const u64*>(recvCounts), rankSize, recvBuf, std::string(__func__), "recvBuf"));
 
     u64 maxSendRecvCount = 0;
     for (u64 i = 0; i < rankSize; i++) {
@@ -173,6 +175,8 @@ HcclResult HcclAlltoAllVC(const void *sendBuf, const void *sendCountMatrix, Hccl
     std::vector<u64> sdispls(rankSize, 0);
     std::vector<u64> rdispls(rankSize, 0);
     CHK_RET(ConvertAlltoAllVCParam(rankSize, userRank, sendCountMatrix, sendCounts, recvCounts, sdispls, rdispls));
+    CHK_RET(CheckBufNullptr(sendCounts.data(), rankSize, sendBuf, std::string(__func__), "sendBuf"));
+    CHK_RET(CheckBufNullptr(recvCounts.data(), rankSize, recvBuf, std::string(__func__), "recvBuf"));
 
     CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), tag.c_str());
     CHK_RET(CheckDataType(recvType, false));
@@ -457,18 +461,12 @@ HcclResult CheckAlltoAllVInputPara(const HcclComm comm, const void *sendBuf, con
     RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
         std::vector<std::string>({"HcclAlltoAllV", "nullptr", "comm", "non-null pointer"}));
     CHK_PTR_NULL(comm);
-    RPT_INPUT_ERR(sendBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
-        std::vector<std::string>({"HcclAlltoAllV", "nullptr", "sendBuf", "non-null pointer"}));
-    CHK_PTR_NULL(sendBuf);
     RPT_INPUT_ERR(sendCounts == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
         std::vector<std::string>({"HcclAlltoAllV", "nullptr", "sendCounts", "non-null pointer"}));
     CHK_PTR_NULL(sendCounts);
     RPT_INPUT_ERR(sdispls == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
         std::vector<std::string>({"HcclAlltoAllV", "nullptr", "sdispls", "non-null pointer"}));
     CHK_PTR_NULL(sdispls);
-    RPT_INPUT_ERR(recvBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
-        std::vector<std::string>({"HcclAlltoAllV", "nullptr", "recvBuf", "non-null pointer"}));
-    CHK_PTR_NULL(recvBuf);
     RPT_INPUT_ERR(recvCounts == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
         std::vector<std::string>({"HcclAlltoAllV", "nullptr", "recvCounts", "non-null pointer"}));
     CHK_PTR_NULL(recvCounts);
@@ -488,17 +486,33 @@ HcclResult CheckAlltoAllVCInputPara(const HcclComm comm, const void *sendBuf, co
     RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
         std::vector<std::string>({"HcclAlltoAllVC", "nullptr", "comm", "non-null pointer"}));
     CHK_PTR_NULL(comm);
-    RPT_INPUT_ERR(sendBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
-        std::vector<std::string>({"HcclAlltoAllVC", "nullptr", "sendBuf", "non-null pointer"}));
-    CHK_PTR_NULL(sendBuf);
     RPT_INPUT_ERR(sendCountMatrix == nullptr, "EI0003",\
         std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
         std::vector<std::string>({"HcclAlltoAllVC", "nullptr", "sendCountMatrix", "non-null pointer"}));
     CHK_PTR_NULL(sendCountMatrix);
-    RPT_INPUT_ERR(recvBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
-        std::vector<std::string>({"HcclAlltoAllVC", "nullptr", "recvBuf", "non-null pointer"}));
-    CHK_PTR_NULL(recvBuf);
+    RPT_INPUT_ERR(stream == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcclAlltoAllVC", "nullptr", "stream", "non-null pointer"}));
+    CHK_PTR_NULL(stream);
 
+    return HCCL_SUCCESS;
+}
+
+HcclResult CheckBufNullptr(const u64* countsData, u32 rankSize, const void* buf, const std::string funcName,
+    const std::string bufName)
+{
+    bool zeroFlag = true;
+    for (u32 i = 0; i < rankSize; i++) {
+        if (countsData[i] != 0) {
+            zeroFlag = false;
+            break;
+        }
+    }
+    if (zeroFlag) {
+        return HCCL_SUCCESS;
+    }
+    RPT_INPUT_ERR(buf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({funcName, "nullptr", bufName, "non-null pointer"}));
+    CHK_PTR_NULL(buf);
     return HCCL_SUCCESS;
 }
 
