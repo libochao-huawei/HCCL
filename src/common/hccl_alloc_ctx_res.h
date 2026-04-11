@@ -19,6 +19,7 @@
 #include "hccl_res_expt.h"
 #include "load_kernel.h"
 #include "coll_alg_v2_exec_registry.h"
+#include <hccl/hccl_types.h>
 
 #include <vector>
 
@@ -220,55 +221,304 @@ HcclResult HcclAllocOpResCtx(HcclComm comm, const std::string &ctxTag, const std
     return HCCL_SUCCESS;
 }
 
-HcclResult PrepareParamForAllGather(const Mc2CcTilingInner *ccTiling, OpParam *opParam)
+ //AllToAll适配AllToAllV
+HcclResult ConvertAlltoAllParam(const u64 recvCount, const u32 rankSize, std::vector<u64> &sdispls, std::vector<u64> &rdispls)
 {
+    // std::vector<u64> sdispls(rankSize, 0);
+    // std::vector<u64> rdispls(rankSize, 0);
+    // std::vector<u64> sendCounts(rankSize, recvCount);
+    // std::vector<u64> recvCounts(rankSize, recvCount);
+    // CHK_RET(ConvertAlltoAllParam(recvCount, rankSize, sdispls, rdispls));
+    u64 dataCountOffset = 0;
+    for (u64 i = 0; i < rankSize; i++) {
+        sdispls[i] = dataCountOffset;
+        rdispls[i] = dataCountOffset;
+        dataCountOffset += recvCount;
+    }
     return HCCL_SUCCESS;
 }
 
-HcclResult PrepareParamForAllReduce(const Mc2CcTilingInner *ccTiling, OpParam *opParam)
+HcclResult PrepareParamForAllGather(HcclComm comm, const void *stream, const std::string &tag, const Mc2CcTilingInner *ccTiling, OpParam &param)
 {
+    HCCL_INFO("PrepareParamForAllGather, ccTiling[%p]", ccTiling);
+    u32 userRankSize;
+    CHK_PRT(HcclGetRankSize(comm, &userRankSize));                      // 加上，后面计算outputSize可能使用
+    CHK_RET(HcclGetCommName(comm, param.commName));
+    param.stream = stream;
+    param.opMode = OpMode::OPBASE;
+
+    DevType deviceType = DevType::DEV_TYPE_COUNT;
+    CHK_PRT(hrtGetDeviceType(deviceType));
+    // topoInfo的tag，所有相同的算子可以共享
+    int ret = sprintf_s(param.tag, sizeof(param.tag), "%s", tag.c_str());
+    if (ret <= 0) {
+        HCCL_ERROR("failed to fill param.tag");
+        return HCCL_E_INTERNAL;
+    }
+
+    param.DataDes.dataType = static_cast<HcclDataType>(ccTiling->srcDataType); // 添加
+    param.opType = HcclCMDType::HCCL_CMD_ALLGATHER;
+    param.enableDetour = false;
+    param.deviceType = deviceType;
+
+    // 赋值为null或0的参数
+    param.inputPtr = nullptr;
+    param.outputPtr = nullptr;
+    param.inputSize = 0;
+    param.outputSize = 0;
+    param.DataDes.count = 0;
+
+    HCCL_INFO("Print PrepareParamForAllGather.");
+    HCCL_INFO("commName: %s",param.commName);
+    HCCL_INFO("tag:%s",param.tag);
+    HCCL_INFO("stream: %p",param.stream);
+    HCCL_INFO("inputPtr %p", param.inputPtr);
+    HCCL_INFO("outputPtr %p", param.outputPtr);
+    HCCL_INFO("inputSize %lu", param.inputSize);
+    HCCL_INFO("outputSize %lu", param.outputSize);
+    HCCL_INFO("DataDes.count %lu",param.DataDes.count);
+    HCCL_INFO("DataDes.dataType %u", static_cast<uint32_t>(param.DataDes.dataType));
+    HCCL_INFO("opMode %u", static_cast<uint32_t>(param.opMode));
+    HCCL_INFO("opType %u", static_cast<uint32_t>(param.opType));
+    HCCL_INFO("deviceType %u", static_cast<uint32_t>(param.deviceType));
+    HCCL_INFO("Execute PrepareParamForAllGather success.");
     return HCCL_SUCCESS;
 }
 
-HcclResult PrepareParamForReduceScatter(const Mc2CcTilingInner *ccTiling, OpParam *opParam)
+HcclResult PrepareParamForAllReduce(HcclComm comm, const void *stream, const std::string &tag, const Mc2CcTilingInner *ccTiling, OpParam &param)
 {
+    HCCL_INFO("PrepareParamForAllReduce, ccTiling[%p]", ccTiling);
+    u32 userRankSize;
+    CHK_PRT(HcclGetRankSize(comm, &userRankSize));                      // 加上，后面计算outputSize可能使用
+    CHK_RET(HcclGetCommName(comm, param.commName));
+    param.stream = stream;
+    param.opMode = OpMode::OPBASE;
+    
+    DevType deviceType = DevType::DEV_TYPE_COUNT;
+    CHK_PRT(hrtGetDeviceType(deviceType));
+    // topoInfo的tag，所有相同的算子可以共享
+    int ret = sprintf_s(param.tag, sizeof(param.tag), "%s", tag.c_str());
+    if (ret <= 0) {
+        HCCL_ERROR("failed to fill param.tag");
+        return HCCL_E_INTERNAL;
+    }
+
+    param.reduceType = static_cast<HcclReduceOp>(ccTiling->reduceType);
+    param.DataDes.dataType = static_cast<HcclDataType>(ccTiling->srcDataType);
+    param.opType = HcclCMDType::HCCL_CMD_ALLREDUCE;
+    param.enableDetour = false;
+    param.deviceType = deviceType;  
+
+    // 赋值为null或0的参数
+    param.inputPtr = nullptr;
+    param.outputPtr = nullptr;
+    param.inputSize = 0;
+    param.outputSize = 0;
+    param.DataDes.count = 0;
+
+    HCCL_INFO("Print PrepareParamForAllReduce.");
+    HCCL_INFO("commName: %s",param.commName);
+    HCCL_INFO("tag:%s",param.tag);
+    HCCL_INFO("stream: %p",param.stream);
+    HCCL_INFO("inputPtr %p", param.inputPtr);
+    HCCL_INFO("outputPtr %p", param.outputPtr);
+    HCCL_INFO("inputSize %lu", param.inputSize);
+    HCCL_INFO("outputSize %lu", param.outputSize);
+    HCCL_INFO("DataDes.count %lu",param.DataDes.count);
+    HCCL_INFO("DataDes.dataType %u", static_cast<uint32_t>(param.DataDes.dataType));
+    HCCL_INFO("opMode %u", static_cast<uint32_t>(param.opMode));
+    HCCL_INFO("reduceType %u", static_cast<uint32_t>(param.reduceType));
+    HCCL_INFO("opType %u", static_cast<uint32_t>(param.opType));
+    HCCL_INFO("deviceType %u", static_cast<uint32_t>(param.deviceType));
+    HCCL_INFO("Execute PrepareParamForAllReduce success.");
     return HCCL_SUCCESS;
 }
 
-HcclResult PrepareParamForAlltoAll(const Mc2CcTilingInner *ccTiling, OpParam *opParam)
+HcclResult PrepareParamForReduceScatter(HcclComm comm, const void *stream, const std::string &tag, const Mc2CcTilingInner *ccTiling, OpParam &param)
 {
+    HCCL_INFO("PrepareParamForReduceScatter, ccTiling[%p]", ccTiling);
+    u32 userRankSize;
+    CHK_PRT(HcclGetRankSize(comm, &userRankSize));                      // 加上，后面计算outputSize可能使用
+    CHK_RET(HcclGetCommName(comm, param.commName));
+    param.stream = stream;
+    param.opMode = OpMode::OPBASE;
+    
+    DevType deviceType = DevType::DEV_TYPE_COUNT;
+    CHK_PRT(hrtGetDeviceType(deviceType));
+    // topoInfo的tag，所有相同的算子可以共享
+    int ret = sprintf_s(param.tag, sizeof(param.tag), "%s", tag.c_str());
+    if (ret <= 0) {
+        HCCL_ERROR("failed to fill param.tag");
+        return HCCL_E_INTERNAL;
+    }
+
+    param.reduceType = static_cast<HcclReduceOp>(ccTiling->reduceType);
+    param.DataDes.dataType = static_cast<HcclDataType>(ccTiling->srcDataType); 
+    param.opType = HcclCMDType::HCCL_CMD_REDUCE_SCATTER;
+    param.enableDetour = false;
+    param.deviceType = deviceType;
+    
+
+    // 赋值为null或0的参数
+    param.inputPtr = nullptr;
+    param.outputPtr = nullptr;
+    param.inputSize = 0;
+    param.outputSize = 0;
+    param.DataDes.count = 0;
+
+    HCCL_INFO("Print PrepareParamForReduceScatter.");
+    HCCL_INFO("commName: %s",param.commName);
+    HCCL_INFO("tag:%s",param.tag);
+    HCCL_INFO("stream: %p",param.stream);
+    HCCL_INFO("inputPtr %p", param.inputPtr);
+    HCCL_INFO("outputPtr %p", param.outputPtr);
+    HCCL_INFO("inputSize %lu", param.inputSize);
+    HCCL_INFO("outputSize %lu", param.outputSize);
+    HCCL_INFO("DataDes.count %lu",param.DataDes.count);
+    HCCL_INFO("DataDes.dataType %u", static_cast<uint32_t>(param.DataDes.dataType));
+    HCCL_INFO("opMode %u", static_cast<uint32_t>(param.opMode));
+    HCCL_INFO("reduceType %u", static_cast<uint32_t>(opParam.reduceType));
+    HCCL_INFO("opType %u", static_cast<uint32_t>(param.opType));
+    HCCL_INFO("deviceType %u", static_cast<uint32_t>(param.deviceType));
+    HCCL_INFO("Execute PrepareParamForReduceScatter success.");
     return HCCL_SUCCESS;
 }
 
-HcclResult PrepareParamForAlltoAllV(const Mc2CcTilingInner *ccTiling, OpParam *opParam)
+HcclResult PrepareParamForAlltoAll(HcclComm comm, const void *stream, const std::string &tag, const Mc2CcTilingInner *ccTiling, OpParam &param)
 {
+    HCCL_INFO("PrepareParamForAlltoAll, ccTiling[%p]", ccTiling);
+    u32 userRankSize;
+    CHK_PRT(HcclGetRankSize(comm, &userRankSize));                      
+    CHK_RET(HcclGetCommName(comm, param.commName));
+    param.stream = stream;
+    param.opMode = OpMode::OPBASE;
+
+    DevType deviceType = DevType::DEV_TYPE_COUNT;
+    CHK_PRT(hrtGetDeviceType(deviceType));
+    // topoInfo的tag，所有相同的算子可以共享
+    int ret = sprintf_s(param.tag, sizeof(param.tag), "%s", tag.c_str());
+    if (ret <= 0) {
+        HCCL_ERROR("failed to fill param.tag");
+        return HCCL_E_INTERNAL;
+    }
+
+    u64 varMemSize = ALL_TO_ALL_V_VECTOR_NUM * userRankSize * sizeof(u64);
+    param.varMemSize = varMemSize;
+    param.all2AllVDataDes.sendType = static_cast<HcclDataType>(ccTiling->srcDataType);
+    param.all2AllVDataDes.recvType = static_cast<HcclDataType>(ccTiling->dstDataType);
+    param.opType = HcclCMDType::HCCL_CMD_ALLTOALL;
+    param.enableDetour = false;
+    param.deviceType = deviceType;
+   
+
+    // 赋值为null或0的参数
+    param.inputPtr = nullptr;
+    param.outputPtr = nullptr;
+    param.inputSize = 0;
+    param.outputSize = 0;
+    param.all2AllVDataDes.sendCounts = nullptr;
+    param.all2AllVDataDes.recvCounts = nullptr;
+    param.all2AllVDataDes.sdispls = nullptr;
+    param.all2AllVDataDes.rdispls = nullptr;
+
+    HCCL_INFO("Print PrepareParamForAlltoAll.");
+    HCCL_INFO("commName: %s",param.commName);
+    HCCL_INFO("tag:%s",param.tag);
+    HCCL_INFO("stream: %p",param.stream);
+    HCCL_INFO("inputPtr %p", param.inputPtr);
+    HCCL_INFO("outputPtr %p", param.outputPtr);
+    HCCL_INFO("inputSize %lu", param.inputSize);
+    HCCL_INFO("outputSize %lu", param.outputSize);
+    HCCL_INFO("varMemSize %lu", param.varMemSize);
+    HCCL_INFO("all2AllVDataDes.sendType %u", static_cast<uint32_t>(param.all2AllVDataDes.sendType));
+    HCCL_INFO("all2AllVDataDes.recvType %u", static_cast<uint32_t>(all2AllVDataDes.recvType));
+    HCCL_INFO("opMode %u", static_cast<uint32_t>(param.opMode));
+    HCCL_INFO("opType %u", static_cast<uint32_t>(param.opType));
+    HCCL_INFO("deviceType %u", static_cast<uint32_t>(param.deviceType));
+    HCCL_INFO("Execute PrepareParamForAlltoAll success.");
     return HCCL_SUCCESS;
 }
 
-typedef HcclResult (*OpParamPrepareFunc)(const Mc2CcTilingInner *ccTiling, OpParam *opParam);
+HcclResult PrepareParamForAlltoAllV(HcclComm comm, const void *stream, const std::string &tag, const Mc2CcTilingInner *ccTiling, OpParam &param)
+{
+    HCCL_INFO("PrepareParamForAlltoAllV, ccTiling[%p]", ccTiling);
+    u32 userRankSize;
+    CHK_PRT(HcclGetRankSize(comm, &userRankSize));                      
+    CHK_RET(HcclGetCommName(comm, param.commName));
+    param.stream = stream;
+    param.opMode = OpMode::OPBASE;
+
+    DevType deviceType = DevType::DEV_TYPE_COUNT;
+    CHK_PRT(hrtGetDeviceType(deviceType));
+    // topoInfo的tag，所有相同的算子可以共享
+    int ret = sprintf_s(param.tag, sizeof(param.tag), "%s", tag.c_str());
+    if (ret <= 0) {
+        HCCL_ERROR("failed to fill param.tag");
+        return HCCL_E_INTERNAL;
+    }
+
+    u64 varMemSize = ALL_TO_ALL_V_VECTOR_NUM * userRankSize * sizeof(u64);
+    param.varMemSize = varMemSize;
+    param.all2AllVDataDes.sendType = static_cast<HcclDataType>(ccTiling->srcDataType);
+    param.all2AllVDataDes.recvType = static_cast<HcclDataType>(ccTiling->dstDataType);
+    param.opType = HcclCMDType::HCCL_CMD_ALLTOALLV;
+    param.enableDetour = false;
+    param.deviceType = deviceType;
+    
+
+    // 赋值为null或0的参数
+    param.inputPtr = nullptr;
+    param.outputPtr = nullptr;
+    param.inputSize = 0;
+    param.outputSize = 0;
+    param.all2AllVDataDes.sendCounts = nullptr;
+    param.all2AllVDataDes.recvCounts = nullptr;
+    param.all2AllVDataDes.sdispls = nullptr;
+    param.all2AllVDataDes.rdispls = nullptr;
+
+    HCCL_INFO("Print PrepareParamForAlltoAllV.");
+    HCCL_INFO("commName: %s",param.commName);
+    HCCL_INFO("tag:%s",param.tag);
+    HCCL_INFO("stream: %p",param.stream);
+    HCCL_INFO("inputPtr %p", param.inputPtr);
+    HCCL_INFO("outputPtr %p", param.outputPtr);
+    HCCL_INFO("inputSize %lu", param.inputSize);
+    HCCL_INFO("outputSize %lu", param.outputSize);
+    HCCL_INFO("varMemSize %lu", param.varMemSize);
+    HCCL_INFO("all2AllVDataDes.sendType %u", static_cast<uint32_t>(param.all2AllVDataDes.sendType));
+    HCCL_INFO("all2AllVDataDes.recvType %u", static_cast<uint32_t>(all2AllVDataDes.recvType));
+    HCCL_INFO("opMode %u", static_cast<uint32_t>(param.opMode));
+    HCCL_INFO("opType %u", static_cast<uint32_t>(param.opType));
+    HCCL_INFO("deviceType %u", static_cast<uint32_t>(param.deviceType));
+    return HCCL_SUCCESS;
+}
+
+typedef HcclResult (*OpParamPrepareFunc)(HcclComm comm, const void *stream, const std::string &tag, const Mc2CcTilingInner *ccTiling, OpParam &param);
 
 std::unordered_map<HcclCMDType, OpParamPrepareFunc> opParamPrepareFuncMap = {
-    {HCCL_CMD_ALLGATHER, PrepareParamForAllGather},
-    {HCCL_CMD_ALLREDUCE, PrepareParamForAllReduce},
-    {HCCL_CMD_REDUCE_SCATTER, PrepareParamForReduceScatter},
-    {HCCL_CMD_ALLTOALL, PrepareParamForAlltoAll},
-    {HCCL_CMD_ALLTOALLV, PrepareParamForAlltoAllV},
+    {HcclCMDType::HCCL_CMD_ALLGATHER, PrepareParamForAllGather},
+    {HcclCMDType::HCCL_CMD_ALLREDUCE, PrepareParamForAllReduce},
+    {HcclCMDType::HCCL_CMD_REDUCE_SCATTER, PrepareParamForReduceScatter},
+    {HcclCMDType::HCCL_CMD_ALLTOALL, PrepareParamForAlltoAll},
+    {HcclCMDType::HCCL_CMD_ALLTOALLV, PrepareParamForAlltoAllV},
 };
 
-HcclResult PrepareOpParams(const char *topoTag, const Mc2CcTilingInner *ccTiling, OpParam *opParam)
+HcclResult PrepareOpParams(HcclComm comm, void* stream, const std::string &tag, const Mc2CcTilingInner *ccTiling, OpParam &opParam)
 {
     auto it = opParamPrepareFuncMap.find(static_cast<HcclCMDType>(ccTiling->opType));
     if (it != opParamPrepareFuncMap.end()) {
-        return it->second(ccTiling, opParam);
+        return it->second(comm, stream, ccTiling, opParam);
     }
     HCCL_ERROR("PrepareOpParams error, opType[%d] not found", ccTiling->opType);
     return HCCL_E_INTERNAL;
 }
 
-HcclResult GetOpParam(HcclComm comm, const char *topoTag, const Mc2CcTilingInner *ccTiling, OpParam &opParam)
+HcclResult GetOpParam(HcclComm comm, void* stream, const std::string &tag, const Mc2CcTilingInner *ccTiling, OpParam &opParam)
 {
     opParam.opType = static_cast<HcclCMDType>(ccTiling->opType);
-    CHK_RET(PrepareOpParams(topoTag, ccTiling, &opParam));
+    opParam.stream = reinterpret_cast<aclrtStream>(stream);
+    CHK_RET(HcclGetCommName(comm, opParam.commName));
+    CHK_RET(PrepareOpParams(comm, stream, tag, ccTiling, &opParam));
 
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
