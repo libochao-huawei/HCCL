@@ -169,42 +169,6 @@ struct BuffInfo {
     u64        hcclBuffBaseOff    = 0;
 };
 
-struct StepSliceInfo
-{
-    BuffInfo buffInfo;
-    std::vector<std::vector<u64>> stepCount; //每step上所有的rank参与的数据量
-    std::vector<std::vector<u64>> stepSliceSize; //每step上所有的rank参与的数据量
-    std::vector<u64> stepInputSliceStride; //数据连着放 buffertype.addr + inputSliceStride[rankid] + inputOmniPipeSliceStride[j]
-    std::vector<u64> stepOutputSliceStride; //数据连着放
-    std::vector<std::vector<u64>> inputOmniPipeSliceStride;
-    std::vector<std::vector<u64>> outputOmniPipeSliceStride;
-
-    std::vector<char> Serialize() const
-    {
-        BinaryStream binaryStream;
-        binaryStream << stepCount;
-        binaryStream << stepSliceSize;
-        binaryStream << stepInputSliceStride;
-        binaryStream << stepOutputSliceStride;
-        binaryStream << inputOmniPipeSliceStride;
-        binaryStream << outputOmniPipeSliceStride;
-        std::vector<char> result;
-        binaryStream.Dump(result);
-        return result;
-    }
-
-    void DeSerialize(std::vector<char> &data)
-    {
-        BinaryStream binaryStream(data);
-        binaryStream >> stepCount;
-        binaryStream >> stepSliceSize;
-        binaryStream >> stepInputSliceStride;
-        binaryStream >> stepOutputSliceStride;
-        binaryStream >> inputOmniPipeSliceStride;
-        binaryStream >> outputOmniPipeSliceStride;
-    }
-};
-
 struct TemplateFastLaunchCtx {
     BuffInfo buffInfo;
     std::vector<ThreadHandle> threads;
@@ -233,8 +197,6 @@ struct TemplateDataParams {
     std::vector<u64> recvCounts;
     std::vector<u64> sdispls;
     std::vector<u64> rdispls;
-    u64 localCopyFlag{0};
-    StepSliceInfo stepSliceInfo;
 
     std::vector<char> Serialize() const
     {
@@ -258,7 +220,6 @@ struct TemplateDataParams {
         binaryStream << allRankProcessedDataCount;
         binaryStream << root;
         binaryStream << dataType;
-        binaryStream << stepSliceInfo.Serialize();
         std::vector<char> result;
         binaryStream.Dump(result);
         return result;
@@ -286,9 +247,6 @@ struct TemplateDataParams {
         binaryStream >> allRankProcessedDataCount;
         binaryStream >> root;
         binaryStream >> dataType;
-        std::vector<char> stepSliceInfoData;
-        binaryStream >> stepSliceInfoData;
-        stepSliceInfo.DeSerialize(stepSliceInfoData);
     }
 };
 
