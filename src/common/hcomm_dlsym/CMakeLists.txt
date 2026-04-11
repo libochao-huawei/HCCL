@@ -130,6 +130,7 @@ target_sources(hccl_compat PRIVATE
     hcomm_dlsym.cc
     hccl_inner_dl.cc
     hcomm_host_profiling_dl.cc
+    hccl_host_comm_dl.cc
 )
 
 if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
@@ -138,6 +139,7 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         hcomm_primitives_dl.cc
         hcomm_diag_dl.cc
         hcomm_device_profiling_dl.cc
+        hccl_device_comm_dl.cc
     )
 
     target_include_directories(hccl_kernel_compat PRIVATE
