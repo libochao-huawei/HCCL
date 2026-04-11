@@ -245,7 +245,11 @@ HcclResult PrepareParamForAlltoAllV(const Mc2CcTilingInner *ccTiling, OpParam *o
     return HCCL_SUCCESS;
 }
 
+
+
 typedef HcclResult (*OpParamPrepareFunc)(const Mc2CcTilingInner *ccTiling, OpParam *opParam);
+
+
 
 std::unordered_map<HcclCMDType, OpParamPrepareFunc> opParamPrepareFuncMap = {
     {HCCL_CMD_ALLGATHER, PrepareParamForAllGather},
