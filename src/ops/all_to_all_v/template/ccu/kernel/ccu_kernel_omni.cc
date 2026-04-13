@@ -35,6 +35,8 @@ CcuKernelOmni::CcuKernelOmni(const hcomm::CcuKernelArg &arg)
     ccuSendRecvInfo_  = kernelArg->sendRecvInfo_;
     handleSelfRank_  = kernelArg->handleSelfRank_;
 
+    HCCL_INFO("rank[%u] CcuKernelOmni channels_ size %u", rankId_, channels_.size());
+
     // dataType_       = kernelArg->opParam_.DataDes.dataType;
     // outputDataType_ = kernelArg->opParam_.DataDes.outputType;
     // if (outputDataType_ == HcclDataType::HCCL_DATA_TYPE_RESERVED) {
@@ -203,21 +205,26 @@ HcclResult CcuKernelOmni::InitResources()
         return HcclResult::HCCL_E_INTERNAL;
     }
 
+    uint32_t idx = 0;
     for (uint32_t i = 0; i < rankGroup_.size(); i++) {
+
+        HCCL_DEBUG("rankId_ [%u], rankGroup_[%u] is [%u]", rankId_, i, rankGroup_[i]);
+
         if (rankGroup_[i] == rankId_) {
-            input_.push_back(CreateVariable());
-            output_.push_back(CreateVariable());
-            token_.push_back(CreateVariable());
+            input_.insert(input_.begin() + rankId_, CreateVariable());
+            output_.insert(output_.begin() + rankId_, CreateVariable());
+            token_.insert(token_.begin() + rankId_, CreateVariable());
         } else {
-            rankId2Channel_[rankGroup_[i]] = channels_[i];
+            rankId2Channel_[rankGroup_[i]] = channels_[idx];
 
             CcuRep::Variable inputVar, outputVar, tokenVar;
-            CHK_RET(CreateVariable(channels_[i], INPUT_XN_ID, &inputVar));
+            CHK_RET(CreateVariable(channels_[idx], INPUT_XN_ID, &inputVar));
             input_.push_back(inputVar);
-            CHK_RET(CreateVariable(channels_[i], OUTPUT_XN_ID, &outputVar));
+            CHK_RET(CreateVariable(channels_[idx], OUTPUT_XN_ID, &outputVar));
             output_.push_back(outputVar);
-            CHK_RET(CreateVariable(channels_[i], TOKEN_XN_ID, &tokenVar));
+            CHK_RET(CreateVariable(channels_[idx], TOKEN_XN_ID, &tokenVar));
             token_.push_back(tokenVar);
+            idx++;
         }
     }
 
@@ -288,15 +295,15 @@ void CcuKernelOmni::DoRepeatOmni()
             }
 
             for (auto& sliceInfo : signalInfo.srcSliceInfo) {
-                if (sliceInfo.sliceType == 0) { // input
-                    myInput.addr = input_[rankId_];                
+                if (sliceInfo.sliceType == BufferTypeTmp::INPUT) { 
+                    myInput.addr = input_[sliceInfo.remoteRank];                
                 }
 
-                if (sliceInfo.sliceType == 1) { // output
-                    myInput.addr = output_[rankId_];
+                if (sliceInfo.sliceType == BufferTypeTmp::OUTPUT) {
+                    myInput.addr = output_[sliceInfo.remoteRank];
                 }
 
-                if (sliceInfo.sliceType == 2) { // scrash
+                if (sliceInfo.sliceType == BufferTypeTmp::HCCL_BUFFER) {
                     myInput.addr = scratchAddr_;
                 }
 
@@ -306,15 +313,15 @@ void CcuKernelOmni::DoRepeatOmni()
             }
 
             for (auto& sliceInfo : signalInfo.dstSliceInfo) {
-                if (sliceInfo.sliceType == 0) { // input
-                    myOutput.addr = input_[rankId_];                
+                if (sliceInfo.sliceType == BufferTypeTmp::INPUT) { // input
+                    myOutput.addr = input_[sliceInfo.remoteRank];                
                 }
 
-                if (sliceInfo.sliceType == 1) { // output
-                    myOutput.addr = output_[rankId_];
+                if (sliceInfo.sliceType == BufferTypeTmp::OUTPUT) {
+                    myOutput.addr = output_[sliceInfo.remoteRank];
                 }
 
-                if (sliceInfo.sliceType == 2) { // scrash
+                if (sliceInfo.sliceType == BufferTypeTmp::HCCL_BUFFER) {
                     myOutput.addr = scratchAddr_;
                 }
 
@@ -323,7 +330,7 @@ void CcuKernelOmni::DoRepeatOmni()
                 }
             }
     
-            GroupCopy(myInput, myOutput, groupOpSize_);
+            GroupCopy(myOutput, myInput, groupOpSize_);
             HCCL_DEBUG("groupCopy end");
         }
 
@@ -338,16 +345,16 @@ void CcuKernelOmni::DoRepeatOmni()
 
             for (auto& sliceInfo : signalInfo.srcSliceInfo) {
                 CcuRep::LocalAddr tmpInput = CreateLocalAddr();
-                tmpInput.token = token_[rankId_];
-                if (sliceInfo.sliceType == 0) { // input
-                    tmpInput.addr = input_[rankId_];
+                tmpInput.token = token_[sliceInfo.remoteRank];
+                if (sliceInfo.sliceType == BufferTypeTmp::INPUT) { // input
+                    tmpInput.addr = input_[sliceInfo.remoteRank];
                 }
 
-                if (sliceInfo.sliceType == 1) { // output
-                    tmpInput.addr = output_[rankId_];
+                if (sliceInfo.sliceType == BufferTypeTmp::OUTPUT) {
+                    tmpInput.addr = output_[sliceInfo.remoteRank];
                 }
 
-                if (sliceInfo.sliceType == 2) { // scrash
+                if (sliceInfo.sliceType == BufferTypeTmp::HCCL_BUFFER) {
                     tmpInput.addr = scratchAddr_;
                 }
 
@@ -359,15 +366,15 @@ void CcuKernelOmni::DoRepeatOmni()
             }
 
             for (auto& sliceInfo : signalInfo.dstSliceInfo) {
-                if (sliceInfo.sliceType == 0) { // input
-                    myOutput.addr = input_[rankId_];                
+                if (sliceInfo.sliceType == BufferTypeTmp::INPUT) { // input
+                    myOutput.addr = input_[sliceInfo.remoteRank];                
                 }
 
-                if (sliceInfo.sliceType == 1) { // output
-                    myOutput.addr = output_[rankId_];
+                if (sliceInfo.sliceType == BufferTypeTmp::OUTPUT) {
+                    myOutput.addr = output_[sliceInfo.remoteRank];
                 }
 
-                if (sliceInfo.sliceType == 2) { // scrash
+                if (sliceInfo.sliceType == BufferTypeTmp::HCCL_BUFFER) {
                     myOutput.addr = scratchAddr_;
                 }
 
@@ -383,18 +390,18 @@ void CcuKernelOmni::DoRepeatOmni()
             for (uint32_t i = 0; i < signalInfo.srcSliceInfo.size(); i++) {
                 CcuRep::RemoteAddr remoteDst = CreateRemoteAddr();
                 CcuRep::LocalAddr src  = CreateLocalAddr();
-                src.token = token_[rankId_];
+                src.token = token_[signalInfo.srcSliceInfo[i].remoteRank];
                 remoteDst.token = token_[signalInfo.dstSliceInfo[i].remoteRank];
 
-                if (signalInfo.srcSliceInfo[i].sliceType == 0) { // input
-                    src.addr = input_[rankId_];                
+                if (signalInfo.srcSliceInfo[i].sliceType == BufferTypeTmp::INPUT) {
+                    src.addr = input_[signalInfo.srcSliceInfo[i].remoteRank];                
                 }
 
-                if (signalInfo.srcSliceInfo[i].sliceType == 1) { // output
-                    src.addr = output_[rankId_];
+                if (signalInfo.srcSliceInfo[i].sliceType == BufferTypeTmp::OUTPUT) {
+                    src.addr = output_[signalInfo.srcSliceInfo[i].remoteRank];
                 }
 
-                if (signalInfo.srcSliceInfo[i].sliceType == 2) { // scrash
+                if (signalInfo.srcSliceInfo[i].sliceType == BufferTypeTmp::HCCL_BUFFER) {
                     src.addr = scratchAddr_;
                 }
 
@@ -402,15 +409,15 @@ void CcuKernelOmni::DoRepeatOmni()
                     src.addr += sliceSize_; // 一个sliceId 对应一份sliceSize
                 }
 
-                if (signalInfo.dstSliceInfo[i].sliceType == 0) { // input
-                    remoteDst.addr = input_[rankId_];                
+                if (signalInfo.dstSliceInfo[i].sliceType == BufferTypeTmp::INPUT) {
+                    remoteDst.addr = input_[signalInfo.dstSliceInfo[i].remoteRank];                
                 }
 
-                if (signalInfo.dstSliceInfo[i].sliceType == 1) { // output
-                    remoteDst.addr = output_[rankId_];
+                if (signalInfo.dstSliceInfo[i].sliceType == BufferTypeTmp::OUTPUT) {
+                    remoteDst.addr = output_[signalInfo.dstSliceInfo[i].remoteRank];
                 }
 
-                if (signalInfo.dstSliceInfo[i].sliceType == 2) { // scrash
+                if (signalInfo.dstSliceInfo[i].sliceType == BufferTypeTmp::HCCL_BUFFER) {
                     remoteDst.addr = scratchAddr_;
                 }
 
@@ -428,18 +435,18 @@ void CcuKernelOmni::DoRepeatOmni()
             for (uint32_t i = 0; i < signalInfo.srcSliceInfo.size(); i++) {
                 CcuRep::RemoteAddr remoteDst = CreateRemoteAddr();
                 CcuRep::LocalAddr src  = CreateLocalAddr();
-                src.token = token_[rankId_];
+                src.token = token_[signalInfo.srcSliceInfo[i].remoteRank];
                 remoteDst.token = token_[signalInfo.dstSliceInfo[i].remoteRank];
 
-                if (signalInfo.srcSliceInfo[i].sliceType == 0) { // input
-                    src.addr = input_[rankId_];                
+                if (signalInfo.srcSliceInfo[i].sliceType == BufferTypeTmp::INPUT) { // input
+                    src.addr = input_[signalInfo.srcSliceInfo[i].remoteRank];                
                 }
 
-                if (signalInfo.srcSliceInfo[i].sliceType == 1) { // output
-                    src.addr = output_[rankId_];
+                if (signalInfo.srcSliceInfo[i].sliceType == BufferTypeTmp::OUTPUT) {
+                    src.addr = output_[signalInfo.srcSliceInfo[i].remoteRank];
                 }
 
-                if (signalInfo.srcSliceInfo[i].sliceType == 2) { // scrash
+                if (signalInfo.srcSliceInfo[i].sliceType == BufferTypeTmp::HCCL_BUFFER) {
                     src.addr = scratchAddr_;
                 }
 
@@ -447,15 +454,15 @@ void CcuKernelOmni::DoRepeatOmni()
                     src.addr += sliceSize_; // 一个sliceId 对应一份sliceSize
                 }
 
-                if (signalInfo.dstSliceInfo[i].sliceType == 0) { // input
-                    remoteDst.addr = input_[rankId_];                
+                if (signalInfo.dstSliceInfo[i].sliceType == BufferTypeTmp::INPUT) { // input
+                    remoteDst.addr = input_[signalInfo.dstSliceInfo[i].remoteRank];                
                 }
 
-                if (signalInfo.dstSliceInfo[i].sliceType == 1) { // output
-                    remoteDst.addr = output_[rankId_];
+                if (signalInfo.dstSliceInfo[i].sliceType == BufferTypeTmp::OUTPUT) {
+                    remoteDst.addr = output_[signalInfo.dstSliceInfo[i].remoteRank];
                 }
 
-                if (signalInfo.dstSliceInfo[i].sliceType == 2) { // scrash
+                if (signalInfo.dstSliceInfo[i].sliceType == BufferTypeTmp::HCCL_BUFFER) {
                     remoteDst.addr = scratchAddr_;
                 }
 
@@ -477,18 +484,18 @@ void CcuKernelOmni::DoRepeatOmni()
             for (uint32_t i = 0; i < signalInfo.srcSliceInfo.size(); i++) {
                 CcuRep::RemoteAddr remoteDst = CreateRemoteAddr();
                 CcuRep::LocalAddr src  = CreateLocalAddr();
-                src.token = token_[rankId_];
+                src.token = token_[signalInfo.srcSliceInfo[i].remoteRank];
                 remoteDst.token = token_[signalInfo.dstSliceInfo[i].remoteRank];
 
-                if (signalInfo.srcSliceInfo[i].sliceType == 0) { // input
-                    src.addr = input_[rankId_];                
+                if (signalInfo.srcSliceInfo[i].sliceType == BufferTypeTmp::INPUT) { // input
+                    src.addr = input_[signalInfo.srcSliceInfo[i].remoteRank];                
                 }
 
-                if (signalInfo.srcSliceInfo[i].sliceType == 1) { // output
-                    src.addr = output_[rankId_];
+                if (signalInfo.srcSliceInfo[i].sliceType == BufferTypeTmp::OUTPUT) {
+                    src.addr = output_[signalInfo.srcSliceInfo[i].remoteRank];
                 }
 
-                if (signalInfo.srcSliceInfo[i].sliceType == 2) { // scrash
+                if (signalInfo.srcSliceInfo[i].sliceType == BufferTypeTmp::HCCL_BUFFER) {
                     src.addr = scratchAddr_;
                 }
 
@@ -496,15 +503,15 @@ void CcuKernelOmni::DoRepeatOmni()
                     src.addr += sliceSize_; // 一个sliceId 对应一份sliceSize
                 }
 
-                if (signalInfo.dstSliceInfo[i].sliceType == 0) { // input
-                    remoteDst.addr = input_[rankId_];                
+                if (signalInfo.dstSliceInfo[i].sliceType == BufferTypeTmp::INPUT) { // input
+                    remoteDst.addr = input_[signalInfo.dstSliceInfo[i].remoteRank];                
                 }
 
-                if (signalInfo.dstSliceInfo[i].sliceType == 1) { // output
-                    remoteDst.addr = output_[rankId_];
+                if (signalInfo.dstSliceInfo[i].sliceType == BufferTypeTmp::OUTPUT) {
+                    remoteDst.addr = output_[signalInfo.dstSliceInfo[i].remoteRank];
                 }
 
-                if (signalInfo.dstSliceInfo[i].sliceType == 2) { // scrash
+                if (signalInfo.dstSliceInfo[i].sliceType == BufferTypeTmp::HCCL_BUFFER) {
                     remoteDst.addr = scratchAddr_;
                 }
 
@@ -522,18 +529,18 @@ void CcuKernelOmni::DoRepeatOmni()
             for (uint32_t i = 0; i < signalInfo.srcSliceInfo.size(); i++) {
                 CcuRep::RemoteAddr remoteDst = CreateRemoteAddr();
                 CcuRep::LocalAddr src  = CreateLocalAddr();
-                src.token = token_[rankId_];
+                src.token = token_[signalInfo.srcSliceInfo[i].remoteRank];
                 remoteDst.token = token_[signalInfo.dstSliceInfo[i].remoteRank];
 
-                if (signalInfo.srcSliceInfo[i].sliceType == 0) { // input
-                    src.addr = input_[rankId_];                
+                if (signalInfo.srcSliceInfo[i].sliceType == BufferTypeTmp::INPUT) {
+                    src.addr = input_[signalInfo.srcSliceInfo[i].remoteRank];                
                 }
 
-                if (signalInfo.srcSliceInfo[i].sliceType == 1) { // output
-                    src.addr = output_[rankId_];
+                if (signalInfo.srcSliceInfo[i].sliceType == BufferTypeTmp::OUTPUT) {
+                    src.addr = output_[signalInfo.srcSliceInfo[i].remoteRank];
                 }
 
-                if (signalInfo.srcSliceInfo[i].sliceType == 2) { // scrash
+                if (signalInfo.srcSliceInfo[i].sliceType == BufferTypeTmp::HCCL_BUFFER) {
                     src.addr = scratchAddr_;
                 }
 
@@ -541,15 +548,15 @@ void CcuKernelOmni::DoRepeatOmni()
                     src.addr += sliceSize_; // 一个sliceId 对应一份sliceSize
                 }
 
-                if (signalInfo.dstSliceInfo[i].sliceType == 0) { // input
-                    remoteDst.addr = input_[rankId_];                
+                if (signalInfo.dstSliceInfo[i].sliceType == BufferTypeTmp::INPUT) {
+                    remoteDst.addr = input_[signalInfo.dstSliceInfo[i].remoteRank];                
                 }
 
-                if (signalInfo.dstSliceInfo[i].sliceType == 1) { // output
-                    remoteDst.addr = output_[rankId_];
+                if (signalInfo.dstSliceInfo[i].sliceType == BufferTypeTmp::OUTPUT) {
+                    remoteDst.addr = output_[signalInfo.dstSliceInfo[i].remoteRank];
                 }
 
-                if (signalInfo.dstSliceInfo[i].sliceType == 2) { // scrash
+                if (signalInfo.dstSliceInfo[i].sliceType == BufferTypeTmp::HCCL_BUFFER) {
                     remoteDst.addr = scratchAddr_;
                 }
 
@@ -571,18 +578,18 @@ void CcuKernelOmni::DoRepeatOmni()
             for (uint32_t i = 0; i < signalInfo.srcSliceInfo.size(); i++) {
                 CcuRep::RemoteAddr remoteDst = CreateRemoteAddr();
                 CcuRep::LocalAddr src  = CreateLocalAddr();
-                src.token = token_[rankId_];
+                src.token = token_[signalInfo.srcSliceInfo[i].remoteRank];
                 remoteDst.token = token_[signalInfo.dstSliceInfo[i].remoteRank];
 
-                if (signalInfo.srcSliceInfo[i].sliceType == 0) { // input
-                    src.addr = input_[rankId_];                
+                if (signalInfo.srcSliceInfo[i].sliceType == BufferTypeTmp::INPUT) {
+                    src.addr = input_[signalInfo.srcSliceInfo[i].remoteRank];                
                 }
 
-                if (signalInfo.srcSliceInfo[i].sliceType == 1) { // output
-                    src.addr = output_[rankId_];
+                if (signalInfo.srcSliceInfo[i].sliceType == BufferTypeTmp::OUTPUT) {
+                    src.addr = output_[signalInfo.srcSliceInfo[i].remoteRank];
                 }
 
-                if (signalInfo.srcSliceInfo[i].sliceType == 2) { // scrash
+                if (signalInfo.srcSliceInfo[i].sliceType == BufferTypeTmp::HCCL_BUFFER) {
                     src.addr = scratchAddr_;
                 }
 
@@ -590,15 +597,15 @@ void CcuKernelOmni::DoRepeatOmni()
                     src.addr += sliceSize_; // 一个sliceId 对应一份sliceSize
                 }
 
-                if (signalInfo.dstSliceInfo[i].sliceType == 0) { // input
-                    remoteDst.addr = input_[rankId_];                
+                if (signalInfo.dstSliceInfo[i].sliceType == BufferTypeTmp::INPUT) {
+                    remoteDst.addr = input_[signalInfo.dstSliceInfo[i].remoteRank];                
                 }
 
-                if (signalInfo.dstSliceInfo[i].sliceType == 1) { // output
-                    remoteDst.addr = output_[rankId_];
+                if (signalInfo.dstSliceInfo[i].sliceType == BufferTypeTmp::OUTPUT) {
+                    remoteDst.addr = output_[signalInfo.dstSliceInfo[i].remoteRank];
                 }
 
-                if (signalInfo.dstSliceInfo[i].sliceType == 2) { // scrash
+                if (signalInfo.dstSliceInfo[i].sliceType == BufferTypeTmp::HCCL_BUFFER) {
                     remoteDst.addr = scratchAddr_;
                 }
 
@@ -620,18 +627,18 @@ void CcuKernelOmni::DoRepeatOmni()
             for (uint32_t i = 0; i < signalInfo.srcSliceInfo.size(); i++) {
                 CcuRep::RemoteAddr remoteDst = CreateRemoteAddr();
                 CcuRep::LocalAddr src  = CreateLocalAddr();
-                src.token = token_[rankId_];
+                src.token = token_[signalInfo.srcSliceInfo[i].remoteRank];
                 remoteDst.token = token_[signalInfo.dstSliceInfo[i].remoteRank];
 
-                if (signalInfo.srcSliceInfo[i].sliceType == 0) { // input
-                    src.addr = input_[rankId_];                
+                if (signalInfo.srcSliceInfo[i].sliceType == BufferTypeTmp::INPUT) {
+                    src.addr = input_[signalInfo.srcSliceInfo[i].remoteRank];                
                 }
 
-                if (signalInfo.srcSliceInfo[i].sliceType == 1) { // output
-                    src.addr = output_[rankId_];
+                if (signalInfo.srcSliceInfo[i].sliceType == BufferTypeTmp::OUTPUT) {
+                    src.addr = output_[signalInfo.srcSliceInfo[i].remoteRank];
                 }
 
-                if (signalInfo.srcSliceInfo[i].sliceType == 2) { // scrash
+                if (signalInfo.srcSliceInfo[i].sliceType == BufferTypeTmp::HCCL_BUFFER) {
                     src.addr = scratchAddr_;
                 }
 
@@ -639,15 +646,15 @@ void CcuKernelOmni::DoRepeatOmni()
                     src.addr += sliceSize_; // 一个sliceId 对应一份sliceSize
                 }
 
-                if (signalInfo.dstSliceInfo[i].sliceType == 0) { // input
-                    remoteDst.addr = input_[rankId_];                
+                if (signalInfo.dstSliceInfo[i].sliceType == BufferTypeTmp::INPUT) {
+                    remoteDst.addr = input_[signalInfo.dstSliceInfo[i].remoteRank];                
                 }
 
-                if (signalInfo.dstSliceInfo[i].sliceType == 1) { // output
-                    remoteDst.addr = output_[rankId_];
+                if (signalInfo.dstSliceInfo[i].sliceType == BufferTypeTmp::OUTPUT) {
+                    remoteDst.addr = output_[signalInfo.dstSliceInfo[i].remoteRank];
                 }
 
-                if (signalInfo.dstSliceInfo[i].sliceType == 2) { // scrash
+                if (signalInfo.dstSliceInfo[i].sliceType == BufferTypeTmp::HCCL_BUFFER) {
                     remoteDst.addr = scratchAddr_;
                 }
 
@@ -665,18 +672,18 @@ void CcuKernelOmni::DoRepeatOmni()
             for (uint32_t i = 0; i < signalInfo.srcSliceInfo.size(); i++) {
                 CcuRep::RemoteAddr remoteDst = CreateRemoteAddr();
                 CcuRep::LocalAddr src  = CreateLocalAddr();
-                src.token = token_[rankId_];
+                src.token = token_[signalInfo.srcSliceInfo[i].remoteRank];
                 remoteDst.token = token_[signalInfo.dstSliceInfo[i].remoteRank];
 
-                if (signalInfo.srcSliceInfo[i].sliceType == 0) { // input
+                if (signalInfo.srcSliceInfo[i].sliceType == BufferTypeTmp::INPUT) {
                     src.addr = input_[rankId_];                
                 }
 
-                if (signalInfo.srcSliceInfo[i].sliceType == 1) { // output
+                if (signalInfo.srcSliceInfo[i].sliceType == BufferTypeTmp::OUTPUT) {
                     src.addr = output_[rankId_];
                 }
 
-                if (signalInfo.srcSliceInfo[i].sliceType == 2) { // scrash
+                if (signalInfo.srcSliceInfo[i].sliceType == BufferTypeTmp::HCCL_BUFFER) {
                     src.addr = scratchAddr_;
                 }
 
@@ -684,15 +691,15 @@ void CcuKernelOmni::DoRepeatOmni()
                     src.addr += sliceSize_; // 一个sliceId 对应一份sliceSize
                 }
 
-                if (signalInfo.dstSliceInfo[i].sliceType == 0) { // input
-                    remoteDst.addr = input_[rankId_];                
+                if (signalInfo.dstSliceInfo[i].sliceType == BufferTypeTmp::INPUT) {
+                    remoteDst.addr = input_[signalInfo.dstSliceInfo[i].remoteRank];                
                 }
 
-                if (signalInfo.dstSliceInfo[i].sliceType == 1) { // output
-                    remoteDst.addr = output_[rankId_];
+                if (signalInfo.dstSliceInfo[i].sliceType == BufferTypeTmp::OUTPUT) {
+                    remoteDst.addr = output_[signalInfo.dstSliceInfo[i].remoteRank];
                 }
 
-                if (signalInfo.dstSliceInfo[i].sliceType == 2) { // scrash
+                if (signalInfo.dstSliceInfo[i].sliceType == BufferTypeTmp::HCCL_BUFFER) {
                     remoteDst.addr = scratchAddr_;
                 }
 
@@ -714,18 +721,18 @@ void CcuKernelOmni::DoRepeatOmni()
             for (uint32_t i = 0; i < signalInfo.srcSliceInfo.size(); i++) {
                 CcuRep::RemoteAddr remoteDst = CreateRemoteAddr();
                 CcuRep::LocalAddr src  = CreateLocalAddr();
-                src.token = token_[rankId_];
+                src.token = token_[signalInfo.srcSliceInfo[i].remoteRank];
                 remoteDst.token = token_[signalInfo.dstSliceInfo[i].remoteRank];
 
-                if (signalInfo.srcSliceInfo[i].sliceType == 0) { // input
-                    src.addr = input_[rankId_];                
+                if (signalInfo.srcSliceInfo[i].sliceType == BufferTypeTmp::INPUT) {
+                    src.addr = input_[signalInfo.srcSliceInfo[i].remoteRank];                
                 }
 
-                if (signalInfo.srcSliceInfo[i].sliceType == 1) { // output
-                    src.addr = output_[rankId_];
+                if (signalInfo.srcSliceInfo[i].sliceType == BufferTypeTmp::OUTPUT) {
+                    src.addr = output_[signalInfo.srcSliceInfo[i].remoteRank];
                 }
 
-                if (signalInfo.srcSliceInfo[i].sliceType == 2) { // scrash
+                if (signalInfo.srcSliceInfo[i].sliceType == BufferTypeTmp::HCCL_BUFFER) {
                     src.addr = scratchAddr_;
                 }
 
@@ -733,15 +740,15 @@ void CcuKernelOmni::DoRepeatOmni()
                     src.addr += sliceSize_; // 一个sliceId 对应一份sliceSize
                 }
 
-                if (signalInfo.dstSliceInfo[i].sliceType == 0) { // input
-                    remoteDst.addr = input_[rankId_];                
+                if (signalInfo.dstSliceInfo[i].sliceType == BufferTypeTmp::INPUT) {
+                    remoteDst.addr = input_[signalInfo.dstSliceInfo[i].remoteRank];                
                 }
 
-                if (signalInfo.dstSliceInfo[i].sliceType == 1) { // output
-                    remoteDst.addr = output_[rankId_];
+                if (signalInfo.dstSliceInfo[i].sliceType == BufferTypeTmp::OUTPUT) {
+                    remoteDst.addr = output_[signalInfo.dstSliceInfo[i].remoteRank];
                 }
 
-                if (signalInfo.dstSliceInfo[i].sliceType == 2) { // scrash
+                if (signalInfo.dstSliceInfo[i].sliceType == BufferTypeTmp::HCCL_BUFFER) {
                     remoteDst.addr = scratchAddr_;
                 }
 
@@ -762,18 +769,18 @@ void CcuKernelOmni::DoRepeatOmni()
 
             CcuRep::LocalAddr src = CreateLocalAddr();
             std::vector<CcuRep::RemoteAddr> dst;
-            src.token = token_[rankId_];
+            src.token = token_[signalInfo.srcSliceInfo[0].remoteRank];
 
             for (auto& sliceInfo : signalInfo.srcSliceInfo) {
-                if (sliceInfo.sliceType == 0) { // input
-                    src.addr = input_[rankId_];                
+                if (sliceInfo.sliceType == BufferTypeTmp::INPUT) {
+                    src.addr = input_[sliceInfo.remoteRank];                
                 }
 
-                if (sliceInfo.sliceType == 1) { // output
-                    src.addr = output_[rankId_];
+                if (sliceInfo.sliceType == BufferTypeTmp::OUTPUT) {
+                    src.addr = output_[sliceInfo.remoteRank];
                 }
 
-                if (sliceInfo.sliceType == 2) { // scrash
+                if (sliceInfo.sliceType == BufferTypeTmp::HCCL_BUFFER) {
                     src.addr = scratchAddr_;
                 }
 
@@ -786,15 +793,15 @@ void CcuKernelOmni::DoRepeatOmni()
             for (auto& sliceInfo : signalInfo.dstSliceInfo) {
                 CcuRep::RemoteAddr tmpdst = CreateRemoteAddr();
                 tmpdst.token = token_[sliceInfo.remoteRank];
-                if (sliceInfo.sliceType == 0) { // input
+                if (sliceInfo.sliceType == BufferTypeTmp::INPUT) {
                     tmpdst.addr = input_[sliceInfo.remoteRank];
                 }
 
-                if (sliceInfo.sliceType == 1) { // output
+                if (sliceInfo.sliceType == BufferTypeTmp::OUTPUT) {
                     tmpdst.addr = output_[sliceInfo.remoteRank];
                 }
 
-                if (sliceInfo.sliceType == 2) { // scrash
+                if (sliceInfo.sliceType == BufferTypeTmp::HCCL_BUFFER) {
                     tmpdst.addr = scratchAddr_;
                 }
 
@@ -810,15 +817,15 @@ void CcuKernelOmni::DoRepeatOmni()
             CcuRep::RemoteAddr tmpdst = CreateRemoteAddr();
             tmpdst.token = token_[rankId_];
 
-            if (signalInfo.dstSliceInfo[0].sliceType == 0) { // input
+            if (signalInfo.dstSliceInfo[0].sliceType == BufferTypeTmp::INPUT) {
                 tmpdst.addr = input_[rankId_];
             }
 
-            if (signalInfo.dstSliceInfo[0].sliceType == 1) { // output
+            if (signalInfo.dstSliceInfo[0].sliceType == BufferTypeTmp::OUTPUT) {
                 tmpdst.addr = output_[rankId_];
             }
 
-            if (signalInfo.dstSliceInfo[0].sliceType == 2) { // scrash
+            if (signalInfo.dstSliceInfo[0].sliceType == BufferTypeTmp::HCCL_BUFFER) {
                 tmpdst.addr = scratchAddr_;
             }
 
@@ -846,15 +853,15 @@ void CcuKernelOmni::DoRepeatOmni()
             dst.token = token_[rankId_];
 
             for (auto& sliceInfo : signalInfo.dstSliceInfo) {
-                if (sliceInfo.sliceType == 0) { // input
-                    dst.addr = input_[rankId_];                
+                if (sliceInfo.sliceType == BufferTypeTmp::INPUT) {
+                    dst.addr = input_[sliceInfo.remoteRank];                
                 }
 
-                if (sliceInfo.sliceType == 1) { // output
-                    dst.addr = output_[rankId_];
+                if (sliceInfo.sliceType == BufferTypeTmp::OUTPUT) {
+                    dst.addr = output_[sliceInfo.remoteRank];
                 }
 
-                if (sliceInfo.sliceType == 2) { // scrash
+                if (sliceInfo.sliceType == BufferTypeTmp::HCCL_BUFFER) {
                     dst.addr = scratchAddr_;
                 }
 
@@ -867,15 +874,15 @@ void CcuKernelOmni::DoRepeatOmni()
             for (auto& sliceInfo : signalInfo.srcSliceInfo) {
                 CcuRep::RemoteAddr tmpdst = CreateRemoteAddr();
                 tmpdst.token = token_[sliceInfo.remoteRank];
-                if (sliceInfo.sliceType == 0) { // input
+                if (sliceInfo.sliceType == BufferTypeTmp::INPUT) {
                     tmpdst.addr = input_[sliceInfo.remoteRank];
                 }
 
-                if (sliceInfo.sliceType == 1) { // output
+                if (sliceInfo.sliceType == BufferTypeTmp::OUTPUT) {
                     tmpdst.addr = output_[sliceInfo.remoteRank];
                 }
 
-                if (sliceInfo.sliceType == 2) { // scrash
+                if (sliceInfo.sliceType == BufferTypeTmp::HCCL_BUFFER) {
                     tmpdst.addr = scratchAddr_;
                 }
 
@@ -892,15 +899,15 @@ void CcuKernelOmni::DoRepeatOmni()
                 CcuRep::RemoteAddr tmpsrc = CreateRemoteAddr();
                 tmpsrc.token = token_[rankId_];
 
-                if (signalInfo.dstSliceInfo[0].sliceType == 0) { // input
+                if (signalInfo.dstSliceInfo[0].sliceType == BufferTypeTmp::INPUT) {
                     tmpsrc.addr = input_[rankId_];
                 }
 
-                if (signalInfo.dstSliceInfo[0].sliceType == 1) { // output
+                if (signalInfo.dstSliceInfo[0].sliceType == BufferTypeTmp::OUTPUT) {
                     tmpsrc.addr = output_[rankId_];
                 }
 
-                if (signalInfo.dstSliceInfo[0].sliceType == 2) { // scrash
+                if (signalInfo.dstSliceInfo[0].sliceType == BufferTypeTmp::HCCL_BUFFER) {
                     tmpsrc.addr = scratchAddr_;
                 }
 

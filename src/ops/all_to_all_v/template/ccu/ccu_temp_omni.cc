@@ -154,9 +154,9 @@ HcclResult CcuTempOmni::CalcChannelRequestOmni(HcclComm comm, const OpParam& par
             HCCL_DEBUG("layer is %u, %u to %u link size %u", i, myRank, remoteRank, listSize);
             
             for (u32 idx = 0; idx < listSize; idx++) {
-                if (protocol != linkList[idx].linkAttr.linkProtocol) {
-                    continue;
-                }
+                // if (protocol != linkList[idx].linkAttr.linkProtocol) {
+                //     continue;
+                // }
 
                 HcclChannelDesc channelDesc;
                 HcclChannelDescInit(&channelDesc, 1);
@@ -241,11 +241,12 @@ HcclResult CcuTempOmni::CalcRes(HcclComm comm, const OpParam& param, const TopoI
     resourceRequest.notifyNumOnMainThread = xmlInfo.resInfo.notifyNumOnMainThread;
     resourceRequest.slaveThreadNum = xmlInfo.resInfo.slaveThreadNum;
     resourceRequest.notifyNumPerThread.assign(xmlInfo.resInfo.notifyNumPerThread, 1);
-    // resourceRequest.ccuKernelNum.push_back(DIE_NUM);        // kernel数量
 
     // 计算channel信息
     std::vector<HcclChannelDesc> channelDescs;
     CHK_RET(CalcChannelRequestOmni(comm, param, topoInfo, subCommRanks_, xmlInfo.resInfo.mapchannelInfo, channelDescs));
+    // CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
+
     CHK_RET(PartitionChannels(comm, channelDescs));
     resourceRequest.channels.emplace_back(channelDescs);
 

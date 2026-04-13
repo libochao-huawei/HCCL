@@ -18,6 +18,62 @@
 #include "ccu_temp_omni.h"
 
 namespace ops_hccl {
+struct ResRequest {
+    uint16_t opCode : 5;    
+    uint16_t slave : 5;  
+    uint16_t notifyNumOnMainThread : 5;   
+    uint16_t notifyNumPerThread : 5;    
+    uint16_t netLayerNum : 2;    
+    uint16_t chanCount : 8;    
+    uint16_t reser : 2;   
+};
+
+struct CtrlOp {
+    uint16_t opCode : 5;  
+    uint16_t netlayerId : 2;  
+    uint16_t linkProto : 3;  
+    uint16_t sliceNum : 10;  
+    uint16_t srcSliceNum : 4;  
+    uint16_t dstSliceNum : 4;  
+    uint16_t notifyFlag : 1;  
+    uint16_t notifyThread : 4;  
+    uint16_t waitFlag : 1;  
+    uint16_t waitThread : 4;  
+    uint16_t threadIdx : 5;  
+    uint16_t reduceType : 2; 
+    uint16_t inputDataType : 4; 
+    uint16_t outputDataType : 4; 
+    uint16_t instructionId : 10; 
+    uint16_t reser : 1; 
+};
+
+struct SrcSlice {
+    uint16_t bufferType : 2;  
+    uint16_t sliceIdx : 10;  
+    uint16_t rankId : 10;  
+    uint16_t reser : 10;  
+};
+
+struct DstSlice {
+    uint16_t bufferType : 2;  
+    uint16_t sliceIdx : 10;  
+    uint16_t rankId : 10;  
+    uint16_t reser : 10;  
+};
+
+struct Channel {
+    uint16_t netlayerId : 5;  
+    uint16_t localRank : 10;  
+    uint16_t remoteRank : 10;  
+    uint16_t linkProto : 3;  
+    uint16_t reser : 5;  
+};
+
+
+
+
+
+
 template <typename AlgTopoMatch, typename InsAlgTemplate> class InsOmniSoleExecutor : public InsCollAlgBase {
 public:
     explicit InsOmniSoleExecutor();
@@ -40,7 +96,6 @@ protected:
     HcclResult OrchestrateLoop(const OpParam &param, const AlgResourceCtxSerializable &resCtx);
     HcclResult InitCommInfo(const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo);
     HcclResult ParseXmlInfo(const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo); // 解析xml bin文件
-    uint32_t ReadBits(std::ifstream& file, uint64_t offset, size_t numBits);
 
     std::vector<std::vector<std::vector<u32>>> algHierarchyInfo_;
     std::vector<std::map<u32, std::vector<ChannelInfo>>> remoteRankToChannelInfo_;
