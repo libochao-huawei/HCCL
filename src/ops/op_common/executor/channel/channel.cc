@@ -349,6 +349,7 @@ HcclResult ClassifyDetourChannelsEveryLayers(HcclComm &comm, u32 myRank, u32 ran
                                              HcclDetourType detourType, std::vector<u32> &directChannels, std::vector<u32> &sendChannels, std::vector<u32> &recvChannels,
                                              std::vector<HcclChannelDesc> &channels)
 {
+#ifndef AICPU_COMPILE
     for (auto netLayer : netLayersVector) {
         CommLink *linkList = nullptr;
         u32 listSize;
@@ -383,6 +384,7 @@ HcclResult ClassifyDetourChannelsEveryLayers(HcclComm &comm, u32 myRank, u32 ran
             HCCL_ERROR("[ClassifyDetourChannelsEveryLayers] sendChannels.size()[%llu] != recvChannels.size()[%llu]",
                 sendChannels.size(), recvChannels.size()), HcclResult::HCCL_E_INTERNAL);
     }
+#endif
     return HCCL_SUCCESS;
 }
 
