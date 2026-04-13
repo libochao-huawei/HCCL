@@ -21,26 +21,33 @@ namespace ops_hccl {
 
 // 用于判断操作类型
 enum OpType {
-    OP_LOCAL_COPY = 0,
-    OP_LOCAL_REDUCE = 1,
+    OP_LOCAL_COPY = 3,
+    OP_LOCAL_REDUCE = 4,
     OP_SEND_RECV_WRITE,
     OP_SEND_WRITE,
     OP_RECV_WRITE,
     OP_SEND_RECV_WRITE_REDUCE,
     OP_SEND_WRITE_REDUCE,
-    OP_RECV_WRITE_REDUCE = 7,
+    OP_RECV_WRITE_REDUCE,
     OP_SEND_RECV_READ,
     OP_SEND_READ,
     OP_RECV_READ,
-    OP_SEND_RECV_READ_REDUCE = 11,
+    OP_SEND_RECV_READ_REDUCE,
     OP_SEND_READ_REDUCE,
     OP_RECV_READ_REDUCE,
     OP_GROUP_BROAD_CAST,
     OP_GROUP_REDUCE
 };
 
+enum class BufferTypeTmp {
+    HCCL_BUFFER = 0,
+    INPUT = 1,
+    OUTPUT = 2,
+    DEFAULT
+};
+
 struct OmniSliceInfo {
-    uint64_t sliceType; // 0 : input  1 : output 2 : cclbuf
+    BufferTypeTmp sliceType; 
     uint64_t sliceIdx;
     uint64_t remoteRank;
 };
@@ -52,8 +59,8 @@ struct OmniSendRecvInfo {
     HcclReduceOp          reduceType;   // 0 : sum  1 : max  2 : min
     // uint64_t              channelId;
     uint64_t              sliceNum;
-    uint64_t              linkType;
     uint64_t              threadIdx;
+    uint64_t              netlayerId;
     // uint64_t              localRankId;
     std::vector<OmniSliceInfo> srcSliceInfo;
     std::vector<OmniSliceInfo> dstSliceInfo;
@@ -63,7 +70,7 @@ struct OmniSendRecvInfo {
 struct OmniChannelInfo {
     CommProtocol channelProtocol; ///< 通信协议
     uint64_t     remoteRank;    ///< 远端rankId
-    uint64_t     channelId;
+    uint64_t     netlayerId;
 };
 
 struct ResInfo {
