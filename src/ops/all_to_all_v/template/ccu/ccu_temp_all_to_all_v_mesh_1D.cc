@@ -154,7 +154,7 @@ HcclResult CcuTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
     uint64_t srcOffset = 0; // alltoallv假设src起始地址为发送rank的对应块起始地址
     uint64_t dstOffset = 0; // alltoallv假设dst起始地址为接收rank的对应块起始地址
     uint64_t token;
-    CHK_RET(GetToken(buffInfo_, token));
+    GetToken(buffInfo_, token);
 
     HCCL_INFO("[CcuTempAllToAllVMesh1D] Run Init: myRank_[%d], dimSize[%llu], inputAddr[%llu],"\
         "outputAddr[%llu], sliceSize[%llu], srcOffset[%llu], dstOffset[%llu]",
