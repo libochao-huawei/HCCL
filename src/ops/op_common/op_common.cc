@@ -1187,11 +1187,11 @@ HcclResult HcclAllocAlgResourceAiv(
             CommMem* remoteMems;
             char** memTags;
             CHK_RET(HcclChannelGetRemoteMems(comm, levelNChannels[idx], &memNum, &remoteMems, &memTags));
-            CHK_PRT_RET(memNum != 1,
-                HCCL_ERROR("[%s] HcclChannelGetRemoteMems memNum[%u] not equal to 1", __func__, memNum), HCCL_E_PARA);
+            CHK_PRT_RET(memNum == 0,
+                HCCL_ERROR("[%s] HcclChannelGetRemoteMems memNum is 0", __func__), HCCL_E_PARA);
             HCCL_INFO("[%s]remoteRank[%u] memNum[%u] regMemAddr[%p] regMemSize[%llu] memTag[%s]", __func__,
-                channelDesc.remoteRank, memNum, remoteMems[0].addr, remoteMems[0].size, memTags[0]);
-            buffersOut[channelDesc.remoteRank] = remoteMems[0].addr;
+                channelDesc.remoteRank, memNum, remoteMems[memNum - 1].addr, remoteMems[memNum - 1].size, memTags[memNum - 1]);
+            buffersOut[channelDesc.remoteRank] = remoteMems[memNum - 1].addr;
         }
     }
 
