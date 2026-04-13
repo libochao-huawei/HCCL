@@ -297,6 +297,49 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
     return HCCL_SUCCESS;
 }
 
+HcclResult FallbackOp(HcclComm comm, OpParam &param,
+                      std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo, std::string &algName, const ResPackGraphMode &resPack)
+{
+    ReSelector(comm, param, topoInfo, algName);
+    HcclExecOp(comm, param, topoInfo, algName, resPack);
+}
+
+HcclResult ReSelector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
+    std::string &algName)
+{
+    HCCL_INFO("Start to execute ReSelector.");
+    param.hcclComm = comm;
+    CHK_RET(HcclGetOpExpansionMode(comm, param));
+    // 获取基础拓扑
+    CHK_RET(HcclCalcTopoInfo(comm, param, topoInfo));
+
+    // 检查非对称拓扑支持情况，非对称场景仅 AllGather/AllReduce/ReduceScatter 可用
+    CHK_RET(CheckAsymmetricTopoSupport(param.opType, topoInfo.get()));
+
+    // 算法选择，选择完后顺便param.algTag设置了，资源的保存是以算子+算法为单位
+    std::shared_ptr<ExecuteSelector> collAlgSelector = std::make_shared<ExecuteSelector>(ExecuteSelector());
+    CHK_RET(collAlgSelector->Run(param, topoInfo.get(), algName));
+    if (algName == "") {
+        HCCL_ERROR("[ReSelector] select algname fail!");
+        return HCCL_E_PTR;
+    }
+    CHK_RET(SetCommEngine(param));
+    // AIV_ONLY 模式下禁止回退到非 AIV 引擎，未选中 AIV 时直接返回不支持。
+    if (GetExternalInputHcclAivOnlyMode() && param.engine != CommEngine::COMM_ENGINE_AIV) {
+        HCCL_ERROR("[HcclExecOp] opType[%d] currently do not select aiv mode, aiv only not support.",
+            static_cast<int>(param.opType));
+        return HCCL_E_NOT_SUPPORT;
+    }
+    // 如果一开始读取到的Engine不是aicpu，经过算法选择后回退到aipcu，则需要重新LoadAICPUKernel
+    if ((param.engine == CommEngine::COMM_ENGINE_AICPU_TS) || (param.engine == CommEngine::COMM_ENGINE_CPU)) {
+        HCCL_DEBUG("[ReSelector] is aicpu mode");
+        CHK_RET(LoadAICPUKernel()); // 该函数内部有防止重复加载的逻辑
+    }
+    CHK_RET(SetOpParamAlgTag(param, algName));
+    HCCL_INFO("Success to execute ReSelector.");
+    return HCCL_SUCCESS;
+}
+
 HcclResult HcclExecOp(HcclComm comm, OpParam &param,
                       std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo, std::string &algName, const ResPackGraphMode &resPack)
 {
@@ -330,7 +373,11 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
         CHK_RET(HcclThreadExportToCommEngine(comm, 1, &cpuTsThread, COMM_ENGINE_AICPU_TS, &exportedAicpuTsThread));
     }
 
-    CHK_RET(HcclGetAlgRes(comm, param, executor, topoInfo.get(), resCtxHost, &resCtxSequence, isResourceReused));
+    auto ret = HcclGetAlgRes(comm, param, executor, topoInfo.get(), resCtxHost, &resCtxSequence, isResourceReused);
+    if (ret == HCCL_E_UNAVAIL) {
+        FallbackOp();
+        return HCCL_SUCCESS;
+    }
 
     // Op注册
     HcclDfxOpInfo hcclDfxOpInfo{};
@@ -650,7 +697,13 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
     } else if (param.engine == COMM_ENGINE_AIV) {
         CHK_RET(GetAlgResAiv(comm, param, resRequest, topoInfo, algHierarchyInfo, resCtxSequence));
     } else if (param.engine == COMM_ENGINE_CCU) {
-        CHK_RET(GetAlgResCcu(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence, size));
+        // 添加资源回退。SetCommEngine
+        auto ret = GetAlgResCcu(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence, size);
+        if (ret == HCCL_E_UNAVAIL) {
+            param.opExecuteConfig = opExecuteConfig::AICPU_TS;
+            param.engine = CommEngine::COMM_ENGINE_AICPU_TS;
+            return HCCL_E_UNAVAIL;
+        }
     } else {
         HCCL_ERROR("fail to get engine.", HCCL_E_PARA);
     }
@@ -1040,8 +1093,19 @@ HcclResult HcclAllocAlgResourceCcu(HcclComm comm, const OpParam& param, AlgResou
     resCtxHost->slaveThreadNum = resRequest.slaveThreadNum;
     resCtxHost->notifyNumPerThread = resRequest.notifyNumPerThread;
     CHK_RET(HcclGetThread(comm, param, resRequest, resCtxHost));
-    CHK_RET(HcclGetChannelForCcu(comm, param, resRequest));
-    CHK_RET(HcclGetCcuKernel(comm, resRequest, resCtxHost));
+    // 资源回退
+    // CHK_RET(HcclGetChannelForCcu(comm, param, resRequest));
+    auto ret = HcclGetChannelForCcu(comm, param, resRequest);
+    if (ret == HCCL_E_UNAVAIL) {
+        // 进行资源回退
+        return HCCL_E_UNAVAIL;
+    }
+
+    ret = HcclGetCcuKernel(comm, resRequest, resCtxHost);
+    if (ret == HCCL_E_UNAVAIL) {
+        // 进行资源回退
+        return HCCL_E_UNAVAIL;
+    }
     return HCCL_SUCCESS;
 }
 
@@ -1056,8 +1120,10 @@ HcclResult HcclGetChannelForCcu(HcclComm comm, const OpParam &param, AlgResource
         kernelChannels.resize(channelNum);
 
         if (channelNum > 0) {
-            CHK_RET(HcclChannelAcquire(comm, param.engine, kernelChannelRequest.data(),
-                channelNum, kernelChannels.data()));
+            // 需要资源回退。返回资源不够并且清理资源
+            auto ret = HcclChannelAcquire(comm, param.engine, kernelChannelRequest.data(),
+                channelNum, kernelChannels.data());
+            if (ret == HCCL_E_UNAVAIL) {return HCCL_E_UNAVAIL;}
         }
         kernelInfo.kernelArg->channels = kernelChannels;
         HCCL_INFO("[HcclGetChannelForCcu] Get [%lu] channels", channelNum);
@@ -1094,7 +1160,10 @@ HcclResult HcclGetCcuKernel(HcclComm comm, AlgResourceRequest &resRequest,
 
             HCCL_DEBUG("[AllocAlgResource] kernelArgPtr[%p], creator[%p]", kernelArgPtr, &(kernelInfo.creator));
             CcuKernelHandle handle;
-            CHK_RET(HcclCcuKernelRegister(comm, &handle, creatorPtr, kernelArgPtr));
+            
+            auto ret = HcclCcuKernelRegister(comm, &handle, creatorPtr, kernelArgPtr);
+            if (ret == HCCL_E_UNAVAIL) {return HCCL_E_UNAVAIL;}
+            
             resCtxHost->ccuKernels[i] = handle;
         }
         CHK_RET(HcclCcuKernelRegisterFinish(comm));
