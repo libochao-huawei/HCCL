@@ -15,7 +15,6 @@ set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_all_reduce_concurrent_executor.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_allreduce_sequence2die_executor.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_all_reduce_sequence_executor.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_all_reduce_omnipipe_executor.cc
 )
 
 target_sources(hccl PRIVATE
