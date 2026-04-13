@@ -21,7 +21,7 @@ public:
     {
     }
 
-    __aicore__ inline void Process(uint64_t len, uint32_t tag, ExtraArgs &extraArgs)
+    __aicore__ inline void Process(uint64_t len, uint32_t sliceId, ExtraArgs &extraArgs)
     {
         if (numBlocks_ != 1 || block_idx != 0 || extraArgs.omniInfoAddr == 0) {
             return;
@@ -30,12 +30,12 @@ public:
         __gm__ AivOmniSendRecvInfo *infos = reinterpret_cast<__gm__ AivOmniSendRecvInfo *>(extraArgs.omniInfoAddr +
             sizeof(AivOmniInfoHeader));
 
-        curTag_ = static_cast<int32_t>(tag);
-        if (IsFirstOP(tag)) {
+        curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
+        if (IsFirstOP(sliceId)) {
             BarrierForFirstOP();
         }
 
-        for (u64 infoIdx = 0; infoIdx < header->infoNum; infoIdx++) {
+        for (uint64_t infoIdx = 0; infoIdx < header->infoNum; infoIdx++) {
             const AivOmniSendRecvInfo &info = infos[infoIdx];
             curSliceCount_ = (info.sliceNum == 0) ? len : len / info.sliceNum;
             ExecuteInstruction(info);
@@ -44,7 +44,7 @@ public:
     }
 
 private:
-    __aicore__ inline bool IsReduceOp(u32 opType) const
+    __aicore__ inline bool IsReduceOp(uint32_t opType) const
     {
         return opType == AIV_OMNI_OP_LOCAL_REDUCE ||
             opType == AIV_OMNI_OP_SEND_RECV_WRITE_REDUCE ||
@@ -58,19 +58,19 @@ private:
 
     __aicore__ inline __gm__ T *ResolveSliceAddr(const AivOmniSliceInfo &slice, bool isSrc)
     {
-        u64 baseAddr = 0;
+        uint64_t baseAddr = 0;
         if (slice.sliceType == 0) {
-            baseAddr = (slice.remoteRank == rank_ || isSrc) ? input_ : reinterpret_cast<u64>(GM_IN[slice.remoteRank]);
+            baseAddr = (slice.remoteRank == rank_ || isSrc) ? input_ : reinterpret_cast<uint64_t>(GM_IN[slice.remoteRank]);
         } else if (slice.sliceType == 1) {
-            baseAddr = (slice.remoteRank == rank_ || !isSrc) ? output_ : reinterpret_cast<u64>(GM_IN[slice.remoteRank]);
+            baseAddr = (slice.remoteRank == rank_ || !isSrc) ? output_ : reinterpret_cast<uint64_t>(GM_IN[slice.remoteRank]);
         } else {
-            const u64 remoteRank = (slice.remoteRank < rankSize_) ? slice.remoteRank : rank_;
-            baseAddr = reinterpret_cast<u64>(GM_IN[remoteRank]);
+            const uint64_t remoteRank = (slice.remoteRank < rankSize_) ? slice.remoteRank : rank_;
+            baseAddr = reinterpret_cast<uint64_t>(GM_IN[remoteRank]);
         }
         return reinterpret_cast<__gm__ T *>(baseAddr + slice.sliceIdx * curSliceCount_ * sizeof(T));
     }
 
-    __aicore__ inline void CopySlice(const AivOmniSliceInfo &src, const AivOmniSliceInfo &dst, u32 reduceType, bool reduce)
+    __aicore__ inline void CopySlice(const AivOmniSliceInfo &src, const AivOmniSliceInfo &dst, uint32_t reduceType, bool reduce)
     {
         if (curSliceCount_ == 0) {
             return;
@@ -92,34 +92,34 @@ private:
             return;
         }
         if (info.opType == AIV_OMNI_OP_GROUP_BROAD_CAST) {
-            for (u32 dstIdx = 0; dstIdx < info.dstSliceNum; dstIdx++) {
+            for (uint32_t dstIdx = 0; dstIdx < info.dstSliceNum; dstIdx++) {
                 CopySlice(info.srcSliceInfo[0], info.dstSliceInfo[dstIdx], info.reduceType, false);
             }
             return;
         }
         if (info.opType == AIV_OMNI_OP_GROUP_REDUCE) {
             CopySlice(info.srcSliceInfo[0], info.dstSliceInfo[0], info.reduceType, false);
-            for (u32 srcIdx = 1; srcIdx < info.srcSliceNum; srcIdx++) {
+            for (uint32_t srcIdx = 1; srcIdx < info.srcSliceNum; srcIdx++) {
                 CopySlice(info.srcSliceInfo[srcIdx], info.dstSliceInfo[0], info.reduceType, true);
             }
             return;
         }
         if (info.srcSliceNum == 1 && info.dstSliceNum > 1) {
-            for (u32 dstIdx = 0; dstIdx < info.dstSliceNum; dstIdx++) {
+            for (uint32_t dstIdx = 0; dstIdx < info.dstSliceNum; dstIdx++) {
                 CopySlice(info.srcSliceInfo[0], info.dstSliceInfo[dstIdx], info.reduceType, reduce);
             }
             return;
         }
         if (info.dstSliceNum == 1 && info.srcSliceNum > 1) {
             CopySlice(info.srcSliceInfo[0], info.dstSliceInfo[0], info.reduceType, false);
-            for (u32 srcIdx = 1; srcIdx < info.srcSliceNum; srcIdx++) {
+            for (uint32_t srcIdx = 1; srcIdx < info.srcSliceNum; srcIdx++) {
                 CopySlice(info.srcSliceInfo[srcIdx], info.dstSliceInfo[0], info.reduceType, reduce);
             }
             return;
         }
 
-        const u32 pairCount = info.srcSliceNum < info.dstSliceNum ? info.srcSliceNum : info.dstSliceNum;
-        for (u32 pairIdx = 0; pairIdx < pairCount; pairIdx++) {
+        const uint32_t pairCount = info.srcSliceNum < info.dstSliceNum ? info.srcSliceNum : info.dstSliceNum;
+        for (uint32_t pairIdx = 0; pairIdx < pairCount; pairIdx++) {
             CopySlice(info.srcSliceInfo[pairIdx], info.dstSliceInfo[pairIdx], info.reduceType, reduce);
         }
     }
@@ -130,7 +130,7 @@ private:
     }
 
     int32_t curTag_ = 0;
-    u64 curSliceCount_ = 0;
+    uint64_t curSliceCount_ = 0;
 };
 
 template<typename T>
@@ -139,6 +139,6 @@ __aicore__ inline void AivOmniV2Entry(EXTERN_KERNEL_ARGS_DEF_V2)
     AivOmniV2<T> op;
     op.Init(KERNEL_CLASS_INIT, true);
     SyncAll<true>();
-    op.Process(len, tag, extraArgs);
+    op.Process(len, sliceId, extraArgs);
     op.BarrierAll();
 }

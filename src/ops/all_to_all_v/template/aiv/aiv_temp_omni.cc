@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "alg_data_trans_wrapper.h"
+#include "adapter_acl.h"
 #include "hccl_aiv_utils.h"
 #include "op_common.h"
 #include "channel.h"
