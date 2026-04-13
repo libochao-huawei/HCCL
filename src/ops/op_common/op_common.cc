@@ -300,21 +300,20 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
 HcclResult FallbackOp(HcclComm comm, OpParam &param,
                       std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo, std::string &algName, const ResPackGraphMode &resPack)
 {
-    ReSelector(comm, param, topoInfo, algName);
-    HcclExecOp(comm, param, topoInfo, algName, resPack);
+    CHK_RET(ReSelector(comm, param, topoInfo, algName));
+    CHK_RET(HcclExecOp(comm, param, topoInfo, algName, resPack));
+    return HCCL_SUCCESS;
 }
 
 HcclResult ReSelector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
     std::string &algName)
 {
     HCCL_INFO("Start to execute ReSelector.");
-    param.hcclComm = comm;
-    CHK_RET(HcclGetOpExpansionMode(comm, param));
-    // 获取基础拓扑
-    CHK_RET(HcclCalcTopoInfo(comm, param, topoInfo));
-
-    // 检查非对称拓扑支持情况，非对称场景仅 AllGather/AllReduce/ReduceScatter 可用
-    CHK_RET(CheckAsymmetricTopoSupport(param.opType, topoInfo.get()));
+    // 回退AICPU
+    param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
+    param.engine = CommEngine::COMM_ENGINE_AICPU_TS;
+    CHK_RET(LoadAICPUKernel());
+    // 拓扑已有，无需再计算
 
     // 算法选择，选择完后顺便param.algTag设置了，资源的保存是以算子+算法为单位
     std::shared_ptr<ExecuteSelector> collAlgSelector = std::make_shared<ExecuteSelector>(ExecuteSelector());
@@ -373,10 +372,12 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
         CHK_RET(HcclThreadExportToCommEngine(comm, 1, &cpuTsThread, COMM_ENGINE_AICPU_TS, &exportedAicpuTsThread));
     }
 
-    auto ret = HcclGetAlgRes(comm, param, executor, topoInfo.get(), resCtxHost, &resCtxSequence, isResourceReused);
-    if (ret == HCCL_E_UNAVAIL) {
-        FallbackOp();
+    auto resRet = HcclGetAlgRes(comm, param, executor, topoInfo.get(), resCtxHost, &resCtxSequence, isResourceReused);
+    if (resRet == HCCL_E_UNAVAIL) {
+        CHK_RET(FallbackOp(comm, param, topoInfo, algName, resPack));
         return HCCL_SUCCESS;
+    } else {
+        CHK_RET(resRet);
     }
 
     // Op注册
@@ -700,9 +701,11 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
         // 添加资源回退。SetCommEngine
         auto ret = GetAlgResCcu(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence, size);
         if (ret == HCCL_E_UNAVAIL) {
-            param.opExecuteConfig = opExecuteConfig::AICPU_TS;
+            param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
             param.engine = CommEngine::COMM_ENGINE_AICPU_TS;
             return HCCL_E_UNAVAIL;
+        } else {
+            CHK_RET(ret);
         }
     } else {
         HCCL_ERROR("fail to get engine.", HCCL_E_PARA);
@@ -1094,16 +1097,20 @@ HcclResult HcclAllocAlgResourceCcu(HcclComm comm, const OpParam& param, AlgResou
     resCtxHost->notifyNumPerThread = resRequest.notifyNumPerThread;
     CHK_RET(HcclGetThread(comm, param, resRequest, resCtxHost));
     // 资源回退
-    // CHK_RET(HcclGetChannelForCcu(comm, param, resRequest));
     auto ret = HcclGetChannelForCcu(comm, param, resRequest);
     if (ret == HCCL_E_UNAVAIL) {
         // 进行资源回退
+        HCCL_INFO("[HcclAllocAlgResourceCcu] channel unavailable");
         return HCCL_E_UNAVAIL;
+    } else {
+        CHK_RET(ret);
     }
 
     ret = HcclGetCcuKernel(comm, resRequest, resCtxHost);
+    return HCCL_E_UNAVAIL; // stub
     if (ret == HCCL_E_UNAVAIL) {
         // 进行资源回退
+        HCCL_INFO("[HcclAllocAlgResourceCcu] kernel unavailable");
         return HCCL_E_UNAVAIL;
     }
     return HCCL_SUCCESS;
@@ -1123,7 +1130,11 @@ HcclResult HcclGetChannelForCcu(HcclComm comm, const OpParam &param, AlgResource
             // 需要资源回退。返回资源不够并且清理资源
             auto ret = HcclChannelAcquire(comm, param.engine, kernelChannelRequest.data(),
                 channelNum, kernelChannels.data());
-            if (ret == HCCL_E_UNAVAIL) {return HCCL_E_UNAVAIL;}
+            if (ret == HCCL_E_UNAVAIL) {
+                return HCCL_E_UNAVAIL;
+            } else {
+                CHK_RET(ret);
+            }
         }
         kernelInfo.kernelArg->channels = kernelChannels;
         HCCL_INFO("[HcclGetChannelForCcu] Get [%lu] channels", channelNum);
@@ -1162,7 +1173,11 @@ HcclResult HcclGetCcuKernel(HcclComm comm, AlgResourceRequest &resRequest,
             CcuKernelHandle handle;
             
             auto ret = HcclCcuKernelRegister(comm, &handle, creatorPtr, kernelArgPtr);
-            if (ret == HCCL_E_UNAVAIL) {return HCCL_E_UNAVAIL;}
+            if (ret == HCCL_E_UNAVAIL) {
+                return HCCL_E_UNAVAIL;
+            } else {
+                CHK_RET(ret);
+            }
             
             resCtxHost->ccuKernels[i] = handle;
         }
