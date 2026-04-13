@@ -209,7 +209,7 @@ public:
         SyncAll<true>();
         tag_ = (tag_ == TAG_RESET_COUNT) ? TAG_INIT_VALUE : tag_ + 1;
         if (blockIdx == 0) {
-            locIn.SetValue(0, tag_);
+            localIn.SetValue(0, tag_);
             pipe_barrier(PIPE_ALL);
             DataCopyUB2GM(ipcBufferGlobal[AIV_FLAG_CLEAR_OFFSET / sizeof(uint32_t)], localIn, 1);
         }
