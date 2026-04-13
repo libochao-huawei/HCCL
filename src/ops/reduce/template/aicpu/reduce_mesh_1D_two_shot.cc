@@ -292,7 +292,7 @@ HcclResult ReduceMesh1DTwoShot::GatherRemoteData(const TemplateDataParams &tempA
 {
     // 图模式下 remoteInputBuff -> localOutputBuff, 否则为 remoteHcclBuff -> localOutputBuff
     u64 outBuffBaseOffset = tempAlgParam.buffInfo.outBuffBaseOff;
-    u64 remoteBaseOffset = (!enableRemoteMemAccess_) ? tempAlgParam.buffInfo.hcclBuffBaseOff : tempAlgParam.buffInfo.inBuffBaseOffset;
+    u64 remoteBaseOffset = (!enableRemoteMemAccess_) ? tempAlgParam.buffInfo.hcclBuffBaseOff : tempAlgParam.buffInfo.inBuffBaseOff;
     void* localOutBuffPtr = tempAlgParam.buffInfo.outputPtr;
 
     for (u32 remoteIdx = 0; remoteIdx < templateRankSize_; remoteIdx++) {
