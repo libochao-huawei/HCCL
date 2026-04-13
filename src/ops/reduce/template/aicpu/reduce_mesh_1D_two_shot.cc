@@ -197,8 +197,8 @@ HcclResult ReduceMesh1DTwoShot::DoLocalReduce(const TemplateDataParams &tempAlgP
     const std::vector<ThreadHandle> &threads)
 {
     // 图模式下在Input上进行reduce操作，否则在hcclBuff上进行reduce操作
-    void* localBuffPtr = (!enableRemoteMemAccess_) ? tempAlgParam.buffInfo.inputPtr : tempAlgParam.buffInfo.hcclBuff.addr;
-    u64 localBuffBaseOffset = (!enableRemoteMemAccess_) ? tempAlgParam.buffInfo.inBuffBaseOff : tempAlgParam.buffInfo.hcclBuffBaseOff;
+    void* localBuffPtr = (!enableRemoteMemAccess_) ? tempAlgParam.buffInfo.hcclBuff.addr : tempAlgParam.buffInfo.inputPtr;
+    u64 localBuffBaseOffset = (!enableRemoteMemAccess_) ? tempAlgParam.buffInfo.hcclBuffBaseOff : tempAlgParam.buffInfo.inBuffBaseOff;
 
     const u64 recvSliceSize = sliceInfoList_.at(myIdx_).size;
     const u64 recvSliceCount = sliceInfoList_.at(myIdx_).count;
