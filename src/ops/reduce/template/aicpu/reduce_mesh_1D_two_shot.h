@@ -72,8 +72,10 @@ private:
         u64 sliceSize;
         u64 sliceCount;
         u64 sliceOffset;
+        u64 inBuffBaseOffset;
         u64 outBuffBaseOffset;
         u64 hcclBuffBaseOffset;
+        void* localInBuffPtr;
         void* localOutBuffPtr;
         void* localHcclBuffPtr;
     };

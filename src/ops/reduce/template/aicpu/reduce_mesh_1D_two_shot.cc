@@ -46,7 +46,11 @@ u64 ReduceMesh1DTwoShot::CalcScratchMultiple(BufferType inBuffType, BufferType o
 {
     (void)inBuffType;
     (void)outBuffType;
-    return templateRankSize_;
+    u64 scratchMultiple = 0;
+    if (!enableRemoteMemAccess_){
+        scratchMultiple = templateRankSize_;
+    }
+    return scratchMultiple;
 }
 
 HcclResult ReduceMesh1DTwoShot::KernelRun(
@@ -60,7 +64,13 @@ HcclResult ReduceMesh1DTwoShot::KernelRun(
     CHK_PRT_RET(templateRankSize_ == 0, HCCL_ERROR("[ReduceMesh1DTwoShot] rankSize is 0"), HcclResult::HCCL_E_INTERNAL);
 
     CHK_PRT_RET(root_ == UINT32_MAX, HCCL_ERROR("[ReduceMesh1DTwoShot] root is invalid"), HcclResult::HCCL_E_INTERNAL);
-
+    
+    CHK_PRT_RET(templateResource.threads.empty(), 
+                HCCL_ERROR("[ReduceMesh1DTwoShot] threads is empty"), 
+                HCCL_E_INTERNAL);
+    CHK_PTR_NULL(tempAlgParams.buffInfo.hcclBuff.addr);
+    CHK_PTR_NULL(tempAlgParams.buffInfo.inputPtr);
+    CHK_PTR_NULL(tempAlgParams.buffInfo.outputPtr);
     const std::vector<ThreadHandle> &threads = templateResource.threads;
     threadNum_ = templateRankSize_;
     CHK_PRT_RET(threads.size() != threadNum_,
@@ -79,6 +89,7 @@ HcclResult ReduceMesh1DTwoShot::KernelRun(
     count_ = tempAlgParams.count;
     dataType_ = param.DataDes.dataType;
     threadNum_ = templateRankSize_ > 1 ? templateRankSize_ : 1;
+    enableRemoteMemAccess_ = tempAlgParams.enableRemoteMemAccess;
     GetNotifyIdxMainToSub(notifyIdxMainToSub_);
     GetNotifyIdxSubToMain(notifyIdxSubToMain_);
 
@@ -140,6 +151,9 @@ HcclResult ReduceMesh1DTwoShot::SendRecvDataToPeers(const TemplateDataParams &te
         }
 
         if (remoteIdx == myIdx_) {
+            if (enableRemoteMemAccess_) {
+                continue; // 图模式跳过本地拷贝到CCL Buffer
+            }
             DataSlice copySrcSlice(localInBuffPtr, inBuffBaseOffset + sendSliceOffset, sendSliceSize, sendSliceCount);
             DataSlice copyDstSlice(localHcclBuffPtr, hcclBuffBaseOffset + sendSliceOffset, sendSliceSize, sendSliceCount);
             CHK_PRT_RET(LocalCopy(threads.at(remoteIdx), copySrcSlice, copyDstSlice),
@@ -148,16 +162,22 @@ HcclResult ReduceMesh1DTwoShot::SendRecvDataToPeers(const TemplateDataParams &te
         } else {
             u32 remoteRank = rankList_.at(remoteIdx);
             const ChannelInfo &sendRecvChannel = channels.at(remoteRank).at(0);
-            void* remoteInBuffPtr = sendRecvChannel.remoteCclMem.addr;
-            void* remoteHcclBuffPtr = sendRecvChannel.remoteCclMem.addr;
+            
+            //图模式下 inputBuffer -> inputBuffer, 否则为 inputBuffer -> hcclBuff
+            void* remoteInBuffPtr = (!enableRemoteMemAccess_) ? sendRecvChannel.remoteCclMem.addr : sendRecvChannel.remoteInputGraphMode.addr;
+            void* remoteDstBuffPtr = (!enableRemoteMemAccess_) ? sendRecvChannel.remoteCclMem.addr : sendRecvChannel.remoteInputGraphMode.addr;
+            void* localDstBuffPtr = (!enableRemoteMemAccess_) ? localHcclBuffPtr : localInBuffPtr;
+
+            u64 sendDstOffset = (!enableRemoteMemAccess_) ?   recvSliceOffset + hcclBuffBaseOffset : recvSliceOffset + inBuffBaseOffset;
+            u64 recvDstOffset = (!enableRemoteMemAccess_) ?  sendSliceOffset + hcclBuffBaseOffset : sendSliceOffset + inBuffBaseOffset;
 
             DataSlice sendSrcSlice(localInBuffPtr, inBuffBaseOffset + sendSliceOffset, sendSliceSize, sendSliceCount);
-            DataSlice sendDstSlice(remoteHcclBuffPtr, hcclBuffBaseOffset + recvSliceOffset, sendSliceSize, sendSliceCount);
+            DataSlice sendDstSlice(remoteDstBuffPtr, sendDstOffset, sendSliceSize, sendSliceCount);
             std::vector<DataSlice> sendSrcSlicesList{sendSrcSlice};
             std::vector<DataSlice> sendDstSlicesList{sendDstSlice};
 
             DataSlice recvSrcSlice(remoteInBuffPtr, inBuffBaseOffset + recvSliceOffset, recvSliceSize, recvSliceCount);
-            DataSlice recvDstSlice(localHcclBuffPtr, hcclBuffBaseOffset + sendSliceOffset, recvSliceSize, recvSliceCount);
+            DataSlice recvDstSlice(localDstBuffPtr, recvDstOffset, recvSliceSize, recvSliceCount);
             std::vector<DataSlice> recvSrcSlicesList{recvSrcSlice};
             std::vector<DataSlice> recvDstSlicesList{recvDstSlice};
 
@@ -176,8 +196,9 @@ HcclResult ReduceMesh1DTwoShot::SendRecvDataToPeers(const TemplateDataParams &te
 HcclResult ReduceMesh1DTwoShot::DoLocalReduce(const TemplateDataParams &tempAlgParam, const OpParam &param,
     const std::vector<ThreadHandle> &threads)
 {
-    void* localHcclBuffPtr = tempAlgParam.buffInfo.hcclBuff.addr;
-    u64 hcclBuffBaseOffset = tempAlgParam.buffInfo.hcclBuffBaseOff;
+    // 图模式下在Input上进行reduce操作，否则在hcclBuff上进行reduce操作
+    void* localBuffPtr = (!enableRemoteMemAccess_) ? tempAlgParam.buffInfo.inputPtr : tempAlgParam.buffInfo.hcclBuff.addr;
+    u64 localBuffBaseOffset = (!enableRemoteMemAccess_) ? tempAlgParam.buffInfo.inBuffBaseOff : tempAlgParam.buffInfo.hcclBuffBaseOff;
 
     const u64 recvSliceSize = sliceInfoList_.at(myIdx_).size;
     const u64 recvSliceCount = sliceInfoList_.at(myIdx_).count;
@@ -187,8 +208,8 @@ HcclResult ReduceMesh1DTwoShot::DoLocalReduce(const TemplateDataParams &tempAlgP
         return HCCL_SUCCESS;
     }
 
-    u64 destOffset = recvSliceOffset + hcclBuffBaseOffset;
-    DataSlice finalDstSlice(localHcclBuffPtr, destOffset, recvSliceSize, recvSliceCount);
+    u64 destOffset = recvSliceOffset + localBuffBaseOffset;
+    DataSlice finalDstSlice(localBuffPtr, destOffset, recvSliceSize, recvSliceCount);
 
     if (dataType_ == HcclDataType::HCCL_DATA_TYPE_INT64 || dataType_ == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
         dataType_ == HcclDataType::HCCL_DATA_TYPE_FP64 || param.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
@@ -203,7 +224,7 @@ HcclResult ReduceMesh1DTwoShot::DoLocalReduce(const TemplateDataParams &tempAlgP
         if (remoteIdx == myIdx_) {
             continue;
         }
-        DataSlice curSrcSlice(localHcclBuffPtr, sliceInfoList_.at(remoteIdx).offset + hcclBuffBaseOffset, recvSliceSize, recvSliceCount);
+        DataSlice curSrcSlice(localBuffPtr, sliceInfoList_.at(remoteIdx).offset + localBuffBaseOffset, recvSliceSize, recvSliceCount);
         CHK_PRT_RET(LocalReduce(threads.at(0), curSrcSlice, finalDstSlice, dataType_, reduceOp_),
             HCCL_ERROR("[InsTempReduceMesh1DTwoShot][DoLocalReduce] LocalReduce failed."),
             HcclResult::HCCL_E_INTERNAL);
@@ -239,8 +260,10 @@ ReduceMesh1DTwoShot::LocalSliceInfo ReduceMesh1DTwoShot::GetLocalSliceInfo(const
     info.sliceSize = sliceInfoList_.at(myIdx_).size;
     info.sliceCount = sliceInfoList_.at(myIdx_).count;
     info.sliceOffset = sliceInfoList_.at(myIdx_).offset;
+    info.inBuffBaseOffset = tempAlgParam.buffInfo.inBuffBaseOff;
     info.outBuffBaseOffset = tempAlgParam.buffInfo.outBuffBaseOff;
     info.hcclBuffBaseOffset = tempAlgParam.buffInfo.hcclBuffBaseOff;
+    info.localInBuffPtr = tempAlgParam.buffInfo.inputPtr;
     info.localOutBuffPtr = tempAlgParam.buffInfo.outputPtr;
     info.localHcclBuffPtr = tempAlgParam.buffInfo.hcclBuff.addr;
     return info;
@@ -250,11 +273,13 @@ HcclResult ReduceMesh1DTwoShot::GatherLocalData(const TemplateDataParams &tempAl
     const std::vector<ThreadHandle> &threads)
 {
     LocalSliceInfo info = GetLocalSliceInfo(tempAlgParam);
+    void* localBuffPtr = (!enableRemoteMemAccess_) ? info.localHcclBuffPtr : info.localInBuffPtr;
+    u64 localBuffBaseOffset = (!enableRemoteMemAccess_) ? info.hcclBuffBaseOffset : info.inBuffBaseOffset;
 
     if (info.sliceSize == 0) {
         return HCCL_SUCCESS;
     }
-    DataSlice copySrcSlice(info.localHcclBuffPtr, info.hcclBuffBaseOffset + info.sliceOffset, info.sliceSize, info.sliceCount);
+    DataSlice copySrcSlice(localBuffPtr, localBuffBaseOffset + info.sliceOffset, info.sliceSize, info.sliceCount);
     DataSlice copyDstSlice(info.localOutBuffPtr, info.outBuffBaseOffset + info.sliceOffset, info.sliceSize, info.sliceCount);
     CHK_PRT_RET(LocalCopy(threads.at(myIdx_), copySrcSlice, copyDstSlice),
         HCCL_ERROR("[InsTempReduceMesh1DTwoShot][GatherLocalData] LocalCopy failed."),
@@ -265,8 +290,9 @@ HcclResult ReduceMesh1DTwoShot::GatherLocalData(const TemplateDataParams &tempAl
 HcclResult ReduceMesh1DTwoShot::GatherRemoteData(const TemplateDataParams &tempAlgParam,
     const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads)
 {
+    // 图模式下 remoteInputBuff -> localOutputBuff, 否则为 remoteHcclBuff -> localOutputBuff
     u64 outBuffBaseOffset = tempAlgParam.buffInfo.outBuffBaseOff;
-    u64 hcclBuffBaseOffset = tempAlgParam.buffInfo.hcclBuffBaseOff;
+    u64 remoteBaseOffset = (!enableRemoteMemAccess_) ? tempAlgParam.buffInfo.hcclBuffBaseOff : tempAlgParam.buffInfo.inBuffBaseOffset;
     void* localOutBuffPtr = tempAlgParam.buffInfo.outputPtr;
 
     for (u32 remoteIdx = 0; remoteIdx < templateRankSize_; remoteIdx++) {
@@ -280,9 +306,9 @@ HcclResult ReduceMesh1DTwoShot::GatherRemoteData(const TemplateDataParams &tempA
         }
         u64 remoteSrcOffset = sliceInfoList_.at(remoteIdx).offset;
         const ChannelInfo &channel = channels.at(subCommRanks_.at(0).at(remoteIdx)).at(0);
-        void* remoteHcclBuffPtr = channel.remoteCclMem.addr;
+        void* remoteBuffPtr = (!enableRemoteMemAccess_) ? channel.remoteCclMem.addr : channel.remoteInputGraphMode.addr;
 
-        DataSlice recvSrcSlice(remoteHcclBuffPtr, hcclBuffBaseOffset + remoteSrcOffset, curSize, curCount);
+        DataSlice recvSrcSlice(remoteBuffPtr, remoteBaseOffset + remoteSrcOffset, curSize, curCount);
         DataSlice recvDstSlice(localOutBuffPtr, outBuffBaseOffset + remoteSrcOffset, curSize, curCount);
         const SlicesList recvSlicesList({recvSrcSlice}, {recvDstSlice});
         const DataInfo recvInfo(channel, recvSlicesList);
@@ -301,8 +327,11 @@ HcclResult ReduceMesh1DTwoShot::SendToRoot(const TemplateDataParams &tempAlgPara
     if (info.sliceSize == 0) {
         return HCCL_SUCCESS;
     }
-    DataSlice sendSrcSlice(info.localHcclBuffPtr, info.hcclBuffBaseOffset + info.sliceOffset, info.sliceSize, info.sliceCount);
-    DataSlice sendDstSlice(info.localOutBuffPtr, info.outBuffBaseOffset + info.sliceOffset, info.sliceSize, info.sliceCount);
+    void* localBufferPtr = (!enableRemoteMemAccess_) ? info.localHcclBuffPtr : info.localInBuffPtr;
+    u64 localBuffBaseOffset = (!enableRemoteMemAccess_) ? info.hcclBuffBaseOffset : info.inBuffBaseOffset;
+
+    DataSlice sendSrcSlice(localBufferPtr, localBuffBaseOffset + info.sliceOffset, info.sliceSize, info.sliceCount);
+    DataSlice sendDstSlice(info.localOutBuffPtr, info.outBuffBaseOffset + info.sliceOffset, info.sliceSize, info.sliceCount); // SendRead tx 信息不使用
     const SlicesList sendSlicesList({sendSrcSlice}, {sendDstSlice});
     const ChannelInfo &channel = channels.at(subCommRanks_.at(0).at(root_)).at(0);
     const DataInfo sendInfo(channel, sendSlicesList);
