@@ -183,6 +183,9 @@ HcclResult InsV2AllGatherVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrat
         CHK_RET(algTemplate->KernelRun(param, tempAlgParams, templateAlgRes));
         for (u64 i = 0; i < rankSize_; i++) {
             allRankProcessedDataCount[i] += tempAlgParams.allRankSliceSize[i] / dataTypeSize_;
+            HCCL_INFO("[InsV2AllGatherVSoleExecutor] loop [%u] allRankProcessedDataCount[i] [%u],"
+                  "tempAlgParams.allRankSliceSize[i]  [%u]",
+            loop, allRankProcessedDataCount[i], tempAlgParams.allRankSliceSize[i]);
         }
     }
     HCCL_INFO("[InsV2AllGatherVSoleExecutor][OrchestrateLoop] End.");
