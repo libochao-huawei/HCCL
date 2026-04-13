@@ -83,8 +83,8 @@ HcclResult CcuTempAllGatherVMesh1DMem2Mem::KernelRun(const OpParam& param,
 {
     buffInfo_ = templateDataParams.buffInfo;
 
-    uint64_t inputAddr          = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
-    uint64_t outputAddr         = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
+    uint64_t inputAddr          = PointerToAddr(buffInfo_.inputPtr) + templateResource.outputSliceStride;
+    uint64_t outputAddr         = PointerToAddr(buffInfo_.outputPtr) + templateResource.outputSliceStride;
     uint64_t token;
     CHK_RET(GetToken(buffInfo_, token));
 
