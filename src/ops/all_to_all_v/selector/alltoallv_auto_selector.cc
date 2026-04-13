@@ -138,8 +138,12 @@ SelectorStatus AlltoAllVAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDe
                                                    std::string &selectAlgName) const
 {
     HCCL_DEBUG("[AlltoAllVAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
-    (void)opParam;
-    (void)configAlgMap;
+    std::vector<HcclAlgoType> algos =
+        std::vector<HcclAlgoType>(HCCL_ALGO_LEVEL_NUM, HcclAlgoType::HCCL_ALGO_TYPE_DEFAULT);
+    auto it = configAlgMap.find(opParam.opType);
+    if ((it != configAlgMap.end()) && (it->second.size() > 1)) {
+        algos = it->second;
+    }
 
     if (algos.size() > HCCL_ALGO_LEVEL && algos.at(HCCL_ALGO_LEVEL) == HcclAlgoType::HCCL_ALGO_TYPE_OMNI) {
         selectAlgName = "AivHcclOmni";

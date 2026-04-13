@@ -90,8 +90,8 @@ HcclResult AivTempOmni::CalcChannelRequestOmni(HcclComm comm, const OpParam& par
 
 HcclResult AivTempOmni::BuildInstructionBuffer(HcclComm comm, const OpParam& param, const XmlInfo& xmlInfo)
 {
-    const u64 infoNum = xmlInfo.vecSendRecvInfo.size();
-    const u64 ctxSize = sizeof(AivOmniInfoHeader) + infoNum * sizeof(AivOmniSendRecvInfo);
+    const uint64_t infoNum = xmlInfo.vecSendRecvInfo.size();
+    const uint64_t ctxSize = sizeof(AivOmniInfoHeader) + infoNum * sizeof(AivOmniSendRecvInfo);
     std::vector<u8> hostBuffer(ctxSize, 0);
     auto *header = reinterpret_cast<AivOmniInfoHeader *>(hostBuffer.data());
     auto *infos = reinterpret_cast<AivOmniSendRecvInfo *>(hostBuffer.data() + sizeof(AivOmniInfoHeader));
@@ -110,22 +110,24 @@ HcclResult AivTempOmni::BuildInstructionBuffer(HcclComm comm, const OpParam& par
         infos[idx].srcSliceNum = srcInfo.srcSliceInfo.size();
         infos[idx].dstSliceNum = srcInfo.dstSliceInfo.size();
         infos[idx].sliceNum = srcInfo.sliceNum;
-        infos[idx].linkType = srcInfo.linkType;
+        infos[idx].linkType = srcInfo.netlayerId;
         infos[idx].threadIdx = srcInfo.threadIdx;
         for (u32 sliceIdx = 0; sliceIdx < infos[idx].srcSliceNum; sliceIdx++) {
-            infos[idx].srcSliceInfo[sliceIdx].sliceType = srcInfo.srcSliceInfo[sliceIdx].sliceType;
+            infos[idx].srcSliceInfo[sliceIdx].sliceType =
+                static_cast<uint64_t>(srcInfo.srcSliceInfo[sliceIdx].sliceType);
             infos[idx].srcSliceInfo[sliceIdx].sliceIdx = srcInfo.srcSliceInfo[sliceIdx].sliceIdx;
             infos[idx].srcSliceInfo[sliceIdx].remoteRank = srcInfo.srcSliceInfo[sliceIdx].remoteRank;
         }
         for (u32 sliceIdx = 0; sliceIdx < infos[idx].dstSliceNum; sliceIdx++) {
-            infos[idx].dstSliceInfo[sliceIdx].sliceType = srcInfo.dstSliceInfo[sliceIdx].sliceType;
+            infos[idx].dstSliceInfo[sliceIdx].sliceType =
+                static_cast<uint64_t>(srcInfo.dstSliceInfo[sliceIdx].sliceType);
             infos[idx].dstSliceInfo[sliceIdx].sliceIdx = srcInfo.dstSliceInfo[sliceIdx].sliceIdx;
             infos[idx].dstSliceInfo[sliceIdx].remoteRank = srcInfo.dstSliceInfo[sliceIdx].remoteRank;
         }
     }
 
     void *ctx = nullptr;
-    u64 currentSize = 0;
+    uint64_t currentSize = 0;
     if (HcclEngineCtxGet(comm, param.algTag, param.engine, &ctx, &currentSize) != HCCL_SUCCESS) {
         CHK_RET(HcclEngineCtxCreate(comm, param.algTag, param.engine, ctxSize, &ctx));
         currentSize = ctxSize;
@@ -133,7 +135,7 @@ HcclResult AivTempOmni::BuildInstructionBuffer(HcclComm comm, const OpParam& par
     CHK_PRT_RET(currentSize < ctxSize,
         HCCL_ERROR("[AivTempOmni][BuildInstructionBuffer] device ctx size[%llu] is smaller than required[%llu].",
             currentSize, ctxSize), HCCL_E_INTERNAL);
-    ACLCHECK(aclrtMemcpy(ctx, ctxSize, hostBuffer.data(), ctxSize, ACL_MEMCPY_HOST_TO_DEVICE));
+    CHK_RET(haclrtMemcpy(ctx, ctxSize, hostBuffer.data(), ctxSize, ACL_MEMCPY_HOST_TO_DEVICE));
     return HCCL_SUCCESS;
 }
 
@@ -173,7 +175,7 @@ HcclResult AivTempOmni::KernelRun(const OpParam& param, const TemplateDataParams
     dataType_ = (param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV) ? param.all2AllVDataDes.sendType : param.DataDes.dataType;
 
     void *ctx = nullptr;
-    u64 ctxSize = 0;
+    uint64_t ctxSize = 0;
     CHK_RET(HcclEngineCtxGet(param.hcclComm, param.algTag, param.engine, &ctx, &ctxSize));
 
     AivOpArgs omniArgs;

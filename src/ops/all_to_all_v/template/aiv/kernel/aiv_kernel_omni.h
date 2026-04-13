@@ -11,10 +11,12 @@
 #ifndef HCCL_AIV_KERNEL_OMNI_H_
 #define HCCL_AIV_KERNEL_OMNI_H_
 
-namespace ops_hccl {
-constexpr u32 AIV_OMNI_MAX_SLICE_CNT = 16;
+#include <cstdint>
 
-enum AivOmniOpType : u32 {
+namespace ops_hccl {
+constexpr uint32_t AIV_OMNI_MAX_SLICE_CNT = 16;
+
+enum AivOmniOpType : uint32_t {
     AIV_OMNI_OP_LOCAL_COPY = 0,
     AIV_OMNI_OP_LOCAL_REDUCE = 1,
     AIV_OMNI_OP_SEND_RECV_WRITE = 2,
@@ -34,27 +36,27 @@ enum AivOmniOpType : u32 {
 };
 
 struct AivOmniSliceInfo {
-    u64 sliceType = 0;
-    u64 sliceIdx = 0;
-    u64 remoteRank = 0;
+    uint64_t sliceType = 0;
+    uint64_t sliceIdx = 0;
+    uint64_t remoteRank = 0;
 };
 
 struct AivOmniSendRecvInfo {
-    u32 opType = 0;
-    u32 inputDataType = 0;
-    u32 outputDataType = 0;
-    u32 reduceType = 0;
-    u32 srcSliceNum = 0;
-    u32 dstSliceNum = 0;
-    u64 sliceNum = 0;
-    u64 linkType = 0;
-    u64 threadIdx = 0;
+    uint32_t opType = 0;
+    uint32_t inputDataType = 0;
+    uint32_t outputDataType = 0;
+    uint32_t reduceType = 0;
+    uint32_t srcSliceNum = 0;
+    uint32_t dstSliceNum = 0;
+    uint64_t sliceNum = 0;
+    uint64_t linkType = 0;
+    uint64_t threadIdx = 0;
     AivOmniSliceInfo srcSliceInfo[AIV_OMNI_MAX_SLICE_CNT] = {};
     AivOmniSliceInfo dstSliceInfo[AIV_OMNI_MAX_SLICE_CNT] = {};
 };
 
 struct AivOmniInfoHeader {
-    u64 infoNum = 0;
+    uint64_t infoNum = 0;
 };
 } // namespace ops_hccl
 

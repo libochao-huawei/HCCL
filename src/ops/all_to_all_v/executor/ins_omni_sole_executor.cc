@@ -61,7 +61,9 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::InitCommInfo(const
     return HCCL_SUCCESS;
 }
 
-uint32_t InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ReadBits(std::ifstream& file, uint64_t offset, size_t numBits) {
+template <typename AlgTopoMatch, typename InsAlgTemplate>
+uint32_t InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ReadBits(std::ifstream& file, uint64_t offset, size_t numBits)
+{
     uint32_t result = 0;
     size_t bitsRead = 0;
     const uint64_t byteOffset = offset / 8;
@@ -150,7 +152,7 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ParseXmlInfo(const
             continue;
         }
 
-        omniChannelInfo.channelId = channelId;
+        (void)channelId;
         omniChannelInfo.remoteRank = remoteRank;
         omniChannelInfo.channelProtocol = static_cast<CommProtocol>(linkProto);
         mapChannelInfo[remoteRank] = omniChannelInfo;
@@ -213,7 +215,7 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ParseXmlInfo(const
         omniSendRecvInfo.outputDataType = static_cast<HcclDataType>(outputDataType);
         omniSendRecvInfo.reduceType = static_cast<HcclReduceOp>(reduceType);
         omniSendRecvInfo.sliceNum = sliceNum;
-        omniSendRecvInfo.linkType = linkType;
+        omniSendRecvInfo.netlayerId = linkType;
         omniSendRecvInfo.threadIdx = threadIdx;
 
         for (uint16_t i = 0; i < srcSliceCnt; i++) {
@@ -224,7 +226,7 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ParseXmlInfo(const
             offset += 10;
             uint16_t remoteRank = ReadBits(file, offset, 10);
             offset += 10;
-            omniSliceInfo.sliceType = srcBufferType;
+            omniSliceInfo.sliceType = static_cast<BufferTypeTmp>(srcBufferType);
             omniSliceInfo.sliceIdx = srcSliceIdx;
             omniSliceInfo.remoteRank = remoteRank;
             omniSendRecvInfo.srcSliceInfo.push_back(omniSliceInfo);
@@ -239,7 +241,7 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ParseXmlInfo(const
             uint16_t remoteRank = ReadBits(file, offset, 10);
             offset += 10;
 
-            omniSliceInfo.sliceType = dstBufferType;
+            omniSliceInfo.sliceType = static_cast<BufferTypeTmp>(dstBufferType);
             omniSliceInfo.sliceIdx = dstSliceIdx;
             omniSliceInfo.remoteRank = remoteRank;
             omniSendRecvInfo.dstSliceInfo.push_back(omniSliceInfo);
