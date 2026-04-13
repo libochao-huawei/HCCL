@@ -377,7 +377,7 @@ HcclResult PrepareParamForAlltoAll(HcclComm comm, const std::string &tag, const 
     HCCL_INFO("varMemSize %lu", param.varMemSize);
     HCCL_INFO("opType %u", static_cast<uint32_t>(param.opType));
     HCCL_INFO("all2AllVDataDes.sendType %u", static_cast<uint32_t>(param.all2AllVDataDes.sendType));
-    HCCL_INFO("all2AllVDataDes.recvType %u", static_cast<uint32_t>(all2AllVDataDes.recvType));
+    HCCL_INFO("all2AllVDataDes.recvType %u", static_cast<uint32_t>(param.all2AllVDataDes.recvType));
     HCCL_INFO("Execute PrepareParamForAlltoAll success.");
     return HCCL_SUCCESS;
 }
@@ -408,7 +408,7 @@ HcclResult PrepareParamForAlltoAllV(HcclComm comm, const std::string &tag, const
     HCCL_INFO("varMemSize %lu", param.varMemSize);
     HCCL_INFO("opType %u", static_cast<uint32_t>(param.opType));
     HCCL_INFO("all2AllVDataDes.sendType %u", static_cast<uint32_t>(param.all2AllVDataDes.sendType));
-    HCCL_INFO("all2AllVDataDes.recvType %u", static_cast<uint32_t>(all2AllVDataDes.recvType));
+    HCCL_INFO("all2AllVDataDes.recvType %u", static_cast<uint32_t>(param.all2AllVDataDes.recvType));
     return HCCL_SUCCESS;
 }
 
