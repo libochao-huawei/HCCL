@@ -1,4 +1,4 @@
-﻿#include "common.h"
+#include "common.h"
 #include "exec_op.h"
 
 namespace {
@@ -84,6 +84,9 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
         return 1;
     }
 
+        HCCL_INFO("kernel done notify begin: rank=%u, tag=%s",
+        param->topoInfo.rank,
+        param->tag);
     if (HcommAclrtNotifyRecordOnThread(
             thread,
             param->controlNotifyIds[kAllGatherBatchControlNotifyDone]) != HCCL_SUCCESS) {
@@ -93,6 +96,9 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
         return 1;
     }
 
+        HCCL_INFO("kernel done notify end: rank=%u, tag=%s",
+        param->topoInfo.rank,
+        param->tag);
     if (HcommBatchModeEnd(param->tag) != HCCL_SUCCESS) {
         HCCL_ERROR("HcommBatchModeEnd failed, tag=%s", param->tag);
         (void)HcommReleaseComm(param->commName);

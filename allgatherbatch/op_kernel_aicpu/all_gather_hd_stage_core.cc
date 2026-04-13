@@ -127,8 +127,6 @@ HcclResult AllGatherHDStageCore::BuildStagePlan(HDStagePlan &plan) const
         return HCCL_E_PARA;
     }
 
-    // ??? custom-op ???????????????? localBuffer?????? executor::Unpack() §Õ???????????
-    // ?????????? hcomm ??? outputMem_ != opInfo_->outputAddr ??¡¤????
     const bool needFinalCopy = true;
     plan.powerFactor = rankSize & (~rankSize + 1U);
     plan.powerSteps = CalcPowerSteps(plan.powerFactor);
@@ -455,6 +453,16 @@ HcclResult AllGatherHDStageCore::RunPowerBit(const PowerStepTask &stepTask, cons
         HCCL_ERROR("HDStage %s channel to remoteRank=%u is missing", stageTag, stepTask.remoteRank);
         return HCCL_E_NOT_FOUND;
     }
+    HCCL_RUN_INFO("HDStage %s power runinfo: rank=%u, bit=%u, remoteRank=%u, phase=notify-record-begin, localNotify=%u, remoteNotify=%u, localOffset=%llu, remoteOffset=%llu, size=%llu",
+        stageTag,
+        param_.topoInfo.rank,
+        stepTask.bit,
+        stepTask.remoteRank,
+        channel->localNotifyIdx,
+        channel->remoteNotifyIdx,
+        static_cast<unsigned long long>(stepTask.localOffset),
+        static_cast<unsigned long long>(stepTask.remoteOffset),
+        static_cast<unsigned long long>(stepTask.size));
     int32_t ret = HcommChannelNotifyRecordOnThread(
         resCtx_.mainThreadHandle,
         channel->handle,
@@ -463,6 +471,13 @@ HcclResult AllGatherHDStageCore::RunPowerBit(const PowerStepTask &stepTask, cons
         HCCL_ERROR("HDStage %s notify record failed, remoteRank=%u, ret=%d", stageTag, stepTask.remoteRank, ret);
         return static_cast<HcclResult>(ret);
     }
+    HCCL_RUN_INFO("HDStage %s power runinfo: rank=%u, bit=%u, remoteRank=%u, phase=notify-wait-begin, localNotify=%u, remoteNotify=%u",
+        stageTag,
+        param_.topoInfo.rank,
+        stepTask.bit,
+        stepTask.remoteRank,
+        channel->localNotifyIdx,
+        channel->remoteNotifyIdx);
     ret = HcommChannelNotifyWaitOnThread(
         resCtx_.mainThreadHandle,
         channel->handle,
@@ -472,6 +487,11 @@ HcclResult AllGatherHDStageCore::RunPowerBit(const PowerStepTask &stepTask, cons
         HCCL_ERROR("HDStage %s notify wait failed, remoteRank=%u, ret=%d", stageTag, stepTask.remoteRank, ret);
         return static_cast<HcclResult>(ret);
     }
+    HCCL_RUN_INFO("HDStage %s power runinfo: rank=%u, bit=%u, remoteRank=%u, phase=notify-wait-end",
+        stageTag,
+        param_.topoInfo.rank,
+        stepTask.bit,
+        stepTask.remoteRank);
     if ((stepTask.localOffset + stepTask.size) > resCtx_.localBuffer.size ||
         (stepTask.remoteOffset + stepTask.size) > channel->remoteBuffer.size) {
         HCCL_ERROR("HDStage %s slice is out of buffer range, remoteRank=%u, localOffset=%llu, remoteOffset=%llu, size=%llu, localBuffer=%llu, remoteBuffer=%llu",
@@ -486,6 +506,14 @@ HcclResult AllGatherHDStageCore::RunPowerBit(const PowerStepTask &stepTask, cons
     }
     void *dst = static_cast<uint8_t *>(resCtx_.localBuffer.addr) + stepTask.localOffset;
     const void *src = static_cast<const uint8_t *>(channel->remoteBuffer.addr) + stepTask.remoteOffset;
+    HCCL_RUN_INFO("HDStage %s power runinfo: rank=%u, bit=%u, remoteRank=%u, phase=read-begin, localOffset=%llu, remoteOffset=%llu, size=%llu",
+        stageTag,
+        param_.topoInfo.rank,
+        stepTask.bit,
+        stepTask.remoteRank,
+        static_cast<unsigned long long>(stepTask.localOffset),
+        static_cast<unsigned long long>(stepTask.remoteOffset),
+        static_cast<unsigned long long>(stepTask.size));
     ret = HcommReadOnThread(resCtx_.mainThreadHandle, channel->handle, dst, src, stepTask.size);
     if (ret != HCCL_SUCCESS) {
         HCCL_ERROR("HDStage %s slice read failed, remoteRank=%u, localOffset=%llu, remoteOffset=%llu, size=%llu, ret=%d",
@@ -497,6 +525,11 @@ HcclResult AllGatherHDStageCore::RunPowerBit(const PowerStepTask &stepTask, cons
             ret);
         return static_cast<HcclResult>(ret);
     }
+    HCCL_RUN_INFO("HDStage %s power runinfo: rank=%u, bit=%u, remoteRank=%u, phase=read-end",
+        stageTag,
+        param_.topoInfo.rank,
+        stepTask.bit,
+        stepTask.remoteRank);
     return HCCL_SUCCESS;
 }
 
@@ -564,8 +597,6 @@ HcclResult AllGatherHDStageCore::RunAllGatherLast(const HDStagePlan &plan) const
         return HCCL_E_INTERNAL;
     }
 
-    // hcomm ???? last ?????????? outputMem ??????????????????????¦Á?????¦Â??????
-    // ??? custom-op ??????§Õ???? executor::Unpack() ????????? last ??¦Â??????????????µµ
     return HCCL_SUCCESS;
 }
 
@@ -823,17 +854,35 @@ HcclResult AllGatherHDStageCore::RunRemoteTaskOnMainThread(const LastTwoCopyTask
         return HCCL_E_NOT_FOUND;
     }
 
+    HCCL_RUN_INFO("HDStage %s runinfo: rank=%u, peerRank=%u, phase=notify-record-begin, localNotify=%u, remoteNotify=%u, sliceCount=%u",
+        stageTag,
+        param_.topoInfo.rank,
+        task.peerRank,
+        channel->localNotifyIdx,
+        channel->remoteNotifyIdx,
+        static_cast<uint32_t>(task.slices.size()));
     int32_t ret = HcommChannelNotifyRecordOnThread(resCtx_.mainThreadHandle, channel->handle, channel->remoteNotifyIdx);
     if (ret != HCCL_SUCCESS) {
         HCCL_ERROR("HDStage %s notify record failed, peerRank=%u, ret=%d", stageTag, task.peerRank, ret);
         return static_cast<HcclResult>(ret);
     }
+    HCCL_RUN_INFO("HDStage %s runinfo: rank=%u, peerRank=%u, phase=notify-wait-begin, localNotify=%u, remoteNotify=%u",
+        stageTag,
+        param_.topoInfo.rank,
+        task.peerRank,
+        channel->localNotifyIdx,
+        channel->remoteNotifyIdx);
     ret = HcommChannelNotifyWaitOnThread(resCtx_.mainThreadHandle, channel->handle, channel->localNotifyIdx, kAllGatherBatchCustomTimeoutMs);
     if (ret != HCCL_SUCCESS) {
         HCCL_ERROR("HDStage %s notify wait failed, peerRank=%u, ret=%d", stageTag, task.peerRank, ret);
         return static_cast<HcclResult>(ret);
     }
+    HCCL_RUN_INFO("HDStage %s runinfo: rank=%u, peerRank=%u, phase=notify-wait-end",
+        stageTag,
+        param_.topoInfo.rank,
+        task.peerRank);
 
+    uint32_t sliceIdx = 0;
     for (const StageCopySlice &slice : task.slices) {
         if ((slice.localOffset + slice.size) > resCtx_.localBuffer.size ||
             (slice.remoteOffset + slice.size) > channel->remoteBuffer.size) {
@@ -849,6 +898,14 @@ HcclResult AllGatherHDStageCore::RunRemoteTaskOnMainThread(const LastTwoCopyTask
         }
         void *dst = static_cast<uint8_t *>(resCtx_.localBuffer.addr) + slice.localOffset;
         const void *src = static_cast<const uint8_t *>(channel->remoteBuffer.addr) + slice.remoteOffset;
+        HCCL_RUN_INFO("HDStage %s runinfo: rank=%u, peerRank=%u, phase=read-begin, sliceIdx=%u, localOffset=%llu, remoteOffset=%llu, size=%llu",
+            stageTag,
+            param_.topoInfo.rank,
+            task.peerRank,
+            sliceIdx,
+            static_cast<unsigned long long>(slice.localOffset),
+            static_cast<unsigned long long>(slice.remoteOffset),
+            static_cast<unsigned long long>(slice.size));
         ret = HcommReadOnThread(resCtx_.mainThreadHandle, channel->handle, dst, src, slice.size);
         if (ret != HCCL_SUCCESS) {
             HCCL_ERROR("HDStage %s remote read failed, peerRank=%u, localOffset=%llu, remoteOffset=%llu, size=%llu, ret=%d",
@@ -860,9 +917,16 @@ HcclResult AllGatherHDStageCore::RunRemoteTaskOnMainThread(const LastTwoCopyTask
                 ret);
             return static_cast<HcclResult>(ret);
         }
+        HCCL_RUN_INFO("HDStage %s runinfo: rank=%u, peerRank=%u, phase=read-end, sliceIdx=%u",
+            stageTag,
+            param_.topoInfo.rank,
+            task.peerRank,
+            sliceIdx);
+        ++sliceIdx;
     }
     return HCCL_SUCCESS;
 }
+
 HcclResult AllGatherHDStageCore::RunAllGatherLastTwo(const HDStagePlan &plan) const
 {
     HCCL_INFO("HDStage last-two stage: rank=%u, powerSteps=%u, needFinal=%s, packedBytes=%llu",
@@ -896,19 +960,30 @@ HcclResult AllGatherHDStageCore::RunAllGatherLastTwo(const HDStagePlan &plan) co
 
     // Prefer the hcomm baseline semantics here: finalize local and remote subgroup chunks
     // on the main thread, instead of routing the formal path through custom worker parallelism.
+    HCCL_RUN_INFO("HDStage lastTwo runinfo: rank=%u, phase=local-task-begin, subgroupSize=%u",
+        param_.topoInfo.rank,
+        static_cast<uint32_t>(tasks.size()));
     HCCL_CHK_RET(RunLastTwoLocalTask(*localTask, "lastTwo"));
+    HCCL_RUN_INFO("HDStage lastTwo runinfo: rank=%u, phase=local-task-end",
+        param_.topoInfo.rank);
     const uint32_t subgroupSize = static_cast<uint32_t>(tasks.size());
     const uint32_t subgroupRankIdx = param_.topoInfo.rank % subgroupSize;
     for (uint32_t round = 1; round < subgroupSize; ++round) {
         const uint32_t peerSubgroupIdx = (subgroupRankIdx + subgroupSize - round) % subgroupSize;
+        HCCL_RUN_INFO("HDStage lastTwo runinfo: rank=%u, phase=remote-task-begin, round=%u, peerRank=%u, peerSubgroupIdx=%u",
+            param_.topoInfo.rank,
+            round,
+            tasks[peerSubgroupIdx].peerRank,
+            peerSubgroupIdx);
         HCCL_CHK_RET(RunRemoteTaskOnMainThread(tasks[peerSubgroupIdx], "lastTwo"));
+        HCCL_RUN_INFO("HDStage lastTwo runinfo: rank=%u, phase=remote-task-end, round=%u, peerRank=%u, peerSubgroupIdx=%u",
+            param_.topoInfo.rank,
+            round,
+            tasks[peerSubgroupIdx].peerRank,
+            peerSubgroupIdx);
     }
     return HCCL_SUCCESS;
 }
-
-
-
-
 
 HcclResult AllGatherHDStageCore::RunAllGatherStage(const HDStagePlan &plan) const
 {
@@ -951,14 +1026,3 @@ HcclResult AllGatherHDStageCore::RunAsync()
 }
 
 }  // namespace ops_hccl_allgatherbatch
-
-
-
-
-
-
-
-
-
-
-

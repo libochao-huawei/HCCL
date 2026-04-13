@@ -1,4 +1,4 @@
-﻿#include "allgather_batch_small_count_executor.h"
+#include "allgather_batch_small_count_executor.h"
 
 #include <algorithm>
 
@@ -129,6 +129,11 @@ HcclResult AllGatherBatchSmallCountExecutor::Unpack(
     HCCL_CHK_RET(ValidateWindow(windowOffset, currentWindowBytes));
 
     const BatchItemParam &item = GetInputItem();
+    HCCL_INFO("executor unpack begin: rank=%u, windowOffset=%llu, windowBytes=%llu, rankSize=%u",
+        param_.topoInfo.rank,
+        static_cast<unsigned long long>(windowOffset),
+        static_cast<unsigned long long>(currentWindowBytes),
+        param_.topoInfo.rankSize);
     for (uint32_t rank = 0; rank < param_.topoInfo.rankSize; ++rank) {
         const uint64_t rankBase = GetStageRankBaseOffset(layout, rank);
         const void *src = static_cast<const uint8_t *>(resCtx_.localBuffer.addr) + rankBase;
@@ -144,6 +149,10 @@ HcclResult AllGatherBatchSmallCountExecutor::Unpack(
             return static_cast<HcclResult>(ret);
         }
     }
+    HCCL_INFO("executor unpack end: rank=%u, windowOffset=%llu, windowBytes=%llu",
+        param_.topoInfo.rank,
+        static_cast<unsigned long long>(windowOffset),
+        static_cast<unsigned long long>(currentWindowBytes));
     return HCCL_SUCCESS;
 }
 
