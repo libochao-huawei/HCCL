@@ -59,6 +59,7 @@ HcclResult InsCollAlgBase::FastLaunch(const OpParam &param, const CcuFastLaunchC
     return HcclResult::HCCL_E_INTERNAL;
 }
 
+#ifndef AICPU_COMPILE
 HcclResult InsCollAlgBase::FastLaunchSaveCtxTwoTemplate(const OpParam &param, const u32 threadNum,
     const u32 ccuKernelNum, const std::vector<ThreadHandle> &threads, const std::vector<u32> &ccuKernelNumList,
     const std::vector<std::vector<CcuKernelSubmitInfo>> &submitInfosList)
@@ -107,5 +108,6 @@ HcclResult InsCollAlgBase::FastLaunchSaveCtxTwoTemplate(const OpParam &param, co
 
     return HCCL_SUCCESS;
 }
+#endif
 
 }
