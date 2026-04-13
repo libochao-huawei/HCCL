@@ -300,21 +300,20 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
 HcclResult FallbackOp(HcclComm comm, OpParam &param,
                       std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo, std::string &algName, const ResPackGraphMode &resPack)
 {
-    ReSelector(comm, param, topoInfo, algName);
-    HcclExecOp(comm, param, topoInfo, algName, resPack);
+    CHK_RET(ReSelector(comm, param, topoInfo, algName));
+    CHK_RET(HcclExecOp(comm, param, topoInfo, algName, resPack));
+    return HCCL_SUCCESS;
 }
 
 HcclResult ReSelector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
     std::string &algName)
 {
     HCCL_INFO("Start to execute ReSelector.");
-    param.hcclComm = comm;
-    CHK_RET(HcclGetOpExpansionMode(comm, param));
-    // 获取基础拓扑
-    CHK_RET(HcclCalcTopoInfo(comm, param, topoInfo));
-
-    // 检查非对称拓扑支持情况，非对称场景仅 AllGather/AllReduce/ReduceScatter 可用
-    CHK_RET(CheckAsymmetricTopoSupport(param.opType, topoInfo.get()));
+    // 回退AICPU
+    param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
+    param.engine = CommEngine::COMM_ENGINE_AICPU_TS;
+    CHK_RET(LoadAICPUKernel());
+    // 拓扑已有，无需再计算
 
     // 算法选择，选择完后顺便param.algTag设置了，资源的保存是以算子+算法为单位
     std::shared_ptr<ExecuteSelector> collAlgSelector = std::make_shared<ExecuteSelector>(ExecuteSelector());
@@ -373,9 +372,9 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
         CHK_RET(HcclThreadExportToCommEngine(comm, 1, &cpuTsThread, COMM_ENGINE_AICPU_TS, &exportedAicpuTsThread));
     }
 
-    auto ret = HcclGetAlgRes(comm, param, executor, topoInfo.get(), resCtxHost, &resCtxSequence, isResourceReused);
+    ret = HcclGetAlgRes(comm, param, executor, topoInfo.get(), resCtxHost, &resCtxSequence, isResourceReused);
     if (ret == HCCL_E_UNAVAIL) {
-        FallbackOp();
+        FallbackOp(comm, param, topoInfo, algName, resPack);
         return HCCL_SUCCESS;
     }
 
@@ -700,7 +699,7 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
         // 添加资源回退。SetCommEngine
         auto ret = GetAlgResCcu(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence, size);
         if (ret == HCCL_E_UNAVAIL) {
-            param.opExecuteConfig = opExecuteConfig::AICPU_TS;
+            param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
             param.engine = CommEngine::COMM_ENGINE_AICPU_TS;
             return HCCL_E_UNAVAIL;
         }
