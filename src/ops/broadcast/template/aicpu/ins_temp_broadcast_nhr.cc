@@ -408,9 +408,10 @@ void InsTempBroadcastNHR::SetRoot(u32 root)
 HcclResult InsTempBroadcastNHR::KernelRun(const OpParam& param, const TemplateDataParams& tempAlgParams,
                                           TemplateResource& templateResource)
 {
-    buffInfo_     = tempAlgParams.buffInfo;
-    dataTypeSize_  = DATATYPE_SIZE_TABLE[dataType_];
     HCCL_INFO("[InsTempBroadcastNHR] BroadcastNHR entry.");
+    buffInfo_     = tempAlgParams.buffInfo;
+    dataType_ = param.DataDes.dataType;
+    dataTypeSize_  = DATATYPE_SIZE_TABLE[dataType_];
 
     for (int i = 0; i < subCommRanks_[0].size(); i++) {
         tempVirtRankMap_.insert(std::make_pair(subCommRanks_[0][i], i));
