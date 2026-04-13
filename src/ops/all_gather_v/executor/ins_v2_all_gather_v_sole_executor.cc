@@ -144,6 +144,7 @@ HcclResult InsV2AllGatherVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrat
     // 带V算子统计所有Rank的processedDataCount
     std::vector<u64> allRankProcessedDataCount(rankSize_, 0);
     tempAlgParams.sliceSize = 0;
+    tempAlgParams.tailSize = 0;
     for (u64 loop = 0; loop < loopTimes; loop++) {
         tempAlgParams.allRankSliceSize = {};
         for (u64 i = 0; i < rankSize_; i++) {
@@ -158,7 +159,6 @@ HcclResult InsV2AllGatherVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrat
         tempAlgParams.buffInfo.outBuffBaseOff = processedDataCount * dataTypeSize_;
         tempAlgParams.allRankProcessedDataCount = allRankProcessedDataCount;
         tempAlgParams.buffInfo.hcclBuffBaseOff = 0;
-        tempAlgParams.tailSize = tempAlgParams.sliceSize;
         // 这里的stride当成传统意义上的sreide 间隔
         tempAlgParams.inputSliceStride = dataSize_;  // 如果是输入，偏移是算子的output datasize
         tempAlgParams.outputSliceStride =
@@ -184,6 +184,7 @@ HcclResult InsV2AllGatherVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrat
         for (u64 i = 0; i < rankSize_; i++) {
             allRankProcessedDataCount[i] += tempAlgParams.allRankSliceSize[i] / dataTypeSize_;
         }
+        tempAlgParams.tailSize += maxCountPerLoop;
     }
     HCCL_INFO("[InsV2AllGatherVSoleExecutor][OrchestrateLoop] End.");
     return HCCL_SUCCESS;
