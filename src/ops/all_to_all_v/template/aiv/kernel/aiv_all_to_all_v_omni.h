@@ -14,6 +14,44 @@
 using namespace AscendC;
 using namespace ops_hccl;
 
+template<bool Value>
+struct OmniBoolType {};
+
+template<typename T>
+struct OmniIsAtomicReduceType {
+    using type = OmniBoolType<false>;
+};
+
+template<>
+struct OmniIsAtomicReduceType<float> {
+    using type = OmniBoolType<true>;
+};
+
+template<>
+struct OmniIsAtomicReduceType<half> {
+    using type = OmniBoolType<true>;
+};
+
+template<>
+struct OmniIsAtomicReduceType<int16_t> {
+    using type = OmniBoolType<true>;
+};
+
+template<>
+struct OmniIsAtomicReduceType<int32_t> {
+    using type = OmniBoolType<true>;
+};
+
+template<>
+struct OmniIsAtomicReduceType<int8_t> {
+    using type = OmniBoolType<true>;
+};
+
+template<>
+struct OmniIsAtomicReduceType<bfloat16_t> {
+    using type = OmniBoolType<true>;
+};
+
 template<typename T>
 class AivOmniV2 : public AivCommBase {
 public:
@@ -45,15 +83,6 @@ public:
     }
 
 private:
-    template<bool Value>
-    struct BoolType {};
-
-    template<typename U>
-    struct IsAtomicReduceType {
-        using type = BoolType<false>;
-    };
-
-    template<typename U>
     __aicore__ inline void LoadInfoFromGm(AivOmniSendRecvInfo &dst, const __gm__ AivOmniSendRecvInfo *src)
     {
         dst.opType = src->opType;
@@ -75,12 +104,12 @@ private:
         }
     }
 
-    __aicore__ inline void CopySliceReduce(__gm__ T *dstAddr, __gm__ T *srcAddr, uint32_t reduceType, BoolType<true>)
+    __aicore__ inline void CopySliceReduce(__gm__ T *dstAddr, __gm__ T *srcAddr, uint32_t reduceType, OmniBoolType<true>)
     {
         CpGM2GM(dstAddr, srcAddr, curSliceCount_, reduceType);
     }
 
-    __aicore__ inline void CopySliceReduce(__gm__ T *dstAddr, __gm__ T *srcAddr, uint32_t reduceType, BoolType<false>)
+    __aicore__ inline void CopySliceReduce(__gm__ T *dstAddr, __gm__ T *srcAddr, uint32_t reduceType, OmniBoolType<false>)
     {
         (void)reduceType;
         // OMNI first version falls back to copy for data types without AIV atomic reduce support.
@@ -121,7 +150,7 @@ private:
         __gm__ T *srcAddr = ResolveSliceAddr(src, true);
         __gm__ T *dstAddr = ResolveSliceAddr(dst, false);
         if (reduce) {
-            CopySliceReduce(dstAddr, srcAddr, reduceType, typename IsAtomicReduceType<T>::type{});
+            CopySliceReduce(dstAddr, srcAddr, reduceType, typename OmniIsAtomicReduceType<T>::type{});
         } else {
             CpGM2GM(dstAddr, srcAddr, curSliceCount_);
         }
@@ -174,36 +203,6 @@ private:
 
     int32_t curTag_ = 0;
     uint64_t curSliceCount_ = 0;
-};
-
-template<>
-struct AivOmniV2<float>::IsAtomicReduceType<float> {
-    using type = BoolType<true>;
-};
-
-template<>
-struct AivOmniV2<half>::IsAtomicReduceType<half> {
-    using type = BoolType<true>;
-};
-
-template<>
-struct AivOmniV2<int16_t>::IsAtomicReduceType<int16_t> {
-    using type = BoolType<true>;
-};
-
-template<>
-struct AivOmniV2<int32_t>::IsAtomicReduceType<int32_t> {
-    using type = BoolType<true>;
-};
-
-template<>
-struct AivOmniV2<int8_t>::IsAtomicReduceType<int8_t> {
-    using type = BoolType<true>;
-};
-
-template<>
-struct AivOmniV2<bfloat16_t>::IsAtomicReduceType<bfloat16_t> {
-    using type = BoolType<true>;
 };
 
 template<typename T>
