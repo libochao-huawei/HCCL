@@ -50,6 +50,17 @@ thread_local std::map<std::string, std::unique_ptr<AlgResourceCtxSerializable>> 
 thread_local std::map<AivOpCacheArgs, std::shared_ptr<InsQueue>> g_hcclCacheMap;
 constexpr u32 HOST_WAIT_AICPU_NOTIFYIDX = 0;// host主流wait aicpu流的notify idx
 
+// 算法选择结果缓存，避免每次计算拓扑、选择算法
+struct SendRecvSelectorCacheValue {
+    std::string algName;                                     // 算法名称
+    OpExecuteConfig opExecuteConfig;                        // 执行配置
+    CommEngine engine;                                      // 执行引擎
+    std::shared_ptr<TopoInfoWithNetLayerDetails> topoInfo;  // 拓扑信息
+    char algTag[ALG_TAG_LENGTH];                             // param.algTag 副本
+};
+
+thread_local std::map<std::string, SendRecvSelectorCacheValue> g_sendRecvSelectorCache;
+
 // 检查非对称拓扑支持情况
 // 仅 AllGather, AllReduce, ReduceScatter 支持跨框非对称拓扑，其他算子拦截
 HcclResult CheckAsymmetricTopoSupport(HcclCMDType opType, const TopoInfoWithNetLayerDetails* topoInfo)
@@ -76,6 +87,36 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
     HCCL_INFO("Start to execute Selector.");
     param.hcclComm = comm;
     CHK_RET(HcclGetOpExpansionMode(comm, param));
+
+    // SEND/RECV：尝试从缓存获取
+    if (param.opType == HcclCMDType::HCCL_CMD_SEND ||
+        param.opType == HcclCMDType::HCCL_CMD_RECEIVE) {
+
+        // param.tag = "SendRecv_" + commName + "_" + userRank + "_" + remoteRank
+        // 已包含通信域和 rank 信息，直接作为缓存 key
+        std::string cacheKey(param.tag);
+
+        // 1. 查询缓存
+        auto cacheValueIter = g_sendRecvSelectorCache.find(cacheKey);
+        if (cacheValueIter != g_sendRecvSelectorCache.end()) {
+            // 缓存命中！直接还原所有参数
+            const auto& cacheValue = cacheValueIter->second;
+            algName = cacheValue.algName;
+            param.opExecuteConfig = cacheValue.opExecuteConfig;
+            param.engine = cacheValue.engine;
+            if (topoInfo != nullptr && cacheValue.topoInfo != nullptr) {
+                topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>(*cacheValue.topoInfo);
+            }
+            // 直接复制 algTag（param.tag 已是缓存 key，直接使用即可）
+            memcpy_s(param.algTag, sizeof(param.algTag, cacheValue.algTag, sizeof(param.algTag));
+            HCCL_INFO("[Selector] SEND/RECV cache hit: tag[%s], algName=%s, engine=%d",
+                      cacheKey.c_str(), algName.c_str(), param.engine);
+            return HCCL_SUCCESS;
+        }
+        // 缓存未命中，继续执行原有流程，然后在最后保存缓存
+        HCCL_INFO("[Selector] SEND/RECV cache miss: tag[%s], executing full flow", cacheKey.c_str());
+    }
+
     // 获取基础拓扑
     CHK_RET(HcclCalcTopoInfo(comm, param, topoInfo));
 
@@ -102,6 +143,25 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
         CHK_RET(LoadAICPUKernel()); // 该函数内部有防止重复加载的逻辑
     }
     CHK_RET(SetOpParamAlgTag(param, algName));
+
+    // SEND/RECV 缓存未命中时，保存结果到缓存
+    if (param.opType == HcclCMDType::HCCL_CMD_SEND ||
+        param.opType == HcclCMDType::HCCL_CMD_RECEIVE) {
+        std::string cacheKey(param.tag);
+        SendRecvSelectorCacheValue cacheValue;
+        cacheValue.algName = algName;
+        cacheValue.opExecuteConfig = param.opExecuteConfig;
+        cacheValue.engine = param.engine;
+        if (topoInfo != nullptr) {
+            cacheValue.topoInfo = std::make_shared<TopoInfoWithNetLayerDetails>(*topoInfo);
+        }
+        // 保存 algTag（param.tag 直接作为 key 保存）
+        memcpy_s(cacheValue.algTag, sizeof(param.algTag, param.algTag, sizeof(param.algTag));
+        g_sendRecvSelectorCache[cacheKey] = std::move(cacheValue);
+        HCCL_INFO("[Selector] SEND/RECV cache saved: tag[%s], algName=%s, engine=%d",
+                  cacheKey.c_str(), algName.c_str(), param.engine);
+    }
+
     HCCL_INFO("Success to execute Selector.");
     return HCCL_SUCCESS;
 }
@@ -494,8 +554,14 @@ HcclResult AicpuKernelLaunch(HcclComm comm, OpParam &param, ThreadHandle unfoldT
     if (!HcclThreadResGetInfoFunc.dlHcclThreadResGetInfo || param.opMode == OpMode::OFFLOAD) {
         ret = aclrtLaunchKernelWithConfig(funcHandle, numBlocks, param.stream, &cfg, argsHandle, nullptr);
     } else {
-        CHK_RET(HcclThreadResGetInfoFunc.dlHcclThreadResGetInfo(comm, unfoldThread, 0, sizeof(void*), &unfoldStream));
-        ret = aclrtLaunchKernelWithConfig(funcHandle, numBlocks, unfoldStream, &cfg, argsHandle, nullptr); // 提前展开，传入展开流
+        HcclResult ret1 = HcclThreadResGetInfoFunc.dlHcclThreadResGetInfo(comm, unfoldThread, 0, sizeof(void*), &unfoldStream);
+        if (ret1 == HCCL_E_NOT_SUPPORT) {
+            ret = aclrtLaunchKernelWithConfig(funcHandle, numBlocks, param.stream, &cfg, argsHandle, nullptr);
+        } else if (ret1 != HCCL_SUCCESS) {
+            return ret1;
+        } else {
+            ret = aclrtLaunchKernelWithConfig(funcHandle, numBlocks, unfoldStream, &cfg, argsHandle, nullptr); // 提前展开，传入展开流
+        }
     }
     CHK_PRT_RET(ret != ACL_SUCCESS,
         HCCL_ERROR("[LoadCustomKernel][aclrtLaunchKernelWithConfig]errNo[0x%016llx] launch kernel failed", ret),
@@ -884,9 +950,9 @@ HcclResult HcclGetChannel(HcclComm comm, const OpParam &param, AlgResourceReques
         std::vector<HcclChannelDesc> deviceChannelRequest;
         std::vector<HcclChannelDesc> hostChannelRequest;
         for (auto &channelRequest : levelNChannelRequest) {
-            if (channelRequest.remoteEndpoint.loc.locType == ENDPOINT_LOC_TYPE_DEVICE) {
+            if (channelRequest.localEndpoint.loc.locType == ENDPOINT_LOC_TYPE_DEVICE) {
                 deviceChannelRequest.emplace_back(channelRequest);
-            } else if (channelRequest.remoteEndpoint.loc.locType == ENDPOINT_LOC_TYPE_HOST) {
+            } else if (channelRequest.localEndpoint.loc.locType == ENDPOINT_LOC_TYPE_HOST) {
                 hostChannelRequest.emplace_back(channelRequest);
             }
         }

@@ -11,6 +11,7 @@
 #include <string>
 #include <sstream>
 #include <memory>
+#include <cstring>
 #include "alg_param.h"
 #include "executor_base.h"
 #include "coll_alg_exec_registry.h"
@@ -214,6 +215,29 @@ namespace {
     thread_local CommDomainCacheManager g_cacheManager;
 }
 
+namespace ops_hccl {
+// 判断是否为v2流程的ops：根据deviceType或algName前缀"opv2_"
+bool IsOpsV2(const char* algName, DevType deviceType)
+{
+    // 检查algName前缀是否为"opv2_"
+    if (algName != nullptr) {
+        const char* prefix = "opv2_";
+        if (strncmp(algName, prefix, strlen(prefix)) == 0) {
+            return true;
+        }
+    }
+    // 根据deviceType判断
+#ifdef MACRO_DEV_TYPE_NEW
+    if (deviceType == DevType::DEV_TYPE_950) {
+#else
+    if (deviceType == DevType::DEV_TYPE_910_95) {
+#endif
+        return true;
+    }
+    return false;
+}
+}
+
 extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
 {
     if (param == nullptr) {
@@ -253,11 +277,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
 
     // 根据算法名字获取executor
     std::string algName = std::string(param->algName);
-    #ifdef MACRO_DEV_TYPE_NEW
-    if (param->deviceType == DevType::DEV_TYPE_950) {
-    #else
-    if (param->deviceType == DevType::DEV_TYPE_910_95) {
-    #endif
+    if (ops_hccl::IsOpsV2(param->algName, param->deviceType)) {
         AlgResourceCtxSerializable resCtx;
 
         //通过缓存实现反序列化优化
