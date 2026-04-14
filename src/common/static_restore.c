@@ -497,66 +497,132 @@ static int check_file_integrity(const char* file_path, const void* expected_data
 }
 
 /**
- * @brief 恢复 AICPU tar 包的构造函数
- *
- * 在程序启动时自动执行，将嵌入的 AICPU tar 包恢复到文件系统。
- * 使用文件锁确保多进程场景下的安全性，并在恢复前进行完整性校验。
- * 锁获取失败时严格中止，避免无锁保护下的并发写入风险。
+ * @brief 删除写入失败的不完整文件
  */
-__attribute__((constructor))
-static void restore_aicpu_tar(void) {
-    char target_path[PATH_MAX];
-    const char* base_path;
-    size_t tar_size;
-    uint32_t embedded_crc;
-    int file_exists = 0;
-    FILE* fp = NULL;
-
-    /* 计算嵌入 tar 包的大小 */
-    tar_size = (size_t)(_binary_aicpu_hccl_tar_gz_end - _binary_aicpu_hccl_tar_gz_start);
-    if (tar_size == 0) {
-        /* 没有嵌入的 tar 包，可能是非静态构建 */
-        fprintf(stderr, "Info: No embedded AICPU tar package found, skipping restore\n");
-        return;
+static void remove_incomplete_file(const char* path) {
+    if (unlink(path) != 0) {
+        fprintf(stderr, "Warning: Failed to remove incomplete file '%s': %s\n",
+                path, strerror(errno));
+    } else {
+        fprintf(stderr, "Info: Removed incomplete file '%s'\n", path);
     }
+}
 
-    /* 计算嵌入数据的 CRC32 */
-    embedded_crc = calc_crc32(_binary_aicpu_hccl_tar_gz_start, tar_size);
-
-    /* 确定基础路径：优先使用环境变量（带安全校验） */
-    base_path = get_safe_base_path();
+/**
+ * @brief 解析目标路径并创建父目录
+ *
+ * @param target_path 输出缓冲区
+ * @param path_size 缓冲区大小
+ * @return int 0 成功，-1 失败
+ */
+static int resolve_target_path(char* target_path, size_t path_size) {
+    const char* base_path = get_safe_base_path();
     if (base_path == NULL) {
         fprintf(stderr, "Warning: Failed to get safe base path, using default\n");
         base_path = DEFAULT_BASE_PATH;
     }
 
-    /* 构建完整目标路径 */
-    if (build_safe_path(base_path, AICPU_TAR_RELATIVE_PATH, target_path, sizeof(target_path)) != 0) {
+    if (build_safe_path(base_path, AICPU_TAR_RELATIVE_PATH, target_path, path_size) != 0) {
         fprintf(stderr, "Error: Failed to build safe target path\n");
-        return;
+        return -1;
     }
 
-    /* 提取目录路径并创建目录 */
     char* last_slash = strrchr(target_path, '/');
     if (last_slash != NULL) {
         *last_slash = '\0';
-        if (safe_create_directory(target_path) != 0) {
-            fprintf(stderr, "Error: Failed to create directory: %s\n", target_path);
-            *last_slash = '/';
-            return;
-        }
+        int ret = safe_create_directory(target_path);
         *last_slash = '/';
+        if (ret != 0) {
+            fprintf(stderr, "Error: Failed to create directory for: %s\n", target_path);
+            return -1;
+        }
     }
 
-    /* 打开并锁定目标文件（失败则严格中止） */
-    fp = open_and_lock_target(target_path, &file_exists);
-    if (fp == NULL) {
-        fprintf(stderr, "Error: Failed to acquire file lock on '%s'.\n", target_path);
-        fprintf(stderr, "Error: This is required for multi-process safety. Aborting restore.\n");
+    return 0;
+}
+
+/**
+ * @brief 将嵌入数据写入已锁定的文件并验证
+ *
+ * @param fp 已打开并加锁的文件指针
+ * @param target_path 目标文件路径（用于错误信息和清理）
+ * @param data 待写入的数据
+ * @param size 数据大小
+ * @param expected_crc 期望的 CRC32 校验值
+ * @param file_exists 文件是否已存在（决定是否需要 truncate）
+ * @return int 0 成功，-1 失败（失败时文件已被清理）
+ */
+static int write_and_verify_tar(FILE* fp, const char* target_path,
+                                const char* data, size_t size,
+                                uint32_t expected_crc, int file_exists) {
+    if (fseek(fp, 0, SEEK_SET) != 0) {
+        fprintf(stderr, "Error: Cannot seek to beginning of '%s'\n", target_path);
+        return -1;
+    }
+
+    if (file_exists && ftruncate(fileno(fp), 0) != 0) {
+        fprintf(stderr, "Error: Cannot truncate '%s': %s\n", target_path, strerror(errno));
+        return -1;
+    }
+
+    size_t written = fwrite(data, 1, size, fp);
+    if (written != size) {
+        fprintf(stderr, "Error: Failed to write tar file: expected %zu bytes, wrote %zu\n",
+                size, written);
+        fclose(fp);
+        remove_incomplete_file(target_path);
+        return -1;
+    }
+
+    if (fflush(fp) != 0) {
+        fprintf(stderr, "Error: Failed to flush file '%s': %s\n", target_path, strerror(errno));
+        fclose(fp);
+        remove_incomplete_file(target_path);
+        return -1;
+    }
+
+    uint32_t written_crc = calc_crc32(data, size);
+    if (written_crc != expected_crc) {
+        fprintf(stderr, "Error: Post-write CRC check failed: 0x%08X vs expected 0x%08X\n",
+                written_crc, expected_crc);
+        fclose(fp);
+        remove_incomplete_file(target_path);
+        return -1;
+    }
+
+    return 0;
+}
+
+/**
+ * @brief 恢复 AICPU tar 包的构造函数
+ *
+ * 在程序启动时自动执行，将嵌入的 AICPU tar 包恢复到文件系统。
+ * 使用文件锁确保多进程场景下的安全性，并在恢复前进行完整性校验。
+ */
+__attribute__((constructor))
+static void restore_aicpu_tar(void) {
+    char target_path[PATH_MAX];
+    int file_exists = 0;
+
+    size_t tar_size = (size_t)(_binary_aicpu_hccl_tar_gz_end - _binary_aicpu_hccl_tar_gz_start);
+    if (tar_size == 0) {
+        fprintf(stderr, "Info: No embedded AICPU tar package found, skipping restore\n");
         return;
     }
 
-    /* 检查文件完整性（带锁保护） */
+    uint32_t embedded_crc = calc_crc32(_binary_aicpu_hccl_tar_gz_start, tar_size);
+
+    if (resolve_target_path(target_path, sizeof(target_path)) != 0) {
+        return;
+    }
+
+    FILE* fp = open_and_lock_target(target_path, &file_exists);
+    if (fp == NULL) {
+        fprintf(stderr, "Error: Failed to acquire file lock on '%s'. Aborting restore.\n",
+                target_path);
+        return;
+    }
+
     if (file_exists && check_file_integrity(target_path, _binary_aicpu_hccl_tar_gz_start,
                                             tar_size, embedded_crc)) {
         fprintf(stderr, "Info: AICPU tar file already exists with matching CRC, skipping restore\n");
@@ -564,89 +630,18 @@ static void restore_aicpu_tar(void) {
         return;
     }
 
-    /* 文件不存在或 CRC 不匹配，需要写入 */
-    /* 注意：文件已在上游创建并加锁，但可能已有内容 */
-    /* 需要清空文件并重新定位到开头 */
-    if (fseek(fp, 0, SEEK_SET) != 0) {
-        fprintf(stderr, "Error: Cannot seek to beginning of '%s'\n", target_path);
-        unlock_and_close(fp);
+    if (write_and_verify_tar(fp, target_path, _binary_aicpu_hccl_tar_gz_start,
+                             tar_size, embedded_crc, file_exists) != 0) {
         return;
     }
 
-    /* 清空文件内容（如果文件已存在且有内容） */
-    if (file_exists) {
-        if (ftruncate(fileno(fp), 0) != 0) {
-            fprintf(stderr, "Error: Cannot truncate '%s': %s\n",
-                    target_path, strerror(errno));
-            unlock_and_close(fp);
-            return;
-        }
-    }
-
-    /* 写入 tar 包文件 */
-    size_t written = fwrite(_binary_aicpu_hccl_tar_gz_start, 1, tar_size, fp);
-    if (written != tar_size) {
-        fprintf(stderr, "Error: Failed to write tar file: expected %zu bytes, wrote %zu bytes\n",
-                tar_size, written);
-        /* 写入失败，删除不完整文件 */
-        fclose(fp);
-        if (unlink(target_path) != 0) {
-            fprintf(stderr, "Warning: Failed to remove incomplete file '%s': %s\n",
-                    target_path, strerror(errno));
-        } else {
-            fprintf(stderr, "Info: Removed incomplete file '%s'\n", target_path);
-        }
-        return;
-    }
-
-    /* 刷新缓冲区确保数据写入磁盘 */
-    if (fflush(fp) != 0) {
-        fprintf(stderr, "Error: Failed to flush file '%s': %s\n",
-                target_path, strerror(errno));
-        fclose(fp);
-        if (unlink(target_path) != 0) {
-            fprintf(stderr, "Warning: Failed to remove incomplete file '%s': %s\n",
-                    target_path, strerror(errno));
-        }
-        return;
-    }
-
-    /* 写入后验证：重新定位到文件开头并计算 CRC */
-    if (fseek(fp, 0, SEEK_SET) != 0) {
-        fprintf(stderr, "Error: Cannot seek to beginning of '%s' for verification\n", target_path);
-        fclose(fp);
-        if (unlink(target_path) != 0) {
-            fprintf(stderr, "Warning: Failed to remove incomplete file '%s': %s\n",
-                    target_path, strerror(errno));
-        }
-        return;
-    }
-
-    /* 验证写入的数据 CRC */
-    uint32_t written_crc = calc_crc32(_binary_aicpu_hccl_tar_gz_start, tar_size);
-    if (written_crc != embedded_crc) {
-        /* 这种情况理论上不会发生，除非内存被破坏 */
-        fprintf(stderr, "Error: Post-write CRC check failed: computed 0x%08X, expected 0x%08X\n",
-                written_crc, embedded_crc);
-        fclose(fp);
-        if (unlink(target_path) != 0) {
-            fprintf(stderr, "Warning: Failed to remove corrupted file '%s': %s\n",
-                    target_path, strerror(errno));
-        }
-        return;
-    }
-
-    /* 释放锁并关闭文件 */
     unlock_and_close(fp);
-    fp = NULL;
 
-    /* 设置文件权限 */
     if (chmod(target_path, FILE_PERMISSIONS) != 0) {
         fprintf(stderr, "Warning: Failed to set permissions on %s: %s\n",
                 target_path, strerror(errno));
     }
 
-    /* 输出恢复成功信息 */
     fprintf(stderr, "Info: AICPU tar package restored to: %s (%zu bytes, CRC: 0x%08X)\n",
             target_path, tar_size, embedded_crc);
 }
