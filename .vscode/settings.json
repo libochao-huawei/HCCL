@@ -1,0 +1,30 @@
+{
+  "cmake.useCMakePresets": "always",
+  "cmake.configureOnOpen": true,
+  "cmake.defaultConfigurePreset": "ide-host",
+  "cmake.defaultBuildPreset": "build-pkg-host",
+  "clangd.arguments": [
+    "--background-index",
+    "--clang-tidy",
+    "--completion-style=detailed",
+    "--header-insertion=never",
+    "--all-scopes-completion",
+    "--compile-commands-dir=${workspaceFolder}/build"
+  ],
+  "editor.codeActionsOnSave": {
+    "source.fixAll.clangd": "explicit"
+  },
+  "[cpp]": {
+    "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd",
+    "editor.formatOnSave": false
+  },
+  "files.associations": {
+    ".clang-tidy": "yaml",
+    ".clang-format": "yaml"
+  },
+  "C_Cpp.intelliSenseEngine": "disabled",
+"C_Cpp.errorSquiggles": "disabled",
+"chat.tools.terminal.autoApprove": {
+    "cmake": true
+}
+}
