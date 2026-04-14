@@ -200,37 +200,20 @@ public:
     __aicore__ inline void GetTag(GM_ADDR buffIn)
     {
         uint64_t blockIdx = GetBlockIdx();
-        if (blockIdx >= numBlocks_) {
-            return;
-        }
-        LocalTensor<int32_t> localIn = inOutQue.AllocTensor<int32_t>();
-        GlobalTensor<int32_t> ipcBufferGlobal;
-        ipcBufferGlobal.SetGlobalBuffer((__gm__ int32_t*)(buffIn));
-        uint64_t setBlockNum = MAX_NUM_BLOCKS / numBlocks_;
-        uint64_t remainder = MAX_NUM_BLOCKS % numBlocks_;
-        uint64_t blockOffset = 0;
-        if (blockIdx < remainder) {
-            blockOffset = blockIdx * (setBlockNum + 1);
-            setBlockNum++; // 前 remainder 个核多更新一块地址空间
-        } else {
-            blockOffset = remainder * (setBlockNum + 1) + (blockIdx - remainder) * setBlockNum;
-        }
-        DataCopyGM2UB(localIn, ipcBufferGlobal[AIV_FLAG_CLEAR_OFFSET / sizeof(int32_t) + blockOffset], 1);
+        LocalTensor<uint32_t> localIn = inOutQue.AllocTensor<uint32_t>();
+        GlobalTensor<uint32_t> ipcBufferGlobal;
+        ipcBufferGlobal.SetGlobalBuffer((__gm__ uint32_t*)(buffIn));
+        DataCopyGM2UB(localIn, ipcBufferGlobal[AIV_FLAG_CLEAR_OFFSET / sizeof(uint32_t)], 1);
         pipe_barrier(PIPE_ALL);
         tag_ = localIn.GetValue(0);
-        inOutQue.EnQue(localIn);
-        LocalTensor<int32_t> localOut = inOutQue.DeQue<int32_t>();
-        if (tag_ == TAG_RESET_COUNT) {
-            tag_ = TAG_INIT_VALUE;
-        } else {
-            tag_++;
+        SyncAll<true>();
+        tag_ = (tag_ == TAG_RESET_COUNT) ? TAG_INIT_VALUE : tag_ + 1;
+        if (blockIdx == 0) {
+            localIn.SetValue(0, tag_);
+            pipe_barrier(PIPE_ALL);
+            DataCopyUB2GM(ipcBufferGlobal[AIV_FLAG_CLEAR_OFFSET / sizeof(uint32_t)], localIn, 1);
         }
-        for (uint64_t i = 0; i < setBlockNum; ++i) {
-            localOut.SetValue(i, tag_);
-        }
-        pipe_barrier(PIPE_ALL);
-        DataCopyUB2GM(ipcBufferGlobal[AIV_FLAG_CLEAR_OFFSET / sizeof(int32_t) + blockOffset], localOut, setBlockNum);
-        inOutQue.FreeTensor(localOut);
+        inOutQue.FreeTensor(localIn);
     }
 
     __aicore__ inline uint64_t CeilDiv(uint64_t a, uint64_t b);
@@ -280,8 +263,8 @@ public:
     uint64_t output_;
 
     uint64_t len_;
-    int32_t tag_;
-    int32_t curTag_{0};
+    uint32_t tag_;
+    uint32_t curTag_{0};
     int32_t numBlocks_;
 
     uint64_t inputSliceStride_;

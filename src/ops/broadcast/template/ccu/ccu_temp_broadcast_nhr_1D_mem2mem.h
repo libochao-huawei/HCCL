@@ -19,6 +19,7 @@ namespace ops_hccl {
 
 class CcuTempBroadcastNHR1DMem2Mem : public CcuAlgTemplateBase {
 public:
+    CcuTempBroadcastNHR1DMem2Mem() = default;
     explicit  CcuTempBroadcastNHR1DMem2Mem(const OpParam& param,
                                                 const u32 rankId, // 传通信域的rankId，userRank
                                                 const std::vector<std::vector<u32>> &subCommRanks);
@@ -41,6 +42,7 @@ public:
     void SetRoot(u32 root);
     u64 GetThreadNum() const override;
     HcclResult GetRes(AlgResourceRequest& resourceRequest) const override;
+    HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx) override;
 private:
     HcclResult GetStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo);
     HcclResult GetScatterStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo);

@@ -18,6 +18,7 @@ namespace ops_hccl {
 
 class CcuTempReduceMesh1DMem2Mem : public CcuAlgTemplateBase {
 public:
+    CcuTempReduceMesh1DMem2Mem() = default;
     explicit  CcuTempReduceMesh1DMem2Mem(const OpParam& param,
                                          const u32 rankId, // 传通信域的rankId，userRank
                                          const std::vector<std::vector<u32>> &subCommRanks);
@@ -32,14 +33,17 @@ public:
 
     void SetRoot(u32 root);
 
-    HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
-                       AlgResourceRequest& resourceRequest) override;
-    
-    HcclResult GetRes(AlgResourceRequest& resourceRequest) const override;
-    u64 GetThreadNum() const override;
     HcclResult KernelRun(const OpParam& param,
                          const TemplateDataParams& templateDataParams,
                          TemplateResource& templateResource) override;
+
+    HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx) override;
+
+    HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
+                       AlgResourceRequest& resourceRequest) override;
+
+    HcclResult GetRes(AlgResourceRequest& resourceRequest) const override;
+    u64 GetThreadNum() const override;
 
 private:
     uint32_t mySubCommRank_ = 0;

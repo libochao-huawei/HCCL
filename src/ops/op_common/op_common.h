@@ -71,6 +71,8 @@ HcclResult GetAlgResCcu(HcclComm comm, const OpParam& param, AlgResourceRequest&
                         std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, TopoInfoWithNetLayerDetails* topoInfo,
                         AlgHierarchyInfoForAllLevel& algHierarchyInfo, void** resCtxSequence, uint64_t& ctxSize);
 
+HcclResult AppendFastLaunchTag(OpParam &param, const char* dataTypeStr, 
+    const char* reduceOpStr, const char* countStr, const char* rootStr);
 HcclResult SetOpParamFastLaunchTag(OpParam &param);
 
 bool ShouldGoCcuFastLaunch(HcclComm comm, OpParam &param, CcuFastLaunchCtx **ccuFastLaunchCtx);
