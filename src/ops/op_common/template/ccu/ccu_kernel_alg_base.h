@@ -12,7 +12,7 @@
 #define CCU_KERNEL_ALG_BASE
 
 #include "log.h"
-#include "ccu_kernel.h"
+// #include "ccu_kernel.h"
 
 namespace ops_hccl {
 using namespace hcomm;

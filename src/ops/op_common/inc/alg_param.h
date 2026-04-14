@@ -24,7 +24,8 @@
 #include "hcomm_primitives_dl.h"
 #include "hccl_rank_graph.h"
 #include "binary_stream.h"
-#include "hccl_ccu_res.h"
+#include "ccu_types.h"
+// #include "hccl_ccu_res.h"
 
 namespace ops_hccl {
 
