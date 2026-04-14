@@ -11,18 +11,17 @@
 #include "ccu_kernel_reduce_scatter_mesh1d.h"
 
 namespace ops_hccl {
-using namespace hcomm;
 
 constexpr int INPUT_XN_ID  = 0;
 constexpr int TOKEN_XN_ID  = 1;
 constexpr int POST_SYNC_ID = 2;
 constexpr int CKE_IDX_0    = 0;
 
-static HcclResult ParseKernelArg(ReduceScatterContext &ctx, CcuKernelArgReduceScatterMesh1D *kernelArg)
+static CcuResult ParseKernelArg(ReduceScatterContext &ctx, CcuKernelArgReduceScatterMesh1D *kernelArg)
 {
-    ctx.rankId          = kernelArg->rankId;
-    ctx.rankSize        = kernelArg->dimSize;
-    ctx.channels        = kernelArg->channels;
+    // ctx.rankId          = kernelArg->rankId;
+    // ctx.rankSize        = kernelArg->rankSize;
+    // ctx.channels       = kernelArg->channels;
     ctx.dataType        = kernelArg->opParam.DataDes.dataType;
     ctx.outputDataType  = kernelArg->opParam.DataDes.outputType;
     if (ctx.outputDataType == HcclDataType::HCCL_DATA_TYPE_RESERVED) {
@@ -31,124 +30,134 @@ static HcclResult ParseKernelArg(ReduceScatterContext &ctx, CcuKernelArgReduceSc
             ctx.dataType);
     }
     ctx.reduceOp = kernelArg->opParam.reduceType;
-    return HCCL_SUCCESS;
+    return CCU_SUCCESS;
 }
 
-static HcclResult InitResource(ReduceScatterContext &ctx)
+static CcuResult InitResource(ReduceScatterContext &ctx)
 {
+    const auto *arg = ctx.arg;
     uint32_t channelIdx = 0;
 
-    if (ctx.channel.size() == 0) {
+    if (arg->channelCount == 0) {
         HCCL_ERROR("[CcuKernelReduceScatterMesh1D] channels is empty!");
-        return HcclResult::HCCL_E_INTERNAL;
+        return CcuResult::CCU_E_INTERNAL;
     }
 
-    CHK_RET(ccu::Create(&ctx.output));
+    CCU_CHK_RET(ccu::Alloc(&ctx.output));
     // 按照rank号从小到大遍历channels，遇到本rank就填充本地资源，否则依次取远端资源，要求算法返回的Link同样是按顺序排列的
-    ctx.input.resize(ctx.rankSize);
-    ctx.token.resize(ctx.rankSize);
-    for (uint64_t peerId = 0; peerId < ctx.rankSize; peerId++) {
-        if (peerId == ctx.rankId) {
-            CHK_RET(ccu::Create(&ctx.input[peerId]));
-            CHK_RET(ccu::Create(&ctx.token[peerId]));
+    ctx.input.resize(arg->rankSize);
+    ctx.token.resize(arg->rankSize);
+    for (uint64_t peerId = 0; peerId < arg->rankSize; peerId++) {
+        if (peerId == arg->rankId) {
+            CCU_CHK_RET(ccu::Alloc(&ctx.input[peerId]));
+            CCU_CHK_RET(ccu::Alloc(&ctx.token[peerId]));
         } else {
-            CHK_RET(CcuVariableCreateFromChannel(
-                ctx.channels[channelIdx], INPUT_XN_ID, &ctx.input[peerId]));
-            CHK_RET(CcuVariableCreateFromChannel(
-                ctx.channels[channelIdx], TOKEN_XN_ID, &ctx.token[peerId]));
+            CCU_CHK_RET(ccu::CreateByChannel(
+                arg->channels[channelIdx], INPUT_XN_ID, &ctx.input[peerId]));
+            CCU_CHK_RET(ccu::CreateByChannel(
+                arg->channels[channelIdx], TOKEN_XN_ID, &ctx.token[peerId]));
             channelIdx++;
         }
     }
 
-    CHK_RET(ccu::Create(&ctx.offset));
+    CCU_CHK_RET(ccu::Alloc(&ctx.offset));
 
-    CHK_RET(ccu::Create(&ctx.goSize.addrOffset));
-    CHK_RET(ccu::Create(&ctx.goSize.loopParam));
-    CHK_RET(ccu::Create(&ctx.goSize.parallelParam));
-    CHK_RET(ccu::Create(&ctx.goSize.residual));
+    CCU_CHK_RET(ccu::Alloc(&ctx.goSize.addrOffset));
+    CCU_CHK_RET(ccu::Alloc(&ctx.goSize.loopParam));
+    CCU_CHK_RET(ccu::Alloc(&ctx.goSize.parallelParam));
+    CCU_CHK_RET(ccu::Alloc(&ctx.goSize.residual));
+
+    CCU_CHK_RET(ccu::CreateLoopExecutor(&ctx.enginePool, RS_MAX_RANK_SIZE + 1));
 
     ctx.resourceAllocated = false;
     ctx.loopRegistered    = false;
 
-    return HCCL_SUCCESS;
+    return CCU_SUCCESS;
 }
 
-static HcclResult LoadArgs(ReduceScatterContext &ctx)
+static CcuResult LoadArgs(ReduceScatterContext &ctx)
 {
-    CHK_RET(CcuLoadArg(ctx.input[ctx.rankId]));
-    CHK_RET(CcuLoadArg(ctx.output));
-    CHK_RET(CcuLoadArg(ctx.token[ctx.rankId]));
-    CHK_RET(CcuLoadArg(ctx.offset));
-    CHK_RET(CcuLoadArg(ctx.goSize.addrOffset));
-    CHK_RET(CcuLoadArg(ctx.goSize.loopParam));
-    CHK_RET(CcuLoadArg(ctx.goSize.parallelParam));
-    CHK_RET(CcuLoadArg(ctx.goSize.residual));
+    const auto *arg = ctx.arg;
 
-    return HCCL_SUCCESS;
+    CCU_CHK_RET(ccu::LoadArg(ctx.input[arg->rankId]));
+    CCU_CHK_RET(ccu::LoadArg(ctx.output));
+    CCU_CHK_RET(ccu::LoadArg(ctx.token[arg->rankId]));
+    CCU_CHK_RET(ccu::LoadArg(ctx.offset));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.addrOffset));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.loopParam));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.parallelParam));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.residual));
+
+    return CCU_SUCCESS;
 }
 
 static void PreSync(ReduceScatterContext &ctx)
 {
-    for (auto ch : ctx.channels) {
-        CcuWriteVariableWithNotify(ch, ctx.input[ctx.rankId],
+    const auto *arg = ctx.arg;
+
+    for (uint32_t i = 0; i < arg->channelCount; i++) {
+        ccu::WriteVariableWithNotify(arg->channels[i], ctx.input[arg->rankId],
             INPUT_XN_ID, CKE_IDX_0, 1 << INPUT_XN_ID);
-        CcuWriteVariableWithNotify(ch, ctx.token[ctx.rankId],
+        ccu::WriteVariableWithNotify(arg->channels[i], ctx.token[arg->rankId],
             TOKEN_XN_ID, CKE_IDX_0, 1 << TOKEN_XN_ID);
     }
 
     uint32_t allBit = (1 << INPUT_XN_ID) | (1 << TOKEN_XN_ID);
-    for (auto ch : ctx.channels) {
-        CcuNotifyWait(ch, CKE_IDX_0, allBit);
+    for (uint32_t i = 0; i < arg->channelCount; i++) {
+        ccu::NotifyWait(arg->channels[i], CKE_IDX_0, allBit);
     }
 }
 
 static void PostSync(ReduceScatterContext &ctx)
 {
-    for (auto ch : ctx.channels) {
-        CcuWriteNotify(ch, CKE_IDX_0, 1 << POST_SYNC_ID);
+    const auto *arg = ctx.arg;
+
+    for (uint32_t i = 0; i < arg->channelCount; i++) {
+        ccu::NotifyRecord(arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID);
     }
-    for (auto ch : ctx.channels) {
-        CcuNotifyWait(ch, CKE_IDX_0, 1 << POST_SYNC_ID);
+    for (uint32_t i = 0; i < arg->channelCount; i++) {
+        ccu::NotifyWait(arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID);
     }
 }
 
-static HcclResult DoReduceScatter(ReduceScatterContext &ctx)
+static CcuResult DoReduceScatter(ReduceScatterContext &ctx)
 {
     const auto *arg = ctx.arg;
-    std::vector<CcuRep::RemoteAddr> src;
-    src.resize(ctx.rankSize)
-    for (uint32_t rankIdx = 0; rankIdx < ctx.rankSize; rankIdx++) {
-        CHK_RET(ccu::Create(&src[rankIdx]));
+    std::vector<ccu::RemoteAddr> src;
+    ccu::LocalAddr localSrc;
+    src.resize(arg->rankSize);
+    for (uint32_t rankIdx = 0; rankIdx < arg->rankSize - 1; rankIdx++) {
+        CCU_CHK_RET(ccu::Alloc(&src[rankIdx]));
     }
-    CcuRep::LocalAddr dst;
-    CHK_RET(ccu::Create(&dst));
-    dst.addr  = ctx.output;
-    dst.token = ctx.token[ctx.rankSize];
-    uint32_t dstId = 0;
+    CCU_CHK_RET(ccu::Alloc(&localSrc));
+    ccu::LocalAddr dst;
+    CCU_CHK_RET(ccu::Alloc(&dst));
+    dst.addr  = ctx.output; // GSA[400] + Xn[0] to GSA[2](dst.addr)
+    dst.token = ctx.token[arg->rankId]; // Load Xn[2] + Xn[413] to Xn[10]
     uint32_t curId = 0;
-    for (uint32_t rankIdx = 0; rankIdx < ctx.rankSize; rankIdx++) {
-        if (rankIdx != ctx.rankId) {
-            curId = dstId;
-            dstId++;
+    for (uint32_t rankIdx = 0; rankIdx < arg->rankSize; rankIdx++) {
+        if (rankIdx != arg->rankId) {
+            src[curId].addr = ctx.input[rankIdx]; // Load GSA[400] + Xn[1] to GSA[1] | GSA[400] + Xn[400] to GSA[0]
+            src[curId].addr += ctx.offset; //  Load GSA[1] + Xn[3] to GSA[1]         | GSA[0] + Xn[3] to GSA[0]
+            src[curId].token = ctx.token[rankIdx]; // Load Xn[2] + Xn[413] to Xn[9]  | Xn[401] + Xn[413] to Xn[8]
+            curId++;
         } else {
-            // 本端input放在数组末尾
-            curId = ctx.rankSize - 1;
+            localSrc.addr = ctx.input[rankIdx];
+            localSrc.addr += ctx.offset;
+            localSrc.token = ctx.token[rankIdx];
         }
-        // 其中本端input为LocalAddr，但适配接口，写入RemoteAddr中
-        src[curId].addr = ctx.input[rankIdx];
-        src[curId].addr += ctx.offset;
-        src[curId].token = ctx.token[rankIdx];
     }
 
-    GroupReduce(ctx, ctx.channels, dst, src, ctx.groupOpSize, ctx.dataType, ctx.outputDataType, ctx.reduceOp);
+    HCCL_INFO("ctx.loopRegistered 5 [%d]", (int)ctx.loopRegistered);
+    GroupReduce(ctx, arg->channels, arg->channelCount, dst, src, localSrc, ctx.goSize, ctx.dataType, ctx.outputDataType, ctx.reduceOp);
 
-    return HCCL_SUCCESS;
+    return CCU_SUCCESS;
 }
 
 // ============================================================================
 // 主入口 Kernel 函数
 // ============================================================================
-HcclResult CcuReduceScatterMesh1DKernel(CcuKernelArg arg)
+CcuResult CcuReduceScatterMesh1DKernel(CcuKernelArg arg)
 {
     auto *kernelArg = static_cast<CcuKernelArgReduceScatterMesh1D *>(arg);
 
@@ -161,19 +170,25 @@ HcclResult CcuReduceScatterMesh1DKernel(CcuKernelArg arg)
     ctx.moConfig.memSlice = 0;
     ctx.moRes.eventCount = 0;
     ctx.moRes.bufCount = 0;
+    ctx.enginePool = 0;
 
     HCCL_INFO("[CcuKernelReduceScatterMesh1D] ReduceScatterMesh1D run");
-    CHK_RET(ParseKernelArg(ctx, kernelArg));
-    CHK_RET(InitResource(ctx));
-    CHK_RET(LoadArgs(ctx));
+    HCCL_INFO("ctx.loopRegistered 1 [%d]", (int)ctx.loopRegistered);
+    CCU_CHK_RET(ParseKernelArg(ctx, kernelArg));
+    CCU_CHK_RET(InitResource(ctx));
+    CCU_CHK_RET(LoadArgs(ctx));
+    HCCL_INFO("ctx.loopRegistered 2 [%d]", (int)ctx.loopRegistered);
 
     PreSync(ctx);
 
-    CHK_RET(DoReduceScatter(ctx));
+    HCCL_INFO("ctx.loopRegistered 3 [%d]", (int)ctx.loopRegistered);
+    CCU_CHK_RET(DoReduceScatter(ctx));
+    HCCL_INFO("ctx.loopRegistered 4 [%d]", (int)ctx.loopRegistered);
+
 
     PostSync(ctx);
     HCCL_INFO("[CcuKernelReduceScatterMesh1D] ReduceScatterMesh1D end");
 
-    return HCCL_SUCCESS;
+    return CCU_SUCCESS;
 }
 } // namespace ops_hccl
