@@ -12,6 +12,7 @@
 
 namespace ops_hccl {
 constexpr u64 REDUCE_AICPU_1D_MAX_DATA_SIZE = 8 * 1024 * 1024;
+constexpr u64 REDUCE_AIV_1D_TWOSHOT_THRESHOLD = 16 * 1024;
 
 SelectorStatus ReduceAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap, std::string &selectAlgName) const
@@ -248,7 +249,13 @@ SelectorStatus ReduceAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDetai
         return SelectorStatus::NOT_MATCH;
     }
 
-    selectAlgName = "AivReduceMesh1D";
+    u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
+    u64 dataSize = opParam.DataDes.count * perDataSize;
+    if (dataSize <= REDUCE_AIV_1D_TWOSHOT_THRESHOLD) {
+        selectAlgName = "AivReduceMesh1D";
+    } else {
+        selectAlgName = "AivReduceMesh1DTwoShot";
+    }
 
     HCCL_INFO("[ReduceAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
     return SelectorStatus::MATCH;
