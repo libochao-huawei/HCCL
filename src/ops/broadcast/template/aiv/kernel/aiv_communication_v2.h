@@ -18,9 +18,7 @@ using namespace AscendC;
 
 #define AIV_BROADCAST_KERNEL_BATCH_DEF(type) \
 extern "C" __global__ __aicore__ void aiv_broadcast_##type(EXTERN_KERNEL_ARGS_DEF_V2) { \
-    if (isOpBase) { \
-        return AivBroadcastV2Mesh1D<type>(EXTERN_KERNEL_ARGS_CALL); \
-    } \
+    return AivBroadcastV2Mesh1D<type>(EXTERN_KERNEL_ARGS_CALL); \
 } \
 EXPORT_AIV_META_INFO(aiv_broadcast_##type)
 
