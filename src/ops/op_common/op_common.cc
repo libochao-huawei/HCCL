@@ -349,11 +349,89 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
     return HCCL_SUCCESS;
 }
 
+HcclResult FallbackOp(HcclComm comm, OpParam &param,
+                      std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo, std::string &algName, const ResPackGraphMode &resPack)
+{   
+    void * fallbackCtx = nullptr;
+    const u32 ALG_MAX_LENGTH = 50;
+    const u32 FALLBACK_MAX_TAG_LENGTH = 60;
+    uint64_t fallbackCtxSize = ALG_MAX_LENGTH;
+    char fallbackTag[FALLBACK_MAX_TAG_LENGTH];
+    auto fallbackRet = sprintf_s(fallbackTag, sizeof(fallbackTag), "%s_%s", algName.c_str(), "fallback");
+    if (fallbackRet <= 0) {
+        HCCL_ERROR("[%s] failed to fill fallbackTag", __func__);
+        return HCCL_E_INTERNAL;
+    }
+    CHK_RET(HcclEngineCtxCreate(comm, fallbackTag, CommEngine::COMM_ENGINE_CCU, fallbackCtxSize, &fallbackCtx));
+    char* newAlgName = static_cast<char*>(fallbackCtx);
+    CHK_RET(ReSelector(comm, param, topoInfo, algName));
+    auto copyRet = sprintf_s(newAlgName, fallbackCtxSize, "%s", algName.c_str());
+    if (copyRet <= 0) {
+        HCCL_ERROR("[%s] failed to fill newAlgName", __func__);
+        return HCCL_E_INTERNAL;
+    }
+    CHK_RET(HcclExecOp(comm, param, topoInfo, algName, resPack));
+    return HCCL_SUCCESS;
+}
+
+HcclResult ReSelector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
+    std::string &algName)
+{
+    HCCL_INFO("Start to execute ReSelector.");
+    // 回退AICPU
+    param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
+    // 拓扑已有，无需再计算
+
+    // 算法选择，选择完后顺便param.algTag设置了，资源的保存是以算子+算法为单位
+    std::shared_ptr<ExecuteSelector> collAlgSelector = std::make_shared<ExecuteSelector>(ExecuteSelector());
+    CHK_RET(collAlgSelector->Run(param, topoInfo.get(), algName));
+    if (algName == "") {
+        HCCL_ERROR("[ReSelector] select algname fail!");
+        return HCCL_E_PTR;
+    }
+    CHK_RET(SetCommEngine(param));
+    // AIV_ONLY 模式下禁止回退到非 AIV 引擎，未选中 AIV 时直接返回不支持。
+    if (GetExternalInputHcclAivOnlyMode() && param.engine != CommEngine::COMM_ENGINE_AIV) {
+        HCCL_ERROR("[HcclExecOp] opType[%d] currently do not select aiv mode, aiv only not support.",
+            static_cast<int>(param.opType));
+        return HCCL_E_NOT_SUPPORT;
+    }
+    // 如果一开始读取到的Engine不是aicpu，经过算法选择后回退到aipcu，则需要重新LoadAICPUKernel
+    if ((param.engine == CommEngine::COMM_ENGINE_AICPU_TS) || (param.engine == CommEngine::COMM_ENGINE_CPU)) {
+        HCCL_DEBUG("[ReSelector] is aicpu mode");
+        CHK_RET(LoadAICPUKernel()); // 该函数内部有防止重复加载的逻辑
+    }
+    CHK_RET(SetOpParamAlgTag(param, algName));
+    HCCL_INFO("Success to execute ReSelector.");
+    return HCCL_SUCCESS;
+}
+
 HcclResult HcclExecOp(HcclComm comm, OpParam &param,
                       std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo, std::string &algName, const ResPackGraphMode &resPack)
 {
     uint64_t beginTime = HcommGetProfilingSysCycleTime();
     HCCL_INFO("[HcclExecOp]Start to execute HcclExecOp.HcommGetProfilingSysCycleTime.%llu", beginTime);
+    // 当前通信域的某个算法回退过，则下次直接回退
+    void * fallbackCtx = nullptr;
+    const u32 ALG_MAX_LENGTH = 50;
+    const u32 FALLBACK_MAX_TAG_LENGTH = 60;
+    uint64_t fallbackCtxSize = ALG_MAX_LENGTH;
+    char fallbackTag[FALLBACK_MAX_TAG_LENGTH];
+    auto fallbackRet = sprintf_s(fallbackTag, sizeof(fallbackTag), "%s_%s", algName.c_str(), "fallback");
+    if (fallbackRet <= 0) {
+        HCCL_ERROR("[%s] failed to fill fallbackTag", __func__);
+        return HCCL_E_INTERNAL;
+    }
+    if (HcclEngineCtxGet(comm, fallbackTag, param.engine, &fallbackCtx, &fallbackCtxSize) == HCCL_SUCCESS) {
+        HCCL_INFO("[HcclExecOp] Engine ctx exists, try to fallback.");
+        std::string newAlgName = static_cast<char*>(fallbackCtx);
+        HCCL_INFO("[HcclExecOp] Cached algName[%s]", newAlgName.c_str());
+        param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
+        param.engine = COMM_ENGINE_AICPU_TS;
+        CHK_RET(SetOpParamAlgTag(param, newAlgName));
+        CHK_RET(HcclExecOp(comm, param, topoInfo, newAlgName, resPack));
+        return HCCL_SUCCESS;
+    }
     // 在原先的commName中添加执行模式，得到commModeTag
     param.hcclComm = comm;
     bool isOpBase = param.opMode == OpMode::OPBASE;
@@ -382,7 +460,13 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
         CHK_RET(HcclThreadExportToCommEngine(comm, 1, &cpuTsThread, COMM_ENGINE_AICPU_TS, &exportedAicpuTsThread));
     }
 
-    CHK_RET(HcclGetAlgRes(comm, param, executor, topoInfo.get(), resCtxHost, &resCtxSequence, isResourceReused));
+    auto resRet = HcclGetAlgRes(comm, param, executor, topoInfo.get(), resCtxHost, &resCtxSequence, isResourceReused);
+    if (resRet == HCCL_E_UNAVAIL) {
+        CHK_RET(FallbackOp(comm, param, topoInfo, algName, resPack));
+        return HCCL_SUCCESS;
+    } else {
+        CHK_RET(resRet);
+    }
 
     // Op注册
     HcclDfxOpInfo hcclDfxOpInfo{};
@@ -710,7 +794,14 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
     } else if (param.engine == COMM_ENGINE_AIV) {
         CHK_RET(GetAlgResAiv(comm, param, resRequest, topoInfo, algHierarchyInfo, resCtxSequence));
     } else if (param.engine == COMM_ENGINE_CCU) {
-        CHK_RET(GetAlgResCcu(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence, size));
+        // 添加资源回退。SetCommEngine
+        auto ret = GetAlgResCcu(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence, size);
+        if (ret == HCCL_E_UNAVAIL) {
+            HCCL_INFO("[GetAlgResCcu] resource unavailable, try to fallback.");
+            return HCCL_E_UNAVAIL;
+        } else {
+            CHK_RET(ret);
+        }
     } else {
         HCCL_ERROR("fail to get engine.", HCCL_E_PARA);
     }
@@ -1069,7 +1160,11 @@ HcclResult GetAlgResCcu(HcclComm comm, const OpParam& param, AlgResourceRequest&
 
     // 创建资源，并填充到Host内存上
     HcclResult ret = HcclAllocAlgResourceCcu(comm, param, resRequest, resCtxHost);
-    if (ret != HCCL_SUCCESS) {
+    if (ret == HCCL_E_UNAVAIL) {
+        // 进行资源回退
+        HCCL_INFO("[HcclAllocAlgResourceCcu] resource unavailable, try to fallback.");
+        return HCCL_E_UNAVAIL;
+    } else if (ret != HCCL_SUCCESS) {
         HCCL_ERROR("failed to alloc alg resource.");
         return ret;
     }
@@ -1100,8 +1195,25 @@ HcclResult HcclAllocAlgResourceCcu(HcclComm comm, const OpParam& param, AlgResou
     resCtxHost->slaveThreadNum = resRequest.slaveThreadNum;
     resCtxHost->notifyNumPerThread = resRequest.notifyNumPerThread;
     CHK_RET(HcclGetThread(comm, param, resRequest, resCtxHost));
-    CHK_RET(HcclGetChannelForCcu(comm, param, resRequest));
-    CHK_RET(HcclGetCcuKernel(comm, resRequest, resCtxHost));
+    // 资源回退
+    auto ret = HcclGetChannelForCcu(comm, param, resRequest);
+    if (ret == HCCL_E_UNAVAIL) {
+        // 进行资源回退
+        HCCL_INFO("[HcclGetChannelForCcu] channel unavailable, try to fallback.");
+        return HCCL_E_UNAVAIL;
+    } else {
+        CHK_RET(ret);
+    }
+
+    ret = HcclGetCcuKernel(comm, resRequest, resCtxHost);
+    return HCCL_E_UNAVAIL; // stub
+    if (ret == HCCL_E_UNAVAIL) {
+        // 进行资源回退
+        HCCL_INFO("[HcclGetCcuKernel] kernel unavailable, try to fallback.");
+        return HCCL_E_UNAVAIL;
+    } else {
+        CHK_RET(ret);
+    }
     return HCCL_SUCCESS;
 }
 
@@ -1116,8 +1228,15 @@ HcclResult HcclGetChannelForCcu(HcclComm comm, const OpParam &param, AlgResource
         kernelChannels.resize(channelNum);
 
         if (channelNum > 0) {
-            CHK_RET(HcclChannelAcquire(comm, param.engine, kernelChannelRequest.data(),
-                channelNum, kernelChannels.data()));
+            // 需要资源回退。返回资源不够
+            auto ret = HcclChannelAcquire(comm, param.engine, kernelChannelRequest.data(),
+                channelNum, kernelChannels.data());
+            if (ret == HCCL_E_UNAVAIL) {
+                HCCL_INFO("[HcclChannelAcquire] channel unavailable, channel num[%u].", channelNum);
+                return HCCL_E_UNAVAIL;
+            } else {
+                CHK_RET(ret);
+            }
         }
         kernelInfo.kernelArg->channels = kernelChannels;
         HCCL_INFO("[HcclGetChannelForCcu] Get [%lu] channels", channelNum);
@@ -1154,7 +1273,16 @@ HcclResult HcclGetCcuKernel(HcclComm comm, AlgResourceRequest &resRequest,
 
             HCCL_DEBUG("[AllocAlgResource] kernelArgPtr[%p], creator[%p]", kernelArgPtr, &(kernelInfo.creator));
             CcuKernelHandle handle;
-            CHK_RET(HcclCcuKernelRegister(comm, &handle, creatorPtr, kernelArgPtr));
+            
+            auto ret = HcclCcuKernelRegister(comm, &handle, creatorPtr, kernelArgPtr);
+            if (ret == HCCL_E_UNAVAIL) {
+                HCCL_INFO("[HcclCcuKernelRegister] kernel unavailable, group idx[%u], kernel idx[%u].", 
+                          currentResGroup, i);
+                return HCCL_E_UNAVAIL;
+            } else {
+                CHK_RET(ret);
+            }
+            
             resCtxHost->ccuKernels[i] = handle;
         }
         CHK_RET(HcclCcuKernelRegisterFinish(comm));
@@ -1570,6 +1698,7 @@ HcclResult DecideHcclOpExpansionMode(HcclComm comm, HcclOpExpansionMode &finalMo
     if (configOpExpansionMode != finalMode) {
         HCCL_DEBUG("[DecideHcclOpExpansionMode] configOpExpansionMode: %d, environment mode: %d, conflict, use environment mode.",
             configOpExpansionMode, finalMode);
+        finalMode = configOpExpansionMode;
     }
     return HCCL_SUCCESS;
 }
