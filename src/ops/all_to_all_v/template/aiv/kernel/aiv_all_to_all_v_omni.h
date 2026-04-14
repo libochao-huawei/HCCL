@@ -131,10 +131,12 @@ private:
     __aicore__ inline __gm__ T *ResolveSliceAddr(const AivOmniSliceInfo &slice, bool isSrc)
     {
         uint64_t baseAddr = 0;
-        if (slice.sliceType == 0) {
-            baseAddr = (slice.remoteRank == rank_ || isSrc) ? input_ : reinterpret_cast<uint64_t>(GM_IN[slice.remoteRank]);
-        } else if (slice.sliceType == 1) {
-            baseAddr = (slice.remoteRank == rank_ || !isSrc) ? output_ : reinterpret_cast<uint64_t>(GM_IN[slice.remoteRank]);
+        if (slice.sliceType == AIV_OMNI_BUFFER_HCCL) {
+            baseAddr = reinterpret_cast<uint64_t>(GM_IN[slice.remoteRank]);
+        } else if (slice.sliceType == AIV_OMNI_BUFFER_INPUT) {
+            baseAddr = input_;
+        } else if (slice.sliceType == AIV_OMNI_BUFFER_OUTPUT) {
+            baseAddr = output_;
         } else {
             const uint64_t remoteRank = (slice.remoteRank < rankSize_) ? slice.remoteRank : rank_;
             baseAddr = reinterpret_cast<uint64_t>(GM_IN[remoteRank]);

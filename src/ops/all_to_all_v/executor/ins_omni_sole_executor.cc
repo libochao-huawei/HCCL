@@ -17,6 +17,23 @@
 
 
 namespace ops_hccl {
+constexpr uint16_t OMNI_RES_REQUEST_OPCODE = 0;
+constexpr uint16_t OMNI_PRESYNC_OPCODE = 1;
+constexpr uint16_t OMNI_POSTSYNC_OPCODE = 2;
+constexpr uint64_t OMNI_SYNC_INSTRUCTION_BITS = 64;
+
+std::string JoinOmniPath(const std::string &basePath, const std::string &fileName)
+{
+    if (basePath.empty()) {
+        return fileName;
+    }
+    const char lastChar = basePath.back();
+    if (lastChar == '\\' || lastChar == '/') {
+        return basePath + fileName;
+    }
+    const char separator = (basePath.find('\\') != std::string::npos) ? '\\' : '/';
+    return basePath + separator + fileName;
+}
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::InsOmniSoleExecutor()
@@ -98,7 +115,7 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ParseXmlInfo(const
     std::vector<std::string> candidatePaths;
     if (omniBinPath != nullptr && omniBinPath[0] != '\0') {
         candidatePaths.emplace_back(omniBinPath);
-        candidatePaths.emplace_back(std::string(omniBinPath) + "\\rank_" + std::to_string(myRank_) + ".bin");
+        candidatePaths.emplace_back(JoinOmniPath(omniBinPath, "rank_" + std::to_string(myRank_) + ".bin"));
     }
     candidatePaths.emplace_back("rank_" + std::to_string(myRank_) + ".bin");
     candidatePaths.emplace_back("example.bin");
@@ -124,6 +141,8 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ParseXmlInfo(const
     uint64_t offset = 0;
     uint16_t op = ReadBits(file, offset, 8);
     offset += 8;
+    uint16_t slaveThreadNum = ReadBits(file, offset, 8);
+    offset += 8;
     uint16_t notifyNumOnMainThread = ReadBits(file, offset, 8);
     offset += 8;
     uint16_t notifyNumPerThread = ReadBits(file, offset, 8);
@@ -133,6 +152,7 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ParseXmlInfo(const
     uint16_t chanCount = ReadBits(file, offset, 8);
     offset += 8;
     (void)op;
+    xmlInfo.resInfo.slaveThreadNum = slaveThreadNum;
     xmlInfo.resInfo.notifyNumOnMainThread = notifyNumOnMainThread;
     xmlInfo.resInfo.notifyNumPerThread = notifyNumPerThread;
     xmlInfo.resInfo.netLayerNum = netLayer;
@@ -160,8 +180,16 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ParseXmlInfo(const
     xmlInfo.resInfo.mapchannelInfo.push_back(mapChannelInfo);
 
     do {
-        OmniSendRecvInfo omniSendRecvInfo;
         uint16_t opcode = ReadBits(file, offset, 5);
+        if (opcode == OMNI_RES_REQUEST_OPCODE) {
+            break;
+        }
+        if (opcode == OMNI_PRESYNC_OPCODE || opcode == OMNI_POSTSYNC_OPCODE) {
+            offset += OMNI_SYNC_INSTRUCTION_BITS;
+            continue;
+        }
+
+        OmniSendRecvInfo omniSendRecvInfo;
         offset += 5;
         uint16_t linkType = ReadBits(file, offset, 2);
         offset += 2;

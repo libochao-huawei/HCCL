@@ -35,6 +35,12 @@ enum AivOmniOpType : uint32_t {
     AIV_OMNI_OP_GROUP_REDUCE = 15,
 };
 
+enum AivOmniBufferType : uint32_t {
+    AIV_OMNI_BUFFER_HCCL = 0,
+    AIV_OMNI_BUFFER_INPUT = 1,
+    AIV_OMNI_BUFFER_OUTPUT = 2,
+};
+
 struct AivOmniSliceInfo {
     uint64_t sliceType = 0;
     uint64_t sliceIdx = 0;
