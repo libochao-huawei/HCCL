@@ -11,11 +11,46 @@
 #ifndef DLSYM_COMMON_H
 #define DLSYM_COMMON_H
 
-#include "log.h"
+#include "dlog_pub.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#define LOG_FUNC(module, level, fmt, ...) do { \
+    DlogRecord(module, level, fmt, ##__VA_ARGS__); \
+} while (0)
+
+#define HCCL_LOG_PRINT(moduleId, logType, format, ...) do { \
+    LOG_FUNC(moduleId, logType, "[%s:%d] [%u]" format, __FILE__, __LINE__, syscall(SYS_gettid), ##__VA_ARGS__); \
+} while(0)
+
+#define HCCL_RUN_LOG_PRINT(format, ...) do { \
+    LOG_FUNC(HCCL_LOG_MASK, HCCL_LOG_INFO, "[%s:%d] [%u]" format, \
+             __FILE__, __LINE__, syscall(SYS_gettid), ##__VA_ARGS__); \
+} while(0)
+
+/* 预定义日志宏, 便于使用 */
+#define HCCL_DEBUG(format, ...) do { \
+    HCCL_LOG_PRINT(HCCL, HCCL_LOG_DEBUG, format, ##__VA_ARGS__); \
+} while(0)
+
+#define HCCL_INFO(format, ...) do { \
+    HCCL_LOG_PRINT(HCCL, HCCL_LOG_INFO, format, ##__VA_ARGS__); \
+} while(0)
+
+#define HCCL_WARNING(format, ...) do { \
+    HCCL_LOG_PRINT(HCCL, HCCL_LOG_WARN, format, ##__VA_ARGS__); \
+} while(0)
+
+#define HCCL_ERROR(format, ...) do { \
+    HCCL_LOG_PRINT(HCCL, HCCL_LOG_ERROR, format, ##__VA_ARGS__); \
+} while(0)
+
+/* 运行日志 */
+#define HCCL_RUN_INFO(format, ...) do { \
+    HCCL_RUN_LOG_PRINT(format, ##__VA_ARGS__); \
+} while(0)
 
 #define DECL_WEAK_FUNC(type, func_name, ...) \
     type func_name(__VA_ARGS__) __attribute__((weak));
