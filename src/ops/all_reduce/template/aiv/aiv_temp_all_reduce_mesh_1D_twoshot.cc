@@ -113,7 +113,7 @@ HcclResult AivTempAllReduceMesh1DTwoShot::KernelRun(const OpParam& param,
     aivAllReduceArgs.inputRepeatStride = tempAlgParams.inputRepeatStride;
     aivAllReduceArgs.outputRepeatStride = tempAlgParams.outputRepeatStride;
 
-    ExecuteKernelLaunch(aivAllReduceArgs);
+    CHK_RET(ExecuteKernelLaunch(aivAllReduceArgs));
 
     HCCL_INFO("[AivTempAllReduceMesh1DTwoShot] KernelRun finished");
     return HcclResult::HCCL_SUCCESS;

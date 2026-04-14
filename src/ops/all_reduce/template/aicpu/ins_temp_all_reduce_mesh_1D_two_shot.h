@@ -28,6 +28,7 @@ struct SplitSliceInfo {
 
 class InsTempAllReduceMesh1DTwoShot : public InsAlgTemplateBase {
 public:
+    InsTempAllReduceMesh1DTwoShot() = default;
     explicit InsTempAllReduceMesh1DTwoShot(const OpParam& param, const u32 rankId,
         const std::vector<std::vector<u32>> &subCommRanks);
     ~InsTempAllReduceMesh1DTwoShot() override;
@@ -49,7 +50,7 @@ public:
     void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override;
 
     HcclResult KernelRun(const OpParam& param, const TemplateDataParams& tempAlgParams,
-        const TemplateResource& templateResource) override;
+        TemplateResource& templateResource) override;
 
 private:
     HcclResult SplitData();

@@ -22,8 +22,6 @@
 #include "log.h"
 #include "alg_param.h"
 #include "sim_task_queue.h"
-#include "dtype_common_dl.h"
-#include "hccl_dl_stub.h"
 
 using namespace hccl;
 using namespace ops_hccl;
@@ -123,7 +121,7 @@ const char *aclrtGetSocName()
     return "";
 }
 
-static HcclResult hrtGetDeviceTypeStub(DevType &devType)
+HcclResult hrtGetDeviceType(DevType &devType)
 {
     auto npu = HcclSim::SimWorld::Global()->GetSimNpuByRankId(curr_dev_id);
     devType = npu.GetDevType();
@@ -374,10 +372,11 @@ aclError aclmdlRICaptureThreadExchangeMode(aclmdlRICaptureMode *mode)
     return ACL_SUCCESS;
 }
 
-void InitRtDlStubFunc()
+aclError aclrtGetOpTimeOutInterval(uint64_t *interval)
 {
-    hrtGetDeviceTypePtr = hrtGetDeviceTypeStub;
+    return ACL_SUCCESS;
 }
+
 #ifdef __cplusplus
 }
 #endif  // __cplusplus

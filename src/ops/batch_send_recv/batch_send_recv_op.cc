@@ -22,9 +22,6 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 
 HcclResult HcclBatchSendRecv(HcclSendRecvItem *sendRecvInfo, uint32_t itemNum, HcclComm comm, aclrtStream stream)
 {
-    if (!HcclCheckAicpuEnableOpen() && !HcclCheckCcuEnableOpen() && !HcclCheckAivEnableOpen()) {
-        return HcclBatchSendRecvInner(sendRecvInfo, itemNum, comm, stream);
-    }
     HCCL_INFO("Start to run execute HcclBatchSendRecv.");
     if (GetHcommVersion() < 90000000) {
         return HcclBatchSendRecvInner(sendRecvInfo, itemNum, comm, stream);
@@ -66,7 +63,7 @@ HcclResult HcclBatchSendRecv(HcclSendRecvItem *sendRecvInfo, uint32_t itemNum, H
     CHK_RET_AND_PRINT_IDE(BatchSendRecvOutPlace(sendRecvInfo, itemNum, comm, stream, tag),
                           tag.c_str());
 
-    CHK_RET(LogHcclExit("HcclBatchSendRecv", tag, startut));
+    CHK_RET(LogHcclExit("HcclBatchSendRecv", tag.c_str(), startut));
 
     return HCCL_SUCCESS;
 }

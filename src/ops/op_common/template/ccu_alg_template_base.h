@@ -11,14 +11,13 @@
 #ifndef HCCL_CCU_ALG_TEMPLATE_BASE
 #define HCCL_CCU_ALG_TEMPLATE_BASE
 
-#include "template_utils.h"
-#include "alg_param.h"
+#include "common_alg_template_base.h"
 
 namespace ops_hccl {
 
 constexpr uint32_t CCU_DIE_NUM_MAX_2 = 2;
 
-class CcuAlgTemplateBase {
+class CcuAlgTemplateBase : public CommonAlgTemplateBase {
 public:
     explicit CcuAlgTemplateBase();
     explicit CcuAlgTemplateBase(const OpParam& param, const u32 rankId, // 传通信域的rankId，userRank
@@ -26,18 +25,19 @@ public:
 
     virtual ~CcuAlgTemplateBase();
 
-    virtual std::string Describe() const = 0;
+    virtual std::string Describe() const override = 0;
 
     virtual HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
-                               AlgResourceRequest& resourceRequest);
+                               AlgResourceRequest& resourceRequest) override;
     virtual HcclResult KernelRun(const OpParam& param,
                                  const TemplateDataParams& templateDataParams,
-                                 const TemplateResource& templateResource);
+                                 TemplateResource& templateResource) override;
+    virtual HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx) override;
                                  
-    virtual HcclResult GetRes(AlgResourceRequest& resourceRequest) const;
-    virtual u64 GetThreadNum() const;
+    virtual HcclResult GetRes(AlgResourceRequest& resourceRequest) const override;
+    virtual u64 GetThreadNum() const override;
 
-    virtual u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType);
+    virtual u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
 
     uint64_t PointerToAddr(void* pointer) const;
     
@@ -57,6 +57,14 @@ protected:
     std::vector<std::vector<u32>> subCommRanks_;
     HcclResult RestoreChannelMap(const std::vector<HcclChannelDesc>& channelDescs,
                                  std::map<u32, std::vector<HcclChannelDesc>>& rankIdToChannelDesc) const;
+                        
+    HcclResult SelectChannelToVec(const HcclComm comm, const u32 myRankId, const u32 rmtRankId,
+        const std::map<u32, std::vector<HcclChannelDesc>> &rankIdToChannelDesc, const u32 dieId, 
+        std::map<u32, u32>& rank2ChannelIdx, std::vector<HcclChannelDesc>& channels);
+    
+    HcclResult GetDieInfoFromChannelDescs(HcclComm comm, 
+        const std::map<u32, std::vector<HcclChannelDesc>> &rankIdToChannelDesc, 
+        u32 myRankId, uint32_t &dieNum, uint32_t &dieId);
 };
 }
 #endif // HCCLV2_CCU_ALG_TEMPLATE_BASE

@@ -21,6 +21,7 @@ using RankGroup = std::vector<RankId>;
 
 class CcuTempAllToAllMesh2Die : public CcuAlgTemplateBase{
 public:
+     CcuTempAllToAllMesh2Die() = default;
      CcuTempAllToAllMesh2Die(const OpParam &param, RankId rankId, const std::vector<std::vector<u32>> &subCommRanks);
      ~CcuTempAllToAllMesh2Die() override;
 
@@ -33,7 +34,7 @@ public:
         AlgResourceRequest &resourceRequest) override;
 
     HcclResult KernelRun(const OpParam &param, const TemplateDataParams &templateDataParams,
-        const TemplateResource &templateResource) override;
+        TemplateResource& templateResource) override;
 
 private:
     HcclResult PartitionChannels(HcclComm comm, const std::vector<HcclChannelDesc> &channelDescs);

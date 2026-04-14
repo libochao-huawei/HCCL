@@ -115,7 +115,7 @@ HcclResult AivTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
     aivAlltoAllVArgs.inputRepeatStride = tempAlgParams.inputRepeatStride;
     aivAlltoAllVArgs.outputRepeatStride = tempAlgParams.outputRepeatStride;
 
-    ExecuteKernelLaunch(aivAlltoAllVArgs);
+    CHK_RET(ExecuteKernelLaunch(aivAlltoAllVArgs));
 
     HCCL_INFO("[AivTempAlltoAllVMesh1D] KernelRun finished");
     return HcclResult::HCCL_SUCCESS;

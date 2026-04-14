@@ -20,9 +20,9 @@
 #include "hccl_common.h"
 #include "hccl_types.h"
 #include "alg_type.h"
-#include "hccl_res_dl.h"
+#include "hccl_res.h"
 #include "hcomm_primitives_dl.h"
-#include "hccl_rank_graph_dl.h"
+#include "hccl_rank_graph.h"
 #include "binary_stream.h"
 #include "hccl_ccu_res.h"
 
@@ -32,7 +32,7 @@ constexpr uint64_t UB_MAX_DATA_SIZE = 256*1024*1024; // Byte, UB协议一次传�
 
 constexpr uint32_t DATATYPE_SIZE_TABLE[HCCL_DATA_TYPE_RESERVED] = {sizeof(int8_t), sizeof(int16_t), sizeof(int32_t),
     2, sizeof(float), sizeof(int64_t), sizeof(uint64_t), sizeof(uint8_t), sizeof(uint16_t), sizeof(uint32_t),
-    8, 2, 16, 2, 1, 1, 1, 1, 1};
+    8, 2, 16, 2, 1, 1, 1, 1};
 
 constexpr u32 COMM_INDENTIFIER_MAX_LENGTH = 128;
 constexpr uint32_t OP_NAME_LENGTH = 32;
@@ -43,6 +43,7 @@ constexpr uint32_t MAX_TAG_LENGTH = 255;
 constexpr uint32_t AICPU_CONTROL_NOTIFY_NUM = 2;
 constexpr uint32_t MAX_MEM_TAG_LENGTH = OP_ALG_LENGTH + 32;
 constexpr uint32_t RES_PACK_TAG_LENGTH = 255;
+constexpr uint32_t MAX_TEMP_NUM_IN_ALGO = 8; // 单个算法中最大template数量
 
 // 是否再拆分一个comm头文件
 constexpr u32 LOCAL_NOTIFY_IDX_ZERO = 0;
@@ -58,6 +59,8 @@ constexpr u32 ALG_MAX_LENGTH = 128;
 constexpr u64 ALL_TO_ALL_V_VECTOR_NUM = 4;
 constexpr u64 REDUCE_SCATTER_V_VECTOR_NUM = 2;
 constexpr u64 ALL_GATHER_V_VECTOR_NUM = 2;
+
+constexpr uint64_t GE_PARALLEL = 36;
 
 enum class TopoType {
     TOPO_TYPE_COMMON = 0,           // 普通拓扑类型 ，default单层拓扑使用
@@ -253,6 +256,48 @@ struct CcuKernelInfo {
     std::vector<HcclChannelDesc> channels;
 };
 
+// 算法taskArg入参最大个数，用于快速下发缓存
+#define CCU_MAX_TASK_ARG_NUM 30
+
+struct CcuKernelSubmitInfo {
+    CcuKernelHandle kernelHandle;
+    uint64_t cachedArgs[CCU_MAX_TASK_ARG_NUM];
+};
+
+// ccu快速下发上下文
+struct CcuFastLaunchCtx {
+    char algName[OP_ALG_LENGTH];
+    u32 threadNum;
+    u32 ccuKernelNum[MAX_TEMP_NUM_IN_ALGO];  // 每次调用template的KernelRun下发的kernel数量
+    // 紧接ThreadHandle数组
+    // 紧接CcuKernelSubmitInfo数组
+
+    ThreadHandle *GetThreadHandlePtr() const
+    {
+        size_t offset = offsetof(CcuFastLaunchCtx, ccuKernelNum)
+                        + sizeof(u32) * MAX_TEMP_NUM_IN_ALGO;
+        return reinterpret_cast<ThreadHandle*>(
+                    reinterpret_cast<char*>(const_cast<CcuFastLaunchCtx*>(this)) + offset
+                );
+    }
+    CcuKernelSubmitInfo *GetCcuKernelSubmitInfoPtr() const
+    {
+        size_t offset = offsetof(CcuFastLaunchCtx, ccuKernelNum)
+                        + sizeof(u32) * MAX_TEMP_NUM_IN_ALGO 
+                        + sizeof(ThreadHandle) * threadNum;
+        return reinterpret_cast<CcuKernelSubmitInfo*>(
+                    reinterpret_cast<char*>(const_cast<CcuFastLaunchCtx*>(this)) + offset
+                );
+    }
+
+    static u64 GetCtxSize(u32 threadNum, u32 totalCcuKernelNum)
+    {
+        return sizeof(CcuFastLaunchCtx) 
+               + sizeof(ThreadHandle) * threadNum 
+               + sizeof(CcuKernelSubmitInfo) * totalCcuKernelNum;
+    }
+};
+
 // A5用了cntNotify
 struct AlgResourceRequest {
     u32 notifyNumOnMainThread = 0;
@@ -398,6 +443,7 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     void* hcclComm;
     char tag[TAG_LENGTH]; // 保存topoInfo的key值
     char algTag[ALG_TAG_LENGTH]; // 保存资源的key值，和算法绑定
+    char fastLaunchTag[ALG_TAG_LENGTH]; // 快速下发的key值
     char commName[COMM_INDENTIFIER_MAX_LENGTH];
     char commModeTag[TAG_LENGTH]; // 保存与执行模式相关的资源信息的key值
     aclrtStream stream;
@@ -405,8 +451,10 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     u64 inputSize = 0;
     void* outputPtr = nullptr;
     u64 outputSize = 0;
+    HcclMem hcclBuff;   // 当前仅快速下发时使用此处的地址
     HcclReduceOp reduceType = HcclReduceOp::HCCL_REDUCE_RESERVED;
     u32 root = INVALID_VALUE_RANKID;
+    u32 userRank = INVALID_VALUE_RANKID;
     u32 sendRecvRemoteRank = INVALID_VALUE_RANKID;
     OpMode opMode;
     bool   enableDetour{false};
@@ -460,6 +508,8 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     u64 ctxSize = 0;
     void* resCtx = nullptr;
     ThreadHandle opThread = 0;
+    u32 aicpuRecordCpuIdx = 0; // aicpu record host的notifyIdx
+    u32 dataCount = 0; // 算子上报dfx的数据量
     u64 varMemSize{0};
     u8 varData[0];
 };
@@ -503,6 +553,19 @@ struct HcomProInfo {
 // 图模式编译阶段资源计算入参
 struct OpParamGraphMode {
     char opType[64]; // 算子类型
+    u64 dataCount;
+    u32 rankSize;
+    u64 hcclBufferSize;
+    // Aiv参数
+    s64 comm;
+    char group[MAX_LENGTH];
+    u64 count = 0;
+    void* counts = nullptr;
+    HcclDataType dataType = HCCL_DATA_TYPE_RESERVED;
+    HcclReduceOp op = HcclReduceOp::HCCL_REDUCE_RESERVED;
+    HcclCMDType opTypeAiv = HcclCMDType::HCCL_CMD_INVALID;
+    u32 aivCoreLimit = 0;
+    bool ifAiv = false;
 };
 
 // 图模式编译阶段申请资源
@@ -519,6 +582,12 @@ struct ResPackGraphMode {
     std::vector<aclrtStream> streams;
     void* scratchMemAddr;
     u64 scratchMemSize;
+};
+
+// AIV模式参数存储结构
+struct AivParamStorage {
+    u32 aivCoreLimit = 0;
+    bool aivClearEnable = false;
 };
 
 } 

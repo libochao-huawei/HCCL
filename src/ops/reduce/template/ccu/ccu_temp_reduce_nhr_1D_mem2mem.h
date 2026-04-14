@@ -19,6 +19,7 @@ namespace ops_hccl {
 
 class CcuTempReduceNHR1DMem2Mem : public CcuAlgTemplateBase {
 public:
+    CcuTempReduceNHR1DMem2Mem() = default;
     explicit  CcuTempReduceNHR1DMem2Mem(const OpParam& param,
                                         const u32 rankId, // 传通信域的rankId，userRank
                                         const std::vector<std::vector<u32>> &subCommRanks);
@@ -39,7 +40,8 @@ public:
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
     HcclResult KernelRun(const OpParam& param,
                          const TemplateDataParams& templateDataParams,
-                         const TemplateResource& templateResource) override;
+                         TemplateResource& templateResource) override;
+    HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx) override;
 
 private:
     uint32_t mySubCommRank_ = 0;

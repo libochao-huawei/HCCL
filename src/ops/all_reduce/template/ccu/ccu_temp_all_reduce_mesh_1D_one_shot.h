@@ -20,6 +20,7 @@ namespace ops_hccl {
 
 class CcuTempAllReduceMesh1DOneShot : public CcuAlgTemplateBase {
 public:
+    CcuTempAllReduceMesh1DOneShot() = default;
     explicit CcuTempAllReduceMesh1DOneShot(const OpParam& param, 
                                            const u32 rankId, // 传通信域的rankId，userRank
                                            const std::vector<std::vector<u32>> &subCommRanks);
@@ -30,8 +31,9 @@ public:
 
     HcclResult KernelRun(const OpParam& param,
                         const TemplateDataParams& templateDataParams,
-                        const TemplateResource& templateResource) override;
-
+                        TemplateResource& templateResource) override;
+    HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx) override;
+    
     std::string Describe() const override
     {
         return StringFormat("Template of CcuTempAllReduceMesh1DOneShot subCommRanks_[0].size() [%u].", subCommRanks_[0].size());

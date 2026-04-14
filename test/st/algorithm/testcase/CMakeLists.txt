@@ -14,7 +14,6 @@ set(src_list
     all_reduce_testcase.cc
     all_reduce_parallel_testcase.cc
     all_gather_aicpu_testcase.cc
-    all_gather_v_testcase.cc
     reduce_scatter_aicpu_testcase.cc
 )
 
@@ -63,6 +62,7 @@ if (BUILD_OPEN_PROJECT)
         hccl-verifier
         # 链接hccl库
         ${ASCEND_HOME_PATH}/lib64/libhccl.so
+        -ldl
     )
 
     target_compile_options(hccl_checker_ops_stest PRIVATE

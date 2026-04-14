@@ -21,6 +21,7 @@
 #include "workflow.h"
 #include "sal.h"
 #include "executor_base.h"
+#include "template_utils.h"
 
 namespace ops_hccl {
 
@@ -40,10 +41,20 @@ public:
 
     // device
     virtual HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) = 0;
+    
+    virtual HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *resCtx);
+    
+    HcclResult SetTempFastLaunchAddr(TemplateFastLaunchCtx &tempFastLaunchCtx, 
+                            void* inputPtr, void* outputPtr, const HcclMem &hcclBuff) const;
 
     HcclResult RestoreChannelMap(const AlgResourceCtxSerializable &resCtx,
                                  std::vector<std::map<u32, std::vector<ChannelInfo>>> &rankIdToChannelInfo) const;
 
+#ifndef AICPU_COMPILE
+    HcclResult FastLaunchSaveCtxTwoTemplate(const OpParam &param, const u32 threadNum, const u32 ccuKernelNum, 
+                                            const std::vector<ThreadHandle> &threads_, const std::vector<u32> &ccuKernelNumList, 
+                                            const std::vector<std::vector<CcuKernelSubmitInfo>> &submitInfosList);
+#endif
 protected:
     // CollAlg base params
     u32           myRank_   = INVALID_VALUE_RANKID;
