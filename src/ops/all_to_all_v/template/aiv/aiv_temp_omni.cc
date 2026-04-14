@@ -143,8 +143,11 @@ HcclResult AivTempOmni::BuildInstructionBuffer(HcclComm comm, const OpParam& par
 HcclResult AivTempOmni::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
     AlgResourceRequest& resourceRequest, const XmlInfo& xmlInfo)
 {
-    resourceRequest.slaveThreadNum = 0;
-    resourceRequest.notifyNumOnMainThread = 0;
+    resourceRequest.slaveThreadNum = xmlInfo.resInfo.slaveThreadNum;
+    resourceRequest.notifyNumOnMainThread = xmlInfo.resInfo.notifyNumOnMainThread;
+    resourceRequest.notifyNumPerThread.assign(xmlInfo.resInfo.notifyNumPerThread, 1);
+    numBlocks_ = std::max<u32>(1, xmlInfo.resInfo.blockNumAiv);
+    numBlocks_ = std::min<u32>(numBlocks_, MAX_NUM_BLOCKS);
 
     std::vector<HcclChannelDesc> channelDescs;
     CHK_RET(CalcChannelRequestOmni(comm, param, topoInfo, subCommRanks_, xmlInfo.resInfo.mapchannelInfo, channelDescs));

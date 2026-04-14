@@ -78,6 +78,7 @@ struct ResInfo {
     uint32_t notifyNumOnMainThread;
     uint32_t notifyNumPerThread;
     uint32_t netLayerNum;
+    uint32_t blockNumAiv = 1;
     std::vector<std::map<u32, OmniChannelInfo>> mapchannelInfo; // netlayer<dstrankid, channelinfo>
 };
 

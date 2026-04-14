@@ -151,11 +151,21 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ParseXmlInfo(const
     offset += 8;
     uint16_t chanCount = ReadBits(file, offset, 8);
     offset += 8;
+    uint16_t blockNumAiv = 1;
+    if (param.engine == CommEngine::COMM_ENGINE_AIV && chanCount > 0) {
+        const uint16_t firstByte = ReadBits(file, offset, 8);
+        const uint16_t thirdByte = ReadBits(file, offset + 16, 8);
+        if (thirdByte == myRank_ && firstByte > 0) {
+            blockNumAiv = firstByte;
+            offset += 8;
+        }
+    }
     (void)op;
     xmlInfo.resInfo.slaveThreadNum = slaveThreadNum;
     xmlInfo.resInfo.notifyNumOnMainThread = notifyNumOnMainThread;
     xmlInfo.resInfo.notifyNumPerThread = notifyNumPerThread;
     xmlInfo.resInfo.netLayerNum = netLayer;
+    xmlInfo.resInfo.blockNumAiv = blockNumAiv;
 
     std::map<u32, OmniChannelInfo> mapChannelInfo;
     for (uint16_t i = 0; i < chanCount; i++) {
