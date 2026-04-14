@@ -216,7 +216,7 @@ SelectorStatus ReduceScatterAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetL
         } else if (topoInfo->Level0Nhr) {
             selectAlgName = "InsReduceScatterNHR"; // InsReduceScatterParallelNHRNHR备用
         } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer.at(0) > 1 && topoInfo->level0Topo == Level0Shape::MESH_1D) {
-            selectAlgName = "InsReduceScatterParallelMesh1DNHR";
+            selectAlgName = "InsV2ReduceScatterOmniPipe";
         } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer.at(0) == 1 || topoInfo->level0Topo == Level0Shape::CLOS) {
             selectAlgName = "InsReduceScatterNHR"; // InsReduceScatterParallelNHRNHR备用
         } else {
@@ -301,9 +301,15 @@ SelectorStatus ReduceScatterAutoSelector::SelectDPUAlgo(const TopoInfoWithNetLay
     HCCL_INFO("topoInfo->topoLevelNums is %u, topoInfo->level0Topo is %u", topoInfo->topoLevelNums, topoInfo->level0Topo);
     (void)configAlgMap;
     if (topoInfo->topoLevelNums > 1) {
-        selectAlgName = "InsReduceScatterSequenceMeshMeshDPU";
-        HCCL_INFO("Using algo InsReduceScatterSequenceMeshMeshDPU");
-        return SelectorStatus::MATCH;
+        if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+            selectAlgName = "InsV2ReduceScatterOmniPipe";
+            HCCL_INFO("Using algo InsV2ReduceScatterOmniPipe");
+            return SelectorStatus::MATCH;
+        } else {
+            selectAlgName = "InsReduceScatterSequenceMeshMeshDPU";
+            HCCL_INFO("Using algo InsReduceScatterSequenceMeshMeshDPU");
+            return SelectorStatus::MATCH;
+        }
     }
 
     return SelectorStatus::NOT_MATCH;

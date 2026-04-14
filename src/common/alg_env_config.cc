@@ -96,6 +96,102 @@ HcclResult ParseExecTimeout()
     return HCCL_SUCCESS;
 }
 
+HcclResult ParseBandWidthL0()
+{
+    char* p = getenv("HCCL_BW_L0");
+    if (p == nullptr) {
+        g_algEnvConfig.hccl_bw_L0 = HCCL_BW_DEFAULT;
+        return HCCL_SUCCESS;
+    }
+    std::string bwEnv(p);
+    if (!IsValidTimeoutFormat(bwEnv)) {
+        HCCL_WARNING("[ParseBandWidthL0] HCCL_BW_L0[%s] format is invalid, use default.",
+            bwEnv.c_str());
+        g_algEnvConfig.hccl_bw_L0 = HCCL_BW_DEFAULT;
+        return HCCL_E_PARA;
+    }
+
+    double bw = 0;
+    if (SalStrToDouble(bwEnv, bw) != HCCL_SUCCESS) {
+        HCCL_WARNING("[ParseBandWidthL0] HCCL_BW_L0[%s] parse failed, use default.",
+            bwEnv.c_str());
+        g_algEnvConfig.hccl_bw_L0 = HCCL_BW_DEFAULT;
+        return HCCL_E_PARA;
+    }
+    g_algEnvConfig.hccl_bw_L0 = bw;
+    HCCL_WARNING("[ParseBandWidthL0] hccl_bw_L0[%f]", g_algEnvConfig.hccl_bw_L0);
+    return HCCL_SUCCESS;
+}
+
+HcclResult ParseBandWidthL1()
+{
+    char* p = getenv("HCCL_BW_L1");
+    if (p == nullptr) {
+        g_algEnvConfig.hccl_bw_L1 = HCCL_BW_DEFAULT;
+        return HCCL_SUCCESS;
+    }
+    std::string bwEnv(p);
+    if (!IsValidTimeoutFormat(bwEnv)) {
+        HCCL_WARNING("[ParseBandWidthL1] HCCL_BW_L1[%s] format is invalid, use default.",
+            bwEnv.c_str());
+        g_algEnvConfig.hccl_bw_L1 = HCCL_BW_DEFAULT;
+        return HCCL_E_PARA;
+    }
+
+    double bw = 0;
+    if (SalStrToDouble(bwEnv, bw) != HCCL_SUCCESS) {
+        HCCL_WARNING("[ParseBandWidthL1] HCCL_BW_L1[%s] parse failed, use default.",
+            bwEnv.c_str());
+        g_algEnvConfig.hccl_bw_L1 = HCCL_BW_DEFAULT;
+        return HCCL_E_PARA;
+    }
+    g_algEnvConfig.hccl_bw_L1 = bw;
+    HCCL_WARNING("[ParseBandWidthL1] hccl_bw_L1[%f]", g_algEnvConfig.hccl_bw_L1);
+    return HCCL_SUCCESS;
+}
+
+HcclResult ParseBandWidthL2()
+{
+    char* p = getenv("HCCL_BW_L2");
+    if (p == nullptr) {
+        g_algEnvConfig.hccl_bw_L2 = HCCL_BW_DEFAULT;
+        return HCCL_SUCCESS;
+    }
+    std::string bwEnv(p);
+    if (!IsValidTimeoutFormat(bwEnv)) {
+        HCCL_WARNING("[ParseBandWidthL2] HCCL_BW_L2[%s] format is invalid, use default.",
+            bwEnv.c_str());
+        g_algEnvConfig.hccl_bw_L2 = HCCL_BW_DEFAULT;
+        return HCCL_E_PARA;
+    }
+
+    double bw = 0;
+    if (SalStrToDouble(bwEnv, bw) != HCCL_SUCCESS) {
+        HCCL_WARNING("[ParseBandWidthL2] HCCL_BW_L2[%s] parse failed, use default.",
+            bwEnv.c_str());
+        g_algEnvConfig.hccl_bw_L2 = HCCL_BW_DEFAULT;
+        return HCCL_E_PARA;
+    }
+    g_algEnvConfig.hccl_bw_L2 = bw;
+    HCCL_WARNING("[ParseBandWidthL2] hccl_bw_L2[%f]", g_algEnvConfig.hccl_bw_L2);
+    return HCCL_SUCCESS;
+}
+
+double GetExternalInputBandWidthLevel0(){
+    std::lock_guard<std::mutex> lock(g_algEnvConfigMutex);
+    return g_algEnvConfig.hccl_bw_L0;
+}
+
+double GetExternalInputBandWidthLevel1(){
+    std::lock_guard<std::mutex> lock(g_algEnvConfigMutex);
+    return g_algEnvConfig.hccl_bw_L1;
+}
+
+double GetExternalInputBandWidthLevel2(){
+    std::lock_guard<std::mutex> lock(g_algEnvConfigMutex);
+    return g_algEnvConfig.hccl_bw_L2;
+}
+
 bool GetExternalInputExecTimeout(double &execTimeOut)
 {
     std::lock_guard<std::mutex> lock(g_algEnvConfigMutex);
@@ -196,6 +292,11 @@ HcclResult InitEnvConfig()
     CHK_PRT_RET(ret != HCCL_SUCCESS,
         HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse HCCL_EXEC_TIMEOUT failed. "
             "errorno[%d]", HCCL_ERROR_CODE(ret), ret), ret);
+            
+    // 解析执行超时
+    ret = ParseBandWidthL0();
+    ret = ParseBandWidthL1();    
+    ret = ParseBandWidthL2();
 
     // 解析算法配置
     ret = ParseHcclAlgo();
@@ -985,4 +1086,6 @@ bool RunIndependentOpExpansion(DevType deviceType)
     }
     return false;
 }
+
+
 }  // namespace ops_hccl

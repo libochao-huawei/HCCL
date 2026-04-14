@@ -1,0 +1,137 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+#include "ins_temp_all_gather_omnipipe_mesh_1D.h"
+#include <sstream>
+#include "alg_data_trans_wrapper.h"
+#include "template_utils.h"
+
+namespace ops_hccl {
+InsTempAllGatherOmniPipeMesh1D::InsTempAllGatherOmniPipeMesh1D(const OpParam& param,
+                                                               const u32 rankId,  // 传通信域的rankId，userRank
+                                                               const std::vector<std::vector<u32>>& subCommRanks)
+    : InsTempAllGatherMesh1D(param, rankId, subCommRanks)
+{
+}
+InsTempAllGatherOmniPipeMesh1D::~InsTempAllGatherOmniPipeMesh1D()
+{
+}
+
+HcclResult InsTempAllGatherOmniPipeMesh1D::KernelRun(const OpParam& param, const TemplateDataParams& tempAlgParams,
+                                                     TemplateResource& templateResource)
+{
+    HCCL_INFO("[InsTempAllGatherOmniPipeMesh1D] Run start");
+    if (templateRankSize_ == 1) {
+        return HcclResult::HCCL_SUCCESS;
+    }
+    threadNum_ = templateResource.threads.size();
+    tempAlgParams_ = tempAlgParams;
+    HCCL_DEBUG("[InsTempAllGatherOmniPipeMesh1D] Rank [%d], get threadNum_[%d].", myRank_, threadNum_);
+
+    if (threadNum_ > 1) {
+        std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+        GetNotifyIdxMainToSub(notifyIdxMainToSub_);
+        CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub_));
+    }
+
+    CHK_RET(RunAllGatherMesh(templateResource.threads, templateResource.channels));
+
+    if (threadNum_ > 1) {
+        std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+        GetNotifyIdxSubToMain(notifyIdxSubToMain_);
+        CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain_));
+    }
+    HCCL_INFO("[InsTempAllGatherOmniPipeMesh1D] Run End");
+    return HcclResult::HCCL_SUCCESS;
+}
+
+// 当前仅支持strach->strach
+HcclResult InsTempAllGatherOmniPipeMesh1D::RunAllGatherMesh(const std::vector<ThreadHandle>& threads,
+                                                            const std::map<u32, std::vector<ChannelInfo>>& channels)
+{
+    HCCL_INFO("[InsTempAllGatherOmniPipeMesh1D] RunAllGatherMesh RankIDs[%d].", myRank_);
+
+    u32 myAlgRank = 0;
+    CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], myAlgRank));
+
+    for (u32 threadIdx = 0; threadIdx < subCommRanks_[0].size() - 1; threadIdx++) {
+        u32 connectedRank = subCommRanks_[0][(myAlgRank + 1 + threadIdx) % subCommRanks_[0].size()];
+        u32 connectedAlgRank = 0;
+        CHK_RET(GetAlgRank(connectedRank, subCommRanks_[0], connectedAlgRank));
+        HCCL_INFO("[InsTempAllGatherOmniPipeMesh1D] RunAllGatherMesh RankIDs[%d], connectedRank[%d], "
+                    "connectedAlgRank[%d].",
+                    myRank_, connectedRank, connectedAlgRank);
+
+        // 异常检查
+        CHK_PRT_RET(threadIdx >= threads.size() || !channels.count(connectedRank),
+                    HCCL_ERROR("[InsTempAllGatherOmniPipeMesh1D][RankID]=%u threadIdx=%u, threads.size=%u, "
+                                "connectedRank=%d, channels.size=%u",
+                                myRank_, threadIdx, threads.size(), connectedRank, channels.size()),
+                    HcclResult::HCCL_E_INTERNAL);
+
+        ThreadHandle currQue = threads[threadIdx];
+        // 预留兼容offload模式
+        const ChannelInfo& linkRemote = channels.at(connectedRank)[0];
+        void* remoteCclBuffAddr = linkRemote.remoteCclMem.addr;
+        std::vector<DataSlice> txSrcSlices;
+        std::vector<DataSlice> txDstSlices;
+        std::vector<DataSlice> rxSrcSlices;
+        std::vector<DataSlice> rxDstSlices;
+
+        void* txSrcPtr = tempAlgParams_.buffInfo.hcclBuff.addr;
+        void* txDstPtr = remoteCclBuffAddr;
+        void* rxSrcPtr = remoteCclBuffAddr;
+        void* rxDstPtr = tempAlgParams_.buffInfo.hcclBuff.addr;
+        for (u32 rpt = 0; rpt < tempAlgParams_.stepSliceInfo.inputOmniPipeSliceStride[myAlgRank].size(); ++rpt) {
+            u64 rxBaseOff = tempAlgParams_.buffInfo.outBuffBaseOff +
+                            tempAlgParams_.stepSliceInfo.outputOmniPipeSliceStride[connectedAlgRank][rpt];
+            u64 txBaseOff = tempAlgParams_.buffInfo.inBuffBaseOff +
+                            tempAlgParams_.stepSliceInfo.inputOmniPipeSliceStride[myAlgRank][rpt];
+
+            u64 txOffset = tempAlgParams_.stepSliceInfo.stepInputSliceStride[myAlgRank] + txBaseOff;
+            u64 rxOffset = tempAlgParams_.stepSliceInfo.stepOutputSliceStride[connectedAlgRank] + rxBaseOff;
+
+            // write模式使用tx,rx地址不生效，仅使用对端link做Post/Wait
+            // read 模式使用rx, tx地址不生效，仅使用对端link做Post/Wait
+            DataSlice txSrcSlice =
+                DataSlice(txSrcPtr, txOffset, tempAlgParams_.stepSliceInfo.stepSliceSize[myAlgRank][rpt],
+                        tempAlgParams_.stepSliceInfo.stepCount[myAlgRank][rpt]);  // 本地(send)
+            DataSlice txDstSlice =
+                DataSlice(txDstPtr, txOffset, tempAlgParams_.stepSliceInfo.stepSliceSize[myAlgRank][rpt],
+                        tempAlgParams_.stepSliceInfo.stepCount[myAlgRank][rpt]);  // 远程(send)
+            // read模式使用rx
+            DataSlice rxDstSlice =
+                DataSlice(rxDstPtr, rxOffset, tempAlgParams_.stepSliceInfo.stepSliceSize[connectedAlgRank][rpt],
+                        tempAlgParams_.stepSliceInfo.stepSliceSize[connectedAlgRank][rpt]);  // 本地(recv)
+            DataSlice rxSrcSlice = 
+                DataSlice(rxSrcPtr, rxOffset, tempAlgParams_.stepSliceInfo.stepSliceSize[connectedAlgRank][rpt],
+                        tempAlgParams_.stepSliceInfo.stepSliceSize[connectedAlgRank][rpt]);  // 远程(recv)
+            rxSrcSlices.push_back(rxSrcSlice);
+            rxDstSlices.push_back(rxDstSlice);
+            txSrcSlices.push_back(txSrcSlice);
+            txDstSlices.push_back(txDstSlice);
+        }
+        TxRxSlicesList sendRecvSlicesList({txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices});
+        TxRxChannels sendRecvChannels(linkRemote, linkRemote);
+        SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
+
+        if (tempAlgParams_.stepSliceInfo.isFirstStep) {
+            CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[threadIdx]),
+                        HCCL_ERROR("[InsTempAllGatherOmniPipeMesh1D] RunAllGather Send failed"),
+                        HcclResult::HCCL_E_INTERNAL);
+        } else {
+            CHK_PRT_RET(SendRecvWriteWithoutPreSync(sendRecvInfo, threads[threadIdx]),
+                    HCCL_ERROR("[InsTempAllGatherOmniPipeMesh1D] RunAllGather Send failed"),
+                    HcclResult::HCCL_E_INTERNAL);
+        }
+    }
+    return HcclResult::HCCL_SUCCESS;
+}
+}  // namespace ops_hccl

@@ -21,11 +21,17 @@ HcclResult RecvWrite(const DataInfo &recvInfo, const ThreadHandle &thread);
 
 HcclResult SendRecvWrite(const SendRecvInfo &sendRecvInfo, const ThreadHandle &thread);
 
+HcclResult SendRecvWriteWithPreSync(const SendRecvInfo &sendRecvInfo, const ThreadHandle &thread);
+
+HcclResult SendRecvWriteWithoutPreSync(const SendRecvInfo &sendRecvInfo, const ThreadHandle &thread);
+
 HcclResult SendWriteReduce(const DataReduceInfo &sendInfo, const ThreadHandle &thread);
 
 HcclResult RecvWriteReduce(const DataReduceInfo &recvInfo, const ThreadHandle &thread);
 
 HcclResult SendRecvWriteReduce(const SendRecvReduceInfo &sendRecvInfo, const ThreadHandle &thread);
+
+HcclResult SendRecvWriteReduceWithoutPreSync(const SendRecvReduceInfo &sendRecvInfo, const ThreadHandle &thread);
 
 HcclResult SendRead(const DataInfo &sendInfo, const ThreadHandle &thread);
 

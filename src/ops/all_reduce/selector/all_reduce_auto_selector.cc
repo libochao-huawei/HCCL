@@ -277,7 +277,7 @@ SelectorStatus AllReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayer
         } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] == 1) {
             selectAlgName = "InsAllReduceNHR";
         } else if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-            selectAlgName = "InsAllReduceParallelRSAG";
+            selectAlgName = "InsV2AllReduceOmniPipe";
         } else {
             return SelectorStatus::NOT_MATCH;
         }
@@ -418,6 +418,10 @@ SelectorStatus AllReduceAutoSelector::SelectDPUAlgo(const TopoInfoWithNetLayerDe
         if ((topoInfo->deviceNumPerModule == 1) || (topoInfo->level0Topo == Level0Shape::MESH_1D)) {
             selectAlgName = "InsAllReduceSequenceMeshNhrDPU";//对应executor最后register的第二个参数
             HCCL_INFO("Using algo InsAllReduceSequenceMeshNhrDPU");
+            return SelectorStatus::MATCH;
+        } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+            selectAlgName = "InsV2AllReduceOmniPipe";
+            HCCL_INFO("Using algo InsV2AllReduceOmniPipe");
             return SelectorStatus::MATCH;
         }
     }
