@@ -41,6 +41,7 @@ set_target_properties(hccl_custom_allgather_batch PROPERTIES LINKER_LANGUAGE CXX
 
 target_sources(hccl_custom_allgather_batch PRIVATE
     all_gather_batch.cc
+    host_utils.cc
     launch_kernel.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/../op_kernel/ccu_kernel_all_gather_batch_mesh1d.cc
     ${HCCL_REPO_ROOT}/src/ops/op_common/template/ccu/ccu_kernel_alg_base.cc

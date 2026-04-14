@@ -5,6 +5,10 @@ project(hccl_custom_allgather_batch_test LANGUAGES CXX)
 find_package(MPI REQUIRED)
 
 add_executable(test_custom_allgather_batch main.cc)
+add_executable(test_custom_allgather_batch_host_ut
+    host_ut.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/../op_host/host_utils.cc
+)
 
 if(NOT DEFINED ASCEND_CANN_PACKAGE_PATH)
     set(ASCEND_CANN_PACKAGE_PATH "/usr/local/Ascend/ascend-toolkit/latest")
@@ -15,6 +19,11 @@ target_include_directories(test_custom_allgather_batch PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../inc
     ${ASCEND_CANN_PACKAGE_PATH}/include
     ${MPI_CXX_INCLUDE_PATH}
+)
+
+target_include_directories(test_custom_allgather_batch_host_ut PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../inc
+    ${ASCEND_CANN_PACKAGE_PATH}/include
 )
 
 target_link_directories(test_custom_allgather_batch PRIVATE
@@ -32,6 +41,15 @@ target_compile_definitions(test_custom_allgather_batch PRIVATE
     _GLIBCXX_USE_CXX11_ABI=0
 )
 
+target_compile_definitions(test_custom_allgather_batch_host_ut PRIVATE
+    _GLIBCXX_USE_CXX11_ABI=0
+    HOST_COMPILE
+)
+
 target_compile_options(test_custom_allgather_batch PRIVATE
+    -std=c++17
+)
+
+target_compile_options(test_custom_allgather_batch_host_ut PRIVATE
     -std=c++17
 )

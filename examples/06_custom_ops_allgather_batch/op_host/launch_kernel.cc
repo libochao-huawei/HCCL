@@ -13,6 +13,7 @@
 #include <memory>
 
 #include "ccu_kernel_all_gather_batch_mesh1d.h"
+#include "host_utils.h"
 #include "hccl_res_dl.h"
 #include <hccl_ccu_res.h>
 #include <hccl_rank_graph.h>
@@ -51,11 +52,6 @@ HcclResult BuildChannelRequests(HcclComm comm, uint32_t rank, uint32_t rankSize,
         }
     }
     return HCCL_SUCCESS;
-}
-
-uint64_t GetSliceSizeBytes(const HcclAllGatherItem &item)
-{
-    return item.sendCount * static_cast<uint64_t>(GetDataTypeSize(item.dataType));
 }
 
 uint64_t GetToken(const HcclAllGatherItem &item)
