@@ -209,7 +209,7 @@ HcclResult InsTempAllReduceAicpuReduceNHR::RunReduce(const std::map<u32, std::ve
 
     CHK_RET(static_cast<HcclResult>(HcommBatchModeEnd(algTag.c_str())));
     CHK_RET(static_cast<HcclResult>(HcommBatchModeStart(algTag.c_str())));
-    CHK_RET(static_cast<HcclResult>(HcommThreadJoin(thread_, CUSTOM_TIMEOUT)));
+    CHK_RET(static_cast<HcclResult>(HcommThreadJoin(thread_, GetCurrentOpExecTimeout())));
 
     for (u32 idx = 0; idx < subCommRanks_.at(0).size(); ++idx) {
         if (idx == myRank_) {

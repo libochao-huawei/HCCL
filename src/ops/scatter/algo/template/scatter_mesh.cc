@@ -110,7 +110,8 @@ HcclResult ScatterMesh::RunSendScatter(const u32 dstRank, const Slice &slice, st
         }
     } else { // root rank给其他rank进行数据发送
         // 接收目的rank的同步信号，便可进行下一轮发送
-        CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(thread_, channels[dstRank].handle, NOTIFY_IDX_ACK, CUSTOM_TIMEOUT)));
+        CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(thread_, channels[dstRank].handle,
+            NOTIFY_IDX_ACK, GetCurrentOpExecTimeout())));
         CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread_, channels[dstRank].handle, NOTIFY_IDX_DATA_SIGNAL)));
     }
     return HCCL_SUCCESS;
@@ -128,7 +129,8 @@ HcclResult ScatterMesh::RunRecvScatter(const u32 srcRank, const Slice &slice, st
 
     // 向root节点发送tx同步,rxmem可用
     CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread_, channels[srcRank].handle, NOTIFY_IDX_ACK)));
-    CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(thread_, channels[srcRank].handle, NOTIFY_IDX_DATA_SIGNAL, CUSTOM_TIMEOUT)));
+    CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(thread_, channels[srcRank].handle,
+        NOTIFY_IDX_DATA_SIGNAL, GetCurrentOpExecTimeout())));
 
     void* src = static_cast<void *>(static_cast<s8 *>(channels[srcRank].remoteInput.addr) + slice.offset + baseOffset_);
     void* dst = static_cast<void *>(static_cast<s8 *>(outputMem_.addr) + slice.offset);

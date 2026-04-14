@@ -1,0 +1,216 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "cmake: configure ide-host",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "--preset",
+        "ide-host"
+      ],
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "cmake: configure pkg-host",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "--preset",
+        "pkg-host"
+      ],
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "cmake: build pkg-host",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "--build",
+        "--preset",
+        "build-pkg-host",
+        "--parallel",
+        "8"
+      ],
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "hccl: build --pkg (preset pipeline)",
+      "type": "shell",
+      "command": "echo",
+      "args": [
+        "Running pkg preset pipeline"
+      ],
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "cmake: configure ide-host",
+        "cmake: configure pkg-host",
+        "cmake: build pkg-host"
+      ],
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "cmake: configure full-device",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "--preset",
+        "full-device"
+      ],
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "cmake: build full-device",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "--build",
+        "--preset",
+        "build-full-device",
+        "--parallel",
+        "8"
+      ],
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "hccl: build --full (preset pipeline)",
+      "type": "shell",
+      "command": "echo",
+      "args": [
+        "Running full preset pipeline"
+      ],
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "cmake: configure full-device",
+        "cmake: build full-device",
+        "cmake: configure pkg-host",
+        "cmake: build pkg-host"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "cmake: configure ut",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "--preset",
+        "ut"
+      ],
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "cmake: build ut",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "--build",
+        "--preset",
+        "build-ut",
+        "--parallel",
+        "8"
+      ],
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "hccl: build --ut (preset)",
+      "type": "shell",
+      "command": "echo",
+      "args": [
+        "Running ut preset pipeline"
+      ],
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "cmake: configure ut",
+        "cmake: build ut"
+      ],
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "cmake: configure st",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "--preset",
+        "st"
+      ],
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "cmake: build st",
+      "type": "shell",
+      "command": "cmake",
+      "args": [
+        "--build",
+        "--preset",
+        "build-st",
+        "--parallel",
+        "8"
+      ],
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "hccl: build --st (preset)",
+      "type": "shell",
+      "command": "echo",
+      "args": [
+        "Running st preset pipeline"
+      ],
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "cmake: configure st",
+        "cmake: build st"
+      ],
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "hccl: build.sh --ut --st --pkg --full (legacy)",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "./build.sh",
+        "--ut",
+        "--st",
+        "--pkg",
+        "--full"
+      ],
+      "group": "build",
+      "problemMatcher": [
+        "$gcc"
+      ]
+    }
+  ]
+}

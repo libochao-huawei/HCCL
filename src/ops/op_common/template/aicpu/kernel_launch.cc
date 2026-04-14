@@ -320,6 +320,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             HCCL_ERROR("failed to restore optype [%d] data and counts.", param->opType);
             return 1;
         }
+        SetCurrentOpExecTimeout(param->execTimeout);
         // 获取Device测主thread
         ThreadHandle thread = resCtx.threads[0];
         if (HcommBatchModeStart(param->algTag) != HCCL_SUCCESS) {
@@ -352,9 +353,10 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
                 maxNotifyNum = resCtx.notifyNumPerThread[i];
             }
         }
+        u32 execTimeout = GetCurrentOpExecTimeout();
         HCCL_DEBUG("[%s]Notify wait on thread[%llu], maxNotifyNum[%u], timeout[%u]", __func__, thread,
-            maxNotifyNum, CUSTOM_TIMEOUT);
-        CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(thread, maxNotifyNum, CUSTOM_TIMEOUT)));
+            maxNotifyNum, execTimeout);
+        CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(thread, maxNotifyNum, execTimeout)));
 
         std::shared_ptr<InsCollAlgBase> executor = CollAlgExecRegistryV2::Instance().GetAlgExec(param->opType, algName);
         if (executor.get() == nullptr) {
@@ -396,6 +398,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             return 1;
         }
         AlgResourceCtx *resCtx = reinterpret_cast<AlgResourceCtx *>(param->resCtx);
+        SetCurrentOpExecTimeout(param->execTimeout);
         // 获取Device测主thread
         ThreadHandle *threadHandlePtr =
             reinterpret_cast<ThreadHandle *>(reinterpret_cast<u8 *>(resCtx) + sizeof(AlgResourceCtx));
@@ -407,6 +410,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             return 1;
         }
 
+        u32 execTimeout = GetCurrentOpExecTimeout();
         if (exportedAicpuTsThread != 0) {
             if (HcommProfilingInit(threadHandlePtr, resCtx->slaveThreadNum + 1) != HCCL_SUCCESS) {
                 HCCL_ERROR("failed to init Profiling");
@@ -424,10 +428,10 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
                 __func__,
                 thread,
                 notifyNumOnMainThread,
-                CUSTOM_TIMEOUT);
-            CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(thread, notifyNumOnMainThread, CUSTOM_TIMEOUT)));
+                execTimeout);
+            CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(thread, notifyNumOnMainThread, execTimeout)));
         } else {
-            if (HcommAclrtNotifyWaitOnThread(thread, resCtx->notifyIds[0], CUSTOM_TIMEOUT) != HCCL_SUCCESS) {
+            if (HcommAclrtNotifyWaitOnThread(thread, resCtx->notifyIds[0], execTimeout) != HCCL_SUCCESS) {
                 HCCL_ERROR("failed to wait notify[%d] from host main stream", resCtx->notifyIds[0]);
                 return 1;
             }
