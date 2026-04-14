@@ -152,7 +152,7 @@ HcclResult ParseBandWidthL1()
 
 HcclResult ParseBandWidthL2()
 {
-    char* bwEnv = getenv("HCCL_BW_L2");
+    char* p = getenv("HCCL_BW_L2");
     if (bwEnv == nullptr) {
         g_algEnvConfig.hccl_bw_L2 = HCCL_BW_DEFAULT;
         return HCCL_SUCCESS;
