@@ -77,10 +77,6 @@ private:
     std::vector<u32> virtRanks_;
     std::array<std::map<u32, u32>, dataSplitPart_> virtRankMap_;
 
-    ThreadHandle mainThread_;
-    std::vector<ThreadHandle> templateMainThreads_;
-    std::vector<u32> syncNotifyOnTemplates_;
-    std::vector<u32> syncNotifyOnMain_;
     std::vector<ThreadHandle> intraThreads_;
     std::vector<ThreadHandle> interThreads_;
 
