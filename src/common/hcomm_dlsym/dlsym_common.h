@@ -12,6 +12,7 @@
 #define DLSYM_COMMON_H
 
 #include <sys/syscall.h>
+#include <unistd.h>
 #include "dlog_pub.h"
 
 #ifdef __cplusplus
