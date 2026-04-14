@@ -15,6 +15,8 @@
 #include <memory>
 #include <cstdlib>  // 包含getenv函数
 #include <cstring>  // 包含strcmp函数
+#include <limits>
+#include <cmath>
 #include <stdexcept>
 #include <hccl/hccl_types.h>
 #include <hccl/hccl_comm.h>
@@ -52,6 +54,68 @@ thread_local std::map<std::string, HcclMemHandle> g_memHandleCache; // 当前AIV
 thread_local std::map<std::string, std::unique_ptr<AlgResourceCtxSerializable>> g_hostCtx;
 thread_local std::map<AivOpCacheArgs, std::shared_ptr<InsQueue>> g_hcclCacheMap;
 constexpr u32 HOST_WAIT_AICPU_NOTIFYIDX = 0;// host主流wait aicpu流的notify idx
+
+namespace {
+u32 GetExecTimeoutFallback(const CommEngine engine)
+{
+    return engine == CommEngine::COMM_ENGINE_AIV ?
+        AICPU_NOTIFY_AIV_DEFAULT_WAIT_TIMEOUT : AICPU_NOTIFY_DEFAULT_WAIT_TIMEOUT;
+}
+
+HcclResult GetExecTimeoutForEngine(const CommEngine engine, u32 &timeout)
+{
+    double execTimeOut = 0;
+    const u32 fallbackTimeout = GetExecTimeoutFallback(engine);
+    if (!GetExternalInputExecTimeout(execTimeOut)) {
+        timeout = fallbackTimeout;
+        HCCL_WARNING("[GetExecTimeoutForEngine] failed to get parsed exec timeout for engine[%d], fallback to default[%u]s.",
+            static_cast<int>(engine), timeout);
+        return HCCL_SUCCESS;
+    }
+    if (execTimeOut < 0 || execTimeOut > static_cast<double>(std::numeric_limits<u32>::max())) {
+        HCCL_WARNING("[GetExecTimeoutForEngine] execTimeOut[%.2f] out of u32 range for engine[%d], use default[%u].",
+            execTimeOut, static_cast<int>(engine), fallbackTimeout);
+        timeout = fallbackTimeout;
+        return HCCL_SUCCESS;
+    }
+
+    if (engine == CommEngine::COMM_ENGINE_AIV && execTimeOut > 0) {
+        timeout = static_cast<u32>(std::ceil(execTimeOut));
+    } else {
+        timeout = static_cast<u32>(execTimeOut);
+    }
+    HCCL_INFO("[GetExecTimeoutForEngine] engine[%d], timeout[%u]s, execTimeOut[%.2f]s.",
+        static_cast<int>(engine), timeout, execTimeOut);
+    return HCCL_SUCCESS;
+}
+
+HcclResult GetAicpuExecTimeout(u32 &timeout)
+{
+    return GetExecTimeoutForEngine(CommEngine::COMM_ENGINE_AICPU_TS, timeout);
+}
+
+HcclResult InitOpExecTimeoutFor950(OpParam &param)
+{
+    u32 timeout = 0;
+    CHK_RET(GetExecTimeoutForEngine(param.engine, timeout));
+    param.execTimeout = timeout;
+    SetCurrentOpExecTimeout(timeout);
+    HCCL_INFO("[InitOpExecTimeoutFor950] engine[%d], execTimeout[%u]s.",
+        static_cast<int>(param.engine), param.execTimeout);
+    return HCCL_SUCCESS;
+}
+
+u16 GetAicpuLaunchTimeout(const OpParam &param)
+{
+    u32 timeout = param.execTimeout;
+    if (timeout > static_cast<u32>(std::numeric_limits<u16>::max())) {
+        HCCL_WARNING("[GetAicpuLaunchTimeout] timeout[%u] exceeds max[%u], clamp.", timeout,
+            static_cast<u32>(std::numeric_limits<u16>::max()));
+        return std::numeric_limits<u16>::max();
+    }
+    return static_cast<u16>(timeout);
+}
+}
 
 // 检查非对称拓扑支持情况
 // 仅 AllGather, AllReduce, ReduceScatter 支持跨框非对称拓扑，其他算子拦截
@@ -382,6 +446,14 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
         CHK_RET(HcclThreadExportToCommEngine(comm, 1, &cpuTsThread, COMM_ENGINE_AICPU_TS, &exportedAicpuTsThread));
     }
 
+#ifdef MACRO_DEV_TYPE_NEW
+    if (param.deviceType == DevType::DEV_TYPE_950) {
+#else
+    if (param.deviceType == DevType::DEV_TYPE_910_95) {
+#endif
+        CHK_RET(InitOpExecTimeoutFor950(param));
+    }
+
     CHK_RET(HcclGetAlgRes(comm, param, executor, topoInfo.get(), resCtxHost, &resCtxSequence, isResourceReused));
 
     // Op注册
@@ -470,6 +542,7 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
     // 当前aicpu launch接口只能有一个输入参数，将Context指针放在param参数中
     param.resCtx = resCtxSequence;
     param.aicpuRecordCpuIdx = HOST_WAIT_AICPU_NOTIFYIDX;
+    CHK_RET(GetAicpuExecTimeout(param.execTimeout));
     // 将算法名字放在param参数中
     int result = sprintf_s(param.algName, sizeof(param.algName), "%s", algName.c_str());
     if (result <= 0) {
@@ -497,8 +570,8 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
         return ret;
     }
     // Host stream等待Device的通知
-    u16 NOTIFY_WAIT_TIME = 27 * 68;
-    CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, param.aicpuRecordCpuIdx, NOTIFY_WAIT_TIME)));
+    u32 notifyWaitTime = param.execTimeout;
+    CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, param.aicpuRecordCpuIdx, notifyWaitTime)));
 
     return HCCL_SUCCESS;
 }
@@ -529,12 +602,11 @@ HcclResult AicpuKernelLaunch(HcclComm comm, OpParam &param, ThreadHandle unfoldT
     CHK_PRT_RET(ret != ACL_SUCCESS,
         HCCL_ERROR("[aclrtKernelArgsFinalize]errNo[0x%016llx] args finalize failed, kernelName:%s",
             ret, kernelName.c_str()), HCCL_E_RUNTIME);
-    // notifywait默认1836等待时长
-    u16 NOTIFY_DEFAULT_WAIT_TIME = 27 * 68;
+    u16 notifyDefaultWaitTime = GetAicpuLaunchTimeout(param);
     aclrtLaunchKernelCfg cfg;
     aclrtLaunchKernelAttr attr;
     attr.id = ACL_RT_LAUNCH_KERNEL_ATTR_TIMEOUT;
-    attr.value.timeout = NOTIFY_DEFAULT_WAIT_TIME;
+    attr.value.timeout = notifyDefaultWaitTime;
     cfg.numAttrs = 1;
     cfg.attrs = &attr;
     constexpr u32 numBlocks = 1;
@@ -1330,11 +1402,12 @@ HcclResult CheckDataType(const HcclDataType dataType, bool needReduce)
     } else {
         if ((dataType >= HCCL_DATA_TYPE_RESERVED) || (dataType < HCCL_DATA_TYPE_INT8) ||
             (dataType == HCCL_DATA_TYPE_INT128)) {
+            std::string supportDataType = GetSupportDataType(needReduce);
             RPT_INPUT_ERR(true, "EI0003", infoTitle, std::vector<std::string>({"CheckDataType", GetDataTypeEnumStr(dataType), "dataType",
-                GetSupportDataType(needReduce).c_str()}));
+                supportDataType}));
             HCCL_ERROR("[Check][DataType]errNo[0x%016llx] data type[%s] not supported, support range=[%s]",
                         HCCL_ERROR_CODE(HCCL_E_NOT_SUPPORT), GetDataTypeEnumStr(dataType).c_str(),
-                        GetSupportDataType(needReduce));
+                        supportDataType.c_str());
             return HCCL_E_NOT_SUPPORT;
         }
     }

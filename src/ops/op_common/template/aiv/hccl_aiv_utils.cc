@@ -25,6 +25,7 @@ using namespace ops_hccl;
 
 namespace ops_hccl {
 constexpr u32 SIG_MOVE_LEFT_BITS = 20;
+constexpr u32 AIV_TIMEOUT_DEFAULT_US = AICPU_NOTIFY_AIV_DEFAULT_WAIT_TIMEOUT * TIME_S_TO_US;
 
 constexpr u32 AIV_BUFFER_PING_PONG_FACTOR = 2;
 
@@ -58,26 +59,27 @@ static u32 GetAivTimeout()
 {
     double execTimeOut = 0;
     if (!GetExternalInputExecTimeout(execTimeOut)) {
-        return CUSTOM_TIMEOUT * TIME_S_TO_US;
+        HCCL_WARNING("[GetAivTimeout] failed to get parsed exec timeout, use default[%u]us.", AIV_TIMEOUT_DEFAULT_US);
+        return AIV_TIMEOUT_DEFAULT_US;
     }
     
-    u32 timeout = CUSTOM_TIMEOUT * TIME_S_TO_US;
+    u32 timeout = AIV_TIMEOUT_DEFAULT_US;
     double timeoutUs = execTimeOut * TIME_S_TO_US;
     if (timeoutUs > static_cast<double>(std::numeric_limits<s32>::max())) {
         HCCL_WARNING("[GetAivTimeout]Get input timeout[%.2f] is out of valid range.", timeoutUs);
-        return CUSTOM_TIMEOUT * TIME_S_TO_US;
+        return AIV_TIMEOUT_DEFAULT_US;
     }
 
     u32 timeoutUsInt = static_cast<u32>(timeoutUs);
     if (timeoutUsInt == 0) {
-        timeoutUsInt = CUSTOM_TIMEOUT * TIME_S_TO_US;
+        timeoutUsInt = AIV_TIMEOUT_DEFAULT_US;
     }
 
     u64 minNpuSchedTimeout = 0;
     u64 maxNpuSchedTimeout = 0;
     if (GetMinAndMaxNpuSchedTimeOut(minNpuSchedTimeout, maxNpuSchedTimeout) != HCCL_SUCCESS) {
-        HCCL_WARNING("[GetAivTimeout] get npu sched timeout range failed, use default[%u]us.", CUSTOM_TIMEOUT * TIME_S_TO_US);
-        return CUSTOM_TIMEOUT * TIME_S_TO_US;
+        HCCL_WARNING("[GetAivTimeout] get npu sched timeout range failed, use default[%u]us.", AIV_TIMEOUT_DEFAULT_US);
+        return AIV_TIMEOUT_DEFAULT_US;
     }
 
     timeout = (timeoutUsInt < minNpuSchedTimeout) ? minNpuSchedTimeout

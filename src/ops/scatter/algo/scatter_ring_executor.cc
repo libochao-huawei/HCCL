@@ -239,7 +239,8 @@ HcclResult ScatterRingExecutor::MultiRingScatter(HcclMem inputMem, HcclMem outpu
 
         if (ringIndex != (ringNum - 1)) {  // 0~ringNum-2的环
             // 从环等主环通知开始
-            CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(slaveThreads_[ringIndex], LOCAL_NOTIFY_IDX_ZERO, CUSTOM_TIMEOUT)));
+            CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(slaveThreads_[ringIndex],
+                LOCAL_NOTIFY_IDX_ZERO, GetCurrentOpExecTimeout())));
 
             ret = tempAlg->Prepare(inputMem, inputMem, outputMem, count, dataType,
                 slaveThreads_[ringIndex], HCCL_REDUCE_RESERVED, rankOrder[rootRank], singleRingSlice,
@@ -268,7 +269,8 @@ HcclResult ScatterRingExecutor::MultiRingScatter(HcclMem inputMem, HcclMem outpu
 
             for (u32 ring = 0; ring < (ringNum - 1); ring++) {
                 // 主环等所有从环结束
-                CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(thread_, ring, CUSTOM_TIMEOUT)));
+                CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(thread_, ring,
+                    GetCurrentOpExecTimeout())));
             }
         }
     }

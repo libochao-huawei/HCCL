@@ -123,7 +123,7 @@ HcclResult AivAlgTemplateBase::PreSync(const u32 queIdx, const std::vector<Threa
         // Semaphore Wait
         // 从流等待主流通知
         CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(currThread, LOCAL_NOTIFY_IDX_ZERO,
-                                                                          CUSTOM_TIMEOUT)));
+                                                                          GetCurrentOpExecTimeout())));
     }
 
     return HcclResult::HCCL_SUCCESS;
@@ -136,7 +136,8 @@ HcclResult AivAlgTemplateBase::PostSync(const u32 queIdx, const std::vector<Thre
         // Semaphore Wait
         for (u32 qidx = 0; qidx < threads.size() - 1; qidx++) {
             // 主流等待所有从流通知
-            CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(threads[qidx], qidx, CUSTOM_TIMEOUT)));
+            CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(threads[qidx], qidx,
+                GetCurrentOpExecTimeout())));
         }
     } else {
         // Semaphore Post
