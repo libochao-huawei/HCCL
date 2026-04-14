@@ -1119,7 +1119,15 @@ HcclResult HcclGetChannelForCcu(HcclComm comm, const OpParam &param, AlgResource
             CHK_RET(HcclChannelAcquire(comm, param.engine, kernelChannelRequest.data(),
                 channelNum, kernelChannels.data()));
         }
-        kernelInfo.kernelArg->channels = kernelChannels;
+        auto* kernelArgBase = static_cast<CcuKernelArgBase*>(kernelInfo.kernelArg);
+        if (!kernelArgBase) {
+            HCCL_ERROR("[HcclGetChannelForCcu] kernelArg ptr is err.");
+            return HCCL_E_INTERNAL;
+        }
+        for (u32 i = 0; i < channelNum; ++i) {
+            kernelArgBase->channels[i] = kernelChannels[i];
+        }
+        kernelArgBase->channelCount = channelNum;
         HCCL_INFO("[HcclGetChannelForCcu] Get [%lu] channels", channelNum);
     }
     return HCCL_SUCCESS;
@@ -1147,8 +1155,13 @@ HcclResult HcclGetCcuKernel(HcclComm comm, AlgResourceRequest &resRequest,
     u32 currentResGroup = 0;
     u32 maxResGroup = 0;
     resCtxHost->ccuKernels.resize(totalKernelNum);
-    
-    CHK_RET(HcommCcuKernelRegisterStart(insHandle));
+
+    CcuResult regStartRet = HcommCcuKernelRegisterStart(insHandle);
+    if (regStartRet != CCU_SUCCESS) {
+        HCCL_ERROR("ccu kernel register start failed: ccuRet -> %d", regStartRet);
+        return ConvertCcuToHccl(regStartRet);
+    }
+
     while (currentResGroup <= maxResGroup) {
         for (u32 i = 0; i < totalKernelNum; i++) {
             CcuKernelInfo& kernelInfo = resRequest.ccuKernelInfos[i];
@@ -1161,11 +1174,21 @@ HcclResult HcclGetCcuKernel(HcclComm comm, AlgResourceRequest &resRequest,
 
             HCCL_DEBUG("[HcclGetCcuKernel] kernelFuncName[%s]", kernelInfo.kernelFuncName);
             CcuKernelHandle kernelHandle;
- 	        CHK_RET(HcommCcuKernelRegister(insHandle, kernelInfo.kernelFuncName,
-                kernelInfo.kernelFunc, kernelInfo.kernelArg, &kernelHandle));
+            // TODO x30067372 kernelFunc CCU_CHK_RET
+            CcuResult regRet = HcommCcuKernelRegister(insHandle, kernelInfo.kernelFuncName,
+                                                      reinterpret_cast<void*>(kernelInfo.kernelFunc),
+                                                      kernelInfo.kernelArg, &kernelHandle);
+            if (regRet != CCU_SUCCESS) {
+                HCCL_ERROR("ccu kernel register failed: ccuRet -> %d", regRet);
+                return ConvertCcuToHccl(regRet);
+            }
             resCtxHost->ccuKernels[i] = kernelHandle;
         }
-        CHK_RET(HcommCcuKernelRegisterEnd(insHandle));
+        CcuResult regEndRet = HcommCcuKernelRegisterEnd(insHandle);
+        if (regEndRet != CCU_SUCCESS) {
+            HCCL_ERROR("ccu kernel register end failed: ccuRet -> %d", regEndRet);
+            return ConvertCcuToHccl(regEndRet);
+        }
         currentResGroup++;
     }
     resCtxHost->ccuKernelNum = resRequest.ccuKernelNum;
