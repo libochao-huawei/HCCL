@@ -221,12 +221,26 @@ HcclResult HcclAllocOpResCtx(HcclComm comm, const std::string &ctxTag, const std
     return HCCL_SUCCESS;
 }
 
-HcclResult PrepareParamForAllGather(const std::string &tag, const Mc2CcTilingInner *ccTiling, OpParam &param)
+//AllToAll适配AllToAllV
+HcclResult ConvertAlltoAllParam(const u64 recvCount, const u32 rankSize, std::vector<u64> &sdispls, std::vector<u64> &rdispls)
 {
-    HCCL_INFO("PrepareParamForAllGather, ccTiling[%p]", ccTiling);
-  
-    param.opMode = OpMode::OPBASE;
+    // std::vector<u64> sdispls(rankSize, 0);
+    // std::vector<u64> rdispls(rankSize, 0);
+    // std::vector<u64> sendCounts(rankSize, recvCount);
+    // std::vector<u64> recvCounts(rankSize, recvCount);
+    // CHK_RET(ConvertAlltoAllParam(recvCount, rankSize, sdispls, rdispls));
+    u64 dataCountOffset = 0;
+    for (u64 i = 0; i < rankSize; i++) {
+        sdispls[i] = dataCountOffset;
+        rdispls[i] = dataCountOffset;
+        dataCountOffset += recvCount;
+    }
+    return HCCL_SUCCESS;
+}
 
+HcclResult PrepareOpsCommParam(const std::string &tag, OpParam &param)
+{
+    param.opMode = OpMode::OPBASE;
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
 
@@ -237,58 +251,182 @@ HcclResult PrepareParamForAllGather(const std::string &tag, const Mc2CcTilingInn
         return HCCL_E_INTERNAL;
     }
 
-    // 参数准备
-    param.inputPtr = 0;
+    param.inputPtr = nullptr;
+    param.outputPtr = nullptr;
     param.inputSize = 0;
-    param.outputPtr = 0;
     param.outputSize = 0;
-    param.DataDes.count = 0;
-    param.DataDes.dataType = static_cast<HcclDataType>(ccTiling->srcDataType);
-    param.opType = HcclCMDType::HCCL_CMD_ALLGATHER;
     param.enableDetour = false;
     param.deviceType = deviceType;
+
     return HCCL_SUCCESS;
 }
 
-HcclResult PrepareParamForAllReduce(const std::string &tag, const Mc2CcTilingInner *ccTiling, OpParam &param)
+HcclResult PrintOpsCommParam(OpParam &param)
+{
+    HCCL_INFO("commName: %s",param.commName);
+    HCCL_INFO("tag:%s",param.tag);
+    HCCL_INFO("stream: %p",param.stream);
+    HCCL_INFO("inputPtr %p", param.inputPtr);
+    HCCL_INFO("outputPtr %p", param.outputPtr);
+    HCCL_INFO("inputSize %lu", param.inputSize);
+    HCCL_INFO("outputSize %lu", param.outputSize);
+    HCCL_INFO("opMode %u", static_cast<uint32_t>(param.opMode));
+    HCCL_INFO("deviceType %u", static_cast<uint32_t>(param.deviceType));
+    return HCCL_SUCCESS;
+}
+
+HcclResult PrepareParamForAllGather(HcclComm comm, const std::string &tag, const Mc2CcTilingInner *ccTiling, OpParam &param)
+{
+    HCCL_INFO("PrepareParamForAllGather, ccTiling[%p]", ccTiling);
+    u32 userRankSize;
+    CHK_RET(HcclGetRankSize(comm, &userRankSize));                      // 加上，后面计算outputSize可能使用
+
+    HcclResult ret = PrepareOpsCommParam(tag, param);
+    if (ret != HCCL_SUCCESS) {
+        HCCL_ERROR("failed to fill OpsCommParam");
+    }
+
+    param.opType = HcclCMDType::HCCL_CMD_ALLGATHER;
+    param.DataDes.dataType = static_cast<HcclDataType>(ccTiling->srcDataType);
+    param.DataDes.count = 0;
+
+    HCCL_INFO("Print PrepareParamForAllGather.");
+    CHK_RET(PrintOpsCommParam(param));
+    HCCL_INFO("opType %u", static_cast<uint32_t>(param.opType));
+    HCCL_INFO("DataDes.dataType %u", static_cast<uint32_t>(param.DataDes.dataType));
+    HCCL_INFO("DataDes.count %lu",param.DataDes.count);
+    HCCL_INFO("Execute PrepareParamForAllGather success.");
+    return HCCL_SUCCESS;
+}
+
+HcclResult PrepareParamForAllReduce(HcclComm comm, const std::string &tag, const Mc2CcTilingInner *ccTiling, OpParam &param)
 {
     HCCL_INFO("PrepareParamForAllReduce, ccTiling[%p]", ccTiling);
+    u32 userRankSize;
+    CHK_RET(HcclGetRankSize(comm, &userRankSize));                      // 加上，后面计算outputSize可能使用
+   
+    HcclResult ret = PrepareOpsCommParam(tag, param);
+    if (ret != HCCL_SUCCESS) {
+        HCCL_ERROR("failed to fill OpsCommParam");
+    }
+
+    param.opType = HcclCMDType::HCCL_CMD_ALLREDUCE;
+    param.reduceType = static_cast<HcclReduceOp>(ccTiling->reduceType);
+    param.DataDes.dataType = static_cast<HcclDataType>(ccTiling->srcDataType);
+    param.DataDes.count = 0;
+
+    HCCL_INFO("Print PrepareParamForAllReduce.");
+    CHK_RET(PrintOpsCommParam(param));
+    HCCL_INFO("opType %u", static_cast<uint32_t>(param.opType));
+    HCCL_INFO("reduceType %u", static_cast<uint32_t>(param.reduceType));
+    HCCL_INFO("DataDes.dataType %u", static_cast<uint32_t>(param.DataDes.dataType));
+    HCCL_INFO("DataDes.count %lu",param.DataDes.count);
+    HCCL_INFO("Execute PrepareParamForAllReduce success.");
     return HCCL_SUCCESS;
 }
 
-HcclResult PrepareParamForReduceScatter(const std::string &tag, const Mc2CcTilingInner *ccTiling, OpParam &param)
+HcclResult PrepareParamForReduceScatter(HcclComm comm, const std::string &tag, const Mc2CcTilingInner *ccTiling, OpParam &param)
 {
     HCCL_INFO("PrepareParamForReduceScatter, ccTiling[%p]", ccTiling);
+    u32 userRankSize;
+    CHK_RET(HcclGetRankSize(comm, &userRankSize));                      // 加上，后面计算outputSize可能使用
+    
+    HcclResult ret = PrepareOpsCommParam(tag, param);
+    if (ret != HCCL_SUCCESS) {
+        HCCL_ERROR("failed to fill OpsCommParam");
+    }
+
+    param.opType = HcclCMDType::HCCL_CMD_REDUCE_SCATTER;
+    param.reduceType = static_cast<HcclReduceOp>(ccTiling->reduceType);
+    param.DataDes.dataType = static_cast<HcclDataType>(ccTiling->srcDataType); 
+    param.DataDes.count = 0;
+
+    HCCL_INFO("Print PrepareParamForReduceScatter.");
+    CHK_RET(PrintOpsCommParam(param));
+    HCCL_INFO("opType %u", static_cast<uint32_t>(param.opType));
+    HCCL_INFO("reduceType %u", static_cast<uint32_t>(param.reduceType));
+    HCCL_INFO("DataDes.dataType %u", static_cast<uint32_t>(param.DataDes.dataType));
+    HCCL_INFO("DataDes.count %lu",param.DataDes.count);
+    HCCL_INFO("Execute PrepareParamForReduceScatter success.");
     return HCCL_SUCCESS;
 }
 
-HcclResult PrepareParamForAlltoAll(const std::string &tag, const Mc2CcTilingInner *ccTiling, OpParam &param)
+HcclResult PrepareParamForAlltoAll(HcclComm comm, const std::string &tag, const Mc2CcTilingInner *ccTiling, OpParam &param)
 {
     HCCL_INFO("PrepareParamForAlltoAll, ccTiling[%p]", ccTiling);
+    u32 userRankSize;
+    CHK_RET(HcclGetRankSize(comm, &userRankSize));                      
+    
+    HcclResult ret = PrepareOpsCommParam(tag, param);
+    if (ret != HCCL_SUCCESS) {
+        HCCL_ERROR("failed to fill OpsCommParam");
+    }
+
+    u64 varMemSize = ALL_TO_ALL_V_VECTOR_NUM * userRankSize * sizeof(u64);
+    param.varMemSize = varMemSize;
+    param.opType = HcclCMDType::HCCL_CMD_ALLTOALL;
+    param.all2AllVDataDes.sendType = static_cast<HcclDataType>(ccTiling->srcDataType);
+    param.all2AllVDataDes.recvType = static_cast<HcclDataType>(ccTiling->dstDataType);
+    param.all2AllVDataDes.sendCounts = nullptr;
+    param.all2AllVDataDes.recvCounts = nullptr;
+    param.all2AllVDataDes.sdispls = nullptr;
+    param.all2AllVDataDes.rdispls = nullptr;
+
+    HCCL_INFO("Print PrepareParamForAlltoAll.");
+    CHK_RET(PrintOpsCommParam(param));
+    HCCL_INFO("varMemSize %lu", param.varMemSize);
+    HCCL_INFO("opType %u", static_cast<uint32_t>(param.opType));
+    HCCL_INFO("all2AllVDataDes.sendType %u", static_cast<uint32_t>(param.all2AllVDataDes.sendType));
+    HCCL_INFO("all2AllVDataDes.recvType %u", static_cast<uint32_t>(param.all2AllVDataDes.recvType));
+    HCCL_INFO("Execute PrepareParamForAlltoAll success.");
     return HCCL_SUCCESS;
 }
 
-HcclResult PrepareParamForAlltoAllV(const std::string &tag, const Mc2CcTilingInner *ccTiling, OpParam &param)
+HcclResult PrepareParamForAlltoAllV(HcclComm comm, const std::string &tag, const Mc2CcTilingInner *ccTiling, OpParam &param)
 {
     HCCL_INFO("PrepareParamForAlltoAllV, ccTiling[%p]", ccTiling);
+    u32 userRankSize;
+    CHK_RET(HcclGetRankSize(comm, &userRankSize));                      
+    
+    HcclResult ret = PrepareOpsCommParam(tag, param);
+    if (ret != HCCL_SUCCESS) {
+        HCCL_ERROR("failed to fill OpsCommParam");
+    }
+
+    u64 varMemSize = ALL_TO_ALL_V_VECTOR_NUM * userRankSize * sizeof(u64);
+    param.varMemSize = varMemSize;
+    param.opType = HcclCMDType::HCCL_CMD_ALLTOALLV;
+    param.all2AllVDataDes.sendType = static_cast<HcclDataType>(ccTiling->srcDataType);
+    param.all2AllVDataDes.recvType = static_cast<HcclDataType>(ccTiling->dstDataType);
+    param.all2AllVDataDes.sendCounts = nullptr;
+    param.all2AllVDataDes.recvCounts = nullptr;
+    param.all2AllVDataDes.sdispls = nullptr;
+    param.all2AllVDataDes.rdispls = nullptr;
+
+    HCCL_INFO("Print PrepareParamForAlltoAllV.");
+    CHK_RET(PrintOpsCommParam(param));
+    HCCL_INFO("varMemSize %lu", param.varMemSize);
+    HCCL_INFO("opType %u", static_cast<uint32_t>(param.opType));
+    HCCL_INFO("all2AllVDataDes.sendType %u", static_cast<uint32_t>(param.all2AllVDataDes.sendType));
+    HCCL_INFO("all2AllVDataDes.recvType %u", static_cast<uint32_t>(param.all2AllVDataDes.recvType));
     return HCCL_SUCCESS;
 }
 
-typedef HcclResult (*OpParamPrepareFunc)(const std::string &tag, const Mc2CcTilingInner *ccTiling, OpParam &opParam);
+typedef HcclResult (*OpParamPrepareFunc)(HcclComm comm, const std::string &tag, const Mc2CcTilingInner *ccTiling, OpParam &param);
 
 std::unordered_map<HcclCMDType, OpParamPrepareFunc> opParamPrepareFuncMap = {
-    {HCCL_CMD_ALLGATHER, PrepareParamForAllGather},
-    {HCCL_CMD_ALLREDUCE, PrepareParamForAllReduce},
-    {HCCL_CMD_REDUCE_SCATTER, PrepareParamForReduceScatter},
-    {HCCL_CMD_ALLTOALL, PrepareParamForAlltoAll},
-    {HCCL_CMD_ALLTOALLV, PrepareParamForAlltoAllV},
+    {HcclCMDType::HCCL_CMD_ALLGATHER, PrepareParamForAllGather},
+    {HcclCMDType::HCCL_CMD_ALLREDUCE, PrepareParamForAllReduce},
+    {HcclCMDType::HCCL_CMD_REDUCE_SCATTER, PrepareParamForReduceScatter},
+    {HcclCMDType::HCCL_CMD_ALLTOALL, PrepareParamForAlltoAll},
+    {HcclCMDType::HCCL_CMD_ALLTOALLV, PrepareParamForAlltoAllV},
 };
 
-HcclResult PrepareOpParams(const std::string &tag, const Mc2CcTilingInner *ccTiling, OpParam &opParam)
+HcclResult PrepareOpParams(HcclComm comm,const std::string &tag, const Mc2CcTilingInner *ccTiling, OpParam &opParam)
 {
     auto it = opParamPrepareFuncMap.find(static_cast<HcclCMDType>(ccTiling->opType));
     if (it != opParamPrepareFuncMap.end()) {
-        return it->second(tag, ccTiling, opParam);
+        return it->second(comm, tag, ccTiling, opParam);
     }
     HCCL_ERROR("PrepareOpParams error, opType[%d] not found", ccTiling->opType);
     return HCCL_E_INTERNAL;
@@ -300,7 +438,7 @@ HcclResult InitOpParamByTiling(HcclComm comm, void *stream, const std::string &t
     opParam.opType = static_cast<HcclCMDType>(ccTiling->opType);
     opParam.stream = reinterpret_cast<aclrtStream>(stream);
     CHK_RET(HcclGetCommName(comm, opParam.commName));
-    CHK_RET(PrepareOpParams(tag, ccTiling, opParam));
+    CHK_RET(PrepareOpParams(comm, tag, ccTiling, opParam));
     return HCCL_SUCCESS;
 }
 
