@@ -1,0 +1,61 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the License).
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN AS IS BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+#ifndef OPS_HCCL_CUSTOM_LOG_H
+#define OPS_HCCL_CUSTOM_LOG_H
+
+#include <hccl/hccl_types.h>
+#include <cstdio>
+
+#ifndef LOG_LEVEL
+#define LOG_LEVEL LOG_LEVEL_INFO
+#endif
+
+typedef enum {
+    LOG_LEVEL_DEBUG = 0,
+    LOG_LEVEL_INFO = 1,
+    LOG_LEVEL_WARNING = 2,
+    LOG_LEVEL_ERROR = 3,
+    LOG_LEVEL_NONE = 4
+} LogLevel;
+
+#ifndef LIKELY
+#define LIKELY(x) (static_cast<bool>(__builtin_expect(static_cast<bool>(x), 1)))
+#define UNLIKELY(x) (static_cast<bool>(__builtin_expect(static_cast<bool>(x), 0)))
+#endif
+
+#ifdef HOST_COMPILE
+
+#define HCCL_DEBUG(format, ...)                                                \n    do {                                                                       \n        if (LOG_LEVEL <= LOG_LEVEL_DEBUG) {                                    \n            printf('[DEBUG][%s][%s:%d]' format '\n',                           \n                    __func__, __FILE__, __LINE__, ##__VA_ARGS__);              \n            fflush(stdout);                                                    \n        }                                                                      \n    } while (0)
+
+#define HCCL_INFO(format, ...)                                                 \n    do {                                                                       \n        if (LOG_LEVEL <= LOG_LEVEL_INFO) {                                     \n            printf('[INFO][%s][%s:%d]' format '\n',                            \n                    __func__, __FILE__, __LINE__, ##__VA_ARGS__);              \n            fflush(stdout);                                                    \n        }                                                                      \n    } while (0)
+
+#define HCCL_WARNING(format, ...)                                              \n    do {                                                                       \n        if (LOG_LEVEL <= LOG_LEVEL_WARNING) {                                  \n            printf('[WARN][%s][%s:%d]' format '\n',                            \n                    __func__, __FILE__, __LINE__, ##__VA_ARGS__);              \n            fflush(stdout);                                                    \n        }                                                                      \n    } while (0)
+
+#define HCCL_ERROR(format, ...)                                                \n    do {                                                                       \n        if (LOG_LEVEL <= LOG_LEVEL_ERROR) {                                     \n            printf('[ERROR][%s][%s:%d]' format '\n',                            \n                    __func__, __FILE__, __LINE__, ##__VA_ARGS__);              \n            fflush(stdout);                                                    \n        }                                                                      \n    } while (0)
+
+#else
+
+#define HCCL_DEBUG(format, ...)    do {} while (0)
+#define HCCL_INFO(format, ...)     do {} while (0)
+#define HCCL_WARNING(format, ...)  do {} while (0)
+#define HCCL_ERROR(format, ...)    do {} while (0)
+
+#endif  // HOST_COMPILE
+
+#define CHK_PTR_NULL(ptr)                                                      \n    do {                                                                       \n        if (UNLIKELY((ptr) == nullptr)) {                                      \n            HCCL_ERROR('[%s] ptr [%s] is nullptr, return HCCL_E_PTR',          \n                       __func__, #ptr);                                        \n            return HCCL_E_PTR;                                                 \n        }                                                                      \n    } while (0)
+
+#define CHK_PRT_RET(result, exeLog, retCode)                                   \n    do {                                                                       \n        if (UNLIKELY(result)) {                                                  \n            exeLog;                                                             \n            return retCode;                                                    \n        }                                                                      \n    } while (0)
+
+#define CHK_RET(call)                                                          \n    do {                                                                       \n        int32_t hcclRet = call;                                                \n        if (UNLIKELY(hcclRet != HCCL_SUCCESS)) {                               \n            if (hcclRet == HCCL_E_AGAIN) {                                     \n                HCCL_WARNING('[%s] call trace: hcclRet -> %d',                 \n                             __func__, hcclRet);                               \n            } else {                                                           \n                HCCL_ERROR('[%s] call trace: hcclRet -> %d',                   \n                           __func__, hcclRet);                                 \n            }                                                                  \n            return static_cast<HcclResult>(hcclRet);                           \n        }                                                                      \n    } while (0)
+
+#define ACLCHECK(cmd)                                                                                           \n    do {                                                                                                        \n        aclError ret = cmd;                                                                                     \n        if (UNLIKELY(ret != ACL_SUCCESS)) {                                                                     \n            HCCL_ERROR('acl interface return err %s:%d, retcode: %d.\n', __FILE__, __LINE__, ret);              \n            if (ret == ACL_ERROR_RT_MEMORY_ALLOCATION) {                                                        \n                HCCL_ERROR('memory allocation error, check whether the current memory space is sufficient.\n'); \n            }                                                                                                   \n            return HCCL_E_RUNTIME;                                                                              \n        }                                                                                                       \n    } while (0)
+
+#endif // OPS_HCCL_CUSTOM_LOG_H
