@@ -299,8 +299,25 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
 
 HcclResult FallbackOp(HcclComm comm, OpParam &param,
                       std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo, std::string &algName, const ResPackGraphMode &resPack)
-{
+{   
+    void * fallbackCtx = nullptr;
+    const u32 ALG_MAX_LENGTH = 50;
+    const u32 FALLBACK_MAX_TAG_LENGTH = 60;
+    uint64_t fallbackCtxSize = ALG_MAX_LENGTH;
+    char fallbackTag[FALLBACK_MAX_TAG_LENGTH];
+    auto fallbackRet = sprintf_s(fallbackTag, sizeof(fallbackTag), "%s_%s", algName.c_str(), "fallback");
+    if (fallbackRet <= 0) {
+        HCCL_ERROR("[%s] failed to fill fallbackTag", __func__);
+        return HCCL_E_INTERNAL;
+    }
+    CHK_RET(HcclEngineCtxCreate(comm, fallbackTag, CommEngine::COMM_ENGINE_CCU, fallbackCtxSize, &fallbackCtx));
+    char* newAlgName = static_cast<char*>(fallbackCtx);
     CHK_RET(ReSelector(comm, param, topoInfo, algName));
+    auto copyRet = sprintf_s(newAlgName, fallbackCtxSize, "%s", algName.c_str());
+    if (copyRet <= 0) {
+        HCCL_ERROR("[%s] failed to fill newAlgName", __func__);
+        return HCCL_E_INTERNAL;
+    }
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName, resPack));
     return HCCL_SUCCESS;
 }
@@ -342,6 +359,27 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
 {
     uint64_t beginTime = HcommGetProfilingSysCycleTime();
     HCCL_INFO("[HcclExecOp]Start to execute HcclExecOp.HcommGetProfilingSysCycleTime.%llu", beginTime);
+    // 当前通信域的某个算法回退过，则下次直接回退
+    void * fallbackCtx = nullptr;
+    const u32 ALG_MAX_LENGTH = 50;
+    const u32 FALLBACK_MAX_TAG_LENGTH = 60;
+    uint64_t fallbackCtxSize = ALG_MAX_LENGTH;
+    char fallbackTag[FALLBACK_MAX_TAG_LENGTH];
+    auto fallbackRet = sprintf_s(fallbackTag, sizeof(fallbackTag), "%s_%s", algName.c_str(), "fallback");
+    if (fallbackRet <= 0) {
+        HCCL_ERROR("[%s] failed to fill fallbackTag", __func__);
+        return HCCL_E_INTERNAL;
+    }
+    if (HcclEngineCtxGet(comm, fallbackTag, param.engine, &fallbackCtx, &fallbackCtxSize) == HCCL_SUCCESS) {
+        HCCL_INFO("[HcclExecOp] Engine ctx exists, try to fallback.");
+        std::string newAlgName = static_cast<char*>(fallbackCtx);
+        HCCL_INFO("[HcclExecOp] Cached algName[%s]", newAlgName.c_str());
+        param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
+        param.engine = COMM_ENGINE_AICPU_TS;
+        CHK_RET(SetOpParamAlgTag(param, newAlgName));
+        CHK_RET(HcclExecOp(comm, param, topoInfo, fallbackCtx, resPack));
+        return HCCL_SUCCESS;
+    }
     // 在原先的commName中添加执行模式，得到commModeTag
     param.hcclComm = comm;
     bool isOpBase = true;
