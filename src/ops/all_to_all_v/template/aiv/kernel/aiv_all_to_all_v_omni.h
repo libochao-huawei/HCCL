@@ -61,7 +61,7 @@ public:
 
     __aicore__ inline void Process(uint64_t len, uint32_t sliceId, ExtraArgs &extraArgs)
     {
-        if (numBlocks_ != 1 || block_idx != 0 || extraArgs.omniInfoAddr == 0) {
+        if (extraArgs.omniInfoAddr == 0) {
             return;
         }
         __gm__ AivOmniInfoHeader *header = reinterpret_cast<__gm__ AivOmniInfoHeader *>(extraArgs.omniInfoAddr);
@@ -144,9 +144,20 @@ private:
         return reinterpret_cast<__gm__ T *>(baseAddr + slice.sliceIdx * curSliceCount_ * sizeof(T));
     }
 
+    __aicore__ inline bool ShouldHandleSlice(const AivOmniSliceInfo &dstSlice) const
+    {
+        if (numBlocks_ <= 1) {
+            return true;
+        }
+        return (dstSlice.sliceIdx % static_cast<uint64_t>(numBlocks_)) == static_cast<uint64_t>(GetBlockIdx());
+    }
+
     __aicore__ inline void CopySlice(const AivOmniSliceInfo &src, const AivOmniSliceInfo &dst, uint32_t reduceType, bool reduce)
     {
         if (curSliceCount_ == 0) {
+            return;
+        }
+        if (!ShouldHandleSlice(dst)) {
             return;
         }
         __gm__ T *srcAddr = ResolveSliceAddr(src, true);
