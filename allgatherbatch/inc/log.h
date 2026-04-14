@@ -161,16 +161,25 @@ inline bool IsErrorToWarn()
 } while (0)
 
 #define CHK_RET(call) do { \
-    HcclResult hcclRet = (call); \
+    int32_t hcclRet = (call); \
     if (UNLIKELY(hcclRet != HCCL_SUCCESS)) { \
         if (hcclRet == HCCL_E_AGAIN) { \
             HCCL_WARNING("[%s]call trace: hcclRet -> %d", __func__, static_cast<int>(hcclRet)); \
         } else { \
             HCCL_ERROR("[%s]call trace: hcclRet -> %d", __func__, static_cast<int>(hcclRet)); \
         } \
-        return hcclRet; \
+        return static_cast<HcclResult>(hcclRet); \
     } \
 } while (0)
+
+/* 检查函数返回值, 记录指定日志, 并返回指定错误码 */
+#define CHK_PRT_RET(result, exeLog, retCode) \
+    do {                                      \
+        if (UNLIKELY(result)) {                         \
+            exeLog;                           \
+            return retCode;                   \
+        }                                     \
+    } while (0)
 
 #define HCCL_CHK_PTR(ptr) CHK_PTR_NULL(ptr)
 #define HCCL_CHK_RET(call) CHK_RET(call)

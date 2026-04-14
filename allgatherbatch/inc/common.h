@@ -20,11 +20,14 @@ constexpr uint32_t kAllGatherBatchMaxItems = 8;
 constexpr uint32_t kAllGatherBatchControlNotifyNum = 2;
 constexpr uint32_t kAllGatherBatchControlNotifyStart = 0;
 constexpr uint32_t kAllGatherBatchControlNotifyDone = 1;
-constexpr uint32_t kAllGatherBatchLastTwoWorkerCount = 3;
+constexpr uint32_t SubThreadNum = 3;
 constexpr uint32_t kAllGatherBatchNotifyIdxAck = 0;
 constexpr uint32_t kAllGatherBatchNotifyIdxDataSignal = 1;
 constexpr uint32_t kAllGatherBatchNotifyIdxFinAck = 2;
-constexpr uint32_t kAllGatherBatchCustomTimeoutMs = 1800;
+constexpr u32 NOTIFY_IDX_ACK = 0;
+constexpr u32 NOTIFY_IDX_DATA_SIGNAL = 1;
+constexpr u32 NOTIFY_IDX_FIN_ACK = 2;
+constexpr uint32_t CUSTOM_TIMEOUT = 1800;
 constexpr uint32_t kAllGatherBatchOpNameLength = 64;
 constexpr uint32_t kAllGatherBatchTagLength = HCCL_RES_TAG_MAX_LEN + 1;
 constexpr char kAllGatherBatchCtxTag[] = "allgatherbatch";
@@ -40,9 +43,41 @@ enum class BatchCommMode : uint32_t {
     kCrossServer = 2,
 };
 
+/**
+ * @enum HcclMemType
+ * @brief 内存类型枚举定义
+ */
+typedef enum {
+    HCCL_MEM_TYPE_DEVICE, ///< 设备侧内存（如NPU等）
+    HCCL_MEM_TYPE_HOST,   ///< 主机侧内存
+    HCCL_MEM_TYPE_NUM     ///< 内存类型数量
+} HcclMemType;
+
+struct HcclMem {
+    HcclMemType type = HcclMemType::HCCL_MEM_TYPE_DEVICE;
+    void* addr = nullptr;
+    uint64_t size = 0;
+};
+
+struct ExecMem {
+    u64 count{0};
+    HcclDataType dataType{HCCL_DATA_TYPE_RESERVED};
+    HcclMem inputMem;           /* 单算子模式时是InCCLMem, 图模式时是InUserMem */
+    HcclMem outputMem;          /* 单算子模式时是OutCCLMem, 图模式时是OutUserMem */
+    HcclMem scratchMem;
+    void *inputPtr = nullptr;   /* InUserMem的地址，图模式时与inputMem的地址相同 */
+    void *outputPtr = nullptr;  /* OutUserMem的地址，图模式时与outputMem的地址相同 */
+};
+
+struct Slice {
+    u64 offset{0}; // Slice相对于input/output的偏移字节数，gather类操作取output，scatter类操作取input
+    u64 size{0};    // Slice的数据大小，单位：字节
+};
+
 struct CommBuffer {
     void *addr = nullptr;
     uint64_t size = 0;
+    uint64_t offset = 0;
 };
 
 struct ChannelResource {
@@ -73,9 +108,9 @@ struct AlgResourceCtx {
     ThreadHandle mainThreadHandle = 0;
     uint32_t lastTwoWorkerCount = 0;
     uint32_t reserved0 = 0;
-    ThreadHandle lastTwoWorkerThreads[kAllGatherBatchLastTwoWorkerCount] = {0};
-    uint32_t lastTwoMainNotifyIds[kAllGatherBatchLastTwoWorkerCount] = {0};
-    uint32_t lastTwoWorkerNotifyIds[kAllGatherBatchLastTwoWorkerCount] = {0};
+    ThreadHandle subThreadHandles[SubThreadNum] = {0};
+    uint32_t mainNotifyIds[SubThreadNum] = {0};
+    uint32_t subNotifyIds[SubThreadNum] = {0};
     uint32_t channelCount = 0;
     uint32_t channelOffset = 0;
     CommBuffer localBuffer {};
@@ -146,6 +181,23 @@ struct WindowStageLayout {
     std::vector<WindowStageSlice> localSlices;
     std::vector<WindowStageSlice> perRankSlices;
 };
+
+inline HcclMem HcclMemRange(HcclMem inMem, u64 offset, u64 size)
+{
+    HcclMem outMem;
+    if (inMem.addr == nullptr) {
+        HCCL_ERROR("HcclMem addr is null");
+        return outMem;
+    }
+    if (offset + size > inMem.size){
+        HCCL_ERROR("HcclMem request range[%llu] is out of size[%llu]", offset + size, inMem.size);
+        return outMem;
+    }
+    outMem.type = inMem.type;
+    outMem.addr = static_cast<void *>(static_cast<u8 *>(inMem.addr) + offset);
+    outMem.size = size;
+    return outMem;
+}
 
 inline uint32_t CalcStagePowerSteps(uint32_t rankSize)
 {
@@ -430,6 +482,11 @@ inline HcclResult ValidateBasicOpParam(const OpParam &param, const char *tag)
     }
     return HCCL_SUCCESS;
 }
+
+constexpr uint32_t SIZE_TABLE[HCCL_DATA_TYPE_RESERVED] = {sizeof(int8_t), sizeof(int16_t), sizeof(int32_t),
+    2, sizeof(float), sizeof(int64_t), sizeof(uint64_t), sizeof(uint8_t), sizeof(uint16_t), sizeof(uint32_t),
+    8, 2, 16, 2, 1, 1, 1, 1};
+
 }  // namespace ops_hccl_allgatherbatch
 
 #endif

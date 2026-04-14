@@ -68,7 +68,7 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
     if (HcommAclrtNotifyWaitOnThread(
             thread,
             param->controlNotifyIds[kAllGatherBatchControlNotifyStart],
-            kAllGatherBatchCustomTimeoutMs) != HCCL_SUCCESS) {
+            CUSTOM_TIMEOUT) != HCCL_SUCCESS) {
         HCCL_ERROR("wait host start notify failed, tag=%s", param->tag);
         (void)HcommBatchModeEnd(param->tag);
         (void)HcommReleaseComm(param->commName);
