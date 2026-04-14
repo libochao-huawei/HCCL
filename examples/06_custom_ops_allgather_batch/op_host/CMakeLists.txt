@@ -11,13 +11,29 @@ set(HCCL_REPO_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
 set(HCCL_CUSTOM_OPS_INCLUDE_LIST
     ${CMAKE_CURRENT_SOURCE_DIR}/../inc
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${HCCL_REPO_ROOT}/src/common
     ${HCCL_REPO_ROOT}/src/common/hcomm_dlsym
     ${HCCL_REPO_ROOT}/src/ops/op_common/inc
     ${HCCL_REPO_ROOT}/src/ops/op_common/template
     ${HCCL_REPO_ROOT}/src/ops/op_common/template/ccu
     ${ASCEND_CANN_PACKAGE_PATH}/include
+    ${ASCEND_CANN_PACKAGE_PATH}/include/acl
     ${ASCEND_CANN_PACKAGE_PATH}/include/hccl
-    ${ASCEND_CANN_PACKAGE_PATH}/include/mmpa
+    ${ASCEND_CANN_PACKAGE_PATH}/include/hcomm
+    ${ASCEND_CANN_PACKAGE_PATH}/include/base
+    ${ASCEND_CANN_PACKAGE_PATH}/include/driver
+    ${ASCEND_CANN_PACKAGE_PATH}/include/dump
+    ${ASCEND_CANN_PACKAGE_PATH}/include/external
+    ${ASCEND_CANN_PACKAGE_PATH}/include/platform
+    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc
+    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/hccl
+    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/hcomm/ccu
+    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/runtime
+    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/runtime/runtime
+    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/base
+    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/dump
+    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/trace
+    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/mmpa
 )
 
 add_library(hccl_custom_allgather_batch SHARED)
