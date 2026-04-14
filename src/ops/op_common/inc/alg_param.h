@@ -16,6 +16,7 @@
 #include <map>
 #include <set>
 #include <unordered_set>
+#include <memory>
 #include <functional>
 #include "hccl_common.h"
 #include "hccl_types.h"
@@ -24,7 +25,8 @@
 #include "hcomm_primitives_dl.h"
 #include "hccl_rank_graph.h"
 #include "binary_stream.h"
-#include "hccl_ccu_res.h"
+#include "ccu_types.h"
+// #include "hccl_ccu_res.h"
 
 namespace ops_hccl {
 
@@ -61,6 +63,8 @@ constexpr u64 REDUCE_SCATTER_V_VECTOR_NUM = 2;
 constexpr u64 ALL_GATHER_V_VECTOR_NUM = 2;
 
 constexpr uint64_t GE_PARALLEL = 36;
+
+constexpr uint64_t MAX_RANK_SIZE = 16;
 
 enum class TopoType {
     TOPO_TYPE_COMMON = 0,           // 普通拓扑类型 ，default单层拓扑使用
@@ -244,18 +248,34 @@ struct TopoInfoWithNetLayerDetails : public TopoInfo { // 通信域拓扑ctx
     }
 };
 
+struct CcuKernelArgBase {
+    // std::vector<ChannelHandle> channels;
+    ChannelHandle channels[MAX_RANK_SIZE];
+    uint32_t      channelCount;
+};
+
 // ccu kernel register所需信息
 struct CcuKernelInfo {
     // kernel资源组序号，group号不同时，资源复用
     u32 resGroup = 0;
     // kernel名 string？
-    char *kernelFuncName;
+    char kernelFuncName[64];
     // kernel函数
-    CcuKernelFunc kernelFunc;
+    void* kernelFunc;
     // KernelArg实例指针
     void *kernelArg;
     // kernel所需channel
     std::vector<HcclChannelDesc> channels;
+
+private:
+    std::shared_ptr<CcuKernelArgBase> kernelArgSmartPtr;
+
+public:
+    template<typename T>
+    void setKernelArg(std::shared_ptr<T> arg) {
+        kernelArgSmartPtr = std::static_pointer_cast<CcuKernelArgBase>(arg);
+        kernelArg = static_cast<void*>(arg.get());
+    }
 };
 
 // 算法taskArg入参最大个数，用于快速下发缓存
