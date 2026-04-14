@@ -38,25 +38,12 @@ extern "C" {
 } while(0)
 
 /* 预定义日志宏, 便于使用 */
-#define HCCL_DEBUG(format, ...) do { \
+#define HCCL_COMPAT_DEBUG(format, ...) do { \
     HCCL_LOG_PRINT(HCCL, HCCL_LOG_DEBUG, format, ##__VA_ARGS__); \
 } while(0)
 
-#define HCCL_INFO(format, ...) do { \
-    HCCL_LOG_PRINT(HCCL, HCCL_LOG_INFO, format, ##__VA_ARGS__); \
-} while(0)
-
-#define HCCL_WARNING(format, ...) do { \
-    HCCL_LOG_PRINT(HCCL, HCCL_LOG_WARN, format, ##__VA_ARGS__); \
-} while(0)
-
-#define HCCL_ERROR(format, ...) do { \
+#define HCCL_COMPAT_ERROR(format, ...) do { \
     HCCL_LOG_PRINT(HCCL, HCCL_LOG_ERROR, format, ##__VA_ARGS__); \
-} while(0)
-
-/* 运行日志 */
-#define HCCL_RUN_INFO(format, ...) do { \
-    HCCL_RUN_LOG_PRINT(format, ##__VA_ARGS__); \
 } while(0)
 
 #define DECL_WEAK_FUNC(type, func_name, ...) \
@@ -70,7 +57,7 @@ extern "C" {
     type func_name(__VA_ARGS__) __attribute__((weak)); \
     type func_name(__VA_ARGS__) \
     { \
-        HCCL_ERROR("[HcclWrapper] %s not supported", __func__); \
+        HCCL_COMPAT_ERROR("[HcclWrapper] %s not supported", __func__); \
         return (type)(-1); \
     }
 
@@ -82,7 +69,7 @@ extern "C" {
         void *ptr = (void *)dlsym(handle, #func_name); \
         if (ptr == nullptr) { \
             g_##func_name##Supported = false; \
-            HCCL_DEBUG("[HcclWrapper] %s not supported", #func_name); \
+            HCCL_COMPAT_DEBUG("[HcclWrapper] %s not supported", #func_name); \
         } else { \
             g_##func_name##Supported = true; \
         } \
