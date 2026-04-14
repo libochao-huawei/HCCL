@@ -17,6 +17,11 @@
 extern "C" {
 #endif
 
+#define HCCL_LOG_DEBUG DLOG_DEBUG
+#define HCCL_LOG_INFO  DLOG_INFO
+#define HCCL_LOG_WARN  DLOG_WARN
+#define HCCL_LOG_ERROR DLOG_ERROR
+
 #define LOG_FUNC(module, level, fmt, ...) do { \
     DlogRecord(module, level, fmt, ##__VA_ARGS__); \
 } while (0)
