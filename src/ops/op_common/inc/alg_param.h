@@ -248,10 +248,12 @@ struct TopoInfoWithNetLayerDetails : public TopoInfo { // 通信域拓扑ctx
 struct CcuKernelInfo {
     // kernel资源组序号，group号不同时，资源复用
     u32 resGroup = 0;
-    // kernel构造函数
-    hcomm::KernelCreator creator;
-    // KernelArg实例
-    std::shared_ptr<hcomm::CcuKernelArg> kernelArg;
+    // kernel名 string？
+    char *kernelFuncName;
+    // kernel函数
+    CcuKernelFunc kernelFunc;
+    // KernelArg实例指针
+    void *kernelArg;
     // kernel所需channel
     std::vector<HcclChannelDesc> channels;
 };
