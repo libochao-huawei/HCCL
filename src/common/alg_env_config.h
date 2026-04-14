@@ -25,6 +25,7 @@ constexpr u32 HCCL_RETRY_ENABLE_LEVEL_0 = 0;        // HCCL 重执行层级0
 constexpr u32 HCCL_RETRY_ENABLE_LEVEL_1 = 1;        // HCCL 重执行层级1
 constexpr u32 HCCL_RETRY_ENABLE_LEVEL_2 = 2;        // HCCL 重执行层级2
 constexpr u32 HCCL_RETRY_ENABLE_LEVEL_NUM = 3;     // HCCL 重执行层级最多3级
+constexpr double HCCL_BW_DEFAULT = 1.0;
 
 enum class DeterministicEnableLevel {
     DETERMINISTIC_DISABLE = 0,          // 不支持确定性
@@ -49,6 +50,9 @@ struct AlgEnvConfig {
     bool enableFfts;
     bool execTimeOutSet;
     double execTimeout;
+    double hccl_bw_L0;
+    double hccl_bw_L1;
+    double hccl_bw_L2;
     bool hcclRetryConfig[HCCL_RETRY_ENABLE_LEVEL_NUM];
     std::map<HcclCMDType, std::vector<HcclAlgoType>> hcclAlgoConfig;
 
@@ -58,6 +62,10 @@ struct AlgEnvConfig {
     }
     void SetDefaultParams()
     {
+        hccl_bw_L0 = HCCL_BW_DEFAULT;
+        hccl_bw_L1 = HCCL_BW_DEFAULT;
+        hccl_bw_L2 = HCCL_BW_DEFAULT;
+
         initialized = false;
         interHccsDisable = false;
         enableEntryLog = false;
@@ -128,11 +136,21 @@ HcclResult ParseOpExpansion();
 
 HcclResult ParseExecTimeout();
 
+HcclResult ParseBandWidthL0();
+
+HcclResult ParseBandWidthL1();
+
+HcclResult ParseBandWidthL2();
+
 HcclResult SplitHcclRetryEnable(const std::string &retryConfig, std::vector<std::string> &retryEnables);
 
 HcclResult CollectRetryEnableFromConfig(const std::vector<std::string> &retryEnables);
 
 HcclResult ParseRetryEnable();
+
+HcclResult ParseBandWidthL0();
+HcclResult ParseBandWidthL1();
+HcclResult ParseBandWidthL2();
 
 const u32& GetExternalInputIntraRoceSwitch();
 
@@ -156,9 +174,19 @@ const bool& GetExternalInputInterSuperPodRetryEnable();
 
 const bool& GetExternalInputHcclEnableEntryLog();
 
+double GetExternalInputBandWidthLevel0();
+double GetExternalInputBandWidthLevel1();
+double GetExternalInputBandWidthLevel2();
+
 const std::map<HcclCMDType, std::vector<HcclAlgoType>> GetExternalInputHcclAlgoConfigAllType();
 
 bool GetExternalInputExecTimeout(double &execTimeOut);
+
+double GetExternalInputBandWidthLevel0();
+
+double GetExternalInputBandWidthLevel1();
+
+double GetExternalInputBandWidthLevel2();
 
 bool RunIndependentOpExpansion(DevType deviceType);
 }

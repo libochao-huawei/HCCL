@@ -67,7 +67,7 @@ HcclResult InsCollAlgBase::FastLaunchSaveCtxTwoTemplate(const OpParam &param, co
     u64 size = CcuFastLaunchCtx::GetCtxSize(threadNum, ccuKernelNum);
     // 申请ctx
     void *ctxPtr = nullptr;
-    HCCL_INFO("[InsCollAlgBase][FastLaunchSaveCtxFourTemplate] Tag[%s], size[%llu]", param.fastLaunchTag, size);
+    HCCL_INFO("[InsCollAlgBase][FastLaunchSaveCtxFourTemplate] Tag[%s], size[%llu].", param.fastLaunchTag, size);
     CHK_RET(HcclEngineCtxCreate(param.hcclComm, param.fastLaunchTag, CommEngine::COMM_ENGINE_CCU, size, &ctxPtr));
 
     CcuFastLaunchCtx *ccuFastLaunchCtx = reinterpret_cast<CcuFastLaunchCtx*>(ctxPtr);

@@ -47,7 +47,7 @@ public:
     HcclResult SetTempFastLaunchAddr(TemplateFastLaunchCtx &tempFastLaunchCtx, 
                             void* inputPtr, void* outputPtr, const HcclMem &hcclBuff) const;
 
-    HcclResult RestoreChannelMap(const AlgResourceCtxSerializable &resCtx,
+    virtual HcclResult RestoreChannelMap(const AlgResourceCtxSerializable &resCtx,
                                  std::vector<std::map<u32, std::vector<ChannelInfo>>> &rankIdToChannelInfo) const;
 
 #ifndef AICPU_COMPILE

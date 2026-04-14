@@ -152,7 +152,7 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
         SendRecvInfo sendRecvInfo{{linkSend, linkRecv},
                              {{txSrcSlices, txDstSlices},{rxSrcSlices, rxDstSlices}}};
         if (tempAlgParams.sendCounts[nextRank] > 0 && tempAlgParams.recvCounts[nextRank] > 0) {
-            CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[queIdx]),
+            CHK_PRT_RET(SendRecvWriteWithPreSync(sendRecvInfo, threads[queIdx]),
                 HCCL_ERROR("[InsTempAlltoAllVMesh1D] RunALLtoALL SendRecvInfo failed"),
                 HcclResult::HCCL_E_INTERNAL);
         } else { // 其中一个或者两个为0
