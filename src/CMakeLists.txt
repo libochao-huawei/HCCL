@@ -424,7 +424,7 @@ target_compile_options(hccl PRIVATE
     -fno-strict-aliasing
     -pipe
     -O3
-    $<$<CONFIG:Debug>:-g>
+    -g
     -std=c++14
     -fstack-protector-all
 )
@@ -434,7 +434,7 @@ target_link_options(hccl PRIVATE
     -Wl,-z,relro
     -Wl,-z,now
     -Wl,-z,noexecstack
-    $<$<CONFIG:Release>:-s>
+
 )
 
 target_link_directories(hccl PRIVATE
