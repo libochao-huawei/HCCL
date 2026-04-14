@@ -194,7 +194,7 @@ HcclResult AllGatherHDStage::MainRecordSub(u32 threadNum)
 {
     for (u32 tidx = 0; tidx < threadNum; tidx++) {
         CHK_RET(static_cast<HcclResult>(
-            HcommThreadNotifyRecordOnThread(resCtx_.mainThreadHandle, resCtx_.subThreadHandles[tidx], resCtx_.mainNotifyIds[tidx])));
+            HcommThreadNotifyRecordOnThread(resCtx_.mainThreadHandle, resCtx_.subThreadHandles[tidx], resCtx_.subNotifyIds[tidx])));
     }
     return HCCL_SUCCESS;
 }
@@ -204,7 +204,7 @@ HcclResult AllGatherHDStage::SubWaitMain(u32 threadNum)
     // 从thread等待主thread的record
     for (u32 tidx = 0; tidx < threadNum; tidx++) {
         CHK_RET(static_cast<HcclResult>(
-            HcommThreadNotifyWaitOnThread(resCtx_.subThreadHandles[tidx], resCtx_.mainNotifyIds[tidx], CUSTOM_TIMEOUT)));
+            HcommThreadNotifyWaitOnThread(resCtx_.subThreadHandles[tidx], resCtx_.subNotifyIds[tidx], CUSTOM_TIMEOUT)));
     }
     return HCCL_SUCCESS;
 }
@@ -213,7 +213,7 @@ HcclResult AllGatherHDStage::MainWaitSub(u32 threadNum)
 {
     for (u32 tidx = 0; tidx < threadNum; tidx++) {
         CHK_RET(static_cast<HcclResult>(
-            HcommThreadNotifyWaitOnThread(resCtx_.mainThreadHandle, resCtx_.subNotifyIds[tidx], CUSTOM_TIMEOUT)));
+            HcommThreadNotifyWaitOnThread(resCtx_.mainThreadHandle, resCtx_.mainNotifyIds[tidx], CUSTOM_TIMEOUT)));
     }
     return HCCL_SUCCESS;
 }
@@ -222,7 +222,7 @@ HcclResult AllGatherHDStage::SubRecordMain(u32 threadNum)
 {
     for (u32 tidx = 0; tidx < threadNum; tidx++) {
         CHK_RET(static_cast<HcclResult>(
-            HcommThreadNotifyRecordOnThread(resCtx_.subThreadHandles[tidx], resCtx_.mainThreadHandle, resCtx_.subNotifyIds[tidx])));
+            HcommThreadNotifyRecordOnThread(resCtx_.subThreadHandles[tidx], resCtx_.mainThreadHandle, resCtx_.mainNotifyIds[tidx])));
     }
     return HCCL_SUCCESS;
 }
