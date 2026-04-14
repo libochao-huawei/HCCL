@@ -366,18 +366,13 @@ HcclResult PrepareOpParam(const HcclAllGatherItem *items, uint32_t itemCount, Hc
     return HCCL_SUCCESS;
 }
 
-HcclResult ValidatePreparedParam(const OpParam &param)
-{
-    return ValidateBasicOpParam(param, "prepared param");
-}
-
 // 先构建 fullmesh peer 列表，再按 request 申请资源。
 HcclResult CalcFullMeshResourceRequest(HcclComm comm, const OpParam &param, BatchResourceRequest &request)
 {
-    request.threadNum = 1 + kAllGatherBatchLastTwoWorkerCount;
+    request.threadNum = 1 + SubThreadNum;
     request.controlNotifyNum = kAllGatherBatchControlNotifyNum;
-    request.mainThreadNotifyNum = kAllGatherBatchLastTwoWorkerCount;
-    request.lastTwoWorkerCount = kAllGatherBatchLastTwoWorkerCount;
+    request.mainThreadNotifyNum = SubThreadNum;
+    request.lastTwoWorkerCount = SubThreadNum;
     request.workerNotifyNum = 1;
     request.localBufferBytes = 0;
     request.commMode = param.commMode;
@@ -434,10 +429,10 @@ void InitAlgResourceCtxHeader(const BatchResourceRequest &request, AlgResourceCt
     resCtx.mainThreadHandle = 0;
     resCtx.lastTwoWorkerCount = request.lastTwoWorkerCount;
     resCtx.reserved0 = 0;
-    for (uint32_t idx = 0; idx < kAllGatherBatchLastTwoWorkerCount; ++idx) {
-        resCtx.lastTwoWorkerThreads[idx] = 0;
-        resCtx.lastTwoMainNotifyIds[idx] = idx;
-        resCtx.lastTwoWorkerNotifyIds[idx] = 0;
+    for (uint32_t idx = 0; idx < SubThreadNum; ++idx) {
+        resCtx.subThreadHandles[idx] = 0;
+        resCtx.mainNotifyIds[idx] = idx;
+        resCtx.subNotifyIds[idx] = 0;
     }
     resCtx.channelCount = request.channelCount;
     resCtx.channelOffset = sizeof(AlgResourceCtx);
@@ -465,12 +460,13 @@ HcclResult AllocAlgResource(
             COMM_ENGINE_AICPU,
             1,
             request.workerNotifyNum,
-            &resCtx.lastTwoWorkerThreads[idx]));
-        resCtx.lastTwoMainNotifyIds[idx] = idx;
-        resCtx.lastTwoWorkerNotifyIds[idx] = 0;
+            &resCtx.subThreadHandles[idx]));
+        resCtx.mainNotifyIds[idx] = idx;
+        resCtx.subNotifyIds[idx] = 0;
     }
     HCCL_CHK_RET(HcclGetHcclBuffer(comm, &localBuffer, &resCtx.localBuffer.size));
     resCtx.localBuffer.addr = localBuffer;
+    resCtx.localBuffer.offset = resCtx.localBuffer.size / 2;
 
     if (request.channelCount == 0) {
         return HCCL_SUCCESS;
@@ -507,6 +503,7 @@ HcclResult AllocAlgResource(
             channelHandles[idx],
             &channels[idx].remoteBuffer.addr,
             &channels[idx].remoteBuffer.size));
+        channels[idx].remoteBuffer.offset = channels[idx].remoteBuffer.size / 2;
     }
 
     const uint32_t expectedChannelCount = GetExpectedFullMeshChannelCount(param);
@@ -581,7 +578,6 @@ HcclResult HcclAllGatherBatch(
     OpParam param;
     HCCL_CHK_RET(PrepareOpParam(items, itemCount, comm, param));
     HCCL_CHK_RET(EnsureControlNotifies(param));
-    HCCL_CHK_RET(ValidatePreparedParam(param));
 
     HCCL_INFO("Host op prepared: rank=%u, rankSize=%u, commMode=%s, serverIdx=%u, serverCount=%u, superPodIdx=%u, intraServerRankCount=%u, crossServerRankCount=%u",
         param.topoInfo.rank,

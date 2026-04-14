@@ -36,7 +36,7 @@ HcclResult LaunchKernel(const OpParam &param, aclrtStream stream)
     ACLCHECK(aclrtWaitAndResetNotify(
         g_allGatherBatchNotifies[kAllGatherBatchControlNotifyDone],
         stream,
-        kAllGatherBatchCustomTimeoutMs));
+        CUSTOM_TIMEOUT));
 
     HCCL_INFO("Host launch done: rank=%u, commMode=%s, itemCount=%u",
         param.topoInfo.rank,

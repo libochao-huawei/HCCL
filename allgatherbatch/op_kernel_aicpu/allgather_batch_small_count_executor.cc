@@ -7,218 +7,134 @@
 
 namespace ops_hccl_allgatherbatch {
 
-namespace {
-
-const char *ToWindowScopeString(BatchCommMode commMode)
-{
-    return (commMode == BatchCommMode::kCrossServer) ? "cross-server" : "single-server";
-}
-
-}  // namespace
-
 AllGatherBatchSmallCountExecutor::AllGatherBatchSmallCountExecutor(
     const OpParam &param, AlgResourceCtx &resCtx, BatchCallProfiling &profiling)
     : param_(param), resCtx_(resCtx), profiling_(profiling)
 {
 }
 
-const BatchItemParam &AllGatherBatchSmallCountExecutor::GetInputItem() const
-{
-    return param_.items[0];
-}
-
-HcclResult AllGatherBatchSmallCountExecutor::ValidateParam() const
-{
-    if (param_.itemCount == 0) {
-        HCCL_ERROR("executor itemCount is zero");
-        return HCCL_E_PARA;
-    }
-
-    const BatchItemParam &item = GetInputItem();
-    if (item.sendBuf == nullptr || item.recvBuf == nullptr) {
-        HCCL_ERROR("item[0] buffer is null");
-        return HCCL_E_PTR;
-    }
-    if (item.sendBytes == 0) {
-        HCCL_ERROR("item[0] sendBytes is zero");
-        return HCCL_E_PARA;
-    }
-
-    const uint64_t maxWindowBytes = GetMaxWindowBytes(param_, resCtx_);
-    if (maxWindowBytes == 0) {
-        HCCL_ERROR("maxWindowBytes is zero, localBuffer=%llu, rankSize=%u, windowBytes=%llu",
-            static_cast<unsigned long long>(resCtx_.localBuffer.size),
-            param_.topoInfo.rankSize,
-            static_cast<unsigned long long>(param_.windowBytes));
-        return HCCL_E_INTERNAL;
-    }
-    return HCCL_SUCCESS;
-}
-
-HcclResult AllGatherBatchSmallCountExecutor::ValidateWindow(uint64_t windowOffset, uint64_t currentWindowBytes) const
-{
-    const BatchItemParam &item = GetInputItem();
-    if (windowOffset >= item.sendBytes) {
-        HCCL_ERROR("window offset=%llu exceeds item[0] bytes=%llu",
-            static_cast<unsigned long long>(windowOffset),
-            static_cast<unsigned long long>(item.sendBytes));
-        return HCCL_E_INTERNAL;
-    }
-    if (currentWindowBytes == 0U) {
-        HCCL_ERROR("currentWindowBytes is zero, windowOffset=%llu",
-            static_cast<unsigned long long>(windowOffset));
-        return HCCL_E_INTERNAL;
-    }
-    if ((windowOffset + currentWindowBytes) > item.sendBytes) {
-        HCCL_ERROR("window range is invalid, offset=%llu, bytes=%llu, itemBytes=%llu",
-            static_cast<unsigned long long>(windowOffset),
-            static_cast<unsigned long long>(currentWindowBytes),
-            static_cast<unsigned long long>(item.sendBytes));
-        return HCCL_E_INTERNAL;
-    }
-    if (currentWindowBytes > GetPerRankWindowCapacity()) {
-        HCCL_ERROR("window bytes=%llu exceeds per-rank capacity=%llu",
-            static_cast<unsigned long long>(currentWindowBytes),
-            static_cast<unsigned long long>(GetPerRankWindowCapacity()));
-        return HCCL_E_INTERNAL;
-    }
-    if (currentWindowBytes > param_.windowBytes) {
-        HCCL_ERROR("window bytes=%llu exceeds param windowBytes=%llu",
-            static_cast<unsigned long long>(currentWindowBytes),
-            static_cast<unsigned long long>(param_.windowBytes));
-        return HCCL_E_INTERNAL;
-    }
-    return HCCL_SUCCESS;
-}
-
-uint64_t AllGatherBatchSmallCountExecutor::GetPerRankWindowCapacity() const
-{
-    return ops_hccl_allgatherbatch::GetPerRankWindowCapacity(param_, resCtx_);
-}
-
-WindowStageLayout AllGatherBatchSmallCountExecutor::BuildStageLayout(uint64_t currentWindowBytes) const
-{
-    return BuildSingleItemStageLayout(param_.topoInfo.rankSize, param_.topoInfo.rank, currentWindowBytes);
-}
-
-HcclResult AllGatherBatchSmallCountExecutor::Pack(
-    uint64_t windowOffset, uint64_t currentWindowBytes, const WindowStageLayout &layout) const
-{
-    HCCL_CHK_RET(ValidateWindow(windowOffset, currentWindowBytes));
-
-    const BatchItemParam &item = GetInputItem();
-    const uint64_t localRankBase = GetStageRankBaseOffset(layout, param_.topoInfo.rank);
-    const void *src = static_cast<const uint8_t *>(item.sendBuf) + windowOffset;
-    void *dst = static_cast<uint8_t *>(resCtx_.localBuffer.addr) + localRankBase;
-    const int32_t ret = HcommLocalCopyOnThread(resCtx_.mainThreadHandle, dst, src, currentWindowBytes);
-    if (ret != HCCL_SUCCESS) {
-        HCCL_ERROR("pack local copy failed, rank=%u, itemOffset=%llu, stageOffset=%llu, size=%llu, ret=%d",
-            param_.topoInfo.rank,
-            static_cast<unsigned long long>(windowOffset),
-            static_cast<unsigned long long>(localRankBase),
-            static_cast<unsigned long long>(currentWindowBytes),
-            ret);
-        return static_cast<HcclResult>(ret);
-    }
-    return HCCL_SUCCESS;
-}
-
-HcclResult AllGatherBatchSmallCountExecutor::Unpack(
-    uint64_t windowOffset, uint64_t currentWindowBytes, const WindowStageLayout &layout) const
-{
-    HCCL_CHK_RET(ValidateWindow(windowOffset, currentWindowBytes));
-
-    const BatchItemParam &item = GetInputItem();
-    HCCL_INFO("executor unpack begin: rank=%u, windowOffset=%llu, windowBytes=%llu, rankSize=%u",
-        param_.topoInfo.rank,
-        static_cast<unsigned long long>(windowOffset),
-        static_cast<unsigned long long>(currentWindowBytes),
-        param_.topoInfo.rankSize);
-    for (uint32_t rank = 0; rank < param_.topoInfo.rankSize; ++rank) {
-        const uint64_t rankBase = GetStageRankBaseOffset(layout, rank);
-        const void *src = static_cast<const uint8_t *>(resCtx_.localBuffer.addr) + rankBase;
-        uint8_t *dst = static_cast<uint8_t *>(item.recvBuf) + (static_cast<uint64_t>(rank) * item.sendBytes) + windowOffset;
-        const int32_t ret = HcommLocalCopyOnThread(resCtx_.mainThreadHandle, dst, src, currentWindowBytes);
-        if (ret != HCCL_SUCCESS) {
-            HCCL_ERROR("unpack local copy failed, rank=%u, itemOffset=%llu, stageOffset=%llu, size=%llu, ret=%d",
-                rank,
-                static_cast<unsigned long long>(windowOffset),
-                static_cast<unsigned long long>(rankBase),
-                static_cast<unsigned long long>(currentWindowBytes),
-                ret);
-            return static_cast<HcclResult>(ret);
-        }
-    }
-    HCCL_INFO("executor unpack end: rank=%u, windowOffset=%llu, windowBytes=%llu",
-        param_.topoInfo.rank,
-        static_cast<unsigned long long>(windowOffset),
-        static_cast<unsigned long long>(currentWindowBytes));
-    return HCCL_SUCCESS;
-}
-
 HcclResult AllGatherBatchSmallCountExecutor::Orchestrate()
 {
-    HCCL_CHK_RET(ValidateParam());
+    uint64_t startus = GetCurrentTimeUs();
 
-    const BatchItemParam &item = GetInputItem();
-    const uint64_t maxWindowBytes = GetMaxWindowBytes(param_, resCtx_);
-    uint64_t windowOffset = 0;
-    while (windowOffset < item.sendBytes) {
-        const uint64_t currentWindowBytes = std::min(item.sendBytes - windowOffset, maxWindowBytes);
-        HCCL_CHK_RET(ValidateWindow(windowOffset, currentWindowBytes));
+    const u64 count = param_.items[0].sendCount;
+    const HcclDataType dataType = param_.items[0].dataType;
 
-        const WindowStageLayout layout = BuildStageLayout(currentWindowBytes);
-        if (!IsValidWindowStageLayout(layout)) {
-            HCCL_ERROR("window stage layout is invalid, packedBytes=%llu, rankSize=%u, localSlices=%u, perRankSlices=%u",
-                static_cast<unsigned long long>(layout.packedBytes),
-                layout.rankSize,
-                static_cast<uint32_t>(layout.localSlices.size()),
-                static_cast<uint32_t>(layout.perRankSlices.size()));
-            return HCCL_E_INTERNAL;
-        }
-        if (layout.totalBytes > resCtx_.localBuffer.size) {
-            HCCL_ERROR("window stage layout exceeds localBuffer, totalBytes=%llu, localBuffer=%llu",
-                static_cast<unsigned long long>(layout.totalBytes),
-                static_cast<unsigned long long>(resCtx_.localBuffer.size));
-            return HCCL_E_INTERNAL;
-        }
-
-        ++profiling_.windowCount;
-        HCCL_INFO("executor window ready: scope=%s, item=0, offset=%llu, endOffset=%llu, packedBytes=%llu, itemBytes=%llu, paramWindowBytes=%llu, perRankCapacity=%llu, maxWindowBytes=%llu, rankSize=%u, stagePowerSteps=%u, stageNoPower=%u, localSlices=%u",
-            ToWindowScopeString(param_.commMode),
-            static_cast<unsigned long long>(windowOffset),
-            static_cast<unsigned long long>(windowOffset + currentWindowBytes),
-            static_cast<unsigned long long>(currentWindowBytes),
-            static_cast<unsigned long long>(item.sendBytes),
-            static_cast<unsigned long long>(param_.windowBytes),
-            static_cast<unsigned long long>(GetPerRankWindowCapacity()),
-            static_cast<unsigned long long>(maxWindowBytes),
-            param_.topoInfo.rankSize,
-            layout.powerSteps,
-            layout.noPower,
-            static_cast<uint32_t>(layout.localSlices.size()));
-
-        const uint64_t packStartUs = GetCurrentTimeUs();
-        HCCL_CHK_RET(Pack(windowOffset, currentWindowBytes, layout));
-        profiling_.packUs += (GetCurrentTimeUs() - packStartUs);
-
-        AllGatherHDStageCore hdStageCore(param_, resCtx_, layout);
-        const uint64_t hdStageStartUs = GetCurrentTimeUs();
-        HcclResult commRet = hdStageCore.RunAsync();
-        profiling_.hdStageUs += (GetCurrentTimeUs() - hdStageStartUs);
-        if (commRet != HCCL_SUCCESS) {
-            return commRet;
-        }
-
-        const uint64_t unpackStartUs = GetCurrentTimeUs();
-        HCCL_CHK_RET(Unpack(windowOffset, currentWindowBytes, layout));
-        profiling_.unpackUs += (GetCurrentTimeUs() - unpackStartUs);
-
-        windowOffset += currentWindowBytes;
+    HcclResult ret = HCCL_SUCCESS;
+    std::vector<ChannelResource> channels_(param_.topoInfo.rankSize);
+    for (uint32_t idx = 0; idx < resCtx_.channelCount; ++idx) {
+        ChannelResource &channel = GetChannel(resCtx_, idx);
+        channels_[channel.remoteRank] = channel;
     }
+    ret = RunLoop(channels_);
+    CHK_PRT_RET(ret != HCCL_SUCCESS,
+        HCCL_ERROR("[AllGatherBatchSmallCountExecutor][Orchestrate]AllGather executor kernel run failed, ret[%d]",
+            ret), ret);
+
+    HCCL_INFO("tag[%s], Allgather executor orchestrate success, take time [%llu]us",
+        param_.tag, GetCurrentTimeUs() - startus);
+    return HCCL_SUCCESS;
+}
+
+u64 AllGatherBatchSmallCountExecutor::CalcLoopMaxCount(const u64 cclBuffSize, const u32 unitSize)
+{
+    // 中转内存单次最多能够接受的output count
+    u64 maxCountPerLoop = cclBuffSize / (unitSize * param_.topoInfo.rankSize);
+    // if (param_.topoInfo.rankSize % HCCL_DEVICE_NUM_FOUR == 0) {
+    //     maxCountPerLoop = maxCountPerLoop * HCCL_DEVICE_NUM_FOUR;
+    // } else if (param_.topoInfo.rankSize % HCCL_DEVICE_NUM_TWO == 0){
+    //     maxCountPerLoop = maxCountPerLoop * HCCL_DEVICE_NUM_TWO;
+    // }
+    HCCL_INFO("[AllGatherBatchSmallCountExecutor][CalcLoopMaxCount]" \
+        "maxCountPerLoop[%llu]", maxCountPerLoop);
+    return maxCountPerLoop;
+}
+
+HcclResult AllGatherBatchSmallCountExecutor::RunLoop(std::vector<ChannelResource> &channels)
+{
+    const BatchItemParam &item = param_.items[0];
+    const u64 count = item.sendCount;
+    const HcclDataType dataType = item.dataType;
+    u32 unitSize = SIZE_TABLE[dataType];
+
+    u8 *curInputPtr = static_cast<u8 *>(item.sendBuf);
+    u8 *curOutputPtr = static_cast<u8 *>(item.recvBuf);
+    void *commInputPtr = resCtx_.localBuffer.addr;
+    u8 *commOutputPtr = static_cast<u8 *>(resCtx_.localBuffer.addr) + resCtx_.localBuffer.offset;
+    CHK_PTR_NULL(curInputPtr);
+    CHK_PTR_NULL(curOutputPtr);
+    CHK_PTR_NULL(commInputPtr);
+    CHK_PTR_NULL(commOutputPtr);
+
+    u64 maxCountPerLoop = CalcLoopMaxCount(resCtx_.localBuffer.size / 2, unitSize);
+    CHK_PRT_RET(maxCountPerLoop == 0,
+        HCCL_ERROR("[AllGatherBatchSmallCountExecutor][RunLoop]tag[%s], userRankSize is [%u], maxCountPerLoop is [%llu].",
+            param_.tag, param_.topoInfo.rankSize, maxCountPerLoop),
+        HCCL_E_PARA);
+
+    for (u64 countLeft = count, curCount = 0, inputOffset = 0, outputOffset = 0;
+            countLeft > 0; countLeft -= curCount) {
+        curInputPtr += inputOffset;
+        curOutputPtr += outputOffset;
+        // 判断剩余数据量对应的output size是否大于中转output size
+        curCount = (countLeft > maxCountPerLoop) ? maxCountPerLoop : countLeft;
+        u64 curSize = curCount * unitSize; // 单位：字节
+
+        HCCL_DEBUG("[AllGatherBatchSmallCountExecutor][RunLoop]tag[%s], inputOffset[%llu], outputOffset[%llu], " \
+            "sendBuf[%p], recvBuf[%p], sendCount[%llu], dataType[%d]",
+            param_.tag, inputOffset, outputOffset, curInputPtr, curOutputPtr, curCount, dataType);
+
+        // 执行
+        if (!DMAReduceFlag_) {
+            // 如果使用in CCL buffer，需要将user buffer in中的结果拷贝到CCL buffer in
+            void *srcPtr = curInputPtr;
+            void *dstPtr = commInputPtr;
+            CHK_RET(HcommLocalCopyOnThread(resCtx_.mainThreadHandle, dstPtr, srcPtr, curSize));
+            HCCL_DEBUG("[AllGatherBatchSmallCountExecutor][RunLoop]copy from user in to ccl in.");
+        }
+
+        // 使用当前Loop偏移到的地址作为当前的inputPtr和outputPtr
+        ExecMem execMem;
+        execMem.count = curCount;
+        execMem.dataType = dataType;
+        execMem.inputMem = {HCCL_MEM_TYPE_DEVICE, commInputPtr, curSize};
+        u32 sliceNum = param_.topoInfo.rankSize;
+        execMem.outputMem = {HCCL_MEM_TYPE_DEVICE, commOutputPtr, curSize * sliceNum};
+        execMem.inputPtr = curInputPtr;
+        execMem.outputPtr = curOutputPtr;
+        HcclResult ret = HCCL_SUCCESS;
+        ret = KernelRun(execMem, channels);
+        CHK_PRT_RET(ret != HCCL_SUCCESS,
+            HCCL_ERROR("[AllGatherBatchSmallCountExecutor][RunLoop]errNo[0x%016llx]kernel run error, tag[%s], " \
+            "inputMem ptr[%p], outputMem ptr[%p], count[%llu], dataType[%d].",
+            HCCL_ERROR_CODE(ret), param_.tag, commInputPtr, commOutputPtr,
+            curCount, dataType), ret);
+
+        if (!DMAReduceFlag_) {
+            // 如果使用CCL buffer，需要将CCL buffer out中的结果拷贝到user buffer out
+            for (u32 i = 0; i < param_.topoInfo.rankSize; i++) {
+                // 拷贝中转output上每个slice的数据到output内存，目的端中每个slice的size固定为output的size
+                void *dstPtr = curOutputPtr + count * unitSize * i;
+                void *srcPtr = commOutputPtr + curSize * i;
+                CHK_RET(HcommLocalCopyOnThread(resCtx_.mainThreadHandle, dstPtr, srcPtr, curSize));
+            }
+        }
+
+        inputOffset = curSize;
+        outputOffset = curSize;
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult AllGatherBatchSmallCountExecutor::KernelRun(ExecMem &execMem, std::vector<ChannelResource> &channels)
+{
+    AllGatherHDStage hdStageCore(param_, resCtx_, execMem, channels);
+    const uint64_t hdStageStartUs = GetCurrentTimeUs();
+    HcclResult commRet = hdStageCore.RunAsync();
+    profiling_.hdStageUs += (GetCurrentTimeUs() - hdStageStartUs);
+    CHK_RET(commRet);
+
     return HCCL_SUCCESS;
 }
 
 }  // namespace ops_hccl_allgatherbatch
-
-

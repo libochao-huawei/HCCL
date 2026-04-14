@@ -492,7 +492,7 @@ HcclResult AllGatherNHRCore::SdmaRx(
             resCtx_.mainThreadHandle,
             channelLeft->handle,
             kAllGatherBatchNotifyIdxAck,
-            kAllGatherBatchCustomTimeoutMs);
+            CUSTOM_TIMEOUT);
         if (ret != HCCL_SUCCESS) {
             HCCL_ERROR("NHR step[%u] ack wait failed, fromRank=%u, ret=%d",
                 stepInfo.step,
@@ -518,7 +518,7 @@ HcclResult AllGatherNHRCore::SdmaRx(
             resCtx_.mainThreadHandle,
             channelRight->handle,
             kAllGatherBatchNotifyIdxDataSignal,
-            kAllGatherBatchCustomTimeoutMs);
+            CUSTOM_TIMEOUT);
         if (ret != HCCL_SUCCESS) {
             HCCL_ERROR("NHR step[%u] data wait failed, toRank=%u, ret=%d",
                 stepInfo.step,
@@ -555,7 +555,7 @@ HcclResult AllGatherNHRCore::RdmaTxRx(
             resCtx_.mainThreadHandle,
             channelRight->handle,
             kAllGatherBatchNotifyIdxAck,
-            kAllGatherBatchCustomTimeoutMs);
+            CUSTOM_TIMEOUT);
         if (ret != HCCL_SUCCESS) {
             HCCL_ERROR("NHR step[%u] right ack wait failed, toRank=%u, ret=%d",
                 stepInfo.step,
@@ -581,7 +581,7 @@ HcclResult AllGatherNHRCore::RdmaTxRx(
             resCtx_.mainThreadHandle,
             channelLeft->handle,
             kAllGatherBatchNotifyIdxDataSignal,
-            kAllGatherBatchCustomTimeoutMs);
+            CUSTOM_TIMEOUT);
         if (ret != HCCL_SUCCESS) {
             HCCL_ERROR("NHR step[%u] left data wait failed, fromRank=%u, ret=%d",
                 stepInfo.step,
@@ -607,7 +607,7 @@ HcclResult AllGatherNHRCore::RdmaTxRx(
             resCtx_.mainThreadHandle,
             channelRight->handle,
             kAllGatherBatchNotifyIdxFinAck,
-            kAllGatherBatchCustomTimeoutMs);
+            CUSTOM_TIMEOUT);
         if (ret != HCCL_SUCCESS) {
             HCCL_ERROR("NHR step[%u] right fin wait failed, toRank=%u, ret=%d",
                 stepInfo.step,
