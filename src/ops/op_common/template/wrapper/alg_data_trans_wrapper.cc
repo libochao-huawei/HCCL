@@ -114,6 +114,36 @@ HcclResult SendRecvWriteWithPreSync(const SendRecvInfo &sendRecvInfo, const Thre
     return HCCL_SUCCESS;
 }
 
+HcclResult SendRecvWriteWithPreSync(const SendRecvInfo &sendRecvInfo, const ThreadHandle &thread)
+{
+    HCCL_ERROR("[SendRecvWriteWithPreSync] start....");
+    const std::vector<DataSlice> srcSlices = sendRecvInfo.sendRecvSlices_.txSlicesList_.srcSlices_;
+    const std::vector<DataSlice> dstSlices = sendRecvInfo.sendRecvSlices_.txSlicesList_.dstSlices_;
+    const ChannelInfo &sendChannel = sendRecvInfo.sendRecvChannels_.txChannel_;
+    const ChannelInfo &recvChannel = sendRecvInfo.sendRecvChannels_.rxChannel_;
+    u32 repeatNum = srcSlices.size();
+    // 向write rank发送tx同步，确保该rank的hcclBuffer可用
+    // 这里只是在host上向device下任务，所以实际在host侧不会因为wait而阻塞
+    CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, recvChannel.handle, NOTIFY_IDX_ACK)));
+    CHK_RET(static_cast<HcclResult>(
+        HcommChannelNotifyWaitOnThread(thread, sendChannel.handle, NOTIFY_IDX_ACK, CUSTOM_TIMEOUT)));
+    for (int i = 0; i < repeatNum; i++) {
+        // tx同步完成后准备将自己的userIn上的数据写到对方的hcclBuffer上
+        const DataSlice srcSlice = srcSlices[i];
+        const DataSlice dstSlice = dstSlices[i];
+        if (srcSlice.size_ == 0) {
+            HCCL_WARNING("[AlgDataTransWrapper] SendRecvWrite: size is 0.");
+            continue;
+        }
+        void *dst = static_cast<void *>(static_cast<s8 *>(dstSlice.addr_) + dstSlice.offset_);
+        void *src = static_cast<void *>(static_cast<s8 *>(srcSlice.addr_) + srcSlice.offset_);
+        CHK_RET(static_cast<HcclResult>(HcommWriteOnThread(thread, sendChannel.handle, dst, src, srcSlice.size_)));
+    }
+
+    HCCL_ERROR("[SendRecvWriteWithPreSync] end....");
+    return HCCL_SUCCESS;
+}
+
 HcclResult SendRecvWriteWithoutPreSync(const SendRecvInfo &sendRecvInfo, const ThreadHandle &thread)
 {
     const std::vector<DataSlice> srcSlices = sendRecvInfo.sendRecvSlices_.txSlicesList_.srcSlices_;
