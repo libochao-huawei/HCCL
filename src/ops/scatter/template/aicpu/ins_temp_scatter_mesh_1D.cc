@@ -89,11 +89,6 @@ u64 InsTempScatterMesh1D::CalcScratchMultiple(BufferType inBuffType, BufferType 
 HcclResult InsTempScatterMesh1D::KernelRun(const OpParam& param, const TemplateDataParams &tempAlgParams,
                      TemplateResource& templateResource)
 {
-    HCCL_INFO("[InsTempScatterMesh1D][KernelRun] templateResource.channels.size() = %u, subCommRanks_[0].size() = %u", 
-                templateResource.channels.size(), subCommRanks_[0].size());
-    CHK_PRT_RET(templateResource.channels.size() < subCommRanks_[0].size(), 
-                HCCL_ERROR("[InsTempScatterMesh1D][KernelRun] channels size is not equal to subCommRanks size"), 
-                HCCL_E_INTERNAL);
     for (const auto& item : templateResource.channels) {
         u32 key = item.first;
         HCCL_DEBUG("[KernelRun] myRank_ = %u, channel key = %u", myRank_, key);
@@ -210,6 +205,9 @@ HcclResult InsTempScatterMesh1D::RunMesh(const std::map<u32, std::vector<Channel
                 HCCL_DEBUG("[InsTempScatterMesh1D][RunMesh] algRank[%d]", algRank);
                 u32 remoteRank = subCommRanks_[0][algRank];
                 HCCL_INFO("[InsTempScatterMesh1D][RunMesh] myRank[%d], toRank[%d]", myRank_, remoteRank);
+                CHK_PRT_RET(channels.find(remoteRank) == channels.end() || channels.at(remoteRank).empty(), 
+ 	                        HCCL_ERROR("[InsTempScatterMesh1D][RunMesh] remoteRank[%d] not found in channels", remoteRank), 
+ 	                        HCCL_E_INTERNAL);
                 const ChannelInfo &linkSend = channels.at(remoteRank)[0];
                 u64 srcOffset = tempAlgParams.buffInfo.inBuffType == BufferType::HCCL_BUFFER
                                     ? tempAlgParams.buffInfo.hcclBuffBaseOff + r * tempAlgParams.inputRepeatStride +
@@ -247,7 +245,7 @@ HcclResult InsTempScatterMesh1D::RunMesh(const std::map<u32, std::vector<Channel
             if(channels.size() == 0 || channels.count(root_) == 0){
                 continue;
             }
-            CHK_PRT_RET(channels.find(root_) == channels.end(), 
+            CHK_PRT_RET(channels.find(root_) == channels.end() || channels.at(root_).empty(), 
                         HCCL_ERROR("[InsTempScatterMesh1D][RunMesh] root[%d] not found in channels", root_), 
                         HCCL_E_INTERNAL);
             const ChannelInfo &linkRecv = channels.at(root_)[0];
