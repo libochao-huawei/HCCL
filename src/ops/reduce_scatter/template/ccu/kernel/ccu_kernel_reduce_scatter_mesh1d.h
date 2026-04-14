@@ -13,30 +13,28 @@
 
 #include <vector>
 #include <ios>
-#include "ccu_kernel.h"
+// #include "ccu_kernel.h"
 #include "ccu_kernel_utils.h"
 #include "ccu_kernel_alg_base.h"
 
 namespace ops_hccl {
-using namespace hcomm;
 
-struct CcuKernelArgReduceScatterMesh1D {
+struct CcuKernelArgReduceScatterMesh1D: CcuKernelArgBase{
     uint64_t                                rankSize;
     uint32_t                                rankId;
     OpParam                                 opParam;
     std::vector<std::vector<uint32_t>>      subCommRanks;
-    std::vector<ChannelHandle>              channels;
 };
 
-struct ReduceScatterCtx: CcuKernelCtxBase {
+struct ReduceScatterMesh1DContext: CcuKernelCtxBase {
     const CcuKernelArgReduceScatterMesh1D *arg;
     
-    uint64_t rankSize{0};
-    uint32_t rankId{0};
+    // uint64_t rankSize{0};
+    // uint32_t rankId{0};
     HcclDataType dataType;
     HcclDataType outputDataType;
     HcclReduceOp reduceOp;
-    std::vector<ChannelHandle> channels_;
+    // std::vector<ChannelHandle> channels;
     std::vector<CcuVariable> input;
     CcuVariable output;
     std::vector<CcuVariable> token;
@@ -47,18 +45,18 @@ struct ReduceScatterCtx: CcuKernelCtxBase {
     // LoopGroupResource moRes;
     // bool resourceAllocated;
 
-    CcuLoopHandle reduceLoops[2];
-    bool loopRegistered;
+    //CcuLoop reduceLoops[2];
+    //bool loopRegistered;
 
     // Loop body 中的外部 LocalAddr（每个 loop index 各两组）
-    CcuLocalAddr loopDst[2];
-    CcuLocalAddr loopSrc[2];
-    CcuLocalAddr loopScratch[2][RS_MAX_RANK_SIZE];
-    CcuVariable  loopLen[2];
-    CcuVariable  loopLenExp[2];
+    //ccu::LocalAddr loopDst[2];
+    //ccu::LocalAddr loopSrc[2];
+    //ccu::LocalAddr loopScratch[2][CCU_MAX_RANK_SIZE];
+    //CcuVariable  loopLen[2];
+    //CcuVariable  loopLenExp[2];
 };
 
-HcclResult CcuReduceScatterMesh1DKernel(CcuKernelArg arg);
+CcuResult CcuReduceScatterMesh1DKernel(CcuKernelArg arg);
 } // namespace ops_hccl
 
 #endif // HCCL_CCU_KERNEL_REDUCE_SCATTER_MESH_1D
