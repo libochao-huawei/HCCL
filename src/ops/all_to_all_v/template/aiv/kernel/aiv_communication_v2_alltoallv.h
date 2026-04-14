@@ -13,6 +13,7 @@
 
 #include "aiv_communication_base_v2.h"
 #include "aiv_all_to_all_v_mesh_1D.h"
+#include "aiv_all_to_all_v_omni.h"
 using namespace AscendC;
 
 #define AIV_ALL_TO_ALL_V_KERNEL_BATCH_DEF(type) \
@@ -21,6 +22,13 @@ extern "C" __global__ __aicore__ void aiv_alltoallv_##type(EXTERN_KERNEL_ARGS_DE
 }                                               \
 EXPORT_AIV_META_INFO(aiv_alltoallv_##type)
 
+#define AIV_OMNI_KERNEL_BATCH_DEF(type) \
+extern "C" __global__ __aicore__ void omni_aiv_##type(EXTERN_KERNEL_ARGS_DEF_V2) { \
+    AivOmniV2Entry<type>(EXTERN_KERNEL_ARGS_CALL); \
+}                                               \
+EXPORT_AIV_META_INFO(omni_aiv_##type)
+
 // 定义各算子各数据类型Kernel入口
 AIV_COPY_DATA_TYPE_DEF(AIV_ALL_TO_ALL_V_KERNEL_BATCH_DEF);
+AIV_COPY_DATA_TYPE_DEF(AIV_OMNI_KERNEL_BATCH_DEF);
 #endif  /* AIV_COMMUNICATION_V2_H */

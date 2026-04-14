@@ -38,6 +38,7 @@
 #include "alg_type.h"
 #include "op_common.h"
 #include "hccl_aiv_utils.h"
+#include "aiv_kernel_def.h"
 #include "dpu/kernel_launch.h"
 #include "hcomm_host_profiling_dl.h"
 #include "hccl_host_comm_dl.h"
@@ -1473,12 +1474,22 @@ HcclResult HcclGetOpExpansionMode(HcclComm comm, OpParam &param)
         HCCL_ERROR("DecideHcclOpExpansionMode failed, ret: %d", ret);
         return ret;
     }
-
     // 第二步：应用选择的模式到param
     ret = ApplyOpExpansionMode(param, finalMode);
     if (ret != HCCL_SUCCESS) {
         HCCL_ERROR("ApplyOpExpansionMode failed, ret: %d", ret);
         return ret;
+    }
+
+    if ((finalMode == HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_AIV ||
+        finalMode == HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY) &&
+        GetExternalInputHcclAivMode() == true) {
+        const std::vector<HcclAlgoType> algConfig = GetExternalInputHcclAlgoConfig(param.opType);
+        const bool isOmni = (algConfig.size() > HCCL_ALGO_LEVEL) &&
+            (algConfig[HCCL_ALGO_LEVEL] == HcclAlgoType::HCCL_ALGO_TYPE_OMNI);
+        if (isOmni) {
+            CHK_RET(RegisterKernel(param.opType, g_omniAivBinaryName, g_omniAivKernelInfoList));
+        }
     }
     return HCCL_SUCCESS;
 }
