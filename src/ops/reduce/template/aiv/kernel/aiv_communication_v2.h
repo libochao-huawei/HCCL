@@ -13,6 +13,7 @@
 
 #include "aiv_communication_base_v2.h"
 #include "aiv_reduce_mesh_1d.h"
+#include "aiv_reduce_mesh_1d_twoshot.h"
 
 using namespace AscendC;
 
@@ -22,7 +23,16 @@ extern "C" __global__ __aicore__ void aiv_reduce_##type(EXTERN_KERNEL_ARGS_DEF_V
 } \
 EXPORT_AIV_META_INFO(aiv_reduce_##type)
 
+#define AIV_REDUCE_TWOSHOT_KERNEL_BATCH_DEF(type) \
+extern "C" __global__ __aicore__ void aiv_reduce_mesh1d_twoshot_##type(EXTERN_KERNEL_ARGS_DEF_V2) { \
+    if (isOpBase) { \
+        return AivReduceV2Mesh1DTwoShot<type>(EXTERN_KERNEL_ARGS_CALL); \
+    } \
+} \
+EXPORT_AIV_META_INFO(aiv_reduce_mesh1d_twoshot_##type)
+
 // 定义各算子各数据类型Kernel入口
 AIV_ATOMIC_DATA_TYPE_DEF(AIV_REDUCE_KERNEL_BATCH_DEF);
+AIV_ATOMIC_DATA_TYPE_DEF(AIV_REDUCE_TWOSHOT_KERNEL_BATCH_DEF);
 
 #endif  /* AIV_COMMUNICATION_V2_H */

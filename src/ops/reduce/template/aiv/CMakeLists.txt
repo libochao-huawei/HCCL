@@ -12,6 +12,7 @@ add_subdirectory(kernel)
 
 set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/aiv_temp_reduce_mesh_1D.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/aiv_temp_reduce_mesh_1D_twoshot.cc
 )
 
 target_sources(hccl PRIVATE

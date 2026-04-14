@@ -122,6 +122,12 @@ static std::vector<AivKernelInfo> g_reduceAivKernelInfoList = {
     {"aiv_reduce_int32_t", HcclDataType::HCCL_DATA_TYPE_INT32},
     {"aiv_reduce_int8_t", HcclDataType::HCCL_DATA_TYPE_INT8},
     {"aiv_reduce_bfloat16_t", HcclDataType::HCCL_DATA_TYPE_BFP16},
+    {"aiv_reduce_mesh1d_twoshot_half", HcclDataType::HCCL_DATA_TYPE_FP16, KernelArgsType::ARGS_TYPE_TWO_SHOT},
+    {"aiv_reduce_mesh1d_twoshot_int16_t", HcclDataType::HCCL_DATA_TYPE_INT16, KernelArgsType::ARGS_TYPE_TWO_SHOT},
+    {"aiv_reduce_mesh1d_twoshot_float", HcclDataType::HCCL_DATA_TYPE_FP32, KernelArgsType::ARGS_TYPE_TWO_SHOT},
+    {"aiv_reduce_mesh1d_twoshot_int32_t", HcclDataType::HCCL_DATA_TYPE_INT32, KernelArgsType::ARGS_TYPE_TWO_SHOT},
+    {"aiv_reduce_mesh1d_twoshot_int8_t", HcclDataType::HCCL_DATA_TYPE_INT8, KernelArgsType::ARGS_TYPE_TWO_SHOT},
+    {"aiv_reduce_mesh1d_twoshot_bfloat16_t", HcclDataType::HCCL_DATA_TYPE_BFP16, KernelArgsType::ARGS_TYPE_TWO_SHOT},
 };
 static std::string g_reduceAivBinaryName = "hccl_aiv_reduce_op_910_95.o";
 
