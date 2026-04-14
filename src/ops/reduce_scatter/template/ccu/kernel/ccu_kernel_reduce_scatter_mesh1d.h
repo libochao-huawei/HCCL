@@ -13,12 +13,13 @@
 
 #include <vector>
 #include <ios>
-#include "ccu_kernel.h"
+// #include "ccu_kernel.h"
 #include "ccu_kernel_utils.h"
 #include "ccu_kernel_alg_base.h"
 
 namespace ops_hccl {
-using namespace hcomm;
+
+constexpr uint64_t RS_MAX_RANK_SIZE         = 128;
 
 struct CcuKernelArgReduceScatterMesh1D {
     uint64_t                                rankSize;
@@ -28,7 +29,7 @@ struct CcuKernelArgReduceScatterMesh1D {
     std::vector<ChannelHandle>              channels;
 };
 
-struct ReduceScatterCtx: CcuKernelCtxBase {
+struct ReduceScatterContext: CcuKernelCtxBase {
     const CcuKernelArgReduceScatterMesh1D *arg;
     
     uint64_t rankSize{0};
@@ -36,7 +37,7 @@ struct ReduceScatterCtx: CcuKernelCtxBase {
     HcclDataType dataType;
     HcclDataType outputDataType;
     HcclReduceOp reduceOp;
-    std::vector<ChannelHandle> channels_;
+    std::vector<ChannelHandle> channels;
     std::vector<CcuVariable> input;
     CcuVariable output;
     std::vector<CcuVariable> token;

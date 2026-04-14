@@ -11,11 +11,33 @@
 #ifndef CCU_KERNEL_ALG_BASE
 #define CCU_KERNEL_ALG_BASE
 
+#include <vector>
+#include <array>
+
 #include "log.h"
-#include "ccu_kernel.h"
+#include "ccu_data_resource.h"
+#include "ccu_data_api.h"
+#include "ccu_api.hpp"
+// #include "ccu_kernel.h"
+
+// TODO x30067372 暂时定义
+#define HCCL_TO_CCU_RET(ret) static_cast<HcclResult>(ret)
+
+/* 检查函数返回值, 并返回指定错误码 */
+#define CCU_CHK_RET(call)                                 \
+    do {                                              \
+        HcclResult ccuRet = HCCL_TO_CCU_RET(call);                        \
+        if (UNLIKELY(ccuRet != HCCL_SUCCESS)) {                    \
+            HCCL_ERROR("[%s]call trace: ccuRet -> %d", __func__, ccuRet); \
+            return ccuRet;                               \
+        }                                             \
+    } while (0)
 
 namespace ops_hccl {
-using namespace hcomm;
+
+constexpr uint64_t RS_CCU_MS_INTERLEAVE         = 8;
+constexpr uint64_t RS_CCU_MS_DEFAULT_LOOP_COUNT = 64;
+constexpr uint64_t RS_CCU_MS_SIZE               = 4096;
 
 // /* hccl仓CcuKernel基类，提供group高阶操作接口 */
 // class CcuKernelAlgBase : public CcuKernel {
@@ -45,6 +67,32 @@ using namespace hcomm;
         CcuVariable residual;          // 尾块数据size
     };
 
+    struct CcuKernelCtxBase {
+        // GroupOpSizeVars goSize;
+
+        LoopGroupConfig  moConfig;
+        LoopGroupResource moRes;
+        bool resourceAllocated;
+
+        CcuLoopHandle loops[2];
+        bool loopRegistered;
+
+        // // Loop body 中的外部 LocalAddr（每个 loop index 各两组）
+        // CcuLocalAddr loopDst[2];
+        // CcuLocalAddr loopSrc[2];
+        // CcuLocalAddr loopScratch[2][RS_MAX_RANK_SIZE];
+        // CcuVariable  loopLen[2];
+        // CcuVariable  loopLenExp[2];
+    };
+
+    struct GroupReduceVar {
+        CcuLocalAddr loopDst[2];
+        std::array<std::vector<CcuRemoteAddr>, 2> loopSrc;
+        // CcuLocalAddr loopSrc[2];
+        CcuVariable  loopLen[2];
+        CcuVariable  loopLenExp[2];
+    };
+
 //     // 用于n和p部分数据loopgroup的参数
 //     GroupOpConfig       moConfig{0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFFFFFFFFFF};
 //     GroupOpSizeResource moRes;
@@ -70,8 +118,10 @@ using namespace hcomm;
 
 //     // 高阶操作
 //     std::vector<uint64_t> CalGoSize(uint64_t size);
-    CcuResult AllocGoResource(LoopGroupConfig &config, LoopGroupResource &res,
-        bool &allocated, uint32_t parallelDim = CCU_MS_DEFAULT_LOOP_COUNT, uint32_t msPerLoop = 1)
+    std::vector<uint64_t> CalGoSize(uint64_t size, const LoopGroupConfig &config);
+    // TODO x30067372 暂时修改
+    HcclResult AllocGoResource(LoopGroupConfig &config, LoopGroupResource &res,
+        bool &allocated, uint32_t parallelDim = RS_CCU_MS_DEFAULT_LOOP_COUNT, uint32_t msPerLoop = 1);
 //     // 引入基类Load函数，防止名称遮蔽
 //     using CcuKernel::Load;
 //     void Load(GroupOpSize moSize);
@@ -80,10 +130,9 @@ using namespace hcomm;
 //                               CcuRep::LocalAddr src, GroupOpSize goSize);
 //     HcclResult GroupBroadcastWithoutMyRank(const std::vector<ChannelHandle>& channels, std::vector<CcuRep::RemoteAddr> dst,
 //                               CcuRep::LocalAddr src, GroupOpSize goSize);
-    HcclResult GroupReduce(CcuKernelCtxBase &ctx, const std::vector<ChannelHandle> &channels, 
-                           const std::vector<ChannelHandle>& channels, CcuRep::LocalAddr dst,
-                           std::vector<CcuRep::RemoteAddr> src, GroupOpSize goSize, HcclDataType dataType,
-                           HcclDataType outputDataType, HcclReduceOp opType);
+    HcclResult GroupReduce(CcuKernelCtxBase &ctx, const std::vector<CcuKernelHandle> &channels,
+                           CcuLocalAddr dst, std::vector<CcuRemoteAddr> src,
+                           GroupOpSizeVars goSize, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType);
 
 //     HcclResult GroupReduceWithoutMyRank(const std::vector<ChannelHandle> &ccuChannels, CcuRep::LocalAddr dst,
 //                              std::vector<CcuRep::RemoteAddr> src, GroupOpSize goSize, HcclDataType dataType,
@@ -96,8 +145,8 @@ using namespace hcomm;
 //     HcclResult CreateMultiOpCopy();
 //     HcclResult CreateMultiOpBroadcast(const std::vector<ChannelHandle> &channels);
 //     HcclResult CreateMultiOpBroadcastWithoutMyRank(const std::vector<ChannelHandle> &channels);
-    HcclResult CreateMultiOpReduce(CcuKernelCtxBase &ctx, const GroupReduceVar &var, 
-                                   const std::vector<ChannelHandle>& channels, HcclDataType dataType,
+    HcclResult CreateMultiOpReduce(CcuKernelCtxBase &ctx, GroupReduceVar &var,
+                                   const std::vector<CcuKernelHandle>& channels, HcclDataType dataType,
                                    HcclDataType outputDataType, HcclReduceOp opType);
 //     HcclResult CreateMultiOpReduceWithoutMyRank(const std::vector<ChannelHandle> &ccuChannels, HcclDataType dataType,
 //                                      HcclDataType outputDataType, HcclReduceOp opType);
@@ -105,24 +154,6 @@ using namespace hcomm;
 //         HcclReduceOp opType);
 //     std::string GetLoopBlockTag(std::string loopType, int32_t index);
 // };
-
-struct CcuKernelCtxBase {
-    // GroupOpSizeVars goSize;
-
-    LoopGroupConfig  moConfig;
-    LoopGroupResource moRes;
-    bool resourceAllocated;
-
-    CcuLoopHandle loops[2];
-    // bool loopRegistered;
-
-    // // Loop body 中的外部 LocalAddr（每个 loop index 各两组）
-    // CcuLocalAddr loopDst[2];
-    // CcuLocalAddr loopSrc[2];
-    // CcuLocalAddr loopScratch[2][RS_MAX_RANK_SIZE];
-    // CcuVariable  loopLen[2];
-    // CcuVariable  loopLenExp[2];
-};
 
 }
 

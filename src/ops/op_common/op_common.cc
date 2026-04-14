@@ -1148,7 +1148,7 @@ HcclResult HcclGetCcuKernel(HcclComm comm, AlgResourceRequest &resRequest,
     u32 maxResGroup = 0;
     resCtxHost->ccuKernels.resize(totalKernelNum);
     
-    CHK_RET(HcommCcuKernelRegisterStart(insHandle));
+    CCU_CHK_RET(HcommCcuKernelRegisterStart(insHandle));
     while (currentResGroup <= maxResGroup) {
         for (u32 i = 0; i < totalKernelNum; i++) {
             CcuKernelInfo& kernelInfo = resRequest.ccuKernelInfos[i];
@@ -1161,11 +1161,11 @@ HcclResult HcclGetCcuKernel(HcclComm comm, AlgResourceRequest &resRequest,
 
             HCCL_DEBUG("[HcclGetCcuKernel] kernelFuncName[%s]", kernelInfo.kernelFuncName);
             CcuKernelHandle kernelHandle;
- 	        CHK_RET(HcommCcuKernelRegister(insHandle, kernelInfo.kernelFuncName,
+ 	        CCU_CHK_RET(HcommCcuKernelRegister(insHandle, const_cast<char*>(kernelInfo.kernelFuncName),
                 kernelInfo.kernelFunc, kernelInfo.kernelArg, &kernelHandle));
             resCtxHost->ccuKernels[i] = kernelHandle;
         }
-        CHK_RET(HcommCcuKernelRegisterEnd(insHandle));
+        CCU_CHK_RET(HcommCcuKernelRegisterEnd(insHandle));
         currentResGroup++;
     }
     resCtxHost->ccuKernelNum = resRequest.ccuKernelNum;
