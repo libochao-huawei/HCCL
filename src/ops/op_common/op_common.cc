@@ -311,8 +311,6 @@ HcclResult ReSelector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWit
     HCCL_INFO("Start to execute ReSelector.");
     // 回退AICPU
     param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
-    param.engine = CommEngine::COMM_ENGINE_AICPU_TS;
-    CHK_RET(LoadAICPUKernel());
     // 拓扑已有，无需再计算
 
     // 算法选择，选择完后顺便param.algTag设置了，资源的保存是以算子+算法为单位
@@ -701,8 +699,7 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
         // 添加资源回退。SetCommEngine
         auto ret = GetAlgResCcu(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence, size);
         if (ret == HCCL_E_UNAVAIL) {
-            param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
-            param.engine = CommEngine::COMM_ENGINE_AICPU_TS;
+            HCCL_INFO("[GetAlgResCcu] resource unavailable, try to fallback.");
             return HCCL_E_UNAVAIL;
         } else {
             CHK_RET(ret);
@@ -1065,7 +1062,11 @@ HcclResult GetAlgResCcu(HcclComm comm, const OpParam& param, AlgResourceRequest&
 
     // 创建资源，并填充到Host内存上
     HcclResult ret = HcclAllocAlgResourceCcu(comm, param, resRequest, resCtxHost);
-    if (ret != HCCL_SUCCESS) {
+    if (ret == HCCL_E_UNAVAIL) {
+        // 进行资源回退
+        HCCL_INFO("[HcclAllocAlgResourceCcu] resource unavailable, try to fallback.");
+        return HCCL_E_UNAVAIL;
+    } else if (ret != HCCL_SUCCESS) {
         HCCL_ERROR("failed to alloc alg resource.");
         return ret;
     }
@@ -1100,7 +1101,7 @@ HcclResult HcclAllocAlgResourceCcu(HcclComm comm, const OpParam& param, AlgResou
     auto ret = HcclGetChannelForCcu(comm, param, resRequest);
     if (ret == HCCL_E_UNAVAIL) {
         // 进行资源回退
-        HCCL_INFO("[HcclAllocAlgResourceCcu] channel unavailable");
+        HCCL_INFO("[HcclGetChannelForCcu] channel unavailable, try to fallback.");
         return HCCL_E_UNAVAIL;
     } else {
         CHK_RET(ret);
@@ -1110,8 +1111,10 @@ HcclResult HcclAllocAlgResourceCcu(HcclComm comm, const OpParam& param, AlgResou
     return HCCL_E_UNAVAIL; // stub
     if (ret == HCCL_E_UNAVAIL) {
         // 进行资源回退
-        HCCL_INFO("[HcclAllocAlgResourceCcu] kernel unavailable");
+        HCCL_INFO("[HcclGetCcuKernel] kernel unavailable, try to fallback.");
         return HCCL_E_UNAVAIL;
+    } else {
+        CHK_RET(ret);
     }
     return HCCL_SUCCESS;
 }
@@ -1127,10 +1130,11 @@ HcclResult HcclGetChannelForCcu(HcclComm comm, const OpParam &param, AlgResource
         kernelChannels.resize(channelNum);
 
         if (channelNum > 0) {
-            // 需要资源回退。返回资源不够并且清理资源
+            // 需要资源回退。返回资源不够
             auto ret = HcclChannelAcquire(comm, param.engine, kernelChannelRequest.data(),
                 channelNum, kernelChannels.data());
             if (ret == HCCL_E_UNAVAIL) {
+                HCCL_INFO("[HcclChannelAcquire] channel unavailable, channel num[%u].", channelNum);
                 return HCCL_E_UNAVAIL;
             } else {
                 CHK_RET(ret);
@@ -1174,6 +1178,8 @@ HcclResult HcclGetCcuKernel(HcclComm comm, AlgResourceRequest &resRequest,
             
             auto ret = HcclCcuKernelRegister(comm, &handle, creatorPtr, kernelArgPtr);
             if (ret == HCCL_E_UNAVAIL) {
+                HCCL_INFO("[HcclCcuKernelRegister] kernel unavailable, group idx[%u], kernel idx[%u].", 
+                          currentResGroup, i);
                 return HCCL_E_UNAVAIL;
             } else {
                 CHK_RET(ret);
@@ -1578,6 +1584,7 @@ HcclResult DecideHcclOpExpansionMode(HcclComm comm, HcclOpExpansionMode &finalMo
     if (configOpExpansionMode != finalMode) {
         HCCL_DEBUG("[DecideHcclOpExpansionMode] configOpExpansionMode: %d, environment mode: %d, conflict, use environment mode.",
             configOpExpansionMode, finalMode);
+        finalMode = configOpExpansionMode;
     }
     return HCCL_SUCCESS;
 }
