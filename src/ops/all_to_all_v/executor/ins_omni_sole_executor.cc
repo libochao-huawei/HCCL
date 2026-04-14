@@ -8,12 +8,32 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include <algorithm>
+#include <cstdlib>
 #include <fstream>
+#include <vector>
 #include "template_utils.h"
 #include "ins_omni_sole_executor.h"
 
 
 namespace ops_hccl {
+constexpr uint16_t OMNI_RES_REQUEST_OPCODE = 0;
+constexpr uint16_t OMNI_PRESYNC_OPCODE = 1;
+constexpr uint16_t OMNI_POSTSYNC_OPCODE = 2;
+constexpr uint64_t OMNI_SYNC_INSTRUCTION_BITS = 64;
+
+std::string JoinOmniPath(const std::string &basePath, const std::string &fileName)
+{
+    if (basePath.empty()) {
+        return fileName;
+    }
+    const char lastChar = basePath.back();
+    if (lastChar == '\\' || lastChar == '/') {
+        return basePath + fileName;
+    }
+    const char separator = (basePath.find('\\') != std::string::npos) ? '\\' : '/';
+    return basePath + separator + fileName;
+}
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::InsOmniSoleExecutor()
@@ -59,216 +79,205 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::InitCommInfo(const
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
+uint32_t InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ReadBits(std::ifstream& file, uint64_t offset, size_t numBits)
+{
+    uint32_t result = 0;
+    size_t bitsRead = 0;
+    const uint64_t byteOffset = offset / 8;
+    const size_t bitOffset = offset % 8;
+    const size_t totalBits = bitOffset + numBits;
+    const size_t totalBytes = (totalBits + 7) / 8;
+    std::vector<uint8_t> bytes(totalBytes, 0);
+
+    file.clear();
+    file.seekg(byteOffset, std::ios::beg);
+    if (!file.read(reinterpret_cast<char*>(bytes.data()), totalBytes)) {
+        return 0;
+    }
+    while (bitsRead < numBits) {
+        const size_t absBit = bitOffset + bitsRead;
+        const size_t curByteIdx = absBit / 8;
+        const size_t curBitIdx = absBit % 8;
+        const uint8_t bit = (bytes[curByteIdx] >> (7 - curBitIdx)) & 0x1;
+        result = (result << 1) | bit;
+        bitsRead++;
+    }
+    return result;
+}
+
+template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ParseXmlInfo(const OpParam& param,
     const TopoInfoWithNetLayerDetails* topoInfo)
 {
-    std::string fileName;
-    if (myRank_ == 0) {
-        fileName = "rank_0.bin";
-    } else if (myRank_ == 1) {
-        fileName = "rank_1.bin";
-    } else if (myRank_ == 2) {
-        fileName = "rank_2.bin";
-    } else if (myRank_ == 3) {
-        fileName = "rank_3.bin";
+    (void)param;
+    (void)topoInfo;
+    const char *omniBinPath = std::getenv("HCCL_OMNI_BIN_PATH");
+    std::vector<std::string> candidatePaths;
+    if (omniBinPath != nullptr && omniBinPath[0] != '\0') {
+        candidatePaths.emplace_back(omniBinPath);
+        candidatePaths.emplace_back(JoinOmniPath(omniBinPath, "rank_" + std::to_string(myRank_) + ".bin"));
     }
+    candidatePaths.emplace_back("rank_" + std::to_string(myRank_) + ".bin");
+    candidatePaths.emplace_back("example.bin");
 
-    std::ifstream file(fileName, std::ios::binary);
+    std::ifstream file;
+    std::string selectedPath;
+    for (const auto &candidatePath : candidatePaths) {
+        file.open(candidatePath, std::ios::binary);
+        if (file.is_open()) {
+            selectedPath = candidatePath;
+            break;
+        }
+        file.clear();
+    }
     if (!file) {
-        HCCL_INFO("catn not open file %s", fileName.c_str());
+        HCCL_ERROR("[InsOmniSoleExecutor][ParseXmlInfo] can not open omni bin file, env[%s], rank[%u].",
+            omniBinPath == nullptr ? "" : omniBinPath, myRank_);
         return HCCL_E_PARA;
     }
+    HCCL_INFO("[InsOmniSoleExecutor][ParseXmlInfo] use omni bin file [%s].", selectedPath.c_str());
 
+    XmlInfo xmlInfo;
     uint64_t offset = 0;
+    uint16_t op = ReadBits(file, offset, 8);
+    offset += 8;
+    uint16_t slaveThreadNum = ReadBits(file, offset, 8);
+    offset += 8;
+    uint16_t notifyNumOnMainThread = ReadBits(file, offset, 8);
+    offset += 8;
+    uint16_t notifyNumPerThread = ReadBits(file, offset, 8);
+    offset += 8;
+    uint16_t netLayer = ReadBits(file, offset, 8);
+    offset += 8;
+    uint16_t chanCount = ReadBits(file, offset, 8);
+    offset += 8;
+    (void)op;
+    xmlInfo.resInfo.slaveThreadNum = slaveThreadNum;
+    xmlInfo.resInfo.notifyNumOnMainThread = notifyNumOnMainThread;
+    xmlInfo.resInfo.notifyNumPerThread = notifyNumPerThread;
+    xmlInfo.resInfo.netLayerNum = netLayer;
+
+    std::map<u32, OmniChannelInfo> mapChannelInfo;
+    for (uint16_t i = 0; i < chanCount; i++) {
+        OmniChannelInfo omniChannelInfo;
+        uint16_t channelId = ReadBits(file, offset, 8);
+        offset += 8;
+        uint16_t localRank = ReadBits(file, offset, 8);
+        offset += 8;
+        uint16_t remoteRank = ReadBits(file, offset, 8);
+        offset += 8;
+        uint16_t linkProto = ReadBits(file, offset, 8);
+        offset += 8;
+        if (localRank != myRank_) {
+            continue;
+        }
+
+        (void)channelId;
+        omniChannelInfo.remoteRank = remoteRank;
+        omniChannelInfo.channelProtocol = static_cast<CommProtocol>(linkProto);
+        mapChannelInfo[remoteRank] = omniChannelInfo;
+    }
+    xmlInfo.resInfo.mapchannelInfo.push_back(mapChannelInfo);
+
     do {
-        // 读取64位数据
-        uint64_t data;
-        file.seekg(offset); // 定位到正确的偏移位置
-        file.read(reinterpret_cast<char*>(&data), sizeof(data));
-        if (!file) {
-            HCCL_INFO("catn not open file %s", fileName.c_str());
-            return HCCL_E_PARA;
+        uint16_t opcode = ReadBits(file, offset, 5);
+        if (opcode == OMNI_RES_REQUEST_OPCODE) {
+            break;
+        }
+        if (opcode == OMNI_PRESYNC_OPCODE || opcode == OMNI_POSTSYNC_OPCODE) {
+            offset += OMNI_SYNC_INSTRUCTION_BITS;
+            continue;
         }
 
-        HCCL_INFO("111 rank [%u] abb data[%x]", myRank_, data);
+        OmniSendRecvInfo omniSendRecvInfo;
+        offset += 5;
+        uint16_t linkType = ReadBits(file, offset, 2);
+        offset += 2;
+        uint16_t linkProto = ReadBits(file, offset, 3);
+        offset += 3;
+        uint16_t localRankID = ReadBits(file, offset, 10);
+        offset += 10;
+        uint16_t sliceNum = ReadBits(file, offset, 10);
+        offset += 10;
+        uint16_t srcSliceCnt = ReadBits(file, offset, 4);
+        offset += 4;
+        uint16_t dstSliceCnt = ReadBits(file, offset, 4);
+        offset += 4;
+        uint16_t notifyFlag = ReadBits(file, offset, 1);
+        offset += 1;
+        uint16_t notifyThread = ReadBits(file, offset, 4);
+        offset += 4;
+        uint16_t waitFlag = ReadBits(file, offset, 1);
+        offset += 1;
+        uint16_t waitThread = ReadBits(file, offset, 4);
+        offset += 4;
+        offset += 16;
 
-        uint16_t op = data & 0x1F;
-        HCCL_INFO("111 rank [%u] abc op[%u]", myRank_, op);
+        uint16_t sendChannelID = ReadBits(file, offset, 8);
+        offset += 8;
+        uint16_t recvChannelID = ReadBits(file, offset, 8);
+        offset += 8;
+        uint16_t threadIdx = ReadBits(file, offset, 5);
+        offset += 5;
+        uint16_t instructionID = ReadBits(file, offset, 16);
+        offset += 16;
+        uint16_t reduceType = ReadBits(file, offset, 2);
+        offset += 2;
+        uint16_t inputDataType = ReadBits(file, offset, 4);
+        offset += 4;
+        uint16_t outputDataType = ReadBits(file, offset, 4);
+        offset += 4;
+        offset += 17;
+        (void)linkProto;
+        (void)localRankID;
+        (void)notifyFlag;
+        (void)notifyThread;
+        (void)waitFlag;
+        (void)waitThread;
+        (void)sendChannelID;
+        (void)recvChannelID;
+        (void)instructionID;
 
-        if (op == 0) { // resRequest
-            ResRequest resRequest;
-            resRequest.opCode = op;
-            resRequest.slave = (data >> 5) & 0x1F;
-            resRequest.notifyNumOnMainThread = (data >> 10) & 0x1F;
-            resRequest.notifyNumPerThread = (data >> 15) & 0x1F;
-            resRequest.netLayerNum = (data >> 20) & 0x03; // 2 bits
-            resRequest.chanCount = (data >> 22) & 0xFF;   // 8 bits
+        omniSendRecvInfo.optype = static_cast<OpType>(opcode);
+        omniSendRecvInfo.inputDataType = static_cast<HcclDataType>(inputDataType);
+        omniSendRecvInfo.outputDataType = static_cast<HcclDataType>(outputDataType);
+        omniSendRecvInfo.reduceType = static_cast<HcclReduceOp>(reduceType);
+        omniSendRecvInfo.sliceNum = sliceNum;
+        omniSendRecvInfo.netlayerId = linkType;
+        omniSendRecvInfo.threadIdx = threadIdx;
 
-            xmlInfo_.resInfo.slaveThreadNum = resRequest.slave;
-            xmlInfo_.resInfo.notifyNumOnMainThread = resRequest.notifyNumOnMainThread;
-            xmlInfo_.resInfo.notifyNumPerThread = resRequest.notifyNumPerThread;
-            xmlInfo_.resInfo.netLayerNum = resRequest.netLayerNum;
-
-            HCCL_INFO("rank [%u] slave [%u] notifyNumOnMainThread [%u] notifyNumPerThread [%u] netLayer [%u]  chanCount[%u]", 
-                myRank_, resRequest.slave, resRequest.notifyNumOnMainThread, resRequest.notifyNumPerThread, resRequest.netLayerNum, resRequest.chanCount);
-
-            offset += sizeof(data);
-            HCCL_INFO("rank [%u] aaa offset[%u]", myRank_, offset);
-
-            Channel channel;
-            std::map<u32, OmniChannelInfo> mapChannelInfo;
-            for (uint16_t i = 0; i < resRequest.chanCount; i++) {
-                file.seekg(offset); // 定位到正确的偏移位置
-
-                uint32_t channelData;
-                file.read(reinterpret_cast<char*>(&channelData), sizeof(channelData));
-                if (!file) {
-                    HCCL_INFO("catn not open file %s", fileName.c_str());
-                    return HCCL_E_PARA;
-                }
-
-                HCCL_INFO("111 rank [%u] channelData[%x]", myRank_, channelData);
-                
-                channel.netlayerId = (channelData >> 0) & 0x1F; // 5 bits
-                channel.localRank = (channelData >> 5) & 0x3FF; // 10 bits
-                channel.remoteRank = (channelData >> 15) & 0x3FF; // 10 bits
-                channel.linkProto = (channelData >> 25) & 0x07; // 7 bits
-
-                if (channel.localRank != myRank_) {
-                    offset += sizeof(channelData);
-                    HCCL_INFO("rank [%u] aaa offset[%u]", myRank_, offset);
-                    continue;
-                }
-
-                OmniChannelInfo omniChannelInfo;
-                omniChannelInfo.netlayerId = channel.netlayerId;
-                omniChannelInfo.remoteRank = channel.remoteRank;
-                omniChannelInfo.channelProtocol = static_cast<CommProtocol>(channel.linkProto);
-
-                HCCL_INFO("rank [%u] channel [%u] netlayerId [%u] remoteRank[%u] channelProtocol[%u]", 
-                    myRank_, i, channel.netlayerId, channel.remoteRank, channel.linkProto);
-
-                mapChannelInfo[channel.remoteRank] = omniChannelInfo;
-
-                offset += sizeof(channelData);
-                HCCL_INFO("rank [%u] aaa offset[%u]", myRank_, offset);
-            }
-
-            xmlInfo_.resInfo.mapchannelInfo.push_back(mapChannelInfo);
-            HCCL_INFO("rank [%u] xmlInfo_.resInfo.mapchannelInfo size[%u]", myRank_, xmlInfo_.resInfo.mapchannelInfo.size());
-        } else if (op == 1 || op == 2) { // PreSyncInterThreads PostSyncInterThreads
-            offset += 8; // ccu用不到，所以这边不解析，跳过64位
-            HCCL_INFO("rank [%u] aaa offset[%u]", myRank_, offset);
-            HCCL_INFO("rank [%u] op [%u]", myRank_, op);
-        } else {
-            file.seekg(offset); // 定位到正确的偏移位置
-
-            uint64_t ctrlData;
-            file.read(reinterpret_cast<char*>(&ctrlData), sizeof(ctrlData));
-            if (!file) {
-                HCCL_INFO("catn not open file %s", fileName.c_str());
-                return HCCL_E_PARA;
-            }
-
-            HCCL_INFO("111 rank [%u] ctrlData[%x]", myRank_, ctrlData);
-
-            CtrlOp ctrlOp;
-            ctrlOp.opCode = (ctrlData >> 0) & 0x1F; // 5 bits
-            ctrlOp.netlayerId = (ctrlData >> 5) & 0x03; // 2 bits
-            ctrlOp.linkProto = (ctrlData >> 7) & 0x07; // 3 bits
-            ctrlOp.sliceNum = (ctrlData >> 10) & 0x3FF; // 10 bits
-            ctrlOp.srcSliceNum = (ctrlData >> 20) & 0xF; // 4 bits
-            ctrlOp.dstSliceNum = (ctrlData >> 24) & 0xF; // 4 bits
-            ctrlOp.notifyFlag = (ctrlData >> 28) & 0x1; // 1 bits
-            ctrlOp.notifyThread = (ctrlData >> 29) & 0xF; // 4 bits
-            ctrlOp.waitFlag = (ctrlData >> 33) & 0x1; // 1 bits
-            ctrlOp.waitThread = (ctrlData >> 34) & 0xF; // 4 bits
-            ctrlOp.threadIdx = (ctrlData >> 38) & 0x1F; // 5 bits
-            ctrlOp.reduceType = (ctrlData >> 43) & 0x03; // 2 bits
-            ctrlOp.inputDataType = (ctrlData >> 45) & 0xF; // 4 bits
-            ctrlOp.outputDataType = (ctrlData >> 49) & 0xF; // 4 bits
-            ctrlOp.instructionId = (ctrlData >> 53) & 0x3FF; // 10 bits
-
-            offset += sizeof(ctrlData);
-            HCCL_INFO("rank [%u] aaa offset[%u]", myRank_, offset);
-
-            OmniSendRecvInfo omniSendRecvInfo;
-            omniSendRecvInfo.optype = static_cast<OpType>(ctrlOp.opCode);
-            omniSendRecvInfo.inputDataType = static_cast<HcclDataType>(ctrlOp.inputDataType);
-            omniSendRecvInfo.outputDataType = static_cast<HcclDataType>(ctrlOp.outputDataType);
-            omniSendRecvInfo.reduceType = static_cast<HcclReduceOp>(ctrlOp.reduceType);
-            omniSendRecvInfo.sliceNum = ctrlOp.sliceNum;
-            omniSendRecvInfo.threadIdx = ctrlOp.threadIdx;
-            omniSendRecvInfo.netlayerId = ctrlOp.netlayerId;
-            HCCL_INFO("rank [%u] op [%u] sliceNum [%u] netlayerId [%u] threadIdx [%u]", 
-                myRank_, omniSendRecvInfo.optype, omniSendRecvInfo.sliceNum, omniSendRecvInfo.netlayerId, omniSendRecvInfo.threadIdx);
-
-            
-
-            for (uint16_t i = 0; i < ctrlOp.srcSliceNum; i++) {
-                OmniSliceInfo omniSliceInfo;
-                file.seekg(offset); // 定位到正确的偏移位置
-
-                uint32_t srcData;
-                file.read(reinterpret_cast<char*>(&srcData), sizeof(srcData));
-                if (!file) {
-                    HCCL_INFO("catn not open file %s", fileName.c_str());
-                    return HCCL_E_PARA;
-                }
-
-                HCCL_INFO("111 rank [%u] srcData[%x]", myRank_, srcData);
-
-                SrcSlice srcSlice;
-                srcSlice.bufferType = (srcData >> 0) & 0x03; // 2 bits
-                srcSlice.sliceIdx = (srcData >> 2) & 0x3FF; // 10 bits
-                srcSlice.rankId = (srcData >> 12) & 0x3FF; // 10 bits
-                
-                omniSliceInfo.sliceType = static_cast<BufferTypeTmp>(srcSlice.bufferType);
-                omniSliceInfo.sliceIdx = srcSlice.sliceIdx;
-                omniSliceInfo.remoteRank = srcSlice.rankId;
-                omniSendRecvInfo.srcSliceInfo.push_back(omniSliceInfo);
-                HCCL_INFO("rank [%u] srcSlice srcBufferType [%u] sliceIdx [%u] rankId [%u]", 
-                    myRank_, omniSliceInfo.sliceType, omniSliceInfo.sliceIdx, omniSliceInfo.remoteRank);
-
-                offset += sizeof(srcData);
-                HCCL_INFO("rank [%u] aaa offset[%u]", myRank_, offset);
-                
-            }
-
-            for (uint16_t i = 0; i < ctrlOp.dstSliceNum; i++) {
-                OmniSliceInfo omniSliceInfo;
-                file.seekg(offset); // 定位到正确的偏移位置
-
-                uint32_t dstData;
-                file.read(reinterpret_cast<char*>(&dstData), sizeof(dstData));
-                if (!file) {
-                    HCCL_INFO("catn not open file %s", fileName.c_str());
-                    return HCCL_E_PARA;
-                }
-
-                HCCL_INFO("111 rank [%u] dstData[%x]", myRank_, dstData);
-
-                DstSlice dstSlice;
-                dstSlice.bufferType = (dstData >> 0) & 0x03; // 2 bits
-                dstSlice.sliceIdx = (dstData >> 2) & 0x3FF; // 10 bits
-                dstSlice.rankId = (dstData >> 12) & 0x3FF; // 10 bits
-                
-                omniSliceInfo.sliceType = static_cast<BufferTypeTmp>(dstSlice.bufferType);
-                omniSliceInfo.sliceIdx = dstSlice.sliceIdx;
-                omniSliceInfo.remoteRank = dstSlice.rankId;
-                omniSendRecvInfo.dstSliceInfo.push_back(omniSliceInfo);
-                HCCL_INFO("rank [%u] dstSlice srcBufferType [%u] sliceIdx [%u] rankId [%u]", 
-                    myRank_, omniSliceInfo.sliceType, omniSliceInfo.sliceIdx, omniSliceInfo.remoteRank);
-
-                offset += sizeof(dstData);
-                HCCL_INFO("rank [%u] aaa offset[%u]", myRank_, offset);
-            }
-            xmlInfo_.vecSendRecvInfo.push_back(omniSendRecvInfo);
+        for (uint16_t i = 0; i < srcSliceCnt; i++) {
+            OmniSliceInfo omniSliceInfo;
+            uint16_t srcBufferType = ReadBits(file, offset, 2);
+            offset += 2;
+            uint16_t srcSliceIdx = ReadBits(file, offset, 10);
+            offset += 10;
+            uint16_t remoteRank = ReadBits(file, offset, 10);
+            offset += 10;
+            omniSliceInfo.sliceType = static_cast<BufferTypeTmp>(srcBufferType);
+            omniSliceInfo.sliceIdx = srcSliceIdx;
+            omniSliceInfo.remoteRank = remoteRank;
+            omniSendRecvInfo.srcSliceInfo.push_back(omniSliceInfo);
         }
-        
-        HCCL_INFO("rank [%u] aaa offset[%u]", myRank_, offset);
+
+        for (uint16_t i = 0; i < dstSliceCnt; i++) {
+            OmniSliceInfo omniSliceInfo;
+            uint16_t dstBufferType = ReadBits(file, offset, 2);
+            offset += 2;
+            uint16_t dstSliceIdx = ReadBits(file, offset, 10);
+            offset += 10;
+            uint16_t remoteRank = ReadBits(file, offset, 10);
+            offset += 10;
+
+            omniSliceInfo.sliceType = static_cast<BufferTypeTmp>(dstBufferType);
+            omniSliceInfo.sliceIdx = dstSliceIdx;
+            omniSliceInfo.remoteRank = remoteRank;
+            omniSendRecvInfo.dstSliceInfo.push_back(omniSliceInfo);
+        }
+        xmlInfo.vecSendRecvInfo.push_back(omniSendRecvInfo);
     } while(file.peek() != EOF);
 
+    xmlInfo_ = std::move(xmlInfo);
     return HCCL_SUCCESS;
 }
 
@@ -340,11 +349,15 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLoop(
     }
     if (param.engine == COMM_ENGINE_CCU) {
         templateAlgRes.ccuKernels = resCtx.ccuKernels;
+    } else if (param.engine == COMM_ENGINE_AIV) {
+        templateAlgRes.aivCommInfoPtr = resCtx.aivCommInfoPtr;
     }
     templateAlgRes.threads = resCtx.threads;
 
-    //计算loop  ccu 不用cclbuff，根据UB_MAX_DATA_SIZE来计算
     u64 maxCountPerLoop = static_cast<u64>(UB_MAX_DATA_SIZE) / dataTypeSize_;
+    if (param.engine == COMM_ENGINE_AIV) {
+        maxCountPerLoop = std::max<u64>(1, resCtx.cclMem.size / dataTypeSize_);
+    }
     u32 loopTimes = dataCount_ / maxCountPerLoop + ((dataCount_ % maxCountPerLoop == 0) ? 0 : 1);
     HCCL_INFO("[InsOmniSoleExecutor][OrchestrateLoop]loopTimes = [%u]", loopTimes);
 
@@ -356,7 +369,8 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLoop(
         tempAlgParams.buffInfo.inputPtr = param.inputPtr;
         tempAlgParams.buffInfo.outputPtr = param.outputPtr;
         tempAlgParams.buffInfo.hcclBuff = resCtx.cclMem;
-        tempAlgParams.sliceSize = currDataCount * dataTypeSize_ / xmlInfo_.vecSendRecvInfo[0].sliceNum * 4;
+        const u64 sliceNum = xmlInfo_.vecSendRecvInfo.empty() ? 1 : std::max<u64>(1, xmlInfo_.vecSendRecvInfo[0].sliceNum);
+        tempAlgParams.sliceSize = currDataCount * dataTypeSize_ / sliceNum;
         tempAlgParams.buffInfo.inBuffBaseOff = processedDataCount * dataTypeSize_;
         tempAlgParams.buffInfo.outBuffBaseOff = processedDataCount * dataTypeSize_;
         tempAlgParams.buffInfo.hcclBuffBaseOff = 0;
@@ -378,5 +392,11 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV,
                 InsOmniSoleExecutor,
                 TopoMatch1D,
                 CcuTempOmni);
+
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV,
+                AivHcclOmni,
+                InsOmniSoleExecutor,
+                TopoMatch1D,
+                AivTempOmni);
 
 }
