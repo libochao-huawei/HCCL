@@ -59,48 +59,48 @@ static HcclResult InitResource(ReduceScatterMesh1DMem2MemContext &ctx)
 
     for (uint64_t peerId = 0; peerId < arg->rankSize; peerId++) {
         if (peerId == arg->rankId) {
-            CHK_RET(ccu::Create(&ctx.input[peerId]));
-            CHK_RET(ccu::Create(&ctx.scratch[peerId]));
-            CHK_RET(ccu::Create(&ctx.token[peerId]));
+            CHK_RET(ccu::Alloc(&ctx.input[peerId]));
+            CHK_RET(ccu::Alloc(&ctx.scratch[peerId]));
+            CHK_RET(ccu::Alloc(&ctx.token[peerId]));
         } else {
-            CHK_RET(CcuVariableCreateFromChannel(
+            CHK_RET(ccu::CreateByChannel(
                 arg->channels[channelIdx], RS_INPUT_XN_ID, &ctx.input[peerId]));
-            CHK_RET(CcuVariableCreateFromChannel(
+            CHK_RET(ccu::CreateByChannel(
                 arg->channels[channelIdx], RS_SCRATCH_XN_ID, &ctx.scratch[peerId]));
-            CHK_RET(CcuVariableCreateFromChannel(
+            CHK_RET(ccu::CreateByChannel(
                 arg->channels[channelIdx], RS_TOKEN_XN_ID, &ctx.token[peerId]));
             channelIdx++;
         }
     }
 
-    CHK_RET(ccu::Create(&ctx.output));
-    CHK_RET(ccu::Create(&ctx.currentRankSliceInputOffset));
-    CHK_RET(ccu::Create(&ctx.currentRankSliceOutputOffset));
-    CHK_RET(ccu::Create(&ctx.normalSliceSize));
-    CHK_RET(ccu::Create(&ctx.lastSliceSize));
-    CHK_RET(ccu::Create(&ctx.inputRepeatStride));
-    CHK_RET(ccu::Create(&ctx.outputRepeatStride));
-    CHK_RET(ccu::Create(&ctx.repeatNum));
-    CHK_RET(ccu::Create(&ctx.flag));
+    CHK_RET(ccu::Alloc(&ctx.output));
+    CHK_RET(ccu::Alloc(&ctx.currentRankSliceInputOffset));
+    CHK_RET(ccu::Alloc(&ctx.currentRankSliceOutputOffset));
+    CHK_RET(ccu::Alloc(&ctx.normalSliceSize));
+    CHK_RET(ccu::Alloc(&ctx.lastSliceSize));
+    CHK_RET(ccu::Alloc(&ctx.inputRepeatStride));
+    CHK_RET(ccu::Alloc(&ctx.outputRepeatStride));
+    CHK_RET(ccu::Alloc(&ctx.repeatNum));
+    CHK_RET(ccu::Alloc(&ctx.flag));
 
-    CHK_RET(ccu::Create(&ctx.goSize.addrOffset));
-    CHK_RET(ccu::Create(&ctx.goSize.loopParam));
-    CHK_RET(ccu::Create(&ctx.goSize.parallelParam));
-    CHK_RET(ccu::Create(&ctx.goSize.residual));
+    CHK_RET(ccu::Alloc(&ctx.goSize.addrOffset));
+    CHK_RET(ccu::Alloc(&ctx.goSize.loopParam));
+    CHK_RET(ccu::Alloc(&ctx.goSize.parallelParam));
+    CHK_RET(ccu::Alloc(&ctx.goSize.residual));
 
     ctx.selfBit = 1 << arg->rankId;
     ctx.allBit  = ((1 << arg->rankSize) - 1) & (~(1 << arg->rankId));
 
     for (uint64_t rankIdx = 0; rankIdx < arg->rankSize; rankIdx++) {
-        CHK_RET(ccu::Create(&ctx.scratchMem[rankIdx]));
+        CHK_RET(ccu::Alloc(&ctx.scratchMem[rankIdx]));
         if (rankIdx == arg->rankId) {
-            CHK_RET(ccu::Create(&ctx.myInput));
+            CHK_RET(ccu::Alloc(&ctx.myInput));
         } else {
-            CHK_RET(ccu::Create(&ctx.remoteInput[rankIdx]));
+            CHK_RET(ccu::Alloc(&ctx.remoteInput[rankIdx]));
         }
     }
 
-    CHK_RET(ccu::Create(&ctx.event));
+    CHK_RET(ccu::Alloc(&ctx.event));
 
     ctx.resourceAllocated = false;
     ctx.loopRegistered    = false;
@@ -116,22 +116,22 @@ static HcclResult LoadArgs(ReduceScatterMesh1DMem2MemContext &ctx)
 {
     const auto *arg = ctx.arg;
 
-    CHK_RET(CcuLoadArg(ctx.input[arg->rankId]));
-    CHK_RET(CcuLoadArg(ctx.output));
-    CHK_RET(CcuLoadArg(ctx.token[arg->rankId]));
-    CHK_RET(CcuLoadArg(ctx.scratch[arg->rankId]));
-    CHK_RET(CcuLoadArg(ctx.currentRankSliceInputOffset));
-    CHK_RET(CcuLoadArg(ctx.currentRankSliceOutputOffset));
-    CHK_RET(CcuLoadArg(ctx.inputRepeatStride));
-    CHK_RET(CcuLoadArg(ctx.outputRepeatStride));
-    CHK_RET(CcuLoadArg(ctx.normalSliceSize));
-    CHK_RET(CcuLoadArg(ctx.lastSliceSize));
-    CHK_RET(CcuLoadArg(ctx.repeatNum));
+    CHK_RET(ccu::LoadArg(ctx.input[arg->rankId]));
+    CHK_RET(ccu::LoadArg(ctx.output));
+    CHK_RET(ccu::LoadArg(ctx.token[arg->rankId]));
+    CHK_RET(ccu::LoadArg(ctx.scratch[arg->rankId]));
+    CHK_RET(ccu::LoadArg(ctx.currentRankSliceInputOffset));
+    CHK_RET(ccu::LoadArg(ctx.currentRankSliceOutputOffset));
+    CHK_RET(ccu::LoadArg(ctx.inputRepeatStride));
+    CHK_RET(ccu::LoadArg(ctx.outputRepeatStride));
+    CHK_RET(ccu::LoadArg(ctx.normalSliceSize));
+    CHK_RET(ccu::LoadArg(ctx.lastSliceSize));
+    CHK_RET(ccu::LoadArg(ctx.repeatNum));
 
-    CHK_RET(CcuLoadArg(ctx.goSize.addrOffset));
-    CHK_RET(CcuLoadArg(ctx.goSize.loopParam));
-    CHK_RET(CcuLoadArg(ctx.goSize.parallelParam));
-    CHK_RET(CcuLoadArg(ctx.goSize.residual));
+    CHK_RET(ccu::LoadArg(ctx.goSize.addrOffset));
+    CHK_RET(ccu::LoadArg(ctx.goSize.loopParam));
+    CHK_RET(ccu::LoadArg(ctx.goSize.parallelParam));
+    CHK_RET(ccu::LoadArg(ctx.goSize.residual));
 
     return HCCL_SUCCESS;
 }
@@ -141,17 +141,17 @@ static void PreSync(ReduceScatterMesh1DMem2MemContext &ctx)
     const auto *arg = ctx.arg;
 
     for (uint32_t i = 0; i < arg->channelCount; i++) {
-        CcuWriteVariableWithNotify(arg->channels[i], ctx.input[arg->rankId],
+        ccu::WriteVariableWithNotify(arg->channels[i], ctx.input[arg->rankId],
             RS_INPUT_XN_ID, RS_CKE_IDX_0, 1 << RS_INPUT_XN_ID);
-        CcuWriteVariableWithNotify(arg->channels[i], ctx.scratch[arg->rankId],
+        ccu::WriteVariableWithNotify(arg->channels[i], ctx.scratch[arg->rankId],
             RS_SCRATCH_XN_ID, RS_CKE_IDX_0, 1 << RS_SCRATCH_XN_ID);
-        CcuWriteVariableWithNotify(arg->channels[i], ctx.token[arg->rankId],
+        ccu::WriteVariableWithNotify(arg->channels[i], ctx.token[arg->rankId],
             RS_TOKEN_XN_ID, RS_CKE_IDX_0, 1 << RS_TOKEN_XN_ID);
     }
 
     uint32_t allBit = (1 << RS_INPUT_XN_ID) | (1 << RS_SCRATCH_XN_ID) | (1 << RS_TOKEN_XN_ID);
     for (uint32_t i = 0; i < arg->channelCount; i++) {
-        CcuNotifyWait(arg->channels[i], RS_CKE_IDX_0, allBit);
+        ccu::NotifyWait(arg->channels[i], RS_CKE_IDX_0, allBit);
     }
 }
 
@@ -160,10 +160,10 @@ static void PostSync(ReduceScatterMesh1DMem2MemContext &ctx)
     const auto *arg = ctx.arg;
 
     for (uint32_t i = 0; i < arg->channelCount; i++) {
-        CcuWriteNotify(arg->channels[i], RS_CKE_IDX_0, 1 << RS_POST_SYNC_ID);
+        ccu::NotifyRecord(arg->channels[i], RS_CKE_IDX_0, 1 << RS_POST_SYNC_ID);
     }
     for (uint32_t i = 0; i < arg->channelCount; i++) {
-        CcuNotifyWait(arg->channels[i], RS_CKE_IDX_0, 1 << RS_POST_SYNC_ID);
+        ccu::NotifyWait(arg->channels[i], RS_CKE_IDX_0, 1 << RS_POST_SYNC_ID);
     }
 }
 
@@ -176,14 +176,14 @@ static HcclResult DoReduceScatter(ReduceScatterMesh1DMem2MemContext &ctx)
     const auto *arg = ctx.arg;
     uint32_t channelId = 0;
 
-    CcuLocalAddr myOutput;
-    CHK_RET(ccu::Create(&myOutput));
+    ccu::LocalAddr myOutput;
+    CHK_RET(ccu::Alloc(&myOutput));
     myOutput.addr  = ctx.output;
     myOutput.addr += ctx.currentRankSliceOutputOffset;
     myOutput.token = ctx.token[arg->rankId];
 
     CcuVariable sliceSize;
-    CHK_RET(ccu::Create(&sliceSize));
+    CHK_RET(ccu::Alloc(&sliceSize));
     sliceSize = (arg->rankId == (arg->rankSize - 1)) ? ctx.lastSliceSize : ctx.normalSliceSize;
 
     CCU_IF_ONLY(sliceSize != 0) {
@@ -202,7 +202,7 @@ static HcclResult DoReduceScatter(ReduceScatterMesh1DMem2MemContext &ctx)
         }
 
         ctx.event.setMask((1 << arg->rankSize) - 1);
-        CcuWaitEvent(ctx.event);
+        WaitEvent(ctx.event);
 
         ReduceLoopGroup(ctx, myOutput, ctx.myInput,
             ctx.scratchMem, arg->rankSize, ctx.goSize);
@@ -221,7 +221,7 @@ static HcclResult DoRepeatReduceScatter(ReduceScatterMesh1DMem2MemContext &ctx)
     const auto *arg = ctx.arg;
 
     CcuVariable scratchOffset;
-    CHK_RET(ccu::Create(&scratchOffset));
+    CHK_RET(ccu::Alloc(&scratchOffset));
     scratchOffset = 0;
 
     for (uint32_t rankIdx = 0; rankIdx < arg->rankSize; rankIdx++) {
@@ -242,7 +242,7 @@ static HcclResult DoRepeatReduceScatter(ReduceScatterMesh1DMem2MemContext &ctx)
     }
 
     CcuVariable repeatNumAdd;
-    CHK_RET(ccu::Create(&repeatNumAdd));
+    CHK_RET(ccu::Alloc(&repeatNumAdd));
     repeatNumAdd = 1;
     ctx.flag     = 0;
 
@@ -292,19 +292,19 @@ static HcclResult CreateReduceLoop(ReduceScatterMesh1DMem2MemContext &ctx)
     uint32_t usedBufNum   = size > expansionNum ? size : expansionNum;
 
     for (int32_t index = 0; index < 2; index++) {
-        CHK_RET(ccu::Create(&ctx.loopDst[index]));
-        CHK_RET(ccu::Create(&ctx.loopSrc[index]));
+        CHK_RET(ccu::Alloc(&ctx.loopDst[index]));
+        CHK_RET(ccu::Alloc(&ctx.loopSrc[index]));
         for (uint32_t i = 0; i < size; i++) {
-            CHK_RET(ccu::Create(&ctx.loopScratch[index][i]));
+            CHK_RET(ccu::Alloc(&ctx.loopScratch[index][i]));
         }
-        CHK_RET(ccu::Create(&ctx.loopLen[index]));
-        CHK_RET(ccu::Create(&ctx.loopLenExp[index]));
+        CHK_RET(ccu::Alloc(&ctx.loopLen[index]));
+        CHK_RET(ccu::Alloc(&ctx.loopLenExp[index]));
 
         uint32_t bufBase = index * ctx.moConfig.msInterleave;
 
         CcuEvent loopEvt = ctx.moRes.completedEvent[index];
 
-        CCU_LOOPBODY(ctx.reduceLoops[index]) {
+        CCU_LOOP(ctx.reduceLoops[index]) {
             for (uint32_t i = 0; i < size; i++) {
                 loopEvt.setMask(1 << i);
                 if (i == arg->rankId) {
@@ -318,22 +318,22 @@ static HcclResult CreateReduceLoop(ReduceScatterMesh1DMem2MemContext &ctx)
                 }
             }
             loopEvt.setMask((1 << size) - 1);
-            CcuWaitEvent(loopEvt);
+            WaitEvent(loopEvt);
 
             if (size > 1) {
                 loopEvt.setMask(1);
-                CcuLocalBufferReduce(
+                LocalReduceNb(
                     &ctx.moRes.ccuBuf[bufBase], size,
                     arg->dataType, arg->outputDataType, arg->reduceOp,
                     ctx.loopLen[index], loopEvt);
-                CcuWaitEvent(loopEvt);
+                WaitEvent(loopEvt);
             }
 
             loopEvt.setMask(1);
             CcuLocalCopyBufferToHBM(
                 ctx.loopDst[index], ctx.moRes.ccuBuf[bufBase],
                 ctx.loopLenExp[index], loopEvt);
-            CcuWaitEvent(loopEvt);
+            WaitEvent(loopEvt);
         }
     }
 
@@ -346,26 +346,26 @@ static HcclResult CreateReduceLoop(ReduceScatterMesh1DMem2MemContext &ctx)
 // ============================================================================
 
 static HcclResult ReduceLoopGroup(ReduceScatterMesh1DMem2MemContext &ctx,
-    CcuLocalAddr outDstOrg, CcuLocalAddr srcOrg,
-    CcuLocalAddr *scratchOrg, uint32_t scratchCount,
+    ccu::LocalAddr outDstOrg, ccu::LocalAddr srcOrg,
+    ccu::LocalAddr *scratchOrg, uint32_t scratchCount,
     GroupOpSizeVars &goSize)
 {
     const auto *arg = ctx.arg;
     const uint32_t size = scratchCount;
 
-    CcuLocalAddr dst;
-    CHK_RET(ccu::Create(&dst));
+    ccu::LocalAddr dst;
+    CHK_RET(ccu::Alloc(&dst));
     dst.addr  = outDstOrg.addr;
     dst.token = outDstOrg.token;
 
-    CcuLocalAddr src;
-    CHK_RET(ccu::Create(&src));
+    ccu::LocalAddr src;
+    CHK_RET(ccu::Alloc(&src));
     src.addr  = srcOrg.addr;
     src.token = srcOrg.token;
 
-    CcuLocalAddr scratch[RS_MAX_RANK_SIZE];
+    ccu::LocalAddr scratch[CCU_MAX_RANK_SIZE];
     for (uint32_t idx = 0; idx < size; idx++) {
-        CHK_RET(ccu::Create(&scratch[idx]));
+        CHK_RET(ccu::Alloc(&scratch[idx]));
         scratch[idx].addr  = scratchOrg[idx].addr;
         scratch[idx].token = scratchOrg[idx].token;
     }
@@ -374,11 +374,11 @@ static HcclResult ReduceLoopGroup(ReduceScatterMesh1DMem2MemContext &ctx,
 
     uint32_t expansionNum = GetReduceExpansionNum(arg->reduceOp, arg->dataType, arg->outputDataType);
     CcuVariable sliceSizeExpansion;
-    CHK_RET(ccu::Create(&sliceSizeExpansion));
+    CHK_RET(ccu::Alloc(&sliceSizeExpansion));
 
     if (expansionNum != 1) {
         CcuVariable tmp;
-        CHK_RET(ccu::Create(&tmp));
+        CHK_RET(ccu::Alloc(&tmp));
         tmp = GetExpansionParam(expansionNum);
         dst.token = dst.token + tmp;
     }
@@ -386,12 +386,12 @@ static HcclResult ReduceLoopGroup(ReduceScatterMesh1DMem2MemContext &ctx,
     // m 部分
     CCU_IF_ONLY(goSize.loopParam != 0) {
         CcuVariable loopParam;
-        CHK_RET(ccu::Create(&loopParam));
+        CHK_RET(ccu::Alloc(&loopParam));
         loopParam = GetLoopParam(0, ctx.moConfig.memSlice * ctx.moConfig.loopCount, 0);
         loopParam = loopParam + goSize.loopParam;
 
         CcuVariable sliceSize;
-        CHK_RET(ccu::Create(&sliceSize));
+        CHK_RET(ccu::Alloc(&sliceSize));
         sliceSize          = ctx.moConfig.memSlice;
         sliceSizeExpansion = ctx.moConfig.memSlice * expansionNum;
 
@@ -408,16 +408,17 @@ static HcclResult ReduceLoopGroup(ReduceScatterMesh1DMem2MemContext &ctx,
         ctx.loopLenExp[0] = sliceSizeExpansion;
 
         CcuVariable paraCfg;
-        CHK_RET(ccu::Create(&paraCfg));
+        CHK_RET(ccu::Alloc(&paraCfg));
         paraCfg = GetParallelParam(ctx.moConfig.loopCount - 1, 0, 1);
 
         CcuVariable offsetCfg;
-        CHK_RET(ccu::Create(&offsetCfg));
+        CHK_RET(ccu::Alloc(&offsetCfg));
         offsetCfg = GetOffsetParam(ctx.moConfig.memSlice, ctx.moConfig.msInterleave, 1);
 
-        CcuLoopGroupHandle group;
-        CHK_RET(CcuLoopGroupCreateFromVar(&group, &paraCfg, &offsetCfg));
-        CHK_RET(CcuLoopGroupAddLoopFromVar(group, ctx.reduceLoops[0], &loopParam, false));
+        CcuLoopGroup group;
+        CcuLoopExecutors enginePool;
+        CHK_RET(ccu::CreateLoopGroup(&group, &paraCfg, &offsetCfg, enginePool));
+        CHK_RET(ccu::AddLoop(group, ctx.reduceLoops[0], &loopParam));
     }
 
     // n+p 部分
@@ -457,7 +458,7 @@ static HcclResult ReduceLoopGroup(ReduceScatterMesh1DMem2MemContext &ctx,
         }
 
         CcuVariable sliceSize;
-        CHK_RET(ccu::Create(&sliceSize));
+        CHK_RET(ccu::Alloc(&sliceSize));
         sliceSize          = ctx.moConfig.memSlice;
         sliceSizeExpansion = ctx.moConfig.memSlice * expansionNum;
 
@@ -474,21 +475,22 @@ static HcclResult ReduceLoopGroup(ReduceScatterMesh1DMem2MemContext &ctx,
         ctx.loopLenExp[1] = sliceSizeExpansion;
 
         CcuVariable loopCfg0;
-        CHK_RET(ccu::Create(&loopCfg0));
+        CHK_RET(ccu::Alloc(&loopCfg0));
         loopCfg0 = GetLoopParam(0, 0, 1);
 
         CcuVariable loopCfg1;
-        CHK_RET(ccu::Create(&loopCfg1));
+        CHK_RET(ccu::Alloc(&loopCfg1));
         loopCfg1 = GetLoopParam(0, 0, 1);
 
         CcuVariable offsetCfg;
-        CHK_RET(ccu::Create(&offsetCfg));
+        CHK_RET(ccu::Alloc(&offsetCfg));
         offsetCfg = GetOffsetParam(ctx.moConfig.memSlice, ctx.moConfig.msInterleave, 1);
 
-        CcuLoopGroupHandle group; 
-        CHK_RET(CcuLoopGroupCreateFromVar(&group, &goSize.parallelParam, &offsetCfg));
-        CHK_RET(CcuLoopGroupAddLoopFromVar(group, ctx.reduceLoops[0], &loopCfg0, false));
-        CHK_RET(CcuLoopGroupAddLoopFromVar(group, ctx.reduceLoops[1], &loopCfg1, false));
+        CcuLoopGroup group;
+        CcuLoopExecutors enginePool;
+        CHK_RET(ccu::CreateLoopGroup(&group, &goSize.parallelParam, &offsetCfg, enginePool));
+        CHK_RET(ccu::AddLoop(group, ctx.reduceLoops[0], &loopCfg0));
+        CHK_RET(ccu::AddLoop(group, ctx.reduceLoops[1], &loopCfg1));
     }
 
     return HCCL_SUCCESS;
