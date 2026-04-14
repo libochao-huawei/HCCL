@@ -35,7 +35,7 @@ public:
     explicit CcuKernelArgAllGatherBatchMesh1D(uint64_t rankSize, uint32_t rankId, uint32_t itemCount)
         : rankSize_(rankSize), rankId_(rankId), itemCount_(itemCount)
     {
-        signatureParam_.opType = ops_hccl::HcclCMDType::HCCL_CMD_ALLGATHER;
+        signatureParam_.opType = HcclCMDType::HCCL_CMD_ALLGATHER;
         subCommRanks_.push_back({});
         subCommRanks_[0].reserve(rankSize_);
         for (uint32_t i = 0; i < rankSize_; ++i) {
