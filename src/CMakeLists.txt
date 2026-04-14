@@ -172,6 +172,8 @@ if(BUILD_OPEN_PROJECT)
         # 包间接口
         ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/
         ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/hccl
+        ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/hcomm/ccu
+        ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/hcomm/ccu_new
         ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/runtime/
         ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/aicpu/
         ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/profiling/
