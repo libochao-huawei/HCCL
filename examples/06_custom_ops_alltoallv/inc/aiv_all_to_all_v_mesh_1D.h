@@ -11,7 +11,7 @@
 #ifndef AIV_ALL_TO_ALL_V_MESH_1D_H
 #define AIV_ALL_TO_ALL_V_MESH_1D_H
 
-#include 'aiv_communication_base_v2.h'
+#include "aiv_communication_base_v2.h"
 
 using namespace AscendC;
 

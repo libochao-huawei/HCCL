@@ -8,13 +8,13 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include 'launch_kernel.h'
-#include 'common.h'
+#include "launch_kernel.h"
+#include "common.h"
 #include <fstream>
 #include <iostream>
 #include <mutex>
 #include <string>
-#include 'acl/acl.h'
+#include "acl/acl.h"
 
 namespace ops_hccl_alltoallv {
 
@@ -23,14 +23,14 @@ static std::mutex g_mut;
 static aclrtBinHandle g_binHandle = nullptr;
 static aclrtFuncHandle g_funcHandle = nullptr;
 
-const std::string AIV_BINARY_NAME = 'hccl_custom_alltoallv_kernels.o';
-const std::string KERNEL_NAME = 'HcclAlltoAllVAivKernel';
+const std::string AIV_BINARY_NAME = "hccl_custom_alltoallv_kernels.o";
+const std::string KERNEL_NAME = "HcclAlltoAllVAivKernel";
 
 static HcclResult LoadBinaryFromFile(const std::string& fileName, void*& buffer, size_t& length)
 {
     std::ifstream file(fileName, std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
-        HCCL_ERROR('[LoadBinaryFromFile] Failed to open file: %s', fileName.c_str());
+        HCCL_ERROR("[LoadBinaryFromFile] Failed to open file: %s", fileName.c_str());
         return HCCL_E_NOT_FOUND;
     }
     
@@ -39,12 +39,12 @@ static HcclResult LoadBinaryFromFile(const std::string& fileName, void*& buffer,
     
     buffer = new(std::nothrow) char[length];
     if (buffer == nullptr) {
-        HCCL_ERROR('[LoadBinaryFromFile] Failed to allocate memory for binary, size: %zu', length);
+        HCCL_ERROR("[LoadBinaryFromFile] Failed to allocate memory for binary, size: %zu", length);
         return HCCL_E_INTERNAL;
     }
     
     if (!file.read(static_cast<char*>(buffer), length)) {
-        HCCL_ERROR('[LoadBinaryFromFile] Failed to read file: %s', fileName.c_str());
+        HCCL_ERROR("[LoadBinaryFromFile] Failed to read file: %s", fileName.c_str());
         delete[] static_cast<char*>(buffer);
         buffer = nullptr;
         return HCCL_E_INTERNAL;
@@ -61,23 +61,23 @@ HcclResult RegisterKernel()
     }
 
     std::string binPath = AIV_BINARY_NAME;
-    HCCL_INFO('[RegisterKernel] Binary path: %s', binPath.c_str());
+    HCCL_INFO("[RegisterKernel] Binary path: %s", binPath.c_str());
     
     void* binBuffer = nullptr;
     size_t binSize = 0;
     CHK_RET(LoadBinaryFromFile(binPath, binBuffer, binSize));
-    HCCL_INFO('[RegisterKernel] Binary loaded. Size: %zu', binSize);
+    HCCL_INFO("[RegisterKernel] Binary loaded. Size: %zu", binSize);
     
     aclrtBinary binary = aclrtCreateBinary(binBuffer, binSize);
     if (binary == nullptr) {
-        HCCL_ERROR('[RegisterKernel] aclrtCreateBinary failed');
+        HCCL_ERROR("[RegisterKernel] aclrtCreateBinary failed");
         delete[] static_cast<char*>(binBuffer);
         return HCCL_E_INTERNAL;
     }
     
     aclError aclRet = aclrtBinaryLoad(binary, &g_binHandle);
     if (aclRet != ACL_SUCCESS) {
-        HCCL_ERROR('[RegisterKernel] aclrtBinaryLoad failed, ret: %d', aclRet);
+        HCCL_ERROR("[RegisterKernel] aclrtBinaryLoad failed, ret: %d", aclRet);
         aclrtDestroyBinary(binary);
         delete[] static_cast<char*>(binBuffer);
         return HCCL_E_INTERNAL;
@@ -87,12 +87,12 @@ HcclResult RegisterKernel()
     
     aclRet = aclrtBinaryGetFunction(g_binHandle, KERNEL_NAME.c_str(), &g_funcHandle);
     if (aclRet != ACL_SUCCESS) {
-        HCCL_ERROR('[RegisterKernel] aclrtBinaryGetFunction failed for %s, ret: %d', KERNEL_NAME.c_str(), aclRet);
+        HCCL_ERROR("[RegisterKernel] aclrtBinaryGetFunction failed for %s, ret: %d", KERNEL_NAME.c_str(), aclRet);
         return HCCL_E_INTERNAL;
     }
 
     g_init = true;
-    HCCL_INFO('[RegisterKernel] Success. Function handle: %p', g_funcHandle);
+    HCCL_INFO("[RegisterKernel] Success. Function handle: %p", g_funcHandle);
     return HCCL_SUCCESS;
 }
 
@@ -118,16 +118,16 @@ HcclResult ExecuteKernelLaunch(const OpParam &param, aclrtStream stream)
     cfg.numAttrs = 3;
     cfg.attrs = attr;
 
-    HCCL_INFO('[ExecuteKernelLaunch] Invoking aclrtLaunchKernelWithHostArgs...');
+    HCCL_INFO("[ExecuteKernelLaunch] Invoking aclrtLaunchKernelWithHostArgs...");
     aclError aclRet = aclrtLaunchKernelWithHostArgs(g_funcHandle, 1, stream, &cfg, 
                                                     const_cast<OpParam*>(&param), sizeof(OpParam), 
                                                     nullptr, 0);
     
     if (aclRet != ACL_SUCCESS) {
-        HCCL_ERROR('[ExecuteKernelLaunch] aclrtLaunchKernelWithHostArgs failed, ret: %d', aclRet);
+        HCCL_ERROR("[ExecuteKernelLaunch] aclrtLaunchKernelWithHostArgs failed, ret: %d", aclRet);
         return HCCL_E_INTERNAL;
     }
-    HCCL_INFO('[ExecuteKernelLaunch] Launch command submitted successfully.');
+    HCCL_INFO("[ExecuteKernelLaunch] Launch command submitted successfully.");
 
     return HCCL_SUCCESS;
 }

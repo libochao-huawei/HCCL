@@ -1,9 +1,9 @@
 /**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the License).
+ * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN AS IS BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
@@ -15,15 +15,15 @@
 #include <cstdio>
 
 #ifndef LOG_LEVEL
-#define LOG_LEVEL LOG_LEVEL_INFO
+#define LOG_LEVEL LOG_LEVEL_INFO  // Changed to INFO for debugging
 #endif
 
 typedef enum {
-    LOG_LEVEL_DEBUG = 0,
-    LOG_LEVEL_INFO = 1,
-    LOG_LEVEL_WARNING = 2,
-    LOG_LEVEL_ERROR = 3,
-    LOG_LEVEL_NONE = 4
+    LOG_LEVEL_DEBUG = 0,    // DEBUG级别
+    LOG_LEVEL_INFO = 1,     // INFO级别
+    LOG_LEVEL_WARNING = 2,  // WARNING级别
+    LOG_LEVEL_ERROR = 3,    // ERROR级别
+    LOG_LEVEL_NONE = 4      // 关闭所有日志
 } LogLevel;
 
 #ifndef LIKELY
@@ -33,13 +33,41 @@ typedef enum {
 
 #ifdef HOST_COMPILE
 
-#define HCCL_DEBUG(format, ...)                                                \n    do {                                                                       \n        if (LOG_LEVEL <= LOG_LEVEL_DEBUG) {                                    \n            printf('[DEBUG][%s][%s:%d]' format '\n',                           \n                    __func__, __FILE__, __LINE__, ##__VA_ARGS__);              \n            fflush(stdout);                                                    \n        }                                                                      \n    } while (0)
+#define HCCL_DEBUG(format, ...)                                                \
+    do {                                                                       \
+        if (LOG_LEVEL <= LOG_LEVEL_DEBUG) {                                    \
+            printf("[DEBUG][%s][%s:%d]" format "\n",                           \
+                    __func__, __FILE__, __LINE__, ##__VA_ARGS__);              \
+            fflush(stdout);                                                    \
+        }                                                                      \
+    } while (0)
 
-#define HCCL_INFO(format, ...)                                                 \n    do {                                                                       \n        if (LOG_LEVEL <= LOG_LEVEL_INFO) {                                     \n            printf('[INFO][%s][%s:%d]' format '\n',                            \n                    __func__, __FILE__, __LINE__, ##__VA_ARGS__);              \n            fflush(stdout);                                                    \n        }                                                                      \n    } while (0)
+#define HCCL_INFO(format, ...)                                                 \
+    do {                                                                       \
+        if (LOG_LEVEL <= LOG_LEVEL_INFO) {                                     \
+            printf("[INFO][%s][%s:%d]" format "\n",                            \
+                    __func__, __FILE__, __LINE__, ##__VA_ARGS__);              \
+            fflush(stdout);                                                    \
+        }                                                                      \
+    } while (0)
 
-#define HCCL_WARNING(format, ...)                                              \n    do {                                                                       \n        if (LOG_LEVEL <= LOG_LEVEL_WARNING) {                                  \n            printf('[WARN][%s][%s:%d]' format '\n',                            \n                    __func__, __FILE__, __LINE__, ##__VA_ARGS__);              \n            fflush(stdout);                                                    \n        }                                                                      \n    } while (0)
+#define HCCL_WARNING(format, ...)                                              \
+    do {                                                                       \
+        if (LOG_LEVEL <= LOG_LEVEL_WARNING) {                                  \
+            printf("[WARN][%s][%s:%d]" format "\n",                            \
+                    __func__, __FILE__, __LINE__, ##__VA_ARGS__);              \
+            fflush(stdout);                                                    \
+        }                                                                      \
+    } while (0)
 
-#define HCCL_ERROR(format, ...)                                                \n    do {                                                                       \n        if (LOG_LEVEL <= LOG_LEVEL_ERROR) {                                     \n            printf('[ERROR][%s][%s:%d]' format '\n',                            \n                    __func__, __FILE__, __LINE__, ##__VA_ARGS__);              \n            fflush(stdout);                                                    \n        }                                                                      \n    } while (0)
+#define HCCL_ERROR(format, ...)                                                \
+    do {                                                                       \
+        if (LOG_LEVEL <= LOG_LEVEL_ERROR) {                                    \
+            printf("[ERROR][%s][%s:%d]" format "\n",                           \
+                    __func__, __FILE__, __LINE__, ##__VA_ARGS__);              \
+            fflush(stdout);                                                    \
+        }                                                                      \
+    } while (0)
 
 #else
 
@@ -50,12 +78,51 @@ typedef enum {
 
 #endif  // HOST_COMPILE
 
-#define CHK_PTR_NULL(ptr)                                                      \n    do {                                                                       \n        if (UNLIKELY((ptr) == nullptr)) {                                      \n            HCCL_ERROR('[%s] ptr [%s] is nullptr, return HCCL_E_PTR',          \n                       __func__, #ptr);                                        \n            return HCCL_E_PTR;                                                 \n        }                                                                      \n    } while (0)
+/* 检查指针, 若指针为NULL, 则记录日志, 并返回错误 */
+#define CHK_PTR_NULL(ptr)                                                      \
+    do {                                                                       \
+        if (UNLIKELY((ptr) == nullptr)) {                                      \
+            HCCL_ERROR("[%s] ptr [%s] is nullptr, return HCCL_E_PTR",          \
+                       __func__, #ptr);                                        \
+            return HCCL_E_PTR;                                                 \
+        }                                                                      \
+    } while (0)
 
-#define CHK_PRT_RET(result, exeLog, retCode)                                   \n    do {                                                                       \n        if (UNLIKELY(result)) {                                                  \n            exeLog;                                                             \n            return retCode;                                                    \n        }                                                                      \n    } while (0)
+/* 检查函数返回值, 记录指定日志, 并返回指定错误码 */
+#define CHK_PRT_RET(result, exeLog, retCode)                                   \
+    do {                                                                       \
+        if (UNLIKELY(result)) {                                                \
+            exeLog;                                                            \
+            return retCode;                                                    \
+        }                                                                      \
+    } while (0)
 
-#define CHK_RET(call)                                                          \n    do {                                                                       \n        int32_t hcclRet = call;                                                \n        if (UNLIKELY(hcclRet != HCCL_SUCCESS)) {                               \n            if (hcclRet == HCCL_E_AGAIN) {                                     \n                HCCL_WARNING('[%s] call trace: hcclRet -> %d',                 \n                             __func__, hcclRet);                               \n            } else {                                                           \n                HCCL_ERROR('[%s] call trace: hcclRet -> %d',                   \n                           __func__, hcclRet);                                 \n            }                                                                  \n            return static_cast<HcclResult>(hcclRet);                           \n        }                                                                      \n    } while (0)
+/* 检查函数返回值, 并返回指定错误码 */
+#define CHK_RET(call)                                                          \
+    do {                                                                       \
+        int32_t hcclRet = call;                                                \
+        if (UNLIKELY(hcclRet != HCCL_SUCCESS)) {                               \
+            if (hcclRet == HCCL_E_AGAIN) {                                     \
+                HCCL_WARNING("[%s] call trace: hcclRet -> %d",                 \
+                             __func__, hcclRet);                               \
+            } else {                                                           \
+                HCCL_ERROR("[%s] call trace: hcclRet -> %d",                   \
+                           __func__, hcclRet);                                 \
+            }                                                                  \
+            return static_cast<HcclResult>(hcclRet);                           \
+        }                                                                      \
+    } while (0)
 
-#define ACLCHECK(cmd)                                                                                           \n    do {                                                                                                        \n        aclError ret = cmd;                                                                                     \n        if (UNLIKELY(ret != ACL_SUCCESS)) {                                                                     \n            HCCL_ERROR('acl interface return err %s:%d, retcode: %d.\n', __FILE__, __LINE__, ret);              \n            if (ret == ACL_ERROR_RT_MEMORY_ALLOCATION) {                                                        \n                HCCL_ERROR('memory allocation error, check whether the current memory space is sufficient.\n'); \n            }                                                                                                   \n            return HCCL_E_RUNTIME;                                                                              \n        }                                                                                                       \n    } while (0)
+#define ACLCHECK(cmd)                                                                                           \
+    do {                                                                                                        \
+        aclError ret = cmd;                                                                                     \
+        if (UNLIKELY(ret != ACL_SUCCESS)) {                                                                     \
+            HCCL_ERROR("acl interface return err %s:%d, retcode: %d.\n", __FILE__, __LINE__, ret);              \
+            if (ret == ACL_ERROR_RT_MEMORY_ALLOCATION) {                                                        \
+                HCCL_ERROR("memory allocation error, check whether the current memory space is sufficient.\n"); \
+            }                                                                                                   \
+            return HCCL_E_RUNTIME;                                                                              \
+        }                                                                                                       \
+    } while (0)
 
 #endif // OPS_HCCL_CUSTOM_LOG_H

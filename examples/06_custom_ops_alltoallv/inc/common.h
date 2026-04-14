@@ -11,12 +11,12 @@
 #ifndef OPS_HCCL_CUSTOM_COMMON_H
 #define OPS_HCCL_CUSTOM_COMMON_H
 
-#include 'hccl/hccl_types.h'
-#include 'hccl/hccl_res.h'
-#include 'hccl/hcomm_primitives.h'
-#include 'acl/acl_rt.h'
-#include 'log.h'
-#include 'extra_args.h'
+#include "hccl/hccl_types.h"
+#include "hccl/hccl_res.h"
+#include "hccl/hcomm_primitives.h"
+#include "acl/acl_rt.h"
+#include "log.h"
+#include "extra_args.h"
 
 namespace ops_hccl_alltoallv {
 

@@ -7,9 +7,9 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
-#include 'hccl_custom_alltoallv.h'
-#include 'launch_kernel.h'
-#include 'common.h'
+#include "hccl_custom_alltoallv.h"
+#include "launch_kernel.h"
+#include "common.h"
 #include <vector>
 #include <cstring>
 #include <string>
@@ -29,7 +29,7 @@ static HcclResult InitAivBuffer(HcclComm comm, const char* aivTag, void*& aivCom
 
     hcclRet = HcclEngineCtxCreate(comm, aivTag, CommEngine::COMM_ENGINE_AIV, AIV_TAG_BUFF_LEN, &aivCommInfoPtr);
     if (hcclRet != HCCL_SUCCESS) {
-        HCCL_ERROR('[%s] Failed to create AIV buffer. ret=%d', __func__, hcclRet);
+        HCCL_ERROR("[%s] Failed to create AIV buffer. ret=%d", __func__, hcclRet);
         return hcclRet;
     }
     
@@ -37,7 +37,7 @@ static HcclResult InitAivBuffer(HcclComm comm, const char* aivTag, void*& aivCom
     CommMem regMem{COMM_MEM_TYPE_DEVICE, aivCommInfoPtr, AIV_TAG_BUFF_LEN};
     hcclRet = HcclCommMemReg(comm, aivTag, &regMem, &memHandle);
     if (hcclRet != HCCL_SUCCESS) {
-        HCCL_ERROR('[%s] Failed to register memory. ret=%d', __func__, hcclRet);
+        HCCL_ERROR("[%s] Failed to register memory. ret=%d", __func__, hcclRet);
         return hcclRet;
     }
     
@@ -86,7 +86,7 @@ static HcclResult SetupRemoteChannels(HcclComm comm, uint32_t rank, uint32_t ran
         CommMem* remoteMems = nullptr;
         char** memTags = nullptr;
         CHK_RET(HcclChannelGetRemoteMems(comm, levelNChannels[idx], &memNum, &remoteMems, &memTags));
-        CHK_PRT_RET(memNum != 1, HCCL_ERROR('[%s] HcclChannelGetRemoteMems memNum not 1', __func__), HCCL_E_PARA);
+        CHK_PRT_RET(memNum != 1, HCCL_ERROR("[%s] HcclChannelGetRemoteMems memNum not 1", __func__), HCCL_E_PARA);
         buffersOut[currentRank] = remoteMems[0].addr;
     }
     return HCCL_SUCCESS;
@@ -110,7 +110,7 @@ static HcclResult SetupExtraArgs(const void* sendCounts, const void* sdispls,
 }
 
 HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
-    std::string aivTagStr = std::string(param.tag) + '_AIV';
+    std::string aivTagStr = std::string(param.tag) + "_AIV";
     
     void* aivCommInfoPtr = nullptr;
     HcclMemHandle memHandle;
@@ -137,13 +137,13 @@ HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
     ACLCHECK(aclrtMemcpy(static_cast<uint8_t*>(aivCommInfoPtr) + AIV_TAG_ADDR_OFFSET, MAX_RANK_SIZE * sizeof(void*),
                          buffersOut, MAX_RANK_SIZE * sizeof(void*), ACL_MEMCPY_HOST_TO_DEVICE));
 
-    HCCL_INFO('[%s] Alloc res success.', __func__);
+    HCCL_INFO("[%s] Alloc res success.", __func__);
     return HCCL_SUCCESS;
 }
 
-extern 'C' HcclResult HcclAlltoAllVCustom(void *sendBuf, void *sendCounts, void *sdispls, void *recvBuf, 
+extern "C" HcclResult HcclAlltoAllVCustom(void *sendBuf, void *sendCounts, void *sdispls, void *recvBuf, 
     void *recvCounts, void *rdispls, HcclDataType dataType, HcclComm comm, aclrtStream stream) {
-    HCCL_INFO('[HcclAlltoAllVCustom] Entry. sendBuf=%p recvBuf=%p', sendBuf, recvBuf);
+    HCCL_INFO("[HcclAlltoAllVCustom] Entry. sendBuf=%p recvBuf=%p", sendBuf, recvBuf);
     CHK_PTR_NULL(sendBuf);
     CHK_PTR_NULL(recvBuf);
     CHK_PTR_NULL(sendCounts);
@@ -157,7 +157,7 @@ extern 'C' HcclResult HcclAlltoAllVCustom(void *sendBuf, void *sendCounts, void 
     
     char commName[COMM_INDENTIFIER_MAX_LENGTH];
     CHK_RET(HcclGetCommName(comm, commName));
-    int ret = sprintf_s(param.tag, sizeof(param.tag), 'AlltoAllV_%s_Custom', commName);
+    int ret = sprintf_s(param.tag, sizeof(param.tag), "AlltoAllV_%s_Custom", commName);
     if (ret <= 0) return HCCL_E_INTERNAL;
     
     CHK_RET(PrepareResources(comm, param, stream));
@@ -203,9 +203,9 @@ extern 'C' HcclResult HcclAlltoAllVCustom(void *sendBuf, void *sendCounts, void 
     param.counterMemSize = 0;
     param.isEnableCounter = false;
 
-    HCCL_INFO('[HcclAlltoAllVCustom] Launching kernel... rank=%u rankSize=%u totalSendCount=%lu', rank, rankSize, totalSendCount);
+    HCCL_INFO("[HcclAlltoAllVCustom] Launching kernel... rank=%u rankSize=%u totalSendCount=%lu", rank, rankSize, totalSendCount);
     CHK_RET(LaunchKernel(param, stream));
-    HCCL_INFO('[HcclAlltoAllVCustom] Launch success');
+    HCCL_INFO("[HcclAlltoAllVCustom] Launch success");
     
     return HCCL_SUCCESS;
 }

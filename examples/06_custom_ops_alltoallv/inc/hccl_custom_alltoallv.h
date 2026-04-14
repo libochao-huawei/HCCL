@@ -15,7 +15,7 @@
 #include <hccl/hccl_types.h>
 
 #ifdef __cplusplus
-extern 'C' {
+extern "C" {
 #endif
 
 HcclResult HcclAlltoAllVCustom(void *sendBuf, void *sendCounts, void *sdispls, void *recvBuf, 

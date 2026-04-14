@@ -18,14 +18,28 @@
 #include <mpi.h>
 #include <unistd.h>
 
-#include 'acl/acl.h'
-#include 'hccl/hccl.h'
-#include 'hccl/hccl_types.h'
-#include 'hccl_custom_alltoallv.h'
+#include "acl/acl.h"
+#include "hccl/hccl.h"
+#include "hccl/hccl_types.h"
+#include "hccl_custom_alltoallv.h"
 
-#define ACLCHECK(expr)                                                                         \n    do {                                                                                       \n        auto _ret = (expr); \n        if (_ret != ACL_SUCCESS) {                                                             \n            printf('[ERROR] acl interface return err %s:%d, retcode: %d \n', __FILE__, __LINE__, _ret); \n            return _ret;                                                                       \n        }                                                                                      \n    } while (0)
+#define ACLCHECK(expr)                                                                         \
+    do {                                                                                       \
+        auto _ret = (expr); /* 执行一次并保存结果 */                                              \
+        if (_ret != ACL_SUCCESS) {                                                             \
+            printf("[ERROR] acl interface return err %s:%d, retcode: %d \n", __FILE__, __LINE__, _ret); \
+            return _ret;                                                                       \
+        }                                                                                      \
+    } while (0)
 
-#define HCCLCHECK(expr)                                                                        \n    do {                                                                                       \n        auto _ret = (expr); \n        if (_ret != HCCL_SUCCESS) {                                                            \n            printf('[ERROR] hccl interface return err %s:%d, retcode: %d \n', __FILE__, __LINE__, _ret); \n            return _ret;                                                                       \n        }                                                                                      \n    } while (0)
+#define HCCLCHECK(expr)                                                                        \
+    do {                                                                                       \
+        auto _ret = (expr); /* 执行一次并保存结果 */                                              \
+        if (_ret != HCCL_SUCCESS) {                                                            \
+            printf("[ERROR] hccl interface return err %s:%d, retcode: %d \n", __FILE__, __LINE__, _ret); \
+            return _ret;                                                                       \
+        }                                                                                      \
+    } while (0)
 
 inline void BuildLogString(std::ostringstream& oss) {}
 
@@ -42,9 +56,9 @@ void Log(int rank, const Args&... args) {
     
     std::ostringstream oss;
     
-    oss << '[' << tv.tv_sec << '.' 
+    oss << "[" << tv.tv_sec << "." 
         << std::setfill('0') << std::setw(6) << tv.tv_usec 
-        << '] [Rank ' << rank << '] ';
+        << "] [Rank " << rank << "] ";
     
     BuildLogString(oss, args...);
     
@@ -55,29 +69,29 @@ int InitEnv(int argc, char* argv[], int& rank, int& size, HcclComm& hcclComm) {
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
-    Log(rank, 'MPI Initialized. World Size: %d', size);
+    Log(rank, "MPI Initialized. World Size: %d", size);
 
     ACLCHECK(aclInit(NULL));
     uint32_t devCount;
     ACLCHECK(aclrtGetDeviceCount(&devCount));
     if (devCount == 0) {
-        Log(rank, 'Error: No devices found');
+        Log(rank, "Error: No devices found");
         return -1;
     }
 
     int deviceId = rank % devCount;
     ACLCHECK(aclrtSetDevice(deviceId));
-    Log(rank, 'Device %d selected (Total devices: %u)', deviceId, devCount);
+    Log(rank, "Device %d selected (Total devices: %u)", deviceId, devCount);
 
     HcclRootInfo rootInfo;
     if (rank == 0) {
         HCCLCHECK(HcclGetRootInfo(&rootInfo));
-        Log(rank, 'Root info generated');
+        Log(rank, "Root info generated");
     }
     MPI_Bcast(&rootInfo, sizeof(HcclRootInfo), MPI_BYTE, 0, MPI_COMM_WORLD);
     
     HCCLCHECK(HcclCommInitRootInfo(size, &rootInfo, rank, &hcclComm));
-    Log(rank, 'HCCL Comm Initialized');
+    Log(rank, "HCCL Comm Initialized");
     return 0;
 }
 
@@ -117,7 +131,7 @@ int PrepareData(int rank, int size, uint64_t totalCount, size_t sendBytes, size_
     std::vector<float> hostSend(totalCount, (float)rank);
     ACLCHECK(aclrtMemcpy(sendBuf, sendBytes, hostSend.data(), sendBytes, ACL_MEMCPY_HOST_TO_DEVICE));
     ACLCHECK(aclrtMemset(recvBuf, recvBytes, 0, recvBytes));
-    Log(rank, 'Buffers allocated and initialized');
+    Log(rank, "Buffers allocated and initialized");
     return 0;
 }
 
@@ -130,7 +144,7 @@ int VerifyResult(int rank, int size, uint64_t totalCount, size_t recvBytes, void
         for (uint64_t i = 0; i < perRankCount; i++) {
             float val = hostRecv[r * perRankCount + i];
             if (std::abs(val - (float)r) > 1e-5) {
-                Log(rank, 'Error at rank %d offset %llu: expected %f, got %f', r, i, (float)r, val);
+                Log(rank, "Error at rank %d offset %llu: expected %f, got %f", r, i, (float)r, val);
                 return -1;
             }
         }
@@ -171,7 +185,7 @@ int main(int argc, char* argv[]) {
 
     if (PrepareData(rank, size, totalCount, sendBytes, recvBytes, stream, 
                     sendBuf, recvBuf, sendCounts, sdispls, recvCounts, rdispls) == 0) {
-        Log(rank, 'Starting HcclAlltoAllVCustom...');
+        Log(rank, "Starting HcclAlltoAllVCustom...");
         
         auto run_alltoallv = [&]() -> int {
             HCCLCHECK(HcclAlltoAllVCustom(sendBuf, sendCounts, sdispls, recvBuf, 
@@ -182,11 +196,11 @@ int main(int argc, char* argv[]) {
         };
 
         if (run_alltoallv() == 0) {
-            Log(rank, 'HcclAlltoAllVCustom completed and synchronized');
+            Log(rank, "HcclAlltoAllVCustom completed and synchronized");
             if (VerifyResult(rank, size, totalCount, recvBytes, recvBuf) == 0) {
-                Log(rank, 'Test Passed!');
+                Log(rank, "Test Passed!");
             } else {
-                Log(rank, 'Test Failed!');
+                Log(rank, "Test Failed!");
             }
         }
     }

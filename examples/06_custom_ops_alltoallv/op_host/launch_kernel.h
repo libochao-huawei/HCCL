@@ -11,7 +11,7 @@
 #ifndef LAUNCH_KERNEL_H
 #define LAUNCH_KERNEL_H
 
-#include 'common.h'
+#include "common.h"
 
 namespace ops_hccl_alltoallv {
 HcclResult LaunchKernel(OpParam &param, aclrtStream stream);
