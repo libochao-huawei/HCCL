@@ -18,9 +18,7 @@ using namespace AscendC;
 
 #define AIV_ALLGATHER_KERNEL_BATCH_DEF(type) \
 extern "C" __global__ __aicore__ void aiv_all_gather_##type(EXTERN_KERNEL_ARGS_DEF_V2) { \
-    if (isOpBase) { \
-        return AivAllGatherV2Mesh1D<type>(EXTERN_KERNEL_ARGS_CALL); \
-    } \
+    return AivAllGatherV2Mesh1D<type>(EXTERN_KERNEL_ARGS_CALL); \
 } \
 EXPORT_AIV_META_INFO(aiv_all_gather_##type)
 

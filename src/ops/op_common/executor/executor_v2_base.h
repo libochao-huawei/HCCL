@@ -47,11 +47,8 @@ public:
     HcclResult SetTempFastLaunchAddr(TemplateFastLaunchCtx &tempFastLaunchCtx, 
                             void* inputPtr, void* outputPtr, const HcclMem &hcclBuff) const;
 
-    virtual HcclResult RestoreChannelMap(const AlgResourceCtxSerializable &resCtx,
-        std::vector<std::map<u32, std::vector<ChannelInfo>>> &rankIdToChannelInfo) const;
-
-    HcclResult CalAllLevelEndpointAttrBwCoeff(HcclComm comm, uint32_t rankId, uint32_t levelSize,
-        std::vector<std::vector<EndpointAttrBwCoeff>> &endpointAttrBw);
+    HcclResult RestoreChannelMap(const AlgResourceCtxSerializable &resCtx,
+                                 std::vector<std::map<u32, std::vector<ChannelInfo>>> &rankIdToChannelInfo) const;
 
 protected:
     // CollAlg base params

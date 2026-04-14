@@ -388,9 +388,6 @@ HcclResult CcuKernelAllReduceNHR1D::Algorithm()
 std::vector<uint64_t> CcuKernelAllReduceNHR1D::GeneArgs(const CcuTaskArg &arg)
 {
     const CcuTaskArgAllReduceNHR1D *taskArg = dynamic_cast<const CcuTaskArgAllReduceNHR1D *>(&arg);
-    if (taskArg == nullptr) {
-        HCCL_ERROR("CcuKernelAllReduceNHR1D::taskArg ptr is null");
-    }
     // input&output&buffer地址
     uint64_t inputAddr          = taskArg->inputAddr_;
     uint64_t outputAddr         = taskArg->outputAddr_;

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -8,21 +8,22 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef ALL_GATHER_AIV_COMMUNICATION_V2_H
-#define ALL_GATHER_AIV_COMMUNICATION_V2_H
+#ifndef HCCL_DEVICE_COMM_DL_H
+#define HCCL_DEVICE_COMM_DL_H
 
-#include "aiv_communication_base_v2.h"
-#include "aiv_reduce_mesh_1d.h"
+#include "dlsym_common.h"
+#include "hccl_comm.h"   // 原始头文件，包含所有类型和声明
 
-using namespace AscendC;
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-#define AIV_REDUCE_KERNEL_BATCH_DEF(type) \
-extern "C" __global__ __aicore__ void aiv_reduce_##type(EXTERN_KERNEL_ARGS_DEF_V2) { \
-    return AivReduceV2Mesh1D<type>(EXTERN_KERNEL_ARGS_CALL); \
-} \
-EXPORT_AIV_META_INFO(aiv_reduce_##type)
+DECL_SUPPORT_FLAG(HcclCommGetStatus);
 
-// 定义各算子各数据类型Kernel入口
-AIV_ATOMIC_DATA_TYPE_DEF(AIV_REDUCE_KERNEL_BATCH_DEF);
+void HcclDeviceCommDlInit(void* libHcommHandle);
 
-#endif  /* AIV_COMMUNICATION_V2_H */
+#ifdef __cplusplus
+}
+#endif
+
+#endif // HCCL_DEVICE_COMM_DL_H

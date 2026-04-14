@@ -554,8 +554,17 @@ struct OpParamGraphMode {
     char opType[64]; // 算子类型
     u64 dataCount;
     u32 rankSize;
-    HcclDataType dataType;
     u64 hcclBufferSize;
+    // Aiv参数
+    s64 comm;
+    char group[MAX_LENGTH];
+    u64 count = 0;
+    void* counts = nullptr;
+    HcclDataType dataType = HCCL_DATA_TYPE_RESERVED;
+    HcclReduceOp op = HcclReduceOp::HCCL_REDUCE_RESERVED;
+    HcclCMDType opTypeAiv = HcclCMDType::HCCL_CMD_INVALID;
+    u32 aivCoreLimit = 0;
+    bool ifAiv = false;
 };
 
 // 图模式编译阶段申请资源
@@ -572,6 +581,12 @@ struct ResPackGraphMode {
     std::vector<aclrtStream> streams;
     void* scratchMemAddr;
     u64 scratchMemSize;
+};
+
+// AIV模式参数存储结构
+struct AivParamStorage {
+    u32 aivCoreLimit = 0;
+    bool aivClearEnable = false;
 };
 
 } 
