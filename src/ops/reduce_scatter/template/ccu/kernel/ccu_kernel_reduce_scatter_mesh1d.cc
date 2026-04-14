@@ -11,7 +11,6 @@
 #include "ccu_kernel_reduce_scatter_mesh1d.h"
 
 namespace ops_hccl {
-using namespace hcomm;
 
 constexpr int INPUT_XN_ID  = 0;
 constexpr int TOKEN_XN_ID  = 1;
@@ -21,8 +20,8 @@ constexpr int CKE_IDX_0    = 0;
 static HcclResult ParseKernelArg(ReduceScatterContext &ctx, CcuKernelArgReduceScatterMesh1D *kernelArg)
 {
     ctx.rankId          = kernelArg->rankId;
-    ctx.rankSize        = kernelArg->dimSize;
-    ctx.channels        = kernelArg->channels;
+    ctx.rankSize        = kernelArg->rankSize;
+    ctx.channels       = kernelArg->channels;
     ctx.dataType        = kernelArg->opParam.DataDes.dataType;
     ctx.outputDataType  = kernelArg->opParam.DataDes.outputType;
     if (ctx.outputDataType == HcclDataType::HCCL_DATA_TYPE_RESERVED) {
@@ -38,34 +37,34 @@ static HcclResult InitResource(ReduceScatterContext &ctx)
 {
     uint32_t channelIdx = 0;
 
-    if (ctx.channel.size() == 0) {
+    if (ctx.channels.size() == 0) {
         HCCL_ERROR("[CcuKernelReduceScatterMesh1D] channels is empty!");
         return HcclResult::HCCL_E_INTERNAL;
     }
 
-    CHK_RET(ccu::Create(&ctx.output));
+    CCU_CHK_RET(ccu::Create(&ctx.output));
     // 按照rank号从小到大遍历channels，遇到本rank就填充本地资源，否则依次取远端资源，要求算法返回的Link同样是按顺序排列的
     ctx.input.resize(ctx.rankSize);
     ctx.token.resize(ctx.rankSize);
     for (uint64_t peerId = 0; peerId < ctx.rankSize; peerId++) {
         if (peerId == ctx.rankId) {
-            CHK_RET(ccu::Create(&ctx.input[peerId]));
-            CHK_RET(ccu::Create(&ctx.token[peerId]));
+            CCU_CHK_RET(ccu::Create(&ctx.input[peerId]));
+            CCU_CHK_RET(ccu::Create(&ctx.token[peerId]));
         } else {
-            CHK_RET(CcuVariableCreateFromChannel(
+            CCU_CHK_RET(CcuVariableCreateFromChannel(
                 ctx.channels[channelIdx], INPUT_XN_ID, &ctx.input[peerId]));
-            CHK_RET(CcuVariableCreateFromChannel(
+            CCU_CHK_RET(CcuVariableCreateFromChannel(
                 ctx.channels[channelIdx], TOKEN_XN_ID, &ctx.token[peerId]));
             channelIdx++;
         }
     }
 
-    CHK_RET(ccu::Create(&ctx.offset));
+    CCU_CHK_RET(ccu::Create(&ctx.offset));
 
-    CHK_RET(ccu::Create(&ctx.goSize.addrOffset));
-    CHK_RET(ccu::Create(&ctx.goSize.loopParam));
-    CHK_RET(ccu::Create(&ctx.goSize.parallelParam));
-    CHK_RET(ccu::Create(&ctx.goSize.residual));
+    CCU_CHK_RET(ccu::Create(&ctx.goSize.addrOffset));
+    CCU_CHK_RET(ccu::Create(&ctx.goSize.loopParam));
+    CCU_CHK_RET(ccu::Create(&ctx.goSize.parallelParam));
+    CCU_CHK_RET(ccu::Create(&ctx.goSize.residual));
 
     ctx.resourceAllocated = false;
     ctx.loopRegistered    = false;
@@ -75,14 +74,14 @@ static HcclResult InitResource(ReduceScatterContext &ctx)
 
 static HcclResult LoadArgs(ReduceScatterContext &ctx)
 {
-    CHK_RET(CcuLoadArg(ctx.input[ctx.rankId]));
-    CHK_RET(CcuLoadArg(ctx.output));
-    CHK_RET(CcuLoadArg(ctx.token[ctx.rankId]));
-    CHK_RET(CcuLoadArg(ctx.offset));
-    CHK_RET(CcuLoadArg(ctx.goSize.addrOffset));
-    CHK_RET(CcuLoadArg(ctx.goSize.loopParam));
-    CHK_RET(CcuLoadArg(ctx.goSize.parallelParam));
-    CHK_RET(CcuLoadArg(ctx.goSize.residual));
+    CCU_CHK_RET(CcuLoadArg(ctx.input[ctx.rankId]));
+    CCU_CHK_RET(CcuLoadArg(ctx.output));
+    CCU_CHK_RET(CcuLoadArg(ctx.token[ctx.rankId]));
+    CCU_CHK_RET(CcuLoadArg(ctx.offset));
+    CCU_CHK_RET(CcuLoadArg(ctx.goSize.addrOffset));
+    CCU_CHK_RET(CcuLoadArg(ctx.goSize.loopParam));
+    CCU_CHK_RET(CcuLoadArg(ctx.goSize.parallelParam));
+    CCU_CHK_RET(CcuLoadArg(ctx.goSize.residual));
 
     return HCCL_SUCCESS;
 }
@@ -115,13 +114,13 @@ static void PostSync(ReduceScatterContext &ctx)
 static HcclResult DoReduceScatter(ReduceScatterContext &ctx)
 {
     const auto *arg = ctx.arg;
-    std::vector<CcuRep::RemoteAddr> src;
-    src.resize(ctx.rankSize)
+    std::vector<CcuRemoteAddr> src;
+    src.resize(ctx.rankSize);
     for (uint32_t rankIdx = 0; rankIdx < ctx.rankSize; rankIdx++) {
-        CHK_RET(ccu::Create(&src[rankIdx]));
+        CCU_CHK_RET(ccu::Create(&src[rankIdx]));
     }
-    CcuRep::LocalAddr dst;
-    CHK_RET(ccu::Create(&dst));
+    CcuLocalAddr dst;
+    CCU_CHK_RET(ccu::Create(&dst));
     dst.addr  = ctx.output;
     dst.token = ctx.token[ctx.rankSize];
     uint32_t dstId = 0;
@@ -140,7 +139,7 @@ static HcclResult DoReduceScatter(ReduceScatterContext &ctx)
         src[curId].token = ctx.token[rankIdx];
     }
 
-    GroupReduce(ctx, ctx.channels, dst, src, ctx.groupOpSize, ctx.dataType, ctx.outputDataType, ctx.reduceOp);
+    GroupReduce(ctx, ctx.channels, dst, src, ctx.goSize, ctx.dataType, ctx.outputDataType, ctx.reduceOp);
 
     return HCCL_SUCCESS;
 }

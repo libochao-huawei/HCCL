@@ -9,10 +9,11 @@
  */
 
 #include "channel.h"
-#include "hccl_ccu_res.h"
+// #include "hccl_ccu_res.h"
 #include "ccu_assist_pub.h"
 #include "ccu_kernel_reduce_scatter_mesh1d.h"
 #include "ccu_temp_reduce_scatter_mesh_1D.h"
+#include "ccu_control_api.h"
 
 namespace ops_hccl {
 
@@ -46,8 +47,9 @@ HcclResult CcuTempReduceScatterMesh1D::CalcRes(HcclComm comm, const OpParam& par
 
     // 创建每个kernel的ctxArg，放入kernelInfo, 然后将kernelinfo放入resourceRequest.ccuKernelInfos
     CcuKernelInfo kernelInfo;
-    kernelInfo.kernelFuncName = "CcuKernelReduceScatterMesh1D";
-    kernelInfo.kernelFunc = reinterpret_cast<void *>(CcuKernelReduceScatterMesh1D);
+    strcpy(kernelInfo.kernelFuncName, "CcuKernelReduceScatterMesh1D");
+    // TODO x30067372
+    kernelInfo.kernelFunc = reinterpret_cast<void *>(CcuReduceScatterMesh1DKernel);
     
     std::vector<HcclChannelDesc> channelDescs;
         if(topoInfo->level0Topo != Level0Shape::MESH_1D_CLOS) {
@@ -62,8 +64,12 @@ HcclResult CcuTempReduceScatterMesh1D::CalcRes(HcclComm comm, const OpParam& par
         }
         HCCL_DEBUG("[CcuTempReduceScatterMesh1D::CalcRes] Get Mesh Channel Success!");
     }
-    CcuKernelArgReduceScatterMesh1D kernelArg = {subCommRanks_[0].size(), mySubCommRank_, param, subCommRanks_};
-    kernelInfo.kernelArg = static_cast<CcuKernelArg>(&kernelArg);
+    auto kernelArg = std::make_shared<CcuKernelArgReduceScatterMesh1D>();
+    kernelArg->rankSize = subCommRanks_[0].size();
+    kernelArg->rankId = mySubCommRank_;
+    kernelArg->opParam = param;
+    kernelArg->subCommRanks = subCommRanks_;
+    kernelInfo.setKernelArg(kernelArg);
     kernelInfo.channels = channelDescs;
     resourceRequest.ccuKernelInfos.push_back(kernelInfo);
 
@@ -77,7 +83,7 @@ HcclResult CcuTempReduceScatterMesh1D::CalcRes(HcclComm comm, const OpParam& par
 HcclResult CcuTempReduceScatterMesh1D::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
 {
     HCCL_DEBUG("[CcuTempReduceScatterMesh1D::FastLaunch] start");
-    const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
+    uint64_t *args = const_cast<uint64_t*>(tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs);
     constexpr u32 inputIdx = 0;
     constexpr u32 outputIdx = 1;
     constexpr u32 inputOffsetIdx = 8;
@@ -87,8 +93,9 @@ HcclResult CcuTempReduceScatterMesh1D::FastLaunch(const OpParam& param, const Te
     args[inputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + args[inputOffsetIdx];
     args[outputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + args[outputOffsetIdx];
 
+    // TODO x30067372
     void *taskArgs = reinterpret_cast<void*>(args);
-    CHK_RET(HcclCcuKernelLaunch(tempFastLaunchCtx.threads[0], 
+    CCU_CHK_RET(HcommCcuKernelLaunch(tempFastLaunchCtx.threads[0],
         tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgs, argSize));
 
     HCCL_DEBUG("[CcuTempReduceScatterMesh1D::FastLaunch] end");
@@ -120,15 +127,17 @@ HcclResult CcuTempReduceScatterMesh1D::KernelRun(const OpParam& param,
     uint64_t sliceSize          = templateDataParams.sliceSize;
     uint64_t inputSliceStride   = templateDataParams.inputSliceStride;
     uint64_t offset             = inputSliceStride * mySubCommRank_;
-    auto     goSize             = CalGoSize(sliceSize);
+    // TODO x30067372 CalGoSize?
+    const LoopGroupConfig  moConfig{};
+    auto     goSize             = CalGoSize(sliceSize, moConfig);
 
-    std::vector<uint64> taskArgs = {inputAddr, outputAddr, token, offset, goSize[0], goSize[1], goSize[2], goSize[3]};
+    std::vector<uint64_t> taskArgs = {inputAddr, outputAddr, token, offset, goSize[0], goSize[1], goSize[2], goSize[3]};
     uint64_t argSize = 8;
 
     HCCL_INFO("[CcuTempReduceScatterMesh1D::KernelRun] TaskArgs: inputAddr[%llu], outputAddr[%llu], "
                "offset[%llu], sliceSize[%llu]",
                inputAddr, outputAddr, offset, sliceSize);
-    CHK_RET(HcclCcuKernelLaunch(templateResource.threads[0], templateResource.ccuKernels[0], taskArgs.data(), argSize));
+    CCU_CHK_RET(HcommCcuKernelLaunch(templateResource.threads[0], templateResource.ccuKernels[0], taskArgs.data(), argSize));
     
     CcuKernelSubmitInfo submitInfo;
     submitInfo.kernelHandle = templateResource.ccuKernels[0];
