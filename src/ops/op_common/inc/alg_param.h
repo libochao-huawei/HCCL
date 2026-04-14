@@ -51,9 +51,31 @@ constexpr u32 NOTIFY_IDX_ACK = 0;
 constexpr u32 NOTIFY_IDX_DATA_SIGNAL = 1;
 constexpr u32 NOTIFY_IDX_FIN_ACK = 2;
 constexpr u32 CUSTOM_TIMEOUT = 1800;
+constexpr u32 AICPU_NOTIFY_DEFAULT_WAIT_TIMEOUT = 27 * 68;
 constexpr u32 TIME_S_TO_US = 1000000;
 constexpr u32 MAX_LENGTH = 128;
 constexpr u32 ALG_MAX_LENGTH = 128;
+
+inline u32 NormalizeOpExecTimeout(u32 timeout)
+{
+    return timeout;
+}
+
+inline u32 &CurrentOpExecTimeoutRef()
+{
+    static thread_local u32 currentOpExecTimeout = AICPU_NOTIFY_DEFAULT_WAIT_TIMEOUT;
+    return currentOpExecTimeout;
+}
+
+inline void SetCurrentOpExecTimeout(u32 timeout)
+{
+    CurrentOpExecTimeoutRef() = NormalizeOpExecTimeout(timeout);
+}
+
+inline u32 GetCurrentOpExecTimeout()
+{
+    return CurrentOpExecTimeoutRef();
+}
 
 // alltoallv需要
 constexpr u64 ALL_TO_ALL_V_VECTOR_NUM = 4;
@@ -509,6 +531,7 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     void* resCtx = nullptr;
     ThreadHandle opThread = 0;
     u32 aicpuRecordCpuIdx = 0; // aicpu record host的notifyIdx
+    u32 execTimeout = AICPU_NOTIFY_DEFAULT_WAIT_TIMEOUT; // AICPU/AIV相关执行超时，单位秒
     u32 dataCount = 0; // 算子上报dfx的数据量
     u64 varMemSize{0};
     u8 varData[0];

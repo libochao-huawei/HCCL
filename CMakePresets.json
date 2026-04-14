@@ -1,0 +1,121 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Unix Makefiles",
+      "cacheVariables": {
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/build_out",
+        "CUSTOM_ASCEND_CANN_PACKAGE_PATH": "/usr/local/Ascend/ascend-toolkit/latest",
+        "CANN_3RD_LIB_PATH": "${sourceDir}/third_party",
+        "BUILD_OPEN_PROJECT": "ON",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "ide-host",
+      "displayName": "IDE Host Index (for symbol navigation)",
+      "description": "Generate compile_commands.json for clangd",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "DEVICE_MODE": "OFF",
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "pkg-host",
+      "displayName": "Equivalent of bash build.sh --pkg",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "DEVICE_MODE": "OFF",
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "full-device",
+      "displayName": "Equivalent of bash build.sh --full (device stage)",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build_device",
+      "cacheVariables": {
+        "FULL_MODE": "ON",
+        "DEVICE_MODE": "ON",
+        "KERNEL_MODE": "ON",
+        "CUSTOM_SIGN_SCRIPT": "${sourceDir}/scripts/sign/community_sign_build.py",
+        "ENABLE_SIGN": "false",
+        "VERSION_INFO": "8.5.0",
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "ut",
+      "displayName": "Equivalent of bash build.sh --ut",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "ENABLE_TEST": "ON",
+        "ENABLE_UT": "on",
+        "ENABLE_ST": "off",
+        "DEVICE_MODE": "OFF",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "OUTPUT_PATH": "${sourceDir}/output",
+        "LLT_KILL_TIME": "1200"
+      }
+    },
+    {
+      "name": "st",
+      "displayName": "Equivalent of bash build.sh --st",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "ENABLE_TEST": "ON",
+        "ENABLE_UT": "off",
+        "ENABLE_ST": "on",
+        "DEVICE_MODE": "OFF",
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "build-pkg-host",
+      "displayName": "Build host package target",
+      "configurePreset": "pkg-host",
+      "targets": [
+        "package"
+      ],
+      "verbose": true
+    },
+    {
+      "name": "build-full-device",
+      "displayName": "Build device targets for --full",
+      "configurePreset": "full-device",
+      "targets": [
+        "scatter_aicpu_kernel",
+        "generate_device_aicpu_package",
+        "sign_aicpu_hccl"
+      ],
+      "verbose": true
+    },
+    {
+      "name": "build-ut",
+      "displayName": "Build UT targets",
+      "configurePreset": "ut",
+      "targets": [
+        "all"
+      ],
+      "verbose": true
+    },
+    {
+      "name": "build-st",
+      "displayName": "Build ST targets",
+      "configurePreset": "st",
+      "targets": [
+        "all"
+      ],
+      "verbose": true
+    }
+  ]
+}
