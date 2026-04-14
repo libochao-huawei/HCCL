@@ -75,7 +75,7 @@ HcclResult InsTempReduceScatterMesh1D::KernelRun(const OpParam& param,
         CHK_RET(static_cast<HcclResult>(HcommBatchModeEnd(param.algTag)));
         CHK_RET(static_cast<HcclResult>(HcommBatchModeStart(param.algTag)));
         for (const auto &thread : templateResource.threads) {
-            CHK_RET(static_cast<HcclResult>(HcommThreadJoin(thread, CUSTOM_TIMEOUT)));
+            CHK_RET(static_cast<HcclResult>(HcommThreadJoin(thread, GetCurrentOpExecTimeout())));
         }
     }
     PostCopy(tempAlgParams, templateResource.threads);

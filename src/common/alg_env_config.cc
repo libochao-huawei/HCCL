@@ -12,6 +12,8 @@
 #include <sstream>
 #include <string>
 #include <algorithm>
+#include <limits>
+#include <cmath>
 
 #include "log.h"
 #include "adapter_error_manager_pub.h"
@@ -67,10 +69,14 @@ static bool IsValidTimeoutFormat(const std::string &str)
 
 HcclResult ParseExecTimeout()
 {
+    constexpr double HOST_TIMEOUT_DEFAULT_SEC = 1836.0;
+    constexpr double HOST_TIMEOUT_MAX_SEC = static_cast<double>(std::numeric_limits<s32>::max());
+    constexpr double AIV_TIMEOUT_DEFAULT_SEC = 1091.0;
+    constexpr double AIV_TIMEOUT_MAX_SEC = 1091.0;
     std::string execTimeOutEnv = GetEnv(MM_ENV_HCCL_EXEC_TIMEOUT);
     if (execTimeOutEnv == "EmptyString") {
-        g_algEnvConfig.execTimeOutSet = false;
-        g_algEnvConfig.execTimeout = 0;
+        g_algEnvConfig.execTimeOutSet = true;
+        g_algEnvConfig.execTimeout = g_algEnvConfig.aivMode ? AIV_TIMEOUT_DEFAULT_SEC : HOST_TIMEOUT_DEFAULT_SEC;
         return HCCL_SUCCESS;
     }
 
@@ -89,6 +95,49 @@ HcclResult ParseExecTimeout()
         g_algEnvConfig.execTimeOutSet = false;
         g_algEnvConfig.execTimeout = 0;
         return HCCL_E_PARA;
+    }
+
+    if (g_algEnvConfig.aivMode) {
+        if (execTimeOut < 0) {
+            HCCL_ERROR("[ParseExecTimeout] HCCL_EXEC_TIMEOUT[%s] is invalid in AIV mode, expected range is [0, %.0f].",
+                execTimeOutEnv.c_str(), AIV_TIMEOUT_MAX_SEC);
+            g_algEnvConfig.execTimeOutSet = false;
+            g_algEnvConfig.execTimeout = 0;
+            return HCCL_E_PARA;
+        }
+
+        if (execTimeOut == 0) {
+            HCCL_INFO("[ParseExecTimeout] HCCL_EXEC_TIMEOUT=0, use max timeout[%.0f] in AIV mode (no timeout).",
+                AIV_TIMEOUT_MAX_SEC);
+            execTimeOut = AIV_TIMEOUT_MAX_SEC;
+        } else if (execTimeOut > AIV_TIMEOUT_MAX_SEC) {
+            HCCL_WARNING("[ParseExecTimeout] HCCL_EXEC_TIMEOUT[%s] exceeds max[%.0f], adjusted in AIV mode.",
+                execTimeOutEnv.c_str(), AIV_TIMEOUT_MAX_SEC);
+            execTimeOut = AIV_TIMEOUT_MAX_SEC;
+        }
+    } else {
+        if (execTimeOut < 0 || execTimeOut > HOST_TIMEOUT_MAX_SEC) {
+            HCCL_ERROR("[ParseExecTimeout] HCCL_EXEC_TIMEOUT[%s] is invalid in HOST/HOST_TS mode, expected range is [0, %d].",
+                execTimeOutEnv.c_str(), std::numeric_limits<s32>::max());
+            g_algEnvConfig.execTimeOutSet = false;
+            g_algEnvConfig.execTimeout = 0;
+            return HCCL_E_PARA;
+        }
+
+        long long intVal = static_cast<long long>(execTimeOut);
+        if (static_cast<double>(intVal) != execTimeOut) {
+            HCCL_ERROR("[ParseExecTimeout] HCCL_EXEC_TIMEOUT[%s] must be integer seconds in HOST/HOST_TS mode.",
+                execTimeOutEnv.c_str());
+            g_algEnvConfig.execTimeOutSet = false;
+            g_algEnvConfig.execTimeout = 0;
+            return HCCL_E_PARA;
+        }
+
+        if (execTimeOut == 0) {
+            HCCL_INFO("[ParseExecTimeout] HCCL_EXEC_TIMEOUT=0, use max timeout[%.0f] in HOST/HOST_TS mode (no timeout).",
+                HOST_TIMEOUT_MAX_SEC);
+            execTimeOut = HOST_TIMEOUT_MAX_SEC;
+        }
     }
 
     g_algEnvConfig.execTimeOutSet = true;
@@ -192,7 +241,7 @@ HcclResult InitEnvConfig()
     ret = ParseExecTimeout();
     RPT_ENV_ERR(ret != HCCL_SUCCESS, "EI0001", std::vector<std::string>({"value", "env", "expect"}),
         std::vector<std::string>({GetEnv(MM_ENV_HCCL_EXEC_TIMEOUT), "HCCL_EXEC_TIMEOUT",
-        "a non-negative number with up to 2 decimals"}));
+        "HOST/HOST_TS: integer seconds in [0,2147483647]; AIV: value in [0,1091] with up to 2 decimals"}));
     CHK_PRT_RET(ret != HCCL_SUCCESS,
         HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse HCCL_EXEC_TIMEOUT failed. "
             "errorno[%d]", HCCL_ERROR_CODE(ret), ret), ret);

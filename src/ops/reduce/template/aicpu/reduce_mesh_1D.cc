@@ -115,7 +115,7 @@ HcclResult ReduceMesh1D::RunReduce(const std::map<u32, std::vector<ChannelInfo>>
             CHK_RET(static_cast<HcclResult>(HcommBatchModeEnd(param.algTag)));
             CHK_RET(static_cast<HcclResult>(HcommBatchModeStart(param.algTag)));
             for (const auto &thread : threads) {
-                CHK_RET(static_cast<HcclResult>(HcommThreadJoin(thread, CUSTOM_TIMEOUT)));
+                CHK_RET(static_cast<HcclResult>(HcommThreadJoin(thread, GetCurrentOpExecTimeout())));
             }
         }
         // 规约数据

@@ -211,7 +211,7 @@ HcclResult ReduceAicpuReduceNHR::RunReduce(const std::map<u32, std::vector<Chann
 
     CHK_RET(static_cast<HcclResult>(HcommBatchModeEnd(algTag.c_str())));
     CHK_RET(static_cast<HcclResult>(HcommBatchModeStart(algTag.c_str())));
-    CHK_RET(static_cast<HcclResult>(HcommThreadJoin(thread_, CUSTOM_TIMEOUT)));
+    CHK_RET(static_cast<HcclResult>(HcommThreadJoin(thread_, GetCurrentOpExecTimeout())));
 
     for (u32 idx = 1; idx < subCommRanks_.at(0).size(); ++idx) {
         const DataSlice srcSlice(buffInfo.hcclBuff.addr, buffInfo.hcclBuffBaseOff + sliceSize * idx, sliceSize, count_);
