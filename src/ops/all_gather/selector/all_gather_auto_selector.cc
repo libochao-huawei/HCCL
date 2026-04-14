@@ -193,7 +193,8 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
         } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] == 1) {
             selectAlgName = "InsAllGatherNHR";
         } else if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-            selectAlgName = "InsAllGatherParallelMesh1DNHR";
+            // selectAlgName = "InsAllGatherParallelMesh1DNHR";
+            selectAlgName = "InsV2AllGatherOmniPipe";
         } else {
             HCCL_ERROR("[AllGatherAutoSelector] topo not match");
             return SelectorStatus::NOT_MATCH;
@@ -255,7 +256,11 @@ SelectorStatus AllGatherAutoSelector::SelectDPUAlgo(
             selectAlgName = "InsAllGatherMeshNhrDPU";
             HCCL_DEBUG("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
             return SelectorStatus::MATCH;
-        }
+        } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+            selectAlgName = "InsV2AllGatherOmniPipe";
+            HCCL_DEBUG("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
+            return SelectorStatus::MATCH;
+        } 
     }
     HCCL_DEBUG("[AllGatherAutoSelector][%s] end", __func__);
     return SelectorStatus::NOT_MATCH;
