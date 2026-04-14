@@ -83,7 +83,6 @@ HcclResult SendRecvWrite(const SendRecvInfo &sendRecvInfo, const ThreadHandle &t
     return HCCL_SUCCESS;
 }
 
-
 HcclResult SendRecvWriteWithPreSync(const SendRecvInfo &sendRecvInfo, const ThreadHandle &thread)
 {
     HCCL_ERROR("[SendRecvWriteWithPreSync] start....");

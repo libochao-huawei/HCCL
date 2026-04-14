@@ -340,8 +340,6 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetL
     }
 
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-        selectAlgName = "InsV2AllReduceOmniPipe";
-        return SelectorStatus::MATCH;
         if (isDataTypeOrReduceTypeSpecial) {
             selectAlgName = dataSize <= AR_AICPU_1D_64DATATYPE_DATA_SIZE ?
                             "InsAllReduceMesh1DOneShot" :
