@@ -73,7 +73,7 @@ HcclResult InsTempReduceScatterAicpuReduceNHR::KernelRun(const OpParam& param,
         CHK_RET(static_cast<HcclResult>(HcommBatchModeEnd(param.algTag)));
         CHK_RET(static_cast<HcclResult>(HcommBatchModeStart(param.algTag)));
         for (const auto &thread : templateResource.threads) {
-            CHK_RET(static_cast<HcclResult>(HcommThreadJoin(thread, CUSTOM_TIMEOUT)));
+            CHK_RET(static_cast<HcclResult>(HcommThreadJoin(thread, GetCurrentOpExecTimeout())));
         }
 
         // Step 3: 在output上做本地规约
