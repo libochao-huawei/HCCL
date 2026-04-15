@@ -106,15 +106,24 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ParseXmlInfo(const
             omniBinPath == nullptr ? "" : omniBinPath, myRank_);
         return HCCL_E_PARA;
     }
-    HCCL_INFO("[InsOmniSoleExecutor][ParseXmlInfo] use omni bin file [%s].", selectedPath.c_str());
+    file.seekg(0, std::ios::end);
+    std::streamsize fileSize = file.tellg();
+    file.seekg(0, std::ios::beg);
+    HCCL_INFO("[InsOmniSoleExecutor][ParseXmlInfo] use omni bin file [%s], fileSize[%lld], rank[%u].",
+        selectedPath.c_str(), static_cast<long long>(fileSize), myRank_);
 
     uint64_t offset = 0;
+    uint32_t instrIdx = 0;
     do {
         file.seekg(offset);
         uint64_t data = 0;
         if (!file.read(reinterpret_cast<char*>(&data), sizeof(data))) {
+            HCCL_INFO("[InsOmniSoleExecutor][ParseXmlInfo] read failed or EOF at offset[%llu], "
+                "totalInstr[%u].", offset, instrIdx);
             break;
         }
+        HCCL_INFO("[InsOmniSoleExecutor][ParseXmlInfo] instr[%u] offset[%llu] raw64[0x%016llX].",
+            instrIdx, offset, data);
 
         uint16_t op = data & 0x1F;
 
@@ -133,6 +142,10 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ParseXmlInfo(const
             xmlInfo_.resInfo.netLayerNum = netLayer;
             xmlInfo_.resInfo.blockNumAiv = blockNumAiv;
 
+            HCCL_INFO("[InsOmniSoleExecutor][ParseXmlInfo] RES_REQUEST: slaveThreadNum[%u] "
+                "notifyNumOnMainThread[%u] notifyNumPerThread[%u] netLayer[%u] chanCount[%u] blockNumAiv[%u].",
+                slaveThreadNum, notifyNumOnMainThread, notifyNumPerThread, netLayer, chanCount, blockNumAiv);
+
             offset += sizeof(data);
 
             std::map<u32, OmniChannelInfo> mapChannelInfo;
@@ -140,6 +153,8 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ParseXmlInfo(const
                 file.seekg(offset);
                 uint32_t channelData = 0;
                 if (!file.read(reinterpret_cast<char*>(&channelData), sizeof(channelData))) {
+                    HCCL_WARNING("[InsOmniSoleExecutor][ParseXmlInfo] channel read failed at chan[%u/%u] offset[%llu].",
+                        i, chanCount, offset);
                     break;
                 }
 
@@ -148,6 +163,10 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ParseXmlInfo(const
                 uint16_t remoteRank = (channelData >> 15) & 0x3FF;
                 uint16_t linkProto = (channelData >> 25) & 0x7;
                 offset += sizeof(channelData);
+
+                HCCL_INFO("[InsOmniSoleExecutor][ParseXmlInfo] chan[%u] raw32[0x%08X] netLayerId[%u] "
+                    "localRank[%u] remoteRank[%u] linkProto[%u].",
+                    i, channelData, netLayerId, localRank, remoteRank, linkProto);
 
                 if (localRank != myRank_) {
                     continue;
@@ -162,6 +181,8 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ParseXmlInfo(const
             xmlInfo_.resInfo.mapchannelInfo.push_back(mapChannelInfo);
         } else if (op == OMNI_PRESYNC_OPCODE || op == OMNI_POSTSYNC_OPCODE) {
             uint16_t subThreadNum = (data >> 10) & 0x1F;
+            HCCL_INFO("[InsOmniSoleExecutor][ParseXmlInfo] %s: subThreadNum[%u] offset[%llu].",
+                op == OMNI_PRESYNC_OPCODE ? "PRESYNC" : "POSTSYNC", subThreadNum, offset);
             offset += sizeof(data);
             offset += subThreadNum * sizeof(uint8_t);
         } else {
@@ -179,6 +200,14 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ParseXmlInfo(const
             uint16_t inputDataType = (data >> 45) & 0xF;
             uint16_t outputDataType = (data >> 49) & 0xF;
             uint16_t instructionId = (data >> 53) & 0x3FF;
+
+            HCCL_INFO("[InsOmniSoleExecutor][ParseXmlInfo] DATA_INSTR: op[%u] netlayerId[%u] linkProto[%u] "
+                "sliceNum[%u] srcSliceCnt[%u] dstSliceCnt[%u] threadIdx[%u] reduceType[%u] "
+                "inputDataType[%u] outputDataType[%u] instructionId[%u] notifyFlag[%u] notifyThread[%u] "
+                "waitFlag[%u] waitThread[%u].",
+                op, netlayerId, linkProto, sliceNum, srcSliceCnt, dstSliceCnt, threadIdx, reduceType,
+                inputDataType, outputDataType, instructionId, notifyFlag, notifyThread, waitFlag, waitThread);
+
             (void)linkProto;
             (void)notifyFlag;
             (void)notifyThread;
@@ -201,6 +230,8 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ParseXmlInfo(const
                 file.seekg(offset);
                 uint32_t srcData = 0;
                 if (!file.read(reinterpret_cast<char*>(&srcData), sizeof(srcData))) {
+                    HCCL_WARNING("[InsOmniSoleExecutor][ParseXmlInfo] srcSlice read failed at [%u/%u] offset[%llu].",
+                        i, srcSliceCnt, offset);
                     break;
                 }
                 offset += sizeof(srcData);
@@ -209,6 +240,9 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ParseXmlInfo(const
                 omniSliceInfo.sliceType = static_cast<BufferTypeTmp>((srcData >> 0) & 0x3);
                 omniSliceInfo.sliceIdx = (srcData >> 2) & 0x3FF;
                 omniSliceInfo.remoteRank = (srcData >> 12) & 0x3FF;
+                HCCL_INFO("[InsOmniSoleExecutor][ParseXmlInfo] srcSlice[%u] raw32[0x%08X] sliceType[%u] "
+                    "sliceIdx[%u] remoteRank[%u].",
+                    i, srcData, static_cast<uint32_t>(omniSliceInfo.sliceType), omniSliceInfo.sliceIdx, omniSliceInfo.remoteRank);
                 omniSendRecvInfo.srcSliceInfo.push_back(omniSliceInfo);
             }
 
@@ -216,6 +250,8 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ParseXmlInfo(const
                 file.seekg(offset);
                 uint32_t dstData = 0;
                 if (!file.read(reinterpret_cast<char*>(&dstData), sizeof(dstData))) {
+                    HCCL_WARNING("[InsOmniSoleExecutor][ParseXmlInfo] dstSlice read failed at [%u/%u] offset[%llu].",
+                        i, dstSliceCnt, offset);
                     break;
                 }
                 offset += sizeof(dstData);
@@ -224,11 +260,19 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ParseXmlInfo(const
                 omniSliceInfo.sliceType = static_cast<BufferTypeTmp>((dstData >> 0) & 0x3);
                 omniSliceInfo.sliceIdx = (dstData >> 2) & 0x3FF;
                 omniSliceInfo.remoteRank = (dstData >> 12) & 0x3FF;
+                HCCL_INFO("[InsOmniSoleExecutor][ParseXmlInfo] dstSlice[%u] raw32[0x%08X] sliceType[%u] "
+                    "sliceIdx[%u] remoteRank[%u].",
+                    i, dstData, static_cast<uint32_t>(omniSliceInfo.sliceType), omniSliceInfo.sliceIdx, omniSliceInfo.remoteRank);
                 omniSendRecvInfo.dstSliceInfo.push_back(omniSliceInfo);
             }
             xmlInfo_.vecSendRecvInfo.push_back(omniSendRecvInfo);
         }
+        instrIdx++;
     } while (file.peek() != EOF);
+
+    HCCL_INFO("[InsOmniSoleExecutor][ParseXmlInfo] parse done. totalInstr[%u] vecSendRecvInfo.size[%zu] "
+        "mapchannelInfo.size[%zu] finalOffset[%llu].",
+        instrIdx, xmlInfo_.vecSendRecvInfo.size(), xmlInfo_.resInfo.mapchannelInfo.size(), offset);
 
     return HCCL_SUCCESS;
 }
@@ -313,6 +357,11 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLoop(
     u32 loopTimes = dataCount_ / maxCountPerLoop + ((dataCount_ % maxCountPerLoop == 0) ? 0 : 1);
     HCCL_INFO("[InsOmniSoleExecutor][OrchestrateLoop]loopTimes = [%u]", loopTimes);
 
+    HCCL_INFO("[InsOmniSoleExecutor][OrchestrateLoop] engine[%u] dataCount_[%llu] dataTypeSize_[%u] "
+        "maxCountPerLoop[%llu] cclMem.size[%llu] inputPtr[%p] outputPtr[%p] aivCommInfoPtr[%p].",
+        static_cast<u32>(param.engine), dataCount_, dataTypeSize_, maxCountPerLoop,
+        resCtx.cclMem.size, param.inputPtr, param.outputPtr, resCtx.aivCommInfoPtr);
+
     u64 processedDataCount = 0;
     for (u64 loop = 0; loop < loopTimes; loop++) {
         u64 currDataCount = (loop == loopTimes - 1) ? dataCount_ - processedDataCount : maxCountPerLoop;
@@ -326,11 +375,18 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLoop(
         tempAlgParams.buffInfo.inBuffBaseOff = processedDataCount * dataTypeSize_;
         tempAlgParams.buffInfo.outBuffBaseOff = processedDataCount * dataTypeSize_;
         tempAlgParams.buffInfo.hcclBuffBaseOff = 0;
-        tempAlgParams.repeatNum = 1;  // 不需要重复
+        tempAlgParams.repeatNum = 1;
         tempAlgParams.inputRepeatStride = 0;
         tempAlgParams.outputRepeatStride = 0;
         tempAlgParams.buffInfo.inBuffType = BufferType::INPUT;
         tempAlgParams.buffInfo.outBuffType = BufferType::OUTPUT;
+
+        HCCL_INFO("[InsOmniSoleExecutor][OrchestrateLoop] loop[%u/%u] currDataCount[%llu] sliceNum[%llu] "
+            "sliceSize[%llu] inBuffBaseOff[%llu] outBuffBaseOff[%llu] vecSendRecvInfo.size[%zu].",
+            static_cast<u32>(loop), loopTimes, currDataCount, sliceNum, tempAlgParams.sliceSize,
+            tempAlgParams.buffInfo.inBuffBaseOff, tempAlgParams.buffInfo.outBuffBaseOff,
+            xmlInfo_.vecSendRecvInfo.size());
+
         CHK_RET(algTemplate->KernelRun(param, tempAlgParams, templateAlgRes));
         processedDataCount += currDataCount;
     }
