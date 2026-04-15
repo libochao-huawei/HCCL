@@ -155,6 +155,8 @@ bool IsAiCpuMode(DevType deviceType, u32 rankSize)
 HcclResult ScatterExecOp(OpParam &param, void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType, uint32_t root,
     HcclComm comm, aclrtStream stream, u32 userRankSize, uint64_t beginTime)
 {
+    CHK_RET(HcclGetOpExpansionMode(comm, param));
+    
     #ifdef MACRO_DEV_TYPE_NEW
     if (param.deviceType == DevType::DEV_TYPE_950 && (GetHcommVersion() >= 90000000)) {
     #else
