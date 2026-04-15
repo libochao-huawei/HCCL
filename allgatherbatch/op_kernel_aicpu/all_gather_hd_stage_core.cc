@@ -147,31 +147,24 @@ HcclResult AllGatherHDStage::RunPreCopy()
 
 HcclResult AllGatherHDStage::RunAllGatherNoPower()
 {
-    HCCL_INFO("[AllGatherHDStage][RunAllGather] rank[%u] tempAlg AllGatherNHR inputMem[%p] outputMem[%p] mem_size[%llu] "\
-        "count[%llu]", rank, execMem_.inputMem.addr, execMem_.outputMem.addr, execMem_.outputMem.size, execMem_.count);
+    HCCL_INFO("[AllGatherHDStage][RunAllGatherNoPower] rank[%u] inputMem[%p] outputMem[%p] mem_size[%llu] count[%llu]",
+        rank, execMem_.inputMem.addr, execMem_.outputMem.addr, execMem_.outputMem.size, execMem_.count);
     u32 groupIdx = rank % static_cast<u32>(pow(base, powerSteps_ ));
     u32 group = rank / static_cast<u32>(pow(base, powerSteps_ ));
     u32 revIdx = 0;
     CHK_RET(ReverseId(groupIdx, revIdx));
     u64 baseOffset = ((revIdx * noPower_) % (rankSize / static_cast<u32>(pow(base, finalSteps_))))* totalSize_;
-    std::vector<Slice> slices;
-    for (u32 i = 0; i< noPower_; i++){
-        Slice temp;
-        temp.offset = i * totalSize_;
-        temp.size = totalSize_;
-        slices.push_back(temp);
-    }
-    HcclMem nhrOutput = HcclMemRange(execMem_.outputMem, baseOffset, execMem_.outputMem.size - baseOffset);
-    // CHK_RET(tempAlg->Prepare(nhrOutput, nhrOutput, nhrOutput, execMem_.count, dataType_, stream_,
-    //     reductionOp_, 0, slices, baseOffset));
 
     std::vector<ChannelResource> nhrChannels;
-    for (u32 i = 0; i< noPower_; i++){
+    nhrChannels.reserve(noPower_);
+    for (u32 i = 0; i < noPower_; ++i) {
         u32 remote = i * static_cast<u32>(pow(base, powerSteps_ )) + groupIdx;
         nhrChannels.push_back(channels_[remote]);
     }
-    // return tempAlg->RunAsync(group, noPower_, nhrChannels);
-    return HCCL_SUCCESS;
+
+    AllGatherNHRCore nhrCore(resCtx_, execMem_, baseOffset, totalSize_, nhrChannels);
+    CHK_RET(nhrCore.Prepare(true));
+    return nhrCore.RunAsync(group, noPower_, nhrChannels);
 }
 
 HcclResult AllGatherHDStage::PrepareSliceData(u32 subRank, u32 subRankSize, u32 size, u32 batchSize, std::vector<Slice> &slices)
@@ -425,3 +418,5 @@ HcclResult AllGatherHDStage::RunAsync()
 }
 
 }  // namespace ops_hccl_allgatherbatch
+
+

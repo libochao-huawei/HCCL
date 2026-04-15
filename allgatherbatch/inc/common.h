@@ -74,6 +74,8 @@ struct Slice {
     u64 size{0};    // Slice的数据大小，单位：字节
 };
 
+// addr 表示 `CCLIn` 的起始地址
+// addr + offset 表示 `CCLOut` 的起始地址
 struct CommBuffer {
     void *addr = nullptr;
     uint64_t size = 0;
