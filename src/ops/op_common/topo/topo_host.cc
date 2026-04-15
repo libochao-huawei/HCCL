@@ -76,7 +76,9 @@ HcclResult CalcMyRankInfo(HcclComm comm, TopoInfo* topoInfo)
     // 获取moduleIdx
     CHK_RET(CalcGroupIdx(comm, topoInfo, static_cast<uint32_t>(HcclNetLayer::HCCL_NetLayer_L0)));
     // 获取superPodIdx
-    if (netLayersNum >= NET_LAYER_NUM_TWO) {
+    if (netLayersNum > NET_LAYER_NUM_THREE) {
+        CHK_RET(CalcGroupIdx(comm, topoInfo, netlayers[netLayersNum - 1]));
+    } else if (netLayersNum >= NET_LAYER_NUM_TWO) {
         CHK_RET(CalcGroupIdx(comm, topoInfo, static_cast<uint32_t>(HcclNetLayer::HCCL_NetLayer_L1)));
     } else {
         topoInfo->superPodIdx = 0;
@@ -262,7 +264,8 @@ HcclResult CalcGroupIdx(HcclComm comm, TopoInfo* topoInfo, uint32_t netLayer)
         topoInfo->serverNum = rankListNum;
         HCCL_DEBUG("[CalcGroupIdx]netLayer[%u] currentGroup[%u] serverIdx[%u] serverNum[%u]",
             netLayer, currentGroup, topoInfo->serverIdx, topoInfo->serverNum);
-    } else if (netLayer == static_cast<uint32_t>(HcclNetLayer::HCCL_NetLayer_L1)) {
+    } else if ((netLayer == static_cast<uint32_t>(HcclNetLayer::HCCL_NetLayer_L1)) ||
+        (netLayer == static_cast<uint32_t>(HcclNetLayer::HCCL_NetLayer_L3))) {
         topoInfo->superPodIdx = currentGroup;
         HCCL_DEBUG("[CalcGroupIdx]netLayer[%u] currentGroup[%u] superPodIdx[%u]", netLayer, currentGroup, topoInfo->superPodIdx);
     } else {
