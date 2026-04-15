@@ -20,7 +20,7 @@ class CcuTempAllGatherMesh1DDetour : public CcuAlgTemplateBase {
 public:
     explicit CcuTempAllGatherMesh1DDetour(const OpParam& param, 
                                            const u32 rankId,
-                                           const std::vector<std::vector<u32>> &subCommRanks);
+                                           const std::vector<std::vector<u32>> &subCommRanks) = default;
     ~CcuTempAllGatherMesh1DDetour() override;
  
     std::string Describe() const override
