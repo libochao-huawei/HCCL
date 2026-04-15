@@ -240,21 +240,27 @@ void InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTempl
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::PrepareResForTemplate(
-    const InsAlgTemplate0 &tempAlgIntra, const InsAlgTemplate1 &tempAlgInter)
+    const OpParam &param, const InsAlgTemplate0 &tempAlgIntra, const InsAlgTemplate1 &tempAlgInter)
 {
+    // 获取两个template各自的主thread上有多少notify
+    AlgResourceRequest intraTempRequest;
+    AlgResourceRequest interTempRequest;
+    if (param.engine != CommEngine::COMM_ENGINE_AIV && param.engine != CommEngine::COMM_ENGINE_CCU) {
+        u64 interThreadsNum = tempAlgInter.GetThreadNum(interChannelMap_);
+        CHK_RET(tempAlgInter.GetRes(interTempRequest, interChannelMap_));
+    } else {
+        u64 interThreadsNum = tempAlgInter.GetThreadNum();
+        CHK_RET(tempAlgInter.GetRes(interTempRequest));
+    }
     u64 intraThreadsNum = tempAlgIntra.GetThreadNum();
-    u64 interThreadsNum = tempAlgInter.GetThreadNum();
     intraThreads_.assign(threads_.begin() + 1, threads_.begin() + 1 + intraThreadsNum);
     interThreads_.assign(threads_.begin() + 1 + intraThreadsNum, threads_.end());
     // 用于两个算法同步
     controlThread_ = threads_.at(0);
     templateMainThreads_.push_back(intraThreads_.at(0));
     templateMainThreads_.push_back(interThreads_.at(0));
-    // 获取两个template各自的主thread上有多少notify
-    AlgResourceRequest intraTempRequest;
-    AlgResourceRequest interTempRequest;
+
     CHK_RET(tempAlgIntra.GetRes(intraTempRequest));
-    CHK_RET(tempAlgInter.GetRes(interTempRequest));
     notifyIdxControlToTemplates_.push_back(intraTempRequest.notifyNumOnMainThread);
     notifyIdxControlToTemplates_.push_back(interTempRequest.notifyNumOnMainThread);
     notifyIdxTemplatesToControl_.push_back(0);
@@ -309,7 +315,7 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     InsAlgTemplate0 intraTempAlg(param, resCtx.topoInfo.userRank, temp0HierarchyInfo);
     InsAlgTemplate1 interTempAlg(param, resCtx.topoInfo.userRank, temp1HierarchyInfo);
     // 将计算资源分配个每个算法
-    PrepareResForTemplate(intraTempAlg, interTempAlg);
+    PrepareResForTemplate(param, intraTempAlg, interTempAlg);
     // 算法展开
     HcclResult ret = OrchestrateLoop(param, resCtx, intraTempAlg, interTempAlg);
     CHK_PRT_RET(
@@ -503,7 +509,7 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     TemplateResource templateAlgResIntra, templateAlgResInter;
     ThreadHandle *threads = ctx->GetThreadHandlePtr();
     threads_.assign(threads, threads + ctx->threadNum);
-    PrepareResForTemplate(intraTempAlg, interTempAlg);
+    PrepareResForTemplate(param, intraTempAlg, interTempAlg);
     
     CcuKernelSubmitInfo *ccuKernelSubmitInfos = ctx->GetCcuKernelSubmitInfoPtr();
     
