@@ -4,6 +4,7 @@
 
 #include "load_kernel.h"
 #include "log.h"
+#include "profiling.h"
 
 namespace ops_hccl_allgatherbatch {
 
@@ -30,6 +31,8 @@ HcclResult LaunchKernel(const OpParam &param, aclrtStream stream)
     cfg.numAttrs = 1;
     cfg.attrs = &attr;
     constexpr uint32_t blockDim = 1;
+    const bool profilingOn = IsProfilingEnabled();
+    const uint64_t beginTime = profilingOn ? HcommGetProfilingSysCycleTime() : 0;
 
     ACLCHECK(aclrtLaunchKernelWithConfig(funcHandle, blockDim, stream, &cfg, argsHandle, nullptr));
 
@@ -37,6 +40,17 @@ HcclResult LaunchKernel(const OpParam &param, aclrtStream stream)
         g_allGatherBatchNotifies[kAllGatherBatchControlNotifyDone],
         stream,
         CUSTOM_TIMEOUT));
+
+    if (profilingOn) {
+        HcomProInfoTmp info {};
+        FillProfilingInfo(info, param, beginTime, 0);
+        if (HcommProfilingReportOp(info) != HCCL_SUCCESS) {
+            HCCL_WARNING("HcommProfilingReportOp failed, rank=%u, tag=%s", param.topoInfo.rank, param.tag);
+        }
+        if (HcommProfilingReportKernel(beginTime, kAllGatherBatchProfilingKernelName) != HCCL_SUCCESS) {
+            HCCL_WARNING("HcommProfilingReportKernel failed, rank=%u, tag=%s", param.topoInfo.rank, param.tag);
+        }
+    }
 
     HCCL_INFO("Host launch done: rank=%u, commMode=%s, itemCount=%u",
         param.topoInfo.rank,
@@ -46,5 +60,3 @@ HcclResult LaunchKernel(const OpParam &param, aclrtStream stream)
 }
 
 }  // namespace ops_hccl_allgatherbatch
-
-
