@@ -38,13 +38,13 @@ HcclResult CalcDataSplitByPortGroup(const u64 totalDataCount, const u64 dataType
     sizeOut.clear();
     elemOffset.clear();
 
-    std::vector<u32> & portGroups;
+    std::vector<u32> portGroups;
     u32 totalPorts = 0;
     for (const auto &ch : channels) {
         portGroups.push_back(ch.portGroupSize);
         totalPorts += ch.portGroupSize;
     }
-    u32 channelsize = portGroupSize.size();
+    u32 channelsize = portGroups.size();
     u64 accumCount = 0;
     u64 offset = 0;
     for (u32 channelIdx = 0; channelIdx < channelsize; channelIdx++) {
@@ -57,7 +57,7 @@ HcclResult CalcDataSplitByPortGroup(const u64 totalDataCount, const u64 dataType
         }
         elemOffset.push_back(offset);
         elemCountOut.push_back(elemCount);
-        elemSize = elemCount * dataTypeSize
+        elemSize = elemCount * dataTypeSize;
         sizeOut.push_back(elemSize);
         offset += elemSize;
         accumCount += elemCount;
