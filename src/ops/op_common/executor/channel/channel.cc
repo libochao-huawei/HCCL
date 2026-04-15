@@ -179,7 +179,7 @@ HcclResult CreateChannelFromLink(HcclComm comm, u32 myRank, u32 rank, uint32_t n
     channelDesc.channelProtocol = link.linkAttr.linkProtocol;
     channelDesc.notifyNum = NORMAL_NOTIFY_NUM;
     channels.push_back(channelDesc);
-    EndpointDesc localEndpoint = channel.localEndpoint;
+    EndpointDesc localEndpoint = channels.localEndpoint;
     using portSizeType = uint32_t;
     portSizeTypeSize = sizeof(portSizeType);
     portSizeType portSize = 0;
