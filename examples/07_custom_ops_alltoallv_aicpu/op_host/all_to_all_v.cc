@@ -10,6 +10,7 @@
 
 #include <hccl/hccl_res_expt.h>
 #include <hccl_rank_graph.h>
+#include <string>
 #include <vector>
 #include <cstring>
 #include <algorithm>
@@ -24,31 +25,28 @@ using namespace ops_hccl_alltoallv_aicpu;
 
 static HcclResult GetDeviceType(DeviceType* devType)
 {
-    uint32_t deviceId = 0;
-    aclError aclRet = aclrtGetDevice(&deviceId);
-    if (aclRet != ACL_SUCCESS) {
-        HCCL_ERROR("[GetDeviceType] aclrtGetDevice failed, ret[%d]", aclRet);
+    const char *socNamePtr = aclrtGetSocName();
+    if (socNamePtr == nullptr) {
+        HCCL_ERROR("[GetDeviceType] Failed to get soc name");
         return HCCL_E_RUNTIME;
     }
 
-    aclrtDeviceInfo info;
-    aclRet = aclrtGetDeviceInfo(deviceId, &info);
-    if (aclRet != ACL_SUCCESS) {
-        HCCL_ERROR("[GetDeviceType] aclrtGetDeviceInfo failed, ret[%d]", aclRet);
-        return HCCL_E_RUNTIME;
+    std::string socName(socNamePtr);
+    if (socName.find("Ascend910B") != std::string::npos) {
+        *devType = DEVICE_TYPE_A2;
+        return HCCL_SUCCESS;
     }
-
-    switch (info.socName) {
-        case ACL_RT_SOC_NAME_910B:
-            *devType = DEVICE_TYPE_A2;
-            break;
-        case ACL_RT_SOC_NAME_910_95:
-            *devType = DEVICE_TYPE_950;
-            break;
-        default:
-            *devType = DEVICE_TYPE_A3;
-            break;
+    if (socName.find("Ascend910_93") != std::string::npos) {
+        *devType = DEVICE_TYPE_A3;
+        return HCCL_SUCCESS;
     }
+    if (socName.find("Ascend950") != std::string::npos) {
+        *devType = DEVICE_TYPE_950;
+        return HCCL_SUCCESS;
+    }
+    
+    *devType = DEVICE_TYPE_A3;
+    HCCL_INFO("[GetDeviceType] Using default A3 device type for soc: %s", socName.c_str());
     return HCCL_SUCCESS;
 }
 
