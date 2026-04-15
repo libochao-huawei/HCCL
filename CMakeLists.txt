@@ -13,12 +13,6 @@ message(STATUS "KERNEL_MODE=${KERNEL_MODE}")
 message(STATUS "BUILD_OPEN_PROJECT=${BUILD_OPEN_PROJECT}")
 message(STATUS "AARCH_MODE=${AARCH_MODE}")
 
-find_program(CCAHE_PROGRAM ccache)
-if(CCAHE_PROGRAM)
-    set(CMAKE_C_COMPILER_LAUNCHER ${CCAHE_PROGRAM})
-    set(CMAKE_CXX_COMPILER_LAUNCHER ${CCAHE_PROGRAM})
-endif()
-
 if((BUILD_OPEN_PROJECT AND KERNEL_MODE) OR AARCH_MODE)
     # need to switch
     set(CMAKE_SYSTEM_NAME Linux)
@@ -36,17 +30,20 @@ if((BUILD_OPEN_PROJECT AND KERNEL_MODE) OR AARCH_MODE)
     set(CMAKE_CXX_COMPILER ${TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-g++)
     set(CMAKE_C_COMPILER   ${TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-gcc)
 endif()
+
+
+# 引入CANN/cmake库
+include(cmake/fetch_cann_cmake.cmake)
+
 project(hccl)
 
+# 引入CANN/cmake库，初始化
+init_cann_project()
+
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_C_FLAGS_RELEASE "")
 set(CMAKE_CXX_FLAGS_RELEASE "")
-
-set(CMAKE_CXX_COMPILE_OBJECT
-    "<CMAKE_CXX_COMPILER> <DEFINES> -D__FILE__='\"$(notdir $(abspath <SOURCE>))\"' -Wno-builtin-macro-redefined <INCLUDES> <FLAGS> -o <OBJECT> -c <SOURCE>"
-)
-set(CMAKE_C_COMPILE_OBJECT
-    "<CMAKE_C_COMPILER> <DEFINES> -D__FILE__='\"$(notdir $(abspath <SOURCE>))\"' -Wno-builtin-macro-redefined <INCLUDES> <FLAGS> -o <OBJECT> -c <SOURCE>"
-)
 
 if(ENABLE_TEST)
     include(cmake/config.cmake)

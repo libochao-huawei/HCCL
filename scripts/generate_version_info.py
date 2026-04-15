@@ -20,6 +20,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Iterable, Iterator
 
 
+
 def gen_version_info_content(version: str, deps: Iterable[str]) -> Iterator[str]:
     """生成version.info文件内容。"""
     yield f'Version={version}'

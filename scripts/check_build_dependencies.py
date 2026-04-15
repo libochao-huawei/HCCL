@@ -19,6 +19,7 @@ import sys
 from typing import Iterator, List, NamedTuple, Optional
 
 
+
 class Receiver(NamedTuple):
     """消息接收器。"""
     warn_msgs: List[str]
