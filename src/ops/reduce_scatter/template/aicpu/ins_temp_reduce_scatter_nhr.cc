@@ -30,7 +30,8 @@ HcclResult InsTempReduceScatterNHR::CalcRes(HcclComm comm, const OpParam& param,
     std::vector<HcclChannelDesc> channels;
     CHK_RET(CalcChannelRequestNhr(comm, param, topoInfo, subCommRanks_, channels));
     resourceRequest.channels.push_back(channels);
-    u32 channelsPerRank = CalcChannelsPerRandk(channels);
+    // u32 channelsPerRank = CalcChannelsPerRandk(channels);
+    u32 channelsPerRank = 1;
     // NHR 需要的 que Num 为 1
     GetRes(resourceRequest, channelsPerRank);
     HCCL_INFO("[InsTempReduceScatterNHR][CalcRes] slaveThreadNum: [%u], notifyNumOnMainThread: [%u].",
