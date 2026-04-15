@@ -9,6 +9,7 @@
  */
 
 #include "topo_match_multilevel.h"
+#include "op_common.h"
 
 namespace ops_hccl {
 TopoMatchMultilevel::TopoMatchMultilevel()
@@ -233,6 +234,11 @@ HcclResult TopoMatchMultilevel::MatchTopo(const HcclComm comm, TopoInfoWithNetLa
     }
 
     // 4. 计算layer1的topo
+    uint32_t netLayer = 1;
+    bool hostDPUOnly = false;
+    if ((CheckHostDPUOnly(comm, topoInfo, hostDPUOnly) == HcclResult::HCCL_SUCCESS) && hostDPUOnly) {
+        netLayer = topoInfo->topoLevelNums - 1;
+    }
     CHK_RET(TopoForLayer1(comm, layer0Size, myRank, algHierarchyInfo));
 #endif
     return HcclResult::HCCL_SUCCESS;
