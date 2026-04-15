@@ -8,25 +8,12 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-project(hccl_custom_alltoallv_testcase LANGUAGES CXX)
-
-add_executable(hccl_custom_alltoallv_test
-    main.cc
+set(op_host_src_list
+    ${CMAKE_CURRENT_SOURCE_DIR}/all_to_all_v.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/load_kernel.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/launch_kernel.cc
 )
 
-target_include_directories(hccl_custom_alltoallv_test PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/../inc
-    ${CUSTOM_OPS_OPP_INC_PATH}
+target_sources(hccl_custom_alltoallv_aicpu PRIVATE
+    ${op_host_src_list}
 )
-
-target_link_libraries(hccl_custom_alltoallv_test PRIVATE
-    Ascend::acl
-    Ascend::hccl
-    hccl_custom_alltoallv
-)
-
-set_target_properties(hccl_custom_alltoallv_test PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-)
-
-install(TARGETS hccl_custom_alltoallv_test DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)

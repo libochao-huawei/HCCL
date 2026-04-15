@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef OPS_HCCL_CUSTOM_LOG_H
-#define OPS_HCCL_CUSTOM_LOG_H
+#ifndef OPS_HCCL_ALLTOALLV_AICPU_LOG_H
+#define OPS_HCCL_ALLTOALLV_AICPU_LOG_H
 
 #include <hccl/hccl_types.h>
 #include <cstdio>
@@ -100,7 +100,7 @@ typedef enum {
         int32_t hcclRet = call;                                                \
         if (UNLIKELY(hcclRet != HCCL_SUCCESS)) {                               \
             if (hcclRet == HCCL_E_AGAIN) {                                     \
-                HCCL_WARNING("[%s] call trace: hcclRet -> %d",                \
+                HCCL_WARNING("[%s] call trace: hcclRet -> %d",                 \
                              __func__, hcclRet);                               \
             } else {                                                           \
                 HCCL_ERROR("[%s] call trace: hcclRet -> %d",                   \

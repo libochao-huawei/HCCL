@@ -8,26 +8,13 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-project(hccl_custom_alltoallv_host LANGUAGES CXX)
-
-add_library(hccl_custom_alltoallv SHARED
-    alltoallv.cc
+set(op_kernel_aicpu_src_list
+    ${CMAKE_CURRENT_SOURCE_DIR}/aicpu_kernel.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/exec_op.cc
 )
 
-target_include_directories(hccl_custom_alltoallv PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/../inc
-    ${CUSTOM_OPS_OPP_INC_PATH}
-)
-
-target_link_libraries(hccl_custom_alltoallv PRIVATE
-    Ascend::acl
-    Ascend::hccl
-)
-
-set_target_properties(hccl_custom_alltoallv PROPERTIES
-    OUTPUT_NAME "hccl_custom_alltoallv"
-    PREFIX ""
-    SUFFIX ".so"
-)
-
-install(TARGETS hccl_custom_alltoallv DESTINATION ${CUSTOM_OPS_OPP_LIB_PATH})
+if(KERNEL_MODE)
+    target_sources(alltoallv_aicpu_kernel PRIVATE
+        ${op_kernel_aicpu_src_list}
+    )
+endif()
