@@ -1,5 +1,6 @@
 #include "common.h"
 #include "exec_op.h"
+#include "profiling.h"
 
 namespace {
 
@@ -59,6 +60,18 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
     }
 
     ThreadHandle thread = param->resCtx->mainThreadHandle;
+    const bool profilingOn = IsProfilingEnabled();
+    ThreadHandle profilingThreads[1] = {thread};
+    bool profilingInitialized = false;
+    auto EndProfilingIfNeeded = [&]() {
+        if (!profilingInitialized) {
+            return;
+        }
+        if (HcommProfilingEnd(profilingThreads, 1) != HCCL_SUCCESS) {
+            HCCL_WARNING("HcommProfilingEnd failed, rank=%u, tag=%s", param->topoInfo.rank, param->tag);
+        }
+        profilingInitialized = false;
+    };
     if (HcommBatchModeStart(param->tag) != HCCL_SUCCESS) {
         HCCL_ERROR("HcommBatchModeStart failed, tag=%s", param->tag);
         (void)HcommReleaseComm(param->commName);
@@ -75,30 +88,62 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
         return 1;
     }
 
+    if (profilingOn) {
+        if (HcommProfilingInit(profilingThreads, 1) == HCCL_SUCCESS) {
+            profilingInitialized = true;
+        } else {
+            HCCL_WARNING("HcommProfilingInit failed, rank=%u, tag=%s", param->topoInfo.rank, param->tag);
+        }
+        if (profilingInitialized) {
+            if (HcommProfilingReportMainStreamAndFirstTask(thread) != HCCL_SUCCESS) {
+                HCCL_WARNING("HcommProfilingReportMainStreamAndFirstTask failed, rank=%u, tag=%s",
+                    param->topoInfo.rank, param->tag);
+            }
+            const uint64_t deviceBeginTime = HcommGetProfilingSysCycleTime();
+            HcomProInfoTmp info {};
+            FillProfilingInfo(info, *param, deviceBeginTime, 0);
+            if (HcommProfilingReportDeviceHcclOpInfo(info) != HCCL_SUCCESS) {
+                HCCL_WARNING("HcommProfilingReportDeviceHcclOpInfo failed, rank=%u, tag=%s",
+                    param->topoInfo.rank, param->tag);
+            }
+        }
+    }
+
     const uint64_t kernelStartUs = GetCurrentTimeUs();
     HcclResult ret = ExecOp(*param, param->resCtx, profiling);
     if (ret != HCCL_SUCCESS) {
         HCCL_ERROR("ExecOp failed, ret=%d", static_cast<int>(ret));
+        EndProfilingIfNeeded();
         (void)HcommBatchModeEnd(param->tag);
         (void)HcommReleaseComm(param->commName);
         return 1;
     }
 
-        HCCL_INFO("kernel done notify begin: rank=%u, tag=%s",
+    HCCL_INFO("kernel done notify begin: rank=%u, tag=%s",
         param->topoInfo.rank,
         param->tag);
     if (HcommAclrtNotifyRecordOnThread(
             thread,
             param->controlNotifyIds[kAllGatherBatchControlNotifyDone]) != HCCL_SUCCESS) {
         HCCL_ERROR("record host done notify failed, tag=%s", param->tag);
+        EndProfilingIfNeeded();
         (void)HcommBatchModeEnd(param->tag);
         (void)HcommReleaseComm(param->commName);
         return 1;
     }
 
-        HCCL_INFO("kernel done notify end: rank=%u, tag=%s",
+    HCCL_INFO("kernel done notify end: rank=%u, tag=%s",
         param->topoInfo.rank,
         param->tag);
+    if (profilingOn) {
+        if (profilingInitialized) {
+            if (HcommProfilingReportMainStreamAndLastTask(thread) != HCCL_SUCCESS) {
+                HCCL_WARNING("HcommProfilingReportMainStreamAndLastTask failed, rank=%u, tag=%s",
+                    param->topoInfo.rank, param->tag);
+            }
+        }
+        EndProfilingIfNeeded();
+    }
     if (HcommBatchModeEnd(param->tag) != HCCL_SUCCESS) {
         HCCL_ERROR("HcommBatchModeEnd failed, tag=%s", param->tag);
         (void)HcommReleaseComm(param->commName);
