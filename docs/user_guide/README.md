@@ -1,0 +1,21 @@
+# HCCL集合通信库用户指南
+
+- [HCCL简介](HCCL简介.md)
+- [相关概念](相关概念.md)
+- [环境准备](环境准备.md)
+- [快速入门](快速入门.md)
+- [主流框架集成](主流框架集成.md)
+- [使用通信库API实现通信功能](使用通信库API实现通信功能.md)
+- [性能分析<a name=”sub_menu”></a>](./perf_analysis/README.md)
+- [故障诊断<a name=”sub_menu”></a>](./fault_diagnosis/README.md)
+- [相关参考](相关参考.md)
+  - [集群信息配置<a name=”sub_menu”></a>](./cluster_info_config/README.md)
+  - [环境变量参考<a name=”sub_menu”></a>](./hccl_env/README.md)
+  - [推荐业务配置](推荐业务配置.md)
+  - [通信算子支持度清单<a name=”sub_menu”></a>](./comm_ops_support_list/通信算子支持度清单.md)
+
+- [系统约束与限制](系统约束与限制.md)
+- [API参考](API参考.md)
+  - [通信域管理接口（C语言）<a name=”sub_menu”></a>](https://gitcode.com/cann/hcomm/blob/master/docs/api_ref/comm_mgr_c/README.md)
+  - [通信域管理接口（Python语言）<a name=”sub_menu”></a>](https://gitcode.com/cann/hcomm/blob/master/docs/api_ref/comm_mir_python/README.md)
+  - [通信算子接口<a name=”sub_menu”></a>](../api_ref/comm_op_interface/README.md)
