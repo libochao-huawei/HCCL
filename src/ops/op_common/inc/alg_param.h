@@ -17,6 +17,7 @@
 #include <set>
 #include <unordered_set>
 #include <functional>
+#include <hccl/hccl_comm.h>
 #include "hccl_common.h"
 #include "hccl_types.h"
 #include "alg_type.h"
@@ -502,6 +503,7 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     HcclCMDType opType = HcclCMDType::HCCL_CMD_INVALID;
     bool isZeroCopy = false;
     char algName[OP_ALG_LENGTH];
+    HcclOpExpansionMode commOpExpansionMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_INVALID;
     OpExecuteConfig opExecuteConfig;
     u32 numBlocksLimit = 0;
     bool isAivClearEnable = false;
