@@ -168,12 +168,19 @@ extern "C" HcclResult HcclAlltoAllVCustomAicpu(void *sendBuf, void *sendCounts, 
     param.all2AllVDataDes.sendType = dataType;
     param.all2AllVDataDes.recvType = dataType;
     
+    std::vector<uint64_t> hostSendCounts(rankSize);
+    std::vector<uint64_t> hostRecvCounts(rankSize);
+    ACLCHECK(aclrtMemcpy(hostSendCounts.data(), rankSize * sizeof(uint64_t), 
+                         sendCounts, rankSize * sizeof(uint64_t), ACL_MEMCPY_DEVICE_TO_HOST));
+    ACLCHECK(aclrtMemcpy(hostRecvCounts.data(), rankSize * sizeof(uint64_t), 
+                         recvCounts, rankSize * sizeof(uint64_t), ACL_MEMCPY_DEVICE_TO_HOST));
+    
     uint64_t totalSendCount = 0;
     uint64_t totalRecvCount = 0;
     uint64_t dataTypeSize = SIZE_TABLE[dataType];
     for (uint32_t i = 0; i < rankSize; i++) {
-        totalSendCount += param.all2AllVDataDes.sendCounts[i];
-        totalRecvCount += param.all2AllVDataDes.recvCounts[i];
+        totalSendCount += hostSendCounts[i];
+        totalRecvCount += hostRecvCounts[i];
     }
     param.inputSize = totalSendCount * dataTypeSize;
     param.outputSize = totalRecvCount * dataTypeSize;

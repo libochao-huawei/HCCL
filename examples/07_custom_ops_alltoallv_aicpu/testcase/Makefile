@@ -4,7 +4,7 @@ CXX := mpic++
 CXXFLAGS := -std=c++17 -O2 -g -Wall
 ASCEND_HOME ?= /usr/local/Ascend/ascend-toolkit/latest
 INCLUDES := -I../inc -I$(ASCEND_HOME)/include -I$(ASCEND_HOME)/include/hccl
-LIB_DIR := ../build/op_host
+LIB_DIR := ../build
 LIBS := -L$(ASCEND_HOME)/lib64 -lhccl -lacl_rt -L$(LIB_DIR) -lhccl_custom_alltoallv_aicpu -pthread
 
 TARGET := main
