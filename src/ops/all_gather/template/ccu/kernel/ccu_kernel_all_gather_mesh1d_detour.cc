@@ -278,40 +278,40 @@ void CcuKernelAllGatherMeshDetour1D::SecondStep()
 HcclResult CcuKernelAllGatherMeshDetour1D::Algorithm()
 {
     HCCL_INFO("[CcuKernelAllGatherMeshDetour1D] AllGatherMeshDetour1D run.");
-    uint16_t selfBit = 1 << rankId_;
-    uint16_t allBit  = ((1 << rankSize_) - 1) & (~(1 << rankId_));
+    // uint16_t selfBit = 1 << rankId_;
+    // uint16_t allBit  = ((1 << rankSize_) - 1) & (~(1 << rankId_));
 
-    Load(input_);
-    Load(output_[rankId_]);
-    Load(token_[rankId_]);
-    Load(baseOffset_);
-    Load(tailOffset_);
-    Load(loopIterNum_);
-    Load(groupOpSize_);
-    for (uint32_t i = 0; i < pathNumPerPeer_; i++) {
-        Load(lengths_[i]);
-    }
+    // Load(input_);
+    // Load(output_[rankId_]);
+    // Load(token_[rankId_]);
+    // Load(baseOffset_);
+    // Load(tailOffset_);
+    // Load(loopIterNum_);
+    // Load(groupOpSize_);
+    // for (uint32_t i = 0; i < pathNumPerPeer_; i++) {
+    //     Load(lengths_[i]);
+    // }
 
-    // 只通过直连链路给对端置位，groupwait仍然关联所有channel
-    for (auto  &t : detourChannels_[0]) {
-        NotifyRecord(t, CKE_IDX_0, OUTPUT_XN_ID, output_[rankId_], 1 << OUTPUT_XN_ID);
-        NotifyRecord(t, CKE_IDX_0, TOKEN_XN_ID, token_[rankId_], 1 << TOKEN_XN_ID);
-    }
+    // // 只通过直连链路给对端置位，groupwait仍然关联所有channel
+    // for (auto  &t : detourChannels_[0]) {
+    //     NotifyRecord(t, CKE_IDX_0, OUTPUT_XN_ID, output_[rankId_], 1 << OUTPUT_XN_ID);
+    //     NotifyRecord(t, CKE_IDX_0, TOKEN_XN_ID, token_[rankId_], 1 << TOKEN_XN_ID);
+    // }
 
-    uint16_t syncBit = 1 << OUTPUT_XN_ID | 1 << TOKEN_XN_ID;
-    for (auto t : detourChannels_[0]) {
-        NotifyWait(t, CKE_IDX_0, syncBit);
-    }
+    // uint16_t syncBit = 1 << OUTPUT_XN_ID | 1 << TOKEN_XN_ID;
+    // for (auto t : detourChannels_[0]) {
+    //     NotifyWait(t, CKE_IDX_0, syncBit);
+    // }
 
-    FirstStep();  // 绕路整块搬运
-    SecondStep();  // 直连尾块搬运
+    // FirstStep();  // 绕路整块搬运
+    // SecondStep();  // 直连尾块搬运
 
-    for (auto &t : detourChannels_[0]) {
-        NotifyRecord(t, CKE_IDX_0, 1 << POST_SYNC_ID);
-    }
-    for (auto &t : detourChannels_[0]) {
-        NotifyWait(t, CKE_IDX_0, 1 << POST_SYNC_ID);
-    }
+    // for (auto &t : detourChannels_[0]) {
+    //     NotifyRecord(t, CKE_IDX_0, 1 << POST_SYNC_ID);
+    // }
+    // for (auto &t : detourChannels_[0]) {
+    //     NotifyWait(t, CKE_IDX_0, 1 << POST_SYNC_ID);
+    // }
     HCCL_INFO("[CcuKernelAllGatherMeshDetour1D] AllGatherMeshDetour1D end.");
     return HCCL_SUCCESS;
 }
