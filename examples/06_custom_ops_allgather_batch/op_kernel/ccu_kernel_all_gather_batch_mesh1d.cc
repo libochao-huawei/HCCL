@@ -36,27 +36,31 @@ HcclResult CcuKernelAllGatherBatchMesh1D::InitResource()
                 HCCL_ERROR("[CcuKernelAllGatherBatchMesh1D] channels is empty"),
                 HCCL_E_INTERNAL);
 
-    peerOutput_.resize(rankSize_);
-    peerToken_.resize(rankSize_);
-    uint16_t channelIdx = 0;
-    for (uint64_t peerId = 0; peerId < rankSize_; ++peerId) {
-        if (peerId == rankId_) {
-            continue;
-        }
-        CHK_RET(CreateVariable(channels_[channelIdx], OUTPUT_XN_ID, &peerOutput_[peerId]));
-        CHK_RET(CreateVariable(channels_[channelIdx], TOKEN_XN_ID, &peerToken_[peerId]));
-        ++channelIdx;
-    }
-
     items_.reserve(itemCount_);
     for (uint32_t i = 0; i < itemCount_; ++i) {
-        KernelAllGatherBatchItem item {
-            CreateVariable(),
-            CreateVariable(),
-            CreateVariable(),
-            CreateVariable(),
-            CreateGroupOpSize()
-        };
+        KernelAllGatherBatchItem item;
+        item.input = CreateVariable();
+        item.output.reserve(rankSize_);
+        item.token.reserve(rankSize_);
+
+        uint16_t channelIdx = 0;
+        for (uint64_t peerId = 0; peerId < rankSize_; ++peerId) {
+            if (peerId == rankId_) {
+                item.output.push_back(CreateVariable());
+                item.token.push_back(CreateVariable());
+                continue;
+            }
+
+            hcomm::CcuRep::Variable outputVar;
+            hcomm::CcuRep::Variable tokenVar;
+            CHK_RET(CreateVariable(channels_[channelIdx], OUTPUT_XN_ID, &outputVar));
+            CHK_RET(CreateVariable(channels_[channelIdx], TOKEN_XN_ID, &tokenVar));
+            item.output.push_back(outputVar);
+            item.token.push_back(tokenVar);
+            ++channelIdx;
+        }
+        item.offset = CreateVariable();
+        item.groupOpSize = CreateGroupOpSize();
         items_.push_back(item);
     }
 
@@ -72,8 +76,8 @@ void CcuKernelAllGatherBatchMesh1D::LoadArgs()
 {
     for (auto &item : items_) {
         Load(item.input);
-        Load(item.output);
-        Load(item.token);
+        Load(item.output[rankId_]);
+        Load(item.token[rankId_]);
         Load(item.offset);
         Load(item.groupOpSize);
     }
@@ -82,8 +86,8 @@ void CcuKernelAllGatherBatchMesh1D::LoadArgs()
 void CcuKernelAllGatherBatchMesh1D::PreSync(const KernelAllGatherBatchItem &item)
 {
     for (ChannelHandle channel : channels_) {
-        NotifyRecord(channel, CKE_IDX_0, OUTPUT_XN_ID, item.output, 1 << OUTPUT_XN_ID);
-        NotifyRecord(channel, CKE_IDX_0, TOKEN_XN_ID, item.token, 1 << TOKEN_XN_ID);
+        NotifyRecord(channel, CKE_IDX_0, OUTPUT_XN_ID, item.output[rankId_], 1 << OUTPUT_XN_ID);
+        NotifyRecord(channel, CKE_IDX_0, TOKEN_XN_ID, item.token[rankId_], 1 << TOKEN_XN_ID);
     }
     const uint16_t allBit = (1 << OUTPUT_XN_ID) | (1 << TOKEN_XN_ID);
     for (ChannelHandle channel : channels_) {
@@ -94,13 +98,13 @@ void CcuKernelAllGatherBatchMesh1D::PreSync(const KernelAllGatherBatchItem &item
 void CcuKernelAllGatherBatchMesh1D::DoAllGather(const KernelAllGatherBatchItem &item)
 {
     src_.addr = item.input;
-    src_.token = item.token;
+    src_.token = item.token[rankId_];
     uint32_t dstId = 0;
     for (uint64_t rankIdx = 0; rankIdx < rankSize_; ++rankIdx) {
         const uint32_t curId = (rankIdx == rankId_) ? (rankSize_ - 1) : dstId++;
-        dst_[curId].addr = (rankIdx == rankId_) ? item.output : peerOutput_[rankIdx];
+        dst_[curId].addr = item.output[rankIdx];
         dst_[curId].addr += item.offset;
-        dst_[curId].token = (rankIdx == rankId_) ? item.token : peerToken_[rankIdx];
+        dst_[curId].token = item.token[rankIdx];
     }
     GroupBroadcast(channels_, dst_, src_, item.groupOpSize);
 }

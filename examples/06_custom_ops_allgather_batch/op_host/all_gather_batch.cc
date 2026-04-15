@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -26,7 +27,7 @@ using namespace ops_hccl_allgather_batch;
 namespace {
 
 std::mutex g_ctxMutex;
-std::unordered_map<std::string, CcuContext> g_ctxByKey;
+std::unordered_map<std::string, std::shared_ptr<std::mutex>> g_ctxInitMutexByKey;
 
 } // namespace
 
@@ -42,7 +43,7 @@ extern "C" HcclResult HcclAllGatherBatch(
 
     OpParam param;
     CHK_RET(HcclGetCommName(comm, param.commName));
-    const int ret = sprintf_s(param.tag, sizeof(param.tag), "AllGatherBatch_%s_CCU_Custom", param.commName);
+    const int ret = sprintf_s(param.tag, sizeof(param.tag), "AllGatherBatch_%s_Custom", param.commName);
     CHK_PRT_RET(ret <= 0, HCCL_ERROR("[HcclAllGatherBatch] sprintf_s tag failed"), HCCL_E_INTERNAL);
 
     CHK_RET(HcclGetRankId(comm, &param.rank));
@@ -53,16 +54,27 @@ extern "C" HcclResult HcclAllGatherBatch(
 
     param.itemCount = itemCount;
     for (uint32_t i = 0; i < itemCount; ++i) {
-        CHK_RET(CheckItemValid(items[i], i));
+        CHK_RET(CheckItemValid(items[i], i, param.rank, param.rankSize));
         param.items[i] = items[i];
     }
 
-    const std::string ctxKey = BuildContextKey(param.commName, itemCount);
+    const std::string ctxKey = BuildContextKey(
+        param.tag, reinterpret_cast<uintptr_t>(comm), itemCount);
+    const std::string engineCtxTag = BuildEngineCtxTag(param.tag, itemCount);
+    std::shared_ptr<std::mutex> initMutex;
     {
         std::lock_guard<std::mutex> guard(g_ctxMutex);
-        CcuContext &ctx = g_ctxByKey[ctxKey];
-        CHK_RET(InitCcuContext(comm, param, ctx));
-        CHK_RET(LaunchKernel(comm, param, ctx, stream));
+        std::shared_ptr<std::mutex> &ctxMutex = g_ctxInitMutexByKey[ctxKey];
+        if (ctxMutex == nullptr) {
+            ctxMutex = std::make_shared<std::mutex>();
+        }
+        initMutex = ctxMutex;
     }
+    CcuContextData *ctx = nullptr;
+    {
+        std::lock_guard<std::mutex> guard(*initMutex);
+        CHK_RET(InitCcuContext(comm, engineCtxTag.c_str(), param, ctx));
+    }
+    CHK_RET(LaunchKernel(comm, param, *ctx, stream));
     return HCCL_SUCCESS;
 }

@@ -24,6 +24,9 @@ target_include_directories(test_custom_allgather_batch PRIVATE
 target_include_directories(test_custom_allgather_batch_host_ut PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../inc
     ${ASCEND_CANN_PACKAGE_PATH}/include
+    ${ASCEND_CANN_PACKAGE_PATH}/include/hccl
+    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc
+    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/hcomm/ccu
 )
 
 target_link_directories(test_custom_allgather_batch PRIVATE

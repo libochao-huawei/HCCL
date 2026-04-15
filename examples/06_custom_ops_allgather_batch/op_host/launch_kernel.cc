@@ -36,73 +36,81 @@ HcclResult BuildChannelRequests(HcclComm comm, uint32_t rank, uint32_t rankSize,
         CHK_PRT_RET(listSize == 0,
                     HCCL_ERROR("[BuildChannelRequests] no link between rank=%u and remoteRank=%u", rank, remoteRank),
                     HCCL_E_NOT_SUPPORT);
-        for (uint32_t idx = 0; idx < listSize; ++idx) {
-            HcclChannelDesc desc;
-            HcclChannelDescInit(&desc, 1);
-            desc.remoteRank = remoteRank;
-            desc.localEndpoint.protocol = linkList[idx].srcEndpointDesc.protocol;
-            desc.localEndpoint.commAddr = linkList[idx].srcEndpointDesc.commAddr;
-            desc.localEndpoint.loc = linkList[idx].srcEndpointDesc.loc;
-            desc.remoteEndpoint.protocol = linkList[idx].dstEndpointDesc.protocol;
-            desc.remoteEndpoint.commAddr = linkList[idx].dstEndpointDesc.commAddr;
-            desc.remoteEndpoint.loc = linkList[idx].dstEndpointDesc.loc;
-            desc.channelProtocol = linkList[idx].linkAttr.linkProtocol;
-            desc.notifyNum = 3;
-            channelRequests.push_back(desc);
-        }
+        HcclChannelDesc desc;
+        HcclChannelDescInit(&desc, 1);
+        desc.remoteRank = remoteRank;
+        desc.localEndpoint.protocol = linkList[0].srcEndpointDesc.protocol;
+        desc.localEndpoint.commAddr = linkList[0].srcEndpointDesc.commAddr;
+        desc.localEndpoint.loc = linkList[0].srcEndpointDesc.loc;
+        desc.remoteEndpoint.protocol = linkList[0].dstEndpointDesc.protocol;
+        desc.remoteEndpoint.commAddr = linkList[0].dstEndpointDesc.commAddr;
+        desc.remoteEndpoint.loc = linkList[0].dstEndpointDesc.loc;
+        desc.channelProtocol = linkList[0].linkAttr.linkProtocol;
+        desc.notifyNum = 3;
+        channelRequests.push_back(desc);
     }
     return HCCL_SUCCESS;
 }
 
-uint64_t GetToken(const HcclAllGatherItem &item)
-{
-    return hcomm::CcuRep::GetTokenInfo(reinterpret_cast<uint64_t>(item.sendBuf), GetSliceSizeBytes(item));
-}
-
 } // namespace
 
-HcclResult InitCcuContext(HcclComm comm, const OpParam &param, CcuContext &ctx)
+HcclResult InitCcuContext(HcclComm comm, const char *engineCtxTag, const OpParam &param, CcuContextData *&ctx)
 {
-    if (ctx.initialized) {
+    uint64_t ctxSize = sizeof(CcuContextData);
+    void *ctxPtr = nullptr;
+    if (HcclEngineCtxGet(comm, engineCtxTag, CommEngine::COMM_ENGINE_CCU, &ctxPtr, &ctxSize) == HCCL_SUCCESS &&
+        ctxPtr != nullptr) {
+        ctx = static_cast<CcuContextData *>(ctxPtr);
+        if (ctx->initialized) {
+            return HCCL_SUCCESS;
+        }
+    } else {
+        CHK_RET(HcclEngineCtxCreate(comm, engineCtxTag, CommEngine::COMM_ENGINE_CCU, sizeof(CcuContextData), &ctxPtr));
+        ctx = static_cast<CcuContextData *>(ctxPtr);
+        ctx->initialized = false;
+        ctx->kernelHandle = 0;
+    }
+
+    if (ctx->initialized) {
         return HCCL_SUCCESS;
     }
 
     std::vector<HcclChannelDesc> channelRequests;
     CHK_RET(BuildChannelRequests(comm, param.rank, param.rankSize, channelRequests));
-    ctx.channels.resize(channelRequests.size());
+    std::vector<ChannelHandle> channels(channelRequests.size());
     if (!channelRequests.empty()) {
         CHK_RET(HcclChannelAcquire(comm, CommEngine::COMM_ENGINE_CCU,
-                                   channelRequests.data(), channelRequests.size(), ctx.channels.data()));
+                                   channelRequests.data(), channelRequests.size(), channels.data()));
     }
 
-    ctx.kernelArg = std::make_shared<CcuKernelArgAllGatherBatchMesh1D>(param.rankSize, param.rank, param.itemCount);
-    ctx.kernelArg->channels = ctx.channels;
-    ctx.kernelCreator = [](const hcomm::CcuKernelArg &arg) {
+    auto kernelArg = std::make_shared<CcuKernelArgAllGatherBatchMesh1D>(param.rankSize, param.rank, param.itemCount);
+    kernelArg->channels = channels;
+    hcomm::KernelCreator kernelCreator = [](const hcomm::CcuKernelArg &arg) {
         return std::make_unique<CcuKernelAllGatherBatchMesh1D>(arg);
     };
 
-    void *creatorPtr = static_cast<void *>(&ctx.kernelCreator);
-    void *kernelArgPtr = static_cast<void *>(ctx.kernelArg.get());
-    CHK_RET(HcclCcuKernelRegister(comm, &ctx.kernelHandle, creatorPtr, kernelArgPtr));
+    void *creatorPtr = static_cast<void *>(&kernelCreator);
+    void *kernelArgPtr = static_cast<void *>(kernelArg.get());
+    CHK_RET(HcclCcuKernelRegister(comm, &ctx->kernelHandle, creatorPtr, kernelArgPtr));
     CHK_RET(HcclCcuKernelRegisterFinish(comm));
-    ctx.initialized = true;
+    ctx->initialized = true;
     return HCCL_SUCCESS;
 }
 
-HcclResult LaunchKernel(HcclComm comm, const OpParam &param, const CcuContext &ctx, aclrtStream stream)
+HcclResult LaunchKernel(HcclComm comm, const OpParam &param, const CcuContextData &ctx, aclrtStream stream)
 {
     ThreadHandle thread = 0;
     CHK_RET(HcclThreadAcquireWithStream(comm, CommEngine::COMM_ENGINE_CCU, stream, 0, &thread));
 
     CcuAllGatherBatchItem batchItems[MAX_ITEM_COUNT] = {};
+    PackedBatchItem packedItems[MAX_ITEM_COUNT] = {};
+    PackBatchItemsForLaunch(param, packedItems, MAX_ITEM_COUNT);
     for (uint32_t i = 0; i < param.itemCount; ++i) {
-        const HcclAllGatherItem &item = param.items[i];
-        const uint64_t sliceSize = GetSliceSizeBytes(item);
-        batchItems[i].inputAddr = reinterpret_cast<uint64_t>(item.sendBuf);
-        batchItems[i].outputAddr = reinterpret_cast<uint64_t>(item.recvBuf);
-        batchItems[i].token = GetToken(item);
-        batchItems[i].offset = static_cast<uint64_t>(param.rank) * sliceSize;
-        batchItems[i].sliceSize = sliceSize;
+        batchItems[i].inputAddr = packedItems[i].inputAddr;
+        batchItems[i].outputAddr = packedItems[i].outputAddr;
+        batchItems[i].token = packedItems[i].token;
+        batchItems[i].offset = packedItems[i].offset;
+        batchItems[i].sliceSize = packedItems[i].sliceSize;
     }
 
     auto taskArg = std::make_unique<CcuTaskArgAllGatherBatchMesh1D>(param.itemCount, batchItems);

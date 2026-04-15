@@ -36,6 +36,8 @@ public:
         : rankSize_(rankSize), rankId_(rankId), itemCount_(itemCount)
     {
         signatureParam_.opType = HcclCMDType::HCCL_CMD_ALLGATHER;
+        signatureParam_.engine = CommEngine::COMM_ENGINE_CCU;
+        signatureParam_.opExecuteConfig = ops_hccl::OpExecuteConfig::CCU_MS;
         subCommRanks_.push_back({});
         subCommRanks_[0].reserve(rankSize_);
         for (uint32_t i = 0; i < rankSize_; ++i) {
@@ -83,8 +85,8 @@ public:
 private:
     struct KernelAllGatherBatchItem {
         hcomm::CcuRep::Variable input;
-        hcomm::CcuRep::Variable output;
-        hcomm::CcuRep::Variable token;
+        std::vector<hcomm::CcuRep::Variable> output;
+        std::vector<hcomm::CcuRep::Variable> token;
         hcomm::CcuRep::Variable offset;
         GroupOpSize groupOpSize;
     };
@@ -99,8 +101,6 @@ private:
     uint32_t rankId_ = 0;
     uint32_t itemCount_ = 0;
     std::vector<KernelAllGatherBatchItem> items_;
-    std::vector<hcomm::CcuRep::Variable> peerOutput_;
-    std::vector<hcomm::CcuRep::Variable> peerToken_;
     hcomm::CcuRep::LocalAddr src_;
     std::vector<hcomm::CcuRep::RemoteAddr> dst_;
 };

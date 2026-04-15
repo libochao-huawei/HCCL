@@ -40,12 +40,35 @@ inline uint32_t GetDataTypeSize(HcclDataType dataType)
     switch (dataType) {
         case HCCL_DATA_TYPE_INT8:
             return sizeof(int8_t);
+        case HCCL_DATA_TYPE_INT16:
+            return sizeof(int16_t);
         case HCCL_DATA_TYPE_INT32:
             return sizeof(int32_t);
+        case HCCL_DATA_TYPE_INT64:
+            return sizeof(int64_t);
+        case HCCL_DATA_TYPE_UINT8:
+            return sizeof(uint8_t);
+        case HCCL_DATA_TYPE_UINT16:
+            return sizeof(uint16_t);
+        case HCCL_DATA_TYPE_UINT32:
+            return sizeof(uint32_t);
+        case HCCL_DATA_TYPE_UINT64:
+            return sizeof(uint64_t);
         case HCCL_DATA_TYPE_FP16:
             return sizeof(uint16_t);
         case HCCL_DATA_TYPE_FP32:
             return sizeof(float);
+        case HCCL_DATA_TYPE_FP64:
+            return sizeof(double);
+        case HCCL_DATA_TYPE_BFP16:
+            return sizeof(uint16_t);
+        case HCCL_DATA_TYPE_INT128:
+            return 16;
+        case HCCL_DATA_TYPE_HIF8:
+        case HCCL_DATA_TYPE_FP8E4M3:
+        case HCCL_DATA_TYPE_FP8E5M2:
+        case HCCL_DATA_TYPE_FP8E8M0:
+            return sizeof(uint8_t);
         default:
             return 0;
     }

@@ -14,21 +14,15 @@
 #include "common.h"
 #include "ccu_kernel.h"
 
-#include <memory>
-#include <vector>
-
 namespace ops_hccl_allgather_batch {
 
-struct CcuContext {
+struct CcuContextData {
     bool initialized = false;
-    std::vector<ChannelHandle> channels;
-    std::shared_ptr<hcomm::CcuKernelArg> kernelArg;
-    hcomm::KernelCreator kernelCreator;
     CcuKernelHandle kernelHandle = 0;
 };
 
-HcclResult InitCcuContext(HcclComm comm, const OpParam &param, CcuContext &ctx);
-HcclResult LaunchKernel(HcclComm comm, const OpParam &param, const CcuContext &ctx, aclrtStream stream);
+HcclResult InitCcuContext(HcclComm comm, const char *engineCtxTag, const OpParam &param, CcuContextData *&ctx);
+HcclResult LaunchKernel(HcclComm comm, const OpParam &param, const CcuContextData &ctx, aclrtStream stream);
 }
 
 #endif
