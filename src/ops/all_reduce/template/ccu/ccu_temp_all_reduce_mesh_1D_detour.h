@@ -18,6 +18,7 @@ namespace ops_hccl {
 
 class CcuTempAllReduceMesh1DDetour : public CcuAlgTemplateBase {
 public:
+    CcuTempAllReduceMesh1DDetour() = default;
     explicit CcuTempAllReduceMesh1DDetour(const OpParam& param, 
                                     const u32 rankId, // 传通信域的rankId，userRank
                                     const std::vector<std::vector<u32>> &subCommRanks);
