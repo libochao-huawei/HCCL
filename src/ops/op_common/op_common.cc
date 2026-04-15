@@ -836,17 +836,33 @@ HcclResult HcclGetThread(
     std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost)
 {
     if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
-        u32 maxNotifyNum = resRequest.notifyNumOnMainThread;
-        for (u32 i = 0; i < resRequest.notifyNumPerThread.size(); i++) {
-            if (resRequest.notifyNumPerThread[i] > maxNotifyNum) {
-                maxNotifyNum = resRequest.notifyNumPerThread[i];
-            }
-        }
         u32 threadNum = resRequest.slaveThreadNum + 1;
         std::vector<ThreadHandle> threads(threadNum);
-        // maxNotifyNum需要再增加一个用于host-device同步
-        CHK_RET(HcclThreadAcquire(comm, COMM_ENGINE_AICPU_TS, threadNum, maxNotifyNum + 1, threads.data()));
-        CHK_RET(SaveMainThreadInfo(comm, param, threads[0], maxNotifyNum + 1));
+        if (param.engine == COMM_ENGINE_AICPU_TS) {
+            std::vector<ThreadConfig> threadConfigs(threadNum);
+            threadConfigs[0].notifyNumPerThread = resRequest.notifyNumOnMainThread + 1;
+            if (resRequest.slaveThreadNum != resRequest.notifyNumPerThread.size()) {
+                HCCL_ERROR("[HcclGetThread] slave thread num[%u] is not equal to the length of notifyNumPerThread[%u]",
+                    resRequest.slaveThreadNum, resRequest.notifyNumPerThread.size());
+                return HCCL_E_PARA;
+            }
+            for (u32 i = 0; i < resRequest.notifyNumPerThread.size(); i++) {
+                threadConfigs[i + 1].notifyNumPerThread = resRequest.notifyNumPerThread[i];
+            }
+            CHK_RET(HcclThreadAcquireWithConfig(comm, COMM_ENGINE_AICPU, threadNum, ThreadType::THREAD_TYPE_TS,
+                threadConfigs.data(), threads.data()));
+            CHK_RET(SaveMainThreadInfo(comm, param, threads[0], threadConfigs[0].notifyNumPerThread));
+        } else {
+            u32 maxNotifyNum = resRequest.notifyNumOnMainThread; 
+            for (u32 i = 0; i < resRequest.notifyNumPerThread.size(); i++) { 
+                if (resRequest.notifyNumPerThread[i] > maxNotifyNum) {
+                    maxNotifyNum = resRequest.notifyNumPerThread[i];
+                }
+            }
+            // maxNotifyNum需要再增加一个用于host-device同步	 
+            CHK_RET(HcclThreadAcquire(comm, COMM_ENGINE_AICPU_TS, threadNum, maxNotifyNum + 1, threads.data()));	 
+            CHK_RET(SaveMainThreadInfo(comm, param, threads[0], maxNotifyNum + 1));
+        }
         // 申请展开流对应的Thread
         CHK_RET(HcclThreadAcquire(comm, COMM_ENGINE_CPU, 1, 0, &resCtxHost->unfoldThread));
         CHK_RET(SaveUnfoldThreadInfo(comm, param, resCtxHost->unfoldThread));
@@ -861,16 +877,20 @@ HcclResult HcclGetThread(
         CHK_RET(HcclThreadAcquireWithStream(comm, param.engine, param.stream,
             resRequest.notifyNumOnMainThread, &thread));
         resCtxHost->threads.push_back(thread);
-        u32 maxNotifyNum = 0;
-        for (u32 i = 0; i < resRequest.notifyNumPerThread.size(); i++) {
-            if (resRequest.notifyNumPerThread[i] > maxNotifyNum) {
-                maxNotifyNum = resRequest.notifyNumPerThread[i];
-            }
-        }
         u32 threadNum = resRequest.slaveThreadNum;
         if (threadNum > 0) {
+            std::vector<ThreadConfig> threadConfigs(threadNum);
+            if (resRequest.slaveThreadNum != resRequest.notifyNumPerThread.size()) {
+                HCCL_ERROR("[HcclGetThread] slave thread num[%u] is not equal to the length of notifyNumPerThread[%u]",
+                    resRequest.slaveThreadNum, resRequest.notifyNumPerThread.size());
+                return HCCL_E_PARA;
+            }
+            for (u32 i = 0; i < resRequest.notifyNumPerThread.size(); i++) {
+                threadConfigs[i].notifyNumPerThread = resRequest.notifyNumPerThread[i];
+            }
             std::vector<ThreadHandle> threads(threadNum);
-            CHK_RET(HcclThreadAcquire(comm, param.engine, threadNum, maxNotifyNum, threads.data()));
+            CHK_RET(HcclThreadAcquireWithConfig(comm, COMM_ENGINE_CPU, threadNum, ThreadType::THREAD_TYPE_TS,
+                threadConfigs.data(), threads.data()));
             for (u32 i = 0; i < threadNum; i++) {
                 resCtxHost->threads.push_back(threads[i]);
             }
