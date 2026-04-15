@@ -41,21 +41,36 @@ HcclResult InsCollAlgBase::RestoreChannelMap(const AlgResourceCtxSerializable &r
     }
     return HCCL_SUCCESS;
 }
-    
-HcclResult InsCollAlgBase::SetTempFastLaunchAddr(TemplateFastLaunchCtx &tempFastLaunchCtx, 
-    void* inputPtr, void* outputPtr, const HcclMem &hcclBuff) const
-{
-    tempFastLaunchCtx.buffInfo.inputPtr = inputPtr;
-    tempFastLaunchCtx.buffInfo.outputPtr = outputPtr;
-    tempFastLaunchCtx.buffInfo.hcclBuff = hcclBuff;
-    return HCCL_SUCCESS;
-}
 
-HcclResult InsCollAlgBase::FastLaunch(const OpParam &param, const CcuFastLaunchCtx *resCtx)
+HcclResult InsCollAlgBase::CalAllLevelEndpointAttrBwCoeff(
+    HcclComm comm, u32 rankId, u32 levelSize, std::vector<std::vector<EndpointAttrBwCoeff>> &endpointAttrBw)
 {
-    (void)param;
-    (void)resCtx;
-    HCCL_ERROR("[InsCollAlgBase] Unsupported interface of InsCollAlgBase::FastLaunch!");
-    return HcclResult::HCCL_E_INTERNAL;
+    // uint32_t myRank;
+    // CHK_RET(HcclGetRankId(comm, &myRank));//获取userrank，也可通过executor传进去
+    u32 *netLayers = nullptr;  // 网络层次list
+    u32 netLayerNum = 0;
+    CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));  // 获取layer总数和layerlist
+    for (u32 layerIdx = 0; layerIdx < netLayerNum; layerIdx++) {
+        u32 netLayerId = netLayers[layerIdx];
+        u32 *topoInsts = nullptr;
+        u32 topoInstNum = 0;
+        CHK_RET(HcclRankGraphGetTopoInstsByLayer(comm, netLayerId, &topoInsts, &topoInstNum));  // 获取topoInstId
+        // 同层可以有多个topoInstId，遍历获取
+        for (u32 topoInsIdx = 0; topoInsIdx < topoInstNum; topoInsIdx++) {
+            u32 topoInstId = topoInsts[topoInsIdx];
+            u32 endPointNums = 0;
+            CHK_RET(HcclRankGraphGetEndpointNum(
+                comm, netLayerId, topoInstId, &endPointNums));  // 获取endPointNums，计算同层有多少节点
+            EndpointDesc *endPointDescs;
+            // 根据Layer和topoInstId，拿到所有的Endpoint信息；返回vector(获取EndpointDesc)
+            CHK_RET(HcclRankGraphGetEndpointDesc(comm, netLayerId, topoInstId, &endPointNums, endPointDescs));
+            u32 infoLen = sizeof(EndpointAttrBwCoeff);
+            EndpointAttrBwCoeff bwCoeff{};
+            CHK_RET(HcclRankGraphGetEndpointInfo(
+                comm, rankId, endPointDescs, ENDPOINT_ATTR_BW_COEFF, infoLen, &bwCoeff));  // 获取该维度的带宽
+            endpointAttrBw.emplace_back(bwCoeff);
+        }
+    }
+    return HCCL_SUCCESS;
 }
 }

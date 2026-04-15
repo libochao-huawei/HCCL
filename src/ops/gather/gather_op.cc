@@ -1,14 +1,14 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
- * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
- * See LICENSE in the root of the software repository for the full text of the License.
- */
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 
-#include "all_gather_op.h"
+#include "gather_op.h"
 #include "op_common_ops.h"
 #include <algorithm>
 #include <future>
@@ -19,12 +19,12 @@ using namespace std;
 using namespace ops_hccl;
 extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 
-HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
-                         aclrtStream stream)
+HcclResult HcclGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, uint32_t root,
+                      HcclComm comm, aclrtStream stream)
 {
-    HCCL_INFO("Start to run execute HcclAllGather");
+    HCCL_INFO("Start to run execute HcclGather");
     if (!CheckHCCLIndependentOp()) { //获取环境变量HCCL_INDEPENDENT_OP是否存在且为1  独立算子模式
-        return HcclAllGatherInner(sendBuf, recvBuf, sendCount, dataType, comm, stream); // 报错不支持
+        return HcclGatherInner(sendBuf, recvBuf, sendCount, dataType, root, comm, stream); // 报错不支持
     }
     DevType deviceType = DevType::DEV_TYPE_COUNT; //芯片型号
     CHK_RET(hrtGetDeviceType(deviceType));
@@ -33,21 +33,21 @@ HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclD
     #else
     if (deviceType != DevType::DEV_TYPE_910_95) {
     #endif
-        return HcclAllGatherInner(sendBuf, recvBuf, sendCount, dataType, comm, stream);
+        return HcclGatherInner(sendBuf, recvBuf, sendCount, dataType, root, comm, stream);
     }
     if (GetWorkflowMode() != HcclWorkflowMode::HCCL_WORKFLOW_MODE_OP_BASE) { // 工作流模式
-        return HcclAllGatherInner(sendBuf, recvBuf, sendCount, dataType, comm, stream);
+        return HcclGatherInner(sendBuf, recvBuf, sendCount, dataType, root, comm, stream);
     }
     // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
     CHK_RET(InitEnvConfig());
     // 参数校验等工作
-    CHK_PRT_RET(sendCount == 0, HCCL_WARNING("input sendCount is 0, return all gather success"), HCCL_SUCCESS);
+    CHK_PRT_RET(sendCount == 0, HCCL_WARNING("input sendCount is 0, return gather success"), HCCL_SUCCESS);
     // 检查入参指针有效性
-    CHK_RET(CheckAllGatherInputPara(comm, sendBuf, recvBuf, stream));
+    CHK_RET(CheckGatherInputPara(comm, sendBuf, recvBuf, stream));
     // tag有效性,是否过长
     char commName[COMM_INDENTIFIER_MAX_LENGTH];
     CHK_RET(HcclGetCommName(comm, commName));
-    const string tag = "AllGather_" + string(commName);
+    const string tag = "Gather_" + string(commName);
     CHK_RET(HcclCheckTag(tag.c_str()));
     // 检查sendCount是否合法(超出系统上限)
     CHK_RET(CheckCount(sendCount));
@@ -59,43 +59,45 @@ HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclD
     u32 userRank = INVALID_VALUE_RANKID;
     CHK_RET(HcclGetRankId(comm, &userRank));
     CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), tag.c_str());
+    CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, root), tag.c_str());
 
-    // 执行AllGather
-    CHK_RET_AND_PRINT_IDE(AllGatherOutPlace(sendBuf, recvBuf, sendCount, dataType, comm, stream, tag), tag.c_str());
+    // 执行Gather
+    CHK_RET_AND_PRINT_IDE(GatherOutPlace(sendBuf, recvBuf, sendCount, dataType, root, comm, stream, tag), tag.c_str());
 
     return HCCL_SUCCESS;
 }
 
 namespace ops_hccl {
-HcclResult CheckAllGatherInputPara(const HcclComm comm, const void* sendBuf, const void* recvBuf, const aclrtStream stream)
+HcclResult CheckGatherInputPara(const HcclComm comm, const void* sendBuf, const void* recvBuf, const aclrtStream stream)
 {
     // 入参合法性校验
     RPT_INPUT_ERR(stream == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),
-                  std::vector<std::string>({"HcclAllGather", "stream", "nullptr", "please check stream"}));
+                  std::vector<std::string>({"HcclGather", "stream", "nullptr", "please check stream"}));
     CHK_PTR_NULL(stream);
     RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),
-                  std::vector<std::string>({"HcclAllGather", "comm", "nullptr", "please check comm"}));
+                  std::vector<std::string>({"HcclGather", "comm", "nullptr", "please check comm"}));
     CHK_PTR_NULL(comm);
     RPT_INPUT_ERR(sendBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),
-                  std::vector<std::string>({"HcclAllGather", "sendBuf", "nullptr", "please check sendBuf"}));
+                  std::vector<std::string>({"HcclGather", "sendBuf", "nullptr", "please check sendBuf"}));
     CHK_PTR_NULL(sendBuf);
-    RPT_INPUT_ERR(recvBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),
-                  std::vector<std::string>({"HcclAllGather", "recvBuf", "nullptr", "please check recvBuf"}));
-    CHK_PTR_NULL(recvBuf);
+    // recvBuf 在 root 节点必须非空，其他节点可以为空
+    // 这里不做强制校验，由调用者保证
 
     return HCCL_SUCCESS;
 }
 
-HcclResult AllGatherOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
-                             aclrtStream stream, const std::string &tag)
+HcclResult GatherOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, uint32_t root,
+                          HcclComm comm, aclrtStream stream, const std::string &tag)
 {
-    HCCL_INFO("Start to execute AllGatherOutPlace");
+    HCCL_INFO("Start to execute GatherOutPlace");
     u32 userRankSize;
     CHK_RET(HcclGetRankSize(comm, &userRankSize));
+    u32 userRank;
+    CHK_RET(HcclGetRankId(comm, &userRank));
 
     u32 perDataSize = SIZE_TABLE[dataType];
-    u64 inputSize = sendCount * perDataSize;    // all gather 每个rank上一份数据
-    u64 outputSize = inputSize * userRankSize;  // 每个卡上结果为rankSize份数据
+    u64 inputSize = sendCount * perDataSize;    // gather 每个rank发送一份数据
+    u64 outputSize = inputSize * userRankSize;  // root节点接收rankSize份数据
 
     OpParam param;
     CHK_RET(HcclGetCommName(comm, param.commName));
@@ -119,7 +121,8 @@ HcclResult AllGatherOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount, H
     param.outputSize = outputSize;
     param.DataDes.count = sendCount;
     param.DataDes.dataType = dataType;
-    param.opType = HcclCMDType::HCCL_CMD_ALLGATHER;
+    param.root = root;
+    param.opType = HcclCMDType::HCCL_CMD_GATHER;
     param.enableDetour = false;
     param.deviceType = deviceType;
     if (userRankSize == 1) {
@@ -132,7 +135,7 @@ HcclResult AllGatherOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount, H
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
-    HCCL_INFO("Execute AllGatherOutPlace success.");
+    HCCL_INFO("Execute GatherOutPlace success.");
     return HCCL_SUCCESS;
 }
 

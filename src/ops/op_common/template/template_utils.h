@@ -19,7 +19,6 @@
 #include "alg_param.h"
 #include "binary_stream.h"
 
-HcclResult __attribute__((weak)) HcommThreadJoin(ThreadHandle thread, uint32_t timeout);
 namespace ops_hccl {
 
 # define UINT32_MAX     (4294967295U)
@@ -169,12 +168,6 @@ struct BuffInfo {
     u64        hcclBuffBaseOff    = 0;
 };
 
-struct TemplateFastLaunchCtx {
-    BuffInfo buffInfo;
-    std::vector<ThreadHandle> threads;
-    std::vector<CcuKernelSubmitInfo> ccuKernelSubmitInfos;
-};
-
 struct TemplateDataParams {
     BuffInfo buffInfo;
     u64 count{0};
@@ -185,7 +178,6 @@ struct TemplateDataParams {
     u64 inputRepeatStride{0};
     u64 outputRepeatStride{0};
     u64 tailSize{0};
-    bool enableRemoteMemAccess{false};
     u64 processedDataCount{0};
     u64 root{0};
     HcclDataType dataType{HCCL_DATA_TYPE_INT8};
@@ -197,6 +189,11 @@ struct TemplateDataParams {
     std::vector<u64> recvCounts;
     std::vector<u64> sdispls;
     std::vector<u64> rdispls;
+
+    //MARKv 新增，替代原temp中用来描述repeatNum片不连续数据的in/out偏移
+    std::vector<u64> inputOmniPipeSliceStride;
+    std::vector<u64> outputOmniPipeSliceStride;
+    u64 localCopyFlag = 0;
 
     std::vector<char> Serialize() const
     {
@@ -210,7 +207,6 @@ struct TemplateDataParams {
         binaryStream << inputRepeatStride;
         binaryStream << outputRepeatStride;
         binaryStream << tailSize;
-        binaryStream << enableRemoteMemAccess;
         binaryStream << allRankSliceSize;
         binaryStream << allRankDispls;
         binaryStream << sendCounts;
@@ -220,6 +216,9 @@ struct TemplateDataParams {
         binaryStream << allRankProcessedDataCount;
         binaryStream << root;
         binaryStream << dataType;
+        binaryStream << inputOmniPipeSliceStride;
+        binaryStream << outputOmniPipeSliceStride;
+        binaryStream << localCopyFlag;
         std::vector<char> result;
         binaryStream.Dump(result);
         return result;
@@ -237,7 +236,6 @@ struct TemplateDataParams {
         binaryStream >> inputRepeatStride;
         binaryStream >> outputRepeatStride;
         binaryStream >> tailSize;
-        binaryStream >> enableRemoteMemAccess;
         binaryStream >> allRankSliceSize;
         binaryStream >> allRankDispls;
         binaryStream >> sendCounts;
@@ -247,6 +245,9 @@ struct TemplateDataParams {
         binaryStream >> allRankProcessedDataCount;
         binaryStream >> root;
         binaryStream >> dataType;
+        binaryStream >> inputOmniPipeSliceStride;
+        binaryStream >> outputOmniPipeSliceStride;
+        binaryStream >> localCopyFlag;
     }
 };
 
@@ -255,7 +256,6 @@ struct TemplateResource {
     std::map<u32, std::vector<ChannelInfo>> channels;
     std::vector<ThreadHandle> threads;
     std::vector<CcuKernelHandle> ccuKernels;
-    std::vector<CcuKernelSubmitInfo> submitInfos;
     void *npu2DpuShmemPtr;
     void *dpu2NpuShmemPtr;
     void* aivCommInfoPtr = nullptr;
@@ -330,24 +330,5 @@ inline u64 RoundUp(const u64 dividend, const u64 divisor)
     }
     return dividend / divisor + ((dividend % divisor != 0) ? 1 : 0);
 }
-
-// ccu快速下发arg填充
-template <typename... Args>
-HcclResult FillCachedArgs(CcuKernelSubmitInfo &info, Args... args)
-{
-    size_t argNum = sizeof...(Args);
-    if (UNLIKELY(argNum > CCU_MAX_TASK_ARG_NUM)) {
-        HCCL_ERROR("[FillCachedArgs] argNum is bigger than CCU_MAX_TASK_ARG_NUM[%d]", CCU_MAX_TASK_ARG_NUM);
-        return HcclResult::HCCL_E_INTERNAL;
-    }
-    uint64_t temp[] = { static_cast<uint64_t>(args)... };
-
-    for (size_t i = 0; i < argNum; i++) {
-        info.cachedArgs[i] = temp[i];
-    }
-
-    return HcclResult::HCCL_SUCCESS;
-}
-
 }
 #endif
