@@ -335,7 +335,7 @@ HcclResult InsTempReduceScatterNHR::GetStepInfoList(std::vector<AicpuNHRStepInfo
     return HcclResult::HCCL_SUCCESS;
 }
 
-void InsTempReduceScatterNHR::GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMianToSub)
+void InsTempReduceScatterNHR::GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub)
 {
     notifyIdxMainToSub.clear();
     u32 threadNum = 1 * channelsPerRank_;
