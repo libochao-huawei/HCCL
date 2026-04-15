@@ -214,16 +214,8 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ParseXmlInfo(const
             (void)waitThread;
             (void)instructionId;
 
-            uint16_t aivOp = 0;
-            if (op >= 3) {
-                aivOp = op - 3;
-            } else {
-                aivOp = op;
-            }
-            HCCL_INFO("[InsOmniSoleExecutor][ParseXmlInfo] OpType mapping: binOp[%u] -> aivOp[%u].", op, aivOp);
-
             OmniSendRecvInfo omniSendRecvInfo;
-            omniSendRecvInfo.optype = static_cast<OpType>(aivOp);
+            omniSendRecvInfo.optype = static_cast<OpType>(op);
             omniSendRecvInfo.inputDataType = static_cast<HcclDataType>(inputDataType);
             omniSendRecvInfo.outputDataType = static_cast<HcclDataType>(outputDataType);
             omniSendRecvInfo.reduceType = static_cast<HcclReduceOp>(reduceType);
@@ -409,6 +401,12 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV,
                 CcuTempOmni);
 
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV,
+                AivHcclOmni,
+                InsOmniSoleExecutor,
+                TopoMatch1D,
+                AivTempOmni);
+
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER,
                 AivHcclOmni,
                 InsOmniSoleExecutor,
                 TopoMatch1D,
