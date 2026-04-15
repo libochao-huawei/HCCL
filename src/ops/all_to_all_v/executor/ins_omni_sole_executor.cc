@@ -126,9 +126,6 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ParseXmlInfo(const
             uint16_t chanCount = (data >> 22) & 0xFF;
 
             uint16_t blockNumAiv = 1;
-            if (param.engine == CommEngine::COMM_ENGINE_AIV && chanCount > 0) {
-                blockNumAiv = chanCount;
-            }
 
             xmlInfo_.resInfo.slaveThreadNum = slaveThreadNum;
             xmlInfo_.resInfo.notifyNumOnMainThread = notifyNumOnMainThread;
