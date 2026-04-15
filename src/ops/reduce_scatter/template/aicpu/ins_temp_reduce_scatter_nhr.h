@@ -33,12 +33,12 @@ public:
 
     HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                        AlgResourceRequest& resourceRequest)  override;
-    HcclResult GetRes(AlgResourceRequest& resourceRequest, u32 channelsPerRank) const;
+    HcclResult GetRes(AlgResourceRequest& resourceRequest, const std::map<u32, std::vector<ChannelInfo>> &channels) const;
     HcclResult KernelRun(const OpParam& param,
                          const TemplateDataParams& tempAlgParams,
                          TemplateResource& templateResource) override;
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
-    u64 GetThreadNum(u32 channelsPerRank) const;
+    u64 GetThreadNum(const std::map<u32, std::vector<ChannelInfo>> &channels) const;
 
     void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub) override;
     void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override;
