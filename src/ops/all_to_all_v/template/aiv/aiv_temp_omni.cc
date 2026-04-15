@@ -11,6 +11,7 @@
 #include "aiv/aiv_temp_omni.h"
 
 #include <algorithm>
+#include <set>
 #include <vector>
 
 #include "alg_data_trans_wrapper.h"
@@ -49,7 +50,6 @@ HcclResult AivTempOmni::CalcChannelRequestOmni(HcclComm comm, const OpParam& par
     const TopoInfoWithNetLayerDetails* topoInfo, const std::vector<std::vector<u32>>& subcommInfo,
     const std::vector<std::map<u32, OmniChannelInfo>>& mapchannelInfo, std::vector<HcclChannelDesc>& channels)
 {
-    (void) param;
     channels.clear();
     auto it = std::find(subcommInfo[COMM_LEVEL0].begin(), subcommInfo[COMM_LEVEL0].end(), topoInfo->userRank);
     CHK_PRT_RET((it == subcommInfo[COMM_LEVEL0].end()),
@@ -57,31 +57,65 @@ HcclResult AivTempOmni::CalcChannelRequestOmni(HcclComm comm, const OpParam& par
         HcclResult::HCCL_E_PARA);
 
     const u32 myRank = topoInfo->userRank;
+    std::vector<CommProtocol> expectedProtocols;
+    CHK_RET(GetProtocolByEngine(param, expectedProtocols));
+
+    std::set<u64> connectedRanks;
     for (u32 layer = 0; layer < mapchannelInfo.size(); layer++) {
         for (const auto& pair : mapchannelInfo[layer]) {
             const u64 remoteRank = pair.first;
-            const CommProtocol protocol = pair.second.channelProtocol;
+            if (connectedRanks.count(remoteRank) > 0) {
+                continue;
+            }
 
-            CommLink *linkList = nullptr;
-            u32 listSize = 0;
-            CHK_RET(HcclRankGraphGetLinks(comm, layer, myRank, remoteRank, &linkList, &listSize));
-            for (u32 idx = 0; idx < listSize; idx++) {
-                if (protocol != linkList[idx].linkAttr.linkProtocol) {
-                    continue;
+            uint32_t *netLayers = nullptr;
+            uint32_t netLayerNum = 0;
+            CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
+            std::vector<uint32_t> netLayersVector(netLayers, netLayers + netLayerNum);
+
+            bool channelCreated = false;
+            for (auto netLayer : netLayersVector) {
+                CommLink *linkList = nullptr;
+                u32 listSize = 0;
+                CHK_RET(HcclRankGraphGetLinks(comm, netLayer, myRank, static_cast<u32>(remoteRank), &linkList, &listSize));
+
+                for (u32 idx = 0; idx < listSize; idx++) {
+                    bool protocolMatched = false;
+                    for (auto expectedProtocol : expectedProtocols) {
+                        if (linkList[idx].linkAttr.linkProtocol == expectedProtocol) {
+                            protocolMatched = true;
+                            break;
+                        }
+                    }
+                    if (!protocolMatched) {
+                        continue;
+                    }
+
+                    HcclChannelDesc channelDesc;
+                    HcclChannelDescInit(&channelDesc, 1);
+                    channelDesc.remoteRank = static_cast<u32>(remoteRank);
+                    channelDesc.localEndpoint.protocol = linkList[idx].srcEndpointDesc.protocol;
+                    channelDesc.localEndpoint.commAddr = linkList[idx].srcEndpointDesc.commAddr;
+                    channelDesc.localEndpoint.loc = linkList[idx].srcEndpointDesc.loc;
+                    channelDesc.remoteEndpoint.protocol = linkList[idx].dstEndpointDesc.protocol;
+                    channelDesc.remoteEndpoint.commAddr = linkList[idx].dstEndpointDesc.commAddr;
+                    channelDesc.remoteEndpoint.loc = linkList[idx].dstEndpointDesc.loc;
+                    channelDesc.channelProtocol = linkList[idx].linkAttr.linkProtocol;
+                    channelDesc.notifyNum = NORMAL_NOTIFY_NUM;
+                    channels.push_back(channelDesc);
+                    channelCreated = true;
+                    break;
                 }
+                if (channelCreated) {
+                    break;
+                }
+            }
 
-                HcclChannelDesc channelDesc;
-                HcclChannelDescInit(&channelDesc, 1);
-                channelDesc.remoteRank = remoteRank;
-                channelDesc.localEndpoint.protocol = linkList[idx].srcEndpointDesc.protocol;
-                channelDesc.localEndpoint.commAddr = linkList[idx].srcEndpointDesc.commAddr;
-                channelDesc.localEndpoint.loc = linkList[idx].srcEndpointDesc.loc;
-                channelDesc.remoteEndpoint.protocol = linkList[idx].dstEndpointDesc.protocol;
-                channelDesc.remoteEndpoint.commAddr = linkList[idx].dstEndpointDesc.commAddr;
-                channelDesc.remoteEndpoint.loc = linkList[idx].dstEndpointDesc.loc;
-                channelDesc.channelProtocol = linkList[idx].linkAttr.linkProtocol;
-                channelDesc.notifyNum = NORMAL_NOTIFY_NUM;
-                channels.push_back(channelDesc);
+            if (channelCreated) {
+                connectedRanks.insert(remoteRank);
+            } else {
+                HCCL_WARNING("[AivTempOmni][CalcChannelRequestOmni] No matching link found for myRank[%u] remoteRank[%llu].",
+                    myRank, remoteRank);
             }
         }
     }
