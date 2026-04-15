@@ -94,7 +94,7 @@ HcclResult HcclSetOpParamGraphModeHCCLBufferSize(OpParamGraphMode *opParam, cons
     return HCCL_SUCCESS;
 }
 HcclResult HcclSetAivSelectOpParamGraphMode(OpParamGraphMode *opParam, const char *group, u64 count, void *counts, 
- 	                                        HcclDataType dataType, HcclReduceOp op, HcclCMDType opTypeAiv, u32 aivCoreLimit, bool &ifAiv)
+ 	                                        HcclDataType dataType, HcclReduceOp op, HcclCMDType opTypeAiv, u32 aivCoreLimit, bool ifAiv)
 {
     if (opParam == nullptr || group == nullptr) {
         return HCCL_E_PARA;
