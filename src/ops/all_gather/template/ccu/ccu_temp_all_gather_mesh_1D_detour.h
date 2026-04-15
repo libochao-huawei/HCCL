@@ -18,9 +18,10 @@ namespace ops_hccl {
  
 class CcuTempAllGatherMesh1DDetour : public CcuAlgTemplateBase {
 public:
+    CcuTempAllGatherMesh1DDetour() = default;
     explicit CcuTempAllGatherMesh1DDetour(const OpParam& param, 
                                            const u32 rankId,
-                                           const std::vector<std::vector<u32>> &subCommRanks) = default;
+                                           const std::vector<std::vector<u32>> &subCommRanks);
     ~CcuTempAllGatherMesh1DDetour() override;
  
     std::string Describe() const override
