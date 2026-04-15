@@ -1005,6 +1005,8 @@ HcclResult HcclGetChannelImpl(const u32 level, HcclComm comm, const OpParam &par
         }
     }
     if (channelNum > 0) {
+        HCCL_INFO("[HcclGetChannelImpl] HcclChannelAcquire parameters: comm=%p, commEngine=%p, channelRequest.data()=%p, channelNum=%p, levelNChannels.data()=%p", comm, commEngine, channelRequest.data(),
+            channelNum, levelNChannels.data());
         CHK_RET(HcclChannelAcquire(comm, commEngine, channelRequest.data(),
             channelNum, levelNChannels.data()));
     }
