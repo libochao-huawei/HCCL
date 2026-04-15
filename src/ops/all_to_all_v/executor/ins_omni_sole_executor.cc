@@ -58,17 +58,15 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::InitCommInfo(const
     myRank_ = topoInfo->userRank;
     rankSize_ = topoInfo->userRankSize;
     devType_ = topoInfo->deviceType;
-    dataType_ = param.all2AllVDataDes.sendType;
-    dataTypeSize_ = DATATYPE_SIZE_TABLE[dataType_];
 
-    devType_ = topoInfo->deviceType;
     dataType_ = param.DataDes.dataType;
+    dataTypeSize_ = DATATYPE_SIZE_TABLE[dataType_];
     dataCount_ = param.DataDes.count;
 
-    // dataTypeSize_ = SIZE_TABLE[param.DataDes.dataType];
-
-    const u64* data = reinterpret_cast<const u64*>(param.varData);
-    dataCount_ = data[0];
+    if (param.varMemSize > 0 && param.varData != nullptr) {
+        const u64* data = reinterpret_cast<const u64*>(param.varData);
+        dataCount_ = data[0];
+    }
     dataSize_ = dataCount_ * dataTypeSize_;
     HCCL_INFO("[InsOmniSoleExecutor][InitCommInfo] myRank [%u], rankSize [%u], devType [%u], dataType_ [%u], "
         "dataCount_ [%llu]", myRank_, rankSize_, devType_, dataType_, dataCount_);
