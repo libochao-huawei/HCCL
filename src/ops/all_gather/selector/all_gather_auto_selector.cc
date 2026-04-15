@@ -236,8 +236,19 @@ SelectorStatus AllGatherAutoSelector::SelectAivAlgo(
     std::string &selectAlgName) const
 {
     HCCL_DEBUG("[AllGatherAutoSelector][%s] start, topoInfo topoLevelNums[%u]", __func__, topoInfo->topoLevelNums);
-    (void)configAlgMap;
-    (void)opParam;
+
+    std::vector<HcclAlgoType> algos =
+        std::vector<HcclAlgoType>(HCCL_ALGO_LEVEL_NUM, HcclAlgoType::HCCL_ALGO_TYPE_DEFAULT);
+    auto it = configAlgMap.find(opParam.opType);
+    if ((it != configAlgMap.end()) && (it->second.size() > 1)) {
+        algos = it->second;
+    }
+
+    if (algos.size() > HCCL_ALGO_LEVEL && algos.at(HCCL_ALGO_LEVEL) == HcclAlgoType::HCCL_ALGO_TYPE_OMNI) {
+        selectAlgName = "AivHcclOmni";
+        HCCL_INFO("[AllGatherAutoSelector][%s] OMNI selected, Algo match[%s]", __func__, selectAlgName.c_str());
+        return SelectorStatus::MATCH;
+    }
 
     selectAlgName = "AivAllGatherMesh1D";
     HCCL_DEBUG("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
