@@ -76,7 +76,8 @@ HcclResult CalcMyRankInfo(HcclComm comm, TopoInfo* topoInfo)
     // 获取moduleIdx
     CHK_RET(CalcGroupIdx(comm, topoInfo, static_cast<uint32_t>(HcclNetLayer::HCCL_NetLayer_L0)));
     // 获取superPodIdx
-    if (netLayersNum >= NET_LAYER_NUM_TWO) {
+    if ((netLayersNum >= NET_LAYER_NUM_TWO) && (netlayers[netLayersNum - 1] ==
+        static_cast<uint32_t>(HcclNetLayer::HCCL_NetLayer_L1))) {
         CHK_RET(CalcGroupIdx(comm, topoInfo, static_cast<uint32_t>(HcclNetLayer::HCCL_NetLayer_L1)));
     } else {
         topoInfo->superPodIdx = 0;
@@ -262,7 +263,8 @@ HcclResult CalcGroupIdx(HcclComm comm, TopoInfo* topoInfo, uint32_t netLayer)
         topoInfo->serverNum = rankListNum;
         HCCL_DEBUG("[CalcGroupIdx]netLayer[%u] currentGroup[%u] serverIdx[%u] serverNum[%u]",
             netLayer, currentGroup, topoInfo->serverIdx, topoInfo->serverNum);
-    } else if (netLayer == static_cast<uint32_t>(HcclNetLayer::HCCL_NetLayer_L1)) {
+    } else if ((netLayer == static_cast<uint32_t>(HcclNetLayer::HCCL_NetLayer_L1)) ||
+        (netLayer == static_cast<uint32_t>(HcclNetLayer::HCCL_NetLayer_L3))) {
         topoInfo->superPodIdx = currentGroup;
         HCCL_DEBUG("[CalcGroupIdx]netLayer[%u] currentGroup[%u] superPodIdx[%u]", netLayer, currentGroup, topoInfo->superPodIdx);
     } else {
@@ -644,9 +646,11 @@ HcclResult ExtractNetLayerDetails(const HcclComm comm, TopoInfoWithNetLayerDetai
     for (uint32_t netLayerIdx = 0; netLayerIdx < netLayerNum; netLayerIdx++) {
         netLayers.push_back(netlayersTemp[netLayerIdx]);
     }
-    netInstNumOfLayer.resize(netLayerNum);    // 每层网络中有几个网络实例
-    instSizeListOfLayer.resize(netLayerNum);  // 每层网络中的各个网络实例的大小
-    localNetInsSizeOfLayer.resize(netLayerNum);
+    // 取最高层级+1适配ranktable配置netLayers={0,3}的情况
+    uint32_t actualLayerNum = netLayers[netLayerNum - 1] + 1;
+    netInstNumOfLayer.resize(actualLayerNum);    // 每层网络中有几个网络实例
+    instSizeListOfLayer.resize(actualLayerNum);  // 每层网络中的各个网络实例的大小
+    localNetInsSizeOfLayer.resize(actualLayerNum);
 
     HcclResult ret;
     // 获取并校验每一层的网路实例大小
@@ -671,11 +675,11 @@ HcclResult ExtractNetLayerDetails(const HcclComm comm, TopoInfoWithNetLayerDetai
     }
 
     topoLevelNum = 0;
-    // 获取最小的能覆盖所有卡的 layer
+    // 获取最小的能覆盖所有卡的 layer，topoLevelNum表示实际层级数量
     for (auto layerIdx : netLayers) {
+        topoLevelNum++;
         if (netInstNumOfLayer[layerIdx] == 1) {
-            // 当本层只有一个网络实例时, 认为这个就是当前的 topoLevelNum
-            topoLevelNum = layerIdx + 1;
+            // 当本层只有一个网络实例时, 认为已覆盖所有卡
             break;
         }
     }
@@ -695,11 +699,13 @@ HcclResult ExtractTopoDetails(HcclComm comm, TopoInfoWithNetLayerDetails* topoIn
     HcclResult ret;
     CHK_PRT_RET(comm == nullptr, HCCL_ERROR("[Topo][ExtractNetLayerDetails] comm is null"), HCCL_E_PTR);
     u32 netLayerNum = topoInfo->netLayerDetails.netLayerNum;
+    auto &netLayers = topoInfo->netLayerDetails.netLayers;
+    uint32_t actualLayerNum = netLayers[netLayerNum - 1] + 1;
 
     // 初始化每一层的 TopoInstDetails
-    topoInfo->topoInstDetailsOfLayer.resize(netLayerNum);
-    topoInfo->topoInstDetailsOfLayerSize = netLayerNum;
-    for (u32 netLayerIdx = 0; netLayerIdx < netLayerNum; netLayerIdx++) {
+    topoInfo->topoInstDetailsOfLayer.resize(actualLayerNum);
+    topoInfo->topoInstDetailsOfLayerSize = actualLayerNum;
+    for (auto netLayerIdx : netLayers) {
         auto& currentNetLayerTopoTopoDetail = topoInfo->topoInstDetailsOfLayer[netLayerIdx];
         auto& currentLayerTopoSize = currentNetLayerTopoTopoDetail.sizeOfTopo;
         auto& currentLayerTopoType = currentNetLayerTopoTopoDetail.typeOfTopo;

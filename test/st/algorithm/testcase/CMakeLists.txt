@@ -14,6 +14,7 @@ set(src_list
     all_reduce_testcase.cc
     all_reduce_parallel_testcase.cc
     all_gather_aicpu_testcase.cc
+    all_gather_dpu_testcase.cc
     reduce_scatter_aicpu_testcase.cc
 )
 
