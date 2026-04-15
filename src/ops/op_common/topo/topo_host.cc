@@ -77,7 +77,7 @@ HcclResult CalcMyRankInfo(HcclComm comm, TopoInfo* topoInfo)
     CHK_RET(CalcGroupIdx(comm, topoInfo, static_cast<uint32_t>(HcclNetLayer::HCCL_NetLayer_L0)));
     // 获取superPodIdx
     if (netLayersNum >= NET_LAYER_NUM_TWO) {
-        CHK_RET(CalcGroupIdx(comm, topoInfo, static_cast<uint32_t>(HcclNetLayer::HCCL_NetLayer_L1)));
+        CHK_RET(CalcGroupIdx(comm, topoInfo, netlayers[netLayersNum - 1]));
     } else {
         topoInfo->superPodIdx = 0;
     }
