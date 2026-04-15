@@ -47,6 +47,7 @@ target_compile_definitions(test_custom_allgather_batch PRIVATE
 target_compile_definitions(test_custom_allgather_batch_host_ut PRIVATE
     _GLIBCXX_USE_CXX11_ABI=0
     HOST_COMPILE
+    HCCL_BATCH_HOST_UT
 )
 
 target_compile_options(test_custom_allgather_batch PRIVATE

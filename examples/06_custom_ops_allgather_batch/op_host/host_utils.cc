@@ -6,6 +6,20 @@
 
 namespace ops_hccl_allgather_batch {
 
+namespace {
+
+uint64_t GetLaunchToken(uint64_t inputAddr, uint64_t sliceSize)
+{
+#ifdef HCCL_BATCH_HOST_UT
+    uint64_t token = inputAddr ^ (sliceSize << 1);
+    return token == 0 ? 1 : token;
+#else
+    return hcomm::CcuRep::GetTokenInfo(inputAddr, sliceSize);
+#endif
+}
+
+} // namespace
+
 std::string BuildContextKey(const char *tag, uintptr_t commKey, uint32_t itemCount)
 {
     return std::string(tag) + "_comm_" + std::to_string(commKey) + "_n" + std::to_string(itemCount);
@@ -62,7 +76,7 @@ void PackBatchItemsForLaunch(const OpParam &param, PackedBatchItem *packedItems,
         const uint64_t sliceSize = GetSliceSizeBytes(item);
         packedItems[i].inputAddr = reinterpret_cast<uint64_t>(item.sendBuf);
         packedItems[i].outputAddr = reinterpret_cast<uint64_t>(item.recvBuf);
-        packedItems[i].token = hcomm::CcuRep::GetTokenInfo(packedItems[i].inputAddr, sliceSize);
+        packedItems[i].token = GetLaunchToken(packedItems[i].inputAddr, sliceSize);
         packedItems[i].offset = static_cast<uint64_t>(param.rank) * sliceSize;
         packedItems[i].sliceSize = sliceSize;
     }
