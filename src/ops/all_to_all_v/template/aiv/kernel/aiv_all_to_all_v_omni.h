@@ -131,8 +131,10 @@ private:
     __aicore__ inline __gm__ T *ResolveSliceAddr(const AivOmniSliceInfo &slice, bool isSrc)
     {
         uint64_t baseAddr = 0;
+        uint64_t effectiveSliceIdx = slice.sliceIdx;
         if (slice.sliceType == AIV_OMNI_BUFFER_HCCL) {
             baseAddr = reinterpret_cast<uint64_t>(GM_IN[slice.remoteRank]);
+            effectiveSliceIdx = 0;
         } else if (slice.sliceType == AIV_OMNI_BUFFER_INPUT) {
             baseAddr = input_;
         } else if (slice.sliceType == AIV_OMNI_BUFFER_OUTPUT) {
@@ -140,8 +142,9 @@ private:
         } else {
             const uint64_t remoteRank = (slice.remoteRank < rankSize_) ? slice.remoteRank : rank_;
             baseAddr = reinterpret_cast<uint64_t>(GM_IN[remoteRank]);
+            effectiveSliceIdx = 0;
         }
-        return reinterpret_cast<__gm__ T *>(baseAddr + slice.sliceIdx * curSliceCount_ * sizeof(T));
+        return reinterpret_cast<__gm__ T *>(baseAddr + effectiveSliceIdx * curSliceCount_ * sizeof(T));
     }
 
     __aicore__ inline bool ShouldHandleSlice(const AivOmniSliceInfo &dstSlice) const

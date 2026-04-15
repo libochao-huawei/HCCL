@@ -44,6 +44,7 @@ private:
 
     u32 tempRankSize_ = 0;
     u32 numBlocks_ = 1;
+    u64 sliceNum_ = 1;
 };
 } // namespace ops_hccl
 

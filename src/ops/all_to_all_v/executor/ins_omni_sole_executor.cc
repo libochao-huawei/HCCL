@@ -367,8 +367,7 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLoop(
         tempAlgParams.buffInfo.inputPtr = param.inputPtr;
         tempAlgParams.buffInfo.outputPtr = param.outputPtr;
         tempAlgParams.buffInfo.hcclBuff = resCtx.cclMem;
-        const u64 sliceNum = xmlInfo_.vecSendRecvInfo.empty() ? 1 : std::max<u64>(1, xmlInfo_.vecSendRecvInfo[0].sliceNum);
-        tempAlgParams.sliceSize = currDataCount * dataTypeSize_ / sliceNum;
+        tempAlgParams.sliceSize = currDataCount * dataTypeSize_;
         tempAlgParams.buffInfo.inBuffBaseOff = processedDataCount * dataTypeSize_;
         tempAlgParams.buffInfo.outBuffBaseOff = processedDataCount * dataTypeSize_;
         tempAlgParams.buffInfo.hcclBuffBaseOff = 0;
@@ -378,9 +377,9 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLoop(
         tempAlgParams.buffInfo.inBuffType = BufferType::INPUT;
         tempAlgParams.buffInfo.outBuffType = BufferType::OUTPUT;
 
-        HCCL_INFO("[InsOmniSoleExecutor][OrchestrateLoop] loop[%u/%u] currDataCount[%llu] sliceNum[%llu] "
+        HCCL_INFO("[InsOmniSoleExecutor][OrchestrateLoop] loop[%u/%u] currDataCount[%llu] "
             "sliceSize[%llu] inBuffBaseOff[%llu] outBuffBaseOff[%llu] vecSendRecvInfo.size[%zu].",
-            static_cast<u32>(loop), loopTimes, currDataCount, sliceNum, tempAlgParams.sliceSize,
+            static_cast<u32>(loop), loopTimes, currDataCount, tempAlgParams.sliceSize,
             tempAlgParams.buffInfo.inBuffBaseOff, tempAlgParams.buffInfo.outBuffBaseOff,
             xmlInfo_.vecSendRecvInfo.size());
 
