@@ -32,17 +32,25 @@ HcclResult InsTempReduceScatterNHR::CalcRes(HcclComm comm, const OpParam& param,
     resourceRequest.channels.push_back(channels);
     // u32 channelsPerRank = CalcChannelsPerRandk(channels);
     u32 channelsPerRank = 1;
+    channelsPerRank_ = channelsPerRank;
     // NHR 需要的 que Num 为 1
-    GetRes(resourceRequest, channelsPerRank);
+    GetRes(resourceRequest);
     HCCL_INFO("[InsTempReduceScatterNHR][CalcRes] slaveThreadNum: [%u], notifyNumOnMainThread: [%u].",
         resourceRequest.slaveThreadNum, resourceRequest.notifyNumOnMainThread);
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult InsTempReduceScatterNHR::GetRes(AlgResourceRequest& resourceRequest, u32 channelsPerRank) const
+HcclResult InsTempReduceScatterNHR::GetchannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels) const
+{
+    channelsPerRank_ = channels.begin()->second.size();
+
+    return HCCL_SUCCESS;
+}
+
+HcclResult InsTempReduceScatterNHR::GetRes(AlgResourceRequest& resourceRequest) const
 {
 
-    u32 threadNum = 1 * channelsPerRank;
+    u32 threadNum = 1 * channelsPerRank_;
     resourceRequest.slaveThreadNum = threadNum - 1;
     for (u32 index = 0; index < threadNum - 1; index++) {
         resourceRequest.notifyNumPerThread.push_back(1);
@@ -52,9 +60,9 @@ HcclResult InsTempReduceScatterNHR::GetRes(AlgResourceRequest& resourceRequest, 
     return HCCL_SUCCESS;
 }
 
-u64 InsTempReduceScatterNHR::GetThreadNum(u32 channelsPerRank) const
+u64 InsTempReduceScatterNHR::GetThreadNum() const
 {
-    return 1 * channelsPerRank;
+    return 1 * channelsPerRank_;
 }
 
 HcclResult InsTempReduceScatterNHR::KernelRun(const OpParam& param,
