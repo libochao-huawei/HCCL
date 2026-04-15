@@ -445,6 +445,7 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     char tag[TAG_LENGTH]; // 保存topoInfo的key值
     char algTag[ALG_TAG_LENGTH]; // 保存资源的key值，和算法绑定
     char fastLaunchTag[ALG_TAG_LENGTH]; // 快速下发的key值
+    char fallbackTag[ALG_MAX_LENGTH];
     char commName[COMM_INDENTIFIER_MAX_LENGTH];
     char commModeTag[TAG_LENGTH]; // 保存与执行模式相关的资源信息的key值
     aclrtStream stream;
