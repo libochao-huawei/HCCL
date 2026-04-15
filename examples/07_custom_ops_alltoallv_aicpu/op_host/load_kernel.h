@@ -8,22 +8,22 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCCL_CUSTOM_ALLTOALLV_H
-#define HCCL_CUSTOM_ALLTOALLV_H
+#ifndef OPS_HCCL_ALLTOALLV_AICPU_LOAD_KERNEL_H
+#define OPS_HCCL_ALLTOALLV_AICPU_LOAD_KERNEL_H
 
-#include "hccl/hccl.h"
-#include "hccl/hccl_types.h"
+#include <string>
+#include <hccl/hccl.h>
+#include <acl/acl_rt.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+namespace ops_hccl_alltoallv_aicpu {
 
-HcclResult HcclAllToAllVCustom(void *sendBuf, void *recvBuf, uint64_t *sendCounts, uint64_t *recvCounts,
-                               uint64_t *sdispls, uint64_t *rdispls,
-                               HcclDataType dataType, HcclComm comm, aclrtStream stream);
+HcclResult LoadAICPUKernel(void);
+HcclResult GetKernelFilePath(std::string &binaryPath);
+HcclResult LoadBinaryFromFile(const char *binPath, aclrtBinaryLoadOptionType optionType, uint32_t cpuKernelMode,
+    aclrtBinHandle &binHandle);
 
-#ifdef __cplusplus
+extern thread_local aclrtBinHandle g_binKernelHandle;
+
 }
-#endif
 
 #endif

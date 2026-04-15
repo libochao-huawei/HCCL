@@ -8,18 +8,21 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef OPS_HCCL_CUSTOM_EXTRA_ARGS_H
-#define OPS_HCCL_CUSTOM_EXTRA_ARGS_H
+#ifndef HCCL_CUSTOM_ALLTOALLV_AICPU_H
+#define HCCL_CUSTOM_ALLTOALLV_AICPU_H
 
-#include <cstdint>
+#include <hccl/hccl.h>
+#include <hccl/hccl_types.h>
 
-constexpr uint32_t MAX_RANK_SIZE = 8;
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-struct ExtraArgs {
-    uint64_t sendCounts[MAX_RANK_SIZE] = {};
-    uint64_t sendDispls[MAX_RANK_SIZE] = {};
-    uint64_t recvCounts[MAX_RANK_SIZE] = {};
-    uint64_t recvDispls[MAX_RANK_SIZE] = {};
-};
+HcclResult HcclAlltoAllVCustomAicpu(void *sendBuf, void *sendCounts, void *sdispls, void *recvBuf, 
+    void *recvCounts, void *rdispls, HcclDataType dataType, HcclComm comm, aclrtStream stream);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

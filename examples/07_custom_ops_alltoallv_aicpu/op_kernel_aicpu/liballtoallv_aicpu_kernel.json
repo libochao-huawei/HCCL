@@ -1,0 +1,9 @@
+{
+  "HcclLaunchAlltoAllVAicpuKernel": {
+    "opInfo": {
+      "opKernelLib": "AICPUKernel",
+      "kernelSo": "liballtoallv_aicpu_kernel.so",
+      "functionName": "HcclLaunchAlltoAllVAicpuKernel"
+    }
+  }
+}

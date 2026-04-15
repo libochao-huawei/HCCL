@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sign>
+    <mode>xml</mode>
+    <algorithm>SHA256</algorithm>
+    <key>cust_opensource</key>
+    <files>
+        <file>aicpu_hccl_custom_alltoallv.tar.gz</file>
+    </files>
+</sign>
