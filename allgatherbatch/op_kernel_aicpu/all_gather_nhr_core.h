@@ -1,5 +1,5 @@
-#ifndef HCCL_ALLGATHERBATCH_NHR_CORE_H
-#define HCCL_ALLGATHERBATCH_NHR_CORE_H
+#ifndef HCCL_ALLGATHERBATCH_ALL_GATHER_NHR_CORE_H
+#define HCCL_ALLGATHERBATCH_ALL_GATHER_NHR_CORE_H
 
 #include <vector>
 
@@ -7,98 +7,59 @@
 
 namespace ops_hccl_allgatherbatch {
 
-struct LocalSlice {
-    uint64_t offset = 0;
-    uint64_t size = 0;
-};
-
-struct InterServerAlgoStep {
-    uint32_t step = 0;
-    uint32_t myRank = 0;
-    uint32_t nSlices = 0;
-    uint32_t toRank = 0;
-    uint32_t fromRank = 0;
-    std::vector<uint32_t> txSliceIdxs;
-    std::vector<uint32_t> rxSliceIdxs;
-};
-
-struct NHRRunCtx {
-    uint32_t rank = 0;
-    uint32_t rankSize = 0;
-    uint64_t packedBytes = 0;
-    uint64_t baseOffset = 0;
-    uint8_t *inputBase = nullptr;
-    uint8_t *outputBase = nullptr;
-    // 对齐 hcomm 原版 Prepare(bool needMerge) 语义：
-    // needMerge=true 时使用树映射并允许合并连续 slice；
-    // false 时走保序 rank mapping。
-    bool needMerge = false;
-    bool keepOrder = true;
-    // Preferred formal inputs for subgroup layout.
-    std::vector<LocalSlice> sliceTemplate;
-    // rankBaseOffsets is indexed by noPower workspace slot after noPowerMap remap, not by raw subgroup rank.
-    std::vector<uint64_t> rankBaseOffsets;
-    std::vector<uint32_t> subgroupRanks;
+using InterServerAlgoStep = struct InterServerAlgoStepDef {
+    u32 step = 0;
+    u32 myRank = 0;
+    u32 nSlices = 0;
+    u32 toRank = 0;
+    u32 fromRank = 0;
+    std::vector<u32> txSliceIdxs;
+    std::vector<u32> rxSliceIdxs;
 };
 
 class AllGatherNHRCore {
 public:
-    AllGatherNHRCore(
-        const OpParam &param,
-        AlgResourceCtx &resCtx,
-        uint64_t packedBytes,
-        const NHRRunCtx &runCtx = NHRRunCtx {});
+    AllGatherNHRCore(AlgResourceCtx &resCtx,
+        ExecMem &execMem,
+        u64 baseOffset,
+        u64 totalSize,
+        const std::vector<ChannelResource> &channels = {});
 
-    HcclResult RunAsync();
+    HcclResult Prepare(bool needMerge);
+    HcclResult RunAsync(const u32 rank, const u32 rankSize,
+        const std::vector<ChannelResource> &links);
 
 private:
-    void InitDefaultRunCtx();
-    void BuildDefaultSlices();
-    void BuildEffectiveSlices();
-    uint32_t GetEffectiveRank() const;
-    uint32_t GetEffectiveRankSize() const;
-    uint32_t GetSliceGroupSize() const;
-    const std::vector<LocalSlice> &GetEffectiveSlices() const;
-    HcclResult ValidateCommState() const;
-    HcclResult LocalDataCopy();
-    HcclResult PostLocalCopy() const;
-    void GetRankMapping(uint32_t rankSize, bool keepOrder);
-    void ReorderSequence(
-        uint32_t start,
-        uint32_t end,
-        uint32_t len,
-        std::vector<uint32_t> &tree,
-        std::vector<uint32_t> &tmp) const;
-    uint32_t GetStepNumInterServer(uint32_t rankSize) const;
-    HcclResult GetStepInfo(uint32_t step, uint32_t nSteps, InterServerAlgoStep &stepInfo) const;
-    HcclResult RunAllGather() const;
-    HcclResult BuildStepSlices(
-        const InterServerAlgoStep &stepInfo,
-        std::vector<LocalSlice> &txSlices,
-        std::vector<LocalSlice> &rxSlices) const;
-    void MergeSlices(std::vector<LocalSlice> &slices) const;
-    const ChannelResource *FindChannelByGlobalRank(uint32_t remoteRank) const;
-    const ChannelResource *FindChannelBySubgroupRank(uint32_t subgroupRank) const;
-    HcclResult Tx(const ChannelResource &channel, const std::vector<LocalSlice> &txSlices) const;
-    HcclResult Rx(const ChannelResource &channel, const std::vector<LocalSlice> &rxSlices) const;
-    HcclResult SdmaRx(
-        const ChannelResource *channelLeft,
-        const ChannelResource *channelRight,
-        const std::vector<LocalSlice> &rxSlices,
-        const InterServerAlgoStep &stepInfo) const;
-    HcclResult RdmaTxRx(
-        const ChannelResource *channelLeft,
-        const ChannelResource *channelRight,
-        const std::vector<LocalSlice> &txSlices,
-        const std::vector<LocalSlice> &rxSlices,
-        const InterServerAlgoStep &stepInfo) const;
+    HcclResult RunAllGather(u32 rank, u32 rankSize,
+        const std::vector<Slice> &outputSlices,
+        const std::vector<ChannelResource> &links);
+    HcclResult SdmaRx(const ChannelResource &linkLeft,
+        const ChannelResource &linkRight,
+        std::vector<Slice> &rxSlices);
+    HcclResult RdmaTxRx(const ChannelResource &linkLeft,
+        const ChannelResource &linkRight,
+        InterServerAlgoStep &stepInfo,
+        std::vector<Slice> &txSlices,
+        std::vector<Slice> &rxSlices);
+    HcclResult Tx(const ChannelResource &link, std::vector<Slice> &txSlices);
+    HcclResult Rx(const ChannelResource &link, std::vector<Slice> &rxSlices);
+    HcclResult GetStepInfo(u32 step, u32 nSteps, u32 rank, u32 rankSize,
+        InterServerAlgoStep &stepInfo);
 
-    const OpParam &param_;
+    void GetRankMapping(u32 rankSize, bool keepOrder = false);
+    void ReorderSequence(u32 start, u32 end, u32 len,
+        std::vector<u32> &tree, std::vector<u32> &tmp);
+    u32 GetStepNumInterServer(u32 rankSize);
+    void MergeSlices(std::vector<Slice> &slices);
+
+private:
     AlgResourceCtx &resCtx_;
-    uint64_t packedBytes_;
-    NHRRunCtx runCtx_;
-    std::vector<LocalSlice> effectiveSlices_;
-    std::vector<uint32_t> sliceMap_;
+    ExecMem &execMem_;
+    u64 baseOffset_;
+    u64 totalSize_;
+    std::vector<ChannelResource> channels_;
+    std::vector<u32> sliceMap_;
+    bool isNeedMerge_ = false;
 };
 
 }  // namespace ops_hccl_allgatherbatch
