@@ -382,16 +382,8 @@ HcclResult FallbackOp(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWit
     std::string &algName, const ResPackGraphMode &resPack)
 {   
     void * fallbackCtx = nullptr;
-    const u32 ALG_MAX_LENGTH = 50;
-    const u32 FALLBACK_MAX_TAG_LENGTH = 60;
     uint64_t fallbackCtxSize = ALG_MAX_LENGTH;
-    char fallbackTag[FALLBACK_MAX_TAG_LENGTH];
-    auto fallbackRet = sprintf_s(fallbackTag, sizeof(fallbackTag), "%s_%s", algName.c_str(), "fallback");
-    if (fallbackRet <= 0) {
-        HCCL_ERROR("[%s] failed to fill fallbackTag", __func__);
-        return HCCL_E_INTERNAL;
-    }
-    CHK_RET(HcclEngineCtxCreate(comm, fallbackTag, CommEngine::COMM_ENGINE_CCU, fallbackCtxSize, &fallbackCtx));
+    CHK_RET(HcclEngineCtxCreate(comm, param.fallbackTag, CommEngine::COMM_ENGINE_CCU, fallbackCtxSize, &fallbackCtx));
     char* newAlgName = static_cast<char*>(fallbackCtx);
     CHK_RET(ReSelector(comm, param, topoInfo, algName));
     auto copyRet = sprintf_s(newAlgName, fallbackCtxSize, "%s", algName.c_str());
@@ -435,6 +427,16 @@ HcclResult ReSelector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWit
     return HCCL_SUCCESS;
 }
 
+HcclResult SetOpParamFallbackTag(OpParam &param, const std::string &algName)
+{
+    auto fallbackRet = sprintf_s(param.fallbackTag, sizeof(param.fallbackTag), "%s_%s", algName.c_str(), "fallback");
+    if (fallbackRet <= 0) {
+        HCCL_ERROR("[%s] failed to fill fallbackTag", __func__);
+        return HCCL_E_INTERNAL;
+    }
+    return HCCL_SUCCESS;
+}
+
 HcclResult HcclExecOp(HcclComm comm, OpParam &param,
                       std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo, std::string &algName, const ResPackGraphMode &resPack)
 {
@@ -442,16 +444,9 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     HCCL_INFO("[HcclExecOp]Start to execute HcclExecOp.HcommGetProfilingSysCycleTime.%llu", beginTime);
     // 当前通信域的某个算法回退过，则下次直接回退
     void * fallbackCtx = nullptr;
-    const u32 ALG_MAX_LENGTH = 50;
-    const u32 FALLBACK_MAX_TAG_LENGTH = 60;
-    uint64_t fallbackCtxSize = ALG_MAX_LENGTH;
-    char fallbackTag[FALLBACK_MAX_TAG_LENGTH];
-    auto fallbackRet = sprintf_s(fallbackTag, sizeof(fallbackTag), "%s_%s", algName.c_str(), "fallback");
-    if (fallbackRet <= 0) {
-        HCCL_ERROR("[%s] failed to fill fallbackTag", __func__);
-        return HCCL_E_INTERNAL;
-    }
-    if (HcclEngineCtxGet(comm, fallbackTag, param.engine, &fallbackCtx, &fallbackCtxSize) == HCCL_SUCCESS) {
+    uint64_t fallbackCtxSize = 0;
+    CHK_RET(SetOpParamFallbackTag(param, algName));
+    if (HcclEngineCtxGet(comm, param.fallbackTag, param.engine, &fallbackCtx, &fallbackCtxSize) == HCCL_SUCCESS) {
         HCCL_INFO("[HcclExecOp] Engine ctx exists, try to fallback.");
         std::string newAlgName = static_cast<char*>(fallbackCtx);
         HCCL_INFO("[HcclExecOp] Cached algo type is %s.", newAlgName.c_str());
@@ -491,6 +486,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
 
     auto resRet = HcclGetAlgRes(comm, param, executor, topoInfo.get(), resCtxHost, &resCtxSequence, isResourceReused);
     if (resRet == HCCL_E_UNAVAIL) {
+        HCCL_WARNING("[HcclGetAlgRes] resource unavailable, try to fallback.");
         CHK_RET(FallbackOp(comm, param, topoInfo, algName, resPack));
         return HCCL_SUCCESS;
     } else {
@@ -756,7 +752,6 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
 {
     HCCL_INFO("Start to execute HcclGetAlgRes.");
 
-    void *ctx = nullptr;
     bool increCreateChannelFlag = false;
     if (param.opType == HcclCMDType::HCCL_CMD_BATCH_SEND_RECV && param.opMode == OpMode::OPBASE) {
         // 增量建链模式
@@ -810,11 +805,9 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
         // 添加资源回退。SetCommEngine
         auto ret = GetAlgResCcu(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence, size);
         if (ret == HCCL_E_UNAVAIL) {
-            HCCL_INFO("[GetAlgResCcu] resource unavailable, try to fallback.");
             return HCCL_E_UNAVAIL;
-        } else {
-            CHK_RET(ret);
         }
+        CHK_RET(ret);
     } else {
         HCCL_ERROR("fail to get engine.", HCCL_E_PARA);
     }
@@ -1174,8 +1167,7 @@ HcclResult GetAlgResCcu(HcclComm comm, const OpParam& param, AlgResourceRequest&
     // 创建资源，并填充到Host内存上
     HcclResult ret = HcclAllocAlgResourceCcu(comm, param, resRequest, resCtxHost);
     if (ret == HCCL_E_UNAVAIL) {
-        // 进行资源回退
-        HCCL_INFO("[HcclAllocAlgResourceCcu] resource unavailable, try to fallback.");
+        HCCL_WARNING("[HcclAllocAlgResourceCcu] resource unavailable, try to fallback.");
         return HCCL_E_UNAVAIL;
     } else if (ret != HCCL_SUCCESS) {
         HCCL_ERROR("failed to alloc alg resource.");
@@ -1212,21 +1204,13 @@ HcclResult HcclAllocAlgResourceCcu(HcclComm comm, const OpParam& param, AlgResou
     auto ret = HcclGetChannelForCcu(comm, param, resRequest);
     if (ret == HCCL_E_UNAVAIL) {
         // 进行资源回退
-        HCCL_INFO("[HcclGetChannelForCcu] channel unavailable, try to fallback.");
+        HCCL_WARNING("[HcclGetChannelForCcu] channel unavailable, try to fallback.");
         return HCCL_E_UNAVAIL;
     } else {
         CHK_RET(ret);
     }
 
-    ret = HcclGetCcuKernel(comm, resRequest, resCtxHost);
-    return HCCL_E_UNAVAIL; // stub
-    if (ret == HCCL_E_UNAVAIL) {
-        // 进行资源回退
-        HCCL_INFO("[HcclGetCcuKernel] kernel unavailable, try to fallback.");
-        return HCCL_E_UNAVAIL;
-    } else {
-        CHK_RET(ret);
-    }
+    CHK_RET(HcclGetCcuKernel(comm, resRequest, resCtxHost));
     return HCCL_SUCCESS;
 }
 
@@ -1245,7 +1229,7 @@ HcclResult HcclGetChannelForCcu(HcclComm comm, const OpParam &param, AlgResource
             auto ret = HcclChannelAcquire(comm, param.engine, kernelChannelRequest.data(),
                 channelNum, kernelChannels.data());
             if (ret == HCCL_E_UNAVAIL) {
-                HCCL_INFO("[HcclChannelAcquire] channel unavailable, channel num[%u].", channelNum);
+                HCCL_WARNING("[HcclChannelAcquire] channel unavailable, channel num[%u].", channelNum);
                 return HCCL_E_UNAVAIL;
             } else {
                 CHK_RET(ret);
@@ -1286,15 +1270,7 @@ HcclResult HcclGetCcuKernel(HcclComm comm, AlgResourceRequest &resRequest,
 
             HCCL_DEBUG("[AllocAlgResource] kernelArgPtr[%p], creator[%p]", kernelArgPtr, &(kernelInfo.creator));
             CcuKernelHandle handle;
-            
-            auto ret = HcclCcuKernelRegister(comm, &handle, creatorPtr, kernelArgPtr);
-            if (ret == HCCL_E_UNAVAIL) {
-                HCCL_INFO("[HcclCcuKernelRegister] kernel unavailable, group idx[%u], kernel idx[%u].", 
-                          currentResGroup, i);
-                return HCCL_E_UNAVAIL;
-            } else {
-                CHK_RET(ret);
-            }
+            CHK_RET(HcclCcuKernelRegister(comm, &handle, creatorPtr, kernelArgPtr));
             
             resCtxHost->ccuKernels[i] = handle;
         }
@@ -1722,6 +1698,7 @@ HcclResult DecideHcclOpExpansionMode(HcclComm comm, HcclOpExpansionMode &finalMo
                 configOpExpansionMode, finalMode);
         }
     }
+    HCCL_INFO("[DecideHcclOpExpansionMode] finalMode: %d.", finalMode);
 
     return HCCL_SUCCESS;
 }
@@ -1820,10 +1797,10 @@ bool HcclCheckCcuEnableOpen()
     const char* envValue = std::getenv("HCCL_ENABLE_OPEN_CCU");
 
     if (envValue != nullptr && std::strcmp(envValue, "1") == 0) {
-        return false;
+        return true;
     }
 
-    return true;
+    return false;
 }
 
 bool HcclCheckAivEnableOpen()
