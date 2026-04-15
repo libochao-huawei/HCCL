@@ -206,6 +206,8 @@ else()
         ${TOP_DIR}/metadef/inc/external
         ${TOP_DIR}/runtime/include/external
         ${TOP_DIR}/runtime/include/external/acl
+        ${TOP_DIR}/runtime/include/dfx
+        ${TOP_DIR}/runtime/pkg_inc
         ${TOP_DIR}/runtime/pkg_inc/base
         ${TOP_DIR}/runtime/pkg_inc/mmpa
 
