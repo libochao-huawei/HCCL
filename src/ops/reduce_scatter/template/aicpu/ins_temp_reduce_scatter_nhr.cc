@@ -255,9 +255,9 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
                 const u64 rxScOff = scratchBase + tempAlgParams_.sliceSize * rxIdx + elemOffset_[channelIdx]; 
 
                 const u64 txSliceSize = (txIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize > 0) ?
-                    sizeOutTail_ : sizeOut_;
+                    sizeOutTail_[channelIdx] : sizeOut_[channelIdx];
                 const u64 rxSliceSize = (rxIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize > 0) ?
-                    sizeOutTail_ : sizeOut_;
+                    sizeOutTail_[channelIdx]: sizeOut_[channelIdx];
 
                 DataSlice txSrcSlice = DataSlice(tempAlgParams_.buffInfo.hcclBuff.addr, txScOff,
                     txSliceSize, txSliceSize / DATATYPE_SIZE_TABLE[dataType_]); // 发送源
