@@ -343,6 +343,7 @@ target_compile_definitions(scatter_aicpu_kernel PRIVATE
 
 target_link_libraries(scatter_aicpu_kernel PRIVATE
     -Wl,--no-as-needed
+    ccl_kernel
     -Wl,--no-as-needed
 )
 
@@ -410,6 +411,7 @@ target_link_directories(hccl PRIVATE
 if(BUILD_OPEN_PROJECT)
     target_link_libraries(hccl PRIVATE
         -Wl,--no-as-needed
+        hcomm
         acl_rt
         c_sec
         unified_dlog
@@ -423,6 +425,7 @@ else()
         $<BUILD_INTERFACE:runtime_headers>
         $<BUILD_INTERFACE:mmpa_headers>
         -Wl,--no-as-needed
+        hcomm
         acl_rt
         c_sec
         unified_dlog
