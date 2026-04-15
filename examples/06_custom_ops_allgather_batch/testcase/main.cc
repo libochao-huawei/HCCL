@@ -9,6 +9,7 @@
  */
 
 #include <cmath>
+#include <cstdlib>
 #include <cstdint>
 #include <cstring>
 #include <iomanip>
@@ -53,6 +54,15 @@ void Log(int rank, const Args&... args)
     std::cout << oss.str() << std::endl;
 }
 
+int GetLocalRank()
+{
+    const char *env = std::getenv("OMPI_COMM_WORLD_LOCAL_RANK");
+    if (env != nullptr) {
+        return std::atoi(env);
+    }
+    return -1;
+}
+
 int InitEnv(int argc, char* argv[], int& rank, int& size, HcclComm& hcclComm)
 {
     MPI_Init(&argc, &argv);
@@ -62,7 +72,19 @@ int InitEnv(int argc, char* argv[], int& rank, int& size, HcclComm& hcclComm)
     ACLCHECK(aclInit(nullptr));
     uint32_t devCount = 0;
     ACLCHECK(aclrtGetDeviceCount(&devCount));
-    int deviceId = rank % devCount;
+    if (devCount == 0) {
+        Log(rank, "No Ascend device found");
+        return -1;
+    }
+
+    const int localRank = GetLocalRank();
+    const int deviceId = (localRank >= 0) ? localRank : rank;
+    Log(rank, "devCount=", devCount, ", localRank=", localRank, ", deviceId=", deviceId);
+    if (deviceId < 0 || static_cast<uint32_t>(deviceId) >= devCount) {
+        Log(rank, "Selected device is out of range");
+        return -1;
+    }
+
     ACLCHECK(aclrtSetDevice(deviceId));
 
     HcclRootInfo rootInfo;
