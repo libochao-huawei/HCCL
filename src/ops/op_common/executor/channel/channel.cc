@@ -174,7 +174,7 @@ HcclResult CreateChannelFromLink(HcclComm comm, u32 myRank, u32 rank, uint32_t n
                 funcName.c_str(), channelDesc.localEndpoint.loc.device.devPhyId,
                 channelDesc.remoteEndpoint.loc.device.devPhyId);
     HCCL_INFO("%s Add channel request between %zu and %zu, netLayerIdx %u, "
-              "linkListIdx %u, protocol %zu",
+              "linkListIdx %u, protocol %d",
               funcName.c_str(), myRank, channelDesc.remoteRank, netLayer, idx, channelDesc.remoteEndpoint.protocol);
     channelDesc.channelProtocol = link.linkAttr.linkProtocol;
     channelDesc.notifyNum = NORMAL_NOTIFY_NUM;
@@ -250,6 +250,179 @@ HcclResult CalcChannelRequestMesh1D(HcclComm comm, const OpParam& param, const T
             HCCL_ERROR("[CalcChannelRequestMesh1D] Failed to create channel between myRank=%u and rank=%u, there is no link.",
                 myRank, rank), HcclResult::HCCL_E_INTERNAL);
     }
+#endif
+    return HCCL_SUCCESS;
+}
+
+bool IsSameLink(CommLink &link0, CommLink &link1)
+{
+    CommAddr &link0SrcAddr = link0.srcEndpointDesc.commAddr;
+    CommAddr &link0DstAddr = link0.dstEndpointDesc.commAddr;
+    CommAddr &link1SrcAddr = link1.srcEndpointDesc.commAddr;
+    CommAddr &link1DstAddr = link1.dstEndpointDesc.commAddr;
+    if (link0SrcAddr.type != link1SrcAddr.type) {
+        return false;
+    }
+    bool isSameLink = false;
+    switch (link0SrcAddr.type) {
+        case CommAddrType::COMM_ADDR_TYPE_EID:
+            isSameLink = memcmp(link0SrcAddr.eid, link1SrcAddr.eid, sizeof(link0SrcAddr.eid)) == 0 &&
+                        memcmp(link0DstAddr.eid, link1DstAddr.eid, sizeof(link0DstAddr.eid)) == 0;
+            break;
+        case CommAddrType::COMM_ADDR_TYPE_ID:
+            isSameLink = link0SrcAddr.id == link1SrcAddr.id && link0DstAddr.id == link1DstAddr.id;
+            break;
+        case CommAddrType::COMM_ADDR_TYPE_IP_V4:
+            isSameLink = link0SrcAddr.addr.s_addr == link1SrcAddr.addr.s_addr && link0DstAddr.addr.s_addr == link1DstAddr.addr.s_addr;
+            break;
+        case CommAddrType::COMM_ADDR_TYPE_IP_V6:
+            isSameLink = link0SrcAddr.addr6.s6_addr == link1SrcAddr.addr6.s6_addr && link0DstAddr.addr6.s6_addr == link1DstAddr.addr6.s6_addr;
+            break;
+        default:
+            HCCL_ERROR("[CalcChannelRequestMesh1DDetour] Link type is invalid[%d].", link0SrcAddr.type);
+            break;
+    }
+    return isSameLink;
+}
+
+u64 GetDetourLinkNum(std::map<u32, std::vector<u32>> &channelsMap, u32 myRank, const std::vector<u32> &ranksVec)
+{
+    for (auto rank : ranksVec) {
+        if (rank == myRank) {
+            continue;
+        } else {
+            return channelsMap[rank].size();
+        }
+    }
+    HCCL_WARNING("GetDetourLinkNum] channelsMap is empty!");
+    return 0;
+}
+
+HcclResult AddChannelsDetour(std::map<u32, std::vector<u32>> &channelsMap, std::vector<u32> &channelsIndexVec,
+                             u32 myRank, const std::vector<u32> &ranksVec, std::string linkType)
+{
+    if (ranksVec.size() <= 0) {
+        return HCCL_SUCCESS;
+    }
+    u64 linkNum = GetDetourLinkNum(channelsMap, myRank, ranksVec);
+    for (u64 n = 0; n < linkNum; n++) {
+        for (auto &rank : ranksVec) {
+            if (rank == myRank) {
+                continue;
+            }
+            auto &channelIndex = channelsMap[rank][n];
+            channelsIndexVec.emplace_back(channelIndex);
+            HCCL_INFO("[AddChannelsDetour] Current rank[%u], remote rank[%u], linkIdx[%llu], linkType[%s],"
+                      "channelIndex[%d]", myRank, rank, n, linkType.c_str(), channelIndex);
+        }
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult ClassifyDetourChannels(std::vector<CommLink> &allLinks, u32 index, std::vector<HcclChannelDesc> &channels, u32 myRank, HcclDetourType detourType, 
+                                  std::vector<u32> &directChannels, std::vector<u32> &sendChannels, std::vector<u32> &recvChannels)
+{   
+    u64 half = (allLinks.size() - 1) / 2;
+    u32 channelIdx = channels.size() - allLinks.size() + index;
+    if (allLinks[index].linkAttr.hop == 1) {
+        // direct链路
+        directChannels.emplace_back(channelIdx);
+    } else if (detourType == HcclDetourType::HCCL_DETOUR_ENABLE_2P) {
+        if (index <= half && myRank == 0 || index > half && myRank == 1) {
+            // sendOnly绕路链路
+            sendChannels.emplace_back(channelIdx);
+        } else if (index <= half && myRank == 1 || index > half && myRank == 0) {
+            // recvOnly绕路链路
+            recvChannels.emplace_back(channelIdx);
+        }
+    } else if (detourType == HcclDetourType::HCCL_DETOUR_ENABLE_4P) {
+        if (allLinks.size() == 2) {
+            channels.emplace_back(channels[channelIdx]);
+            sendChannels.emplace_back(channelIdx);
+            recvChannels.emplace_back(channelIdx + 1);
+        }
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult ClassifyDetourChannelsEveryLayers(HcclComm &comm, u32 myRank, u32 rank, std::vector<uint32_t> &netLayersVector, std::vector<CommProtocol> &expectedProtocols,
+                                             HcclDetourType detourType, std::vector<u32> &directChannels, std::vector<u32> &sendChannels, std::vector<u32> &recvChannels,
+                                             std::vector<HcclChannelDesc> &channels)
+{
+    for (auto netLayer : netLayersVector) {
+        CommLink *linkList = nullptr;
+        u32 listSize;
+        CHK_RET(HcclRankGraphGetLinks(comm, netLayer, myRank, rank, &linkList, &listSize));
+        CHK_PRT_RET(listSize == 0,
+            HCCL_ERROR("[ClassifyDetourChannelsEveryLayers] the nums of link is 0, myRank[%u], remoteRank[%u]",
+                myRank, rank), HcclResult::HCCL_E_INTERNAL);
+        std::vector<CommLink> links(linkList, linkList + listSize);
+        std::vector<CommLink> allLinks;
+        CommLink priorLink;
+        u64 linkCounts = 0;
+        for (u32 idx = 0; idx < listSize; idx++) {
+            CommLink &link = links[idx];
+            bool isFound = false;
+            for (auto &expectedProtocol : expectedProtocols) {
+                if (link.linkAttr.linkProtocol == expectedProtocol) {
+                    isFound = true;
+                    break;
+                }
+            }
+            if (isFound && (linkCounts == 0 || !IsSameLink(priorLink, link))) {
+                CHK_RET(CreateChannelFromLink(comm, myRank, rank, netLayer, idx, link, "ClassifyDetourChannelsEveryLayers", channels));
+                allLinks.emplace_back(link);
+                priorLink = link;
+                linkCounts++;
+            }
+        }
+        for (u32 idx = 0; idx < allLinks.size(); idx++) {
+            CHK_RET(ClassifyDetourChannels(allLinks, idx, channels, myRank, detourType, directChannels, sendChannels, recvChannels));
+        }
+        CHK_PRT_RET(sendChannels.size() != recvChannels.size(),
+            HCCL_ERROR("[ClassifyDetourChannelsEveryLayers] sendChannels.size()[%llu] != recvChannels.size()[%llu]",
+                sendChannels.size(), recvChannels.size()), HcclResult::HCCL_E_INTERNAL);
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult CalcChannelRequestMesh1DDetour(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
+    const std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels, std::vector<u32> &channelsIndexVec)
+{
+#ifndef AICPU_COMPILE
+    (void) param;
+    channels.clear();
+    channelsIndexVec.clear();
+    auto it = std::find(subcommInfo[COMM_LEVEL0].begin(), subcommInfo[COMM_LEVEL0].end(), topoInfo->userRank);
+    CHK_PRT_RET((it == subcommInfo[COMM_LEVEL0].end()),
+                HCCL_ERROR("[CollAlgFactory] [channel] Rank [%d] is not in commInfo.", topoInfo->userRank),
+                HcclResult::HCCL_E_PARA);
+
+    u32 myRank = topoInfo->userRank;
+    std::vector<CommProtocol> expectedProtocols;
+    CHK_RET(GetProtocolByEngine(param, expectedProtocols));
+    std::map<u32, std::vector<u32>> directChannelsMap;
+    std::map<u32, std::vector<u32>> sendChannelsMap;
+    std::map<u32, std::vector<u32>> recvChannelsMap;
+
+    for (u32 rank: subcommInfo[COMM_LEVEL0]) {
+        if (rank == topoInfo->userRank) {
+            continue;
+        }
+        directChannelsMap[rank] = std::vector<u32>();
+        sendChannelsMap[rank] = std::vector<u32>();
+        recvChannelsMap[rank] = std::vector<u32>();
+        size_t channelCountBefore = channels.size();
+        uint32_t *netLayers;
+        uint32_t netLayerNum;
+        CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
+        std::vector<uint32_t> netLayersVector(netLayers, netLayers + netLayerNum);
+        CHK_RET(ClassifyDetourChannelsEveryLayers(comm, myRank, rank, netLayersVector, expectedProtocols, param.detourType, 
+                directChannelsMap[rank], sendChannelsMap[rank], recvChannelsMap[rank], channels));
+    }
+    CHK_RET(AddChannelsDetour(directChannelsMap, channelsIndexVec, myRank, subcommInfo[COMM_LEVEL0], "direct"));
+    CHK_RET(AddChannelsDetour(sendChannelsMap, channelsIndexVec, myRank, subcommInfo[COMM_LEVEL0], "send only"));
+    CHK_RET(AddChannelsDetour(recvChannelsMap, channelsIndexVec, myRank, subcommInfo[COMM_LEVEL0], "recv only"));
 #endif
     return HCCL_SUCCESS;
 }
