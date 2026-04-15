@@ -40,7 +40,7 @@ HcclResult InsTempReduceScatterNHR::CalcRes(HcclComm comm, const OpParam& param,
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult InsTempReduceScatterNHR::GetchannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels) const
+HcclResult InsTempReduceScatterNHR::GetchannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels)
 {
     channelsPerRank_ = channels.begin()->second.size();
 

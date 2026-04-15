@@ -39,7 +39,7 @@ public:
                          TemplateResource& templateResource) override;
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
     u64 GetThreadNum() const override;
-    HcclResult GetchannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels) const;
+    HcclResult GetchannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels);
     void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub) override;
     void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override;
 private:
