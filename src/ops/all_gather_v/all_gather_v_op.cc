@@ -40,7 +40,6 @@ HcclResult HcclAllGatherV(void *sendBuf, uint64_t sendCount, void *recvBuf, cons
     // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
     CHK_RET(InitEnvConfig());
     // 参数校验等工作
-    CHK_PRT_RET(sendCount == 0, HCCL_WARNING("input recvCount is 0, return all gather success"), HCCL_SUCCESS);
  	CHK_RET(CheckAllGatherVInputPara(comm, sendBuf, recvBuf, recvCounts, recvDispls, stream));
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     CHK_RET(HcclGetRankSize(comm, &rankSize));
@@ -75,8 +74,6 @@ HcclResult HcclAllGatherVGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCo
     HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
  	// 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
     CHK_RET(InitEnvConfig());
- 	// 参数校验等工作
- 	CHK_PRT_RET(sendCount == 0, HCCL_WARNING("input sendCount is 0, return all gather success"), HCCL_SUCCESS);
  	// 检查入参指针有效性
  	CHK_RET(CheckAllGatherVInputPara(comm, sendBuf, recvBuf, recvCounts, recvDispls, stream));
  	// tag有效性,是否过长
