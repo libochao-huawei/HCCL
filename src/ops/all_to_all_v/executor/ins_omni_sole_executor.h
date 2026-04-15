@@ -96,8 +96,7 @@ protected:
     /* *************** 算法编排 *************** */
     HcclResult OrchestrateLoop(const OpParam &param, const AlgResourceCtxSerializable &resCtx);
     HcclResult InitCommInfo(const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo);
-    HcclResult ParseXmlInfo(const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo); // 解析xml bin文件
-    uint32_t ReadBits(std::ifstream& file, uint64_t offset, size_t numBits);
+    HcclResult ParseXmlInfo(const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo);
 
     std::vector<std::vector<std::vector<u32>>> algHierarchyInfo_;
     std::vector<std::map<u32, std::vector<ChannelInfo>>> remoteRankToChannelInfo_;

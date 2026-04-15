@@ -20,7 +20,6 @@ namespace ops_hccl {
 constexpr uint16_t OMNI_RES_REQUEST_OPCODE = 0;
 constexpr uint16_t OMNI_PRESYNC_OPCODE = 1;
 constexpr uint16_t OMNI_POSTSYNC_OPCODE = 2;
-constexpr uint64_t OMNI_SYNC_INSTRUCTION_BITS = 64;
 
 std::string JoinOmniPath(const std::string &basePath, const std::string &fileName)
 {
@@ -79,37 +78,9 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::InitCommInfo(const
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
-uint32_t InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ReadBits(std::ifstream& file, uint64_t offset, size_t numBits)
-{
-    uint32_t result = 0;
-    size_t bitsRead = 0;
-    const uint64_t byteOffset = offset / 8;
-    const size_t bitOffset = offset % 8;
-    const size_t totalBits = bitOffset + numBits;
-    const size_t totalBytes = (totalBits + 7) / 8;
-    std::vector<uint8_t> bytes(totalBytes, 0);
-
-    file.clear();
-    file.seekg(byteOffset, std::ios::beg);
-    if (!file.read(reinterpret_cast<char*>(bytes.data()), totalBytes)) {
-        return 0;
-    }
-    while (bitsRead < numBits) {
-        const size_t absBit = bitOffset + bitsRead;
-        const size_t curByteIdx = absBit / 8;
-        const size_t curBitIdx = absBit % 8;
-        const uint8_t bit = (bytes[curByteIdx] >> (7 - curBitIdx)) & 0x1;
-        result = (result << 1) | bit;
-        bitsRead++;
-    }
-    return result;
-}
-
-template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ParseXmlInfo(const OpParam& param,
     const TopoInfoWithNetLayerDetails* topoInfo)
 {
-    (void)param;
     (void)topoInfo;
     const char *omniBinPath = std::getenv("HCCL_OMNI_BIN_PATH");
     std::vector<std::string> candidatePaths;
@@ -137,157 +108,131 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ParseXmlInfo(const
     }
     HCCL_INFO("[InsOmniSoleExecutor][ParseXmlInfo] use omni bin file [%s].", selectedPath.c_str());
 
-    XmlInfo xmlInfo;
     uint64_t offset = 0;
-    uint16_t op = ReadBits(file, offset, 8);
-    offset += 8;
-    uint16_t slaveThreadNum = ReadBits(file, offset, 8);
-    offset += 8;
-    uint16_t notifyNumOnMainThread = ReadBits(file, offset, 8);
-    offset += 8;
-    uint16_t notifyNumPerThread = ReadBits(file, offset, 8);
-    offset += 8;
-    uint16_t netLayer = ReadBits(file, offset, 8);
-    offset += 8;
-    uint16_t chanCount = ReadBits(file, offset, 8);
-    offset += 8;
-    uint16_t blockNumAiv = 1;
-    if (param.engine == CommEngine::COMM_ENGINE_AIV && chanCount > 0) {
-        const uint16_t firstByte = ReadBits(file, offset, 8);
-        const uint16_t thirdByte = ReadBits(file, offset + 16, 8);
-        if (thirdByte == myRank_ && firstByte > 0) {
-            blockNumAiv = firstByte;
-            offset += 8;
-        }
-    }
-    (void)op;
-    xmlInfo.resInfo.slaveThreadNum = slaveThreadNum;
-    xmlInfo.resInfo.notifyNumOnMainThread = notifyNumOnMainThread;
-    xmlInfo.resInfo.notifyNumPerThread = notifyNumPerThread;
-    xmlInfo.resInfo.netLayerNum = netLayer;
-    xmlInfo.resInfo.blockNumAiv = blockNumAiv;
-
-    std::map<u32, OmniChannelInfo> mapChannelInfo;
-    for (uint16_t i = 0; i < chanCount; i++) {
-        OmniChannelInfo omniChannelInfo;
-        uint16_t channelId = ReadBits(file, offset, 8);
-        offset += 8;
-        uint16_t localRank = ReadBits(file, offset, 8);
-        offset += 8;
-        uint16_t remoteRank = ReadBits(file, offset, 8);
-        offset += 8;
-        uint16_t linkProto = ReadBits(file, offset, 8);
-        offset += 8;
-        if (localRank != myRank_) {
-            continue;
-        }
-
-        (void)channelId;
-        omniChannelInfo.remoteRank = remoteRank;
-        omniChannelInfo.channelProtocol = static_cast<CommProtocol>(linkProto);
-        mapChannelInfo[remoteRank] = omniChannelInfo;
-    }
-    xmlInfo.resInfo.mapchannelInfo.push_back(mapChannelInfo);
-
     do {
-        uint16_t opcode = ReadBits(file, offset, 5);
-        if (opcode == OMNI_RES_REQUEST_OPCODE) {
+        file.seekg(offset);
+        uint64_t data = 0;
+        if (!file.read(reinterpret_cast<char*>(&data), sizeof(data))) {
             break;
         }
-        if (opcode == OMNI_PRESYNC_OPCODE || opcode == OMNI_POSTSYNC_OPCODE) {
-            offset += OMNI_SYNC_INSTRUCTION_BITS;
-            continue;
+
+        uint16_t op = data & 0x1F;
+
+        if (op == OMNI_RES_REQUEST_OPCODE) {
+            uint16_t slaveThreadNum = (data >> 5) & 0x1F;
+            uint16_t notifyNumOnMainThread = (data >> 10) & 0x1F;
+            uint16_t notifyNumPerThread = (data >> 15) & 0x1F;
+            uint16_t netLayer = (data >> 20) & 0x3;
+            uint16_t chanCount = (data >> 22) & 0xFF;
+
+            uint16_t blockNumAiv = 1;
+            if (param.engine == CommEngine::COMM_ENGINE_AIV && chanCount > 0) {
+                blockNumAiv = chanCount;
+            }
+
+            xmlInfo_.resInfo.slaveThreadNum = slaveThreadNum;
+            xmlInfo_.resInfo.notifyNumOnMainThread = notifyNumOnMainThread;
+            xmlInfo_.resInfo.notifyNumPerThread = notifyNumPerThread;
+            xmlInfo_.resInfo.netLayerNum = netLayer;
+            xmlInfo_.resInfo.blockNumAiv = blockNumAiv;
+
+            offset += sizeof(data);
+
+            std::map<u32, OmniChannelInfo> mapChannelInfo;
+            for (uint16_t i = 0; i < chanCount; i++) {
+                file.seekg(offset);
+                uint32_t channelData = 0;
+                if (!file.read(reinterpret_cast<char*>(&channelData), sizeof(channelData))) {
+                    break;
+                }
+
+                uint16_t netLayerId = (channelData >> 0) & 0x1F;
+                uint16_t localRank = (channelData >> 5) & 0x3FF;
+                uint16_t remoteRank = (channelData >> 15) & 0x3FF;
+                uint16_t linkProto = (channelData >> 25) & 0x7;
+                offset += sizeof(channelData);
+
+                if (localRank != myRank_) {
+                    continue;
+                }
+
+                OmniChannelInfo omniChannelInfo;
+                omniChannelInfo.netlayerId = netLayerId;
+                omniChannelInfo.remoteRank = remoteRank;
+                omniChannelInfo.channelProtocol = static_cast<CommProtocol>(linkProto);
+                mapChannelInfo[remoteRank] = omniChannelInfo;
+            }
+            xmlInfo_.resInfo.mapchannelInfo.push_back(mapChannelInfo);
+        } else if (op == OMNI_PRESYNC_OPCODE || op == OMNI_POSTSYNC_OPCODE) {
+            uint16_t subThreadNum = (data >> 10) & 0x1F;
+            offset += sizeof(data);
+            offset += subThreadNum * sizeof(uint8_t);
+        } else {
+            uint16_t netlayerId = (data >> 5) & 0x3;
+            uint16_t linkProto = (data >> 7) & 0x7;
+            uint16_t sliceNum = (data >> 10) & 0x3FF;
+            uint16_t srcSliceCnt = (data >> 20) & 0xF;
+            uint16_t dstSliceCnt = (data >> 24) & 0xF;
+            uint16_t notifyFlag = (data >> 28) & 0x1;
+            uint16_t notifyThread = (data >> 29) & 0xF;
+            uint16_t waitFlag = (data >> 33) & 0x1;
+            uint16_t waitThread = (data >> 34) & 0xF;
+            uint16_t threadIdx = (data >> 38) & 0x1F;
+            uint16_t reduceType = (data >> 43) & 0x3;
+            uint16_t inputDataType = (data >> 45) & 0xF;
+            uint16_t outputDataType = (data >> 49) & 0xF;
+            uint16_t instructionId = (data >> 53) & 0x3FF;
+            (void)linkProto;
+            (void)notifyFlag;
+            (void)notifyThread;
+            (void)waitFlag;
+            (void)waitThread;
+            (void)instructionId;
+
+            OmniSendRecvInfo omniSendRecvInfo;
+            omniSendRecvInfo.optype = static_cast<OpType>(op);
+            omniSendRecvInfo.inputDataType = static_cast<HcclDataType>(inputDataType);
+            omniSendRecvInfo.outputDataType = static_cast<HcclDataType>(outputDataType);
+            omniSendRecvInfo.reduceType = static_cast<HcclReduceOp>(reduceType);
+            omniSendRecvInfo.sliceNum = sliceNum;
+            omniSendRecvInfo.netlayerId = netlayerId;
+            omniSendRecvInfo.threadIdx = threadIdx;
+
+            offset += sizeof(data);
+
+            for (uint16_t i = 0; i < srcSliceCnt; i++) {
+                file.seekg(offset);
+                uint32_t srcData = 0;
+                if (!file.read(reinterpret_cast<char*>(&srcData), sizeof(srcData))) {
+                    break;
+                }
+                offset += sizeof(srcData);
+
+                OmniSliceInfo omniSliceInfo;
+                omniSliceInfo.sliceType = static_cast<BufferTypeTmp>((srcData >> 0) & 0x3);
+                omniSliceInfo.sliceIdx = (srcData >> 2) & 0x3FF;
+                omniSliceInfo.remoteRank = (srcData >> 12) & 0x3FF;
+                omniSendRecvInfo.srcSliceInfo.push_back(omniSliceInfo);
+            }
+
+            for (uint16_t i = 0; i < dstSliceCnt; i++) {
+                file.seekg(offset);
+                uint32_t dstData = 0;
+                if (!file.read(reinterpret_cast<char*>(&dstData), sizeof(dstData))) {
+                    break;
+                }
+                offset += sizeof(dstData);
+
+                OmniSliceInfo omniSliceInfo;
+                omniSliceInfo.sliceType = static_cast<BufferTypeTmp>((dstData >> 0) & 0x3);
+                omniSliceInfo.sliceIdx = (dstData >> 2) & 0x3FF;
+                omniSliceInfo.remoteRank = (dstData >> 12) & 0x3FF;
+                omniSendRecvInfo.dstSliceInfo.push_back(omniSliceInfo);
+            }
+            xmlInfo_.vecSendRecvInfo.push_back(omniSendRecvInfo);
         }
+    } while (file.peek() != EOF);
 
-        OmniSendRecvInfo omniSendRecvInfo;
-        offset += 5;
-        uint16_t linkType = ReadBits(file, offset, 2);
-        offset += 2;
-        uint16_t linkProto = ReadBits(file, offset, 3);
-        offset += 3;
-        uint16_t localRankID = ReadBits(file, offset, 10);
-        offset += 10;
-        uint16_t sliceNum = ReadBits(file, offset, 10);
-        offset += 10;
-        uint16_t srcSliceCnt = ReadBits(file, offset, 4);
-        offset += 4;
-        uint16_t dstSliceCnt = ReadBits(file, offset, 4);
-        offset += 4;
-        uint16_t notifyFlag = ReadBits(file, offset, 1);
-        offset += 1;
-        uint16_t notifyThread = ReadBits(file, offset, 4);
-        offset += 4;
-        uint16_t waitFlag = ReadBits(file, offset, 1);
-        offset += 1;
-        uint16_t waitThread = ReadBits(file, offset, 4);
-        offset += 4;
-        offset += 16;
-
-        uint16_t sendChannelID = ReadBits(file, offset, 8);
-        offset += 8;
-        uint16_t recvChannelID = ReadBits(file, offset, 8);
-        offset += 8;
-        uint16_t threadIdx = ReadBits(file, offset, 5);
-        offset += 5;
-        uint16_t instructionID = ReadBits(file, offset, 16);
-        offset += 16;
-        uint16_t reduceType = ReadBits(file, offset, 2);
-        offset += 2;
-        uint16_t inputDataType = ReadBits(file, offset, 4);
-        offset += 4;
-        uint16_t outputDataType = ReadBits(file, offset, 4);
-        offset += 4;
-        offset += 17;
-        (void)linkProto;
-        (void)localRankID;
-        (void)notifyFlag;
-        (void)notifyThread;
-        (void)waitFlag;
-        (void)waitThread;
-        (void)sendChannelID;
-        (void)recvChannelID;
-        (void)instructionID;
-
-        omniSendRecvInfo.optype = static_cast<OpType>(opcode);
-        omniSendRecvInfo.inputDataType = static_cast<HcclDataType>(inputDataType);
-        omniSendRecvInfo.outputDataType = static_cast<HcclDataType>(outputDataType);
-        omniSendRecvInfo.reduceType = static_cast<HcclReduceOp>(reduceType);
-        omniSendRecvInfo.sliceNum = sliceNum;
-        omniSendRecvInfo.netlayerId = linkType;
-        omniSendRecvInfo.threadIdx = threadIdx;
-
-        for (uint16_t i = 0; i < srcSliceCnt; i++) {
-            OmniSliceInfo omniSliceInfo;
-            uint16_t srcBufferType = ReadBits(file, offset, 2);
-            offset += 2;
-            uint16_t srcSliceIdx = ReadBits(file, offset, 10);
-            offset += 10;
-            uint16_t remoteRank = ReadBits(file, offset, 10);
-            offset += 10;
-            omniSliceInfo.sliceType = static_cast<BufferTypeTmp>(srcBufferType);
-            omniSliceInfo.sliceIdx = srcSliceIdx;
-            omniSliceInfo.remoteRank = remoteRank;
-            omniSendRecvInfo.srcSliceInfo.push_back(omniSliceInfo);
-        }
-
-        for (uint16_t i = 0; i < dstSliceCnt; i++) {
-            OmniSliceInfo omniSliceInfo;
-            uint16_t dstBufferType = ReadBits(file, offset, 2);
-            offset += 2;
-            uint16_t dstSliceIdx = ReadBits(file, offset, 10);
-            offset += 10;
-            uint16_t remoteRank = ReadBits(file, offset, 10);
-            offset += 10;
-
-            omniSliceInfo.sliceType = static_cast<BufferTypeTmp>(dstBufferType);
-            omniSliceInfo.sliceIdx = dstSliceIdx;
-            omniSliceInfo.remoteRank = remoteRank;
-            omniSendRecvInfo.dstSliceInfo.push_back(omniSliceInfo);
-        }
-        xmlInfo.vecSendRecvInfo.push_back(omniSendRecvInfo);
-    } while(file.peek() != EOF);
-
-    xmlInfo_ = std::move(xmlInfo);
     return HCCL_SUCCESS;
 }
 
