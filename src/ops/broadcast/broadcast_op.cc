@@ -220,7 +220,7 @@ HcclResult BroadcastOutPlace(OpParam &param, void *buf, uint64_t count, HcclData
     param.DataDes.dataType = dataType;
     param.root = root;
     param.opType = HcclCMDType::HCCL_CMD_BROADCAST;
-    param.enableDetour = false;
+    param.detourType = GetExternalInputHcclDetourType();
     param.deviceType = deviceType;
 
     CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
