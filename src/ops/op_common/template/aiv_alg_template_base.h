@@ -33,7 +33,7 @@ public:
     virtual std::string Describe() const = 0;
     virtual HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                                AlgResourceRequest& resourceRequest);
-    virtual HcclResult AivAlgTemplateBase::GetchannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels);
+    virtual HcclResult GetchannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels);
     virtual u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType);
     virtual HcclResult CalNumBlocks(u32& numBlocks, u64 dataSize, u32 numBlocksLimit);
     virtual HcclResult KernelRun(const OpParam& param,
