@@ -85,7 +85,6 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::ParseXmlInfo(const
     const char *omniBinPath = std::getenv("HCCL_OMNI_BIN_PATH");
     std::vector<std::string> candidatePaths;
     if (omniBinPath != nullptr && omniBinPath[0] != '\0') {
-        candidatePaths.emplace_back(omniBinPath);
         candidatePaths.emplace_back(JoinOmniPath(omniBinPath, "rank_" + std::to_string(myRank_) + ".bin"));
     }
     candidatePaths.emplace_back("rank_" + std::to_string(myRank_) + ".bin");
