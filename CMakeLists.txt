@@ -13,11 +13,8 @@ message(STATUS "KERNEL_MODE=${KERNEL_MODE}")
 message(STATUS "BUILD_OPEN_PROJECT=${BUILD_OPEN_PROJECT}")
 message(STATUS "AARCH_MODE=${AARCH_MODE}")
 
-find_program(CCAHE_PROGRAM ccache)
-if(CCAHE_PROGRAM)
-    set(CMAKE_C_COMPILER_LAUNCHER ${CCAHE_PROGRAM})
-    set(CMAKE_CXX_COMPILER_LAUNCHER ${CCAHE_PROGRAM})
-endif()
+# 引入CANN/cmake库
+include(cmake/fetch_cann_cmake.cmake)
 
 if((BUILD_OPEN_PROJECT AND KERNEL_MODE) OR AARCH_MODE)
     # need to switch
@@ -38,15 +35,11 @@ if((BUILD_OPEN_PROJECT AND KERNEL_MODE) OR AARCH_MODE)
 endif()
 project(hccl)
 
+# 引入CANN/cmake库，初始化
+init_cann_project()
+
 set(CMAKE_C_FLAGS_RELEASE "")
 set(CMAKE_CXX_FLAGS_RELEASE "")
-
-set(CMAKE_CXX_COMPILE_OBJECT
-    "<CMAKE_CXX_COMPILER> <DEFINES> -D__FILE__='\"$(notdir $(abspath <SOURCE>))\"' -Wno-builtin-macro-redefined <INCLUDES> <FLAGS> -o <OBJECT> -c <SOURCE>"
-)
-set(CMAKE_C_COMPILE_OBJECT
-    "<CMAKE_C_COMPILER> <DEFINES> -D__FILE__='\"$(notdir $(abspath <SOURCE>))\"' -Wno-builtin-macro-redefined <INCLUDES> <FLAGS> -o <OBJECT> -c <SOURCE>"
-)
 
 if(ENABLE_TEST)
     include(cmake/config.cmake)
@@ -103,10 +96,8 @@ elseif(BUILD_OPEN_PROJECT)
     include(cmake/package.cmake)
     include(cmake/func.cmake)
     include(version.cmake)
-    if(ENABLE_OPEN_SRC)
-        check_pkg_build_deps("hccl")
-    endif()
-    add_version_info_targets()
+    check_cann_pkg_build_deps("hccl")
+    add_cann_version_info_targets()
     pack_built_in()
     add_subdirectory(src)
 
