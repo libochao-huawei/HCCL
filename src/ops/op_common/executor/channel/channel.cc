@@ -181,7 +181,7 @@ HcclResult CreateChannelFromLink(HcclComm comm, u32 myRank, u32 rank, uint32_t n
     channels.push_back(channelDesc);
     EndpointDesc localEndpoint = channels.localEndpoint;
     using portSizeType = uint32_t;
-    portSizeTypeSize = sizeof(portSizeType);
+    const uint32_t portSizeTypeSize = sizeof(portSizeType);
     portSizeType portSize = 0;
     CHK_RET(CreateChannelFromLink(comm, myRank, EndpointDesc, ENDPOINT_ATTR_BW_COEFF, portSizeTypeSize, static_cast<void*>(&portSize)));
     return HCCL_SUCCESS;
