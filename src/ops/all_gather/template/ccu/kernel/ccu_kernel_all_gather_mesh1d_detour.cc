@@ -16,7 +16,6 @@
 namespace ops_hccl {
 using namespace hcomm;
 
-constexpr int INPUT_XN_ID = 0;
 constexpr int OUTPUT_XN_ID = 1;
 constexpr int TOKEN_XN_ID = 2;
 constexpr int POST_SYNC_ID = 3;
@@ -156,20 +155,22 @@ void CcuKernelAllGatherMeshDetour1D::CreateMultiOpBroadcastDetour()
         }
         // 等待数据搬到MS
         for (uint64_t i = 0; i < pathNumPerPeer_; i++) {
-            sems[i].SetMask((1 << rankSize_) - 1);
             WaitEvent(sems[i]);
         }
         // 给每个peer搬运多个MS上的数据
         for (uint64_t i = 0; i < pathNumPerPeer_; i++) {
             for (uint64_t j = 0; j < rankSize_ - 1; j++) {
+                sems[i].SetMask(1 << j);
                 WriteNb(detourChannels_[i][j], dst[i * rankSize_ + j], bufs[i], lengths[i], sems[i]);
             }
+            sems[i].SetMask(1 << (rankSize_ - 1));
             localDst_.addr = dst[i * rankSize_ + rankSize_ - 1].addr;
             localDst_.token = dst[i * rankSize_ + rankSize_ - 1].token;
             LocalCopyNb(localDst_, bufs[i], lengths[i], sems[i]);
         }
         // 等待给所有远端写完数据
         for (uint32_t i = 0; i < pathNumPerPeer_; i++) {
+            sems[i].SetMask((1 << rankSize_) - 1);
             WaitEvent(sems[i]);
         }
     }
@@ -297,7 +298,7 @@ HcclResult CcuKernelAllGatherMeshDetour1D::Algorithm()
         NotifyRecord(t, CKE_IDX_0, TOKEN_XN_ID, token_[rankId_], 1 << TOKEN_XN_ID);
     }
 
-    uint16_t syncBit = 1 << INPUT_XN_ID | 1 << OUTPUT_XN_ID | 1 << TOKEN_XN_ID;
+    uint16_t syncBit = 1 << OUTPUT_XN_ID | 1 << TOKEN_XN_ID;
     for (auto t : detourChannels_[0]) {
         NotifyWait(t, CKE_IDX_0, syncBit);
     }
