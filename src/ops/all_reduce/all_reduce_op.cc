@@ -71,6 +71,8 @@ HcclResult HcclAllReduceGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCou
 
     // 检查tag有效性
     CHK_RET(HcclCheckTag(tag));
+    int ret = sprintf_s(param.tag, sizeof(param.tag), "%s", tag);
+    CHK_PRT_RET((ret <= 0), HCCL_ERROR("failed to fill param.tag"), HCCL_E_INTERNAL);
     
     // 拼装ResPackGraphMode
     ResPackGraphMode resPack;

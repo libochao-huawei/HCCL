@@ -150,6 +150,9 @@ static HcclResult PrepareReduceScatterParam(OpParam &param, void *sendBuf, void 
     param.reduceType = op;
     param.opMode = opMode;
 
+    if (param.commName[0] == '\0') {
+        CHK_RET(HcclGetCommName(comm, param.commName));
+    }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
 
@@ -224,6 +227,9 @@ HcclResult ReduceScatterOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t
     
     CHK_RET(PrepareReduceScatterParam(param, sendBuf, recvBuf, recvCount, dataType, op, comm, stream, userRankSize,
         OpMode::OFFLOAD));
+
+    int ret = sprintf_s(param.tag, sizeof(param.tag), "%s", tag.c_str());
+    CHK_PRT_RET((ret <= 0), HCCL_ERROR("failed to fill param.tag"), HCCL_E_INTERNAL);
 
     if (userRankSize == 1) {
         HCCL_WARNING("[%s] rankSize == 1, enter SingleRankProc", __func__);
