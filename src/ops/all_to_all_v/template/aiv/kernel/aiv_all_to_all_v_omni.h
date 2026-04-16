@@ -227,6 +227,6 @@ __aicore__ inline void AivOmniV2Entry(EXTERN_KERNEL_ARGS_DEF_V2)
     AivOmniV2<T> op;
     op.Init(KERNEL_CLASS_INIT, true);
     SyncAll<true>();
-    op.Process(len, sliceId, extraArgs);
+    // op.Process(len, sliceId, extraArgs);
     op.BarrierAll();
 }
