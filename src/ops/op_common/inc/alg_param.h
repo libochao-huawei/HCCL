@@ -441,11 +441,11 @@ struct AlgResourceCtxSerializable {
 
 struct OpParam { // 不申请ctx，每个算子单独下发
     void* hcclComm;
-    char tag[TAG_LENGTH]; // 保存topoInfo的key值
-    char algTag[ALG_TAG_LENGTH]; // 保存资源的key值，和算法绑定
-    char fastLaunchTag[ALG_TAG_LENGTH]; // 快速下发的key值
-    char commName[COMM_INDENTIFIER_MAX_LENGTH];
-    char commModeTag[TAG_LENGTH]; // 保存与执行模式相关的资源信息的key值
+    char tag[TAG_LENGTH] = ""; // 保存topoInfo的key值
+    char algTag[ALG_TAG_LENGTH] = ""; // 保存资源的key值，和算法绑定
+    char fastLaunchTag[ALG_TAG_LENGTH] = ""; // 快速下发的key值
+    char commName[COMM_INDENTIFIER_MAX_LENGTH] = "";
+    char commModeTag[TAG_LENGTH] = ""; // 保存与执行模式相关的资源信息的key值
     aclrtStream stream;
     void* inputPtr = nullptr;
     u64 inputSize = 0;
@@ -462,7 +462,7 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CommEngine engine = CommEngine::COMM_ENGINE_RESERVED;
     AlgType algType;
-    char algTypeStr[ALG_MAX_LENGTH];
+    char algTypeStr[ALG_MAX_LENGTH] = "";
     union {
         struct {
             u64 count;
@@ -501,7 +501,7 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     };
     HcclCMDType opType = HcclCMDType::HCCL_CMD_INVALID;
     bool isZeroCopy = false;
-    char algName[OP_ALG_LENGTH];
+    char algName[OP_ALG_LENGTH] = "";
     OpExecuteConfig opExecuteConfig;
     u32 numBlocksLimit = 0;
     bool isAivClearEnable = false;
