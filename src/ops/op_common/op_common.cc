@@ -1474,13 +1474,8 @@ HcclResult HcclGetOpExpansionMode(HcclComm comm, OpParam &param)
         HCCL_ERROR("DecideHcclOpExpansionMode failed, ret: %d", ret);
         return ret;
     }
-    // 第二步：应用选择的模式到param
-    ret = ApplyOpExpansionMode(param, finalMode);
-    if (ret != HCCL_SUCCESS) {
-        HCCL_ERROR("ApplyOpExpansionMode failed, ret: %d", ret);
-        return ret;
-    }
 
+    // omni算子与普通AIV算子的funcKey冲突，omni模式下只注册omni算子
     if ((finalMode == HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_AIV ||
         finalMode == HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY) &&
         GetExternalInputHcclAivMode() == true) {
@@ -1488,8 +1483,20 @@ HcclResult HcclGetOpExpansionMode(HcclComm comm, OpParam &param)
         const bool isOmni = (algConfig.size() > HCCL_ALGO_LEVEL) &&
             (algConfig[HCCL_ALGO_LEVEL] == HcclAlgoType::HCCL_ALGO_TYPE_OMNI);
         if (isOmni) {
+            param.opExecuteConfig = (finalMode == HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY) ?
+                OpExecuteConfig::AIV_ONLY : OpExecuteConfig::AIV;
+            param.engine = CommEngine::COMM_ENGINE_AIV;
             CHK_RET(RegisterKernel(param.opType, g_omniAivBinaryName, g_omniAivKernelInfoList));
+            HCCL_INFO("[HcclGetOpExpansionMode] OMNI mode selected, skip normal AIV kernel registration.");
+            return HCCL_SUCCESS;
         }
+    }
+
+    // 非omni场景：应用选择的模式到param
+    ret = ApplyOpExpansionMode(param, finalMode);
+    if (ret != HCCL_SUCCESS) {
+        HCCL_ERROR("ApplyOpExpansionMode failed, ret: %d", ret);
+        return ret;
     }
     return HCCL_SUCCESS;
 }
