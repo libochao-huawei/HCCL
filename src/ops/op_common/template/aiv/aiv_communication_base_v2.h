@@ -49,6 +49,8 @@ struct ExtraArgs {
     uint64_t sendDispls[MAX_RANK_SIZE] = {};
     uint64_t recvCounts[MAX_RANK_SIZE] = {};
     uint64_t recvDispls[MAX_RANK_SIZE] = {};
+    uint64_t omniInfoAddr = 0;
+    uint64_t omniInfoSize = 0;
 };
 
 enum class AivNotifyType {

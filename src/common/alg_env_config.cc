@@ -256,10 +256,15 @@ HcclResult SetHcclAlgoConfig(const std::string &hcclAlgo)
     bool anyCommonConfig = false;
     bool anySpecificConfig = false;
     CHK_RET(CheckAlgoConfigValid(algoPerOptype, anyCommonConfig, anySpecificConfig));
+    for (int i = 0; i < algoPerOptype.size(); i++) {
+        HCCL_DEBUG("SetHcclAlgoConfig %d is %s", i, algoPerOptype[i].c_str());
+    }
     if (anyCommonConfig) {
         CHK_RET(SetCommonAlgType(algoPerOptype));
+        HCCL_DEBUG("here");
     } else {
         CHK_RET(SetSpecificAlgType(algoPerOptype));
+        HCCL_DEBUG("here1");
     }
     return HCCL_SUCCESS;
 }
@@ -333,6 +338,7 @@ HcclResult SetSpecificAlgType(std::vector<std::string> &algos)
                 return HCCL_E_PARA;
             }
             g_algEnvConfig.hcclAlgoConfig[optype] = algType;
+            HCCL_DEBUG("optype %u, algType %u", optype, algType[0]);
         } else {
             HCCL_ERROR(
                 "[SetSpecificAlgType] specific config optype[%s] is invalid, please check", opStringName.c_str());
@@ -357,7 +363,9 @@ HcclResult ParserHcclAlgoLevel(const std::string &algoLevel, u32 &level, HcclAlg
     std::string orginalLevel = algoLevel.substr(0, found);
     std::string orginalAlgo = algoLevel.substr(found + 1);
 
-    const std::map<std::string, u32> hcclAlgoLevelMap = {{"level0", HCCL_ALGO_LEVEL_0},
+    const std::map<std::string, u32> hcclAlgoLevelMap = {
+        {"level", HCCL_ALGO_LEVEL},
+        {"level0", HCCL_ALGO_LEVEL_0},
         {"level1", HCCL_ALGO_LEVEL_1},
         {"level2", HCCL_ALGO_LEVEL_2},
         {"level3", HCCL_ALGO_LEVEL_3}};
@@ -375,6 +383,7 @@ HcclResult ParserHcclAlgoLevel(const std::string &algoLevel, u32 &level, HcclAlg
         {"AHC_BROKE", HcclAlgoType::HCCL_ALGO_TYPE_AHC_BROKE},
         {"NB", HcclAlgoType::HCCL_ALGO_TYPE_NB},
         {"NA", HcclAlgoType::HCCL_ALGO_TYPE_NA},
+        {"OMNI", HcclAlgoType::HCCL_ALGO_TYPE_OMNI},
     };
 
     auto iterAlgoLevel = hcclAlgoLevelMap.find(orginalLevel);
@@ -424,13 +433,16 @@ HcclResult ParseAlgoString(std::string opName, std::string &algoString, std::vec
             return HCCL_E_PARA;
         }
         algType[level] = algo;
+        HCCL_DEBUG("level %d algo %u", level, algo);
     }
     auto level0Iter = HcclAlgoTypeMap.find(algType[HCCL_ALGO_LEVEL_0]);
     auto level1Iter = HcclAlgoTypeMap.find(algType[HCCL_ALGO_LEVEL_1]);
     auto level2Iter = HcclAlgoTypeMap.find(algType[HCCL_ALGO_LEVEL_2]);
     auto level3Iter = HcclAlgoTypeMap.find(algType[HCCL_ALGO_LEVEL_3]);
-    HCCL_RUN_INFO("hccl algo op %s config: config level0:%s, level1:%s, level2:%s, level3:%s",
+    auto levelIter = HcclAlgoTypeMap.find(algType[HCCL_ALGO_LEVEL]);
+    HCCL_RUN_INFO("hccl algo op %s config: config level:%s, level0:%s, level1:%s, level2:%s, level3:%s",
         opName.c_str(),
+        levelIter->second.c_str(),
         level0Iter->second.c_str(),
         level1Iter->second.c_str(),
         level2Iter->second.c_str(),

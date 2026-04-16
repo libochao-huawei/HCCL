@@ -38,6 +38,7 @@
 #include "alg_type.h"
 #include "op_common.h"
 #include "hccl_aiv_utils.h"
+#include "aiv_kernel_def.h"
 #include "dpu/kernel_launch.h"
 #include "hcomm_host_profiling_dl.h"
 #include "hccl_host_comm_dl.h"
@@ -1156,6 +1157,8 @@ HcclResult HcclGetCcuKernel(HcclComm comm, AlgResourceRequest &resRequest,
     for (auto t: resRequest.ccuKernelNum) {
         totalKernelNum += t;
     }
+
+    HCCL_DEBUG("totalKernelNum %u, resRequest.ccuKernelInfos size %u", totalKernelNum, resRequest.ccuKernelInfos.size());
     CHK_PRT_RET(totalKernelNum != resRequest.ccuKernelInfos.size(),
         HCCL_ERROR("[HcclGetCcuKernel]ccuKernel num not match!"),
         HCCL_E_INTERNAL);
@@ -1561,7 +1564,24 @@ HcclResult HcclGetOpExpansionMode(HcclComm comm, OpParam &param)
         return ret;
     }
 
-    // 第二步：应用选择的模式到param
+    // omni算子与普通AIV算子的funcKey冲突，omni模式下只注册omni算子
+    if ((finalMode == HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_AIV ||
+        finalMode == HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY) &&
+        GetExternalInputHcclAivMode() == true) {
+        const std::vector<HcclAlgoType> algConfig = GetExternalInputHcclAlgoConfig(param.opType);
+        const bool isOmni = (algConfig.size() > HCCL_ALGO_LEVEL) &&
+            (algConfig[HCCL_ALGO_LEVEL] == HcclAlgoType::HCCL_ALGO_TYPE_OMNI);
+        if (isOmni) {
+            param.opExecuteConfig = (finalMode == HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY) ?
+                OpExecuteConfig::AIV_ONLY : OpExecuteConfig::AIV;
+            param.engine = CommEngine::COMM_ENGINE_AIV;
+            CHK_RET(RegisterKernel(param.opType, g_omniAivBinaryName, g_omniAivKernelInfoList));
+            HCCL_INFO("[HcclGetOpExpansionMode] OMNI mode selected, skip normal AIV kernel registration.");
+            return HCCL_SUCCESS;
+        }
+    }
+
+    // 非omni场景：应用选择的模式到param
     ret = ApplyOpExpansionMode(param, finalMode);
     if (ret != HCCL_SUCCESS) {
         HCCL_ERROR("ApplyOpExpansionMode failed, ret: %d", ret);
