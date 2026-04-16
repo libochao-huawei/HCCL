@@ -85,7 +85,7 @@ HcclResult AllGatherBatchSmallCountExecutor::RunLoop(std::vector<ChannelResource
             param_.tag, inputOffset, outputOffset, curInputPtr, curOutputPtr, curCount, dataType);
 
         // 执行
-        if (!DMAReduceFlag_) {
+        if (useCCLBuffer) {
             // 如果使用in CCL buffer，需要将user buffer in中的结果拷贝到CCL buffer in
             void *srcPtr = curInputPtr;
             void *dstPtr = commInputPtr;
@@ -100,8 +100,8 @@ HcclResult AllGatherBatchSmallCountExecutor::RunLoop(std::vector<ChannelResource
         execMem.inputMem = {HCCL_MEM_TYPE_DEVICE, commInputPtr, curSize};
         u32 sliceNum = param_.topoInfo.rankSize;
         execMem.outputMem = {HCCL_MEM_TYPE_DEVICE, commOutputPtr, curSize * sliceNum};
-        execMem.inputPtr = curInputPtr;
-        execMem.outputPtr = curOutputPtr;
+        execMem.inputPtr = useCCLBuffer ? commInputPtr : curInputPtr;
+        execMem.outputPtr = useCCLBuffer ? commOutputPtr : curOutputPtr;
         HcclResult ret = HCCL_SUCCESS;
         ret = KernelRun(execMem, channels);
         CHK_PRT_RET(ret != HCCL_SUCCESS,
@@ -110,7 +110,7 @@ HcclResult AllGatherBatchSmallCountExecutor::RunLoop(std::vector<ChannelResource
             HCCL_ERROR_CODE(ret), param_.tag, commInputPtr, commOutputPtr,
             curCount, dataType), ret);
 
-        if (!DMAReduceFlag_) {
+        if (useCCLBuffer) {
             // 如果使用CCL buffer，需要将CCL buffer out中的结果拷贝到user buffer out
             for (u32 i = 0; i < param_.topoInfo.rankSize; i++) {
                 // 拷贝中转output上每个slice的数据到output内存，目的端中每个slice的size固定为output的size
