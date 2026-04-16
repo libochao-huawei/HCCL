@@ -131,14 +131,14 @@ HcclResult AllGatherHDStage::RunPreCopy()
         CHK_RET(HcommChannelNotifyRecordOnThread(resCtx_.mainThreadHandle, channels_[revRank].handle, NOTIFY_IDX_ACK));
         CHK_RET(HcommChannelNotifyWaitOnThread(resCtx_.mainThreadHandle, channels_[revRankrev].handle, NOTIFY_IDX_ACK, CUSTOM_TIMEOUT));
         void *remMemPtr = static_cast<u8 *>(channels_[revRankrev].remoteBuffer.addr) + channels_[revRankrev].remoteBuffer.offset;
-        void *srcPtr = execMem_.inputPtr;
+        void *srcPtr = UserMemIn.addr;
         void *dstPtr = static_cast<u8 *>(remMemPtr) + (rank % (rankSize / static_cast<u32>(pow(base, finalSteps_)))) * totalSize_;
         CHK_RET(HcommWriteOnThread(resCtx_.mainThreadHandle, channels_[revRankrev].handle, dstPtr, srcPtr, totalSize_));
         CHK_RET(HcommChannelNotifyRecordOnThread(resCtx_.mainThreadHandle, channels_[revRankrev].handle, NOTIFY_IDX_DATA_SIGNAL));
         CHK_RET(HcommChannelNotifyWaitOnThread(resCtx_.mainThreadHandle, channels_[revRank].handle, NOTIFY_IDX_DATA_SIGNAL, CUSTOM_TIMEOUT));
     } else {
         HcclMem dst = HcclMemRange(execMem_.outputMem, (rank % (rankSize / static_cast<u32>(pow(base, finalSteps_)))) * totalSize_, totalSize_);
-        void *srcPtr = execMem_.inputPtr;
+        void *srcPtr = UserMemIn.addr;
         void *dstPtr = dst.addr;
         CHK_RET(HcommLocalCopyOnThread(resCtx_.mainThreadHandle, dstPtr, srcPtr, totalSize_));
     }
@@ -378,10 +378,12 @@ HcclResult AllGatherHDStage::RunAllGatherStage()
     totalSize_ = unitSize * execMem_.count;
     // 对应因式分解中的2的幂次部分
     powerSteps_ = static_cast<u32>(log2(rankSize & (-rankSize)));
-    if (powerSteps_ >= base) {
-        finalSteps_ = base;
-    } else if (powerSteps_ >= 1) {
-        finalSteps_ = 1;
+    if (execMem_.outputMem.addr != userMemOut.addr) {
+        if (powerSteps_ >= base) {
+            finalSteps_ = base;
+        } else if (powerSteps_ >= 1) {
+            finalSteps_ = 1;
+        }
     }
     // 对应因式分解中的奇数部分
     noPower_ = rankSize / (rankSize & (-rankSize));

@@ -24,7 +24,7 @@ private:
     const OpParam &param_;
     AlgResourceCtx &resCtx_;
     BatchCallProfiling &profiling_;
-    bool DMAReduceFlag_{true};
+    bool useCCLBuffer{true};
 };
 
 }  // namespace ops_hccl_allgatherbatch
