@@ -152,13 +152,21 @@ HcclResult AivTempOmni::BuildInstructionBuffer(HcclComm comm, const OpParam& par
                 static_cast<uint64_t>(srcInfo.srcSliceInfo[sliceIdx].sliceType);
             infos[idx].srcSliceInfo[sliceIdx].sliceIdx = srcInfo.srcSliceInfo[sliceIdx].sliceIdx;
             infos[idx].srcSliceInfo[sliceIdx].remoteRank = srcInfo.srcSliceInfo[sliceIdx].remoteRank;
+            HCCL_INFO("[AivTempOmni][BuildInstructionBuffer] info[%llu] srcSlice[%u] sliceType[%llu] sliceIdx[%llu] remoteRank[%llu].",
+                idx, sliceIdx, infos[idx].srcSliceInfo[sliceIdx].sliceType,
+                infos[idx].srcSliceInfo[sliceIdx].sliceIdx, infos[idx].srcSliceInfo[sliceIdx].remoteRank);
         }
         for (u32 sliceIdx = 0; sliceIdx < infos[idx].dstSliceNum; sliceIdx++) {
             infos[idx].dstSliceInfo[sliceIdx].sliceType =
                 static_cast<uint64_t>(srcInfo.dstSliceInfo[sliceIdx].sliceType);
             infos[idx].dstSliceInfo[sliceIdx].sliceIdx = srcInfo.dstSliceInfo[sliceIdx].sliceIdx;
             infos[idx].dstSliceInfo[sliceIdx].remoteRank = srcInfo.dstSliceInfo[sliceIdx].remoteRank;
+            HCCL_INFO("[AivTempOmni][BuildInstructionBuffer] info[%llu] dstSlice[%u] sliceType[%llu] sliceIdx[%llu] remoteRank[%llu].",
+                idx, sliceIdx, infos[idx].dstSliceInfo[sliceIdx].sliceType,
+                infos[idx].dstSliceInfo[sliceIdx].sliceIdx, infos[idx].dstSliceInfo[sliceIdx].remoteRank);
         }
+        HCCL_INFO("[AivTempOmni][BuildInstructionBuffer] info[%llu] opType[%u] sliceNum[%llu] srcSliceNum[%u] dstSliceNum[%u].",
+            idx, infos[idx].opType, infos[idx].sliceNum, infos[idx].srcSliceNum, infos[idx].dstSliceNum);
     }
 
     void *ctx = nullptr;
@@ -183,6 +191,8 @@ HcclResult AivTempOmni::CalcRes(HcclComm comm, const OpParam& param, const TopoI
     numBlocks_ = std::max<u32>(1, xmlInfo.resInfo.blockNumAiv);
     numBlocks_ = std::min<u32>(numBlocks_, MAX_NUM_BLOCKS);
     sliceNum_ = xmlInfo.vecSendRecvInfo.empty() ? 1 : std::max<u64>(1, xmlInfo.vecSendRecvInfo[0].sliceNum);
+    HCCL_INFO("[AivTempOmni][CalcRes] sliceNum_[%llu] numBlocks_[%u] infoNum[%zu].",
+        sliceNum_, numBlocks_, xmlInfo.vecSendRecvInfo.size());
 
     std::vector<HcclChannelDesc> channelDescs;
     CHK_RET(CalcChannelRequestOmni(comm, param, topoInfo, subCommRanks_, xmlInfo.resInfo.mapchannelInfo, channelDescs));
@@ -223,7 +233,14 @@ HcclResult AivTempOmni::KernelRun(const OpParam& param, const TemplateDataParams
     omniArgs.output = tempAlgParams.buffInfo.outBuffBaseOff + reinterpret_cast<u64>(tempAlgParams.buffInfo.outputPtr);
     omniArgs.rank = static_cast<u32>(myRank_);
     omniArgs.rankSize = tempRankSize_;
-    omniArgs.count = (tempAlgParams.sliceSize / SIZE_TABLE[dataType_]) * sliceNum_;
+    omniArgs.count = tempAlgParams.count;
+    omniArgs.extraArgs.omniInfoAddr = reinterpret_cast<u64>(ctx);
+    omniArgs.extraArgs.omniInfoSize = ctxSize;
+    HCCL_INFO("[AivTempOmni][KernelRun] sliceSize[%llu] SIZE_TABLE[%u] tempAlgParams.count[%llu] omniArgs.count[%llu] dataType_[%u] "
+        "input[0x%llx] output[0x%llx] rank[%u] rankSize[%u] omniInfoAddr[0x%llx] omniInfoSize[%llu].",
+        tempAlgParams.sliceSize, SIZE_TABLE[dataType_], tempAlgParams.count, omniArgs.count, dataType_,
+        omniArgs.input, omniArgs.output, omniArgs.rank, omniArgs.rankSize,
+        omniArgs.extraArgs.omniInfoAddr, omniArgs.extraArgs.omniInfoSize);
     omniArgs.dataType = dataType_;
     omniArgs.op = param.reduceType;
     omniArgs.root = root_;
@@ -234,8 +251,6 @@ HcclResult AivTempOmni::KernelRun(const OpParam& param, const TemplateDataParams
     omniArgs.xRankSize = subCommRanks_[0].size();
     omniArgs.yRankSize = 0;
     omniArgs.zRankSize = 0;
-    omniArgs.extraArgs.omniInfoAddr = reinterpret_cast<u64>(ctx);
-    omniArgs.extraArgs.omniInfoSize = ctxSize;
 
     for (u32 i = 0; i < subCommRanks_[0].size(); i++) {
         omniArgs.topo_[i] = subCommRanks_[0][i];
