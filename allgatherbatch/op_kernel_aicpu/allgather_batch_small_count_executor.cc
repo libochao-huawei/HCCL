@@ -7,6 +7,32 @@
 
 namespace ops_hccl_allgatherbatch {
 
+namespace {
+
+constexpr u64 kDualThreadCopyBackMinBytes = 256 * 1024;
+
+struct CopyBackRange {
+    u32 beginRank = 0;
+    u32 endRank = 0;
+    u8 *curOutputPtr = nullptr;
+    u8 *commOutputPtr = nullptr;
+    u64 count = 0;
+    u32 unitSize = 0;
+    u64 curSize = 0;
+};
+
+HcclResult CopyBackRangeOnThread(ThreadHandle thread, const CopyBackRange &range)
+{
+    for (u32 rank = range.beginRank; rank < range.endRank; ++rank) {
+        void *dstPtr = range.curOutputPtr + range.count * range.unitSize * rank;
+        void *srcPtr = range.commOutputPtr + range.curSize * rank;
+        CHK_RET(HcommLocalCopyOnThread(thread, dstPtr, srcPtr, range.curSize));
+    }
+    return HCCL_SUCCESS;
+}
+
+}  // namespace
+
 AllGatherBatchSmallCountExecutor::AllGatherBatchSmallCountExecutor(
     const OpParam &param, AlgResourceCtx &resCtx, BatchCallProfiling &profiling)
     : param_(param), resCtx_(resCtx), profiling_(profiling)
@@ -20,16 +46,12 @@ HcclResult AllGatherBatchSmallCountExecutor::Orchestrate()
     const u64 count = param_.items[0].sendCount;
     const HcclDataType dataType = param_.items[0].dataType;
 
-    HcclResult ret = HCCL_SUCCESS;
     std::vector<ChannelResource> channels_(param_.topoInfo.rankSize);
     for (uint32_t idx = 0; idx < resCtx_.channelCount; ++idx) {
         ChannelResource &channel = GetChannel(resCtx_, idx);
         channels_[channel.remoteRank] = channel;
     }
-    ret = RunLoop(channels_);
-    CHK_PRT_RET(ret != HCCL_SUCCESS,
-        HCCL_ERROR("[AllGatherBatchSmallCountExecutor][Orchestrate]AllGather executor kernel run failed, ret[%d]",
-            ret), ret);
+    CHK_RET(RunLoop(channels_));
 
     HCCL_INFO("tag[%s], Allgather executor orchestrate success, take time [%llu]us",
         param_.tag, GetCurrentTimeUs() - startus);
@@ -112,11 +134,30 @@ HcclResult AllGatherBatchSmallCountExecutor::RunLoop(std::vector<ChannelResource
 
         if (useCCLBuffer) {
             // 如果使用CCL buffer，需要将CCL buffer out中的结果拷贝到user buffer out
-            for (u32 i = 0; i < param_.topoInfo.rankSize; i++) {
-                // 拷贝中转output上每个slice的数据到output内存，目的端中每个slice的size固定为output的size
-                void *dstPtr = curOutputPtr + count * unitSize * i;
-                void *srcPtr = commOutputPtr + curSize * i;
-                CHK_RET(HcommLocalCopyOnThread(resCtx_.mainThreadHandle, dstPtr, srcPtr, curSize));
+            const bool useDualThreadCopyBack = (SubThreadNum > 0) &&
+                (param_.topoInfo.rankSize > 2) &&
+                (curSize * param_.topoInfo.rankSize >= kDualThreadCopyBackMinBytes);
+            if (!useDualThreadCopyBack) {
+                for (u32 i = 0; i < param_.topoInfo.rankSize; i++) {
+                    void *dstPtr = curOutputPtr + count * unitSize * i;
+                    void *srcPtr = commOutputPtr + curSize * i;
+                    CHK_RET(HcommLocalCopyOnThread(resCtx_.mainThreadHandle, dstPtr, srcPtr, curSize));
+                }
+            } else {
+                const u32 midRank = param_.topoInfo.rankSize / 2 + 1;
+                CopyBackRange mainRange {0, midRank, curOutputPtr, commOutputPtr, count, unitSize, curSize};
+                CopyBackRange subRange {midRank, param_.topoInfo.rankSize, curOutputPtr, commOutputPtr, count, unitSize, curSize};
+
+                CHK_RET(HcommThreadNotifyRecordOnThread(
+                    resCtx_.mainThreadHandle, resCtx_.subThreadHandles[0], resCtx_.subNotifyIds[0]));
+                CHK_RET(HcommThreadNotifyWaitOnThread(
+                    resCtx_.subThreadHandles[0], resCtx_.subNotifyIds[0], CUSTOM_TIMEOUT));
+                CHK_RET(CopyBackRangeOnThread(resCtx_.mainThreadHandle, mainRange));
+                CHK_RET(CopyBackRangeOnThread(resCtx_.subThreadHandles[0], subRange));
+                CHK_RET(HcommThreadNotifyRecordOnThread(
+                    resCtx_.subThreadHandles[0], resCtx_.mainThreadHandle, resCtx_.mainNotifyIds[0]));
+                CHK_RET(HcommThreadNotifyWaitOnThread(
+                    resCtx_.mainThreadHandle, resCtx_.mainNotifyIds[0], CUSTOM_TIMEOUT));
             }
         }
 
@@ -138,3 +179,4 @@ HcclResult AllGatherBatchSmallCountExecutor::KernelRun(ExecMem &execMem, std::ve
 }
 
 }  // namespace ops_hccl_allgatherbatch
+
