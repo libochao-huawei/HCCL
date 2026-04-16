@@ -75,7 +75,7 @@ public:
                     continue;
                 }
                 // 读同步：阻塞读取本地数据同步标志位，当前aivTag等于读取值时，继续步骤
-                uint64_t flagOffset = dataRank * useBlocks_ + block_idx;
+                uint64_t flagOffset = sliceIdx * useBlocks_ + block_idx;
                 WaitFlag(rank_, flagOffset, curTag_);
                 // 本地规约：将本地ScratchBuffer上的数据Reduce到本地OutputBuffer上
                 if (sliceLen_ > 0) {
