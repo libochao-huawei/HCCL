@@ -24,7 +24,7 @@ EXPORT_AIV_META_INFO(aiv_alltoallv_##type)
 
 #define AIV_OMNI_KERNEL_BATCH_DEF(type) \
 extern "C" __global__ __aicore__ void omni_aiv_##type(EXTERN_KERNEL_ARGS_DEF_V2) { \
-    return; \
+    AivOmniV2Entry<type>(EXTERN_KERNEL_ARGS_CALL); \
 }                                               \
 EXPORT_AIV_META_INFO(omni_aiv_##type)
 
