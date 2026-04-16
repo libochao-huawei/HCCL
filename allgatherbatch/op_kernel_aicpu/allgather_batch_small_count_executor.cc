@@ -7,6 +7,63 @@
 
 namespace ops_hccl_allgatherbatch {
 
+namespace {
+
+constexpr u64 kDualThreadUnpackMinBytes = 256 * 1024;
+
+HcclResult UnpackRankRangeOnThread(
+    ThreadHandle thread,
+    const OpParam &param,
+    const WindowRange &range,
+    u8 *commOutputPtr,
+    uint32_t beginRank,
+    uint32_t endRank)
+{
+    CHK_PTR_NULL(commOutputPtr);
+    CHK_PRT_RET(beginRank > endRank || endRank > param.topoInfo.rankSize,
+        HCCL_ERROR("[AllGatherBatchSmallCountExecutor][UnpackRankRangeOnThread]tag[%s], invalid rank range [%u, %u), rankSize[%u]",
+            param.tag, beginRank, endRank, param.topoInfo.rankSize),
+        HCCL_E_PARA);
+
+    for (u32 rank = beginRank; rank < endRank; ++rank) {
+        u64 packedOffset = 0;
+        for (uint32_t itemIdx = range.startDescIdx; itemIdx <= range.endDescIdx; ++itemIdx) {
+            const BatchItemParam &item = param.items[itemIdx];
+            const u64 startOffset = (itemIdx == range.startDescIdx) ? range.startOffset : 0;
+            const u64 endOffset = (itemIdx == range.endDescIdx) ? range.endOffset : item.sendBytes;
+            CHK_PRT_RET(endOffset < startOffset || endOffset > item.sendBytes,
+                HCCL_ERROR("[AllGatherBatchSmallCountExecutor][UnpackRankRangeOnThread]tag[%s], invalid range on item[%u], startOffset[%llu], endOffset[%llu], sendBytes[%llu]",
+                    param.tag,
+                    itemIdx,
+                    static_cast<unsigned long long>(startOffset),
+                    static_cast<unsigned long long>(endOffset),
+                    static_cast<unsigned long long>(item.sendBytes)),
+                HCCL_E_PARA);
+
+            const u64 sizeBytes = endOffset - startOffset;
+            if (sizeBytes == 0) {
+                continue;
+            }
+
+            void *srcPtr = commOutputPtr + rank * range.packedSize + packedOffset;
+            void *dstPtr = static_cast<u8 *>(item.recvBuf) + rank * item.sendBytes + startOffset;
+            CHK_RET(HcommLocalCopyOnThread(thread, dstPtr, srcPtr, sizeBytes));
+            packedOffset += sizeBytes;
+        }
+
+        CHK_PRT_RET(packedOffset != range.packedSize,
+            HCCL_ERROR("[AllGatherBatchSmallCountExecutor][UnpackRankRangeOnThread]tag[%s], rank[%u] packedOffset[%llu] != packedSize[%llu]",
+                param.tag,
+                rank,
+                static_cast<unsigned long long>(packedOffset),
+                static_cast<unsigned long long>(range.packedSize)),
+            HCCL_E_INTERNAL);
+    }
+    return HCCL_SUCCESS;
+}
+
+} // namespace
+
 AllGatherBatchSmallCountExecutor::AllGatherBatchSmallCountExecutor(
     const OpParam &param, AlgResourceCtx &resCtx, BatchCallProfiling &profiling)
     : param_(param), resCtx_(resCtx), profiling_(profiling)
@@ -153,40 +210,31 @@ HcclResult AllGatherBatchSmallCountExecutor::UnpackWindowFromCCLOut(const Window
 {
     CHK_PTR_NULL(commOutputPtr);
 
-    for (u32 rank = 0; rank < param_.topoInfo.rankSize; ++rank) {
-        u64 packedOffset = 0;
-        for (uint32_t itemIdx = range.startDescIdx; itemIdx <= range.endDescIdx; ++itemIdx) {
-            const BatchItemParam &item = param_.items[itemIdx];
-            const u64 startOffset = (itemIdx == range.startDescIdx) ? range.startOffset : 0;
-            const u64 endOffset = (itemIdx == range.endDescIdx) ? range.endOffset : item.sendBytes;
-            CHK_PRT_RET(endOffset < startOffset || endOffset > item.sendBytes,
-                HCCL_ERROR("[AllGatherBatchSmallCountExecutor][UnpackWindowFromCCLOut]tag[%s], invalid range on item[%u], startOffset[%llu], endOffset[%llu], sendBytes[%llu]",
-                    param_.tag,
-                    itemIdx,
-                    static_cast<unsigned long long>(startOffset),
-                    static_cast<unsigned long long>(endOffset),
-                    static_cast<unsigned long long>(item.sendBytes)),
-                HCCL_E_PARA);
+    const u64 totalUnpackBytes = range.packedSize * param_.topoInfo.rankSize;
+    const u32 midRank = param_.topoInfo.rankSize / 2 + 1;
+    const bool useDualThreadUnpack = (SubThreadNum > 0) &&
+        (param_.topoInfo.rankSize > 2) &&
+        (totalUnpackBytes >= kDualThreadUnpackMinBytes);
 
-            const u64 sizeBytes = endOffset - startOffset;
-            if (sizeBytes == 0) {
-                continue;
-            }
-
-            void *srcPtr = commOutputPtr + rank * range.packedSize + packedOffset;
-            void *dstPtr = static_cast<u8 *>(item.recvBuf) + rank * item.sendBytes + startOffset;
-            CHK_RET(HcommLocalCopyOnThread(resCtx_.mainThreadHandle, dstPtr, srcPtr, sizeBytes));
-            packedOffset += sizeBytes;
-        }
-
-        CHK_PRT_RET(packedOffset != range.packedSize,
-            HCCL_ERROR("[AllGatherBatchSmallCountExecutor][UnpackWindowFromCCLOut]tag[%s], rank[%u] packedOffset[%llu] != packedSize[%llu]",
-                param_.tag,
-                rank,
-                static_cast<unsigned long long>(packedOffset),
-                static_cast<unsigned long long>(range.packedSize)),
-            HCCL_E_INTERNAL);
+    if (!useDualThreadUnpack) {
+        return UnpackRankRangeOnThread(
+            resCtx_.mainThreadHandle, param_, range, commOutputPtr, 0, param_.topoInfo.rankSize);
     }
+
+    CHK_RET(HcommThreadNotifyRecordOnThread(
+        resCtx_.mainThreadHandle, resCtx_.subThreadHandles[0], resCtx_.subNotifyIds[0]));
+    CHK_RET(HcommThreadNotifyWaitOnThread(
+        resCtx_.subThreadHandles[0], resCtx_.subNotifyIds[0], CUSTOM_TIMEOUT));
+
+    CHK_RET(UnpackRankRangeOnThread(
+        resCtx_.mainThreadHandle, param_, range, commOutputPtr, 0, midRank));
+    CHK_RET(UnpackRankRangeOnThread(
+        resCtx_.subThreadHandles[0], param_, range, commOutputPtr, midRank, param_.topoInfo.rankSize));
+
+    CHK_RET(HcommThreadNotifyRecordOnThread(
+        resCtx_.subThreadHandles[0], resCtx_.mainThreadHandle, resCtx_.mainNotifyIds[0]));
+    CHK_RET(HcommThreadNotifyWaitOnThread(
+        resCtx_.mainThreadHandle, resCtx_.mainNotifyIds[0], CUSTOM_TIMEOUT));
     return HCCL_SUCCESS;
 }
 
