@@ -377,9 +377,18 @@ HcclResult InsOmniSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLoop(
         tempAlgParams.buffInfo.inBuffType = BufferType::INPUT;
         tempAlgParams.buffInfo.outBuffType = BufferType::OUTPUT;
 
+        u64 maxSliceNum = 1;
+        for (const auto &info : xmlInfo_.vecSendRecvInfo) {
+            if (info.sliceNum > maxSliceNum) {
+                maxSliceNum = info.sliceNum;
+            }
+        }
+        tempAlgParams.count = currDataCount * maxSliceNum;
+
         HCCL_INFO("[InsOmniSoleExecutor][OrchestrateLoop] loop[%u/%u] currDataCount[%llu] "
-            "sliceSize[%llu] inBuffBaseOff[%llu] outBuffBaseOff[%llu] vecSendRecvInfo.size[%zu].",
-            static_cast<u32>(loop), loopTimes, currDataCount, tempAlgParams.sliceSize,
+            "maxSliceNum[%llu] tempAlgParams.count[%llu] sliceSize[%llu] inBuffBaseOff[%llu] outBuffBaseOff[%llu] vecSendRecvInfo.size[%zu].",
+            static_cast<u32>(loop), loopTimes, currDataCount,
+            maxSliceNum, tempAlgParams.count, tempAlgParams.sliceSize,
             tempAlgParams.buffInfo.inBuffBaseOff, tempAlgParams.buffInfo.outBuffBaseOff,
             xmlInfo_.vecSendRecvInfo.size());
 
