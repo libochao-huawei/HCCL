@@ -9,11 +9,12 @@
 namespace ops_hccl_allgatherbatch {
 
 thread_local aclrtNotify g_allGatherBatchNotifies[kAllGatherBatchControlNotifyNum] = {nullptr};
+thread_local aclrtStream launchStream = nullptr;
 
 HcclResult LaunchKernel(const OpParam &param, aclrtStream stream)
 {
     HCCL_CHK_PTR(stream);
-
+    ACLCHECK(aclrtCreateStreamWithConfig(&launchStream, 0, ACL_STREAM_FAST_LAUNCH | ACL_STREAM_FAST_SYNC));
     ACLCHECK(aclrtRecordNotify(g_allGatherBatchNotifies[kAllGatherBatchControlNotifyStart], stream));
 
     aclrtFuncHandle funcHandle = nullptr;
@@ -34,7 +35,7 @@ HcclResult LaunchKernel(const OpParam &param, aclrtStream stream)
     const bool profilingOn = IsProfilingEnabled();
     const uint64_t beginTime = profilingOn ? HcommGetProfilingSysCycleTime() : 0;
 
-    ACLCHECK(aclrtLaunchKernelWithConfig(funcHandle, blockDim, stream, &cfg, argsHandle, nullptr));
+    ACLCHECK(aclrtLaunchKernelWithConfig(funcHandle, blockDim, launchStream, &cfg, argsHandle, nullptr));
 
     ACLCHECK(aclrtWaitAndResetNotify(
         g_allGatherBatchNotifies[kAllGatherBatchControlNotifyDone],
