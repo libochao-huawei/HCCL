@@ -126,7 +126,7 @@ HcclResult GetHcclDfxOpInfoDataCount(const OpParam &param, const u32 &rankSize, 
         for (u64 i = 0; i < rankSize; i++) {
             sendCount += *(reinterpret_cast<const uint64_t*>(param.all2AllVDataDes.sendCounts) + i);
         }
-    } else if (param.opType == HcclCMDType::HCCL_CMD_ALLGATHER_V) {
+     } else if (param.opType == HcclCMDType::HCCL_CMD_ALLGATHER_V) {
         for (u64 i = 0; i < rankSize; i++) {
             sendCount += *(reinterpret_cast<const uint64_t*>(param.varData) + i);
         }
@@ -376,16 +376,27 @@ HcclResult ConstructHcclDfxOpInfo(const OpParam &param, HcclDfxOpInfo& hcclDfxOp
     CHK_RET(GetHcclDfxOpInfoDataCount(param, userRankSize, hcclDfxOpInfo.dataCount));
     hcclDfxOpInfo.root = param.root;
     hcclDfxOpInfo.engine = param.engine;
+
+    hcclDfxOpInfo.inputMemAddr = reinterpret_cast<uint64_t>(param.inputPtr);
+    hcclDfxOpInfo.inputMemSize = param.inputSize;
+    hcclDfxOpInfo.outputMemAddr = reinterpret_cast<uint64_t>(param.outputPtr);
+    hcclDfxOpInfo.outputMemSize = param.outputSize;
+    hcclDfxOpInfo.cclMemAddr = reinterpret_cast<uint64_t>(param.hcclBuff.addr);
+    hcclDfxOpInfo.cclMemSize = param.hcclBuff.size;
+
     hcclDfxOpInfo.cpuTsThread = cpuTsThread;
     hcclDfxOpInfo.cpuWaitAicpuNotifyIdx = HOST_WAIT_AICPU_NOTIFYIDX;
     s32 sRet = strncpy_s(hcclDfxOpInfo.algTag, ALG_TAG_LENGTH, param.algTag, ALG_TAG_LENGTH);
     CHK_PRT_RET(sRet != EOK, HCCL_ERROR("%s call strncpy_s failed, param.algTag %s,  return %d.",
         __func__, param.algTag, sRet), HCCL_E_MEMORY);
     HCCL_INFO("[%s]HcclDfxOpInfo param: algTag[%s], opMode[%u], opType[%u], reduceOp[%u], dataType[%u], dataCount[%llu],"
-        "root[%u], engine[%u], cpuTsThread[%u], cpuWaitAicpuNotifyIdx[%u]",
+        "root[%u], engine[%u], inputPtr[0x%llu], inputSize[%llu], outputPtr[0x%llu], outputSize[%u], cclPtr[0x%llu], "
+        "cclSize[%u], cpuTsThread[%u], cpuWaitAicpuNotifyIdx[%u]",
         __func__, hcclDfxOpInfo.algTag, hcclDfxOpInfo.opMode, hcclDfxOpInfo.opType, hcclDfxOpInfo.reduceOp,
         hcclDfxOpInfo.dataType, hcclDfxOpInfo.dataCount, hcclDfxOpInfo.root, hcclDfxOpInfo.engine,
-        hcclDfxOpInfo.cpuTsThread, hcclDfxOpInfo.cpuWaitAicpuNotifyIdx);
+        hcclDfxOpInfo.inputMemAddr, hcclDfxOpInfo.inputMemSize, hcclDfxOpInfo.outputMemAddr,
+        hcclDfxOpInfo.outputMemSize, hcclDfxOpInfo.cclMemAddr, hcclDfxOpInfo.cclMemSize, hcclDfxOpInfo.cpuTsThread,
+        hcclDfxOpInfo.cpuWaitAicpuNotifyIdx);
     return HCCL_SUCCESS;
 }
 
