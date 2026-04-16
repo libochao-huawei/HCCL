@@ -33,14 +33,14 @@ public:
 
     HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                        AlgResourceRequest& resourceRequest)  override;
-    HcclResult GetRes(AlgResourceRequest& resourceRequest, u32 channelsPerRank) const;
+    HcclResult GetRes(AlgResourceRequest& resourceRequest) const override;
     HcclResult KernelRun(const OpParam& param,
                          const TemplateDataParams& tempAlgParams,
                          TemplateResource& templateResource) override;
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
-    u64 GetThreadNum(u32 channelsPerRank) const;
-
-    void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMianToSub) override;
+    u64 GetThreadNum() const override;
+    HcclResult GetchannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels);
+    void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub) override;
     void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override;
 private:
     HcclResult GetStepInfoList(std::vector<AicpuNHRStepInfo> &stepInfoList);
@@ -49,7 +49,7 @@ private:
     HcclResult PostLocalCopy(const std::vector<ThreadHandle> &threads, u32 channelIdx);
     TemplateDataParams tempAlgParams_;
     std::map<u32, std::vector<ChannelInfo>> channels_;
-    u32 channelsPerRank_;
+    u32 channelsPerRank_ = 1;
     std::vector<u64> sizeOut_;
     std::vector<u64> elemOffset_;
     std::vector<u64> sizeOutTail_;
