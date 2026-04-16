@@ -25,52 +25,66 @@ namespace {
 constexpr uint32_t kBarrierTokenSize = 1U;
 constexpr HcclDataType kBarrierDataType = HCCL_DATA_TYPE_UINT32;
 
+struct BarrierMemGuard {
+    void* sendBuf = nullptr;
+    void* recvBuf = nullptr;
+    u32 rankSize = 0;
+    bool isFirstBarrier = true;
+
+    ~BarrierMemGuard() {
+        if (sendBuf != nullptr) {
+            (void)aclrtFree(sendBuf);
+            sendBuf = nullptr;
+        }
+        if (recvBuf != nullptr) {
+            (void)aclrtFree(recvBuf);
+            recvBuf = nullptr;
+        }
+    }
+};
+
 HcclResult GetBarrierMemory(u32 rankSize, void** sendBuf, void** recvBuf)
 {
-    static thread_local void* g_sendBuf = nullptr;
-    static thread_local void* g_recvBuf = nullptr;
-    static thread_local u32 g_rankSize = 0;
-    static thread_local bool g_isFirstBarrier = true;
+    static thread_local BarrierMemGuard g_barrierMem;
 
-    if (g_isFirstBarrier || g_rankSize != rankSize) {
-        if (g_sendBuf != nullptr) {
-            (void)aclrtFree(g_sendBuf);
-            g_sendBuf = nullptr;
+    if (g_barrierMem.isFirstBarrier || g_barrierMem.rankSize != rankSize) {
+        if (g_barrierMem.sendBuf != nullptr) {
+            (void)aclrtFree(g_barrierMem.sendBuf);
+            g_barrierMem.sendBuf = nullptr;
         }
-        if (g_recvBuf != nullptr) {
-            (void)aclrtFree(g_recvBuf);
-            g_recvBuf = nullptr;
+        if (g_barrierMem.recvBuf != nullptr) {
+            (void)aclrtFree(g_barrierMem.recvBuf);
+            g_barrierMem.recvBuf = nullptr;
         }
 
-        u32 tokenSize = sizeof(u32);
-        u32 sendSize = tokenSize;
-        u32 recvSize = tokenSize * rankSize;
+        u32 sendSize = kBarrierTokenSize * sizeof(u32);
+        u32 recvSize = kBarrierTokenSize * sizeof(u32) * rankSize;
 
-        aclError aclRet = aclrtMalloc(&g_sendBuf, sendSize, ACL_MEM_MALLOC_HUGE_FIRST);
+        aclError aclRet = aclrtMalloc(&g_barrierMem.sendBuf, sendSize, ACL_MEM_MALLOC_HUGE_FIRST);
         if (aclRet != ACL_SUCCESS) {
             HCCL_ERROR("[GetBarrierMemory] Failed to allocate sendBuf, ret=%d", aclRet);
             return HCCL_E_RUNTIME;
         }
 
-        aclRet = aclrtMalloc(&g_recvBuf, recvSize, ACL_MEM_MALLOC_HUGE_FIRST);
+        aclRet = aclrtMalloc(&g_barrierMem.recvBuf, recvSize, ACL_MEM_MALLOC_HUGE_FIRST);
         if (aclRet != ACL_SUCCESS) {
             HCCL_ERROR("[GetBarrierMemory] Failed to allocate recvBuf, ret=%d", aclRet);
-            (void)aclrtFree(g_sendBuf);
-            g_sendBuf = nullptr;
+            (void)aclrtFree(g_barrierMem.sendBuf);
+            g_barrierMem.sendBuf = nullptr;
             return HCCL_E_RUNTIME;
         }
 
-        (void)memset(g_sendBuf, 0, sendSize);
-        (void)memset(g_recvBuf, 0, recvSize);
+        ACLCHECK(aclrtMemset(g_barrierMem.sendBuf, sendSize, 0, sendSize));
+        ACLCHECK(aclrtMemset(g_barrierMem.recvBuf, recvSize, 0, recvSize));
 
-        g_rankSize = rankSize;
-        g_isFirstBarrier = false;
+        g_barrierMem.rankSize = rankSize;
+        g_barrierMem.isFirstBarrier = false;
         HCCL_INFO("[GetBarrierMemory] Allocated barrier memory, rankSize=%u, sendBuf=%p, recvBuf=%p",
-                  rankSize, g_sendBuf, g_recvBuf);
+                  rankSize, g_barrierMem.sendBuf, g_barrierMem.recvBuf);
     }
 
-    *sendBuf = g_sendBuf;
-    *recvBuf = g_recvBuf;
+    *sendBuf = g_barrierMem.sendBuf;
+    *recvBuf = g_barrierMem.recvBuf;
     return HCCL_SUCCESS;
 }
 
@@ -92,7 +106,11 @@ HcclResult BarrierSingleStep(HcclComm comm, aclrtStream stream)
     CHK_RET(GetBarrierMemory(rankSize, &sendBuf, &recvBuf));
 
     u32 token = rankId;
-    (void)memcpy(sendBuf, &token, sizeof(u32));
+    aclError aclRet = aclrtMemcpy(sendBuf, sizeof(u32), &token, sizeof(u32), ACL_MEMCPY_HOST_TO_DEVICE);
+    if (aclRet != ACL_SUCCESS) {
+        HCCL_ERROR("[BarrierSingleStep] Failed to copy token to sendBuf, ret=%d", aclRet);
+        return HCCL_E_RUNTIME;
+    }
 
     HcclResult ret = HcclAllGather(sendBuf, recvBuf, kBarrierTokenSize,
                                    kBarrierDataType, comm, stream);
@@ -101,10 +119,10 @@ HcclResult BarrierSingleStep(HcclComm comm, aclrtStream stream)
         return ret;
     }
 
-    ret = aclrtStreamSynchronize(stream);
-    if (ret != HCCL_SUCCESS) {
-        HCCL_ERROR("[BarrierSingleStep] Stream synchronize failed, ret[0x%016llx]", HCCL_ERROR_CODE(ret));
-        return ret;
+    aclError syncRet = aclrtStreamSynchronize(stream);
+    if (syncRet != ACL_SUCCESS) {
+        HCCL_ERROR("[BarrierSingleStep] Stream synchronize failed, ret=%d", syncRet);
+        return HCCL_E_RUNTIME;
     }
 
     return HCCL_SUCCESS;
