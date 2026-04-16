@@ -526,6 +526,10 @@ HcclResult GetOpParam(HcclComm comm, void* stream, const std::string &tag, const
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(SelectAlgAndPrepareEngine(comm, opParam, algName, topoInfo));
+    int result = sprintf_s(opParam.algName, sizeof(opParam.algName), "%s", algName.c_str());
+    CHK_PRT_RET(result <= 0, HCCL_ERROR("failed to fill opParam.algName"), HCCL_E_INTERNAL);
+    HCCL_INFO("[GetOpParam] prepared opParam, opType[%u], algName[%s], algTag[%s].",
+        static_cast<u32>(opParam.opType), opParam.algName, opParam.algTag);
 
     bool skipGetRes = false;
     CHK_RET(HandleSingleRankAndCommMode(comm, opParam, skipGetRes));
