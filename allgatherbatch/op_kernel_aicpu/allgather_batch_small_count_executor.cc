@@ -10,11 +10,20 @@ namespace ops_hccl_allgatherbatch {
 namespace {
 
 constexpr u64 kDualThreadUnpackMinBytes = 256 * 1024;
+constexpr u32 kQuadThreadWorkerCount = 4;
+
+void GetUnpackRankChunk(u32 rankSize, u32 tid, u32 workerCount, u32 &begin, u32 &end)
+{
+    const u32 chunk = (rankSize + workerCount - 1) / workerCount;
+    begin = std::min(tid * chunk, rankSize);
+    end = std::min(begin + chunk, rankSize);
+}
 
 HcclResult UnpackRankRangeOnThread(
     ThreadHandle thread,
     const OpParam &param,
-    const WindowRange &range,
+    const std::vector<WindowPart> &parts,
+    u64 packedSize,
     u8 *commOutputPtr,
     uint32_t beginRank,
     uint32_t endRank)
@@ -26,38 +35,12 @@ HcclResult UnpackRankRangeOnThread(
         HCCL_E_PARA);
 
     for (u32 rank = beginRank; rank < endRank; ++rank) {
-        u64 packedOffset = 0;
-        for (uint32_t itemIdx = range.startDescIdx; itemIdx <= range.endDescIdx; ++itemIdx) {
-            const BatchItemParam &item = param.items[itemIdx];
-            const u64 startOffset = (itemIdx == range.startDescIdx) ? range.startOffset : 0;
-            const u64 endOffset = (itemIdx == range.endDescIdx) ? range.endOffset : item.sendBytes;
-            CHK_PRT_RET(endOffset < startOffset || endOffset > item.sendBytes,
-                HCCL_ERROR("[AllGatherBatchSmallCountExecutor][UnpackRankRangeOnThread]tag[%s], invalid range on item[%u], startOffset[%llu], endOffset[%llu], sendBytes[%llu]",
-                    param.tag,
-                    itemIdx,
-                    static_cast<unsigned long long>(startOffset),
-                    static_cast<unsigned long long>(endOffset),
-                    static_cast<unsigned long long>(item.sendBytes)),
-                HCCL_E_PARA);
-
-            const u64 sizeBytes = endOffset - startOffset;
-            if (sizeBytes == 0) {
-                continue;
-            }
-
-            void *srcPtr = commOutputPtr + rank * range.packedSize + packedOffset;
-            void *dstPtr = static_cast<u8 *>(item.recvBuf) + rank * item.sendBytes + startOffset;
-            CHK_RET(HcommLocalCopyOnThread(thread, dstPtr, srcPtr, sizeBytes));
-            packedOffset += sizeBytes;
+        for (const WindowPart &part : parts) {
+            const BatchItemParam &item = param.items[part.itemIdx];
+            void *srcPtr = commOutputPtr + rank * packedSize + part.packedOffset;
+            void *dstPtr = static_cast<u8 *>(item.recvBuf) + rank * item.sendBytes + part.startOffset;
+            CHK_RET(HcommLocalCopyOnThread(thread, dstPtr, srcPtr, part.sizeBytes));
         }
-
-        CHK_PRT_RET(packedOffset != range.packedSize,
-            HCCL_ERROR("[AllGatherBatchSmallCountExecutor][UnpackRankRangeOnThread]tag[%s], rank[%u] packedOffset[%llu] != packedSize[%llu]",
-                param.tag,
-                rank,
-                static_cast<unsigned long long>(packedOffset),
-                static_cast<unsigned long long>(range.packedSize)),
-            HCCL_E_INTERNAL);
     }
     return HCCL_SUCCESS;
 }
@@ -86,21 +69,26 @@ HcclResult AllGatherBatchSmallCountExecutor::Orchestrate()
     return HCCL_SUCCESS;
 }
 
-HcclResult AllGatherBatchSmallCountExecutor::BuildWindowRange(
-    const WindowRange &current, u64 maxWindowBytes, WindowRange &range, WindowRange &next) const
+HcclResult AllGatherBatchSmallCountExecutor::BuildWindowPlan(
+    const WindowRange &current,
+    u64 maxWindowBytes,
+    WindowRange &range,
+    WindowRange &next,
+    std::vector<WindowPart> &parts) const
 {
     CHK_PRT_RET(current.startDescIdx >= param_.itemCount,
-        HCCL_ERROR("[AllGatherBatchSmallCountExecutor][BuildWindowRange]tag[%s], startDescIdx[%u] out of range, itemCount[%u]",
+        HCCL_ERROR("[AllGatherBatchSmallCountExecutor][BuildWindowPlan]tag[%s], startDescIdx[%u] out of range, itemCount[%u]",
             param_.tag, current.startDescIdx, param_.itemCount),
         HCCL_E_PARA);
     CHK_PRT_RET(maxWindowBytes == 0,
-        HCCL_ERROR("[AllGatherBatchSmallCountExecutor][BuildWindowRange]tag[%s], maxWindowBytes is zero", param_.tag),
+        HCCL_ERROR("[AllGatherBatchSmallCountExecutor][BuildWindowPlan]tag[%s], maxWindowBytes is zero", param_.tag),
         HCCL_E_PARA);
 
     range = {};
     range.startDescIdx = current.startDescIdx;
     range.startOffset = current.startOffset;
     next = {};
+    parts.clear();
 
     u64 remaining = maxWindowBytes;
     u64 packedSize = 0;
@@ -110,7 +98,7 @@ HcclResult AllGatherBatchSmallCountExecutor::BuildWindowRange(
     while (itemIdx < param_.itemCount) {
         const BatchItemParam &item = param_.items[itemIdx];
         CHK_PRT_RET(item.sendBuf == nullptr || item.recvBuf == nullptr || item.sendBytes == 0,
-            HCCL_ERROR("[AllGatherBatchSmallCountExecutor][BuildWindowRange]tag[%s], invalid item[%u], sendBuf[%p], recvBuf[%p], sendBytes[%llu]",
+            HCCL_ERROR("[AllGatherBatchSmallCountExecutor][BuildWindowPlan]tag[%s], invalid item[%u], sendBuf[%p], recvBuf[%p], sendBytes[%llu]",
                 param_.tag,
                 itemIdx,
                 item.sendBuf,
@@ -118,7 +106,7 @@ HcclResult AllGatherBatchSmallCountExecutor::BuildWindowRange(
                 static_cast<unsigned long long>(item.sendBytes)),
             HCCL_E_PARA);
         CHK_PRT_RET(itemOffset > item.sendBytes,
-            HCCL_ERROR("[AllGatherBatchSmallCountExecutor][BuildWindowRange]tag[%s], item[%u] offset[%llu] exceeds sendBytes[%llu]",
+            HCCL_ERROR("[AllGatherBatchSmallCountExecutor][BuildWindowPlan]tag[%s], item[%u] offset[%llu] exceeds sendBytes[%llu]",
                 param_.tag,
                 itemIdx,
                 static_cast<unsigned long long>(itemOffset),
@@ -133,6 +121,18 @@ HcclResult AllGatherBatchSmallCountExecutor::BuildWindowRange(
 
         const u64 itemRemain = item.sendBytes - itemOffset;
         const u64 takeBytes = std::min(itemRemain, remaining);
+        CHK_PRT_RET(takeBytes == 0,
+            HCCL_ERROR("[AllGatherBatchSmallCountExecutor][BuildWindowPlan]tag[%s], takeBytes is zero on item[%u]",
+                param_.tag, itemIdx),
+            HCCL_E_INTERNAL);
+
+        WindowPart part;
+        part.itemIdx = itemIdx;
+        part.startOffset = itemOffset;
+        part.sizeBytes = takeBytes;
+        part.packedOffset = packedSize;
+        parts.push_back(part);
+
         packedSize += takeBytes;
         remaining -= takeBytes;
 
@@ -151,6 +151,16 @@ HcclResult AllGatherBatchSmallCountExecutor::BuildWindowRange(
                 next.startDescIdx = range.endDescIdx + 1U;
                 next.startOffset = 0;
             }
+
+            CHK_PRT_RET(parts.empty(),
+                HCCL_ERROR("[AllGatherBatchSmallCountExecutor][BuildWindowPlan]tag[%s], parts is empty", param_.tag),
+                HCCL_E_INTERNAL);
+            CHK_PRT_RET(packedSize != range.packedSize,
+                HCCL_ERROR("[AllGatherBatchSmallCountExecutor][BuildWindowPlan]tag[%s], packedSize[%llu] != range.packedSize[%llu]",
+                    param_.tag,
+                    static_cast<unsigned long long>(packedSize),
+                    static_cast<unsigned long long>(range.packedSize)),
+                HCCL_E_INTERNAL);
             return HCCL_SUCCESS;
         }
 
@@ -159,7 +169,7 @@ HcclResult AllGatherBatchSmallCountExecutor::BuildWindowRange(
     }
 
     CHK_PRT_RET(range.packedSize == 0,
-        HCCL_ERROR("[AllGatherBatchSmallCountExecutor][BuildWindowRange]tag[%s], packedSize is zero at startDescIdx[%u], startOffset[%llu]",
+        HCCL_ERROR("[AllGatherBatchSmallCountExecutor][BuildWindowPlan]tag[%s], packedSize is zero at startDescIdx[%u], startOffset[%llu]",
             param_.tag,
             current.startDescIdx,
             static_cast<unsigned long long>(current.startOffset)),
@@ -167,74 +177,95 @@ HcclResult AllGatherBatchSmallCountExecutor::BuildWindowRange(
     return HCCL_SUCCESS;
 }
 
-HcclResult AllGatherBatchSmallCountExecutor::PackWindowToCCLIn(const WindowRange &range, void *commInputPtr)
+HcclResult AllGatherBatchSmallCountExecutor::PackWindowToCCLIn(
+    const std::vector<WindowPart> &parts, void *commInputPtr)
 {
     CHK_PTR_NULL(commInputPtr);
+
     u8 *packedPtr = static_cast<u8 *>(commInputPtr);
-    u64 packedOffset = 0;
-
-    for (uint32_t itemIdx = range.startDescIdx; itemIdx <= range.endDescIdx; ++itemIdx) {
-        const BatchItemParam &item = param_.items[itemIdx];
-        const u64 startOffset = (itemIdx == range.startDescIdx) ? range.startOffset : 0;
-        const u64 endOffset = (itemIdx == range.endDescIdx) ? range.endOffset : item.sendBytes;
-        CHK_PRT_RET(endOffset < startOffset || endOffset > item.sendBytes,
-            HCCL_ERROR("[AllGatherBatchSmallCountExecutor][PackWindowToCCLIn]tag[%s], invalid range on item[%u], startOffset[%llu], endOffset[%llu], sendBytes[%llu]",
-                param_.tag,
-                itemIdx,
-                static_cast<unsigned long long>(startOffset),
-                static_cast<unsigned long long>(endOffset),
-                static_cast<unsigned long long>(item.sendBytes)),
-            HCCL_E_PARA);
-
-        const u64 sizeBytes = endOffset - startOffset;
-        if (sizeBytes == 0) {
-            continue;
-        }
-
-        void *dstPtr = packedPtr + packedOffset;
-        void *srcPtr = static_cast<u8 *>(item.sendBuf) + startOffset;
-        CHK_RET(HcommLocalCopyOnThread(resCtx_.mainThreadHandle, dstPtr, srcPtr, sizeBytes));
-        packedOffset += sizeBytes;
+    for (const WindowPart &part : parts) {
+        const BatchItemParam &item = param_.items[part.itemIdx];
+        void *dstPtr = packedPtr + part.packedOffset;
+        void *srcPtr = static_cast<u8 *>(item.sendBuf) + part.startOffset;
+        CHK_RET(HcommLocalCopyOnThread(resCtx_.mainThreadHandle, dstPtr, srcPtr, part.sizeBytes));
     }
-
-    CHK_PRT_RET(packedOffset != range.packedSize,
-        HCCL_ERROR("[AllGatherBatchSmallCountExecutor][PackWindowToCCLIn]tag[%s], packedOffset[%llu] != packedSize[%llu]",
-            param_.tag,
-            static_cast<unsigned long long>(packedOffset),
-            static_cast<unsigned long long>(range.packedSize)),
-        HCCL_E_INTERNAL);
     return HCCL_SUCCESS;
 }
 
-HcclResult AllGatherBatchSmallCountExecutor::UnpackWindowFromCCLOut(const WindowRange &range, u8 *commOutputPtr)
+HcclResult AllGatherBatchSmallCountExecutor::UnpackWindowFromCCLOut(
+    const std::vector<WindowPart> &parts, u64 packedSize, u8 *commOutputPtr)
 {
     CHK_PTR_NULL(commOutputPtr);
 
-    const u64 totalUnpackBytes = range.packedSize * param_.topoInfo.rankSize;
-    const u32 midRank = param_.topoInfo.rankSize / 2 + 1;
-    const bool useDualThreadUnpack = (SubThreadNum > 0) &&
-        (param_.topoInfo.rankSize > 2) &&
+    const u32 rankSize = param_.topoInfo.rankSize;
+    const u64 totalUnpackBytes = packedSize * rankSize;
+    const bool useQuadThreadUnpack = (rankSize > 1) &&
+        (resCtx_.subThreadHandles[0] != 0) &&
+        (resCtx_.subThreadHandles[1] != 0) &&
+        (resCtx_.subThreadHandles[2] != 0) &&
         (totalUnpackBytes >= kDualThreadUnpackMinBytes);
 
-    if (!useDualThreadUnpack) {
+    if (!useQuadThreadUnpack) {
         return UnpackRankRangeOnThread(
-            resCtx_.mainThreadHandle, param_, range, commOutputPtr, 0, param_.topoInfo.rankSize);
+            resCtx_.mainThreadHandle, param_, parts, packedSize, commOutputPtr, 0, rankSize);
     }
 
-    CHK_RET(HcommThreadNotifyRecordOnThread(
-        resCtx_.mainThreadHandle, resCtx_.subThreadHandles[0], resCtx_.subNotifyIds[0]));
-    CHK_RET(HcommThreadNotifyWaitOnThread(
-        resCtx_.subThreadHandles[0], resCtx_.subNotifyIds[0], CUSTOM_TIMEOUT));
+    u32 beginRanks[kQuadThreadWorkerCount] = {0};
+    u32 endRanks[kQuadThreadWorkerCount] = {0};
+    for (u32 tid = 0; tid < kQuadThreadWorkerCount; ++tid) {
+        GetUnpackRankChunk(rankSize, tid, kQuadThreadWorkerCount, beginRanks[tid], endRanks[tid]);
+    }
 
-    CHK_RET(UnpackRankRangeOnThread(
-        resCtx_.mainThreadHandle, param_, range, commOutputPtr, 0, midRank));
-    CHK_RET(UnpackRankRangeOnThread(
-        resCtx_.subThreadHandles[0], param_, range, commOutputPtr, midRank, param_.topoInfo.rankSize));
+    const u32 activeSubThreads = static_cast<u32>((beginRanks[1] < endRanks[1]) +
+        (beginRanks[2] < endRanks[2]) +
+        (beginRanks[3] < endRanks[3]));
 
-    CHK_RET(HcommThreadNotifyRecordOnThread(
-        resCtx_.subThreadHandles[0], resCtx_.mainThreadHandle, resCtx_.mainNotifyIds[0]));
-    CHK_RET(HcommThreadNotifyWaitOnThread(
-        resCtx_.mainThreadHandle, resCtx_.mainNotifyIds[0], CUSTOM_TIMEOUT));
+    for (u32 tid = 1; tid < kQuadThreadWorkerCount; ++tid) {
+        if (beginRanks[tid] >= endRanks[tid]) {
+            continue;
+        }
+        CHK_RET(HcommThreadNotifyRecordOnThread(
+            resCtx_.mainThreadHandle, resCtx_.subThreadHandles[tid - 1], resCtx_.subNotifyIds[tid - 1]));
+    }
+    for (u32 tid = 1; tid < kQuadThreadWorkerCount; ++tid) {
+        if (beginRanks[tid] >= endRanks[tid]) {
+            continue;
+        }
+        CHK_RET(HcommThreadNotifyWaitOnThread(
+            resCtx_.subThreadHandles[tid - 1], resCtx_.subNotifyIds[tid - 1], CUSTOM_TIMEOUT));
+    }
+
+    if (beginRanks[0] < endRanks[0]) {
+        CHK_RET(UnpackRankRangeOnThread(
+            resCtx_.mainThreadHandle, param_, parts, packedSize, commOutputPtr, beginRanks[0], endRanks[0]));
+    }
+    for (u32 tid = 1; tid < kQuadThreadWorkerCount; ++tid) {
+        if (beginRanks[tid] >= endRanks[tid]) {
+            continue;
+        }
+        CHK_RET(UnpackRankRangeOnThread(
+            resCtx_.subThreadHandles[tid - 1], param_, parts, packedSize, commOutputPtr, beginRanks[tid], endRanks[tid]));
+    }
+
+    for (u32 tid = 1; tid < kQuadThreadWorkerCount; ++tid) {
+        if (beginRanks[tid] >= endRanks[tid]) {
+            continue;
+        }
+        CHK_RET(HcommThreadNotifyRecordOnThread(
+            resCtx_.subThreadHandles[tid - 1], resCtx_.mainThreadHandle, resCtx_.mainNotifyIds[tid - 1]));
+    }
+    for (u32 tid = 1; tid < kQuadThreadWorkerCount; ++tid) {
+        if (beginRanks[tid] >= endRanks[tid]) {
+            continue;
+        }
+        CHK_RET(HcommThreadNotifyWaitOnThread(
+            resCtx_.mainThreadHandle, resCtx_.mainNotifyIds[tid - 1], CUSTOM_TIMEOUT));
+    }
+
+    CHK_PRT_RET(activeSubThreads == 0 && rankSize > 1,
+        HCCL_ERROR("[AllGatherBatchSmallCountExecutor][UnpackWindowFromCCLOut]tag[%s], no active sub threads for quad-thread unpack, rankSize[%u]",
+            param_.tag, rankSize),
+        HCCL_E_INTERNAL);
     return HCCL_SUCCESS;
 }
 
@@ -262,10 +293,12 @@ HcclResult AllGatherBatchSmallCountExecutor::RunLoop(std::vector<ChannelResource
     current.startDescIdx = 0;
     current.startOffset = 0;
 
+    std::vector<WindowPart> parts;
+    parts.reserve(param_.itemCount);
     while (current.startDescIdx < param_.itemCount) {
         WindowRange range;
         WindowRange next;
-        CHK_RET(BuildWindowRange(current, maxWindowBytes, range, next));
+        CHK_RET(BuildWindowPlan(current, maxWindowBytes, range, next, parts));
         CHK_PRT_RET(range.packedSize > inputCapacity,
             HCCL_ERROR("[AllGatherBatchSmallCountExecutor][RunLoop]tag[%s], packedSize[%llu] exceeds inputCapacity[%llu]",
                 param_.tag,
@@ -281,7 +314,7 @@ HcclResult AllGatherBatchSmallCountExecutor::RunLoop(std::vector<ChannelResource
         ++profiling_.windowCount;
 
         const uint64_t packStartUs = GetCurrentTimeUs();
-        CHK_RET(PackWindowToCCLIn(range, commInputPtr));
+        CHK_RET(PackWindowToCCLIn(parts, commInputPtr));
         profiling_.packUs += (GetCurrentTimeUs() - packStartUs);
 
         ExecMem execMem;
@@ -303,7 +336,7 @@ HcclResult AllGatherBatchSmallCountExecutor::RunLoop(std::vector<ChannelResource
             ret);
 
         const uint64_t unpackStartUs = GetCurrentTimeUs();
-        CHK_RET(UnpackWindowFromCCLOut(range, commOutputPtr));
+        CHK_RET(UnpackWindowFromCCLOut(parts, range.packedSize, commOutputPtr));
         profiling_.unpackUs += (GetCurrentTimeUs() - unpackStartUs);
 
         current = next;
@@ -323,3 +356,4 @@ HcclResult AllGatherBatchSmallCountExecutor::KernelRun(ExecMem &execMem, std::ve
 }
 
 }  // namespace ops_hccl_allgatherbatch
+

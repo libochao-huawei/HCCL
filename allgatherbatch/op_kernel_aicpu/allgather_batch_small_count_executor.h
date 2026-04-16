@@ -15,6 +15,13 @@ struct WindowRange {
     u64 packedSize = 0;
 };
 
+struct WindowPart {
+    uint32_t itemIdx = 0;
+    u64 startOffset = 0;
+    u64 sizeBytes = 0;
+    u64 packedOffset = 0;
+};
+
 class AllGatherBatchSmallCountExecutor {
 public:
     AllGatherBatchSmallCountExecutor(const OpParam &param, AlgResourceCtx &resCtx, BatchCallProfiling &profiling);
@@ -24,10 +31,10 @@ private:
     HcclResult RunLoop(std::vector<ChannelResource> &channels);
     HcclResult KernelRun(ExecMem &execMem, std::vector<ChannelResource> &channels);
 
-    HcclResult BuildWindowRange(const WindowRange &current, u64 maxWindowBytes,
-        WindowRange &range, WindowRange &next) const;
-    HcclResult PackWindowToCCLIn(const WindowRange &range, void *commInputPtr);
-    HcclResult UnpackWindowFromCCLOut(const WindowRange &range, u8 *commOutputPtr);
+    HcclResult BuildWindowPlan(const WindowRange &current, u64 maxWindowBytes,
+        WindowRange &range, WindowRange &next, std::vector<WindowPart> &parts) const;
+    HcclResult PackWindowToCCLIn(const std::vector<WindowPart> &parts, void *commInputPtr);
+    HcclResult UnpackWindowFromCCLOut(const std::vector<WindowPart> &parts, u64 packedSize, u8 *commOutputPtr);
 
     const OpParam &param_;
     AlgResourceCtx &resCtx_;
