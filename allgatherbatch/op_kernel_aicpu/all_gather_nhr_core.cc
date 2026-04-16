@@ -21,6 +21,12 @@ HcclResult AllGatherNHRCore::Prepare(bool needMerge)
     return HCCL_SUCCESS;
 }
 
+void AllGatherNHRCore::SetInputPreparedInOutput(bool enabled)
+{
+    inputPreparedInOutput_ = enabled;
+}
+
+
 HcclResult AllGatherNHRCore::RunAsync(const u32 rank, const u32 rankSize,
     const std::vector<ChannelResource> &links)
 {
@@ -56,10 +62,12 @@ HcclResult AllGatherNHRCore::RunAsync(const u32 rank, const u32 rankSize,
         slices[i].size = totalSize_;
     }
 
-    const Slice &localSlice = slices[sliceMap_[rank]];
-    void *localDst = static_cast<u8 *>(execMem_.outputMem.addr) + baseOffset_ + localSlice.offset;
-    if (execMem_.inputPtr != localDst) {
-        CHK_RET(HcommLocalCopyOnThread(resCtx_.mainThreadHandle, localDst, execMem_.inputPtr, totalSize_));
+    if (!inputPreparedInOutput_) {
+        const Slice &localSlice = slices[sliceMap_[rank]];
+        void *localDst = static_cast<u8 *>(execMem_.outputMem.addr) + baseOffset_ + localSlice.offset;
+        if (execMem_.inputPtr != localDst) {
+            CHK_RET(HcommLocalCopyOnThread(resCtx_.mainThreadHandle, localDst, execMem_.inputPtr, totalSize_));
+        }
     }
 
     if (rankSize == 1) {
@@ -314,3 +322,4 @@ void AllGatherNHRCore::MergeSlices(std::vector<Slice> &slices)
 }
 
 }  // namespace ops_hccl_allgatherbatch
+

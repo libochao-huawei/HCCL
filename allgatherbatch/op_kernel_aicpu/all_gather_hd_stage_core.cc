@@ -164,6 +164,7 @@ HcclResult AllGatherHDStage::RunAllGatherNoPower()
 
     AllGatherNHRCore nhrCore(resCtx_, execMem_, baseOffset, totalSize_, nhrChannels);
     CHK_RET(nhrCore.Prepare(true));
+    nhrCore.SetInputPreparedInOutput(true);
     return nhrCore.RunAsync(group, noPower_, nhrChannels);
 }
 
@@ -420,5 +421,3 @@ HcclResult AllGatherHDStage::RunAsync()
 }
 
 }  // namespace ops_hccl_allgatherbatch
-
-
