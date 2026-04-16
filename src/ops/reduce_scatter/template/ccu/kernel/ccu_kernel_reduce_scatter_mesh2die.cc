@@ -149,9 +149,6 @@ HcclResult CcuKernelReduceScatterMesh2Die::Algorithm()
 std::vector<uint64_t> CcuKernelReduceScatterMesh2Die::GeneArgs(const CcuTaskArg &arg)
 {
     const CcuTaskArgReduceScatterMesh2Die *taskArg = dynamic_cast<const CcuTaskArgReduceScatterMesh2Die *>(&arg);
-    if (taskArg == nullptr) {
-        HCCL_ERROR("[CcuKernelReduceScatterMesh2Die] taskArg ptr is null. RankId[%u]", myRankId_);
-    }
     moConfig.loopCount = LOOP_NUM;
     uint64_t myInput   = taskArg->inputAddr_;
     uint64_t myOutput  = taskArg->outputAddr_;

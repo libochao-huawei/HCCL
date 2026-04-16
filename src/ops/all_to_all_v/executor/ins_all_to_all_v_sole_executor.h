@@ -29,13 +29,18 @@ public:
     HcclResult CalcRes(HcclComm comm, const OpParam& param,
                        const TopoInfoWithNetLayerDetails* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
                        AlgResourceRequest& resourceRequest) override;
+
+    HcclResult GetAlltoAllLocalSendRecvInfo(const OpParam &param, 
+                                            A2ASendRecvInfo &localSendRecvInfo) const;
     
     HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo,
                                     AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
-    
-    HcclResult GetAlltoAllLocalSendRecvInfo(const OpParam &param, 
-                                            A2ASendRecvInfo &localSendRecvInfo) const;
-
+                               
+#ifndef AICPU_COMPILE
+    HcclResult FastLaunchSaveCtx(const OpParam &param, const TemplateResource &templateAlgRes);
+ 	HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *resCtx) override;   
+#endif
+ 	                                          
 protected:
     /* *************** 算法编排 *************** */
     HcclResult OrchestrateLoop(const OpParam &param, const AlgResourceCtxSerializable &resCtx);

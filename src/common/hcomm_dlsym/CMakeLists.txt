@@ -104,6 +104,7 @@ if(BUILD_OPEN_PROJECT)
     target_link_libraries(hccl_compat PRIVATE
         -Wl,--no-as-needed
         unified_dlog
+        acl_rt
         -Wl,--no-as-needed
     )
 else()
@@ -111,6 +112,7 @@ else()
         $<BUILD_INTERFACE:slog_headers>
         -Wl,--no-as-needed
         unified_dlog
+        acl_rt
         -Wl,--no-as-needed
     )
 endif()
