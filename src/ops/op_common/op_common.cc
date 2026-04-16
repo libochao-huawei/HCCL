@@ -77,6 +77,10 @@ HcclResult CheckDetourSupport(HcclComm comm, OpParam &param)
 {
     u32 userRankSize;
     CHK_RET(HcclGetRankSize(comm, &userRankSize));
+    CHK_PRT_RET(param.opExecuteConfig != OpExecuteConfig::CCU_MS && param.opExecuteConfig != OpExecuteConfig::CCU_SCHED &&
+                param.detourType != HcclDetourType::HCCL_DETOUR_DISABLE,
+        HCCL_ERROR("[CheckDetourSupport] Detour only support ccu mode."),
+        HCCL_E_NOT_SUPPORT);
     if ((param.detourType == HcclDetourType::HCCL_DETOUR_ENABLE_2P && userRankSize != 2) ||
         (param.detourType == HcclDetourType::HCCL_DETOUR_ENABLE_4P && userRankSize != 4 ||
         param.detourType == HcclDetourType::HCCL_DETOUR_ENABLE_2P_AND_4P)) {
