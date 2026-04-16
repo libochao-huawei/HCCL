@@ -370,6 +370,15 @@ HcclResult ConstructHcclDfxOpInfo(const OpParam &param, HcclDfxOpInfo& hcclDfxOp
     hcclDfxOpInfo.reduceOp = static_cast<u32>(param.reduceType);
     CHK_RET(GetHcclDfxOpInfoDataType(param, hcclDfxOpInfo.dataType));
 
+    hcclDfxOpInfo.inputMemAddr = reinterpret_cast<uint64_t>(param.inputPtr);
+    hcclDfxOpInfo.inputMemSize = param.inputSize;
+    hcclDfxOpInfo.outputMemAddr = reinterpret_cast<uint64_t>(param.outputPtr);
+    hcclDfxOpInfo.outputMemSize = param.outputSize;
+
+    void *cclBufferAddr = nullptr;
+    CHK_RET(HcclGetHcclBuffer(param.hcclComm, &cclBufferAddr, &hcclDfxOpInfo.cclMemSize));
+    hcclDfxOpInfo.cclMemAddr = reinterpret_cast<uint64_t>(cclBufferAddr);
+
     // rankSize获取指定算子的dataCount
     u32 userRankSize{0};
     CHK_RET(HcclGetRankSize(param.hcclComm, &userRankSize));
