@@ -120,10 +120,10 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
 
 HcclResult GetHcclDfxOpInfoDataCount(const OpParam &param, const u32 &rankSize, uint64_t &sendCount) {
     sendCount = 0;
-    if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL
-        || param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV
-        || param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
-        for (u64 i = 0; i < rankSize; i++) {
+    if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL) {
+        sendCount += *(reinterpret_cast<const uint64_t*>(param.all2AllVDataDes.sendCounts)); // 非v类算子，只上报入参里的count
+    } else if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV || param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
+        for (u64 i = 0; i < rankSize; i++) { // v类算子上报累加的count
             sendCount += *(reinterpret_cast<const uint64_t*>(param.all2AllVDataDes.sendCounts) + i);
         }
     } else if (param.opType == HcclCMDType::HCCL_CMD_ALLGATHER_V) {
@@ -369,6 +369,15 @@ HcclResult ConstructHcclDfxOpInfo(const OpParam &param, HcclDfxOpInfo& hcclDfxOp
     hcclDfxOpInfo.opType = static_cast<u32>(param.opType);
     hcclDfxOpInfo.reduceOp = static_cast<u32>(param.reduceType);
     CHK_RET(GetHcclDfxOpInfoDataType(param, hcclDfxOpInfo.dataType));
+
+    hcclDfxOpInfo.inputMemAddr = reinterpret_cast<uint64_t>(param.inputPtr);
+    hcclDfxOpInfo.inputMemSize = param.inputSize;
+    hcclDfxOpInfo.outputMemAddr = reinterpret_cast<uint64_t>(param.outputPtr);
+    hcclDfxOpInfo.outputMemSize = param.outputSize;
+
+    void *cclBufferAddr = nullptr;
+    CHK_RET(HcclGetHcclBuffer(param.hcclComm, &cclBufferAddr, &hcclDfxOpInfo.cclMemSize));
+    hcclDfxOpInfo.cclMemAddr = reinterpret_cast<uint64_t>(cclBufferAddr);
 
     // rankSize获取指定算子的dataCount
     u32 userRankSize{0};
