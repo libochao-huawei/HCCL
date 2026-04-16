@@ -48,6 +48,7 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 {
     myRank_ = topoInfo->userRank;
     HCCL_INFO("[InsAllReduceParallelExecutor] CalcRes start, rank[%d]", myRank_);
+    
     std::vector<std::vector<u32>> temp0HierarchyInfo;
     std::vector<std::vector<u32>> temp1HierarchyInfo;
     if(topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {

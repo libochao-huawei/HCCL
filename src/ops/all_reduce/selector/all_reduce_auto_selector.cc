@@ -175,6 +175,7 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNe
 SelectorStatus AllReduceAutoSelector::SelectCcuScheduleLevel0UBXAlgo(const TopoInfoWithNetLayerDetails* topoInfo, 
     std::string &selectAlgName, const u64 dataSize) const
 {
+    // UBX机型
     bool isMeshNumEqualToClosNum = false;
     bool isClosNumMultipleOfMeshNum = false;
     CHK_PRT_RET(CheckMeshNumEqualToClosNum(topoInfo, isMeshNumEqualToClosNum) != HCCL_SUCCESS,
