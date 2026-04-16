@@ -11,6 +11,9 @@
 #include "launch_kernel.h"
 
 #include <memory>
+#include <mutex>
+#include <string>
+#include <unordered_map>
 
 #include "ccu_kernel_all_gather_batch_mesh1d.h"
 #include "host_utils.h"
@@ -22,9 +25,18 @@ namespace ops_hccl_allgather_batch {
 
 namespace {
 
+struct CcuKernelKeepAlive {
+    std::shared_ptr<CcuKernelArgAllGatherBatchMesh1D> kernelArg;
+    hcomm::KernelCreator kernelCreator;
+};
+
+std::mutex g_keepAliveMutex;
+std::unordered_map<std::string, CcuKernelKeepAlive> g_keepAliveByTag;
+
 HcclResult BuildChannelRequests(HcclComm comm, uint32_t rank, uint32_t rankSize,
                                 std::vector<HcclChannelDesc> &channelRequests)
 {
+    HCCL_INFO("[BuildChannelRequests] begin, rank=%u rankSize=%u", rank, rankSize);
     for (uint32_t remoteRank = 0; remoteRank < rankSize; ++remoteRank) {
         if (remoteRank == rank) {
             continue;
@@ -48,7 +60,10 @@ HcclResult BuildChannelRequests(HcclComm comm, uint32_t rank, uint32_t rankSize,
         desc.channelProtocol = linkList[0].linkAttr.linkProtocol;
         desc.notifyNum = 3;
         channelRequests.push_back(desc);
+        HCCL_INFO("[BuildChannelRequests] add remoteRank=%u protocol=%u notifyNum=%u",
+                  remoteRank, desc.channelProtocol, desc.notifyNum);
     }
+    HCCL_INFO("[BuildChannelRequests] end, channelCount=%zu", channelRequests.size());
     return HCCL_SUCCESS;
 }
 
@@ -56,16 +71,23 @@ HcclResult BuildChannelRequests(HcclComm comm, uint32_t rank, uint32_t rankSize,
 
 HcclResult InitCcuContext(HcclComm comm, const char *engineCtxTag, const OpParam &param, CcuContextData *&ctx)
 {
+    HCCL_INFO("[InitCcuContext] begin, tag=%s rank=%u rankSize=%u itemCount=%u",
+              engineCtxTag, param.rank, param.rankSize, param.itemCount);
     uint64_t ctxSize = sizeof(CcuContextData);
     void *ctxPtr = nullptr;
-    if (HcclEngineCtxGet(comm, engineCtxTag, CommEngine::COMM_ENGINE_CCU, &ctxPtr, &ctxSize) == HCCL_SUCCESS &&
-        ctxPtr != nullptr) {
+    HcclResult ret = HcclEngineCtxGet(comm, engineCtxTag, CommEngine::COMM_ENGINE_CCU, &ctxPtr, &ctxSize);
+    HCCL_INFO("[InitCcuContext] HcclEngineCtxGet ret=%d ctxPtr=%p ctxSize=%llu", ret, ctxPtr, ctxSize);
+    if (ret == HCCL_SUCCESS && ctxPtr != nullptr) {
         ctx = static_cast<CcuContextData *>(ctxPtr);
         if (ctx->initialized) {
+            HCCL_INFO("[InitCcuContext] context already initialized, kernelHandle=%llu", ctx->kernelHandle);
             return HCCL_SUCCESS;
         }
     } else {
-        CHK_RET(HcclEngineCtxCreate(comm, engineCtxTag, CommEngine::COMM_ENGINE_CCU, sizeof(CcuContextData), &ctxPtr));
+        HCCL_INFO("[InitCcuContext] creating engine ctx");
+        ret = HcclEngineCtxCreate(comm, engineCtxTag, CommEngine::COMM_ENGINE_CCU, sizeof(CcuContextData), &ctxPtr);
+        HCCL_INFO("[InitCcuContext] HcclEngineCtxCreate ret=%d ctxPtr=%p", ret, ctxPtr);
+        CHK_RET(ret);
         ctx = static_cast<CcuContextData *>(ctxPtr);
         ctx->initialized = false;
         ctx->kernelHandle = 0;
@@ -79,21 +101,42 @@ HcclResult InitCcuContext(HcclComm comm, const char *engineCtxTag, const OpParam
     CHK_RET(BuildChannelRequests(comm, param.rank, param.rankSize, channelRequests));
     std::vector<ChannelHandle> channels(channelRequests.size());
     if (!channelRequests.empty()) {
-        CHK_RET(HcclChannelAcquire(comm, CommEngine::COMM_ENGINE_CCU,
-                                   channelRequests.data(), channelRequests.size(), channels.data()));
+        HCCL_INFO("[InitCcuContext] acquiring %zu CCU channels", channelRequests.size());
+        ret = HcclChannelAcquire(comm, CommEngine::COMM_ENGINE_CCU,
+                                 channelRequests.data(), channelRequests.size(), channels.data());
+        HCCL_INFO("[InitCcuContext] HcclChannelAcquire ret=%d", ret);
+        CHK_RET(ret);
     }
 
-    auto kernelArg = std::make_shared<CcuKernelArgAllGatherBatchMesh1D>(param.rankSize, param.rank, param.itemCount);
-    kernelArg->channels = channels;
-    hcomm::KernelCreator kernelCreator = [](const hcomm::CcuKernelArg &arg) {
+    CcuKernelKeepAlive keepAlive;
+    keepAlive.kernelArg = std::make_shared<CcuKernelArgAllGatherBatchMesh1D>(param.rankSize, param.rank, param.itemCount);
+    keepAlive.kernelArg->channels = channels;
+    keepAlive.kernelCreator = [](const hcomm::CcuKernelArg &arg) {
         return std::make_unique<CcuKernelAllGatherBatchMesh1D>(arg);
     };
 
-    void *creatorPtr = static_cast<void *>(&kernelCreator);
-    void *kernelArgPtr = static_cast<void *>(kernelArg.get());
-    CHK_RET(HcclCcuKernelRegister(comm, &ctx->kernelHandle, creatorPtr, kernelArgPtr));
-    CHK_RET(HcclCcuKernelRegisterFinish(comm));
+    {
+        std::lock_guard<std::mutex> guard(g_keepAliveMutex);
+        g_keepAliveByTag[engineCtxTag] = keepAlive;
+    }
+
+    CcuKernelKeepAlive *keepAlivePtr = nullptr;
+    {
+        std::lock_guard<std::mutex> guard(g_keepAliveMutex);
+        keepAlivePtr = &g_keepAliveByTag[engineCtxTag];
+    }
+
+    void *creatorPtr = static_cast<void *>(&keepAlivePtr->kernelCreator);
+    void *kernelArgPtr = static_cast<void *>(keepAlivePtr->kernelArg.get());
+    HCCL_INFO("[InitCcuContext] registering CCU kernel, creatorPtr=%p kernelArgPtr=%p", creatorPtr, kernelArgPtr);
+    ret = HcclCcuKernelRegister(comm, &ctx->kernelHandle, creatorPtr, kernelArgPtr);
+    HCCL_INFO("[InitCcuContext] HcclCcuKernelRegister ret=%d kernelHandle=%llu", ret, ctx->kernelHandle);
+    CHK_RET(ret);
+    ret = HcclCcuKernelRegisterFinish(comm);
+    HCCL_INFO("[InitCcuContext] HcclCcuKernelRegisterFinish ret=%d", ret);
+    CHK_RET(ret);
     ctx->initialized = true;
+    HCCL_INFO("[InitCcuContext] success");
     return HCCL_SUCCESS;
 }
 
