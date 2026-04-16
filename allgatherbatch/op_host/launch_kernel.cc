@@ -14,7 +14,9 @@ thread_local aclrtStream launchStream = nullptr;
 HcclResult LaunchKernel(const OpParam &param, aclrtStream stream)
 {
     HCCL_CHK_PTR(stream);
-    ACLCHECK(aclrtCreateStreamWithConfig(&launchStream, 0, ACL_STREAM_FAST_LAUNCH | ACL_STREAM_FAST_SYNC));
+    if (launchStream == nullptr) {
+        ACLCHECK(aclrtCreateStreamWithConfig(&launchStream, 0, ACL_STREAM_FAST_LAUNCH | ACL_STREAM_FAST_SYNC));
+    }
     ACLCHECK(aclrtRecordNotify(g_allGatherBatchNotifies[kAllGatherBatchControlNotifyStart], stream));
 
     aclrtFuncHandle funcHandle = nullptr;
