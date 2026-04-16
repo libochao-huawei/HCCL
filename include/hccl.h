@@ -248,6 +248,16 @@ extern HcclResult HcclReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclD
 */
 extern HcclResult HcclBatchSendRecv(HcclSendRecvItem* sendRecvInfo, uint32_t itemNum, HcclComm comm, aclrtStream stream);
 
+/**
+ * @brief Hierarchical barrier for intra-pod and inter-pod synchronization
+ *
+ * @param intraComm Intra-pod communicator for within-pod synchronization
+ * @param interComm Inter-pod communicator for across-pod synchronization
+ * @param stream A pointer identifying the stream information.
+ * @return HcclResult
+ */
+extern HcclResult HcclBarrierDPU(HcclComm intraComm, HcclComm interComm, aclrtStream stream);
+
 #ifdef __cplusplus
 }
 #endif // __cplusplus

@@ -4,22 +4,14 @@
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
-# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FIT FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-add_subdirectory(scatter)
-add_subdirectory(op_common)
-add_subdirectory(reduce_scatter)
-add_subdirectory(all_gather)
-add_subdirectory(barrier_dpu)
-add_subdirectory(all_to_all_v)
-add_subdirectory(broadcast)
-add_subdirectory(all_reduce)
-add_subdirectory(send)
-add_subdirectory(recv)
-add_subdirectory(reduce_scatter_v)
-add_subdirectory(all_gather_v)
-add_subdirectory(reduce)
-add_subdirectory(batch_send_recv)
-add_subdirectory(interface_graph_mode)
+set(src_list
+    ${CMAKE_CURRENT_SOURCE_DIR}/barrier_dpu_op.cc
+)
+
+target_sources(hccl PRIVATE
+    ${src_list}
+)
