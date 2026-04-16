@@ -1,4 +1,4 @@
-﻿#ifndef HCCL_ALLGATHERBATCH_SMALL_COUNT_EXECUTOR_H
+#ifndef HCCL_ALLGATHERBATCH_SMALL_COUNT_EXECUTOR_H
 #define HCCL_ALLGATHERBATCH_SMALL_COUNT_EXECUTOR_H
 
 #include <cstdint>
@@ -7,9 +7,13 @@
 
 namespace ops_hccl_allgatherbatch {
 
-constexpr u64 HCCL_MIN_SLICE_ALIGN = 128;
-constexpr int HCCL_DEVICE_NUM_TWO = 2; // 平均device num小于等于此数值时，无法通过HCCS链路类型接口判定当前硬件环境
-constexpr int HCCL_DEVICE_NUM_FOUR = 4; // 平均device num等于此数值时，需校验server内device选取合法性
+struct WindowRange {
+    uint32_t startDescIdx = 0;
+    u64 startOffset = 0;
+    uint32_t endDescIdx = 0;
+    u64 endOffset = 0;
+    u64 packedSize = 0;
+};
 
 class AllGatherBatchSmallCountExecutor {
 public:
@@ -18,13 +22,16 @@ public:
 
 private:
     HcclResult RunLoop(std::vector<ChannelResource> &channels);
-    u64 CalcLoopMaxCount(u64 cclBuffSize, u32 unitSize);
     HcclResult KernelRun(ExecMem &execMem, std::vector<ChannelResource> &channels);
+
+    HcclResult BuildWindowRange(const WindowRange &current, u64 maxWindowBytes,
+        WindowRange &range, WindowRange &next) const;
+    HcclResult PackWindowToCCLIn(const WindowRange &range, void *commInputPtr);
+    HcclResult UnpackWindowFromCCLOut(const WindowRange &range, u8 *commOutputPtr);
 
     const OpParam &param_;
     AlgResourceCtx &resCtx_;
     BatchCallProfiling &profiling_;
-    bool useCCLBuffer{true};
 };
 
 }  // namespace ops_hccl_allgatherbatch
