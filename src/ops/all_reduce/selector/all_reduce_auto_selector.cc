@@ -190,7 +190,7 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleLevel0UBXAlgo(const TopoI
             selectAlgName = "CcuAllReduceConcurrentSche";
         }
     } else if(isClosNumMultipleOfMeshNum && !IsSmallData(dataSize)) {
-        // 矩形场景大数据量，用2d并行算法
+        // 矩形场景大数据量，用Parallel并行算法
         selectAlgName = "CcuAllReduceParallelNHR1DMutiJetty";
     } else {
         // 其他场景，用1d NHR算法
@@ -297,7 +297,7 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpuUBX(const TopoInfoWithN
             selectAlgName = "InsAllReduceConcurrent";
         }
     } else if(isClosNumMultipleOfMeshNum && !IsSmallData(dataSize)) {
-        // 矩形场景大数据量，用2d并行算法
+        // 矩形场景大数据量，用Parallel并行算法
         selectAlgName = "InsAllReduceParallelMesh1DNHR";
     } else {
         // 其他场景，用1d NHR算法
