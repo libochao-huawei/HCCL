@@ -14,16 +14,18 @@
 #include "alg_env_config.h"
 #include "hccl_inner.h"
 #include "param_check.h"
+#include "hccl_alloc_ctx_res.h"
+#include "op_common.h"
+
 
 using namespace ops_hccl;
 
-constexpr uint32_t ALG_CONFIG_SIZE = 128;
 struct HcclOpArgs {
     HcclDataType srcDataType;
     HcclDataType dstDataType;
     HcclReduceOp reduceType;
     uint64_t count;
-    char algConfig[ALG_CONFIG_SIZE];
+    char algConfig[128];
     CommEngine commEngine;
     uint64_t reverse;
 
@@ -160,6 +162,94 @@ HcclResult HcclCreateOpResCtx(HcclComm comm, uint8_t opType, void *opArgs, void 
 
     CHK_RET(HcclCreateOpResCtxInner(comm, opType, opArgsPtr->srcDataType, opArgsPtr->dstDataType,
         opArgsPtr->reduceType, opArgsPtr->count, opArgsPtr->algConfig, opArgsPtr->commEngine, opResCtx));
+
+    return HCCL_SUCCESS;
+}
+
+
+HcclResult HcclAllocComResourceByTiling(HcclComm comm, void *stream, void* mc2Tiling, void** opResCtx)
+{
+    HCCL_INFO("Start to run execute HcclAllocComResourceByTiling");
+    // 记录开始时间，用于性能统计
+    HcclUs startut = TIME_NOW();
+    // 获取设备类型
+    DevType deviceType = DevType::DEV_TYPE_COUNT;
+    CHK_RET(hrtGetDeviceType(deviceType));
+    
+    // 检查设备类型是否支持新流程，950或910_95支持新流程，其他设备走老流程
+    if (deviceType != DevType::DEV_TYPE_950) {
+        HCCL_ERROR("[%s] invalid deviceType[%u]", __func__, deviceType);
+        return HCCL_E_NOT_SUPPORT;
+    }
+
+    // 初始化环境变量配置，解析HCCL相关的环境变量
+    // 包括算子展开模式、确定性计算、通信方式、日志开关等配置
+    CHK_RET(InitEnvConfig());
+    
+    // 检查输入参数的合法性（comm、sendBuf、recvBuf、stream不能为空）
+    CHK_RET(CheckInputParam(comm, mc2Tiling, stream));
+    
+    // 获取通信域中的rank数量
+    u32 rankSize = INVALID_VALUE_RANKSIZE;
+    CHK_RET(HcclGetRankSize(comm, &rankSize));
+    
+    // 获取当前rank的ID
+    u32 userRank = INVALID_VALUE_RANKID;
+    CHK_RET(HcclGetRankId(comm, &userRank));
+    
+    // 获取通信域名称
+    char commName[COMM_INDENTIFIER_MAX_LENGTH];
+    CHK_RET(HcclGetCommName(comm, commName));
+
+    const void *ccTilingList[MAX_CC_TILING_NUM];
+    uint32_t tilingNum;
+    CHK_RET(HcclGetTilingList(mc2Tiling, ccTilingList, tilingNum));
+
+    // 校验commengine
+    CHK_RET(CheckCommEngine(ccTilingList, tilingNum));
+
+    // 构造操作标签，用于日志、错误追踪、topo资源管理
+    // topoTag = ccTilingList->opType + commName
+    // ctxTag = ccTilingList->groupName + "_" + ccTilingList[0]->opType + "_" + ccTilingList[0]->algConfig + "_" + ccTilingList[0]->commEngine
+    // ctxTag不再统一管理资源，而是根据每个资源opParam、WorkSpace、OpResCtx继续组成tag申请资源
+    std::string topoTag[MAX_CC_TILING_NUM];
+    std::string ctxTag;
+    for (uint32_t i = 0U; i < tilingNum; ++i) {
+        const Mc2CcTilingInner *ccTiling = static_cast<const Mc2CcTilingInner *>(ccTilingList[i]);
+        topoTag[i] = std::to_string(ccTiling->opType) + "_" + std::to_string(ccTiling->srcDataType) + "_" + std::string(commName);
+        // 检查标签的合法性
+        CHK_RET(HcclCheckTag(topoTag[i].c_str()));
+        // 检查是否为reduce类型
+        bool isReduce;
+        CHK_RET(CheckIsReduce(ccTiling, &isReduce));
+        // 检查数据类型的合法性
+        CHK_RET(CheckDataType(static_cast<HcclDataType>(ccTiling->srcDataType), isReduce));
+
+        if (i == 0) {
+            ctxTag = std::string(ccTiling->groupName) + "_" + std::to_string(ccTiling->opType) + "_" + std::string(ccTiling->algConfig) + "_" + std::to_string(ccTiling->commEngine);
+        } else {
+            ctxTag += "_" + std::to_string(ccTiling->opType) + "_" + std::string(ccTiling->algConfig) + "_" + std::to_string(ccTiling->commEngine);
+        }
+    }
+
+    // TODO:记录接口入口日志，包含所有关键参数信息
+
+    // 检查userRank是否在有效范围内
+    CHK_RET(HcomCheckUserRank(rankSize, userRank));
+
+    std::vector<OpParam> opParamVec(tilingNum);
+    for (uint32_t i = 0U; i < tilingNum; ++i) {
+        // TODO: 根据topoTag[i] 获取opParam[i]的参数
+        CHK_RET(GetOpParam(comm, stream, topoTag[i], static_cast<const Mc2CcTilingInner*>(ccTilingList[i]), opParamVec[i]));
+    }
+
+    // TODO: 根据ctxTag 申请通信资源 ，并返回OpResCtx的地址
+    CHK_RET(HcclAllocOpResCtx(comm, ctxTag, opParamVec, mc2Tiling, ccTilingList, opResCtx));
+
+    // 记录退出日志和性能统计信息
+    CHK_RET(LogHcclExit("HcclAllocComResourceByTiling", ctxTag.c_str(), startut));
+
+    HCCL_INFO("End to run execute HcclAllocComResourceByTiling");
 
     return HCCL_SUCCESS;
 }
