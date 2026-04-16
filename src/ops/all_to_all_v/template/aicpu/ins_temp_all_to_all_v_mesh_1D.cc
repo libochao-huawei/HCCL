@@ -70,7 +70,6 @@ HcclResult InsTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
         CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub_));
     }
     CHK_RET(RunALLtoALL(templateResource.channels, templateResource.threads, tempAlgParams, myAlgRank));
-    CHK_RET(PostCopy(tempAlgParams, templateResource.threads, myAlgRank));
     if (threadNum_ > 1) {
         std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
         GetNotifyIdxSubToMain(notifyIdxSubToMain_);
@@ -136,7 +135,7 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
             std::vector<DataSlice> rxSrcSlices; // 在write模式下用不到rxSlice，直接给空的
             std::vector<DataSlice> rxDstSlices;
 
-            void* remoteCclBuffAddr = linkSend.remoteCclMem.addr + sendOffsetSplit[channelId];
+            void* remoteCclBuffAddr = linkSend.remoteCclMem.addr;
             // repeatNum为1，所以这里不考虑重复场景
             DataSlice txSrcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr,
                 tempAlgParams.sdispls[rankId] * dataTypeSize_ + sendOffsetSplit[channelId],
@@ -177,7 +176,7 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult InsTempAlltoAllVMesh1D::PostCopy(const TemplateDataParams &tempAlgParams, ThreadHandle &thread,
+HcclResult InsTempAlltoAllVMesh1D::PostCopy(const TemplateDataParams &tempAlgParams, const ThreadHandle &thread,
     const u32 rankId, const u64 &recvSize, const u64 &recvCount, const u64 &recvOffset) const
 {
     // ccl buffer的数据搬运到usrout
