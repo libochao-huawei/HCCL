@@ -77,14 +77,14 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
     std::string &algName)
 {
     //判断通信域状态
-    HcclCommStatus commStatus = HCCL_COMM_STATUS_INVALID;
-    if (HcommIsSupportHcclCommGetStatus()) {
-        CHK_RET(HcclCommGetStatus(param.commName, &commStatus));
-        if (commStatus != HCCL_COMM_STATUS_READY) {
-            HCCL_ERROR("commStatus is not ready!, commStatus = %d", static_cast<int>(commStatus));
-            return HCCL_E_SUSPENDING;
-        }
-    }
+    // HcclCommStatus commStatus = HCCL_COMM_STATUS_INVALID;
+    // if (HcommIsSupportHcclCommGetStatus()) {
+    //     CHK_RET(HcclCommGetStatus(param.commName, &commStatus));
+    //     if (commStatus != HCCL_COMM_STATUS_READY) {
+    //         HCCL_ERROR("commStatus is not ready!, commStatus = %d", static_cast<int>(commStatus));
+    //         return HCCL_E_SUSPENDING;
+    //     }
+    // }
     HCCL_INFO("Start to execute Selector.");
     param.hcclComm = comm;
     CHK_RET(HcclGetOpExpansionMode(comm, param));
