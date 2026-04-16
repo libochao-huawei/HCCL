@@ -34,8 +34,11 @@ HcclResult LaunchKernel(const OpParam &param, aclrtStream stream)
     cfg.numAttrs = 1;
     cfg.attrs = &attr;
     constexpr uint32_t blockDim = 1;
-    const bool profilingOn = IsProfilingEnabled();
-    const uint64_t beginTime = profilingOn ? HcommGetProfilingSysCycleTime() : 0;
+    const bool hostProfilingOn = HcommIsProfilingSupported() &&
+        HcommIsSupportHcommGetProfilingSysCycleTime() &&
+        HcommIsSupportHcommProfilingReportOp() &&
+        HcommIsSupportHcommProfilingReportKernel();
+    const uint64_t beginTime = hostProfilingOn ? HcommGetProfilingSysCycleTime() : 0;
 
     ACLCHECK(aclrtLaunchKernelWithConfig(funcHandle, blockDim, launchStream, &cfg, argsHandle, nullptr));
 
@@ -44,7 +47,7 @@ HcclResult LaunchKernel(const OpParam &param, aclrtStream stream)
         stream,
         CUSTOM_TIMEOUT));
 
-    if (profilingOn) {
+    if (hostProfilingOn) {
         HcomProInfoTmp info {};
         FillProfilingInfo(info, param, beginTime, 0);
         if (HcommProfilingReportOp(info) != HCCL_SUCCESS) {

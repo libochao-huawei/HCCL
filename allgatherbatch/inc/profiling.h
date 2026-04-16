@@ -8,17 +8,14 @@
 
 namespace ops_hccl_allgatherbatch {
 
-constexpr uint32_t kProfilingMaxLength = 128;
 constexpr char kAllGatherBatchProfilingAlgType[] = "0-0-0";
 constexpr char kAllGatherBatchProfilingKernelName[] = "allgatherbatch_aicpu_kernel";
 
-#if defined(__GNUC__)
-#define HCCL_ALLGATHERBATCH_WEAK __attribute__((weak))
-#else
-#define HCCL_ALLGATHERBATCH_WEAK
+#ifndef MAX_LENGTH
+#define MAX_LENGTH 128
 #endif
 
-struct HcomProInfoTmp {
+typedef struct HcomProInfoTmp {
     uint8_t dataType;
     uint8_t cmdType;
     uint64_t dataCount;
@@ -30,33 +27,67 @@ struct HcomProInfoTmp {
     uint32_t slaveThreadNum;
     uint64_t commNameLen;
     uint64_t algTypeLen;
-    char tag[kProfilingMaxLength];
-    char commName[kProfilingMaxLength];
-    char algType[kProfilingMaxLength];
+    char tag[MAX_LENGTH];
+    char commName[MAX_LENGTH];
+    char algType[MAX_LENGTH];
     bool isCapture = false;
     bool isAiv = false;
-    uint8_t reserved[kProfilingMaxLength];
-};
+    uint8_t reserved[MAX_LENGTH];
+} HcomProInfoTmp;
 
-extern "C" HCCL_ALLGATHERBATCH_WEAK uint64_t HcommGetProfilingSysCycleTime();
-extern "C" HCCL_ALLGATHERBATCH_WEAK HcclResult HcommProfilingReportOp(HcomProInfoTmp profInfo);
-extern "C" HCCL_ALLGATHERBATCH_WEAK HcclResult HcommProfilingReportKernel(uint64_t beginTime, const char *profName);
-extern "C" HCCL_ALLGATHERBATCH_WEAK HcclResult HcommProfilingInit(ThreadHandle *threads, uint32_t threadNum);
-extern "C" HCCL_ALLGATHERBATCH_WEAK HcclResult HcommProfilingReportMainStreamAndFirstTask(ThreadHandle thread);
-extern "C" HCCL_ALLGATHERBATCH_WEAK HcclResult HcommProfilingReportMainStreamAndLastTask(ThreadHandle thread);
-extern "C" HCCL_ALLGATHERBATCH_WEAK HcclResult HcommProfilingReportDeviceHcclOpInfo(HcomProInfoTmp profInfo);
-extern "C" HCCL_ALLGATHERBATCH_WEAK HcclResult HcommProfilingEnd(ThreadHandle *threads, uint32_t threadNum);
+extern "C" uint64_t (*hcommGetProfilingSysCycleTimePtr)();
+extern "C" HcclResult (*hcommProfilingReportOpPtr)(HcomProInfoTmp);
+extern "C" HcclResult (*hcommProfilingReportKernelPtr)(uint64_t, const char *);
+extern "C" HcclResult (*hcommProfilingRegThreadPtr)(HcomProInfoTmp, ThreadHandle *);
+extern "C" HcclResult (*hcommProfilingInitPtr)(ThreadHandle *, uint32_t);
+extern "C" HcclResult (*hcommProfilingReportMainStreamAndFirstTaskPtr)(ThreadHandle);
+extern "C" HcclResult (*hcommProfilingReportMainStreamAndLastTaskPtr)(ThreadHandle);
+extern "C" HcclResult (*hcommProfilingReportDeviceHcclOpInfoPtr)(HcomProInfoTmp);
+extern "C" HcclResult (*hcommProfilingEndPtr)(ThreadHandle *, uint32_t);
 
-inline bool IsProfilingEnabled()
+#define HcommGetProfilingSysCycleTime (*hcommGetProfilingSysCycleTimePtr)
+#define HcommProfilingReportOp (*hcommProfilingReportOpPtr)
+#define HcommProfilingReportKernel (*hcommProfilingReportKernelPtr)
+#define HcommProfilingRegThread (*hcommProfilingRegThreadPtr)
+#define HcommProfilingInit (*hcommProfilingInitPtr)
+#define HcommProfilingReportMainStreamAndFirstTask (*hcommProfilingReportMainStreamAndFirstTaskPtr)
+#define HcommProfilingReportMainStreamAndLastTask (*hcommProfilingReportMainStreamAndLastTaskPtr)
+#define HcommProfilingReportDeviceHcclOpInfo (*hcommProfilingReportDeviceHcclOpInfoPtr)
+#define HcommProfilingEnd (*hcommProfilingEndPtr)
+
+extern "C" bool HcommIsProfilingSupported();
+extern "C" bool HcommIsSupportHcommGetProfilingSysCycleTime(void);
+extern "C" bool HcommIsSupportHcommProfilingReportOp(void);
+extern "C" bool HcommIsSupportHcommProfilingReportKernel(void);
+extern "C" bool HcommIsSupportHcommProfilingRegThread(void);
+extern "C" bool HcommIsSupportHcommProfilingReportMainStreamAndFirstTask(void);
+extern "C" bool HcommIsSupportHcommProfilingReportMainStreamAndLastTask(void);
+extern "C" bool HcommIsSupportHcommProfilingReportDeviceHcclOpInfo(void);
+extern "C" bool HcommIsSupportHcommProfilingInit(void);
+extern "C" bool HcommIsSupportHcommProfilingEnd(void);
+
+inline uint32_t BuildProfilingThreadList(
+    const AlgResourceCtx &resCtx,
+    ThreadHandle *threads,
+    uint32_t maxThreadNum)
 {
-    return (&HcommGetProfilingSysCycleTime != nullptr) &&
-        (&HcommProfilingReportOp != nullptr) &&
-        (&HcommProfilingReportKernel != nullptr) &&
-        (&HcommProfilingInit != nullptr) &&
-        (&HcommProfilingReportMainStreamAndFirstTask != nullptr) &&
-        (&HcommProfilingReportMainStreamAndLastTask != nullptr) &&
-        (&HcommProfilingReportDeviceHcclOpInfo != nullptr) &&
-        (&HcommProfilingEnd != nullptr);
+    if (threads == nullptr || maxThreadNum == 0 || resCtx.mainThreadHandle == 0) {
+        return 0;
+    }
+
+    uint32_t threadNum = 0;
+    threads[threadNum++] = resCtx.mainThreadHandle;
+
+    uint32_t workerCount = resCtx.lastTwoWorkerCount;
+    if (workerCount > SubThreadNum) {
+        workerCount = SubThreadNum;
+    }
+    for (uint32_t idx = 0; idx < workerCount && threadNum < maxThreadNum; ++idx) {
+        if (resCtx.subThreadHandles[idx] != 0) {
+            threads[threadNum++] = resCtx.subThreadHandles[idx];
+        }
+    }
+    return threadNum;
 }
 
 inline void CopyProfilingString(char *dst, size_t dstSize, const char *src)
@@ -114,6 +145,8 @@ inline void FillProfilingInfo(
     CopyProfilingString(info.algType, sizeof(info.algType), kAllGatherBatchProfilingAlgType);
     info.commNameLen = std::strlen(info.commName);
     info.algTypeLen = std::strlen(info.algType);
+    info.isCapture = false;
+    info.isAiv = false;
     (void)dataTypeConsistent;
 }
 

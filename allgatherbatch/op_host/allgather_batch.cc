@@ -9,6 +9,7 @@
 #include "launch_kernel.h"
 #include "load_kernel.h"
 #include "log.h"
+#include "profiling.h"
 #include "resource_request.h"
 
 namespace ops_hccl_allgatherbatch {
@@ -554,6 +555,36 @@ HcclResult GetAlgRes(HcclComm comm, const OpParam &param, AlgResourceCtx **resCt
     return HCCL_SUCCESS;
 }
 
+
+HcclResult ReportProfilingThread(HcclComm comm, const OpParam &param, aclrtStream stream)
+{
+    if (!(HcommIsProfilingSupported() &&
+        HcommIsSupportHcommProfilingRegThread())) {
+        return HCCL_SUCCESS;
+    }
+
+    ThreadHandle cpuTsThread = 0;
+    HcclResult ret = HcclThreadAcquireWithStream(comm, COMM_ENGINE_CPU_TS, stream, 1, &cpuTsThread);
+    if (ret != HCCL_SUCCESS) {
+        HCCL_WARNING("skip profiling thread registration: failed to acquire cpu_ts thread, rank=%u, tag=%s, ret=%d",
+            param.topoInfo.rank,
+            param.tag,
+            static_cast<int>(ret));
+        return HCCL_SUCCESS;
+    }
+
+    HcomProInfoTmp profInfo {};
+    FillProfilingInfo(profInfo, param, 0, 0);
+    ret = HcommProfilingRegThread(profInfo, &cpuTsThread);
+    if (ret != HCCL_SUCCESS) {
+        HCCL_WARNING("HcommProfilingRegThread failed, rank=%u, tag=%s, ret=%d",
+            param.topoInfo.rank,
+            param.tag,
+            static_cast<int>(ret));
+    }
+    return HCCL_SUCCESS;
+}
+
 HcclResult LoadAndLaunch(const OpParam &param, aclrtStream stream)
 {
     HCCL_CHK_RET(LoadAICPUKernel());
@@ -593,6 +624,6 @@ HcclResult HcclAllGatherBatch(
     HCCL_CHK_RET(GetAlgRes(comm, param, &resCtx));
     param.resCtx = resCtx;
 
-    HCCL_CHK_RET(LoadAndLaunch(param, stream));
-    return HCCL_SUCCESS;
+    HCCL_CHK_RET(ReportProfilingThread(comm, param, stream));
+    return LoadAndLaunch(param, stream);
 }
