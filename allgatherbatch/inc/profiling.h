@@ -41,22 +41,64 @@ struct HcomProInfoTmp {
 extern "C" HCCL_ALLGATHERBATCH_WEAK uint64_t HcommGetProfilingSysCycleTime();
 extern "C" HCCL_ALLGATHERBATCH_WEAK HcclResult HcommProfilingReportOp(HcomProInfoTmp profInfo);
 extern "C" HCCL_ALLGATHERBATCH_WEAK HcclResult HcommProfilingReportKernel(uint64_t beginTime, const char *profName);
+extern "C" HCCL_ALLGATHERBATCH_WEAK HcclResult HcommProfilingRegThread(HcomProInfoTmp profInfo, ThreadHandle *threads);
+extern "C" HCCL_ALLGATHERBATCH_WEAK HcclResult HcommProfilingUnRegThread(HcomProInfoTmp profInfo, ThreadHandle *threads);
 extern "C" HCCL_ALLGATHERBATCH_WEAK HcclResult HcommProfilingInit(ThreadHandle *threads, uint32_t threadNum);
 extern "C" HCCL_ALLGATHERBATCH_WEAK HcclResult HcommProfilingReportMainStreamAndFirstTask(ThreadHandle thread);
 extern "C" HCCL_ALLGATHERBATCH_WEAK HcclResult HcommProfilingReportMainStreamAndLastTask(ThreadHandle thread);
 extern "C" HCCL_ALLGATHERBATCH_WEAK HcclResult HcommProfilingReportDeviceHcclOpInfo(HcomProInfoTmp profInfo);
 extern "C" HCCL_ALLGATHERBATCH_WEAK HcclResult HcommProfilingEnd(ThreadHandle *threads, uint32_t threadNum);
 
-inline bool IsProfilingEnabled()
+inline bool IsHostProfilingEnabled()
 {
     return (&HcommGetProfilingSysCycleTime != nullptr) &&
         (&HcommProfilingReportOp != nullptr) &&
-        (&HcommProfilingReportKernel != nullptr) &&
+        (&HcommProfilingReportKernel != nullptr);
+}
+
+inline bool IsHostThreadProfilingEnabled()
+{
+    return (&HcommProfilingRegThread != nullptr) &&
+        (&HcommProfilingUnRegThread != nullptr);
+}
+
+inline bool IsDeviceProfilingEnabled()
+{
+    return (&HcommGetProfilingSysCycleTime != nullptr) &&
         (&HcommProfilingInit != nullptr) &&
         (&HcommProfilingReportMainStreamAndFirstTask != nullptr) &&
         (&HcommProfilingReportMainStreamAndLastTask != nullptr) &&
         (&HcommProfilingReportDeviceHcclOpInfo != nullptr) &&
         (&HcommProfilingEnd != nullptr);
+}
+
+inline bool IsProfilingEnabled()
+{
+    return IsHostProfilingEnabled() || IsDeviceProfilingEnabled();
+}
+
+inline uint32_t BuildProfilingThreadList(
+    const AlgResourceCtx &resCtx,
+    ThreadHandle *threads,
+    uint32_t maxThreadNum)
+{
+    if (threads == nullptr || maxThreadNum == 0 || resCtx.mainThreadHandle == 0) {
+        return 0;
+    }
+
+    uint32_t threadNum = 0;
+    threads[threadNum++] = resCtx.mainThreadHandle;
+
+    uint32_t workerCount = resCtx.lastTwoWorkerCount;
+    if (workerCount > SubThreadNum) {
+        workerCount = SubThreadNum;
+    }
+    for (uint32_t idx = 0; idx < workerCount && threadNum < maxThreadNum; ++idx) {
+        if (resCtx.subThreadHandles[idx] != 0) {
+            threads[threadNum++] = resCtx.subThreadHandles[idx];
+        }
+    }
+    return threadNum;
 }
 
 inline void CopyProfilingString(char *dst, size_t dstSize, const char *src)

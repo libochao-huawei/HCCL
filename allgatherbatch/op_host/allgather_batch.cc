@@ -9,6 +9,7 @@
 #include "launch_kernel.h"
 #include "load_kernel.h"
 #include "log.h"
+#include "profiling.h"
 #include "resource_request.h"
 
 namespace ops_hccl_allgatherbatch {
@@ -554,6 +555,73 @@ HcclResult GetAlgRes(HcclComm comm, const OpParam &param, AlgResourceCtx **resCt
     return HCCL_SUCCESS;
 }
 
+HcclResult FillThreadProfilingInfo(
+    const OpParam &param,
+    const AlgResourceCtx &resCtx,
+    HcomProInfoTmp &profInfo,
+    ThreadHandle *threads,
+    uint32_t maxThreadNum,
+    uint32_t &threadNum)
+{
+    threadNum = BuildProfilingThreadList(resCtx, threads, maxThreadNum);
+    if (threadNum == 0) {
+        HCCL_WARNING("skip profiling thread registration: no valid profiling threads, rank=%u, tag=%s",
+            param.topoInfo.rank,
+            param.tag);
+        return HCCL_E_INTERNAL;
+    }
+    FillProfilingInfo(profInfo, param, 0, (threadNum > 0) ? (threadNum - 1) : 0);
+    return HCCL_SUCCESS;
+}
+
+HcclResult ReportProfilingThread(const OpParam &param, const AlgResourceCtx &resCtx)
+{
+    if (!IsHostThreadProfilingEnabled()) {
+        return HCCL_SUCCESS;
+    }
+
+    ThreadHandle threads[SubThreadNum + 1] = {0};
+    uint32_t threadNum = 0;
+    HcomProInfoTmp profInfo {};
+    HcclResult ret = FillThreadProfilingInfo(param, resCtx, profInfo, threads, SubThreadNum + 1, threadNum);
+    if (ret != HCCL_SUCCESS) {
+        return HCCL_SUCCESS;
+    }
+
+    ret = HcommProfilingRegThread(profInfo, threads);
+    if (ret != HCCL_SUCCESS) {
+        HCCL_WARNING("HcommProfilingRegThread failed, rank=%u, tag=%s, ret=%d",
+            param.topoInfo.rank,
+            param.tag,
+            static_cast<int>(ret));
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult UnReportProfilingThread(const OpParam &param, const AlgResourceCtx &resCtx)
+{
+    if (!IsHostThreadProfilingEnabled()) {
+        return HCCL_SUCCESS;
+    }
+
+    ThreadHandle threads[SubThreadNum + 1] = {0};
+    uint32_t threadNum = 0;
+    HcomProInfoTmp profInfo {};
+    HcclResult ret = FillThreadProfilingInfo(param, resCtx, profInfo, threads, SubThreadNum + 1, threadNum);
+    if (ret != HCCL_SUCCESS) {
+        return HCCL_SUCCESS;
+    }
+
+    ret = HcommProfilingUnRegThread(profInfo, threads);
+    if (ret != HCCL_SUCCESS) {
+        HCCL_WARNING("HcommProfilingUnRegThread failed, rank=%u, tag=%s, ret=%d",
+            param.topoInfo.rank,
+            param.tag,
+            static_cast<int>(ret));
+    }
+    return HCCL_SUCCESS;
+}
+
 HcclResult LoadAndLaunch(const OpParam &param, aclrtStream stream)
 {
     HCCL_CHK_RET(LoadAICPUKernel());
@@ -593,6 +661,8 @@ HcclResult HcclAllGatherBatch(
     HCCL_CHK_RET(GetAlgRes(comm, param, &resCtx));
     param.resCtx = resCtx;
 
+    HCCL_CHK_RET(ReportProfilingThread(param, *resCtx));
     HCCL_CHK_RET(LoadAndLaunch(param, stream));
+    HCCL_CHK_RET(UnReportProfilingThread(param, *resCtx));
     return HCCL_SUCCESS;
 }
