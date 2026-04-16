@@ -76,8 +76,6 @@ SelectorStatus AllReduceAutoSelector::SelectMeshUBXAlgo(const TopoInfoWithNetLay
     } else {
         // 跨4p回退
         selectAlgName = "CcuAllReduceMesh1D";
-    } else {
-        selectAlgName = "CcuAllReduceMesh1DOneShot";
     }
 
     HCCL_DEBUG("[AllReduceAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
