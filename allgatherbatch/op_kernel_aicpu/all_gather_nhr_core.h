@@ -26,6 +26,7 @@ public:
         const std::vector<ChannelResource> &channels = {});
 
     HcclResult Prepare(bool needMerge);
+    void SetInputPreparedInOutput(bool enabled);
     HcclResult RunAsync(const u32 rank, const u32 rankSize,
         const std::vector<ChannelResource> &links);
 
@@ -60,8 +61,7 @@ private:
     std::vector<ChannelResource> channels_;
     std::vector<u32> sliceMap_;
     bool isNeedMerge_ = false;
+    bool inputPreparedInOutput_ = false;
 };
-
 }  // namespace ops_hccl_allgatherbatch
-
 #endif
