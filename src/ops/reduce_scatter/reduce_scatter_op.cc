@@ -150,6 +150,13 @@ static HcclResult PrepareReduceScatterParam(OpParam &param, void *sendBuf, void 
     param.reduceType = op;
     param.opMode = opMode;
 
+    if (param.commName[0] == '\0') {
+        CHK_RET(HcclGetCommName(comm, param.commName));
+    }
+    if (param.tag[0] == '\0') {
+        int ret = sprintf_s(param.tag, sizeof(param.tag), "ReduceScatter_%s", param.commName);
+        CHK_PRT_RET((ret <= 0), HCCL_ERROR("failed to fill param.tag"), HCCL_E_INTERNAL);
+    }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
 
