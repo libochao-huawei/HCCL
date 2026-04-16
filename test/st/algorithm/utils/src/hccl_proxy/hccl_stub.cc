@@ -38,6 +38,7 @@ extern "C" {
 
 std::mutex g_mutex;
 thread_local ThreadHandle curThread;
+extern HcclResult HcclCommGetStatus(HcclComm comm, HcclCommStatus *status);
 
 HcclResult HcclRankGraphGetRankSizeByLayer(HcclComm comm, uint32_t netLayer, uint32_t *rankNum)
 {
