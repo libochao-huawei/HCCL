@@ -115,7 +115,7 @@ HcclResult HcclSetAivSelectOpParamGraphMode(OpParamGraphMode *opParam, const cha
 HcclResult HcclCalcOpResOnlineGraphMode(OpParamGraphMode *opParam, u64 *opMemSize, u32 *streamNum, u32 *taskNum, u32 *aivCoreNum)
 {
     HCCL_INFO("Enter HcclCalcOpResOnlineGraphMode.");
-    CHK_RET(CheckCalcResInputGraphMode(opParam, opMemSize, streamNum, taskNum, aivCoreNum));
+    // CHK_RET(CheckCalcResInputGraphMode(opParam, opMemSize, streamNum, taskNum, aivCoreNum));
     // 将void**转换为OpParamGraphMode**
     OpParamGraphMode *paramPtr = reinterpret_cast<OpParamGraphMode *>(opParam);
     if (paramPtr == nullptr) {
@@ -127,11 +127,11 @@ HcclResult HcclCalcOpResOnlineGraphMode(OpParamGraphMode *opParam, u64 *opMemSiz
     // aicpu引擎计算资源
     ops_hccl::HcclCalcAicpuResOffline(&resResponse);
 
-    // ccu引擎计算资源
-    ops_hccl::HcclCalcCcuResOffline(opParam, &resResponse);
+    // // ccu引擎计算资源
+    // ops_hccl::HcclCalcCcuResOffline(opParam, &resResponse);
 
-    // aiv引擎计算资源
- 	ops_hccl::HcclCalcAivResOffline(&resResponse, paramPtr);
+    // // aiv引擎计算资源
+ 	// ops_hccl::HcclCalcAivResOffline(&resResponse, paramPtr);
 
     // 将结果复制到输出参数
     *opMemSize = resResponse.opMemSize;
@@ -157,12 +157,12 @@ HcclResult HcclCalcOpResOfflineGraphMode(OpParamGraphMode *opParam, u64 *opMemSi
     // aicpu引擎计算资源
     ops_hccl::HcclCalcAicpuResOffline(&resResponse);
 
-    // ccu引擎计算资源
-    ops_hccl::HcclCalcCcuResOffline(opParam, &resResponse);
+    // // ccu引擎计算资源
+    // ops_hccl::HcclCalcCcuResOffline(opParam, &resResponse);
 
-    // 其他引擎补充在下面
-    // aiv引擎计算资源
- 	ops_hccl::HcclCalcAivResOffline(&resResponse, paramPtr);
+    // // 其他引擎补充在下面
+    // // aiv引擎计算资源
+ 	// ops_hccl::HcclCalcAivResOffline(&resResponse, paramPtr);
 
     // 将结果复制到输出参数
     *opMemSize = resResponse.opMemSize;
