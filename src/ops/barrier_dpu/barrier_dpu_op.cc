@@ -71,6 +71,7 @@ HcclResult GetBarrierMemory(u32 rankSize, void** sendBuf, void** recvBuf)
             HCCL_ERROR("[GetBarrierMemory] Failed to allocate recvBuf, ret=%d", aclRet);
             (void)aclrtFree(g_barrierMem.sendBuf);
             g_barrierMem.sendBuf = nullptr;
+            g_barrierMem.recvBuf = nullptr;
             return HCCL_E_RUNTIME;
         }
 
