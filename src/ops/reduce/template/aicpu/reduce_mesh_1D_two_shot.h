@@ -28,6 +28,7 @@ struct SplitSliceInfo {
 
 class ReduceMesh1DTwoShot : public InsAlgTemplateBase {
 public:
+    ReduceMesh1DTwoShot() = default;
     explicit ReduceMesh1DTwoShot(const OpParam &param, const u32 rankId,  // 传通信域的rankId，userRank
         const std::vector<std::vector<u32>> &subCommRanks);
 
