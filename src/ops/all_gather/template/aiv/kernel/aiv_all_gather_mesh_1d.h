@@ -18,79 +18,20 @@ class AivAllGatherMesh1D : public AivCommBase {
 public:
     __aicore__ inline AivAllGatherMesh1D() {}
  
-    __aicore__ inline void InitCoreInfo(uint64_t len) //len is input length
-    {
-        // 每个核处理 len/coreCount 个数据
-        uint32_t coreId = GetBlockIdx();
-        uint32_t coreCount = numBlocks_;
- 
-        uint64_t dataPerCore = len / coreCount;
-        uint64_t remainder = len % coreCount;
- 
-        // 处理数据不对齐问题：确保每个核心处理的数据量是sizeof(T)的倍数
-        uint64_t innerOffset = 0;
-        if (coreId < remainder) {
-            // 前remainder个核心多分配一个元素
-            innerOffset = coreId * (dataPerCore + 1) * sizeof(T);
-            curCount = dataPerCore + 1;
-        } else {
-            // 其余核心按正常分配
-            innerOffset = remainder * (dataPerCore + 1) * sizeof(T) +
-                        (coreId - remainder) * dataPerCore * sizeof(T);
-            curCount = dataPerCore;
-        }
-        coreOffset = innerOffset;
-    }
- 
-    __aicore__ inline void Run(uint64_t len, uint64_t stride)
-    {
-        if (curCount == 0) {
-            return;
-        }
-        auto gmIn = reinterpret_cast<__gm__ T *>(reinterpret_cast<uint64_t>(GM_IN[rank_]) + coreOffset);
-        // 步骤1: 分核执行LocalCopy，拷贝input到GM_IN
-        // 每个核将自己负责的数据拷贝到 GM_IN 中对应位置
-        auto input = reinterpret_cast<__gm__ T *>(input_ + coreOffset);
- 
-        CpGM2GM(gmIn, input, curCount);
-        PipeBarrier<PIPE_ALL>();
- 
-        // 步骤2: 设置完成拷贝flag
-        uint64_t flagOffset = numBlocks_ * rankSize_ * FLAG_SIZE;
-        Record(rank_, GetBlockIdx() * FLAG_SIZE + flagOffset, curTag_);
-        PipeBarrier<PIPE_ALL>();
- 
-        // 步骤3: 循环对每一个rank执行CpGM2GM将数据写入output
-        for (uint32_t rank = 0; rank < rankSize_; ++rank) {
-            // 直接从 GM_IN 中读取数据到 output
-            auto gmOthers = reinterpret_cast<__gm__ T *>(reinterpret_cast<uint64_t>(GM_IN[rank]) + coreOffset);
-            auto output = reinterpret_cast<__gm__ T *>(output_ + rank * stride + coreOffset);
-            PipeBarrier<PIPE_ALL>();
- 
-            WaitFlag(rank, GetBlockIdx() * FLAG_SIZE + flagOffset, curTag_);
-            // 使用 CpGM2GM 直接拷贝数据
-            CpGM2GM(output, gmOthers, curCount);
-        }
-        PipeBarrier<PIPE_ALL>();
-    }
- 
     __aicore__ inline void Process(uint64_t count, uint64_t sliceId, uint64_t stride)
     {
         curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
-        if (numBlocks_ >= rankSize_) {
-            // 核数大于等于ranksize
-            InitCoreInfo(count);
-            Run(count, stride);
-        } else {
-            // 核数小于ranksize
-            RunCtrlCore(count, stride);
-        }
+        RunCtrlCore(count, stride);
     }
  
     __aicore__ inline void RunCtrlCore(uint64_t count, uint64_t stride)
     {
         // 核数小于ranksize
+        if (numBlocks_ > rankSize_) {
+            numBlocks_ = rankSize_;
+        }
         if (block_idx >= numBlocks_) {
+            SyncAll<true>();
             return;
         }
         // 分核把数据从input搬到gm
@@ -99,26 +40,27 @@ public:
         uint64_t countPerCore = count / numBlocks_;
         uint64_t curCountCore = block_idx == numBlocks_ - 1 ? count - countPerCore * (numBlocks_ - 1) : countPerCore;
         auto gmIn = reinterpret_cast<__gm__ T *>(reinterpret_cast<uint64_t>(GM_IN[rank_]) + block_idx * countPerCore * dataTypeSize);
-        CpGM2GM(gmIn, input + block_idx * countPerCore * dataTypeSize, curCountCore);
-        PipeBarrier<PIPE_ALL>();
-        Record(rank_, block_idx, curTag_);
-        for (uint32_t idx = 0; idx < numBlocks_; idx++) {
-            WaitFlag(rank_, idx, curTag_);
-            Record(rank_, idx, 0);
-        }
-        if (block_idx == 0) {
-            Record(rank_, rank_, curTag_);
-        }
+        CpGM2GM(gmIn, input + block_idx * countPerCore, curCountCore);
+        SyncAll<true>();
+
         // 每个核分配多个rank搬运数据从gm到对端output
         uint32_t perCoreRankNum = rankSize_ / numBlocks_;
-        uint32_t curCoreRankNum = block_idx == numBlocks_ - 1 ? rankSize_ - perCoreRankNum * (numBlocks_ - 1) : perCoreRankNum;
-        uint32_t startRank = block_idx * perCoreRankNum;
+        uint32_t remainRankNum = rankSize_ % numBlocks_;
+        uint32_t curCoreRankNum = block_idx < remainRankNum ? perCoreRankNum + 1 : perCoreRankNum;
+        uint32_t startRank = block_idx < remainRankNum ? (perCoreRankNum + 1) * block_idx : perCoreRankNum * block_idx + remainRankNum;
+        for (uint32_t rank = startRank; rank < startRank + curCoreRankNum; rank++) {
+            Record(rank, rank_, curTag_);
+        }
         for (uint32_t rank = startRank; rank < startRank + curCoreRankNum; rank++) {
             auto gmOthers = reinterpret_cast<__gm__ T *>(reinterpret_cast<uint64_t>(GM_IN[rank]));
             auto output = reinterpret_cast<__gm__ T *>(output_ + rank * stride);
-            WaitFlag(rank, rank, curTag_);
+            WaitFlag(rank_, rank, curTag_);
             CpGM2GM(output, gmOthers, count);
             PipeBarrier<PIPE_ALL>();
+            Record(rank, rank_ + rankSize_, curTag_);
+        }
+        for (uint32_t rank = startRank; rank < startRank + curCoreRankNum; rank++) {
+            WaitFlag(rank_, rank + rankSize_, curTag_);
         }
     }
     uint64_t coreOffset;
