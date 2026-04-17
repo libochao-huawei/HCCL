@@ -52,8 +52,8 @@ SelectorStatus AlltoAllAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNet
             selectAlgName = "CcuAlltoAllMesh1D";
         }
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-        uint32_t dataTypeSize = DATATYPE_SIZE_TABLE[opParam.all2AllDataDes.sendType];
-        uint64_t dataSize = opParam.all2AllDataDes.sendCount * dataTypeSize;
+        uint32_t dataTypeSize = DATATYPE_SIZE_TABLE[opParam.all2AllVDataDes.sendType];
+        uint64_t dataSize = static_cast<const u64 *>(opParam.all2AllVDataDes.sendCounts)[0] * dataTypeSize;
         bool isMeshNumEqualToClosNum = false;
         CHK_PRT_RET(CheckMeshNumEqualToClosNum(topoInfo, isMeshNumEqualToClosNum) != HCCL_SUCCESS,
             HCCL_DEBUG("[AlltoAllAutoSelector] CheckMeshNumEqualToClosNum failed."),
@@ -92,14 +92,14 @@ SelectorStatus AlltoAllAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerD
     if (topoInfo->level0Topo == Level0Shape::MESH_1D || topoInfo->level0Topo == Level0Shape::CLOS) {
         selectAlgName = "InsAlltoAllMesh1D";
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-        uint32_t dataTypeSize = DATATYPE_SIZE_TABLE[opParam.all2AllDataDes.sendType];
-        uint64_t dataSize = opParam.all2AllDataDes.sendCount * dataTypeSize;
+        uint32_t dataTypeSize = DATATYPE_SIZE_TABLE[opParam.all2AllVDataDes.sendType];
+        uint64_t dataSize = static_cast<const u64 *>(opParam.all2AllVDataDes.sendCounts)[0] * dataTypeSize;
         bool isMeshNumEqualToClosNum = false;
         CHK_PRT_RET(CheckMeshNumEqualToClosNum(topoInfo, isMeshNumEqualToClosNum) != HCCL_SUCCESS,
             HCCL_ERROR("[AlltoAllAutoSelector] CheckMeshNumEqualToClosNum failed."),
             SelectorStatus::NOT_MATCH);
         if ((isMeshNumEqualToClosNum == true) && (topoInfo->userRankSize <= CONCURRENT_RANK_LIMIT) &&
-            (opParam.all2AllDataDes.sendCount > BIG_DATA_SIZE_LIMIT)) { // 同一组4P且大数据量，不走并发
+            (static_cast<const u64 *>(opParam.all2AllVDataDes.sendCounts)[0] > BIG_DATA_SIZE_LIMIT)) {
             selectAlgName = "InsAllToAllMesh1DConcurrent";
         } else {
             selectAlgName = "InsAlltoAllMesh1D";
