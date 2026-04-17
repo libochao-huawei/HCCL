@@ -52,6 +52,7 @@ target_link_directories(hccl_allgatherbatch PRIVATE
 target_link_libraries(hccl_allgatherbatch PRIVATE
     -Wl,--no-as-needed
     hcomm
+    ${CMAKE_DL_LIBS}
     c_sec
     unified_dlog
     ascendc_runtime
@@ -90,6 +91,7 @@ if(KERNEL_MODE)
     target_link_libraries(allgatherbatch_aicpu_kernel PRIVATE
         -Wl,--no-as-needed
         ccl_kernel
+        ${CMAKE_DL_LIBS}
         -Wl,--no-as-needed
     )
     register_custom_aicpu_target(allgatherbatch_aicpu_kernel)
