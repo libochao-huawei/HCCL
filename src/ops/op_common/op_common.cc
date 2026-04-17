@@ -1024,8 +1024,9 @@ HcclResult HcclGetChannelImpl(const u32 level, HcclComm comm, const OpParam &par
         using portSizeType = uint32_t;
         const uint32_t portSizeTypeSize = sizeof(portSizeType);
         portSizeType portSize = 0;
-        HcclResult ret = HcclRankGraphGetEndpointInfo(comm, param.userRank, &localEndpoint, ENDPOINT_ATTR_BW_COEFF, portSizeTypeSize, static_cast<void*>(&portSize));
+        CHK_RET(HcclRankGraphGetEndpointInfo(comm, resCtxHost->TopoInfo.userRank, &localEndpoint, ENDPOINT_ATTR_BW_COEFF, portSizeTypeSize, static_cast<void*>(&portSize)));
         channel.portGroupSize = portSize;
+        HCCL_INFO("[HcclGetChannelImpl]userRank[%u], portSize[%u]", resCtxHost->TopoInfo.userRank, portSize);
 #endif
         void* remoteCclBufferAddr;
         uint64_t remoteCclBufferSize;
