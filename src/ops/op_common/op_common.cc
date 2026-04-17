@@ -1019,7 +1019,14 @@ HcclResult HcclGetChannelImpl(const u32 level, HcclComm comm, const OpParam &par
         channel.locationType = channelDescNew.remoteEndpoint.loc.locType;
         channel.notifyNum = channelDescNew.notifyNum;
         channel.handle = levelNChannels[idx];
-
+#ifndef AICPU_COMPILE
+        EndpointDesc localEndpoint = channelDescNew.localEndpoint;
+        using portSizeType = uint32_t;
+        const uint32_t portSizeTypeSize = sizeof(portSizeType);
+        portSizeType portSize = 0;
+        HcclResult ret = HcclRankGraphGetEndpointInfo(comm, param.userRank, &localEndpoint, ENDPOINT_ATTR_BW_COEFF, portSizeTypeSize, static_cast<void*>(&portSize));
+        channel.portGroupSize = portSize;
+#endif
         void* remoteCclBufferAddr;
         uint64_t remoteCclBufferSize;
         CHK_RET(HcclChannelGetHcclBuffer(comm, levelNChannels[idx], &remoteCclBufferAddr, &remoteCclBufferSize));
