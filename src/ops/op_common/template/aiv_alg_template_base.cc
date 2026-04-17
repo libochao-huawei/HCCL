@@ -23,7 +23,7 @@ AivAlgTemplateBase::AivAlgTemplateBase(const OpParam& param, const u32 rankId, /
     tempRankSize_(subCommRanks[0].size()),
     subCommRanks_(subCommRanks),
     reduceOp_(param.reduceType),
-    enableDetour_(param.enableDetour)
+    enableDetour_(param.detourType != HcclDetourType::HCCL_DETOUR_DISABLE)
 {
 }
 
