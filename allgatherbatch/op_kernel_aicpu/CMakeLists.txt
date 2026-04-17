@@ -1,4 +1,5 @@
-﻿set(allgatherbatch_kernel_src_list
+set(allgatherbatch_kernel_src_list
+    ${CMAKE_CURRENT_SOURCE_DIR}/../inc/profiling_dl.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/exec_op.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/hccl_allgather_batch_aicpu_kernel.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/allgather_batch_small_count_executor.cc
