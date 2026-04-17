@@ -324,28 +324,22 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::FastLaunch(
         const OpParam &param, const CcuFastLaunchCtx *ctx)
 {
-    // InsAlgTemplate0 tempAlg0{};
-    // InsAlgTemplate1 tempAlg1{};
+    InsAlgTemplate0 tempAlg0{};
+    InsAlgTemplate1 tempAlg1{};
     
     TemplateFastLaunchCtx tempFastLaunchCtx0, tempFastLaunchCtx1;
 
-    TemplateResource templateAlgRes0, templateAlgRes1;
-   // ThreadHandle *threads = ctx->GetThreadHandlePtr();
-    //threads_.assign(threads, threads + ctx->threadNum);
+    TemplateResource templateAlgResIntra, templateAlgResInter;
+    ThreadHandle *threads = ctx->GetThreadHandlePtr();
+    threads_.assign(threads, threads + ctx->threadNum);
+    
     std::vector<std::vector<u32>> temp0HierarchyInfo {algHierarchyInfo_.infos[0][0]};
     std::vector<std::vector<u32>> temp1HierarchyInfo {algHierarchyInfo_.infos[0][1]};
-    // PrepareThreadFromTemplate(tempAlg0Ptr, tempAlg1Ptr);
-    std::shared_ptr<InsAlgTemplate0> tempAlg0 =
-        std::make_shared<InsAlgTemplate0>(param, myRank_, temp0HierarchyInfo); // same as calres
-    std::shared_ptr<InsAlgTemplate1> tempAlg1 =
-        std::make_shared<InsAlgTemplate1>(param, myRank_, temp1HierarchyInfo);
-    // 准备资源
-    // mesh的流向nhr的流发一个信号，并等nhr流收到
-    PrepareThreadFromTemplate(tempAlg0, tempAlg1); // 计算不同的流
-    // TemplateResource templateAlgResforTemp0;
-    // templateAlgResforTemp0.threads = temp0Threads_; // 这里用重新算出的thream计算
-    // TemplateResource templateAlgResforTemp1;
-    // templateAlgResforTemp1.threads = temp1Threads_;
+    std::shared_ptr<InsAlgTemplate0> tempAlg0Ptr = std::make_shared<InsAlgTemplate0>(param, myRank_, temp0HierarchyInfo);
+    std::shared_ptr<InsAlgTemplate1> tempAlg1Ptr = std::make_shared<InsAlgTemplate1>(param, myRank_, temp1HierarchyInfo);
+    
+    // 准备线程资源
+    PrepareThreadFromTemplate(tempAlg0Ptr, tempAlg1Ptr);
 
     CcuKernelSubmitInfo *ccuKernelSubmitInfos = ctx->GetCcuKernelSubmitInfoPtr();
     HCCL_INFO("[InsReduceScatterConcurrentExecutor][FastLaunch] Intra0 ccuKernelNum[%llu]", ctx->ccuKernelNum[0]);
