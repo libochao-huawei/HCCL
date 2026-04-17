@@ -77,14 +77,14 @@ HcclResult InsTempReduceScatterNHR::KernelRun(const OpParam& param,
     tempAlgParams_       = tempAlgParams;
     channels_            = templateResource.channels;
     dataType_ = param.DataDes.dataType;
-
+    dataTypeSize_  = DATATYPE_SIZE_TABLE[dataType_];
     channelsPerRank_ = channels_.begin()->second.size();
 
     std::vector<u64> elemCountOut;
     std::vector<u64> sizeOut;
     std::vector<u64> elemOffset;
-    u64 totalDataCount = tempAlgParams.sliceSize / dataType_;
-    CalcDataSplitByPortGroup(totalDataCount, dataType_, channels_.begin()->second, elemCountOut, sizeOut, elemOffset);
+    u64 totalDataCount = tempAlgParams.sliceSize / dataTypeSize_;
+    CalcDataSplitByPortGroup(totalDataCount, dataTypeSize_, channels_.begin()->second, elemCountOut, sizeOut, elemOffset);
     elemOffset_ = elemOffset;
     sizeOut_ = sizeOut;
 
@@ -92,8 +92,8 @@ HcclResult InsTempReduceScatterNHR::KernelRun(const OpParam& param,
         std::vector<u64> elemCountOutTail;
         std::vector<u64> sizeOutTail;
         std::vector<u64> elemOffsetTail;
-        u64 totalDataCountTail = tempAlgParams.tailSize / dataType_;
-        CalcDataSplitByPortGroup(totalDataCountTail, dataType_, channels_.begin()->second, elemCountOutTail, sizeOutTail, elemOffsetTail);
+        u64 totalDataCountTail = tempAlgParams.tailSize / dataTypeSize_;
+        CalcDataSplitByPortGroup(totalDataCountTail, dataTypeSize_, channels_.begin()->second, elemCountOutTail, sizeOutTail, elemOffsetTail);
         elemOffsetTail_ = elemOffsetTail;
         sizeOutTail_ = sizeOutTail;
     }

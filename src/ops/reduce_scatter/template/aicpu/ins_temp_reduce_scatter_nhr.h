@@ -49,7 +49,8 @@ private:
     HcclResult PostLocalCopy(const std::vector<ThreadHandle> &threads, u32 channelIdx);
     TemplateDataParams tempAlgParams_;
     std::map<u32, std::vector<ChannelInfo>> channels_;
-    u32 channelsPerRank_ = 1;
+    u32 channelsPerRank_{1};
+    u64 dataTypeSize_{0};
     std::vector<u64> sizeOut_;
     std::vector<u64> elemOffset_;
     std::vector<u64> sizeOutTail_;
