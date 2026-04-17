@@ -179,7 +179,6 @@ HcclResult CreateChannelFromLink(HcclComm comm, u32 myRank, u32 rank, uint32_t n
     channelDesc.channelProtocol = link.linkAttr.linkProtocol;
     channelDesc.notifyNum = NORMAL_NOTIFY_NUM;
     channels.push_back(channelDesc);
-
     return HCCL_SUCCESS;
 }
 
