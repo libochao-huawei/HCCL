@@ -294,8 +294,98 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
     // postSync
     std::vector<u32> notifyIdxMSubToMain = {static_cast<u32>(temp0Threads_.size() - 1)};
     PostSyncInterThreads(temp0ThreadMain_, subThreads, notifyIdxMSubToMain);
+
+#ifndef AICPU_COMPILE
+    if ((loopTimesforTemp0 == 1 && loopTimesforTemp1 == 1) && param.engine == CommEngine::COMM_ENGINE_CCU) {
+        CHK_RET(FastLaunchSaveCtx(param, templateAlgResforTemp0, templateAlgResforTemp1));
+    }
+#endif
+    HCCL_INFO("[InsReduceScatterConcurrentExecutor][OrchestrateLoop] End.");
     return HCCL_SUCCESS;
 }
+
+#ifndef AICPU_COMPILE
+template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
+HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::FastLaunchSaveCtx(
+    const OpParam &param, const TemplateResource &templateAlgResIntra, const TemplateResource &templateAlgResInter)
+{
+    HCCL_INFO("[InsReduceScatterConcurrentExecutor] loopTimes==1, save fast launch ctx.");
+    u32 threadNum = threads_.size();
+    u32 ccuKernelNum = templateAlgResIntra.submitInfos.size() + templateAlgResInter.submitInfos.size();
+    if (ccuKernelNum < 1) {
+        HCCL_INFO("[InsReduceScatterConcurrentExecutor] ccu kernel num is 0, no need to save.");
+        return HCCL_SUCCESS;
+    }
+    HCCL_INFO("[InsReduceScatterConcurrentExecutor][HcclEngineCtxCreate] threadNum[%llu], ccuKernelNum[%llu]", threadNum, ccuKernelNum);
+
+    std::vector<u32> ccuKernelNumList = {static_cast<u32>(templateAlgResIntra.submitInfos.size()), 
+                                         static_cast<u32>(templateAlgResInter.submitInfos.size())};
+    std::vector<std::vector<CcuKernelSubmitInfo>> submitInfosList = {templateAlgResIntra.submitInfos, templateAlgResInter.submitInfos};
+    return FastLaunchSaveCtxTwoTemplate(param, threadNum, ccuKernelNum, threads_, ccuKernelNumList, submitInfosList);
+}
+
+template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
+HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::FastLaunch(
+        const OpParam &param, const CcuFastLaunchCtx *ctx)
+{
+    InsAlgTemplate0 tempAlg0{};
+    InsAlgTemplate1 tempAlg1{};
+    
+    TemplateFastLaunchCtx tempFastLaunchCtx0, tempFastLaunchCtx1;
+
+    TemplateResource templateAlgRes0, templateAlgRes1;
+   // ThreadHandle *threads = ctx->GetThreadHandlePtr();
+    //threads_.assign(threads, threads + ctx->threadNum);
+    std::vector<std::vector<u32>> temp0HierarchyInfo {algHierarchyInfo_.infos[0][0]};
+    std::vector<std::vector<u32>> temp1HierarchyInfo {algHierarchyInfo_.infos[0][1]};
+
+    // std::shared_ptr<InsAlgTemplate0> tempAlg0Ptr = std::make_shared<InsAlgTemplate0>();
+    // std::shared_ptr<InsAlgTemplate1> tempAlg1Ptr = std::make_shared<InsAlgTemplate1>();
+    // PrepareThreadFromTemplate(tempAlg0Ptr, tempAlg1Ptr);
+    std::shared_ptr<InsAlgTemplate0> tempAlg0 =
+        std::make_shared<InsAlgTemplate0>(param, myRank_, temp0HierarchyInfo); // same as calres
+    std::shared_ptr<InsAlgTemplate1> tempAlg1 =
+        std::make_shared<InsAlgTemplate1>(param, myRank_, temp1HierarchyInfo);
+    // 准备资源
+    // mesh的流向nhr的流发一个信号，并等nhr流收到
+    PrepareThreadFromTemplate(tempAlg0, tempAlg1); // 计算不同的流
+    // TemplateResource templateAlgResforTemp0;
+    // templateAlgResforTemp0.threads = temp0Threads_; // 这里用重新算出的thream计算
+    // TemplateResource templateAlgResforTemp1;
+    // templateAlgResforTemp1.threads = temp1Threads_;
+
+    CcuKernelSubmitInfo *ccuKernelSubmitInfos = ctx->GetCcuKernelSubmitInfoPtr();
+    HCCL_INFO("[InsReduceScatterConcurrentExecutor][FastLaunch] Intra0 ccuKernelNum[%llu]", ctx->ccuKernelNum[0]);
+    // 前同步
+    std::vector<ThreadHandle> subThreads;
+    subThreads.emplace_back(temp1ThreadMain_);
+    std::vector<u32> notifyIdxMainToSub = {static_cast<u32>(temp1Threads_.size() - 1)};
+    CHK_RET(PreSyncInterThreads(temp0ThreadMain_, subThreads, notifyIdxMainToSub));
+    
+    // 执行第一个模板算法
+    HCCL_INFO("[InsReduceScatterConcurrentExecutor][FastLaunch] temp0 ccuKernelNum[%llu]", ctx->ccuKernelNum[0]);
+    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtx0, param.inputPtr, param.outputPtr, param.hcclBuff));
+    tempFastLaunchCtx0.threads = temp0Threads_;
+    tempFastLaunchCtx0.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[0]);
+    ccuKernelSubmitInfos += ctx->ccuKernelNum[0];
+    CHK_RET(tempAlg0.FastLaunch(param, tempFastLaunchCtx0));
+    
+    // 执行第二个模板算法
+    HCCL_INFO("[InsReduceScatterConcurrentExecutor][FastLaunch] temp1 ccuKernelNum[%llu]", ctx->ccuKernelNum[1]);
+    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtx1, param.inputPtr, param.outputPtr, param.hcclBuff));
+    tempFastLaunchCtx1.threads = temp1Threads_;
+    tempFastLaunchCtx1.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[1]);
+    ccuKernelSubmitInfos += ctx->ccuKernelNum[1];
+    CHK_RET(tempAlg1.FastLaunch(param, tempFastLaunchCtx1));
+    
+    // 后同步
+    std::vector<u32> notifyIdxSubToMain = {static_cast<u32>(temp0Threads_.size() - 1)};
+    CHK_RET(PostSyncInterThreads(temp0ThreadMain_, subThreads, notifyIdxSubToMain));
+    
+    HCCL_INFO("[InsReduceScatterConcurrentExecutor][FastLaunch] End.");
+    return HCCL_SUCCESS;
+}
+#endif
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::InitCommInfo(
