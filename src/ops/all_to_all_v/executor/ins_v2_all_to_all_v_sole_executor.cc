@@ -302,6 +302,10 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
                 tempAlgParams.recvCounts[i] = 0;
                 tempAlgParams.rdispls[i] = rdispls[i] + recvCounts[i];
             }
+            HCCL_INFO("tempAlgParams.sendCounts[%d]:[%llu]", i, tempAlgParams.sendCounts[i]);
+            HCCL_INFO("tempAlgParams.recvCounts[%d]:[%llu]", i, tempAlgParams.recvCounts[i]);
+            HCCL_INFO("tempAlgParams.sdispls[%d]:[%llu]", i, tempAlgParams.sdispls[i]);
+            HCCL_INFO("tempAlgParams.rdispls[%d]:[%llu]", i, tempAlgParams.rdispls[i]);
         }
 
         // 因为只考虑执行0级算法，所以传进template里面的channels就是channels_的第一个vector

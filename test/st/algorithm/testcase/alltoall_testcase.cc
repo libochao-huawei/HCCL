@@ -76,7 +76,7 @@ protected:
                             static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
 
                 // 4.算子下发
-                CHK_RET(HcclAlltoAll(sendBuf, sendDataCount, dataType, recvBuf, sendDataCount, dataType, comm, stream));
+                CHK_RET(HcclAlltoAll(sendBuf, sendDataCount, dataType, recvBuf, sendDataCount, dataType, 0, comm, stream));
 
                 // 5.销毁通信域
                 CHK_RET(HcclCommDestroy(comm));
@@ -141,7 +141,7 @@ protected:
                             static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
 
                 // 4.算子下发
-                CHK_RET(HcclAlltoAll(sendBuf, sendDataCount, dataType, recvBuf, sendDataCount, dataType, comm, stream));
+                CHK_RET(HcclAlltoAll(sendBuf, sendDataCount, dataType, recvBuf, sendDataCount, dataType, 0, comm, stream));
 
                 // 5.销毁通信域
                 CHK_RET(HcclCommDestroy(comm));
