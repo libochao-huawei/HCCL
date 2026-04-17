@@ -43,6 +43,7 @@ HcclResult CalcDataSplitByPortGroup(const u64 totalDataCount, const u64 dataType
     for (const auto &ch : channels) {
         portGroups.push_back(ch.portGroupSize);
         totalPorts += ch.portGroupSize;
+        HCCL_INFO("[CalcDataSplitByPortGroup] GenExtIns  ch.portGroupSize[%u], totalPorts[%u]", ch.portGroupSize, totalPorts);
     }
     u32 channelsize = portGroups.size();
     u64 accumCount = 0;

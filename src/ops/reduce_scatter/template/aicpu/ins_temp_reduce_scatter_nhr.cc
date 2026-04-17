@@ -30,8 +30,8 @@ HcclResult InsTempReduceScatterNHR::CalcRes(HcclComm comm, const OpParam& param,
     std::vector<HcclChannelDesc> channels;
     CHK_RET(CalcChannelRequestNhr(comm, param, topoInfo, subCommRanks_, channels));
     resourceRequest.channels.push_back(channels);
-    // u32 channelsPerRank = CalcChannelsPerRandk(channels);
-    u32 channelsPerRank = 1;
+    u32 channelsPerRank = CalcChannelsPerRank(channels);
+    // u32 channelsPerRank = 1;
     channelsPerRank_ = channelsPerRank;
     // NHR 需要的 que Num 为 1
     GetRes(resourceRequest);
@@ -79,7 +79,7 @@ HcclResult InsTempReduceScatterNHR::KernelRun(const OpParam& param,
     dataType_ = param.DataDes.dataType;
     dataTypeSize_  = DATATYPE_SIZE_TABLE[dataType_];
     channelsPerRank_ = channels_.begin()->second.size();
-
+    HCCL_INFO("[InsTempReduceScatterNHR] GenExtIns  channelsPerRank_[%u], dataTypeSize_[%u]", channelsPerRank_, dataTypeSize_);
     std::vector<u64> elemCountOut;
     std::vector<u64> sizeOut;
     std::vector<u64> elemOffset;
