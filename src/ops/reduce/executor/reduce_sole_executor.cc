@@ -10,6 +10,7 @@
 
 #include "reduce_sole_executor.h"
 #include "../template/aicpu/reduce_mesh_1D.h"
+#include "../template/aicpu/reduce_mesh_1D_two_shot.h"
 #include "../template/aicpu/reduce_nhr.h"
 #include "../template/aicpu/reduce_aicpu_reduce_nhr.h"
 #include "topo_match_1d.h"
@@ -243,6 +244,7 @@ HcclResult ReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunch(
 
 // 第二个参数是Reduce的template文件
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE, ReduceMesh1D, ReduceSoleExecutor, TopoMatch1D, ReduceMesh1D);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE, ReduceMesh1DTwoShot, ReduceSoleExecutor, TopoMatch1D, ReduceMesh1DTwoShot);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE, ReduceNHR, ReduceSoleExecutor, TopoMatch1D, ReduceNHR);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE, ReduceAicpuReduceNHR, ReduceSoleExecutor, TopoMatch1D, ReduceAicpuReduceNHR);
 
