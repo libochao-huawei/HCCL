@@ -61,7 +61,6 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
 
     ThreadHandle thread = param->resCtx->mainThreadHandle;
     const bool deviceProfilingOn = HcommIsProfilingSupported() &&
-        HcommIsSupportHcommGetProfilingSysCycleTime() &&
         HcommIsSupportHcommProfilingInit() &&
         HcommIsSupportHcommProfilingReportMainStreamAndFirstTask() &&
         HcommIsSupportHcommProfilingReportMainStreamAndLastTask() &&

@@ -35,6 +35,9 @@ typedef struct HcomProInfoTmp {
     uint8_t reserved[MAX_LENGTH];
 } HcomProInfoTmp;
 
+extern "C" bool HcommIsProfilingSupported();
+
+#if defined(HOST_COMPILE)
 extern "C" uint64_t (*hcommGetProfilingSysCycleTimePtr)();
 extern "C" HcclResult (*hcommProfilingReportOpPtr)(HcomProInfoTmp);
 extern "C" HcclResult (*hcommProfilingReportKernelPtr)(uint64_t, const char *);
@@ -55,7 +58,6 @@ extern "C" HcclResult (*hcommProfilingEndPtr)(ThreadHandle *, uint32_t);
 #define HcommProfilingReportDeviceHcclOpInfo (*hcommProfilingReportDeviceHcclOpInfoPtr)
 #define HcommProfilingEnd (*hcommProfilingEndPtr)
 
-extern "C" bool HcommIsProfilingSupported();
 extern "C" bool HcommIsSupportHcommGetProfilingSysCycleTime(void);
 extern "C" bool HcommIsSupportHcommProfilingReportOp(void);
 extern "C" bool HcommIsSupportHcommProfilingReportKernel(void);
@@ -65,6 +67,19 @@ extern "C" bool HcommIsSupportHcommProfilingReportMainStreamAndLastTask(void);
 extern "C" bool HcommIsSupportHcommProfilingReportDeviceHcclOpInfo(void);
 extern "C" bool HcommIsSupportHcommProfilingInit(void);
 extern "C" bool HcommIsSupportHcommProfilingEnd(void);
+#else
+extern "C" HcclResult HcommProfilingInit(ThreadHandle *, uint32_t);
+extern "C" HcclResult HcommProfilingReportMainStreamAndFirstTask(ThreadHandle);
+extern "C" HcclResult HcommProfilingReportMainStreamAndLastTask(ThreadHandle);
+extern "C" HcclResult HcommProfilingReportDeviceHcclOpInfo(HcomProInfoTmp);
+extern "C" HcclResult HcommProfilingEnd(ThreadHandle *, uint32_t);
+
+extern "C" bool HcommIsSupportHcommProfilingReportMainStreamAndFirstTask(void);
+extern "C" bool HcommIsSupportHcommProfilingReportMainStreamAndLastTask(void);
+extern "C" bool HcommIsSupportHcommProfilingReportDeviceHcclOpInfo(void);
+extern "C" bool HcommIsSupportHcommProfilingInit(void);
+extern "C" bool HcommIsSupportHcommProfilingEnd(void);
+#endif
 
 inline uint32_t BuildProfilingThreadList(
     const AlgResourceCtx &resCtx,
