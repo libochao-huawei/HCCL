@@ -172,6 +172,20 @@ inline bool IsErrorToWarn()
     } \
 } while (0)
 
+/* 检查函数返回值, 打印错误码, 函数不返回 */
+#define CHK_PRT(call)                                 \
+    do {                                              \
+        HcclResult ret = call;                        \
+        if (UNLIKELY(ret != HCCL_SUCCESS)) {                    \
+            if (ret == HCCL_E_AGAIN) {                \
+                HCCL_WARNING("[%s]call trace: ret -> %d", __func__, ret); \
+            } else {                                  \
+                HCCL_ERROR("[%s]call trace: ret -> %d", __func__, ret); \
+            }                                         \
+        }                                             \
+    } while (0)
+
+
 /* 检查函数返回值, 记录指定日志, 并返回指定错误码 */
 #define CHK_PRT_RET(result, exeLog, retCode) \
     do {                                      \

@@ -34,34 +34,24 @@ HcclResult LaunchKernel(const OpParam &param, aclrtStream stream)
     cfg.numAttrs = 1;
     cfg.attrs = &attr;
     constexpr uint32_t blockDim = 1;
-    const bool hostProfilingOn = HcommIsProfilingSupported() &&
-        HcommIsSupportHcommGetProfilingSysCycleTime() &&
-        HcommIsSupportHcommProfilingReportOp() &&
-        HcommIsSupportHcommProfilingReportKernel();
-    const uint64_t beginTime = hostProfilingOn ? HcommGetProfilingSysCycleTime() : 0;
+    const uint64_t beginTime = HcommGetProfilingSysCycleTime();
 
     ACLCHECK(aclrtLaunchKernelWithConfig(funcHandle, blockDim, launchStream, &cfg, argsHandle, nullptr));
+    
+    CHK_PRT(HcommProfilingReportKernel(beginTime, kAllGatherBatchProfilingKernelName));
 
     ACLCHECK(aclrtWaitAndResetNotify(
         g_allGatherBatchNotifies[kAllGatherBatchControlNotifyDone],
         stream,
         CUSTOM_TIMEOUT));
 
-    if (hostProfilingOn) {
-        HcomProInfoTmp info {};
-        FillProfilingInfo(info, param, beginTime, 0);
-        if (HcommProfilingReportOp(info) != HCCL_SUCCESS) {
-            HCCL_WARNING("HcommProfilingReportOp failed, rank=%u, tag=%s", param.topoInfo.rank, param.tag);
-        }
-        if (HcommProfilingReportKernel(beginTime, kAllGatherBatchProfilingKernelName) != HCCL_SUCCESS) {
-            HCCL_WARNING("HcommProfilingReportKernel failed, rank=%u, tag=%s", param.topoInfo.rank, param.tag);
-        }
-    }
-
     HCCL_INFO("Host launch done: rank=%u, commMode=%s, itemCount=%u",
-        param.topoInfo.rank,
-        ToCommModeString(param.commMode),
-        param.itemCount);
+        param.topoInfo.rank, ToCommModeString(param.commMode), param.itemCount);
+
+    HcomProInfoTmp info {};
+    FillProfilingInfo(info, param, beginTime, 0);
+    CHK_PRT(HcommProfilingReportOp(info));
+
     return HCCL_SUCCESS;
 }
 

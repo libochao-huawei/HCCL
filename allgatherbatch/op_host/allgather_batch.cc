@@ -564,24 +564,11 @@ HcclResult ReportProfilingThread(HcclComm comm, const OpParam &param, aclrtStrea
     }
 
     ThreadHandle cpuTsThread = 0;
-    HcclResult ret = HcclThreadAcquireWithStream(comm, COMM_ENGINE_CPU_TS, stream, 1, &cpuTsThread);
-    if (ret != HCCL_SUCCESS) {
-        HCCL_WARNING("skip profiling thread registration: failed to acquire cpu_ts thread, rank=%u, tag=%s, ret=%d",
-            param.topoInfo.rank,
-            param.tag,
-            static_cast<int>(ret));
-        return HCCL_SUCCESS;
-    }
+    CHK_RET(HcclThreadAcquireWithStream(comm, COMM_ENGINE_CPU_TS, stream, 1, &cpuTsThread));
 
     HcomProInfoTmp profInfo {};
     FillProfilingInfo(profInfo, param, 0, 0);
-    ret = HcommProfilingRegThread(profInfo, &cpuTsThread);
-    if (ret != HCCL_SUCCESS) {
-        HCCL_WARNING("HcommProfilingRegThread failed, rank=%u, tag=%s, ret=%d",
-            param.topoInfo.rank,
-            param.tag,
-            static_cast<int>(ret));
-    }
+    CHK_PRT(HcommProfilingRegThread(profInfo, &cpuTsThread));
     return HCCL_SUCCESS;
 }
 

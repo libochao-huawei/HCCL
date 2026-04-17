@@ -60,13 +60,6 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
     }
 
     ThreadHandle thread = param->resCtx->mainThreadHandle;
-    const bool deviceProfilingOn = HcommIsProfilingSupported() &&
-        HcommIsSupportHcommGetProfilingSysCycleTime() &&
-        HcommIsSupportHcommProfilingInit() &&
-        HcommIsSupportHcommProfilingReportMainStreamAndFirstTask() &&
-        HcommIsSupportHcommProfilingReportMainStreamAndLastTask() &&
-        HcommIsSupportHcommProfilingReportDeviceHcclOpInfo() &&
-        HcommIsSupportHcommProfilingEnd();
     ThreadHandle profilingThreads[1 + SubThreadNum] = {0};
     const uint32_t profilingThreadNum = BuildProfilingThreadList(
         *param->resCtx, profilingThreads, 1 + SubThreadNum);
@@ -87,7 +80,7 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
         return 1;
     }
 
-    if (deviceProfilingOn && profilingThreadNum > 0) {
+    if (profilingThreadNum > 0) {
         if (HcommProfilingInit(profilingThreads, profilingThreadNum) == HCCL_SUCCESS) {
             profilingInitialized = true;
             if (HcommProfilingReportMainStreamAndFirstTask(thread) != HCCL_SUCCESS) {
@@ -120,10 +113,9 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
         return 1;
     }
 
-    if (deviceProfilingOn && profilingInitialized) {
-        const uint64_t deviceBeginTime = HcommGetProfilingSysCycleTime();
+    if (profilingInitialized) {
         HcomProInfoTmp info {};
-        FillProfilingInfo(info, *param, deviceBeginTime, slaveThreadNum);
+        FillProfilingInfo(info, *param, 0, slaveThreadNum);
         if (HcommProfilingReportDeviceHcclOpInfo(info) != HCCL_SUCCESS) {
             HCCL_WARNING("HcommProfilingReportDeviceHcclOpInfo failed, rank=%u, tag=%s",
                 param->topoInfo.rank, param->tag);
@@ -146,7 +138,7 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
     HCCL_INFO("kernel done notify end: rank=%u, tag=%s",
         param->topoInfo.rank,
         param->tag);
-    if (deviceProfilingOn && profilingInitialized) {
+    if (profilingInitialized) {
         if (HcommProfilingReportMainStreamAndLastTask(thread) != HCCL_SUCCESS) {
             HCCL_WARNING("HcommProfilingReportMainStreamAndLastTask failed, rank=%u, tag=%s",
                 param->topoInfo.rank, param->tag);
