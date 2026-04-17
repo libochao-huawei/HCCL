@@ -60,9 +60,7 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
     }
 
     ThreadHandle thread = param->resCtx->mainThreadHandle;
-    const bool deviceProfilingOn = HcommIsProfilingSupported() &&
-        HcommIsSupportHcommGetProfilingSysCycleTime() &&
-        HcommIsSupportHcommProfilingInit() &&
+    const bool deviceProfilingOn = HcommIsSupportHcommProfilingInit() &&
         HcommIsSupportHcommProfilingReportMainStreamAndFirstTask() &&
         HcommIsSupportHcommProfilingReportMainStreamAndLastTask() &&
         HcommIsSupportHcommProfilingReportDeviceHcclOpInfo() &&
@@ -121,9 +119,8 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
     }
 
     if (deviceProfilingOn && profilingInitialized) {
-        const uint64_t deviceBeginTime = HcommGetProfilingSysCycleTime();
         HcomProInfoTmp info {};
-        FillProfilingInfo(info, *param, deviceBeginTime, slaveThreadNum);
+        FillProfilingInfo(info, *param, 0, slaveThreadNum);
         if (HcommProfilingReportDeviceHcclOpInfo(info) != HCCL_SUCCESS) {
             HCCL_WARNING("HcommProfilingReportDeviceHcclOpInfo failed, rank=%u, tag=%s",
                 param->topoInfo.rank, param->tag);
