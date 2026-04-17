@@ -60,6 +60,8 @@ constexpr u64 ALL_TO_ALL_V_VECTOR_NUM = 4;
 constexpr u64 REDUCE_SCATTER_V_VECTOR_NUM = 2;
 constexpr u64 ALL_GATHER_V_VECTOR_NUM = 2;
 
+constexpr uint64_t GE_PARALLEL = 36;
+
 enum class TopoType {
     TOPO_TYPE_COMMON = 0,           // 普通拓扑类型 ，default单层拓扑使用
     TOPO_TYPE_8P_RING = 1,          // 特殊场景, 服务器内8 rank组成一个ring，4个逻辑环
@@ -452,6 +454,7 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     HcclMem hcclBuff;   // 当前仅快速下发时使用此处的地址
     HcclReduceOp reduceType = HcclReduceOp::HCCL_REDUCE_RESERVED;
     u32 root = INVALID_VALUE_RANKID;
+    u32 userRank = INVALID_VALUE_RANKID;
     u32 sendRecvRemoteRank = INVALID_VALUE_RANKID;
     OpMode opMode;
     bool   enableDetour{false};
@@ -550,6 +553,19 @@ struct HcomProInfo {
 // 图模式编译阶段资源计算入参
 struct OpParamGraphMode {
     char opType[64]; // 算子类型
+    u64 dataCount;
+    u32 rankSize;
+    u64 hcclBufferSize;
+    // Aiv参数
+    s64 comm;
+    char group[MAX_LENGTH];
+    u64 count = 0;
+    void* counts = nullptr;
+    HcclDataType dataType = HCCL_DATA_TYPE_RESERVED;
+    HcclReduceOp op = HcclReduceOp::HCCL_REDUCE_RESERVED;
+    HcclCMDType opTypeAiv = HcclCMDType::HCCL_CMD_INVALID;
+    u32 aivCoreLimit = 0;
+    bool ifAiv = false;
 };
 
 // 图模式编译阶段申请资源
@@ -566,6 +582,12 @@ struct ResPackGraphMode {
     std::vector<aclrtStream> streams;
     void* scratchMemAddr;
     u64 scratchMemSize;
+};
+
+// AIV模式参数存储结构
+struct AivParamStorage {
+    u32 aivCoreLimit = 0;
+    bool aivClearEnable = false;
 };
 
 } 

@@ -18,9 +18,7 @@ using namespace AscendC;
  
 #define AIV_SCATTER_KERNEL_BATCH_DEF(type) \
 extern "C" __global__ __aicore__ void aiv_scatter_##type(EXTERN_KERNEL_ARGS_DEF_V2) { \
-    if (isOpBase) { \
-        return AivScatterV2Mesh1D<type>(EXTERN_KERNEL_ARGS_CALL); \
-    } \
+    return AivScatterV2Mesh1D<type>(EXTERN_KERNEL_ARGS_CALL); \
 } \
 EXPORT_AIV_META_INFO(aiv_scatter_##type)
  

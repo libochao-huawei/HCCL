@@ -45,8 +45,9 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
     InitCommInfo(param, topoInfo, algHierarchyInfo);
 
     // 拆一下algHierarchyInfo
-    if (algHierarchyInfo.infos.size() == 0) {
+    if (algHierarchyInfo.infos.size() == 0 || algHierarchyInfo.infos[0].size() < 2) {
         HCCL_ERROR("[InsReduceScatterConcurrentExecutor] algHierarchyInfo has no members, Please check the algHierarchyInfo!");
+        return HCCL_E_PARA;
     }
     std::vector<std::vector<u32>> temp0HierarchyInfo = {algHierarchyInfo.infos[0][0]};
     std::vector<std::vector<u32>> temp1HierarchyInfo = {algHierarchyInfo.infos[0][1]};

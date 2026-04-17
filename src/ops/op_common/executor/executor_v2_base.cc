@@ -58,4 +58,56 @@ HcclResult InsCollAlgBase::FastLaunch(const OpParam &param, const CcuFastLaunchC
     HCCL_ERROR("[InsCollAlgBase] Unsupported interface of InsCollAlgBase::FastLaunch!");
     return HcclResult::HCCL_E_INTERNAL;
 }
+
+#ifndef AICPU_COMPILE
+HcclResult InsCollAlgBase::FastLaunchSaveCtxTwoTemplate(const OpParam &param, const u32 threadNum,
+    const u32 ccuKernelNum, const std::vector<ThreadHandle> &threads, const std::vector<u32> &ccuKernelNumList,
+    const std::vector<std::vector<CcuKernelSubmitInfo>> &submitInfosList)
+{
+    u64 size = CcuFastLaunchCtx::GetCtxSize(threadNum, ccuKernelNum);
+    // 申请ctx
+    void *ctxPtr = nullptr;
+    HCCL_INFO("[InsCollAlgBase][FastLaunchSaveCtxFourTemplate] Tag[%s], size[%llu]", param.fastLaunchTag, size);
+    CHK_RET(HcclEngineCtxCreate(param.hcclComm, param.fastLaunchTag, CommEngine::COMM_ENGINE_CCU, size, &ctxPtr));
+
+    CcuFastLaunchCtx *ccuFastLaunchCtx = reinterpret_cast<CcuFastLaunchCtx*>(ctxPtr);
+    // 1 算法名
+    CHK_SAFETY_FUNC_RET(strcpy_s(ccuFastLaunchCtx->algName, sizeof(ccuFastLaunchCtx->algName), param.algName));
+    HCCL_INFO("[InsCollAlgBase][FastLaunchSaveCtxFourTemplate] algName[%s]", ccuFastLaunchCtx->algName);
+
+    // 2 thread
+    ccuFastLaunchCtx->threadNum = threadNum;
+    ThreadHandle *threadHandles = ccuFastLaunchCtx->GetThreadHandlePtr();
+    for (u32 i = 0; i < threadNum; i++) {
+        threadHandles[i] = threads[i];
+    }
+
+    // 3.1 ccu kernel数量
+    for (u32 templateIdx = 0; templateIdx < ccuKernelNumList.size(); templateIdx++) {
+        // 4次调用template.KernelRun下发kernel
+        ccuFastLaunchCtx->ccuKernelNum[templateIdx] = ccuKernelNumList[templateIdx];
+    }
+    // 3.2 所有ccu kernel submitInfo打平放入数组
+    constexpr u32 INTRA_0 = 0, INTER_1 = 1, INTER_0 = 2, INTRA_1 = 3;
+    constexpr u32 INTRA = 0, INTER = 1;
+    u32 kernelIdx = 0;
+    CcuKernelSubmitInfo *kernelSubmitInfos = ccuFastLaunchCtx->GetCcuKernelSubmitInfoPtr();
+    // 2个template实例，submitInfosList只有2份
+    for (u32 i = 0; i < ccuKernelNumList[INTRA_0]; i++) {
+        kernelSubmitInfos[kernelIdx++] = submitInfosList[INTRA][i];
+    }
+    for (u32 i = 0; i < ccuKernelNumList[INTER_1]; i++) {
+        kernelSubmitInfos[kernelIdx++] = submitInfosList[INTER][i];
+    }
+    for (u32 i = ccuKernelNumList[INTER_1]; i < ccuKernelNumList[INTER_0] + ccuKernelNumList[INTER_1]; i++) {
+        kernelSubmitInfos[kernelIdx++] = submitInfosList[INTER][i];
+    }
+    for (u32 i = ccuKernelNumList[INTRA_0]; i < ccuKernelNumList[INTRA_1] + ccuKernelNumList[INTRA_0]; i++) {
+        kernelSubmitInfos[kernelIdx++] = submitInfosList[INTRA][i];
+    }
+
+    return HCCL_SUCCESS;
+}
+#endif
+
 }

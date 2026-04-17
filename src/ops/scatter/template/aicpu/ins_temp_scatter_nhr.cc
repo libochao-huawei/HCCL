@@ -220,6 +220,9 @@ HcclResult InsTempScatterNHR::RunNHR(const std::map<u32, std::vector<ChannelInfo
 HcclResult InsTempScatterNHR::BatchSend(AicpuNHRStepInfo &stepInfo, const std::map<u32, std::vector<ChannelInfo>> &channels,
     const ThreadHandle &thread, const TemplateDataParams &tempAlgParam, u32 repeat) const
 {
+    if (channels.at(stepInfo.toRank).empty()) {
+        return HcclResult::HCCL_E_INTERNAL;
+    }
     const ChannelInfo &linkSend = channels.at(stepInfo.toRank)[0];
     HCCL_INFO("[InsTempScatterNHR][BatchSend] myRank[%d], toRank[%d]", myRank_, stepInfo.toRank);
     void* remoteCclBuffAddr = linkSend.remoteCclMem.addr;

@@ -22,6 +22,7 @@ using RankGroup = std::vector<RankId>;
 
 class CcuTempAlltoAllVMesh2Die : public CcuAlgTemplateBase {
 public:
+    CcuTempAlltoAllVMesh2Die() = default;
     CcuTempAlltoAllVMesh2Die(const OpParam &param, RankId rankId, const std::vector<std::vector<u32>> &subCommRanks);
     ~CcuTempAlltoAllVMesh2Die() override;
 
