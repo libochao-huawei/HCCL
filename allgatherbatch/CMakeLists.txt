@@ -52,6 +52,7 @@ target_link_directories(hccl_allgatherbatch PRIVATE
 target_link_libraries(hccl_allgatherbatch PRIVATE
     -Wl,--no-as-needed
     hcomm
+    ${CMAKE_DL_LIBS}
     c_sec
     unified_dlog
     ascendc_runtime
