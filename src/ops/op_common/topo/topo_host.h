@@ -39,6 +39,17 @@ bool IsDiffDeviceModule(const TopoInfo* topoInfo, const std::unordered_map<u32, 
 HcclResult CalcLinkInfo(TopoInfo* topoInfo, const std::unordered_map<u32, u32> &pairLinkCounter);
 HcclResult CalcLevel0MeshType(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo);
 /**
+ * 公共函数：判断通过最高一个level的网络是否全部没有device的可达链路，并且有host的可达链路
+ * @param comm Hccl通信域
+ * @param serverNum 服务器数量
+ * @param rankSize 通信域rank数量
+ * @param topoLevelNums 网络层层数
+ * @param hostDPUOnly 输出，是否仅使用HostDPU
+ * @return HCCL_SUCCESS成功，其他失败
+ */
+HcclResult IsHostDpuOnly(HcclComm comm, u32 serverNum, u32 rankSize, uint32_t topoLevelNums, bool &hostDPUOnly);
+HcclResult CheckHostDpuOnly(HcclComm comm, bool &hostDPUOnly);
+/**
  * Calculates the group index of the current process in the specified network layer.
  * This function determines the position index of the group that the current process belongs to
  * by obtaining the list of rank counts for all groups in the current network layer and comparing
