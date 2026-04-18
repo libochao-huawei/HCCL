@@ -366,9 +366,9 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
     CHK_RET(tempAlg1.FastLaunch(param, tempFastLaunchCtx1));
     
     // 后同步
-    std::vector<u32> notifyIdxSubToMain = {static_cast<u32>(temp0Threads_.size() - 1)};
-    CHK_RET(PostSyncInterThreads(temp0ThreadMain_, subThreads, notifyIdxSubToMain));
-    
+    std::vector<u32> notifyIdxMSubToMain = {static_cast<u32>(temp0Threads_.size() - 1)};
+    PostSyncInterThreads(temp0ThreadMain_, subThreads, notifyIdxMSubToMain);
+
     HCCL_INFO("[InsReduceScatterConcurrentExecutor][FastLaunch] End.");
     return HCCL_SUCCESS;
 }
