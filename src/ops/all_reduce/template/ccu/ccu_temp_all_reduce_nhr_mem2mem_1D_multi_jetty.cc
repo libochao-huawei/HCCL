@@ -313,4 +313,9 @@ HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::GetRes(AlgResourceRequest& re
 
     return HcclResult::HCCL_SUCCESS;
 }
+
+u64 CcuTempAllReduceNhrMem2Mem1DMultiJetty::GetThreadNum() const
+{
+    return 1;
+}
 } // namespace ops_hccl

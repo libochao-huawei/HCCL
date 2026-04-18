@@ -187,4 +187,8 @@ HcclResult CcuTempAllReduceMesh1D::FastLaunch(const OpParam& param, const Templa
     return HcclResult::HCCL_SUCCESS;
 }
 
+u64 CcuTempAllReduceMesh1D::GetThreadNum() const
+{
+    return 1;
+}
 } // namespace Hccl
