@@ -363,7 +363,7 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     HCCL_INFO("[%s] Start", __func__);
     u32 threadNum = threads_.size();
     u32 ccuKernelNum = templateAlgRes0.submitInfos.size() + templateAlgRes1.submitInfos.size();
-    if (ccuKernelNum < 1>) {
+    if (ccuKernelNum < 1) {
         HCCL_INFO("[%s] ccu kernel num is 0, no need to save.", __func__);
         return HCCL_SUCCESS;
     }
@@ -440,7 +440,7 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     HCCL_INFO("[InsV2AllReduceConcurrentExecutor][FastLaunch] End.");
     return HCCL_SUCCESS;
 }
-#ifndef AICPU_COMPILE
+#endif
 
 #ifndef AICPU_COMPILE
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceConcurrentSche, InsV2AllReduceConcurrentExecutor, TopoMatchUBX,
