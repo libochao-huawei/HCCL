@@ -40,7 +40,7 @@ HcclResult HcclAllGatherV(void *sendBuf, uint64_t sendCount, void *recvBuf, cons
     // 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
     CHK_RET(InitEnvConfig());
     // 参数校验等工作
- 	CHK_RET(CheckAllGatherVInputPara(comm, sendBuf, recvBuf, recvCounts, recvDispls, stream));
+ 	CHK_RET(CheckAllGatherVInputPara(comm, recvBuf, recvCounts, recvDispls, stream));
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     CHK_RET(HcclGetRankSize(comm, &rankSize));
     u32 userRank = INVALID_VALUE_RANKID;
@@ -75,7 +75,7 @@ HcclResult HcclAllGatherVGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCo
  	// 入口的地方先解析环境变量，在初始化环境变量的时候需要设置为AICPU展开
     CHK_RET(InitEnvConfig());
  	// 检查入参指针有效性
- 	CHK_RET(CheckAllGatherVInputPara(comm, sendBuf, recvBuf, recvCounts, recvDispls, stream));
+ 	CHK_RET(CheckAllGatherVInputPara(comm, recvBuf, recvCounts, recvDispls, stream));
  	// tag有效性,是否过长
  	char commName[COMM_INDENTIFIER_MAX_LENGTH];
  	CHK_RET(HcclGetCommName(comm, commName));
@@ -116,15 +116,12 @@ HcclResult HcclAllGatherVGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCo
 }
  	
 namespace ops_hccl {
-HcclResult CheckAllGatherVInputPara(const HcclComm comm, const void* sendBuf, const void* recvBuf, const void *recvCounts, const void *recvDispls, const aclrtStream stream)
+HcclResult CheckAllGatherVInputPara(const HcclComm comm, const void* recvBuf, const void *recvCounts, const void *recvDispls, const aclrtStream stream)
 {
     // 入参合法性校验
     RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),
                   std::vector<std::string>({"HcclAllGatherV", "nullptr", "comm", "non-null pointer"}));
     CHK_PTR_NULL(comm);
-    RPT_INPUT_ERR(sendBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),
-                  std::vector<std::string>({"HcclAllGatherV", "nullptr", "sendBuf", "non-null pointer"}));
-    CHK_PTR_NULL(sendBuf);
     RPT_INPUT_ERR(recvBuf == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),
                   std::vector<std::string>({"HcclAllGatherV", "nullptr", "recvBuf", "non-null pointer"}));
     CHK_PTR_NULL(recvBuf);

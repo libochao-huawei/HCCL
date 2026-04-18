@@ -76,7 +76,8 @@ HcclResult CalcMyRankInfo(HcclComm comm, TopoInfo* topoInfo)
     // 获取moduleIdx
     CHK_RET(CalcGroupIdx(comm, topoInfo, static_cast<uint32_t>(HcclNetLayer::HCCL_NetLayer_L0)));
     // 获取superPodIdx
-    if (netLayersNum >= NET_LAYER_NUM_TWO) {
+    if ((netLayersNum >= NET_LAYER_NUM_TWO) && (netlayers[netLayersNum - 1] ==
+        static_cast<uint32_t>(HcclNetLayer::HCCL_NetLayer_L1))) {
         CHK_RET(CalcGroupIdx(comm, topoInfo, static_cast<uint32_t>(HcclNetLayer::HCCL_NetLayer_L1)));
     } else {
         topoInfo->superPodIdx = 0;
@@ -262,7 +263,8 @@ HcclResult CalcGroupIdx(HcclComm comm, TopoInfo* topoInfo, uint32_t netLayer)
         topoInfo->serverNum = rankListNum;
         HCCL_DEBUG("[CalcGroupIdx]netLayer[%u] currentGroup[%u] serverIdx[%u] serverNum[%u]",
             netLayer, currentGroup, topoInfo->serverIdx, topoInfo->serverNum);
-    } else if (netLayer == static_cast<uint32_t>(HcclNetLayer::HCCL_NetLayer_L1)) {
+    } else if ((netLayer == static_cast<uint32_t>(HcclNetLayer::HCCL_NetLayer_L1)) ||
+        (netLayer == static_cast<uint32_t>(HcclNetLayer::HCCL_NetLayer_L3))) {
         topoInfo->superPodIdx = currentGroup;
         HCCL_DEBUG("[CalcGroupIdx]netLayer[%u] currentGroup[%u] superPodIdx[%u]", netLayer, currentGroup, topoInfo->superPodIdx);
     } else {
@@ -644,9 +646,11 @@ HcclResult ExtractNetLayerDetails(const HcclComm comm, TopoInfoWithNetLayerDetai
     for (uint32_t netLayerIdx = 0; netLayerIdx < netLayerNum; netLayerIdx++) {
         netLayers.push_back(netlayersTemp[netLayerIdx]);
     }
-    netInstNumOfLayer.resize(netLayerNum);    // 每层网络中有几个网络实例
-    instSizeListOfLayer.resize(netLayerNum);  // 每层网络中的各个网络实例的大小
-    localNetInsSizeOfLayer.resize(netLayerNum);
+    // 取最高层级+1适配ranktable配置netLayers={0,3}的情况
+    uint32_t actualLayerNum = netLayers[netLayerNum - 1] + 1;
+    netInstNumOfLayer.resize(actualLayerNum);    // 每层网络中有几个网络实例
+    instSizeListOfLayer.resize(actualLayerNum);  // 每层网络中的各个网络实例的大小
+    localNetInsSizeOfLayer.resize(actualLayerNum);
 
     HcclResult ret;
     // 获取并校验每一层的网路实例大小
@@ -671,11 +675,11 @@ HcclResult ExtractNetLayerDetails(const HcclComm comm, TopoInfoWithNetLayerDetai
     }
 
     topoLevelNum = 0;
-    // 获取最小的能覆盖所有卡的 layer
+    // 获取最小的能覆盖所有卡的 layer，topoLevelNum表示实际层级数量
     for (auto layerIdx : netLayers) {
+        topoLevelNum++;
         if (netInstNumOfLayer[layerIdx] == 1) {
-            // 当本层只有一个网络实例时, 认为这个就是当前的 topoLevelNum
-            topoLevelNum = layerIdx + 1;
+            // 当本层只有一个网络实例时, 认为已覆盖所有卡
             break;
         }
     }
@@ -695,11 +699,13 @@ HcclResult ExtractTopoDetails(HcclComm comm, TopoInfoWithNetLayerDetails* topoIn
     HcclResult ret;
     CHK_PRT_RET(comm == nullptr, HCCL_ERROR("[Topo][ExtractNetLayerDetails] comm is null"), HCCL_E_PTR);
     u32 netLayerNum = topoInfo->netLayerDetails.netLayerNum;
+    auto &netLayers = topoInfo->netLayerDetails.netLayers;
+    uint32_t actualLayerNum = netLayers[netLayerNum - 1] + 1;
 
     // 初始化每一层的 TopoInstDetails
-    topoInfo->topoInstDetailsOfLayer.resize(netLayerNum);
-    topoInfo->topoInstDetailsOfLayerSize = netLayerNum;
-    for (u32 netLayerIdx = 0; netLayerIdx < netLayerNum; netLayerIdx++) {
+    topoInfo->topoInstDetailsOfLayer.resize(actualLayerNum);
+    topoInfo->topoInstDetailsOfLayerSize = actualLayerNum;
+    for (auto netLayerIdx : netLayers) {
         auto& currentNetLayerTopoTopoDetail = topoInfo->topoInstDetailsOfLayer[netLayerIdx];
         auto& currentLayerTopoSize = currentNetLayerTopoTopoDetail.sizeOfTopo;
         auto& currentLayerTopoType = currentNetLayerTopoTopoDetail.typeOfTopo;
@@ -877,6 +883,36 @@ HcclResult CalcLevel0MeshType(HcclComm comm, TopoInfoWithNetLayerDetails *topoIn
         topoInfo->level0MeshType = Level0MeshType::TWO_DIE_NOT_REGULAR;
         HCCL_INFO(
             "[Topo][CalcLevel0MeshType] linkNum on 2 dies are not off by 1. Not regular shape.");
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult CalAllLevelEndpointAttrBwCoeff(
+    HcclComm comm, uint32_t rankId, uint32_t levelSize, std::vector<std::vector<EndpointAttrBwCoeff>> &endpointAttrBw)
+{
+    uint32_t *netLayers = nullptr; // 网络层次list
+    uint32_t netLayerNum = 0;
+    CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum)); // 获取layer总数和layerlist
+    for (uint32_t layerIdx = 0; layerIdx < netLayerNum; layerIdx++) {
+        uint32_t netLayerId = netLayers[layerIdx];
+        uint32_t *topoInsts = nullptr;
+        uint32_t topoInstNum = 0;
+        CHK_RET(HcclRankGraphGetTopoInstsByLayer(comm, netLayerId, &topoInsts, &topoInstNum)); // 获取topoInstId
+        // 同层可以有多个topoInstId，遍历获取
+        for (uint32_t topoInsIdx = 0; topoInsIdx < topoInstNum; topoInsIdx++) {
+            uint32_t topoInstId = topoInsts[topoInsIdx];
+            uint32_t endPointNums = 0;
+            CHK_RET(HcclRankGraphGetEndpointNum(
+                comm, netLayerId, topoInstId, &endPointNums)); // 获取endPointNums，计算同层有多少节点
+            EndpointDesc *endPointDescs;
+            CHK_RET(HcclRankGraphGetEndpointDesc(comm, netLayerId, topoInstId, &endPointNums,
+                endPointDescs)); // 根据Layer和topoInstId，拿到所有的Endpoint信息；返回vector(获取EndpointDesc)
+            uint32_t infoLen = sizeof(EndpointAttrBwCoeff);
+            EndpointAttrBwCoeff bwCoeff{};
+            CHK_RET(HcclRankGraphGetEndpointInfo(
+                comm, rankId, endPointDescs, ENDPOINT_ATTR_BW_COEFF, infoLen, &bwCoeff)); // 获取该维度的带宽
+            endpointAttrBw.emplace_back(bwCoeff);
+        }
     }
     return HCCL_SUCCESS;
 }
