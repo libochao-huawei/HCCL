@@ -431,7 +431,7 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     tempFastLaunchCtx0.threads = temp0Threads_;
     tempFastLaunchCtx0.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[0]);
     ccuKernelSubmitInfos += ctx->ccuKernelNum[0];
-    CHK_RET(tempAlg0->FastLaunch(param, tempFastLaunchCtx0));
+    CHK_RET(tempAlg0.FastLaunch(param, tempFastLaunchCtx0));
     
     // 执行第二个模板算法
     HCCL_INFO("[InsV2AllReduceConcurrentExecutor][FastLaunch] temp1 ccuKernelNum[%llu]", ctx->ccuKernelNum[1]);
@@ -439,7 +439,7 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     tempFastLaunchCtx1.threads = temp1Threads_;
     tempFastLaunchCtx1.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[1]);
     ccuKernelSubmitInfos += ctx->ccuKernelNum[1];
-    CHK_RET(tempAlg1->FastLaunch(param, tempFastLaunchCtx1));
+    CHK_RET(tempAlg1.FastLaunch(param, tempFastLaunchCtx1));
 
     // Template间尾同步
     CHK_RET(PostSyncInterThreads(temp0ThreadMain_, subThreads, notifyIdxSubToMain));
