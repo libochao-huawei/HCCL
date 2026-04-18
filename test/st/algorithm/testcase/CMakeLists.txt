@@ -16,7 +16,6 @@ set(src_list
     all_gather_aicpu_testcase.cc
     all_gather_dpu_testcase.cc
     reduce_scatter_aicpu_testcase.cc
-    mc2_alloc_resource_testcase.cc
 )
 
 add_executable(hccl_checker_ops_stest ${src_list})
@@ -28,7 +27,6 @@ if (BUILD_OPEN_PROJECT)
         ${THIRD_PARTH_PATH}/gtest_shared/include
 
         # HCCL仓头文件
-        ${HCCL_DEV_BASE}/include
         ${HCCL_DEV_BASE}/src/ops/op_common/inc
 
         # Ascend安装包头文件
