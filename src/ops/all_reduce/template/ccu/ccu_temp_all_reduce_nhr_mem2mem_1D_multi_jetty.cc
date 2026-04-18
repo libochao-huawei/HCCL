@@ -103,7 +103,7 @@ HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::FastLaunch(const OpParam& par
         args[4], // dataSizePerRank
         args[5], // dataSizePerPort
         args[6], // lastRankSliceSize
-        args[7], // lastPortSliceSize;
+        args[7]  // lastPortSliceSize;
     );
 
     void* taskArgPtr = static_cast<void*>(&taskArg);
