@@ -1461,6 +1461,14 @@ HcclResult SingleRankProc(const OpParam &param)
         return HcclResult::HCCL_SUCCESS;
     }
 
+    ThreadHandle cpuTsThread{0};
+    ThreadHandle exportedAicpuTsThread{0};
+    if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
+        CHK_RET(HcclThreadAcquireWithStream(param.hcclComm, COMM_ENGINE_CPU_TS, param.stream, 1, &cpuTsThread));
+        // Export cpuTsThread
+        CHK_RET(HcclThreadExportToCommEngine(param.hcclComm, 1, &cpuTsThread, COMM_ENGINE_AICPU_TS, &exportedAicpuTsThread));
+    }
+
     // Op注册
     HcclDfxOpInfo hcclDfxOpInfo{};
     CHK_RET(ConstructHcclDfxOpInfo(param, hcclDfxOpInfo, cpuTsThread));

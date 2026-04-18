@@ -176,6 +176,7 @@ HcclResult BroadcastOutPlaceCommon(void *buf, uint64_t count, HcclDataType dataT
     }
     if (userRankSize == 1) {
         HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
+        param.hcclComm = comm;
         CHK_RET(SingleRankProc(param));
         return HcclResult::HCCL_SUCCESS;
     }
@@ -236,6 +237,7 @@ HcclResult BroadcastOutPlace(OpParam &param, void *buf, uint64_t count, HcclData
     }
     if (userRankSize == 1) {
         HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
+        param.hcclComm = comm;
         CHK_RET(SingleRankProc(param));
         return HcclResult::HCCL_SUCCESS;
     }
