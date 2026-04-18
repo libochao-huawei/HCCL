@@ -34,8 +34,8 @@ public:
 
 #ifndef AICPU_COMPILE
     HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *resCtx) override;
-    HcclResult FastLaunchSaveCtx(const OpParam &param, const TemplateResource &templateAlgResIntra,
-                                 const TemplateResource &templateAlgResInter);
+    HcclResult FastLaunchSaveCtx(const OpParam &param, const TemplateResource &templateAlgRes0,
+                                 const TemplateResource &templateAlgRes1);
 #endif
 
 protected:

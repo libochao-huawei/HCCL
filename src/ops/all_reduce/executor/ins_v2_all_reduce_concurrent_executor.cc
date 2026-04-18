@@ -309,7 +309,9 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     // 交替下发两个template的任务
     u64 countLeft0 = totalCount0;
     u64 countLeft1 = totalCount1;
-    
+    u64 loopTimes0 = 0;
+    u64 loopTimes1 = 0;
+
     while (countLeft0 > 0 || countLeft1 > 0) {
         if (countLeft0 > 0) {
             const u64 curCount0 = std::min(countLeft0, maxCountPerLoop0);
@@ -322,6 +324,7 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
             tempAlgParams0.buffInfo.outBuffBaseOff += tempAlgParams0.sliceSize;
             countLeft0 -= curCount0;
             HCCL_DEBUG("curCount0[%llu], countLeft0[%llu]", curCount0, countLeft0);
+            loopTimes0++;
         }
 
         if (countLeft1 > 0) {
@@ -335,13 +338,106 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
             tempAlgParams1.buffInfo.outBuffBaseOff += tempAlgParams1.sliceSize;
             countLeft1 -= curCount1;
             HCCL_DEBUG("curCount1[%llu], countLeft1[%llu]", curCount1, countLeft1);
+            loopTimes1++;
         }
     }
 
     // Template间尾同步
     CHK_RET(PostSyncInterThreads(mainThread, syncThreads, notifyIdxesSubToMain));
 
+#ifndef AICPU_COMPILE
+    if (loopTimes0 == 1 && loopTimes1 == 1 && param.engine == CommEngine::COMM_ENGINE_CCU) {
+        CHK_RET(FastLaunchSaveCtx(param, tempAlgResource0, tempAlgResource1));
+    }
+#endif
+
     HCCL_INFO("[%s] End.", __func__);
+    return HCCL_SUCCESS;
+}
+
+#ifndef AICPU_COMPILE
+template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
+HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::FastLaunchSaveCtx(
+    const OpParam &param, const TemplateResource &templateAlgRes0, const TemplateResource &templateAlgRes1)
+{
+    HCCL_INFO("[%s] Start", __func__);
+    u32 threadNum = threads_.size();
+    u32 ccuKernelNum = templateAlgRes0.submitInfos.size() + templateAlgRes1.submitInfos.size();
+    if (ccuKernelNum < 1>) {
+        HCCL_INFO("[%s] ccu kernel num is 0, no need to save.", __func__);
+        return HCCL_SUCCESS;
+    }
+    HCCL_INFO("[InsV2AllReduceConcurrentExecutor][HcclEngineCtxCreate] threadNum[%llu], ccuKernelNum[%llu]", threadNum, ccuKernelNum);
+    std::vector<u32> ccuKernelNumList = {static_cast<u32>(templateAlgRes0.submitInfos.size()), 
+                                         static_cast<u32>(templateAlgRes1.submitInfos.size())};
+    std::vector<std::vector<CcuKernelSubmitInfo>> submitInfosList = {templateAlgRes0.submitInfos, templateAlgRes1.submitInfos};
+    return FastLaunchSaveCtxTwoTemplate(param, threadNum, ccuKernelNum, threads_, ccuKernelNumList, submitInfosList);
+    
+}
+
+template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
+HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::FastLaunch(
+        const OpParam &param, const CcuFastLaunchCtx *ctx)
+{
+    // SubCommRanks拆分
+    std::vector<std::vector<u32>> subCommRanks0{ algHierarchyInfo_.infos[0][0] };
+    std::vector<std::vector<u32>> subCommRanks1{ algHierarchyInfo_.infos[0][1] };
+
+    // 构造template
+    std::shared_ptr<InsAlgTemplate0> tempAlg0 = std::make_shared<InsAlgTemplate0>(param, myRank_, subCommRanks0);
+    std::shared_ptr<InsAlgTemplate1> tempAlg1 = std::make_shared<InsAlgTemplate1>(param, myRank_, subCommRanks1);
+
+    TemplateFastLaunchCtx tempFastLaunchCtx0, tempFastLaunchCtx1;
+
+    ThreadHandle *threads = ctx->GetThreadHandlePtr();
+    threads_.assign(threads, threads + ctx->threadNum);
+
+    u64 temp0SlaveThreadNum = 0;
+    u64 temp1SlaveThreadNum = 0;
+
+    const u64 temp0ThreadsNum = temp0SlaveThreadNum + 1;
+    const u64 temp1ThreadsNum = temp1SlaveThreadNum + 1;
+
+    // 划分thread
+    u64 threadIdx = 0;
+    for (auto i = 0; i < temp0ThreadsNum; ++i) {
+        temp0Threads_.push_back(threads_[threadIdx++]);
+    }
+    for (auto i = 0; i < temp1ThreadsNum; ++i) {
+        temp1Threads_.push_back(threads_[threadIdx++]);
+    }
+
+    // template间同步所需信息计算
+    ThreadHandle mainThread = temp0Threads_.at(0);
+    std::vector<ThreadHandle> syncThreads{temp1Threads_};
+    std::vector<u32> notifyIdxesMainToSub{static_cast<u32>(temp1SlaveThreadNum)}; // 统一使用第[slaveThreadNum + 1]个notify做template间同步
+    std::vector<u32> notifyIdxesSubToMain{static_cast<u32>(temp0SlaveThreadNum)};
+
+    CcuKernelSubmitInfo *ccuKernelSubmitInfos = ctx->GetCcuKernelSubmitInfoPtr();
+    HCCL_INFO("[InsV2AllReduceConcurrentExecutor][FastLaunch] Intra0 ccuKernelNum[%llu]", ctx->ccuKernelNum[0]);
+    // Template间前同步
+    CHK_RET(PreSyncInterThreads(mainThread, syncThreads, notifyIdxesMainToSub));
+
+    // 执行第一个模板算法
+    HCCL_INFO("[InsV2AllReduceConcurrentExecutor][FastLaunch] temp0 ccuKernelNum[%llu]", ctx->ccuKernelNum[0]);
+    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtx0, param.inputPtr, param.outputPtr, param.hcclBuff));
+    tempFastLaunchCtx0.threads = temp0Threads_;
+    tempFastLaunchCtx0.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[0]);
+    ccuKernelSubmitInfos += ctx->ccuKernelNum[0];
+    CHK_RET(tempAlg0->FastLaunch(param, tempFastLaunchCtx0));
+    
+    // 执行第二个模板算法
+    HCCL_INFO("[InsV2AllReduceConcurrentExecutor][FastLaunch] temp1 ccuKernelNum[%llu]", ctx->ccuKernelNum[1]);
+    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtx1, param.inputPtr, param.outputPtr, param.hcclBuff));
+    tempFastLaunchCtx1.threads = temp1Threads_;
+    tempFastLaunchCtx1.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[1]);
+    ccuKernelSubmitInfos += ctx->ccuKernelNum[1];
+    CHK_RET(tempAlg1->FastLaunch(param, tempFastLaunchCtx1));
+
+    // Template间尾同步
+    CHK_RET(PostSyncInterThreads(mainThread, syncThreads, notifyIdxesSubToMain));
+    
+    HCCL_INFO("[InsV2AllReduceConcurrentExecutor][FastLaunch] End.");
     return HCCL_SUCCESS;
 }
 
