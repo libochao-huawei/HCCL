@@ -95,7 +95,6 @@ HcclResult InsTempReduceScatterMesh1D::PostCopy(const TemplateDataParams &tempAl
         return HCCL_E_INTERNAL;
     }
     // 如果是单算子模式, 并且是最后一步算子，需要将数据从 cclBuffer 拷贝到 userOut
-    HCCL_INFO("[InsTempReduceScatterMesh1D][PostCopy], copy from cclBuffer to userOut");
     // 先把本卡的数据从userIn搬运到userOut，然后再在userOut上做规约
     HCCL_INFO("[InsTempReduceScatterMesh1D][PostCopy]tempAlgParams.repeatNum=%llu", tempAlgParams.repeatNum);
     u32 myAlgRank = 0;
@@ -110,20 +109,23 @@ HcclResult InsTempReduceScatterMesh1D::PostCopy(const TemplateDataParams &tempAl
         count_ = tempAlgParams.sliceSize / DATATYPE_SIZE_TABLE[dataType_];
         buffSliceStride = tempAlgParams.sliceSize;
     }
+
     for (u32 repeatIdx = 0; repeatIdx < tempAlgParams.repeatNum; repeatIdx++) {
+        if (tempAlgParams.buffInfo.inBuffType != tempAlgParams.buffInfo.outBuffType ||
+            tempAlgParams.buffInfo.inBuffBaseOff != tempAlgParams.buffInfo.outBuffBaseOff) {
+            DataSlice srcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr, tempAlgParams.buffInfo.inBuffBaseOff +
+                repeatIdx * tempAlgParams.inputRepeatStride + myAlgRank * tempAlgParams.inputSliceStride, processSize_, count_);
+            DataSlice dstSlice = DataSlice(tempAlgParams.buffInfo.outputPtr, tempAlgParams.buffInfo.outBuffBaseOff +
+                repeatIdx * tempAlgParams.outputRepeatStride + myAlgRank * tempAlgParams.outputSliceStride, processSize_, count_);
+            CHK_RET(static_cast<HcclResult>(LocalCopy(threads[0], srcSlice, dstSlice)));
+        }
         // 把其他卡的数据input累加到output
         for (u32 tmpRank = 0; tmpRank < templateRankSize_; tmpRank++) {
             if (tmpRank != rankIdx) {
-                DataSlice srcSlice = DataSlice(tempAlgParams.buffInfo.hcclBuff.addr,
-                                               tempAlgParams.buffInfo.hcclBuffBaseOff
-                                               + repeatIdx * tempAlgParams.outputRepeatStride
-                                               + tmpRank * buffSliceStride,
-                                               processSize_, count_);
-                DataSlice dstSlice = DataSlice(tempAlgParams.buffInfo.outputPtr,
-                                               tempAlgParams.buffInfo.outBuffBaseOff
-                                               + repeatIdx * tempAlgParams.outputRepeatStride
-                                               + rankIdx * tempAlgParams.outputSliceStride,
-                                               processSize_, count_);
+                DataSlice srcSlice = DataSlice(tempAlgParams.buffInfo.hcclBuff.addr, tempAlgParams.buffInfo.hcclBuffBaseOff
+                    + repeatIdx * tempAlgParams.outputRepeatStride + tmpRank * buffSliceStride, processSize_, count_);
+                DataSlice dstSlice = DataSlice(tempAlgParams.buffInfo.outputPtr, tempAlgParams.buffInfo.outBuffBaseOff
+                    + repeatIdx * tempAlgParams.outputRepeatStride + rankIdx * tempAlgParams.outputSliceStride, processSize_, count_);
                 CHK_RET(static_cast<HcclResult>(LocalReduce(threads[0], srcSlice, dstSlice, dataType_, reduceOp_)));
             }
         }
@@ -138,26 +140,6 @@ HcclResult InsTempReduceScatterMesh1D::RunReduceScatter(
 {
     u32 myAlgRank = 0;
     CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], myAlgRank));
-
-    // DMA消减：让thread 0做本地拷贝
-    if (tempAlgParam.buffInfo.inBuffType != tempAlgParam.buffInfo.outBuffType ||
-        tempAlgParam.buffInfo.inBuffBaseOff != tempAlgParam.buffInfo.outBuffBaseOff) {
-        for (u32 repeatIdx = 0; repeatIdx < tempAlgParam.repeatNum; repeatIdx++) {
-            u64 sliceSize = processSize_;
-            u64 sliceCount = count_;
-            if (myAlgRank == templateRankSize_ - 1 && tempAlgParam.tailSize > 0) {
-                sliceSize = tempAlgParam.tailSize;
-                sliceCount = tempAlgParam.tailSize / DATATYPE_SIZE_TABLE[dataType_];
-            }
-            DataSlice srcSlice = DataSlice(tempAlgParam.buffInfo.inputPtr, tempAlgParam.buffInfo.inBuffBaseOff +
-                                        repeatIdx * tempAlgParam.inputRepeatStride + myAlgRank * tempAlgParam.inputSliceStride,
-                                        sliceSize, sliceCount);
-            DataSlice dstSlice = DataSlice(tempAlgParam.buffInfo.outputPtr, tempAlgParam.buffInfo.outBuffBaseOff +
-                                        repeatIdx * tempAlgParam.outputRepeatStride + myAlgRank * tempAlgParam.outputSliceStride,
-                                        sliceSize, sliceCount);
-            CHK_RET(static_cast<HcclResult>(LocalCopy(threads[0], srcSlice, dstSlice)));
-        }
-    }
 
     for (u32 queIdx = 1; queIdx < threadNum_; queIdx++) {
         u32 nextRank = (myAlgRank + queIdx) % templateRankSize_; // 这里取的虚拟rankId
