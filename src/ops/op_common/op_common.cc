@@ -1460,6 +1460,13 @@ HcclResult SingleRankProc(const OpParam &param)
         HCCL_WARNING("[%s] sendBuf == recvBuf, return success", __func__);
         return HcclResult::HCCL_SUCCESS;
     }
+
+    // Op注册
+    HcclDfxOpInfo hcclDfxOpInfo{};
+    CHK_RET(ConstructHcclDfxOpInfo(param, hcclDfxOpInfo, cpuTsThread));
+    param.dataCount = hcclDfxOpInfo.dataCount;
+    CHK_RET(HcclDfxRegOpInfoByCommId(param.commName, reinterpret_cast<void*>(&hcclDfxOpInfo)));
+
     u64 len{0};
     if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL || param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
         param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
