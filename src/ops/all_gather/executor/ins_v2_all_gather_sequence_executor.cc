@@ -109,6 +109,7 @@ HcclResult InsV2AllGatherSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     interTempDataParams.buffInfo.inputPtr = param.inputPtr;
     interTempDataParams.buffInfo.outputPtr = param.outputPtr;
     interTempDataParams.buffInfo.hcclBuff = resCtx.cclMem;
+    interTempDataParams.enableRemoteMemAccess = param.isCapture;
 
     // 构建框间template
     InsAlgTemplate1 interTempAlg(param, myRank_, algHierarchyInfo_.infos[1]);

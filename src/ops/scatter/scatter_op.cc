@@ -133,15 +133,6 @@ HcclResult CheckScatterInputPara(const HcclComm comm, const void *recvBuf)
     return HCCL_SUCCESS;
 }
 
-bool IsStreamCapture(aclrtStream stream)
-{
-    bool isCapture;
-    aclmdlRICaptureStatus captureStatus = aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_NONE;
-    u64 modelId = 0xFFFFFFFF;
-    CHK_PRT(haclrtGetCaptureInfo(stream, captureStatus, modelId, isCapture));
-    return isCapture;
-}
-
 bool IsAiCpuMode(DevType deviceType, u32 rankSize)
 {
     if (GetExternalInputHcclAicpuUnfold() == true && deviceType == DevType::DEV_TYPE_910_93 && (rankSize != 1)) {

@@ -70,6 +70,15 @@ HcclResult CheckAsymmetricTopoSupport(HcclCMDType opType, const TopoInfoWithNetL
     return HCCL_SUCCESS;
 }
 
+bool IsStreamCapture(aclrtStream stream)
+{
+    bool isCapture = false;
+    aclmdlRICaptureStatus captureStatus = aclmdlRICaptureStatus::ACL_MODEL_RI_CAPTURE_STATUS_NONE;
+    u64 modelId = 0xFFFFFFFF;
+    CHK_PRT(haclrtGetCaptureInfo(stream, captureStatus, modelId, isCapture));
+    return isCapture;
+}
+
 HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
     std::string &algName)
 {
@@ -426,6 +435,9 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
     }
 
     if (param.engine == COMM_ENGINE_CPU) {
+        if (IsStreamCapture(param.stream)) {
+            param.isCapture = true;
+        }
         // 注册dpu回调函数
         CHK_RET(static_cast<HcclResult>(HcclTaskRegister(comm, param.algTag, HcclLaunchDPUKernel)));
     }
