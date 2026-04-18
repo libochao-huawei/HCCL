@@ -440,6 +440,7 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     HCCL_INFO("[InsV2AllReduceConcurrentExecutor][FastLaunch] End.");
     return HCCL_SUCCESS;
 }
+#ifndef AICPU_COMPILE
 
 #ifndef AICPU_COMPILE
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceConcurrentSche, InsV2AllReduceConcurrentExecutor, TopoMatchUBX,
