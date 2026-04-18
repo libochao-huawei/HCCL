@@ -24,6 +24,7 @@
 #include <shared_mutex>
 #include <atomic>
 #include "hccl_diag.h"
+#include "hccl_device_comm_dl.h"
 
 using namespace ops_hccl;
 namespace {
@@ -225,6 +226,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         HCCL_ERROR("%s HcommAcquireComm fail, commName[%s]", __func__, param->commName);
         return 1;
     }
+
     #ifdef MACRO_DEV_TYPE_NEW
     if (param->deviceType != DevType::DEV_TYPE_950) {
     #else
@@ -258,29 +260,48 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
     #else
     if (param->deviceType == DevType::DEV_TYPE_910_95) {
     #endif
-        AlgResourceCtxSerializable resCtx;
-
-        //通过缓存实现反序列化优化
-        AlgResourceCtxSerializable* cachedResCtx = g_cacheManager.Get(param->algTag, param->commName);
-        if (cachedResCtx != nullptr) {
-            HCCL_INFO("[%s] Cache HIT for algTag[%s]", __func__, param->algTag);
-            std::string commName = g_cacheManager.ExtractCommName(param->algTag);
-            if (commName.empty()) commName = param->commName;
-
-            CacheStats stats;
-            size_t cacheSize;
-            if (g_cacheManager.GetCommStats(commName, stats, cacheSize)) {
-                HCCL_DEBUG("[%s] comm[%s] hitRate=%.2f%%, cacheSize=%zu",
-                __func__, commName.c_str(), stats.hitRate() * 100, cacheSize);
-            resCtx = *cachedResCtx;
+        //判断通信域状态
+        HcclCommStatus commStatus = HCCL_COMM_STATUS_INVALID;
+        if (HcommIsSupportHcclCommGetStatus()) {
+            auto statusRet = HcclCommGetStatus(param->commName, &commStatus);
+            if (statusRet != HCCL_SUCCESS) {
+                HCCL_ERROR("%s HcclCommGetStatus fail, commName[%s], ret = %d", __func__, param->commName, statusRet);
+                return 1;
             }
-        } else {
-            //未命中，进行反序列化并存入缓存
+            if (commStatus != HCCL_COMM_STATUS_READY) {
+                HCCL_ERROR("%s commStatus is not ready!, commStatus = %d", __func__, static_cast<int>(commStatus));
+                return 1;
+            }
+        }
+
+        AlgResourceCtxSerializable resCtx;
+        if (param->opType == HcclCMDType::HCCL_CMD_BATCH_SEND_RECV) {
             char *ctx = static_cast<char *>(param->resCtx);
             std::vector<char> seq(ctx, ctx + param->ctxSize);
             resCtx.DeSerialize(seq);
-            g_cacheManager.Put(param->algTag, resCtx, param->commName);
-            HCCL_INFO("[%s] Cache MISS and stored for algTag[%s]", __func__, param->algTag);
+        } else {
+            //通过缓存实现反序列化优化
+            AlgResourceCtxSerializable* cachedResCtx = g_cacheManager.Get(param->algTag, param->commName);
+            if (cachedResCtx != nullptr) {
+                HCCL_INFO("[%s] Cache HIT for algTag[%s]", __func__, param->algTag);
+                std::string commName = g_cacheManager.ExtractCommName(param->algTag);
+                if (commName.empty()) commName = param->commName;
+
+                CacheStats stats;
+                size_t cacheSize;
+                if (g_cacheManager.GetCommStats(commName, stats, cacheSize)) {
+                    HCCL_DEBUG("[%s] comm[%s] hitRate=%.2f%%, cacheSize=%zu",
+                    __func__, commName.c_str(), stats.hitRate() * 100, cacheSize);
+                resCtx = *cachedResCtx;
+                }
+            } else {
+                //未命中，进行反序列化并存入缓存
+                char *ctx = static_cast<char *>(param->resCtx);
+                std::vector<char> seq(ctx, ctx + param->ctxSize);
+                resCtx.DeSerialize(seq);
+                g_cacheManager.Put(param->algTag, resCtx, param->commName);
+                HCCL_INFO("[%s] Cache MISS and stored for algTag[%s]", __func__, param->algTag);
+            }
         }
 
         // 还原变长指针

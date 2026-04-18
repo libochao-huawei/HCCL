@@ -20,6 +20,7 @@ namespace ops_hccl {
 
 class InsTempBroadcastNHR : public InsAlgTemplateBase {
 public:
+    InsTempBroadcastNHR() = default;
     explicit InsTempBroadcastNHR(const OpParam& param, const u32 rankId, // 传通信域的rankId，userRank
                                         const std::vector<std::vector<u32>> &subCommRanks);
 

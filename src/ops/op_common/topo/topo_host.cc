@@ -880,4 +880,34 @@ HcclResult CalcLevel0MeshType(HcclComm comm, TopoInfoWithNetLayerDetails *topoIn
     }
     return HCCL_SUCCESS;
 }
+
+HcclResult CalAllLevelEndpointAttrBwCoeff(
+    HcclComm comm, uint32_t rankId, uint32_t levelSize, std::vector<std::vector<EndpointAttrBwCoeff>> &endpointAttrBw)
+{
+    uint32_t *netLayers = nullptr; // 网络层次list
+    uint32_t netLayerNum = 0;
+    CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum)); // 获取layer总数和layerlist
+    for (uint32_t layerIdx = 0; layerIdx < netLayerNum; layerIdx++) {
+        uint32_t netLayerId = netLayers[layerIdx];
+        uint32_t *topoInsts = nullptr;
+        uint32_t topoInstNum = 0;
+        CHK_RET(HcclRankGraphGetTopoInstsByLayer(comm, netLayerId, &topoInsts, &topoInstNum)); // 获取topoInstId
+        // 同层可以有多个topoInstId，遍历获取
+        for (uint32_t topoInsIdx = 0; topoInsIdx < topoInstNum; topoInsIdx++) {
+            uint32_t topoInstId = topoInsts[topoInsIdx];
+            uint32_t endPointNums = 0;
+            CHK_RET(HcclRankGraphGetEndpointNum(
+                comm, netLayerId, topoInstId, &endPointNums)); // 获取endPointNums，计算同层有多少节点
+            EndpointDesc *endPointDescs;
+            CHK_RET(HcclRankGraphGetEndpointDesc(comm, netLayerId, topoInstId, &endPointNums,
+                endPointDescs)); // 根据Layer和topoInstId，拿到所有的Endpoint信息；返回vector(获取EndpointDesc)
+            uint32_t infoLen = sizeof(EndpointAttrBwCoeff);
+            EndpointAttrBwCoeff bwCoeff{};
+            CHK_RET(HcclRankGraphGetEndpointInfo(
+                comm, rankId, endPointDescs, ENDPOINT_ATTR_BW_COEFF, infoLen, &bwCoeff)); // 获取该维度的带宽
+            endpointAttrBw.emplace_back(bwCoeff);
+        }
+    }
+    return HCCL_SUCCESS;
+}
 }

@@ -494,10 +494,6 @@ HcclResult CcuKernelScatterNHR1DMem2Mem::Algorithm()
 std::vector<uint64_t> CcuKernelScatterNHR1DMem2Mem::GeneArgs(const CcuTaskArg &arg)
 {
     const CcuTaskArgScatterNHRMem2Mem1D *taskArg = dynamic_cast<const CcuTaskArgScatterNHRMem2Mem1D *>(&arg);
-    if (taskArg == nullptr) {
-        HCCL_ERROR("[CcuKernelScatterNHR1DMem2Mem] taskArg is null");
-        return {};
-    }
 
     uint64_t inputAddr = taskArg->inputAddr_;
     uint64_t outputAddr = taskArg->outputAddr_;

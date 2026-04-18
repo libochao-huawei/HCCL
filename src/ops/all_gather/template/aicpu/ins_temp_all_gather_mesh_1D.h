@@ -18,6 +18,7 @@ namespace ops_hccl {
 
 class InsTempAllGatherMesh1D : public InsAlgTemplateBase {
 public:
+    InsTempAllGatherMesh1D() = default;
     explicit InsTempAllGatherMesh1D(const OpParam &param, const u32 rankId,  // 传通信域的rankId，userRank
                                     const std::vector<std::vector<u32>> &subCommRanks);
     // Host侧调用
@@ -39,7 +40,7 @@ public:
     u64 GetThreadNum() const override;
     void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMianToSub) override;
     void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override;
-private:
+protected:
     HcclResult RunAllGatherMesh(const std::vector<ThreadHandle> &threads,
                                                         const std::map<u32, std::vector<ChannelInfo>> &channels);
     HcclResult LocalDataCopy(const std::vector<ThreadHandle> &threads);

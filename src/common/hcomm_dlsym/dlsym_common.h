@@ -11,11 +11,40 @@
 #ifndef DLSYM_COMMON_H
 #define DLSYM_COMMON_H
 
-#include "log.h"
+#include <sys/syscall.h>
+#include <unistd.h>
+#include "dlog_pub.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#define HCCL_LOG_DEBUG DLOG_DEBUG
+#define HCCL_LOG_INFO  DLOG_INFO
+#define HCCL_LOG_WARN  DLOG_WARN
+#define HCCL_LOG_ERROR DLOG_ERROR
+
+#define LOG_FUNC(module, level, fmt, ...) do { \
+    DlogRecord(module, level, fmt, ##__VA_ARGS__); \
+} while (0)
+
+#define HCCL_LOG_PRINT(moduleId, logType, format, ...) do { \
+    LOG_FUNC(moduleId, logType, "[%s:%d] [%u]" format, __FILE__, __LINE__, syscall(SYS_gettid), ##__VA_ARGS__); \
+} while(0)
+
+#define HCCL_RUN_LOG_PRINT(format, ...) do { \
+    LOG_FUNC(HCCL_LOG_MASK, HCCL_LOG_INFO, "[%s:%d] [%u]" format, \
+             __FILE__, __LINE__, syscall(SYS_gettid), ##__VA_ARGS__); \
+} while(0)
+
+/* 预定义日志宏, 便于使用 */
+#define HCCL_COMPAT_DEBUG(format, ...) do { \
+    HCCL_LOG_PRINT(HCCL, HCCL_LOG_DEBUG, format, ##__VA_ARGS__); \
+} while(0)
+
+#define HCCL_COMPAT_ERROR(format, ...) do { \
+    HCCL_LOG_PRINT(HCCL, HCCL_LOG_ERROR, format, ##__VA_ARGS__); \
+} while(0)
 
 #define DECL_WEAK_FUNC(type, func_name, ...) \
     type func_name(__VA_ARGS__) __attribute__((weak));
@@ -28,7 +57,7 @@ extern "C" {
     type func_name(__VA_ARGS__) __attribute__((weak)); \
     type func_name(__VA_ARGS__) \
     { \
-        HCCL_ERROR("[HcclWrapper] %s not supported", __func__); \
+        HCCL_COMPAT_ERROR("[HcclWrapper] %s not supported", __func__); \
         return (type)(-1); \
     }
 
@@ -40,7 +69,7 @@ extern "C" {
         void *ptr = (void *)dlsym(handle, #func_name); \
         if (ptr == nullptr) { \
             g_##func_name##Supported = false; \
-            HCCL_DEBUG("[HcclWrapper] %s not supported", #func_name); \
+            HCCL_COMPAT_DEBUG("[HcclWrapper] %s not supported", #func_name); \
         } else { \
             g_##func_name##Supported = true; \
         } \

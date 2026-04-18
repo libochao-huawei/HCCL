@@ -33,16 +33,20 @@ public:
     // AICPU 接口
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
     HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo, AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
+#ifndef AICPU_COMPILE
+    HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *resCtx) override;
+    HcclResult FastLaunchSaveCtx(const OpParam &param, const TemplateResource &templateAlgResIntra,
+                                 const TemplateResource &templateAlgResInter, const TemplateResource &intraTempAlgRes1,
+                                 const TemplateResource &interTempAlgRes1);
+#endif
 
 private:
     void GetParallelDataSplit(std::vector<float> &splitDataSize) const;
     uint64_t GetRankSize(const std::vector<std::vector<u32>> &vTopo) const;
     HcclResult CalcLocalRoot();
     // Aicpu
-    HcclResult PrepareResForTemplate(const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &tempAlgIntra,
-                                     InsAlgTemplate1 &tempAlgInter, InsAlgTemplate2 &tempAlgIntra1);
-    HcclResult PrepareResForTemplate23(const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &tempAlgIntra,
-                                       InsAlgTemplate2 &tempAlgIntra1, InsAlgTemplate3 &tempAlgInter1);
+    HcclResult PrepareResForTemplate(InsAlgTemplate0 &tempAlgIntra, InsAlgTemplate1 &tempAlgInter, InsAlgTemplate2 &tempAlgIntra1);
+    HcclResult PrepareResForTemplate23(InsAlgTemplate0 &tempAlgIntra, InsAlgTemplate2 &tempAlgIntra1, InsAlgTemplate3 &tempAlgInter1);
     HcclResult PrepareResForTemplateResource(const OpParam &param, const AlgResourceCtxSerializable &resCtx, TemplateResource &intraTempAlgRes,
                                              TemplateResource &interTempAlgRes, bool isScatter);
     void GenDataParamsBufferType(const BufferType inBuffType, const BufferType outBuffType, const BufferType hcclBuffType,
@@ -78,6 +82,22 @@ private:
                                         TemplateResource& templateResource, InsAlgTemplate3 &tempAlgInter1);
     HcclResult GenInsQues(const OpParam &param, const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &tempAlgIntra0,
                           InsAlgTemplate1 &tempAlgInter0, InsAlgTemplate2 &tempAlgIntra1, InsAlgTemplate3 &tempAlgInter1);
+    HcclResult FastLaunchTemplateIntra0(const OpParam &param, const u32 kernelNum,
+                                        TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate0 &tempAlgIntra);
+    HcclResult FastLaunchTemplateInter1(const OpParam &param, const u32 kernelNum,
+                                        TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate1 &tempAlgIntra);
+    HcclResult FastLaunchTemplateInter0(const OpParam &param, const u32 kernelNum,
+                                        TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate1 &tempAlgIntra);
+    HcclResult FastLaunchTemplateIntra1(const OpParam &param, const u32 kernelNum,
+                                        TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate0 &tempAlgIntra);
+    HcclResult FastLaunchTemplateInter01(const OpParam &param, const u32 kernelNum,
+                                        TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate3 &tempAlgIntra);
+    HcclResult FastLaunchTemplateIntra11(const OpParam &param, const u32 kernelNum,
+                                        TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate2 &tempAlgIntra);
+    HcclResult FastLaunchTemplateIntra01(const OpParam &param, const u32 kernelNum,
+                                        TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate2 &tempAlgIntra);
+    HcclResult FastLaunchTemplateInter11(const OpParam &param, const u32 kernelNum,
+                                        TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate3 &tempAlgIntra);
     // rounddown func for uint
     inline u64 RoundDown(u64 dividend, u64 divisor) const
     {
@@ -117,6 +137,15 @@ private:
 
     std::vector<ThreadHandle> intraThreads_;
     std::vector<ThreadHandle> interThreads_;
+
+    u32 ccuKernelLaunchNumIntra0_{0};
+    u32 ccuKernelLaunchNumInter0_{0};
+    u32 ccuKernelLaunchNumIntra1_{0};
+    u32 ccuKernelLaunchNumInter1_{0};
+    u32 ccuKernelLaunchNumIntra01_{0};
+    u32 ccuKernelLaunchNumInter01_{0};
+    u32 ccuKernelLaunchNumIntra11_{0};
+    u32 ccuKernelLaunchNumInter11_{0};
 
     ThreadHandle mainThread_;
     std::vector<ThreadHandle> templateMainThreads_;

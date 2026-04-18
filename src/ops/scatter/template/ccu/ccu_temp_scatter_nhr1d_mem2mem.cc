@@ -74,10 +74,10 @@ HcclResult CcuTempScatterNHR1DMem2Mem::GetDieNumFromChannelDescs(HcclComm comm, 
         GetChannelDieId(comm, myRank_, firstVector[1], dieId1);
         if (dieId0 == dieId1) {
             dieNum = LINK_NUM_1;
-            HCCL_INFO("[CcuTempReduceScatterNHR1DMem2Mem::GetDieNumFromChannelDescs] 2 channels on the same die, dieNum = 1.");
+            HCCL_INFO("[CcuTempScatterNHR1DMem2Mem::GetDieNumFromChannelDescs] 2 channels on the same die, dieNum = 1.");
         } else {
             dieNum = LINK_NUM_2;
-            HCCL_INFO("[CcuTempReduceScatterNHR1DMem2Mem::GetDieNumFromChannelDescs] 2 channels on 2 dies, dieNum = 2.");
+            HCCL_INFO("[CcuTempScatterNHR1DMem2Mem::GetDieNumFromChannelDescs] 2 channels on 2 dies, dieNum = 2.");
         }
         return HcclResult::HCCL_SUCCESS;
     } else {
@@ -206,6 +206,42 @@ HcclResult CcuTempScatterNHR1DMem2Mem::SplitDataFor2Dies(const OpParam &param,
     return HcclResult::HCCL_SUCCESS;
 }
 
+HcclResult CcuTempScatterNHR1DMem2Mem::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+{
+    HCCL_DEBUG("[CcuTempScatterNHR1DMem2Mem::FastLaunch] start");
+    u32 kernelNum = tempFastLaunchCtx.ccuKernelSubmitInfos.size();
+    buffInfo_ = tempFastLaunchCtx.buffInfo;
+    const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
+    // 前流同步
+    if (kernelNum > 1) {
+        std::vector<ThreadHandle> subThreads(tempFastLaunchCtx.threads.begin() + 1, tempFastLaunchCtx.threads.end());
+        std::vector<u32> notifyIdxMainToSub(1, 0);
+        CHK_RET(PreSyncInterThreads(tempFastLaunchCtx.threads[0], subThreads, notifyIdxMainToSub));
+    }
+
+    for (u32 kernelIdx = 0; kernelIdx < kernelNum; kernelIdx++) {
+        CcuTaskArgScatterNHRMem2Mem1D taskArg(
+                PointerToAddr(buffInfo_.inputPtr) + args[0],
+                PointerToAddr(buffInfo_.outputPtr) + args[1],
+                PointerToAddr(buffInfo_.hcclBuff.addr) + args[2],
+                args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11],
+                args[12], args[13], args[14], args[15]);
+
+        void* taskArgPtr = static_cast<void*>(&taskArg);
+
+        CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0],
+                                    tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr));
+    }
+    // 后流同步
+    if (kernelNum > 1) {
+        std::vector<ThreadHandle> subThreads(tempFastLaunchCtx.threads.begin() + 1, tempFastLaunchCtx.threads.end());
+        std::vector<u32> notifyIdxSubToMain(1, 0);
+        CHK_RET(PostSyncInterThreads(tempFastLaunchCtx.threads[0], subThreads, notifyIdxSubToMain));
+    }
+    HCCL_DEBUG("[CcuTempScatterNHR1DMem2Mem::FastLaunch] end");
+    return HcclResult::HCCL_SUCCESS;
+}
+
 HcclResult CcuTempScatterNHR1DMem2Mem::KernelRun(const OpParam &param, const TemplateDataParams &templateDataParams,
                                                  TemplateResource& templateResource)
 {
@@ -285,6 +321,30 @@ HcclResult CcuTempScatterNHR1DMem2Mem::KernelRun(const OpParam &param, const Tem
     }
 
     HCCL_INFO("[CcuTempScatterNHR1DMem2Mem] Template Run for all steps Ends.");
+
+    // 所有task下发完后再保存参数信息
+    CcuKernelSubmitInfo submitInfo;
+    submitInfo.cachedArgs[0]=buffInfo_.inBuffBaseOff;  // input、ouput只存对应的偏移
+    submitInfo.cachedArgs[1]=buffInfo_.outBuffBaseOff;
+    submitInfo.cachedArgs[2]=buffInfo_.hcclBuffBaseOff;
+    submitInfo.cachedArgs[3]=token;
+    submitInfo.cachedArgs[4]=sliceSize;
+    submitInfo.cachedArgs[5]=die0Size;
+    submitInfo.cachedArgs[6]=die1Size;
+    submitInfo.cachedArgs[7]=inputSliceStride;
+    submitInfo.cachedArgs[8]=outputSliceStride;
+    submitInfo.cachedArgs[9]=inputRepeatStride;
+    submitInfo.cachedArgs[10]=outputRepeatStride;
+    submitInfo.cachedArgs[11]=repeatNum;
+    submitInfo.cachedArgs[12]=isOutputScratch;
+    submitInfo.cachedArgs[13]=isInputOutputEqual;
+    submitInfo.cachedArgs[14]=die0TailSize;
+    submitInfo.cachedArgs[15]=die1TailSize;
+    for (u32 i = 0; i < kernelNum; i++) {
+        // 2个kernel的TaskArg相同
+        submitInfo.kernelHandle = templateResource.ccuKernels[i];
+        templateResource.submitInfos.push_back(submitInfo);
+    }
     return HcclResult::HCCL_SUCCESS;
 }
 
