@@ -303,20 +303,20 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
 #ifndef AICPU_COMPILE
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::FastLaunchSaveCtx(
-    const OpParam &param, const TemplateResource &templateAlgResIntra, const TemplateResource &templateAlgResInter)
+    const OpParam &param, const TemplateResource &templateAlgRes0, const TemplateResource &templateAlgRes1)
 {
     HCCL_INFO("[InsReduceScatterConcurrentExecutor] loopTimes==1, save fast launch ctx.");
     u32 threadNum = threads_.size();
-    u32 ccuKernelNum = templateAlgResIntra.submitInfos.size() + templateAlgResInter.submitInfos.size();
+    u32 ccuKernelNum = templateAlgRes0.submitInfos.size() + templateAlgRes1.submitInfos.size();
     if (ccuKernelNum < 1) {
         HCCL_INFO("[InsReduceScatterConcurrentExecutor] ccu kernel num is 0, no need to save.");
         return HCCL_SUCCESS;
     }
     HCCL_INFO("[InsReduceScatterConcurrentExecutor][HcclEngineCtxCreate] threadNum[%llu], ccuKernelNum[%llu]", threadNum, ccuKernelNum);
 
-    std::vector<u32> ccuKernelNumList = {static_cast<u32>(templateAlgResIntra.submitInfos.size()), 
-                                         static_cast<u32>(templateAlgResInter.submitInfos.size())};
-    std::vector<std::vector<CcuKernelSubmitInfo>> submitInfosList = {templateAlgResIntra.submitInfos, templateAlgResInter.submitInfos};
+    std::vector<u32> ccuKernelNumList = {static_cast<u32>(templateAlgRes0.submitInfos.size()), 
+                                         static_cast<u32>(templateAlgRes1.submitInfos.size())};
+    std::vector<std::vector<CcuKernelSubmitInfo>> submitInfosList = {templateAlgRes0.submitInfos, templateAlgRes1.submitInfos};
     return FastLaunchSaveCtxTwoTemplate(param, threadNum, ccuKernelNum, threads_, ccuKernelNumList, submitInfosList);
 }
 
