@@ -9,6 +9,7 @@
  */
 
 #include <numeric>
+#include <vector>
 #include "topo_host.h"
 #include "hccl_rank_graph.h"
 #include "hcomm_primitives.h"
@@ -588,8 +589,9 @@ HcclResult CalcLevel0TopoShape(const HcclComm comm, TopoInfoWithNetLayerDetails*
         topoInfo->level0Topo = Level0Shape::MESH_1D_CLOS;
         return HCCL_SUCCESS;
     }
-    HCCL_ERROR("Unkown topo for level 0, topoInstNum[%u]", topoInstNum);
-    return HCCL_E_INTERNAL;
+    topoInfo->level0Topo = Level0Shape::CLOS;   // A2场景不匹配默认为Clos
+    HCCL_WARNING("Unkown topo for level 0, topoInstNum[%u]， default topo:%d", topoInstNum, topoInfo->level0Topo);
+    return HCCL_SUCCESS;
 }
 
 // 计算 Level1 NHR 标记：当 Level0 GCD 为 1 时，Mesh 无意义，需要退化为单级 NHR
@@ -910,4 +912,102 @@ HcclResult CalAllLevelEndpointAttrBwCoeff(
     }
     return HCCL_SUCCESS;
 }
+
+HcclResult IsHostDpuOnly(HcclComm comm, u32 serverNum, u32 rankSize, uint32_t topoLevelNums, bool &hostDPUOnly)
+{
+    hostDPUOnly = false;
+    HCCL_INFO("Start CheckHostDPUOnly");
+
+    // 只有一个server，不使用DPU
+    if (serverNum == 1) {
+        HCCL_INFO("Not using hostdpu because serverNum is 1");
+        return HCCL_SUCCESS;
+    }
+
+    uint32_t *netLayers = nullptr;
+    uint32_t netLayerNum = 0;
+    CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
+    if ((netLayers == nullptr) || (netLayerNum == 0)) {
+        HCCL_WARNING("HcclRankGraphGetLayers fail");
+        return HCCL_E_INTERNAL;
+    }
+
+    bool hostDPU = false;
+    for (uint32_t layerIdx = 0; layerIdx < netLayerNum; layerIdx++) {
+        uint32_t netLayer = netLayers[layerIdx];
+        // 只校验最后一个level
+        if (netLayer < (topoLevelNums - 1)) {
+            HCCL_INFO("Skip checking layer[%u], topoLevelNums is [%u]", netLayer, topoLevelNums);
+            continue;
+        }
+        uint32_t *topoInsts = nullptr;
+        uint32_t topoInsNum = 0;
+        CHK_RET(HcclRankGraphGetTopoInstsByLayer(comm, netLayer, &topoInsts, &topoInsNum));
+        if ((topoInsts == nullptr) || (topoInsNum == 0)) {
+            HCCL_WARNING("HcclRankGraphGetTopoInstsByLayer fail, netLayer[%u]", netLayer);
+            return HCCL_E_INTERNAL;
+        }
+        for (uint32_t topoInsIdx = 0; topoInsIdx < topoInsNum; topoInsIdx++) {
+            uint32_t topoInstId = topoInsts[topoInsIdx];
+            HCCL_INFO("Start checking topoInstId[%u]", topoInstId);
+            CommTopo topoType;
+            CHK_RET(HcclRankGraphGetTopoType(comm, netLayer, topoInstId, &topoType));
+            if (topoType != COMM_TOPO_CLOS) {
+                HCCL_INFO("Not using hostdpu because topo type is not COMM_TOPO_CLOS");
+                continue;
+            }
+            uint32_t *ranks = nullptr;
+            uint32_t rankNum = 0;
+            CHK_RET(HcclRankGraphGetRanksByTopoInst(comm, netLayer, topoInstId, &ranks, &rankNum));
+            // 校验当前rank与其他所有rank连通
+            if (rankNum != rankSize) {
+                HCCL_INFO("Not using hostdpu because current rank is not fully connected to all other ranks");
+                continue;
+            }
+            uint32_t endPointNums = 0;
+            CHK_RET(HcclRankGraphGetEndpointNum(comm, netLayer, topoInstId, &endPointNums));
+            EndpointDesc endPointDescs[endPointNums];
+            CHK_RET(HcclRankGraphGetEndpointDesc(comm, netLayer, topoInstId, &endPointNums, endPointDescs));
+            for (uint32_t endPointIdx = 0; endPointIdx < endPointNums; endPointIdx++) {
+                EndpointDesc endPointDesc = endPointDescs[endPointIdx];
+                if (endPointDesc.loc.locType == ENDPOINT_LOC_TYPE_DEVICE) {
+                    HCCL_INFO("Not using hostdpu because there is links on device in netLayer[%u] in endPointIdx[%u]",
+                        netLayer, endPointIdx);
+                    return HCCL_SUCCESS;
+                } else if (endPointDesc.loc.locType == ENDPOINT_LOC_TYPE_HOST) {
+                    HCCL_INFO("Found a host endPoint in netLayer[%u] endPointIdx[%u]", netLayer, endPointIdx);
+                    hostDPU = true;
+                }
+            }
+        }
+    }
+    if (hostDPU) {
+        HCCL_INFO("Using host dpu trans.");
+        hostDPUOnly = true;
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult CheckHostDpuOnly(HcclComm comm, bool &hostDPUOnly)
+{
+    // 获取 serverNum
+    uint32_t *level0SizeList = nullptr;
+    uint32_t level0RankListNum = 0;
+    CHK_RET(HcclRankGraphGetInstSizeListByLayer(comm, static_cast<uint32_t>(HcclNetLayer::HCCL_NetLayer_L0),
+        &level0SizeList, &level0RankListNum));
+    uint32_t serverNum = level0RankListNum;
+
+    // 获取 rankSize
+    u32 rankSize = 0;
+    CHK_RET(HcclGetRankSize(comm, &rankSize));
+
+    // 获取 topoLevelNums
+    uint32_t *netLayers = nullptr;
+    uint32_t netLayerNum = 0;
+    CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
+    uint32_t topoLevelNums = netLayerNum;
+
+    return CheckHostDPUOnly(comm, serverNum, rankSize, topoLevelNums, hostDPUOnly);
+}
+
 }
