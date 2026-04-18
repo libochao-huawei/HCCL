@@ -171,7 +171,7 @@ HcclResult GetHcclDfxOpInfoDataType(const OpParam &param, uint32_t &dataType) {
     return HCCL_SUCCESS;
 }
 
-HcclResult AppendFastLaunchTag(OpParam &param, const char* dataTypeStr, 
+HcclResult AppendFastLaunchTag(OpParam &param, const char* dataTypeStr,
     const char* reduceOpStr, const char* countStr, const char* rootStr)
 {
     char* dst = param.fastLaunchTag;
@@ -252,7 +252,7 @@ HcclResult SetOpParamFastLaunchTag(OpParam &param)
 bool ShouldGoCcuFastLaunch(HcclComm comm, OpParam &param, CcuFastLaunchCtx **ccuFastLaunchCtx)
 {
     param.hcclComm = comm;
-    
+
     // 1. 是ccu模式
     if (GetExternalInputHcclCcuMSMode()) {
         HCCL_DEBUG("[HcclExecOp] is ccu ms mode");
@@ -268,7 +268,7 @@ bool ShouldGoCcuFastLaunch(HcclComm comm, OpParam &param, CcuFastLaunchCtx **ccu
     }
 
     CHK_RET(SetOpParamFastLaunchTag(param));
-    
+
     // 2. 查到engineCtx
     uint64_t size = 0;
     void *fastLaunchCtxPtr = nullptr;
@@ -288,17 +288,17 @@ HcclResult HcclExecOpCcuFastLaunch(HcclComm comm, OpParam &param, const CcuFastL
     std::unique_ptr<InsCollAlgBase> executor = CollAlgExecRegistryV2::Instance().GetAlgExec(param.opType, algName);
     CHK_PRT_RET(
         executor.get() == nullptr, HCCL_ERROR("Fail to find executor for algName[%s]", algName.c_str()), HCCL_E_PARA);
-    
+
     void *cclBufferAddr;
     uint64_t cclBufferSize;
     // 从通信域获取CCL buffer
     CHK_RET(HcclGetHcclBuffer(comm, &cclBufferAddr, &cclBufferSize));
     // CCL IN使用所有的CCL Buffer，这个其实就是scratch buffer
     param.hcclBuff = HcclMem{HCCL_MEM_TYPE_DEVICE, cclBufferAddr, cclBufferSize};
-    
+
     HCCL_INFO("[HcclExecOpCcuFastLaunch] FastLaunch start");
     CHK_RET(executor->FastLaunch(param, ccuFastLaunchCtx));
-    
+
     HCCL_INFO("[HcclExecOpCcuFastLaunch] HcclExecOpCcuFastLaunch end");
     return HCCL_SUCCESS;
 }
@@ -308,9 +308,9 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
                                 AlgResourceCtxSerializable &resCtxHost)
 {
     // Cache Logic
-    bool useCache = (param.opType != HCCL_CMD_ALLTOALLV && param.opType != HCCL_CMD_ALLTOALLVC && 
+    bool useCache = (param.opType != HCCL_CMD_ALLTOALLV && param.opType != HCCL_CMD_ALLTOALLVC &&
                      param.opType != HCCL_CMD_ALLGATHER_V && param.opType != HCCL_CMD_REDUCE_SCATTER_V);
-    
+
     AivOpCacheArgs cacheKey = {};
     if (useCache) {
         cacheKey.commName = param.commName;
@@ -336,11 +336,11 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
         for (auto& ins : *queue) {
             AivOpArgs newArgs = ins.opArgs;
             newArgs.stream = param.stream;
-            
+
             // Update addresses
             newArgs.input = (u64)param.inputPtr + ins.inputOffset;
             newArgs.output = (u64)param.outputPtr + ins.outputOffset;
-            
+
             CHK_RET(ExecuteKernelLaunch(newArgs));
         }
     } else {
@@ -1747,17 +1747,17 @@ HcclResult GetAivParamStorageByComm(HcclComm comm, AivParamStorage **aivParam)
         HCCL_ERROR("[GetAivParamStorageByComm] Invalid parameters");
         return HCCL_E_PARA;
     }
-    
+
     void *aivParamCtx = nullptr;
     uint64_t size = sizeof(AivParamStorage);
-    
+
     const char *aivParamTag = "AivParamStorage";
     if (HcclEngineCtxGet(comm, aivParamTag, CommEngine::COMM_ENGINE_CPU_TS, &aivParamCtx, &size) != HCCL_SUCCESS) {
         CHK_RET(HcclEngineCtxCreate(comm, aivParamTag, CommEngine::COMM_ENGINE_CPU_TS, size, &aivParamCtx));
     }
-    
+
     *aivParam = static_cast<AivParamStorage *>(aivParamCtx);
-    
+
     return HCCL_SUCCESS;
 }
 
@@ -1767,11 +1767,92 @@ HcclResult GetAivParamStorage(const char *group, AivParamStorage **aivParam)
         HCCL_ERROR("[GetAivParamStorage] Invalid parameters");
         return HCCL_E_PARA;
     }
-    
+
     HcclComm comm = nullptr;
     CHK_RET(HcomGetCommHandleByGroup(group, &comm));
-    
+
     return GetAivParamStorageByComm(comm, aivParam);
+}
+
+// 判断通过最高一个level的网络全部没有device的可达链路，并且有host的可达链路
+HcclResult CheckHostDPUOnly(const HcclComm comm, const TopoInfoWithNetLayerDetails* topoInfo, bool &hostDPUOnly)
+{
+    hostDPUOnly = false;
+    HCCL_INFO("Start CheckHostDPUOnly");
+    // 只有一个server，不使用DPU
+    if (topoInfo->serverNum == 1) {
+        HCCL_INFO("Not using hostdpu because serverNum is 1");
+        return HCCL_SUCCESS;
+    }
+
+    // 只有一层topo，不使用DPU
+    if (topoInfo->topoLevelNums == 1) {
+        HCCL_INFO("Not using hostdpu because topoLevelNums is 1");
+        return HCCL_SUCCESS;
+    }
+
+    uint32_t *netLayers = nullptr;
+    uint32_t netLayerNum = 0;
+    CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
+    if ((netLayers == nullptr) || (netLayerNum == 0)) {
+        HCCL_WARNING("HcclRankGraphGetLayers fail");
+        return HCCL_E_INTERNAL;
+    }
+
+    bool hostDPU = false;
+    for (uint32_t layerIdx = 0; layerIdx < netLayerNum; layerIdx++) {
+        uint32_t netLayer = netLayers[layerIdx];
+        // 只校验最后一个level
+        if (netLayer < (topoInfo->topoLevelNums - 1)) {
+            HCCL_INFO("Skip checking layer[%u], topoLevelNums is [%u]", netLayer, topoInfo->topoLevelNums);
+            continue;
+        }
+        uint32_t *topoInsts = nullptr;
+        uint32_t topoInsNum = 0;
+        CHK_RET(HcclRankGraphGetTopoInstsByLayer(comm, netLayer, &topoInsts, &topoInsNum));
+        if ((topoInsts == nullptr) || (topoInsNum == 0)) {
+            HCCL_WARNING("HcclRankGraphGetTopoInstsByLayer fail, netLayer[%u]", netLayer);
+            return HCCL_E_INTERNAL;
+        }
+        for (uint32_t topoInsIdx = 0; topoInsIdx < topoInsNum; topoInsIdx++) {
+            uint32_t topoInstId = topoInsts[topoInsIdx];
+            HCCL_INFO("Start checking topoInstId[%u]", topoInstId);
+            CommTopo topoType;
+            CHK_RET(HcclRankGraphGetTopoType(comm, netLayer, topoInstId, &topoType));
+            if (topoType != COMM_TOPO_CLOS) {
+                HCCL_INFO("Not using hostdpu because topo type is not COMM_TOPO_CLOS");
+                continue;
+            }
+            uint32_t *ranks = nullptr;
+            uint32_t rankNum = 0;
+            CHK_RET(HcclRankGraphGetRanksByTopoInst(comm, netLayer, topoInstId, &ranks, &rankNum));
+            // 校验当前rank与其他所有rank连通
+            if (rankNum != topoInfo->userRankSize) {
+                HCCL_INFO("Not using hostdpu because current rank is not fully connected to all other ranks");
+                continue;
+            }
+            uint32_t endPointNums = 0;
+            CHK_RET(HcclRankGraphGetEndpointNum(comm, netLayer, topoInstId, &endPointNums));
+            EndpointDesc endPointDescs[endPointNums];
+            CHK_RET(HcclRankGraphGetEndpointDesc(comm, netLayer, topoInstId, &endPointNums, endPointDescs));
+            for (uint32_t endPointIdx = 0; endPointIdx < endPointNums; endPointIdx++) {
+                EndpointDesc endPointDesc = endPointDescs[endPointIdx];
+                if (endPointDesc.loc.locType == ENDPOINT_LOC_TYPE_DEVICE) {
+                    HCCL_INFO("Not using hostdpu because there is links on device in netLayer[%u] in endPointIdx[%u]",
+                        netLayer, endPointIdx);
+                    return HCCL_SUCCESS;
+                } else if (endPointDesc.loc.locType == ENDPOINT_LOC_TYPE_HOST) {
+                    HCCL_INFO("Found a host endPoint in netLayer[%u] endPointIdx[%u]", netLayer, endPointIdx);
+                    hostDPU = true;
+                }
+            }
+        }
+    }
+    if (hostDPU) {
+        HCCL_INFO("Using host dpu trans.");
+        hostDPUOnly = true;
+    }
+    return HCCL_SUCCESS;
 }
 
 }  // namespace ops_hccl
@@ -1782,13 +1863,13 @@ HcclResult HcclSetAivCoreLimitGraphMode(const char *group, u32 aivCoreLimit)
         HCCL_ERROR("[HcclSetAivCoreLimitGraphMode] group is nullptr");
         return HCCL_E_PARA;
     }
-    
+
     ops_hccl::AivParamStorage *aivParam = nullptr;
     CHK_RET(ops_hccl::GetAivParamStorage(group, &aivParam));
-    
+
     aivParam->aivCoreLimit = aivCoreLimit;
-    
+
     HCCL_INFO("[HcclSetAivCoreLimitGraphMode] Set aivCoreLimit[%u] for group[%s]", aivCoreLimit, group);
-    
+
     return HCCL_SUCCESS;
 }
