@@ -16,7 +16,6 @@
 #include <cstdlib>  // 包含getenv函数
 #include <cstring>  // 包含strcmp函数
 #include <stdexcept>
-#include <numeric>
 #include <hccl/hccl_types.h>
 #include <hccl/hccl_comm.h>
 #include "hccl/base.h"
