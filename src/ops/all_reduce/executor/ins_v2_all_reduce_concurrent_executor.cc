@@ -379,44 +379,51 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::FastLaunch(
         const OpParam &param, const CcuFastLaunchCtx *ctx)
 {
-    // SubCommRanks拆分
-    std::vector<std::vector<u32>> subCommRanks0{ algHierarchyInfo_.infos[0][0] };
-    std::vector<std::vector<u32>> subCommRanks1{ algHierarchyInfo_.infos[0][1] };
-
-    // 构造template
-    std::shared_ptr<InsAlgTemplate0> tempAlg0 = std::make_shared<InsAlgTemplate0>(param, myRank_, subCommRanks0);
-    std::shared_ptr<InsAlgTemplate1> tempAlg1 = std::make_shared<InsAlgTemplate1>(param, myRank_, subCommRanks1);
-
+    InsAlgTemplate0 tempAlg0{};
+    InsAlgTemplate1 tempAlg1{};
+    
     TemplateFastLaunchCtx tempFastLaunchCtx0, tempFastLaunchCtx1;
 
+    TemplateResource templateAlgResIntra, templateAlgResInter;
     ThreadHandle *threads = ctx->GetThreadHandlePtr();
     threads_.assign(threads, threads + ctx->threadNum);
+    
+    std::vector<std::vector<u32>> temp0HierarchyInfo {algHierarchyInfo_.infos[0][0]};
+    std::vector<std::vector<u32>> temp1HierarchyInfo {algHierarchyInfo_.infos[0][1]};
+    std::shared_ptr<InsAlgTemplate0> tempAlg0Ptr = std::make_shared<InsAlgTemplate0>(param, myRank_, temp0HierarchyInfo);
+    std::shared_ptr<InsAlgTemplate1> tempAlg1Ptr = std::make_shared<InsAlgTemplate1>(param, myRank_, temp1HierarchyInfo);
+    
 
-    u64 temp0SlaveThreadNum = 0;
-    u64 temp1SlaveThreadNum = 0;
+    // u64 temp0SlaveThreadNum = 0;
+    // u64 temp1SlaveThreadNum = 0;
 
-    const u64 temp0ThreadsNum = temp0SlaveThreadNum + 1;
-    const u64 temp1ThreadsNum = temp1SlaveThreadNum + 1;
+    // const u64 temp0ThreadsNum = temp0SlaveThreadNum + 1;
+    // const u64 temp1ThreadsNum = temp1SlaveThreadNum + 1;
 
-    // 划分thread
-    u64 threadIdx = 0;
-    for (auto i = 0; i < temp0ThreadsNum; ++i) {
-        temp0Threads_.push_back(threads_[threadIdx++]);
-    }
-    for (auto i = 0; i < temp1ThreadsNum; ++i) {
-        temp1Threads_.push_back(threads_[threadIdx++]);
-    }
+    // // 划分thread
+    // u64 threadIdx = 0;
+    // for (auto i = 0; i < temp0ThreadsNum; ++i) {
+    //     temp0Threads_.push_back(threads_[threadIdx++]);
+    // }
+    // for (auto i = 0; i < temp1ThreadsNum; ++i) {
+    //     temp1Threads_.push_back(threads_[threadIdx++]);
+    // }
+    u64 meshThreadsNum = tempAlg0Ptr->GetThreadNum(); // check流数
+    temp0Threads_.assign(threads_.begin(), threads_.begin() + meshThreadsNum); // 从0开始前meshThreadNum是mesh的流
+    temp1Threads_.assign(threads_.begin() + meshThreadsNum, threads_.end()); // 后面几个是nhr的流
+    temp0ThreadMain_ = temp0Threads_.at(0);
+    temp1ThreadMain_ = temp1Threads_.at(0);
 
     // template间同步所需信息计算
-    ThreadHandle mainThread = temp0Threads_.at(0);
-    std::vector<ThreadHandle> syncThreads{temp1Threads_};
-    std::vector<u32> notifyIdxesMainToSub{static_cast<u32>(temp1SlaveThreadNum)}; // 统一使用第[slaveThreadNum + 1]个notify做template间同步
-    std::vector<u32> notifyIdxesSubToMain{static_cast<u32>(temp0SlaveThreadNum)};
+    std::vector<ThreadHandle> subThreads;
+    subThreads.emplace_back(temp1ThreadMain_);
+    std::vector<u32> notifyIdxMainToSub = {static_cast<u32>(temp1Threads_.size() - 1)};
+    std::vector<u32> notifyIdxSubToMain = {static_cast<u32>(temp0Threads_.size() - 1)};
 
     CcuKernelSubmitInfo *ccuKernelSubmitInfos = ctx->GetCcuKernelSubmitInfoPtr();
     HCCL_INFO("[InsV2AllReduceConcurrentExecutor][FastLaunch] Intra0 ccuKernelNum[%llu]", ctx->ccuKernelNum[0]);
     // Template间前同步
-    CHK_RET(PreSyncInterThreads(mainThread, syncThreads, notifyIdxesMainToSub));
+    CHK_RET(PreSyncInterThreads(temp0ThreadMain_, subThreads, notifyIdxMainToSub));
 
     // 执行第一个模板算法
     HCCL_INFO("[InsV2AllReduceConcurrentExecutor][FastLaunch] temp0 ccuKernelNum[%llu]", ctx->ccuKernelNum[0]);
@@ -435,7 +442,7 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     CHK_RET(tempAlg1->FastLaunch(param, tempFastLaunchCtx1));
 
     // Template间尾同步
-    CHK_RET(PostSyncInterThreads(mainThread, syncThreads, notifyIdxesSubToMain));
+    CHK_RET(PostSyncInterThreads(temp0ThreadMain_, subThreads, notifyIdxSubToMain));
     
     HCCL_INFO("[InsV2AllReduceConcurrentExecutor][FastLaunch] End.");
     return HCCL_SUCCESS;
