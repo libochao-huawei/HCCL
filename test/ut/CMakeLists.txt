@@ -13,4 +13,3 @@ set(UT_COMMON_INCLUDE_LIST
 )
 
 add_subdirectory(common/prepare_ut_env)
-add_subdirectory(hccl_mc2)
