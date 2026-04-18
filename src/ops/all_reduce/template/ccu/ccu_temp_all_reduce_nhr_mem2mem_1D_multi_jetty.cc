@@ -94,7 +94,7 @@ HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::FastLaunch(const OpParam& par
     buffInfo_ = tempFastLaunchCtx.buffInfo;
     
     // 计算NHR Multi Jetty特有的参数
-    CcuTaskArgAllReduceNhrMutilJettyMem2Mem1D taskArg(
+    CcuTaskArgAllReduceNhrMem2Mem1DMultiJetty taskArg(
         PointerToAddr(buffInfo_.inputPtr) + args[0],
         PointerToAddr(buffInfo_.outputPtr) + args[1],
         args[2], // outputToken
