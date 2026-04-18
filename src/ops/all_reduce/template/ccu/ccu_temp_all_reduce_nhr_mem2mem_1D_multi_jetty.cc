@@ -87,6 +87,31 @@ HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::CalcRes(HcclComm comm, const 
 
     return HcclResult::HCCL_SUCCESS;
 }
+HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+{
+    HCCL_DEBUG("[%s] begin.", __func__);
+    const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
+    buffInfo_ = tempFastLaunchCtx.buffInfo;
+    // 计算NHR Multi Jetty特有的参数
+    CcuTaskArgAllReduceNhrMutilJettyMem2Mem1D taskArg(
+        PointerToAddr(buffInfo_.inputPtr) + args[0],
+        PointerToAddr(buffInfo_.outputPtr) + args[1],
+        args[2], // outputToken
+        args[3], // isInplace
+        args[4], // dataSizePerRank
+        args[5], // dataSizePerPort
+        args[6], // lastRankSliceSize
+        args[7], // lastPortSliceSize;
+    );
+
+    void* taskArgPtr = static_cast<void*>(&taskArg);
+
+    CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0], 
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr));
+
+    HCCL_DEBUG("[%s] end.", __func__);
+    return HcclResult::HCCL_SUCCESS;
+}
 
 HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::KernelRun(const OpParam& param,
     const TemplateDataParams& templateDataParams, TemplateResource& templateResource)
@@ -136,6 +161,14 @@ HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::KernelRun(const OpParam& para
 
     CHK_RET(
         HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr));
+
+    
+    // 下发完再保存参数信息
+    CcuKernelSubmitInfo submitInfo;
+    submitInfo.kernelHandle = templateResource.ccuKernels[0];
+    CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, outputToken, isInplace,
+        dataSizePerRank, dataSizePerPort, lastRankSliceSize, lastPortSliceSize));
+    templateResource.submitInfos.push_back(submitInfo);
 
     HCCL_DEBUG("[%s] end.", __func__);
 
