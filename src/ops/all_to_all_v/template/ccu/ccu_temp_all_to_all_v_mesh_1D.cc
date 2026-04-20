@@ -117,6 +117,10 @@ void CcuTempAlltoAllVMesh1D::InitInsAlgTemplate(
 
 HcclResult CcuTempAlltoAllVMesh1D::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
 {
+    if (tempFastLaunchCtx.ccuKernelSubmitInfos.size() == 0) {
+        HCCL_INFO("[CcuTempAlltoAllVMesh1D::FastLaunch] ccu kernel num is 0, just success.");
+        return HCCL_SUCCESS;
+    }
     HCCL_INFO("[CcuTempAlltoAllVMesh1D::FastLaunch] start");
     uint64_t rankSize_ = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[5];
     HcclDataType dataType_ = param.all2AllVDataDes.sendType;

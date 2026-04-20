@@ -1,0 +1,331 @@
+From f27bb18de3576d6fc2a9ba3cca3bd054d978ece6 Mon Sep 17 00:00:00 2001
+From: zhongyu1 <zhongyu37@huawei.com>
+Date: Mon, 20 Apr 2026 11:09:58 +0800
+Subject: [PATCH] [fix]: ccu fastlaunch check ccukernel num
+
+---
+ .../all_gather/template/ccu/ccu_temp_all_gather_mesh_1D.cc    | 4 ++++
+ .../template/ccu/ccu_temp_all_gather_mesh_1D_mem2mem.cc       | 4 ++++
+ .../template/ccu/ccu_temp_all_gather_nhr_1D_mem2mem.cc        | 4 ++++
+ .../all_reduce/template/ccu/ccu_temp_all_reduce_mesh_1D.cc    | 4 ++++
+ .../template/ccu/ccu_temp_all_reduce_mesh_1D_mem2mem.cc       | 4 ++++
+ .../template/ccu/ccu_temp_all_reduce_mesh_1D_one_shot.cc      | 4 ++++
+ .../template/ccu/ccu_temp_all_reduce_nhr_1D_mem2mem.cc        | 4 ++++
+ .../all_to_all_v/template/ccu/ccu_temp_all_to_all_mesh_1D.cc  | 4 ++++
+ .../template/ccu/ccu_temp_all_to_all_v_mesh_1D.cc             | 4 ++++
+ src/ops/broadcast/template/ccu/ccu_temp_broadcast_mesh_1D.cc  | 4 ++++
+ .../template/ccu/ccu_temp_broadcast_mesh_1D_mem2mem.cc        | 4 ++++
+ .../template/ccu/ccu_temp_broadcast_nhr_1D_mem2mem.cc         | 4 ++++
+ src/ops/reduce/template/ccu/ccu_temp_reduce_mesh_1D.cc        | 4 ++++
+ .../reduce/template/ccu/ccu_temp_reduce_mesh_1D_mem2mem.cc    | 4 ++++
+ src/ops/reduce/template/ccu/ccu_temp_reduce_nhr_1D_mem2mem.cc | 4 ++++
+ .../template/ccu/ccu_temp_reduce_scatter_mesh_1D.cc           | 4 ++++
+ .../template/ccu/ccu_temp_reduce_scatter_mesh_1D_mem2mem.cc   | 4 ++++
+ .../template/ccu/ccu_temp_reduce_scatter_nhr_1D_mem2mem.cc    | 4 ++++
+ src/ops/scatter/template/ccu/ccu_temp_scatter_mesh1d.cc       | 4 ++++
+ .../scatter/template/ccu/ccu_temp_scatter_nhr1d_mem2mem.cc    | 4 ++++
+ 20 files changed, 80 insertions(+)
+
+diff --git a/src/ops/all_gather/template/ccu/ccu_temp_all_gather_mesh_1D.cc b/src/ops/all_gather/template/ccu/ccu_temp_all_gather_mesh_1D.cc
+index fffbed6..c03e042 100644
+--- a/src/ops/all_gather/template/ccu/ccu_temp_all_gather_mesh_1D.cc
++++ b/src/ops/all_gather/template/ccu/ccu_temp_all_gather_mesh_1D.cc
+@@ -81,6 +81,10 @@ HcclResult CcuTempAllGatherMesh1D::CalcRes(HcclComm comm, const OpParam& param,
+ 
+ HcclResult CcuTempAllGatherMesh1D::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+ {
++    if (tempFastLaunchCtx.cccuKernelSubmitInfos.size() == 0) {
++        HCCL_INFO("[CcuTempAllGatherMesh1D::FastLaunch] ccu kernel num is 0, just success.");
++        return HCCL_SUCCESS;
++    }
+     HCCL_DEBUG("[CcuTempAllGatherMesh1D::FastLaunch] start");
+     CcuTaskArgAllGatherMesh1D taskArg(
+         PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[0],
+diff --git a/src/ops/all_gather/template/ccu/ccu_temp_all_gather_mesh_1D_mem2mem.cc b/src/ops/all_gather/template/ccu/ccu_temp_all_gather_mesh_1D_mem2mem.cc
+index b0c7b99..61cfed2 100644
+--- a/src/ops/all_gather/template/ccu/ccu_temp_all_gather_mesh_1D_mem2mem.cc
++++ b/src/ops/all_gather/template/ccu/ccu_temp_all_gather_mesh_1D_mem2mem.cc
+@@ -79,6 +79,10 @@ HcclResult CcuTempAllGatherMesh1DMem2Mem::CalcRes(HcclComm comm, const OpParam&
+ 
+ HcclResult CcuTempAllGatherMesh1DMem2Mem::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+ {
++    if (tempFastLaunchCtx.cccuKernelSubmitInfos.size() == 0) {
++        HCCL_INFO("[CcuTempAllGatherMesh1DMem2Mem::FastLaunch] ccu kernel num is 0, just success.");
++        return HCCL_SUCCESS;
++    }
+     HCCL_DEBUG("[CcuTempAllGatherMesh1DMem2Mem::FastLaunch] start");
+     const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
+     buffInfo_ = tempFastLaunchCtx.buffInfo;
+diff --git a/src/ops/all_gather/template/ccu/ccu_temp_all_gather_nhr_1D_mem2mem.cc b/src/ops/all_gather/template/ccu/ccu_temp_all_gather_nhr_1D_mem2mem.cc
+index 2fc9535..38e5108 100644
+--- a/src/ops/all_gather/template/ccu/ccu_temp_all_gather_nhr_1D_mem2mem.cc
++++ b/src/ops/all_gather/template/ccu/ccu_temp_all_gather_nhr_1D_mem2mem.cc
+@@ -79,6 +79,10 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::ProcessNHRStepInfo(HcclComm comm,
+ 
+ HcclResult CcuTempAllGatherNHR1DMem2Mem::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+ {
++    if (tempFastLaunchCtx.cccuKernelSubmitInfos.size() == 0) {
++        HCCL_INFO("[CcuTempAllGatherNHR1DMem2Mem::FastLaunch] ccu kernel num is 0, just success.");
++        return HCCL_SUCCESS;
++    }
+     HCCL_DEBUG("[CcuTempAllGatherNHR1DMem2Mem::FastLaunch] start");
+     u32 kernelNum = tempFastLaunchCtx.ccuKernelSubmitInfos.size();
+     buffInfo_ = tempFastLaunchCtx.buffInfo;
+diff --git a/src/ops/all_reduce/template/ccu/ccu_temp_all_reduce_mesh_1D.cc b/src/ops/all_reduce/template/ccu/ccu_temp_all_reduce_mesh_1D.cc
+index 43ee6f0..0f198e2 100644
+--- a/src/ops/all_reduce/template/ccu/ccu_temp_all_reduce_mesh_1D.cc
++++ b/src/ops/all_reduce/template/ccu/ccu_temp_all_reduce_mesh_1D.cc
+@@ -170,6 +170,10 @@ HcclResult CcuTempAllReduceMesh1D::KernelRun(const OpParam& param, const Templat
+ 
+ HcclResult CcuTempAllReduceMesh1D::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+ {
++    if (tempFastLaunchCtx.cccuKernelSubmitInfos.size() == 0) {
++        HCCL_INFO("[CcuTempAllReduceMesh1D::FastLaunch] ccu kernel num is 0, just success.");
++        return HCCL_SUCCESS;
++    }
+     HCCL_DEBUG("[CcuTempAllReduceMesh1D::FastLaunch] start");
+     CcuTaskArgAllReduceMesh1D taskArg(
+         PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[0],
+diff --git a/src/ops/all_reduce/template/ccu/ccu_temp_all_reduce_mesh_1D_mem2mem.cc b/src/ops/all_reduce/template/ccu/ccu_temp_all_reduce_mesh_1D_mem2mem.cc
+index 3b49e0b..83b2b82 100644
+--- a/src/ops/all_reduce/template/ccu/ccu_temp_all_reduce_mesh_1D_mem2mem.cc
++++ b/src/ops/all_reduce/template/ccu/ccu_temp_all_reduce_mesh_1D_mem2mem.cc
+@@ -131,6 +131,10 @@ HcclResult CcuTempAllReduceMeshMem2Mem1D::GetRes(AlgResourceRequest& resourceReq
+ 
+ HcclResult CcuTempAllReduceMeshMem2Mem1D::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+ {
++    if (tempFastLaunchCtx.cccuKernelSubmitInfos.size() == 0) {
++        HCCL_INFO("[CcuTempAllReduceMeshMem2Mem1D::FastLaunch] ccu kernel num is 0, just success.");
++        return HCCL_SUCCESS;
++    }
+     HCCL_DEBUG("[CcuTempAllReduceMeshMem2Mem1D::FastLaunch] start");
+     const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
+     buffInfo_ = tempFastLaunchCtx.buffInfo;
+diff --git a/src/ops/all_reduce/template/ccu/ccu_temp_all_reduce_mesh_1D_one_shot.cc b/src/ops/all_reduce/template/ccu/ccu_temp_all_reduce_mesh_1D_one_shot.cc
+index e28f305..eb35b4d 100644
+--- a/src/ops/all_reduce/template/ccu/ccu_temp_all_reduce_mesh_1D_one_shot.cc
++++ b/src/ops/all_reduce/template/ccu/ccu_temp_all_reduce_mesh_1D_one_shot.cc
+@@ -100,6 +100,10 @@ HcclResult CcuTempAllReduceMesh1DOneShot::KernelRun(const OpParam& param,
+ 
+ HcclResult CcuTempAllReduceMesh1DOneShot::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+ {
++    if (tempFastLaunchCtx.cccuKernelSubmitInfos.size() == 0) {
++        HCCL_INFO("[CcuTempAllReduceMesh1DOneShot::FastLaunch] ccu kernel num is 0, just success.");
++        return HCCL_SUCCESS;
++    }
+     HCCL_DEBUG("[CcuTempAllReduceMesh1DOneShot::FastLaunch] start");
+     CcuTaskArgAllReduceMesh1DOneShot taskArg(
+         PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[0],
+diff --git a/src/ops/all_reduce/template/ccu/ccu_temp_all_reduce_nhr_1D_mem2mem.cc b/src/ops/all_reduce/template/ccu/ccu_temp_all_reduce_nhr_1D_mem2mem.cc
+index 250ebfb..acf3497 100644
+--- a/src/ops/all_reduce/template/ccu/ccu_temp_all_reduce_nhr_1D_mem2mem.cc
++++ b/src/ops/all_reduce/template/ccu/ccu_temp_all_reduce_nhr_1D_mem2mem.cc
+@@ -177,6 +177,10 @@ HcclResult CcuTempAllReduceNHRMem2Mem1D::CalcSlice(const u64 dataSize, RankSlice
+ 
+ HcclResult CcuTempAllReduceNHRMem2Mem1D::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+ {
++    if (tempFastLaunchCtx.cccuKernelSubmitInfos.size() == 0) {
++        HCCL_INFO("[CcuTempAllReduceNHRMem2Mem1D::FastLaunch] ccu kernel num is 0, just success.");
++        return HCCL_SUCCESS;
++    }
+     HCCL_DEBUG("[CcuTempAllReduceNHRMem2Mem1D::FastLaunch] start");
+     u32 kernelNum = tempFastLaunchCtx.ccuKernelSubmitInfos.size();
+     buffInfo_ = tempFastLaunchCtx.buffInfo;
+diff --git a/src/ops/all_to_all_v/template/ccu/ccu_temp_all_to_all_mesh_1D.cc b/src/ops/all_to_all_v/template/ccu/ccu_temp_all_to_all_mesh_1D.cc
+index 599b819..1a779ef 100644
+--- a/src/ops/all_to_all_v/template/ccu/ccu_temp_all_to_all_mesh_1D.cc
++++ b/src/ops/all_to_all_v/template/ccu/ccu_temp_all_to_all_mesh_1D.cc
+@@ -105,6 +105,10 @@ void CcuTempAlltoAllMesh1D::InitInsAlgTemplate(
+ 
+ HcclResult CcuTempAlltoAllMesh1D::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+ {
++    if (tempFastLaunchCtx.cccuKernelSubmitInfos.size() == 0) {
++        HCCL_INFO("[CcuTempAlltoAllMesh1D::FastLaunch] ccu kernel num is 0, just success.");
++        return HCCL_SUCCESS;
++    }
+      HCCL_INFO("[CcuTempAlltoAllMesh1D::FastLaunch] start");
+      std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAlltoAllMesh1D>(
+         PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[0],
+diff --git a/src/ops/all_to_all_v/template/ccu/ccu_temp_all_to_all_v_mesh_1D.cc b/src/ops/all_to_all_v/template/ccu/ccu_temp_all_to_all_v_mesh_1D.cc
+index d074025..ed58d4f 100644
+--- a/src/ops/all_to_all_v/template/ccu/ccu_temp_all_to_all_v_mesh_1D.cc
++++ b/src/ops/all_to_all_v/template/ccu/ccu_temp_all_to_all_v_mesh_1D.cc
+@@ -117,6 +117,10 @@ void CcuTempAlltoAllVMesh1D::InitInsAlgTemplate(
+ 
+ HcclResult CcuTempAlltoAllVMesh1D::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+ {
++    if (tempFastLaunchCtx.cccuKernelSubmitInfos.size() == 0) {
++        HCCL_INFO("[CcuTempAlltoAllVMesh1D::FastLaunch] ccu kernel num is 0, just success.");
++        return HCCL_SUCCESS;
++    }
+     HCCL_INFO("[CcuTempAlltoAllVMesh1D::FastLaunch] start");
+     uint64_t rankSize_ = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[5];
+     HcclDataType dataType_ = param.all2AllVDataDes.sendType;
+diff --git a/src/ops/broadcast/template/ccu/ccu_temp_broadcast_mesh_1D.cc b/src/ops/broadcast/template/ccu/ccu_temp_broadcast_mesh_1D.cc
+index 4cb9abb..b446915 100644
+--- a/src/ops/broadcast/template/ccu/ccu_temp_broadcast_mesh_1D.cc
++++ b/src/ops/broadcast/template/ccu/ccu_temp_broadcast_mesh_1D.cc
+@@ -63,6 +63,10 @@ HcclResult CcuTempBroadcastMesh1D::CalcRes(HcclComm comm, const OpParam& param,
+ 
+ HcclResult CcuTempBroadcastMesh1D::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+ {
++    if (tempFastLaunchCtx.cccuKernelSubmitInfos.size() == 0) {
++        HCCL_INFO("[CcuTempBroadcastMesh1D::FastLaunch] ccu kernel num is 0, just success.");
++        return HCCL_SUCCESS;
++    }
+     HCCL_INFO("[CcuTempBroadcastMesh1D::FastLaunch] start");
+     CcuTaskArgBroadcastMesh1D taskArg(
+         PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[0],
+diff --git a/src/ops/broadcast/template/ccu/ccu_temp_broadcast_mesh_1D_mem2mem.cc b/src/ops/broadcast/template/ccu/ccu_temp_broadcast_mesh_1D_mem2mem.cc
+index bbc2ff2..59f8647 100644
+--- a/src/ops/broadcast/template/ccu/ccu_temp_broadcast_mesh_1D_mem2mem.cc
++++ b/src/ops/broadcast/template/ccu/ccu_temp_broadcast_mesh_1D_mem2mem.cc
+@@ -76,6 +76,10 @@ HcclResult CcuTempBroadcastMesh1DMem2Mem::CalcRes(HcclComm comm, const OpParam&
+ 
+ HcclResult CcuTempBroadcastMesh1DMem2Mem::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+ {
++    if (tempFastLaunchCtx.cccuKernelSubmitInfos.size() == 0) {
++        HCCL_INFO("[CcuTempBroadcastMesh1DMem2Mem::FastLaunch] ccu kernel num is 0, just success.");
++        return HCCL_SUCCESS;
++    }
+     HCCL_INFO("[CcuTempBroadcastMesh1DMem2Mem::FastLaunch] start");
+     const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
+     buffInfo_ = tempFastLaunchCtx.buffInfo;
+diff --git a/src/ops/broadcast/template/ccu/ccu_temp_broadcast_nhr_1D_mem2mem.cc b/src/ops/broadcast/template/ccu/ccu_temp_broadcast_nhr_1D_mem2mem.cc
+index 09da346..93955f6 100644
+--- a/src/ops/broadcast/template/ccu/ccu_temp_broadcast_nhr_1D_mem2mem.cc
++++ b/src/ops/broadcast/template/ccu/ccu_temp_broadcast_nhr_1D_mem2mem.cc
+@@ -189,6 +189,10 @@ HcclResult CcuTempBroadcastNHR1DMem2Mem::CalcRes(HcclComm comm, const OpParam& p
+ 
+ HcclResult CcuTempBroadcastNHR1DMem2Mem::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+ {
++    if (tempFastLaunchCtx.cccuKernelSubmitInfos.size() == 0) {
++        HCCL_INFO("[CcuTempBroadcastNHR1DMem2Mem::FastLaunch] ccu kernel num is 0, just success.");
++        return HCCL_SUCCESS;
++    }
+     HCCL_INFO("[CcuTempBroadcastNHR1DMem2Mem::FastLaunch] start");
+     u32 kernelNum = tempFastLaunchCtx.ccuKernelSubmitInfos.size();
+     buffInfo_ = tempFastLaunchCtx.buffInfo;
+diff --git a/src/ops/reduce/template/ccu/ccu_temp_reduce_mesh_1D.cc b/src/ops/reduce/template/ccu/ccu_temp_reduce_mesh_1D.cc
+index 8508e52..8b38120 100644
+--- a/src/ops/reduce/template/ccu/ccu_temp_reduce_mesh_1D.cc
++++ b/src/ops/reduce/template/ccu/ccu_temp_reduce_mesh_1D.cc
+@@ -70,6 +70,10 @@ HcclResult CcuTempReduceMesh1D::CalcRes(HcclComm comm, const OpParam& param, con
+ 
+ HcclResult CcuTempReduceMesh1D::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+ {
++    if (tempFastLaunchCtx.cccuKernelSubmitInfos.size() == 0) {
++        HCCL_INFO("[CcuTempReduceMesh1D::FastLaunch] ccu kernel num is 0, just success.");
++        return HCCL_SUCCESS;
++    }
+     HCCL_DEBUG("[CcuTempReduceMesh1D::FastLaunch] start");
+     CcuTaskArgReduceMesh1D taskArg(
+         PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[0],
+diff --git a/src/ops/reduce/template/ccu/ccu_temp_reduce_mesh_1D_mem2mem.cc b/src/ops/reduce/template/ccu/ccu_temp_reduce_mesh_1D_mem2mem.cc
+index f18b32e..d84a9d3 100644
+--- a/src/ops/reduce/template/ccu/ccu_temp_reduce_mesh_1D_mem2mem.cc
++++ b/src/ops/reduce/template/ccu/ccu_temp_reduce_mesh_1D_mem2mem.cc
+@@ -82,6 +82,10 @@ HcclResult CcuTempReduceMesh1DMem2Mem::CalcRes(HcclComm comm, const OpParam& par
+ 
+ HcclResult CcuTempReduceMesh1DMem2Mem::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+ {
++    if (tempFastLaunchCtx.cccuKernelSubmitInfos.size() == 0) {
++        HCCL_INFO("[CcuTempReduceMesh1DMem2Mem::FastLaunch] ccu kernel num is 0, just success.");
++        return HCCL_SUCCESS;
++    }
+     HCCL_DEBUG("[CcuTempReduceMesh1DMem2Mem::FastLaunch] start");
+     const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
+     buffInfo_ = tempFastLaunchCtx.buffInfo;
+diff --git a/src/ops/reduce/template/ccu/ccu_temp_reduce_nhr_1D_mem2mem.cc b/src/ops/reduce/template/ccu/ccu_temp_reduce_nhr_1D_mem2mem.cc
+index 08325a5..e8a7fa2 100644
+--- a/src/ops/reduce/template/ccu/ccu_temp_reduce_nhr_1D_mem2mem.cc
++++ b/src/ops/reduce/template/ccu/ccu_temp_reduce_nhr_1D_mem2mem.cc
+@@ -179,6 +179,10 @@ HcclResult CcuTempReduceNHR1DMem2Mem::CalcRes(HcclComm comm, const OpParam& para
+ 
+ HcclResult CcuTempReduceNHR1DMem2Mem::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+ {
++    if (tempFastLaunchCtx.cccuKernelSubmitInfos.size() == 0) {
++        HCCL_INFO("[CcuTempReduceNHR1DMem2Mem::FastLaunch] ccu kernel num is 0, just success.");
++        return HCCL_SUCCESS;
++    }
+     HCCL_DEBUG("[CcuTempReduceNHR1DMem2Mem::FastLaunch] start");
+     u32 kernelNum = tempFastLaunchCtx.ccuKernelSubmitInfos.size();
+     buffInfo_ = tempFastLaunchCtx.buffInfo;
+diff --git a/src/ops/reduce_scatter/template/ccu/ccu_temp_reduce_scatter_mesh_1D.cc b/src/ops/reduce_scatter/template/ccu/ccu_temp_reduce_scatter_mesh_1D.cc
+index 6d92986..f8608bb 100644
+--- a/src/ops/reduce_scatter/template/ccu/ccu_temp_reduce_scatter_mesh_1D.cc
++++ b/src/ops/reduce_scatter/template/ccu/ccu_temp_reduce_scatter_mesh_1D.cc
+@@ -79,6 +79,10 @@ HcclResult CcuTempReduceScatterMesh1D::CalcRes(HcclComm comm, const OpParam& par
+ 
+ HcclResult CcuTempReduceScatterMesh1D::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+ {
++    if (tempFastLaunchCtx.cccuKernelSubmitInfos.size() == 0) {
++        HCCL_INFO("[CcuTempReduceScatterMesh1D::FastLaunch] ccu kernel num is 0, just success.");
++        return HCCL_SUCCESS;
++    }
+     HCCL_DEBUG("[CcuTempReduceScatterMesh1D::FastLaunch] start");
+     CcuTaskArgReduceScatterMesh1D taskArg(
+         PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[0],
+diff --git a/src/ops/reduce_scatter/template/ccu/ccu_temp_reduce_scatter_mesh_1D_mem2mem.cc b/src/ops/reduce_scatter/template/ccu/ccu_temp_reduce_scatter_mesh_1D_mem2mem.cc
+index 7a223ea..f8b605f 100644
+--- a/src/ops/reduce_scatter/template/ccu/ccu_temp_reduce_scatter_mesh_1D_mem2mem.cc
++++ b/src/ops/reduce_scatter/template/ccu/ccu_temp_reduce_scatter_mesh_1D_mem2mem.cc
+@@ -80,6 +80,10 @@ HcclResult CcuTempReduceScatterMesh1DMem2Mem::CalcRes(HcclComm comm, const OpPar
+ 
+ HcclResult CcuTempReduceScatterMesh1DMem2Mem::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+ {
++    if (tempFastLaunchCtx.cccuKernelSubmitInfos.size() == 0) {
++        HCCL_INFO("[CcuTempReduceScatterMesh1DMem2Mem::FastLaunch] ccu kernel num is 0, just success.");
++        return HCCL_SUCCESS;
++    }
+     HCCL_DEBUG("[CcuTempReduceScatterMesh1DMem2Mem::FastLaunch] start");
+     const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
+     buffInfo_ = tempFastLaunchCtx.buffInfo;
+diff --git a/src/ops/reduce_scatter/template/ccu/ccu_temp_reduce_scatter_nhr_1D_mem2mem.cc b/src/ops/reduce_scatter/template/ccu/ccu_temp_reduce_scatter_nhr_1D_mem2mem.cc
+index d06688a..4a31911 100644
+--- a/src/ops/reduce_scatter/template/ccu/ccu_temp_reduce_scatter_nhr_1D_mem2mem.cc
++++ b/src/ops/reduce_scatter/template/ccu/ccu_temp_reduce_scatter_nhr_1D_mem2mem.cc
+@@ -134,6 +134,10 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::CalcRes(HcclComm comm, const OpPara
+ 
+ HcclResult CcuTempReduceScatterNHR1DMem2Mem::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+ {
++    if (tempFastLaunchCtx.cccuKernelSubmitInfos.size() == 0) {
++        HCCL_INFO("[CcuTempReduceScatterNHR1DMem2Mem::FastLaunch] ccu kernel num is 0, just success.");
++        return HCCL_SUCCESS;
++    }
+     HCCL_DEBUG("[CcuTempReduceScatterMesh1D::FastLaunch] start");
+     u32 kernelNum = tempFastLaunchCtx.ccuKernelSubmitInfos.size();
+     buffInfo_ = tempFastLaunchCtx.buffInfo;
+diff --git a/src/ops/scatter/template/ccu/ccu_temp_scatter_mesh1d.cc b/src/ops/scatter/template/ccu/ccu_temp_scatter_mesh1d.cc
+index 8e44b69..2b7da23 100644
+--- a/src/ops/scatter/template/ccu/ccu_temp_scatter_mesh1d.cc
++++ b/src/ops/scatter/template/ccu/ccu_temp_scatter_mesh1d.cc
+@@ -82,6 +82,10 @@ HcclResult CcuTempScatterMesh1D::CalcRes(HcclComm comm, const OpParam &param, co
+ 
+ HcclResult CcuTempScatterMesh1D::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+ {
++    if (tempFastLaunchCtx.cccuKernelSubmitInfos.size() == 0) {
++        HCCL_INFO("[CcuTempScatterMesh1D::FastLaunch] ccu kernel num is 0, just success.");
++        return HCCL_SUCCESS;
++    }
+     HCCL_DEBUG("[CcuTempScatterMesh1D::FastLaunch] start");
+     const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
+     buffInfo_ = tempFastLaunchCtx.buffInfo;
+diff --git a/src/ops/scatter/template/ccu/ccu_temp_scatter_nhr1d_mem2mem.cc b/src/ops/scatter/template/ccu/ccu_temp_scatter_nhr1d_mem2mem.cc
+index 1b36fc1..84587ed 100644
+--- a/src/ops/scatter/template/ccu/ccu_temp_scatter_nhr1d_mem2mem.cc
++++ b/src/ops/scatter/template/ccu/ccu_temp_scatter_nhr1d_mem2mem.cc
+@@ -208,6 +208,10 @@ HcclResult CcuTempScatterNHR1DMem2Mem::SplitDataFor2Dies(const OpParam &param,
+ 
+ HcclResult CcuTempScatterNHR1DMem2Mem::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+ {
++    if (tempFastLaunchCtx.cccuKernelSubmitInfos.size() == 0) {
++        HCCL_INFO("[CcuTempScatterNHR1DMem2Mem::FastLaunch] ccu kernel num is 0, just success.");
++        return HCCL_SUCCESS;
++    }
+     HCCL_DEBUG("[CcuTempScatterNHR1DMem2Mem::FastLaunch] start");
+     u32 kernelNum = tempFastLaunchCtx.ccuKernelSubmitInfos.size();
+     buffInfo_ = tempFastLaunchCtx.buffInfo;
+-- 
+2.28.0.windows.1
+
