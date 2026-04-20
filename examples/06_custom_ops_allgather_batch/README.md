@@ -4,6 +4,103 @@
 
 当前目录实现走 CCU 自定义 kernel 路径，不再使用 AIV `.asc` 二进制下发。
 
+## 编译与运行
+
+本样例推荐和 [examples/05_custom_ops_allgather/README.md](/Users/lajiaojiang/work/project/hccl/examples/05_custom_ops_allgather/README.md) 一样使用：
+
+- 直接依赖机器上已安装的官方 toolkit / HCCL 环境
+- 只编译当前 example 目录
+- 不重新编译整个 HCCL run 包
+- 不覆盖 toolkit 自带的 built-in `aicpu_hccl.tar.gz`
+
+### 环境准备
+
+以非 root 用户安装到家目录为例：
+
+```bash
+export ASCEND_CANN_PACKAGE_PATH=/home/x00958740/Ascend/ascend-toolkit/latest
+source $ASCEND_CANN_PACKAGE_PATH/set_env.sh
+```
+
+此外需要提前安装并配置：
+
+- `cmake`
+- `make`
+- `mpic++`
+- `mpirun`
+
+### 编译
+
+在当前目录下直接执行：
+
+```bash
+mkdir -p build
+cd build
+cmake .. -DASCEND_CANN_PACKAGE_PATH=/home/x00958740/Ascend/ascend-toolkit/latest
+make -j
+```
+
+说明：
+
+- `cmake ..` 表示使用上一级目录的 `CMakeLists.txt` 配置工程
+- `-DASCEND_CANN_PACKAGE_PATH=...` 表示显式把 toolkit 安装路径传给 CMake
+
+如果 shell 环境变量已经正确传递，理论上也可以直接执行：
+
+```bash
+cmake ..
+```
+
+但为了避免 CMake 回退到默认的 `/usr/local/Ascend/ascend-toolkit/latest`，更推荐显式带上 `-DASCEND_CANN_PACKAGE_PATH=...`。
+
+如果 `ASCEND_CANN_PACKAGE_PATH` 没有设置正确，`op_host` 和 `testcase` 的头文件、库文件会找不到。
+
+### 运行 Host UT
+
+`Host UT` 不依赖 NPU 和 MPI，适合先做纯 Host 逻辑验证：
+
+```bash
+cd build
+./testcase/test_custom_allgather_batch_host_ut
+```
+
+预期会看到：
+
+```text
+[SUMMARY] host UT passed
+```
+
+其中负例会主动触发参数校验日志，这属于测试预期，不代表用例失败。
+
+### 运行集成 testcase
+
+`test_custom_allgather_batch` 是真实集成测试，依赖：
+
+- ACL runtime
+- HCCL 通信域初始化
+- MPI 多进程
+- 可正常 `aclrtSetDevice` 的设备环境
+
+运行命令：
+
+```bash
+cd build
+export LD_LIBRARY_PATH=$(pwd)/op_host:$ASCEND_CANN_PACKAGE_PATH/lib64:$LD_LIBRARY_PATH
+mpirun -n 2 ./testcase/test_custom_allgather_batch
+```
+
+如果当前用户是 root，需要改成：
+
+```bash
+mpirun --allow-run-as-root -n 2 ./testcase/test_custom_allgather_batch
+```
+
+### 说明
+
+- 本样例当前的推荐验证路径是：`Host UT -> 集成 testcase`
+- 如果集成 testcase 在 `aclrtSetDevice()` 阶段失败，优先排查机器运行环境，不要先重编 HCCL run 包
+- 如果只是调试本样例，不建议使用 `bash build.sh --full --pkg` 去替换 toolkit 自带的 HCCL 基础包
+
 ## 目标
 
 `HcclAllGatherBatch` 的目标不是把多路数据并行执行，而是把多次 `HcclAllGather` 的 Host 固定开销合并掉。

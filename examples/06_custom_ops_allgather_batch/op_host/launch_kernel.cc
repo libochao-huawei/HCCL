@@ -17,7 +17,6 @@
 
 #include "ccu_kernel_all_gather_batch_mesh1d.h"
 #include "host_utils.h"
-#include "hccl_res_dl.h"
 #include <hccl_ccu_res.h>
 #include <hccl_rank_graph.h>
 

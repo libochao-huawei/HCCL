@@ -6,16 +6,9 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 
-set(HCCL_REPO_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
-
 set(HCCL_CUSTOM_OPS_INCLUDE_LIST
     ${CMAKE_CURRENT_SOURCE_DIR}/../inc
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${HCCL_REPO_ROOT}/src/common
-    ${HCCL_REPO_ROOT}/src/common/hcomm_dlsym
-    ${HCCL_REPO_ROOT}/src/ops/op_common/inc
-    ${HCCL_REPO_ROOT}/src/ops/op_common/template
-    ${HCCL_REPO_ROOT}/src/ops/op_common/template/ccu
     ${ASCEND_CANN_PACKAGE_PATH}/include
     ${ASCEND_CANN_PACKAGE_PATH}/include/acl
     ${ASCEND_CANN_PACKAGE_PATH}/include/hccl
@@ -43,9 +36,9 @@ target_sources(hccl_custom_allgather_batch PRIVATE
     all_gather_batch.cc
     host_utils.cc
     launch_kernel.cc
+    ccu_kernel_alg_base.cc
+    ccu_kernel_utils.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/../op_kernel/ccu_kernel_all_gather_batch_mesh1d.cc
-    ${HCCL_REPO_ROOT}/src/ops/op_common/template/ccu/ccu_kernel_alg_base.cc
-    ${HCCL_REPO_ROOT}/src/ops/op_common/template/ccu/ccu_kernel_utils.cc
 )
 
 target_include_directories(hccl_custom_allgather_batch PRIVATE
