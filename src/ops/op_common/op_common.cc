@@ -1026,7 +1026,9 @@ HcclResult HcclGetChannelImpl(const u32 level, HcclComm comm, const OpParam &par
         portSizeType portSize = 0;
         CHK_RET(HcclRankGraphGetEndpointInfo(comm, resCtxHost->topoInfo.userRank, &localEndpoint, ENDPOINT_ATTR_BW_COEFF, portSizeTypeSize, static_cast<void*>(&portSize)));
         channel.portGroupSize = portSize;
-        HCCL_INFO("[HcclGetChannelImpl]userRank[%u], portSize[%u]", resCtxHost->topoInfo.userRank, portSize);
+        CHK_PRT_RET(portSize == 0,
+                    HCCL_ERROR("[HcclGetChannelImpl] userRank [%d], portSize [%u] is 0.",
+                    resCtxHost->topoInfo.userRank, portSize), HcclResult::HCCL_E_INTERNAL);
 #endif
         void* remoteCclBufferAddr;
         uint64_t remoteCclBufferSize;
