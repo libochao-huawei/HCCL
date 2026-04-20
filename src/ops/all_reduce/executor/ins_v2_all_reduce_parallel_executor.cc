@@ -14,6 +14,7 @@
 #include "ins_temp_reduce_scatter_nhr.h"
 #include "ins_temp_reduce_scatter_mesh_1D.h"
 #include "topo_match_multilevel.h"
+#include "topo_match_pcie_mix.h"
 #include <cmath>
 #ifndef AICPU_COMPILE
 #include "ccu_temp_all_gather_nhr_1D_mem2mem.h"
@@ -51,7 +52,7 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     
     std::vector<std::vector<u32>> temp0HierarchyInfo;
     std::vector<std::vector<u32>> temp1HierarchyInfo;
-    if(topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+    if(topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
         temp0HierarchyInfo = {algHierarchyInfo.infos[0][0]};
         std::vector<u32> closRanks;
         u32 meshSize = algHierarchyInfo.infos[0][0].size();
@@ -367,7 +368,7 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     // 计算localRankSize
     std::vector<std::vector<u32>> temp0HierarchyInfo;
     std::vector<std::vector<u32>> temp1HierarchyInfo;
-    if(resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS) {
+    if(resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS && !resCtx.topoInfo.level0PcieMix) {
         temp0HierarchyInfo = {resCtx.algHierarchyInfo.infos[0][0]};
         std::vector<u32> closRanks;
         u32 meshSize = resCtx.algHierarchyInfo.infos[0][0].size();
@@ -1042,6 +1043,9 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 // 算法注册
 REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, InsAllReduceParallelRSAG, InsAllReduceParallelExecutor,
     TopoMatchMultilevel, InsTempReduceScatterMesh1D, InsTempReduceScatterNHR, InsTempAllGatherMesh1D, InsTempAllGatherNHR);
+REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, InsAllReduceParallelMesh1DNHRPcie,
+    InsAllReduceParallelExecutor, TopoMatchPcieMix, InsTempReduceScatterMesh1D, InsTempReduceScatterNHR,
+    InsTempAllGatherMesh1D, InsTempAllGatherNHR);
 #ifndef AICPU_COMPILE
 REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceParallelMesh1DNHR, InsAllReduceParallelExecutor,
     TopoMatchMultilevel, CcuTempReduceScatterMesh1DMem2Mem, CcuTempReduceScatterNHR1DMem2Mem, CcuTempAllGatherMesh1DMem2Mem, 

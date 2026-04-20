@@ -69,6 +69,7 @@ private:
     u64 reduceInBuffBaseOff_ = 0;
     u64 reduceOutBuffBaseOff_ = 0;
     RankSliceInfo sliceInfoVec_;
+    bool isDmaRead_{false};
 };
 
 }  // namespace ops_hccl

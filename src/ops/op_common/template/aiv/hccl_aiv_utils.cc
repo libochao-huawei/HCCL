@@ -94,6 +94,7 @@ using AivExtraKernelArgs = struct AivExtraKernelArgsDef {
     u64 input;
     u64 output;
     u32 rank;
+    u32 sendRecvRemoteRank;
     u32 rankSize;
     u64 xRankSize;
     u64 yRankSize;
@@ -116,14 +117,14 @@ using AivExtraKernelArgs = struct AivExtraKernelArgsDef {
     bool isEnableCounter;
     ExtraArgs extraArgs;
 
-    AivExtraKernelArgsDef(const void* buffIn, u64 input, u64 output, u32 rank,
+    AivExtraKernelArgsDef(const void* buffIn, u64 input, u64 output, u32 rank, u32 sendRecvRemoteRank,
         u32 rankSize, u64 xRankSize, u64 yRankSize, u64 zRankSize,
         u64 len, u32 dataType, u32 reduceOp, u32 root, u32 tag,
         u64 inputSliceStride, u64 outputSliceStride, u64 repeatNum, u64 inputRepeatStride, u64 outputRepeatStride,
         bool isOpBase = true,
         const void* headCountMem = nullptr, const void* tailCountMem = nullptr, const void* addOneMem = nullptr,
         u32 counterMemSize = 0, const ExtraArgs* extraArgsPtr = nullptr)
-        : buffersIn(buffIn),input(input), output(output), rank(rank), rankSize(rankSize), xRankSize(xRankSize), yRankSize(yRankSize), zRankSize(zRankSize),
+        : buffersIn(buffIn),input(input), output(output), rank(rank), sendRecvRemoteRank(sendRecvRemoteRank), rankSize(rankSize), xRankSize(xRankSize), yRankSize(yRankSize), zRankSize(zRankSize),
         len(len) ,dataType(dataType),
         reduceOp(reduceOp), root(root), tag(tag),
         inputSliceStride(inputSliceStride), outputSliceStride(outputSliceStride), repeatNum(repeatNum), inputRepeatStride(inputRepeatStride), outputRepeatStride(outputRepeatStride),
@@ -242,10 +243,10 @@ HcclResult UnRegisterAivKernel()
 // KernelLaunch内部接口
 HcclResult ExecuteKernelLaunchInner(const AivOpArgs &opArgs, void* args, u32 argsSize)
 {
-    HCCL_INFO("[ExecuteKernelLaunchInner] sendbuff [%p] recvbuff [%p] rank [%u] rankSize [%u] count [%llu] "
+    HCCL_INFO("[ExecuteKernelLaunchInner] sendbuff [%p] recvbuff [%p] rank [%u] sendRecvRemoteRank [%u] rankSize [%u] count [%llu] "
         "dataType [%d] reduceOp [%d] root [%u] tag [%u] isOpBase [%d] "
         "extraArgsPtr [%p] argsSize [%u]", opArgs.input,
-        opArgs.output, opArgs.rank, opArgs.rankSize, opArgs.count,
+        opArgs.output, opArgs.rank, opArgs.sendRecvRemoteRank, opArgs.rankSize, opArgs.count,
         opArgs.dataType, opArgs.op, opArgs.root,
         opArgs.sliceId, opArgs.isOpBase, args, argsSize);
 
@@ -315,7 +316,7 @@ HcclResult ExecuteKernelLaunch(const AivOpArgs &opArgs)
 
     AivExtraKernelArgs aivExtraKernelArgs {
         opArgs.buffersIn, opArgs.input, opArgs.output,
-        opArgs.rank, opArgs.rankSize, opArgs.xRankSize, opArgs.yRankSize, opArgs.zRankSize, opArgs.count, opArgs.dataType, opArgs.op, opArgs.root, opArgs.sliceId,
+        opArgs.rank, opArgs.sendRecvRemoteRank, opArgs.rankSize, opArgs.xRankSize, opArgs.yRankSize, opArgs.zRankSize, opArgs.count, opArgs.dataType, opArgs.op, opArgs.root, opArgs.sliceId,
         opArgs.inputSliceStride, opArgs.outputSliceStride, opArgs.repeatNum, opArgs.inputRepeatStride, opArgs.outputRepeatStride,
         opArgs.isOpBase,
         reinterpret_cast<void*>(opArgs.counter.headCountMem),
