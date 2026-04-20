@@ -66,6 +66,7 @@ HcclResult InitRankInfo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo)
 
 HcclResult CalcMyRankInfo(HcclComm comm, TopoInfo* topoInfo)
 {
+#ifndef AICPU_COMPILE
     CHK_RET(HcclGetRankSize(comm, &(topoInfo->userRankSize)));
     CHK_RET(HcclGetRankId(comm, &(topoInfo->userRank)));
     CHK_RET(hrtGetDeviceType(topoInfo->deviceType));
@@ -84,6 +85,7 @@ HcclResult CalcMyRankInfo(HcclComm comm, TopoInfo* topoInfo)
     }
     HCCL_DEBUG("[CalcMyRankInfo]userRank[%u], userRankSize[%u], deviceType[%d], netLayersNum[%u], moduleIdx[%u] and superPodIdx[%u]",
         topoInfo->userRank, topoInfo->userRankSize, topoInfo->deviceType, netLayersNum, topoInfo->moduleIdx, topoInfo->superPodIdx);
+#endif
     return HCCL_SUCCESS;
 }
 
@@ -114,6 +116,7 @@ HcclResult SetServerModuleInfo(HcclComm comm, TopoInfo* topoInfo, const std::uno
 /* 超节点数目以及超节点间server数解析 */
 HcclResult SetSuperPodInfo(HcclComm comm, TopoInfo* topoInfo)
 {
+#ifndef AICPU_COMPILE
     topoInfo->multiSuperPodDiffServerNumMode = false;
 
     uint32_t level0RankListNum = 0;
@@ -184,7 +187,7 @@ HcclResult SetSuperPodInfo(HcclComm comm, TopoInfo* topoInfo)
         HCCL_RUN_INFO("[SuperPodInfo] gcdServerNumPerSuperPod[%u] original superPodNum[%u] "
             "converted superPodNum[%u]", topoInfo->serverNumPerSuperPod, level1RankListNum, topoInfo->superPodNum);
     }
-
+#endif
     return HCCL_SUCCESS;
 }
 
@@ -632,6 +635,7 @@ HcclResult CalcTopoShape(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo)
 
 HcclResult ExtractNetLayerDetails(const HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo)
 {
+#ifndef AICPU_COMPILE
     CHK_PRT_RET(comm == nullptr, HCCL_ERROR("[Topo][ExtractNetLayerDetails] comm is null"), HCCL_E_PTR);
 
     auto &topoLevelNum = topoInfo->topoLevelNums;
@@ -691,6 +695,7 @@ HcclResult ExtractNetLayerDetails(const HcclComm comm, TopoInfoWithNetLayerDetai
     CHK_PRT_RET(topoLevelNum == 0, HCCL_ERROR(
         "[BaseSelector][ExtractNetLayerDetails] topoLevelNum[%u] is invalid, netLayerNum[%u]", topoLevelNum, netLayerNum),
         HCCL_E_INTERNAL);
+#endif
     return HCCL_SUCCESS;
 }
 
@@ -890,6 +895,7 @@ HcclResult CalcLevel0MeshType(HcclComm comm, TopoInfoWithNetLayerDetails *topoIn
 HcclResult CalAllLevelEndpointAttrBwCoeff(
     HcclComm comm, uint32_t rankId, uint32_t levelSize, std::vector<std::vector<EndpointAttrBwCoeff>> &endpointAttrBw)
 {
+#ifndef AICPU_COMPILE
     uint32_t *netLayers = nullptr; // 网络层次list
     uint32_t netLayerNum = 0;
     CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum)); // 获取layer总数和layerlist
@@ -914,6 +920,7 @@ HcclResult CalAllLevelEndpointAttrBwCoeff(
             endpointAttrBw.emplace_back(bwCoeff);
         }
     }
+#endif
     return HCCL_SUCCESS;
 }
 }
