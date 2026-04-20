@@ -2,6 +2,7 @@
 #define HCCL_CUSTOM_ALLGATHER_BATCH_CCU_SIGNATURE_TYPES_H
 
 #include "hccl_types.h"
+#include "hccl.h"
 
 namespace ops_hccl {
 
