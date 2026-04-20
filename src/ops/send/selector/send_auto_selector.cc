@@ -24,6 +24,15 @@ namespace ops_hccl {
         return SelectorStatus::MATCH;
     }
 
+    SelectorStatus SendAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
+        const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap, std::string &selectAlgName) const
+    {
+        (void) topoInfo;
+        HCCL_INFO("[SendAutoSelector][SelectAivAlgo] opType:%d", opParam.opType);
+        selectAlgName = "AivSend";
+        return SelectorStatus::MATCH;
+    }
+
     SelectorStatus SendAutoSelector::SelectDPUAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
         const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap, std::string &selectAlgName) const
     {
