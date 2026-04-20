@@ -419,11 +419,11 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
         CHK_RET(PostSyncInterThreads(controlThread_, templateMainThreads_, notifyIdxTemplatesToControl_));
     }
     
-#ifndef AICPU_COMPILE
-    if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU) {
-        CHK_RET(FastLaunchSaveCtx(param, templateAlgResIntra, templateAlgResInter));
-    }
-#endif
+// #ifndef AICPU_COMPILE
+//     if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU) {
+//         CHK_RET(FastLaunchSaveCtx(param, templateAlgResIntra, templateAlgResInter));
+//     }
+// #endif
 
     HCCL_INFO("[InsReduceScatterParallelExecutor][OrchestrateLoop] End.");
     return HcclResult::HCCL_SUCCESS;

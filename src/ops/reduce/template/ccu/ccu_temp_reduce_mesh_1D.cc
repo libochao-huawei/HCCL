@@ -70,6 +70,10 @@ HcclResult CcuTempReduceMesh1D::CalcRes(HcclComm comm, const OpParam& param, con
 
 HcclResult CcuTempReduceMesh1D::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
 {
+    if (tempFastLaunchCtx.ccuKernelSubmitInfos.size() == 0) {
+        HCCL_INFO("[CcuTempReduceMesh1D::FastLaunch] ccu kernel num is 0, just success.");
+        return HCCL_SUCCESS;
+    }
     HCCL_DEBUG("[CcuTempReduceMesh1D::FastLaunch] start");
     CcuTaskArgReduceMesh1D taskArg(
         PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[0],
