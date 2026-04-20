@@ -74,6 +74,7 @@ install(FILES
 )
 
 set(AICPU_KERNEL_TAR_FILE ${CMAKE_BINARY_DIR}/aicpu_allgatherbatch.tar.gz)
+set(AICPU_KERNEL_INSTALL_TAR_FILE ${BUILD_DEVICE_DIR}/aicpu_allgatherbatch.tar.gz)
 set(AICPU_KERNEL_JSON_FILE ${CMAKE_CURRENT_SOURCE_DIR}/op_kernel_aicpu/liballgatherbatch_aicpu_kernel.json)
 if(KERNEL_MODE)
     add_library(allgatherbatch_aicpu_kernel SHARED)
@@ -88,20 +89,26 @@ if(KERNEL_MODE)
         -g
         -O0
     )
+    target_link_directories(allgatherbatch_aicpu_kernel PRIVATE
+        ${ASCEND_CANN_PACKAGE_PATH}/lib64/device/lib64
+        ${ASCEND_CANN_PACKAGE_PATH}/devlib/device
+    )
     target_link_libraries(allgatherbatch_aicpu_kernel PRIVATE
         -Wl,--no-as-needed
         ccl_kernel
         -Wl,--no-as-needed
     )
-    register_custom_aicpu_target(allgatherbatch_aicpu_kernel)
-    package_aicpu_kernel(
-        allgatherbatch_aicpu_kernel
-        ${AICPU_KERNEL_TAR_FILE}
-        ${AICPU_KERNEL_JSON_FILE}
+    pack_targets_and_files(
+        OUTPUT_TARGET "package_aicpu_allgatherbatch"
+        OUTPUT "aicpu_allgatherbatch.tar.gz"
+        TARGETS allgatherbatch_aicpu_kernel
+        MANIFEST "bin_hash.cfg"
+        TAR_ROOT_DIR "aicpu_kernels_device"
     )
+    register_custom_aicpu_target(package_aicpu_allgatherbatch)
 else()
     install(FILES
-        ${BUILD_DEVICE_DIR}/aicpu_allgatherbatch.tar.gz
+        ${AICPU_KERNEL_INSTALL_TAR_FILE}
         DESTINATION ${CUSTOM_OPS_OPP_AICPU_KERNEL_PATH}
     )
     install(FILES

@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "common.h"
+#include "hccl/hccl_res_expt.h"
 #include "hccl/hccl_rank_graph.h"
 #include "launch_kernel.h"
 #include "load_kernel.h"
