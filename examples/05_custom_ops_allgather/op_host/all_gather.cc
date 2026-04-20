@@ -13,17 +13,25 @@
 #include <vector>
 #include <cstring>
 #include <string>
+#include <map>
 #include <hccl_rank_graph.h>
 
 using namespace ops_hccl_allgather;
 
 constexpr uint32_t AIV_TAG_ADDR_OFFSET = 16 * 1024;
 
+static std::map<std::string, HcclMemHandle> g_memHandleCache;
+
 static HcclResult InitAivBuffer(HcclComm comm, const char* aivTag, void*& aivCommInfoPtr, HcclMemHandle& memHandle) {
     uint64_t aivCommInfoSize = AIV_TAG_BUFF_LEN;
     auto hcclRet = HcclEngineCtxGet(comm, aivTag, CommEngine::COMM_ENGINE_AIV, &aivCommInfoPtr, &aivCommInfoSize);
     
     if (hcclRet == HCCL_SUCCESS && aivCommInfoPtr != nullptr) {
+        if (g_memHandleCache.find(aivTag) == g_memHandleCache.end()) {
+            HCCL_ERROR("[%s] aiv memHandle not found in cache", __func__);
+            return HCCL_E_INTERNAL;
+        }
+        memHandle = g_memHandleCache[aivTag];
         return HCCL_SUCCESS; 
     }
 
@@ -40,33 +48,51 @@ static HcclResult InitAivBuffer(HcclComm comm, const char* aivTag, void*& aivCom
         HCCL_ERROR("[%s] Failed to register memory. ret=%d", __func__, hcclRet);
         return hcclRet;
     }
+    g_memHandleCache[aivTag] = memHandle;
     
     return HCCL_SUCCESS;
+}
+
+static bool IsUbrMemProtocol(uint32_t protocol) {
+    return protocol == COMM_PROTOCOL_UB_MEM;
 }
 
 static HcclResult SetupRemoteChannels(HcclComm comm, uint32_t rank, uint32_t rankSize, HcclMemHandle& memHandle, void** buffersIn, void** buffersOut) {
     std::vector<HcclChannelDesc> channelRequests;
     for (size_t remoteRank = 0; remoteRank < rankSize; remoteRank++) {
         if (remoteRank == rank) continue;
-        uint32_t netLayer = 0, listSize = 0;
-        CommLink *linkList = nullptr;
-        CHK_RET(HcclRankGraphGetLinks(comm, netLayer, rank, remoteRank, &linkList, &listSize));
-        for (uint32_t idx = 0; idx < listSize; idx++) {
-            HcclChannelDesc desc;
-            HcclChannelDescInit(&desc, 1);
-            desc.memHandles = &memHandle;
-            desc.memHandleNum = 1;
-            desc.remoteRank = remoteRank;
-            desc.localEndpoint.protocol = linkList[idx].srcEndpointDesc.protocol;
-            desc.localEndpoint.commAddr = linkList[idx].srcEndpointDesc.commAddr;
-            desc.localEndpoint.loc = linkList[idx].srcEndpointDesc.loc;
-            desc.remoteEndpoint.protocol = linkList[idx].dstEndpointDesc.protocol;
-            desc.remoteEndpoint.commAddr = linkList[idx].dstEndpointDesc.commAddr;
-            desc.remoteEndpoint.loc = linkList[idx].dstEndpointDesc.loc;
-            desc.channelProtocol = linkList[idx].linkAttr.linkProtocol;
-            desc.notifyNum = 3;
-            channelRequests.push_back(desc);
+        uint32_t *netLayers = nullptr;
+        uint32_t netLayerNum = 0;
+        CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
+        bool foundChannel = false;
+        for (uint32_t layerIdx = 0; layerIdx < netLayerNum && !foundChannel; layerIdx++) {
+            uint32_t listSize = 0;
+            CommLink *linkList = nullptr;
+            CHK_RET(HcclRankGraphGetLinks(comm, netLayers[layerIdx], rank, remoteRank, &linkList, &listSize));
+            for (uint32_t idx = 0; idx < listSize && !foundChannel; idx++) {
+                if (!IsUbrMemProtocol(linkList[idx].linkAttr.linkProtocol)) {
+                    continue;
+                }
+                HcclChannelDesc desc;
+                HcclChannelDescInit(&desc, 1);
+                desc.remoteRank = remoteRank;
+                desc.localEndpoint.protocol = linkList[idx].srcEndpointDesc.protocol;
+                desc.localEndpoint.commAddr = linkList[idx].srcEndpointDesc.commAddr;
+                desc.localEndpoint.loc = linkList[idx].srcEndpointDesc.loc;
+                desc.remoteEndpoint.protocol = linkList[idx].dstEndpointDesc.protocol;
+                desc.remoteEndpoint.commAddr = linkList[idx].dstEndpointDesc.commAddr;
+                desc.remoteEndpoint.loc = linkList[idx].dstEndpointDesc.loc;
+                desc.channelProtocol = linkList[idx].linkAttr.linkProtocol;
+                desc.notifyNum = 3;
+                channelRequests.push_back(desc);
+                foundChannel = true;
+            }
         }
+    }
+
+    for (auto &channelDesc : channelRequests) {
+        channelDesc.memHandles = &memHandle;
+        channelDesc.memHandleNum = 1;
     }
 
     uint32_t validNum = channelRequests.size();
@@ -86,18 +112,16 @@ static HcclResult SetupRemoteChannels(HcclComm comm, uint32_t rank, uint32_t ran
         CommMem* remoteMems = nullptr;
         char** memTags = nullptr;
         CHK_RET(HcclChannelGetRemoteMems(comm, levelNChannels[idx], &memNum, &remoteMems, &memTags));
-        CHK_PRT_RET(memNum != 1, HCCL_ERROR("[%s] HcclChannelGetRemoteMems memNum not 1", __func__), HCCL_E_PARA);
-        buffersOut[currentRank] = remoteMems[0].addr;
+        CHK_PRT_RET(memNum == 0, HCCL_ERROR("[%s] HcclChannelGetRemoteMems memNum is 0", __func__), HCCL_E_PARA);
+        buffersOut[currentRank] = remoteMems[memNum - 1].addr;
     }
     return HCCL_SUCCESS;
 }
 
 HcclResult PrepareResources(HcclComm comm, OpParam& param, aclrtStream stream) {
-    std::string aivTagStr = std::string(param.tag) + "_AIV";
-    
     void* aivCommInfoPtr = nullptr;
     HcclMemHandle memHandle;
-    CHK_RET(InitAivBuffer(comm, aivTagStr.c_str(), aivCommInfoPtr, memHandle));
+    CHK_RET(InitAivBuffer(comm, param.tag, aivCommInfoPtr, memHandle));
 
     uint32_t rank = 0, rankSize = 0;
     CHK_RET(HcclGetRankId(comm, &rank));
@@ -135,7 +159,7 @@ extern "C" HcclResult HcclAllGatherCustom(void *sendBuf, void *recvBuf, uint64_t
     
     char commName[COMM_INDENTIFIER_MAX_LENGTH];
     CHK_RET(HcclGetCommName(comm, commName));
-    int ret = sprintf_s(param.tag, sizeof(param.tag), "AllGather_%s_Custom", commName);
+    int ret = sprintf_s(param.tag, sizeof(param.tag), "%s_opbase", commName);
     if (ret <= 0) return HCCL_E_INTERNAL;
     
     CHK_RET(PrepareResources(comm, param, stream));
