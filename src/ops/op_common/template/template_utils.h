@@ -94,8 +94,9 @@ struct A2ASendRecvInfo {
 struct DataInfo {
     ChannelInfo channel_;
     SlicesList slices_;
-    DataInfo(const ChannelInfo &channel, const SlicesList &slices)
-    : channel_(channel), slices_(slices)
+    s32        streamId{0};
+    DataInfo(const ChannelInfo &channel, const SlicesList &slices, s32 streamId = 0)
+        : channel_(channel), slices_(slices), streamId_(streamId)
     {
     }
 };
@@ -134,9 +135,10 @@ struct TxRxSlicesList {
 struct SendRecvInfo {
     TxRxChannels      sendRecvChannels_;
     TxRxSlicesList    sendRecvSlices_;
+    s32               streamId{0};
 
-    SendRecvInfo(const TxRxChannels &sendRecvLinks, const TxRxSlicesList &sendRecvSlices)
-        : sendRecvChannels_(sendRecvLinks), sendRecvSlices_(sendRecvSlices)
+    SendRecvInfo(const TxRxChannels &sendRecvLinks, const TxRxSlicesList &sendRecvSlices, s32 streamId = 0)
+        : sendRecvChannels_(sendRecvLinks), sendRecvSlices_(sendRecvSlices), streamId_(streamId)
     {
     }
 };
@@ -234,6 +236,7 @@ struct TemplateDataParams {
     std::vector<u64> sdispls;
     std::vector<u64> rdispls;
     StepSliceInfo stepSliceInfo;
+    s32 streamId{0};
 
     std::vector<char> Serialize() const
     {
@@ -258,6 +261,7 @@ struct TemplateDataParams {
         binaryStream << root;
         binaryStream << dataType;
         binaryStream << stepSliceInfo.Serialize();
+        binaryStream << streamId;
         std::vector<char> result;
         binaryStream.Dump(result);
         return result;
@@ -288,6 +292,7 @@ struct TemplateDataParams {
         std::vector<char> stepSliceInfoData;
         binaryStream >> stepSliceInfoData;
         stepSliceInfo.DeSerialize(stepSliceInfoData);
+        binaryStream >> streamId;
     }
 };
 
