@@ -1779,6 +1779,7 @@ HcclResult GetAivParamStorage(const char *group, AivParamStorage **aivParam)
 // 判断通过最高一个level的网络全部没有device的可达链路，并且有host的可达链路
 HcclResult CheckHostDPUOnly(const HcclComm comm, const TopoInfoWithNetLayerDetails* topoInfo, bool &hostDPUOnly)
 {
+#ifndef AICPU_COMPILE
     hostDPUOnly = false;
     HCCL_INFO("Start CheckHostDPUOnly");
     // 只有一个server，不使用DPU
@@ -1854,6 +1855,7 @@ HcclResult CheckHostDPUOnly(const HcclComm comm, const TopoInfoWithNetLayerDetai
         HCCL_INFO("Using host dpu trans.");
         hostDPUOnly = true;
     }
+#endif
     return HCCL_SUCCESS;
 }
 
