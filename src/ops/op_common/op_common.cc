@@ -249,17 +249,22 @@ HcclResult SetOpParamFastLaunchTag(OpParam &param)
     return AppendFastLaunchTag(param, dataTypeStr, reduceOpStr, countStr, rootStr);
 }
 
+static constexpr uint32_t opExpansionModeCcuSched = 5;
+static constexpr uint32_t opExpansionModeCcuMs = 4;
+
 bool ShouldGoCcuFastLaunch(HcclComm comm, OpParam &param, CcuFastLaunchCtx **ccuFastLaunchCtx)
 {
     param.hcclComm = comm;
 
+    HcclOpExpansionMode finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_INVALID;
+    HcclResult ret = DecideHcclOpExpansionMode(comm, finalMode);
     // 1. 是ccu模式
-    if (GetExternalInputHcclCcuMSMode()) {
-        HCCL_DEBUG("[HcclExecOp] is ccu ms mode");
+    if (finalMode == static_cast<HcclOpExpansionMode>(opExpansionModeCcuMs)) {
+        HCCL_DEBUG("[ShouldGoCcuFastLaunch] is ccu ms mode");
         param.opExecuteConfig = OpExecuteConfig::CCU_MS;
         param.engine = CommEngine::COMM_ENGINE_CCU;
-    } else if (GetExternalInputHcclCcuSchedMode()) {
-        HCCL_DEBUG("[HcclExecOp] is ccu sched mode");
+    } else if (finalMode == static_cast<HcclOpExpansionMode>(opExpansionModeCcuSched)) {
+        HCCL_DEBUG("[ShouldGoCcuFastLaunch] is ccu sched mode");
         param.opExecuteConfig = OpExecuteConfig::CCU_SCHED;
         param.engine = CommEngine::COMM_ENGINE_CCU;
     } else {
@@ -1569,9 +1574,6 @@ HcclResult HcclGetOpExpansionMode(HcclComm comm, OpParam &param)
     }
     return HCCL_SUCCESS;
 }
-
-static constexpr uint32_t opExpansionModeCcuSched = 5;
-static constexpr uint32_t opExpansionModeCcuMs = 4;
 
 HcclResult DecideHcclOpExpansionMode(HcclComm comm, HcclOpExpansionMode &finalMode)
 {
