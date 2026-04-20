@@ -1445,7 +1445,7 @@ HcclResult SetCommEngine(OpParam &param)
     return HCCL_E_NOT_SUPPORT;
 }
 
-HcclResult SingleRankProc(const OpParam &param)
+HcclResult SingleRankProc(OpParam &param)
 {
     if (GetExternalInputHcclAivOnlyMode()) {
         HCCL_ERROR("[SingleRankProc] opType[%d] currently do not select aiv mode, aiv only not support, "
@@ -1460,6 +1460,21 @@ HcclResult SingleRankProc(const OpParam &param)
         HCCL_WARNING("[%s] sendBuf == recvBuf, return success", __func__);
         return HcclResult::HCCL_SUCCESS;
     }
+
+    ThreadHandle cpuTsThread{0};
+    ThreadHandle exportedAicpuTsThread{0};
+    if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
+        CHK_RET(HcclThreadAcquireWithStream(param.hcclComm, COMM_ENGINE_CPU_TS, param.stream, 1, &cpuTsThread));
+        // Export cpuTsThread
+        CHK_RET(HcclThreadExportToCommEngine(param.hcclComm, 1, &cpuTsThread, COMM_ENGINE_AICPU_TS, &exportedAicpuTsThread));
+    }
+
+    // Op注册
+    HcclDfxOpInfo hcclDfxOpInfo{};
+    CHK_RET(ConstructHcclDfxOpInfo(param, hcclDfxOpInfo, cpuTsThread));
+    param.dataCount = hcclDfxOpInfo.dataCount;
+    CHK_RET(HcclDfxRegOpInfoByCommId(param.commName, reinterpret_cast<void*>(&hcclDfxOpInfo)));
+
     u64 len{0};
     if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL || param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
         param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
