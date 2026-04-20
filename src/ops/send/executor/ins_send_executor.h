@@ -48,6 +48,8 @@ namespace ops_hccl {
         u64 maxLoopTransSize_;
         // 一次搬运最大数据个数
         u64 maxLoopTransCount_;
+        // 是否使用dma read
+        bool isDmaRead_{false};
     };
 } // namespace ops_hccl
 
