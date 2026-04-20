@@ -45,6 +45,8 @@ public:
 
     HcclResult GetChannelDieId(HcclComm comm, uint32_t rankId, const HcclChannelDesc& channelDesc, uint32_t& dieId) const;
 
+    HcclResult GetOneDieChannel(HcclComm comm, std::vector<HcclChannelDesc> &channelDesc);
+
 protected:
     OpMode          opMode_             = OpMode::OPBASE;
     u32             myRank_             = INVALID_VALUE_RANKID;
