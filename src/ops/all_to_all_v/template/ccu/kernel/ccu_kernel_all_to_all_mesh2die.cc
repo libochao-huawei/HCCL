@@ -22,10 +22,6 @@ CcuKernelAllToAllMesh2Die::CcuKernelAllToAllMesh2Die(const hcomm::CcuKernelArg &
     : CcuKernelAlgBase(arg)
 {
     const CcuKernelArgAllToAllMesh2Die *kernelArg = dynamic_cast<const CcuKernelArgAllToAllMesh2Die *>(&arg);
-    if (kernelArg == nullptr) {
-        HCCL_ERROR("[CcuKernelAllToAllMesh2Die] kernelArg ptr is null.");
-        return;
-    }
 
     channels_ = kernelArg->channels;
 
