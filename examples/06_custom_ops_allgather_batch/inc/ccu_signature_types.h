@@ -22,7 +22,6 @@ enum class OpExecuteConfig {
 struct OpParam {
     HcclReduceOp reduceType = HcclReduceOp::HCCL_REDUCE_RESERVED;
     uint32_t root = 0;
-    ::CommEngine engine = ::CommEngine::COMM_ENGINE_RESERVED;
     union {
         struct {
             uint64_t count;

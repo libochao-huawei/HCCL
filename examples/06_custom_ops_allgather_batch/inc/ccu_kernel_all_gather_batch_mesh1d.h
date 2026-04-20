@@ -36,7 +36,6 @@ public:
         : rankSize_(rankSize), rankId_(rankId), itemCount_(itemCount)
     {
         signatureParam_.opType = HcclCMDType::HCCL_CMD_ALLGATHER;
-        signatureParam_.engine = CommEngine::COMM_ENGINE_CCU;
         signatureParam_.opExecuteConfig = ops_hccl::OpExecuteConfig::CCU_MS;
         subCommRanks_.push_back({});
         subCommRanks_[0].reserve(rankSize_);
