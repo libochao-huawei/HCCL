@@ -6,16 +6,6 @@
 
 namespace ops_hccl {
 
-enum class CommEngine {
-    COMM_ENGINE_RESERVED = 0,
-    COMM_ENGINE_CPU_TS = 1,
-    COMM_ENGINE_AICPU_TS = 2,
-    COMM_ENGINE_AIV = 3,
-    COMM_ENGINE_CCU = 4,
-    COMM_ENGINE_AICPU = 5,
-    COMM_ENGINE_CPU = 6
-};
-
 enum class OpExecuteConfig {
     DEFAULT = 0,
     HOSTCPU_TS = 1,
@@ -32,7 +22,7 @@ enum class OpExecuteConfig {
 struct OpParam {
     HcclReduceOp reduceType = HcclReduceOp::HCCL_REDUCE_RESERVED;
     uint32_t root = 0;
-    CommEngine engine = CommEngine::COMM_ENGINE_RESERVED;
+    ::CommEngine engine = ::CommEngine::COMM_ENGINE_RESERVED;
     union {
         struct {
             uint64_t count;
