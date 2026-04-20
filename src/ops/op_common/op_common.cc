@@ -120,10 +120,10 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
 
 HcclResult GetHcclDfxOpInfoDataCount(const OpParam &param, const u32 &rankSize, uint64_t &sendCount) {
     sendCount = 0;
-    if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL
-        || param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV
-        || param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
-        for (u64 i = 0; i < rankSize; i++) {
+    if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL) {
+        sendCount += *(reinterpret_cast<const uint64_t*>(param.all2AllVDataDes.sendCounts)); // 非v类算子，只上报入参里的count
+    } else if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV || param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
+        for (u64 i = 0; i < rankSize; i++) { // v类算子上报累加的count
             sendCount += *(reinterpret_cast<const uint64_t*>(param.all2AllVDataDes.sendCounts) + i);
         }
     } else if (param.opType == HcclCMDType::HCCL_CMD_ALLGATHER_V) {
