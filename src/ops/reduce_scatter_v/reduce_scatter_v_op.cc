@@ -283,6 +283,7 @@ HcclResult ReduceScatterVOutPlaceCommon(void *sendBuf, const void *sendDispls, c
     
     if (userRankSize == 1) {
         HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
+        param.hcclComm = comm;
         CHK_RET(SingleRankProc(param));
         return HcclResult::HCCL_SUCCESS;
     }

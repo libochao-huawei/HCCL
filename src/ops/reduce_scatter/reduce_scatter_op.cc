@@ -186,6 +186,7 @@ HcclResult ReduceScatterOutPlace(OpParam &param, void *sendBuf, void *recvBuf, u
     }
     if (userRankSize == 1) {
         HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
+        param.hcclComm = comm;
         CHK_RET(SingleRankProc(param));
         return HcclResult::HCCL_SUCCESS;
     }
@@ -227,6 +228,7 @@ HcclResult ReduceScatterOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t
 
     if (userRankSize == 1) {
         HCCL_WARNING("[%s] rankSize == 1, enter SingleRankProc", __func__);
+        param.hcclComm = comm;
         CHK_RET(SingleRankProc(param));
         return HcclResult::HCCL_SUCCESS;
     }

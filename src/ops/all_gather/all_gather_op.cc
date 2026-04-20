@@ -194,6 +194,7 @@ HcclResult AllGatherOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t sendCo
     }
     if (userRankSize == 1) {
         HCCL_WARNING("[%s] rankSize == 1, enter SingleRankProc", __func__);
+        param.hcclComm = comm;
         CHK_RET(SingleRankProc(param));
         return HcclResult::HCCL_SUCCESS;
     }

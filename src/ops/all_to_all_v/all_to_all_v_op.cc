@@ -648,6 +648,7 @@ HcclResult AlltoAllVOutPlaceCommon(const void *sendBuf, const void *sendCounts, 
     }
     if (rankSize == 1) {
         HCCL_WARNING("[%s] rankSize == 1, enter SingleRankProc", __func__);
+        param.hcclComm = comm;
         CHK_RET(SingleRankProc(param));
         return HcclResult::HCCL_SUCCESS;
     }
