@@ -33,10 +33,8 @@ constexpr u32 MAX_BIN_FILE_SIZE = 100 * 1024 * 1024; // 最大读取100m的bin f
 
 constexpr s32 RESET_TAIL_SYNC_TAG = 2;
 
-// static bool g_init = false;
 static std::unordered_set<u32> g_initializedDevices;
 static mutex g_mut;
-// static aclrtBinHandle g_binHandle;
 static std::unordered_map<u32, aclrtBinHandle> g_binHandleMap;
 static std::unordered_map<s8*, aclrtFuncHandle> g_aivFuncMap;
 static std::unordered_map<s8*, std::string> g_aivNameMap;
@@ -197,8 +195,9 @@ HcclResult GetKernelFunc(aclrtFuncHandle& funcHandle, const s8* funcKey)
 // Kernel注册入口，全局只需要初始化一次
 HcclResult RegisterKernel()
 {
-    u32 deviceId = 0;
-    aclrtGetDevice(&deviceId);
+    s32 deviceIdSigned = 0;
+    aclrtGetDevice(&deviceIdSigned);
+    u32 deviceId = static_cast<u32>(deviceIdSigned);
     lock_guard<mutex> guard(g_mut);
     if (g_initializedDevices.count(deviceId) > 0) {
         return HCCL_SUCCESS;
@@ -237,7 +236,7 @@ HcclResult UnRegisterAivKernel()
 {
     lock_guard<mutex> guard(g_mut);
     for (auto& it : g_binHandleMap) {
-        ACLCHECK(aclBinaryUnLoad(it.second));
+        ACLCHECK(aclrtBinaryUnLoad(it.second));
     }
     g_binHandleMap.clear();
     g_initializedDevices.clear();
@@ -284,8 +283,9 @@ HcclResult ExecuteKernelLaunchInner(const AivOpArgs &opArgs, void* args, u32 arg
         &cfg, args, argsSize, nullptr, 0);
     if (aclRet == ACL_ERROR_RT_INVALID_HANDLE) {
         HCCL_WARNING("[ExecuteKernelLaunchInner] handle invalid, retry to get function");
-        u32 deviceId = 0;
-        aclError getDevRet = aclerGetDevice(&deviceId);
+        s32 deviceIdSigned = 0;
+        aclError getDevRet = aclrtGetDevice(&deviceIdSigned);
+        u32 deviceId = static_cast<u32>(deviceIdSigned);
         if (getDevRet == ACL_SUCCESS && g_aivNameMap.find(funcKey) != g_aivNameMap.end()) {
             const std::string& kernelName = g_aivNameMap[funcKey];
             auto binHandleIt = g_binHandleMap.find(deviceId);
