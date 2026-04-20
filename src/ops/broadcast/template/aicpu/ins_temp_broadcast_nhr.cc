@@ -38,11 +38,9 @@ HcclResult InsTempBroadcastNHR::CalcRes(HcclComm comm, const OpParam& param, con
 HcclResult InsTempBroadcastNHR::GetRes(AlgResourceRequest &resourceRequest) const
 {
     u32 threadNum = 1;
-    resourceRequest.slaveThreadNum = threadNum - 1;
-    for (u32 index = 0; index < threadNum - 1; index++) {
-        resourceRequest.notifyNumPerThread.push_back(1);
-    }
-    resourceRequest.notifyNumOnMainThread = threadNum - 1;
+    resourceRequest.slaveThreadNum = 0;
+    resourceRequest.notifyNumPerThread;         // 没有从流
+    resourceRequest.notifyNumOnMainThread = 0;  // 没有从流
     return HCCL_SUCCESS;
 }
 
@@ -410,9 +408,10 @@ void InsTempBroadcastNHR::SetRoot(u32 root)
 HcclResult InsTempBroadcastNHR::KernelRun(const OpParam& param, const TemplateDataParams& tempAlgParams,
                                           TemplateResource& templateResource)
 {
-    buffInfo_     = tempAlgParams.buffInfo;
-    dataTypeSize_  = DATATYPE_SIZE_TABLE[dataType_];
     HCCL_INFO("[InsTempBroadcastNHR] BroadcastNHR entry.");
+    buffInfo_     = tempAlgParams.buffInfo;
+    dataType_ = param.DataDes.dataType;
+    dataTypeSize_  = DATATYPE_SIZE_TABLE[dataType_];
 
     for (int i = 0; i < subCommRanks_[0].size(); i++) {
         tempVirtRankMap_.insert(std::make_pair(subCommRanks_[0][i], i));
@@ -435,22 +434,14 @@ HcclResult InsTempBroadcastNHR::KernelRun(const OpParam& param, const TemplateDa
 
 void InsTempBroadcastNHR::GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub)
 {
+    // NHR算法没有从线程，不需要主从同步Notify
     notifyIdxMainToSub.clear();
-    u32 threadNum = templateRankSize_ > 1 ? templateRankSize_ - 1 : 1;
-    u32 slaveThreadNum = threadNum - 1;
-    for (u32 slaveThreadIdx = 0; slaveThreadIdx < slaveThreadNum; slaveThreadIdx++) {
-        notifyIdxMainToSub.push_back(0);
-    }
 }
 
 void InsTempBroadcastNHR::GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain)
 {
+    // NHR算法没有从线程，不需要主从同步Notify
     notifyIdxSubToMain.clear();
-    u32 threadNum = templateRankSize_ > 1 ? templateRankSize_ - 1 : 1;
-    u32 notifyNum = threadNum - 1;
-    for (u32 notifyIdx = 0; notifyIdx < notifyNum; notifyIdx++) {
-        notifyIdxSubToMain.push_back(notifyIdx);
-    }
 }
 
 } // namespace Hccl
