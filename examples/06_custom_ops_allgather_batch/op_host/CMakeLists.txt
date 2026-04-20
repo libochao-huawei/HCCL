@@ -6,27 +6,43 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 
+if(NOT DEFINED ASCEND_CANN_PACKAGE_PATH)
+    if(DEFINED ENV{ASCEND_CANN_PACKAGE_PATH} AND NOT "$ENV{ASCEND_CANN_PACKAGE_PATH}" STREQUAL "")
+        set(ASCEND_CANN_PACKAGE_PATH $ENV{ASCEND_CANN_PACKAGE_PATH})
+    elseif(DEFINED ENV{ASCEND_HOME_PATH} AND NOT "$ENV{ASCEND_HOME_PATH}" STREQUAL "")
+        set(ASCEND_CANN_PACKAGE_PATH $ENV{ASCEND_HOME_PATH})
+    else()
+        set(ASCEND_CANN_PACKAGE_PATH "/usr/local/Ascend/ascend-toolkit/latest")
+        message(WARNING "ASCEND_CANN_PACKAGE_PATH not set, defaulting to ${ASCEND_CANN_PACKAGE_PATH}")
+    endif()
+endif()
+
+set(ASCEND_CANN_BASE_PATH ${ASCEND_CANN_PACKAGE_PATH})
+if(EXISTS "${ASCEND_CANN_PACKAGE_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/include")
+    set(ASCEND_CANN_BASE_PATH "${ASCEND_CANN_PACKAGE_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux")
+endif()
+
 set(HCCL_CUSTOM_OPS_INCLUDE_LIST
     ${CMAKE_CURRENT_SOURCE_DIR}/../inc
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${ASCEND_CANN_PACKAGE_PATH}/include
-    ${ASCEND_CANN_PACKAGE_PATH}/include/acl
-    ${ASCEND_CANN_PACKAGE_PATH}/include/hccl
-    ${ASCEND_CANN_PACKAGE_PATH}/include/hcomm
-    ${ASCEND_CANN_PACKAGE_PATH}/include/base
-    ${ASCEND_CANN_PACKAGE_PATH}/include/driver
-    ${ASCEND_CANN_PACKAGE_PATH}/include/dump
-    ${ASCEND_CANN_PACKAGE_PATH}/include/external
-    ${ASCEND_CANN_PACKAGE_PATH}/include/platform
-    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc
-    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/hccl
-    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/hcomm/ccu
-    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/runtime
-    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/runtime/runtime
-    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/base
-    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/dump
-    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/trace
-    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/mmpa
+    ${ASCEND_CANN_BASE_PATH}/include
+    ${ASCEND_CANN_BASE_PATH}/include/acl
+    ${ASCEND_CANN_BASE_PATH}/include/hccl
+    ${ASCEND_CANN_BASE_PATH}/include/hcomm
+    ${ASCEND_CANN_BASE_PATH}/include/base
+    ${ASCEND_CANN_BASE_PATH}/include/driver
+    ${ASCEND_CANN_BASE_PATH}/include/dump
+    ${ASCEND_CANN_BASE_PATH}/include/external
+    ${ASCEND_CANN_BASE_PATH}/include/platform
+    ${ASCEND_CANN_BASE_PATH}/pkg_inc
+    ${ASCEND_CANN_BASE_PATH}/pkg_inc/hccl
+    ${ASCEND_CANN_BASE_PATH}/pkg_inc/hcomm/ccu
+    ${ASCEND_CANN_BASE_PATH}/pkg_inc/runtime
+    ${ASCEND_CANN_BASE_PATH}/pkg_inc/runtime/runtime
+    ${ASCEND_CANN_BASE_PATH}/pkg_inc/base
+    ${ASCEND_CANN_BASE_PATH}/pkg_inc/dump
+    ${ASCEND_CANN_BASE_PATH}/pkg_inc/trace
+    ${ASCEND_CANN_BASE_PATH}/pkg_inc/mmpa
 )
 
 add_library(hccl_custom_allgather_batch SHARED)
@@ -64,7 +80,7 @@ target_link_options(hccl_custom_allgather_batch PRIVATE
 )
 
 target_link_directories(hccl_custom_allgather_batch PRIVATE
-    ${ASCEND_CANN_PACKAGE_PATH}/lib64
+    ${ASCEND_CANN_BASE_PATH}/lib64
 )
 
 target_link_libraries(hccl_custom_allgather_batch PRIVATE
