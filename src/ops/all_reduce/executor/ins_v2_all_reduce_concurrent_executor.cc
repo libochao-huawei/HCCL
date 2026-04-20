@@ -136,7 +136,7 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
                                               resReq0.ccuKernelInfos.end());
         resourceRequest.ccuKernelInfos.insert(resourceRequest.ccuKernelInfos.end(), resReq1.ccuKernelInfos.begin(),
                                               resReq1.ccuKernelInfos.end());
-    } else if (param.engine == CommEngine::COMM_ENGINE_AICPU) {
+    } else if (param.engine == CommEngine::COMM_ENGINE_AICPU || param.engine == CommEngine::COMM_ENGINE_AICPU_TS) {
         // 都放在level0，前面放temp0的channels，后面放temp1的channels，两者数量应相等
         resourceRequest.channels.resize(1);
         resourceRequest.channels[0].insert(resourceRequest.channels[0].end(), channelDescs0.begin(),
