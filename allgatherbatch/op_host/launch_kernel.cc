@@ -8,7 +8,6 @@
 
 namespace ops_hccl_allgatherbatch {
 
-thread_local aclrtNotify g_allGatherBatchNotifies[kAllGatherBatchControlNotifyNum] = {nullptr};
 thread_local aclrtStream launchStream = nullptr;
 
 HcclResult LaunchKernel(const OpParam &param, aclrtStream stream)
@@ -17,7 +16,7 @@ HcclResult LaunchKernel(const OpParam &param, aclrtStream stream)
     if (launchStream == nullptr) {
         ACLCHECK(aclrtCreateStreamWithConfig(&launchStream, 0, ACL_STREAM_FAST_LAUNCH | ACL_STREAM_FAST_SYNC));
     }
-    ACLCHECK(aclrtRecordNotify(g_allGatherBatchNotifies[kAllGatherBatchControlNotifyStart], stream));
+    HCCL_CHK_RET(HcommThreadNotifyRecordOnThread(param.cpuThread, param.aicpuThreadOnCpu, 0));
 
     aclrtFuncHandle funcHandle = nullptr;
     aclrtArgsHandle argsHandle = nullptr;
@@ -40,10 +39,7 @@ HcclResult LaunchKernel(const OpParam &param, aclrtStream stream)
     
     CHK_PRT(HcommProfilingReportKernel(beginTime, kAllGatherBatchProfilingKernelName));
 
-    ACLCHECK(aclrtWaitAndResetNotify(
-        g_allGatherBatchNotifies[kAllGatherBatchControlNotifyDone],
-        stream,
-        CUSTOM_TIMEOUT));
+    HCCL_CHK_RET(HcommThreadNotifyWaitOnThread(param.cpuThread, 0, CUSTOM_TIMEOUT));
 
     HCCL_INFO("Host launch done: rank=%u, commMode=%s, itemCount=%u",
         param.topoInfo.rank, ToCommModeString(param.commMode), param.itemCount);

@@ -1,4 +1,4 @@
-ï»¿#ifndef HCCL_ALLGATHERBATCH_RESOURCE_REQUEST_H
+#ifndef HCCL_ALLGATHERBATCH_RESOURCE_REQUEST_H
 #define HCCL_ALLGATHERBATCH_RESOURCE_REQUEST_H
 
 #include <vector>
@@ -15,11 +15,10 @@ struct ChannelRequest {
     uint32_t notifyNum = 0;
 };
 
-// Host ä¾§èµ„æºè¯·æ±‚ã€‚`GetAlgRes` åªè´Ÿè´£æŒ‰è¯·æ±‚åˆ†é…èµ„æºï¼Œä¸å†è‡ªå·±éšå¼æ¨å¯¼ channel æ¨¡å‹ã€‚
-// å½“å‰å‰æå›ºå®šä¸º fullmeshï¼Œå› æ­¤ channel æ•°é‡å§‹ç»ˆç­‰äº rankSize - 1ã€‚
+// Host ²à×ÊÔ´ÇëÇó¡£`GetAlgRes` Ö»¸ºÔğ°´ÇëÇó·ÖÅä×ÊÔ´£¬²»ÔÙ×Ô¼ºÒşÊ½ÍÆµ¼ channel Ä£ĞÍ¡£
+// µ±Ç°Ç°Ìá¹Ì¶¨Îª fullmesh£¬Òò´Ë channel ÊıÁ¿Ê¼ÖÕµÈÓÚ rankSize - 1¡£
 struct BatchResourceRequest {
     uint32_t threadNum = 1;
-    uint32_t controlNotifyNum = kAllGatherBatchControlNotifyNum;
     uint32_t mainThreadNotifyNum = 0;
     uint32_t lastTwoWorkerCount = 0;
     uint32_t workerNotifyNum = 0;

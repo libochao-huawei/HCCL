@@ -92,11 +92,8 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
         }
     }
 
-    if (HcommAclrtNotifyWaitOnThread(
-            thread,
-            param->controlNotifyIds[kAllGatherBatchControlNotifyStart],
-            CUSTOM_TIMEOUT) != HCCL_SUCCESS) {
-        HCCL_ERROR("wait host start notify failed, tag=%s", param->tag);
+    if (HcommThreadNotifyWaitOnThread(thread, 0, CUSTOM_TIMEOUT) != HCCL_SUCCESS) {
+        HCCL_ERROR("wait host cpu thread notify failed, tag=%s", param->tag);
         EndProfilingIfNeeded();
         (void)HcommBatchModeEnd(param->tag);
         (void)HcommReleaseComm(param->commName);
@@ -122,20 +119,21 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
         }
     }
 
-    HCCL_INFO("kernel done notify begin: rank=%u, tag=%s",
+    HCCL_INFO("kernel done thread notify begin: rank=%u, tag=%s",
         param->topoInfo.rank,
         param->tag);
-    if (HcommAclrtNotifyRecordOnThread(
+    if (HcommThreadNotifyRecordOnThread(
             thread,
-            param->controlNotifyIds[kAllGatherBatchControlNotifyDone]) != HCCL_SUCCESS) {
-        HCCL_ERROR("record host done notify failed, tag=%s", param->tag);
+            param->resCtx->cpuThreadOnAicpu,
+            0) != HCCL_SUCCESS) {
+        HCCL_ERROR("record host cpu thread notify failed, tag=%s", param->tag);
         EndProfilingIfNeeded();
         (void)HcommBatchModeEnd(param->tag);
         (void)HcommReleaseComm(param->commName);
         return 1;
     }
 
-    HCCL_INFO("kernel done notify end: rank=%u, tag=%s",
+    HCCL_INFO("kernel done thread notify end: rank=%u, tag=%s",
         param->topoInfo.rank,
         param->tag);
     if (profilingInitialized) {

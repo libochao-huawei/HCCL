@@ -86,18 +86,6 @@ uint64_t GetDataTypeSize(HcclDataType dataType)
             return 0U;
     }
 }
-HcclResult EnsureControlNotifies(OpParam &param)
-{
-    // 控制 notify 属于本次 launch 的控制参数，不写入缓存资源。
-    for (uint32_t idx = 0; idx < kAllGatherBatchControlNotifyNum; ++idx) {
-        if (g_allGatherBatchNotifies[idx] == nullptr) {
-            ACLCHECK(aclrtCreateNotify(&g_allGatherBatchNotifies[idx], ACL_NOTIFY_DEFAULT));
-        }
-        ACLCHECK(aclrtGetNotifyId(g_allGatherBatchNotifies[idx], &param.controlNotifyIds[idx]));
-    }
-    return HCCL_SUCCESS;
-}
-
 HcclResult QueryServerInstSizeList(HcclComm comm, uint32_t **instSizeList, uint32_t *instListSize)
 {
     HCCL_CHK_PTR(instSizeList);
@@ -371,7 +359,6 @@ HcclResult PrepareOpParam(const HcclAllGatherItem *items, uint32_t itemCount, Hc
 HcclResult CalcFullMeshResourceRequest(HcclComm comm, const OpParam &param, BatchResourceRequest &request)
 {
     request.threadNum = 1 + SubThreadNum;
-    request.controlNotifyNum = kAllGatherBatchControlNotifyNum;
     request.mainThreadNotifyNum = SubThreadNum;
     request.lastTwoWorkerCount = SubThreadNum;
     request.workerNotifyNum = 1;
@@ -428,6 +415,7 @@ void InitAlgResourceCtxHeader(const BatchResourceRequest &request, AlgResourceCt
 {
     resCtx.threadHandle = 0;
     resCtx.mainThreadHandle = 0;
+    resCtx.cpuThreadOnAicpu = 0;
     resCtx.lastTwoWorkerCount = request.lastTwoWorkerCount;
     resCtx.reserved0 = 0;
     for (uint32_t idx = 0; idx < SubThreadNum; ++idx) {
@@ -556,16 +544,33 @@ HcclResult GetAlgRes(HcclComm comm, const OpParam &param, AlgResourceCtx **resCt
 }
 
 
-HcclResult ReportProfilingThread(HcclComm comm, const OpParam &param, aclrtStream stream)
+HcclResult PrepareHostAicpuSyncThreads(HcclComm comm, OpParam &param, aclrtStream stream)
+{
+    CHK_PTR_NULL(param.resCtx);
+    param.cpuThread = 0;
+    param.aicpuThreadOnCpu = 0;
+    param.resCtx->cpuThreadOnAicpu = 0;
+
+    HCCL_CHK_RET(HcclThreadAcquireWithStream(comm, COMM_ENGINE_CPU_TS, stream, 1, &param.cpuThread));
+    HCCL_CHK_RET(HcclThreadExportToCommEngine(
+        comm, 1, &param.cpuThread, COMM_ENGINE_AICPU, &param.resCtx->cpuThreadOnAicpu));
+    HCCL_CHK_RET(HcclThreadExportToCommEngine(
+        comm, 1, &param.resCtx->mainThreadHandle, COMM_ENGINE_CPU_TS, &param.aicpuThreadOnCpu));
+    return HCCL_SUCCESS;
+}
+
+HcclResult ReportProfilingThread(const OpParam &param)
 {
     if (!(HcommIsProfilingSupported() &&
         HcommIsSupportHcommProfilingRegThread())) {
         return HCCL_SUCCESS;
     }
 
-    ThreadHandle cpuTsThread = 0;
-    CHK_RET(HcclThreadAcquireWithStream(comm, COMM_ENGINE_CPU_TS, stream, 1, &cpuTsThread));
+    CHK_PRT_RET(param.cpuThread == 0,
+        HCCL_ERROR("[ReportProfilingThread] cpuThread is invalid"),
+        HCCL_E_PARA);
 
+    ThreadHandle cpuTsThread = param.cpuThread;
     HcomProInfoTmp profInfo {};
     FillProfilingInfo(profInfo, param, 0, 0);
     CHK_PRT(HcommProfilingRegThread(profInfo, &cpuTsThread));
@@ -596,7 +601,6 @@ HcclResult HcclAllGatherBatch(
 
     OpParam param;
     HCCL_CHK_RET(PrepareOpParam(items, itemCount, comm, param));
-    HCCL_CHK_RET(EnsureControlNotifies(param));
 
     HCCL_INFO("Host op prepared: rank=%u, rankSize=%u, commMode=%s, serverIdx=%u, serverCount=%u, superPodIdx=%u, intraServerRankCount=%u, crossServerRankCount=%u",
         param.topoInfo.rank,
@@ -612,7 +616,8 @@ HcclResult HcclAllGatherBatch(
     HCCL_CHK_RET(GetAlgRes(comm, param, &resCtx));
     param.resCtx = resCtx;
 
-    HCCL_CHK_RET(ReportProfilingThread(comm, param, stream));
+    HCCL_CHK_RET(PrepareHostAicpuSyncThreads(comm, param, stream));
+    HCCL_CHK_RET(ReportProfilingThread(param));
     HCCL_CHK_RET(LoadAndLaunch(param, stream));
 
     HcomProInfoTmp info {};
