@@ -309,7 +309,7 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     InsAlgTemplate0 intraTempAlg(param, resCtx.topoInfo.userRank, temp0HierarchyInfo);
     InsAlgTemplate1 interTempAlg(param, resCtx.topoInfo.userRank, temp1HierarchyInfo);
     if (param.engine == CommEngine::COMM_ENGINE_AICPU_TS) {
-        interTempAlg.GetchannelsPerRank(interChannelMap_);
+        interTempAlg.SetchannelsPerRank(interChannelMap_);
     }
     // 将计算资源分配个每个算法
     PrepareResForTemplate(intraTempAlg, interTempAlg);
