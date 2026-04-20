@@ -128,6 +128,11 @@ HcclResult InsTempScatterNHR::KernelRun(const OpParam& param, const TemplateData
     processSize_ = tempAlgParams.sliceSize;
     count_ = tempAlgParams.count;
     dataType_ = param.DataDes.dataType;
+
+    bool isPcieProtocal = IsPcieProtocol(templateResource.channels);  // 判断是否存在pcie链路
+    isDmaRead_ = isPcieProtocal;  // 是否使用Read模式
+    HCCL_DEBUG("[InsTempScatterNHR] Use Dma Read[%d]", isDmaRead_);
+
     HCCL_INFO("[InsTempScatterNHR] queNum_ =  [%d], threads size = [%d]", threadNum_, templateResource.threads.size());
     HCCL_INFO("[InsTempScatterNHR] Run Start");
     CHK_PRT_RET(templateResource.threads.empty(), 
@@ -253,9 +258,15 @@ HcclResult InsTempScatterNHR::BatchSend(AicpuNHRStepInfo &stepInfo, const std::m
     }
     SlicesList txSlicesList({srcSlices}, {dstSlices});
     DataInfo sendData(linkSend, txSlicesList);
-    CHK_PRT_RET(static_cast<HcclResult>(SendWrite(sendData, thread)),
-        HCCL_ERROR("[InsTempScatterNHR] BatchSend failed"),
-        HcclResult::HCCL_E_INTERNAL);
+    if (isDmaRead_) {
+        CHK_PRT_RET(static_cast<HcclResult>(SendRead(sendData, thread)),
+            HCCL_ERROR("[InsTempScatterNHR] BatchSend failed"),
+            HcclResult::HCCL_E_INTERNAL);
+    } else {
+        CHK_PRT_RET(static_cast<HcclResult>(SendWrite(sendData, thread)),
+            HCCL_ERROR("[InsTempScatterNHR] BatchSend failed"),
+            HcclResult::HCCL_E_INTERNAL);
+    }
     return HcclResult::HCCL_SUCCESS;
 }
 
@@ -267,7 +278,9 @@ HcclResult InsTempScatterNHR::BatchRecv(AicpuNHRStepInfo &stepInfo, const std::m
                 HCCL_E_INTERNAL);
     const ChannelInfo &linkRecv = channels.at(stepInfo.fromRank)[0];
     CHK_PTR_NULL(linkRecv.remoteCclMem.addr);
-    std::vector<DataSlice> srcDstSlices;
+    void* remoteCclBuffAddr = linkRecv.remoteCclMem.addr;
+    std::vector<DataSlice> srcSlices;
+    std::vector<DataSlice> dstSlices;
     u32 curSliceSize = 0;
     u32 curCount = 0;
     const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
@@ -278,14 +291,22 @@ HcclResult InsTempScatterNHR::BatchRecv(AicpuNHRStepInfo &stepInfo, const std::m
                            rxId * tempAlgParam.sliceSize;
         curSliceSize = tempAlgParam.tailSize !=0 && rxId == templateRankSize_ - 1? tempAlgParam.tailSize : processSize_;
         curCount = curSliceSize / dataTypeSize;
-        DataSlice srcDstSlice(tempAlgParam.buffInfo.hcclBuff.addr, srcDstOffset, curSliceSize, curCount);
-        srcDstSlices.push_back(srcDstSlice);
+        DataSlice srcSlice = DataSlice(remoteCclBuffAddr, srcDstOffset, curSliceSize, curCount);
+        DataSlice dstSlice = DataSlice(tempAlgParam.buffInfo.hcclBuff.addr, srcDstOffset, curSliceSize, curCount);
+        srcSlices.push_back(srcSlice);
+        dstSlices.push_back(dstSlice);
     }
-    SlicesList rxSlicesList(srcDstSlices, srcDstSlices); // RecvWrite函数下远端地址不起作用
+    SlicesList rxSlicesList({srcSlices}, {dstSlices});
     DataInfo recvData(linkRecv, rxSlicesList);
-    CHK_PRT_RET(static_cast<HcclResult>(RecvWrite(recvData, thread)),
-        HCCL_ERROR("[InsTempScatterNHR] BatchRecv failed"),
-        HcclResult::HCCL_E_INTERNAL);
+    if (isDmaRead_) {
+        CHK_PRT_RET(static_cast<HcclResult>(RecvRead(recvData, thread)),
+            HCCL_ERROR("[InsTempScatterNHR] BatchRecv failed"),
+            HcclResult::HCCL_E_INTERNAL);
+    } else {
+        CHK_PRT_RET(static_cast<HcclResult>(RecvWrite(recvData, thread)),
+            HCCL_ERROR("[InsTempScatterNHR] BatchRecv failed"),
+            HcclResult::HCCL_E_INTERNAL);
+    }
     return HcclResult::HCCL_SUCCESS;
 }
 
@@ -302,7 +323,8 @@ HcclResult InsTempScatterNHR::BatchSR(AicpuNHRStepInfo &stepInfo, const std::map
     const ChannelInfo &linkRecv = channels.at(stepInfo.fromRank)[0];
     CHK_PTR_NULL(linkSend.remoteCclMem.addr);
     CHK_PTR_NULL(linkRecv.remoteCclMem.addr);
-    void* remoteCclBuffAddr = linkSend.remoteCclMem.addr;
+    void* sendRemoteCclBuffAddr = linkSend.remoteCclMem.addr;
+    void* recvRemoteCclBuffAddr = linkRecv.remoteCclMem.addr;
 
     u32 curSliceSize = 0;
     u32 curCount = 0;
@@ -317,26 +339,35 @@ HcclResult InsTempScatterNHR::BatchSR(AicpuNHRStepInfo &stepInfo, const std::map
         curSliceSize = tempAlgParam.tailSize !=0 && txId == templateRankSize_ - 1? tempAlgParam.tailSize : processSize_;
         curCount = curSliceSize / dataTypeSize;
         DataSlice srcSlice(tempAlgParam.buffInfo.hcclBuff.addr, srcDstOffset, curSliceSize, curCount);
-        DataSlice dstSlice(remoteCclBuffAddr, srcDstOffset, curSliceSize, curCount);
+        DataSlice dstSlice(sendRemoteCclBuffAddr, srcDstOffset, curSliceSize, curCount);
         txSrcSlices.push_back(srcSlice);
         txDstSlices.push_back(dstSlice);
     }
-    std::vector<DataSlice> rxSrcDstSlices;
+    std::vector<DataSlice> rxSrcSlices;
+    std::vector<DataSlice> rxDstSlices;
     for (u32 i = 0; i < stepInfo.rxSliceIdxs.size(); i++) {
         u32 rxId = stepInfo.rxSliceIdxs.at(i);
         u64 srcDstOffset = repeat * templateRankSize_ * tempAlgParam.sliceSize + tempAlgParam.buffInfo.hcclBuffBaseOff +
                            rxId * tempAlgParam.sliceSize;
         curSliceSize = tempAlgParam.tailSize !=0 && rxId == templateRankSize_ - 1? tempAlgParam.tailSize : processSize_;
         curCount = curSliceSize / dataTypeSize;
-        DataSlice srcDstSlice(tempAlgParam.buffInfo.hcclBuff.addr, srcDstOffset, curSliceSize, curCount);
-        rxSrcDstSlices.push_back(srcDstSlice);
+        DataSlice srcSlice = DataSlice(recvRemoteCclBuffAddr, srcDstOffset, curSliceSize, curCount);
+        DataSlice dstSlice = DataSlice(tempAlgParam.buffInfo.hcclBuff.addr, srcDstOffset, curSliceSize, curCount);
+        rxSrcSlices.push_back(srcSlice);
+        rxDstSlices.push_back(dstSlice);
     }
     SendRecvInfo sendRecvInfo{
-        {linkSend, linkRecv}, {{txSrcSlices, txDstSlices}, {rxSrcDstSlices, rxSrcDstSlices}}};
+        {linkSend, linkRecv}, {{txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices}}};
 
-    CHK_PRT_RET(SendRecvWrite(sendRecvInfo, thread),
-        HCCL_ERROR("[InsTempScatterNHR] RunNHR BatchSendRecv failed"),
-        HcclResult::HCCL_E_INTERNAL);
+    if (isDmaRead_) {
+        CHK_PRT_RET(SendRecvRead(sendRecvInfo, thread),
+            HCCL_ERROR("[InsTempScatterNHR] RunNHR BatchSendRecv failed"),
+            HcclResult::HCCL_E_INTERNAL);
+    } else {
+        CHK_PRT_RET(SendRecvWrite(sendRecvInfo, thread),
+            HCCL_ERROR("[InsTempScatterNHR] RunNHR BatchSendRecv failed"),
+            HcclResult::HCCL_E_INTERNAL);
+    }
     return HcclResult::HCCL_SUCCESS;
 }
 

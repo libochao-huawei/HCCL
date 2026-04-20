@@ -133,12 +133,17 @@ HcclResult GetProtocolByEngine(const OpParam& param, std::vector<CommProtocol> &
     switch (param.engine) {
         case CommEngine::COMM_ENGINE_AICPU:
         case CommEngine::COMM_ENGINE_AICPU_TS:
+            protocols.push_back(CommProtocol::COMM_PROTOCOL_UBC_CTP);
+            protocols.push_back(CommProtocol::COMM_PROTOCOL_UBC_TP);
+            protocols.push_back(CommProtocol::COMM_PROTOCOL_PCIE);
+            break;
         case CommEngine::COMM_ENGINE_CCU:
             protocols.push_back(CommProtocol::COMM_PROTOCOL_UBC_CTP);
             protocols.push_back(CommProtocol::COMM_PROTOCOL_UBC_TP);
             break;
         case CommEngine::COMM_ENGINE_AIV:
             protocols.push_back(CommProtocol::COMM_PROTOCOL_UB_MEM);
+            protocols.push_back(CommProtocol::COMM_PROTOCOL_PCIE);
             break;
         case CommEngine::COMM_ENGINE_CPU:
             // level 1到level n-1使用UB协议，server内建联，最外层使用网卡建联
@@ -378,9 +383,15 @@ static bool IsEndPointEqual(EndpointDesc &endPoint0, EndpointDesc &endPoint1)
             endPoint1.protocol,
             endPoint1.commAddr.type,
             endPoint1.commAddr.id);
-    return (endPoint0.protocol == endPoint1.protocol) &&
-           (endPoint0.commAddr.type == endPoint1.commAddr.type) &&
-           (memcmp(endPoint0.commAddr.eid, endPoint1.commAddr.eid, sizeof(endPoint0.commAddr.eid)) == 0);
+    if (endPoint0.protocol == CommProtocol::COMM_PROTOCOL_PCIE) {
+        return (endPoint0.protocol == endPoint1.protocol) &&
+            (endPoint0.commAddr.type == endPoint1.commAddr.type);
+    } else {
+        return (endPoint0.protocol == endPoint1.protocol) &&
+            (endPoint0.commAddr.type == endPoint1.commAddr.type) &&
+            (memcmp(endPoint0.commAddr.eid, endPoint1.commAddr.eid, sizeof(endPoint0.commAddr.eid)) == 0);
+    }
+
 }
 
 HcclResult GetTopoTypeByLink(HcclComm comm, uint32_t netLayer, CommLink &link, CommTopo &topoType)

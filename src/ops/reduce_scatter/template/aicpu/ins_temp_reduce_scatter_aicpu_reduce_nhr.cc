@@ -59,6 +59,8 @@ HcclResult InsTempReduceScatterAicpuReduceNHR::KernelRun(const OpParam& param,
     tempAlgParams_       = tempAlgParams;
     channels_            = templateResource.channels;
     dataType_            = param.DataDes.dataType;
+    bool isPcieProtocal = IsPcieProtocol(channels_);  // 判断是否存在pcie链路
+    isDmaRead_ = isPcieProtocal;  // 是否使用Read模式
     
     for (u32 sliceIdx = 0; sliceIdx < templateRankSize_; ++sliceIdx) {
         // Step 1: 本地拷贝，将本rank的数据拷贝到自己hcclBuffer上相应的位置
@@ -233,9 +235,15 @@ HcclResult InsTempReduceScatterAicpuReduceNHR::RunAllGather(const std::vector<Th
             TxRxChannels sendRecvChannels(channelSend, channelRecv);
             SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
 
-            CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[0]),
-                        HCCL_ERROR("[InsTempReduceScatterAicpuReduceNHR] sendrecv failed (step=%u, rpt=%u)", step, rpt),
-                        HcclResult::HCCL_E_INTERNAL);
+            if (isDmaRead_) {
+                CHK_PRT_RET(SendRecvRead(sendRecvInfo, threads[0]),
+                    HCCL_ERROR("[InsTempReduceScatterAicpuReduceNHR] sendrecv failed (step=%u, rpt=%u)", step, rpt),
+                    HcclResult::HCCL_E_INTERNAL);
+            } else {
+                CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[0]),
+                    HCCL_ERROR("[InsTempReduceScatterAicpuReduceNHR] sendrecv failed (step=%u, rpt=%u)", step, rpt),
+                    HcclResult::HCCL_E_INTERNAL);
+            }
         }
     }
     return HcclResult::HCCL_SUCCESS;
