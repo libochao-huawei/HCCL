@@ -6,6 +6,16 @@
 
 namespace ops_hccl {
 
+enum class CommEngine {
+    COMM_ENGINE_RESERVED = 0,
+    COMM_ENGINE_CPU_TS = 1,
+    COMM_ENGINE_AICPU_TS = 2,
+    COMM_ENGINE_AIV = 3,
+    COMM_ENGINE_CCU = 4,
+    COMM_ENGINE_AICPU = 5,
+    COMM_ENGINE_CPU = 6
+};
+
 enum class OpExecuteConfig {
     DEFAULT = 0,
     HOSTCPU_TS = 1,
