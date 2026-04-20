@@ -164,9 +164,6 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNe
             return SelectorStatus::NOT_MATCH;
         }
     } else {
-    CHK_PRT_RET(opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT8,
-        HCCL_DEBUG("[AllReduceAutoSelector] dataType[%d] is not supported yet for ccu schedule mode "
-                    "with ms reduce.", opParam.DataDes.dataType), SelectorStatus::NOT_MATCH);
         return SelectCcuScheduleLevel0Algo(topoInfo, opParam, selectAlgName, dataSize);
     }
     HCCL_DEBUG("[AllReduceAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
