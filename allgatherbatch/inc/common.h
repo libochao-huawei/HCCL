@@ -17,17 +17,11 @@
 namespace ops_hccl_allgatherbatch {
 
 constexpr uint32_t kAllGatherBatchMaxItems = 8;
-constexpr uint32_t kAllGatherBatchControlNotifyNum = 2;
-constexpr uint32_t kAllGatherBatchControlNotifyStart = 0;
-constexpr uint32_t kAllGatherBatchControlNotifyDone = 1;
 constexpr uint32_t SubThreadNum = 3;
-constexpr uint32_t kAllGatherBatchNotifyIdxAck = 0;
-constexpr uint32_t kAllGatherBatchNotifyIdxDataSignal = 1;
-constexpr uint32_t kAllGatherBatchNotifyIdxFinAck = 2;
 constexpr u32 NOTIFY_IDX_ACK = 0;
 constexpr u32 NOTIFY_IDX_DATA_SIGNAL = 1;
 constexpr u32 NOTIFY_IDX_FIN_ACK = 2;
-constexpr uint32_t CUSTOM_TIMEOUT = 1800;
+constexpr uint32_t CUSTOM_TIMEOUT = 120;
 constexpr uint32_t kAllGatherBatchOpNameLength = 64;
 constexpr uint32_t kAllGatherBatchTagLength = HCCL_RES_TAG_MAX_LEN + 1;
 constexpr char kAllGatherBatchCtxTag[] = "allgatherbatch";
@@ -108,7 +102,8 @@ struct AlgResourceCtx {
     // threadHandle 仅作为旧控制链兼容字段保留，正式资源合同以 mainThreadHandle 为准。
     ThreadHandle threadHandle = 0;
     ThreadHandle mainThreadHandle = 0;
-    uint32_t lastTwoWorkerCount = 0;
+    ThreadHandle cpuThreadOnAicpu = 0;
+    uint32_t subThreadCount = 0;
     uint32_t reserved0 = 0;
     ThreadHandle subThreadHandles[SubThreadNum] = {0};
     uint32_t mainNotifyIds[SubThreadNum] = {0};
@@ -155,7 +150,9 @@ struct OpParam {
     uint32_t intraServerRankCount = 0;
     uint32_t crossServerRankCount = 0;
     uint32_t reserved0 = 0;
-    uint32_t controlNotifyIds[kAllGatherBatchControlNotifyNum] = {0};
+    ThreadHandle cpuThread = 0;
+    ThreadHandle aicpuThreadOnCpu = 0;
+    uint32_t startThreadNotifyIdx = 0;
     uint64_t totalInputBytes = 0;
     uint64_t totalOutputBytes = 0;
     uint64_t windowBytes = 0;
