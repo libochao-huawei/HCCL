@@ -85,6 +85,8 @@ private:
     u32 myRankIdx_{0};
     std::vector<NHRSliceInfo> sliceInfoList_;
     std::vector<u32> rankList_;
+
+    bool isDmaRead_{false};
 };
 
 }  // namespace ops_hccl
