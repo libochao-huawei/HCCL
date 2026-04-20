@@ -590,6 +590,7 @@ HcclResult HcclAllGatherBatch(
 
     // 对外入口只打印轻量日志，详细 topo 信息稍后输出。
     HCCL_INFO("HcclAllGatherBatch invoked: itemCount=%u", itemCount);
+    const uint64_t beginTime = HcommGetProfilingSysCycleTime();
 
     HCCL_CHK_RET(ValidateItems(items, itemCount, comm, stream));
 
@@ -612,5 +613,11 @@ HcclResult HcclAllGatherBatch(
     param.resCtx = resCtx;
 
     HCCL_CHK_RET(ReportProfilingThread(comm, param, stream));
-    return LoadAndLaunch(param, stream);
+    HCCL_CHK_RET(LoadAndLaunch(param, stream));
+
+    HcomProInfoTmp info {};
+    FillProfilingInfo(info, param, beginTime, 0);
+    CHK_PRT(HcommProfilingReportOp(info));
+
+    return HCCL_SUCCESS;
 }

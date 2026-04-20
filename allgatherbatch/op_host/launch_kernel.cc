@@ -48,10 +48,6 @@ HcclResult LaunchKernel(const OpParam &param, aclrtStream stream)
     HCCL_INFO("Host launch done: rank=%u, commMode=%s, itemCount=%u",
         param.topoInfo.rank, ToCommModeString(param.commMode), param.itemCount);
 
-    HcomProInfoTmp info {};
-    FillProfilingInfo(info, param, beginTime, 0);
-    CHK_PRT(HcommProfilingReportOp(info));
-
     return HCCL_SUCCESS;
 }
 
