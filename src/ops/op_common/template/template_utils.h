@@ -320,7 +320,6 @@ struct DPURunInfo { // AICPU构造信息，写入共享内存
     u32 myRank;
     std::vector<std::vector<uint32_t>> subCommRanks;
     u32 myRankId;
-    u32 npuDevId;
     u32 dpuDevId;
     u64 aicpuTaskId;
 
@@ -333,7 +332,6 @@ struct DPURunInfo { // AICPU构造信息，写入共享内存
         binaryStream << myRank;
         binaryStream << subCommRanks;
         binaryStream << myRankId;
-        binaryStream << npuDevId;
         binaryStream << dpuDevId;
         binaryStream << aicpuTaskId;
 
@@ -353,7 +351,6 @@ struct DPURunInfo { // AICPU构造信息，写入共享内存
         binaryStream >> myRank;
         binaryStream >> subCommRanks;
         binaryStream >> myRankId;
-        binaryStream >> npuDevId;
         binaryStream >> dpuDevId;
         binaryStream >> aicpuTaskId;
     }

@@ -76,10 +76,6 @@ HcclResult InsTempAllGatherNHRDPU::KernelRun(const OpParam& param,
     dpuRunInfo.subCommRanks = subCommRanks_;
     dpuRunInfo.myRankId = myRank_;
     
-    s32 npuDevId = 0;
-    CHK_RET(static_cast<HcclResult>(hrtGetDevice(&npuDevId)));
-    dpuRunInfo.npuDevId = npuDevId;
-    
     dpuRunInfo.dpuDevId = (1u << 12) | 0u;
     
     u64 aicpuTaskId = 0;
