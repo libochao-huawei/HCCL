@@ -208,6 +208,10 @@ HcclResult CcuTempScatterNHR1DMem2Mem::SplitDataFor2Dies(const OpParam &param,
 
 HcclResult CcuTempScatterNHR1DMem2Mem::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
 {
+    if (tempFastLaunchCtx.ccuKernelSubmitInfos.size() == 0) {
+        HCCL_INFO("[CcuTempScatterNHR1DMem2Mem::FastLaunch] ccu kernel num is 0, just success.");
+        return HCCL_SUCCESS;
+    }
     HCCL_DEBUG("[CcuTempScatterNHR1DMem2Mem::FastLaunch] start");
     u32 kernelNum = tempFastLaunchCtx.ccuKernelSubmitInfos.size();
     buffInfo_ = tempFastLaunchCtx.buffInfo;

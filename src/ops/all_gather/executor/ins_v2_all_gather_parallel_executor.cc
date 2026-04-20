@@ -451,11 +451,11 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
         // 尾同步
         CHK_RET(PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_));
     }
-#ifndef AICPU_COMPILE
-    if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU) {
-        CHK_RET(FastLaunchSaveCtx(param, intraTempAlgRes, interTempAlgRes));
-    }
-#endif
+// #ifndef AICPU_COMPILE
+//     if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU) {
+//         CHK_RET(FastLaunchSaveCtx(param, intraTempAlgRes, interTempAlgRes));
+//     }
+// #endif
     HCCL_INFO("[InsV2AllGatherParallelExecutor][OrchestrateLoop] End.");
     return HcclResult::HCCL_SUCCESS;
 };
