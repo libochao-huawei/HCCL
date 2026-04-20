@@ -100,6 +100,10 @@ HcclResult CcuTempAllReduceMesh1DOneShot::KernelRun(const OpParam& param,
 
 HcclResult CcuTempAllReduceMesh1DOneShot::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
 {
+    if (tempFastLaunchCtx.ccuKernelSubmitInfos.size() == 0) {
+        HCCL_INFO("[CcuTempAllReduceMesh1DOneShot::FastLaunch] ccu kernel num is 0, just success.");
+        return HCCL_SUCCESS;
+    }
     HCCL_DEBUG("[CcuTempAllReduceMesh1DOneShot::FastLaunch] start");
     CcuTaskArgAllReduceMesh1DOneShot taskArg(
         PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[0],
