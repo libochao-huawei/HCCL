@@ -148,7 +148,6 @@ void CcuKernelAllGatherMesh1DMem2Mem::DoAllGather(const hcomm::CcuRep::LocalAddr
             CCU_IF(isInputOutputEqual_ == 0)
             {
                 event_.SetMask(1 << rankIdx);
-                GroupCopy(remote_src, src_loccopy, localGoSize_);
                 RecordEvent(event_);
             }
         } else {
@@ -160,6 +159,7 @@ void CcuKernelAllGatherMesh1DMem2Mem::DoAllGather(const hcomm::CcuRep::LocalAddr
             channelId++;
         }
     }
+    GroupCopy(remote_src, src_loccopy, localGoSize_);
     event_.SetMask((1 << rankSize_) - 1);
     WaitEvent(event_);
 }
