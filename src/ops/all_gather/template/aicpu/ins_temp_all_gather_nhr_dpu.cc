@@ -74,6 +74,19 @@ HcclResult InsTempAllGatherNHRDPU::KernelRun(const OpParam& param,
     dpuRunInfo.channels = templateResource.channels;
     dpuRunInfo.myRank = myRank_;
     dpuRunInfo.subCommRanks = subCommRanks_;
+    dpuRunInfo.myRankId = myRank_;
+    
+    s32 npuDevId = 0;
+    CHK_RET(static_cast<HcclResult>(hrtGetDevice(&npuDevId)));
+    dpuRunInfo.npuDevId = npuDevId;
+    
+    dpuRunInfo.dpuDevId = (1u << 12) | 0u;
+    
+    u64 aicpuTaskId = 0;
+    u32 aicpuStreamId = 0;
+    CHK_RET(static_cast<HcclResult>(aicpu::GetTaskAndStreamId(aicpuTaskId, aicpuStreamId)));
+    dpuRunInfo.aicpuTaskId = aicpuTaskId;
+    
     auto dpuRunInfoSeqData = dpuRunInfo.Serialize();
 
     u32 sendMsgId = 0;

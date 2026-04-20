@@ -136,9 +136,15 @@ struct SendRecvInfo {
     TxRxChannels      sendRecvChannels_;
     TxRxSlicesList    sendRecvSlices_;
     s32               streamId{0};
+    u32               myRankId{0};
+    u32               npuDevId{0};
+    u32               dpuDevId{0};
+    u64               aicpuTaskId{0};
 
-    SendRecvInfo(const TxRxChannels &sendRecvLinks, const TxRxSlicesList &sendRecvSlices, s32 streamId = 0)
-        : sendRecvChannels_(sendRecvLinks), sendRecvSlices_(sendRecvSlices), streamId_(streamId)
+    SendRecvInfo(const TxRxChannels &sendRecvLinks, const TxRxSlicesList &sendRecvSlices, s32 streamId = 0,
+              u32 myRankId = 0, u32 npuDevId = 0, u32 dpuDevId = 0, u64 aicpuTaskId = 0)
+        : sendRecvChannels_(sendRecvLinks), sendRecvSlices_(sendRecvSlices), streamId_(streamId),
+          myRankId_(myRankId), npuDevId_(npuDevId), dpuDevId_(dpuDevId), aicpuTaskId_(aicpuTaskId)
     {
     }
 };
@@ -313,6 +319,10 @@ struct DPURunInfo { // AICPU构造信息，写入共享内存
     std::map<uint32_t, std::vector<ChannelInfo>> channels;
     u32 myRank;
     std::vector<std::vector<uint32_t>> subCommRanks;
+    u32 myRankId;
+    u32 npuDevId;
+    u32 dpuDevId;
+    u64 aicpuTaskId;
 
     std::vector<char> Serialize() const
     {
@@ -322,6 +332,10 @@ struct DPURunInfo { // AICPU构造信息，写入共享内存
         binaryStream << channels;
         binaryStream << myRank;
         binaryStream << subCommRanks;
+        binaryStream << myRankId;
+        binaryStream << npuDevId;
+        binaryStream << dpuDevId;
+        binaryStream << aicpuTaskId;
 
         std::vector<char> result;
         binaryStream.Dump(result);
@@ -338,6 +352,10 @@ struct DPURunInfo { // AICPU构造信息，写入共享内存
         binaryStream >> channels;
         binaryStream >> myRank;
         binaryStream >> subCommRanks;
+        binaryStream >> myRankId;
+        binaryStream >> npuDevId;
+        binaryStream >> dpuDevId;
+        binaryStream >> aicpuTaskId;
     }
 };
 
