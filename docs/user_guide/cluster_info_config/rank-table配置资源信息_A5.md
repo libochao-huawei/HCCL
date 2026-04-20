@@ -111,7 +111,7 @@
                 },{
                     "net_layer": 1,                // Server间连接
                     "net_instance_id": "az0",
-                    "net_type": "CLOS",
+                    "net_type": "TOPO_FILE_DESC",
                     "net_attr": "",
                     "rank_addr_list": [
                         {
@@ -150,7 +150,7 @@
                 },{
                     "net_layer": 1,
                     "net_instance_id": "az0",
-                    "net_type": "CLOS",
+                    "net_type": "TOPO_FILE_DESC",
                     "net_attr": "",
                     "rank_addr_list": [
                         {
@@ -188,7 +188,7 @@
                 },{
                     "net_layer": 1,
                     "net_instance_id": "az0",
-                    "net_type": "CLOS",
+                    "net_type": "TOPO_FILE_DESC",
                     "net_attr": "",
                     "rank_addr_list": [
                         {
@@ -227,7 +227,7 @@
                 },{
                     "net_layer": 1,
                     "net_instance_id": "az0",
-                    "net_type": "CLOS",
+                    "net_type": "TOPO_FILE_DESC",
                     "net_attr": "",
                     "rank_addr_list": [
                         {
@@ -264,7 +264,7 @@ rank table文件配置说明如下所示：
 |  | level_list |  |  | 必选。<br>rank在每个网络层次的资源信息。<br>此列表下数组长度不能超过8。 |
 |  |  | net_layer |  | 必选。<br>网络层次，取值范围：[0,7]。<br>net_layer需要从0开始编号，以升序的形式排列。 |
 |  |  | net_instance_id |  | 必选。<br>该网络层次下的实例ID，用户自定义，同一个net_layer下保持唯一，长度不超过1024。 |
-|  |  | net_type |  | 可选。<br>该网络层次的网络类型，支持以下取值：<br>  - CLOS（默认值）：所有节点均可通，例如通过交换机连接的胖树结构。<br>  - TOPO_FILE_DESC：通过topo文件描述。 |
+|  |  | net_type |  | 必选。<br>该网络层次的网络类型，当前仅支持配置为“TOPO_FILE_DESC”，代表通过拓扑文件描述。
 |  |  | net_attr |  | 可选。<br>预留字段，表示该网络层次的其他额外信息。 |
 |  |  | rank_addr_list |  | 必选。<br>当前rank在该网络层次使用的网络地址信息。<br>此列表下数组长度不能超过24，每个Die需要单独配置。 |
 |  |  |  | addr_type | 必选。<br>当前rank的地址类型，支持以下取值：<br>  - EID<br>  - IPv4<br>  - IPv6 |
