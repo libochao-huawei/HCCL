@@ -69,6 +69,10 @@ HcclResult InsTempAllGatherNHR::KernelRun(const OpParam &param, const TemplateDa
                            myRank_, threadNum_, templateResource.threads.size()),
                 HcclResult::HCCL_E_INTERNAL);
 
+    bool isPcieProtocal = IsPcieProtocol(templateResource.channels);  // 判断是否存在pcie链路
+    isDmaRead_ = isPcieProtocal;  // 是否使用Read模式
+    HCCL_DEBUG("[InsTempAllGatherNHR] Use Dma Read[%d]", isDmaRead_);
+
     CHK_RET(LocalDataCopy(templateResource.threads));  // input buffer拷贝到scratch buffer上
     CHK_RET(RunAllGatherNHR(templateResource.threads, templateResource.channels));
     CHK_RET(PostLocalCopy(templateResource.threads));  // 从scratch buffer拷贝到output buffer上
@@ -123,9 +127,15 @@ HcclResult InsTempAllGatherNHR::RunAllGatherNHR(const std::vector<ThreadHandle> 
             TxRxChannels sendRecvChannels(channelSend, channelRecv);
             SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
 
-            CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[0]),
-                        HCCL_ERROR("[InsTempAllGatherNHR] sendrecv failed (step=%u, rpt=%u)", step, rpt),
-                        HcclResult::HCCL_E_INTERNAL);
+            if (isDmaRead_) {
+                CHK_PRT_RET(SendRecvRead(sendRecvInfo, threads[0]),
+                    HCCL_ERROR("[InsTempAllGatherNHR] sendrecv failed (step=%u, rpt=%u)", step, rpt),
+                    HcclResult::HCCL_E_INTERNAL);
+            } else {
+                CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[0]),
+                    HCCL_ERROR("[InsTempAllGatherNHR] sendrecv failed (step=%u, rpt=%u)", step, rpt),
+                    HcclResult::HCCL_E_INTERNAL);
+            }
         }
     }
     return HcclResult::HCCL_SUCCESS;
