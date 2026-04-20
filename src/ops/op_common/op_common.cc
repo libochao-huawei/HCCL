@@ -1445,7 +1445,7 @@ HcclResult SetCommEngine(OpParam &param)
     return HCCL_E_NOT_SUPPORT;
 }
 
-HcclResult SingleRankProc(const OpParam &param)
+HcclResult SingleRankProc(OpParam &param)
 {
     if (GetExternalInputHcclAivOnlyMode()) {
         HCCL_ERROR("[SingleRankProc] opType[%d] currently do not select aiv mode, aiv only not support, "
