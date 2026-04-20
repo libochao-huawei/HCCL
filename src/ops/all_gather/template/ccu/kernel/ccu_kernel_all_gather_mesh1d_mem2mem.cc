@@ -160,6 +160,7 @@ void CcuKernelAllGatherMesh1DMem2Mem::DoAllGather(const hcomm::CcuRep::LocalAddr
             channelId++;
         }
     }
+    
     event_.SetMask((1 << rankSize_) - 1);
     WaitEvent(event_);
 }
