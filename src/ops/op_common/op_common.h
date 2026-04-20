@@ -181,6 +181,8 @@ extern "C" {
 #endif
 
 HcclResult HcclSetAivCoreLimitGraphMode(const char *group, u32 aivCoreLimit);
+HcclResult HcclSelectAlgGraphMode(const char *group, HcclCMDType opType, u64 count, HcclDataType dataType, HcclReduceOp op,
+                           int32_t aivCoreLimit, bool *ifAiv, std::string *algName);
 
 #ifdef __cplusplus
 }
