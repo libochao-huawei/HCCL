@@ -1,6 +1,8 @@
 #include "common.h"
+#include "diag_dl.h"
 #include "exec_op.h"
 #include "profiling.h"
+#include "task_exception_info.h"
 
 namespace {
 
@@ -56,6 +58,31 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
 
     if (HcommAcquireComm(param->commName) != HCCL_SUCCESS) {
         HCCL_ERROR("HcommAcquireComm failed, commName=%s", param->commName);
+        return 1;
+    }
+
+    AllGatherBatchOpInfo opInfo {};
+    if (CreateAllGatherBatchOpInfo(*param, opInfo) != HCCL_SUCCESS) {
+        HCCL_ERROR("CreateAllGatherBatchOpInfo failed, commName=%s, tag=%s", param->commName, param->tag);
+        (void)HcommReleaseComm(param->commName);
+        return 1;
+    }
+    if (HcommIsSupportHcommRegOpInfo() &&
+        HcommRegOpInfo(param->commName, reinterpret_cast<void *>(&opInfo), sizeof(AllGatherBatchOpInfo)) != HCCL_SUCCESS) {
+        HCCL_ERROR("HcommRegOpInfo failed, commName=%s, tag=%s, algTag=%s",
+            param->commName,
+            param->tag,
+            opInfo.algTag);
+        (void)HcommReleaseComm(param->commName);
+        return 1;
+    }
+    if (HcommIsSupportHcommRegOpTaskException() &&
+        HcommRegOpTaskException(param->commName, ops_hccl_allgatherbatch::GetAllGatherBatchOpInfo) != HCCL_SUCCESS) {
+        HCCL_ERROR("HcommRegOpTaskException failed, commName=%s, tag=%s, algTag=%s",
+            param->commName,
+            param->tag,
+            opInfo.algTag);
+        (void)HcommReleaseComm(param->commName);
         return 1;
     }
 

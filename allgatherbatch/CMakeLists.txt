@@ -90,6 +90,7 @@ if(KERNEL_MODE)
     )
     target_link_libraries(allgatherbatch_aicpu_kernel PRIVATE
         -Wl,--no-as-needed
+        ${CMAKE_DL_LIBS}
         ccl_kernel
         -Wl,--no-as-needed
     )
