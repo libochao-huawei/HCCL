@@ -33,42 +33,82 @@ CcuTempAllGatherMesh1DMem2Mem::~CcuTempAllGatherMesh1DMem2Mem()
 {
 }
 
-HcclResult CcuTempAllGatherMesh1DMem2Mem::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
-                                                      AlgResourceRequest& resourceRequest)
+HcclResult CcuTempAllGatherMesh1DMem2Mem::CalcRes(HcclComm comm, const OpParam& param,
+                                                       const TopoInfoWithNetLayerDetails* topoInfo,
+                                                       AlgResourceRequest& resourceRequest)
 {
-    // 不需要从流
-    GetRes(resourceRequest);
-    // 多少个kernel
-    resourceRequest.ccuKernelNum.push_back(1);
-    HCCL_DEBUG("[CcuTempAllGatherMesh1DMem2Mem::CalcRes] notifyNumOnMainThread[%u] slaveThreadNum[%u]",
-               resourceRequest.notifyNumOnMainThread, resourceRequest.slaveThreadNum);
-
-    // 创建每个kernel的ctxArg，放入kernelInfo, 然后将kernelinfo放入resourceRequest.ccuKernelInfos
-    CcuKernelInfo kernelInfo;
-    
-    kernelInfo.creator = [](const hcomm::CcuKernelArg &arg) {
-                             return std::make_unique<CcuKernelAllGatherMesh1DMem2Mem>(arg);
-                         };
     std::vector<HcclChannelDesc> channelDescs;
-    if(topoInfo->level0Topo != Level0Shape::MESH_1D_CLOS) {
+    if (topoInfo->level0Topo != Level0Shape::MESH_1D_CLOS) {
         CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
     } else {
-        CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks_, channelDescs, CommTopo::COMM_TOPO_1DMESH));
-        for(auto channel : channelDescs){
-            if(channel.channelProtocol != COMM_PROTOCOL_UBC_CTP){
+        CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks_, channelDescs,
+            CommTopo::COMM_TOPO_1DMESH));
+        for (auto channel : channelDescs) {
+            if (channel.channelProtocol != COMM_PROTOCOL_UBC_CTP) {
                 HCCL_ERROR("[CcuTempAllGatherMesh1DMem2Mem][CalcRes] channelProtocol: %u", channel.channelProtocol);
                 return HCCL_E_INTERNAL;
             }
         }
     }
-    HCCL_DEBUG("[CcuTempAllGatherMesh1DMem2Mem::CalcRes] Get Mesh Channel Success!");
+    CHK_RET(RestoreChannelMap(channelDescs, rankIdToChannelDesc_));
 
-    kernelInfo.kernelArg = std::make_shared<CcuKernelArgAllGatherMesh1DMem2Mem>(subCommRanks_[0].size(),
-                                                                                    mySubCommRank_,
-                                                                                    param,
-                                                                                    subCommRanks_);
-    kernelInfo.channels = channelDescs;
-    resourceRequest.ccuKernelInfos.push_back(kernelInfo);
+    uint32_t enableDieNum = 0;
+    uint32_t enableDieId = 0;
+    CHK_RET(GetDieInfoFromChannelDescs(comm, rankIdToChannelDesc_, myRank_, enableDieNum, enableDieId));
+
+    if (enableDieNum < 1 || enableDieNum > CCU_DIE_NUM_MAX_2) {
+        HCCL_ERROR("[CcuTempAllGatherMesh1DMem2Mem::CalcRes] invalid enableDieNum");
+        return HcclResult::HCCL_E_INTERNAL;
+    }
+
+    uint32_t kernelNum = enableDieNum;
+    resourceRequest.notifyNumOnMainThread = 1;
+    resourceRequest.slaveThreadNum = 1;
+    resourceRequest.ccuKernelNum.push_back(kernelNum);
+    resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, 1);
+
+    constexpr u32 DIE_0 = 0;
+    constexpr u32 DIE_1 = 1;
+    std::vector<std::vector<HcclChannelDesc>> channelsPerDie;
+    channelsPerDie.resize(enableDieNum);
+
+    // For Mesh1D: collect channels per die
+    for (const auto& pair : rankIdToChannelDesc_) {
+        const std::vector<HcclChannelDesc>& channels = pair.second;
+        for (const auto& channel : channels) {
+            uint32_t channelDieId = 0;
+            CHK_RET(GetChannelDieId(comm, myRank_, channel, channelDieId));
+            if (enableDieNum == 1) {
+                // Single die mode: select channels from enableDieId
+                if (channelDieId == enableDieId) {
+                    channelsPerDie[DIE_0].push_back(channel);
+                }
+            } else {
+                // Double die mode: select channels from each die
+                if (channelDieId == DIE_0) {
+                    channelsPerDie[DIE_0].push_back(channel);
+                } else if (channelDieId == DIE_1) {
+                    channelsPerDie[DIE_1].push_back(channel);
+                }
+            }
+        }
+    }
+
+    for (uint32_t kernelIdx = 0; kernelIdx < kernelNum; kernelIdx++) {
+        CcuKernelInfo kernelInfo;
+
+        kernelInfo.creator = [](const hcomm::CcuKernelArg &arg) {
+                                 return std::make_unique<CcuKernelAllGatherMesh1DMem2Mem>(arg);
+                             };
+        kernelInfo.kernelArg = std::make_shared<CcuKernelArgAllGatherMesh1DMem2Mem>(subCommRanks_[0].size(),
+                                                                                     mySubCommRank_,
+                                                                                     kernelIdx,
+                                                                                     param,
+                                                                                     subCommRanks_);
+
+        kernelInfo.channels = channelsPerDie[kernelIdx];
+        resourceRequest.ccuKernelInfos.push_back(kernelInfo);
+    }
 
     HCCL_DEBUG("[CcuTempAllGatherMesh1DMem2Mem::CalcRes] channelDescs.size()=%llu, dimsize=%llu, "
                "ccuKernelInfos.size()=%llu",
@@ -80,17 +120,32 @@ HcclResult CcuTempAllGatherMesh1DMem2Mem::CalcRes(HcclComm comm, const OpParam& 
 HcclResult CcuTempAllGatherMesh1DMem2Mem::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
 {
     HCCL_DEBUG("[CcuTempAllGatherMesh1DMem2Mem::FastLaunch] start");
-    const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
+    u32 kernelNum = tempFastLaunchCtx.ccuKernelSubmitInfos.size();
     buffInfo_ = tempFastLaunchCtx.buffInfo;
-    CcuTaskArgAllGatherMesh1DMem2Mem taskArg(
-        PointerToAddr(buffInfo_.inputPtr) + args[0],
-        PointerToAddr(buffInfo_.outputPtr) + args[1],
-        args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10]);
+    const uint64_t* args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
 
-    void* taskArgPtr = static_cast<void*>(&taskArg);
+    if (kernelNum > 1) {
+        std::vector<ThreadHandle> subThreads(tempFastLaunchCtx.threads.begin() + 1, tempFastLaunchCtx.threads.end());
+        std::vector<u32> notifyIdxMainToSub(1, 0);
+        CHK_RET(PreSyncInterThreads(tempFastLaunchCtx.threads[0], subThreads, notifyIdxMainToSub));
+    }
 
-    CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0],
-        tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr));
+    for (u32 kernelIdx = 0; kernelIdx < kernelNum; kernelIdx++) {
+        CcuTaskArgAllGatherMesh1DMem2Mem taskArg(
+            PointerToAddr(buffInfo_.inputPtr) + args[0],
+            PointerToAddr(buffInfo_.outputPtr) + args[1],
+            args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12]);
+
+        void* taskArgPointer = static_cast<void*>(&taskArg);
+        CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[kernelIdx],
+            tempFastLaunchCtx.ccuKernelSubmitInfos[kernelIdx].kernelHandle, taskArgPointer));
+    }
+
+    if (kernelNum > 1) {
+        std::vector<ThreadHandle> subThreads(tempFastLaunchCtx.threads.begin() + 1, tempFastLaunchCtx.threads.end());
+        std::vector<u32> notifyIdxSubToMain(1, 0);
+        CHK_RET(PostSyncInterThreads(tempFastLaunchCtx.threads[0], subThreads, notifyIdxSubToMain));
+    }
 
     HCCL_DEBUG("[CcuTempAllGatherMesh1DMem2Mem::FastLaunch] end");
     return HcclResult::HCCL_SUCCESS;
@@ -112,36 +167,65 @@ HcclResult CcuTempAllGatherMesh1DMem2Mem::KernelRun(const OpParam& param,
     uint32_t repeatNum          = templateDataParams.repeatNum;
     uint64_t inputRepeatStride  = templateDataParams.inputRepeatStride;
     uint64_t outputRepeatStride = templateDataParams.outputRepeatStride;
-    uint64_t normalSliceSize    = templateDataParams.sliceSize;
-    uint64_t lastSliceSize      = templateDataParams.tailSize;
     uint64_t isInputOutputEqual = (inputAddr == outputAddr) ? 1 : 0;
-    if (templateDataParams.tailSize != 0 && mySubCommRank_ == templateRankSize_ - 1) {
-        normalSliceSize = templateDataParams.tailSize;
+
+    uint32_t kernelNum = templateResource.ccuKernels.size();
+
+    uint64_t die0Size = 0;
+    uint64_t die1Size = 0;
+    constexpr uint32_t MAX_DIE_NUM_2 = 2;
+    if (kernelNum == MAX_DIE_NUM_2) {
+        CHK_RET(SplitDataFor2Dies(param, templateDataParams, die0Size, die1Size));
+    } else {
+        die0Size = templateDataParams.sliceSize;
     }
-    HCCL_INFO("[CcuTempAllGatherMesh1DMem2Mem][KernelRun] normalSliceSize [%u]", normalSliceSize);
+
+    uint64_t die0LastSize = templateDataParams.tailSize / kernelNum;
+    uint64_t die1LastSize = templateDataParams.tailSize - die0LastSize;
 
     HcclDataType dataType       = param.DataDes.dataType;
     uint64_t dataTypeSize       = DataTypeSizeGet(dataType);
-    uint64_t dataCount          = normalSliceSize / dataTypeSize;
-    if (dataCount == 0 && lastSliceSize == 0) {
-        HCCL_INFO("[CcuTempAllGatherMesh1DMem2Mem] DataCount == 0 && lastSliceSize == 0, Template Run Ends.");
+    uint64_t dataCount          = die0Size / dataTypeSize;
+    if (dataCount == 0 && die0LastSize == 0 && die1LastSize == 0) {
+        HCCL_INFO("[CcuTempAllGatherMesh1DMem2Mem] DataCount == 0, Template Run Ends.");
         return HcclResult::HCCL_SUCCESS;
     }
 
-    std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAllGatherMesh1DMem2Mem>(
-        inputAddr, outputAddr, token, inputSliceStride, outputSliceStride, repeatNum, inputRepeatStride, outputRepeatStride,
-        normalSliceSize, lastSliceSize, isInputOutputEqual);
+    HCCL_INFO("[CcuTempAllGatherMesh1DMem2Mem][KernelRun] die0Size [%llu], die1Size [%llu]", die0Size, die1Size);
 
-    void* taskArgPtr = static_cast<void*>(taskArg.get());
-    HCCL_INFO("templateResource.threads.size[%zu], templateResource.ccuKernels.size[%zu]", templateResource.threads.size(), templateResource.ccuKernels.size());
-    CHK_RET(HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr));
+    if (kernelNum > 1) {
+        std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+        std::vector<u32> notifyIdxMainToSub(1, 0);
+        CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub));
+    }
+
+    for (uint32_t axisId = 0; axisId < kernelNum; axisId++) {
+        if ((templateDataParams.tailSize == 0) && ((axisId == 0 && die0Size == 0) || (axisId == 1 && die1Size == 0))) {
+            continue;
+        }
+        std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAllGatherMesh1DMem2Mem>(
+            inputAddr, outputAddr, token, inputSliceStride, outputSliceStride, repeatNum, inputRepeatStride,
+            outputRepeatStride, die0Size, die1Size, die0LastSize, die1LastSize, isInputOutputEqual);
+
+        void* taskArgPtr = static_cast<void*>(taskArg.get());
+        CHK_RET(HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[axisId],
+            templateResource.ccuKernels[axisId], taskArgPtr));
+    }
+
+    if (kernelNum > 1) {
+        std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+        std::vector<u32> notifyIdxSubToMain(1, 0);
+        CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain));
+    }
 
     CcuKernelSubmitInfo submitInfo;
-    submitInfo.kernelHandle = templateResource.ccuKernels[0];
     CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, token, inputSliceStride,
-        outputSliceStride, repeatNum, inputRepeatStride, outputRepeatStride, normalSliceSize, lastSliceSize,
-        isInputOutputEqual));
-    templateResource.submitInfos.push_back(submitInfo);
+        outputSliceStride, repeatNum, inputRepeatStride, outputRepeatStride, die0Size, die1Size,
+        die0LastSize, die1LastSize, isInputOutputEqual));
+    for (u32 i = 0; i < kernelNum; i++) {
+        submitInfo.kernelHandle = templateResource.ccuKernels[i];
+        templateResource.submitInfos.push_back(submitInfo);
+    }
 
     HCCL_DEBUG("[CcuTempAllGatherMesh1DMem2Mem::KernelRun] end");
 
@@ -158,13 +242,63 @@ u64 CcuTempAllGatherMesh1DMem2Mem::CalcScratchMultiple(BufferType inBuffType, Bu
 
 u64 CcuTempAllGatherMesh1DMem2Mem::GetThreadNum() const
 {
-    return 1;
+    return 2;
 }
- 
+
 HcclResult CcuTempAllGatherMesh1DMem2Mem::GetRes(AlgResourceRequest& resourceRequest) const
 {
-    resourceRequest.slaveThreadNum = 0;
-    resourceRequest.notifyNumOnMainThread = 0;
+    resourceRequest.slaveThreadNum = 1;
+    resourceRequest.notifyNumOnMainThread = 1;
+    resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, 1);
     return HCCL_SUCCESS;
+}
+
+HcclResult CcuTempAllGatherMesh1DMem2Mem::ProcessMesh1DStepInfo(HcclComm comm,
+                                                                  std::map<u32, u32>& rank2ChannelIdx,
+                                                                  u32 enableDieNum, u32 enableDieId,
+                                                                  std::vector<std::vector<HcclChannelDesc>>& channelsPerDie)
+{
+    constexpr u32 DIE_NUM_1 = 1;
+    constexpr u32 DIE_NUM_2 = 2;
+    constexpr u32 DIE_0 = 0;
+    constexpr u32 DIE_1 = 1;
+
+    for (const auto& pair : rankIdToChannelDesc_) {
+        u32 remoteRankId = pair.first;
+        const std::vector<HcclChannelDesc>& channels = pair.second;
+
+        if (enableDieNum == DIE_NUM_1) {
+            CHK_RET(SelectChannelToVec(comm, myRank_, remoteRankId, rankIdToChannelDesc_, enableDieId,
+                rank2ChannelIdx, channelsPerDie[DIE_0]));
+        } else if (enableDieNum == DIE_NUM_2) {
+            CHK_RET(SelectChannelToVec(comm, myRank_, remoteRankId, rankIdToChannelDesc_, DIE_0,
+                rank2ChannelIdx, channelsPerDie[DIE_0]));
+            CHK_RET(SelectChannelToVec(comm, myRank_, remoteRankId, rankIdToChannelDesc_, DIE_1,
+                rank2ChannelIdx, channelsPerDie[DIE_1]));
+        }
+    }
+    return HcclResult::HCCL_SUCCESS;
+}
+
+HcclResult CcuTempAllGatherMesh1DMem2Mem::SplitDataFor2Dies(const OpParam& param,
+                                                              const TemplateDataParams& templateDataParams,
+                                                              uint64_t& die0Size, uint64_t& die1Size) const
+{
+    constexpr uint64_t MULTIPLIER = 4;
+    uint64_t typeSize = DataTypeSizeGet(param.DataDes.dataType);
+    uint64_t dataCount = (templateDataParams.sliceSize / typeSize);
+
+    if (dataCount <= templateRankSize_ * MULTIPLIER) {
+        die0Size = dataCount * typeSize;
+        die1Size = 0;
+        return HcclResult::HCCL_SUCCESS;
+    }
+
+    u8 die0PortGroupSize = 1;
+    u8 die1PortGroupSize = 1;
+
+    die0Size = (dataCount * die0PortGroupSize / (die0PortGroupSize + die1PortGroupSize)) * typeSize;
+    die1Size = templateDataParams.sliceSize - die0Size;
+    return HcclResult::HCCL_SUCCESS;
 }
 } // namespace ops_hccl

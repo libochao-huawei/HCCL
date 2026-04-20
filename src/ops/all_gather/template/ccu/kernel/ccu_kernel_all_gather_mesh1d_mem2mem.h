@@ -22,15 +22,17 @@ namespace ops_hccl {
 
 class CcuKernelArgAllGatherMesh1DMem2Mem : public hcomm::CcuKernelArg {
 public:
-    explicit CcuKernelArgAllGatherMesh1DMem2Mem(uint64_t dimSize, uint32_t rankId, const OpParam& opParam,
+    explicit CcuKernelArgAllGatherMesh1DMem2Mem(uint64_t dimSize, uint32_t rankId, uint32_t axisId,
+                                                    const OpParam& opParam,
                                                     const std::vector<std::vector<uint32_t>>& subCommRanks)
         : dimSize_(dimSize),
           rankId_(rankId),
+          axisId_(axisId),
           opParam_(opParam),
           subCommRanks_(subCommRanks)
     {
-        HCCL_DEBUG("[CcuKernelArgAllGatherMesh1DMem2Mem] dimSize: %lu, rankId: %u",
-                   dimSize_, rankId_);
+        HCCL_DEBUG("[CcuKernelArgAllGatherMesh1DMem2Mem] dimSize: %lu, rankId: %u, axisId: %u",
+                   dimSize_, rankId_, axisId_);
     }
     hcomm::CcuKernelSignature GetKernelSignature() const override
     {
@@ -40,6 +42,7 @@ public:
     }
     uint64_t                                dimSize_;
     uint32_t                                rankId_;
+    uint32_t                                axisId_;
     OpParam                                 opParam_;
     std::vector<std::vector<uint32_t>>      subCommRanks_;
 };
@@ -49,12 +52,13 @@ public:
     explicit CcuTaskArgAllGatherMesh1DMem2Mem(uint64_t inputAddr, uint64_t outputAddr, uint64_t token,
                                                         uint64_t inputSliceStride, uint64_t outputSliceStride,
                                                         uint64_t repeatNum, uint64_t inputRepeatStride,
-                                                        uint64_t outputRepeatStride, uint64_t normalSliceSize,
-                                                        uint64_t lastSliceSize, uint64_t isInputOutputEqual)
+                                                        uint64_t outputRepeatStride, uint64_t die0Size,
+                                                        uint64_t die1Size, uint64_t die0LastSize,
+                                                        uint64_t die1LastSize, uint64_t isInputOutputEqual)
         : inputAddr_(inputAddr), outputAddr_(outputAddr), token_(token), inputSliceStride_(inputSliceStride),
           outputSliceStride_(outputSliceStride), repeatNum_(repeatNum), inputRepeatStride_(inputRepeatStride),
-          outputRepeatStride_(outputRepeatStride), normalSliceSize_(normalSliceSize), lastSliceSize_(lastSliceSize),
-          isInputOutputEqual_(isInputOutputEqual)
+          outputRepeatStride_(outputRepeatStride), die0Size_(die0Size), die1Size_(die1Size),
+          die0LastSize_(die0LastSize), die1LastSize_(die1LastSize), isInputOutputEqual_(isInputOutputEqual)
     {
         HCCL_DEBUG("[CcuTaskArgAllGatherMesh1DMem2Mem] inputAddr: %lu, outputAddr: %lu, inputSliceStride: %lu, "
                    "outputSliceStride: %lu",
@@ -71,8 +75,10 @@ public:
     uint64_t inputRepeatStride_;
     uint64_t outputRepeatStride_;
 
-    uint64_t normalSliceSize_;
-    uint64_t lastSliceSize_;
+    uint64_t die0Size_;
+    uint64_t die1Size_;
+    uint64_t die0LastSize_;
+    uint64_t die1LastSize_;
     uint64_t isInputOutputEqual_;
 };
 
@@ -97,6 +103,7 @@ private:
     // CcuKernelAlgDataWrapper algWrapper;
     uint64_t rankSize_{0};
     uint32_t rankId_{0};
+    uint32_t axisId_{0};
 
     CcuRep::Variable              localInput_;
     std::vector<CcuRep::Variable> output_;
@@ -105,8 +112,10 @@ private:
     CcuRep::Variable              currentRankSliceOutputOffset_;
     CcuRep::Variable              inputRepeatStride_;
     CcuRep::Variable              outputRepeatStride_;
-    CcuRep::Variable              normalSliceSize_;
-    CcuRep::Variable              lastSliceSize_;
+    CcuRep::Variable              die0Size_;
+    CcuRep::Variable              die1Size_;
+    CcuRep::Variable              die0LastSize_;
+    CcuRep::Variable              die1LastSize_;
     CcuRep::Variable              isInputOutputEqual_;
     CcuRep::Variable              repeatTimeflag_;
     CcuRep::Variable              tmpRepeatNum_;
