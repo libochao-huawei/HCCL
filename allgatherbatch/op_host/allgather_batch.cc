@@ -6,6 +6,7 @@
 
 #include "common.h"
 #include "hccl/hccl_rank_graph.h"
+#include "hccl/hccl_res_expt.h"
 #include "launch_kernel.h"
 #include "load_kernel.h"
 #include "log.h"
@@ -86,15 +87,26 @@ uint64_t GetDataTypeSize(HcclDataType dataType)
             return 0U;
     }
 }
-HcclResult EnsureControlNotifies(OpParam &param)
+
+HcclResult PrepareHostAicpuSyncThreads(HcclComm comm, OpParam &param, aclrtStream stream)
 {
-    // 控制 notify 属于本次 launch 的控制参数，不写入缓存资源。
-    for (uint32_t idx = 0; idx < kAllGatherBatchControlNotifyNum; ++idx) {
-        if (g_allGatherBatchNotifies[idx] == nullptr) {
-            ACLCHECK(aclrtCreateNotify(&g_allGatherBatchNotifies[idx], ACL_NOTIFY_DEFAULT));
-        }
-        ACLCHECK(aclrtGetNotifyId(g_allGatherBatchNotifies[idx], &param.controlNotifyIds[idx]));
-    }
+    HCCL_CHK_PTR(param.resCtx);
+    HCCL_CHK_PTR(stream);
+
+    ThreadHandle cpuThreadOnAicpu = 0;
+    CHK_RET(HcclThreadAcquireWithStream(comm, COMM_ENGINE_CPU_TS, stream, 1, &param.cpuThread));
+    CHK_RET(HcclThreadExportToCommEngine(
+        comm, 1, &param.cpuThread, COMM_ENGINE_AICPU, &cpuThreadOnAicpu));
+    CHK_RET(HcclThreadExportToCommEngine(
+        comm, 1, &param.resCtx->mainThreadHandle, COMM_ENGINE_CPU_TS, &param.aicpuThreadOnCpu));
+
+    char *fieldPtr = reinterpret_cast<char *>(param.resCtx) + offsetof(AlgResourceCtx, cpuThreadOnAicpu);
+    ACLCHECK(aclrtMemcpy(fieldPtr,
+        sizeof(ThreadHandle),
+        &cpuThreadOnAicpu,
+        sizeof(ThreadHandle),
+        ACL_MEMCPY_HOST_TO_DEVICE));
+
     return HCCL_SUCCESS;
 }
 
@@ -371,9 +383,7 @@ HcclResult PrepareOpParam(const HcclAllGatherItem *items, uint32_t itemCount, Hc
 HcclResult CalcFullMeshResourceRequest(HcclComm comm, const OpParam &param, BatchResourceRequest &request)
 {
     request.threadNum = 1 + SubThreadNum;
-    request.controlNotifyNum = kAllGatherBatchControlNotifyNum;
-    request.mainThreadNotifyNum = SubThreadNum;
-    request.lastTwoWorkerCount = SubThreadNum;
+    request.subThreadCount = SubThreadNum;
     request.workerNotifyNum = 1;
     request.localBufferBytes = 0;
     request.commMode = param.commMode;
@@ -428,7 +438,8 @@ void InitAlgResourceCtxHeader(const BatchResourceRequest &request, AlgResourceCt
 {
     resCtx.threadHandle = 0;
     resCtx.mainThreadHandle = 0;
-    resCtx.lastTwoWorkerCount = request.lastTwoWorkerCount;
+    resCtx.startThreadNotifyIdx = request.subThreadCount;
+    resCtx.subThreadCount = request.subThreadCount;
     resCtx.reserved0 = 0;
     for (uint32_t idx = 0; idx < SubThreadNum; ++idx) {
         resCtx.subThreadHandles[idx] = 0;
@@ -452,10 +463,10 @@ HcclResult AllocAlgResource(
         comm,
         COMM_ENGINE_AICPU,
         1,
-        request.mainThreadNotifyNum,
+        request.subThreadCount + 1,
         &resCtx.mainThreadHandle));
     resCtx.threadHandle = resCtx.mainThreadHandle;
-    for (uint32_t idx = 0; idx < request.lastTwoWorkerCount; ++idx) {
+    for (uint32_t idx = 0; idx < request.subThreadCount; ++idx) {
         HCCL_CHK_RET(HcclThreadAcquire(
             comm,
             COMM_ENGINE_AICPU,
@@ -596,7 +607,6 @@ HcclResult HcclAllGatherBatch(
 
     OpParam param;
     HCCL_CHK_RET(PrepareOpParam(items, itemCount, comm, param));
-    HCCL_CHK_RET(EnsureControlNotifies(param));
 
     HCCL_INFO("Host op prepared: rank=%u, rankSize=%u, commMode=%s, serverIdx=%u, serverCount=%u, superPodIdx=%u, intraServerRankCount=%u, crossServerRankCount=%u",
         param.topoInfo.rank,
@@ -611,6 +621,7 @@ HcclResult HcclAllGatherBatch(
     AlgResourceCtx *resCtx = nullptr;
     HCCL_CHK_RET(GetAlgRes(comm, param, &resCtx));
     param.resCtx = resCtx;
+    HCCL_CHK_RET(PrepareHostAicpuSyncThreads(comm, param, stream));
 
     HCCL_CHK_RET(ReportProfilingThread(comm, param, stream));
     HCCL_CHK_RET(LoadAndLaunch(param, stream));

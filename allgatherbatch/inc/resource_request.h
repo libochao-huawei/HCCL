@@ -19,9 +19,7 @@ struct ChannelRequest {
 // 当前前提固定为 fullmesh，因此 channel 数量始终等于 rankSize - 1。
 struct BatchResourceRequest {
     uint32_t threadNum = 1;
-    uint32_t controlNotifyNum = kAllGatherBatchControlNotifyNum;
-    uint32_t mainThreadNotifyNum = 0;
-    uint32_t lastTwoWorkerCount = 0;
+    uint32_t subThreadCount = 0;
     uint32_t workerNotifyNum = 0;
     uint32_t channelCount = 0;
     uint64_t localBufferBytes = 0;

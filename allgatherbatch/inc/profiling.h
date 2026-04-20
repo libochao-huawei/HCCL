@@ -92,7 +92,7 @@ inline uint32_t BuildProfilingThreadList(
     uint32_t threadNum = 0;
     threads[threadNum++] = resCtx.mainThreadHandle;
 
-    uint32_t workerCount = resCtx.lastTwoWorkerCount;
+    uint32_t workerCount = resCtx.subThreadCount;
     if (workerCount > SubThreadNum) {
         workerCount = SubThreadNum;
     }
