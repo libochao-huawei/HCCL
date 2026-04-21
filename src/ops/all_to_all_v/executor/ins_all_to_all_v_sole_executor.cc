@@ -196,9 +196,80 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLo
     tempAlgParams.outputRepeatStride = 0;
 
     CHK_RET(algTemplate->KernelRun(param, tempAlgParams, templateAlgRes));
+
+#ifndef AICPU_COMPILE
+    if (param.engine == CommEngine::COMM_ENGINE_CCU && param.opType != HcclCMDType::HCCL_CMD_ALLTOALLVC) {
+        CHK_RET(FastLaunchSaveCtx(param, templateAlgRes));
+    }
+#endif
+
     HCCL_INFO("[InsAlltoAllVSoleExecutor][OrchestrateLoop] End.");
     return HCCL_SUCCESS;
 }
+
+#ifndef AICPU_COMPILE
+template <typename AlgTopoMatch, typename InsAlgTemplate>
+HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunchSaveCtx(
+    const OpParam &param, const TemplateResource &templateAlgRes)
+{
+    HCCL_INFO("[InsAlltoAllVSoleExecutor] save fast launch ctx.");
+    u32 threadNum = 1;
+    u32 ccuKernelNum = templateAlgRes.submitInfos.size();
+    if (ccuKernelNum < 1) {
+        HCCL_INFO("[InsAlltoAllVSoleExecutor] ccu kernel num is 0, no need to save.");
+        return HCCL_SUCCESS;
+    }
+    HCCL_INFO(
+        "[InsAlltoAllVSoleExecutor][HcclEngineCtxCreate] threadNum[%llu], ccuKernelNum[%llu]", threadNum, ccuKernelNum);
+
+    u64 size = CcuFastLaunchCtx::GetCtxSize(threadNum, ccuKernelNum);
+    // 申请ctx
+    void *ctxPtr = nullptr;
+    HCCL_INFO("[InsAlltoAllVSoleExecutor][HcclEngineCtxCreate] Tag[%s], size[%llu]", param.fastLaunchTag, size);
+    CHK_RET(HcclEngineCtxCreate(param.hcclComm, param.fastLaunchTag, CommEngine::COMM_ENGINE_CCU, size, &ctxPtr));
+
+    CcuFastLaunchCtx *ccuFastLaunchCtx = reinterpret_cast<CcuFastLaunchCtx *>(ctxPtr);
+    // 1 算法名:
+    CHK_SAFETY_FUNC_RET(strcpy_s(ccuFastLaunchCtx->algName, sizeof(ccuFastLaunchCtx->algName), param.algName));
+    HCCL_INFO("[InsAlltoAllVSoleExecutor][FastLaunchSaveCtx] algName[%s]", ccuFastLaunchCtx->algName);
+
+    // 2 thread
+    ccuFastLaunchCtx->threadNum = threadNum;
+    ThreadHandle *threads = ccuFastLaunchCtx->GetThreadHandlePtr();
+    threads[0] = templateAlgRes.threads[0];
+
+    // 3 ccu kernel handle, taskArg入参
+    ccuFastLaunchCtx->ccuKernelNum[0] = ccuKernelNum;
+    CcuKernelSubmitInfo *kernels = ccuFastLaunchCtx->GetCcuKernelSubmitInfoPtr();
+    kernels[0] = templateAlgRes.submitInfos[0];
+    return HCCL_SUCCESS;
+}
+
+template <typename AlgTopoMatch, typename InsAlgTemplate>
+HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunch(
+        const OpParam &param, const CcuFastLaunchCtx *fastLaunchCtx)
+{
+    HCCL_INFO("[InsAlltoAllVSoleExecutor][FastLaunch] Start.");
+    TemplateFastLaunchCtx tempFastLaunchCtx;
+    // 1 取线程
+    ThreadHandle *threads = fastLaunchCtx->GetThreadHandlePtr();
+    tempFastLaunchCtx.threads.assign(threads, threads + fastLaunchCtx->threadNum);
+    HCCL_INFO("[InsAlltoAllVSoleExecutor][FastLaunch] threadNum[%llu]", fastLaunchCtx->threadNum);
+    
+    // 2 取arg
+    CcuKernelSubmitInfo *ccuKernelSubmitInfos = fastLaunchCtx->GetCcuKernelSubmitInfoPtr();
+    tempFastLaunchCtx.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + fastLaunchCtx->ccuKernelNum[0]);
+    HCCL_INFO("[InsAlltoAllVSoleExecutor][FastLaunch] ccuKernelNum[%llu]", fastLaunchCtx->ccuKernelNum[0]);
+    tempFastLaunchCtx.buffInfo.inputPtr = param.inputPtr;
+    tempFastLaunchCtx.buffInfo.outputPtr = param.outputPtr;
+    
+    // 3 调template
+    std::unique_ptr<InsAlgTemplate> algTemplate = std::make_unique<InsAlgTemplate>();
+    CHK_RET(algTemplate->FastLaunch(param, tempFastLaunchCtx));
+    HCCL_INFO("[InsAlltoAllVSoleExecutor][FastLaunch] End.");
+    return HCCL_SUCCESS;
+}
+#endif
 
 // 第二个参数是All to AllV的template文件
 #ifndef AICPU_COMPILE

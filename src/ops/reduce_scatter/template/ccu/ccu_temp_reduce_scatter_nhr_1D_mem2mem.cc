@@ -54,12 +54,12 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::ProcessNHRStepInfo(HcclComm comm,
         NHRStepInfo stepInfo;
         CHK_RET(GetStepInfo(step, stepInfo));
         stepInfoVector.push_back(stepInfo);
-        if (enableDieNum = DIE_NUM_1) {
+        if (enableDieNum == DIE_NUM_1) {
             CHK_RET(SelectChannelToVec(comm, myRank_, stepInfo.fromRank, rankIdToChannelDesc_, enableDieId, 
                 rank2ChannelIdx, channelsPerDie[0]));
             CHK_RET(SelectChannelToVec(comm, myRank_, stepInfo.toRank, rankIdToChannelDesc_, enableDieId, 
                 rank2ChannelIdx, channelsPerDie[0]));
-        } else if (enableDieNum = DIE_NUM_2) {
+        } else if (enableDieNum == DIE_NUM_2) {
             // 加入fromRank 2个die的链路
             CHK_RET(SelectChannelToVec(comm, myRank_, stepInfo.fromRank, rankIdToChannelDesc_, 0, 
                 rank2ChannelIdx, channelsPerDie[0]));
@@ -149,7 +149,7 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::FastLaunch(const OpParam& param, co
         CcuTaskArgReduceScatterNHR1D taskArg(
             PointerToAddr(buffInfo_.inputPtr) + args[0],
             PointerToAddr(buffInfo_.outputPtr) + args[1],
-            args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[11]);
+            args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12]);
 
         void* taskArgPtr = static_cast<void*>(&taskArg);
 

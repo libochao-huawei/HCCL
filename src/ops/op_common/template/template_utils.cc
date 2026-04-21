@@ -43,7 +43,9 @@ HcclResult CalcDataSplitByPortGroup(const u64 totalDataCount, const u64 dataType
     for (const auto &ch : channels) {
         portGroups.push_back(ch.portGroupSize);
         totalPorts += ch.portGroupSize;
+        HCCL_INFO("[CalcDataSplitByPortGroup] GenExtIns  ch.portGroupSize[%u], totalPorts[%u]", ch.portGroupSize, totalPorts);
     }
+
     u32 channelsize = portGroups.size();
     u64 accumCount = 0;
     u64 offset = 0;
@@ -53,6 +55,8 @@ HcclResult CalcDataSplitByPortGroup(const u64 totalDataCount, const u64 dataType
         if (channelIdx == channelsize - 1) {
             elemCount = totalDataCount - accumCount;
         } else {
+            CHK_PRT_RET(totalPorts == 0,
+                        HCCL_ERROR("[CalcDataSplitByPortGroup] totalPorts [%u] is 0.", totalPorts), HcclResult::HCCL_E_INTERNAL);
             elemCount = static_cast<u64>((totalDataCount * portGroups[channelIdx]) / totalPorts);
         }
         elemOffset.push_back(offset);

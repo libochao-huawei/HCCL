@@ -30,19 +30,18 @@ HcclResult InsTempReduceScatterNHR::CalcRes(HcclComm comm, const OpParam& param,
     std::vector<HcclChannelDesc> channels;
     CHK_RET(CalcChannelRequestNhr(comm, param, topoInfo, subCommRanks_, channels));
     resourceRequest.channels.push_back(channels);
-    // u32 channelsPerRank = CalcChannelsPerRandk(channels);
-    u32 channelsPerRank = 1;
+    u32 channelsPerRank = CalcChannelsPerRank(channels);
     channelsPerRank_ = channelsPerRank;
-    // NHR 需要的 que Num 为 1
     GetRes(resourceRequest);
     HCCL_INFO("[InsTempReduceScatterNHR][CalcRes] slaveThreadNum: [%u], notifyNumOnMainThread: [%u].",
         resourceRequest.slaveThreadNum, resourceRequest.notifyNumOnMainThread);
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult InsTempReduceScatterNHR::GetchannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels)
+HcclResult InsTempReduceScatterNHR::SetchannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels)
 {
-    channelsPerRank_ = channels.begin()->second.size();
+    CHK_PRT_RET(channels.empty(), HCCL_ERROR("[SetchannelsPerRank] channels is empty."), HCCL_E_INTERNAL);
+    channelsPerRank_ = CalcChannelsPerRank(channels);
 
     return HCCL_SUCCESS;
 }
@@ -77,14 +76,14 @@ HcclResult InsTempReduceScatterNHR::KernelRun(const OpParam& param,
     tempAlgParams_       = tempAlgParams;
     channels_            = templateResource.channels;
     dataType_ = param.DataDes.dataType;
+    dataTypeSize_  = DATATYPE_SIZE_TABLE[dataType_];
 
-    channelsPerRank_ = channels_.begin()->second.size();
-
+    HCCL_INFO("[InsTempReduceScatterNHR] GenExtIns  channelsPerRank_[%u], dataTypeSize_[%u]", channelsPerRank_, dataTypeSize_);
     std::vector<u64> elemCountOut;
     std::vector<u64> sizeOut;
     std::vector<u64> elemOffset;
-    u64 totalDataCount = tempAlgParams.sliceSize / dataType_;
-    CalcDataSplitByPortGroup(totalDataCount, dataType_, channels_.begin()->second, elemCountOut, sizeOut, elemOffset);
+    u64 totalDataCount = tempAlgParams.sliceSize / dataTypeSize_;
+    CHK_RET(CalcDataSplitByPortGroup(totalDataCount, dataTypeSize_, channels_.begin()->second, elemCountOut, sizeOut, elemOffset));
     elemOffset_ = elemOffset;
     sizeOut_ = sizeOut;
 
@@ -92,8 +91,8 @@ HcclResult InsTempReduceScatterNHR::KernelRun(const OpParam& param,
         std::vector<u64> elemCountOutTail;
         std::vector<u64> sizeOutTail;
         std::vector<u64> elemOffsetTail;
-        u64 totalDataCountTail = tempAlgParams.tailSize / dataType_;
-        CalcDataSplitByPortGroup(totalDataCountTail, dataType_, channels_.begin()->second, elemCountOutTail, sizeOutTail, elemOffsetTail);
+        u64 totalDataCountTail = tempAlgParams.tailSize / dataTypeSize_;
+        CHK_RET(CalcDataSplitByPortGroup(totalDataCountTail, dataTypeSize_, channels_.begin()->second, elemCountOutTail, sizeOutTail, elemOffsetTail));
         elemOffsetTail_ = elemOffsetTail;
         sizeOutTail_ = sizeOutTail;
     }
@@ -107,6 +106,8 @@ HcclResult InsTempReduceScatterNHR::KernelRun(const OpParam& param,
     }
 
     for (u32 channelIdx = 0; channelIdx < channelsPerRank_; channelIdx++) {
+        CHK_PRT_RET(channelIdx >= sizeOut.size() || channelIdx >= elemOffset.size(),
+                    HCCL_ERROR("[InsTempReduceScatterNHR] channelIdx[%u] out of bounds", channelIdx), HCCL_E_INTERNAL);
         CHK_RET(LocalDataCopy(templateResource.threads, channelIdx));
         if (templateRankSize_ <= 1) {
             CHK_RET(PostLocalCopy(templateResource.threads, channelIdx));
@@ -260,12 +261,12 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
                 }
 
                 const u64 txScOff = scratchBase + tempAlgParams_.sliceSize * txIdx + elemOffset[channelIdx]; 
-                const u64 rxScOff = scratchBase + tempAlgParams_.sliceSize * rxIdx + elemOffset_[channelIdx]; 
+                const u64 rxScOff = scratchBase + tempAlgParams_.sliceSize * rxIdx + elemOffset[channelIdx]; 
 
                 const u64 txSliceSize = (txIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize > 0) ?
-                    sizeOutTail_[channelIdx] : sizeOut_[channelIdx];
+                    sizeOutTail_[channelIdx] : sizeOut[channelIdx];
                 const u64 rxSliceSize = (rxIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize > 0) ?
-                    sizeOutTail_[channelIdx]: sizeOut_[channelIdx];
+                    sizeOutTail_[channelIdx]: sizeOut[channelIdx];
 
                 DataSlice txSrcSlice = DataSlice(tempAlgParams_.buffInfo.hcclBuff.addr, txScOff,
                     txSliceSize, txSliceSize / DATATYPE_SIZE_TABLE[dataType_]); // 发送源

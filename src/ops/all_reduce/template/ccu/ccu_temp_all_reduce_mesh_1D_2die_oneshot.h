@@ -18,6 +18,7 @@ namespace ops_hccl {
 
 class CcuTempAllreduceMesh1D2DieOneShot :  public CcuAlgTemplateBase {
 public:
+    CcuTempAllreduceMesh1D2DieOneShot() = default;
     explicit  CcuTempAllreduceMesh1D2DieOneShot(const OpParam& param, 
                                                 const u32 rankId, // 传通信域的rankId，userRank
                                                 const std::vector<std::vector<u32>> &subCommRanks);

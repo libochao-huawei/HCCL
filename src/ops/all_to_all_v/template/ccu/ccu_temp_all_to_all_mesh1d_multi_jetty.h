@@ -18,6 +18,7 @@ namespace ops_hccl {
 
 class CcuTempAllToAllMesh1dMultiJetty : public CcuAlgTemplateBase {
 public:
+    CcuTempAllToAllMesh1dMultiJetty() = default;
     explicit  CcuTempAllToAllMesh1dMultiJetty(const OpParam& param, 
                                                 const u32 rankId, // 传通信域的rankId，userRank
                                                 const std::vector<std::vector<u32>> &subCommRanks);

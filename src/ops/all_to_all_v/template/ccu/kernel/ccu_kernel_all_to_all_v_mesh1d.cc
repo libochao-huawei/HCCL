@@ -286,9 +286,9 @@ std::vector<uint64_t> CcuKernelAlltoAllVMesh1D::GeneArgs(const CcuTaskArg &arg)
 
     uint64_t srcOffset = taskArg->srcOffset_;
     uint64_t dstOffset = taskArg->dstOffset_;
+    uint32_t myRank = taskArg->myRank_;
 
-    HCCL_INFO("[AllToAllVAlgo] inputAddr[%llu], outputAddr[%llu],"
-              "srcOffset[%llu], dstOffset[%llu]",
+    HCCL_INFO("[AllToAllVAlgo] inputAddr[%llu], outputAddr[%llu], srcOffset[%llu], dstOffset[%llu]",
               inputAddr, outputAddr, srcOffset, dstOffset);
     std::vector<uint64_t> processReturn = {inputAddr, outputAddr, tokenInfo, srcOffset, dstOffset};
 
@@ -301,27 +301,33 @@ std::vector<uint64_t> CcuKernelAlltoAllVMesh1D::GeneArgs(const CcuTaskArg &arg)
     for (auto val : xnMaxTransportGoSize) {
         processReturn.push_back(val);
     }
-    uint64_t rankSize = taskArg->sliceSize_.size();
+    uint64_t rankSize = taskArg->rankSize_;
     for (uint64_t i = 0; i < rankSize; i++) {
-        uint64_t tailSize = taskArg->localSendRecvInfo_.sendLength[i] % UB_MAX_TRANS_SIZE;
-        uint64_t loopNum = UINT64_MAX - 1 - (taskArg->localSendRecvInfo_.sendLength[i] / UB_MAX_TRANS_SIZE);
-        uint64_t sendOffset = taskArg->localSendRecvInfo_.sendOffset[i];
-        uint64_t recvOffset = taskArg->localSendRecvInfo_.recvOffset[i];
+    uint64_t tailSize = taskArg->localSendRecvInfo_.sendLength[i] % UB_MAX_TRANS_SIZE;
+    uint64_t loopNum = UINT64_MAX - 1 - (taskArg->localSendRecvInfo_.sendLength[i] / UB_MAX_TRANS_SIZE);
+    uint64_t sendOffset = taskArg->localSendRecvInfo_.sendOffset[i];
+    uint64_t recvOffset = taskArg->localSendRecvInfo_.recvOffset[i];
+    
+    processReturn.push_back(tailSize);
+    processReturn.push_back(loopNum);
+    processReturn.push_back(sendOffset);
+    processReturn.push_back(recvOffset);
+    std::vector<uint64_t> virTailSize;
+    virTailSize.resize(ALL_TO_ALL_V_VECTOR_NUM, 0);
+    if (i == myRank) {
         auto tailGoSize = CalGoSize(tailSize);
-        processReturn.push_back(tailSize);
-        processReturn.push_back(loopNum);
-        processReturn.push_back(sendOffset);
-        processReturn.push_back(recvOffset);
         for (auto val : tailGoSize) {
             processReturn.push_back(val);
         }
-        HCCL_INFO("[AllToAllVAlgo] rankIdx[i] taskArg->sliceSize[%llu]," \
-            "taskArg->localSendRecvInfo.sendOffset[%llu]," \
-            "taskArg->localSendRecvInfo.recvOffset[%llu]",
-            taskArg->sliceSize_[i], taskArg->localSendRecvInfo_.sendOffset[i],
-            taskArg->localSendRecvInfo_.recvOffset[i]);
+    } else {
+        for (auto val : virTailSize) {
+            processReturn.push_back(val);
+        }
     }
-
+    HCCL_INFO("[AllToAllVAlgo] rankIdx[i] taskArg->rankSize_[%u], taskArg->localSendRecvInfo.sendOffset[%llu],"
+              "taskArg->localSendRecvInfo.recvOffset[%llu]",
+        taskArg->rankSize_, taskArg->localSendRecvInfo_.sendOffset[i], taskArg->localSendRecvInfo_.recvOffset[i]);
+    }
     return processReturn;
 }
 
