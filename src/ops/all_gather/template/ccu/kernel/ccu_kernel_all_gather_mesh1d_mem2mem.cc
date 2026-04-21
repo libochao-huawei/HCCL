@@ -256,7 +256,8 @@ std::vector<uint64_t> CcuKernelAllGatherMesh1DMem2Mem::GeneArgs(const CcuTaskArg
     uint64_t die1LastSize                = taskArg->die1LastSize_;
     uint64_t isInputOutputEqual           = taskArg->isInputOutputEqual_;
 
-    auto goSize                           = CalGoSize(die0Size);
+    uint64_t sliceSize = (axisId_ == 0) ? die0Size : die1Size;
+    auto goSize                           = CalGoSize(sliceSize);
 
     std::vector<uint64_t> taskArgs = {inputAddr,
                                       outputAddr,
