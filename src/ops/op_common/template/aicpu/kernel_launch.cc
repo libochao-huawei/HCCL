@@ -23,7 +23,9 @@
 #include <unordered_map>
 #include <shared_mutex>
 #include <atomic>
+#if CANN_VERSION_NUM >= 90000000
 #include "hccl_diag.h"
+#endif
 #include "hccl_device_comm_dl.h"
 
 using namespace ops_hccl;
@@ -260,7 +262,6 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
     #else
     if (param->deviceType == DevType::DEV_TYPE_910_95) {
     #endif
-        //判断通信域状态
         HcclCommStatus commStatus = HCCL_COMM_STATUS_INVALID;
         if (HcommIsSupportHcclCommGetStatus()) {
             auto statusRet = HcclCommGetStatus(param->commName, &commStatus);
@@ -368,9 +369,8 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             return 1;
         }
 
-        // 上报mainstream数据,最后一个任务
-        if (HcommProfilingReportKernelEndTask(thread, param->commName) != HCCL_SUCCESS) {
-            HCCL_ERROR("%s failed to report MainStream And LastTask, thread %lu, param->commName %s.",  __func__, thread, param->commName);
+        if (HcommProfilingReportDeviceOp(param->commName) != HCCL_SUCCESS) {
+            HCCL_ERROR("%s HcommProfilingReportDeviceOp fail, commName[%s]", __func__, param->commName);
             return 1;
         }
 
@@ -380,8 +380,9 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         CHK_RET(static_cast<HcclResult>(HcommThreadNotifyRecordOnThread(thread, exportedAicpuTsThread,
             DEFAULT_NOTIFY_IDX)));
 
-        if (HcommProfilingReportDeviceOp(param->commName) != HCCL_SUCCESS) {
-            HCCL_ERROR("%s HcommProfilingReportDeviceOp fail, commName[%s]", __func__, param->commName);
+        // 上报主流和最后一个task 在notify之后
+        if (HcommProfilingReportKernelEndTask(thread, param->commName) != HCCL_SUCCESS) {
+            HCCL_ERROR("%s failed to report MainStream And LastTask, thread %lu, param->commName %s.",  __func__, thread, param->commName);
             return 1;
         }
         
@@ -440,7 +441,6 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         }
 
         if (exportedAicpuTsThread != 0) {
-            // 上报device侧的op 附加信息
             HcomProInfoTmp profInfo;
             std::string algTypeStr(param->algTypeStr);
             strcpy_s(profInfo.algType, sizeof(profInfo.algType), algTypeStr.c_str());

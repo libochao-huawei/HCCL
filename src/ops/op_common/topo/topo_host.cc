@@ -20,6 +20,8 @@
 #include "config_log.h"
 #include "topo.h"
 #include "dtype_common.h"
+#include "dlsym_common.h"
+#include "hccl_rank_graph_dl.h"
 
 constexpr u32 FACTOR_NUM_TWO = 2;
 constexpr s32 DEVICE_PER_MODULE = 8;
@@ -890,27 +892,26 @@ HcclResult CalcLevel0MeshType(HcclComm comm, TopoInfoWithNetLayerDetails *topoIn
 HcclResult CalAllLevelEndpointAttrBwCoeff(
     HcclComm comm, uint32_t rankId, uint32_t levelSize, std::vector<std::vector<EndpointAttrBwCoeff>> &endpointAttrBw)
 {
-    uint32_t *netLayers = nullptr; // 网络层次list
+    uint32_t *netLayers = nullptr;
     uint32_t netLayerNum = 0;
-    CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum)); // 获取layer总数和layerlist
+    CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
     for (uint32_t layerIdx = 0; layerIdx < netLayerNum; layerIdx++) {
         uint32_t netLayerId = netLayers[layerIdx];
         uint32_t *topoInsts = nullptr;
         uint32_t topoInstNum = 0;
-        CHK_RET(HcclRankGraphGetTopoInstsByLayer(comm, netLayerId, &topoInsts, &topoInstNum)); // 获取topoInstId
-        // 同层可以有多个topoInstId，遍历获取
+        CHK_RET(HcclRankGraphGetTopoInstsByLayer(comm, netLayerId, &topoInsts, &topoInstNum));
         for (uint32_t topoInsIdx = 0; topoInsIdx < topoInstNum; topoInsIdx++) {
             uint32_t topoInstId = topoInsts[topoInsIdx];
             uint32_t endPointNums = 0;
             CHK_RET(HcclRankGraphGetEndpointNum(
-                comm, netLayerId, topoInstId, &endPointNums)); // 获取endPointNums，计算同层有多少节点
+                comm, netLayerId, topoInstId, &endPointNums));
             EndpointDesc *endPointDescs;
             CHK_RET(HcclRankGraphGetEndpointDesc(comm, netLayerId, topoInstId, &endPointNums,
-                endPointDescs)); // 根据Layer和topoInstId，拿到所有的Endpoint信息；返回vector(获取EndpointDesc)
+                endPointDescs));
             uint32_t infoLen = sizeof(EndpointAttrBwCoeff);
             EndpointAttrBwCoeff bwCoeff{};
             CHK_RET(HcclRankGraphGetEndpointInfo(
-                comm, rankId, endPointDescs, ENDPOINT_ATTR_BW_COEFF, infoLen, &bwCoeff)); // 获取该维度的带宽
+                comm, rankId, endPointDescs, ENDPOINT_ATTR_BW_COEFF, infoLen, &bwCoeff));
             endpointAttrBw.emplace_back(bwCoeff);
         }
     }

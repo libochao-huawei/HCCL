@@ -14,7 +14,10 @@
 #include <string>
 #include "hccl/base.h"
 #include "alg_param.h"
+#include "dlsym_common.h"
+#if CANN_VERSION_NUM >= 90000000
 #include "hccl_diag.h"
+#endif
 
 namespace ops_hccl {
 

@@ -13,11 +13,25 @@
 
 #include "dlsym_common.h"
 #include "hccl_res.h"
+
+#if CANN_VERSION_NUM >= 90000000
 #include "hccl_res_expt.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+DECL_WEAK_FUNC(HcclResult, HcclGetRemoteIpcHcclBuf, HcclComm comm, uint64_t remoteRank, void** addr, uint64_t* size);
+DECL_WEAK_FUNC(int32_t, HcclTaskRegister, HcclComm comm, const char* msgTag, Callback cb);
+DECL_WEAK_FUNC(int32_t, HcclTaskUnRegister, HcclComm comm, const char* msgTag);
+DECL_WEAK_FUNC(HcclResult, HcclDevMemAcquire, HcclComm comm, const char* memTag, uint64_t* size, void** addr, bool* newCreated);
+DECL_WEAK_FUNC(HcclResult, HcclThreadExportToCommEngine, HcclComm comm, uint32_t threadNum,
+    const ThreadHandle* threads, CommEngine dstCommEngine, ThreadHandle* exportedThreads);
+DECL_WEAK_FUNC(HcclResult, HcclChannelGetRemoteMems, HcclComm comm, ChannelHandle channel,
+    uint32_t* memNum, CommMem** remoteMems, char*** memTags);
+DECL_WEAK_FUNC(HcclResult, HcclCommMemReg, HcclComm comm, const char* memTag, const CommMem* mem, HcclMemHandle* memHandle);
+DECL_WEAK_FUNC(HcclResult, HcclEngineCtxDestroy, HcclComm comm, const char* ctxTag, CommEngine engine);
 
 DECL_SUPPORT_FLAG(HcclThreadExportToCommEngine);
 // 动态库管理接口（大驼峰命名）

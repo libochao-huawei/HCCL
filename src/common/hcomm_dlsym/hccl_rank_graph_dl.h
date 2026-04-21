@@ -18,6 +18,19 @@
 extern "C" {
 #endif
 
+DECL_WEAK_FUNC(HcclResult, HcclRankGraphGetTopoInstsByLayer, HcclComm comm, uint32_t netLayer,
+    uint32_t** topoInsts, uint32_t* topoInstNum);
+DECL_WEAK_FUNC(HcclResult, HcclRankGraphGetTopoType, HcclComm comm, uint32_t netLayer,
+    uint32_t topoInstId, CommTopo* topoType);
+DECL_WEAK_FUNC(HcclResult, HcclRankGraphGetRanksByTopoInst, HcclComm comm, uint32_t netLayer,
+    uint32_t topoInstId, uint32_t** ranks, uint32_t* rankNum);
+DECL_WEAK_FUNC(HcclResult, HcclRankGraphGetEndpointNum, HcclComm comm, uint32_t layer,
+    uint32_t topoInstId, uint32_t* num);
+DECL_WEAK_FUNC(HcclResult, HcclRankGraphGetEndpointDesc, HcclComm comm, uint32_t layer,
+    uint32_t topoInstId, uint32_t* descNum, EndpointDesc* endpointDesc);
+DECL_WEAK_FUNC(HcclResult, HcclRankGraphGetEndpointInfo, HcclComm comm, uint32_t rankId,
+    const EndpointDesc* endpointDesc, EndpointAttr endpointAttr, uint32_t infoLen, void* info);
+
 void HcclRankGraphDlInit(void* libHcommHandle);
 
 #ifdef __cplusplus

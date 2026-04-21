@@ -18,27 +18,6 @@
 extern "C" {
 #endif
 
-typedef struct HcomProInfoTmp {
-#define MAX_LENGTH 128
-    uint8_t dataType;
-    uint8_t cmdType;
-    uint64_t dataCount;
-    uint32_t rankSize;
-    uint32_t userRank;
-    uint32_t blockDim = 0;
-    uint64_t beginTime;
-    uint32_t root;
-    uint32_t slaveThreadNum;
-    uint64_t commNameLen;
-    uint64_t algTypeLen;
-    char tag[MAX_LENGTH];
-    char commName[MAX_LENGTH];
-    char algType[MAX_LENGTH];
-    bool isCapture = false;
-    bool isAiv = false;
-    uint8_t reserved[MAX_LENGTH];
-}HcomProInfoTmp;
-
 DECL_WEAK_FUNC(HcclResult, HcommProfilingReportMainStreamAndFirstTask, ThreadHandle thread);
 DECL_WEAK_FUNC(HcclResult, HcommProfilingReportMainStreamAndLastTask, ThreadHandle thread);
 DECL_WEAK_FUNC(HcclResult, HcommProfilingReportDeviceHcclOpInfo, HcomProInfoTmp profInfo);
@@ -48,6 +27,14 @@ DECL_WEAK_FUNC(HcclResult, HcommProfilingReportDeviceOp, const char* groupname);
 DECL_WEAK_FUNC(HcclResult, HcommProfilingReportKernelStartTask, uint64_t thread, const char* groupname);
 DECL_WEAK_FUNC(HcclResult, HcommProfilingReportKernelEndTask, uint64_t thread, const char* groupname);
 DECL_WEAK_FUNC(HcclResult, HcclDfxRegOpInfoByCommId, char* commId, void* hcclDfxOpInfo);
+DECL_SUPPORT_FLAG(HcommProfilingReportMainStreamAndFirstTask);
+DECL_SUPPORT_FLAG(HcommProfilingReportMainStreamAndLastTask);
+DECL_SUPPORT_FLAG(HcommProfilingReportDeviceHcclOpInfo);
+DECL_SUPPORT_FLAG(HcommProfilingInit);
+DECL_SUPPORT_FLAG(HcommProfilingEnd);
+DECL_SUPPORT_FLAG(HcommProfilingReportDeviceOp);
+DECL_SUPPORT_FLAG(HcommProfilingReportKernelStartTask);
+DECL_SUPPORT_FLAG(HcommProfilingReportKernelEndTask);
 
 // 动态库管理接口
 void HcommDeviceProfilingDlInit(void* libHcommHandle);

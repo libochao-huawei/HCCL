@@ -18,27 +18,6 @@
 extern "C" {
 #endif
 
-typedef struct HcomProInfoTmp {
-#define MAX_LENGTH 128
-    uint8_t dataType;
-    uint8_t cmdType;
-    uint64_t dataCount;
-    uint32_t rankSize;
-    uint32_t userRank;
-    uint32_t blockDim = 0;
-    uint64_t beginTime;
-    uint32_t root;
-    uint32_t slaveThreadNum;
-    uint64_t commNameLen;
-    uint64_t algTypeLen;
-    char tag[MAX_LENGTH];
-    char commName[MAX_LENGTH];
-    char algType[MAX_LENGTH];
-    bool isCapture = false;
-    bool isAiv = false;
-    uint8_t reserved[MAX_LENGTH];
-}HcomProInfoTmp;
-
 DECL_WEAK_FUNC(HcclResult, HcommProfilingRegThread, HcomProInfoTmp profInfo, ThreadHandle* threads);
 DECL_WEAK_FUNC(HcclResult, HcommProfilingUnRegThread, HcomProInfoTmp profInfo, ThreadHandle* threads);
 DECL_WEAK_FUNC(HcclResult, HcommProfilingReportKernel, uint64_t beginTime, const char* profName);
@@ -48,6 +27,15 @@ DECL_WEAK_FUNC(HcclResult, HcclDfxRegOpInfoByCommId, char* commId, void* hcclDfx
 DECL_WEAK_FUNC(HcclResult, HcclProfilingReportOp, HcclComm comm, uint64_t beginTime);
 DECL_WEAK_FUNC(HcclResult, HcclReportAicpuKernel, HcclComm comm, uint64_t beginTime, char *kernelName);
 DECL_WEAK_FUNC(HcclResult, HcclReportAivKernel, HcclComm comm, uint64_t beginTime);
+DECL_SUPPORT_FLAG(HcommProfilingRegThread);
+DECL_SUPPORT_FLAG(HcommProfilingUnRegThread);
+DECL_SUPPORT_FLAG(HcommProfilingReportKernel);
+DECL_SUPPORT_FLAG(HcommProfilingReportOp);
+DECL_SUPPORT_FLAG(HcommGetProfilingSysCycleTime);
+DECL_SUPPORT_FLAG(HcclDfxRegOpInfoByCommId);
+DECL_SUPPORT_FLAG(HcclProfilingReportOp);
+DECL_SUPPORT_FLAG(HcclReportAicpuKernel);
+DECL_SUPPORT_FLAG(HcclReportAivKernel);
 
 // 动态库管理接口
 void HcommProfilingDlInit(void* libHcommHandle);

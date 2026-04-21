@@ -11,6 +11,7 @@
 #ifndef OPS_HCCL_SRC_OPS_SCATTER_OP
 #define OPS_HCCL_SRC_OPS_SCATTER_OP
 
+#include <array>
 #include <string>
 #include "hccl.h"
 

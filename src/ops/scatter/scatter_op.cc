@@ -30,6 +30,10 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
     HcclDataType dataType, uint32_t root, HcclComm comm, aclrtStream stream)
 {
+    HCCL_INFO("Start to run execute HcclScatter");
+    if (GetHcommVersion() < 90000000) {  // compat handle: 老版 libhcomm 走 CANN 原生 Inner
+        return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
+    }
     // 获取设备类型拦截混合组网
     HcclHeterogMode allDeviceType;
     CHK_RET(HcclGetHeterogMode(comm, &allDeviceType));
@@ -49,7 +53,11 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
     CHK_RET(InitEnvConfig());
     
     // AclGraph引导到老的流程上面
+    #ifdef MACRO_DEV_TYPE_NEW
     if (deviceType != DevType::DEV_TYPE_950 && IsStreamCapture(stream)) {
+    #else
+    if (deviceType != DevType::DEV_TYPE_910_95 && IsStreamCapture(stream)) {
+    #endif
         return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
     }
     // 重执行引导到老的流程上面
@@ -181,7 +189,6 @@ HcclResult ScatterExecOp(OpParam &param, void *sendBuf, void *recvBuf, uint64_t 
         CHK_RET(ExecOp(comm, param));  //保留原有A3流程
 
         if (HcommIsProfilingSupported()) {
-           // 获取profiling op上报的信息
             HcomProInfoTmp profInfo;
             std::string algTypeStr = TransferAlgTypeStr(param.algType);
             CHK_SAFETY_FUNC_RET(strcpy_s(profInfo.algType, sizeof(profInfo.algType), algTypeStr.c_str()));
@@ -276,6 +283,7 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
     ThreadHandle cpuTsThread = 0;
     ThreadHandle exportedAicpuTsThread = 0;
     ThreadHandle exportedCpuTsThread = 0;
+    #if CANN_VERSION_NUM >= 90000000
     if (HcommIsExportThreadSupported()) {
         if (param.engine == COMM_ENGINE_AICPU_TS) {
             CHK_RET(HcclThreadAcquireWithStream(comm, COMM_ENGINE_CPU_TS, param.stream, 1, &cpuTsThread));
@@ -302,6 +310,7 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
         curPtr = curPtr + sizeof(AlgResourceCtx) - sizeof(TopoInfo) - sizeof(ThreadHandle) - sizeof(uint32_t) * AICPU_CONTROL_NOTIFY_NUM - sizeof(void*); // 偏移指针
         CHK_RET(haclrtMemcpy(curPtr, sizeof(ThreadHandle), &exportedAicpuTsThread, sizeof(ThreadHandle), ACL_MEMCPY_HOST_TO_DEVICE));
     }
+    #endif
     
     // 算法执行
     if (param.engine == COMM_ENGINE_AICPU_TS) {
@@ -318,6 +327,7 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
         int32_t retComm = HcommAcquireComm(param.commName);
         CHK_PRT_RET(retComm != HCCL_SUCCESS, HCCL_ERROR("[%s] [%s] HcommAcquireComm failed ",
             __func__, param.commName), static_cast<HcclResult>(retComm));
+        #if CANN_VERSION_NUM >= 90000000
         if (HcommIsExportThreadSupported()) {
             // Host stream通知Device主thread，使用主流上idx最大的notify
             CHK_RET(static_cast<HcclResult>(HcommThreadNotifyRecordOnThread(cpuTsThread, exportedCpuTsThread,
@@ -328,12 +338,13 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
                 return HCCL_E_INTERNAL;
             }
         }
+        #endif
 
         // 执行device测的算法编排
         uint64_t beginTime;
         if (HcommIsProfilingSupported()) {
             beginTime = HcommGetProfilingSysCycleTime();
-        } 
+        }
         std::string kernelName = "HcclLaunchAicpuKernel";
         aclrtFuncHandle funcHandle;
         aclrtArgsHandle argsHandle;
@@ -375,14 +386,13 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
                     HCCL_ERROR("[LoadCustomKernel][aclrtLaunchKernelWithConfig]errNo[0x%016llx] launch kernel failed", ret), HCCL_E_OPEN_FILE_FAILURE);
         if (HcommIsProfilingSupported()) {
             std::string profName = "scatter";
-            profName += "AicpuKernel"; // 标准后缀，类似于alltoallAicpuKernel;
-            // 算子下发时间
+            profName += "AicpuKernel";
             HCCL_DEBUG("[%s] profName = [%s]", __func__, profName);
-            // 上报
             HcommProfilingReportKernel(beginTime, profName.c_str());
         }
 
         // Host stream等待Device的通知
+        #if CANN_VERSION_NUM >= 90000000
         if (HcommIsExportThreadSupported()) {
             CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, 0, NOTIFY_DEFAULT_WAIT_TIME)));
         } else {
@@ -391,6 +401,7 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
                 return HCCL_E_INTERNAL;
  	        }
         }
+        #endif
     } else {
         CHK_RET(executor->Orchestrate(param, resCtx));
         param.resCtx = resCtx;
