@@ -30,7 +30,6 @@
 #include "binary_stream.h"
 #if CANN_VERSION_NUM >= 90000000
 #include "hccl_ccu_res.h"
-#include "hccl_aiv_utils.h"
 #else
 typedef void *CcuKernelHandle; // 8.5.0 下无 hccl_ccu_res.h，用 opaque 占位
 #endif
@@ -38,6 +37,8 @@ typedef void *CcuKernelHandle; // 8.5.0 下无 hccl_ccu_res.h，用 opaque 占�
 namespace ops_hccl {
 
 constexpr uint64_t UB_MAX_DATA_SIZE = 256*1024*1024; // Byte, UB协议一次传输的最大size
+
+constexpr u32 MAX_NUM_BLOCKS = 56; // 56-72
 
 constexpr uint32_t DATATYPE_SIZE_TABLE[HCCL_DATA_TYPE_RESERVED] = {sizeof(int8_t), sizeof(int16_t), sizeof(int32_t),
     2, sizeof(float), sizeof(int64_t), sizeof(uint64_t), sizeof(uint8_t), sizeof(uint16_t), sizeof(uint32_t),
@@ -629,7 +630,7 @@ struct OpExchangeInfo {
     HcclReduceOp reduceType = HcclReduceOp::HCCL_REDUCE_RESERVED;
     HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_RESERVED;
     u64 count{0};
-    u32 aivCoreLimit{MAX_NUM_BLOCKS};
+    u32 aivCoreLimit = MAX_NUM_BLOCKS;
     char group[MAX_LENGTH];
     u32 sendRecvRemoteRank = INVALID_VALUE_RANKID;
 };
