@@ -145,7 +145,8 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
                 tempAlgParams.sdispls[rankId] * dataTypeSize_ + sendOffsetSplit[channelId],
                 sendSizeSplit[channelId], sendCountsSplit[channelId]);
             DataSlice txDstSlice = DataSlice(remoteCclBuffAddr,
-                myAlgRank * cclBufferCountPerRank_ * dataTypeSize_ + sendOffsetSplit[channelId] + tempAlgParams.buffInfo.hcclBuffBaseOff,
+                myAlgRank * cclBufferCountPerRank_ * dataTypeSize_ + sendOffsetSplit[channelId] +
+                tempAlgParams.buffInfo.hcclBuffBaseOff,
                 sendSizeSplit[channelId], sendCountsSplit[channelId]);
             txSrcSlices.push_back(txSrcSlice);
             txDstSlices.push_back(txDstSlice);
@@ -154,22 +155,26 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
             DataInfo sendInfo{linkSend, {txSrcSlices, txDstSlices}};
             DataInfo recvInfo{linkRecv, {rxSrcSlices, rxDstSlices}};
             SendRecvInfo sendRecvInfo{{linkSend, linkRecv},
-                                {{txSrcSlices, txDstSlices},{rxSrcSlices, rxDstSlices}}};
+                {{txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices}}};
             if (sendSizeSplit[channelId] > 0 && recvSizeSplit[channelId] > 0) {
                 CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[queIdx]),
-                    HCCL_ERROR("[InsTempAlltoAllVMesh1D] RunALLtoALL SendRecvInfo failed"), HcclResult::HCCL_E_INTERNAL);
+                    HCCL_ERROR("[InsTempAlltoAllVMesh1D] RunALLtoALL SendRecvInfo failed"),
+                    HcclResult::HCCL_E_INTERNAL);
             } else { // 其中一个或者两个为0
                 if (sendSizeSplit[channelId] > 0) {
                     CHK_PRT_RET(SendWrite(sendInfo, threads[queIdx]),
-                        HCCL_ERROR("[InsTempAlltoAllVMesh1D] RunALLtoALL sendInfo failed"), HcclResult::HCCL_E_INTERNAL);
+                        HCCL_ERROR("[InsTempAlltoAllVMesh1D] RunALLtoALL sendInfo failed"),
+                        HcclResult::HCCL_E_INTERNAL);
                 }
                 if (recvSizeSplit[channelId] > 0) {
                     CHK_PRT_RET(RecvWrite(recvInfo, threads[queIdx]),
-                        HCCL_ERROR("[InsTempAlltoAllVMesh1D] RunALLtoALL recvInfo failed"), HcclResult::HCCL_E_INTERNAL);
+                        HCCL_ERROR("[InsTempAlltoAllVMesh1D] RunALLtoALL recvInfo failed"),
+                        HcclResult::HCCL_E_INTERNAL);
                 }
             }
-            HCCL_DEBUG("[InsTempAlltoAllVMesh1D][RunALLtoALL] do send recv write on thread[%u], send size[%llu], "\
-                "recv size[%llu], remote rank[%u].", queIdx, sendSizeSplit[channelId], recvSizeSplit[channelId], remoteRank);
+            HCCL_DEBUG("[InsTempAlltoAllVMesh1D][RunALLtoALL] do send recv write on thread[%u], "\
+                "send size[%llu], recv size[%llu], remote rank[%u].",
+                queIdx, sendSizeSplit[channelId], recvSizeSplit[channelId], remoteRank);
             if (recvSizeSplit[channelId] > 0) {
                 CHK_RET(PostCopy(tempAlgParams, threads[queIdx], rankId, recvSizeSplit[channelId],
                     recvCountsSplit[channelId], recvOffsetSplit[channelId]));
