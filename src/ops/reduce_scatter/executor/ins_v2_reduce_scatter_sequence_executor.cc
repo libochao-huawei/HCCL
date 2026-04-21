@@ -9,6 +9,9 @@
  */
 
 #include "ins_v2_reduce_scatter_sequence_executor.h"
+
+#if CANN_VERSION_NUM >= 90000000
+
 #include "ins_temp_reduce_scatter_mesh_1D.h"
 #include "ins_temp_reduce_scatter_mesh_1d_dpu.h"
 
@@ -263,3 +266,5 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER,
                                 InsTempReduceScatterMesh1D,
                                 InsTempReduceScatterMesh1dDpu);
 }
+
+#endif /* CANN_VERSION_NUM >= 90000000 */

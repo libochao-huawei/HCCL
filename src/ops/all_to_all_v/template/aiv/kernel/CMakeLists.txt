@@ -1,3 +1,4 @@
+if(NOT HCCL_CANN_COMPAT_850)
 set_source_files_properties(
         aiv_communication_v2_alltoallv.h PROPERTIES LANGUAGE CXX
 )
@@ -45,3 +46,4 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_v_op_910_95.o OPTI
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_op_910_95.o OPTIONAL
     DESTINATION ${INSTALL_LIBRARY_DIR}
 )
+endif()

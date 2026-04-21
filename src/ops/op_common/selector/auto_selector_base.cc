@@ -128,6 +128,7 @@ SelectorStatus AutoSelectorBase::SelectDPUAlgo(const TopoInfoWithNetLayerDetails
     return SelectorStatus::NOT_MATCH;
 }
 
+
 bool AutoSelectorBase::IsLayerAllConnetedWithTopo(const TopoInfoWithNetLayerDetails *topoInfo, const u32 netLayer, const CommTopo topoType) const
 {
     CHK_PRT_RET(topoInfo->netLayerDetails.localNetInsSizeOfLayer.size() <= netLayer,

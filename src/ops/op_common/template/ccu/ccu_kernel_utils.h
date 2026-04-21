@@ -11,6 +11,9 @@
 #ifndef HCCL_CCU_KERNEL_UTILS_H_
 #define HCCL_CCU_KERNEL_UTILS_H_
 
+/* 8.5.0 CANN 下 CCU 特性整体剥离，整个头设为空实现 */
+#if CANN_VERSION_NUM >= 90000000
+
 #include <vector>
 #include <queue>
 #include "alg_param.h"
@@ -41,4 +44,6 @@ uint64_t DataTypeSizeGet(HcclDataType type);
 HcclResult GenerateCcuKernelSignature(hcomm::CcuKernelSignature& sig, const std::string &name, const OpParam& opParam,
                                       const std::vector<std::vector<uint32_t>>& subCommRanks);
 }
+
+#endif /* CANN_VERSION_NUM >= 90000000 */
 #endif // HCCL_CCU_KERNEL_UTILS_H_

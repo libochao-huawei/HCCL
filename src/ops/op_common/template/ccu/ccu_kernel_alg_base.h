@@ -11,6 +11,9 @@
 #ifndef CCU_KERNEL_ALG_BASE
 #define CCU_KERNEL_ALG_BASE
 
+/* 8.5.0 CANN 下 CCU 特性整体剥离，整个头设为空实现 */
+#if CANN_VERSION_NUM >= 90000000
+
 #include "log.h"
 #include "ccu_kernel.h"
 
@@ -105,4 +108,6 @@ private:
 
 }
 
+
+#endif /* CANN_VERSION_NUM >= 90000000 */
 #endif // !CCU_KERNEL_ALG_BASE

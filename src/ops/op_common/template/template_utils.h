@@ -295,7 +295,7 @@ struct TemplateDataParams {
 struct TemplateResource {
     std::map<u32, std::vector<ChannelInfo>> channels;
     std::vector<ThreadHandle> threads;
-    std::vector<CcuKernelHandle> ccuKernels;
+    std::vector<CcuKernelHandle> ccuKernels;   // 8.5.0 下 CcuKernelHandle 为 void*
     std::vector<CcuKernelSubmitInfo> submitInfos;
     void *npu2DpuShmemPtr;
     void *dpu2NpuShmemPtr;

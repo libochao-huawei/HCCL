@@ -43,9 +43,16 @@ HcclResult TopoMatch1D::MatchTopo(HcclComm comm, TopoInfoWithNetLayerDetails* to
     for (uint32_t netLayerIdx = 0; netLayerIdx < topoInfo->topoLevelNums; netLayerIdx++) {
         CommTopo topoType;
         HcclRankGraphGetTopoTypeByLayer(comm, netLayerIdx, &topoType);
+#if CANN_VERSION_NUM >= 90000000
         CHK_PRT_RET((topoType != CommTopo::COMM_TOPO_CUSTOM && topoType != CommTopo::COMM_TOPO_CLOS),
                 HCCL_ERROR("[CollAlgFactory] [TopoMatchMesh1D] netLayer [%d], topoType not COMM_TOPO_CUSTOM or COMM_TOPO_CLOS.", netLayerIdx),
                 HcclResult::HCCL_E_PARA);
+#else
+        // 8.5.0 CANN 的 CommTopo 枚举无 COMM_TOPO_CUSTOM；只校验 COMM_TOPO_CLOS
+        CHK_PRT_RET((topoType != CommTopo::COMM_TOPO_CLOS),
+                HCCL_ERROR("[CollAlgFactory] [TopoMatchMesh1D] netLayer [%d], topoType not COMM_TOPO_CLOS.", netLayerIdx),
+                HcclResult::HCCL_E_PARA);
+#endif
     }
 
     for (uint32_t rankId = 0; rankId < topoInfo->userRankSize; rankId++) {

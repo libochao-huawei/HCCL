@@ -12,19 +12,21 @@
 #define HCOMM_PRIMITIVES_DL_H
 
 #include "dlsym_common.h"
-#include "hcomm_primitives.h"   // 原头文件，包含所有类型和定义
-#include "hccl_types.h"          
+#include "hccl_types.h"
+#include "hcomm_primitives.h"   // 原头文件，两版 CANN 都有
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+#if CANN_VERSION_NUM >= 90000000
 DECL_WEAK_FUNC(int32_t, HcommThreadSynchronize, ThreadHandle thread);
 DECL_WEAK_FUNC(int32_t, HcommSendRequest, uint64_t handle, const char* msgTag, const void* src, size_t sizeByte, uint32_t* msgId);
 DECL_WEAK_FUNC(int32_t, HcommWaitResponse, uint64_t handle, void* dst, size_t sizeByte, uint32_t* msgId);
 DECL_WEAK_FUNC(HcclResult, HcommThreadJoin, ThreadHandle thread, uint32_t timeout);
+#endif
 
-void HcommPrimitivesDlInit(void* libHcommHandle);  // 本模块独立初始化
+void HcommPrimitivesDlInit(void* libHcommHandle);
 
 #ifdef __cplusplus
 }

@@ -11,6 +11,9 @@
 #ifndef HCCL_CCU_TEMP_ALL_REDUCE_NHR_MEM2MEM_1D_MULTY_JETTY_H
 #define HCCL_CCU_TEMP_ALL_REDUCE_NHR_MEM2MEM_1D_MULTY_JETTY_H
 
+/* 8.5.0 CANN 下 CCU 特性整体剥离，整个头设为空实现 */
+#if CANN_VERSION_NUM >= 90000000
+
 #include "ccu_alg_template_base.h"
 #include "utils.h"
 #include "ccu_kernel_all_reduce_nhr_mem2mem_1D_multi_jetty.h"
@@ -53,4 +56,6 @@ private:
     std::map<u32, u32> subCommRankMap_; // 全局rank号映射到自通信域rank号
 };
 } // namespace ops_hccl
+
+#endif /* CANN_VERSION_NUM >= 90000000 */
 #endif// HCCL_CCU_TEMP_ALL_REDUCE_NHR_MEM2MEM_1D_MULTY_JETTY_H

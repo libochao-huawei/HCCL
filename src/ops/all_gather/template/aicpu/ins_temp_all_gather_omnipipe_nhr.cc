@@ -8,6 +8,9 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+
+
+#if CANN_VERSION_NUM >= 90000000
 #include "ins_temp_all_gather_omnipipe_nhr.h"
 #include "alg_data_trans_wrapper.h"
 
@@ -110,3 +113,5 @@ HcclResult InsTempAllGatherOmniPipeNHR::RunAllGatherNHR(const std::vector<Thread
 }
 
 }  // namespace ops_hccl
+
+#endif /* CANN_VERSION_NUM >= 90000000 */

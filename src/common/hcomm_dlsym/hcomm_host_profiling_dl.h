@@ -18,6 +18,7 @@
 extern "C" {
 #endif
 
+#if CANN_VERSION_NUM >= 90000000
 typedef struct HcomProInfoTmp {
 #define MAX_LENGTH 128
     uint8_t dataType;
@@ -48,6 +49,7 @@ DECL_WEAK_FUNC(HcclResult, HcclDfxRegOpInfoByCommId, char* commId, void* hcclDfx
 DECL_WEAK_FUNC(HcclResult, HcclProfilingReportOp, HcclComm comm, uint64_t beginTime);
 DECL_WEAK_FUNC(HcclResult, HcclReportAicpuKernel, HcclComm comm, uint64_t beginTime, char *kernelName);
 DECL_WEAK_FUNC(HcclResult, HcclReportAivKernel, HcclComm comm, uint64_t beginTime);
+#endif /* CANN_VERSION_NUM >= 90000000 */
 
 // 动态库管理接口
 void HcommProfilingDlInit(void* libHcommHandle);

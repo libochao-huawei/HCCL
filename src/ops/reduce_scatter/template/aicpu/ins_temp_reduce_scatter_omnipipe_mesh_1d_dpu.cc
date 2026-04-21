@@ -8,6 +8,9 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+
+
+#if CANN_VERSION_NUM >= 90000000
 #include "ins_temp_reduce_scatter_omnipipe_mesh_1d_dpu.h"
 
 namespace ops_hccl {
@@ -319,3 +322,5 @@ HcclResult InsTempReduceScatterOmniPipeMesh1dDpu::DPUKernelRun(const TemplateDat
 REGISTER_TEMPLATE_V2("InsTempReduceScatterOmniPipeMesh1dDpu", InsTempReduceScatterOmniPipeMesh1dDpu);
 
 }  // namespace ops_hccl
+
+#endif /* CANN_VERSION_NUM >= 90000000 */

@@ -12,6 +12,9 @@
 #ifndef HCCL_CCU_TEMP_ALL_REDUCE_MESH_1D_ONE_SHOT_H_
 #define HCCL_CCU_TEMP_ALL_REDUCE_MESH_1D_ONE_SHOT_H_
 
+/* 8.5.0 CANN 下 CCU 特性整体剥离，整个头设为空实现 */
+#if CANN_VERSION_NUM >= 90000000
+
 #include <ios>
 #include "ccu_alg_template_base.h"
 #include "utils.h"
@@ -46,4 +49,6 @@ private:
 
 } // namespace Hccl
 
+
+#endif /* CANN_VERSION_NUM >= 90000000 */
 #endif // HCCLV2_CCU_TEMP_ALL_REDUCE_MESH_1D_H_

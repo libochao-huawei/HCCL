@@ -8,6 +8,9 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+
+
+#if CANN_VERSION_NUM >= 90000000
 #include "ins_temp_dpu_alltoall_mesh.h"
 
 namespace ops_hccl {
@@ -534,3 +537,5 @@ HcclResult InsTempDpuAlltoAllMesh::DPUKernelRun(const TemplateDataParams &tempAl
 }
 REGISTER_TEMPLATE_V2("InsTempDpuAlltoAllMesh", InsTempDpuAlltoAllMesh);
 }  // namespace ops_hccl
+
+#endif /* CANN_VERSION_NUM >= 90000000 */

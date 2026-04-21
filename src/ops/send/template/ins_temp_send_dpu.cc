@@ -8,6 +8,9 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+
+
+#if CANN_VERSION_NUM >= 90000000
 #include "ins_temp_send_dpu.h"
 
 namespace ops_hccl
@@ -197,3 +200,5 @@ namespace ops_hccl
 
     REGISTER_TEMPLATE_V2("InsTempSendDpu", InsTempSendDpu);
 } // namespace ops_hccl
+
+#endif /* CANN_VERSION_NUM >= 90000000 */

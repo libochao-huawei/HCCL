@@ -8,6 +8,9 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+
+
+#if CANN_VERSION_NUM >= 90000000
 #include "ins_temp_reduce_scatter_mesh_1D_dpu_inter.h"
 
 namespace ops_hccl {
@@ -289,3 +292,5 @@ HcclResult InsTempReduceScatterMesh1dDpuInter::PostLocalReduce(const TemplateDat
 REGISTER_TEMPLATE_V2("InsTempReduceScatterMesh1dDpuInter", InsTempReduceScatterMesh1dDpuInter);
 #endif
 } // namespace Hccl
+
+#endif /* CANN_VERSION_NUM >= 90000000 */

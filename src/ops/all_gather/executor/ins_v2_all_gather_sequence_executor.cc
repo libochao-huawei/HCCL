@@ -9,6 +9,9 @@
  */
 
 #include "ins_v2_all_gather_sequence_executor.h"
+
+#if CANN_VERSION_NUM >= 90000000
+
 #include "topo_match_multilevel.h"
 #include "ins_temp_all_gather_mesh_1D.h"
 #include "ins_temp_all_gather_nhr_dpu.h"
@@ -215,3 +218,5 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER,
                                InsTempAllGatherMesh1D,
                                InsTempAllGatherNHRDPU);
 }
+
+#endif /* CANN_VERSION_NUM >= 90000000 */

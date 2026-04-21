@@ -12,13 +12,15 @@
 #define HCCL_DEVICE_COMM_DL_H
 
 #include "dlsym_common.h"
-#include "hccl_comm.h"   // 原始头文件，包含所有类型和声明
+#include "hccl_comm.h"   // 原始头文件，两版 CANN 都有
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+#if CANN_VERSION_NUM >= 90000000
 DECL_SUPPORT_FLAG(HcclCommGetStatus);
+#endif
 
 void HcclDeviceCommDlInit(void* libHcommHandle);
 

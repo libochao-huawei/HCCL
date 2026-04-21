@@ -9,6 +9,9 @@
  */
 
 #include "ins_v2_broadcast_sequence_executor.h"
+
+#if CANN_VERSION_NUM >= 90000000
+
 #include "ins_temp_scatter_mesh_1D_intra.h"
 #include "ins_temp_scatter_nhr_dpu_inter.h"
 #include "ins_temp_allgather_nhr_dpu_inter.h"
@@ -455,3 +458,5 @@ REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_BROADCAST, InsBroadcastSeq
     TopoMatchMultilevel, InsTempScatterMesh1DIntra, InsTempScatterNHRDPUInter, InsTempAllGatherNHRDPUInter,
     InsTempAllGatherMesh1DIntra);
 }  // namespace ops_hccl
+
+#endif /* CANN_VERSION_NUM >= 90000000 */

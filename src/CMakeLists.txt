@@ -172,7 +172,6 @@ if(BUILD_OPEN_PROJECT)
         # 包间接口
         ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/
         ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/hccl
-        ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/hcomm/ccu
         ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/runtime/
         ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/aicpu/
         ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/runtime/runtime/
@@ -181,6 +180,10 @@ if(BUILD_OPEN_PROJECT)
         ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/dump/
         ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/trace/
     )
+    # pkg_inc/hcomm/ccu 仅 9.0.0 CANN 存在，8.5.0 下直接不加入 include 路径
+    if(EXISTS ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/hcomm/ccu)
+        list(APPEND INCLUDE_LIST ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/hcomm/ccu)
+    endif()
 else()
     list(APPEND INCLUDE_LIST
         ${TOP_DIR}/inc
@@ -369,6 +372,10 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         -DAICPU_COMPILE
     )
 
+    if(HCCL_CANN_COMPAT_850)
+        target_compile_definitions(scatter_aicpu_kernel PRIVATE HCCL_CANN_COMPAT_850)
+    endif()
+
     target_link_directories(scatter_aicpu_kernel PRIVATE
       ${ASCEND_CANN_PACKAGE_PATH}/devlib/device
   )
@@ -379,7 +386,6 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         hccl_kernel_compat
         -Wl,--no-as-needed
     )
-
     add_dependencies(scatter_aicpu_kernel hccl_kernel_compat)
 endif()
 
@@ -433,7 +439,11 @@ target_compile_definitions(${TARGET_NAME} PRIVATE
     -DHOST_COMPILE
 )
 
-target_compile_options(${TARGET_NAME} PRIVATE
+if(HCCL_CANN_COMPAT_850)
+    target_compile_definitions(hccl PRIVATE HCCL_CANN_COMPAT_850)
+endif()
+
+target_compile_options(hccl PRIVATE
     -Werror
     -fno-common
     -fno-strict-aliasing

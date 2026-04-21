@@ -696,6 +696,7 @@ HcclResult ExtractNetLayerDetails(const HcclComm comm, TopoInfoWithNetLayerDetai
 
 HcclResult ExtractTopoDetails(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo)
 {
+#if CANN_VERSION_NUM >= 90000000
     HcclResult ret;
     CHK_PRT_RET(comm == nullptr, HCCL_ERROR("[Topo][ExtractNetLayerDetails] comm is null"), HCCL_E_PTR);
     u32 netLayerNum = topoInfo->netLayerDetails.netLayerNum;
@@ -758,6 +759,10 @@ HcclResult ExtractTopoDetails(HcclComm comm, TopoInfoWithNetLayerDetails* topoIn
         }
     }
     return HCCL_SUCCESS;
+#else
+    (void)comm; (void)topoInfo;
+    return HCCL_E_NOT_SUPPORT;
+#endif
 }
 
 HcclResult Is2DieFullMesh(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo)
@@ -792,6 +797,9 @@ HcclResult Is2DieFullMesh(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo)
                 ranks[rankIdx],
                 netLayer),
             HCCL_E_INTERNAL);
+#if CANN_VERSION_NUM >= 90000000
+        // EndpointAttrDieId / ENDPOINT_ATTR_DIE_ID 为 9.0.0-only 属性；8.5.0 下此特性不可用，Is2DieFullMesh
+        // 保持默认（non-2die），由算子入口版本号守护确保 8.5.0 不依赖该判断。
         EndpointDesc srcEndPointDesc = links[0].srcEndpointDesc;
         EndpointAttrDieId  dieId;
         uint32_t infoLen = sizeof(EndpointAttrDieId);
@@ -808,6 +816,9 @@ HcclResult Is2DieFullMesh(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo)
         dieLinkCounter[dieId]++;
         HCCL_INFO("[Topo][Is2DieFullMesh], Link from Local[%u] to Rmt[%u] use die[%u], current counter[%u]",
             myRank, ranks[rankIdx], dieId, dieLinkCounter[dieId]);
+#else
+        (void)links;
+#endif
     }
     for (u32 i = 0; i < dieNum; i++) {
         if (dieLinkCounter[i] == 0) {
@@ -851,6 +862,7 @@ HcclResult CalcLevel0MeshType(HcclComm comm, TopoInfoWithNetLayerDetails *topoIn
                 ranks[rankIdx],
                 netLayer),
             HCCL_E_INTERNAL);
+#if CANN_VERSION_NUM >= 90000000
         EndpointDesc srcEndpointDesc = links[0].srcEndpointDesc;
         EndpointAttrDieId dieId;
         uint32_t infoLen = sizeof(EndpointAttrDieId);
@@ -865,6 +877,9 @@ HcclResult CalcLevel0MeshType(HcclComm comm, TopoInfoWithNetLayerDetails *topoIn
                 dieNum),
             HCCL_E_INTERNAL);
         dieLinkCounter[dieId]++;
+#else
+        (void)links;
+#endif
     }
 
     for (u32 i = 0; i < dieNum; i++) {
@@ -887,6 +902,7 @@ HcclResult CalcLevel0MeshType(HcclComm comm, TopoInfoWithNetLayerDetails *topoIn
     return HCCL_SUCCESS;
 }
 
+#if CANN_VERSION_NUM >= 90000000
 HcclResult CalAllLevelEndpointAttrBwCoeff(
     HcclComm comm, uint32_t rankId, uint32_t levelSize, std::vector<std::vector<EndpointAttrBwCoeff>> &endpointAttrBw)
 {
@@ -916,4 +932,5 @@ HcclResult CalAllLevelEndpointAttrBwCoeff(
     }
     return HCCL_SUCCESS;
 }
+#endif /* CANN_VERSION_NUM >= 90000000 */
 }

@@ -8,6 +8,9 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+
+
+#if CANN_VERSION_NUM >= 90000000
 #include "ins_temp_reduce_scatter_omnipipe_mesh_1D.h"
 
 namespace ops_hccl {
@@ -277,3 +280,5 @@ HcclResult InsTempReduceScatterOmniPipeMesh1D::RunReduceScatter(const std::map<u
     return HcclResult::HCCL_SUCCESS;
 }
 }  // namespace ops_hccl
+
+#endif /* CANN_VERSION_NUM >= 90000000 */

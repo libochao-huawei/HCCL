@@ -8,6 +8,9 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
  
+
+
+#if CANN_VERSION_NUM >= 90000000
 #include "ins_temp_scatter_nhr_dpu_inter.h"
 
 
@@ -440,3 +443,5 @@ HcclResult InsTempScatterNHRDPUInter::BatchSR(AicpuNHRStepInfo &stepInfo, const 
 REGISTER_TEMPLATE_V2("InsTempScatterNHRDPUInter", InsTempScatterNHRDPUInter);
 
 }  // namespace ops_hccl
+
+#endif /* CANN_VERSION_NUM >= 90000000 */

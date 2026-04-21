@@ -11,6 +11,9 @@
 #ifndef HCCL_CCU_ALG_TEMPLATE_BASE
 #define HCCL_CCU_ALG_TEMPLATE_BASE
 
+/* 8.5.0 CANN 下 CCU 特性整体剥离，整个头设为空实现 */
+#if CANN_VERSION_NUM >= 90000000
+
 #include "common_alg_template_base.h"
 
 namespace ops_hccl {
@@ -67,4 +70,5 @@ protected:
         u32 myRankId, uint32_t &dieNum, uint32_t &dieId);
 };
 }
+#endif /* CANN_VERSION_NUM >= 90000000 */
 #endif // HCCLV2_CCU_ALG_TEMPLATE_BASE
