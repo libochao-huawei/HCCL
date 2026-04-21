@@ -421,8 +421,5 @@ InsV2AllGatherOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, I
 REGISTER_EXEC_V2_MULTI(HcclCMDType::HCCL_CMD_ALLGATHER, InsV2AllGatherOmniPipe,
                        InsV2AllGatherOmniPipeExecutor, TopoMatchUBX, InsTempAllGatherOmniPipeMesh1D,
                        InsTempAllGatherOmniPipeNHR, InsTempAllGatherOmniPipeNHRDPU);
-REGISTER_EXEC_V2_MULTI(HcclCMDType::HCCL_CMD_ALLGATHER, InsV2AllGatherOmniPipeDpu,
-                       InsV2AllGatherOmniPipeExecutor, TopoMatchUBX, InsTempAllGatherOmniPipeMesh1D,
-                       InsTempAllGatherOmniPipeNHR, InsTempAllGatherOmniPipeNHRDPU);
 #endif
 }  // namespace ops_hccl
