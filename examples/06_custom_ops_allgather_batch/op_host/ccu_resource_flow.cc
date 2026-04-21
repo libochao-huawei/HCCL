@@ -1,5 +1,7 @@
 #include "ccu_resource_flow.h"
 
+#include <hccl_ccu_res.h>
+
 namespace ops_hccl_allgather_batch {
 
 HcclResult HcclGetThreadForCcu(HcclComm comm, aclrtStream stream, AlgResourceRequest &resRequest, AlgResourceCtx &resCtx)
