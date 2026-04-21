@@ -135,7 +135,7 @@ HcclResult CcuTempAllGatherMesh1D::FastLaunch(const OpParam& param, const Templa
         CcuTaskArgAllGatherMesh1D taskArg(
             PointerToAddr(buffInfo_.inputPtr) + args[0],
             PointerToAddr(buffInfo_.outputPtr) + args[1],
-            args[2], args[3], args[4], args[5], args[6], args[7]);
+            args[2], args[3], args[4], args[5]);
 
         void* taskArgPointer = static_cast<void*>(&taskArg);
         CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[kernelIdx],

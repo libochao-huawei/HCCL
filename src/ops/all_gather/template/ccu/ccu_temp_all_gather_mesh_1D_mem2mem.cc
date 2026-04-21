@@ -218,11 +218,12 @@ HcclResult CcuTempAllGatherMesh1DMem2Mem::KernelRun(const OpParam& param,
         CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain));
     }
 
+    // 所有task下发完成之后保存参数信息
     CcuKernelSubmitInfo submitInfo;
     CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, token, inputSliceStride,
         outputSliceStride, repeatNum, inputRepeatStride, outputRepeatStride, die0Size, die1Size,
         die0LastSize, die1LastSize, isInputOutputEqual));
-    for (u32 i = 0; i < kernelNum; i++) {
+    for (u32 i = 0; i <  ; i++) {
         submitInfo.kernelHandle = templateResource.ccuKernels[i];
         templateResource.submitInfos.push_back(submitInfo);
     }
