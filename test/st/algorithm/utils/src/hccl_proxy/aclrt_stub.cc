@@ -13,8 +13,6 @@
 #include <iostream>
 #include "acl/acl_rt.h"
 #include "acl/acl_base.h"
-#include "runtime/base.h"
-#include "runtime/stream.h"
 #include "hccl/hccl_types.h"
 #include "sim_world.h"
 #include "sim_stream.h"
@@ -22,6 +20,7 @@
 #include "log.h"
 #include "alg_param.h"
 #include "sim_task_queue.h"
+#include "rt_external.h"
 
 using namespace hccl;
 using namespace ops_hccl;
