@@ -13,8 +13,6 @@
 #include <iostream>
 #include "acl/acl_rt.h"
 #include "acl/acl_base.h"
-#include "runtime/base.h"
-#include "runtime/stream.h"
 #include "hccl/hccl_types.h"
 #include "sim_world.h"
 #include "sim_stream.h"
