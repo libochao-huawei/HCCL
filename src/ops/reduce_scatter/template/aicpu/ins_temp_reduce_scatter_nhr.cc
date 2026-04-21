@@ -25,8 +25,6 @@ InsTempReduceScatterNHR::~InsTempReduceScatterNHR()
 HcclResult InsTempReduceScatterNHR::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                                             AlgResourceRequest& resourceRequest) 
 {
-
-
     std::vector<HcclChannelDesc> channels;
     CHK_RET(CalcChannelRequestNhr(comm, param, topoInfo, subCommRanks_, channels));
     resourceRequest.channels.push_back(channels);
@@ -78,7 +76,6 @@ HcclResult InsTempReduceScatterNHR::KernelRun(const OpParam& param,
     dataType_ = param.DataDes.dataType;
     dataTypeSize_  = DATATYPE_SIZE_TABLE[dataType_];
 
-    HCCL_INFO("[InsTempReduceScatterNHR] GenExtIns  channelsPerRank_[%u], dataTypeSize_[%u]", channelsPerRank_, dataTypeSize_);
     std::vector<u64> elemCountOut;
     std::vector<u64> sizeOut;
     std::vector<u64> elemOffset;
@@ -96,7 +93,6 @@ HcclResult InsTempReduceScatterNHR::KernelRun(const OpParam& param,
         elemOffsetTail_ = elemOffsetTail;
         sizeOutTail_ = sizeOutTail;
     }
-
 
     threadNum_ = templateResource.threads.size();
     if (threadNum_ > 1) {
@@ -183,7 +179,7 @@ HcclResult InsTempReduceScatterNHR::PostLocalCopy(const std::vector<ThreadHandle
         sizeOut = sizeOut_;
         elemOffset = elemOffset_;
     }
-    ThreadHandle q = threads[0];
+    ThreadHandle q = threads[channelIdx];
 
     const u64 rptNum = std::max<u64>(1, tempAlgParams_.repeatNum);
     for (u64 rpt = 0; rpt < rptNum; ++rpt) {
@@ -282,7 +278,7 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
                 { linkSend, linkRecv }, { { txSrcSlices, txDstSlices }, { rxSlices, rxSlices } }, dataType_, reduceOp_
             };
 
-            CHK_PRT_RET(SendRecvWriteReduce(info, threads[0]),
+            CHK_PRT_RET(SendRecvWriteReduce(info, threads[channelIdx]),
                 HCCL_ERROR("[RS-NHR][RunNHR] SendRecvReduce failed (step=%u, rpt=%llu)",
                     st.step, static_cast<unsigned long long>(rpt)),
                 HcclResult::HCCL_E_INTERNAL);

@@ -42,10 +42,8 @@ HcclResult CcuAlgTemplateBase::CalcRes(HcclComm comm, const OpParam& param, cons
 
  HcclResult CcuAlgTemplateBase::SetchannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels) 
  { 
-     (void)channels; 
- 
- 
-     return HCCL_SUCCESS; 
+    (void)channels;
+    return HCCL_SUCCESS;
  }
 
 HcclResult CcuAlgTemplateBase::KernelRun(const OpParam& param, const TemplateDataParams& templateDataParams,
