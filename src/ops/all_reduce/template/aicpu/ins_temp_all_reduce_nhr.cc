@@ -207,8 +207,8 @@ HcclResult InsTempAllReduceNHR::RunReduceScatter(const TemplateDataParams &tempA
             u64 recvCount = sliceInfoList_.at(stepInfo.rxSliceIdxs.at(idx)).count;
             DataSlice recvSrcSlice(recvRemoteHcclBuffPtr, recvOffset, recvSize, recvCount);
             DataSlice recvDstSlice(localHcclBuffPtr, recvOffset, recvSize, recvCount);
-            recvSrcSlicesList.emplace_back(sendSrcSlice);
-            recvDstSlicesList.emplace_back(sendDstSlice);
+            recvSrcSlicesList.emplace_back(recvSrcSlice);
+            recvDstSlicesList.emplace_back(recvDstSlice);
         }
         SendRecvReduceInfo sendRecvReduceInfo{{sendChannel, recvChannel}, 
             {{sendSrcSlicesList, sendDstSlicesList}, {recvSrcSlicesList, recvDstSlicesList}}, dataType_, reduceOp_};
