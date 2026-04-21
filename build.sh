@@ -313,7 +313,7 @@ function package_static_tar() {
             TAR_ARCH="x86_64"
             ;;
         aarch64|armv8l|armv7l)
-            TAR_ARCH="arch64"
+            TAR_ARCH="aarch64"
             ;;
         *)
             log "Error: Unsupported architecture: $ARCH"
