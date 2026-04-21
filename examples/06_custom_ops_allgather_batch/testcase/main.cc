@@ -56,9 +56,20 @@ void Log(int rank, const Args&... args)
 
 int GetLocalRank()
 {
+    MPI_Comm localComm;
+    if (MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &localComm) == MPI_SUCCESS) {
+        int localRank = -1;
+        if (MPI_Comm_rank(localComm, &localRank) == MPI_SUCCESS) {
+            MPI_Comm_free(&localComm);
+            return localRank;
+        }
+        MPI_Comm_free(&localComm);
+    }
+
     static const char *const envNames[] = {
         "OMPI_COMM_WORLD_LOCAL_RANK",
         "MPI_LOCALRANKID",
+        "PMI_LOCAL_RANK",
         "MV2_COMM_WORLD_LOCAL_RANK",
         "SLURM_LOCALID"
     };
