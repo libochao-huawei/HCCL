@@ -147,7 +147,6 @@ list(APPEND INCLUDE_LIST
     ${ASCEND_HOME_PATH}/pkg_inc/hcomm/ccu
     ${ASCEND_HOME_PATH}/pkg_inc/runtime/
     ${ASCEND_HOME_PATH}/pkg_inc/aicpu/
-    ${ASCEND_HOME_PATH}/pkg_inc/runtime/runtime/
     ${ASCEND_HOME_PATH}/pkg_inc/profiling/
     ${ASCEND_HOME_PATH}/pkg_inc/base/
     ${ASCEND_HOME_PATH}/pkg_inc/dump/
