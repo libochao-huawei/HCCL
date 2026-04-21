@@ -162,7 +162,7 @@ HcclResult GenerateCcuKernelSignature(hcomm::CcuKernelSignature &sig, const std:
         sig.Append<uint32_t>(subCommRanks[1].size());
         sig.Append<char>('P');
     } else {
-        HCCL_ERROR("[GenerateCcuKernelSignature] failed: unexpected tempVTopoSize[%u]", subCommRanks.size());
+        HCCL_ERROR("[GenerateCcuKernelSignature] failed: unexpected tempVTopoSize[%zu]", subCommRanks.size());
         return HcclResult::HCCL_E_INTERNAL;
     }
     HCCL_INFO("[GenerateCcuKernelSignature] success: %s", sig.Describe().c_str());

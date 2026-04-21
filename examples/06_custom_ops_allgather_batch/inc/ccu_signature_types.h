@@ -130,7 +130,7 @@ struct OpParam {
     bool isAivClearEnable = false;
     uint64_t ctxSize = 0;
     void *resCtx = nullptr;
-    ThreadHandle opThread = 0;
+    uint64_t opThread = 0;
     uint32_t aicpuRecordCpuIdx = 0;
     uint32_t dataCount = 0;
     uint64_t varMemSize = 0;
