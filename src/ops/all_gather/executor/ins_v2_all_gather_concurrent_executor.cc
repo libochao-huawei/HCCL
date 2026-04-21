@@ -23,10 +23,12 @@
 #include "ccu_temp_all_gather_mesh_1D.h"
 #include "ccu_temp_all_gather_nhr_1D_multi_jetty_mem2mem.h"
 #include "ccu_temp_all_gather_mesh_1D_mem2mem.h"
+#include "ccu_temp_all_gather_nhr_1D_mem2mem.h"
 
 #endif
 
 constexpr u32 CLOS_PORT_NUM = 4;
+constexpr u32 CLOS_PORT_NUM_SERVER_V2 = 8;
 
 namespace ops_hccl {
 
@@ -158,7 +160,7 @@ void InsV2AllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTempl
     std::vector<float> &splitDataSize) const
 {
     const u32 portNum0 = rankSize_ - 1;  // mesh端口数为rank size - 1
-    const u32 portNum1 = CLOS_PORT_NUM;
+    const u32 portNum1 = g_ccuV2 ? CLOS_PORT_NUM_SERVER_V2 : CLOS_PORT_NUM;
     double splitData = static_cast<double>(portNum0) / (portNum0 + portNum1);
     splitDataSize.push_back(splitData);
     splitDataSize.push_back(1 - splitData);
@@ -364,6 +366,13 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherConc
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherConcurrentMesh1DNHRUBX,
                                InsV2AllGatherConcurrentExecutor, TopoMatchUBX, CcuTempAllGatherMesh1D,
                                CcuTempAllGatherNHR1DMultiJettyMem2Mem);
+
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherConcurrentMesh1DNHRMem, InsV2AllGatherConcurrentExecutor,
+TopoMatch1D, CcuTempAllGatherMesh1DMem2Mem, CcuTempAllGatherNHR1DMem2Mem);
+
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherConcurrentMesh1DNHR, InsV2AllGatherConcurrentExecutor,
+TopoMatch1D, CcuTempAllGatherMesh1D, CcuTempAllGatherNHR1DMem2Mem);
+
 #endif
 
 }  // namespace
