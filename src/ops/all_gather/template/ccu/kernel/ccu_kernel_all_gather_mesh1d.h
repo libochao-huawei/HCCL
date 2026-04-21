@@ -51,10 +51,9 @@ class CcuTaskArgAllGatherMesh1D : public hcomm::CcuTaskArg {
 public:
     explicit CcuTaskArgAllGatherMesh1D(uint64_t inputAddr, uint64_t outputAddr, uint64_t token,
                                                 uint64_t offset,
-                                                uint64_t die0Size, uint64_t die1Size,
-                                                uint64_t die0LastSize, uint64_t die1LastSize)
+                                                uint64_t die0Size, uint64_t die1Size)
         : inputAddr_(inputAddr), outputAddr_(outputAddr), token_(token), offset_(offset),
-        die0Size_(die0Size), die1Size_(die1Size), die0LastSize_(die0LastSize), die1LastSize_(die1LastSize)
+        die0Size_(die0Size), die1Size_(die1Size)
     {
         HCCL_DEBUG("[CcuTaskArgAllGatherMesh1D] inputAddr: %lu, outputAddr: %lu, offset: %lu, "
                    "die0Size: %lu, die1Size: %lu",
@@ -67,8 +66,6 @@ public:
     uint64_t offset_;
     uint64_t die0Size_;
     uint64_t die1Size_;
-    uint64_t die0LastSize_;
-    uint64_t die1LastSize_;
 };
 
 class CcuKernelAllGatherMesh1D : public CcuKernelAlgBase {
@@ -96,8 +93,6 @@ private:
     CcuRep::Variable offset_;
     CcuRep::Variable die0Size_;
     CcuRep::Variable die1Size_;
-    CcuRep::Variable die0LastSize_;
-    CcuRep::Variable die1LastSize_;
     GroupOpSize groupOpSize_;
     uint16_t selfBit_{0};
     uint16_t allBit_{0};

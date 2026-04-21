@@ -286,11 +286,10 @@ HcclResult CcuTempAllGatherMesh1DMem2Mem::SplitDataFor2Dies(const OpParam& param
 {
     uint64_t smallDataSize = 16 * 1024;
 
-    constexpr uint64_t MULTIPLIER = 4;
     uint64_t typeSize = DataTypeSizeGet(param.DataDes.dataType);
     uint64_t dataCount = (templateDataParams.sliceSize / typeSize);
 
-    if (dataCount <= templateRankSize_ * MULTIPLIER || (g_ccuV2 == true && templateDataParams.sliceSize < smallDataSize)) {
+    if (templateDataParams.sliceSize < smallDataSize) {
         die0Size = dataCount * typeSize;
         die1Size = 0;
         return HcclResult::HCCL_SUCCESS;

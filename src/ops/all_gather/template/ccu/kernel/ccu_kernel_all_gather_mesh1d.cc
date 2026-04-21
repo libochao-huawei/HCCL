@@ -63,8 +63,6 @@ HcclResult CcuKernelAllGatherMesh1D::InitResource()
     offset_ = CreateVariable();
     die0Size_ = CreateVariable();
     die1Size_ = CreateVariable();
-    die0LastSize_ = CreateVariable();
-    die1LastSize_ = CreateVariable();
     groupOpSize_ = CreateGroupOpSize();;
 
     src = CreateLocalAddr();
@@ -83,8 +81,6 @@ void CcuKernelAllGatherMesh1D::LoadArgs()
     Load(offset_);
     Load(die0Size_);
     Load(die1Size_);
-    Load(die0LastSize_);
-    Load(die1LastSize_);
     Load(groupOpSize_);
     return;
 }
@@ -116,6 +112,9 @@ void CcuKernelAllGatherMesh1D::PostSync()
 void CcuKernelAllGatherMesh1D::DoAllGather()
 {
     src.addr  = input_[0];
+    if (axisId_ == 1) {
+        src.addr += die0Size_;
+    }
     src.token = token_[rankId_];
     uint32_t dstId = 0;
     uint32_t curId = 0;
@@ -128,6 +127,9 @@ void CcuKernelAllGatherMesh1D::DoAllGather()
         }
         dst[curId].addr = output_[rankIdx];
         dst[curId].addr += offset_;
+        if (axisId_ == 1) {
+            dst[curId].addr += die0Size_;
+        }
         dst[curId].token = token_[rankIdx];
     }
     GroupBroadcast(channels_, dst, src, groupOpSize_);
@@ -162,14 +164,13 @@ std::vector<uint64_t> CcuKernelAllGatherMesh1D::GeneArgs(const CcuTaskArg &arg)
     uint64_t offset                      = taskArg->offset_;
     uint64_t die0Size                    = taskArg->die0Size_;
     uint64_t die1Size                    = taskArg->die1Size_;
-    uint64_t die0LastSize                = taskArg->die0LastSize_;
-    uint64_t die1LastSize                = taskArg->die1LastSize_;
     uint64_t sliceSize = (axisId_ == 0) ? die0Size : die1Size;
     auto     goSize     = CalGoSize(sliceSize);
     HCCL_INFO("[CcuKernelAllGatherMesh1D] TaskArgs: inputAddr[%llu], outputAddr[%llu], "
                "offset[%llu], sliceSize[%llu], axisId[%u]",
                inputAddr, outputAddr, offset, sliceSize, axisId_);
-    return {inputAddr, outputAddr, token, offset, goSize[0], goSize[1], goSize[2], goSize[3]};
+    return {inputAddr, outputAddr, token, offset, die0Size, die1Size,
+            goSize[0], goSize[1], goSize[2], goSize[3]};
 }
 
 } // namespace ops_hccl

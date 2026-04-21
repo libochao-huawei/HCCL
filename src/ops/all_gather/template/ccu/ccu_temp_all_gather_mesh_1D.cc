@@ -187,9 +187,6 @@ HcclResult CcuTempAllGatherMesh1D::KernelRun(const OpParam& param,
         die0Size = templateDataParams.sliceSize;
     }
 
-    uint64_t die0LastSize = templateDataParams.tailSize / kernelNum;
-    uint64_t die1LastSize = templateDataParams.tailSize - die0LastSize;
-
     HCCL_INFO("[CcuTempAllGatherMesh1D::KernelRun] die0Size [%llu], die1Size [%llu], kernelNum[%u]",
               die0Size, die1Size, kernelNum);
 
@@ -204,7 +201,7 @@ HcclResult CcuTempAllGatherMesh1D::KernelRun(const OpParam& param,
             continue;
         }
         std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAllGatherMesh1D>(
-            inputAddr, outputAddr, token, offset, die0Size, die1Size, die0LastSize, die1LastSize);
+            inputAddr, outputAddr, token, offset, die0Size, die1Size);
 
         void* taskArgPtr = static_cast<void*>(taskArg.get());
 
@@ -220,7 +217,7 @@ HcclResult CcuTempAllGatherMesh1D::KernelRun(const OpParam& param,
 
     CcuKernelSubmitInfo submitInfo;
     CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, token, offset,
-        die0Size, die1Size, die0LastSize, die1LastSize));
+        die0Size, die1Size));
     for (u32 i = 0; i < kernelNum; i++) {
         submitInfo.kernelHandle = templateResource.ccuKernels[i];
         templateResource.submitInfos.push_back(submitInfo);
@@ -262,7 +259,7 @@ HcclResult CcuTempAllGatherMesh1D::SplitDataFor2Dies(const OpParam& param,
     uint64_t typeSize = DataTypeSizeGet(param.DataDes.dataType);
     uint64_t dataCount = (templateDataParams.sliceSize / typeSize);
 
-    if (dataCount <= templateRankSize_ * MULTIPLIER || (g_ccuV2 == true && templateDataParams.sliceSize < smallDataSize)) {
+    if (templateDataParams.sliceSize < smallDataSize) {
         die0Size = dataCount * typeSize;
         die1Size = 0;
         return HcclResult::HCCL_SUCCESS;
