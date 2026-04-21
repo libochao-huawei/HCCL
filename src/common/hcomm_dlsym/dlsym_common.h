@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include "dlog_pub.h"
 
+#include "hccl/hccl_types.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
