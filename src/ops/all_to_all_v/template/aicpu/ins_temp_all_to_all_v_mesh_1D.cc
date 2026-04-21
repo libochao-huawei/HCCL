@@ -114,6 +114,10 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
         }
 
         u32 remoteRank = subCommRanks_[0][rankId]; // 物理rank
+        if (channels.find(remoteRank) == channels.end()) {
+            HCCL_ERROR("[InsTempAlltoAllVMesh1D] remoteRank[%u] does not exist in channels map!", remoteRank);
+            return HCCL_E_PARA;
+        }
         const std::vector<ChannelInfo> &curChannels = channels.at(remoteRank);
         // send数据按照channel分片
         std::vector<u64> sendCountsSplit;
