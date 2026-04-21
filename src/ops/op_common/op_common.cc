@@ -51,6 +51,7 @@ thread_local std::map<std::string, HcclMemHandle> g_memHandleCache; // 当前AIV
 // 用于维护增量建链算子的host ctx信息
 thread_local std::map<std::string, std::unique_ptr<AlgResourceCtxSerializable>> g_hostCtx;
 thread_local std::map<AivOpCacheArgs, std::shared_ptr<InsQueue>> g_hcclCacheMap;
+thread_local std::set<std::string> g_consistencyCheckedList;
 constexpr u32 HOST_WAIT_AICPU_NOTIFYIDX = 0;// host主流wait aicpu流的notify idx
 
 // 检查非对称拓扑支持情况
@@ -727,6 +728,23 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
     AlgResourceRequest resRequest;
     CHK_RET(executor->CalcRes(comm, param, topoInfo, algHierarchyInfo, resRequest));
 
+    // 参数一致性校验准备工作
+    OpExchangeInfo exchangeInfo{};
+    std::string tagStr = param.algTag;
+    bool isChecked = (g_consistencyCheckedList.find(tagStr) != g_consistencyCheckedList.end());
+    if (!isChecked || increCreateChannelFlag) {
+        CHK_RET(FillOpExChangeInfo(param, exchangeInfo));
+        if (param.opMode == OpMode::OFFLOAD) {
+            AivParamStorage *aivParam = nullptr;
+            HcclResult ret = GetAivParamStorageByComm(comm, &aivParam);
+            if (ret == HCCL_SUCCESS && aivParam != nullptr) {
+                exchangeInfo.aivCoreLimit = aivParam->aivCoreLimit;
+            }
+        }
+        CHK_RET(HcclCommAddExchangeInfo(comm, &exchangeInfo, sizeof(exchangeInfo)));
+        g_consistencyCheckedList.insert(tagStr);
+    }
+
     // host侧资源
     if (param.engine == COMM_ENGINE_RESERVED) {
         // COMM_ENGINE_RESERVED
@@ -748,6 +766,20 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
         HCCL_ERROR("fail to get engine.", HCCL_E_PARA);
     }
     param.ctxSize = size;
+
+    // 参数一致性校验
+    if (!isChecked) {
+        if (param.engine != COMM_ENGINE_CCU) {
+            for (u32 level = 0; level < resRequest.channels.size(); level++) {
+                CHK_RET(CompareOpExchangeInfo(comm, &exchangeInfo, resRequest.channels[level]));
+            }
+        } else {
+            for (CcuKernelInfo& kernelInfo: resRequest.ccuKernelInfos) {
+                CHK_RET(CompareOpExchangeInfo(comm, &exchangeInfo, kernelInfo.channels));
+            }
+        }
+    }
+
     return HCCL_SUCCESS;
 }
 
@@ -1331,6 +1363,36 @@ HcclResult GetAlgResDPU(HcclComm comm, const OpParam &param, AlgResourceRequest 
                            ctxSize, increCreateChannelFlag));
 
     HCCL_INFO("Execute GetAlgResAICPU success.");
+    return HCCL_SUCCESS;
+}
+
+HcclResult FillOpExChangeInfo(const OpParam &param, OpExchangeInfo &exchangeInfo)
+{
+    exchangeInfo.root = param.root;
+    exchangeInfo.opType = param.opType;
+    s32 sRet = strncpy_s(enchangeInfo.algTag, ALG_TAG_LENGTH, param.algTag, ALG_TAG_LENGTH);
+    CHK_PRT_RET(sRet != EOK, HCCL_ERROR("[%s] call strncpy_s failed, param.algTag %s,  return %d.",
+        __func__, param.algTag, sRet), HCCL_E_MEMORY);
+    exchangeInfo.engine = param.engine;
+    exchangeInfo.opExecuteConfig = param.opExecuteConfig;
+    exchangeInfo.reduceType = param.reduceType;
+
+    return HCCL_SUCCESS;
+}
+
+HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &enchangeInfo,
+    const std::vector<HcclChannelDesc> &channels)
+{
+    for (auto channel : channels) {
+        auto rmtData = std::make_shared<OpExchangeInfo>();
+        uint32_t rmtDataLen{0};
+        CHK_RET(HcclCommGetExchangeInfo(comm, channel.remoteRank, static_cast<void*>(rmtData.get()), rmtDataLen));
+        if (rmtDataLen == 0) {
+            continue;
+        } else {
+            
+        }
+    }
     return HCCL_SUCCESS;
 }
 
