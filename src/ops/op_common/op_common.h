@@ -29,6 +29,8 @@ extern "C" {
 }
 #endif
 
+typedef int32_t rtError_t;
+
 namespace ops_hccl {
 extern thread_local std::map<std::string, HcclMemHandle> g_memHandleCache;
 HcclResult HcclExecOp(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo, std::string &algName, const ResPackGraphMode &resPack = ResPackGraphMode());
