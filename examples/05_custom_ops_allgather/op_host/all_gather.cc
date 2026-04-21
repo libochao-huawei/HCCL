@@ -10,6 +10,7 @@
 #include "hccl_custom_allgather.h"
 #include "launch_kernel.h"
 #include "common.h"
+#include "utils.h"
 #include <vector>
 #include <cstring>
 #include <string>
