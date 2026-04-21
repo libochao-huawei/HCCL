@@ -31,6 +31,14 @@ enum class DevType {
     DEV_TYPE_COUNT
 };
 
+enum class CommEngine {
+    COMM_ENGINE_RESERVED = 0,
+    COMM_ENGINE_AICPU_TS = 1,
+    COMM_ENGINE_CPU = 2,
+    COMM_ENGINE_AIV = 3,
+    COMM_ENGINE_CCU = 4
+};
+
 enum HcclMemType {
     HCCL_MEM_TYPE_DEVICE = 0,
     HCCL_MEM_TYPE_HOST = 1,
