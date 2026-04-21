@@ -12,12 +12,18 @@ namespace {
 constexpr u64 kDualThreadUnpackMinBytes = 256 * 1024;
 constexpr u32 kQuadThreadWorkerCount = 4;
 
-void BuildUnpackRankChunks(
-    u32 rankSize,
-    std::vector<u32> &beginRanks,
-    std::vector<u32> &endRanks)
+HcclResult BuildUnpackRankChunkPlan(u32 rankSize, const AlgResourceCtx &resCtx, UnpackRankChunkPlan &plan)
 {
-    u32 counts[kQuadThreadWorkerCount] = {0};
+    plan.beginRanks.assign(kQuadThreadWorkerCount, 0);
+    plan.endRanks.assign(kQuadThreadWorkerCount, 0);
+    plan.hasRankChunk.assign(kQuadThreadWorkerCount, false);
+    plan.hasSubThreads = (rankSize > 1) &&
+        (resCtx.subThreadHandles[0] != 0) &&
+        (resCtx.subThreadHandles[1] != 0) &&
+        (resCtx.subThreadHandles[2] != 0);
+    plan.quadThreadMinPackedBytes = (kDualThreadUnpackMinBytes + rankSize - 1) / rankSize;
+
+    std::vector<u32> counts(kQuadThreadWorkerCount, 0);
     const u32 remain = rankSize - 1;
     const u32 base = remain / kQuadThreadWorkerCount;
     const u32 extra = remain % kQuadThreadWorkerCount;
@@ -32,10 +38,12 @@ void BuildUnpackRankChunks(
 
     for (u32 tid = 0; tid < kQuadThreadWorkerCount; ++tid) {
         if (tid > 0) {
-            beginRanks[tid] = endRanks[tid - 1];
+            plan.beginRanks[tid] = plan.endRanks[tid - 1];
         }
-        endRanks[tid] = beginRanks[tid] + counts[tid];
+        plan.endRanks[tid] = plan.beginRanks[tid] + counts[tid];
+        plan.hasRankChunk[tid] = (plan.beginRanks[tid] < plan.endRanks[tid]);
     }
+    return HCCL_SUCCESS;
 }
 
 HcclResult UnpackRankRangeOnThread(
@@ -65,6 +73,61 @@ HcclResult UnpackRankRangeOnThread(
 }
 
 } // namespace
+
+HcclResult AllGatherBatchSmallCountExecutor::UnpackWindowFromCCLOut(
+    const UnpackRankChunkPlan &unpackPlan,
+    const std::vector<WindowPart> &parts,
+    u64 packedSize,
+    u8 *commOutputPtr)
+{
+    CHK_PTR_NULL(commOutputPtr);
+
+    const bool useQuadThreadUnpack = unpackPlan.hasSubThreads &&
+        (packedSize >= unpackPlan.quadThreadMinPackedBytes);
+
+    if (!useQuadThreadUnpack) {
+        return UnpackRankRangeOnThread(
+            resCtx_.mainThreadHandle, param_, parts, packedSize, commOutputPtr, 0, param_.topoInfo.rankSize);
+    }
+
+    for (u32 tid = 1; tid < kQuadThreadWorkerCount; ++tid) {
+        if (unpackPlan.hasRankChunk[tid]) {
+            CHK_RET(HcommThreadNotifyRecordOnThread(
+                resCtx_.mainThreadHandle, resCtx_.subThreadHandles[tid - 1], resCtx_.subNotifyIds[tid - 1]));
+        }
+    }
+    for (u32 tid = 1; tid < kQuadThreadWorkerCount; ++tid) {
+        if (unpackPlan.hasRankChunk[tid]) {
+            CHK_RET(HcommThreadNotifyWaitOnThread(
+                resCtx_.subThreadHandles[tid - 1], resCtx_.subNotifyIds[tid - 1], CUSTOM_TIMEOUT));
+        }
+    }
+
+    if (unpackPlan.hasRankChunk[0]) {
+        CHK_RET(UnpackRankRangeOnThread(resCtx_.mainThreadHandle, param_, parts,
+            packedSize, commOutputPtr, unpackPlan.beginRanks[0], unpackPlan.endRanks[0]));
+    }
+    for (u32 tid = 1; tid < kQuadThreadWorkerCount; ++tid) {
+        if (unpackPlan.hasRankChunk[tid]) {
+            CHK_RET(UnpackRankRangeOnThread(resCtx_.subThreadHandles[tid - 1], param_, parts,
+            packedSize, commOutputPtr, unpackPlan.beginRanks[tid], unpackPlan.endRanks[tid]));
+        }
+    }
+
+    for (u32 tid = 1; tid < kQuadThreadWorkerCount; ++tid) {
+        if (unpackPlan.hasRankChunk[tid]) {
+            CHK_RET(HcommThreadNotifyRecordOnThread(
+                resCtx_.subThreadHandles[tid - 1], resCtx_.mainThreadHandle, resCtx_.mainNotifyIds[tid - 1]));
+        }
+    }
+    for (u32 tid = 1; tid < kQuadThreadWorkerCount; ++tid) {
+        if (unpackPlan.hasRankChunk[tid]) {
+            CHK_RET(HcommThreadNotifyWaitOnThread(
+                resCtx_.mainThreadHandle, resCtx_.mainNotifyIds[tid - 1], CUSTOM_TIMEOUT));
+        }
+    }
+    return HCCL_SUCCESS;
+}
 
 AllGatherBatchSmallCountExecutor::AllGatherBatchSmallCountExecutor(
     const OpParam &param, AlgResourceCtx &resCtx, BatchCallProfiling &profiling)
@@ -116,14 +179,6 @@ HcclResult AllGatherBatchSmallCountExecutor::BuildWindowPlan(
 
     while (itemIdx < param_.itemCount) {
         const BatchItemParam &item = param_.items[itemIdx];
-        CHK_PRT_RET(item.sendBuf == nullptr || item.recvBuf == nullptr || item.sendBytes == 0,
-            HCCL_ERROR("[AllGatherBatchSmallCountExecutor][BuildWindowPlan]tag[%s], invalid item[%u], sendBuf[%p], recvBuf[%p], sendBytes[%llu]",
-                param_.tag,
-                itemIdx,
-                item.sendBuf,
-                item.recvBuf,
-                static_cast<unsigned long long>(item.sendBytes)),
-            HCCL_E_PARA);
         CHK_PRT_RET(itemOffset > item.sendBytes,
             HCCL_ERROR("[AllGatherBatchSmallCountExecutor][BuildWindowPlan]tag[%s], item[%u] offset[%llu] exceeds sendBytes[%llu]",
                 param_.tag,
@@ -211,125 +266,58 @@ HcclResult AllGatherBatchSmallCountExecutor::PackWindowToCCLIn(
     return HCCL_SUCCESS;
 }
 
-HcclResult AllGatherBatchSmallCountExecutor::UnpackWindowFromCCLOut(
-    const std::vector<WindowPart> &parts, u64 packedSize, u8 *commOutputPtr)
-{
-    CHK_PTR_NULL(commOutputPtr);
-
-    const u32 rankSize = param_.topoInfo.rankSize;
-    const u64 totalUnpackBytes = packedSize * rankSize;
-    const bool useQuadThreadUnpack = (rankSize > 1) &&
-        (resCtx_.subThreadHandles[0] != 0) &&
-        (resCtx_.subThreadHandles[1] != 0) &&
-        (resCtx_.subThreadHandles[2] != 0) &&
-        (totalUnpackBytes >= kDualThreadUnpackMinBytes);
-
-    if (!useQuadThreadUnpack) {
-        return UnpackRankRangeOnThread(
-            resCtx_.mainThreadHandle, param_, parts, packedSize, commOutputPtr, 0, rankSize);
-    }
-
-    std::vector<u32> beginRanks(kQuadThreadWorkerCount, 0);
-    std::vector<u32> endRanks(kQuadThreadWorkerCount, 0);
-    BuildUnpackRankChunks(rankSize, beginRanks, endRanks);
-    const auto hasRankChunk = [&](u32 tid) {
-        return beginRanks[tid] < endRanks[tid];
-    };
-
-    for (u32 tid = 1; tid < kQuadThreadWorkerCount; ++tid) {
-        if (hasRankChunk(tid)) {
-            CHK_RET(HcommThreadNotifyRecordOnThread(
-                resCtx_.mainThreadHandle, resCtx_.subThreadHandles[tid - 1], resCtx_.subNotifyIds[tid - 1]));
-        }
-    }
-    for (u32 tid = 1; tid < kQuadThreadWorkerCount; ++tid) {
-        if (hasRankChunk(tid)) {
-            CHK_RET(HcommThreadNotifyWaitOnThread(
-                resCtx_.subThreadHandles[tid - 1], resCtx_.subNotifyIds[tid - 1], CUSTOM_TIMEOUT));
-        }
-    }
-
-    if (hasRankChunk(0)) {
-        CHK_RET(UnpackRankRangeOnThread(
-            resCtx_.mainThreadHandle, param_, parts, packedSize, commOutputPtr, beginRanks[0], endRanks[0]));
-    }
-    for (u32 tid = 1; tid < kQuadThreadWorkerCount; ++tid) {
-        if (hasRankChunk(tid)) {
-            CHK_RET(UnpackRankRangeOnThread(
-                resCtx_.subThreadHandles[tid - 1], param_, parts, packedSize, commOutputPtr, beginRanks[tid], endRanks[tid]));
-        }
-    }
-
-    for (u32 tid = 1; tid < kQuadThreadWorkerCount; ++tid) {
-        if (hasRankChunk(tid)) {
-            CHK_RET(HcommThreadNotifyRecordOnThread(
-                resCtx_.subThreadHandles[tid - 1], resCtx_.mainThreadHandle, resCtx_.mainNotifyIds[tid - 1]));
-        }
-    }
-    for (u32 tid = 1; tid < kQuadThreadWorkerCount; ++tid) {
-        if (hasRankChunk(tid)) {
-            CHK_RET(HcommThreadNotifyWaitOnThread(
-                resCtx_.mainThreadHandle, resCtx_.mainNotifyIds[tid - 1], CUSTOM_TIMEOUT));
-        }
-    }
-    return HCCL_SUCCESS;
-}
-
 HcclResult AllGatherBatchSmallCountExecutor::RunLoop(std::vector<ChannelResource> &channels)
 {
+    const u32 rankSize = param_.topoInfo.rankSize;
+    CHK_PTR_NULL(resCtx_.localBuffer.addr);
+
     void *commInputPtr = resCtx_.localBuffer.addr;
     u8 *commOutputPtr = static_cast<u8 *>(resCtx_.localBuffer.addr) + resCtx_.localBuffer.offset;
-    CHK_PTR_NULL(commInputPtr);
-    CHK_PTR_NULL(commOutputPtr);
-
     const u64 inputCapacity = resCtx_.localBuffer.offset;
     const u64 outputCapacity = resCtx_.localBuffer.size - resCtx_.localBuffer.offset;
-    const u64 maxWindowBytes = outputCapacity / param_.topoInfo.rankSize;
+    const u64 maxWindowBytes = outputCapacity / rankSize;
     CHK_PRT_RET(maxWindowBytes == 0,
         HCCL_ERROR("[AllGatherBatchSmallCountExecutor][RunLoop]tag[%s], maxWindowBytes is zero, inputCapacity[%llu], outputCapacity[%llu], rankSize[%u]",
             param_.tag,
             static_cast<unsigned long long>(inputCapacity),
             static_cast<unsigned long long>(outputCapacity),
-            param_.topoInfo.rankSize),
+            rankSize),
         HCCL_E_PARA);
+
+    UnpackRankChunkPlan unpackPlan;
+    CHK_RET(BuildUnpackRankChunkPlan(rankSize, resCtx_, unpackPlan));
+
+    ExecMem execMem;
+    execMem.dataType = HCCL_DATA_TYPE_INT8;
+    execMem.inputMem.type = HCCL_MEM_TYPE_DEVICE;
+    execMem.inputMem.addr = commInputPtr;
+    execMem.outputMem.type = HCCL_MEM_TYPE_DEVICE;
+    execMem.outputMem.addr = commOutputPtr;
+    execMem.inputPtr = commInputPtr;
+    execMem.outputPtr = commOutputPtr;
+
     profiling_.localBufferBytes = resCtx_.localBuffer.size;
     profiling_.maxWindowBytes = maxWindowBytes;
 
     WindowRange current;
     current.startDescIdx = 0;
     current.startOffset = 0;
+    WindowRange range;
+    WindowRange next;
 
     std::vector<WindowPart> parts;
     parts.reserve(param_.itemCount);
     while (current.startDescIdx < param_.itemCount) {
-        WindowRange range;
-        WindowRange next;
         CHK_RET(BuildWindowPlan(current, maxWindowBytes, range, next, parts));
-        CHK_PRT_RET(range.packedSize > inputCapacity,
-            HCCL_ERROR("[AllGatherBatchSmallCountExecutor][RunLoop]tag[%s], packedSize[%llu] exceeds inputCapacity[%llu]",
-                param_.tag,
-                static_cast<unsigned long long>(range.packedSize),
-                static_cast<unsigned long long>(inputCapacity)),
-            HCCL_E_INTERNAL);
-        CHK_PRT_RET(range.packedSize * param_.topoInfo.rankSize > outputCapacity,
-            HCCL_ERROR("[AllGatherBatchSmallCountExecutor][RunLoop]tag[%s], outputBytes[%llu] exceeds outputCapacity[%llu]",
-                param_.tag,
-                static_cast<unsigned long long>(range.packedSize * param_.topoInfo.rankSize),
-                static_cast<unsigned long long>(outputCapacity)),
-            HCCL_E_INTERNAL);
         ++profiling_.windowCount;
 
         const uint64_t packStartUs = GetCurrentTimeUs();
         CHK_RET(PackWindowToCCLIn(parts, commInputPtr));
         profiling_.packUs += (GetCurrentTimeUs() - packStartUs);
 
-        ExecMem execMem;
         execMem.count = range.packedSize;
-        execMem.dataType = HCCL_DATA_TYPE_INT8;
-        execMem.inputMem = {HCCL_MEM_TYPE_DEVICE, commInputPtr, range.packedSize};
-        execMem.outputMem = {HCCL_MEM_TYPE_DEVICE, commOutputPtr, range.packedSize * param_.topoInfo.rankSize};
-        execMem.inputPtr = commInputPtr;
-        execMem.outputPtr = commOutputPtr;
+        execMem.inputMem.size = range.packedSize;
+        execMem.outputMem.size = range.packedSize * rankSize;
 
         HcclResult ret = KernelRun(execMem, channels);
         CHK_PRT_RET(ret != HCCL_SUCCESS,
@@ -342,7 +330,7 @@ HcclResult AllGatherBatchSmallCountExecutor::RunLoop(std::vector<ChannelResource
             ret);
 
         const uint64_t unpackStartUs = GetCurrentTimeUs();
-        CHK_RET(UnpackWindowFromCCLOut(parts, range.packedSize, commOutputPtr));
+        CHK_RET(UnpackWindowFromCCLOut(unpackPlan, parts, range.packedSize, commOutputPtr));
         profiling_.unpackUs += (GetCurrentTimeUs() - unpackStartUs);
 
         current = next;
@@ -362,4 +350,3 @@ HcclResult AllGatherBatchSmallCountExecutor::KernelRun(ExecMem &execMem, std::ve
 }
 
 }  // namespace ops_hccl_allgatherbatch
-
