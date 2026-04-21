@@ -13,6 +13,7 @@
 
 #include <vector>
 #include <queue>
+#include "log.h"
 #include "ccu_signature_types.h"
 #include "ccu_kernel.h"
 

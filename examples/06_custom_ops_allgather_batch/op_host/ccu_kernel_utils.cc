@@ -13,6 +13,7 @@
 #include <sstream>
 #include <ios>
 #include <iostream>
+#include <map>
 #include "ccu_kernel_utils.h"
 
 namespace ops_hccl {

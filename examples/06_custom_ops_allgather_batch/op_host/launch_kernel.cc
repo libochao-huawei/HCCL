@@ -75,11 +75,11 @@ HcclResult InitCcuContext(HcclComm comm, const char *engineCtxTag, const OpParam
     uint64_t ctxSize = sizeof(CcuContextData);
     void *ctxPtr = nullptr;
     HcclResult ret = HcclEngineCtxGet(comm, engineCtxTag, CommEngine::COMM_ENGINE_CCU, &ctxPtr, &ctxSize);
-    HCCL_INFO("[InitCcuContext] HcclEngineCtxGet ret=%d ctxPtr=%p ctxSize=%llu", ret, ctxPtr, ctxSize);
+    HCCL_INFO("[InitCcuContext] HcclEngineCtxGet ret=%d ctxPtr=%p ctxSize=%lu", ret, ctxPtr, ctxSize);
     if (ret == HCCL_SUCCESS && ctxPtr != nullptr) {
         ctx = static_cast<CcuContextData *>(ctxPtr);
         if (ctx->initialized) {
-            HCCL_INFO("[InitCcuContext] context already initialized, kernelHandle=%llu", ctx->kernelHandle);
+            HCCL_INFO("[InitCcuContext] context already initialized, kernelHandle=%lu", ctx->kernelHandle);
             return HCCL_SUCCESS;
         }
     } else {
@@ -129,7 +129,7 @@ HcclResult InitCcuContext(HcclComm comm, const char *engineCtxTag, const OpParam
     void *kernelArgPtr = static_cast<void *>(keepAlivePtr->kernelArg.get());
     HCCL_INFO("[InitCcuContext] registering CCU kernel, creatorPtr=%p kernelArgPtr=%p", creatorPtr, kernelArgPtr);
     ret = HcclCcuKernelRegister(comm, &ctx->kernelHandle, creatorPtr, kernelArgPtr);
-    HCCL_INFO("[InitCcuContext] HcclCcuKernelRegister ret=%d kernelHandle=%llu", ret, ctx->kernelHandle);
+    HCCL_INFO("[InitCcuContext] HcclCcuKernelRegister ret=%d kernelHandle=%lu", ret, ctx->kernelHandle);
     CHK_RET(ret);
     ret = HcclCcuKernelRegisterFinish(comm);
     HCCL_INFO("[InitCcuContext] HcclCcuKernelRegisterFinish ret=%d", ret);
