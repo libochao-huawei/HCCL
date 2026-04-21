@@ -13,9 +13,13 @@ set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/reduce_mesh_1D_two_shot.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/reduce_nhr.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_gather_mesh_1D_intra.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_gather_dpu_inter.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/reduce_aicpu_reduce_nhr.cc
 )
+if(NOT HCCL_CANN_COMPAT_850)
+    list(APPEND src_list
+        ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_gather_dpu_inter.cc
+    )
+endif()
 
 target_sources(hccl PRIVATE
     ${src_list}

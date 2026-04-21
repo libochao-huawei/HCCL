@@ -14,10 +14,24 @@
 #include "dlsym_common.h"
 #include "hccl_comm.h"   // 原始头文件，包含所有类型和声明
 
+/* 8.5.0 桩: HcclCommStatus (来自 hccl_types.h) */
+#if CANN_VERSION_NUM < 90000000
+#ifndef HCCL_COMM_STATUS_STUB_DEFINED
+#define HCCL_COMM_STATUS_STUB_DEFINED
+typedef enum {
+    HCCL_COMM_STATUS_READY = 0,
+    HCCL_COMM_STATUS_SUSPENDING = 1,
+    HCCL_COMM_STATUS_INVALID = 254,
+    HCCL_COMM_STATUS_RESERVED = 255
+} HcclCommStatus;
+#endif
+#endif /* CANN_VERSION_NUM < 90000000 */
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+DECL_WEAK_FUNC(HcclResult, HcclCommGetStatus, const char* commId, HcclCommStatus *status);
 DECL_SUPPORT_FLAG(HcclCommGetStatus);
 
 void HcclDeviceCommDlInit(void* libHcommHandle);
