@@ -24,9 +24,7 @@ CcuKernelAllReduceMesh1D::CcuKernelAllReduceMesh1D(const CcuKernelArg &arg)
                                                     : CcuKernelAlgBase(arg)
 {
     const CcuKernelArgAllReduceMesh1D *kernelArg = dynamic_cast<const CcuKernelArgAllReduceMesh1D *>(&arg);
-    if (kernelArg == nullptr) {
-        HCCL_ERROR("CcuKernelAllReduceMesh1D::kernelArg ptr is null");
-    }
+
     rankId_         = kernelArg->rankId_;
     rankSize_       = kernelArg->dimSize_[0];
     dataType_       = kernelArg->opParam_.DataDes.dataType;

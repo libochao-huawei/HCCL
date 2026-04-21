@@ -119,7 +119,12 @@ HcclResult HcclRankGraphGetTopoType(HcclComm comm, uint32_t netLayer, uint32_t t
 HcclResult HcclRankGraphGetEndpointInfo(HcclComm comm, uint32_t rankId, const EndpointDesc *endpointDesc, EndpointAttr endpointAttr, uint32_t infoLen, void *info)
 {
     uint32_t* intInfo = static_cast<uint32_t*>(info);
-    *intInfo = 0;
+    if (endpointAttr == EndpointAttr::ENDPOINT_ATTR_BW_COEFF) {
+        *intInfo = 1;
+    } else {
+        *intInfo = 0;
+    }
+    
     return HCCL_SUCCESS;
 }
 

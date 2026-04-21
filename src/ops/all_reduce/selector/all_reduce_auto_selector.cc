@@ -408,6 +408,10 @@ SelectorStatus AllReduceAutoSelector::SelectDPUAlgo(const TopoInfoWithNetLayerDe
             selectAlgName = "InsAllReduceSequenceMeshNhrDPU";//对应executor最后register的第二个参数
             HCCL_INFO("Using algo InsAllReduceSequenceMeshNhrDPU");
             return SelectorStatus::MATCH;
+        } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+            selectAlgName = "InsV2AllReduceOmniPipe";
+            HCCL_INFO("Using algo InsV2AllReduceOmniPipe");
+            return SelectorStatus::MATCH;
         }
     }
  

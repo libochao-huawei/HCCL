@@ -193,6 +193,9 @@ HcclResult InsTempAlltoAllVMesh1D::PostCopy(const TemplateDataParams &tempAlgPar
 void InsTempAlltoAllVMesh1D::GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMianToSub)
 {
     notifyIdxMianToSub.clear();
+    if (threadNum_ <= 1) {
+        return;
+    }
     u32 slaveThreadNum = threadNum_ - 1;
     for (u32 slaveThreadIdx = 0; slaveThreadIdx < slaveThreadNum; slaveThreadIdx++) {
         notifyIdxMianToSub.push_back(0);
