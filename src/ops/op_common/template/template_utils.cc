@@ -31,8 +31,10 @@ u32 GetNHRStepNum(u32 rankSize)
     return nSteps;
 }
 
-HcclResult CalcDataSplitByPortGroup(const u64 totalDataCount, const u64 dataTypeSize, const std::vector<ChannelInfo> & channels,
-                                    std::vector<u64> & elemCountOut, std::vector<u64> & sizeOut, std::vector<u64> & elemOffset)
+HcclResult CalcDataSplitByPortGroup(const u64 totalDataCount, const u64 dataTypeSize,
+                                    const std::vector<ChannelInfo> &channels,
+                                    std::vector<u64> &elemCountOut, std::vector<u64> &sizeOut,
+                                    std::vector<u64> &elemOffset)
 {
     elemCountOut.clear();
     sizeOut.clear();
@@ -43,7 +45,8 @@ HcclResult CalcDataSplitByPortGroup(const u64 totalDataCount, const u64 dataType
     for (const auto &ch : channels) {
         portGroups.push_back(ch.portGroupSize);
         totalPorts += ch.portGroupSize;
-        HCCL_INFO("[CalcDataSplitByPortGroup] GenExtIns  ch.portGroupSize[%u], totalPorts[%u]", ch.portGroupSize, totalPorts);
+        HCCL_INFO("[CalcDataSplitByPortGroup] GenExtIns ch.portGroupSize[%u], totalPorts[%u]",
+                  ch.portGroupSize, totalPorts);
     }
 
     u32 channelsize = portGroups.size();
@@ -56,7 +59,8 @@ HcclResult CalcDataSplitByPortGroup(const u64 totalDataCount, const u64 dataType
             elemCount = totalDataCount - accumCount;
         } else {
             CHK_PRT_RET(totalPorts == 0,
-                        HCCL_ERROR("[CalcDataSplitByPortGroup] totalPorts [%u] is 0.", totalPorts), HcclResult::HCCL_E_INTERNAL);
+                        HCCL_ERROR("[CalcDataSplitByPortGroup] totalPorts [%u] is 0.", totalPorts),
+                        HcclResult::HCCL_E_INTERNAL);
             elemCount = static_cast<u64>((totalDataCount * portGroups[channelIdx]) / totalPorts);
         }
         elemOffset.push_back(offset);
