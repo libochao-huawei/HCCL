@@ -95,6 +95,12 @@ HcclResult FillOpExChangeInfo(const OpParam &param, OpExchangeInfo &enchangeInfo
 HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &enchangeInfo,
     const std::vector<HcclChannelDesc> &channels);
 
+HcclResult ReportOpExchangeInfoCheckFailed(const std::string &paraName, uint32_t localPara,
+    uint32_t remotePara);
+
+HcclResult ReportOpExchangeInfoCheckFailed(const std::string &paraName, const std::string localPara,
+    const std::string remotePara);
+
 HcclResult CheckCount(const u64 count);
 
 HcclResult CheckDataType(const HcclDataType dataType, bool needReduce);
