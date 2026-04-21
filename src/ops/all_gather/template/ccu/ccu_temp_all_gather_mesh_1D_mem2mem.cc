@@ -223,7 +223,7 @@ HcclResult CcuTempAllGatherMesh1DMem2Mem::KernelRun(const OpParam& param,
     CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, token, inputSliceStride,
         outputSliceStride, repeatNum, inputRepeatStride, outputRepeatStride, die0Size, die1Size,
         die0LastSize, die1LastSize, isInputOutputEqual));
-    for (u32 i = 0; i <  ; i++) {
+    for (u32 i = 0; i < kernelNum; i++) {
         submitInfo.kernelHandle = templateResource.ccuKernels[i];
         templateResource.submitInfos.push_back(submitInfo);
     }

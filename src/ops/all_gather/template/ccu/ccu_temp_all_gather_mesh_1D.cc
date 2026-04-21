@@ -37,8 +37,8 @@ HcclResult CcuTempAllGatherMesh1D::CalcRes(HcclComm comm, const OpParam& param, 
                                                       AlgResourceRequest& resourceRequest)
 {
     // 不需要从流
-    resourceRequest.notifyNumOnMainThread = 0;
-    resourceRequest.slaveThreadNum = 0;
+    resourceRequest.notifyNumOnMainThread = 1;
+    resourceRequest.slaveThreadNum = 1;
 
     std::vector<HcclChannelDesc> channelDescs;
     if(topoInfo->level0Topo != Level0Shape::MESH_1D_CLOS) {
@@ -238,13 +238,13 @@ u64 CcuTempAllGatherMesh1D::CalcScratchMultiple(BufferType inBuffType, BufferTyp
 
 u64 CcuTempAllGatherMesh1D::GetThreadNum() const
 {
-    return 1;
+    return 2;
 }
  
 HcclResult CcuTempAllGatherMesh1D::GetRes(AlgResourceRequest& resourceRequest) const
 {
-    resourceRequest.slaveThreadNum = 0;
-    resourceRequest.notifyNumOnMainThread = 0;
+    resourceRequest.slaveThreadNum = 1;
+    resourceRequest.notifyNumOnMainThread = 1;
     resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, 1);
     return HCCL_SUCCESS;
 }
