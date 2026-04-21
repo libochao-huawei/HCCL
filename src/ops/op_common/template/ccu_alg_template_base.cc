@@ -108,6 +108,18 @@ HcclResult CcuAlgTemplateBase::GetChannelDieId(HcclComm comm, uint32_t rankId, c
     return HcclResult::HCCL_SUCCESS;
 }
 
+HcclResult CcuAlgTemplateBase::GetChannelBwCoeff(HcclComm comm, uint32_t rankId, const HcclChannelDesc& channelDesc,
+                                               uint32_t& bwCoeff) const
+{
+    EndpointAttrBwCoeff tmpBwCoeff{};
+    uint32_t infoLen = sizeof(EndpointAttrBwCoeff);
+    CHK_RET(HcclRankGraphGetEndpointInfo(comm, rankId, &(channelDesc.localEndpoint), ENDPOINT_ATTR_BW_COEFF, infoLen,
+                                         &tmpBwCoeff));
+    bwCoeff = tmpBwCoeff;
+    HCCL_DEBUG("[CcuAlgTemplateBase::GetChannelBwCoeff] rank[%d]: get channel bwCoeff [%d]", rankId, bwCoeff);
+    return HcclResult::HCCL_SUCCESS;
+}
+
 /* nhr算法，需要遍历得到的channelDesc，判断使用几个die，如果是1个die，则还需要得到dieId。
    以便于算法挑选相应dieId的channelDesc */
 HcclResult CcuAlgTemplateBase::GetDieInfoFromChannelDescs(HcclComm comm, 
@@ -146,8 +158,6 @@ HcclResult CcuAlgTemplateBase::GetDieInfoFromChannelDescs(HcclComm comm,
         }
 
     }
-    // 为适配不对称场景，当前nhr仅使能1个die
-    dieNum = LINK_NUM_1;
     HCCL_INFO("[CcuAlgTemplateBase::GetDieNumFromChannelDescs] 2 channels on 2 dies, dieNum = 2.");
     return HcclResult::HCCL_SUCCESS;
 }
@@ -190,6 +200,32 @@ HcclResult CcuAlgTemplateBase::SelectChannelToVec(const HcclComm comm, const u32
     HCCL_INFO("[CcuAlgTemplateBase::SelectChannelToVec] find channel rank[%u] to rank[%u] on die[%u] succeed."
         "Index=[%u]", myRankId, rmtRankId, dieId, curChannelIdx);
     return HcclResult::HCCL_SUCCESS;
+}
+
+/* 当2个die出框链路端口数不一致时，使用端口数（而非dieId）区分channel */
+HcclResult CcuAlgTemplateBase::ReverseChannelPerDieIfNeed(const HcclComm comm, const u32 myRankId, 
+    std::vector<std::vector<HcclChannelDesc>>& channelsPerDie)
+{
+    if (channelsPerDie.size() <= 1) {
+        HCCL_ERROR("[ReverseChannelPerDieIfNeed] channelsPerDie.size() = [%u], there's no channel on both dies", 
+            channelsPerDie.size());
+        return HCCL_E_PTR;
+    }
+    if (channelsPerDie[0].size() < 1 || channelsPerDie[1].size() < 1) {
+        HCCL_ERROR("[ReverseChannelPerDieIfNeed] there's no channel in channelsPerDie");
+        return HCCL_E_PTR;
+    }
+    uint32_t portNum0 = 0;
+    uint32_t portNum1 = 0;
+    GetChannelBwCoeff(comm, myRankId, channelsPerDie[0][0], portNum0);
+    GetChannelBwCoeff(comm, myRankId, channelsPerDie[1][0], portNum1);
+
+    if (portNum0 > portNum1) {
+        // 2个die出框端口数不同，将端口数少的channel放在前面
+        std::swap(channelsPerDie[0], channelsPerDie[1]);
+    }
+
+    return HCCL_SUCCESS;
 }
 
 HcclResult CcuAlgTemplateBase::GetToken(const BuffInfo &buffinfo, uint64_t &token) const
