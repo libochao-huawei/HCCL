@@ -52,6 +52,7 @@ target_sources(hccl_custom_allgather_batch PRIVATE
     all_gather_batch.cc
     host_utils.cc
     launch_kernel.cc
+    ccu_resource_flow.cc
     ccu_kernel_alg_base.cc
     ccu_kernel_utils.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/../op_kernel/ccu_kernel_all_gather_batch_mesh1d.cc

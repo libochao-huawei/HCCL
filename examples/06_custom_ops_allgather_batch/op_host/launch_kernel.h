@@ -13,13 +13,13 @@
 
 #include "common.h"
 #include "ccu_kernel.h"
+#include "ccu_resource_flow.h"
 
 namespace ops_hccl_allgather_batch {
 
 struct CcuContextData {
     bool initialized = false;
-    ThreadHandle thread = 0;
-    CcuKernelHandle kernelHandle = 0;
+    AlgResourceCtx resCtx;
 };
 
 HcclResult InitCcuContext(HcclComm comm, const char *engineCtxTag, const OpParam &param, aclrtStream stream,
