@@ -94,23 +94,23 @@ HcclResult HcclSetOpParamGraphModeHCCLBufferSize(OpParamGraphMode *opParam, cons
     return HCCL_SUCCESS;
 }
 HcclResult HcclSetAivSelectOpParamGraphMode(OpParamGraphMode *opParam, const char *group, u64 count, void *counts, 
- 	                                        HcclDataType dataType, HcclReduceOp op, HcclCMDType opTypeAiv, u32 aivCoreLimit, bool &ifAiv)
- 	 {
- 	     if (opParam == nullptr || group == nullptr) {
- 	         return HCCL_E_PARA;
- 	     }
- 	     // 将void*转换为OpParamGraphMode*
- 	     OpParamGraphMode *paramPtr = reinterpret_cast<OpParamGraphMode *>(opParam);
- 	     strncpy_s(paramPtr->group, sizeof(paramPtr->group), group, sizeof(paramPtr->group) - 1);
- 	     paramPtr->count = count;
- 	     paramPtr->counts = counts;
- 	     paramPtr->dataType = dataType;
- 	     paramPtr->op = op;
- 	     paramPtr->opTypeAiv = opTypeAiv;
- 	     paramPtr->aivCoreLimit = aivCoreLimit;
- 	     paramPtr->ifAiv = ifAiv;
- 	     return HCCL_SUCCESS;
- 	 }
+ 	                                        HcclDataType dataType, HcclReduceOp op, HcclCMDType opTypeAiv, u32 aivCoreLimit, bool ifAiv)
+{
+    if (opParam == nullptr || group == nullptr) {
+        return HCCL_E_PARA;
+    }
+    // 将void*转换为OpParamGraphMode*
+    OpParamGraphMode *paramPtr = reinterpret_cast<OpParamGraphMode *>(opParam);
+    strncpy_s(paramPtr->group, sizeof(paramPtr->group), group, sizeof(paramPtr->group) - 1);
+    paramPtr->count = count;
+    paramPtr->counts = counts;
+    paramPtr->dataType = dataType;
+    paramPtr->op = op;
+    paramPtr->opTypeAiv = opTypeAiv;
+    paramPtr->aivCoreLimit = aivCoreLimit;
+    paramPtr->ifAiv = ifAiv;
+    return HCCL_SUCCESS;
+}
 
 HcclResult HcclCalcOpResOnlineGraphMode(OpParamGraphMode *opParam, u64 *opMemSize, u32 *streamNum, u32 *taskNum, u32 *aivCoreNum)
 {

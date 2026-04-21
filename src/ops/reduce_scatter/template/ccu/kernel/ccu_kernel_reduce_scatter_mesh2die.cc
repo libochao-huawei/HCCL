@@ -24,9 +24,7 @@ CcuKernelReduceScatterMesh2Die::CcuKernelReduceScatterMesh2Die(const hcomm::CcuK
     : CcuKernelAlgBase(arg)
 {
     const CcuKernelArgReduceScatterMesh2Die *kernelArg = dynamic_cast<const CcuKernelArgReduceScatterMesh2Die *>(&arg);
-    if (kernelArg == nullptr) {
-        HCCL_ERROR("[CcuKernelReduceScatterMesh2Die] kernelArg ptr is null.");
-    }
+
     channels_ = kernelArg->channels;
     rmtReduceWithMyRank_ = kernelArg->rmtReduceWithMyRank_;
     myRankId_            = kernelArg->rankId_;

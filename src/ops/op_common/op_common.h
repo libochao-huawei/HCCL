@@ -33,8 +33,8 @@ namespace ops_hccl {
 extern thread_local std::map<std::string, HcclMemHandle> g_memHandleCache;
 HcclResult HcclExecOp(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo, std::string &algName, const ResPackGraphMode &resPack = ResPackGraphMode());
 
-HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName, 
-                                std::unique_ptr<InsCollAlgBase> &executor, 
+HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
+                                std::unique_ptr<InsCollAlgBase> &executor,
                                 AlgResourceCtxSerializable &resCtxHost);
 
 HcclResult HcclCalcTopoInfo(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo);
@@ -56,7 +56,7 @@ HcclResult HcclGetThread(HcclComm comm, const OpParam &param,
 
 HcclResult HcclGetChannel(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
                           std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost);
-HcclResult HcclGetChannelImpl(const u32 level, HcclComm comm, const OpParam &param, std::vector<HcclChannelDesc>& channelRequest, 
+HcclResult HcclGetChannelImpl(const u32 level, HcclComm comm, const OpParam &param, std::vector<HcclChannelDesc>& channelRequest,
                               const CommEngine commEngine, std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost);
 HcclResult RegGraphModeBuffers(HcclComm comm, const OpParam &param, std::vector<HcclChannelDesc>& channelRequest, char* inputBuffTag, char* outputBuffTag, std::vector<HcclMemHandle>& memHandles);
 HcclResult GetGraphModeBuffers(HcclComm comm, ChannelHandle channelHandle, const char* inputBuffTag, const char* outputBuffTag, ChannelInfo& channel);
@@ -71,7 +71,7 @@ HcclResult GetAlgResCcu(HcclComm comm, const OpParam& param, AlgResourceRequest&
                         std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, TopoInfoWithNetLayerDetails* topoInfo,
                         AlgHierarchyInfoForAllLevel& algHierarchyInfo, void** resCtxSequence, uint64_t& ctxSize);
 
-HcclResult AppendFastLaunchTag(OpParam &param, const char* dataTypeStr, 
+HcclResult AppendFastLaunchTag(OpParam &param, const char* dataTypeStr,
     const char* reduceOpStr, const char* countStr, const char* rootStr);
 HcclResult SetOpParamFastLaunchTag(OpParam &param);
 
@@ -161,6 +161,8 @@ HcclResult GetAivParamStorageByComm(HcclComm comm, AivParamStorage **aivParam);
 HcclResult HcclAllocAlgResourceAivGraphMode(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest, AlgResourceCtxSerializable* resCtxHost);
 
 HcclResult HcclRegstryBuffGraphMode(HcclComm comm, const char *memTag, void *bufferPtr, uint64_t bufferSize, HcclMemHandle *memHandle);
+
+HcclResult CheckHostDPUOnly(const HcclComm comm, const TopoInfoWithNetLayerDetails* topoInfo, bool &hostDPUOnly);
 
 }  // namespace ops_hccl
 
