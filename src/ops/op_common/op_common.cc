@@ -1055,7 +1055,6 @@ HcclResult HcclGetChannelImpl(const u32 level, HcclComm comm, const OpParam &par
     return HCCL_SUCCESS;
 }
 
-
 HcclResult RegGraphModeBuffers(HcclComm comm, const OpParam &param, std::vector<HcclChannelDesc>& channelRequest, char* inputBuffTag, char* outputBuffTag, std::vector<HcclMemHandle>& memHandles) {
     HCCL_INFO("[RegGraphModeBuffers] param.tag[%s]", param.tag);
     if (channelRequest.empty()) {

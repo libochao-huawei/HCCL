@@ -76,7 +76,6 @@ HcclResult InsTempReduceScatterNHR::KernelRun(const OpParam& param,
     dataType_ = param.DataDes.dataType;
     dataTypeSize_  = DATATYPE_SIZE_TABLE[dataType_];
 
-    HCCL_INFO("[InsTempReduceScatterNHR] GenExtIns  channelsPerRank_[%u], dataTypeSize_[%u]", channelsPerRank_, dataTypeSize_);
     std::vector<u64> elemCountOut;
     std::vector<u64> sizeOut;
     std::vector<u64> elemOffset;
@@ -94,7 +93,6 @@ HcclResult InsTempReduceScatterNHR::KernelRun(const OpParam& param,
         elemOffsetTail_ = elemOffsetTail;
         sizeOutTail_ = sizeOutTail;
     }
-
 
     threadNum_ = templateResource.threads.size();
     if (threadNum_ > 1) {
