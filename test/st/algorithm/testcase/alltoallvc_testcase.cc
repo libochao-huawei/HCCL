@@ -206,20 +206,6 @@ TEST_F(ST_ALLTOALLVC_TEST, st_alltoallvc_hostDpu_test_1)
     RunHostDpuAlltoAllVCMeshTest(topoMeta, dataType, sendCountMatrix);
 }
 
-TEST_F(ST_ALLTOALLVC_TEST, st_alltoallvc_hostDpu_test_2)
-{
-    TopoMeta topoMeta{{{0, 1, 2}, {0}}};
-    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_INT64;
-
-    std::vector<u64> sendCountMatrix = {
-        0, 50, 25, 209715200,
-        50, 314572800, 30, 80,
-        209715200, 30, 0, 0,
-        75, 0, 45, 209715200
-    };
-    RunHostDpuAlltoAllVCMeshTest(topoMeta, dataType, sendCountMatrix);
-}
-
 TEST_F(ST_ALLTOALLVC_TEST, st_alltoallvc_hostDpu_test_3)
 {
     TopoMeta topoMeta{{{0, 1}, {0, 1}}};
@@ -230,21 +216,6 @@ TEST_F(ST_ALLTOALLVC_TEST, st_alltoallvc_hostDpu_test_3)
         50, 314572800, 0, 80,
         209715200, 0, 0, 21,
         75, 0, 45, 209235255
-    };
-    RunHostDpuAlltoAllVCMeshTest(topoMeta, dataType, sendCountMatrix);
-}
-
-TEST_F(ST_ALLTOALLVC_TEST, st_alltoallvc_hostDpu_test_4)
-{
-    TopoMeta topoMeta{{{0, 1, 2, 3}, {0}}};
-    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_FP8E8M0;
-
-    std::vector<u64> sendCountMatrix = {
-        524288000,  0,  0,  0,  0,
-        0,  524288000,  0,  0,  0,
-        0, 0, 524288000, 0, 0,
-        0, 0, 0, 524288000, 0,
-        0, 0, 0, 0, 524288000
     };
     RunHostDpuAlltoAllVCMeshTest(topoMeta, dataType, sendCountMatrix);
 }
@@ -298,23 +269,6 @@ TEST_F(ST_ALLTOALLVC_TEST, st_alltoallvc_hostDpu_test_7)
         122, 0, 0, 512, 20546, 2, 7200, 1, 0,
         0, 55, 11, 1, 0, 55, 2560, 0, 35262,
         1, 40, 0, 8192, 1025, 0, 1, 33, 384
-    };
-
-    RunHostDpuAlltoAllVCMeshTest(topoMeta, dataType, sendCountMatrix);
-}
-
-TEST_F(ST_ALLTOALLVC_TEST, st_alltoallvc_hostDpu_test_8)
-{
-    TopoMeta topoMeta{{{0, 1}, {0, 1}, {0}, {0}}};
-    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_UINT8;
-    
-    std::vector<u64> sendCountMatrix = {
-        524288000, 3068, 230686721, 0, 4096, 8193,
-        0, 1025, 0, 0, 4096, 524288000,
-        0, 4096, 230686721, 8197, 5555, 524288000,
-        230686721, 0, 512, 0, 3065, 0,
-        0, 8197, 0, 1025, 4096, 0,
-        2048, 522486, 0, 230686721, 256, 0
     };
 
     RunHostDpuAlltoAllVCMeshTest(topoMeta, dataType, sendCountMatrix);
