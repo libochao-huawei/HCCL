@@ -12,11 +12,30 @@ namespace {
 constexpr u64 kDualThreadUnpackMinBytes = 256 * 1024;
 constexpr u32 kQuadThreadWorkerCount = 4;
 
-void GetUnpackRankChunk(u32 rankSize, u32 tid, u32 workerCount, u32 &begin, u32 &end)
+void BuildUnpackRankChunks(
+    u32 rankSize,
+    std::vector<u32> &beginRanks,
+    std::vector<u32> &endRanks)
 {
-    const u32 chunk = (rankSize + workerCount - 1) / workerCount;
-    begin = std::min(tid * chunk, rankSize);
-    end = std::min(begin + chunk, rankSize);
+    u32 counts[kQuadThreadWorkerCount] = {0};
+    const u32 remain = rankSize - 1;
+    const u32 base = remain / kQuadThreadWorkerCount;
+    const u32 extra = remain % kQuadThreadWorkerCount;
+
+    counts[0] = 1 + base;
+    for (u32 i = 1; i < kQuadThreadWorkerCount; ++i) {
+        counts[i] = base;
+    }
+    for (u32 i = 0; i < extra; ++i) {
+        counts[i] += 1;
+    }
+
+    for (u32 tid = 0; tid < kQuadThreadWorkerCount; ++tid) {
+        if (tid > 0) {
+            beginRanks[tid] = endRanks[tid - 1];
+        }
+        endRanks[tid] = beginRanks[tid] + counts[tid];
+    }
 }
 
 HcclResult UnpackRankRangeOnThread(
@@ -210,62 +229,49 @@ HcclResult AllGatherBatchSmallCountExecutor::UnpackWindowFromCCLOut(
             resCtx_.mainThreadHandle, param_, parts, packedSize, commOutputPtr, 0, rankSize);
     }
 
-    u32 beginRanks[kQuadThreadWorkerCount] = {0};
-    u32 endRanks[kQuadThreadWorkerCount] = {0};
-    for (u32 tid = 0; tid < kQuadThreadWorkerCount; ++tid) {
-        GetUnpackRankChunk(rankSize, tid, kQuadThreadWorkerCount, beginRanks[tid], endRanks[tid]);
-    }
-
-    const u32 activeSubThreads = static_cast<u32>((beginRanks[1] < endRanks[1]) +
-        (beginRanks[2] < endRanks[2]) +
-        (beginRanks[3] < endRanks[3]));
+    std::vector<u32> beginRanks(kQuadThreadWorkerCount, 0);
+    std::vector<u32> endRanks(kQuadThreadWorkerCount, 0);
+    BuildUnpackRankChunks(rankSize, beginRanks, endRanks);
+    const auto hasRankChunk = [&](u32 tid) {
+        return beginRanks[tid] < endRanks[tid];
+    };
 
     for (u32 tid = 1; tid < kQuadThreadWorkerCount; ++tid) {
-        if (beginRanks[tid] >= endRanks[tid]) {
-            continue;
+        if (hasRankChunk(tid)) {
+            CHK_RET(HcommThreadNotifyRecordOnThread(
+                resCtx_.mainThreadHandle, resCtx_.subThreadHandles[tid - 1], resCtx_.subNotifyIds[tid - 1]));
         }
-        CHK_RET(HcommThreadNotifyRecordOnThread(
-            resCtx_.mainThreadHandle, resCtx_.subThreadHandles[tid - 1], resCtx_.subNotifyIds[tid - 1]));
     }
     for (u32 tid = 1; tid < kQuadThreadWorkerCount; ++tid) {
-        if (beginRanks[tid] >= endRanks[tid]) {
-            continue;
+        if (hasRankChunk(tid)) {
+            CHK_RET(HcommThreadNotifyWaitOnThread(
+                resCtx_.subThreadHandles[tid - 1], resCtx_.subNotifyIds[tid - 1], CUSTOM_TIMEOUT));
         }
-        CHK_RET(HcommThreadNotifyWaitOnThread(
-            resCtx_.subThreadHandles[tid - 1], resCtx_.subNotifyIds[tid - 1], CUSTOM_TIMEOUT));
     }
 
-    if (beginRanks[0] < endRanks[0]) {
+    if (hasRankChunk(0)) {
         CHK_RET(UnpackRankRangeOnThread(
             resCtx_.mainThreadHandle, param_, parts, packedSize, commOutputPtr, beginRanks[0], endRanks[0]));
     }
     for (u32 tid = 1; tid < kQuadThreadWorkerCount; ++tid) {
-        if (beginRanks[tid] >= endRanks[tid]) {
-            continue;
+        if (hasRankChunk(tid)) {
+            CHK_RET(UnpackRankRangeOnThread(
+                resCtx_.subThreadHandles[tid - 1], param_, parts, packedSize, commOutputPtr, beginRanks[tid], endRanks[tid]));
         }
-        CHK_RET(UnpackRankRangeOnThread(
-            resCtx_.subThreadHandles[tid - 1], param_, parts, packedSize, commOutputPtr, beginRanks[tid], endRanks[tid]));
     }
 
     for (u32 tid = 1; tid < kQuadThreadWorkerCount; ++tid) {
-        if (beginRanks[tid] >= endRanks[tid]) {
-            continue;
+        if (hasRankChunk(tid)) {
+            CHK_RET(HcommThreadNotifyRecordOnThread(
+                resCtx_.subThreadHandles[tid - 1], resCtx_.mainThreadHandle, resCtx_.mainNotifyIds[tid - 1]));
         }
-        CHK_RET(HcommThreadNotifyRecordOnThread(
-            resCtx_.subThreadHandles[tid - 1], resCtx_.mainThreadHandle, resCtx_.mainNotifyIds[tid - 1]));
     }
     for (u32 tid = 1; tid < kQuadThreadWorkerCount; ++tid) {
-        if (beginRanks[tid] >= endRanks[tid]) {
-            continue;
+        if (hasRankChunk(tid)) {
+            CHK_RET(HcommThreadNotifyWaitOnThread(
+                resCtx_.mainThreadHandle, resCtx_.mainNotifyIds[tid - 1], CUSTOM_TIMEOUT));
         }
-        CHK_RET(HcommThreadNotifyWaitOnThread(
-            resCtx_.mainThreadHandle, resCtx_.mainNotifyIds[tid - 1], CUSTOM_TIMEOUT));
     }
-
-    CHK_PRT_RET(activeSubThreads == 0 && rankSize > 1,
-        HCCL_ERROR("[AllGatherBatchSmallCountExecutor][UnpackWindowFromCCLOut]tag[%s], no active sub threads for quad-thread unpack, rankSize[%u]",
-            param_.tag, rankSize),
-        HCCL_E_INTERNAL);
     return HCCL_SUCCESS;
 }
 
