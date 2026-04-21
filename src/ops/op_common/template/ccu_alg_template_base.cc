@@ -146,8 +146,13 @@ HcclResult CcuAlgTemplateBase::GetDieInfoFromChannelDescs(HcclComm comm,
         }
 
     }
-    // 为适配不对称场景，当前nhr仅使能1个die
-    dieNum = LINK_NUM_1;
+    // 此处为双die场景，每个die上一个channel
+    if (g_ccuV2) {
+        dieNum = LINK_NUM_2;
+    } else {
+        // 为适配不对称场景，当前nhr仅使能1个die
+        dieNum = LINK_NUM_1;
+    }
     HCCL_INFO("[CcuAlgTemplateBase::GetDieNumFromChannelDescs] 2 channels on 2 dies, dieNum = 2.");
     return HcclResult::HCCL_SUCCESS;
 }

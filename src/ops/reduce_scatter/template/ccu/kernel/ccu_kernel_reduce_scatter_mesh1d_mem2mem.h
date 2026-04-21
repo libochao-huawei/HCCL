@@ -23,15 +23,16 @@ using namespace hcomm;
 
 class CcuKernelArgReduceScatterMesh1DMem2Mem : public CcuKernelArg {
 public:
-    explicit CcuKernelArgReduceScatterMesh1DMem2Mem(uint64_t dimSize, uint32_t rankId, const OpParam& opParam,
+    explicit CcuKernelArgReduceScatterMesh1DMem2Mem(uint64_t dimSize, uint32_t rankId, const OpParam& opParam, uint32_t axisId,
                                                     const std::vector<std::vector<uint32_t>>& subCommRanks)
         : dimSize_(dimSize),
           rankId_(rankId),
           opParam_(opParam),
+          axisId_(axisId),
           subCommRanks_(subCommRanks)
     {
-        HCCL_DEBUG("[CcuKernelArgReduceScatterMesh1DMem2Mem] dimSize: %lu, rankId: %u, reduceOp: %d, dataType: %d",
-                   dimSize_, rankId_, opParam.reduceType, opParam.DataDes.dataType);
+        HCCL_DEBUG("[CcuKernelArgReduceScatterMesh1DMem2Mem] dimSize: %lu, rankId: %u, reduceOp: %d, dataType: %d, axisId: %u",
+                   dimSize_, rankId_, opParam.reduceType, opParam.DataDes.dataType, axisId: %u);
     }
     CcuKernelSignature GetKernelSignature() const override
     {
@@ -42,6 +43,7 @@ public:
     uint64_t                                dimSize_;
     uint32_t                                rankId_;
     OpParam                                 opParam_;
+    uint32_t                                axisId_;
     std::vector<std::vector<uint32_t>>      subCommRanks_;
 };
 
@@ -55,14 +57,15 @@ public:
         : inputAddr_(inputAddr), outputAddr_(outputAddr), token_(token), scratchAddr_(scratchAddr),
         inputSliceStride_(inputSliceStride), outputSliceStride_(outputSliceStride), 
         inputRepeatStride_(inputRepeatStride), outputRepeatStride_(outputRepeatStride),
-        normalSliceSize_(normalSliceSize), lastSliceSize_(lastSliceSize), repeatNum_(repeatNum) 
+        die0Size_(die0Size), die1Size_(die1Size), die0LastSliceSize_(die0LastSliceSize), die1LastSliceSize_(die1LastSliceSize),
+        repeatNum_(repeatNum) 
     {
         HCCL_INFO("[CcuTaskArgReduceScatterMesh1DMem2Mem] inputAddr: %lu, outputAddr: %lu, scratchAddr: %lu, "
                    "inputSliceStride: %lu, outputSliceStride: %lu, inputRepeatStride: %lu, "
-                   "outputRepeatStride: %lu, normalSliceSize: %lu, "
-                   "lastSliceSize: %lu, repeatNum: %lu",
+                   "outputRepeatStride: %lu, die0Size: %lu, die1Size: %lu, die0LastSliceSize: %lu, die1LastSliceSize: %lu"
+                   "repeatNum: %lu",
                    inputAddr_, outputAddr_, scratchAddr_, inputSliceStride_, outputSliceStride_,
-                   inputRepeatStride_, outputRepeatStride_, normalSliceSize_, lastSliceSize_, repeatNum_);
+                   inputRepeatStride_, outputRepeatStride_, die0Size_, die1Size_, die0LastSliceSize_, die1LastSliceSize_, repeatNum_);
     }
 
     uint64_t inputAddr_;
@@ -73,8 +76,10 @@ public:
     uint64_t outputSliceStride_;
     uint64_t inputRepeatStride_;
     uint64_t outputRepeatStride_;
-    uint64_t normalSliceSize_;
-    uint64_t lastSliceSize_;
+    uint64_t die0Size_;
+    uint64_t die1Size_;
+    uint64_t die0LastSliceSize_;
+    uint64_t die1LastSliceSize_;
     uint64_t repeatNum_;
 };
 
@@ -115,8 +120,11 @@ private:
     CcuRep::Variable currentRankSliceOutputOffset_;
     CcuRep::Variable inputRepeatStride_;
     CcuRep::Variable outputRepeatStride_;
-    CcuRep::Variable normalSliceSize_;
-    CcuRep::Variable lastSliceSize_;
+    CcuRep::Variable die0Size_;
+    CcuRep::Variable die1Size_;
+    CcuRep::Variable die0LastSliceSize_;
+    CcuRep::Variable die1LastSliceSize_;
+    uint32_t axisId_{0};
     GroupOpSize GoSize_;
     uint16_t selfBit_{0};
     uint16_t allBit_{0};

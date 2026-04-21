@@ -29,7 +29,7 @@ HcclResult TopoMatch1D::MatchTopo(HcclComm comm, TopoInfoWithNetLayerDetails* to
         HCCL_E_INTERNAL);
 
     #ifdef MACRO_DEV_TYPE_NEW
-    if (topoInfo->deviceType != DevType::DEV_TYPE_950) {
+    if (topoInfo->deviceType != DevType::DEV_TYPE_950 ) {
     #else
     if (topoInfo->deviceType != DevType::DEV_TYPE_910_95) {
     #endif

@@ -21,6 +21,8 @@
 #include "execute_selector.h"
 #include "acl/acl_rt.h"
 
+extern bool g_ccuV2;
+
 #ifdef __cplusplus
 extern "C" {
 #endif

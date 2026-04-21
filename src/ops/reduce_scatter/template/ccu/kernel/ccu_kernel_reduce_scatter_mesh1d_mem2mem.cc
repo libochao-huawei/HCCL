@@ -30,6 +30,7 @@ CcuKernelReduceScatterMesh1DMem2Mem::CcuKernelReduceScatterMesh1DMem2Mem(const C
     rankId_         = kernelArg->rankId_;
     rankSize_       = kernelArg->dimSize_;
     channels_       = kernelArg->channels;
+    axisId_         = kernelArg->axisId_;
     dataType_       = kernelArg->opParam_.DataDes.dataType;
     outputDataType_ = kernelArg->opParam_.DataDes.outputType;
     if (outputDataType_ == HcclDataType::HCCL_DATA_TYPE_RESERVED) {
@@ -76,13 +77,15 @@ HcclResult CcuKernelReduceScatterMesh1DMem2Mem::InitResource()
     output_                      = CreateVariable();
     currentRankSliceInputOffset_ = CreateVariable();
     currentRankSliceOutputOffset_= CreateVariable();
-    normalSliceSize_             = CreateVariable();
     inputRepeatStride_           = CreateVariable();
     outputRepeatStride_          = CreateVariable();
     repeatNum_                   = CreateVariable();
-    lastSliceSize_               = CreateVariable();
     flag_                        = CreateVariable();
     GoSize_                      = CreateGroupOpSize();
+    die0Size_           = CreateVariable();
+    die1Size_           = CreateVariable();
+    die0LastSliceSize_  = CreateVariable();
+    die1LastSliceSize_  = CreateVariable();
 
     selfBit_ = 1 << rankId_;                              // 仅rankid位为1，其他位为0，代表本端准备好了
     allBit_ = ((1 << rankSize_) - 1) & (~(1 << rankId_)); // 仅rankid位为0，其他位为1，代表远端准备好了
@@ -110,10 +113,10 @@ void CcuKernelReduceScatterMesh1DMem2Mem::LoadArgs()
     Load(scratch_[rankId_]);
     Load(currentRankSliceInputOffset_);
     Load(currentRankSliceOutputOffset_);
-    Load(inputRepeatStride_);
-    Load(outputRepeatStride_);
-    Load(normalSliceSize_);
-    Load(lastSliceSize_);
+    Load(die0Size_);
+    Load(die1Size_);
+    Load(die0LastSliceSize_);
+    Load(die1LastSliceSize_);
     Load(repeatNum_);
     Load(GoSize_);
     return;
@@ -147,6 +150,7 @@ void CcuKernelReduceScatterMesh1DMem2Mem::PostSync()
 void CcuKernelReduceScatterMesh1DMem2Mem::DoReduceScatter()
 {
     uint32_t channelId = 0;
+    bool islastSlice = (rankId_ + 1 == rankSize_);
 
     CcuRep::LocalAddr myOutput = CreateLocalAddr();
     
@@ -155,7 +159,8 @@ void CcuKernelReduceScatterMesh1DMem2Mem::DoReduceScatter()
     myOutput.token  = token_[rankId_];
 
     CcuRep::Variable sliceSize = CreateVariable();
-    sliceSize = (rankId_ == (rankSize_ - 1)) ? lastSliceSize_: normalSliceSize_;
+    sliceSize = (axisId_ == 0) ? (islastSlice? die0LastSliceSize_ : die0Size_)
+                               : (islastSlice? die1LastSliceSize_ : die1Size_);
     
     CCU_IF(sliceSize != 0)
     {
@@ -196,7 +201,7 @@ void CcuKernelReduceScatterMesh1DMem2Mem::DoRepeatReduceScatter()
 
         scratchMem_[rankIdx].addr = scratch_[rankId_];
         scratchMem_[rankIdx].addr += scratchOffset;
-        scratchOffset += normalSliceSize_;
+        scratchOffset += ((axisId_ == 0) ? (die0Size_ : die1Size_));
         scratchMem_[rankIdx].token = token_[rankId_];
     }
 
@@ -407,26 +412,35 @@ std::vector<uint64_t> CcuKernelReduceScatterMesh1DMem2Mem::GeneArgs(const CcuTas
     uint64_t currentRankSliceOutputOffset= taskArg->outputSliceStride_ * rankId_;
     uint64_t inputRepeatStride           = taskArg->inputRepeatStride_;
     uint64_t outputRepeatStride          = taskArg->outputRepeatStride_;
-    uint64_t normalSliceSize             = taskArg->normalSliceSize_;
-    uint64_t lastSliceSize               = taskArg->lastSliceSize_;
+    uint64_t die0Size                    = taskArg->die0Size_;
+    uint64_t die1Size                    = taskArg->die1Size_;
+    uint64_t die0LastSliceSize           = taskArg->die0LastSliceSize_;
+    uint64_t die1LastSliceSize           = taskArg->die1LastSliceSize_;
     uint64_t repeatNum                   = taskArg->repeatNum_;
-    auto     GoSize                      = (rankId_ == (rankSize_ - 1)) ? CalGoSize(lastSliceSize) 
-                                                                       : CalGoSize(normalSliceSize);
+    if(axisId_ == 0){// to do：axisId传进来
+    auto     GoSize                      = (rankId_ == (rankSize_ - 1)) ? CalGoSize(die0Size) 
+                                                                       : CalGoSize(die0LastSliceSize);
+    }else{
+    auto     GoSize                      = (rankId_ == (rankSize_ - 1)) ? CalGoSize(die1Size) 
+                                                                       : CalGoSize(die1LastSliceSize);
+    }
 
     std::vector<uint64_t> taskArgs = {
         inputAddr,         outputAddr,         tokenInfo,
         scratchAddr,       currentRankSliceInputOffset,
         currentRankSliceOutputOffset,          inputRepeatStride,
-        outputRepeatStride, normalSliceSize,   lastSliceSize,
-        repeatNum
+        outputRepeatStride, die0Size,           die1Size,           die0LastSliceSize,
+        die1LastSliceSize, repeatNum
     };
 
     HCCL_INFO("[CcuKernelReduceScatterMesh1DMem2Mem] TaskArgs: inputAddr[%llu], outputAddr[%llu], "
                "scratchAddr[%llu], currentRankSliceInputOffset[%llu], currentRankSliceOutputOffset[%llu], "
                "inputRepeatStride[%llu], outputRepeatStride[%llu], "
-               "normalSliceSize[%llu], lastSliceSize[%llu], repeatNum[%llu]",
+               "die0Size[%llu], die1Size[%llu], die0LastSliceSize[%llu], die1LastSliceSize[%llu],"
+               "repeatNum[%llu]",
                inputAddr, outputAddr, scratchAddr, currentRankSliceInputOffset, currentRankSliceOutputOffset,
-               inputRepeatStride, outputRepeatStride, normalSliceSize, lastSliceSize, UINT64_MAX - repeatNum);
+               inputRepeatStride, outputRepeatStride, die0Size, die1Size, die0LastSliceSize, die1LastSliceSize,
+               UINT64_MAX - repeatNum);
                
     taskArgs.insert(taskArgs.cend(), GoSize.cbegin(), GoSize.cend());
     return taskArgs;
