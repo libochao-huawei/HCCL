@@ -158,8 +158,14 @@ HcclResult HcclCreateOpResCtx(HcclComm comm, uint8_t opType, void *opArgs, void 
             opArgsPtr->count, opArgsPtr->algConfig, opArgsPtr->commEngine, opResCtx);
     }
 
+#if CANN_VERSION_NUM >= 90000000
     CHK_RET(HcclCreateOpResCtxInner(comm, opType, opArgsPtr->srcDataType, opArgsPtr->dstDataType,
         opArgsPtr->reduceType, opArgsPtr->count, opArgsPtr->algConfig, opArgsPtr->commEngine, opResCtx));
+#else
+    // 8.5.0 CANN 无 HcclCreateOpResCtxInner API，当前接口不支持
+    HCCL_RUN_WARNING("[HcclCreateOpResCtx] not supported on CANN < 9.0.0");
+    return HCCL_E_NOT_SUPPORT;
+#endif
 
     return HCCL_SUCCESS;
 }

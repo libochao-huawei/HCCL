@@ -13,6 +13,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* HcommReadReduceOnThread 在 8.5.0 和 9.0.0 CANN 下都存在，不需要 #if 包裹 */
+DEFINE_WEAK_FUNC(int32_t, HcommReadReduceOnThread, ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t count,
+    HcommDataType dataType, HcommReduceOp reduceOp);
+
+#if CANN_VERSION_NUM >= 90000000
 DEFINE_WEAK_FUNC(int32_t, HcommWriteWithNotifyOnThread, ThreadHandle thread, ChannelHandle channel, void* dst, const void* src,
                                                 uint64_t len, uint32_t remoteNotifyIdx);
 DEFINE_WEAK_FUNC(int32_t, HcommWriteReduceWithNotifyOnThread, ThreadHandle thread, ChannelHandle channel, void* dst, const void* src,
@@ -25,8 +34,6 @@ DEFINE_WEAK_FUNC(int32_t, HcommWriteWithNotifyNbiOnThread, ThreadHandle thread, 
 DEFINE_WEAK_FUNC(int32_t, HcommWriteWithNotifyNbi, ChannelHandle channel, void* dst, const void* src, uint64_t len, uint32_t remoteNotifyIdx);
 DEFINE_WEAK_FUNC(int32_t, HcommReadNbiOnThread, ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t len);
 DEFINE_WEAK_FUNC(int32_t, HcommReadNbi, ChannelHandle channel, void* dst, const void* src, uint64_t len);
-DEFINE_WEAK_FUNC(int32_t, HcommReadReduceOnThread, ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t count,
-    HcommDataType dataType, HcommReduceOp reduceOp);
 DEFINE_WEAK_FUNC(int32_t, HcommChannelNotifyRecord, ChannelHandle channel, uint32_t remoteNotifyIdx);
 DEFINE_WEAK_FUNC(int32_t, HcommChannelNotifyWait, ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeout);
 DEFINE_WEAK_FUNC(HcclResult, HcommSymWinGetPeerPointer, HcclCommSymWindow winHandle, size_t offset, uint32_t peerRank, void** ptr);
@@ -38,9 +45,12 @@ DEFINE_WEAK_FUNC(int32_t, HcommChannelFence, ChannelHandle channel);
 DEFINE_WEAK_FUNC(int32_t, HcommFenceOnThread, ThreadHandle thread);
 DEFINE_WEAK_FUNC(int32_t, HcommChannelFenceOnThread, ThreadHandle thread, ChannelHandle channel);
 DEFINE_WEAK_FUNC(HcclResult, HcommThreadJoin, ThreadHandle thread, uint32_t timeout);
+#endif /* CANN_VERSION_NUM >= 90000000 */
 
 // ---------- 初始化函数 ----------
 void HcommPrimitivesDlInit(void* libHcommHandle) {
+    INIT_SUPPORT_FLAG(libHcommHandle, HcommReadReduceOnThread);
+#if CANN_VERSION_NUM >= 90000000
     INIT_SUPPORT_FLAG(libHcommHandle, HcommWriteWithNotifyOnThread);
     INIT_SUPPORT_FLAG(libHcommHandle, HcommWriteReduceWithNotifyOnThread);
     INIT_SUPPORT_FLAG(libHcommHandle, HcommWriteNbiOnThread);
@@ -49,7 +59,6 @@ void HcommPrimitivesDlInit(void* libHcommHandle) {
     INIT_SUPPORT_FLAG(libHcommHandle, HcommWriteWithNotifyNbi);
     INIT_SUPPORT_FLAG(libHcommHandle, HcommReadNbiOnThread);
     INIT_SUPPORT_FLAG(libHcommHandle, HcommReadNbi);
-    INIT_SUPPORT_FLAG(libHcommHandle, HcommReadReduceOnThread);
     INIT_SUPPORT_FLAG(libHcommHandle, HcommChannelNotifyRecord);
     INIT_SUPPORT_FLAG(libHcommHandle, HcommChannelNotifyWait);
     INIT_SUPPORT_FLAG(libHcommHandle, HcommSymWinGetPeerPointer);
@@ -61,4 +70,9 @@ void HcommPrimitivesDlInit(void* libHcommHandle) {
     INIT_SUPPORT_FLAG(libHcommHandle, HcommFenceOnThread);
     INIT_SUPPORT_FLAG(libHcommHandle, HcommChannelFenceOnThread);
     INIT_SUPPORT_FLAG(libHcommHandle, HcommThreadJoin);
+#endif
 }
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif

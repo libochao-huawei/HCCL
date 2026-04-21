@@ -13,6 +13,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#if CANN_VERSION_NUM >= 90000000
 // ---------- 桩函数定义（签名与真实API完全一致）----------
 DEFINE_WEAK_FUNC(HcclResult, HcclGetRemoteIpcHcclBuf, HcclComm comm, uint64_t remoteRank, void** addr, uint64_t* size);
 DEFINE_WEAK_FUNC(int32_t, HcclTaskRegister, HcclComm comm, const char* msgTag, Callback cb);
@@ -27,9 +32,11 @@ DEFINE_WEAK_FUNC(HcclResult, HcclChannelGetRemoteMems, HcclComm comm, ChannelHan
 DEFINE_WEAK_FUNC(HcclResult, HcclCommMemReg, HcclComm comm, const char* memTag, const CommMem* mem,
                                      HcclMemHandle* memHandle);
 DEFINE_WEAK_FUNC(HcclResult, HcclEngineCtxDestroy, HcclComm comm, const char* ctxTag, CommEngine engine);
+#endif /* CANN_VERSION_NUM >= 90000000 */
 
 // 初始化
 void HcclResDlInit(void* libHcommHandle) {
+#if CANN_VERSION_NUM >= 90000000
     INIT_SUPPORT_FLAG(libHcommHandle, HcclGetRemoteIpcHcclBuf);
     INIT_SUPPORT_FLAG(libHcommHandle, HcclTaskRegister);
     INIT_SUPPORT_FLAG(libHcommHandle, HcclTaskUnRegister);
@@ -38,4 +45,11 @@ void HcclResDlInit(void* libHcommHandle) {
     INIT_SUPPORT_FLAG(libHcommHandle, HcclChannelGetRemoteMems);
     INIT_SUPPORT_FLAG(libHcommHandle, HcclCommMemReg);
     INIT_SUPPORT_FLAG(libHcommHandle, HcclEngineCtxDestroy);
+#else
+    (void)libHcommHandle;
+#endif
 }
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif

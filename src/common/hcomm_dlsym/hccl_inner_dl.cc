@@ -13,10 +13,24 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#if CANN_VERSION_NUM >= 90000000
 DEFINE_WEAK_FUNC(HcclResult, HcclCreateOpResCtxInner, HcclComm comm, uint8_t opType, HcclDataType srcDataType, HcclDataType dstDataType,
                                               HcclReduceOp reduceType, uint64_t count, char* algConfig, uint32_t commEngine, void** opResCtx);
+#endif
 
 // 初始化
 void HcclInnerDlInit(void* libHcommHandle) {
+#if CANN_VERSION_NUM >= 90000000
     INIT_SUPPORT_FLAG(libHcommHandle, HcclCreateOpResCtxInner);
+#else
+    (void)libHcommHandle;
+#endif
 }
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif

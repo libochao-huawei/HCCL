@@ -13,6 +13,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#if CANN_VERSION_NUM >= 90000000
 DEFINE_WEAK_FUNC(HcclResult, HcclRankGraphGetTopoInstsByLayer, HcclComm comm, uint32_t netLayer, uint32_t** topoInsts, uint32_t* topoInstNum);
 DEFINE_WEAK_FUNC(HcclResult, HcclRankGraphGetTopoType, HcclComm comm, uint32_t netLayer, uint32_t topoInstId, CommTopo* topoType);
 DEFINE_WEAK_FUNC(HcclResult, HcclRankGraphGetRanksByTopoInst, HcclComm comm, uint32_t netLayer, uint32_t topoInstId,
@@ -22,12 +27,21 @@ DEFINE_WEAK_FUNC(HcclResult, HcclRankGraphGetEndpointDesc, HcclComm comm, uint32
                                                    uint32_t* descNum, EndpointDesc* endpointDesc);
 DEFINE_WEAK_FUNC(HcclResult, HcclRankGraphGetEndpointInfo, HcclComm comm, uint32_t rankId, const EndpointDesc* endpointDesc,
                                                    EndpointAttr endpointAttr, uint32_t infoLen, void* info);
+#endif
 
 void HcclRankGraphDlInit(void* libHcommHandle) {
+#if CANN_VERSION_NUM >= 90000000
     INIT_SUPPORT_FLAG(libHcommHandle, HcclRankGraphGetTopoInstsByLayer);
     INIT_SUPPORT_FLAG(libHcommHandle, HcclRankGraphGetTopoType);
     INIT_SUPPORT_FLAG(libHcommHandle, HcclRankGraphGetRanksByTopoInst);
     INIT_SUPPORT_FLAG(libHcommHandle, HcclRankGraphGetEndpointNum);
     INIT_SUPPORT_FLAG(libHcommHandle, HcclRankGraphGetEndpointDesc);
     INIT_SUPPORT_FLAG(libHcommHandle, HcclRankGraphGetEndpointInfo);
+#else
+    (void)libHcommHandle;
+#endif
 }
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif

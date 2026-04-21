@@ -14,7 +14,9 @@
 #include <string>
 #include "hccl/base.h"
 #include "alg_param.h"
+#if CANN_VERSION_NUM >= 90000000
 #include "hccl_diag.h"
+#endif
 
 namespace ops_hccl {
 
@@ -33,6 +35,8 @@ HcclResult CreateScatter(OpParam *param, ScatterOpInfo *opInfo);
 
 void GetScatterOpInfo(const void *opInfo, char *outPut, size_t size);
 
+#if CANN_VERSION_NUM >= 90000000
 HcclResult ConvertToHcclDfxOpInfo(OpParam *param, HcclDfxOpInfo *dfxOpInfo);
+#endif
 }
 #endif

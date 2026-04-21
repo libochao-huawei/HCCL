@@ -13,7 +13,64 @@
 
 #include <sys/syscall.h>
 #include <unistd.h>
+#include <stdint.h>
+#include <stddef.h>
 #include "dlog_pub.h"
+#include "hccl/hccl_types.h"
+
+/*
+ * 8.5.0 CANN 下 9.0.0-only 类型的 opaque 占位。
+ * 让 *_dl.h / *_dl.cc 里 9.0.0-only API 的 DEFINE_WEAK_FUNC 在 8.5.0 下也能编过；
+ * 真正的调用点在主源里通过 GetHcommVersion()<90000000 或 #if 剥离，运行时不会走到。
+ */
+#if CANN_VERSION_NUM < 90000000
+#ifdef __cplusplus
+extern "C" {
+#endif
+typedef void *HcclCommSymWindow;
+typedef void *HcclMemHandle;
+typedef int32_t (*Callback)(void *);
+
+typedef struct CommMem {
+    uint64_t addr;
+    uint64_t size;
+    uint32_t type;
+} CommMem;
+
+typedef enum {
+    COMM_MEM_TYPE_DEFAULT = 0,
+    COMM_MEM_TYPE_WIN,
+    COMM_MEM_TYPE_MAX
+} CommMemType;
+
+typedef struct EndpointAttr {
+    uint32_t reserved;
+} EndpointAttr;
+typedef EndpointAttr EndpointAttrRdma;
+typedef EndpointAttr EndpointAttrSdma;
+typedef EndpointAttr EndpointAttrBwCoeff;
+
+typedef enum {
+    HCCL_OP_EXPANSION_MODE_DEFAULT = 0,
+    HCCL_OP_EXPANSION_MODE_MAX
+} HcclOpExpansionMode;
+
+typedef enum {
+    HCCL_COMM_STATUS_NORMAL = 0,
+    HCCL_COMM_STATUS_ABNORMAL
+} HcclCommStatus;
+
+enum class HcclConfigType : int32_t {
+    HCCL_CONFIG_TYPE_RESERVED = 0
+};
+
+typedef struct HcclDfxOpInfo {
+    uint32_t reserved;
+} HcclDfxOpInfo;
+#ifdef __cplusplus
+}
+#endif
+#endif /* CANN_VERSION_NUM < 90000000 */
 
 #ifdef __cplusplus
 extern "C" {

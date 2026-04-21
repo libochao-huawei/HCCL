@@ -13,6 +13,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#if CANN_VERSION_NUM >= 90000000
 DEFINE_WEAK_FUNC(HcclResult, HcommProfilingReportMainStreamAndFirstTask, ThreadHandle thread);
 DEFINE_WEAK_FUNC(HcclResult, HcommProfilingReportMainStreamAndLastTask, ThreadHandle thread);
 DEFINE_WEAK_FUNC(HcclResult, HcommProfilingReportDeviceHcclOpInfo, HcomProInfoTmp profInfo);
@@ -22,9 +27,11 @@ DEFINE_WEAK_FUNC(HcclResult, HcommProfilingReportDeviceOp, const char* groupname
 DEFINE_WEAK_FUNC(HcclResult, HcommProfilingReportKernelStartTask, uint64_t thread, const char* groupname);
 DEFINE_WEAK_FUNC(HcclResult, HcommProfilingReportKernelEndTask, uint64_t thread, const char* groupname);
 DEFINE_WEAK_FUNC(HcclResult, HcclDfxRegOpInfoByCommId, char* commId, void* hcclDfxOpInfo);
+#endif
 
 // 初始化
 void HcommDeviceProfilingDlInit(void* libHcommHandle) {
+#if CANN_VERSION_NUM >= 90000000
     INIT_SUPPORT_FLAG(libHcommHandle, HcommProfilingReportMainStreamAndFirstTask);
     INIT_SUPPORT_FLAG(libHcommHandle, HcommProfilingReportMainStreamAndLastTask);
     INIT_SUPPORT_FLAG(libHcommHandle, HcommProfilingReportDeviceHcclOpInfo);
@@ -34,4 +41,11 @@ void HcommDeviceProfilingDlInit(void* libHcommHandle) {
     INIT_SUPPORT_FLAG(libHcommHandle, HcommProfilingReportKernelStartTask);
     INIT_SUPPORT_FLAG(libHcommHandle, HcommProfilingReportKernelEndTask);
     INIT_SUPPORT_FLAG(libHcommHandle, HcclDfxRegOpInfoByCommId);
+#else
+    (void)libHcommHandle;
+#endif
 }
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
