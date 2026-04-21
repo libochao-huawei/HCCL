@@ -46,11 +46,12 @@ bool HcommIsProfilingSupported()
 
 bool HcommIsExportThreadSupported()
 {
+#if CANN_VERSION_NUM >= 90000000
     if (GetHcommVersion() >= 90000000 && HcommIsSupportHcclThreadExportToCommEngine()) {
         return true;
-    } else {
-        return false;
     }
+#endif
+    return false;
 }
 
 // 初始化

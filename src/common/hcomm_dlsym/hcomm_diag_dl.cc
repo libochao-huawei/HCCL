@@ -13,6 +13,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+/* --- extern "C" wrapping --- */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 DEFINE_WEAK_FUNC(HcclResult, HcommRegOpInfo, const char* commId, void* opInfo, size_t size);
 DEFINE_WEAK_FUNC(HcclResult, HcommRegOpTaskException, const char* commId, HcommGetOpInfoCallback callback);
 
@@ -21,3 +26,7 @@ void HcommDiagDlInit(void* libHcommHandle) {
     INIT_SUPPORT_FLAG(libHcommHandle, HcommRegOpInfo);
     INIT_SUPPORT_FLAG(libHcommHandle, HcommRegOpTaskException);
 }
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif

@@ -14,6 +14,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+/* --- extern "C" wrapping --- */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#if CANN_VERSION_NUM >= 90000000
 DEFINE_WEAK_FUNC(HcclResult, HcommProfilingRegThread, HcomProInfoTmp profInfo, ThreadHandle* threads);
 DEFINE_WEAK_FUNC(HcclResult, HcommProfilingUnRegThread, HcomProInfoTmp profInfo, ThreadHandle* threads);
 DEFINE_WEAK_FUNC(HcclResult, HcommProfilingReportKernel, uint64_t beginTime, const char* profName);
@@ -23,9 +29,11 @@ DEFINE_WEAK_FUNC(HcclResult, HcclDfxRegOpInfoByCommId, char* commId, void* hcclD
 DEFINE_WEAK_FUNC(HcclResult, HcclProfilingReportOp, HcclComm comm, uint64_t beginTime);
 DEFINE_WEAK_FUNC(HcclResult, HcclReportAicpuKernel, HcclComm comm, uint64_t beginTime, char *kernelName);
 DEFINE_WEAK_FUNC(HcclResult, HcclReportAivKernel, HcclComm comm, uint64_t beginTime);
+#endif
 
 // 初始化
 void HcommProfilingDlInit(void* libHcommHandle) {
+#if CANN_VERSION_NUM >= 90000000
     INIT_SUPPORT_FLAG(libHcommHandle, HcommProfilingRegThread);
     INIT_SUPPORT_FLAG(libHcommHandle, HcommProfilingUnRegThread);
     INIT_SUPPORT_FLAG(libHcommHandle, HcommProfilingReportKernel);
@@ -35,4 +43,11 @@ void HcommProfilingDlInit(void* libHcommHandle) {
     INIT_SUPPORT_FLAG(libHcommHandle, HcclProfilingReportOp);
     INIT_SUPPORT_FLAG(libHcommHandle, HcclReportAicpuKernel);
     INIT_SUPPORT_FLAG(libHcommHandle, HcclReportAivKernel);
+#else
+    (void)libHcommHandle;
+#endif
 }
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif

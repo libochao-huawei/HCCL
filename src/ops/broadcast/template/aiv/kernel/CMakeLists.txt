@@ -1,3 +1,4 @@
+if(NOT HCCL_CANN_COMPAT_850)
 set_source_files_properties(
     aiv_communication_v2.h PROPERTIES LANGUAGE CXX
 )
@@ -23,3 +24,4 @@ add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_broadcast_op_910_
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_broadcast_op_910_95.o OPTIONAL
     DESTINATION ${INSTALL_LIBRARY_DIR}
 )
+endif()

@@ -11,16 +11,21 @@
 #ifndef HCCL_RES_DL_H
 #define HCCL_RES_DL_H
 
-#include "dlsym_common.h"
-#include "hccl_res.h"
-#include "hccl_res_expt.h"
+#include "dlsym_common.h"   // 提供 HcclResult / opaque 占位
+#include "hccl_res.h"      // 两版 CANN 都有，让主源透传拿到原生 API
+
+#if CANN_VERSION_NUM >= 90000000
+#include "hccl_res_expt.h"    // 9.0.0-only
+#endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+#if CANN_VERSION_NUM >= 90000000
 DECL_SUPPORT_FLAG(HcclThreadExportToCommEngine);
-// 动态库管理接口（大驼峰命名）
+#endif
+
 void HcclResDlInit(void* libHcommHandle);
 
 #ifdef __cplusplus

@@ -17,6 +17,7 @@
 #include <set>
 #include <unordered_set>
 #include <functional>
+#include <memory>
 #include "hccl_common.h"
 #include "hccl_types.h"
 #include "alg_type.h"
@@ -24,7 +25,14 @@
 #include "hcomm_primitives_dl.h"
 #include "hccl_rank_graph.h"
 #include "binary_stream.h"
+#if CANN_VERSION_NUM >= 90000000
 #include "hccl_ccu_res.h"
+#else
+/* 8.5.0 CANN 无 hccl_ccu_res.h；CcuKernelHandle 在本工程的 struct 中被以 typedef 方式引用，
+ * 其余 9.0.0-only 类型（HcclMemHandle/HcclCommSymWindow/CommMem/HcclCommStatus/...）
+ * 在 dlsym_common.h 中通过 #if CANN_VERSION_NUM < 90000000 提供 opaque 占位。 */
+typedef void *CcuKernelHandle;
+#endif
 
 namespace ops_hccl {
 
@@ -244,14 +252,17 @@ struct TopoInfoWithNetLayerDetails : public TopoInfo { // 通信域拓扑ctx
     }
 };
 
-// ccu kernel register所需信息
+// ccu kernel register所需信息（CCU 为 9.0.0-only 大颗粒特性；8.5.0 下 hcomm::KernelCreator / CcuKernelArg
+// 字段整块 #if 剥离，运行时入口版本号守护确保不会访问）
 struct CcuKernelInfo {
     // kernel资源组序号，group号不同时，资源复用
     u32 resGroup = 0;
+#if CANN_VERSION_NUM >= 90000000
     // kernel构造函数
     hcomm::KernelCreator creator;
     // KernelArg实例
     std::shared_ptr<hcomm::CcuKernelArg> kernelArg;
+#endif
     // kernel所需channel
     std::vector<HcclChannelDesc> channels;
 };
@@ -260,11 +271,12 @@ struct CcuKernelInfo {
 #define CCU_MAX_TASK_ARG_NUM 30
 
 struct CcuKernelSubmitInfo {
-    CcuKernelHandle kernelHandle;
+    CcuKernelHandle kernelHandle;    // 8.5.0 下 CcuKernelHandle 为 void*（见 alg_param.h 顶部 typedef）
     uint64_t cachedArgs[CCU_MAX_TASK_ARG_NUM];
 };
 
-// ccu快速下发上下文
+// ccu快速下发上下文（CCU 为 9.0.0-only 大颗粒特性；8.5.0 下 CcuKernelSubmitInfo 内部字段 opaque，
+// struct 整体可编，但运行时不会被实际使用）
 struct CcuFastLaunchCtx {
     char algName[OP_ALG_LENGTH];
     u32 threadNum;
@@ -376,7 +388,7 @@ struct AlgResourceCtxSerializable {
     void *dpu2NpuShmemPtr = nullptr;
     // ccu的
     std::vector<u32> ccuKernelNum;
-    std::vector<CcuKernelHandle> ccuKernels;
+    std::vector<CcuKernelHandle> ccuKernels;   // 8.5.0 下 CcuKernelHandle 为 void*
     u32 topoInfoSeqSize = 0;
     TopoInfoWithNetLayerDetails topoInfo; // 提取的拓扑信息
 
