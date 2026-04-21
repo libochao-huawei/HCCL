@@ -130,6 +130,7 @@ HcclResult CalcLevel2ChannelRequest(const OpParam& param, const TopoInfo* topoIn
 HcclResult GetProtocolByEngine(const OpParam& param, std::vector<CommProtocol> &protocols)
 {
     protocols.clear();
+#if CANN_VERSION_NUM >= 90000000
     switch (param.engine) {
         case CommEngine::COMM_ENGINE_AICPU:
         case CommEngine::COMM_ENGINE_AICPU_TS:
@@ -159,6 +160,12 @@ HcclResult GetProtocolByEngine(const OpParam& param, std::vector<CommProtocol> &
                          static_cast<int>(param.engine));
             break;
     }
+#else
+    // 8.5.0 CANN 无 UBC_CTP/UB_MEM 等枚举值；此函数所在的 CalcChannelRequestXxx/CreateChannelRequestByRankId 通路
+    // 仅 9.0.0 新路径使用，运行时已由算子入口 GetHcommVersion() < 90000000 分流到 HcclXxxInner，
+    // 8.5.0 下不会真正走到。这里保留空桩让 libhccl.so 外部链接（hccl_test 等）能解析符号。
+    (void)param;
+#endif
     return HCCL_SUCCESS;
 }
 
@@ -270,10 +277,17 @@ HcclResult CalcChannelRequestMesh2D(HcclComm comm, const OpParam& param, const T
     if (subcommInfo.size() == 2) { // 2D Mesh
         CHK_RET(CalcMesh2DChannelConnect(myRank, subcommInfo, connectRanks));
     }
+#if CANN_VERSION_NUM >= 90000000
     CommProtocol protocol = CommProtocol::COMM_PROTOCOL_UBC_CTP;
     if (param.engine == CommEngine::COMM_ENGINE_AIV) {
         protocol = CommProtocol::COMM_PROTOCOL_UB_MEM;
     }
+#else
+    // 8.5.0 CANN 无 UBC_CTP/UB_MEM 枚举值；CalcChannelRequestMesh2D 整体属 9.0.0 新特性，
+    // 主源已由算子入口 GetHcommVersion() 守护避免运行时调用；8.5.0 下用 HCCS 协议占位仅为可编
+    CommProtocol protocol = CommProtocol::COMM_PROTOCOL_HCCS;
+    (void)param;
+#endif
 
     for (u32 rank: connectRanks) {
         HcclChannelDesc channelDesc;
@@ -374,6 +388,7 @@ HcclResult CalcChannelRequestNhr(HcclComm comm, const OpParam& param, const Topo
     return HCCL_SUCCESS;
 }
 
+#if CANN_VERSION_NUM >= 90000000
 static bool IsEndPointEqual(EndpointDesc &endPoint0, EndpointDesc &endPoint1)
 {
     HCCL_INFO("endPoint0:phyId[%u], protocol[%u], addr.type[%u], addr.id[%u]",
@@ -396,10 +411,17 @@ static bool IsEndPointEqual(EndpointDesc &endPoint0, EndpointDesc &endPoint1)
     }
 
 }
+#endif /* CANN_VERSION_NUM >= 90000000 */
 
 HcclResult GetTopoTypeByLink(HcclComm comm, uint32_t netLayer, CommLink &link, CommTopo &topoType)
 {
-#ifndef AICPU_COMPILE
+#if defined(AICPU_COMPILE) || CANN_VERSION_NUM < 90000000
+    // 8.5.0 CANN 无 HcclRankGraphGetEndpointNum / GetEndpointDesc / GetTopoType 等 9.0.0-only API，
+    // 且 CommAddr.eid 字段也不存在；整函数在 8.5.0 下不提供真实实现（上游在 9.0.0 新路径里调用，
+    // 入口版本号守护后 8.5.0 永远走不到这里）。
+    (void)comm; (void)netLayer; (void)link; (void)topoType;
+    return HCCL_SUCCESS;
+#else
     uint32_t* topoInstList = nullptr;
     uint32_t listSize;
     CHK_RET(HcclRankGraphGetTopoInstsByLayer(comm, netLayer, &topoInstList, &listSize));         // 获取当前rank的所有TopoInst
@@ -423,8 +445,6 @@ HcclResult GetTopoTypeByLink(HcclComm comm, uint32_t netLayer, CommLink &link, C
     }
     HCCL_ERROR("[%s]Cannot get TopoType by Link.", __func__);
     return HCCL_E_INTERNAL;
-#else
-    return HCCL_SUCCESS;
 #endif
 }
 
