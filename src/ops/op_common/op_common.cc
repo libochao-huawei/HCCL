@@ -41,7 +41,7 @@
 #include "dpu/kernel_launch.h"
 #include "hcomm_host_profiling_dl.h"
 #include "hccl_host_comm_dl.h"
-#include "rt.h"
+#include "rt_external.h"
 #include "dlhcomm_function.h"
 #include "hccl_diag.h"
 #include "hcom.h"
