@@ -75,6 +75,7 @@ HcclResult InsTempReduceScatterNHR::KernelRun(const OpParam& param,
     channels_            = templateResource.channels;
     dataType_ = param.DataDes.dataType;
     dataTypeSize_  = DATATYPE_SIZE_TABLE[dataType_];
+    channelsPerRank_ = CalcChannelsPerRank(channels_);
 
     std::vector<u64> elemCountOut;
     std::vector<u64> sizeOut;
