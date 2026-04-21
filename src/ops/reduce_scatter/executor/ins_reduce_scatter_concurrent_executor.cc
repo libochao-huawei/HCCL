@@ -333,25 +333,18 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
     TemplateResource templateAlgResIntra, templateAlgResInter;
     ThreadHandle *threads = ctx->GetThreadHandlePtr();
     threads_.assign(threads, threads + ctx->threadNum);
-    HCCL_INFO("[InsReduceScatterConcurrentExecutor][FastLaunch] threads_.assign");
     // std::vector<std::vector<u32>> temp0HierarchyInfo {algHierarchyInfo_.infos[0][0]};
     // std::vector<std::vector<u32>> temp1HierarchyInfo {algHierarchyInfo_.infos[0][1]};
     // std::shared_ptr<InsAlgTemplate0> tempAlg0Ptr = std::make_shared<InsAlgTemplate0>(param, myRank_, temp0HierarchyInfo);
     // std::shared_ptr<InsAlgTemplate1> tempAlg1Ptr = std::make_shared<InsAlgTemplate1>(param, myRank_, temp1HierarchyInfo);
 
-
-    // 准备线程资源
-    //PrepareThreadFromTemplate(tempAlg0Ptr, tempAlg1Ptr);
-    u64 meshThreadsNum = tempAlg.GetThreadNum(); // check流数
-    HCCL_INFO("[InsReduceScatterConcurrentExecutor][FastLaunch] meshThreadsNum[%d]", meshThreadsNum);
+    u64 meshThreadsNum = tempAlg0.GetThreadNum(); // check流数
 
     temp0Threads_.assign(threads_.begin(), threads_.begin() + meshThreadsNum); // 从0开始前meshThreadNum是mesh的流
     temp1Threads_.assign(threads_.begin() + meshThreadsNum, threads_.end()); // 后面几个是nhr的流
-    HCCL_INFO("[InsReduceScatterConcurrentExecutor][FastLaunch] temp0Threads_ & temp1Threads_");
 
     temp0ThreadMain_ = temp0Threads_.at(0);
     temp1ThreadMain_ = temp1Threads_.at(0);
-    HCCL_INFO("[InsReduceScatterConcurrentExecutor][FastLaunch] temp0ThreadMain_ & temp1ThreadMain_");
 
     CcuKernelSubmitInfo *ccuKernelSubmitInfos = ctx->GetCcuKernelSubmitInfoPtr();
     HCCL_INFO("[InsReduceScatterConcurrentExecutor][FastLaunch] Intra0 ccuKernelNum[%llu]", ctx->ccuKernelNum[0]);

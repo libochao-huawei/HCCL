@@ -387,13 +387,6 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     TemplateResource templateAlgResIntra, templateAlgResInter;
     ThreadHandle *threads = ctx->GetThreadHandlePtr();
     threads_.assign(threads, threads + ctx->threadNum);
-    
-    std::vector<std::vector<u32>> temp0HierarchyInfo {algHierarchyInfo_.infos[0][0]};
-    std::vector<std::vector<u32>> temp1HierarchyInfo {algHierarchyInfo_.infos[0][1]};
-    std::shared_ptr<InsAlgTemplate0> tempAlg0Ptr = std::make_shared<InsAlgTemplate0>(param, myRank_, temp0HierarchyInfo);
-    std::shared_ptr<InsAlgTemplate1> tempAlg1Ptr = std::make_shared<InsAlgTemplate1>(param, myRank_, temp1HierarchyInfo);
-    
-
     // u64 temp0SlaveThreadNum = 0;
     // u64 temp1SlaveThreadNum = 0;
 
@@ -408,7 +401,7 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     // for (auto i = 0; i < temp1ThreadsNum; ++i) {
     //     temp1Threads_.push_back(threads_[threadIdx++]);
     // }
-    u64 meshThreadsNum = tempAlg0Ptr->GetThreadNum(); // check流数
+    u64 meshThreadsNum = tempAlg0.GetThreadNum(); // check流数
     temp0Threads_.assign(threads_.begin(), threads_.begin() + meshThreadsNum); // 从0开始前meshThreadNum是mesh的流
     temp1Threads_.assign(threads_.begin() + meshThreadsNum, threads_.end()); // 后面几个是nhr的流
     temp0ThreadMain_ = temp0Threads_.at(0);
