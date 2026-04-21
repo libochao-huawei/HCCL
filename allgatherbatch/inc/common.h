@@ -99,8 +99,6 @@ struct BatchTopoInfo {
 // Host 侧准备并拷到 Device 的资源上下文。
 // 采用“固定头 + 变长尾部 channel 区”的布局，避免固定 channel 上限。
 struct AlgResourceCtx {
-    // threadHandle 仅作为旧控制链兼容字段保留，正式资源合同以 mainThreadHandle 为准。
-    ThreadHandle threadHandle = 0;
     ThreadHandle mainThreadHandle = 0;
     ThreadHandle cpuThreadOnAicpu = 0;
     uint32_t subThreadCount = 0;

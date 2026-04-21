@@ -447,7 +447,6 @@ uint64_t CalcAlgResourceCtxSize(const BatchResourceRequest &request)
 // 先初始化固定头，尾部 channel 数组由 AllocAlgResource 填充。
 void InitAlgResourceCtxHeader(const BatchResourceRequest &request, AlgResourceCtx &resCtx)
 {
-    resCtx.threadHandle = 0;
     resCtx.mainThreadHandle = 0;
     resCtx.subThreadCount = request.subThreadCount;
     resCtx.reserved0 = 0;
@@ -475,7 +474,6 @@ HcclResult AllocAlgResource(
         1,
         request.subThreadCount + 1,
         &resCtx.mainThreadHandle));
-    resCtx.threadHandle = resCtx.mainThreadHandle;
     for (uint32_t idx = 0; idx < request.subThreadCount; ++idx) {
         HCCL_CHK_RET(HcclThreadAcquire(
             comm,
