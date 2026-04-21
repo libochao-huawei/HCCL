@@ -101,15 +101,6 @@ function build_test() {
     cmake_config
 
     LIBRARY_DIR="${BUILD_DIR}/test:${ASCEND_HOME_PATH}/lib64:"
-    # 每日构建sdk包安装路径
-    if [ -d "${ASCEND_HOME_PATH}/opensdk" ];then
-        LIBRARY_DIR="${LIBRARY_DIR}${ASCEND_HOME_PATH}/opensdk/opensdk/gtest_shared/lib64:"
-    fi
-
-    # 社区sdk包安装路径
-    if [ -d "${ASCEND_HOME_PATH}/../../latest/opensdk" ];then
-        LIBRARY_DIR="${LIBRARY_DIR}${ASCEND_HOME_PATH}/../../latest/opensdk/opensdk/gtest_shared/lib64:"
-    fi
 
     GCC_MAJOR=$(gcc -dumpversion | cut -d. -f1)
     if [ "${ASAN}" == "true" ];then
@@ -152,15 +143,6 @@ function build_test() {
     # 除算法的测试用例都依赖编译出来的so文件，所以需要额外加入环境变量
     LIBRARY_DIR="${BUILD_DIR}/src:${BUILD_DIR}/src/algorithm:${BUILD_DIR}/src/framework:${BUILD_DIR}/src/platform: \
     ${BUILD_DIR}/test:${ASCEND_HOME_PATH}/lib64:"
-    # 每日构建sdk包安装路径
-    if [ -d "${ASCEND_HOME_PATH}/opensdk" ];then
-        LIBRARY_DIR="${LIBRARY_DIR}${ASCEND_HOME_PATH}/opensdk/opensdk/gtest_shared/lib64:"
-    fi
-
-    # 社区sdk包安装路径
-    if [ -d "${ASCEND_HOME_PATH}/../../latest/opensdk" ];then
-        LIBRARY_DIR="${LIBRARY_DIR}${ASCEND_HOME_PATH}/../../latest/opensdk/opensdk/gtest_shared/lib64:"
-    fi
 }
 
 function build_device(){
