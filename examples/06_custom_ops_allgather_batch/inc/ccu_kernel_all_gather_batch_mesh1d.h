@@ -37,6 +37,11 @@ public:
     {
         signatureParam_.opType = HcclCMDType::HCCL_CMD_ALLGATHER;
         signatureParam_.opExecuteConfig = ops_hccl::OpExecuteConfig::CCU_MS;
+        signatureParam_.engine = CommEngine::COMM_ENGINE_CCU;
+        signatureParam_.userRank = rankId_;
+        signatureParam_.DataDes.count = 0;
+        signatureParam_.DataDes.dataType = HCCL_DATA_TYPE_RESERVED;
+        signatureParam_.DataDes.outputType = HCCL_DATA_TYPE_RESERVED;
         subCommRanks_.push_back({});
         subCommRanks_[0].reserve(rankSize_);
         for (uint32_t i = 0; i < rankSize_; ++i) {
