@@ -73,7 +73,7 @@ extern "C" HcclResult HcclAllGatherBatch(
     CcuContextData *ctx = nullptr;
     {
         std::lock_guard<std::mutex> guard(*initMutex);
-        CHK_RET(InitCcuContext(comm, engineCtxTag.c_str(), param, ctx));
+        CHK_RET(InitCcuContext(comm, engineCtxTag.c_str(), param, stream, ctx));
     }
     CHK_RET(LaunchKernel(comm, param, *ctx, stream));
     return HCCL_SUCCESS;

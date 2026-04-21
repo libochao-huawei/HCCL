@@ -56,9 +56,17 @@ void Log(int rank, const Args&... args)
 
 int GetLocalRank()
 {
-    const char *env = std::getenv("OMPI_COMM_WORLD_LOCAL_RANK");
-    if (env != nullptr) {
-        return std::atoi(env);
+    static const char *const envNames[] = {
+        "OMPI_COMM_WORLD_LOCAL_RANK",
+        "MPI_LOCALRANKID",
+        "MV2_COMM_WORLD_LOCAL_RANK",
+        "SLURM_LOCALID"
+    };
+    for (const char *envName : envNames) {
+        const char *env = std::getenv(envName);
+        if (env != nullptr && env[0] != '\0') {
+            return std::atoi(env);
+        }
     }
     return -1;
 }

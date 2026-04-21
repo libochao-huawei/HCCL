@@ -18,10 +18,12 @@ namespace ops_hccl_allgather_batch {
 
 struct CcuContextData {
     bool initialized = false;
+    ThreadHandle thread = 0;
     CcuKernelHandle kernelHandle = 0;
 };
 
-HcclResult InitCcuContext(HcclComm comm, const char *engineCtxTag, const OpParam &param, CcuContextData *&ctx);
+HcclResult InitCcuContext(HcclComm comm, const char *engineCtxTag, const OpParam &param, aclrtStream stream,
+                          CcuContextData *&ctx);
 HcclResult LaunchKernel(HcclComm comm, const OpParam &param, const CcuContextData &ctx, aclrtStream stream);
 }
 

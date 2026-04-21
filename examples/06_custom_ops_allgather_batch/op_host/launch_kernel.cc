@@ -68,7 +68,8 @@ HcclResult BuildChannelRequests(HcclComm comm, uint32_t rank, uint32_t rankSize,
 
 } // namespace
 
-HcclResult InitCcuContext(HcclComm comm, const char *engineCtxTag, const OpParam &param, CcuContextData *&ctx)
+HcclResult InitCcuContext(HcclComm comm, const char *engineCtxTag, const OpParam &param, aclrtStream stream,
+                          CcuContextData *&ctx)
 {
     HCCL_INFO("[InitCcuContext] begin, tag=%s rank=%u rankSize=%u itemCount=%u",
               engineCtxTag, param.rank, param.rankSize, param.itemCount);
@@ -89,11 +90,19 @@ HcclResult InitCcuContext(HcclComm comm, const char *engineCtxTag, const OpParam
         CHK_RET(ret);
         ctx = static_cast<CcuContextData *>(ctxPtr);
         ctx->initialized = false;
+        ctx->thread = 0;
         ctx->kernelHandle = 0;
     }
 
     if (ctx->initialized) {
         return HCCL_SUCCESS;
+    }
+
+    if (ctx->thread == 0) {
+        HCCL_INFO("[InitCcuContext] acquiring CCU thread with stream=%p", stream);
+        ret = HcclThreadAcquireWithStream(comm, CommEngine::COMM_ENGINE_CCU, stream, 0, &ctx->thread);
+        HCCL_INFO("[InitCcuContext] HcclThreadAcquireWithStream ret=%d thread=%lu", ret, ctx->thread);
+        CHK_RET(ret);
     }
 
     std::vector<HcclChannelDesc> channelRequests;
@@ -141,8 +150,8 @@ HcclResult InitCcuContext(HcclComm comm, const char *engineCtxTag, const OpParam
 
 HcclResult LaunchKernel(HcclComm comm, const OpParam &param, const CcuContextData &ctx, aclrtStream stream)
 {
-    ThreadHandle thread = 0;
-    CHK_RET(HcclThreadAcquireWithStream(comm, CommEngine::COMM_ENGINE_CCU, stream, 0, &thread));
+    (void)comm;
+    (void)stream;
 
     CcuAllGatherBatchItem batchItems[MAX_ITEM_COUNT] = {};
     PackedBatchItem packedItems[MAX_ITEM_COUNT] = {};
@@ -157,7 +166,10 @@ HcclResult LaunchKernel(HcclComm comm, const OpParam &param, const CcuContextDat
 
     auto taskArg = std::make_unique<CcuTaskArgAllGatherBatchMesh1D>(param.itemCount, batchItems);
     void *taskArgPtr = static_cast<void *>(taskArg.get());
-    CHK_RET(HcclCcuKernelLaunch(comm, thread, ctx.kernelHandle, taskArgPtr));
+    CHK_PRT_RET(ctx.thread == 0,
+                HCCL_ERROR("[LaunchKernel] ctx.thread is 0, context not initialized for launch"),
+                HCCL_E_INTERNAL);
+    CHK_RET(HcclCcuKernelLaunch(comm, ctx.thread, ctx.kernelHandle, taskArgPtr));
     return HCCL_SUCCESS;
 }
 
