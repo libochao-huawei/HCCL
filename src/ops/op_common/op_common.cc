@@ -1553,20 +1553,78 @@ HcclResult FillOpExChangeInfo(const OpParam &param, OpExchangeInfo &exchangeInfo
     return HCCL_SUCCESS;
 }
 
-HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &enchangeInfo,
+HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeInfo,
     const std::vector<HcclChannelDesc> &channels)
 {
     for (auto channel : channels) {
-        auto rmtData = std::make_shared<OpExchangeInfo>();
+        auto rmtExchangeInfo = std::make_shared<OpExchangeInfo>();
         uint32_t rmtDataLen{0};
-        CHK_RET(HcclCommGetExchangeInfo(comm, channel.remoteRank, static_cast<void*>(rmtData.get()), rmtDataLen));
+        CHK_RET(HcclCommGetExchangeInfo(comm, channel.remoteRank, static_cast<void*>(rmtExchangeInfo.get()),
+            rmtDataLen));
         if (rmtDataLen == 0) {
             continue;
         } else {
-            
+            if (exchangeInfo.root != rmtExchangeInfo->root) {
+                CHK_RET(ReportOpExchangeInfoCheckFailed("RootRankId", exchangeInfo.root, rmtExchangeInfo->root));
+            }
+            if (exchangeInfo.opType != rmtExchangeInfo->opType) {
+                CHK_RET(ReportOpExchangeInfoCheckFailed("HcclCMDType", static_cast<uint32_t>(exchangeInfo.opType),
+                    static_cast<uint32_t>(rmtExchangeInfo->opType)));
+            }
+            if (strncmp(exchangeInfo.algTag, rmtExchangeInfo->algTag, ALG_TAG_LENGTH) != 0) {
+                CHK_RET(ReportOpExchangeInfoCheckFailed("AlgTag", exchangeInfo.algTag, rmtExchangeInfo->algTag));
+            }
+            if (exchangeInfo.engine != rmtExchangeInfo->engine) {
+                CHK_RET(ReportOpExchangeInfoCheckFailed("CommEngine", static_cast<uint32_t>(exchangeInfo.engine),
+                    static_cast<uint32_t>(rmtExchangeInfo->engine)));
+            }
+            if (exchangeInfo.opExecuteConfig != rmtExchangeInfo->opExecuteConfig) {
+                CHK_RET(ReportOpExchangeInfoCheckFailed("OpExecuteConfig",
+                    static_cast<uint32_t>(exchangeInfo.opExecuteConfig),
+                    static_cast<uint32_t>(rmtExchangeInfo->opExecuteConfig)));
+            }
+            if (exchangeInfo.reduceType != rmtExchangeInfo->reduceType) {
+                CHK_RET(ReportOpExchangeInfoCheckFailed("HcclReduceOp", static_cast<uint32_t>(exchangeInfo.reduceType),
+                    static_cast<uint32_t>(rmtExchangeInfo->reduceType)));
+            }
+            if (exchangeInfo.dataType != rmtExchangeInfo->dataType) {
+                CHK_RET(ReportOpExchangeInfoCheckFailed("HcclDataType", static_cast<uint32_t>(exchangeInfo.dataType),
+                    static_cast<uint32_t>(rmtExchangeInfo->dataType)));
+            }
+            if (exchangeInfo.count != rmtExchangeInfo->count) {
+                CHK_RET(ReportOpExchangeInfoCheckFailed("DataCount", std::to_string(exchangeInfo.count),
+                    std::to_string(rmtExchangeInfo->count)));
+            }
+            if (exchangeInfo.aivCoreLimit != rmtExchangeInfo->aivCoreLimit) {
+                CHK_RET(ReportOpExchangeInfoCheckFailed("AivCoreLimit", exchangeInfo.aivCoreLimit,
+                    rmtExchangeInfo->aivCoreLimit));
+            }
+            if (strncmp(exchangeInfo.group, rmtExchangeInfo->group, MAX_LENGTH) != 0) {
+                CHK_RET(ReportOpExchangeInfoCheckFailed("GroupName", exchangeInfo.group, rmtExchangeInfo->group));
+            }
         }
     }
     return HCCL_SUCCESS;
+}
+
+HcclResult ReportOpExchangeInfoCheckFailed(const std::string &paraName, uint32_t localPara,
+    uint32_t remotePara)
+{
+    RPT_INPUT_ERR(true, "EI0005", std:vector<std::string>({"ParaName", "LocalPara", "RemotePara"}),
+        std::vector<std::string>({paraName, std::to_string(localPara), std::to_string(remotePara)}));
+    HCCL_ERROR("[ReportOpExchangeInfoCheckFailed]op information %s check fail. localPara[%u] remotePara[%u]",
+        paraName.c_str(), localPara, remotePara);
+    return HCCL_E_PARA;
+}
+
+HcclResult ReportOpExchangeInfoCheckFailed(const std::string &paraName, const std::string localPara,
+    const std::string remotePara)
+{
+    RPT_INPUT_ERR(true, "EI0005", std:vector<std::string>({"ParaName", "LocalPara", "RemotePara"}),
+        std::vector<std::string>({paraName, localPara, remotePara}));
+    HCCL_ERROR("[ReportOpExchangeInfoCheckFailed]op information %s check fail. localPara[%s] remotePara[%s]",
+        paraName.c_str(), localPara.c_str(), remotePara.c_str());
+    return HCCL_E_PARA;
 }
 
 HcclResult CheckCount(const u64 count)
