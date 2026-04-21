@@ -301,7 +301,7 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpuUBX(const TopoInfoWithN
         }
     } else if(isClosNumMultipleOfMeshNum && !IsSmallData(dataSize)) {
         // 矩形场景大数据量，用Parallel并行算法
-        selectAlgName = "InsAllReduceParallelMesh1DNHR";
+        selectAlgName = "InsAllReduceParallelRSAGUBX";
     } else {
         // 其他场景，用1d NHR算法
         selectAlgName = "InsAllReduceNHR";
