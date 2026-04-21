@@ -99,12 +99,12 @@ HcclResult InsCollAlgBase::FastLaunchSaveCtxTwoTemplate(const OpParam &param, co
     for (u32 i = 0; i < ccuKernelNumList[INTER_1]; i++) {
         kernelSubmitInfos[kernelIdx++] = submitInfosList[INTER][i];
     }
-    for (u32 i = ccuKernelNumList[INTER_1]; i < ccuKernelNumList[INTER_0] + ccuKernelNumList[INTER_1]; i++) {
-        kernelSubmitInfos[kernelIdx++] = submitInfosList[INTER][i];
-    }
-    for (u32 i = ccuKernelNumList[INTRA_0]; i < ccuKernelNumList[INTRA_1] + ccuKernelNumList[INTRA_0]; i++) {
-        kernelSubmitInfos[kernelIdx++] = submitInfosList[INTRA][i];
-    }
+    // for (u32 i = ccuKernelNumList[INTER_1]; i < ccuKernelNumList[INTER_0] + ccuKernelNumList[INTER_1]; i++) {
+    //     kernelSubmitInfos[kernelIdx++] = submitInfosList[INTER][i];
+    // }
+    // for (u32 i = ccuKernelNumList[INTRA_0]; i < ccuKernelNumList[INTRA_1] + ccuKernelNumList[INTRA_0]; i++) {
+    //     kernelSubmitInfos[kernelIdx++] = submitInfosList[INTRA][i];
+    // }
 
     return HCCL_SUCCESS;
 }

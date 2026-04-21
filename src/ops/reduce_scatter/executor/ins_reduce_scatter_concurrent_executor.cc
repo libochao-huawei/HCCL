@@ -324,6 +324,7 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::FastLaunch(
         const OpParam &param, const CcuFastLaunchCtx *ctx)
 {
+    HCCL_INFO("[InsReduceScatterConcurrentExecutor][FastLaunch] Start");
     InsAlgTemplate0 tempAlg0{};
     InsAlgTemplate1 tempAlg1{};
     
@@ -332,14 +333,17 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
     TemplateResource templateAlgResIntra, templateAlgResInter;
     ThreadHandle *threads = ctx->GetThreadHandlePtr();
     threads_.assign(threads, threads + ctx->threadNum);
+    HCCL_INFO("[InsReduceScatterConcurrentExecutor][FastLaunch] threads_.assign");
     
     std::vector<std::vector<u32>> temp0HierarchyInfo {algHierarchyInfo_.infos[0][0]};
     std::vector<std::vector<u32>> temp1HierarchyInfo {algHierarchyInfo_.infos[0][1]};
     std::shared_ptr<InsAlgTemplate0> tempAlg0Ptr = std::make_shared<InsAlgTemplate0>(param, myRank_, temp0HierarchyInfo);
     std::shared_ptr<InsAlgTemplate1> tempAlg1Ptr = std::make_shared<InsAlgTemplate1>(param, myRank_, temp1HierarchyInfo);
-    
+    HCCL_INFO("[InsReduceScatterConcurrentExecutor][FastLaunch] tempAlg0Ptr & tempAlg1Ptr");
+
     // 准备线程资源
     PrepareThreadFromTemplate(tempAlg0Ptr, tempAlg1Ptr);
+    HCCL_INFO("[InsReduceScatterConcurrentExecutor][FastLaunch] PrepareThreadFromTemplate");
 
     CcuKernelSubmitInfo *ccuKernelSubmitInfos = ctx->GetCcuKernelSubmitInfoPtr();
     HCCL_INFO("[InsReduceScatterConcurrentExecutor][FastLaunch] Intra0 ccuKernelNum[%llu]", ctx->ccuKernelNum[0]);
