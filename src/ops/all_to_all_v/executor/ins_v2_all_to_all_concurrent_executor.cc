@@ -7,6 +7,9 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
+
+
+#if CANN_VERSION_NUM >= 90000000
 #include "alg_data_trans_wrapper.h"
 #include "channel.h"
 #include "hccl_ccu_res.h"
@@ -473,12 +476,16 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLTOALLV,
                                 InsTempAlltoAllVMesh1D,
                                 InsTempAlltoAllVMesh1D);
 #ifndef AICPU_COMPILE
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLTOALL,
                                 CcuAllToAllMesh1DConcurrent,
                                 InsV2AllToAllConcurrentExecutor,
                                 TopoMatchUBX,
                                 CcuTempAllToAllMesh1dMultiJetty,
                                 CcuTempAllToAllMesh1dMultiJetty);
+#endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 
 }
+
+#endif /* CANN_VERSION_NUM >= 90000000 */

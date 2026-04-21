@@ -8,6 +8,9 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+
+
+#if CANN_VERSION_NUM >= 90000000
 #include "ins_v2_reduce_scatter_omnipipe_executor.h"
 #include "ins_temp_reduce_scatter_omnipipe_mesh_1D.h"
 #include "ins_temp_reduce_scatter_omnipipe_mesh_1d_dpu.h"
@@ -517,3 +520,5 @@ REGISTER_EXEC_V2_MULTI(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, InsV2ReduceScatterO
                        InsV2ReduceScatterOmniPipeExecutor, TopoMatchUBX, InsTempReduceScatterOmniPipeMesh1D,
                        InsTempReduceScatterOmniPipeNHR, InsTempReduceScatterOmniPipeMesh1dDpu);
 }  // namespace ops_hccl
+
+#endif /* CANN_VERSION_NUM >= 90000000 */

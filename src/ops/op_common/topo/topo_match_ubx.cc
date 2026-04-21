@@ -8,6 +8,9 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+
+
+#if CANN_VERSION_NUM >= 90000000
 #include "topo_match_ubx.h"
 
 namespace ops_hccl {
@@ -168,3 +171,5 @@ HcclResult TopoMatchUBX::MatchTopo(const HcclComm comm, TopoInfoWithNetLayerDeta
     return HcclResult::HCCL_SUCCESS;
 }
 }  // namespace ops_hccl
+
+#endif /* CANN_VERSION_NUM >= 90000000 */

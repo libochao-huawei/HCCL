@@ -8,6 +8,9 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+
+
+#if CANN_VERSION_NUM >= 90000000
 #include "ins_temp_gather_dpu_inter.h"
 #include "alg_data_trans_wrapper.h"
 #include "dpu_alg_data_trans_wrapper.h"
@@ -322,3 +325,5 @@ HcclResult InsTempGatherDpuInter::PostLocalCopy(const TemplateDataParams& tempAl
 
 REGISTER_TEMPLATE_V2("InsTempGatherDpuInter", InsTempGatherDpuInter);
 }
+
+#endif /* CANN_VERSION_NUM >= 90000000 */

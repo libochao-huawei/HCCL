@@ -8,6 +8,9 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+
+
+#if CANN_VERSION_NUM >= 90000000
 #include "ins_temp_all_gather_omnipipe_nhr_dpu.h"
 #include "alg_data_trans_wrapper.h"
 #include "dpu_alg_data_trans_wrapper.h"
@@ -174,3 +177,5 @@ u64 InsTempAllGatherOmniPipeNHRDPU::GetThreadNum() const
 
 REGISTER_TEMPLATE_V2("InsTempAllGatherOmniPipeNHRDPU", InsTempAllGatherOmniPipeNHRDPU);
 }  // namespace ops_hccl
+
+#endif /* CANN_VERSION_NUM >= 90000000 */

@@ -8,6 +8,9 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+
+
+#if CANN_VERSION_NUM >= 90000000
 #include "dpu_alg_data_trans_wrapper.h"
 #include "hcomm_primitives.h"
 
@@ -94,3 +97,5 @@ HcclResult RecvWrite(const DataInfo &recvInfo)
     return HCCL_SUCCESS;
 }
 }  // namespace ops_hccl
+
+#endif /* CANN_VERSION_NUM >= 90000000 */

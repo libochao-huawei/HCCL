@@ -43,7 +43,9 @@
 #include "hccl_host_comm_dl.h"
 #include "rt.h"
 #include "dlhcomm_function.h"
+#if CANN_VERSION_NUM >= 90000000
 #include "hccl_diag.h"
+#endif
 #include "hcom.h"
 
 namespace ops_hccl {
@@ -77,6 +79,7 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
     std::string &algName)
 {
     //判断通信域状态
+#if CANN_VERSION_NUM >= 90000000
     HcclCommStatus commStatus = HCCL_COMM_STATUS_INVALID;
     if (HcommIsSupportHcclCommGetStatus()) {
         CHK_RET(HcclCommGetStatus(param.commName, &commStatus));
@@ -85,6 +88,7 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
             return HCCL_E_SUSPENDING;
         }
     }
+#endif
     HCCL_INFO("Start to execute Selector.");
     param.hcclComm = comm;
     CHK_RET(HcclGetOpExpansionMode(comm, param));
@@ -253,11 +257,14 @@ HcclResult SetOpParamFastLaunchTag(OpParam &param)
     return AppendFastLaunchTag(param, dataTypeStr, reduceOpStr, countStr, rootStr);
 }
 
+#if CANN_VERSION_NUM >= 90000000
 static constexpr uint32_t opExpansionModeCcuSched = 5;
 static constexpr uint32_t opExpansionModeCcuMs = 4;
+#endif
 
 bool ShouldGoCcuFastLaunch(HcclComm comm, OpParam &param, CcuFastLaunchCtx **ccuFastLaunchCtx)
 {
+#if CANN_VERSION_NUM >= 90000000
     param.hcclComm = comm;
 
     HcclOpExpansionMode finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_INVALID;
@@ -287,10 +294,15 @@ bool ShouldGoCcuFastLaunch(HcclComm comm, OpParam &param, CcuFastLaunchCtx **ccu
         return true;
     }
     return false;
+#else
+    (void)comm; (void)param; (void)ccuFastLaunchCtx;
+    return false;
+#endif
 }
 
 HcclResult HcclExecOpCcuFastLaunch(HcclComm comm, OpParam &param, const CcuFastLaunchCtx *ccuFastLaunchCtx)
 {
+#if CANN_VERSION_NUM >= 90000000
     HCCL_INFO("[HcclExecOpCcuFastLaunch] HcclExecOpCcuFastLaunch start");
     std::string algName = ccuFastLaunchCtx->algName;
     HCCL_DEBUG("[HcclExecOpCcuFastLaunch] algName: [%s]", algName.c_str());
@@ -310,6 +322,10 @@ HcclResult HcclExecOpCcuFastLaunch(HcclComm comm, OpParam &param, const CcuFastL
 
     HCCL_INFO("[HcclExecOpCcuFastLaunch] HcclExecOpCcuFastLaunch end");
     return HCCL_SUCCESS;
+#else
+    (void)comm; (void)param; (void)ccuFastLaunchCtx;
+    return HCCL_E_NOT_SUPPORT;
+#endif
 }
 
 HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
@@ -374,6 +390,7 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
 
 HcclResult ConstructHcclDfxOpInfo(const OpParam &param, HcclDfxOpInfo& hcclDfxOpInfo, ThreadHandle cpuTsThread)
 {
+#if CANN_VERSION_NUM >= 90000000
     hcclDfxOpInfo.opMode = static_cast<u32>(param.opMode);
     hcclDfxOpInfo.opType = static_cast<u32>(param.opType);
     hcclDfxOpInfo.reduceOp = static_cast<u32>(param.reduceType);
@@ -396,11 +413,16 @@ HcclResult ConstructHcclDfxOpInfo(const OpParam &param, HcclDfxOpInfo& hcclDfxOp
         hcclDfxOpInfo.dataType, hcclDfxOpInfo.dataCount, hcclDfxOpInfo.root, hcclDfxOpInfo.engine,
         hcclDfxOpInfo.cpuTsThread, hcclDfxOpInfo.cpuWaitAicpuNotifyIdx);
     return HCCL_SUCCESS;
+#else
+    (void)param; (void)hcclDfxOpInfo; (void)cpuTsThread;
+    return HCCL_E_NOT_SUPPORT;
+#endif
 }
 
 HcclResult HcclExecOp(HcclComm comm, OpParam &param,
                       std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo, std::string &algName, const ResPackGraphMode &resPack)
 {
+#if CANN_VERSION_NUM >= 90000000
     uint64_t beginTime = HcommGetProfilingSysCycleTime();
     HCCL_INFO("[HcclExecOp]Start to execute HcclExecOp.HcommGetProfilingSysCycleTime.%llu", beginTime);
     // 在原先的commName中添加执行模式，得到commModeTag
@@ -494,11 +516,16 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     CHK_RET(HcclProfilingReportOp(comm, beginTime));
     HCCL_INFO("Execute HcclExecOp success.");
     return HCCL_SUCCESS;
+#else
+    (void)comm; (void)param; (void)topoInfo; (void)algName; (void)resPack;
+    return HCCL_E_NOT_SUPPORT;
+#endif
 }
 
 HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHandle cpuTsThread,
     ThreadHandle exportedCpuTsThread, u32 notifyNumOnMainThread, void *resCtxSequence, std::string &algName, ThreadHandle unfoldThread)
 {
+#if CANN_VERSION_NUM >= 90000000
     HCCL_DEBUG("[HcclAicpuKernelEntranceLaunch]start to run aicpu kernel");
     // 当前aicpu launch接口只能有一个输入参数，将Context指针放在param参数中
     param.resCtx = resCtxSequence;
@@ -534,6 +561,11 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
     CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, param.aicpuRecordCpuIdx, NOTIFY_WAIT_TIME)));
 
     return HCCL_SUCCESS;
+#else
+    (void)comm; (void)param; (void)cpuTsThread; (void)exportedCpuTsThread;
+    (void)notifyNumOnMainThread; (void)resCtxSequence; (void)algName; (void)unfoldThread;
+    return HCCL_E_NOT_SUPPORT;
+#endif
 }
 
 HcclResult AicpuKernelLaunch(HcclComm comm, OpParam &param, ThreadHandle unfoldThread)
@@ -792,8 +824,12 @@ HcclResult GetAlgResAICPU(HcclComm comm, const OpParam &param, AlgResourceReques
         HcclResult ret = HcclGetChannel(comm, param, resRequest, g_hostCtx.at(tagStr));
         CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("failed to incrementally create channel."), ret);
         // 把device侧此tag的ctx销毁
+#if CANN_VERSION_NUM >= 90000000
         ret = HcclEngineCtxDestroy(comm, param.algTag, param.engine);
         CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("failed to destroy device Ctx."), ret);
+#else
+        return HCCL_E_NOT_SUPPORT;
+#endif
         ret = HcclMemcpyCtxHostToDevice(comm, param, g_hostCtx.at(tagStr), resCtxSequence, ctxSize);
         CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("failed to memcpy hostCtx to device."), ret);
         HCCL_INFO("Incrementally add channel success");
@@ -1133,11 +1169,14 @@ HcclResult HcclAllocAlgResourceCcu(HcclComm comm, const OpParam& param, AlgResou
     resCtxHost->slaveThreadNum = resRequest.slaveThreadNum;
     resCtxHost->notifyNumPerThread = resRequest.notifyNumPerThread;
     CHK_RET(HcclGetThread(comm, param, resRequest, resCtxHost));
+#if CANN_VERSION_NUM >= 90000000
     CHK_RET(HcclGetChannelForCcu(comm, param, resRequest));
     CHK_RET(HcclGetCcuKernel(comm, resRequest, resCtxHost));
+#endif
     return HCCL_SUCCESS;
 }
 
+#if CANN_VERSION_NUM >= 90000000
 HcclResult HcclGetChannelForCcu(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest)
 {
     // 以kernel为粒度申请channel
@@ -1196,6 +1235,7 @@ HcclResult HcclGetCcuKernel(HcclComm comm, AlgResourceRequest &resRequest,
     resCtxHost->ccuKernelNum = resRequest.ccuKernelNum;
     return HCCL_SUCCESS;
 }
+#endif /* CANN_VERSION_NUM >= 90000000 */
 
 HcclResult GetAlgResAiv(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest, TopoInfoWithNetLayerDetails *topoInfo,
     AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence)
@@ -1219,16 +1259,22 @@ HcclResult HcclAllocAlgResourceAivGraphMode(
 
 HcclResult HcclRegstryBuffGraphMode(HcclComm comm, const char *memTag, void *bufferPtr, uint64_t bufferSize, HcclMemHandle *memHandle)
 {
+#if CANN_VERSION_NUM >= 90000000
     CHK_PTR_NULL(memHandle);
     CommMem regMem{COMM_MEM_TYPE_DEVICE, bufferPtr, bufferSize};
     CHK_RET(HcclCommMemReg(comm, memTag, &regMem, memHandle));
     CHK_PTR_NULL(*memHandle);
     return HCCL_SUCCESS;
+#else
+    (void)comm; (void)memTag; (void)bufferPtr; (void)bufferSize; (void)memHandle;
+    return HCCL_E_NOT_SUPPORT;
+#endif
 }
 
 HcclResult HcclAllocAlgResourceAiv(
     HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest, AlgResourceCtxSerializable* resCtxHost)
 {
+#if CANN_VERSION_NUM >= 90000000
     HCCL_INFO("[%s]Start to execute.", __func__);
     HcclMemHandle memHandle; // 注册到通信域内存的handle，用于建链
     // 获取存放AIV对端信息和标记区的空间
@@ -1311,6 +1357,10 @@ HcclResult HcclAllocAlgResourceAiv(
 
     HCCL_INFO("[%s] Alloc res success.", __func__);
     return HCCL_SUCCESS;
+#else
+    (void)comm; (void)param; (void)resRequest; (void)resCtxHost;
+    return HCCL_E_NOT_SUPPORT;
+#endif
 }
 
 HcclResult GetAlgResDPU(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
@@ -1318,6 +1368,7 @@ HcclResult GetAlgResDPU(HcclComm comm, const OpParam &param, AlgResourceRequest 
     AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence, uint64_t& ctxSize,
     bool increCreateChannelFlag)
 {
+#if CANN_VERSION_NUM >= 90000000
     // 申请共享内存
     uint64_t shmemSize = 100 * 1024 * 1024;
     void *shmemPtr = nullptr;
@@ -1332,6 +1383,11 @@ HcclResult GetAlgResDPU(HcclComm comm, const OpParam &param, AlgResourceRequest 
 
     HCCL_INFO("Execute GetAlgResAICPU success.");
     return HCCL_SUCCESS;
+#else
+    (void)comm; (void)param; (void)resRequest; (void)resCtxHost; (void)topoInfo;
+    (void)algHierarchyInfo; (void)resCtxSequence; (void)ctxSize; (void)increCreateChannelFlag;
+    return HCCL_E_NOT_SUPPORT;
+#endif
 }
 
 HcclResult CheckCount(const u64 count)
@@ -1562,6 +1618,7 @@ HcclResult SetOpParamAlgTag(OpParam &param, const std::string &algName)
 
 HcclResult HcclGetOpExpansionMode(HcclComm comm, OpParam &param)
 {
+#if CANN_VERSION_NUM >= 90000000
     HcclOpExpansionMode finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_INVALID;
     // 第一步：决定使用哪种模式
     HcclResult ret = DecideHcclOpExpansionMode(comm, finalMode);
@@ -1577,10 +1634,15 @@ HcclResult HcclGetOpExpansionMode(HcclComm comm, OpParam &param)
         return ret;
     }
     return HCCL_SUCCESS;
+#else
+    (void)comm; (void)param;
+    return HCCL_E_NOT_SUPPORT;
+#endif
 }
 
 HcclResult DecideHcclOpExpansionMode(HcclComm comm, HcclOpExpansionMode &finalMode)
 {
+#if CANN_VERSION_NUM >= 90000000
     HcclOpExpansionMode configOpExpansionMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_INVALID;
     uint32_t infoLen = sizeof(HcclOpExpansionMode);
     CHK_RET(HcclConfigGetInfo(comm, HcclConfigType::HCCL_CONFIG_TYPE_OP_EXPANSION_MODE, infoLen, &configOpExpansionMode));
@@ -1602,10 +1664,15 @@ HcclResult DecideHcclOpExpansionMode(HcclComm comm, HcclOpExpansionMode &finalMo
             configOpExpansionMode, finalMode);
     }
     return HCCL_SUCCESS;
+#else
+    (void)comm; (void)finalMode;
+    return HCCL_E_NOT_SUPPORT;
+#endif
 }
 
 HcclResult ApplyOpExpansionMode(OpParam &param, HcclOpExpansionMode finalMode)
 {
+#if CANN_VERSION_NUM >= 90000000
     switch (finalMode) {
         case HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_AI_CPU:
             param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
@@ -1644,6 +1711,10 @@ HcclResult ApplyOpExpansionMode(OpParam &param, HcclOpExpansionMode finalMode)
             break;
     }
     return HcclResult::HCCL_SUCCESS;
+#else
+    (void)param; (void)finalMode;
+    return HCCL_E_NOT_SUPPORT;
+#endif
 }
 
 bool HcclCheckAicpuEnableOpen()
@@ -1659,16 +1730,22 @@ bool HcclCheckAicpuEnableOpen()
 
 HcclResult HcclRegstryBuff(HcclComm comm, const char *memTag, void *bufferPtr, uint64_t bufferSize, HcclMemHandle *memHandle)
 {
+#if CANN_VERSION_NUM >= 90000000
     CHK_PTR_NULL(memHandle);
     CommMem regMem{COMM_MEM_TYPE_DEVICE, bufferPtr, bufferSize};
     CHK_RET(HcclCommMemReg(comm, memTag, &regMem, memHandle));
     HCCL_INFO("[%s] regMemAddr[%p] regMemSize[%llu]", __func__, regMem.addr, regMem.size);
     CHK_PTR_NULL(*memHandle);
     return HCCL_SUCCESS;
+#else
+    (void)comm; (void)memTag; (void)bufferPtr; (void)bufferSize; (void)memHandle;
+    return HCCL_E_NOT_SUPPORT;
+#endif
 }
 
 HcclResult HcclGetRemoteBuff(HcclComm comm, ChannelHandle channel, const char *memTag, void **bufferPtr, uint64_t *bufferSize)
 {
+#if CANN_VERSION_NUM >= 90000000
     CHK_PTR_NULL(bufferPtr);
     CHK_PTR_NULL(bufferSize);
 
@@ -1691,6 +1768,10 @@ HcclResult HcclGetRemoteBuff(HcclComm comm, ChannelHandle channel, const char *m
         HCCL_WARNING("[%s] Failed to find %s in remote mem list", __func__, memTag);
     }
     return HCCL_SUCCESS;
+#else
+    (void)comm; (void)channel; (void)memTag; (void)bufferPtr; (void)bufferSize;
+    return HCCL_E_NOT_SUPPORT;
+#endif
 }
 
 
@@ -1785,6 +1866,7 @@ HcclResult CheckHostDPUOnly(const HcclComm comm, const TopoInfoWithNetLayerDetai
 {
     hostDPUOnly = false;
     HCCL_INFO("Start CheckHostDPUOnly");
+#if CANN_VERSION_NUM >= 90000000
     // 只有一个server，不使用DPU
     if (topoInfo->serverNum == 1) {
         HCCL_INFO("Not using hostdpu because serverNum is 1");
@@ -1859,6 +1941,10 @@ HcclResult CheckHostDPUOnly(const HcclComm comm, const TopoInfoWithNetLayerDetai
         hostDPUOnly = true;
     }
     return HCCL_SUCCESS;
+#else
+    (void)comm; (void)topoInfo;
+    return HCCL_SUCCESS;
+#endif
 }
 
 }  // namespace ops_hccl

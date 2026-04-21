@@ -11,6 +11,9 @@
 #ifndef HCCL_CCU_KERNEL_ALLGATHER_2DIES_MESH_1D_MEM2MEM_H
 #define HCCL_CCU_KERNEL_ALLGATHER_2DIES_MESH_1D_MEM2MEM_H
 
+/* 8.5.0 CANN 下 CCU 特性整体剥离，整个头设为空实现 */
+#if CANN_VERSION_NUM >= 90000000
+
 #include <cstdint>
 #include <vector>
 #include <ios>
@@ -94,4 +97,6 @@ private:
 
 }//namespace ops_hccl
 
+
+#endif /* CANN_VERSION_NUM >= 90000000 */
 #endif//HCCL_CCU_KERNEL_ALLGATHER_2DIES_MESH_1D_MEM2MEM_H

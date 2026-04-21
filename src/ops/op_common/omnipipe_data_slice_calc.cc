@@ -7,6 +7,9 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
+
+
+#if CANN_VERSION_NUM >= 90000000
 #include "omnipipe_data_slice_calc.h"
 
 namespace ops_hccl {
@@ -1961,3 +1964,5 @@ std::vector<u64> CalcCountToDataSize(const std::vector<u64> &vecCount, u64 dataT
     return vecDataSize;
 }
 }  // namespace ops_hccl
+
+#endif /* CANN_VERSION_NUM >= 90000000 */

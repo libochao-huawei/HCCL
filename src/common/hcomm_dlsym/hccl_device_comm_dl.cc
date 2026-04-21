@@ -13,9 +13,24 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+/* --- extern "C" wrapping --- */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#if CANN_VERSION_NUM >= 90000000
 DEFINE_WEAK_FUNC(HcclResult, HcclCommGetStatus, const char* commId, HcclCommStatus *status);
+#endif
 
 // 初始化
 void HcclDeviceCommDlInit(void* libHcommHandle) {
+#if CANN_VERSION_NUM >= 90000000
     INIT_SUPPORT_FLAG(libHcommHandle, HcclCommGetStatus);
+#else
+    (void)libHcommHandle;
+#endif
 }
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif

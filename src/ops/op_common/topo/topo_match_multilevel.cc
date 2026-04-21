@@ -8,6 +8,9 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+
+
+#if CANN_VERSION_NUM >= 90000000
 #include "topo_match_multilevel.h"
 #include "op_common.h"
 
@@ -246,3 +249,5 @@ HcclResult TopoMatchMultilevel::MatchTopo(const HcclComm comm, TopoInfoWithNetLa
 }
 
 }  // namespace ops_hccl
+
+#endif /* CANN_VERSION_NUM >= 90000000 */

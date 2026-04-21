@@ -76,6 +76,7 @@ HcclResult GetHcclDfxOpInfoDataType(const OpParam &param, uint32_t &dataType) {
     return HCCL_SUCCESS;
 }
 
+#if CANN_VERSION_NUM >= 90000000
 HcclResult ConvertToHcclDfxOpInfo(OpParam *param, HcclDfxOpInfo *hcclDfxOpInfo)
 {
     CHK_PTR_NULL(param);
@@ -100,4 +101,5 @@ HcclResult ConvertToHcclDfxOpInfo(OpParam *param, HcclDfxOpInfo *hcclDfxOpInfo)
         hcclDfxOpInfo->cpuTsThread, hcclDfxOpInfo->cpuWaitAicpuNotifyIdx);
     return HCCL_SUCCESS;
 }
+#endif /* CANN_VERSION_NUM >= 90000000 */
 }

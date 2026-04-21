@@ -11,6 +11,9 @@
 #ifndef HCCL_CCU_TEMP_ALLTOALLV_MESH_2DIE_H
 #define HCCL_CCU_TEMP_ALLTOALLV_MESH_2DIE_H
 
+/* 8.5.0 CANN 下 CCU 特性整体剥离，整个头设为空实现 */
+#if CANN_VERSION_NUM >= 90000000
+
 #include "utils.h"
 #include "ccu_alg_template_base.h"
 
@@ -53,4 +56,6 @@ private:
 
 } // namespace ops_hccl
 
+
+#endif /* CANN_VERSION_NUM >= 90000000 */
 #endif // HCCL_CCU_TEMP_ALLTOALLV_MESH_2DIE_H

@@ -9,6 +9,9 @@
  */
 
 #include "ins_v2_all_reduce_sequence_executor.h"
+
+#if CANN_VERSION_NUM >= 90000000
+
 #include "ins_temp_reduce_scatter_mesh_1D_intra.h"
 #include "ins_temp_reduce_scatter_mesh_1D_dpu_inter.h"
 #include "ins_temp_all_gather_nhr_dpu_inter.h"
@@ -444,3 +447,5 @@ REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE,
                                 InsTempAllGatherNhrDpuInter,
                                 InsTempAllGatherMesh1dIntra);
 }
+
+#endif /* CANN_VERSION_NUM >= 90000000 */

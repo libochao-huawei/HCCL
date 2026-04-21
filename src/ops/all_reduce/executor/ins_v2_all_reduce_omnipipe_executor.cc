@@ -8,6 +8,9 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+
+
+#if CANN_VERSION_NUM >= 90000000
 #include "ins_v2_all_reduce_omnipipe_executor.h"
 #include "ins_temp_reduce_scatter_omnipipe_mesh_1D.h"
 #include "ins_temp_reduce_scatter_omnipipe_mesh_1d_dpu.h"
@@ -770,3 +773,5 @@ REGISTER_EXEC_V2_MULTI(HcclCMDType::HCCL_CMD_ALLREDUCE, InsV2AllReduceOmniPipe, 
                        InsTempAllGatherOmniPipeNHRDPU);
 
 }  // namespace ops_hccl
+
+#endif /* CANN_VERSION_NUM >= 90000000 */

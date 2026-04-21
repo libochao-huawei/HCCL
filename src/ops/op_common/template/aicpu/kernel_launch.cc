@@ -23,7 +23,9 @@
 #include <unordered_map>
 #include <shared_mutex>
 #include <atomic>
+#if CANN_VERSION_NUM >= 90000000
 #include "hccl_diag.h"
+#endif
 #include "hccl_device_comm_dl.h"
 
 using namespace ops_hccl;
@@ -260,7 +262,8 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
     #else
     if (param->deviceType == DevType::DEV_TYPE_910_95) {
     #endif
-        //判断通信域状态
+        //判断通信域状态（HcclCommStatus / HcclCommGetStatus 为 9.0.0-only API）
+#if CANN_VERSION_NUM >= 90000000
         HcclCommStatus commStatus = HCCL_COMM_STATUS_INVALID;
         if (HcommIsSupportHcclCommGetStatus()) {
             auto statusRet = HcclCommGetStatus(param->commName, &commStatus);
@@ -273,6 +276,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
                 return 1;
             }
         }
+#endif
 
         AlgResourceCtxSerializable resCtx;
         if (param->opType == HcclCMDType::HCCL_CMD_BATCH_SEND_RECV) {
@@ -327,7 +331,9 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             return 1;
         }
 
-        // 要在下第一个task之前上报
+#if CANN_VERSION_NUM >= 90000000
+        // 要在下第一个task之前上报（HcclDfxOpInfo / HcclDfxRegOpInfoByCommId / HcommProfilingReportKernelStartTask
+        // 都是 9.0.0-only API）
         HcclDfxOpInfo dfxOpInfo{};
         if (ConvertToHcclDfxOpInfo(param, &dfxOpInfo) != HCCL_SUCCESS) {
             HCCL_ERROR("ConvertToHcclDfxOpInfo fail, commName is %s, tag is %s", param->commName, param->algTag);
@@ -343,6 +349,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             HCCL_ERROR("%sfailed to report MainStream And FirstTask, thread %lu, param->commName %s.", __func__, thread, param->commName);
             return 1;
         }
+#endif
 
         // 主thread等待Host stream的通知
         ThreadHandle exportedAicpuTsThread = param->opThread;
@@ -368,11 +375,12 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             return 1;
         }
 
-        // 上报mainstream数据,最后一个任务
-        if (HcommProfilingReportKernelEndTask(thread, param->commName) != HCCL_SUCCESS) {
-            HCCL_ERROR("%s failed to report MainStream And LastTask, thread %lu, param->commName %s.",  __func__, thread, param->commName);
+#if CANN_VERSION_NUM >= 90000000
+        if (HcommProfilingReportDeviceOp(param->commName) != HCCL_SUCCESS) {
+            HCCL_ERROR("%s HcommProfilingReportDeviceOp fail, commName[%s]", __func__, param->commName);
             return 1;
         }
+#endif
 
         constexpr u32 DEFAULT_NOTIFY_IDX = 0;
         HCCL_DEBUG("[%s]Notify record on srcThread[%llu], dstThread[%llu], notifyIdx[%u]",__func__, thread, exportedAicpuTsThread,
@@ -380,10 +388,13 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         CHK_RET(static_cast<HcclResult>(HcommThreadNotifyRecordOnThread(thread, exportedAicpuTsThread,
             DEFAULT_NOTIFY_IDX)));
 
-        if (HcommProfilingReportDeviceOp(param->commName) != HCCL_SUCCESS) {
-            HCCL_ERROR("%s HcommProfilingReportDeviceOp fail, commName[%s]", __func__, param->commName);
+#if CANN_VERSION_NUM >= 90000000
+        // 上报主流和最后一个task 在notify之后
+        if (HcommProfilingReportKernelEndTask(thread, param->commName) != HCCL_SUCCESS) {
+            HCCL_ERROR("%s failed to report MainStream And LastTask, thread %lu, param->commName %s.",  __func__, thread, param->commName);
             return 1;
         }
+#endif
         
         if (HcommBatchModeEnd(param->algTag) != HCCL_SUCCESS) {
             HCCL_ERROR("failed set eager mode, tag is %s.", param->algTag);
@@ -408,6 +419,8 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         }
 
         if (exportedAicpuTsThread != 0) {
+#if CANN_VERSION_NUM >= 90000000
+            // HcommProfilingInit / HcommProfilingReportMainStreamAndFirstTask 为 9.0.0-only API
             if (HcommProfilingInit(threadHandlePtr, resCtx->slaveThreadNum + 1) != HCCL_SUCCESS) {
                 HCCL_ERROR("failed to init Profiling");
                 return 1;
@@ -418,6 +431,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
                 HCCL_ERROR("failed to report MainStream And FirstTask");
                 return 1;
             }
+#endif
 
             // 主thread等待Host stream的通知
             HCCL_DEBUG("[%s]Notify wait on thread[%llu], notifyNumOnMainThread[%u], timeout[%u]",
@@ -440,7 +454,9 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         }
 
         if (exportedAicpuTsThread != 0) {
-            // 上报device侧的op 附加信息
+#if CANN_VERSION_NUM >= 90000000
+            // 上报device侧的op 附加信息（HcomProInfoTmp / HcommProfilingReportDeviceHcclOpInfo
+            // / HcommProfilingReportMainStreamAndLastTask / HcommProfilingEnd 均为 9.0.0-only API）
             HcomProInfoTmp profInfo;
             std::string algTypeStr(param->algTypeStr);
             strcpy_s(profInfo.algType, sizeof(profInfo.algType), algTypeStr.c_str());
@@ -450,6 +466,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             profInfo.dataType = static_cast<uint8_t>(param->DataDes.dataType);
             profInfo.rankSize = resCtx->topoInfo.userRankSize;
             HcommProfilingReportDeviceHcclOpInfo(profInfo);
+#endif
 
             // 主thread通知Host stream
             constexpr u32 DEFAULT_NOTIFY_IDX = 0;
@@ -461,21 +478,25 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             CHK_RET(static_cast<HcclResult>(
                 HcommThreadNotifyRecordOnThread(thread, exportedAicpuTsThread, DEFAULT_NOTIFY_IDX)));
 
+#if CANN_VERSION_NUM >= 90000000
             // 上报主流和最后一个task 在notify之后
             if (HcommProfilingReportMainStreamAndLastTask(thread) != HCCL_SUCCESS) {
                 HCCL_ERROR("failed to report MainStream And LastTask");
                 return 1;
             }
+#endif
 
             if (HcommBatchModeEnd(param->algTag) != HCCL_SUCCESS) {
                 HCCL_ERROR("failed set eager mode, tag is %s.", param->algTag);
                 return 1;
             }
 
+#if CANN_VERSION_NUM >= 90000000
             if (HcommProfilingEnd(threadHandlePtr, resCtx->slaveThreadNum + 1) != HCCL_SUCCESS) {
                 HCCL_ERROR("failed to End Profiling");
                 return 1;
             }
+#endif
         } else {
             if (HcommAclrtNotifyRecordOnThread(thread, resCtx->notifyIds[1]) != HCCL_SUCCESS) {
                 HCCL_ERROR("failed to record host main stream");

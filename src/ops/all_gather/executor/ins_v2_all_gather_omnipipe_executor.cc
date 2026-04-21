@@ -8,6 +8,9 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+
+
+#if CANN_VERSION_NUM >= 90000000
 #include "ins_v2_all_gather_omnipipe_executor.h"
 #include <algorithm>
 #include <sstream>
@@ -423,3 +426,5 @@ REGISTER_EXEC_V2_MULTI(HcclCMDType::HCCL_CMD_ALLGATHER, InsV2AllGatherOmniPipe,
                        InsTempAllGatherOmniPipeNHR, InsTempAllGatherOmniPipeNHRDPU);
 #endif
 }  // namespace ops_hccl
+
+#endif /* CANN_VERSION_NUM >= 90000000 */
