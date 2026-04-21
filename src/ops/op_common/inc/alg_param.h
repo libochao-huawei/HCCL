@@ -26,6 +26,7 @@
 #include "hccl_rank_graph.h"
 #include "binary_stream.h"
 #include "hccl_ccu_res.h"
+#include "hccl_aiv_utils.h"
 
 namespace ops_hccl {
 
