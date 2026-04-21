@@ -17,6 +17,7 @@
 #include "alg_param.h"
 #include "hccl_rank_graph.h"
 #include "hccl_res.h"
+#include "dlsym_common.h"
 
 namespace ops_hccl {
 

@@ -13,6 +13,35 @@
 
 #include "dlsym_common.h"
 #include "hcomm_diag.h"   // 原始头文件，包含所有声明和类型定义
+#include "hccl_res.h"     // CommAbiHeader, CommEngine for HcclDfxOpInfo stub
+
+#if CANN_VERSION_NUM >= 90000000
+#include "hccl_diag.h"    // 9.0.0 提供 HcclDfxOpInfo, HCOMM_ALG_TAG_LENGTH
+#endif
+
+/* 8.5.0 桩: hccl_diag.h 中 9.0.0 新增类型 */
+#if CANN_VERSION_NUM < 90000000
+#define HCOMM_ALG_TAG_LENGTH 288
+
+struct HcclDfxOpInfo {
+    CommAbiHeader header;
+    uint64_t beginTime;
+    uint64_t endTime;
+    uint32_t opMode;
+    uint32_t opType;
+    uint32_t reduceOp;
+    uint32_t dataType;
+    uint32_t outputType;
+    uint64_t dataCount;
+    uint32_t root;
+    char algTag[HCOMM_ALG_TAG_LENGTH];
+    CommEngine engine;
+    uint64_t cpuTsThread;
+    uint32_t cpuWaitAicpuNotifyIdx;
+    uint32_t cpuWaitAicpuNotifyId;
+    int8_t reserve[128];
+};
+#endif /* CANN_VERSION_NUM < 90000000 */
 
 #ifdef __cplusplus
 extern "C" {

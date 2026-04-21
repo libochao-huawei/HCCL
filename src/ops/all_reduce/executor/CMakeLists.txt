@@ -12,11 +12,15 @@ set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_all_reduce_sole_executor.cc
     # ${CMAKE_CURRENT_SOURCE_DIR}/ins_all_reduce_parallel_executor.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_all_reduce_parallel_executor.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_all_reduce_concurrent_executor.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_allreduce_sequence2die_executor.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_all_reduce_sequence_executor.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_all_reduce_omnipipe_executor.cc
 )
+if(NOT HCCL_CANN_COMPAT_850)
+    list(APPEND src_list
+        ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_all_reduce_concurrent_executor.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_allreduce_sequence2die_executor.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_all_reduce_sequence_executor.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_all_reduce_omnipipe_executor.cc
+    )
+endif()
 
 target_sources(hccl PRIVATE
     ${src_list}
