@@ -598,5 +598,19 @@ struct AivParamStorage {
     bool aivClearEnable = false;
 };
 
+// 算子参数一致性校验信息
+struct OpExchangeInfo {
+    u32 root{0};
+    HcclCMDType opType{};
+    char algTag[ALG_TAG_LENGTH];
+    CommEngine engine{CommEngine::COMM_ENGINE_RESERVED};
+    OpExecuteConfig opExecuteConfig = OpExecuteConfig::DEFAULT;
+    HcclReduceOp reduceType = HcclReduceOp::HCCL_REDUCE_RESERVED;
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_RESERVED;
+    u64 count{0};
+    u32 aivCoreLimit{MAX_NUM_BLOCKS};
+    char group[MAX_LENGTH];
+}
+
 } 
 #endif
