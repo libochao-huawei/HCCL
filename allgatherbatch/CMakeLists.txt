@@ -31,7 +31,7 @@ target_compile_options(hccl_allgatherbatch PRIVATE
     -fno-common
     -fno-strict-aliasing
     -pipe
-    -g -O0
+    -g -O2
     -std=c++14
     -fstack-protector-all
 )
@@ -86,7 +86,7 @@ if(KERNEL_MODE)
     )
     target_compile_options(allgatherbatch_aicpu_kernel PRIVATE
         -g
-        -O0
+        -O2
     )
     target_link_libraries(allgatherbatch_aicpu_kernel PRIVATE
         -Wl,--no-as-needed
