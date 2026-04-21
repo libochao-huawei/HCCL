@@ -15,6 +15,11 @@
 #include "hcomm_primitives.h"   // 原头文件，包含所有类型和定义
 #include "hccl_types.h"          
 
+/* 8.5.0 桩: HcclCommSymWindow (来自 hccl_types.h) */
+#if CANN_VERSION_NUM < 90000000
+typedef void *HcclCommSymWindow;
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
