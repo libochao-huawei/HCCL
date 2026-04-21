@@ -125,7 +125,7 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
         resourceRequest.ccuKernelInfos.insert(resourceRequest.ccuKernelInfos.end(),
                                                 temp1ResReq.ccuKernelInfos.begin(),
                                                 temp1ResReq.ccuKernelInfos.end());
-    } else if (param.engine == CommEngine::COMM_ENGINE_AICPU) {
+    } else if (param.engine == CommEngine::COMM_ENGINE_AICPU || param.engine == CommEngine::COMM_ENGINE_AICPU_TS) {
         resourceRequest.channels.resize(1);
         resourceRequest.channels[0].insert(resourceRequest.channels[0].end(), channelDescs0.begin(),
                                             channelDescs0.end());
