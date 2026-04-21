@@ -20,6 +20,8 @@
 #include "config_log.h"
 #include "topo.h"
 #include "dtype_common.h"
+#include "dlsym_common.h"
+#include "hccl_rank_graph_dl.h"
 
 constexpr u32 FACTOR_NUM_TWO = 2;
 constexpr s32 DEVICE_PER_MODULE = 8;
