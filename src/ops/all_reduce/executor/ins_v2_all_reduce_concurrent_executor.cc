@@ -252,7 +252,7 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
         // AIV模式
         tempAlgResource0.aivCommInfoPtr = resCtx.aivCommInfoPtr;
         tempAlgResource1.aivCommInfoPtr = resCtx.aivCommInfoPtr;
-    } else if (param.engine == CommEngine::COMM_ENGINE_AICPU) {
+    } else if (param.engine == CommEngine::COMM_ENGINE_AICPU || param.engine == CommEngine::COMM_ENGINE_AICPU_TS) {
         // AICPU模式
         const auto &channels = resCtx.channels[0];
         const size_t channelCount = channels.size();
