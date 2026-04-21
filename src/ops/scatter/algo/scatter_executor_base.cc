@@ -34,7 +34,7 @@ HcclResult ScatterExecutorBase::Orchestrate(const OpParam &param, AlgResourceCtx
     // 做参数的还原
     ThreadHandle* threadHandlePtr = reinterpret_cast<ThreadHandle *>(reinterpret_cast<u8 *>(algResource_) + sizeof(AlgResourceCtx));
 
-    ChannelInfo* channelInfoPtr = reinterpret_cast<ChannelInfo *>(threadHandlePtr + algResource_->slaveThreadNum + 1);
+    ChannelInfo* channelInfoPtr = reinterpret_cast<ChannelInfo *>(reinterpret_cast<char *>(threadHandlePtr) + sizeof(ThreadHandle) * (algResource_->slaveThreadNum + 1));
     HCCL_DEBUG("[ScatterExecutorBase][Orchestrate] slaveThreadNum[%u]", algResource_->slaveThreadNum);
     for (u32 i = 0; i < algResource_->slaveThreadNum + 1; i++) {
         HCCL_DEBUG("[ScatterExecutorBase][Orchestrate] threadHandle[%u]=[%llu]", i, threadHandlePtr[i]);

@@ -11,6 +11,8 @@
 #include "reduce_scatter_op.h"
 #include "op_common_ops.h"
 #include "topo_host.h"
+#include "load_kernel.h"
+#include "hcomm_host_profiling_dl.h"
 #include <algorithm>
 #include <future>
 #include <map>
@@ -30,10 +32,10 @@ HcclResult HcclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, H
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
 #ifdef MACRO_DEV_TYPE_NEW
-    if (deviceType != DevType::DEV_TYPE_950) {
+    if (deviceType != DevType::DEV_TYPE_950 && deviceType != DevType::DEV_TYPE_910_93 && deviceType != DevType::DEV_TYPE_910B) {
 #else
-    if (deviceType != DevType::DEV_TYPE_910_95) {
-#endif
+    if (deviceType != DevType::DEV_TYPE_910_95 && deviceType != DevType::DEV_TYPE_910_93 && deviceType != DevType::DEV_TYPE_910B) {
+#endif  
         return HcclReduceScatterInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
     }
     HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
@@ -54,9 +56,18 @@ HcclResult HcclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, H
     CHK_RET(HcclGetCommName(comm, param.commName));
     // topoInfo的tag，所有相同的算子可以共享
     int ret = sprintf_s(param.tag, sizeof(param.tag), "ReduceScatter_%s", param.commName);
-    CHK_PRT_RET((ret <= 0), HCCL_ERROR("failed to fill param.tag"), HCCL_E_INTERNAL);
+    CHK_PRT_RET((ret <= 0), "failed to fill param.tag", HCCL_E_INTERNAL);
     CHK_RET(HcclCheckTag(param.tag));
     CHK_RET(CheckReduceOp(dataType, op));
+
+    if (GetExternalInputHcclAicpuUnfold() == true && deviceType == DevType::DEV_TYPE_910_93 && (rankSize != 1)) {
+        HCCL_DEBUG("[HcclReduceScatter] is aicpu mode");
+        CHK_RET(LoadAICPUKernel());
+        param.engine = CommEngine::COMM_ENGINE_AICPU_TS;
+    } else {
+        HCCL_DEBUG("[HcclReduceScatter] is host mode");
+        param.engine = CommEngine::COMM_ENGINE_CPU_TS;
+    }
 
     /* 接口交互信息日志 */
     CHK_RET(ReduceScatterEntryLog(sendBuf, recvBuf, recvCount, dataType, op, stream, param.tag, "HcclReduceScatter"));
@@ -173,23 +184,56 @@ HcclResult ReduceScatterOutPlace(OpParam &param, void *sendBuf, void *recvBuf, u
     CHK_RET(PrepareReduceScatterParam(param, sendBuf, recvBuf, recvCount, dataType, op, comm, stream, userRankSize,
  	    OpMode::OPBASE));
 
-    CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
-    if (ShouldGoCcuFastLaunch(comm, param, &ccuFastLaunchCtx)) {
-        return HcclExecOpCcuFastLaunch(comm, param, ccuFastLaunchCtx);
+    #ifdef MACRO_DEV_TYPE_NEW
+    if (param.deviceType == DevType::DEV_TYPE_950 && (GetHcommVersion() >= 90000000)) {
+    #else
+    if (param.deviceType == DevType::DEV_TYPE_910_95) {
+    #endif
+        CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
+        if (ShouldGoCcuFastLaunch(comm, param, &ccuFastLaunchCtx)) {
+            return HcclExecOpCcuFastLaunch(comm, param, ccuFastLaunchCtx);
+        }
+        std::string algName;
+        std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
+        CHK_RET(Selector(comm, param, topoInfo, algName));
+        if (ShouldUseInnerOp(param.opExecuteConfig)) {
+            return HcclReduceScatterInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
+        }
+        if (userRankSize == 1) {
+            HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
+            CHK_RET(SingleRankProc(param));
+            return HcclResult::HCCL_SUCCESS;
+        }
+        CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
+    } else {
+        uint64_t beginTime;
+        if (HcommIsProfilingSupported()) {
+            beginTime = HcommGetProfilingSysCycleTime();
+        }
+        CHK_RET(ExecOp(comm, param));  //保留原有A3流程
+        if (HcommIsProfilingSupported()) {
+           // 获取profiling op上报的信息
+            HcomProInfoTmp profInfo;
+            std::string algTypeStr = TransferAlgTypeStr(param.algType);
+            CHK_SAFETY_FUNC_RET(strcpy_s(profInfo.algType, sizeof(profInfo.algType), algTypeStr.c_str()));
+            CHK_SAFETY_FUNC_RET(strcpy_s(profInfo.commName, sizeof(profInfo.commName), param.commName));
+            profInfo.beginTime = beginTime;
+            profInfo.dataCount = param.DataDes.count;
+            profInfo.dataType = static_cast<uint8_t>(param.DataDes.dataType);
+            profInfo.cmdType = static_cast<uint8_t>(param.opType);
+            CHK_PRT(HcommProfilingReportOp(profInfo));
+
+            if (param.engine == CommEngine::COMM_ENGINE_CPU_TS || param.engine == CommEngine::COMM_ENGINE_CPU) {
+                CHK_PTR_NULL(param.resCtx);
+                AlgResourceCtx* tmpCtx = reinterpret_cast<AlgResourceCtx*>(param.resCtx);
+                profInfo.slaveThreadNum = tmpCtx->slaveThreadNum;
+                char* curThreadPtr = reinterpret_cast<char*>(param.resCtx); // 拿到所有host下发的thread
+                curThreadPtr += sizeof(AlgResourceCtx);// 偏移指针
+                ThreadHandle* curThreads = reinterpret_cast<ThreadHandle *>(curThreadPtr);
+                CHK_PRT(HcommProfilingUnRegThread(profInfo,curThreads));
+            }
+        }
     }
-    
-    std::string algName;
-    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
-    CHK_RET(Selector(comm, param, topoInfo, algName));
-    if (ShouldUseInnerOp(param.opExecuteConfig)) {
-        return HcclReduceScatterInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
-    }
-    if (userRankSize == 1) {
-        HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
-        CHK_RET(SingleRankProc(param));
-        return HcclResult::HCCL_SUCCESS;
-    }
-    CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
     HCCL_INFO("Execute ReduceScatterOutPlace success.");
     return HCCL_SUCCESS;
 }

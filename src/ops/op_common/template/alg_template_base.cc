@@ -63,6 +63,16 @@ HcclResult AlgTemplateBase::Prepare(HcclMem &inputMem, HcclMem &outputMem, HcclM
     return HCCL_SUCCESS;
 }
 
+HcclResult AlgTemplateBase::Prepare(HcclMem &inputMem, HcclMem &outputMem, HcclMem &scratchMem,
+                                 const u64 count,
+                                 const HcclDataType dataType, ThreadHandle thread, const std::vector<ThreadHandle> &slaveThreads,
+                                 const HcclReduceOp reductionOp,
+                                 const u32 root, const std::vector<Slice> &slices, const u64 baseOffset,
+                                 const bool disableDMAReduce)
+{
+    return HCCL_E_PARA;
+}
+
 // ScatterMesh
 HcclResult AlgTemplateBase::Prepare(u32 interRank, u32 interRankSize)
 {
