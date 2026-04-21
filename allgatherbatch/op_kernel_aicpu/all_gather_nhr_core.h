@@ -47,10 +47,6 @@ private:
     HcclResult GetStepInfo(u32 step, u32 nSteps, u32 rank, u32 rankSize,
         InterServerAlgoStep &stepInfo);
 
-    void GetRankMapping(u32 rankSize, bool keepOrder = false);
-    void ReorderSequence(u32 start, u32 end, u32 len,
-        std::vector<u32> &tree, std::vector<u32> &tmp);
-    u32 GetStepNumInterServer(u32 rankSize);
     void MergeSlices(std::vector<Slice> &slices);
 
 private:

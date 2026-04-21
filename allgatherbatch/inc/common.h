@@ -39,12 +39,12 @@ enum class BatchCommMode : uint32_t {
 
 /**
  * @enum HcclMemType
- * @brief ÄÚ´æÀàÐÍÃ¶¾Ù¶¨Òå
+ * @brief å†…å­˜ç±»åž‹æžšä¸¾å®šä¹‰
  */
 typedef enum {
-    HCCL_MEM_TYPE_DEVICE, ///< Éè±¸²àÄÚ´æ£¨ÈçNPUµÈ£©
-    HCCL_MEM_TYPE_HOST,   ///< Ö÷»ú²àÄÚ´æ
-    HCCL_MEM_TYPE_NUM     ///< ÄÚ´æÀàÐÍÊýÁ¿
+    HCCL_MEM_TYPE_DEVICE, ///< è®¾å¤‡ä¾§å†…å­˜ï¼ˆå¦‚NPUç­‰ï¼‰
+    HCCL_MEM_TYPE_HOST,   ///< ä¸»æœºä¾§å†…å­˜
+    HCCL_MEM_TYPE_NUM     ///< å†…å­˜ç±»åž‹æ•°é‡
 } HcclMemType;
 
 struct HcclMem {
@@ -56,20 +56,20 @@ struct HcclMem {
 struct ExecMem {
     u64 count{0};
     HcclDataType dataType{HCCL_DATA_TYPE_RESERVED};
-    HcclMem inputMem;           /* µ¥Ëã×ÓÄ£Ê½Ê±ÊÇInCCLMem, Í¼Ä£Ê½Ê±ÊÇInUserMem */
-    HcclMem outputMem;          /* µ¥Ëã×ÓÄ£Ê½Ê±ÊÇOutCCLMem, Í¼Ä£Ê½Ê±ÊÇOutUserMem */
+    HcclMem inputMem;           /* å•ç®—å­æ¨¡å¼æ—¶æ˜¯InCCLMem, å›¾æ¨¡å¼æ—¶æ˜¯InUserMem */
+    HcclMem outputMem;          /* å•ç®—å­æ¨¡å¼æ—¶æ˜¯OutCCLMem, å›¾æ¨¡å¼æ—¶æ˜¯OutUserMem */
     HcclMem scratchMem;
-    void *inputPtr = nullptr;   /* InUserMemµÄµØÖ·£¬Í¼Ä£Ê½Ê±ÓëinputMemµÄµØÖ·ÏàÍ¬ */
-    void *outputPtr = nullptr;  /* OutUserMemµÄµØÖ·£¬Í¼Ä£Ê½Ê±ÓëoutputMemµÄµØÖ·ÏàÍ¬ */
+    void *inputPtr = nullptr;   /* InUserMemçš„åœ°å€ï¼Œå›¾æ¨¡å¼æ—¶ä¸ŽinputMemçš„åœ°å€ç›¸åŒ */
+    void *outputPtr = nullptr;  /* OutUserMemçš„åœ°å€ï¼Œå›¾æ¨¡å¼æ—¶ä¸ŽoutputMemçš„åœ°å€ç›¸åŒ */
 };
 
 struct Slice {
-    u64 offset{0}; // SliceÏà¶ÔÓÚinput/outputµÄÆ«ÒÆ×Ö½ÚÊý£¬gatherÀà²Ù×÷È¡output£¬scatterÀà²Ù×÷È¡input
-    u64 size{0};    // SliceµÄÊý¾Ý´óÐ¡£¬µ¥Î»£º×Ö½Ú
+    u64 offset{0}; // Sliceç›¸å¯¹äºŽinput/outputçš„åç§»å­—èŠ‚æ•°ï¼Œgatherç±»æ“ä½œå–outputï¼Œscatterç±»æ“ä½œå–input
+    u64 size{0};    // Sliceçš„æ•°æ®å¤§å°ï¼Œå•ä½ï¼šå­—èŠ‚
 };
 
-// addr ±íÊ¾ `CCLIn` µÄÆðÊ¼µØÖ·
-// addr + offset ±íÊ¾ `CCLOut` µÄÆðÊ¼µØÖ·
+// addr è¡¨ç¤º `CCLIn` çš„èµ·å§‹åœ°å€
+// addr + offset è¡¨ç¤º `CCLOut` çš„èµ·å§‹åœ°å€
 struct CommBuffer {
     void *addr = nullptr;
     uint64_t size = 0;
@@ -96,10 +96,10 @@ struct BatchTopoInfo {
     uint32_t reserved = 0;
 };
 
-// Host ²à×¼±¸²¢¿½µ½ Device µÄ×ÊÔ´ÉÏÏÂÎÄ¡£
-// ²ÉÓÃ¡°¹Ì¶¨Í· + ±ä³¤Î²²¿ channel Çø¡±µÄ²¼¾Ö£¬±ÜÃâ¹Ì¶¨ channel ÉÏÏÞ¡£
+// Host ä¾§å‡†å¤‡å¹¶æ‹·åˆ° Device çš„èµ„æºä¸Šä¸‹æ–‡ã€‚
+// é‡‡ç”¨â€œå›ºå®šå¤´ + å˜é•¿å°¾éƒ¨ channel åŒºâ€çš„å¸ƒå±€ï¼Œé¿å…å›ºå®š channel ä¸Šé™ã€‚
 struct AlgResourceCtx {
-    // threadHandle ½ö×÷Îª¾É¿ØÖÆÁ´¼æÈÝ×Ö¶Î±£Áô£¬ÕýÊ½×ÊÔ´ºÏÍ¬ÒÔ mainThreadHandle Îª×¼¡£
+    // threadHandle ä»…ä½œä¸ºæ—§æŽ§åˆ¶é“¾å…¼å®¹å­—æ®µä¿ç•™ï¼Œæ­£å¼èµ„æºåˆåŒä»¥ mainThreadHandle ä¸ºå‡†ã€‚
     ThreadHandle threadHandle = 0;
     ThreadHandle mainThreadHandle = 0;
     ThreadHandle cpuThreadOnAicpu = 0;
@@ -138,8 +138,8 @@ struct BatchItemParam {
     uint64_t sendBytes = 0;
 };
 
-// Host ÏÂ·¢µ½ Device µÄ launch ²ÎÊý¡£
-// ÀïÃæ°üº¬ÍØÆËÐÅÏ¢¡¢Í¨ÐÅÄ£Ê½¡¢Õ¹¿ªºóµÄ item ÔªÊý¾ÝÒÔ¼°×ÊÔ´ÉÏÏÂÎÄÖ¸Õë¡£
+// Host ä¸‹å‘åˆ° Device çš„ launch å‚æ•°ã€‚
+// é‡Œé¢åŒ…å«æ‹“æ‰‘ä¿¡æ¯ã€é€šä¿¡æ¨¡å¼ã€å±•å¼€åŽçš„ item å…ƒæ•°æ®ä»¥åŠèµ„æºä¸Šä¸‹æ–‡æŒ‡é’ˆã€‚
 struct OpParam {
     char tag[kAllGatherBatchTagLength] = {0};
     char commName[COMM_NAME_MAX_LENGTH] = {0};
@@ -160,27 +160,6 @@ struct OpParam {
     AlgResourceCtx *resCtx = nullptr;
 };
 
-struct WindowStageSlice {
-    uint32_t rank = 0;
-    uint32_t itemIdx = 0;
-    uint64_t itemOffsetBytes = 0;
-    uint64_t rankOffsetBytes = 0;
-    uint64_t stageOffsetBytes = 0;
-    uint64_t size = 0;
-};
-
-struct WindowStageLayout {
-    uint32_t rankSize = 0;
-    uint32_t powerSteps = 0;
-    uint32_t powerFactor = 1;
-    uint32_t noPower = 1;
-    uint64_t packedBytes = 0;
-    uint64_t totalBytes = 0;
-    std::vector<uint64_t> rankBaseOffsets;
-    std::vector<WindowStageSlice> localSlices;
-    std::vector<WindowStageSlice> perRankSlices;
-};
-
 inline HcclMem HcclMemRange(HcclMem inMem, u64 offset, u64 size)
 {
     HcclMem outMem;
@@ -188,7 +167,7 @@ inline HcclMem HcclMemRange(HcclMem inMem, u64 offset, u64 size)
         HCCL_ERROR("HcclMem addr is null");
         return outMem;
     }
-    if (offset + size > inMem.size){
+    if (offset + size > inMem.size) {
         HCCL_ERROR("HcclMem request range[%llu] is out of size[%llu]", offset + size, inMem.size);
         return outMem;
     }
@@ -197,182 +176,6 @@ inline HcclMem HcclMemRange(HcclMem inMem, u64 offset, u64 size)
     outMem.size = size;
     return outMem;
 }
-
-inline uint32_t CalcStagePowerSteps(uint32_t rankSize)
-{
-    uint32_t steps = 0;
-    while ((rankSize & 1U) == 0U && rankSize > 1U) {
-        rankSize >>= 1U;
-        ++steps;
-    }
-    return steps;
-}
-
-inline uint32_t ReverseLowerBits(uint32_t value, uint32_t bitCount)
-{
-    uint32_t reversed = 0;
-    for (uint32_t bit = 0; bit < bitCount; ++bit) {
-        reversed = (reversed << 1U) | ((value >> bit) & 1U);
-    }
-    return reversed;
-}
-
-inline void ReorderNoPowerSequence(
-    uint32_t start,
-    uint32_t end,
-    uint32_t len,
-    std::vector<uint32_t> &tree,
-    std::vector<uint32_t> &tmp)
-{
-    for (uint32_t idx = start; idx < end; ++idx) {
-        const uint32_t offset = idx - start;
-        if ((offset & 1U) == 0U) {
-            tmp[start + offset / 2U] = tree[idx];
-        } else {
-            tmp[start + (offset + len) / 2U] = tree[idx];
-        }
-    }
-}
-
-inline uint32_t GetNoPowerMappedIndex(uint32_t noPower, uint32_t group)
-{
-    if (noPower <= 1U) {
-        return group;
-    }
-    std::vector<uint32_t> tree;
-    tree.reserve(noPower);
-    for (uint32_t idx = 0; idx < noPower; ++idx) {
-        tree.push_back(idx);
-    }
-
-    std::vector<uint32_t> tmp(noPower, 0U);
-    uint32_t nSteps = 0;
-    for (uint32_t value = noPower - 1U; value != 0U; value >>= 1U) {
-        ++nSteps;
-    }
-    uint32_t len = noPower;
-    for (uint32_t step = 0; step < nSteps; ++step) {
-        const uint32_t nSlices = (noPower - 1U + (1U << step)) / (1U << (step + 1U));
-        if (nSlices <= 1U) {
-            break;
-        }
-
-        bool endFlag = false;
-        for (uint32_t part = 0; part * len < noPower; ++part) {
-            const uint32_t start = part * len;
-            const uint32_t end = std::min(start + len, noPower);
-            ReorderNoPowerSequence(start, end, len, tree, tmp);
-            if (((end - start) & 1U) == 1U) {
-                endFlag = true;
-            }
-        }
-        tree = tmp;
-        if (endFlag) {
-            break;
-        }
-        len >>= 1U;
-    }
-
-    std::vector<uint32_t> mapped(noPower, 0U);
-    for (uint32_t idx = 0; idx < noPower; ++idx) {
-        mapped[tree[idx]] = idx;
-    }
-    return mapped[group];
-}
-
-inline uint32_t GetStageRankIndex(const WindowStageLayout &layout, uint32_t rank);
-inline uint64_t GetStageRankBaseOffset(const WindowStageLayout &layout, uint32_t rank);
-
-inline WindowStageLayout BuildWindowStageLayout(uint32_t rankSize)
-{
-    WindowStageLayout layout;
-    layout.rankSize = rankSize;
-    layout.powerSteps = CalcStagePowerSteps(rankSize);
-    layout.powerFactor = (layout.powerSteps == 0U) ? 1U : (1U << layout.powerSteps);
-    layout.noPower = (layout.powerFactor == 0U) ? 0U : (rankSize / layout.powerFactor);
-    return layout;
-}
-
-inline WindowStageLayout BuildSingleItemStageLayout(uint32_t rankSize, uint32_t localRank, uint64_t packedBytes)
-{
-    WindowStageLayout layout = BuildWindowStageLayout(rankSize);
-    layout.packedBytes = packedBytes;
-    layout.totalBytes = packedBytes * rankSize;
-    layout.rankBaseOffsets.reserve(rankSize);
-    for (uint32_t rank = 0; rank < rankSize; ++rank) {
-        layout.rankBaseOffsets.push_back(packedBytes * GetStageRankIndex(layout, rank));
-    }
-    if (packedBytes == 0U || localRank >= rankSize) {
-        return layout;
-    }
-
-    const uint64_t localRankBase = GetStageRankBaseOffset(layout, localRank);
-    WindowStageSlice localSlice;
-    localSlice.rank = localRank;
-    localSlice.itemIdx = 0;
-    localSlice.itemOffsetBytes = 0;
-    localSlice.rankOffsetBytes = 0;
-    localSlice.stageOffsetBytes = localRankBase;
-    localSlice.size = packedBytes;
-    layout.localSlices.push_back(localSlice);
-
-    layout.perRankSlices.reserve(rankSize);
-    for (uint32_t rank = 0; rank < rankSize; ++rank) {
-        WindowStageSlice rankSlice = localSlice;
-        rankSlice.rank = rank;
-        rankSlice.stageOffsetBytes = GetStageRankBaseOffset(layout, rank);
-        layout.perRankSlices.push_back(rankSlice);
-    }
-    return layout;
-}
-
-inline bool IsValidWindowStageLayout(const WindowStageLayout &layout)
-{
-    if (layout.rankSize == 0U ||
-        layout.powerFactor == 0U ||
-        layout.noPower == 0U ||
-        (layout.powerFactor * layout.noPower != layout.rankSize)) {
-        return false;
-    }
-
-    if (!layout.rankBaseOffsets.empty() && layout.rankBaseOffsets.size() != layout.rankSize) {
-        return false;
-    }
-    if (layout.packedBytes == 0) {
-        return layout.totalBytes == 0 &&
-            layout.rankBaseOffsets.empty() &&
-            layout.localSlices.empty() &&
-            layout.perRankSlices.empty();
-    }
-    if (layout.totalBytes != (layout.packedBytes * layout.rankSize)) {
-        return false;
-    }
-    if (layout.rankBaseOffsets.size() != layout.rankSize) {
-        return false;
-    }
-    if (layout.localSlices.empty()) {
-        return false;
-    }
-    return !layout.perRankSlices.empty();
-}
-
-inline uint32_t GetStageRankIndex(const WindowStageLayout &layout, uint32_t rank)
-{
-    const uint32_t group = rank / layout.powerFactor;
-    const uint32_t groupIdx = rank % layout.powerFactor;
-    const uint32_t stageGroupIdx = ReverseLowerBits(groupIdx, layout.powerSteps);
-    const uint32_t mappedGroup = GetNoPowerMappedIndex(layout.noPower, group);
-    return (stageGroupIdx * layout.noPower) + mappedGroup;
-}
-
-inline uint64_t GetStageRankBaseOffset(const WindowStageLayout &layout, uint32_t rank)
-{
-    if (!layout.rankBaseOffsets.empty()) {
-        return layout.rankBaseOffsets[rank];
-    }
-    return layout.packedBytes * GetStageRankIndex(layout, rank);
-}
-
 
 inline const char *ToCommModeString(BatchCommMode commMode)
 {

@@ -5,80 +5,9 @@
 #include <cmath>
 #include "all_gather_nhr_core.h"
 #include "log.h"
+#include "stage_rank_mapping.h"
 
 namespace ops_hccl_allgatherbatch {
-
-namespace {
-static u32 GetStepNumInterServer(u32 rankSize)
-{
-    u32 nSteps = 0;
-    for (u32 tmp = rankSize - 1; tmp != 0; tmp >>= 1, nSteps++) {
-    }
-    return nSteps;
-}
-
-static void ReorderSequence(u32 start, u32 end, u32 len, std::vector<u32> &tree, std::vector<u32> &tmp)
-{
-    const u32 divideTwo = 2;
-
-    for (u32 i = start; i < end; i++) {
-        u32 offset = i - start;
-        if ((offset & 1) == 0) {
-            tmp[start + offset / divideTwo] = tree[i];
-        } else {
-            tmp[start + (offset + len) / divideTwo] = tree[i];
-        }
-    }
-}
-
-static void GetRankMapping(const u32 rankSize, std::vector<u32> &sliceMap)
-{
-    std::vector<u32> tree;
-    for (u32 i = 0; i < rankSize; i++) {
-        tree.push_back(i);
-    }
-
-    // 其他的再进行计算
-    std::vector<u32> tmp(rankSize);
-    u32 nSteps = GetStepNumInterServer(rankSize);
-    u32 len = rankSize;
-
-    for (u32 step = 0; step < nSteps; step++) {
-        u32 nSlices = (rankSize - 1 + (1 << step)) / (1 << (step + 1));
-        if (nSlices <= 1) {
-            break;
-        }
-
-        bool endFlag = false;
-        for (u32 part = 0; part * len < rankSize; part++) {
-            u32 start = part * len;
-            u32 end = std::min(start + len, rankSize);
-            ReorderSequence(start, end, len, tree, tmp);
-
-            if (((end - start) & 1) == 1) {
-                endFlag = true;
-            }
-        }
-
-        for (u32 i = 0; i < rankSize; i++) {
-            tree[i] = tmp[i];
-        }
-
-        if (endFlag) {
-            break;
-        }
-
-        len >>= 1;
-    }
-
-    // 因为取的是tree中rank的idx，所以直接返回反向的映射
-    sliceMap.resize(rankSize);
-    for (u32 i = 0; i < rankSize; i++) {
-        sliceMap[tree[i]] = i;
-    }
-    return;
-}
-}
 
 HcclResult AllGatherHDStage::ReverseId(u32 oriIdx, u32 &revIdx)
 {
