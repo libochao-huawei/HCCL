@@ -211,36 +211,4 @@ HcclResult CcuAlgTemplateBase::GetToken(const BuffInfo &buffinfo, uint64_t &toke
     return HCCL_E_PTR;
 }
 
-HcclResult CcuAlgTemplateBase::GetOneDieChannel(HcclComm comm, std::vector<HcclChannelDesc> &channelDescs)
-{
-    std::vector<HcclChannelDesc> channelDescDie0;
-    std::vector<HcclChannelDesc> channelDescDie1;
-
-    for (u32 i = 0; i < channelDescs.size(); i++) {
-        uint32_t tmpDieId;
-        CHK_RET(GetChannDieId(comm, mySubCommRank_, channelDescs[j], tmpDieId));
-        if (tmpDieId == 0) {
-            channelDescDie0.push_back(channelDescs[i]);
-        } else {
-            channelDescDie1.push_back(channelDescs[i]);
-        }
-    }
-
-    uint32_t expectChannelNum = mySubCommRank_[0].size() - 1;
-    if (channelDescDie0.size() == expectChannelNum) {
-        channelDescs = channelDescDie0;
-        return HCCL_SUCCESS;
-    }
-
-    if (channelDescDie1.size() == expectChannelNum) {
-        channelDescs = channelDescDie0;
-        return HCCL_SUCCESS;
-    }
-
-    HCCL_ERROR("[CcuAlgTemplateBase::GetOneDieChannel] die0 channelNum: %u, die1 channelNum: %u, expectChannelNum: %u",
-        channelDescDie0.size(), channelDescDie1.size(), expectChannelNum);
-
-    return HCCL_E_INTERNAL;
-}
-
 } // namespace ops_hccl
