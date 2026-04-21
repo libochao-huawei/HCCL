@@ -342,7 +342,7 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
 
     // 准备线程资源
     //PrepareThreadFromTemplate(tempAlg0Ptr, tempAlg1Ptr);
-    u64 meshThreadsNum = tempAlg.GetThreadNum(); // check流数
+    u64 meshThreadsNum = tempAlg0.GetThreadNum(); // check流数
     HCCL_INFO("[InsReduceScatterConcurrentExecutor][FastLaunch] meshThreadsNum[%d]", meshThreadsNum);
 
     temp0Threads_.assign(threads_.begin(), threads_.begin() + meshThreadsNum); // 从0开始前meshThreadNum是mesh的流
