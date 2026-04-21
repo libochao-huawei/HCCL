@@ -24,24 +24,25 @@ InsTempAllGatherNHR::~InsTempAllGatherNHR() {}
 HcclResult InsTempAllGatherNHR::CalcRes(HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
                                         AlgResourceRequest &resourceRequest)
 {
-    GetRes(resourceRequest);
     std::vector<HcclChannelDesc> level1Channels;
     CHK_RET(CalcChannelRequestNhr(comm, param, topoInfo, subCommRanks_, level1Channels));
     resourceRequest.channels.push_back(level1Channels);
+    channelsPerRank_ = CalcChannelsPerRank(level1Channels);
+    GetRes(resourceRequest);
     HCCL_WARNING("Resource calculation is temporarily not performed in the template.");
     return HCCL_SUCCESS;
 }
 HcclResult InsTempAllGatherNHR::GetRes(AlgResourceRequest &resourceRequest) const
 {
-    // NHR算法主需要一条主流
-    resourceRequest.slaveThreadNum = 0;
-    resourceRequest.notifyNumPerThread;         // 没有从流
-    resourceRequest.notifyNumOnMainThread = 0;  // 没有从流
+    u32 threadNum = channelsPerRank_;
+    resourceRequest.slaveThreadNum = threadNum - 1;
+    resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, 1);
+    resourceRequest.notifyNumOnMainThread = threadNum - 1;
     return HCCL_SUCCESS;
 }
 u64 InsTempAllGatherNHR::GetThreadNum() const
 {
-    return 1;
+    return channelsPerRank_;
 }
 
 u64 InsTempAllGatherNHR::CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType)
@@ -52,6 +53,25 @@ u64 InsTempAllGatherNHR::CalcScratchMultiple(BufferType inBuffType, BufferType o
     return scratchMultiple;
 }
 
+HcclResult InsTempAllGatherNHR::SetchannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels) {
+    CHK_PRT_RET(channels.empty(), HCCL_ERROR("[SetchannelsPerRank] channels is empty."), HCCL_E_INTERNAL);
+    channelsPerRank_ = CalcChannelsPerRank(channels);
+    return HCCL_SUCCESS;
+}
+
+HcclResult InsTempAllGatherNHR::PreprareDataSplitForMultiChannel(const TemplateResource &templateResource) {
+    u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
+    u64 totalDataCount = tempAlgParams_.sliceSize / dataTypeSize;
+    std::vector<u64> elemCountOut;
+    CHK_RET(CalcDataSplitByPortGroup(totalDataCount, dataTypeSize, templateResource.channels.begin()->second, elemCountOut, sizeOut_, elemOffset_));
+    if (tempAlgParams_.tailSize > 0) {
+        u64 totalDataCountTail = tempAlgParams_.tailSize / dataTypeSize;
+        CHK_RET(CalcDataSplitByPortGroup(totalDataCountTail, dataTypeSize, templateResource.channels.begin()->second, elemCountOut, sizeOutTail_, elemOffsetTail_));
+    }
+    
+    return HCCL_SUCCESS;
+}
+
 HcclResult InsTempAllGatherNHR::KernelRun(const OpParam &param, const TemplateDataParams &tempAlgParams,
                                           TemplateResource &templateResource)
 {
@@ -60,24 +80,44 @@ HcclResult InsTempAllGatherNHR::KernelRun(const OpParam &param, const TemplateDa
         HCCL_INFO("[InsTempAllGatherNHR] Rank [%d], get slicesize zero.", myRank_);
         return HCCL_SUCCESS;
     }
-    threadNum_ = 1;
+    threadNum_ = GetThreadNum();
+    if (templateResource.threads.size() != threadNum_())
+    {
+        HCCL_ERROR("[InsTempAllGatherNHR] Rank [%d], thread num[%u] is not as expected[%u].", myRank_, templateResource.threads.size(), threadNum_);
+        return HcclResult::HCCL_E_INTERNAL;
+    }
+    channelsPerRank_ = CalcChannelsPerRank(templateResource.channels);
+    threadNum_ = templateResource.threads.size();
     tempAlgParams_ = tempAlgParams;
     dataType_ = param.DataDes.dataType;
     enableRemoteMemAccess_ = tempAlgParams.enableRemoteMemAccess;
-    CHK_PRT_RET(threadNum_ != templateResource.threads.size(),
-                HCCL_ERROR("[InsTempAllGatherNHR] Rank [%d], requiredQueNum [%u] not equals templateQueNum [%zu].",
-                           myRank_, threadNum_, templateResource.threads.size()),
-                HcclResult::HCCL_E_INTERNAL);
 
-    CHK_RET(LocalDataCopy(templateResource.threads));  // input buffer拷贝到scratch buffer上
-    CHK_RET(RunAllGatherNHR(templateResource.threads, templateResource.channels));
+    CHK_RET(PreprareDataSplitForMultiChannel(templateResource));
+
+    if (threadNum_ > 1) {
+        std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+        GetNotifyIdxMainToSub(notifyIdxMainToSub_);
+        CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub_));
+    }
+    for (u32 channelIdx = 0; channelIdx < channelsPerRank_; channelIdx++) {
+        CHK_RET(LocalDataCopy(templateResource.threads, channelIdx));   // input buffer拷贝到scratch buffer上
+        CHK_RET(RunAllGatherNHR(templateResource.threads, channelIdx));
+        CHK_RET(PostLocalCopy(templateResource.threads, channelIdx));
+    }
+    if (threadNum_ > 1) {
+        std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+        GetNotifyIdxSubToMain(notifyIdxSubToMain_);
+        CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain_));
+    }
+
     CHK_RET(PostLocalCopy(templateResource.threads));  // 从scratch buffer拷贝到output buffer上
 
     HCCL_INFO("[InsTempAllGatherNHR] Run End");
     return HcclResult::HCCL_SUCCESS;
 }
+
 HcclResult InsTempAllGatherNHR::RunAllGatherNHR(const std::vector<ThreadHandle> &threads,
-                                                const std::map<u32, std::vector<ChannelInfo>> &channels)
+                                                const std::map<u32, std::vector<ChannelInfo>> &channels, const u32 &channelIdx)
 {
     const u32 nSteps = GetNHRStepNum(templateRankSize_);  // NHR 通信步数， celi(log2(rankSize))
     const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
@@ -89,8 +129,8 @@ HcclResult InsTempAllGatherNHR::RunAllGatherNHR(const std::vector<ThreadHandle> 
             AicpuNHRStepInfo stepInfo;
             CHK_RET(GetStepInfo(step, nSteps, stepInfo));  // 计算当前step要通信的卡，数据
 
-            const ChannelInfo &channelRecv = channels.at(GetRankFromMap(stepInfo.fromRank))[0];
-            const ChannelInfo &channelSend = channels.at(GetRankFromMap(stepInfo.toRank))[0];
+            const ChannelInfo &channelRecv = channels.at(GetRankFromMap(stepInfo.fromRank))[channelIdx];
+            const ChannelInfo &channelSend = channels.at(GetRankFromMap(stepInfo.toRank))[channelIdx];
             // 构造SendRecv， 都是Scratch到Scratch的传输，没有DMA消减
             std::vector<DataSlice> txSrcSlices;
             std::vector<DataSlice> txDstSlices;
@@ -106,11 +146,13 @@ HcclResult InsTempAllGatherNHR::RunAllGatherNHR(const std::vector<ThreadHandle> 
             for (u32 i = 0; i < stepInfo.nSlices; ++i) {
                 const u32 txIdx = stepInfo.txSliceIdxs[i];
                 const u32 rxIdx = stepInfo.rxSliceIdxs[i];
-                const u64 txScratchOff = scratchBase + tempAlgParams_.sliceSize * txIdx;
-                const u64 rxScratchOff = scratchBase + tempAlgParams_.sliceSize * rxIdx;
+                const u64 txPartialOffset = (txIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize != 0) ? offsetOutTail_[channelIdx]: offsetOut_[channelIdx];
+                const u64 rxPartialOffset = (rxIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize != 0) ? offsetOutTail_[channelIdx]: offsetOut_[channelIdx];
+                const u64 txScratchOff = scratchBase + tempAlgParams_.sliceSize * txIdx + txPartialOffset;
+                const u64 rxScratchOff = scratchBase + tempAlgParams_.sliceSize * rxIdx + rxPartialOffset;
 
-                const u64 txSliceSize = (txIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize != 0) ? tempAlgParams_.tailSize: tempAlgParams_.sliceSize;
-                const u64 rxSliceSize = (rxIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize != 0) ? tempAlgParams_.tailSize: tempAlgParams_.sliceSize;
+                const u64 txSliceSize = (txIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize != 0) ? sizeOutTail_[channelIdx]: sizeOut_[channelIdx];
+                const u64 rxSliceSize = (rxIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize != 0) ? sizeOutTail_[channelIdx]: sizeOut_[channelIdx];
 
                 txSrcSlices.emplace_back(tempAlgParams_.buffInfo.hcclBuff.addr, txScratchOff, txSliceSize, txSliceSize / dataTypeSize);
                 txDstSlices.emplace_back(sendCclBuffAddr, txScratchOff, txSliceSize, txSliceSize / dataTypeSize);
@@ -169,7 +211,7 @@ HcclResult InsTempAllGatherNHR::GetStepInfo(u32 step, u32 nSteps, AicpuNHRStepIn
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult InsTempAllGatherNHR::LocalDataCopy(const std::vector<ThreadHandle> &threads)
+HcclResult InsTempAllGatherNHR::LocalDataCopy(const std::vector<ThreadHandle> &threads, const u32 &channelIdx)
 
 {
     u32 myAlgRank = 0;
@@ -177,35 +219,39 @@ HcclResult InsTempAllGatherNHR::LocalDataCopy(const std::vector<ThreadHandle> &t
 
     u64 sliceSize = tempAlgParams_.sliceSize;
     const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
+    su64 partialSliceSize = sizeOut_[channelIdx];
+    su64 partialOffset = offsetOut_[channelIdx];
     // 尾块模式
     if (tempAlgParams_.tailSize !=0 && myAlgRank == templateRankSize_ -1) {
-        sliceSize = tempAlgParams_.tailSize;
+        partialSliceSize = sizeOutTail_[channelIdx];
+        partialOffset = offsetOutTail_[channelIdx];
     }
     for (u64 rpt = 0; rpt < tempAlgParams_.repeatNum; ++rpt) {
         const u64 inBaseOff = tempAlgParams_.buffInfo.inBuffBaseOff + rpt * tempAlgParams_.inputRepeatStride;
         const u64 scratchRepeatStride = tempAlgParams_.sliceSize * templateRankSize_;
         const u64 scratchBaseoff = tempAlgParams_.buffInfo.hcclBuffBaseOff + rpt * scratchRepeatStride;
 
-        const u64 inOff = tempAlgParams_.inputSliceStride * myAlgRank + inBaseOff;
-        const u64 scOff = tempAlgParams_.sliceSize * myAlgRank + scratchBaseoff;
+        const u64 inOff = tempAlgParams_.inputSliceStride * myAlgRank + inBaseOff + partialOffset;
+        const u64 scOff = tempAlgParams_.sliceSize * myAlgRank + scratchBaseoff + partialOffset;
         if (tempAlgParams_.buffInfo.inputPtr == tempAlgParams_.buffInfo.hcclBuff.addr && inOff == scOff) {
             continue;
         }
-        u64 sliceCount = sliceSize / dataTypeSize;
-        DataSlice srcSlices(tempAlgParams_.buffInfo.inputPtr, inOff, sliceSize, sliceCount);
-        DataSlice dstSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scOff, sliceSize, sliceCount);
+        u64 sliceCount = partialSliceSize / dataTypeSize;
+        DataSlice srcSlices(tempAlgParams_.buffInfo.inputPtr, inOff, partialSliceSize, sliceCount);
+        DataSlice dstSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scOff, partialSliceSize, sliceCount);
         LocalCopy(threads[0], srcSlices, dstSlice);
     }
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult InsTempAllGatherNHR::PostLocalCopy(const std::vector<ThreadHandle> &threads)
+HcclResult InsTempAllGatherNHR::PostLocalCopy(const std::vector<ThreadHandle> &threads, const u32 &channelIdx)
 {
     if (tempAlgParams_.buffInfo.outputPtr == tempAlgParams_.buffInfo.hcclBuff.addr) {
         HCCL_INFO("[InsTempAllGatherNHR] PostLocalCopy skip because output is scratch" );
         return HcclResult::HCCL_SUCCESS;
     }
-    u64 sliceSize = tempAlgParams_.sliceSize;
+    su64 partialSliceSize = sizeOut_[channelIdx];
+    su64 partialOffset = offsetOut_[channelIdx];
     const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
     for (u32 rpt = 0; rpt < tempAlgParams_.repeatNum; ++rpt) {
         const u64 outBaseOff = tempAlgParams_.buffInfo.outBuffBaseOff + rpt * tempAlgParams_.outputRepeatStride;
@@ -217,17 +263,37 @@ HcclResult InsTempAllGatherNHR::PostLocalCopy(const std::vector<ThreadHandle> &t
             CHK_RET(GetAlgRank(rank, subCommRanks_[0], algRank));
                         // 尾块模式
             if (tempAlgParams_.tailSize !=0 && algRank == templateRankSize_ -1) {
-                sliceSize = tempAlgParams_.tailSize;
+                partialSliceSize = sizeOutTail_[channelIdx];
+                partialOffset = offsetOutTail_[channelIdx];
             }
-            u64 sliceCount = sliceSize / dataTypeSize;
-            u64 scratchOffset = tempAlgParams_.sliceSize * algRank + scratchBase;
-            u64 outOffset = tempAlgParams_.outputSliceStride * algRank + outBaseOff;
-            DataSlice srcSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, sliceSize, sliceCount);
-            DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outOffset, sliceSize, sliceCount);
+            u64 sliceCount = partialSliceSize / dataTypeSize;
+            u64 scratchOffset = tempAlgParams_.sliceSize * algRank + scratchBase + partialOffset;
+            u64 outOffset = tempAlgParams_.outputSliceStride * algRank + outBaseOff + partialOffset;
+            DataSlice srcSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, partialSliceSize, sliceCount);
+            DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outOffset, partialSliceSize, sliceCount);
             LocalCopy(threads[0], srcSlice, dstSlice);
         }
     }
     return HcclResult::HCCL_SUCCESS;
+}
+void InsTempAllGatherNHR::GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMianToSub)
+{
+    notifyIdxMianToSub.clear();
+    u32 threadNum = GetThreadNum();
+    u32 slaveThreadNum = threadNum - 1;
+    for (u32 slaveThreadIdx = 0; slaveThreadIdx < slaveThreadNum; slaveThreadIdx++) {
+        notifyIdxMianToSub.push_back(0);
+    }
+}
+
+void InsTempAllGatherNHR::GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain)
+{
+    notifyIdxSubToMain.clear();
+    u32 threadNum = GetThreadNum();
+    u32 notifyNum = threadNum - 1;
+    for (u32 notifyIdx = 0; notifyIdx < notifyNum; notifyIdx++) {
+        notifyIdxSubToMain.push_back(notifyIdx);
+    }
 }
 
 }  // namespace Hccl

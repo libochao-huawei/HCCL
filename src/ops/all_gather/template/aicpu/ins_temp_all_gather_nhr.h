@@ -40,15 +40,23 @@ public:
     u64 GetThreadNum() const override;
     void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainnToSub) override {};
     void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override{};
-protected:
-    HcclResult GetStepInfo(u32 step, u32 nSteps, AicpuNHRStepInfo &stepInfo);
+    HcclResult SetchannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels);
 
-    HcclResult LocalDataCopy(const std::vector<ThreadHandle> &threads);
-    HcclResult PostLocalCopy(const std::vector<ThreadHandle> &threads);
-    virtual HcclResult RunAllGatherNHR(const std::vector<ThreadHandle> &threads,
-                               const std::map<u32, std::vector<ChannelInfo>> &channels);
+private:
+    HcclResult GetStepInfo(u32 step, u32 nSteps, AicpuNHRStepInfo &stepInfo);
+    HcclResult PreprareDataSplitForMultiChannel(const TemplateResource &templateResource);
+    HcclResult LocalDataCopy(const std::vector<ThreadHandle> &threads, const u32 &channelIdx);
+    HcclResult PostLocalCopy(const std::vector<ThreadHandle> &threads, const u32 &channelIdx);
+    HcclResult RunAllGatherNHR(const std::vector<ThreadHandle> &threads,
+                               const std::map<u32, std::vector<ChannelInfo>> &channels, const u32 &channelIdx);
     u32 GetRankFromMap(const u32 algRankIdx) const;
     TemplateDataParams tempAlgParams_;
+    u32 channelsPerRank_{1};
+    u64 dataTypeSize_{0};
+    std::vector<u64> sizeOut_;
+    std::vector<u64> elemOffset_;
+    std::vector<u64> sizeOutTail_;
+    std::vector<u64> elemOffsetTail_;
 };
 
 }  // namespace Hccl
