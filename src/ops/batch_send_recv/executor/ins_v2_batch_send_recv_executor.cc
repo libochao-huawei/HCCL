@@ -296,8 +296,8 @@ HcclResult InsV2BatchSendRecvExecutor::GetRecvChannel(u32 remoteRank, ChannelInf
         return HCCL_E_INTERNAL;
     }
     if (it->second.size() < channelNumPerRankPair_) {
-        HCCL_ERROR("[InsV2BatchSendRecvExecutor][GetRecvChannel] Channel number[%u] is less than expected number[2]",
-            it->second.size());
+        HCCL_ERROR("[InsV2BatchSendRecvExecutor][GetRecvChannel] Channel number[%u] is less than expected number[%u]",
+            it->second.size(), channelNumPerRankPair_);
         return HCCL_E_INTERNAL;
     }
     if (remoteRank > myRank_) {
@@ -322,7 +322,7 @@ HcclResult InsV2BatchSendRecvExecutor::ProcessSendDataSlice(SendRecvSlice& sendS
         "send channel handle[0x%llx].", myRank_, sendSlice.remoteRank_, sendChannel.handle);
     SlicesList slices({}, {}); // read模式下发送端不感知数据信息，直接给一个空的
     DataInfo sendDataInfo(sendChannel, slices);
-    SendRead(sendDataInfo, thread);
+    CHK_RET(SendRead(sendDataInfo, thread));
     HCCL_DEBUG("[InsV2BatchSendRecvExecutor][ProcessSendDataSlice] Process a send task by read mode, CCLBuffer[%p], remoteRank[%u].",
         cclMem_.addr, sendSlice.remoteRank_);
     return HCCL_SUCCESS;
@@ -341,7 +341,7 @@ HcclResult InsV2BatchSendRecvExecutor::ProcessRecvDataSlice(SendRecvSlice& recvS
     DataSlice recvDstDataSlice(recvSlice.addr_, 0, recvSlice.size_); // 采用DMA消减，直接接收到本端的outputBuffer上
     SlicesList slices({recvSrcDataSlice}, {recvDstDataSlice});
     DataInfo recvDataInfo(recvChannel, slices);
-    RecvRead(recvDataInfo, thread);
+    CHK_RET(RecvRead(recvDataInfo, thread));
     HCCL_DEBUG("[InsV2BatchSendRecvExecutor][ProcessRecvDataSlice] Process a recv task by read mode, outputBuffer[%p], remoteRank[%u].",
         recvSlice.addr_, recvSlice.remoteRank_);
     return HCCL_SUCCESS;
@@ -379,6 +379,11 @@ HcclResult InsV2BatchSendRecvExecutor::Orchestrate(const OpParam &param,
     HCCL_INFO("[InsV2BatchSendRecvExecutor][Orchestrate] Orchestrate Start.");
     // 给channels_和threads_赋值
     threads_ = resCtx.threads;
+    if (threads_.size() < totalThreadNum_) {
+        HCCL_ERROR("[InsV2BatchSendRecvExecutor][Orchestrate] threads num[%zu] is less than [%u]!",
+            threads_.size(), totalThreadNum_);
+        return HCCL_E_PARA;
+    }
     CHK_RET(RestoreChannelMap(resCtx, remoteRankToChannelInfo_));
     cclMem_ = resCtx.cclMem;
     maxTmpMemSize_ = std::min(resCtx.cclMem.size, UB_MAX_DATA_SIZE);
