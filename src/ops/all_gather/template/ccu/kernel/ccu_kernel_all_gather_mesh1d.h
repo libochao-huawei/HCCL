@@ -22,15 +22,17 @@ namespace ops_hccl {
 
 class CcuKernelArgAllGatherMesh1D : public hcomm::CcuKernelArg {
 public:
-    explicit CcuKernelArgAllGatherMesh1D(uint64_t dimSize, uint32_t rankId, const OpParam& opParam,
+    explicit CcuKernelArgAllGatherMesh1D(uint64_t dimSize, uint32_t rankId, uint32_t axisId,
+                                                    const OpParam& opParam,
                                                     const std::vector<std::vector<uint32_t>>& subCommRanks)
         : dimSize_(dimSize),
           rankId_(rankId),
+          axisId_(axisId),
           opParam_(opParam),
           subCommRanks_(subCommRanks)
     {
-        HCCL_DEBUG("[CcuKernelArgAllGatherMesh1D] dimSize: %lu, rankId: %u",
-                   dimSize_, rankId_);
+        HCCL_DEBUG("[CcuKernelArgAllGatherMesh1D] dimSize: %lu, rankId: %u, axisId: %u",
+                   dimSize_, rankId_, axisId_);
     }
     hcomm::CcuKernelSignature GetKernelSignature() const override
     {
@@ -40,6 +42,7 @@ public:
     }
     uint64_t                                dimSize_;
     uint32_t                                rankId_;
+    uint32_t                                axisId_;
     OpParam                                 opParam_;
     std::vector<std::vector<uint32_t>>      subCommRanks_;
 };
@@ -48,20 +51,24 @@ class CcuTaskArgAllGatherMesh1D : public hcomm::CcuTaskArg {
 public:
     explicit CcuTaskArgAllGatherMesh1D(uint64_t inputAddr, uint64_t outputAddr, uint64_t token,
                                                 uint64_t offset,
-                                                uint64_t sliceSize)
+                                                uint64_t die0Size, uint64_t die1Size,
+                                                uint64_t die0LastSize, uint64_t die1LastSize)
         : inputAddr_(inputAddr), outputAddr_(outputAddr), token_(token), offset_(offset),
-        sliceSize_(sliceSize) 
+        die0Size_(die0Size), die1Size_(die1Size), die0LastSize_(die0LastSize), die1LastSize_(die1LastSize)
     {
         HCCL_DEBUG("[CcuTaskArgAllGatherMesh1D] inputAddr: %lu, outputAddr: %lu, offset: %lu, "
-                   "sliceSize: %lu",
-                   inputAddr_, outputAddr_, offset_, sliceSize_);
+                   "die0Size: %lu, die1Size: %lu",
+                   inputAddr_, outputAddr_, offset_, die0Size_, die1Size_);
     }
 
     uint64_t inputAddr_;
     uint64_t outputAddr_;
     uint64_t token_;
     uint64_t offset_;
-    uint64_t sliceSize_;
+    uint64_t die0Size_;
+    uint64_t die1Size_;
+    uint64_t die0LastSize_;
+    uint64_t die1LastSize_;
 };
 
 class CcuKernelAllGatherMesh1D : public CcuKernelAlgBase {
@@ -82,11 +89,15 @@ private:
     // CcuKernelAlgDataWrapper algWrapper;
     uint64_t rankSize_{0};
     uint32_t rankId_{0};
+    uint32_t axisId_{0};
     std::vector<CcuRep::Variable> input_;
     std::vector<CcuRep::Variable> output_;
     std::vector<CcuRep::Variable> token_;
     CcuRep::Variable offset_;
-    CcuRep::Variable sliceSize_;
+    CcuRep::Variable die0Size_;
+    CcuRep::Variable die1Size_;
+    CcuRep::Variable die0LastSize_;
+    CcuRep::Variable die1LastSize_;
     GroupOpSize groupOpSize_;
     uint16_t selfBit_{0};
     uint16_t allBit_{0};
