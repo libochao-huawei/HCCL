@@ -83,15 +83,15 @@ HcclResult CcuTempAllGatherVMesh1DMem2Mem::KernelRun(const OpParam& param,
 {
     buffInfo_ = templateDataParams.buffInfo;
 
-    uint64_t inputAddr          = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
-    uint64_t outputAddr         = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
-    uint64_t token;
-    CHK_RET(GetToken(buffInfo_, token));
-
     uint32_t rankId = mySubCommRank_;
     u64 dataTypeSize = DATATYPE_SIZE_TABLE[param.vDataDes.dataType];
     uint64_t mySliceSize = templateDataParams.allRankSliceSize[rankId];
     uint64_t mySliceSizeOutputOffset = templateDataParams.allRankDispls[rankId] * dataTypeSize;
+
+    uint64_t inputAddr          = PointerToAddr(buffInfo_.inputPtr) + templateDataParams.tailSize * dataTypeSize;
+    uint64_t outputAddr         = PointerToAddr(buffInfo_.outputPtr) + templateDataParams.tailSize * dataTypeSize;
+    uint64_t token;
+    CHK_RET(GetToken(buffInfo_, token));
 
     std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAllGatherVMesh1DMem2Mem>(
         inputAddr, outputAddr, token, mySliceSize, mySliceSizeOutputOffset);

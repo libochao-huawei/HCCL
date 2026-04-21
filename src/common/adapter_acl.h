@@ -44,6 +44,8 @@ HcclResult LoadBinaryFromFile(const char *binPath, aclrtBinaryLoadOptionType opt
     aclrtBinHandle &binHandle);
 
 HcclResult haclrtMemcpy(void *dst, size_t destMax, const void *src, size_t count, aclrtMemcpyKind kind);
+
+HcclResult haclrtMemset(void *dst, size_t destMax, int32_t value, size_t count);
 }
 
 #endif // ADAPTER_ACL_H

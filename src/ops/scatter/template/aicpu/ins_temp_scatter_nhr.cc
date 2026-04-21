@@ -34,6 +34,7 @@ void InsTempScatterNHR::SetRoot(u32 root)
 HcclResult InsTempScatterNHR::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                         AlgResourceRequest& resourceRequest)
 {
+    CHK_PTR_NULL(topoInfo);
     GetRes(resourceRequest);
 
     std::vector<HcclChannelDesc> level0Channels;
@@ -129,9 +130,15 @@ HcclResult InsTempScatterNHR::KernelRun(const OpParam& param, const TemplateData
     dataType_ = param.DataDes.dataType;
     HCCL_INFO("[InsTempScatterNHR] queNum_ =  [%d], threads size = [%d]", threadNum_, templateResource.threads.size());
     HCCL_INFO("[InsTempScatterNHR] Run Start");
+    CHK_PRT_RET(templateResource.threads.empty(), 
+ 	            HCCL_ERROR("[InsTempScatterNHR][KernelRun] threads is empty"), 
+ 	            HCCL_E_INTERNAL);
     CHK_PRT_RET(threadNum_ != templateResource.threads.size(),
         HCCL_ERROR("[InsTempScatterNHR] Rank [%d], requiredThread Error.", myRank_),
         HcclResult::HCCL_E_INTERNAL);
+    CHK_PTR_NULL(tempAlgParams.buffInfo.hcclBuff.addr);
+    CHK_PTR_NULL(tempAlgParams.buffInfo.inputPtr);
+    CHK_PTR_NULL(tempAlgParams.buffInfo.outputPtr);
     CHK_RET(PreCopy(tempAlgParams, templateResource.threads));
     CHK_RET(RunNHR(templateResource.channels, templateResource.threads, tempAlgParams));
     CHK_RET(PostCopy(tempAlgParams, templateResource.threads));
@@ -220,10 +227,11 @@ HcclResult InsTempScatterNHR::RunNHR(const std::map<u32, std::vector<ChannelInfo
 HcclResult InsTempScatterNHR::BatchSend(AicpuNHRStepInfo &stepInfo, const std::map<u32, std::vector<ChannelInfo>> &channels,
     const ThreadHandle &thread, const TemplateDataParams &tempAlgParam, u32 repeat) const
 {
-    if (channels.at(stepInfo.toRank).empty()) {
-        return HcclResult::HCCL_E_INTERNAL;
-    }
+    CHK_PRT_RET(channels.find(stepInfo.toRank) == channels.end() || channels.at(stepInfo.toRank).empty(), 
+ 	             HCCL_ERROR("[InsTempScatterNHR][BatchSend] remoteRank[%d] not found in channels", stepInfo.toRank), 
+ 	             HCCL_E_INTERNAL);
     const ChannelInfo &linkSend = channels.at(stepInfo.toRank)[0];
+    CHK_PTR_NULL(linkSend.remoteCclMem.addr);
     HCCL_INFO("[InsTempScatterNHR][BatchSend] myRank[%d], toRank[%d]", myRank_, stepInfo.toRank);
     void* remoteCclBuffAddr = linkSend.remoteCclMem.addr;
     std::vector<DataSlice> srcSlices;
@@ -254,7 +262,11 @@ HcclResult InsTempScatterNHR::BatchSend(AicpuNHRStepInfo &stepInfo, const std::m
 HcclResult InsTempScatterNHR::BatchRecv(AicpuNHRStepInfo &stepInfo, const std::map<u32, std::vector<ChannelInfo>> &channels,
     const ThreadHandle &thread, const TemplateDataParams &tempAlgParam, u32 repeat) const
 {
+    CHK_PRT_RET(channels.find(stepInfo.fromRank) == channels.end() || channels.at(stepInfo.fromRank).empty(), 
+                HCCL_ERROR("[InsTempScatterNHR][BatchRecv] remoteRank[%d] not found in channels", stepInfo.fromRank), 
+                HCCL_E_INTERNAL);
     const ChannelInfo &linkRecv = channels.at(stepInfo.fromRank)[0];
+    CHK_PTR_NULL(linkRecv.remoteCclMem.addr);
     std::vector<DataSlice> srcDstSlices;
     u32 curSliceSize = 0;
     u32 curCount = 0;
@@ -280,8 +292,16 @@ HcclResult InsTempScatterNHR::BatchRecv(AicpuNHRStepInfo &stepInfo, const std::m
 HcclResult InsTempScatterNHR::BatchSR(AicpuNHRStepInfo &stepInfo, const std::map<u32, std::vector<ChannelInfo>> &channels,
     const ThreadHandle &thread, const TemplateDataParams &tempAlgParam, u32 repeat) const
 {
+    CHK_PRT_RET(channels.find(stepInfo.fromRank) == channels.end() || channels.at(stepInfo.fromRank).empty(), 
+ 	            HCCL_ERROR("[InsTempScatterNHR][BatchSR] remoteRank[%d] not found in channels", stepInfo.fromRank), 
+ 	            HCCL_E_INTERNAL);
+    CHK_PRT_RET(channels.find(stepInfo.toRank) == channels.end() || channels.at(stepInfo.toRank).empty(), 
+                HCCL_ERROR("[InsTempScatterNHR][BatchSend] remoteRank[%d] not found in channels", stepInfo.toRank), 
+                HCCL_E_INTERNAL);
     const ChannelInfo &linkSend = channels.at(stepInfo.toRank)[0];
     const ChannelInfo &linkRecv = channels.at(stepInfo.fromRank)[0];
+    CHK_PTR_NULL(linkSend.remoteCclMem.addr);
+    CHK_PTR_NULL(linkRecv.remoteCclMem.addr);
     void* remoteCclBuffAddr = linkSend.remoteCclMem.addr;
 
     u32 curSliceSize = 0;

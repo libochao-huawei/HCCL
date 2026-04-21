@@ -302,6 +302,7 @@ HcclResult InsTempAllReduceNHR::GetReduceScatterStepInfoList(std::vector<NHRStep
 
     u32 nSteps = GetNHRStepNum();
     stepInfoList.resize(nSteps);
+
     for (u32 step = 0; step < nSteps; step++) {
         // 计算通信对象
         u32 deltaRank = 1 << step;

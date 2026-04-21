@@ -40,12 +40,12 @@ public:
     u64 GetThreadNum() const override;
     void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainnToSub) override {};
     void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override{};
-private:
+protected:
     HcclResult GetStepInfo(u32 step, u32 nSteps, AicpuNHRStepInfo &stepInfo);
 
     HcclResult LocalDataCopy(const std::vector<ThreadHandle> &threads);
     HcclResult PostLocalCopy(const std::vector<ThreadHandle> &threads);
-    HcclResult RunAllGatherNHR(const std::vector<ThreadHandle> &threads,
+    virtual HcclResult RunAllGatherNHR(const std::vector<ThreadHandle> &threads,
                                const std::map<u32, std::vector<ChannelInfo>> &channels);
     u32 GetRankFromMap(const u32 algRankIdx) const;
     TemplateDataParams tempAlgParams_;

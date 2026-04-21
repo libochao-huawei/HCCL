@@ -175,7 +175,7 @@ HcclResult InsTempBroadcastMesh1DTwoShot::RootSendData(const u64 memOffset,
         DstPtr = linkSend.remoteOutputGraphMode.addr;
     }
     DataSlice sendSrcSlice1 = DataSlice(tempAlgParams.buffInfo.inputPtr, sendSrcOffset1, sliceInfoVec[myRankIdx][0].size);
-    DataSlice sendDstSlice1 = DataSlice(DstPtr, sendDstOffset1, sendDstOffset1);
+    DataSlice sendDstSlice1 = DataSlice(DstPtr, sendDstOffset1, sliceInfoVec[myRankIdx][0].size);
 
     HCCL_DEBUG("[InsTempBroadcastMesh1DTwoShot] RootSendData: sendSrcSlice1.myRank[%d] addr[%p] offset[%d] Size[%d]",
               myRank_, tempAlgParams.buffInfo.inputPtr, sendSrcOffset1, sliceInfoVec[myRankIdx][0].size);
@@ -418,7 +418,7 @@ HcclResult InsTempBroadcastMesh1DTwoShot::KernelRun(const OpParam& param, const 
 
     threadNum_ = templateResource.threads.size();
 
-    HCCL_INFO("[InsTempBroadcastMesh1DTwoShot Run]RankID:[%d], root:[%u]", myRank_, root_);
+    HCCL_INFO("[InsTempBroadcastMesh1DTwoShot Run]RankID:[%d], root:[%u], threadNum_:[%u]", myRank_, root_, threadNum_);
 
     std::vector<u32> scatterCommRanks;
     CHK_RET(CalcCommRankSetforScatter(templateRankSize_, scatterCommRanks));  // 计算scatter步骤的通信对象

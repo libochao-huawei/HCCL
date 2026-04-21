@@ -32,10 +32,6 @@ constexpr uint16_t RANK_NUM_PER_CKE = 16;
 CcuKernelScatterNHR1DMem2Mem::CcuKernelScatterNHR1DMem2Mem(const CcuKernelArg &arg) : CcuKernelAlgBase(arg)
 {
     const CcuKernelArgScatterNHRMem2Mem1D *kernelArg = dynamic_cast<const CcuKernelArgScatterNHRMem2Mem1D *>(&arg);
-    if (kernelArg == nullptr) {
-        HCCL_ERROR("[CcuKernelScatterNHR1DMem2Mem] kernelArg is null");
-        return;
-    }
 
     rankId_ = kernelArg->rankId_;
     dimSize_ = kernelArg->dimSize_;
