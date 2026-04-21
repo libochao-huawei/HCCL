@@ -6,8 +6,6 @@
 
 #include "hccl_types.h"
 #include "hccl.h"
-#include "hccl/hccl_res.h"
-
 namespace ops_hccl {
 
 constexpr uint32_t COMM_INDENTIFIER_MAX_LENGTH = 128;
@@ -31,6 +29,18 @@ enum class DevType {
     DEV_TYPE_950 = 4,
     DEV_TYPE_910_95 = 5,
     DEV_TYPE_COUNT
+};
+
+enum HcclMemType {
+    HCCL_MEM_TYPE_DEVICE = 0,
+    HCCL_MEM_TYPE_HOST = 1,
+    HCCL_MEM_TYPE_NUM
+};
+
+struct HcclMem {
+    HcclMemType type = HCCL_MEM_TYPE_DEVICE;
+    void *addr = nullptr;
+    uint64_t size = 0;
 };
 
 enum class AlgTypeLevel0 {
@@ -102,7 +112,7 @@ struct OpParam {
             void *counts;
             void *displs;
             HcclDataType dataType;
-        } vDataDes = {nullptr, nullptr, HCCL_DATA_TYPE_RESERVED};
+        } vDataDes;
     };
     HcclCMDType opType = HcclCMDType::HCCL_CMD_INVALID;
     bool isZeroCopy = false;
