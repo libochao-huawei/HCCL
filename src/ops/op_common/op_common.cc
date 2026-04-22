@@ -855,14 +855,7 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
     std::string tagStr = param.algTag;
     bool isChecked = (g_consistencyCheckedList.find(tagStr) != g_consistencyCheckedList.end());
     if (!isChecked || increCreateChannelFlag) {
-        CHK_RET(FillOpExChangeInfo(param, exchangeInfo));
-        if (param.opMode == OpMode::OFFLOAD) {
-            AivParamStorage *aivParam = nullptr;
-            HcclResult ret = GetAivParamStorageByComm(comm, &aivParam);
-            if (ret == HCCL_SUCCESS && aivParam != nullptr) {
-                exchangeInfo.aivCoreLimit = aivParam->aivCoreLimit;
-            }
-        }
+        CHK_RET(FillOpExChangeInfo(comm, param, exchangeInfo));
         CHK_RET(HcclCommAddExchangeInfo(comm, &exchangeInfo, sizeof(exchangeInfo)));
         g_consistencyCheckedList.insert(tagStr);
     }
@@ -1539,8 +1532,10 @@ HcclResult GetAlgResDPU(HcclComm comm, const OpParam &param, AlgResourceRequest 
     return HCCL_SUCCESS;
 }
 
-HcclResult FillOpExChangeInfo(const OpParam &param, OpExchangeInfo &exchangeInfo)
+HcclResult FillOpExChangeInfo(HcclComm comm, const OpParam &param, OpExchangeInfo &exchangeInfo)
 {
+    void *cclBufferAddr;
+    CHK_RET(HcclGetHcclBuffer(comm, &cclBufferAddr, &exchangeInfo.cclBufferSize));
     exchangeInfo.root = param.root;
     exchangeInfo.opType = param.opType;
     s32 sRet = strncpy_s(exchangeInfo.algTag, ALG_TAG_LENGTH, param.algTag, ALG_TAG_LENGTH);
@@ -1549,7 +1544,21 @@ HcclResult FillOpExChangeInfo(const OpParam &param, OpExchangeInfo &exchangeInfo
     exchangeInfo.engine = param.engine;
     exchangeInfo.opExecuteConfig = param.opExecuteConfig;
     exchangeInfo.reduceType = param.reduceType;
-
+    if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL) {
+        exchangeInfo.dataType = param.all2AllDataDes.sendType;
+        exchangeInfo.count = param.all2AllDataDes.sendCount;
+    } else if (param.opType) {
+        exchangeInfo.dataType = param.DataDes.dataType;
+        exchangeInfo.count = param.DataDes.count;
+    }
+    if (param.opMode == OpMode::OFFLOAD) {
+        AivParamStorage *aivParam = nullptr;
+        HcclResult ret = GetAivParamStorageByComm(comm, &aivParam);
+        if (ret == HCCL_SUCCESS && aivParam != nullptr) {
+            exchangeInfo.aivCoreLimit = aivParam->aivCoreLimit;
+        }
+    }
+    CHK_RET(HcclGetCommName(comm, exchangeInfo.group));
     return HCCL_SUCCESS;
 }
 
@@ -1564,6 +1573,10 @@ HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeI
         if (rmtDataLen == 0) {
             continue;
         } else {
+            if (exchangeInfo.cclBufferSize != rmtExchangeInfo->cclBufferSize) {
+                CHK_RET(ReportOpExchangeInfoCheckFailed("HcclBufferSize", std::to_string(exchangeInfo.cclBufferSize),
+                    std::to_string(rmtExchangeInfo->cclBufferSize)));
+            }
             if (exchangeInfo.root != rmtExchangeInfo->root) {
                 CHK_RET(ReportOpExchangeInfoCheckFailed("RootRankId", exchangeInfo.root, rmtExchangeInfo->root));
             }
@@ -1601,6 +1614,9 @@ HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeI
             }
             if (strncmp(exchangeInfo.group, rmtExchangeInfo->group, MAX_LENGTH) != 0) {
                 CHK_RET(ReportOpExchangeInfoCheckFailed("GroupName", exchangeInfo.group, rmtExchangeInfo->group));
+            }
+            if (exchangeInfo.sendRecvRemoteRank != channel.remoteRank) {
+                CHK_RET(ReportOpExchangeInfoCheckFailed("SendRecvRemoteRank", exchangeInfo.root, rmtExchangeInfo->root));
             }
         }
     }
