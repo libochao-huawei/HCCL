@@ -55,7 +55,6 @@ HcclResult UnpackRankRangeOnThread(
     uint32_t beginRank,
     uint32_t endRank)
 {
-    CHK_PTR_NULL(commOutputPtr);
     CHK_PRT_RET(beginRank > endRank || endRank > param.topoInfo.rankSize,
         HCCL_ERROR("[AllGatherBatchSmallCountExecutor][UnpackRankRangeOnThread]tag[%s], invalid rank range [%u, %u), rankSize[%u]",
             param.tag, beginRank, endRank, param.topoInfo.rankSize),
@@ -80,8 +79,6 @@ HcclResult AllGatherBatchSmallCountExecutor::UnpackWindowFromCCLOut(
     u64 packedSize,
     u8 *commOutputPtr)
 {
-    CHK_PTR_NULL(commOutputPtr);
-
     const bool useQuadThreadUnpack = unpackPlan.hasSubThreads &&
         (packedSize >= unpackPlan.quadThreadMinPackedBytes);
 
@@ -254,8 +251,6 @@ HcclResult AllGatherBatchSmallCountExecutor::BuildWindowPlan(
 HcclResult AllGatherBatchSmallCountExecutor::PackWindowToCCLIn(
     const std::vector<WindowPart> &parts, void *commInputPtr)
 {
-    CHK_PTR_NULL(commInputPtr);
-
     u8 *packedPtr = static_cast<u8 *>(commInputPtr);
     for (const WindowPart &part : parts) {
         const BatchItemParam &item = param_.items[part.itemIdx];
@@ -269,7 +264,6 @@ HcclResult AllGatherBatchSmallCountExecutor::PackWindowToCCLIn(
 HcclResult AllGatherBatchSmallCountExecutor::RunLoop(std::vector<ChannelResource> &channels)
 {
     const u32 rankSize = param_.topoInfo.rankSize;
-    CHK_PTR_NULL(resCtx_.localBuffer.addr);
 
     void *commInputPtr = resCtx_.localBuffer.addr;
     u8 *commOutputPtr = static_cast<u8 *>(resCtx_.localBuffer.addr) + resCtx_.localBuffer.offset;

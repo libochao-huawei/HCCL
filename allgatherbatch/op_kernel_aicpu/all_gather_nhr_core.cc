@@ -80,11 +80,6 @@ HcclResult AllGatherNHRCore::RunAllGather(u32 rank, u32 rankSize,
     const std::vector<Slice> &outputSlices,
     const std::vector<ChannelResource> &links)
 {
-    CHK_PRT_RET(outputSlices.size() < rankSize,
-        HCCL_ERROR("[AllGatherNHRCore][RunAllGather] outputSlices size[%llu] is less than rankSize[%u]",
-            static_cast<unsigned long long>(outputSlices.size()), rankSize),
-        HCCL_E_PARA);
-
     const u32 nSteps = GetStepNumInterServer(rankSize);
     for (u32 step = 0; step < nSteps; ++step) {
         InterServerAlgoStep stepInfo;
