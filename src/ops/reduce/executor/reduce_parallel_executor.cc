@@ -257,8 +257,8 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
                                       tempRequestArr.at(1).at(1).slaveThreadNum + 1);
     // 预期threads数量= 全局主流 + intra主流  +        intra从流         + inter主流   +          inter从流 
     u32 expectedThreadsNum = 1 + stageSize_ + (intraThreadsNumMax - 1) + stageSize_ + (interThreadsNumMax - 1);
-    CHK_PRT_RET(threads_.size() == rankSize_,
-        HCCL_ERROR("[ReduceParallelExecutor][CalcLocalRoot] root[%u] is out of rankSize[%u]", root_, rankSize_),
+    CHK_PRT_RET(threads_.size() != expectedThreadsNum,
+        HCCL_ERROR("[ReduceParallelExecutor][PrepareRes] act:[%u] exp:[%u]", threads_.size(), expectedThreadsNum),
         HcclResult::HCCL_E_INTERNAL);
 
     // 第0条流是全局主流
