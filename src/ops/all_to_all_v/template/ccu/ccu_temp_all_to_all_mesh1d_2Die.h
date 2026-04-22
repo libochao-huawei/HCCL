@@ -16,6 +16,9 @@
 
 namespace ops_hccl {
 
+using RankId = u32;
+using RankGroup = std::vector<RankId>;
+
 class CcuTempAllToAllMesh1D2Die : public CcuAlgTemplateBase {
 public:
     CcuTempAllToAllMesh1D2Die() = default;
