@@ -127,8 +127,8 @@ HcclResult AllGatherBatchSmallCountExecutor::UnpackWindowFromCCLOut(
 }
 
 AllGatherBatchSmallCountExecutor::AllGatherBatchSmallCountExecutor(
-    const OpParam &param, AlgResourceCtx &resCtx, BatchCallProfiling &profiling)
-    : param_(param), resCtx_(resCtx), profiling_(profiling)
+    const OpParam &param, AlgResourceCtx &resCtx)
+    : param_(param), resCtx_(resCtx)
 {
 }
 
@@ -290,9 +290,6 @@ HcclResult AllGatherBatchSmallCountExecutor::RunLoop(std::vector<ChannelResource
     execMem.inputPtr = commInputPtr;
     execMem.outputPtr = commOutputPtr;
 
-    profiling_.localBufferBytes = resCtx_.localBuffer.size;
-    profiling_.maxWindowBytes = maxWindowBytes;
-
     WindowRange current;
     current.startDescIdx = 0;
     current.startOffset = 0;
@@ -303,11 +300,8 @@ HcclResult AllGatherBatchSmallCountExecutor::RunLoop(std::vector<ChannelResource
     parts.reserve(param_.itemCount);
     while (current.startDescIdx < param_.itemCount) {
         CHK_RET(BuildWindowPlan(current, maxWindowBytes, range, next, parts));
-        ++profiling_.windowCount;
 
-        const uint64_t packStartUs = GetCurrentTimeUs();
         CHK_RET(PackWindowToCCLIn(parts, commInputPtr));
-        profiling_.packUs += (GetCurrentTimeUs() - packStartUs);
 
         execMem.count = range.packedSize;
         execMem.inputMem.size = range.packedSize;
@@ -323,9 +317,7 @@ HcclResult AllGatherBatchSmallCountExecutor::RunLoop(std::vector<ChannelResource
                 static_cast<unsigned long long>(range.packedSize)),
             ret);
 
-        const uint64_t unpackStartUs = GetCurrentTimeUs();
         CHK_RET(UnpackWindowFromCCLOut(unpackPlan, parts, range.packedSize, commOutputPtr));
-        profiling_.unpackUs += (GetCurrentTimeUs() - unpackStartUs);
 
         current = next;
     }
@@ -335,9 +327,7 @@ HcclResult AllGatherBatchSmallCountExecutor::RunLoop(std::vector<ChannelResource
 HcclResult AllGatherBatchSmallCountExecutor::KernelRun(ExecMem &execMem, std::vector<ChannelResource> &channels)
 {
     AllGatherHDStage hdStageCore(param_, resCtx_, execMem, channels);
-    const uint64_t hdStageStartUs = GetCurrentTimeUs();
     HcclResult commRet = hdStageCore.RunAsync();
-    profiling_.hdStageUs += (GetCurrentTimeUs() - hdStageStartUs);
     CHK_RET(commRet);
 
     return HCCL_SUCCESS;

@@ -4,13 +4,10 @@
 
 namespace ops_hccl_allgatherbatch {
 
-HcclResult ExecOp(const OpParam &param, AlgResourceCtx *resCtx, BatchCallProfiling &profiling)
+HcclResult ExecOp(const OpParam &param, AlgResourceCtx *resCtx)
 {
-    const uint64_t execStartUs = GetCurrentTimeUs();
-    AllGatherBatchSmallCountExecutor executor(param, *resCtx, profiling);
-    const HcclResult ret = executor.Orchestrate();
-    profiling.execUs += (GetCurrentTimeUs() - execStartUs);
-    return ret;
+    AllGatherBatchSmallCountExecutor executor(param, *resCtx);
+    return executor.Orchestrate();
 }
 
 }  // namespace ops_hccl_allgatherbatch

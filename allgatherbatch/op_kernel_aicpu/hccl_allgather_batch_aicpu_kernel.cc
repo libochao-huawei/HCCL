@@ -4,43 +4,6 @@
 #include "profiling.h"
 #include "task_exception_info.h"
 
-namespace {
-
-using namespace ops_hccl_allgatherbatch;
-
-void ResetBatchCallProfiling(BatchCallProfiling &profiling, const OpParam &param, const AlgResourceCtx &resCtx)
-{
-    profiling = {};
-    profiling.rank = param.topoInfo.rank;
-    profiling.rankSize = param.topoInfo.rankSize;
-    profiling.itemCount = param.itemCount;
-    profiling.commMode = param.commMode;
-    profiling.totalInputBytes = param.totalInputBytes;
-    profiling.localBufferBytes = resCtx.localBuffer.size;
-    profiling.maxWindowBytes = GetMaxWindowBytes(param, resCtx);
-}
-
-void PrintBatchCallProfiling(const BatchCallProfiling &profiling)
-{
-    HCCL_RUN_INFO(
-        "AGB_CALL rank=%u/%u items=%u windows=%u comm=%s us{kernel=%llu exec=%llu pack=%llu hd=%llu unpack=%llu} bytes{input=%llu local=%llu maxWin=%llu}",
-        profiling.rank,
-        profiling.rankSize,
-        profiling.itemCount,
-        profiling.windowCount,
-        ToCommModeString(profiling.commMode),
-        static_cast<unsigned long long>(profiling.kernelUs),
-        static_cast<unsigned long long>(profiling.execUs),
-        static_cast<unsigned long long>(profiling.packUs),
-        static_cast<unsigned long long>(profiling.hdStageUs),
-        static_cast<unsigned long long>(profiling.unpackUs),
-        static_cast<unsigned long long>(profiling.totalInputBytes),
-        static_cast<unsigned long long>(profiling.localBufferBytes),
-        static_cast<unsigned long long>(profiling.maxWindowBytes));
-}
-
-}  // namespace
-
 extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
     ops_hccl_allgatherbatch::OpParam *param)
 {
@@ -52,9 +15,6 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
     if (ValidateBasicOpParam(*param, "AICPU kernel param") != HCCL_SUCCESS) {
         return 1;
     }
-
-    BatchCallProfiling profiling {};
-    ResetBatchCallProfiling(profiling, *param, *param->resCtx);
 
     if (HcommAcquireComm(param->commName) != HCCL_SUCCESS) {
         HCCL_ERROR("HcommAcquireComm failed, commName=%s", param->commName);
@@ -130,8 +90,7 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
         return 1;
     }
 
-    const uint64_t kernelStartUs = GetCurrentTimeUs();
-    HcclResult ret = ExecOp(*param, param->resCtx, profiling);
+    HcclResult ret = ExecOp(*param, param->resCtx);
     if (ret != HCCL_SUCCESS) {
         HCCL_ERROR("ExecOp failed, ret=%d", static_cast<int>(ret));
         EndProfilingIfNeeded();
@@ -184,7 +143,5 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
         return 1;
     }
 
-    profiling.kernelUs += (GetCurrentTimeUs() - kernelStartUs);
-    PrintBatchCallProfiling(profiling);
     return 0;
 }

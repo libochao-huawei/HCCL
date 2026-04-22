@@ -22,7 +22,6 @@ constexpr u32 NOTIFY_IDX_ACK = 0;
 constexpr u32 NOTIFY_IDX_DATA_SIGNAL = 1;
 constexpr u32 NOTIFY_IDX_FIN_ACK = 2;
 constexpr uint32_t CUSTOM_TIMEOUT = 120;
-constexpr uint32_t kAllGatherBatchOpNameLength = 64;
 constexpr uint32_t kAllGatherBatchTagLength = HCCL_RES_TAG_MAX_LEN + 1;
 constexpr char kAllGatherBatchCtxTag[] = "allgatherbatch";
 constexpr char kAllGatherBatchKernelName[] = "HcclAllGatherBatchAicpuKernel";
@@ -111,22 +110,6 @@ struct AlgResourceCtx {
     CommBuffer localBuffer {};
 };
 
-struct BatchCallProfiling {
-    uint32_t rank = 0;
-    uint32_t rankSize = 0;
-    uint32_t itemCount = 0;
-    uint32_t windowCount = 0;
-    BatchCommMode commMode = BatchCommMode::kUnknown;
-    uint64_t totalInputBytes = 0;
-    uint64_t localBufferBytes = 0;
-    uint64_t maxWindowBytes = 0;
-    uint64_t kernelUs = 0;
-    uint64_t execUs = 0;
-    uint64_t packUs = 0;
-    uint64_t hdStageUs = 0;
-    uint64_t unpackUs = 0;
-};
-
 struct BatchItemParam {
     void *sendBuf = nullptr;
     void *recvBuf = nullptr;
@@ -187,22 +170,6 @@ inline const char *ToCommModeString(BatchCommMode commMode)
     }
 }
 
-inline const char *ToProtocolString(CommProtocol protocol)
-{
-    switch (protocol) {
-        case COMM_PROTOCOL_HCCS:
-            return "HCCS";
-        case COMM_PROTOCOL_PCIE:
-            return "PCIE";
-        case COMM_PROTOCOL_ROCE:
-            return "ROCE";
-        case COMM_PROTOCOL_SIO:
-            return "SIO";
-        default:
-            return "RESERVED";
-    }
-}
-
 inline uint64_t GetCurrentTimeUs()
 {
     const auto now = std::chrono::steady_clock::now().time_since_epoch();
@@ -232,23 +199,6 @@ inline ChannelResource &GetChannel(AlgResourceCtx &resCtx, uint32_t idx)
 inline const ChannelResource &GetChannel(const AlgResourceCtx &resCtx, uint32_t idx)
 {
     return GetChannelArray(resCtx)[idx];
-}
-
-inline uint64_t GetPerRankWindowCapacity(const OpParam &param, const AlgResourceCtx &resCtx)
-{
-    if (param.topoInfo.rankSize == 0U) {
-        return 0U;
-    }
-    return resCtx.localBuffer.size / param.topoInfo.rankSize;
-}
-
-inline uint64_t GetMaxWindowBytes(const OpParam &param, const AlgResourceCtx &resCtx)
-{
-    const uint64_t perRankCapacity = GetPerRankWindowCapacity(param, resCtx);
-    if (perRankCapacity == 0U || param.windowBytes == 0U) {
-        return 0U;
-    }
-    return (param.windowBytes < perRankCapacity) ? param.windowBytes : perRankCapacity;
 }
 
 inline HcclResult ValidateBasicOpParam(const OpParam &param, const char *tag)

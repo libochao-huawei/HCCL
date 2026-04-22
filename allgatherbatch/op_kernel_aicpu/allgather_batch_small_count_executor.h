@@ -32,7 +32,7 @@ struct UnpackRankChunkPlan {
 
 class AllGatherBatchSmallCountExecutor {
 public:
-    AllGatherBatchSmallCountExecutor(const OpParam &param, AlgResourceCtx &resCtx, BatchCallProfiling &profiling);
+    AllGatherBatchSmallCountExecutor(const OpParam &param, AlgResourceCtx &resCtx);
     HcclResult Orchestrate();
 
 private:
@@ -47,7 +47,6 @@ private:
 
     const OpParam &param_;
     AlgResourceCtx &resCtx_;
-    BatchCallProfiling &profiling_;
 };
 
 }  // namespace ops_hccl_allgatherbatch
