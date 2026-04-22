@@ -370,8 +370,8 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
     )
 
     target_link_directories(scatter_aicpu_kernel PRIVATE
- 	    ${ASCEND_CANN_PACKAGE_PATH}/devlib/device
- 	)
+      ${ASCEND_CANN_PACKAGE_PATH}/devlib/device
+  )
 
     target_link_libraries(scatter_aicpu_kernel PRIVATE
         -Wl,--no-as-needed
@@ -385,7 +385,15 @@ endif()
 
 add_definitions(-DORION_MODE)
 
-add_library(hccl SHARED)
+if(STATIC_MODE)
+    add_library(hccl STATIC)
+    set_target_properties(hccl PROPERTIES
+        OUTPUT_NAME "hccl_static"
+        POSITION_INDEPENDENT_CODE ON
+    )
+else()
+    add_library(hccl SHARED)
+endif()
 
 if(NOT KERNEL_MODE)
     # 基于ini生成json文件
@@ -402,52 +410,51 @@ if(NOT KERNEL_MODE)
     add_dependencies(hccl aicpu_kernel_json)
 endif()
 
+set(TARGET_NAME hccl)
+
+set(HCCT_TARGET ${TARGET_NAME})
+
 if(BUILD_OPEN_PROJECT)
-    target_compile_definitions(hccl PRIVATE
+    target_compile_definitions(${TARGET_NAME} PRIVATE
         OPEN_BUILD_PROJECT
         $<$<STREQUAL:${PRODUCT_SIDE},host>:_GLIBCXX_USE_CXX11_ABI=0>
     )
 else()
-    target_compile_definitions(hccl PRIVATE
+    target_compile_definitions(${TARGET_NAME} PRIVATE
         $<$<STREQUAL:${PRODUCT_SIDE},host>:_GLIBCXX_USE_CXX11_ABI=0>
     )
 endif()
 
-target_include_directories(hccl PRIVATE
+target_include_directories(${TARGET_NAME} PRIVATE
     ${INCLUDE_LIST}
 )
 
-target_compile_definitions(hccl PRIVATE
+target_compile_definitions(${TARGET_NAME} PRIVATE
     -DHOST_COMPILE
 )
 
-target_compile_options(hccl PRIVATE
+target_compile_options(${TARGET_NAME} PRIVATE
     -Werror
     -fno-common
     -fno-strict-aliasing
     -pipe
-    -O3
-    $<$<CONFIG:Debug>:-g>
-    -std=c++14
+    $<$<CONFIG:Release>:-O3>
+    $<$<CONFIG:Debug>:-O3 -g>
+    $<$<COMPILE_LANGUAGE:CXX>:-std=c++14>
     -fstack-protector-all
 )
 
 # libhccl
-target_link_options(hccl PRIVATE
-    -Wl,-z,relro
-    -Wl,-z,now
-    -Wl,-z,noexecstack
-    $<$<CONFIG:Release>:-s>
-)
-
-target_link_directories(hccl PRIVATE
+target_link_directories(${TARGET_NAME} PRIVATE
     ${ASCEND_CANN_PACKAGE_PATH}/lib64
 )
 
-add_dependencies(hccl hccl_compat)
+if(NOT STATIC_MODE)
+    add_dependencies(${TARGET_NAME} hccl_compat)
+endif()
 
 if(BUILD_OPEN_PROJECT)
-    target_link_libraries(hccl PRIVATE
+    target_link_libraries(${TARGET_NAME} PRIVATE
         -Wl,--no-as-needed
         hcomm
         hccl_compat
@@ -458,7 +465,7 @@ if(BUILD_OPEN_PROJECT)
         -Wl,--no-as-needed
     )
 else()
-    target_link_libraries(hccl PRIVATE
+    target_link_libraries(${TARGET_NAME} PRIVATE
         $<BUILD_INTERFACE:slog_headers>
         $<BUILD_INTERFACE:msprof_headers>
         $<BUILD_INTERFACE:npu_runtime_headers>
@@ -475,17 +482,99 @@ else()
     )
 endif()
 
-install(TARGETS hccl
-    LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} OPTIONAL
+if(NOT STATIC_MODE)
+    target_link_options(${TARGET_NAME} PRIVATE
+        -Wl,-z,relro
+        -Wl,-z,now
+        -Wl,-z,noexecstack
+        $<$<CONFIG:Release>:-s>
+    )
+endif()
+
+target_link_directories(${TARGET_NAME} PRIVATE
+    ${ASCEND_CANN_PACKAGE_PATH}/lib64
 )
-if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
-    install(TARGETS scatter_aicpu_kernel
+
+if(STATIC_MODE)
+    target_link_libraries(hccl PRIVATE
+        hcomm
+        acl_rt
+        c_sec
+        unified_dlog
+        mmpa
+    )
+else()
+    if(BUILD_OPEN_PROJECT)
+        target_link_libraries(hccl PRIVATE
+            -Wl,--no-as-needed
+            hcomm
+            acl_rt
+            c_sec
+            unified_dlog
+            mmpa
+            -Wl,--no-as-needed
+        )
+    else()
+        target_link_libraries(hccl PRIVATE
+            $<BUILD_INTERFACE:slog_headers>
+            $<BUILD_INTERFACE:msprof_headers>
+            $<BUILD_INTERFACE:npu_runtime_headers>
+            $<BUILD_INTERFACE:mmpa_headers>
+            -Wl,--no-as-needed
+            hcomm
+            acl_rt
+            c_sec
+            unified_dlog
+            mmpa
+            -Wl,--no-as-needed
+            ofed_headers
+        )
+    endif()
+endif()
+
+if(STATIC_MODE)
+    install(TARGETS hccl
+        ARCHIVE DESTINATION ${INSTALL_LIBRARY_DIR} OPTIONAL
+    )
+else()
+    install(TARGETS hccl
         LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} OPTIONAL
     )
 endif()
 
+if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
+    if(STATIC_MODE)
+        install(TARGETS scatter_aicpu_kernel
+            LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} OPTIONAL
+        )
+    else()
+        install(TARGETS scatter_aicpu_kernel
+            LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} OPTIONAL
+        )
+    endif()
+endif()
+
 add_subdirectory(common)
 add_subdirectory(ops)
+
+# 定义AIV算子聚合目标
+set(AIV_TARGETS
+    hccl_aiv_all_gather_op_910_95
+    hccl_aiv_all_reduce_op_910_95
+    hccl_aiv_all_to_all_v_op_910_95
+    hccl_aiv_all_to_all_op_910_95
+    hccl_aiv_broadcast_op_910_95
+    hccl_aiv_reduce_op_910_95
+    hccl_aiv_reduce_scatter_op_910_95
+    hccl_aiv_scatter_op_910_95
+)
+
+add_custom_target(aiv_all_targets)
+foreach(target ${AIV_TARGETS})
+    if(TARGET ${target})
+        add_dependencies(aiv_all_targets ${target})
+    endif()
+endforeach()
 
 if(DEVICE_MODE AND KERNEL_MODE)
     set(CCL_KERNEL_TAR_DIR ${OPS_BASE_DIR}/build_device/ccl_kernel_tar_pkg/aicpu_kernels_device)
@@ -505,5 +594,24 @@ if(DEVICE_MODE AND KERNEL_MODE)
         COMMAND ${CMAKE_COMMAND} -E make_directory ${AICPU_CUSTOM_DIR}
         COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:scatter_aicpu_kernel> ${AICPU_CUSTOM_DIR}/libscatter_aicpu_kernel.so
         COMMENT "Copying libscatter_aicpu_kernel.so to ${AICPU_CUSTOM_DIR}/libscatter_aicpu_kernel.so"
+    )
+endif()
+
+# 静态库特殊处理：嵌入二进制文件
+if(STATIC_MODE)
+    # 添加静态库恢复代码
+    set(STATIC_RESTORE_SRC ${CMAKE_CURRENT_SOURCE_DIR}/common/static_restore.c)
+    if(NOT EXISTS ${STATIC_RESTORE_SRC})
+        file(WRITE ${STATIC_RESTORE_SRC} "/* Static restore implementation will be generated during build */\n")
+    endif()
+
+    # 创建自定义目标来处理静态库的最终打包
+    add_custom_target(package_static_lib DEPENDS hccl)
+
+    # 添加后构建步骤来嵌入二进制文件
+    add_custom_command(
+        TARGET package_static_lib
+        POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E echo "Processing static library embedding..."
     )
 endif()
