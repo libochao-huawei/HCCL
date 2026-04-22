@@ -461,6 +461,7 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     bool   isMc2{false};
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CommEngine engine = CommEngine::COMM_ENGINE_RESERVED;
+    u32 execTimeout = 0;
     AlgType algType;
     char algTypeStr[ALG_MAX_LENGTH];
     union {

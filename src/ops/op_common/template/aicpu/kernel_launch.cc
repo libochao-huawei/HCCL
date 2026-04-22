@@ -25,6 +25,7 @@
 #include <atomic>
 #include "hccl_diag.h"
 #include "hccl_device_comm_dl.h"
+#include "exec_timeout_manager.h"
 
 using namespace ops_hccl;
 namespace {
@@ -362,6 +363,8 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             return 1;
         }
 
+        // 设置执行超时时间
+        ExecTimeoutManager::Instance().SetExecTimeout(param->execTimeout);
         // 执行算法编排
         if (executor->Orchestrate(*param, resCtx) != HCCL_SUCCESS) {
             HCCL_ERROR("orchestrate failed for alg:%s", param->algName);

@@ -10,6 +10,7 @@
 
 #include "dpu_alg_data_trans_wrapper.h"
 #include "hcomm_primitives.h"
+#include "exec_timeout_manager.h"
 
 namespace ops_hccl {
 constexpr u32 DPU_TIMEOUT = 180000;
@@ -22,10 +23,12 @@ HcclResult SendRecvWrite(const SendRecvInfo &sendRecvInfo)
     const ChannelInfo &sendChannel = sendRecvInfo.sendRecvChannels_.txChannel_;
     const ChannelInfo &recvChannel = sendRecvInfo.sendRecvChannels_.rxChannel_;
     u32 repeatNum = srcSlices.size();
+    // 获取执行超时时间
+    u32 execTimeout = ExecTimeoutManager::Instance().GetExecTimeout();
     // 向write rank发送tx同步，确保该rank的hcclBuffer可用
     // 这里只是在host上向device下任务，所以实际在host侧不会因为wait而阻塞
     CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(0, recvChannel.handle, NOTIFY_IDX_ACK)));
-    CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(0, sendChannel.handle, NOTIFY_IDX_ACK, DPU_TIMEOUT)));
+    CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(0, sendChannel.handle, NOTIFY_IDX_ACK, execTimeout)));
     for (int i = 0; i < repeatNum; i++) {
         // tx同步完成后准备将自己的userIn上的数据写到对方的hcclBuffer上
         const DataSlice srcSlice = srcSlices[i];
@@ -35,11 +38,11 @@ HcclResult SendRecvWrite(const SendRecvInfo &sendRecvInfo)
         CHK_RET(static_cast<HcclResult>(
             HcommWriteWithNotifyNbiOnThread(0, sendChannel.handle, dst, src, srcSlice.size_, NOTIFY_IDX_DATA_SIGNAL)));
         CHK_RET(static_cast<HcclResult>(
-            HcommChannelNotifyWaitOnThread(0, recvChannel.handle, NOTIFY_IDX_DATA_SIGNAL, DPU_TIMEOUT)));
+            HcommChannelNotifyWaitOnThread(0, recvChannel.handle, NOTIFY_IDX_DATA_SIGNAL, execTimeout)));
     }
     // 写完之后做后同步告诉对面写完了
     CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(0, sendChannel.handle, NOTIFY_IDX_FIN_ACK)));
-    CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(0, recvChannel.handle, NOTIFY_IDX_FIN_ACK, DPU_TIMEOUT)));
+    CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(0, recvChannel.handle, NOTIFY_IDX_FIN_ACK, execTimeout)));
     CHK_RET(static_cast<HcclResult>(HcommChannelFenceOnThread(0, recvChannel.handle)));
     CHK_RET(static_cast<HcclResult>(HcommFenceOnThread(0)));
 #endif
@@ -53,8 +56,10 @@ HcclResult SendWrite(const DataInfo &sendInfo)
     const std::vector<DataSlice> dstSlices = sendInfo.slices_.dstSlices_;
     const ChannelInfo &sendChannel = sendInfo.channel_;
     u32 sliceNum = srcSlices.size();
+    // 获取执行超时时间
+    u32 execTimeout = ExecTimeoutManager::Instance().GetExecTimeout();
     CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(0, sendChannel.handle, NOTIFY_IDX_ACK)));
-    CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(0, sendChannel.handle, NOTIFY_IDX_ACK, DPU_TIMEOUT)));
+    CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(0, sendChannel.handle, NOTIFY_IDX_ACK, execTimeout)));
     for (int i = 0; i < sliceNum; i++) {
         const DataSlice srcSlice = srcSlices[i];
         const DataSlice dstSlcie = dstSlices[i];
@@ -62,10 +67,10 @@ HcclResult SendWrite(const DataInfo &sendInfo)
         void *src = static_cast<void *>(static_cast<s8 *>(srcSlice.addr_) + srcSlice.offset_);
         CHK_RET(static_cast<HcclResult>(
             HcommWriteWithNotifyNbiOnThread(0, sendChannel.handle, dst, src, srcSlice.size_, NOTIFY_IDX_DATA_SIGNAL)));
-        CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(0, sendChannel.handle, NOTIFY_IDX_DATA_SIGNAL, DPU_TIMEOUT)));
+        CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(0, sendChannel.handle, NOTIFY_IDX_DATA_SIGNAL, execTimeout)));
     }
     CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(0, sendChannel.handle, NOTIFY_IDX_FIN_ACK)));
-    CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(0, sendChannel.handle, NOTIFY_IDX_FIN_ACK, DPU_TIMEOUT)));
+    CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(0, sendChannel.handle, NOTIFY_IDX_FIN_ACK, execTimeout)));
     CHK_RET(static_cast<HcclResult>(HcommChannelFenceOnThread(0, sendChannel.handle)));
     CHK_RET(static_cast<HcclResult>(HcommFenceOnThread(0)));
 #endif
@@ -79,15 +84,17 @@ HcclResult RecvWrite(const DataInfo &recvInfo)
     const std::vector<DataSlice> dstSlices = recvInfo.slices_.dstSlices_;
     const ChannelInfo &recvChannel = recvInfo.channel_;
     u32 sliceNum = srcSlices.size();
+    // 获取执行超时时间
+    u32 execTimeout = ExecTimeoutManager::Instance().GetExecTimeout();
     CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(0, recvChannel.handle, NOTIFY_IDX_ACK)));
-    CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(0, recvChannel.handle, NOTIFY_IDX_ACK, DPU_TIMEOUT)));
+    CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(0, recvChannel.handle, NOTIFY_IDX_ACK, execTimeout)));
     for (int i = 0; i < sliceNum; i++) {
         CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(0, recvChannel.handle, NOTIFY_IDX_DATA_SIGNAL)));
         CHK_RET(static_cast<HcclResult>(
-            HcommChannelNotifyWaitOnThread(0, recvChannel.handle, NOTIFY_IDX_DATA_SIGNAL, DPU_TIMEOUT)));
+            HcommChannelNotifyWaitOnThread(0, recvChannel.handle, NOTIFY_IDX_DATA_SIGNAL, execTimeout)));
     }
     CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(0, recvChannel.handle, NOTIFY_IDX_FIN_ACK)));
-    CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(0, recvChannel.handle, NOTIFY_IDX_FIN_ACK, DPU_TIMEOUT)));
+    CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(0, recvChannel.handle, NOTIFY_IDX_FIN_ACK, execTimeout)));
     CHK_RET(static_cast<HcclResult>(HcommChannelFenceOnThread(0, recvChannel.handle)));
     CHK_RET(static_cast<HcclResult>(HcommFenceOnThread(0)));
 #endif
