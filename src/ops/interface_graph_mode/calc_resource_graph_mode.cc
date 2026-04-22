@@ -180,7 +180,7 @@ HcclResult HcclCalcAicpuResOffline(ResResponseGraphMode *resResponse)
         return HCCL_E_PARA;
     }
     u64 aicpuOpMemSize = 0;
-    u32 aicpuStreamNum = 0;
+    u32 aicpuStreamNum = 1;
     u32 aicpuTaskNum = 3;
 
     resResponse->opMemSize = std::max(resResponse->opMemSize, aicpuOpMemSize);
