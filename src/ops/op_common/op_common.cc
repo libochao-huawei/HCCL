@@ -1457,9 +1457,11 @@ HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeI
             if (strncmp(exchangeInfo.group, rmtExchangeInfo->group, MAX_LENGTH) != 0) {
                 CHK_RET(ReportOpExchangeInfoCheckFailed("GroupName", exchangeInfo.group, rmtExchangeInfo->group));
             }
-            if (exchangeInfo.sendRecvRemoteRank != channel.remoteRank) {
-                CHK_RET(ReportOpExchangeInfoCheckFailed("SendRecvRemoteRank", exchangeInfo.sendRecvRemoteRank,
-                    channel.remoteRank));
+            if (exchangeInfo.opType == HcclCMDType::HCCL_CMD_SEND || exchangeInfo.opType == HcclCMDType::HCCL_CMD_RECEIVE){
+                if (exchangeInfo.sendRecvRemoteRank != channel.remoteRank) {
+                    CHK_RET(ReportOpExchangeInfoCheckFailed("SendRecvRemoteRank", exchangeInfo.sendRecvRemoteRank,
+                        channel.remoteRank));
+                }
             }
         }
     }
