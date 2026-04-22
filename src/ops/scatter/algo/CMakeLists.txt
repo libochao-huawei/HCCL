@@ -20,3 +20,9 @@ set(src_list
 target_sources(hccl PRIVATE
     ${src_list}
 )
+
+target_compile_options(hccl PRIVATE
+    -Wall
+    -Wfloat-equal
+    -fno-common
+)
