@@ -405,7 +405,9 @@ if(NOT KERNEL_MODE)
     )
     add_custom_target(aicpu_kernel_json DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/libscatter_aicpu_kernel.json)
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libscatter_aicpu_kernel.json
-        DESTINATION ${INSTALL_AICPU_KERNEL_JSON_DIR} OPTIONAL
+        DESTINATION ${INSTALL_AICPU_KERNEL_JSON_DIR} 
+        ${INSTALL_OPTIONAL}
+        COMPONENT hccl
     )
     add_dependencies(hccl aicpu_kernel_json)
 endif()
@@ -534,22 +536,30 @@ endif()
 
 if(STATIC_MODE)
     install(TARGETS hccl
-        ARCHIVE DESTINATION ${INSTALL_LIBRARY_DIR} OPTIONAL
+        ARCHIVE DESTINATION ${INSTALL_LIBRARY_DIR} 
+        ${INSTALL_OPTIONAL}
+        COMPONENT hccl
     )
 else()
     install(TARGETS hccl
-        LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} OPTIONAL
+        LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} 
+        ${INSTALL_OPTIONAL}
+        COMPONENT hccl
     )
 endif()
 
 if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
     if(STATIC_MODE)
         install(TARGETS scatter_aicpu_kernel
-            LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} OPTIONAL
+            LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} 
+            ${INSTALL_OPTIONAL}
+            COMPONENT hccl
         )
     else()
         install(TARGETS scatter_aicpu_kernel
-            LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} OPTIONAL
+            LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} 
+            ${INSTALL_OPTIONAL}
+            COMPONENT hccl
         )
     endif()
 endif()

@@ -133,7 +133,9 @@ endif()
     )
 
     install(TARGETS hccl_compat
-        LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} OPTIONAL
+        LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} 
+        ${INSTALL_OPTIONAL}
+        COMPONENT hccl
     )
 
     target_sources(hccl_compat PRIVATE
@@ -178,6 +180,8 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
  	)
 
     install(TARGETS hccl_kernel_compat
-        LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} OPTIONAL
+        LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} 
+        ${INSTALL_OPTIONAL}
+        COMPONENT hccl
     )
 endif()
