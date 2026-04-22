@@ -14,3 +14,14 @@ set(src_list
 target_sources(hccl PRIVATE
     ${src_list}
 )
+
+target_compile_options(hccl PRIVATE
+    -Wextra
+    -Wno-error=unused-parameter
+    -Wno-error=sign-compare
+    -Wno-missing-field-initializers
+    -Wno-maybe-uninitialized
+    -Wfloat-equal
+    -fno-common
+    -Wall
+)
