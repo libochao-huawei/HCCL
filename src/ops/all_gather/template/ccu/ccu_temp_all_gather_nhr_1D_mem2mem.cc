@@ -95,7 +95,7 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::FastLaunch(const OpParam& param, const 
     }
 
     for (u32 kernelIdx = 0; kernelIdx < kernelNum; kernelIdx++) {
-        uint64 token;
+        uint64_t token;
         CHK_RET(GetToken(buffInfo_, token));
         CcuTaskArgAllGatherNHR1D taskArg(
             PointerToAddr(buffInfo_.inputPtr) + args[0],

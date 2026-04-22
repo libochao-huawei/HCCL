@@ -86,7 +86,7 @@ HcclResult CcuTempAllGatherMesh1DMem2Mem::FastLaunch(const OpParam& param, const
     HCCL_DEBUG("[CcuTempAllGatherMesh1DMem2Mem::FastLaunch] start");
     const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
     buffInfo_ = tempFastLaunchCtx.buffInfo;
-    uint64 token;
+    uint64_t token;
     CHK_RET(GetToken(buffInfo_, token));
     CcuTaskArgAllGatherMesh1DMem2Mem taskArg(
         PointerToAddr(buffInfo_.inputPtr) + args[0],
