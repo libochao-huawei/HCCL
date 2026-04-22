@@ -39,7 +39,7 @@ public:
         return dividend / divisor + ((dividend % divisor != 0) ? 1 : 0);
     }
 
-    __aicore__ inline void InitCoreInfo(sliceId)
+    __aicore__ inline void InitCoreInfo(int32_t sliceId)
     {
         curTag = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
         uint64_t dataCount = len_;
