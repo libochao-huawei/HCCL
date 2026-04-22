@@ -128,6 +128,7 @@ function(pack_built_in)
       DESTINATION share/info/hccl
       RENAME version.info
       ${INSTALL_OPTIONAL}
+      COMPONENT hccl
   )
   install(FILES ${CONF_FILES}
       DESTINATION hccl/conf
