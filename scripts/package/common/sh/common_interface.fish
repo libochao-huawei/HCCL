@@ -15,7 +15,7 @@ function mk_custom_path
         return 0
     end
     while read line
-        set -l _custom_path (echo "$line" | cut --only-delimited -d= -f2)
+        set -l _custom_path (echo "$line" | cut -d= -f2)
         if test -z $_custom_path
             continue
         end
