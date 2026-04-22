@@ -38,10 +38,10 @@ add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_op_910
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 )
 
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_v_op_910_95.o OPTIONAL
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_v_op_910_95.o ${INSTALL_OPTIONAL}
     DESTINATION ${INSTALL_LIBRARY_DIR}
 )
 
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_op_910_95.o OPTIONAL
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_op_910_95.o ${INSTALL_OPTIONAL}
     DESTINATION ${INSTALL_LIBRARY_DIR}
 )

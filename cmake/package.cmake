@@ -127,7 +127,7 @@ function(pack_built_in)
   install(FILES ${CMAKE_BINARY_DIR}/version.hccl.info
       DESTINATION share/info/hccl
       RENAME version.info
-      OPTIONAL
+      ${INSTALL_OPTIONAL}
   )
   install(FILES ${CONF_FILES}
       DESTINATION hccl/conf
