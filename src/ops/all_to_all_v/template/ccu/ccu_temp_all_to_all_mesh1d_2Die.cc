@@ -64,7 +64,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcRes(HcclComm comm, const OpParam& para
         kernelInfo.creator = [](const hcomm::CcuKernelArg &arg) {
             return std::make_unique<CcuKernelAllToAllMesh2Die>(arg);
         };
-        const bool withMyRank = dieId == meshDieId ? false : true;
+        const bool withMyRank = dieId == meshDieId ? true : false;
         auto kernelArg = std::make_shared<CcuKernelArgAllToAllMesh2Die>(rankSize, myRank_, param, subCommRanks_,
             withMyRank, rankGroup_[dieId]);
         kernelInfo.kernelArg = kernelArg;
