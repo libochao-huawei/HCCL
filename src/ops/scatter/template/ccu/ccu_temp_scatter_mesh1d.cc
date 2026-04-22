@@ -9,10 +9,11 @@
  */
 
 #include "channel.h"
-#include "hccl_ccu_res.h"
+// #include "hccl_ccu_res.h"
 #include "ccu_assist_pub.h"
 #include "ccu_kernel_scatter_mesh1d.h"
 #include "ccu_temp_scatter_mesh1d.h"
+#include "ccu_control_api.h"
 
 namespace ops_hccl {
 
@@ -62,14 +63,17 @@ HcclResult CcuTempScatterMesh1D::CalcRes(HcclComm comm, const OpParam &param, co
 
     // 创建每个kernel的ctxArg，放入kernelInfo, 然后将kernelinfo放入resourceRequest.ccuKernelInfos
     CcuKernelInfo kernelInfo;
-
-    kernelInfo.creator = [](const hcomm::CcuKernelArg &arg) {
-        return std::make_unique<CcuKernelScatterMesh1D>(arg);
-    };
+    strcpy(kernelInfo.kernelFuncName, "CcuKernelScatterMesh1D");
+    kernelInfo.kernelFunc = reinterpret_cast<void *>(CcuScatterMesh1DKernel);
     std::vector<HcclChannelDesc> channelDescs;
     CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
-    kernelInfo.kernelArg = std::make_shared<CcuKernelArgScatterMesh1D>(subCommRanks_[0].size(), mySubCommRank_,
-                                                                              subCommRootId_, param, subCommRanks_);
+    auto kernelArg = std::make_shared<CcuKernelArgScatterMesh1D>();
+    kernelArg->rankSize = subCommRanks_[0].size();
+    kernelArg->rankId = mySubCommRank_;
+    kernelArg->rootId = subCommRootId_;
+    kernelArg->opParam = param;
+    kernelArg->subCommRanks = subCommRanks_;
+    kernelInfo.setKernelArg(kernelArg);
     kernelInfo.channels = channelDescs;
     resourceRequest.ccuKernelInfos.push_back(kernelInfo);
 
@@ -83,17 +87,21 @@ HcclResult CcuTempScatterMesh1D::CalcRes(HcclComm comm, const OpParam &param, co
 HcclResult CcuTempScatterMesh1D::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
 {
     HCCL_DEBUG("[CcuTempScatterMesh1D::FastLaunch] start");
-    const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
+    uint64_t *args = const_cast<uint64_t*>(tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs);
     buffInfo_ = tempFastLaunchCtx.buffInfo;
-    CcuTaskArgScatterMesh1D taskArg(
-            PointerToAddr(buffInfo_.inputPtr) + args[0],
-            PointerToAddr(buffInfo_.outputPtr) + args[1],
-            args[2],args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10]);
-
-    void* taskArgPtr = static_cast<void*>(&taskArg);
-
-    CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0],
-                                tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr));
+    constexpr u32 inputIdx = 0;
+    constexpr u32 outputIdx = 1;
+    args[inputIdx] = PointerToAddr(buffInfo_.inputPtr) + args[inputIdx];
+    args[outputIdx] = PointerToAddr(buffInfo_.outputPtr) + args[outputIdx];
+    void *taskArgs = reinterpret_cast<void*>(args);
+    uint64_t argSize = 11;
+    CcuResult launchRet = HcommCcuKernelLaunch(tempFastLaunchCtx.threads[0],
+                                               tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle,
+                                               taskArgs, argSize);
+    if (launchRet != CCU_SUCCESS) {
+        HCCL_ERROR("[CcuTempScatterMesh1D::FastLaunch] kernel launch failed, ccuRet -> %d", launchRet);
+        return ConvertCcuToHccl(launchRet);
+    }
 
     HCCL_DEBUG("[CcuTempScatterMesh1D::FastLaunch] end");
     return HcclResult::HCCL_SUCCESS;
@@ -123,20 +131,23 @@ HcclResult CcuTempScatterMesh1D::KernelRun(const OpParam &param, const TemplateD
     uint64_t isInputOutputEqual = inputAddr == outputAddr ? 1 : 0;
     uint64_t repeatNum = UINT64_MAX - repeatNumTmp;
 
-    HCCL_INFO("[CcuTempScatterMesh1D] create CcuTaskArgScatterMesh1D, normalSliceSize [%u]", normalSliceSize);
-    std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgScatterMesh1D>(
-        inputAddr, outputAddr, token, inputSliceStride, outputSliceStride, inputRepeatStride, outputRepeatStride, normalSliceSize,
-        lastSliceSize, repeatNum, isInputOutputEqual);
-
-    void *taskArgPtr = static_cast<void *>(taskArg.get());
-
-    CHK_RET(HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr));
+    std::vector<uint64_t> taskArgs = {
+        inputAddr, outputAddr, token, inputSliceStride, outputSliceStride, inputRepeatStride, outputRepeatStride,
+        normalSliceSize, lastSliceSize, repeatNum, isInputOutputEqual
+    };
+    uint64_t argSize = 11;
+    CcuResult launchRet = HcommCcuKernelLaunch(templateResource.threads[0], templateResource.ccuKernels[0],
+                                               taskArgs.data(), argSize);
+    if (launchRet != CCU_SUCCESS) {
+        HCCL_ERROR("[CcuTempScatterMesh1D::KernelRun] kernel launch failed, ccuRet -> %d", launchRet);
+        return ConvertCcuToHccl(launchRet);
+    }
 
     HCCL_DEBUG("[CcuTempScatterMesh1D::KernelRun] end");
 
     CcuKernelSubmitInfo submitInfo;
     submitInfo.kernelHandle = templateResource.ccuKernels[0];
-    submitInfo.cachedArgs[0]=buffInfo_.inBuffBaseOff; // input、output、scratch只存对应的偏移
+    submitInfo.cachedArgs[0]=buffInfo_.inBuffBaseOff; // input、output只存对应的偏移
     submitInfo.cachedArgs[1]=buffInfo_.outBuffBaseOff;
     submitInfo.cachedArgs[2]=token;
     submitInfo.cachedArgs[3]=inputSliceStride;
