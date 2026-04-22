@@ -40,7 +40,7 @@ public:
                                                 std::vector<u64> &elemOffset);
 
 
-    // virtual HcclResult SetchannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels);
+    virtual HcclResult SetchannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels);
 
 
     

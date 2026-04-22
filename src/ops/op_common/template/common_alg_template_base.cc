@@ -74,11 +74,11 @@ HcclResult CommonAlgTemplateBase::CalcDataSplitByPortGroup(const u64 totalDataCo
     return HcclResult::HCCL_SUCCESS;
 }
 
-// HcclResult CommonAlgTemplateBase::SetchannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels)
-// {
-//     CHK_PRT_RET(channels.empty(), HCCL_ERROR("[SetchannelsPerRank] channels is empty."), HCCL_E_INTERNAL);
-//     channelsPerRank_ = CalcChannelsPerRank(channels);
-//     return HCCL_SUCCESS;
-// }
+HcclResult CommonAlgTemplateBase::SetchannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels)
+{
+    CHK_PRT_RET(channels.empty(), HCCL_ERROR("[SetchannelsPerRank] channels is empty."), HCCL_E_INTERNAL);
+    channelsPerRank_ = CalcChannelsPerRank(channels);
+    return HCCL_SUCCESS;
+}
 
 }
