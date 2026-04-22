@@ -1372,7 +1372,7 @@ HcclResult FillOpExChangeInfo(const OpParam &param, OpExchangeInfo &exchangeInfo
 {
     exchangeInfo.root = param.root;
     exchangeInfo.opType = param.opType;
-    s32 sRet = strncpy_s(enchangeInfo.algTag, ALG_TAG_LENGTH, param.algTag, ALG_TAG_LENGTH);
+    s32 sRet = strncpy_s(exchangeInfo.algTag, ALG_TAG_LENGTH, param.algTag, ALG_TAG_LENGTH);
     CHK_PRT_RET(sRet != EOK, HCCL_ERROR("[%s] call strncpy_s failed, param.algTag %s,  return %d.",
         __func__, param.algTag, sRet), HCCL_E_MEMORY);
     exchangeInfo.engine = param.engine;
@@ -1439,7 +1439,7 @@ HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeI
 HcclResult ReportOpExchangeInfoCheckFailed(const std::string &paraName, uint32_t localPara,
     uint32_t remotePara)
 {
-    RPT_INPUT_ERR(true, "EI0005", std:vector<std::string>({"ParaName", "LocalPara", "RemotePara"}),
+    RPT_INPUT_ERR(true, "EI0005", std::vector<std::string>({"ParaName", "LocalPara", "RemotePara"}),
         std::vector<std::string>({paraName, std::to_string(localPara), std::to_string(remotePara)}));
     HCCL_ERROR("[ReportOpExchangeInfoCheckFailed]op information %s check fail. localPara[%u] remotePara[%u]",
         paraName.c_str(), localPara, remotePara);
@@ -1449,7 +1449,7 @@ HcclResult ReportOpExchangeInfoCheckFailed(const std::string &paraName, uint32_t
 HcclResult ReportOpExchangeInfoCheckFailed(const std::string &paraName, const std::string localPara,
     const std::string remotePara)
 {
-    RPT_INPUT_ERR(true, "EI0005", std:vector<std::string>({"ParaName", "LocalPara", "RemotePara"}),
+    RPT_INPUT_ERR(true, "EI0005", std::vector<std::string>({"ParaName", "LocalPara", "RemotePara"}),
         std::vector<std::string>({paraName, localPara, remotePara}));
     HCCL_ERROR("[ReportOpExchangeInfoCheckFailed]op information %s check fail. localPara[%s] remotePara[%s]",
         paraName.c_str(), localPara.c_str(), remotePara.c_str());
