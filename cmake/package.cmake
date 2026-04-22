@@ -34,6 +34,7 @@ function(pack_custom)
       OWNER_READ OWNER_WRITE OWNER_EXECUTE  # 目录权限
       GROUP_READ GROUP_EXECUTE
       WORLD_READ WORLD_EXECUTE
+      COMPONENT hccl
   )
 
   # ============= CPack =============
@@ -87,6 +88,7 @@ function(pack_built_in)
       OWNER_READ OWNER_WRITE OWNER_EXECUTE  # 目录权限
       GROUP_READ GROUP_EXECUTE
       WORLD_READ WORLD_EXECUTE
+      COMPONENT hccl
   )
 
   set(SCRIPTS_FILES
@@ -101,6 +103,7 @@ function(pack_built_in)
 
   install(FILES ${SCRIPTS_FILES}
       DESTINATION share/info/hccl/script
+      COMPONENT hccl
   )
   set(COMMON_FILES
       ${CMAKE_SOURCE_DIR}/scripts/package/common/sh/install_common_parser.sh
@@ -132,15 +135,19 @@ function(pack_built_in)
   )
   install(FILES ${CONF_FILES}
       DESTINATION hccl/conf
+      COMPONENT hccl
   )
   install(FILES ${PACKAGE_FILES}
       DESTINATION share/info/hccl/script
+      COMPONENT hccl
   )
   install(FILES ${LATEST_MANGER_FILES}
       DESTINATION latest_manager
+      COMPONENT hccl
   )
   install(DIRECTORY ${CMAKE_SOURCE_DIR}/scripts/package/latest_manager/scripts/
       DESTINATION latest_manager
+      COMPONENT hccl
   )
 
   string(FIND "${ASCEND_COMPUTE_UNIT}" ";" SEMICOLON_INDEX)
