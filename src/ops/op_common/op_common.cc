@@ -1512,12 +1512,22 @@ HcclResult FillOpExChangeInfo(HcclComm comm, const OpParam &param, OpExchangeInf
     exchangeInfo.engine = param.engine;
     exchangeInfo.opExecuteConfig = param.opExecuteConfig;
     exchangeInfo.reduceType = param.reduceType;
+    // 下方列出的opType不对数据类型和数据量进行参数一致性校验
+    std::unordered_set<HcclCMDType> nonCheckOpTypes = {
+        HcclCMDType::HCCL_CMD_ALLTOALLV,
+        HcclCMDType::HCCL_CMD_ALLTOALLVC,
+        HcclCMDType::HCCL_CMD_ALLGATHER_V,
+        HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V,
+        HcclCMDType::HCCL_CMD_BATCH_SEND_RECV
+    };
     if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL) {
         exchangeInfo.dataType = param.all2AllDataDes.sendType;
         exchangeInfo.count = param.all2AllDataDes.sendCount;
-    } else if (param.opType) {
-        exchangeInfo.dataType = param.DataDes.dataType;
-        exchangeInfo.count = param.DataDes.count;
+    } else {
+        if (!nonCheckOpTypes.count(param.opType)) {
+            exchangeInfo.dataType = param.DataDes.dataType;
+            exchangeInfo.count = param.DataDes.count;
+        }
     }
     if (param.opMode == OpMode::OFFLOAD) {
         AivParamStorage *aivParam = nullptr;
@@ -1527,6 +1537,9 @@ HcclResult FillOpExChangeInfo(HcclComm comm, const OpParam &param, OpExchangeInf
         }
     }
     CHK_RET(HcclGetCommName(comm, exchangeInfo.group));
+    if (param.opType == HcclCMDType::HCCL_CMD_SEND || param.opType == HcclCMDType::HCCL_CMD_RECEIVE) {
+        exchangeInfo.sendRecvRemoteRank = param.sendRecvRemoteRank;
+    }
     return HCCL_SUCCESS;
 }
 
@@ -1584,7 +1597,8 @@ HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeI
                 CHK_RET(ReportOpExchangeInfoCheckFailed("GroupName", exchangeInfo.group, rmtExchangeInfo->group));
             }
             if (exchangeInfo.sendRecvRemoteRank != channel.remoteRank) {
-                CHK_RET(ReportOpExchangeInfoCheckFailed("SendRecvRemoteRank", exchangeInfo.root, rmtExchangeInfo->root));
+                CHK_RET(ReportOpExchangeInfoCheckFailed("SendRecvRemoteRank", exchangeInfo.sendRecvRemoteRank,
+                    channel.remoteRank));
             }
         }
     }
