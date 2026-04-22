@@ -329,10 +329,10 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
         cacheKey.reduceOp = param.reduceType;
 
         if (param.opType == HCCL_CMD_ALLTOALL) {
-            cacheKey.sendType = param.all2AllDataDes.sendType;
-            cacheKey.recvType = param.all2AllDataDes.recvType;
-            cacheKey.sendCount = param.all2AllDataDes.sendCount;
-            cacheKey.recvCount = param.all2AllDataDes.recvCount;
+            cacheKey.sendType = param.all2AllVDataDes.sendType;
+            cacheKey.recvType = param.all2AllVDataDes.recvType;
+            cacheKey.sendCount = static_cast<const u64 *>(param.all2AllVDataDes.sendCounts)[0];
+            cacheKey.recvCount = static_cast<const u64 *>(param.all2AllVDataDes.recvCounts)[0];
         } else {
             cacheKey.count = param.DataDes.count;
             cacheKey.dataType = param.DataDes.dataType;
