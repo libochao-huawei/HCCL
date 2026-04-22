@@ -26,3 +26,7 @@ target_sources(hccl PRIVATE
 )
 
 add_subdirectory(hcomm_dlsym)
+
+target_compile_options(hccl PRIVATE
+    -Wall
+)
