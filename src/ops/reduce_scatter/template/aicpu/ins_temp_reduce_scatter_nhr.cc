@@ -36,13 +36,13 @@ HcclResult InsTempReduceScatterNHR::CalcRes(HcclComm comm, const OpParam& param,
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult InsTempReduceScatterNHR::SetchannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels)
-{
-    CHK_PRT_RET(channels.empty(), HCCL_ERROR("[SetchannelsPerRank] channels is empty."), HCCL_E_INTERNAL);
-    channelsPerRank_ = CalcChannelsPerRank(channels);
+// HcclResult InsTempReduceScatterNHR::SetchannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels)
+// {
+//     CHK_PRT_RET(channels.empty(), HCCL_ERROR("[SetchannelsPerRank] channels is empty."), HCCL_E_INTERNAL);
+//     channelsPerRank_ = CalcChannelsPerRank(channels);
 
-    return HCCL_SUCCESS;
-}
+//     return HCCL_SUCCESS;
+// }
 
 HcclResult InsTempReduceScatterNHR::GetRes(AlgResourceRequest& resourceRequest) const
 {
@@ -75,7 +75,6 @@ HcclResult InsTempReduceScatterNHR::KernelRun(const OpParam& param,
     channels_            = templateResource.channels;
     dataType_ = param.DataDes.dataType;
     dataTypeSize_  = DATATYPE_SIZE_TABLE[dataType_];
-    channelsPerRank_ = CalcChannelsPerRank(channels_);
 
     std::vector<u64> elemCountOut;
     std::vector<u64> sizeOut;
