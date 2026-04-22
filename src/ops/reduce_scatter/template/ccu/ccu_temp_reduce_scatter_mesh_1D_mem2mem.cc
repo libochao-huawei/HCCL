@@ -79,21 +79,21 @@ HcclResult CcuTempReduceScatterMesh1DMem2Mem::CalcRes(HcclComm comm, const OpPar
     constexpr u32 DIE_NUM_2 = 2;
     constexpr u32 DIE_0 = 0;
     constexpr u32 DIE_1 = 1;
-    for(const auto& pair : rankIdToChannelDesc_){
-    u32 remoteRankId = pair.first;
-    if (enableDieNum == DIE_NUM_1) {
-        // 单die情况，所有channel都分配给die0
-        channelsPerDie[DIE_0] = channelDescs;
-    CHK_RET(SelectChannelToVec(comm, myRank_, remoteRankId, rankIdToChannelDesc_, enableDieId, 
-                rank2ChannelIdx, channelsPerDie[DIE_0]));
-    } else if (enableDieNum == DIE_NUM_2) {
-        CHK_RET(SelectChannelToVec(comm, myRank_, remoteRankId, rankIdToChannelDesc_, DIE_0, 
-                rank2ChannelIdx, channelsPerDie[DIE_0]));
-        CHK_RET(SelectChannelToVec(comm, myRank_, remoteRankId, rankIdToChannelDesc_, DIE_1, 
-                rank2ChannelIdx, channelsPerDie[DIE_1]));
+    for (const auto &pair : rankIdToChannelDesc_) {
+        u32 remoteRankId = pair.first;
+        if (enableDieNum == DIE_NUM_1) {
+            // 单die情况，所有channel都分配给die0
+            channelsPerDie[DIE_0] = channelDescs;
+            CHK_RET(SelectChannelToVec(comm, myRank_, remoteRankId, rankIdToChannelDesc_, enableDieId, rank2ChannelIdx,
+                channelsPerDie[DIE_0]));
+        } else if (enableDieNum == DIE_NUM_2) {
+            CHK_RET(SelectChannelToVec(
+                comm, myRank_, remoteRankId, rankIdToChannelDesc_, DIE_0, rank2ChannelIdx, channelsPerDie[DIE_0]));
+            CHK_RET(SelectChannelToVec(
+                comm, myRank_, remoteRankId, rankIdToChannelDesc_, DIE_1, rank2ChannelIdx, channelsPerDie[DIE_1]));
+        }
     }
-    }
-    
+
     // 3.构造kernelInfo
     for (uint32_t kernelIdx = 0; kernelIdx < kernelNum; kernelIdx++) {
         // 创建每个kernel的ctxArg，放入kernelInfo, 然后将kernelinfo放入resourceRequest.ccuKernelInfos

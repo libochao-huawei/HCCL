@@ -42,8 +42,8 @@ CcuKernelReduceScatterMesh1DMem2Mem::CcuKernelReduceScatterMesh1DMem2Mem(const C
     reduceOp_       = kernelArg->opParam_.reduceType;
     HCCL_INFO(
         "[CcuKernelReduceScatterMesh1DMem2Mem] Init, KernelArgs are rankId[%u], rankSize_[%u], dataType[%d], "
-        "outputDataType[%d], reduceOp[%d]",
-        rankId_, rankSize_, dataType_, outputDataType_, reduceOp_);
+        "outputDataType[%d], reduceOp[%d], axisId_[%lu]",
+        rankId_, rankSize_, dataType_, outputDataType_, reduceOp_, axisId_);
 }
 
 HcclResult CcuKernelReduceScatterMesh1DMem2Mem::InitResource()
@@ -113,6 +113,8 @@ void CcuKernelReduceScatterMesh1DMem2Mem::LoadArgs()
     Load(scratch_[rankId_]);
     Load(currentRankSliceInputOffset_);
     Load(currentRankSliceOutputOffset_);
+    Load(inputRepeatStride_);	 
+    Load(outputRepeatStride_);
     Load(die0Size_);
     Load(die1Size_);
     Load(die0LastSliceSize_);
@@ -155,7 +157,10 @@ void CcuKernelReduceScatterMesh1DMem2Mem::DoReduceScatter()
     CcuRep::LocalAddr myOutput = CreateLocalAddr();
     
     myOutput.addr   = output_;
-    myOutput.addr  += currentRankSliceOutputOffset_;
+    if (axisId_ == 1) {
+ 	    myOutput.addr += die0Size_;
+ 	}
+    myOutput.addr  += currentRankSliceOutputOffset_;    
     myOutput.token  = token_[rankId_];
 
     CcuRep::Variable sliceSize = CreateVariable();
@@ -192,15 +197,24 @@ void CcuKernelReduceScatterMesh1DMem2Mem::DoRepeatReduceScatter()
         if (rankIdx == rankId_) {
             myInput_.addr = input_[rankIdx];
             myInput_.addr += currentRankSliceInputOffset_;
+            if (axisId_ == 1) {
+ 	            myInput_.addr += die0Size_;
+ 	        }
             myInput_.token = token_[rankIdx];
         } else {
             remoteInput_[rankIdx].addr = input_[rankIdx];
             remoteInput_[rankIdx].addr += currentRankSliceInputOffset_;
+            if (axisId_ == 1) {
+ 	            remoteInput_[rankIdx].addr += die0Size_;
+ 	        }
             remoteInput_[rankIdx].token = token_[rankIdx];
         }
 
         scratchMem_[rankIdx].addr = scratch_[rankId_];
         scratchMem_[rankIdx].addr += scratchOffset;
+        if (axisId_ == 1) {
+ 	        scratchMem_[rankIdx].addr += die0Size_;
+ 	    }
         scratchOffset += ((axisId_ == 0) ? (die0Size_ : die1Size_));
         scratchMem_[rankIdx].token = token_[rankId_];
     }
@@ -220,6 +234,9 @@ void CcuKernelReduceScatterMesh1DMem2Mem::DoRepeatReduceScatter()
                 }
             }
             output_ += outputRepeatStride_;
+            if (axisId_ == 1) {
+ 	            output_ += die0Size_;
+ 	        }
         }
         DoReduceScatter();
         flag_ = 1;
