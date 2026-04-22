@@ -40,12 +40,12 @@ HcclResult CcuAlgTemplateBase::CalcRes(HcclComm comm, const OpParam& param, cons
     return HcclResult::HCCL_E_INTERNAL;
 }
 
-HcclResult CcuAlgTemplateBase::SetchannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels)
-{
-    (void)channels;
-    HCCL_ERROR("[CcuAlgTemplateBase] Unsupported interface of CcuAlgTemplateBase::SetchannelsPerRank!");
-    return HcclResult::HCCL_E_INTERNAL;
-}
+// HcclResult CcuAlgTemplateBase::SetchannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels)
+// {
+//     (void)channels;
+//     HCCL_ERROR("[CcuAlgTemplateBase] Unsupported interface of CcuAlgTemplateBase::SetchannelsPerRank!");
+//     return HcclResult::HCCL_E_INTERNAL;
+// }
 
 HcclResult CcuAlgTemplateBase::KernelRun(const OpParam& param, const TemplateDataParams& templateDataParams,
                                          TemplateResource& templateResource)
