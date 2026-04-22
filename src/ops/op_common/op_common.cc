@@ -117,6 +117,8 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
         CHK_RET(LoadAICPUKernel()); // 该函数内部有防止重复加载的逻辑
     }
     CHK_RET(SetOpParamAlgTag(param, algName));
+    // 设定执行超时时间
+    CHK_RET(SetExecTimeout(param));
     // 获取多维度切分比例
     CHK_RET(SetMultipleDimensionSplitRatio(param));
     HCCL_INFO("Success to execute Selector.");
@@ -631,8 +633,7 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
         return ret;
     }
     // Host stream等待Device的通知
-    u16 NOTIFY_WAIT_TIME = 27 * 68;
-    CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, param.aicpuRecordCpuIdx, NOTIFY_WAIT_TIME)));
+    CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, param.aicpuRecordCpuIdx, param.execTimeout)));
 
     return HCCL_SUCCESS;
 }
@@ -2057,6 +2058,26 @@ HcclResult CheckHostDPUOnly(const HcclComm comm, const TopoInfoWithNetLayerDetai
     if (hostDPU) {
         HCCL_INFO("Using host dpu trans.");
         hostDPUOnly = true;
+    }
+    return HCCL_SUCCESS;
+}
+
+// 设置执行超时时间
+HcclResult SetExecTimeout(OpParam &param) {
+    double execTimeoutValue = 0;
+    if (!GetExternalInputExecTimeout(execTimeoutValue)) {
+        param.execTimeout = CUSTOM_TIMEOUT;
+        HCCL_INFO("[OpCommon] Get exec timeout failed, use default value: %u seconds", CUSTOM_TIMEOUT);
+    } else {
+        // 验证转换后的值是否合理
+        if (execTimeoutValue < 0 || execTimeoutValue > UINT32_MAX) {
+            HCCL_WARNING("[OpCommon] Exec timeout value %.2f out of range, use default: %u seconds", 
+                         execTimeoutValue, CUSTOM_TIMEOUT);
+            param.execTimeout = CUSTOM_TIMEOUT;
+        } else {
+            param.execTimeout = static_cast<uint32_t>(execTimeoutValue);
+            HCCL_INFO("[OpCommon] Set exec timeout to: %u seconds", param.execTimeout);
+        }
     }
     return HCCL_SUCCESS;
 }
