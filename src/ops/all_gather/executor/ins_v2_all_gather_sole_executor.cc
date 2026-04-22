@@ -76,6 +76,7 @@ HcclResult InsV2AllGatherSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     dataTypeSize_ = DATATYPE_SIZE_TABLE[param.DataDes.dataType];
     dataSize_ = dataCount_ * dataTypeSize_;
     strideCount_ = param.DataDes.strideCount;
+    HCCL_DEBUG("[InsV2AllGatherSoleExecutor][Orchestrate] strideCount[%lu]", strideCount_);
     HCCL_DEBUG("[InsV2AllGatherSoleExecutor][Orchestrate] myRank[%u], threadsSize[%lu], "
                "dataCount[%llu], dataTypeSize[%lu]",
                myRank_, threads_.size(), dataCount_, dataTypeSize_);
