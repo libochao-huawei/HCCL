@@ -87,7 +87,7 @@ HcclResult InsTempReduceScatterNHR::KernelRun(const OpParam& param,
         sizeOutTail_ = sizeOutTail;
     }
 
-    threadNum_ = templateResource.threads.size();
+    threadNum_ = GetThreadNum();
     if (threadNum_ > 1) {
         std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
         GetNotifyIdxMainToSub(notifyIdxMainToSub_);

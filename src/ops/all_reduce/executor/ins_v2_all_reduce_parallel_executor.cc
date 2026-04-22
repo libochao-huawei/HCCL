@@ -456,8 +456,7 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
             interThreads_.emplace_back(threads_[i]);
         }
     }
-    HCCL_INFO("[PrepareResForTemplate] localRankSize: threads_.size()[%u], intraThreadsNumFinal[%u], intraThreadsNum[%u], intraThreadsNum1[%u]",
-              threads_.size(), intraThreadsNumFinal, intraThreadsNum, intraThreadsNum1);
+    
     // 用于两个算法同步
     mainThread_ = threads_.at(0);
     templateMainThreads_.clear();
