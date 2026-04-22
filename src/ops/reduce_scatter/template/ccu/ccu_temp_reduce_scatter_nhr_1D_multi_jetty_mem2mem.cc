@@ -99,14 +99,6 @@ HcclResult CcuTempReduceScatterNhrMultiJettyMem2Mem1D::FastLaunch(const OpParam&
     buffInfo_ = tempFastLaunchCtx.buffInfo;
     
     // 计算NHR Multi Jetty特有的参数
-    // constexpr uint64_t hcclMinSliceAlign = 128;
-    // const uint64_t sliceAlignCount = hcclMinSliceAlign / DataTypeSizeGet(dataType_);
-    // constexpr uint16_t portNum = 4;
-    
-    // uint64_t sliceSize = args[8]; // normalSliceSize
-    // uint64_t sliceOneJettySize = sliceSize / portNum / sliceAlignCount * sliceAlignCount;
-    // uint64_t sliceLastJettySize = sliceSize - (portNum - 1) * sliceOneJettySize;
-    
     CcuTaskArgReduceScatterNhrMutilJettyMem2Mem1D taskArg(
         PointerToAddr(buffInfo_.inputPtr) + args[0],
         PointerToAddr(buffInfo_.outputPtr) + args[1],
