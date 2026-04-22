@@ -24,9 +24,6 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 HcclResult HcclReduceScatterV(void *sendBuf,  const void *sendCounts, const void *sendDispls, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
     HcclReduceOp op, HcclComm comm, aclrtStream stream)
 {
-    if (!HcclCheckAicpuEnableOpen() && !HcclCheckCcuEnableOpen() && !HcclCheckAivEnableOpen()) {
-        return HcclReduceScatterVInner(sendBuf, sendCounts, sendDispls, recvBuf, recvCount, dataType, op, comm, stream);
-    }
     HCCL_INFO("Start to run execute HcclReduceScatterV");
     if (GetHcommVersion() < 90000000) { // compat handle
         return HcclReduceScatterVInner(sendBuf, sendCounts, sendDispls, recvBuf, recvCount, dataType, op, comm, stream);
@@ -49,7 +46,6 @@ HcclResult HcclReduceScatterV(void *sendBuf,  const void *sendCounts, const void
 
     // 参数校验等工作;
     // 校验入参
-<<<<<<< HEAD
     CHK_RET(CheckReduceScatterVInputParam(comm, sendBuf, recvBuf, recvCount, sendCounts, sendDispls, stream));
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     CHK_RET(HcclGetRankSize(comm, &rankSize));
@@ -95,9 +91,6 @@ HcclResult HcclReduceScatterVGraphMode(void *sendBuf,  const void *sendCounts, c
     // 参数校验等工作;
     CHK_RET(CheckReduceScatterVInputParam(comm, sendBuf, recvBuf, recvCount, sendCounts, sendDispls, stream));
 
-=======
-    CHK_RET(CheckReduceScatterVInputPara(comm, sendBuf, recvBuf, recvCount, sendCounts, sendDispls, stream));
->>>>>>> adb9da8 (the check logic is the same as that of Orion)
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     CHK_RET(HcclGetRankSize(comm, &rankSize));
     // 校验sendCounts全部为0的情况
@@ -144,11 +137,7 @@ HcclResult HcclReduceScatterVGraphMode(void *sendBuf,  const void *sendCounts, c
 
 
 namespace ops_hccl {
-<<<<<<< HEAD
 HcclResult CheckReduceScatterVInputParam(
-=======
-HcclResult CheckReduceScatterVInputPara(
->>>>>>> adb9da8 (the check logic is the same as that of Orion)
     const HcclComm comm, const void *sendBuf, const void *recvBuf, uint64_t recvCount,
     const void *sendCounts, const void *sendDispls, const aclrtStream stream)
 {
@@ -160,13 +149,8 @@ HcclResult CheckReduceScatterVInputPara(
         std::vector<std::string>({"HcclReduceScatterV", "nullptr", "comm", "non-null pointer"}));
     CHK_PTR_NULL(comm);
 
-<<<<<<< HEAD
     RPT_INPUT_ERR(sendCounts == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
         std::vector<std::string>({"HcclReduceScatterV", "nullptr", "sendCounts", "non-null pointer"}));
-=======
-    RPT_INPUT_ERR(sendCounts == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-        std::vector<std::string>({"HcclReduceScatterV", "sendCounts", "nullptr", "please check sendCounts"}));
->>>>>>> adb9da8 (the check logic is the same as that of Orion)
     CHK_PTR_NULL(sendCounts);
 
     RPT_INPUT_ERR(sendDispls == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\

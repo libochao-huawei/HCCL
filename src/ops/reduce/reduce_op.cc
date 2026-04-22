@@ -24,7 +24,7 @@ HcclResult HcclReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType
     uint32_t root, HcclComm comm, aclrtStream stream)
 {
     if (!HcclCheckCcuEnableOpen() && !HcclCheckAicpuEnableOpen() && !HcclCheckAivEnableOpen()) {
-        return HcclReduceInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
+        return HcclReduceInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream); 
     }
     HCCL_INFO("Start to run execute HcclReduce");
     if (GetHcommVersion() < 90000000) { // compat handle
