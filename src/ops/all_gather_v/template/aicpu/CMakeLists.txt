@@ -14,3 +14,16 @@ set(src_list
 target_sources(hccl PRIVATE
     ${src_list}
 )
+
+target_compile_options(hccl PRIVATE
+    -Wfloat-equal
+    -fno-common
+    -Wall
+    -Wno-unused-parameter
+    -Wno-unused-variable
+    -Wno-unused-but-set-variable
+    -Wno-sign-compare
+    -Wno-unused-result
+    -Wno-format
+    -Wno-type-limits
+)
