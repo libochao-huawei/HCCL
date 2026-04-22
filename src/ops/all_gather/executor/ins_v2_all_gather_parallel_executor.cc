@@ -282,6 +282,8 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     dataTypeSize_ = DATATYPE_SIZE_TABLE[param.DataDes.dataType];
     dataSize_ = dataCount_ * dataTypeSize_;
 
+    HCCL_INFO("[InsV2AllGatherParallelExecutor][Orchestrate] dataCount_[%u]", dataCount_);
+
     if(resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS) {
         intraHierarchyInfo_ = {resCtx.algHierarchyInfo.infos[0][0]};
         std::vector<u32> closRanks;
@@ -497,6 +499,9 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     PrepareResForTemplate(intraTempAlg, interTempAlg);
     
     CcuKernelSubmitInfo *ccuKernelSubmitInfos = ctx->GetCcuKernelSubmitInfoPtr();
+
+    HCCL_INFO("[InsV2AllGatherParallelExecutor][FastLaunch] ccuKernelNum0[%u], ccuKernelNum1[%u], ccuKernelNum2[%u], ccuKernelNum3[%u]",
+        ctx->ccuKernelNum[0], ctx->ccuKernelNum[1], ctx->ccuKernelNum[2], ctx->ccuKernelNum[3]);
     
     //第一步开始前同步
     HCCL_INFO("[InsV2AllGatherParallelExecutor][FastLaunch] Intra0 ccuKernelNum[%llu]", ctx->ccuKernelNum[0]);
