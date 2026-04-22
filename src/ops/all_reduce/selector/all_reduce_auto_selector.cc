@@ -65,7 +65,7 @@ SelectorStatus AllReduceAutoSelector::SelectMeshUBXAlgo(const TopoInfoWithNetLay
         // 4P mesh
         if (IsSmallData(dataSize)) {
             // 小数据量，用1d mesh算法
-            selectAlgName = "CcuAllReduceMesh1D";
+            selectAlgName = "CcuAllReduceMesh1DOneShot";
         } else {
             // 大数据量，用mesh+clos并行算法
             selectAlgName = "CcuAllReduceConcurrentMs";
@@ -74,6 +74,7 @@ SelectorStatus AllReduceAutoSelector::SelectMeshUBXAlgo(const TopoInfoWithNetLay
         HCCL_DEBUG("[AllReduceAutoSelector][%s] MESH_1D_CLOS not match.", __func__);
         return SelectorStatus::NOT_MATCH;
     } else {
+        // 跨4p回退
         selectAlgName = "CcuAllReduceMesh1D";
     }
 
@@ -106,22 +107,10 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgo(const TopoInfoWithNetLayerD
             selectAlgName = "CcuAllReduceMesh1D";
         }
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-        if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
-            if (IsInputOutputOverlap(opParam) == true) {
-                // 不支持 inplace 场景
-                return SelectorStatus::NOT_MATCH;
-            }
-            if (dataSize / topoInfo->userRankSize > AR_ONESHOT_1D_MAX_DATA_SIZE) {
-                selectAlgName = "CcuAllReduceMesh1D";
-            } else {
-                selectAlgName = "CcuAllReduceMesh1DOneShot";
-            }
-        } else { // MS 不支持
-            HCCL_DEBUG("[AllReduceAutoSelector] level0Shape[%d] is not supported yet for ccu_ms mode.",
-                        topoInfo->level0Topo);
+        if (IsInputOutputOverlap(opParam) == true) {
+            // 不支持 inplace 场景
             return SelectorStatus::NOT_MATCH;
         }
-    } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
         return SelectMeshUBXAlgo(topoInfo, selectAlgName, dataSize);
     } else {
         HCCL_DEBUG("[AllReduceAutoSelector] level0Topo[%u] is not supported yet.", topoInfo->level0Topo);
@@ -201,7 +190,7 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleLevel0UBXAlgo(const TopoI
             selectAlgName = "CcuAllReduceConcurrentSche";
         }
     } else if(isClosNumMultipleOfMeshNum && !IsSmallData(dataSize)) {
-        // 矩形场景大数据量，用2d并行算法
+        // 矩形场景大数据量，用Parallel并行算法
         selectAlgName = "CcuAllReduceParallelNHR1DMutiJetty";
     } else {
         // 其他场景，用1d NHR算法
@@ -308,7 +297,7 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpuUBX(const TopoInfoWithN
             selectAlgName = "InsAllReduceConcurrent";
         }
     } else if(isClosNumMultipleOfMeshNum && !IsSmallData(dataSize)) {
-        // 矩形场景大数据量，用2d并行算法
+        // 矩形场景大数据量，用Parallel并行算法
         selectAlgName = "InsAllReduceParallelMesh1DNHR";
     } else {
         // 其他场景，用1d NHR算法
@@ -418,6 +407,10 @@ SelectorStatus AllReduceAutoSelector::SelectDPUAlgo(const TopoInfoWithNetLayerDe
         if ((topoInfo->deviceNumPerModule == 1) || (topoInfo->level0Topo == Level0Shape::MESH_1D)) {
             selectAlgName = "InsAllReduceSequenceMeshNhrDPU";//对应executor最后register的第二个参数
             HCCL_INFO("Using algo InsAllReduceSequenceMeshNhrDPU");
+            return SelectorStatus::MATCH;
+        } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+            selectAlgName = "InsV2AllReduceOmniPipe";
+            HCCL_INFO("Using algo InsV2AllReduceOmniPipe");
             return SelectorStatus::MATCH;
         }
     }
