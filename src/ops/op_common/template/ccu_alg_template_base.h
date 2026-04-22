@@ -36,7 +36,7 @@ public:
                                  
     virtual HcclResult GetRes(AlgResourceRequest& resourceRequest) const override;
     virtual u64 GetThreadNum() const override;
-    // virtual HcclResult SetchannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels);
+
     virtual u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
 
     uint64_t PointerToAddr(void* pointer) const;
