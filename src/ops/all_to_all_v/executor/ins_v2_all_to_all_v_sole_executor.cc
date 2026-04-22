@@ -412,5 +412,7 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLVC, InsAlltoAllVCMesh1DDPU, InsV2
     CcuTempAllToAllMesh2Die);
     REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, CcuAlltoAllMesh1DMultiJetty, InsV2AlltoAllVSoleExecutor,
                     TopoMatchUBX, CcuTempAllToAllMesh1dMultiJetty);
+    REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, CcuAllToAllMesh1D2Die, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
+        CcuTempAllToAllMesh1D2Die);
 #endif
 }  // namespace Hccl
