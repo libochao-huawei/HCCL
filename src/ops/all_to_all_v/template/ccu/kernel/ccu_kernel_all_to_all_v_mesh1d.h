@@ -25,15 +25,16 @@ using namespace hcomm;
 class CcuKernelArgAlltoAllVMesh1D : public hcomm::CcuKernelArg {
 public:
     explicit CcuKernelArgAlltoAllVMesh1D(uint64_t dimSize, uint32_t rankId, bool loadFromMem, const OpParam& opParam,
-                                            const std::vector<std::vector<uint32_t>>& subCommRanks)
+                                            const std::vector<std::vector<uint32_t>>& subCommRanks, uint32_t axisId)
         : dimSize_(dimSize),
           rankId_(rankId),
           loadFromMem_(loadFromMem),
           opParam_(opParam),
-          subCommRanks_(subCommRanks)
+          subCommRanks_(subCommRanks),
+          axisId_(axisId)
     {
-        HCCL_DEBUG("[CcuKernelArgAlltoAllVMesh1D] dimSize: %lu, rankId: %u",
-                   dimSize_, rankId_);
+        HCCL_DEBUG("[CcuKernelArgAlltoAllVMesh1D] dimSize: %lu, rankId: %u, axisId: %u",
+                   dimSize_, rankId_, axisId_);
     }
     hcomm::CcuKernelSignature GetKernelSignature() const override
     {
@@ -46,6 +47,7 @@ public:
     OpParam opParam_;
     std::vector<std::vector<uint32_t>>      subCommRanks_;
     bool loadFromMem_;
+    uint32_t axisId_;
 };
 
 class CcuTaskArgAlltoAllVMesh1D : public hcomm::CcuTaskArg {

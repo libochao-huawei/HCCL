@@ -29,6 +29,7 @@ CcuKernelAlltoAllVMesh1D::CcuKernelAlltoAllVMesh1D(const CcuKernelArg &arg)
     rankSize_ = kernelArg->dimSize_;
     channels_ = kernelArg->channels;
     loadFromMem_ = kernelArg->loadFromMem_;
+    axisId_ = kernelArg->axisId_;
     HCCL_INFO( "[CcuKernelAlltoAllVMesh1D] rankId_ = %d, rankSize_ = %d, loadFromMem_ = %d",rankId_, rankSize_, loadFromMem_);
 }
 
