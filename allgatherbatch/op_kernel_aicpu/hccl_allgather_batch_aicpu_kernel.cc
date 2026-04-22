@@ -108,9 +108,6 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
         }
     }
 
-    HCCL_INFO("kernel done notify begin: rank=%u, tag=%s",
-        param->topoInfo.rank,
-        param->tag);
     if (HcommThreadNotifyRecordOnThread(
         thread, param->resCtx->cpuThreadOnAicpu, 0) != HCCL_SUCCESS) {
         HCCL_ERROR("record host done notify failed, tag=%s", param->tag);
@@ -120,9 +117,6 @@ extern "C" unsigned int HcclAllGatherBatchAicpuKernel(
         return 1;
     }
 
-    HCCL_INFO("kernel done notify end: rank=%u, tag=%s",
-        param->topoInfo.rank,
-        param->tag);
     if (profilingInitialized) {
         if (HcommProfilingReportMainStreamAndLastTask(thread) != HCCL_SUCCESS) {
             HCCL_WARNING("HcommProfilingReportMainStreamAndLastTask failed, rank=%u, tag=%s",
