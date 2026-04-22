@@ -28,8 +28,7 @@ void AllGatherNHRCore::SetInputPreparedInOutput(bool enabled)
 }
 
 
-HcclResult AllGatherNHRCore::RunAsync(const u32 rank, const u32 rankSize,
-    const std::vector<ChannelResource> &links)
+HcclResult AllGatherNHRCore::RunAsync(const u32 rank, const u32 rankSize)
 {
     HCCL_INFO("[AllGatherNHRCore][RunAsync] rank[%u] rankSize[%u] inputPtr[%p] outputMem[%p] count[%llu] baseOffset[%llu]",
         rank, rankSize, execMem_.inputPtr, execMem_.outputMem.addr, execMem_.count,
@@ -44,10 +43,9 @@ HcclResult AllGatherNHRCore::RunAsync(const u32 rank, const u32 rankSize,
         HCCL_ERROR("[AllGatherNHRCore][RunAsync] rank[%u] is out of range rankSize[%u]", rank, rankSize),
         HCCL_E_PARA);
 
-    const std::vector<ChannelResource> &activeLinks = links.empty() ? channels_ : links;
-    CHK_PRT_RET(activeLinks.size() < rankSize,
+    CHK_PRT_RET(channels_.size() < rankSize,
         HCCL_ERROR("[AllGatherNHRCore][RunAsync] link size[%llu] is less than rankSize[%u]",
-            static_cast<unsigned long long>(activeLinks.size()), rankSize),
+            static_cast<unsigned long long>(channels_.size()), rankSize),
         HCCL_E_PARA);
 
     if (isNeedMerge_) {
@@ -75,7 +73,7 @@ HcclResult AllGatherNHRCore::RunAsync(const u32 rank, const u32 rankSize,
         return HCCL_SUCCESS;
     }
 
-    return RunAllGather(rank, rankSize, slices, activeLinks);
+    return RunAllGather(rank, rankSize, slices, channels_);
 }
 
 HcclResult AllGatherNHRCore::RunAllGather(u32 rank, u32 rankSize,

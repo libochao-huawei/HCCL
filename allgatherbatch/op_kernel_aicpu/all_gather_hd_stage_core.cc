@@ -94,7 +94,7 @@ HcclResult AllGatherHDStage::RunAllGatherNoPower()
     AllGatherNHRCore nhrCore(resCtx_, execMem_, baseOffset, totalSize_, nhrChannels);
     CHK_RET(nhrCore.Prepare(true));
     nhrCore.SetInputPreparedInOutput(true);
-    return nhrCore.RunAsync(group, noPower_, nhrChannels);
+    return nhrCore.RunAsync(group, noPower_);
 }
 
 HcclResult AllGatherHDStage::PrepareSliceData(u32 subRank, u32 subRankSize, u32 size, u32 batchSize, std::vector<Slice> &slices)

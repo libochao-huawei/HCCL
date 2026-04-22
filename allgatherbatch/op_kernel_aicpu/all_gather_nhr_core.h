@@ -27,8 +27,7 @@ public:
 
     HcclResult Prepare(bool needMerge);
     void SetInputPreparedInOutput(bool enabled);
-    HcclResult RunAsync(const u32 rank, const u32 rankSize,
-        const std::vector<ChannelResource> &links);
+    HcclResult RunAsync(const u32 rank, const u32 rankSize);
 
 private:
     HcclResult RunAllGather(u32 rank, u32 rankSize,
