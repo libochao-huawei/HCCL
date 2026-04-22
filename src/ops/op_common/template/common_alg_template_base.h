@@ -51,7 +51,7 @@ public:
             portGroups.push_back(ch.portGroupSize);
             totalPorts += ch.portGroupSize;
             HCCL_INFO("[CalcDataSplitByPortGroup] ch.portGroupSize[%u], totalPorts[%u], channelsPerRank_[%u]",
-                    ch.portGroupSize, totalPorts, channelsPerRank_);
+                      ch.portGroupSize, totalPorts, channelsPerRank_);
         }
 
         u32 channelsize = portGroups.size();
@@ -79,8 +79,6 @@ public:
         return HcclResult::HCCL_SUCCESS;
     }
 
-
-
     virtual HcclResult SetchannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels)
     {
         CHK_PRT_RET(channels.empty(), HCCL_ERROR("[SetchannelsPerRank] channels is empty."), HCCL_E_INTERNAL);
@@ -88,10 +86,8 @@ public:
         return HCCL_SUCCESS;
     }
    
-    protected:
+protected:
     u32             channelsPerRank_    = 1;
-
-    
 };
 
 } // namespace Hccl
