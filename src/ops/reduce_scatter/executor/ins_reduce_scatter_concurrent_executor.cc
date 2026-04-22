@@ -333,10 +333,6 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
     TemplateResource templateAlgResIntra, templateAlgResInter;
     ThreadHandle *threads = ctx->GetThreadHandlePtr();
     threads_.assign(threads, threads + ctx->threadNum);
-    // std::vector<std::vector<u32>> temp0HierarchyInfo {algHierarchyInfo_.infos[0][0]};
-    // std::vector<std::vector<u32>> temp1HierarchyInfo {algHierarchyInfo_.infos[0][1]};
-    // std::shared_ptr<InsAlgTemplate0> tempAlg0Ptr = std::make_shared<InsAlgTemplate0>(param, myRank_, temp0HierarchyInfo);
-    // std::shared_ptr<InsAlgTemplate1> tempAlg1Ptr = std::make_shared<InsAlgTemplate1>(param, myRank_, temp1HierarchyInfo);
 
     u64 meshThreadsNum = tempAlg0.GetThreadNum(); // check流数
 
