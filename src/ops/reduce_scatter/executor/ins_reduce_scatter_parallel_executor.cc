@@ -134,10 +134,10 @@ void InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTempl
     tempAlgParamsIntra0.tailSize = tempAlgParamsIntra0.sliceSize;
     tempAlgParamsIntra0.count = dataCountPerLoopAixs0;
 
-    tempAlgParamsIntra0.inputSliceStride = dataSize_;
+    tempAlgParamsIntra0.inputSliceStride = (strideCount_ == 0) ? dataSize_ : strideCount_ * dataTypeSize_;
     tempAlgParamsIntra0.outputSliceStride = 0;
     tempAlgParamsIntra0.repeatNum = rankSizeLevel1_;
-    tempAlgParamsIntra0.inputRepeatStride = dataSize_ * rankSizeLevel0_;
+    tempAlgParamsIntra0.inputRepeatStride = (strideCount_ == 0) ? dataSize_ * rankSizeLevel0_ : strideCount_ * dataTypeSize_ * rankSizeLevel0_;
     tempAlgParamsIntra0.outputRepeatStride = dataCountPerLoopAixs0 * dataTypeSize_ * rankSizeLevel0_;
     return;
 }
@@ -192,10 +192,10 @@ void InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTempl
     tempAlgParamsInter1.tailSize = tempAlgParamsInter1.sliceSize;
     tempAlgParamsInter1.count = dataCountPerLoopAixs1;
 
-    tempAlgParamsInter1.inputSliceStride = dataSize_ * rankSizeLevel0_;
+    tempAlgParamsInter1.inputSliceStride = (strideCount_ == 0) ? dataSize_ * rankSizeLevel0_ : strideCount_ * dataTypeSize_ * rankSizeLevel0_;
     tempAlgParamsInter1.outputSliceStride = 0;
     tempAlgParamsInter1.repeatNum = rankSizeLevel0_;
-    tempAlgParamsInter1.inputRepeatStride = dataSize_;
+    tempAlgParamsInter1.inputRepeatStride = (strideCount_ == 0) ? dataSize_ : strideCount_ * dataTypeSize_;
     tempAlgParamsInter1.outputRepeatStride = dataCountPerLoopAixs1 * dataTypeSize_ * rankSizeLevel1_;
     return;
 }
@@ -278,6 +278,7 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
         interChannelMap_ = remoteRankToChannelInfo_[1];
     }
     dataCount_ = param.DataDes.count;
+    strideCount_ = param.DataDes.strideCount;
     dataType_ = param.DataDes.dataType;
     dataTypeSize_ = DATATYPE_SIZE_TABLE[param.DataDes.dataType];
     dataSize_ = dataCount_ * dataTypeSize_;
