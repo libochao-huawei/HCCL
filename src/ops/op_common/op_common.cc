@@ -1490,7 +1490,7 @@ HcclResult FillOpExChangeInfo(HcclComm comm, const OpParam &param, OpExchangeInf
     exchangeInfo.opExecuteConfig = param.opExecuteConfig;
     exchangeInfo.reduceType = param.reduceType;
     // 下方列出的opType不对数据类型和数据量进行参数一致性校验
-    std::unordered_set<HcclCMDType> nonCheckOpTypes = {
+    static const std::unordered_set<HcclCMDType> nonCheckOpTypes = {
         HcclCMDType::HCCL_CMD_ALLTOALLV,
         HcclCMDType::HCCL_CMD_ALLTOALLVC,
         HcclCMDType::HCCL_CMD_ALLGATHER_V,
@@ -1533,64 +1533,64 @@ HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeI
 {
     CHK_PTR_NULL(comm);
     for (auto channel : channels) {
-        auto rmtExchangeInfo = std::make_shared<OpExchangeInfo>();
+        OpExchangeInfo rmtExchangeInfo{};
         uint32_t rmtDataLen{0};
-        CHK_RET(HcclCommGetExchangeInfo(comm, channel.remoteRank, static_cast<void*>(rmtExchangeInfo.get()),
+        CHK_RET(HcclCommGetExchangeInfo(comm, channel.remoteRank, static_cast<void*>(&rmtExchangeInfo),
             rmtDataLen));
         if (rmtDataLen == 0) {
             continue;
         } else {
-            if (exchangeInfo.cclBufferSize != rmtExchangeInfo->cclBufferSize) {
+            if (exchangeInfo.cclBufferSize != rmtExchangeInfo.cclBufferSize) {
                 CHK_RET(ReportOpExchangeInfoCheckFailed("HcclBufferSize", std::to_string(exchangeInfo.cclBufferSize),
-                    std::to_string(rmtExchangeInfo->cclBufferSize)));
+                    std::to_string(rmtExchangeInfo.cclBufferSize)));
             }
-            if (exchangeInfo.root != rmtExchangeInfo->root) {
-                CHK_RET(ReportOpExchangeInfoCheckFailed("RootRankId", exchangeInfo.root, rmtExchangeInfo->root));
+            if (exchangeInfo.root != rmtExchangeInfo.root) {
+                CHK_RET(ReportOpExchangeInfoCheckFailed("RootRankId", exchangeInfo.root, rmtExchangeInfo.root));
             }
             if (exchangeInfo.opType == HcclCMDType::HCCL_CMD_SEND &&
-                rmtExchangeInfo->opType != HcclCMDType::HCCL_CMD_RECEIVE) {
+                rmtExchangeInfo.opType != HcclCMDType::HCCL_CMD_RECEIVE) {
                 CHK_RET(ReportOpExchangeInfoCheckFailed("HcclCMDType",
                     static_cast<uint32_t>(HcclCMDType::HCCL_CMD_RECEIVE),
-                    static_cast<uint32_t>(rmtExchangeInfo->opType)));
+                    static_cast<uint32_t>(rmtExchangeInfo.opType)));
             } else if (exchangeInfo.opType == HcclCMDType::HCCL_CMD_RECEIVE &&
-                rmtExchangeInfo->opType != HcclCMDType::HCCL_CMD_SEND) {
+                rmtExchangeInfo.opType != HcclCMDType::HCCL_CMD_SEND) {
                 CHK_RET(ReportOpExchangeInfoCheckFailed("HcclCMDType",
                     static_cast<uint32_t>(HcclCMDType::HCCL_CMD_SEND),
-                    static_cast<uint32_t>(rmtExchangeInfo->opType)));
-            } else if (exchangeInfo.opType != rmtExchangeInfo->opType) {
+                    static_cast<uint32_t>(rmtExchangeInfo.opType)));
+            } else if (exchangeInfo.opType != rmtExchangeInfo.opType) {
                 CHK_RET(ReportOpExchangeInfoCheckFailed("HcclCMDType", static_cast<uint32_t>(exchangeInfo.opType),
-                    static_cast<uint32_t>(rmtExchangeInfo->opType)));
+                    static_cast<uint32_t>(rmtExchangeInfo.opType)));
             }
-            if (exchangeInfo.engine != rmtExchangeInfo->engine) {
+            if (exchangeInfo.engine != rmtExchangeInfo.engine) {
                 CHK_RET(ReportOpExchangeInfoCheckFailed("CommEngine", static_cast<uint32_t>(exchangeInfo.engine),
-                    static_cast<uint32_t>(rmtExchangeInfo->engine)));
+                    static_cast<uint32_t>(rmtExchangeInfo.engine)));
             }
-            if (exchangeInfo.opExecuteConfig != rmtExchangeInfo->opExecuteConfig) {
+            if (exchangeInfo.opExecuteConfig != rmtExchangeInfo.opExecuteConfig) {
                 CHK_RET(ReportOpExchangeInfoCheckFailed("OpExecuteConfig",
                     static_cast<uint32_t>(exchangeInfo.opExecuteConfig),
-                    static_cast<uint32_t>(rmtExchangeInfo->opExecuteConfig)));
+                    static_cast<uint32_t>(rmtExchangeInfo.opExecuteConfig)));
             }
-            if (exchangeInfo.reduceType != rmtExchangeInfo->reduceType) {
+            if (exchangeInfo.reduceType != rmtExchangeInfo.reduceType) {
                 CHK_RET(ReportOpExchangeInfoCheckFailed("HcclReduceOp", static_cast<uint32_t>(exchangeInfo.reduceType),
-                    static_cast<uint32_t>(rmtExchangeInfo->reduceType)));
+                    static_cast<uint32_t>(rmtExchangeInfo.reduceType)));
             }
-            if (exchangeInfo.dataType != rmtExchangeInfo->dataType) {
+            if (exchangeInfo.dataType != rmtExchangeInfo.dataType) {
                 CHK_RET(ReportOpExchangeInfoCheckFailed("HcclDataType", static_cast<uint32_t>(exchangeInfo.dataType),
-                    static_cast<uint32_t>(rmtExchangeInfo->dataType)));
+                    static_cast<uint32_t>(rmtExchangeInfo.dataType)));
             }
-            if (exchangeInfo.count != rmtExchangeInfo->count) {
+            if (exchangeInfo.count != rmtExchangeInfo.count) {
                 CHK_RET(ReportOpExchangeInfoCheckFailed("DataCount", std::to_string(exchangeInfo.count),
-                    std::to_string(rmtExchangeInfo->count)));
+                    std::to_string(rmtExchangeInfo.count)));
             }
-            if (exchangeInfo.aivCoreLimit != rmtExchangeInfo->aivCoreLimit) {
+            if (exchangeInfo.aivCoreLimit != rmtExchangeInfo.aivCoreLimit) {
                 CHK_RET(ReportOpExchangeInfoCheckFailed("AivCoreLimit", exchangeInfo.aivCoreLimit,
-                    rmtExchangeInfo->aivCoreLimit));
+                    rmtExchangeInfo.aivCoreLimit));
             }
-            if (strncmp(exchangeInfo.group, rmtExchangeInfo->group, MAX_LENGTH) != 0) {
-                CHK_RET(ReportOpExchangeInfoCheckFailed("GroupName", exchangeInfo.group, rmtExchangeInfo->group));
+            if (strncmp(exchangeInfo.group, rmtExchangeInfo.group, MAX_LENGTH) != 0) {
+                CHK_RET(ReportOpExchangeInfoCheckFailed("GroupName", exchangeInfo.group, rmtExchangeInfo.group));
             }
-            if (strncmp(exchangeInfo.algTag, rmtExchangeInfo->algTag, ALG_TAG_LENGTH) != 0) {
-                CHK_RET(ReportOpExchangeInfoCheckFailed("AlgTag", exchangeInfo.algTag, rmtExchangeInfo->algTag));
+            if (strncmp(exchangeInfo.algTag, rmtExchangeInfo.algTag, ALG_TAG_LENGTH) != 0) {
+                CHK_RET(ReportOpExchangeInfoCheckFailed("AlgTag", exchangeInfo.algTag, rmtExchangeInfo.algTag));
             }
             if (exchangeInfo.opType == HcclCMDType::HCCL_CMD_SEND || exchangeInfo.opType == HcclCMDType::HCCL_CMD_RECEIVE){
                 if (exchangeInfo.sendRecvRemoteRank != channel.remoteRank) {
