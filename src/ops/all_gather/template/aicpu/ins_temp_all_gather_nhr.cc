@@ -288,4 +288,4 @@ void InsTempAllGatherNHR::GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubTo
     }
 }
 
-}  // namespace Hccl
+}  // namespace ops_hccl

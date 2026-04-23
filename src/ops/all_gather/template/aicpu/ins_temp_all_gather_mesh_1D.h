@@ -48,6 +48,6 @@ protected:
     TemplateDataParams tempAlgParams_;
 };
 
-}  // namespace Hccl
+}  // namespace ops_hccl
 
 #endif  // INS_TEMP_ALL_GATHER_MESH_1D_H
