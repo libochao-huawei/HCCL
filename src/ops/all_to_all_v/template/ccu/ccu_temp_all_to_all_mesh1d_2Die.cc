@@ -51,6 +51,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcRes(HcclComm comm, const OpParam& para
     //多少个kernel
     std::vector<HcclChannelDesc> channelDescs;
     CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
+    HCCL_INFO("channelDescs size[%u]", channelDescs.size());
     uint32_t meshDieId = 0;
     CHK_RET(PartitionChannels(comm, channelDescs, meshDieId));
     resourceRequest.channels.emplace_back(channelDescs);
@@ -102,6 +103,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std
     }
     rankGroup_[0].push_back(myRank_);   // keep myRank_ at last, sync with kernel
     rankGroup_[1].push_back(myRank_);
+    HCCL_INFO("channels[0].size[%u], channels[1].size[%u]", channels_[0].size(), channels_[1].size());
     uint32_t minChannels = std::min(channels_[0].size(), channels_[1].size());
     uint32_t maxChannels = std::max(channels_[0].size(), channels_[1].size());
     CHK_PRT_RET(minChannels + 1 != maxChannels,
