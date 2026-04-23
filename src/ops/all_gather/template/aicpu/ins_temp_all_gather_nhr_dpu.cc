@@ -74,6 +74,15 @@ HcclResult InsTempAllGatherNHRDPU::KernelRun(const OpParam& param,
     dpuRunInfo.channels = templateResource.channels;
     dpuRunInfo.myRank = myRank_;
     dpuRunInfo.subCommRanks = subCommRanks_;
+    dpuRunInfo.myRankId = myRank_;
+    
+    dpuRunInfo.dpuDevId = (1u << 12) | 0u;
+    
+    u64 aicpuTaskId = 0;
+    u32 aicpuStreamId = 0;
+    CHK_RET(static_cast<HcclResult>(aicpu::GetTaskAndStreamId(aicpuTaskId, aicpuStreamId)));
+    dpuRunInfo.aicpuTaskId = aicpuTaskId;
+    
     auto dpuRunInfoSeqData = dpuRunInfo.Serialize();
 
     u32 sendMsgId = 0;
@@ -231,7 +240,7 @@ HcclResult InsTempAllGatherNHRDPU::RunNHR(const TemplateDataParams& tempAlgParam
             // read 模式使用rx, tx地址不生效，仅使用对端link做Post/Wait
             TxRxChannels sendRecvChannels(txChannel[0], rxChannel[0]);
             TxRxSlicesList sendRecvSlicesList({txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices});
-            SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
+            SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList, tempAlgParams.streamId);
 
             CHK_PRT_RET(SendRecvWrite(sendRecvInfo),
                 HCCL_ERROR("[InsTempAllGatherNHRDPU] SendRecvWrite failed (step=%u, rpt=%u)", step, rpt),

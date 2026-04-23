@@ -14,7 +14,7 @@
 #include "alg_v2_template_register.h"
 
 namespace ops_hccl {
-int32_t HcclLaunchDPUKernel(uint64_t ptr, int32_t size)
+int32_t HcclLaunchDPUKernel(uint64_t ptr, int32_t size, s32 streamId)
 {
     if ((ptr == 0) || (size <= 0)) {
         HCCL_ERROR("%s get nullptr or error size", __func__);
@@ -25,6 +25,7 @@ int32_t HcclLaunchDPUKernel(uint64_t ptr, int32_t size)
     std::vector<char> sequenceData(shmemPtr, shmemPtr + size);
     DPURunInfo dpuRunInfo;
     dpuRunInfo.DeSerialize(sequenceData);
+    dpuRunInfo.tempAlgParams.streamId = streamId;
 
     // 根据名字获取template
     auto templateIns = InsAlgTemplateRegistry::Instance().GetAlgTemplate(dpuRunInfo.templateName);
