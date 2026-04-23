@@ -9,10 +9,11 @@
  */
 
 #include "channel.h"
-#include "hccl_ccu_res.h"
+// #include "hccl_ccu_res.h"
 #include "ccu_assist_pub.h"
 #include "ccu_kernel_reduce_scatter_v_mesh1d_mem2mem.h"
 #include "ccu_temp_reduce_scatter_v_mesh_1D_mem2mem.h"
+#include "ccu_control_api.h"
 
 namespace ops_hccl {
 
@@ -45,6 +46,8 @@ HcclResult CcuTempReduceScatterVMesh1DMem2Mem::CalcRes(HcclComm comm, const OpPa
 
     // 创建每个kernel的ctxArg，放入kernelInfo, 然后将kernelinfo放入resourceRequest.ccuKernelInfos
     CcuKernelInfo kernelInfo;
+    strcpy(kernelInfo.kernelFuncName, "CcuKernelReduceScatterVMesh1DMem2Mem");
+ 	kernelInfo.kernelFunc = reinterpret_cast<void *>(CcuReduceScatterMesh1DKernel); // 改名
 
     kernelInfo.creator = [](const hcomm::CcuKernelArg &arg) {
                              return std::make_unique<CcuKernelReduceScatterVMesh1DMem2Mem>(arg);
