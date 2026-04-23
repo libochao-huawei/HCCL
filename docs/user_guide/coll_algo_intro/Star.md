@@ -8,4 +8,4 @@ Star算法适用于有根节点的通信操作（如Broadcast、Reduce、Gather�
 
 ## 耗时计算
 
-定义每个非根节点与根节点的通信数据大小为n，那么完成整个Star算法的通信耗时为：$ \alpha +\beta n$。
+定义每个非根节点与根节点的通信数据大小为n，那么完成整个Star算法的通信耗时为：$\alpha +\beta n$。
