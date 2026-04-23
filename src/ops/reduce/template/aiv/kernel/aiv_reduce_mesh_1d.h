@@ -18,7 +18,7 @@ public:
     __aicore__ inline AivReduceMesh1DTwoShot()
     {
     }
-
+    uint32_t useBlocks_;
     uint32_t coreNumPerRank;
     uint32_t coreNumFirstStage;
     uint32_t coreNumTotal;
@@ -42,8 +42,14 @@ public:
     __aicore__ inline void InitCoreInfo(int32_t sliceId)
     {
         curTag = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
+
+        useBlocks_ = rankSize_ + 1;
+
+        if (block_idx >= useBlocks_) {
+            return;
+        }
         uint64_t dataCount = len_;
-        coreNumPerRank = numBlocks_ / (rankSize_ + 1);
+        coreNumPerRank = useBlocks_ / (rankSize_ + 1);
         coreNumFirstStage = coreNumPerRank * rankSize_;
         coreNumTotal = coreNumPerRank * (rankSize_ + 1);
 
@@ -114,12 +120,12 @@ public:
         pipe_barrier(PIPE_ALL);
     }
 
-    __aicore__ inline void SmallCoreReduceScatter(uint32_t stepTag)
+    __aicore__ inline void SmallCoreReduceScatter(uint32_t sliceId)
     {
+        curTag = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
         uint64_t dataCount = len_;
         rankChunkStride = RoundUp(dataCount, rankSize_);
         ipcReduceFlagOffset = rankSize_;
-        curTag = static_cast<int32_t>(stepTag);
 
         for (uint32_t i = 0; block_idx + i * numBlocks_ < rankSize_; i++) {
             targetRank = block_idx + i * numBlocks_;
@@ -185,7 +191,7 @@ public:
 
 template<typename T>
 class AivReduceMesh1D : public AivCommBase {
-    constexpr static uint64_t DATA_SLICE_NUM = 64 * 1024;
+    constexpr static uint64_t DATA_SLICE_NUM = 256 * 1024;
 public:
     __aicore__ inline AivReduceMesh1D() {}
  
@@ -306,9 +312,15 @@ __aicore__ inline void AivReduceV2Mesh1D(EXTERN_KERNEL_ARGS_DEF_V2)
             op.BarrierForFirstOP();
         }
         SyncAll<true>();
-        op.InitCoreInfo(sliceId);
-        op.ReduceScatter();
-        op.GatherToRoot();    
-        op.BarrierAll();    
+        if(op.numBlocks_ > op.rankSize_){
+            op.InitCoreInfo(sliceId);
+            op.ReduceScatter();
+            op.GatherToRoot();    
+            op.BarrierAll();    
+        } else {
+            SmallCoreReduceScatter(sliceId);
+            SmallCoreGatherToRoot();
+        }
+
     }
 }
