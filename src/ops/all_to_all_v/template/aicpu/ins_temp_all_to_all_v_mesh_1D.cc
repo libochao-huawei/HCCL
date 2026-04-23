@@ -119,6 +119,7 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
             return HCCL_E_PARA;
         }
         const std::vector<ChannelInfo> &curChannels = channels.at(remoteRank);
+        channelsPerRank_ = curChannels.size();
         // send数据按照channel分片
         std::vector<u64> sendCountsSplit;
         std::vector<u64> sendSizeSplit;
