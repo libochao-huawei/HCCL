@@ -89,9 +89,9 @@ HcclResult GetAlgResDPU(HcclComm comm, const OpParam &param, AlgResourceRequest 
     AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence, uint64_t& ctxSize,
     bool increCreateChannelFlag);
 
-HcclResult FillOpExChangeInfo(HcclComm comm, const OpParam &param, OpExchangeInfo &enchangeInfo);
+HcclResult FillOpExchangeInfo(HcclComm comm, const OpParam &param, OpExchangeInfo &exchangeInfo);
 
-HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &enchangeInfo,
+HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeInfo,
     const std::vector<HcclChannelDesc> &channels);
 
 HcclResult ReportOpExchangeInfoCheckFailed(const std::string &paraName, uint32_t localPara,
