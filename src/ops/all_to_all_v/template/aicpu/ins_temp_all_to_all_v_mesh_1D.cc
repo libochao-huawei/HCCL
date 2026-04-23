@@ -254,7 +254,7 @@ HcclResult InsTempAlltoAllVMesh1D::RunSendRecvByLoop(const std::vector<u32> &com
                 "send size[%llu], recv size[%llu], remote rank[%u].",
                 queIdx, sendSizeSplit[channelId], recvSizeSplit[channelId], remoteRank);
             if (recvSizeSplit[channelId] > 0) {
-                CHK_RET(PostCopy(tempAlgParams, threads[queIdx], myRankRecvCclBuffIdx, remoteRank
+                CHK_RET(PostCopy(tempAlgParams, threads[queIdx], myRankRecvCclBuffIdx, remoteRank,
                     recvSizeSplit[channelId], recvCountsSplit[channelId], recvOffsetSplit[channelId]));
             }
             queIdx++;
