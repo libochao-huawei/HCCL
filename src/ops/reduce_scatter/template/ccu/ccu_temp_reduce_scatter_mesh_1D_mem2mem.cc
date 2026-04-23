@@ -63,7 +63,7 @@ HcclResult CcuTempReduceScatterMesh1DMem2Mem::CalcRes(HcclComm comm, const OpPar
 
     uint32_t kernelNum = enableDieNum;
     // 无论几个kernel，都创建2条流
-    resourceRequest.sfsfdsfdsfdsafdf = 1;
+    resourceRequest.notifyNumOnMainThread = 1;
     resourceRequest.slaveThreadNum = 1;
     resourceRequest.ccuKernelNum.push_back(kernelNum);
     resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, 1);
