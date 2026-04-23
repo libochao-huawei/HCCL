@@ -1337,24 +1337,11 @@ HcclResult HcclGetCcuKernel(HcclComm comm, AlgResourceRequest &resRequest,
                 continue;
             }
 
-<<<<<<< HEAD
             HCCL_DEBUG("[AllocAlgResource] kernelArgPtr[%p], creator[%p]", kernelArgPtr, &(kernelInfo.creator));
             CcuKernelHandle handle;
             CHK_RET(HcclCcuKernelRegister(comm, &handle, creatorPtr, kernelArgPtr));
             
             resCtxHost->ccuKernels[i] = handle;
-=======
-            HCCL_DEBUG("[HcclGetCcuKernel] kernelFuncName[%s]", kernelInfo.kernelFuncName);
-            CcuKernelHandle kernelHandle;
-            CcuResult regRet = HcommCcuKernelRegister(insHandle, kernelInfo.kernelFuncName,
-                                                      reinterpret_cast<void*>(kernelInfo.kernelFunc),
-                                                      kernelInfo.kernelArg, &kernelHandle);
-            if (regRet != CCU_SUCCESS) {
-                HCCL_ERROR("ccu kernel register failed: ccuRet -> %d", regRet);
-                return ConvertCcuToHccl(regRet);
-            }
-            resCtxHost->ccuKernels[i] = kernelHandle;
->>>>>>> e65f33a... ccu reduce scatter c-style
         }
         CcuResult regEndRet = HcommCcuKernelRegisterEnd(insHandle);
         if (regEndRet != CCU_SUCCESS) {
