@@ -432,6 +432,12 @@ HcclResult FillCachedArgs(CcuKernelSubmitInfo &info, Args... args)
 
     return HcclResult::HCCL_SUCCESS;
 }
-
+HcclResult CalcDataSplitByPortGroupCommon(const u64 totalDataCount,
+                                          const u64 dataTypeSize,
+                                          const std::vector<ChannelInfo> &channels,
+                                          std::vector<u64> &elemCountOut,
+                                          std::vector<u64> &sizeOut,
+                                          std::vector<u64> &elemOffset,
+                                          const u32 channelsPerRank);
 }
 #endif
