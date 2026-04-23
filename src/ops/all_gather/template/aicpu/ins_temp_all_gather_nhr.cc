@@ -229,7 +229,7 @@ HcclResult InsTempAllGatherNHR::LocalDataCopy(const std::vector<ThreadHandle> &t
         u64 sliceCount = partialSliceSize / dataTypeSize;
         DataSlice srcSlices(tempAlgParams_.buffInfo.inputPtr, inOff, partialSliceSize, sliceCount);
         DataSlice dstSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scOff, partialSliceSize, sliceCount);
-        CHK_RET(LocalCopy(threads[0], srcSlices, dstSlice));
+        CHK_RET(LocalCopy(threads[channelIdx], srcSlices, dstSlice));
     }
     return HcclResult::HCCL_SUCCESS;
 }
@@ -261,7 +261,7 @@ HcclResult InsTempAllGatherNHR::PostLocalCopy(const std::vector<ThreadHandle> &t
             u64 outOffset = tempAlgParams_.outputSliceStride * algRank + outBaseOff + partialOffset;
             DataSlice srcSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, partialSliceSize, sliceCount);
             DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outOffset, partialSliceSize, sliceCount);
-            CHK_RET(LocalCopy(threads[0], srcSlice, dstSlice));
+            CHK_RET(LocalCopy(threads[channelIdx], srcSlice, dstSlice));
         }
     }
     return HcclResult::HCCL_SUCCESS;

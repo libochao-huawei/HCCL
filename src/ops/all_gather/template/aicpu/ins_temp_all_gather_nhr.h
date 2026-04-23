@@ -51,7 +51,6 @@ private:
     HcclResult PostLocalCopy(const std::vector<ThreadHandle> &threads, const u32 &channelIdx);
     HcclResult RunAllGatherNHR(const std::vector<ThreadHandle> &threads,
                                const std::map<u32, std::vector<ChannelInfo>> &channels, const u32 &channelIdx);
-    u32 channelsPerRank_{1};
     u64 dataTypeSize_{0};
     std::vector<u64> dataSplit_;
     std::vector<u64> dataOffset_;
