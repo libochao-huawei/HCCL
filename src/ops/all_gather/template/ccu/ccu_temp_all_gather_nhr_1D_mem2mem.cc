@@ -95,12 +95,10 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::FastLaunch(const OpParam& param, const 
     }
 
     for (u32 kernelIdx = 0; kernelIdx < kernelNum; kernelIdx++) {
-        uint64_t token;
-        CHK_RET(GetToken(buffInfo_, token));
         CcuTaskArgAllGatherNHR1D taskArg(
             PointerToAddr(buffInfo_.inputPtr) + args[0],
             PointerToAddr(buffInfo_.outputPtr) + args[1],
-            token, args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12]);
+            args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12]);
 
         HCCL_INFO("[CcuTempAllGatherNHR1DMem2Mem::FastLaunch] TaskArgs: inputptr[%u]," 
         "outputptr[%u], die0Size[%u], die1Size[%u], repeatNum[%u], inputSliceStride[%u], outputSliceStride[%u],"
