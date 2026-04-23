@@ -318,8 +318,8 @@ __aicore__ inline void AivReduceV2Mesh1D(EXTERN_KERNEL_ARGS_DEF_V2)
             op.GatherToRoot();    
             op.BarrierAll();    
         } else {
-            SmallCoreReduceScatter(sliceId);
-            SmallCoreGatherToRoot();
+            op.SmallCoreReduceScatter(sliceId);
+            op.SmallCoreGatherToRoot();
         }
 
     }
