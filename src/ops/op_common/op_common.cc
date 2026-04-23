@@ -764,11 +764,11 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
     if (!isChecked) {
         if (param.engine != COMM_ENGINE_CCU) {
             for (u32 level = 0; level < resRequest.channels.size(); level++) {
-                CHK_RET(CompareOpExchangeInfos(comm, &exchangeInfo, resRequest.channels[level]));
+                CHK_RET(CompareOpExchangeInfos(comm, exchangeInfo, resRequest.channels[level]));
             }
         } else {
             for (CcuKernelInfo& kernelInfo: resRequest.ccuKernelInfos) {
-                CHK_RET(CompareOpExchangeInfos(comm, &exchangeInfo, kernelInfo.channels));
+                CHK_RET(CompareOpExchangeInfos(comm, exchangeInfo, kernelInfo.channels));
             }
         }
     }
