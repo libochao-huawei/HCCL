@@ -376,7 +376,8 @@ inline u32 CalcChannelsPerRank(const std::vector<HcclChannelDesc> &channels)
         } else {
             // 如果remoteRank变化了，则更新channelsPerRank并重新开始给下一个remoteRank计数
             if (currentCount != channelsPerRank && channel.remoteRank != channels[0].remoteRank) {
-                HCCL_WARNING("[CalcChannelsPerRank] links num[%u] of remote rank[%u] is not equal to num of previous rank[%u].",
+                HCCL_WARNING("[CalcChannelsPerRank] channel num[%u] of remote rank[%u] is not equal to "\
+                    "channel num[%u] of previous ranks.",
                     currentCount, channel.remoteRank, channelsPerRank);
             }
             if (currentCount > channelsPerRank) {
@@ -431,7 +432,6 @@ HcclResult FillCachedArgs(CcuKernelSubmitInfo &info, Args... args)
 
     return HcclResult::HCCL_SUCCESS;
 }
-HcclResult CalcDataSplitByPortGroup(const u64 totalDataCount, const u64 dataTypeSize, const std::vector<ChannelInfo> &channels,
-                                    std::vector<u64> &elemCountOut, std::vector<u64> &sizeOut, std::vector<u64> &elemOffset);
+
 }
 #endif

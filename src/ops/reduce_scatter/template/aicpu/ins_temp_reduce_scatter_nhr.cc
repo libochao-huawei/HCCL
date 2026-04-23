@@ -36,24 +36,16 @@ HcclResult InsTempReduceScatterNHR::CalcRes(HcclComm comm, const OpParam& param,
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult InsTempReduceScatterNHR::SetchannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels)
-{
-    CHK_PRT_RET(channels.empty(), HCCL_ERROR("[SetchannelsPerRank] channels is empty."), HCCL_E_INTERNAL);
-    channelsPerRank_ = CalcChannelsPerRank(channels);
-
-    return HCCL_SUCCESS;
-}
-
 HcclResult InsTempReduceScatterNHR::GetRes(AlgResourceRequest& resourceRequest) const
 {
-
     u32 threadNum = 1 * channelsPerRank_;
     resourceRequest.slaveThreadNum = threadNum - 1;
     for (u32 index = 0; index < threadNum - 1; index++) {
         resourceRequest.notifyNumPerThread.push_back(1);
     }
     resourceRequest.notifyNumOnMainThread = threadNum - 1;
-
+    HCCL_INFO("[GetRes] channelsPerRank_: [%u], slaveThreadNum: [%u].",
+        channelsPerRank_, resourceRequest.slaveThreadNum);
     return HCCL_SUCCESS;
 }
 
@@ -80,7 +72,8 @@ HcclResult InsTempReduceScatterNHR::KernelRun(const OpParam& param,
     std::vector<u64> sizeOut;
     std::vector<u64> elemOffset;
     u64 totalDataCount = tempAlgParams.sliceSize / dataTypeSize_;
-    CHK_RET(CalcDataSplitByPortGroup(totalDataCount, dataTypeSize_, channels_.begin()->second, elemCountOut, sizeOut, elemOffset));
+    CHK_RET(CalcDataSplitByPortGroup(totalDataCount, dataTypeSize_, channels_.begin()->second,
+                                     elemCountOut, sizeOut, elemOffset));
     elemOffset_ = elemOffset;
     sizeOut_ = sizeOut;
 
@@ -89,12 +82,13 @@ HcclResult InsTempReduceScatterNHR::KernelRun(const OpParam& param,
         std::vector<u64> sizeOutTail;
         std::vector<u64> elemOffsetTail;
         u64 totalDataCountTail = tempAlgParams.tailSize / dataTypeSize_;
-        CHK_RET(CalcDataSplitByPortGroup(totalDataCountTail, dataTypeSize_, channels_.begin()->second, elemCountOutTail, sizeOutTail, elemOffsetTail));
+        CHK_RET(CalcDataSplitByPortGroup(totalDataCountTail, dataTypeSize_, channels_.begin()->second,
+                                         elemCountOutTail, sizeOutTail, elemOffsetTail));
         elemOffsetTail_ = elemOffsetTail;
         sizeOutTail_ = sizeOutTail;
     }
 
-    threadNum_ = templateResource.threads.size();
+    threadNum_ = GetThreadNum();
     if (threadNum_ > 1) {
         std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
         GetNotifyIdxMainToSub(notifyIdxMainToSub_);

@@ -39,7 +39,6 @@ public:
                          TemplateResource& templateResource) override;
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
     u64 GetThreadNum() const override;
-    HcclResult SetchannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels);
     void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub) override;
     void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override;
 private:
@@ -49,7 +48,6 @@ private:
     HcclResult PostLocalCopy(const std::vector<ThreadHandle> &threads, u32 channelIdx);
     TemplateDataParams tempAlgParams_;
     std::map<u32, std::vector<ChannelInfo>> channels_;
-    u32 channelsPerRank_{1};
     u64 dataTypeSize_{0};
     std::vector<u64> sizeOut_;
     std::vector<u64> elemOffset_;
