@@ -53,12 +53,6 @@ u64 InsTempAllGatherNHR::CalcScratchMultiple(BufferType inBuffType, BufferType o
     return scratchMultiple;
 }
 
-HcclResult InsTempAllGatherNHR::SetchannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels) {
-    CHK_PRT_RET(channels.empty(), HCCL_ERROR("[SetchannelsPerRank] channels is empty."), HCCL_E_INTERNAL);
-    channelsPerRank_ = CalcChannelsPerRank(channels);
-    return HCCL_SUCCESS;
-}
-
 HcclResult InsTempAllGatherNHR::PreprareDataSplitForMultiChannel(const TemplateResource &templateResource) {
     u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
     u64 totalDataCount = tempAlgParams_.sliceSize / dataTypeSize;
@@ -81,7 +75,7 @@ HcclResult InsTempAllGatherNHR::KernelRun(const OpParam &param, const TemplateDa
         return HCCL_SUCCESS;
     }
     threadNum_ = GetThreadNum();
-    if (templateResource.threads.size() != threadNum_())
+    if (templateResource.threads.size() < threadNum_())
     {
         HCCL_ERROR("[InsTempAllGatherNHR] Rank [%d], thread num[%u] is not as expected[%u].", myRank_, templateResource.threads.size(), threadNum_);
         return HcclResult::HCCL_E_INTERNAL;
