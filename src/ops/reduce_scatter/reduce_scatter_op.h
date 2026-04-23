@@ -19,6 +19,8 @@
 #include "executor_v2_base.h"
 #include "alg_type.h"
 #include "execute_selector.h"
+#include "op_common_a3.h"
+#include <cstdlib> 
 
 #ifdef __cplusplus
 extern "C" {
@@ -51,6 +53,8 @@ HcclResult GetAlgResReduceScatter(HcclComm comm, OpParam &param, std::shared_ptr
     
 HcclResult ReduceScatterEntryLog(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType, HcclReduceOp op,
     aclrtStream stream, const char *tag, const std::string &opName);
+
+bool GetBirsEnableFromEnv();
 
 }
 

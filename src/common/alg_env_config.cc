@@ -188,6 +188,9 @@ HcclResult InitEnvConfig()
             ret),
         ret);
 
+    // 解析BIRS算法开关
+    ret = ParseBirsEnable();
+
     // 解析执行超时
     ret = ParseExecTimeout();
     RPT_ENV_ERR(ret != HCCL_SUCCESS, "EI0001", std::vector<std::string>({"value", "env", "expect"}),
@@ -959,6 +962,34 @@ const bool &GetExternalInputInterSuperPodRetryEnable()
 const bool &GetExternalInputHcclEnableEntryLog()
 {
     return g_algEnvConfig.enableEntryLog;
+}
+
+const bool &GetExternalInputHcclBirsEnable()
+{
+    return g_algEnvConfig.birsEnable;
+}
+
+HcclResult ParseBirsEnable()
+{
+    std::string birsEnableEnv = GetEnv(MM_ENV_HCCL_BIRS_ENABLE);
+    if (birsEnableEnv == "EmptyString") {
+        HCCL_RUN_INFO("HCCL_BIRS_ENABLE is not set, default value is %s.",
+            g_algEnvConfig.birsEnable ? "TRUE" : "FALSE");
+        return HCCL_SUCCESS;
+    }
+    std::transform(birsEnableEnv.begin(), birsEnableEnv.end(), birsEnableEnv.begin(), ::toupper);
+    if ("TRUE" == birsEnableEnv) {
+        g_algEnvConfig.birsEnable = true;
+    } else if ("FALSE" == birsEnableEnv) {
+        g_algEnvConfig.birsEnable = false;
+    } else {
+        HCCL_ERROR("HCCL_BIRS_ENABLE %s is invalid, expect true or false.", birsEnableEnv.c_str());
+        return HCCL_E_PARA;
+    }
+    HCCL_RUN_INFO("environmental variable HCCL_BIRS_ENABLE is set to [%s], birsEnable[%d]",
+        birsEnableEnv.c_str(),
+        g_algEnvConfig.birsEnable);
+    return HCCL_SUCCESS;
 }
 
 bool RunIndependentOpExpansion(DevType deviceType)
