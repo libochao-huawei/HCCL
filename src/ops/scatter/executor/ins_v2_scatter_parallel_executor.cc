@@ -477,11 +477,6 @@ void InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
     tempAlgParamsIntra0.repeatNum = rankSizeLevel1_;
     tempAlgParamsIntra0.inputRepeatStride = dataSize_ * rankSizeLevel0_;
     tempAlgParamsIntra0.outputRepeatStride = tempAlgParamsIntra0.sliceSize;
-    InsAlgTemplate0 tempAlgIntra(
-        param, resCtx.topoInfo.userRank, resCtx.algHierarchyInfo.infos[0]);  // server内算法，比如mesh
-    InsAlgTemplate1 tempAlgInter(
-        param, resCtx.topoInfo.userRank, resCtx.algHierarchyInfo.infos[1]);  // server间算法，比如nhr
-
     std::string subCommRanks = "";
     for (auto r : resCtx.algHierarchyInfo.infos[0][0]) { subCommRanks += std::to_string(r) + " "; }
     HCCL_INFO("[GenTemplateAlgParamsIntra0] parallel step1 in server, subCommRanks[%s], sliceSize[%llu], tailSize[%llu]"
