@@ -479,9 +479,9 @@ void InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
     tempAlgParamsIntra0.outputRepeatStride = tempAlgParamsIntra0.sliceSize;
     std::string subCommRanks = "";
     for (auto r : resCtx.algHierarchyInfo.infos[0][0]) { subCommRanks += std::to_string(r) + " "; }
-    HCCL_INFO("[GenTemplateAlgParamsIntra0] parallel step1 in server, subCommRanks[%s], sliceSize[%llu], tailSize[%llu]"
+    HCCL_INFO("[GenTemplateAlgParamsIntra0] parallel step1 in server, myRank_[%u], subCommRanks[%s], sliceSize[%llu], tailSize[%llu]"
               "inputSliceStride[%llu], outputSliceStride[%llu], repeatNum[%llu], inputRepeatStride[%llu], outputRepeatStride[%llu]",
-              subCommRanks, tempAlgParamsIntra0.sliceSize, tempAlgParamsIntra0.tailSize, tempAlgParamsIntra0.inputSliceStride,
+              myRank_, subCommRanks.c_str(), tempAlgParamsIntra0.sliceSize, tempAlgParamsIntra0.tailSize, tempAlgParamsIntra0.inputSliceStride,
               tempAlgParamsIntra0.outputSliceStride, tempAlgParamsIntra0.repeatNum, tempAlgParamsIntra0.inputRepeatStride, tempAlgParamsIntra0.outputRepeatStride);
     return;
 }
@@ -512,9 +512,9 @@ void InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
     tempAlgParamsInter0.outputRepeatStride = 0;
     std::string subCommRanks = "";
     for (auto r : resCtx.algHierarchyInfo.infos[1][0]) { subCommRanks += std::to_string(r) + " "; }
-    HCCL_INFO("[GenTemplateAlgParamsInter0] parallel step2 between servers, subCommRanks[%s], sliceSize[%llu], tailSize[%llu]"
+    HCCL_INFO("[GenTemplateAlgParamsInter0] parallel step2 between servers, myRank_[%u], subCommRanks[%s], sliceSize[%llu], tailSize[%llu]"
               "inputSliceStride[%llu], outputSliceStride[%llu], repeatNum[%llu], inputRepeatStride[%llu], outputRepeatStride[%llu]",
-              subCommRanks, tempAlgParamsInter0.sliceSize, tempAlgParamsInter0.tailSize, tempAlgParamsInter0.inputSliceStride,
+              myRank_, subCommRanks.c_str(), tempAlgParamsInter0.sliceSize, tempAlgParamsInter0.tailSize, tempAlgParamsInter0.inputSliceStride,
               tempAlgParamsInter0.outputSliceStride, tempAlgParamsInter0.repeatNum, tempAlgParamsInter0.inputRepeatStride, tempAlgParamsInter0.outputRepeatStride);
     return;
 }
@@ -545,9 +545,9 @@ void InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
     tempAlgParamsInter1.outputRepeatStride = tempAlgParamsInter1.sliceSize;
     std::string subCommRanks = "";
     for (auto r : resCtx.algHierarchyInfo.infos[1][0]) { subCommRanks += std::to_string(r) + " "; }
-    HCCL_INFO("[GenTemplateAlgParamsInter1] parallel step1 between servers, subCommRanks[%s], sliceSize[%llu], tailSize[%llu]"
+    HCCL_INFO("[GenTemplateAlgParamsInter1] parallel step1 between servers, myRank_[%u], subCommRanks[%s], sliceSize[%llu], tailSize[%llu]"
               "inputSliceStride[%llu], outputSliceStride[%llu], repeatNum[%llu], inputRepeatStride[%llu], outputRepeatStride[%llu]",
-              subCommRanks, tempAlgParamsInter1.sliceSize, tempAlgParamsInter1.tailSize, tempAlgParamsInter1.inputSliceStride,
+              myRank_, subCommRanks.c_str(), tempAlgParamsInter1.sliceSize, tempAlgParamsInter1.tailSize, tempAlgParamsInter1.inputSliceStride,
               tempAlgParamsInter1.outputSliceStride, tempAlgParamsInter1.repeatNum, tempAlgParamsInter1.inputRepeatStride, tempAlgParamsInter1.outputRepeatStride);
     return;
 }
@@ -578,9 +578,9 @@ void InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
     tempAlgParamsIntra1.outputRepeatStride = 0;
     std::string subCommRanks = "";
     for (auto r : resCtx.algHierarchyInfo.infos[0][0]) { subCommRanks += std::to_string(r) + " "; }
-    HCCL_INFO("[GenTemplateAlgParamsIntra1] parallel step2 in server, subCommRanks[%s], sliceSize[%llu], tailSize[%llu]"
+    HCCL_INFO("[GenTemplateAlgParamsIntra1] parallel step2 in server, myRank_[%u], subCommRanks[%s], sliceSize[%llu], tailSize[%llu]"
               "inputSliceStride[%llu], outputSliceStride[%llu], repeatNum[%llu], inputRepeatStride[%llu], outputRepeatStride[%llu]",
-              subCommRanks, tempAlgParamsIntra1.sliceSize, tempAlgParamsIntra1.tailSize, tempAlgParamsIntra1.inputSliceStride,
+              myRank_, subCommRanks.c_str(), tempAlgParamsIntra1.sliceSize, tempAlgParamsIntra1.tailSize, tempAlgParamsIntra1.inputSliceStride,
               tempAlgParamsIntra1.outputSliceStride, tempAlgParamsIntra1.repeatNum, tempAlgParamsIntra1.inputRepeatStride, tempAlgParamsIntra1.outputRepeatStride);
     return;
 }
