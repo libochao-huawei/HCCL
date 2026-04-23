@@ -120,13 +120,15 @@ constexpr uint64_t CCU_MS_SIZE               = 4096;
                            ccu::LocalAddr dst, std::vector<ccu::RemoteAddr> src, ccu::LocalAddr localSrc,
                            GroupOpSizeVars goSize, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType);
 
+    CcuResult GroupCopy(CcuKernelCtxBase &ctx, ccu::LocalAddr dst, ccu::LocalAddr src, GroupOpSizeVars goSize);
+    CcuResult CreateMultiOpCopy(CcuKernelCtxBase &ctx, GroupCopyVar &var);
 //     HcclResult GroupReduceWithoutMyRank(const std::vector<ChannelHandle> &ccuChannels, CcuRep::LocalAddr dst,
 //                              std::vector<CcuRep::RemoteAddr> src, GroupOpSize goSize, HcclDataType dataType,
 //                              HcclDataType outputDataType, HcclReduceOp opType);
 
 //     HcclResult GroupCopy(CcuRep::LocalAddr dst, CcuRep::LocalAddr src, GroupOpSize goSize);
-//     HcclResult GroupLocalReduce(CcuRep::LocalAddr outDstOrg, std::vector<CcuRep::LocalAddr> &scratchOrg,
-//         GroupOpSize goSize, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType);
+    CcuResult GroupLocalReduce(CcuKernelCtxBase &ctx, ccu::LocalAddr outDstOrg, std::vector<ccu::LocalAddr> &scratchOrg,
+        GroupOpSizeVars goSize, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType);
 // private:
 //     HcclResult CreateMultiOpCopy();
 //     HcclResult CreateMultiOpBroadcast(const std::vector<ChannelHandle> &channels);
