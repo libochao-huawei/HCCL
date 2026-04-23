@@ -375,5 +375,9 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceSc
     CcuTempReduceScatterMesh1DMem2Mem, CcuKernelReduceScatterNHR1DMem2Mem);
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterConcurrentMesh1DNHR, InsReduceScatterConcurrentExecutor, TopoMatch1D,
     CcuTempReduceScatterMesh1D, CcuKernelReduceScatterNHR1DMem2Mem);
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterConcurrentMesh1DMeshMem, InsReduceScatterConcurrentExecutor, TopoMatch1D,
+    CcuTempReduceScatterMesh1D, CcuTempReduceScatterMesh1D);
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterConcurrentMesh1DMesh, InsReduceScatterConcurrentExecutor, TopoMatch1D,
+    CcuTempReduceScatterMesh1DMem2Mem, CcuTempReduceScatterMesh1DMem2Mem);
 #endif
 }
