@@ -12,6 +12,8 @@
 #define HCCL_CCU_ALG_TEMPLATE_BASE
 
 #include "common_alg_template_base.h"
+#include "ccu_assist_pub.h"
+
 
 namespace ops_hccl {
 
