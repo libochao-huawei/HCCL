@@ -47,55 +47,10 @@ public:
     virtual HcclResult CalcDataSplitByPortGroup(const u64 totalDataCount, const u64 dataTypeSize,
                                                 const std::vector<ChannelInfo> &channels,
                                                 std::vector<u64> &elemCountOut, std::vector<u64> &sizeOut,
-                                                std::vector<u64> &elemOffset)
-    {
-        elemCountOut.clear();
-        sizeOut.clear();
-        elemOffset.clear();
+                                                std::vector<u64> &elemOffset);
 
-        std::vector<u32> portGroups;
-        u32 totalPorts = 0;
-        u32 taskCount =  ((int)channels.size() > channelsPerRank_) ? channelsPerRank_ : (int)channels.size();
-        for (u32 i = 0; i < taskCount; i++) {
-            const auto &ch = channels[i];
-            portGroups.push_back(ch.portGroupSize);
-            totalPorts += ch.portGroupSize;
-            HCCL_INFO("[CalcDataSplitByPortGroup] ch.portGroupSize[%u], totalPorts[%u], channelsPerRank_[%u]",
-                      ch.portGroupSize, totalPorts, channelsPerRank_);
-        }
+    virtual HcclResult SetchannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels);
 
-        u32 channelsize = portGroups.size();
-        u64 accumCount = 0;
-        u64 offset = 0;
-        for (u32 channelIdx = 0; channelIdx < channelsize; channelIdx++) {
-            u64 elemCount = 0;
-            u64 elemSize = 0;
-            if (channelIdx == channelsize - 1) {
-                elemCount = totalDataCount - accumCount;
-            } else {
-                CHK_PRT_RET(totalPorts == 0,
-                            HCCL_ERROR("[CalcDataSplitByPortGroup] totalPorts [%u] is 0.", totalPorts),
-                            HcclResult::HCCL_E_INTERNAL);
-                elemCount = static_cast<u64>((totalDataCount * portGroups[channelIdx]) / totalPorts);
-            }
-            elemOffset.push_back(offset);
-            elemCountOut.push_back(elemCount);
-            elemSize = elemCount * dataTypeSize;
-            sizeOut.push_back(elemSize);
-            offset += elemSize;
-            accumCount += elemCount;
-        }
-
-        return HcclResult::HCCL_SUCCESS;
-    }
-
-    virtual HcclResult SetchannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels)
-    {
-        CHK_PRT_RET(channels.empty(), HCCL_ERROR("[SetchannelsPerRank] channels is empty."), HCCL_E_INTERNAL);
-        channelsPerRank_ = CalcChannelsPerRank(channels);
-        return HCCL_SUCCESS;
-    }
-    
 protected:
     void IncSliceId();
 
