@@ -9,7 +9,7 @@
  */
 
 #include "ins_v2_all_gather_concurrent_executor.h"
-#include "math.h"
+#include <cmath>
 #include "alg_data_trans_wrapper.h"
 #include "hccl_res.h"
 #include "ccu_alg_template_base.h"
@@ -26,9 +26,9 @@
 
 #endif
 
-constexpr u32 CLOS_PORT_NUM = 4;
-
 namespace ops_hccl {
+
+constexpr u32 CLOS_PORT_NUM = 4;
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 InsV2AllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::InsV2AllGatherConcurrentExecutor()
