@@ -833,7 +833,7 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
     std::string tagStr = param.algTag;
     bool isChecked = (g_consistencyCheckedList.find(tagStr) != g_consistencyCheckedList.end());
     if (!isChecked || increCreateChannelFlag) {
-        CHK_RET(FillOpExChangeInfo(comm, param, exchangeInfo));
+        CHK_RET(FillOpExchangeInfo(comm, param, exchangeInfo));
         CHK_RET(HcclCommAddExchangeInfo(comm, &exchangeInfo, sizeof(exchangeInfo)));
         g_consistencyCheckedList.insert(tagStr);
     }
@@ -870,11 +870,11 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
     if (!isChecked) {
         if (param.engine != COMM_ENGINE_CCU) {
             for (u32 level = 0; level < resRequest.channels.size(); level++) {
-                CHK_RET(CompareOpExchangeInfo(comm, &exchangeInfo, resRequest.channels[level]));
+                CHK_RET(CompareOpExchangeInfos(comm, &exchangeInfo, resRequest.channels[level]));
             }
         } else {
             for (CcuKernelInfo& kernelInfo: resRequest.ccuKernelInfos) {
-                CHK_RET(CompareOpExchangeInfo(comm, &exchangeInfo, kernelInfo.channels));
+                CHK_RET(CompareOpExchangeInfos(comm, &exchangeInfo, kernelInfo.channels));
             }
         }
     }
@@ -1498,7 +1498,7 @@ HcclResult GetAlgResDPU(HcclComm comm, const OpParam &param, AlgResourceRequest 
     return HCCL_SUCCESS;
 }
 
-HcclResult FillOpExChangeInfo(HcclComm comm, const OpParam &param, OpExchangeInfo &exchangeInfo)
+HcclResult FillOpExchangeInfo(HcclComm comm, const OpParam &param, OpExchangeInfo &exchangeInfo)
 {
     CHK_PTR_NULL(comm);
     void *cclBufferAddr;
