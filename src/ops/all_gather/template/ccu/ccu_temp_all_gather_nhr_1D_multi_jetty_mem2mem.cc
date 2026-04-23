@@ -162,7 +162,7 @@ HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::FastLaunch(const OpParam& par
     buffInfo_ = tempFastLaunchCtx.buffInfo;
     
     // 计算NHR Multi Jetty特有的参数
-    CcuTaskArgAllGatherMesh1DMem2Mem taskArg(
+    CcuTaskArgAllGatherNHR1DMultiJettyMem2Mem taskArg(
         PointerToAddr(buffInfo_.inputPtr) + args[0],
         PointerToAddr(buffInfo_.outputPtr) + args[1],
         args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11]);
