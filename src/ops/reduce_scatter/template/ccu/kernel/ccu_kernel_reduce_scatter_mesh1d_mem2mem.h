@@ -18,7 +18,7 @@
 #include "ccu_kernel_utils.h"
 #include "ccu_kernel_alg_base.h"
 
-namespace ops_hccl {
+namespace ops_hccl { 
 using namespace hcomm;
 
 class CcuKernelArgReduceScatterMesh1DMem2Mem : public CcuKernelArg {
