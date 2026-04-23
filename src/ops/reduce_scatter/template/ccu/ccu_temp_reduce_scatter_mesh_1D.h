@@ -42,6 +42,9 @@ public:
     HcclResult GetRes(AlgResourceRequest& resourceRequest) const override;
     
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
+    HcclResult SplitDataFor2Dies(const OpParam& param, const uint64_t sliceSize,
+                                uint64_t& die0Size, uint64_t& die1Size) const;
+    std::map<u32, std::vector<HcclChannelDesc>> rankIdToChannelDesc_;
 
 private:
     uint32_t mySubCommRank_ = 0;

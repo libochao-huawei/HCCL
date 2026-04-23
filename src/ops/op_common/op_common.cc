@@ -46,6 +46,8 @@
 #include "hccl_diag.h"
 #include "hcom.h"
 
+bool g_ccuV2 = true;
+
 namespace ops_hccl {
 thread_local std::map<std::string, HcclMemHandle> g_memHandleCache; // 当前AIV存放注册内存的memHandle使用
 // 用于维护增量建链算子的host ctx信息

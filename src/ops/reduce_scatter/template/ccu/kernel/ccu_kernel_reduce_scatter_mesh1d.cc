@@ -33,10 +33,11 @@ CcuKernelReduceScatterMesh1D::CcuKernelReduceScatterMesh1D(const CcuKernelArg &a
             outputDataType_);
     }
     reduceOp_ = kernelArg->opParam_.reduceType;
+    axisId_ = kernelArg->axisId_;
     HCCL_INFO(
         "[CcuKernelArgReduceScatterMesh1D] Init, KernelArgs are rankId[%u], rankSize_[%u], dataType[%d], "
-        "outputDataType[%d], reduceOp[%d]",
-        rankId_, rankSize_, dataType_, outputDataType_, reduceOp_);
+        "outputDataType[%d], reduceOp[%d], axisId[%u]",
+        rankId_, rankSize_, dataType_, outputDataType_, reduceOp_, axisId_);
 }
 
 HcclResult CcuKernelReduceScatterMesh1D::Algorithm()
@@ -67,10 +68,12 @@ HcclResult CcuKernelReduceScatterMesh1D::Algorithm()
     }
     offset_ = CreateVariable();
     groupOpSize_ = CreateGroupOpSize();
+    die0Size_ = CreateVariable();
 
     Load(input_[rankId_]);
     Load(output_[0]);
     Load(token_[rankId_]);
+    Load(die0Size_);
     Load(offset_);
     Load(groupOpSize_);
     for (auto ch : channels_) {
@@ -89,6 +92,9 @@ HcclResult CcuKernelReduceScatterMesh1D::Algorithm()
     }
     CcuRep::LocalAddr dst = CreateLocalAddr();
     dst.addr  = output_[0];
+    if (axisId_ == 1) {
+        dst.addr += die0Size_;
+    }
     dst.token = token_[rankId_];
     uint32_t dstId = 0;
     uint32_t curId = 0;
@@ -103,6 +109,9 @@ HcclResult CcuKernelReduceScatterMesh1D::Algorithm()
         // 其中本端input为LocalAddr，但适配接口，写入RemoteAddr中
         src[curId].addr = input_[rankIdx];
         src[curId].addr += offset_;
+        if (axisId_ == 1) {
+            src[curId].addr += die0Size_;
+        }
         src[curId].token = token_[rankIdx];
     }
 
@@ -126,12 +135,13 @@ std::vector<uint64_t> CcuKernelReduceScatterMesh1D::GeneArgs(const CcuTaskArg &a
     uint64_t outputAddr = taskArg->outputAddr_;
     uint64_t tokenInfo  = taskArg->token_;
     uint64_t offset     = taskArg->offset_;
-    uint64_t sliceSize  = taskArg->sliceSize_;
-    auto     goSize     = CalGoSize(sliceSize);
+    uint64_t die0Size   = taskArg->die0Size_;
+    uint64_t die1Size   = taskArg->die1Size_;
+    auto     goSize     = (axisId_==0) ? CalGoSize(die0Size) : CalGoSize(die1Size);
     
     HCCL_INFO("[CcuKernelReduceScatterMesh1D] TaskArgs: inputAddr[%llu], outputAddr[%llu], "
-               "offset[%llu], sliceSize[%llu]",
-               inputAddr, outputAddr, offset, sliceSize);
-    return {inputAddr, outputAddr, tokenInfo, offset, goSize[0], goSize[1], goSize[2], goSize[3]};
+               "offset[%llu], die0Size[%llu], die1Size[%llu]",
+               inputAddr, outputAddr, offset, die0Size, die1Size);
+    return {inputAddr, outputAddr, tokenInfo, die0Size, offset, goSize[0], goSize[1], goSize[2], goSize[3]};
 }
 } // namespace ops_hccl
