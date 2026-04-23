@@ -35,13 +35,14 @@ SelectorStatus AlltoAllAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNet
                                                     std::string &selectAlgName) const
 {
     HCCL_DEBUG("[AlltoAllAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
+    HCCL_INFO("[AlltoAllAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
     (void)opParam;
     (void)configAlgMap;
     if (topoInfo->topoLevelNums > 1) {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             selectAlgName = "CcuAllToAllMesh1D2Die";
         } else {
-            HCCL_WARNING("[AllGatherAutoSelector] levelNum > 1 is not supported yet for 2d ccu_ms mode.");
+            HCCL_WARNING("[AlltoAllAutoSelector] levelNum > 1 is not supported yet for 2d ccu_ms mode.");
             return SelectorStatus::NOT_MATCH;
         }
     }
