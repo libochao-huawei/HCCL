@@ -38,8 +38,8 @@ public:
 
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
     u64 GetThreadNum() const override;
-    void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainnToSub) override {};
-    void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override{};
+    void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMianToSub) override;
+    void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override;
 
 private:
     HcclResult GetStepInfo(u32 step, u32 nSteps, AicpuNHRStepInfo &stepInfo);
@@ -58,6 +58,6 @@ private:
     std::vector<u64> dataOffsetTail_;
 };
 
-}  // namespace Hccl
+}  // namespace ops_hccl
 
 #endif  // INS_TEMP_ALL_GATHER_NHR_H

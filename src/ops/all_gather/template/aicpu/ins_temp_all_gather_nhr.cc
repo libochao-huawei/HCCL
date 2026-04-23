@@ -75,13 +75,12 @@ HcclResult InsTempAllGatherNHR::KernelRun(const OpParam &param, const TemplateDa
         return HCCL_SUCCESS;
     }
     threadNum_ = GetThreadNum();
-    if (templateResource.threads.size() < threadNum_())
+    if (templateResource.threads.size() < threadNum_)
     {
         HCCL_ERROR("[InsTempAllGatherNHR] Rank [%d], thread num[%u] is not as expected[%u].", myRank_, templateResource.threads.size(), threadNum_);
         return HcclResult::HCCL_E_INTERNAL;
     }
     channelsPerRank_ = CalcChannelsPerRank(templateResource.channels);
-    threadNum_ = templateResource.threads.size();
     tempAlgParams_ = tempAlgParams;
     dataType_ = param.DataDes.dataType;
     enableRemoteMemAccess_ = tempAlgParams.enableRemoteMemAccess;
@@ -157,7 +156,7 @@ HcclResult InsTempAllGatherNHR::RunAllGatherNHR(const std::vector<ThreadHandle> 
             TxRxChannels sendRecvChannels(channelSend, channelRecv);
             SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
 
-            CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[0]),
+            CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[channelIdx]),
                         HCCL_ERROR("[InsTempAllGatherNHR] sendrecv failed (step=%u, rpt=%u)", step, rpt),
                         HcclResult::HCCL_E_INTERNAL);
         }
@@ -288,4 +287,4 @@ void InsTempAllGatherNHR::GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubTo
     }
 }
 
-}  // namespace Hccl
+}  // namespace ops_hccl
