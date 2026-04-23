@@ -38,7 +38,7 @@ HcclResult InsTempAllGatherOmniPipeNHR::KernelRun(const OpParam& param, const Te
                            myRank_, threadNum_, templateResource.threads.size()),
                 HcclResult::HCCL_E_INTERNAL);
 
-    CHK_RET(RunAllGatherNHR(templateResource.threads, templateResource.channels));
+    CHK_RET(RunAllGatherNHR(templateResource.threads, templateResource.channels, 0));
 
     HCCL_INFO("[InsTempAllGatherNHR] Run End");
     return HcclResult::HCCL_SUCCESS;
