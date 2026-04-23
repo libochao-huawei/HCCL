@@ -41,15 +41,16 @@ public:
     void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMianToSub) override;
     void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override;
 
-private:
+protected:
     HcclResult GetStepInfo(u32 step, u32 nSteps, AicpuNHRStepInfo &stepInfo);
+    u32 GetRankFromMap(const u32 algRankIdx) const;
+    TemplateDataParams tempAlgParams_;
+private:
     HcclResult PreprareDataSplitForMultiChannel(const TemplateResource &templateResource);
     HcclResult LocalDataCopy(const std::vector<ThreadHandle> &threads, const u32 &channelIdx);
     HcclResult PostLocalCopy(const std::vector<ThreadHandle> &threads, const u32 &channelIdx);
     HcclResult RunAllGatherNHR(const std::vector<ThreadHandle> &threads,
                                const std::map<u32, std::vector<ChannelInfo>> &channels, const u32 &channelIdx);
-    u32 GetRankFromMap(const u32 algRankIdx) const;
-    TemplateDataParams tempAlgParams_;
     u32 channelsPerRank_{1};
     u64 dataTypeSize_{0};
     std::vector<u64> dataSplit_;
