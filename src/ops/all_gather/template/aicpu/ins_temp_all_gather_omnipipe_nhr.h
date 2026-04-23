@@ -32,7 +32,7 @@ public:
 
 private:
     HcclResult RunAllGatherNHR(const std::vector<ThreadHandle>& threads,
-                               const std::map<u32, std::vector<ChannelInfo>>& channels) override;
+                               const std::map<u32, std::vector<ChannelInfo>>& channels, const u32 &channelIdx) override;
 };
 }  // namespace ops_hccl
 #endif  // INS_TEMP_ALL_GATHER_OMNIPIPE_NHR_H
