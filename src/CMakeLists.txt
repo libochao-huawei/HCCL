@@ -256,6 +256,7 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/topo/topo_match_base.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/topo/topo_match_multilevel.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/topo/topo_match_ubx.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/topo/topo_match_pcie_mix.cc
 
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/algo/scatter_comm_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/algo/scatter_executor_base.cc
@@ -577,6 +578,8 @@ set(AIV_TARGETS
     hccl_aiv_reduce_op_910_95
     hccl_aiv_reduce_scatter_op_910_95
     hccl_aiv_scatter_op_910_95
+    hccl_aiv_send_op_910_95
+    hccl_aiv_recv_op_910_95
 )
 
 add_custom_target(aiv_all_targets)

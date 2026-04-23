@@ -52,7 +52,7 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(
         HCCL_ERROR("algHierarchyInfo level num is zero!");
         return HCCL_E_PARA;
     }
-    if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+    if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
         tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[0][1]);    // clos拓扑，包含所有rank
     } else {
         tempAlgHierachyInfo = algHierarchyInfo.infos[0];
@@ -215,7 +215,7 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     }
 
     std::vector<std::vector<u32>> tempAlgHierachyInfo;
-    if (resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS) {
+    if (resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS && !resCtx.topoInfo.level0PcieMix) {
         tempAlgHierachyInfo.push_back(resCtx.algHierarchyInfo.infos[0][1]);
     } else {
         tempAlgHierachyInfo = resCtx.algHierarchyInfo.infos[0];
