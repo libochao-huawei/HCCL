@@ -1456,7 +1456,7 @@ HcclResult GetAlgResDPU(HcclComm comm, const OpParam &param, AlgResourceRequest 
 HcclResult FillOpExchangeInfo(HcclComm comm, const OpParam &param, OpExchangeInfo &exchangeInfo)
 {
     CHK_PTR_NULL(comm);
-    void *cclBufferAddr;
+    void *cclBufferAddr; // 不使用，仅为调用HcclGetHcclBuffer获取cclBufferSize在此声明
     CHK_RET(HcclGetHcclBuffer(comm, &cclBufferAddr, &exchangeInfo.cclBufferSize));
     exchangeInfo.root = param.root;
     exchangeInfo.opType = param.opType;
