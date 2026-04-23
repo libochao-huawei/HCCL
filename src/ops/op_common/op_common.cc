@@ -1481,13 +1481,11 @@ HcclResult GetAlgResDPU(HcclComm comm, const OpParam &param, AlgResourceRequest 
 
 HcclResult FillOpExChangeInfo(HcclComm comm, const OpParam &param, OpExchangeInfo &exchangeInfo)
 {
+    CHK_PTR_NULL(comm);
     void *cclBufferAddr;
     CHK_RET(HcclGetHcclBuffer(comm, &cclBufferAddr, &exchangeInfo.cclBufferSize));
     exchangeInfo.root = param.root;
     exchangeInfo.opType = param.opType;
-    s32 sRet = strncpy_s(exchangeInfo.algTag, ALG_TAG_LENGTH, param.algTag, ALG_TAG_LENGTH);
-    CHK_PRT_RET(sRet != EOK, HCCL_ERROR("[%s] call strncpy_s failed, param.algTag %s,  return %d.",
-        __func__, param.algTag, sRet), HCCL_E_MEMORY);
     exchangeInfo.engine = param.engine;
     exchangeInfo.opExecuteConfig = param.opExecuteConfig;
     exchangeInfo.reduceType = param.reduceType;
@@ -1517,7 +1515,15 @@ HcclResult FillOpExChangeInfo(HcclComm comm, const OpParam &param, OpExchangeInf
     }
     CHK_RET(HcclGetCommName(comm, exchangeInfo.group));
     if (param.opType == HcclCMDType::HCCL_CMD_SEND || param.opType == HcclCMDType::HCCL_CMD_RECEIVE) {
+        // Send和Recv的algName不相同导致algTag不相同，因此仅校验tag内容
+        s32 sRet = strncpy_s(exchangeInfo.algTag, MAX_LENGTH, param.tag, MAX_LENGTH);
+        CHK_PRT_RET(sRet != EOK, HCCL_ERROR("[%s] call strncpy_s failed, param.tag %s,  return %d.",
+            __func__, param.algTag, sRet), HCCL_E_MEMORY);
         exchangeInfo.sendRecvRemoteRank = param.sendRecvRemoteRank;
+    } else {
+        s32 sRet = strncpy_s(exchangeInfo.algTag, ALG_TAG_LENGTH, param.algTag, ALG_TAG_LENGTH);
+        CHK_PRT_RET(sRet != EOK, HCCL_ERROR("[%s] call strncpy_s failed, param.algTag %s,  return %d.",
+            __func__, param.algTag, sRet), HCCL_E_MEMORY);
     }
     return HCCL_SUCCESS;
 }
@@ -1525,6 +1531,7 @@ HcclResult FillOpExChangeInfo(HcclComm comm, const OpParam &param, OpExchangeInf
 HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeInfo,
     const std::vector<HcclChannelDesc> &channels)
 {
+    CHK_PTR_NULL(comm);
     for (auto channel : channels) {
         auto rmtExchangeInfo = std::make_shared<OpExchangeInfo>();
         uint32_t rmtDataLen{0};
@@ -1540,12 +1547,19 @@ HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeI
             if (exchangeInfo.root != rmtExchangeInfo->root) {
                 CHK_RET(ReportOpExchangeInfoCheckFailed("RootRankId", exchangeInfo.root, rmtExchangeInfo->root));
             }
-            if (exchangeInfo.opType != rmtExchangeInfo->opType) {
+            if (exchangeInfo.opType == HcclCMDType::HCCL_CMD_SEND &&
+                rmtExchangeInfo->opType != HcclCMDType::HCCL_CMD_RECEIVE) {
+                CHK_RET(ReportOpExchangeInfoCheckFailed("HcclCMDType",
+                    static_cast<uint32_t>(HcclCMDType::HCCL_CMD_RECEIVE),
+                    static_cast<uint32_t>(rmtExchangeInfo->opType)));
+            } else if (exchangeInfo.opType == HcclCMDType::HCCL_CMD_RECEIVE &&
+                rmtExchangeInfo->opType != HcclCMDType::HCCL_CMD_SEND) {
+                CHK_RET(ReportOpExchangeInfoCheckFailed("HcclCMDType",
+                    static_cast<uint32_t>(HcclCMDType::HCCL_CMD_SEND),
+                    static_cast<uint32_t>(rmtExchangeInfo->opType)));
+            } else if (exchangeInfo.opType != rmtExchangeInfo->opType) {
                 CHK_RET(ReportOpExchangeInfoCheckFailed("HcclCMDType", static_cast<uint32_t>(exchangeInfo.opType),
                     static_cast<uint32_t>(rmtExchangeInfo->opType)));
-            }
-            if (strncmp(exchangeInfo.algTag, rmtExchangeInfo->algTag, ALG_TAG_LENGTH) != 0) {
-                CHK_RET(ReportOpExchangeInfoCheckFailed("AlgTag", exchangeInfo.algTag, rmtExchangeInfo->algTag));
             }
             if (exchangeInfo.engine != rmtExchangeInfo->engine) {
                 CHK_RET(ReportOpExchangeInfoCheckFailed("CommEngine", static_cast<uint32_t>(exchangeInfo.engine),
@@ -1575,6 +1589,9 @@ HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeI
             if (strncmp(exchangeInfo.group, rmtExchangeInfo->group, MAX_LENGTH) != 0) {
                 CHK_RET(ReportOpExchangeInfoCheckFailed("GroupName", exchangeInfo.group, rmtExchangeInfo->group));
             }
+            if (strncmp(exchangeInfo.algTag, rmtExchangeInfo->algTag, ALG_TAG_LENGTH) != 0) {
+                CHK_RET(ReportOpExchangeInfoCheckFailed("AlgTag", exchangeInfo.algTag, rmtExchangeInfo->algTag));
+            }
             if (exchangeInfo.opType == HcclCMDType::HCCL_CMD_SEND || exchangeInfo.opType == HcclCMDType::HCCL_CMD_RECEIVE){
                 if (exchangeInfo.sendRecvRemoteRank != channel.remoteRank) {
                     CHK_RET(ReportOpExchangeInfoCheckFailed("SendRecvRemoteRank", exchangeInfo.sendRecvRemoteRank,
@@ -1586,23 +1603,23 @@ HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeI
     return HCCL_SUCCESS;
 }
 
-HcclResult ReportOpExchangeInfoCheckFailed(const std::string &paraName, uint32_t localPara,
+HcclResult ReportOpExchangeInfoCheckFailed(const std::string &paraName, uint32_t expectVal,
     uint32_t remotePara)
 {
     RPT_INPUT_ERR(true, "EI0005", std::vector<std::string>({"ParaName", "LocalPara", "RemotePara"}),
-        std::vector<std::string>({paraName, std::to_string(localPara), std::to_string(remotePara)}));
-    HCCL_ERROR("[ReportOpExchangeInfoCheckFailed]op information %s check fail. localPara[%u] remotePara[%u]",
-        paraName.c_str(), localPara, remotePara);
+        std::vector<std::string>({paraName, std::to_string(expectVal), std::to_string(remotePara)}));
+    HCCL_ERROR("[ReportOpExchangeInfoCheckFailed]op information %s check fail. expectValue[%u] remotePara[%u]",
+        paraName.c_str(), expectVal, remotePara);
     return HCCL_E_PARA;
 }
 
-HcclResult ReportOpExchangeInfoCheckFailed(const std::string &paraName, const std::string localPara,
+HcclResult ReportOpExchangeInfoCheckFailed(const std::string &paraName, const std::string expectVal,
     const std::string remotePara)
 {
     RPT_INPUT_ERR(true, "EI0005", std::vector<std::string>({"ParaName", "LocalPara", "RemotePara"}),
-        std::vector<std::string>({paraName, localPara, remotePara}));
-    HCCL_ERROR("[ReportOpExchangeInfoCheckFailed]op information %s check fail. localPara[%s] remotePara[%s]",
-        paraName.c_str(), localPara.c_str(), remotePara.c_str());
+        std::vector<std::string>({paraName, expectVal, remotePara}));
+    HCCL_ERROR("[ReportOpExchangeInfoCheckFailed]op information %s check fail. expectValue[%s] remotePara[%s]",
+        paraName.c_str(), expectVal.c_str(), remotePara.c_str());
     return HCCL_E_PARA;
 }
 
