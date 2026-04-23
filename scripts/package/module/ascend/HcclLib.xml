@@ -21,7 +21,7 @@
         <file value="libhccl.so" file_type="shared"/>
         <file value="libhccl_compat.so" file_type="shared"/>
         <file value="hccl_aiv_reduce_scatter_op_910_95.o"/>
-        <file value="hccl_aiv_all_gather_op_910_95.o"/>
+        <!-- <file value="hccl_aiv_all_gather_op_910_95.o"/>
         <file value="hccl_aiv_scatter_op_910_95.o"/>
         <file value="hccl_aiv_all_reduce_op_910_95.o"/>
         <file value="hccl_aiv_broadcast_op_910_95.o"/>
