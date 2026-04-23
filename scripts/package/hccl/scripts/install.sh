@@ -16,7 +16,7 @@ pkg_version_path="${curpath}/../version.info"
 install_info_old="/etc/ascend_install.info"
 run_dir="$(echo "$2" | cut -d'-' -f 3-)"
 _RUN_PKG_INFO_FILE="${curpath}""/../scene.info"
-platform_data=$(grep -e "arch" "$_RUN_PKG_INFO_FILE" | cut --only-delimited -d"=" -f2-)
+platform_data=$(grep -e "arch" "$_RUN_PKG_INFO_FILE" | cut -d"=" -f2-)
  
 . "${common_func_path}"
 . "${version_compat_func_path}"
