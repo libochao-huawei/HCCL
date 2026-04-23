@@ -112,6 +112,7 @@ HcclResult InsV2AllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
             HCCL_ERROR("[InsV2AllGatherConcurrentExecutor][CalcRes] temp0Channels.size()[%zu] is not equal to temp1Channels.size()[%zu]",
                     temp0Channels.size(), temp1Channels.size()),
             HcclResult::HCCL_E_INTERNAL);
+        resourceRequest.channels.resize(1);
         resourceRequest.channels[0].insert(resourceRequest.channels[0].end(), temp0Channels.begin(),
                                            temp0Channels.end());
         resourceRequest.channels[0].insert(resourceRequest.channels[0].end(), temp1Channels.begin(),
@@ -285,7 +286,7 @@ HcclResult InsV2AllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
         scratchMemBlockSize = (maxTmpMemSize_ / HCCL_MIN_SLICE_ALIGN / totalScratchMultiple) * HCCL_MIN_SLICE_ALIGN;
     }
     u64 scratchSizeforTemp0 = ScratchMultiplier0 * scratchMemBlockSize;
-    u64 scratchSizeforTemp1 = scratchMemBlockSize - scratchSizeforTemp0;
+    u64 scratchSizeforTemp1 = maxTmpMemSize_ - scratchSizeforTemp0;
     u64 scratchOffsetforTemp0 = 0;
     u64 scratchOffsetforTemp1 = scratchSizeforTemp0;
 
