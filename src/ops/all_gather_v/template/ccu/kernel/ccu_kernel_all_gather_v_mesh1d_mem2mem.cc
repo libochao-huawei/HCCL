@@ -9,11 +9,8 @@
  */
 
 #include "ccu_kernel_all_gather_v_mesh1d_mem2mem.h"
-#include "ccu_kernel_alg_base.h"
-
 
 namespace ops_hccl {
-using namespace hcomm;
 
 constexpr int OUTPUT_XN_ID = 1;
 constexpr int TOKEN_XN_ID = 2;
@@ -21,7 +18,45 @@ constexpr int CKE_IDX_0 = 0;
 constexpr int CKE_IDX_1 = 1;
 constexpr uint64_t CCU_MS_SIZE = 4096;
 constexpr uint64_t LOCAL_COPY_MS = 8;
-constexpr int POST_SYNC_ID = 3;  
+constexpr int POST_SYNC_ID = 3;
+
+static CcuResult InitResource(AllGatherVMesh1DMem2MemContext &ctx)
+{
+    const auto *arg = ctx.arg;
+    uint32_t channelIdx = 0;
+    if (arg->channelCount == 0) {
+        HCCL_ERROR("[CcuKernelAllGatherVMesh1DMem2Mem] channels is empty!");
+        return CcuResult::CCU_E_INTERNAL;
+    }
+    HCCL_INFO("[CcuKernelAllGatherVMesh1DMem2Mem] channels.size: [%u]", arg->channelCount);
+    // 按照rank号从小到大遍历channels，遇到本rank就填充本地资源，否则依次取远端资源，要求算法返回的Link同样是按顺序排列的
+    ctx.input.resize(arg->rankSize);
+    ctx.output.resize(arg->rankSize);
+    ctx.token.resize(arg->rankSize);
+    for (uint64_t peerId = 0; peerId < arg->rankSize; peerId++) {
+        if (peerId == arg->rankId) {
+            CCU_CHK_RET(ccu::Alloc(&ctx.input[peerId]));
+            CCU_CHK_RET(ccu::Alloc(&ctx.token[peerId]));
+        } else {
+            CCU_CHK_RET(ccu::CreateByChannel(arg->channels[channelIdx], INPUT_XN_ID, &ctx.input[peerId]));
+            CCU_CHK_RET(ccu::CreateByChannel(arg->channels[channelIdx], TOKEN_XN_ID, &ctx.token[peerId]));
+            channelIdx++;
+        }
+    }
+    CCU_CHK_RET(ccu::Alloc(&ctx.output));
+    CCU_CHK_RET(ccu::Alloc(&ctx.scratch));
+    CCU_CHK_RET(ccu::Alloc(&ctx.scratchInterval));
+    CCU_CHK_RET(ccu::Alloc(&ctx.sliceSize));
+    CCU_CHK_RET(ccu::Alloc(&ctx.offset));
+    CCU_CHK_RET(ccu::Alloc(&ctx.reduceGosize.addrOffset));
+    CCU_CHK_RET(ccu::Alloc(&ctx.reduceGosize.loopParam));
+    CCU_CHK_RET(ccu::Alloc(&ctx.reduceGosize.parallelParam));
+    CCU_CHK_RET(ccu::Alloc(&ctx.reduceGosize.residual));
+    CCU_CHK_RET(ccu::Alloc(&ctx.event));
+    ctx.resourceAllocated = true;
+ 	ctx.loopRegistered    = false;
+    return CCU_SUCCESS;
+}
 
 CcuKernelAllGatherVMesh1DMem2Mem::CcuKernelAllGatherVMesh1DMem2Mem(const CcuKernelArg &arg)
     : CcuKernelAlgBase(arg)
@@ -80,15 +115,19 @@ HcclResult CcuKernelAllGatherVMesh1DMem2Mem::InitResource()
     return HcclResult::HCCL_SUCCESS;
 }
 
-void CcuKernelAllGatherVMesh1DMem2Mem::LoadArgs()
+static CcuResult LoadArgs(AllGatherVMesh1DMem2MemContext &ctx)
 {
-    Load(input_);
-    Load(output_[rankId_]);
-    Load(token_[rankId_]);
-    Load(mySliceSize_);
-    Load(mySliceSizeOutputOffset_);
-    Load(localGoSize_);
-    return;
+    const auto *arg = ctx.arg;
+    CCU_CHK_RET(ccu::LoadArg(ctx.input));
+    CCU_CHK_RET(ccu::LoadArg(ctx.output[arg->rankId]));
+    CCU_CHK_RET(ccu::LoadArg(ctx.token[arg->rankId]));
+    CCU_CHK_RET(ccu::LoadArg(ctx.mySliceSize));
+    CCU_CHK_RET(ccu::LoadArg(ctx.mySliceSizeOutputOffset));
+    CCU_CHK_RET(ccu::LoadArg(ctx.localGoSize.addrOffset));
+    CCU_CHK_RET(ccu::LoadArg(ctx.localGoSize.loopParam));
+    CCU_CHK_RET(ccu::LoadArg(ctx.localGoSize.parallelParam));
+    CCU_CHK_RET(ccu::LoadArg(ctx.localGoSize.residual));
+    return CCU_SUCCESS;
 }
 
 void CcuKernelAllGatherVMesh1DMem2Mem::PreSync()
