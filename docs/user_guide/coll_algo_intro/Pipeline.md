@@ -28,8 +28,8 @@
 
 | 操作          | 耗时                                                         |
 | ------------- | ------------------------------------------------------------ |
-| ReduceScatter | $max(\frac{s}{p} * \beta_{inter} + \alpha_{inter} , \frac{s}{p} * \beta_{intra} + \alpha_{intra}) * (p_{inter} -1) + \frac{s}{p} * \beta_{intra} + \alpha_{intra}  $ |
-| AllGather     | $max(\frac{s}{p} * \beta_{inter} + \alpha_{inter} , \frac{s}{p} * \beta_{intra} + \alpha_{intra}) * (p_{inter} -1) + \frac{s}{p} * \beta_{intra} + \alpha_{intra}  $ |
-| AllReduce     | $ 2*(max(\frac{s}{p} * \beta_{inter} +  \alpha_{inter}, \frac{s}{p} * \beta_{intra}+\alpha_{intra} ) * (p_{inter}-1)+ \frac{s}{p} * \beta_{intra} + \alpha_{intra}) $ |
+| ReduceScatter | $max(\frac{s}{p} * \beta_{inter} + \alpha_{inter} , \frac{s}{p} * \beta_{intra} + \alpha_{intra}) * (p_{inter} -1) + \frac{s}{p} * \beta_{intra} + \alpha_{intra}$ |
+| AllGather     | $max(\frac{s}{p} * \beta_{inter} + \alpha_{inter} , \frac{s}{p} * \beta_{intra} + \alpha_{intra}) * (p_{inter} -1) + \frac{s}{p} * \beta_{intra} + \alpha_{intra}$ |
+| AllReduce     | $2*(max(\frac{s}{p} * \beta_{inter} +  \alpha_{inter}, \frac{s}{p} * \beta_{intra}+\alpha_{intra} ) * (p_{inter}-1)+ \frac{s}{p} * \beta_{intra} + \alpha_{intra})$ |
 
 其中p表示完成集合通信的总卡数，$p_{inter}$表示server数，s表示集合通信操作总数据量，$\beta_{inter}$表示server间链路每byte数据传输耗时，$\beta_{intra}$表示server内链路每byte数据传输耗时，$\alpha_{inter}$表示server间链路传输固定耗时，$\alpha_{intra}$表示server内链路传输固定耗时。

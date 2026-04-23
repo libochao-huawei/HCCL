@@ -20,8 +20,8 @@ Mesh算法的时间复杂度是O\(1\)。
 | ------------- | -------------------------------- |
 | Scatter       | $\alpha+\frac{1}{p}n\beta$       |
 | Gather        | $\alpha+\frac{1}{p}n\beta$       |
-| Broadcast     |  实现为Scatter + AllGather，耗时为：<br> $ 2\alpha + \frac{2}{p}n\beta $     |
-| Reduce       |  实现为ReduceScatter + Gather，耗时为：<br> $ 2\alpha + \frac{2}{p}n\beta + \frac{p-1}{p}n\gamma  $     |
-| ReduceScatter | $ \alpha+\frac{1}{p}n\beta+\frac{p-1}{p}n\gamma $|
+| Broadcast     |  实现为Scatter + AllGather，耗时为：<br> $2\alpha + \frac{2}{p}n\beta$     |
+| Reduce       |  实现为ReduceScatter + Gather，耗时为：<br> $2\alpha + \frac{2}{p}n\beta + \frac{p-1}{p}n\gamma$     |
+| ReduceScatter | $\alpha+\frac{1}{p}n\beta+\frac{p-1}{p}n\gamma$|
 | AllGather        | $\alpha+\frac{1}{p}n\beta$       |
-| AllReduce     | 实现为ReduceScatter + AllGather，耗时为：<br> $2\alpha+\frac{2}{p}n\beta + \frac{p-1}{p}n\gamma  $                                   |
+| AllReduce     | 实现为ReduceScatter + AllGather，耗时为：<br> $2\alpha+\frac{2}{p}n\beta + \frac{p-1}{p}n\gamma$                                   |
