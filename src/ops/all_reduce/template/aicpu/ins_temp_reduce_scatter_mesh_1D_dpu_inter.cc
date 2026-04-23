@@ -115,7 +115,7 @@ HcclResult InsTempReduceScatterMesh1dDpuInter::KernelRun(const OpParam& param,
         return HCCL_E_INTERNAL;
     }
 
-    CHK_RET(PostLocalReduce(tempAlgParams, templateResource.threads));
+    CHK_RET(PostLocalReduce(param, tempAlgParams, templateResource.threads));
     HCCL_INFO("[InsTempReduceScatterMesh1dDpuInter] Run End");
 
     return HcclResult::HCCL_SUCCESS;
@@ -156,36 +156,36 @@ HcclResult InsTempReduceScatterMesh1dDpuInter::DPUKernelRun(const TemplateDataPa
                    myRank, remoteRank, remoteRank);
         const ChannelInfo &linkSend = channels.at(remoteRank)[0];
         const ChannelInfo &linkRecv = channels.at(remoteRank)[0];
-        
+
         // 在 HcclBuffer 上进行 ReduceScatter 操作
         // 由于进程只能访问远端的HcclBuffer，所以只能通过write的方式将自己userIn上的数据写到远端HcclBuffer上
         for (u32 repeatIdx = 0; repeatIdx < tempAlgParams.repeatNum; repeatIdx++) {
             // 在reduce_scatter_op.cc的创建channels的环节中获取到了remote的HcclBuff的地址
             void* remoteCclBuffAddr = linkSend.remoteCclMem.addr;
             // 在接收的时候接收源应该是远端地址，但是由于rs的mesh算法用的是write，所以rx不用care
-            DataSlice rxSrcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr, 
+            DataSlice rxSrcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr,
                                              tempAlgParams.buffInfo.inBuffBaseOff +
-                                             repeatIdx * tempAlgParams.inputRepeatStride + 
+                                             repeatIdx * tempAlgParams.inputRepeatStride +
                                              recvOffset,
-                                             recvSize, 
+                                             recvSize,
                                              recvCount); // 接收源
             DataSlice rxDstSlice = DataSlice(tempAlgParams.buffInfo.hcclBuff.addr,
-                                             tempAlgParams.buffInfo.hcclBuffBaseOff + 
-                                             repeatIdx * tempAlgParams.outputRepeatStride +
-                                             rankIdx * recvSize, 
-                                             recvSize, 
-                                             recvCount); // 接收目标
-            DataSlice txSrcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr, 
-                                             tempAlgParams.buffInfo.inBuffBaseOff +
-                                             repeatIdx * tempAlgParams.inputRepeatStride + 
-                                             sendOffset,
-                                             sendSize, 
-                                             sendCount); // 发送源
-            DataSlice txDstSlice = DataSlice(remoteCclBuffAddr, 
                                              tempAlgParams.buffInfo.hcclBuffBaseOff +
-                                             repeatIdx * tempAlgParams.outputRepeatStride + 
+                                             repeatIdx * tempAlgParams.outputRepeatStride +
+                                             rankIdx * recvSize,
+                                             recvSize,
+                                             recvCount); // 接收目标
+            DataSlice txSrcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr,
+                                             tempAlgParams.buffInfo.inBuffBaseOff +
+                                             repeatIdx * tempAlgParams.inputRepeatStride +
+                                             sendOffset,
+                                             sendSize,
+                                             sendCount); // 发送源
+            DataSlice txDstSlice = DataSlice(remoteCclBuffAddr,
+                                             tempAlgParams.buffInfo.hcclBuffBaseOff +
+                                             repeatIdx * tempAlgParams.outputRepeatStride +
                                              myAlgRank * sendSize,
-                                             sendSize, 
+                                             sendSize,
                                              sendCount);  // 发送目标
             std::vector<DataSlice> txSrcSlices{txSrcSlice};
             std::vector<DataSlice> txDstSlices{txDstSlice};
@@ -218,7 +218,7 @@ HcclResult InsTempReduceScatterMesh1dDpuInter::DPUKernelRun(const TemplateDataPa
     return HCCL_SUCCESS;
 }
 
-HcclResult InsTempReduceScatterMesh1dDpuInter::PostLocalReduce(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads)
+HcclResult InsTempReduceScatterMesh1dDpuInter::PostLocalReduce(const OpParam &param, const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads)
 {
     // 通信结束之后，数据都在 cclBuffer 上，需要搬运到对应的输出位置。
     u32 myAlgRank = 0;
@@ -244,28 +244,40 @@ HcclResult InsTempReduceScatterMesh1dDpuInter::PostLocalReduce(const TemplateDat
     for (u32 repeatIdx = 0; repeatIdx < tempAlgParams.repeatNum; repeatIdx++) {
         // 将规约后的分片，搬运到output上
         DataSlice srcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr,
-            tempAlgParams.buffInfo.inBuffBaseOff + 
-            repeatIdx * tempAlgParams.inputRepeatStride + 
+            tempAlgParams.buffInfo.inBuffBaseOff +
+            repeatIdx * tempAlgParams.inputRepeatStride +
             sliceOffset,
             sliceSize,
             sliceCount);
         DataSlice dstSlice = DataSlice(tempAlgParams.buffInfo.hcclBuff.addr,
-            tempAlgParams.buffInfo.hcclBuffBaseOff + 
+            tempAlgParams.buffInfo.hcclBuffBaseOff +
             repeatIdx * tempAlgParams.outputRepeatStride +
             sliceSize * myAlgRank,
             sliceSize,
             sliceCount);
         CHK_RET(static_cast<HcclResult>(LocalCopy(threads[0], srcSlice, dstSlice)));
+
+        // 增加thread synchronize以支持64类数据类型
+        if ((dataType_ == HCCL_DATA_TYPE_INT64) || (dataType_ == HCCL_DATA_TYPE_UINT64) ||
+            (dataType_ == HCCL_DATA_TYPE_FP64) || (reduceOp_ == HcclReduceOp::HCCL_REDUCE_PROD)) {
+            // 启动任务并等待所有threads任务执行完成
+            CHK_RET(static_cast<HcclResult>(HcommBatchModeEnd(param.algTag)));
+            CHK_RET(static_cast<HcclResult>(HcommBatchModeStart(param.algTag)));
+            for (const auto &thread : threads) {
+                CHK_RET(static_cast<HcclResult>(HcommThreadJoin(thread, CUSTOM_TIMEOUT)));
+            }
+        }
+
         // 将后n-1片数据，规约到第0片数据上
         for (u32 tmpRank = 1; tmpRank < templateRankSize_; tmpRank++) {
             DataSlice srcSlice = DataSlice(tempAlgParams.buffInfo.hcclBuff.addr,
                                            tempAlgParams.buffInfo.hcclBuffBaseOff
-                                           + repeatIdx * tempAlgParams.outputRepeatStride 
+                                           + repeatIdx * tempAlgParams.outputRepeatStride
                                            + tmpRank * sliceSize,
                                            sliceSize,
                                            sliceCount);
             DataSlice dstSlice = DataSlice(tempAlgParams.buffInfo.hcclBuff.addr,
-                                           tempAlgParams.buffInfo.hcclBuffBaseOff 
+                                           tempAlgParams.buffInfo.hcclBuffBaseOff
                                            + repeatIdx * tempAlgParams.outputRepeatStride,
                                            sliceSize,
                                            sliceCount);

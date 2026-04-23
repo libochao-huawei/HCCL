@@ -64,6 +64,17 @@ HcclResult InsTempReduceScatterMesh1DIntra::KernelRun(
         CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain_));
     }
 
+    // 增加thread synchronize以支持64类数据类型
+    if ((dataType_ == HCCL_DATA_TYPE_INT64) || (dataType_ == HCCL_DATA_TYPE_UINT64) ||
+        (dataType_ == HCCL_DATA_TYPE_FP64) || (reduceOp_ == HcclReduceOp::HCCL_REDUCE_PROD)) {
+        // 启动任务并等待所有threads任务执行完成
+        CHK_RET(static_cast<HcclResult>(HcommBatchModeEnd(param.algTag)));
+        CHK_RET(static_cast<HcclResult>(HcommBatchModeStart(param.algTag)));
+        for (const auto &thread : templateResource.threads) {
+            CHK_RET(static_cast<HcclResult>(HcommThreadJoin(thread, CUSTOM_TIMEOUT)));
+        }
+    }
+
     PostCopy(tempAlgParams, templateResource.threads);
 
     HCCL_INFO("[InsTempReduceScatterMesh1DIntra] Run End");
@@ -99,13 +110,13 @@ HcclResult InsTempReduceScatterMesh1DIntra::PostCopy(
         for (u32 tmpRank = 0; tmpRank < templateRankSize_; tmpRank++) {
             if (tmpRank != rankIdx) {
                 DataSlice srcSlice = DataSlice(tempAlgParams.buffInfo.hcclBuff.addr,
-                    tempAlgParams.buffInfo.hcclBuffBaseOff + 
-                    repeatIdx * tempAlgParams.outputRepeatStride + 
+                    tempAlgParams.buffInfo.hcclBuffBaseOff +
+                    repeatIdx * tempAlgParams.outputRepeatStride +
                     tmpRank * sliceSize,
                     sliceSize,
                     sliceCount);
                 DataSlice dstSlice = DataSlice(tempAlgParams.buffInfo.outputPtr,
-                    tempAlgParams.buffInfo.outBuffBaseOff + 
+                    tempAlgParams.buffInfo.outBuffBaseOff +
                     repeatIdx * tempAlgParams.outputRepeatStride,
                     sliceSize,
                     sliceCount);
@@ -118,7 +129,7 @@ HcclResult InsTempReduceScatterMesh1DIntra::PostCopy(
 
 HcclResult InsTempReduceScatterMesh1DIntra::RunReduceScatter(
     const std::map<u32, std::vector<ChannelInfo>> &channels,
-    const std::vector<ThreadHandle> &threads, 
+    const std::vector<ThreadHandle> &threads,
     const TemplateDataParams &tempAlgParam)
 {
     u32 myAlgRank = 0;
@@ -147,8 +158,8 @@ HcclResult InsTempReduceScatterMesh1DIntra::RunReduceScatter(
                 recvCount);
             CHK_RET(static_cast<HcclResult>(LocalCopy(threads[0], srcSlice, dstSlice)));
         }
-    }    
-    
+    }
+
     if (subCommRanks_[0].size() == 1) {
         HCCL_INFO("[InsTempReduceScatterMesh1DIntra][RunReduceScatter]Skip data trans because there is only 1 rank in current level");
         return HCCL_SUCCESS;
