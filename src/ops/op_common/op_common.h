@@ -20,6 +20,8 @@
 #include "alg_type.h"
 #include "execute_selector.h"
 #include "acl/acl_rt.h"
+#include "ccu_control_api.h"
+#include "ccu_log.h"
 
 #ifdef __cplusplus
 extern "C" {
