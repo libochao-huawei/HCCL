@@ -55,7 +55,7 @@ public:
     explicit CcuTaskArgAlltoAllVMesh1D(uint64_t inputAddr, uint64_t outputAddr,
         uint64_t token, uint64_t srcOffset, uint64_t dstOffset, uint32_t rankSize, uint32_t myRank, const A2ASendRecvInfo& localSendRecvInfo) :
         inputAddr_(inputAddr), outputAddr_(outputAddr), token_(token), 
-        srcOffset_(srcOffset), dstOffset_(dstOffset), rankSize_(rankSize), myRank_(myRank), localSendRecvInfo_(localSendRecvInfo)
+        srcOffset_(srcOffset), dstOffset_(dstOffset), rankSize_(rankSize), myRank_(myRank), localSendRecvInfo_(localSendRecvInfo), die0Total_(die0Total)
     {
         HCCL_DEBUG("[CcuTaskArgAlltoAllVMesh1D] inputAddr: %lu, outputAddr: %lu, rankSize: %lu, "
                    "srcOffset: %lu, dstOffset: %lu",
@@ -69,6 +69,7 @@ public:
     uint64_t dstOffset_;
     uint32_t rankSize_;
     uint32_t myRank_;
+    uint64_t die0Total_;
     A2ASendRecvInfo localSendRecvInfo_;
 };
 
@@ -90,6 +91,8 @@ private:
         GroupOpSize      tailGoSize;
     };
 
+    uint32_t axisId_{0};               // 0=Die0, 1=Die1
+    hcomm::CcuRep::Variable die0Total_;   // Die0 总大小，Die1 地址 += 这个值
     uint64_t rankSize_{0};
     uint32_t rankId_{0};
     HcclDataType dataType_;
