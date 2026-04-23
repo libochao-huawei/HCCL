@@ -56,7 +56,7 @@ private:
         const u64 &recvCount, const u64 &recvOffset) const;
     HcclResult LocalCopyForMyRank(const TemplateDataParams &tempAlgParams,
         const ThreadHandle &thread, const u32 myAlgRank, const u32 queIdx) const;
-    void CalcCommRankSetForOneLoop(u32 roundIdx, const u32 remainRankSize, std::vector<u32> &commRanks) const;
+    void CalcCommRankSetForOneLoop(const u32 roundIdx, const u32 remainRankSize, std::vector<u32> &commRanks) const;
     u32 CalcCommLoops() const;
     void CalcCclBuffIdx(u32 remoteRank, u32 &myRankCclBuffIdx, u32 &remoteCclBuffIdx) const
     HcclResult RunSendRecvByLoop(const std::vector<u32> &commRanks, const TemplateDataParams &tempAlgParams,
