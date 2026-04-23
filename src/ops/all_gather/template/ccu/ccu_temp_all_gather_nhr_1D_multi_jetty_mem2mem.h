@@ -40,10 +40,9 @@ public:
                          TemplateResource& templateResource) override;
     
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
-
     HcclResult GetRes(AlgResourceRequest &resourceRequest) const override;
-
     u64 GetThreadNum() const override;
+    HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx) override;
 
 protected:
     HcclResult CalcNHRInfo(std::vector<NHRStepInfo> &stepInfoVector) const;
