@@ -40,7 +40,6 @@ public:
     u64 GetThreadNum() const override;
     void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainnToSub) override {};
     void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override{};
-    HcclResult SetchannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels);
 
 private:
     HcclResult GetStepInfo(u32 step, u32 nSteps, AicpuNHRStepInfo &stepInfo);
@@ -53,10 +52,10 @@ private:
     TemplateDataParams tempAlgParams_;
     u32 channelsPerRank_{1};
     u64 dataTypeSize_{0};
-    std::vector<u64> sizeOut_;
-    std::vector<u64> elemOffset_;
-    std::vector<u64> sizeOutTail_;
-    std::vector<u64> elemOffsetTail_;
+    std::vector<u64> dataSplit_;
+    std::vector<u64> dataOffset_;
+    std::vector<u64> dataSplitTail_;
+    std::vector<u64> dataOffsetTail_;
 };
 
 }  // namespace Hccl

@@ -276,9 +276,6 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
         intraLinkMap_ = remoteRankToChannelInfo_[0];
         interLinkMap_ = remoteRankToChannelInfo_[1];
     }
-    if (param.engine == CommEngine::COMM_ENGINE_AICPU_TS) {
-        interTempAlg.SetchannelsPerRank(interLinkMap_);
-    }
     dataCount_ = param.DataDes.count;
     dataType_ = param.DataDes.dataType;
     dataTypeSize_ = DATATYPE_SIZE_TABLE[param.DataDes.dataType];
@@ -306,7 +303,9 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     // 构建template
     InsAlgTemplate0 intraTempAlg(param, resCtx.topoInfo.userRank, resCtx.algHierarchyInfo.infos[0]);
     InsAlgTemplate1 interTempAlg(param, resCtx.topoInfo.userRank, resCtx.algHierarchyInfo.infos[1]);
-
+    if (param.engine == CommEngine::COMM_ENGINE_AICPU_TS) {
+        interTempAlg.SetchannelsPerRank(interLinkMap_);
+    }
     // 将计算资源分配个每个算法
     PrepareResForTemplate(intraTempAlg, interTempAlg);
     // 算法展开
