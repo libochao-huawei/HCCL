@@ -57,7 +57,7 @@ u64 InsTempAlltoAllVMesh1D::CalcScratchMultiple(BufferType inBuffType, BufferTyp
     return concurrentSendRecvNum_;
 }
 
-void InsTempAlltoAllVMesh1D::CalcCommRankSetForOneLoop(u32 roundIdx, const u32 remainRankSize,
+void InsTempAlltoAllVMesh1D::CalcCommRankSetForOneLoop(const u32 roundIdx, const u32 remainRankSize,
     std::vector<u32> &commRanks) const
 {
     commRanks.clear();
