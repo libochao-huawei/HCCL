@@ -46,7 +46,7 @@ u64 InsTempAlltoAllVMesh1D::CalcScratchMultiple(BufferType inBuffType, BufferTyp
     return concurrentSendRecvNum_;
 }
 
-void InsTempAlltoAllVMesh1D::CalcCommRankSetForOneLoop(u32 roundIdx, const u32 remainRankSize,
+void InsTempAlltoAllVMesh1D::CalcCommRankSetForOneLoop(const u32 roundIdx, const u32 remainRankSize,
     std::vector<u32> &commRanks) const
 {
     commRanks.clear();
@@ -254,7 +254,7 @@ HcclResult InsTempAlltoAllVMesh1D::RunSendRecvByLoop(const std::vector<u32> &com
                 "send size[%llu], recv size[%llu], remote rank[%u].",
                 queIdx, sendSizeSplit[channelId], recvSizeSplit[channelId], remoteRank);
             if (recvSizeSplit[channelId] > 0) {
-                CHK_RET(PostCopy(tempAlgParams, threads[queIdx], myRankRecvCclBuffIdx,
+                CHK_RET(PostCopy(tempAlgParams, threads[queIdx], myRankRecvCclBuffIdx, remoteRank
                     recvSizeSplit[channelId], recvCountsSplit[channelId], recvOffsetSplit[channelId]));
             }
             queIdx++;
@@ -264,7 +264,8 @@ HcclResult InsTempAlltoAllVMesh1D::RunSendRecvByLoop(const std::vector<u32> &com
 }
 
 HcclResult InsTempAlltoAllVMesh1D::PostCopy(const TemplateDataParams &tempAlgParams, const ThreadHandle &thread,
-    const u32 myRankRecvCclBuffIdx, const u64 &recvSize, const u64 &recvCount, const u64 &recvOffset) const
+    const u32 myRankRecvCclBuffIdx, const u32 remoteRank, const u64 &recvSize,
+    const u64 &recvCount, const u64 &recvOffset) const
 {
     // ccl buffer的数据搬运到usrout
     // 远端的数据发送到本端ccl buffer的slice
@@ -273,7 +274,7 @@ HcclResult InsTempAlltoAllVMesh1D::PostCopy(const TemplateDataParams &tempAlgPar
         recvOffset, recvSize, recvCount);
     // 本端output buffer slice
     DataSlice localCopyDstSlice = DataSlice(tempAlgParams.buffInfo.outputPtr,
-        tempAlgParams.rdispls[myRankRecvCclBuffIdx] * dataTypeSize_ + recvOffset,
+        tempAlgParams.rdispls[remoteRank] * dataTypeSize_ + recvOffset,
         recvSize, recvCount);
     CHK_RET(static_cast<HcclResult>(LocalCopy(thread, localCopySrcSlice, localCopyDstSlice)));
     return HcclResult::HCCL_SUCCESS;
