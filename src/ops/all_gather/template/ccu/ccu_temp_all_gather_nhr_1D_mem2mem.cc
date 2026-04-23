@@ -79,6 +79,10 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::ProcessNHRStepInfo(HcclComm comm,
 
 HcclResult CcuTempAllGatherNHR1DMem2Mem::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
 {
+    if (tempFastLaunchCtx.ccuKernelSubmitInfos.size() == 0) {
+        HCCL_INFO("[CcuTempAllGatherMesh1D::FastLaunch] ccu kernel num is 0, just success.");
+        return HCCL_SUCCESS;
+    }
     HCCL_DEBUG("[CcuTempAllGatherNHR1DMem2Mem::FastLaunch] start");
     u32 kernelNum = tempFastLaunchCtx.ccuKernelSubmitInfos.size();
     buffInfo_ = tempFastLaunchCtx.buffInfo;
@@ -95,6 +99,12 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::FastLaunch(const OpParam& param, const 
             PointerToAddr(buffInfo_.inputPtr) + args[0],
             PointerToAddr(buffInfo_.outputPtr) + args[1],
             args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12]);
+
+        HCCL_INFO("[CcuTempAllGatherNHR1DMem2Mem::FastLaunch] TaskArgs: inputptr[%u]," 
+        "outputptr[%u], die0Size[%u], die1Size[%u], repeatNum[%u], inputSliceStride[%u], outputSliceStride[%u],"
+        "inputRepeatStride[%u], outputRepeatStride[%u], isInputOutputEqual[%u], die0LastSize[%u], die1LastSize[%u]);",
+        PointerToAddr(buffInfo_.inputPtr) + args[0], PointerToAddr(buffInfo_.outputPtr) + args[1], args[3], args[4],
+        args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12]);
 
         void* taskArgPointer = static_cast<void*>(&taskArg);
 

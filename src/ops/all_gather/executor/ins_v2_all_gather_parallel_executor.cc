@@ -282,6 +282,8 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     dataTypeSize_ = DATATYPE_SIZE_TABLE[param.DataDes.dataType];
     dataSize_ = dataCount_ * dataTypeSize_;
 
+    HCCL_INFO("[InsV2AllGatherParallelExecutor][Orchestrate] dataCount_[%u]", dataCount_);
+
     if(resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS) {
         intraHierarchyInfo_ = {resCtx.algHierarchyInfo.infos[0][0]};
         std::vector<u32> closRanks;
@@ -497,12 +499,15 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     PrepareResForTemplate(intraTempAlg, interTempAlg);
     
     CcuKernelSubmitInfo *ccuKernelSubmitInfos = ctx->GetCcuKernelSubmitInfoPtr();
+
+    HCCL_INFO("[InsV2AllGatherParallelExecutor][FastLaunch] ccuKernelNum0[%u], ccuKernelNum1[%u], ccuKernelNum2[%u], ccuKernelNum3[%u]",
+        ctx->ccuKernelNum[0], ctx->ccuKernelNum[1], ctx->ccuKernelNum[2], ctx->ccuKernelNum[3]);
     
     //第一步开始前同步
     HCCL_INFO("[InsV2AllGatherParallelExecutor][FastLaunch] Intra0 ccuKernelNum[%llu]", ctx->ccuKernelNum[0]);
     CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
     //数据0的server内的mesh算法
-    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxIntra0, param.inputPtr, param.hcclBuff.addr, param.hcclBuff));
+    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxIntra0, param.inputPtr, param.outputPtr, param.hcclBuff));
     tempFastLaunchCtxIntra0.threads = intraThreads_;
     tempFastLaunchCtxIntra0.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[0]);
     ccuKernelSubmitInfos += ctx->ccuKernelNum[0];
@@ -511,7 +516,7 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
         CHK_RET(intraTempAlg.FastLaunch(param, tempFastLaunchCtxIntra0));
     }
     //数据1的server间的nhr算法
-    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxInter1, param.inputPtr, param.hcclBuff.addr, param.hcclBuff));
+    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxInter1, param.inputPtr, param.outputPtr, param.hcclBuff));
     tempFastLaunchCtxInter1.threads = interThreads_;
     tempFastLaunchCtxInter1.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[1]);
     ccuKernelSubmitInfos += ctx->ccuKernelNum[1];
@@ -525,7 +530,7 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     //第二步开始前同步
     CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
     //数据0的server间的nhr算法
-    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxInter0, param.hcclBuff.addr, param.outputPtr, param.hcclBuff));
+    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxInter0, param.outputPtr, param.outputPtr, param.hcclBuff));
     tempFastLaunchCtxInter0.threads = interThreads_;
     tempFastLaunchCtxInter0.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[2]);
     ccuKernelSubmitInfos += ctx->ccuKernelNum[2];
@@ -533,7 +538,7 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
         CHK_RET(interTempAlg.FastLaunch(param, tempFastLaunchCtxInter0));
     }
     //数据1的server内的mesh算法
-    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxIntra1, param.hcclBuff.addr, param.outputPtr, param.hcclBuff));
+    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxIntra1, param.outputPtr, param.outputPtr, param.hcclBuff));
     tempFastLaunchCtxIntra1.threads = intraThreads_;
     tempFastLaunchCtxIntra1.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[3]);
     if (ctx->ccuKernelNum[3] > 0) {
@@ -556,7 +561,7 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherPara
                                InsTempAllGatherNHR);
 #ifndef AICPU_COMPILE
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherParallelMesh1DNHR,
-    InsV2AllGatherParallelExecutor, TopoMatchMultilevel, CcuTempAllGatherMesh1DMem2Mem, CcuTempAllGatherNHR1DMem2Mem);
+    InsV2AllGatherParallelExecutor, TopoMatchMultilevel, CcuTempAllGatherMesh1DMem2Mem, CcuTempAllGatherMesh1DMem2Mem); //CcuTempAllGatherNHR1DMem2Mem
 
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherParallelMesh1DNHRMemUBX,
     InsV2AllGatherParallelExecutor, TopoMatchUBX, CcuTempAllGatherMesh1DMem2Mem, CcuTempAllGatherNHR1DMultiJettyMem2Mem);

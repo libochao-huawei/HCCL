@@ -79,6 +79,10 @@ HcclResult CcuTempAllGatherMesh1DMem2Mem::CalcRes(HcclComm comm, const OpParam& 
 
 HcclResult CcuTempAllGatherMesh1DMem2Mem::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
 {
+    if (tempFastLaunchCtx.ccuKernelSubmitInfos.size() == 0) {
+        HCCL_INFO("[CcuTempAllGatherMesh1D::FastLaunch] ccu kernel num is 0, just success.");
+        return HCCL_SUCCESS;
+    }
     HCCL_DEBUG("[CcuTempAllGatherMesh1DMem2Mem::FastLaunch] start");
     const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
     buffInfo_ = tempFastLaunchCtx.buffInfo;
@@ -86,6 +90,12 @@ HcclResult CcuTempAllGatherMesh1DMem2Mem::FastLaunch(const OpParam& param, const
         PointerToAddr(buffInfo_.inputPtr) + args[0],
         PointerToAddr(buffInfo_.outputPtr) + args[1],
         args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10]);
+
+    HCCL_INFO("[CcuTempAllGatherMesh1DMem2Mem::FastLaunch] TaskArgs: inputptr[%u]," 
+        "outputptr[%u], inputSliceStride[%u], outputSliceStride[%u], repeatNum[%u],"
+        "inputRepeatStride[%u], outputRepeatStride[%u], normalSliceSize[%u], lastSliceSize[%u],isInputOutputEqual[%u]",
+        PointerToAddr(buffInfo_.inputPtr) + args[0], PointerToAddr(buffInfo_.outputPtr) + args[1], args[3], args[4],
+        args[5], args[6], args[7], args[8], args[9], args[10]);
 
     void* taskArgPtr = static_cast<void*>(&taskArg);
 
