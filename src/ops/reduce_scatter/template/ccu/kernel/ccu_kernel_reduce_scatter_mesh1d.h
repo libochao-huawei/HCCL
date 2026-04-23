@@ -23,15 +23,16 @@ using namespace hcomm;
 // 为ReduceMesh1D实现的CCUIns、CCUKernelArg与CCUTaskArg
 class CcuKernelArgReduceScatterMesh1D : public CcuKernelArg {
 public:
-    explicit CcuKernelArgReduceScatterMesh1D(uint64_t dimSize, uint32_t rankId, const OpParam& opParam,
+    explicit CcuKernelArgReduceScatterMesh1D(uint64_t dimSize, uint32_t rankId, const OpParam& opParam, uint32_t axisId,
                                                     const std::vector<std::vector<uint32_t>>& subCommRanks)
         : dimSize_(dimSize),
           rankId_(rankId),
           opParam_(opParam),
+          axisId_(axisId),
           subCommRanks_(subCommRanks)
     {
-        HCCL_DEBUG("[CcuKernelArgReduceMesh1D] dimSize: %lu, rankId: %u, reduceOp: %d, dataType: %d",
-                   dimSize_, rankId_, opParam.reduceType, opParam.DataDes.dataType);
+        HCCL_DEBUG("[CcuKernelArgReduceScatterMesh1D] dimSize: %lu, rankId: %u, reduceOp: %d, dataType: %d, axisId: %u",
+                   dimSize_, rankId_, opParam.reduceType, opParam.DataDes.dataType, axisId_);
     }
     CcuKernelSignature GetKernelSignature() const override
     {
@@ -42,6 +43,7 @@ public:
     uint64_t                                dimSize_;
     uint32_t                                rankId_;
     OpParam                                 opParam_;
+    uint32_t                                axisId_;
     std::vector<std::vector<uint32_t>>      subCommRanks_;
 };
 
@@ -49,15 +51,16 @@ class CcuTaskArgReduceScatterMesh1D : public CcuTaskArg {
 public:
     explicit CcuTaskArgReduceScatterMesh1D(uint64_t inputAddr, uint64_t outputAddr, uint64_t sliceSize, uint64_t offset,
         uint64_t token) :
-        inputAddr_(inputAddr), outputAddr_(outputAddr), sliceSize_(sliceSize), offset_(offset), token_(token)
+        inputAddr_(inputAddr), outputAddr_(outputAddr), die0Size_(die0Size), die1Size_(die1Size), offset_(offset), token_(token)
     {
-        HCCL_DEBUG("[CcuTaskArgReduceScatterMesh1D] inputAddr: %lu, outputAddr: %lu, sliceSize: %lu, offset: %lu",
-                   inputAddr_, outputAddr_, sliceSize_, offset_);
+        HCCL_DEBUG("[CcuTaskArgReduceScatterMesh1D] inputAddr: %lu, outputAddr: %lu, die0Size: %lu, die1Size: %lu, offset: %lu",
+                   inputAddr_, outputAddr_, die0Size_, die1Size_, offset_);
     }
 
     uint64_t inputAddr_;
     uint64_t outputAddr_;
-    uint64_t sliceSize_;
+    uint64_t die0Size_;
+ 	uint64_t die1Size_;
     uint64_t offset_;
     uint64_t token_;
 };
@@ -81,6 +84,8 @@ private:
     std::vector<CcuRep::Variable> token_;
     CcuRep::Variable offset_;
     GroupOpSize groupOpSize_;
+    CcuRep::Variable die0Size_;
+    uint32_t axisId_{0};
 };
 } // namespace ops_hccl
 

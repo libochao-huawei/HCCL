@@ -32,7 +32,7 @@ public:
           subCommRanks_(subCommRanks)
     {
         HCCL_DEBUG("[CcuKernelArgReduceScatterMesh1DMem2Mem] dimSize: %lu, rankId: %u, reduceOp: %d, dataType: %d, axisId: %u",
-                   dimSize_, rankId_, opParam.reduceType, opParam.DataDes.dataType, axisId: %u);
+                   dimSize_, rankId_, opParam.reduceType, opParam.DataDes.dataType, axisId_);
     }
     CcuKernelSignature GetKernelSignature() const override
     {
