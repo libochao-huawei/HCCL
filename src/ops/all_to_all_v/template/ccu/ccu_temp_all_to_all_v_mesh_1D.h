@@ -60,6 +60,11 @@ private:
     std::vector<u64> recvCounts_;
     std::vector<u64> sdispls_;
     std::vector<u64> rdispls_;
+    std::map<u32, std::vector<HcclChannelDesc>> rankIdToChannelDesc_;
+    
+    HcclResult SplitA2ASendRecvInfoFor2Die(const A2ASendRecvInfo& src,
+                                           A2ASendRecvInfo& die0,
+                                           A2ASendRecvInfo& die1);
 };
 
 }// namespace ops_hccl

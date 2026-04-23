@@ -13,6 +13,8 @@
 #ifndef AICPU_COMPILE
 #include "ccu_temp_all_to_all_v_mesh_1D_multi_jetty.h"
 #include "ccu_kernel_all_to_all_v_mesh1d_multi_jetty.h"
+#include "ccu_temp_all_to_all_v_mesh_1D.h"
+#include "ccu_kernel_all_to_all_v_mesh1d.h"
 #endif
 #include "alg_data_trans_wrapper.h"
 
@@ -111,7 +113,7 @@ HcclResult InsV2AllToAllVConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     HCCL_DEBUG("[SplitA2ASendRecvInfo] rank[%u], userRankSize[%u]", myRank_, rankSize_);
 
     uint32_t factorMesh = rankSize_ - 1;
-    uint32_t factorClos = CONST_4;
+    uint32_t factorClos = closMesh ? CONST_4 * 2 : CONST_4;//devicetype
     uint32_t factor = factorMesh + factorClos;
     // 初始化sendRecvInfoFirst
     sendRecvInfoFirst.sendCounts.resize(rankSize_, 0);
@@ -355,6 +357,13 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLTOALLV,
                                 TopoMatchUBX,
                                 CcuTempAllToAllVMesh1DMultiJetty,
                                 CcuTempAllToAllVMesh1DMultiJetty);
+
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLTOALLV,
+                                CcuAllToAllVMesh1DConcurrentMesh,
+                                InsV2AllToAllVConcurrentExecutor,
+                                TopoMatchUBX,
+                                CcuTempAllToAllVMesh1D,
+                                CcuTempAllToAllVMesh1D);
 #endif
 
 }
