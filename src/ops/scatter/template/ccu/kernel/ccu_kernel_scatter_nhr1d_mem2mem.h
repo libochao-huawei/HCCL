@@ -144,8 +144,9 @@ public:
                    "sliceSize: %lu, die0Size: %lu, die1Size: %lu, inputSliceStride: %lu, outputSliceStride:%lu, "
                    "inputRepeatStride: %lu, outputRepeatStride: %lu, repeatNum: %lu, isOutputScratch: %lu, isInputOutputEqual: %lu"
                    "die0TailSize: %lu, die1TailSize: %lu",
-                   inputSliceStride_, outputSliceStride_, inputRepeatStride_, outputRepeatStride_, repeatNum_, isOutputScratch_,
-                   isInputOutputEqual, die0TailSize_, die1TailSize_);
+                   inputAddr_, outputAddr_, scratchAddr_, token_, sliceSize_, die0Size_, die1Size_, inputSliceStride_,
+                   outputSliceStride_, inputRepeatStride_, outputRepeatStride_, repeatNum_, isOutputScratch_, isInputOutputEqual_,
+                   die0TailSize_, die1TailSize_);
     }
 
     uint64_t inputAddr_;           // 输入缓冲区地址

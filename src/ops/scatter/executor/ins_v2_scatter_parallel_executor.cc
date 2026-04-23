@@ -477,6 +477,16 @@ void InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
     tempAlgParamsIntra0.repeatNum = rankSizeLevel1_;
     tempAlgParamsIntra0.inputRepeatStride = dataSize_ * rankSizeLevel0_;
     tempAlgParamsIntra0.outputRepeatStride = tempAlgParamsIntra0.sliceSize;
+    InsAlgTemplate0 tempAlgIntra(
+        param, resCtx.topoInfo.userRank, resCtx.algHierarchyInfo.infos[0]);  // server内算法，比如mesh
+    InsAlgTemplate1 tempAlgInter(
+        param, resCtx.topoInfo.userRank, resCtx.algHierarchyInfo.infos[1]);  // server间算法，比如nhr
+
+    std::string subCommRanks = "";
+    for (auto r : resCtx.algHierarchyInfo.infos[0][0]) { subCommRanks += std::to_string(r) + " "; }
+    HCCL_INFO("[GenTemplateAlgParamsIntra0] parallel step1 in server, subCommRanks[%s], sliceSize[%llu], tailSize[%llu]"
+              "inputSliceStride[%llu], outputSliceStride[%llu], repeatNum[%llu], inputRepeatStride[%llu], outputRepeatStride[%llu]",
+              subCommRanks, sliceSize, tailSize, inputSliceStride, outputSliceStride, repeatNum, inputRepeatStride, outputRepeatStride);
     return;
 }
 
@@ -504,6 +514,11 @@ void InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
     tempAlgParamsInter0.repeatNum = 1;
     tempAlgParamsInter0.inputRepeatStride = 0;
     tempAlgParamsInter0.outputRepeatStride = 0;
+    std::string subCommRanks = "";
+    for (auto r : resCtx.algHierarchyInfo.infos[1][0]) { subCommRanks += std::to_string(r) + " "; }
+    HCCL_INFO("[GenTemplateAlgParamsInter0] parallel step2 between servers, subCommRanks[%s], sliceSize[%llu], tailSize[%llu]"
+              "inputSliceStride[%llu], outputSliceStride[%llu], repeatNum[%llu], inputRepeatStride[%llu], outputRepeatStride[%llu]",
+              subCommRanks, sliceSize, tailSize, inputSliceStride, outputSliceStride, repeatNum, inputRepeatStride, outputRepeatStride);
     return;
 }
 
@@ -531,6 +546,10 @@ void InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
     tempAlgParamsInter1.repeatNum = rankSizeLevel0_;
     tempAlgParamsInter1.inputRepeatStride = dataSize_;
     tempAlgParamsInter1.outputRepeatStride = tempAlgParamsInter1.sliceSize;
+    for (auto r : resCtx.algHierarchyInfo.infos[1][0]) { subCommRanks += std::to_string(r) + " "; }
+    HCCL_INFO("[GenTemplateAlgParamsInter1] parallel step1 between servers, subCommRanks[%s], sliceSize[%llu], tailSize[%llu]"
+              "inputSliceStride[%llu], outputSliceStride[%llu], repeatNum[%llu], inputRepeatStride[%llu], outputRepeatStride[%llu]",
+              subCommRanks, sliceSize, tailSize, inputSliceStride, outputSliceStride, repeatNum, inputRepeatStride, outputRepeatStride);
     return;
 }
 
@@ -558,6 +577,10 @@ void InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
     tempAlgParamsIntra1.repeatNum = 1;
     tempAlgParamsIntra1.inputRepeatStride = 0;
     tempAlgParamsIntra1.outputRepeatStride = 0;
+    for (auto r : resCtx.algHierarchyInfo.infos[0][0]) { subCommRanks += std::to_string(r) + " "; }
+    HCCL_INFO("[GenTemplateAlgParamsIntra1] parallel step2 in server, subCommRanks[%s], sliceSize[%llu], tailSize[%llu]"
+              "inputSliceStride[%llu], outputSliceStride[%llu], repeatNum[%llu], inputRepeatStride[%llu], outputRepeatStride[%llu]",
+              subCommRanks, sliceSize, tailSize, inputSliceStride, outputSliceStride, repeatNum, inputRepeatStride, outputRepeatStride);
     return;
 }
 

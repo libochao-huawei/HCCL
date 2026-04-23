@@ -22,6 +22,9 @@ CcuTempScatterMesh1D::CcuTempScatterMesh1D(const OpParam &param, const u32 rankI
 {
     HCCL_INFO("Start to run CcuTempScatterMesh1D");
     std::vector<u32> ranks = subCommRanks[0];
+    std::string ranksStr = "";
+    for (auto r : ranks) { ranksStr += std::to_string(r) + " "; }
+    HCCL_INFO("[CcuTempScatterMesh1D][CcuTempScatterMesh1D] ranks = subCommRanks[0] is: %s", ranksStr.c_str());
     templateRankSize_ = ranks.size();
     // 获取本卡在子通信域(如果有)中的rankid
     auto it = std::find(ranks.begin(), ranks.end(), rankId);

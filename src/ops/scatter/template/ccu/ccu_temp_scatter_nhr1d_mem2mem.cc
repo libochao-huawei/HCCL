@@ -23,6 +23,9 @@ CcuTempScatterNHR1DMem2Mem::CcuTempScatterNHR1DMem2Mem(const OpParam &param, con
     : CcuAlgTemplateBase(param, rankId, subCommRanks)
 {
     std::vector<u32> ranks = subCommRanks[0];
+    std::string ranksStr = "";
+    for (auto r : ranks) { ranksStr += std::to_string(r) + " "; }
+    HCCL_INFO("[CcuTempScatterNHR1DMem2Mem][CcuTempScatterNHR1DMem2Mem] ranks = subCommRanks[0] is: %s", ranksStr.c_str());
     templateRankSize_ = ranks.size();
     // 获取本卡在子通信域中的虚拟rankid
     auto it = std::find(ranks.begin(), ranks.end(), rankId);
