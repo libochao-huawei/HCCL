@@ -34,6 +34,25 @@ public:
         const OpParam& param, const TemplateDataParams& tempAlgParams, TemplateResource& templateResource)
         = 0;
     virtual HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx) = 0;
+    virtual HcclResult CalcDataSplitByPortGroup(const u64 totalDataCount, const u64 dataTypeSize,
+                                                const std::vector<ChannelInfo> &channels,
+                                                std::vector<u64> &elemCountOut, std::vector<u64> &sizeOut,
+                                                std::vector<u64> &elemOffset)
+    {
+        CalcDataSplitByPortGroupCommon(totalDataCount, dataTypeSize, channels, elemCountOut, sizeOut,
+                                       elemOffset, channelsPerRank_);
+        return HcclResult::HCCL_SUCCESS;
+    }
+
+    virtual HcclResult SetchannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels)
+    {
+        CHK_PRT_RET(channels.empty(), HCCL_ERROR("[SetchannelsPerRank] channels is empty."), HCCL_E_INTERNAL);
+        channelsPerRank_ = CalcChannelsPerRank(channels);
+        return HCCL_SUCCESS;
+    }
+   
+protected:
+    u32             channelsPerRank_    = 1;
 };
 
 } // namespace Hccl
