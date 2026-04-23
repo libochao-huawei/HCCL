@@ -46,6 +46,7 @@ struct AlgEnvConfig {
     bool aivOnlyMode;
     bool ccuMSMode;
     bool ccuSchedMode;
+    bool birsEnable;        // BIRS算法开关
     bool enableFfts;
     bool execTimeOutSet;
     double execTimeout;
@@ -66,6 +67,7 @@ struct AlgEnvConfig {
         enableFfts = true;
         aicpuCacheEnable = 1; // 默认开启aicpu cache (只有当aicpuUnfold为true时才生效)
         aivOnlyMode = false;
+        birsEnable = false;
         execTimeOutSet = false;
         execTimeout = 0;
         // 环境变量参数
@@ -134,7 +136,11 @@ HcclResult CollectRetryEnableFromConfig(const std::vector<std::string> &retryEna
 
 HcclResult ParseRetryEnable();
 
+HcclResult ParseBirsEnable();
+
 const u32& GetExternalInputIntraRoceSwitch();
+
+const bool& GetExternalInputHcclBirsEnable();
 
 const bool& GetExternalInputHcclAicpuUnfold();
 

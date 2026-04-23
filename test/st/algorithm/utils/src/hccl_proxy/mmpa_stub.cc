@@ -17,6 +17,8 @@ CHAR* mmSysGetEnv(mmEnvId id)
             return getenv("HCCL_OP_EXPANSION_MODE");
         case MM_ENV_HCCL_ALGO:
             return getenv("HCCL_ALGO");
+        case MM_ENV_HCCL_BIRS_ENABLE:
+            return getenv("HCCL_BIRS_ENABLE");
         default:
             return nullptr;
     }
