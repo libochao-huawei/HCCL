@@ -13,6 +13,7 @@
 #include "ccu_assist_pub.h"
 #include "ccu_kernel_all_gather_v_mesh1d_mem2mem.h"
 #include "ccu_temp_all_gather_v_mesh_1D_mem2mem.h"
+#include "ccu_control_api.h"
 
 namespace ops_hccl {
 
@@ -62,11 +63,12 @@ HcclResult CcuTempAllGatherVMesh1DMem2Mem::CalcRes(HcclComm comm, const OpParam&
         }
     }
     HCCL_DEBUG("[CcuTempAllGatherVMesh1DMem2Mem::CalcRes] Get Mesh Channel Success!");
-
-    kernelInfo.kernelArg = std::make_shared<CcuKernelArgAllGatherVMesh1DMem2Mem>(subCommRanks_[0].size(),
-                                                                                    mySubCommRank_,
-                                                                                    param,
-                                                                                    subCommRanks_);
+    auto kernelArg = std::make_shared<CcuKernelArgAllGatherVMesh1DMem2Mem>();
+    kernelArg->rankSize = subCommRanks_[0].size();
+    kernelArg->rankId = mySubCommRank_;
+    kernelArg->opParam = param;
+    kernelArg->subCommRanks = subCommRanks_;
+    kernelInfo.setKernelArg(kernelArg);
     kernelInfo.channels = channelDescs;
     resourceRequest.ccuKernelInfos.push_back(kernelInfo);
 
@@ -90,8 +92,7 @@ HcclResult CcuTempAllGatherVMesh1DMem2Mem::KernelRun(const OpParam& param,
 
     uint64_t inputAddr          = PointerToAddr(buffInfo_.inputPtr) + templateDataParams.tailSize * dataTypeSize;
     uint64_t outputAddr         = PointerToAddr(buffInfo_.outputPtr) + templateDataParams.tailSize * dataTypeSize;
-    uint64_t token;
-    CHK_RET(GetToken(buffInfo_, token));
+    uint64_t token = GetTokenWithFallback(buffInfo_);
 
     std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAllGatherVMesh1DMem2Mem>(
         inputAddr, outputAddr, token, mySliceSize, mySliceSizeOutputOffset);

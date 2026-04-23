@@ -799,97 +799,98 @@ CcuResult GroupReduce(CcuKernelCtxBase &ctx, const size_t channels[], uint32_t c
 //     return HCCL_SUCCESS;
 // }
 
-// HcclResult CcuKernelAlgBase::GroupLocalReduce(CcuRep::LocalAddr outDstOrg, std::vector<CcuRep::LocalAddr> &scratchOrg,
-//     GroupOpSize goSize, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType)
-// {
-//     const uint32_t size = scratchOrg.size();
+CcuResult GroupLocalReduce(CcuKernelCtxBase &ctx, ccu::LocalAddr outDstOrg, std::vector<ccu::LocalAddr> &scratchOrg,
+    GroupOpSizeVars goSize, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType)
+{
 
-//     CcuRep::LocalAddr dst = CreateLocalAddr();
-//     dst = outDstOrg;
+    const uint32_t size = scratchOrg.size();
 
-//     std::vector<CcuRep::LocalAddr> scratch;
-//     for (uint32_t idx = 0; idx < size; idx++) {
-//         scratch.push_back(CreateLocalAddr());
-//         scratch[idx] = scratchOrg[idx];
-//     }
+    ccu::LocalAddr dst;
+    dst = outDstOrg;
 
-//     CreateReduceLoop(size, dataType, outputDataType, opType);
+    std::vector<ccu::LocalAddr> scratch;
+    for (uint32_t idx = 0; idx < size; idx++) {
+        scratch.push_back(CreateLocalAddr());
+        scratch[idx] = scratchOrg[idx];
+    }
 
-//     std::string loopType = GetReduceTypeStr(dataType, opType) + "_LocalReduce_Loop_";
-//     uint32_t         expansionNum = GetReduceExpansionNum(opType, dataType, outputDataType);
-//     CcuRep::Variable sliceSizeExpansion = CreateVariable();
+    CreateReduceLoop(size, dataType, outputDataType, opType);
 
-//     if (expansionNum != 1) {
-//         CcuRep::Variable tmp = CreateVariable();
-//         tmp = GetExpansionParam(expansionNum);
-//         dst.token += tmp;
-//     }
+    std::string loopType = GetReduceTypeStr(dataType, opType) + "_LocalReduce_Loop_";
+    uint32_t expansionNum = GetReduceExpansionNum(opType, dataType, outputDataType);
+    CcuVariable sliceSizeExpansion;
 
-//     // m部分
-//     CCU_IF(goSize.loopParam != 0)                   // goSize1
-//     {
-//         CcuRep::Variable loopParam = CreateVariable();
-//         loopParam = GetLoopParam(0, moConfig.memSlice * moConfig.loopCount, 0);
-//         loopParam += goSize.loopParam;
+    if (expansionNum != 1) {
+        CcuVariable tmp;
+        tmp = GetExpansionParam(expansionNum);
+        dst.token += tmp;
+    }
 
-//         CcuRep::Variable sliceSize = CreateVariable();
-//         sliceSize          = moConfig.memSlice;
-//         sliceSizeExpansion = moConfig.memSlice * expansionNum;
+    // m部分
+    CCU_IF(goSize.loopParam != 0)                   // goSize1
+    {
+        CcuVariable loopParam;
+        loopParam = GetLoopParam(0, moConfig.memSlice * moConfig.loopCount, 0);
+        loopParam += goSize.loopParam;
 
-//         auto lc = Loop(GetLoopBlockTag(loopType, 0))(dst, scratch, sliceSize, sliceSizeExpansion);
+        CcuVariable sliceSize;
+        sliceSize          = moConfig.memSlice;
+        sliceSizeExpansion = moConfig.memSlice * expansionNum;
 
-//         CcuRep::Variable paraCfg = CreateVariable();
-//         paraCfg = GetParallelParam(moConfig.loopCount - 1, 0, 1);
-//         CcuRep::Variable offsetCfg = CreateVariable();
-//         offsetCfg = GetOffsetParam(moConfig.memSlice, moConfig.msInterleave, 1);
+        auto lc = Loop(GetLoopBlockTag(loopType, 0))(dst, scratch, sliceSize, sliceSizeExpansion);
 
-//         LoopGroup({lc}, {loopParam}, paraCfg, offsetCfg);
-//     }
+        CcuVariable paraCfg;
+        paraCfg = GetParallelParam(moConfig.loopCount - 1, 0, 1);
+        CcuVariable offsetCfg;
+        offsetCfg = GetOffsetParam(moConfig.memSlice, moConfig.msInterleave, 1);
 
-//     CCU_IF(goSize.parallelParam != 0)               // goSize2
-//     {
-//         // p部分，加m的偏移
-//         for (uint32_t i = 0; i < size; i++) {
-//             scratch[i].addr += goSize.addrOffset;
-//         }
+        LoopGroup({lc}, {loopParam}, paraCfg, offsetCfg);
+    }
 
-//         for (uint32_t i = 0; i < expansionNum; i++) {
-//             dst.addr += goSize.addrOffset;
-//         }
+    CCU_IF(goSize.parallelParam != 0)               // goSize2
+    {
+        // p部分，加m的偏移
+        for (uint32_t i = 0; i < size; i++) {
+            scratch[i].addr += goSize.addrOffset;
+        }
 
-//         sliceSizeExpansion = 0;
-//         for (uint32_t i = 0; i < expansionNum; i++) {
-//             sliceSizeExpansion += goSize.residual;  // goSize3
-//         }
+        for (uint32_t i = 0; i < expansionNum; i++) {
+            dst.addr += goSize.addrOffset;
+        }
 
-//         auto lc0 = Loop(GetLoopBlockTag(loopType, 0))(dst, scratch, goSize.residual, sliceSizeExpansion);
+        sliceSizeExpansion = 0;
+        for (uint32_t i = 0; i < expansionNum; i++) {
+            sliceSizeExpansion += goSize.residual;  // goSize3
+        }
 
-//         // n部分，再加p的偏移
-//         for (uint32_t i = 0; i < size; i++) {
-//             scratch[i].addr += goSize.residual;
-//         }
+        auto lc0 = Loop(GetLoopBlockTag(loopType, 0))(dst, scratch, goSize.residual, sliceSizeExpansion);
 
-//         for (uint32_t i = 0; i < expansionNum; i++) {
-//             dst.addr += goSize.residual;
-//         }
+        // n部分，再加p的偏移
+        for (uint32_t i = 0; i < size; i++) {
+            scratch[i].addr += goSize.residual;
+        }
 
-//         CcuRep::Variable sliceSize = CreateVariable();
-//         sliceSize          = moConfig.memSlice;
-//         sliceSizeExpansion = moConfig.memSlice * expansionNum;
+        for (uint32_t i = 0; i < expansionNum; i++) {
+            dst.addr += goSize.residual;
+        }
 
-//         auto lc1 = Loop(GetLoopBlockTag(loopType, 1))(dst, scratch, sliceSize, sliceSizeExpansion);
+        CcuVariable sliceSize;
+        sliceSize          = moConfig.memSlice;
+        sliceSizeExpansion = moConfig.memSlice * expansionNum;
 
-//         CcuRep::Variable loopCfg0 = CreateVariable();
-//         loopCfg0 = GetLoopParam(0, 0, 1);
-//         CcuRep::Variable loopCfg1 = CreateVariable();
-//         loopCfg1 = GetLoopParam(0, 0, 1);
-//         CcuRep::Variable offsetCfg = CreateVariable();
-//         offsetCfg = GetOffsetParam(moConfig.memSlice, moConfig.msInterleave, 1);
+        auto lc1 = Loop(GetLoopBlockTag(loopType, 1))(dst, scratch, sliceSize, sliceSizeExpansion);
 
-//         LoopGroup({lc0, lc1}, {loopCfg0, loopCfg1}, goSize.parallelParam, offsetCfg);
-//     }
-//     return HCCL_SUCCESS;
-// }
+        CcuVariable loopCfg0;
+        loopCfg0 = GetLoopParam(0, 0, 1);
+        CcuVariable loopCfg1;
+        loopCfg1 = GetLoopParam(0, 0, 1);
+        CcuVariable offsetCfg;
+        offsetCfg = GetOffsetParam(moConfig.memSlice, moConfig.msInterleave, 1);
+
+        LoopGroup({lc0, lc1}, {loopCfg0, loopCfg1}, goSize.parallelParam, offsetCfg);
+    }
+    return CCU_SUCCESS;
+}
 
 // HcclResult CcuKernelAlgBase::GroupReduceWithoutMyRank(const std::vector<ChannelHandle> &ccuChannels, CcuRep::LocalAddr dst,
 //                              std::vector<CcuRep::RemoteAddr> src, GroupOpSize goSize, HcclDataType dataType,
@@ -990,16 +991,16 @@ CcuResult GroupReduce(CcuKernelCtxBase &ctx, const size_t channels[], uint32_t c
 //     return HCCL_SUCCESS;
 // }
 
-// void CcuKernelAlgBase::LoopGroup(const std::vector<CcuRep::LoopCall> &loops, const std::vector<CcuRep::Variable> &loopCfg,
-//                            const CcuRep::Variable &paraCfg, const CcuRep::Variable &offsetCfg)
-// {
-//     auto                          lgc = CcuRep::LoopGroupCall(this);
-//     std::vector<CcuRep::Executor> executors;
-//     for (size_t i = 0; i < loops.size(); i++) {
-//         executors.push_back(moRes.executor[i]);
-//     }
-//     lgc.Run(loops, loopCfg, executors, paraCfg, offsetCfg);
-// }
+void CcuKernelAlgBase::LoopGroup(const std::vector<CcuRep::LoopCall> &loops, const std::vector<CcuRep::Variable> &loopCfg,
+                           const CcuRep::Variable &paraCfg, const CcuRep::Variable &offsetCfg)
+{
+    auto                          lgc = CcuRep::LoopGroupCall(this);
+    std::vector<CcuRep::Executor> executors;
+    for (size_t i = 0; i < loops.size(); i++) {
+        executors.push_back(moRes.executor[i]);
+    }
+    lgc.Run(loops, loopCfg, executors, paraCfg, offsetCfg);
+}
 
 // CcuKernelAlgBase::GroupOpSize CcuKernelAlgBase::CreateGroupOpSize()
 // {
