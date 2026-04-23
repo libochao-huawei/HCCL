@@ -49,10 +49,10 @@ private:
     HcclResult RunALLtoALL(const std::map<u32, std::vector<ChannelInfo>> &channels,
         const std::vector<ThreadHandle> &threads, const TemplateDataParams &tempAlgParams, const u32 myAlgRank);
     HcclResult PostCopy(const TemplateDataParams &tempAlgParams, const ThreadHandle &thread,
-        const u32 myRankRecvCclBuffIdx, const u64 &recvSize, const u64 &recvCount, const u64 &recvOffset) const
+        const u32 myRankRecvCclBuffIdx, const u64 &recvSize, const u64 &recvCount, const u64 &recvOffset) const;
     HcclResult LocalCopyForMyRank(const TemplateDataParams &tempAlgParams,
         const ThreadHandle &thread, const u32 myAlgRank, const u32 queIdx) const;
-    void CalcCommRankSetForOneLoop(u32 roundIdx, const u32 remainRankSize, std::vector<u32> &commRanks) const;
+    void CalcCommRankSetForOneLoop(const u32 roundIdx, const u32 remainRankSize, std::vector<u32> &commRanks) const;
     u32 CalcCommLoops() const;
     void CalcRemoteCclBuffIdx(u32 remoteRank, u32 &myRankRecvCclBuffIdx, u32 &remoteRecvCclBuffIdx) const;
     HcclResult RunSendRecvByLoop(const std::vector<u32> &commRanks, const TemplateDataParams &tempAlgParams,

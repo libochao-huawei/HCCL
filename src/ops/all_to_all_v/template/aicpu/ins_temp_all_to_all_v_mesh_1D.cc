@@ -97,7 +97,7 @@ void InsTempAlltoAllVMesh1D::CalcRemoteCclBuffIdx(u32 remoteRank, u32 &myRankRec
     HCCL_DEBUG("[InsTempAlltoAllVMesh1D][CalcRemoteCclBuffIdx] For my rank[%u] and remote rank[%u], "\
         "my ccl buff idx is [%u], remote ccl buff idx is [%u].",
         myRank_, remoteRank, myRankRecvCclBuffIdx, remoteRecvCclBuffIdx);
-    return remoteCclBuffIdx;
+    return;
 }
 
 HcclResult InsTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
@@ -170,7 +170,7 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
 
     for (u32 roundIdx = 0; roundIdx < commLoops && remainRankSize > 0; roundIdx++) {
         queIdx = 1; // 每轮通信都从第1条流开始
-        CHK_RET(CalcCommRankSetForOneLoop(roundIdx, remainRankSize, commRanks));
+        CalcCommRankSetForOneLoop(roundIdx, remainRankSize, commRanks);
         CHK_RET(RunSendRecvByLoop(commRanks, tempAlgParams, channels, threads, queIdx));
         remainRankSize -= commRanks.size();
         HCCL_DEBUG("[InsTempAlltoAllVMesh1D][RunALLtoALL] round[%u] finish, commRank size is [%zu], "\
