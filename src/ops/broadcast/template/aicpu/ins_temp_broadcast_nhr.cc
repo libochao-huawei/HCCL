@@ -420,7 +420,7 @@ HcclResult InsTempBroadcastNHR::KernelRun(const OpParam& param, const TemplateDa
     RankSliceInfo sliceInfoVec;
     CHK_RET(CalcDataSliceInfo(tempAlgParams.sliceSize, sliceInfoVec));
     threadNum_ = 1;
-    CHK_PRT_RET(threadNum_ >= templateResource.threads.size(),
+    CHK_PRT_RET(threadNum_ > templateResource.threads.size(),
                 HCCL_ERROR("[InsTempBroadcastNHR] Rank [%d], requiredQue [%u] more than templateQueNum [%zu].", myRank_,
                 threadNum_, templateResource.threads.size()), HcclResult::HCCL_E_INTERNAL);
     HCCL_INFO("[InsTempBroadcastNHR Run]RankID:[%d], root:[%u]", myRank_, root_);
