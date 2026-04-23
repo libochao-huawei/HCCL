@@ -49,6 +49,8 @@ else
     DEFAULT_INSTALL_DIR="/usr/local/Ascend/latest"
 fi
 
+
+
 function log() {
     local current_time=`date +"%Y-%m-%d %H:%M:%S"`
     echo "[$current_time] "$1
