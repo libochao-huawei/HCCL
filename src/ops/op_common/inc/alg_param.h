@@ -625,7 +625,6 @@ struct OpExchangeInfo {
     u64 cclBufferSize{0};
     u32 root = INVALID_VALUE_RANKID;
     HcclCMDType opType = HcclCMDType::HCCL_CMD_INVALID;
-    char algTag[ALG_TAG_LENGTH];
     CommEngine engine = CommEngine::COMM_ENGINE_RESERVED;
     OpExecuteConfig opExecuteConfig = OpExecuteConfig::DEFAULT;
     HcclReduceOp reduceType = HcclReduceOp::HCCL_REDUCE_RESERVED;
@@ -633,6 +632,7 @@ struct OpExchangeInfo {
     u64 count{0};
     u32 aivCoreLimit = MAX_NUM_BLOCKS;
     char group[MAX_LENGTH];
+    char algTag[ALG_TAG_LENGTH];
     u32 sendRecvRemoteRank = INVALID_VALUE_RANKID;
 };
 
