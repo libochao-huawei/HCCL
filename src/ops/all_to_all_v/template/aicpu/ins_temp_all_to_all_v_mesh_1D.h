@@ -17,6 +17,8 @@
 
 namespace ops_hccl {
 
+const uint32_t ALLTOALLV_DIRECT_FULLMESH_CONCURRENT_SIZE =  8; // fullmesh最大的并发数量
+
 class InsTempAlltoAllVMesh1D : public InsAlgTemplateBase {
 public:
     InsTempAlltoAllVMesh1D() = default;
@@ -47,9 +49,15 @@ private:
     HcclResult RunALLtoALL(const std::map<u32, std::vector<ChannelInfo>> &channels,
         const std::vector<ThreadHandle> &threads, const TemplateDataParams &tempAlgParams, const u32 myAlgRank);
     HcclResult PostCopy(const TemplateDataParams &tempAlgParams, const ThreadHandle &thread,
-        const u32 rankId, const u64 &recvSize, const u64 &recvCount, const u64 &recvOffset) const;
+        const u32 myRankRecvCclBuffIdx, const u64 &recvSize, const u64 &recvCount, const u64 &recvOffset) const
     HcclResult LocalCopyForMyRank(const TemplateDataParams &tempAlgParams,
         const ThreadHandle &thread, const u32 myAlgRank, const u32 queIdx) const;
+    void CalcCommRankSetForOneLoop(u32 roundIdx, const u32 remainRankSize, std::vector<u32> &commRanks) const;
+    u32 CalcCommLoops() const;
+    void CalcRemoteCclBuffIdx(u32 remoteRank, u32 &myRankRecvCclBuffIdx, u32 &remoteRecvCclBuffIdx) const;
+    HcclResult RunSendRecvByLoop(const std::vector<u32> &commRanks, const TemplateDataParams &tempAlgParams,
+        const std::map<u32, std::vector<ChannelInfo>> &channels,
+        const std::vector<ThreadHandle> &threads, u32 &queIdx) const;
 
     u64 count_{0};
     u64 processSize_{0};
@@ -57,8 +65,8 @@ private:
     std::vector<u64> recvCounts_;
     std::vector<u64> sdispls_;
     std::vector<u64> rdispls_;
-    u64 cclBufferCountPerRank_{0};
     u64 dataTypeSize_{0};
+    u32 concurrentSendRecvNum_{1};
 };
 
 } // namespace Hccl
