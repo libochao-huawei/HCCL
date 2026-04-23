@@ -45,33 +45,33 @@ SelectorStatus AlltoAllAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNet
             HCCL_WARNING("[AlltoAllAutoSelector] levelNum > 1 is not supported yet for 2d ccu_ms mode.");
             return SelectorStatus::NOT_MATCH;
         }
-    }
-
-    if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-        if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
-            selectAlgName = "CcuAllToAllMesh2Die";
-        } else if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_NOT_REGULAR) {
-            HCCL_DEBUG("[AlltoAllAutoSelector][%s] TWO_DIE_NOT_REGULAR not match", __func__);
-            return SelectorStatus::NOT_MATCH;
-        } else {
-            selectAlgName = "CcuAlltoAllMesh1D";
-        }
-    } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-        uint32_t dataTypeSize = DATATYPE_SIZE_TABLE[opParam.all2AllDataDes.sendType];
-        uint64_t dataSize = opParam.all2AllDataDes.sendCount * dataTypeSize;
-        bool isMeshNumEqualToClosNum = false;
-        CHK_PRT_RET(CheckMeshNumEqualToClosNum(topoInfo, isMeshNumEqualToClosNum) != HCCL_SUCCESS,
-            HCCL_DEBUG("[AlltoAllAutoSelector] CheckMeshNumEqualToClosNum failed."),
-            SelectorStatus::NOT_MATCH);
-        if ((isMeshNumEqualToClosNum == true) && (topoInfo->userRankSize <= CONCURRENT_RANK_LIMIT)
-            && (dataSize > BIG_DATA_SIZE_LIMIT)) { // 同一组4P且大数据量，走并发算法
-            selectAlgName = "CcuAllToAllMesh1DConcurrent";
-        } else {
-            selectAlgName = "CcuAlltoAllMesh1DMultiJetty";
-        }
     } else {
-        HCCL_DEBUG("[Algo][AlltoAllAutoSelector] algo is not supported yet for ccu_schedule mode, reset to default.");
-        return SelectorStatus::NOT_MATCH;
+        if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
+            if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
+                selectAlgName = "CcuAllToAllMesh2Die";
+            } else if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_NOT_REGULAR) {
+                HCCL_DEBUG("[AlltoAllAutoSelector][%s] TWO_DIE_NOT_REGULAR not match", __func__);
+                return SelectorStatus::NOT_MATCH;
+            } else {
+                selectAlgName = "CcuAlltoAllMesh1D";
+            }
+        } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+            uint32_t dataTypeSize = DATATYPE_SIZE_TABLE[opParam.all2AllDataDes.sendType];
+            uint64_t dataSize = opParam.all2AllDataDes.sendCount * dataTypeSize;
+            bool isMeshNumEqualToClosNum = false;
+            CHK_PRT_RET(CheckMeshNumEqualToClosNum(topoInfo, isMeshNumEqualToClosNum) != HCCL_SUCCESS,
+                HCCL_DEBUG("[AlltoAllAutoSelector] CheckMeshNumEqualToClosNum failed."),
+                SelectorStatus::NOT_MATCH);
+            if ((isMeshNumEqualToClosNum == true) && (topoInfo->userRankSize <= CONCURRENT_RANK_LIMIT)
+                && (dataSize > BIG_DATA_SIZE_LIMIT)) { // 同一组4P且大数据量，走并发算法
+                selectAlgName = "CcuAllToAllMesh1DConcurrent";
+            } else {
+                selectAlgName = "CcuAlltoAllMesh1DMultiJetty";
+            }
+        } else {
+            HCCL_DEBUG("[Algo][AlltoAllAutoSelector] algo is not supported yet for ccu_schedule mode, reset to default.");
+            return SelectorStatus::NOT_MATCH;
+        }
     }
 
     HCCL_INFO("[AlltoAllAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
