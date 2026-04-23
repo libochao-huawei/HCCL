@@ -198,30 +198,50 @@ HcclResult CcuTempAlltoAllVMesh1D::FastLaunch(const OpParam& param, const Templa
         }
     }
 
+    //拆分A2ASendRecvInfo为die0Info、die1Info
+    A2ASendRecvInfo die0Info, die1Info;
+    if (kernelNum == 2) {
+        CHK_RET(SplitA2ASendRecvInfoFor2Die(localSendRecvInfo, die0Info, die1Info));
+    } else {
+        die0Info = localSendRecvInfo;
+    }
+
     if (kernelNum > 1) {
         std::vector<ThreadHandle> subThreads(tempFastLaunchCtx.threads.begin() + 1, tempFastLaunchCtx.threads.end());
         std::vector<u32> notifyIdxMainToSub(1, 0);
         CHK_RET(PreSyncInterThreads(tempFastLaunchCtx.threads[0], subThreads, notifyIdxMainToSub));
     }
 
-    for (u32 kernelIdx = 0; kernelIdx < kernelNum; kernelIdx++) {
-        const auto& cachedArgs = tempFastLaunchCtx.ccuKernelSubmitInfos[kernelIdx].cachedArgs;
-        std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAlltoAllVMesh1D>(
-            PointerToAddr(buffInfo_.inputPtr) + cachedArgs[0],
-            PointerToAddr(buffInfo_.outputPtr) + cachedArgs[1],
-            cachedArgs[2],
-            cachedArgs[3],
-            cachedArgs[4],
-            cachedArgs[5],
-            cachedArgs[6],
-            localSendRecvInfo,
-            cachedArgs[7],
-            kernelIdx
+    //启动Die0内核
+    if (kernelNum >= 1) {
+        std::unique_ptr<hcomm::CcuTaskArg> taskArg0 = std::make_unique<CcuTaskArgAlltoAllVMesh1D>(
+            PointerToAddr(buffInfo_.inputPtr) + args[0],  // 输入地址
+            PointerToAddr(buffInfo_.outputPtr) + args[1], // 输出地址
+            args[2],  // token
+            args[3],  // srcOffset
+            args[4],  // dstOffset
+            args[5],  // rankSize
+            args[6],  // myRank
+            die0Info  // 拆分后的Die0信息
         );
+        void* taskArgPtr0 = static_cast<void*>(taskArg0.get());
+        CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0], tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr0));
+    }
 
-        void* taskArgPtr = static_cast<void*>(taskArg.get());
-        CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[kernelIdx],
-            tempFastLaunchCtx.ccuKernelSubmitInfos[kernelIdx].kernelHandle, taskArgPtr));
+    //启动Die1内核（双Die才走）
+    if (kernelNum >= 2) {
+        std::unique_ptr<hcomm::CcuTaskArg> taskArg1 = std::make_unique<CcuTaskArgAlltoAllVMesh1D>(
+            PointerToAddr(buffInfo_.inputPtr) + args[0],  // 输入地址
+            PointerToAddr(buffInfo_.outputPtr) + args[1], // 输出地址
+            args[2],  // token
+            args[3],  // srcOffset
+            args[4],  // dstOffset
+            args[5],  // rankSize
+            args[6],  // myRank
+            die1Info  // 拆分后的Die1信息
+        );
+        void* taskArgPtr1 = static_cast<void*>(taskArg0.get());
+        CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[1], tempFastLaunchCtx.ccuKernelSubmitInfos[1].kernelHandle, taskArgPtr1));
     }
 
     if (kernelNum > 1) {
@@ -288,16 +308,13 @@ HcclResult CcuTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
 
     uint32_t kernelNum = templateResource.ccuKernels.size();
 
-    uint64_t die0Size = 0;
-    uint64_t die1Size = 0;
+    A2ASendRecvInfo die0Info;
+    A2ASendRecvInfo die1Info;
     if (kernelNum == CCU_DIE_NUM_MAX_2) {
-        CHK_RET(SplitDataFor2Dies(param, templateDataParams, die0Size, die1Size));
+        CHK_RET(SplitA2ASendRecvInfoFor2Die(localSendRecvInfo_, die0Info, die1Info));
     } else {
-        die0Size = templateDataParams.sliceSize;
+        die0Info = localSendRecvInfo_;
     }
-
-    HCCL_INFO("[CcuTempAlltoAllVMesh1D] die0Size=%llu, die1Size=%llu, kernelNum=%u",
-              die0Size, die1Size, kernelNum);
 
     if (kernelNum > 1) {
         std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
@@ -305,18 +322,31 @@ HcclResult CcuTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
         CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub));
     }
 
-    for (uint32_t axisId = 0; axisId < kernelNum; axisId++) {
-        if ((axisId == 0 && die0Size == 0) || (axisId == 1 && die1Size == 0)) {
-            continue;
-        }
+        // ====================== 启动Die0内核 ======================
+    if (kernelNum >= 1) {
+    std::unique_ptr<hcomm::CcuTaskArg> taskArg0 = std::make_unique<CcuTaskArgAlltoAllVMesh1D>( 
+                 inputAddr, outputAddr, token, srcOffset,  
+                 dstOffset, rankSize, myRank_, die0Info); 
+ 
+ 
+     void* taskArgPtr0 = static_cast<void*>(taskArg0.get());	 
+ 
+ 
+     HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr0);
+    }
 
-        std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAlltoAllVMesh1D>(
-            inputAddr, outputAddr, token, srcOffset, dstOffset, rankSize, mySubCommRank_,
-            localSendRecvInfo_, die0Size, axisId);
+    // ====================== 启动Die1内核 ======================
+    if (kernelNum >= 2) {
+    std::unique_ptr<hcomm::CcuTaskArg> taskArg1 = std::make_unique<CcuTaskArgAlltoAllVMesh1D>( 
+                 inputAddr, outputAddr, token, srcOffset,  
+                 dstOffset, rankSize, myRank_, die1Info); 
+ 
+ 
+    void* taskArgPtr1 = static_cast<void*>(taskArg1.get());	 
+ 
+ 
+    HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[1], templateResource.ccuKernels[1], taskArgPtr1);
 
-        void* taskArgPtr = static_cast<void*>(taskArg.get());
-        CHK_RET(HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[axisId],
-            templateResource.ccuKernels[axisId], taskArgPtr));
     }
 
     if (kernelNum > 1) {
@@ -327,7 +357,7 @@ HcclResult CcuTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
 
     CcuKernelSubmitInfo submitInfo;
     CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff,
-        token, srcOffset, dstOffset, rankSize, mySubCommRank_, die0Size));//A2ASendRecvInfo
+        token, srcOffset, dstOffset, rankSize, mySubCommRank_, localSendRecvInfo_));//A2ASendRecvInfo
     
     for (u32 i = 0; i < kernelNum; i++) {
         submitInfo.kernelHandle = templateResource.ccuKernels[i];
@@ -345,24 +375,32 @@ u64 CcuTempAlltoAllVMesh1D::CalcScratchMultiple(BufferType inBuffType, BufferTyp
     return tempRankSize_;
 }
 
-HcclResult CcuTempAlltoAllVMesh1D::SplitDataFor2Dies(const OpParam& param,
-                                                         const TemplateDataParams& templateDataParams,
-                                                         uint64_t& die0Size, uint64_t& die1Size) const
+HcclResult CcuTempAlltoAllVMesh1D::SplitA2ASendRecvInfoFor2Die(const A2ASendRecvInfo& src,
+                                                               A2ASendRecvInfo& die0,
+                                                               A2ASendRecvInfo& die1)
 {
-    uint64_t smallDataSize = 16 * 1024 * 1024;
-    uint64_t typeSize = DataTypeSizeGet(param.all2AllVDataDes.sendType);
-    uint64_t dataCount = templateDataParams.sliceSize / typeSize;
+    u32 rankSize = src.sendLength.size();
+    die0 = src; // 先完整拷贝
+    die1 = src;
 
-    if (templateDataParams.sliceSize < smallDataSize) {
-        die0Size = dataCount * typeSize;
-        die1Size = 0;
-        return HCCL_SUCCESS;
+    for (u32 i = 0; i < rankSize; i++) {
+        // 发送长度对半分（AlltoAllV必须按rank拆分）
+        uint64_t sendTotal = src.sendLength[i];
+        die0.sendLength[i] = sendTotal / 2;
+        die1.sendLength[i] = sendTotal - die0.sendLength[i];
+
+        // 接收长度对半分
+        uint64_t recvTotal = src.recvLength[i];
+        die0.recvLength[i] = recvTotal / 2;
+        die1.recvLength[i] = recvTotal - die0.recvLength[i];
+
+        // 偏移不变，由各自Die独立访问
+        die0.sendOffset[i] = src.sendOffset[i];
+        die1.sendOffset[i] = src.sendOffset[i] + die0.sendLength[i];
+
+        die0.recvOffset[i] = src.recvOffset[i];
+        die1.recvOffset[i] = src.recvOffset[i] + die0.recvLength[i];
     }
-
-    u8 die0Port = 1;
-    u8 die1Port = 1;
-    die0Size = (dataCount * die0Port / (die0Port + die1Port)) * typeSize;
-    die1Size = templateDataParams.sliceSize - die0Size;
     return HCCL_SUCCESS;
 }
 } // namespace ops_hccl

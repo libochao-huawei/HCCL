@@ -72,6 +72,7 @@ HcclResult CcuKernelAlltoAllVMesh1D::InitResource()
     srcOffset_ = CreateVariable();
     dstOffset_ = CreateVariable();
     a2avXnAddr_ = CreateVariable();
+    die0Total_ = CreateVariable();
 
     // 前同步。交换信息，将本Rank load的in\out等地址信息写到所有对端的对应Variable中，并同步
     selfBit_ = 1 << rankId_;  // 本rank的mask
@@ -138,6 +139,7 @@ void CcuKernelAlltoAllVMesh1D::LoadArgs()
     Load(token_[rankId_]);
     Load(srcOffset_);
     Load(dstOffset_);
+    Load(die0Total_);
     if (loadFromMem_) {
         Load(a2avXnAddr_);
     } else {
@@ -161,6 +163,17 @@ void CcuKernelAlltoAllVMesh1D::CalcGroupSrcDst()
         src_[rankIdx].addr += sendRecvInfo_[rankIdx].sendOffset;
         src_[rankIdx].addr += srcOffset_;
 
+        if (axisId_ == 1) {
+            // 双 Die 偏移
+            src_[rankIdx].addr += die0Total_;
+
+            // 同时对 myDst_ 也加
+            myDst_.addr += die0Total_;
+
+            // 对远端 dst_[rankIdx] 也加
+            dst_[rankIdx].addr += die0Total_;
+        }
+        
         // dst_[r] = recvBuf[r] + recvOffset + dstOffset_
         if (rankIdx == rankId_) {
             // 写目的端为本端时需要特殊处理：使用接收基地址 + 块地址offset + 已发送数据量
@@ -313,6 +326,7 @@ std::vector<uint64_t> CcuKernelAlltoAllVMesh1D::GeneArgs(const CcuTaskArg &arg)
     processReturn.push_back(loopNum);
     processReturn.push_back(sendOffset);
     processReturn.push_back(recvOffset);
+    processReturn.push_back(taskArg->die0Total_);
     std::vector<uint64_t> virTailSize;
     virTailSize.resize(ALL_TO_ALL_V_VECTOR_NUM, 0);
     if (i == myRank) {
