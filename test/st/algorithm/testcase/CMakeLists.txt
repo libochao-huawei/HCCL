@@ -10,6 +10,7 @@
 
 set(src_list
     main.cc
+<<<<<<< HEAD
     scatter_testcase.cc
     all_reduce_testcase.cc
     all_reduce_parallel_testcase.cc
@@ -19,6 +20,15 @@ set(src_list
     alltoall_testcase.cc
     alltoallv_testcase.cc
     alltoallvc_testcase.cc
+=======
+    scatter_testcase_a3.cc
+    reduce_scatter_testcase_a3.cc
+    #all_reduce_testcase.cc
+    #all_reduce_parallel_testcase.cc
+    #all_gather_aicpu_testcase.cc
+    #all_gather_dpu_testcase.cc
+    #reduce_scatter_aicpu_testcase.cc
+>>>>>>> eaf7092 (Add ReduceScatter BIRS support)
 )
 
 add_executable(hccl_checker_ops_stest ${src_list})
