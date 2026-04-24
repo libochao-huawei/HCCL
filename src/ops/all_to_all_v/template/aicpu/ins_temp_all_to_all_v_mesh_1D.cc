@@ -25,16 +25,14 @@ InsTempAlltoAllVMesh1D::~InsTempAlltoAllVMesh1D()
 HcclResult InsTempAlltoAllVMesh1D::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
     AlgResourceRequest& resourceRequest)
 {
-    u32 threadNum = templateRankSize_;
-    resourceRequest.slaveThreadNum = threadNum - 1;
-    for (u32 index = 0; index < threadNum - 1; index++) {
-        resourceRequest.notifyNumPerThread.push_back(1);
-    }
-    resourceRequest.notifyNumOnMainThread = threadNum - 1;
-
     std::vector<HcclChannelDesc> level0Channels;
     CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
     resourceRequest.channels.push_back(level0Channels);
+    resourceRequest.slaveThreadNum = level0Channels.size();
+    for (u32 index = 0; index < resourceRequest.slaveThreadNum; index++) {
+        resourceRequest.notifyNumPerThread.push_back(1);
+    }
+    resourceRequest.notifyNumOnMainThread = resourceRequest.slaveThreadNum;
     HCCL_WARNING("Resource calculation is temporarily not performed in the template.");
     return HCCL_SUCCESS;
 }
@@ -125,25 +123,36 @@ HcclResult InsTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
     return HcclResult::HCCL_SUCCESS;
 }
 
+HcclResult InsTempAlltoAllVMesh1D::LocalCopyForMyRank(const TemplateDataParams &tempAlgParams,
+    const ThreadHandle &thread, const u32 myAlgRank, const u32 queIdx) const
+{
+    DataSlice srcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr,
+        tempAlgParams.sdispls[myAlgRank] * dataTypeSize_,
+        tempAlgParams.sendCounts[myAlgRank] * dataTypeSize_, tempAlgParams.sendCounts[myAlgRank]);
+    DataSlice dstSlice = DataSlice(tempAlgParams.buffInfo.outputPtr,
+        tempAlgParams.rdispls[myAlgRank] * dataTypeSize_,
+        tempAlgParams.recvCounts[myAlgRank] * dataTypeSize_, tempAlgParams.recvCounts[myAlgRank]);
+
+    if (tempAlgParams.sendCounts[myAlgRank] > 0) {
+        CHK_RET(static_cast<HcclResult>(LocalCopy(thread, srcSlice, dstSlice)));
+        HCCL_DEBUG("[InsTempAlltoAllVMesh1D][RunALLtoALL] do local copy on thread[%u], data size[%llu].",
+            queIdx, tempAlgParams.sendCounts[myAlgRank] * dataTypeSize_);
+    }
+    return HCCL_SUCCESS;
+}
+
 HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
     const std::map<u32, std::vector<ChannelInfo>> &channels,
     const std::vector<ThreadHandle> &threads,
     const TemplateDataParams &tempAlgParams,
     const u32 myAlgRank)
 {
-    for (u32 queIdx = 0; queIdx < threadNum_; queIdx++) {
-        if (queIdx == myAlgRank) {
-            // local copy
-            DataSlice srcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr,
-                tempAlgParams.sdispls[myAlgRank] * dataTypeSize_,
-                tempAlgParams.sendCounts[myAlgRank] * dataTypeSize_, tempAlgParams.sendCounts[myAlgRank]);
-            DataSlice dstSlice = DataSlice(tempAlgParams.buffInfo.outputPtr,
-                tempAlgParams.rdispls[myAlgRank] * dataTypeSize_,
-                tempAlgParams.recvCounts[myAlgRank] * dataTypeSize_, tempAlgParams.recvCounts[myAlgRank]);
-
-            if (tempAlgParams.sendCounts[myAlgRank] > 0) {
-                CHK_RET(static_cast<HcclResult>(LocalCopy(threads[queIdx], srcSlice, dstSlice)));
-            }
+    u32 queIdx = 0;
+    for (u32 rankId = 0; rankId < templateRankSize_; rankId++) {
+        if (rankId == myAlgRank) {
+            // 做本卡local copy
+            CHK_RET(LocalCopyForMyRank(tempAlgParams, threads[queIdx], myAlgRank, queIdx));
+            queIdx++;
             continue;
         }
 
@@ -219,6 +228,7 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
                         HcclResult::HCCL_E_INTERNAL);
                 }
             }
+            queIdx++;
         }
     }
     return HcclResult::HCCL_SUCCESS;
@@ -250,34 +260,23 @@ HcclResult InsTempAlltoAllVMesh1D::PostCopy(
     const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads, const u32 myAlgRank) const
 {
     // ccl buffer的数据搬运到usrout
-    for (u32 queIdx = 0; queIdx < threadNum_; queIdx++) {
-        // 如果是本卡，不需要后拷贝
-        if (queIdx == myAlgRank) {
-            continue;
-        }
-        // local copy
-        u32 curAlgRank = queIdx;
-        DataSlice srcSlice = DataSlice(tempAlgParams.buffInfo.hcclBuff.addr,
-            curAlgRank * cclBufferCountPerRank_ * dataTypeSize_ + tempAlgParams.buffInfo.hcclBuffBaseOff,
-            tempAlgParams.recvCounts[curAlgRank] * dataTypeSize_, tempAlgParams.recvCounts[curAlgRank]);
-        DataSlice dstSlice = DataSlice(tempAlgParams.buffInfo.outputPtr,
-            tempAlgParams.rdispls[curAlgRank] * dataTypeSize_,
-            tempAlgParams.recvCounts[curAlgRank] * dataTypeSize_, tempAlgParams.recvCounts[curAlgRank]);
-        if (tempAlgParams.recvCounts[curAlgRank] > 0) {
-            CHK_RET(static_cast<HcclResult>(LocalCopy(threads[queIdx], srcSlice, dstSlice)));
-        }
-    }
+    DataSlice localCopySrcSlice = DataSlice(tempAlgParams.buffInfo.hcclBuff.addr,
+        rankId * cclBufferCountPerRank_ * dataTypeSize_ + tempAlgParams.buffInfo.hcclBuffBaseOff + recvOffset,
+        recvSize, recvCount);
+    DataSlice localCopyDstSlice = DataSlice(tempAlgParams.buffInfo.outputPtr,
+        tempAlgParams.rdispls[rankId] * dataTypeSize_ + recvOffset,
+        recvSize, recvCount);
+    CHK_RET(static_cast<HcclResult>(LocalCopy(thread, localCopySrcSlice, localCopyDstSlice)));
     return HcclResult::HCCL_SUCCESS;
 }
 
 void InsTempAlltoAllVMesh1D::GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMianToSub)
 {
     notifyIdxMianToSub.clear();
-    if (templateRankSize_ <= 1) {
+    if (threadNum_ <= 1) {
         return;
     }
-    u32 threadNum = templateRankSize_;
-    u32 slaveThreadNum = threadNum - 1;
+    u32 slaveThreadNum = threadNum_ - 1;
     for (u32 slaveThreadIdx = 0; slaveThreadIdx < slaveThreadNum; slaveThreadIdx++) {
         notifyIdxMianToSub.push_back(0);
     }
@@ -286,8 +285,7 @@ void InsTempAlltoAllVMesh1D::GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMi
 void InsTempAlltoAllVMesh1D::GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain)
 {
     notifyIdxSubToMain.clear();
-    u32 threadNum = templateRankSize_;
-    u32 notifyNum = threadNum - 1;
+    u32 notifyNum = threadNum_ - 1;
     for (u32 notifyIdx = 0; notifyIdx < notifyNum; notifyIdx++) {
         notifyIdxSubToMain.push_back(notifyIdx);
     }

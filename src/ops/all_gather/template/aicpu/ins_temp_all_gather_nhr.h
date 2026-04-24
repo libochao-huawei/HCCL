@@ -38,20 +38,27 @@ public:
 
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
     u64 GetThreadNum() const override;
-    void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainnToSub) override {};
-    void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override{};
+    void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMianToSub) override;
+    void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override;
+
 protected:
     HcclResult GetStepInfo(u32 step, u32 nSteps, AicpuNHRStepInfo &stepInfo);
-
-    HcclResult LocalDataCopy(const std::vector<ThreadHandle> &threads);
-    HcclResult PostLocalCopy(const std::vector<ThreadHandle> &threads);
-    virtual HcclResult RunAllGatherNHR(const std::vector<ThreadHandle> &threads,
-                               const std::map<u32, std::vector<ChannelInfo>> &channels);
     u32 GetRankFromMap(const u32 algRankIdx) const;
     TemplateDataParams tempAlgParams_;
     bool isDmaRead_{false};
+private:
+    HcclResult PreprareDataSplitForMultiChannel(const TemplateResource &templateResource);
+    HcclResult LocalDataCopy(const std::vector<ThreadHandle> &threads, const u32 &channelIdx);
+    HcclResult PostLocalCopy(const std::vector<ThreadHandle> &threads, const u32 &channelIdx);
+    HcclResult RunAllGatherNHR(const std::vector<ThreadHandle> &threads,
+                               const std::map<u32, std::vector<ChannelInfo>> &channels, const u32 &channelIdx);
+    u64 dataTypeSize_{0};
+    std::vector<u64> dataSplit_;
+    std::vector<u64> dataOffset_;
+    std::vector<u64> dataSplitTail_;
+    std::vector<u64> dataOffsetTail_;
 };
 
-}  // namespace Hccl
+}  // namespace ops_hccl
 
 #endif  // INS_TEMP_ALL_GATHER_NHR_H

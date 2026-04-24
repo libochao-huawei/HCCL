@@ -329,6 +329,7 @@ struct ChannelInfo {
     CommProtocol protocol = CommProtocol::COMM_PROTOCOL_RESERVED;
     EndpointLocType locationType = EndpointLocType::ENDPOINT_LOC_TYPE_RESERVED;
     u32 notifyNum = 0;
+    u32 portGroupSize = 1; // A5用的, 端口组大小，用于数据分片比例计算
     ChannelHandle handle = 0;
     HcclMem remoteCclMem; // A5用的
     HcclMem remoteInputGraphMode;   // A5用的, 图模式下远端sendBuf地址

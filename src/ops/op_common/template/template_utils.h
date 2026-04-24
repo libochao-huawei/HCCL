@@ -362,6 +362,49 @@ HcclResult GetAlgRank(const u32 virtRank, const std::vector<u32> &rankIds, u32 &
 
 u32 GetNHRStepNum(u32 rankSize);
 
+inline u32 CalcChannelsPerRank(const std::vector<HcclChannelDesc> &channels)
+{
+    u32 channelsPerRank = 1;
+    u32 currentRank = INVALID_VALUE_RANKID;
+    u32 currentCount = 0;
+    u32 changeNum = 0;
+    // channels的排列遵循相同远端的channel放在相邻位置
+    for (const auto &channel : channels) {
+        if (channel.remoteRank == currentRank) {
+            // 如果remoteRank不变，则计数一直累加
+            currentCount++;
+        } else {
+            // 如果remoteRank变化了，则更新channelsPerRank并重新开始给下一个remoteRank计数
+            if (currentCount != channelsPerRank && channel.remoteRank != channels[0].remoteRank) {
+                HCCL_WARNING("[CalcChannelsPerRank] channel num[%u] of remote rank[%u] is not equal to "\
+                    "channel num[%u] of previous ranks.",
+                    currentCount, channel.remoteRank, channelsPerRank);
+            }
+            if (currentCount > channelsPerRank) {
+                channelsPerRank = currentCount;
+            }
+            currentRank = channel.remoteRank;
+            currentCount = 1;
+        }
+    }
+    // 处理最后一个rank
+    if (currentCount > channelsPerRank) {
+        channelsPerRank = currentCount;
+    }
+    return channelsPerRank;
+}
+
+inline u32 CalcChannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels)
+{
+    u32 channelsPerRank = 1;
+    for (const auto &channelsByRank : channels) {
+        if (channelsByRank.second.size() > channelsPerRank) {
+            channelsPerRank = static_cast<u32>(channelsByRank.second.size());
+        }
+    }
+    return channelsPerRank;
+}
+
 // roundup func for uint
 inline u64 RoundUp(const u64 dividend, const u64 divisor)
 {
@@ -389,6 +432,12 @@ HcclResult FillCachedArgs(CcuKernelSubmitInfo &info, Args... args)
 
     return HcclResult::HCCL_SUCCESS;
 }
-
+HcclResult CalcDataSplitByPortGroupCommon(const u64 totalDataCount,
+                                          const u64 dataTypeSize,
+                                          const std::vector<ChannelInfo> &channels,
+                                          std::vector<u64> &elemCountOut,
+                                          std::vector<u64> &sizeOut,
+                                          std::vector<u64> &elemOffset,
+                                          const u32 channelsPerRank);
 }
 #endif
