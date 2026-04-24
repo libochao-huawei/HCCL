@@ -361,7 +361,7 @@ is_valid_path() {
         if [ ! -d "${pkg_install_path}" ]; then
             local up_dir=$(dirname "${pkg_install_path}")
             if [ ! -d "${up_dir}" ]; then
-                log "ERROR" "ERR_NO:0x0003;ERR_DES:The $up_dir dose not exist, please retry a right path."
+                log "ERROR" "ERR_NO:0x0003;ERR_DES:The $up_dir does not exist, please retry a right path."
                 exit_install_log 1
             fi
         else
