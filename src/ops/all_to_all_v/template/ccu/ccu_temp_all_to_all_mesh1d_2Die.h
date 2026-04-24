@@ -37,11 +37,14 @@ public:
         TemplateResource& templateResource) override;
 private:
     HcclResult PartitionChannels(HcclComm comm, const std::vector<HcclChannelDesc> &channelDescs, uint32_t &meshDieId);
+    HcclResult CalcChannelRequest(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
+        const std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels);
 
     const uint32_t DIE_NUM = 2; // 2Die
 
     std::map<uint32_t, std::vector<HcclChannelDesc>> channels_; // key is DieId
     std::map<uint32_t, RankGroup> rankGroup_;
+    std::map<u32, std::vector<HcclChannelDesc>> rankIdToChannelDesc_;
 };
 
 } // namespace Hccl
