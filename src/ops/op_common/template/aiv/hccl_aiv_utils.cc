@@ -32,11 +32,11 @@ constexpr u32 MAX_BIN_FILE_SIZE = 100 * 1024 * 1024; // 最大读取100m的bin f
 
 constexpr s32 RESET_TAIL_SYNC_TAG = 2;
 
-thread_local static bool g_init = false;
-thread_local static mutex g_mut;
-thread_local static aclrtBinHandle g_binHandle;
-thread_local static std::unordered_map<s8*, aclrtFuncHandle> g_aivFuncMap;
-thread_local static std::unordered_map<s8*, std::string> g_aivNameMap;
+static bool g_init = false;
+static mutex g_mut;
+static aclrtBinHandle g_binHandle;
+static std::unordered_map<s8*, aclrtFuncHandle> g_aivFuncMap;
+static std::unordered_map<s8*, std::string> g_aivNameMap;
 
 thread_local std::shared_ptr<InsQueue> g_recordingQueue = nullptr;
 thread_local u64 g_baseInputAddr = 0;
