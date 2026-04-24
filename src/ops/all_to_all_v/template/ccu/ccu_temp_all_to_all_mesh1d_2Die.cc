@@ -40,6 +40,26 @@ CcuTempAllToAllMesh1D2Die::~CcuTempAllToAllMesh1D2Die()
 {
 }
 
+HcclResult CcuTempAllToAllMesh1D2Die::ProcessLinkForProtocol(HcclComm comm, const std::vector<CommProtocol>& expectedProtocols,
+    const std::vector<CommLink>& linkList, u32 myRank, u32 remoteRank, uint32_t netLayer,
+    std::vector<HcclChannelDesc>& channels, bool& protocolFound, const std::string& funcName)
+{
+    protocolFound = false;
+    for (auto expectedProtocol : expectedProtocols) {
+        for (u32 idx = 0; idx < linkList.size(); idx++) {
+            if (linkList[idx].linkAttr.linkProtocol == expectedProtocol) {
+                CHK_RET(CreateChannelFromLink(comm, myRank, remoteRank, netLayer, idx, linkList[idx],
+                    funcName, channels));
+                protocolFound = true;
+            }
+        }
+        if (protocolFound) {
+            break;
+        }
+    }
+    return HCCL_SUCCESS;
+}
+
 HcclResult CcuTempAllToAllMesh1D2Die::CalcChannelRequest(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
     const std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels)
 {
@@ -78,7 +98,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcChannelRequest(HcclComm comm, const Op
             std::vector<CommLink> links(linkList, linkList + listSize);
             bool protocolFound = false;
             CHK_RET(ProcessLinkForProtocol(comm, expectedProtocols, links, myRank, rank, netLayer, channels, protocolFound,
-                std::string("[CalcChannelRequestMesh1D]")));
+                std::string("[CalcChannelRequest]")));
 
             if (channels.size() > channelCountBefore) {
                 break;
@@ -110,7 +130,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcRes(HcclComm comm, const OpParam& para
     CHK_RET(CalcChannelRequest(comm, param, topoInfo, subCommRanks_, channelDescs));
     CHK_RET(RestoreChannelMap(channelDescs, rankIdToChannelDesc_));
     HCCL_INFO("channelDescs size[%u]", channelDescs.size());
-    
+
     uint32_t meshDieId = 0;
     CHK_RET(PartitionChannels(comm, channelDescs, meshDieId));
     resourceRequest.channels.emplace_back(channelDescs);
