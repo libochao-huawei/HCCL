@@ -395,8 +395,8 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     InsAlgTemplate2 tempAlgIntra1(param, resCtx.topoInfo.userRank, temp0HierarchyInfo);
     InsAlgTemplate3 tempAlgInter1(param, resCtx.topoInfo.userRank, temp1HierarchyInfo);
     if (param.engine == CommEngine::COMM_ENGINE_AICPU_TS) {
-        tempAlgInter.SetchannelsPerRank(interChannelMap_);
-        tempAlgInter1.SetchannelsPerRank(interChannelMap_);
+        tempAlgInter.SetchannelsPerRank(interLinks_);
+        tempAlgInter1.SetchannelsPerRank(interLinks_);
     }
 
     // 算法展开
