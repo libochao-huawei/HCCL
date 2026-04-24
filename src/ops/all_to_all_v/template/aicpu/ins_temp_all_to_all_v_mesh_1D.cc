@@ -184,7 +184,7 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult InsTempAlltoAllVMesh1D::PreCopy((const TemplateDataParams &tempAlgParams, const ThreadHandle &thread,
+HcclResult InsTempAlltoAllVMesh1D::PreCopy(const TemplateDataParams &tempAlgParams, const ThreadHandle &thread,
     const u32 rankId, const u64 &sendSize, const u64 &sendCount, const u64 &sendOffset) const
 {
     // local copy
