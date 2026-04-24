@@ -157,7 +157,9 @@ public:
         uint32_t perCoreRankNum = rankSize_ / numBlocks_;
         uint32_t remainRankNum = rankSize_ % numBlocks_;
         uint32_t curCoreRankNum = block_idx < remainRankNum ? perCoreRankNum + 1 : perCoreRankNum;
-        uint32_t startRank = block_idx < remainRankNum ? (perCoreRankNum + 1) * block_idx : perCoreRankNum * block_idx + remainRankNum;
+        uint32_t startRank = block_idx < remainRankNum
+                           ? (perCoreRankNum + 1) * block_idx
+                           : perCoreRankNum * block_idx + remainRankNum;
         for (uint32_t rank = startRank; rank < startRank + curCoreRankNum; rank++) {
             Record(rank, rank_, curTag_);
         }
