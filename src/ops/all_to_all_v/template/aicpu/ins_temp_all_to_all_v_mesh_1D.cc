@@ -132,8 +132,8 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
         CHK_RET(CalcDataSplitByPortGroup(tempAlgParams.recvCounts[rankId], dataTypeSize_, curChannels,
             recvCountsSplit, recvSizeSplit, recvOffsetSplit));
         for (u32 channelId = 0; channelId < curChannels.size(); channelId++) {
-            const ChannelInfo &channelSend = channels.at(remoteRank)[0]; // 发给哪个rank
-            const ChannelInfo &channelRecv = channels.at(remoteRank)[0]; // 收哪个rank的数据
+            const ChannelInfo &channelSend = curChannels[channelId]; // 发给哪个rank
+            const ChannelInfo &channelRecv = curChannels[channelId]; // 收哪个rank的数据
             std::vector<DataSlice> txSrcSlices; // 在read模式下用不到txSlice，直接给空的
             std::vector<DataSlice> txDstSlices;
             std::vector<DataSlice> rxSrcSlices;
