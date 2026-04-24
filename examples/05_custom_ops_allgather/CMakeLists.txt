@@ -27,6 +27,7 @@ endif()
 install(FILES
     inc/hccl_custom_allgather.h
     DESTINATION ${CUSTOM_OPS_OPP_INC_PATH}
+    COMPONENT hccl
 )
 
 add_subdirectory(op_kernel)

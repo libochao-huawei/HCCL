@@ -91,6 +91,10 @@ HcclResult InsTempAllReduceNHR::KernelRun(const OpParam& param,
     dataType_ = param.DataDes.dataType;
     dataTypeSize_ = DATATYPE_SIZE_TABLE[dataType_];
 
+    bool isPcieProtocal = IsPcieProtocol(templateResource.channels);  // 判断是否存在pcie链路
+    isDmaRead_ = isPcieProtocal;  // 是否使用Read模式
+    HCCL_DEBUG("[InsTempAllReduceNHR] Use Dma Read[%d]", isDmaRead_);
+
     if (count_ == 0) {
         HCCL_WARNING("[InsTempAllReduceNHR][KernelRun] data count is 0.");
         return HcclResult::HCCL_SUCCESS;
@@ -207,15 +211,21 @@ HcclResult InsTempAllReduceNHR::RunReduceScatter(const TemplateDataParams &tempA
             u64 recvCount = sliceInfoList_.at(stepInfo.rxSliceIdxs.at(idx)).count;
             DataSlice recvSrcSlice(recvRemoteHcclBuffPtr, recvOffset, recvSize, recvCount);
             DataSlice recvDstSlice(localHcclBuffPtr, recvOffset, recvSize, recvCount);
-            recvSrcSlicesList.emplace_back(sendSrcSlice);
-            recvDstSlicesList.emplace_back(sendDstSlice);
+            recvSrcSlicesList.emplace_back(recvSrcSlice);
+            recvDstSlicesList.emplace_back(recvDstSlice);
         }
         SendRecvReduceInfo sendRecvReduceInfo{{sendChannel, recvChannel}, 
             {{sendSrcSlicesList, sendDstSlicesList}, {recvSrcSlicesList, recvDstSlicesList}}, dataType_, reduceOp_};
 
-        CHK_PRT_RET(SendRecvWriteReduce(sendRecvReduceInfo, threads.at(0)),
-            HCCL_ERROR("[InsTempAllReduceNHR] RunReduceScatter SendRecvReduce failed"),
-            HcclResult::HCCL_E_INTERNAL);
+        if (isDmaRead_) {
+            CHK_PRT_RET(SendRecvReadReduce(sendRecvReduceInfo, threads.at(0)),
+                HCCL_ERROR("[InsTempAllReduceNHR] RunReduceScatter SendRecvReduce failed"),
+                HcclResult::HCCL_E_INTERNAL);
+        } else {
+            CHK_PRT_RET(SendRecvWriteReduce(sendRecvReduceInfo, threads.at(0)),
+                HCCL_ERROR("[InsTempAllReduceNHR] RunReduceScatter SendRecvReduce failed"),
+                HcclResult::HCCL_E_INTERNAL);
+        }
     }
 
     return HcclResult::HCCL_SUCCESS;
@@ -260,18 +270,23 @@ HcclResult InsTempAllReduceNHR::RunAllGather(const TemplateDataParams &tempAlgPa
             u64 recvOffset = hcclBuffBaseOffset + sliceInfoList_.at(stepInfo.rxSliceIdxs.at(idx)).offset;
             u64 recvSize = sliceInfoList_.at(stepInfo.rxSliceIdxs.at(idx)).size;
             u64 recvCount = sliceInfoList_.at(stepInfo.rxSliceIdxs.at(idx)).count;
-            // remote input，没法写，先用recvRemoteHcclBuffPtr替代
             DataSlice recvSrcSlice(recvRemoteHcclBuffPtr, recvOffset, recvSize, recvCount);
             DataSlice recvDstSlice(localHcclBuffPtr, recvOffset, recvSize, recvCount);
-            recvSrcSlicesList.emplace_back(sendSrcSlice);
-            recvDstSlicesList.emplace_back(sendDstSlice);
+            recvSrcSlicesList.emplace_back(recvSrcSlice);
+            recvDstSlicesList.emplace_back(recvDstSlice);
         }
         SendRecvInfo sendRecvInfo{{sendChannel, recvChannel}, 
             {{sendSrcSlicesList, sendDstSlicesList}, {recvSrcSlicesList, recvDstSlicesList}}};
 
-        CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads.at(0)),
-            HCCL_ERROR("[InsTempAllReduceNHR] RunAllGather SendRecv failed"),
-            HcclResult::HCCL_E_INTERNAL);
+        if (isDmaRead_) {
+            CHK_PRT_RET(SendRecvRead(sendRecvInfo, threads.at(0)),
+                HCCL_ERROR("[InsTempAllReduceNHR] RunAllGather SendRecv failed"),
+                HcclResult::HCCL_E_INTERNAL);
+        } else {
+            CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads.at(0)),
+                HCCL_ERROR("[InsTempAllReduceNHR] RunAllGather SendRecv failed"),
+                HcclResult::HCCL_E_INTERNAL);
+        }
     }
     
     return HcclResult::HCCL_SUCCESS;

@@ -21,7 +21,7 @@ file(MAKE_DIRECTORY "${STAGING_DIR}")
 
 # 执行安装到临时目录
 execute_process(
-    COMMAND "${CMAKE_COMMAND}" --install "${CPACK_CMAKE_BINARY_DIR}" --prefix "${STAGING_DIR}"
+    COMMAND "${CMAKE_COMMAND}" --install "${CPACK_CMAKE_BINARY_DIR}" --prefix "${STAGING_DIR}" --component hccl
     RESULT_VARIABLE INSTALL_RESULT
     ERROR_VARIABLE  INSTALL_ERROR
 )

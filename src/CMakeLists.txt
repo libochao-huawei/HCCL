@@ -256,6 +256,7 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/topo/topo_match_base.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/topo/topo_match_multilevel.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/topo/topo_match_ubx.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/topo/topo_match_pcie_mix.cc
 
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/algo/scatter_comm_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/algo/scatter_executor_base.cc
@@ -405,7 +406,9 @@ if(NOT KERNEL_MODE)
     )
     add_custom_target(aicpu_kernel_json DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/libscatter_aicpu_kernel.json)
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libscatter_aicpu_kernel.json
-        DESTINATION ${INSTALL_AICPU_KERNEL_JSON_DIR} OPTIONAL
+        DESTINATION ${INSTALL_AICPU_KERNEL_JSON_DIR} 
+        ${INSTALL_OPTIONAL}
+        COMPONENT hccl
     )
     add_dependencies(hccl aicpu_kernel_json)
 endif()
@@ -534,22 +537,30 @@ endif()
 
 if(STATIC_MODE)
     install(TARGETS hccl
-        ARCHIVE DESTINATION ${INSTALL_LIBRARY_DIR} OPTIONAL
+        ARCHIVE DESTINATION ${INSTALL_LIBRARY_DIR} 
+        ${INSTALL_OPTIONAL}
+        COMPONENT hccl
     )
 else()
     install(TARGETS hccl
-        LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} OPTIONAL
+        LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} 
+        ${INSTALL_OPTIONAL}
+        COMPONENT hccl
     )
 endif()
 
 if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
     if(STATIC_MODE)
         install(TARGETS scatter_aicpu_kernel
-            LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} OPTIONAL
+            LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} 
+            ${INSTALL_OPTIONAL}
+            COMPONENT hccl
         )
     else()
         install(TARGETS scatter_aicpu_kernel
-            LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} OPTIONAL
+            LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} 
+            ${INSTALL_OPTIONAL}
+            COMPONENT hccl
         )
     endif()
 endif()
@@ -567,6 +578,8 @@ set(AIV_TARGETS
     hccl_aiv_reduce_op_910_95
     hccl_aiv_reduce_scatter_op_910_95
     hccl_aiv_scatter_op_910_95
+    hccl_aiv_send_op_910_95
+    hccl_aiv_recv_op_910_95
 )
 
 add_custom_target(aiv_all_targets)
