@@ -203,6 +203,7 @@ HcclResult AllGatherVOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount,c
  	  	return HcclResult::HCCL_SUCCESS;
  	}
 
+    CHK_RET(HcclGetOpExpansionMode(comm, param));
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));
