@@ -210,7 +210,7 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
 
 HcclResult InsTempAlltoAllVMesh1D::PreCopy(const std::map<u32, std::vector<ChannelInfo>> &channels,
     const std::vector<ThreadHandle> &threads, const TemplateDataParams &tempAlgParams,
-    const u32 myAlgRank) const
+    const u32 myAlgRank)
 {
     // local copy
     u32 queIdx = 0;
