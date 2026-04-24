@@ -50,7 +50,7 @@ private:
     // const u32 rankId, const u64 &sendSize, const u64 &sendCount, const u64 &sendOffset) const;
     HcclResult PreCopy(const std::map<u32, std::vector<ChannelInfo>> &channels,
         const std::vector<ThreadHandle> &threads, const TemplateDataParams &tempAlgParams,
-        const u32 myAlgRank) const;
+        const u32 myAlgRank);
     HcclResult LocalCopyForMyRank(const TemplateDataParams &tempAlgParams,
         const ThreadHandle &thread, const u32 myAlgRank, const u32 queIdx) const;
 
