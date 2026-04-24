@@ -105,8 +105,6 @@ HcclResult InsTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
     TemplateResource& templateResource)
 {
     threadNum_ = templateResource.threads.size();
-    processSize_ = tempAlgParams.sliceSize;
-    count_ = tempAlgParams.count;
     dataType_ = param.all2AllVDataDes.sendType;
     dataTypeSize_ = SIZE_TABLE[dataType_];
     HCCL_INFO("[InsTempAlltoAllVMesh1D] Run Start");
@@ -171,7 +169,15 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
     for (u32 roundIdx = 0; roundIdx < commLoops && remainRankSize > 0; roundIdx++) {
         queIdx = 1; // 每轮通信都从第1条流开始
         CalcCommRankSetForOneLoop(roundIdx, remainRankSize, commRanks);
+        if (threadNum_ > 1) {
+            std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+            CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub_));
+        }
         CHK_RET(RunSendRecvByLoop(commRanks, tempAlgParams, channels, threads, queIdx));
+        if (threadNum_ > 1) {
+            std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+            CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain_));
+        }
         remainRankSize -= commRanks.size();
         HCCL_DEBUG("[InsTempAlltoAllVMesh1D][RunALLtoALL] round[%u] finish, commRank size is [%zu], "\
             "remainRankSize is [%u].", roundIdx, commRanks.size(), remainRankSize);
