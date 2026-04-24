@@ -69,6 +69,11 @@ protected:
     std::vector<u32>                 notifyIdxSubToMain_;
     // 是否可以直接访问对端input/output memory
     bool                             enableRemoteMemAccess_ = false;
+
+    u32                              dieNum_ = 2;
+    u32                              channelsPerRank_ = 1;
+    u32                              dataTypeSize_ = 0;
+
 };
 } // namespace Hccl
 

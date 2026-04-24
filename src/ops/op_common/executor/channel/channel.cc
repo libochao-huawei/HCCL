@@ -509,7 +509,8 @@ HcclResult ProcessLinksForChannelMulti(HcclComm comm, u32 myRank, u32 rank,
             channelDesc.remoteEndpoint.protocol = link.dstEndpointDesc.protocol;
             channelDesc.remoteEndpoint.commAddr = link.dstEndpointDesc.commAddr;
             channelDesc.remoteEndpoint.loc = link.dstEndpointDesc.loc;
-            CHK_RET(GetTopoTypeByLink(comm, netLayer, link, topoType));
+            CommLink linkCopy = link;
+            CHK_RET(GetTopoTypeByLink(comm, netLayer, linkCopy, topoType));
             HCCL_INFO("[ProcessLinksForChannelMulti]Add channel request between %u and %u with protocol %u "
                        "and topoType %u. And Priority topoType is %u.",
                        myRank, channelDesc.remoteRank, channelDesc.remoteEndpoint.protocol, topoType, priorityTopo);

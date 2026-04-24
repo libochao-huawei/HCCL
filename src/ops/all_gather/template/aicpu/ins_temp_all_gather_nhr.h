@@ -45,6 +45,8 @@ protected:
 
     HcclResult LocalDataCopy(const std::vector<ThreadHandle> &threads);
     HcclResult PostLocalCopy(const std::vector<ThreadHandle> &threads);
+    HcclResult PreSync(const std::vector<ThreadHandle> &threads);
+    HcclResult PostSync(const std::vector<ThreadHandle> &threads);
     virtual HcclResult RunAllGatherNHR(const std::vector<ThreadHandle> &threads,
                                const std::map<u32, std::vector<ChannelInfo>> &channels);
     u32 GetRankFromMap(const u32 algRankIdx) const;

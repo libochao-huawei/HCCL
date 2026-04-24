@@ -30,4 +30,49 @@ u32 GetNHRStepNum(u32 rankSize)
 
     return nSteps;
 }
+
+HcclResult CalcDataSplitRateForLinks(const std::vector<ChannelInfo> &channels, std::vector<float> &dataSplitRate)
+{
+    //取到第一个对端的link数量来作为数据切分的依据
+    std::vector<u8> channelPortGroupSizes;
+    channelPortGroupSizes.resize(channels.size());
+    for (u32 channelIdx = 0; channelIdx < channels.size(); channelIdx++) {
+        const ChannelInfo& channelInfo = channels[channelIdx];
+        channelPortGroupSizes[channelIdx] = channelInfo.portGroupSize;
+    }
+    u32 totalPortNum = std::accumulate(channelPortGroupSizes.begin(), channelPortGroupSizes.end(), 0);
+    if(totalPortNum == 0){
+        HCCL_ERROR("totalPortNum is zero");
+        return HcclResult::HCCL_E_INTERNAL;
+    }
+    for(u32 channelIdx = 0; channelIdx < channelPortGroupSizes.size(); channelIdx++){
+        dataSplitRate[channelIdx] = static_cast<float>(channelPortGroupSizes[channelIdx]) / totalPortNum;
+    }
+    return HcclResult::HCCL_SUCCESS;
+}
+ 
+DataSlice CalcDataSliceForLinks(const DataSlice& recvSrcSliceAllLinks, std::vector<float> dataSplitRate, u32 j, HcclDataType dataType_)
+{
+    void* addr = recvSrcSliceAllLinks.addr_;
+    u64 offset = recvSrcSliceAllLinks.offset_;
+    u64 size = recvSrcSliceAllLinks.size_;
+    u64 count = recvSrcSliceAllLinks.count_;
+    u64 accSize=0;
+    u64 typeSize = DATATYPE_SIZE_TABLE[dataType_];
+    u64 channelNum = dataSplitRate.size();
+    std::vector<DataSlice> dataSliceForLinks(channelNum);
+    HCCL_INFO("Slice data for channels");
+    for(u32 channelIdx = 0; channelIdx < channelNum; channelIdx++){
+        if (channelIdx != channelNum - 1) {
+            dataSliceForLinks[channelIdx].size_ = static_cast<u64>(static_cast<float>(count) * dataSplitRate[channelIdx]) * typeSize;
+        } else {
+            dataSliceForLinks[channelIdx].size_ = size - accSize;
+        }
+        dataSliceForLinks[channelIdx].offset_ = offset + accSize;
+        accSize += dataSliceForLinks[channelIdx].size_;
+        dataSliceForLinks[channelIdx].addr_ = addr;
+    }
+    return dataSliceForLinks[j];
+}
+
 }
