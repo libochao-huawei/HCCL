@@ -83,6 +83,9 @@ HcclResult InsTempAllGatherNHR::KernelRun(const OpParam &param, const TemplateDa
     dataType_ = param.DataDes.dataType;
     enableRemoteMemAccess_ = tempAlgParams.enableRemoteMemAccess;
 
+    bool isPcieProtocal = IsPcieProtocol(templateResource.channels);  // 判断是否存在pcie链路
+    isDmaRead_ = isPcieProtocal;  // 是否使用Read模式
+    HCCL_DEBUG("[InsTempAllGatherNHR] Use Dma Read[%d]", isDmaRead_);
     CHK_RET(PreprareDataSplitForMultiChannel(templateResource));
 
     if (threadNum_ > 1) {
@@ -154,9 +157,15 @@ HcclResult InsTempAllGatherNHR::RunAllGatherNHR(const std::vector<ThreadHandle> 
             TxRxChannels sendRecvChannels(channelSend, channelRecv);
             SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
 
-            CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[channelIdx]),
-                        HCCL_ERROR("[InsTempAllGatherNHR] sendrecv failed (step=%u, rpt=%u)", step, rpt),
-                        HcclResult::HCCL_E_INTERNAL);
+            if (isDmaRead_) {
+                CHK_PRT_RET(SendRecvRead(sendRecvInfo, threads[channelIdx]),
+                    HCCL_ERROR("[InsTempAllGatherNHR] sendrecv failed (step=%u, rpt=%u)", step, rpt),
+                    HcclResult::HCCL_E_INTERNAL);
+            } else {
+                CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[channelIdx]),
+                    HCCL_ERROR("[InsTempAllGatherNHR] sendrecv failed (step=%u, rpt=%u)", step, rpt),
+                    HcclResult::HCCL_E_INTERNAL);
+            }
         }
     }
     return HcclResult::HCCL_SUCCESS;

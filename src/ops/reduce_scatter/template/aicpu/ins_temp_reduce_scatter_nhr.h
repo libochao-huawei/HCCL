@@ -53,6 +53,7 @@ private:
     std::vector<u64> elemOffset_;
     std::vector<u64> sizeOutTail_;
     std::vector<u64> elemOffsetTail_;
+    bool isDmaRead_{false};
 };
 
 } // namespace Hccl

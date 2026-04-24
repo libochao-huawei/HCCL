@@ -162,6 +162,9 @@ SelectorStatus ReduceAutoSelector::SelectMeshAlgoCcuSchedule(
             } else {
                 selectAlgName = "CcuReduceMesh1DMem2Mem";
             }
+        } else if (topoInfo->level0PcieMix) {
+            HCCL_WARNING("[ReduceAutoSelector] pcie mixed topo is not supported yet for ccu schedule mode.");
+            return SelectorStatus::NOT_MATCH;
         } else {
             selectAlgName = "CcuReduceNHR1DMem2Mem";
         }
@@ -257,8 +260,9 @@ SelectorStatus ReduceAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDetai
         HCCL_WARNING("[ReduceAutoSelector] ReduceOp[%d] is not supported yet for aiv mode.", opParam.reduceType),
         SelectorStatus::NOT_MATCH);
 
-    if (Is64BitDataType(opParam.DataDes.dataType)) {
-        HCCL_WARNING("[ReduceAutoSelector] aiv mode not support INT64, UINT64, FP64.");
+    if (opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
+        opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_FP64) {
+        HCCL_WARNING("[ReduceAutoSelector] aiv mode not support UINT64, FP64.");
         return SelectorStatus::NOT_MATCH;
     }
 

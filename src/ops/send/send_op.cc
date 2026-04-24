@@ -196,7 +196,7 @@ namespace ops_hccl {
         if (rankSize == 1) {
             HCCL_WARNING("[SendExec][%s][%s] ranksize == 1, enter SingleRankProc", tag.c_str(),
                 opMode == OpMode::OPBASE ? "OPBASE" : "OFFLOAD");
-            CHK_RET(SingleRankProc(param));
+            CHK_RET(SingleRankProc(comm, param));
             return HcclResult::HCCL_SUCCESS;
         }
 

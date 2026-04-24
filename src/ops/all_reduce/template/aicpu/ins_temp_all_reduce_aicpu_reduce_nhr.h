@@ -65,6 +65,8 @@ private:
     u32 myIdx_ = UINT32_MAX;  // 本rank在通信域内的索引
 
     RankSliceInfo sliceInfoVec_;
+
+    bool isDmaRead_{false};
 };
 
 }  // namespace ops_hccl
