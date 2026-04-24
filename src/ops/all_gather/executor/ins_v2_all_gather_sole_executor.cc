@@ -75,6 +75,8 @@ HcclResult InsV2AllGatherSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     dataType_ = param.DataDes.dataType;
     dataTypeSize_ = DATATYPE_SIZE_TABLE[param.DataDes.dataType];
     dataSize_ = dataCount_ * dataTypeSize_;
+    strideCount_ = param.DataDes.strideCount;
+    HCCL_DEBUG("[InsV2AllGatherSoleExecutor][Orchestrate] strideCount[%lu]", strideCount_);
     HCCL_DEBUG("[InsV2AllGatherSoleExecutor][Orchestrate] myRank[%u], threadsSize[%lu], "
                "dataCount[%llu], dataTypeSize[%lu]",
                myRank_, threads_.size(), dataCount_, dataTypeSize_);
@@ -154,7 +156,7 @@ HcclResult InsV2AllGatherSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
         tempAlgParams.sliceSize = currDataCount * dataTypeSize_;
         tempAlgParams.tailSize = tempAlgParams.sliceSize;
         tempAlgParams.inputSliceStride = 0;
-        tempAlgParams.outputSliceStride = dataSize_;
+        tempAlgParams.outputSliceStride = (strideCount_ == 0) ? dataSize_ : strideCount_ * dataTypeSize_;
 
         HCCL_DEBUG("[InsV2AllGatherSoleExecutor] myRank[%u], loop [%u] tempAlgParams.inputSliceStride [%u],"
                   "tempAlgParams.outputSliceStride [%u] tempAlgParams.sliceSize [%u]",
@@ -242,17 +244,18 @@ HcclResult InsV2AllGatherSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunch(
 }
 #endif
 
-REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherMesh1D, InsV2AllGatherSoleExecutor, TopoMatch1D,
-                 InsTempAllGatherMesh1D);
+// 注释掉：hcomm中已注册，避免重复注册冲突
+// REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherMesh1D, InsV2AllGatherSoleExecutor, TopoMatch1D,
+//                  InsTempAllGatherMesh1D);
 
-REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherNHR, InsV2AllGatherSoleExecutor, TopoMatch1D,
-                 InsTempAllGatherNHR);
+// REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherNHR, InsV2AllGatherSoleExecutor, TopoMatch1D,
+//                  InsTempAllGatherNHR);
 
-REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherMesh1DUBX, InsV2AllGatherSoleExecutor, TopoMatchUBX,
-                 InsTempAllGatherMesh1D);
-                 
-REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherNHRUBX, InsV2AllGatherSoleExecutor, TopoMatchUBX,
-                 InsTempAllGatherNHR);
+// REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherMesh1DUBX, InsV2AllGatherSoleExecutor, TopoMatchUBX,
+//                  InsTempAllGatherMesh1D);
+                  
+// REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherNHRUBX, InsV2AllGatherSoleExecutor, TopoMatchUBX,
+//                  InsTempAllGatherNHR);
 #ifndef AICPU_COMPILE
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherMesh1DMem2Mem, InsV2AllGatherSoleExecutor, TopoMatch1D,
                  CcuTempAllGatherMesh1DMem2Mem);
