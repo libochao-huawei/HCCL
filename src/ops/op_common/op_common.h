@@ -97,8 +97,8 @@ HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeI
 HcclResult ReportOpExchangeInfoCheckFailed(const std::string &paraName, uint32_t localPara,
     uint32_t remotePara);
 
-HcclResult ReportOpExchangeInfoCheckFailed(const std::string &paraName, const std::string localPara,
-    const std::string remotePara);
+HcclResult ReportOpExchangeInfoCheckFailed(const std::string &paraName, const std::string &localPara,
+    const std::string &remotePara);
 
 HcclResult CheckCount(const u64 count);
 
