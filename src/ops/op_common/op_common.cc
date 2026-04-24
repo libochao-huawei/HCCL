@@ -1813,7 +1813,7 @@ HcclResult HcclGetRemoteBuff(HcclComm comm, ChannelHandle channel, const char *m
 
 bool HcclCheckCcuEnableOpen()
 {
-    const char* envValue = std::getenv("HCCL_ENABLE_OPEN_CCU");
+    const char* envValue = std::getenv("HCCL_CCU_CUSTOM_OP_MODE");
 
     if (envValue != nullptr && std::strcmp(envValue, "1") == 0) {
         return true;
@@ -1827,10 +1827,10 @@ bool HcclCheckAivEnableOpen()
     const char* envValue = std::getenv("HCCL_ENABLE_OPEN_AIV");
 
     if (envValue != nullptr && std::strcmp(envValue, "1") == 0) {
-        return true;
+        return false;
     }
 
-    return false;
+    return true;
 }
 
 bool ShouldUseInnerOp(OpExecuteConfig opExecuteConfig)
