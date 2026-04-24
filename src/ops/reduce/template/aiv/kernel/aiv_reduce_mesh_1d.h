@@ -14,12 +14,21 @@ using namespace AscendC;
  
 template<typename T>
 class AivReduceMesh1D : public AivCommBase {
+    constexpr static uint64_t DATA_SLICE_NUM = 64 * 1024;
 public:
     __aicore__ inline AivReduceMesh1D() {}
  
     __aicore__ inline void InitCoreInfo()
     {
         dataSize_ = len_ * sizeof(T);
+        // 小数据量情况下，缩减实际使用核数
+        useBlocks_ = (dataSize_ + DATA_SLICE_NUM - 1) / DATA_SLICE_NUM;
+        if (useBlocks_ > block_num) {
+            useBlocks_ = block_num;
+        }
+        if (block_idx >= useBlocks_) {
+            return;
+        }
         SplitData(len_, sliceLen_, offsetLen_);
         offsetSize_ = offsetLen_ * sizeof(T);
         if (rank_ < root_) {
@@ -37,6 +46,9 @@ public:
     __aicore__ inline void Process(int32_t sliceId)
     {
         curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
+        if (block_idx >= useBlocks_) {
+            return;
+        }
         if (rank_ != root_) {
             // 写远端：将自身core负责的Input数据搬运至root的Scratch上
             if (sliceLen_ > 0) {
@@ -44,7 +56,12 @@ public:
                 PipeBarrier<PIPE_ALL>();
             }
             // 写同步：将aivTag写入root上的数据同步标志位，表示数据搬运完成
-            uint64_t flagOffset = rank_ * block_num + block_idx;
+            uint64_t flagOffset;
+            if (rank_ < root_) {
+                flagOffset = rank_ * useBlocks_ + block_idx;
+            } else {
+                flagOffset = (rank_ - 1) * useBlocks_ + block_idx;
+            }
             Record(root_, flagOffset, curTag_);
         } else {
             // 本地拷贝：将自身core负责的Input数据搬运至本地Output上
@@ -58,7 +75,7 @@ public:
                     continue;
                 }
                 // 读同步：阻塞读取本地数据同步标志位，当前aivTag等于读取值时，继续步骤
-                uint64_t flagOffset = dataRank * block_num + block_idx;
+                uint64_t flagOffset = sliceIdx * useBlocks_ + block_idx;
                 WaitFlag(rank_, flagOffset, curTag_);
                 // 本地规约：将本地ScratchBuffer上的数据Reduce到本地OutputBuffer上
                 if (sliceLen_ > 0) {
@@ -73,8 +90,8 @@ public:
  
     __aicore__ inline void SplitData(uint64_t dataLen, uint64_t& sliceLen, uint64_t& offsetLen)
     {
-        uint64_t sliceLenMin = dataLen / block_num;
-        uint64_t remainLen = dataLen % block_num;
+        uint64_t sliceLenMin = dataLen / useBlocks_;
+        uint64_t remainLen = dataLen % useBlocks_;
         // remainLen必然小于dataLen，均分给前remainLen个aiv处理
         if (block_idx < remainLen) {
             sliceLen = sliceLenMin + 1;
@@ -84,7 +101,8 @@ public:
             offsetLen = remainLen * (sliceLenMin + 1) + (block_idx - remainLen) * sliceLenMin;
         }
     }
- 
+
+    uint64_t useBlocks_;
     uint64_t dataSize_;
     uint64_t sliceLen_;
     uint64_t offsetLen_;

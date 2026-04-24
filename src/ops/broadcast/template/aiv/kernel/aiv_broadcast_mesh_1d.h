@@ -32,15 +32,14 @@ __aicore__ inline void AivBroadcastMesh1D::Process(uint64_t curCount, uint64_t s
 {
     curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
     uint64_t dataTypeSize = sizeof(T);
-    uint64_t curStageCoreNum = CORE_NUMS_ALL / rankSize_ * rankSize_;
-    if (block_idx >= curStageCoreNum) {
+    if (block_idx >= rankSize_) {
         return;
     }
-    uint32_t peerRank = block_idx / (curStageCoreNum / rankSize_);
-    uint64_t offsetPerCore = curCount / curStageCoreNum * dataTypeSize;
+    uint32_t peerRank = block_idx / (rankSize_ / rankSize_);
+    uint64_t offsetPerCore = curCount / rankSize_ * dataTypeSize;
     uint64_t dataOffset = offsetPerCore * block_idx;
-    uint64_t countPerCore = block_idx == curStageCoreNum - 1 ? curCount - (curStageCoreNum - 1) * (curCount / curStageCoreNum)
-                                    : curCount / curStageCoreNum;
+    uint64_t countPerCore = block_idx == rankSize_ - 1 ? curCount - (rankSize_ - 1) * (curCount / rankSize_)
+                                    : curCount / rankSize_;
     uint64_t flag_offset = block_idx;
     __gm__ T *inputGM = (__gm__ T *)(input_ + dataOffset);
     __gm__ T *cclGM = (__gm__ T *)(GM_IN[peerRank] + dataOffset);
