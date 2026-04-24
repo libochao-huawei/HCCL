@@ -43,7 +43,7 @@ private:
         const std::vector<CommLink>& linkList, u32 myRank, u32 remoteRank, uint32_t netLayer,
         std::vector<HcclChannelDesc>& channels, bool& protocolFound, const std::string& funcName);
     HcclResult CreateChannelFromLink(HcclComm comm, u32 myRank, u32 rank, uint32_t netLayer, u32 idx,
-        const CommLink& link, const std::string& funcName, std::vector<HcclChannelDesc>& channels)
+        const CommLink& link, const std::string& funcName, std::vector<HcclChannelDesc>& channels);
 
     const uint32_t DIE_NUM = 2; // 2Die
 
