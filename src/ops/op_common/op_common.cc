@@ -1467,7 +1467,9 @@ HcclResult FillOpExchangeInfo(HcclComm comm, const OpParam &param, OpExchangeInf
         case HcclCMDType::HCCL_CMD_BATCH_SEND_RECV:
             break;
         case HcclCMDType::HCCL_CMD_ALLTOALL:
+            exchangeInfo.dataType = param.all2AllDataDes.sendType;
             exchangeInfo.count = param.all2AllDataDes.sendCount;
+            break;
         case HcclCMDType::HCCL_CMD_ALLTOALLV:
         case HcclCMDType::HCCL_CMD_ALLTOALLVC:
             exchangeInfo.dataType = param.all2AllDataDes.sendType;
