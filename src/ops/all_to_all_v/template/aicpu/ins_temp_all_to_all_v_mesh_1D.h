@@ -46,10 +46,17 @@ public:
 private:
     HcclResult RunALLtoALL(const std::map<u32, std::vector<ChannelInfo>> &channels,
         const std::vector<ThreadHandle> &threads, const TemplateDataParams &tempAlgParams, const u32 myAlgRank);
+<<<<<<< HEAD
     HcclResult PostCopy(const TemplateDataParams &tempAlgParams, const ThreadHandle &thread,
         const u32 rankId, const u64 &recvSize, const u64 &recvCount, const u64 &recvOffset) const;
     HcclResult LocalCopyForMyRank(const TemplateDataParams &tempAlgParams,
         const ThreadHandle &thread, const u32 myAlgRank, const u32 queIdx) const;
+=======
+    HcclResult PreCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads,
+        const u32 myAlgRank) const;
+    HcclResult PostCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads,
+        const u32 myAlgRank) const;
+>>>>>>> origin/master
 
     u64 count_{0};
     u64 processSize_{0};
@@ -59,6 +66,7 @@ private:
     std::vector<u64> rdispls_;
     u64 cclBufferCountPerRank_{0};
     u64 dataTypeSize_{0};
+    bool isDmaRead_{false};
 };
 
 } // namespace Hccl

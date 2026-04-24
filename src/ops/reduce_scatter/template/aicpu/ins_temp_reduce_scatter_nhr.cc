@@ -66,6 +66,7 @@ HcclResult InsTempReduceScatterNHR::KernelRun(const OpParam& param,
     tempAlgParams_       = tempAlgParams;
     channels_            = templateResource.channels;
     dataType_ = param.DataDes.dataType;
+<<<<<<< HEAD
     dataTypeSize_  = DATATYPE_SIZE_TABLE[dataType_];
 
     std::vector<u64> elemCountOut;
@@ -87,6 +88,12 @@ HcclResult InsTempReduceScatterNHR::KernelRun(const OpParam& param,
         elemOffsetTail_ = elemOffsetTail;
         sizeOutTail_ = sizeOutTail;
     }
+=======
+    bool isPcieProtocal = IsPcieProtocol(channels_);  // 判断是否存在pcie链路
+    isDmaRead_ = isPcieProtocal;  // 是否使用Read模式
+    HCCL_DEBUG("[InsTempReduceScatterNHR] Use Dma Read[%d]", isDmaRead_);
+    CHK_RET(LocalDataCopy(templateResource.threads));
+>>>>>>> origin/master
 
     threadNum_ = GetThreadNum();
     if (threadNum_ > 1) {
@@ -232,12 +239,17 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
 
             std::vector<DataSlice> txSrcSlices;
             std::vector<DataSlice> txDstSlices;
-            std::vector<DataSlice> rxSlices;
+            std::vector<DataSlice> rxSrcSlices;
+            std::vector<DataSlice> rxDstSlices;
+            // std::vector<DataSlice> rxSlices;
             txSrcSlices.reserve(st.nSlices);
             txDstSlices.reserve(st.nSlices);
-            rxSlices.reserve(st.nSlices);
+            // rxSlices.reserve(st.nSlices);
+            rxSrcSlices.reserve(st.nSlices);
+            rxDstSlices.reserve(st.nSlices);
             
-            void* remoteCclBuffAddr = linkSend.remoteCclMem.addr;
+            void* sendRemoteCclBuffAddr = linkSend.remoteCclMem.addr;
+            void* recvRemoteCclBuffAddr = linkRecv.remoteCclMem.addr;
             // RS：在 SCRATCH 上进行规约交换
             for (u32 i = 0; i < st.nSlices; ++i) {
                 const u32 txIdx = st.txSliceIdxs[i]; // 算法序
@@ -260,22 +272,40 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
 
                 DataSlice txSrcSlice = DataSlice(tempAlgParams_.buffInfo.hcclBuff.addr, txScOff,
                     txSliceSize, txSliceSize / DATATYPE_SIZE_TABLE[dataType_]); // 发送源
-                DataSlice txDstSlice = DataSlice(remoteCclBuffAddr, txScOff,
+                DataSlice txDstSlice = DataSlice(sendRemoteCclBuffAddr, txScOff,
                     txSliceSize, txSliceSize / DATATYPE_SIZE_TABLE[dataType_]);  // 发送目标
-                DataSlice rxSlice = DataSlice(tempAlgParams_.buffInfo.hcclBuff.addr, rxScOff, rxSliceSize, rxSliceSize / DATATYPE_SIZE_TABLE[dataType_]);
                 txSrcSlices.push_back(txSrcSlice);
                 txDstSlices.push_back(txDstSlice);
-                rxSlices.emplace_back(rxSlice);
+                DataSlice rxSrcSlice = DataSlice(recvRemoteCclBuffAddr, rxScOff,
+                    rxSliceSize, rxSliceSize / DATATYPE_SIZE_TABLE[dataType_]); // 发送源
+                DataSlice rxDstSlice = DataSlice(tempAlgParams_.buffInfo.hcclBuff.addr, rxScOff,
+                    rxSliceSize, rxSliceSize / DATATYPE_SIZE_TABLE[dataType_]);  // 发送目标
+                rxSrcSlices.push_back(rxSrcSlice);
+                rxDstSlices.push_back(rxDstSlice);
             }
 
             SendRecvReduceInfo info{
-                { linkSend, linkRecv }, { { txSrcSlices, txDstSlices }, { rxSlices, rxSlices } }, dataType_, reduceOp_
+                {linkSend, linkRecv}, {{txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices}}, dataType_, reduceOp_
             };
 
+<<<<<<< HEAD
             CHK_PRT_RET(SendRecvWriteReduce(info, threads[channelIdx]),
                 HCCL_ERROR("[RS-NHR][RunNHR] SendRecvReduce failed (step=%u, rpt=%llu)",
                     st.step, static_cast<unsigned long long>(rpt)),
                 HcclResult::HCCL_E_INTERNAL);
+=======
+            if (isDmaRead_) {
+                CHK_PRT_RET(SendRecvReadReduce(info, threads[0]),
+                    HCCL_ERROR("[RS-NHR][RunNHR] SendRecvReduce failed (step=%u, rpt=%llu)",
+                        st.step, static_cast<unsigned long long>(rpt)),
+                    HcclResult::HCCL_E_INTERNAL);
+            } else {
+                CHK_PRT_RET(SendRecvWriteReduce(info, threads[0]),
+                    HCCL_ERROR("[RS-NHR][RunNHR] SendRecvReduce failed (step=%u, rpt=%llu)",
+                        st.step, static_cast<unsigned long long>(rpt)),
+                    HcclResult::HCCL_E_INTERNAL);
+            }
+>>>>>>> origin/master
         }
     }
 

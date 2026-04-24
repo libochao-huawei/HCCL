@@ -45,6 +45,7 @@ protected:
     HcclResult GetStepInfo(u32 step, u32 nSteps, AicpuNHRStepInfo &stepInfo);
     u32 GetRankFromMap(const u32 algRankIdx) const;
     TemplateDataParams tempAlgParams_;
+    bool isDmaRead_{false};
 private:
     HcclResult PreprareDataSplitForMultiChannel(const TemplateResource &templateResource);
     HcclResult LocalDataCopy(const std::vector<ThreadHandle> &threads, const u32 &channelIdx);

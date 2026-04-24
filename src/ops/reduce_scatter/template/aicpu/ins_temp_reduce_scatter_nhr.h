@@ -48,11 +48,15 @@ private:
     HcclResult PostLocalCopy(const std::vector<ThreadHandle> &threads, u32 channelIdx);
     TemplateDataParams tempAlgParams_;
     std::map<u32, std::vector<ChannelInfo>> channels_;
+<<<<<<< HEAD
     u64 dataTypeSize_{0};
     std::vector<u64> sizeOut_;
     std::vector<u64> elemOffset_;
     std::vector<u64> sizeOutTail_;
     std::vector<u64> elemOffsetTail_;
+=======
+    bool isDmaRead_{false};
+>>>>>>> origin/master
 };
 
 } // namespace Hccl

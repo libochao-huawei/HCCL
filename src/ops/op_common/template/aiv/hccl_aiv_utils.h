@@ -80,6 +80,7 @@ struct AivOpArgs {
     u64 input = 0;
     u64 output = 0;
     u32 rank = 0;
+    u32 sendRecvRemoteRank = 0;
     u32 rankSize = 0;
     u64 xRankSize = 0;
     u64 yRankSize = 0;

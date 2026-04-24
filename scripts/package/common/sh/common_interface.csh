@@ -17,7 +17,7 @@ switch ( "$func_name" )
         endif
         set file_path = "$2"
         foreach line ("` cat $file_path `")
-            set custom_path = "`echo '$line' | cut --only-delimited -d= -f2`"
+            set custom_path = "`echo '$line' | cut -d= -f2`"
             if ( "$custom_path" == "" ) then
                 continue
             endif
