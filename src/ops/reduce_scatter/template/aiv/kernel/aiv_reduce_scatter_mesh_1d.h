@@ -17,7 +17,6 @@ template<typename T>
 class AivReduceScatterMesh1D : public AivCommBase {
     constexpr static uint64_t stageNum = 2;  // 生产者 消费者
     constexpr static uint64_t TAG_FLAG_SIZE = 8;
-    constexpr static uint64_t maxRankSize = 8;
 
 public:
 
@@ -90,7 +89,7 @@ private:
     uint64_t inputOffset;
     uint64_t outputOffset;
     uint64_t consumProcessNum;
-    int64_t inputOffVec[maxRankSize];
+    int64_t inputOffVec[MAX_RANK_SIZE];
     uint32_t coreNumPerStage;
 };
 
