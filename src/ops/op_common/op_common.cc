@@ -1546,6 +1546,13 @@ HcclResult FillOpExchangeInfo(HcclComm comm, const OpParam &param, OpExchangeInf
         CHK_PRT_RET(sRet != EOK, HCCL_ERROR("[%s] call strncpy_s failed, param.algTag %s,  return %d.",
             __func__, param.algTag, sRet), HCCL_E_MEMORY);
     }
+    HCCL_INFO("[%s] success. exchangeInfo dump: cclBufferSize[%llu], root[%u], opType[%u], engine[%u], "
+        "opExecuteConfig[%u], reduceType[%u], dataType[%u], count[%llu], aivCoreLimit[%u], "
+        "group[%s], algTag[%s], sendRecvRemoteRank[%u]",
+        __func__, exchangeInfo.cclBufferSize, exchangeInfo.root, exchangeInfo.opType,
+        exchangeInfo.engine, exchangeInfo.opExecuteConfig, exchangeInfo.reduceType,
+        exchangeInfo.dataType, exchangeInfo.count, exchangeInfo.aivCoreLimit,
+        exchangeInfo.group, exchangeInfo.algTag, exchangeInfo.sendRecvRemoteRank);
     return HCCL_SUCCESS;
 }
 
@@ -1616,6 +1623,7 @@ HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeI
             }
         }
     }
+    HCCL_INFO("[%s] success. exchangeInfo.algTag[%s]", __func__, exchangeInfo.algTag);
     return HCCL_SUCCESS;
 }
 
