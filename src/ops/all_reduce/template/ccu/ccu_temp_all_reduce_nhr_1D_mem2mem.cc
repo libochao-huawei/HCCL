@@ -52,7 +52,7 @@ HcclResult CcuTempAllReduceNHRMem2Mem1D::CalcRes(HcclComm comm, const OpParam& p
         return HcclResult::HCCL_E_INTERNAL;
     }
 
-    uint32_t kernelNum = enableDieNum;
+    uint32_t kernelNum = 1;
     resourceRequest.notifyNumOnMainThread = 1;
     resourceRequest.slaveThreadNum = 1;
     resourceRequest.ccuKernelNum.push_back(kernelNum);
@@ -66,6 +66,9 @@ HcclResult CcuTempAllReduceNHRMem2Mem1D::CalcRes(HcclComm comm, const OpParam& p
     std::vector<NHRStepInfo> stepInfoVector;
     channelsPerDie.resize(enableDieNum);
     CHK_RET(ProcessNHRStepInfo(comm, stepInfoVector, rank2ChannelIdx, enableDieNum, enableDieId, channelsPerDie));
+    if (enableDieNum > 1) { // 通过端口数划分channel，适配跨框die0连die1的场景，避免建链失败
+        CHK_RET(ReverseChannelPerDieIfNeed(comm, myRank_, channelsPerDie));
+    }
     std::vector<uint64_t> dimSize;
     dimSize.emplace_back(subCommRanks_[0].size());
     for (uint32_t kernelIdx = 0; kernelIdx < kernelNum; kernelIdx++) {
