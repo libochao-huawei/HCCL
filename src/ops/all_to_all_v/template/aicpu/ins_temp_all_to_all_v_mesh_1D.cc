@@ -220,7 +220,11 @@ HcclResult InsTempAlltoAllVMesh1D::PreCopy(const std::map<u32, std::vector<Chann
             queIdx++;
             continue;
         }
-        const std::vector<ChannelInfo> &curChannels = channels.at(remoteRank);
+        if (channels.find(rankId) == channels.end()) {
+            HCCL_ERROR("[InsTempAlltoAllVMesh1D] remoteRank[%u] does not exist in channels map!", rankId);
+            return HCCL_E_PARA;
+        }
+        const std::vector<ChannelInfo> &curChannels = channels.at(rankId);
         channelsPerRank_ = curChannels.size();
         // send数据按照channel分片
         std::vector<u64> sendCountsSplit;
