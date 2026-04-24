@@ -141,20 +141,18 @@ HcclResult InsTempReduceScatterMesh1DMeshChunk::RunReduceScatter(
     for (uint16_t i = 0; i < (templateRankSize_ - rankNum); i++) {
         sliceRecvBaseOffset += sliceSize[i];
     }
-    for (u32 repeatIdx = 0; repeatIdx < tempAlgParams.repeatNum; repeatIdx++) {       
-        uint64_t sliceSendOffset_;
-        uint64_t sliceRecvOffset_;
-        DoMeshChunk(channels, threads, tempAlgParams, sliceSize, repeatIdx, myAlgRank, sliceSendOffset_, sliceRecvOffset_,
-                    sliceRecvBaseOffset);
-    }
+    uint64_t sliceSendOffset_;
+    uint64_t sliceRecvOffset_;
+    DoMeshChunk(channels, threads, tempAlgParams, sliceSize, myAlgRank, sliceSendOffset_, sliceRecvOffset_,
+                sliceRecvBaseOffset);
     return HcclResult::HCCL_SUCCESS;
 }
 
 HcclResult InsTempReduceScatterMesh1DMeshChunk::DoMeshChunk(
     const std::map<u32, std::vector<ChannelInfo>> &channels,
     const std::vector<ThreadHandle> &threads,
-    const TemplateDataParams &tempAlgParams, const std::vector<uint64_t> &sliceSize, const u32 &repeatIdx,
-    const u32 &myAlgRank, uint64_t &sliceSendOffset_, uint64_t &sliceRecvOffset_, const uint64_t &sliceRecvBaseOffset)
+    const TemplateDataParams &tempAlgParams, const std::vector<uint64_t> &sliceSize, const u32 &myAlgRank, 
+    uint64_t &sliceSendOffset_, uint64_t &sliceRecvOffset_, const uint64_t &sliceRecvBaseOffset)
 {
     for (uint16_t stepIdx = 0; stepIdx < (templateRankSize_ - 1); stepIdx++) {
         sliceSendOffset_ = 0;
@@ -179,25 +177,29 @@ HcclResult InsTempReduceScatterMesh1DMeshChunk::DoMeshChunk(
             } else {
                 queIdx = frontRank - 1;
             }
-            DataSlice rxSrcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr, tempAlgParams.buffInfo.inBuffBaseOff + 
-                repeatIdx * tempAlgParams.inputRepeatStride + myAlgRank * tempAlgParams.inputSliceStride + sliceRecvOffset_,
-                sliceSize[i], sliceSize[i] / dataTypeSize_); // 接收源
-            DataSlice rxDstSlice = DataSlice(tempAlgParams.buffInfo.hcclBuff.addr, tempAlgParams.buffInfo.hcclBuffBaseOff + 
-                sliceRecvOffset_, sliceSize[i], sliceSize[i] / dataTypeSize_); // 接收目标
-            DataSlice txSrcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr, tempAlgParams.buffInfo.inBuffBaseOff + 
-                repeatIdx * tempAlgParams.inputRepeatStride + frontRank * tempAlgParams.inputSliceStride + sliceSendOffset_,
-                sliceSize[i], sliceSize[i] / dataTypeSize_); // 发送源
-            DataSlice txDstSlice = DataSlice(remoteCclBuffAddr, tempAlgParams.buffInfo.hcclBuffBaseOff + 
-                sliceSendOffset_, sliceSize[i], sliceSize[i] / dataTypeSize_);  // 发送目标
-
+            
             std::vector<DataSlice> txSrcSlices;
             std::vector<DataSlice> txDstSlices;
             std::vector<DataSlice> rxSrcSlices;
             std::vector<DataSlice> rxDstSlices;
-            rxSrcSlices.push_back(rxSrcSlice);
-            rxDstSlices.push_back(rxDstSlice);
-            txSrcSlices.push_back(txSrcSlice);
-            txDstSlices.push_back(txDstSlice);
+            
+            for (u32 repeatIdx = 0; repeatIdx < tempAlgParams.repeatNum; repeatIdx++) {
+                DataSlice rxSrcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr, tempAlgParams.buffInfo.inBuffBaseOff + 
+                    repeatIdx * tempAlgParams.inputRepeatStride + myAlgRank * tempAlgParams.inputSliceStride + sliceRecvOffset_,
+                    sliceSize[i], sliceSize[i] / dataTypeSize_); // 接收源
+                DataSlice rxDstSlice = DataSlice(tempAlgParams.buffInfo.hcclBuff.addr, tempAlgParams.buffInfo.hcclBuffBaseOff + 
+                    sliceRecvOffset_, sliceSize[i], sliceSize[i] / dataTypeSize_); // 接收目标
+                DataSlice txSrcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr, tempAlgParams.buffInfo.inBuffBaseOff + 
+                    repeatIdx * tempAlgParams.inputRepeatStride + frontRank * tempAlgParams.inputSliceStride + sliceSendOffset_,
+                    sliceSize[i], sliceSize[i] / dataTypeSize_); // 发送源
+                DataSlice txDstSlice = DataSlice(remoteCclBuffAddr, tempAlgParams.buffInfo.hcclBuffBaseOff + 
+                    sliceSendOffset_, sliceSize[i], sliceSize[i] / dataTypeSize_);  // 发送目标
+
+                rxSrcSlices.push_back(rxSrcSlice);
+                rxDstSlices.push_back(rxDstSlice);
+                txSrcSlices.push_back(txSrcSlice);
+                txDstSlices.push_back(txDstSlice);
+            }
 
             SendRecvReduceInfo sendRecvReduceInfo{
                 {linkSend,linkRecv},
