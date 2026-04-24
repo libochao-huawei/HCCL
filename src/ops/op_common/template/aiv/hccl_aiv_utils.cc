@@ -10,7 +10,6 @@
 
 #include <mutex>
 #include <vector>
-#include <unordered_set>
 #include <iostream>
 #include <fstream>
 #include <limits>
@@ -33,13 +32,11 @@ constexpr u32 MAX_BIN_FILE_SIZE = 100 * 1024 * 1024; // 最大读取100m的bin f
 
 constexpr s32 RESET_TAIL_SYNC_TAG = 2;
 
-// static bool g_init = false;
-static std::unordered_set<u32> g_initializedDevices;
-static mutex g_mut;
-// static aclrtBinHandle g_binHandle;
-static std::unordered_map<u32, aclrtBinHandle> g_binHandleMap;
-static std::unordered_map<s8*, aclrtFuncHandle> g_aivFuncMap;
-static std::unordered_map<s8*, std::string> g_aivNameMap;
+thread_local static bool g_init = false;
+thread_local static mutex g_mut;
+thread_local static aclrtBinHandle g_binHandle;
+thread_local static std::unordered_map<s8*, aclrtFuncHandle> g_aivFuncMap;
+thread_local static std::unordered_map<s8*, std::string> g_aivNameMap;
 
 thread_local std::shared_ptr<InsQueue> g_recordingQueue = nullptr;
 thread_local u64 g_baseInputAddr = 0;
@@ -197,13 +194,11 @@ HcclResult GetKernelFunc(aclrtFuncHandle& funcHandle, const s8* funcKey)
 // Kernel注册入口，全局只需要初始化一次
 HcclResult RegisterKernel()
 {
-    u32 deviceId = 0;
-    aclrtGetDevice(&deviceId);
     lock_guard<mutex> guard(g_mut);
-    if (g_initializedDevices.count(deviceId) > 0) {
+    if (g_init) {
         return HCCL_SUCCESS;
     }
-    aclrtBinHandle binHandle;
+
     for (const auto& item : g_aivKernelInfoMap) {
         const HcclCMDType cmdType = item.first;
         const std::string& aivBinaryName = item.second.first;
@@ -214,21 +209,20 @@ HcclResult RegisterKernel()
         ret = GetAivOpBinaryPath(aivBinaryName, binFilePath);
         CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("[AIV][RegisterKernel] get aiv op binary path failed"), HCCL_E_RUNTIME);
 
-        ret = LoadBinaryFromFile(binFilePath.c_str(), ACL_RT_BINARY_LOAD_OPT_LAZY_LOAD, 1, binHandle);
+        ret = LoadBinaryFromFile(binFilePath.c_str(), ACL_RT_BINARY_LOAD_OPT_LAZY_LOAD, 1, g_binHandle);
         CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("[AIV][RegisterKernel] read aiv kernel bin file failed"),
             HCCL_E_RUNTIME);
 
         for (auto &aivKernelInfo: aivKernelInfoList) {
-            ret = RegisterBinaryKernel(aivKernelInfo.kernelName, binHandle,
+            ret = RegisterBinaryKernel(aivKernelInfo.kernelName, g_binHandle,
                 GetFuncKey(cmdType, aivKernelInfo.dataType, aivKernelInfo.argsType));
             CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("[AIV][RegisterKernel] register binary kernel for kernelName[%s] "
                 "cmdType[%d] dataType[%s] argsType[%d] failed", aivKernelInfo.kernelName, cmdType,
                 GetDataTypeEnumStr(aivKernelInfo.dataType).c_str(), aivKernelInfo.argsType), HCCL_E_RUNTIME);
         }
     }
-    g_binHandleMap[deviceId] = binHandle;
-    g_initializedDevices.insert(deviceId);
-    HCCL_INFO("[AIV][RegisterKernel] device[%u] initialized successfully", deviceId);
+
+    g_init = true;
 
     return HCCL_SUCCESS;
 }
@@ -236,13 +230,12 @@ HcclResult RegisterKernel()
 HcclResult UnRegisterAivKernel()
 {
     lock_guard<mutex> guard(g_mut);
-    for (auto& it : g_binHandleMap) {
-        ACLCHECK(aclBinaryUnLoad(it.second));
+    if (g_init) {
+        ACLCHECK(aclrtBinaryUnLoad(g_binHandle));
+        g_aivFuncMap.clear();
+
+        g_init = false;
     }
-    g_binHandleMap.clear();
-    g_initializedDevices.clear();
-    g_aivFuncMap.clear();
-    g_aivNameMap.clear();
 
     return HCCL_SUCCESS;
 }
@@ -284,18 +277,13 @@ HcclResult ExecuteKernelLaunchInner(const AivOpArgs &opArgs, void* args, u32 arg
         &cfg, args, argsSize, nullptr, 0);
     if (aclRet == ACL_ERROR_RT_INVALID_HANDLE) {
         HCCL_WARNING("[ExecuteKernelLaunchInner] handle invalid, retry to get function");
-        u32 deviceId = 0;
-        aclError getDevRet = aclerGetDevice(&deviceId);
-        if (getDevRet == ACL_SUCCESS && g_aivNameMap.find(funcKey) != g_aivNameMap.end()) {
+        if (g_aivNameMap.find(funcKey) != g_aivNameMap.end()) {
             const std::string& kernelName = g_aivNameMap[funcKey];
-            auto binHandleIt = g_binHandleMap.find(deviceId);
-            if (binHandleIt != g_binHandleMap.end()) {
-                aclRet = aclrtBinaryGetFunction(binHandleIt->second, kernelName.c_str(), &funcHandle);
-                CHK_PRT_RET(aclRet != ACL_SUCCESS, HCCL_ERROR("[ExecuteKernelLaunchInner] retry get function failed, error[%d]", aclRet), HCCL_E_RUNTIME);
-                g_aivFuncMap[funcKey] = funcHandle;
-                aclRet = aclrtLaunchKernelWithHostArgs(funcHandle, opArgs.numBlocks, opArgs.stream,
-                    &cfg, args, argsSize, nullptr, 0);
-            }
+            aclRet = aclrtBinaryGetFunction(g_binHandle, kernelName.c_str(), &funcHandle);
+            CHK_PRT_RET(aclRet != ACL_SUCCESS, HCCL_ERROR("[ExecuteKernelLaunchInner] retry get function failed, error[%d]", aclRet), HCCL_E_RUNTIME);
+            g_aivFuncMap[funcKey] = funcHandle;
+            aclRet = aclrtLaunchKernelWithHostArgs(funcHandle, opArgs.numBlocks, opArgs.stream,
+                &cfg, args, argsSize, nullptr, 0);
         }
     }
     CHK_PRT_RET(aclRet != ACL_SUCCESS, HCCL_ERROR("[ExecuteKernelLaunchInner]errNo[0x%016llx] aclrtLaunchKernelWithHostArgs error[%d].",
