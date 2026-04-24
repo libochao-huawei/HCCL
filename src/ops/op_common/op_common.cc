@@ -1591,8 +1591,8 @@ HcclResult ReportOpExchangeInfoCheckFailed(const std::string &paraName, uint32_t
     return HCCL_E_PARA;
 }
 
-HcclResult ReportOpExchangeInfoCheckFailed(const std::string &paraName, const std::string expectVal,
-    const std::string remotePara)
+HcclResult ReportOpExchangeInfoCheckFailed(const std::string &paraName, const std::string &expectVal,
+    const std::string &remotePara)
 {
     RPT_INPUT_ERR(true, "EI0005", std::vector<std::string>({"ParaName", "expectValue", "RemotePara"}),
         std::vector<std::string>({paraName, expectVal, remotePara}));
