@@ -45,6 +45,11 @@ SelectorStatus AllGatherAutoSelector::SelectMeshAlgo(const TopoInfoWithNetLayerD
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
         selectAlgName = "CcuAllGatherMesh1D";
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+        // PCIE-SW定制机型，Mesh无法链接全卡时，需要跨pcie链路，不支持ccu模式
+        if (topoInfo->level0PcieMix && !IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
+            HCCL_WARNING("[AllGatherAutoSelector] pcie mixed topo is not supported yet for ccu ms mode.");
+            return SelectorStatus::NOT_MATCH;
+        }
         // UBX机型
         bool isMeshNumEqualToClosNum = false;
         bool isClosNumMultipleOfMeshNum = false;
@@ -112,6 +117,11 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleLevel0Algo(
         }
         return SelectorStatus::MATCH;
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+        // PCIE-SW定制机型，Mesh无法链接全卡时，需要跨pcie链路，不支持ccu模式
+        if (topoInfo->level0PcieMix && !IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
+            HCCL_WARNING("[AllGatherAutoSelector] pcie mixed topo is not supported yet for ccu schedule mode.");
+            return SelectorStatus::NOT_MATCH;
+        }
         return SelectCcuScheduleUBXAlgo(topoInfo, selectAlgName, dataSize);
     } else {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
@@ -202,6 +212,16 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             selectAlgName = "InsAllGatherMesh1D";
         } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+            // PCIE-SW定制机型，Mesh无法链接全卡时，需要跨pcie链路，选择适配算法
+            if (topoInfo->level0PcieMix) {
+                if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
+                    selectAlgName = "InsAllGatherMesh1D";
+                } else {
+                    selectAlgName = "InsAllGatherParallelMesh1DNHRPcie";
+                }
+                HCCL_DEBUG("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
+                return SelectorStatus::MATCH;
+            }
             // UBX机型
             bool isMeshNumEqualToClosNum = false;
             bool isClosNumMultipleOfMeshNum = false;

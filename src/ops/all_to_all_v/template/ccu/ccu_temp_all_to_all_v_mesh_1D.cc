@@ -117,8 +117,13 @@ void CcuTempAlltoAllVMesh1D::InitInsAlgTemplate(
 
 HcclResult CcuTempAlltoAllVMesh1D::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
 {
+    if (tempFastLaunchCtx.ccuKernelSubmitInfos.size() == 0) {
+        HCCL_INFO("[CcuTempAlltoAllVMesh1D::FastLaunch] ccu kernel num is 0, just success.");
+        return HCCL_SUCCESS;
+    }
     HCCL_INFO("[CcuTempAlltoAllVMesh1D::FastLaunch] start");
-    uint64_t rankSize_ = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[5];
+    const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
+    uint64_t rankSize_ = args[5];
     HcclDataType dataType_ = param.all2AllVDataDes.sendType;
     uint64_t dataTypeSize_ =  SIZE_TABLE[dataType_];
     CHK_PRT_RET(param.varMemSize != ALL_TO_ALL_V_VECTOR_NUM * rankSize_ * sizeof(u64),
@@ -154,17 +159,12 @@ HcclResult CcuTempAlltoAllVMesh1D::FastLaunch(const OpParam& param, const Templa
     }
 
     std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAlltoAllVMesh1D>(
-        PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[0],
- 	    PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[1],
-        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[2], tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[3],
-        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[4], tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[5],
-        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[6], localSendRecvInfo);
+        PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + args[0], PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + args[1],
+        args[2], args[3], args[4], args[5], args[6], localSendRecvInfo);
 
-    HCCL_INFO("[CcuTempAlltoAllVMesh1D::FastLaunch]: inputPtr[%llu], outputPtr[%llu],"
-    "srcOffset[%llu], dstOffset[%llu], rankSize[%llu], myRank[%lu]",
-    PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr), PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr),
-    tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[3], tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[4],
-    tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[5], tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[6]);
+    HCCL_INFO("[CcuTempAlltoAllVMesh1D::FastLaunch]: inputPtr[%llu], outputPtr[%llu],srcOffset[%llu],"
+        " dstOffset[%llu], rankSize[%llu], myRank[%lu]", PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr),
+        PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr), args[3], args[4], args[5], args[6]);
 
     void* taskArgPtr = static_cast<void*>(taskArg.get());
     CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0], tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr));

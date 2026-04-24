@@ -55,6 +55,11 @@ HcclResult InsTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
     dataType_ = param.all2AllVDataDes.sendType;
     dataTypeSize_ = SIZE_TABLE[dataType_];
     cclBufferCountPerRank_ = tempAlgParams.inputSliceStride / dataTypeSize_;
+
+    bool isPcieProtocal = IsPcieProtocol(templateResource.channels);  // 判断是否存在pcie链路
+    isDmaRead_ = isPcieProtocal;  // 是否使用Read模式
+    HCCL_DEBUG("[InsTempAlltoAllVMesh1D] Use Dma Read[%d]", isDmaRead_);
+
     HCCL_INFO("[InsTempAlltoAllVMesh1D] Run Start");
 
     u32 myAlgRank = 0;
@@ -66,28 +71,54 @@ HcclResult InsTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
         return HCCL_E_INTERNAL;
     }
 
-    if (threadNum_ > 1) {
-        std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
-        GetNotifyIdxMainToSub(notifyIdxMainToSub_);
-        CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub_));
-    }
-    CHK_RET(RunALLtoALL(templateResource.channels, templateResource.threads, tempAlgParams, myAlgRank));
-    if (threadNum_ > 1) {
-        std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
-        GetNotifyIdxSubToMain(notifyIdxSubToMain_);
-        CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain_));
-    }
+    if (isDmaRead_) {
+        if (threadNum_ > 1) {
+            std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+            GetNotifyIdxMainToSub(notifyIdxMainToSub_);
+            CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub_));
+        }
+        CHK_RET(PreCopy(tempAlgParams, templateResource.threads, myAlgRank));
+        if (threadNum_ > 1) {
+            std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+            GetNotifyIdxSubToMain(notifyIdxSubToMain_);
+            CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain_));
+        }
 
-    if (threadNum_ > 1) {
-        std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
-        GetNotifyIdxMainToSub(notifyIdxMainToSub_);
-        CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub_));
-    }
-    CHK_RET(PostCopy(tempAlgParams, templateResource.threads, myAlgRank));
-    if (threadNum_ > 1) {
-        std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
-        GetNotifyIdxSubToMain(notifyIdxSubToMain_);
-        CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain_));
+        if (threadNum_ > 1) {
+            std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+            GetNotifyIdxMainToSub(notifyIdxMainToSub_);
+            CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub_));
+        }
+        CHK_RET(RunALLtoALL(templateResource.channels, templateResource.threads, tempAlgParams, myAlgRank));
+        if (threadNum_ > 1) {
+            std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+            GetNotifyIdxSubToMain(notifyIdxSubToMain_);
+            CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain_));
+        }
+    } else {
+        if (threadNum_ > 1) {
+            std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+            GetNotifyIdxMainToSub(notifyIdxMainToSub_);
+            CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub_));
+        }
+        CHK_RET(RunALLtoALL(templateResource.channels, templateResource.threads, tempAlgParams, myAlgRank));
+        if (threadNum_ > 1) {
+            std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+            GetNotifyIdxSubToMain(notifyIdxSubToMain_);
+            CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain_));
+        }
+
+        if (threadNum_ > 1) {
+            std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+            GetNotifyIdxMainToSub(notifyIdxMainToSub_);
+            CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub_));
+        }
+        CHK_RET(PostCopy(tempAlgParams, templateResource.threads, myAlgRank));
+        if (threadNum_ > 1) {
+            std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+            GetNotifyIdxSubToMain(notifyIdxSubToMain_);
+            CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain_));
+        }
     }
 
     HCCL_INFO("[InsTempAlltoAllVMesh1D] Run End");
@@ -126,19 +157,21 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
         std::vector<DataSlice> rxSrcSlices;
         std::vector<DataSlice> rxDstSlices;
 
-        void* remoteCclBuffAddr = linkSend.remoteCclMem.addr;
+        void* sendRemoteCclBuffAddr = linkSend.remoteCclMem.addr;
+        void* recvRemoteCclBuffAddr = linkRecv.remoteCclMem.addr;
         // repeatNum为1，所以这里不考虑重复场景
-        DataSlice txSrcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr, tempAlgParams.sdispls[nextRank] * dataTypeSize_,
+        DataSlice txSrcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr,
+            tempAlgParams.sdispls[nextRank] * dataTypeSize_,
             tempAlgParams.sendCounts[nextRank] * dataTypeSize_, tempAlgParams.sendCounts[nextRank]);
-        DataSlice txDstSlice = DataSlice(remoteCclBuffAddr,
+        DataSlice txDstSlice = DataSlice(sendRemoteCclBuffAddr,
             myAlgRank * cclBufferCountPerRank_ * dataTypeSize_ + tempAlgParams.buffInfo.hcclBuffBaseOff,
             tempAlgParams.sendCounts[nextRank] * dataTypeSize_, tempAlgParams.sendCounts[nextRank]);
 
-        DataSlice rxSrcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr,
-            tempAlgParams.rdispls[myAlgRank] * dataTypeSize_,
+        DataSlice rxSrcSlice = DataSlice(recvRemoteCclBuffAddr,
+            myAlgRank * cclBufferCountPerRank_ * dataTypeSize_ + tempAlgParams.buffInfo.hcclBuffBaseOff,
             tempAlgParams.recvCounts[nextRank] * dataTypeSize_, tempAlgParams.recvCounts[nextRank]);
-        DataSlice rxDstSlice = DataSlice(tempAlgParams.buffInfo.hcclBuff.addr,
-            nextRank * cclBufferCountPerRank_ * dataTypeSize_ + tempAlgParams.buffInfo.hcclBuffBaseOff,
+        DataSlice rxDstSlice = DataSlice(tempAlgParams.buffInfo.outputPtr,
+            tempAlgParams.rdispls[nextRank] * dataTypeSize_,
             tempAlgParams.recvCounts[nextRank] * dataTypeSize_, tempAlgParams.recvCounts[nextRank]);
 
         txSrcSlices.push_back(txSrcSlice);
@@ -151,21 +184,63 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
         DataInfo recvInfo{linkRecv, {rxSrcSlices, rxDstSlices}};
         SendRecvInfo sendRecvInfo{{linkSend, linkRecv},
                              {{txSrcSlices, txDstSlices},{rxSrcSlices, rxDstSlices}}};
-        if (tempAlgParams.sendCounts[nextRank] > 0 && tempAlgParams.recvCounts[nextRank] > 0) {
-            CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[queIdx]),
-                HCCL_ERROR("[InsTempAlltoAllVMesh1D] RunALLtoALL SendRecvInfo failed"),
-                HcclResult::HCCL_E_INTERNAL);
-        } else { // 其中一个或者两个为0
-            if (tempAlgParams.sendCounts[nextRank] > 0) {
-                CHK_PRT_RET(SendWrite(sendInfo, threads[queIdx]),
-                    HCCL_ERROR("[InsTempAlltoAllVMesh1D] RunALLtoALL sendInfo failed"),
+        
+        if (isDmaRead_) {
+            if (tempAlgParams.sendCounts[nextRank] > 0 && tempAlgParams.recvCounts[nextRank] > 0) {
+                CHK_PRT_RET(SendRecvRead(sendRecvInfo, threads[queIdx]),
+                    HCCL_ERROR("[InsTempAlltoAllVMesh1D] RunALLtoALL SendRecvInfo failed"),
                     HcclResult::HCCL_E_INTERNAL);
+            } else { // 其中一个或者两个为0
+                if (tempAlgParams.sendCounts[nextRank] > 0) {
+                    CHK_PRT_RET(SendRead(sendInfo, threads[queIdx]),
+                        HCCL_ERROR("[InsTempAlltoAllVMesh1D] RunALLtoALL sendInfo failed"),
+                        HcclResult::HCCL_E_INTERNAL);
+                }
+                if (tempAlgParams.recvCounts[nextRank] > 0) {
+                    CHK_PRT_RET(RecvRead(recvInfo, threads[queIdx]),
+                        HCCL_ERROR("[InsTempAlltoAllVMesh1D] RunALLtoALL recvInfo failed"),
+                        HcclResult::HCCL_E_INTERNAL);
+                }
             }
-            if (tempAlgParams.recvCounts[nextRank] > 0) {
-                CHK_PRT_RET(RecvWrite(recvInfo, threads[queIdx]),
-                    HCCL_ERROR("[InsTempAlltoAllVMesh1D] RunALLtoALL recvInfo failed"),
+        } else {
+            if (tempAlgParams.sendCounts[nextRank] > 0 && tempAlgParams.recvCounts[nextRank] > 0) {
+                CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[queIdx]),
+                    HCCL_ERROR("[InsTempAlltoAllVMesh1D] RunALLtoALL SendRecvInfo failed"),
                     HcclResult::HCCL_E_INTERNAL);
+            } else { // 其中一个或者两个为0
+                if (tempAlgParams.sendCounts[nextRank] > 0) {
+                    CHK_PRT_RET(SendWrite(sendInfo, threads[queIdx]),
+                        HCCL_ERROR("[InsTempAlltoAllVMesh1D] RunALLtoALL sendInfo failed"),
+                        HcclResult::HCCL_E_INTERNAL);
+                }
+                if (tempAlgParams.recvCounts[nextRank] > 0) {
+                    CHK_PRT_RET(RecvWrite(recvInfo, threads[queIdx]),
+                        HCCL_ERROR("[InsTempAlltoAllVMesh1D] RunALLtoALL recvInfo failed"),
+                        HcclResult::HCCL_E_INTERNAL);
+                }
             }
+        }
+    }
+    return HcclResult::HCCL_SUCCESS;
+}
+
+HcclResult InsTempAlltoAllVMesh1D::PreCopy(
+    const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads, const u32 myAlgRank) const
+{
+    for (u32 queIdx = 0; queIdx < threadNum_; queIdx++) {
+        if (queIdx == myAlgRank) {
+            continue;
+        }
+        // local copy
+        u32 curAlgRank = queIdx;
+        DataSlice srcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr,
+            tempAlgParams.sdispls[curAlgRank] * dataTypeSize_, 
+            tempAlgParams.sendCounts[curAlgRank] * dataTypeSize_, tempAlgParams.sendCounts[curAlgRank]);
+        DataSlice dstSlice = DataSlice(tempAlgParams.buffInfo.hcclBuff.addr,
+            curAlgRank * cclBufferCountPerRank_ * dataTypeSize_ + tempAlgParams.buffInfo.hcclBuffBaseOff,
+            tempAlgParams.sendCounts[curAlgRank] * dataTypeSize_, tempAlgParams.sendCounts[curAlgRank]);
+        if (tempAlgParams.sendCounts[curAlgRank] > 0) {
+            CHK_RET(static_cast<HcclResult>(LocalCopy(threads[queIdx], srcSlice, dstSlice)));
         }
     }
     return HcclResult::HCCL_SUCCESS;

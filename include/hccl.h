@@ -42,7 +42,7 @@ extern HcclResult HcclAllReduce(void *sendBuf, void *recvBuf, uint64_t count, Hc
  * @param count An integer(u64) identifying the number of the data.
  * @param dataType The data type of the operator, must be one of the following types: int8, int16, int32, int64,
  * uint8, uint16, uint32, uint64, float16, float32, float64, bfp16.
- * @param root An integer(u32) identifying the the root rank in the operator.
+ * @param root An integer(u32) identifying the root rank in the operator.
  * @param comm A pointer identifying the communication resource based on
  * @param stream A pointer identifying the stream information.
  * @return HcclResult
