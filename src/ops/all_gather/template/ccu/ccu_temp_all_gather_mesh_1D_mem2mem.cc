@@ -13,6 +13,7 @@
 #include "ccu_assist_pub.h"
 #include "ccu_kernel_all_gather_mesh1d_mem2mem.h"
 #include "ccu_temp_all_gather_mesh_1D_mem2mem.h"
+#include "alg_data_trans_wrapper.h"
 
 namespace ops_hccl {
 
@@ -252,33 +253,6 @@ HcclResult CcuTempAllGatherMesh1DMem2Mem::GetRes(AlgResourceRequest& resourceReq
     resourceRequest.notifyNumOnMainThread = 1;
     resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, 1);
     return HCCL_SUCCESS;
-}
-
-HcclResult CcuTempAllGatherMesh1DMem2Mem::ProcessMesh1DStepInfo(HcclComm comm,
-                                                                  std::map<u32, u32>& rank2ChannelIdx,
-                                                                  u32 enableDieNum, u32 enableDieId,
-                                                                  std::vector<std::vector<HcclChannelDesc>>& channelsPerDie)
-{
-    constexpr u32 DIE_NUM_1 = 1;
-    constexpr u32 DIE_NUM_2 = 2;
-    constexpr u32 DIE_0 = 0;
-    constexpr u32 DIE_1 = 1;
-
-    for (const auto& pair : rankIdToChannelDesc_) {
-        u32 remoteRankId = pair.first;
-        const std::vector<HcclChannelDesc>& channels = pair.second;
-
-        if (enableDieNum == DIE_NUM_1) {
-            CHK_RET(SelectChannelToVec(comm, myRank_, remoteRankId, rankIdToChannelDesc_, enableDieId,
-                rank2ChannelIdx, channelsPerDie[DIE_0]));
-        } else if (enableDieNum == DIE_NUM_2) {
-            CHK_RET(SelectChannelToVec(comm, myRank_, remoteRankId, rankIdToChannelDesc_, DIE_0,
-                rank2ChannelIdx, channelsPerDie[DIE_0]));
-            CHK_RET(SelectChannelToVec(comm, myRank_, remoteRankId, rankIdToChannelDesc_, DIE_1,
-                rank2ChannelIdx, channelsPerDie[DIE_1]));
-        }
-    }
-    return HcclResult::HCCL_SUCCESS;
 }
 
 HcclResult CcuTempAllGatherMesh1DMem2Mem::SplitDataFor2Dies(const OpParam& param,

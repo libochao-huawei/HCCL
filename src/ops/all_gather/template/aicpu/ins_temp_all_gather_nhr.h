@@ -38,8 +38,8 @@ public:
 
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
     u64 GetThreadNum() const override;
-    void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainnToSub) override {};
-    void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override{};
+    void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub) override;
+    void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override;
 protected:
     HcclResult GetStepInfo(u32 step, u32 nSteps, AicpuNHRStepInfo &stepInfo);
 

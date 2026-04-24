@@ -13,6 +13,7 @@
 #include "alg_data_trans_wrapper.h"
 #include "hccl_res.h"
 #include "ccu_alg_template_base.h"
+#include "op_common.h"
 
 // AICPU template 头文件
 #include "ins_temp_all_gather_mesh_1D.h"

@@ -29,7 +29,7 @@ HcclResult InsTempAllGatherNHR::CalcRes(HcclComm comm, const OpParam &param, con
     CHK_RET(CalcChannelRequestNhr(comm, param, topoInfo, subCommRanks_, level1Channels));
     resourceRequest.channels.push_back(level1Channels);
 
-    channelsPerRank_ = (dieNum == 1) ? 1 : CalcChannelsPerRank(level1Channels);
+    channelsPerRank_ = (dieNum_ == 1) ? 1 : CalcChannelsPerRank(level1Channels);
     HCCL_WARNING("Resource calculation is temporarily not performed in the template.");
     return HCCL_SUCCESS;
 }
@@ -98,7 +98,7 @@ HcclResult InsTempAllGatherNHR::RunAllGatherNHR(const std::vector<ThreadHandle> 
 
             std::vector<ChannelInfo> channelRecvs = channels.at(GetRankFromMap(stepInfo.fromRank));
             std::vector<ChannelInfo> channelSends = channels.at(GetRankFromMap(stepInfo.toRank));
-            if (recvChannels.size()!=sendChannels.size()) {
+            if (channelRecvs.size()!=channelSends.size()) {
                 HCCL_ERROR("[InsTempAllGatherNHR][RunAllGatherNHR] channelRecvs.size()!=channelSends.size()");
                 return HcclResult::HCCL_E_INTERNAL;
             }

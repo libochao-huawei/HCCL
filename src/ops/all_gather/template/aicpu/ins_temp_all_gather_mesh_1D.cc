@@ -25,18 +25,14 @@ HcclResult InsTempAllGatherMesh1D::CalcRes(HcclComm comm, const OpParam &param, 
     GetRes(resourceRequest);
     std::vector<HcclChannelDesc> level0Channels;
     CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
+    channelsPerRank_ = (dieNum_ == 1) ? 1 : CalcChannelsPerRank(level0Channels);
+
     resourceRequest.channels.push_back(level0Channels);
     return HCCL_SUCCESS;
 }
 HcclResult InsTempAllGatherMesh1D::GetRes(AlgResourceRequest &resourceRequest) const
 {
     u32 level0RankSize = templateRankSize_;
-
-    // 获取同一个对端连接有几个channel
-    std::vector<HcclChannelDesc> level0Channels;
-    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
-    channelsPerRank_ = (dieNum == 1) ? 1 : CalcChannelsPerRank(level0Channels);
-
     u32 threadNum = (level0RankSize > 1 ? level0RankSize - 1 : 1) * channelsPerRank_;
     resourceRequest.slaveThreadNum = threadNum - 1;
     resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, 1);

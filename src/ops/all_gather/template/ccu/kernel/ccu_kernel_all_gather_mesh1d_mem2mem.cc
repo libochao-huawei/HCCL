@@ -157,7 +157,7 @@ void CcuKernelAllGatherMesh1DMem2Mem::DoAllGather(const hcomm::CcuRep::LocalAddr
                 RecordEvent(event_);
             }
         } else {
-            CCU_IF(normalSliceSize_ != 0)
+            CCU_IF(sliceSize != 0)
             {
                 event_.SetMask(1 << rankIdx);
                 WriteNb(channels_[channelId], dst[rankIdx], src, sliceSize, event_);
