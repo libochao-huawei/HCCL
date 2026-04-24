@@ -215,50 +215,50 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
     // 预计算步骤列表（算法序）
     std::vector<AicpuNHRStepInfo> steps;
     CHK_RET(GetStepInfoList(steps));
-    for (u64 rpt = 0; rpt < rptNum; ++rpt) {
-        const u64 scratchBase = tempAlgParams_.buffInfo.hcclBuffBaseOff
-                              + rpt * tempAlgParams_.outputRepeatStride;
-        for (u32 s = 0; s < steps.size(); ++s) {
-            const auto &st = steps[s];
 
-            const u32 recvFromRank = subCommRanks_[0][st.fromRank];
-            const u32 sendToRank   = subCommRanks_[0][st.toRank];
-            CHK_PRT_RET(recvFromRank == static_cast<u32>(-1) || sendToRank == static_cast<u32>(-1),
-                HCCL_ERROR("[RS-NHR][RunNHR] rank map failed: from[%u] to[%u]", st.fromRank, st.toRank),
-                HcclResult::HCCL_E_INTERNAL);
+    for (u32 s = 0; s < steps.size(); ++s) {
+        const auto &st = steps[s];
 
-            CHK_PRT_RET(channels_.count(recvFromRank) == 0 || channels_.count(sendToRank) == 0 ||
-                        channels_[recvFromRank].size() == 0 || channels_[sendToRank].size() == 0,
-                        HCCL_ERROR("[RS-NHR][RunNHR] link missing: recvFrom=%d sendTo=%d", recvFromRank, sendToRank),
-                HcclResult::HCCL_E_INTERNAL);
-            ChannelInfo linkRecv = channels_[recvFromRank].at(channelIdx);
-            ChannelInfo linkSend = channels_[sendToRank].at(channelIdx);
+        const u32 recvFromRank = subCommRanks_[0][st.fromRank];
+        const u32 sendToRank   = subCommRanks_[0][st.toRank];
+        CHK_PRT_RET(recvFromRank == static_cast<u32>(-1) || sendToRank == static_cast<u32>(-1),
+            HCCL_ERROR("[RS-NHR][RunNHR] rank map failed: from[%u] to[%u]", st.fromRank, st.toRank),
+            HcclResult::HCCL_E_INTERNAL);
 
-            std::vector<DataSlice> txSrcSlices;
-            std::vector<DataSlice> txDstSlices;
-            std::vector<DataSlice> rxSrcSlices;
-            std::vector<DataSlice> rxDstSlices;
-            // std::vector<DataSlice> rxSlices;
-            txSrcSlices.reserve(st.nSlices);
-            txDstSlices.reserve(st.nSlices);
-            // rxSlices.reserve(st.nSlices);
-            rxSrcSlices.reserve(st.nSlices);
-            rxDstSlices.reserve(st.nSlices);
-            
-            void* sendRemoteCclBuffAddr = linkSend.remoteCclMem.addr;
-            void* recvRemoteCclBuffAddr = linkRecv.remoteCclMem.addr;
-            // RS：在 SCRATCH 上进行规约交换
-            for (u32 i = 0; i < st.nSlices; ++i) {
-                const u32 txIdx = st.txSliceIdxs[i]; // 算法序
-                const u32 rxIdx = st.rxSliceIdxs[i];
+        CHK_PRT_RET(channels_.count(recvFromRank) == 0 || channels_.count(sendToRank) == 0 ||
+                    channels_[recvFromRank].size() == 0 || channels_[sendToRank].size() == 0,
+                    HCCL_ERROR("[RS-NHR][RunNHR] link missing: recvFrom=%d sendTo=%d", recvFromRank, sendToRank),
+            HcclResult::HCCL_E_INTERNAL);
+        ChannelInfo linkRecv = channels_[recvFromRank].at(channelIdx);
+        ChannelInfo linkSend = channels_[sendToRank].at(channelIdx);
 
-                sizeOut = sizeOut_;
-                elemOffset = elemOffset_;
-                if (txIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize > 0) {
-                    sizeOut = sizeOutTail_;
-                    elemOffset = elemOffsetTail_;
-                }
+        std::vector<DataSlice> txSrcSlices;
+        std::vector<DataSlice> txDstSlices;
+        std::vector<DataSlice> rxSrcSlices;
+        std::vector<DataSlice> rxDstSlices;
+        // std::vector<DataSlice> rxSlices;
+        txSrcSlices.reserve(st.nSlices);
+        txDstSlices.reserve(st.nSlices);
+        // rxSlices.reserve(st.nSlices);
+        rxSrcSlices.reserve(st.nSlices);
+        rxDstSlices.reserve(st.nSlices);
+        
+        void* sendRemoteCclBuffAddr = linkSend.remoteCclMem.addr;
+        void* recvRemoteCclBuffAddr = linkRecv.remoteCclMem.addr;
+        // RS：在 SCRATCH 上进行规约交换
+        for (u32 i = 0; i < st.nSlices; ++i) {
+            const u32 txIdx = st.txSliceIdxs[i]; // 算法序
+            const u32 rxIdx = st.rxSliceIdxs[i];
 
+            sizeOut = sizeOut_;
+            elemOffset = elemOffset_;
+            if (txIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize > 0) {
+                sizeOut = sizeOutTail_;
+                elemOffset = elemOffsetTail_;
+            }
+            for (u64 rpt = 0; rpt < rptNum; ++rpt) {
+                const u64 scratchBase = tempAlgParams_.buffInfo.hcclBuffBaseOff
+                                    + rpt * tempAlgParams_.outputRepeatStride;
                 const u64 txScOff = scratchBase + tempAlgParams_.sliceSize * txIdx + elemOffset[channelIdx]; 
                 const u64 rxScOff = scratchBase + tempAlgParams_.sliceSize * rxIdx + elemOffset[channelIdx]; 
 
@@ -280,25 +280,24 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
                 rxSrcSlices.push_back(rxSrcSlice);
                 rxDstSlices.push_back(rxDstSlice);
             }
+        }
 
-            SendRecvReduceInfo info{
-                {linkSend, linkRecv}, {{txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices}}, dataType_, reduceOp_
-            };
+        SendRecvReduceInfo info{
+            {linkSend, linkRecv}, {{txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices}}, dataType_, reduceOp_
+        };
 
-            if (isDmaRead_) {
-                CHK_PRT_RET(SendRecvReadReduce(info, threads[channelIdx]),
-                    HCCL_ERROR("[RS-NHR][RunNHR] SendRecvReduce failed (step=%u, rpt=%llu)",
-                        st.step, static_cast<unsigned long long>(rpt)),
-                    HcclResult::HCCL_E_INTERNAL);
-            } else {
-                CHK_PRT_RET(SendRecvWriteReduce(info, threads[channelIdx]),
-                    HCCL_ERROR("[RS-NHR][RunNHR] SendRecvReduce failed (step=%u, rpt=%llu)",
-                        st.step, static_cast<unsigned long long>(rpt)),
-                    HcclResult::HCCL_E_INTERNAL);
-            }
+        if (isDmaRead_) {
+            CHK_PRT_RET(SendRecvReadReduce(info, threads[channelIdx]),
+                HCCL_ERROR("[RS-NHR][RunNHR] SendRecvReduce failed (step=%u, rpt=%llu)",
+                    st.step, static_cast<unsigned long long>(rpt)),
+                HcclResult::HCCL_E_INTERNAL);
+        } else {
+            CHK_PRT_RET(SendRecvWriteReduce(info, threads[channelIdx]),
+                HCCL_ERROR("[RS-NHR][RunNHR] SendRecvReduce failed (step=%u, rpt=%llu)",
+                    st.step, static_cast<unsigned long long>(rpt)),
+                HcclResult::HCCL_E_INTERNAL);
         }
     }
-
     return HcclResult::HCCL_SUCCESS;
 }
 

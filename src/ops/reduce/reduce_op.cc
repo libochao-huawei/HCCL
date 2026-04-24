@@ -23,8 +23,8 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 HcclResult HcclReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
     uint32_t root, HcclComm comm, aclrtStream stream)
 {
-    if (!HcclCheckCcuEnableOpen() && !HcclCheckAicpuEnableOpen() && !HcclCheckAivEnableOpen()) {
-        return HcclReduceInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
+    if (!HcclCheckCcuEnableOpen() && !HcclCheckAicpuEnableOpen() && !HcclCheckAivEnableOpen()) { 
+        return HcclReduceInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream); 
     }
     HCCL_INFO("Start to run execute HcclReduce");
     if (GetHcommVersion() < 90000000) { // compat handle
