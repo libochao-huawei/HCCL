@@ -145,7 +145,7 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
                 myAlgRank * tempAlgParams.inputSliceStride + tempAlgParams.buffInfo.hcclBuffBaseOff +
                 recvOffsetSplit[channelId], recvSizeSplit[channelId], recvCountsSplit[channelId]);
             DataSlice rxDstSlice = DataSlice(tempAlgParams.buffInfo.outputPtr,
-                tempAlgParams.rdispls[rankId] * dataTypeSize_,
+                tempAlgParams.rdispls[rankId] * dataTypeSize_ + recvOffsetSplit[channelId],
                 recvSizeSplit[channelId], recvCountsSplit[channelId]);
 
             rxSrcSlices.push_back(rxSrcSlice);
