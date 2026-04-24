@@ -63,12 +63,6 @@ private:
         const std::map<u32, std::vector<ChannelInfo>> &channels,
         const std::vector<ThreadHandle> &threads, u32 &queIdx) const;
 
-    u64 count_{0};
-    u64 processSize_{0};
-    std::vector<u64> sendCounts_;
-    std::vector<u64> recvCounts_;
-    std::vector<u64> sdispls_;
-    std::vector<u64> rdispls_;
     u64 dataTypeSize_{0};
     bool isDmaRead_{false};
     u32 concurrentSendRecvNum_{1};

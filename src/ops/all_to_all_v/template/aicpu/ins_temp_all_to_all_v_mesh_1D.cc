@@ -106,8 +106,6 @@ HcclResult InsTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
 {
     HCCL_INFO("[InsTempAlltoAllVMesh1D][KernelRun] Run Start");
     threadNum_ = templateResource.threads.size();
-    processSize_ = tempAlgParams.sliceSize;
-    count_ = tempAlgParams.count;
     dataType_ = param.all2AllVDataDes.sendType;
     dataTypeSize_ = SIZE_TABLE[dataType_];
 
