@@ -40,6 +40,31 @@ CcuTempAllToAllMesh1D2Die::~CcuTempAllToAllMesh1D2Die()
 {
 }
 
+HcclResult CcuTempAllToAllMesh1D2Die::CreateChannelFromLink(HcclComm comm, u32 myRank, u32 rank, uint32_t netLayer, u32 idx,
+    const CommLink& link, const std::string& funcName, std::vector<HcclChannelDesc>& channels)
+{
+    (void) comm;
+    HcclChannelDesc channelDesc;
+    HcclChannelDescInit(&channelDesc, 1);
+    channelDesc.remoteRank = rank;
+    channelDesc.localEndpoint.protocol = link.srcEndpointDesc.protocol;
+    channelDesc.localEndpoint.commAddr = link.srcEndpointDesc.commAddr;
+    channelDesc.localEndpoint.loc = link.srcEndpointDesc.loc;
+    channelDesc.remoteEndpoint.protocol = link.dstEndpointDesc.protocol;
+    channelDesc.remoteEndpoint.commAddr = link.dstEndpointDesc.commAddr;
+    channelDesc.remoteEndpoint.loc = link.dstEndpointDesc.loc;
+    HCCL_DEBUG("%s local device phyId: %u, remote device phyId: %u.",
+                funcName.c_str(), channelDesc.localEndpoint.loc.device.devPhyId,
+                channelDesc.remoteEndpoint.loc.device.devPhyId);
+    HCCL_INFO("%s Add channel request between %zu and %zu, netLayerIdx %u, "
+              "linkListIdx %u, protocol %zu",
+              funcName.c_str(), myRank, channelDesc.remoteRank, netLayer, idx, channelDesc.remoteEndpoint.protocol);
+    channelDesc.channelProtocol = link.linkAttr.linkProtocol;
+    channelDesc.notifyNum = NORMAL_NOTIFY_NUM;
+    channels.push_back(channelDesc);
+    return HCCL_SUCCESS;
+}
+
 HcclResult CcuTempAllToAllMesh1D2Die::ProcessLinkForProtocol(HcclComm comm, const std::vector<CommProtocol>& expectedProtocols,
     const std::vector<CommLink>& linkList, u32 myRank, u32 remoteRank, uint32_t netLayer,
     std::vector<HcclChannelDesc>& channels, bool& protocolFound, const std::string& funcName)
