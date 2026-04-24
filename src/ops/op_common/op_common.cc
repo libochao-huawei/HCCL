@@ -1397,15 +1397,17 @@ HcclResult FillOpExchangeInfo(HcclComm comm, const OpParam &param, OpExchangeInf
         }
     }
     CHK_RET(HcclGetCommName(comm, exchangeInfo.group));
+    exchangeInfo.group[MAX_LENGTH - 1] = '\0';
     if (param.opType == HcclCMDType::HCCL_CMD_SEND || param.opType == HcclCMDType::HCCL_CMD_RECEIVE) {
         // Send和Recv的algName不相同导致algTag不相同，因此仅校验tag内容
         s32 sRet = strncpy_s(exchangeInfo.algTag, MAX_LENGTH, param.tag, MAX_LENGTH);
-        CHK_PRT_RET(sRet != EOK, HCCL_ERROR("[%s] call strncpy_s failed, param.tag %s,  return %d.",
+        CHK_PRT_RET(sRet != EOK, HCCL_ERROR("[%s] call strncpy_s failed, param.tag[%s],  return[%d].",
             __func__, param.algTag, sRet), HCCL_E_MEMORY);
         exchangeInfo.sendRecvRemoteRank = param.sendRecvRemoteRank;
     } else {
-        s32 sRet = strncpy_s(exchangeInfo.algTag, ALG_TAG_LENGTH, param.algTag, ALG_TAG_LENGTH);
-        CHK_PRT_RET(sRet != EOK, HCCL_ERROR("[%s] call strncpy_s failed, param.algTag %s,  return %d.",
+        // 拷贝长度设置为ALG_TAG_LENGTH-1确保以终止符结尾
+        s32 sRet = strncpy_s(exchangeInfo.algTag, ALG_TAG_LENGTH - 1, param.algTag, ALG_TAG_LENGTH - 1);
+        CHK_PRT_RET(sRet != EOK, HCCL_ERROR("[%s] call strncpy_s failed, param.algTag[%s],  return[%d].",
             __func__, param.algTag, sRet), HCCL_E_MEMORY);
     }
     HCCL_INFO("[%s] success. exchangeInfo dump: cclBufferSize[%llu], root[%u], opType[%u], engine[%u], "
