@@ -12,6 +12,7 @@
 #define HCCL_CCU_TEMP_ALL_GATHER_OMNIPIPE_LOCAL_COPY_H
 
 #include "ccu_alg_template_base.h"
+#include "ccu_temp_all_gather_omnipipe_common.h"
 #include "utils.h"
 
 namespace ops_hccl {
@@ -28,14 +29,7 @@ public:
         return "Template of All Gather CCU OmniPipe LocalCopy.";
     }
 
-    HcclResult CalcRes(HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
-                       AlgResourceRequest &resourceRequest) override;
-    HcclResult KernelRun(const OpParam &param, const TemplateDataParams &templateDataParams,
-                         TemplateResource &templateResource) override;
-    HcclResult FastLaunch(const OpParam &param, const TemplateFastLaunchCtx &tempFastLaunchCtx) override;
-    HcclResult GetRes(AlgResourceRequest &resourceRequest) const override;
-    u64 GetThreadNum() const override;
-    u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
+    HCCL_CCU_OMNIPIPE_TEMPLATE_METHODS();
 };
 
 } // namespace ops_hccl

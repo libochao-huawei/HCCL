@@ -128,13 +128,26 @@ HcclResult CcuKernelAllGatherOmniPipeNHR1DMultiJettyMem2Mem::DoOmniPipeNHRSendRe
     }
     ChannelHandle sendChannel = channels_[toRankIdx];
     ChannelHandle recvChannel = channels_[fromRankIdx];
+    CHK_RET(StepPreSync(sendChannel, recvChannel));
+    CHK_RET(WriteJettyPayload(sendChannel, toRankIdx));
+    CHK_RET(StepPostSync(sendChannel, recvChannel));
+    return HcclResult::HCCL_SUCCESS;
+}
 
+HcclResult CcuKernelAllGatherOmniPipeNHR1DMultiJettyMem2Mem::StepPreSync(
+    ChannelHandle sendChannel, ChannelHandle recvChannel)
+{
     CCU_IF(doStepPreSync_ != 0)
     {
         CHK_RET(NotifyRecord(recvChannel, CKE_IDX_0, 1 << STEP_PRE_SYNC_ID));
         CHK_RET(NotifyWait(sendChannel, CKE_IDX_0, 1 << STEP_PRE_SYNC_ID));
     }
+    return HcclResult::HCCL_SUCCESS;
+}
 
+HcclResult CcuKernelAllGatherOmniPipeNHR1DMultiJettyMem2Mem::WriteJettyPayload(
+    ChannelHandle sendChannel, uint32_t toRankIdx)
+{
     srcMem_.addr = output_[myRankIdx_];
     srcMem_.addr += srcOffset_;
     srcMem_.token = token_[myRankIdx_];
@@ -172,7 +185,12 @@ HcclResult CcuKernelAllGatherOmniPipeNHR1DMultiJettyMem2Mem::DoOmniPipeNHRSendRe
     }
     event_.SetMask((1 << jettyNum_) - 1);
     CHK_RET(WaitEvent(event_));
+    return HcclResult::HCCL_SUCCESS;
+}
 
+HcclResult CcuKernelAllGatherOmniPipeNHR1DMultiJettyMem2Mem::StepPostSync(
+    ChannelHandle sendChannel, ChannelHandle recvChannel)
+{
     CCU_IF(doStepPostSync_ != 0)
     {
         CHK_RET(NotifyRecord(sendChannel, CKE_IDX_0, 1 << STEP_POST_SYNC_ID));

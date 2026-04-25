@@ -12,6 +12,7 @@
 #define HCCL_CCU_TEMP_ALL_GATHER_OMNIPIPE_NHR_1D_MULTI_JETTY_MEM2MEM_H
 
 #include "ccu_alg_template_base.h"
+#include "ccu_temp_all_gather_omnipipe_common.h"
 #include "ccu_kernel_all_gather_omnipipe_nhr1d_multi_jetty_mem2mem.h"
 #include "utils.h"
 
@@ -34,20 +35,16 @@ public:
             templateRankSize_);
     }
 
-    HcclResult CalcRes(HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
-                       AlgResourceRequest &resourceRequest) override;
-    HcclResult KernelRun(const OpParam &param, const TemplateDataParams &templateDataParams,
-                         TemplateResource &templateResource) override;
-    HcclResult FastLaunch(const OpParam &param, const TemplateFastLaunchCtx &tempFastLaunchCtx) override;
-    HcclResult GetRes(AlgResourceRequest &resourceRequest) const override;
-    u64 GetThreadNum() const override;
-    u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
+    HCCL_CCU_OMNIPIPE_TEMPLATE_METHODS();
 
 private:
     HcclResult CalcNHRInfo(std::vector<CcuOmniPipeNHRStepInfo> &stepInfoVector) const;
     u32 GetNHRStepNum(u32 rankSize) const;
     HcclResult GetStepInfo(u32 step, u32 nSteps, CcuOmniPipeNHRStepInfo &stepInfo) const;
     HcclResult RemoteRankId2RankId(uint32_t remoteRankId, uint32_t &rankId) const;
+    HcclResult LaunchStepSlice(const OpParam &param, const TemplateDataParams &templateDataParams,
+                               TemplateResource &templateResource, const CcuOmniPipeNHRStepInfo &stepInfo,
+                               u32 stepIdx);
 
     uint32_t jettyNum_{4};
     CommTopo priorityTopo_{CommTopo::COMM_TOPO_CLOS};

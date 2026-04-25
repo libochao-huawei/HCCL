@@ -339,13 +339,11 @@ HcclResult InsV2AllGatherCcuOmniPipeExecutor<AlgTopoMatch, CcuAlgTemplate0, CcuA
 
 template <typename AlgTopoMatch, typename CcuAlgTemplate0, typename CcuAlgTemplate1, typename CcuAlgTemplate2>
 HcclResult InsV2AllGatherCcuOmniPipeExecutor<AlgTopoMatch, CcuAlgTemplate0, CcuAlgTemplate1,
-                                             CcuAlgTemplate2>::OrchestrateLoop(
-    const OpParam &param, const AlgResourceCtxSerializable &resCtx,
-    std::map<u32, std::shared_ptr<CommonAlgTemplateBase>> &tempMap, std::map<u32, TemplateResource> &tempResMap)
+                                             CcuAlgTemplate2>::BuildEndpointAttrBw(
+    const OpParam &param, std::vector<EndpointAttrBwCoeff> &endpointAttrBwNew) const
 {
     std::vector<std::vector<EndpointAttrBwCoeff>> endpointAttrBw;
     CHK_RET(CalAllLevelEndpointAttrBwCoeff(param.hcclComm, myRank_, OMNIPIPE_LEVEL_NUM, endpointAttrBw));
-    std::vector<EndpointAttrBwCoeff> endpointAttrBwNew;
     for (u32 level = 0; level < endpointAttrBw.size(); ++level) {
         for (u32 idx = 0; idx < endpointAttrBw[level].size(); ++idx) {
             EndpointAttrBwCoeff bw = endpointAttrBw[level][idx];
@@ -358,102 +356,168 @@ HcclResult InsV2AllGatherCcuOmniPipeExecutor<AlgTopoMatch, CcuAlgTemplate0, CcuA
             endpointAttrBwNew.push_back(bw);
         }
     }
-    u64 scratchBoundDataCount = maxTmpMemSize_ / rankSize_ / HCCL_MIN_SLICE_ALIGN * HCCL_MIN_SLICE_ALIGN / dataTypeSize_;
-    u64 maxCountPerLoop = std::min(scratchBoundDataCount, UB_MAX_DATA_SIZE / dataTypeSize_);
+    return HCCL_SUCCESS;
+}
+
+template <typename AlgTopoMatch, typename CcuAlgTemplate0, typename CcuAlgTemplate1, typename CcuAlgTemplate2>
+HcclResult InsV2AllGatherCcuOmniPipeExecutor<AlgTopoMatch, CcuAlgTemplate0, CcuAlgTemplate1,
+                                             CcuAlgTemplate2>::CalcMaxCountPerLoop(u64 &maxCountPerLoop) const
+{
+    u64 scratchBoundDataCount =
+        maxTmpMemSize_ / rankSize_ / HCCL_MIN_SLICE_ALIGN * HCCL_MIN_SLICE_ALIGN / dataTypeSize_;
+    maxCountPerLoop = std::min(scratchBoundDataCount, UB_MAX_DATA_SIZE / dataTypeSize_);
     maxCountPerLoop = std::min(maxCountPerLoop, dataCount_);
     CHK_PRT_RET(maxCountPerLoop == 0, HCCL_ERROR("[InsV2AllGatherCcuOmniPipeExecutor] maxCountPerLoop is 0."),
                 HCCL_E_PARA);
-    u64 loopTimes = dataCount_ / maxCountPerLoop + static_cast<u64>(dataCount_ % maxCountPerLoop != 0);
+    return HCCL_SUCCESS;
+}
 
-    auto calcSliceInfo = [&](u64 currDataCount) {
-        u64 perLoopSize = currDataCount * dataTypeSize_;
-        OmniPipeSliceParam sliceParam;
-        sliceParam.levelRankSize = {rankSizeLevel_[0], rankSizeLevel_[1], rankSizeLevel_[2]};
-        sliceParam.endpointAttrBw = endpointAttrBwNew;
-        sliceParam.dataSizePerLoop.assign(rankSize_, perLoopSize);
-        sliceParam.dataWholeSize.assign(rankSize_, perLoopSize);
-        sliceParam.dataTypeSize = dataTypeSize_;
-        sliceParam.levelRankId = {rankIdxLevel_[0], rankIdxLevel_[1], rankIdxLevel_[2]};
-        sliceParam.opMode = opMode_;
-        sliceParam.engine = CommEngine::COMM_ENGINE_CCU;
-        return CalcAGOmniPipeSliceInfo(sliceParam);
-    };
+template <typename AlgTopoMatch, typename CcuAlgTemplate0, typename CcuAlgTemplate1, typename CcuAlgTemplate2>
+OmniPipeSliceInfo InsV2AllGatherCcuOmniPipeExecutor<AlgTopoMatch, CcuAlgTemplate0, CcuAlgTemplate1,
+                                                    CcuAlgTemplate2>::CalcLoopSliceInfo(
+    u64 currDataCount, const std::vector<EndpointAttrBwCoeff> &endpointAttrBw) const
+{
+    u64 perLoopSize = currDataCount * dataTypeSize_;
+    OmniPipeSliceParam sliceParam;
+    sliceParam.levelRankSize = {rankSizeLevel_[0], rankSizeLevel_[1], rankSizeLevel_[2]};
+    sliceParam.endpointAttrBw = endpointAttrBw;
+    sliceParam.dataSizePerLoop.assign(rankSize_, perLoopSize);
+    sliceParam.dataWholeSize.assign(rankSize_, perLoopSize);
+    sliceParam.dataTypeSize = dataTypeSize_;
+    sliceParam.levelRankId = {rankIdxLevel_[0], rankIdxLevel_[1], rankIdxLevel_[2]};
+    sliceParam.opMode = opMode_;
+    sliceParam.engine = CommEngine::COMM_ENGINE_CCU;
+    return CalcAGOmniPipeSliceInfo(sliceParam);
+}
 
+template <typename AlgTopoMatch, typename CcuAlgTemplate0, typename CcuAlgTemplate1, typename CcuAlgTemplate2>
+HcclResult InsV2AllGatherCcuOmniPipeExecutor<AlgTopoMatch, CcuAlgTemplate0, CcuAlgTemplate1,
+                                             CcuAlgTemplate2>::RunOrchestrateLevel2(
+    const OpParam &param, std::shared_ptr<CommonAlgTemplateBase> tempAlg, TemplateDataParams &params,
+    TemplateResource &resource, TemplateResource &orderedFastLaunchInfos)
+{
+    CHK_RET(PreSyncInterThreads(controlThread_, tempMainThreadsZ_, ntfIdxCtrlToTempZ_));
+    AppendFastLaunchMarker(orderedFastLaunchInfos, FAST_ACTION_PRE_SYNC_Z);
+    u32 oldSubmitSize = resource.submitInfos.size();
+    CHK_RET(tempAlg->KernelRun(param, params, resource));
+    AppendFastLaunchInfos(resource, oldSubmitSize, orderedFastLaunchInfos, FAST_ACTION_LEVEL2);
+    return HCCL_SUCCESS;
+}
+
+template <typename AlgTopoMatch, typename CcuAlgTemplate0, typename CcuAlgTemplate1, typename CcuAlgTemplate2>
+HcclResult InsV2AllGatherCcuOmniPipeExecutor<AlgTopoMatch, CcuAlgTemplate0, CcuAlgTemplate1,
+                                             CcuAlgTemplate2>::RunOrchestrateLevelXY(
+    const OpParam &param, const OmniPipeSliceInfo &sliceInfo, u32 idx,
+    std::map<u32, std::shared_ptr<CommonAlgTemplateBase>> &tempMap, std::map<u32, TemplateResource> &tempResMap,
+    TemplateDataParams &paramsLevel0, TemplateDataParams &paramsLevel1, TemplateResource &orderedFastLaunchInfos)
+{
+    CHK_RET(PreSyncInterThreads(controlThread_, tempMainThreadsXY_, ntfIdxCtrlToTempXY_));
+    AppendFastLaunchMarker(orderedFastLaunchInfos, FAST_ACTION_PRE_SYNC_XY);
+    if (tempMap.count(OMNIPIPE_LEVEL0) != 0) {
+        CHK_RET(GenTemplateAlgParamsByDimData(paramsLevel0, sliceInfo.dataSliceLevel0[idx]));
+        u32 oldSubmitSize = tempResMap[OMNIPIPE_LEVEL0].submitInfos.size();
+        CHK_RET(tempMap[OMNIPIPE_LEVEL0]->KernelRun(param, paramsLevel0, tempResMap[OMNIPIPE_LEVEL0]));
+        AppendFastLaunchInfos(tempResMap[OMNIPIPE_LEVEL0], oldSubmitSize, orderedFastLaunchInfos,
+                              FAST_ACTION_LEVEL0);
+    }
+    if (tempMap.count(OMNIPIPE_LEVEL1) != 0) {
+        CHK_RET(GenTemplateAlgParamsByDimData(paramsLevel1, sliceInfo.dataSliceLevel1[idx]));
+        u32 oldSubmitSize = tempResMap[OMNIPIPE_LEVEL1].submitInfos.size();
+        CHK_RET(tempMap[OMNIPIPE_LEVEL1]->KernelRun(param, paramsLevel1, tempResMap[OMNIPIPE_LEVEL1]));
+        AppendFastLaunchInfos(tempResMap[OMNIPIPE_LEVEL1], oldSubmitSize, orderedFastLaunchInfos,
+                              FAST_ACTION_LEVEL1);
+    }
+    CHK_RET(PostSyncInterThreads(controlThread_, tempMainThreadsXY_, ntfIdxTempToCtrlXY_));
+    AppendFastLaunchMarker(orderedFastLaunchInfos, FAST_ACTION_POST_SYNC_XY);
+    return HCCL_SUCCESS;
+}
+
+template <typename AlgTopoMatch, typename CcuAlgTemplate0, typename CcuAlgTemplate1, typename CcuAlgTemplate2>
+HcclResult InsV2AllGatherCcuOmniPipeExecutor<AlgTopoMatch, CcuAlgTemplate0, CcuAlgTemplate1,
+                                             CcuAlgTemplate2>::RunLoopCopyOut(
+    const OpParam &param, const HcclMem &hcclBuff, u64 currBytes, u64 processedDataCount,
+    TemplateResource &copyResource, TemplateResource &orderedFastLaunchInfos) const
+{
+    for (u32 rank = 0; rank < rankSize_; ++rank) {
+        u32 oldSubmitSize = copyResource.submitInfos.size();
+        CHK_RET(RunCcuLocalCopy(param, hcclBuff.addr, param.outputPtr, hcclBuff, rank * currBytes,
+                                (rank * dataCount_ + processedDataCount) * dataTypeSize_, currBytes,
+                                copyResource));
+        AppendFastLaunchInfos(copyResource, oldSubmitSize, orderedFastLaunchInfos, FAST_ACTION_COPY_OUT);
+    }
+    return HCCL_SUCCESS;
+}
+
+template <typename AlgTopoMatch, typename CcuAlgTemplate0, typename CcuAlgTemplate1, typename CcuAlgTemplate2>
+HcclResult InsV2AllGatherCcuOmniPipeExecutor<AlgTopoMatch, CcuAlgTemplate0, CcuAlgTemplate1,
+                                             CcuAlgTemplate2>::RunOrchestrateOneLoop(
+    const OpParam &param, const AlgResourceCtxSerializable &resCtx,
+    const std::vector<EndpointAttrBwCoeff> &endpointAttrBw, u64 currDataCount, u64 processedDataCount,
+    std::map<u32, std::shared_ptr<CommonAlgTemplateBase>> &tempMap, std::map<u32, TemplateResource> &tempResMap,
+    TemplateResource &orderedFastLaunchInfos)
+{
     TemplateDataParams paramsLevel0;
     TemplateDataParams paramsLevel1;
     TemplateDataParams paramsLevel2;
     paramsLevel0.buffInfo.hcclBuff = resCtx.cclMem;
     paramsLevel1.buffInfo.hcclBuff = resCtx.cclMem;
     paramsLevel2.buffInfo.hcclBuff = resCtx.cclMem;
-    TemplateResource orderedFastLaunchInfos;
 
+    u64 currBytes = currDataCount * dataTypeSize_;
+    u32 oldSubmitSize = tempResMap[OMNIPIPE_LEVEL_NUM].submitInfos.size();
+    CHK_RET(RunCcuLocalCopy(param, param.inputPtr, resCtx.cclMem.addr, resCtx.cclMem,
+                            processedDataCount * dataTypeSize_, myRank_ * currBytes, currBytes,
+                            tempResMap[OMNIPIPE_LEVEL_NUM]));
+    AppendFastLaunchInfos(tempResMap[OMNIPIPE_LEVEL_NUM], oldSubmitSize, orderedFastLaunchInfos, FAST_ACTION_COPY_IN);
+    tempResMap[OMNIPIPE_LEVEL0].submitInfos.clear();
+    tempResMap[OMNIPIPE_LEVEL1].submitInfos.clear();
+    tempResMap[OMNIPIPE_LEVEL2].submitInfos.clear();
+
+    OmniPipeSliceInfo sliceInfo = CalcLoopSliceInfo(currDataCount, endpointAttrBw);
+    u32 level2StepCount = std::max<u32>(sliceInfo.dataSliceLevel2.size(), 1);
+    u32 level0StepCount = sliceInfo.dataSliceLevel0.size() / level2StepCount;
+    CHK_PRT_RET(sliceInfo.dataSliceLevel2.empty() || level0StepCount == 0 ||
+                    sliceInfo.dataSliceLevel1.size() < sliceInfo.dataSliceLevel0.size(),
+                HCCL_ERROR("[InsV2AllGatherCcuOmniPipeExecutor][RunOrchestrateOneLoop] invalid slice info, "
+                           "level0[%zu], level1[%zu], level2StepCount[%u].", sliceInfo.dataSliceLevel0.size(),
+                           sliceInfo.dataSliceLevel1.size(), level2StepCount), HCCL_E_PARA);
+    for (u32 stepZ = 0; stepZ < level2StepCount; ++stepZ) {
+        if (tempMap.count(OMNIPIPE_LEVEL2) != 0) {
+            CHK_RET(GenTemplateAlgParamsByDimData(paramsLevel2, sliceInfo.dataSliceLevel2[stepZ]));
+            CHK_RET(RunOrchestrateLevel2(param, tempMap[OMNIPIPE_LEVEL2], paramsLevel2,
+                                         tempResMap[OMNIPIPE_LEVEL2], orderedFastLaunchInfos));
+        }
+        for (u32 stepXY = 0; stepXY < level0StepCount; ++stepXY) {
+            u32 idx = stepZ * level0StepCount + stepXY;
+            CHK_RET(RunOrchestrateLevelXY(param, sliceInfo, idx, tempMap, tempResMap, paramsLevel0,
+                                          paramsLevel1, orderedFastLaunchInfos));
+        }
+        if (tempMap.count(OMNIPIPE_LEVEL2) != 0) {
+            CHK_RET(PostSyncInterThreads(controlThread_, tempMainThreadsZ_, ntfIdxTempToCtrlZ_));
+            AppendFastLaunchMarker(orderedFastLaunchInfos, FAST_ACTION_POST_SYNC_Z);
+        }
+    }
+    return RunLoopCopyOut(param, resCtx.cclMem, currBytes, processedDataCount, tempResMap[OMNIPIPE_LEVEL_NUM],
+                          orderedFastLaunchInfos);
+}
+
+template <typename AlgTopoMatch, typename CcuAlgTemplate0, typename CcuAlgTemplate1, typename CcuAlgTemplate2>
+HcclResult InsV2AllGatherCcuOmniPipeExecutor<AlgTopoMatch, CcuAlgTemplate0, CcuAlgTemplate1,
+                                             CcuAlgTemplate2>::OrchestrateLoop(
+    const OpParam &param, const AlgResourceCtxSerializable &resCtx,
+    std::map<u32, std::shared_ptr<CommonAlgTemplateBase>> &tempMap, std::map<u32, TemplateResource> &tempResMap)
+{
+    std::vector<EndpointAttrBwCoeff> endpointAttrBw;
+    CHK_RET(BuildEndpointAttrBw(param, endpointAttrBw));
+    u64 maxCountPerLoop = 0;
+    CHK_RET(CalcMaxCountPerLoop(maxCountPerLoop));
+    u64 loopTimes = dataCount_ / maxCountPerLoop + static_cast<u64>(dataCount_ % maxCountPerLoop != 0);
+    TemplateResource orderedFastLaunchInfos;
     u64 processedDataCount = 0;
     for (u64 loop = 0; loop < loopTimes; ++loop) {
         u64 currDataCount = (loop == loopTimes - 1) ? dataCount_ - processedDataCount : maxCountPerLoop;
-        u64 currBytes = currDataCount * dataTypeSize_;
-        u32 oldSubmitSize = tempResMap[OMNIPIPE_LEVEL_NUM].submitInfos.size();
-        CHK_RET(RunCcuLocalCopy(param, param.inputPtr, resCtx.cclMem.addr, resCtx.cclMem,
-                                processedDataCount * dataTypeSize_, myRank_ * currBytes, currBytes,
-                                tempResMap[OMNIPIPE_LEVEL_NUM]));
-        AppendFastLaunchInfos(tempResMap[OMNIPIPE_LEVEL_NUM], oldSubmitSize, orderedFastLaunchInfos,
-                              FAST_ACTION_COPY_IN);
-        tempResMap[OMNIPIPE_LEVEL0].submitInfos.clear();
-        tempResMap[OMNIPIPE_LEVEL1].submitInfos.clear();
-        tempResMap[OMNIPIPE_LEVEL2].submitInfos.clear();
-
-        OmniPipeSliceInfo sliceInfo = calcSliceInfo(currDataCount);
-        u32 level2StepCount = std::max<u32>(sliceInfo.dataSliceLevel2.size(), 1);
-        u32 level0StepCount = sliceInfo.dataSliceLevel0.size() / level2StepCount;
-        CHK_PRT_RET(sliceInfo.dataSliceLevel2.empty() || level0StepCount == 0 ||
-                        sliceInfo.dataSliceLevel1.size() < sliceInfo.dataSliceLevel0.size(),
-                    HCCL_ERROR("[InsV2AllGatherCcuOmniPipeExecutor][OrchestrateLoop] invalid slice info, "
-                               "level0[%zu], level1[%zu], level2StepCount[%u].", sliceInfo.dataSliceLevel0.size(),
-                               sliceInfo.dataSliceLevel1.size(), level2StepCount), HCCL_E_PARA);
-        for (u32 stepZ = 0; stepZ < level2StepCount; ++stepZ) {
-            if (tempMap.count(OMNIPIPE_LEVEL2) != 0) {
-                CHK_RET(GenTemplateAlgParamsByDimData(paramsLevel2, sliceInfo.dataSliceLevel2[stepZ]));
-                CHK_RET(PreSyncInterThreads(controlThread_, tempMainThreadsZ_, ntfIdxCtrlToTempZ_));
-                AppendFastLaunchMarker(orderedFastLaunchInfos, FAST_ACTION_PRE_SYNC_Z);
-                oldSubmitSize = tempResMap[OMNIPIPE_LEVEL2].submitInfos.size();
-                CHK_RET(tempMap[OMNIPIPE_LEVEL2]->KernelRun(param, paramsLevel2, tempResMap[OMNIPIPE_LEVEL2]));
-                AppendFastLaunchInfos(tempResMap[OMNIPIPE_LEVEL2], oldSubmitSize, orderedFastLaunchInfos,
-                                      FAST_ACTION_LEVEL2);
-            }
-            for (u32 stepXY = 0; stepXY < level0StepCount; ++stepXY) {
-                u32 idx = stepZ * level0StepCount + stepXY;
-                CHK_RET(PreSyncInterThreads(controlThread_, tempMainThreadsXY_, ntfIdxCtrlToTempXY_));
-                AppendFastLaunchMarker(orderedFastLaunchInfos, FAST_ACTION_PRE_SYNC_XY);
-                if (tempMap.count(OMNIPIPE_LEVEL0) != 0) {
-                    CHK_RET(GenTemplateAlgParamsByDimData(paramsLevel0, sliceInfo.dataSliceLevel0[idx]));
-                    oldSubmitSize = tempResMap[OMNIPIPE_LEVEL0].submitInfos.size();
-                    CHK_RET(tempMap[OMNIPIPE_LEVEL0]->KernelRun(param, paramsLevel0, tempResMap[OMNIPIPE_LEVEL0]));
-                    AppendFastLaunchInfos(tempResMap[OMNIPIPE_LEVEL0], oldSubmitSize, orderedFastLaunchInfos,
-                                          FAST_ACTION_LEVEL0);
-                }
-                if (tempMap.count(OMNIPIPE_LEVEL1) != 0) {
-                    CHK_RET(GenTemplateAlgParamsByDimData(paramsLevel1, sliceInfo.dataSliceLevel1[idx]));
-                    oldSubmitSize = tempResMap[OMNIPIPE_LEVEL1].submitInfos.size();
-                    CHK_RET(tempMap[OMNIPIPE_LEVEL1]->KernelRun(param, paramsLevel1, tempResMap[OMNIPIPE_LEVEL1]));
-                    AppendFastLaunchInfos(tempResMap[OMNIPIPE_LEVEL1], oldSubmitSize, orderedFastLaunchInfos,
-                                          FAST_ACTION_LEVEL1);
-                }
-                CHK_RET(PostSyncInterThreads(controlThread_, tempMainThreadsXY_, ntfIdxTempToCtrlXY_));
-                AppendFastLaunchMarker(orderedFastLaunchInfos, FAST_ACTION_POST_SYNC_XY);
-            }
-            if (tempMap.count(OMNIPIPE_LEVEL2) != 0) {
-                CHK_RET(PostSyncInterThreads(controlThread_, tempMainThreadsZ_, ntfIdxTempToCtrlZ_));
-                AppendFastLaunchMarker(orderedFastLaunchInfos, FAST_ACTION_POST_SYNC_Z);
-            }
-        }
-
-        for (u32 rank = 0; rank < rankSize_; ++rank) {
-            oldSubmitSize = tempResMap[OMNIPIPE_LEVEL_NUM].submitInfos.size();
-            CHK_RET(RunCcuLocalCopy(param, resCtx.cclMem.addr, param.outputPtr, resCtx.cclMem, rank * currBytes,
-                                    (rank * dataCount_ + processedDataCount) * dataTypeSize_, currBytes,
-                                    tempResMap[OMNIPIPE_LEVEL_NUM]));
-            AppendFastLaunchInfos(tempResMap[OMNIPIPE_LEVEL_NUM], oldSubmitSize, orderedFastLaunchInfos,
-                                  FAST_ACTION_COPY_OUT);
-        }
+        CHK_RET(RunOrchestrateOneLoop(param, resCtx, endpointAttrBw, currDataCount, processedDataCount, tempMap,
+                                      tempResMap, orderedFastLaunchInfos));
         processedDataCount += currDataCount;
     }
 #ifndef AICPU_COMPILE
@@ -466,19 +530,11 @@ HcclResult InsV2AllGatherCcuOmniPipeExecutor<AlgTopoMatch, CcuAlgTemplate0, CcuA
 
 template <typename AlgTopoMatch, typename CcuAlgTemplate0, typename CcuAlgTemplate1, typename CcuAlgTemplate2>
 HcclResult InsV2AllGatherCcuOmniPipeExecutor<AlgTopoMatch, CcuAlgTemplate0, CcuAlgTemplate1,
-                                             CcuAlgTemplate2>::FastLaunch(
-    const OpParam &param, const CcuFastLaunchCtx *ctx)
+                                             CcuAlgTemplate2>::InitFastLaunchActionThreads(
+    const CcuFastLaunchCtx *ctx, std::map<u32, std::vector<ThreadHandle>> &actionThreads)
 {
     threads_.assign(ctx->GetThreadHandlePtr(), ctx->GetThreadHandlePtr() + ctx->threadNum);
-    TemplateFastLaunchCtx tempCtx;
     CcuKernelSubmitInfo *submitInfos = ctx->GetCcuKernelSubmitInfoPtr();
-    CcuTempAllGatherOmniPipeLocalCopy copyTemp;
-    CcuAlgTemplate2 temp2;
-    CcuAlgTemplate0 temp0;
-    CcuAlgTemplate1 temp1;
-    HcclMem hcclBuff = param.hcclBuff;
-
-    std::map<u32, std::vector<ThreadHandle>> actionThreads;
     bool hasLevel0 = false;
     bool hasLevel1 = false;
     bool hasLevel2 = false;
@@ -510,69 +566,114 @@ HcclResult InsV2AllGatherCcuOmniPipeExecutor<AlgTopoMatch, CcuAlgTemplate0, CcuA
                                                          "missing local copy thread."), HCCL_E_PARA);
     actionThreads[FAST_ACTION_COPY_IN] = {threads_[threadIdx]};
     actionThreads[FAST_ACTION_COPY_OUT] = {threads_[threadIdx]};
+    return HCCL_SUCCESS;
+}
 
+template <typename AlgTopoMatch, typename CcuAlgTemplate0, typename CcuAlgTemplate1, typename CcuAlgTemplate2>
+void InsV2AllGatherCcuOmniPipeExecutor<AlgTopoMatch, CcuAlgTemplate0, CcuAlgTemplate1,
+                                       CcuAlgTemplate2>::InitFastLaunchNotifyInfo(
+    const std::map<u32, std::vector<ThreadHandle>> &actionThreads)
+{
     tempMainThreadsXY_.clear();
     ntfIdxCtrlToTempXY_.clear();
     ntfIdxTempToCtrlXY_.clear();
-    if (hasLevel0) {
-        tempMainThreadsXY_.push_back(actionThreads[FAST_ACTION_LEVEL0][0]);
+    auto level0Thread = actionThreads.find(FAST_ACTION_LEVEL0);
+    if (level0Thread != actionThreads.end()) {
+        tempMainThreadsXY_.push_back(level0Thread->second[0]);
         ntfIdxCtrlToTempXY_.push_back(0);
         ntfIdxTempToCtrlXY_.push_back(ntfIdxTempToCtrlXY_.size());
     }
-    if (hasLevel1) {
-        tempMainThreadsXY_.push_back(actionThreads[FAST_ACTION_LEVEL1][0]);
+    auto level1Thread = actionThreads.find(FAST_ACTION_LEVEL1);
+    if (level1Thread != actionThreads.end()) {
+        tempMainThreadsXY_.push_back(level1Thread->second[0]);
         ntfIdxCtrlToTempXY_.push_back(0);
         ntfIdxTempToCtrlXY_.push_back(ntfIdxTempToCtrlXY_.size());
     }
     tempMainThreadsZ_.clear();
     ntfIdxCtrlToTempZ_.clear();
     ntfIdxTempToCtrlZ_.clear();
-    if (hasLevel2) {
-        tempMainThreadsZ_.push_back(actionThreads[FAST_ACTION_LEVEL2][0]);
+    auto level2Thread = actionThreads.find(FAST_ACTION_LEVEL2);
+    if (level2Thread != actionThreads.end()) {
+        tempMainThreadsZ_.push_back(level2Thread->second[0]);
         ntfIdxCtrlToTempZ_.push_back(0);
         ntfIdxTempToCtrlZ_.push_back(tempMainThreadsXY_.size());
     }
+}
+
+template <typename AlgTopoMatch, typename CcuAlgTemplate0, typename CcuAlgTemplate1, typename CcuAlgTemplate2>
+HcclResult InsV2AllGatherCcuOmniPipeExecutor<AlgTopoMatch, CcuAlgTemplate0, CcuAlgTemplate1,
+                                             CcuAlgTemplate2>::SetFastLaunchCtxAddr(
+    const OpParam &param, u32 action, const HcclMem &hcclBuff, TemplateFastLaunchCtx &tempCtx) const
+{
+    if (action == FAST_ACTION_COPY_IN) {
+        CHK_RET(SetTempFastLaunchAddr(tempCtx, param.inputPtr, hcclBuff.addr, hcclBuff));
+        tempCtx.buffInfo.inputSize = param.inputSize;
+        tempCtx.buffInfo.outputSize = hcclBuff.size;
+    } else if (action == FAST_ACTION_COPY_OUT) {
+        CHK_RET(SetTempFastLaunchAddr(tempCtx, hcclBuff.addr, param.outputPtr, hcclBuff));
+        tempCtx.buffInfo.inputSize = hcclBuff.size;
+        tempCtx.buffInfo.outputSize = param.outputSize;
+    } else {
+        CHK_RET(SetTempFastLaunchAddr(tempCtx, hcclBuff.addr, hcclBuff.addr, hcclBuff));
+        tempCtx.buffInfo.inputSize = hcclBuff.size;
+        tempCtx.buffInfo.outputSize = hcclBuff.size;
+    }
+    tempCtx.buffInfo.hcclBuffSize = hcclBuff.size;
+    return HCCL_SUCCESS;
+}
+
+template <typename AlgTopoMatch, typename CcuAlgTemplate0, typename CcuAlgTemplate1, typename CcuAlgTemplate2>
+HcclResult InsV2AllGatherCcuOmniPipeExecutor<AlgTopoMatch, CcuAlgTemplate0, CcuAlgTemplate1,
+                                             CcuAlgTemplate2>::FastLaunchSubmitInfo(
+    const OpParam &param, const CcuKernelSubmitInfo &submitInfo,
+    const std::map<u32, std::vector<ThreadHandle>> &actionThreads, const HcclMem &hcclBuff,
+    TemplateFastLaunchCtx &tempCtx)
+{
+    CcuTempAllGatherOmniPipeLocalCopy copyTemp;
+    CcuAlgTemplate2 temp2;
+    CcuAlgTemplate0 temp0;
+    CcuAlgTemplate1 temp1;
+    u32 action = submitInfo.action;
+    tempCtx.ccuKernelSubmitInfos.assign(1, submitInfo);
+    CHK_RET(SetFastLaunchCtxAddr(param, action, hcclBuff, tempCtx));
+    if (action == FAST_ACTION_COPY_IN) {
+        tempCtx.threads = actionThreads.at(FAST_ACTION_COPY_IN);
+        CHK_RET(copyTemp.FastLaunch(param, tempCtx));
+    } else if (action == FAST_ACTION_LEVEL2) {
+        tempCtx.threads = actionThreads.at(FAST_ACTION_LEVEL2);
+        CHK_RET(temp2.FastLaunch(param, tempCtx));
+    } else if (action == FAST_ACTION_LEVEL0) {
+        tempCtx.threads = actionThreads.at(FAST_ACTION_LEVEL0);
+        CHK_RET(temp0.FastLaunch(param, tempCtx));
+    } else if (action == FAST_ACTION_LEVEL1) {
+        tempCtx.threads = actionThreads.at(FAST_ACTION_LEVEL1);
+        CHK_RET(temp1.FastLaunch(param, tempCtx));
+    } else if (action == FAST_ACTION_COPY_OUT) {
+        tempCtx.threads = actionThreads.at(FAST_ACTION_COPY_OUT);
+        CHK_RET(copyTemp.FastLaunch(param, tempCtx));
+    } else {
+        HCCL_ERROR("[InsV2AllGatherCcuOmniPipeExecutor][FastLaunchSubmitInfo] invalid action[%u].", action);
+        return HCCL_E_PARA;
+    }
+    return HCCL_SUCCESS;
+}
+
+template <typename AlgTopoMatch, typename CcuAlgTemplate0, typename CcuAlgTemplate1, typename CcuAlgTemplate2>
+HcclResult InsV2AllGatherCcuOmniPipeExecutor<AlgTopoMatch, CcuAlgTemplate0, CcuAlgTemplate1,
+                                             CcuAlgTemplate2>::FastLaunch(
+    const OpParam &param, const CcuFastLaunchCtx *ctx)
+{
+    std::map<u32, std::vector<ThreadHandle>> actionThreads;
+    CHK_RET(InitFastLaunchActionThreads(ctx, actionThreads));
+    InitFastLaunchNotifyInfo(actionThreads);
+    TemplateFastLaunchCtx tempCtx;
+    CcuKernelSubmitInfo *submitInfos = ctx->GetCcuKernelSubmitInfoPtr();
+    HcclMem hcclBuff = param.hcclBuff;
 
     for (u32 idx = 0; idx < ctx->ccuKernelNum[FAST_ACTION_SEG]; ++idx) {
         CcuKernelSubmitInfo submitInfo = submitInfos[idx];
         u32 action = submitInfo.action;
-        tempCtx.ccuKernelSubmitInfos.assign(1, submitInfo);
-        if (action == FAST_ACTION_COPY_IN) {
-            tempCtx.threads = actionThreads[FAST_ACTION_COPY_IN];
-            CHK_RET(SetTempFastLaunchAddr(tempCtx, param.inputPtr, hcclBuff.addr, hcclBuff));
-            tempCtx.buffInfo.inputSize = param.inputSize;
-            tempCtx.buffInfo.outputSize = hcclBuff.size;
-            tempCtx.buffInfo.hcclBuffSize = hcclBuff.size;
-            CHK_RET(copyTemp.FastLaunch(param, tempCtx));
-        } else if (action == FAST_ACTION_LEVEL2) {
-            tempCtx.threads = actionThreads[FAST_ACTION_LEVEL2];
-            CHK_RET(SetTempFastLaunchAddr(tempCtx, hcclBuff.addr, hcclBuff.addr, hcclBuff));
-            tempCtx.buffInfo.inputSize = hcclBuff.size;
-            tempCtx.buffInfo.outputSize = hcclBuff.size;
-            tempCtx.buffInfo.hcclBuffSize = hcclBuff.size;
-            CHK_RET(temp2.FastLaunch(param, tempCtx));
-        } else if (action == FAST_ACTION_LEVEL0) {
-            tempCtx.threads = actionThreads[FAST_ACTION_LEVEL0];
-            CHK_RET(SetTempFastLaunchAddr(tempCtx, hcclBuff.addr, hcclBuff.addr, hcclBuff));
-            tempCtx.buffInfo.inputSize = hcclBuff.size;
-            tempCtx.buffInfo.outputSize = hcclBuff.size;
-            tempCtx.buffInfo.hcclBuffSize = hcclBuff.size;
-            CHK_RET(temp0.FastLaunch(param, tempCtx));
-        } else if (action == FAST_ACTION_LEVEL1) {
-            tempCtx.threads = actionThreads[FAST_ACTION_LEVEL1];
-            CHK_RET(SetTempFastLaunchAddr(tempCtx, hcclBuff.addr, hcclBuff.addr, hcclBuff));
-            tempCtx.buffInfo.inputSize = hcclBuff.size;
-            tempCtx.buffInfo.outputSize = hcclBuff.size;
-            tempCtx.buffInfo.hcclBuffSize = hcclBuff.size;
-            CHK_RET(temp1.FastLaunch(param, tempCtx));
-        } else if (action == FAST_ACTION_COPY_OUT) {
-            tempCtx.threads = actionThreads[FAST_ACTION_COPY_OUT];
-            CHK_RET(SetTempFastLaunchAddr(tempCtx, hcclBuff.addr, param.outputPtr, hcclBuff));
-            tempCtx.buffInfo.inputSize = hcclBuff.size;
-            tempCtx.buffInfo.outputSize = param.outputSize;
-            tempCtx.buffInfo.hcclBuffSize = hcclBuff.size;
-            CHK_RET(copyTemp.FastLaunch(param, tempCtx));
-        } else if (action == FAST_ACTION_PRE_SYNC_Z) {
+        if (action == FAST_ACTION_PRE_SYNC_Z) {
             CHK_RET(PreSyncInterThreads(controlThread_, tempMainThreadsZ_, ntfIdxCtrlToTempZ_));
         } else if (action == FAST_ACTION_POST_SYNC_Z) {
             CHK_RET(PostSyncInterThreads(controlThread_, tempMainThreadsZ_, ntfIdxTempToCtrlZ_));
@@ -581,8 +682,7 @@ HcclResult InsV2AllGatherCcuOmniPipeExecutor<AlgTopoMatch, CcuAlgTemplate0, CcuA
         } else if (action == FAST_ACTION_POST_SYNC_XY) {
             CHK_RET(PostSyncInterThreads(controlThread_, tempMainThreadsXY_, ntfIdxTempToCtrlXY_));
         } else {
-            HCCL_ERROR("[InsV2AllGatherCcuOmniPipeExecutor][FastLaunch] invalid action[%u].", action);
-            return HCCL_E_PARA;
+            CHK_RET(FastLaunchSubmitInfo(param, submitInfo, actionThreads, hcclBuff, tempCtx));
         }
     }
     return HCCL_SUCCESS;

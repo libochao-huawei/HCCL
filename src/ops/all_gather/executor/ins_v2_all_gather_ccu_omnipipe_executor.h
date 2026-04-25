@@ -46,7 +46,29 @@ private:
                                           const AlgResourceCtxSerializable &resCtx,
                                           TemplateResource &templateResource);
     HcclResult GenTemplateAlgParamsByDimData(TemplateDataParams &tempAlgParams,
-                                             const StepSliceInfo &stepSliceInfo) const;
+                                              const StepSliceInfo &stepSliceInfo) const;
+    HcclResult BuildEndpointAttrBw(const OpParam &param,
+                                   std::vector<EndpointAttrBwCoeff> &endpointAttrBwNew) const;
+    HcclResult CalcMaxCountPerLoop(u64 &maxCountPerLoop) const;
+    OmniPipeSliceInfo CalcLoopSliceInfo(u64 currDataCount,
+                                        const std::vector<EndpointAttrBwCoeff> &endpointAttrBw) const;
+    HcclResult RunOrchestrateLevel2(const OpParam &param, std::shared_ptr<CommonAlgTemplateBase> tempAlg,
+                                    TemplateDataParams &params, TemplateResource &resource,
+                                    TemplateResource &orderedFastLaunchInfos);
+    HcclResult RunOrchestrateLevelXY(const OpParam &param, const OmniPipeSliceInfo &sliceInfo, u32 idx,
+                                     std::map<u32, std::shared_ptr<CommonAlgTemplateBase>> &tempMap,
+                                     std::map<u32, TemplateResource> &tempResMap,
+                                     TemplateDataParams &paramsLevel0, TemplateDataParams &paramsLevel1,
+                                     TemplateResource &orderedFastLaunchInfos);
+    HcclResult RunLoopCopyOut(const OpParam &param, const HcclMem &hcclBuff, u64 currBytes,
+                              u64 processedDataCount, TemplateResource &copyResource,
+                              TemplateResource &orderedFastLaunchInfos) const;
+    HcclResult RunOrchestrateOneLoop(const OpParam &param, const AlgResourceCtxSerializable &resCtx,
+                                     const std::vector<EndpointAttrBwCoeff> &endpointAttrBw, u64 currDataCount,
+                                     u64 processedDataCount,
+                                     std::map<u32, std::shared_ptr<CommonAlgTemplateBase>> &tempMap,
+                                     std::map<u32, TemplateResource> &tempResMap,
+                                     TemplateResource &orderedFastLaunchInfos);
     HcclResult OrchestrateLoop(const OpParam &param, const AlgResourceCtxSerializable &resCtx,
                                std::map<u32, std::shared_ptr<CommonAlgTemplateBase>> &tempMap,
                                std::map<u32, TemplateResource> &tempResMap);
@@ -54,6 +76,14 @@ private:
                                u64 srcOffset, u64 dstOffset, u64 copySize, TemplateResource &copyResource,
                                TemplateResource *fastLaunchResource = nullptr) const;
     HcclResult FastLaunchSaveCtx(const OpParam &param, const TemplateResource &orderedSubmitInfos);
+    HcclResult InitFastLaunchActionThreads(const CcuFastLaunchCtx *ctx,
+                                           std::map<u32, std::vector<ThreadHandle>> &actionThreads);
+    void InitFastLaunchNotifyInfo(const std::map<u32, std::vector<ThreadHandle>> &actionThreads);
+    HcclResult SetFastLaunchCtxAddr(const OpParam &param, u32 action, const HcclMem &hcclBuff,
+                                    TemplateFastLaunchCtx &tempCtx) const;
+    HcclResult FastLaunchSubmitInfo(const OpParam &param, const CcuKernelSubmitInfo &submitInfo,
+                                    const std::map<u32, std::vector<ThreadHandle>> &actionThreads,
+                                    const HcclMem &hcclBuff, TemplateFastLaunchCtx &tempCtx);
 
     std::vector<uint64_t> rankSizeLevel_;
     std::vector<uint64_t> rankIdxLevel_;

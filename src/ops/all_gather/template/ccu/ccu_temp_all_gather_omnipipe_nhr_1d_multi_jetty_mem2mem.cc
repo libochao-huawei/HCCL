@@ -138,58 +138,64 @@ HcclResult CcuTempAllGatherOmniPipeNHR1DMultiJettyMem2Mem::KernelRun(
     const OpParam &param, const TemplateDataParams &templateDataParams, TemplateResource &templateResource)
 {
     buffInfo_ = templateDataParams.buffInfo;
-    uint64_t inputAddr = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
-    uint64_t outputAddr = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
-    uint64_t token = 0;
-    CHK_RET(GetToken(buffInfo_, token));
     std::vector<CcuOmniPipeNHRStepInfo> stepInfoVector;
     CHK_RET(CalcNHRInfo(stepInfoVector));
-    const StepSliceInfo &stepSliceInfo = templateDataParams.stepSliceInfo;
     for (u32 stepIdx = 0; stepIdx < stepInfoVector.size(); ++stepIdx) {
         CHK_PRT_RET(stepIdx >= templateResource.ccuKernels.size(),
                     HCCL_ERROR("[CcuTempAllGatherOmniPipeNHR1DMultiJettyMem2Mem][KernelRun] stepIdx[%u] exceeds "
                                "kernel size[%zu].", stepIdx, templateResource.ccuKernels.size()), HCCL_E_PARA);
-        const auto &stepInfo = stepInfoVector[stepIdx];
-        for (u32 idx = 0; idx < stepInfo.txSliceIdxs.size(); ++idx) {
-            u32 sendSliceIdx = stepInfo.txSliceIdxs[idx];
-            CHK_PRT_RET(sendSliceIdx >= stepSliceInfo.outputOmniPipeSliceStride.size() ||
-                            sendSliceIdx >= stepSliceInfo.stepOutputSliceStride.size() ||
-                            sendSliceIdx >= stepSliceInfo.stepSliceSize.size(),
-                        HCCL_ERROR("[CcuTempAllGatherOmniPipeNHR1DMultiJettyMem2Mem][KernelRun] invalid "
-                                   "sendSliceIdx[%u].", sendSliceIdx), HCCL_E_PARA);
-            for (size_t rpt = 0; rpt < stepSliceInfo.stepSliceSize[sendSliceIdx].size(); ++rpt) {
-                CHK_PRT_RET(rpt >= stepSliceInfo.outputOmniPipeSliceStride[sendSliceIdx].size(),
-                            HCCL_ERROR("[CcuTempAllGatherOmniPipeNHR1DMultiJettyMem2Mem][KernelRun] invalid "
-                                        "repeat[%zu] for sendSliceIdx[%u].", rpt, sendSliceIdx), HCCL_E_PARA);
-                uint64_t srcOffset = stepSliceInfo.outputOmniPipeSliceStride[sendSliceIdx][rpt] +
-                                     stepSliceInfo.stepOutputSliceStride[sendSliceIdx];
-                uint64_t dstOffset = stepSliceInfo.outputOmniPipeSliceStride[sendSliceIdx][rpt] +
-                                     stepSliceInfo.stepOutputSliceStride[sendSliceIdx];
-                uint64_t sliceSize = stepSliceInfo.stepSliceSize[sendSliceIdx][rpt];
-                uint64_t dataTypeSize = DataTypeSizeGet(param.DataDes.dataType);
-                uint64_t dataCount = (dataTypeSize == 0) ? 0 : sliceSize / dataTypeSize;
-                uint64_t sliceCountPerJetty = dataCount / jettyNum_ / (HCCL_MIN_SLICE_ALIGN / dataTypeSize) *
-                                              (HCCL_MIN_SLICE_ALIGN / dataTypeSize);
-                uint64_t sliceSizePerJetty = sliceCountPerJetty * dataTypeSize;
-                uint64_t lastSliceSizePerJetty = sliceSize - sliceSizePerJetty * (jettyNum_ - 1);
-                std::unique_ptr<hcomm::CcuTaskArg> taskArg =
-                    std::make_unique<CcuTaskArgAllGatherOmniPipeNHR1DMultiJettyMem2Mem>(
-                        inputAddr, outputAddr, token, srcOffset, dstOffset, sliceSize, sliceSizePerJetty,
-                        lastSliceSizePerJetty, idx == 0 ? 1 : 0,
-                        idx == stepInfo.txSliceIdxs.size() - 1 ? 1 : 0);
-                void *taskArgPtr = static_cast<void *>(taskArg.get());
-                CHK_RET(HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[stepIdx],
-                                            taskArgPtr));
-                CcuKernelSubmitInfo submitInfo;
-                submitInfo.kernelHandle = templateResource.ccuKernels[stepIdx];
-                CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, token,
-                                       srcOffset, dstOffset, sliceSize, sliceSizePerJetty, lastSliceSizePerJetty,
-                                       idx == 0 ? 1 : 0, idx == stepInfo.txSliceIdxs.size() - 1 ? 1 : 0));
-                templateResource.submitInfos.push_back(submitInfo);
-            }
-        }
+        CHK_RET(LaunchStepSlice(param, templateDataParams, templateResource, stepInfoVector[stepIdx], stepIdx));
     }
     return HcclResult::HCCL_SUCCESS;
+}
+
+HcclResult CcuTempAllGatherOmniPipeNHR1DMultiJettyMem2Mem::LaunchStepSlice(
+    const OpParam &param, const TemplateDataParams &templateDataParams, TemplateResource &templateResource,
+    const CcuOmniPipeNHRStepInfo &stepInfo, u32 stepIdx)
+{
+    uint64_t inputAddr = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
+    uint64_t outputAddr = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
+    uint64_t token = 0;
+    CHK_RET(GetToken(buffInfo_, token));
+    const StepSliceInfo &stepSliceInfo = templateDataParams.stepSliceInfo;
+    for (u32 idx = 0; idx < stepInfo.txSliceIdxs.size(); ++idx) {
+        u32 sendSliceIdx = stepInfo.txSliceIdxs[idx];
+        CHK_PRT_RET(sendSliceIdx >= stepSliceInfo.outputOmniPipeSliceStride.size() ||
+                        sendSliceIdx >= stepSliceInfo.stepOutputSliceStride.size() ||
+                        sendSliceIdx >= stepSliceInfo.stepSliceSize.size(),
+                    HCCL_ERROR("[CcuTempAllGatherOmniPipeNHR1DMultiJettyMem2Mem][LaunchStepSlice] invalid "
+                               "sendSliceIdx[%u].", sendSliceIdx), HCCL_E_PARA);
+        for (size_t rpt = 0; rpt < stepSliceInfo.stepSliceSize[sendSliceIdx].size(); ++rpt) {
+            CHK_PRT_RET(rpt >= stepSliceInfo.outputOmniPipeSliceStride[sendSliceIdx].size(),
+                        HCCL_ERROR("[CcuTempAllGatherOmniPipeNHR1DMultiJettyMem2Mem][LaunchStepSlice] invalid "
+                                    "repeat[%zu] for sendSliceIdx[%u].", rpt, sendSliceIdx), HCCL_E_PARA);
+            uint64_t srcOffset = stepSliceInfo.outputOmniPipeSliceStride[sendSliceIdx][rpt] +
+                                 stepSliceInfo.stepOutputSliceStride[sendSliceIdx];
+            uint64_t dstOffset = stepSliceInfo.outputOmniPipeSliceStride[sendSliceIdx][rpt] +
+                                 stepSliceInfo.stepOutputSliceStride[sendSliceIdx];
+            uint64_t sliceSize = stepSliceInfo.stepSliceSize[sendSliceIdx][rpt];
+            uint64_t dataTypeSize = DataTypeSizeGet(param.DataDes.dataType);
+            uint64_t dataCount = (dataTypeSize == 0) ? 0 : sliceSize / dataTypeSize;
+            uint64_t alignCount = HCCL_MIN_SLICE_ALIGN / dataTypeSize;
+            uint64_t sliceCountPerJetty = dataCount / jettyNum_ / alignCount * alignCount;
+            uint64_t sliceSizePerJetty = sliceCountPerJetty * dataTypeSize;
+            uint64_t lastSliceSizePerJetty = sliceSize - sliceSizePerJetty * (jettyNum_ - 1);
+            std::unique_ptr<hcomm::CcuTaskArg> taskArg =
+                std::make_unique<CcuTaskArgAllGatherOmniPipeNHR1DMultiJettyMem2Mem>(
+                    inputAddr, outputAddr, token, srcOffset, dstOffset, sliceSize, sliceSizePerJetty,
+                    lastSliceSizePerJetty, idx == 0 ? 1 : 0, idx == stepInfo.txSliceIdxs.size() - 1 ? 1 : 0);
+            void *taskArgPtr = static_cast<void *>(taskArg.get());
+            CHK_RET(HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0],
+                                        templateResource.ccuKernels[stepIdx], taskArgPtr));
+            CcuKernelSubmitInfo submitInfo;
+            submitInfo.kernelHandle = templateResource.ccuKernels[stepIdx];
+            CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, token,
+                                   srcOffset, dstOffset, sliceSize, sliceSizePerJetty, lastSliceSizePerJetty,
+                                   idx == 0 ? 1 : 0, idx == stepInfo.txSliceIdxs.size() - 1 ? 1 : 0));
+            templateResource.submitInfos.push_back(submitInfo);
+        }
+    }
+    return HCCL_SUCCESS;
 }
 
 HcclResult CcuTempAllGatherOmniPipeNHR1DMultiJettyMem2Mem::FastLaunch(

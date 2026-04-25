@@ -91,6 +91,9 @@ private:
     HcclResult PreSync();
     HcclResult PostSync();
     HcclResult DoOmniPipeNHRSendRecv();
+    HcclResult StepPreSync(ChannelHandle sendChannel, ChannelHandle recvChannel);
+    HcclResult StepPostSync(ChannelHandle sendChannel, ChannelHandle recvChannel);
+    HcclResult WriteJettyPayload(ChannelHandle sendChannel, uint32_t toRankIdx);
 
     uint64_t rankSize_{0};
     uint32_t rankId_{0};
