@@ -109,12 +109,6 @@ set(ASCEND_MOCKCPP_PACKAGE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 #     message(FATAL_ERROR "${THIRD_PARTY_NLOHMANN_PATH} does not exist, please check the setting of THIRD_PARTY_NLOHMANN_PATH.")
 # endif()
 
-set(ASCEND_SDK_PACKAGE_PATH "${ASCEND_CANN_PACKAGE_PATH}")
-if (NOT EXISTS "${ASCEND_CANN_PACKAGE_PATH}/opensdk")
-    # 设置社区包sdk安装位置
-    set(ASCEND_SDK_PACKAGE_PATH "${ASCEND_CANN_PACKAGE_PATH}/../../latest")
-endif()
-
 #execute_process(COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/cmake/scripts/check_version_compatiable.sh
 #                             ${ASCEND_CANN_PACKAGE_PATH}
 #                             hccl

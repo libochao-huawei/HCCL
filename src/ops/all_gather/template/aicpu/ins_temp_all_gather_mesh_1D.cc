@@ -22,6 +22,7 @@ InsTempAllGatherMesh1D::~InsTempAllGatherMesh1D() {}
 HcclResult InsTempAllGatherMesh1D::CalcRes(HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
                                            AlgResourceRequest &resourceRequest)
 {
+    HCCL_INFO("[InsTempAllGatherMesh1D][CalcRes] start");
     GetRes(resourceRequest);
     std::vector<HcclChannelDesc> level0Channels;
     CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
