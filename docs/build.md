@@ -10,7 +10,7 @@
 
 - python >= 3.7.0
 - pip3 >= 20.3.0
-- gcc >= 7.3.0
+- gcc & g++ : 7.3.0 至 13.3.x
 - cmake >= 3.16.0
 - ccache（可选，用于提高二次编译速度）
 - googletest（仅执行UT时依赖，建议版本 release-1.14.0）
