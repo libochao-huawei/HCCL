@@ -52,52 +52,6 @@ thread_local std::map<std::string, HcclMemHandle> g_memHandleCache; // 当前AIV
 thread_local std::map<std::string, std::unique_ptr<AlgResourceCtxSerializable>> g_hostCtx;
 thread_local std::map<AivOpCacheArgs, std::shared_ptr<InsQueue>> g_hcclCacheMap;
 constexpr u32 HOST_WAIT_AICPU_NOTIFYIDX = 0;// host主流wait aicpu流的notify idx
-constexpr u32 AIV_ENDPOINT_COMM_MARK_MAGIC = 0x41495645; // "AIVE"
-
-struct AivEndpointCommMark {
-    u32 magic;
-    u32 commModeHash;
-    u32 algHash;
-    u64 commHandle;
-};
-
-static u32 CalcAivCommMarkHash(const char *tag)
-{
-    constexpr u32 fnvOffsetBasis = 2166136261U;
-    constexpr u32 fnvPrime = 16777619U;
-    u32 hash = fnvOffsetBasis;
-    if (tag == nullptr) {
-        return hash;
-    }
-    for (const char *ptr = tag; *ptr != '\0'; ++ptr) {
-        hash ^= static_cast<u8>(*ptr);
-        hash *= fnvPrime;
-    }
-    return hash;
-}
-
-static HcclResult MarkAivEndpointByComm(const OpParam &param, HcclChannelDesc &channelDesc)
-{
-    static_assert(sizeof(AivEndpointCommMark) <= sizeof(channelDesc.localEndpoint.raws),
-        "AIV endpoint comm mark exceeds endpoint extension size");
-    AivEndpointCommMark mark {AIV_ENDPOINT_COMM_MARK_MAGIC, CalcAivCommMarkHash(param.commModeTag),
-        CalcAivCommMarkHash(param.algTag),
-        reinterpret_cast<u64>(param.hcclComm)};
-    CHK_SAFETY_FUNC_RET(memcpy_s(channelDesc.localEndpoint.raws, sizeof(channelDesc.localEndpoint.raws),
-        &mark, sizeof(mark)));
-    CHK_SAFETY_FUNC_RET(memcpy_s(channelDesc.remoteEndpoint.raws, sizeof(channelDesc.remoteEndpoint.raws),
-        &mark, sizeof(mark)));
-    return HCCL_SUCCESS;
-}
-
-static HcclResult MarkAivChannelEndpointsByComm(const OpParam &param,
-    std::vector<HcclChannelDesc> &channelRequests)
-{
-    for (auto &channelDesc : channelRequests) {
-        CHK_RET(MarkAivEndpointByComm(param, channelDesc));
-    }
-    return HCCL_SUCCESS;
-}
 
 // 检查非对称拓扑支持情况
 // 仅 AllGather, AllReduce, ReduceScatter 支持跨框非对称拓扑，其他算子拦截
@@ -1315,7 +1269,6 @@ HcclResult HcclAllocAlgResourceAiv(
     for (u32 level = 0; level < resRequest.channels.size(); level++) {
         // 获取子通信域的建链请求
         std::vector<HcclChannelDesc> &levelNChannelRequest = resRequest.channels[level];
-        CHK_RET(MarkAivChannelEndpointsByComm(param, levelNChannelRequest));
         for (auto &channelDesc : levelNChannelRequest) {
             channelDesc.memHandles = &memHandle;
             channelDesc.memHandleNum = 1;
