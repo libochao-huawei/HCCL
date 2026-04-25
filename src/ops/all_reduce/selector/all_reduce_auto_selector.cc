@@ -238,7 +238,10 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleLevel0Algo(const TopoInfo
             HCCL_WARNING("[AllReduceAutoSelector] pcie mixed topo is not supported yet for ccu schedule mode.");
             return SelectorStatus::NOT_MATCH;
         } else {
-            return SelectCcuScheduleLevel0UBXAlgo(topoInfo, selectAlgName, dataSize);
+            CHK_PRT_RET(opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT8,
+            HCCL_DEBUG("[AllReduceAutoSelector] dataType[%d] is not supported yet for ccu schedule mode "
+                    "with ms reduce.", opParam.DataDes.dataType), SelectorStatus::NOT_MATCH);
+        return SelectCcuScheduleLevel0UBXAlgo(topoInfo, selectAlgName, dataSize);
         }
     } else {
         HCCL_DEBUG("[AllReduceAutoSelector] level0Topo[%d] is not supported yet for ccu schedule mode.",
@@ -304,7 +307,7 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpuUBX(const TopoInfoWithN
         }
     } else if(isClosNumMultipleOfMeshNum && !IsSmallData(dataSize)) {
         // 矩形场景大数据量，用Parallel并行算法
-        selectAlgName = "InsAllReduceParallelMesh1DNHR";
+        selectAlgName = "InsAllReduceParallelRSAGUBX";
     } else {
         // 其他场景，用1d NHR算法
         selectAlgName = "InsAllReduceNHR";

@@ -67,7 +67,7 @@ SelectorStatus AllGatherAutoSelector::SelectMeshAlgo(const TopoInfoWithNetLayerD
                 return SelectorStatus::NOT_MATCH;
             }
         } else {
-                selectAlgName = "CcuAllGatherMesh1DUBX";
+                selectAlgName = "CcuAllGatherMesh1D";
                 return SelectorStatus::MATCH;
             }
         } else {
@@ -92,12 +92,12 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleUBXAlgo(
         if (isMeshNumEqualToClosNum && (topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO)) {
             selectAlgName = "CcuAllGatherConcurrentMesh1DNHRMem";
         } else if (isClosNumMultipleOfMeshNum) {
-            selectAlgName = "CcuAllGatherParallelMesh1DNHRMemUBX";
+            selectAlgName = "CcuAllGatherParallelMesh1DNHRMemMultiJetty";
         } else {
-            selectAlgName = "CcuAllGatherNHR1DMem2MemUBX";
+            selectAlgName = "CcuAllGatherNHR1DMem2MemMultiJetty";
         }
     } else {
-        selectAlgName = "CcuAllGatherMesh1DMem2MemUBX";
+        selectAlgName = "CcuAllGatherMesh1DMem2Mem";
     }
     HCCL_DEBUG("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
     return SelectorStatus::MATCH;
@@ -229,16 +229,17 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
             HCCL_ERROR("[AllGatherAutoSelector] CheckMeshNumEqualToClosNum failed."), SelectorStatus::NOT_MATCH);
             CHK_PRT_RET(CheckClosNumMultipleOfMeshNum(topoInfo, isClosNumMultipleOfMeshNum) != HCCL_SUCCESS,
             HCCL_ERROR("[AllGatherAutoSelector] CheckClosNumMultipleOfMeshNum failed."), SelectorStatus::NOT_MATCH);
-            if (dataSize > SMALL_COUNT_512KB) {
-                if (isMeshNumEqualToClosNum && (topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO)) {
+            if (isMeshNumEqualToClosNum && topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO) {
+                if (dataSize > SMALL_COUNT_512KB) {
                     selectAlgName = "InsAllGatherConcurrentMesh1DNHR";
-                } else if (isClosNumMultipleOfMeshNum) {
-                    selectAlgName = "InsAllGatherParallelMesh1DNHRUBX";
                 } else {
-                    selectAlgName = "InsAllGatherNHRUBX";
+                    selectAlgName = "InsAllGatherMesh1D";
                 }
+            } else if(isClosNumMultipleOfMeshNum && dataSize > SMALL_COUNT_512KB) {
+                selectAlgName = "InsAllGatherParallelMesh1DNHRMultiJetty";
             } else {
-                selectAlgName = "InsAllGatherMesh1DUBX";
+                // 4P外非对称场景，大小数据量都用NHR算法
+                selectAlgName = "InsAllGatherNHR";
             }
         } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
             selectAlgName = "InsAllGatherNHR";
