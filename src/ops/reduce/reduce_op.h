@@ -43,13 +43,7 @@ HcclResult ReduceOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t count,
     uint32_t root, HcclComm comm, aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack);
 
 HcclResult ReduceConstructOpParam(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
-    uint32_t root, HcclComm comm, aclrtStream stream, const std::string &tag, OpParam &param);
-
-HcclResult ReduceOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
-    uint32_t root, HcclComm comm, aclrtStream stream, const std::string &tag, const ResPackGraphMode &resPack);
-
-HcclResult ReduceConstructOpParam(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
-    uint32_t root, HcclComm comm, aclrtStream stream, const std::string &tag, OpParam &param);
+    uint32_t root, HcclComm comm, aclrtStream stream, const std::string &tag, OpParam &param, OpMode opMode);
 
 HcclResult ReduceExecOp(HcclComm comm, OpParam &param);
 

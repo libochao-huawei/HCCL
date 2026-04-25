@@ -108,11 +108,13 @@ void CompReqChannelWithExistChannel(const std::vector<std::vector<ChannelInfo>>&
 HcclResult HcclMemcpyCtxHostToDevice(HcclComm comm, const OpParam &param,
     std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, void **resCtxSequence, uint64_t& ctxSize);
 
-HcclResult SingleRankProc(const OpParam &param);
+HcclResult SingleRankProc(HcclComm comm, OpParam &param);
 
 HcclResult HcclCheckTag(const char *tag);
 
 HcclResult SetOpParamAlgTag(OpParam &param, const std::string &algName);
+
+HcclResult SetOpParamFallbackTag(OpParam &param, const std::string &algName);
 
 HcclResult SaveMainThreadInfo(HcclComm comm, const OpParam &param, ThreadHandle thread, u32 notifyNum);
 
@@ -122,6 +124,12 @@ HcclResult CheckAsymmetricTopoSupport(HcclCMDType opType, const TopoInfoWithNetL
 
 HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
                          std::string &algName);
+
+HcclResult ReSelector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
+                         std::string &algName);
+
+HcclResult FallbackOp(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo,
+                        std::string &algName, const ResPackGraphMode &resPack);
 
 HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHandle cpuTsThread,
     ThreadHandle exportedCpuTsThread, u32 notifyNumOnMainThread, void *resCtxSequence, std::string &algName, ThreadHandle unfoldThread);
