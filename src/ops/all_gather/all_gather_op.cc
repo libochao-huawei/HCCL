@@ -180,6 +180,8 @@ HcclResult AllGatherOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t sendCo
     param.opType = HcclCMDType::HCCL_CMD_ALLGATHER;
     param.enableDetour = false;
     param.deviceType = deviceType;
+    
+    CHK_RET(HcclGetOpExpansionMode(comm, param));
 
     CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
     if (ShouldGoCcuFastLaunch(comm, param, &ccuFastLaunchCtx)) {

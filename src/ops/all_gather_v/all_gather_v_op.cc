@@ -203,6 +203,7 @@ HcclResult AllGatherVOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount,c
  	  	return HcclResult::HCCL_SUCCESS;
  	}
 
+    CHK_RET(HcclGetOpExpansionMode(comm, param));
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));
@@ -290,6 +291,7 @@ HcclResult AllGatherVOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t se
  	}
  	std::string algName;
  	std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
+    CHK_RET(HcclGetOpExpansionMode(comm, param));
  	CHK_RET(Selector(comm, param, topoInfo, algName));
  	CHK_RET(HcclExecOp(comm, param, topoInfo, algName, resPack));
  	HCCL_INFO("Execute AllGatherVOutPlaceGraphMode success.");
