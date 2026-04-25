@@ -175,6 +175,8 @@ HcclResult ReduceScatterOutPlace(OpParam &param, void *sendBuf, void *recvBuf, u
     HCCL_INFO("Start to execute ReduceScatterOutPlace");
     CHK_RET(PrepareReduceScatterParam(param, sendBuf, recvBuf, recvCount, dataType, op, comm, stream, userRankSize,
  	    OpMode::OPBASE));
+    
+    CHK_RET(HcclGetOpExpansionMode(comm, param));
 
     CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
     if (ShouldGoCcuFastLaunch(comm, param, &ccuFastLaunchCtx)) {
@@ -236,6 +238,7 @@ HcclResult ReduceScatterOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t
         CHK_RET(SingleRankProc(comm, param));
         return HcclResult::HCCL_SUCCESS;
     }
+    CHK_RET(HcclGetOpExpansionMode(comm, param));
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));
