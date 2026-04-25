@@ -81,6 +81,7 @@ protected:
     std::vector<std::map<u32, std::vector<ChannelInfo>>> remoteRankToChannelInfo_;
     std::vector<std::vector<u32>> intraHierarchyInfo_;
     std::vector<std::vector<u32>> interHierarchyInfo_;
+    double multipleDimensionSplitRatio_{0.8};
 };
 }
 
