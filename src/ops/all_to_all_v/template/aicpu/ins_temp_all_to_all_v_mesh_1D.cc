@@ -25,16 +25,19 @@ InsTempAlltoAllVMesh1D::~InsTempAlltoAllVMesh1D()
 HcclResult InsTempAlltoAllVMesh1D::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
     AlgResourceRequest& resourceRequest)
 {
-    u32 threadNum = templateRankSize_;
+    std::vector<HcclChannelDesc> level0Channels;
+    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
+    resourceRequest.channels.push_back(level0Channels);
+
+    channelsPerRank_ = (dieNum_ == 1) ? 1 : CalcChannelsPerRank(level0Channels);
+    
+    u32 threadNum = templateRankSize_ * channelsPerRank_;
     resourceRequest.slaveThreadNum = threadNum - 1;
     for (u32 index = 0; index < threadNum - 1; index++) {
         resourceRequest.notifyNumPerThread.push_back(1);
     }
     resourceRequest.notifyNumOnMainThread = threadNum - 1;
 
-    std::vector<HcclChannelDesc> level0Channels;
-    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
-    resourceRequest.channels.push_back(level0Channels);
     HCCL_WARNING("Resource calculation is temporarily not performed in the template.");
     return HCCL_SUCCESS;
 }
@@ -55,6 +58,7 @@ HcclResult InsTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
     dataType_ = param.all2AllVDataDes.sendType;
     dataTypeSize_ = SIZE_TABLE[dataType_];
     cclBufferCountPerRank_ = tempAlgParams.inputSliceStride / dataTypeSize_;
+    channelsPerRank_ = templateResource.channels.begin()->second.size();
     HCCL_INFO("[InsTempAlltoAllVMesh1D] Run Start");
 
     u32 myAlgRank = 0;
@@ -100,7 +104,8 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
     const TemplateDataParams &tempAlgParams,
     const u32 myAlgRank)
 {
-    for (u32 queIdx = 0; queIdx < threadNum_; queIdx++) {
+    u32 queIdx = 1;
+    for (u32 rankIdx = 0; rankIdx < threadNum_; rankIdx++) {
         if (queIdx == myAlgRank) {
             // local copy
             DataSlice srcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr,
@@ -119,14 +124,17 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
         u32 nextRank = queIdx; // 逻辑rank
         u32 remoteRank = subCommRanks_[0][nextRank]; // 物理rank
 
-        const ChannelInfo &linkSend = channels.at(remoteRank)[0]; // 发给哪个rank
-        const ChannelInfo &linkRecv = channels.at(remoteRank)[0]; // 收哪个rank的数据
-        std::vector<DataSlice> txSrcSlices;
-        std::vector<DataSlice> txDstSlices;
-        std::vector<DataSlice> rxSrcSlices;
-        std::vector<DataSlice> rxDstSlices;
+        //const ChannelInfo &linkSend = channels.at(remoteRank)[0]; // 发给哪个rank
+        //const ChannelInfo &linkRecv = channels.at(remoteRank)[0]; // 收哪个rank的数据
+        std::vector<ChannelInfo> SendAllLinks = channels.at(remoteRank);
+        std::vector<ChannelInfo> RecvAllLinks = channels.at(remoteRank);
+        // std::vector<DataSlice> txSrcSlices;
+        // std::vector<DataSlice> txDstSlices;
+        // std::vector<DataSlice> rxSrcSlices;
+        // std::vector<DataSlice> rxDstSlices;
 
-        void* remoteCclBuffAddr = linkSend.remoteCclMem.addr;
+        //void* remoteCclBuffAddr = linkSend.remoteCclMem.addr;
+        void* remoteCclBuffAddr = SendAllLinks[0].remoteCclMem.addr;
         // repeatNum为1，所以这里不考虑重复场景
         DataSlice txSrcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr, tempAlgParams.sdispls[nextRank] * dataTypeSize_,
             tempAlgParams.sendCounts[nextRank] * dataTypeSize_, tempAlgParams.sendCounts[nextRank]);
@@ -141,14 +149,23 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
             nextRank * cclBufferCountPerRank_ * dataTypeSize_ + tempAlgParams.buffInfo.hcclBuffBaseOff,
             tempAlgParams.recvCounts[nextRank] * dataTypeSize_, tempAlgParams.recvCounts[nextRank]);
 
-        txSrcSlices.push_back(txSrcSlice);
-        txDstSlices.push_back(txDstSlice);
-        rxSrcSlices.push_back(rxSrcSlice);
-        rxDstSlices.push_back(rxDstSlice);
+        std::vector<float> dataSplitRate(RecvAllLinks.size());
+        CalcDataSplitRateForLinks(RecvAllLinks, dataSplitRate);
+        for (int i = 0; i < RecvAllLinks.size(); i++) {
+            std::vector<DataSlice> txSrcSlices;
+            std::vector<DataSlice> txDstSlices;
+            std::vector<DataSlice> rxSrcSlices;
+            std::vector<DataSlice> rxDstSlices;
+            const ChannelInfo &linkSend = SendAllLinks[i];
+            const ChannelInfo &linkRecv = RecvAllLinks[i];
+            txSrcSlices.push_back(CalcDataSplitRateForLinks(txSrcSlices[0], dataSplitRate, i, dataType_)); //txSrcSlices索引
+            txDstSlices.push_back(CalcDataSplitRateForLinks(txDstSlices[0], dataSplitRate, i, dataType_));
+            rxSrcSlices.push_back(CalcDataSplitRateForLinks(rxSrcSlices[0], dataSplitRate, i, dataType_));
+            rxDstSlices.push_back(CalcDataSplitRateForLinks(rxDstSlices[0], dataSplitRate, i, dataType_));
 
-        // 不用SendRecvWrite接口里面，因为recv 0 也会去等
-        DataInfo sendInfo{linkSend, {txSrcSlices, txDstSlices}};
-        DataInfo recvInfo{linkRecv, {rxSrcSlices, rxDstSlices}};
+            // 不用SendRecvWrite接口里面，因为recv 0 也会去等
+        DataInfo sendInfo{SendAllLinks[i], {txSrcSlices, txDstSlices}};
+        DataInfo recvInfo{RecvAllLinks[i], {rxSrcSlices, rxDstSlices}};
         SendRecvInfo sendRecvInfo{{linkSend, linkRecv},
                              {{txSrcSlices, txDstSlices},{rxSrcSlices, rxDstSlices}}};
         if (tempAlgParams.sendCounts[nextRank] > 0 && tempAlgParams.recvCounts[nextRank] > 0) {
@@ -167,6 +184,36 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
                     HcclResult::HCCL_E_INTERNAL);
             }
         }
+        queIdx++;
+
+        }
+
+        // txSrcSlices.push_back(txSrcSlice);
+        // txDstSlices.push_back(txDstSlice);
+        // rxSrcSlices.push_back(rxSrcSlice);
+        // rxDstSlices.push_back(rxDstSlice);
+
+        // // 不用SendRecvWrite接口里面，因为recv 0 也会去等
+        // DataInfo sendInfo{linkSend, {txSrcSlices, txDstSlices}};
+        // DataInfo recvInfo{linkRecv, {rxSrcSlices, rxDstSlices}};
+        // SendRecvInfo sendRecvInfo{{linkSend, linkRecv},
+        //                      {{txSrcSlices, txDstSlices},{rxSrcSlices, rxDstSlices}}};
+        // if (tempAlgParams.sendCounts[nextRank] > 0 && tempAlgParams.recvCounts[nextRank] > 0) {
+        //     CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[queIdx]),
+        //         HCCL_ERROR("[InsTempAlltoAllVMesh1D] RunALLtoALL SendRecvInfo failed"),
+        //         HcclResult::HCCL_E_INTERNAL);
+        // } else { // 其中一个或者两个为0
+        //     if (tempAlgParams.sendCounts[nextRank] > 0) {
+        //         CHK_PRT_RET(SendWrite(sendInfo, threads[queIdx]),
+        //             HCCL_ERROR("[InsTempAlltoAllVMesh1D] RunALLtoALL sendInfo failed"),
+        //             HcclResult::HCCL_E_INTERNAL);
+        //     }
+        //     if (tempAlgParams.recvCounts[nextRank] > 0) {
+        //         CHK_PRT_RET(RecvWrite(recvInfo, threads[queIdx]),
+        //             HCCL_ERROR("[InsTempAlltoAllVMesh1D] RunALLtoALL recvInfo failed"),
+        //             HcclResult::HCCL_E_INTERNAL);
+        //     }
+        // }
     }
     return HcclResult::HCCL_SUCCESS;
 }
@@ -201,8 +248,8 @@ void InsTempAlltoAllVMesh1D::GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMi
     if (templateRankSize_ <= 1) {
         return;
     }
-    u32 threadNum = templateRankSize_;
-    u32 slaveThreadNum = threadNum - 1;
+    //u32 threadNum = templateRankSize_;
+    u32 slaveThreadNum = threadNum_ - 1;
     for (u32 slaveThreadIdx = 0; slaveThreadIdx < slaveThreadNum; slaveThreadIdx++) {
         notifyIdxMianToSub.push_back(0);
     }
@@ -211,8 +258,8 @@ void InsTempAlltoAllVMesh1D::GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMi
 void InsTempAlltoAllVMesh1D::GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain)
 {
     notifyIdxSubToMain.clear();
-    u32 threadNum = templateRankSize_;
-    u32 notifyNum = threadNum - 1;
+    //u32 threadNum = templateRankSize_;
+    u32 notifyNum = threadNum_ - 1;
     for (u32 notifyIdx = 0; notifyIdx < notifyNum; notifyIdx++) {
         notifyIdxSubToMain.push_back(notifyIdx);
     }

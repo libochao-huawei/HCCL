@@ -240,7 +240,7 @@ HcclResult CcuTempAlltoAllVMesh1D::FastLaunch(const OpParam& param, const Templa
             args[6],  // myRank
             die1Info  // 拆分后的Die1信息
         );
-        void* taskArgPtr1 = static_cast<void*>(taskArg0.get());
+        void* taskArgPtr1 = static_cast<void*>(taskArg1.get());
         CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[1], tempFastLaunchCtx.ccuKernelSubmitInfos[1].kernelHandle, taskArgPtr1));
     }
 
