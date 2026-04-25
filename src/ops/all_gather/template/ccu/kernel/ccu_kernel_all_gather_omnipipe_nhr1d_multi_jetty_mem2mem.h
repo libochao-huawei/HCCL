@@ -13,6 +13,7 @@
 
 #include <vector>
 #include "ccu_kernel_alg_base.h"
+#include "ccu_kernel_utils.h"
 
 namespace ops_hccl {
 
