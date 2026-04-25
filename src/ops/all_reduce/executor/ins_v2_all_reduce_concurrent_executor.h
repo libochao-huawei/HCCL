@@ -54,7 +54,6 @@ protected:
     ThreadHandle temp0ThreadMain_ = 0;
     std::vector<ThreadHandle> temp1Threads_;
     ThreadHandle temp1ThreadMain_ = 0;
-    
 };
 }
 

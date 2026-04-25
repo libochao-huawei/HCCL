@@ -291,7 +291,7 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
     }
     // postSync
     std::vector<u32> notifyIdxMSubToMain = {static_cast<u32>(temp0Threads_.size() - 1)};
-    PostSyncInterThreads(temp0ThreadMain_, subThreads, notifyIdxMSubToMain);
+    CHK_RET(PostSyncInterThreads(temp0ThreadMain_, subThreads, notifyIdxMSubToMain));
 
 #ifndef AICPU_COMPILE
     if ((loopTimesforTemp0 == 1 && loopTimesforTemp1 == 1) && param.engine == CommEngine::COMM_ENGINE_CCU) {
@@ -370,7 +370,7 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
     
     // 后同步
     std::vector<u32> notifyIdxMSubToMain = {static_cast<u32>(temp0Threads_.size() - 1)};
-    PostSyncInterThreads(temp0ThreadMain_, subThreads, notifyIdxMSubToMain);
+    CHK_RET(PostSyncInterThreads(temp0ThreadMain_, subThreads, notifyIdxMSubToMain));
 
     HCCL_INFO("[InsReduceScatterConcurrentExecutor][FastLaunch] End.");
     return HCCL_SUCCESS;
