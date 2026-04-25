@@ -8,6 +8,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
+# 仅编译 reduce_scatter：其余算子子目录已注释（恢复全量构建时取消注释）
 # add_subdirectory(scatter)
 add_subdirectory(op_common)
 add_subdirectory(reduce_scatter)
@@ -20,5 +21,5 @@ add_subdirectory(reduce_scatter)
 # add_subdirectory(reduce_scatter_v)
 # add_subdirectory(all_gather_v)
 # add_subdirectory(reduce)
-add_subdirectory(batch_send_recv)
-add_subdirectory(interface_graph_mode)
+# add_subdirectory(batch_send_recv)
+# add_subdirectory(interface_graph_mode)
