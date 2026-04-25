@@ -9,6 +9,7 @@
  */
 
 #include "channel.h"
+#include "channel_request.h"
 #include "hccl_ccu_res.h"
 #include "ccu_assist_pub.h"
 #include "alg_data_trans_wrapper.h"
@@ -83,6 +84,14 @@ HcclResult CcuTempAllToAllMesh1D2Die::ProcessLinkForProtocol(HcclComm comm, cons
         }
     }
     return HCCL_SUCCESS;
+}
+
+HcclResult ProcessLinkForProtocolNhr(HcclComm comm, const std::vector<CommProtocol>& expectedProtocols,
+    const std::vector<CommLink>& linkList, u32 myRank, u32 remoteRank, uint32_t netLayer,
+    std::vector<HcclChannelDesc>& channels, bool& protocolFound)
+{
+    return ProcessLinkForProtocol(comm, expectedProtocols, linkList, myRank, remoteRank,
+        netLayer, channels, protocolFound, std::string("[CalcLevel1ChannelRequestNhr]"));
 }
 
 HcclResult CcuTempAllToAllMesh1D2Die::CalcChannelRequest(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
