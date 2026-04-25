@@ -69,6 +69,10 @@ HcclResult ReduceAicpuReduceNHR::KernelRun(
     thread_ = templateResource.threads.at(0);
     buffInfo_ = tempAlgParams.buffInfo;
 
+    bool isPcieProtocal = IsPcieProtocol(templateResource.channels);  // 判断是否存在pcie链路
+    isDmaRead_ = isPcieProtocal;  // 是否使用Read模式
+    HCCL_DEBUG("[ReduceAicpuReduceNHR] Use Dma Read[%d]", isDmaRead_);
+
     myIdx_ = GetAlgRank(myRank_);
     CHK_PRT_RET(myIdx_ >= templateRankSize_,
         HCCL_ERROR("[ReduceAicpuReduceNHR] rank idx[%u] in virtRankMap is invalid, it should be less than rankSize[%u]",
@@ -178,7 +182,7 @@ HcclResult ReduceAicpuReduceNHR::RunGather(const std::map<u32, std::vector<Chann
 
             txSrcSlices.push_back(DataSlice(buffInfo_.hcclBuff.addr, txOffset, txSize, txSize / dataTypeSize));
             txDstSlices.push_back(DataSlice(channelSend.remoteCclMem.addr, txOffset, txSize, txSize / dataTypeSize));
-            rxSrcSlices.push_back(DataSlice(buffInfo_.hcclBuff.addr, rxOffset, rxSize, rxSize / dataTypeSize));
+            rxSrcSlices.push_back(DataSlice(channelRecv.remoteCclMem.addr, rxOffset, rxSize, rxSize / dataTypeSize));
             rxDstSlices.push_back(DataSlice(buffInfo_.hcclBuff.addr, rxOffset, rxSize, rxSize / dataTypeSize));
         }
 
@@ -186,9 +190,15 @@ HcclResult ReduceAicpuReduceNHR::RunGather(const std::map<u32, std::vector<Chann
         TxRxSlicesList sendRecvSlicesList({txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices});
 
         SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
-        CHK_PRT_RET(SendRecvWrite(sendRecvInfo, thread_),
-            HCCL_ERROR("[ReduceAicpuReduceNHR] RunGather send/recv failed"),
-            HcclResult::HCCL_E_INTERNAL);
+        if (isDmaRead_) {
+            CHK_PRT_RET(SendRecvRead(sendRecvInfo, thread_),
+                HCCL_ERROR("[ReduceAicpuReduceNHR] RunGather send/recv failed"),
+                HcclResult::HCCL_E_INTERNAL);
+        } else {
+            CHK_PRT_RET(SendRecvWrite(sendRecvInfo, thread_),
+                HCCL_ERROR("[ReduceAicpuReduceNHR] RunGather send/recv failed"),
+                HcclResult::HCCL_E_INTERNAL);
+        }
     }
 
     HCCL_INFO("[ReduceAicpuReduceNHR][RunGather] end");
