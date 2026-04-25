@@ -83,18 +83,27 @@ HcclResult CcuTempAllToAllMesh1dMultiJetty::FastLaunch(const OpParam& param, con
     HCCL_DEBUG("[CcuTempAllToAllMesh1dMultiJetty::FastLaunch] start");
     const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
     buffInfo_ = tempFastLaunchCtx.buffInfo;
+    // 根据channel的jetty数量，再做切分
+    std::vector<uint64_t> jettySlice, jettySliceTail;
+    for (uint32_t rank = 0; rank < args[8]; rank++) {
+        // 128B对齐
+        uint64_t quotient = args[2] / jettyNums_[rank] / HCCL_MIN_SLICE_ALIGN * HCCL_MIN_SLICE_ALIGN;
+        uint64_t tailSlice = args[2] - quotient * (jettyNums_[rank] - 1);
+        jettySlice.push_back(quotient);
+        jettySliceTail.push_back(tailSlice);
+    }
     
     // 计算NHR Multi Jetty特有的参数
     CcuTaskArgAllToAllMesh1DMultiJetty taskArg(
         PointerToAddr(buffInfo_.inputPtr) + args[0],
         PointerToAddr(buffInfo_.outputPtr) + args[1],
         args[2], // sliceSize
-        args[3], // jettySlice
-        args[4], // jettySliceTail
-        args[5], // token
-        args[6], // srcOffset
-        args[7], // dstOffset
-        args[8]  // srcStride
+        jettySlice, // jettySlice
+        jettySliceTail, // jettySliceTail
+        args[3], // token
+        args[4], // srcOffset
+        args[5], // dstOffset
+        args[6]  // srcStride
     );
 
     void* taskArgPtr = static_cast<void*>(&taskArg);
@@ -154,7 +163,7 @@ HcclResult CcuTempAllToAllMesh1dMultiJetty::KernelRun(const OpParam& param, cons
     CcuKernelSubmitInfo submitInfo;
     submitInfo.kernelHandle = templateResource.ccuKernels[0];
     CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, sliceSize, 
-        jettySlice, jettySliceTail, token, srcOffset, dstOffset, srcStride));
+        token, srcOffset, dstOffset, srcStride, templateRankSize_));
     templateResource.submitInfos.push_back(submitInfo);
   
     HCCL_DEBUG("[CcuTempAllToAllMesh1dMultiJetty::KernelRun] end");
