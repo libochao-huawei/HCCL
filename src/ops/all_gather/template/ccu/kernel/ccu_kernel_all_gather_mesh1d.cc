@@ -27,11 +27,12 @@ CcuKernelAllGatherMesh1D::CcuKernelAllGatherMesh1D(const CcuKernelArg &arg)
         = dynamic_cast<const CcuKernelArgAllGatherMesh1D *>(&arg);
     rankId_         = kernelArg->rankId_;
     rankSize_       = kernelArg->dimSize_;
+    axisId_         = kernelArg->axisId_;
     channels_       = kernelArg->channels;
 
     HCCL_INFO(
-        "[CcuKernelAllGatherMesh1D] Init, KernelArgs are rankId[%u], rankSize_[%u]",
-        rankId_, rankSize_);
+        "[CcuKernelAllGatherMesh1D] Init, KernelArgs are rankId[%u], rankSize_[%u], axisId_[%u]",
+        rankId_, rankSize_, axisId_);
 }
 
 HcclResult CcuKernelAllGatherMesh1D::InitResource()
@@ -60,6 +61,8 @@ HcclResult CcuKernelAllGatherMesh1D::InitResource()
         }
     }
     offset_ = CreateVariable();
+    die0Size_ = CreateVariable();
+    die1Size_ = CreateVariable();
     groupOpSize_ = CreateGroupOpSize();;
 
     src = CreateLocalAddr();
@@ -76,6 +79,8 @@ void CcuKernelAllGatherMesh1D::LoadArgs()
     Load(output_[rankId_]);
     Load(token_[rankId_]);
     Load(offset_);
+    Load(die0Size_);
+    Load(die1Size_);
     Load(groupOpSize_);
     return;
 }
@@ -107,6 +112,9 @@ void CcuKernelAllGatherMesh1D::PostSync()
 void CcuKernelAllGatherMesh1D::DoAllGather()
 {
     src.addr  = input_[0];
+    if (axisId_ == 1) {
+        src.addr += die0Size_;
+    }
     src.token = token_[rankId_];
     uint32_t dstId = 0;
     uint32_t curId = 0;
@@ -119,6 +127,9 @@ void CcuKernelAllGatherMesh1D::DoAllGather()
         }
         dst[curId].addr = output_[rankIdx];
         dst[curId].addr += offset_;
+        if (axisId_ == 1) {
+            dst[curId].addr += die0Size_;
+        }
         dst[curId].token = token_[rankIdx];
     }
     GroupBroadcast(channels_, dst, src, groupOpSize_);
@@ -151,12 +162,15 @@ std::vector<uint64_t> CcuKernelAllGatherMesh1D::GeneArgs(const CcuTaskArg &arg)
     uint64_t outputAddr                  = taskArg->outputAddr_;
     uint64_t token                       = taskArg->token_;
     uint64_t offset                      = taskArg->offset_;
-    uint64_t sliceSize                   = taskArg->sliceSize_;
+    uint64_t die0Size                    = taskArg->die0Size_;
+    uint64_t die1Size                    = taskArg->die1Size_;
+    uint64_t sliceSize = (axisId_ == 0) ? die0Size : die1Size;
     auto     goSize     = CalGoSize(sliceSize);
     HCCL_INFO("[CcuKernelAllGatherMesh1D] TaskArgs: inputAddr[%llu], outputAddr[%llu], "
-               "offset[%llu], sliceSize[%llu]",
-               inputAddr, outputAddr, offset, sliceSize);
-    return {inputAddr, outputAddr, token, offset, goSize[0], goSize[1], goSize[2], goSize[3]};
+               "offset[%llu], sliceSize[%llu], axisId[%u]",
+               inputAddr, outputAddr, offset, sliceSize, axisId_);
+    return {inputAddr, outputAddr, token, offset, die0Size, die1Size,
+            goSize[0], goSize[1], goSize[2], goSize[3]};
 }
 
 } // namespace ops_hccl

@@ -60,7 +60,7 @@ SelectorStatus AllGatherAutoSelector::SelectMeshAlgo(const TopoInfoWithNetLayerD
         if (dataSize > SMALL_COUNT_512KB) {
             // 大数据量场景，4P内并发executor，4P外回退ccu_sched模式
             if (isMeshNumEqualToClosNum && (topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO)) {
-                selectAlgName = "CcuAllGatherConcurrentMesh1DNHR";
+                selectAlgName = "CcuAllGatherConcurrentMesh1DNHRUBX";
                 return SelectorStatus::MATCH;
             } else {
                 HCCL_DEBUG("[AllGatherAutoSelector] Level0Shape::MESH_1D_CLOS in large data scene is not supported for ccu_ms mode, reset to default.");
@@ -90,7 +90,7 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleUBXAlgo(
         HCCL_DEBUG("[AllGatherAutoSelector] CheckClosNumMultipleOfMeshNum failed."), SelectorStatus::NOT_MATCH);
     if (dataSize > SMALL_COUNT_512KB) {
         if (isMeshNumEqualToClosNum && (topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO)) {
-            selectAlgName = "CcuAllGatherConcurrentMesh1DNHRMem";
+            selectAlgName = "CcuAllGatherConcurrentMesh1DNHRMemUBX";
         } else if (isClosNumMultipleOfMeshNum) {
             selectAlgName = "CcuAllGatherParallelMesh1DNHRMemMultiJetty";
         } else {
@@ -231,7 +231,7 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
             HCCL_ERROR("[AllGatherAutoSelector] CheckClosNumMultipleOfMeshNum failed."), SelectorStatus::NOT_MATCH);
             if (isMeshNumEqualToClosNum && topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO) {
                 if (dataSize > SMALL_COUNT_512KB) {
-                    selectAlgName = "InsAllGatherConcurrentMesh1DNHR";
+                    selectAlgName = "InsAllGatherConcurrentMesh1DNHRUBX";
                 } else {
                     selectAlgName = "InsAllGatherMesh1D";
                 }

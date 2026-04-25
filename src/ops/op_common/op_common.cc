@@ -46,6 +46,8 @@
 #include "hccl_diag.h"
 #include "hcom.h"
 
+bool g_ccuV2 = true;
+
 namespace ops_hccl {
 thread_local std::map<std::string, HcclMemHandle> g_memHandleCache; // 当前AIV存放注册内存的memHandle使用
 // 用于维护增量建链算子的host ctx信息
@@ -1107,6 +1109,17 @@ HcclResult HcclGetChannelImpl(const u32 level, HcclComm comm, const OpParam &par
         HCCL_INFO("[%s]remoteRank[%u] protocol[%u] remoteCclBufferAddr[0x%llx] remoteCclBufferSize[%u]",
             __func__, channelDescNew.remoteRank,channelDescNew.channelProtocol, remoteCclBufferAddr, remoteCclBufferSize);
 
+#ifndef AICPU_COMPILE
+        EndpointDesc localEndpoint = channelDescNew.localEndpoint;
+        using portSizeType = uint32_t;
+        const uint32_t portSizeTypeSize = sizeof(portSizeType);
+        portSizeType portSize = 0;
+        CHK_RET(HcclRankGraphGetEndpointInfo(comm, resCtxHost->topoInfo.userRank, &localEndpoint, ENDPOINT_ATTR_BW_COEFF, portSizeTypeSize, static_cast<void*>(&portSize)));
+        channel.portGroupSize = portSize;
+        CHK_PRT_RET(portSize == 0,
+                    HCCL_ERROR("[HcclGetChannelImpl] userRank [%d], portSize [%u] is 0.",
+                    resCtxHost->topoInfo.userRank, portSize), HcclResult::HCCL_E_INTERNAL);
+#endif
         if (param.opMode == OpMode::OFFLOAD) {
             CHK_RET(GetGraphModeBuffers(comm, levelNChannels[idx], inputBuffTag, outputBuffTag, channel));
         }

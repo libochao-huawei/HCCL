@@ -345,26 +345,8 @@ HcclResult CalcChannelRequestNhr(HcclComm comm, const OpParam& param, const Topo
         CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
         std::vector<uint32_t> netLayersVector(netLayers, netLayers + netLayerNum);
 
-        for (auto netLayer : netLayersVector) {
-            if (netLayerNum > 1 && netLayer == 0) {
-                continue; // 跨框场景，nhr算法只取layer1的的链路
-            }
-            CommLink *linkList = nullptr;
-            u32 listSize;
-            CHK_RET(HcclRankGraphGetLinks(comm, netLayer, myRank, subcommInfo[0][rankIdx], &linkList, &listSize));
-
-            if (listSize == 0) {
-                continue;
-            }
-
-            std::vector<CommLink> links(linkList, linkList + listSize);
-            bool protocolFound = false;
-            CHK_RET(ProcessLinkForProtocolNhr(comm, expectedProtocols, links, myRank, subcommInfo[0][rankIdx], netLayer, channels, protocolFound));
-
-            if (channels.size() > channelCountBefore) {
-                break;
-            }
-        }
+        // 对于2个rank之间，存在多条link的场景，会优先获取指定TopoType的所有channel
+        ProcessLinksForChannelMulti(comm, myRank, subcommInfo[0][rankIdx], channels, COMM_TOPO_CLOS);
 
         CHK_PRT_RET(channels.size() == channelCountBefore,
             HCCL_ERROR("[CalcChannelRequestNhr] Failed to create channel between myRank=%u and rank=%u, there is no link.",
@@ -484,6 +466,74 @@ HcclResult ProcessLinksForChannel(HcclComm comm, u32 myRank, u32 rank, std::vect
         }
     }
 
+#endif
+    return HCCL_SUCCESS;
+}
+
+/*
+*   获取link对应的多个channel。对于2个rank之间，存在多条link的场景，会优先获取指定TopoType的所有channel。
+*   如果多条link都没有指定的TopoType，则返回第一条link对应的channel。
+*/
+HcclResult ProcessLinksForChannelMulti(HcclComm comm, u32 myRank, u32 rank,
+                                       std::vector<HcclChannelDesc> &channels, CommTopo priorityTopo)
+{
+#ifndef AICPU_COMPILE
+    uint32_t *netLayers;
+    uint32_t netLayerNum;
+    CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
+    std::vector<uint32_t> netLayersVector(netLayers, netLayers + netLayerNum);
+    for (auto netLayer : netLayersVector) {
+        CommLink *linkList = nullptr;
+        u32 listSize;
+        CHK_RET(HcclRankGraphGetLinks(comm, netLayer, myRank, rank, &linkList, &listSize));
+        HCCL_INFO("[ProcessLinksForChannelMulti] netLayer=%u, linkListSize=%u", netLayer, listSize);
+
+        if (listSize == 0) {
+            HCCL_WARNING("[ProcessLinksForChannelMulti]There is no link between rank[%u] and rank[%u].", myRank, rank);
+            continue;
+        }
+
+        CommTopo topoType;
+        std::vector<CommLink> priorityLinks;
+        for (u32 idx = 0; idx < listSize; idx++) {
+            CHK_RET(GetTopoTypeByLink(comm, netLayer, linkList[idx], topoType));
+            if (topoType == priorityTopo) {
+                priorityLinks.push_back(linkList[idx]);
+                HCCL_INFO("[ProcessLinksForChannelMulti] Found link[%u] with priority topotype[%u].", idx, topoType);
+            }
+        }
+
+        if (priorityLinks.empty()) {
+            CHK_RET(GetTopoTypeByLink(comm, netLayer, linkList[0], topoType));
+            HCCL_WARNING("[ProcessLinksForChannelMulti] No link with priorityTopo[%u], use first link with topoType[%u].",
+                         priorityTopo, topoType);
+            priorityLinks.push_back(linkList[0]);
+        }
+
+        for (const auto& link : priorityLinks) {
+            HcclChannelDesc channelDesc;
+            HcclChannelDescInit(&channelDesc, 1);
+            channelDesc.remoteRank = rank;
+            channelDesc.localEndpoint.protocol = link.srcEndpointDesc.protocol;
+            channelDesc.localEndpoint.commAddr = link.srcEndpointDesc.commAddr;
+            channelDesc.localEndpoint.loc = link.srcEndpointDesc.loc;
+            channelDesc.remoteEndpoint.protocol = link.dstEndpointDesc.protocol;
+            channelDesc.remoteEndpoint.commAddr = link.dstEndpointDesc.commAddr;
+            channelDesc.remoteEndpoint.loc = link.dstEndpointDesc.loc;
+            CommLink linkCopy = link;
+            CHK_RET(GetTopoTypeByLink(comm, netLayer, linkCopy, topoType));
+            HCCL_INFO("[ProcessLinksForChannelMulti]Add channel request between %u and %u with protocol %u "
+                       "and topoType %u. And Priority topoType is %u.",
+                       myRank, channelDesc.remoteRank, channelDesc.remoteEndpoint.protocol, topoType, priorityTopo);
+            channelDesc.channelProtocol = link.srcEndpointDesc.protocol;
+            channelDesc.notifyNum = NORMAL_NOTIFY_NUM;
+            channels.push_back(channelDesc);
+        }
+
+        if (!priorityLinks.empty()) {
+            break;
+        }
+    }
 #endif
     return HCCL_SUCCESS;
 }

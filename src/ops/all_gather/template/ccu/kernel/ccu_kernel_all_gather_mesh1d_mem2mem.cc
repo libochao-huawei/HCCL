@@ -29,11 +29,12 @@ CcuKernelAllGatherMesh1DMem2Mem::CcuKernelAllGatherMesh1DMem2Mem(const CcuKernel
         = dynamic_cast<const CcuKernelArgAllGatherMesh1DMem2Mem *>(&arg);
     rankId_         = kernelArg->rankId_;
     rankSize_       = kernelArg->dimSize_;
+    axisId_         = kernelArg->axisId_;
     channels_       = kernelArg->channels;
 
     HCCL_INFO(
-        "[CcuKernelAllGatherMesh1DMem2Mem] Init, KernelArgs are rankId[%u], rankSize_[%u]",
-        rankId_, rankSize_);
+        "[CcuKernelAllGatherMesh1DMem2Mem] Init, KernelArgs are rankId[%u], rankSize_[%u], axisId_[%u]",
+        rankId_, rankSize_, axisId_);
 }
 
 HcclResult CcuKernelAllGatherMesh1DMem2Mem::InitResource()
@@ -66,8 +67,10 @@ HcclResult CcuKernelAllGatherMesh1DMem2Mem::InitResource()
     inputRepeatStride_            = CreateVariable();
     outputRepeatStride_           = CreateVariable();
     tmpRepeatNum_                 = CreateVariable();
-    normalSliceSize_              = CreateVariable();
-    lastSliceSize_                = CreateVariable();
+    die0Size_                    = CreateVariable();
+    die1Size_                    = CreateVariable();
+    die0LastSize_                = CreateVariable();
+    die1LastSize_                = CreateVariable();
     constVar1_                    = CreateVariable();
     constVar1_                    = 1;
     repeatTimeflag_               = CreateVariable();
@@ -77,7 +80,7 @@ HcclResult CcuKernelAllGatherMesh1DMem2Mem::InitResource()
 
     src = CreateLocalAddr();
     src_loccopy = CreateLocalAddr();
-    remote_src= CreateLocalAddr();
+    remote_src = CreateLocalAddr();
 
     for (uint64_t rankIdx = 0; rankIdx < rankSize_; rankIdx++) {
         if (rankIdx == rankId_) {
@@ -102,8 +105,10 @@ void CcuKernelAllGatherMesh1DMem2Mem::LoadArgs()
     Load(tmpRepeatNum_);
     Load(inputRepeatStride_);
     Load(outputRepeatStride_);
-    Load(normalSliceSize_);
-    Load(lastSliceSize_);
+    Load(die0Size_);
+    Load(die1Size_);
+    Load(die0LastSize_);
+    Load(die1LastSize_);
     Load(isInputOutputEqual_);
     Load(localGoSize_);
     return;
@@ -160,20 +165,33 @@ void CcuKernelAllGatherMesh1DMem2Mem::DoRepeatAllGather()
 {
     src.addr = localInput_;
     src.addr += currentRankSliceInputOffset_;
+    // Die1需要跳过Die0的数据
+    if (axisId_ == 1) {
+        src.addr += die0Size_;
+    }
     src.token = token_[rankId_];
 
     src_loccopy.addr = localInput_;
     src_loccopy.addr += currentRankSliceInputOffset_;
+    if (axisId_ == 1) {
+        src_loccopy.addr += die0Size_;
+    }
     src_loccopy.token = token_[rankId_];
 
     for (uint32_t rankIdx = 0; rankIdx < rankSize_; rankIdx++) {
         if (rankIdx == rankId_){
             remote_src.addr = output_[rankId_];
             remote_src.addr += currentRankSliceOutputOffset_;
+            if (axisId_ == 1) {
+                remote_src.addr += die0Size_;
+            }
             remote_src.token = token_[rankId_];
         } else {
             dst[rankIdx].addr = output_[rankIdx];
             dst[rankIdx].addr += currentRankSliceOutputOffset_;
+            if (axisId_ == 1) {
+                dst[rankIdx].addr += die0Size_;
+            }
             dst[rankIdx].token = token_[rankIdx];
         }
     }
@@ -191,9 +209,9 @@ void CcuKernelAllGatherMesh1DMem2Mem::DoRepeatAllGather()
                 }
             }
         }
-        CCU_IF(normalSliceSize_ != 0)
+        CCU_IF(axisId_ == 0 ? (die0Size_ != 0) : (die1Size_ != 0))
         {
-            DoAllGather(src, dst, normalSliceSize_);
+            DoAllGather(src, dst, axisId_ == 0 ? die0Size_ : die1Size_);
         }
         repeatTimeflag_ = 1;
     }
@@ -218,17 +236,20 @@ std::vector<uint64_t> CcuKernelAllGatherMesh1DMem2Mem::GeneArgs(const CcuTaskArg
     uint64_t inputAddr                   = taskArg->inputAddr_;
     uint64_t outputAddr                  = taskArg->outputAddr_;
     uint64_t token                       = taskArg->token_;
-    
+
     uint64_t currentRankSliceInputOffset  = taskArg->inputSliceStride_ * rankId_;
     uint64_t currentRankSliceOutputOffset = taskArg->outputSliceStride_ * rankId_;
     uint64_t tmpRepeatNum                 = UINT64_MAX - taskArg->repeatNum_;
     uint64_t inputRepeatStride            = taskArg->inputRepeatStride_;
     uint64_t outputRepeatStride           = taskArg->outputRepeatStride_;
-    uint64_t normalSliceSize              = taskArg->normalSliceSize_;
-    uint64_t lastSliceSize                = taskArg->lastSliceSize_;
+    uint64_t die0Size                    = taskArg->die0Size_;
+    uint64_t die1Size                    = taskArg->die1Size_;
+    uint64_t die0LastSize                = taskArg->die0LastSize_;
+    uint64_t die1LastSize                = taskArg->die1LastSize_;
     uint64_t isInputOutputEqual           = taskArg->isInputOutputEqual_;
 
-    auto goSize                           = CalGoSize(normalSliceSize);
+    uint64_t sliceSize = (axisId_ == 0) ? die0Size : die1Size;
+    auto goSize                           = CalGoSize(sliceSize);
 
     std::vector<uint64_t> taskArgs = {inputAddr,
                                       outputAddr,
@@ -238,8 +259,10 @@ std::vector<uint64_t> CcuKernelAllGatherMesh1DMem2Mem::GeneArgs(const CcuTaskArg
                                       tmpRepeatNum,
                                       inputRepeatStride,
                                       outputRepeatStride,
-                                      normalSliceSize,
-                                      lastSliceSize,
+                                      die0Size,
+                                      die1Size,
+                                      die0LastSize,
+                                      die1LastSize,
                                       isInputOutputEqual,
                                       goSize[0],
                                       goSize[1],
@@ -248,9 +271,9 @@ std::vector<uint64_t> CcuKernelAllGatherMesh1DMem2Mem::GeneArgs(const CcuTaskArg
 
     HCCL_INFO("[CcuKernelAllGatherMesh1DMem2Mem] TaskArgs: inputAddr[%llu], outputAddr[%llu], "
         "currentRankSliceInputOffset[%llu], currentRankSliceOutputOffset[%llu], "
-        "repeatNum[%llu],inputRepeatStride[%llu], outputRepeatStride[%llu], normalSliceSize[%llu], lastSliceSize[%llu]",
+        "repeatNum[%llu],inputRepeatStride[%llu], outputRepeatStride[%llu], die0Size[%llu], die1Size[%llu]",
         inputAddr, outputAddr, currentRankSliceInputOffset, currentRankSliceOutputOffset, tmpRepeatNum,
-        inputRepeatStride, outputRepeatStride, normalSliceSize, lastSliceSize);
+        inputRepeatStride, outputRepeatStride, die0Size, die1Size);
     return taskArgs;
 }
 
