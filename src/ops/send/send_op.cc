@@ -20,10 +20,40 @@ using namespace ops_hccl;
 
 extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 
+HcclResult HcclSendNext(
+    void *sendBuf, uint64_t count, HcclDataType dataType, uint32_t destRank, HcclComm comm, aclrtStream stream)
+{
+    HCCL_INFO("[HcclSend] Start.");
+    HcclUs startut = TIME_NOW(); // 走老流程的判断时间不统计在内
+    CHK_RET(InitEnvConfig());
+    u32 rankSize = INVALID_VALUE_RANKSIZE;
+    u32 userRank = INVALID_VALUE_RANKID;
+    std::string tag;
+    // 参数获取和校验
+    CHK_PRT_RET(count == 0, HCCL_WARNING("[HcclSend] input count is 0, return send success"), HcclResult::HCCL_SUCCESS);
+    CHK_RET(GetAndCheckSendPara(comm, sendBuf, count, dataType, destRank, rankSize, userRank, tag));
+
+    /* 接口交互信息日志 */
+    CHK_RET(SendEntryLog(sendBuf, count, dataType, destRank, stream, tag, "HcclSend"));
+        
+    CHK_RET_AND_PRINT_IDE(SendExec(sendBuf, count, dataType, destRank, comm, stream, rankSize, OpMode::OPBASE, tag),
+        tag.c_str());
+
+    CHK_RET(LogHcclExit("HcclSend", tag.c_str(), startut));
+
+    HCCL_INFO("[HcclSend][%d]->[%d] Success.", userRank, destRank);
+    return HcclResult::HCCL_SUCCESS;
+}
+
 HcclResult HcclSend(
     void *sendBuf, uint64_t count, HcclDataType dataType, uint32_t destRank, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("[HcclSend] Start.");
+
+    if (IsHostDpu(comm)) {
+        return HcclSendNext(sendBuf, count, dataType, destRank, comm, stream);
+    }
+
     if (GetHcommVersion() < 90000000) {
         return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
     }
@@ -37,24 +67,8 @@ HcclResult HcclSend(
     #endif
         return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
     }
-    HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
-    CHK_RET(InitEnvConfig());
-    u32 rankSize = INVALID_VALUE_RANKSIZE;
-    u32 userRank = INVALID_VALUE_RANKID;
-    std::string tag;
-    // 参数获取和校验
-    CHK_PRT_RET(count == 0, HCCL_WARNING("[HcclSend] input count is 0, return send success"), HcclResult::HCCL_SUCCESS);
-    CHK_RET(GetAndCheckSendPara(comm, sendBuf, count, dataType, destRank, rankSize, userRank, tag));
-
-    /* 接口交互信息日志 */
-    CHK_RET(SendEntryLog(sendBuf, count, dataType, destRank, stream, tag, "HcclSend"));
-        
-    CHK_RET_AND_PRINT_IDE(SendExec(sendBuf, count, dataType, destRank, comm, stream, rankSize, OpMode::OPBASE, tag), tag.c_str());
-
-    CHK_RET(LogHcclExit("HcclSend", tag.c_str(), startut));
-
-    HCCL_INFO("[HcclSend][%d]->[%d] Success.", userRank, destRank);
-    return HcclResult::HCCL_SUCCESS;
+    
+    return HcclSendNext(sendBuf, count, dataType, destRank, comm, stream);
 }
 
 HcclResult HcclSendGraphMode(
@@ -67,7 +81,7 @@ HcclResult HcclSendGraphMode(
     HCCL_INFO("[HcclSendGraphMode] get group name: %s", group);
     HcomGetCommHandleByGroup(group, &comm);
     
-    HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
+    HcclUs startut = TIME_NOW(); // 走老流程的判断时间不统计在内
     CHK_RET(InitEnvConfig());
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     u32 userRank = INVALID_VALUE_RANKID;
