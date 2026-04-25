@@ -391,20 +391,6 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     TemplateResource templateAlgResIntra, templateAlgResInter;
     ThreadHandle *threads = ctx->GetThreadHandlePtr();
     threads_.assign(threads, threads + ctx->threadNum);
-    // u64 temp0SlaveThreadNum = 0;
-    // u64 temp1SlaveThreadNum = 0;
-
-    // const u64 temp0ThreadsNum = temp0SlaveThreadNum + 1;
-    // const u64 temp1ThreadsNum = temp1SlaveThreadNum + 1;
-
-    // // 划分thread
-    // u64 threadIdx = 0;
-    // for (auto i = 0; i < temp0ThreadsNum; ++i) {
-    //     temp0Threads_.push_back(threads_[threadIdx++]);
-    // }
-    // for (auto i = 0; i < temp1ThreadsNum; ++i) {
-    //     temp1Threads_.push_back(threads_[threadIdx++]);
-    // }
     u64 meshThreadsNum = tempAlg0.GetThreadNum(); // check流数
     temp0Threads_.assign(threads_.begin(), threads_.begin() + meshThreadsNum); // 从0开始前meshThreadNum是mesh的流
     temp1Threads_.assign(threads_.begin() + meshThreadsNum, threads_.end()); // 后面几个是nhr的流
