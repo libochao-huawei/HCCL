@@ -57,6 +57,7 @@ constexpr u32 AIV_ENDPOINT_COMM_MARK_MAGIC = 0x41495645; // "AIVE"
 struct AivEndpointCommMark {
     u32 magic;
     u32 commModeHash;
+    u32 algHash;
     u64 commHandle;
 };
 
@@ -80,6 +81,7 @@ static HcclResult MarkAivEndpointByComm(const OpParam &param, HcclChannelDesc &c
     static_assert(sizeof(AivEndpointCommMark) <= sizeof(channelDesc.localEndpoint.raws),
         "AIV endpoint comm mark exceeds endpoint extension size");
     AivEndpointCommMark mark {AIV_ENDPOINT_COMM_MARK_MAGIC, CalcAivCommMarkHash(param.commModeTag),
+        CalcAivCommMarkHash(param.algTag),
         reinterpret_cast<u64>(param.hcclComm)};
     CHK_SAFETY_FUNC_RET(memcpy_s(channelDesc.localEndpoint.raws, sizeof(channelDesc.localEndpoint.raws),
         &mark, sizeof(mark)));
