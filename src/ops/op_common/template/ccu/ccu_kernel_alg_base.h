@@ -80,6 +80,13 @@ constexpr uint64_t CCU_MS_SIZE               = 4096;
         CcuVariable  loopLenExp[2];
     };
 
+    struct GroupBroadcastVar {
+        ccu::LocalAddr loopSrc[2];
+        std::array<std::vector<ccu::RemoteAddr>, 2> loopRemoteDst;
+        ccu::LocalAddr loopLocalDst[2];
+        CcuVariable  loopLen[2];
+    };
+
 //     // 用于n和p部分数据loopgroup的参数
 //     GroupOpConfig       moConfig{0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFFFFFFFFFF};
 //     GroupOpSizeResource moRes;
@@ -134,6 +141,11 @@ constexpr uint64_t CCU_MS_SIZE               = 4096;
     CcuResult CreateMultiOpReduce(CcuKernelCtxBase &ctx, GroupReduceVar &var,
                                    const size_t channels[], uint32_t channelCount, HcclDataType dataType,
                                    HcclDataType outputDataType, HcclReduceOp opType);
+    CcuResult CreateMultiOpBroadcast(CcuKernelCtxBase &ctx, GroupBroadcastVar &var,
+                                      const size_t channels[], uint32_t channelCount);
+    CcuResult GroupBroadcast(CcuKernelCtxBase &ctx, const size_t channels[], uint32_t channelCount,
+                              ccu::LocalAddr src, std::vector<ccu::RemoteAddr> remoteDst,
+                              ccu::LocalAddr localDst, GroupOpSizeVars goSize);
 //     HcclResult CreateMultiOpReduceWithoutMyRank(const std::vector<ChannelHandle> &ccuChannels, HcclDataType dataType,
 //                                      HcclDataType outputDataType, HcclReduceOp opType);
 //     HcclResult CreateReduceLoop(uint32_t size, HcclDataType dataType, HcclDataType outputDataType,
