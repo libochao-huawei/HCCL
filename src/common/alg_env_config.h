@@ -49,6 +49,8 @@ struct AlgEnvConfig {
     bool enableFfts;
     bool execTimeOutSet;
     double execTimeout;
+    bool multipleDimensionSplitRatioSet;
+    double multipleDimensionSplitRatio;
     bool hcclRetryConfig[HCCL_RETRY_ENABLE_LEVEL_NUM];
     std::map<HcclCMDType, std::vector<HcclAlgoType>> hcclAlgoConfig;
 
@@ -128,6 +130,8 @@ HcclResult ParseOpExpansion();
 
 HcclResult ParseExecTimeout();
 
+HcclResult ParseMultipleDimensionSplitRatio();
+
 HcclResult SplitHcclRetryEnable(const std::string &retryConfig, std::vector<std::string> &retryEnables);
 
 HcclResult CollectRetryEnableFromConfig(const std::vector<std::string> &retryEnables);
@@ -161,6 +165,8 @@ const std::map<HcclCMDType, std::vector<HcclAlgoType>> GetExternalInputHcclAlgoC
 bool GetExternalInputExecTimeout(double &execTimeOut);
 
 bool RunIndependentOpExpansion(DevType deviceType);
+
+bool GetExternalInputMultipleDimensionSplitRatio(double &multipleDimensionSplitRatio);
 }
 
 #endif // HCCL_ALG_ENV_CONFIG_H

@@ -114,6 +114,8 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
         CHK_RET(LoadAICPUKernel()); // 该函数内部有防止重复加载的逻辑
     }
     CHK_RET(SetOpParamAlgTag(param, algName));
+    // 获取多维度切分比例
+    CHK_RET(SetMultipleDimensionSplitRatio(param));
     HCCL_INFO("Success to execute Selector.");
     return HCCL_SUCCESS;
 }
@@ -1792,6 +1794,26 @@ HcclResult GetAivParamStorage(const char *group, AivParamStorage **aivParam)
     CHK_RET(HcomGetCommHandleByGroup(group, &comm));
 
     return GetAivParamStorageByComm(comm, aivParam);
+}
+
+HcclResult SetMultipleDimensionSplitRatio(OpParam &param) {
+    double ratioValue = 0;
+    const double DEFAULT_MULT_RATIO = 0.5;
+    if (!GetExternalInputMultipleDimensionSplitRatio(ratioValue)) {
+        param.multipleDimensionSplitRatio = DEFAULT_MULT_RATIO;
+        HCCL_INFO("[OpCommon] Get ratio failed, use default value: %u seconds", DEFAULT_MULT_RATIO);
+    } else {
+        // 验证转换后的值是否合理
+        if (ratioValue < 0 || ratioValue > 1) {
+            HCCL_WARNING("[OpCommon] Ratio value %.2f out of range, use default: %u seconds", 
+                        ratioValue, DEFAULT_MULT_RATIO);
+            param.multipleDimensionSplitRatio = DEFAULT_MULT_RATIO;
+        } else {
+            param.multipleDimensionSplitRatio = ratioValue;
+            HCCL_INFO("[OpCommon] Set ratio to: %f", param.multipleDimensionSplitRatio);
+        }
+    }
+    return HCCL_SUCCESS;
 }
 
 // 判断通过最高一个level的网络全部没有device的可达链路，并且有host的可达链路
