@@ -53,7 +53,7 @@ private:
     HcclResult RunCcuLocalCopy(const OpParam &param, void *srcPtr, void *dstPtr, const HcclMem &hcclBuff,
                                u64 srcOffset, u64 dstOffset, u64 copySize, TemplateResource &copyResource,
                                TemplateResource *fastLaunchResource = nullptr) const;
-    HcclResult FastLaunchSaveCtx(const OpParam &param, const TemplateResource &orderedSubmitInfos) const;
+    HcclResult FastLaunchSaveCtx(const OpParam &param, const TemplateResource &orderedSubmitInfos);
 
     std::vector<uint64_t> rankSizeLevel_;
     std::vector<uint64_t> rankIdxLevel_;

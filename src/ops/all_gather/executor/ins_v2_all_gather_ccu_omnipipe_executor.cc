@@ -18,6 +18,7 @@
 #include "ccu_temp_all_gather_omnipipe_mesh_1d_mem2mem.h"
 #include "ccu_temp_all_gather_omnipipe_nhr_1d_multi_jetty_mem2mem.h"
 #include "ccu_temp_all_gather_omnipipe_local_copy.h"
+#include "alg_data_trans_wrapper.h"
 
 namespace ops_hccl {
 namespace {
@@ -252,7 +253,7 @@ HcclResult InsV2AllGatherCcuOmniPipeExecutor<AlgTopoMatch, CcuAlgTemplate0, CcuA
 template <typename AlgTopoMatch, typename CcuAlgTemplate0, typename CcuAlgTemplate1, typename CcuAlgTemplate2>
 HcclResult InsV2AllGatherCcuOmniPipeExecutor<AlgTopoMatch, CcuAlgTemplate0, CcuAlgTemplate1,
                                               CcuAlgTemplate2>::FastLaunchSaveCtx(
-    const OpParam &param, const TemplateResource &orderedSubmitInfos) const
+    const OpParam &param, const TemplateResource &orderedSubmitInfos)
 {
     if (orderedSubmitInfos.submitInfos.empty()) {
         return HCCL_SUCCESS;
