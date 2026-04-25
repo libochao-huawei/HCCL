@@ -110,30 +110,56 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcChannelRequest(HcclComm comm, const Op
         CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
         std::vector<uint32_t> netLayersVector(netLayers, netLayers + netLayerNum);
 
-        for (auto netLayer : netLayersVector) {
-            CommLink *linkList = nullptr;
-            u32 listSize;
-            CHK_RET(HcclRankGraphGetLinks(comm, netLayer, myRank, rank, &linkList, &listSize));
-            HCCL_INFO("netLayer[%u], linkSize[%u]", netLayer, listSize);
+        // mesh 
+        CommLink *linkListL1 = nullptr;
+        u32 listSizeL1;
+        CHK_RET(HcclRankGraphGetLinks(comm, 0, myRank, rank, &linkListL1, &listSizeL1));
+        HCCL_INFO("CalcChannelRequest: netLayer[0], linkSize[%u]", listSizeL1);
 
-            if (listSize == 0) {
-                continue;
-            }
-
-            std::vector<CommLink> links(linkList, linkList + listSize);
-            bool protocolFound = false;
-            CHK_RET(ProcessLinkForProtocol(comm, expectedProtocols, links, myRank, rank, netLayer, channels, protocolFound,
-                std::string("[CalcChannelRequest]")));
-
-            if (channels.size() > channelCountBefore) {
-                break;
-            }
+        if (listSizeL1 == 0) {
+            continue;
         }
 
+        std::vector<CommLink> links0(linkListL1, linkListL1 + listSizeL1);
+        bool protocolFound = false;
+        CHK_RET(ProcessLinkForProtocol(comm, expectedProtocols, links0, myRank, rank, 0, channels, protocolFound,
+            std::string("[CalcChannelRequestMesh1D]")));
+    
         CHK_PRT_RET(channels.size() == channelCountBefore,
             HCCL_ERROR("[CalcChannelRequestMesh1D] Failed to create channel between myRank=%u and rank=%u, there is no link.",
                 myRank, rank), HcclResult::HCCL_E_INTERNAL);
     }
+
+    std::set<u32> connectRanks;
+    u32 localRank = std::distance(subcommInfo[0].begin(), it);
+    u32 localRankSize = subcommInfo[0].size();
+    CHK_RET(CalcNHRChannelConnect(localRank, localRankSize, INVALID_VALUE_RANKID, connectRanks));
+
+    for (u32 rankIdx: connectRanks) {
+        size_t channelCountBefore = channels.size();
+        uint32_t *netLayers;
+        uint32_t netLayerNum;
+        CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
+        std::vector<uint32_t> netLayersVector(netLayers, netLayers + netLayerNum);
+
+        // clos
+        CommLink *linkList = nullptr;
+        u32 listSize;
+        CHK_RET(HcclRankGraphGetLinks(comm, 1, myRank, subcommInfo[0][rankIdx], &linkList, &listSize));
+
+        if (listSize == 0) {
+            continue;
+        }
+
+        std::vector<CommLink> links(linkList, linkList + listSize);
+        bool protocolFound = false;
+        CHK_RET(ProcessLinkForProtocolNhr(comm, expectedProtocols, links, myRank, subcommInfo[0][rankIdx], 1, channels, protocolFound));
+
+        CHK_PRT_RET(channels.size() == channelCountBefore,
+            HCCL_ERROR("[CalcChannelRequestNhr] Failed to create channel between myRank=%u and rank=%u, there is no link.",
+                myRank, subcommInfo[0][rankIdx]), HcclResult::HCCL_E_INTERNAL);
+    }
+
 #endif
     return HCCL_SUCCESS;
 }
