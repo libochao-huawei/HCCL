@@ -25,16 +25,18 @@ InsTempReduceScatterMesh1D::~InsTempReduceScatterMesh1D()
 HcclResult InsTempReduceScatterMesh1D::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                                                AlgResourceRequest& resourceRequest)
 {
-    u32 threadNum = templateRankSize_ > 1 ? templateRankSize_ : 1;
+    std::vector<HcclChannelDesc> level0Channels;
+    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
+    resourceRequest.channels.push_back(level0Channels);
+    channelsPerRank_ = (dieNum_ == 1) ? 1 : CalcChannelsPerRank(level0Channels);
+
+    u32 threadNum = (templateRankSize_ > 1 ? templateRankSize_ : 1) * channelsPerRank_;
     resourceRequest.slaveThreadNum = threadNum - 1;
     for (u32 index = 0; index < threadNum - 1; index++) {
         resourceRequest.notifyNumPerThread.push_back(1);
     }
     resourceRequest.notifyNumOnMainThread = threadNum - 1;
 
-    std::vector<HcclChannelDesc> level0Channels;
-    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
-    resourceRequest.channels.push_back(level0Channels);
     HCCL_DEBUG("[InsTempReduceScatterMesh1D][CalcRes] myRank[%u], notifyNumOnMainThread[%u], slaveThreadNum[%u]",
                 myRank_, resourceRequest.notifyNumOnMainThread, resourceRequest.slaveThreadNum);
     return HCCL_SUCCESS;
@@ -54,11 +56,21 @@ HcclResult InsTempReduceScatterMesh1D::KernelRun(const OpParam& param,
         HCCL_DEBUG("[InsTempReduceScatterMesh1D] myRank[%u] sliceSize and tailSize are 0, skip reduce scatter.", myRank_);
         return HCCL_SUCCESS;
     }
+    channelsPerRank_ = templateResource.channels.begin()->second.size();
     threadNum_ = templateResource.threads.size();
     dataType_ = param.DataDes.dataType;
     processSize_ = tempAlgParams.sliceSize;
     count_ = tempAlgParams.sliceSize / DATATYPE_SIZE_TABLE[dataType_];
+    dataTypeSize_ = DATATYPE_SIZE_TABLE[dataType_];
+    if(dataTypeSize_==0){
+        HCCL_ERROR("[InsTempReduceScatterMesh1D][KernelRun] dataTypeSize_ is zero");
+    }
     HCCL_INFO("[InsTempReduceScatterMesh1D] Run Start");
+
+    CHK_PRT_RET(threadNum_ != templateResource.threads.size() * channelsPerRank_,
+                HCCL_ERROR("[InsTempReduceScatterMesh1D] Rank [%d], requiredThread Error.", myRank_),
+                HcclResult::HCCL_E_INTERNAL);
+
     if (threadNum_ > 1) {
         std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
         GetNotifyIdxMainToSub(notifyIdxMainToSub_);
@@ -159,7 +171,8 @@ HcclResult InsTempReduceScatterMesh1D::RunReduceScatter(
         }
     }
 
-    for (u32 queIdx = 1; queIdx < threadNum_; queIdx++) {
+    u32 queIdx = 1;
+    for (u32 rankIdx = 1; rankIdx < templateRankSize_; rankIdx++) {
         u32 nextRank = (myAlgRank + queIdx) % templateRankSize_; // 这里取的虚拟rankId
         u64 sliceSize = processSize_;
         u64 sliceCount = count_;
@@ -172,8 +185,8 @@ HcclResult InsTempReduceScatterMesh1D::RunReduceScatter(
         u32 remoteRank = subCommRanks_[0][nextRank];
         HCCL_DEBUG("[InsTempReduceScatterMesh1D][RunReduceScatter] myRank[%d], toRank[%d], fromRank[%d]",
                    myRank_, remoteRank, remoteRank);
-        const ChannelInfo &linkSend = channels.at(remoteRank)[0];
-        const ChannelInfo &linkRecv = channels.at(remoteRank)[0];
+        std::vector<ChannelInfo> RecvAllLinks = channels.at(remoteRank);
+        std::vector<ChannelInfo> SendAllLinks = channels.at(remoteRank);
         std::vector<DataSlice> txSrcSlices;
         std::vector<DataSlice> txDstSlices;
         std::vector<DataSlice> rxSrcSlices;
@@ -181,9 +194,13 @@ HcclResult InsTempReduceScatterMesh1D::RunReduceScatter(
 
         // 在 HcclBuffer 上进行 ReduceScatter 操作
         // 由于进程只能访问远端的HcclBuffer，所以只能通过write的方式将自己userIn上的数据写到远端HcclBuffer上
+        std::vector<float>dataSpiltRate(RecvAllLinks.size());
+        CalcDataSplitRateForLinks(RecvAllLinks,dataSpiltRate);
+        for(int i=0;i<RecvAllLinks.size();i++){
+
         for (u32 repeatIdx = 0; repeatIdx < tempAlgParam.repeatNum; repeatIdx++) {
             // 在reduce_scatter_op.cc的创建channels的环节中获取到了remote的HcclBuff的地址
-            void* remoteCclBuffAddr = linkSend.remoteCclMem.addr;
+            void* remoteCclBuffAddr = RecvAllLinks[0].remoteCclMem.addr;
             // 在接收的时候接收源应该是远端地址，但是由于rs的mesh算法用的是write，所以rx不用care
             DataSlice rxSrcSlice = DataSlice(remoteCclBuffAddr, tempAlgParam.buffInfo.inBuffBaseOff + 
                 repeatIdx * tempAlgParam.inputRepeatStride + myAlgRank * tempAlgParam.inputSliceStride,
@@ -198,16 +215,18 @@ HcclResult InsTempReduceScatterMesh1D::RunReduceScatter(
                 repeatIdx * tempAlgParam.outputRepeatStride + myAlgRank * outputSliceStride,
                 sliceSize, sliceCount);  // 发送目标
 
-            rxSrcSlices.push_back(rxSrcSlice);
-            rxDstSlices.push_back(rxDstSlice);
-            txSrcSlices.push_back(txSrcSlice);
-            txDstSlices.push_back(txDstSlice);
+            rxSrcSlices.push_back(CalcDataSliceForLinks(rxSrcSlice,dataSpiltRate,i,dataType_));
+            rxDstSlices.push_back(CalcDataSliceForLinks(rxDstSlice,dataSpiltRate,i,dataType_));
+            txSrcSlices.push_back(CalcDataSliceForLinks(txSrcSlice,dataSpiltRate,i,dataType_));
+            txDstSlices.push_back(CalcDataSliceForLinks(txDstSlice,dataSpiltRate,i,dataType_));
         }
-        SendRecvInfo sendRecvInfo{{linkSend, linkRecv},
+        SendRecvInfo sendRecvInfo{{SendAllLinks[i], RecvAllLinks[i]},
                              {{txSrcSlices, txDstSlices},{rxSrcSlices, rxDstSlices}}};
         CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[queIdx]),
                     HCCL_ERROR("[InsTempReduceScatterMesh1D] RunReduceScatter Send failed"),
                     HcclResult::HCCL_E_INTERNAL);
+        queIdx++;
+    }
     }
     return HcclResult::HCCL_SUCCESS;
 }
@@ -215,8 +234,7 @@ HcclResult InsTempReduceScatterMesh1D::RunReduceScatter(
 void InsTempReduceScatterMesh1D::GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub)
 {
     notifyIdxMainToSub.clear();
-    u32 threadNum = templateRankSize_ > 1 ? templateRankSize_ : 1;
-    u32 slaveThreadNum = threadNum - 1;
+    u32 slaveThreadNum = threadNum_ - 1;
     for (u32 slaveThreadIdx = 0; slaveThreadIdx < slaveThreadNum; slaveThreadIdx++) {
         notifyIdxMainToSub.push_back(0);
     }
@@ -225,8 +243,7 @@ void InsTempReduceScatterMesh1D::GetNotifyIdxMainToSub(std::vector<u32> &notifyI
 void InsTempReduceScatterMesh1D::GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain)
 {
     notifyIdxSubToMain.clear();
-    u32 threadNum = templateRankSize_ > 1 ? templateRankSize_ : 1;
-    u32 notifyNum = threadNum - 1;
+    u32 notifyNum = threadNum_ - 1;
     for (u32 notifyIdx = 0; notifyIdx < notifyNum; notifyIdx++) {
         notifyIdxSubToMain.push_back(notifyIdx);
     }
@@ -235,13 +252,13 @@ void InsTempReduceScatterMesh1D::GetNotifyIdxSubToMain(std::vector<u32> &notifyI
 u64 InsTempReduceScatterMesh1D::GetThreadNum() const
 {
     u32 threadNum = templateRankSize_ > 1 ? templateRankSize_ : 1;
-    return threadNum;
+    return threadNum * channelsPerRank_;
 }
 
 HcclResult InsTempReduceScatterMesh1D::GetRes(AlgResourceRequest& resourceRequest) const
 {
     u32 threadNum = templateRankSize_ > 1 ? templateRankSize_ : 1;
-    resourceRequest.slaveThreadNum = threadNum - 1;
+    resourceRequest.slaveThreadNum = (threadNum - 1) * channelsPerRank_;
     for (u32 index = 0; index < threadNum - 1; index++) {
         resourceRequest.notifyNumPerThread.push_back(1);
     }

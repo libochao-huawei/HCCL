@@ -25,13 +25,11 @@ InsTempReduceScatterNHR::~InsTempReduceScatterNHR()
 HcclResult InsTempReduceScatterNHR::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                                             AlgResourceRequest& resourceRequest) 
 {
-    // NHR 需要的 que Num 为 1
-    resourceRequest.slaveThreadNum = 0;
-    resourceRequest.notifyNumOnMainThread = 0;
-
     std::vector<HcclChannelDesc> channels;
     CHK_RET(CalcChannelRequestNhr(comm, param, topoInfo, subCommRanks_, channels));
     resourceRequest.channels.push_back(channels);
+    channelsPerRank_ = (dieNum_ == 1) ? 1 : CalcChannelsPerRank(channels);
+    CHK_RET(GetRse(resourceRequest));
     HCCL_INFO("[InsTempReduceScatterNHR][CalcRes] slaveThreadNum: [%u], notifyNumOnMainThread: [%u].",
         resourceRequest.slaveThreadNum, resourceRequest.notifyNumOnMainThread);
     return HcclResult::HCCL_SUCCESS;
@@ -39,15 +37,15 @@ HcclResult InsTempReduceScatterNHR::CalcRes(HcclComm comm, const OpParam& param,
 
 HcclResult InsTempReduceScatterNHR::GetRes(AlgResourceRequest& resourceRequest) const
 {
-    resourceRequest.slaveThreadNum = 0;
-    resourceRequest.notifyNumOnMainThread = 0;
-
+    resourceRequest.slaveThreadNum = channelsPerRank_ - 1;
+    resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, 1);
+    resourceRequest.notifyNumOnMainThread = resourceRequest.slaveThreadNum;
     return HCCL_SUCCESS;
 }
 
 u64 InsTempReduceScatterNHR::GetThreadNum() const
 {
-    return 1;
+    return channelsPerRank_;
 }
 
 HcclResult InsTempReduceScatterNHR::KernelRun(const OpParam& param,
@@ -59,6 +57,7 @@ HcclResult InsTempReduceScatterNHR::KernelRun(const OpParam& param,
         HCCL_INFO("[InsTempReduceScatterNHR] sliceSize and tailSize are both 0, skip");
         return HCCL_SUCCESS;
     }
+    channelsPerRank_ = templateResource.channels.begin()->second.size();
     tempAlgParams_       = tempAlgParams;
     channels_            = templateResource.channels;
     dataType_ = param.DataDes.dataType;
@@ -68,8 +67,9 @@ HcclResult InsTempReduceScatterNHR::KernelRun(const OpParam& param,
         CHK_RET(PostLocalCopy(templateResource.threads));
         return HcclResult::HCCL_SUCCESS;
     }
-
+    PreSync(templateResource.threads);
     CHK_RET(RunNHR(templateResource.threads));
+    PostSync(templateResource.threads);
     CHK_RET(PostLocalCopy(templateResource.threads));
     return HcclResult::HCCL_SUCCESS;
 }
@@ -172,9 +172,14 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
                         channels_[recvFromRank].size() == 0 || channels_[sendToRank].size() == 0,
                         HCCL_ERROR("[RS-NHR][RunNHR] link missing: recvFrom=%d sendTo=%d", recvFromRank, sendToRank),
                 HcclResult::HCCL_E_INTERNAL);
-            ChannelInfo linkRecv = channels_[recvFromRank].at(0);
-            ChannelInfo linkSend = channels_[sendToRank].at(0);
 
+            std::vector<ChannelInfo>linkRecvs = channels_[recvFromRank];
+            std::vector<ChannelInfo>linkSends = channels_[sendToRank];
+
+            std::vector<float>dataSpiltRate(linkRecvs.size());
+            CalcDataSplitRateForLinks(linkRecvs,dataSpiltRate);
+
+            for(u32 i=0;i<linkRecvs.size();i++){
             std::vector<DataSlice> txSrcSlices;
             std::vector<DataSlice> txDstSlices;
             std::vector<DataSlice> rxSlices;
@@ -182,7 +187,7 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
             txDstSlices.reserve(st.nSlices);
             rxSlices.reserve(st.nSlices);
             
-            void* remoteCclBuffAddr = linkSend.remoteCclMem.addr;
+            void* remoteCclBuffAddr = linkSends[0].remoteCclMem.addr;
             // RS：在 SCRATCH 上进行规约交换
             for (u32 i = 0; i < st.nSlices; ++i) {
                 const u32 txIdx = st.txSliceIdxs[i]; // 算法序
@@ -201,20 +206,27 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
                 DataSlice txDstSlice = DataSlice(remoteCclBuffAddr, txScOff,
                     txSliceSize, txSliceSize / DATATYPE_SIZE_TABLE[dataType_]);  // 发送目标
                 DataSlice rxSlice = DataSlice(tempAlgParams_.buffInfo.hcclBuff.addr, rxScOff, rxSliceSize, rxSliceSize / DATATYPE_SIZE_TABLE[dataType_]);
-                txSrcSlices.push_back(txSrcSlice);
-                txDstSlices.push_back(txDstSlice);
-                rxSlices.emplace_back(rxSlice);
+                txSrcSlices.push_back(CalcDataSliceForLinks(txSrcSlice,dataSpiltRate,i,dataType_));
+                txDstSlices.push_back(CalcDataSliceForLinks(txDstSlice,dataSpiltRate,i,dataType_));
+                rxSlices.push_back(CalcDataSliceForLinks(rxSlice,dataSpiltRate,i,dataType_));
             }
 
             SendRecvReduceInfo info{
-                { linkSend, linkRecv }, { { txSrcSlices, txDstSlices }, { rxSlices, rxSlices } }, dataType_, reduceOp_
+                { linkSends[i], linkRecvs[i] }, { { txSrcSlices, txDstSlices }, { rxSlices, rxSlices } }, dataType_, reduceOp_
             };
-
-            CHK_PRT_RET(SendRecvWriteReduce(info, threads[0]),
+            if(isDmaRead_){
+                CHK_PRT_RET(SendRecvReadReduce(info, threads[i]),
                 HCCL_ERROR("[RS-NHR][RunNHR] SendRecvReduce failed (step=%u, rpt=%llu)",
                     st.step, static_cast<unsigned long long>(rpt)),
                 HcclResult::HCCL_E_INTERNAL);
+            }else{
+            CHK_PRT_RET(SendRecvWriteReduce(info, threads[i]),
+                HCCL_ERROR("[RS-NHR][RunNHR] SendRecvReduce failed (step=%u, rpt=%llu)",
+                    st.step, static_cast<unsigned long long>(rpt)),
+                HcclResult::HCCL_E_INTERNAL);
+            }
         }
+    }
     }
 
     return HcclResult::HCCL_SUCCESS;
@@ -272,12 +284,42 @@ HcclResult InsTempReduceScatterNHR::GetStepInfoList(std::vector<AicpuNHRStepInfo
     return HcclResult::HCCL_SUCCESS;
 }
 
-void InsTempReduceScatterNHR::GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMianToSub)
+void InsTempReduceScatterNHR::GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub)
 {
+    notifyIdxMainToSub.clear();
+    u32 slaveThreadNum = threadNum_ - 1;
+    for (u32 slaveThreadIdx = 0; slaveThreadIdx < slaveThreadNum; slaveThreadIdx++) {
+        notifyIdxMainToSub.push_back(0);
+    }
 }
 
 void InsTempReduceScatterNHR::GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain)
 {
+    notifyIdxSubToMain.clear();
+    u32 notifyNum = threadNum_ - 1;
+    for (u32 notifyIdx = 0; notifyIdx < notifyNum; ++notifyIdx) {
+        notifyIdxSubToMain.push_back(notifyIdx);
+    }
+}
+
+HcclResult InsTempReduceScatterNHR::PreSync(const std::vector<ThreadHandle> &threads)
+{
+    if (threads.size() > 1) {
+        std::vector<ThreadHandle> slaveThreads(threads.begin() + 1, threads.end());
+        GetNotifyIdxMainToSub(notifyIdxMainToSub_);
+        CHK_RET(PreSyncInterThreads(threads.at(0), slaveThreads, notifyIdxMainToSub_));
+    }
+    return HcclResult::HCCL_SUCCESS;
+}
+
+HcclResult InsTempReduceScatterNHR::PostSync(const std::vector<ThreadHandle> &threads)
+{
+    if (threads.size() > 1) {
+        std::vector<ThreadHandle> slaveThreads(threads.begin() + 1, threads.end());
+        GetNotifyIdxSubToMain(notifyIdxSubToMain_);
+        CHK_RET(PostSyncInterThreads(threads.at(0), slaveThreads, notifyIdxSubToMain_));
+    }
+    return HcclResult::HCCL_SUCCESS;
 }
 
 } // namespace Hccl
