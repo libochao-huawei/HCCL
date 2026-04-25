@@ -251,7 +251,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std
         }
 
         for(auto& channel: channel_list){
-            channel_[dieId].emplace_back(channel);
+            channels_[dieId].emplace_back(channel);
             rankGroup_[dieId].push_back(channel.remoteRank);
         }
         
