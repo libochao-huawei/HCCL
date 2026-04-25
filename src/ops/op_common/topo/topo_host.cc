@@ -581,6 +581,9 @@ HcclResult CalcLevel0TopoShape(const HcclComm comm, TopoInfoWithNetLayerDetails*
         return HCCL_SUCCESS;
     } else if (topoInstNum == TOPO_INST_NUM_MESH_1D_CLOS && rankNumForTopoType[CommTopo::COMM_TOPO_CLOS].size() == 1 &&
                rankNumForTopoType[CommTopo::COMM_TOPO_1DMESH].size() == 1) {
+        if (rankNumForTopoType[CommTopo::COMM_TOPO_CLOS].at(0) > BIG_CLOS_RANGE) {
+            topoInfo->level0BigClosRange = true;
+        }
         // MESH_1D_CLOS 拓扑校验
         CHK_PRT_RET(rankNumForTopoType[CommTopo::COMM_TOPO_CLOS][0] != level0LocalRankSize,
             HCCL_ERROR("[BaseSelector][CalcLevel0TopoShape] CLOS rankSize[%u] is not equal to level0LocalRankSize[%u]",
@@ -626,6 +629,7 @@ HcclResult CalcTopoShape(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo)
     CHK_RET(ExtractTopoDetails(comm, topoInfo));
     CHK_RET(CalcLevel0TopoShape(comm, topoInfo));
     CHK_RET(Is2DieFullMesh(comm, topoInfo));
+    CHK_RET(IsLevel0PcieMix(comm, topoInfo));
     CHK_RET(CalcLevel0MeshType(comm, topoInfo));
     return HCCL_SUCCESS;
 }
@@ -914,6 +918,42 @@ HcclResult CalAllLevelEndpointAttrBwCoeff(
             endpointAttrBw.emplace_back(bwCoeff);
         }
     }
+    return HCCL_SUCCESS;
+}
+
+HcclResult IsLevel0PcieMix(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo)
+{
+    uint32_t myRank = topoInfo->userRank;
+    u32 netLayer = 0;
+    uint32_t *ranks = nullptr;
+    uint32_t rankNum;
+    CHK_RET(HcclRankGraphGetRanksByLayer(comm, netLayer, &ranks, &rankNum));
+
+    topoInfo->level0PcieMix = false;
+    for (uint32_t rankIdx = 0; rankIdx < rankNum; ++rankIdx) {
+        if (ranks[rankIdx] == myRank) {
+            continue;
+        }
+        CommLink *links = nullptr;
+        uint32_t linkNum;
+        CHK_RET(HcclRankGraphGetLinks(comm, netLayer, myRank, ranks[rankIdx], &links, &linkNum));
+        CHK_PTR_NULL(links);
+        CHK_PRT_RET(linkNum == 0,
+            HCCL_INFO("[Topo][IsLevel0PcieMix] Can not find path from Local[%u] to Rmt[%u], in netLayer %u. "
+                      "Topo is not mesh", myRank, ranks[rankIdx], netLayer), HCCL_E_INTERNAL);
+        
+        for (u32 i = 0 ; i < linkNum; i++) {
+            CommProtocol srcProtocol = links[i].srcEndpointDesc.protocol;
+            HCCL_INFO("[IsLevel0PcieMix]link[%u] protocol[%u]", i, srcProtocol);
+            if (srcProtocol == COMM_PROTOCOL_PCIE) {
+                topoInfo->level0PcieMix = true;
+                HCCL_INFO("[IsLevel0PcieMix] Level 0 has PCIE protocal");
+                return HCCL_SUCCESS;
+            }
+        }
+    }
+    HCCL_INFO("[IsLevel0PcieMix] Level 0 has no PCIE protocol");
+
     return HCCL_SUCCESS;
 }
 }
