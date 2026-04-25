@@ -86,10 +86,12 @@ HcclResult CcuTempAllToAllMesh1dMultiJetty::FastLaunch(const OpParam& param, con
     // 根据channel的jetty数量，再做切分
     std::vector<uint64_t> jettySlice, jettySliceTail;
     HCCL_INFO("[CcuTempAllToAllMesh1dMultiJetty::FastLaunch] templateranksize[%d], slicesize[%d], ", args[7], args[2]);
+    std::vector<u32> jettyNums;
+    jettyNums.assign(args[7], STUB_JETTY_NUM);
     for (uint32_t rank = 0; rank < args[7]; rank++) {
         // 128B对齐
-        uint64_t quotient = args[2] / jettyNums_[rank] / HCCL_MIN_SLICE_ALIGN * HCCL_MIN_SLICE_ALIGN;
-        uint64_t tailSlice = args[2] - quotient * (jettyNums_[rank] - 1);
+        uint64_t quotient = args[2] / jettyNums[rank] / HCCL_MIN_SLICE_ALIGN * HCCL_MIN_SLICE_ALIGN;
+        uint64_t tailSlice = args[2] - quotient * (jettyNums[rank] - 1);
         jettySlice.push_back(quotient);
         jettySliceTail.push_back(tailSlice);
     }
