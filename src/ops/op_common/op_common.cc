@@ -816,7 +816,8 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
         }
         CHK_RET(ret);
     } else {
-        HCCL_ERROR("fail to get engine.", HCCL_E_PARA);
+        HCCL_ERROR("fail to get engine, invalid engine type[%d].", param.engine);
+        return HCCL_E_PARA;
     }
     param.ctxSize = size;
     return HCCL_SUCCESS;
