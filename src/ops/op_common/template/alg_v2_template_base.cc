@@ -88,4 +88,17 @@ u64 InsAlgTemplateBase::GetThreadNum() const
     return 0;
 }
 
+bool InsAlgTemplateBase::IsPcieProtocol(const std::map<u32, std::vector<ChannelInfo>> &channels)
+{
+    for (auto it = channels.begin(); it != channels.end(); it++) {
+        if ((it->second).at(0).protocol == CommProtocol::COMM_PROTOCOL_PCIE) {
+            HCCL_DEBUG("[IsPcieProtocal] the protocal of channel is PCIE");
+            return true;
+        }
+    }
+    HCCL_DEBUG("[IsPcieProtocal] the protocal of channel is Non-PCIE");
+    return false;
+}
+
+
 }

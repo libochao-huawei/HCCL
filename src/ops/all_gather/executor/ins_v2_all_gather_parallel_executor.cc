@@ -22,6 +22,7 @@
 
 #include "topo_match_multilevel.h"
 #include "topo_match_ubx.h"
+#include "topo_match_pcie_mix.h"
 
 namespace ops_hccl {
 
@@ -48,7 +49,7 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     // 构建template
     std::vector<std::vector<u32>> intraHierarchyInfo;
     std::vector<std::vector<u32>> interHierarchyInfo;
-    if(topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+    if(topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
         intraHierarchyInfo = {algHierarchyInfo.infos[0][0]};
         std::vector<u32> closRanks;
         u32 meshSize = algHierarchyInfo.infos[0][0].size();
@@ -282,7 +283,7 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     dataTypeSize_ = DATATYPE_SIZE_TABLE[param.DataDes.dataType];
     dataSize_ = dataCount_ * dataTypeSize_;
 
-    if(resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS) {
+    if(resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS && !resCtx.topoInfo.level0PcieMix) {
         intraHierarchyInfo_ = {resCtx.algHierarchyInfo.infos[0][0]};
         std::vector<u32> closRanks;
         u32 meshSize = resCtx.algHierarchyInfo.infos[0][0].size();
@@ -553,6 +554,9 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherPara
                                InsTempAllGatherNHR);
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherParallelMesh1DNHRUBX,
                                InsV2AllGatherParallelExecutor, TopoMatchUBX, InsTempAllGatherMesh1D,
+                               InsTempAllGatherNHR);
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherParallelMesh1DNHRPcie,
+                               InsV2AllGatherParallelExecutor, TopoMatchPcieMix, InsTempAllGatherMesh1D,
                                InsTempAllGatherNHR);
 #ifndef AICPU_COMPILE
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherParallelMesh1DNHR,

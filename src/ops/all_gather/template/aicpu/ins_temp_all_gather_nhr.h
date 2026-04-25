@@ -49,6 +49,7 @@ protected:
                                const std::map<u32, std::vector<ChannelInfo>> &channels);
     u32 GetRankFromMap(const u32 algRankIdx) const;
     TemplateDataParams tempAlgParams_;
+    bool isDmaRead_{false};
 };
 
 }  // namespace Hccl
