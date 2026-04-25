@@ -143,19 +143,20 @@ HcclResult InsV2BatchSendRecvExecutor::GetPairWiseList(const HcclSendRecvItem *s
 
     for (u32 i = 0; i < itemNum; i++) {
         HCCL_INFO("[InsV2BatchSendRecvExecutor][GetPairWiseList] index is %u, itemNum is %u,"\
-            "localRankID is %d, remoteRank is %u, sendRecvType is %u, rankSize is %u.",
-            i, itemNum, myRank_, sendRecvInfo->remoteRank,
+            "localRankID is %d, remoteRank is %u, dataCount is %llu, sendRecvType is %u, rankSize is %u.",
+            i, itemNum, myRank_, sendRecvInfo->remoteRank, sendRecvInfo->count,
             static_cast<u32>(sendRecvInfo->sendRecvType), rankSize_);
-        CHK_PTR_NULL(sendRecvInfo->buf);
-
-        if (sendRecvInfo->sendRecvType == HcclSendRecvType::HCCL_SEND) {
-            sendDeque_.push_back(sendRecvInfo);
-        } else if (sendRecvInfo->sendRecvType == HcclSendRecvType::HCCL_RECV) {
-            recvDeque_.push_back(sendRecvInfo);
-        } else {
-            HCCL_ERROR("[InsV2BatchSendRecvExecutor][GetPairWiseList] sendRecvType wrong sendrecvType is %d, "\
-                "rankID is %d, remoteRank is %u.", sendRecvInfo->sendRecvType, myRank_, sendRecvInfo->remoteRank);
-            return HcclResult::HCCL_E_PARA;
+        if (sendRecvInfo->count > 0) {
+            CHK_PTR_NULL(sendRecvInfo->buf);
+            if (sendRecvInfo->sendRecvType == HcclSendRecvType::HCCL_SEND) {
+                sendDeque_.push_back(sendRecvInfo);
+            } else if (sendRecvInfo->sendRecvType == HcclSendRecvType::HCCL_RECV) {
+                recvDeque_.push_back(sendRecvInfo);
+            } else {
+                HCCL_ERROR("[InsV2BatchSendRecvExecutor][GetPairWiseList] sendRecvType wrong sendrecvType is %d, "\
+                    "rankID is %d, remoteRank is %u.", sendRecvInfo->sendRecvType, myRank_, sendRecvInfo->remoteRank);
+                return HcclResult::HCCL_E_PARA;
+            }
         }
         sendRecvInfo++;
     }

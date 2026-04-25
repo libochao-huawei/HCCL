@@ -132,13 +132,13 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::CalcRes(HcclComm comm, const OpParam& p
         return HcclResult::HCCL_E_INTERNAL;
     }
 
-    uint32_t kernelNum = enableDieNum;
+    uint32_t kernelNum = 1;
     resourceRequest.notifyNumOnMainThread = 1;
     resourceRequest.slaveThreadNum = 1;
     resourceRequest.ccuKernelNum.push_back(kernelNum);
     resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, 1);
-    HCCL_DEBUG("[CcuTempAllGatherNHR1DMem2Mem::CalcRes] notifyNumOnMainThread[%u] slaveThreadNum[%u]",
-               resourceRequest.notifyNumOnMainThread, resourceRequest.slaveThreadNum);
+    HCCL_DEBUG("[CcuTempAllGatherNHR1DMem2Mem::CalcRes] notifyNumOnMainThread[%u] slaveThreadNum[%u], kernelNum[%u]",
+               resourceRequest.notifyNumOnMainThread, resourceRequest.slaveThreadNum, kernelNum);
 
     // 2.将channelDescs分到2个die
     std::vector<std::vector<HcclChannelDesc>> channelsPerDie;
@@ -147,6 +147,9 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::CalcRes(HcclComm comm, const OpParam& p
     std::vector<NHRStepInfo> stepInfoVector;
 
     CHK_RET(ProcessNHRStepInfo(comm, stepInfoVector, rank2ChannelIdx, enableDieNum, enableDieId, channelsPerDie));
+    if (enableDieNum > 1) { // 通过端口数划分channel，适配跨框die0连die1的场景，避免建链失败
+        CHK_RET(ReverseChannelPerDieIfNeed(comm, myRank_, channelsPerDie));
+    }
 
     // 3.构造kernelInfo
     for (uint32_t kernelIdx = 0; kernelIdx < kernelNum; kernelIdx++) {

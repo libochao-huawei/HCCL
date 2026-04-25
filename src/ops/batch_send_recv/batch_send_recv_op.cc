@@ -131,6 +131,8 @@ HcclResult BatchSendRecvOutPlace(HcclSendRecvItem *sendRecvInfo, uint32_t itemNu
 
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
+    
+    CHK_RET(HcclGetOpExpansionMode(comm, param));
     CHK_RET(Selector(comm, param, topoInfo, algName));
     if (ShouldUseInnerOp(param.opExecuteConfig)) {
         return HcclBatchSendRecvInner(sendRecvInfo, itemNum, comm, stream);
