@@ -360,7 +360,11 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
         loop++;
     }
     CHK_RET(PostSyncInterThreads(resCtx.threads[0], {resCtx.threads[1]}, notify));
-
+#ifndef AICPU_COMPILE
+    if (loopTimes0 == 1 && loopTimes1 == 1 && param.engine == CommEngine::COMM_ENGINE_CCU) {
+        CHK_RET(FastLaunchSaveCtx(param, templateAlgRes0, templateAlgRes1));
+    }
+#endif
     HCCL_INFO("[InsV2AllToAllConcurrentExecutor][OrchestrateLoop] End.");
     return HCCL_SUCCESS;
 }
@@ -457,6 +461,105 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
     tempAlgParams.outputRepeatStride = 0;
     return HCCL_SUCCESS;
 }
+template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
+HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::PrepareResForTemplate(
+    InsAlgTemplate0 &tempAlg0, InsAlgTemplate1 &tempAlg1)
+{
+    AlgResourceRequest temp0Request;
+    AlgResourceRequest temp1Request;
+    tempAlg0.GetRes(temp0Request);
+    tempAlg1.GetRes(temp1Request);
+
+    auto tmp0ThreadsNum = temp0Request.slaveThreadNum + 1;
+    auto tmp1ThreadsNum = temp1Request.slaveThreadNum + 1;
+    auto tmp0NotifyOnMainThread = temp0Request.notifyNumOnMainThread;
+    auto tmp1NotifyOnMainThread = temp1Request.notifyNumOnMainThread;
+
+    tmp0Threads_.assign(threads_.begin(), threads_.begin() + tmp0ThreadsNum);
+    tmp1Threads_.assign(threads_.begin() + tmp0ThreadsNum, threads_.end());
+    mainThread_ = tmp0Threads_.at(0);
+    templateMainThreads_.emplace_back(tmp1Threads_.at(0));
+    syncNotifyOnTemplates_ = {tmp1NotifyOnMainThread};
+    syncNotifyOnMain_ = {tmp0NotifyOnMainThread};
+
+    return HCCL_SUCCESS;
+}
+
+#ifndef AICPU_COMPILE
+template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
+HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::FastLaunchSaveCtx(
+    const OpParam &param, const TemplateResource &templateAlgRes0, const TemplateResource &templateAlgRes1)
+{
+    HCCL_INFO("[InsV2AllToAllConcurrentExecutor] loopTimes==1, save fast launch ctx.");
+    u32 threadNum = threads_.size();
+    u32 ccuKernelNum = templateAlgRes0.submitInfos.size() + templateAlgRes1.submitInfos.size();
+    if (ccuKernelNum < 1) {
+        HCCL_INFO("[InsV2AllToAllConcurrentExecutor] ccu kernel num is 0, no need to save.");
+        return HCCL_SUCCESS;
+    }
+    HCCL_INFO("[InsV2AllToAllConcurrentExecutor][FastLaunchSaveCtx] threadNum[%llu], ccuKernelNum[%llu]", threadNum, ccuKernelNum);
+
+    std::vector<u32> ccuKernelNumList = {static_cast<u32>(templateAlgRes0.submitInfos.size()),
+                                         static_cast<u32>(templateAlgRes1.submitInfos.size())};
+    std::vector<std::vector<CcuKernelSubmitInfo>> submitInfosList = {templateAlgRes0.submitInfos, templateAlgRes1.submitInfos};
+    return FastLaunchSaveCtxTwoTemplate(param, threadNum, ccuKernelNum, threads_, ccuKernelNumList, submitInfosList);
+}
+
+template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
+HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::FastLaunch(
+        const OpParam &param, const CcuFastLaunchCtx *ctx)
+{
+    HCCL_INFO("[InsV2AllToAllConcurrentExecutor][FastLaunch] Start");
+    InsAlgTemplate0 tempAlg0{};
+    InsAlgTemplate1 tempAlg1{};
+    
+    TemplateFastLaunchCtx tempFastLaunchCtx0, tempFastLaunchCtx1;
+
+    TemplateResource templateAlgResIntra, templateAlgResInter;
+    ThreadHandle *threads = ctx->GetThreadHandlePtr();
+    threads_.assign(threads, threads + ctx->threadNum);
+    u64 meshThreadsNum = tempAlg0.GetThreadNum(); // check流数
+    temp0Threads_.assign(threads_.begin(), threads_.begin() + meshThreadsNum); // 从0开始前meshThreadNum是mesh的流
+    temp1Threads_.assign(threads_.begin() + meshThreadsNum, threads_.end()); // 后面几个是nhr的流
+    temp0ThreadMain_ = temp0Threads_.at(0);
+    temp1ThreadMain_ = temp1Threads_.at(0);
+
+    CcuKernelSubmitInfo *ccuKernelSubmitInfos = ctx->GetCcuKernelSubmitInfoPtr();
+    HCCL_INFO("[InsV2AllReduceConcurrentExecutor][FastLaunch] Intra0 ccuKernelNum[%llu]", ctx->ccuKernelNum[0]);
+    // 前同步
+    std::vector<ThreadHandle> subThreads;
+    subThreads.emplace_back(temp1ThreadMain_);
+    std::vector<u32> notifyIdxMainToSub = {static_cast<u32>(temp1Threads_.size() - 1)};
+    CHK_RET(PreSyncInterThreads(temp0ThreadMain_, subThreads, notifyIdxMainToSub));
+
+    // 执行第一个模板算法
+    HCCL_INFO("[InsV2AllToAllConcurrentExecutor][FastLaunch] temp0 ccuKernelNum[%llu]", ctx->ccuKernelNum[0]);
+    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtx0, param.inputPtr, param.outputPtr, param.hcclBuff));
+    tempFastLaunchCtx0.threads = tmp0Threads_;
+    tempFastLaunchCtx0.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[0]);
+    ccuKernelSubmitInfos += ctx->ccuKernelNum[0];
+    if (ctx->ccuKernelNum[0] > 0) {
+        CHK_RET(tempAlg0.FastLaunch(param, tempFastLaunchCtx0));
+    }
+
+    // 执行第二个模板算法
+    HCCL_INFO("[InsV2AllToAllConcurrentExecutor][FastLaunch] temp1 ccuKernelNum[%llu]", ctx->ccuKernelNum[1]);
+    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtx1, param.inputPtr, param.outputPtr, param.hcclBuff));
+    tempFastLaunchCtx1.threads = tmp1Threads_;
+    tempFastLaunchCtx1.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[1]);
+    ccuKernelSubmitInfos += ctx->ccuKernelNum[1];
+    if (ctx->ccuKernelNum[1] > 0) {
+        CHK_RET(tempAlg1.FastLaunch(param, tempFastLaunchCtx1));
+    }
+
+    // 后同步
+    std::vector<u32> notifyIdxSubToMain = {static_cast<u32>(temp0Threads_.size() - 1)};
+    CHK_RET(PostSyncInterThreads(temp0ThreadMain_, subThreads, notifyIdxSubToMain));
+
+    HCCL_INFO("[InsV2AllToAllConcurrentExecutor][FastLaunch] End.");
+    return HCCL_SUCCESS;
+}
+#endif
 
 // 第1个模板走mesh拓扑
 // 第2个模板走clos拓扑
