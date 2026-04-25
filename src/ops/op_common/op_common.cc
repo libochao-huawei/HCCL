@@ -56,7 +56,8 @@ constexpr u32 AIV_ENDPOINT_COMM_MARK_MAGIC = 0x41495645; // "AIVE"
 
 struct AivEndpointCommMark {
     u32 magic;
-    u32 hash;
+    u32 commModeHash;
+    u64 commHandle;
 };
 
 static u32 CalcAivCommMarkHash(const char *tag)
@@ -74,11 +75,12 @@ static u32 CalcAivCommMarkHash(const char *tag)
     return hash;
 }
 
-static HcclResult MarkAivEndpointByCommTag(const OpParam &param, HcclChannelDesc &channelDesc)
+static HcclResult MarkAivEndpointByComm(const OpParam &param, HcclChannelDesc &channelDesc)
 {
     static_assert(sizeof(AivEndpointCommMark) <= sizeof(channelDesc.localEndpoint.raws),
         "AIV endpoint comm mark exceeds endpoint extension size");
-    AivEndpointCommMark mark {AIV_ENDPOINT_COMM_MARK_MAGIC, CalcAivCommMarkHash(param.commModeTag)};
+    AivEndpointCommMark mark {AIV_ENDPOINT_COMM_MARK_MAGIC, CalcAivCommMarkHash(param.commModeTag),
+        reinterpret_cast<u64>(param.hcclComm)};
     CHK_SAFETY_FUNC_RET(memcpy_s(channelDesc.localEndpoint.raws, sizeof(channelDesc.localEndpoint.raws),
         &mark, sizeof(mark)));
     CHK_SAFETY_FUNC_RET(memcpy_s(channelDesc.remoteEndpoint.raws, sizeof(channelDesc.remoteEndpoint.raws),
@@ -86,11 +88,11 @@ static HcclResult MarkAivEndpointByCommTag(const OpParam &param, HcclChannelDesc
     return HCCL_SUCCESS;
 }
 
-static HcclResult MarkAivChannelEndpointsByCommTag(const OpParam &param,
+static HcclResult MarkAivChannelEndpointsByComm(const OpParam &param,
     std::vector<HcclChannelDesc> &channelRequests)
 {
     for (auto &channelDesc : channelRequests) {
-        CHK_RET(MarkAivEndpointByCommTag(param, channelDesc));
+        CHK_RET(MarkAivEndpointByComm(param, channelDesc));
     }
     return HCCL_SUCCESS;
 }
@@ -1311,7 +1313,7 @@ HcclResult HcclAllocAlgResourceAiv(
     for (u32 level = 0; level < resRequest.channels.size(); level++) {
         // 获取子通信域的建链请求
         std::vector<HcclChannelDesc> &levelNChannelRequest = resRequest.channels[level];
-        CHK_RET(MarkAivChannelEndpointsByCommTag(param, levelNChannelRequest));
+        CHK_RET(MarkAivChannelEndpointsByComm(param, levelNChannelRequest));
         for (auto &channelDesc : levelNChannelRequest) {
             channelDesc.memHandles = &memHandle;
             channelDesc.memHandleNum = 1;
