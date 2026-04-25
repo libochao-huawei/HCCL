@@ -512,7 +512,7 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
     // 执行第一个模板算法
     HCCL_INFO("[InsV2AllToAllConcurrentExecutor][FastLaunch] temp0 ccuKernelNum[%llu]", ctx->ccuKernelNum[0]);
     CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtx0, param.inputPtr, param.outputPtr, param.hcclBuff));
-    tempFastLaunchCtx0.threads = tmp0Threads_;
+    tempFastLaunchCtx0.threads = temp0Threads_;
     tempFastLaunchCtx0.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[0]);
     ccuKernelSubmitInfos += ctx->ccuKernelNum[0];
     if (ctx->ccuKernelNum[0] > 0) {
@@ -522,7 +522,7 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
     // 执行第二个模板算法
     HCCL_INFO("[InsV2AllToAllConcurrentExecutor][FastLaunch] temp1 ccuKernelNum[%llu]", ctx->ccuKernelNum[1]);
     CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtx1, param.inputPtr, param.outputPtr, param.hcclBuff));
-    tempFastLaunchCtx1.threads = tmp1Threads_;
+    tempFastLaunchCtx1.threads = temp1Threads_;
     tempFastLaunchCtx1.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[1]);
     ccuKernelSubmitInfos += ctx->ccuKernelNum[1];
     if (ctx->ccuKernelNum[1] > 0) {
