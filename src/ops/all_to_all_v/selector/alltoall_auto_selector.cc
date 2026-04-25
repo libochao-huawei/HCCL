@@ -48,10 +48,15 @@ SelectorStatus AlltoAllAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNet
         } else if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_NOT_REGULAR) {
             HCCL_DEBUG("[AlltoAllAutoSelector][%s] TWO_DIE_NOT_REGULAR not match", __func__);
             return SelectorStatus::NOT_MATCH;
-        } else if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
+        } else {
             selectAlgName = "CcuAlltoAllMesh1D";
         }
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+        // PCIE-SW定制机型，Mesh无法链接全卡时，需要跨pcie链路，不支持ccu模式
+        if (topoInfo->level0PcieMix && !IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
+            HCCL_WARNING("[AlltoAllAutoSelector] pcie mixed topo is not supported yet for ccu schedule mode.");
+            return SelectorStatus::NOT_MATCH;
+        }
         uint32_t dataTypeSize = DATATYPE_SIZE_TABLE[opParam.all2AllDataDes.sendType];
         uint64_t dataSize = opParam.all2AllDataDes.sendCount * dataTypeSize;
         bool isMeshNumEqualToClosNum = false;
@@ -92,6 +97,12 @@ SelectorStatus AlltoAllAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerD
     if (topoInfo->level0Topo == Level0Shape::MESH_1D || topoInfo->level0Topo == Level0Shape::CLOS) {
         selectAlgName = "InsAlltoAllMesh1D";
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+        // PCIE-SW定制机型，Mesh无法链接全卡时，需要跨pcie链路，选择适配算法
+        if (topoInfo->level0PcieMix && !IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
+            selectAlgName = "InsAlltoAllMesh1D";
+            HCCL_INFO("[AlltoAllAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
+            return SelectorStatus::MATCH;
+        }
         uint32_t dataTypeSize = DATATYPE_SIZE_TABLE[opParam.all2AllDataDes.sendType];
         uint64_t dataSize = opParam.all2AllDataDes.sendCount * dataTypeSize;
         bool isMeshNumEqualToClosNum = false;
@@ -99,7 +110,8 @@ SelectorStatus AlltoAllAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerD
             HCCL_ERROR("[AlltoAllAutoSelector] CheckMeshNumEqualToClosNum failed."),
             SelectorStatus::NOT_MATCH);
         if ((isMeshNumEqualToClosNum == true) && (topoInfo->userRankSize <= CONCURRENT_RANK_LIMIT) &&
-            (opParam.all2AllDataDes.sendCount > BIG_DATA_SIZE_LIMIT)) { // 同一组4P且大数据量，不走并发
+            (opParam.all2AllDataDes.sendCount > BIG_DATA_SIZE_LIMIT)) {
+            // 同一组4P且大数据量，不走并发
             selectAlgName = "InsAllToAllMesh1DConcurrent";
         } else {
             selectAlgName = "InsAlltoAllMesh1D";

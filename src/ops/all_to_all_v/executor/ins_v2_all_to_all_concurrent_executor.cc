@@ -118,7 +118,7 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
         resourceRequest.ccuKernelInfos.insert(resourceRequest.ccuKernelInfos.end(),
                                               resReq1.ccuKernelInfos.begin(),
                                               resReq1.ccuKernelInfos.end());
-    } else if (param.engine == CommEngine::COMM_ENGINE_AICPU) {
+    } else if (param.engine == CommEngine::COMM_ENGINE_AICPU || param.engine == CommEngine::COMM_ENGINE_AICPU_TS) {
         resourceRequest.channels[0].insert(resourceRequest.channels[0].end(),
                                               channelDescs0.begin(),
                                               channelDescs0.end());
@@ -143,7 +143,7 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
     maxTmpMemSize_ = resCtx.cclMem.size;
     // 给channels_和threads_赋值
     threads_ = resCtx.threads;
-    if (param.engine == CommEngine::COMM_ENGINE_AICPU) {
+    if (param.engine == CommEngine::COMM_ENGINE_AICPU || param.engine == CommEngine::COMM_ENGINE_AICPU_TS) {
         CHK_RET(RestoreChannelMap(resCtx, remoteRankToChannelInfo_));
     }
 
@@ -168,7 +168,7 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
     if (param.engine == COMM_ENGINE_CCU) {
         templateAlgRes.ccuKernels = {resCtx.ccuKernels[index]};
     }
-    if (param.engine == COMM_ENGINE_AICPU) {
+    if (param.engine == COMM_ENGINE_AICPU || param.engine == CommEngine::COMM_ENGINE_AICPU_TS) {
         CHK_RET(RestoreChannelMap(resCtx, remoteRankToChannelInfo_));
         templateAlgRes.channels = remoteRankToChannelInfo_[index];
     }
@@ -388,7 +388,7 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
 
         // 单次循环处理的数据量大小
         // 使用ccu的时候不需要除以rank_size
-        if (param.engine == CommEngine::COMM_ENGINE_AICPU) {
+        if (param.engine == CommEngine::COMM_ENGINE_AICPU || param.engine == CommEngine::COMM_ENGINE_AICPU_TS) {
             maxDataCountPerLoop[i] = maxDataSizePerLoop / dataTypeSize_ / rankSize_; // 发往单卡的数据量  使用scratch buffer
         } else {
             maxDataCountPerLoop[i] = maxDataSizePerLoop / dataTypeSize_;

@@ -25,6 +25,7 @@ enum class HcclNetLayer {
     HCCL_NetLayer_L0 = 0,
     HCCL_NetLayer_L1,
     HCCL_NetLayer_L2,
+    HCCL_NetLayer_L3,
     HCCL_NetLayer_MAX,
 };
 
@@ -97,6 +98,8 @@ HcclResult Is2DieFullMesh(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo);
 
 HcclResult CalAllLevelEndpointAttrBwCoeff(
     HcclComm comm, uint32_t rankId, uint32_t levelSize, std::vector<std::vector<EndpointAttrBwCoeff>> &endpointAttrBw);
+
+HcclResult IsLevel0PcieMix(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo);
 
 template<typename T>
 bool is_uniform(const std::vector<T>& vec);

@@ -125,7 +125,7 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
         resourceRequest.ccuKernelInfos.insert(resourceRequest.ccuKernelInfos.end(),
                                                 temp1ResReq.ccuKernelInfos.begin(),
                                                 temp1ResReq.ccuKernelInfos.end());
-    } else if (param.engine == CommEngine::COMM_ENGINE_AICPU) {
+    } else if (param.engine == CommEngine::COMM_ENGINE_AICPU || param.engine == CommEngine::COMM_ENGINE_AICPU_TS) {
         resourceRequest.channels.resize(1);
         resourceRequest.channels[0].insert(resourceRequest.channels[0].end(), channelDescs0.begin(),
                                             channelDescs0.end());
@@ -180,7 +180,7 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
             // AIV模式
             templateAlgResforTemp0.aivCommInfoPtr = resCtx.aivCommInfoPtr;
             templateAlgResforTemp1.aivCommInfoPtr = resCtx.aivCommInfoPtr;
-    } else if (param.engine == CommEngine::COMM_ENGINE_AICPU) {
+    } else if (param.engine == CommEngine::COMM_ENGINE_AICPU || param.engine == CommEngine::COMM_ENGINE_AICPU_TS) {
             // AICPU模式 从channel中取出分给两个template的channel
             const auto &channels = resCtx.channels[0];
             const size_t channelCount = channels.size();
@@ -276,6 +276,7 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
                             (dataCountforTemp0 - loopIndex * maxCountPerLoopforTemp0) : maxCountPerLoopforTemp0;
             u64 dataOffsetforMesh = loopIndex * maxCountPerLoopforTemp0 * dataTypeSize_;
             GenTempAlgParams(dataOffsetforMesh, currCount, maxCountPerLoopforTemp0, tempAlgParamsforTemp0);
+            tempAlgParamsforTemp0.outputSliceStride = 0;
             CHK_RET(tempAlg0->KernelRun(param, tempAlgParamsforTemp0, templateAlgResforTemp0));
         }
 
@@ -284,6 +285,7 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
                             (dataCountforTemp1 - loopIndex * maxCountPerLoopforTemp1) : maxCountPerLoopforTemp1;
             u64 dataOffsetforNhr = dataCountforTemp0 * dataTypeSize_ + loopIndex * maxCountPerLoopforTemp1 * dataTypeSize_;
             GenTempAlgParams(dataOffsetforNhr, currCount, maxCountPerLoopforTemp1, tempAlgParamsforTemp1);
+            tempAlgParamsforTemp1.outputSliceStride = maxCountPerLoopforTemp1 * dataTypeSize_; // 如果是scratchbuffer，偏移是单次循环处理的最大数据量
             CHK_RET(tempAlg1->KernelRun(param, tempAlgParamsforTemp1, templateAlgResforTemp1));
         }
     }
@@ -342,7 +344,6 @@ void InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     tempAlgParams.sliceSize = dataCountforTemp * dataTypeSize_;
     tempAlgParams.tailSize = tempAlgParams.sliceSize;
     tempAlgParams.inputSliceStride = dataSize_; // 输出长度
-    tempAlgParams.outputSliceStride = maxCountPerLoop * dataTypeSize_; // 如果是scratchbuffer，偏移是单次循环处理的最大数据量
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>

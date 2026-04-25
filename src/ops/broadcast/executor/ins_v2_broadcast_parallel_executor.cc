@@ -14,6 +14,7 @@
 #include "ins_temp_scatter_mesh_1D.h"
 #include "ins_temp_scatter_nhr.h"
 #include "topo_match_multilevel.h"
+#include "topo_match_pcie_mix.h"
 #include "ccu_temp_all_gather_mesh_1D_mem2mem.h"
 #include "ccu_temp_all_gather_nhr_1D_mem2mem.h"
 #include "ccu_temp_scatter_mesh1d.h"
@@ -382,7 +383,7 @@ void InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
     dataParams.inputRepeatStride = 0;
     dataParams.outputRepeatStride = 0;
     HCCL_INFO("[InsBroadcastParallelExecutor][GenDataParamstempAlg]myRank_[%u] hcclBuffBaseOff[%llu]",myRank_, dataParams.buffInfo.hcclBuffBaseOff);
-
+    
     return;
 }
 
@@ -470,6 +471,10 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 {
     HCCL_INFO("[InsBroadcastParallelExecutor] AlgTemplate intra server is [%s]", tempAlgIntra.Describe().c_str());
     HCCL_INFO("[InsBroadcastParallelExecutor] AlgTemplate inter server is [%s]", tempAlgInter.Describe().c_str());
+
+    CHK_PTR_NULL(param.inputPtr);
+    CHK_PTR_NULL(param.outputPtr);
+    CHK_PTR_NULL(resCtx.cclMem.addr);
 
     std::vector<float> dataSplitSize;
     GetParallelDataSplit(dataSplitSize);
@@ -1027,6 +1032,9 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 // 算法注册
 REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_BROADCAST, InsBroadcastParallelMesh1DNHR, InsBroadcastParallelExecutor,
     TopoMatchMultilevel, InsTempScatterMesh1D, InsTempScatterNHR, InsTempAllGatherMesh1D, InsTempAllGatherNHR);
+REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_BROADCAST, InsBroadcastParallelMesh1DNHRPcie,
+    InsBroadcastParallelExecutor, TopoMatchMultilevel, InsTempScatterMesh1D, InsTempScatterNHR,
+    InsTempAllGatherMesh1D, InsTempAllGatherNHR);
 #ifndef AICPU_COMPILE
 REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_BROADCAST, CcuBroadcastParallelMesh1DNHR, InsBroadcastParallelExecutor,
     TopoMatchMultilevel, CcuTempScatterMesh1D, CcuTempScatterNHR1DMem2Mem, CcuTempAllGatherMesh1DMem2Mem, CcuTempAllGatherNHR1DMem2Mem);

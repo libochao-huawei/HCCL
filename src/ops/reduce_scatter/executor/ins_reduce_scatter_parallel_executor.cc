@@ -46,7 +46,7 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     // 构建template
     std::vector<std::vector<u32>> temp0HierarchyInfo;
     std::vector<std::vector<u32>> temp1HierarchyInfo;
-    if(topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+    if(topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
         temp0HierarchyInfo = {algHierarchyInfo.infos[0][0]};
         std::vector<u32> closRanks;
         u32 meshSize = algHierarchyInfo.infos[0][0].size();
@@ -244,6 +244,11 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
 {
     u64 intraThreadsNum = tempAlgIntra.GetThreadNum();
     u64 interThreadsNum = tempAlgInter.GetThreadNum();
+    if (threads_.size() < intraThreadsNum + interThreadsNum + 1) {
+        HCCL_ERROR("[InsReduceScatterParallelExecutor][PrepareResForTemplate] threads size is %d, but intraThreadsNum is %d, interThreadsNum is %d",
+            threads_.size(), intraThreadsNum, interThreadsNum);
+        return HCCL_E_PARA;
+    }
     intraThreads_.assign(threads_.begin() + 1, threads_.begin() + 1 + intraThreadsNum);
     interThreads_.assign(threads_.begin() + 1 + intraThreadsNum, threads_.end());
     // 用于两个算法同步
@@ -284,7 +289,7 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
 
     std::vector<std::vector<u32>> temp0HierarchyInfo;
     std::vector<std::vector<u32>> temp1HierarchyInfo;
-    if(resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS) {
+    if(resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS && !resCtx.topoInfo.level0PcieMix) {
         temp0HierarchyInfo = {resCtx.algHierarchyInfo.infos[0][0]};
         std::vector<u32> closRanks;
         u32 meshSize = resCtx.algHierarchyInfo.infos[0][0].size();
@@ -521,6 +526,10 @@ uint64_t InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
 // 算法注册
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, InsReduceScatterParallelMesh1DNHR,
     InsReduceScatterParallelExecutor, TopoMatchMultilevel, InsTempReduceScatterMesh1D, InsTempReduceScatterNHR);
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, InsReduceScatterParallelMesh1DNHRUBX,
+    InsReduceScatterParallelExecutor, TopoMatchUBX, InsTempReduceScatterMesh1D, InsTempReduceScatterNHR);
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, InsReduceScatterParallelMesh1DNHRPcie,
+    InsReduceScatterParallelExecutor, TopoMatchPcieMix, InsTempReduceScatterMesh1D, InsTempReduceScatterNHR);
 #ifndef AICPU_COMPILE
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterParallelMesh1DNHR,
     InsReduceScatterParallelExecutor, TopoMatchMultilevel, CcuTempReduceScatterMesh1DMem2Mem, CcuTempReduceScatterNHR1DMem2Mem);

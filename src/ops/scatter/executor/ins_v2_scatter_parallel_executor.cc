@@ -37,6 +37,10 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::CalcRes(HcclComm comm, const OpParam& param,
         const TopoInfoWithNetLayerDetails* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo, AlgResourceRequest& resourceRequest)
 {
+    CHK_PTR_NULL(topoInfo);
+    CHK_PRT_RET(algHierarchyInfo.infos.empty(), 
+                HCCL_ERROR("[InsV2ScatterParallelExecutor][CalcRes] algHierarchyInfo.infos is empty"),
+                HCCL_E_PARA);
     // 构建template
     std::shared_ptr<InsAlgTemplate0> intraAlgTemplate =
         std::make_shared<InsAlgTemplate0>(param, topoInfo->userRank, algHierarchyInfo.infos[COMM_LEVEL0]);
@@ -569,6 +573,8 @@ HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_SCATTER, InsScatterParallelMesh1DNHR, InsV2ScatterParallelExecutor,
     TopoMatchMultilevel, InsTempScatterMesh1D, InsTempScatterNHR);
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_SCATTER, InsScatterParallelMesh1DNHRPcie,
+    InsV2ScatterParallelExecutor, TopoMatchPcieMix, InsTempScatterMesh1D, InsTempScatterNHR);
 #ifndef AICPU_COMPILE
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_SCATTER, CcuScatterParallelMesh1DNHR, InsV2ScatterParallelExecutor,
     TopoMatchMultilevel, CcuTempScatterMesh1D, CcuTempScatterNHR1DMem2Mem);
