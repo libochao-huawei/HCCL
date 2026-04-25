@@ -545,6 +545,158 @@ CcuResult GroupReduce(CcuKernelCtxBase &ctx, const size_t channels[], uint32_t c
     return CCU_SUCCESS;
 }
 
+CcuResult CreateMultiOpBroadcast(CcuKernelCtxBase &ctx, GroupBroadcastVar &var,
+                                  const size_t channels[], uint32_t channelCount)
+{
+    AllocGoResource(ctx.moConfig, ctx.moRes, ctx.resourceAllocated);
+
+    if (ctx.loopRegistered) {
+        return CCU_SUCCESS;
+    }
+
+    uint32_t size = channelCount + 1;
+
+    for (int32_t index = 0; index < 2; index++) {
+        var.loopRemoteDst[index].resize(channelCount);
+        for (uint32_t i = 0; i < channelCount; i++) {
+            CCU_CHK_RET(ccu::Alloc(&var.loopRemoteDst[index][i]));
+        }
+        CCU_CHK_RET(ccu::Alloc(&var.loopLocalDst[index]));
+        CCU_CHK_RET(ccu::Alloc(&var.loopSrc[index]));
+        CCU_CHK_RET(ccu::Alloc(&var.loopLen[index]));
+
+        uint32_t bufBase = index * ctx.moConfig.msInterleave;
+        CcuEvent loopEvt = ctx.moRes.completedEvent[index];
+
+        CCU_LOOP(ctx.loops[index]) {
+            loopEvt.mask = 1;
+            ccu::LocalCopyNb(ctx.moRes.ccuBuf[bufBase], var.loopSrc[index],
+                             var.loopLen[index], loopEvt);
+            ccu::WaitEvent(loopEvt);
+
+            for (uint32_t i = 0; i < channelCount; i++) {
+                loopEvt.mask = 1 << i;
+                ccu::WriteNb(channels[i], var.loopRemoteDst[index][i],
+                             ctx.moRes.ccuBuf[bufBase], var.loopLen[index], loopEvt);
+            }
+            loopEvt.mask = 1 << channelCount;
+            ccu::LocalCopyNb(var.loopLocalDst[index], ctx.moRes.ccuBuf[bufBase],
+                             var.loopLen[index], loopEvt);
+            loopEvt.mask = (1 << size) - 1;
+            ccu::WaitEvent(loopEvt);
+        }
+    }
+
+    ctx.loopRegistered = true;
+    return CCU_SUCCESS;
+}
+
+CcuResult GroupBroadcast(CcuKernelCtxBase &ctx, const size_t channels[], uint32_t channelCount,
+                          ccu::LocalAddr src, std::vector<ccu::RemoteAddr> remoteDst,
+                          ccu::LocalAddr localDst, GroupOpSizeVars goSize)
+{
+    GroupBroadcastVar var;
+    CCU_CHK_RET(CreateMultiOpBroadcast(ctx, var, channels, channelCount));
+
+    uint32_t size = channelCount + 1;
+
+    // m 部分
+    CCU_IF_ONLY(goSize.loopParam != 0)
+    {
+        CcuVariable loopParam;
+        CCU_CHK_RET(ccu::Alloc(&loopParam));
+        loopParam = GetLoopParam(0, ctx.moConfig.memSlice * ctx.moConfig.loopCount, 0);
+        loopParam = loopParam + goSize.loopParam;
+
+        CcuVariable sliceSize;
+        CCU_CHK_RET(ccu::Alloc(&sliceSize));
+        sliceSize = ctx.moConfig.memSlice;
+
+        var.loopSrc[0].addr  = src.addr;
+        var.loopSrc[0].token = src.token;
+        for (uint32_t i = 0; i < channelCount; ++i) {
+            var.loopRemoteDst[0][i].addr  = remoteDst[i].addr;
+            var.loopRemoteDst[0][i].token = remoteDst[i].token;
+        }
+        var.loopLocalDst[0].addr  = localDst.addr;
+        var.loopLocalDst[0].token = localDst.token;
+        var.loopLen[0] = sliceSize;
+
+        CcuVariable paraCfg;
+        CCU_CHK_RET(ccu::Alloc(&paraCfg));
+        paraCfg = GetParallelParam(ctx.moConfig.loopCount - 1, 0, 1);
+
+        CcuVariable offsetCfg;
+        CCU_CHK_RET(ccu::Alloc(&offsetCfg));
+        offsetCfg = GetOffsetParam(ctx.moConfig.memSlice, ctx.moConfig.msInterleave, 1);
+
+        CcuLoopGroup group;
+        CCU_CHK_RET(ccu::CreateLoopGroup(&group, &paraCfg, &offsetCfg, ctx.enginePool));
+        CCU_CHK_RET(ccu::AddLoop(group, ctx.loops[0], &loopParam));
+    }
+
+    // n+p 部分
+    CCU_IF_ONLY(goSize.parallelParam != 0)
+    {
+        src.addr += goSize.addrOffset;
+        for (uint32_t i = 0; i < channelCount; i++) {
+            remoteDst[i].addr += goSize.addrOffset;
+        }
+        localDst.addr += goSize.addrOffset;
+
+        // 绑定 loop0 参数 (p 部分)
+        var.loopSrc[0].addr  = src.addr;
+        var.loopSrc[0].token = src.token;
+        for (uint32_t i = 0; i < channelCount; ++i) {
+            var.loopRemoteDst[0][i].addr  = remoteDst[i].addr;
+            var.loopRemoteDst[0][i].token = remoteDst[i].token;
+        }
+        var.loopLocalDst[0].addr  = localDst.addr;
+        var.loopLocalDst[0].token = localDst.token;
+        var.loopLen[0] = goSize.residual;
+
+        src.addr += goSize.residual;
+        for (uint32_t i = 0; i < channelCount; i++) {
+            remoteDst[i].addr += goSize.residual;
+        }
+        localDst.addr += goSize.residual;
+
+        CcuVariable sliceSize;
+        CCU_CHK_RET(ccu::Alloc(&sliceSize));
+        sliceSize = ctx.moConfig.memSlice;
+
+        // 绑定 loop1 参数 (n 部分)
+        var.loopSrc[1].addr  = src.addr;
+        var.loopSrc[1].token = src.token;
+        for (uint32_t i = 0; i < channelCount; ++i) {
+            var.loopRemoteDst[1][i].addr  = remoteDst[i].addr;
+            var.loopRemoteDst[1][i].token = remoteDst[i].token;
+        }
+        var.loopLocalDst[1].addr  = localDst.addr;
+        var.loopLocalDst[1].token = localDst.token;
+        var.loopLen[1] = sliceSize;
+
+        CcuVariable loopCfg0;
+        CCU_CHK_RET(ccu::Alloc(&loopCfg0));
+        loopCfg0 = GetLoopParam(0, 0, 1);
+
+        CcuVariable loopCfg1;
+        CCU_CHK_RET(ccu::Alloc(&loopCfg1));
+        loopCfg1 = GetLoopParam(0, 0, 1);
+
+        CcuVariable offsetCfg;
+        CCU_CHK_RET(ccu::Alloc(&offsetCfg));
+        offsetCfg = GetOffsetParam(ctx.moConfig.memSlice, ctx.moConfig.msInterleave, 1);
+
+        CcuLoopGroup group;
+        CCU_CHK_RET(ccu::CreateLoopGroup(&group, &goSize.parallelParam, &offsetCfg, ctx.enginePool));
+        CCU_CHK_RET(ccu::AddLoop(group, ctx.loops[0], &loopCfg0));
+        CCU_CHK_RET(ccu::AddLoop(group, ctx.loops[1], &loopCfg1));
+    }
+
+    return CCU_SUCCESS;
+}
+
 // HcclResult CcuKernelAlgBase::CreateMultiOpBroadcastWithoutMyRank(const std::vector<ChannelHandle> &channels)
 // {
 //     AllocGoResource();
