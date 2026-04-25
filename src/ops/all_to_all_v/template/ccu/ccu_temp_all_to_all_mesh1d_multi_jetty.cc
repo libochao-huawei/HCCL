@@ -74,6 +74,38 @@ HcclResult CcuTempAllToAllMesh1dMultiJetty::CalcRes(HcclComm comm, const OpParam
     return HcclResult::HCCL_SUCCESS;
 }
 
+HcclResult CcuTempAllToAllMesh1dMultiJetty::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+{
+    if (tempFastLaunchCtx.ccuKernelSubmitInfos.size() == 0) {
+        HCCL_INFO("[CcuTempAllToAllMesh1dMultiJetty::FastLaunch] ccu kernel num is 0, just success.");
+        return HCCL_SUCCESS;
+    }
+    HCCL_DEBUG("[CcuTempAllToAllMesh1dMultiJetty::FastLaunch] start");
+    const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
+    buffInfo_ = tempFastLaunchCtx.buffInfo;
+    
+    // 计算NHR Multi Jetty特有的参数
+    CcuTaskArgAllToAllMesh1DMultiJetty taskArg(
+        PointerToAddr(buffInfo_.inputPtr) + args[0],
+        PointerToAddr(buffInfo_.outputPtr) + args[1],
+        args[2], // sliceSize
+        args[3], // jettySlice
+        args[4], // jettySliceTail
+        args[5], // token
+        args[6], // srcOffset
+        args[7], // dstOffset
+        args[8]  // srcStride
+    );
+
+    void* taskArgPtr = static_cast<void*>(&taskArg);
+
+    CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0], 
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr));
+
+    HCCL_DEBUG("[CcuTempAllToAllMesh1dMultiJetty::FastLaunch] end"); 
+    return HcclResult::HCCL_SUCCESS;
+}
+
 HcclResult CcuTempAllToAllMesh1dMultiJetty::KernelRun(const OpParam& param, const TemplateDataParams& templateDataParams,
                                                         TemplateResource& templateResource)
 {
@@ -118,7 +150,13 @@ HcclResult CcuTempAllToAllMesh1dMultiJetty::KernelRun(const OpParam& param, cons
     void* taskArgPtr = static_cast<void*>(taskArg.get());
 
     HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr);
-    
+    //所有task下发完再保存参数信息
+    CcuKernelSubmitInfo submitInfo;
+    submitInfo.kernelHandle = templateResource.ccuKernels[0];
+    CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, sliceSize, 
+        jettySlice, jettySliceTail, token, srcOffset, dstOffset, srcStride));
+    templateResource.submitInfos.push_back(submitInfo);
+  
     HCCL_DEBUG("[CcuTempAllToAllMesh1dMultiJetty::KernelRun] end");
 
     return HcclResult::HCCL_SUCCESS;
@@ -129,4 +167,8 @@ u64 CcuTempAllToAllMesh1dMultiJetty::CalcScratchMultiple(BufferType inBuffType, 
     return 0;
 }
 
+u64 CcuTempAllReduceNhrMem2Mem1DMultiJetty::GetThreadNum() const
+{
+    return 1;
+}
 } // namespace ops_hccl
