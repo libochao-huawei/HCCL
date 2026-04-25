@@ -258,11 +258,11 @@ HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std
             }
         } else {
             DieIdType dieId = 0;
-            EndpointDesc localEndpoint = channel.localEndpoint;
+            EndpointDesc localEndpoint = channel_list[0].localEndpoint;
             HcclResult ret = HcclRankGraphGetEndpointInfo(comm, myRank_, &localEndpoint, ENDPOINT_ATTR_DIE_ID,
                 dieIdTypeSize, static_cast<void*>(&dieId));
-            channels_[dieId].emplace_back(channel);
-            rankGroup_[dieId].push_back(channel.remoteRank);
+            channels_[dieId].emplace_back(channel_list[0]);
+            rankGroup_[dieId].push_back(channel_list[0].remoteRank);
             meshDieId = dieId;
             HCCL_INFO("Mesh DieId: %u", meshDieId);
         }
