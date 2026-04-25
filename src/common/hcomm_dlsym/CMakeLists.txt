@@ -141,6 +141,7 @@ endif()
     target_sources(hccl_compat PRIVATE
         hccl_rank_graph_dl.cc
         hccl_res_dl.cc
+        hccl_res_exp_dl.cc
         hcomm_primitives_dl.cc
         hcomm_dlsym.cc
         hccl_inner_dl.cc

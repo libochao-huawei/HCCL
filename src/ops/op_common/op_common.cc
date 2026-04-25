@@ -45,7 +45,7 @@
 #include "dlhcomm_function.h"
 #include "hccl_diag.h"
 #include "hcom.h"
-#include "hccl_res_exp.h"
+#include "hccl_res_exp_dl.h"
 
 namespace ops_hccl {
 thread_local std::map<std::string, HcclMemHandle> g_memHandleCache; // 当前AIV存放注册内存的memHandle使用
