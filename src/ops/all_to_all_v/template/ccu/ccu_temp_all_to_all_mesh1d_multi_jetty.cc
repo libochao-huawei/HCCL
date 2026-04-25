@@ -167,7 +167,7 @@ u64 CcuTempAllToAllMesh1dMultiJetty::CalcScratchMultiple(BufferType inBuffType, 
     return 0;
 }
 
-u64 CcuTempAllReduceNhrMem2Mem1DMultiJetty::GetThreadNum() const
+u64 CcuTempAllToAllMesh1dMultiJetty::GetThreadNum() const
 {
     return 1;
 }

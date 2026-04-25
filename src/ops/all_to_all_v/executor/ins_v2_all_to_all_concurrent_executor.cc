@@ -461,29 +461,6 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
     tempAlgParams.outputRepeatStride = 0;
     return HCCL_SUCCESS;
 }
-template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
-HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::PrepareResForTemplate(
-    InsAlgTemplate0 &tempAlg0, InsAlgTemplate1 &tempAlg1)
-{
-    AlgResourceRequest temp0Request;
-    AlgResourceRequest temp1Request;
-    tempAlg0.GetRes(temp0Request);
-    tempAlg1.GetRes(temp1Request);
-
-    auto tmp0ThreadsNum = temp0Request.slaveThreadNum + 1;
-    auto tmp1ThreadsNum = temp1Request.slaveThreadNum + 1;
-    auto tmp0NotifyOnMainThread = temp0Request.notifyNumOnMainThread;
-    auto tmp1NotifyOnMainThread = temp1Request.notifyNumOnMainThread;
-
-    tmp0Threads_.assign(threads_.begin(), threads_.begin() + tmp0ThreadsNum);
-    tmp1Threads_.assign(threads_.begin() + tmp0ThreadsNum, threads_.end());
-    mainThread_ = tmp0Threads_.at(0);
-    templateMainThreads_.emplace_back(tmp1Threads_.at(0));
-    syncNotifyOnTemplates_ = {tmp1NotifyOnMainThread};
-    syncNotifyOnMain_ = {tmp0NotifyOnMainThread};
-
-    return HCCL_SUCCESS;
-}
 
 #ifndef AICPU_COMPILE
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
