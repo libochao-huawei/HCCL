@@ -80,6 +80,7 @@ private:
     std::map<u32, std::vector<ChannelInfo>> interChannelMap_;
     std::vector<ThreadHandle> threads_;
     std::vector<std::map<u32, std::vector<ChannelInfo>>> remoteRankToChannelInfo_;
+    double multipleDimensionSplitRatio_{0.8};
 };
 
 } // namespace Hccl
