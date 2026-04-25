@@ -119,22 +119,19 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcChannelRequest(HcclComm comm, const Op
 #ifndef AICPU_COMPILE
     (void) param;
     channels.clear();
-    std::set<u32> connectRanks;
-    u32 myRank = topoInfo->userRank;
-    auto it = std::find(subcommInfo[0].begin(), subcommInfo[0].end(), myRank);
-    CHK_PRT_RET((it == subcommInfo[0].end()),
-                HCCL_ERROR("[CollAlgFactory] [channel] Rank [%d] is not in commInfo.", myRank),
+    auto it = std::find(subcommInfo[COMM_LEVEL0].begin(), subcommInfo[COMM_LEVEL0].end(), topoInfo->userRank);
+    CHK_PRT_RET((it == subcommInfo[COMM_LEVEL0].end()),
+                HCCL_ERROR("[CollAlgFactory] [channel] Rank [%d] is not in commInfo.", topoInfo->userRank),
                 HcclResult::HCCL_E_PARA);
 
-    u32 localRank = std::distance(subcommInfo[0].begin(), it);
-    u32 localRankSize = subcommInfo[0].size();
-    CHK_RET(CalcNHRChannelConnect(localRank, localRankSize, INVALID_VALUE_RANKID, connectRanks));
-
-    // 根据engine获取期望的协议类型列表
+    u32 myRank = topoInfo->userRank;
     std::vector<CommProtocol> expectedProtocols;
     CHK_RET(GetProtocolByEngine(param, expectedProtocols));
 
-    for (u32 rankIdx: connectRanks) {
+    for (u32 rank: subcommInfo[COMM_LEVEL0]) {
+        if (rank == topoInfo->userRank) {
+            continue;
+        }
         size_t channelCountBefore = channels.size();
         uint32_t *netLayers;
         uint32_t netLayerNum;
@@ -144,7 +141,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcChannelRequest(HcclComm comm, const Op
         for (auto netLayer : netLayersVector) {
             CommLink *linkList = nullptr;
             u32 listSize;
-            CHK_RET(HcclRankGraphGetLinks(comm, netLayer, myRank, subcommInfo[0][rankIdx], &linkList, &listSize));
+            CHK_RET(HcclRankGraphGetLinks(comm, netLayer, myRank, rank, &linkList, &listSize));
 
             if (listSize == 0) {
                 continue;
@@ -152,7 +149,8 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcChannelRequest(HcclComm comm, const Op
 
             std::vector<CommLink> links(linkList, linkList + listSize);
             bool protocolFound = false;
-            CHK_RET(ProcessLinkForProtocolNhr(comm, expectedProtocols, links, myRank, subcommInfo[0][rankIdx], netLayer, channels, protocolFound));
+            CHK_RET(ProcessLinkForProtocol(comm, expectedProtocols, links, myRank, rank, netLayer, channels, protocolFound,
+                std::string("[CalcChannelRequestMesh1D]")));
 
             if (channels.size() > channelCountBefore) {
                 break;
@@ -160,8 +158,8 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcChannelRequest(HcclComm comm, const Op
         }
 
         CHK_PRT_RET(channels.size() == channelCountBefore,
-            HCCL_ERROR("[CalcChannelRequestNhr] Failed to create channel between myRank=%u and rank=%u, there is no link.",
-                myRank, subcommInfo[0][rankIdx]), HcclResult::HCCL_E_INTERNAL);
+            HCCL_ERROR("[CalcChannelRequestMesh1D] Failed to create channel between myRank=%u and rank=%u, there is no link.",
+                myRank, rank), HcclResult::HCCL_E_INTERNAL);
     }
 #endif
     return HCCL_SUCCESS;
@@ -215,6 +213,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std
                                                         std::map<u32, std::vector<HcclChannelDesc>>& rankIdToChannelDesc)
 {   // 目前channelDescs传入的是level0的
     // layer 0 -> mesh layer 1 -> clos 在mesh的时候查一下dieId，选择另外一个dieId的就是6口clos
+    std::map<uint32_t, std::vector<HcclChannelDesc>> clos_channels; // key is DieId
     for (auto& rankToChannels: rankIdToChannelDesc){
         u32 remoteRank = rankToChannels.first;
         std::vector<HcclChannelDesc>& channel_list = rankToChannels.second;
@@ -228,8 +227,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std
                 EndpointDesc localEndpoint = channel.localEndpoint;
                 HcclResult ret = HcclRankGraphGetEndpointInfo(comm, myRank_, &localEndpoint, ENDPOINT_ATTR_DIE_ID,
                     dieIdTypeSize, static_cast<void*>(&dieId));
-                channels_[dieId].emplace_back(channel);
-                rankGroup_[dieId].push_back(channel.remoteRank);
+                clos_channels[dieId].emplace_back(channel);
             }
         } else {
             DieIdType dieId = 0;
@@ -242,6 +240,23 @@ HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std
             HCCL_INFO("Mesh DieId: %u", meshDieId);
         }
     }
+    HCCL_INFO("Mesh channel num[%u], Clos channel num[%u]", channels_[meshDieId].size(), clos_channels[0].size());
+    
+    // 筛选clos链路
+    for(auto& channels: clos_channels){
+        u32 dieId = channels.first;
+        std::vector<HcclChannelDesc>& channel_list = channels.second;
+        if (dieId != meshDieId) {
+            continue;
+        }
+
+        for(auto& channel: channel_list){
+            channel_[dieId].emplace_back(channel);
+            rankGroup_[dieId].push_back(channel.remoteRank);
+        }
+        
+    }
+
     rankGroup_[0].push_back(myRank_);   // keep myRank_ at last, sync with kernel
     rankGroup_[1].push_back(myRank_);
 
