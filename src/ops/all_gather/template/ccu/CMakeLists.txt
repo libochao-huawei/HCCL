@@ -17,6 +17,9 @@ set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/ccu_temp_all_gather_2dies_mesh_1d_mem2mem.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ccu_temp_all_gather_2dies_mesh_1D.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ccu_temp_all_gather_nhr_1D_multi_jetty_mem2mem.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/ccu_temp_all_gather_omnipipe_mesh_1d_mem2mem.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/ccu_temp_all_gather_omnipipe_nhr_1d_multi_jetty_mem2mem.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/ccu_temp_all_gather_omnipipe_local_copy.cc
 )
 
 target_sources(hccl PRIVATE

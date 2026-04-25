@@ -14,6 +14,7 @@ set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_all_gather_sequence_executor.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_all_gather_concurrent_executor.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_all_gather_omnipipe_executor.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_all_gather_ccu_omnipipe_executor.cc
 )
 
 target_sources(hccl PRIVATE

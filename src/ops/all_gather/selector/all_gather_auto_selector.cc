@@ -10,10 +10,19 @@
 
 #include "all_gather_auto_selector.h"
 #include "selector_registry.h"
+#include <cstdlib>
 
 namespace ops_hccl {
 constexpr u64 AG_2D_SMALL_DATA_SIZE = 1024 * 1024;
 constexpr u32 MAX_RANK_NUM_FOR_CONCURRENT_ALGO = 4;
+
+namespace {
+bool IsEnvEnabled(const char *envName)
+{
+    const char *envValue = std::getenv(envName);
+    return envValue != nullptr && std::string(envValue) == "1";
+}
+} // namespace
 
 SelectorStatus AllGatherAutoSelector::SelectCcuMsAlgo(
     const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
@@ -83,6 +92,13 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleUBXAlgo(
         HCCL_DEBUG("[AllGatherAutoSelector] CheckMeshNumEqualToClosNum failed."), SelectorStatus::NOT_MATCH);
     CHK_PRT_RET(CheckClosNumMultipleOfMeshNum(topoInfo, isClosNumMultipleOfMeshNum) != HCCL_SUCCESS,
         HCCL_DEBUG("[AllGatherAutoSelector] CheckClosNumMultipleOfMeshNum failed."), SelectorStatus::NOT_MATCH);
+    if (IsEnvEnabled("HCCL_ENABLE_CCU_OMNIPIPE_ALLGATHER") &&
+        topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && dataSize >= 4 * 1024 * 1024) {
+        selectAlgName = "CcuAllGatherOmniPipeMesh1DNHR";
+        HCCL_INFO("[AllGatherAutoSelector][%s] Algo match [%s] by HCCL_ENABLE_CCU_OMNIPIPE_ALLGATHER.",
+                  __func__, selectAlgName.c_str());
+        return SelectorStatus::MATCH;
+    }
     if (dataSize > SMALL_COUNT_512KB) {
         if (isMeshNumEqualToClosNum && (topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO)) {
             selectAlgName = "CcuAllGatherConcurrentMesh1DNHRMem";
@@ -147,6 +163,14 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
     if (topoInfo->topoLevelNums > 1) {
+        if (IsEnvEnabled("HCCL_ENABLE_CCU_OMNIPIPE_ALLGATHER") &&
+            IsEnvEnabled("HCCL_ENABLE_CCU_OMNIPIPE_ALLGATHER_Z") &&
+            topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && dataSize >= 4 * 1024 * 1024) {
+            selectAlgName = "CcuAllGatherOmniPipeMesh1DNHRNHR";
+            HCCL_INFO("[AllGatherAutoSelector][%s] Algo match [%s] by CCU OmniPipe Z env.",
+                      __func__, selectAlgName.c_str());
+            return SelectorStatus::MATCH;
+        }
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             // Level1Nhr 已在 CalcTopoShape 中设置（GCD==1 时为 true）
             if (topoInfo->Level1Nhr) {
