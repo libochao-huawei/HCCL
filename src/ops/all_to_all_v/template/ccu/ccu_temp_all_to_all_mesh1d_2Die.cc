@@ -267,7 +267,18 @@ HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std
             HCCL_INFO("Mesh DieId: %u", meshDieId);
         }
     }
+    rankGroup_[0].push_back(myRank_);   // keep myRank_ at last, sync with kernel
+    rankGroup_[1].push_back(myRank_);
+
     HCCL_INFO("PartitionChannels: mesh channels size[%u], clos channels size[%u]", channels_[meshDieId].size(), channels_[1-meshDieId].size());
+    
+    uint32_t minChannels = std::min(channels_[0].size(), channels_[1].size());
+    uint32_t maxChannels = std::max(channels_[0].size(), channels_[1].size());
+    CHK_PRT_RET(minChannels + 1 != maxChannels,
+    HCCL_ERROR("[CcuTempAlltoAllMesh2Die][CalcRes] Rank[%d], Unexpected channels size, "
+        "die0 channels[%u], die1 channels[%u].", myRank_, channels_[0], channels_[1]),
+        HcclResult::HCCL_E_PARA);
+    
     return HcclResult::HCCL_SUCCESS;
 }
 
