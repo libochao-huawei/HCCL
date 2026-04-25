@@ -85,7 +85,6 @@ HcclResult CcuTempAllToAllMesh1dMultiJetty::FastLaunch(const OpParam& param, con
     buffInfo_ = tempFastLaunchCtx.buffInfo;
     // 根据channel的jetty数量，再做切分
     std::vector<uint64_t> jettySlice, jettySliceTail;
-    HCCL_INFO("[CcuTempAllToAllMesh1dMultiJetty::FastLaunch] templateranksize[%d], slicesize[%d], ", args[7], args[2]);
     std::vector<u32> jettyNums;
     jettyNums.assign(args[7], STUB_JETTY_NUM);
     for (uint32_t rank = 0; rank < args[7]; rank++) {
