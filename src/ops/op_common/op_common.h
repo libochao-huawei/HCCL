@@ -170,6 +170,8 @@ HcclResult HcclAllocAlgResourceAivGraphMode(HcclComm comm, const OpParam &param,
 
 HcclResult HcclRegstryBuffGraphMode(HcclComm comm, const char *memTag, void *bufferPtr, uint64_t bufferSize, HcclMemHandle *memHandle);
 
+HcclResult SetMultipleDimensionSplitRatio(OpParam &param);
+
 HcclResult CheckHostDPUOnly(const HcclComm comm, const TopoInfoWithNetLayerDetails* topoInfo, bool &hostDPUOnly);
 
 }  // namespace ops_hccl

@@ -158,7 +158,7 @@ private:
 
     std::map<u32, std::pair<u64, u64>> nhrPartDataMap_;
     std::map<u32, std::pair<u64, u64>> meshPartDataMap_;
-
+    double multipleDimensionSplitRatio_{0.8};
 };
 
 } // namespace ops_hccl
