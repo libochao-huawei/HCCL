@@ -27,7 +27,7 @@ InsTempAlltoAllVMesh1D::~InsTempAlltoAllVMesh1D()
 HcclResult InsTempAlltoAllVMesh1D::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
     AlgResourceRequest& resourceRequest)
 {
-    if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && topoInfo->topoLevelNums > 1) {
+    if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && topoInfo->topoLevelNums > 1 && !topoInfo->level0PcieMix) {
         CHK_PRT_RET(subCommRanks_.size() != NET_NUM,
                     HCCL_ERROR("[InsTempAlltoAllVMesh1D][CalcRes] subCommRankNum[%zu] is not [%u]",
                                subCommRanks_.size(), NET_NUM),
