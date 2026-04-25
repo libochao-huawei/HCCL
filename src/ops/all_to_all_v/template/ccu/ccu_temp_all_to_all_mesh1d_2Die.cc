@@ -94,6 +94,25 @@ HcclResult ProcessLinkForProtocolNhr(HcclComm comm, const std::vector<CommProtoc
         netLayer, channels, protocolFound, std::string("[CalcLevel1ChannelRequestNhr]"));
 }
 
+HcclResult CalcNHRChannelConnect(u32 rank, u32 rankSize, u32 root, std::set<u32> &connectRanks)
+{
+    (void)root;
+    connectRanks.clear();
+    if (rankSize == HCCL_RANK_SIZE_EQ_ONE) { // 只有一张卡时不需要建链
+        HCCL_INFO("[CalcNHRChannelConnect] no need to create links, rankSize[%u].", rankSize);
+        return HCCL_SUCCESS;
+    }
+
+    for (u32 delta = 1; delta < rankSize; delta <<= 1) {
+        const u32 targetRankPos = static_cast<u32>(rank + delta) % rankSize;
+        const u32 targetRankNeg = static_cast<u32>(rank + rankSize - delta) % rankSize;
+        connectRanks.insert(targetRankPos);
+        connectRanks.insert(targetRankNeg);
+        HCCL_INFO("[CalcNHRChannelConnect]localRank[%u], rankPos[%u], rankNeg[%u]", rank, targetRankPos, targetRankNeg);
+    }
+    return HCCL_SUCCESS;
+}
+
 HcclResult CcuTempAllToAllMesh1D2Die::CalcChannelRequest(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
     const std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels)
 {
