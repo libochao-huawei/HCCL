@@ -96,7 +96,7 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     // 给channels_和threads_赋值
     threads_ = resCtx.threads;
     if (param.engine != CommEngine::COMM_ENGINE_AIV && param.engine != CommEngine::COMM_ENGINE_CCU) {
-        if (resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
+        if (resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS && !resCtx.topoInfo.level0PcieMix) {
             CHK_PRT_RET(resCtx.channels.size() != CONST_ONE,
                         HCCL_ERROR("[InsV2AlltoAllVSoleExecutor][Orchestrate] resCtx.channels.size[%zu] is not [%u]",
                                    resCtx.channels.size(), CONST_ONE),
