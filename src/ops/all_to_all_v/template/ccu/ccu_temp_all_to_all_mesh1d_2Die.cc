@@ -159,8 +159,8 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcChannelRequest(HcclComm comm, const Op
     }
 
     std::set<u32> connectRanks;
-    u32 localRank = std::distance(subcommInfo[0].begin(), it);
-    u32 localRankSize = subcommInfo[0].size();
+    u32 localRank = std::distance(subcommInfo[1].begin(), it);
+    u32 localRankSize = subcommInfo[1].size();
     CHK_RET(CalcNHRChannelConnect(localRank, localRankSize, INVALID_VALUE_RANKID, connectRanks));
 
     for (u32 rankIdx: connectRanks) {
@@ -206,12 +206,12 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcRes(HcclComm comm, const OpParam& para
     // mesh和clos的channel分开。通过layer去查，或者通过到某个对端的数量来判断，两个的就是clos。
     // 获取mesh的dieid。
     // 获取clos的dieid
-    CHK_RET(CalcChannelRequest(comm, param, topoInfo, subCommRanks_, channelDescs));
+    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
     CHK_RET(RestoreChannelMap(channelDescs, rankIdToChannelDesc_));
     HCCL_INFO("channelDescs size[%u]", channelDescs.size());
 
     uint32_t meshDieId = 0;
-    CHK_RET(PartitionChannels(comm, channelDescs, meshDieId));
+    CHK_RET(PartitionChannels(comm, channelDescs, meshDieId, rankIdToChannelDesc_));
     resourceRequest.channels.emplace_back(channelDescs);
     HCCL_INFO("resourceRequest.channels[%d]",resourceRequest.channels.size());
 
@@ -236,38 +236,38 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcRes(HcclComm comm, const OpParam& para
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std::vector<HcclChannelDesc> &channelDescs, uint32_t &meshDieId)
+HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std::vector<HcclChannelDesc> &channelDescs, uint32_t &meshDieId,
+                                                        std::map<u32, std::vector<HcclChannelDesc>>& rankIdToChannelDesc)
 {   // 目前channelDescs传入的是level0的
     // layer 0 -> mesh layer 1 -> clos 在mesh的时候查一下dieId，选择另外一个dieId的就是6口clos
-    for (const auto &channel : channelDescs) {
+    for (auto& rankToChannels: rankIdToChannelDesc){
+        u32 remoteRank = rankToChannels.first;
+        std::vector<HcclChannelDesc>& channel_list = rankToChannels.second;
+
         using DieIdType = uint32_t;
-        const RankId remoteRank = channel.remoteRank;
         const uint32_t dieIdTypeSize = sizeof(DieIdType);
-        EndpointDesc localEndpoint = channel.localEndpoint;
-        HcclResult ret = HcclRankGraphGetEndpointInfo(comm, myRank_, &localEndpoint, ENDPOINT_ATTR_DIE_ID,
-            dieIdTypeSize, static_cast<void*>(&meshDieId));
-        CHK_PRT_RET(ret != HCCL_SUCCESS,
-            HCCL_ERROR("[CcuTempAllToAllMesh1D2Die][CalcRes] Rank[%d] channel to remoteRank[%d], Failed to get dieId. "
-                "errNo[0x%016llx]", myRank_, remoteRank, HCCL_ERROR_CODE(ret)),
-            ret);
-        CHK_PRT_RET(meshDieId >= DIE_NUM,
-            HCCL_ERROR("[CcuTempAllToAllMesh1D2Die][CalcRes] Rank[%d] channel to remoteRank[%d], dieId[%u] is invalid.",
-                myRank_, remoteRank, meshDieId),
-            HCCL_E_INTERNAL);
-        HCCL_INFO("[CcuTempAllToAllMesh1D2Die][CalcRes] Rank[%d] channel to remoteRank[%d], insert to "
-            "channels(dieId[%u]).", myRank_, channel.remoteRank, meshDieId);
-        channels_[meshDieId].emplace_back(channel);
-        rankGroup_[meshDieId].push_back(channel.remoteRank);
+        // clos 链路
+        if(channel_list.size() == 2) {
+            for (const auto &channel : channel_list) {
+                DieIdType dieId = 0;
+                EndpointDesc localEndpoint = channel.localEndpoint;
+                HcclResult ret = HcclRankGraphGetEndpointInfo(comm, myRank_, &localEndpoint, ENDPOINT_ATTR_DIE_ID,
+                    dieIdTypeSize, static_cast<void*>(&dieId));
+                channels_[dieId].emplace_back(channel);
+                rankGroup_[dieId].push_back(channel.remoteRank);
+            }
+        } else {
+            DieIdType dieId = 0;
+            EndpointDesc localEndpoint = channel.localEndpoint;
+            HcclResult ret = HcclRankGraphGetEndpointInfo(comm, myRank_, &localEndpoint, ENDPOINT_ATTR_DIE_ID,
+                dieIdTypeSize, static_cast<void*>(&dieId));
+            channels_[dieId].emplace_back(channel);
+            rankGroup_[dieId].push_back(channel.remoteRank);
+            meshDieId = dieId;
+            HCCL_INFO("Mesh DieId: %u", meshDieId);
+        }
     }
-    rankGroup_[0].push_back(myRank_);   // keep myRank_ at last, sync with kernel
-    rankGroup_[1].push_back(myRank_);
-    HCCL_INFO("channels[0].size[%u], channels[1].size[%u]", channels_[0].size(), channels_[1].size());
-    uint32_t minChannels = std::min(channels_[0].size(), channels_[1].size());
-    uint32_t maxChannels = std::max(channels_[0].size(), channels_[1].size());
-    CHK_PRT_RET(minChannels + 1 != maxChannels,
-        HCCL_ERROR("[CcuTempAllToAllMesh1D2Die][CalcRes] Rank[%d], Unexpected channels size, "
-            "die0 channels[%u], die1 channels[%u].", myRank_, channels_[0], channels_[1]),
-        HcclResult::HCCL_E_PARA);
+    HCCL_INFO("PartitionChannels: mesh channels size[%u], clos channels size[%u]", channels_[meshDieId].size(), channels_[1-meshDieId].size());
     return HcclResult::HCCL_SUCCESS;
 }
 
