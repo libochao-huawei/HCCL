@@ -327,22 +327,27 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             return 1;
         }
 
-        // 要在下第一个task之前上报
-        HcclDfxOpInfo dfxOpInfo{};
-        if (ConvertToHcclDfxOpInfo(param, &dfxOpInfo) != HCCL_SUCCESS) {
-            HCCL_ERROR("ConvertToHcclDfxOpInfo fail, commName is %s, tag is %s", param->commName, param->algTag);
-            return 1;
-        }
-        if (HcclDfxRegOpInfoByCommId(param->commName, reinterpret_cast<void *>(&dfxOpInfo)) != HCCL_SUCCESS) {
-            HCCL_ERROR("HcclDfxRegOpInfoByCommId fail, commName is %s, tag is %s", param->commName, param->algTag);
-            return 1;
+        // 遍历resCtx.threads，调用HcommBatchModeAddThread，注册所有线程到批模式中
+        for (size_t i = 0; i < resCtx.threads.size(); ++i) {
+            HcommBatchModeAddThread(resCtx.threads[i]);
         }
 
-        // 上报上报mainstream数据,第一个任务
-        if (HcommProfilingReportKernelStartTask(thread, param->commName) != HCCL_SUCCESS) {
-            HCCL_ERROR("%sfailed to report MainStream And FirstTask, thread %lu, param->commName %s.", __func__, thread, param->commName);
-            return 1;
-        }
+        // // 要在下第一个task之前上报
+        // HcclDfxOpInfo dfxOpInfo{};
+        // if (ConvertToHcclDfxOpInfo(param, &dfxOpInfo) != HCCL_SUCCESS) {
+        //     HCCL_ERROR("ConvertToHcclDfxOpInfo fail, commName is %s, tag is %s", param->commName, param->algTag);
+        //     return 1;
+        // }
+        // if (HcclDfxRegOpInfoByCommId(param->commName, reinterpret_cast<void *>(&dfxOpInfo)) != HCCL_SUCCESS) {
+        //     HCCL_ERROR("HcclDfxRegOpInfoByCommId fail, commName is %s, tag is %s", param->commName, param->algTag);
+        //     return 1;
+        // }
+
+        // // 上报上报mainstream数据,第一个任务
+        // if (HcommProfilingReportKernelStartTask(thread, param->commName) != HCCL_SUCCESS) {
+        //     HCCL_ERROR("%sfailed to report MainStream And FirstTask, thread %lu, param->commName %s.", __func__, thread, param->commName);
+        //     return 1;
+        // }
 
         // 主thread等待Host stream的通知
         ThreadHandle exportedAicpuTsThread = param->opThread;
@@ -368,11 +373,11 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             return 1;
         }
 
-        // 上报mainstream数据,最后一个任务
-        if (HcommProfilingReportKernelEndTask(thread, param->commName) != HCCL_SUCCESS) {
-            HCCL_ERROR("%s failed to report MainStream And LastTask, thread %lu, param->commName %s.",  __func__, thread, param->commName);
-            return 1;
-        }
+        // // 上报mainstream数据,最后一个任务
+        // if (HcommProfilingReportKernelEndTask(thread, param->commName) != HCCL_SUCCESS) {
+        //     HCCL_ERROR("%s failed to report MainStream And LastTask, thread %lu, param->commName %s.",  __func__, thread, param->commName);
+        //     return 1;
+        // }
 
         constexpr u32 DEFAULT_NOTIFY_IDX = 0;
         HCCL_DEBUG("[%s]Notify record on srcThread[%llu], dstThread[%llu], notifyIdx[%u]",__func__, thread, exportedAicpuTsThread,
@@ -380,10 +385,10 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         CHK_RET(static_cast<HcclResult>(HcommThreadNotifyRecordOnThread(thread, exportedAicpuTsThread,
             DEFAULT_NOTIFY_IDX)));
 
-        if (HcommProfilingReportDeviceOp(param->commName) != HCCL_SUCCESS) {
-            HCCL_ERROR("%s HcommProfilingReportDeviceOp fail, commName[%s]", __func__, param->commName);
-            return 1;
-        }
+        // if (HcommProfilingReportDeviceOp(param->commName) != HCCL_SUCCESS) {
+        //     HCCL_ERROR("%s HcommProfilingReportDeviceOp fail, commName[%s]", __func__, param->commName);
+        //     return 1;
+        // }
         
         if (HcommBatchModeEnd(param->algTag) != HCCL_SUCCESS) {
             HCCL_ERROR("failed set eager mode, tag is %s.", param->algTag);
