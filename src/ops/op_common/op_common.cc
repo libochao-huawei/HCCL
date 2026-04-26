@@ -1558,6 +1558,11 @@ HcclResult SetOpParamAlgTag(OpParam &param, const std::string &algName)
                 param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V) {
                 ccuExtraTag += "_" + HCOM_REDUCE_OP_STR_MAP.at(param.reduceType);
             }
+
+            if (param.opType == HcclCMDType::HCCL_CMD_REDUCE || param.opType == HcclCMDType::HCCL_CMD_SCATTER ||
+                param.opType == HcclCMDType::HCCL_CMD_BROADCAST) {
+                ccuExtraTag += "_r" + std::to_string(param.root);
+            }
             size_t remainBytes = sizeof(param.algTag) - len;
 
             int len_ccu = snprintf_s(param.algTag + len, remainBytes, remainBytes, "%s", ccuExtraTag.c_str());
