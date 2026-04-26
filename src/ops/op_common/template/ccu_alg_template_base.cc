@@ -234,7 +234,7 @@ HcclResult CcuAlgTemplateBase::GetToken(const BuffInfo &buffinfo, uint64_t &toke
         token = hcomm::CcuRep::GetTokenInfo(PointerToAddr(buffinfo.inputPtr),
                                      static_cast<uint64_t>(buffinfo.inputSize));
         return HCCL_SUCCESS;
-    } else if (buffinfo.outputPtr != nullptr && buffinfo.outputPtr != 0) {
+    } else if (buffinfo.outputPtr != nullptr && buffinfo.outputSize != 0) {
         token = hcomm::CcuRep::GetTokenInfo(PointerToAddr(buffinfo.outputPtr),
                                      static_cast<uint64_t>(buffinfo.outputSize));
         return HCCL_SUCCESS;
