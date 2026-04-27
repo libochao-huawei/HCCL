@@ -602,7 +602,7 @@ struct AivParamStorage {
 
 // 算子参数一致性校验信息
 struct OpExchangeInfo {
-    u64 cclBufferSize{0};
+    uint64_t cclBufferSize{0};
     u32 root = INVALID_VALUE_RANKID;
     HcclCMDType opType = HcclCMDType::HCCL_CMD_INVALID;
     CommEngine engine = CommEngine::COMM_ENGINE_RESERVED;
