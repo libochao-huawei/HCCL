@@ -113,27 +113,28 @@ HcclResult InsTempAllGatherNHR::RunAllGatherNHR(const std::vector<ThreadHandle> 
 {
     const u32 nSteps = GetNHRStepNum(templateRankSize_);  // NHR 通信步数， celi(log2(rankSize))
     const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
-    for (u32 rpt = 0; rpt < tempAlgParams_.repeatNum; ++rpt) {
-        const u64 scratchRepeatStride = tempAlgParams_.sliceSize * templateRankSize_;
-        const u64 scratchBase = tempAlgParams_.buffInfo.hcclBuffBaseOff + rpt * scratchRepeatStride;
 
-        for (u32 step = 0; step < nSteps; ++step) {
-            AicpuNHRStepInfo stepInfo;
-            CHK_RET(GetStepInfo(step, nSteps, stepInfo));  // 计算当前step要通信的卡，数据
+    for (u32 step = 0; step < nSteps; ++step) {
+        AicpuNHRStepInfo stepInfo;
+        CHK_RET(GetStepInfo(step, nSteps, stepInfo));  // 计算当前step要通信的卡，数据
 
-            const ChannelInfo &channelRecv = channels.at(GetRankFromMap(stepInfo.fromRank))[channelIdx];
-            const ChannelInfo &channelSend = channels.at(GetRankFromMap(stepInfo.toRank))[channelIdx];
-            // 构造SendRecv， 都是Scratch到Scratch的传输，没有DMA消减
-            std::vector<DataSlice> txSrcSlices;
-            std::vector<DataSlice> txDstSlices;
-            std::vector<DataSlice> rxSrcSlices;
-            std::vector<DataSlice> rxDstSlices;
-            void *sendCclBuffAddr = channelSend.remoteCclMem.addr;
-            void *recvCclBuffAddr = channelRecv.remoteCclMem.addr;
+        const ChannelInfo &channelRecv = channels.at(GetRankFromMap(stepInfo.fromRank))[channelIdx];
+        const ChannelInfo &channelSend = channels.at(GetRankFromMap(stepInfo.toRank))[channelIdx];
+        // 构造SendRecv， 都是Scratch到Scratch的传输，没有DMA消减
+        std::vector<DataSlice> txSrcSlicesAll;
+        std::vector<DataSlice> txDstSlicesAll;
+        std::vector<DataSlice> rxSrcSlicesAll;
+        std::vector<DataSlice> rxDstSlicesAll;
+        void *sendCclBuffAddr = channelSend.remoteCclMem.addr;
+        void *recvCclBuffAddr = channelRecv.remoteCclMem.addr;
 
-            HCCL_DEBUG(
-                "[InsTempAllGatherNHR] rank[%d] rankSize[%u] recvFrom[%u] sendTo[%u] step[%u] nSteps[%u] nSlices[%u]",
-                myRank_, templateRankSize_, stepInfo.fromRank, stepInfo.toRank, step, nSteps, stepInfo.nSlices);
+        HCCL_DEBUG(
+            "[InsTempAllGatherNHR] rank[%d] rankSize[%u] recvFrom[%u] sendTo[%u] step[%u] nSteps[%u] nSlices[%u]",
+            myRank_, templateRankSize_, stepInfo.fromRank, stepInfo.toRank, step, nSteps, stepInfo.nSlices);
+
+        for (u32 rpt = 0; rpt < tempAlgParams_.repeatNum; ++rpt) {
+            const u64 scratchRepeatStride = tempAlgParams_.sliceSize * templateRankSize_;
+            const u64 scratchBase = tempAlgParams_.buffInfo.hcclBuffBaseOff + rpt * scratchRepeatStride;
 
             for (u32 i = 0; i < stepInfo.nSlices; ++i) {
                 const u32 txIdx = stepInfo.txSliceIdxs[i];
@@ -146,26 +147,26 @@ HcclResult InsTempAllGatherNHR::RunAllGatherNHR(const std::vector<ThreadHandle> 
                 const u64 txSliceSize = (txIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize != 0) ? dataSplitTail_[channelIdx]: dataSplit_[channelIdx];
                 const u64 rxSliceSize = (rxIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize != 0) ? dataSplitTail_[channelIdx]: dataSplit_[channelIdx];
 
-                txSrcSlices.emplace_back(tempAlgParams_.buffInfo.hcclBuff.addr, txScratchOff, txSliceSize, txSliceSize / dataTypeSize);
-                txDstSlices.emplace_back(sendCclBuffAddr, txScratchOff, txSliceSize, txSliceSize / dataTypeSize);
-                rxSrcSlices.emplace_back(recvCclBuffAddr, rxScratchOff, rxSliceSize, rxSliceSize / dataTypeSize);
-                rxDstSlices.emplace_back(tempAlgParams_.buffInfo.hcclBuff.addr, rxScratchOff, rxSliceSize, rxSliceSize / dataTypeSize);
+                txSrcSlicesAll.emplace_back(tempAlgParams_.buffInfo.hcclBuff.addr, txScratchOff, txSliceSize, txSliceSize / dataTypeSize);
+                txDstSlicesAll.emplace_back(sendCclBuffAddr, txScratchOff, txSliceSize, txSliceSize / dataTypeSize);
+                rxSrcSlicesAll.emplace_back(recvCclBuffAddr, rxScratchOff, rxSliceSize, rxSliceSize / dataTypeSize);
+                rxDstSlicesAll.emplace_back(tempAlgParams_.buffInfo.hcclBuff.addr, rxScratchOff, rxSliceSize, rxSliceSize / dataTypeSize);
             }
-            // write模式使用tx, rx地址不生效，仅使用对端link做Post/Wait
-            // read 模式使用rx, tx地址不生效，仅使用对端link做Post/Wait
-            TxRxSlicesList sendRecvSlicesList({txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices});
-            TxRxChannels sendRecvChannels(channelSend, channelRecv);
-            SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
+        }
+        // write模式使用tx, rx地址不生效，仅使用对端link做Post/Wait
+        // read 模式使用rx, tx地址不生效，仅使用对端link做Post/Wait
+        TxRxSlicesList sendRecvSlicesList({txSrcSlicesAll, txDstSlicesAll}, {rxSrcSlicesAll, rxDstSlicesAll});
+        TxRxChannels sendRecvChannels(channelSend, channelRecv);
+        SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
 
-            if (isDmaRead_) {
-                CHK_PRT_RET(SendRecvRead(sendRecvInfo, threads[channelIdx]),
-                    HCCL_ERROR("[InsTempAllGatherNHR] sendrecv failed (step=%u, rpt=%u)", step, rpt),
-                    HcclResult::HCCL_E_INTERNAL);
-            } else {
-                CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[channelIdx]),
-                    HCCL_ERROR("[InsTempAllGatherNHR] sendrecv failed (step=%u, rpt=%u)", step, rpt),
-                    HcclResult::HCCL_E_INTERNAL);
-            }
+        if (isDmaRead_) {
+            CHK_PRT_RET(SendRecvRead(sendRecvInfo, threads[channelIdx]),
+                HCCL_ERROR("[InsTempAllGatherNHR] sendrecv failed (step=%u)", step),
+                HcclResult::HCCL_E_INTERNAL);
+        } else {
+            CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[channelIdx]),
+                HCCL_ERROR("[InsTempAllGatherNHR] sendrecv failed (step=%u)", step),
+                HcclResult::HCCL_E_INTERNAL);
         }
     }
     return HcclResult::HCCL_SUCCESS;
