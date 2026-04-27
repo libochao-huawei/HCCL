@@ -11,6 +11,7 @@
 set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_scatter_sole_executor.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_scatter_parallel_executor.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/ccu_v2_scatter_omnipipe_executor.cc
 )
 
 target_sources(hccl PRIVATE
