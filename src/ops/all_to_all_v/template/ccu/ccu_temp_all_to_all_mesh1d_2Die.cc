@@ -263,7 +263,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std
     HCCL_INFO("PartitionChannels: mesh channels size[%u], clos channels size[%u]", channels_[meshDieId].size(), channels_[1-meshDieId].size());
 
     HCCL_INFO("[CcuTempAlltoAllMesh2Die][CalcRes] Rank[%d], channels size, "
-        "die0 channels[%u], die1 channels[%u].", myRank_, channels_[0], channels_[1]);
+        "die0 channels[%u], die1 channels[%u].", myRank_, channels_[0].size(), channels_[1].size());
     
     return HcclResult::HCCL_SUCCESS;
 }
