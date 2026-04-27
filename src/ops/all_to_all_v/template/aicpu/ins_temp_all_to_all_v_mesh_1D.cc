@@ -122,7 +122,7 @@ HcclResult InsTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
 
     bool isPcieProtocal = IsPcieProtocol(templateResource.channels);  // 判断是否存在pcie链路
     isDmaRead_ = isPcieProtocal;  // 是否使用Read模式
-    HCCL_DEBUG("[InsTempAlltoAllVMesh1D] Use Dma Read[%d]", isDmaRead_);    
+    HCCL_DEBUG("[InsTempAlltoAllVMesh1D] Use Dma Read[%d]", isDmaRead_);
 
     u32 myAlgRank = 0;
     auto iter = std::find(subCommRanks_[0].begin(), subCommRanks_[0].end(), myRank_);
@@ -168,34 +168,34 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
     std::vector<u32> commRanks;
 
     for (u32 roundIdx = 0; roundIdx < commLoops && remainRankSize > 0; roundIdx++) {
-        CHK_RET(CalcCommRankSetForOneLoop(roundIdx, remainRankSize, commRanks)); // 计算本轮通信rank
+        CalcCommRankSetForOneLoop(roundIdx, remainRankSize, commRanks); // 计算本轮通信rank
         // 如果是read模式，统一做前拷贝
         if (isDmaRead_) {
             if (threadNum_ > 1) {
-                std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+                std::vector<ThreadHandle> subThreads(threads.begin() + 1, threads.end());
                 GetNotifyIdxMainToSub(notifyIdxMainToSub_);
-                CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub_));
+                CHK_RET(PreSyncInterThreads(threads[0], subThreads, notifyIdxMainToSub_));
             }
-            CHK_RET(PreCopy(commRanks, templateResource.channels, templateResource.threads, tempAlgParams, myAlgRank));
+            CHK_RET(PreCopy(commRanks, channels, threads, tempAlgParams, myAlgRank));
             if (threadNum_ > 1) {
-                std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+                std::vector<ThreadHandle> subThreads(threads.begin() + 1, threads.end());
                 GetNotifyIdxSubToMain(notifyIdxSubToMain_);
-                CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain_));
+                CHK_RET(PostSyncInterThreads(threads[0], subThreads, notifyIdxSubToMain_));
             }
         }
         if (threadNum_ > 1) {
-            std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+            std::vector<ThreadHandle> subThreads(threads.begin() + 1, threads.end());
             GetNotifyIdxMainToSub(notifyIdxMainToSub_);
-            CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub_));
+            CHK_RET(PreSyncInterThreads(threads[0], subThreads, notifyIdxMainToSub_));
         }
         if (roundIdx == 0) {
             CHK_RET(LocalCopyForMyRank(tempAlgParams, threads[0], myAlgRank, 0)); // 在第1轮通信中用0号流做本卡数据拷贝
         }
-        CHK_RET(RunSendRecvByLoop(commRanks, tempAlgParams, templateResource.channels, templateResource.threads));
+        CHK_RET(RunSendRecvByLoop(commRanks, tempAlgParams, channels, threads));
         if (threadNum_ > 1) {
-            std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+            std::vector<ThreadHandle> subThreads(threads.begin() + 1, threads.end());
             GetNotifyIdxSubToMain(notifyIdxSubToMain_);
-            CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain_));
+            CHK_RET(PostSyncInterThreads(threads[0], subThreads, notifyIdxSubToMain_));
         }
         remainRankSize -= commRanks.size();
         HCCL_DEBUG("[InsTempAlltoAllVMesh1D][RunALLtoALL] round[%u] finish, commRank size is [%zu], "\
