@@ -129,8 +129,12 @@ SelectorStatus ReduceScatterAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWi
                 CHK_PRT_RET(opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT8,
                 HCCL_WARNING("[ReduceScatterAutoSelector] dataType[%d] is not supported yet for ccu schedule mode.",
                     opParam.DataDes.dataType), SelectorStatus::NOT_MATCH);
-                selectAlgName = "CcuReduceScatterParallelMesh1DNHR";
-                return SelectorStatus::MATCH;
+                if(IsSmallDataCCU((dataSize * topoInfo->userRankSize), topoInfo->userRankSize)){
+                    selectAlgName = "CcuReduceScatterParallelMesh1DNHR";//64M以下跑ccu
+                    return SelectorStatus::MATCH;
+                } else {
+                    return SelectorStatus::NOT_MATCH;//64M以上切为aicpu
+                }
             } else {
                 selectAlgName = "CcuReduceScatterNHR1DMem2Mem";
                 return SelectorStatus::MATCH;
