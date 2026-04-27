@@ -243,7 +243,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std
     HCCL_INFO("Mesh channel num[%u], Clos channel num[%u]", channels_[meshDieId].size(), clos_channels[0].size());
     
     // 筛选clos链路
-    HCCL_INFO("clos_channels size: %u", clos_channels.size);
+    HCCL_INFO("clos_channels size: %u", clos_channels.size());
     for(auto& channels: clos_channels){
         u32 dieId = channels.first;
         std::vector<HcclChannelDesc>& channel_list = channels.second;
