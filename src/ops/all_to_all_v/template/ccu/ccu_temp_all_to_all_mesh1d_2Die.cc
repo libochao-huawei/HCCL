@@ -246,7 +246,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std
     for(auto& channels: clos_channels){
         u32 dieId = channels.first;
         std::vector<HcclChannelDesc>& channel_list = channels.second;
-        if (dieId != meshDieId) {
+        if (dieId == meshDieId) {
             continue;
         }
 
