@@ -49,6 +49,7 @@ protected:
     HcclResult PostLocalCopy(const TemplateDataParams& tempAlgParams, const TemplateResource& templateResource);
     void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub) override {}
     void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override {}
+    bool isCapture_{false};
 };
 }
 
