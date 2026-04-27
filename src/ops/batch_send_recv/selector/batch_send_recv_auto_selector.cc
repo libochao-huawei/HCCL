@@ -23,7 +23,7 @@ SelectorStatus BatchSendRecvAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetL
     (void)configAlgMap;
 
     selectAlgName = "InsBatchSendRecv";
-    HCCL_DEBUG("[BatchSendRecvAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
+    HCCL_DEBUG("Test: [BatchSendRecvAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
     return SelectorStatus::MATCH;
 }
 
