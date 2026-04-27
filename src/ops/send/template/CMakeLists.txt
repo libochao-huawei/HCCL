@@ -9,6 +9,7 @@
 # -----------------------------------------------------------------------------------------------------------
 
 add_subdirectory(aiv)
+add_subdirectory(host_nic)
 
 set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_send_dpu.cc

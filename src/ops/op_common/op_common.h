@@ -173,7 +173,7 @@ HcclResult HcclRegstryBuffGraphMode(HcclComm comm, const char *memTag, void *buf
 HcclResult SetMultipleDimensionSplitRatio(OpParam &param);
 
 HcclResult CheckHostDPUOnly(const HcclComm comm, const TopoInfoWithNetLayerDetails* topoInfo, bool &hostDPUOnly);
-
+bool IsHostDpu(HcclComm comm);
 }  // namespace ops_hccl
 
 #ifdef __cplusplus
