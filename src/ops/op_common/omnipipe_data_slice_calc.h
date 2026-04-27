@@ -228,5 +228,19 @@ HcclResult CalLocalCopySlice(const TemplateDataParams& tempAlgParams, const std:
                              std::vector<DataSlice>& dstDataSlice, u64 dataTypeSize);
 bool isSameLoop(const std::vector<u64>& splitData1, const std::vector<u64>& splitData2);
 std::vector<u64> CalcCountToDataSize(const std::vector<u64>& vecCount, u64 dataType);
+// Scatter专用数据切分和偏移计算的相关函数
+std::vector<std::vector<u64>> CalScatterDataSizeStep(u64* xScatterDataSize, u64* yScatterDataSize, u64* zScatterDataSize,
+                                                std::vector<u64> levelRankSize, u64 cornerStep, u64 outerStepNum,
+                                                u64 innerStepNum, u64 maxStepNum, double xB, double yB);
+void CalScatter2DOffset(u64* xSOffset, u64* ySOffset, u64 stepNum, u64 xRankSize, u64 yRankSize,
+                       u64* xSDataSize, u64* ySDataSize);
+u64 CalScatterDataSize2D(u64* xStepP2pDataSize, u64* yStepP2pDataSize, double xB, double yB, u64 xRankSize,
+                       u64 yRankSize, u64 dataSizeEachRank, u64 maxStep);
+void CheckRootOrSameAxisAsRoot(u64 xRankSize, u64 yRankSize, u64 zRankSize, uint32_t root, uint32_t rankId, bool &ifRoot, bool &ifSameAxisAsRoot);
+std::vector<u64> CalScatterScratchSize(u64* xSDataSize, u64* ySDataSize, u64* zSDataSize, std::vector<u64> levelRankSize,
+                                u64 cornerStep, u64 outerStepNum, u64 innerStepNum, u64 maxStepNum,
+                                std::vector<u64> levelAlgType, CommEngine engine, double xB, double yB);
+std::vector<u64> CalcScatterScratchInfo(OmniPipeScratchParam& omniPipeScratchParam);
+OmniPipeSliceInfo CalcScatterOmniPipeSliceInfo(OmniPipeSliceParam &omniPipeSliceParam, uint32_t root);
 }  // namespace ops_hccl
 #endif
