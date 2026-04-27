@@ -17,6 +17,7 @@
 #include "ccu_kernel.h"
 #include "ccu_kernel_utils.h"
 #include "ccu_kernel_alg_base.h"
+#include "event_16_wrapper.h"
 
 namespace ops_hccl {
 
@@ -124,7 +125,7 @@ private:
 
     uint16_t selfBit_{0};
     uint16_t allBit_{0};
-    CcuRep::CompletedEvent event_;
+    Event16Wrapper eventWrapper_;
 };
 
 }// namespace ops_hccl

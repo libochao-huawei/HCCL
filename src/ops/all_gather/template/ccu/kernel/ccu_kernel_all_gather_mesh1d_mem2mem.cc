@@ -88,7 +88,7 @@ HcclResult CcuKernelAllGatherMesh1DMem2Mem::InitResource()
         }
     }
 
-    event_ = CreateCompletedEvent();
+    eventWrapper_.Init(this, rankSize_);
     return HcclResult::HCCL_SUCCESS;
 }
 
@@ -142,26 +142,26 @@ void CcuKernelAllGatherMesh1DMem2Mem::DoAllGather(const hcomm::CcuRep::LocalAddr
         if (rankIdx == rankId_) {
             CCU_IF(isInputOutputEqual_ != 0)
             {
-                event_.SetMask(1 << rankIdx);
-                RecordEvent(event_);
+                eventWrapper_.SetMask(1 << rankIdx);
+                eventWrapper_.RecordEvent();
             }
             CCU_IF(isInputOutputEqual_ == 0)
             {
-                event_.SetMask(1 << rankIdx);
+                eventWrapper_.SetMask(1 << rankIdx);
                 GroupCopy(remote_src, src_loccopy, localGoSize_);
-                RecordEvent(event_);
+                eventWrapper_.RecordEvent();
             }
         } else {
             CCU_IF(normalSliceSize_ != 0)
             {
-                event_.SetMask(1 << rankIdx);
-                WriteNb(channels_[channelId], dst[rankIdx], src, sliceSize, event_);
+                eventWrapper_.SetMask(1 << rankIdx);
+                eventWrapper_.WriteNb(channels_[channelId], dst[rankIdx], src, sliceSize);
             }
             channelId++;
         }
     }
-    event_.SetMask((1 << rankSize_) - 1);
-    WaitEvent(event_);
+    eventWrapper_.SetMask((1 << rankSize_) - 1);
+    eventWrapper_.WaitEvent();
 }
 
 void CcuKernelAllGatherMesh1DMem2Mem::DoRepeatAllGather()
