@@ -121,7 +121,7 @@ HcclResult InsTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
 
     bool isPcieProtocal = IsPcieProtocol(templateResource.channels);  // 判断是否存在pcie链路
     isDmaRead_ = isPcieProtocal;  // 是否使用Read模式
-    HCCL_DEBUG("[InsTempAlltoAllVMesh1D] Use Dma Read[%d]", isDmaRead_);
+    HCCL_DEBUG("[InsTempAlltoAllVMesh1D][KernelRun] Use Dma Read[%d]", isDmaRead_);
 
     u32 myAlgRank = 0;
     auto iter = std::find(subCommRanks_[0].begin(), subCommRanks_[0].end(), myRank_);
@@ -133,7 +133,7 @@ HcclResult InsTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
     }
     CHK_RET(RunALLtoALL(templateResource.channels, templateResource.threads, tempAlgParams, myAlgRank));
 
-    HCCL_INFO("[InsTempAlltoAllVMesh1D] Run End");
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][KernelRun] Run End");
     return HcclResult::HCCL_SUCCESS;
 }
 
@@ -325,7 +325,8 @@ HcclResult InsTempAlltoAllVMesh1D::PreCopy(const std::vector<u32> &commRanks,
         u32 remoteCclBuffIdx = 0; // myRank与remoteRank交互时remoteRank提供的cclbuffer index
         CalcCclBuffIdx(remoteRank, myRankCclBuffIdx, remoteCclBuffIdx);
         if (channels.find(remoteRank) == channels.end()) {
-            HCCL_ERROR("[InsTempAlltoAllVMesh1D] remoteRank[%u] does not exist in channels map!", remoteRank);
+            HCCL_ERROR("[InsTempAlltoAllVMesh1D][PreCopy] remoteRank[%u] does not exist in channels map!",
+                remoteRank);
             return HCCL_E_PARA;
         }
         const std::vector<ChannelInfo> &curChannels = channels.at(remoteRank);
