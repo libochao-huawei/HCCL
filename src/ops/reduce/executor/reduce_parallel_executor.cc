@@ -21,6 +21,7 @@
 #include "ccu_temp_reduce_scatter_nhr_1D_mem2mem.h"
 #include "topo_match_multilevel.h"
 #include "topo_match_ubx.h"
+#include "topo_match_ubx.h"
 
 namespace ops_hccl {
 
