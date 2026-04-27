@@ -40,6 +40,7 @@ struct NHRSliceInfo {
 
 class InsTempAllReduceNHR : public InsAlgTemplateBase {
 public:
+    InsTempAllReduceNHR() = default;
     explicit InsTempAllReduceNHR(const OpParam& param, const u32 rankId,
         const std::vector<std::vector<u32>> &subCommRanks);
     ~InsTempAllReduceNHR() override;
@@ -84,6 +85,8 @@ private:
     u32 myRankIdx_{0};
     std::vector<NHRSliceInfo> sliceInfoList_;
     std::vector<u32> rankList_;
+
+    bool isDmaRead_{false};
 };
 
 }  // namespace ops_hccl

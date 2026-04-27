@@ -23,6 +23,9 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 HcclResult HcclReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
     uint32_t root, HcclComm comm, aclrtStream stream)
 {
+    if (!HcclCheckCcuEnableOpen() && !HcclCheckAicpuEnableOpen() && !HcclCheckAivEnableOpen()) {
+        return HcclReduceInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
+    }
     HCCL_INFO("Start to run execute HcclReduce");
     if (GetHcommVersion() < 90000000) { // compat handle
         return HcclReduceInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
@@ -172,7 +175,7 @@ HcclResult ReduceOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t count,
 }
 
 HcclResult ReduceConstructOpParam(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType dataType, HcclReduceOp op,
-    uint32_t root, HcclComm comm, aclrtStream stream, const std::string &tag, OpParam &param)
+    uint32_t root, HcclComm comm, aclrtStream stream, const std::string &tag, OpParam &param, OpMode opMode)
 {
     u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
     u64 totalSize = count * perDataSize;
@@ -180,7 +183,7 @@ HcclResult ReduceConstructOpParam(void *sendBuf, void *recvBuf, uint64_t count, 
     CHK_RET(HcclGetCommName(comm, param.commName));
     param.stream = stream;
     param.reduceType = op;
-    param.opMode = OpMode::OPBASE;
+    param.opMode = opMode;
 
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
@@ -215,11 +218,18 @@ HcclResult ReduceOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t count, Hc
     CHK_RET(HcclGetRankSize(comm, &userRankSize));
 
     OpParam param;
-    CHK_RET(ReduceConstructOpParam(sendBuf, recvBuf, count, dataType, op, root, comm, stream, tag, param));
+    CHK_RET(ReduceConstructOpParam(sendBuf, recvBuf, count, dataType, op, root, comm, stream, tag, param, opMode));
+    
+    CHK_RET(HcclGetOpExpansionMode(comm, param));
+
+    CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
+    if ((opMode == OpMode::OPBASE) && ShouldGoCcuFastLaunch(comm, param, &ccuFastLaunchCtx)) {
+        return HcclExecOpCcuFastLaunch(comm, param, ccuFastLaunchCtx);
+    }
 
     if (userRankSize == 1) {
         HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
-        CHK_RET(SingleRankProc(param));
+        CHK_RET(SingleRankProc(comm, param));
         return HcclResult::HCCL_SUCCESS;
     }
 

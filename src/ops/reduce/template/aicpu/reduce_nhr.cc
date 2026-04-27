@@ -65,8 +65,15 @@ HcclResult ReduceNHR::KernelRun(
 
     CHK_PRT_RET(root_ == UINT32_MAX, HCCL_ERROR("[ReduceNHR] root is invalid"), HcclResult::HCCL_E_INTERNAL);
 
+    u64 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
+    CHK_PRT_RET(dataTypeSize == 0, HCCL_ERROR("[ReduceNHR] dataTypeSize is 0"), HcclResult::HCCL_E_INTERNAL);
+
     thread_ = templateResource.threads.at(0);
     buffInfo_ = tempAlgParams.buffInfo;
+
+    bool isPcieProtocal = IsPcieProtocol(templateResource.channels);  // 判断是否存在pcie链路
+    isDmaRead_ = isPcieProtocal;  // 是否使用Read模式
+    HCCL_DEBUG("[ReduceNHR] Use Dma Read[%d]", isDmaRead_);
 
     myIdx_ = getMyAlgRank();
     CHK_PRT_RET(myIdx_ >= templateRankSize_,
@@ -80,7 +87,7 @@ HcclResult ReduceNHR::KernelRun(
     HCCL_INFO("[KernelRun] sliceSize: %u, count_: %u, typeSize: %u",
         tempAlgParams.sliceSize,
         count_,
-        DATATYPE_SIZE_TABLE[dataType_]);
+        dataTypeSize);
 
     const std::map<u32, std::vector<ChannelInfo>> &channels = templateResource.channels;
     HCCL_DEBUG("[Kernel Run] myRank_[%u], channels.size():%u, channels first[%u]",
@@ -221,6 +228,10 @@ HcclResult ReduceNHR::RunGather(const std::map<u32, std::vector<ChannelInfo>> &c
     for (u32 step = 0; step < nSteps; step++) {
         AicpuNHRStepInfo stepInfo;
         CHK_RET(GetStepInfo(step, nSteps, stepInfo));
+        CHK_PRT_RET(stepInfo.fromRank >= templateRankSize_ || stepInfo.toRank >= templateRankSize_,
+            HCCL_ERROR("[ReduceNHR][RunGather] step[%u], stepInfo.fromRank[%u], stepInfo.toRank[%u], templateRankSize_",
+                step, stepInfo.fromRank, stepInfo.toRank, templateRankSize_),
+            HcclResult::HCCL_E_INTERNAL);
 
         const ChannelInfo &channelRecv = channels.at(subCommRanks_.at(0).at(stepInfo.fromRank)).at(0);
         const ChannelInfo &channelSend = channels.at(subCommRanks_.at(0).at(stepInfo.toRank)).at(0);
@@ -237,7 +248,7 @@ HcclResult ReduceNHR::RunGather(const std::map<u32, std::vector<ChannelInfo>> &c
 
             txSrcSlices.push_back(DataSlice(buffInfo_.hcclBuff.addr, txOffset, txSize, txSize / dataTypeSize));
             txDstSlices.push_back(DataSlice(channelSend.remoteCclMem.addr, txOffset, txSize, txSize / dataTypeSize));
-            rxSrcSlices.push_back(DataSlice(buffInfo_.hcclBuff.addr, rxOffset, rxSize, rxSize / dataTypeSize));
+            rxSrcSlices.push_back(DataSlice(channelRecv.remoteCclMem.addr, rxOffset, rxSize, rxSize / dataTypeSize));
             rxDstSlices.push_back(DataSlice(buffInfo_.hcclBuff.addr, rxOffset, rxSize, rxSize / dataTypeSize));
         }
 
@@ -245,9 +256,13 @@ HcclResult ReduceNHR::RunGather(const std::map<u32, std::vector<ChannelInfo>> &c
         TxRxSlicesList sendRecvSlicesList({txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices});
 
         SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
-        CHK_PRT_RET(SendRecvWrite(sendRecvInfo, thread_),
-            HCCL_ERROR("[ReduceNHR] RunGather send/recv failed"),
-            HcclResult::HCCL_E_INTERNAL);
+        if (isDmaRead_) {
+            CHK_PRT_RET(SendRecvRead(sendRecvInfo, thread_), HCCL_ERROR("[ReduceNHR] RunGather send/recv failed"),
+                HcclResult::HCCL_E_INTERNAL);
+        } else {
+            CHK_PRT_RET(SendRecvWrite(sendRecvInfo, thread_), HCCL_ERROR("[ReduceNHR] RunGather send/recv failed"),
+                HcclResult::HCCL_E_INTERNAL);
+        }
     }
 
     return HcclResult::HCCL_SUCCESS;
@@ -394,13 +409,22 @@ std::pair<std::vector<DataSlice>, std::vector<DataSlice>> ReduceNHR::getTxRxSlic
     return std::make_pair(txSlices, rxSlices);
 }
 
-u32 ReduceNHR::getMyAlgRank() const
+HcclResult ReduceNHR::getMyAlgRank()
 {
     auto iter = std::find(subCommRanks_[0].begin(), subCommRanks_[0].end(), myRank_);
     if (iter == subCommRanks_[0].end()) {
         throw std::runtime_error("Cannot find myRank = " + std::to_string(myRank_) + " in subCommRanks_[0]");
     }
-    return static_cast<u32>(std::distance(subCommRanks_[0].begin(), iter));
+    CHK_PRT_RET(iter == subCommRanks_[0].end(),
+        HCCL_ERROR("[ReduceNHR] Cannot find myRank[%u] in subCommRanks_[0]", myRank_),
+        HCCL_E_INTERNAL);
+    myIdx_ = static_cast<u32>(std::distance(subCommRanks_[0].begin(), iter));
+    CHK_PRT_RET(myIdx_ >= templateRankSize_,
+        HCCL_ERROR("[ReduceNHR] rank idx[%u] in virtRankMap is invalid, it should be less than rankSize[%u]",
+            myIdx_,
+            templateRankSize_),
+        HCCL_E_INTERNAL);
+    return HCCL_SUCCESS;
 }
 
 void ReduceNHR::GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub)

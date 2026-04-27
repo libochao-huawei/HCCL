@@ -20,6 +20,7 @@ namespace ops_hccl {
 
 class InsTempAllReduceAicpuReduceNHR : public InsAlgTemplateBase {
 public:
+    InsTempAllReduceAicpuReduceNHR() = default;
     explicit InsTempAllReduceAicpuReduceNHR(const OpParam &param, const u32 rankId,  // 传通信域的rankId，userRank
         const std::vector<std::vector<u32>> &subCommRanks);
 
@@ -64,6 +65,8 @@ private:
     u32 myIdx_ = UINT32_MAX;  // 本rank在通信域内的索引
 
     RankSliceInfo sliceInfoVec_;
+
+    bool isDmaRead_{false};
 };
 
 }  // namespace ops_hccl

@@ -275,6 +275,7 @@ InsV2AllGatherOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, I
     std::vector<std::vector<EndpointAttrBwCoeff>> endpointAttrBw;
     CHK_RET(CalAllLevelEndpointAttrBwCoeff(param.hcclComm, myRank_, 3, endpointAttrBw));
     std::vector<EndpointAttrBwCoeff> endpointAttrBwNew;
+    endpointAttrBwNew.resize(endpointAttrBw.size());
     u64 index = 0;
     //转成平均带宽
     for (u64 i = 0; i < endpointAttrBw.size(); i++) {
@@ -311,7 +312,7 @@ InsV2AllGatherOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, I
     omniPipeSliceParam.levelRankId = {rankIdxLevel_[OMNIPIPE_LEVEL0], rankIdxLevel_[OMNIPIPE_LEVEL1],
                                       rankIdxLevel_[OMNIPIPE_LEVEL2]};
     omniPipeSliceParam.opMode = opMode_;
-    omniPipeSliceParam.engine = CommEngine::COMM_ENGINE_AICPU;
+    omniPipeSliceParam.engine = CommEngine::COMM_ENGINE_AICPU_TS;
     omniPipeSliceParam.dataWholeSize = dataWholeSize;
 
     OmniPipeSliceInfo alignSliceInfo = CalcAGOmniPipeSliceInfo(omniPipeSliceParam);

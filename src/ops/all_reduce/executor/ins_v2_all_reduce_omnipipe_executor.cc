@@ -551,6 +551,7 @@ HcclResult InsV2AllReduceOmniPipeExecutor<AlgTopoMatch, InsRsAlgTemplateX, InsRs
 
     // 需要转化成平均带宽
     std::vector<EndpointAttrBwCoeff> endpointAttrBwNew;
+    endpointAttrBwNew.resize(endpointAttrBw.size());
     u64 bwIndex = 0;
     for (u64 i = 0; i < endpointAttrBw.size(); i++) {
         for (u64 j = 0; j < endpointAttrBw[i].size(); ++j) {
@@ -613,19 +614,17 @@ HcclResult InsV2AllReduceOmniPipeExecutor<AlgTopoMatch, InsRsAlgTemplateX, InsRs
         u64 currDataCount = multiLoopAllRankSplitData[loop][myRank_];
 
         // 4.2 RS在每次loop进行之前先将所有数据从usrin拷贝到ccl
-        {
-            // intput -> ccl
-            // ccl : 从每个rank-intputmem 上面拿到的数据放到 ccl
-            tempParamLocalcopy.buffInfo.inBuffType = BufferType::INPUT;
-            tempParamLocalcopy.buffInfo.inBuffBaseOff =
-                processedDataCount * dataTypeSize_;  //每轮loop对应每个rank的搬运起始地址
-            tempParamLocalcopy.buffInfo.outBuffBaseOff = 0;
-            tempParamLocalcopy.repeatNum = rankSize_;
+        // intput -> ccl
+        // ccl : 从每个rank-intputmem 上面拿到的数据放到 ccl
+        tempParamLocalcopy.buffInfo.inBuffType = BufferType::INPUT;
+        tempParamLocalcopy.buffInfo.inBuffBaseOff =
+            processedDataCount * dataTypeSize_;  //每轮loop对应每个rank的搬运起始地址
+        tempParamLocalcopy.buffInfo.outBuffBaseOff = 0;
+        tempParamLocalcopy.repeatNum = rankSize_;
 
-            CHK_RET(PreSyncInterThreads(controlThread_, tempMainThreadsLevel01RS_, ntfIdxCtrlToTempLevel01RS_));
-            CHK_RET(DoLocalCopy(tempParamLocalcopy, controlThread_, allRankSplitData, multiLoopAllRankSplitData[loop]));
-            CHK_RET(PostSyncInterThreads(controlThread_, tempMainThreadsLevel01RS_, ntfIdxTempToCtrlLevel01RS_));
-        }
+        CHK_RET(PreSyncInterThreads(controlThread_, tempMainThreadsLevel01RS_, ntfIdxCtrlToTempLevel01RS_));
+        CHK_RET(DoLocalCopy(tempParamLocalcopy, controlThread_, allRankSplitData, multiLoopAllRankSplitData[loop]));
+        CHK_RET(PostSyncInterThreads(controlThread_, tempMainThreadsLevel01RS_, ntfIdxTempToCtrlLevel01RS_));
 
         u32 interPodStepNum = OmniPipeSliceInfoRS.dataSliceLevel2.size();
         u32 intraPodStepNum = OmniPipeSliceInfoRS.dataSliceLevel0.size() / OmniPipeSliceInfoRS.dataSliceLevel2.size();

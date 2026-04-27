@@ -105,36 +105,16 @@ protected:
     std::vector<u32> ntfIdxCtrlToTempLevel01RS_;
     std::vector<u32> ntfIdxTempToCtrlLevel01RS_;
 
-    std::vector<ThreadHandle> tempMainThreadsLevel0RS_;
-    std::vector<u32> ntfIdxCtrlToTempLevel0RS_;
-    std::vector<u32> ntfIdxTempToCtrlLevel0RS_;
-
-    std::vector<ThreadHandle> tempMainThreadsLevel1RS_;
-    std::vector<u32> ntfIdxCtrlToTempLevel1RS_;
-    std::vector<u32> ntfIdxTempToCtrlLevel1RS_;
-
     std::vector<ThreadHandle> tempMainThreadsLevel2RS_;
     std::vector<u32> ntfIdxCtrlToTempLevel2RS_;
     std::vector<u32> ntfIdxTempToCtrlLevel2RS_;
 
-    std::vector<ThreadHandle> level0ThreadsRS_;
-    std::vector<ThreadHandle> level1ThreadsRS_;
-    std::vector<ThreadHandle> level2ThreadsRS_;
-
     std::vector<std::vector<ThreadHandle>> levelThreadsRS_; //new
-
-    std::vector<ThreadHandle> level0ThreadsAG_;
-    std::vector<ThreadHandle> level1ThreadsAG_;
-    std::vector<ThreadHandle> level2ThreadsAG_;
-
     std::vector<std::vector<ThreadHandle>> levelThreadsAG_; // new
 
     std::vector<ThreadHandle> tempMainThreadsLevel01AG_;
     std::vector<u32> ntfIdxCtrlToTempLevel01AG_;
     std::vector<u32> ntfIdxTempToCtrlLevel01AG_;
-
-    std::vector<ThreadHandle> tempMainThreadsLevel0AG_;
-    std::vector<ThreadHandle> tempMainThreadsLevel1AG_;
     std::vector<ThreadHandle> tempMainThreadsLevel2AG_;
     std::vector<u32> ntfIdxCtrlToTempLevel2AG_;
     std::vector<u32> ntfIdxTempToCtrlLevel2AG_;

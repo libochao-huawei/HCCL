@@ -17,6 +17,7 @@ namespace ops_hccl {
 
 class CcuTempAllReduceNHRMem2Mem1D : public CcuAlgTemplateBase {
 public:
+    CcuTempAllReduceNHRMem2Mem1D() = default;
     explicit CcuTempAllReduceNHRMem2Mem1D(const OpParam& param, 
                                                 const u32 rankId,
                                                 const std::vector<std::vector<u32>> &subCommRanks);
@@ -33,6 +34,7 @@ public:
     HcclResult KernelRun(const OpParam& param,
                          const TemplateDataParams& templateDataParams,
                          TemplateResource& templateResource) override;
+    HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx) override;
     u64 GetThreadNum() const override;
     HcclResult GetRes(AlgResourceRequest& resourceRequest) const override;
 private:

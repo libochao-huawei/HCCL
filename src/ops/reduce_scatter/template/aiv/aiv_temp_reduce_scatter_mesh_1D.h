@@ -17,6 +17,8 @@
 
 namespace ops_hccl {
 
+constexpr u64 REDUCE_SCATTER_SMALL_COUNT_512KB = 512 * 1024;
+
 class AivTempReduceScatterMesh1D : public AivAlgTemplateBase {
 public:
     AivTempReduceScatterMesh1D() = default;

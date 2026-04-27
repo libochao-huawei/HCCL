@@ -19,6 +19,7 @@ namespace ops_hccl {
 
 class ReduceNHR : public InsAlgTemplateBase {
 public:
+    ReduceNHR() = default;
     explicit ReduceNHR(const OpParam &param, const u32 rankId,  // 传通信域的rankId，userRank
         const std::vector<std::vector<u32>> &subCommRanks);
 
@@ -55,7 +56,7 @@ private:
     HcclResult GetStepInfo(u32 step, u32 nSteps, AicpuNHRStepInfo &stepInfo) const;
     std::pair<std::vector<DataSlice>, std::vector<DataSlice>> getTxRxSlices(
         const AicpuNHRStepInfo &stepInfo, const std::map<u32, std::vector<ChannelInfo>> &channels);
-    u32 getMyAlgRank() const;
+    HcclResult getMyAlgRank();
 
     ThreadHandle thread_;
     BuffInfo buffInfo_;
@@ -68,6 +69,7 @@ private:
     u64 reduceInBuffBaseOff_ = 0;
     u64 reduceOutBuffBaseOff_ = 0;
     RankSliceInfo sliceInfoVec_;
+    bool isDmaRead_{false};
 };
 
 }  // namespace ops_hccl

@@ -18,6 +18,7 @@
 namespace ops_hccl {
 class InsTempScatterNHR : public InsAlgTemplateBase {
 public:
+    InsTempScatterNHR() = default;
     explicit InsTempScatterNHR(const OpParam& param, const u32 rankId, // 传通信域的rankId，userRank
                                         const std::vector<std::vector<u32>> &subCommRanks);
     ~InsTempScatterNHR() override;
@@ -56,6 +57,7 @@ private:
         const ThreadHandle &thread, const TemplateDataParams &tempAlgParam, u32 repeat) const;
     u64 processSize_{0};
     u64 count_{0};
+    bool isDmaRead_{false};
 };
 
 }  // namespace ops_hccl

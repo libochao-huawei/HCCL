@@ -305,18 +305,19 @@ InsV2ReduceScatterOmniPipeExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate
 
     HCCL_DEBUG("Start Step Calc!");
     // 1、计算带宽，平均带宽还是总带宽，如果是总带宽这边要处理成平均带宽
-        std::vector<std::vector<EndpointAttrBwCoeff>> endpointAttrBw;
-        CHK_RET(CalAllLevelEndpointAttrBwCoeff(param.hcclComm, myRank_, 3, endpointAttrBw));
-        // 需要转化成平均带宽
-        std::vector<EndpointAttrBwCoeff> endpointAttrBwNew;
-        u64 bwIndex = 0;
-        for (u64 i = 0; i < endpointAttrBw.size(); i++) {
-            for (u64 j = 0; j < endpointAttrBw[i].size(); ++j) {
-                endpointAttrBw[i][j] /= algHierarchyInfo_.infos[i][j].size() - 1;
-                endpointAttrBwNew[bwIndex++] = endpointAttrBw[i][j];
-                HCCL_INFO("endpointAttrBw[%u][%u] = %u", i, j, endpointAttrBw[i][j]);
-            }
+    std::vector<std::vector<EndpointAttrBwCoeff>> endpointAttrBw;
+    CHK_RET(CalAllLevelEndpointAttrBwCoeff(param.hcclComm, myRank_, 3, endpointAttrBw));
+    // 需要转化成平均带宽
+    std::vector<EndpointAttrBwCoeff> endpointAttrBwNew;
+    endpointAttrBwNew.resize(endpointAttrBw.size());
+    u64 bwIndex = 0;
+    for (u64 i = 0; i < endpointAttrBw.size(); i++) {
+        for (u64 j = 0; j < endpointAttrBw[i].size(); ++j) {
+            endpointAttrBw[i][j] /= algHierarchyInfo_.infos[i][j].size() - 1;
+            endpointAttrBwNew[bwIndex++] = endpointAttrBw[i][j];
+            HCCL_INFO("endpointAttrBw[%u][%u] = %u", i, j, endpointAttrBw[i][j]);
         }
+    }
 
     // 2、计算scratch 返回的数组0是maxCountPerloop, 1是loopTimes
     OmniPipeScratchParam scratchParam;

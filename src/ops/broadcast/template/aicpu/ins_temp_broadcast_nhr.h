@@ -20,6 +20,7 @@ namespace ops_hccl {
 
 class InsTempBroadcastNHR : public InsAlgTemplateBase {
 public:
+    InsTempBroadcastNHR() = default;
     explicit InsTempBroadcastNHR(const OpParam& param, const u32 rankId, // 传通信域的rankId，userRank
                                         const std::vector<std::vector<u32>> &subCommRanks);
 
@@ -65,6 +66,7 @@ private:
     HcclResult CalcDataSliceInfo(const u64 dataSize, RankSliceInfo &sliceInfoVec) const;
     u64 dataTypeSize_{0};
     std::map<u32, u32> tempVirtRankMap_;
+    bool isDmaRead_{false};
 };
 
 } // namespace Hccl

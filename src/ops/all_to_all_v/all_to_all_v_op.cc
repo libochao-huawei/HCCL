@@ -168,6 +168,7 @@ HcclResult HcclAlltoAllVC(const void *sendBuf, const void *sendCountMatrix, Hccl
     CHK_RET(HcclGetCommName(comm, commName));
     const string tag =  "ALLTOALLVC_" + string(commName);
     CHK_RET(HcclCheckTag(tag.c_str()));
+    CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), tag.c_str());
 
     // 构造四个矩阵，适配alltoallV的逻辑
     std::vector<u64> sendCounts(rankSize, 0);
@@ -178,7 +179,6 @@ HcclResult HcclAlltoAllVC(const void *sendBuf, const void *sendCountMatrix, Hccl
     CHK_RET(CheckBufNullptr(sendCounts.data(), rankSize, sendBuf, std::string(__func__), "sendBuf"));
     CHK_RET(CheckBufNullptr(recvCounts.data(), rankSize, recvBuf, std::string(__func__), "recvBuf"));
 
-    CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), tag.c_str());
     CHK_RET(CheckDataType(recvType, false));
 
     /* 接口交互信息日志 */
@@ -393,7 +393,7 @@ HcclResult ConvertAlltoAllVCParam(const u32 rankSize, const u32 userRank, const 
     // 取出sendCountMatrix的数据
     const u64* data = static_cast<const u64*>(sendCountMatrix);
     u64 maxSendRecvCount = 0;
-    for (u64 i = 0; i < rankSize * rankSize; i++) {
+    for (u64 i = 0; i < static_cast<u64>(rankSize) * rankSize; i++) {
         maxSendRecvCount = max(maxSendRecvCount, data[i]);
     }
     CHK_RET(CheckCount(maxSendRecvCount));
@@ -562,9 +562,6 @@ HcclResult AlltoAllVConstructOpParam(const void *sendBuf, const void *sendCounts
     const void *recvCounts, const void *rdispls, HcclDataType dataType, HcclComm comm, aclrtStream stream,
     const std::string &tag, HcclCMDType opType, u32 rankSize, OpMode opMode, u64 varMemSize, OpParam &param)
 {
-    u32 userRankSize;
-    CHK_RET(HcclGetRankSize(comm, &userRankSize));
-
     CHK_RET(HcclGetCommName(comm, param.commName));
     param.stream = stream;
     param.opMode = opMode;
@@ -592,21 +589,21 @@ HcclResult AlltoAllVConstructOpParam(const void *sendBuf, const void *sendCounts
     u64 inputSize = 0;
     u64 outputSize = 0;
     CHK_RET(CalcInputOutputSize(sendCountsData, recvCountsData, sdisplsData, rdisplsData,
-        userRankSize, inputSize, outputSize));
+        rankSize, inputSize, outputSize));
     param.inputSize = inputSize;
     param.outputSize = outputSize;
 
     param.enableDetour = false;
     param.opType = opType;
 
-    CHK_RET(ContructVarData(sendCountsData, recvCountsData, sdisplsData, rdisplsData, userRankSize, rankSize, param));
+    CHK_RET(ContructVarData(sendCountsData, recvCountsData, sdisplsData, rdisplsData, rankSize, rankSize, param));
     u64* data = reinterpret_cast<u64*>(param.varData);
     param.all2AllVDataDes.sendCounts = data;
     param.all2AllVDataDes.recvCounts = data + RECV_COUNT_IDX * rankSize;
     param.all2AllVDataDes.sdispls = data + SEND_DISPL_IDX * rankSize;
     param.all2AllVDataDes.rdispls = data + RECV_DISPL_IDX * rankSize;
 
-    for (u64 i = 0; i < ALL_TO_ALL_V_VECTOR_NUM * userRankSize; i++) {
+    for (u64 i = 0; i < ALL_TO_ALL_V_VECTOR_NUM * rankSize; i++) {
         HCCL_INFO("[AlltoAllVConstructOpParam] varData[%u] is [%u]", i, data[i]);
     }
     HCCL_INFO("[AlltoAllVConstructOpParam] SIZE_TABLE[dataType] is [%u]", SIZE_TABLE[dataType]);
@@ -617,10 +614,7 @@ HcclResult AlltoAllVOutPlaceCommon(const void *sendBuf, const void *sendCounts, 
     const void *recvCounts, const void *rdispls, HcclDataType dataType, HcclComm comm, aclrtStream stream,
     const std::string &tag, HcclCMDType opType, u32 rankSize, bool &useInnerOp, OpMode opMode, const ResPackGraphMode &resPack)
 {
-    u32 userRankSize;
-    CHK_RET(HcclGetRankSize(comm, &userRankSize));
-
-    u64 varMemSize = ALL_TO_ALL_V_VECTOR_NUM * userRankSize * sizeof(u64);
+    u64 varMemSize = ALL_TO_ALL_V_VECTOR_NUM * rankSize * sizeof(u64);
     void *paramMem = malloc(sizeof(OpParam) + varMemSize);
     if (!paramMem) {
         // 内存分配失败
@@ -639,6 +633,13 @@ HcclResult AlltoAllVOutPlaceCommon(const void *sendBuf, const void *sendCounts, 
 
     CHK_RET(AlltoAllVConstructOpParam(sendBuf, sendCounts, sdispls, recvBuf, recvCounts, rdispls, dataType,
         comm, stream, tag, opType, rankSize, opMode, varMemSize, param));
+    
+    CHK_RET(HcclGetOpExpansionMode(comm, param));
+
+    CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
+    if (ShouldGoCcuFastLaunch(comm, param, &ccuFastLaunchCtx)) {
+        return HcclExecOpCcuFastLaunch(comm, param, ccuFastLaunchCtx);
+    }
 
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
@@ -647,9 +648,9 @@ HcclResult AlltoAllVOutPlaceCommon(const void *sendBuf, const void *sendCounts, 
         useInnerOp = true;
         return HCCL_SUCCESS;
     }
-    if (userRankSize == 1) {
+    if (rankSize == 1) {
         HCCL_WARNING("[%s] rankSize == 1, enter SingleRankProc", __func__);
-        CHK_RET(SingleRankProc(param));
+        CHK_RET(SingleRankProc(comm, param));
         return HcclResult::HCCL_SUCCESS;
     }
 

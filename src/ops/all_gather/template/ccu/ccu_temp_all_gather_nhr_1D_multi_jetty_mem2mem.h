@@ -19,6 +19,7 @@ namespace ops_hccl {
 
 class CcuTempAllGatherNHR1DMultiJettyMem2Mem : public CcuAlgTemplateBase {
 public:
+    CcuTempAllGatherNHR1DMultiJettyMem2Mem() = default;
     explicit  CcuTempAllGatherNHR1DMultiJettyMem2Mem(const OpParam& param,
                                                 const u32 rankId,
                                                 const std::vector<std::vector<u32>> &subCommRanks);

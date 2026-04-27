@@ -31,8 +31,13 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDat
 #endif
 
 namespace ops_hccl {
-HcclResult ScatterOutPlace(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType, uint32_t root,
-    HcclComm comm, aclrtStream stream, const std::string &tag);
+using NotifyArray = std::array<aclrtNotify, AICPU_CONTROL_NOTIFY_NUM>;
+
+HcclResult ScatterOutPlace(OpParam &param, void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType, uint32_t root,
+    HcclComm comm, aclrtStream stream, u32 userRankSize);
+
+HcclResult ScatterExecOp(OpParam &param, void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType, uint32_t root,
+    HcclComm comm, aclrtStream stream, u32 userRankSize, uint64_t beginTime);
 
 HcclResult ExecOp(HcclComm comm, OpParam &param);
 

@@ -49,14 +49,14 @@ public:
 class CcuTaskArgAlltoAllMesh1D : public hcomm::CcuTaskArg {
 public:
     explicit CcuTaskArgAlltoAllMesh1D(uint64_t inputAddr, uint64_t outputAddr, uint64_t sliceSize,
-        uint64_t token, uint64_t srcOffset, uint64_t dstOffset, uint64_t srcStride, bool loadFromMem) :
+        uint64_t token, uint64_t srcOffset, uint64_t dstOffset, uint64_t srcStride) :
         inputAddr_(inputAddr), outputAddr_(outputAddr), sliceSize_(sliceSize), token_(token), 
-        srcOffset_(srcOffset), dstOffset_(dstOffset), srcStride_(srcStride), loadFromMem_(loadFromMem)
+        srcOffset_(srcOffset), dstOffset_(dstOffset), srcStride_(srcStride)
     {
         HCCL_DEBUG("[CcuTaskArgAlltoAllMesh1D] inputAddr: %lu, outputAddr: %lu, sliceSize: %lu, srcOffset: %lu, "
-                   "dstOffset: %lu, srcStride: %lu, loadFromMem: %lu, "
+                   "dstOffset: %lu, srcStride: %lu, "
                    "lastSliceSize: %lu, repeatNum: %lu",
-                   inputAddr_, outputAddr_, sliceSize_, srcOffset_, dstOffset_, srcStride_, loadFromMem_);
+                   inputAddr_, outputAddr_, sliceSize_, srcOffset_, dstOffset_, srcStride_);
     }
 
     uint64_t inputAddr_;
@@ -66,7 +66,6 @@ public:
     uint64_t srcOffset_;
     uint64_t dstOffset_;
     uint64_t srcStride_;
-    bool loadFromMem_;
 };
 
 class CcuKernelAlltoAllMesh1D : public CcuKernelAlgBase {

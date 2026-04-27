@@ -36,11 +36,11 @@ public:
 /*
  @Desc:初始化aiv core 角色，数据chuck划分
  @param dataCount：输入数据大小
- @param stepTag： 迭代轮次标记
+ @param sliceId： 迭代轮次标记
 */
-__aicore__ inline void InitCoreInfo(uint32_t stepTag)
+__aicore__ inline void InitCoreInfo(uint32_t sliceId)
 {
-    curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (stepTag & LOW_16_BITS);
+    curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
     uint64_t dataCount = len_;
     // aiv core 划分
     // 1D rankSize_ <=16； coreNumPerRank*(ranksize_+1)一定比numBlocks_小，否则就需要一个aicore处理多个rank的数据
@@ -148,13 +148,13 @@ __aicore__ inline uint64_t RoundUPAiv(uint64_t dividend, uint64_t divisor)
 /*
   @desc: 适配支持aiv 数目小于ranksize的情况
 */
-__aicore__ inline void SmallCoreReduceScatter(uint32_t stepTag)
+__aicore__ inline void SmallCoreReduceScatter(uint32_t sliceId)
 {
     uint64_t dataCount     = len_;
     rankChunkStride        = RoundUPAiv(dataCount, rankSize_);
     ipc_reduce_flag_offset = rankSize_;
-    curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (stepTag & LOW_16_BITS);
- 
+    curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
+
     // scatter
     for (uint32_t i = 0; block_idx + i * numBlocks_ < rankSize_; i++) {
         targetRank = block_idx + i * numBlocks_;

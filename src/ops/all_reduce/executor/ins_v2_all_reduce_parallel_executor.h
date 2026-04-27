@@ -24,6 +24,7 @@
 #include "coll_alg_v2_exec_registry.h"
 #include "topo_match_base.h"
 #include "topo_match_1d.h"
+#include "topo_match_ubx.h"
 
 namespace ops_hccl {
 
@@ -43,6 +44,12 @@ public:
     // AICPU 接口
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
     HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo, AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
+    #ifndef AICPU_COMPILE
+    HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *resCtx) override;
+    HcclResult FastLaunchSaveCtx(const OpParam &param, const TemplateResource &templateAlgResIntra,
+                                const TemplateResource &templateAlgResInter, const TemplateResource &templateAlgResIntra1,
+                                const TemplateResource &templateAlgResInter1);
+ 	#endif
 
 private:
     static u32 CalcRankIdInter(u32 i, u32 j, u32 part2);
@@ -52,10 +59,8 @@ private:
     void GetParallelDataSplit(std::vector<float> &splitDataSize) const;
     uint64_t GetRankSize(const std::vector<std::vector<u32>> &vTopo);
     // Aicpu
-    HcclResult PrepareResForTemplate(const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &tempAlgIntra,
-                                     InsAlgTemplate1 &tempAlgInter, InsAlgTemplate2 &tempAlgIntra1);
-    HcclResult PrepareResForTemplate23(const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &tempAlgIntra,
-                                       InsAlgTemplate2 &tempAlgIntra1, InsAlgTemplate3 &tempAlgInter1);
+    HcclResult PrepareResForTemplate(InsAlgTemplate0 &tempAlgIntra, InsAlgTemplate1 &tempAlgInter, InsAlgTemplate2 &tempAlgIntra1);
+    HcclResult PrepareResForTemplate23(InsAlgTemplate0 &tempAlgIntra, InsAlgTemplate2 &tempAlgIntra1, InsAlgTemplate3 &tempAlgInter1);
     HcclResult PrepareResForTemplateResource(const OpParam &param, const AlgResourceCtxSerializable &resCtx, TemplateResource &intraTempAlgRes,
                                              TemplateResource &interTempAlgRes, bool isRsStage);
     void GenDataParamsBufferType(const BufferType inBuffType, const BufferType outBuffType, const BufferType hcclBuffType,
@@ -142,9 +147,18 @@ private:
     std::map<u32, u64> rankBaseOffInterAGMap_;
     std::map<u32, u64> rankBaseOffIntraAGMap_;
 
+    u32 ccuKernelLaunchNumIntra0_{0};
+    u32 ccuKernelLaunchNumInter0_{0};
+    u32 ccuKernelLaunchNumIntra1_{0};
+    u32 ccuKernelLaunchNumInter1_{0};
+    u32 ccuKernelLaunchNumIntra00_{0};
+    u32 ccuKernelLaunchNumInter00_{0};
+    u32 ccuKernelLaunchNumIntra11_{0};
+    u32 ccuKernelLaunchNumInter11_{0};
+
     std::map<u32, std::pair<u64, u64>> nhrPartDataMap_;
     std::map<u32, std::pair<u64, u64>> meshPartDataMap_;
-
+    double multipleDimensionSplitRatio_{0.8};
 };
 
 } // namespace ops_hccl

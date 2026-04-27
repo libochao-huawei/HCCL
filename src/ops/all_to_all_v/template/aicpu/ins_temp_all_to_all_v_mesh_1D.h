@@ -19,6 +19,7 @@ namespace ops_hccl {
 
 class InsTempAlltoAllVMesh1D : public InsAlgTemplateBase {
 public:
+    InsTempAlltoAllVMesh1D() = default;
     explicit InsTempAlltoAllVMesh1D(const OpParam& param, const u32 rankId,
         const std::vector<std::vector<u32>> &subCommRanks);
 
@@ -45,8 +46,13 @@ public:
 private:
     HcclResult RunALLtoALL(const std::map<u32, std::vector<ChannelInfo>> &channels,
         const std::vector<ThreadHandle> &threads, const TemplateDataParams &tempAlgParams, const u32 myAlgRank);
-    HcclResult PostCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads,
-        const u32 myAlgRank) const;
+    HcclResult PreCopy(const std::map<u32, std::vector<ChannelInfo>> &channels,
+        const std::vector<ThreadHandle> &threads, const TemplateDataParams &tempAlgParams,
+        const u32 myAlgRank);
+    HcclResult PostCopy(const TemplateDataParams &tempAlgParams, const ThreadHandle &thread,
+        const u32 rankId, const u64 &recvSize, const u64 &recvCount, const u64 &recvOffset) const;
+    HcclResult LocalCopyForMyRank(const TemplateDataParams &tempAlgParams,
+        const ThreadHandle &thread, const u32 myAlgRank, const u32 queIdx) const;
 
     u64 count_{0};
     u64 processSize_{0};
@@ -54,8 +60,8 @@ private:
     std::vector<u64> recvCounts_;
     std::vector<u64> sdispls_;
     std::vector<u64> rdispls_;
-    u64 cclBufferCountPerRank_{0};
     u64 dataTypeSize_{0};
+    bool isDmaRead_{false};
 };
 
 } // namespace Hccl

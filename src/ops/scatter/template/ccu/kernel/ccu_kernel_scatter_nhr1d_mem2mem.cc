@@ -32,10 +32,6 @@ constexpr uint16_t RANK_NUM_PER_CKE = 16;
 CcuKernelScatterNHR1DMem2Mem::CcuKernelScatterNHR1DMem2Mem(const CcuKernelArg &arg) : CcuKernelAlgBase(arg)
 {
     const CcuKernelArgScatterNHRMem2Mem1D *kernelArg = dynamic_cast<const CcuKernelArgScatterNHRMem2Mem1D *>(&arg);
-    if (kernelArg == nullptr) {
-        HCCL_ERROR("[CcuKernelScatterNHR1DMem2Mem] kernelArg is null");
-        return;
-    }
 
     rankId_ = kernelArg->rankId_;
     dimSize_ = kernelArg->dimSize_;
@@ -494,10 +490,6 @@ HcclResult CcuKernelScatterNHR1DMem2Mem::Algorithm()
 std::vector<uint64_t> CcuKernelScatterNHR1DMem2Mem::GeneArgs(const CcuTaskArg &arg)
 {
     const CcuTaskArgScatterNHRMem2Mem1D *taskArg = dynamic_cast<const CcuTaskArgScatterNHRMem2Mem1D *>(&arg);
-    if (taskArg == nullptr) {
-        HCCL_ERROR("[CcuKernelScatterNHR1DMem2Mem] taskArg is null");
-        return {};
-    }
 
     uint64_t inputAddr = taskArg->inputAddr_;
     uint64_t outputAddr = taskArg->outputAddr_;

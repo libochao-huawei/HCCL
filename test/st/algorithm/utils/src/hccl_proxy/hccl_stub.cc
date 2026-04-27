@@ -119,7 +119,12 @@ HcclResult HcclRankGraphGetTopoType(HcclComm comm, uint32_t netLayer, uint32_t t
 HcclResult HcclRankGraphGetEndpointInfo(HcclComm comm, uint32_t rankId, const EndpointDesc *endpointDesc, EndpointAttr endpointAttr, uint32_t infoLen, void *info)
 {
     uint32_t* intInfo = static_cast<uint32_t*>(info);
-    *intInfo = 0;
+    if (endpointAttr == EndpointAttr::ENDPOINT_ATTR_BW_COEFF) {
+        *intInfo = 1;
+    } else {
+        *intInfo = 0;
+    }
+    
     return HCCL_SUCCESS;
 }
 
@@ -755,6 +760,13 @@ int32_t HcommBatchModeEnd(const char *batchTag)
 int32_t HcommAcquireComm(const char* commId)
 {
     return 0;
+}
+
+HcclResult HcclCommGetStatus(const char * commId, HcclCommStatus *status)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    *status = HCCL_COMM_STATUS_READY;
+    return HCCL_SUCCESS;
 }
 
 int32_t HcommReleaseComm(const char* commId)
