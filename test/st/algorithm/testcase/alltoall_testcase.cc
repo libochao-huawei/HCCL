@@ -375,4 +375,26 @@ TEST_F(ST_ALLTOALL_TEST, st_alltoall_10)
     RunAlltoAllMeshTest(topoMeta, rankSize, dataType, dataCount);
 }
 
+TEST_F(ST_ALLTOALL_TEST, st_alltoall_11)
+{
+    TopoMeta topoMeta;  // 三维数组指定超节点-Server-Device信息
+    GenTopoMeta(topoMeta, 1, 2, 8);
+    uint32_t rankSize = 16;
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_FP16;
+    uint64_t dataCount = 22222222;
+
+    RunAlltoAllMeshTest(topoMeta, rankSize, dataType, dataCount);
+}
+
+TEST_F(ST_ALLTOALL_TEST, st_alltoall_12)
+{
+    TopoMeta topoMeta;  // 三维数组指定超节点-Server-Device信息
+    GenTopoMeta(topoMeta, 1, 2, 7);
+    uint32_t rankSize = 14;
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_INT32;
+    uint64_t dataCount = 33333333;
+
+    RunAlltoAllMeshTest(topoMeta, rankSize, dataType, dataCount);
+}
+
 }
