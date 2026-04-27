@@ -20,9 +20,9 @@ SelectorStatus ScatterAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayerDe
     (void)topoInfo;
     (void)opParam;
     (void)configAlgMap;
-    (void)selectAlgName;
-    HCCL_WARNING("[Algo][ScatterAutoSelector] not supported yet for ccu_ms mode, reset to default.");
-    return SelectorStatus::NOT_MATCH;
+    HCCL_DEBUG("[ScatterAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
+    selectAlgName = "CcuV2ScatterOmniPipe";
+    return SelectorStatus::MATCH;
 }
 
 SelectorStatus ScatterAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam,
@@ -73,6 +73,7 @@ SelectorStatus ScatterAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNetL
             return SelectorStatus::NOT_MATCH;
         }
     }
+    selectAlgName = "CcuV2ScatterOmniPipe";
     HCCL_INFO("[ScatterAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
     return SelectorStatus::MATCH;
 }
