@@ -56,26 +56,37 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(
     }
 
     if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
+        HCCL_INFO("topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix");
+        HCCL_INFO("algHierarchyInfo.infos[0].size() start");
         CHK_PRT_RET(algHierarchyInfo.infos[0].size() != INST_NUM_NET,
                     HCCL_ERROR("[InsV2AlltoAllVSoleExecutor][CalcRes] algHierarchyInfo.infos[0].size[%zu] "
                         "with Level0Topo[%u] is not %u",
                         algHierarchyInfo.infos[0].size(), topoInfo->level0Topo, INST_NUM_NET),
                     HCCL_E_PARA);
+        HCCL_INFO("algHierarchyInfo.infos[0].size() pass");
         if (topoInfo->topoLevelNums == 1 || param.engine == CommEngine::COMM_ENGINE_AIV ||
             param.engine == CommEngine::COMM_ENGINE_CCU) {
+            HCCL_INFO("tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[1][0]) start");
             tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[1][0]);
+            HCCL_INFO("tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[1][0]) pass");
         } else {
+            HCCL_INFO("algHierarchyInfo.infos[0][1].size() start");
             CHK_PRT_RET(algHierarchyInfo.infos[0][1].size() >= algHierarchyInfo.infos[1][0].size(),
                         HCCL_ERROR("[InsV2AlltoAllVSoleExecutor][CalcRes] ranknum [%zu] in Layer0 with Level0Topo[%u] "
                                    "should be smaller than ranknum [%zu] in Layer1",
                                    algHierarchyInfo.infos[0][1].size(), topoInfo->level0Topo,
                                    algHierarchyInfo.infos[1][0].size()),
                         HCCL_E_PARA);
+            HCCL_INFO("algHierarchyInfo.infos[0][1].size() pass");
             tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[0][1]); // 跨框时，增加框内通信域，用于AICPU框内申请流资源
+            HCCL_INFO("tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[0][1]) pass");
             tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[1][0]);
+            HCCL_INFO("tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[1][0]) pass");
         }
     } else {
+        HCCL_INFO("tempAlgHierachyInfo = algHierarchyInfo.infos[0]");
         tempAlgHierachyInfo = algHierarchyInfo.infos[0];
+        HCCL_INFO("algHierarchyInfo.infos[0] pass");
     }
     // 构建template
     std::shared_ptr<InsAlgTemplate> algTemplate =
