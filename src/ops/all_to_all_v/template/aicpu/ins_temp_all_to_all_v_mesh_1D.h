@@ -58,9 +58,9 @@ private:
         const ThreadHandle &thread, const u32 myAlgRank, const u32 queIdx) const;
     void CalcCommRankSetForOneLoop(const u32 roundIdx, const u32 remainRankSize, std::vector<u32> &commRanks) const;
     u32 CalcCommLoops() const;
-    void CalcCclBuffIdx(u32 remoteRank, u32 &myRankCclBuffIdx, u32 &remoteCclBuffIdx) const
+    void CalcCclBuffIdx(u32 remoteRank, u32 &myRankCclBuffIdx, u32 &remoteCclBuffIdx) const;
     HcclResult RunSendRecvByLoop(const std::vector<u32> &commRanks, const TemplateDataParams &tempAlgParams,
-        const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads) const;
+        const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads);
 
     u64 dataTypeSize_{0};
     bool isDmaRead_{false};
