@@ -11,6 +11,7 @@
 #ifndef HCCL_MC2_H
 #define HCCL_MC2_H
 
+
 #include <hccl/hccl_types.h>
 #include <hccl/hccl_res.h>
 
