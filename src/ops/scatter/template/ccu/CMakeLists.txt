@@ -13,6 +13,7 @@ add_subdirectory(kernel)
 set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/ccu_temp_scatter_mesh1d.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ccu_temp_scatter_nhr1d_mem2mem.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/ccu_temp_scatter_omnipipe_mesh_1D.cc
 )
 
 target_sources(hccl PRIVATE
