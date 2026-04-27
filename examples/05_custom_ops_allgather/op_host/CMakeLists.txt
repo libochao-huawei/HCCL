@@ -72,4 +72,5 @@ add_dependencies(hccl_custom_allgather generate_kernel_obj)
 
 install(TARGETS hccl_custom_allgather
     LIBRARY DESTINATION ${CUSTOM_OPS_OPP_LIB_PATH}
+    COMPONENT hccl
 )

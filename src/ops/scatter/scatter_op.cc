@@ -160,6 +160,8 @@ HcclResult ScatterExecOp(OpParam &param, void *sendBuf, void *recvBuf, uint64_t 
     #else
     if (param.deviceType == DevType::DEV_TYPE_910_95) {
     #endif
+        CHK_RET(HcclGetOpExpansionMode(comm, param));
+        
         CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
         if (ShouldGoCcuFastLaunch(comm, param, &ccuFastLaunchCtx)) {
             return HcclExecOpCcuFastLaunch(comm, param, ccuFastLaunchCtx);
@@ -172,7 +174,7 @@ HcclResult ScatterExecOp(OpParam &param, void *sendBuf, void *recvBuf, uint64_t 
         }
         if (userRankSize == 1) {
             HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
-            CHK_RET(SingleRankProc(param));
+            CHK_RET(SingleRankProc(comm, param));
             return HcclResult::HCCL_SUCCESS;
         }
 

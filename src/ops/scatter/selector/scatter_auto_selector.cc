@@ -59,6 +59,9 @@ SelectorStatus ScatterAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNetL
         } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
             if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
                 selectAlgName = "CcuScatterMesh1D";
+            } else if (topoInfo->level0PcieMix) {
+                HCCL_WARNING("[ScatterAutoSelector] pcie mixed topo is not supported yet for ccu schedule mode.");
+                return SelectorStatus::NOT_MATCH;
             } else {
                 selectAlgName = "CcuScatterParallelMesh1DNHR";
             }
@@ -101,6 +104,8 @@ SelectorStatus ScatterAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerDe
             if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
                 // MESH_1D 即可链接所有卡， 使用 MESH_1D 算法
                 selectAlgName = "InsScatterMesh1D";
+            } else if (topoInfo->level0PcieMix) {
+                selectAlgName = "InsScatterParallelMesh1DNHRPcie";
             } else {
                 selectAlgName = "InsScatterMesh1D";
             }

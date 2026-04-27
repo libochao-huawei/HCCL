@@ -20,9 +20,15 @@ public:
  
     __aicore__ inline void InitCommon(uint32_t sliceId)
     {
+        uint64_t smallDataSize = 512 * 1024;
         dataSize_ = len_ * sizeof(T);
         coreIdx_ = GetBlockIdx();
-        coreNum_ = numBlocks_;
+        // 小数据量情况下，缩减实际使用核数
+        if (dataSize_ <= smallDataSize && numBlocks_ > rankSize_) {
+            coreNum_ = rankSize_;
+        } else {
+            coreNum_ = numBlocks_;
+        }
         curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
     }
  
