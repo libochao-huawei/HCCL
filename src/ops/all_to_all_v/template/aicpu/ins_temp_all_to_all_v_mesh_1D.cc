@@ -90,7 +90,6 @@ void InsTempAlltoAllVMesh1D::CalcCclBuffIdx(u32 remoteRank, u32 &myRankCclBuffId
     // 反过来就是myRank相对于remoteRank的gapLeft和gapRight
     u32 gapRight = (templateRankSize_ + remoteRank - myRank_) % templateRankSize_;
     u32 gapLeft = (templateRankSize_ + myRank_ - remoteRank) % templateRankSize_;
-    u32 remoteCclBuffIdx = 0;
     if (gapLeft < gapRight) {
         // remoteRank是myRank左边的rank，myRank是remoteRank右边的rank
         u32 gap = gapLeft;
@@ -207,7 +206,7 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
 HcclResult InsTempAlltoAllVMesh1D::RunSendRecvByLoop(const std::vector<u32> &commRanks,
     const TemplateDataParams &tempAlgParams,
     const std::map<u32, std::vector<ChannelInfo>> &channels,
-    const std::vector<ThreadHandle> &threads) const
+    const std::vector<ThreadHandle> &threads)
 {
     u32 queIdx = 1; // 每轮通信都从第1条流开始
     // 遍历本次通信的所有rank
