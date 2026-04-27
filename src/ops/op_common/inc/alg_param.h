@@ -17,6 +17,7 @@
 #include <set>
 #include <unordered_set>
 #include <functional>
+#include <hccl/hccl_comm.h>
 #include "hccl_common.h"
 #include "hccl_types.h"
 #include "alg_type.h"
@@ -329,6 +330,7 @@ struct ChannelInfo {
     CommProtocol protocol = CommProtocol::COMM_PROTOCOL_RESERVED;
     EndpointLocType locationType = EndpointLocType::ENDPOINT_LOC_TYPE_RESERVED;
     u32 notifyNum = 0;
+    u32 portGroupSize = 1; // A5用的, 端口组大小，用于数据分片比例计算
     ChannelHandle handle = 0;
     HcclMem remoteCclMem; // A5用的
     HcclMem remoteInputGraphMode;   // A5用的, 图模式下远端sendBuf地址
@@ -447,6 +449,7 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     char tag[TAG_LENGTH] = ""; // 保存topoInfo的key值
     char algTag[ALG_TAG_LENGTH] = ""; // 保存资源的key值，和算法绑定
     char fastLaunchTag[ALG_TAG_LENGTH] = ""; // 快速下发的key值
+    char fallbackTag[ALG_MAX_LENGTH] = "";
     char commName[COMM_INDENTIFIER_MAX_LENGTH] = "";
     char commModeTag[TAG_LENGTH] = ""; // 保存与执行模式相关的资源信息的key值
     aclrtStream stream;
@@ -505,6 +508,7 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     HcclCMDType opType = HcclCMDType::HCCL_CMD_INVALID;
     bool isZeroCopy = false;
     char algName[OP_ALG_LENGTH] = "";
+    HcclOpExpansionMode commOpExpansionMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_INVALID;
     OpExecuteConfig opExecuteConfig;
     u32 numBlocksLimit = 0;
     bool isAivClearEnable = false;

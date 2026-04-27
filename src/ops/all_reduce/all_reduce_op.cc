@@ -182,6 +182,8 @@ HcclResult AllReduceOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t count,
 
     CHK_RET(FillAllReduceOpParam(sendBuf, recvBuf, count, dataType, op, comm, stream, opMode, param));
     
+    CHK_RET(HcclGetOpExpansionMode(comm, param));
+    
     CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
     if ((opMode == OpMode::OPBASE) && ShouldGoCcuFastLaunch(comm, param, &ccuFastLaunchCtx)) {
         return HcclExecOpCcuFastLaunch(comm, param, ccuFastLaunchCtx);

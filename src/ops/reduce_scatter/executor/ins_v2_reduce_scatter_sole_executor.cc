@@ -113,6 +113,9 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchest
         std::make_shared<InsAlgTemplate>(param, resCtx.topoInfo.userRank, resCtx.algHierarchyInfo.infos[0]);
     u32 templateScratchMultiplier = algTemplate->CalcScratchMultiple(tempAlgParams.buffInfo.inBuffType,
                                                                      tempAlgParams.buffInfo.outBuffType);
+    if (param.engine == CommEngine::COMM_ENGINE_AICPU_TS) {
+        algTemplate->SetchannelsPerRank(templateAlgRes.channels);
+    }
     // 计算最小传输大小
     u64 maxDataSizePerLoop = 0;
     maxTmpMemSize_ = tempAlgParams.buffInfo.hcclBuff.size;
