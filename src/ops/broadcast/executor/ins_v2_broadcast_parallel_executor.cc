@@ -49,12 +49,12 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     HCCL_INFO("[InsBroadcastParallelExecutor] CalcRes start, rank[%d]", myRank_);
     std::vector<std::vector<u32>> temp0HierarchyInfo;
     std::vector<std::vector<u32>> temp1HierarchyInfo;
-    if(topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
+    if(!topoInfo->level0PcieMix && topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS ) {
         temp0HierarchyInfo = {algHierarchyInfo.infos[0][0]};
         std::vector<u32> closRanks;
-        u32 meshSize = algHierarchyInfo.infos[0][0].size();
+        u32 meshRankSize = algHierarchyInfo.infos[0][0].size();
         for(auto rank : algHierarchyInfo.infos[0][1]) {
-            if(rank % meshSize == topoInfo->userRank % meshSize) {
+            if(rank % meshRankSize == topoInfo->userRank % meshRankSize) {
                 closRanks.push_back(rank);
             }
         }
@@ -200,10 +200,8 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     // 获取算法Topo信息
     vTopo_ = resCtx.algHierarchyInfo.infos;         // 本通信域内的通信平面
 
-    std::vector<std::vector<u32>> temp0HierarchyInfo;
-    std::vector<std::vector<u32>> temp1HierarchyInfo;
     if(resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS && !resCtx.topoInfo.level0PcieMix) {
-        temp0HierarchyInfo = {resCtx.algHierarchyInfo.infos[0][0]};
+        temp0HierarchyInfo_ = {resCtx.algHierarchyInfo.infos[0][0]};
         std::vector<u32> closRanks;
         u32 meshSize = resCtx.algHierarchyInfo.infos[0][0].size();
         for(auto rank : resCtx.algHierarchyInfo.infos[0][1]) {
@@ -211,15 +209,15 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
                 closRanks.push_back(rank);
             }
         }
-        temp1HierarchyInfo = {closRanks};
+        temp1HierarchyInfo_ = {closRanks};
     } else {
-        temp0HierarchyInfo = resCtx.algHierarchyInfo.infos[0];
-        temp1HierarchyInfo = resCtx.algHierarchyInfo.infos[1];
+        temp0HierarchyInfo_ = resCtx.algHierarchyInfo.infos[0];
+        temp1HierarchyInfo_ = resCtx.algHierarchyInfo.infos[1];
     }
 
     // 计算localRankSize和localRoot
-    intraLocalRankSize_ = GetRankSize(temp0HierarchyInfo);
-    interLocalRankSize_ = GetRankSize(temp1HierarchyInfo);
+    intraLocalRankSize_ = GetRankSize(temp0HierarchyInfo_);      
+    interLocalRankSize_ = GetRankSize(temp1HierarchyInfo_);
     rankSize_ = intraLocalRankSize_ * interLocalRankSize_;
     HCCL_INFO("[Orchestrate] localRankSize: myRank[%d] intraLocalRankSize[%u] interLocalRankSize[%u] rankSize_[%u]",
               myRank_, intraLocalRankSize_, interLocalRankSize_, rankSize_);
@@ -227,10 +225,10 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     CHK_RET(CalcLocalRoot());
 
     // 实例化算法模板类
-    InsAlgTemplate0 tempAlgIntra(param, resCtx.topoInfo.userRank, temp0HierarchyInfo);
-    InsAlgTemplate1 tempAlgInter(param, resCtx.topoInfo.userRank, temp1HierarchyInfo);
-    InsAlgTemplate2 tempAlgIntra1(param, resCtx.topoInfo.userRank, temp0HierarchyInfo);
-    InsAlgTemplate3 tempAlgInter1(param, resCtx.topoInfo.userRank, temp1HierarchyInfo);
+    InsAlgTemplate0 tempAlgIntra(param, resCtx.topoInfo.userRank, temp0HierarchyInfo_);
+    InsAlgTemplate1 tempAlgInter(param, resCtx.topoInfo.userRank, temp1HierarchyInfo_);
+    InsAlgTemplate2 tempAlgIntra1(param, resCtx.topoInfo.userRank, temp0HierarchyInfo_);
+    InsAlgTemplate3 tempAlgInter1(param, resCtx.topoInfo.userRank, temp1HierarchyInfo_);
 
     // 算法展开
     HcclResult ret = OrchestrateLoop(param, resCtx, tempAlgIntra, tempAlgInter, tempAlgIntra1, tempAlgInter1);
@@ -596,34 +594,18 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
         ccuKernelLaunchNumInter1_ = interTempAlgRes.submitInfos.size();
     }
 #endif
-        std::vector<std::vector<u32>> temp0HierarchyInfo;
-        std::vector<std::vector<u32>> temp1HierarchyInfo;
-        if(resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS && !resCtx.topoInfo.level0PcieMix) {
-            temp0HierarchyInfo = {resCtx.algHierarchyInfo.infos[0][0]};
-            std::vector<u32> closRanks;
-            u32 meshSize = resCtx.algHierarchyInfo.infos[0][0].size();
-            for(auto rank : resCtx.algHierarchyInfo.infos[0][1]) {
-                if(rank % meshSize == resCtx.topoInfo.userRank % meshSize) {
-                    closRanks.push_back(rank);
-                }
-            }
-            temp1HierarchyInfo = {closRanks};
-        } else {
-            temp0HierarchyInfo = resCtx.algHierarchyInfo.infos[0];
-            temp1HierarchyInfo = resCtx.algHierarchyInfo.infos[1];
-        }
 
         // 第二步开始前同步
         CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
         //server 间地址偏移
-        for (int i = 0; i < temp0HierarchyInfo[0].size(); i++) {
-            tempVirtRankMapInter_.insert(std::make_pair(temp0HierarchyInfo[0][i], i));
+        for (int i = 0; i < temp0HierarchyInfo_[0].size(); i++) {
+            tempVirtRankMapInter_.insert(std::make_pair(temp0HierarchyInfo_[0][i], i));
         }
         RunTemplateInter0(param, resCtx, dataOffset0, currCountPart0, scratchOffsetCountInterStage1, tempAlgParamsInter0, interTempAlgRes, tempAlgInter);
 
         //server 内地址偏移
-        for (int i = 0; i < temp1HierarchyInfo[0].size(); i++) {
-            tempVirtRankMapIntra_.insert(std::make_pair(temp1HierarchyInfo[0][i], i));
+        for (int i = 0; i < temp1HierarchyInfo_[0].size(); i++) {
+            tempVirtRankMapIntra_.insert(std::make_pair(temp1HierarchyInfo_[0][i], i));
         }
         RunTemplateIntra1(param, resCtx, dataOffset1, currCountPart1, scratchOffsetCountIntraStage1, tempAlgParamsIntra1, intraTempAlgRes, tempAlgIntra);
         // 尾同步

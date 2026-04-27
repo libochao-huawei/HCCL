@@ -236,14 +236,14 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
 
     if(resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS && !resCtx.topoInfo.level0PcieMix) {
         temp0HierarchyInfo_ = {resCtx.algHierarchyInfo.infos[0][0]};
-        std::vector<u32> closRanks;
+        std::vector<u32> closRankList;
         u32 meshSize = resCtx.algHierarchyInfo.infos[0][0].size();
         for(auto rank : resCtx.algHierarchyInfo.infos[0][1]) {
             if(rank % meshSize == resCtx.topoInfo.userRank % meshSize) {
-                closRanks.push_back(rank);
+                closRankList.push_back(rank);
             }
         }
-        temp1HierarchyInfo_ = {closRanks};
+        temp1HierarchyInfo_ = {closRankList};
     } else {
         temp0HierarchyInfo_ = resCtx.algHierarchyInfo.infos[0];
         temp1HierarchyInfo_ = resCtx.algHierarchyInfo.infos[1];

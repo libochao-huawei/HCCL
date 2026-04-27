@@ -54,10 +54,11 @@ HcclResult CcuTempReduceMesh1D::CalcRes(HcclComm comm, const OpParam& param, con
     std::vector<HcclChannelDesc> channelDescs;
     if(topoInfo->level0Topo != Level0Shape::MESH_1D_CLOS) {
         CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
+        HCCL_DEBUG("[CcuTempReduceMesh1D::CalcRes] Get Mesh Channel Success!");
     } else {
-        std::vector<HcclChannelDesc> myChannelDescs;
-        CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks_, myChannelDescs, CommTopo::COMM_TOPO_1DMESH));
-        for(auto channel : myChannelDescs) {
+        std::vector<HcclChannelDesc> tempChannelDescs;
+        CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks_, tempChannelDescs, CommTopo::COMM_TOPO_1DMESH));
+        for(auto channel : tempChannelDescs) {
             if(channel.channelProtocol == COMM_PROTOCOL_UBC_CTP) {
                 channelDescs.push_back(channel);
             }
