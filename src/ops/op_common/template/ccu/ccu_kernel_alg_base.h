@@ -13,6 +13,8 @@
 
 #include <vector>
 #include <array>
+#include <map>
+#include <string>
 
 #include "log.h"
 #include "ccu_api.hpp"
@@ -60,9 +62,16 @@ constexpr uint64_t CCU_MS_SIZE               = 4096;
         LoopGroupResource moRes;
         bool resourceAllocated;
 
-        CcuLoop loops[2];
+        std::map<std::string, std::array<CcuLoop, 2>> loopMap;
         CcuLoopExecutors enginePool;
-        bool loopRegistered;
+
+        void CreateLoop(std::string loopStr) {
+            loopMap.emplace(loopStr, std::array<CcuLoop, 2>());
+        }
+
+        bool IsLoopRegistered(std::string loopStr) {
+            return loopMap.count(loopStr) != 0;
+        }
 
         // // Loop body 中的外部 LocalAddr（每个 loop index 各两组）
         // ccu::LocalAddr loopDst[2];
