@@ -190,21 +190,34 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcRes(HcclComm comm, const OpParam& para
 
     const uint32_t rankSize = subCommRanks_[0].size();
     resourceRequest.ccuKernelNum.push_back(DIE_NUM);        // kernel数量
-    for (uint32_t dieId = 0; dieId < DIE_NUM; dieId++) {    // 2Die算法，需要执行两次
-        // 创建每个kernel的kernelArg，放入kernelInfo, 然后将kernelInfo放入resourceRequest.ccuKernelInfos
-        CcuKernelInfo kernelInfo;
-        kernelInfo.creator = [](const hcomm::CcuKernelArg &arg) {
-            return std::make_unique<CcuKernelAllToAllMesh2Die>(arg);
-        };
-        const bool withMyRank = dieId == meshDieId ? true : false;
-        auto kernelArg = std::make_shared<CcuKernelArgAllToAllMesh2Die>(rankSize, myRank_, param, subCommRanks_,
-            withMyRank, rankGroup_[dieId]);
-        kernelInfo.kernelArg = kernelArg;
-        kernelInfo.channels = channels_[dieId];
-        resourceRequest.ccuKernelInfos.emplace_back(kernelInfo);
-        HCCL_DEBUG("[CcuTempAllToAllMesh1D2Die][CalcRes] dieId=%u, channels=%llu, rankSize=%llu, ccuKernelInfos=%llu",
-            dieId, channels_[dieId].size(), rankSize, resourceRequest.ccuKernelInfos.size());
-    }
+
+    // 先下发mesh的kenrel
+    CcuKernelInfo kernelInfoMesh;
+    kernelInfoMesh.creator = [](const hcomm::CcuKernelArg &arg) {
+        return std::make_unique<CcuKernelAllToAllMesh2Die>(arg);
+    };
+    auto kernelArgMesh = std::make_shared<CcuKernelArgAllToAllMesh2Die>(rankSize, myRank_, param, subCommRanks_,
+        true, rankGroup_[meshDieId]);
+    kernelInfoMesh.kernelArg = kernelArgMesh;
+    kernelInfoMesh.channels = channels_[meshDieId];
+    resourceRequest.ccuKernelInfos.emplace_back(kernelInfoMesh);
+    HCCL_DEBUG("[CcuTempAllToAllMesh1D2Die][CalcRes] dieId=%u, channels=%llu, rankSize=%llu, ccuKernelInfos=%llu",
+        meshDieId, channels_[meshDieId].size(), rankSize, resourceRequest.ccuKernelInfos.size());
+
+    // 下发clos的kenrel
+    CcuKernelInfo kernelInfoClos;
+    kernelInfoClos.creator = [](const hcomm::CcuKernelArg &arg) {
+        return std::make_unique<CcuKernelAllToAllMesh2Die>(arg);
+    };
+    uint32_t closDieId = 1 - meshDieId;
+    auto kernelArg = std::make_shared<CcuKernelArgAllToAllMesh2Die>(rankSize, myRank_, param, subCommRanks_,
+        false, rankGroup_[closDieId]);
+    kernelInfoClos.kernelArg = kernelArg;
+    kernelInfoClos.channels = channels_[closDieId];
+    resourceRequest.ccuKernelInfos.emplace_back(kernelInfoClos);
+    HCCL_DEBUG("[CcuTempAllToAllMesh1D2Die][CalcRes] dieId=%u, channels=%llu, rankSize=%llu, ccuKernelInfos=%llu",
+        closDieId, channels_[closDieId].size(), rankSize, resourceRequest.ccuKernelInfos.size());
+
 
     return HcclResult::HCCL_SUCCESS;
 }
@@ -243,7 +256,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std
     HCCL_INFO("Mesh channel num[%u], Clos channel num[%u]", channels_[meshDieId].size(), clos_channels[0].size());
     
     // 筛选clos链路
-    HCCL_INFO("clos_channels size: %u", clos_channels.size());
+    HCCL_INFO("clos_channels size: %u, clos_channels[0] size: %u, clos_channels[1] size: %u", clos_channels.size(), clos_channels[0].size(), clos_channels[1].size());
     for(auto& channels: clos_channels){
         u32 dieId = channels.first;
         std::vector<HcclChannelDesc>& channel_list = channels.second;
