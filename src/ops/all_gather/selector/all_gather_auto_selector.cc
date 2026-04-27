@@ -23,12 +23,8 @@ SelectorStatus AllGatherAutoSelector::SelectCcuMsAlgo(
     (void)configAlgMap;
 
     if (topoInfo->topoLevelNums > 1) {
-        if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-            selectAlgName = "CcuAllGatherParallelMeshNHR";
-        } else {
-            HCCL_WARNING("[AllGatherAutoSelector] levelNum > 1 is not supported yet for 2d ccu_ms mode.");
-            return SelectorStatus::NOT_MATCH;
-        }
+        HCCL_WARNING("[AllGatherAutoSelector] levelNum > 1 is not supported yet for ccu_ms mode.");
+        return SelectorStatus::NOT_MATCH;
     } else {
         return SelectMeshAlgo(topoInfo, opParam, selectAlgName);
     }
