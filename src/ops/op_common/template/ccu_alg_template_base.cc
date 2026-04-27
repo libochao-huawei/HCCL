@@ -230,15 +230,15 @@ HcclResult CcuAlgTemplateBase::ReverseChannelPerDieIfNeed(const HcclComm comm, c
 
 HcclResult CcuAlgTemplateBase::GetToken(const BuffInfo &buffinfo, uint64_t &token) const
 {
-    if (buffinfo.inputPtr != nullptr) {
+    if (buffinfo.inputPtr != nullptr && buffinfo.inputSize != 0) {
         token = hcomm::CcuRep::GetTokenInfo(PointerToAddr(buffinfo.inputPtr),
                                      static_cast<uint64_t>(buffinfo.inputSize));
         return HCCL_SUCCESS;
-    } else if (buffinfo.outputPtr != nullptr) {
+    } else if (buffinfo.outputPtr != nullptr && buffinfo.outputSize != 0) {
         token = hcomm::CcuRep::GetTokenInfo(PointerToAddr(buffinfo.outputPtr),
                                      static_cast<uint64_t>(buffinfo.outputSize));
         return HCCL_SUCCESS;
-    } else if (buffinfo.hcclBuff.addr != nullptr) {
+    } else if (buffinfo.hcclBuff.addr != nullptr && buffinfo.hcclBuff.size != 0) {
         token = hcomm::CcuRep::GetTokenInfo(PointerToAddr(buffinfo.hcclBuff.addr),
                                      static_cast<uint64_t>(buffinfo.hcclBuff.size));
         return HCCL_SUCCESS;

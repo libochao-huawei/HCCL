@@ -24,6 +24,8 @@
 #define CONST_ONE 1
 #define CONST_TWO 2
 #define CONST_THREE 3
+#define INST_NUM_NET 2
+
 namespace ops_hccl {
 
 template <typename AlgTopoMatch, typename InsAlgTemplate>
@@ -53,8 +55,26 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(
         HCCL_ERROR("algHierarchyInfo level num is zero!");
         return HCCL_E_PARA;
     }
+
     if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
-        tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[0][1]);    // clos拓扑，包含所有rank
+        CHK_PRT_RET(algHierarchyInfo.infos[0].size() != INST_NUM_NET,
+                    HCCL_ERROR("[InsV2AlltoAllVSoleExecutor][CalcRes] algHierarchyInfo.infos[0].size[%zu] "
+                        "with Level0Topo[%u] is not %u",
+                        algHierarchyInfo.infos[0].size(), topoInfo->level0Topo, INST_NUM_NET),
+                    HCCL_E_PARA);
+        if (topoInfo->topoLevelNums == 1 || param.engine == CommEngine::COMM_ENGINE_AIV ||
+            param.engine == CommEngine::COMM_ENGINE_CCU) {
+            tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[1][0]);
+        } else {
+            CHK_PRT_RET(algHierarchyInfo.infos[0][1].size() >= algHierarchyInfo.infos[1][0].size(),
+                        HCCL_ERROR("[InsV2AlltoAllVSoleExecutor][CalcRes] ranknum [%zu] in Layer0 with Level0Topo[%u] "
+                                   "should be smaller than ranknum [%zu] in Layer1",
+                                   algHierarchyInfo.infos[0][1].size(), topoInfo->level0Topo,
+                                   algHierarchyInfo.infos[1][0].size()),
+                        HCCL_E_PARA);
+            tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[0][1]); // 跨框时，增加框内通信域，用于AICPU框内申请流资源
+            tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[1][0]);
+        }
     } else {
         tempAlgHierachyInfo = algHierarchyInfo.infos[0];
     }
@@ -77,7 +97,19 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     // 给channels_和threads_赋值
     threads_ = resCtx.threads;
     if (param.engine != CommEngine::COMM_ENGINE_AIV && param.engine != CommEngine::COMM_ENGINE_CCU) {
-        CHK_RET(RestoreChannelMap(resCtx, remoteRankToChannelInfo_));
+        if (resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS && !resCtx.topoInfo.level0PcieMix) {
+            CHK_PRT_RET(resCtx.channels.size() != CONST_ONE,
+                        HCCL_ERROR("[InsV2AlltoAllVSoleExecutor][Orchestrate] resCtx.channels.size[%zu] is not [%u]",
+                                   resCtx.channels.size(), CONST_ONE),
+                        HCCL_E_PARA); // 框内和跨框场景都使用1D算法
+            remoteRankToChannelInfo_.resize(CONST_ONE);
+            for (auto &channel : resCtx.channels[0]) {
+                u32 remoteRank = channel.remoteRank;
+                remoteRankToChannelInfo_[0][remoteRank].push_back(channel);
+            }
+        } else {
+            CHK_RET(RestoreChannelMap(resCtx, remoteRankToChannelInfo_));
+        }
     }
 
     dataType_ = param.all2AllVDataDes.sendType;
@@ -217,10 +249,11 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
 
     std::vector<std::vector<u32>> tempAlgHierachyInfo;
     if (resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS && !resCtx.topoInfo.level0PcieMix) {
-        tempAlgHierachyInfo.push_back(resCtx.algHierarchyInfo.infos[0][1]);
+        tempAlgHierachyInfo = resCtx.algHierarchyInfo.infos[1];
     } else {
         tempAlgHierachyInfo = resCtx.algHierarchyInfo.infos[0];
     }
+
     // 构建template
     std::shared_ptr<InsAlgTemplate> algTemplate =
         std::make_shared<InsAlgTemplate>(param, resCtx.topoInfo.userRank, tempAlgHierachyInfo);
@@ -401,7 +434,12 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, InsAlltoAllVMesh1DDPU, InsV2Al
     InsTempDpuAlltoAllMesh);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLVC, InsAlltoAllVCMesh1DDPU, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
     InsTempDpuAlltoAllMesh);
-
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, InsAlltoAllClosMesh1DDPU, InsV2AlltoAllVSoleExecutor, TopoMatchUBX1d,
+    InsTempDpuAlltoAllMesh);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, InsAlltoAllVClosMesh1DDPU, InsV2AlltoAllVSoleExecutor, TopoMatchUBX1d,
+    InsTempDpuAlltoAllMesh);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLVC, InsAlltoAllVCClosMesh1DDPU, InsV2AlltoAllVSoleExecutor,
+    TopoMatchUBX1d, InsTempDpuAlltoAllMesh);
 #ifndef AICPU_COMPILE
     REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, CcuAlltoAllMesh1D, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
         CcuTempAlltoAllMesh1D);

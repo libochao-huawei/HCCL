@@ -138,7 +138,7 @@ HcclResult InsTempScatterNHR::KernelRun(const OpParam& param, const TemplateData
     CHK_PRT_RET(templateResource.threads.empty(), 
  	            HCCL_ERROR("[InsTempScatterNHR][KernelRun] threads is empty"), 
  	            HCCL_E_INTERNAL);
-    CHK_PRT_RET(threadNum_ != templateResource.threads.size(),
+    CHK_PRT_RET(threadNum_ > templateResource.threads.size(),
         HCCL_ERROR("[InsTempScatterNHR] Rank [%d], requiredThread Error.", myRank_),
         HcclResult::HCCL_E_INTERNAL);
     CHK_PTR_NULL(tempAlgParams.buffInfo.hcclBuff.addr);

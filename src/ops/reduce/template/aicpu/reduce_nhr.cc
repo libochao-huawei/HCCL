@@ -75,12 +75,7 @@ HcclResult ReduceNHR::KernelRun(
     isDmaRead_ = isPcieProtocal;  // 是否使用Read模式
     HCCL_DEBUG("[ReduceNHR] Use Dma Read[%d]", isDmaRead_);
 
-    myIdx_ = getMyAlgRank();
-    CHK_PRT_RET(myIdx_ >= templateRankSize_,
-        HCCL_ERROR("[ReduceNHR] rank idx[%u] in virtRankMap is invalid, it should be less than rankSize[%u]",
-            myIdx_,
-            templateRankSize_),
-        HcclResult::HCCL_E_INTERNAL);
+    CHK_RET(getMyAlgRank());
     processSize_ = tempAlgParams.sliceSize;
     count_ = tempAlgParams.count;
     dataType_ = param.DataDes.dataType;
