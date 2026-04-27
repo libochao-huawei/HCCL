@@ -70,7 +70,6 @@ static CcuResult InitResource(ReduceScatterMesh1DContext &ctx)
     CCU_CHK_RET(ccu::CreateLoopExecutor(&ctx.enginePool, RS_MAX_RANK_SIZE + 1));
 
     ctx.resourceAllocated = false;
-    ctx.loopRegistered    = false;
 
     return CCU_SUCCESS;
 }
@@ -148,7 +147,7 @@ static CcuResult DoReduceScatter(ReduceScatterMesh1DContext &ctx)
         }
     }
 
-    HCCL_INFO("ctx.loopRegistered 5 [%d]", (int)ctx.loopRegistered);
+    HCCL_INFO("ctx.loopRegistered 5 [%d]", (int)ctx.IsLoopRegistered("reduce"));
     GroupReduce(ctx, arg->channels, arg->channelCount, dst, src, localSrc, ctx.goSize, ctx.dataType, ctx.outputDataType, ctx.reduceOp);
 
     return CCU_SUCCESS;
@@ -164,7 +163,6 @@ CcuResult CcuReduceScatterMesh1DKernel(CcuKernelArg arg)
     ReduceScatterMesh1DContext ctx;
     ctx.arg = kernelArg;
     ctx.resourceAllocated = false;
-    ctx.loopRegistered = false;
     ctx.moConfig.msInterleave = 0;
     ctx.moConfig.loopCount = 0;
     ctx.moConfig.memSlice = 0;
