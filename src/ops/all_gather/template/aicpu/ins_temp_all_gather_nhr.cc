@@ -144,14 +144,16 @@ HcclResult InsTempAllGatherNHR::RunAllGatherNHR(const std::vector<ThreadHandle> 
         TxRxChannels sendRecvChannels(channelSend, channelRecv);
         SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
 
+
         if (isDmaRead_) {
-            CHK_PRT_RET(SendRecvRead(sendRecvInfo, threads[channelIdx]),
+            CHK_PRT_RET(SendRecvRead(sendRecvInfo, threads[0]),
                 HCCL_ERROR("[InsTempAllGatherNHR] sendrecv failed (step=%u)", step),
                 HcclResult::HCCL_E_INTERNAL);
         } else {
-            CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[channelIdx]),
+            CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[0]),
                 HCCL_ERROR("[InsTempAllGatherNHR] sendrecv failed (step=%u)", step),
                 HcclResult::HCCL_E_INTERNAL);
+
         }
     }
     return HcclResult::HCCL_SUCCESS;
