@@ -24,6 +24,7 @@
 #include "coll_alg_v2_exec_registry.h"
 #include "topo_match_base.h"
 #include "topo_match_1d.h"
+#include "topo_match_ubx.h"
 
 namespace ops_hccl {
 
@@ -157,7 +158,7 @@ private:
 
     std::map<u32, std::pair<u64, u64>> nhrPartDataMap_;
     std::map<u32, std::pair<u64, u64>> meshPartDataMap_;
-
+    double multipleDimensionSplitRatio_{0.8};
 };
 
 } // namespace ops_hccl

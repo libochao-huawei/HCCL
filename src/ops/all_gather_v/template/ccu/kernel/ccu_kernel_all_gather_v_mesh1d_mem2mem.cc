@@ -149,13 +149,13 @@ void CcuKernelAllGatherVMesh1DMem2Mem::DoAllGatherV()
 
 HcclResult CcuKernelAllGatherVMesh1DMem2Mem::Algorithm()
 {
-    HCCL_INFO("[CcuKernelAllGatherVMesh1DMem2Mem] AllgatheVrMesh1D run.");
+    HCCL_INFO("[CcuKernelAllGatherVMesh1DMem2Mem] AllgatherVMesh1D run.");
     InitResource();
     LoadArgs();
     PreSync();
     DoAllGatherV();
     PostSync();
-    HCCL_INFO("[CcuKernelAllGatherVMesh1DMem2Mem] AllgatheVrMesh1D end.");
+    HCCL_INFO("[CcuKernelAllGatherVMesh1DMem2Mem] AllgatherVMesh1D end.");
     return HcclResult::HCCL_SUCCESS;
 }
 

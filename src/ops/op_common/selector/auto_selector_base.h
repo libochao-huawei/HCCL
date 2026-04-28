@@ -22,11 +22,11 @@ namespace ops_hccl {
 constexpr uint64_t SMALL_COUNT_512KB = 512*1024; // Byte, UB协议一次传输的最大size
 constexpr uint64_t LARGE_COUNT_1024KB = 1024*1024; // Byte, 可掩盖多mission尾块开销
 
-constexpr int RANK_SIZE_EIGHT = 8;
 constexpr u32 CCU_MS_MODE = 2;
 constexpr double DEFAULT_RANK_SIZE = 8.0;
 constexpr u64 RS_2D_SMALL_DATA_SIZE = 1024 * 1024;
 constexpr u64 RS_M2M_1D_MAX_DATA_SIZE = 8 * 1024 * 1024;
+constexpr u64 CCU_PARALLEL_MAX_DATA_SIZE = 64 * 1024 * 1024;
 
 enum class SelectorStatus { MATCH, NOT_MATCH };
 
@@ -97,12 +97,12 @@ public:
                                    const OpParam &opParam,
                                    const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                    std::string &selectAlgName) const;
-    HcclResult CheckHostDPUOnly(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam, bool &hostDPUOnly) const;
     bool IsStarsState(const OpExecuteConfig &opExecuteConfig) const;
     bool IsLayerAllConnetedWithTopo(const TopoInfoWithNetLayerDetails *topoInfo, const u32 netLayer, const CommTopo topoType) const;
     HcclResult CheckMeshNumEqualToClosNum(const TopoInfoWithNetLayerDetails *topoInfo, bool &isEqual) const;
     HcclResult CheckClosNumMultipleOfMeshNum(const TopoInfoWithNetLayerDetails *topoInfo, bool &isMultiple) const;
     bool IsInputOutputOverlap(const OpParam &opParam) const;
+    bool IsSmallDataCCU(const u64 dataSize, const u64 rankSize) const;
 
 private:
     bool ProcessAivConfig(OpParam &opParam, TopoInfoWithNetLayerDetails* topoInfo,

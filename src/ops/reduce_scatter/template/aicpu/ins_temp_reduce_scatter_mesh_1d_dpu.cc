@@ -112,7 +112,7 @@ HcclResult InsTempReduceScatterMesh1dDpu::KernelRun(const OpParam& param,
         HCCL_ERROR("recvMsgId[%u] not equal to sendMsgId[%u]", recvMsgId, sendMsgId);
         return HCCL_E_INTERNAL;
     }
-    CHK_RET(PostLocalReduce(tempAlgParams, templateResource.threads));
+    CHK_RET(PostLocalReduce(param, tempAlgParams, templateResource.threads));
     HCCL_INFO("[InsTempReduceScatterMesh1dDpu] Run End");
     return HcclResult::HCCL_SUCCESS;
 }
@@ -156,10 +156,10 @@ HcclResult InsTempReduceScatterMesh1dDpu::DPUKernelRun(const TemplateDataParams&
                 tempAlgParams.buffInfo.hcclBuffBaseOff +  repeatIdx * tempAlgParams.outputRepeatStride +
                 rankIdx * tempAlgParams.outputSliceStride, tempAlgParams.sliceSize, tempAlgParams.count); // 接收目标
 
-            DataSlice txSrcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr, 
+            DataSlice txSrcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr,
                 tempAlgParams.buffInfo.inBuffBaseOff + rankIdx * tempAlgParams.inputSliceStride + repeatIdx * tempAlgParams.inputRepeatStride,
                 tempAlgParams.sliceSize, tempAlgParams.count); // 发送源
-            DataSlice txDstSlice = DataSlice(remoteCclBuffAddr, 
+            DataSlice txDstSlice = DataSlice(remoteCclBuffAddr,
                 tempAlgParams.buffInfo.hcclBuffBaseOff + myAlgRank * tempAlgParams.outputSliceStride + repeatIdx * tempAlgParams.outputRepeatStride,
                 tempAlgParams.sliceSize, tempAlgParams.count);  // 发送目标
 
@@ -174,14 +174,14 @@ HcclResult InsTempReduceScatterMesh1dDpu::DPUKernelRun(const TemplateDataParams&
         CHK_PRT_RET(SendRecvWrite(sendRecvInfo),
                     HCCL_ERROR("[InsTempReduceScatterMesh1dDpu] RunReduceScatter Send failed"),
                     HcclResult::HCCL_E_INTERNAL);
-        
+
     }
 #endif
     return HCCL_SUCCESS;
 }
 
 // ! 已完成编码，待与堂植确认加法序问题
-HcclResult InsTempReduceScatterMesh1dDpu::PostLocalReduce(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads)
+HcclResult InsTempReduceScatterMesh1dDpu::PostLocalReduce(const OpParam &param, const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads)
 {
     // 通信结束之后，数据都在 cclBuffer 上，需要搬运到对应的输出位置。
     u32 myAlgRank = 0;
@@ -208,6 +208,17 @@ HcclResult InsTempReduceScatterMesh1dDpu::PostLocalReduce(const TemplateDataPara
                             + repeatIdx * tempAlgParams.outputRepeatStride,
                             processSize_, count_);
         CHK_RET(static_cast<HcclResult>(LocalCopy(threads[0], srcSlice, dstSlice)));
+
+        // 增加thread synchronize以支持64类数据类型
+        if ((dataType_ == HCCL_DATA_TYPE_INT64) || (dataType_ == HCCL_DATA_TYPE_UINT64) ||
+            (dataType_ == HCCL_DATA_TYPE_FP64) || (reduceOp_ == HcclReduceOp::HCCL_REDUCE_PROD)) {
+            // 启动任务并等待所有threads任务执行完成
+            CHK_RET(static_cast<HcclResult>(HcommBatchModeEnd(param.algTag)));
+            CHK_RET(static_cast<HcclResult>(HcommBatchModeStart(param.algTag)));
+            for (const auto &thread : threads) {
+                CHK_RET(static_cast<HcclResult>(HcommThreadJoin(thread, CUSTOM_TIMEOUT)));
+            }
+        }
 
         // 将后n-1片数据，规约到第0片数据上
         for (u32 tmpRank = 1; tmpRank < templateRankSize_; tmpRank++) {

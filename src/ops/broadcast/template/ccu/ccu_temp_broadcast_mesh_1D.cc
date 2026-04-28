@@ -63,6 +63,10 @@ HcclResult CcuTempBroadcastMesh1D::CalcRes(HcclComm comm, const OpParam& param, 
 
 HcclResult CcuTempBroadcastMesh1D::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
 {
+    if (tempFastLaunchCtx.ccuKernelSubmitInfos.size() == 0) {
+        HCCL_INFO("[CcuTempBroadcastMesh1D::FastLaunch] ccu kernel num is 0, just success.");
+        return HCCL_SUCCESS;
+    }
     HCCL_INFO("[CcuTempBroadcastMesh1D::FastLaunch] start");
     CcuTaskArgBroadcastMesh1D taskArg(
         PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[0],
