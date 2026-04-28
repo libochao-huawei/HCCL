@@ -19,7 +19,7 @@ public:
     __aicore__ inline AivRecvMesh1D() {
     }
 
-    __aicore__ inline void InitCoreInfo(uint64_t processedDataCount, uint64_t currDataCount)
+    __aicore__ inline void InitCoreInfo(uint64_t currDataCount)
     {
         coreIndex = block_idx;  // 每个核在当前coreNumPerRank里面的排序
 
@@ -36,7 +36,7 @@ public:
             recvCurCount = dataPerCore;
         }
         recvInputOffset = reinterpret_cast<uint64_t>(GM_IN[targetRank]) + innerDispls * sizeof(T);
-        recvOutputOffset = output_ + (processedDataCount + innerDispls) * sizeof(T); // 能不能直接拿着这个地址就用
+        recvOutputOffset = output_ + innerDispls * sizeof(T); // 能不能直接拿着这个地址就用
     }
 
     __aicore__ inline void Consumer()
@@ -49,8 +49,6 @@ public:
 
         CpGM2GM((__gm__ T *)recvOutputOffset, (__gm__ T *)recvInputOffset, recvCurCount);
         PipeBarrier<PIPE_ALL>(); // 核内自己的同步
-
-        Record(targetRank, flag_offset, 0);
     }
 
     __aicore__ inline void Process(uint64_t len, uint32_t sliceId)
@@ -68,18 +66,9 @@ public:
 
         targetRank = sendRecvRemoteRank_; // 每个核负责哪个rank的数据
         curTag = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
-        cclBufferCountPerRank = inputSliceStride_; // 整个cclBuffer给一张卡用
 
-        uint64_t processedDataCount = 0;
-        // 每张卡的loopTimes可能是不一样的
-        uint64_t loopTimes = len / cclBufferCountPerRank +
-            static_cast<uint64_t>(len % cclBufferCountPerRank != 0);
-        for (uint64_t loop = 0; loop < loopTimes; loop++) {
-            uint64_t currDataCount = (loop == loopTimes - 1) ? len - processedDataCount : cclBufferCountPerRank;
-            InitCoreInfo(processedDataCount, currDataCount);
-            Consumer(); // 读数据
-            processedDataCount += currDataCount;
-        }
+        InitCoreInfo(len);
+        Consumer(); // 读数据
     }
 
     int32_t curTag;
@@ -87,13 +76,9 @@ public:
     uint32_t coreNumPerRank;
     uint32_t targetRank;
     uint32_t coreIndex;
-    uint64_t sendInputOffset;
-    uint64_t sendOutputOffset;
-    uint64_t sendCurCount;
     uint64_t recvInputOffset;
     uint64_t recvOutputOffset;
     uint64_t recvCurCount;
-    uint64_t cclBufferCountPerRank;
 };
 
 template<typename T>
