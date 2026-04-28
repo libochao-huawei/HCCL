@@ -80,7 +80,7 @@ install(TARGETS hccl_custom_allgather_aicpu
     LIBRARY DESTINATION ${CUSTOM_OPS_OPP_LIB_PATH}
 )
 install(FILES
-    inc/hccl_custom_allgather_aicpu.h
+    inc/hccl_custom_allgather.h
     DESTINATION ${CUSTOM_OPS_OPP_INC_PATH}
 )
 

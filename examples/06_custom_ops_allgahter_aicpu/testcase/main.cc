@@ -19,7 +19,7 @@
 
 #include <acl/acl_rt.h>
 #include <hccl/hccl_types.h>
-#include <hccl_custom_p2p.h>
+#include <hccl_custom_allgather.h>
 
 #define ACLCHECK(ret)                                                                          \
     do {                                                                                       \
