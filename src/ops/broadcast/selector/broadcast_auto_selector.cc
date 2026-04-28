@@ -98,7 +98,7 @@ SelectorStatus BroadcastAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNe
                 HCCL_WARNING("[BroadcastAutoSelector] pcie mixed topo is not supported yet for ccu schedule mode.");
                 return SelectorStatus::NOT_MATCH;
             } else {
-                selectAlgName = "CcuBroadcastParallelMesh1DNHR";
+                selectAlgName = "CcuBroadcastParallelMesh1DNHRUBX";
             }
         } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
             HCCL_WARNING("[Algo][BroadcastAutoSelector] level0Shape[%d] is not supported yet for ccu schedule mode.",
@@ -152,7 +152,7 @@ SelectorStatus BroadcastAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetL
         } else if (topoInfo->level0PcieMix) {
             selectAlgName = "InsBroadcastParallelMesh1DNHRPcie";
         } else {
-            selectAlgName = "InsBroadcastParallelMesh1DNHR";
+            selectAlgName = "InsBroadcastParallelMesh1DNHRUBX";
         }
     } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
         selectAlgName = "InsBroadcastNHR";
