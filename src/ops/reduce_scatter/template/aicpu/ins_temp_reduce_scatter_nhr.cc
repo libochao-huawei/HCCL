@@ -30,6 +30,8 @@ HcclResult InsTempReduceScatterNHR::CalcRes(HcclComm comm, const OpParam& param,
     resourceRequest.channels.push_back(channels);
     u32 channelsPerRank = CalcChannelsPerRank(channels);
     channelsPerRank_ = channelsPerRank;
+    HCCL_INFO("[InsTempReduceScatterNHR][CalcRes] channelsPerRank_: [%u].",
+        channelsPerRank_);
     GetRes(resourceRequest);
     HCCL_INFO("[InsTempReduceScatterNHR][CalcRes] slaveThreadNum: [%u], notifyNumOnMainThread: [%u].",
         resourceRequest.slaveThreadNum, resourceRequest.notifyNumOnMainThread);
@@ -38,11 +40,11 @@ HcclResult InsTempReduceScatterNHR::CalcRes(HcclComm comm, const OpParam& param,
 
 HcclResult InsTempReduceScatterNHR::GetRes(AlgResourceRequest& resourceRequest) const
 {
-    u32 threadNum = 1 * channelsPerRank_;
+    u32 threadNum = 1 ;
     resourceRequest.slaveThreadNum = threadNum - 1;
-    for (u32 index = 0; index < threadNum - 1; index++) {
-        resourceRequest.notifyNumPerThread.push_back(1);
-    }
+    // for (u32 index = 0; index < threadNum - 1; index++) {
+    //     resourceRequest.notifyNumPerThread.push_back(1);
+    // }
     resourceRequest.notifyNumOnMainThread = threadNum - 1;
     HCCL_INFO("[GetRes] channelsPerRank_: [%u], slaveThreadNum: [%u].",
         channelsPerRank_, resourceRequest.slaveThreadNum);
@@ -51,7 +53,9 @@ HcclResult InsTempReduceScatterNHR::GetRes(AlgResourceRequest& resourceRequest) 
 
 u64 InsTempReduceScatterNHR::GetThreadNum() const
 {
-    return 1 * channelsPerRank_;
+    HCCL_INFO("[GetThreadNum] channelsPerRank_: [%u]",
+        channelsPerRank_);
+    return 1;
 }
 
 HcclResult InsTempReduceScatterNHR::KernelRun(const OpParam& param,
@@ -93,15 +97,17 @@ HcclResult InsTempReduceScatterNHR::KernelRun(const OpParam& param,
     }
 
     threadNum_ = GetThreadNum();
-    if (threadNum_ > 1) {
-        std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
-        GetNotifyIdxMainToSub(notifyIdxMainToSub_);
-        CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub_));
-    }
+    HCCL_DEBUG("[InsTempReduceScatterNHR] threadNum_[%d], templateResource.threads.size()[%d], channelsPerRank_[%d]", threadNum_, templateResource.threads.size(), channelsPerRank_);
+    // if (threadNum_ > 1) {
+    //     std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+    //     GetNotifyIdxMainToSub(notifyIdxMainToSub_);
+    //     CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub_));
+    // }
 
     for (u32 channelIdx = 0; channelIdx < channelsPerRank_; channelIdx++) {
         CHK_PRT_RET(channelIdx >= sizeOut.size() || channelIdx >= elemOffset.size(),
                     HCCL_ERROR("[InsTempReduceScatterNHR] channelIdx[%u] out of bounds", channelIdx), HCCL_E_INTERNAL);
+        HCCL_DEBUG("[InsTempReduceScatterNHR] channelIdx[%d], channelsPerRank_[%d]", channelIdx, channelsPerRank_);
         CHK_RET(LocalDataCopy(templateResource.threads, channelIdx));
         if (templateRankSize_ <= 1) {
             CHK_RET(PostLocalCopy(templateResource.threads, channelIdx));
@@ -111,11 +117,11 @@ HcclResult InsTempReduceScatterNHR::KernelRun(const OpParam& param,
         CHK_RET(PostLocalCopy(templateResource.threads, channelIdx));
     }
 
-    if (threadNum_ > 1) {
-        std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
-        GetNotifyIdxSubToMain(notifyIdxSubToMain_);
-        CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain_));
-    }
+    // if (threadNum_ > 1) {
+    //     std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+    //     GetNotifyIdxSubToMain(notifyIdxSubToMain_);
+    //     CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain_));
+    // }
 
     return HcclResult::HCCL_SUCCESS;
 }

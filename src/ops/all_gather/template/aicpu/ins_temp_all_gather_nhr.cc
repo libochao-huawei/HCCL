@@ -28,20 +28,21 @@ HcclResult InsTempAllGatherNHR::CalcRes(HcclComm comm, const OpParam &param, con
     CHK_RET(CalcChannelRequestNhr(comm, param, topoInfo, subCommRanks_, level1Channels));
     resourceRequest.channels.push_back(level1Channels);
     channelsPerRank_ = CalcChannelsPerRank(level1Channels);
+    channelsPerRank_ = 1;
     CHK_RET(GetRes(resourceRequest));
     return HCCL_SUCCESS;
 }
 HcclResult InsTempAllGatherNHR::GetRes(AlgResourceRequest &resourceRequest) const
 {
-    u32 threadNum = channelsPerRank_;
+    u32 threadNum = 1;
     resourceRequest.slaveThreadNum = threadNum - 1;
-    resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, 1);
+    // resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, 1);
     resourceRequest.notifyNumOnMainThread = threadNum - 1;
     return HCCL_SUCCESS;
 }
 u64 InsTempAllGatherNHR::GetThreadNum() const
 {
-    return channelsPerRank_;
+    return 1;
 }
 
 u64 InsTempAllGatherNHR::CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType)
@@ -88,21 +89,22 @@ HcclResult InsTempAllGatherNHR::KernelRun(const OpParam &param, const TemplateDa
     HCCL_DEBUG("[InsTempAllGatherNHR] Use Dma Read[%d]", isDmaRead_);
     CHK_RET(PreprareDataSplitForMultiChannel(templateResource));
 
-    if (threadNum_ > 1) {
-        std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
-        GetNotifyIdxMainToSub(notifyIdxMainToSub_);
-        CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub_));
-    }
+    // if (threadNum_ > 1) {
+    //     std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+    //     GetNotifyIdxMainToSub(notifyIdxMainToSub_);
+    //     CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub_));
+    // }
+    HCCL_DEBUG("[InsTempAllGatherNHR] threadNum_[%d], templateResource.threads.size()[%d], channelsPerRank_[%d]", threadNum_, templateResource.threads.size(), channelsPerRank_);
     for (u32 channelIdx = 0; channelIdx < channelsPerRank_; channelIdx++) {
         CHK_RET(LocalDataCopy(templateResource.threads, channelIdx));   // input buffer拷贝到scratch buffer上
         CHK_RET(RunAllGatherNHR(templateResource.threads, templateResource.channels, channelIdx));
         CHK_RET(PostLocalCopy(templateResource.threads, channelIdx));
     }
-    if (threadNum_ > 1) {
-        std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
-        GetNotifyIdxSubToMain(notifyIdxSubToMain_);
-        CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain_));
-    }
+    // if (threadNum_ > 1) {
+    //     std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+    //     GetNotifyIdxSubToMain(notifyIdxSubToMain_);
+    //     CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain_));
+    // }
 
     HCCL_INFO("[InsTempAllGatherNHR] Run End");
     return HcclResult::HCCL_SUCCESS;
