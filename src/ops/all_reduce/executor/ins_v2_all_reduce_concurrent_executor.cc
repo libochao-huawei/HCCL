@@ -16,7 +16,7 @@
 #include "ins_temp_all_reduce_nhr.h"
 #include "ins_temp_all_reduce_mesh_1D_two_shot.h"
 
-constexpr u32 CLOS_PORT_NUM = 4;
+constexpr u32 CLOS_PORT_NUM = 8;//zyt,A5,A6不一致
 
 namespace ops_hccl {
 
@@ -138,8 +138,8 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
                                               resReq1.ccuKernelInfos.end());
     } else if (param.engine == CommEngine::COMM_ENGINE_AICPU || param.engine == CommEngine::COMM_ENGINE_AICPU_TS) {
         // 都放在level0，前面放temp0的channels，后面放temp1的channels，两者数量应相等
-        resourceRequest.channels.resize(1);
-        resourceRequest.channels[0].insert(resourceRequest.channels[0].end(), channelDescs0.begin(),
+        resourceRequest.channels.resize(1); //zyt,不相等会怎么样
+        resourceRequest.channels[0].insert(resourceRequest.channels[0].end(), channelDescs0.begin(),//channel为什么都只放在level0
                                             channelDescs0.end());
         resourceRequest.channels[0].insert(resourceRequest.channels[0].end(), channelDescs1.begin(),
                                             channelDescs1.end());
@@ -259,7 +259,7 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
 
         for (u32 i = 0; i < channelCount; ++i) {
             const auto &channel = channels[i];
-            auto &targetChannels = (i < rankSize_) ? tempAlgResource0.channels : tempAlgResource1.channels;
+            auto &targetChannels = (i < (channelCount/2)) ? tempAlgResource0.channels : tempAlgResource1.channels;//channel只能这样放吗
             targetChannels[channel.remoteRank].push_back(channel);
         }
 
@@ -351,6 +351,8 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceConc
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceConcurrentMs, InsV2AllReduceConcurrentExecutor, TopoMatchUBX,
     CcuTempAllReduceMesh1D, CcuTempAllReduceNhrMem2Mem1DMultiJetty);
 #endif
-REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, InsAllReduceConcurrent, InsV2AllReduceConcurrentExecutor, TopoMatchUBX,
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, InsAllReduceConcurrentUBX, InsV2AllReduceConcurrentExecutor, TopoMatchUBX,
+    InsTempAllReduceMesh1DTwoShot, InsTempAllReduceNHR);
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, InsAllReduceConcurrent, InsV2AllReduceConcurrentExecutor, TopoMatch1D,
     InsTempAllReduceMesh1DTwoShot, InsTempAllReduceNHR);
 }

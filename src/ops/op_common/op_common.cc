@@ -122,7 +122,8 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
     return HCCL_SUCCESS;
 }
 
-HcclResult GetHcclDfxOpInfoDataCount(const OpParam &param, const u32 &rankSize, uint64_t &sendCount) {
+HcclResult GetHcclDfxOpInfoDataCount(const OpParam &param, const u32 &rankSize, uint64_t &sendCount) 
+{
     sendCount = 0;
     if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL) {
         CHK_PTR_NULL(param.all2AllVDataDes.sendCounts);
@@ -1130,11 +1131,9 @@ HcclResult HcclGetChannelImpl(const u32 level, HcclComm comm, const OpParam &par
         channel.remoteCclMem = HcclMem{HCCL_MEM_TYPE_DEVICE, remoteCclBufferAddr, remoteCclBufferSize};
         HCCL_INFO("[%s]remoteRank[%u] protocol[%u] remoteCclBufferAddr[0x%llx] remoteCclBufferSize[%u]",
             __func__, channelDescNew.remoteRank,channelDescNew.channelProtocol, remoteCclBufferAddr, remoteCclBufferSize);
-
         if (param.opMode == OpMode::OFFLOAD) {
             CHK_RET(GetGraphModeBuffers(comm, levelNChannels[idx], inputBuffTag, outputBuffTag, channel));
         }
-
 
         resCtxHost->channels[level].push_back(channel);
     }
@@ -2024,7 +2023,6 @@ HcclResult CheckHostDPUOnly(const HcclComm comm, const TopoInfoWithNetLayerDetai
 }
 
 }  // namespace ops_hccl
-
 HcclResult HcclSetAivCoreLimitGraphMode(const char *group, u32 aivCoreLimit)
 {
     if (group == nullptr) {

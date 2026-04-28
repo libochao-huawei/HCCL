@@ -186,7 +186,7 @@ HcclResult TopoMatchMultilevel::MatchTopo(const HcclComm comm, TopoInfoWithNetLa
     uint32_t myRank;
     CHK_RET(HcclGetRankId(comm, &myRank));
     #ifdef MACRO_DEV_TYPE_NEW
-    CHK_PRT_RET(topoInfo->deviceType != DevType::DEV_TYPE_950,
+    CHK_PRT_RET(topoInfo->deviceType != DevType::DEV_TYPE_950 && topoInfo->deviceType != DevType::DEV_TYPE_960,
     #else
     CHK_PRT_RET(topoInfo->deviceType != DevType::DEV_TYPE_910_95,
     #endif

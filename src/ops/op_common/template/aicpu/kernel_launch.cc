@@ -228,7 +228,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
     }
 
     #ifdef MACRO_DEV_TYPE_NEW
-    if (param->deviceType != DevType::DEV_TYPE_950) {
+    if (param->deviceType != DevType::DEV_TYPE_950 && param->deviceType != DevType::DEV_TYPE_960) {
     #else
     if (param->deviceType != DevType::DEV_TYPE_910_95) {
     #endif
@@ -256,7 +256,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
     // 根据算法名字获取executor
     std::string algName = std::string(param->algName);
     #ifdef MACRO_DEV_TYPE_NEW
-    if (param->deviceType == DevType::DEV_TYPE_950) {
+    if (param->deviceType == DevType::DEV_TYPE_950 || param->deviceType == DevType::DEV_TYPE_960) {
     #else
     if (param->deviceType == DevType::DEV_TYPE_910_95) {
     #endif

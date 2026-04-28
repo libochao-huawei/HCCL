@@ -17,11 +17,21 @@
 namespace ops_hccl {
 using namespace hcomm;
 
+constexpr uint64_t CCU_LOOP_NUM_V2 = 8;
+constexpr uint64_t SINGLE_SLICE_MS_NUM = 1;
+constexpr uint64_t CCU_LOOP_LEN_V2 = CcuRep::CCU_MS_SIZE * SINGLE_SLICE_MS_NUM;
+constexpr uint64_t CCU_MAX_RANKSIZE_V2 = 8;
+constexpr uint64_t CCU_MS_INTERLEAVE_V2 = CCU_MAX_RANKSIZE_V2 * SINGLE_SLICE_MS_NUM;
+constexpr uint64_t CCU_LOOP_CKE_NUM_BCAST_V2 = 2; 
+constexpr uint64_t CCU_LOOP_CKE_NUM_REDUCE_V2 = 3;
+
 /* hccl仓CcuKernel基类，提供group高阶操作接口 */
 class CcuKernelAlgBase : public CcuKernel {
 public:
     // 继承所有构造函数
     using CcuKernel::CcuKernel;
+    uint64_t ccu_version;
+    enum CcuVersion{CCU_V1,CCU_V2,CCU_INVALID};
 
 protected:
     // 编程接口
@@ -66,6 +76,9 @@ protected:
 
     void LoopGroup(const std::vector<CcuRep::LoopCall> &loops, const std::vector<CcuRep::Variable> &loopCfg,
         const CcuRep::Variable &paraCfg, const CcuRep::Variable &offsetCfg);
+    void LoopGroup(const std::vector<CcuRep::LoopCall> &loops, const std::vector<CcuRep::Variable> &loopParam,
+        const std::vector<CcuRep::Variable> &loopIterNum, const std::vector<CcuRep::Variable> &loopGsaOffset,
+        const CcuRep::Variable &paraCfg, const CcuRep::Variable &offsetCfg, CcuRep::Variable xnOffsetCfg);
 
     // 高阶操作
     std::vector<uint64_t> CalGoSize(uint64_t size);
@@ -79,7 +92,18 @@ protected:
                               CcuRep::LocalAddr src, GroupOpSize goSize);
     HcclResult GroupBroadcastWithoutMyRank(const std::vector<ChannelHandle>& channels, std::vector<CcuRep::RemoteAddr> dst,
                               CcuRep::LocalAddr src, GroupOpSize goSize);
+    HcclResult GroupBroadcastV1(const std::vector<ChannelHandle>& channels, std::vector<CcuRep::RemoteAddr> dst,
+                              CcuRep::LocalAddr src, GroupOpSize goSize);
+    HcclResult GroupBroadcastV2(const std::vector<ChannelHandle>& channels, std::vector<CcuRep::RemoteAddr> dst,
+                              CcuRep::LocalAddr src, GroupOpSize goSize);
+
     HcclResult GroupReduce(const std::vector<ChannelHandle>& channels, CcuRep::LocalAddr dst,
+                           std::vector<CcuRep::RemoteAddr> src, GroupOpSize goSize, HcclDataType dataType,
+                           HcclDataType outputDataType, HcclReduceOp opType);
+    HcclResult GroupReduceV1(const std::vector<ChannelHandle>& channels, CcuRep::LocalAddr dst,
+                           std::vector<CcuRep::RemoteAddr> src, GroupOpSize goSize, HcclDataType dataType,
+                           HcclDataType outputDataType, HcclReduceOp opType);
+    HcclResult GroupReduceV2(const std::vector<ChannelHandle>& channels, CcuRep::LocalAddr dst,
                            std::vector<CcuRep::RemoteAddr> src, GroupOpSize goSize, HcclDataType dataType,
                            HcclDataType outputDataType, HcclReduceOp opType);
 
@@ -92,9 +116,15 @@ protected:
         GroupOpSize goSize, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType);
 private:
     HcclResult CreateMultiOpCopy();
-    HcclResult CreateMultiOpBroadcast(const std::vector<ChannelHandle> &channels);
     HcclResult CreateMultiOpBroadcastWithoutMyRank(const std::vector<ChannelHandle> &channels);
-    HcclResult CreateMultiOpReduce(const std::vector<ChannelHandle>& channels, HcclDataType dataType,
+
+    HcclResult CreateMultiOpBroadcastV1(const std::vector<ChannelHandle> &channels);
+    HcclResult CreateMultiOpBroadcastV2(const std::vector<ChannelHandle> &channels);
+
+
+    HcclResult CreateMultiOpReduceV1(const std::vector<ChannelHandle>& channels, HcclDataType dataType,
+                                   HcclDataType outputDataType, HcclReduceOp opType);
+    HcclResult CreateMultiOpReduceV2(const std::vector<ChannelHandle>& channels, HcclDataType dataType,
                                    HcclDataType outputDataType, HcclReduceOp opType);
     HcclResult CreateMultiOpReduceWithoutMyRank(const std::vector<ChannelHandle> &ccuChannels, HcclDataType dataType,
                                      HcclDataType outputDataType, HcclReduceOp opType);

@@ -62,7 +62,10 @@ protected:
     u32                              threadNum_ = 0;
     HcclReduceOp                     reduceOp_;
     HcclDataType                     dataType_;
-
+    u32                              dieNum_ = 2;
+    u32                              channelsPerRank_ = 1;
+    u32                              dataTypeSize_ = 0;
+    
     // 从OpParam中获取
     bool                             enableDetour_    = false;
     // 用于记录主thread向从thread发送record的时候使用从thread的哪个notify
