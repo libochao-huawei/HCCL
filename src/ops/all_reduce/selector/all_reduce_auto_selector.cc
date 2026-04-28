@@ -106,6 +106,8 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgo(const TopoInfoWithNetLayerD
         } else {
             selectAlgName = "CcuAllReduceMesh1D";
         }
+        selectAlgName = "CcuAllReduceMesh1D";
+        HCCL_INFO("[AllReduceAutoSelector][SelectMeshAlgo] select CcuAllReduceMesh1D");     //todo
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
         if (IsInputOutputOverlap(opParam) == true) {
             // 不支持 inplace 场景

@@ -49,7 +49,7 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
     CHK_RET(InitEnvConfig());
     
     // AclGraph引导到老的流程上面
-    if (deviceType != DevType::DEV_TYPE_950 && IsStreamCapture(stream)) {
+    if ((deviceType != DevType::DEV_TYPE_950 && deviceType != DevType::DEV_TYPE_960) && IsStreamCapture(stream)) {
         return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
     }
     // 重执行引导到老的流程上面
@@ -156,7 +156,8 @@ HcclResult ScatterExecOp(OpParam &param, void *sendBuf, void *recvBuf, uint64_t 
     HcclComm comm, aclrtStream stream, u32 userRankSize, uint64_t beginTime)
 {
     #ifdef MACRO_DEV_TYPE_NEW
-    if (param.deviceType == DevType::DEV_TYPE_950 && (GetHcommVersion() >= 90000000)) {
+    if ((param.deviceType == DevType::DEV_TYPE_950 || param.deviceType == DevType::DEV_TYPE_960) &&
+        (GetHcommVersion() >= 90000000)) {
     #else
     if (param.deviceType == DevType::DEV_TYPE_910_95) {
     #endif

@@ -229,7 +229,7 @@ void TopoModel::GetLinks(DevType devType, uint32_t netLayer, uint32_t srcRank, u
     } else if (devType == DevType::DEV_TYPE_910_93) {
         Create910CLinks(srcRank, dstRank);
     #ifdef MACRO_DEV_TYPE_NEW
-    } else if (devType == DevType::DEV_TYPE_950) {
+    } else if (devType == DevType::DEV_TYPE_950 || devType == DevType::DEV_TYPE_960) {
     #else
     } else if (devType == DevType::DEV_TYPE_910_95) {
     #endif
@@ -262,7 +262,7 @@ void TopoModel::GetInstTopoTypeByNetLayer(DevType devType, uint32_t netLayer, Co
         } else if (devType == DevType::DEV_TYPE_910_93) {
             *topoType = CommTopo::COMM_TOPO_910_93;
         #ifdef MACRO_DEV_TYPE_NEW
-        } else if (devType == DevType::DEV_TYPE_950) {
+        } else if (devType == DevType::DEV_TYPE_950 || devType == DevType::DEV_TYPE_960) {
         #else
         } else if (devType == DevType::DEV_TYPE_910_95) {
         #endif

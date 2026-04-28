@@ -1023,7 +1023,7 @@ bool RunIndependentOpExpansion(DevType deviceType)
     }
 
     #ifdef MACRO_DEV_TYPE_NEW
-    if (deviceType == DevType::DEV_TYPE_950) {
+    if (deviceType == DevType::DEV_TYPE_950 || deviceType == DevType::DEV_TYPE_960) {
     #else
     if (deviceType == DevType::DEV_TYPE_910_95) {
     #endif

@@ -35,7 +35,7 @@ HcclResult HcclReduce(void *sendBuf, void *recvBuf, uint64_t count, HcclDataType
     CHK_RET(hrtGetDeviceType(deviceType));
     // 非95设备转到老流程
     #ifdef MACRO_DEV_TYPE_NEW
-    if (deviceType != DevType::DEV_TYPE_950) {
+    if (deviceType != DevType::DEV_TYPE_950 && deviceType != DevType::DEV_TYPE_960) {
     #else
     if (deviceType != DevType::DEV_TYPE_910_95) {
     #endif

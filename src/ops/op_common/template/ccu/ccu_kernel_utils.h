@@ -37,6 +37,7 @@ uint32_t    GetReduceExpansionNum(HcclReduceOp reduceOp, HcclDataType dataType, 
 std::string GetReduceTypeStr(HcclDataType dataType, HcclReduceOp opType);
 
 uint64_t DataTypeSizeGet(HcclDataType type);
+uint64_t GetLoopGsaOffset(uint64_t gsaOffset);
 
 HcclResult GenerateCcuKernelSignature(hcomm::CcuKernelSignature& sig, const std::string &name, const OpParam& opParam,
                                       const std::vector<std::vector<uint32_t>>& subCommRanks);
