@@ -151,13 +151,16 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNe
             } else if (topoInfo->is2DieFullMesh) {
                 HCCL_DEBUG("[AllReduceAutoSelector] 2DieFullMesh is not supported yet for ccu schedule mode.");
                 return SelectorStatus::NOT_MATCH;
-            } else {
+            } else if(IsSmallDataCCU(dataSize, topoInfo->userRankSize)){//64M以下跑ccu
                  // 性能优化改用MS做reduce后不支持int8
                 CHK_PRT_RET(opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT8,
                     HCCL_DEBUG("[AllReduceAutoSelector] dataType[%d] is not supported yet for ccu schedule mode with ms "
                         "reduce. levelNum[%u]", opParam.DataDes.dataType, topoInfo->topoLevelNums), SelectorStatus::NOT_MATCH);
                 selectAlgName = "CcuAllReduceParallelMesh1DNHR";
-            } 
+                return SelectorStatus::MATCH;
+            } else {
+                return SelectorStatus::NOT_MATCH;//64M以上切为aicpu
+            }
         } else {
             HCCL_DEBUG("[AllReduceAutoSelector] level0Topo[%d] is not supported yet for ccu schedule mode.",
                 topoInfo->level0Topo);
