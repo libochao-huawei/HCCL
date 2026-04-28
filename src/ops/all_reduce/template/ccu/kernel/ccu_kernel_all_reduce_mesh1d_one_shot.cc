@@ -11,6 +11,7 @@
 #include "ccu_kernel_all_reduce_mesh1d_one_shot.h"
 
 namespace ops_hccl {
+using namespace hcomm;
 
 constexpr int INPUT_XN_ID  = 0;
 constexpr int TOKEN_XN_ID  = 2;
@@ -18,164 +19,174 @@ constexpr int POST_SYNC_CKE_IDX   = 0;
 constexpr int PRE_SYNC_CKE_IDX    = 1;
 constexpr uint16_t POST_CKE_BIT0  = 0;
 
-CcuKernelAllReduceMesh1DOneShot::CcuKernelAllReduceMesh1DOneShot(const CcuKernelArg &arg)
-    : CcuKernelAlgBase(arg)
+static CcuResult ParseKernelArg(AllReduceMesh1DOneShotContext &ctx, CcuKernelArgAllReduceMesh1DOneShot *kernelArg)
 {
-    const CcuKernelArgAllReduceMesh1DOneShot *kernelArg = dynamic_cast<const CcuKernelArgAllReduceMesh1DOneShot *>(&arg);
-    rankId_ = kernelArg->rankId_;
-    rankSize_ = kernelArg->dimSize_;
-    dataType_ = kernelArg->opParam_.DataDes.dataType;
-    outputDataType_ = kernelArg->opParam_.DataDes.outputType;
-    reduceOp_ = kernelArg->opParam_.reduceType;
-    channels_ = kernelArg->channels;
-    if (outputDataType_ == HcclDataType::HCCL_DATA_TYPE_RESERVED) {
-        outputDataType_ = dataType_;
-        HCCL_INFO("[CcuKernelAllReduceMesh1DOneShot] outputDataType is [INVALID], set outputDataType to[%u]",
-            outputDataType_);
+    // ctx.rankId          = kernelArg->rankId;
+    // ctx.rankSize        = kernelArg->rankSize;
+    // ctx.channels       = kernelArg->channels;
+    ctx.dataType        = kernelArg->opParam.DataDes.dataType;
+    ctx.outputDataType  = kernelArg->opParam.DataDes.outputType;
+    if (ctx.outputDataType == HcclDataType::HCCL_DATA_TYPE_RESERVED) {
+        ctx.outputDataType = ctx.dataType;
+        HCCL_DEBUG("[CcuKernelAllReduceMesh1DOneShot] outputDataType is [INVALID], set outputDataType to[%d]",
+            ctx.dataType);
     }
-    HCCL_INFO("[CcuKernelAllReduceMesh1DOneShot] Init, CtxArgs are rankId[%u], rankSize[%u], dataType[%u], "
-        "outputDataType[%u], reduceOp[%u]", rankId_, rankSize_, dataType_, outputDataType_, reduceOp_);
+    ctx.reduceOp = kernelArg->opParam.reduceType;
+    return CCU_SUCCESS;
 }
 
-HcclResult CcuKernelAllReduceMesh1DOneShot::Algorithm()
-{
-    HCCL_INFO("[CcuKernelAllReduceMesh1DOneShot] AllReduceMesh1DOneShot start");
-    CHK_RET(InitResource());
-    LoadArgs();  // 加载 taskArg 参数
-    Presync();  // 跨卡前同步，交换参数信息
-
-    DoGroupReduce();
-
-    Postsync();  // 所有搬运任务结束后，跨卡后同步
-
-    HCCL_INFO("[CcuKernelAllReduceMesh1DOneShot] AllReduceMesh1DOneShot end");
-    return HcclResult::HCCL_SUCCESS;
-}
-
-HcclResult CcuKernelAllReduceMesh1DOneShot::InitResource()
+static CcuResult InitResource(AllReduceMesh1DOneShotContext &ctx)
 {
     HCCL_INFO("[CcuKernelAllReduceMesh1DOneShot] InitResource start");
-    // 初始化资源
-    output_ = CreateVariable();
-    uint16_t channelIdx = 0;
-    if (channels_.size() == 0) {
-        // THROW<NullPtrException>(StringFormat("CcuKernelAllReduceMesh1DOneShot channels is empty")); //打印
-        return HcclResult::HCCL_E_INTERNAL; 
+    CCU_CHK_RET(ccu::Alloc(&ctx.output));
+    const auto *arg = ctx.arg;
+    uint32_t channelIdx = 0;
+
+    if (arg->channelCount == 0) {
+        HCCL_ERROR("[CcuKernelAllReduceMesh1DOneShot] channels is empty!");
+        return CcuResult::CCU_E_INTERNAL;
     }
-    // 按照rank号从小到大遍历channels，遇到本rank就填充本地资源，否则依次取远端资源，要求给框架返回的Link同样是按顺序排列的
-    for (uint64_t peerId = 0; peerId < rankSize_; peerId++) {
-        if (peerId == rankId_) {
-            input_.push_back(CreateVariable());
-            token_.push_back(CreateVariable());
+
+    // 按照rank号从小到大遍历channels，遇到本rank就填充本地资源，否则依次取远端资源，要求算法返回的Link同样是按顺序排列的
+    ctx.input.resize(arg->rankSize);
+    ctx.token.resize(arg->rankSize);
+    for (uint64_t peerId = 0; peerId < arg->rankSize; peerId++) {
+        if (peerId == arg->rankId) {
+            CCU_CHK_RET(ccu::Alloc(&ctx.input[peerId]));
+            CCU_CHK_RET(ccu::Alloc(&ctx.token[peerId]));
         } else {
-            HCCL_INFO("[CcuKernelAllReduceMesh1DOneShot] MyRank[%u], PeerId[%llu], ChannelId[%u]",
-                rankId_, peerId, channelIdx);
-            CcuRep::Variable inputVar, tokenVar;
-            CHK_RET(CreateVariable(channels_[channelIdx], INPUT_XN_ID, &inputVar));
-            input_.push_back(inputVar);
-            CHK_RET(CreateVariable(channels_[channelIdx], TOKEN_XN_ID, &tokenVar));
-            token_.push_back(tokenVar);
+            CCU_CHK_RET(ccu::CreateByChannel(
+                arg->channels[channelIdx], INPUT_XN_ID, &ctx.input[peerId]));
+            CCU_CHK_RET(ccu::CreateByChannel(
+                arg->channels[channelIdx], TOKEN_XN_ID, &ctx.token[peerId]));
             channelIdx++;
         }
     }
-    groupOpSize_ = CreateGroupOpSize(); 
-    HCCL_INFO("[CcuKernelAllReduceMesh1DOneShot] InitResource end");
-    return HcclResult::HCCL_SUCCESS;
+    CCU_CHK_RET(ccu::Alloc(&ctx.goSize.addrOffset));
+    CCU_CHK_RET(ccu::Alloc(&ctx.goSize.loopParam));
+    CCU_CHK_RET(ccu::Alloc(&ctx.goSize.parallelParam));
+    CCU_CHK_RET(ccu::Alloc(&ctx.goSize.residual));
+    CCU_CHK_RET(ccu::CreateLoopExecutor(&ctx.enginePool, RS_MAX_RANK_SIZE + 1)); // todo
+
+    ctx.resourceAllocated = false;  // todo
+    ctx.loopRegistered    = false;  // todo
+
+    return CCU_SUCCESS;
 }
 
-void CcuKernelAllReduceMesh1DOneShot::LoadArgs()
+static CcuResult LoadArgs(AllReduceMesh1DOneShotContext &ctx)
 {
     HCCL_INFO("[CcuKernelAllReduceMesh1DOneShot] LoadArgs start");
-    Load(input_[rankId_]);
-    Load(output_);
-    Load(token_[rankId_]);
-    Load(groupOpSize_);
+    const auto *arg = ctx.arg;
+
+    CCU_CHK_RET(ccu::LoadArg(ctx.input[arg->rankId]));
+    CCU_CHK_RET(ccu::LoadArg(ctx.output));
+    CCU_CHK_RET(ccu::LoadArg(ctx.token[arg->rankId]));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.addrOffset));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.loopParam));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.parallelParam));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.residual));
+
     HCCL_INFO("[CcuKernelAllReduceMesh1DOneShot] LoadArgs end");
+    return CCU_SUCCESS;
 }
 
-void CcuKernelAllReduceMesh1DOneShot::Presync()
+static void PreSync(AllReduceMesh1DOneShotContext &ctx)
 {
     HCCL_INFO("[CcuKernelAllReduceMesh1DOneShot] Presync start");
-    for (auto &channel : channels_) {
-        NotifyRecord(channel, PRE_SYNC_CKE_IDX, INPUT_XN_ID, input_[rankId_], 1 << INPUT_XN_ID);
-        NotifyRecord(channel, PRE_SYNC_CKE_IDX, TOKEN_XN_ID, token_[rankId_], 1 << TOKEN_XN_ID);
+    const auto *arg = ctx.arg;
+
+    for (uint32_t i = 0; i < arg->channelCount; i++) {
+        ccu::WriteVariableWithNotify(arg->channels[i], ctx.input[arg->rankId],
+            INPUT_XN_ID, PRE_SYNC_CKE_IDX, 1 << INPUT_XN_ID);
+        ccu::WriteVariableWithNotify(arg->channels[i], ctx.token[arg->rankId],
+            TOKEN_XN_ID, PRE_SYNC_CKE_IDX, 1 << TOKEN_XN_ID);
     }
-    uint32_t allBit = 1 << INPUT_XN_ID | 1 << TOKEN_XN_ID;
-    for (auto &chn : channels_) {
-        NotifyWait(chn, PRE_SYNC_CKE_IDX, allBit);
+
+    uint32_t allBit = (1 << INPUT_XN_ID) | (1 << TOKEN_XN_ID);
+    for (uint32_t i = 0; i < arg->channelCount; i++) {
+        ccu::NotifyWait(arg->channels[i], PRE_SYNC_CKE_IDX, allBit);
     }
+
     HCCL_INFO("[CcuKernelAllReduceMesh1DOneShot] Presync end");
 }
 
-void CcuKernelAllReduceMesh1DOneShot::Postsync()
+static void PostSync(AllReduceMesh1DOneShotContext &ctx)
 {
     HCCL_INFO("[CcuKernelAllReduceMesh1DOneShot] Postsync start");
-    uint16_t postCkeBit = 1 << POST_CKE_BIT0;
-    for (auto &ch : channels_) {
-        NotifyRecord(ch, POST_SYNC_CKE_IDX, postCkeBit);
+    const auto *arg = ctx.arg;
+
+    for (uint32_t i = 0; i < arg->channelCount; i++) {
+        ccu::NotifyRecord(arg->channels[i], POST_SYNC_CKE_IDX, 1 << POST_CKE_BIT0);
     }
-    for (auto &channel : channels_) {
-        NotifyWait(channel, POST_SYNC_CKE_IDX, postCkeBit);
+    for (uint32_t i = 0; i < arg->channelCount; i++) {
+        ccu::NotifyWait(arg->channels[i], POST_SYNC_CKE_IDX, 1 << POST_CKE_BIT0);
     }
     HCCL_INFO("[CcuKernelAllReduceMesh1DOneShot] Postsync end");
 }
 
-void CcuKernelAllReduceMesh1DOneShot::DoGroupReduce()
+static CcuResult DoGroupReduce(AllReduceMesh1DOneShotContext &ctx)
 {
-    HCCL_INFO("[CcuKernelAllReduceMesh1DOneShot] DoGroupReduce start");
-    // 初始化地址寄存器
-    std::vector<CcuRep::RemoteAddr> reduceSrc;
-    for (uint64_t rankIdx = 0; rankIdx < rankSize_; rankIdx++) {
-        reduceSrc.push_back(CreateRemoteAddr());
+    const auto *arg = ctx.arg;
+    std::vector<ccu::RemoteAddr> reduceSrc;
+    ccu::LocalAddr localSrc;
+    reduceSrc.resize(arg->rankSize);
+    for (uint32_t rankIdx = 0; rankIdx < arg->rankSize - 1; rankIdx++) {
+        CCU_CHK_RET(ccu::Alloc(&reduceSrc[rankIdx]));
     }
-    CcuRep::LocalAddr reduceDst = CreateLocalAddr();
-
-    // 填充地址
-    uint32_t dstId = 0;
+    CCU_CHK_RET(ccu::Alloc(&localSrc));
+    ccu::LocalAddr reduceDst;
+    CCU_CHK_RET(ccu::Alloc(&reduceDst));
+    reduceDst.addr  = ctx.output;
+    reduceDst.token = ctx.token[arg->rankId];
     uint32_t curId = 0;
-    // SRC
-    for (uint64_t rankIdx = 0; rankIdx < rankSize_; rankIdx++) {
-        if (rankIdx != rankId_) {
-            curId = dstId;
-            dstId++;
+    for (uint32_t rankIdx = 0; rankIdx < arg->rankSize; rankIdx++) {
+        if (rankIdx != arg->rankId) {
+            reduceSrc[curId].addr = ctx.input[rankIdx];
+            reduceSrc[curId].token = ctx.token[rankIdx];
+            curId++;
         } else {
-            curId = rankSize_ - 1;
+            localSrc.addr = ctx.input[rankIdx];
+            localSrc.token = ctx.token[rankIdx];
         }
-        reduceSrc[curId].addr = input_[rankIdx];
-        reduceSrc[curId].token = token_[rankIdx];
     }
 
-    // DST
-    reduceDst.addr  = output_;
-    reduceDst.token = token_[rankId_];
+    HCCL_INFO("ctx.loopRegistered 5 [%d]", (int)ctx.loopRegistered);
+    GroupReduce(ctx, arg->channels, arg->channelCount, reduceDst, reduceSrc, localSrc, ctx.goSize, ctx.dataType, ctx.outputDataType, ctx.reduceOp);
 
-    // 执行 reduce 操作
-    GroupReduce(channels_, reduceDst, reduceSrc, groupOpSize_, dataType_, outputDataType_, reduceOp_);
-    HCCL_INFO("[CcuKernelAllReduceMesh1DOneShot] DoGroupReduce end");
-    return;
+    return CCU_SUCCESS;
 }
 
-std::vector<uint64_t> CcuKernelAllReduceMesh1DOneShot::GeneArgs(const CcuTaskArg &arg)
+// ============================================================================
+// 主入口 Kernel 函数
+// ============================================================================
+CcuResult CcuAllReduceMesh1DOneShotKernel(CcuKernelArg arg)
 {
-    HCCL_INFO("[CcuKernelAllReduceMesh1DOneShot] GeneArgs start");
-    const CcuTaskArgAllReduceMesh1DOneShot *taskArg    = dynamic_cast<const CcuTaskArgAllReduceMesh1DOneShot *>(&arg);
-    uint64_t                                inputAddr  = taskArg->inputAddr_;
-    uint64_t                                outputAddr = taskArg->outputAddr_;
-    uint64_t                                tokenInfo  = taskArg->token_;
-    uint64_t                                sliceSize  = taskArg->sliceSize_;
+    auto *kernelArg = static_cast<CcuKernelArgAllReduceMesh1DOneShot *>(arg);
 
-    auto blockGoSize = CalGoSize(sliceSize);
- 
-    HCCL_INFO("[CcuKernelAllReduceMesh1DOneShot] GeneArgs, taskArg are inputAddr[%llu], outputAddr[%llu], "
-        "sliceSize[%llu]", inputAddr, outputAddr, sliceSize);
- 
-    std::vector<uint64_t> taskArgList{inputAddr, outputAddr, tokenInfo};
+    AllReduceMesh1DOneShotContext ctx;
+    ctx.arg = kernelArg;
+    ctx.resourceAllocated = false;
+    ctx.loopRegistered = false;
+    ctx.moConfig.msInterleave = 0;
+    ctx.moConfig.loopCount = 0;
+    ctx.moConfig.memSlice = 0;
+    ctx.moRes.eventCount = 0;
+    ctx.moRes.bufCount = 0;
+    ctx.enginePool = 0;
 
-    for (auto val : blockGoSize) {
-        taskArgList.push_back(val);
-    }
-    
-    HCCL_INFO("[CcuKernelAllReduceMesh1DOneShot] GeneArgs end");
-    return taskArgList;
+    HCCL_INFO("[CcuKernelAllReduceMesh1DOneShot] AllReduceMesh1DOneShot start");
+    CCU_CHK_RET(ParseKernelArg(ctx, kernelArg));
+    CCU_CHK_RET(InitResource(ctx));
+    CCU_CHK_RET(LoadArgs(ctx));
+
+    PreSync(ctx);
+
+    CCU_CHK_RET(DoGroupReduce(ctx));
+
+    PostSync(ctx);
+    HCCL_INFO("[CcuKernelAllReduceMesh1DOneShot] AllReduceMesh1DOneShot end");
+
+    return CCU_SUCCESS;
 }
 }
