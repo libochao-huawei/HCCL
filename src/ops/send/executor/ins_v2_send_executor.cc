@@ -108,39 +108,25 @@ namespace ops_hccl {
         dataSize_ = dataCount_ * dataTypeSize_;
 
         HCCL_DEBUG("[InsV2SendExecutor][Orchestrate][%d]->[%d] Start.", myRank_, remoteRank_);
-        // 给channels_和threads_赋值
-        const ThreadHandle &thread = resCtx.threads.at(0);
-        auto channelIt = std::find_if(
-            resCtx.channels.at(0).begin(), resCtx.channels.at(0).end(),
-            [this](const ChannelInfo &channel_) {
-                return channel_.remoteRank == remoteRank_;
-            });
-        CHK_PRT_RET(
-            channelIt == resCtx.channels.at(0).end(),
-            HCCL_ERROR("[InsV2SendExecutor][Orchestrate] Channel[%d]-[%d] not found.", myRank_, remoteRank_),
-            HcclResult::HCCL_E_NOT_FOUND);
-        const ChannelInfo &channel = *channelIt;
         if (opMode_ == OpMode::OFFLOAD) {
-            CHK_RET(OrchestrateOffload(param, resCtx, thread, channel));
+            CHK_RET(OrchestrateOffload(param, resCtx));
         } else {
-            CHK_RET(OrchestrateOpbase(param, resCtx, thread, channel));
+            CHK_RET(OrchestrateOpbase(param, resCtx));
         }
         HCCL_DEBUG("[InsV2SendExecutor][Orchestrate][%d]->[%d] Success.", myRank_, remoteRank_);
 
         return HcclResult::HCCL_SUCCESS;
     }
 
-    HcclResult InsV2SendExecutor::OrchestrateOffload(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const ThreadHandle &thread, const ChannelInfo &channel)
+    HcclResult InsV2SendExecutor::OrchestrateOffload(const OpParam &param, const AlgResourceCtxSerializable &resCtx)
     {
         (void)param;
         (void)resCtx;
-        (void)thread;
-        (void)channel;
         HCCL_ERROR("[InsV2SendExecutor][OrchestrateOffload] offload is not support");
         return HcclResult::HCCL_E_NOT_SUPPORT;
     }
 
-    HcclResult InsV2SendExecutor::OrchestrateOpbase(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const ThreadHandle &thread, const ChannelInfo &channel)
+    HcclResult InsV2SendExecutor::OrchestrateOpbase(const OpParam &param, const AlgResourceCtxSerializable &resCtx)
     {
         HCCL_INFO("[InsV2SendExecutor][KernelRun] start: rank is %d, count is %u, dataType is %u, destRank is %u",
             myRank_, dataCount_, static_cast<u32>(dataType_), remoteRank_);
@@ -152,37 +138,47 @@ namespace ops_hccl {
             HCCL_ERROR("[InsV2SendExecutor][OrchestrateOpbase] maxScratchDataCount is 0"),
             HCCL_E_INTERNAL);
 
-        sliceId_++; // 自动增长sliceId，传入aivTag
+        u64 loopTimes = dataCount_ / maxScratchDataCount + static_cast<u64>(dataCount_ % maxScratchDataCount != 0);
+        u64 processedDataCount = 0;
+        for (u64 loop = 0; loop < loopTimes; loop++) {
+            sliceId_++; // 自动增长sliceId，传入aivTag
+            u64 currDataCount = (loop == loopTimes - 1) ? dataCount_ - processedDataCount : maxScratchDataCount;
+            HCCL_INFO("[InsV2SendExecutor][OrchestrateOpbase] myRank[%u], loop[%llu] sliceId_[%llu] "
+                "currDataCount[%llu], processedDataCount[%llu]",
+                myRank_, loop, sliceId_, currDataCount, processedDataCount);
 
-        AivOpArgs aivSendArgs;
-        aivSendArgs.cmdType = HcclCMDType::HCCL_CMD_SEND;
-        aivSendArgs.input = reinterpret_cast<u64>(param.inputPtr);
-        aivSendArgs.output = reinterpret_cast<u64>(param.outputPtr);
-        aivSendArgs.rank = u32(myRank_);
-        aivSendArgs.sendRecvRemoteRank = remoteRank_;
-        aivSendArgs.rankSize = resCtx.topoInfo.userRankSize;
-        aivSendArgs.count = dataCount_; // 需要传输的数据量
-        aivSendArgs.dataType = dataType_;
-        aivSendArgs.sliceId = sliceId_;
-        aivSendArgs.buffersIn = resCtx.aivCommInfoPtr;
-        aivSendArgs.stream = param.stream;
-        aivSendArgs.isOpBase = (opMode_ == OpMode::OPBASE);
-        aivSendArgs.xRankSize = resCtx.topoInfo.userRankSize;
-        aivSendArgs.yRankSize = 0;
-        aivSendArgs.zRankSize = 0;
-        CHK_RET(CalNumBlocks(aivSendArgs.numBlocks, dataSize_, param.numBlocksLimit));
+            AivOpArgs aivSendArgs;
+            aivSendArgs.cmdType = HcclCMDType::HCCL_CMD_SEND;
+            aivSendArgs.input = reinterpret_cast<u64>(param.inputPtr) + processedDataCount * dataTypeSize_;
+            aivSendArgs.output = reinterpret_cast<u64>(param.outputPtr);
+            aivSendArgs.rank = u32(myRank_);
+            aivSendArgs.sendRecvRemoteRank = remoteRank_;
+            aivSendArgs.rankSize = resCtx.topoInfo.userRankSize;
+            aivSendArgs.count = currDataCount; // 需要传输的数据量
+            aivSendArgs.dataType = dataType_;
+            aivSendArgs.sliceId = sliceId_;
+            aivSendArgs.buffersIn = resCtx.aivCommInfoPtr;
+            aivSendArgs.stream = param.stream;
+            aivSendArgs.isOpBase = (opMode_ == OpMode::OPBASE);
+            aivSendArgs.xRankSize = resCtx.topoInfo.userRankSize;
+            aivSendArgs.yRankSize = 0;
+            aivSendArgs.zRankSize = 0;
+            CHK_RET(CalNumBlocks(aivSendArgs.numBlocks, currDataCount * dataTypeSize_, param.numBlocksLimit));
 
-        aivSendArgs.inputSliceStride = maxScratchDataCount; // 这里用来保存scratch的大小
-        aivSendArgs.outputSliceStride = 0;
-        aivSendArgs.repeatNum = 1; // 不重复
-        aivSendArgs.inputRepeatStride = 0;
-        aivSendArgs.outputRepeatStride = 0;
+            aivSendArgs.inputSliceStride = 0;
+            aivSendArgs.outputSliceStride = 0;
+            aivSendArgs.repeatNum = 1; // 不重复
+            aivSendArgs.inputRepeatStride = 0;
+            aivSendArgs.outputRepeatStride = 0;
 
-        CHK_RET(ExecuteKernelLaunch(aivSendArgs));
+            CHK_RET(ExecuteKernelLaunch(aivSendArgs));
+            processedDataCount += currDataCount;
+        }
 
         HCCL_INFO("[InsV2SendExecutor][KernelRun] end: rank[%d]", myRank_);
         return HcclResult::HCCL_SUCCESS;
     }
 
-    REGISTER_EXECUTOR_IMPL(HcclCMDType::HCCL_CMD_SEND, InAivSendsSend, InsV2SendExecutor);
+    REGISTER_EXECUTOR_IMPL(HcclCMDType::HCCL_CMD_SEND, AivSend, InsV2SendExecutor);
+
 } // namespace ops_hccl
