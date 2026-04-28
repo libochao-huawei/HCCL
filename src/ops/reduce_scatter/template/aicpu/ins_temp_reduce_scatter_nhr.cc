@@ -154,16 +154,16 @@ HcclResult InsTempReduceScatterNHR::LocalDataCopy(const std::vector<ThreadHandle
             const u64 inOff1 = inBaseOff + localRandId * tempAlgParams_.inputSliceStride + elemOffset[channelIdx]; 
             const u64 scOff1 = scratchBase + localRandId * tempAlgParams_.sliceSize + elemOffset[channelIdx]; 
 
-            DataSlice src1 = DataSlice(tempAlgParams_.buffInfo.inputPtr, inOff, sizeOut[channelIdx]);
-            DataSlice dst1 = DataSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scOff, sizeOut[channelIdx]);
+            // DataSlice src1 = DataSlice(tempAlgParams_.buffInfo.inputPtr, inOff, sizeOut[channelIdx]);
+            // DataSlice dst1 = DataSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scOff, sizeOut[channelIdx]);
 
             const u64 inOff = inBaseOff + localRandId * tempAlgParams_.inputSliceStride; 
             const u64 scOff = scratchBase + localRandId * tempAlgParams_.sliceSize; 
 
             DataSlice src = DataSlice(tempAlgParams_.buffInfo.inputPtr, inOff, sliceSize);
             DataSlice dst = DataSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scOff, sliceSize);
-            HCCL_DEBUG("[InsTempReduceScatterNHR][LocalDataCopy] inOff1[%llu], scOff1[%llu], src1[%llu], dst1[%llu], inOff[%llu], scOff[%llu], src[%llu], dst[%llu]",
-                inOff1, scOff1, src1, dst1, inOff, scOff, src, dst);
+            HCCL_DEBUG("[InsTempReduceScatterNHR][LocalDataCopy] inOff1[%llu], scOff1[%llu], inOff[%llu], scOff[%llu]",
+                inOff1, scOff1, inOff, scOff);
             // 如果源地址和目标地址相同，则不需要做拷贝
             if (tempAlgParams_.buffInfo.inBuffType != tempAlgParams_.buffInfo.hcclBuffType || inOff != scOff) { 
                 CHK_RET(LocalCopy(q, src, dst));
@@ -204,8 +204,8 @@ HcclResult InsTempReduceScatterNHR::PostLocalCopy(const std::vector<ThreadHandle
         const u64 scOff1  = scratchBase + tempAlgParams_.sliceSize * myAlgIdx + elemOffset[channelIdx]; 
         const u64 outOff1 = outBaseOff + myAlgIdx * tempAlgParams_.outputSliceStride + elemOffset[channelIdx]; 
 
-        DataSlice src1 = DataSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scOff, sizeOut[channelIdx]);
-        DataSlice dst1 = DataSlice(tempAlgParams_.buffInfo.outputPtr, outOff, sizeOut[channelIdx]);
+        // DataSlice src1 = DataSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scOff, sizeOut[channelIdx]);
+        // DataSlice dst1 = DataSlice(tempAlgParams_.buffInfo.outputPtr, outOff, sizeOut[channelIdx]);
 
         const u64 scOff  = scratchBase + tempAlgParams_.sliceSize * myAlgIdx; 
         const u64 outOff = outBaseOff + myAlgIdx * tempAlgParams_.outputSliceStride; 
@@ -213,8 +213,8 @@ HcclResult InsTempReduceScatterNHR::PostLocalCopy(const std::vector<ThreadHandle
         DataSlice src = DataSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scOff, sliceSize);
         DataSlice dst = DataSlice(tempAlgParams_.buffInfo.outputPtr, outOff, sliceSize);
 
-        HCCL_DEBUG("[InsTempReduceScatterNHR][LocalDataCopy] inOff1[%llu], scOff1[%llu], src1[%llu], dst1[%llu], inOff[%llu], scOff[%llu], src[%llu], dst[%llu]",
-                inOff1, scOff1, src1, dst1, inOff, scOff, src, dst);
+        HCCL_DEBUG("[InsTempReduceScatterNHR][LocalDataCopy] scOff[%llu], scOff1[%llu], inOff[%llu], scOff[%llu]",
+                scOff, outOff1, scOff, outOff);
         if (tempAlgParams_.buffInfo.hcclBuffType != tempAlgParams_.buffInfo.outBuffType || scOff != outOff) {
             CHK_RET(LocalCopy(q, src, dst));
         }
