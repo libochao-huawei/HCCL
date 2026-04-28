@@ -107,12 +107,7 @@ HcclResult InsTempAllGatherMesh1D::RunAllGatherMesh(const std::vector<ThreadHand
     if (tempAlgParams_.tailSize !=0 && !dmaRead && myAlgRank == templateRankSize_ -1) {
         sliceSize = tempAlgParams_.tailSize;
     }
-    for (u32 rpt = 0; rpt < tempAlgParams_.repeatNum; ++rpt) {
-        const u64 outBaseOff = tempAlgParams_.buffInfo.outBuffBaseOff + rpt * tempAlgParams_.outputRepeatStride;
-        const u64 scratchRepeatStride = tempAlgParams_.sliceSize * templateRankSize_;
-        const u64 scratchBase = tempAlgParams_.buffInfo.hcclBuffBaseOff + rpt * scratchRepeatStride;
-
-        for (u32 threadIdx = 0; threadIdx < subCommRanks_[0].size() - 1; threadIdx++) {
+    for (u32 threadIdx = 0; threadIdx < subCommRanks_[0].size() - 1; threadIdx++) {
             u32 connectedRank = subCommRanks_[0][(myAlgRank + 1 + threadIdx) % subCommRanks_[0].size()];
 
             u32 connectedAlgRank = 0;
@@ -126,62 +121,68 @@ HcclResult InsTempAllGatherMesh1D::RunAllGatherMesh(const std::vector<ThreadHand
                                    "connectedRank=%d, channels.size=%u",
                                    myRank_, threadIdx, threads.size(), connectedRank, channels.size()),
                         HcclResult::HCCL_E_INTERNAL);
-            if (dmaRead) {
-                // 对端为最后一个rank，读取tailSize大小
-                if (tempAlgParams_.tailSize != 0 && connectedAlgRank == templateRankSize_ - 1) {
-                    sliceSize = tempAlgParams_.tailSize;
-                } else {
-                    sliceSize = tempAlgParams_.sliceSize;
-                }
-            }
+
             const ChannelInfo &linkRemote = channels.at(connectedRank)[0];
             void *remoteCclBuffAddr = linkRemote.remoteCclMem.addr;
 
-            u64 txOutOffset = tempAlgParams_.outputSliceStride * myAlgRank + outBaseOff;
-            u64 txScratchOffset = scratchBase + tempAlgParams_.sliceSize * myAlgRank;
-            u64 txDstOffset = (!enableRemoteMemAccess_) ? txScratchOffset : txOutOffset;
+            std::vector<DataSlice> txSrcSlicesAll;
+            std::vector<DataSlice> txDstSlicesAll;
+            std::vector<DataSlice> rxDstSlicesAll;
+            std::vector<DataSlice> rxSrcSlicesAll;
 
-            u64 rxOutOffset = tempAlgParams_.outputSliceStride * connectedAlgRank + outBaseOff;
-            u64 rxScratchOffset = scratchBase + tempAlgParams_.sliceSize * connectedAlgRank;
-            u64 rxSrcOffset = (!enableRemoteMemAccess_) ? rxScratchOffset : rxOutOffset;
+            for (u32 rpt = 0; rpt < tempAlgParams_.repeatNum; ++rpt) {
+                const u64 outBaseOff = tempAlgParams_.buffInfo.outBuffBaseOff + rpt * tempAlgParams_.outputRepeatStride;
+                const u64 scratchRepeatStride = tempAlgParams_.sliceSize * templateRankSize_;
+                const u64 scratchBase = tempAlgParams_.buffInfo.hcclBuffBaseOff + rpt * scratchRepeatStride;
 
-            void *txSrcPtr = tempAlgParams_.buffInfo.outputPtr;
-            void *txDstPtr = (!enableRemoteMemAccess_) ? remoteCclBuffAddr : linkRemote.remoteOutputGraphMode.addr;
-            void *rxSrcPtr = (!enableRemoteMemAccess_) ? remoteCclBuffAddr : linkRemote.remoteOutputGraphMode.addr;
-            void *rxDstPtr = tempAlgParams_.buffInfo.outputPtr;
-            // write模式使用tx, rx地址不生效，仅使用对端link做Post/Wait
-            // read 模式使用rx, tx地址不生效，仅使用对端link做Post/Wait
-            u64 sliceCount = sliceSize / dataTypeSize;
-            std::vector<DataSlice> txSrcSlices{
-                DataSlice(txSrcPtr, txOutOffset, sliceSize, sliceCount)};  // 本地(send)
-            std::vector<DataSlice> txDstSlices{
-                DataSlice(txDstPtr, txDstOffset, sliceSize, sliceCount)};  // 远程(send)
-            // read模式使用rx
-            std::vector<DataSlice> rxDstSlices{
-                DataSlice(rxDstPtr, rxOutOffset, sliceSize, sliceCount)};  // 本地(recv)
-            std::vector<DataSlice> rxSrcSlices{
-                DataSlice(rxSrcPtr, rxSrcOffset, sliceSize, sliceCount)};  // 远程(recv)
+                u64 sliceSize = tempAlgParams_.sliceSize;
+                if (dmaRead) {
+                    if (tempAlgParams_.tailSize != 0 && connectedAlgRank == templateRankSize_ - 1) {
+                        sliceSize = tempAlgParams_.tailSize;
+                    }
+                } else if (tempAlgParams_.tailSize !=0 && myAlgRank == templateRankSize_ -1) {
+                    sliceSize = tempAlgParams_.tailSize;
+                }
 
-            HCCL_DEBUG("[InsTempAllGatherMesh1D][RunAllGatherMesh] rankId [%d] connectedRank [%d] txSrcSlices: "
-                       "offset[%d] sliceSize[%d] count[%d].",
-                       myRank_, connectedRank, txOutOffset, sliceSize, sliceCount);
+                u64 txOutOffset = tempAlgParams_.outputSliceStride * myAlgRank + outBaseOff;
+                u64 txScratchOffset = scratchBase + tempAlgParams_.sliceSize * myAlgRank;
+                u64 txDstOffset = (!enableRemoteMemAccess_) ? txScratchOffset : txOutOffset;
 
-            HCCL_DEBUG("[InsTempAllGatherMesh1D][RunAllGatherMesh] rankId [%d] connectedRank [%d] txDstSlices: "
-                       "offset[%d] sliceSize[%d] count[%d].",
-                       myRank_, connectedRank, txDstOffset, sliceSize, sliceCount);
+                u64 rxOutOffset = tempAlgParams_.outputSliceStride * connectedAlgRank + outBaseOff;
+                u64 rxScratchOffset = scratchBase + tempAlgParams_.sliceSize * connectedAlgRank;
+                u64 rxSrcOffset = (!enableRemoteMemAccess_) ? rxScratchOffset : rxOutOffset;
 
-            HCCL_DEBUG("[InsTempAllGatherMesh1D][RunAllGatherMesh] rankId [%d] connectedRank [%d] rxSrcSlices: "
-                       "offset[%d] sliceSize[%d] count[%d].",
-                       myRank_, connectedRank, rxOutOffset, sliceSize, sliceCount);
+                void *txSrcPtr = tempAlgParams_.buffInfo.outputPtr;
+                void *txDstPtr = (!enableRemoteMemAccess_) ? remoteCclBuffAddr : linkRemote.remoteOutputGraphMode.addr;
+                void *rxSrcPtr = (!enableRemoteMemAccess_) ? remoteCclBuffAddr : linkRemote.remoteOutputGraphMode.addr;
+                void *rxDstPtr = tempAlgParams_.buffInfo.outputPtr;
+                u64 sliceCount = sliceSize / dataTypeSize;
 
-            HCCL_DEBUG("[InsTempAllGatherMesh1D][RunAllGatherMesh] rankId [%d] connectedRank [%d] rxDrcSlices: "
-                       "offset[%d] sliceSize[%d] count[%d].",
-                       myRank_, connectedRank, rxSrcOffset, sliceSize, sliceCount);
+                txSrcSlicesAll.emplace_back(txSrcPtr, txOutOffset, sliceSize, sliceCount);
+                txDstSlicesAll.emplace_back(txDstPtr, txDstOffset, sliceSize, sliceCount);
+                rxDstSlicesAll.emplace_back(rxDstPtr, rxOutOffset, sliceSize, sliceCount);
+                rxSrcSlicesAll.emplace_back(rxSrcPtr, rxSrcOffset, sliceSize, sliceCount);
 
-            TxRxSlicesList sendRecvSlicesList({txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices});
+                HCCL_DEBUG("[InsTempAllGatherMesh1D][RunAllGatherMesh] rankId [%d] connectedRank [%d] rpt [%d] txSrcSlices: "
+                           "offset[%d] sliceSize[%d] count[%d].",
+                           myRank_, connectedRank, rpt, txOutOffset, sliceSize, sliceCount);
+
+                HCCL_DEBUG("[InsTempAllGatherMesh1D][RunAllGatherMesh] rankId [%d] connectedRank [%d] rpt [%d] txDstSlices: "
+                           "offset[%d] sliceSize[%d] count[%d].",
+                           myRank_, connectedRank, rpt, txDstOffset, sliceSize, sliceCount);
+
+                HCCL_DEBUG("[InsTempAllGatherMesh1D][RunAllGatherMesh] rankId [%d] connectedRank [%d] rpt [%d] rxSrcSlices: "
+                           "offset[%d] sliceSize[%d] count[%d].",
+                           myRank_, connectedRank, rpt, rxOutOffset, sliceSize, sliceCount);
+
+                HCCL_DEBUG("[InsTempAllGatherMesh1D][RunAllGatherMesh] rankId [%d] connectedRank [%d] rpt [%d] rxDrcSlices: "
+                           "offset[%d] sliceSize[%d] count[%d].",
+                           myRank_, connectedRank, rpt, rxSrcOffset, sliceSize, sliceCount);
+            }
+
+            TxRxSlicesList sendRecvSlicesList({txSrcSlicesAll, txDstSlicesAll}, {rxSrcSlicesAll, rxDstSlicesAll});
             TxRxChannels sendRecvChannels(linkRemote, linkRemote);
             SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
-            // 当数据本身就在cclbuffer上时，直接使用DMA消减读模式到output上，同事要跳过后拷贝
             if (dmaRead){
                 CHK_PRT_RET(SendRecvRead(sendRecvInfo, threads[threadIdx]),
                             HCCL_ERROR("[InsTempAllGatherMesh1D] RunAllGather Send failed"), HcclResult::HCCL_E_INTERNAL);
@@ -191,7 +192,6 @@ HcclResult InsTempAllGatherMesh1D::RunAllGatherMesh(const std::vector<ThreadHand
             }
 
         }
-    }
     return HcclResult::HCCL_SUCCESS;
 }
 
