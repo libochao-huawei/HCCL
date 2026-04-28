@@ -14,6 +14,7 @@
 #include "ccu_alg_template_base.h"
 #include "utils.h"
 #include "ccu_kernel_all_reduce_nhr_mem2mem_1D_multi_jetty.h"
+#include "ccu_kernel_alg_base.h"
 
 namespace ops_hccl {
 

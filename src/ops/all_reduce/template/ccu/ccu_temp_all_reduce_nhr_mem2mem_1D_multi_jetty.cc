@@ -11,9 +11,9 @@
 
 #include <algorithm>
 #include "channel.h"
-#include "hccl_ccu_res.h"
 #include "ccu_assist_pub.h"
 #include "alg_template_base.h"
+#include "ccu_control_api.h"
 
 namespace ops_hccl {
 constexpr u32 PORT_NUM = 4;
@@ -71,15 +71,22 @@ HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::CalcRes(HcclComm comm, const 
 
     // 创建每个kernel的KernelArg，放入kernelInfo, 然后将kernelinfo放入resourceRequest.ccuKernelInfos
     CcuKernelInfo kernelInfo;
-    kernelInfo.creator = [](const hcomm::CcuKernelArg &arg) {
-        return std::make_unique<CcuKernelAllReduceNhr1DMem2MemMultiJetty>(arg);
-    };
+    strcpy(kernelInfo.kernelFuncName, "CcuKernelAllReduceNhrMem2Mem1DMultiJetty");
+    // zjy todo
+ 	kernelInfo.kernelFunc = reinterpret_cast<void *>(CcuAllReduceNhrMem2Mem1DMultiJettyKernel);
 
-    kernelInfo.kernelArg = std::make_shared<CcuKernelArgAllReduceNhrMem2Mem1DMultiJetty>(
-        templateRankSize_, localRank_, portNum_, param, algStepInfoList, channelIdxMap, subCommRanks_);
-
+    auto kernelArg = std::make_shared<CcuKernelArgAllReduceNhrMem2Mem1DMultiJetty>();
+    //templateRankSize_, localRank_, portNum_, param, algStepInfoList, channelIdxMap, subCommRanks_
+    kernelArg->rankSize = templateRankSize_;
+    kernelArg->rankId = localRank_;
+    kernelArg->portSize = portNum_;
+    kernelArg->opParam = param;
+    kernelArg->algStepInfoList = algStepInfoList;
+    kernelArg->channelIdxMap = channelIdxMap;
+    kernelArg->subCommRanks = subCommRanks_;
+    kernelInfo.setKernelArg(kernelArg);
     kernelInfo.channels = channelDescs;
-
+    
     resourceRequest.ccuKernelInfos.push_back(kernelInfo);
 
     HCCL_DEBUG("[%s] finish. rankSize[%u], channelDescs.size[%zu], ccuKernelInfos.size[%zu].",
@@ -121,6 +128,12 @@ HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::KernelRun(const OpParam& para
     const uint64_t lastPortSliceCount = lastRankSliceCount - dataCountPerPort * (portNum_ - 1);
     const uint64_t lastRankSliceSize = lastRankSliceCount * unitSize;
     const uint64_t lastPortSliceSize = lastPortSliceCount * unitSize;
+    LoopGroupConfig config{};
+    config.msInterleave = CCU_MS_INTERLEAVE;
+    config.loopCount    = CCU_SCHE_DEFAULT_LOOP_COUNT;
+    config.memSlice     = CCU_MS_SIZE;
+    //auto goSize         = CalGoSize(sliceSize, config);
+
 
     HCCL_DEBUG("[%s] inputAddr[%llu], outputAddr[%llu], isInplace[%llu], dataSize[%llu], "
                "sliceDivisor[%llu], dataSizePerPort[%llu], dataSizePerRank[%llu], lastRankSliceSize[%llu], "
@@ -128,14 +141,29 @@ HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::KernelRun(const OpParam& para
                __func__, inputAddr, outputAddr, isInplace, dataSize, sliceDivisor, dataSizePerPort,
                dataSizePerRank, lastRankSliceSize, lastPortSliceSize);
 
-    std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAllReduceNhrMem2Mem1DMultiJetty>(
-        inputAddr, outputAddr, outputToken, isInplace, dataSizePerRank, dataSizePerPort, lastRankSliceSize,
-        lastPortSliceSize);
+    std::vector<uint64_t> taskArgs = {inputAddr, outputAddr, outputToken, isInplace, dataSizePerRank, dataSizePerPort, lastRankSliceSize,
+        lastPortSliceSize};
+    // go size of group operations
+    const auto localCopyGoSize = CalGoSize(dataSizePerRank, config);
+    taskArgs.insert(taskArgs.end(), localCopyGoSize.cbegin(), localCopyGoSize.cend());
+    const auto localCopyGoSizeLastSlice = CalGoSize(lastRankSliceSize, config);
+    taskArgs.insert(taskArgs.end(), localCopyGoSizeLastSlice.cbegin(), localCopyGoSizeLastSlice.cend());
 
-    void* taskArgPtr = static_cast<void*>(taskArg.get());
+    uint64_t argSize = 16;
 
-    CHK_RET(
-        HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr));
+    CcuResult launchRet =  HcommCcuKernelLaunch(templateResource.threads[0], templateResource.ccuKernels[0], taskArgs.data(), argSize);
+    if (launchRet != CCU_SUCCESS) {
+        HCCL_ERROR("[CcuTempAllReduceMesh1D::KernelRun] kernel launch failed, ccuRet -> %d", launchRet);
+        return ConvertCcuToHccl(launchRet);
+    }
+    //快速下发
+    // CcuKernelSubmitInfo submitInfo;
+    // submitInfo.kernelHandle = templateResource.ccuKernels[0];
+    // CHK_RET(FillCachedArgs(submitInfo, inputAddr, outputAddr, token, offSet, 
+    //         goSize[0], goSize[1], goSize[2], goSize[3], 
+    //         buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff));
+    // templateResource.submitInfos.push_back(submitInfo);
+    
 
     HCCL_DEBUG("[%s] end.", __func__);
 
