@@ -204,42 +204,53 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleLevel0UBXAlgo(const TopoI
     return SelectorStatus::MATCH;
 }
 
+SelectorStatus AllReduceAutoSelector::SelectCcuScheduleLevel0AlgoMesh1D(const TopoInfoWithNetLayerDetails* topoInfo,
+    const OpParam &opParam, std::string &selectAlgName, const u64 dataSize) const
+{
+    // 性能优化改用MS做reduce后不支持int8
+    CHK_PRT_RET(opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT8,
+        HCCL_DEBUG("[AllReduceAutoSelector] dataType[%d] is not supported yet for ccu schedule mode "
+                   "with ms reduce.", opParam.DataDes.dataType), SelectorStatus::NOT_MATCH);
+    double ratio;
+    if (topoInfo->userRankSize == 0) {
+        HCCL_DEBUG("[AllReduceAutoSelector] the selector userRankSize not set");
+        ratio = 1;
+    } else {
+        ratio = DEFAULT_RANK_SIZE / topoInfo->userRankSize / topoInfo->userRankSize;
+    }
+    if (dataSize * ratio > AR_M2M_1D_MAX_DATA_SIZE) {
+        return SelectorStatus::NOT_MATCH;
+    }
+    if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
+        if (IsSmallData(dataSize)) {
+            selectAlgName = "CcuAllReduceMesh1DMem2Mem2DieOneShot";
+        } else {
+            selectAlgName = "CcuAllreduceMesh2DieBigSche";
+        }
+    } else if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_NOT_REGULAR) {
+        HCCL_DEBUG("[AllReduceAutoSelector][%s] TWO_DIE_NOT_REGULAR not match", __func__);
+        return SelectorStatus::NOT_MATCH;
+    } else {
+        selectAlgName = "CcuAllReduceMesh1DMem2Mem";
+    }
+    HCCL_DEBUG("[AllReduceAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
+    return SelectorStatus::MATCH;
+}
+
 SelectorStatus AllReduceAutoSelector::SelectCcuScheduleLevel0Algo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                  std::string &selectAlgName, const u64 dataSize) const
 {
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-        // 性能优化改用MS做reduce后不支持int8
-        CHK_PRT_RET(opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT8,
-            HCCL_DEBUG("[AllReduceAutoSelector] dataType[%d] is not supported yet for ccu schedule mode "
-                            "with ms reduce.", opParam.DataDes.dataType), SelectorStatus::NOT_MATCH);
-        double ratio;
-        if (topoInfo->userRankSize == 0) {
-            HCCL_DEBUG("[AllReduceAutoSelector] the selector userRankSize not set");
-            ratio = 1;
-        } else {
-            ratio = DEFAULT_RANK_SIZE / topoInfo->userRankSize / topoInfo->userRankSize;
-        }
-        if (dataSize * ratio > AR_M2M_1D_MAX_DATA_SIZE) {
-            return SelectorStatus::NOT_MATCH;
-        }
-        if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
-            if(IsSmallData(dataSize)) {
-                selectAlgName = "CcuAllReduceMesh1DMem2Mem2DieOneShot"; 
-            } else {
-                selectAlgName = "CcuAllreduceMesh2DieBigSche"; 
-            }
-        } else if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_NOT_REGULAR) {
-            HCCL_DEBUG("[AllReduceAutoSelector][%s] TWO_DIE_NOT_REGULAR not match", __func__);
-            return SelectorStatus::NOT_MATCH;
-        } else {
-            selectAlgName = "CcuAllReduceMesh1DMem2Mem";
-        }
-        return SelectorStatus::MATCH;
+        return SelectCcuScheduleLevel0AlgoMesh1D(topoInfo, opParam, selectAlgName, dataSize);
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-        // PCIE-SW定制机型，Mesh无法链接全卡时，需要跨pcie链路，不支持ccu模式
-        if (topoInfo->level0PcieMix && !IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
-            HCCL_WARNING("[AllReduceAutoSelector] pcie mixed topo is not supported yet for ccu schedule mode.");
-            return SelectorStatus::NOT_MATCH;
+        if (topoInfo->level0PcieMix) {
+            if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
+                return SelectCcuScheduleLevel0AlgoMesh1D(topoInfo, opParam, selectAlgName, dataSize);
+            } else {
+                // PCIE-SW定制机型，Mesh无法链接全卡时，需要跨pcie链路，不支持ccu模式
+                HCCL_WARNING("[AllReduceAutoSelector] pcie mixed topo is not supported yet for ccu schedule mode.");
+                return SelectorStatus::NOT_MATCH;
+            }
         } else {
             CHK_PRT_RET(opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT8,
             HCCL_DEBUG("[AllReduceAutoSelector] dataType[%d] is not supported yet for ccu schedule mode "
