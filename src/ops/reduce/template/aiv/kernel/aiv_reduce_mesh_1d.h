@@ -129,7 +129,8 @@ public:
 
             if (rankChunkSize > 0) {
                 uint64_t inputOffset = input_ + (targetRank * rankChunkStride) * sizeof(T);
-                uint64_t outputOffset = reinterpret_cast<uint64_t>(GM_IN[targetRank]) + (rank_ * rankChunkSize) * sizeof(T);
+                uint64_t outputOffset = reinterpret_cast<uint64_t>(GM_IN[targetRank]) +
+                    (rank_ * rankChunkSize) * sizeof(T);
                 CpGM2GM((__gm__ T *)outputOffset, (__gm__ T *)inputOffset, rankChunkSize);
                 pipe_barrier(PIPE_ALL);
             }

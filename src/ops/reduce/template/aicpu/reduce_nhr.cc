@@ -197,7 +197,7 @@ HcclResult ReduceNHR::RunReduce(const std::map<u32, std::vector<ChannelInfo>> &c
             u64 rxSize = sliceInfoVec_[stepInfo.rxSliceIdxs[i]][0].size;
             DataSlice txSrcSlice = DataSlice(buffInfo_.hcclBuff.addr, txOffset, txSize, txSize / dataTypeSize);
             DataSlice txDstSlice = DataSlice(channelSend.remoteCclMem.addr, txOffset, txSize, txSize / dataTypeSize);
-            DataSlice rxSrcSlice = DataSlice(buffInfo_.hcclBuff.addr, rxOffset, rxSize, rxSize / dataTypeSize);
+            DataSlice rxSrcSlice = DataSlice(channelSend.remoteCclMem.addr, rxOffset, rxSize, rxSize / dataTypeSize);
             DataSlice rxDstSlice = DataSlice(buffInfo_.hcclBuff.addr, rxOffset, rxSize, rxSize / dataTypeSize);
             txSrcSlices.push_back(txSrcSlice);
             txDstSlices.push_back(txDstSlice);
@@ -207,9 +207,15 @@ HcclResult ReduceNHR::RunReduce(const std::map<u32, std::vector<ChannelInfo>> &c
         SendRecvReduceInfo sendRecvReduceInfo{
             {channelSend, channelRecv}, {{txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices}}, dataType_, reduceOp_};
 
-        CHK_PRT_RET(SendRecvWriteReduce(sendRecvReduceInfo, thread_),
-            HCCL_ERROR("[ReduceNHR] RunReduce SendRecvReduce failed"),
-            HcclResult::HCCL_E_INTERNAL);
+        if (isDmaRead_) {
+            CHK_PRT_RET(SendRecvReadReduce(sendRecvReduceInfo, thread_),
+                HCCL_ERROR("[ReduceNHR] RunReduce SendRecvReduce failed"),
+                HcclResult::HCCL_E_INTERNAL);
+        } else {
+            CHK_PRT_RET(SendRecvWriteReduce(sendRecvReduceInfo, thread_),
+                HCCL_ERROR("[ReduceNHR] RunReduce SendRecvReduce failed"),
+                HcclResult::HCCL_E_INTERNAL);
+        }
     }
 
     return HcclResult::HCCL_SUCCESS;
