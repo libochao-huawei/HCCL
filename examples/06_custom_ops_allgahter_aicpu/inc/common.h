@@ -11,10 +11,13 @@
 #ifndef OPS_HCCL_ALLGATHER_COMMON_H
 #define OPS_HCCL_ALLGATHER_COMMON_H
 
+#include <vector>
+
 #include <hccl/hccl_types.h>
 #include <hccl/hccl_res.h>
 #include <hccl/hcomm_primitives.h>
 #include <acl/acl_rt.h>
+#include "binary_stream.h"
 
 constexpr uint32_t NOTIFY_IDX_ACK = 0;
 constexpr uint32_t NOTIFY_IDX_DATA_SIGNAL = 1;
@@ -23,9 +26,9 @@ constexpr uint32_t CUSTOM_TIMEOUT = 1800;
 constexpr uint32_t COMM_INDENTIFIER_MAX_LENGTH = 128;
 constexpr uint32_t OP_NAME_LENGTH = 32;
 constexpr uint32_t TAG_LENGTH = OP_NAME_LENGTH + COMM_INDENTIFIER_MAX_LENGTH;
-
+constexpr uint32_t INVALID_VALUE_RANKID = 0xFFFFFFFF;
 constexpr uint32_t AICPU_CONTROL_NOTIFY_NUM = 2;
-
+using namespace ops_hccl_allgather;
 // 设备类型
 enum DeviceType {
     DEVICE_TYPE_A2 = 0,
@@ -40,10 +43,10 @@ typedef struct {
 
 struct ChannelInfo {
     bool isValid = false;
-    u32 remoteRank = INVALID_VALUE_RANKID;
+    uint32_t remoteRank = INVALID_VALUE_RANKID;
     CommProtocol protocol = CommProtocol::COMM_PROTOCOL_RESERVED;
     EndpointLocType locationType = EndpointLocType::ENDPOINT_LOC_TYPE_RESERVED;
-    u32 notifyNum = 0;
+    uint32_t notifyNum = 0;
     ChannelHandle handle = 0;
     CommBuffer remoteCclMem;
 };
@@ -53,7 +56,8 @@ struct AlgResourceCtx {
     ThreadHandle cpuThreadOnAicpu;
     CommBuffer cclMem;
     uint32_t notifyNumOnMainThread;
-    std::vector<uint32_t> notifyNumPerThread; // 每个thread需要的notify数量
+    uint32_t slaveThreadNum;
+    std::vector<uint32_t> notifyNumPerThread;
     std::vector<ThreadHandle> threads;
     std::vector<ChannelInfo> channels;
     ChannelHandle channelHandle;
@@ -72,7 +76,6 @@ struct AlgResourceCtx {
         binaryStream << channels;
         std::vector<char> result;
         binaryStream.Dump(result);
-        result.insert(result.end(), seq.begin(), seq.end());
         return result;
     }
 
@@ -105,8 +108,8 @@ struct OpParam {
     HcclCMDType opType = HcclCMDType::HCCL_CMD_INVALID;
     ThreadHandle cpuThread;
     ThreadHandle aicpuThreadOnCpu;
-    AlgResourceCtx* resCtxDevice = nullptr;
-    uint32_t ctxSize = 0;
+    void* resCtxDevice = nullptr;
+    uint64_t ctxSize = 0;
 };
 
 constexpr uint32_t SIZE_TABLE[HCCL_DATA_TYPE_RESERVED] = {sizeof(int8_t), sizeof(int16_t), sizeof(int32_t),

@@ -8,6 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include <string>
 #include <mmpa_api.h>
 #include "log.h"
 #include "load_kernel.h"
@@ -72,7 +73,7 @@ HcclResult LoadAICPUKernel(void)
     }
     std::string jsonPath;
     CHK_RET(GetKernelFilePath(jsonPath));
-    jsonPath += "libp2p_aicpu_kernel.json";
+    jsonPath += "libcustom_allgather_aicpu_kernel.json";
     HcclResult ret = LoadBinaryFromFile(jsonPath.c_str(), ACL_RT_BINARY_LOAD_OPT_CPU_KERNEL_MODE, 0,
         g_binKernelHandle);
     CHK_PRT_RET(ret != HCCL_SUCCESS,
