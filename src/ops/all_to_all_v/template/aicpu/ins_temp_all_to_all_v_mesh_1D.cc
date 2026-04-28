@@ -166,7 +166,10 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
     u32 remainRankSize = templateRankSize_ - 1;
     std::vector<u32> commRanks;
 
-    std::vector<ThreadHandle> subThreads(threads.begin() + 1, threads.end());
+    std::vector<ThreadHandle> subThreads;
+    if (threadNum_ > 1) {
+        subThreads.assign(threads.begin() + 1, threads.end());
+    }
     for (u32 roundIdx = 0; roundIdx < commLoops && remainRankSize > 0; roundIdx++) {
         CalcCommRankSetForOneLoop(roundIdx, remainRankSize, commRanks); // 计算本轮通信rank
         // 如果是read模式，统一做前拷贝
