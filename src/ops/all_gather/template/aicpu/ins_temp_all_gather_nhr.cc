@@ -143,12 +143,15 @@ HcclResult InsTempAllGatherNHR::RunAllGatherNHR(const std::vector<ThreadHandle> 
                 const u32 rxIdx = stepInfo.rxSliceIdxs[i];
                 const u64 txPartialOffset = (txIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize != 0) ? dataOffsetTail_[channelIdx]: dataOffset_[channelIdx];
                 const u64 rxPartialOffset = (rxIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize != 0) ? dataOffsetTail_[channelIdx]: dataOffset_[channelIdx];
-                const u64 txScratchOff = scratchBase + tempAlgParams_.sliceSize * txIdx + txPartialOffset;
-                const u64 rxScratchOff = scratchBase + tempAlgParams_.sliceSize * rxIdx + rxPartialOffset;
+                // const u64 txScratchOff = scratchBase + tempAlgParams_.sliceSize * txIdx + txPartialOffset;
+                // const u64 rxScratchOff = scratchBase + tempAlgParams_.sliceSize * rxIdx + rxPartialOffset;
+                const u64 txScratchOff = scratchBase + tempAlgParams_.sliceSize * txIdx;
+                const u64 rxScratchOff = scratchBase + tempAlgParams_.sliceSize * rxIdx;
 
-                const u64 txSliceSize = (txIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize != 0) ? dataSplitTail_[channelIdx]: dataSplit_[channelIdx];
-                const u64 rxSliceSize = (rxIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize != 0) ? dataSplitTail_[channelIdx]: dataSplit_[channelIdx];
-
+                // const u64 txSliceSize = (txIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize != 0) ? dataSplitTail_[channelIdx]: dataSplit_[channelIdx];
+                // const u64 rxSliceSize = (rxIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize != 0) ? dataSplitTail_[channelIdx]: dataSplit_[channelIdx];
+                const u64 txSliceSize = (txIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize != 0) ? tempAlgParams_.tailSize: tempAlgParams_.sliceSize;
+                const u64 rxSliceSize = (rxIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize != 0) ? tempAlgParams_.tailSize: tempAlgParams_.sliceSize;
                 txSrcSlicesAll.emplace_back(tempAlgParams_.buffInfo.hcclBuff.addr, txScratchOff, txSliceSize, txSliceSize / dataTypeSize);
                 txDstSlicesAll.emplace_back(sendCclBuffAddr, txScratchOff, txSliceSize, txSliceSize / dataTypeSize);
                 rxSrcSlicesAll.emplace_back(recvCclBuffAddr, rxScratchOff, rxSliceSize, rxSliceSize / dataTypeSize);
@@ -226,20 +229,21 @@ HcclResult InsTempAllGatherNHR::LocalDataCopy(const std::vector<ThreadHandle> &t
     if (tempAlgParams_.tailSize !=0 && myAlgRank == templateRankSize_ -1) {
         partialSliceSize = dataSplitTail_[channelIdx];
         partialOffset = dataOffsetTail_[channelIdx];
+        sliceSize = tempAlgParams_.tailSize;
     }
     for (u64 rpt = 0; rpt < tempAlgParams_.repeatNum; ++rpt) {
         const u64 inBaseOff = tempAlgParams_.buffInfo.inBuffBaseOff + rpt * tempAlgParams_.inputRepeatStride;
         const u64 scratchRepeatStride = tempAlgParams_.sliceSize * templateRankSize_;
         const u64 scratchBaseoff = tempAlgParams_.buffInfo.hcclBuffBaseOff + rpt * scratchRepeatStride;
 
-        const u64 inOff = tempAlgParams_.inputSliceStride * myAlgRank + inBaseOff + partialOffset;
-        const u64 scOff = tempAlgParams_.sliceSize * myAlgRank + scratchBaseoff + partialOffset;
+        const u64 inOff = tempAlgParams_.inputSliceStride * myAlgRank + inBaseOff;
+        const u64 scOff = tempAlgParams_.sliceSize * myAlgRank + scratchBaseoff;
         if (tempAlgParams_.buffInfo.inputPtr == tempAlgParams_.buffInfo.hcclBuff.addr && inOff == scOff) {
             continue;
         }
-        u64 sliceCount = partialSliceSize / dataTypeSize;
-        DataSlice srcSlices(tempAlgParams_.buffInfo.inputPtr, inOff, partialSliceSize, sliceCount);
-        DataSlice dstSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scOff, partialSliceSize, sliceCount);
+        u64 sliceCount = sliceSize / dataTypeSize;
+        DataSlice srcSlices(tempAlgParams_.buffInfo.inputPtr, inOff, sliceSize, sliceCount);
+        DataSlice dstSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scOff, sliceSize, sliceCount);
         CHK_RET(LocalCopy(threads[channelIdx], srcSlices, dstSlice));
     }
     return HcclResult::HCCL_SUCCESS;
@@ -253,6 +257,7 @@ HcclResult InsTempAllGatherNHR::PostLocalCopy(const std::vector<ThreadHandle> &t
     }
     u64 partialSliceSize = dataSplit_[channelIdx];
     u64 partialOffset = dataOffset_[channelIdx];
+    u64 sliceSize = tempAlgParams_.sliceSize;
     const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
     for (u32 rpt = 0; rpt < tempAlgParams_.repeatNum; ++rpt) {
         const u64 outBaseOff = tempAlgParams_.buffInfo.outBuffBaseOff + rpt * tempAlgParams_.outputRepeatStride;
@@ -266,12 +271,13 @@ HcclResult InsTempAllGatherNHR::PostLocalCopy(const std::vector<ThreadHandle> &t
             if (tempAlgParams_.tailSize !=0 && algRank == templateRankSize_ -1) {
                 partialSliceSize = dataSplitTail_[channelIdx];
                 partialOffset = dataOffsetTail_[channelIdx];
+                sliceSize = tempAlgParams_.tailSize;
             }
-            u64 sliceCount = partialSliceSize / dataTypeSize;
-            u64 scratchOffset = tempAlgParams_.sliceSize * algRank + scratchBase + partialOffset;
-            u64 outOffset = tempAlgParams_.outputSliceStride * algRank + outBaseOff + partialOffset;
-            DataSlice srcSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, partialSliceSize, sliceCount);
-            DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outOffset, partialSliceSize, sliceCount);
+            u64 sliceCount = sliceSize / dataTypeSize;
+            u64 scratchOffset = tempAlgParams_.sliceSize * algRank + scratchBase;
+            u64 outOffset = tempAlgParams_.outputSliceStride * algRank + outBaseOff;
+            DataSlice srcSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, sliceSize, sliceCount);
+            DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outOffset, sliceSize, sliceCount);
             CHK_RET(LocalCopy(threads[channelIdx], srcSlice, dstSlice));
         }
     }
