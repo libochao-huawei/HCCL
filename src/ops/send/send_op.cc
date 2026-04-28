@@ -191,7 +191,7 @@ namespace ops_hccl {
         CHK_RET(HcclGetOpExpansionMode(comm, param));
         CHK_RET(Selector(comm, param, topoInfo, algName));
 
-        if (ShouldUseInnerOp(param.opExecuteConfig)) {
+        if (ShouldUseInnerOp(param.opExecuteConfig) && param.opMode == OpMode::OPBASE) {
             return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
         }
         if (rankSize == 1) {
