@@ -45,7 +45,7 @@
 #include "dlhcomm_function.h"
 #include "hccl_diag.h"
 #include "hcom.h"
-#include "hccl_res_exp_dl.h"
+#include "hccl_res_expt_dl.h"
 
 namespace ops_hccl {
 // 用于维护增量建链算子的host ctx信息
