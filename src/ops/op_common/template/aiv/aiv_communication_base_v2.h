@@ -341,6 +341,12 @@ public:
 
     __aicore__ inline void Record(uint32_t targetRank, uint64_t flag_offset, int32_t curTag);
 
+    __aicore__ inline void Barrier(uint32_t step);
+
+    __aicore__ inline void ClearFlag();
+
+    __aicore__ inline void BlockSync();
+
     __aicore__ inline void ClearSyncBuf();
 
     GM_ADDR GM_IN[MAX_RANK_SIZE];
@@ -413,6 +419,62 @@ __aicore__ inline void AivCommBase::ClearSyncBuf()
     ClearFlag();
     Barrier(DOUBLE);
     BlockSync();
+}
+
+__aicore__ inline void AivCommBase::Barrier(uint32_t step)
+{
+    // 用10个flag
+    uint32_t flagOffset = 2 * 1024 * 1024 - (step % 2 + 1) * FLAG_SIZE * rankSize_;
+    __gm__ int32_t *ctrlFlagsGM;
+    if (GetBlockIdx() == 0) {
+        pipe_barrier(PIPE_ALL);
+        for (int i = 1; i < rankSize_; i++) {
+            uint32_t targetRank = (rank_ + i) % rankSize_; 
+            ctrlFlagsGM = (__gm__ int32_t *)(GM_OUT[targetRank] + flagOffset + rank_ * FLAG_SIZE);
+            SetSignalValue(ctrlFlagsGM, localSetTensor, 1);
+        }
+        pipe_barrier(PIPE_ALL);
+        for (int i = 1; i < rankSize_; i++) {
+            uint32_t targetRank = (rank_ + i) % rankSize_; 
+            ctrlFlagsGM = (__gm__ int32_t *)(GM_OUT[rank_] + flagOffset + targetRank * FLAG_SIZE);
+            WaitSignalValue(ctrlFlagsGM, localCheckTensor, 1);
+        }
+        pipe_barrier(PIPE_ALL);
+        for (int i = 1; i < rankSize_; i++) {
+            uint32_t targetRank = (rank_ + i) % rankSize_; 
+            ctrlFlagsGM = (__gm__ int32_t *)(GM_OUT[rank_] + flagOffset + targetRank * FLAG_SIZE);
+            SetSignalValue(ctrlFlagsGM, localSetTensor, 0);
+        }
+    }
+}
+
+__aicore__ inline void AivCommBase::ClearFlag()
+{
+    // 用10个flag
+    __gm__ int32_t *ctrlFlagsGM = (__gm__ int32_t *)(GM_OUT[rank_]);
+    __gm__ int32_t *emtpyGM = (__gm__ int32_t *)(GM_OUT[rank_] + CLEAR_BUFFER_OFFSET);
+    if (GetBlockIdx() == 0) {
+        CpGM2GM(ctrlFlagsGM, emtpyGM, BUFFER_AREA / sizeof(int32_t));
+    }
+}
+
+__aicore__ inline void AivCommBase::BlockSync()
+{
+    uint32_t flagOffset = SYNC_BUFFER_OFFSET + 2 * FLAG_SIZE * numBlocks_;
+    __gm__ int32_t *ctrlFlagsGM = (__gm__ int32_t *)(GM_OUT[rank_] + flagOffset);
+    if (GetBlockIdx() == 0) {
+        //通知其他核
+        pipe_barrier(PIPE_ALL);
+        for (int i = 1; i < numBlocks_; i++) {
+            SetSignalValue(ctrlFlagsGM + i * FLAG_SIZE, localSetTensor, 1);
+        }
+        pipe_barrier(PIPE_ALL);
+    } else {
+        //接收通知并清零
+        WaitSignalValue(ctrlFlagsGM + GetBlockIdx() * FLAG_SIZE, localCheckTensor, 1);
+        SetSignalValue(ctrlFlagsGM +  GetBlockIdx() * FLAG_SIZE, localSetTensor, 0);
+        pipe_barrier(PIPE_ALL);
+    }
 }
 
 __aicore__ inline void AivCommBase::WaitFlag(uint32_t targetRank, uint64_t flag_offset, int32_t curTag)
