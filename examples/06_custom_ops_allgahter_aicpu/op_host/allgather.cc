@@ -42,8 +42,8 @@ HcclResult HcclAllGatherCustom(
     CHK_RET(HcclGetCommName(comm, param.commName));
 
     param.inputPtr = sendBuf;
-    param.outputPtr = sendBuf;
-    param.count = count;
+    param.outputPtr = recvBuf;
+    param.count = sendCount;
     param.dataType = dataType;
     param.opType = HcclCMDType::HCCL_CMD_ALLGATHER;
 
@@ -63,12 +63,12 @@ HcclResult HcclAllGatherCustom(
     if (HcclEngineCtxGet(comm, param.tag, engine, &ctx, &size) == HCCL_SUCCESS) {
         // device资源已经存在
         HCCL_INFO("[HcclSendCustom] Engine context already exists");
-        param.resCtx = static_cast<AlgResourceCtx *>(ctx);
+        param.resCtxDevice = static_cast<AlgResourceCtx *>(ctx);
     } else {
         // 不存在，新创建Context
         HCCL_INFO("[HcclSendCustom] Creating engine context");
         CHK_RET(HcclEngineCtxCreate(comm, param.tag, engine, size, &ctx));
-        param.resCtx = static_cast<AlgResourceCtx *>(ctx);
+        param.resCtxDevice = static_cast<AlgResourceCtx *>(ctx);
         AlgResourceCtx resCtxHost;
 
         // ==============================================
@@ -87,9 +87,10 @@ HcclResult HcclAllGatherCustom(
         // ==============================================
         HcclAllocAlgResourceAICPU( comm, param, resCtxHost);
         // 复制资源到Device
-        std::vector<char> seq = resCtxHost->Serialize();
+        std::vector<char> seq = resCtxHost.Serialize();
+        param.ctxSize = seq.size();
         
-        HcclMemcpyCtxHostToDevice(comm, param, resCtxHost, &param.ctx, param.ctxSize);
+        HcclMemcpyCtxHostToDevice(comm, param, resCtxHost, &param.resCtxDevice, param.ctxSize);
 
     // ==============================================
     // STEP 3: 下发 AICPU Kernel
