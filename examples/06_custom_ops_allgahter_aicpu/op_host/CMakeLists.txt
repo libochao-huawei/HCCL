@@ -14,8 +14,7 @@ set_source_files_properties(
 )
 
 set(op_host_src_list
-    ${CMAKE_CURRENT_SOURCE_DIR}/send.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/recv.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/allgather.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/utils.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/load_kernel.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/launch_kernel.cc
@@ -24,6 +23,6 @@ set(op_host_src_list
     ${HCCL_CUSTOM_OPS_ROOT}/op_kernel_aicpu/aicpu_kernel_asc.aicpu
 )
 
-target_sources(hccl_custom_p2p PRIVATE
+target_sources(hccl_custom_allgather_aicpu PRIVATE
     ${op_host_src_list}
 )
