@@ -39,7 +39,11 @@ SelectorStatus AllGatherAutoSelector::SelectMeshAlgo(const TopoInfoWithNetLayerD
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-        selectAlgName = "CcuAllGatherMesh1D";
+        if (dataSize > SMALL_COUNT_16M) {
+            selectAlgName = "CcuAllGatherConcurrentMesh1DNHR";
+        } else {
+            selectAlgName = "CcuAllGatherMesh1D";
+        }
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
         // PCIE-SW定制机型，Mesh无法链接全卡时，需要跨pcie链路，不支持ccu模式
         if (topoInfo->level0PcieMix && !IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
@@ -56,7 +60,7 @@ SelectorStatus AllGatherAutoSelector::SelectMeshAlgo(const TopoInfoWithNetLayerD
         if (dataSize > SMALL_COUNT_512KB) {
             // 大数据量场景，4P内并发executor，4P外回退ccu_sched模式
             if (isMeshNumEqualToClosNum && (topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO)) {
-                selectAlgName = "CcuAllGatherConcurrentMesh1DNHR";
+                selectAlgName = "CcuAllGatherConcurrentMesh1DNHRUBX";
                 return SelectorStatus::MATCH;
             } else {
                 HCCL_DEBUG("[AllGatherAutoSelector] Level0Shape::MESH_1D_CLOS in large data scene is not supported for ccu_ms mode, reset to default.");
@@ -86,7 +90,7 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleUBXAlgo(
         HCCL_DEBUG("[AllGatherAutoSelector] CheckClosNumMultipleOfMeshNum failed."), SelectorStatus::NOT_MATCH);
     if (dataSize > SMALL_COUNT_512KB) {
         if (isMeshNumEqualToClosNum && (topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO)) {
-            selectAlgName = "CcuAllGatherConcurrentMesh1DNHRMem";
+            selectAlgName = "CcuAllGatherConcurrentMesh1DNHRMemUBX";
         } else if (isClosNumMultipleOfMeshNum) {
             selectAlgName = "CcuAllGatherParallelMesh1DNHRMemMultiJetty";
         } else {
@@ -109,7 +113,11 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleLevel0Algo(
             HCCL_DEBUG("[AllGatherAutoSelector][%s] TWO_DIE_NOT_REGULAR not match", __func__);
             return SelectorStatus::NOT_MATCH;
         } else {
-            selectAlgName = "CcuAllGatherMesh1DMem2Mem";
+            if (dataSize > SMALL_COUNT_16M) {
+                selectAlgName = "CcuAllGatherConcurrentMesh1DNHRMem";
+            } else {
+                selectAlgName = "CcuAllGatherMesh1DMem2Mem";
+            }
         }
         return SelectorStatus::MATCH;
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
@@ -165,7 +173,11 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
             } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] == 1) {
                 selectAlgName = "CcuAllGatherNHR1DMem2Mem";
             } else {
-                selectAlgName = "CcuAllGatherParallelMesh1DNHR";
+                if (dataSize <= SMALL_COUNT_16M) {
+                    selectAlgName = "CcuAllGatherNHR1DMem2Mem";
+                } else {
+                    selectAlgName = "CcuAllGatherParallelMesh1DNHR";
+                }
             }
         } else {
             HCCL_DEBUG("[AllGatherAutoSelector] level0Topo[%d] is not supported yet for ccu schedule mode.",
@@ -199,14 +211,22 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
         } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] == 1) {
             selectAlgName = "InsAllGatherNHR";
         } else if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-            selectAlgName = "InsAllGatherParallelMesh1DNHR";
+            if (dataSize <= SMALL_COUNT_16M) {
+                selectAlgName = "InsAllGatherNHR";
+            } else {
+                selectAlgName = "InsAllGatherParallelMesh1DNHR";
+            }
         } else {
             HCCL_ERROR("[AllGatherAutoSelector] topo not match");
             return SelectorStatus::NOT_MATCH;
         }
     } else {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-            selectAlgName = "InsAllGatherMesh1D";
+            if (dataSize > SMALL_COUNT_16M) {
+                selectAlgName = "InsAllGatherConcurrentMesh1DNHR";
+            } else {
+                selectAlgName = "InsAllGatherMesh1D";
+            }
         } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
             // PCIE-SW定制机型，Mesh无法链接全卡时，需要跨pcie链路，选择适配算法
             if (topoInfo->level0PcieMix) {
@@ -227,7 +247,7 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
             HCCL_ERROR("[AllGatherAutoSelector] CheckClosNumMultipleOfMeshNum failed."), SelectorStatus::NOT_MATCH);
             if (isMeshNumEqualToClosNum && topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO) {
                 if (dataSize > SMALL_COUNT_512KB) {
-                    selectAlgName = "InsAllGatherConcurrentMesh1DNHR";
+                    selectAlgName = "InsAllGatherConcurrentMesh1DNHRUBX";
                 } else {
                     selectAlgName = "InsAllGatherMesh1D";
                 }
