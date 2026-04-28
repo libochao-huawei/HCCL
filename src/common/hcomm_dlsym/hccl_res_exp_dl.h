@@ -8,24 +8,24 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCCL_RES_EXP_DL_H
-#define HCCL_RES_EXP_DL_H
+// #ifndef HCCL_RES_EXP_DL_H
+// #define HCCL_RES_EXP_DL_H
 
-#include "dlsym_common.h"
-#include "hccl_res_exp.h"
+// #include "dlsym_common.h"
+// #include "hccl_res_exp.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+// #ifdef __cplusplus
+// extern "C" {
+// #endif
 
-DECL_SUPPORT_FLAG(HcclCommAddExchangeInfo);
-DECL_SUPPORT_FLAG(HcclCommGetExchangeInfo);
+// DECL_SUPPORT_FLAG(HcclCommAddExchangeInfo);
+// DECL_SUPPORT_FLAG(HcclCommGetExchangeInfo);
 
-// 动态库管理接口（大驼峰命名）
-void HcclResExpDlInit(void *libHcommHandle);
+// // 动态库管理接口（大驼峰命名）
+// void HcclResExpDlInit(void *libHcommHandle);
 
-#ifdef __cplusplus
-}
-#endif
+// #ifdef __cplusplus
+// }
+// #endif
 
-#endif // HCCL_RES_EXP_DL_H
+// #endif // HCCL_RES_EXP_DL_H
