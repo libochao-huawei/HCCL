@@ -28,7 +28,7 @@ HcclResult ExecOp(OpParam &param, AlgResourceCtx &resCtx)
     std::map<uint32_t, ChannelHandle> channelMap;
 
     if (param.rankSize == 1) {
-        CHK_RET(static_cast<HcclResult>(HcommLocalCopyOnThread(param.threads[0], param.outputPtr, param.inputPtr, size)));
+        CHK_RET(static_cast<HcclResult>(HcommLocalCopyOnThread(resCtx.threads[0], param.outputPtr, param.inputPtr, size)));
         return HCCL_SUCCESS;
     }
 
@@ -52,31 +52,31 @@ HcclResult ExecOp(OpParam &param, AlgResourceCtx &resCtx)
         // 本地拷贝到hcclbuf
         void *curCclBuffAddr = static_cast<void *>(static_cast<uint8_t *>(cclBuffAddr) + cclBuffOffset);
         void *curInputAddr = static_cast<void *>(static_cast<uint8_t *>(param.inputPtr) + inputOffset);
-        CHK_RET(static_cast<HcclResult>(HcommLocalCopyOnThread(param.threads[0], curCclBuffAddr, curInputAddr, sliceSize)));
+        CHK_RET(static_cast<HcclResult>(HcommLocalCopyOnThread(resCtx.threads[0], curCclBuffAddr, curInputAddr, sliceSize)));
 
         // 前同步
         for(uint32_t i = 1; i < param.rankSize; i++) {
             // 主thread通知其他thread开始工作
-            CHK_RET(static_cast<HcclResult>(HcommThreadNotifyRecordOnThread(param.threads[0], param.threads[i], 0)));
+            CHK_RET(static_cast<HcclResult>(HcommThreadNotifyRecordOnThread(resCtx.threads[0], resCtx.threads[i], 0)));
             // 其他thread等待主thread通知
-            CHK_RET(static_cast<HcclResult>(HcommThreadWaitRecordOnThread(param.threads[i], 0, CUSTOM_TIMEOUT)));
+            CHK_RET(static_cast<HcclResult>(HcommThreadWaitRecordOnThread(resCtx.threads[i], 0, CUSTOM_TIMEOUT)));
         }
 
         // 交换数据
         for(uint32_t i = 0; i < param.rankSize; i++) {
             // thread通知对端数据准备完成，可以开始传输
-            CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(param.threads[i], channelMap[i].channelHandle, NOTIFY_IDX_ACK)));
+            CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(resCtx.threads[i], channelMap[i].channelHandle, NOTIFY_IDX_ACK)));
             // thread等待对端确认数据准备完成
-            CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(param.threads[i], channelMap[i].channelHandle, NOTIFY_IDX_ACK, CUSTOM_TIMEOUT)));
+            CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(resCtx.threads[i], channelMap[i].channelHandle, NOTIFY_IDX_ACK, CUSTOM_TIMEOUT)));
             uint32_t remoteRank = channelMap[i].remoteRank;
             void *remoteCclBuffAddr = static_cast<void *>(static_cast<uint8_t *>(channelMap[i].remoteCclMem.addr) + sliceSize * remoteRank);
             
             // 将本地数写到对端cclBuff
-            CHK_RET(static_cast<HcclResult>(HcommWriteOnThread(param.threads[i], channelMap[i].channelHandle, remoteCclBuffAddr, curCclBuffAddr, sliceSize)));
+            CHK_RET(static_cast<HcclResult>(HcommWriteOnThread(resCtx.threads[i], channelMap[i].channelHandle, remoteCclBuffAddr, curCclBuffAddr, sliceSize)));
 
             // 告诉对端执行完成, 同时等待对端完成
-            CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(param.threads[i], channelMap[i].channelHandle, NOTIFY_IDX_DATA_SIGNAL)));
-            CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(param.threads[i], channelMap[i].channelHandle, NOTIFY_IDX_DATA_SIGNAL, CUSTOM_TIMEOUT)));
+            CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(resCtx.threads[i], channelMap[i].channelHandle, NOTIFY_IDX_DATA_SIGNAL)));
+            CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(resCtx.threads[i], channelMap[i].channelHandle, NOTIFY_IDX_DATA_SIGNAL, CUSTOM_TIMEOUT)));
         }
 
         // 后同步, 从cclbuff拷贝到outputPtr
@@ -85,7 +85,7 @@ HcclResult ExecOp(OpParam &param, AlgResourceCtx &resCtx)
             uint64_t outputOffset = processedDataCount * dataTypeSize + rankId * size;
             void *curCclBuffAddr = static_cast<void *>(static_cast<uint8_t *>(cclBuffAddr) + cclBuffOffset);
             void *curOutputAddr = static_cast<void *>(static_cast<uint8_t *>(param.outputPtr) + outputOffset);
-            CHK_RET(static_cast<HcclResult>(HcommLocalCopyOnThread(param.threads[0], curOutputAddr, curCclBuffAddr, sliceSize)));
+            CHK_RET(static_cast<HcclResult>(HcommLocalCopyOnThread(resCtx.threads[0], curOutputAddr, curCclBuffAddr, sliceSize)));
         }
         processedDataCount += sliceCount;
 
