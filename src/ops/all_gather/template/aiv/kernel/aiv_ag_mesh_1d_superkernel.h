@@ -8,9 +8,6 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef AIV_AG_SUPERKERNEL_H
-#define AIV_AG_SUPERKERNEL_H
-
 #include "aiv_communication_base_v2.h"
 #include "aiv_all_gather_mesh_1d.h"
 
@@ -19,5 +16,3 @@ __aicore__ void sk_allgather_mesh_1d(SUPERKERNEL_LITE_ARGS_DEF) {
     SUPERKERNEL_LITE_ARGS_EXTRACT;
     return sk_ag_mesh_1d(SUPERKERNEL_ARGS_CALL);
 }
-
-#endif  /* AIV_AG_SUPERKERNEL_H */
