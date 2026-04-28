@@ -206,6 +206,14 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
         }
     } else {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
+            // AICPU 场景下，大数据量 + 多 rank 优先用 Ring Pipeline
+            constexpr u64 AG_AICPU_RING_THRESHOLD = 8 * 1024 * 1024; // 8MB
+            if (dataSize > AG_AICPU_RING_THRESHOLD && topoInfo->userRankSize >= 4) {
+                selectAlgName = "InsAllGatherRingPipeline";
+                HCCL_DEBUG("[AllGatherAutoSelector][%s] large data[%llu] rankSize[%u], select RingPipeline", __func__,
+                           dataSize, topoInfo->userRankSize);
+                return SelectorStatus::MATCH;
+            }
             selectAlgName = "InsAllGatherMesh1D";
         } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
             // PCIE-SW定制机型，Mesh无法链接全卡时，需要跨pcie链路，选择适配算法
