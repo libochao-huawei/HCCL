@@ -8,6 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include <string>
 #include <mmpa_api.h>
 #include "log.h"
 #include "load_kernel.h"
