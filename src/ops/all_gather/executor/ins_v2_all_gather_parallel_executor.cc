@@ -423,10 +423,16 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
         intraTempAlgRes.channels = intraLinkMap_;
         interTempAlgRes.channels = interLinkMap_;
     }
+    u64 alignSize = 4 * 1024; // 用于4k对齐
     for (u32 loopIndex = 0; loopIndex < loopTimes; loopIndex++) {
         u64 currCount = (loopIndex == loopTimes - 1) ? (dataCount_ - loopIndex * maxCountPerLoop) : maxCountPerLoop;
         u64 dataCountPerLoopAixs0 = static_cast<u64>(dataSplitSize[0] * currCount);
         u64 dataCountPerLoopAixs1 = currCount - dataCountPerLoopAixs0;
+        if (dataCountPerLoopAixs0 * dataTypeSize_ >= alignSize) {
+            // 进行4K对齐（向下取整）
+            dataCountPerLoopAixs0 = dataCountPerLoopAixs0 * dataTypeSize_ / alignSize * alignSize / dataTypeSize_;
+            dataCountPerLoopAixs1 = currCount - dataCountPerLoopAixs0;
+        }
         // 第一步开始前同步
         CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
         u64 dataOffset0 = loopIndex * maxCountPerLoop * dataTypeSize_;

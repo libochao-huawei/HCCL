@@ -390,10 +390,16 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     }
     templateAlgResIntra.threads = intraThreads_;
     templateAlgResInter.threads = interThreads_;
+    u64 alignSizeData = 4 * 1024; // 用于4k对齐
     for (u32 loopIndex = 0; loopIndex < loopTimes; loopIndex++) {
         u64 currCount = (loopIndex == loopTimes - 1) ? (dataCount_ - loopIndex * maxCountPerLoop) : maxCountPerLoop;
         u64 dataCountPerLoopAixs0 = static_cast<u64>(dataSplitSize[0] * currCount);
         u64 dataCountPerLoopAixs1 = currCount - dataCountPerLoopAixs0;
+        if (dataCountPerLoopAixs0 * dataTypeSize_ >= alignSizeData) {
+            // 进行4K对齐（向下取整）
+            dataCountPerLoopAixs0 = dataCountPerLoopAixs0 * dataTypeSize_ / alignSizeData * alignSizeData / dataTypeSize_;
+            dataCountPerLoopAixs1 = currCount - dataCountPerLoopAixs0;
+        }
         
         u64 dataOffset0 = loopIndex * maxCountPerLoop * dataTypeSize_;
         u64 dataOffset1 = dataOffset0 + dataCountPerLoopAixs0 * dataTypeSize_;

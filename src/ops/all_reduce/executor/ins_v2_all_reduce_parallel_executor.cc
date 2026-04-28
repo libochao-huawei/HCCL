@@ -771,8 +771,14 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     HCCL_DEBUG("[InsAllReduceParallelExecutor][GenInsQues] dataCount_[%lu], myRank_[%d], sliceCountUB[%d], sliceCountUB0[%d], sliceCount[%d]",
               dataCount_, myRank_, sliceCountUB, sliceCountUB0, sliceCount);
 
+    u64 alignSize = 4 * 1024; // 用于4k对齐
     u64 sliceCountPart0 = static_cast<u64>(std::floor(double(sliceCount) * dataSplitSize.at(0)));
     u64 sliceCountPart1 = sliceCount - sliceCountPart0;
+    if (sliceCountPart0 * dataTypeSize_ >= alignSize) {
+        // 进行4K对齐（向下取整）
+        sliceCountPart0 = sliceCountPart0 * dataTypeSize_ / alignSize * alignSize / dataTypeSize_;
+        sliceCountPart1 = sliceCount - sliceCountPart0;
+    }
 
     if (sliceCount == 0) {
         HCCL_WARNING("The divisor cannot be zero.");
