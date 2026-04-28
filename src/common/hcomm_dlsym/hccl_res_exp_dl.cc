@@ -8,17 +8,17 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "hccl_res_exp_dl.h"
-#include <dlfcn.h>
-#include <stdio.h>
-#include <stdlib.h>
+// #include "hccl_res_exp_dl.h"
+// #include <dlfcn.h>
+// #include <stdio.h>
+// #include <stdlib.h>
 
-// ---------- 桩函数定义（签名与真实API完全一致）----------
-DEFINE_WEAK_FUNC(HcclResult, HcclCommAddExchangeInfo, HcclComm comm, void *data, uint32_t length);
-DEFINE_WEAK_FUNC(HcclResult, HcclCommGetExchangeInfo, HcclComm comm, uint32_t remoteRank, void *data, uint32_t &length);
+// // ---------- 桩函数定义（签名与真实API完全一致）----------
+// DEFINE_WEAK_FUNC(HcclResult, HcclCommAddExchangeInfo, HcclComm comm, void *data, uint32_t length);
+// DEFINE_WEAK_FUNC(HcclResult, HcclCommGetExchangeInfo, HcclComm comm, uint32_t remoteRank, void *data, uint32_t &length);
 
-// 初始化
-void HcclResExpDlInit(void *libHcommHandle) {
-    INIT_SUPPORT_FLAG(libHcommHandle, HcclCommAddExchangeInfo);
-    INIT_SUPPORT_FLAG(libHcommHandle, HcclCommGetExchangeInfo);
-}
+// // 初始化
+// void HcclResExpDlInit(void *libHcommHandle) {
+//     INIT_SUPPORT_FLAG(libHcommHandle, HcclCommAddExchangeInfo);
+//     INIT_SUPPORT_FLAG(libHcommHandle, HcclCommGetExchangeInfo);
+// }
