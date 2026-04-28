@@ -10,6 +10,7 @@
 
 #include <string>
 #include <memory>
+#include <vector>
 #include <hccl/hcomm_primitives.h>
 #include "log.h"
 #include "utils.h"

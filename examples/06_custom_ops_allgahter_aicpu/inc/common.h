@@ -11,6 +11,8 @@
 #ifndef OPS_HCCL_ALLGATHER_COMMON_H
 #define OPS_HCCL_ALLGATHER_COMMON_H
 
+#include <vector>
+
 #include <hccl/hccl_types.h>
 #include <hccl/hccl_res.h>
 #include <hccl/hcomm_primitives.h>
@@ -53,7 +55,8 @@ struct AlgResourceCtx {
     ThreadHandle cpuThreadOnAicpu;
     CommBuffer cclMem;
     uint32_t notifyNumOnMainThread;
-    std::vector<uint32_t> notifyNumPerThread; // 每个thread需要的notify数量
+    uint32_t slaveThreadNum;
+    std::vector<uint32_t> notifyNumPerThread;
     std::vector<ThreadHandle> threads;
     std::vector<ChannelInfo> channels;
     ChannelHandle channelHandle;
@@ -72,7 +75,6 @@ struct AlgResourceCtx {
         binaryStream << channels;
         std::vector<char> result;
         binaryStream.Dump(result);
-        result.insert(result.end(), seq.begin(), seq.end());
         return result;
     }
 
