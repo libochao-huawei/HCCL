@@ -21,6 +21,7 @@ namespace ops_hccl {
 
 constexpr uint64_t SMALL_COUNT_512KB = 512*1024; // Byte, UB协议一次传输的最大size
 constexpr uint64_t LARGE_COUNT_1024KB = 1024*1024; // Byte, 可掩盖多mission尾块开销
+constexpr uint64_t SMALL_COUNT_16M = 16 * 1024 * 1024; // 960 大小数据量边界
 
 constexpr u32 CCU_MS_MODE = 2;
 constexpr double DEFAULT_RANK_SIZE = 8.0;
