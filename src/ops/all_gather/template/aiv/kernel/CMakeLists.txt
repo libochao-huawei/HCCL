@@ -41,6 +41,8 @@ add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/hccl_ag_superkernel_mesh_1
         -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw/interface/
         -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw/impl/
         -I${ASCEND_CANN_PACKAGE_PATH}/include/hccl/
+        -I${OPS_BASE_DIR}/src/ops/op_common/template/aiv/
+        -I${OPS_BASE_DIR}/src/ops/op_common/template/aiv/aiv_interface/
         -I${CMAKE_CURRENT_SOURCE_DIR}/aiv_interface/
         -mllvm -cce-aicore-record-overflow=false -mllvm -cce-aicore-addr-transform -mllvm
         --cce-aicore-jump-expand=true -std=c++17 -fstack-protector-all
@@ -61,6 +63,8 @@ add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/hccl_ag_superkernel_mesh_1
         -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw/interface/
         -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw/impl/
         -I${ASCEND_CANN_PACKAGE_PATH}/include/hccl/
+        -I${OPS_BASE_DIR}/src/ops/op_common/template/aiv/
+        -I${OPS_BASE_DIR}/src/ops/op_common/template/aiv/aiv_interface/
         -I${CMAKE_CURRENT_SOURCE_DIR}/aiv_interface/
         -mllvm -cce-aicore-record-overflow=false -mllvm -cce-aicore-addr-transform -mllvm
         --cce-aicore-jump-expand=true -std=c++17 -fstack-protector-all
@@ -81,6 +85,8 @@ add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/hccl_ag_superkernel_mesh_1
         -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw/interface/
         -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw/impl/
         -I${ASCEND_CANN_PACKAGE_PATH}/include/hccl/
+        -I${OPS_BASE_DIR}/src/ops/op_common/template/aiv/
+        -I${OPS_BASE_DIR}/src/ops/op_common/template/aiv/aiv_interface/
         -I${CMAKE_CURRENT_SOURCE_DIR}/aiv_interface/
         -mllvm -cce-aicore-record-overflow=false -mllvm -cce-aicore-addr-transform -mllvm
         --cce-aicore-jump-expand=true -std=c++17 -fstack-protector-all
@@ -101,6 +107,8 @@ add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/hccl_ag_superkernel_mesh_1
         -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw/interface/
         -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw/impl/
         -I${ASCEND_CANN_PACKAGE_PATH}/include/hccl/
+        -I${OPS_BASE_DIR}/src/ops/op_common/template/aiv/
+        -I${OPS_BASE_DIR}/src/ops/op_common/template/aiv/aiv_interface/
         -I${CMAKE_CURRENT_SOURCE_DIR}/aiv_interface/
         -mllvm -cce-aicore-record-overflow=false -mllvm -cce-aicore-addr-transform -mllvm
         --cce-aicore-jump-expand=true -std=c++17 -fstack-protector-all
@@ -121,6 +129,8 @@ add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/hccl_ag_superkernel_mesh_1
         -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw/interface/
         -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw/impl/
         -I${ASCEND_CANN_PACKAGE_PATH}/include/hccl/
+        -I${OPS_BASE_DIR}/src/ops/op_common/template/aiv/
+        -I${OPS_BASE_DIR}/src/ops/op_common/template/aiv/aiv_interface/
         -I${CMAKE_CURRENT_SOURCE_DIR}/aiv_interface/
         -mllvm -cce-aicore-record-overflow=false -mllvm -cce-aicore-addr-transform -mllvm
         --cce-aicore-jump-expand=true -std=c++17 -fstack-protector-all
@@ -141,6 +151,8 @@ add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/hccl_ag_superkernel_mesh_1
         -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw/interface/
         -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw/impl/
         -I${ASCEND_CANN_PACKAGE_PATH}/include/hccl/
+        -I${OPS_BASE_DIR}/src/ops/op_common/template/aiv/
+        -I${OPS_BASE_DIR}/src/ops/op_common/template/aiv/aiv_interface/
         -I${CMAKE_CURRENT_SOURCE_DIR}/aiv_interface/
         -mllvm -cce-aicore-record-overflow=false -mllvm -cce-aicore-addr-transform -mllvm
         --cce-aicore-jump-expand=true -std=c++17 -fstack-protector-all
@@ -161,6 +173,8 @@ add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/hccl_ag_superkernel_mesh_1
         -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw/interface/
         -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw/impl/
         -I${ASCEND_CANN_PACKAGE_PATH}/include/hccl/
+        -I${OPS_BASE_DIR}/src/ops/op_common/template/aiv/
+        -I${OPS_BASE_DIR}/src/ops/op_common/template/aiv/aiv_interface/
         -I${CMAKE_CURRENT_SOURCE_DIR}/aiv_interface/
         -mllvm -cce-aicore-record-overflow=false -mllvm -cce-aicore-addr-transform -mllvm
         --cce-aicore-jump-expand=true -std=c++17 -fstack-protector-all
@@ -181,6 +195,8 @@ add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/hccl_ag_superkernel_mesh_1
         -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw/interface/
         -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw/impl/
         -I${ASCEND_CANN_PACKAGE_PATH}/include/hccl/
+        -I${OPS_BASE_DIR}/src/ops/op_common/template/aiv/
+        -I${OPS_BASE_DIR}/src/ops/op_common/template/aiv/aiv_interface/
         -I${CMAKE_CURRENT_SOURCE_DIR}/aiv_interface/
         -mllvm -cce-aicore-record-overflow=false -mllvm -cce-aicore-addr-transform -mllvm
         --cce-aicore-jump-expand=true -std=c++17 -fstack-protector-all
@@ -201,6 +217,8 @@ add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/hccl_ag_superkernel_mesh_1
         -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw/interface/
         -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw/impl/
         -I${ASCEND_CANN_PACKAGE_PATH}/include/hccl/
+        -I${OPS_BASE_DIR}/src/ops/op_common/template/aiv/
+        -I${OPS_BASE_DIR}/src/ops/op_common/template/aiv/aiv_interface/
         -I${CMAKE_CURRENT_SOURCE_DIR}/aiv_interface/
         -mllvm -cce-aicore-record-overflow=false -mllvm -cce-aicore-addr-transform -mllvm
         --cce-aicore-jump-expand=true -std=c++17 -fstack-protector-all
@@ -221,6 +239,8 @@ add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/hccl_ag_superkernel_mesh_1
         -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw/interface/
         -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw/impl/
         -I${ASCEND_CANN_PACKAGE_PATH}/include/hccl/
+        -I${OPS_BASE_DIR}/src/ops/op_common/template/aiv/
+        -I${OPS_BASE_DIR}/src/ops/op_common/template/aiv/aiv_interface/
         -I${CMAKE_CURRENT_SOURCE_DIR}/aiv_interface/
         -mllvm -cce-aicore-record-overflow=false -mllvm -cce-aicore-addr-transform -mllvm
         --cce-aicore-jump-expand=true -std=c++17 -fstack-protector-all
@@ -241,6 +261,8 @@ add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/hccl_ag_superkernel_mesh_1
         -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw/interface/
         -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw/impl/
         -I${ASCEND_CANN_PACKAGE_PATH}/include/hccl/
+        -I${OPS_BASE_DIR}/src/ops/op_common/template/aiv/
+        -I${OPS_BASE_DIR}/src/ops/op_common/template/aiv/aiv_interface/
         -I${CMAKE_CURRENT_SOURCE_DIR}/aiv_interface/
         -mllvm -cce-aicore-record-overflow=false -mllvm -cce-aicore-addr-transform -mllvm
         --cce-aicore-jump-expand=true -std=c++17 -fstack-protector-all
