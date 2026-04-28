@@ -128,9 +128,15 @@ else()
     )
 endif()
 
-    target_link_directories(hccl_compat PRIVATE
-        ${ASCEND_CANN_PACKAGE_PATH}/lib64
-    )
+    if(AARCH_MODE)
+        target_link_directories(hccl_compat PRIVATE
+            ${ASCEND_CANN_PACKAGE_PATH}/devlib/linux/aarch64
+        )
+    else()
+        target_link_directories(hccl_compat PRIVATE
+            ${ASCEND_CANN_PACKAGE_PATH}/lib64
+        )
+    endif()
 
     install(TARGETS hccl_compat
         LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} 

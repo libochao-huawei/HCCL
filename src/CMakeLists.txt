@@ -448,9 +448,15 @@ target_compile_options(${TARGET_NAME} PRIVATE
 )
 
 # libhccl
-target_link_directories(${TARGET_NAME} PRIVATE
-    ${ASCEND_CANN_PACKAGE_PATH}/lib64
-)
+if(AARCH_MODE)
+    target_link_directories(${TARGET_NAME} PRIVATE
+        ${ASCEND_CANN_PACKAGE_PATH}/devlib/linux/aarch64
+    )
+else()
+    target_link_directories(${TARGET_NAME} PRIVATE
+        ${ASCEND_CANN_PACKAGE_PATH}/lib64
+    )
+endif()
 
 if(NOT STATIC_MODE)
     add_dependencies(${TARGET_NAME} hccl_compat)
@@ -494,9 +500,15 @@ if(NOT STATIC_MODE)
     )
 endif()
 
-target_link_directories(${TARGET_NAME} PRIVATE
-    ${ASCEND_CANN_PACKAGE_PATH}/lib64
-)
+if(AARCH_MODE)
+    target_link_directories(${TARGET_NAME} PRIVATE
+        ${ASCEND_CANN_PACKAGE_PATH}/devlib/linux/aarch64
+    )
+else()
+    target_link_directories(${TARGET_NAME} PRIVATE
+        ${ASCEND_CANN_PACKAGE_PATH}/lib64
+    )
+endif()
 
 if(STATIC_MODE)
     target_link_libraries(hccl PRIVATE

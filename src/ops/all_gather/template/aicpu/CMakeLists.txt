@@ -15,6 +15,7 @@ set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_all_gather_omnipipe_mesh_1D.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_all_gather_omnipipe_nhr.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_all_gather_omnipipe_nhr_dpu.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_all_gather_ring_pipeline.cc
 )
 
 target_sources(hccl PRIVATE
