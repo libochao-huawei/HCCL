@@ -84,7 +84,7 @@ HcclResult AcquireChannel(HcclComm comm, CommEngine engine,
 
 
 HcclResult HcclMemcpyCtxHostToDevice(HcclComm comm, const OpParam &param,
-    std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, void **resCtxSequence, uint64_t& ctxSize)
+    AlgResourceCtx& resCtxHost, void **resCtxSequence, uint64_t& ctxSize)
 {
     // 序列化
     std::vector<char> seq = resCtxHost.Serialize();
