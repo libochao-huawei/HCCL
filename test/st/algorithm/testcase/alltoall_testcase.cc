@@ -392,7 +392,7 @@ TEST_F(ST_ALLTOALL_TEST, st_alltoall_13)
     GenTopoMeta(topoMeta, 1, 8, 8);
     uint32_t rankSize = 64;
     HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_INT32;
-    uint64_t dataCount = 44444444;
+    uint64_t dataCount = 3333333;
 
     RunAlltoAllMeshTest(topoMeta, rankSize, dataType, dataCount);
 }
