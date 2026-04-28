@@ -280,3 +280,45 @@ TEST_F(ST_ALL_GATHER_AICPU_TEST, st_all_gather_a5_aicpu_parallel_nhr_mesh1d_3x3r
     auto dataType = HcclDataType::HCCL_DATA_TYPE_UINT8;  // 数据类型
     RunAllGatherAicpuA5(topoMeta, sendCount, dataType);
 }
+
+// ============================================================================
+// Ring Pipeline AllGather 测试用例
+//
+// Selector 匹配条件：level0Topo == MESH_1D && dataSize > 8MB && rankSize >= 4
+// ============================================================================
+
+TEST_F(ST_ALL_GATHER_AICPU_TEST, st_all_gather_a5_aicpu_ring_pipeline_4rank_int64_big_data_test)
+{
+    // 仿真模型初始化：4 卡同机（单 Server → level0Topo = MESH_1D）
+    TopoMeta topoMeta{{{0, 1, 2, 3}}};
+
+    // 算子执行参数设置
+    // dataSize = 2*1024*1024 * 8 = 16MB > 8MB 阈值，触发 RingPipeline
+    auto sendCount = 2 * 1024 * 1024;                                // 单卡数据量（16MB）
+    auto dataType = HcclDataType::HCCL_DATA_TYPE_INT64;              // 数据类型
+    RunAllGatherAicpuA5(topoMeta, sendCount, dataType);
+}
+
+TEST_F(ST_ALL_GATHER_AICPU_TEST, st_all_gather_a5_aicpu_ring_pipeline_8rank_fp32_big_data_test)
+{
+    // 仿真模型初始化：8 卡同机（单 Server → level0Topo = MESH_1D）
+    TopoMeta topoMeta{{{0, 1, 2, 3, 4, 5, 6, 7}}};
+
+    // 算子执行参数设置
+    // dataSize = 3*1024*1024 * 4 = 12MB > 8MB 阈值，触发 RingPipeline
+    auto sendCount = 3 * 1024 * 1024;                                // 单卡数据量（12MB）
+    auto dataType = HcclDataType::HCCL_DATA_TYPE_FP32;               // 数据类型
+    RunAllGatherAicpuA5(topoMeta, sendCount, dataType);
+}
+
+TEST_F(ST_ALL_GATHER_AICPU_TEST, st_all_gather_a5_aicpu_ring_pipeline_8rank_fp16_big_data_test)
+{
+    // 仿真模型初始化：8 卡同机（单 Server → level0Topo = MESH_1D）
+    TopoMeta topoMeta{{{0, 1, 2, 3, 4, 5, 6, 7}}};
+
+    // 算子执行参数设置
+    // dataSize = 5*1024*1024 * 2 = 10MB > 8MB 阈值，触发 RingPipeline
+    auto sendCount = 5 * 1024 * 1024;                                // 单卡数据量（10MB）
+    auto dataType = HcclDataType::HCCL_DATA_TYPE_FP16;               // 数据类型
+    RunAllGatherAicpuA5(topoMeta, sendCount, dataType);
+}

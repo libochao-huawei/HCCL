@@ -184,6 +184,7 @@ add_library(scatter_aicpu_kernel SHARED
     ${HCCL_DEV_BASE}/src/ops/op_common/topo/topo_match_base.cc
     ${HCCL_DEV_BASE}/src/ops/op_common/topo/topo_match_multilevel.cc
     ${HCCL_DEV_BASE}/src/ops/op_common/topo/topo_match_ubx.cc
+    ${HCCL_DEV_BASE}/src/ops/op_common/topo/topo_match_pcie_mix.cc
 
     ${HCCL_DEV_BASE}/src/ops/scatter/algo/scatter_comm_executor.cc
     ${HCCL_DEV_BASE}/src/ops/scatter/algo/scatter_executor_base.cc
@@ -215,6 +216,7 @@ add_library(scatter_aicpu_kernel SHARED
     ${HCCL_DEV_BASE}/src/ops/all_gather/template/aicpu/ins_temp_all_gather_nhr.cc
     ${HCCL_DEV_BASE}/src/ops/all_gather/executor/ins_v2_all_gather_sequence_executor.cc
     ${HCCL_DEV_BASE}/src/ops/all_gather/template/aicpu/ins_temp_all_gather_nhr_dpu.cc
+    ${HCCL_DEV_BASE}/src/ops/all_gather/template/aicpu/ins_temp_all_gather_ring_pipeline.cc
 
     ${HCCL_DEV_BASE}/src/ops/all_reduce/template/aicpu/ins_temp_all_gather_mesh_1D_intra.cc
     ${HCCL_DEV_BASE}/src/ops/all_reduce/template/aicpu/ins_temp_all_gather_nhr_dpu_inter.cc
