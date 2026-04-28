@@ -78,10 +78,12 @@ target_link_libraries(hccl_custom_allgather_aicpu PRIVATE
 )
 install(TARGETS hccl_custom_allgather_aicpu
     LIBRARY DESTINATION ${CUSTOM_OPS_OPP_LIB_PATH}
+    COMPONENT hccl
 )
 install(FILES
-    inc/hccl_custom_allgather_aicpu.h
+    inc/hccl_custom_allgather.h
     DESTINATION ${CUSTOM_OPS_OPP_INC_PATH}
+    COMPONENT hccl
 )
 
 if(KERNEL_MODE)
@@ -108,7 +110,7 @@ if(KERNEL_MODE)
     # 打包：AICPU Kernel tar 包
     pack_targets_and_files(
         OUTPUT_TARGET "package_aicpu_hccl_custom_allgather_aicpu"
-        OUTPUT "aicpu_hccl_custom_allgather_aicpu.tar.gz"
+        OUTPUT "aicpu_hccl_custom_allgather.tar.gz"
         TARGETS custom_allgather_aicpu_kernel
         MANIFEST "bin_hash.cfg"
         TAR_ROOT_DIR "aicpu_kernels_device"
@@ -116,7 +118,7 @@ if(KERNEL_MODE)
 
     # 签名：添加 AICPU Kernel tar 包的签名
     sign_file(
-        INPUT "aicpu_hccl_custom_allgather_aicpu.tar.gz"
+        INPUT "aicpu_hccl_custom_allgather.tar.gz"
         CONFIG ${CMAKE_CURRENT_SOURCE_DIR}/scripts/hccl_custom_allgather_aicpu_check_cfg.xml
         RESULT_VAR "sign_aicpu_hccl_custom_allgather_aicpu_result"
         DEPENDS package_aicpu_hccl_custom_allgather_aicpu
@@ -127,12 +129,14 @@ if(KERNEL_MODE)
 else()
     # 安装
     install(FILES
-        ${BUILD_DEVICE_DIR}/signatures/aicpu_hccl_custom_allgather_aicpu.tar.gz
+        ${BUILD_DEVICE_DIR}/signatures/aicpu_hccl_custom_allgather.tar.gz
         DESTINATION ${CUSTOM_OPS_OPP_AICPU_KERNEL_PATH}
+        COMPONENT hccl
     )
     install(FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/op_kernel_aicpu/libcustom_allgather_aicpu_kernel.json
         DESTINATION ${CUSTOM_OPS_OPP_AICPU_CONFIG_PATH}
+        COMPONENT hccl
     )
 endif()
 
