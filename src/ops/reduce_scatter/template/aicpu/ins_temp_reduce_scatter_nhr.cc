@@ -165,15 +165,15 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
         const u32 recvFromRank = subCommRanks_[0][st.fromRank];
         const u32 sendToRank   = subCommRanks_[0][st.toRank];
         CHK_PRT_RET(recvFromRank == static_cast<u32>(-1) || sendToRank == static_cast<u32>(-1),
-            HCCL_ERROR("[RS-NHR][RunNHR] rank map failed: from[%u] to[%u]", st.fromRank, st.toRank),
-            HcclResult::HCCL_E_INTERNAL);
+        HCCL_ERROR("[RS-NHR][RunNHR] rank map failed: from[%u] to[%u]", st.fromRank, st.toRank),
+        HcclResult::HCCL_E_INTERNAL);
 
-            CHK_PRT_RET(channels_.count(recvFromRank) == 0 || channels_.count(sendToRank) == 0 ||
-                        channels_[recvFromRank].size() == 0 || channels_[sendToRank].size() == 0,
-                        HCCL_ERROR("[RS-NHR][RunNHR] link missing: recvFrom=%d sendTo=%d", recvFromRank, sendToRank),
-                HcclResult::HCCL_E_INTERNAL);
-            ChannelInfo linkRecv = channels_[recvFromRank].at(0);
-            ChannelInfo linkSend = channels_[sendToRank].at(0);
+        CHK_PRT_RET(channels_.count(recvFromRank) == 0 || channels_.count(sendToRank) == 0 ||
+                    channels_[recvFromRank].size() == 0 || channels_[sendToRank].size() == 0,
+                    HCCL_ERROR("[RS-NHR][RunNHR] link missing: recvFrom=%d sendTo=%d", recvFromRank, sendToRank),
+                    HcclResult::HCCL_E_INTERNAL);
+        ChannelInfo linkRecv = channels_[recvFromRank].at(0);
+        ChannelInfo linkSend = channels_[sendToRank].at(0);
 
         std::vector<DataSlice> txSrcSlices;
         std::vector<DataSlice> txDstSlices;
@@ -225,13 +225,13 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
 
         if (isDmaRead_) {
             CHK_PRT_RET(SendRecvReadReduce(info, threads[0]),
-                HCCL_ERROR("[RS-NHR][RunNHR] SendRecvReduce failed (step=%u, rpt=%llu)",
-                    st.step, static_cast<unsigned long long>(rpt)),
+                HCCL_ERROR("[RS-NHR][RunNHR] SendRecvReduce failed (step=%u)",
+                    st.step),
                 HcclResult::HCCL_E_INTERNAL);
         } else {
             CHK_PRT_RET(SendRecvWriteReduce(info, threads[0]),
-                HCCL_ERROR("[RS-NHR][RunNHR] SendRecvReduce failed (step=%u, rpt=%llu)",
-                    st.step, static_cast<unsigned long long>(rpt)),
+                HCCL_ERROR("[RS-NHR][RunNHR] SendRecvReduce failed (step=%u)",
+                    st.step),
                 HcclResult::HCCL_E_INTERNAL);
         }
         }
