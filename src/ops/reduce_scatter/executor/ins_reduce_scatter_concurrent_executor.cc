@@ -18,6 +18,7 @@
 #include "ccu_temp_reduce_scatter_mesh_1D_mem2mem.h"
 #include "ccu_temp_reduce_scatter_mesh_1D.h"
 #include "ccu_temp_reduce_scatter_nhr_1D_mem2mem.h"
+#include "op_common.h"
 #endif
 
 constexpr u32 CLOS_PORT_NUM = 4;
