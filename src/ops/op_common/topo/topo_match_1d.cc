@@ -40,7 +40,7 @@ HcclResult TopoMatch1D::MatchTopo(HcclComm comm, TopoInfoWithNetLayerDetails* to
                 HCCL_ERROR("[CollAlgFactory] [TopoMatchMesh1D] Rank [%d], rankSize is 0.", myRank_),
                 HcclResult::HCCL_E_PARA);
 
-    for (uint32_t netLayerIdx = 0; netLayerIdx < topoInfo->topoLevelNums; netLayerIdx++) {
+    for (const auto &netLayerIdx : topoInfo->netLayerDetails.netLayers) {
         CommTopo topoType;
         HcclRankGraphGetTopoTypeByLayer(comm, netLayerIdx, &topoType);
         CHK_PRT_RET((topoType != CommTopo::COMM_TOPO_CUSTOM && topoType != CommTopo::COMM_TOPO_CLOS),
