@@ -2055,7 +2055,7 @@ HcclResult HcclSelectAlgGraphMode(const char *group, u64 count, HcclDataType dat
     HcclComm hcclComm = nullptr;
     CHK_RET(HcomGetCommHandleByGroup(group, &hcclComm));
     
-    CHK_RET(InitEnvConfig());
+    CHK_RET(ops_hccl::InitEnvConfig());
     
     ops_hccl::OpParam param;
     CHK_RET(HcclGetCommName(hcclComm, param.commName));
@@ -2067,7 +2067,7 @@ HcclResult HcclSelectAlgGraphMode(const char *group, u64 count, HcclDataType dat
     param.DataDes.count = count;
     param.DataDes.dataType = dataType;
     param.reduceType = op;
-    param.opMode = OpMode::OFFLOAD;
+    param.opMode = ops_hccl::OpMode::OFFLOAD;
     param.numBlocksLimit = aivCoreLimit;
     param.enableDetour = false;
     param.deviceType = deviceType;
@@ -2075,14 +2075,21 @@ HcclResult HcclSelectAlgGraphMode(const char *group, u64 count, HcclDataType dat
     int ret = sprintf_s(param.tag, sizeof(param.tag), "SelectAlg_%d_%s", static_cast<int>(opType), param.commName);
     CHK_PRT_RET(ret <= 0, HCCL_ERROR("[HcclSelectAlgGraphMode] failed to fill param.tag"), HCCL_E_INTERNAL);
     
-    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
+    std::unique_ptr<ops_hccl::TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<ops_hccl::TopoInfoWithNetLayerDetails>();
     std::string localAlgName;
     CHK_RET(ops_hccl::Selector(hcclComm, param, topoInfo, localAlgName));
     
-    *ifAiv = (param.engine == CommEngine::COMM_ENGINE_AIV || param.engine == CommEngine::COMM_ENGINE_AIV_ONLY);
-    *algName = localAlgName;
+    *ifAiv = (param.engine == ops_hccl::CommEngine::COMM_ENGINE_AIV);
     
-    HCCL_INFO("[HcclSelectAlgGraphMode] Success. ifAiv=%d, algName=%s", *ifAiv, algName->c_str());
+    // 分配内存并拷贝字符串
+    *algName = (char*)malloc(localAlgName.size() + 1);
+    if (*algName == nullptr) {
+        HCCL_ERROR("[HcclSelectAlgGraphMode] malloc failed for algName");
+        return HCCL_E_INTERNAL;
+    }
+    strncpy_s(*algName, localAlgName.size() + 1, localAlgName.c_str(), localAlgName.size());
+    
+    HCCL_INFO("[HcclSelectAlgGraphMode] Success. ifAiv=%d, algName=%s", *ifAiv, *algName);
     return HCCL_SUCCESS;
 }
 
@@ -2125,9 +2132,9 @@ HcclResult HcclGetAlgExecParamGraphMode(const char *tag, const char *group, u64 
     param.DataDes.count = count;
     param.DataDes.dataType = dataType;
     param.reduceType = op;
-    param.opMode = OpMode::OFFLOAD;
+    param.opMode = ops_hccl::OpMode::OFFLOAD;
     param.numBlocksLimit = aivCoreLimit;
-    param.engine = CommEngine::COMM_ENGINE_AIV;
+    param.engine = ops_hccl::CommEngine::COMM_ENGINE_AIV;
 
     int ret = sprintf_s(param.tag, sizeof(param.tag), "%s", tag);
     CHK_PRT_RET(ret <= 0, HCCL_ERROR("[HcclGetAlgExecParamGraphMode] failed to fill param.tag"), HCCL_E_INTERNAL);
@@ -2142,7 +2149,7 @@ HcclResult HcclGetAlgExecParamGraphMode(const char *tag, const char *group, u64 
     CHK_RET(ops_hccl::Selector(comm, param, topoInfo, algName));
 
     std::unique_ptr<ops_hccl::InsCollAlgBase> executor = ops_hccl::CollAlgExecRegistryV2::Instance().GetAlgExec(param.opType, algName);
-    CHK_PTR_NULL(executor.get() == nullptr,
+    CHK_PTR_RET(executor.get() == nullptr,
                   HCCL_ERROR("[HcclGetAlgExecParamGraphMode] Failed to find executor for algName[%s]", algName.c_str()),
                 HCCL_E_PARA);
 
