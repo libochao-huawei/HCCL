@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef OPS_HCCL_P2P_COMMON_UTILS_H
-#define OPS_HCCL_P2P_COMMON_UTILS_H
+#ifndef OPS_HCCL_ALLGATHER_AICPU_COMMON_UTILS_H
+#define OPS_HCCL_ALLGATHER_AICPU_COMMON_UTILS_H
 
 #include <hccl/hccl_res.h>
 #include <hccl/hccl_rank_graph.h>
@@ -22,5 +22,6 @@ HcclResult AcquireChannel(HcclComm comm, CommEngine engine, uint32_t srcRank, ui
 HcclResult HcclGetThreadAICPU(HcclComm comm, const OpParam &param, AlgResourceCtx &resCtxHost);
 HcclResult HcclGetChannelAICPU(HcclComm comm, const OpParam &param, AlgResourceCtx &resCtxHost);
 HcclResult HcclAllocAlgResourceAICPU(HcclComm comm, const OpParam &param, AlgResourceCtx &resCtxHost);
+HcclResult HcclMemcpyCtxHostToDevice(HcclComm comm, const OpParam &param, AlgResourceCtx& resCtxHost, void **resCtxSequence, uint64_t *ctxSize);
 }
 #endif

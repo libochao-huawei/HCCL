@@ -84,7 +84,7 @@ HcclResult AcquireChannel(HcclComm comm, CommEngine engine,
 
 
 HcclResult HcclMemcpyCtxHostToDevice(HcclComm comm, const OpParam &param,
-    std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, void **resCtxSequence, uint64_t& ctxSize)
+    AlgResourceCtx& resCtxHost, void **resCtxSequence, uint64_t *ctxSize)
 {
     // 序列化
     std::vector<char> seq = resCtxHost.Serialize();
@@ -96,7 +96,7 @@ HcclResult HcclMemcpyCtxHostToDevice(HcclComm comm, const OpParam &param,
     CHK_RET(HcclEngineCtxCopy(comm, COMM_ENGINE_AICPU_TS, param.tag, seq.data(), size, 0));
     // 将内存强转为AlgResourceCtx结构体
     *resCtxSequence = ctx;
-    ctxSize = size;
+    *ctxSize = size;
     HCCL_INFO("Memcpy hostCtx to device success.");
     return HCCL_SUCCESS;
 }
@@ -106,13 +106,11 @@ HcclResult HcclGetThreadAICPU(HcclComm comm, const OpParam &param, AlgResourceCt
     // Mesh算法所需资源
     uint32_t slaveThreadNum = resCtxHost.slaveThreadNum;
     uint32_t notifyNumOnMainThread = resCtxHost.notifyNumOnMainThread;
-    uint32_t notifyNumPerThread = resCtxHost.notifyNumPerThread;
     uint32_t threadNum = slaveThreadNum + 1;
     uint32_t maxNotifyNum = notifyNumOnMainThread;
     std::vector<ThreadHandle> threads(threadNum);
     // maxNotifyNum需要再增加一个用于host-device同步
     CHK_RET(HcclThreadAcquire(comm, COMM_ENGINE_AICPU_TS, threadNum, maxNotifyNum + 1, threads.data()));
-    CHK_RET(SaveMainThreadInfo(comm, param, threads[0], maxNotifyNum + 1));
     HCCL_DEBUG("threads ptr is %p\n", threads.data());
     for (uint32_t i = 0; i < threadNum; i++) {
         resCtxHost.threads.push_back(threads[i]);
@@ -133,7 +131,6 @@ HcclResult HcclGetChannelAICPU(HcclComm comm, const OpParam &param, AlgResourceC
         channel.remoteRank = remoteRank;
         channel.handle = channels[remoteRank];
         channel.notifyNum = CHANNEL_NOTIFY_NUM;
-        channel.protocol = channelDescNew.channelProtocol;
         void * cclBuf;
         uint64_t cclBufSize;
         CHK_RET(HcclChannelGetHcclBuffer(comm, channels[remoteRank], &cclBuf, &cclBufSize));
@@ -151,9 +148,9 @@ HcclResult HcclAllocAlgResourceAICPU(HcclComm comm, const OpParam &param, AlgRes
     resCtxHost.cclMem = CommBuffer{cclBufferAddr, cclBufferSize};
     resCtxHost.slaveThreadNum = param.rankSize > 1 ? param.rankSize - 1 : 1;
     resCtxHost.notifyNumOnMainThread = resCtxHost.slaveThreadNum;
-    resCtxHost.notifyNumPerThread = 1;
-    CHK_RET(HcclGetThread(comm, param, resCtxHost));
-    CHK_RET(HcclGetChannel(comm, param, resCtxHost));
+    resCtxHost.notifyNumPerThread = std::vector<uint32_t>(resCtxHost.slaveThreadNum, 1);
+    CHK_RET(HcclGetThreadAICPU(comm, param, resCtxHost));
+    CHK_RET(HcclGetChannelAICPU(comm, param, resCtxHost));
     return HCCL_SUCCESS;
 }
 }
