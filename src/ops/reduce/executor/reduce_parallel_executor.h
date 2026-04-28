@@ -101,6 +101,9 @@ private:
     std::array<TemplateResource, 4> tempAlgResArr_{};
     std::array<u64, dataSplitPart_> dataOffsetPerLoop_{0, 0};
     std::array<u64, dataSplitPart_> dataCountPerLoop_{0, 0};
+    std::vector<std::vector<u32>> temp0HierarchyInfo_;
+    std::vector<std::vector<u32>> temp1HierarchyInfo_;
+    
 };
 }  // namespace ops_hccl
 
