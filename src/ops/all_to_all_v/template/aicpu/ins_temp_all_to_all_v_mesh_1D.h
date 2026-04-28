@@ -61,10 +61,22 @@ private:
     void CalcCclBuffIdx(u32 remoteRank, u32 &myRankCclBuffIdx, u32 &remoteCclBuffIdx) const;
     HcclResult RunSendRecvByLoop(const std::vector<u32> &commRanks, const TemplateDataParams &tempAlgParams,
         const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads);
+    HcclResult RunSendRecvByChannel(const TemplateDataParams &tempAlgParams,
+        const std::vector<ChannelInfo> &curChannels, const u32 remoteRank,
+        const std::vector<ThreadHandle> &threads, u32 &queIdx) const;
+    HcclResult RunSendRecv(const TemplateDataParams &tempAlgParams,
+        const SendRecvInfo &sendRecvInfo, const DataInfo &sendInfo, const DataInfo &recvInfo,
+        const ThreadHandle& thread, const u32 channelId) const;
 
     u64 dataTypeSize_{0};
     bool isDmaRead_{false};
     u32 concurrentSendRecvNum_{1};
+    std::vector<u64> sendCountsSplit_;
+    std::vector<u64> sendSizeSplit_;
+    std::vector<u64> sendOffsetSplit_;
+    std::vector<u64> recvCountsSplit_;
+    std::vector<u64> recvSizeSplit_;
+    std::vector<u64> recvOffsetSplit_;
 };
 
 } // namespace Hccl
