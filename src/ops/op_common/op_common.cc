@@ -47,7 +47,6 @@
 #include "hcom.h"
 
 namespace ops_hccl {
-thread_local std::map<std::string, HcclMemHandle> g_memHandleCache; // 当前AIV存放注册内存的memHandle使用
 // 用于维护增量建链算子的host ctx信息
 thread_local std::map<std::string, std::unique_ptr<AlgResourceCtxSerializable>> g_hostCtx;
 thread_local std::map<AivOpCacheArgs, std::shared_ptr<InsQueue>> g_hcclCacheMap;
@@ -1356,13 +1355,18 @@ HcclResult HcclAllocAlgResourceAiv(
         // 注册到通信域，支持建链时交换
         CommMem regMem{COMM_MEM_TYPE_DEVICE, resCtxHost->aivCommInfoPtr, AIV_TAG_BUFF_LEN};
         CHK_RET(HcclCommMemReg(comm, param.commModeTag, &regMem, &memHandle));
-        g_memHandleCache[param.commModeTag] = memHandle;
+        void* memHandleCachePtr = nullptr; // 当前AIV存放注册内存的memHandle使用
+        CHK_RET(HcclEngineCtxCreate(comm, param.commModeTag, CommEngine::COMM_ENGINE_CPU_TS, sizeof(HcclMemHandle), &memHandleCachePtr));
+        static_cast<HcclMemHandle*>(memHandleCachePtr)[0] = memHandle;
     } else {
-        if (g_memHandleCache.find(param.commModeTag) == g_memHandleCache.end()) {
-            HCCL_ERROR("[%s]aiv memHandle not found in map", __func__);
-            return HCCL_E_INTERNAL;
-        }
-        memHandle = g_memHandleCache[param.commModeTag];
+        void* memHandleCachePtr = nullptr;
+        uint64_t memHandleCacheSize = 0;
+        HcclResult ret = HcclEngineCtxGet(comm, param.commModeTag, CommEngine::COMM_ENGINE_CPU_TS, &memHandleCachePtr, &memHandleCacheSize);
+        CHK_PRT_RET(ret != HCCL_SUCCESS || memHandleCacheSize != sizeof(HcclMemHandle),
+            HCCL_ERROR("[%s]commModeTag[%s] aiv memHandle not found in cache, ptr[%p] size[%llu]",
+                __func__, param.commModeTag, memHandleCachePtr, memHandleCacheSize),
+                HCCL_E_INTERNAL);
+        memHandle = static_cast<HcclMemHandle*>(memHandleCachePtr)[0];
     }
     HCCL_INFO("[%s]commModeTag[%s] regMemAddr[%p] memHandle[%p]", __func__, param.commModeTag, resCtxHost->aivCommInfoPtr,
         memHandle);
