@@ -126,7 +126,8 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     resourceRequest.notifyNumPerThread.insert(resourceRequest.notifyNumPerThread.end(),
                                               interTempRequestFinal.notifyNumPerThread.begin(),
                                               interTempRequestFinal.notifyNumPerThread.end());
-
+    HCCL_INFO("[InsAllReduceParallelExecutor][CalcRes] slaveThreadNum is  intraTempRequest[%d] intraTempRequest1[%d] interTempRequest[%d] interTempRequest1[%d].",
+        intraTempRequest.slaveThreadNum, intraTempRequest1.slaveThreadNum, interTempRequest.slaveThreadNum, interTempRequest.slaveThreadNum);
     if (param.engine != COMM_ENGINE_CCU) {
         resourceRequest.channels.emplace_back(intraTempRequest.channels[0]);
         resourceRequest.channels.emplace_back(interTempRequest.channels[0]);
@@ -449,17 +450,21 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 
     intraThreads_.clear();
     intraThreads_.emplace_back(threads_[1]);
+    HCCL_INFO("[InsAllReduceParallelExecutor] PrepareResForTemplate i is [%d], intraThreads_.size()[%d]", 1, intraThreads_.size());
     if (intraThreadsNum + 2 >= 3) {
         for (u32 i = 3 ; i < intraThreadsNum + 2; i++) {
             intraThreads_.emplace_back(threads_[i]);
+            HCCL_INFO("[InsAllReduceParallelExecutor] PrepareResForTemplate i is [%d], intraThreads_.size()[%d]", i, intraThreads_.size());
         }
     }
 
     interThreads_.clear();
     interThreads_.emplace_back(threads_[intraThreadsNumFinal + 2]);
+    HCCL_INFO("[InsAllReduceParallelExecutor] PrepareResForTemplate i is [%d], interThreads_.size()[%d]", intraThreadsNumFinal + 2, interThreads_.size());
     if (threads_.size() >= intraThreadsNumFinal + 4) {
         for (u32 i = intraThreadsNumFinal + 4 ; i < threads_.size(); i++) {
             interThreads_.emplace_back(threads_[i]);
+            HCCL_INFO("[InsAllReduceParallelExecutor] PrepareResForTemplate i is [%d], interThreads_.size()[%d]", i, interThreads_.size());
         }
     }
 
@@ -493,6 +498,9 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 
     intraThreads_.assign(threads_.begin() + 2, threads_.begin() + intraThreadsNum1 + 2);
     interThreads_.assign(threads_.begin() + intraThreadsNumFinal + 3, threads_.end());
+    HCCL_INFO("[InsAllReduceParallelExecutor] PrepareResForTemplate intraThreadsNum1 + 2[%d], intraThreadsNumFinal + 3[%d], threads_.size()[%d]",
+        intraThreadsNum1 + 2, intraThreadsNumFinal + 3, threads_.size());
+
     // 用于两个算法同步
     mainThread_ = threads_.at(0);
 
