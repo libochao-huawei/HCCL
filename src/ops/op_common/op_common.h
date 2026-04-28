@@ -30,7 +30,6 @@ extern "C" {
 #endif
 
 namespace ops_hccl {
-extern thread_local std::map<std::string, HcclMemHandle> g_memHandleCache;
 HcclResult HcclExecOp(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo, std::string &algName, const ResPackGraphMode &resPack = ResPackGraphMode());
 
 HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,

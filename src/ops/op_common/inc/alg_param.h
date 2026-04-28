@@ -451,7 +451,7 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     char fastLaunchTag[ALG_TAG_LENGTH] = ""; // 快速下发的key值
     char fallbackTag[ALG_MAX_LENGTH] = "";
     char commName[COMM_INDENTIFIER_MAX_LENGTH] = "";
-    char commModeTag[TAG_LENGTH] = ""; // 保存与执行模式相关的资源信息的key值
+    char commModeTag[TAG_LENGTH] = ""; // 保存与执行模式相关的资源信息的key值，当前aiv使用
     aclrtStream stream;
     void* inputPtr = nullptr;
     u64 inputSize = 0;
