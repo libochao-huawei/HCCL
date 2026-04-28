@@ -84,7 +84,7 @@ HcclResult AcquireChannel(HcclComm comm, CommEngine engine,
 
 
 HcclResult HcclMemcpyCtxHostToDevice(HcclComm comm, const OpParam &param,
-    std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, void **resCtxSequence, uint64_t& ctxSize)
+    AlgResourceCtx& resCtxHost, void **resCtxSequence, uint64_t *ctxSize)
 {
     // 序列化
     std::vector<char> seq = resCtxHost.Serialize();
@@ -96,7 +96,7 @@ HcclResult HcclMemcpyCtxHostToDevice(HcclComm comm, const OpParam &param,
     CHK_RET(HcclEngineCtxCopy(comm, COMM_ENGINE_AICPU_TS, param.tag, seq.data(), size, 0));
     // 将内存强转为AlgResourceCtx结构体
     *resCtxSequence = ctx;
-    ctxSize = size;
+    *ctxSize = size;
     HCCL_INFO("Memcpy hostCtx to device success.");
     return HCCL_SUCCESS;
 }
@@ -152,8 +152,8 @@ HcclResult HcclAllocAlgResourceAICPU(HcclComm comm, const OpParam &param, AlgRes
     resCtxHost.slaveThreadNum = param.rankSize > 1 ? param.rankSize - 1 : 1;
     resCtxHost.notifyNumOnMainThread = resCtxHost.slaveThreadNum;
     resCtxHost.notifyNumPerThread = 1;
-    CHK_RET(HcclGetThread(comm, param, resCtxHost));
-    CHK_RET(HcclGetChannel(comm, param, resCtxHost));
+    CHK_RET(HcclGetThreadAICPU(comm, param, resCtxHost));
+    CHK_RET(HcclGetChannelAICPU(comm, param, resCtxHost));
     return HCCL_SUCCESS;
 }
 }
