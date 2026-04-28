@@ -20,6 +20,7 @@
 
 namespace ops_hccl {
 
+constexpr u32 BIG_CLOS_RANGE = 8;
 constexpr s32 DEVICE_PER_MODULE_A2 = 8;
 enum class HcclNetLayer {
     HCCL_NetLayer_L0 = 0,

@@ -151,6 +151,35 @@ SelectorStatus ReduceScatterAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWi
     return SelectorStatus::MATCH;
 }
 
+SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoCcuScheduleMesh1D(const TopoInfoWithNetLayerDetails* topoInfo,
+    const OpParam &opParam, std::string &selectAlgName) const
+{
+    u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
+    u64 dataSize = opParam.DataDes.count * perDataSize;
+    double ratio; // 以8卡为基线确定ratio，用来表示不同卡数对下发的影响系数
+    if (topoInfo->userRankSize == 0) {
+        HCCL_WARNING("[ReduceScatterAutoSelector]the selector is not set topoInfo->userRankSize]");
+        ratio = 1;
+    } else {
+        ratio = DEFAULT_RANK_SIZE / topoInfo->userRankSize;
+    }
+    if (dataSize * ratio >= RS_M2M_1D_MAX_DATA_SIZE) {
+        HCCL_DEBUG("[ReduceScatterAutoSelector] dataSize[%lu] * ratio[%f] >= MAX_DATA_SIZE[%lu].",
+                   dataSize, ratio, RS_M2M_1D_MAX_DATA_SIZE);
+        return SelectorStatus::NOT_MATCH;
+    }
+    if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
+        selectAlgName = "CcuReduceScatterMeshMem2Mem1D2Die";
+    } else if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_NOT_REGULAR) {
+        HCCL_DEBUG("[ReduceScatterAutoSelector] TWO_DIE_NOT_REGULAR not match.");
+        return SelectorStatus::NOT_MATCH;
+    } else {
+        selectAlgName = "CcuReduceScatterMesh1DMem2Mem";
+    }
+    HCCL_DEBUG("[ReduceScatterAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
+    return SelectorStatus::MATCH;
+}
+
 SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoCcuSchedule(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                                     std::string &selectAlgName) const
 {
@@ -159,30 +188,16 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoCcuSchedule(const TopoIn
     CHK_PRT_RET(opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT8, HCCL_WARNING("[ReduceScatterAutoSelector] dataType[%d] is "
             "not supported yet for ccu_schedule mode with ms reduce.", opParam.DataDes.dataType), SelectorStatus::NOT_MATCH);
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-        double ratio; // 以8卡为基线确定ratio，用来表示不同卡数对下发的影响系数
-        if (topoInfo->userRankSize == 0) {
-            HCCL_WARNING("[ReduceScatterAutoSelector]the selector is not set topoInfo->userRankSize]");
-            ratio = 1;
-        } else {
-            ratio = DEFAULT_RANK_SIZE / topoInfo->userRankSize;
-        }
-        if (dataSize * ratio >= RS_M2M_1D_MAX_DATA_SIZE) {
-            HCCL_DEBUG("[ReduceScatterAutoSelector] dataSize[%lu] * ratio[%f] >= MAX_DATA_SIZE[%lu].", dataSize, ratio, RS_M2M_1D_MAX_DATA_SIZE);
-            return SelectorStatus::NOT_MATCH;
-        }
-        if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
-            selectAlgName = "CcuReduceScatterMeshMem2Mem1D2Die";
-        } else if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_NOT_REGULAR) {
-            HCCL_DEBUG("[ReduceScatterAutoSelector] TWO_DIE_NOT_REGULAR not match.");
-            return SelectorStatus::NOT_MATCH;
-        } else {
-            selectAlgName = "CcuReduceScatterMesh1DMem2Mem";
-        }
+        return SelectMeshAlgoCcuScheduleMesh1D(topoInfo, opParam, selectAlgName);
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
         // PCIE-SW定制机型，Mesh无法链接全卡时，需要跨pcie链路，不支持ccu模式
-        if (topoInfo->level0PcieMix && !IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
-            HCCL_WARNING("[ReduceScatterAutoSelector] pcie mixed topo is not supported yet for ccu sched mode.");
-            return SelectorStatus::NOT_MATCH;
+        if (topoInfo->level0PcieMix) {
+            if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
+                return SelectMeshAlgoCcuScheduleMesh1D(topoInfo, opParam, selectAlgName);
+            } else {
+                HCCL_WARNING("[ReduceScatterAutoSelector] pcie mixed topo is not supported yet for ccu sched mode.");
+                return SelectorStatus::NOT_MATCH;
+            }
         }
         // UBX机型
         bool isMeshNumEqualToClosNum = false;
