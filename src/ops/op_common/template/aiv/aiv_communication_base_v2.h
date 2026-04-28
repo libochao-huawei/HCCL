@@ -52,6 +52,27 @@ struct ExtraArgs {
     uint64_t recvDispls[MAX_RANK_SIZE] = {};
 };
 
+using AivSuperKernelArgs = struct AivSuperKernelArgsDef {
+    GM_ADDR buffersIn = nullptr; // 注册的CCLIN地址，所有卡可访问
+    uint64_t rank;
+    uint64_t rankSize;
+    uint64_t len;
+    uint64_t dataType;
+    uint64_t unitSize;
+    uint64_t reduceOp;
+    uint64_t numBlocks;
+    uint64_t tag; // 第几次调用，定时重置成1
+    uint64_t clearEnable;
+    uint64_t inputSliceStride;
+    uint64_t outputSliceStride;
+    uint64_t repeatNum;
+    uint64_t inputRepeatStride;
+    uint64_t outputRepeatStride;
+    uint64_t input;
+    uint64_t output;
+    uint64_t cclBufferSize;
+};
+
 enum class AivNotifyType {
     ACK,
     DataSignal,
@@ -93,6 +114,23 @@ rank, sendRecvRemoteRank, rankSize, xRankSize, yRankSize, zRankSize, len, dataTy
 inputSliceStride, outputSliceStride, repeatNum, inputRepeatStride, outputRepeatStride, \
 headCountMem, tailCountMem, addOneMem, counterMemSize, isEnableCounter
 
+#define SUPERKERNEL_LITE_ARGS_DEF \
+uint64_t args_offset
+ 
+#define SUPERKERNEL_LITE_ARGS_EXTRACT \
+    GM_ADDR *param_base = (GM_ADDR *)get_para_base();\
+    GM_ADDR hiddenInput = param_base[args_offset++];\
+    GM_ADDR input = param_base[args_offset++];\
+    GM_ADDR output = param_base[args_offset++]
+
+#define SUPERKERNEL_ARGS_DEF \
+GM_ADDR hiddenInput, GM_ADDR input, GM_ADDR output
+ 
+#define SUPERKERNEL_ARGS_CALL \
+hiddenInput, input, output
+ 
+#define SUPERKERNEL_CLASS_INIT \
+hiddenInput, input, output
 
 constexpr uint64_t AIV_FLAG_BUFFER_SIZE = 3 * 1024 * 1024; // aiv算子的flag区域大小
 constexpr uint64_t CLEAR_BUFFER_OFFSET = 1024 * 1024; // 用于清空的aiv buffer的偏移
@@ -183,6 +221,55 @@ public:
         pipe.InitBuffer(inOutQue, 1, UB_MAX_DATA_SIZE);
 
         GetTag(buffIn);
+    }
+
+    __aicore__ inline void Init(GM_ADDR hiddenInput, GM_ADDR input, GM_ADDR output)
+    {
+        __gm__ AivSuperKernelArgs* args = reinterpret_cast<__gm__ AivSuperKernelArgs*>(hiddenInput);
+
+        rank_ = args->rank;
+        rankSize_ = args->rankSize;
+        reduceOp_ = args->reduceOp;
+        len_ = args->len;
+        tag_ = args->tag;
+        dataType_ = args->dataType;
+        unitSize_ = args->unitSize;
+        numBlocks_ = args->numBlocks;
+
+        input_ = reinterpret_cast<uint64_t>(input);
+        output_ = reinterpret_cast<uint64_t>(output);
+        cclBufferSize_ = args->cclBufferSize;
+
+        inputSliceStride_ = len_ * unitSize_;
+        outputSliceStride_ = len_ * unitSize_;
+        repeatNum_ = args->repeatNum;
+        inputRepeatStride_ = args->inputRepeatStride;
+        outputRepeatStride_ = args->outputRepeatStride;
+ 
+        localOffset = (rankSize_ * NUM_BLOCKS_FOUR_PER_RANK_A3 * FLAG_BUF_NUM) * FLAG_SIZE;
+        multiOffset = MAX_NUM_BLOCKS * DOUBLE * FLAG_SIZE+ localOffset;
+        pingpongOffset = multiOffset + DOUBLE * DOUBLE * NUM_BLOCKS_FOUR_PER_RANK_A3 * ATOMIC_FLAG_SIZE * DOUBLE;
+        countOffset = DOUBLE * pingpongOffset;
+        seperateOffset = countOffset + NUM_BLOCKS_FOUR_PER_RANK_A3 * rankSize_ * FLAG_SIZE;
+
+        InitBuffArray(args->buffersIn);
+
+        pipe.InitBuffer(localFlagBuf, LOCAL_FLAG_BUF_LEN);
+        localSetTensor = localFlagBuf.GetWithOffset<int32_t>(UB_FLAG_PAD_COUNT, FLAG_ONE_OFFSET);
+        localCheckTensor = localFlagBuf.GetWithOffset<int32_t>(UB_FLAG_PAD_COUNT, FLAG_TWO_OFFSET);
+        localCheckGETensor = localFlagBuf.GetWithOffset<int32_t>(UB_FLAG_PAD_COUNT, FLAG_THREE_OFFSET);
+        localGetTensor = localFlagBuf.GetWithOffset<int32_t>(UB_FLAG_PAD_COUNT, FLAG_FOUR_OFFSET);
+        localTagTensor = localFlagBuf.GetWithOffset<int32_t>(UB_FLAG_PAD_COUNT, FLAG_FIVE_OFFSET);
+        pipe.InitBuffer(inOutQue, 1, UB_MAX_DATA_SIZE);
+
+        uint64_t chunkSize = UB_MAX_DATA_SIZE / TILING_NUM / UB_ALIGN_SIZE * UB_ALIGN_SIZE;
+        pipe.InitBuffer(inQueueX, 1, chunkSize);
+        pipe.InitBuffer(inQueueY, 1, chunkSize);
+        pipe.InitBuffer(outQueueZ, 1, chunkSize);
+
+        if (args->clearEnable == 1) {
+            ClearSyncBuf();
+        }
     }
 
     __aicore__ inline void InitBuffArray(GM_ADDR buffIn)
