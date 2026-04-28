@@ -143,15 +143,17 @@ HcclResult InsTempAllGatherNHR::RunAllGatherNHR(const std::vector<ThreadHandle> 
                 const u32 rxIdx = stepInfo.rxSliceIdxs[i];
                 const u64 txPartialOffset = (txIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize != 0) ? dataOffsetTail_[channelIdx]: dataOffset_[channelIdx];
                 const u64 rxPartialOffset = (rxIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize != 0) ? dataOffsetTail_[channelIdx]: dataOffset_[channelIdx];
-                // const u64 txScratchOff = scratchBase + tempAlgParams_.sliceSize * txIdx + txPartialOffset;
-                // const u64 rxScratchOff = scratchBase + tempAlgParams_.sliceSize * rxIdx + rxPartialOffset;
-                const u64 txScratchOff = scratchBase + tempAlgParams_.sliceSize * txIdx;
-                const u64 rxScratchOff = scratchBase + tempAlgParams_.sliceSize * rxIdx;
+                const u64 txScratchOff = scratchBase + tempAlgParams_.sliceSize * txIdx + txPartialOffset;
+                const u64 rxScratchOff = scratchBase + tempAlgParams_.sliceSize * rxIdx + rxPartialOffset;
+                const u64 txScratchOff1 = scratchBase + tempAlgParams_.sliceSize * txIdx;
+                const u64 rxScratchOff1 = scratchBase + tempAlgParams_.sliceSize * rxIdx;
 
-                // const u64 txSliceSize = (txIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize != 0) ? dataSplitTail_[channelIdx]: dataSplit_[channelIdx];
-                // const u64 rxSliceSize = (rxIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize != 0) ? dataSplitTail_[channelIdx]: dataSplit_[channelIdx];
-                const u64 txSliceSize = (txIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize != 0) ? tempAlgParams_.tailSize: tempAlgParams_.sliceSize;
-                const u64 rxSliceSize = (rxIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize != 0) ? tempAlgParams_.tailSize: tempAlgParams_.sliceSize;
+                const u64 txSliceSize = (txIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize != 0) ? dataSplitTail_[channelIdx]: dataSplit_[channelIdx];
+                const u64 rxSliceSize = (rxIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize != 0) ? dataSplitTail_[channelIdx]: dataSplit_[channelIdx];
+                const u64 txSliceSize1 = (txIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize != 0) ? tempAlgParams_.tailSize: tempAlgParams_.sliceSize;
+                const u64 rxSliceSize1 = (rxIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize != 0) ? tempAlgParams_.tailSize: tempAlgParams_.sliceSize;
+                HCCL_DEBUG("[InsTempReduceScatterNHR][RunNHR] inOff1[%llu], scOff1[%llu], src1[%llu], dst1[%llu], inOff[%llu], scOff[%llu], src[%llu], dst[%llu]",
+                txScratchOff1, rxScratchOff1, txSliceSize1, rxSliceSize1, txScratchOff, rxScratchOff, txSliceSize, rxSliceSize);
                 txSrcSlicesAll.emplace_back(tempAlgParams_.buffInfo.hcclBuff.addr, txScratchOff, txSliceSize, txSliceSize / dataTypeSize);
                 txDstSlicesAll.emplace_back(sendCclBuffAddr, txScratchOff, txSliceSize, txSliceSize / dataTypeSize);
                 rxSrcSlicesAll.emplace_back(recvCclBuffAddr, rxScratchOff, rxSliceSize, rxSliceSize / dataTypeSize);
@@ -236,12 +238,17 @@ HcclResult InsTempAllGatherNHR::LocalDataCopy(const std::vector<ThreadHandle> &t
         const u64 scratchRepeatStride = tempAlgParams_.sliceSize * templateRankSize_;
         const u64 scratchBaseoff = tempAlgParams_.buffInfo.hcclBuffBaseOff + rpt * scratchRepeatStride;
 
-        const u64 inOff = tempAlgParams_.inputSliceStride * myAlgRank + inBaseOff;
-        const u64 scOff = tempAlgParams_.sliceSize * myAlgRank + scratchBaseoff;
+        const u64 inOff = tempAlgParams_.inputSliceStride * myAlgRank + inBaseOff + partialOffset;
+        const u64 scOff = tempAlgParams_.sliceSize * myAlgRank + scratchBaseoff + partialOffset;
+
+        const u64 inOff1 = tempAlgParams_.inputSliceStride * myAlgRank + inBaseOff;
+        const u64 scOff1 = tempAlgParams_.sliceSize * myAlgRank + scratchBaseoff;
         if (tempAlgParams_.buffInfo.inputPtr == tempAlgParams_.buffInfo.hcclBuff.addr && inOff == scOff) {
             continue;
         }
-        u64 sliceCount = sliceSize / dataTypeSize;
+        u64 sliceCount = partialSliceSize / dataTypeSize;
+        HCCL_DEBUG("[InsTempReduceScatterNHR][LocalDataCopy] scOff[%llu], scOff1[%llu], inOff[%llu], scOff[%llu], sliceCount[%llu], scOff[%llu]",
+                inOff1, scOff1, inOff, scOff, sliceSize / dataTypeSize, partialSliceSize / dataTypeSize);
         DataSlice srcSlices(tempAlgParams_.buffInfo.inputPtr, inOff, sliceSize, sliceCount);
         DataSlice dstSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scOff, sliceSize, sliceCount);
         CHK_RET(LocalCopy(threads[channelIdx], srcSlices, dstSlice));
@@ -273,9 +280,13 @@ HcclResult InsTempAllGatherNHR::PostLocalCopy(const std::vector<ThreadHandle> &t
                 partialOffset = dataOffsetTail_[channelIdx];
                 sliceSize = tempAlgParams_.tailSize;
             }
-            u64 sliceCount = sliceSize / dataTypeSize;
-            u64 scratchOffset = tempAlgParams_.sliceSize * algRank + scratchBase;
-            u64 outOffset = tempAlgParams_.outputSliceStride * algRank + outBaseOff;
+            u64 sliceCount = partialSliceSize / dataTypeSize;
+            u64 scratchOffset = tempAlgParams_.sliceSize * algRank + scratchBase + partialOffset;
+            u64 outOffset = tempAlgParams_.outputSliceStride * algRank + outBaseOff + partialOffset;
+            u64 scratchOffset1 = tempAlgParams_.sliceSize * algRank + scratchBase;
+            u64 outOffset1 = tempAlgParams_.outputSliceStride * algRank + outBaseOff;
+            HCCL_DEBUG("[InsTempReduceScatterNHR][LocalDataCopy] scOff[%llu], scOff1[%llu], inOff[%llu], scOff[%llu], sliceCount[%llu], scOff[%llu]",
+                scratchOffset1, outOffset1, scratchOffset, outOffset, sliceSize / dataTypeSize, partialSliceSize / dataTypeSize);
             DataSlice srcSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, sliceSize, sliceCount);
             DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outOffset, sliceSize, sliceCount);
             CHK_RET(LocalCopy(threads[channelIdx], srcSlice, dstSlice));
