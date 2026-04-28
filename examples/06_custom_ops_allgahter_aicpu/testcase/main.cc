@@ -19,7 +19,7 @@
 
 #include <acl/acl_rt.h>
 #include <hccl/hccl_types.h>
-#include <hccl_custom_p2p.h>
+#include <hccl_custom_allgather.h>
 
 #define ACLCHECK(ret)                                                                          \
     do {                                                                                       \
@@ -52,7 +52,7 @@ int Sample(void *arg)
     uint64_t count = ctx->devCount;
     uint64_t rankSize = ctx->devCount;
     size_t inputSize = count * sizeof(float);
-    size_t outputSize = inputSize * rankSize
+    size_t outputSize = inputSize * rankSize;
     // 设置当前线程操作的设备
     ACLCHECK(aclrtSetDevice(static_cast<int32_t>(device)));
 

@@ -78,10 +78,12 @@ target_link_libraries(hccl_custom_allgather_aicpu PRIVATE
 )
 install(TARGETS hccl_custom_allgather_aicpu
     LIBRARY DESTINATION ${CUSTOM_OPS_OPP_LIB_PATH}
+    COMPONENT hccl
 )
 install(FILES
-    inc/hccl_custom_allgather_aicpu.h
+    inc/hccl_custom_allgather.h
     DESTINATION ${CUSTOM_OPS_OPP_INC_PATH}
+    COMPONENT hccl
 )
 
 if(KERNEL_MODE)
@@ -129,10 +131,12 @@ else()
     install(FILES
         ${BUILD_DEVICE_DIR}/signatures/aicpu_hccl_custom_allgather_aicpu.tar.gz
         DESTINATION ${CUSTOM_OPS_OPP_AICPU_KERNEL_PATH}
+        COMPONENT hccl
     )
     install(FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/op_kernel_aicpu/libcustom_allgather_aicpu_kernel.json
         DESTINATION ${CUSTOM_OPS_OPP_AICPU_CONFIG_PATH}
+        COMPONENT hccl
     )
 endif()
 
