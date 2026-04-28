@@ -10,6 +10,7 @@
 
 #include <string>
 #include <memory>
+#include <vector>
 #include <hccl/hcomm_primitives.h>
 #include "log.h"
 #include "utils.h"
@@ -23,7 +24,7 @@ extern "C" unsigned int HcclLaunchCustomAllGatherAicpuKernel(OpParam *param)
     HCCL_INFO("Entry-%s, commName[%s], tag[%s]", __func__, param->commName, param->tag);
     AlgResourceCtx resCtxDevice;
 
-    char *ctx = static_cast<char *>(param->resCtx);
+    char *ctx = static_cast<char *>(param->resCtxDevice);
     std::vector<char> seq(ctx, ctx + param->ctxSize);
     resCtxDevice.Deserialize(seq);
     if (HcommBatchModeStart(param->tag) != HCCL_SUCCESS) {

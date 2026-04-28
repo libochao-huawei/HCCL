@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef OPS_HCCL_P2P_EXEC_OP_H
-#define OPS_HCCL_P2P_EXEC_OP_H
+#ifndef OPS_HCCL_ALLGATHER_AICPU_EXEC_OP_H
+#define OPS_HCCL_ALLGATHER_AICPU_EXEC_OP_H
 
 #include <string>
 #include <hccl/hcomm_primitives.h>
