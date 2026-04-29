@@ -136,8 +136,9 @@ HcclResult TopoMatchPcieMix::DeduplicateLevelRanks(const uint32_t myRank, std::v
     std::vector<uint32_t> &level1Ranks)
 {
     u32 level0RankSize = level0Ranks.size();
+    u32 myMeshInstance = myRank / level0RankSize;
     auto level1End = std::remove_if(level1Ranks.begin(), level1Ranks.end(),
-        [this, level0RankSize, myRank](int val) {return val % level0RankSize != myRank % level0RankSize;}
+        [this, level0RankSize, myMeshInstance](int val) {return (u32)(val / level0RankSize) != myMeshInstance;}
     );
     level1Ranks.erase(level1End, level1Ranks.end());
     return HCCL_SUCCESS;
