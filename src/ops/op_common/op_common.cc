@@ -461,6 +461,20 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
 {
     uint64_t beginTime = HcommGetProfilingSysCycleTime();
     HCCL_INFO("[HcclExecOp]Start to execute HcclExecOp.HcommGetProfilingSysCycleTime.%llu", beginTime);
+    // 当前通信域的某个算法回退过，则下次直接回退
+    void * fallbackCtx = nullptr;
+    uint64_t fallbackCtxSize = 0;
+    CHK_RET(SetOpParamFallbackTag(param, algName));
+    if (HcclEngineCtxGet(comm, param.fallbackTag, param.engine, &fallbackCtx, &fallbackCtxSize) == HCCL_SUCCESS) {
+        HCCL_INFO("[HcclExecOp] Engine ctx exists, try to fallback.");
+        std::string newAlgName = static_cast<char*>(fallbackCtx);
+        HCCL_INFO("[HcclExecOp] Cached algo type is %s.", newAlgName.c_str());
+        param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
+        param.engine = COMM_ENGINE_AICPU_TS;
+        CHK_RET(SetOpParamAlgTag(param, newAlgName));
+        CHK_RET(HcclExecOp(comm, param, topoInfo, newAlgName, resPack));
+        return HCCL_SUCCESS;
+    }
     // 在原先的commName中添加执行模式，得到commModeTag
     param.hcclComm = comm;
     bool isOpBase = param.opMode == OpMode::OPBASE;
