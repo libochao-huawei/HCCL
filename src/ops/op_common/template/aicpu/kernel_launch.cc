@@ -322,7 +322,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         }
         // 获取Device测主thread
         ThreadHandle thread = resCtx.threads[0];
-        if (HcommBatchModeStart(param->algTag) != HCCL_SUCCESS) {
+        if (HcommBatchModeStartWithThreads(param->algTag, resCtx.threads.data(), resCtx.threads.size()) != HCCL_SUCCESS)
             HCCL_ERROR("failed set batch mode, tag is %s.", param->algTag);
             return 1;
         }
