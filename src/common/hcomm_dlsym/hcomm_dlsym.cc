@@ -15,7 +15,7 @@
 #include "hccl_inner_dl.h"
 #include "hcomm_host_profiling_dl.h"
 #include "hccl_host_comm_dl.h"
-// #include "hccl_res_exp_dl.h"
+#include "hccl_res_expt_dl.h"
 #include <pthread.h>
 #include <dlfcn.h>
 #include <stdio.h>
