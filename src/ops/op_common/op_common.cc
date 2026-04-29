@@ -46,6 +46,8 @@
 #include "hccl_diag.h"
 #include "hcom.h"
 
+bool g_ccuV2 = true;
+
 namespace ops_hccl {
 // 用于维护增量建链算子的host ctx信息
 thread_local std::map<std::string, std::unique_ptr<AlgResourceCtxSerializable>> g_hostCtx;

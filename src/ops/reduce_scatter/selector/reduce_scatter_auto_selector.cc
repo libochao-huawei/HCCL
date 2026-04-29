@@ -60,8 +60,12 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoCcums(const TopoInfoWith
         } else if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_NOT_REGULAR) {
             HCCL_INFO("[%s] TWO_DIE_NOT_REGULAR not match", __func__);
             return SelectorStatus::NOT_MATCH;
-        } else {
-            selectAlgName = "CcuReduceScatterMesh1D";
+        } else{
+            if (dataSize * topoInfo->userRankSize <= SMALL_COUNT_16M) {
+                selectAlgName = "CcuReduceScatterMesh1D";
+            } else {
+                selectAlgName = "CcuReduceScatterConcurrentMesh1DNHR";
+            }
         }
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
         // PCIE-SW定制机型，Mesh无法链接全卡时，需要跨pcie链路，不支持ccu模式
@@ -83,7 +87,7 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoCcums(const TopoInfoWith
                 selectAlgName = "CcuReduceScatterMesh1D";
             } else {
                 // 大数据量，用mesh+clos并行算法
-                selectAlgName = "CcuReduceScatterConcurrentMeshNHRMs";
+                selectAlgName = "CcuReduceScatterConcurrentMeshNHRMsUBX";
             }
         } else if (isClosNumMultipleOfMeshNum && !IsSmallData(dataSize)) {
             HCCL_WARNING("[%s] MESH_1D_CLOS not match.", __func__);
@@ -129,11 +133,12 @@ SelectorStatus ReduceScatterAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWi
                 CHK_PRT_RET(opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT8,
                 HCCL_WARNING("[ReduceScatterAutoSelector] dataType[%d] is not supported yet for ccu schedule mode.",
                     opParam.DataDes.dataType), SelectorStatus::NOT_MATCH);
-                if(IsSmallDataCCU((dataSize * topoInfo->userRankSize), topoInfo->userRankSize)){
-                    selectAlgName = "CcuReduceScatterParallelMesh1DNHR";//64M以下跑ccu
+                if (dataSize * topoInfo->userRankSize <= SMALL_COUNT_16M) {
+                    selectAlgName = "CcuReduceScatterNHR1DMem2Mem";
                     return SelectorStatus::MATCH;
                 } else {
-                    return SelectorStatus::NOT_MATCH;//64M以上切为aicpu
+                    selectAlgName = "CcuReduceScatterParallelMesh1DNHR";
+                    return SelectorStatus::MATCH;
                 }
             } else {
                 selectAlgName = "CcuReduceScatterNHR1DMem2Mem";
@@ -159,24 +164,17 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoCcuSchedule(const TopoIn
     CHK_PRT_RET(opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT8, HCCL_WARNING("[ReduceScatterAutoSelector] dataType[%d] is "
             "not supported yet for ccu_schedule mode with ms reduce.", opParam.DataDes.dataType), SelectorStatus::NOT_MATCH);
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-        double ratio; // 以8卡为基线确定ratio，用来表示不同卡数对下发的影响系数
-        if (topoInfo->userRankSize == 0) {
-            HCCL_WARNING("[ReduceScatterAutoSelector]the selector is not set topoInfo->userRankSize]");
-            ratio = 1;
-        } else {
-            ratio = DEFAULT_RANK_SIZE / topoInfo->userRankSize;
-        }
-        if (dataSize * ratio >= RS_M2M_1D_MAX_DATA_SIZE) {
-            HCCL_DEBUG("[ReduceScatterAutoSelector] dataSize[%lu] * ratio[%f] >= MAX_DATA_SIZE[%lu].", dataSize, ratio, RS_M2M_1D_MAX_DATA_SIZE);
-            return SelectorStatus::NOT_MATCH;
-        }
         if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
             selectAlgName = "CcuReduceScatterMeshMem2Mem1D2Die";
         } else if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_NOT_REGULAR) {
             HCCL_DEBUG("[ReduceScatterAutoSelector] TWO_DIE_NOT_REGULAR not match.");
             return SelectorStatus::NOT_MATCH;
         } else {
-            selectAlgName = "CcuReduceScatterMesh1DMem2Mem";
+            if (dataSize * topoInfo->userRankSize <= SMALL_COUNT_16M) {
+                selectAlgName = "CcuReduceScatterMesh1DMem2Mem";
+            } else {
+                selectAlgName = "CcuReduceScatterConcurrentMesh1DNHRMem";
+            }
         }
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
         // PCIE-SW定制机型，Mesh无法链接全卡时，需要跨pcie链路，不支持ccu模式
@@ -198,7 +196,7 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoCcuSchedule(const TopoIn
                 selectAlgName = "CcuReduceScatterMesh1DMem2Mem";
             } else {
                 // 大数据量，用mesh+clos并行算法
-                selectAlgName = "CcuReduceScatterConcurrentMeshNHRSche";
+                selectAlgName = "CcuReduceScatterConcurrentMeshNHRScheUBX";
             }
         } else if(isClosNumMultipleOfMeshNum && !IsSmallData(dataSize)) {
             // 矩形场景大数据量，用2d并行算法
@@ -220,6 +218,8 @@ SelectorStatus ReduceScatterAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetL
                                                       std::string &selectAlgName) const
 {
     HCCL_DEBUG("[ReduceScatterAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
+    u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
+    u64 dataSize = opParam.DataDes.count * perDataSize;
     (void)configAlgMap;
     if (topoInfo->topoLevelNums > 1) {
         if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
@@ -230,7 +230,11 @@ SelectorStatus ReduceScatterAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetL
         } else if (topoInfo->Level0Nhr) {
             selectAlgName = "InsReduceScatterNHR"; // InsReduceScatterParallelNHRNHR备用
         } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer.at(0) > 1 && topoInfo->level0Topo == Level0Shape::MESH_1D) {
-            selectAlgName = "InsReduceScatterParallelMesh1DNHR";
+            if (dataSize * topoInfo->userRankSize <= SMALL_COUNT_16M) {
+                selectAlgName = "InsReduceScatterNHR";
+            } else {
+                selectAlgName = "InsReduceScatterParallelMesh1DNHR";
+            }
         } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer.at(0) == 1 || topoInfo->level0Topo == Level0Shape::CLOS) {
             selectAlgName = "InsReduceScatterNHR"; // InsReduceScatterParallelNHRNHR备用
         } else {
@@ -261,10 +265,10 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWith
         if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
             selectAlgName = "InsReduceScatterMesh1D";
         } else {
-            if (dataSize * ratio > RS_AICPU_1D_MAX_DATA_SIZE) {
-                selectAlgName = "InsReduceScatterMesh1DMeshChunk";
-            } else {
+            if (dataSize * topoInfo->userRankSize <= SMALL_COUNT_16M) {
                 selectAlgName = "InsReduceScatterMesh1D";
+            } else {
+                selectAlgName = "InsReduceScatterConcurrentMeshChunkNHR";
             }
         }
     } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
@@ -346,7 +350,7 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoAicpuForMesh1DClos(const
         if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
             selectAlgName = "InsReduceScatterMesh1D";
         } else if (!IsSmallData(dataSize)) {
-            selectAlgName = "InsReduceScatterConcurrentMeshNHR";
+            selectAlgName = "InsReduceScatterConcurrentMeshNHRUBX";
         } else {
             if (dataSize * ratio > RS_AICPU_1D_MAX_DATA_SIZE) {
                 selectAlgName = "InsReduceScatterMesh1DMeshChunk";
