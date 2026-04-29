@@ -226,6 +226,7 @@ else()
 endif()
 
 if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
+<<<<<<< HEAD
     add_library(scatter_aicpu_kernel SHARED
         ${CMAKE_CURRENT_SOURCE_DIR}/common/utils.cc
         # ${CMAKE_CURRENT_SOURCE_DIR}/common/adapter_acl.cc
@@ -392,6 +393,10 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         -Wl,--no-as-needed
     )
     add_dependencies(scatter_aicpu_kernel hccl_kernel_compat)
+=======
+    #添加scatter_aipu_kernel库 在device侧使用
+    include(scatter_aicpu_kernel.cmake)
+>>>>>>> 60c7aea (将hccl_kernel_compat和scatter_aicpu_kernel分别构建库)
 endif()
 
 add_definitions(-DORION_MODE)

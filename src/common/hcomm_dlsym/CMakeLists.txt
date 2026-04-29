@@ -155,6 +155,7 @@ endif()
 endif()
 
 if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
+<<<<<<< HEAD
     add_library(hccl_kernel_compat SHARED
         hcomm_device_dlsym.cc
         hcomm_primitives_dl.cc
@@ -193,4 +194,8 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         ${INSTALL_OPTIONAL}
         COMPONENT hccl
     )
+=======
+    #添加hccl_kernel_compat库 在device侧使用
+    include(hccl_kernel_compat.cmake)
+>>>>>>> 60c7aea (将hccl_kernel_compat和scatter_aicpu_kernel分别构建库)
 endif()
