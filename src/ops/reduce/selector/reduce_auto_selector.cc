@@ -224,16 +224,16 @@ SelectorStatus ReduceAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetLaye
             // MESH_1D 即可链接所有卡， 使用 MESH_1D 算法
             if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
                 selectAlgName = "ReduceMesh1D";
-            } else if (topoInfo->level0PcieMix) { 
-                selectAlgName = "ReduceParallelMesh1DNHR";
+            } else if (dataSize >= REDUCE_AICPU_1D_MAX_DATA_SIZE) {
+                selectAlgName = "ReduceMesh1DTwoShot";
             } else {
-                selectAlgName = "ReduceParallelMesh1DNHRUBX";
+                selectAlgName = "ReduceMesh1D";
             }
         } else {
             if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
                 selectAlgName = "ReduceAicpuReduceNHR";
             } else {
-                selectAlgName = "ReduceNHR";
+                selectAlgName = "ReduceParallelMesh1DNHRUBX";
             }
         }
     } else if (topoInfo->level0Topo == Level0Shape::CLOS) {

@@ -291,7 +291,7 @@ SelectorStatus AllReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayer
 }
 
 SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpuUBX(const TopoInfoWithNetLayerDetails* topoInfo, const u64 dataSize, 
-                                                             std::string &selectAlgName) const
+                                                             std::string &selectAlgName, bool isDataTypeOrReduceTypeSpecial) const
 {
     // UBX机型
     bool isMeshNumEqualToClosNum = false;
@@ -301,13 +301,18 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpuUBX(const TopoInfoWithN
     CHK_PRT_RET(CheckClosNumMultipleOfMeshNum(topoInfo, isClosNumMultipleOfMeshNum) != HCCL_SUCCESS,
         HCCL_ERROR("[Algo][AllReduceAutoSelector] CheckClosNumMultipleOfMeshNum failed."), SelectorStatus::NOT_MATCH);
     if (isMeshNumEqualToClosNum && topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO) {
-        // 4P mesh
-        if (dataSize <= AR_AICPU_1D_SMALL_DATA_SIZE) {
+        if (isDataTypeOrReduceTypeSpecial) {
+            selectAlgName = dataSize <= AR_AICPU_1D_64DATATYPE_DATA_SIZE ?
+                            "InsAllReduceMesh1DOneShot" :
+                            "InsAllReduceMesh1DTwoShot";            
+        } else if (dataSize <= AR_AICPU_1D_SMALL_DATA_SIZE) {
             selectAlgName = "InsAllReduceMesh1DOneShot";
         } else {
             // 大数据量，用mesh+clos并行算法
             selectAlgName = "InsAllReduceConcurrent";
         }
+    } else if (isDataTypeOrReduceTypeSpecial) {
+        selectAlgName = "InsAllReduceAicpuReduceNHR";
     } else if(isClosNumMultipleOfMeshNum && !IsSmallData(dataSize)) {
         // 矩形场景大数据量，用Parallel并行算法
         selectAlgName = "InsAllReduceParallelRSAGUBX";
@@ -359,10 +364,7 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetL
             selectAlgName = "InsAllReduceNHR";
         }
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-        if (isDataTypeOrReduceTypeSpecial) {	 
-            HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64 and PROD reduceType not support now."); 
-            return SelectorStatus::NOT_MATCH; 
-        } else if (topoInfo->level0PcieMix) {
+        if (topoInfo->level0PcieMix) {
             if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
                 if (isDataTypeOrReduceTypeSpecial) {
                     selectAlgName = dataSize <= AR_AICPU_1D_64DATATYPE_DATA_SIZE ?
@@ -376,10 +378,14 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetL
                     selectAlgName = "InsAllReduceMesh1DTwoShot";
                 }
             } else {
-                selectAlgName = "InsAllReduceParallelMesh1DNHRPcie";
+                if (isDataTypeOrReduceTypeSpecial) {
+                    selectAlgName = "InsAllReduceAicpuReduceNHR";
+                } else {
+                    selectAlgName = "InsAllReduceParallelMesh1DNHRPcie";
+                }
             }
         } else { 
-            return SelectMeshAlgoAicpuUBX(topoInfo, dataSize, selectAlgName);
+            return SelectMeshAlgoAicpuUBX(topoInfo, dataSize, selectAlgName, isDataTypeOrReduceTypeSpecial);
         }
     } else {
         HCCL_ERROR("[AllReduceAutoSelector] topo not match");
