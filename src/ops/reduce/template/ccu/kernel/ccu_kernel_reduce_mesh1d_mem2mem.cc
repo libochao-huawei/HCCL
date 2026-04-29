@@ -195,7 +195,7 @@ static CcuResult InitResource(ReduceMesh1DMem2MemContext &ctx)
     ctx.moRes.bufCount = ctx.moConfig.loopCount * ctx.moConfig.msInterleave;
     CCU_CHK_RET(ccu::BlockAlloc(ctx.moRes.ccuBuf, ctx.moRes.bufCount));
 
-    CCU_CHK_RET(ccu::CreateLoopExecutor(&ctx.enginePool, RS_MAX_RANK_SIZE));
+    CCU_CHK_RET(ccu::CreateLoopExecutor(&ctx.enginePool, CCU_MAX_RANK_SIZE));
 
     ctx.resourceAllocated = true;
     ctx.loopRegistered    = false;

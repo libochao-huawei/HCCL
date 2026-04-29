@@ -67,7 +67,7 @@ constexpr uint64_t CCU_MS_SIZE               = 4096;
         // // Loop body 中的外部 LocalAddr（每个 loop index 各两组）
         // ccu::LocalAddr loopDst[2];
         // ccu::LocalAddr loopSrc[2];
-        // ccu::LocalAddr loopScratch[2][MAX_RANK_SIZE];
+        // ccu::LocalAddr loopScratch[2][CCU_MAX_RANK_SIZE];
         // CcuVariable  loopLen[2];
         // CcuVariable  loopLenExp[2];
     };

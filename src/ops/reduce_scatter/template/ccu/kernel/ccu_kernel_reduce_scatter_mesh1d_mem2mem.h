@@ -80,9 +80,9 @@ public:
 struct ReduceScatterMesh1DMem2MemContext {
     const ReduceScatterKernelArg *arg;
 
-    CcuVariable input[RS_MAX_RANK_SIZE];
-    CcuVariable scratch[RS_MAX_RANK_SIZE];
-    CcuVariable token[RS_MAX_RANK_SIZE];
+    CcuVariable input[CCU_MAX_RANK_SIZE];
+    CcuVariable scratch[CCU_MAX_RANK_SIZE];
+    CcuVariable token[CCU_MAX_RANK_SIZE];
     CcuVariable output;
     CcuVariable currentRankSliceInputOffset;
     CcuVariable currentRankSliceOutputOffset;
@@ -98,8 +98,8 @@ struct ReduceScatterMesh1DMem2MemContext {
     uint16_t allBit;
 
     ccu::LocalAddr  myInput;
-    ccu::RemoteAddr remoteInput[RS_MAX_RANK_SIZE];
-    ccu::LocalAddr  scratchMem[RS_MAX_RANK_SIZE];
+    ccu::RemoteAddr remoteInput[CCU_MAX_RANK_SIZE];
+    ccu::LocalAddr  scratchMem[CCU_MAX_RANK_SIZE];
     CcuEvent      event;
 
     LoopGroupConfig  moConfig;
@@ -112,7 +112,7 @@ struct ReduceScatterMesh1DMem2MemContext {
     // Loop body 中的外部 LocalAddr（每个 loop index 各两组）
     ccu::LocalAddr loopDst[2];
     ccu::LocalAddr loopSrc[2];
-    ccu::LocalAddr loopScratch[2][RS_MAX_RANK_SIZE];
+    ccu::LocalAddr loopScratch[2][CCU_MAX_RANK_SIZE];
     CcuVariable  loopLen[2];
     CcuVariable  loopLenExp[2];
 };

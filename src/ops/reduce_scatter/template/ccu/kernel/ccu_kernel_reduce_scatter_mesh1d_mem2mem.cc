@@ -360,7 +360,7 @@ static HcclResult ReduceLoopGroup(ReduceScatterMesh1DMem2MemContext &ctx,
     src.addr  = srcOrg.addr;
     src.token = srcOrg.token;
 
-    ccu::LocalAddr scratch[RS_MAX_RANK_SIZE];
+    ccu::LocalAddr scratch[CCU_MAX_RANK_SIZE];
     for (uint32_t idx = 0; idx < size; idx++) {
         CHK_RET(ccu::Alloc(&scratch[idx]));
         scratch[idx].addr  = scratchOrg[idx].addr;

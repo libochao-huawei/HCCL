@@ -65,7 +65,7 @@ constexpr u64 ALL_GATHER_V_VECTOR_NUM = 2;
 
 constexpr uint64_t GE_PARALLEL = 36;
 
-constexpr uint64_t MAX_RANK_SIZE = 16;
+constexpr uint64_t CCU_MAX_RANK_SIZE = 16;
 
 enum class TopoType {
     TOPO_TYPE_COMMON = 0,           // 普通拓扑类型 ，default单层拓扑使用
@@ -254,7 +254,7 @@ struct TopoInfoWithNetLayerDetails : public TopoInfo { // 通信域拓扑ctx
 
 struct CcuKernelArgBase {
     // std::vector<ChannelHandle> channels;
-    ChannelHandle channels[MAX_RANK_SIZE];
+    ChannelHandle channels[CCU_MAX_RANK_SIZE];
     uint32_t      channelCount;
 };
 

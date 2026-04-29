@@ -67,7 +67,7 @@ static CcuResult InitResource(ReduceScatterMesh1DContext &ctx)
     CCU_CHK_RET(ccu::Alloc(&ctx.goSize.parallelParam));
     CCU_CHK_RET(ccu::Alloc(&ctx.goSize.residual));
 
-    CCU_CHK_RET(ccu::CreateLoopExecutor(&ctx.enginePool, MAX_RANK_SIZE + 1));
+    CCU_CHK_RET(ccu::CreateLoopExecutor(&ctx.enginePool, CCU_MAX_RANK_SIZE + 1));
 
     ctx.resourceAllocated = false;
     ctx.loopRegistered    = false;

@@ -81,7 +81,7 @@ static CcuResult InitResource(ReduceMesh1DContext &ctx)
     CCU_CHK_RET(ccu::Alloc(&ctx.flag));
     CCU_CHK_RET(ccu::Alloc(&ctx.event));
 
-    CCU_CHK_RET(ccu::CreateLoopExecutor(&ctx.enginePool, RS_MAX_RANK_SIZE + 1));
+    CCU_CHK_RET(ccu::CreateLoopExecutor(&ctx.enginePool, CCU_MAX_RANK_SIZE + 1));
 
     ctx.resourceAllocated = false;
     ctx.loopRegistered    = false;

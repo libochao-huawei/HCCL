@@ -79,7 +79,7 @@ static CcuResult InitResource(ReduceNHR1DMem2MemContext &ctx)
     CCU_CHK_RET(ccu::Alloc(&ctx.localDst));
     CCU_CHK_RET(ccu::Alloc(&ctx.remoteDst));
 
-    CCU_CHK_RET(ccu::CreateLoopExecutor(&ctx.enginePool, RS_MAX_RANK_SIZE));
+    CCU_CHK_RET(ccu::CreateLoopExecutor(&ctx.enginePool, CCU_MAX_RANK_SIZE));
 
     ctx.resourceAllocated = false;
     ctx.loopRegistered    = false;
