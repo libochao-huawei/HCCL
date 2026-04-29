@@ -194,6 +194,7 @@ SelectorStatus ReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerDet
         } else if (topoInfo->deviceNumPerModule > 1 && topoInfo->level0Topo == Level0Shape::MESH_1D) {
             selectAlgName = "ReduceParallelMesh1DNHR";
         } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer.at(0) == 1 || topoInfo->level0Topo == Level0Shape::CLOS) {
+            HCCL_WARNING("SelectAicpuAlgo CLOS ReduceNHR");
             selectAlgName = "ReduceNHR";
         } else {
             return SelectorStatus::NOT_MATCH;
@@ -240,6 +241,7 @@ SelectorStatus ReduceAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetLaye
         if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
             selectAlgName = "ReduceAicpuReduceNHR";
         } else {
+            HCCL_WARNING("SelectMeshAlgoAicpu CLOS ReduceNHR");
             selectAlgName = "ReduceNHR";
         }
     } else {
