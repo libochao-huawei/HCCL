@@ -106,7 +106,7 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgo(const TopoInfoWithNetLayerD
             HCCL_DEBUG("[AllReduceAutoSelector][%s] TWO_DIE_NOT_REGULAR not match", __func__);
             return SelectorStatus::NOT_MATCH;
         } else if (dataSize <= AR_WRITE_MODE_MAX_DATA_SIZE) {
-            selectAlgName = "CcuAllReduceMesh1DOneShotWrite";
+            selectAlgName = "CcuAllReduceMesh1DOneShot";
         } else {
             selectAlgName = "CcuAllReduceMesh1D";
         }
