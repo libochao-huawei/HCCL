@@ -28,7 +28,6 @@ constexpr double DEFAULT_RANK_SIZE = 8.0;
 constexpr u64 RS_2D_SMALL_DATA_SIZE = 1024 * 1024;
 constexpr u64 RS_M2M_1D_MAX_DATA_SIZE = 8 * 1024 * 1024;
 constexpr u64 CCU_PARALLEL_MAX_DATA_SIZE = 64 * 1024 * 1024;
-constexpr u64 SMALL_COUNT_16M = 16 * 1024 * 1024;
 
 enum class SelectorStatus { MATCH, NOT_MATCH };
 
