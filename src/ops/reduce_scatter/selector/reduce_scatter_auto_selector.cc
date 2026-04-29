@@ -339,7 +339,11 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoAicpuForMesh1DClos(const
         if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
             selectAlgName = "InsReduceScatterMesh1D";
         } else {
-            selectAlgName = "InsReduceScatterParallelMesh1DNHRPcie";
+            if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
+                selectAlgName = "InsReduceScatterMesh1D";
+            } else {
+                selectAlgName = "InsReduceScatterParallelMesh1DNHRPcie";
+            }
         }
     } else if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
         // MESH_1D 即可链接所有卡， 使用 MESH_1D 算法

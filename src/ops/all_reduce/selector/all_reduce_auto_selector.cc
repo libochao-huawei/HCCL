@@ -378,7 +378,11 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetL
                     selectAlgName = "InsAllReduceMesh1DTwoShot";
                 }
             } else {
-                selectAlgName = "InsAllReduceParallelMesh1DNHRPcie";
+                if (isDataTypeOrReduceTypeSpecial) {
+                    selectAlgName = "InsAllReduceAicpuReduceNHR";
+                } else {
+                    selectAlgName = "InsAllReduceParallelMesh1DNHRPcie";
+                }
             }
         } else { 
             return SelectMeshAlgoAicpuUBX(topoInfo, dataSize, selectAlgName, isDataTypeOrReduceTypeSpecial);
