@@ -10,6 +10,8 @@
 
 #include "ins_temp_dpu_alltoall_mesh.h"
 
+#define NET_NUM 2
+
 namespace ops_hccl {
 
 InsTempDpuAlltoAllMesh::InsTempDpuAlltoAllMesh() {}
@@ -24,17 +26,31 @@ InsTempDpuAlltoAllMesh::~InsTempDpuAlltoAllMesh() {}
 HcclResult InsTempDpuAlltoAllMesh::CalcRes(HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
                                            AlgResourceRequest &resourceRequest)
 {
-    // 框内threadNum最大取MAX_RANK_NUM_PER_SERVER
-    u32 threadNum = (templateRankSize_ > MAX_RANK_NUM_PER_SERVER) ? MAX_RANK_NUM_PER_SERVER :
+    u32 threadNum = 0;
+    std::vector<HcclChannelDesc> level0Channels;
+    if (topoInfo->level0Topo != Level0Shape::MESH_1D_CLOS) {
+        // 框内threadNum最大取MAX_RANK_NUM_PER_SERVER
+        threadNum = (templateRankSize_ > MAX_RANK_NUM_PER_SERVER) ? MAX_RANK_NUM_PER_SERVER :
                     (templateRankSize_ > 1)                       ? (templateRankSize_ - 1) :
                                                                     1;
+        CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
+    } else {
+        CHK_PRT_RET(subCommRanks_.size() != NET_NUM,
+                    HCCL_ERROR("[InsTempDpuAlltoAllMesh][CalcRes] subCommRankNum[%zu] is not [%u]",
+                    subCommRanks_.size(), NET_NUM), HCCL_E_PARA);
+        u32 intraRankNum = subCommRanks_[0].size();
+        threadNum = (intraRankNum > 1) ? (intraRankNum - 1) : 1;
+        subCommRanks_ = {subCommRanks_[1]};
+        CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks_,
+                                                         level0Channels, CommTopo::COMM_TOPO_1DMESH));
+    }
+    // 计算从流以及Notify数量
     resourceRequest.slaveThreadNum = threadNum - 1;
     for (u32 index = 0; index < threadNum - 1; index++) {
         resourceRequest.notifyNumPerThread.push_back(1);
     }
     resourceRequest.notifyNumOnMainThread = threadNum - 1;
-    std::vector<HcclChannelDesc> level0Channels;
-    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
+
     resourceRequest.channels.push_back(level0Channels);
     HCCL_DEBUG("[InsTempDpuAlltoAllMesh][CalcRes] myRank[%u], notifyNumOnMainThread[%u], slaveThreadNum[%u]", myRank_,
                resourceRequest.notifyNumOnMainThread, resourceRequest.slaveThreadNum);
@@ -182,11 +198,6 @@ HcclResult InsTempDpuAlltoAllMesh::SendRecvData(const OpParam &param, const std:
     // AICPU部分数据传输
     u32 threadIdx = 0;
     for (u32 i = 0; i < commRanks.size(); i++) {
-        if (threadIdx >= threadNum_) {
-            HCCL_ERROR("[InsTempDpuAlltoAllMesh] [SendRecvData] thread index [%u] exceeds thread count [%u]", threadIdx,
-                       threadNum_);
-            return HCCL_E_INTERNAL;
-        }
         u32 remoteRank = commRanks[i];
         if (remoteRank == myRank_) {
             HCCL_INFO("[InsTempDpuAlltoAllMesh] [SendRecvData] myRank[%u] is eaqul with remoteRank[%u] skip aicpu data "
@@ -212,6 +223,12 @@ HcclResult InsTempDpuAlltoAllMesh::SendRecvData(const OpParam &param, const std:
                          "AICPU , the EndpointLocType must be DEVICE",
                          myRank_, remoteRank);
             continue;
+        }
+
+        if (threadIdx >= threadNum_) {
+            HCCL_ERROR("[InsTempDpuAlltoAllMesh] [SendRecvData] thread index [%u] exceeds thread count [%u]", threadIdx,
+                       threadNum_);
+            return HCCL_E_INTERNAL;
         }
 
         u64 sendCount = tempAlgParams.sendCounts[remoteRank];
@@ -363,10 +380,7 @@ HcclResult InsTempDpuAlltoAllMesh::PostCopyDataToRecvBuf(const std::vector<u32> 
 void InsTempDpuAlltoAllMesh::GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub)
 {
     notifyIdxMainToSub.clear();
-    u32 threadNum = (templateRankSize_ > MAX_RANK_NUM_PER_SERVER) ? MAX_RANK_NUM_PER_SERVER :
-                    (templateRankSize_ > 1)                       ? (templateRankSize_ - 1) :
-                                                                    1;
-    u32 slaveThreadNum = threadNum - 1;
+    u32 slaveThreadNum = threadNum_ - 1;
     for (u32 slaveThreadIdx = 0; slaveThreadIdx < slaveThreadNum; slaveThreadIdx++) {
         notifyIdxMainToSub.push_back(0);
     }
@@ -375,10 +389,7 @@ void InsTempDpuAlltoAllMesh::GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMa
 void InsTempDpuAlltoAllMesh::GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain)
 {
     notifyIdxSubToMain.clear();
-    u32 threadNum = (templateRankSize_ > MAX_RANK_NUM_PER_SERVER) ? MAX_RANK_NUM_PER_SERVER :
-                    (templateRankSize_ > 1)                       ? (templateRankSize_ - 1) :
-                                                                    1;
-    u32 notifyNum = threadNum - 1;
+    u32 notifyNum = threadNum_ - 1;
     for (u32 notifyIdx = 0; notifyIdx < notifyNum; notifyIdx++) {
         notifyIdxSubToMain.push_back(notifyIdx);
     }

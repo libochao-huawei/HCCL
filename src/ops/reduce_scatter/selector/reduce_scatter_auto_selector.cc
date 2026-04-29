@@ -64,6 +64,11 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoCcums(const TopoInfoWith
             selectAlgName = "CcuReduceScatterMesh1D";
         }
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+        // PCIE-SW定制机型，Mesh无法链接全卡时，需要跨pcie链路，不支持ccu模式
+        if (topoInfo->level0PcieMix && !IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
+            HCCL_WARNING("[ReduceScatterAutoSelector] pcie mixed topo is not supported yet for ccu ms mode.");
+            return SelectorStatus::NOT_MATCH;
+        }
         // UBX机型
         bool isMeshNumEqualToClosNum = false;
         bool isClosNumMultipleOfMeshNum = false;
@@ -124,8 +129,12 @@ SelectorStatus ReduceScatterAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWi
                 CHK_PRT_RET(opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT8,
                 HCCL_WARNING("[ReduceScatterAutoSelector] dataType[%d] is not supported yet for ccu schedule mode.",
                     opParam.DataDes.dataType), SelectorStatus::NOT_MATCH);
-                selectAlgName = "CcuReduceScatterParallelMesh1DNHR";
-                return SelectorStatus::MATCH;
+                if(IsSmallDataCCU((dataSize * topoInfo->userRankSize), topoInfo->userRankSize)){
+                    selectAlgName = "CcuReduceScatterParallelMesh1DNHR";//64M以下跑ccu
+                    return SelectorStatus::MATCH;
+                } else {
+                    return SelectorStatus::NOT_MATCH;//64M以上切为aicpu
+                }
             } else {
                 selectAlgName = "CcuReduceScatterNHR1DMem2Mem";
                 return SelectorStatus::MATCH;
@@ -147,9 +156,9 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoCcuSchedule(const TopoIn
 {
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
+    CHK_PRT_RET(opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT8, HCCL_WARNING("[ReduceScatterAutoSelector] dataType[%d] is "
+            "not supported yet for ccu_schedule mode with ms reduce.", opParam.DataDes.dataType), SelectorStatus::NOT_MATCH);
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-        CHK_PRT_RET(opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT8, HCCL_WARNING("[ReduceScatterAutoSelector] dataType[%d] is "
-                "not supported yet for ccu_schedule mode with ms reduce.", opParam.DataDes.dataType), SelectorStatus::NOT_MATCH);
         double ratio; // 以8卡为基线确定ratio，用来表示不同卡数对下发的影响系数
         if (topoInfo->userRankSize == 0) {
             HCCL_WARNING("[ReduceScatterAutoSelector]the selector is not set topoInfo->userRankSize]");
@@ -170,6 +179,11 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoCcuSchedule(const TopoIn
             selectAlgName = "CcuReduceScatterMesh1DMem2Mem";
         }
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+        // PCIE-SW定制机型，Mesh无法链接全卡时，需要跨pcie链路，不支持ccu模式
+        if (topoInfo->level0PcieMix && !IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
+            HCCL_WARNING("[ReduceScatterAutoSelector] pcie mixed topo is not supported yet for ccu sched mode.");
+            return SelectorStatus::NOT_MATCH;
+        }
         // UBX机型
         bool isMeshNumEqualToClosNum = false;
         bool isClosNumMultipleOfMeshNum = false;
@@ -283,8 +297,9 @@ SelectorStatus ReduceScatterAutoSelector::SelectAivAlgo(const TopoInfoWithNetLay
             opParam.reduceType),
         SelectorStatus::NOT_MATCH);
 
-    if (Is64BitDataType(opParam.DataDes.dataType)) {
-        HCCL_WARNING("[ReduceScatterAutoSelector] aiv mode not support INT64, UINT64, FP64.");
+    if (opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
+        opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_FP64) {
+        HCCL_WARNING("[ReduceScatterAutoSelector] aiv mode not support UINT64, FP64.");
         return SelectorStatus::NOT_MATCH;
     }
 
@@ -301,9 +316,15 @@ SelectorStatus ReduceScatterAutoSelector::SelectDPUAlgo(const TopoInfoWithNetLay
     HCCL_INFO("topoInfo->topoLevelNums is %u, topoInfo->level0Topo is %u", topoInfo->topoLevelNums, topoInfo->level0Topo);
     (void)configAlgMap;
     if (topoInfo->topoLevelNums > 1) {
-        selectAlgName = "InsReduceScatterSequenceMeshMeshDPU";
-        HCCL_INFO("Using algo InsReduceScatterSequenceMeshMeshDPU");
-        return SelectorStatus::MATCH;
+        if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+            selectAlgName = "InsV2ReduceScatterOmniPipe";
+            HCCL_INFO("Using algo InsV2ReduceScatterOmniPipe");
+            return SelectorStatus::MATCH;
+        } else {
+            selectAlgName = "InsReduceScatterSequenceMeshMeshDPU";
+            HCCL_INFO("Using algo InsReduceScatterSequenceMeshMeshDPU");
+            return SelectorStatus::MATCH;
+        }
     }
 
     return SelectorStatus::NOT_MATCH;
@@ -313,7 +334,14 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoAicpuForMesh1DClos(const
                                                                            const OpParam &opParam, u64 dataSize, double ratio,
                                                                            bool isClosNumMultipleOfMeshNum, std::string &selectAlgName) const
 {
-    if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
+    if (topoInfo->level0PcieMix) {
+        // PCIE机型算法选择
+        if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
+            selectAlgName = "InsReduceScatterMesh1D";
+        } else {
+            selectAlgName = "InsReduceScatterParallelMesh1DNHRPcie";
+        }
+    } else if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
         // MESH_1D 即可链接所有卡， 使用 MESH_1D 算法
         if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
             selectAlgName = "InsReduceScatterMesh1D";
@@ -327,7 +355,7 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoAicpuForMesh1DClos(const
             }
         }
     } else if (isClosNumMultipleOfMeshNum && !IsSmallData(dataSize)) {
-        selectAlgName = "InsReduceScatterParallelMesh1DNHR";
+        selectAlgName = "InsReduceScatterParallelMesh1DNHRUBX";
     } else {
         if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
             selectAlgName = "InsReduceScatterAicpuReduceNHR";

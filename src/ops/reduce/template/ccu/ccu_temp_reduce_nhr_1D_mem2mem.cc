@@ -9,11 +9,11 @@
  */
 
 #include "channel.h"
-#include "hccl_ccu_res.h"
 #include "ccu_assist_pub.h"
 #include "ccu_kernel_reduce_nhr1d_mem2mem.h"
 #include "ccu_temp_reduce_nhr_1D_mem2mem.h"
 #include "alg_data_trans_wrapper.h"
+#include "ccu_control_api.h"
 
 namespace ops_hccl {
 
@@ -153,19 +153,21 @@ HcclResult CcuTempReduceNHR1DMem2Mem::CalcRes(HcclComm comm, const OpParam& para
     for (uint32_t kernelIdx = 0; kernelIdx < kernelNum; kernelIdx++) {
         // 创建每个kernel的ctxArg，放入kernelInfo, 然后将kernelinfo放入resourceRequest.ccuKernelInfos
         CcuKernelInfo kernelInfo;
-        
-        kernelInfo.creator = [](const hcomm::CcuKernelArg &arg) {
-                                return std::make_unique<CcuKernelReduceNHR1DMem2Mem>(arg);
-                            };
-        kernelInfo.kernelArg = std::make_shared<CcuKernelArgReduceNHR1D>(subCommRanks_[0].size(),
-                                                                         mySubCommRank_,
-                                                                         rootId_,
-                                                                         kernelIdx, 
-                                                                         stepInfoVector, 
-                                                                         rank2ChannelIdx,
-                                                                         param, 
-                                                                         subCommRanks_, 
-                                                                         enableDieNum);
+
+        strcpy(kernelInfo.kernelFuncName, "CcuKernelReduceNHR1DMem2Mem");
+        kernelInfo.kernelFunc = reinterpret_cast<void *>(CcuReduceNHR1DMem2MemKernel);
+
+        auto kernelArg = std::make_shared<CcuKernelArgReduceNHR1DMem2Mem>();
+        kernelArg->rankSize = subCommRanks_[0].size();
+        kernelArg->rankId = mySubCommRank_;
+        kernelArg->rootId = rootId_;
+        kernelArg->axisId = kernelIdx;
+        kernelArg->stepInfoVector = stepInfoVector;
+        kernelArg->rank2ChannelIdx = rank2ChannelIdx;
+        kernelArg->opParam = param;
+        kernelArg->subCommRanks = subCommRanks_;
+        kernelArg->axisSize = enableDieNum;
+        kernelInfo.setKernelArg(kernelArg);
         kernelInfo.channels = channelsPerDie[kernelIdx];
         resourceRequest.ccuKernelInfos.push_back(kernelInfo);
     }
@@ -179,6 +181,10 @@ HcclResult CcuTempReduceNHR1DMem2Mem::CalcRes(HcclComm comm, const OpParam& para
 
 HcclResult CcuTempReduceNHR1DMem2Mem::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
 {
+    if (tempFastLaunchCtx.ccuKernelSubmitInfos.size() == 0) {
+        HCCL_INFO("[CcuTempReduceNHR1DMem2Mem::FastLaunch] ccu kernel num is 0, just success.");
+        return HCCL_SUCCESS;
+    }
     HCCL_DEBUG("[CcuTempReduceNHR1DMem2Mem::FastLaunch] start");
     u32 kernelNum = tempFastLaunchCtx.ccuKernelSubmitInfos.size();
     buffInfo_ = tempFastLaunchCtx.buffInfo;
@@ -197,10 +203,26 @@ HcclResult CcuTempReduceNHR1DMem2Mem::FastLaunch(const OpParam& param, const Tem
             cachedArgs[2], cachedArgs[3], cachedArgs[4], cachedArgs[5],
             cachedArgs[6], cachedArgs[7], cachedArgs[8], cachedArgs[9]);
 
-        void* taskArgPtr = static_cast<void*>(&taskArg);
 
-        CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0],
-            tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr));
+        uint64_t *args = const_cast<uint64_t*>(tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs);
+        constexpr u32 inputIdx = 0;
+        constexpr u32 outputIdx = 1;
+        constexpr u32 inputOffsetIdx = 8;
+        constexpr u32 outputOffsetIdx = 9;
+        uint64_t argSize = 8;
+
+        args[inputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + args[inputOffsetIdx];
+        args[outputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + args[outputOffsetIdx];
+
+        void *taskArgs = reinterpret_cast<void*>(args);
+
+        CcuResult launchRet = HcommCcuKernelLaunch(tempFastLaunchCtx.threads[0],
+                                                   tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle,
+                                                   taskArgs, argSize);
+        if (launchRet != CCU_SUCCESS) {
+            HCCL_ERROR("[CcuTempReduceNHR1DMem2Mem::FastLaunch] kernel launch failed, ccuRet -> %d", launchRet);
+            return ConvertCcuToHccl(launchRet);
+        }
     }
     // 后流同步
     if (kernelNum > 1) {
@@ -326,13 +348,17 @@ HcclResult CcuTempReduceNHR1DMem2Mem::KernelRun(const OpParam& param,
         if ((axisId == 0 && die0Size == 0) || (axisId == 1 && die1Size == 0)) {
             continue;
         }
-        std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgReduceNHR1D>(
-            inputAddr, outputAddr, token, isInputOutputEqual, die0Size, die1Size, die0SliceInfoVec[0][0].size, die1SliceInfoVec[0][0].size,
-            die0SliceInfoVec[templateRankSize_ - 1][0].size, die1SliceInfoVec[templateRankSize_ - 1][0].size);
 
-        void* taskArgPtr = static_cast<void*>(taskArg.get());
+        std::vector<uint64_t> taskArgs = {inputAddr, outputAddr, token, isInputOutputEqual, die0Size, die1Size,
+                                          die0SliceInfoVec[0][0].size, die1SliceInfoVec[0][0].size,
+                                          die0SliceInfoVec[templateRankSize_ - 1][0].size, die1SliceInfoVec[templateRankSize_ - 1][0].size};
+        uint64_t argSize = 10;
 
-        CHK_RET(HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[axisId], templateResource.ccuKernels[axisId], taskArgPtr));
+        CcuResult launchRet =  HcommCcuKernelLaunch(templateResource.threads[axisId], templateResource.ccuKernels[axisId], taskArgs.data(), argSize);
+        if (launchRet != CCU_SUCCESS) {
+            HCCL_ERROR("[CcuTempReduceNHR1DMem2Mem::KernelRun] kernel launch failed, ccuRet -> %d", launchRet);
+            return ConvertCcuToHccl(launchRet);
+        }
     }
 
     // 后流同步
@@ -345,9 +371,9 @@ HcclResult CcuTempReduceNHR1DMem2Mem::KernelRun(const OpParam& param,
 
     // 所有task下发完后再保存参数信息
     CcuKernelSubmitInfo submitInfo;
-    CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, token, isInputOutputEqual, die0Size,
-    die1Size, die0SliceInfoVec[0][0].size, die1SliceInfoVec[0][0].size, die0SliceInfoVec[templateRankSize_ - 1][0].size,
-    die1SliceInfoVec[templateRankSize_ - 1][0].size));
+    CHK_RET(FillCachedArgs(submitInfo, inputAddr, outputAddr, token, isInputOutputEqual, die0Size, die1Size,
+                           die0SliceInfoVec[0][0].size, die1SliceInfoVec[0][0].size, die0SliceInfoVec[templateRankSize_ - 1][0].size,
+                           die1SliceInfoVec[templateRankSize_ - 1][0].size, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff)); // input和output的offset追加在最后
     for (u32 i = 0; i < kernelNum; i++) {
         // 2个kernel的TaskArg相同
         submitInfo.kernelHandle = templateResource.ccuKernels[i];

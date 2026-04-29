@@ -70,6 +70,9 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchest
     dataCount_ = param.DataDes.count;
     dataType_ = param.DataDes.dataType;
     dataTypeSize_ =  DATATYPE_SIZE_TABLE[param.DataDes.dataType];
+    // 对dataTypeSize是否为0进行校验
+    CHK_PRT_RET(dataTypeSize_ == 0,
+	    HCCL_ERROR("[InsV2ReduceScatterSoleExecutor][Orchestrate] dataTypeSize is 0"), HCCL_E_INTERNAL);
     dataSize_ = dataCount_ * dataTypeSize_;
 
     HcclResult ret = OrchestrateLoop(param, resCtx);
@@ -110,6 +113,9 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchest
         std::make_shared<InsAlgTemplate>(param, resCtx.topoInfo.userRank, resCtx.algHierarchyInfo.infos[0]);
     u32 templateScratchMultiplier = algTemplate->CalcScratchMultiple(tempAlgParams.buffInfo.inBuffType,
                                                                      tempAlgParams.buffInfo.outBuffType);
+    if (param.engine == CommEngine::COMM_ENGINE_AICPU_TS) {
+        algTemplate->SetchannelsPerRank(templateAlgRes.channels);
+    }
     // 计算最小传输大小
     u64 maxDataSizePerLoop = 0;
     maxTmpMemSize_ = tempAlgParams.buffInfo.hcclBuff.size;

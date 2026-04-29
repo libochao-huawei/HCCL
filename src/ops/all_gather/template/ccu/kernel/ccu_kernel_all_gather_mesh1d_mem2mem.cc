@@ -140,25 +140,17 @@ void CcuKernelAllGatherMesh1DMem2Mem::DoAllGather(const hcomm::CcuRep::LocalAddr
     uint32_t channelId = 0;
     for (uint64_t rankIdx = 0; rankIdx < rankSize_; rankIdx++) {
         if (rankIdx == rankId_) {
-            CCU_IF(isInputOutputEqual_ != 0)
-            {
-                event_.SetMask(1 << rankIdx);
-                RecordEvent(event_);
-            }
-            CCU_IF(isInputOutputEqual_ == 0)
-            {
-                event_.SetMask(1 << rankIdx);
-                GroupCopy(remote_src, src_loccopy, localGoSize_);
-                RecordEvent(event_);
-            }
+            event_.SetMask(1 << rankIdx);
+            RecordEvent(event_);
         } else {
-            CCU_IF(normalSliceSize_ != 0)
-            {
-                event_.SetMask(1 << rankIdx);
-                WriteNb(channels_[channelId], dst[rankIdx], src, sliceSize, event_);
-            }
+            event_.SetMask(1 << rankIdx);
+            WriteNb(channels_[channelId], dst[rankIdx], src, sliceSize, event_);
             channelId++;
         }
+    }
+    CCU_IF(isInputOutputEqual_ == 0)
+    {
+        GroupCopy(remote_src, src_loccopy, localGoSize_);
     }
     event_.SetMask((1 << rankSize_) - 1);
     WaitEvent(event_);

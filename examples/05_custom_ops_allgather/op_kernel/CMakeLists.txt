@@ -95,6 +95,7 @@ add_custom_target(generate_kernel_obj ALL DEPENDS ${KERNEL_OBJ})
 
 install(FILES ${KERNEL_OBJ}
     DESTINATION ${CUSTOM_OPS_OPP_LIB_PATH}
+    COMPONENT hccl
 )
 
 add_custom_command(TARGET generate_kernel_obj POST_BUILD

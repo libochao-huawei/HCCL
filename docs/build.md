@@ -8,9 +8,9 @@
 
 本项目编译用到的软件依赖如下，注意满足版本号要求。
 
-- python: 3.7.x 至 3.13.x 版本
+- python >= 3.7.0
 - pip3 >= 20.3.0
-- gcc >= 7.3.0
+- gcc & g++ : 7.3.0 至 13.3.x
 - cmake >= 3.16.0
 - ccache（可选，用于提高二次编译速度）
 - googletest（仅执行UT时依赖，建议版本 release-1.14.0）
@@ -213,3 +213,4 @@ bash build.sh --ut
 | ------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | makeself      | 2.5.0                  | [makeself-release-2.5.0-patch1.tar.gz](https://gitcode.com/cann-src-third-party/makeself/releases/download/release-2.5.0-patch1.0/makeself-release-2.5.0-patch1.tar.gz)                                     |
 | googletest    | 1.14.0                 | [googletest-1.14.0.tar.gz](https://gitcode.com/cann-src-third-party/googletest/releases/download/v1.14.0/googletest-1.14.0.tar.gz)|
+| cann-cmake     | master-001            | [cmake-master-001.tar.gz](https://cann-3rd.obs.cn-north-4.myhuaweicloud.com/cmake/cmake-master-001.tar.gz) |

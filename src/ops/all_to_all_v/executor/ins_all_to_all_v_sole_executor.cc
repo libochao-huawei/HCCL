@@ -185,6 +185,7 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLo
     tempAlgParams.buffInfo.outputPtr = param.outputPtr;
     tempAlgParams.buffInfo.inputSize = param.inputSize;
     tempAlgParams.buffInfo.outputSize = param.outputSize;
+    tempAlgParams.buffInfo.hcclBuff = resCtx.cclMem;
     tempAlgParams.buffInfo.inBuffBaseOff = 0;
     tempAlgParams.buffInfo.outBuffBaseOff = 0;
     tempAlgParams.buffInfo.hcclBuffBaseOff = 0;

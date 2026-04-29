@@ -28,7 +28,7 @@ struct CcuKernelArgReduceScatterMesh1D: CcuKernelArgBase{
 
 struct ReduceScatterMesh1DContext: CcuKernelCtxBase {
     const CcuKernelArgReduceScatterMesh1D *arg;
-    
+
     // uint64_t rankSize{0};
     // uint32_t rankId{0};
     HcclDataType dataType;

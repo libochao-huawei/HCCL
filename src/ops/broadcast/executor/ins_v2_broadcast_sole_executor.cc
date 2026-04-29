@@ -43,7 +43,7 @@ HcclResult InsV2BroadcastSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(Hcc
     std::shared_ptr<InsAlgTemplate> algTemplate = std::make_shared<InsAlgTemplate>(param, topoInfo->userRank, algHierarchyInfo.infos[0]);
 
     // 调用计算资源的函数
-    algTemplate->CalcRes(comm, param, topoInfo, resourceRequest);
+    CHK_RET(algTemplate->CalcRes(comm, param, topoInfo, resourceRequest));
     // 在comb_exector或是parallel_exector中合并两个template的资源
     return HCCL_SUCCESS;
 }
@@ -93,7 +93,9 @@ HcclResult InsV2BroadcastSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     tempAlgParams.buffInfo.outBuffType = BufferType::INPUT;
     tempAlgParams.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
     tempAlgParams.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
-
+    CHK_PTR_NULL(tempAlgParams.buffInfo.inputPtr);
+ 	CHK_PTR_NULL(tempAlgParams.buffInfo.outputPtr);
+ 	CHK_PTR_NULL(tempAlgParams.buffInfo.hcclBuff.addr);
     tempAlgParams.buffInfo.hcclBuffBaseOff = 0;
     tempAlgParams.inputSliceStride = 0;
     tempAlgParams.outputSliceStride = 0;
@@ -111,7 +113,7 @@ HcclResult InsV2BroadcastSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     u64 maxDataSizePerLoop = 0;
     maxTmpMemSize_ = tempAlgParams.buffInfo.hcclBuff.size;
     u64 transportBoundDataSize = UB_MAX_DATA_SIZE; // algTemplate->CalcLoopMaxCount();
-    HCCL_INFO("[InsV2BroadcastSoleExecutor]maxTmpMemSize_ [%u]", maxTmpMemSize_);
+    HCCL_INFO("[InsV2BroadcastSoleExecutor]maxTmpMemSize_ [%llu]", maxTmpMemSize_);
     if (templateScratchMultiplier != 0) {
         u64 scratchBoundDataSize = maxTmpMemSize_ / templateScratchMultiplier / HCCL_MIN_SLICE_ALIGN * HCCL_MIN_SLICE_ALIGN;
         maxDataSizePerLoop = std::min(transportBoundDataSize, scratchBoundDataSize);
@@ -132,7 +134,9 @@ HcclResult InsV2BroadcastSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
         HCCL_ERROR("[InsV2BroadcastSoleExecutor][OrchestrateOpbase] maxDataCountPerLoop is 0"), HCCL_E_INTERNAL);
 
     u64 loopTimes = dataSize / maxLoopOutputSize + static_cast<u64>(dataSize % maxLoopOutputSize != 0);
-
+    HCCL_INFO(
+        "[InsV2BroadcastSoleExecutor][OrchestrateOpbase] myRank_[%llu], dataSize[%llu], dataTypeSize_[%llu], maxDataCountPerLoop[%llu], loopTimes[%llu]",
+        myRank_, dataSize, dataTypeSize_, maxDataCountPerLoop, loopTimes);
     for (u64 loop = 0; loop < loopTimes; loop++) {
         u64 currloopOffset = loop * maxLoopOutputSize;
         u64 currSize = (loop == (loopTimes - 1)) ?  dataSize - currloopOffset : maxLoopOutputSize;
@@ -143,7 +147,8 @@ HcclResult InsV2BroadcastSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
 
         tempAlgParams.sliceSize = currSize;
         tempAlgParams.tailSize = tempAlgParams.sliceSize;
-
+        HCCL_DEBUG("[InsV2BroadcastSoleExecutor] Rank[%d], before generating instruction queues, currSize[%llu], currOffset[%llu].",
+                   myRank_, currSize, currloopOffset);
         CHK_RET(algTemplate->KernelRun(param, tempAlgParams, templateAlgRes));
         HCCL_DEBUG("[InsV2BroadcastSoleExecutor] Rank[%d], done generating instruction queues, currSize[%llu], currOffset[%llu].",
                    myRank_, currSize, currloopOffset);
