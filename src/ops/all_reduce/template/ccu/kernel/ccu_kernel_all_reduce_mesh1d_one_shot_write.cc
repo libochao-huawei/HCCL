@@ -38,10 +38,10 @@ HcclResult CcuKernelAllReduceMesh1DOneShotWrite::Algorithm()
 {
     HCCL_INFO("[CcuKernelAllReduceMesh1DOneShotWrite] AllReduceMesh1DOneShotWrite start");
     CHK_RET(InitResource());
-    // LoadArgs();
+    LoadArgs();
     // Presync();
-    // DoGroupWrite();
-    Postsync();
+    DoGroupWrite();
+    // Postsync();
     HCCL_INFO("[CcuKernelAllReduceMesh1DOneShotWrite] AllReduceMesh1DOneShotWrite end");
     return HcclResult::HCCL_SUCCESS;
 }
