@@ -1641,7 +1641,7 @@ HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeI
 HcclResult ReportOpExchangeInfoCheckFailed(const OpExchangeInfo &exchangeInfo, const std::string &paraName,
     uint32_t expectVal, uint32_t remotePara)
 {
-    std::sring opInfo = "Unknown";
+    std::string opInfo = "Unknown";
     for (const auto &pair : HCCL_OPTYPE_NAME_MAP) {
         if (pair.second == exchangeInfo.opType) {
             opInfo = std::string(pair.first);
@@ -1660,7 +1660,7 @@ HcclResult ReportOpExchangeInfoCheckFailed(const OpExchangeInfo &exchangeInfo, c
 HcclResult ReportOpExchangeInfoCheckFailed(const OpExchangeInfo &exchangeInfo, const std::string &paraName,
     const std::string &expectVal, const std::string &remotePara)
 {
-    std::sring opInfo = "Unknown";
+    std::string opInfo = "Unknown";
     for (const auto &pair : HCCL_OPTYPE_NAME_MAP) {
         if (pair.second == exchangeInfo.opType) {
             opInfo = std::string(pair.first);
