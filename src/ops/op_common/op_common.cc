@@ -788,13 +788,13 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
             // host dpu申请device内存用于存放resctx
             ctxEngine = COMM_ENGINE_AICPU_TS;
         }
-        if (HcclEngineCtxGet(comm, param.algTag, ctxEngine, &ctx, &size) == HCCL_SUCCESS) {
-            HCCL_DEBUG("Already have context, skip create, ctxSize is %u", param.ctxSize);
-            isResourceReused = true;
-            *resCtxSequence = ctx;
-            param.ctxSize = size;
-            return HCCL_SUCCESS;
-        }
+        // if (HcclEngineCtxGet(comm, param.algTag, ctxEngine, &ctx, &size) == HCCL_SUCCESS) {
+        //     HCCL_DEBUG("Already have context, skip create, ctxSize is %u", param.ctxSize);
+        //     isResourceReused = true;
+        //     *resCtxSequence = ctx;
+        //     param.ctxSize = size;
+        //     return HCCL_SUCCESS;
+        // }
     }
 
     // 计算AlgHierarchyInfo
@@ -1209,10 +1209,10 @@ HcclResult GetAlgResCcu(HcclComm comm, const OpParam& param, AlgResourceRequest&
     uint64_t size = seq.size();
 
     void *ctx = nullptr;
-    CHK_RET(HcclEngineCtxCreate(comm, param.algTag, param.engine, size, &ctx));
-    memcpy_s(ctx, size, seq.data(), size);
-    *resCtxSequence = ctx;
-    ctxSize = size;
+    // CHK_RET(HcclEngineCtxCreate(comm, param.algTag, param.engine, size, &ctx));
+    // memcpy_s(ctx, size, seq.data(), size);
+    // *resCtxSequence = ctx;
+    // ctxSize = size;
     HCCL_INFO("Execute GetAlgResCCU success.");
     return HCCL_SUCCESS;
 }

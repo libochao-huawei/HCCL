@@ -198,11 +198,11 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLo
 
     CHK_RET(algTemplate->KernelRun(param, tempAlgParams, templateAlgRes));
 
-#ifndef AICPU_COMPILE
-    if (param.engine == CommEngine::COMM_ENGINE_CCU && param.opType != HcclCMDType::HCCL_CMD_ALLTOALLVC && param.opMode != OpMode::OFFLOAD) {
-        CHK_RET(FastLaunchSaveCtx(param, templateAlgRes));
-    }
-#endif
+// #ifndef AICPU_COMPILE
+//     if (param.engine == CommEngine::COMM_ENGINE_CCU && param.opType != HcclCMDType::HCCL_CMD_ALLTOALLVC && param.opMode != OpMode::OFFLOAD) {
+//         CHK_RET(FastLaunchSaveCtx(param, templateAlgRes));
+//     }
+// #endif
 
     HCCL_INFO("[InsAlltoAllVSoleExecutor][OrchestrateLoop] End.");
     return HCCL_SUCCESS;
