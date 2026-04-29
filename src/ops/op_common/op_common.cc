@@ -1636,7 +1636,7 @@ HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeI
 HcclResult ReportOpExchangeInfoCheckFailed(const std::string &paraName, uint32_t expectVal,
     uint32_t remotePara)
 {
-    RPT_INPUT_ERR(true, "EI0005", std::vector<std::string>({"ParaName", "expectValue", "RemotePara"}),
+    RPT_INPUT_ERR(true, "EI0005", std::vector<std::string>({"para_name", "local_para", "remote_para"}),
         std::vector<std::string>({paraName, std::to_string(expectVal), std::to_string(remotePara)}));
     HCCL_ERROR("[ReportOpExchangeInfoCheckFailed]op information %s check fail. expectValue[%u] remotePara[%u]",
         paraName.c_str(), expectVal, remotePara);
@@ -1646,7 +1646,7 @@ HcclResult ReportOpExchangeInfoCheckFailed(const std::string &paraName, uint32_t
 HcclResult ReportOpExchangeInfoCheckFailed(const std::string &paraName, const std::string &expectVal,
     const std::string &remotePara)
 {
-    RPT_INPUT_ERR(true, "EI0005", std::vector<std::string>({"ParaName", "expectValue", "RemotePara"}),
+    RPT_INPUT_ERR(true, "EI0005", std::vector<std::string>({"para_name", "local_para", "remote_para"}),
         std::vector<std::string>({paraName, expectVal, remotePara}));
     HCCL_ERROR("[ReportOpExchangeInfoCheckFailed]op information %s check fail. expectValue[%s] remotePara[%s]",
         paraName.c_str(), expectVal.c_str(), remotePara.c_str());
