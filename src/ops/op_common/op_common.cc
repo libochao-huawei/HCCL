@@ -1573,57 +1573,62 @@ HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeI
             continue;
         }
         if (exchangeInfo.cclBufferSize != rmtExchangeInfo.cclBufferSize) {
-            CHK_RET(ReportOpExchangeInfoCheckFailed("HcclBufferSize", std::to_string(exchangeInfo.cclBufferSize),
-                std::to_string(rmtExchangeInfo.cclBufferSize)));
+            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "HcclBufferSize",
+                std::to_string(exchangeInfo.cclBufferSize), std::to_string(rmtExchangeInfo.cclBufferSize)));
         }
         if (exchangeInfo.root != rmtExchangeInfo.root) {
-            CHK_RET(ReportOpExchangeInfoCheckFailed("RootRankId", exchangeInfo.root, rmtExchangeInfo.root));
+            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "RootRankId", exchangeInfo.root,
+                rmtExchangeInfo.root));
         }
-        if (exchangeInfo.opType == HcclCMDType::HCCL_CMD_SEND && rmtExchangeInfo.opType != HcclCMDType::HCCL_CMD_RECEIVE) {
-            CHK_RET(ReportOpExchangeInfoCheckFailed("HcclCMDType", static_cast<uint32_t>(HcclCMDType::HCCL_CMD_RECEIVE),
-                static_cast<uint32_t>(rmtExchangeInfo.opType)));
+        if (exchangeInfo.opType == HcclCMDType::HCCL_CMD_SEND &&
+            rmtExchangeInfo.opType != HcclCMDType::HCCL_CMD_RECEIVE) {
+            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "HcclCMDType",
+                static_cast<uint32_t>(HcclCMDType::HCCL_CMD_RECEIVE), static_cast<uint32_t>(rmtExchangeInfo.opType)));
         } else if (exchangeInfo.opType == HcclCMDType::HCCL_CMD_RECEIVE &&
             rmtExchangeInfo.opType != HcclCMDType::HCCL_CMD_SEND) {
-            CHK_RET(ReportOpExchangeInfoCheckFailed("HcclCMDType", static_cast<uint32_t>(HcclCMDType::HCCL_CMD_SEND),
-                static_cast<uint32_t>(rmtExchangeInfo.opType)));
+            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "HcclCMDType",
+                static_cast<uint32_t>(HcclCMDType::HCCL_CMD_SEND), static_cast<uint32_t>(rmtExchangeInfo.opType)));
         } else if (exchangeInfo.opType != rmtExchangeInfo.opType) {
-            CHK_RET(ReportOpExchangeInfoCheckFailed("HcclCMDType", static_cast<uint32_t>(exchangeInfo.opType),
-                static_cast<uint32_t>(rmtExchangeInfo.opType)));
+            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "HcclCMDType",
+                static_cast<uint32_t>(exchangeInfo.opType), static_cast<uint32_t>(rmtExchangeInfo.opType)));
         }
         if (exchangeInfo.engine != rmtExchangeInfo.engine) {
-            CHK_RET(ReportOpExchangeInfoCheckFailed("CommEngine", static_cast<uint32_t>(exchangeInfo.engine),
-                static_cast<uint32_t>(rmtExchangeInfo.engine)));
+            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "CommEngine",
+                static_cast<uint32_t>(exchangeInfo.engine), static_cast<uint32_t>(rmtExchangeInfo.engine)));
         }
         if (exchangeInfo.opExecuteConfig != rmtExchangeInfo.opExecuteConfig) {
-            CHK_RET(ReportOpExchangeInfoCheckFailed("OpExecuteConfig", static_cast<uint32_t>(exchangeInfo.opExecuteConfig),
+            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "OpExecuteConfig",
+                static_cast<uint32_t>(exchangeInfo.opExecuteConfig),
                 static_cast<uint32_t>(rmtExchangeInfo.opExecuteConfig)));
         }
         if (exchangeInfo.reduceType != rmtExchangeInfo.reduceType) {
-            CHK_RET(ReportOpExchangeInfoCheckFailed("HcclReduceOp", static_cast<uint32_t>(exchangeInfo.reduceType),
-                static_cast<uint32_t>(rmtExchangeInfo.reduceType)));
+            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "HcclReduceOp",
+                static_cast<uint32_t>(exchangeInfo.reduceType), static_cast<uint32_t>(rmtExchangeInfo.reduceType)));
         }
         if (exchangeInfo.dataType != rmtExchangeInfo.dataType) {
-            CHK_RET(ReportOpExchangeInfoCheckFailed("HcclDataType", static_cast<uint32_t>(exchangeInfo.dataType),
-                static_cast<uint32_t>(rmtExchangeInfo.dataType)));
+            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "HcclDataType",
+                static_cast<uint32_t>(exchangeInfo.dataType), static_cast<uint32_t>(rmtExchangeInfo.dataType)));
         }
         if (exchangeInfo.count != rmtExchangeInfo.count) {
-            CHK_RET(ReportOpExchangeInfoCheckFailed("DataCount", std::to_string(exchangeInfo.count),
+            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "DataCount", std::to_string(exchangeInfo.count),
                 std::to_string(rmtExchangeInfo.count)));
         }
         if (exchangeInfo.aivCoreLimit != rmtExchangeInfo.aivCoreLimit) {
-            CHK_RET(ReportOpExchangeInfoCheckFailed("AivCoreLimit", exchangeInfo.aivCoreLimit,
+            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "AivCoreLimit", exchangeInfo.aivCoreLimit,
                 rmtExchangeInfo.aivCoreLimit));
         }
         if (strncmp(exchangeInfo.group, rmtExchangeInfo.group, MAX_LENGTH) != 0) {
-            CHK_RET(ReportOpExchangeInfoCheckFailed("GroupName", exchangeInfo.group, rmtExchangeInfo.group));
+            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "GroupName", exchangeInfo.group,
+                rmtExchangeInfo.group));
         }
         if (strncmp(exchangeInfo.algTag, rmtExchangeInfo.algTag, ALG_TAG_LENGTH) != 0) {
-            CHK_RET(ReportOpExchangeInfoCheckFailed("AlgTag", exchangeInfo.algTag, rmtExchangeInfo.algTag));
+            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "AlgTag", exchangeInfo.algTag,
+                rmtExchangeInfo.algTag));
         }
         if (exchangeInfo.opType == HcclCMDType::HCCL_CMD_SEND || exchangeInfo.opType == HcclCMDType::HCCL_CMD_RECEIVE){
             if (exchangeInfo.sendRecvRemoteRank != channel.remoteRank) {
-                CHK_RET(ReportOpExchangeInfoCheckFailed("SendRecvRemoteRank", exchangeInfo.sendRecvRemoteRank,
-                    channel.remoteRank));
+                CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "SendRecvRemoteRank",
+                    exchangeInfo.sendRecvRemoteRank, channel.remoteRank));
             }
         }
     }
