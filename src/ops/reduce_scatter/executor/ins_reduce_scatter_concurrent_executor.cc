@@ -18,6 +18,7 @@
 #include "ccu_temp_reduce_scatter_mesh_1D_mem2mem.h"
 #include "ccu_temp_reduce_scatter_mesh_1D.h"
 #include "ccu_temp_reduce_scatter_nhr_1D_mem2mem.h"
+#include "ins_temp_reduce_scatter_mesh_1D_meshchunk.h"
 #include "op_common.h"
 #endif
 
@@ -369,6 +370,8 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
 
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, InsReduceScatterConcurrentMeshNHRUBX, InsReduceScatterConcurrentExecutor, TopoMatchUBX,
     InsTempReduceScatterMesh1D, InsTempReduceScatterNHR);
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, InsReduceScatterConcurrentMeshChunkNHR, InsReduceScatterConcurrentExecutor, TopoMatch1D,
+    InsTempReduceScatterMesh1DMeshChunk, InsTempReduceScatterNHR);
 #ifndef AICPU_COMPILE
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterConcurrentMeshNHRScheUBX, InsReduceScatterConcurrentExecutor, TopoMatchUBX,
     CcuTempReduceScatterMesh1DMem2Mem, CcuTempReduceScatterNhrMultiJettyMem2Mem1D);
