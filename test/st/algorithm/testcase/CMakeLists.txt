@@ -19,6 +19,9 @@ set(src_list
     alltoall_testcase.cc
     alltoallv_testcase.cc
     alltoallvc_testcase.cc
+    all_gather_aicpu_testcase.cc
+    all_gather_v_testcase.cc
+    reduce_testcase.cc
 )
 
 add_executable(hccl_checker_ops_stest ${src_list})

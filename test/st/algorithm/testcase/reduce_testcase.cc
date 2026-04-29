@@ -203,6 +203,17 @@ TEST_P(ST_REDUCE_TEST, st_reduce_aicpu_test)
     RunReduceTest(topoMeta, recvCount, dataType, reduceOp, root);
 }
 
+TEST_F(ST_REDUCE_TEST, host_AICPU_opbase_reduce_1_BF16_SUM)
+{
+    TopoMeta topoMeta{{{0, 1, 2, 3, 4, 5, 6, 7}}};
+    u64 dataCount = 1073741824;
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_BFP16;
+    u32 dataTypeSize = 2;
+    u32 root = 3;
+    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_SUM;
+    RunReduceDPUCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp, root);
+}
+
 TEST_F(ST_REDUCE_TEST, host_dpu_opbase_reduce_1_int8_min)
 {
     TopoMeta topoMeta{{{0, 1}, {0, 1}}};
