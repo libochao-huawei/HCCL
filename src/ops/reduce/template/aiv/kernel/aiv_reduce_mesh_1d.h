@@ -129,8 +129,7 @@ public:
 
             if (rankChunkSize > 0) {
                 uint64_t inputOffset = input_ + (targetRank * rankChunkStride) * sizeof(T);
-                uint64_t outputOffset = reinterpret_cast<uint64_t>(GM_IN[targetRank]) +
-                    (rank_ * rankChunkSize) * sizeof(T);
+                uint64_t outputOffset = reinterpret_cast<uint64_t>(GM_IN[targetRank]) + (rank_ * rankChunkSize) * sizeof(T);
                 CpGM2GM((__gm__ T *)outputOffset, (__gm__ T *)inputOffset, rankChunkSize);
                 pipe_barrier(PIPE_ALL);
             }
@@ -284,14 +283,17 @@ public:
 };
  
 template<typename T>
-__aicore__ inline void AivReduceV2Mesh1D(KERNEL_ARGS_DEF)
+__aicore__ inline void AivReduceV2Mesh1D(EXTERN_KERNEL_ARGS_DEF_V2)
 {
     constexpr static uint64_t TWO_SHOT_SLICE_NUM = 256 * 1024;
+    (void)extraArgs;
     AivReduceMesh1DTwoShot<T> op;
     op.Init(KERNEL_CLASS_INIT, true);
+    SyncAll<true>(); 
     if (op.IsFirstOP(sliceId)) {
         op.BarrierForFirstOP();
     }
+    SyncAll<true>();
     op.InitCoreInfo(sliceId);
     op.ReduceScatter();
     op.GatherToRoot();    
