@@ -252,12 +252,6 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
                 const u32 txIdx = st.txSliceIdxs[i]; // 算法序
                 const u32 rxIdx = st.rxSliceIdxs[i];
 
-                // sizeOut = sizeOut_;
-                // elemOffset = elemOffset_;
-                // if (txIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize > 0) {
-                //     sizeOut = sizeOutTail_;
-                //     elemOffset = elemOffsetTail_;
-                // }
                 const u64 txelemOffset = (txIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize > 0) ?
                     elemOffsetTail_[channelIdx] : elemOffset_[channelIdx];
                 const u64 rxelemOffset = (rxIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize > 0) ?
