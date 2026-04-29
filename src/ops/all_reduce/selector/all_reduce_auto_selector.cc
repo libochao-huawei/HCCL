@@ -365,10 +365,6 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetL
         }
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
         if (topoInfo->level0PcieMix) {
-            if (isDataTypeOrReduceTypeSpecial) {
-                HCCL_ERROR("[SelectAicpuAlgo] INT64, UINT64, FP64 and PROD reduceType not support now."); 
-                return SelectorStatus::NOT_MATCH;                 
-            }
             if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
                 if (isDataTypeOrReduceTypeSpecial) {
                     selectAlgName = dataSize <= AR_AICPU_1D_64DATATYPE_DATA_SIZE ?
