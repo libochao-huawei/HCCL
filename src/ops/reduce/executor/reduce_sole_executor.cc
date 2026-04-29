@@ -183,7 +183,7 @@ HcclResult ReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunchSaveCtx(
     const OpParam &param, const TemplateResource &templateAlgRes)
 {
     HCCL_INFO("[ReduceSoleExecutor] loopTimes==1, save fast launch ctx.");
-    u32 threadNum = 1;
+    u32 threadNum = templateAlgRes.submitInfos.size();
     u32 ccuKernelNum = templateAlgRes.submitInfos.size();
     if (ccuKernelNum < 1) {
         HCCL_INFO("[ReduceSoleExecutor] ccu kernel num is 0, no need to save.");
@@ -205,7 +205,10 @@ HcclResult ReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunchSaveCtx(
     // 2 thread
     ccuFastLaunchCtx->threadNum = threadNum;
     ThreadHandle *threads = ccuFastLaunchCtx->GetThreadHandlePtr();
-    threads[0] = templateAlgRes.threads[0];
+    for (int i = 0; i < threadNum; i++)
+    {
+        threads[i] = templateAlgRes.threads[i];
+    }
 
     // 3 ccu kernel handle, taskArg入参
     ccuFastLaunchCtx->ccuKernelNum[0] = ccuKernelNum;
@@ -248,10 +251,8 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE, ReduceAicpuReduceNHR, ReduceSoleE
 
 #ifndef AICPU_COMPILE
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE, AivReduceMesh1D, ReduceSoleExecutor, TopoMatch1D, AivTempReduceMesh1D);
-REGISTER_EXEC_V2(
-    HcclCMDType::HCCL_CMD_REDUCE, CcuReduceMesh1DMem2Mem, ReduceSoleExecutor, TopoMatch1D, CcuTempReduceMesh1DMem2Mem);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE, CcuReduceMesh1D, ReduceSoleExecutor, TopoMatch1D, CcuTempReduceMesh1D);
-REGISTER_EXEC_V2(
-    HcclCMDType::HCCL_CMD_REDUCE, CcuReduceNHR1DMem2Mem, ReduceSoleExecutor, TopoMatch1D, CcuTempReduceNHR1DMem2Mem);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE, CcuReduceMesh1DMem2Mem, ReduceSoleExecutor, TopoMatch1D, CcuTempReduceMesh1DMem2Mem);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE, CcuReduceNHR1DMem2Mem, ReduceSoleExecutor, TopoMatch1D, CcuTempReduceNHR1DMem2Mem);
 #endif
 }  // namespace ops_hccl
