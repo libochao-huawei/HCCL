@@ -381,8 +381,6 @@ HcclResult ConstructHcclDfxOpInfo(const OpParam &param, HcclDfxOpInfo& hcclDfxOp
     hcclDfxOpInfo.inputMemSize = param.inputSize;
     hcclDfxOpInfo.outputMemAddr = reinterpret_cast<uint64_t>(param.outputPtr);
     hcclDfxOpInfo.outputMemSize = param.outputSize;
-    hcclDfxOpInfo.cclMemAddr = reinterpret_cast<uint64_t>(param.hcclBuff.addr);
-    hcclDfxOpInfo.cclMemSize = param.hcclBuff.size;
 
     hcclDfxOpInfo.cpuTsThread = cpuTsThread;
     hcclDfxOpInfo.cpuWaitAicpuNotifyIdx = HOST_WAIT_AICPU_NOTIFYIDX;
@@ -390,13 +388,12 @@ HcclResult ConstructHcclDfxOpInfo(const OpParam &param, HcclDfxOpInfo& hcclDfxOp
     CHK_PRT_RET(sRet != EOK, HCCL_ERROR("%s call strncpy_s failed, param.algTag %s,  return %d.",
         __func__, param.algTag, sRet), HCCL_E_MEMORY);
     HCCL_INFO("[%s]HcclDfxOpInfo param: algTag[%s], opMode[%u], opType[%u], reduceOp[%u], dataType[%u], dataCount[%llu],"
-        "root[%u], engine[%u], inputPtr[0x%llu], inputSize[%llu], outputPtr[0x%llu], outputSize[%llu], cclPtr[0x%llu], "
-        "cclSize[%llu], cpuTsThread[0x%llu], cpuWaitAicpuNotifyIdx[%u]",
+        "root[%u], engine[%u], inputPtr[0x%llu], inputSize[%llu], outputPtr[0x%llu], outputSize[%llu]"
+        "cpuTsThread[0x%llu], cpuWaitAicpuNotifyIdx[%u]",
         __func__, hcclDfxOpInfo.algTag, hcclDfxOpInfo.opMode, hcclDfxOpInfo.opType, hcclDfxOpInfo.reduceOp,
         hcclDfxOpInfo.dataType, hcclDfxOpInfo.dataCount, hcclDfxOpInfo.root, hcclDfxOpInfo.engine,
         hcclDfxOpInfo.inputMemAddr, hcclDfxOpInfo.inputMemSize, hcclDfxOpInfo.outputMemAddr,
-        hcclDfxOpInfo.outputMemSize, hcclDfxOpInfo.cclMemAddr, hcclDfxOpInfo.cclMemSize, hcclDfxOpInfo.cpuTsThread,
-        hcclDfxOpInfo.cpuWaitAicpuNotifyIdx);
+        hcclDfxOpInfo.outputMemSize, hcclDfxOpInfo.cpuTsThread, hcclDfxOpInfo.cpuWaitAicpuNotifyIdx);
     return HCCL_SUCCESS;
 }
 
