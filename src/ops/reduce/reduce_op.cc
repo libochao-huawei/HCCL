@@ -220,10 +220,10 @@ HcclResult ReduceOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t count, Hc
     OpParam param;
     CHK_RET(ReduceConstructOpParam(sendBuf, recvBuf, count, dataType, op, root, comm, stream, tag, param));
 
-    CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
-    if ((opMode == OpMode::OPBASE) && ShouldGoCcuFastLaunch(comm, param, &ccuFastLaunchCtx)) {
-        return HcclExecOpCcuFastLaunch(comm, param, ccuFastLaunchCtx);
-    }
+    //CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
+    //if ((opMode == OpMode::OPBASE) && ShouldGoCcuFastLaunch(comm, param, &ccuFastLaunchCtx)) {
+    //    return HcclExecOpCcuFastLaunch(comm, param, ccuFastLaunchCtx);
+    //}
 
     if (userRankSize == 1) {
         HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
