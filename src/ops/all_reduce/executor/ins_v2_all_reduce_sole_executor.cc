@@ -25,6 +25,7 @@
 #include "ccu_temp_all_reduce_mesh_1D_2die_oneshot.h"
 #include "ccu_temp_all_reduce_mesh_1D_mem2mem_2die_oneshot.h"
 #include "ccu_temp_all_reduce_nhr_mem2mem_1D_multi_jetty.h"
+#include "ccu_temp_all_reduce_mesh_1D_flatten.h"
 #endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 
@@ -285,6 +286,11 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh1DMem2Mem2DieO
 #if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceNHR1DMem2MemMultiJetty, InsV2AllReduceSoleExecutor, TopoMatch1D,
     CcuTempAllReduceNhrMem2Mem1DMultiJetty);
+#endif /* !HCCL_CANN_COMPAT_850 */
+#if !defined(HCCL_CANN_COMPAT_850)
+
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceNHR1DMem2MemFlatten, InsV2AllReduceSoleExecutor, TopoMatch1D,
+    CcuTempAllReduceMesh1DFlatten);
 #endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 }  // namespace ops_hccl
