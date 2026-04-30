@@ -321,6 +321,12 @@ HcclResult HcclExecOpCcuFastLaunch(HcclComm comm, OpParam &param, const CcuFastL
     CHK_RET(HcclGetHcclBuffer(comm, &cclBufferAddr, &cclBufferSize));
     // CCL IN使用所有的CCL Buffer，这个其实就是scratch buffer
     param.hcclBuff = HcclMem{HCCL_MEM_TYPE_DEVICE, cclBufferAddr, cclBufferSize};
+    // 覆盖主流
+    ThreadHandle mainThread;
+    CHK_RET(HcclThreadAcquireWithStream(comm, param.engine, param.stream,
+        ccuFastLaunchCtx->notifyNumOnMainThread, &mainThread));
+    ThreadHandle *threads = ctx->GetThreadHandlePtr();
+    threads[0] = mainThread;
 
     uint64_t beginTime = HcommGetProfilingSysCycleTime();
     // Op注册
@@ -549,6 +555,11 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
             char *ctx = static_cast<char*>(resCtxSequence);
             std::vector<char> seq(ctx, ctx + param.ctxSize);
             resCtxHost->DeSerialize(seq);
+            // 覆盖主流
+            ThreadHandle thread;
+            CHK_RET(HcclThreadAcquireWithStream(comm, param.engine, param.stream,
+                resCtxHost->notifyNumOnMainThread, &thread));
+            resCtxHost->threads[0] = thread;
         }
         int result = sprintf_s(param.algName, sizeof(param.algName), "%s", algName.c_str());
         if (result <= 0) {
