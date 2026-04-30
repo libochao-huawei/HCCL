@@ -592,6 +592,13 @@ struct ResPackGraphMode {
     u64 scratchMemSize;
 };
 
+// 图模式内存注册信息
+struct MemRegInfo {
+    char inputBuffTag[MAX_MEM_TAG_LENGTH];    // 输入缓冲区标签
+    char outputBuffTag[MAX_MEM_TAG_LENGTH];   // 输出缓冲区标签
+    std::vector<HcclMemHandle> memHandles;    // 内存句柄列表
+};
+
 // AIV模式参数存储结构
 struct AivParamStorage {
     u32 aivCoreLimit = 0;
