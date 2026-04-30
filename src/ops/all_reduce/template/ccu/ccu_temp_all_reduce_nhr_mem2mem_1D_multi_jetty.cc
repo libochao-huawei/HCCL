@@ -153,20 +153,55 @@ HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::KernelRun(const OpParam& para
 
     CcuResult launchRet =  HcommCcuKernelLaunch(templateResource.threads[0], templateResource.ccuKernels[0], taskArgs.data(), argSize);
     if (launchRet != CCU_SUCCESS) {
-        HCCL_ERROR("[CcuTempAllReduceMesh1D::KernelRun] kernel launch failed, ccuRet -> %d", launchRet);
+        HCCL_ERROR("[CcuTempAllReduceNhrMem2Mem1DMultiJetty::KernelRun] kernel launch failed, ccuRet -> %d", launchRet);
         return ConvertCcuToHccl(launchRet);
     }
-    //快速下发
-    // CcuKernelSubmitInfo submitInfo;
-    // submitInfo.kernelHandle = templateResource.ccuKernels[0];
-    // CHK_RET(FillCachedArgs(submitInfo, inputAddr, outputAddr, token, offSet, 
-    //         goSize[0], goSize[1], goSize[2], goSize[3], 
-    //         buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff));
-    // templateResource.submitInfos.push_back(submitInfo);
+
+    CcuKernelSubmitInfo submitInfo;
+    submitInfo.kernelHandle = templateResource.ccuKernels[0];
+    CHK_RET(FillCachedArgs(submitInfo, inputAddr, outputAddr, outputToken, isInplace,
+        dataSizePerRank, dataSizePerPort, lastRankSliceSize, lastPortSliceSize,
+        localCopyGoSize[0], localCopyGoSize[1], localCopyGoSize[2], localCopyGoSize[3],
+        localCopyGoSizeLastSlice[0], localCopyGoSizeLastSlice[1], localCopyGoSizeLastSlice[2], localCopyGoSizeLastSlice[3],
+        buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff));
+    templateResource.submitInfos.push_back(submitInfo);
     
 
     HCCL_DEBUG("[%s] end.", __func__);
 
+    return HcclResult::HCCL_SUCCESS;
+}
+
+HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::FastLaunch(const OpParam& param,
+    const TemplateFastLaunchCtx& tempFastLaunchCtx)
+{
+    if (tempFastLaunchCtx.ccuKernelSubmitInfos.size() == 0) {
+        HCCL_INFO("[CcuTempAllReduceNhrMem2Mem1DMultiJetty::FastLaunch] ccu kernel num is 0, just success.");
+        return HCCL_SUCCESS;
+    }
+    HCCL_DEBUG("[CcuTempAllReduceNhrMem2Mem1DMultiJetty::FastLaunch] start");
+    buffInfo_ = tempFastLaunchCtx.buffInfo;
+    uint64_t *args = const_cast<uint64_t*>(tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs);
+
+    constexpr u32 inputIdx = 0;
+    constexpr u32 outputIdx = 1;
+    constexpr u32 inputOffsetIdx = 16;
+    constexpr u32 outputOffsetIdx = 17;
+    uint64_t argSize = 16;
+
+    args[inputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + args[inputOffsetIdx];
+    args[outputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + args[outputOffsetIdx];
+
+    void *taskArgs = reinterpret_cast<void*>(args);
+    CcuResult launchRet = HcommCcuKernelLaunch(tempFastLaunchCtx.threads[0],
+                                               tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle,
+                                               taskArgs, argSize);
+    if (launchRet != CCU_SUCCESS) {
+        HCCL_ERROR("[CcuTempAllReduceNhrMem2Mem1DMultiJetty::FastLaunch] kernel launch failed, ccuRet -> %d", launchRet);
+        return ConvertCcuToHccl(launchRet);
+    }
+
+    HCCL_DEBUG("[CcuTempAllReduceNhrMem2Mem1DMultiJetty::FastLaunch] end");
     return HcclResult::HCCL_SUCCESS;
 }
 
