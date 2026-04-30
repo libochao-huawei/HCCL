@@ -120,12 +120,12 @@ if(KERNEL_MODE)
     sign_file(
         INPUT "aicpu_hccl_custom_allgather.tar.gz"
         CONFIG ${CMAKE_CURRENT_SOURCE_DIR}/scripts/hccl_custom_allgather_aicpu_check_cfg.xml
-        RESULT_VAR "sign_aicpu_hccl_custom_allgather_aicpu_result"
+        RESULT_VAR "sign_aicpu_hccl_custom_allgather_result"
         DEPENDS package_aicpu_hccl_custom_allgather
     )
 
     # 设置依赖
-    register_custom_aicpu_target(sign_aicpu_hccl_custom_allgather_aicpu)
+    register_custom_aicpu_target(sign_aicpu_hccl_custom_allgather)
 else()
     # 安装
     install(FILES
