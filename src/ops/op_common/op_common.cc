@@ -549,6 +549,11 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
             char *ctx = static_cast<char*>(resCtxSequence);
             std::vector<char> seq(ctx, ctx + param.ctxSize);
             resCtxHost->DeSerialize(seq);
+            // 覆盖主流
+            ThreadHandle thread;
+            CHK_RET(HcclThreadAcquireWithStream(comm, param.engine, param.stream,
+                resCtxHost->notifyNumOnMainThread, &thread));
+            resCtxHost->threads[0] = thread;
         }
         int result = sprintf_s(param.algName, sizeof(param.algName), "%s", algName.c_str());
         if (result <= 0) {
