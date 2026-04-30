@@ -15,6 +15,7 @@
 #include <memory>
 #include "log.h"
 #include "alg_param.h"
+#include "dlsym_common.h"
 
 namespace ops_hccl {
 HcclResult CreateScatter(OpParam *param, ScatterOpInfo *opInfo)

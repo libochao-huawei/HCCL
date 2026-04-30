@@ -9,6 +9,7 @@
  */
 
 #include "topo_match_1d.h"
+#include "dlsym_common.h"
 
 namespace ops_hccl {
 TopoMatch1D::TopoMatch1D()
@@ -43,7 +44,7 @@ HcclResult TopoMatch1D::MatchTopo(HcclComm comm, TopoInfoWithNetLayerDetails* to
     for (const auto &netLayerIdx : topoInfo->netLayerDetails.netLayers) {
         CommTopo topoType;
         HcclRankGraphGetTopoTypeByLayer(comm, netLayerIdx, &topoType);
-        CHK_PRT_RET((topoType != CommTopo::COMM_TOPO_CUSTOM && topoType != CommTopo::COMM_TOPO_CLOS),
+        CHK_PRT_RET((topoType != COMM_TOPO_CUSTOM && topoType != CommTopo::COMM_TOPO_CLOS),
                 HCCL_ERROR("[CollAlgFactory] [TopoMatchMesh1D] netLayer [%d], topoType not COMM_TOPO_CUSTOM or COMM_TOPO_CLOS.", netLayerIdx),
                 HcclResult::HCCL_E_PARA);
     }
