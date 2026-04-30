@@ -171,7 +171,7 @@ HcclResult ReduceSoleExecutor<AlgTopoMatch, AlgTemplate>::OrchestrateLoop(
 
 #ifndef AICPU_COMPILE
     if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU && param.opMode != OpMode::OFFLOAD) {
-        CHK_RET(FastLaunchSaveCtx(param, templateAlgRes));
+        CHK_RET(FastLaunchSaveCtx(param, templateAlgRes, resCtx.notifyNumOnMainThread));
     }
 #endif
 
@@ -182,7 +182,7 @@ HcclResult ReduceSoleExecutor<AlgTopoMatch, AlgTemplate>::OrchestrateLoop(
 #ifndef AICPU_COMPILE
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult ReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunchSaveCtx(
-    const OpParam &param, const TemplateResource &templateAlgRes)
+    const OpParam &param, const TemplateResource &templateAlgRes, u32 notifyNumOnMainThread)
 {
     HCCL_INFO("[ReduceSoleExecutor] loopTimes==1, save fast launch ctx.");
     u32 threadNum = 1;
@@ -206,6 +206,7 @@ HcclResult ReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunchSaveCtx(
 
     // 2 thread
     ccuFastLaunchCtx->threadNum = threadNum;
+    ccuFastLaunchCtx->notifyNumOnMainThread = notifyNumOnMainThread;
     ThreadHandle *threads = ccuFastLaunchCtx->GetThreadHandlePtr();
     threads[0] = templateAlgRes.threads[0];
 
