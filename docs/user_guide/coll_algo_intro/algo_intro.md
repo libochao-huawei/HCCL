@@ -57,4 +57,4 @@ HCCL通常按节点内/节点间分为两级拓扑、或按节点内/节点间/�
 | AlltoAllV | Server内AlltoAllV | Server间AlltoAllV | / |
 | AlltoAllVC | Server内AlltoAllVC | Server间AlltoAllVC | / |
 
-详细分级通信流程示例可参见[分级通信原理](分级通信原理.md)。
+详细分级通信流程示例可参见[分级通信原理](hierarchical_comm_principle.md)。

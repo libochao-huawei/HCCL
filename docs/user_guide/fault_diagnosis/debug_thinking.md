@@ -181,7 +181,7 @@ HCCL的日志信息会记录在CANN日志中，CANN的相关日志说明请参�
 
 | 一级关键字 | 二级检索关键字 | 故障场景 |
 | --- | --- | --- |
-| InitGroupStage | EnvConfig | [通信域初始化阶段环境变量配置异常](env_config_error.md) |
+| InitGroupStage | EnvConfig | [通信域初始化阶段环境变量配置异常](env_config_error_EI0001.md) |
 |                |RanktableConfig | [通信域初始化阶段rankTable文件读取失败](rank_table_load_fail.md) |
 |                |RanktableCheck | [通信域初始化阶段rankTable集群信息校验失败](cluster_info_verify_fail.md) |
 |                |RanktableDetect | [通信域初始化阶段集群信息探测失败](cluster_info_nego.md) |
@@ -199,7 +199,7 @@ HCCL的日志信息会记录在CANN日志中，CANN的相关日志说明请参�
 
 | 故障码 | 故障码说明 |
 | --- | --- |
-| EI0001 | [环境变量配置异常](env_config_error.md) |
+| EI0001 | [环境变量配置异常](env_config_error_EI0001.md) |
 | EI0002 | [通信算子执行超时](./task_exec_stage.md#定位思路) |
 | EI0003 | 集合通信算子入参校验失败 |
 | EI0004 | [rankTable文件加载失败](rank_table_load_fail.md) |

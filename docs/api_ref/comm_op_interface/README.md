@@ -1,7 +1,7 @@
 # 通信算子接口
 
-- [接口简介](接口简介.md)
-- [集合通信](集合通信.md)
+- [接口简介](intro.md)
+- [集合通信](collective_comm.md)
   - [HcclBroadcast](HcclBroadcast.md)
   - [HcclAllGather](HcclAllGather.md)
   - [HcclAllGatherV](HcclAllGatherV.md)
@@ -14,7 +14,7 @@
   - [HcclAlltoAllV](HcclAlltoAllV.md)
   - [HcclAlltoAllVC](HcclAlltoAllVC.md)
 
-- [点对点通信](点对点通信.md)
+- [点对点通信](p2p_comm.md)
   - [HcclSend](HcclSend.md)
   - [HcclRecv](HcclRecv.md)
   - [HcclBatchSendRecv](HcclBatchSendRecv.md)

@@ -1,6 +1,6 @@
 # 环境变量参考
 
-- [功能相关](功能相关.md)
+- [功能相关](feature_related.md)
   - [HCCL_CONNECT_TIMEOUT](HCCL_CONNECT_TIMEOUT.md)
   - [HCCL_EXEC_TIMEOUT](HCCL_EXEC_TIMEOUT.md)
   - [HCCL_ALGO](HCCL_ALGO.md)
@@ -12,13 +12,13 @@
   - [HCCL_DETERMINISTIC](HCCL_DETERMINISTIC.md)
   - [HCCL_LOGIC_SUPERPOD_ID](HCCL_LOGIC_SUPERPOD_ID.md)
 
-- [性能相关](性能相关.md)
+- [性能相关](performance_related.md)
   - [HCCL_RDMA_PCIE_DIRECT_POST_NOSTRICT](HCCL_RDMA_PCIE_DIRECT_POST_NOSTRICT.md)
   - [HCCL_RDMA_QPS_PER_CONNECTION](HCCL_RDMA_QPS_PER_CONNECTION.md)
   - [HCCL_RDMA_QP_PORT_CONFIG_PATH](HCCL_RDMA_QP_PORT_CONFIG_PATH.md)
   - [HCCL_MULTI_QP_THRESHOLD](HCCL_MULTI_QP_THRESHOLD.md)
 
-- [网络相关](网络相关.md)
+- [网络相关](network_related.md)
   - [HCCL_IF_IP](HCCL_IF_IP.md)
   - [HCCL_IF_BASE_PORT](HCCL_IF_BASE_PORT.md)
   - [HCCL_HOST_SOCKET_PORT_RANGE](HCCL_HOST_SOCKET_PORT_RANGE.md)
@@ -30,21 +30,21 @@
   - [HCCL_RDMA_TIMEOUT](HCCL_RDMA_TIMEOUT.md)
   - [HCCL_RDMA_RETRY_CNT](HCCL_RDMA_RETRY_CNT.md)
 
-- [调试相关](调试相关.md)
+- [调试相关](debug_related.md)
   - [HCCL_DIAGNOSE_ENABLE](HCCL_DIAGNOSE_ENABLE.md)
   - [HCCL_ENTRY_LOG_ENABLE](HCCL_ENTRY_LOG_ENABLE.md)
   - [HCCL_DEBUG_CONFIG](HCCL_DEBUG_CONFIG.md)
   - [HCCL_DFS_CONFIG](HCCL_DFS_CONFIG.md)
 
-- [可靠性相关](可靠性相关.md)
+- [可靠性相关](reliability_related.md)
   - [HCCL_OP_RETRY_ENABLE](HCCL_OP_RETRY_ENABLE.md)
   - [HCCL_OP_RETRY_PARAMS](HCCL_OP_RETRY_PARAMS.md)
 
-- [安全相关](安全相关.md)
+- [安全相关](security_related.md)
   - [HCCL_WHITELIST_DISABLE](HCCL_WHITELIST_DISABLE.md)
   - [HCCL_WHITELIST_FILE](HCCL_WHITELIST_FILE.md)
 
-- [参考](参考.md)
-  - [通信算子重执行对整网性能说明](通信算子重执行对整网性能说明.md)
-  - [Server间通信算法支持度列表](Server间通信算法支持度列表.md)
-  - [超节点间通信算法支持度列表](超节点间通信算法支持度列表.md)
+- [参考](reference.md)
+  - [通信算子重执行对整网性能说明](comm_retry_perf_impact.md)
+  - [Server间通信算法支持度列表](inter_server_algo_support.md)
+  - [超节点间通信算法支持度列表](inter_superpod_algo_support.md)
