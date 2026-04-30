@@ -48,6 +48,12 @@ HcclResult GetTopoTypeByLink(HcclComm comm, uint32_t netLayer, CommLink &link, C
 HcclResult ProcessLinksForChannel(HcclComm comm, u32 myRank, u32 rank, std::vector<HcclChannelDesc> &channels,
                                   CommTopo priorityTopo);
 HcclResult GetProtocolByEngine(const OpParam& param, std::vector<CommProtocol> &protocols);
+bool IsCommFaltten(HcclComm comm, const std::vector<std::vector<u32>>& subcommInfo, std::vector<uint32_t> netLayersVector,u32 myRank);
+HcclResult ProcessMeshInfo(HcclComm comm,const std::vector<std::vector<u32>>& subcommInfo,
+                        std::map<u32, u32>& rank2ChannelIdx, u32 myRank,
+                        std::vector<std::vector<HcclChannelDesc>>& channelsPerDie,
+                        std::map<u32, std::vector<HcclChannelDesc>>& rankIdToChannelDesc);
+HcclResult ProcessFlattenLink(HcclComm comm, u32 myRank, const std::vector<std::vector<u32>>& subcommInfo);
 }
 
 #endif
