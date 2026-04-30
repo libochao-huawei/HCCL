@@ -129,6 +129,7 @@ HcclResult HcclGetChannelAICPU(HcclComm comm, const OpParam &param, AlgResourceC
         ChannelInfo channel;
         channel.isValid = true;
         channel.remoteRank = remoteRank;
+        std::cout << "remoteRank: " << remoteRank << ", handle: " << channels[remoteRank] << std::endl;
         channel.handle = channels[remoteRank];
         channel.notifyNum = CHANNEL_NOTIFY_NUM;
         void * cclBuf;
@@ -146,7 +147,7 @@ HcclResult HcclAllocAlgResourceAICPU(HcclComm comm, const OpParam &param, AlgRes
     // 从通信域获取CCL buffer
     CHK_RET(HcclGetHcclBuffer(comm, &cclBufferAddr, &cclBufferSize));
     resCtxHost.cclMem = CommBuffer{cclBufferAddr, cclBufferSize};
-    resCtxHost.slaveThreadNum = param.rankSize > 1 ? param.rankSize - 1 : 1;
+    resCtxHost.slaveThreadNum = param.rankSize - 1;
     resCtxHost.notifyNumOnMainThread = resCtxHost.slaveThreadNum;
     resCtxHost.notifyNumPerThread = std::vector<uint32_t>(resCtxHost.slaveThreadNum, 1);
     CHK_RET(HcclGetThreadAICPU(comm, param, resCtxHost));
