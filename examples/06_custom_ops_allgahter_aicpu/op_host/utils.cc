@@ -9,6 +9,7 @@
  */
 
 #include <string>
+#include <iostream>
 #include <acl/acl_rt.h>
 #include <hccl/hccl_types.h>
 #include "log.h"
@@ -89,7 +90,63 @@ HcclResult HcclMemcpyCtxHostToDevice(HcclComm comm, const OpParam &param,
     // 序列化
     std::vector<char> seq = resCtxHost.Serialize();
     uint64_t size = seq.size();
+    
+    // === 测试：序列化再反序列化回来对比 ===
+    AlgResourceCtx resCtxVerify;
+    resCtxVerify.DeSerialize(seq);
+    
+    // 对比关键字段
+    bool verifyPass = true;
+    if (resCtxHost.aicpuThread != resCtxVerify.aicpuThread) {
+        printf("[DEBUG] Verify FAILED: aicpuThread mismatch\n");
+        verifyPass = false;
+    }
+    if (resCtxHost.cpuThreadOnAicpu != resCtxVerify.cpuThreadOnAicpu) {
+        printf("[DEBUG] Verify FAILED: cpuThreadOnAicpu mismatch\n");
+        verifyPass = false;
+    }
+    if (resCtxHost.notifyNumOnMainThread != resCtxVerify.notifyNumOnMainThread) {
+        printf("[DEBUG] Verify FAILED: notifyNumOnMainThread mismatch\n");
+        verifyPass = false;
+    }
+    if (resCtxHost.slaveThreadNum != resCtxVerify.slaveThreadNum) {
+        printf("[DEBUG] Verify FAILED: slaveThreadNum mismatch\n");
+        verifyPass = false;
+    }
+    if (resCtxHost.notifyNumPerThread.size() != resCtxVerify.notifyNumPerThread.size()) {
+        printf("[DEBUG] Verify FAILED: notifyNumPerThread size mismatch\n");
+        verifyPass = false;
+    } else {
+        for (size_t i = 0; i < resCtxHost.notifyNumPerThread.size(); i++) {
+            if (resCtxHost.notifyNumPerThread[i] != resCtxVerify.notifyNumPerThread[i]) {
+                printf("[DEBUG] Verify FAILED: notifyNumPerThread[%lu] mismatch\n", i);
+                verifyPass = false;
+                break;
+            }
+        }
+    }
+    if (resCtxHost.threads.size() != resCtxVerify.threads.size()) {
+        printf("[DEBUG] Verify FAILED: threads size mismatch\n");
+        verifyPass = false;
+    } else {
+        for (size_t i = 0; i < resCtxHost.threads.size(); i++) {
+            if (resCtxHost.threads[i] != resCtxVerify.threads[i]) {
+                printf("[DEBUG] Verify FAILED: threads[%lu] mismatch\n", i);
+                verifyPass = false;
+                break;
+            }
+        }
+    }
+    if (resCtxHost.channels.size() != resCtxVerify.channels.size()) {
+        printf("[DEBUG] Verify FAILED: channels size mismatch\n");
+        verifyPass = false;
+    }
+    
+    printf("[DEBUG] Serialize/DeSerialize verify: %s\n", verifyPass ? "PASS" : "FAIL");
+    // =======================================
+    
     void *ctx = nullptr;
+    
     // 创建Context, aicpu和host dpu申请device内存
     CHK_RET(HcclEngineCtxCreate(comm, param.tag, COMM_ENGINE_AICPU_TS, size, &ctx));
     // 从Host内存拷贝到Device Context内存上
@@ -127,8 +184,8 @@ HcclResult HcclGetChannelAICPU(HcclComm comm, const OpParam &param, AlgResourceC
         }
         CHK_RET(AcquireChannel(comm, COMM_ENGINE_AICPU_TS, param.myRank, remoteRank, &channels[remoteRank]));
         ChannelInfo channel;
-        channel.isValid = true;
         channel.remoteRank = remoteRank;
+        std::cout << "remoteRank: " << remoteRank << ", handle: " << std::hex  << channels[remoteRank] << std::endl;
         channel.handle = channels[remoteRank];
         channel.notifyNum = CHANNEL_NOTIFY_NUM;
         void * cclBuf;
@@ -146,7 +203,7 @@ HcclResult HcclAllocAlgResourceAICPU(HcclComm comm, const OpParam &param, AlgRes
     // 从通信域获取CCL buffer
     CHK_RET(HcclGetHcclBuffer(comm, &cclBufferAddr, &cclBufferSize));
     resCtxHost.cclMem = CommBuffer{cclBufferAddr, cclBufferSize};
-    resCtxHost.slaveThreadNum = param.rankSize > 1 ? param.rankSize - 1 : 1;
+    resCtxHost.slaveThreadNum = param.rankSize - 1;
     resCtxHost.notifyNumOnMainThread = resCtxHost.slaveThreadNum;
     resCtxHost.notifyNumPerThread = std::vector<uint32_t>(resCtxHost.slaveThreadNum, 1);
     CHK_RET(HcclGetThreadAICPU(comm, param, resCtxHost));
