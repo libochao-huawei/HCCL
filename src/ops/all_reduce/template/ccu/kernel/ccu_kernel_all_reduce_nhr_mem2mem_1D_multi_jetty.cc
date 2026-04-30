@@ -221,7 +221,9 @@ static CcuResult DoLocalCopySlice(AllReduceNhrMem2Mem1DMultiJettyContext &ctx,
 {
     const auto *arg = ctx.arg;
     const bool islastSlice = copySliceIdx + 1 == arg->rankSize;
-    const auto &sliceSize = islastSlice ? ctx.lastRankSliceSize : ctx.dataSizePerRank;
+    CcuVariable sliceSize;
+    CHK_RET(ccu::Alloc(&sliceSize));
+    sliceSize = islastSlice ? ctx.lastRankSliceSize : ctx.dataSizePerRank;
 
     CCU_IF_ONLY(sliceSize != 0)
     {
@@ -291,7 +293,9 @@ static CcuResult DoWriteReduceSlice(AllReduceNhrMem2Mem1DMultiJettyContext &ctx,
     const ChannelHandle sendChannel = arg->channels[toRankIdx];
 
     const bool islastSlice = sendSliceIdx + 1 == arg->rankSize;
-    const CcuVariable &lastSliceSize = islastSlice ? ctx.lastPortSliceSize : ctx.dataSizePerPort;
+    CcuVariable lastSliceSize;
+    CHK_RET(ccu::Alloc(&lastSliceSize));
+    lastSliceSize = islastSlice ? ctx.lastPortSliceSize : ctx.dataSizePerPort;
 
     for (auto &event : ctx.events) {
         event.mask = 1 << signalIndex;
@@ -411,7 +415,9 @@ static CcuResult DoSendRecvSlice(AllReduceNhrMem2Mem1DMultiJettyContext &ctx,
 
     // allreduce切片的最后一块slice，大小可能不一致
     const bool islastSlice = sendSliceIdx + 1 == arg->rankSize;
-    const CcuVariable &lastSliceSize = islastSlice ? ctx.lastPortSliceSize : ctx.dataSizePerPort;
+    CcuVariable lastSliceSize;
+    CHK_RET(ccu::Alloc(&lastSliceSize));
+    lastSliceSize = islastSlice ? ctx.lastPortSliceSize : ctx.dataSizePerPort;
 
     // 统一设置一下mask
     for (auto &event : ctx.events) {
