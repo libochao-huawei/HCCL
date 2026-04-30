@@ -11,6 +11,7 @@
 #include <string>
 #include <memory>
 #include <vector>
+#include <iostream>
 #include <hccl/hcomm_primitives.h>
 #include "log.h"
 #include "utils.h"
@@ -21,12 +22,11 @@ using namespace ops_hccl_allgather;
 
 extern "C" unsigned int HcclLaunchCustomAllGatherAicpuKernel(OpParam *param)
 {
-    HCCL_INFO("Entry-%s, commName[%s], tag[%s]", __func__, param->commName, param->tag);
     AlgResourceCtx resCtxDevice;
-
     char *ctx = static_cast<char *>(param->resCtxDevice);
     std::vector<char> seq(ctx, ctx + param->ctxSize);
     resCtxDevice.DeSerialize(seq);
+
     if (HcommBatchModeStart(param->tag) != HCCL_SUCCESS) {
         HCCL_ERROR("failed start batch mode");
         return 1;
@@ -54,7 +54,5 @@ extern "C" unsigned int HcclLaunchCustomAllGatherAicpuKernel(OpParam *param)
         HCCL_ERROR("failed end batch mode");
         return 1;
     }
-
-    HCCL_INFO("%s success, commName[%s], tag[%s]", __func__, param->commName, param->tag);
     return 0;
 }
