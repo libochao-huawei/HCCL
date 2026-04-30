@@ -48,6 +48,11 @@ HcclResult LaunchKernelWithAclrt(OpParam &param, aclrtStream stream)
     ACLCHECK(aclrtBinaryGetFunction(g_binKernelHandle, kernelName.c_str(), &funcHandle));
 
     // 构造 Kernel 函数入参
+    printf("[DEBUG] LaunchKernel param: dataType=%u, count=%lu, rankSize=%u, myRank=%u, inputPtr=%p, outputPtr=%p\n",
+           static_cast<uint32_t>(param.dataType), param.count, param.rankSize, param.myRank,
+           param.inputPtr, param.outputPtr);
+    fflush(stdout);
+    
     ACLCHECK(aclrtKernelArgsInit(funcHandle, &argsHandle));
     aclrtParamHandle paraHandle;
     ACLCHECK(aclrtKernelArgsAppend(argsHandle, &param, sizeof(OpParam), &paraHandle));
