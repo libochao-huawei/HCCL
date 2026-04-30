@@ -64,21 +64,22 @@ HcclResult InsCollAlgBase::FastLaunch(const OpParam &param, const CcuFastLaunchC
 #ifndef AICPU_COMPILE
 HcclResult InsCollAlgBase::FastLaunchSaveCtxTwoTemplate(const OpParam &param, const u32 threadNum,
     const u32 ccuKernelNum, const std::vector<ThreadHandle> &threads, const std::vector<u32> &ccuKernelNumList,
-    const std::vector<std::vector<CcuKernelSubmitInfo>> &submitInfosList)
+    const std::vector<std::vector<CcuKernelSubmitInfo>> &submitInfosList, u32 notifyNumOnMainThread)
 {
     u64 size = CcuFastLaunchCtx::GetCtxSize(threadNum, ccuKernelNum);
     // 申请ctx
     void *ctxPtr = nullptr;
-    HCCL_INFO("[InsCollAlgBase][FastLaunchSaveCtxFourTemplate] Tag[%s], size[%llu]", param.fastLaunchTag, size);
+    HCCL_INFO("[InsCollAlgBase][FastLaunchSaveCtxTwoTemplate] Tag[%s], size[%llu]", param.fastLaunchTag, size);
     CHK_RET(HcclEngineCtxCreate(param.hcclComm, param.fastLaunchTag, CommEngine::COMM_ENGINE_CCU, size, &ctxPtr));
 
     CcuFastLaunchCtx *ccuFastLaunchCtx = reinterpret_cast<CcuFastLaunchCtx*>(ctxPtr);
     // 1 算法名
     CHK_SAFETY_FUNC_RET(strcpy_s(ccuFastLaunchCtx->algName, sizeof(ccuFastLaunchCtx->algName), param.algName));
-    HCCL_INFO("[InsCollAlgBase][FastLaunchSaveCtxFourTemplate] algName[%s]", ccuFastLaunchCtx->algName);
+    HCCL_INFO("[InsCollAlgBase][FastLaunchSaveCtxTwoTemplate] algName[%s]", ccuFastLaunchCtx->algName);
 
     // 2 thread
     ccuFastLaunchCtx->threadNum = threadNum;
+    ccuFastLaunchCtx->notifyNumOnMainThread = notifyNumOnMainThread;
     ThreadHandle *threadHandles = ccuFastLaunchCtx->GetThreadHandlePtr();
     for (u32 i = 0; i < threadNum; i++) {
         threadHandles[i] = threads[i];
