@@ -9,7 +9,7 @@
 - **针对Ascend 950PR/Ascend 950DT** ：默认采用自适应展开模式，会根据组网、数据量等情况自动选择合适的模式。若配置此环境变量，支持的配置如下：
   - **AI_CPU**：代表通信算子在AI CPU展开，Device侧根据硬件型号自动选择相应的调度器。
 
-    该配置项仅支持Broadcast、Reduce、AllReduce、Scatter、ReduceScatter、AllGather、AlltoAll、AlltoAllV、AlltoAllVC算子。
+    该配置项仅支持Broadcast、Reduce、AllReduce、Scatter、ReduceScatter、ReduceScatterV、AllGather、AllGatherV、AlltoAll、AlltoAllV、AlltoAllVC算子。
 
     **注意**：
 
