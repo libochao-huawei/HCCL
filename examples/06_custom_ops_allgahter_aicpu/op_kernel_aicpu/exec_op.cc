@@ -41,7 +41,8 @@ HcclResult ExecOp(const OpParam &param, const AlgResourceCtx &resCtx)
     uint64_t cclBuffBound = cclBufferSize / cclBuffMultiplier / HCCL_MIN_SLICE_ALIGN * HCCL_MIN_SLICE_ALIGN;
     uint64_t maxDataSizePerLoop = std::min(UB_MAX_DATA_SIZE, cclBuffBound);
     uint64_t maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize;
-    uint64_t loopCount = count / maxDataCountPerLoop;
+    HCCL_INFO("[HcclAllGatherCustom] maxDataSizePerLoop: %d, maxDataCountPerLoop: %d, loopCount: %d", maxDataSizePerLoop, maxDataCountPerLoop, loopCount);
+    uint64_t loopCount = count / maxDataCountPerLoop + static_cast<uint64_t>(count % maxDataCountPerLoop != 0);
     void *cclBuffAddr = resCtx.cclMem.addr;
     uint64_t processedDataCount = 0;
 
@@ -49,7 +50,9 @@ HcclResult ExecOp(const OpParam &param, const AlgResourceCtx &resCtx)
         uint64_t sliceCount = std::min(maxDataCountPerLoop, count - loop * maxDataCountPerLoop);
         uint64_t sliceSize = sliceCount * dataTypeSize;
         uint64_t cclBuffOffset = sliceSize * param.myRank;
+        uint64_t inputBaseOffset = processedDataCount * dataTypeSize;
         uint64_t inputOffset = processedDataCount * dataTypeSize;
+        HCCL_INFO("[HcclAllGatherCustom] loop: %d, sliceCount: %d, sliceSize: %d, cclBuffOffset: %d, inputOffset: %d", loop, sliceCount, sliceSize, cclBuffOffset, inputOffset);
         // 本地拷贝到hcclbuf
         void *curCclBuffAddr = static_cast<void *>(static_cast<uint8_t *>(cclBuffAddr) + cclBuffOffset);
         void *curInputAddr = static_cast<void *>(static_cast<uint8_t *>(param.inputPtr) + inputOffset);
