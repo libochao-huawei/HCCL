@@ -17,15 +17,22 @@
 #include <set>
 #include <unordered_set>
 #include <functional>
+#include <functional>
+#include <memory>
 #include <hccl/hccl_comm.h>
 #include "hccl_common.h"
 #include "hccl_types.h"
 #include "alg_type.h"
-#include "hccl_res.h"
+#include "hccl_res_dl.h"
 #include "hcomm_primitives_dl.h"
-#include "hccl_rank_graph.h"
+#include "hccl_rank_graph_dl.h"
+#include "hccl_host_comm_dl.h"
 #include "binary_stream.h"
+#if CANN_VERSION_NUM >= 90000000
 #include "hccl_ccu_res.h"
+#else
+typedef void *CcuKernelHandle; // 8.5.0 下无 hccl_ccu_res.h，用 opaque 占位
+#endif
 
 namespace ops_hccl {
 
@@ -154,6 +161,7 @@ struct TopoInfoWithNetLayerDetails : public TopoInfo { // 通信域拓扑ctx
     bool Level1Nhr{false};
     bool is2DieFullMesh{false};
     bool level0PcieMix{false};
+    bool level0BigClosRange{false};
     u32 topoInstDetailsOfLayerSize = 0;
     Level0MeshType level0MeshType;
     NetLayerDetails netLayerDetails;
@@ -185,6 +193,7 @@ struct TopoInfoWithNetLayerDetails : public TopoInfo { // 通信域拓扑ctx
         binaryStream << Level1Nhr;
         binaryStream << is2DieFullMesh;
         binaryStream << level0PcieMix;
+        binaryStream << level0BigClosRange;
         binaryStream << topoInstDetailsOfLayerSize;
         binaryStream << level0MeshType;
         binaryStream << netLayerDetails.netLayerNum;
@@ -230,6 +239,7 @@ struct TopoInfoWithNetLayerDetails : public TopoInfo { // 通信域拓扑ctx
         binaryStream >> Level1Nhr;
         binaryStream >> is2DieFullMesh;
         binaryStream >> level0PcieMix;
+        binaryStream >> level0BigClosRange;
         binaryStream >> topoInstDetailsOfLayerSize;
         binaryStream >> level0MeshType;
         binaryStream >> netLayerDetails.netLayerNum;
@@ -252,10 +262,12 @@ struct TopoInfoWithNetLayerDetails : public TopoInfo { // 通信域拓扑ctx
 struct CcuKernelInfo {
     // kernel资源组序号，group号不同时，资源复用
     u32 resGroup = 0;
+#if CANN_VERSION_NUM >= 90000000
     // kernel构造函数
     hcomm::KernelCreator creator;
     // KernelArg实例
     std::shared_ptr<hcomm::CcuKernelArg> kernelArg;
+#endif
     // kernel所需channel
     std::vector<HcclChannelDesc> channels;
 };
@@ -330,6 +342,7 @@ struct ChannelInfo {
     CommProtocol protocol = CommProtocol::COMM_PROTOCOL_RESERVED;
     EndpointLocType locationType = EndpointLocType::ENDPOINT_LOC_TYPE_RESERVED;
     u32 notifyNum = 0;
+    u32 portGroupSize = 1; // A5用的, 端口组大小，用于数据分片比例计算
     ChannelHandle handle = 0;
     HcclMem remoteCclMem; // A5用的
     HcclMem remoteInputGraphMode;   // A5用的, 图模式下远端sendBuf地址
@@ -450,7 +463,7 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     char fastLaunchTag[ALG_TAG_LENGTH] = ""; // 快速下发的key值
     char fallbackTag[ALG_MAX_LENGTH] = "";
     char commName[COMM_INDENTIFIER_MAX_LENGTH] = "";
-    char commModeTag[TAG_LENGTH] = ""; // 保存与执行模式相关的资源信息的key值
+    char commModeTag[TAG_LENGTH] = ""; // 保存与执行模式相关的资源信息的key值，当前aiv使用
     aclrtStream stream;
     void* inputPtr = nullptr;
     u64 inputSize = 0;
@@ -467,6 +480,7 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CommEngine engine = CommEngine::COMM_ENGINE_RESERVED;
     AlgType algType;
+    double multipleDimensionSplitRatio = 0.8;
     char algTypeStr[ALG_MAX_LENGTH] = "";
     union {
         struct {

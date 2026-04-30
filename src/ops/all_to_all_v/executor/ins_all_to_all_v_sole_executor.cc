@@ -11,9 +11,11 @@
 #include "template_utils.h"
 #include "ins_all_to_all_v_sole_executor.h"
 #ifndef AICPU_COMPILE
+#if !defined(HCCL_CANN_COMPAT_850)
 #include "ccu_temp_all_to_all_v_mesh_1D.h"
 #include "ccu_temp_all_to_all_v_mesh2die.h"
 #include "ccu_temp_all_to_all_v_mesh_1D_multi_jetty.h"
+#endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 
 #define CONST_ZERO 0
@@ -65,7 +67,7 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(HcclC
     CHK_RET(InitCommInfo(param, topoInfo));
 
     std::vector<std::vector<u32>> tempAlgHierachyInfo;
-    if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+    if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
         tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[0][1]);    // clos拓扑，包含所有rank
     } else {
         tempAlgHierachyInfo = algHierarchyInfo.infos[0];
@@ -185,6 +187,7 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLo
     tempAlgParams.buffInfo.outputPtr = param.outputPtr;
     tempAlgParams.buffInfo.inputSize = param.inputSize;
     tempAlgParams.buffInfo.outputSize = param.outputSize;
+    tempAlgParams.buffInfo.hcclBuff = resCtx.cclMem;
     tempAlgParams.buffInfo.inBuffBaseOff = 0;
     tempAlgParams.buffInfo.outBuffBaseOff = 0;
     tempAlgParams.buffInfo.hcclBuffBaseOff = 0;
@@ -198,7 +201,7 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLo
     CHK_RET(algTemplate->KernelRun(param, tempAlgParams, templateAlgRes));
 
 #ifndef AICPU_COMPILE
-    if (param.engine == CommEngine::COMM_ENGINE_CCU && param.opType != HcclCMDType::HCCL_CMD_ALLTOALLVC) {
+    if (param.engine == CommEngine::COMM_ENGINE_CCU && param.opType != HcclCMDType::HCCL_CMD_ALLTOALLVC && param.opMode != OpMode::OFFLOAD) {
         CHK_RET(FastLaunchSaveCtx(param, templateAlgRes));
     }
 #endif
@@ -273,19 +276,27 @@ HcclResult InsAlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunch(
 
 // 第二个参数是All to AllV的template文件
 #ifndef AICPU_COMPILE
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, CcuAlltoAllVMesh1D, InsAlltoAllVSoleExecutor, TopoMatch1D,
     CcuTempAlltoAllVMesh1D);
+#endif /* !HCCL_CANN_COMPAT_850 */
 
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLVC, CcuAlltoAllVCMesh1D, InsAlltoAllVSoleExecutor, TopoMatch1D,
     CcuTempAlltoAllVMesh1D);
+#endif /* !HCCL_CANN_COMPAT_850 */
 
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, CcuAllToAllVMesh2Die, InsAlltoAllVSoleExecutor, TopoMatch1D,
     CcuTempAlltoAllVMesh2Die);
+#endif /* !HCCL_CANN_COMPAT_850 */
 
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV,
                 CcuAllToAllVMesh1DMultiJetty,
                 InsAlltoAllVSoleExecutor,
                 TopoMatchUBX,
                 CcuTempAllToAllVMesh1DMultiJetty);
+#endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 }

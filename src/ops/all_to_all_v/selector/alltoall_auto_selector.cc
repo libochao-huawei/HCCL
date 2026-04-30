@@ -97,8 +97,8 @@ SelectorStatus AlltoAllAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerD
     if (topoInfo->level0Topo == Level0Shape::MESH_1D || topoInfo->level0Topo == Level0Shape::CLOS) {
         selectAlgName = "InsAlltoAllMesh1D";
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-        // PCIE-SW定制机型，Mesh无法链接全卡时，需要跨pcie链路，选择适配算法
-        if (topoInfo->level0PcieMix && !IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
+        // PCIE-SW定制机型，使用mesh1d算法
+        if (topoInfo->level0PcieMix) {
             selectAlgName = "InsAlltoAllMesh1D";
             HCCL_INFO("[AlltoAllAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
             return SelectorStatus::MATCH;
@@ -154,6 +154,9 @@ SelectorStatus AlltoAllAutoSelector::SelectDPUAlgo(const TopoInfoWithNetLayerDet
     if (topoInfo->topoLevelNums > 1) {
         if ((topoInfo->deviceNumPerModule == 1) || (topoInfo->level0Topo == Level0Shape::MESH_1D)) {
             selectAlgName = "InsAlltoAllMesh1DDPU";
+            return SelectorStatus::MATCH;
+        } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+            selectAlgName = "InsAlltoAllClosMesh1DDPU";
             return SelectorStatus::MATCH;
         }
     }

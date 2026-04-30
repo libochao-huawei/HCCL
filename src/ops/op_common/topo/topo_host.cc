@@ -20,6 +20,8 @@
 #include "config_log.h"
 #include "topo.h"
 #include "dtype_common.h"
+#include "dlsym_common.h"
+#include "hccl_rank_graph_dl.h"
 
 constexpr u32 FACTOR_NUM_TWO = 2;
 constexpr s32 DEVICE_PER_MODULE = 8;
@@ -581,6 +583,9 @@ HcclResult CalcLevel0TopoShape(const HcclComm comm, TopoInfoWithNetLayerDetails*
         return HCCL_SUCCESS;
     } else if (topoInstNum == TOPO_INST_NUM_MESH_1D_CLOS && rankNumForTopoType[CommTopo::COMM_TOPO_CLOS].size() == 1 &&
                rankNumForTopoType[CommTopo::COMM_TOPO_1DMESH].size() == 1) {
+        if (rankNumForTopoType[CommTopo::COMM_TOPO_CLOS].at(0) > BIG_CLOS_RANGE) {
+            topoInfo->level0BigClosRange = true;
+        }
         // MESH_1D_CLOS 拓扑校验
         CHK_PRT_RET(rankNumForTopoType[CommTopo::COMM_TOPO_CLOS][0] != level0LocalRankSize,
             HCCL_ERROR("[BaseSelector][CalcLevel0TopoShape] CLOS rankSize[%u] is not equal to level0LocalRankSize[%u]",

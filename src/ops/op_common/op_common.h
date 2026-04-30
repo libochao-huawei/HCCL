@@ -30,7 +30,6 @@ extern "C" {
 #endif
 
 namespace ops_hccl {
-extern thread_local std::map<std::string, HcclMemHandle> g_memHandleCache;
 HcclResult HcclExecOp(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo, std::string &algName, const ResPackGraphMode &resPack = ResPackGraphMode());
 
 HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
@@ -169,6 +168,8 @@ HcclResult GetAivParamStorageByComm(HcclComm comm, AivParamStorage **aivParam);
 HcclResult HcclAllocAlgResourceAivGraphMode(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest, AlgResourceCtxSerializable* resCtxHost);
 
 HcclResult HcclRegstryBuffGraphMode(HcclComm comm, const char *memTag, void *bufferPtr, uint64_t bufferSize, HcclMemHandle *memHandle);
+
+HcclResult SetMultipleDimensionSplitRatio(OpParam &param);
 
 HcclResult CheckHostDPUOnly(const HcclComm comm, const TopoInfoWithNetLayerDetails* topoInfo, bool &hostDPUOnly);
 

@@ -21,12 +21,14 @@ static std::vector<AivKernelInfo> g_allreduceAivKernelInfoList = {
     {"aiv_allreduce_int32_t", HcclDataType::HCCL_DATA_TYPE_INT32},
     {"aiv_allreduce_int8_t", HcclDataType::HCCL_DATA_TYPE_INT8},
     {"aiv_allreduce_bfloat16_t", HcclDataType::HCCL_DATA_TYPE_BFP16},
+    {"aiv_allreduce_int64_t", HcclDataType::HCCL_DATA_TYPE_INT64},
     {"aiv_allreduce_mesh1d_twoshot_half", HcclDataType::HCCL_DATA_TYPE_FP16, KernelArgsType::ARGS_TYPE_TWO_SHOT},
     {"aiv_allreduce_mesh1d_twoshot_int16_t", HcclDataType::HCCL_DATA_TYPE_INT16, KernelArgsType::ARGS_TYPE_TWO_SHOT},
     {"aiv_allreduce_mesh1d_twoshot_float", HcclDataType::HCCL_DATA_TYPE_FP32, KernelArgsType::ARGS_TYPE_TWO_SHOT},
     {"aiv_allreduce_mesh1d_twoshot_int32_t", HcclDataType::HCCL_DATA_TYPE_INT32, KernelArgsType::ARGS_TYPE_TWO_SHOT},
     {"aiv_allreduce_mesh1d_twoshot_int8_t", HcclDataType::HCCL_DATA_TYPE_INT8, KernelArgsType::ARGS_TYPE_TWO_SHOT},
     {"aiv_allreduce_mesh1d_twoshot_bfloat16_t", HcclDataType::HCCL_DATA_TYPE_BFP16, KernelArgsType::ARGS_TYPE_TWO_SHOT},
+    {"aiv_allreduce_mesh1d_twoshot_int64_t", HcclDataType::HCCL_DATA_TYPE_INT64, KernelArgsType::ARGS_TYPE_TWO_SHOT},
 };
 static std::string g_allreduceAivBinaryName = "hccl_aiv_all_reduce_op_910_95.o";
 
@@ -37,6 +39,7 @@ static std::vector<AivKernelInfo> g_reduceScatterAivKernelInfoList = {
     {"aiv_reduce_scatter_int32_t", HcclDataType::HCCL_DATA_TYPE_INT32},
     {"aiv_reduce_scatter_int8_t", HcclDataType::HCCL_DATA_TYPE_INT8},
     {"aiv_reduce_scatter_bfloat16_t", HcclDataType::HCCL_DATA_TYPE_BFP16},
+    {"aiv_reduce_scatter_int64_t", HcclDataType::HCCL_DATA_TYPE_INT64},
 };
 static std::string g_reduceScatterAivBinaryName = "hccl_aiv_reduce_scatter_op_910_95.o";
 
@@ -45,6 +48,7 @@ static std::vector<AivKernelInfo> g_allgatherAivKernelInfoList = {
     {"aiv_all_gather_int16_t", HcclDataType::HCCL_DATA_TYPE_INT16},
     {"aiv_all_gather_uint16_t", HcclDataType::HCCL_DATA_TYPE_UINT16},
     {"aiv_all_gather_float", HcclDataType::HCCL_DATA_TYPE_FP32},
+    {"aiv_all_gather_uint64_t", HcclDataType::HCCL_DATA_TYPE_FP64},
     {"aiv_all_gather_int32_t", HcclDataType::HCCL_DATA_TYPE_INT32},
     {"aiv_all_gather_uint32_t", HcclDataType::HCCL_DATA_TYPE_UINT32},
     {"aiv_all_gather_int8_t", HcclDataType::HCCL_DATA_TYPE_INT8},
@@ -64,6 +68,7 @@ static std::vector<AivKernelInfo> g_broadcastAivKernelInfoList = {
     {"aiv_broadcast_int16_t", HcclDataType::HCCL_DATA_TYPE_INT16},
     {"aiv_broadcast_uint16_t", HcclDataType::HCCL_DATA_TYPE_UINT16},
     {"aiv_broadcast_float", HcclDataType::HCCL_DATA_TYPE_FP32},
+    {"aiv_broadcast_uint64_t", HcclDataType::HCCL_DATA_TYPE_FP64},
     {"aiv_broadcast_int32_t", HcclDataType::HCCL_DATA_TYPE_INT32},
     {"aiv_broadcast_uint32_t", HcclDataType::HCCL_DATA_TYPE_UINT32},
     {"aiv_broadcast_int8_t", HcclDataType::HCCL_DATA_TYPE_INT8},
@@ -83,6 +88,7 @@ static std::vector<AivKernelInfo> g_alltoallAivKernelInfoList = {
     {"aiv_alltoall_int16_t", HcclDataType::HCCL_DATA_TYPE_INT16},
     {"aiv_alltoall_uint16_t", HcclDataType::HCCL_DATA_TYPE_UINT16},
     {"aiv_alltoall_float", HcclDataType::HCCL_DATA_TYPE_FP32},
+    {"aiv_alltoall_uint64_t", HcclDataType::HCCL_DATA_TYPE_FP64},
     {"aiv_alltoall_int32_t", HcclDataType::HCCL_DATA_TYPE_INT32},
     {"aiv_alltoall_uint32_t", HcclDataType::HCCL_DATA_TYPE_UINT32},
     {"aiv_alltoall_int8_t", HcclDataType::HCCL_DATA_TYPE_INT8},
@@ -102,6 +108,7 @@ static std::vector<AivKernelInfo> g_alltoallvAivKernelInfoList = {
     {"aiv_alltoallv_int16_t", HcclDataType::HCCL_DATA_TYPE_INT16},
     {"aiv_alltoallv_uint16_t", HcclDataType::HCCL_DATA_TYPE_UINT16},
     {"aiv_alltoallv_float", HcclDataType::HCCL_DATA_TYPE_FP32},
+    {"aiv_alltoallv_uint64_t", HcclDataType::HCCL_DATA_TYPE_FP64},
     {"aiv_alltoallv_int32_t", HcclDataType::HCCL_DATA_TYPE_INT32},
     {"aiv_alltoallv_uint32_t", HcclDataType::HCCL_DATA_TYPE_UINT32},
     {"aiv_alltoallv_int8_t", HcclDataType::HCCL_DATA_TYPE_INT8},
@@ -121,6 +128,7 @@ static std::vector<AivKernelInfo> g_scatterAivKernelInfoList = {
     {"aiv_scatter_int16_t", HcclDataType::HCCL_DATA_TYPE_INT16},
     {"aiv_scatter_uint16_t", HcclDataType::HCCL_DATA_TYPE_UINT16},
     {"aiv_scatter_float", HcclDataType::HCCL_DATA_TYPE_FP32},
+    {"aiv_scatter_uint64_t", HcclDataType::HCCL_DATA_TYPE_FP64},
     {"aiv_scatter_int32_t", HcclDataType::HCCL_DATA_TYPE_INT32},
     {"aiv_scatter_uint32_t", HcclDataType::HCCL_DATA_TYPE_UINT32},
     {"aiv_scatter_int8_t", HcclDataType::HCCL_DATA_TYPE_INT8},
@@ -142,6 +150,7 @@ static std::vector<AivKernelInfo> g_reduceAivKernelInfoList = {
     {"aiv_reduce_int32_t", HcclDataType::HCCL_DATA_TYPE_INT32},
     {"aiv_reduce_int8_t", HcclDataType::HCCL_DATA_TYPE_INT8},
     {"aiv_reduce_bfloat16_t", HcclDataType::HCCL_DATA_TYPE_BFP16},
+    {"aiv_reduce_int64_t", HcclDataType::HCCL_DATA_TYPE_INT64},
 };
 static std::string g_reduceAivBinaryName = "hccl_aiv_reduce_op_910_95.o";
 
@@ -156,6 +165,7 @@ static std::vector<AivKernelInfo> g_sendAivKernelInfoList = {
     {"aiv_send_uint64_t", HcclDataType::HCCL_DATA_TYPE_UINT64},
     {"aiv_send_half", HcclDataType::HCCL_DATA_TYPE_FP16},
     {"aiv_send_float", HcclDataType::HCCL_DATA_TYPE_FP32},
+    {"aiv_send_uint64_t", HcclDataType::HCCL_DATA_TYPE_FP64},
     {"aiv_send_bfloat16_t", HcclDataType::HCCL_DATA_TYPE_BFP16},
     {"aiv_send_hifloat8_t", HcclDataType::HCCL_DATA_TYPE_HIF8},
     {"aiv_send_fp8_e4m3fn_t", HcclDataType::HCCL_DATA_TYPE_FP8E4M3},
@@ -176,6 +186,7 @@ static std::vector<AivKernelInfo> g_recvAivKernelInfoList = {
     {"aiv_recv_uint64_t", HcclDataType::HCCL_DATA_TYPE_UINT64},
     {"aiv_recv_half", HcclDataType::HCCL_DATA_TYPE_FP16},
     {"aiv_recv_float", HcclDataType::HCCL_DATA_TYPE_FP32},
+    {"aiv_recv_uint64_t", HcclDataType::HCCL_DATA_TYPE_FP64},
     {"aiv_recv_bfloat16_t", HcclDataType::HCCL_DATA_TYPE_BFP16},
     {"aiv_recv_hifloat8_t", HcclDataType::HCCL_DATA_TYPE_HIF8},
     {"aiv_recv_fp8_e4m3fn_t", HcclDataType::HCCL_DATA_TYPE_FP8E4M3},
