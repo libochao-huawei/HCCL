@@ -14,6 +14,7 @@
 #include "ccu_assist_pub.h"
 #include "ccu_temp_reduce_scatter_nhr_1D_multi_jetty_mem2mem.h"
 #include "ccu_kernel_reduce_scatter_nhr1d_multi_jetty_mem2mem.h"
+#include "ccu_control_api.h"
 
 namespace ops_hccl {
 
@@ -48,10 +49,9 @@ HcclResult CcuTempReduceScatterNhrMultiJettyMem2Mem1D::CalcRes(HcclComm comm, co
 
     // 创建每个kernel的ctxArg，放入kernelInfo, 然后将kernelinfo放入resourceRequest.ccuKernelInfos
     CcuKernelInfo kernelInfo;
-    
-    kernelInfo.creator = [](const hcomm::CcuKernelArg &arg) {
-                             return std::make_unique<CcuKernelReduceScatterNhrMutilJettyMem2Mem1D>(arg);
-                         };
+    strcpy(kernelInfo.kernelFuncName, "CcuKernelReduceScatterNhrMultiJettyMem2Mem1D");
+    kernelInfo.kernelFunc = reinterpret_cast<void *>(CcuReduceScatterNhrMultiJettyMem2Mem1DKernel);
+
     std::vector<HcclChannelDesc> channelDescs;
     CHK_RET(CalcChannelRequestNHRWithPriorityTopo(comm, param, topoInfo, subCommRanks_, channelDescs, CommTopo::COMM_TOPO_CLOS));
     std::vector<HcclChannelDesc> myChannelDescs;
@@ -60,19 +60,22 @@ HcclResult CcuTempReduceScatterNhrMultiJettyMem2Mem1D::CalcRes(HcclComm comm, co
             myChannelDescs.push_back(channel);
         }
     }
-    CHK_RET(RestoreChannelMap(myChannelDescs, rankIdToChannelDesc_)); // 让rankId变成索引查询channel
+    CHK_RET(RestoreChannelMap(myChannelDescs, rankIdToChannelDesc_));
     uint16_t portNum = 4;
     std::vector<NHRStepInfo> stepInfoVector;
-    std::map<u32, u32> rank2ChannelIdx; // rankId和channel匹配
-    std::vector<HcclChannelDesc> channelResort; // 重排channel
+    std::map<u32, u32> rank2ChannelIdx;
+    std::vector<HcclChannelDesc> channelResort;
     GetNhrStepInfo(channelResort, stepInfoVector, rank2ChannelIdx);
-    kernelInfo.kernelArg = std::make_shared<CcuKernelArgReduceScatterNhrMutilJettyMem2Mem1D>(subCommRanks_[0].size(),
-                                                                                    mySubCommRank_,
-                                                                                    portNum,
-                                                                                    stepInfoVector,
-                                                                                    rank2ChannelIdx,
-                                                                                    param,
-                                                                                    subCommRanks_);
+
+    auto kernelArg = std::make_shared<CcuKernelArgReduceScatterNhrMultiJettyMem2Mem1D>();
+    kernelArg->dimSize = subCommRanks_[0].size();
+    kernelArg->rankId = mySubCommRank_;
+    kernelArg->portSize = portNum;
+    kernelArg->opParam = param;
+    kernelArg->stepInfoVector = stepInfoVector;
+    kernelArg->rank2ChannelIdx = rank2ChannelIdx;
+    kernelArg->subCommRanks = subCommRanks_;
+    kernelInfo.setKernelArg(kernelArg);
     kernelInfo.channels = channelResort;
     resourceRequest.ccuKernelInfos.push_back(kernelInfo);
 
@@ -116,10 +119,6 @@ HcclResult CcuTempReduceScatterNhrMultiJettyMem2Mem1D::KernelRun(const OpParam& 
     uint64_t inputRepeatStride  = templateDataParams.inputRepeatStride;
     uint64_t outputRepeatStride = templateDataParams.outputRepeatStride;
 
-    std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgReduceScatterNhrMutilJettyMem2Mem1D>(
-        inputAddr, outputAddr, token, sliceSize, inputSliceStride, outputSliceStride, sliceOneJettySize,
-        sliceLastJettySize, repeatNum, inputRepeatStride, outputRepeatStride);
-    
     HCCL_INFO("[CcuTempReduceScatterNhrMultiJettyMem2Mem1D::KernelRun] inputAddr[%llx], outputAddr[%llx], sliceSize[%u]"
                 "sliceOneJettySize[%u], repeatNum[%llu], inputRepeatStride[%u], outputRepeatStride[%u]", inputAddr, outputAddr,
                 sliceSize, sliceOneJettySize, repeatNum, inputRepeatStride, outputRepeatStride);
@@ -127,11 +126,62 @@ HcclResult CcuTempReduceScatterNhrMultiJettyMem2Mem1D::KernelRun(const OpParam& 
         HCCL_INFO("[CcuTempReduceScatterNhrMultiJettyMem2Mem1D] sliceSize == 0, Template Run Ends.");
         return HcclResult::HCCL_SUCCESS;
     }
-    void* taskArgPtr = static_cast<void*>(taskArg.get());
-    CHK_RET(HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr));
+    
+    std::vector<uint64_t> taskArgs = {
+        inputAddr, outputAddr, token, sliceSize, inputSliceStride,
+        sliceOneJettySize, sliceLastJettySize, repeatNum, inputRepeatStride, outputRepeatStride};
+    uint64_t argSize = 10;
+
+    CcuResult launchRet = HcommCcuKernelLaunch(templateResource.threads[0], templateResource.ccuKernels[0], taskArgs.data(), argSize);
+    if (launchRet != CCU_SUCCESS) {
+        HCCL_ERROR("[CcuTempReduceScatterNhrMultiJettyMem2Mem1D::KernelRun] kernel launch failed, ccuRet -> %d", launchRet);
+        return ConvertCcuToHccl(launchRet);
+    }
+
+    CcuKernelSubmitInfo submitInfo;
+    submitInfo.kernelHandle = templateResource.ccuKernels[0];
+    CHK_RET(FillCachedArgs(submitInfo, inputAddr, outputAddr, token, sliceSize, inputSliceStride,
+        sliceOneJettySize, sliceLastJettySize, repeatNum, inputRepeatStride, outputRepeatStride,
+        buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, outputSliceStride));
+    templateResource.submitInfos.push_back(submitInfo);
     
     HCCL_DEBUG("[CcuTempReduceScatterNhrMultiJettyMem2Mem1D::KernelRun] end");
 
+    return HcclResult::HCCL_SUCCESS;
+}
+
+HcclResult CcuTempReduceScatterNhrMultiJettyMem2Mem1D::FastLaunch(const OpParam& param,
+    const TemplateFastLaunchCtx& tempFastLaunchCtx)
+{
+    if (tempFastLaunchCtx.ccuKernelSubmitInfos.size() == 0) {
+        HCCL_INFO("[CcuTempReduceScatterNhrMultiJettyMem2Mem1D::FastLaunch] ccu kernel num is 0, just success.");
+        return HCCL_SUCCESS;
+    }
+    HCCL_DEBUG("[CcuTempReduceScatterNhrMultiJettyMem2Mem1D::FastLaunch] start");
+    buffInfo_ = tempFastLaunchCtx.buffInfo;
+    uint64_t *args = const_cast<uint64_t*>(tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs);
+
+    constexpr u32 inputIdx = 0;
+    constexpr u32 outputIdx = 1;
+    constexpr u32 inputOffsetIdx = 10;
+    constexpr u32 outputOffsetIdx = 11;
+    constexpr u32 outputSliceStrideIdx = 12;
+    uint64_t argSize = 10;
+
+    args[inputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + args[inputOffsetIdx];
+    args[outputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + args[outputOffsetIdx]
+                      + args[outputSliceStrideIdx] * mySubCommRank_;
+
+    void *taskArgs = reinterpret_cast<void*>(args);
+    CcuResult launchRet = HcommCcuKernelLaunch(tempFastLaunchCtx.threads[0],
+                                               tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle,
+                                               taskArgs, argSize);
+    if (launchRet != CCU_SUCCESS) {
+        HCCL_ERROR("[CcuTempReduceScatterNhrMultiJettyMem2Mem1D::FastLaunch] kernel launch failed, ccuRet -> %d", launchRet);
+        return ConvertCcuToHccl(launchRet);
+    }
+
+    HCCL_DEBUG("[CcuTempReduceScatterNhrMultiJettyMem2Mem1D::FastLaunch] end");
     return HcclResult::HCCL_SUCCESS;
 }
 

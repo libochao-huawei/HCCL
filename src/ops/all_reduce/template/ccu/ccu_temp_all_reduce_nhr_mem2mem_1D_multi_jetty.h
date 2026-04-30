@@ -14,6 +14,7 @@
 #include "ccu_alg_template_base.h"
 #include "utils.h"
 #include "ccu_kernel_all_reduce_nhr_mem2mem_1D_multi_jetty.h"
+#include "ccu_kernel_alg_base.h"
 
 namespace ops_hccl {
 
@@ -38,6 +39,8 @@ public:
     HcclResult KernelRun(const OpParam& param,
                          const TemplateDataParams& templateDataParams,
                          TemplateResource& templateResource) override;
+
+    HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx) override;
 
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override; // 此template需要将buffer分几块用
 private:
