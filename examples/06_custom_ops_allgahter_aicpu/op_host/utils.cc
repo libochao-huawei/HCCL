@@ -9,6 +9,7 @@
  */
 
 #include <string>
+#include <iostream>
 #include <acl/acl_rt.h>
 #include <hccl/hccl_types.h>
 #include "log.h"
@@ -89,7 +90,9 @@ HcclResult HcclMemcpyCtxHostToDevice(HcclComm comm, const OpParam &param,
     // 序列化
     std::vector<char> seq = resCtxHost.Serialize();
     uint64_t size = seq.size();
+    
     void *ctx = nullptr;
+    
     // 创建Context, aicpu和host dpu申请device内存
     CHK_RET(HcclEngineCtxCreate(comm, param.tag, COMM_ENGINE_AICPU_TS, size, &ctx));
     // 从Host内存拷贝到Device Context内存上
@@ -127,8 +130,8 @@ HcclResult HcclGetChannelAICPU(HcclComm comm, const OpParam &param, AlgResourceC
         }
         CHK_RET(AcquireChannel(comm, COMM_ENGINE_AICPU_TS, param.myRank, remoteRank, &channels[remoteRank]));
         ChannelInfo channel;
-        channel.isValid = true;
         channel.remoteRank = remoteRank;
+        std::cout << "remoteRank: " << remoteRank << ", handle: " << std::hex  << channels[remoteRank] << std::endl;
         channel.handle = channels[remoteRank];
         channel.notifyNum = CHANNEL_NOTIFY_NUM;
         void * cclBuf;
@@ -146,7 +149,8 @@ HcclResult HcclAllocAlgResourceAICPU(HcclComm comm, const OpParam &param, AlgRes
     // 从通信域获取CCL buffer
     CHK_RET(HcclGetHcclBuffer(comm, &cclBufferAddr, &cclBufferSize));
     resCtxHost.cclMem = CommBuffer{cclBufferAddr, cclBufferSize};
-    resCtxHost.slaveThreadNum = param.rankSize > 1 ? param.rankSize - 1 : 1;
+    uint32_t threadNum = param.rankSize > 1 ? param.rankSize - 1 : 1;
+    resCtxHost.slaveThreadNum = threadNum - 1;
     resCtxHost.notifyNumOnMainThread = resCtxHost.slaveThreadNum;
     resCtxHost.notifyNumPerThread = std::vector<uint32_t>(resCtxHost.slaveThreadNum, 1);
     CHK_RET(HcclGetThreadAICPU(comm, param, resCtxHost));
