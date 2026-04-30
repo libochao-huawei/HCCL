@@ -274,6 +274,7 @@ struct CcuKernelSubmitInfo {
 // ccu快速下发上下文
 struct CcuFastLaunchCtx {
     char algName[OP_ALG_LENGTH];
+    u32 notifyNumOnMainThread = 0;
     u32 threadNum;
     u32 ccuKernelNum[MAX_TEMP_NUM_IN_ALGO];  // 每次调用template的KernelRun下发的kernel数量
     // 紧接ThreadHandle数组
