@@ -42,10 +42,7 @@ typedef struct {
 } CommBuffer;
 
 struct ChannelInfo {
-    bool isValid = false;
     uint32_t remoteRank = INVALID_VALUE_RANKID;
-    CommProtocol protocol = CommProtocol::COMM_PROTOCOL_RESERVED;
-    EndpointLocType locationType = EndpointLocType::ENDPOINT_LOC_TYPE_RESERVED;
     uint32_t notifyNum = 0;
     ChannelHandle handle = 0;
     CommBuffer remoteCclMem;
@@ -60,7 +57,6 @@ struct AlgResourceCtx {
     std::vector<uint32_t> notifyNumPerThread;
     std::vector<ThreadHandle> threads;
     std::vector<ChannelInfo> channels;
-    ChannelHandle channelHandle;
 
      std::vector<char> Serialize()
     {

@@ -23,25 +23,26 @@ constexpr uint32_t NOTIFY_IDX_FIN_ACK = 2;
 
 HcclResult ExecOp(const OpParam &param, const AlgResourceCtx &resCtx)
 {
+    printf("[DEBUG] OpParam: dataType=%u, count=%lu, rankSize=%u, myRank=%u, inputPtr=%p, outputPtr=%p\n",
+           static_cast<uint32_t>(param.dataType), param.count, param.rankSize, param.myRank,
+           param.inputPtr, param.outputPtr);
+    fflush(stdout);
+    
     uint32_t dataTypeSize = SIZE_TABLE[param.dataType];
-    uint64_t size = param.count * dataTypeSize;
+    uint64_t dataSize = param.count * dataTypeSize;
     uint64_t count = param.count;
-    std::map<uint32_t, ChannelInfo> channelMap;
 
     if (param.rankSize == 1) {
-        CHK_RET(static_cast<HcclResult>(HcommLocalCopyOnThread(resCtx.threads[0], param.outputPtr, param.inputPtr, size)));
+        CHK_RET(static_cast<HcclResult>(HcommLocalCopyOnThread(resCtx.threads[0], param.outputPtr, param.inputPtr, dataSize)));
         return HCCL_SUCCESS;
-    }
-
-    for (auto channel : resCtx.channels) {
-        channelMap[channel.remoteRank] = channel;
     }
     uint32_t cclBuffMultiplier = param.rankSize;
     uint64_t cclBufferSize = resCtx.cclMem.size;
     uint64_t cclBuffBound = cclBufferSize / cclBuffMultiplier / HCCL_MIN_SLICE_ALIGN * HCCL_MIN_SLICE_ALIGN;
     uint64_t maxDataSizePerLoop = std::min(UB_MAX_DATA_SIZE, cclBuffBound);
     uint64_t maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize;
-    uint64_t loopCount = count / maxDataCountPerLoop;
+    HCCL_INFO("[HcclAllGatherCustom] maxDataSizePerLoop: %d, maxDataCountPerLoop: %d, loopCount: %d", maxDataSizePerLoop, maxDataCountPerLoop, loopCount);
+    uint64_t loopCount = count / maxDataCountPerLoop + static_cast<uint64_t>(count % maxDataCountPerLoop != 0);
     void *cclBuffAddr = resCtx.cclMem.addr;
     uint64_t processedDataCount = 0;
 
@@ -49,10 +50,16 @@ HcclResult ExecOp(const OpParam &param, const AlgResourceCtx &resCtx)
         uint64_t sliceCount = std::min(maxDataCountPerLoop, count - loop * maxDataCountPerLoop);
         uint64_t sliceSize = sliceCount * dataTypeSize;
         uint64_t cclBuffOffset = sliceSize * param.myRank;
+        uint64_t inputBaseOffset = processedDataCount * dataTypeSize;
         uint64_t inputOffset = processedDataCount * dataTypeSize;
+        printf("[DEBUG] loop=%lu, sliceCount=%lu, sliceSize=%lu, cclBuffOffset=%lu, inputOffset=%lu\n", 
+               loop, sliceCount, sliceSize, cclBuffOffset, inputOffset);
+        fflush(stdout);
         // 本地拷贝到hcclbuf
         void *curCclBuffAddr = static_cast<void *>(static_cast<uint8_t *>(cclBuffAddr) + cclBuffOffset);
         void *curInputAddr = static_cast<void *>(static_cast<uint8_t *>(param.inputPtr) + inputOffset);
+        printf("[DEBUG] curCclBuffAddr=%p, curInputAddr=%p\n", curCclBuffAddr, curInputAddr);
+        fflush(stdout);
         CHK_RET(static_cast<HcclResult>(HcommLocalCopyOnThread(resCtx.threads[0], curCclBuffAddr, curInputAddr, sliceSize)));
 
         // 前同步
@@ -66,19 +73,23 @@ HcclResult ExecOp(const OpParam &param, const AlgResourceCtx &resCtx)
         }
         // 交换数据
         for (uint32_t i = 0; i < resCtx.threads.size(); i++) {
+            uint32_t remoteRank = resCtx.channels[i].remoteRank;
+            ChannelHandle remoteChannelHandle = resCtx.channels[i].handle;
+            void *remoteCclBuffAddr = static_cast<void *>(static_cast<uint8_t *>(resCtx.channels[i].remoteCclMem.addr) + sliceSize * param.myRank);
+            printf("[DEBUG] i=%u, thread=%p, remoteRank=%u, channelHandle=%lu, remoteCclBuffAddr=%p, curCclBuffAddr=%p, sliceSize=%lu\n",
+                   i, resCtx.threads[i], remoteRank, remoteChannelHandle, remoteCclBuffAddr, curCclBuffAddr, sliceSize);
+            fflush(stdout);
             // thread通知对端数据准备完成，可以开始传输
-            CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(resCtx.threads[i], channelMap[i].handle, NOTIFY_IDX_ACK)));
+            CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(resCtx.threads[i], remoteChannelHandle, NOTIFY_IDX_ACK)));
             // thread等待对端确认数据准备完成
-            CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(resCtx.threads[i], channelMap[i].handle, NOTIFY_IDX_ACK, CUSTOM_TIMEOUT)));
-            uint32_t remoteRank = channelMap[i].remoteRank;
-            void *remoteCclBuffAddr = static_cast<void *>(static_cast<uint8_t *>(channelMap[i].remoteCclMem.addr) + sliceSize * remoteRank);
+            CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(resCtx.threads[i], remoteChannelHandle, NOTIFY_IDX_ACK, CUSTOM_TIMEOUT)));
             
             // 将本地数写到对端cclBuff
-            CHK_RET(static_cast<HcclResult>(HcommWriteOnThread(resCtx.threads[i], channelMap[i].handle, remoteCclBuffAddr, curCclBuffAddr, sliceSize)));
+            CHK_RET(static_cast<HcclResult>(HcommWriteOnThread(resCtx.threads[i], remoteChannelHandle, remoteCclBuffAddr, curCclBuffAddr, sliceSize)));
 
             // 告诉对端执行完成, 同时等待对端完成
-            CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(resCtx.threads[i], channelMap[i].handle, NOTIFY_IDX_DATA_SIGNAL)));
-            CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(resCtx.threads[i], channelMap[i].handle, NOTIFY_IDX_DATA_SIGNAL, CUSTOM_TIMEOUT)));
+            CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(resCtx.threads[i], remoteChannelHandle, NOTIFY_IDX_DATA_SIGNAL)));
+            CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(resCtx.threads[i], remoteChannelHandle, NOTIFY_IDX_DATA_SIGNAL, CUSTOM_TIMEOUT)));
         }
 
         // 后同步
@@ -92,10 +103,16 @@ HcclResult ExecOp(const OpParam &param, const AlgResourceCtx &resCtx)
         }
         // 从cclbuff拷贝到outputPtr
         for (uint32_t rankId = 0; rankId < param.rankSize; rankId++) {
+            if (rankId == param.myRank) {
+                continue;
+            }
             uint64_t cclBuffOffset = sliceSize * rankId;
-            uint64_t outputOffset = processedDataCount * dataTypeSize + rankId * size;
+            uint64_t outputOffset = processedDataCount * dataTypeSize + rankId * dataSize;
             void *curCclBuffAddr = static_cast<void *>(static_cast<uint8_t *>(cclBuffAddr) + cclBuffOffset);
             void *curOutputAddr = static_cast<void *>(static_cast<uint8_t *>(param.outputPtr) + outputOffset);
+            printf("[DEBUG] output copy: rankId=%u, cclBuffOffset=%lu, outputOffset=%lu, curCclBuffAddr=%p, curOutputAddr=%p, sliceSize=%lu\n",
+                   rankId, cclBuffOffset, outputOffset, curCclBuffAddr, curOutputAddr, sliceSize);
+            fflush(stdout);
             CHK_RET(static_cast<HcclResult>(HcommLocalCopyOnThread(resCtx.threads[0], curOutputAddr, curCclBuffAddr, sliceSize)));
         }
         processedDataCount += sliceCount;

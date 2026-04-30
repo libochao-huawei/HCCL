@@ -11,6 +11,7 @@
 #include <string>
 #include <memory>
 #include <vector>
+#include <iostream>
 #include <hccl/hcomm_primitives.h>
 #include "log.h"
 #include "utils.h"
@@ -27,6 +28,34 @@ extern "C" unsigned int HcclLaunchCustomAllGatherAicpuKernel(OpParam *param)
     char *ctx = static_cast<char *>(param->resCtxDevice);
     std::vector<char> seq(ctx, ctx + param->ctxSize);
     resCtxDevice.DeSerialize(seq);
+    
+    // === 打印 resCtxDevice 所有字段 ===
+    printf("[DEBUG] resCtxDevice.aicpuThread: %p\n", resCtxDevice.aicpuThread);
+    printf("[DEBUG] resCtxDevice.cpuThreadOnAicpu: %p\n", resCtxDevice.cpuThreadOnAicpu);
+    printf("[DEBUG] resCtxDevice.cclMem.addr: %p, size: %lu\n", resCtxDevice.cclMem.addr, resCtxDevice.cclMem.size);
+    printf("[DEBUG] resCtxDevice.notifyNumOnMainThread: %u\n", resCtxDevice.notifyNumOnMainThread);
+    printf("[DEBUG] resCtxDevice.slaveThreadNum: %u\n", resCtxDevice.slaveThreadNum);
+    
+    printf("[DEBUG] resCtxDevice.notifyNumPerThread size: %lu\n", resCtxDevice.notifyNumPerThread.size());
+    for (size_t i = 0; i < resCtxDevice.notifyNumPerThread.size(); i++) {
+        printf("[DEBUG]   notifyNumPerThread[%lu]: %u\n", i, resCtxDevice.notifyNumPerThread[i]);
+    }
+    
+    printf("[DEBUG] resCtxDevice.threads size: %lu\n", resCtxDevice.threads.size());
+    for (size_t i = 0; i < resCtxDevice.threads.size(); i++) {
+        printf("[DEBUG]   threads[%lu]: %p\n", i, resCtxDevice.threads[i]);
+    }
+    
+    printf("[DEBUG] resCtxDevice.channels size: %lu\n", resCtxDevice.channels.size());
+    for (size_t i = 0; i < resCtxDevice.channels.size(); i++) {
+        const auto& ch = resCtxDevice.channels[i];
+        printf("[DEBUG]   channels[%lu]: remoteRank=%u, notifyNum=%u, handle=%lu\n",
+            i, ch.remoteRank, ch.notifyNum, ch.handle);
+        printf("[DEBUG]     remoteCclMem.addr: %p, size: %lu\n", ch.remoteCclMem.addr, ch.remoteCclMem.size);
+    }
+    fflush(stdout);
+    // ====================================
+
     if (HcommBatchModeStart(param->tag) != HCCL_SUCCESS) {
         HCCL_ERROR("failed start batch mode");
         return 1;
@@ -54,7 +83,6 @@ extern "C" unsigned int HcclLaunchCustomAllGatherAicpuKernel(OpParam *param)
         HCCL_ERROR("failed end batch mode");
         return 1;
     }
-
     HCCL_INFO("%s success, commName[%s], tag[%s]", __func__, param->commName, param->tag);
     return 0;
 }

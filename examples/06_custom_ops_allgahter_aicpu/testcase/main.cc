@@ -67,7 +67,7 @@ int Sample(void *arg)
     ACLCHECK(aclrtMalloc(&sendBuf, inputSize, ACL_MEM_MALLOC_HUGE_ONLY));
 
     // 申请 Device 内存用于存放输出数据
-    ACLCHECK(aclrtMalloc(&recvBuf, inputSize * rankSize, ACL_MEM_MALLOC_HUGE_ONLY));
+    ACLCHECK(aclrtMalloc(&recvBuf, outputSize, ACL_MEM_MALLOC_HUGE_ONLY));
 
     // 申请 Host 内存用于设置输入数据，将内容初始化为 DeviceId
     void *hostBuf = nullptr;
@@ -76,6 +76,12 @@ int Sample(void *arg)
     for (uint64_t i = 0; i < count; ++i) {
         tmpHostBuf[i] = static_cast<float>(device);
     }
+    std::cout << "rankId: " << device << ", input: [";
+    for (uint64_t i = 0; i < count; ++i) {
+        std::cout << " " << tmpHostBuf[i];
+    }
+    std::cout << " ]" << std::endl;
+
     ACLCHECK(aclrtMemcpy(sendBuf, inputSize, hostBuf, inputSize, ACL_MEMCPY_HOST_TO_DEVICE));
     ACLCHECK(aclrtFreeHost(hostBuf));
     // 执行 AllGather 操作
@@ -91,7 +97,7 @@ int Sample(void *arg)
     ACLCHECK(aclrtMemcpy(resultHostBuf, outputSize, recvBuf, outputSize, ACL_MEMCPY_DEVICE_TO_HOST));
     float *tmpResultBuf = static_cast<float *>(resultHostBuf);
     std::cout << "rankId: " << device << ", output: [";
-    for (uint64_t i = 0; i < count; ++i) {
+    for (uint64_t i = 0; i < count * rankSize; ++i) {
         std::cout << " " << tmpResultBuf[i];
     }
     std::cout << " ]" << std::endl;
