@@ -8,7 +8,7 @@ Mesh是FullMesh互联拓扑内的基础算法，是NPU之间的全连接，任�
 
 Mesh算法实现AllReduce算子的流程如下图所示，每个NPU并发的使用多路HCCS链路从对端读取或者写入数据，使双工互联链路的双向带宽同时得到利用。
 
-![](figures/mesh算法原理.png)
+![](figures/mesh_algo_principle.png)
 
 Mesh算法的时间复杂度是O\(1\)。
 

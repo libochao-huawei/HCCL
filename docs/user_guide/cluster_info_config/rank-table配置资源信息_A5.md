@@ -11,7 +11,7 @@
 
 拓扑文件配置了物理拓扑信息和路由信息，存储路径为“/usr/local/Ascend/driver/topo/”，无需用户手工配置，产品出厂时自动配置，用户仅需了解其格式及字段含义。以2个AI Server，每个AI Server中两个NPU为例，组网如下所示：
 
-![通信连接示例](figures/通信连接示例_A5.png)
+![通信连接示例](figures/comm_connect_a5_example.png)
 
 拓扑文件为JSON格式，配置示例如下：
 

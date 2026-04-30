@@ -10,7 +10,7 @@ Ring算法适用于“星型”或“胖树”拓扑互联，其特点是通过R
 
 Ring算法实现AllReduce算子的流程如下图所示，每一步依次给下游发送对应的数据块，沿着环转一圈之后完成ReduceScatter阶段，再沿环转一圈完成AllGather阶段。
 
-![](figures/Ring算法原理.png)
+![](figures/ring_algo_principle.png)
 
 Ring算法的时间复杂度是O\(n-1\)，n为Ring环上的NPU设备个数。
 
