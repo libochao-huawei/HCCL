@@ -11,6 +11,7 @@
 #include <string>
 #include <memory>
 #include <vector>
+#include <iostream>
 #include <hccl/hcomm_primitives.h>
 #include "log.h"
 #include "utils.h"
@@ -27,6 +28,9 @@ extern "C" unsigned int HcclLaunchCustomAllGatherAicpuKernel(OpParam *param)
     char *ctx = static_cast<char *>(param->resCtxDevice);
     std::vector<char> seq(ctx, ctx + param->ctxSize);
     resCtxDevice.DeSerialize(seq);
+    for (int i = 0; i < resCtxDevice.channels.size(); i++) {
+        std::cout << "channel[" << i << "] = " << std::hex << (int)resCtxDevice.channels[i].handle << std::dec << std::endl;
+    }
     if (HcommBatchModeStart(param->tag) != HCCL_SUCCESS) {
         HCCL_ERROR("failed start batch mode");
         return 1;
@@ -54,7 +58,6 @@ extern "C" unsigned int HcclLaunchCustomAllGatherAicpuKernel(OpParam *param)
         HCCL_ERROR("failed end batch mode");
         return 1;
     }
-
     HCCL_INFO("%s success, commName[%s], tag[%s]", __func__, param->commName, param->tag);
     return 0;
 }

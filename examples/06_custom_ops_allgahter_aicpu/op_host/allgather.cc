@@ -9,6 +9,7 @@
  */
 
 #include <hccl/hccl_res_expt.h>
+#include <iostream>
 
 #include "log.h"
 #include "utils.h"
@@ -40,7 +41,7 @@ HcclResult HcclAllGatherCustom(
     }
 
     CHK_RET(HcclGetCommName(comm, param.commName));
-
+    HCCL_INFO("[HcclAllGatherCustom] commName: %s", param.commName);
     param.inputPtr = sendBuf;
     param.outputPtr = recvBuf;
     param.count = sendCount;
@@ -62,11 +63,11 @@ HcclResult HcclAllGatherCustom(
     uint64_t size = sizeof(AlgResourceCtx);
     if (HcclEngineCtxGet(comm, param.tag, engine, &ctx, &size) == HCCL_SUCCESS) {
         // device资源已经存在
-        HCCL_INFO("[HcclSendCustom] Engine context already exists");
+        HCCL_INFO("[HcclAllGatherCustom] Engine context already exists");
         param.resCtxDevice = static_cast<AlgResourceCtx *>(ctx);
     } else {
         // 不存在，新创建Context
-        HCCL_INFO("[HcclSendCustom] Creating engine context");
+        HCCL_INFO("[HcclAllGatherCustom] Creating engine context");
         CHK_RET(HcclEngineCtxCreate(comm, param.tag, engine, size, &ctx));
         param.resCtxDevice = static_cast<AlgResourceCtx *>(ctx);
         AlgResourceCtx resCtxHost;
@@ -85,12 +86,8 @@ HcclResult HcclAllGatherCustom(
         // ==============================================
         // STEP 2.2: 申请资源Thread和Channel
         // ==============================================
-        HcclAllocAlgResourceAICPU( comm, param, resCtxHost);
-        // 复制资源到Device
-        std::vector<char> seq = resCtxHost.Serialize();
-        param.ctxSize = seq.size();
-        
-        HcclMemcpyCtxHostToDevice(comm, param, resCtxHost, &param.resCtxDevice, &param.ctxSize);
+        CHK_RET(HcclAllocAlgResourceAICPU( comm, param, resCtxHost));
+        CHK_RET(HcclMemcpyCtxHostToDevice(comm, param, resCtxHost, &param.resCtxDevice, &param.ctxSize));
     }
     // ==============================================
     // STEP 3: 下发 AICPU Kernel
