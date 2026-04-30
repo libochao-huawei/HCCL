@@ -40,7 +40,7 @@ rank table的"version"字段为"1.2"，但rank table里"super_device_id"字段�
 
 ### 解决方法
 
-在rank table文件中补充"super\_device\_id"字段，配置说明可参考[rank table配置资源信息（Atlas A3 训练系列产品/Atlas A3 推理系列产品）](../cluster_info_config/rank-table配置资源信息_A3.md)。
+在rank table文件中补充"super\_device\_id"字段，配置说明可参考[rank table配置资源信息（Atlas A3 训练系列产品/Atlas A3 推理系列产品）](../cluster_info_config/rank_table_config_a3.md)。
 
 ## rank table文件中device\_ip字段校验失败（EI0014）
 
