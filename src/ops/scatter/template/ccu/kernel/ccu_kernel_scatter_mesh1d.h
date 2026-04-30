@@ -70,7 +70,7 @@ public:
     explicit CcuTaskArgScatterMesh1D(uint64_t inputAddr, uint64_t outputAddr, uint64_t token,
                                             uint64_t inputSliceStride, uint64_t outputSliceStride ,uint64_t inputRepeatStride,
                                             uint64_t outputRepeatStride, uint64_t normalSliceSize,
-                                            uint64_t lastSliceSize, uint64_t repeatNum, uint64_t isInputOutputEqual)
+                                            uint64_t lastSliceSize, uint64_t repeatNum)
         : inputAddr_(inputAddr),
           outputAddr_(outputAddr),
           token_(token),
@@ -80,8 +80,7 @@ public:
           outputRepeatStride_(outputRepeatStride),
           normalSliceSize_(normalSliceSize),
           lastSliceSize_(lastSliceSize),
-          repeatNum_(repeatNum),
-          isInputOutputEqual_(isInputOutputEqual)
+          repeatNum_(repeatNum)
     {
         HCCL_DEBUG("[CcuTaskArgScatterMesh1D] inputAddr: %lu, outputAddr: %lu, token: %lu, "
                    "inputSliceStride: %lu, outputSliceStride: %lu,inputRepeatStride: %lu, outputRepeatStride: %lu, normalSliceSize: %lu, "
@@ -100,7 +99,6 @@ public:
     uint64_t normalSliceSize_;     // 正常切片大小
     uint64_t lastSliceSize_;       // 最后一个切片大小
     uint64_t repeatNum_;           // 重复次数
-    uint64_t isInputOutputEqual_;  // 输入输出地址是否相等
 };
 
 class CcuKernelScatterMesh1D : public CcuKernelAlgBase {
@@ -124,7 +122,6 @@ private:
     uint32_t rootId_{0};
     HcclDataType dataType_;
     HcclDataType outputDataType_;
-    hcomm::CcuRep::Variable isInputOutputEqual_;
     hcomm::CcuRep::Variable repeatNum_;
     std::vector<ChannelHandle> channels_;
     hcomm::CcuRep::Variable input_;
