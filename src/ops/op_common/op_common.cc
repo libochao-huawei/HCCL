@@ -1487,7 +1487,7 @@ HcclResult CheckDataType(const HcclDataType dataType, bool needReduce)
                 GetSupportDataType(needReduce).c_str()}));
             HCCL_ERROR("[Check][DataType]errNo[0x%016llx] data type[%s] not supported, support range=[%s]",
                         HCCL_ERROR_CODE(HCCL_E_NOT_SUPPORT), GetDataTypeEnumStr(dataType).c_str(),
-                        GetSupportDataType(needReduce));
+                        GetSupportDataType(needReduce).c_str());
             return HCCL_E_NOT_SUPPORT;
         }
     }
