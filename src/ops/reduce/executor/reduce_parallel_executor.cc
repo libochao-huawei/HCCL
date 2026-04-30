@@ -730,12 +730,12 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
     //step 4
     CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
     //数据0 allgather mesh
-    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxIntra01, param.hcclBuff.addr, param.hcclBuff.addr, param.hcclBuff));
+    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxIntra01, param.hcclBuff.addr, param.outputPtr, param.hcclBuff));
     tempFastLaunchCtxIntra01.threads = intraThreads_;
     tempFastLaunchCtxIntra01.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[6]);
     ccuKernelSubmitInfos += ctx->ccuKernelNum[6];
     //数据1的 allgather nhr
-    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxInter11, param.hcclBuff.addr, param.hcclBuff.addr, param.hcclBuff));
+    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxInter11, param.hcclBuff.addr, param.outputPtr, param.hcclBuff));
     tempFastLaunchCtxInter11.threads = interThreads_;
     tempFastLaunchCtxInter11.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[7]);
     ccuKernelSubmitInfos += ctx->ccuKernelNum[7];

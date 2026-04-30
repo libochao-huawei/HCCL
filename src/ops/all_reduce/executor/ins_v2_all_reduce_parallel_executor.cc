@@ -249,7 +249,8 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2, typename InsAlgTemplate3>
 HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3>::FastLaunch(
         const OpParam &param, const CcuFastLaunchCtx *ctx)
-{
+{   
+    HCCL_INFO("[InsAllReduceParallelExecutor][FastLaunch] Start.");
     InsAlgTemplate0 intraTempAlg{};
     InsAlgTemplate1 interTempAlg{};
     InsAlgTemplate2 intraTempAlg1{};
@@ -267,7 +268,6 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     CcuKernelSubmitInfo *ccuKernelSubmitInfos = ctx->GetCcuKernelSubmitInfoPtr();
     
     //第一步开始前同步
-    HCCL_INFO("[InsAllReduceParallelExecutor][FastLaunch] Intra0 ccuKernelNum[%llu]", ctx->ccuKernelNum[0]);
     CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
     //数据0的server内的mesh算法
     CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxIntra0, param.inputPtr, param.hcclBuff.addr, param.hcclBuff));
@@ -321,7 +321,6 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     CHK_RET(PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_));
 
     //第四步开始前同步
-    HCCL_INFO("[InsAllReduceParallelExecutor][FastLaunch] Intra0 ccuKernelNum[%llu]", ctx->ccuKernelNum[0]);
     CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
     //数据0的server内的mesh算法
     CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxIntra00, param.hcclBuff.addr, param.outputPtr, param.hcclBuff));
@@ -405,7 +404,7 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     // 算法展开
     HcclResult ret = GenInsQues(param, resCtx, tempAlgIntra, tempAlgInter, tempAlgIntra1, tempAlgInter1);
     CHK_PRT_RET(ret != HCCL_SUCCESS,
-        HCCL_ERROR("[InsAllReduceParallelExecutor][Orchestrate]errNo[0x%016llx] Reduce scatter excutor kernel run failed",
+        HCCL_ERROR("[InsAllReduceParallelExecutor][Orchestrate]errNo[0x%016llx] AllReduce excutor kernel run failed",
             HCCL_ERROR_CODE(ret)), ret);
     return HcclResult::HCCL_SUCCESS;
 }
@@ -870,8 +869,8 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 
         #ifndef AICPU_COMPILE
         if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU) {
-            ccuKernelLaunchNumIntra00_ = intraTempAlgRes1.submitInfos.size();
-            ccuKernelLaunchNumInter11_ = interTempAlgRes1.submitInfos.size();
+            ccuKernelLaunchNumIntra11_ = intraTempAlgRes1.submitInfos.size();
+            ccuKernelLaunchNumInter00_ = interTempAlgRes1.submitInfos.size();
         }
         #endif
 
@@ -884,8 +883,8 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 
         #ifndef AICPU_COMPILE
         if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU && param.opMode != OpMode::OFFLOAD) {
-            ccuKernelLaunchNumIntra11_ = intraTempAlgRes1.submitInfos.size() - ccuKernelLaunchNumIntra00_;
-            ccuKernelLaunchNumInter00_ = interTempAlgRes1.submitInfos.size() - ccuKernelLaunchNumInter11_;
+            ccuKernelLaunchNumIntra00_ = intraTempAlgRes1.submitInfos.size() - ccuKernelLaunchNumIntra11_;
+            ccuKernelLaunchNumInter11_ = interTempAlgRes1.submitInfos.size() - ccuKernelLaunchNumInter00_;
             CHK_RET(FastLaunchSaveCtx(param, intraTempAlgRes, interTempAlgRes, intraTempAlgRes1, interTempAlgRes1, resCtx.notifyNumOnMainThread));
         }
         #endif
