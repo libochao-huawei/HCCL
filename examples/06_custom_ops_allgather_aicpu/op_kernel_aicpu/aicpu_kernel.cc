@@ -1,0 +1,58 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+#include <string>
+#include <memory>
+#include <vector>
+#include <iostream>
+#include <hccl/hcomm_primitives.h>
+#include "log.h"
+#include "utils.h"
+#include "common.h"
+#include "exec_op.h"
+
+using namespace ops_hccl_allgather;
+
+extern "C" unsigned int HcclLaunchCustomAllGatherAicpuKernel(OpParam *param)
+{
+    AlgResourceCtx resCtxDevice;
+    char *ctx = static_cast<char *>(param->resCtxDevice);
+    std::vector<char> seq(ctx, ctx + param->ctxSize);
+    resCtxDevice.DeSerialize(seq);
+
+    if (HcommBatchModeStart(param->tag) != HCCL_SUCCESS) {
+        HCCL_ERROR("failed start batch mode");
+        return 1;
+    }
+
+    // 主thread等待Host stream的通知
+    if (HcommThreadNotifyWaitOnThread(resCtxDevice.aicpuThread, 0, CUSTOM_TIMEOUT) != HCCL_SUCCESS) {
+        HCCL_ERROR("failed to wait notify from host main stream");
+        return 1;
+    }
+
+    // 执行算法编排
+    if (ExecOp(*param, resCtxDevice) != HCCL_SUCCESS) {
+        HCCL_ERROR("orchestrate failed for op:%d", param->opType);
+        return 1;
+    }
+
+    // 主thread通知Host stream
+    if (HcommThreadNotifyRecordOnThread(resCtxDevice.aicpuThread, resCtxDevice.cpuThreadOnAicpu, 0) != HCCL_SUCCESS) {
+        HCCL_ERROR("failed to record host main stream");
+        return 1;
+    }
+
+    if (HcommBatchModeEnd(param->tag) != HCCL_SUCCESS) {
+        HCCL_ERROR("failed end batch mode");
+        return 1;
+    }
+    return 0;
+}
