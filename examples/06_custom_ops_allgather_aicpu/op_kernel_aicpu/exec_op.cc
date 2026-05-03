@@ -44,7 +44,6 @@ HcclResult ExecOp(const OpParam &param, const AlgResourceCtx &resCtx)
         uint64_t sliceCount = std::min(maxDataCountPerLoop, count - loop * maxDataCountPerLoop);
         uint64_t sliceSize = sliceCount * dataTypeSize;
         uint64_t cclBuffOffset = sliceSize * param.myRank;
-        uint64_t inputBaseOffset = processedDataCount * dataTypeSize;
         uint64_t inputOffset = processedDataCount * dataTypeSize;
         // 本地拷贝到hcclbuf
         void *curCclBuffAddr = static_cast<void *>(static_cast<uint8_t *>(cclBuffAddr) + cclBuffOffset);

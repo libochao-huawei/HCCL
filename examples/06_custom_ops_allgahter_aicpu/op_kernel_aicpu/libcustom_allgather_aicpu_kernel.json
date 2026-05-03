@@ -1,9 +1,0 @@
-{
-  "HcclLaunchCustomAllGatherAicpuKernel": {
-    "opInfo": {
-      "opKernelLib": "AICPUKernel",
-      "kernelSo": "libcustom_allgather_aicpu_kernel.so",
-      "functionName": "HcclLaunchCustomAllGatherAicpuKernel"
-    }
-  }
-}

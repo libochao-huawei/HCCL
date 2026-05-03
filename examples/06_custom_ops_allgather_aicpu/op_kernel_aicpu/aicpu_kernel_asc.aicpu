@@ -101,24 +101,27 @@ extern "C" {
 __global__ __aicpu__ uint32_t HcclLaunchCustomAllGatherAicpuKernelAsc(void *args)
 {
     OpParam *param = reinterpret_cast<OpParam*>(args);
-    AlgResourceCtx *resCtx = reinterpret_cast<AlgResourceCtx*>(param->resCtxDevice);
-    
+    AlgResourceCtx resCtxDevice;
+    char *ctx = static_cast<char *>(param->resCtxDevice);
+    std::vector<char> seq(ctx, ctx + param->ctxSize);
+    resCtxDevice.DeSerialize(seq);
+
     if (HcommBatchModeStart(param->tag) != HCCL_SUCCESS) {
         HCCL_ERROR("failed start batch mode");
         return 1;
     }
 
-    if (HcommThreadNotifyWaitOnThread(resCtx->aicpuThread, 0, CUSTOM_TIMEOUT) != HCCL_SUCCESS) {
+    if (HcommThreadNotifyWaitOnThread(resCtxDevice.aicpuThread, 0, CUSTOM_TIMEOUT) != HCCL_SUCCESS) {
         HCCL_ERROR("failed to wait notify from host main stream");
         return 1;
     }
 
-    if (ExecOp(*param, *resCtx) != HCCL_SUCCESS) {
+    if (ExecOp(*param, resCtxDevice) != HCCL_SUCCESS) {
         HCCL_ERROR("orchestrate failed for op:%d", param->opType);
         return 1;
     }
 
-    if (HcommThreadNotifyRecordOnThread(resCtx->aicpuThread, resCtx->cpuThreadOnAicpu, 0) != HCCL_SUCCESS) {
+    if (HcommThreadNotifyRecordOnThread(resCtxDevice.aicpuThread, resCtxDevice.cpuThreadOnAicpu, 0) != HCCL_SUCCESS) {
         HCCL_ERROR("failed to record host main stream");
         return 1;
     }

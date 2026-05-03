@@ -31,7 +31,7 @@ HcclResult HcclAllGatherCustom(
     OpParam param;
     int ret = sprintf_s(param.tag, sizeof(param.tag), "%s", "hccl_custom_allgather");
     if (ret <= 0) {
-        HCCL_ERROR("[HcclSendCustom] Failed to fill param.tag");
+        HCCL_ERROR("[HcclAllGatherCustom] Failed to fill param.tag");
         return HCCL_E_INTERNAL;
     }
     CHK_RET(GetDeviceType(&param.devType));
