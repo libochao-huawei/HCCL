@@ -11,14 +11,13 @@
 #include "ins_v2_all_to_all_v_sole_executor.h"
 #include "ins_temp_all_to_all_v_mesh_1D.h"
 #include "ins_temp_dpu_alltoall_mesh.h"
-#ifndef AICPU_COMPILE
 #include "aiv_temp_all_to_all_mesh_1D.h"
 #include "aiv_temp_all_to_all_v_mesh_1D.h"
 #if !defined(HCCL_CANN_COMPAT_850)
 #include "ccu_temp_all_to_all_mesh_1D.h"
 #include "ccu_temp_all_to_all_mesh2die.h"
 #include "ccu_temp_all_to_all_mesh1d_multi_jetty.h"
-#endif /* !HCCL_CANN_COMPAT_850 */
+#include "ccu_temp_all_to_all_mesh1d_2Die.h"
 #endif
 
 #define CONST_ZERO 0
@@ -445,10 +444,11 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLVC, InsAlltoAllVCClosMesh1DDPU, I
     TopoMatchUBX1d, InsTempDpuAlltoAllMesh);
 #endif /* !HCCL_CANN_COMPAT_850 */
 
-#ifndef AICPU_COMPILE
 #if !defined(HCCL_CANN_COMPAT_850)
     REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, CcuAlltoAllMesh1D, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
         CcuTempAlltoAllMesh1D);
+    REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, CcuAllToAllMesh1D2Die, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
+        CcuTempAllToAllMesh1D2Die);
 #endif /* !HCCL_CANN_COMPAT_850 */
     REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, AivAlltoAllMesh1D, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
                      AivTempAlltoAllMesh1D);
@@ -460,7 +460,6 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLVC, InsAlltoAllVCClosMesh1DDPU, I
 #endif /* !HCCL_CANN_COMPAT_850 */
 #if !defined(HCCL_CANN_COMPAT_850)
     REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, CcuAlltoAllMesh1DMultiJetty, InsV2AlltoAllVSoleExecutor,
-                    TopoMatchUBX1d, CcuTempAllToAllMesh1dMultiJetty);
-#endif /* !HCCL_CANN_COMPAT_850 */
+                    TopoMatchUBX, CcuTempAllToAllMesh1dMultiJetty);
 #endif
 }  // namespace Hccl
