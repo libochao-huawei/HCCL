@@ -250,13 +250,10 @@ HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std
             channels_[dieId].emplace_back(channel_list[0]);
             rankGroup_[dieId].push_back(channel_list[0].remoteRank);
             meshDieId = dieId;
-            HCCL_INFO("Mesh DieId: %u", meshDieId);
         }
     }
-    HCCL_INFO("Mesh channel num[%u], Clos channel num[%u]", channels_[meshDieId].size(), clos_channels[0].size());
     
     // 筛选clos链路
-    HCCL_INFO("clos_channels size: %u, clos_channels[0] size: %u, clos_channels[1] size: %u", clos_channels.size(), clos_channels[0].size(), clos_channels[1].size());
     for(auto& channels: clos_channels){
         u32 dieId = channels.first;
         std::vector<HcclChannelDesc>& channel_list = channels.second;
@@ -274,8 +271,6 @@ HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std
 
     rankGroup_[0].push_back(myRank_);   // keep myRank_ at last, sync with kernel
     rankGroup_[1].push_back(myRank_);
-
-    HCCL_INFO("PartitionChannels: mesh channels size[%u], clos channels size[%u]", channels_[meshDieId].size(), channels_[1-meshDieId].size());
 
     HCCL_INFO("[CcuTempAlltoAllMesh2Die][CalcRes] Rank[%d], channels size, "
         "die0 channels[%u], die1 channels[%u].", myRank_, channels_[0].size(), channels_[1].size());
@@ -325,8 +320,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::KernelRun(const OpParam &param, const Temp
     std::vector<u32> notifyIdxSubToMain(1, 0);
     CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain));
 
-    HCCL_DEBUG("[CcuTempAllToAllMesh1D2Die][KernelRun] end. Rank[%d]", myRank_);
-    HCCL_INFO("[CcuTempAllToAllMesh2Die] Template Run for all steps Ends.");
+    HCCL_INFO("[CcuTempAllToAllMesh1D2Die] Template Run for all steps Ends.");
     return HcclResult::HCCL_SUCCESS;
 }
 } // namespace Hccl
