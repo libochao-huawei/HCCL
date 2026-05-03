@@ -44,7 +44,7 @@ HcclResult AivTempBroadcastMesh1D::CalcRes(HcclComm comm, const OpParam& param, 
 HcclResult AivTempBroadcastMesh1D::CalNumBlocks(u32& numBlocks, u64 dataSize, u32 numBlocksLimit)
 {
     (void) dataSize;
-    numBlocks = numBlocksLimit;
+    numBlocks = std::min(numBlocksLimit, MAX_NUM_BLOCKS);
     HCCL_INFO("[AivTempBroadcastMesh1D] Actually use core num[%u]", numBlocks);
     return HcclResult::HCCL_SUCCESS;
 }
