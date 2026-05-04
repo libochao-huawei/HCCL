@@ -40,7 +40,7 @@ public:
 
 protected:
     u32 level0ChannelNumPerRank_{1};
-    u32 level1ChannelNumPerRank_{2};
+    u32 level1ChannelNumPerRank_{1};
     float level0DataRatio_{0.5f};
 };
 
