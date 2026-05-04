@@ -283,6 +283,7 @@ struct CcuKernelSubmitInfo {
 // ccu快速下发上下文
 struct CcuFastLaunchCtx {
     char algName[OP_ALG_LENGTH];
+    u32 notifyNumOnMainThread = 0;
     u32 threadNum;
     u32 ccuKernelNum[MAX_TEMP_NUM_IN_ALGO];  // 每次调用template的KernelRun下发的kernel数量
     // 紧接ThreadHandle数组
@@ -602,6 +603,13 @@ struct ResPackGraphMode {
     std::vector<aclrtStream> streams;
     void* scratchMemAddr;
     u64 scratchMemSize;
+};
+
+// 图模式内存注册信息
+struct MemRegInfo {
+    char inputBuffTag[MAX_MEM_TAG_LENGTH];    // 输入缓冲区标签
+    char outputBuffTag[MAX_MEM_TAG_LENGTH];   // 输出缓冲区标签
+    std::vector<HcclMemHandle> memHandles;    // 内存句柄列表
 };
 
 // AIV模式参数存储结构
