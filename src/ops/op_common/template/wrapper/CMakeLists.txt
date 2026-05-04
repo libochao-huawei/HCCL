@@ -9,8 +9,12 @@
 # -----------------------------------------------------------------------------------------------------------
 set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/alg_data_trans_wrapper.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/dpu_alg_data_trans_wrapper.cc
 )
+if(NOT HCCL_CANN_COMPAT_850)
+    list(APPEND src_list
+        ${CMAKE_CURRENT_SOURCE_DIR}/dpu_alg_data_trans_wrapper.cc
+    )
+endif()
 
 target_sources(hccl PRIVATE
     ${src_list}
