@@ -14,6 +14,7 @@
 namespace ops_hccl {
 constexpr u32 MAX_RANK_NUM_FOR_CONCURRENT_ALGO = 4;
 constexpr u64 RS_AICPU_1D_MAX_DATA_SIZE = 16 * 1024 * 1024;
+constexpr u32 ISFLATTENDATA = 8 * 1024 * 1024;
 
 SelectorStatus ReduceScatterAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
@@ -132,6 +133,8 @@ SelectorStatus ReduceScatterAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWi
                 if(IsSmallDataCCU((dataSize * topoInfo->userRankSize), topoInfo->userRankSize)){
                     selectAlgName = "CcuReduceScatterParallelMesh1DNHR";//64M以下跑ccu
                     return SelectorStatus::MATCH;
+                } else if ((dataSize * topoInfo->userRankSize) <= ISFLATTENDATA && topoInfo->userRankSize > 8) {
+                    selectAlgName = "CcuReduceScatterNhr1DMem2MemFlatten";
                 } else {
                     return SelectorStatus::NOT_MATCH;//64M以上切为aicpu
                 }
