@@ -9,6 +9,7 @@
  */
 
 #include "alg_data_trans_wrapper.h"
+#include <chrono>
 
 namespace ops_hccl {
 
@@ -469,6 +470,7 @@ bool IsContinuousSlice(const DataSlice &nxtSlice, const DataSlice &currSlice)
 HcclResult PreSyncInterThreads(const ThreadHandle &mainThread, const std::vector<ThreadHandle> &subThreads,
     const std::vector<u32> &notifyIdxMainToSub)
 {
+    auto syncStart = std::chrono::high_resolution_clock::now();
     CHK_PRT_RET(subThreads.size() == 0 || notifyIdxMainToSub.size() == 0,
         HCCL_ERROR("[AlgDataTransWrapper] [PreSyncInterThreads] subThreads size: [%u], notifyIdxMainToSub size [%u] "
                    "0 is not correct.",
@@ -493,12 +495,16 @@ HcclResult PreSyncInterThreads(const ThreadHandle &mainThread, const std::vector
             HcommThreadNotifyWaitOnThread(subThreads[tidx], notifyIdxMainToSub[tidx], CUSTOM_TIMEOUT)));
     }
 
+    auto syncEnd = std::chrono::high_resolution_clock::now();
+    auto syncDuration = std::chrono::duration_cast<std::chrono::microseconds>(syncEnd - syncStart).count();
+    HCCL_INFO("[AlgDataTransWrapper] [PreSyncInterThreads] time: %ld us", syncDuration);
     return HcclResult::HCCL_SUCCESS;
 }
 
 HcclResult PostSyncInterThreads(const ThreadHandle &mainThread, const std::vector<ThreadHandle> &subThreads,
     const std::vector<u32> &notifyIdxSubToMain)
 {
+    auto syncStart = std::chrono::high_resolution_clock::now();
     CHK_PRT_RET(subThreads.size() == 0 || notifyIdxSubToMain.size() == 0,
         HCCL_ERROR("[AlgDataTransWrapper] [PreSyncInterThreads] subThreads size: [%u], notifyIdxSubToMain size [%u] "
                    "0 is not correct.",
@@ -523,6 +529,9 @@ HcclResult PostSyncInterThreads(const ThreadHandle &mainThread, const std::vecto
             HcommThreadNotifyRecordOnThread(subThreads[tidx], mainThread, notifyIdxSubToMain[tidx])));
     }
 
+    auto syncEnd = std::chrono::high_resolution_clock::now();
+    auto syncDuration = std::chrono::duration_cast<std::chrono::microseconds>(syncEnd - syncStart).count();
+    HCCL_INFO("[AlgDataTransWrapper] [PostSyncInterThreads] time: %ld us", syncDuration);
     return HcclResult::HCCL_SUCCESS;
 }
 
