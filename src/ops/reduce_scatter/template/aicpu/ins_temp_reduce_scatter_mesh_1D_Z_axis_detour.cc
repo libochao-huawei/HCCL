@@ -29,17 +29,24 @@ HcclResult InsTempReduceScatterMesh1DZAxisDetour::CalcRes(
 {
     CHK_PRT_RET(topoInfo == nullptr,
         HCCL_ERROR("[InsTempReduceScatterMesh1DZAxisDetour][CalcRes] topoInfo is nullptr"), HCCL_E_PARA);
+
     std::vector<HcclChannelDesc> level0Channels;
-    CHK_RET(CalcChannelRequestMesh1DLevel0(comm, param, topoInfo, subCommRanks_, level0Channels));
-    std::vector<HcclChannelDesc> level1Channels;
-    CHK_RET(CalcChannelRequestMesh1DLevel1(comm, param, topoInfo, subCommRanks_, level1Channels));
-    std::vector<HcclChannelDesc> mergedChannels;
-    mergedChannels.insert(mergedChannels.end(), level0Channels.begin(), level0Channels.end());
-    mergedChannels.insert(mergedChannels.end(), level1Channels.begin(), level1Channels.end());
-    resourceRequest.channels.push_back(mergedChannels);
-    channelsPerRank_ = CalcChannelsPerRank(mergedChannels);
+    // 校验topoInfo是否为空
+    CHK_PRT_RET(topoInfo == nullptr,
+        HCCL_ERROR("[InsTempReduceScatterMesh1D][CalcRes] topoInfo is nullptr"), HCCL_E_PARA);
+    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
+    resourceRequest.channels.push_back(level0Channels);
+    // std::vector<HcclChannelDesc> level0Channels;
+    // CHK_RET(CalcChannelRequestMesh1DLevel0(comm, param, topoInfo, subCommRanks_, level0Channels));
+    // std::vector<HcclChannelDesc> level1Channels;
+    // CHK_RET(CalcChannelRequestMesh1DLevel1(comm, param, topoInfo, subCommRanks_, level1Channels));
+    // std::vector<HcclChannelDesc> mergedChannels;
+    // mergedChannels.insert(mergedChannels.end(), level0Channels.begin(), level0Channels.end());
+    // mergedChannels.insert(mergedChannels.end(), level1Channels.begin(), level1Channels.end());
+    // resourceRequest.channels.push_back(mergedChannels);
+    // channelsPerRank_ = CalcChannelsPerRank(mergedChannels);
     level0ChannelNumPerRank_ = CalcChannelsPerRank(level0Channels);
-    level1ChannelNumPerRank_ = CalcChannelsPerRank(level1Channels);
+    // level1ChannelNumPerRank_ = CalcChannelsPerRank(level1Channels);
     CHK_RET(GetRes(resourceRequest));
     HCCL_DEBUG("[InsTempReduceScatterMesh1DZAxisDetour][CalcRes] myRank[%u], channelsPerRank_[%u], "
                "level0ChannelNum[%zu], level1ChannelNum[%zu], notifyNumOnMainThread[%u], slaveThreadNum[%u]",
