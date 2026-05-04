@@ -150,7 +150,7 @@ HcclResult InsTempReduceScatterMesh1D::RunReduceScatter(
 {
     u32 myAlgRank = 0;
     CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], myAlgRank));
-    u32 queIdx = 0;
+    u32 queIdx = 1;
     for (u32 rankIdx = 1; rankIdx < threadNum_; rankIdx++) {
         u32 nextRank = (myAlgRank + rankIdx) % templateRankSize_; // 这里取的虚拟rankId
         u64 sliceSize = processSize_;
