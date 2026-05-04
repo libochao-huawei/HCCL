@@ -30,11 +30,20 @@ HcclResult CalcLevel1ChannelRequest(const OpParam& param, const TopoInfo* topoIn
     const AlgType& algType, std::vector<HcclChannelDesc> &channels);
 HcclResult CalcLevel2ChannelRequest(const OpParam& param, const TopoInfo* topoInfo, AlgHierarchyInfo& algHierarchyInfo,
     const AlgType& algType, std::vector<HcclChannelDesc> &channels);
+<<<<<<< HEAD
 HcclResult CalcChannelRequestMesh1D(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,	 
      const std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels);
 HcclResult CalcChannelRequestMesh1DFullMesh(HcclComm comm, const OpParam& param, 
     const TopoInfoWithNetLayerDetails* topoInfo, const std::vector<std::vector<u32>>& subcommInfo,
     std::vector<HcclChannelDesc> &channels);
+=======
+HcclResult CalcChannelRequestMesh1D(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
+    const std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels);
+HcclResult CalcChannelRequestMesh1DLevel0(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
+    const std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels);
+HcclResult CalcChannelRequestMesh1DLevel1(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
+    const std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels);
+>>>>>>> 28794b3 (add channel level0 level1 func)
 HcclResult CalcChannelRequestNhr(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
     const std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels);
 HcclResult CalcChannelRequestMesh2D(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
