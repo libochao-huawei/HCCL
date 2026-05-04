@@ -68,8 +68,7 @@ SelectorStatus AlltoAllAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNet
                 uint64_t dataSize = opParam.all2AllDataDes.sendCount * dataTypeSize;
                 bool isMeshNumEqualToClosNum = false;
                 CHK_PRT_RET(CheckMeshNumEqualToClosNum(topoInfo, isMeshNumEqualToClosNum) != HCCL_SUCCESS,
-                    HCCL_DEBUG("[AlltoAllAutoSelector] CheckMeshNumEqualToClosNum failed."),
-                    SelectorStatus::NOT_MATCH);
+                    HCCL_DEBUG("[AlltoAllAutoSelector] CheckMeshNumEqualToClosNum failed."), SelectorStatus::NOT_MATCH);
                 if ((isMeshNumEqualToClosNum == true) && (topoInfo->userRankSize <= CONCURRENT_RANK_LIMIT)
                     && (dataSize > BIG_DATA_SIZE_LIMIT)) { // 同一组4P且大数据量，走并发算法
                     selectAlgName = "CcuAllToAllMesh1DConcurrent";
