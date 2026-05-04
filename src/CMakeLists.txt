@@ -48,6 +48,8 @@ set(INCLUDE_LIST
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/interface_graph_mode
 
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter
+    ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/algo
+    ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/algo/template
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/selector
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template
@@ -273,7 +275,11 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/template/aicpu/ins_temp_scatter_mesh_1D.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/template/aicpu/ins_temp_scatter_nhr.cc
 
-
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/algo/reduce_scatter_executor_base.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/algo/reduce_scatter_birs_executor.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/algo/template/reduce_scatter_birs.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/algo/template/reduce_scatter_birs_inter.cc
+        
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sole_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_reduce_scatter_parallel_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_mesh_1D.cc

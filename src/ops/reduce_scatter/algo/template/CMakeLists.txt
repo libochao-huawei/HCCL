@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------------------------------------
-# Copyright (c) 2025 Huawei Technologies Co., Ltd.
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -7,21 +7,10 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
-add_subdirectory(executor)
-add_subdirectory(selector)
-add_subdirectory(template)
-add_subdirectory(topo)
-
 set(src_list
-    ${CMAKE_CURRENT_SOURCE_DIR}/op_common.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/op_common_a3.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/dlhcomm_function.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/reduce_scatter_birs.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/reduce_scatter_birs_inter.cc
 )
-if(NOT HCCL_CANN_COMPAT_850)
-    list(APPEND src_list
-        ${CMAKE_CURRENT_SOURCE_DIR}/omnipipe_data_slice_calc.cc
-    )
-endif()
 
 target_sources(hccl PRIVATE
     ${src_list}
