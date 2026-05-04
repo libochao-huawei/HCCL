@@ -12,9 +12,11 @@
 #include "ins_temp_scatter_mesh_1D.h"
 #include "ins_temp_scatter_nhr.h"
 #ifndef AICPU_COMPILE
+#if !defined(HCCL_CANN_COMPAT_850)
 #include "ccu_temp_scatter_mesh1d.h"
 #include "ccu_temp_scatter_nhr1d_mem2mem.h"
 #include "ccu_kernel_scatter_nhr1d_mem2mem.h"
+#endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 
 namespace ops_hccl {
@@ -390,8 +392,8 @@ HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
         PostSyncInterTemplates();
 
 #ifndef AICPU_COMPILE
-        if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU) {
-            CHK_RET(FastLaunchSaveCtx(param, intraTemplateAlgRes, interTemplateAlgRes));
+        if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU && param.opMode != OpMode::OFFLOAD) {
+            CHK_RET(FastLaunchSaveCtx(param, intraTemplateAlgRes, interTemplateAlgRes, resCtx.notifyNumOnMainThread));
         }
 #endif
     }
@@ -401,7 +403,8 @@ HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 #ifndef AICPU_COMPILE
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::FastLaunchSaveCtx(
-        const OpParam &param, const TemplateResource &templateAlgResIntra, const TemplateResource &templateAlgResInter)
+        const OpParam &param, const TemplateResource &templateAlgResIntra, const TemplateResource &templateAlgResInter, 
+        u32 notifyNumOnMainThread)
 {
     HCCL_INFO("[InsV2ScatterParallelExecutor] loopTimes==1, save fast launch ctx.");
     ccuKernelLaunchNumIntra1_ = templateAlgResIntra.submitInfos.size() - ccuKernelLaunchNumIntra0_;
@@ -416,7 +419,7 @@ HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 
     std::vector<u32> ccuKernelNumList = {ccuKernelLaunchNumIntra0_, ccuKernelLaunchNumInter1_, ccuKernelLaunchNumInter0_, ccuKernelLaunchNumIntra1_};
     std::vector<std::vector<CcuKernelSubmitInfo>> submitInfosList = {templateAlgResIntra.submitInfos, templateAlgResInter.submitInfos};
-    return FastLaunchSaveCtxTwoTemplate(param, threadNum, ccuKernelNum, threads_, ccuKernelNumList, submitInfosList);
+    return FastLaunchSaveCtxTwoTemplate(param, threadNum, ccuKernelNum, threads_, ccuKernelNumList, submitInfosList, notifyNumOnMainThread);
     
 }
 
@@ -601,16 +604,20 @@ HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     return HCCL_SUCCESS;
 }
 
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_SCATTER, InsScatterParallelMesh1DNHR, InsV2ScatterParallelExecutor,
     TopoMatchMultilevel, InsTempScatterMesh1D, InsTempScatterNHR);
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_SCATTER, InsScatterParallelMesh1DNHRPcie,
     InsV2ScatterParallelExecutor, TopoMatchPcieMix, InsTempScatterMesh1D, InsTempScatterNHR);
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_SCATTER, InsScatterParallelMesh1DNHRUBX,
     InsV2ScatterParallelExecutor, TopoMatchUBX, InsTempScatterMesh1D, InsTempScatterNHR);
+#endif /* !HCCL_CANN_COMPAT_850 */
 #ifndef AICPU_COMPILE
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_SCATTER, CcuScatterParallelMesh1DNHR, InsV2ScatterParallelExecutor,
     TopoMatchMultilevel, CcuTempScatterMesh1D, CcuTempScatterNHR1DMem2Mem);
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_SCATTER, CcuScatterParallelMesh1DNHRUBX, InsV2ScatterParallelExecutor,
     TopoMatchUBX, CcuTempScatterMesh1D, CcuTempScatterNHR1DMem2Mem);
+#endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 }  // namespace ops_hccl

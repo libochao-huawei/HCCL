@@ -192,7 +192,7 @@ HcclResult AllReduceOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t count,
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));
-    if (ShouldUseInnerOp(param.opExecuteConfig)) {
+    if (ShouldUseInnerOp(param.opExecuteConfig) && param.opMode == OpMode::OPBASE) {
         return HcclAllReduceInner(sendBuf, recvBuf, count, dataType, op, comm, stream);
     }
     // 单卡校验

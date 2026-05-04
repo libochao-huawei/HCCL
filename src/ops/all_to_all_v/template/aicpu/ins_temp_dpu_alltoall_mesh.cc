@@ -62,7 +62,7 @@ u64 InsTempDpuAlltoAllMesh::CalcScratchMultiple(BufferType inBuffType, BufferTyp
     (void)inBuffType;
     (void)outBuffType;
     // hcclbuf切分为CCL_IN和CCL_OUT,每部分切分为ranksize块hcclbuffBlockMem
-    u64 scratchMultiple = CCLBUF_SPLIT_PARTS;
+    u64 scratchMultiple = CCLBUF_SPLIT_PARTS * templateRankSize_;
     HCCL_INFO("[InsTempDpuAlltoAllMesh] scratchMultiple[%llu]", scratchMultiple);
     return scratchMultiple;
 }

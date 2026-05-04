@@ -13,7 +13,6 @@
 using namespace AscendC;
  
 template<typename T>
-// todo 简化参数
 class AivAlltoAllMesh1D : public AivCommBase {
 public:
     __aicore__ inline AivAlltoAllMesh1D() {}
@@ -60,20 +59,20 @@ private:
         uint64_t sliceOffsetSize = sliceOffset * sizeof(T);
         uint64_t sliceSize = sliceCount * sizeof(T);
  
-        // PutRemote阶段
+        // PreCopy阶段
         srcOffset_ = input_ + dstRank * inputSliceStride_ + sliceOffsetSize;
-        dstOffset_ = reinterpret_cast<uint64_t>(GM_IN[dstRank]) + rank_ * dataSize_ + sliceOffsetSize;
+        dstOffset_ = reinterpret_cast<uint64_t>(GM_IN[rank_]) + dstRank * dataSize_ + sliceOffsetSize;
         CpGM2GM((__gm__ T *)dstOffset_, (__gm__ T *)srcOffset_, sliceCount);
         pipe_barrier(PIPE_ALL);
  
-        uint64_t setFlagIdx = rank_ * coreNumPerDstRank + coreIdxForDstRank;
-        Record(dstRank, setFlagIdx, curTag_);  // 按照数据源rank编排flag的偏移量
+        uint64_t setFlagIdx = coreIdx_;
+        Record(rank_, setFlagIdx, curTag_);
  
-        // PostCopy阶段
-        uint64_t waitFlagIdx = coreIdx_;
-        WaitFlag(rank_, waitFlagIdx, curTag_);
+        // ReadRemote阶段
+        uint64_t waitFlagIdx = rank_ * coreNumPerDstRank + coreIdxForDstRank;
+        WaitFlag(dstRank, waitFlagIdx, curTag_);
  
-        srcOffset_ = reinterpret_cast<uint64_t>(GM_IN[rank_]) + dstRank * dataSize_ + sliceOffsetSize;
+        srcOffset_ = reinterpret_cast<uint64_t>(GM_IN[dstRank]) + rank_ * dataSize_ + sliceOffsetSize;
         dstOffset_ = output_ + dstRank * outputSliceStride_ + sliceOffsetSize;
         CpGM2GM((__gm__ T *)dstOffset_, (__gm__ T *)srcOffset_, sliceCount);
         pipe_barrier(PIPE_ALL);
@@ -87,30 +86,30 @@ private:
         for (uint32_t idx = 0; idx < rankNumPerCore; ++idx) {
             uint32_t dstRank = coreIdx_ * rankNumPerCore + idx;
             if (dstRank >= rankSize_) {
-                return;
+                break;
             }
  
-            // PutRemote阶段
+            // PreCopy阶段
             srcOffset_ = input_ + dstRank * inputSliceStride_;
-            dstOffset_ = reinterpret_cast<uint64_t>(GM_IN[dstRank]) + rank_ * dataSize_;
+            dstOffset_ = reinterpret_cast<uint64_t>(GM_IN[rank_]) + dstRank * dataSize_;
             CpGM2GM((__gm__ T *)dstOffset_, (__gm__ T *)srcOffset_, len_);
             pipe_barrier(PIPE_ALL);
  
-            uint64_t setFlagIdx = rank_;
-            Record(dstRank, setFlagIdx, curTag_);  // 按照数据源rank编排flag的偏移量
+            uint64_t setFlagIdx = dstRank;
+            Record(rank_, setFlagIdx, curTag_);  // 按照数据源rank编排flag的偏移量
         }
  
         for (uint32_t idx = 0; idx < rankNumPerCore; ++idx) {
             uint32_t dstRank = coreIdx_ * rankNumPerCore + idx;
             if (dstRank >= rankSize_) {
-                return;
+                break;
             }
  
-            // PostCopy阶段
-            uint64_t waitFlagIdx = dstRank;
-            WaitFlag(rank_, waitFlagIdx, curTag_);
+            // ReadRemote阶段
+            uint64_t waitFlagIdx = rank_;
+            WaitFlag(dstRank, waitFlagIdx, curTag_);
  
-            srcOffset_ = reinterpret_cast<uint64_t>(GM_IN[rank_]) + dstRank * dataSize_;
+            srcOffset_ = reinterpret_cast<uint64_t>(GM_IN[dstRank]) + rank_ * dataSize_;
             dstOffset_ = output_ + dstRank * outputSliceStride_;
             CpGM2GM((__gm__ T *)dstOffset_, (__gm__ T *)srcOffset_, len_);
             pipe_barrier(PIPE_ALL);
