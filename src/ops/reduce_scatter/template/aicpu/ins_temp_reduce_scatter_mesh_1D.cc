@@ -57,7 +57,7 @@ HcclResult InsTempReduceScatterMesh1D::KernelRun(const OpParam& param,
         HCCL_DEBUG("[InsTempReduceScatterMesh1D] myRank[%u] sliceSize and tailSize are 0, skip reduce scatter.", myRank_);
         return HCCL_SUCCESS;
     }
-    threadNum_ = templateResource.threads.size();
+    threadNum_ = GetThreadNum();
     dataType_ = param.DataDes.dataType;
     processSize_ = tempAlgParams.sliceSize;
     count_ = tempAlgParams.sliceSize / DATATYPE_SIZE_TABLE[dataType_];
@@ -151,7 +151,7 @@ HcclResult InsTempReduceScatterMesh1D::RunReduceScatter(
     u32 myAlgRank = 0;
     CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], myAlgRank));
     u32 queIdx = 1;
-    for (u32 rankIdx = 1; rankIdx < threadNum_; rankIdx++) {
+    for (u32 rankIdx = 1; rankIdx < templateRankSize_; rankIdx++) {
         u32 nextRank = (myAlgRank + rankIdx) % templateRankSize_; // 这里取的虚拟rankId
         u64 sliceSize = processSize_;
         u64 sliceCount = count_;
@@ -214,7 +214,7 @@ HcclResult InsTempReduceScatterMesh1D::RunReduceScatter(
 void InsTempReduceScatterMesh1D::GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub)
 {
     notifyIdxMainToSub.clear();
-    u32 threadNum = templateRankSize_ > 1 ? templateRankSize_ : 1;
+    u32 threadNum = GetThreadNum();
     u32 slaveThreadNum = threadNum - 1;
     for (u32 slaveThreadIdx = 0; slaveThreadIdx < slaveThreadNum; slaveThreadIdx++) {
         notifyIdxMainToSub.push_back(0);
@@ -224,7 +224,7 @@ void InsTempReduceScatterMesh1D::GetNotifyIdxMainToSub(std::vector<u32> &notifyI
 void InsTempReduceScatterMesh1D::GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain)
 {
     notifyIdxSubToMain.clear();
-    u32 threadNum = templateRankSize_ > 1 ? templateRankSize_ : 1;
+    u32 threadNum = GetThreadNum();
     u32 notifyNum = threadNum - 1;
     for (u32 notifyIdx = 0; notifyIdx < notifyNum; notifyIdx++) {
         notifyIdxSubToMain.push_back(notifyIdx);
@@ -239,7 +239,7 @@ u64 InsTempReduceScatterMesh1D::GetThreadNum() const
 
 HcclResult InsTempReduceScatterMesh1D::GetRes(AlgResourceRequest& resourceRequest) const
 {
-    u32 threadNum = templateRankSize_ > 1 ? templateRankSize_ : 1;
+    u32 threadNum = GetThreadNum();
     resourceRequest.slaveThreadNum = threadNum - 1;
     for (u32 index = 0; index < threadNum - 1; index++) {
         resourceRequest.notifyNumPerThread.push_back(1);
