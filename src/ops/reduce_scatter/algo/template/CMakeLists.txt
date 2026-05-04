@@ -7,21 +7,10 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
-add_subdirectory(executor)
-add_subdirectory(selector)
-add_subdirectory(template)
-add_subdirectory(topo)
-
 set(src_list
-    ${CMAKE_CURRENT_SOURCE_DIR}/op_common.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/op_common_a3.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/dlhcomm_function.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/reduce_scatter_birs.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/reduce_scatter_birs_inter.cc
 )
-if(NOT HCCL_CANN_COMPAT_850)
-    list(APPEND src_list
-        ${CMAKE_CURRENT_SOURCE_DIR}/omnipipe_data_slice_calc.cc
-    )
-endif()
 
 target_sources(hccl PRIVATE
     ${src_list}
