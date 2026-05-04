@@ -165,7 +165,7 @@ HcclResult InsTempReduceScatterMesh1D::RunReduceScatter(
         HCCL_DEBUG("[InsTempReduceScatterMesh1D][RunReduceScatter] myRank[%d], toRank[%d], fromRank[%d]",
                    myRank_, remoteRank, remoteRank);
         const std::vector<ChannelInfo> &curChannels = channels.at(remoteRank);
-        CHK_RET(CalcDataSplitByPortGroup(sliceCount, dataType_, curChannels, elemCountOut_, sizeOut_, elemOffset_));
+        CHK_RET(CalcDataSplitByPortGroup(sliceCount, DATATYPE_SIZE_TABLE[dataType_], curChannels, elemCountOut_, sizeOut_, elemOffset_));
         for (u32 channelIdx = 0; channelIdx < channelsPerRank_; channelIdx++) {
             const ChannelInfo &linkSend = curChannels[channelIdx];
             const ChannelInfo &linkRecv = curChannels[channelIdx];
