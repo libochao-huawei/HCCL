@@ -44,7 +44,7 @@ public:
     
     void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub) override;
     void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override;
-private:
+protected:
     HcclResult RunReduceScatter(const std::map<u32, std::vector<ChannelInfo>> &channels,
                                 const std::vector<ThreadHandle> &threads,
                                 const TemplateDataParams &tempAlgParam);
