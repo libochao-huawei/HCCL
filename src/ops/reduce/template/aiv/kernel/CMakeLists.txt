@@ -1,3 +1,4 @@
+if(NOT HCCL_CANN_COMPAT_850)
 set_source_files_properties(
     aiv_communication_v2.h PROPERTIES LANGUAGE CXX
 )
@@ -25,3 +26,4 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_reduce_op_910_95.o
     ${INSTALL_OPTIONAL}
     COMPONENT hccl
 )
+endif()

@@ -38,7 +38,7 @@ public:
     HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *resCtx) override;
     HcclResult FastLaunchSaveCtx(const OpParam &param, const TemplateResource &templateAlgResIntra,
                                  const TemplateResource &templateAlgResInter, const TemplateResource &intraTempAlgRes1,
-                                 const TemplateResource &interTempAlgRes1);
+                                 const TemplateResource &interTempAlgRes1, u32 notifyNumOnMainThread);
 #endif
 
 private:

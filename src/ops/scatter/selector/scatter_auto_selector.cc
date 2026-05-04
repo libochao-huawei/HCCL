@@ -110,7 +110,11 @@ SelectorStatus ScatterAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerDe
                 selectAlgName = "InsScatterParallelMesh1DNHRUBX";
             }
         } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
-            selectAlgName = "InsScatterMesh1D";
+            if (topoInfo->level0PcieMix) {
+                selectAlgName = "InsScatterNHR";
+            } else {
+                selectAlgName = "InsScatterMesh1D";
+            }
         } 
         else {
             HCCL_WARNING("[ScatterAutoSelector] topo not match for aicpu algo");
