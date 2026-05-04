@@ -9,6 +9,7 @@
  */
 
 #include "aicpu/ins_temp_all_to_all_v_mesh_1D.h"
+#include <chrono>
 
 #define NET_NUM 2
 
@@ -114,6 +115,7 @@ HcclResult InsTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
     const TemplateDataParams& tempAlgParams,
     TemplateResource& templateResource)
 {
+    auto totalStart = std::chrono::high_resolution_clock::now();
     HCCL_INFO("[InsTempAlltoAllVMesh1D][KernelRun] Run Start");
     threadNum_ = templateResource.threads.size();
     dataType_ = param.all2AllVDataDes.sendType;
@@ -133,13 +135,16 @@ HcclResult InsTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
     }
     CHK_RET(RunALLtoALL(templateResource.channels, templateResource.threads, tempAlgParams, myAlgRank));
 
-    HCCL_INFO("[InsTempAlltoAllVMesh1D][KernelRun] Run End");
+    auto totalEnd = std::chrono::high_resolution_clock::now();
+    auto totalDuration = std::chrono::duration_cast<std::chrono::microseconds>(totalEnd - totalStart).count();
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][KernelRun] Run End, total time: %ld us", totalDuration);
     return HcclResult::HCCL_SUCCESS;
 }
 
 HcclResult InsTempAlltoAllVMesh1D::LocalCopyForMyRank(const TemplateDataParams &tempAlgParams,
     const ThreadHandle &thread, const u32 myAlgRank, const u32 queIdx) const
 {
+    auto localCopyStart = std::chrono::high_resolution_clock::now();
     DataSlice srcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr,
         tempAlgParams.sdispls[myAlgRank] * dataTypeSize_,
         tempAlgParams.sendCounts[myAlgRank] * dataTypeSize_, tempAlgParams.sendCounts[myAlgRank]);
@@ -152,6 +157,9 @@ HcclResult InsTempAlltoAllVMesh1D::LocalCopyForMyRank(const TemplateDataParams &
         HCCL_DEBUG("[InsTempAlltoAllVMesh1D][RunALLtoALL] do local copy on thread[%u], data size[%llu].",
             queIdx, tempAlgParams.sendCounts[myAlgRank] * dataTypeSize_);
     }
+    auto localCopyEnd = std::chrono::high_resolution_clock::now();
+    auto localCopyDuration = std::chrono::duration_cast<std::chrono::microseconds>(localCopyEnd - localCopyStart).count();
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][LocalCopyForMyRank] time: %ld us", localCopyDuration);
     return HCCL_SUCCESS;
 }
 
@@ -161,6 +169,7 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
     const TemplateDataParams &tempAlgParams,
     const u32 myAlgRank)
 {
+    auto runStart = std::chrono::high_resolution_clock::now();
     // 计算通信轮数
     u32 commLoops = CalcCommLoops();
     u32 remainRankSize = templateRankSize_ - 1;
@@ -171,6 +180,7 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
         subThreads.assign(threads.begin() + 1, threads.end());
     }
     for (u32 roundIdx = 0; roundIdx < commLoops && remainRankSize > 0; roundIdx++) {
+        auto roundStart = std::chrono::high_resolution_clock::now();
         CalcCommRankSetForOneLoop(roundIdx, remainRankSize, commRanks); // 计算本轮通信rank
         // 如果是read模式，统一做前拷贝
         if (isDmaRead_) {
@@ -197,9 +207,14 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
             CHK_RET(PostSyncInterThreads(threads[0], subThreads, notifyIdxSubToMain_));
         }
         remainRankSize -= commRanks.size();
-        HCCL_DEBUG("[InsTempAlltoAllVMesh1D][RunALLtoALL] round[%u] finish, commRank size is [%zu], "\
-            "remainRankSize is [%u].", roundIdx, commRanks.size(), remainRankSize);
+        auto roundEnd = std::chrono::high_resolution_clock::now();
+        auto roundDuration = std::chrono::duration_cast<std::chrono::microseconds>(roundEnd - roundStart).count();
+        HCCL_INFO("[InsTempAlltoAllVMesh1D][RunALLtoALL] round[%u] finish, commRank size is [%zu], "\
+            "remainRankSize is [%u], round time: %ld us.", roundIdx, commRanks.size(), remainRankSize, roundDuration);
     }
+    auto runEnd = std::chrono::high_resolution_clock::now();
+    auto runDuration = std::chrono::duration_cast<std::chrono::microseconds>(runEnd - runStart).count();
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][RunALLtoALL] total time: %ld us", runDuration);
     return HCCL_SUCCESS;
 }
 
@@ -208,9 +223,11 @@ HcclResult InsTempAlltoAllVMesh1D::RunSendRecvByLoop(const std::vector<u32> &com
     const std::map<u32, std::vector<ChannelInfo>> &channels,
     const std::vector<ThreadHandle> &threads)
 {
+    auto loopStart = std::chrono::high_resolution_clock::now();
     u32 queIdx = 1; // 每轮通信都从第1条流开始
     // 遍历本次通信的所有rank
     for (u32 rankIdx = 0; rankIdx < commRanks.size(); rankIdx++) {
+        auto rankStart = std::chrono::high_resolution_clock::now();
         u32 remoteRank = commRanks[rankIdx];
         // 取出本次通信对端的channel
         if (channels.find(remoteRank) == channels.end()) {
@@ -227,7 +244,13 @@ HcclResult InsTempAlltoAllVMesh1D::RunSendRecvByLoop(const std::vector<u32> &com
         CHK_RET(CalcDataSplitByPortGroup(tempAlgParams.recvCounts[remoteRank], dataTypeSize_, curChannels,
             recvCountsSplit_, recvSizeSplit_, recvOffsetSplit_));
         CHK_RET(RunSendRecvByChannel(tempAlgParams, curChannels, remoteRank, threads, queIdx));
+        auto rankEnd = std::chrono::high_resolution_clock::now();
+        auto rankDuration = std::chrono::duration_cast<std::chrono::microseconds>(rankEnd - rankStart).count();
+        HCCL_INFO("[InsTempAlltoAllVMesh1D][RunSendRecvByLoop] remoteRank[%u] time: %ld us", remoteRank, rankDuration);
     }
+    auto loopEnd = std::chrono::high_resolution_clock::now();
+    auto loopDuration = std::chrono::duration_cast<std::chrono::microseconds>(loopEnd - loopStart).count();
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][RunSendRecvByLoop] total time: %ld us", loopDuration);
     return HcclResult::HCCL_SUCCESS;
 }
 
@@ -235,10 +258,12 @@ HcclResult InsTempAlltoAllVMesh1D::RunSendRecvByChannel(const TemplateDataParams
     const std::vector<ChannelInfo> &curChannels, const u32 remoteRank,
     const std::vector<ThreadHandle> &threads, u32 &queIdx) const
 {
+    auto channelStart = std::chrono::high_resolution_clock::now();
     u32 myRankCclBuffIdx = 0; // myRank与remoteRank交互时myRank提供的cclbuffer index
     u32 remoteCclBuffIdx = 0; // myRank与remoteRank交互时remoteRank提供的cclbuffer index
     CalcCclBuffIdx(remoteRank, myRankCclBuffIdx, remoteCclBuffIdx);
     for (u32 channelId = 0; channelId < curChannels.size(); channelId++) {
+        auto chStart = std::chrono::high_resolution_clock::now();
         const ChannelInfo &channelSend = curChannels[channelId]; // 发给哪个rank
         const ChannelInfo &channelRecv = curChannels[channelId]; // 收哪个rank的数据
         std::vector<DataSlice> txSrcSlices;
@@ -274,15 +299,21 @@ HcclResult InsTempAlltoAllVMesh1D::RunSendRecvByChannel(const TemplateDataParams
         SendRecvInfo sendRecvInfo{{channelSend, channelRecv},
             {{txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices}}};
         CHK_RET(RunSendRecv(tempAlgParams, sendRecvInfo, sendInfo, recvInfo, threads[queIdx], channelId));
-        HCCL_DEBUG("[InsTempAlltoAllVMesh1D][RunSendRecvByLoop] do send recv write on thread[%u], "\
+        HCCL_INFO("[InsTempAlltoAllVMesh1D][RunSendRecvByLoop] do send recv write on thread[%u], "\
             "send size[%llu], recv size[%llu], remote rank[%u].",
             queIdx, sendSizeSplit_[channelId], recvSizeSplit_[channelId], remoteRank);
         if (!isDmaRead_ && recvSizeSplit_[channelId] > 0) {
             CHK_RET(PostCopy(tempAlgParams, threads[queIdx], myRankCclBuffIdx, remoteRank,
                 recvSizeSplit_[channelId], recvCountsSplit_[channelId], recvOffsetSplit_[channelId]));
         }
+        auto chEnd = std::chrono::high_resolution_clock::now();
+        auto chDuration = std::chrono::duration_cast<std::chrono::microseconds>(chEnd - chStart).count();
+        HCCL_INFO("[InsTempAlltoAllVMesh1D][RunSendRecvByChannel] channelId[%u] time: %ld us", channelId, chDuration);
         queIdx++;
     }
+    auto channelEnd = std::chrono::high_resolution_clock::now();
+    auto channelDuration = std::chrono::duration_cast<std::chrono::microseconds>(channelEnd - channelStart).count();
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][RunSendRecvByChannel] total time: %ld us", channelDuration);
     return HcclResult::HCCL_SUCCESS;
 }
 
@@ -290,6 +321,7 @@ HcclResult InsTempAlltoAllVMesh1D::RunSendRecv(const TemplateDataParams &tempAlg
     const SendRecvInfo &sendRecvInfo, const DataInfo &sendInfo, const DataInfo &recvInfo,
     const ThreadHandle& thread, const u32 channelId) const
 {
+    auto sendRecvStart = std::chrono::high_resolution_clock::now();
     if (isDmaRead_) {
         if (sendSizeSplit_[channelId] > 0 && recvSizeSplit_[channelId] > 0) {
             CHK_PRT_RET(SendRecvRead(sendRecvInfo, thread),
@@ -324,13 +356,17 @@ HcclResult InsTempAlltoAllVMesh1D::RunSendRecv(const TemplateDataParams &tempAlg
             }
         }
     }
+    auto sendRecvEnd = std::chrono::high_resolution_clock::now();
+    auto sendRecvDuration = std::chrono::duration_cast<std::chrono::microseconds>(sendRecvEnd - sendRecvStart).count();
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][RunSendRecv] channelId[%u] time: %ld us", channelId, sendRecvDuration);
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult InsTempAlltoAllVMesh1D::PreCopy(const std::vector<u32> &commRanks, 
+HcclResult InsTempAlltoAllVMesh1D::PreCopy(const std::vector<u32> &commRanks,
     const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads,
     const TemplateDataParams &tempAlgParams, const u32 myAlgRank)
 {
+    auto preCopyStart = std::chrono::high_resolution_clock::now();
     u32 queIdx = 1; // 每轮通信都从第1条流开始
     for (u32 rankIdx = 0; rankIdx < commRanks.size(); rankIdx++) {
         u32 remoteRank = commRanks[rankIdx];
@@ -363,6 +399,9 @@ HcclResult InsTempAlltoAllVMesh1D::PreCopy(const std::vector<u32> &commRanks,
             queIdx++;
         }
     }
+    auto preCopyEnd = std::chrono::high_resolution_clock::now();
+    auto preCopyDuration = std::chrono::duration_cast<std::chrono::microseconds>(preCopyEnd - preCopyStart).count();
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][PreCopy] total time: %ld us", preCopyDuration);
     return HcclResult::HCCL_SUCCESS;
 }
 
@@ -370,6 +409,7 @@ HcclResult InsTempAlltoAllVMesh1D::PostCopy(const TemplateDataParams &tempAlgPar
     const u32 myRankCclBuffIdx, const u32 remoteRank, const u64 &recvSize,
     const u64 &recvCount, const u64 &recvOffset) const
 {
+    auto postCopyStart = std::chrono::high_resolution_clock::now();
     // ccl buffer的数据搬运到usrout
     // 远端的数据发送到本端ccl buffer的slice
     DataSlice localCopySrcSlice = DataSlice(tempAlgParams.buffInfo.hcclBuff.addr,
@@ -380,6 +420,10 @@ HcclResult InsTempAlltoAllVMesh1D::PostCopy(const TemplateDataParams &tempAlgPar
         tempAlgParams.rdispls[remoteRank] * dataTypeSize_ + recvOffset,
         recvSize, recvCount);
     CHK_RET(static_cast<HcclResult>(LocalCopy(thread, localCopySrcSlice, localCopyDstSlice)));
+    auto postCopyEnd = std::chrono::high_resolution_clock::now();
+    auto postCopyDuration = std::chrono::duration_cast<std::chrono::microseconds>(postCopyEnd - postCopyStart).count();
+    HCCL_INFO("[InsTempAlltoAllVMesh1D][PostCopy] remoteRank[%u] recvSize[%llu] time: %ld us",
+        remoteRank, recvSize, postCopyDuration);
     return HcclResult::HCCL_SUCCESS;
 }
 
