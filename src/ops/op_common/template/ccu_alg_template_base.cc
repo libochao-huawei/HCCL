@@ -87,7 +87,7 @@ uint64_t CcuAlgTemplateBase::PointerToAddr(void* pointer) const
 }
 
 HcclResult CcuAlgTemplateBase::RestoreChannelMap(const std::vector<HcclChannelDesc>& channelDescs,
-                                                 std::map<u32, std::vector<HcclChannelDesc>>& rankIdToChannelDesc) const
+                                                 std::map<u32, std::vector<HcclChannelDesc>>& rankIdToChannelDesc)
 {
     for (auto &channel: channelDescs) {
         u32 remoteRank = channel.remoteRank;
@@ -97,7 +97,7 @@ HcclResult CcuAlgTemplateBase::RestoreChannelMap(const std::vector<HcclChannelDe
 }
 
 HcclResult CcuAlgTemplateBase::GetChannelDieId(HcclComm comm, uint32_t rankId, const HcclChannelDesc& channelDesc,
-                                               uint32_t& dieId) const
+                                               uint32_t& dieId)
 {
     EndpointAttrDieId tmpDieId{};
     uint32_t infoLen = sizeof(EndpointAttrDieId);
@@ -109,7 +109,7 @@ HcclResult CcuAlgTemplateBase::GetChannelDieId(HcclComm comm, uint32_t rankId, c
 }
 
 HcclResult CcuAlgTemplateBase::GetChannelBwCoeff(HcclComm comm, uint32_t rankId, const HcclChannelDesc& channelDesc,
-                                               uint32_t& bwCoeff) const
+                                               uint32_t& bwCoeff)
 {
     EndpointAttrBwCoeff tmpBwCoeff{};
     uint32_t infoLen = sizeof(EndpointAttrBwCoeff);
