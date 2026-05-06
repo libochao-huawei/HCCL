@@ -72,7 +72,6 @@ HcclResult CcuKernelScatterMesh1D::InitResource()
     inputRepeatStride_ = CreateVariable();
     outputRepeatStride_ = CreateVariable();
     repeatNum_ = CreateVariable();
-    isInputOutputEqual_ = CreateVariable();
     flag_ = CreateVariable();
     flag_ = 0;
 
@@ -101,7 +100,6 @@ void CcuKernelScatterMesh1D::LoadArgs()
     Load(normalSliceSize_);
     Load(lastSliceSize_);
     Load(repeatNum_);
-    Load(isInputOutputEqual_);
     return;
 }
 
@@ -188,16 +186,7 @@ void CcuKernelScatterMesh1D::DoScatter()
         sliceSize = rankIdx == rankSize_ - 1 ? lastSliceSize_ : normalSliceSize_;
         CCU_IF(sliceSize != 0) {
             if (rankIdx == rankId_) {
-                // 如果输入输出地址不同，还需要进行一次本地搬运
-                CCU_IF(isInputOutputEqual_ == 0)
-                {
-                    LocalCopyNb(myOutput, inputMem_[rankIdx], sliceSize, event_);
-                }
-                // 如果输入输出地址相同，不进行本地搬运，只发送同步信号
-                CCU_IF(isInputOutputEqual_ != 0)
-                {
-                    RecordEvent(event_);
-                }
+                LocalCopyNb(myOutput, inputMem_[rankIdx], sliceSize, event_);
             } else {
                 WriteNb(channels_[channelId], outputMem_[rankIdx], inputMem_[rankIdx], sliceSize, event_);
                 channelId++;
@@ -246,7 +235,6 @@ std::vector<uint64_t> CcuKernelScatterMesh1D::GeneArgs(const CcuTaskArg &arg)
     uint64_t normalSliceSize = taskArg->normalSliceSize_;
     uint64_t lastSliceSize = taskArg->lastSliceSize_;
     uint64_t repeatNum = taskArg->repeatNum_;
-    uint64_t isInputOutputEqual = taskArg->isInputOutputEqual_;
 
     std::vector<uint64_t> taskArgs = {inputAddr,
         outputAddr,
@@ -257,13 +245,12 @@ std::vector<uint64_t> CcuKernelScatterMesh1D::GeneArgs(const CcuTaskArg &arg)
         outputRepeatStride,
         normalSliceSize,
         lastSliceSize,
-        repeatNum,
-        isInputOutputEqual};
+        repeatNum};
 
     HCCL_INFO("[CcuKernelScatterMesh1D] TaskArgs: inputAddr[%llu], outputAddr[%llu], "
               "currentRankSliceInputOffset[%llu], outputSliceStride[%llu], inputRepeatStride[%llu],"
               "outputRepeatStride[%llu], normalSliceSize[%llu], lastSliceSize[%llu],"
-              "repeatNum[%llu], isInputOutputEqual[%llu]",
+              "repeatNum[%llu]",
         inputAddr,
         outputAddr,
         currentRankSliceInputOffset,
@@ -272,8 +259,7 @@ std::vector<uint64_t> CcuKernelScatterMesh1D::GeneArgs(const CcuTaskArg &arg)
         outputRepeatStride,
         normalSliceSize,
         lastSliceSize,
-        repeatNum,
-        isInputOutputEqual);
+        repeatNum);
     return taskArgs;
 }
 
