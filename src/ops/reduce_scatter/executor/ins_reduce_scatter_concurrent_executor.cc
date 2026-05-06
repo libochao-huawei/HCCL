@@ -15,8 +15,8 @@
 #include "ins_temp_reduce_scatter_mesh_1D.h"
 #ifndef AICPU_COMPILE
 #if !defined(HCCL_CANN_COMPAT_850)
-#include "ccu_temp_reduce_scatter_nhr_1D_multi_jetty_mem2mem.h"
-#include "ccu_temp_reduce_scatter_mesh_1D_mem2mem.h"
+// #include "ccu_temp_reduce_scatter_nhr_1D_multi_jetty_mem2mem.h"
+// #include "ccu_temp_reduce_scatter_mesh_1D_mem2mem.h"
 #include "ccu_temp_reduce_scatter_mesh_1D.h"
 #endif
 #endif
