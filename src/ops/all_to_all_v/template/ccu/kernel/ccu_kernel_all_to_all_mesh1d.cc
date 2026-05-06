@@ -8,11 +8,9 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "ccu_kernel_alg_base.h"
 #include "ccu_kernel_all_to_all_mesh1d.h"
 
 namespace ops_hccl {
-using namespace hcomm;
 
 constexpr int INPUT_XN_ID  = 0;
 constexpr int OUTPUT_XN_ID = 1;
@@ -24,138 +22,156 @@ constexpr int CKE_IDX_2    = 2;
 constexpr uint64_t CCU_MS_SIZE   = 4096;
 constexpr uint64_t LOCAL_COPY_MS = 8;
 
-CcuKernelAlltoAllMesh1D::CcuKernelAlltoAllMesh1D(const CcuKernelArg &arg)
-    : CcuKernelAlgBase(arg)
+static CcuResult ParseKernelArg(ReduceScatterMesh1DContext &ctx, CcuKernelArgReduceScatterMesh1D *kernelArg)
 {
-    const CcuKernelArgAlltoAllMesh1D *kernelArg
-        = dynamic_cast<const CcuKernelArgAlltoAllMesh1D *>(&arg);
-
-    rankId_ = kernelArg->rankId_;
-    channels_ = kernelArg->channels;
-    rankSize_ = kernelArg->dimSize_;
-    loadFromMem_ = kernelArg->loadFromMem_;
+    // ctx.rankId          = kernelArg->rankId;
+    // ctx.rankSize        = kernelArg->rankSize;
+    // ctx.channels       = kernelArg->channels;
+    return CCU_SUCCESS;
 }
 
-HcclResult CcuKernelAlltoAllMesh1D::InitResource()
+static CcuResult InitResource(ReduceScatterMesh1DContext &ctx)
 {
-    uint16_t channelIdx = 0;
-    if (channels_.size() == 0) {
+    const auto *arg = ctx.arg;
+    uint32_t channelIdx = 0;
+
+    if (arg->channelCount == 0) {
         HCCL_ERROR("[CcuKernelAlltoAllMesh1D] channels is empty!");
-        return HcclResult::HCCL_E_INTERNAL;
+        return CcuResult::CCU_E_INTERNAL;
     }
 
-    // 按照rank号从小到大遍历channels，遇到本rank就填充本地资源，否则依次取远端资源，要求给框架返回的Link同样是按顺序排列的
-    for (uint64_t peerId = 0; peerId < rankSize_; peerId++) {
-        if (peerId == rankId_) {
-            input_.push_back(CreateVariable());
-            output_.push_back(CreateVariable());
-            token_.push_back(CreateVariable());
+    // 按照rank号从小到大遍历channels，遇到本rank就填充本地资源，否则依次取远端资源，要求算法返回的Link同样是按顺序排列的
+    ctx.input.resize(arg->rankSize);
+    ctx.output.resize(arg->rankSize);
+    ctx.token.resize(arg->rankSize);
+    for (uint64_t peerId = 0; peerId < arg->rankSize; peerId++) {
+        if (peerId == arg->rankId) {
+            CCU_CHK_RET(ccu::Alloc(&ctx.input[peerId]));
+            CCU_CHK_RET(ccu::Alloc(&ctx.output[peerId]));
+            CCU_CHK_RET(ccu::Alloc(&ctx.token[peerId]));
         } else {
-            HCCL_DEBUG("[CcuKernelAlltoAllMesh1D] MyRank[%u], PeerId[%u], ChannelId[%u]",
-                       rankId_, peerId, channelIdx);
-            CcuRep::Variable inputVar, outputVar, tokenVar;
-            CHK_RET(CreateVariable(channels_[channelIdx], INPUT_XN_ID, &inputVar));
-            input_.push_back(inputVar); // 获取channel中id=0的Var来传递output
-            CHK_RET(CreateVariable(channels_[channelIdx], OUTPUT_XN_ID, &outputVar));
-            output_.push_back(outputVar);
-            CHK_RET(CreateVariable(channels_[channelIdx], TOKEN_XN_ID, &tokenVar));
-            token_.push_back(tokenVar);
+            CCU_CHK_RET(ccu::CreateByChannel(
+                arg->channels[channelIdx], INPUT_XN_ID, &ctx.input[peerId]));
+            CCU_CHK_RET(ccu::CreateByChannel(
+                arg->channels[channelIdx], OUTPUT_XN_ID, &ctx.output[peerId]));
+            CCU_CHK_RET(ccu::CreateByChannel(
+                arg->channels[channelIdx], TOKEN_XN_ID, &ctx.token[peerId]));
             channelIdx++;
         }
     }
-    sliceSize_   = CreateVariable();
-    srcStride_   = CreateVariable();
-    srcOffset_   = CreateVariable();
-    dstOffset_   = CreateVariable();
-    groupOpSize_ = CreateGroupOpSize();
 
-    // 创建GSA， src为本地的各片HBM地址GSA列表，dst为所有对端的HBM地址GSA列表
-    for (uint64_t rankIdx = 0; rankIdx < rankSize_; rankIdx++) {
-        srcAddr_.push_back(CreateLocalAddr());
-    }
-    for (uint64_t rankIdx = 0; rankIdx < rankSize_; rankIdx++) {
-        if (rankIdx == rankId_) {
-            myDst_ = CreateLocalAddr();
-            dstAddr_.push_back({});
-        } else {
-            dstAddr_.push_back(CreateRemoteAddr());
-        }
-    }
+    CCU_CHK_RET(ccu::Alloc(&ctx.sliceSize));
+    CCU_CHK_RET(ccu::Alloc(&ctx.srcStride));
+    CCU_CHK_RET(ccu::Alloc(&ctx.srcOffset));
+    CCU_CHK_RET(ccu::Alloc(&ctx.dstOffset));
 
-    event_ = CreateCompletedEvent();
-    return HcclResult::HCCL_SUCCESS;
+    CCU_CHK_RET(ccu::Alloc(&ctx.goSize.addrOffset));
+    CCU_CHK_RET(ccu::Alloc(&ctx.goSize.loopParam));
+    CCU_CHK_RET(ccu::Alloc(&ctx.goSize.parallelParam));
+    CCU_CHK_RET(ccu::Alloc(&ctx.goSize.residual));
+
+    CCU_CHK_RET(ccu::CreateLoopExecutor(&ctx.enginePool, MAX_RANK_SIZE + 1));
+
+    ctx.resourceAllocated = false;
+    ctx.loopRegistered    = false;
+
+    return CCU_SUCCESS;
 }
 
-void CcuKernelAlltoAllMesh1D::LoadArgs()
+static CcuResult LoadArgs(AlltoAllMesh1DContext &ctx)
 {
-    // 从SQE load args，本rank需要的input、output地址等信息
-    // inputAddr, outputAddr, tokenInfo, srcStride, srcOffset, dstOffset, groupOpSize
-    Load(input_[rankId_]);
-    Load(output_[rankId_]);
-    Load(token_[rankId_]);
-    Load(sliceSize_);  // 本轮传输的分片大小
-    Load(srcStride_); // 单片数据大小
-    Load(srcOffset_);
-    Load(dstOffset_);
-    Load(groupOpSize_);
+    const auto *arg = ctx.arg;
 
-    srcOffset_ += input_[rankId_];
-    return;
+    CCU_CHK_RET(ccu::LoadArg(ctx.input[arg->rankId]));
+    CCU_CHK_RET(ccu::LoadArg(ctx.output[arg->rankId]));
+    CCU_CHK_RET(ccu::LoadArg(ctx.token[arg->rankId]));
+    CCU_CHK_RET(ccu::LoadArg(ctx.sliceSize));
+    CCU_CHK_RET(ccu::LoadArg(ctx.srcStride));
+    CCU_CHK_RET(ccu::LoadArg(ctx.srcOffset));
+    CCU_CHK_RET(ccu::LoadArg(ctx.dstOffset));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.addrOffset));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.loopParam));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.parallelParam));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.residual));
+
+    ctx.srcOffset += ctx.input[arg->rankId];
+
+    return CCU_SUCCESS;
 }
 
-void CcuKernelAlltoAllMesh1D::PreSync()
+static void PreSync(ReduceScatterMesh1DContext &ctx)
 {
-    for (ChannelHandle channel : channels_) {
-        NotifyRecord(channel, CKE_IDX_0, OUTPUT_XN_ID, output_[rankId_], 1 << OUTPUT_XN_ID); // index = 1，传递input信息
-        NotifyRecord(channel, CKE_IDX_0, TOKEN_XN_ID, token_[rankId_], 1 << TOKEN_XN_ID);
+    const auto *arg = ctx.arg;
+
+    for (uint32_t i = 0; i < arg->channelCount; i++) {
+        ccu::WriteVariableWithNotify(arg->channels[i], ctx.output[arg->rankId],
+            OUTPUT_XN_ID, CKE_IDX_0, 1 << OUTPUT_XN_ID);
+        ccu::WriteVariableWithNotify(arg->channels[i], ctx.token[arg->rankId],
+            TOKEN_XN_ID, CKE_IDX_0, 1 << TOKEN_XN_ID);
     }
-    
-    uint16_t allBit = (1 << OUTPUT_XN_ID) | (1 << TOKEN_XN_ID);
-    for (auto &ch: channels_) {
-        NotifyWait(ch, CKE_IDX_0, allBit);
+
+    uint32_t allBit = (1 << OUTPUT_XN_ID) | (1 << TOKEN_XN_ID);
+    for (uint32_t i = 0; i < arg->channelCount; i++) {
+        ccu::NotifyWait(arg->channels[i], CKE_IDX_0, allBit);
     }
-    return;
 }
 
-void CcuKernelAlltoAllMesh1D::PostSync()
+static void PostSync(ReduceScatterMesh1DContext &ctx)
 {
+    const auto *arg = ctx.arg;
+
     uint16_t postBit = 1 << 5;
-    for (auto &ch : channels_) {
-        NotifyRecord(ch, CKE_IDX_1, postBit);
+    for (uint32_t i = 0; i < arg->channelCount; i++) {
+        ccu::NotifyRecord(arg->channels[i], CKE_IDX_1, postBit);
     }
-
-    for (auto &ch : channels_) {
-        NotifyWait(ch, CKE_IDX_1, postBit);
+    for (uint32_t i = 0; i < arg->channelCount; i++) {
+        ccu::NotifyWait(arg->channels[i], CKE_IDX_1, postBit);
     }
 }
 
-void CcuKernelAlltoAllMesh1D::DoAlltoAll()
+static CcuResult DoAlltoAll(AlltoAllMesh1DContext &ctx)
 {
     HCCL_INFO("DoAlltoAll Start.");
-    // 考虑stride信息，即是每片数据大小
-    for (uint64_t r = 0; r < rankSize_; r++) {
-        // src[r] = srcOffset + r*srcStride, 每块数据进行了分片
-        // dst[r] = recvBuf[r] + dstOffset
-        if (r == rankId_) {
-            srcAddr_[r].token = token_[r];
-            myDst_.token = token_[r];
-            myDst_.addr = output_[r];
-            myDst_.addr += dstOffset_;
+    const auto *arg = ctx.arg;
+    std::vector<ccu::LocalAddr> src;
+    std::vector<ccu::RemoteAddr> dst;
+    ccu::LocalAddr localDst;
+    src.resize(arg->rankSize);
+    dst.resize(arg->rankSize);
+
+    CCU_CHK_RET(ccu::Alloc(&localDst));
+    for (uint64_t rankIdx = 0; rankIdx < arg->rankSize; rankIdx++) {
+        CCU_CHK_RET(ccu::Alloc(&src[rankIdx]));
+    }
+    for (uint32_t rankIdx = 0; rankIdx < arg->rankSize - 1; rankIdx++) {
+        CCU_CHK_RET(ccu::Alloc(&dst[rankIdx]));
+    }
+
+    dst.addr  = ctx.output;
+    dst.token = ctx.token[arg->rankId];
+    uint32_t curId = 0;
+    for (uint32_t rankIdx = 0; rankIdx < arg->rankSize; rankIdx++) {
+        if (rankIdx != arg->rankId) {
+            src[rankIdx].token = ctx.token[rankIdx];
+            dst[curId].token = ctx.token[rankIdx];
+            dst[curId].addr = ctx.output[rankIdx];
+            dst[curId].addr += ctx.dstOffset;
+            curId++;
         } else {
-            srcAddr_[r].token = token_[r];
-            dstAddr_[r].token = token_[r];
-            dstAddr_[r].addr = output_[r];
-            dstAddr_[r].addr += dstOffset_;
+            src[rankIdx].token = ctx.token[rankIdx];
+            localDst.token = ctx.token[rankIdx];
+            localDst.addr = ctx.output[rankIdx];
+            localDst.addr += ctx.dstOffset;
         }
 
-        srcAddr_[r].addr = srcOffset_;
-        for (uint64_t i = 0; i < r; i++) {
-            srcAddr_[r].addr += srcStride_;
+        src[rankIdx].addr = ctx.srcAddr;
+        for (uint64_t i = 0; i < rankIdx; i++) {
+            srcAddr_[rankIdx].addr += ctx.srcStride;
         }
     }
 
     uint32_t channelId = 0;
-    uint16_t allBit = ((1 << rankSize_) - 1) & (~(1 << rankId_)); // 仅rankid位为0，其他位为1，代表远端准备好了
+    uint16_t allBit = ((1 << arg->rankSize) - 1) & (~(1 << arg->rankId)); // 仅rankid位为0，其他位为1，代表远端准备好了
 
     if (loadFromMem_) {
         for(uint64_t r = 0; r < rankSize_; r++) {
@@ -183,6 +199,8 @@ void CcuKernelAlltoAllMesh1D::DoAlltoAll()
         event_.SetMask(allBit);
         WaitEvent(event_);
     }
+
+    return CCU_SUCCESS;
 }
 
 HcclResult CcuKernelAlltoAllMesh1D::Algorithm()
@@ -204,33 +222,38 @@ HcclResult CcuKernelAlltoAllMesh1D::Algorithm()
     return HcclResult::HCCL_SUCCESS;
 }
 
-std::vector<uint64_t> CcuKernelAlltoAllMesh1D::GeneArgs(const CcuTaskArg &arg)
+// ============================================================================
+// 主入口 Kernel 函数
+// ============================================================================
+CcuResult CcuReduceScatterMesh1DKernel(CcuKernelArg arg)
 {
-    const CcuTaskArgAlltoAllMesh1D *taskArg
-        = dynamic_cast<const CcuTaskArgAlltoAllMesh1D *>(&arg);
-    uint64_t inputAddr  = taskArg->inputAddr_;
-    uint64_t outputAddr = taskArg->outputAddr_;
-    uint64_t tokenInfo  = taskArg->token_;
+    auto *kernelArg = static_cast<CcuKernelArgReduceScatterMesh1D *>(arg);
 
-    uint64_t srcStride = taskArg->srcStride_;
-    uint64_t srcOffset = taskArg->srcOffset_;
-    uint64_t dstOffset = taskArg->dstOffset_;
+    AlltoAllMesh1DContext ctx;
+    ctx.arg = kernelArg;
+    ctx.resourceAllocated = false;
+    ctx.loopRegistered = false;
+    ctx.moConfig.msInterleave = 0;
+    ctx.moConfig.loopCount = 0;
+    ctx.moConfig.memSlice = 0;
+    ctx.moRes.eventCount = 0;
+    ctx.moRes.bufCount = 0;
+    ctx.enginePool = 0;
 
-    uint64_t sliceSize  = taskArg->sliceSize_;
-    auto     goSize     = CalGoSize(sliceSize);
+    HCCL_INFO("[CcuKernelAlltoAllMesh1D] AlltoAllMesh1D run");
+    CCU_CHK_RET(ParseKernelArg(ctx, kernelArg));
+    CCU_CHK_RET(InitResource(ctx));
+    CCU_CHK_RET(LoadArgs(ctx));
 
-    std::vector<uint64_t> taskArgs = {
-        inputAddr,  outputAddr,  tokenInfo, sliceSize, 
-        srcStride,  srcOffset,
-        dstOffset, goSize[0], goSize[1], goSize[2], goSize[3]
-    };
+    PreSync(ctx);
 
-    HCCL_INFO("[CcuKernelAlltoAllMesh1D] TaskArgs: inputAddr[%llu], outputAddr[%llu], "
-               "srcStride[%llu], srcOffset[%llu],"
-               "dstOffset[%llu], sliceSize[%llu], goSize: [%llu], [%llu], [%llu], [%llu]",
-               inputAddr, outputAddr, srcStride, srcOffset,
-               dstOffset, sliceSize, goSize[0], goSize[1], goSize[2], goSize[3]);
-    return taskArgs;
+    CCU_CHK_RET(DoAlltoAll(ctx));
+
+
+    PostSync(ctx);
+    HCCL_INFO("[CcuKernelAlltoAllMesh1D] AlltoAllMesh1D end");
+
+    return CCU_SUCCESS;
 }
 
 }// namespace ops_hccl
