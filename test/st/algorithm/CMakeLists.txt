@@ -27,6 +27,24 @@ if (BUILD_OPEN_PROJECT)
     message(STATUS "Final Ascend Path: ${ASCEND_HOME_PATH}")
 endif()
 
+# 前向兼容：探测 CANN 版本号，与主构建保持一致
+set(_st_cann_ver_header "${ASCEND_HOME_PATH}/include/version/cann_version.h")
+if(EXISTS "${_st_cann_ver_header}")
+    file(STRINGS "${_st_cann_ver_header}" _st_cann_ver_line
+         REGEX "^#define[ \t]+CANN_VERSION_NUM[ \t]+")
+    if(_st_cann_ver_line)
+        string(REGEX MATCH
+               "\\(([0-9]+) \\* 10000000\\) \\+ \\(([0-9]+) \\* 100000\\) \\+ \\(([0-9]+) \\* 1000\\)"
+               _ "${_st_cann_ver_line}")
+        if(NOT CMAKE_MATCH_1 STREQUAL "" AND NOT CMAKE_MATCH_2 STREQUAL "" AND NOT CMAKE_MATCH_3 STREQUAL "")
+            math(EXPR _ST_CANN_VERSION_NUM
+                 "${CMAKE_MATCH_1} * 10000000 + ${CMAKE_MATCH_2} * 100000 + ${CMAKE_MATCH_3} * 1000")
+            add_compile_definitions(CANN_VERSION_NUM=${_ST_CANN_VERSION_NUM})
+            message(STATUS "[ST] Detected CANN_VERSION_NUM = ${_ST_CANN_VERSION_NUM}")
+        endif()
+    endif()
+endif()
+
 # 下载并编译gtest
 set(CANN_3RD_LIB_PATH ${HCCL_DEV_BASE}/third_party)
 include(${HCCL_DEV_BASE}/cmake/third_party/gtest.cmake)

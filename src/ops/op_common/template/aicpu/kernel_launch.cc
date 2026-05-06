@@ -23,7 +23,9 @@
 #include <unordered_map>
 #include <shared_mutex>
 #include <atomic>
+#if CANN_VERSION_NUM >= 90000000
 #include "hccl_diag.h"
+#endif
 #include "hccl_device_comm_dl.h"
 
 using namespace ops_hccl;
@@ -275,11 +277,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         }
 
         AlgResourceCtxSerializable resCtx;
-        if (param->opType == HcclCMDType::HCCL_CMD_BATCH_SEND_RECV) {
-            char *ctx = static_cast<char *>(param->resCtx);
-            std::vector<char> seq(ctx, ctx + param->ctxSize);
-            resCtx.DeSerialize(seq);
-        } else {
+        if (param->opType != HcclCMDType::HCCL_CMD_BATCH_SEND_RECV) {
             //通过缓存实现反序列化优化
             AlgResourceCtxSerializable* cachedResCtx = g_cacheManager.Get(param->algTag, param->commName);
             if (cachedResCtx != nullptr) {
@@ -302,6 +300,10 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
                 g_cacheManager.Put(param->algTag, resCtx, param->commName);
                 HCCL_INFO("[%s] Cache MISS and stored for algTag[%s]", __func__, param->algTag);
             }
+        } else {
+            char *ctx = static_cast<char *>(param->resCtx);
+            std::vector<char> seq(ctx, ctx + param->ctxSize);
+            resCtx.DeSerialize(seq);
         }
 
         // 还原变长指针

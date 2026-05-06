@@ -11,6 +11,7 @@
 #ifndef HCCL_REDUCE_PARALLEL_EXECUTOR_H
 #define HCCL_REDUCE_PARALLEL_EXECUTOR_H
 
+#include <array>
 #include "common_alg_template_base.h"
 #include "executor_v2_base.h"
 
@@ -101,6 +102,9 @@ private:
     std::array<TemplateResource, 4> tempAlgResArr_{};
     std::array<u64, dataSplitPart_> dataOffsetPerLoop_{0, 0};
     std::array<u64, dataSplitPart_> dataCountPerLoop_{0, 0};
+    std::vector<std::vector<u32>> temp0HierarchyInfo_;
+    std::vector<std::vector<u32>> temp1HierarchyInfo_;
+    
 };
 }  // namespace ops_hccl
 

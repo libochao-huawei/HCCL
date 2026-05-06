@@ -14,9 +14,11 @@
 #include "ins_temp_all_gather_mesh_1D.h"
 #include "ins_temp_all_gather_nhr.h"
 #ifndef AICPU_COMPILE
+#if !defined(HCCL_CANN_COMPAT_850)
 #include "ccu_temp_all_gather_nhr_1D_mem2mem.h"
 #include "ccu_temp_all_gather_mesh_1D_mem2mem.h"
 #include "ccu_temp_all_gather_nhr_1D_multi_jetty_mem2mem.h"
+#endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 #include "alg_data_trans_wrapper.h"
 
@@ -464,8 +466,8 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
         CHK_RET(PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_));
     }
 #ifndef AICPU_COMPILE
-    if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU) {
-        CHK_RET(FastLaunchSaveCtx(param, intraTempAlgRes, interTempAlgRes));
+    if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU && param.opMode != OpMode::OFFLOAD) {
+        CHK_RET(FastLaunchSaveCtx(param, intraTempAlgRes, interTempAlgRes, resCtx.notifyNumOnMainThread));
     }
 #endif
     HCCL_INFO("[InsV2AllGatherParallelExecutor][OrchestrateLoop] End.");
@@ -475,7 +477,7 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
 #ifndef AICPU_COMPILE
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::FastLaunchSaveCtx(
-    const OpParam &param, const TemplateResource &templateAlgResIntra, const TemplateResource &templateAlgResInter)
+    const OpParam &param, const TemplateResource &templateAlgResIntra, const TemplateResource &templateAlgResInter, u32 notifyNumOnMainThread)
 {
     HCCL_INFO("[InsV2AllGatherParallelExecutor] loopTimes==1, save fast launch ctx.");
     ccuKernelLaunchNumIntra1_ = templateAlgResIntra.submitInfos.size() - ccuKernelLaunchNumIntra0_;
@@ -490,7 +492,7 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
 
     std::vector<u32> ccuKernelNumList = {ccuKernelLaunchNumIntra0_, ccuKernelLaunchNumInter1_, ccuKernelLaunchNumInter0_, ccuKernelLaunchNumIntra1_};
     std::vector<std::vector<CcuKernelSubmitInfo>> submitInfosList = {templateAlgResIntra.submitInfos, templateAlgResInter.submitInfos};
-    return FastLaunchSaveCtxTwoTemplate(param, threadNum, ccuKernelNum, threads_, ccuKernelNumList, submitInfosList);
+    return FastLaunchSaveCtxTwoTemplate(param, threadNum, ccuKernelNum, threads_, ccuKernelNumList, submitInfosList, notifyNumOnMainThread);
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
@@ -560,6 +562,7 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
 }
 #endif
 
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherParallelMesh1DNHR,
                                InsV2AllGatherParallelExecutor, TopoMatchMultilevel, InsTempAllGatherMesh1D,
                                InsTempAllGatherNHR);
@@ -569,12 +572,17 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherPara
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherParallelMesh1DNHRPcie,
                                InsV2AllGatherParallelExecutor, TopoMatchPcieMix, InsTempAllGatherMesh1D,
                                InsTempAllGatherNHR);
+#endif /* !HCCL_CANN_COMPAT_850 */
 #ifndef AICPU_COMPILE
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherParallelMesh1DNHR,
     InsV2AllGatherParallelExecutor, TopoMatchMultilevel, CcuTempAllGatherMesh1DMem2Mem, CcuTempAllGatherNHR1DMem2Mem);
+#endif /* !HCCL_CANN_COMPAT_850 */
 
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherParallelMesh1DNHRMemMultiJetty,
     InsV2AllGatherParallelExecutor, TopoMatchUBX, CcuTempAllGatherMesh1DMem2Mem, CcuTempAllGatherNHR1DMultiJettyMem2Mem);
+#endif /* !HCCL_CANN_COMPAT_850 */
 
 #endif
 }

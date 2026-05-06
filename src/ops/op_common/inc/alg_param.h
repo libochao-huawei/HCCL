@@ -17,15 +17,22 @@
 #include <set>
 #include <unordered_set>
 #include <functional>
+#include <functional>
+#include <memory>
 #include <hccl/hccl_comm.h>
 #include "hccl_common.h"
 #include "hccl_types.h"
 #include "alg_type.h"
-#include "hccl_res.h"
+#include "hccl_res_dl.h"
 #include "hcomm_primitives_dl.h"
-#include "hccl_rank_graph.h"
+#include "hccl_rank_graph_dl.h"
+#include "hccl_host_comm_dl.h"
 #include "binary_stream.h"
+#if CANN_VERSION_NUM >= 90000000
 #include "hccl_ccu_res.h"
+#else
+typedef void *CcuKernelHandle; // 8.5.0 下无 hccl_ccu_res.h，用 opaque 占位
+#endif
 
 namespace ops_hccl {
 
@@ -154,6 +161,7 @@ struct TopoInfoWithNetLayerDetails : public TopoInfo { // 通信域拓扑ctx
     bool Level1Nhr{false};
     bool is2DieFullMesh{false};
     bool level0PcieMix{false};
+    bool level0BigClosRange{false};
     u32 topoInstDetailsOfLayerSize = 0;
     Level0MeshType level0MeshType;
     NetLayerDetails netLayerDetails;
@@ -185,6 +193,7 @@ struct TopoInfoWithNetLayerDetails : public TopoInfo { // 通信域拓扑ctx
         binaryStream << Level1Nhr;
         binaryStream << is2DieFullMesh;
         binaryStream << level0PcieMix;
+        binaryStream << level0BigClosRange;
         binaryStream << topoInstDetailsOfLayerSize;
         binaryStream << level0MeshType;
         binaryStream << netLayerDetails.netLayerNum;
@@ -230,6 +239,7 @@ struct TopoInfoWithNetLayerDetails : public TopoInfo { // 通信域拓扑ctx
         binaryStream >> Level1Nhr;
         binaryStream >> is2DieFullMesh;
         binaryStream >> level0PcieMix;
+        binaryStream >> level0BigClosRange;
         binaryStream >> topoInstDetailsOfLayerSize;
         binaryStream >> level0MeshType;
         binaryStream >> netLayerDetails.netLayerNum;
@@ -252,10 +262,12 @@ struct TopoInfoWithNetLayerDetails : public TopoInfo { // 通信域拓扑ctx
 struct CcuKernelInfo {
     // kernel资源组序号，group号不同时，资源复用
     u32 resGroup = 0;
+#if CANN_VERSION_NUM >= 90000000
     // kernel构造函数
     hcomm::KernelCreator creator;
     // KernelArg实例
     std::shared_ptr<hcomm::CcuKernelArg> kernelArg;
+#endif
     // kernel所需channel
     std::vector<HcclChannelDesc> channels;
 };
@@ -271,6 +283,7 @@ struct CcuKernelSubmitInfo {
 // ccu快速下发上下文
 struct CcuFastLaunchCtx {
     char algName[OP_ALG_LENGTH];
+    u32 notifyNumOnMainThread = 0;
     u32 threadNum;
     u32 ccuKernelNum[MAX_TEMP_NUM_IN_ALGO];  // 每次调用template的KernelRun下发的kernel数量
     // 紧接ThreadHandle数组
@@ -451,7 +464,7 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     char fastLaunchTag[ALG_TAG_LENGTH] = ""; // 快速下发的key值
     char fallbackTag[ALG_MAX_LENGTH] = "";
     char commName[COMM_INDENTIFIER_MAX_LENGTH] = "";
-    char commModeTag[TAG_LENGTH] = ""; // 保存与执行模式相关的资源信息的key值
+    char commModeTag[TAG_LENGTH] = ""; // 保存与执行模式相关的资源信息的key值，当前aiv使用
     aclrtStream stream;
     void* inputPtr = nullptr;
     u64 inputSize = 0;
@@ -590,6 +603,13 @@ struct ResPackGraphMode {
     std::vector<aclrtStream> streams;
     void* scratchMemAddr;
     u64 scratchMemSize;
+};
+
+// 图模式内存注册信息
+struct MemRegInfo {
+    char inputBuffTag[MAX_MEM_TAG_LENGTH];    // 输入缓冲区标签
+    char outputBuffTag[MAX_MEM_TAG_LENGTH];   // 输出缓冲区标签
+    std::vector<HcclMemHandle> memHandles;    // 内存句柄列表
 };
 
 // AIV模式参数存储结构

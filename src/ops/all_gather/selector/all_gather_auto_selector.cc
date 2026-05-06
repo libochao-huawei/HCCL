@@ -99,26 +99,38 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleUBXAlgo(
     return SelectorStatus::MATCH;
 }
 
+SelectorStatus AllGatherAutoSelector::SelectCcuScheduleLevel0AlgoMesh1D(
+    const TopoInfoWithNetLayerDetails *topoInfo, std::string &selectAlgName, const u64 dataSize) const
+{
+    if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
+        selectAlgName = "CcuAllGatherMesh2Die";
+    } else if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_NOT_REGULAR) {
+        HCCL_DEBUG("[AllGatherAutoSelector][%s] TWO_DIE_NOT_REGULAR not match", __func__);
+        return SelectorStatus::NOT_MATCH;
+    } else {
+        selectAlgName = "CcuAllGatherMesh1DMem2Mem";
+    }
+    HCCL_DEBUG("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
+    return SelectorStatus::MATCH;
+}
+
 SelectorStatus AllGatherAutoSelector::SelectCcuScheduleLevel0Algo(
     const TopoInfoWithNetLayerDetails *topoInfo, std::string &selectAlgName, const u64 dataSize) const
 {
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-        if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
-            selectAlgName = "CcuAllGatherMesh2Die";
-        } else if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_NOT_REGULAR) {
-            HCCL_DEBUG("[AllGatherAutoSelector][%s] TWO_DIE_NOT_REGULAR not match", __func__);
-            return SelectorStatus::NOT_MATCH;
-        } else {
-            selectAlgName = "CcuAllGatherMesh1DMem2Mem";
-        }
-        return SelectorStatus::MATCH;
+        return SelectCcuScheduleLevel0AlgoMesh1D(topoInfo, selectAlgName, dataSize);
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
         // PCIE-SW定制机型，Mesh无法链接全卡时，需要跨pcie链路，不支持ccu模式
-        if (topoInfo->level0PcieMix && !IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
-            HCCL_WARNING("[AllGatherAutoSelector] pcie mixed topo is not supported yet for ccu schedule mode.");
-            return SelectorStatus::NOT_MATCH;
+        if (topoInfo->level0PcieMix) {
+            if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
+                return SelectCcuScheduleLevel0AlgoMesh1D(topoInfo, selectAlgName, dataSize);
+            } else {
+                HCCL_WARNING("[AllGatherAutoSelector] pcie mixed topo is not supported yet for ccu schedule mode.");
+                return SelectorStatus::NOT_MATCH;
+            }
+        } else {
+            return SelectCcuScheduleUBXAlgo(topoInfo, selectAlgName, dataSize);
         }
-        return SelectCcuScheduleUBXAlgo(topoInfo, selectAlgName, dataSize);
     } else {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             if (topoInfo->is2DieFullMesh) {

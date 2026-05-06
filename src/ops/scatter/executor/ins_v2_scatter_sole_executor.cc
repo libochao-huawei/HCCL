@@ -13,9 +13,11 @@
 #include "ins_temp_scatter_nhr.h"
 #ifndef AICPU_COMPILE
 #include "aiv_temp_scatter_mesh_1D.h"
+#if !defined(HCCL_CANN_COMPAT_850)
 #include "ccu_temp_scatter_mesh1d.h"
 #include "ccu_temp_scatter_nhr1d_mem2mem.h"
 #include "ccu_kernel_scatter_nhr1d_mem2mem.h"
+#endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 
 namespace ops_hccl {
@@ -154,8 +156,8 @@ HcclResult InsV2ScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLo
     }
 
 #ifndef AICPU_COMPILE
-    if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU) {
-        CHK_RET(FastLaunchSaveCtx(param, templateAlgRes));
+    if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU && param.opMode != OpMode::OFFLOAD) {
+        CHK_RET(FastLaunchSaveCtx(param, templateAlgRes, resCtx.notifyNumOnMainThread));
     }
 #endif
     
@@ -166,7 +168,7 @@ HcclResult InsV2ScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLo
 #ifndef AICPU_COMPILE
     template <typename AlgTopoMatch, typename InsAlgTemplate>
     HcclResult InsV2ScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunchSaveCtx(
-            const OpParam &param, const TemplateResource &templateAlgRes)
+            const OpParam &param, const TemplateResource &templateAlgRes, u32 notifyNumOnMainThread)
     {
         HCCL_INFO("[InsV2ScatterSoleExecutor] loopTimes==1, save fast launch ctx.");
         u32 threadNum = templateAlgRes.submitInfos.size();;
@@ -190,6 +192,7 @@ HcclResult InsV2ScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLo
 
         // 2 thread
         ccuFastLaunchCtx->threadNum = threadNum;
+        ccuFastLaunchCtx->notifyNumOnMainThread = notifyNumOnMainThread;
         ThreadHandle *threads = ccuFastLaunchCtx->GetThreadHandlePtr();
 
         for (int i = 0; i < threadNum; i++)
@@ -237,8 +240,14 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_SCATTER, InsScatterNHR, InsV2ScatterSoleE
 #ifndef AICPU_COMPILE
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_SCATTER, AivScatterMesh1D, InsV2ScatterSoleExecutor, TopoMatch1D,
     AivTempScatterMesh1D);
+#if !defined(HCCL_CANN_COMPAT_850)
 // ccu template
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_SCATTER, CcuScatterMesh1D, InsV2ScatterSoleExecutor, TopoMatch1D, CcuTempScatterMesh1D);
+#endif /* !HCCL_CANN_COMPAT_850 */
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_SCATTER, CcuScatterNHRMem2Mem1D, InsV2ScatterSoleExecutor, TopoMatch1D, CcuTempScatterNHR1DMem2Mem);
+#endif /* !HCCL_CANN_COMPAT_850 */
+#endif
 #endif
 }  // namespace ops_hccl

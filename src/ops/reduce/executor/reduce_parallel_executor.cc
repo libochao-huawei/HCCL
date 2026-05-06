@@ -15,11 +15,15 @@
 #include "ins_temp_all_gather_nhr.h"
 #include "ins_temp_reduce_scatter_mesh_1D.h"
 #include "ins_temp_reduce_scatter_nhr.h"
+#if !defined(HCCL_CANN_COMPAT_850)
 #include "ccu_temp_all_gather_mesh_1D_mem2mem.h"
 #include "ccu_temp_all_gather_nhr_1D_mem2mem.h"
 #include "ccu_temp_reduce_scatter_mesh_1D_mem2mem.h"
 #include "ccu_temp_reduce_scatter_nhr_1D_mem2mem.h"
+#endif /* !HCCL_CANN_COMPAT_850 */
 #include "topo_match_multilevel.h"
+#include "topo_match_ubx.h"
+#include "topo_match_pcie_mix.h"
 
 namespace ops_hccl {
 
@@ -52,18 +56,35 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
 
     // 实例化算法模板类
     // 构建template
+    std::vector<std::vector<u32>> temp0HierarchyInfo;
+    std::vector<std::vector<u32>> temp1HierarchyInfo;
+    if(topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
+        temp0HierarchyInfo = {algHierarchyInfo.infos[0][0]};
+        std::vector<u32> closRanks;
+        u32 meshSize = algHierarchyInfo.infos[0][0].size();
+        for(auto rank : algHierarchyInfo.infos[0][1]) {
+            if(rank % meshSize == topoInfo->userRank % meshSize) {
+                closRanks.push_back(rank);
+            }
+        }
+        temp1HierarchyInfo = {closRanks};
+    } else {
+        temp0HierarchyInfo = algHierarchyInfo.infos[0];
+        temp1HierarchyInfo = algHierarchyInfo.infos[1];
+    }
+
     // reduceScatter intra
     algTemplatePtrArr_.at(0).at(0) =
-        std::make_shared<AlgTemplate0>(param, topoInfo->userRank, algHierarchyInfo.infos.at(0));
+        std::make_shared<AlgTemplate0>(param, topoInfo->userRank, temp0HierarchyInfo);
     // reduceScatter inter
     algTemplatePtrArr_.at(0).at(1) =
-        std::make_shared<AlgTemplate1>(param, topoInfo->userRank, algHierarchyInfo.infos.at(1));
+        std::make_shared<AlgTemplate1>(param, topoInfo->userRank, temp1HierarchyInfo);
     // allGather intra
     algTemplatePtrArr_.at(1).at(0) =
-        std::make_shared<AlgTemplate2>(param, topoInfo->userRank, algHierarchyInfo.infos.at(0));
+        std::make_shared<AlgTemplate2>(param, topoInfo->userRank, temp0HierarchyInfo);
     // allGather inter
     algTemplatePtrArr_.at(1).at(1) =
-        std::make_shared<AlgTemplate3>(param, topoInfo->userRank, algHierarchyInfo.infos.at(1));
+        std::make_shared<AlgTemplate3>(param, topoInfo->userRank, temp1HierarchyInfo);
 
     // 计算资源
     AlgResourceRequest reduceScatterIntraTempRequest;
@@ -216,8 +237,23 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
     root_ = param.root;
     vTopo_ = resCtx.algHierarchyInfo.infos;     // 本通信域内的通信平面
 
-    intraLocalRankSize_ = GetRankSize(vTopo_.at(0));
-    interLocalRankSize_ = GetRankSize(vTopo_.at(1));
+    if(resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS && !resCtx.topoInfo.level0PcieMix) {
+        temp0HierarchyInfo_ = {resCtx.algHierarchyInfo.infos[0][0]};
+        std::vector<u32> closRankList;
+        u32 meshSize = resCtx.algHierarchyInfo.infos[0][0].size();
+        for(auto rank : resCtx.algHierarchyInfo.infos[0][1]) {
+            if(rank % meshSize == resCtx.topoInfo.userRank % meshSize) {
+                closRankList.push_back(rank);
+            }
+        }
+        temp1HierarchyInfo_ = {closRankList};
+    } else {
+        temp0HierarchyInfo_ = resCtx.algHierarchyInfo.infos[0];
+        temp1HierarchyInfo_ = resCtx.algHierarchyInfo.infos[1];
+    }
+    vTopo_ = {temp0HierarchyInfo_, temp1HierarchyInfo_};
+    intraLocalRankSize_ = GetRankSize(temp0HierarchyInfo_);
+    interLocalRankSize_ = GetRankSize(temp1HierarchyInfo_);
     rankSize_ = intraLocalRankSize_ * interLocalRankSize_;
     HCCL_DEBUG("[ReduceParallelExecutor][Orchestrate] myRank[%u], intraLocalRankSize_[%u], interLocalRankSize_[%u]",
         myRank_,
@@ -227,10 +263,10 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
     CHK_RET(CalcLocalRoot());
 
     // 实例化算法模板类
-    algTemplatePtrArr_.at(0).at(0) = std::make_shared<AlgTemplate0>(param, myRank_, vTopo_.at(0));
-    algTemplatePtrArr_.at(0).at(1) = std::make_shared<AlgTemplate1>(param, myRank_, vTopo_.at(1));
-    algTemplatePtrArr_.at(1).at(0) = std::make_shared<AlgTemplate2>(param, myRank_, vTopo_.at(0));
-    algTemplatePtrArr_.at(1).at(1) = std::make_shared<AlgTemplate3>(param, myRank_, vTopo_.at(1));
+    algTemplatePtrArr_.at(0).at(0) = std::make_shared<AlgTemplate0>(param, myRank_, temp0HierarchyInfo_);
+    algTemplatePtrArr_.at(0).at(1) = std::make_shared<AlgTemplate1>(param, myRank_, temp1HierarchyInfo_);
+    algTemplatePtrArr_.at(1).at(0) = std::make_shared<AlgTemplate2>(param, myRank_, temp0HierarchyInfo_);
+    algTemplatePtrArr_.at(1).at(1) = std::make_shared<AlgTemplate3>(param, myRank_, temp1HierarchyInfo_);
 
     // 算法展开
     CHK_RET(OrchestrateImpl());
@@ -461,7 +497,7 @@ HcclResult
                     } else if (stageIdx == 1 && stepIdx == 0) {
                         ccuKernelLaunchNumAGInter0_ = tempAlgResArr_.at(3).submitInfos.size();
                         ccuKernelLaunchNumAGIntra1_ = tempAlgResArr_.at(2).submitInfos.size();
-                    } else if (stageIdx == 1 && stepIdx == 1) {
+                    } else if (stageIdx == 1 && stepIdx == 1 && param_.opMode != OpMode::OFFLOAD) {
                         CHK_RET(FastLaunchSaveCtx());
                     }
 
@@ -544,6 +580,7 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
 
     // 2 thread
     ccuFastLaunchCtx->threadNum = threadNum;
+    ccuFastLaunchCtx->notifyNumOnMainThread = resCtx_.notifyNumOnMainThread;
     ThreadHandle *threads = ccuFastLaunchCtx->GetThreadHandlePtr();
     for (u32 i = 0; i < threadNum; i++) {
         threads[i] = threads_[i];
@@ -725,12 +762,23 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
 #endif
 
 // 算法注册
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_REDUCE, ReduceParallelMesh1DNHR, ReduceParallelExecutor,
     TopoMatchMultilevel, InsTempReduceScatterMesh1D, InsTempReduceScatterNHR, InsTempAllGatherMesh1D,
     InsTempAllGatherNHR);
+REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_REDUCE, ReduceParallelMesh1DNHRUBX, ReduceParallelExecutor,
+    TopoMatchUBX, InsTempReduceScatterMesh1D, InsTempReduceScatterNHR, InsTempAllGatherMesh1D,
+    InsTempAllGatherNHR);
+REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_REDUCE, ReduceParallelMesh1DNHRPcie, ReduceParallelExecutor,
+    TopoMatchPcieMix, InsTempReduceScatterMesh1D, InsTempReduceScatterNHR, InsTempAllGatherMesh1D, InsTempAllGatherNHR);
+#endif /* !HCCL_CANN_COMPAT_850 */
 
 #ifndef AICPU_COMPILE
+#if !defined(HCCL_CANN_COMPAT_850)
     REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_REDUCE, CcuReduceParallelMesh1DNHR, ReduceParallelExecutor,
         TopoMatchMultilevel, CcuTempReduceScatterMesh1DMem2Mem, CcuTempReduceScatterNHR1DMem2Mem, CcuTempAllGatherMesh1DMem2Mem, CcuTempAllGatherNHR1DMem2Mem);
+    REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_REDUCE, CcuReduceParallelMesh1DNHRUBX, ReduceParallelExecutor,
+        TopoMatchUBX, CcuTempReduceScatterMesh1DMem2Mem, CcuTempReduceScatterNHR1DMem2Mem, CcuTempAllGatherMesh1DMem2Mem, CcuTempAllGatherNHR1DMem2Mem);
+#endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 }  // namespace ops_hccl
