@@ -1510,6 +1510,7 @@ HcclResult ParseSingleItemFromDFSConfig(const std::string& configName, std::stri
     char *dfsConfigValue = nullptr;
     MM_SYS_GET_ENV(MM_ENV_HCCL_DFS_CONFIG, dfsConfigValue);
     std::string dfsConfigEnv = (dfsConfigValue != nullptr) ? dfsConfigValue : "EmptyString";
+    // 去除空格
     dfsConfigEnv.erase(std::remove(dfsConfigEnv.begin(), dfsConfigEnv.end(), ' '), dfsConfigEnv.end());
     std::transform(dfsConfigEnv.begin(), dfsConfigEnv.end(), dfsConfigEnv.begin(), ::tolower);
 
@@ -1542,12 +1543,12 @@ HcclResult FillOpExchangeInfo(HcclComm comm, const OpParam &param, OpExchangeInf
         case HcclCMDType::HCCL_CMD_BATCH_SEND_RECV:
             break;
         case HcclCMDType::HCCL_CMD_ALLTOALL:
-            exchangeInfo.dataType = param.all2AllDataDes.sendType;
-            exchangeInfo.count = param.all2AllDataDes.sendCount;
+            exchangeInfo.dataType = param.all2AllVDataDes.sendType;
+            exchangeInfo.count = static_cast<u64*>(param.all2AllVDataDes.sendCounts)[0];
             break;
         case HcclCMDType::HCCL_CMD_ALLTOALLV:
         case HcclCMDType::HCCL_CMD_ALLTOALLVC:
-            exchangeInfo.dataType = param.all2AllDataDes.sendType;
+            exchangeInfo.dataType = param.all2AllVDataDes.sendType;
             break;
         case HcclCMDType::HCCL_CMD_ALLGATHER_V:
         case HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V:
