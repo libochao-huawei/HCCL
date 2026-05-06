@@ -70,6 +70,9 @@ constexpr u64 ALL_GATHER_V_VECTOR_NUM = 2;
 
 constexpr uint64_t GE_PARALLEL = 36;
 
+// Z axis detour 需要
+constexpr u32 MESH_CHANNELS_NUM = 1;
+
 enum class TopoType {
     TOPO_TYPE_COMMON = 0,           // 普通拓扑类型 ，default单层拓扑使用
     TOPO_TYPE_8P_RING = 1,          // 特殊场景, 服务器内8 rank组成一个ring，4个逻辑环
