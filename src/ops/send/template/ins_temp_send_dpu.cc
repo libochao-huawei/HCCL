@@ -72,12 +72,6 @@ namespace ops_hccl
         // 跨框流程要走dpu
         if (sendChannel_.locationType == EndpointLocType::ENDPOINT_LOC_TYPE_HOST)
         {
-            // aicpu先把inputbuffer的内容localcopy给cclbuffer
-            DataSlice inputBuffer(
-                tempAlgParams.buffInfo.inputPtr, tempAlgParams.buffInfo.inBuffBaseOff, processSize_, count_);
-            DataSlice localCclBuffer(
-                tempAlgParams.buffInfo.hcclBuff.addr, 0, processSize_, count_); // cclbuffer不需要offset
-            CHK_RET(LocalCopy(thread_, inputBuffer, localCclBuffer));           // 本端inputbuffer->本端ccl
             // 转换成eager-mode，保障AICPU指令下发执行完成
             if (HcommBatchModeEnd(param.algTag) != HCCL_SUCCESS)
             {
@@ -183,10 +177,11 @@ namespace ops_hccl
             return HCCL_E_INTERNAL;
         }
         ChannelInfo linkSend = channelIter->second[0];
-        DataSlice localCclBuffer(tempAlgParam.buffInfo.hcclBuff.addr, 0, tempAlgParam.sliceSize);
+        DataSlice inputBuffer(
+            tempAlgParam.buffInfo.inputPtr, tempAlgParam.buffInfo.inBuffBaseOff, tempAlgParam.sliceSize, tempAlgParam.count);
         DataSlice remoteCclBuffer(tempAlgParam.buffInfo.outputPtr, 0, tempAlgParam.sliceSize); // ccl
         // 发送
-        SlicesList sendSlicesList({localCclBuffer}, {remoteCclBuffer});
+        SlicesList sendSlicesList({inputBuffer}, {remoteCclBuffer});
         DataInfo sendInfo(linkSend, sendSlicesList);
         CHK_PRT_RET(
             SendWrite(sendInfo), HCCL_ERROR("[InsTempSendDpu][DPUKernelRun] Run Send failed"), HcclResult::HCCL_E_INTERNAL);
@@ -195,5 +190,5 @@ namespace ops_hccl
         return HCCL_SUCCESS;
     }
 
-    REGISTER_TEMPLATE_V2("InsTempSendDpu", InsTempSendDpu);
+REGISTER_TEMPLATE_V2("InsTempSendDpu", InsTempSendDpu);
 } // namespace ops_hccl

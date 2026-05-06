@@ -55,8 +55,6 @@ HcclResult InsTempAllGatherNHRDPU::KernelRun(const OpParam& param,
         return HCCL_E_INTERNAL;
     }
 
-    CHK_RET(LocalDataCopy(tempAlgParams, templateResource));
-
     // 转换成eager-mode，保障AICPU指令下发执行完成
     if (HcommBatchModeEnd(param.algTag) != HCCL_SUCCESS) {
         HCCL_ERROR("failed set eager mode, tag is %s.", param.algTag);
@@ -191,8 +189,11 @@ HcclResult InsTempAllGatherNHRDPU::RunNHR(const TemplateDataParams& tempAlgParam
 {
 #ifndef AICPU_COMPILE
     const uint32_t nSteps = GetNHRStepNum(templateRankSize_);
+    uint32_t myAlgRank = 0;
+    CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], myAlgRank));
 
     for (uint32_t rpt = 0; rpt < tempAlgParams.repeatNum; ++rpt) {
+        const uint64_t inBaseOff = tempAlgParams.buffInfo.inBuffBaseOff + rpt * tempAlgParams.inputRepeatStride;
         const uint64_t scratchRepeatStride = tempAlgParams.sliceSize * templateRankSize_;
         const uint64_t scratchBase = tempAlgParams.buffInfo.hcclBuffBaseOff + rpt * scratchRepeatStride;
 
@@ -217,10 +218,13 @@ HcclResult InsTempAllGatherNHRDPU::RunNHR(const TemplateDataParams& tempAlgParam
                 const u32 txIdx = stepInfo.txSliceIdxs[i];
                 const u32 rxIdx = stepInfo.rxSliceIdxs[i];
 
+                const u64 txInputOff = inBaseOff + tempAlgParams.inputSliceStride * txIdx;
                 const u64 txScratchOff = scratchBase + tempAlgParams.sliceSize * txIdx;
                 const u64 rxScratchOff = scratchBase + tempAlgParams.sliceSize * rxIdx;
+                void *txSrcAddr = (txIdx == myAlgRank) ? tempAlgParams.buffInfo.inputPtr : tempAlgParams.buffInfo.hcclBuff.addr;
+                const u64 txSrcOff = (txIdx == myAlgRank) ? txInputOff : txScratchOff;
 
-                txSrcSlices.emplace_back(tempAlgParams.buffInfo.hcclBuff.addr, txScratchOff, tempAlgParams.sliceSize,
+                txSrcSlices.emplace_back(txSrcAddr, txSrcOff, tempAlgParams.sliceSize,
                                          tempAlgParams.count);
                 txDstSlices.emplace_back(sendCclBuffAddr, txScratchOff, tempAlgParams.sliceSize, tempAlgParams.count);
                 rxSrcSlices.emplace_back(recvCclBuffAddr, rxScratchOff, tempAlgParams.sliceSize, tempAlgParams.count);
@@ -245,7 +249,11 @@ HcclResult InsTempAllGatherNHRDPU::RunNHR(const TemplateDataParams& tempAlgParam
 HcclResult InsTempAllGatherNHRDPU::PostLocalCopy(const TemplateDataParams& tempAlgParams,
                                                  const TemplateResource& templateResource)
 {
+    uint32_t myAlgRank = 0;
+    CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], myAlgRank));
+
     for (u32 rpt = 0; rpt < tempAlgParams.repeatNum; ++rpt) {
+        const u64 inBaseOff = tempAlgParams.buffInfo.inBuffBaseOff + rpt * tempAlgParams.inputRepeatStride;
         const u64 outBaseOff = tempAlgParams.buffInfo.outBuffBaseOff + rpt * tempAlgParams.outputRepeatStride;
         const u64 scratchRepeatStride = tempAlgParams.sliceSize * templateRankSize_;
         const u64 scratchBase = tempAlgParams.buffInfo.hcclBuffBaseOff + rpt * scratchRepeatStride;
@@ -255,7 +263,9 @@ HcclResult InsTempAllGatherNHRDPU::PostLocalCopy(const TemplateDataParams& tempA
             CHK_RET(GetAlgRank(rank, subCommRanks_[0], algRank));
             u64 scratchOffset = tempAlgParams.sliceSize * algRank + scratchBase;
             u64 outOffset = tempAlgParams.outputSliceStride * algRank + outBaseOff;
-            DataSlice srcSlice(tempAlgParams.buffInfo.hcclBuff.addr, scratchOffset, tempAlgParams.sliceSize,
+            void *srcAddr = (algRank == myAlgRank) ? tempAlgParams.buffInfo.inputPtr : tempAlgParams.buffInfo.hcclBuff.addr;
+            u64 srcOffset = (algRank == myAlgRank) ? (inBaseOff + tempAlgParams.inputSliceStride * algRank) : scratchOffset;
+            DataSlice srcSlice(srcAddr, srcOffset, tempAlgParams.sliceSize,
                                tempAlgParams.count);
             DataSlice dstSlice(tempAlgParams.buffInfo.outputPtr, outOffset, tempAlgParams.sliceSize,
                                tempAlgParams.count);

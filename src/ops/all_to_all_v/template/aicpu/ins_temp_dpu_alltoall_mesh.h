@@ -58,9 +58,6 @@ private:
     HcclResult LocalCopyforMyRank(const std::vector<u32> &commRanks, const TemplateDataParams &tempAlgParams,
                                   std::vector<ThreadHandle> &threads);
 
-    HcclResult PreCopyDataToCclInBuf(const std::vector<u32> &commRanks, const TemplateDataParams &tempAlgParams,
-                                     std::vector<ThreadHandle> &threads);
-
     HcclResult SendRecvData(const OpParam &param, const std::vector<u32> &commRanks,
                             const TemplateDataParams &tempAlgParams, const TemplateResource &templateResource,
                             std::vector<ThreadHandle> &threads);
