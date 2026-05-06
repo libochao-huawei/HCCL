@@ -842,7 +842,7 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
     CHK_RET(ParseSingleDFSConfigItem(envValue, "inconsistent_check:", inconsistentCheckSwitch));
     bool isChecked = (g_consistencyCheckedList.find(tagStr) != g_consistencyCheckedList.end());\
     if (inconsistentCheckSwitch == "off" || (isChecked && inconsistentCheckSwitch == "first")) {
-        continue;
+        isChecked = true;
     } else {
         CHK_RET(FillOpExchangeInfo(comm, param, exchangeInfo));
         CHK_RET(HcclCommAddExchangeInfo(comm, &exchangeInfo, sizeof(exchangeInfo)));
