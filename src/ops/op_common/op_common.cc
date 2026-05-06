@@ -842,12 +842,12 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
     CHK_RET(ParseSingleDFSConfigItem(envValue, "inconsistent_check:", inconsistentCheckSwitch));
     bool isChecked = (g_consistencyCheckedList.find(tagStr) != g_consistencyCheckedList.end());\
     if (inconsistentCheckSwitch == "off" || (isChecked && inconsistentCheckSwitch == "first")) {
-        isChecked = true;
+        isChecked = true; // isChecked 为 false 时做参数比较
     } else {
         CHK_RET(FillOpExchangeInfo(comm, param, exchangeInfo));
         CHK_RET(HcclCommAddExchangeInfo(comm, &exchangeInfo, sizeof(exchangeInfo)));
         g_consistencyCheckedList.insert(tagStr);
-        isChecked = false; // isChecked 为 false 时做参数比较
+        isChecked = false;
     }
 
     // host侧资源
