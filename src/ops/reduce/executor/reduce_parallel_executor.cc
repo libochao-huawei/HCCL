@@ -24,6 +24,9 @@
 #include "topo_match_multilevel.h"
 #include "topo_match_ubx.h"
 #include "topo_match_pcie_mix.h"
+#include "topo_match_3_level.h"
+#include "ins_temp_reduce_scatter_mesh_1d_dpu.h"
+#include "ins_temp_all_gather_nhr_dpu.h"
 
 namespace ops_hccl {
 
@@ -41,6 +44,37 @@ HcclResult
     CHK_PTR_NULL(topoInfo);
     AlgTopoMatch topoMatch;
     CHK_RET(topoMatch.MatchTopo(comm, topoInfo, algHierarchyInfo));
+
+    if (algHierarchyInfo.infos.size() == 3) {
+        std::vector<std::vector<std::vector<u32>>> newInfos;
+        std::vector<u32> podAllRanks;
+        const uint32_t myRank = topoInfo->userRank;
+        const auto& myNodeRanks = algHierarchyInfo.infos[0][0];
+        const uint32_t nodeSize = myNodeRanks.size();
+        uint32_t rankOffsetInNode = 0;
+        for (; rankOffsetInNode < nodeSize; rankOffsetInNode++) {
+            if (myNodeRanks[rankOffsetInNode] == myRank) {
+                break;
+            }
+        }
+        for (const auto& podSameOrderGroup : algHierarchyInfo.infos[1]) {
+            for (uint32_t sameOrderRank : podSameOrderGroup) {
+                uint32_t nodeRootRank = sameOrderRank - rankOffsetInNode;
+
+                for (uint32_t offset = 0; offset < nodeSize; offset++) {
+                    podAllRanks.push_back(nodeRootRank + offset);
+                }
+            }
+        }
+        std::sort(podAllRanks.begin(), podAllRanks.end());
+        auto last = std::unique(podAllRanks.begin(), podAllRanks.end());
+        podAllRanks.erase(last, podAllRanks.end());
+        newInfos.push_back({podAllRanks});
+        newInfos.push_back(algHierarchyInfo.infos[2]);
+
+        algHierarchyInfo.infos = std::move(newInfos);
+    }
+
     return HCCL_SUCCESS;
 }
 
@@ -771,7 +805,11 @@ REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_REDUCE, ReduceParallelMesh
     InsTempAllGatherNHR);
 REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_REDUCE, ReduceParallelMesh1DNHRPcie, ReduceParallelExecutor,
     TopoMatchPcieMix, InsTempReduceScatterMesh1D, InsTempReduceScatterNHR, InsTempAllGatherMesh1D, InsTempAllGatherNHR);
+REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_REDUCE, ReduceLevel3Mesh1DNHR, ReduceParallelExecutor,
+    TopoMatch3Level, InsTempReduceScatterMesh1D, InsTempReduceScatterNHR, InsTempAllGatherMesh1D, InsTempAllGatherNHR);
 #endif /* !HCCL_CANN_COMPAT_850 */
+
+
 
 #ifndef AICPU_COMPILE
 #if !defined(HCCL_CANN_COMPAT_850)
