@@ -807,13 +807,20 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
     CHK_RET(executor->CalcRes(comm, param, topoInfo, algHierarchyInfo, resRequest));
 
     // 参数一致性校验准备工作
+    // 需校验情况1：HCCL_DFS_CONFIG == on
+    // 需校验情况2：HCCL_DFS_CONFIG == first 且 isChecked == false
     OpExchangeInfo exchangeInfo{};
     std::string tagStr = param.algTag;
+    const char* envValue = std::getenv("HCCL_DFS_CONFIG");
     bool isChecked = (g_consistencyCheckedList.find(tagStr) != g_consistencyCheckedList.end());
-    if (!isChecked || increCreateChannelFlag) {
+    if (envValue != nullptr && (std::strcmp(envValue, "on") == 0 || std::strcmp(envValue, "first") == 0)) {
+        if (isChecked && std::strcmp(envValue, "first") == 0) {
+            break;
+        }
         CHK_RET(FillOpExchangeInfo(comm, param, exchangeInfo));
         CHK_RET(HcclCommAddExchangeInfo(comm, &exchangeInfo, sizeof(exchangeInfo)));
         g_consistencyCheckedList.insert(tagStr);
+        isChecked = false; // isChecked 为 false 时做参数比较
     }
 
     // host侧资源
