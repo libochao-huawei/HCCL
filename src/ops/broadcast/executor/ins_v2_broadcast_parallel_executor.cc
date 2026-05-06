@@ -1,21 +1,24 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
- * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
- * See LICENSE in the root of the software repository for the full text of the License.
- */
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 
 #include "ins_v2_broadcast_parallel_executor.h"
 #include "ins_temp_all_gather_mesh_1D.h"
 #include "ins_temp_all_gather_nhr.h"
 #include "ins_temp_scatter_mesh_1D.h"
 #include "ins_temp_scatter_nhr.h"
+#include "topo_match_3_level.h"
 #include "topo_match_multilevel.h"
 #include "topo_match_pcie_mix.h"
 #if !defined(HCCL_CANN_COMPAT_850)
+#include "ins_temp_scatter_nhr_dpu_inter.h"
+#include "ins_temp_allgather_nhr_dpu_inter.h"
 #include "ccu_temp_all_gather_mesh_1D_mem2mem.h"
 #include "ccu_temp_all_gather_nhr_1D_mem2mem.h"
 #include "ccu_temp_scatter_mesh1d.h"
@@ -38,6 +41,22 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     // 使用topo match计算AlgHierarchyInfoForAllLevel
     AlgTopoMatch topoMatch;
     CHK_RET(topoMatch.MatchTopo(comm, topoInfo, algHierarchyInfo));
+    // 二级退化
+    if (algHierarchyInfo.infos.size() == 3) {
+    std::vector<std::vector<std::vector<u32>>> newInfos;
+    std::vector<u32> flattenLevel1;
+    for (const auto& subGroup : algHierarchyInfo.infos[0]) {
+        flattenLevel1.insert(flattenLevel1.end(), subGroup.begin(), subGroup.end());
+    }
+    std::sort(flattenLevel1.begin(), flattenLevel1.end());
+    auto last = std::unique(flattenLevel1.begin(), flattenLevel1.end());
+    flattenLevel1.erase(last, flattenLevel1.end());
+
+    newInfos.push_back({flattenLevel1});
+    newInfos.push_back(algHierarchyInfo.infos[2]);
+
+    algHierarchyInfo.infos = std::move(newInfos);
+}
     return HCCL_SUCCESS;
 }
 
@@ -1074,6 +1093,8 @@ REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_BROADCAST, InsBroadcastPar
     InsBroadcastParallelExecutor, TopoMatchPcieMix, InsTempScatterMesh1D, InsTempScatterNHR,
     InsTempAllGatherMesh1D, InsTempAllGatherNHR);
 #endif /* !HCCL_CANN_COMPAT_850 */
+REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_BROADCAST, InsBroadcastParallelNHRNHRDpu, InsBroadcastParallelExecutor,
+    TopoMatch3Level, InsTempScatterNHR, InsTempScatterNHRDPUInter, InsTempAllGatherNHR, InsTempAllGatherNHRDPUInter);
 #ifndef AICPU_COMPILE
 #if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_BROADCAST, CcuBroadcastParallelMesh1DNHR, InsBroadcastParallelExecutor,
