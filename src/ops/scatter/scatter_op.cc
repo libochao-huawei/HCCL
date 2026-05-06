@@ -412,12 +412,12 @@ HcclResult CalcBaseTopoInfo(HcclComm comm, OpParam &param, TopoInfo** topoInfo)
     uint64_t size = sizeof(TopoInfo);
     void *ctx = nullptr;
     // 若获取Context失败，表示对应Context尚未缓存
-    if (HcclEngineCtxGet(comm, param.tag, CommEngine::COMM_ENGINE_CPU_TS, &ctx, &size) == HCCL_E_NOT_FOUND) {
+    if (HcclEngineCtxGet(comm, param.tag, CommEngine::COMM_ENGINE_CPU_TS, &ctx, &size) != HCCL_SUCCESS) {
         // 创建新的Context
         CHK_RET(HcclEngineCtxCreate(comm, param.tag, CommEngine::COMM_ENGINE_CPU_TS, size, &ctx));
         // 将Context内存地址强转为TopoInfo
         *topoInfo = static_cast<TopoInfo *>(ctx);
-        // 将对应拓扑信息填入到Context内存
+        // 将对应拓扑信息填入到Context内存中
         CHK_RET(InitRankInfo(comm, *topoInfo));
         return HCCL_SUCCESS;
     }
