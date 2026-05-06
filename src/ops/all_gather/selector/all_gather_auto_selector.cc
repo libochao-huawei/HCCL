@@ -280,6 +280,31 @@ SelectorStatus AllGatherAutoSelector::SelectDPUAlgo(
 {
     HCCL_DEBUG("[AllGatherAutoSelector][%s] start, topoInfo topoLevelNums[%u]", __func__, topoInfo->topoLevelNums);
     if (topoInfo->topoLevelNums > 1) {
+        if (topoInfo->topoLevelNums == 3) {
+            if (topoInfo->netLayerDetails.localNetInsSizeOfLayer[1] == 1) {
+                // 每超出一卡
+                selectAlgName = "";
+                HCCL_DEBUG("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
+                return SelectorStatus::MATCH;
+            } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] == 1) {
+                // 每超出多卡，每个server出1卡
+                selectAlgName = "";
+                HCCL_DEBUG("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
+                return SelectorStatus::MATCH;
+            } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] >= 2
+                       && topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] <= 4) {
+                // 每超出多卡，每个server出2-4卡
+                selectAlgName = "";
+                HCCL_DEBUG("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
+                return SelectorStatus::MATCH;
+            } else {
+                // 每超出多卡，每个server出8卡
+                selectAlgName = "InsV2AllGatherOmniPipeDpu";
+                HCCL_DEBUG("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
+                return SelectorStatus::MATCH;
+            }
+        }
+
         if ((topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] == 1) || (topoInfo->level0Topo == Level0Shape::MESH_1D)) {
             selectAlgName = "InsAllGatherMeshNhrDPU";
             HCCL_DEBUG("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
