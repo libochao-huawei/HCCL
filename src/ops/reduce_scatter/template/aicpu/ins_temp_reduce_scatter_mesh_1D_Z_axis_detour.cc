@@ -77,7 +77,7 @@ HcclResult InsTempReduceScatterMesh1DZAxisDetour::SetchannelsPerRank(
     CHK_PRT_RET(channels.empty(), HCCL_ERROR("[SetchannelsPerRank] channels is empty."), HCCL_E_INTERNAL);
     channelsPerRank_ = CalcChannelsPerRank(channels);
     if (channelsPerRank_ > 1) {
-        level0ChannelNumPerRank_ = 1;
+        level0ChannelNumPerRank_ = MESH_CHANNELS_NUM;
         level1ChannelNumPerRank_ = channelsPerRank_ - level0ChannelNumPerRank_;
         level0DataRatio_ = 0.5f;
         HCCL_INFO("[InsTempReduceScatterMesh1DZAxisDetour][SetchannelsPerRank], channelsPerRank_[%u]", channelsPerRank_);
