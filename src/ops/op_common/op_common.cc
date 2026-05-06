@@ -832,7 +832,7 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
     // 参数一致性校验准备工作，HCCL_DFS_CONFIG 默认为 first
     // HCCL_DFS_CONFIG == off 以及 HCCL_DFS_CONFIG == first 但非首算子时不校验
     std::string inconsistentCheckSwitch;
-    CHK_RET(ParseSingleDFSConfigItem("inconsistent_check:", inconsistentCheckSwitch));
+    CHK_RET(ParseSingleItemFromDFSConfig("inconsistent_check:", inconsistentCheckSwitch));
     OpExchangeInfo exchangeInfo{};
     std::string tagStr = param.algTag;
     bool isChecked = (g_consistencyCheckedList.find(tagStr) != g_consistencyCheckedList.end());\
