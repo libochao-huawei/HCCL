@@ -37,7 +37,6 @@ protected:
     HcclResult OrchestrateLoop(const OpParam &param, const AlgResourceCtxSerializable& resCtx);
     HcclResult InitCommInfo(const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                             const AlgHierarchyInfoForAllLevel& algHierarchyInfo);
-    template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
     void GenInterTemplateParams(TemplateDataParams &tempAlgParamsInter, const u64 processedDataCount,
         const u64 currDataCount, const u64 loop) const;
     void GenIntraTemplateParams(TemplateDataParams &tempAlgParamsIntra, const u64 processedDataCount,
