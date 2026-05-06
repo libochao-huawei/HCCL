@@ -450,6 +450,10 @@ SelectorStatus AllReduceAutoSelector::SelectDPUAlgo(const TopoInfoWithNetLayerDe
     HCCL_INFO("hccl algo op config: config opType:%d, level0:%u, level1:%u, level2:%u, level3:%u", opParam.opType,
               algos[0], algos[1], algos[2], algos[3]);
     if (topoInfo->topoLevelNums > 1) {
+        if (topoInfo->topoLevelNums == 3) {
+            selectAlgName = "InsAllReduceParallelLevel3";
+            return SelectorStatus::MATCH;
+        }
         if ((topoInfo->deviceNumPerModule == 1) || (topoInfo->level0Topo == Level0Shape::MESH_1D)) {
             selectAlgName = "InsAllReduceSequenceMeshNhrDPU";//对应executor最后register的第二个参数
             HCCL_INFO("Using algo InsAllReduceSequenceMeshNhrDPU");

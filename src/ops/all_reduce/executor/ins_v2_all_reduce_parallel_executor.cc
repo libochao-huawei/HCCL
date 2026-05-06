@@ -13,6 +13,7 @@
 #include "ins_temp_all_gather_mesh_1D.h"
 #include "ins_temp_reduce_scatter_nhr.h"
 #include "ins_temp_reduce_scatter_mesh_1D.h"
+#include "topo_match_3_level.h"
 #include "topo_match_multilevel.h"
 #include "topo_match_pcie_mix.h"
 #include <cmath>
@@ -40,6 +41,22 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     // 使用topo match计算AlgHierarchyInfoForAllLevel
     AlgTopoMatch topoMatch;
     CHK_RET(topoMatch.MatchTopo(comm, topoInfo, algHierarchyInfo));
+    // 二级退化
+    if (algHierarchyInfo.infos.size() == 3) {
+        std::vector<std::vector<std::vector<u32>>> newInfos;
+        std::vector<u32> flattenLevel1;
+        for (const auto& subGroup : algHierarchyInfo.infos[0]) {
+            flattenLevel1.insert(flattenLevel1.end(), subGroup.begin(), subGroup.end());
+        }
+        std::sort(flattenLevel1.begin(), flattenLevel1.end());
+        auto last = std::unique(flattenLevel1.begin(), flattenLevel1.end());
+        flattenLevel1.erase(last, flattenLevel1.end());
+
+        newInfos.push_back({flattenLevel1});
+        newInfos.push_back(algHierarchyInfo.infos[2]);
+
+        algHierarchyInfo.infos = std::move(newInfos);
+    }
     return HCCL_SUCCESS;
 }
 
@@ -1058,6 +1075,8 @@ REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, InsAllReducePar
     InsTempAllGatherMesh1D, InsTempAllGatherNHR);
 REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, InsAllReduceParallelRSAGUBX, InsAllReduceParallelExecutor,
     TopoMatchUBX, InsTempReduceScatterMesh1D, InsTempReduceScatterNHR, InsTempAllGatherMesh1D, InsTempAllGatherNHR);
+REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, InsAllReduceParallelLevel3, InsAllReduceParallelExecutor,
+    TopoMatch3Level, InsTempReduceScatterMesh1D, InsTempReduceScatterNHR, InsTempAllGatherMesh1D, InsTempAllGatherNHR);
 #endif /* !HCCL_CANN_COMPAT_850 */
 #ifndef AICPU_COMPILE
 #if !defined(HCCL_CANN_COMPAT_850)

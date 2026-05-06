@@ -13,6 +13,7 @@
 #include "ins_temp_reduce_scatter_mesh_1D.h"
 #include "ins_temp_reduce_scatter_nhr.h"
 #include "alg_data_trans_wrapper.h"
+#include "topo_match_3_level.h"
 #ifndef AICPU_COMPILE
 #if !defined(HCCL_CANN_COMPAT_850)
 #include "ccu_temp_reduce_scatter_nhr_1D_mem2mem.h"
@@ -110,6 +111,22 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
 {
     AlgTopoMatch topoMatch;
     CHK_RET(topoMatch.MatchTopo(comm, topoInfo, algHierarchyInfo));
+    // 二级退化
+    if (algHierarchyInfo.infos.size() == 3) {
+        std::vector<std::vector<std::vector<u32>>> newInfos;
+        std::vector<u32> flattenLevel1;
+        for (const auto& subGroup : algHierarchyInfo.infos[0]) {
+            flattenLevel1.insert(flattenLevel1.end(), subGroup.begin(), subGroup.end());
+        }
+        std::sort(flattenLevel1.begin(), flattenLevel1.end());
+        auto last = std::unique(flattenLevel1.begin(), flattenLevel1.end());
+        flattenLevel1.erase(last, flattenLevel1.end());
+
+        newInfos.push_back({flattenLevel1});
+        newInfos.push_back(algHierarchyInfo.infos[2]);
+
+        algHierarchyInfo.infos = std::move(newInfos);
+    }
     return HCCL_SUCCESS;
 }
 
@@ -538,6 +555,8 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, InsReduceSc
     InsReduceScatterParallelExecutor, TopoMatchUBX, InsTempReduceScatterMesh1D, InsTempReduceScatterNHR);
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, InsReduceScatterParallelMesh1DNHRPcie,
     InsReduceScatterParallelExecutor, TopoMatchPcieMix, InsTempReduceScatterMesh1D, InsTempReduceScatterNHR);
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, InsReduceScatterParallelMesh1DNHRLevel3,
+    InsReduceScatterParallelExecutor, TopoMatch3Level, InsTempReduceScatterMesh1D, InsTempReduceScatterNHR);
 #endif /* !HCCL_CANN_COMPAT_850 */
 #ifndef AICPU_COMPILE
 #if !defined(HCCL_CANN_COMPAT_850)
