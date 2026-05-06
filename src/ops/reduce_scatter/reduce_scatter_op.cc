@@ -150,6 +150,9 @@ static HcclResult PrepareReduceScatterParam(OpParam &param, void *sendBuf, void 
     param.reduceType = op;
     param.opMode = opMode;
 
+    if (param.commName[0] == '\0') {
+        CHK_RET(HcclGetCommName(comm, param.commName));
+    }
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
 
@@ -172,6 +175,8 @@ HcclResult ReduceScatterOutPlace(OpParam &param, void *sendBuf, void *recvBuf, u
     HCCL_INFO("Start to execute ReduceScatterOutPlace");
     CHK_RET(PrepareReduceScatterParam(param, sendBuf, recvBuf, recvCount, dataType, op, comm, stream, userRankSize,
  	    OpMode::OPBASE));
+    
+    CHK_RET(HcclGetOpExpansionMode(comm, param));
 
     CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
     if (ShouldGoCcuFastLaunch(comm, param, &ccuFastLaunchCtx)) {
@@ -181,12 +186,12 @@ HcclResult ReduceScatterOutPlace(OpParam &param, void *sendBuf, void *recvBuf, u
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));
-    if (ShouldUseInnerOp(param.opExecuteConfig)) {
+    if (ShouldUseInnerOp(param.opExecuteConfig) && param.opMode == OpMode::OPBASE) {
         return HcclReduceScatterInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
     }
     if (userRankSize == 1) {
         HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
-        CHK_RET(SingleRankProc(param));
+        CHK_RET(SingleRankProc(comm, param));
         return HcclResult::HCCL_SUCCESS;
     }
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
@@ -225,11 +230,15 @@ HcclResult ReduceScatterOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t
     CHK_RET(PrepareReduceScatterParam(param, sendBuf, recvBuf, recvCount, dataType, op, comm, stream, userRankSize,
         OpMode::OFFLOAD));
 
+    int ret = sprintf_s(param.tag, sizeof(param.tag), "%s", tag.c_str());
+    CHK_PRT_RET((ret <= 0), HCCL_ERROR("failed to fill param.tag"), HCCL_E_INTERNAL);
+
     if (userRankSize == 1) {
         HCCL_WARNING("[%s] rankSize == 1, enter SingleRankProc", __func__);
-        CHK_RET(SingleRankProc(param));
+        CHK_RET(SingleRankProc(comm, param));
         return HcclResult::HCCL_SUCCESS;
     }
+    CHK_RET(HcclGetOpExpansionMode(comm, param));
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));

@@ -199,14 +199,15 @@ HcclResult AllGatherVOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount,c
     param.deviceType = deviceType;
     if (userRankSize == 1) {
  	  	HCCL_WARNING("[%s] rankSize == 1, enter SingleRankProc", __func__);
- 	  	CHK_RET(SingleRankProc(param));
+        CHK_RET(SingleRankProc(comm, param));
  	  	return HcclResult::HCCL_SUCCESS;
  	}
 
+    CHK_RET(HcclGetOpExpansionMode(comm, param));
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));
-    if (ShouldUseInnerOp(param.opExecuteConfig)) {
+    if (ShouldUseInnerOp(param.opExecuteConfig) && param.opMode == OpMode::OPBASE) {
         return HcclAllGatherVInner(sendBuf, sendCount, recvBuf, recvCounts, recvDispls, dataType, comm, stream);
     }
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
@@ -285,11 +286,12 @@ HcclResult AllGatherVOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t se
     param.opType = HcclCMDType::HCCL_CMD_ALLGATHER_V, param.enableDetour = false, param.deviceType = deviceType;
  	if (userRankSize == 1) {
  	  	HCCL_WARNING("[%s] rankSize == 1, enter SingleRankProc", __func__);
- 	  	CHK_RET(SingleRankProc(param));
+        CHK_RET(SingleRankProc(comm, param));
  	  	return HcclResult::HCCL_SUCCESS;
  	}
  	std::string algName;
  	std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
+    CHK_RET(HcclGetOpExpansionMode(comm, param));
  	CHK_RET(Selector(comm, param, topoInfo, algName));
  	CHK_RET(HcclExecOp(comm, param, topoInfo, algName, resPack));
  	HCCL_INFO("Execute AllGatherVOutPlaceGraphMode success.");

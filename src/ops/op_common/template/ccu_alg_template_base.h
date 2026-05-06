@@ -44,6 +44,7 @@ public:
     HcclResult GetToken(const BuffInfo &buffinfo, uint64_t &token) const;
 
     HcclResult GetChannelDieId(HcclComm comm, uint32_t rankId, const HcclChannelDesc& channelDesc, uint32_t& dieId) const;
+    HcclResult GetChannelBwCoeff(HcclComm comm, uint32_t rankId, const HcclChannelDesc& channelDesc, uint32_t& bwCoeff) const;
 
 protected:
     OpMode          opMode_             = OpMode::OPBASE;
@@ -61,7 +62,9 @@ protected:
     HcclResult SelectChannelToVec(const HcclComm comm, const u32 myRankId, const u32 rmtRankId,
         const std::map<u32, std::vector<HcclChannelDesc>> &rankIdToChannelDesc, const u32 dieId, 
         std::map<u32, u32>& rank2ChannelIdx, std::vector<HcclChannelDesc>& channels);
-    
+    HcclResult ReverseChannelPerDieIfNeed(const HcclComm comm, const u32 myRankId, 
+        std::vector<std::vector<HcclChannelDesc>>& channelsPerDie);
+
     HcclResult GetDieInfoFromChannelDescs(HcclComm comm, 
         const std::map<u32, std::vector<HcclChannelDesc>> &rankIdToChannelDesc, 
         u32 myRankId, uint32_t &dieNum, uint32_t &dieId);

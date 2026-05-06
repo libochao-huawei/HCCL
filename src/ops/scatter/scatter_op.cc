@@ -30,6 +30,7 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
     HcclDataType dataType, uint32_t root, HcclComm comm, aclrtStream stream)
 {
+    HCCL_INFO("Start to run execute HcclScatter");
     // 获取设备类型拦截混合组网
     HcclHeterogMode allDeviceType;
     CHK_RET(HcclGetHeterogMode(comm, &allDeviceType));
@@ -49,7 +50,11 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
     CHK_RET(InitEnvConfig());
     
     // AclGraph引导到老的流程上面
+    #ifdef MACRO_DEV_TYPE_NEW
     if (deviceType != DevType::DEV_TYPE_950 && IsStreamCapture(stream)) {
+    #else
+    if (deviceType != DevType::DEV_TYPE_910_95 && IsStreamCapture(stream)) {
+    #endif
         return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
     }
     // 重执行引导到老的流程上面
@@ -160,6 +165,8 @@ HcclResult ScatterExecOp(OpParam &param, void *sendBuf, void *recvBuf, uint64_t 
     #else
     if (param.deviceType == DevType::DEV_TYPE_910_95) {
     #endif
+        CHK_RET(HcclGetOpExpansionMode(comm, param));
+        
         CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
         if (ShouldGoCcuFastLaunch(comm, param, &ccuFastLaunchCtx)) {
             return HcclExecOpCcuFastLaunch(comm, param, ccuFastLaunchCtx);
@@ -167,12 +174,12 @@ HcclResult ScatterExecOp(OpParam &param, void *sendBuf, void *recvBuf, uint64_t 
         std::string algName;
         std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
         CHK_RET(Selector(comm, param, topoInfo, algName));
-        if (ShouldUseInnerOp(param.opExecuteConfig)) {
+        if (ShouldUseInnerOp(param.opExecuteConfig) && param.opMode == OpMode::OPBASE) {
             return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
         }
         if (userRankSize == 1) {
             HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
-            CHK_RET(SingleRankProc(param));
+            CHK_RET(SingleRankProc(comm, param));
             return HcclResult::HCCL_SUCCESS;
         }
 
