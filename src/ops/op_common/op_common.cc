@@ -1512,7 +1512,7 @@ HcclResult ParseSingleItemFromDFSConfig(const std::string& configName, std::stri
     char *dfsConfigValue = nullptr;
     MM_SYS_GET_ENV(MM_ENV_HCCL_DFS_CONFIG, dfsConfigValue);
     std::string dfsConfigEnv = (dfsConfigValue != nullptr) ? dfsConfigValue : "EmptyString";
-    dfsConfigEnv.erase(std::remove(dfsConfigEnv.begin(), dfsConfigEnv,end(), ' '), dfsConfigEnv.end());
+    dfsConfigEnv.erase(std::remove(dfsConfigEnv.begin(), dfsConfigEnv.end(), ' '), dfsConfigEnv.end());
     std::transform(dfsConfigEnv.begin(), dfsConfigEnv.end(), dfsConfigEnv.begin(), ::tolower);
 
     size_t start = dfsConfigEnv.find(configName);
