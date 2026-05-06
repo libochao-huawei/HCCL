@@ -57,10 +57,12 @@ HcclResult InsTempReduceScatterMesh1DZAxisDetour::CalcRes(
 
 u64 InsTempReduceScatterMesh1DZAxisDetour::GetThreadNum() const
 {
-    if (templateRankSize_ <= 1) {
-        return 1;
-    }
-    return (templateRankSize_ - 1) * channelsPerRank_ + 1;
+    // if (templateRankSize_ <= 1) {
+    //     return 1;
+    // }
+    // return (templateRankSize_ - 1) * channelsPerRank_ + 1;
+    u32 threadNum = templateRankSize_ > 1 ? templateRankSize_ : 1;
+    return threadNum;
 }
 
 HcclResult InsTempReduceScatterMesh1DZAxisDetour::CalcDataSplitByPortGroup(
