@@ -314,8 +314,6 @@ HcclResult InsV2AllToAllVConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     TemplateDataParams tempAlgParamsClos;
     tempAlgParamsClos.buffInfo.inputPtr = param.inputPtr;
     tempAlgParamsClos.buffInfo.outputPtr = param.outputPtr;
-    tempAlgParamsClos.buffInfo.inputSize = param.inputSize;
-    tempAlgParamsClos.buffInfo.outputSize = param.outputSize;
     tempAlgParamsClos.buffInfo.inBuffType = BufferType::INPUT;
     tempAlgParamsClos.buffInfo.outBuffType = BufferType::OUTPUT;
     tempAlgParamsClos.buffInfo.inputSize = param.inputSize;
@@ -326,8 +324,6 @@ HcclResult InsV2AllToAllVConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     TemplateDataParams tempAlgParamsMesh;
     tempAlgParamsMesh.buffInfo.inputPtr = param.inputPtr;
     tempAlgParamsMesh.buffInfo.outputPtr = param.outputPtr;
-    tempAlgParamsMesh.buffInfo.inputSize = param.inputSize;
-    tempAlgParamsMesh.buffInfo.outputSize = param.outputSize;
     tempAlgParamsMesh.buffInfo.inBuffType = BufferType::INPUT;
     tempAlgParamsMesh.buffInfo.outBuffType = BufferType::OUTPUT;
     tempAlgParamsMesh.buffInfo.inputSize = param.inputSize;
