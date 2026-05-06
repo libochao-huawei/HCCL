@@ -349,7 +349,7 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
 
 #ifndef AICPU_COMPILE
     if ((loopTimes0 == 1 && loopTimes1 == 1) && param.engine == CommEngine::COMM_ENGINE_CCU) {
-        CHK_RET(FastLaunchSaveCtx(param, tempAlgResource0, tempAlgResource1));
+        CHK_RET(FastLaunchSaveCtx(param, tempAlgResource0, tempAlgResource1, resCtx.notifyNumOnMainThread));
     }
 #endif
 
@@ -362,7 +362,7 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::FastLaunchSaveCtx(
-    const OpParam &param, const TemplateResource &templateAlgRes0, const TemplateResource &templateAlgRes1)
+    const OpParam &param, const TemplateResource &templateAlgRes0, const TemplateResource &templateAlgRes1, u32 notifyNumOnMainThread)
 {
     HCCL_INFO("[%s] Start", __func__);
     u32 threadNum = threads_.size();
@@ -375,7 +375,7 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     std::vector<u32> ccuKernelNumList = {static_cast<u32>(templateAlgRes0.submitInfos.size()), 
                                          static_cast<u32>(templateAlgRes1.submitInfos.size())};
     std::vector<std::vector<CcuKernelSubmitInfo>> submitInfosList = {templateAlgRes0.submitInfos, templateAlgRes1.submitInfos};
-    return FastLaunchSaveCtxTwoTemplate(param, threadNum, ccuKernelNum, threads_, ccuKernelNumList, submitInfosList);
+    return FastLaunchSaveCtxTwoTemplate(param, threadNum, ccuKernelNum, threads_, ccuKernelNumList, submitInfosList, notifyNumOnMainThread);
     
 }
 
