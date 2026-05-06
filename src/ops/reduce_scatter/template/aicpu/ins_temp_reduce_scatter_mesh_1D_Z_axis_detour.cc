@@ -36,10 +36,10 @@ HcclResult InsTempReduceScatterMesh1DZAxisDetour::CalcRes(
         HCCL_ERROR("[InsTempReduceScatterMesh1D][CalcRes] topoInfo is nullptr"), HCCL_E_PARA);
     CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
     resourceRequest.channels.push_back(level0Channels);
-    // std::vector<HcclChannelDesc> level0Channels;
-    // CHK_RET(CalcChannelRequestMesh1DLevel0(comm, param, topoInfo, subCommRanks_, level0Channels));
-    // std::vector<HcclChannelDesc> level1Channels;
-    // CHK_RET(CalcChannelRequestMesh1DLevel1(comm, param, topoInfo, subCommRanks_, level1Channels));
+    std::vector<HcclChannelDesc> level0Channels;
+    CHK_RET(CalcChannelRequestMesh1DLevel0(comm, param, topoInfo, subCommRanks_, level0Channels));
+    std::vector<HcclChannelDesc> level1Channels;
+    CHK_RET(CalcChannelRequestMesh1DLevel1(comm, param, topoInfo, subCommRanks_, level1Channels));
     // std::vector<HcclChannelDesc> mergedChannels;
     // mergedChannels.insert(mergedChannels.end(), level0Channels.begin(), level0Channels.end());
     // mergedChannels.insert(mergedChannels.end(), level1Channels.begin(), level1Channels.end());
