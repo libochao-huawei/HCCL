@@ -49,7 +49,14 @@ def gen_ini():
     if tree.getroot().tag != 'image_info':
         print("error in input xml file")
     if args.hash_list:
-        hash_list_path = os.path.join(args.hash_list_path, ('{}.img'.format('hash-list')))
+        if not args.hash_list_path:
+            print("error: -hash_dest is required when using --hash_list")
+            return -1
+        hash_dest_real = os.path.realpath(args.hash_list_path)
+        if not os.path.isdir(hash_dest_real):
+            print(f"error: -hash_dest directory does not exist: {args.hash_list_path}")
+            return -1
+        hash_list_path = os.path.join(hash_dest_real, ('{}.img'.format('hash-list')))
         if (os.path.exists(hash_list_path)) :
             os.remove(hash_list_path)
         for elem in tree.iter(tag='image'):
