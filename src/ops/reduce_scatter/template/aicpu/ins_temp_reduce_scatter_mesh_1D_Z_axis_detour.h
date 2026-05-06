@@ -37,6 +37,8 @@ public:
                                         const std::vector<ChannelInfo> &channels,
                                         std::vector<u64> &elemCountOut, std::vector<u64> &sizeOut,
                                         std::vector<u64> &elemOffset) override;
+    HcclResult SetchannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels) override;
+
 
 protected:
     u32 level0ChannelNumPerRank_{1};

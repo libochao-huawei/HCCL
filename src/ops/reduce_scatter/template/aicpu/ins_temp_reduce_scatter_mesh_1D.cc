@@ -62,6 +62,7 @@ HcclResult InsTempReduceScatterMesh1D::KernelRun(const OpParam& param,
     processSize_ = tempAlgParams.sliceSize;
     count_ = tempAlgParams.sliceSize / DATATYPE_SIZE_TABLE[dataType_];
     HCCL_INFO("[InsTempReduceScatterMesh1D] Run Start");
+    HCCL_INFO("[InsTempReduceScatterMesh1D] KernelRun threadNum_[%u], templateResource.threads.size()[%u]", threadNum_, templateResource.threads.size());
     if (threadNum_ > 1) {
         std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
         GetNotifyIdxMainToSub(notifyIdxMainToSub_);
@@ -215,6 +216,7 @@ void InsTempReduceScatterMesh1D::GetNotifyIdxMainToSub(std::vector<u32> &notifyI
 {
     notifyIdxMainToSub.clear();
     u32 threadNum = GetThreadNum();
+    HCCL_DEBUG("[InsTempReduceScatterMesh1D][GetNotifyIdxMainToSub] threadNum[%u]", threadNum);
     u32 slaveThreadNum = threadNum - 1;
     for (u32 slaveThreadIdx = 0; slaveThreadIdx < slaveThreadNum; slaveThreadIdx++) {
         notifyIdxMainToSub.push_back(0);
