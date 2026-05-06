@@ -225,6 +225,7 @@ else()
     )
 endif()
 
+
 if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
     add_library(scatter_aicpu_kernel SHARED
         ${CMAKE_CURRENT_SOURCE_DIR}/common/utils.cc
