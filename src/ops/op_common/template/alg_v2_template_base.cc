@@ -92,11 +92,11 @@ bool InsAlgTemplateBase::IsPcieProtocol(const std::map<u32, std::vector<ChannelI
 {
     for (auto it = channels.begin(); it != channels.end(); it++) {
         if ((it->second).at(0).protocol == CommProtocol::COMM_PROTOCOL_PCIE) {
-            HCCL_DEBUG("[IsPcieProtocal] the protocal of channel is PCIE");
+            HCCL_DEBUG("[IsPcieProtocol] the protocol of channel is PCIE");
             return true;
         }
     }
-    HCCL_DEBUG("[IsPcieProtocal] the protocal of channel is Non-PCIE");
+    HCCL_DEBUG("[IsPcieProtocol] the protocol of channel is Non-PCIE");
     return false;
 }
 
