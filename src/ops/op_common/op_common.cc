@@ -830,17 +830,20 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
     AlgResourceRequest resRequest;
     CHK_RET(executor->CalcRes(comm, param, topoInfo, algHierarchyInfo, resRequest));
 
-    // 参数一致性校验准备工作
+    // 参数一致性校验准备工作，HCCL_DFS_CONFIG 默认为 first
     // 需校验情况1：HCCL_DFS_CONFIG == on
     // 需校验情况2：HCCL_DFS_CONFIG == first 且 isChecked == false
     OpExchangeInfo exchangeInfo{};
     std::string tagStr = param.algTag;
-    const char* envValue = std::getenv("HCCL_DFS_CONFIG");
-    bool isChecked = (g_consistencyCheckedList.find(tagStr) != g_consistencyCheckedList.end());
-    if (envValue != nullptr && (std::strcmp(envValue, "on") == 0 || std::strcmp(envValue, "first") == 0)) {
-        if (isChecked && std::strcmp(envValue, "first") == 0) {
-            break;
-        }
+    // const char* envValue = std::getenv("HCCL_DFS_CONFIG");
+    char *envValue = nullptr;
+    std::string inconsistentCheckSwitch;
+    MM_SYS_GET_ENV(MM_ENV_HCCL_DFS_CONFIG, envValue);
+    CHK_RET(ParseSingleDFSConfigItem(envValue, "inconsistent_check:", inconsistentCheckSwitch));
+    bool isChecked = (g_consistencyCheckedList.find(tagStr) != g_consistencyCheckedList.end());\
+    if (inconsistentCheckSwitch == "off" || (isChecked && inconsistentCheckSwitch == "first")) {
+        continue;
+    } else {
         CHK_RET(FillOpExchangeInfo(comm, param, exchangeInfo));
         CHK_RET(HcclCommAddExchangeInfo(comm, &exchangeInfo, sizeof(exchangeInfo)));
         g_consistencyCheckedList.insert(tagStr);
@@ -1505,6 +1508,24 @@ HcclResult GetAlgResDPU(HcclComm comm, const OpParam &param, AlgResourceRequest 
                            ctxSize, increCreateChannelFlag));
 
     HCCL_INFO("Execute GetAlgResAICPU success.");
+    return HCCL_SUCCESS;
+}
+
+HcclResult ParseSingleDFSConfigItem(const std::string& dfsConfigEnv, const std::string& configName,
+    std::string& configResult)
+{
+    size_t start = dfsConfigEnv.find(configName);
+    if (start == std::string::npos) {
+        HCCL_INFO("[Parse] DFS config item [%s] is not found.", configName.c_str());
+        return HCCL_SUCCESS;
+    }
+    size_t end = dfsConfigEnv.find(",", start);
+    if (end == std::string::npos) {
+        configResult = dfsConfigEnv.substr(start + configName.size());
+    } else {
+        configResult = dfsConfigEnv.substr(start + configName.size(), end - start - configName.size());
+    }
+    HCCL_INFO("[Parse] DFS config item %s [%s]", configName.c_str(), configResult.c_str());
     return HCCL_SUCCESS;
 }
 
