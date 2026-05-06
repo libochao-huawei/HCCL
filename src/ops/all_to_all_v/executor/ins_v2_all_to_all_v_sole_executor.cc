@@ -1,16 +1,17 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
- * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
- * See LICENSE in the root of the software repository for the full text of the License.
- */
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 
 #include "ins_v2_all_to_all_v_sole_executor.h"
 #include "ins_temp_all_to_all_v_mesh_1D.h"
 #include "ins_temp_dpu_alltoall_mesh.h"
+#include "topo_match_3_level.h"
 #ifndef AICPU_COMPILE
 #include "aiv_temp_all_to_all_mesh_1D.h"
 #include "aiv_temp_all_to_all_v_mesh_1D.h"
@@ -37,6 +38,20 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcAlgHier
     // 使用topo match计算AlgHierarchyInfoForAllLevel
     AlgTopoMatch topoMatch;
     CHK_RET(topoMatch.MatchTopo(comm, topoInfo, algHierarchyInfo));
+    if (algHierarchyInfo.infos.size() == 3) {
+        std::vector<u32> globalFlattenRanks;
+        for (const auto& level : algHierarchyInfo.infos) {
+            for (const auto& group : level) {
+                globalFlattenRanks.insert(globalFlattenRanks.end(), group.begin(), group.end());
+            }
+        }
+        std::sort(globalFlattenRanks.begin(), globalFlattenRanks.end());
+        auto repeatIter = std::unique(globalFlattenRanks.begin(), globalFlattenRanks.end());
+        globalFlattenRanks.erase(repeatIter, globalFlattenRanks.end());
+        algHierarchyInfo.infos.clear();
+        algHierarchyInfo.infos.emplace_back();  // 创建唯一的Level
+        algHierarchyInfo.infos[0].push_back(std::move(globalFlattenRanks));
+    }
     return HCCL_SUCCESS;
 }
 
@@ -399,6 +414,8 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, InsAlltoAllMesh1DDPU, InsV2Allt
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, InsAlltoAllVMesh1DDPU, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
     InsTempDpuAlltoAllMesh);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLVC, InsAlltoAllVCMesh1DDPU, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
+    InsTempDpuAlltoAllMesh);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, InsAlltoAllMesh13LevelDDPU, InsV2AlltoAllVSoleExecutor, TopoMatch3Level,
     InsTempDpuAlltoAllMesh);
 
 #ifndef AICPU_COMPILE
