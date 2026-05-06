@@ -78,9 +78,7 @@ flowchart TD
 
    - 负责对应模块或组件的Committer检视代码并反馈检视意见，请根据意见修改；没有问题后，添加`/lgtm`和`/approve`标签并合入。
 
-
 ### 增加新功能或新特性
-
 
 1. 提交Requirement类型Issue
 
@@ -98,7 +96,6 @@ flowchart TD
 
    - 详细设计方案通过包含RFC的PR进行评审；
    - 过程中请针对评审意见进行方案修改；
-
 
 4. RFC合入
 
@@ -119,6 +116,5 @@ flowchart TD
 ## 争议处理
 
 存在争议的Issue、PR或RFC可以在[SIG工作会议](https://etherpad-cann.meeting.osinfra.cn/p/sig-hccl)上申报议题，由SIG组决策。
-
 
 *本文档由社区维护，如有变更建议，请在Issue中提出。*
