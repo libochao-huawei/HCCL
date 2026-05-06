@@ -174,6 +174,7 @@ HcclResult SetMultipleDimensionSplitRatio(OpParam &param);
 HcclResult CheckHostDPUOnly(const HcclComm comm, const TopoInfoWithNetLayerDetails* topoInfo, bool &hostDPUOnly);
 
 HcclResult SetExecTimeout(OpParam &param);
+bool IsHostDpu(HcclComm comm);
 }  // namespace ops_hccl
 
 #ifdef __cplusplus
