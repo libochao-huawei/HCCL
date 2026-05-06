@@ -297,6 +297,11 @@ SelectorStatus ReduceAutoSelector::SelectDPUAlgo(const TopoInfoWithNetLayerDetai
     HCCL_INFO("hccl algo op config: config opType:%d, level0:%u, level1:%u, level2:%u, level3:%u",
         opParam.opType, algos[0], algos[1], algos[2], algos[3]);
     if (topoInfo->topoLevelNums > 1) {
+        if (topoInfo->topoLevelNums == 3) {
+            selectAlgName = "ReduceLevel3Mesh1DNHR";
+            HCCL_INFO("selectAlgName is ReduceLevel3Mesh1DNHR");
+            return SelectorStatus::MATCH;
+        }
         if ((topoInfo->deviceNumPerModule == 1) || (topoInfo->level0Topo == Level0Shape::MESH_1D)) {
             selectAlgName = "InsReduceSequenceMeshNhrDPU";
             HCCL_INFO("selectAlgName is InsReduceSequenceMeshNhrDPU");
