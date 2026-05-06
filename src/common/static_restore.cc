@@ -238,7 +238,7 @@ static int create_single_dir(const char* path) {
 }
 
 /**
- * @brief 安全地递归创建目录
+ * @brief 安全地递归创建目录（基于FD，避免TOCTOU竞态）
  *
  * @param path 要创建的目录路径
  * @return int 0 成功，-1 失败
@@ -246,6 +246,8 @@ static int create_single_dir(const char* path) {
 static int safe_create_directory(const char* path) {
     char component[PATH_BUFFER_SIZE];
     size_t len;
+    int parent_fd = -1;
+    int ret = -1;
 
     if (path == NULL) {
         return -1;
@@ -266,21 +268,107 @@ static int safe_create_directory(const char* path) {
         len--;
     }
 
-    for (char* p = component + 1; *p != '\0'; ++p) {
-        if (*p == '/') {
-            *p = '\0';
-            if (create_single_dir(component) != 0) {
-                return -1;
-            }
-            *p = '/';
-        }
-    }
-
-    if (create_single_dir(component) != 0) {
+    /* 从根目录开始，使用FD逐级向下操作 */
+    parent_fd = open("/", O_RDONLY | O_DIRECTORY | O_NOFOLLOW);
+    if (parent_fd == -1) {
+        HCCL_ERROR("Failed to open root directory: %s", strerror(errno));
         return -1;
     }
 
-    return 0;
+    char* p = component;
+    char* start = p;
+
+    /* 跳过开头的 '/' */
+    if (*p == '/') {
+        p++;
+        start = p;
+    }
+
+    while (*p != '\0') {
+        /* 找到下一个 '/' 或字符串结束 */
+        char* end = p;
+        while (*end != '\0' && *end != '/') {
+            end++;
+        }
+
+        /* 提取当前目录名 */
+        char dirname[PATH_BUFFER_SIZE];
+        size_t dirname_len = end - p;
+        if (dirname_len >= PATH_BUFFER_SIZE) {
+            HCCL_ERROR("Directory name too long");
+            goto cleanup;
+        }
+        strncpy(dirname, p, dirname_len);
+        dirname[dirname_len] = '\0';
+
+        /* 如果是空目录名（连续 '/'），跳过 */
+        if (dirname_len == 0) {
+            p = end + 1;
+            continue;
+        }
+
+        /* 使用 fstatat 检查当前路径是否已存在且不是符号链接 */
+        struct stat st;
+        if (fstatat(parent_fd, dirname, &st, AT_SYMLINK_NOFOLLOW) == 0) {
+            /* 路径已存在 */
+            if (S_ISLNK(st.st_mode)) {
+                HCCL_ERROR("Path component '%s' is a symbolic link", dirname);
+                goto cleanup;
+            }
+            if (!S_ISDIR(st.st_mode)) {
+                HCCL_ERROR("Path component '%s' exists but is not a directory", dirname);
+                goto cleanup;
+            }
+            /* 目录已存在，打开它获取新的FD */
+            int new_fd = openat(parent_fd, dirname, O_RDONLY | O_DIRECTORY | O_NOFOLLOW);
+            if (new_fd == -1) {
+                HCCL_ERROR("Failed to open existing directory '%s': %s", dirname, strerror(errno));
+                goto cleanup;
+            }
+            close(parent_fd);
+            parent_fd = new_fd;
+        } else {
+            /* 路径不存在，创建目录 */
+            if (mkdirat(parent_fd, dirname, 0755) == -1) {
+                HCCL_ERROR("Failed to create directory '%s': %s", dirname, strerror(errno));
+                goto cleanup;
+            }
+
+            /* 立即打开创建的目录验证并获取FD */
+            int new_fd = openat(parent_fd, dirname, O_RDONLY | O_DIRECTORY | O_NOFOLLOW);
+            if (new_fd == -1) {
+                HCCL_ERROR("Failed to open newly created directory '%s': %s", dirname, strerror(errno));
+                goto cleanup;
+            }
+
+            /* 验证新创建的不是符号链接（防御性检查） */
+            if (fstat(new_fd, &st) == 0) {
+                if (!S_ISDIR(st.st_mode)) {
+                    HCCL_ERROR("Path '%s' was replaced after creation", dirname);
+                    close(new_fd);
+                    goto cleanup;
+                }
+            }
+
+            close(parent_fd);
+            parent_fd = new_fd;
+        }
+
+        /* 移动到下一个目录组件 */
+        if (*end == '/') {
+            p = end + 1;
+        } else {
+            p = end;
+        }
+    }
+
+    ret = 0;
+
+cleanup:
+    if (parent_fd != -1) {
+        close(parent_fd);
+    }
+    return ret;
 }
 
 /**
