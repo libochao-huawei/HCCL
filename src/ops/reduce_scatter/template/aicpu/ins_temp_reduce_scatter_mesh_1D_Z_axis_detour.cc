@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "aicpu/ins_temp_reduce_scatter_mesh_1D_Z_axis_detour.h"
+#include "ins_temp_reduce_scatter_mesh_1D_Z_axis_detour.h"
 
 namespace ops_hccl {
 
