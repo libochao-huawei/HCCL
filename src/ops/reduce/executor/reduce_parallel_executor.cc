@@ -24,6 +24,9 @@
 #include "topo_match_multilevel.h"
 #include "topo_match_ubx.h"
 #include "topo_match_pcie_mix.h"
+#include "topo_match_3_level.h"
+#include "ins_temp_reduce_scatter_mesh_1d_dpu.h"
+#include "ins_temp_all_gather_nhr_dpu.h"
 
 namespace ops_hccl {
 
@@ -41,6 +44,24 @@ HcclResult
     CHK_PTR_NULL(topoInfo);
     AlgTopoMatch topoMatch;
     CHK_RET(topoMatch.MatchTopo(comm, topoInfo, algHierarchyInfo));
+
+    // 二级退化
+    if (algHierarchyInfo.infos.size() == 3) {
+ 	     std::vector<std::vector<std::vector<u32>>> newInfos;
+ 	     std::vector<u32> flattenLevel1;
+ 	     for (const auto& subGroup : algHierarchyInfo.infos[0]) {
+ 	         flattenLevel1.insert(flattenLevel1.end(), subGroup.begin(), subGroup.end());
+ 	     }
+ 	     std::sort(flattenLevel1.begin(), flattenLevel1.end());
+ 	     auto last = std::unique(flattenLevel1.begin(), flattenLevel1.end());
+ 	     flattenLevel1.erase(last, flattenLevel1.end());
+ 	 
+ 	     newInfos.push_back({flattenLevel1});
+ 	     newInfos.push_back(algHierarchyInfo.infos[2]);
+ 	 
+ 	     algHierarchyInfo.infos = std::move(newInfos);
+ 	 }
+
     return HCCL_SUCCESS;
 }
 
@@ -771,7 +792,12 @@ REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_REDUCE, ReduceParallelMesh
     InsTempAllGatherNHR);
 REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_REDUCE, ReduceParallelMesh1DNHRPcie, ReduceParallelExecutor,
     TopoMatchPcieMix, InsTempReduceScatterMesh1D, InsTempReduceScatterNHR, InsTempAllGatherMesh1D, InsTempAllGatherNHR);
+REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_REDUCE, ReduceLevel3Mesh1DNHR, ReduceParallelExecutor,
+    TopoMatch3Level, InsTempReduceScatterNHR, InsTempReduceScatterMesh1dDpu, InsTempAllGatherNHR,
+    InsTempAllGatherNHRDPU);
 #endif /* !HCCL_CANN_COMPAT_850 */
+
+
 
 #ifndef AICPU_COMPILE
 #if !defined(HCCL_CANN_COMPAT_850)
