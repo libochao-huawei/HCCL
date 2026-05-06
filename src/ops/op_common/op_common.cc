@@ -830,15 +830,11 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
     CHK_RET(executor->CalcRes(comm, param, topoInfo, algHierarchyInfo, resRequest));
 
     // 参数一致性校验准备工作，HCCL_DFS_CONFIG 默认为 first
-    // 需校验情况1：HCCL_DFS_CONFIG == on
-    // 需校验情况2：HCCL_DFS_CONFIG == first 且 isChecked == false
+    // HCCL_DFS_CONFIG == off 以及 HCCL_DFS_CONFIG == first 但非首算子时不校验
+    std::string inconsistentCheckSwitch;
+    CHK_RET(ParseSingleDFSConfigItem("inconsistent_check:", inconsistentCheckSwitch));
     OpExchangeInfo exchangeInfo{};
     std::string tagStr = param.algTag;
-    // const char* envValue = std::getenv("HCCL_DFS_CONFIG");
-    char *envValue = nullptr;
-    std::string inconsistentCheckSwitch;
-    MM_SYS_GET_ENV(MM_ENV_HCCL_DFS_CONFIG, envValue);
-    CHK_RET(ParseSingleDFSConfigItem(envValue, "inconsistent_check:", inconsistentCheckSwitch));
     bool isChecked = (g_consistencyCheckedList.find(tagStr) != g_consistencyCheckedList.end());\
     if (inconsistentCheckSwitch == "off" || (isChecked && inconsistentCheckSwitch == "first")) {
         isChecked = true; // isChecked 为 false 时做参数比较
@@ -1510,9 +1506,14 @@ HcclResult GetAlgResDPU(HcclComm comm, const OpParam &param, AlgResourceRequest 
     return HCCL_SUCCESS;
 }
 
-HcclResult ParseSingleDFSConfigItem(const std::string& dfsConfigEnv, const std::string& configName,
-    std::string& configResult)
+HcclResult ParseSingleItemFromDFSConfig(const std::string& configName, std::string& configResult)
 {
+    char *dfsConfigValue = nullptr;
+    MM_SYS_GET_ENV(MM_ENV_HCCL_DFS_CONFIG, dfsConfigValue);
+    std::string dfsConfigEnv = (dfsConfigValue != nullptr) ? dfsConfigValue : "EmptyString";
+    dfsConfigEnv.erase(std::remove(dfsConfigEnv.begin(), dfsConfigEnv,end(), ' '), dfsConfigEnv.end());
+    std::transform(dfsConfigEnv.begin(), dfsConfigEnv.end(), dfsConfigEnv.begin(), ::tolower);
+
     size_t start = dfsConfigEnv.find(configName);
     if (start == std::string::npos) {
         HCCL_INFO("[Parse] DFS config item [%s] is not found.", configName.c_str());
