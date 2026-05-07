@@ -128,7 +128,9 @@ HcclResult BatchSendRecvOutPlace(HcclSendRecvItem *sendRecvInfo, uint32_t itemNu
         reinterpret_cast<HcclSendRecvItem*>(param.varData);
     param.opType = HcclCMDType::HCCL_CMD_BATCH_SEND_RECV;
     param.deviceType = deviceType;
-
+    // LYQ Test
+    // param.engine = COMM_ENGINE_RESERVED;
+    HCCL_INFO("LYQTest [BatchSendRecvOutPlace]: param.engine == %d.", param.engine);
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     
