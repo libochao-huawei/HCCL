@@ -28,6 +28,8 @@ private:
     SelectorStatus SelectDPUAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                  const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                  std::string &selectAlgName) const override;
+    SelectorStatus SelectCcuScheduleAlgoLevel1(const TopoInfo &topoInfo,
+                   const CollAlgOperator &op, std::string &primQueueGenName) const;
 };
 
 } // namespace Hccl

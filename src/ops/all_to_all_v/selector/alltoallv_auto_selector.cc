@@ -18,6 +18,37 @@ constexpr uint32_t INDEX_2 = 2;
 constexpr uint32_t INDEX_3 = 3;
 constexpr uint32_t CONST_4 = 4;
 
+SelectorStatus AlltoAllVAutoSelector::SelectCcuScheduleAlgoLevel1(const TopoInfo &topoInfo,
+                                                        const CollAlgOperator &op,
+                                                        std::string &primQueueGenName) const
+{
+    if (isMc2_) {
+        HCCL_WARNING("[Algo][AlltoAllVAutoSelector] levelNum > 1 is not supported yet for ccu_schedule mode.");
+        return SelectorStatus::NOT_MATCH;
+    }
+    if (rankSize_ > 128) {
+        HCCL_WARNING("[Algo][AlltoAllVAutoSelector] rankSize > 128 is not supported yet for ccu_schedule mode.");
+        return SelectorStatus::NOT_MATCH;
+    }
+    if (topoInfo.level0Shape == Level0Shape::MESH_1D) {
+        if (topoInfo.netLayerDetails.localNetInsSizeOfLayer[0] == 1) {
+            primQueueGenName = "CcuAlltoAllVMesh1D";
+        } else {
+            if (op.dataType == DataType::INT8) {
+                HCCL_WARNING("[Algo][AlltoAllVAutoSelector] int8 is not supported yet for ccu_schedule mode.");
+                return SelectorStatus::NOT_MATCH;
+            }
+            primQueueGenName = "CcuAlltoAllVMesh1D";
+        }
+    } else {
+        HCCL_WARNING("[Algo][AlltoAllVAutoSelector] level0Shape[%d] is not supported yet for ccu schedule mode.",
+            topoInfo.level0Shape);
+        return SelectorStatus::NOT_MATCH;
+    }
+    HCCL_INFO("[Algo][AlltoAllVAutoSelector][%s] Algo match [%s]", __func__, primQueueGenName.c_str());
+    return SelectorStatus::MATCH;
+}
+
 SelectorStatus AlltoAllVAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNetLayerDetails* topoInfo,
                                                     const OpParam &opParam,
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
@@ -27,8 +58,8 @@ SelectorStatus AlltoAllVAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNe
     (void)opParam;
     (void)configAlgMap;
     if (topoInfo->topoLevelNums > 1) {
-        HCCL_DEBUG("[AlltoAllVAutoSelector] levelNum > 1 is not supported yet for ccu_schedule mode.");
-        return SelectorStatus::NOT_MATCH;
+        SelectorStatus ret = SelectCcuScheduleAlgoLevel1(topoInfo, op, primQueueGenName);
+        return ret;
     }
 
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
