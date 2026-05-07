@@ -516,6 +516,9 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
 
     ThreadHandle cpuTsThread{0};
     ThreadHandle exportedAicpuTsThread{0};
+
+    HCCL_INFO("LYQTest [HcclExecOp]: param.engine == %d.", param.engine);
+
     if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
         CHK_RET(HcclThreadAcquireWithStream(comm, COMM_ENGINE_CPU_TS, param.stream, 1, &cpuTsThread));
         // Export cpuTsThread
