@@ -796,31 +796,8 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
     HCCL_INFO("Start to execute HcclGetAlgRes.");
     uint64_t size = 0;
     bool increCreateChannelFlag = false;
-    if (param.opType == HcclCMDType::HCCL_CMD_BATCH_SEND_RECV && param.opMode == OpMode::OPBASE) {
-        // 增量建链模式
-        increCreateChannelFlag = true;
-    }
-    // 图模式不支持资源复用，且不存在增量建链场景
-    if (!increCreateChannelFlag && param.opMode == OpMode::OPBASE) {
-        void *ctx = nullptr;
-        // 这种情况下资源已经有了
-        CommEngine ctxEngine = param.engine;
-        if (param.engine == CommEngine::COMM_ENGINE_AIV) {
-            // AIV模式固定利用利用algTag申请1块host内存resCtx
-            ctxEngine = COMM_ENGINE_CPU_TS;
-        } else if (param.engine == COMM_ENGINE_CPU) {
-            // host dpu申请device内存用于存放resctx
-            ctxEngine = COMM_ENGINE_AICPU_TS;
-        }
-        if (HcclEngineCtxGet(comm, param.algTag, ctxEngine, &ctx, &size) == HCCL_SUCCESS) {
-            HCCL_DEBUG("Already have context, skip create, ctxSize is %u", param.ctxSize);
-            isResourceReused = true;
-            *resCtxSequence = ctx;
-            param.ctxSize = size;
-            return HCCL_SUCCESS;
-        }
-    }
-    // CHK_RET(CtxReuseProcess(comm, param, resCtxSequence, isResourceReused, size, increCreateChannelFlag));
+    CHK_RET(CtxReuseProcess(comm, param, resCtxSequence, isResourceReused, size, increCreateChannelFlag));
+    if (isResourceReused) {return HCCL_SUCCESS;}
     // 计算AlgHierarchyInfo
     AlgHierarchyInfoForAllLevel algHierarchyInfo;  // 分级通信域信息{localRankId, localRankSize}
     CHK_RET(executor->CalcAlgHierarchyInfo(comm, topoInfo, algHierarchyInfo));
@@ -889,7 +866,6 @@ HcclResult CtxReuseProcess(HcclComm comm, OpParam &param, void **resCtxSequence,
             isResourceReused = true;
             *resCtxSequence = ctx;
             param.ctxSize = size;
-            return HCCL_SUCCESS;
         }
     }
     return HCCL_SUCCESS;
