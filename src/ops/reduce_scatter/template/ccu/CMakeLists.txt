@@ -17,6 +17,7 @@ set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/ccu_temp_reduce_scatter_mesh_1D_2die_mem2mem.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ccu_temp_reduce_scatter_nhr_1D_multi_jetty_mem2mem.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ccu_temp_reduce_scatter_mesh2die.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/ccu_temp_reduce_scatter_mesh_1D_flatten.cc
 )
 
 target_sources(hccl PRIVATE
