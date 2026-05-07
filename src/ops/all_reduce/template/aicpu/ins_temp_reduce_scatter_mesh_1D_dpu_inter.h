@@ -43,7 +43,7 @@ public:
     u64 CalcScratchMultiple(BufferType inBufferType, BufferType outBufferType) override;
     HcclResult DPUKernelRun(const TemplateDataParams& tempAlgParams,
         const std::map<u32, std::vector<ChannelInfo>>& channels, const u32 myRank, const std::vector<std::vector<uint32_t>>& subCommRanks);
-    HcclResult PostLocalReduce(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads);
+    HcclResult PostLocalReduce(const OpParam &param, const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads);
     void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub) override {};
     void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override {};
 

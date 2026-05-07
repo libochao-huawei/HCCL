@@ -16,7 +16,7 @@
 #include "alg_template_base.h"
 
 namespace ops_hccl {
-constexpr u32 PORT_NUM = 4;
+constexpr u32 PORT_NUM = 1;
 
 CcuTempAllReduceNhrMem2Mem1DMultiJetty::CcuTempAllReduceNhrMem2Mem1DMultiJetty(const OpParam& param,
         const u32 rankId, const std::vector<std::vector<u32>> &subCommRanks) : 

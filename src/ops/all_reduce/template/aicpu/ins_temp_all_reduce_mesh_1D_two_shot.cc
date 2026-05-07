@@ -22,7 +22,7 @@ u64 InsTempAllReduceMesh1DTwoShot::CalcScratchMultiple(BufferType inBuffType, Bu
     (void) inBuffType;
     (void) outBuffType;
     u64 multiple = 2;  // multiple=1且数据非均衡切分时，hcclBuffer会不足，因此用2
-    HCCL_INFO("[InsTempAllReduceMesh1DTwoShot] Ccl Buffer multiple is [%u].", multiple);
+    HCCL_INFO("[InsTempAllReduceMesh1DTwoShot] Ccl Buffer multiple is [%llu].", multiple);
     return multiple;
 }
 
@@ -90,7 +90,7 @@ HcclResult InsTempAllReduceMesh1DTwoShot::KernelRun(const OpParam& param,
     rankList_ = subCommRanks_.at(0);
 
     CHK_PRT_RET(rankList_.size() != templateRankSize_,
-        HCCL_ERROR("[InsTempAllReduceMesh1DTwoShot][KernelRun] rank count is invalid in rank list.", myRank_),
+        HCCL_ERROR("[InsTempAllReduceMesh1DTwoShot][KernelRun] rank[%u] count is invalid in rank list.", myRank_),
         HcclResult::HCCL_E_INTERNAL);
 
     // 获取当前rank在rank列表中的序号
@@ -152,7 +152,7 @@ HcclResult InsTempAllReduceMesh1DTwoShot::SplitData()
     }
 
     for (u32 i = 0; i < sliceInfoList_.size(); ++i) {
-        HCCL_DEBUG("[InsTempAllReduceMesh1DTwoShot] SliceInfo: offset[%u] size[%u] count[%u]",
+        HCCL_DEBUG("[InsTempAllReduceMesh1DTwoShot] SliceInfo: offset[%llu] size[%llu] count[%llu]",
             sliceInfoList_.at(i).offset, sliceInfoList_.at(i).size, sliceInfoList_.at(i).count);
     }
 
@@ -344,7 +344,6 @@ HcclResult InsTempAllReduceMesh1DTwoShot::GatherData(const TemplateDataParams &t
         const ChannelInfo &sendRecvChannel = channels.at(remoteRank).at(0);
 
         void* remoteHcclBuffPtr = sendRecvChannel.remoteCclMem.addr;
-        void* remoteOutBuffPtr = sendRecvChannel.remoteCclMem.addr;
 
         DataSlice sendSrcSlice(localHcclBuffPtr, hcclBuffBaseOffset, sendSize, sendCount);
         DataSlice sendDstSlice(remoteHcclBuffPtr, outBuffBaseOffset + sendOffset, sendSize, sendCount);

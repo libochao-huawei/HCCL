@@ -23,8 +23,11 @@
 #include <unordered_map>
 #include <shared_mutex>
 #include <atomic>
+#if CANN_VERSION_NUM >= 90000000
 #include "hccl_diag.h"
+#endif
 #include "hccl_device_comm_dl.h"
+#include "exec_timeout_manager.h"
 
 using namespace ops_hccl;
 namespace {
@@ -275,11 +278,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         }
 
         AlgResourceCtxSerializable resCtx;
-        if (param->opType == HcclCMDType::HCCL_CMD_BATCH_SEND_RECV) {
-            char *ctx = static_cast<char *>(param->resCtx);
-            std::vector<char> seq(ctx, ctx + param->ctxSize);
-            resCtx.DeSerialize(seq);
-        } else {
+        if (param->opType != HcclCMDType::HCCL_CMD_BATCH_SEND_RECV) {
             //通过缓存实现反序列化优化
             AlgResourceCtxSerializable* cachedResCtx = g_cacheManager.Get(param->algTag, param->commName);
             if (cachedResCtx != nullptr) {
@@ -302,6 +301,10 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
                 g_cacheManager.Put(param->algTag, resCtx, param->commName);
                 HCCL_INFO("[%s] Cache MISS and stored for algTag[%s]", __func__, param->algTag);
             }
+        } else {
+            char *ctx = static_cast<char *>(param->resCtx);
+            std::vector<char> seq(ctx, ctx + param->ctxSize);
+            resCtx.DeSerialize(seq);
         }
 
         // 还原变长指针
@@ -338,7 +341,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             return 1;
         }
 
-        // 上报主流和第一个task  wait之前
+        // 上报上报mainstream数据,第一个任务
         if (HcommProfilingReportKernelStartTask(thread, param->commName) != HCCL_SUCCESS) {
             HCCL_ERROR("%sfailed to report MainStream And FirstTask, thread %lu, param->commName %s.", __func__, thread, param->commName);
             return 1;
@@ -362,14 +365,17 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             return 1;
         }
 
+        // 设置执行超时时间
+        ExecTimeoutManager::Instance().SetExecTimeout(param->execTimeout);
         // 执行算法编排
         if (executor->Orchestrate(*param, resCtx) != HCCL_SUCCESS) {
             HCCL_ERROR("orchestrate failed for alg:%s", param->algName);
             return 1;
         }
 
-        if (HcommProfilingReportDeviceOp(param->commName) != HCCL_SUCCESS) {
-            HCCL_ERROR("%s HcommProfilingReportDeviceOp fail, commName[%s]", __func__, param->commName);
+        // 上报mainstream数据,最后一个任务
+        if (HcommProfilingReportKernelEndTask(thread, param->commName) != HCCL_SUCCESS) {
+            HCCL_ERROR("%s failed to report MainStream And LastTask, thread %lu, param->commName %s.",  __func__, thread, param->commName);
             return 1;
         }
 
@@ -379,9 +385,8 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         CHK_RET(static_cast<HcclResult>(HcommThreadNotifyRecordOnThread(thread, exportedAicpuTsThread,
             DEFAULT_NOTIFY_IDX)));
 
-        // 上报主流和最后一个task 在notify之后
-        if (HcommProfilingReportKernelEndTask(thread, param->commName) != HCCL_SUCCESS) {
-            HCCL_ERROR("%s failed to report MainStream And LastTask, thread %lu, param->commName %s.",  __func__, thread, param->commName);
+        if (HcommProfilingReportDeviceOp(param->commName) != HCCL_SUCCESS) {
+            HCCL_ERROR("%s HcommProfilingReportDeviceOp fail, commName[%s]", __func__, param->commName);
             return 1;
         }
         

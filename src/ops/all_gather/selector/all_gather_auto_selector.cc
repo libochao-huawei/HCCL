@@ -23,12 +23,8 @@ SelectorStatus AllGatherAutoSelector::SelectCcuMsAlgo(
     (void)configAlgMap;
 
     if (topoInfo->topoLevelNums > 1) {
-        if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-            selectAlgName = "CcuAllGatherParallelMeshNHR";
-        } else {
-            HCCL_WARNING("[AllGatherAutoSelector] levelNum > 1 is not supported yet for 2d ccu_ms mode.");
-            return SelectorStatus::NOT_MATCH;
-        }
+        HCCL_WARNING("[AllGatherAutoSelector] levelNum > 1 is not supported yet for ccu_ms mode.");
+        return SelectorStatus::NOT_MATCH;
     } else {
         return SelectMeshAlgo(topoInfo, opParam, selectAlgName);
     }
@@ -45,6 +41,11 @@ SelectorStatus AllGatherAutoSelector::SelectMeshAlgo(const TopoInfoWithNetLayerD
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
         selectAlgName = "CcuAllGatherMesh1D";
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+        // PCIE-SW定制机型，Mesh无法链接全卡时，需要跨pcie链路，不支持ccu模式
+        if (topoInfo->level0PcieMix && !IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
+            HCCL_WARNING("[AllGatherAutoSelector] pcie mixed topo is not supported yet for ccu ms mode.");
+            return SelectorStatus::NOT_MATCH;
+        }
         // UBX机型
         bool isMeshNumEqualToClosNum = false;
         bool isClosNumMultipleOfMeshNum = false;
@@ -62,7 +63,7 @@ SelectorStatus AllGatherAutoSelector::SelectMeshAlgo(const TopoInfoWithNetLayerD
                 return SelectorStatus::NOT_MATCH;
             }
         } else {
-                selectAlgName = "CcuAllGatherMesh1DUBX";
+                selectAlgName = "CcuAllGatherMesh1D";
                 return SelectorStatus::MATCH;
             }
         } else {
@@ -87,12 +88,27 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleUBXAlgo(
         if (isMeshNumEqualToClosNum && (topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO)) {
             selectAlgName = "CcuAllGatherConcurrentMesh1DNHRMem";
         } else if (isClosNumMultipleOfMeshNum) {
-            selectAlgName = "CcuAllGatherParallelMesh1DNHRMemUBX";
+            selectAlgName = "CcuAllGatherParallelMesh1DNHRMemMultiJetty";
         } else {
-            selectAlgName = "CcuAllGatherNHR1DMem2MemUBX";
+            selectAlgName = "CcuAllGatherNHR1DMem2MemMultiJetty";
         }
     } else {
-        selectAlgName = "CcuAllGatherMesh1DMem2MemUBX";
+        selectAlgName = "CcuAllGatherMesh1DMem2Mem";
+    }
+    HCCL_DEBUG("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
+    return SelectorStatus::MATCH;
+}
+
+SelectorStatus AllGatherAutoSelector::SelectCcuScheduleLevel0AlgoMesh1D(
+    const TopoInfoWithNetLayerDetails *topoInfo, std::string &selectAlgName, const u64 dataSize) const
+{
+    if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
+        selectAlgName = "CcuAllGatherMesh2Die";
+    } else if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_NOT_REGULAR) {
+        HCCL_DEBUG("[AllGatherAutoSelector][%s] TWO_DIE_NOT_REGULAR not match", __func__);
+        return SelectorStatus::NOT_MATCH;
+    } else {
+        selectAlgName = "CcuAllGatherMesh1DMem2Mem";
     }
     HCCL_DEBUG("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
     return SelectorStatus::MATCH;
@@ -102,17 +118,19 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleLevel0Algo(
     const TopoInfoWithNetLayerDetails *topoInfo, std::string &selectAlgName, const u64 dataSize) const
 {
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-        if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
-            selectAlgName = "CcuAllGatherMesh2Die";
-        } else if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_NOT_REGULAR) {
-            HCCL_DEBUG("[AllGatherAutoSelector][%s] TWO_DIE_NOT_REGULAR not match", __func__);
-            return SelectorStatus::NOT_MATCH;
-        } else {
-            selectAlgName = "CcuAllGatherMesh1DMem2Mem";
-        }
-        return SelectorStatus::MATCH;
+        return SelectCcuScheduleLevel0AlgoMesh1D(topoInfo, selectAlgName, dataSize);
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-        return SelectCcuScheduleUBXAlgo(topoInfo, selectAlgName, dataSize);
+        // PCIE-SW定制机型，Mesh无法链接全卡时，需要跨pcie链路，不支持ccu模式
+        if (topoInfo->level0PcieMix) {
+            if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
+                return SelectCcuScheduleLevel0AlgoMesh1D(topoInfo, selectAlgName, dataSize);
+            } else {
+                HCCL_WARNING("[AllGatherAutoSelector] pcie mixed topo is not supported yet for ccu schedule mode.");
+                return SelectorStatus::NOT_MATCH;
+            }
+        } else {
+            return SelectCcuScheduleUBXAlgo(topoInfo, selectAlgName, dataSize);
+        }
     } else {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             if (topoInfo->is2DieFullMesh) {
@@ -202,6 +220,16 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             selectAlgName = "InsAllGatherMesh1D";
         } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+            // PCIE-SW定制机型，Mesh无法链接全卡时，需要跨pcie链路，选择适配算法
+            if (topoInfo->level0PcieMix) {
+                if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
+                    selectAlgName = "InsAllGatherMesh1D";
+                } else {
+                    selectAlgName = "InsAllGatherParallelMesh1DNHRPcie";
+                }
+                HCCL_DEBUG("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
+                return SelectorStatus::MATCH;
+            }
             // UBX机型
             bool isMeshNumEqualToClosNum = false;
             bool isClosNumMultipleOfMeshNum = false;
@@ -209,16 +237,17 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
             HCCL_ERROR("[AllGatherAutoSelector] CheckMeshNumEqualToClosNum failed."), SelectorStatus::NOT_MATCH);
             CHK_PRT_RET(CheckClosNumMultipleOfMeshNum(topoInfo, isClosNumMultipleOfMeshNum) != HCCL_SUCCESS,
             HCCL_ERROR("[AllGatherAutoSelector] CheckClosNumMultipleOfMeshNum failed."), SelectorStatus::NOT_MATCH);
-            if (dataSize > SMALL_COUNT_512KB) {
-                if (isMeshNumEqualToClosNum && (topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO)) {
+            if (isMeshNumEqualToClosNum && topoInfo->userRankSize <= MAX_RANK_NUM_FOR_CONCURRENT_ALGO) {
+                if (dataSize > SMALL_COUNT_512KB) {
                     selectAlgName = "InsAllGatherConcurrentMesh1DNHR";
-                } else if (isClosNumMultipleOfMeshNum) {
-                    selectAlgName = "InsAllGatherParallelMesh1DNHRUBX";
                 } else {
-                    selectAlgName = "InsAllGatherNHRUBX";
+                    selectAlgName = "InsAllGatherMesh1D";
                 }
+            } else if(isClosNumMultipleOfMeshNum && dataSize > SMALL_COUNT_512KB) {
+                selectAlgName = "InsAllGatherParallelMesh1DNHRMultiJetty";
             } else {
-                selectAlgName = "InsAllGatherMesh1DUBX";
+                // 4P外非对称场景，大小数据量都用NHR算法
+                selectAlgName = "InsAllGatherNHR";
             }
         } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
             selectAlgName = "InsAllGatherNHR";
@@ -255,7 +284,11 @@ SelectorStatus AllGatherAutoSelector::SelectDPUAlgo(
             selectAlgName = "InsAllGatherMeshNhrDPU";
             HCCL_DEBUG("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
             return SelectorStatus::MATCH;
-        }
+        } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+            selectAlgName = "InsV2AllGatherOmniPipe";
+            HCCL_DEBUG("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
+            return SelectorStatus::MATCH;
+        } 
     }
     HCCL_DEBUG("[AllGatherAutoSelector][%s] end", __func__);
     return SelectorStatus::NOT_MATCH;

@@ -30,6 +30,7 @@ extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
     HcclDataType dataType, uint32_t root, HcclComm comm, aclrtStream stream)
 {
+    HCCL_INFO("Start to run execute HcclScatter");
     // 获取设备类型拦截混合组网
     HcclHeterogMode allDeviceType;
     CHK_RET(HcclGetHeterogMode(comm, &allDeviceType));
@@ -49,7 +50,11 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
     CHK_RET(InitEnvConfig());
     
     // AclGraph引导到老的流程上面
+    #ifdef MACRO_DEV_TYPE_NEW
     if (deviceType != DevType::DEV_TYPE_950 && IsStreamCapture(stream)) {
+    #else
+    if (deviceType != DevType::DEV_TYPE_910_95 && IsStreamCapture(stream)) {
+    #endif
         return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
     }
     // 重执行引导到老的流程上面
@@ -160,6 +165,8 @@ HcclResult ScatterExecOp(OpParam &param, void *sendBuf, void *recvBuf, uint64_t 
     #else
     if (param.deviceType == DevType::DEV_TYPE_910_95) {
     #endif
+        CHK_RET(HcclGetOpExpansionMode(comm, param));
+        
         CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
         if (ShouldGoCcuFastLaunch(comm, param, &ccuFastLaunchCtx)) {
             return HcclExecOpCcuFastLaunch(comm, param, ccuFastLaunchCtx);
@@ -167,12 +174,12 @@ HcclResult ScatterExecOp(OpParam &param, void *sendBuf, void *recvBuf, uint64_t 
         std::string algName;
         std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
         CHK_RET(Selector(comm, param, topoInfo, algName));
-        if (ShouldUseInnerOp(param.opExecuteConfig)) {
+        if (ShouldUseInnerOp(param.opExecuteConfig) && param.opMode == OpMode::OPBASE) {
             return HcclScatterInner(sendBuf, recvBuf, recvCount, dataType, root, comm, stream);
         }
         if (userRankSize == 1) {
             HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
-            CHK_RET(SingleRankProc(param));
+            CHK_RET(SingleRankProc(comm, param));
             return HcclResult::HCCL_SUCCESS;
         }
 
@@ -247,7 +254,7 @@ HcclResult ScatterOutPlace(OpParam &param, void *sendBuf, void *recvBuf, uint64_
     return HCCL_SUCCESS;
 }
 
-aclrtNotify g_notifies[AICPU_CONTROL_NOTIFY_NUM];
+thread_local std::map<HcclComm, NotifyArray> g_notifiesMap;
 /* 执行通信算子 */
 HcclResult ExecOp(HcclComm comm, OpParam &param)
 {
@@ -269,6 +276,10 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
 
     // 获取资源
     AlgResourceCtx* resCtx;
+
+    if (g_notifiesMap.find(comm) == g_notifiesMap.end()) {
+        g_notifiesMap[comm].fill(0);
+    }
     ThreadHandle cpuTsThread = 0;
     ThreadHandle exportedAicpuTsThread = 0;
     ThreadHandle exportedCpuTsThread = 0;
@@ -319,7 +330,7 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
             CHK_RET(static_cast<HcclResult>(HcommThreadNotifyRecordOnThread(cpuTsThread, exportedCpuTsThread,
                 topoInfo->notifyNumOnMainThread)));
         } else {
-            if (aclrtRecordNotify(g_notifies[0], param.stream) != ACL_SUCCESS) {
+            if (aclrtRecordNotify(g_notifiesMap[comm][0], param.stream) != ACL_SUCCESS) {
                 HCCL_ERROR("failed to record aicpu stream");
                 return HCCL_E_INTERNAL;
             }
@@ -382,7 +393,7 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
         if (HcommIsExportThreadSupported()) {
             CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, 0, NOTIFY_DEFAULT_WAIT_TIME)));
         } else {
-            if (aclrtWaitAndResetNotify(g_notifies[1], param.stream, CUSTOM_TIMEOUT) != ACL_SUCCESS) {
+            if (aclrtWaitAndResetNotify(g_notifiesMap[comm][1], param.stream, CUSTOM_TIMEOUT) != ACL_SUCCESS) {
                 HCCL_ERROR("failed to wait from aicpu stream");
                 return HCCL_E_INTERNAL;
  	        }
@@ -755,12 +766,12 @@ HcclResult AllocAlgResource(HcclComm comm, const OpParam& param, AlgResourceRequ
     if (!HcommIsExportThreadSupported()) {
         #define ACL_NOTIFY_DEFAULT          0x00000000U
         // 先使用acl接口来分配notify
-        if (aclrtCreateNotify(&(g_notifies[0]), ACL_NOTIFY_DEFAULT) != ACL_SUCCESS) {
+        if (g_notifiesMap[comm][0] == 0 && aclrtCreateNotify(&(g_notifiesMap[comm][0]), ACL_NOTIFY_DEFAULT) != ACL_SUCCESS) {
             HCCL_ERROR("failed to alloc notify");
             return HCCL_E_INTERNAL;
         }
 
-        if (aclrtCreateNotify(&(g_notifies[1]), ACL_NOTIFY_DEFAULT) != ACL_SUCCESS) {
+        if (g_notifiesMap[comm][1] == 0 && aclrtCreateNotify(&(g_notifiesMap[comm][1]), ACL_NOTIFY_DEFAULT) != ACL_SUCCESS) {
             HCCL_ERROR("failed to alloc notify");
             return HCCL_E_INTERNAL;
         }
@@ -769,7 +780,7 @@ HcclResult AllocAlgResource(HcclComm comm, const OpParam& param, AlgResourceRequ
         for (u32 idx = 0; idx < AICPU_CONTROL_NOTIFY_NUM; idx++) {
             uint32_t notifyId;
             // 获取notify Id，放入Context中
-            if (aclrtGetNotifyId(g_notifies[idx], &notifyId) != ACL_SUCCESS) {
+            if (aclrtGetNotifyId(g_notifiesMap[comm][idx], &notifyId) != ACL_SUCCESS) {
                 HCCL_ERROR("failed to get notify id");
                 return HCCL_E_INTERNAL;
             }

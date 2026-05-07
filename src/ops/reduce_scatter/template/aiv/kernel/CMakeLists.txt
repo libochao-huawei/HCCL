@@ -1,3 +1,4 @@
+if(NOT HCCL_CANN_COMPAT_850)
 set_source_files_properties(
     aiv_communication_v2.h PROPERTIES LANGUAGE CXX
 )
@@ -20,6 +21,9 @@ add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_reduce_scatter_op
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 )
 
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_reduce_scatter_op_910_95.o OPTIONAL
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_reduce_scatter_op_910_95.o 
     DESTINATION ${INSTALL_LIBRARY_DIR}
+    ${INSTALL_OPTIONAL}
+    COMPONENT hccl
 )
+endif()

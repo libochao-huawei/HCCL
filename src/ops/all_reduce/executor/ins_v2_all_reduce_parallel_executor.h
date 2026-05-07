@@ -24,6 +24,7 @@
 #include "coll_alg_v2_exec_registry.h"
 #include "topo_match_base.h"
 #include "topo_match_1d.h"
+#include "topo_match_ubx.h"
 
 namespace ops_hccl {
 
@@ -47,7 +48,7 @@ public:
     HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *resCtx) override;
     HcclResult FastLaunchSaveCtx(const OpParam &param, const TemplateResource &templateAlgResIntra,
                                 const TemplateResource &templateAlgResInter, const TemplateResource &templateAlgResIntra1,
-                                const TemplateResource &templateAlgResInter1);
+                                const TemplateResource &templateAlgResInter1, u32 notifyNumOnMainThread);
  	#endif
 
 private:
@@ -157,7 +158,7 @@ private:
 
     std::map<u32, std::pair<u64, u64>> nhrPartDataMap_;
     std::map<u32, std::pair<u64, u64>> meshPartDataMap_;
-
+    double multipleDimensionSplitRatio_{0.8};
 };
 
 } // namespace ops_hccl
