@@ -50,13 +50,13 @@ protected:
     void GenBaseTempAlgParams(const OpParam &param, const AlgResourceCtxSerializable &resCtx,
         TemplateDataParams &tempAlgParamsStepOne, TemplateDataParams &tempAlgParamsStepTwo,
         TemplateDataParams &tempAlgParamsStepThree, TemplateDataParams &tempAlgParamsStepFour) const;
-    void GenTempAlgParamsStepOne(const u64 currDataCount, const u64 processedDataCount,
+    void GenTempAlgParamsStepOne(const u64 loop, const u64 currDataCount, const u64 processedDataCount,
         TemplateDataParams &tempAlgParamsStepOne) const;
-    void GenTempAlgParamsStepTwo(const u64 currDataCount, const u64 sliceSizeLastStep,
+    void GenTempAlgParamsStepTwo(const u64 loop, const u64 currDataCount, const u64 sliceSizeLastStep,
         const u64 tailSizeLastStep, TemplateDataParams &tempAlgParamsStepTwo) const;
-    void GenTempAlgParamsStepThree(const u64 currDataCount, const u64 sliceSize,
+    void GenTempAlgParamsStepThree(const u64 loop, const u64 currDataCount, const u64 sliceSize,
         const u64 tailSize, TemplateDataParams &tempAlgParamsStepThree) const;
-    void GenTempAlgParamsStepFour(const u64 currDataCount, const u64 sliceSize,
+    void GenTempAlgParamsStepFour(const u64 loop, const u64 currDataCount, const u64 sliceSize,
         const u64 tailSize, TemplateDataParams &tempAlgParamsStepFour) const;
 
     uint64_t rankSizeLevel0_{0};
