@@ -54,7 +54,11 @@ def main():
             rsv_len = code_len - 0x100
             max_rsv_len = file_size - 0x2100
             if rsv_len > max_rsv_len:
-                COMM_LOG.cilog_warning(THIS_FILE_NAME, "code_len %d exceeds file size, limiting to %d", code_len, max_rsv_len + 0x100)
+                COMM_LOG.cilog_warning(
+                    THIS_FILE_NAME,
+                    "code_len %d exceeds file size, limiting to %d",
+                    code_len,
+                    max_rsv_len + 0x100)
                 code_len = max_rsv_len + 0x100
             
             tmp_file = args.raw + '.tmp'
