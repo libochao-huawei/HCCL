@@ -71,6 +71,7 @@ def _help():
     print("  %s: 待签名的文件路径,支持多target,各target以空格分开" % ("target".ljust(8)))
     print("====================================== END =====================================")
 
+
 def get_sign_cmd(file, rootdir) -> List[str]:
     """获取签名命令。"""
     sign_crl = os.path.join(rootdir, "scripts/signtool/signature/SWSCRL.crl")

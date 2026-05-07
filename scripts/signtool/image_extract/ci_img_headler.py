@@ -22,6 +22,7 @@ def get_args():
 
     return parser.parse_args()
 
+
 def __write_raw_img(raw, img, code_len, file_size):
     raw.seek(0)
     img.seek(0x2100)
