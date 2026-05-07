@@ -428,6 +428,7 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     templateAlgResInter.threads = interThreads_;
 
     for (u32 loopIndex = 0; loopIndex < loopTimes; loopIndex++) {
+        CHK_RET(static_cast<HcclResult>(HcommBatchModeStart(param.algTag)));
         // 使用预计算的对齐后数据量
         u64 currCountPart0 = (loopIndex == loopTimes - 1) ? finalDataCountPerLoopAixs0 : dataCountPerLoopAixs0;
         u64 currCountPart1 = (loopIndex == loopTimes - 1) ? finalDataCountPerLoopAixs1 : dataCountPerLoopAixs1;
@@ -464,6 +465,8 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
         CHK_RET(tempAlgIntra.KernelRun(param, tempAlgParamsIntra1, templateAlgResIntra));
         //尾同步
         CHK_RET(PostSyncInterThreads(controlThread_, templateMainThreads_, notifyIdxTemplatesToControl_));
+
+        CHK_RET(static_cast<HcclResult>(HcommBatchModeEnd(param.algTag)));
     }
     
 #ifndef AICPU_COMPILE

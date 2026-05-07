@@ -460,6 +460,7 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     }
 
     for (u32 loopIndex = 0; loopIndex < loopTimes; loopIndex++) {
+        CHK_RET(static_cast<HcclResult>(HcommBatchModeStart(param.algTag)));
         // 使用预计算的对齐后数据量
         u64 currCountPart0 = (loopIndex == loopTimes - 1) ? finalDataCountPerLoopAixs0 : dataCountPerLoopAixs0;
         u64 currCountPart1 = (loopIndex == loopTimes - 1) ? finalDataCountPerLoopAixs1 : dataCountPerLoopAixs1;
@@ -499,6 +500,8 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
         CHK_RET(tempAlgIntra.KernelRun(param, tempAlgParamsIntra1, intraTempAlgRes));
         // 尾同步
         CHK_RET(PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_));
+
+        CHK_RET(static_cast<HcclResult>(HcommBatchModeEnd(param.algTag)));
     }
 #ifndef AICPU_COMPILE
     if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU && param.opMode != OpMode::OFFLOAD) {
