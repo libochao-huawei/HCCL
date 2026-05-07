@@ -840,7 +840,7 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
     return HCCL_SUCCESS;
 }
 
-HcclResult CtxReuseProcess(HcclComm comm, OpParam &param, void **resCtxSequence, bool &isResourceReused, void **resCtxSequence,
+HcclResult CtxReuseProcess(HcclComm comm, OpParam &param, void **resCtxSequence, bool &isResourceReused,
     uint64_t &size, bool &increCreateChannelFlag)
 {
     if (param.opType == HcclCMDType::HCCL_CMD_BATCH_SEND_RECV && param.opMode == OpMode::OPBASE) {
