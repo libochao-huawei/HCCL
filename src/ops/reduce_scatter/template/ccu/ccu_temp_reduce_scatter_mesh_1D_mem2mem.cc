@@ -9,9 +9,9 @@
  */
 
 #include "channel.h"
-#include "hccl_ccu_res.h"
 #include "ccu_assist_pub.h"
 #include "ccu_kernel_reduce_scatter_mesh1d_mem2mem.h"
+#include "ccu_temp_reduce_scatter_mesh_1D_mem2mem.h"
 #include "ccu_temp_reduce_scatter_mesh_1D_mem2mem.h"
 
 namespace ops_hccl {
@@ -22,7 +22,6 @@ CcuTempReduceScatterMesh1DMem2Mem::CcuTempReduceScatterMesh1DMem2Mem(const OpPar
 {
     std::vector<u32> ranks = subCommRanks[0];
     templateRankSize_ = ranks.size();
-    // 获取本卡在子通信域(如果有)中的rankid
     auto it = std::find(ranks.begin(), ranks.end(), rankId);
     if (it != ranks.end()) {
         mySubCommRank_ = std::distance(ranks.begin(), it);
@@ -36,20 +35,16 @@ CcuTempReduceScatterMesh1DMem2Mem::~CcuTempReduceScatterMesh1DMem2Mem()
 HcclResult CcuTempReduceScatterMesh1DMem2Mem::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                                                       AlgResourceRequest& resourceRequest)
 {
-    // 不需要从流
     resourceRequest.notifyNumOnMainThread = 0;
     resourceRequest.slaveThreadNum = 0;
-    // 多少个kernel
     resourceRequest.ccuKernelNum.push_back(1);
     HCCL_DEBUG("[CcuTempReduceScatterMesh1DMem2Mem::CalcRes] notifyNumOnMainThread[%u] slaveThreadNum[%u]",
                resourceRequest.notifyNumOnMainThread, resourceRequest.slaveThreadNum);
 
-    // 创建每个kernel的ctxArg，放入kernelInfo, 然后将kernelinfo放入resourceRequest.ccuKernelInfos
     CcuKernelInfo kernelInfo;
-    
-    kernelInfo.creator = [](const hcomm::CcuKernelArg &arg) {
-                             return std::make_unique<CcuKernelReduceScatterMesh1DMem2Mem>(arg);
-                         };
+               resourceRequest.notifyNumOnMainThread, resourceRequest.slaveThreadNum);
+
+    // 创建每个kernel的ctxArg，放入kernelInfo, 然后将kernelinfo放入resourceRequest.ccuKernelInfos
     std::vector<HcclChannelDesc> channelDescs;
     if(topoInfo->level0Topo != Level0Shape::MESH_1D_CLOS) {
         CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
@@ -63,11 +58,12 @@ HcclResult CcuTempReduceScatterMesh1DMem2Mem::CalcRes(HcclComm comm, const OpPar
         }
         HCCL_DEBUG("[CcuTempReduceScatterMesh1DMem2Mem::CalcRes] Get Mesh Channel Success!");
     }
+                channelDescs.push_back(channel);
+            }
+        }
+        HCCL_DEBUG("[CcuTempReduceScatterMesh1DMem2Mem::CalcRes] Get Mesh Channel Success!");
+    }
     
-    kernelInfo.kernelArg = std::make_shared<CcuKernelArgReduceScatterMesh1DMem2Mem>(subCommRanks_[0].size(),
-                                                                                    mySubCommRank_,
-                                                                                    param,
-                                                                                    subCommRanks_);
     kernelInfo.channels = channelDescs;
     resourceRequest.ccuKernelInfos.push_back(kernelInfo);
 
@@ -85,12 +81,16 @@ HcclResult CcuTempReduceScatterMesh1DMem2Mem::FastLaunch(const OpParam& param, c
         return HCCL_SUCCESS;
     }
     HCCL_DEBUG("[CcuTempReduceScatterMesh1DMem2Mem::FastLaunch] start");
+        HCCL_INFO("[CcuTempReduceScatterMesh1DMem2Mem::FastLaunch] ccu kernel num is 0, just success.");
+        return HCCL_SUCCESS;
+    }
+    HCCL_DEBUG("[CcuTempReduceScatterMesh1DMem2Mem::FastLaunch] start");
     const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
     buffInfo_ = tempFastLaunchCtx.buffInfo;
     CcuTaskArgReduceScatterMesh1DMem2Mem taskArg(
         PointerToAddr(buffInfo_.inputPtr) + args[0],
         PointerToAddr(buffInfo_.outputPtr) + args[1],
-        args[2], 
+
         PointerToAddr(buffInfo_.hcclBuff.addr) + args[3], 
         args[4], args[5], args[6], args[7], args[8], args[9], args[10]);
 
@@ -98,6 +98,7 @@ HcclResult CcuTempReduceScatterMesh1DMem2Mem::FastLaunch(const OpParam& param, c
 
     CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0], 
         tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr));
+
 
     HCCL_DEBUG("[CcuTempReduceScatterMesh1DMem2Mem::FastLaunch] end");
     return HcclResult::HCCL_SUCCESS;
@@ -113,7 +114,6 @@ HcclResult CcuTempReduceScatterMesh1DMem2Mem::KernelRun(const OpParam& param,
     }
     buffInfo_ = templateDataParams.buffInfo;
 
-    uint64_t repeatNumTmp       = templateDataParams.repeatNum;
     uint64_t inputAddr          = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr         = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
     uint64_t token;
@@ -157,6 +157,26 @@ u64 CcuTempReduceScatterMesh1DMem2Mem::CalcScratchMultiple(BufferType inBuffType
 }
 
 u64 CcuTempReduceScatterMesh1DMem2Mem::GetThreadNum() const
+    CcuKernelSubmitInfo submitInfo;
+    submitInfo.kernelHandle = templateResource.ccuKernels[0];
+}
+
+HcclResult CcuTempReduceScatterMesh1DMem2Mem::GetRes(AlgResourceRequest& resourceRequest) const
+{
+    templateResource.submitInfos.push_back(submitInfo);
+
+    HCCL_DEBUG("[CcuTempReduceScatterMesh1DMem2Mem::KernelRun] end");
+
+    return HcclResult::HCCL_SUCCESS;
+}
+u64 CcuTempReduceScatterMesh1DMem2Mem::CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType)
+{
+    (void)inBuffType;
+    (void)outBuffType;
+    return templateRankSize_;
+}
+
+u64 CcuTempReduceScatterMesh1DMem2Mem::GetThreadNum() const
 {
     return 1;
 }
@@ -168,4 +188,26 @@ HcclResult CcuTempReduceScatterMesh1DMem2Mem::GetRes(AlgResourceRequest& resourc
 
     return HCCL_SUCCESS;
 }
+} // namespace ops_hccl
+ 
+u64 CcuTempReduceScatterMesh1DMem2Mem::CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType)
+{
+    (void)inBuffType;
+    (void)outBuffType;
+    return templateRankSize_;
+}
+
+u64 CcuTempReduceScatterMesh1DMem2Mem::GetThreadNum() const
+{
+    return 1;
+}
+
+HcclResult CcuTempReduceScatterMesh1DMem2Mem::GetRes(AlgResourceRequest& resourceRequest) const
+{
+    resourceRequest.slaveThreadNum = 0;
+    resourceRequest.notifyNumOnMainThread = 0;
+
+    return HCCL_SUCCESS;
+}
+
 } // namespace ops_hccl
