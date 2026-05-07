@@ -176,8 +176,11 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
                 return SelectorStatus::NOT_MATCH;
             } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] == 1) {
                 selectAlgName = "CcuAllGatherNHR1DMem2Mem";
-            } else {
+            } else if (IsSmallDataCCU(dataSize, topoInfo->userRankSize)) {
                 selectAlgName = "CcuAllGatherParallelMesh1DNHR";
+            } else {
+                // 64M 以上切aicpu
+                return SelectorStatus::NOT_MATCH;
             }
         } else {
             HCCL_DEBUG("[AllGatherAutoSelector] level0Topo[%d] is not supported yet for ccu schedule mode.",
