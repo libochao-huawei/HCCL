@@ -9,6 +9,9 @@ import textwrap
 import shutil
 import os
 import struct
+import common_log as COMM_LOG
+
+THIS_FILE_NAME = __file__
 
 def get_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -22,29 +25,49 @@ def get_args():
 
     return parser.parse_args()
 
-def __write_raw_img(raw, img, code_len):
+
+def __write_raw_img(raw, img, code_len, file_size):
     raw.seek(0)
     img.seek(0x2100)
     rsv_len = code_len - 0x100
     while rsv_len > 0:
-        if rsv_len > 4096:
-            raw.write(img.read(4096))
-        else:
-            raw.write(img.read(rsv_len))
-        rsv_len -= 4096
+        read_size = min(4096, rsv_len)
+        buf = img.read(read_size)
+        if not buf:
+            break
+        raw.write(buf)
+        rsv_len -= len(buf)
 
 def main():
     args = get_args()
     if args.rcvr:
         with open(args.img, 'rb') as img:
+            img.seek(0, os.SEEK_END)
+            file_size = img.tell()
             img.seek(0x478)
             code_len = struct.unpack('<I', img.read(4))[0]
+            
+            if code_len < 0x100:
+                COMM_LOG.cilog_error(THIS_FILE_NAME, "Invalid code_len %d, must be at least 0x100", code_len)
+                return 1
+            
+            rsv_len = code_len - 0x100
+            max_rsv_len = file_size - 0x2100
+            if rsv_len > max_rsv_len:
+                COMM_LOG.cilog_warning(
+                    THIS_FILE_NAME,
+                    "code_len %d exceeds file size, limiting to %d",
+                    code_len,
+                    max_rsv_len + 0x100)
+                code_len = max_rsv_len + 0x100
+            
             tmp_file = args.raw + '.tmp'
             with open(tmp_file, 'wb+') as raw:
-                __write_raw_img(raw, img, code_len)
+                __write_raw_img(raw, img, code_len, file_size)
         shutil.copyfile(tmp_file, args.raw)
         if os.path.exists(tmp_file):
             os.remove(tmp_file)
+    return 0
 
 if __name__ == '__main__':
     main()
