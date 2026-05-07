@@ -146,7 +146,7 @@ namespace ops_hccl
         return HCCL_SUCCESS;
     }
 
-#if !defined(HCCL_CANN_COMPAT_850)
+#if CANN_VERSION_NUM >= 90000000
     REGISTER_EXECUTOR_IMPL_NO_TOPOMATCH(HcclCMDType::HCCL_CMD_SEND, InsSendDPU, InsV2SendSoleExecutor, InsTempSendDpu);
-#endif /* !HCCL_CANN_COMPAT_850 */
+#endif /* CANN_VERSION_NUM >= 90000000 */
 } // namespace ops_hccl

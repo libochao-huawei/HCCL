@@ -17,8 +17,8 @@
 
 #include "hccl/hccl_types.h"
 
-/* 8.5.0 桩: HcclCommStatus (来自 hccl_types.h，9.0.0 新增) */
-#if CANN_VERSION_NUM < 90000000
+/* 9.1.0 之前提供桩类型，兼容 9.0.0 和 8.5.0 环境 */
+#if CANN_VERSION_NUM < 90100000
 typedef enum {
     HCCL_COMM_STATUS_READY = 0,
     HCCL_COMM_STATUS_SUSPENDING = 1,
