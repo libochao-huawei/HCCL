@@ -145,6 +145,8 @@ HcclResult CcuTempAllReduceMesh1D::KernelRun(const OpParam& param, const Templat
 
     uint64_t inputAddr          = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr         = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
+    uint64_t baseInputAddr          = PointerToAddr(buffInfo_.inputPtr);
+    uint64_t baseOutputAddr         = PointerToAddr(buffInfo_.outputPtr);
     uint64_t token;
     CHK_RET(GetToken(buffInfo_, token));
 
@@ -169,7 +171,7 @@ HcclResult CcuTempAllReduceMesh1D::KernelRun(const OpParam& param, const Templat
     }
     CcuKernelSubmitInfo submitInfo;
     submitInfo.kernelHandle = templateResource.ccuKernels[0];
-    CHK_RET(FillCachedArgs(submitInfo, inputAddr, outputAddr, token, offSet, 
+    CHK_RET(FillCachedArgs(submitInfo, baseInputAddr, baseOutputAddr, token, offSet, 
             goSize[0], goSize[1], goSize[2], goSize[3], 
             buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff));
     templateResource.submitInfos.push_back(submitInfo);
