@@ -75,7 +75,7 @@ void ReduceScatterBIRS::PrepareSlicesData(const u32 unitSize, const u64 totalCou
     u64 sliceSize = totalCount * unitSize;
 
     for (u32 i = 0; i < rankSize; i++) {
-        slices_[i].offset = i * sliceSize;
+        slices_[i].offset = logic_ranks[i] * sliceSize;
         slices_[i].size = sliceSize;
         HCCL_DEBUG(" default slice[%u]: offset: [%llu] size[%llu]", i, i * sliceSize, sliceSize);
     }
@@ -104,10 +104,19 @@ HcclResult ReduceScatterBIRS::RunAsync(const u32 rank, const u32 rankSize, std::
         HCCL_ERROR("[ReduceScatterBIRS][RunAsync]rank[%u] unit data size is zero", rank);
         return HCCL_E_INTERNAL;
     }
-    if (slices_.size() == 0) {
-        PrepareSlicesData(unitSize, count_, rankSize);
+    logic_ranks.resize(channels.size());
+    u32 xor_all = 0;
+    u32 xor_vec = 0;
+    for (auto i = 0; i < channels.size(); i++){
+        if (channels[i].isValid){
+            logic_ranks[i] = channels[i].remoteRank;
+            xor_vec ^= channels[i].remoteRank;
+        } 
+        xor_all ^= i;
     }
-
+    logic_ranks[rank] = xor_all ^ xor_vec;
+    PrepareSlicesData(unitSize, count_, rankSize);
+    
     u32 rankSizeX_ = 2;
     u32 rankSizeY_ = rankSize / rankSizeX_;
 
@@ -128,7 +137,7 @@ HcclResult ReduceScatterBIRS::RunAsync(const u32 rank, const u32 rankSize, std::
     //MainRecordSub + SubWaitMain
     GetNotifyIdxMainToSub(notifyIdxMainToSub_);
     PreSyncInterThreads(mainThread, subThreads, notifyIdxMainToSub_);
-    
+        
     void* srcSlice = static_cast<void *>(static_cast<u8 *>(inputMem_.addr) + slices_[hccs_ranks[0]].offset);
     void* dstSlice = static_cast<void *>(static_cast<u8 *>(scratchMem_.addr) + hccs_ranks[0] / rankSizeX_ * localStrideSize);
     CHK_RET(static_cast<HcclResult>(HcommLocalCopyOnThread(mainThread, dstSlice, srcSlice, sliceSize)));
@@ -136,7 +145,7 @@ HcclResult ReduceScatterBIRS::RunAsync(const u32 rank, const u32 rankSize, std::
     //SubRecordMain + MainWaitSub
     GetNotifyIdxSubToMain(notifyIdxSubToMain_);
     PostSyncInterThreads(mainThread, subThreads, notifyIdxSubToMain_);
-
+    
     for (u32 round = 0; round < hccs_ranks.size() + 1; round++) {
         //MainRecordSub + SubWaitMain
         PreSyncInterThreads(mainThread, subThreads, notifyIdxMainToSub_);

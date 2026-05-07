@@ -91,7 +91,7 @@ void ReduceScatterBIRSInter::PrepareSlicesData(const u32 unitSize, const u64 tot
     u64 sliceSize = totalCount * unitSize;
 
     for (u32 i = 0; i < rankSize; i++) {
-        slices_[i].offset = i * sliceSize;
+        slices_[i].offset = logic_ranks[i] * sliceSize;
         slices_[i].size = sliceSize;
         HCCL_DEBUG(" default slice[%u]: offset: [%llu] size[%llu]", i, i * sliceSize, sliceSize);
     }
@@ -118,9 +118,19 @@ HcclResult ReduceScatterBIRSInter::RunAsync(const u32 rank, const u32 rankSize, 
         HCCL_ERROR("[ReduceScatterBIRSInter][RunAsync]rank[%u] unit data size is zero", rank);
         return HCCL_E_INTERNAL;
     }
-    if (slices_.size() == 0) {
-        PrepareSlicesData(unitSize, count_, rankSize);
+
+    logic_ranks.resize(channels.size());
+    u32 xor_all = 0;
+    u32 xor_vec = 0;
+    for (auto i = 0; i < channels.size(); i++){
+        if (channels[i].isValid){
+            logic_ranks[i] = channels[i].remoteRank;
+            xor_vec ^= channels[i].remoteRank;
+        } 
+        xor_all ^= i;
     }
+    logic_ranks[rank] = xor_all ^ xor_vec;
+    PrepareSlicesData(unitSize, count_, rankSize);
 
     u32 rankSizeX_ = 2;
     u32 rankSizeY_ = intraRankSize_ / rankSizeX_;
@@ -137,13 +147,13 @@ HcclResult ReduceScatterBIRSInter::RunAsync(const u32 rank, const u32 rankSize, 
     hccs_links_reversed.assign(hccs_links.rbegin(), hccs_links.rend());
     
     u64 sliceSize = count_ * unitSize;
-    u64 localStrideSize = sliceSize; //TODO: RoundUpWithDivisor(sliceSize, HCCL_MIN_SLICE_ALIGN_910B); 
+    u64 localStrideSize = sliceSize;
     
     //MainRecordSub + SubWaitMain
     GetNotifyIdxMainToSub(notifyIdxMainToSub_);
     PreSyncInterThreads(mainThread, subThreads, notifyIdxMainToSub_);
     
-    LocalCopyPreproc(mainThread, rank, sliceSize, localStrideSize);
+    LocalCopyPreproc(mainThread, logic_ranks[rank], sliceSize, localStrideSize);
     for (u32 cnt = 0; cnt < serverNum_; cnt++)
     {
         void* srcSlice = static_cast<void *>(static_cast<u8 *>(inputMem_.addr) + (hccs_neighbour_rank[0] % intraRankSize_ + cnt * intraRankSize_) * sliceSize);

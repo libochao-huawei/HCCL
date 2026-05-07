@@ -168,6 +168,31 @@ HcclResult HcclGetRankSize(HcclComm comm, uint32_t *rankSize)
     return HCCL_SUCCESS;
 }
 
+HcclResult HcclGetRankLists(HcclComm comm, uint32_t *ranks)
+{
+    auto topoMeta = HcclSim::SimWorld::Global()->GetTopoMetaInfo();
+    u32 cnt = 0;
+    for (u32 i = 0; i < topoMeta.size(); i++)
+    {
+        for (u32 j = 0; j < topoMeta[0].size(); j++)
+        {
+            std::vector<std::pair<u32, u32>> pos(topoMeta[0][0].size(), {0, 0});
+            for (u32 k = 0; k < topoMeta[0][0].size(); k++)
+            {
+                pos[k].first = topoMeta[i][j][k];
+                pos[k].second = cnt++;
+            }
+            std::sort(pos.begin(), pos.end(), [](std::pair<u32,u32> a, std::pair<u32,u32> b) {return a.first < b.first; });
+            cnt -= topoMeta[0][0].size();
+            for (u32 p = 0; p < topoMeta[0][0].size(); p++)
+            {
+                ranks[pos[p].second] = cnt++;
+            }
+        }
+    }
+    return HCCL_SUCCESS;
+}
+
 HcclResult HcclGetRankId(HcclComm comm, uint32_t *rank)
 {
     CHK_PTR_NULL(rank);

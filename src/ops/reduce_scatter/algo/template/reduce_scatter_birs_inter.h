@@ -46,6 +46,8 @@ private:
     u32 serverNum_;
     u32 intraRankSize_;
     u32 sio_rank;
+    
+    std::vector<u32> logic_ranks;
     std::vector<u32> hccs_ranks;
     std::vector<u32> hccs_ranks_reversed;
     std::vector<u32> hccs_neighbour_rank;

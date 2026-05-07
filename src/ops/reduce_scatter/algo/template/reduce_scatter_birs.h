@@ -44,6 +44,8 @@ private:
     u32 interRank_;       // comm内的rank排序
     u32 interRankSize_; // 本comm内ranksize总数
     u32 sio_rank;
+    
+    std::vector<u32> logic_ranks;
     std::vector<u32> hccs_ranks;
     std::vector<u32> hccs_ranks_reversed;
     std::vector<u32> hccs_neighbour_rank;

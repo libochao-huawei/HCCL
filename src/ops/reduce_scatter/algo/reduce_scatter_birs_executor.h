@@ -35,7 +35,7 @@ private:
     u64 level0SliceOffset_ = 0;
     u32 subUserRankRootSupperPod_ = 0;
     SubCommInfo level0CommInfo_;
-    };
+};
 
 }
 

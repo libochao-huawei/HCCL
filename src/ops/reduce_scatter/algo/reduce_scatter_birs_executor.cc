@@ -62,20 +62,17 @@ HcclResult ReduceScatterBIRSExecutor::CalcResRequest(HcclComm comm, const OpPara
 HcclResult ReduceScatterBIRSExecutor::Log2HwPermutation(HcclComm comm,
     AlgResourceRequest& resourceRequest, AlgResourceCtx* ctx)
 {
-    std::cout<<"Start Log2HwPermutation"<<std::endl;
-    uint32_t RealRanks[ctx->topoInfo.userRankSize];
-    HcclGetRankList(comm, RealRanks);
-    // char* curPtr = reinterpret_cast<char *>(ctx);
-    // curPtr += sizeof(AlgResourceCtx);
-    // curPtr += sizeof(ThreadHandle) * (resourceRequest.slaveThreadNum + 1);
-    // ChannelInfo* channels = reinterpret_cast<ChannelInfo*>(curPtr);
-    // std::vector<ChannelInfo> tmpChannelList(ctx->topoInfo.userRankSize);
-    // for (u32 i = 0; i < ctx->topoInfo.userRankSize; i++)
-    //     tmpChannelList[i] = channels[i];
-    // for (u32 i = 0; i < ctx->topoInfo.userRankSize; i++)
-    //     channels[i] = tmpChannelList[RealRanks[i]];
-
-    std::cout<<"End Log2HwPermutation"<<std::endl;
+uint32_t RealRanks[ctx->topoInfo.userRankSize];
+    HcclGetRankLists(comm, RealRanks);
+    char* curPtr = reinterpret_cast<char *>(ctx);
+    curPtr += sizeof(AlgResourceCtx);
+    curPtr += sizeof(ThreadHandle) * (resourceRequest.slaveThreadNum + 1);
+    ChannelInfo* channels = reinterpret_cast<ChannelInfo*>(curPtr);
+    std::vector<ChannelInfo> tmpChannelList(ctx->topoInfo.userRankSize);
+    for (u32 i = 0; i < ctx->topoInfo.userRankSize; i++)
+        tmpChannelList[i] = channels[i];
+    for (u32 i = 0; i < ctx->topoInfo.userRankSize; i++)
+        channels[i] = tmpChannelList[RealRanks[i]];
     return HCCL_SUCCESS;
 }
 
@@ -94,6 +91,12 @@ HcclResult ReduceScatterBIRSExecutor::KernelRunLevel0(const OpParam &param, Exec
     SubCommInfo level0CommInfo;
     CHK_RET(GetSubCommInfo(COMM_LEVEL0, level0CommInfo));
     u32 level0LocalRank = level0CommInfo.localRank;
+    for (u32 rnk = 0; rnk < topoInfo_->userRankSize; rnk++)
+    {
+        if (channels_[COMM_LEVEL0][rnk].isValid == 0)
+            level0LocalRank = rnk;
+        HCCL_INFO("local rank %u isValid %u remoteRank %u", level0CommInfo.localRank, channels_[COMM_LEVEL0][rnk].isValid, channels_[COMM_LEVEL0][rnk].remoteRank);
+    }
     u32 level0LocalRankSize = level0CommInfo.localRankSize;
     u32 commIndex = level0LocalRank;
     u32 sliceNum = level0LocalRankSize;
