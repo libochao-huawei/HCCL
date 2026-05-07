@@ -37,16 +37,16 @@ HcclResult InsTempReduceScatterMesh1DZAxisDetour::CalcRes(
     mergedChannels.insert(mergedChannels.end(), level0Channels.begin(), level0Channels.end());
     mergedChannels.insert(mergedChannels.end(), level1Channels.begin(), level1Channels.end());
     resourceRequest.channels.push_back(mergedChannels);
-    level0ChannelNumPerRank_ = CalcChannelsPerRank(level0Channels);
-    level1ChannelNumPerRank_ = CalcChannelsPerRank(level1Channels);
+    level0ChannelNumPerRank_ = level0Channels.empty() ? 0 : CalcChannelsPerRank(level0Channels);
+    level1ChannelNumPerRank_ = level1Channels.empty() ? 0 : CalcChannelsPerRank(level1Channels);
     channelsPerRank_ = level0ChannelNumPerRank_ + level1ChannelNumPerRank_;
     CHK_RET(GetRes(resourceRequest));
     HCCL_DEBUG("[InsTempReduceScatterMesh1DZAxisDetour][CalcRes] myRank[%u], channelsPerRank_[%u], "
                "level0ChannelNum[%zu], level1ChannelNum[%zu], notifyNumOnMainThread[%u], slaveThreadNum[%u]",
                myRank_, channelsPerRank_, level0Channels.size(), level1Channels.size(),
                resourceRequest.notifyNumOnMainThread, resourceRequest.slaveThreadNum);
-    HCCL_DEBUG("[InsTempReduceScatterMesh1DZAxisDetour][CalcRes]myRank[%u], channelsPerRank_[%u], "
-               "level0ChannelNumPerRank_[%zu], level1ChannelNumPerRank_[%zu], level0DataRatio_[%zu]",
+    HCCL_INFO("[InsTempReduceScatterMesh1DZAxisDetour][CalcRes]myRank[%u], channelsPerRank_[%u], "
+               "level0ChannelNumPerRank_[%zu], level1ChannelNumPerRank_[%zu], level0DataRatio_[%.2f]",
                myRank_, channelsPerRank_, level0ChannelNumPerRank_, level1ChannelNumPerRank_, level0DataRatio_);
     return HCCL_SUCCESS;
 }
@@ -83,7 +83,7 @@ HcclResult InsTempReduceScatterMesh1DZAxisDetour::SetchannelsPerRank(
         level0DataRatio_ = 0.5f;
     }
     HCCL_INFO("[InsTempReduceScatterMesh1DZAxisDetour][SetchannelsPerRank], channelsPerRank_[%u]"
-              "level0ChannelNumPerRank_[%zu], level1ChannelNumPerRank_[%zu], level0DataRatio_[%zu]",
+              "level0ChannelNumPerRank_[%zu], level1ChannelNumPerRank_[%zu], level0DataRatio_[%.2f]",
               channelsPerRank_, level0ChannelNumPerRank_, level1ChannelNumPerRank_, level0DataRatio_);
     return HCCL_SUCCESS;
 }
