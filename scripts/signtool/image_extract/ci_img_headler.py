@@ -9,6 +9,9 @@ import textwrap
 import shutil
 import os
 import struct
+import common_log as COMM_LOG
+
+THIS_FILE_NAME = __file__
 
 def get_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -45,13 +48,13 @@ def main():
             code_len = struct.unpack('<I', img.read(4))[0]
             
             if code_len < 0x100:
-                print(f"Error: Invalid code_len {code_len}, must be at least 0x100")
+                COMM_LOG.cilog_error(THIS_FILE_NAME, "Invalid code_len %d, must be at least 0x100", code_len)
                 return 1
             
             rsv_len = code_len - 0x100
             max_rsv_len = file_size - 0x2100
             if rsv_len > max_rsv_len:
-                print(f"Warning: code_len {code_len} exceeds file size, limiting to {max_rsv_len + 0x100}")
+                COMM_LOG.cilog_warning(THIS_FILE_NAME, "code_len %d exceeds file size, limiting to %d", code_len, max_rsv_len + 0x100)
                 code_len = max_rsv_len + 0x100
             
             tmp_file = args.raw + '.tmp'
