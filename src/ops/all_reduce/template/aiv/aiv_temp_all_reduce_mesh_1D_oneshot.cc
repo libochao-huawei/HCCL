@@ -40,7 +40,7 @@ HcclResult AivTempAllReduceMesh1DOneShot::CalcRes(HcclComm comm, const OpParam& 
         resourceRequest.notifyNumPerThread.push_back(1);
     }
     resourceRequest.notifyNumOnMainThread = threadNum - 1;
-    OpParam param_ = param;
+    //OpParam param_ = param;
 
     std::vector<HcclChannelDesc> level0Channels;
     CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));

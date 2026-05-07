@@ -223,7 +223,7 @@ HcclResult CcuTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
     HCCL_INFO("[CcuTempAlltoAllVMesh1D] KernelRun");
 
     buffInfo_ = templateDataParams.buffInfo;
-    uint64_t totalSliceSize = localSendRecvInfo_.sendLength[0];
+    //uint64_t totalSliceSize = localSendRecvInfo_.sendLength[0];
 
     if (tempRankSize_ == 1) {
         // ccu-alltoall算子的单P场景单独处理
@@ -245,7 +245,7 @@ HcclResult CcuTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
         return HcclResult::HCCL_SUCCESS;
     }
 
-    uint32_t                                rankId    = myRank_;
+    //uint32_t                                rankId    = myRank_;
 
     std::vector<uint64_t> sliceSize;
     sliceSize.reserve(localSendRecvInfo_.sendLength.size());

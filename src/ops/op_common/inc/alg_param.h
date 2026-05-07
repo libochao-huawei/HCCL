@@ -34,6 +34,8 @@
 typedef void *CcuKernelHandle; // 8.5.0 下无 hccl_ccu_res.h，用 opaque 占位
 #endif
 
+#include "log.h"
+
 namespace ops_hccl {
 
 constexpr uint64_t UB_MAX_DATA_SIZE = 256*1024*1024; // Byte, UB协议一次传输的最大size
@@ -429,7 +431,7 @@ struct AlgResourceCtxSerializable {
     }
 
     void DeSerialize(std::vector<char> &data)
-    {
+    {FUNCTION_TRACE;
         BinaryStream binaryStream(data);
 
         binaryStream >> algType;

@@ -658,7 +658,6 @@ HcclResult ExtractNetLayerDetails(const HcclComm comm, TopoInfoWithNetLayerDetai
     instSizeListOfLayer.resize(actualLayerNum);  // 每层网络中的各个网络实例的大小
     localNetInsSizeOfLayer.resize(actualLayerNum);
 
-    HcclResult ret;
     // 获取并校验每一层的网路实例大小
     for (auto layerIdx : netLayers) {
         std::vector<u32> &currLayerInstSizeList = instSizeListOfLayer[layerIdx];
@@ -735,7 +734,7 @@ HcclResult ExtractTopoDetails(HcclComm comm, TopoInfoWithNetLayerDetails* topoIn
         // 填充当前层的拓扑信息
         for (u32 topoInstIdx = 0; topoInstIdx < topoInstNum; topoInstIdx++) {
             u32& topoInstId = topoInsts[topoInstIdx];
-            u32& topoSize = currentLayerTopoSize[topoInstIdx];
+            //u32& topoSize = currentLayerTopoSize[topoInstIdx];
             CommTopo& topoType = currentLayerTopoType[topoInstIdx];
             std::vector<u32>& ranks= currentLayerTopoRanks[topoInstIdx];
 

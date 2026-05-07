@@ -477,7 +477,7 @@ HcclResult CcuKernelAlgBase::CreateMultiOpBroadcastWithoutMyRank(const std::vect
             event.mask = 1 << i;
             CHK_RET(WriteNb(channels[i], dst[i], buf, len, event));
         }
-        CcuRep::LocalAddr &localDst = *reinterpret_cast<CcuRep::LocalAddr*>(&dst[size - 1]);
+        //CcuRep::LocalAddr &localDst = *reinterpret_cast<CcuRep::LocalAddr*>(&dst[size - 1]);
         event.mask = (1 << (size - 1)) - 1;
         WaitEvent(event);
     }

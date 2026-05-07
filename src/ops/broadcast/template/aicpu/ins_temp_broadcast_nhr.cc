@@ -37,9 +37,7 @@ HcclResult InsTempBroadcastNHR::CalcRes(HcclComm comm, const OpParam& param, con
 
 HcclResult InsTempBroadcastNHR::GetRes(AlgResourceRequest &resourceRequest) const
 {
-    u32 threadNum = 1;
     resourceRequest.slaveThreadNum = 0;
-    resourceRequest.notifyNumPerThread;         // 没有从流
     resourceRequest.notifyNumOnMainThread = 0;  // 没有从流
     return HCCL_SUCCESS;
 }
@@ -437,7 +435,7 @@ HcclResult InsTempBroadcastNHR::KernelRun(const OpParam& param, const TemplateDa
     HCCL_DEBUG("[InsTempBroadcastNHR] Use Dma Read[%d]", isDmaRead_);
     HCCL_INFO("[InsTempBroadcastNHR] BroadcastNHR entry.");
 
-    for (int i = 0; i < subCommRanks_[0].size(); i++) {
+    for (std::size_t i = 0; i < subCommRanks_[0].size(); i++) {
         tempVirtRankMap_.insert(std::make_pair(subCommRanks_[0][i], i));
         HCCL_DEBUG("[InsTempBroadcastNHR] KernelRun.subCommRanks_[0][i][%d],i[%d],myRank[%d],root_[%d]",subCommRanks_[0][i], i, myRank_, root_);
     }

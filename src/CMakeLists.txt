@@ -460,6 +460,7 @@ target_compile_options(hccl PRIVATE
     $<$<CONFIG:Debug>:-O3 -g>
     $<$<COMPILE_LANGUAGE:CXX>:-std=c++14>
     -fstack-protector-all
+    $<$<CONFIG:Debug>:-g>
 )
 
 # libhccl

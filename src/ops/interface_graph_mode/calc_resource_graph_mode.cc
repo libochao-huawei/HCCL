@@ -236,9 +236,9 @@ HcclResult CalcTaskNum(OpParamGraphMode *opParam, u32 &ccuTaskNum)
     u64 transportBoundDataSize = UB_MAX_DATA_SIZE;
     u64 dataType = opParam->dataType;
     u64 dataTypeSize = DATATYPE_SIZE_TABLE[dataType];
-    u64 maxDataSizePerLoop;
-    u64 maxDataCountPerLoop;
-    u64 loopTimes;
+    u64 maxDataSizePerLoop{};
+    u64 maxDataCountPerLoop{};
+    u64 loopTimes{};
     HCCL_INFO("[CalcTaskNum] opType[%s] scratchBufferSize[%llu] dataCount[%llu] rankSize[%llu]", 
             opParam->opType, scratchBufferSize, dataCount, rankSize);
     if (opParam->opType == HCCL_KERNEL_OP_TYPE_ALLTOALL) {
