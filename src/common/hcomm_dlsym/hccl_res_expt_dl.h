@@ -20,6 +20,7 @@ extern "C" {
 
 DECL_SUPPORT_FLAG(HcclCommAddExchangeInfo);
 DECL_SUPPORT_FLAG(HcclCommGetExchangeInfo);
+DECL_SUPPORT_FLAG(HcclCommResetExchangeInfo);
 
 // 动态库管理接口（大驼峰命名）
 void HcclResExptDlInit(void *libHcommHandle);
