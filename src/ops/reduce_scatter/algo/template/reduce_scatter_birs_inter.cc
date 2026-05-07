@@ -156,7 +156,7 @@ HcclResult ReduceScatterBIRSInter::RunAsync(const u32 rank, const u32 rankSize, 
     LocalCopyPreproc(mainThread, logic_ranks[rank], sliceSize, localStrideSize);
     for (u32 cnt = 0; cnt < serverNum_; cnt++)
     {
-        void* srcSlice = static_cast<void *>(static_cast<u8 *>(inputMem_.addr) + (hccs_neighbour_rank[0] % intraRankSize_ + cnt * intraRankSize_) * sliceSize);
+        void* srcSlice = static_cast<void *>(static_cast<u8 *>(inputMem_.addr) + (logic_ranks[hccs_neighbour_rank[0]] % intraRankSize_ + cnt * intraRankSize_) * sliceSize);
         void* dstSlice = static_cast<void *>(static_cast<u8 *>(scratchMem_.addr) + (intraRankSize_) * localStrideSize * serverNum_ + cnt * localStrideSize);
         CHK_RET(static_cast<HcclResult>(HcommLocalCopyOnThread(mainThread, dstSlice, srcSlice, sliceSize)));
     }
@@ -208,7 +208,7 @@ HcclResult ReduceScatterBIRSInter::RunAsync(const u32 rank, const u32 rankSize, 
         if (round < hccs_ranks.size() - 1) {
             for (u32 cnt = 0; cnt < serverNum_; cnt++)
             {  
-            void* srcSlice = static_cast<void *>(static_cast<u8 *>(inputMem_.addr) + ((hccs_neighbour_rank[round + 1]) % intraRankSize_ + cnt * intraRankSize_) * sliceSize);
+            void* srcSlice = static_cast<void *>(static_cast<u8 *>(inputMem_.addr) + ((logic_ranks[hccs_neighbour_rank[round + 1]]) % intraRankSize_ + cnt * intraRankSize_) * sliceSize);
             void* dstSlice = static_cast<void *>(static_cast<u8 *>(scratchMem_.addr) + (intraRankSize_ + ((round + 1) % 2)) * localStrideSize * serverNum_ + cnt * localStrideSize);
             CHK_RET(static_cast<HcclResult>(HcommLocalCopyOnThread(subThreads[1], dstSlice, srcSlice, sliceSize)));
             }
@@ -216,7 +216,7 @@ HcclResult ReduceScatterBIRSInter::RunAsync(const u32 rank, const u32 rankSize, 
         if (round == hccs_ranks.size() - 1) {
             for (u32 cnt = 0; cnt < serverNum_; cnt++)
             {
-            void* srcSlice = static_cast<void *>(static_cast<u8 *>(inputMem_.addr) + ((sio_rank) % intraRankSize_ + cnt * intraRankSize_) * sliceSize);
+            void* srcSlice = static_cast<void *>(static_cast<u8 *>(inputMem_.addr) + ((logic_ranks[sio_rank]) % intraRankSize_ + cnt * intraRankSize_) * sliceSize);
             void* dstSlice = static_cast<void *>(static_cast<u8 *>(scratchMem_.addr) + (intraRankSize_ + ((round + 1) % 2)) * localStrideSize * serverNum_ + cnt * localStrideSize);
             CHK_RET(static_cast<HcclResult>(HcommLocalCopyOnThread(subThreads[1], dstSlice, srcSlice, sliceSize)));
             }
