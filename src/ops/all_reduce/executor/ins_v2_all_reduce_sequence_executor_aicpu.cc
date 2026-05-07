@@ -376,7 +376,7 @@ HcclResult InsV2AllReduceSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, In
         // ----------- Step2:框间ReduceScatter数据搬运 -----------
         // 框间的数据偏移和搬运量计算
         GenTempAlgParamsStepTwo(loop, currDataCount, tempAlgParamsStepOne.sliceSize,
-            tempAlgParamsStepOne.tailSize, templateResourceStepTwo);
+            tempAlgParamsStepOne.tailSize, tempAlgParamsStepTwo);
         CHK_RET(algTemplateStepTwo->KernelRun(param, tempAlgParamsStepTwo, templateResourceStepTwo));
 
         // ----------- Step3:框间AllGather数据搬运 -----------
