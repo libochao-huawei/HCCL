@@ -12,6 +12,8 @@
 #include "omnipipe_data_slice_calc.h"
 #include "ccu_temp_scatter_omnipipe_mesh_1D.h"
 #include "alg_data_trans_wrapper.h"
+#include "coll_alg_v2_exec_registry.h"
+
 namespace ops_hccl {
 
 template <typename AlgTopoMatch, typename InsAlgTempLevel0, typename InsAlgTempLevel1>
