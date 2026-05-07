@@ -485,6 +485,6 @@ HcclResult CcuV2ScatterOmniPipeExecutor<AlgTopoMatch, InsAlgTempLevel0, InsAlgTe
     return HcclResult::HCCL_SUCCESS;
 }
 
-REGISTER_EXEC_V2_MULTI(HcclCMDType::HCCL_CMD_SCATTER, CcuV2ScatterOmniPipe, CcuV2ScatterOmniPipeExecutor, TopoMatchUBX, CcuTempScatterOmniPipeMesh1D, CcuTempScatterOmniPipeMesh1D);
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_SCATTER, CcuV2ScatterOmniPipe, CcuV2ScatterOmniPipeExecutor, TopoMatchUBX, CcuTempScatterOmniPipeMesh1D, CcuTempScatterOmniPipeMesh1D);
 
 } // namespace ops_hccl
