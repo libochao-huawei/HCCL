@@ -1,0 +1,171 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+#include "channel.h"
+#include "hccl_ccu_res.h"
+#include "ccu_assist_pub.h"
+#include "ccu_kernel_reduce_scatter_mesh1d_flatten.h"
+#include "ccu_temp_reduce_scatter_mesh_1D_flatten.h"
+
+namespace ops_hccl {
+
+CcuTempReduceScatterMesh1DFlatten::CcuTempReduceScatterMesh1DFlatten(const OpParam& param, const u32 rankId,
+                                                                     const std::vector<std::vector<u32>>& subCommRanks)
+    : CcuAlgTemplateBase(param, rankId, subCommRanks)
+{
+    std::vector<u32> ranks = subCommRanks[0];
+    templateRankSize_ = ranks.size();
+    // 获取本卡在子通信域(如果有)中的rankid
+    auto it = std::find(ranks.begin(), ranks.end(), rankId);
+    if (it != ranks.end()) {
+        mySubCommRank_ = std::distance(ranks.begin(), it);
+    }
+}
+
+CcuTempReduceScatterMesh1DFlatten::~CcuTempReduceScatterMesh1DFlatten()
+{
+}
+
+HcclResult CcuTempReduceScatterMesh1DFlatten::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
+                                                      AlgResourceRequest& resourceRequest)
+{
+    // 不需要从流
+    resourceRequest.notifyNumOnMainThread = 0;
+    resourceRequest.slaveThreadNum = 0;
+    // 多少个kernel
+    resourceRequest.ccuKernelNum.push_back(1);
+    HCCL_DEBUG("[CcuTempReduceScatterMesh1DFlatten::CalcRes] notifyNumOnMainThread[%u] slaveThreadNum[%u]",
+               resourceRequest.notifyNumOnMainThread, resourceRequest.slaveThreadNum);
+
+    // 创建每个kernel的ctxArg，放入kernelInfo, 然后将kernelinfo放入resourceRequest.ccuKernelInfos
+    CcuKernelInfo kernelInfo;
+
+    kernelInfo.creator = [](const hcomm::CcuKernelArg &arg) {
+                             return std::make_unique<CcuKernelReduceScatterMesh1DFlatten>(arg);
+                         };
+    std::vector<HcclChannelDesc> channelDescs;
+    if(topoInfo->level0Topo != Level0Shape::MESH_1D_CLOS) {
+        CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs, true));
+    } else {
+        std::vector<HcclChannelDesc> myChannelDescs;
+        CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks_, myChannelDescs, CommTopo::COMM_TOPO_1DMESH));
+        for(auto channel : myChannelDescs) {
+            if(channel.channelProtocol == COMM_PROTOCOL_UBC_CTP) {
+                channelDescs.push_back(channel);
+            }
+        }
+        HCCL_DEBUG("[CcuTempReduceScatterMesh1DFlatten::CalcRes] Get Mesh Channel Success!");
+    }
+
+    kernelInfo.kernelArg = std::make_shared<CcuKernelArgReduceScatterMesh1DFlatten>(subCommRanks_[0].size(),
+                                                                                    mySubCommRank_,
+                                                                                    param,
+                                                                                    subCommRanks_);
+    kernelInfo.channels = channelDescs;
+    resourceRequest.ccuKernelInfos.push_back(kernelInfo);
+
+    HCCL_DEBUG("[CcuTempReduceScatterMesh1DFlatten::CalcRes] channelDescs.size()=%llu, dimsize=%llu, "
+               "ccuKernelInfos.size()=%llu",
+               channelDescs.size(), subCommRanks_[0].size(), resourceRequest.ccuKernelInfos.size());
+
+    return HcclResult::HCCL_SUCCESS;
+}
+
+HcclResult CcuTempReduceScatterMesh1DFlatten::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+{
+    if (tempFastLaunchCtx.ccuKernelSubmitInfos.size() == 0) {
+        HCCL_INFO("[CcuTempReduceScatterMesh1DFlatten::FastLaunch] ccu kernel num is 0, just success.");
+        return HCCL_SUCCESS;
+    }
+    HCCL_DEBUG("[CcuTempReduceScatterMesh1DFlatten::FastLaunch] start");
+    const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
+    buffInfo_ = tempFastLaunchCtx.buffInfo;
+    CcuTaskArgReduceScatterMesh1DFlatten taskArg(
+        PointerToAddr(buffInfo_.inputPtr) + args[0],
+        PointerToAddr(buffInfo_.outputPtr) + args[1],
+        args[2],
+        PointerToAddr(buffInfo_.hcclBuff.addr) + args[3],
+        args[4], args[5], args[6], args[7], args[8], args[9], args[10]);
+
+    void* taskArgPtr = static_cast<void*>(&taskArg);
+
+    CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0],
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr));
+
+    HCCL_DEBUG("[CcuTempReduceScatterMesh1DFlatten::FastLaunch] end");
+    return HcclResult::HCCL_SUCCESS;
+}
+
+HcclResult CcuTempReduceScatterMesh1DFlatten::KernelRun(const OpParam& param,
+                                                        const TemplateDataParams& templateDataParams,
+                                                        TemplateResource& templateResource)
+{
+    if (templateDataParams.sliceSize == 0 && templateDataParams.tailSize == 0) {
+        HCCL_INFO("[CcuTempReduceScatterMesh1DFlatten] sliceSize is 0, no need to do, just success.");
+        return HCCL_SUCCESS;
+    }
+    buffInfo_ = templateDataParams.buffInfo;
+
+    uint64_t repeatNumTmp       = templateDataParams.repeatNum;
+    uint64_t inputAddr          = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
+    uint64_t outputAddr         = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
+    uint64_t token;
+    CHK_RET(GetToken(buffInfo_, token));
+    uint64_t scratchAddr        = PointerToAddr(buffInfo_.hcclBuff.addr) + buffInfo_.hcclBuffBaseOff;
+    uint64_t inputSliceStride   = templateDataParams.inputSliceStride;
+    uint64_t outputSliceStride  = templateDataParams.outputSliceStride;
+    uint64_t inputRepeatStride  = templateDataParams.inputRepeatStride;
+    uint64_t outputRepeatStride = templateDataParams.outputRepeatStride;
+    uint64_t normalSliceSize    = templateDataParams.sliceSize;
+    uint64_t lastSliceSize      = templateDataParams.tailSize;
+
+    uint64_t repeatNum = UINT64_MAX - repeatNumTmp;
+
+    std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgReduceScatterMesh1DFlatten>(
+        inputAddr, outputAddr, token, scratchAddr, inputSliceStride, outputSliceStride, inputRepeatStride, outputRepeatStride,
+        normalSliceSize, lastSliceSize, repeatNum);
+
+    void* taskArgPtr = static_cast<void*>(taskArg.get());
+
+    CHK_RET(HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr));
+
+    CcuKernelSubmitInfo submitInfo;
+    submitInfo.kernelHandle = templateResource.ccuKernels[0];
+    CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, token, buffInfo_.hcclBuffBaseOff,
+        inputSliceStride, outputSliceStride, inputRepeatStride, outputRepeatStride, normalSliceSize, lastSliceSize,
+        repeatNum));
+    templateResource.submitInfos.push_back(submitInfo);
+
+    HCCL_DEBUG("[CcuTempReduceScatterMesh1DFlatten::KernelRun] end");
+
+    return HcclResult::HCCL_SUCCESS;
+}
+
+u64 CcuTempReduceScatterMesh1DFlatten::CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType)
+{
+    // one shot 场景，scratch Buffer 需要是 usrIn的rankSize倍
+    (void)inBuffType;
+    (void)outBuffType;
+    return templateRankSize_;
+}
+
+u64 CcuTempReduceScatterMesh1DFlatten::GetThreadNum() const
+{
+    return 1;
+}
+
+HcclResult CcuTempReduceScatterMesh1DFlatten::GetRes(AlgResourceRequest& resourceRequest) const
+{
+    resourceRequest.slaveThreadNum = 0;
+    resourceRequest.notifyNumOnMainThread = 0;
+
+    return HCCL_SUCCESS;
+}
+} // namespace ops_hccl
