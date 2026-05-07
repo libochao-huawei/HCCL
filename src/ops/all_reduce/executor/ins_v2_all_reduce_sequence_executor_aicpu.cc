@@ -189,7 +189,7 @@ void InsV2AllReduceSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2,
     typename InsAlgTemplate3>
 void InsV2AllReduceSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2,
-    InsAlgTemplate3>::GenTempAlgParamsStepOne(const u64 currDataCount, const u64 processedDataCount,
+    InsAlgTemplate3>::GenTempAlgParamsStepOne(const u64 loop, const u64 currDataCount, const u64 processedDataCount,
     TemplateDataParams &tempAlgParamsStepOne) const
 {
     tempAlgParamsStepOne.count = currDataCount; // 没用到
@@ -218,7 +218,7 @@ void InsV2AllReduceSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2,
     typename InsAlgTemplate3>
 void InsV2AllReduceSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2,
-    InsAlgTemplate3>::GenTempAlgParamsStepTwo(const 64 currDataCount, const u64 sliceSizeLastStep,
+    InsAlgTemplate3>::GenTempAlgParamsStepTwo(const u64 loop, const u64 currDataCount, const u64 sliceSizeLastStep,
     const u64 tailSizeLastStep, TemplateDataParams &tempAlgParamsStepTwo) const
 {
     tempAlgParamsStepTwo.count = currDataCount; // 没用到
@@ -254,7 +254,7 @@ void InsV2AllReduceSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2,
     typename InsAlgTemplate3>
 void InsV2AllReduceSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2,
-    InsAlgTemplate3>::GenTempAlgParamsStepThree(const 64 currDataCount, const u64 sliceSize,
+    InsAlgTemplate3>::GenTempAlgParamsStepThree(const u64 loop, const u64 currDataCount, const u64 sliceSize,
     const u64 tailSize, TemplateDataParams &tempAlgParamsStepThree) const
 {
     tempAlgParamsStepThree.count = currDataCount; // 没用到
@@ -284,7 +284,7 @@ void InsV2AllReduceSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2,
     typename InsAlgTemplate3>
 void InsV2AllReduceSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2,
-    InsAlgTemplate3>::GenTempAlgParamsStepFour(const 64 currDataCount, const u64 sliceSize,
+    InsAlgTemplate3>::GenTempAlgParamsStepFour(const u64 loop, const u64 currDataCount, const u64 sliceSize,
     const u64 tailSize, TemplateDataParams &tempAlgParamsStepFour) const
 {
     tempAlgParamsStepFour.count = currDataCount; // 没用到
