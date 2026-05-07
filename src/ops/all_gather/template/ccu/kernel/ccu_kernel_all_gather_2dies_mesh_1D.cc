@@ -89,7 +89,7 @@ std::vector<uint64_t> CcuKernelAllGather2DiesMesh1D::GeneArgs(const hcomm::CcuTa
 HcclResult CcuKernelAllGather2DiesMesh1D::InitResource()
 {
     input_.push_back(CreateVariable());//两个kernel共用一个input
-    uint16_t channelIdx = 0;
+    //uint16_t channelIdx = 0;
     for (uint32_t peerId = 0; peerId < channels_.size(); peerId++) {
         HCCL_DEBUG("[CcuKernelAllGather2DiesMesh1D] RankId[%u], PeerId[%u]", rankId_, peerId);
         hcomm::CcuRep::Variable output;

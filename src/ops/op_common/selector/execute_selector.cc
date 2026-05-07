@@ -20,7 +20,7 @@ ExecuteSelector::ExecuteSelector()
 
 HcclResult ExecuteSelector::Run(OpParam &opParam, TopoInfoWithNetLayerDetails* topoInfo,
                                 std::string &selectAlgName) const
-{
+{FUNCTION_TRACE;
     HCCL_DEBUG("[Algo][Selector] Run.");
     std::map<u32, AutoSelectorBase *> selectors = SelectorRegistry::Global()->GetAllSelectors();
 

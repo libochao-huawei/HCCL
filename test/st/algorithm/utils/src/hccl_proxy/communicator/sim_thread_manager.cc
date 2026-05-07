@@ -37,7 +37,7 @@ HcclResult SimThreadMgr::CommEngineToNotifyLoadType(CommEngine engine, NotifyLoa
 
 HcclResult SimThreadMgr::HcclThreadAcquireWithStream(
     CommEngine engine, rtStream_t stream, uint32_t notifyNum, ThreadHandle *thread)
-{
+{FUNCTION_TRACE
     NotifyLoadType notifyLoadType;
     CHK_RET(CommEngineToNotifyLoadType(engine, notifyLoadType));
 

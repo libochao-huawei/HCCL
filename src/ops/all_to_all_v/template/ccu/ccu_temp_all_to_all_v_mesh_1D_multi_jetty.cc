@@ -102,7 +102,7 @@ void CcuTempAllToAllVMesh1DMultiJetty::SetA2ASendRecvInfo(const A2ASendRecvInfo 
 HcclResult CcuTempAllToAllVMesh1DMultiJetty::SetJettyNums(std::vector<uint32_t>& jettyNums, const bool multijetty) const
 {
     jettyNums.resize(templateRankSize_, 0);
-    for (int i = 0; i < templateRankSize_; i++) {
+    for (u32 i = 0; i < templateRankSize_; i++) {
         if (i == myRank_) {
             jettyNums[i] = CONST_1;
         } else if (multijetty) {

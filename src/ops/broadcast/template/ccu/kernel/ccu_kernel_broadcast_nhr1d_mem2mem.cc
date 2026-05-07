@@ -45,7 +45,7 @@ CcuKernelBroadcastNhr1DMem2Mem::CcuKernelBroadcastNhr1DMem2Mem(const CcuKernelAr
 
 HcclResult CcuKernelBroadcastNhr1DMem2Mem::InitResources()
 {
-    uint16_t channelIdx = 0;
+    //uint16_t channelIdx = 0;
     if (channels_.size() == 0) {
         HCCL_ERROR("[CcuKernelBroadcastNhr1DMem2Mem] channels is empty!");
         return HCCL_E_INTERNAL;

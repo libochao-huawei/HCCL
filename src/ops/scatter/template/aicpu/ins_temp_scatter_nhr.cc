@@ -183,7 +183,7 @@ HcclResult InsTempScatterNHR::PreCopy(const TemplateDataParams &tempAlgParams, c
 HcclResult InsTempScatterNHR::PostCopy(
     const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads) const
 {
-    u32 myAlgRank;
+    u32 myAlgRank{};
     const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
     u32 curSliceSize = tempAlgParams.tailSize !=0 && myAlgRank == templateRankSize_ - 1? tempAlgParams.tailSize : processSize_;
     u32 curCount = curSliceSize / dataTypeSize;

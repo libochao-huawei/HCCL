@@ -42,8 +42,8 @@ public:
                                                 const std::vector<std::vector<uint32_t>>& subCommRanks)
         : rankSize_(rankSize_),
           rankId_(rankId),
-          opParam_(opParam),
           jettyNum_(jettyNum),
+          opParam_(opParam),
           stepInfoVector_(stepInfoVector),
           rank2ChannelIdx_(rank2ChannelIdx),
           subCommRanks_(subCommRanks)

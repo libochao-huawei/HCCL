@@ -100,7 +100,7 @@ HcclResult CcuKernelAllReduceNhr1DMem2MemMultiJetty::InitResource()
     localCopyGoSizeLastSlice_ = CreateGroupOpSize();
 
     // 需要portNum_个event
-    for (auto i = 0; i < portNum_; ++i) {
+    for (uint32_t i = 0; i < portNum_; ++i) {
         events_.push_back(CreateCompletedEvent());
     }
 
@@ -195,7 +195,7 @@ HcclResult CcuKernelAllReduceNhr1DMem2MemMultiJetty::DoLocalCopySlice(hcomm::Ccu
 {
     const bool islastSlice = copySliceIdx + 1 == rankSize_;
     const auto &sliceSize = islastSlice ? lastRankSliceSize_ : dataSizePerRank_;
-    const auto &goSize = islastSlice ? localCopyGoSize_ : localCopyGoSizeLastSlice_;
+    //const auto &goSize = islastSlice ? localCopyGoSize_ : localCopyGoSizeLastSlice_;
 
     CCU_IF(sliceSize != 0)
     {
@@ -393,9 +393,9 @@ HcclResult CcuKernelAllReduceNhr1DMem2MemMultiJetty::DoAllGatherNHRSingleStep(co
     localInput_.token = outputTokens_[rankId_];
     remoteOutput_.token = outputTokens_[nhrStepInfo.toRank];
     
-    const uint32_t signalIdReady = GetSignalIndex(SignalBit::READY_TO_RECV_AG);
+    //const uint32_t signalIdReady = GetSignalIndex(SignalBit::READY_TO_RECV_AG);
     const uint32_t signalIdDone = GetSignalIndex(SignalBit::SEND_DONE_AG);
-    const uint16_t signalBitReady = GetSignalMask(SignalBit::READY_TO_RECV_AG);
+    //const uint16_t signalBitReady = GetSignalMask(SignalBit::READY_TO_RECV_AG);
     const uint16_t signalBitDone = GetSignalMask(SignalBit::SEND_DONE_AG);
 
     for (u32 i = 0; i < sendSliceIdxList.size(); i++) {

@@ -412,7 +412,7 @@ std::vector<uint64_t> CcuKernelReduceScatterMesh1D2DieMem2Mem::GeneArgs(const Cc
  
     uint64_t currentRankSliceInputOffset = taskArg->inputSliceStride_ * rankId_;
  
-    u32 dataTypeSize = DataTypeSizeGet(dataType_);
+    //u32 dataTypeSize = DataTypeSizeGet(dataType_);
  
     auto rmtReduceGoSize    = CalGoSize(sliceSize);
 

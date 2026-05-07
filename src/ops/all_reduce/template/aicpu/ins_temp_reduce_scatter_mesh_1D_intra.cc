@@ -99,7 +99,7 @@ HcclResult InsTempReduceScatterMesh1DIntra::PostCopy(
     HCCL_INFO("[InsTempReduceScatterMesh1DIntra][PostCopy]tempAlgParams.repeatNum=%llu", tempAlgParams.repeatNum);
     u64 sliceSize = tempAlgParams.allRankSliceSize.at(rankIdx);
     u64 sliceCount = tempAlgParams.allRankProcessedDataCount.at(rankIdx);
-    u64 sliceOffset = tempAlgParams.allRankDispls.at(rankIdx);
+    //u64 sliceOffset = tempAlgParams.allRankDispls.at(rankIdx);
     // 数据量为0的数据片无需Reduce
     if (sliceSize == 0) {
         HCCL_INFO("Skip LocalReduce because there is no data in rank[%d]", myRank_);
