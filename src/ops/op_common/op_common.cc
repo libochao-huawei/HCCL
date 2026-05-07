@@ -824,6 +824,7 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
 
     CHK_RET(GetAlgResWithEngine(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence, size,
         increCreateChannelFlag));
+    param.ctxSize = size;
 
     // 参数一致性校验
     if (!isChecked) {
@@ -900,7 +901,6 @@ HcclResult GetAlgResWithEngine(HcclComm comm, const OpParam &param, AlgResourceR
         HCCL_ERROR("fail to get engine, invalid engine type[%d].", param.engine);
         return HCCL_E_PARA;
     }
-    param.ctxSize = size;
     return HCCL_SUCCESS;
 }
 
