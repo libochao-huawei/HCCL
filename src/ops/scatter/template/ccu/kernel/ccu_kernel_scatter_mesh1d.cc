@@ -73,6 +73,7 @@ HcclResult CcuKernelScatterMesh1D::InitResource()
     outputRepeatStride_ = CreateVariable();
     repeatNum_ = CreateVariable();
     isInputOutputEqual_ = CreateVariable();
+    localGoSize_ = CreateGroupOpSize();
     flag_ = CreateVariable();
     flag_ = 0;
 
@@ -102,6 +103,7 @@ void CcuKernelScatterMesh1D::LoadArgs()
     Load(lastSliceSize_);
     Load(repeatNum_);
     Load(isInputOutputEqual_);
+    Load(localGoSize_);
     return;
 }
 
@@ -176,10 +178,7 @@ void CcuKernelScatterMesh1D::DoScatter()
 
     uint32_t channelId = 0;
 
-    // 为root写到自己的地址专门创建一个LocalAddr变量
-    CcuRep::LocalAddr myOutput = CreateLocalAddr();
-    myOutput.addr = outputMem_[rankId_].addr;
-    myOutput.token = outputMem_[rankId_].token;
+
 
     CcuRep::Variable sliceSize = CreateVariable();
     // root卡的数据发送到所有卡
@@ -188,16 +187,7 @@ void CcuKernelScatterMesh1D::DoScatter()
         sliceSize = rankIdx == rankSize_ - 1 ? lastSliceSize_ : normalSliceSize_;
         CCU_IF(sliceSize != 0) {
             if (rankIdx == rankId_) {
-                // 如果输入输出地址不同，还需要进行一次本地搬运
-                CCU_IF(isInputOutputEqual_ == 0)
-                {
-                    LocalCopyNb(myOutput, inputMem_[rankIdx], sliceSize, event_);
-                }
-                // 如果输入输出地址相同，不进行本地搬运，只发送同步信号
-                CCU_IF(isInputOutputEqual_ != 0)
-                {
-                    RecordEvent(event_);
-                }
+                RecordEvent(event_);
             } else {
                 WriteNb(channels_[channelId], outputMem_[rankIdx], inputMem_[rankIdx], sliceSize, event_);
                 channelId++;
@@ -206,6 +196,15 @@ void CcuKernelScatterMesh1D::DoScatter()
         CCU_IF(sliceSize == 0) {
             RecordEvent(event_);
         }
+    }
+
+    // 本地搬运使用group操作
+    CCU_IF(isInputOutputEqual_ == 0)
+    {
+        CcuRep::LocalAddr myOutput = CreateLocalAddr();
+        myOutput.addr = outputMem_[rankId_].addr;
+        myOutput.token = outputMem_[rankId_].token;
+        GroupCopy(myOutput, inputMem_[rankId_], localGoSize_);
     }
 
     // 等待数据传输完成
@@ -248,6 +247,8 @@ std::vector<uint64_t> CcuKernelScatterMesh1D::GeneArgs(const CcuTaskArg &arg)
     uint64_t repeatNum = taskArg->repeatNum_;
     uint64_t isInputOutputEqual = taskArg->isInputOutputEqual_;
 
+    auto goSize = (rankId_ == (rankSize_ - 1)) ? CalGoSize(lastSliceSize) : CalGoSize(normalSliceSize);
+
     std::vector<uint64_t> taskArgs = {inputAddr,
         outputAddr,
         tokenInfo,
@@ -258,7 +259,11 @@ std::vector<uint64_t> CcuKernelScatterMesh1D::GeneArgs(const CcuTaskArg &arg)
         normalSliceSize,
         lastSliceSize,
         repeatNum,
-        isInputOutputEqual};
+        isInputOutputEqual,
+        goSize[0],
+        goSize[1],
+        goSize[2],
+        goSize[3]};
 
     HCCL_INFO("[CcuKernelScatterMesh1D] TaskArgs: inputAddr[%llu], outputAddr[%llu], "
               "currentRankSliceInputOffset[%llu], outputSliceStride[%llu], inputRepeatStride[%llu],"
