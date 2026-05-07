@@ -22,19 +22,12 @@ public:
     HcclResult CalcResRequest(HcclComm comm, const OpParam& param, TopoInfo* topoInfo,
         AlgHierarchyInfo& algHierarchyInfo, AlgResourceRequest& resourceRequest, AlgType& algType) override;
 
+    HcclResult Log2HwPermutation(HcclComm comm, 
+        AlgResourceRequest& resourceRequest, AlgResourceCtx* ctx) override;
+
 private:
     HcclResult KernelRunLevel0(const OpParam &param, ExecMem &execMem);
     HcclResult KernelRun(const OpParam &param, ExecMem &execMem) override;
-
-    // 多ring相关
-    HcclResult MultiRingScatter(HcclMem inputMem, HcclMem outputMem, const u64 count,
-        const HcclDataType dataType, const std::vector<Slice> &dataSegsSlice, u32 root, const HcomCollOpInfo *opInfo,
-        const u64 baseOffset);
-    HcclResult MutliSegSlicePrepare(const std::vector<Slice> &dataSegsSlice, u32 ringNum,
-        std::vector<std::vector<Slice>> &mutliSegsSlices) const;
-    HcclResult PrepareMultiRingSlice(const std::vector<Slice> &dataSegsSlice, u32 &ringNum,
-        std::vector<std::vector<Slice>> &mutliRingsSlices, std::vector<std::vector<u32>> &rankOrders);
-
     /* *************** 算法参数 *************** */
     u32 subRoot_ = 0;
     u32 commIndex_ = 0;

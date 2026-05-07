@@ -48,6 +48,14 @@ HcclResult ExecutorBase::GetSubCommInfo(const CommPlane levelIndex, SubCommInfo 
     return HCCL_SUCCESS;
 }
 
+HcclResult ExecutorBase::Log2HwPermutation(HcclComm comm, AlgResourceRequest& resourceRequest, AlgResourceCtx* ctx)
+{
+    (void)comm;
+    (void)ctx;
+    (void)resourceRequest;
+    return HCCL_SUCCESS;
+}
+
 HcclResult ExecutorBase::RefreshAlgType(AlgType& algType)
 {
     const std::vector<AlgTypeLevel0> &l0Algo = desc_.level0SupportedAlgos;

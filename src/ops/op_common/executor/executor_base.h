@@ -54,6 +54,7 @@ public:
 
     virtual HcclResult KernelRun(const OpParam &param, ExecMem &execMem);
     inline AlgDesc GetAlgDesc() {return desc_;}
+    virtual HcclResult Log2HwPermutation(HcclComm comm, AlgResourceRequest& resourceRequest, AlgResourceCtx* ctx);
 protected:
     HcclResult GetSubCommInfo(const CommPlane levelIndex, SubCommInfo &info);
     HcclResult RefreshAlgType(AlgType& algType);

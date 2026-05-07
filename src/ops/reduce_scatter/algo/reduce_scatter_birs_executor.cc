@@ -59,13 +59,33 @@ HcclResult ReduceScatterBIRSExecutor::CalcResRequest(HcclComm comm, const OpPara
     return HCCL_SUCCESS;
 }
 
+HcclResult ReduceScatterBIRSExecutor::Log2HwPermutation(HcclComm comm,
+    AlgResourceRequest& resourceRequest, AlgResourceCtx* ctx)
+{
+    std::cout<<"Start Log2HwPermutation"<<std::endl;
+    uint32_t RealRanks[ctx->topoInfo.userRankSize];
+    HcclGetRankList(comm, RealRanks);
+    // char* curPtr = reinterpret_cast<char *>(ctx);
+    // curPtr += sizeof(AlgResourceCtx);
+    // curPtr += sizeof(ThreadHandle) * (resourceRequest.slaveThreadNum + 1);
+    // ChannelInfo* channels = reinterpret_cast<ChannelInfo*>(curPtr);
+    // std::vector<ChannelInfo> tmpChannelList(ctx->topoInfo.userRankSize);
+    // for (u32 i = 0; i < ctx->topoInfo.userRankSize; i++)
+    //     tmpChannelList[i] = channels[i];
+    // for (u32 i = 0; i < ctx->topoInfo.userRankSize; i++)
+    //     channels[i] = tmpChannelList[RealRanks[i]];
+
+    std::cout<<"End Log2HwPermutation"<<std::endl;
+    return HCCL_SUCCESS;
+}
+
 HcclResult ReduceScatterBIRSExecutor::KernelRun(const OpParam &param, ExecMem &execMem)
 {
     HCCL_CONFIG_INFO(HCCL_ALG, "[ReduceScatterBIRSExecutor][KernelRun] starts.");
 
     CHK_RET(KernelRunLevel0(param, execMem));
 
-    HCCL_INFO("scatter ring run success");
+    HCCL_INFO("reduce_scatter birs run success");
     return HCCL_SUCCESS;
 }
 

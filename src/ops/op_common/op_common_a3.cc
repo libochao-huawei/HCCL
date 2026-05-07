@@ -479,6 +479,9 @@ HcclResult GetAlgRes(HcclComm comm, OpParam &param, std::unique_ptr<ExecutorBase
 
     // 创建资源，并填充到Host内存上
     HcclResult ret = AllocAlgResource(comm, param, resRequest, resCtxHost);
+    if (param.opType == HCCL_CMD_REDUCE_SCATTER) {
+        CHK_PRT(executor->Log2HwPermutation(comm, resRequest, resCtxHost));
+    }
     if (ret != HCCL_SUCCESS) {
         HCCL_ERROR("failed to alloc alg resource.");
         if (param.engine == COMM_ENGINE_AICPU_TS) {
