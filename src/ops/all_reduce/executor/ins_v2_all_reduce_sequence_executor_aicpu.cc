@@ -240,7 +240,7 @@ void InsV2AllReduceSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     HCCL_INFO(
         "[InsV2AllReduceSequenceExecutorAicpu] loop [%u] tempAlgParamsStepTwo.inputSliceStride [%u],"
         "tempAlgParamsStepTwo.outputSliceStride [%u], tempAlgParamsStepTwo.sliceSize [%u]",
-        "tempAlgParamsStepTwo.buffInfo.inBuffBaseOff [%u], tempAlgParamsStepTwo.buffInfo.outBuffBaseOff [%u]"
+        "tempAlgParamsStepTwo.buffInfo.inBuffBaseOff [%u], tempAlgParamsStepTwo.buffInfo.outBuffBaseOff [%u]",
         loop, tempAlgParamsStepTwo.inputSliceStride, tempAlgParamsStepTwo.outputSliceStride,
         tempAlgParamsStepTwo.sliceSize, tempAlgParamsStepTwo.buffInfo.inBuffBaseOff,
         tempAlgParamsStepTwo.buffInfo.outBuffBaseOff);
@@ -284,8 +284,8 @@ void InsV2AllReduceSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2,
     typename InsAlgTemplate3>
 void InsV2AllReduceSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2,
-    InsAlgTemplate3>::GenTempAlgParamsStepFour(const u64 loop, const u64 currDataCount, const u64 sliceSize,
-    const u64 tailSize, TemplateDataParams &tempAlgParamsStepFour) const
+    InsAlgTemplate3>::GenTempAlgParamsStepFour(const u64 loop, const u64 currDataCount, const u64 processedDataCount,
+    const u64 sliceSize, const u64 tailSize, TemplateDataParams &tempAlgParamsStepFour) const
 {
     tempAlgParamsStepFour.count = currDataCount; // 没用到
     tempAlgParamsStepFour.buffInfo.inBuffBaseOff = 0; // input是ccl，无需偏移
@@ -370,24 +370,24 @@ HcclResult InsV2AllReduceSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, In
         u64 currDataCount = (loop == loopTimes - 1) ? dataCount_ - processedDataCount : maxCountPerLoop; // 判断是最后一轮，就处理尾块长度
         // ----------- Step1:框内ReduceScatter数据搬运 -----------
         // 框内的数据偏移和搬运计算
-        GenTempAlgParamsStepOne(currDataCount, processedDataCount, tempAlgParamsStepOne);
+        GenTempAlgParamsStepOne(loop, currDataCount, processedDataCount, tempAlgParamsStepOne);
         CHK_RET(algTemplateStepOne->KernelRun(param, tempAlgParamsStepOne, templateResourceStepOne));
 
         // ----------- Step2:框间ReduceScatter数据搬运 -----------
         // 框间的数据偏移和搬运量计算
-        GenTempAlgParamsStepTwo(currDataCount, tempAlgParamsStepOne.sliceSize,
+        GenTempAlgParamsStepTwo(loop, currDataCount, tempAlgParamsStepOne.sliceSize,
             tempAlgParamsStepOne.tailSize, templateResourceStepTwo);
         CHK_RET(algTemplateStepTwo->KernelRun(param, tempAlgParamsStepTwo, templateResourceStepTwo));
 
         // ----------- Step3:框间AllGather数据搬运 -----------
         // 框间的数据偏移和搬运量计算
-        GenTempAlgParamsStepThree(currDataCount, tempAlgParamsStepTwo.sliceSize,
+        GenTempAlgParamsStepThree(loop, currDataCount, tempAlgParamsStepTwo.sliceSize,
             tempAlgParamsStepTwo.tailSize, tempAlgParamsStepThree);
         CHK_RET(algTemplateStepThree->KernelRun(param, tempAlgParamsStepThree, templateResourceStepThree));
 
         // ----------- Step4:框内AllGather数据搬运 -----------
         // 框内的数据偏移和搬运计算
-        GenTempAlgParamsStepFour(currDataCount, tempAlgParamsStepOne.sliceSize,
+        GenTempAlgParamsStepFour(loop, currDataCount, processedDataCount, tempAlgParamsStepOne.sliceSize,
             tempAlgParamsStepOne.tailSize, tempAlgParamsStepFour);
         CHK_RET(algTemplateStepFour->KernelRun(param, tempAlgParamsStepFour, templateResourceStepFour));
 

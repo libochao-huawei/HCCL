@@ -56,8 +56,8 @@ protected:
         const u64 tailSizeLastStep, TemplateDataParams &tempAlgParamsStepTwo) const;
     void GenTempAlgParamsStepThree(const u64 loop, const u64 currDataCount, const u64 sliceSize,
         const u64 tailSize, TemplateDataParams &tempAlgParamsStepThree) const;
-    void GenTempAlgParamsStepFour(const u64 loop, const u64 currDataCount, const u64 sliceSize,
-        const u64 tailSize, TemplateDataParams &tempAlgParamsStepFour) const;
+    void GenTempAlgParamsStepFour(const u64 loop, const u64 currDataCount, const u64 processedDataCount,
+        const u64 sliceSize, const u64 tailSize, TemplateDataParams &tempAlgParamsStepFour) const;
 
     uint64_t rankSizeLevel0_{0};
     uint64_t rankSizeLevel1_{0};
