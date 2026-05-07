@@ -16,7 +16,7 @@
 #include "ccu_temp_all_to_all_mesh1d_multi_jetty.h"
 
 namespace ops_hccl {
-constexpr uint32_t STUB_JETTY_NUM = 4;
+constexpr uint32_t STUB_JETTY_NUM = 1;
 CcuTempAllToAllMesh1dMultiJetty::CcuTempAllToAllMesh1dMultiJetty(const OpParam& param, const u32 rankId,
                                        const std::vector<std::vector<u32>> &subCommRanks)
 : CcuAlgTemplateBase(param, rankId, subCommRanks)

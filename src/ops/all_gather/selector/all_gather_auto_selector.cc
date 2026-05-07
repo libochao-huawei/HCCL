@@ -14,6 +14,7 @@
 namespace ops_hccl {
 constexpr u64 AG_2D_SMALL_DATA_SIZE = 1024 * 1024;
 constexpr u32 MAX_RANK_NUM_FOR_CONCURRENT_ALGO = 4;
+constexpr u64 AG_CCU_SMALL_DATA_SIZE = 4 * 1024 * 1024;
 
 SelectorStatus AllGatherAutoSelector::SelectCcuMsAlgo(
     const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
@@ -176,8 +177,11 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
                 return SelectorStatus::NOT_MATCH;
             } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] == 1) {
                 selectAlgName = "CcuAllGatherNHR1DMem2Mem";
-            } else {
+            } else if (dataSize < AG_CCU_SMALL_DATA_SIZE) {
                 selectAlgName = "CcuAllGatherParallelMesh1DNHR";
+            } else {
+                // 4M 以上切aicpu
+                return SelectorStatus::NOT_MATCH;
             }
         } else {
             HCCL_DEBUG("[AllGatherAutoSelector] level0Topo[%d] is not supported yet for ccu schedule mode.",
