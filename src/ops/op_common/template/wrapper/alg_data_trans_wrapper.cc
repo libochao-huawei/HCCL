@@ -80,7 +80,7 @@ HcclResult SendRecvWrite(const SendRecvInfo &sendRecvInfo, const ThreadHandle &t
         }
         void *dst = static_cast<void *>(static_cast<s8 *>(dstSlice.addr_) + dstSlice.offset_);
         void *src = static_cast<void *>(static_cast<s8 *>(srcSlice.addr_) + srcSlice.offset_);
-        CHK_RET(static_cast<HcclResult>(HcommWriteOnThread(thread, sendChannel.handle, dst, src, srcSlice.size_)));
+        CHK_RET(static_cast<HcclResult>(HcommWriteOnThread(thread, sendChannel.handle, 0, src, srcSlice.size_)));
     }
     // 写完之后做后同步告诉对面写完了
     CHK_RET(

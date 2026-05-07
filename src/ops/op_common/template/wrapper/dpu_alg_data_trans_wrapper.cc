@@ -33,7 +33,7 @@ HcclResult SendRecvWrite(const SendRecvInfo &sendRecvInfo)
         void *dst = static_cast<void *>(static_cast<s8 *>(dstSlcie.addr_) + dstSlcie.offset_);
         void *src = static_cast<void *>(static_cast<s8 *>(srcSlice.addr_) + srcSlice.offset_);
         CHK_RET(static_cast<HcclResult>(
-            HcommWriteWithNotifyNbiOnThread(0, sendChannel.handle, 0, src, srcSlice.size_, NOTIFY_IDX_DATA_SIGNAL)));
+            HcommWriteWithNotifyNbiOnThread(0, sendChannel.handle, dst, src, srcSlice.size_, NOTIFY_IDX_DATA_SIGNAL)));
         CHK_RET(static_cast<HcclResult>(
             HcommChannelNotifyWaitOnThread(0, recvChannel.handle, NOTIFY_IDX_DATA_SIGNAL, DPU_TIMEOUT)));
     }
