@@ -130,7 +130,7 @@ HcclResult CalcLevel2ChannelRequest(const OpParam& param, const TopoInfo* topoIn
 HcclResult GetProtocolByEngine(const OpParam& param, std::vector<CommProtocol> &protocols)
 {
     protocols.clear();
-#if CANN_VERSION_NUM >= 90000000
+#if CANN_VERSION_NUM >= 90100000
     switch (param.engine) {
         case CommEngine::COMM_ENGINE_AICPU:
         case CommEngine::COMM_ENGINE_AICPU_TS:
@@ -277,7 +277,7 @@ HcclResult CalcChannelRequestMesh2D(HcclComm comm, const OpParam& param, const T
     if (subcommInfo.size() == 2) { // 2D Mesh
         CHK_RET(CalcMesh2DChannelConnect(myRank, subcommInfo, connectRanks));
     }
-#if CANN_VERSION_NUM >= 90000000
+#if CANN_VERSION_NUM >= 90100000
     CommProtocol protocol = CommProtocol::COMM_PROTOCOL_UBC_CTP;
     if (param.engine == CommEngine::COMM_ENGINE_AIV) {
         protocol = CommProtocol::COMM_PROTOCOL_UB_MEM;
@@ -388,7 +388,7 @@ HcclResult CalcChannelRequestNhr(HcclComm comm, const OpParam& param, const Topo
     return HCCL_SUCCESS;
 }
 
-#if CANN_VERSION_NUM >= 90000000
+#if CANN_VERSION_NUM >= 90100000
 static bool IsEndPointEqual(EndpointDesc &endPoint0, EndpointDesc &endPoint1)
 {
     HCCL_INFO("endPoint0:phyId[%u], protocol[%u], addr.type[%u], addr.id[%u]",
@@ -411,12 +411,12 @@ static bool IsEndPointEqual(EndpointDesc &endPoint0, EndpointDesc &endPoint1)
     }
 
 }
-#endif /* CANN_VERSION_NUM >= 90000000 */
+#endif /* CANN_VERSION_NUM >= 90100000 */
 
 HcclResult GetTopoTypeByLink(HcclComm comm, uint32_t netLayer, CommLink &link, CommTopo &topoType)
 {
-#if defined(AICPU_COMPILE) || CANN_VERSION_NUM < 90000000
-    // 8.5.0 CANN 无 HcclRankGraphGetEndpointNum / GetEndpointDesc / GetTopoType 等 9.0.0-only API，
+#if defined(AICPU_COMPILE) || CANN_VERSION_NUM < 90100000
+    // 9.1.0 之前不使用 HcclRankGraphGetEndpointNum / GetEndpointDesc / GetTopoType 等新 API，
     // 且 CommAddr.eid 字段也不存在；整函数在 8.5.0 下不提供真实实现（上游在 9.0.0 新路径里调用，
     // 入口版本号守护后 8.5.0 永远走不到这里）。
     (void)comm; (void)netLayer; (void)link; (void)topoType;

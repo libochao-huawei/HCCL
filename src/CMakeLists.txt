@@ -20,6 +20,41 @@ else()
     set(INSTALL_AICPU_KERNEL_JSON_DIR ${INSTALL_LIBRARY_DIR})
 endif()
 
+set(HCCL_CANN_VERSION_NUM 0)
+set(_hccl_cann_version_header "${ASCEND_CANN_PACKAGE_PATH}/include/version/cann_version.h")
+message(STATUS "Checking HCCL scoped CANN version header: ${_hccl_cann_version_header}")
+if(EXISTS "${_hccl_cann_version_header}")
+    file(STRINGS "${_hccl_cann_version_header}" _hccl_cann_ver_line
+        REGEX "^#define[ \t]+CANN_VERSION_NUM[ \t]+")
+    if(_hccl_cann_ver_line)
+        string(REGEX MATCH
+            "\\(([0-9]+) \\* 10000000\\) \\+ \\(([0-9]+) \\* 100000\\) \\+ \\(([0-9]+) \\* 1000\\)"
+            _ "${_hccl_cann_ver_line}")
+        if(NOT CMAKE_MATCH_1 STREQUAL "" AND NOT CMAKE_MATCH_2 STREQUAL "" AND NOT CMAKE_MATCH_3 STREQUAL "")
+            math(EXPR HCCL_CANN_VERSION_NUM
+                "${CMAKE_MATCH_1} * 10000000 + ${CMAKE_MATCH_2} * 100000 + ${CMAKE_MATCH_3} * 1000")
+        endif()
+    endif()
+endif()
+
+set(HCCL_CANN_COMPAT_850 OFF)
+if(HCCL_CANN_VERSION_NUM GREATER 0 AND HCCL_CANN_VERSION_NUM LESS 90000000)
+    set(HCCL_CANN_COMPAT_850 ON)
+endif()
+
+message(STATUS "HCCL scoped CANN_VERSION_NUM = ${HCCL_CANN_VERSION_NUM}")
+message(STATUS "HCCL_CANN_COMPAT_850 = ${HCCL_CANN_COMPAT_850}")
+
+function(hccl_apply_cann_compat target_name)
+    if(NOT TARGET ${target_name})
+        return()
+    endif()
+    target_compile_definitions(${target_name} PRIVATE CANN_VERSION_NUM=${HCCL_CANN_VERSION_NUM})
+    if(HCCL_CANN_COMPAT_850)
+        target_compile_definitions(${target_name} PRIVATE HCCL_CANN_COMPAT_850)
+    endif()
+endfunction()
+
 set(INCLUDE_LIST
     ${OPS_BASE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/common
@@ -378,9 +413,7 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         -DAICPU_COMPILE
     )
 
-    if(HCCL_CANN_COMPAT_850)
-        target_compile_definitions(scatter_aicpu_kernel PRIVATE HCCL_CANN_COMPAT_850)
-    endif()
+    hccl_apply_cann_compat(scatter_aicpu_kernel)
 
     target_link_directories(scatter_aicpu_kernel PRIVATE
       ${ASCEND_CANN_PACKAGE_PATH}/devlib/device
@@ -447,9 +480,7 @@ target_compile_definitions(${TARGET_NAME} PRIVATE
     -DHOST_COMPILE
 )
 
-if(HCCL_CANN_COMPAT_850)
-    target_compile_definitions(hccl PRIVATE HCCL_CANN_COMPAT_850)
-endif()
+hccl_apply_cann_compat(hccl)
 
 target_compile_options(hccl PRIVATE
     -Werror
