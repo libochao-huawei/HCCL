@@ -9,306 +9,307 @@
  */
 
 #include "ccu_kernel_reduce_scatter_nhr1d_mem2mem.h"
-#include "ccu_kernel_alg_base.h"
 
 namespace ops_hccl {
 
-// 按信号功能划分notify的bit
 constexpr uint16_t INPUT_XN_ID      = 0;
 constexpr uint16_t TOKEN_XN_ID      = 1;
 constexpr uint16_t POST_SYNC_ID     = 2;
 constexpr uint16_t STEP_PRE_SYNC_ID = 3;
 constexpr uint16_t STEP_POST_SYNC_ID= 4;
-
 constexpr uint16_t CKE_IDX_0        = 0;
-
 constexpr uint16_t LINK_SIZE        = 2;
 
-CcuKernelReduceScatterNHR1DMem2Mem::CcuKernelReduceScatterNHR1DMem2Mem(const CcuKernelArg &arg)
-    : CcuKernelAlgBase(arg)
+static CcuResult ParseKernelArg(ReduceScatterNHR1DMem2MemContext &ctx, CcuKernelArgReduceScatterNHR1D *kernelArg)
 {
-    const CcuKernelArgReduceScatterNHR1D *kernelArg = dynamic_cast<const CcuKernelArgReduceScatterNHR1D *>(&arg);
-    mySubCommRankId_= kernelArg->mySubCommRankId_;   // 虚拟rankid，用于获取本rank对应的输入偏移
-    axisId_         = kernelArg->axisId_;
-    channels_       = kernelArg->channels;
-    dimSize_        = kernelArg->dimSize_;
-    stepInfoVector_ = kernelArg->stepInfoVector_;
-    rank2ChannelIdx_= kernelArg->rank2ChannelIdx_;
-    localSize_      = rank2ChannelIdx_.size();
-    myRankIdx_      = rank2ChannelIdx_.size();
-    reduceOp_       = kernelArg->opParam_.reduceType;
-    dataType_       = kernelArg->opParam_.DataDes.dataType;
-    outputDataType_ = kernelArg->opParam_.DataDes.outputType;
-    axisSize_       = kernelArg->axisSize_;
-    if (outputDataType_ == HcclDataType::HCCL_DATA_TYPE_RESERVED) {
-        outputDataType_ = dataType_;
-        HCCL_DEBUG("[CcuKernelReduceScatterMesh1DMem2Mem] outputDataType is [INVALID], set outputDataType to[%d]",
-                   outputDataType_);
+    ctx.mySubCommRankId = kernelArg->mySubCommRankId_;
+    ctx.axisId          = kernelArg->axisId_;
+    ctx.dimSize         = kernelArg->dimSize_;
+    ctx.stepInfoVector  = kernelArg->stepInfoVector_;
+    ctx.rank2ChannelIdx = kernelArg->rank2ChannelIdx_;
+    ctx.localSize       = ctx.rank2ChannelIdx.size();
+    ctx.myRankIdx       = ctx.rank2ChannelIdx.size();
+    ctx.reduceOp        = kernelArg->opParam_.reduceType;
+    ctx.dataType        = kernelArg->opParam_.DataDes.dataType;
+    ctx.outputDataType  = kernelArg->opParam_.DataDes.outputType;
+    ctx.axisSize        = kernelArg->axisSize_;
+
+    if (ctx.outputDataType == HcclDataType::HCCL_DATA_TYPE_RESERVED) {
+        ctx.outputDataType = ctx.dataType;
+        HCCL_DEBUG("[CcuKernelReduceScatterNHR1DMem2Mem] outputDataType is [INVALID], set outputDataType to[%d]",
+                   ctx.outputDataType);
     }
+
     HCCL_INFO("[CcuKernelReduceScatterNHR1DMem2Mem] KernelArg: mySubCommRankId_[%u], myRankIdx_[%d], axisId_[%u], dimSize_[%u], localSize_[%u], "
               "dataType[%d], outputDataType[%d], reduceOp[%d]",
-              mySubCommRankId_, myRankIdx_, axisId_, dimSize_, localSize_, dataType_, outputDataType_, reduceOp_);
+              ctx.mySubCommRankId, ctx.myRankIdx, ctx.axisId, ctx.dimSize, ctx.localSize, ctx.dataType, ctx.outputDataType, ctx.reduceOp);
+    return CCU_SUCCESS;
 }
 
-void CcuKernelReduceScatterNHR1DMem2Mem::LoadArgs()
+static CcuResult InitResources(ReduceScatterNHR1DMem2MemContext &ctx)
 {
-    Load(input_[myRankIdx_]);
-    Load(output_);
-    Load(token_[myRankIdx_]);
-    Load(die0Size_);
-    Load(die1Size_);
-    Load(die0LastSliceSize_);
-    Load(die1LastSliceSize_);
-    Load(inputSliceStride_);
-    Load(currentRankSliceOutputOffset_);
-    Load(inputRepeatStride_);
-    Load(outputRepeatStride_);
-    Load(repeatNumVar_);
-    Load(isInputOutputEqual_);
-    repeatNumVarTemp_ = repeatNumVar_;
-    HCCL_INFO("[CcuKernelReduceScatterNHR1DMem2Mem] LoadArgs run finished");
-}
+    const auto *arg = ctx.arg;
 
-HcclResult CcuKernelReduceScatterNHR1DMem2Mem::InitResources()
-{
-    die0Size_           = CreateVariable();
-    die1Size_           = CreateVariable();
-    die0LastSliceSize_  = CreateVariable();
-    die1LastSliceSize_  = CreateVariable();
-    sliceSize_          = CreateVariable();
-    inputSliceStride_   = CreateVariable();
-    currentRankSliceOutputOffset_  = CreateVariable();
-    inputRepeatStride_  = CreateVariable();
-    outputRepeatStride_ = CreateVariable();
-    event_              = CreateCompletedEvent();
-    repeatNumVar_       = CreateVariable();
-    repeatNumVarTemp_   = CreateVariable();
-    isInputOutputEqual_ = CreateVariable();
+    CCU_CHK_RET(ccu::Alloc(&ctx.die0Size));
+    CCU_CHK_RET(ccu::Alloc(&ctx.die1Size));
+    CCU_CHK_RET(ccu::Alloc(&ctx.die0LastSliceSize));
+    CCU_CHK_RET(ccu::Alloc(&ctx.die1LastSliceSize));
+    CCU_CHK_RET(ccu::Alloc(&ctx.sliceSize));
+    CCU_CHK_RET(ccu::Alloc(&ctx.inputSliceStride));
+    CCU_CHK_RET(ccu::Alloc(&ctx.currentRankSliceOutputOffset));
+    CCU_CHK_RET(ccu::Alloc(&ctx.inputRepeatStride));
+    CCU_CHK_RET(ccu::Alloc(&ctx.outputRepeatStride));
+    CCU_CHK_RET(ccu::Alloc(&ctx.repeatNumVar));
+    CCU_CHK_RET(ccu::Alloc(&ctx.repeatNumVarTemp));
+    CCU_CHK_RET(ccu::Alloc(&ctx.isInputOutputEqual));
+    CCU_CHK_RET(ccu::Alloc(&ctx.event));
 
-    output_ = CreateVariable();
-    for (uint32_t channelIdx = 0; channelIdx < localSize_; channelIdx++) {
-        HCCL_INFO("[CcuKernelReduceScatterNHR1DMem2Mem] mySubCommRankId[%u], channelId[%u]", mySubCommRankId_, channelIdx);
+    CCU_CHK_RET(ccu::Alloc(&ctx.output));
 
-        CcuRep::Variable inputVar, tokenVar;
-        CHK_RET(CreateVariable(channels_[channelIdx], INPUT_XN_ID, &inputVar));
-        input_.push_back(inputVar); // 获取channel中id=0的Var来传递output
-        CHK_RET(CreateVariable(channels_[channelIdx], TOKEN_XN_ID, &tokenVar));
-        token_.push_back(tokenVar);
+    ctx.input.resize(ctx.localSize + 1);
+    ctx.token.resize(ctx.localSize + 1);
+
+    for (uint32_t channelIdx = 0; channelIdx < ctx.localSize; channelIdx++) {
+        HCCL_INFO("[CcuKernelReduceScatterNHR1DMem2Mem] mySubCommRankId[%u], channelId[%u]", ctx.mySubCommRankId, channelIdx);
+        CCU_CHK_RET(ccu::CreateByChannel(arg->channels[channelIdx], INPUT_XN_ID, &ctx.input[channelIdx]));
+        CCU_CHK_RET(ccu::CreateByChannel(arg->channels[channelIdx], TOKEN_XN_ID, &ctx.token[channelIdx]));
     }
-    input_.push_back(CreateVariable());
-    token_.push_back(CreateVariable());
+    CCU_CHK_RET(ccu::Alloc(&ctx.input[ctx.localSize]));
+    CCU_CHK_RET(ccu::Alloc(&ctx.token[ctx.localSize]));
 
-    repeatInputOffset_      = CreateVariable();
-    repeatOutputOffset_     = CreateVariable();
+    CCU_CHK_RET(ccu::Alloc(&ctx.repeatInputOffset));
+    CCU_CHK_RET(ccu::Alloc(&ctx.repeatOutputOffset));
 
-    localSrc_     = CreateLocalAddr();
-    localDst_     = CreateLocalAddr();
-    remoteDst_    = CreateRemoteAddr();
-    isRepeatIter_ = CreateVariable();
+    CCU_CHK_RET(ccu::Alloc(&ctx.localSrc));
+    CCU_CHK_RET(ccu::Alloc(&ctx.localDst));
+    CCU_CHK_RET(ccu::Alloc(&ctx.remoteDst));
+    CCU_CHK_RET(ccu::Alloc(&ctx.isRepeatIter));
+
     HCCL_INFO("[CcuKernelReduceScatterNHR1DMem2Mem] InitResources finished");
-    return HcclResult::HCCL_SUCCESS;
+    return CCU_SUCCESS;
 }
 
-void CcuKernelReduceScatterNHR1DMem2Mem::PreSync()
+static CcuResult LoadArgs(ReduceScatterNHR1DMem2MemContext &ctx)
 {
+    CCU_CHK_RET(ccu::LoadArg(ctx.input[ctx.myRankIdx]));
+    CCU_CHK_RET(ccu::LoadArg(ctx.output));
+    CCU_CHK_RET(ccu::LoadArg(ctx.token[ctx.myRankIdx]));
+    CCU_CHK_RET(ccu::LoadArg(ctx.die0Size));
+    CCU_CHK_RET(ccu::LoadArg(ctx.die1Size));
+    CCU_CHK_RET(ccu::LoadArg(ctx.die0LastSliceSize));
+    CCU_CHK_RET(ccu::LoadArg(ctx.die1LastSliceSize));
+    CCU_CHK_RET(ccu::LoadArg(ctx.inputSliceStride));
+    CCU_CHK_RET(ccu::LoadArg(ctx.currentRankSliceOutputOffset));
+    CCU_CHK_RET(ccu::LoadArg(ctx.inputRepeatStride));
+    CCU_CHK_RET(ccu::LoadArg(ctx.outputRepeatStride));
+    CCU_CHK_RET(ccu::LoadArg(ctx.repeatNumVar));
+    CCU_CHK_RET(ccu::LoadArg(ctx.isInputOutputEqual));
+
+    ctx.repeatNumVarTemp = ctx.repeatNumVar;
+    HCCL_INFO("[CcuKernelReduceScatterNHR1DMem2Mem] LoadArgs run finished");
+    return CCU_SUCCESS;
+}
+
+static void PreSync(ReduceScatterNHR1DMem2MemContext &ctx)
+{
+    const auto *arg = ctx.arg;
     HCCL_INFO("[CcuKernelReduceScatterNHR1DMem2Mem] PreSync start");
-    for (ChannelHandle channel : channels_) {
-        NotifyRecord(channel, CKE_IDX_0, INPUT_XN_ID, input_[myRankIdx_], 1 << INPUT_XN_ID);
-        NotifyRecord(channel, CKE_IDX_0, TOKEN_XN_ID, token_[myRankIdx_], 1 << TOKEN_XN_ID);
+
+    for (uint32_t i = 0; i < arg->channelCount; i++) {
+        ccu::WriteVariableWithNotify(arg->channels[i], ctx.input[ctx.myRankIdx], INPUT_XN_ID, CKE_IDX_0, 1 << INPUT_XN_ID);
+        ccu::WriteVariableWithNotify(arg->channels[i], ctx.token[ctx.myRankIdx], TOKEN_XN_ID, CKE_IDX_0, 1 << TOKEN_XN_ID);
     }
+
     uint32_t allBit = 1 << INPUT_XN_ID | 1 << TOKEN_XN_ID;
-    for (ChannelHandle channel : channels_) {
-        NotifyWait(channel, CKE_IDX_0, allBit);
+    for (uint32_t i = 0; i < arg->channelCount; i++) {
+        ccu::NotifyWait(arg->channels[i], CKE_IDX_0, allBit);
     }
+
     HCCL_INFO("[CcuKernelReduceScatterNHR1DMem2Mem] PreSync end");
-    return;
 }
 
-void CcuKernelReduceScatterNHR1DMem2Mem::PostSync()
+static void PostSync(ReduceScatterNHR1DMem2MemContext &ctx)
 {
-    for (ChannelHandle channel : channels_) {
-        NotifyRecord(channel, CKE_IDX_0, 1 << POST_SYNC_ID);
+    const auto *arg = ctx.arg;
+
+    for (uint32_t i = 0; i < arg->channelCount; i++) {
+        ccu::NotifyRecord(arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID);
     }
-    for (ChannelHandle channel : channels_) {
-        NotifyWait(channel, CKE_IDX_0, 1 << POST_SYNC_ID);
+    for (uint32_t i = 0; i < arg->channelCount; i++) {
+        ccu::NotifyWait(arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID);
     }
+
     HCCL_INFO("[CcuKernelReduceScatterNHR1DMem2Mem] PostSync run finished");
 }
 
-void CcuKernelReduceScatterNHR1DMem2Mem::DoRepeatReduceScatterNHR()
+static CcuResult DoRepeatWriteReduceSlices(ReduceScatterNHR1DMem2MemContext &ctx, const u32 &toRank, 
+    ccu::LocalAddr &src, ccu::RemoteAddr &dst, const bool islastSlice)
 {
-    CcuRep::Variable tmpSliceOffset   = CreateVariable();
-    tmpSliceOffset                    = 0;
-    // 用来记录每个rank要读取的rank的sliceIdx的偏移
-    // 后面会用inputAddr来加上这个偏移获取sliceIdx的地址
-    std::vector<CcuRep::Variable> inputSliceOffset;
-    for (u64 i = 0; i < dimSize_; i++) {
-        inputSliceOffset.push_back(CreateVariable());
-        inputSliceOffset[i] = tmpSliceOffset;
-        tmpSliceOffset += inputSliceStride_;
-    }
+    const auto *arg = ctx.arg;
 
-    for (auto &nhrStepInfo : stepInfoVector_) {
-        DoRepeatReduceScatterNHRSingleStep(nhrStepInfo, inputSliceOffset);
-    }
-    // 因为所有的修改都是在input上进行的，所以最后需要把input上的数据搬到output上
-    localSrc_.addr  = input_[myRankIdx_];
-    localSrc_.addr += inputSliceOffset[mySubCommRankId_];
-    localSrc_.token = token_[myRankIdx_];
-    localDst_.addr  = output_;
-    localDst_.addr += currentRankSliceOutputOffset_;
-    localDst_.token = token_[myRankIdx_];
+    CcuVariable repeatNumAdd;
+    CCU_CHK_RET(ccu::Alloc(&repeatNumAdd));
+    repeatNumAdd = 1;
+    ctx.isRepeatIter = 0;
 
-    bool islastSlice = (mySubCommRankId_ + 1 == dimSize_);
-    CcuRep::Variable repeatNumAdd2 = CreateVariable();
-    repeatNumAdd2  = 1;
-    CCU_WHILE(repeatNumVar_ != UINT64_MAX) {
-        repeatNumVar_ += repeatNumAdd2;
-        CCU_IF(isRepeatIter_ == 1) {
-            localSrc_.addr += inputRepeatStride_;
-            localDst_.addr += outputRepeatStride_;
+    ChannelHandle sendChannel = arg->channels[ctx.rank2ChannelIdx[toRank]];
+    ctx.repeatNumVarTemp = ctx.repeatNumVar;
+
+    CCU_WHILE(ctx.repeatNumVarTemp != UINT64_MAX) {
+        CCU_IF_ONLY(ctx.repeatNumVarTemp != UINT64_MAX) {
+            ctx.repeatNumVarTemp = ctx.repeatNumVarTemp + repeatNumAdd;
         }
-        CCU_IF(isRepeatIter_ == 0) {
-            if (axisId_ == 1) {
-                localSrc_.addr += die0Size_;
-                localDst_.addr += die0Size_;
+
+        CCU_IF_ONLY(ctx.isRepeatIter == 1) {
+            src.addr += ctx.inputRepeatStride;
+            dst.addr += ctx.inputRepeatStride;
+        }
+        CCU_IF_ONLY(ctx.isRepeatIter == 0) {
+            if (ctx.axisId == 1) {
+                src.addr += ctx.die0Size;
+                dst.addr += ctx.die0Size;
             }
         }
-        CcuRep::Variable &localSliceSize = (axisId_ == 0) ? (islastSlice? die0LastSliceSize_ : die0Size_)
-                                                          : (islastSlice? die1LastSliceSize_ : die1Size_);
-        event_.SetMask(1);
-        CCU_IF(localSliceSize != 0) {
-            CCU_IF(isInputOutputEqual_ == 0) {
-                LocalCopyNb(localDst_, localSrc_, localSliceSize, event_);
-            }
-            CCU_IF(isInputOutputEqual_ != 0) {
-                RecordEvent(event_);
-            }
+
+        ctx.sliceSize = (ctx.axisId == 0) ? (islastSlice ? ctx.die0LastSliceSize : ctx.die0Size)
+                                          : (islastSlice ? ctx.die1LastSliceSize : ctx.die1Size);
+
+        ctx.event.setMask(1);
+        CCU_IF_ONLY(ctx.sliceSize != 0) {
+            ccu::WriteReduceNb(sendChannel, dst, src, ctx.sliceSize, ctx.dataType, ctx.reduceOp, ctx.event);
         }
-        CCU_IF(localSliceSize == 0) {
-            RecordEvent(event_);
+        CCU_IF_ONLY(ctx.sliceSize == 0) {
+            ccu::RecordEvent(ctx.event);
         }
-        WaitEvent(event_);
-        isRepeatIter_ = 1;
+        ccu::WaitEvent(ctx.event);
+        ctx.isRepeatIter = 1;
     }
+    ctx.isRepeatIter = 0;
+
+    return CCU_SUCCESS;
 }
 
-void CcuKernelReduceScatterNHR1DMem2Mem::DoRepeatReduceScatterNHRSingleStep(const NHRStepInfo &nhrStepInfo,
-    const std::vector<CcuRep::Variable> &inputSliceOffset)
+static CcuResult DoRepeatReduceScatterNHRSingleStep(ReduceScatterNHR1DMem2MemContext &ctx, 
+    const NHRStepInfo &nhrStepInfo, const std::vector<CcuVariable> &inputSliceOffset)
 {
-    u32& toRankIdx = rank2ChannelIdx_[nhrStepInfo.toRank];
-    u32& fromRankIdx = rank2ChannelIdx_[nhrStepInfo.fromRank];
-    ChannelHandle sendChannel = channels_[toRankIdx];
-    ChannelHandle recvChannel = channels_[fromRankIdx];
+    const auto *arg = ctx.arg;
+
+    u32& toRankIdx = ctx.rank2ChannelIdx[nhrStepInfo.toRank];
+    u32& fromRankIdx = ctx.rank2ChannelIdx[nhrStepInfo.fromRank];
+    ChannelHandle sendChannel = arg->channels[toRankIdx];
+    ChannelHandle recvChannel = arg->channels[fromRankIdx];
     const std::vector<u32> &sendSliceIdxList = nhrStepInfo.txSliceIdxs;
-    remoteDst_.token = token_[toRankIdx];
-    localSrc_.token = token_[myRankIdx_];
+
+    ctx.remoteDst.token = ctx.token[toRankIdx];
+    ctx.localSrc.token = ctx.token[ctx.myRankIdx];
 
     bool islastSlice = false;
 
-    // 通知fromRank，可以写入
-    NotifyRecord(recvChannel, CKE_IDX_0, 1 << STEP_PRE_SYNC_ID);
-
-    // 等待toRank通知其可以写入
-    NotifyWait(sendChannel, CKE_IDX_0, 1 << STEP_PRE_SYNC_ID);
+    ccu::NotifyRecord(recvChannel, CKE_IDX_0, 1 << STEP_PRE_SYNC_ID);
+    ccu::NotifyWait(sendChannel, CKE_IDX_0, 1 << STEP_PRE_SYNC_ID);
 
     for (const u32 &sendSliceIdx : sendSliceIdxList) {
-        remoteDst_.addr = input_[toRankIdx];
-        remoteDst_.addr += inputSliceOffset[sendSliceIdx];
-        localSrc_.addr = input_[myRankIdx_];
-        localSrc_.addr += inputSliceOffset[sendSliceIdx];
+        ctx.remoteDst.addr = ctx.input[toRankIdx];
+        ctx.remoteDst.addr += inputSliceOffset[sendSliceIdx];
+        ctx.localSrc.addr = ctx.input[ctx.myRankIdx];
+        ctx.localSrc.addr += inputSliceOffset[sendSliceIdx];
 
-        islastSlice = (sendSliceIdx + 1 == dimSize_);
-        DoRepeatWriteReduceSlices(nhrStepInfo.toRank, localSrc_, remoteDst_, islastSlice);
+        islastSlice = (sendSliceIdx + 1 == ctx.dimSize);
+        CCU_CHK_RET(DoRepeatWriteReduceSlices(ctx, nhrStepInfo.toRank, ctx.localSrc, ctx.remoteDst, islastSlice));
     }
 
-    // 通知toRank数据写入完毕
-    NotifyRecord(sendChannel, CKE_IDX_0, 1 << STEP_POST_SYNC_ID);
+    ccu::NotifyRecord(sendChannel, CKE_IDX_0, 1 << STEP_POST_SYNC_ID);
+    ccu::NotifyWait(recvChannel, CKE_IDX_0, 1 << STEP_POST_SYNC_ID);
 
-    // 等待fromRank通知数据写入完毕
-    NotifyWait(recvChannel, CKE_IDX_0, 1 << STEP_POST_SYNC_ID);
+    return CCU_SUCCESS;
 }
 
-void CcuKernelReduceScatterNHR1DMem2Mem::DoRepeatWriteReduceSlices(const u32 &toRank, CcuRep::LocalAddr &src,
-                                                                 CcuRep::RemoteAddr &dst, const bool islastSlice)
+static CcuResult DoRepeatReduceScatterNHR(ReduceScatterNHR1DMem2MemContext &ctx)
 {
-    CcuRep::Variable repeatNumAdd = CreateVariable();
-    repeatNumAdd  = 1;
-    isRepeatIter_ = 0;
-    ChannelHandle sendChannel = channels_[rank2ChannelIdx_[toRank]];
-    repeatNumVarTemp_ = repeatNumVar_;
-    CCU_WHILE(repeatNumVarTemp_ != UINT64_MAX) {
-        CCU_IF(repeatNumVarTemp_ != UINT64_MAX) {
-            repeatNumVarTemp_ += repeatNumAdd;
-        }
+    CcuVariable tmpSliceOffset;
+    CCU_CHK_RET(ccu::Alloc(&tmpSliceOffset));
+    tmpSliceOffset = 0;
 
-        CCU_IF(isRepeatIter_ == 1) {
-            src.addr += inputRepeatStride_;
-            dst.addr += inputRepeatStride_;
+    std::vector<CcuVariable> inputSliceOffset;
+    for (u64 i = 0; i < ctx.dimSize; i++) {
+        CcuVariable offset;
+        CCU_CHK_RET(ccu::Alloc(&offset));
+        offset = tmpSliceOffset;
+        inputSliceOffset.push_back(offset);
+        tmpSliceOffset += ctx.inputSliceStride;
+    }
+
+    for (auto &nhrStepInfo : ctx.stepInfoVector) {
+        CCU_CHK_RET(DoRepeatReduceScatterNHRSingleStep(ctx, nhrStepInfo, inputSliceOffset));
+    }
+
+    ctx.localSrc.addr  = ctx.input[ctx.myRankIdx];
+    ctx.localSrc.addr += inputSliceOffset[ctx.mySubCommRankId];
+    ctx.localSrc.token = ctx.token[ctx.myRankIdx];
+    ctx.localDst.addr  = ctx.output;
+    ctx.localDst.addr += ctx.currentRankSliceOutputOffset;
+    ctx.localDst.token = ctx.token[ctx.myRankIdx];
+
+    bool islastSlice = (ctx.mySubCommRankId + 1 == ctx.dimSize);
+
+    CcuVariable repeatNumAdd2;
+    CCU_CHK_RET(ccu::Alloc(&repeatNumAdd2));
+    repeatNumAdd2 = 1;
+
+    CCU_WHILE(ctx.repeatNumVar != UINT64_MAX) {
+        ctx.repeatNumVar = ctx.repeatNumVar + repeatNumAdd2;
+
+        CCU_IF_ONLY(ctx.isRepeatIter == 1) {
+            ctx.localSrc.addr += ctx.inputRepeatStride;
+            ctx.localDst.addr += ctx.outputRepeatStride;
         }
-        CCU_IF(isRepeatIter_ == 0) {
-            if (axisId_ == 1) {
-                src.addr += die0Size_;
-                dst.addr += die0Size_;
+        CCU_IF_ONLY(ctx.isRepeatIter == 0) {
+            if (ctx.axisId == 1) {
+                ctx.localSrc.addr += ctx.die0Size;
+                ctx.localDst.addr += ctx.die0Size;
             }
         }
-        sliceSize_ = (axisId_ == 0) ? (islastSlice? die0LastSliceSize_ : die0Size_)
-                                    : (islastSlice? die1LastSliceSize_ : die1Size_);
 
-        event_.SetMask(1);
-        CCU_IF(sliceSize_ != 0) {
-            WriteReduceNb(sendChannel, dst, src, sliceSize_, dataType_, reduceOp_, event_);
+        CcuVariable &localSliceSize = (ctx.axisId == 0) ? (islastSlice ? ctx.die0LastSliceSize : ctx.die0Size)
+                                                        : (islastSlice ? ctx.die1LastSliceSize : ctx.die1Size);
+
+        ctx.event.setMask(1);
+        CCU_IF_ONLY(localSliceSize != 0) {
+            CCU_IF_ONLY(ctx.isInputOutputEqual == 0) {
+                ccu::LocalCopyNb(ctx.localDst, ctx.localSrc, localSliceSize, ctx.event);
+            }
+            CCU_IF_ONLY(ctx.isInputOutputEqual != 0) {
+                ccu::RecordEvent(ctx.event);
+            }
         }
-        CCU_IF(sliceSize_ == 0) {
-            RecordEvent(event_);
+        CCU_IF_ONLY(localSliceSize == 0) {
+            ccu::RecordEvent(ctx.event);
         }
-        WaitEvent(event_);
-        isRepeatIter_ = 1;
+        ccu::WaitEvent(ctx.event);
+        ctx.isRepeatIter = 1;
     }
-    isRepeatIter_ = 0;
+
+    return CCU_SUCCESS;
 }
 
-HcclResult CcuKernelReduceScatterNHR1DMem2Mem::Algorithm()
+CcuResult CcuReduceScatterNHR1DMem2MemKernel(CcuKernelArg arg)
 {
+    auto *kernelArg = static_cast<CcuKernelArgReduceScatterNHR1D *>(arg);
+
+    ReduceScatterNHR1DMem2MemContext ctx;
+    ctx.arg = kernelArg;
+
     HCCL_INFO("[CcuKernelReduceScatterNHR1DMem2Mem] CcuKernelReduceScatterNHR1DMem2Mem run.");
-    CHK_RET(InitResources());
-    LoadArgs();
-    PreSync();
-    DoRepeatReduceScatterNHR();
-    PostSync();
+
+    CCU_CHK_RET(ParseKernelArg(ctx, kernelArg));
+    CCU_CHK_RET(InitResources(ctx));
+    CCU_CHK_RET(LoadArgs(ctx));
+    PreSync(ctx);
+    CCU_CHK_RET(DoRepeatReduceScatterNHR(ctx));
+    PostSync(ctx);
 
     HCCL_INFO("[CcuKernelReduceScatterNHR1DMem2Mem] CcuKernelReduceScatterNHR1DMem2Mem end.");
-    return HcclResult::HCCL_SUCCESS;
+    return CCU_SUCCESS;
 }
 
-std::vector<uint64_t> CcuKernelReduceScatterNHR1DMem2Mem::GeneArgs(const CcuTaskArg &arg)
-{
-    const CcuTaskArgReduceScatterNHR1D *taskArg = dynamic_cast<const CcuTaskArgReduceScatterNHR1D *>(&arg);
-    // input & output & buffer地址
-    uint64_t inputAddr          = taskArg->inputAddr_;
-    uint64_t outputAddr         = taskArg->outputAddr_;
-    uint64_t token              = taskArg->token_;
-    uint64_t die0Size           = taskArg->die0Size_;
-    uint64_t die1Size           = taskArg->die1Size_;
-    uint64_t die0LastSliceSize  = taskArg->die0LastSliceSize_;
-    uint64_t die1LastSliceSize  = taskArg->die1LastSliceSize_;
-    uint64_t inputSliceStride   = taskArg->inputSliceStride_;
-    uint64_t currentRankSliceOutputOffset= taskArg->outputSliceStride_ * mySubCommRankId_;
-    uint64_t inputRepeatStride  = taskArg->inputRepeatStride_;
-    uint64_t outputRepeatStride = taskArg->outputRepeatStride_;
-    uint64_t repeatNumVar       = UINT64_MAX - taskArg->repeatNum_;
-    uint64_t isInputOutputEqual_= taskArg->isInputOutputEqual_;
-
-    HCCL_INFO("[CcuKernelReduceScatterNHR1DMem2Mem] TaskArgs: inputAddr[%llu], outputAddr[%llu],"
-              "die0Size[%llu], die1Size[%llu], die0LastSliceSize[%llu], die1LastSliceSize[%llu],"
-              "inputSliceStride[%llu], currentRankSliceOutputOffset[%llu], inputRepeatStride[%llu], "
-              "outputRepeatStride[%llu]",
-              inputAddr, outputAddr, die0Size, die1Size, die0LastSliceSize, die1LastSliceSize,
-              inputSliceStride, currentRankSliceOutputOffset, inputRepeatStride, outputRepeatStride);
-
-    return {inputAddr,          outputAddr,         token,
-            die0Size,           die1Size,           die0LastSliceSize,
-            die1LastSliceSize,  inputSliceStride,   currentRankSliceOutputOffset,
-            inputRepeatStride,  outputRepeatStride, repeatNumVar, isInputOutputEqual_};
-}
 } // namespace ops_hccl
