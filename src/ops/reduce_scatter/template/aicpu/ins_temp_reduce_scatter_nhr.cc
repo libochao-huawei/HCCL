@@ -252,20 +252,18 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
                 const u32 txIdx = st.txSliceIdxs[i]; // 算法序
                 const u32 rxIdx = st.rxSliceIdxs[i];
 
-                sizeOut = sizeOut_;
-                elemOffset = elemOffset_;
-                if (txIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize > 0) {
-                    sizeOut = sizeOutTail_;
-                    elemOffset = elemOffsetTail_;
-                }
+                const u64 txelemOffset = (txIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize > 0) ?
+                    elemOffsetTail_[channelIdx] : elemOffset_[channelIdx];
+                const u64 rxelemOffset = (rxIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize > 0) ?
+                    elemOffsetTail_[channelIdx] : elemOffset_[channelIdx];
 
-                const u64 txScOff = scratchBase + tempAlgParams_.sliceSize * txIdx + elemOffset[channelIdx]; 
-                const u64 rxScOff = scratchBase + tempAlgParams_.sliceSize * rxIdx + elemOffset[channelIdx]; 
+                const u64 txScOff = scratchBase + tempAlgParams_.sliceSize * txIdx + txelemOffset; 
+                const u64 rxScOff = scratchBase + tempAlgParams_.sliceSize * rxIdx + rxelemOffset; 
 
                 const u64 txSliceSize = (txIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize > 0) ?
-                    sizeOutTail_[channelIdx] : sizeOut[channelIdx];
+                    sizeOutTail_[channelIdx] : sizeOut_[channelIdx];
                 const u64 rxSliceSize = (rxIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize > 0) ?
-                    sizeOutTail_[channelIdx]: sizeOut[channelIdx];
+                    sizeOutTail_[channelIdx] : sizeOut_[channelIdx];
 
                 DataSlice txSrcSlice = DataSlice(tempAlgParams_.buffInfo.hcclBuff.addr, txScOff,
                     txSliceSize, txSliceSize / DATATYPE_SIZE_TABLE[dataType_]); // 发送源
