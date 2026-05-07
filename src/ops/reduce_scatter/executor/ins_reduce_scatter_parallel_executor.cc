@@ -393,6 +393,7 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     templateAlgResIntra.threads = intraThreads_;
     templateAlgResInter.threads = interThreads_;
     for (u32 loopIndex = 0; loopIndex < loopTimes; loopIndex++) {
+        CHK_RET(static_cast<HcclResult>(HcommBatchModeStart(param.algTag)));
         u64 currCount = (loopIndex == loopTimes - 1) ? (dataCount_ - loopIndex * maxCountPerLoop) : maxCountPerLoop;
         u64 dataCountPerLoopAixs0 = static_cast<u64>(dataSplitSize[0] * currCount);
         u64 dataCountPerLoopAixs1 = currCount - dataCountPerLoopAixs0;
@@ -429,6 +430,8 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
         CHK_RET(tempAlgIntra.KernelRun(param, tempAlgParamsIntra1, templateAlgResIntra));
         //尾同步
         CHK_RET(PostSyncInterThreads(controlThread_, templateMainThreads_, notifyIdxTemplatesToControl_));
+
+        CHK_RET(static_cast<HcclResult>(HcommBatchModeEnd(param.algTag)));
     }
     
 #ifndef AICPU_COMPILE
