@@ -54,7 +54,7 @@ HcclResult CcuTempAlltoAllMesh1D::CalcRes(HcclComm comm, const OpParam& param, c
     auto kernelArg = std::make_shared<CcuAlltoAllMesh1DKernel>();
     kernelArg->rankSize = subCommRanks_[0].size();
     kernelArg->rankId = mySubCommRank_;
-    kernelArg->isMc2 = param.isMc2;
+    kernelArg->loadFromMem = param.isMc2;
     kernelArg->opParam = param;
     kernelArg->subCommRanks = subCommRanks_;
     kernelInfo.setKernelArg(kernelArg);
@@ -116,9 +116,9 @@ HcclResult CcuTempAlltoAllMesh1D::FastLaunch(const OpParam& param, const Templat
     uint64_t *args = const_cast<uint64_t*>(tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs);
     constexpr u32 inputIdx = 0;
     constexpr u32 outputIdx = 1;
-    constexpr u32 inputOffsetIdx = 8;
-    constexpr u32 outputOffsetIdx = 9;
-    uint64_t argSize = 8;
+    constexpr u32 inputOffsetIdx = 10;
+    constexpr u32 outputOffsetIdx = 11;
+    uint64_t argSize = 10;
 
     args[inputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + args[inputOffsetIdx];
     args[outputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + args[outputOffsetIdx];

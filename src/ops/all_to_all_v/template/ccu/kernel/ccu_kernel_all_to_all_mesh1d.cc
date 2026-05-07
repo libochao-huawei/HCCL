@@ -70,6 +70,8 @@ static CcuResult InitResource(ReduceScatterMesh1DContext &ctx)
     CCU_CHK_RET(ccu::Alloc(&ctx.goSize.parallelParam));
     CCU_CHK_RET(ccu::Alloc(&ctx.goSize.residual));
 
+    CCU_CHK_RET(ccu::Alloc(&ctx.event));
+
     CCU_CHK_RET(ccu::CreateLoopExecutor(&ctx.enginePool, MAX_RANK_SIZE + 1));
 
     ctx.resourceAllocated = false;
@@ -175,29 +177,29 @@ static CcuResult DoAlltoAll(AlltoAllMesh1DContext &ctx)
 
     if (loadFromMem_) {
         for(uint64_t r = 0; r < rankSize_; r++) {
-            event_.SetMask(1 << r);
+            ctx.event.setMask(1 << r);
             if (r == rankId_) {
-                LocalCopyNb(myDst_, srcAddr_[r], sliceSize_, event_);
+                LocalCopyNb(myDst_, srcAddr_[r], sliceSize_, ctx.event);
             }
             else {
-                WriteNb(channels_[channelId], dstAddr_[r], srcAddr_[r], sliceSize_, event_);
+                WriteNb(channels_[channelId], dstAddr_[r], srcAddr_[r], sliceSize_, ctx.event);
                 channelId++;
             }
         }
         // 等读完所有对端
-        event_.SetMask((1 << rankSize_) - 1);
-        WaitEvent(event_);
+        ctx.event.setMask((1 << rankSize_) - 1);
+        ccu::WaitEvent(ctx.event);
     } else {
         for(uint64_t r = 0; r < rankSize_; r++) {
-            event_.SetMask(1 << r);
+            ctx.event.setMask(1 << r);
             if (r != rankId_) {
-                WriteNb(channels_[channelId], dstAddr_[r], srcAddr_[r], sliceSize_, event_);
+                WriteNb(channels_[channelId], dstAddr_[r], srcAddr_[r], sliceSize_, ctx.event);
                 channelId++;
             }
         }
         GroupCopy(myDst_, srcAddr_[rankId_], groupOpSize_);
-        event_.SetMask(allBit);
-        WaitEvent(event_);
+        ctx.event.setMask(allBit);
+        ccu::WaitEvent(ctx.event);
     }
 
     return CCU_SUCCESS;
