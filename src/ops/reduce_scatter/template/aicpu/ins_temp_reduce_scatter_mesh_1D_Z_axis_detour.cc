@@ -55,7 +55,8 @@ u64 InsTempReduceScatterMesh1DZAxisDetour::GetThreadNum() const
 {
 
     u32 threadNum = templateRankSize_ > 1 ? ((templateRankSize_ - 1) * channelsPerRank_ + 1) : 1;
-    HCCL_INFO("[InsTempReduceScatterMesh1DZAxisDetour][GetThreadNum] templateRankSize_[%u] channelsPerRank_[%u] threadNum[%u]", templateRankSize_, channelsPerRank_, threadNum);
+    HCCL_INFO("[InsTempReduceScatterMesh1DZAxisDetour][GetThreadNum] templateRankSize_[%u] channelsPerRank_[%u] threadNum[%u]",
+              templateRankSize_, channelsPerRank_, threadNum);
     return threadNum;
 }
 
@@ -80,9 +81,10 @@ HcclResult InsTempReduceScatterMesh1DZAxisDetour::SetchannelsPerRank(
         level0ChannelNumPerRank_ = MESH_CHANNELS_NUM;
         level1ChannelNumPerRank_ = channelsPerRank_ - level0ChannelNumPerRank_;
         level0DataRatio_ = 0.5f;
-        HCCL_INFO("[InsTempReduceScatterMesh1DZAxisDetour][SetchannelsPerRank], channelsPerRank_[%u]", channelsPerRank_);
     }
-    HCCL_INFO("[InsTempReduceScatterMesh1DZAxisDetour][SetchannelsPerRank], channelsPerRank_[%u] ", channelsPerRank_);
+    HCCL_INFO("[InsTempReduceScatterMesh1DZAxisDetour][SetchannelsPerRank], channelsPerRank_[%u]"
+              "level0ChannelNumPerRank_[%zu], level1ChannelNumPerRank_[%zu], level0DataRatio_[%zu]",
+              channelsPerRank_, level0ChannelNumPerRank_, level1ChannelNumPerRank_, level0DataRatio_);
     return HCCL_SUCCESS;
 }
 
