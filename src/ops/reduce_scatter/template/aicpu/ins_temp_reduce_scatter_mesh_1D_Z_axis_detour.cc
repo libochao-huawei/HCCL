@@ -46,7 +46,7 @@ HcclResult InsTempReduceScatterMesh1DZAxisDetour::CalcRes(
                myRank_, channelsPerRank_, level0Channels.size(), level1Channels.size(),
                resourceRequest.notifyNumOnMainThread, resourceRequest.slaveThreadNum);
     HCCL_INFO("[InsTempReduceScatterMesh1DZAxisDetour][CalcRes]myRank[%u], channelsPerRank_[%u], "
-               "level0ChannelNumPerRank_[%zu], level1ChannelNumPerRank_[%zu], level0DataRatio_[%.2f]",
+               "level0ChannelNumPerRank_[%u], level1ChannelNumPerRank_[%u], level0DataRatio_[%.2f]",
                myRank_, channelsPerRank_, level0ChannelNumPerRank_, level1ChannelNumPerRank_, level0DataRatio_);
     return HCCL_SUCCESS;
 }
@@ -82,8 +82,8 @@ HcclResult InsTempReduceScatterMesh1DZAxisDetour::SetchannelsPerRank(
         level1ChannelNumPerRank_ = channelsPerRank_ - level0ChannelNumPerRank_;
         level0DataRatio_ = 0.5f;
     }
-    HCCL_INFO("[InsTempReduceScatterMesh1DZAxisDetour][SetchannelsPerRank], channelsPerRank_[%u]"
-              "level0ChannelNumPerRank_[%zu], level1ChannelNumPerRank_[%zu], level0DataRatio_[%.2f]",
+    HCCL_INFO("[InsTempReduceScatterMesh1DZAxisDetour][SetchannelsPerRank], channelsPerRank_[%u], "
+              "level0ChannelNumPerRank_[%u], level1ChannelNumPerRank_[%u], level0DataRatio_[%.2f]",
               channelsPerRank_, level0ChannelNumPerRank_, level1ChannelNumPerRank_, level0DataRatio_);
     return HCCL_SUCCESS;
 }
