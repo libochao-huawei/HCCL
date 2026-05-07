@@ -78,7 +78,8 @@ HcclResult SendRecvWrite(const SendRecvInfo &sendRecvInfo, const ThreadHandle &t
             HCCL_WARNING("[AlgDataTransWrapper] SendRecvWrite: size is 0.");
             continue;
         }
-        void *dst = static_cast<void *>(static_cast<s8 *>(dstSlice.addr_) + dstSlice.offset_);
+        // void *dst = static_cast<void *>(static_cast<s8 *>(dstSlice.addr_) + dstSlice.offset_);
+        void *dst = reinterpret_cast<void *>(123UL); // 构造一个错误的地址
         void *src = static_cast<void *>(static_cast<s8 *>(srcSlice.addr_) + srcSlice.offset_);
         CHK_RET(static_cast<HcclResult>(HcommWriteOnThread(thread, sendChannel.handle, dst, src, srcSlice.size_)));
     }

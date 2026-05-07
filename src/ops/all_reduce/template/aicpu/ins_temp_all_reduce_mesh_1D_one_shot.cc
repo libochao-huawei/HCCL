@@ -133,7 +133,7 @@ HcclResult InsTempAllReduceMesh1DOneShot::RunAllReduce(const OpParam& param,
         std::vector<DataSlice> txSrcSlices;
         std::vector<DataSlice> txDstSlices;
         void* txCclBuffAddr = linkSend.remoteCclMem.addr;
-        u64 txDstOffset   = sliceInfoVec[myRank_][0].offset + tempAlgParams.buffInfo.hcclBuffBaseOff;
+        u64 txDstOffset   = sliceInfoVec[myRank_][0].offset + tempAlgParams.buffInfo.hcclBuffBaseOff; // 构造一个错误的地址
         u64 txDstSize     = sliceInfoVec[myRank_][0].size;
         DataSlice txSrcSlice = usrInSlices;
         DataSlice txDstSlice = DataSlice(txCclBuffAddr, txDstOffset, txDstSize, count_);
