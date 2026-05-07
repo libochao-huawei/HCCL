@@ -795,13 +795,59 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
                          std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, void** resCtxSequence, bool &isResourceReused)
 {
     HCCL_INFO("Start to execute HcclGetAlgRes.");
-
+    uint64_t size = 0;
     bool increCreateChannelFlag = false;
+    CHK_RET(CtxReuseProcess(comm, param, resCtxSequence, isResourceReused, size, increCreateChannelFlag));
+    // 计算AlgHierarchyInfo
+    AlgHierarchyInfoForAllLevel algHierarchyInfo;  // 分级通信域信息{localRankId, localRankSize}
+    CHK_RET(executor->CalcAlgHierarchyInfo(comm, topoInfo, algHierarchyInfo));
+    // 资源计算
+    AlgResourceRequest resRequest;
+    CHK_RET(executor->CalcRes(comm, param, topoInfo, algHierarchyInfo, resRequest));
+
+    // 参数一致性校验准备工作
+    // HCCL_DFS_CONFIG 为 off 以及 HCCL_DFS_CONFIG 为 first 或空但非首算子时不校验
+    // HCCL_DFS_CONFIG 不为 off 时增量建链模式每次下算子均校验
+    std::string inconsistentCheckSwitch = "";
+    CHK_RET(ParseSingleItemFromDFSConfig("inconsistent_check:", inconsistentCheckSwitch));
+    OpExchangeInfo exchangeInfo{};
+    std::string tagStr = param.algTag;
+    bool isChecked = (inconsistentCheckSwitch == "first" || inconsistentCheckSwitch == "") &&
+        (g_consistencyCheckedList.find(tagStr) != g_consistencyCheckedList.end());
+    if (inconsistentCheckSwitch == "off" || (isChecked && !increCreateChannelFlag)) {
+        isChecked = true; // isChecked 为 false 时做参数比较
+    } else {
+        CHK_RET(FillOpExchangeInfo(comm, param, exchangeInfo));
+        CHK_RET(HcclCommAddExchangeInfo(comm, &exchangeInfo, sizeof(exchangeInfo)));
+        g_consistencyCheckedList.insert(tagStr);
+        isChecked = false;
+    }
+
+    CHK_RET(GetAlgResWithEngine(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence, size,
+        increCreateChannelFlag));
+
+    // 参数一致性校验
+    if (!isChecked) {
+        if (param.engine != COMM_ENGINE_CCU) {
+            for (u32 level = 0; level < resRequest.channels.size(); level++) {
+                CHK_RET(CompareOpExchangeInfos(comm, exchangeInfo, resRequest.channels[level]));
+            }
+        } else {
+            for (CcuKernelInfo& kernelInfo: resRequest.ccuKernelInfos) {
+                CHK_RET(CompareOpExchangeInfos(comm, exchangeInfo, kernelInfo.channels));
+            }
+        }
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult CtxReuseProcess(HcclComm comm, OpParam &param, void **resCtxSequence, bool &isResourceReused, void **resCtxSequence,
+    uint64_t &size, bool &increCreateChannelFlag)
+{
     if (param.opType == HcclCMDType::HCCL_CMD_BATCH_SEND_RECV && param.opMode == OpMode::OPBASE) {
         // 增量建链模式
         increCreateChannelFlag = true;
     }
-    uint64_t size = 0;
     // 图模式不支持资源复用，且不存在增量建链场景
     if (!increCreateChannelFlag && param.opMode == OpMode::OPBASE) {
         void *ctx = nullptr;
@@ -822,30 +868,13 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
             return HCCL_SUCCESS;
         }
     }
+    return HCCL_SUCCESS;
+}
 
-    // 计算AlgHierarchyInfo
-    AlgHierarchyInfoForAllLevel algHierarchyInfo;  // 分级通信域信息{localRankId, localRankSize}
-    CHK_RET(executor->CalcAlgHierarchyInfo(comm, topoInfo, algHierarchyInfo));
-    // 资源计算
-    AlgResourceRequest resRequest;
-    CHK_RET(executor->CalcRes(comm, param, topoInfo, algHierarchyInfo, resRequest));
-
-    // 参数一致性校验准备工作，HCCL_DFS_CONFIG 默认为 first
-    // HCCL_DFS_CONFIG == off 以及 HCCL_DFS_CONFIG == first 但非首算子时不校验
-    std::string inconsistentCheckSwitch;
-    CHK_RET(ParseSingleItemFromDFSConfig("inconsistent_check:", inconsistentCheckSwitch));
-    OpExchangeInfo exchangeInfo{};
-    std::string tagStr = param.algTag;
-    bool isChecked = (g_consistencyCheckedList.find(tagStr) != g_consistencyCheckedList.end());\
-    if (inconsistentCheckSwitch == "off" || (isChecked && inconsistentCheckSwitch == "first")) {
-        isChecked = true; // isChecked 为 false 时做参数比较
-    } else {
-        CHK_RET(FillOpExchangeInfo(comm, param, exchangeInfo));
-        CHK_RET(HcclCommAddExchangeInfo(comm, &exchangeInfo, sizeof(exchangeInfo)));
-        g_consistencyCheckedList.insert(tagStr);
-        isChecked = false;
-    }
-
+HcclResult GetAlgResWithEngine(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
+    std::unique_ptr<AlgResourceCtxSerializable> &resCtxHost, TopoInfoWithNetLayerDetails *topoInfo,
+    AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence, uint64_t &size, bool increCreateChannelFlag)
+{
     // host侧资源
     if (param.engine == COMM_ENGINE_RESERVED) {
         // COMM_ENGINE_RESERVED
@@ -873,20 +902,6 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
         return HCCL_E_PARA;
     }
     param.ctxSize = size;
-
-    // 参数一致性校验
-    if (!isChecked) {
-        if (param.engine != COMM_ENGINE_CCU) {
-            for (u32 level = 0; level < resRequest.channels.size(); level++) {
-                CHK_RET(CompareOpExchangeInfos(comm, exchangeInfo, resRequest.channels[level]));
-            }
-        } else {
-            for (CcuKernelInfo& kernelInfo: resRequest.ccuKernelInfos) {
-                CHK_RET(CompareOpExchangeInfos(comm, exchangeInfo, kernelInfo.channels));
-            }
-        }
-    }
-
     return HCCL_SUCCESS;
 }
 
@@ -1507,7 +1522,7 @@ HcclResult GetAlgResDPU(HcclComm comm, const OpParam &param, AlgResourceRequest 
     return HCCL_SUCCESS;
 }
 
-HcclResult ParseSingleItemFromDFSConfig(const std::string& configName, std::string& configResult)
+HcclResult ParseSingleItemFromDFSConfig(const std::string &configName, std::string &configResult)
 {
     char *dfsConfigValue = nullptr;
     MM_SYS_GET_ENV(MM_ENV_HCCL_DFS_CONFIG, dfsConfigValue);
@@ -1541,26 +1556,7 @@ HcclResult FillOpExchangeInfo(HcclComm comm, const OpParam &param, OpExchangeInf
     exchangeInfo.engine = param.engine;
     exchangeInfo.opExecuteConfig = param.opExecuteConfig;
     exchangeInfo.reduceType = param.reduceType;
-    switch (param.opType) {
-        case HcclCMDType::HCCL_CMD_BATCH_SEND_RECV:
-            break;
-        case HcclCMDType::HCCL_CMD_ALLTOALL:
-            exchangeInfo.dataType = param.all2AllVDataDes.sendType;
-            exchangeInfo.count = static_cast<u64*>(param.all2AllVDataDes.sendCounts)[0];
-            break;
-        case HcclCMDType::HCCL_CMD_ALLTOALLV:
-        case HcclCMDType::HCCL_CMD_ALLTOALLVC:
-            exchangeInfo.dataType = param.all2AllVDataDes.sendType;
-            break;
-        case HcclCMDType::HCCL_CMD_ALLGATHER_V:
-        case HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V:
-            exchangeInfo.dataType = param.vDataDes.dataType;
-            break;
-        default:
-            exchangeInfo.dataType = param.DataDes.dataType;
-            exchangeInfo.count = param.DataDes.count;
-            break;
-    }
+    CHK_RET(FillOpExchangeInfoWithDataDes(param, exchangeInfo));
     if (param.opMode == OpMode::OFFLOAD) {
         AivParamStorage *aivParam = nullptr;
         HcclResult ret = GetAivParamStorageByComm(comm, &aivParam);
@@ -1589,6 +1585,31 @@ HcclResult FillOpExchangeInfo(HcclComm comm, const OpParam &param, OpExchangeInf
         exchangeInfo.engine, exchangeInfo.opExecuteConfig, exchangeInfo.reduceType,
         exchangeInfo.dataType, exchangeInfo.count, exchangeInfo.aivCoreLimit,
         exchangeInfo.group, exchangeInfo.algTag, exchangeInfo.sendRecvRemoteRank);
+    return HCCL_SUCCESS;
+}
+
+HcclResult FillOpExchangeInfoWithDataDes(const OpParam &param, OpExchangeInfo &exchangeInfo)
+{
+    switch (param.opType) {
+        case HcclCMDType::HCCL_CMD_BATCH_SEND_RECV:
+            break;
+        case HcclCMDType::HCCL_CMD_ALLTOALL:
+            exchangeInfo.dataType = param.all2AllVDataDes.sendType;
+            exchangeInfo.count = static_cast<u64*>(param.all2AllVDataDes.sendCounts)[0];
+            break;
+        case HcclCMDType::HCCL_CMD_ALLTOALLV:
+        case HcclCMDType::HCCL_CMD_ALLTOALLVC:
+            exchangeInfo.dataType = param.all2AllVDataDes.sendType;
+            break;
+        case HcclCMDType::HCCL_CMD_ALLGATHER_V:
+        case HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V:
+            exchangeInfo.dataType = param.vDataDes.dataType;
+            break;
+        default:
+            exchangeInfo.dataType = param.DataDes.dataType;
+            exchangeInfo.count = param.DataDes.count;
+            break;
+    }
     return HCCL_SUCCESS;
 }
 
