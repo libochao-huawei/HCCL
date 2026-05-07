@@ -392,8 +392,18 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     ThreadHandle *threads = ctx->GetThreadHandlePtr();
     threads_.assign(threads, threads + ctx->threadNum);
     u64 meshThreadsNum = tempAlg0.GetThreadNum(); // check流数
+    if (meshThreadsNum > threads_.size()) {
+        HCCL_ERROR("[InsV2AllReduceConcurrentExecutor][FastLaunch] meshThreadsNum[%llu] exceeds available threads[%llu]", 
+                meshThreadsNum, threads_.size());
+        return HCCL_E_PARA;
+    }
     temp0Threads_.assign(threads_.begin(), threads_.begin() + meshThreadsNum); // 从0开始前meshThreadNum是mesh的流
     temp1Threads_.assign(threads_.begin() + meshThreadsNum, threads_.end()); // 后面几个是nhr的流
+    // 检查线程向量是否为空
+    if (temp0Threads_.empty() || temp1Threads_.empty()) {
+        HCCL_ERROR("[InsV2AllReduceConcurrentExecutor][FastLaunch] temp0Threads_ or temp1Threads_ is empty");
+        return HCCL_E_INTERNAL;
+    }
     temp0ThreadMain_ = temp0Threads_.at(0);
     temp1ThreadMain_ = temp1Threads_.at(0);
 
