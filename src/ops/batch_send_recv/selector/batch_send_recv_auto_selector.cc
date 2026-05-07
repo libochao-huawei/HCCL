@@ -13,16 +13,28 @@
 
 namespace ops_hccl {
 
-SelectorStatus BatchSendRecvAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerDetails* topoInfo,
-                                                      const OpParam &opParam,
-                                                      const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
-                                                      std::string &selectAlgName) const
+SelectorStatus BatchSendRecvAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerDetails *topoInfo,
+    const OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+    std::string &selectAlgName) const
 {
     HCCL_DEBUG("[BatchSendRecvAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
     (void)opParam;
     (void)configAlgMap;
 
     selectAlgName = "InsBatchSendRecv";
+    HCCL_DEBUG("[BatchSendRecvAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
+    return SelectorStatus::MATCH;
+}
+
+SelectorStatus BatchSendRecvAutoSelector::SelectDPUAlgo(const TopoInfoWithNetLayerDetails *topoInfo,
+    const OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
+    std::string &selectAlgName) const
+{
+    HCCL_DEBUG("[BatchSendRecvAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
+    (void)opParam;
+    (void)configAlgMap;
+
+    selectAlgName = "InsBatchSendRecvDPU";
     HCCL_DEBUG("[BatchSendRecvAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
     return SelectorStatus::MATCH;
 }
