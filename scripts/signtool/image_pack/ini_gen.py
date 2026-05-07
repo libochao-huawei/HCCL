@@ -25,6 +25,27 @@ def get_args():
     return parser.parse_args()
 
 
+def validate_path(path, allow_absolute=False):
+    """验证路径安全性，防止路径遍历攻击"""
+    if not path:
+        return None
+
+    # 归一化路径
+    normalized_path = os.path.normpath(path)
+
+    # 检查是否包含路径遍历
+    if '..' in normalized_path.split(os.sep):
+        print(f"Error: Path contains '..' (path traversal): {path}")
+        return None
+
+    # 如果不允许绝对路径，检查是否为绝对路径
+    if not allow_absolute and os.path.isabs(normalized_path):
+        print(f"Error: Absolute path not allowed: {path}")
+        return None
+
+    return normalized_path
+
+
 def cal_image_hash(filepath):
     sha256_hash = hashlib.sha256()
     with open(filepath, "rb") as f:
@@ -48,8 +69,14 @@ def gen_ini():
     tree = ET.ElementTree(file=args.inFilePath)
     if tree.getroot().tag != 'image_info':
         print("error in input xml file")
+        return -1
     if args.hash_list:
-        hash_list_path = os.path.join(args.hash_list_path, ('{}.img'.format('hash-list')))
+        # 验证 hash_list_path 路径安全性
+        validated_path = validate_path(args.hash_list_path)
+        if validated_path is None:
+            print("Error: Invalid hash_list_path")
+            return -1
+        hash_list_path = os.path.join(validated_path, ('{}.img'.format('hash-list')))
         if (os.path.exists(hash_list_path)) :
             os.remove(hash_list_path)
         for elem in tree.iter(tag='image'):
@@ -92,8 +119,14 @@ def update_hash():
     print("update_hash")
     if tree.getroot().tag != 'image_info':
         print("error in input xml file")
+        return -1
     if args.new_image_name:
-        hash_list_path = args.hash_list_img_path
+        # 验证 hash_list_img_path 路径安全性（允许绝对路径）
+        validated_path = validate_path(args.hash_list_img_path, allow_absolute=True)
+        if validated_path is None:
+            print("Error: Invalid hash_list_img_path")
+            return -1
+        hash_list_path = validated_path
         if (os.path.exists(hash_list_path)) :
             for elem in tree.iter(tag='image'):
                 if elem.attrib['tag'] == args.new_image_name:

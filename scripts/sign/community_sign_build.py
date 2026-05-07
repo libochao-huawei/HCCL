@@ -71,13 +71,15 @@ def _help():
     print("  %s: 待签名的文件路径,支持多target,各target以空格分开" % ("target".ljust(8)))
     print("====================================== END =====================================")
 
-def get_sign_cmd(file, rootdir) -> str:
+def get_sign_cmd(file, rootdir) -> List[str]:
     """获取签名命令。"""
     sign_crl = os.path.join(rootdir, "scripts/signtool/signature/SWSCRL.crl")
-    sign_command = ("sudo /home/jenkins/signatrust_client/signatrust_client --config /home/jenkins/signatrust_client/client.toml add "
-                    "--file-type p7s --key-type x509 --key-name SignCert --detached ")
-    sign_suffix=" --timestamp-key TimeCert --crl "
-    cmd = "{} {} {} {}".format(sign_command, file, sign_suffix, sign_crl)
+    sign_command = ["sudo", "/home/jenkins/signatrust_client/signatrust_client",
+                    "--config", "/home/jenkins/signatrust_client/client.toml", "add",
+                    "--file-type", "p7s", "--key-type", "x509",
+                    "--key-name", "SignCert", "--detached"]
+    sign_suffix = ["--timestamp-key", "TimeCert", "--crl", sign_crl]
+    cmd = sign_command + [file] + sign_suffix
     return cmd
 
 def _run_sign(inputfiles, rootdir):
@@ -90,8 +92,8 @@ def _run_sign(inputfiles, rootdir):
             continue
         cmd = get_sign_cmd(file, rootdir)
 
-        logging.info("run sign cmd %s in %s", cmd, mypath)
-        result = subprocess.run(cmd, cwd=mypath, shell=True, check=False, stdout=PIPE, stderr=STDOUT)
+        logging.info("run sign cmd %s in %s", " ".join(cmd), mypath)
+        result = subprocess.run(cmd, cwd=mypath, shell=False, check=False, stdout=PIPE, stderr=STDOUT)
         if 0 != result.returncode:
             logging.error(result.stdout.decode())
             logging.error("file %s signed error",file)

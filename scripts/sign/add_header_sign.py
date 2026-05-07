@@ -228,12 +228,13 @@ def build_inifile(item_size_set, sign_file_dir, bios_tool_path,
                                    % (inputfile, output_path, conf_item.tag, os.path.basename(infile)))
             read_cfg.write("</image_info>\n")
         gen_tool = os.path.join(bios_tool_path, "ini_gen.py")
-        cmd = "%s %s -in_xml %s" % (os.environ["HI_PYTHON"], gen_tool, inicfg)
+        cmd = [os.environ["HI_PYTHON"], gen_tool, "-in_xml", inicfg]
 
     if add_sign == "true" and cms_flag:
         COMM_LOG.cilog_info(THIS_FILE_NAME, "------------------------------------")
-        COMM_LOG.cilog_info(THIS_FILE_NAME, "execute:%s", cmd)
-        ret = subprocess.getstatusoutput(cmd)
+        COMM_LOG.cilog_info(THIS_FILE_NAME, "execute:%s", " ".join(cmd))
+        result = subprocess.run(cmd, stdout=PIPE, stderr=STDOUT, check=False)
+        ret = (result.returncode, result.stdout.decode())
         if ret[0] != 0:
             COMM_LOG.cilog_error(THIS_FILE_NAME, "build inifile failed!\n\t%s", (ret[1]))
             return -1
@@ -253,8 +254,9 @@ def build_sign(item_size_set, sign_file_dir, sign_tool_path, sign_tmp_path, root
     for (infile, conf_item) in list(item_size_set.items()):
         input_path = os.path.join(sign_file_dir, infile)
         if os.path.exists(input_path):
-            cmd = "ls {}".format(input_path)
-            ret = subprocess.getstatusoutput(cmd)
+            cmd = ["ls", input_path]
+            result = subprocess.run(cmd, stdout=PIPE, stderr=STDOUT, check=False)
+            ret = (result.returncode, result.stdout.decode())
             if ret[0] != 0:
                 COMM_LOG.cilog_warning(THIS_FILE_NAME, "can not find %s in %s \n\t%s", input_path, sign_file_dir,
                                        ret[1])
@@ -267,7 +269,6 @@ def build_sign(item_size_set, sign_file_dir, sign_tool_path, sign_tmp_path, root
             if sign in sign_dict:
                 sign_dict[sign].append(infile)  # 需要签名的文件都写入这个字典中，前面已判断文件是否存在
     # 只制作cms签名
-    cmd = ''
     for file in sign_dict["cms"]:
         # 如果没配置sign_alg属性，默认使用RSA_PSS算法签名
         file_with_path = os.path.join(sign_file_dir, file)
@@ -295,16 +296,14 @@ def build_sign(item_size_set, sign_file_dir, sign_tool_path, sign_tmp_path, root
         file_sign_des = "{}.ini".format(os.path.join(sign_path, os.path.basename(file)))
         print(file_sign_des)
         # 蓝区签名平台，命令不一样
-        if not cmd:
-            cmd = "{} {} {} {}".format(os.environ["HI_PYTHON"], sign_tool_path, root_dir, file_sign_des)
-        else:
-            cmd = '{} {}'.format(cmd, file_sign_des)
+        cmd = [os.environ["HI_PYTHON"], sign_tool_path, root_dir, file_sign_des]
 
-        # 调用签名平台分别对文件进行CMS签名
+        # 调用签名平台对文件进行CMS签名
         COMM_LOG.cilog_info(THIS_FILE_NAME, "------------------------------------")
-        COMM_LOG.cilog_info(THIS_FILE_NAME, "execute:%s", cmd)
+        COMM_LOG.cilog_info(THIS_FILE_NAME, "execute:%s", " ".join(cmd))
         # 签名后会在ini文件通目录下生成p7s文件，比如a.ini=>a.ini.p7s
-        ret = subprocess.getstatusoutput(cmd)
+        result = subprocess.run(cmd, stdout=PIPE, stderr=STDOUT, check=False)
+        ret = (result.returncode, result.stdout.decode())
         if ret[0] != 0:
             COMM_LOG.cilog_error(THIS_FILE_NAME, "make %s sign failed!\n\t%s", sign, ret[1])
             return -1
@@ -331,14 +330,18 @@ def add_bios_esbc_header(root_dir, item_size_set, sign_file_dir):
         input_file = os.path.join(sign_file_dir, input_filename)
 
         if conf_item.nvcnt:
-            cmd = f'sudo {os.environ["HI_PYTHON"]} {os.path.join(bios_esbc_header_tool_path, "esbc_header.py")}'
-            # 用esbc_header.py工具脚本添加esbc头
-            cmd += f" -raw_img {input_file} -out_img {input_file}"
-            cmd += f" -version {conf_item.version} -nvcnt {conf_item.nvcnt} -tag {conf_item.tag}"
+            cmd = ["sudo", os.environ["HI_PYTHON"],
+                   os.path.join(bios_esbc_header_tool_path, "esbc_header.py"),
+                   "-raw_img", input_file,
+                   "-out_img", input_file,
+                   "-version", conf_item.version,
+                   "-nvcnt", conf_item.nvcnt,
+                   "-tag", conf_item.tag]
 
             COMM_LOG.cilog_info(THIS_FILE_NAME, "------------------------------------")
-            COMM_LOG.cilog_info(THIS_FILE_NAME, "execute:%s", cmd)
-            ret = subprocess.getstatusoutput(cmd)
+            COMM_LOG.cilog_info(THIS_FILE_NAME, "execute:%s", " ".join(cmd))
+            result = subprocess.run(cmd, stdout=PIPE, stderr=STDOUT, check=False)
+            ret = (result.returncode, result.stdout.decode())
             if ret[0] != 0:
                 COMM_LOG.cilog_error(THIS_FILE_NAME, "add %s esbc header failed!\n\t%s", input_file, ret[1])
                 return -1
@@ -360,10 +363,11 @@ def convert_der_file(crl_file: str, der_file: str) -> int:
             print(f"[ERROR] Input CRL file not found: {crl_file}")
             return 1
         # 调用 openssl 转换
-        cmd = f"openssl crl -in {crl_file} -outform DER -out {der_file}"
-        result = subprocess.getstatusoutput(cmd)
-        if result[0] != 0:
-            print(f"[ERROR] OpenSSL conversion failed: {result[1]}")
+        cmd = ["openssl", "crl", "-in", crl_file, "-outform", "DER", "-out", der_file]
+        result = subprocess.run(cmd, stdout=PIPE, stderr=STDOUT, check=False)
+        ret = (result.returncode, result.stdout.decode())
+        if ret[0] != 0:
+            print(f"[ERROR] OpenSSL conversion failed: {ret[1]}")
             return 1
         # print(f"[INFO] DER file created at: {der_output_path}")
         return 0
@@ -423,36 +427,43 @@ def add_bios_header(item_size_set, sign_file_dir, bios_tool_path, sign_tool_path
         sign_file = os.path.realpath(os.path.join(sign_tmp_path, relative_path))
         sign_path = os.path.dirname(sign_file)
 
-        cmd = "sudo {} {}".format(os.environ["HI_PYTHON"], os.path.join(bios_tool_path, "image_pack.py"))
-        add_cmd = conf_item.additional
+        cmd = ["sudo", os.environ["HI_PYTHON"], os.path.join(bios_tool_path, "image_pack.py")]
+
         # 镜像绑定cms签名,用image_pack.py工具脚本绑定cms签名信息
         if add_sign != "true" or conf_item.type == '':
-            cmd = cmd + " -raw_img %s -out_img %s -version %s -nvcnt %s -tag %s" \
-                  % (input_file, input_file, conf_item.version, conf_item.nvcnt, conf_item.tag)
+            cmd.extend(["-raw_img", input_file, "-out_img", input_file,
+                        "-version", conf_item.version, "-nvcnt", conf_item.nvcnt, "-tag", conf_item.tag])
             if conf_item.position != "":
-                cmd = cmd + " -position %s" % (conf_item.position)
+                cmd.extend(["-position", conf_item.position])
         elif add_sign == "true" and conf_item.type != "":
             # 原代码支持/分割多种签名方式，实际只能一种，暂时保持不变，后续统一黄区代码时再优化
             for sign in conf_item.type.split('/'):
-                cmd = cmd + " -raw_img %s -out_img %s -version %s -nvcnt %s -tag %s %s" \
-                      % (input_file, input_file, conf_item.version, conf_item.nvcnt, conf_item.tag, add_cmd)
+                cmd.extend(["-raw_img", input_file, "-out_img", input_file,
+                            "-version", conf_item.version, "-nvcnt", conf_item.nvcnt, "-tag", conf_item.tag])
+                # 处理additional参数（XML配置中的additional字段）
+                if conf_item.additional:
+                    # additional参数可能包含多个空格分隔的选项，需要安全解析
+                    additional_parts = conf_item.additional.split()
+                    cmd.extend(additional_parts)
 
                 if sign == "cms":
                     # 临时目录下的ini文件
                     ini_file = os.path.join(sign_path, os.path.basename(input))
                     # certtype 1 表示社区前面
-                    cmd = cmd + " -cms %s.ini.p7s -ini %s.ini -crl %s -certtype 1 --addcms" \
-                          % (ini_file, ini_file, der_file)
+                    cmd.extend(["-cms", "{}.ini.p7s".format(ini_file),
+                                "-ini", "{}.ini".format(ini_file),
+                                "-crl", der_file, "-certtype", "1", "--addcms"])
                     if conf_item.position != "":
-                        cmd = cmd + " -position %s" % (conf_item.position)
+                        cmd.extend(["-position", conf_item.position])
         else:
             COMM_LOG.cilog_error(THIS_FILE_NAME,
                                  "bios_check_cfg.xml config format is invalid, %s is not correct!,please check!",
                                  input_file)
             return -1
         COMM_LOG.cilog_info(THIS_FILE_NAME, "------------------------------------")
-        COMM_LOG.cilog_info(THIS_FILE_NAME, "execute:%s", cmd)
-        ret = subprocess.getstatusoutput(cmd)
+        COMM_LOG.cilog_info(THIS_FILE_NAME, "execute:%s", " ".join(cmd))
+        result = subprocess.run(cmd, stdout=PIPE, stderr=STDOUT, check=False)
+        ret = (result.returncode, result.stdout.decode())
         if ret[0] != 0:
             COMM_LOG.cilog_error(THIS_FILE_NAME, "add %s header failed!\n\t%s", input_file, ret[1])
             return -1
