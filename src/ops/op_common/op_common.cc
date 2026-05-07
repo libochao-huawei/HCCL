@@ -516,6 +516,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
 
     ThreadHandle cpuTsThread{0};
     ThreadHandle exportedAicpuTsThread{0};
+
     if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
         CHK_RET(HcclThreadAcquireWithStream(comm, COMM_ENGINE_CPU_TS, param.stream, 1, &cpuTsThread));
         // Export cpuTsThread
@@ -539,6 +540,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     ThreadHandle exportedCpuTsThread;
     ThreadHandle mainThread;
     u32 notifyNumOnMainThread;
+
     if ((param.engine == COMM_ENGINE_AICPU_TS) || (param.engine == COMM_ENGINE_CPU)) {
         // 获取主流信息
         CHK_RET(GetMainThreadInfo(comm, param, mainThread, notifyNumOnMainThread));
