@@ -937,6 +937,8 @@ HcclResult GetAlgResAICPU(HcclComm comm, const OpParam &param, AlgResourceReques
             if (ret == HCCL_SUCCESS) {
                 *resCtxSequence = ctx;
                 ctxSize = size;
+                // 算子参数信息已注册，但BatchSendRecv在此处判断资源可复用，不会进行数据交换即不会被读清，需要手动reset
+                CHK_RET(HcclCommResetExchangeInfo(comm));
             } else {
                 HCCL_ERROR("failed to get device ctx.");
             }
