@@ -1635,18 +1635,7 @@ HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeI
             CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "RootRankId", exchangeInfo.root,
                 rmtExchangeInfo.root));
         }
-        if (exchangeInfo.opType == HcclCMDType::HCCL_CMD_SEND &&
-            rmtExchangeInfo.opType != HcclCMDType::HCCL_CMD_RECEIVE) {
-            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "HcclCMDType",
-                static_cast<uint32_t>(HcclCMDType::HCCL_CMD_RECEIVE), static_cast<uint32_t>(rmtExchangeInfo.opType)));
-        } else if (exchangeInfo.opType == HcclCMDType::HCCL_CMD_RECEIVE &&
-            rmtExchangeInfo.opType != HcclCMDType::HCCL_CMD_SEND) {
-            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "HcclCMDType",
-                static_cast<uint32_t>(HcclCMDType::HCCL_CMD_SEND), static_cast<uint32_t>(rmtExchangeInfo.opType)));
-        } else if (exchangeInfo.opType != rmtExchangeInfo.opType) {
-            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "HcclCMDType",
-                static_cast<uint32_t>(exchangeInfo.opType), static_cast<uint32_t>(rmtExchangeInfo.opType)));
-        }
+        CHK_RET(ConsistencyCheckOpType(exchangeInfo, rmtExchangeInfo.opType));
         if (exchangeInfo.engine != rmtExchangeInfo.engine) {
             CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "CommEngine",
                 static_cast<uint32_t>(exchangeInfo.engine), static_cast<uint32_t>(rmtExchangeInfo.engine)));
@@ -1688,6 +1677,25 @@ HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeI
         }
     }
     HCCL_INFO("[%s] success. exchangeInfo.algTag[%s]", __func__, exchangeInfo.algTag);
+    return HCCL_SUCCESS;
+}
+
+HcclResult ConsistencyCheckOpType(const OpExchangeInfo &exchangeInfo, const HcclCMDType &rmtOpType)
+{
+    HcclCMDType locOpType = exchangeInfo.opType;
+    if (locOpType == HcclCMDType::HCCL_CMD_SEND || locOpType == HcclCMDType::HCCL_CMD_RECEIVE) {
+        // HcclCMDType::HCCL_CMD_SEND和HcclCMDType::HCCL_CMD_SEND的枚举值需确保大于等于0
+        uint32_t expectValue = static_cast<uint32_t>(HcclCMDType::HCCL_CMD_SEND) +
+            static_cast<uint32_t>(HcclCMDType::HCCL_CMD_RECEIVE) - static_cast<uint32_t>(locOpType);
+        if ((rmtOpType != HcclCMDType::HCCL_CMD_SEND && rmtOpType != HcclCMDType::HCCL_CMD_RECEIVE) ||
+            locOpType == rmtOpType) {
+            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "HcclCMDType", expectValue,
+                static_cast<uint32_t>(rmtOpType)));
+        }
+    } else if (locOpType != rmtOpType) {
+        CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "HcclCMDType",
+            static_cast<uint32_t>(locOpType), static_cast<uint32_t>(rmtOpType)));
+    }
     return HCCL_SUCCESS;
 }
 
