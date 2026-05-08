@@ -35,10 +35,10 @@ struct ReduceScatterMesh1DContext: CcuKernelCtxBase {
     HcclDataType outputDataType;
     HcclReduceOp reduceOp;
     // std::vector<ChannelHandle> channels;
-    std::vector<CcuVariable> input;
-    CcuVariable output;
-    std::vector<CcuVariable> token;
-    CcuVariable offset;
+    std::vector<ccu::Variable> input;
+    ccu::Variable output;
+    std::vector<ccu::Variable> token;
+    ccu::Variable offset;
     GroupOpSizeVars goSize;
 
     // LoopGroupConfig  moConfig;
@@ -52,8 +52,8 @@ struct ReduceScatterMesh1DContext: CcuKernelCtxBase {
     //ccu::LocalAddr loopDst[2];
     //ccu::LocalAddr loopSrc[2];
     //ccu::LocalAddr loopScratch[2][CCU_MAX_RANK_SIZE];
-    //CcuVariable  loopLen[2];
-    //CcuVariable  loopLenExp[2];
+    //ccu::Variable  loopLen[2];
+    //ccu::Variable  loopLenExp[2];
 };
 
 CcuResult CcuReduceScatterMesh1DKernel(CcuKernelArg arg);
