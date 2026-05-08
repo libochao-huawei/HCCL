@@ -29,6 +29,7 @@
 #endif
 #include "hccl_device_comm_dl.h"
 #include "exec_timeout_manager.h"
+#include "alg_data_trans_wrapper.h"
 
 using namespace ops_hccl;
 namespace {
@@ -251,7 +252,8 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         HCCL_ERROR("%s param is nullptr", __func__);
         return 1;
     }
-    HCCL_INFO("Entry-%s, commName[%s], tag[%s], algTag[%s]", __func__, param->commName, param->tag, param->algTag);
+    HCCL_INFO("Entry-%s, commName[%s], tag[%s], algTag[%s], algName[%s], opType[%d], deviceType[%d]",
+        __func__, param->commName, param->tag, param->algTag, param->algName, (int)param->opType, (int)param->deviceType);
     if (HcommAcquireComm(param->commName) != HCCL_SUCCESS) {
         HCCL_ERROR("%s HcommAcquireComm fail, commName[%s]", __func__, param->commName);
         return 1;
@@ -264,7 +266,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             HCCL_ERROR("%s CreateScatter fail", __func__);
             return 1;
         }
-        
+
         if (HcommIsSupportHcommRegOpInfo() &&
             HcommRegOpInfo(param->commName, reinterpret_cast<void *>(&opInfo), sizeof(ScatterOpInfo)) != HCCL_SUCCESS) {
             HCCL_ERROR("%s HcommRegOpInfo fail, commName[%s], algTag[%s], size[%u]",
@@ -348,25 +350,33 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             HCCL_ERROR("failed to restore optype [%d] data and counts.", param->opType);
             return 1;
         }
+        CHK_RET(ops_hccl::InitHcommBatchTransferOnThreadSupported(
+            resCtxPtr->isHcommBatchTransferOnThreadSupported));
         // 获取Device测主thread
         ThreadHandle thread = resCtxPtr->threads[0];
+        HCCL_INFO("[DBG-A] %s: before HcommBatchModeStart, algTag[%s], thread[%llu]", __func__, param->algTag, thread);
         if (HcommBatchModeStart(param->algTag) != HCCL_SUCCESS) {
             HCCL_ERROR("failed set batch mode, tag is %s.", param->algTag);
             return 1;
         }
+        HCCL_INFO("[DBG-B] %s: HcommBatchModeStart done", __func__);
 
         // 要在下第一个task之前上报
         HcclDfxOpInfo dfxOpInfo{};
+        HCCL_INFO("[DBG-C] %s: before ConvertToHcclDfxOpInfo, commName[%s]", __func__, param->commName);
         if (ConvertToHcclDfxOpInfo(param, &dfxOpInfo) != HCCL_SUCCESS) {
             HCCL_ERROR("ConvertToHcclDfxOpInfo fail, commName is %s, tag is %s", param->commName, param->algTag);
             return 1;
         }
+        HCCL_INFO("[DBG-D] %s: before HcclDfxRegOpInfoByCommId", __func__);
         if (HcclDfxRegOpInfoByCommId(param->commName, reinterpret_cast<void *>(&dfxOpInfo)) != HCCL_SUCCESS) {
             HCCL_ERROR("HcclDfxRegOpInfoByCommId fail, commName is %s, tag is %s", param->commName, param->algTag);
             return 1;
         }
 
         // 上报上报mainstream数据,第一个任务
+        HCCL_INFO("[DBG-E] %s: before HcommProfilingReportKernelStartTask, thread[%llu], commName[%s]",
+            __func__, thread, param->commName);
         if (HcommProfilingReportKernelStartTask(thread, param->commName) != HCCL_SUCCESS) {
             HCCL_ERROR("%sfailed to report MainStream And FirstTask, thread %lu, param->commName %s.", __func__, thread, param->commName);
             return 1;
@@ -380,10 +390,12 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
                 maxNotifyNum = resCtxPtr->notifyNumPerThread[i];
             }
         }
-        HCCL_DEBUG("[%s]Notify wait on thread[%llu], maxNotifyNum[%u], timeout[%u]", __func__, thread,
-            maxNotifyNum, CUSTOM_TIMEOUT);
+        HCCL_INFO("[DBG-F] %s: before HcommThreadNotifyWaitOnThread, thread[%llu], maxNotifyNum[%u], timeout[%u]",
+            __func__, thread, maxNotifyNum, CUSTOM_TIMEOUT);
         CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(thread, maxNotifyNum, CUSTOM_TIMEOUT)));
 
+        HCCL_INFO("[DBG-G] %s: before GetAlgExec, opType[%d], algName[%s]",
+            __func__, (int)param->opType, algName.c_str());
         std::shared_ptr<InsCollAlgBase> executor = CollAlgExecRegistryV2::Instance().GetAlgExec(param->opType, algName);
         if (executor.get() == nullptr) {
             HCCL_ERROR("Fail to find executor for algName[%s]", algName.c_str());
@@ -391,12 +403,15 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         }
 
         // 设置执行超时时间
+        HCCL_INFO("[DBG-H] %s: before Orchestrate, execTimeout[%u], algName[%s]",
+            __func__, param->execTimeout, param->algName);
         ExecTimeoutManager::Instance().SetExecTimeout(param->execTimeout);
         // 执行算法编排
         if (executor->Orchestrate(*param, *resCtxPtr) != HCCL_SUCCESS) {
             HCCL_ERROR("orchestrate failed for alg:%s", param->algName);
             return 1;
         }
+        HCCL_INFO("[DBG-I] %s: Orchestrate done", __func__);
 
         // 上报mainstream数据,最后一个任务
         if (HcommProfilingReportKernelEndTask(thread, param->commName) != HCCL_SUCCESS) {
@@ -405,20 +420,23 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         }
 
         constexpr u32 DEFAULT_NOTIFY_IDX = 0;
-        HCCL_DEBUG("[%s]Notify record on srcThread[%llu], dstThread[%llu], notifyIdx[%u]",__func__, thread, exportedAicpuTsThread,
-            DEFAULT_NOTIFY_IDX);
+        HCCL_INFO("[DBG-J] %s: before HcommThreadNotifyRecordOnThread, srcThread[%llu], dstThread[%llu]",
+            __func__, thread, exportedAicpuTsThread);
         CHK_RET(static_cast<HcclResult>(HcommThreadNotifyRecordOnThread(thread, exportedAicpuTsThread,
             DEFAULT_NOTIFY_IDX)));
 
+        HCCL_INFO("[DBG-K] %s: before HcommProfilingReportDeviceOp, commName[%s]", __func__, param->commName);
         if (HcommProfilingReportDeviceOp(param->commName) != HCCL_SUCCESS) {
             HCCL_ERROR("%s HcommProfilingReportDeviceOp fail, commName[%s]", __func__, param->commName);
             return 1;
         }
-        
+
+        HCCL_INFO("[DBG-L] %s: before HcommBatchModeEnd, algTag[%s]", __func__, param->algTag);
         if (HcommBatchModeEnd(param->algTag) != HCCL_SUCCESS) {
             HCCL_ERROR("failed set eager mode, tag is %s.", param->algTag);
             return 1;
         }
+        HCCL_INFO("[DBG-M] %s: HcommBatchModeEnd done", __func__);
     } else {
         std::unique_ptr<ExecutorBase> executor = CollAlgExecRegistry::Instance().GetAlgExec(algName);
         if (executor.get() == nullptr) {
