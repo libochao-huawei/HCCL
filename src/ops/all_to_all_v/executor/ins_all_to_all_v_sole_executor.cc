@@ -9,7 +9,7 @@
  */
 
 #include "template_utils.h"
-// #include "ins_all_to_all_v_sole_executor.h"
+#include "ins_all_to_all_v_sole_executor.h"
 #ifndef AICPU_COMPILE
 #if !defined(HCCL_CANN_COMPAT_850)
 #include "ccu_temp_all_to_all_v_mesh_1D.h"
