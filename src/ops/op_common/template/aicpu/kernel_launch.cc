@@ -29,6 +29,7 @@
 #endif
 #include "hccl_device_comm_dl.h"
 #include "exec_timeout_manager.h"
+#include "alg_data_trans_wrapper.h"
 
 using namespace ops_hccl;
 namespace {
@@ -251,20 +252,27 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         HCCL_ERROR("%s param is nullptr", __func__);
         return 1;
     }
-    HCCL_INFO("Entry-%s, commName[%s], tag[%s], algTag[%s]", __func__, param->commName, param->tag, param->algTag);
+    HCCL_INFO("Entry-%s, commName[%s], tag[%s], algTag[%s], algName[%s], opType[%d], deviceType[%d]",
+        __func__, param->commName, param->tag, param->algTag, param->algName, (int)param->opType, (int)param->deviceType);
+    HCCL_INFO("[DBG-1] %s: before HcommAcquireComm, commName[%s]", __func__, param->commName);
     if (HcommAcquireComm(param->commName) != HCCL_SUCCESS) {
         HCCL_ERROR("%s HcommAcquireComm fail, commName[%s]", __func__, param->commName);
         return 1;
     }
+    HCCL_INFO("[DBG-2] %s: HcommAcquireComm done", __func__);
 
     std::string algName = std::string(param->algName);
+    HCCL_INFO("[DBG-3] %s: algName[%s], IsOpsV2[%d]", __func__, algName.c_str(),
+        (int)ops_hccl::IsOpsV2(param->algName, param->deviceType));
     if (!ops_hccl::IsOpsV2(param->algName, param->deviceType)) {
         ScatterOpInfo opInfo;
+        HCCL_INFO("[DBG-4] %s: before CreateScatter, commName[%s]", __func__, param->commName);
         if (CreateScatter(param, &opInfo) != HCCL_SUCCESS) {
             HCCL_ERROR("%s CreateScatter fail", __func__);
             return 1;
         }
         
+        HCCL_INFO("[DBG-5] %s: CreateScatter done, before HcommRegOpInfo", __func__);
         if (HcommIsSupportHcommRegOpInfo() &&
             HcommRegOpInfo(param->commName, reinterpret_cast<void *>(&opInfo), sizeof(ScatterOpInfo)) != HCCL_SUCCESS) {
             HCCL_ERROR("%s HcommRegOpInfo fail, commName[%s], algTag[%s], size[%u]",
@@ -272,6 +280,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             return 1;
         }
 
+        HCCL_INFO("[DBG-6] %s: HcommRegOpInfo done, before HcommRegOpTaskException", __func__);
         if (HcommIsSupportHcommRegOpTaskException() &&
             HcommRegOpTaskException(param->commName, ops_hccl::GetScatterOpInfo) != HCCL_SUCCESS) {
             HCCL_ERROR(
@@ -281,9 +290,13 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
     }
 
     // 根据算法名字获取executor
+    HCCL_INFO("[DBG-7] %s: entering IsOpsV2 branch[%d]", __func__,
+        (int)ops_hccl::IsOpsV2(param->algName, param->deviceType));
     if (ops_hccl::IsOpsV2(param->algName, param->deviceType)) {
         //判断通信域状态
         HcclCommStatus commStatus = HCCL_COMM_STATUS_INVALID;
+        HCCL_INFO("[DBG-8] %s: before HcommIsSupportHcclCommGetStatus[%d]",
+            __func__, (int)HcommIsSupportHcclCommGetStatus());
         if (HcommIsSupportHcclCommGetStatus()) {
             auto statusRet = HcclCommGetStatus(param->commName, &commStatus);
             if (statusRet != HCCL_SUCCESS) {
@@ -299,8 +312,11 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         std::shared_ptr<const AlgResourceCtxSerializable> cachedResCtxHolder;
         std::unique_ptr<AlgResourceCtxSerializable> resCtx;
         const AlgResourceCtxSerializable* resCtxPtr{nullptr};
+        HCCL_INFO("[DBG-9] %s: commStatus check done, opType[%d], before cache lookup", __func__, (int)param->opType);
         if (param->opType != HcclCMDType::HCCL_CMD_BATCH_SEND_RECV) {
             //通过缓存实现反序列化优化
+            HCCL_INFO("[DBG-10] %s: before g_cacheManager.Get, algTag[%s], commName[%s]",
+                __func__, param->algTag, param->commName);
             cachedResCtxHolder = g_cacheManager.Get(param->algTag, param->commName);
             if (cachedResCtxHolder != nullptr) {
                 HCCL_INFO("[%s] Cache HIT for algTag[%s]", __func__, param->algTag);
@@ -316,23 +332,28 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
                 resCtxPtr = cachedResCtxHolder.get();
             } else {
                 //未命中，进行反序列化并存入缓存
+                HCCL_INFO("[DBG-11] %s: cache MISS, before DeSerialize, ctxSize[%u]", __func__, param->ctxSize);
                 resCtx.reset(new AlgResourceCtxSerializable());
                 char *ctx = static_cast<char *>(param->resCtx);
                 std::vector<char> seq(ctx, ctx + param->ctxSize);
                 resCtx->DeSerialize(seq);
+                HCCL_INFO("[DBG-12] %s: DeSerialize done, before g_cacheManager.Put", __func__);
                 g_cacheManager.Put(param->algTag, *resCtx, param->commName);
                 resCtxPtr = resCtx.get();
-                HCCL_INFO("[%s] Cache MISS and stored for algTag[%s]", __func__, param->algTag);
+                HCCL_INFO("[DBG-13] %s: Cache MISS stored for algTag[%s]", __func__, param->algTag);
             }
         } else {
+            HCCL_INFO("[DBG-14] %s: BatchSendRecv path, ctxSize[%u]", __func__, param->ctxSize);
             resCtx.reset(new AlgResourceCtxSerializable());
             char *ctx = static_cast<char *>(param->resCtx);
             std::vector<char> seq(ctx, ctx + param->ctxSize);
             resCtx->DeSerialize(seq);
+            HCCL_INFO("[DBG-15] %s: BatchSendRecv DeSerialize done", __func__);
             resCtxPtr = resCtx.get();
         }
 
         // 还原变长指针
+        HCCL_INFO("[DBG-16] %s: before RestoreVarData, opType[%d]", __func__, (int)param->opType);
         HcclResult ret = HCCL_SUCCESS;
         if (param->opType == HCCL_CMD_BATCH_SEND_RECV) {
             ret = ops_hccl::RestoreVarDataBatchSendRecv(*param);
@@ -348,8 +369,14 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             HCCL_ERROR("failed to restore optype [%d] data and counts.", param->opType);
             return 1;
         }
+        HCCL_INFO("[DBG-17] %s: RestoreVarData done, before InitHcommBatchTransferOnThreadSupported", __func__);
+        CHK_RET(ops_hccl::InitHcommBatchTransferOnThreadSupported(
+            resCtxPtr->isHcommBatchTransferOnThreadSupported));
+        HCCL_INFO("[DBG-18] %s: InitHcommBatchTransferOnThreadSupported done, resCtxPtr->threads.size[%zu]",
+            __func__, resCtxPtr->threads.size());
         // 获取Device测主thread
         ThreadHandle thread = resCtxPtr->threads[0];
+        HCCL_INFO("[DBG-19] %s: before HcommBatchModeStart, algTag[%s]", __func__, param->algTag);
         if (HcommBatchModeStart(param->algTag) != HCCL_SUCCESS) {
             HCCL_ERROR("failed set batch mode, tag is %s.", param->algTag);
             return 1;
