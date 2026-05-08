@@ -98,7 +98,7 @@ static void PreSync(AlltoAllVMesh1DContext &ctx)
 {
     HCCL_INFO("[CcuKernelAlltoAllVMesh1D] PreSync!");
     const auto *arg = ctx.arg;
-    CcuRep::Variable tempDst;
+    CcuVariable tempDst;
     CCU_CHK_RET(ccu::Alloc(&tempDst));
     
     u32 channelIdx = 0;
@@ -197,7 +197,7 @@ static CcuResult DoAll2AllVMultiLoop()
     completedRankCount_ = 0;
     ctx.xnConst1 = 1;
     u32 channelId = 0;
-    bool allBit  = (1 << rankSize_) - 1;
+    uint16_t allBit  = (1 << rankSize_) - 1;
     CCU_DO_WHILE(completedRankCount_ != arg->rankSize) {  // 循环发送数据，直到所有对端数据都发送完成
         for(uint32_t rankIdx = 0; rankIdx < arg->rankSize; rankIdx++) {  // 循环发送所有对端数据
             ctx.event.setMask(1 <<rankIdx);
