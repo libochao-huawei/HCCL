@@ -10,6 +10,7 @@
 
 #include "hccl/hccl_types.h"
 #include "hccl/base.h"
+#include "hccl_host_comm_dl.h"
 #include "hccl_res.h"
 #include "dtype_common.h"
 #include "hccl_common.h"
@@ -378,19 +379,37 @@ int32_t HcommThreadNotifyWaitOnThread(ThreadHandle thread, uint32_t notifyIdx, u
 {
     // timeout 暂时未使用
     static_cast<void>(timeout);
+    std::cerr << "[DEBUG] HcommThreadNotifyWaitOnThread enter, thread=" << thread
+              << " notifyIdx=" << notifyIdx << std::endl;
 
     // 1.获取当前rankId,NpuPos和stream
-    uint32_t curRank = reinterpret_cast<HcclSim::SimHcclThread*>(thread)->GetCurRank();
-    NpuPos pos = HcclSim::SimWorld::Global()->GetNpuPosByRankId(curRank);
-    HcclSim::SimStream *stream = reinterpret_cast<HcclSim::SimHcclThread*>(thread)->GetStream();
+    std::cerr << "[DEBUG] before cast thread to SimHcclThread" << std::endl;
+    auto simThread = reinterpret_cast<HcclSim::SimHcclThread*>(thread);
+    std::cerr << "[DEBUG] after cast, simThread=" << simThread << std::endl;
+    uint32_t curRank = simThread->GetCurRank();
+    std::cerr << "[DEBUG] after GetCurRank, curRank=" << curRank << std::endl;
+
+    std::cerr << "[DEBUG] before SimWorld::Global()" << std::endl;
+    auto world = HcclSim::SimWorld::Global();
+    std::cerr << "[DEBUG] after SimWorld::Global(), world=" << world << std::endl;
+    NpuPos pos = world->GetNpuPosByRankId(curRank);
+    std::cerr << "[DEBUG] after GetNpuPosByRankId, pos info got" << std::endl;
+
+    HcclSim::SimStream *stream = simThread->GetStream();
+    std::cerr << "[DEBUG] after GetStream, stream=" << stream << std::endl;
     CHK_PTR_NULL(stream);
 
     // 2.从thread获得notifyId
-    uint32_t notifyId = reinterpret_cast<HcclSim::SimHcclThread*>(thread)->GetNotifyIdByIndex(notifyIdx);
+    std::cerr << "[DEBUG] before GetNotifyIdByIndex, notifyIdx=" << notifyIdx << std::endl;
+    uint32_t notifyId = simThread->GetNotifyIdByIndex(notifyIdx);
+    std::cerr << "[DEBUG] after GetNotifyIdByIndex, notifyId=" << notifyId << std::endl;
 
     // 3.下发task
+    std::cerr << "[DEBUG] before creating TaskStubLocalWaitFrom" << std::endl;
     auto task = std::make_shared<HcclSim::TaskStubLocalWaitFrom>(notifyId);
+    std::cerr << "[DEBUG] before AppendTask" << std::endl;
     HcclSim::SimTaskQueue::Global()->AppendTask(pos, stream, task);
+    std::cerr << "[DEBUG] after AppendTask, returning success" << std::endl;
 
     return HCCL_SUCCESS;
 }
@@ -936,6 +955,11 @@ HcclResult HcommSymWinGetPeerPointer(HcclCommSymWindow winHandle, size_t offset,
 {
     HCCL_ERROR("[%s] not support.", __func__);
     return HCCL_E_NOT_SUPPORT;
+}
+
+bool HcommIsSupportHcommBatchTransferOnThread()
+{
+    return false;
 }
 
 #ifdef __cplusplus
