@@ -39,6 +39,13 @@ DEFINE_WEAK_FUNC(int32_t, HcommFenceOnThread, ThreadHandle thread);
 DEFINE_WEAK_FUNC(int32_t, HcommChannelFenceOnThread, ThreadHandle thread, ChannelHandle channel);
 DEFINE_WEAK_FUNC(HcclResult, HcommThreadJoin, ThreadHandle thread, uint32_t timeout);
 
+static bool g_HcommBatchTransferOnThreadSupported = false;
+
+extern "C" bool HcommIsSupportHcommBatchTransferOnThread(void)
+{
+    return g_HcommBatchTransferOnThreadSupported;
+}
+
 // ---------- 初始化函数 ----------
 void HcommPrimitivesDlInit(void* libHcommHandle) {
     INIT_SUPPORT_FLAG(libHcommHandle, HcommWriteWithNotifyOnThread);
@@ -61,4 +68,11 @@ void HcommPrimitivesDlInit(void* libHcommHandle) {
     INIT_SUPPORT_FLAG(libHcommHandle, HcommFenceOnThread);
     INIT_SUPPORT_FLAG(libHcommHandle, HcommChannelFenceOnThread);
     INIT_SUPPORT_FLAG(libHcommHandle, HcommThreadJoin);
+    void *hcommBatchTransferOnThread = dlsym(libHcommHandle, "HcommBatchTransferOnThread");
+    if (hcommBatchTransferOnThread == nullptr) {
+        g_HcommBatchTransferOnThreadSupported = false;
+        HCCL_COMPAT_DEBUG("[HcclWrapper] %s not supported", "HcommBatchTransferOnThread");
+    } else {
+        g_HcommBatchTransferOnThreadSupported = true;
+    }
 }
