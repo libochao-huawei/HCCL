@@ -21,6 +21,10 @@ HcclResult RecvWrite(const DataInfo &recvInfo, const ThreadHandle &thread);
 
 HcclResult SendRecvWrite(const SendRecvInfo &sendRecvInfo, const ThreadHandle &thread);
 
+HcclResult SendRecvBatchWrite(const SendRecvInfo &sendRecvInfo, const ThreadHandle &thread);
+
+HcclResult SendRecvBatchWriteReduce(const SendRecvReduceInfo &sendRecvInfo, const ThreadHandle &thread);
+
 HcclResult SendWriteReduce(const DataReduceInfo &sendInfo, const ThreadHandle &thread);
 
 HcclResult RecvWriteReduce(const DataReduceInfo &recvInfo, const ThreadHandle &thread);
