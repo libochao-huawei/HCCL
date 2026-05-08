@@ -92,21 +92,21 @@ static CcuResult InitResource(ReduceMesh1DContext &ctx)
 static CcuResult LoadArgs(ReduceMesh1DContext &ctx)
 {
     const auto *arg = ctx.arg;
-    CCU_CHK_RET(ccu::LoadArg(ctx.input[arg->rankId]));
-    CCU_CHK_RET(ccu::LoadArg(ctx.output[arg->rankId]));
-    CCU_CHK_RET(ccu::LoadArg(ctx.token[arg->rankId]));
-    CCU_CHK_RET(ccu::LoadArg(ctx.currentRankSliceInputOffset));
-    CCU_CHK_RET(ccu::LoadArg(ctx.currentRankSliceOutputOffset));
-    CCU_CHK_RET(ccu::LoadArg(ctx.repeatNum));
-    CCU_CHK_RET(ccu::LoadArg(ctx.inputRepeatStride));
-    CCU_CHK_RET(ccu::LoadArg(ctx.outputRepeatStride));
-    CCU_CHK_RET(ccu::LoadArg(ctx.normalSliceSize));
-    CCU_CHK_RET(ccu::LoadArg(ctx.lastSliceSize));
-    CCU_CHK_RET(ccu::LoadArg(ctx.repeatNumVar));
-    CCU_CHK_RET(ccu::LoadArg(ctx.groupOpSize.addrOffset));
-    CCU_CHK_RET(ccu::LoadArg(ctx.groupOpSize.loopParam));
-    CCU_CHK_RET(ccu::LoadArg(ctx.groupOpSize.parallelParam));
-    CCU_CHK_RET(ccu::LoadArg(ctx.groupOpSize.residual));
+    CCU_CHK_RET(ccu::LoadArg(ctx.input[arg->rankId], 0));
+    CCU_CHK_RET(ccu::LoadArg(ctx.output[arg->rankId], 1));
+    CCU_CHK_RET(ccu::LoadArg(ctx.token[arg->rankId], 2));
+    CCU_CHK_RET(ccu::LoadArg(ctx.currentRankSliceInputOffset, 3));
+    CCU_CHK_RET(ccu::LoadArg(ctx.currentRankSliceOutputOffset, 4));
+    CCU_CHK_RET(ccu::LoadArg(ctx.repeatNum, 5));
+    CCU_CHK_RET(ccu::LoadArg(ctx.inputRepeatStride, 6));
+    CCU_CHK_RET(ccu::LoadArg(ctx.outputRepeatStride, 7));
+    CCU_CHK_RET(ccu::LoadArg(ctx.normalSliceSize, 8));
+    CCU_CHK_RET(ccu::LoadArg(ctx.lastSliceSize, 9));
+    CCU_CHK_RET(ccu::LoadArg(ctx.repeatNumVar, 10));
+    CCU_CHK_RET(ccu::LoadArg(ctx.groupOpSize.addrOffset, 11));
+    CCU_CHK_RET(ccu::LoadArg(ctx.groupOpSize.loopParam, 12));
+    CCU_CHK_RET(ccu::LoadArg(ctx.groupOpSize.parallelParam, 13));
+    CCU_CHK_RET(ccu::LoadArg(ctx.groupOpSize.residual, 14));
     return CCU_SUCCESS;
 }
 
@@ -144,16 +144,16 @@ static CcuResult DoRepeatReduce(ReduceMesh1DContext &ctx)
 {
     const auto *arg = ctx.arg;
 
-    std::vector<CcuRemoteAddr> remoteSrc; // GSA[0]
+    std::vector<ccu::RemoteAddr> remoteSrc; // GSA[0]
     remoteSrc.resize(arg->rankSize);
     for (uint64_t rankIdx = 0; rankIdx < arg->rankSize - 1; rankIdx++) {
         CCU_CHK_RET(ccu::Alloc(&remoteSrc[rankIdx]));
     }
 
-    CcuLocalAddr localSrc;  // GSA[1]
+    ccu::LocalAddr localSrc;  // GSA[1]
     CCU_CHK_RET(ccu::Alloc(&localSrc));
 
-    CcuLocalAddr dst; // GSA[2]
+    ccu::LocalAddr dst; // GSA[2]
     CCU_CHK_RET(ccu::Alloc(&dst));
 
 
@@ -172,7 +172,7 @@ static CcuResult DoRepeatReduce(ReduceMesh1DContext &ctx)
     localSrc.addr = ctx.input[arg->rankId];
     localSrc.token = ctx.token[arg->rankId];
 
-    CCU_IF_ONLY (ctx.flag != 0) {
+    CCU_IF (ctx.flag != 0) {
         // 非第一轮执行时，remoteSrc 和 dst 已经初始化，需要添加偏移量
         dst.addr += ctx.outputRepeatStride;
         for (auto &s : remoteSrc) {
@@ -211,11 +211,11 @@ CcuResult CcuReduceMesh1DKernel(CcuKernelArg arg)
     PreSync(ctx);
 
     if (kernelArg->rankId == kernelArg->rootId) {
-        CcuVariable repeatNumAdd;
+        ccu::Variable repeatNumAdd;
         CCU_CHK_RET(ccu::Alloc(&repeatNumAdd));
         repeatNumAdd  = 1;
         ctx.flag = 0;
-        CCU_DO_WHILE(ctx.repeatNumVar != UINT64_MAX) { // 循环repeatNum_次
+        CCU_WHILE(ctx.repeatNumVar != UINT64_MAX) { // 循环repeatNum_次
             CCU_CHK_RET(DoRepeatReduce(ctx));
             ctx.repeatNumVar += repeatNumAdd;
             ctx.flag = 1;
