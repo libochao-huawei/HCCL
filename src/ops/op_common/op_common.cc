@@ -1258,7 +1258,12 @@ HcclResult HcclAllocAlgResourceCcu(HcclComm comm, const OpParam& param, AlgResou
         CHK_RET(ret);
     }
 
-    CHK_RET(HcclGetCcuKernel(comm, resRequest, resCtxHost));
+    ret = HcclGetCcuKernel(comm, resRequest, resCtxHost);
+    if (ret == HCCL_E_UNAVAIL) {
+        HCCL_ERROR("[HcclGetCcuKernel] ccu kernel unavailable");
+        return HCCL_E_NOT_SUPPORT;
+    }
+    CHK_RET(ret);
 #endif
     return HCCL_SUCCESS;
 }
