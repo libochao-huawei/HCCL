@@ -36,6 +36,8 @@ HcclResult DlHcommFunction::DlHcommFunctionInterInit()
 {
     dlHcclThreadResGetInfo = (HcclResult(*)(HcclComm, ThreadHandle, void*, uint32_t, void**))dlsym(handle_,
         "HcclThreadResGetInfo");
+    dlHcommBatchTransferOnThread = (int32_t(*)(ThreadHandle, ChannelHandle, void*, uint32_t))dlsym(handle_,
+        "HcommBatchTransferOnThread");
     return HCCL_SUCCESS;
 }
 

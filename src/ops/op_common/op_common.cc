@@ -510,6 +510,8 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
 
     // 资源结构体
     std::unique_ptr<AlgResourceCtxSerializable> resCtxHost = std::make_unique<AlgResourceCtxSerializable>();
+    resCtxHost->isHcommBatchTransferOnThreadSupported =
+        (DlHcommFunction::GetInstance().dlHcommBatchTransferOnThread != nullptr);
     // 资源序列化结果
     void *resCtxSequence = nullptr;
     bool isResourceReused = false;

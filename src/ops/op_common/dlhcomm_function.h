@@ -26,6 +26,7 @@ public:
     static DlHcommFunction &GetInstance();
     HcclResult DlHcommFunctionInit();
     std::function<HcclResult(HcclComm, ThreadHandle, void*, uint32_t, void**)> dlHcclThreadResGetInfo{};
+    std::function<int32_t(ThreadHandle, ChannelHandle, void*, uint32_t)> dlHcommBatchTransferOnThread{};
 
 private:
     void* handle_{nullptr};

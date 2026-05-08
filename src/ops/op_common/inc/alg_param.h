@@ -384,6 +384,7 @@ struct AlgResourceCtxSerializable {
     u32 notifyNumOnMainThread; // 主流上的notify数量
     u32 slaveThreadNum; // 需要的thread数量
     std::vector<u32> notifyNumPerThread; // 每个thread需要的notify数量
+    bool isHcommBatchTransferOnThreadSupported = false;
     void* aivCommInfoPtr = nullptr;
     std::vector<ThreadHandle> threads;
     ThreadHandle unfoldThread = 0; // 展开流thread
@@ -408,6 +409,7 @@ struct AlgResourceCtxSerializable {
         binaryStream << notifyNumOnMainThread;
         binaryStream << slaveThreadNum;
         binaryStream << notifyNumPerThread;
+        binaryStream << isHcommBatchTransferOnThreadSupported;
         binaryStream << commInfoPtr;
         binaryStream << threads;
         binaryStream << unfoldThread;
@@ -438,6 +440,7 @@ struct AlgResourceCtxSerializable {
         binaryStream >> notifyNumOnMainThread;
         binaryStream >> slaveThreadNum;
         binaryStream >> notifyNumPerThread;
+        binaryStream >> isHcommBatchTransferOnThreadSupported;
         binaryStream >> commInfoPtr;
         binaryStream >> threads;
         binaryStream >> unfoldThread;
