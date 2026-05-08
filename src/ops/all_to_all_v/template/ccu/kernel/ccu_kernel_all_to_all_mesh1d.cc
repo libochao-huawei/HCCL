@@ -202,7 +202,7 @@ static CcuResult DoAlltoAll(AlltoAllMesh1DContext &ctx)
 // ============================================================================
 // 主入口 Kernel 函数
 // ============================================================================
-CcuResult CcuReduceScatterMesh1DKernel(CcuKernelArg arg)
+CcuResult CcuAlltoAllMesh1DKernel(CcuKernelArg arg)
 {
     auto *kernelArg = static_cast<CcuKernelArgAlltoAllMesh1D *>(arg);
 

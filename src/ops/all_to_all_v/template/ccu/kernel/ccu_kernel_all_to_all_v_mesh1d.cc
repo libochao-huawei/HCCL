@@ -21,16 +21,12 @@ constexpr int CKE_IDX_1    = 1; // post
 constexpr int CKE_IDX_2    = 2;
 constexpr int CONST_ONE    = 1;
 
-CcuKernelAlltoAllVMesh1D::CcuKernelAlltoAllVMesh1D(const CcuKernelArg &arg)
-    : CcuKernelAlgBase(arg)
+static CcuResult ParseKernelArg(AlltoAllVMesh1DContext &ctx, CcuKernelArgAlltoAllVMesh1D *kernelArg)
 {
-    const CcuKernelArgAlltoAllVMesh1D *kernelArg
-        = dynamic_cast<const CcuKernelArgAlltoAllVMesh1D *>(&arg);
-    arg->rankId = kernelArg->arg->rankId;
-    arg->rankSize = kernelArg->dimSize_;
-    channels_ = kernelArg->channels;
-    loadFromMem_ = kernelArg->loadFromMem_;
-    HCCL_INFO( "[CcuKernelAlltoAllVMesh1D] arg->rankId = %d, arg->rankSize = %d, loadFromMem_ = %d",arg->rankId, arg->rankSize, loadFromMem_);
+    // ctx.rankId          = kernelArg->rankId;
+    // ctx.rankSize        = kernelArg->rankSize;
+    // ctx.channels       = kernelArg->channels;
+    return CCU_SUCCESS;
 }
 
 static HcclResult InitResource(AlltoAllVMesh1DContext &ctx)
@@ -91,7 +87,8 @@ static HcclResult InitResource(AlltoAllVMesh1DContext &ctx)
     ctx.xnLength = 8; // xn长度为8byte
 
     CCU_CHK_RET(ccu::Alloc(&ctx.event));
-    return HcclResult::HCCL_SUCCESS;
+    
+    return CCU_SUCCESS;
 }
 
 static void PreSync(AlltoAllVMesh1DContext &ctx)
@@ -122,7 +119,7 @@ static void PreSync(AlltoAllVMesh1DContext &ctx)
     HCCL_INFO( "[CcuKernelAlltoAllVMesh1D] PreSync end");
 }
 
-static CcuResult PostSync(AlltoAllVMesh1DContext &ctx)
+static void PostSync(AlltoAllVMesh1DContext &ctx)
 {
     HCCL_INFO("[CcuKernelAlltoAllVMesh1D] PostSync!");
     const auto *arg = ctx.arg;
@@ -158,9 +155,11 @@ static CcuResult LoadArgs(AlltoAllVMesh1DContext &ctx)
     for (uint64_t peerId = 0; peerId < arg->rankSize; peerId++) {
         LoadAll2allSendRecvInfo(ctx.sendRecvInfo[peerId]);
     }
+
+    return CCU_SUCCESS;
 }
 
-static CcuResult CalcGroupSrcDst(AlltoAllVMesh1DContext &ctx)
+static void CalcGroupSrcDst(AlltoAllVMesh1DContext &ctx)
 {
     HCCL_INFO("[CcuKernelAlltoAllVMesh1D] CalcGroupSrcDst!");
     const auto *arg = ctx.arg;
@@ -188,7 +187,7 @@ static CcuResult CalcGroupSrcDst(AlltoAllVMesh1DContext &ctx)
     }
 }
 
-void CcuKernelAlltoAllVMesh1D::DoAll2AllVMultiLoop()
+static CcuResult DoAll2AllVMultiLoop()
 {
     HCCL_DEBUG("[CcuKernelAlltoAllVMesh1D] alltoallv mesh 1d use GroupCopy start");
     ctx.xnMaxTransportSize = UB_MAX_TRANS_SIZE;
@@ -263,31 +262,45 @@ void CcuKernelAlltoAllVMesh1D::DoAll2AllVMultiLoop()
         ctx.event.setMask(allBit_);
         WaitEvent(ctx.event);
     }
+
+    return CCU_SUCCESS;
 }
 
-HcclResult CcuKernelAlltoAllVMesh1D::Algorithm()
+// ============================================================================
+// 主入口 Kernel 函数
+// ============================================================================
+CcuResult CcuAlltoAllVMesh1DKernel(CcuKernelArg arg)
 {
-    HCCL_INFO("[ccuAllToAllMesh1D_Kernel] AllToAllMesh1D run.");
+    auto *kernelArg = static_cast<CcuKernelArgAlltoAllMesh1D *>(arg);
 
-    CHK_RET(InitResource());
+    AlltoAllMesh1DContext ctx;
+    ctx.arg = kernelArg;
+    ctx.resourceAllocated = false;
+    ctx.loopRegistered = false;
+    ctx.moConfig.msInterleave = 0;
+    ctx.moConfig.loopCount = 0;
+    ctx.moConfig.memSlice = 0;
+    ctx.moRes.eventCount = 0;
+    ctx.moRes.bufCount = 0;
+    ctx.enginePool = 0;
 
-    LoadArgs();
+    HCCL_INFO("[CcuKernelAlltoAllMesh1D] AlltoAllMesh1D run");
+    CCU_CHK_RET(ParseKernelArg(ctx, kernelArg));
+    CCU_CHK_RET(InitResource(ctx));
+    CCU_CHK_RET(LoadArgs(ctx));
 
-    PreSync();
+    PreSync(ctx);
+    CalcGroupSrcDst(ctx);
 
-    // 创建GSA， src为本地的各片HBM地址GSA列表，dst为所有对端的HBM地址GSA列表
-    CalcGroupSrcDst();
+    CCU_CHK_RET(DoAll2AllVMultiLoop(ctx));
 
-    DoAll2AllVMultiLoop();
+    PostSync(ctx);
+    HCCL_INFO("[CcuKernelAlltoAllMesh1D] AlltoAllMesh1D end");
 
-    PostSync();
-
-    HCCL_INFO("[AllToAllAlgo] AllToAllMesh1D end.");
-    
-    return HcclResult::HCCL_SUCCESS;
+    return CCU_SUCCESS;
 }
 
-void CcuKernelAlltoAllVMesh1D::LoadAll2allSendRecvInfo(A2AsingleSendRecvInfo &sendRecvInfo)
+static void LoadAll2allSendRecvInfo(A2AsingleSendRecvInfo &sendRecvInfo)
 {
     HCCL_INFO("[CcuKernelAlltoAllVMesh1D] LoadAll2allSendRecvInfo!");
     CCU_CHK_RET(ccu::Alloc(sendRecvInfo.tailSize));

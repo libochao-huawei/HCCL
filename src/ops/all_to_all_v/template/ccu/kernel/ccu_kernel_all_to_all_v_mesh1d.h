@@ -39,7 +39,7 @@ struct A2AsingleSendRecvInfo {
 };
 
 struct AlltoAllVMesh1DContext: CcuKernelCtxBase {
-    const CcuKernelArgAlltoAllMesh1D *arg;
+    const CcuKernelArgAlltoAllVMesh1D *arg;
 
     uint64_t rankSize{0};
     uint32_t rankId{0};
@@ -71,7 +71,7 @@ struct AlltoAllVMesh1DContext: CcuKernelCtxBase {
     CcuVariable flag; // 用以判断是否是第一次重复
     CcuVariable xnConst1;
     bool loadFromMem = false;
-}
+};
 
 }// namespace ops_hccl
 #endif // HCCL_CCU_KERNEL_ALL_TO_ALL_MESH_1D_H
