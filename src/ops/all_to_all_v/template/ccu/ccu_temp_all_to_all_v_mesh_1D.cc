@@ -54,7 +54,7 @@ HcclResult CcuTempAlltoAllVMesh1D::CalcRes(HcclComm comm, const OpParam& param, 
     // 创建每个kernel的ctxArg，放入kernelInfo, 然后将kernelinfo放入resourceRequest.ccuKernelInfos
     CcuKernelInfo kernelInfo;
     strcpy(kernelInfo.kernelFuncName, "CcuKernelAlltoAllVMesh1D");
-    kernelInfo.kernelFunc = reinterpret_cast<void *>(CcuKernelArgAlltoAllVMesh1D);
+    kernelInfo.kernelFunc = reinterpret_cast<void *>(CcuAlltoAllVMesh1DKernel);
 
     std::vector<HcclChannelDesc> channelDescs;
     CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));

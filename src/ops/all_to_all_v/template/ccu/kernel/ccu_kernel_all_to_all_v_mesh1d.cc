@@ -29,7 +29,7 @@ static CcuResult ParseKernelArg(AlltoAllVMesh1DContext &ctx, CcuKernelArgAlltoAl
     return CCU_SUCCESS;
 }
 
-static HcclResult InitResource(AlltoAllVMesh1DContext &ctx)
+static CcuResult InitResource(AlltoAllVMesh1DContext &ctx)
 {   
     HCCL_INFO("[CcuKernelAlltoAllVMesh1D] InitResource!");
     const auto *arg = ctx.arg;
@@ -87,7 +87,7 @@ static HcclResult InitResource(AlltoAllVMesh1DContext &ctx)
     ctx.xnLength = 8; // xn长度为8byte
 
     CCU_CHK_RET(ccu::Alloc(&ctx.event));
-    
+
     return CCU_SUCCESS;
 }
 
