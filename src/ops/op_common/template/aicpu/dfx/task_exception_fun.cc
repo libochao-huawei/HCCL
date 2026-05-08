@@ -79,11 +79,13 @@ HcclResult GetHcclDfxOpInfoDataType(const OpParam &param, uint32_t &dataType) {
 
 HcclResult ConvertToHcclDfxOpInfo(OpParam *param, HcclDfxOpInfo *hcclDfxOpInfo)
 {
+    printf("======= start ConvertToHcclDfxOpInfo ======\n");
     CHK_PTR_NULL(param);
     CHK_PTR_NULL(hcclDfxOpInfo);
     hcclDfxOpInfo->opMode = static_cast<u32>(param->opMode);
     hcclDfxOpInfo->opType = static_cast<u32>(param->opType);
     hcclDfxOpInfo->reduceOp = static_cast<u32>(param->reduceType);
+    printf("======= before GetHcclDfxOpInfoDataType ======\n");
     CHK_RET(GetHcclDfxOpInfoDataType(*param, hcclDfxOpInfo->dataType));
     hcclDfxOpInfo->dataCount = param->dataCount;
     hcclDfxOpInfo->root = param->root;
@@ -93,7 +95,7 @@ HcclResult ConvertToHcclDfxOpInfo(OpParam *param, HcclDfxOpInfo *hcclDfxOpInfo)
     s32 sRet = strncpy_s(hcclDfxOpInfo->algTag, ALG_TAG_LENGTH, param->algTag, ALG_TAG_LENGTH);
     CHK_PRT_RET(sRet != EOK, HCCL_ERROR("%s call strncpy_s failed, param.algTag %s,  return %d.", __func__, param->algTag, sRet), HCCL_E_MEMORY);
     hcclDfxOpInfo->cpuWaitAicpuNotifyIdx = param->aicpuRecordCpuIdx;
-
+    printf("======= end ConvertToHcclDfxOpInfo ======\n");
     HCCL_INFO("[%s]HcclDfxOpInfo param: algTag[%s], opMode[%u], opType[%u], reduceOp[%u], dataType[%u], dataCount[%llu],"
         "root[%u], engine[%u], cpuTsThread[%u], cpuWaitAicpuNotifyIdx[%u]",
         __func__, hcclDfxOpInfo->algTag, hcclDfxOpInfo->opMode, hcclDfxOpInfo->opType, hcclDfxOpInfo->reduceOp,
