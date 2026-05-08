@@ -31,8 +31,8 @@ SelectorStatus AlltoAllVAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNe
             HCCL_WARNING("[Algo][AlltoAllVAutoSelector] int8 is not supported yet for ccu_schedule mode.");
             return SelectorStatus::NOT_MATCH;
         }
-        if (topoInfo->userRankSize > 128) {
-            HCCL_WARNING("[Algo][AlltoAllVAutoSelector] rankSize > 128 is not supported yet for ccu_schedule mode.");
+        if (topoInfo->userRankSize > 16) {
+            HCCL_WARNING("[Algo][AlltoAllVAutoSelector] rankSize > 16 is not supported yet for ccu_schedule mode.");
             return SelectorStatus::NOT_MATCH;
         }
         selectAlgName = "CcuAlltoAllVMesh1D";
