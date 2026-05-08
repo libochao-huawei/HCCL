@@ -10,6 +10,7 @@
 
 #include "hccl/hccl_types.h"
 #include "hccl/base.h"
+#include "hccl_host_comm_dl.h"
 #include "hccl_res.h"
 #include "dtype_common.h"
 #include "hccl_common.h"
@@ -380,13 +381,17 @@ int32_t HcommThreadNotifyWaitOnThread(ThreadHandle thread, uint32_t notifyIdx, u
     static_cast<void>(timeout);
 
     // 1.获取当前rankId,NpuPos和stream
-    uint32_t curRank = reinterpret_cast<HcclSim::SimHcclThread*>(thread)->GetCurRank();
-    NpuPos pos = HcclSim::SimWorld::Global()->GetNpuPosByRankId(curRank);
-    HcclSim::SimStream *stream = reinterpret_cast<HcclSim::SimHcclThread*>(thread)->GetStream();
+    auto simThread = reinterpret_cast<HcclSim::SimHcclThread*>(thread);
+    uint32_t curRank = simThread->GetCurRank();
+
+    auto world = HcclSim::SimWorld::Global();
+    NpuPos pos = world->GetNpuPosByRankId(curRank);
+
+    HcclSim::SimStream *stream = simThread->GetStream();
     CHK_PTR_NULL(stream);
 
     // 2.从thread获得notifyId
-    uint32_t notifyId = reinterpret_cast<HcclSim::SimHcclThread*>(thread)->GetNotifyIdByIndex(notifyIdx);
+    uint32_t notifyId = simThread->GetNotifyIdByIndex(notifyIdx);
 
     // 3.下发task
     auto task = std::make_shared<HcclSim::TaskStubLocalWaitFrom>(notifyId);
@@ -936,6 +941,11 @@ HcclResult HcommSymWinGetPeerPointer(HcclCommSymWindow winHandle, size_t offset,
 {
     HCCL_ERROR("[%s] not support.", __func__);
     return HCCL_E_NOT_SUPPORT;
+}
+
+bool HcommIsSupportHcommBatchTransferOnThread()
+{
+    return false;
 }
 
 #ifdef __cplusplus
