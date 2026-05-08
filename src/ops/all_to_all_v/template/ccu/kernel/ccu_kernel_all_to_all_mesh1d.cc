@@ -159,7 +159,7 @@ static CcuResult DoAlltoAll(AlltoAllMesh1DContext &ctx)
             localDst.addr += ctx.dstOffset;
         }
 
-        src[rankIdx].addr = ctx.srcAddr;
+        src[rankIdx].addr = ctx.srcOffset;
         src[rankIdx].token = ctx.token[rankIdx];
         for (uint64_t i = 0; i < rankIdx; i++) {
             src[rankIdx].addr += ctx.srcStride;
@@ -172,7 +172,7 @@ static CcuResult DoAlltoAll(AlltoAllMesh1DContext &ctx)
     if (arg->loadFromMem) {
         for(uint64_t r = 0; r < arg->rankSize; r++) {
             ctx.event.setMask(1 << r);
-            if (r == rankId_) {
+            if (r == arg->rankId) {
                 ccu::LocalCopyNb(localDst, src[r], ctx.sliceSize, ctx.event);
             }
             else {
@@ -186,7 +186,7 @@ static CcuResult DoAlltoAll(AlltoAllMesh1DContext &ctx)
     } else {
         for(uint64_t r = 0; r < arg->rankSize; r++) {
             ctx.event.setMask(1 << r);
-            if (r != rankId_) {
+            if (r != arg->rankId) {
                 ccu::WriteNb(arg->channels[channelId], dst[r], src[r], ctx.sliceSize, ctx.event);
                 channelId++;
             }
