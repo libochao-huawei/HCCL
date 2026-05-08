@@ -164,8 +164,11 @@ HcclResult InsTempAllGatherNHR::RunAllGatherNHR(const std::vector<ThreadHandle> 
                 HCCL_ERROR("[InsTempAllGatherNHR] sendrecv failed (step=%u)", step),
                 HcclResult::HCCL_E_INTERNAL);
         } else {
-            CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[channelIdx]),
-                HCCL_ERROR("[InsTempAllGatherNHR] sendrecv failed (step=%u)", step),
+            // CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[channelIdx]),
+            //     HCCL_ERROR("[InsTempAllGatherNHR] sendrecv failed (step=%u)", step),
+            //     HcclResult::HCCL_E_INTERNAL);
+            CHK_PRT_RET(SendRecvBatchWrite(sendRecvInfo, threads[channelIdx]),
+                HCCL_ERROR("[InsTempAllGatherNHR] sendrecv batch failed (step=%u)", step),
                 HcclResult::HCCL_E_INTERNAL);
         }
     }
