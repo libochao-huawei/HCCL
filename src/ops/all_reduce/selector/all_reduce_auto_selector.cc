@@ -54,6 +54,7 @@ SelectorStatus AllReduceAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayer
 
 SelectorStatus AllReduceAutoSelector::SelectMeshUBXAlgo(const TopoInfoWithNetLayerDetails* topoInfo, std::string &selectAlgName, u64 dataSize) const
 {
+    HCCL_INFO("zjy03 [SelectMeshUBXAlgo] in" );
     // UBX机型
     bool isMeshNumEqualToClosNum = false;
     bool isClosNumMultipleOfMeshNum = false;
@@ -92,6 +93,7 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgo(const TopoInfoWithNetLayerD
             // 不支持 inplace 场景
             return SelectorStatus::NOT_MATCH;
         }
+        HCCL_INFO("zjy00 [AllReduceAutoSelector] in" );
         if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
             if(IsSmallData(dataSize)) {
                 selectAlgName = "CcuAllReduceMesh2Die"; 
@@ -104,6 +106,7 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgo(const TopoInfoWithNetLayerD
         } else if (IsSmallData(dataSize)) {
             selectAlgName = "CcuAllReduceMesh1DOneShot";
         } else {
+            HCCL_INFO("zjy01 [AllReduceAutoSelector] selector CcuAllReduceMesh1D" );
             selectAlgName = "CcuAllReduceMesh1D";
         }
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
