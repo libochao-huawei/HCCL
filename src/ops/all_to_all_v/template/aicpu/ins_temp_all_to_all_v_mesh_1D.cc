@@ -269,10 +269,10 @@ HcclResult InsTempAlltoAllVMesh1D::RunSendRecvByChannel(const TemplateDataParams
         rxSrcSlices.push_back(rxSrcSlice);
         rxDstSlices.push_back(rxDstSlice);
 
-        DataInfo sendInfo{channelSend, {txSrcSlices, txDstSlices}};
-        DataInfo recvInfo{channelRecv, {rxSrcSlices, rxDstSlices}};
+        DataInfo sendInfo{channelSend, {txSrcSlices, txDstSlices}, dataType_};
+        DataInfo recvInfo{channelRecv, {rxSrcSlices, rxDstSlices}, dataType_};
         SendRecvInfo sendRecvInfo{{channelSend, channelRecv},
-            {{txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices}}};
+            {{txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices}}, dataType_};
         CHK_RET(RunSendRecv(tempAlgParams, sendRecvInfo, sendInfo, recvInfo, threads[queIdx], channelId));
         HCCL_DEBUG("[InsTempAlltoAllVMesh1D][RunSendRecvByLoop] do send recv write on thread[%u], "\
             "send size[%llu], recv size[%llu], remote rank[%u].",
@@ -292,7 +292,7 @@ HcclResult InsTempAlltoAllVMesh1D::RunSendRecv(const TemplateDataParams &tempAlg
 {
     if (isDmaRead_) {
         if (sendSizeSplit_[channelId] > 0 && recvSizeSplit_[channelId] > 0) {
-            CHK_PRT_RET(SendRecvRead(sendRecvInfo, thread),
+            CHK_PRT_RET(SendRecvBatchRead(sendRecvInfo, thread),
                 HCCL_ERROR("[InsTempAlltoAllVMesh1D] RunALLtoALL SendRecvInfo failed"),
                 HcclResult::HCCL_E_INTERNAL);
         } else { // 其中一个或者两个为0
@@ -301,7 +301,7 @@ HcclResult InsTempAlltoAllVMesh1D::RunSendRecv(const TemplateDataParams &tempAlg
                     HCCL_ERROR("[InsTempAlltoAllVMesh1D] RunALLtoALL sendInfo failed"),
                     HcclResult::HCCL_E_INTERNAL);
             } else if (recvSizeSplit_[channelId] > 0) {
-                CHK_PRT_RET(RecvRead(recvInfo, thread),
+                CHK_PRT_RET(RecvBatchRead(recvInfo, thread),
                     HCCL_ERROR("[InsTempAlltoAllVMesh1D] RunALLtoALL recvInfo failed"),
                     HcclResult::HCCL_E_INTERNAL);
             }
