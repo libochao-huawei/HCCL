@@ -14,7 +14,7 @@
 #include <vector>
 #include <ios>
 #include "utils.h"
-#include "ccu_kernel.h"
+// #include "ccu_kernel.h"
 #include "ccu_kernel_utils.h"
 #include "ccu_kernel_alg_base.h"
 #include "../ccu_temp_all_to_all_v_mesh_1D.h"
