@@ -261,13 +261,13 @@ static CcuResult DoAll2AllVMultiLoop(AlltoAllVMesh1DContext &ctx)
                         ccu::WaitEvent(ctx.event);
                     }
                     CCU_IF_ONLY(ctx.sendRecvInfo[rankIdx].tailSize != 0) { // 尾块数据量不为 0，则需要发送尾块数据
-                        WriteNb(channels_[channelId], ctx.dst[rankIdx], ctx.src[rankIdx], ctx.sendRecvInfo[rankIdx].tailSize,
+                        ccu::WriteNb(channels_[channelId], ctx.dst[rankIdx], ctx.src[rankIdx], ctx.sendRecvInfo[rankIdx].tailSize,
                               ctx.event);
                     }
                     completedRankCount += ctx.xnConst1;  // 之后一轮循环完成，更新已完成的rank数
                 }
                 CCU_IF_ONLY(ctx.sendRecvInfo[rankIdx].loopNum != UINT64_MAX - 1) { // 未完成，则继续循环，发送整块数据
-                    WriteNb(channels_[channelId], ctx.dst[rankIdx], ctx.src[rankIdx], ctx.xnMaxTransportSize, ctx.event);
+                    ccu::WriteNb(channels_[channelId], ctx.dst[rankIdx], ctx.src[rankIdx], ctx.xnMaxTransportSize, ctx.event);
                     // 更新偏移
                     ctx.src[rankIdx].addr += ctx.xnMaxTransportSize;
                     ctx.dst[rankIdx].addr += ctx.xnMaxTransportSize;
