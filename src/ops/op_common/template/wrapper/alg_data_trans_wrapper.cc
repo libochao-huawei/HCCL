@@ -13,6 +13,37 @@
 
 namespace ops_hccl {
 
+namespace {
+void *GetSliceAddr(const DataSlice &slice)
+{
+    return static_cast<void *>(static_cast<s8 *>(slice.addr_) + slice.offset_);
+}
+
+void TraceDataSlice(const char *funcName, const char *transType, u32 sliceIdx, u32 sliceNum,
+    const DataSlice &srcSlice, const DataSlice &dstSlice, const void *src, const void *dst, u64 len,
+    HcclDataType dataType, HcclReduceOp reduceOp)
+{
+    HCCL_DEBUG("[AlgDataTransWrapper][%s][%s] sliceIdx[%u], sliceNum[%u], srcBase[%p], "
+        "srcOffset[%llu], srcAddr[%p], srcSize[%llu], srcCount[%llu], dstBase[%p], "
+        "dstOffset[%llu], dstAddr[%p], dstSize[%llu], dstCount[%llu], len[%llu], "
+        "dataType[%d], reduceOp[%d].",
+        funcName, transType, sliceIdx, sliceNum, srcSlice.addr_,
+        static_cast<unsigned long long>(srcSlice.offset_), src,
+        static_cast<unsigned long long>(srcSlice.size_), static_cast<unsigned long long>(srcSlice.count_),
+        dstSlice.addr_, static_cast<unsigned long long>(dstSlice.offset_), dst,
+        static_cast<unsigned long long>(dstSlice.size_), static_cast<unsigned long long>(dstSlice.count_),
+        static_cast<unsigned long long>(len), static_cast<int>(dataType), static_cast<int>(reduceOp));
+}
+
+void TraceBatchSummary(const char *funcName, const char *transType, u32 totalSliceNum, u32 validSliceNum,
+    const ChannelInfo &channel)
+{
+    HCCL_DEBUG("[AlgDataTransWrapper][%s][%s] totalSliceNum[%u], validSliceNum[%u], "
+        "channelHandle[%llu].",
+        funcName, transType, totalSliceNum, validSliceNum, static_cast<unsigned long long>(channel.handle));
+}
+}  // namespace
+
 HcclResult SendWrite(const DataInfo &sendInfo, const ThreadHandle &thread)
 {
     const std::vector<DataSlice> srcSlices = sendInfo.slices_.srcSlices_;
@@ -30,10 +61,59 @@ HcclResult SendWrite(const DataInfo &sendInfo, const ThreadHandle &thread)
             HCCL_WARNING("[AlgDataTransWrapper] SendWrite: size is 0.");
             continue;
         }
-        void *dst = static_cast<void *>(static_cast<s8 *>(dstSlice.addr_) + dstSlice.offset_);
-        void *src = static_cast<void *>(static_cast<s8 *>(srcSlice.addr_) + srcSlice.offset_);
+        void *dst = GetSliceAddr(dstSlice);
+        void *src = GetSliceAddr(srcSlice);
+        TraceDataSlice("SendWrite", "WRITE", i, sliceNum, srcSlice, dstSlice, src, dst,
+            srcSlice.size_, sendInfo.dataType_, HcclReduceOp::HCCL_REDUCE_RESERVED);
         CHK_RET(static_cast<HcclResult>(HcommWriteOnThread(thread, sendChannel.handle, dst, src, srcSlice.size_)));
     }
+    CHK_RET(
+        static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, sendChannel.handle, NOTIFY_IDX_DATA_SIGNAL)));
+    return HCCL_SUCCESS;
+}
+
+HcclResult SendBatchWrite(const DataInfo &sendInfo, const ThreadHandle &thread)
+{
+    const std::vector<DataSlice> srcSlices = sendInfo.slices_.srcSlices_;
+    const std::vector<DataSlice> dstSlices = sendInfo.slices_.dstSlices_;
+    const ChannelInfo &sendChannel = sendInfo.channel_;
+    u32 sliceNum = srcSlices.size();
+    u32 execTimeout = ExecTimeoutManager::Instance().GetExecTimeout();
+    CHK_RET(static_cast<HcclResult>(
+        HcommChannelNotifyWaitOnThread(thread, sendChannel.handle, NOTIFY_IDX_ACK, execTimeout)));
+
+    std::vector<void *> dstList;
+    std::vector<void *> srcList;
+    std::vector<uint64_t> lenList;
+    std::vector<uint32_t> rwList;
+    std::vector<HcommDataType> dataTypeList;
+    std::vector<HcommReduceOp> reduceOpList;
+
+    for (int i = 0; i < sliceNum; i++) {
+        const DataSlice srcSlice = srcSlices[i];
+        const DataSlice dstSlice = dstSlices[i];
+        if (srcSlice.size_ == 0) {
+            HCCL_WARNING("[AlgDataTransWrapper] SendBatchWrite: size is 0.");
+            continue;
+        }
+        void *dst = GetSliceAddr(dstSlice);
+        void *src = GetSliceAddr(srcSlice);
+        TraceDataSlice("SendBatchWrite", "BATCH_WRITE", i, sliceNum, srcSlice, dstSlice, src, dst,
+            srcSlice.size_, sendInfo.dataType_, HcclReduceOp::HCCL_REDUCE_RESERVED);
+        dstList.push_back(dst);
+        srcList.push_back(src);
+        lenList.push_back(srcSlice.size_);
+        rwList.push_back(0);
+        dataTypeList.push_back(static_cast<HcommDataType>(sendInfo.dataType_));
+        reduceOpList.push_back(static_cast<HcommReduceOp>(HcclReduceOp::HCCL_REDUCE_RESERVED));
+    }
+
+    if (dstList.size() > 0) {
+        TraceBatchSummary("SendBatchWrite", "BATCH_WRITE", sliceNum, dstList.size(), sendChannel);
+        CHK_RET(static_cast<HcclResult>(HcommBatchTransfer(thread, sendChannel.handle, dstList.data(), srcList.data(),
+            lenList.data(), rwList.data(), dataTypeList.data(), reduceOpList.data(), dstList.size())));
+    }
+
     CHK_RET(
         static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, sendChannel.handle, NOTIFY_IDX_DATA_SIGNAL)));
     return HCCL_SUCCESS;
@@ -78,10 +158,137 @@ HcclResult SendRecvWrite(const SendRecvInfo &sendRecvInfo, const ThreadHandle &t
             HCCL_WARNING("[AlgDataTransWrapper] SendRecvWrite: size is 0.");
             continue;
         }
-        void *dst = static_cast<void *>(static_cast<s8 *>(dstSlice.addr_) + dstSlice.offset_);
-        void *src = static_cast<void *>(static_cast<s8 *>(srcSlice.addr_) + srcSlice.offset_);
+        void *dst = GetSliceAddr(dstSlice);
+        void *src = GetSliceAddr(srcSlice);
+        TraceDataSlice("SendRecvWrite", "WRITE", i, repeatNum, srcSlice, dstSlice, src, dst,
+            srcSlice.size_, sendRecvInfo.dataType_, HcclReduceOp::HCCL_REDUCE_RESERVED);
         CHK_RET(static_cast<HcclResult>(HcommWriteOnThread(thread, sendChannel.handle, dst, src, srcSlice.size_)));
     }
+    // 写完之后做后同步告诉对面写完了
+    CHK_RET(
+        static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, sendChannel.handle, NOTIFY_IDX_DATA_SIGNAL)));
+    CHK_RET(static_cast<HcclResult>(
+        HcommChannelNotifyWaitOnThread(thread, recvChannel.handle, NOTIFY_IDX_DATA_SIGNAL, execTimeout)));
+    return HCCL_SUCCESS;
+}
+
+HcclResult SendRecvBatchWrite(const SendRecvInfo &sendRecvInfo, const ThreadHandle &thread)
+{
+    const std::vector<DataSlice> srcSlices = sendRecvInfo.sendRecvSlices_.txSlicesList_.srcSlices_;
+    const std::vector<DataSlice> dstSlices = sendRecvInfo.sendRecvSlices_.txSlicesList_.dstSlices_;
+    const ChannelInfo &sendChannel = sendRecvInfo.sendRecvChannels_.txChannel_;
+    const ChannelInfo &recvChannel = sendRecvInfo.sendRecvChannels_.rxChannel_;
+    u32 repeatNum = srcSlices.size();
+    // 向write rank发送tx同步，确保该rank的hcclBuffer可用
+    // 这里只是在host上向device下任务，所以实际在host侧不会因为wait而阻塞
+    CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, recvChannel.handle, NOTIFY_IDX_ACK)));
+    // 获取执行超时时间
+    u32 execTimeout = ExecTimeoutManager::Instance().GetExecTimeout();
+    CHK_RET(static_cast<HcclResult>(
+        HcommChannelNotifyWaitOnThread(thread, sendChannel.handle, NOTIFY_IDX_ACK, execTimeout)));
+
+    std::vector<void *> dstList;
+    std::vector<void *> srcList;
+    std::vector<uint64_t> lenList;
+    std::vector<uint32_t> rwList;
+    std::vector<HcommDataType> dataTypeList;
+    std::vector<HcommReduceOp> reduceOpList;
+
+    for (int i = 0; i < repeatNum; i++) {
+        const DataSlice srcSlice = srcSlices[i];
+        const DataSlice dstSlice = dstSlices[i];
+        if (srcSlice.size_ == 0) {
+            HCCL_WARNING("[AlgDataTransWrapper] SendRecvBatchWrite: size is 0.");
+            continue;
+        }
+        void *dst = GetSliceAddr(dstSlice);
+        void *src = GetSliceAddr(srcSlice);
+        TraceDataSlice("SendRecvBatchWrite", "BATCH_WRITE", i, repeatNum, srcSlice, dstSlice, src, dst,
+            srcSlice.size_, sendRecvInfo.dataType_, HcclReduceOp::HCCL_REDUCE_RESERVED);
+        dstList.push_back(dst);
+        srcList.push_back(src);
+        lenList.push_back(srcSlice.size_);
+        rwList.push_back(0);
+        dataTypeList.push_back(static_cast<HcommDataType>(sendRecvInfo.dataType_));
+        reduceOpList.push_back(static_cast<HcommReduceOp>(HcclReduceOp::HCCL_REDUCE_RESERVED));
+    }
+
+    if (dstList.size() > 0) {
+        TraceBatchSummary("SendRecvBatchWrite", "BATCH_WRITE", repeatNum, dstList.size(), sendChannel);
+        CHK_RET(static_cast<HcclResult>(HcommBatchTransfer(thread, sendChannel.handle, dstList.data(), srcList.data(),
+            lenList.data(), rwList.data(), dataTypeList.data(), reduceOpList.data(), dstList.size())));
+    }
+
+    // 写完之后做后同步告诉对面写完了
+    CHK_RET(
+        static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, sendChannel.handle, NOTIFY_IDX_DATA_SIGNAL)));
+    CHK_RET(static_cast<HcclResult>(
+        HcommChannelNotifyWaitOnThread(thread, recvChannel.handle, NOTIFY_IDX_DATA_SIGNAL, execTimeout)));
+    return HCCL_SUCCESS;
+}
+
+HcclResult SendRecvBatchWriteReduce(const SendRecvReduceInfo &sendRecvInfo, const ThreadHandle &thread)
+{
+    const std::vector<DataSlice> srcSlices = sendRecvInfo.sendRecvSlices_.txSlicesList_.srcSlices_;
+    const std::vector<DataSlice> dstSlices = sendRecvInfo.sendRecvSlices_.txSlicesList_.dstSlices_;
+    const ChannelInfo &sendChannel = sendRecvInfo.sendRecvChannels_.txChannel_;
+    const ChannelInfo &recvChannel = sendRecvInfo.sendRecvChannels_.rxChannel_;
+    u32 repeatNum = srcSlices.size();
+    // 向write rank发送tx同步，确保该rank的hcclBuffer可用
+    // 这里只是在host上向device下任务，所以实际在host侧不会因为wait而阻塞
+    CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, recvChannel.handle, NOTIFY_IDX_ACK)));
+    // 获取执行超时时间
+    u32 execTimeout = ExecTimeoutManager::Instance().GetExecTimeout();
+    CHK_RET(static_cast<HcclResult>(
+        HcommChannelNotifyWaitOnThread(thread, sendChannel.handle, NOTIFY_IDX_ACK, execTimeout)));
+
+    std::vector<void *> dstList;
+    std::vector<void *> srcList;
+    std::vector<uint64_t> lenList;
+    std::vector<uint32_t> rwList;
+    std::vector<HcommDataType> dataTypeList;
+    std::vector<HcommReduceOp> reduceOpList;
+
+    for (int i = 0; i < repeatNum; i++) {
+        const DataSlice srcSlice = srcSlices[i];
+        const DataSlice dstSlice = dstSlices[i];
+        if (srcSlice.size_ == 0) {
+            HCCL_WARNING("[AlgDataTransWrapper] SendRecvBatchWriteReduce: size is 0.");
+            continue;
+        }
+        CHK_PRT_RET(srcSlice.count_ * DATATYPE_SIZE_TABLE[sendRecvInfo.dataType_] != srcSlice.size_,
+            HCCL_ERROR("[AlgDataTransWrapper] SendRecvBatchWriteReduce: src slice count [%u] is not mate to src slice "
+                       "size [%u], dataType is [%d].",
+                srcSlice.count_,
+                srcSlice.size_,
+                sendRecvInfo.dataType_),
+            HcclResult::HCCL_E_INTERNAL);
+        CHK_PRT_RET(dstSlice.count_ * DATATYPE_SIZE_TABLE[sendRecvInfo.dataType_] != dstSlice.size_,
+            HCCL_ERROR("[AlgDataTransWrapper] SendRecvBatchWriteReduce: dst slice count [%u] is not mate to dst slice "
+                       "size [%u], dataType is [%d].",
+                dstSlice.count_,
+                dstSlice.size_,
+                sendRecvInfo.dataType_),
+            HcclResult::HCCL_E_INTERNAL);
+        void *dst = GetSliceAddr(dstSlice);
+        void *src = GetSliceAddr(srcSlice);
+        u64 len = srcSlice.count_ * DATATYPE_SIZE_TABLE[sendRecvInfo.dataType_];
+        TraceDataSlice("SendRecvBatchWriteReduce", "BATCH_WRITE_REDUCE", i, repeatNum, srcSlice, dstSlice, src, dst,
+            len, sendRecvInfo.dataType_, sendRecvInfo.reduceType_);
+        dstList.push_back(dst);
+        srcList.push_back(src);
+        lenList.push_back(len);
+        rwList.push_back(0);
+        dataTypeList.push_back(static_cast<HcommDataType>(sendRecvInfo.dataType_));
+        reduceOpList.push_back(static_cast<HcommReduceOp>(sendRecvInfo.reduceType_));
+    }
+
+    if (dstList.size() > 0) {
+        TraceBatchSummary("SendRecvBatchWriteReduce", "BATCH_WRITE_REDUCE", repeatNum, dstList.size(), sendChannel);
+        CHK_RET(static_cast<HcclResult>(HcommBatchTransfer(thread, sendChannel.handle, dstList.data(), srcList.data(),
+            lenList.data(), rwList.data(), dataTypeList.data(), reduceOpList.data(), dstList.size())));
+    }
+
     // 写完之后做后同步告诉对面写完了
     CHK_RET(
         static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, sendChannel.handle, NOTIFY_IDX_DATA_SIGNAL)));
@@ -110,19 +317,21 @@ HcclResult SendWriteReduce(const DataReduceInfo &sendInfo, const ThreadHandle &t
         CHK_PRT_RET(srcSlice.count_ * DATATYPE_SIZE_TABLE[sendInfo.dataType_] != srcSlice.size_,
             HCCL_ERROR("[AlgDataTransWrapper] SendWriteReduce: src slice count [%u] is not mate to src slice size "
                        "[%u], dataType is [%d].",
-                srcSlice.size_,
+                srcSlice.count_,
                 srcSlice.size_,
                 sendInfo.dataType_),
             HcclResult::HCCL_E_INTERNAL);
         CHK_PRT_RET(dstSlice.count_ * DATATYPE_SIZE_TABLE[sendInfo.dataType_] != dstSlice.size_,
             HCCL_ERROR("[AlgDataTransWrapper] SendWriteReduce: dst slice count [%u] is not mate to dst slice size "
                        "[%u], dataType is [%d].",
-                dstSlice.size_,
+                dstSlice.count_,
                 dstSlice.size_,
                 sendInfo.dataType_),
             HcclResult::HCCL_E_INTERNAL);
-        void *dst = static_cast<void *>(static_cast<s8 *>(dstSlice.addr_) + dstSlice.offset_);
-        void *src = static_cast<void *>(static_cast<s8 *>(srcSlice.addr_) + srcSlice.offset_);
+        void *dst = GetSliceAddr(dstSlice);
+        void *src = GetSliceAddr(srcSlice);
+        TraceDataSlice("SendWriteReduce", "WRITE_REDUCE", i, repeatNum, srcSlice, dstSlice, src, dst,
+            srcSlice.count_, sendInfo.dataType_, sendInfo.reduceType_);
         CHK_RET(static_cast<HcclResult>(HcommWriteReduceOnThread(thread,
             sendChannel.handle,
             dst,
@@ -131,6 +340,68 @@ HcclResult SendWriteReduce(const DataReduceInfo &sendInfo, const ThreadHandle &t
             static_cast<HcommDataType>(sendInfo.dataType_),
             static_cast<HcommReduceOp>(sendInfo.reduceType_))));
     }
+    CHK_RET(
+        static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, sendChannel.handle, NOTIFY_IDX_DATA_SIGNAL)));
+    return HCCL_SUCCESS;
+}
+
+HcclResult SendBatchWriteReduce(const DataReduceInfo &sendInfo, const ThreadHandle &thread)
+{
+    const std::vector<DataSlice> srcSlices = sendInfo.slices_.srcSlices_;
+    const std::vector<DataSlice> dstSlices = sendInfo.slices_.dstSlices_;
+    const ChannelInfo &sendChannel = sendInfo.channel_;
+    u32 repeatNum = srcSlices.size();
+    u32 execTimeout = ExecTimeoutManager::Instance().GetExecTimeout();
+    CHK_RET(static_cast<HcclResult>(
+        HcommChannelNotifyWaitOnThread(thread, sendChannel.handle, NOTIFY_IDX_ACK, execTimeout)));
+
+    std::vector<void *> dstList;
+    std::vector<void *> srcList;
+    std::vector<uint64_t> lenList;
+    std::vector<uint32_t> rwList;
+    std::vector<HcommDataType> dataTypeList;
+    std::vector<HcommReduceOp> reduceOpList;
+
+    for (int i = 0; i < repeatNum; i++) {
+        const DataSlice srcSlice = srcSlices[i];
+        const DataSlice dstSlice = dstSlices[i];
+        if (srcSlice.size_ == 0) {
+            HCCL_WARNING("[AlgDataTransWrapper] SendBatchWriteReduce: size is 0.");
+            continue;
+        }
+        CHK_PRT_RET(srcSlice.count_ * DATATYPE_SIZE_TABLE[sendInfo.dataType_] != srcSlice.size_,
+            HCCL_ERROR("[AlgDataTransWrapper] SendBatchWriteReduce: src slice count [%u] is not mate to src slice "
+                       "size [%u], dataType is [%d].",
+                srcSlice.count_,
+                srcSlice.size_,
+                sendInfo.dataType_),
+            HcclResult::HCCL_E_INTERNAL);
+        CHK_PRT_RET(dstSlice.count_ * DATATYPE_SIZE_TABLE[sendInfo.dataType_] != dstSlice.size_,
+            HCCL_ERROR("[AlgDataTransWrapper] SendBatchWriteReduce: dst slice count [%u] is not mate to dst slice "
+                       "size [%u], dataType is [%d].",
+                dstSlice.count_,
+                dstSlice.size_,
+                sendInfo.dataType_),
+            HcclResult::HCCL_E_INTERNAL);
+        void *dst = GetSliceAddr(dstSlice);
+        void *src = GetSliceAddr(srcSlice);
+        u64 len = srcSlice.count_ * DATATYPE_SIZE_TABLE[sendInfo.dataType_];
+        TraceDataSlice("SendBatchWriteReduce", "BATCH_WRITE_REDUCE", i, repeatNum, srcSlice, dstSlice, src, dst,
+            len, sendInfo.dataType_, sendInfo.reduceType_);
+        dstList.push_back(dst);
+        srcList.push_back(src);
+        lenList.push_back(len);
+        rwList.push_back(0);
+        dataTypeList.push_back(static_cast<HcommDataType>(sendInfo.dataType_));
+        reduceOpList.push_back(static_cast<HcommReduceOp>(sendInfo.reduceType_));
+    }
+
+    if (dstList.size() > 0) {
+        TraceBatchSummary("SendBatchWriteReduce", "BATCH_WRITE_REDUCE", repeatNum, dstList.size(), sendChannel);
+        CHK_RET(static_cast<HcclResult>(HcommBatchTransfer(thread, sendChannel.handle, dstList.data(), srcList.data(),
+            lenList.data(), rwList.data(), dataTypeList.data(), reduceOpList.data(), dstList.size())));
+    }
+
     CHK_RET(
         static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, sendChannel.handle, NOTIFY_IDX_DATA_SIGNAL)));
     return HCCL_SUCCESS;
@@ -170,21 +441,23 @@ HcclResult SendRecvWriteReduce(const SendRecvReduceInfo &sendRecvInfo, const Thr
             continue;
         }
         CHK_PRT_RET(srcSlice.count_ * DATATYPE_SIZE_TABLE[sendRecvInfo.dataType_] != srcSlice.size_,
-            HCCL_ERROR("[AlgDataTransWrapper] SendWriteReduce: src slice count [%u] is not mate to src slice size "
+            HCCL_ERROR("[AlgDataTransWrapper] SendRecvWriteReduce: src slice count [%u] is not mate to src slice size "
                        "[%u], dataType is [%d].",
-                srcSlice.size_,
+                srcSlice.count_,
                 srcSlice.size_,
                 sendRecvInfo.dataType_),
             HcclResult::HCCL_E_INTERNAL);
         CHK_PRT_RET(dstSlice.count_ * DATATYPE_SIZE_TABLE[sendRecvInfo.dataType_] != dstSlice.size_,
-            HCCL_ERROR("[AlgDataTransWrapper] SendWriteReduce: dst slice count [%u] is not mate to dst slice size "
+            HCCL_ERROR("[AlgDataTransWrapper] SendRecvWriteReduce: dst slice count [%u] is not mate to dst slice size "
                        "[%u], dataType is [%d].",
-                dstSlice.size_,
+                dstSlice.count_,
                 dstSlice.size_,
                 sendRecvInfo.dataType_),
             HcclResult::HCCL_E_INTERNAL);
-        void *dst = static_cast<void *>(static_cast<s8 *>(dstSlice.addr_) + dstSlice.offset_);
-        void *src = static_cast<void *>(static_cast<s8 *>(srcSlice.addr_) + srcSlice.offset_);
+        void *dst = GetSliceAddr(dstSlice);
+        void *src = GetSliceAddr(srcSlice);
+        TraceDataSlice("SendRecvWriteReduce", "WRITE_REDUCE", i, repeatNum, srcSlice, dstSlice, src, dst,
+            srcSlice.count_, sendRecvInfo.dataType_, sendRecvInfo.reduceType_);
         CHK_RET(static_cast<HcclResult>(HcommWriteReduceOnThread(thread,
             sendChannel.handle,
             dst,
@@ -229,10 +502,59 @@ HcclResult RecvRead(const DataInfo &recvInfo, const ThreadHandle &thread)
             HCCL_WARNING("[AlgDataTransWrapper] RecvRead: size is 0.");
             continue;
         }
-        void *dst = static_cast<void *>(static_cast<s8 *>(dstSlice.addr_) + dstSlice.offset_);
-        void *src = static_cast<void *>(static_cast<s8 *>(srcSlice.addr_) + srcSlice.offset_);
+        void *dst = GetSliceAddr(dstSlice);
+        void *src = GetSliceAddr(srcSlice);
+        TraceDataSlice("RecvRead", "READ", i, repeatNum, srcSlice, dstSlice, src, dst,
+            srcSlice.size_, recvInfo.dataType_, HcclReduceOp::HCCL_REDUCE_RESERVED);
         CHK_RET(static_cast<HcclResult>(HcommReadOnThread(thread, recvChannel.handle, dst, src, srcSlice.size_)));
     }
+    CHK_RET(
+        static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, recvChannel.handle, NOTIFY_IDX_DATA_SIGNAL)));
+    return HCCL_SUCCESS;
+}
+
+HcclResult RecvBatchRead(const DataInfo &recvInfo, const ThreadHandle &thread)
+{
+    const std::vector<DataSlice> srcSlices = recvInfo.slices_.srcSlices_;
+    const std::vector<DataSlice> dstSlices = recvInfo.slices_.dstSlices_;
+    const ChannelInfo &recvChannel = recvInfo.channel_;
+    u32 repeatNum = srcSlices.size();
+    u32 execTimeout = ExecTimeoutManager::Instance().GetExecTimeout();
+    CHK_RET(static_cast<HcclResult>(
+        HcommChannelNotifyWaitOnThread(thread, recvChannel.handle, NOTIFY_IDX_ACK, execTimeout)));
+
+    std::vector<void *> dstList;
+    std::vector<void *> srcList;
+    std::vector<uint64_t> lenList;
+    std::vector<uint32_t> rwList;
+    std::vector<HcommDataType> dataTypeList;
+    std::vector<HcommReduceOp> reduceOpList;
+
+    for (int i = 0; i < repeatNum; i++) {
+        const DataSlice srcSlice = srcSlices[i];
+        const DataSlice dstSlice = dstSlices[i];
+        if (srcSlice.size_ == 0) {
+            HCCL_WARNING("[AlgDataTransWrapper] RecvBatchRead: size is 0.");
+            continue;
+        }
+        void *dst = GetSliceAddr(dstSlice);
+        void *src = GetSliceAddr(srcSlice);
+        TraceDataSlice("RecvBatchRead", "BATCH_READ", i, repeatNum, srcSlice, dstSlice, src, dst,
+            srcSlice.size_, recvInfo.dataType_, HcclReduceOp::HCCL_REDUCE_RESERVED);
+        dstList.push_back(src);
+        srcList.push_back(dst);
+        lenList.push_back(srcSlice.size_);
+        rwList.push_back(1);
+        dataTypeList.push_back(static_cast<HcommDataType>(recvInfo.dataType_));
+        reduceOpList.push_back(static_cast<HcommReduceOp>(HcclReduceOp::HCCL_REDUCE_RESERVED));
+    }
+
+    if (dstList.size() > 0) {
+        TraceBatchSummary("RecvBatchRead", "BATCH_READ", repeatNum, dstList.size(), recvChannel);
+        CHK_RET(static_cast<HcclResult>(HcommBatchTransfer(thread, recvChannel.handle, dstList.data(), srcList.data(),
+            lenList.data(), rwList.data(), dataTypeList.data(), reduceOpList.data(), dstList.size())));
+    }
+
     CHK_RET(
         static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, recvChannel.handle, NOTIFY_IDX_DATA_SIGNAL)));
     return HCCL_SUCCESS;
@@ -260,11 +582,64 @@ HcclResult SendRecvRead(const SendRecvInfo &sendRecvInfo, const ThreadHandle &th
             HCCL_WARNING("[AlgDataTransWrapper] SendRecvRead: size is 0.");
             continue;
         }
-        void *dst = static_cast<void *>(static_cast<s8 *>(dstSlice.addr_) + dstSlice.offset_);
-        void *src = static_cast<void *>(static_cast<s8 *>(srcSlice.addr_) + srcSlice.offset_);
+        void *dst = GetSliceAddr(dstSlice);
+        void *src = GetSliceAddr(srcSlice);
+        TraceDataSlice("SendRecvRead", "READ", i, repeatNum, srcSlice, dstSlice, src, dst,
+            srcSlice.size_, sendRecvInfo.dataType_, HcclReduceOp::HCCL_REDUCE_RESERVED);
         CHK_RET(static_cast<HcclResult>(HcommReadOnThread(thread, recvChannel.handle, dst, src, srcSlice.size_)));
     }
     // 写完之后做后同步告诉对面写完了
+    CHK_RET(
+        static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, recvChannel.handle, NOTIFY_IDX_DATA_SIGNAL)));
+    CHK_RET(static_cast<HcclResult>(
+        HcommChannelNotifyWaitOnThread(thread, sendChannel.handle, NOTIFY_IDX_DATA_SIGNAL, execTimeout)));
+    return HCCL_SUCCESS;
+}
+
+HcclResult SendRecvBatchRead(const SendRecvInfo &sendRecvInfo, const ThreadHandle &thread)
+{
+    const std::vector<DataSlice> srcSlices = sendRecvInfo.sendRecvSlices_.rxSlicesList_.srcSlices_;
+    const std::vector<DataSlice> dstSlices = sendRecvInfo.sendRecvSlices_.rxSlicesList_.dstSlices_;
+    const ChannelInfo &sendChannel = sendRecvInfo.sendRecvChannels_.txChannel_;
+    const ChannelInfo &recvChannel = sendRecvInfo.sendRecvChannels_.rxChannel_;
+    u32 repeatNum = srcSlices.size();
+    CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, sendChannel.handle, NOTIFY_IDX_ACK)));
+    u32 execTimeout = ExecTimeoutManager::Instance().GetExecTimeout();
+    CHK_RET(static_cast<HcclResult>(
+        HcommChannelNotifyWaitOnThread(thread, recvChannel.handle, NOTIFY_IDX_ACK, execTimeout)));
+
+    std::vector<void *> dstList;
+    std::vector<void *> srcList;
+    std::vector<uint64_t> lenList;
+    std::vector<uint32_t> rwList;
+    std::vector<HcommDataType> dataTypeList;
+    std::vector<HcommReduceOp> reduceOpList;
+
+    for (int i = 0; i < repeatNum; i++) {
+        const DataSlice srcSlice = srcSlices[i];
+        const DataSlice dstSlice = dstSlices[i];
+        if (srcSlice.size_ == 0) {
+            HCCL_WARNING("[AlgDataTransWrapper] SendRecvBatchRead: size is 0.");
+            continue;
+        }
+        void *dst = GetSliceAddr(dstSlice);
+        void *src = GetSliceAddr(srcSlice);
+        TraceDataSlice("SendRecvBatchRead", "BATCH_READ", i, repeatNum, srcSlice, dstSlice, src, dst,
+            srcSlice.size_, sendRecvInfo.dataType_, HcclReduceOp::HCCL_REDUCE_RESERVED);
+        dstList.push_back(src);
+        srcList.push_back(dst);
+        lenList.push_back(srcSlice.size_);
+        rwList.push_back(1);
+        dataTypeList.push_back(static_cast<HcommDataType>(sendRecvInfo.dataType_));
+        reduceOpList.push_back(static_cast<HcommReduceOp>(HcclReduceOp::HCCL_REDUCE_RESERVED));
+    }
+
+    if (dstList.size() > 0) {
+        TraceBatchSummary("SendRecvBatchRead", "BATCH_READ", repeatNum, dstList.size(), recvChannel);
+        CHK_RET(static_cast<HcclResult>(HcommBatchTransfer(thread, recvChannel.handle, dstList.data(), srcList.data(),
+            lenList.data(), rwList.data(), dataTypeList.data(), reduceOpList.data(), dstList.size())));
+    }
+
     CHK_RET(
         static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, recvChannel.handle, NOTIFY_IDX_DATA_SIGNAL)));
     CHK_RET(static_cast<HcclResult>(
@@ -301,21 +676,23 @@ HcclResult RecvReadReduce(const DataReduceInfo &recvInfo, const ThreadHandle &th
             continue;
         }
         CHK_PRT_RET(srcSlice.count_ * DATATYPE_SIZE_TABLE[recvInfo.dataType_] != srcSlice.size_,
-            HCCL_ERROR("[AlgDataTransWrapper] SendWriteReduce: src slice count [%u] is not mate to src slice size "
+            HCCL_ERROR("[AlgDataTransWrapper] RecvReadReduce: src slice count [%u] is not mate to src slice size "
                        "[%u], dataType is [%d].",
-                srcSlice.size_,
+                srcSlice.count_,
                 srcSlice.size_,
                 recvInfo.dataType_),
             HcclResult::HCCL_E_INTERNAL);
         CHK_PRT_RET(dstSlice.count_ * DATATYPE_SIZE_TABLE[recvInfo.dataType_] != dstSlice.size_,
-            HCCL_ERROR("[AlgDataTransWrapper] SendWriteReduce: dst slice count [%u] is not mate to dst slice size "
+            HCCL_ERROR("[AlgDataTransWrapper] RecvReadReduce: dst slice count [%u] is not mate to dst slice size "
                        "[%u], dataType is [%d].",
-                dstSlice.size_,
+                dstSlice.count_,
                 dstSlice.size_,
                 recvInfo.dataType_),
             HcclResult::HCCL_E_INTERNAL);
-        void *dst = static_cast<void *>(static_cast<s8 *>(dstSlice.addr_) + dstSlice.offset_);
-        void *src = static_cast<void *>(static_cast<s8 *>(srcSlice.addr_) + srcSlice.offset_);
+        void *dst = GetSliceAddr(dstSlice);
+        void *src = GetSliceAddr(srcSlice);
+        TraceDataSlice("RecvReadReduce", "READ_REDUCE", i, repeatNum, srcSlice, dstSlice, src, dst,
+            srcSlice.count_, recvInfo.dataType_, recvInfo.reduceType_);
         CHK_RET(static_cast<HcclResult>(HcommReadReduceOnThread(thread,
             recvChannel.handle,
             dst,
@@ -324,6 +701,68 @@ HcclResult RecvReadReduce(const DataReduceInfo &recvInfo, const ThreadHandle &th
             static_cast<HcommDataType>(recvInfo.dataType_),
             static_cast<HcommReduceOp>(recvInfo.reduceType_))));
     }
+    CHK_RET(
+        static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, recvChannel.handle, NOTIFY_IDX_DATA_SIGNAL)));
+    return HCCL_SUCCESS;
+}
+
+HcclResult RecvBatchReadReduce(const DataReduceInfo &recvInfo, const ThreadHandle &thread)
+{
+    const std::vector<DataSlice> srcSlices = recvInfo.slices_.srcSlices_;
+    const std::vector<DataSlice> dstSlices = recvInfo.slices_.dstSlices_;
+    const ChannelInfo &recvChannel = recvInfo.channel_;
+    u32 repeatNum = srcSlices.size();
+    u32 execTimeout = ExecTimeoutManager::Instance().GetExecTimeout();
+    CHK_RET(static_cast<HcclResult>(
+        HcommChannelNotifyWaitOnThread(thread, recvChannel.handle, NOTIFY_IDX_ACK, execTimeout)));
+
+    std::vector<void *> dstList;
+    std::vector<void *> srcList;
+    std::vector<uint64_t> lenList;
+    std::vector<uint32_t> rwList;
+    std::vector<HcommDataType> dataTypeList;
+    std::vector<HcommReduceOp> reduceOpList;
+
+    for (int i = 0; i < repeatNum; i++) {
+        const DataSlice srcSlice = srcSlices[i];
+        const DataSlice dstSlice = dstSlices[i];
+        if (srcSlice.size_ == 0) {
+            HCCL_WARNING("[AlgDataTransWrapper] RecvBatchReadReduce: size is 0.");
+            continue;
+        }
+        CHK_PRT_RET(srcSlice.count_ * DATATYPE_SIZE_TABLE[recvInfo.dataType_] != srcSlice.size_,
+            HCCL_ERROR("[AlgDataTransWrapper] RecvBatchReadReduce: src slice count [%u] is not mate to src slice "
+                       "size [%u], dataType is [%d].",
+                srcSlice.count_,
+                srcSlice.size_,
+                recvInfo.dataType_),
+            HcclResult::HCCL_E_INTERNAL);
+        CHK_PRT_RET(dstSlice.count_ * DATATYPE_SIZE_TABLE[recvInfo.dataType_] != dstSlice.size_,
+            HCCL_ERROR("[AlgDataTransWrapper] RecvBatchReadReduce: dst slice count [%u] is not mate to dst slice "
+                       "size [%u], dataType is [%d].",
+                dstSlice.count_,
+                dstSlice.size_,
+                recvInfo.dataType_),
+            HcclResult::HCCL_E_INTERNAL);
+        void *dst = GetSliceAddr(dstSlice);
+        void *src = GetSliceAddr(srcSlice);
+        u64 len = srcSlice.count_ * DATATYPE_SIZE_TABLE[recvInfo.dataType_];
+        TraceDataSlice("RecvBatchReadReduce", "BATCH_READ_REDUCE", i, repeatNum, srcSlice, dstSlice, src, dst,
+            len, recvInfo.dataType_, recvInfo.reduceType_);
+        dstList.push_back(src);
+        srcList.push_back(dst);
+        lenList.push_back(len);
+        rwList.push_back(1);
+        dataTypeList.push_back(static_cast<HcommDataType>(recvInfo.dataType_));
+        reduceOpList.push_back(static_cast<HcommReduceOp>(recvInfo.reduceType_));
+    }
+
+    if (dstList.size() > 0) {
+        TraceBatchSummary("RecvBatchReadReduce", "BATCH_READ_REDUCE", repeatNum, dstList.size(), recvChannel);
+        CHK_RET(static_cast<HcclResult>(HcommBatchTransfer(thread, recvChannel.handle, dstList.data(), srcList.data(),
+            lenList.data(), rwList.data(), dataTypeList.data(), reduceOpList.data(), dstList.size())));
+    }
+
     CHK_RET(
         static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, recvChannel.handle, NOTIFY_IDX_DATA_SIGNAL)));
     return HCCL_SUCCESS;
@@ -352,21 +791,23 @@ HcclResult SendRecvReadReduce(const SendRecvReduceInfo &sendRecvInfo, const Thre
             continue;
         }
         CHK_PRT_RET(srcSlice.count_ * DATATYPE_SIZE_TABLE[sendRecvInfo.dataType_] != srcSlice.size_,
-            HCCL_ERROR("[AlgDataTransWrapper] SendWriteReduce: src slice count [%u] is not mate to src slice size "
+            HCCL_ERROR("[AlgDataTransWrapper] SendRecvReadReduce: src slice count [%u] is not mate to src slice size "
                        "[%u], dataType is [%d].",
-                srcSlice.size_,
+                srcSlice.count_,
                 srcSlice.size_,
                 sendRecvInfo.dataType_),
             HcclResult::HCCL_E_INTERNAL);
         CHK_PRT_RET(dstSlice.count_ * DATATYPE_SIZE_TABLE[sendRecvInfo.dataType_] != dstSlice.size_,
-            HCCL_ERROR("[AlgDataTransWrapper] SendWriteReduce: dst slice count [%u] is not mate to dst slice size "
+            HCCL_ERROR("[AlgDataTransWrapper] SendRecvReadReduce: dst slice count [%u] is not mate to dst slice size "
                        "[%u], dataType is [%d].",
-                dstSlice.size_,
+                dstSlice.count_,
                 dstSlice.size_,
                 sendRecvInfo.dataType_),
             HcclResult::HCCL_E_INTERNAL);
-        void *dst = static_cast<void *>(static_cast<s8 *>(dstSlice.addr_) + dstSlice.offset_);
-        void *src = static_cast<void *>(static_cast<s8 *>(srcSlice.addr_) + srcSlice.offset_);
+        void *dst = GetSliceAddr(dstSlice);
+        void *src = GetSliceAddr(srcSlice);
+        TraceDataSlice("SendRecvReadReduce", "READ_REDUCE", i, repeatNum, srcSlice, dstSlice, src, dst,
+            srcSlice.count_, sendRecvInfo.dataType_, sendRecvInfo.reduceType_);
         CHK_RET(static_cast<HcclResult>(HcommReadReduceOnThread(thread,
             recvChannel.handle,
             dst,
@@ -376,6 +817,72 @@ HcclResult SendRecvReadReduce(const SendRecvReduceInfo &sendRecvInfo, const Thre
             static_cast<HcommReduceOp>(sendRecvInfo.reduceType_))));
     }
     // 写完之后做后同步告诉对面写完了
+    CHK_RET(
+        static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, recvChannel.handle, NOTIFY_IDX_DATA_SIGNAL)));
+    CHK_RET(static_cast<HcclResult>(
+        HcommChannelNotifyWaitOnThread(thread, sendChannel.handle, NOTIFY_IDX_DATA_SIGNAL, execTimeout)));
+    return HCCL_SUCCESS;
+}
+
+HcclResult SendRecvBatchReadReduce(const SendRecvReduceInfo &sendRecvInfo, const ThreadHandle &thread)
+{
+    const std::vector<DataSlice> srcSlices = sendRecvInfo.sendRecvSlices_.rxSlicesList_.srcSlices_;
+    const std::vector<DataSlice> dstSlices = sendRecvInfo.sendRecvSlices_.rxSlicesList_.dstSlices_;
+    const ChannelInfo &sendChannel = sendRecvInfo.sendRecvChannels_.txChannel_;
+    const ChannelInfo &recvChannel = sendRecvInfo.sendRecvChannels_.rxChannel_;
+    u32 repeatNum = srcSlices.size();
+    CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, sendChannel.handle, NOTIFY_IDX_ACK)));
+    u32 execTimeout = ExecTimeoutManager::Instance().GetExecTimeout();
+    CHK_RET(static_cast<HcclResult>(
+        HcommChannelNotifyWaitOnThread(thread, recvChannel.handle, NOTIFY_IDX_ACK, execTimeout)));
+
+    std::vector<void *> dstList;
+    std::vector<void *> srcList;
+    std::vector<uint64_t> lenList;
+    std::vector<uint32_t> rwList;
+    std::vector<HcommDataType> dataTypeList;
+    std::vector<HcommReduceOp> reduceOpList;
+
+    for (int i = 0; i < repeatNum; i++) {
+        const DataSlice srcSlice = srcSlices[i];
+        const DataSlice dstSlice = dstSlices[i];
+        if (srcSlice.size_ == 0) {
+            HCCL_WARNING("[AlgDataTransWrapper] SendRecvBatchReadReduce: size is 0.");
+            continue;
+        }
+        CHK_PRT_RET(srcSlice.count_ * DATATYPE_SIZE_TABLE[sendRecvInfo.dataType_] != srcSlice.size_,
+            HCCL_ERROR("[AlgDataTransWrapper] SendRecvBatchReadReduce: src slice count [%u] is not mate to src slice "
+                       "size [%u], dataType is [%d].",
+                srcSlice.count_,
+                srcSlice.size_,
+                sendRecvInfo.dataType_),
+            HcclResult::HCCL_E_INTERNAL);
+        CHK_PRT_RET(dstSlice.count_ * DATATYPE_SIZE_TABLE[sendRecvInfo.dataType_] != dstSlice.size_,
+            HCCL_ERROR("[AlgDataTransWrapper] SendRecvBatchReadReduce: dst slice count [%u] is not mate to dst slice "
+                       "size [%u], dataType is [%d].",
+                dstSlice.count_,
+                dstSlice.size_,
+                sendRecvInfo.dataType_),
+            HcclResult::HCCL_E_INTERNAL);
+        void *dst = GetSliceAddr(dstSlice);
+        void *src = GetSliceAddr(srcSlice);
+        u64 len = srcSlice.count_ * DATATYPE_SIZE_TABLE[sendRecvInfo.dataType_];
+        TraceDataSlice("SendRecvBatchReadReduce", "BATCH_READ_REDUCE", i, repeatNum, srcSlice, dstSlice, src, dst,
+            len, sendRecvInfo.dataType_, sendRecvInfo.reduceType_);
+        dstList.push_back(src);
+        srcList.push_back(dst);
+        lenList.push_back(len);
+        rwList.push_back(1);
+        dataTypeList.push_back(static_cast<HcommDataType>(sendRecvInfo.dataType_));
+        reduceOpList.push_back(static_cast<HcommReduceOp>(sendRecvInfo.reduceType_));
+    }
+
+    if (dstList.size() > 0) {
+        TraceBatchSummary("SendRecvBatchReadReduce", "BATCH_READ_REDUCE", repeatNum, dstList.size(), recvChannel);
+        CHK_RET(static_cast<HcclResult>(HcommBatchTransfer(thread, recvChannel.handle, dstList.data(), srcList.data(),
+            lenList.data(), rwList.data(), dataTypeList.data(), reduceOpList.data(), dstList.size())));
+    }
+
     CHK_RET(
         static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, recvChannel.handle, NOTIFY_IDX_DATA_SIGNAL)));
     CHK_RET(static_cast<HcclResult>(
@@ -394,8 +901,10 @@ HcclResult LocalCopy(const ThreadHandle &thread, const DataSlice &srcSlice, cons
             srcSlice.size_,
             dstSlice.size_),
         HcclResult::HCCL_E_INTERNAL);
-    void *srcIn = static_cast<void *>(static_cast<u8 *>(srcSlice.addr_) + srcSlice.offset_);
-    void *dstOut = static_cast<void *>(static_cast<u8 *>(dstSlice.addr_) + dstSlice.offset_);
+    void *srcIn = GetSliceAddr(srcSlice);
+    void *dstOut = GetSliceAddr(dstSlice);
+    TraceDataSlice("LocalCopy", "LOCAL_COPY", 0, 1, srcSlice, dstSlice, srcIn, dstOut,
+        srcSlice.size_, HCCL_DATA_TYPE_RESERVED, HcclReduceOp::HCCL_REDUCE_RESERVED);
     CHK_RET(static_cast<HcclResult>(HcommLocalCopyOnThread(thread, dstOut, srcIn, srcSlice.size_)));
     return HCCL_SUCCESS;
 }
@@ -417,8 +926,10 @@ HcclResult LocalReduce(const ThreadHandle &thread, const DataSlice &srcSlice, co
             srcSlice.size_,
             dstSlice.size_),
         HcclResult::HCCL_E_INTERNAL);
-    void *src = static_cast<void *>(static_cast<u8 *>(srcSlice.addr_) + srcSlice.offset_);
-    void *dst = static_cast<void *>(static_cast<u8 *>(dstSlice.addr_) + dstSlice.offset_);
+    void *src = GetSliceAddr(srcSlice);
+    void *dst = GetSliceAddr(dstSlice);
+    TraceDataSlice("LocalReduce", "LOCAL_REDUCE", 0, 1, srcSlice, dstSlice, src, dst,
+        srcSlice.count_, dataType, reduceOp);
     CHK_RET(static_cast<HcclResult>(HcommLocalReduceOnThread(thread,
         dst,
         src,
@@ -447,6 +958,10 @@ HcclResult LocalCopySlices(
             HCCL_WARNING("[AlgDataTransWrapper] LocalCopySlices: size is 0.");
             continue;
         }
+        TraceDataSlice("LocalCopySlices", "LOCAL_COPY_SLICE", sliceIdx, srcSlices.size(),
+            srcSlices[sliceIdx], dstSlices[sliceIdx], GetSliceAddr(srcSlices[sliceIdx]),
+            GetSliceAddr(dstSlices[sliceIdx]), srcSlices[sliceIdx].size_, HCCL_DATA_TYPE_RESERVED,
+            HcclReduceOp::HCCL_REDUCE_RESERVED);
         CHK_PRT_RET(srcSlices[sliceIdx].size_ != dstSlices[sliceIdx].size_,
             HCCL_ERROR("[InsCollAlgFactory] [AlgDataTransWrapper] LocalCopySlices: [%u]-th slice, src slice size [%u] "
                        "is not equal to dst slice size [%u].",
@@ -457,8 +972,11 @@ HcclResult LocalCopySlices(
 
         if (sliceIdx == (srcSlices.size() - 1)) {
             // last slice
-            void *src = static_cast<void *>(static_cast<u8 *>(tmpSrcSlice.addr_) + tmpSrcSlice.offset_);
-            void *dst = static_cast<void *>(static_cast<u8 *>(tmpDstSlice.addr_) + tmpDstSlice.offset_);
+            void *src = GetSliceAddr(tmpSrcSlice);
+            void *dst = GetSliceAddr(tmpDstSlice);
+            TraceDataSlice("LocalCopySlices", "LOCAL_COPY_MERGED", sliceIdx, srcSlices.size(),
+                tmpSrcSlice, tmpDstSlice, src, dst, tmpSrcSlice.size_, HCCL_DATA_TYPE_RESERVED,
+                HcclReduceOp::HCCL_REDUCE_RESERVED);
             CHK_RET(static_cast<HcclResult>(HcommLocalCopyOnThread(thread, dst, src, tmpSrcSlice.size_)));
         } else if (IsContinuousSlice(srcSlices[sliceIdx + 1], tmpSrcSlice) &&
                    IsContinuousSlice(dstSlices[sliceIdx + 1], tmpDstSlice)) {
@@ -468,8 +986,11 @@ HcclResult LocalCopySlices(
             tmpDstSlice = DataSlice(tmpDstSlice.addr_, tmpDstSlice.offset_, newTmpSize);
         } else {
             // nxtSlice is not continuous with tmpSlice, copy tmpSlice, update tmpSlice with nxtSlice
-            void *src = static_cast<void *>(static_cast<u8 *>(tmpSrcSlice.addr_) + tmpSrcSlice.offset_);
-            void *dst = static_cast<void *>(static_cast<u8 *>(tmpDstSlice.addr_) + tmpDstSlice.offset_);
+            void *src = GetSliceAddr(tmpSrcSlice);
+            void *dst = GetSliceAddr(tmpDstSlice);
+            TraceDataSlice("LocalCopySlices", "LOCAL_COPY_MERGED", sliceIdx, srcSlices.size(),
+                tmpSrcSlice, tmpDstSlice, src, dst, tmpSrcSlice.size_, HCCL_DATA_TYPE_RESERVED,
+                HcclReduceOp::HCCL_REDUCE_RESERVED);
             CHK_RET(static_cast<HcclResult>(HcommLocalCopyOnThread(thread, dst, src, tmpSrcSlice.size_)));
 
             tmpSrcSlice = srcSlices[sliceIdx + 1];
@@ -567,8 +1088,10 @@ HcclResult AicpuReduce(const ThreadHandle &thread, const DataSlice &srcSlice, co
         HcclResult::HCCL_E_INTERNAL);
 
     auto ret = HcclResult::HCCL_SUCCESS;
-    u8 *src = static_cast<u8 *>(srcSlice.addr_) + srcSlice.offset_;
-    u8 *dst = static_cast<u8 *>(dstSlice.addr_) + dstSlice.offset_;
+    u8 *src = static_cast<u8 *>(GetSliceAddr(srcSlice));
+    u8 *dst = static_cast<u8 *>(GetSliceAddr(dstSlice));
+    TraceDataSlice("AicpuReduce", "AICPU_REDUCE", 0, 1, srcSlice, dstSlice, src, dst,
+        srcSlice.size_, dataType, reduceOp);
     switch (dataType) {
         case HcclDataType::HCCL_DATA_TYPE_INT64:
             AicpuReduceTemplate<int64_t>(reinterpret_cast<int64_t *>(dst),
