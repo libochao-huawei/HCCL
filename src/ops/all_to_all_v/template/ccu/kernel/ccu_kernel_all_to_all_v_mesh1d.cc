@@ -29,6 +29,50 @@ static CcuResult ParseKernelArg(AlltoAllVMesh1DContext &ctx, CcuKernelArgAlltoAl
     return CCU_SUCCESS;
 }
 
+static void LoadAll2allSendRecvInfo(A2AsingleSendRecvInfo &sendRecvInfo)
+{
+    HCCL_INFO("[CcuKernelAlltoAllVMesh1D] LoadAll2allSendRecvInfo!");
+    CCU_CHK_RET(ccu::Alloc(sendRecvInfo.tailSize));
+    CCU_CHK_RET(ccu::Alloc(sendRecvInfo.loopNum));
+    CCU_CHK_RET(ccu::Alloc(sendRecvInfo.sendOffset));
+    CCU_CHK_RET(ccu::Alloc(sendRecvInfo.recvOffset));
+
+    CCU_CHK_RET(ccu::Alloc(sendRecvInfo.tailSize.addrOffset));
+    CCU_CHK_RET(ccu::Alloc(sendRecvInfo.tailSize.loopParam));
+    CCU_CHK_RET(ccu::Alloc(sendRecvInfo.tailSize.parallelParam));
+    CCU_CHK_RET(ccu::Alloc(sendRecvInfo.tailSize.residual));
+
+    if (arg->loadFromMem) {
+        HCCL_INFO("[CcuKernelAlltoAllVMesh1D] Load Args from Mem");
+        sendRecvInfo.loopNum = UINT64_MAX - 1; // MC2 场景 loop num 默认为 1
+
+        // 要求client端排列内存为[size,send,recv][size,send,recv]...
+        LoadVariable(a2avXnAddr_, sendRecvInfo.tailSize);
+        // sendRecvInfo.tailSize = ctx.a2avXnAddr;
+        ctx.a2avXnAddr += ctx.xnLength;
+
+        LoadVariable(a2avXnAddr_, sendRecvInfo.sendOffset);
+        // sendRecvInfo.sendOffset = ctx.a2avXnAddr;
+        ctx.a2avXnAddr += ctx.xnLength;
+
+        // 跳过recvSize
+        ctx.a2avXnAddr += ctx.xnLength;
+
+        LoadVariable(a2avXnAddr_, sendRecvInfo.recvOffset);
+        // sendRecvInfo.recvOffset = ctx.a2avXnAddr;
+        ctx.a2avXnAddr += ctx.xnLength;
+    } else {
+        CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.tailSize));
+        CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.loopNum));
+        CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.sendOffset));
+        CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.recvOffset));
+        CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.tailGoSize.addrOffset));
+        CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.tailGoSize.loopParam));
+        CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.tailGoSize.parallelParam));
+        CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.tailGoSize.residual));
+    }
+}
+
 static CcuResult InitResource(AlltoAllVMesh1DContext &ctx)
 {   
     HCCL_INFO("[CcuKernelAlltoAllVMesh1D] InitResource!");
@@ -111,7 +155,7 @@ static void PreSync(AlltoAllVMesh1DContext &ctx)
         // index = 0，传递output信息
         ccu::WriteVariableWithNotify(arg->channels[channelIdx], tempDst, CKE_IDX_0, OUTPUT_XN_ID, 1 << OUTPUT_XN_ID);
         // index = 1，传递token信息
-        NotifyRecord(arg->channels[channelIdx], ctx.token[arg->rankId], CKE_IDX_0, TOKEN_XN_ID,  1 << TOKEN_XN_ID);
+        ccu::NotifyRecord(arg->channels[channelIdx], ctx.token[arg->rankId], CKE_IDX_0, TOKEN_XN_ID,  1 << TOKEN_XN_ID);
         channelIdx++;
     }
 
@@ -148,10 +192,13 @@ static CcuResult LoadArgs(AlltoAllVMesh1DContext &ctx)
     CCU_CHK_RET(ccu::LoadArg(ctx.token[arg->rankId]));
     CCU_CHK_RET(ccu::LoadArg(ctx.srcOffset));
     CCU_CHK_RET(ccu::LoadArg(ctx.dstOffset));
-    if (loadFromMem_) {
+    if (arg->loadFromMem) {
         CCU_CHK_RET(ccu::LoadArg(ctx.a2avXnAddr));
     } else {
-        CCU_CHK_RET(ccu::LoadArg(ctx.xnMaxTransportGoSize));
+        CCU_CHK_RET(ccu::LoadArg(ctx.xnMaxTransportGoSize.addrOffset));
+        CCU_CHK_RET(ccu::LoadArg(ctx.xnMaxTransportGoSize.loopParam));
+        CCU_CHK_RET(ccu::LoadArg(ctx.xnMaxTransportGoSize.parallelParam));
+        CCU_CHK_RET(ccu::LoadArg(ctx.xnMaxTransportGoSize.residual));
     }
     // 恢复当前卡对所有卡的收发信息
     ctx.sendRecvInfo.resize(arg->rankSize);
@@ -174,7 +221,7 @@ static void CalcGroupSrcDst(AlltoAllVMesh1DContext &ctx)
         ctx.src[rankIdx].addr += ctx.sendRecvInfo[rankIdx].sendOffset;
         ctx.src[rankIdx].addr += ctx.srcOffset;
 
-        // dst_[r] = recvBuf[r] + recvOffset + ctx.dstOffset
+        // ctx.dst[r] = recvBuf[r] + recvOffset + ctx.dstOffset
         if (rankIdx == arg->rankId) {
             // 写目的端为本端时需要特殊处理：使用接收基地址 + 块地址offset + 已发送数据量
             ctx.myDst.token = ctx.token[rankIdx];
@@ -183,22 +230,23 @@ static void CalcGroupSrcDst(AlltoAllVMesh1DContext &ctx)
             ctx.myDst.addr += ctx.dstOffset;
         } else {
             // 对端交换的接收块起始地址 + 已接收的数据偏移
-            dst_[rankIdx].token = ctx.token[rankIdx];
-            dst_[rankIdx].addr = ctx.output[rankIdx];
-            dst_[rankIdx].addr += ctx.dstOffset;
+            ctx.dst[rankIdx].token = ctx.token[rankIdx];
+            ctx.dst[rankIdx].addr = ctx.output[rankIdx];
+            ctx.dst[rankIdx].addr += ctx.dstOffset;
         }
     }
 }
 
-static CcuResult DoAll2AllVMultiLoop()
+static CcuResult DoAll2AllVMultiLoop(AlltoAllVMesh1DContext &ctx)
 {
     HCCL_DEBUG("[CcuKernelAlltoAllVMesh1D] alltoallv mesh 1d use GroupCopy start");
+    const auto *arg = ctx.arg;
     ctx.xnMaxTransportSize = UB_MAX_TRANS_SIZE;
-    completedRankCount_ = 0;
+    uint32_t completedRankCount = 0;
     ctx.xnConst1 = 1;
     u32 channelId = 0;
-    uint16_t allBit  = (1 << rankSize_) - 1;
-    CCU_DO_WHILE(completedRankCount_ != arg->rankSize) {  // 循环发送数据，直到所有对端数据都发送完成
+    uint16_t allBit  = (1 << arg->rankSize) - 1;
+    CCU_DO_WHILE(completedRankCount != arg->rankSize) {  // 循环发送数据，直到所有对端数据都发送完成
         for(uint32_t rankIdx = 0; rankIdx < arg->rankSize; rankIdx++) {  // 循环发送所有对端数据
             ctx.event.setMask(1 <<rankIdx);
             if (rankIdx == arg->rankId) {
@@ -213,16 +261,16 @@ static CcuResult DoAll2AllVMultiLoop()
                         ccu::WaitEvent(ctx.event);
                     }
                     CCU_IF_ONLY(ctx.sendRecvInfo[rankIdx].tailSize != 0) { // 尾块数据量不为 0，则需要发送尾块数据
-                        WriteNb(channels_[channelId], dst_[rankIdx], ctx.src[rankIdx], ctx.sendRecvInfo[rankIdx].tailSize,
+                        WriteNb(channels_[channelId], ctx.dst[rankIdx], ctx.src[rankIdx], ctx.sendRecvInfo[rankIdx].tailSize,
                               ctx.event);
                     }
-                    completedRankCount_ += ctx.xnConst1;  // 之后一轮循环完成，更新已完成的rank数
+                    completedRankCount += ctx.xnConst1;  // 之后一轮循环完成，更新已完成的rank数
                 }
                 CCU_IF_ONLY(ctx.sendRecvInfo[rankIdx].loopNum != UINT64_MAX - 1) { // 未完成，则继续循环，发送整块数据
-                    WriteNb(channels_[channelId], dst_[rankIdx], ctx.src[rankIdx], ctx.xnMaxTransportSize, ctx.event);
+                    WriteNb(channels_[channelId], ctx.dst[rankIdx], ctx.src[rankIdx], ctx.xnMaxTransportSize, ctx.event);
                     // 更新偏移
                     ctx.src[rankIdx].addr += ctx.xnMaxTransportSize;
-                    dst_[rankIdx].addr += ctx.xnMaxTransportSize;
+                    ctx.dst[rankIdx].addr += ctx.xnMaxTransportSize;
                 }
                 ctx.sendRecvInfo[rankIdx].loopNum += ctx.xnConst1;
             }
@@ -240,17 +288,17 @@ static CcuResult DoAll2AllVMultiLoop()
                         ccu::WaitEvent(ctx.event);
                     }
                     CCU_IF_ONLY(ctx.sendRecvInfo[arg->rankId].tailSize != 0) { // 尾块数据量不为 0，则需要发送尾块数据
-                        if (loadFromMem_) {
+                        if (arg->loadFromMem) {
                             ccu::LocalCopyNb(ctx.myDst, ctx.src[arg->rankId], ctx.sendRecvInfo[arg->rankId].tailSize, ctx.event);
                         } else {
                             GroupCopy(ctx.myDst, ctx.src[arg->rankId], ctx.sendRecvInfo[arg->rankId].tailGoSize);
                             ccu::WaitEvent(ctx.event);
                         }
                     }
-                    completedRankCount_ += ctx.xnConst1;  // 之后一轮循环完成，更新已完成的rank数
+                    completedRankCount += ctx.xnConst1;  // 之后一轮循环完成，更新已完成的rank数
                 }
                 CCU_IF_ONLY(ctx.sendRecvInfo[arg->rankId].loopNum != UINT64_MAX - 1) { // 未完成，则继续循环，发送整块数据
-                    if (loadFromMem_) {
+                    if (arg->loadFromMem) {
                         ccu::LocalCopyNb(ctx.myDst, ctx.src[arg->rankId], ctx.xnMaxTransportSize, ctx.event);
                     } else {
                         GroupCopy(ctx.myDst, ctx.src[arg->rankId], ctx.xnMaxTransportGoSize);
@@ -302,49 +350,5 @@ CcuResult CcuAlltoAllVMesh1DKernel(CcuKernelArg arg)
     HCCL_INFO("[CcuKernelAlltoAllMesh1D] AlltoAllMesh1D end");
 
     return CCU_SUCCESS;
-}
-
-static void LoadAll2allSendRecvInfo(A2AsingleSendRecvInfo &sendRecvInfo)
-{
-    HCCL_INFO("[CcuKernelAlltoAllVMesh1D] LoadAll2allSendRecvInfo!");
-    CCU_CHK_RET(ccu::Alloc(sendRecvInfo.tailSize));
-    CCU_CHK_RET(ccu::Alloc(sendRecvInfo.loopNum));
-    CCU_CHK_RET(ccu::Alloc(sendRecvInfo.sendOffset));
-    CCU_CHK_RET(ccu::Alloc(sendRecvInfo.recvOffset));
-
-    CCU_CHK_RET(ccu::Alloc(sendRecvInfo.tailSize.addrOffset));
-    CCU_CHK_RET(ccu::Alloc(sendRecvInfo.tailSize.loopParam));
-    CCU_CHK_RET(ccu::Alloc(sendRecvInfo.tailSize.parallelParam));
-    CCU_CHK_RET(ccu::Alloc(sendRecvInfo.tailSize.residual));
-
-    if (loadFromMem_) {
-        HCCL_INFO("[CcuKernelAlltoAllVMesh1D] Load Args from Mem");
-        sendRecvInfo.loopNum = UINT64_MAX - 1; // MC2 场景 loop num 默认为 1
-
-        // 要求client端排列内存为[size,send,recv][size,send,recv]...
-        LoadVariable(a2avXnAddr_, sendRecvInfo.tailSize);
-        // sendRecvInfo.tailSize = ctx.a2avXnAddr;
-        ctx.a2avXnAddr += ctx.xnLength;
-
-        LoadVariable(a2avXnAddr_, sendRecvInfo.sendOffset);
-        // sendRecvInfo.sendOffset = ctx.a2avXnAddr;
-        ctx.a2avXnAddr += ctx.xnLength;
-
-        // 跳过recvSize
-        ctx.a2avXnAddr += ctx.xnLength;
-
-        LoadVariable(a2avXnAddr_, sendRecvInfo.recvOffset);
-        // sendRecvInfo.recvOffset = ctx.a2avXnAddr;
-        ctx.a2avXnAddr += ctx.xnLength;
-    } else {
-        CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.tailSize));
-        CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.loopNum));
-        CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.sendOffset));
-        CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.recvOffset));
-        CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.tailGoSize.addrOffset));
-        CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.tailGoSize.loopParam));
-        CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.tailGoSize.parallelParam));
-        CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.tailGoSize.residual));
-    }
 }
 }
