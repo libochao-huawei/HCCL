@@ -54,6 +54,7 @@ HcclResult InsV2ScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate(
     const OpParam &param, const AlgResourceCtxSerializable &resCtx)
 {
     HCCL_INFO("[InsV2ScatterSoleExecutor][Orchestrate] Orchestrate Start");
+    printf("======= Orchestrate Start ======\n");
     maxTmpMemSize_ = resCtx.cclMem.size;
     myRank_ = resCtx.topoInfo.userRank;
     // 给channels_和threads_赋值
