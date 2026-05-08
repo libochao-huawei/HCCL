@@ -60,6 +60,7 @@ private:
     std::vector<u64> recvCounts_;
     std::vector<u64> sdispls_;
     std::vector<u64> rdispls_;
+    bool loadFromMem_;
 };
 
 }// namespace ops_hccl

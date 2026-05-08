@@ -22,7 +22,7 @@
 namespace ops_hccl {
 using namespace hcomm;
 
-struct CcuKernelArgAlltoAllV1D: CcuKernelArgBase {
+struct CcuKernelArgAlltoAllVMesh1D: CcuKernelArgBase {
     uint64_t                                rankSize;
     uint32_t                                rankId;
     bool                                    loadFromMem;
@@ -59,7 +59,7 @@ struct AlltoAllVMesh1DContext: CcuKernelCtxBase {
     CcuVariable xnLength;
     CcuVariable completedRankCount;
     CcuVariable xnMaxTransportSiz_;
-    GroupOpSize xnMaxTransportGoSize;
+    GroupOpSizeVars xnMaxTransportGoSize;
     std::vector<A2AsingleSendRecvInfo> sendRecvInfo;
     uint16_t selfBit{0};
     uint16_t allBit{0};
