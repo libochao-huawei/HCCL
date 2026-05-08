@@ -183,7 +183,7 @@ HcclResult CcuTempAlltoAllVMesh1D::FastLaunch(const OpParam& param, const Templa
 
     CcuResult launchRet = HcommCcuKernelLaunch(tempFastLaunchCtx.threads[0],
                                         tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle,
-                                        taskArgs, argSize);
+                                        taskArgs.data(), argSize);
     if (launchRet != CCU_SUCCESS) {
         HCCL_ERROR("[CcuTempAlltoAllVMesh1D::KernelRun] kernel launch failed, ccuRet -> %d", launchRet);
         return ConvertCcuToHccl(launchRet);

@@ -58,7 +58,7 @@ struct AlltoAllVMesh1DContext: CcuKernelCtxBase {
     CcuVariable a2avXnAddr;
     CcuVariable xnLength;
     CcuVariable completedRankCount;
-    CcuVariable xnMaxTransportSiz_;
+    CcuVariable xnMaxTransportSiz;
     GroupOpSizeVars xnMaxTransportGoSize;
     std::vector<A2AsingleSendRecvInfo> sendRecvInfo;
     uint16_t selfBit{0};

@@ -63,7 +63,7 @@ static CcuResult InitResource(AlltoAllVMesh1DContext &ctx)
     for (uint64_t peerId = 0; peerId < arg->rankSize; peerId++) {
         CCU_CHK_RET(ccu::Alloc(&ctx.src[peerId]));
         if (peerId == arg->rankId) {
-            CCU_CHK_RET(ccu::Alloc(&ctx.myDst))
+            CCU_CHK_RET(ccu::Alloc(&ctx.myDst));
         } else {
             CCU_CHK_RET(ccu::Alloc(&ctx.dst[peerId]));
         }
@@ -74,14 +74,17 @@ static CcuResult InitResource(AlltoAllVMesh1DContext &ctx)
     CCU_CHK_RET(ccu::Alloc(&ctx.a2avXnAddr));
 
     // 前同步。交换信息，将本Rank load的in\out等地址信息写到所有对端的对应Variable中，并同步
-    selfBit_ = 1 << arg->rankId;  // 本rank的mask
-    allBit_  = (1 << arg->rankSize) - 1;  // 等待包含自身的全部对端
-    allOtherBit_ = ((1 << arg->rankSize) - 1) & (~(1 << arg->rankId)); // 等待其他所有对端
+    // selfBit_ = 1 << arg->rankId;  // 本rank的mask
+    // allBit_  = (1 << arg->rankSize) - 1;  // 等待包含自身的全部对端
+    // allOtherBit_ = ((1 << arg->rankSize) - 1) & (~(1 << arg->rankId)); // 等待其他所有对端
 
     //  all2allv 数据搬运
     CCU_CHK_RET(ccu::Alloc(&ctx.completedRankCount));
     CCU_CHK_RET(ccu::Alloc(&ctx.xnMaxTransportSize));
-    CCU_CHK_RET(ccu::Alloc(&ctx.xnMaxTransportGoSize));
+    CCU_CHK_RET(ccu::Alloc(&ctx.xnMaxTransportGoSize.addrOffset));
+    CCU_CHK_RET(ccu::Alloc(&ctx.xnMaxTransportGoSize.loopParam));
+    CCU_CHK_RET(ccu::Alloc(&ctx.xnMaxTransportGoSize.parallelParam));
+    CCU_CHK_RET(ccu::Alloc(&ctx.xnMaxTransportGoSize.residual));
     CCU_CHK_RET(ccu::Alloc(&ctx.xnConst1));
     CCU_CHK_RET(ccu::Alloc(&ctx.xnLength));
     ctx.xnLength = 8; // xn长度为8byte
@@ -194,6 +197,7 @@ static CcuResult DoAll2AllVMultiLoop()
     completedRankCount_ = 0;
     ctx.xnConst1 = 1;
     u32 channelId = 0;
+    bool allBit  = (1 << rankSize_) - 1;
     CCU_DO_WHILE(completedRankCount_ != arg->rankSize) {  // 循环发送数据，直到所有对端数据都发送完成
         for(uint32_t rankIdx = 0; rankIdx < arg->rankSize; rankIdx++) {  // 循环发送所有对端数据
             ctx.event.setMask(1 <<rankIdx);
@@ -259,7 +263,7 @@ static CcuResult DoAll2AllVMultiLoop()
                 ctx.sendRecvInfo[arg->rankId].loopNum += ctx.xnConst1;
         }
         // 等待本轮发送完成
-        ctx.event.setMask(allBit_);
+        ctx.event.setMask(allBit);
         WaitEvent(ctx.event);
     }
 
