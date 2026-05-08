@@ -9,16 +9,16 @@
  */
 
 #include "ins_v2_all_to_all_v_sole_executor.h"
-#include "ins_temp_all_to_all_v_mesh_1D.h"
-#include "ins_temp_dpu_alltoall_mesh.h"
+// #include "ins_temp_all_to_all_v_mesh_1D.h"
+// #include "ins_temp_dpu_alltoall_mesh.h"
 #ifndef AICPU_COMPILE
-#include "aiv_temp_all_to_all_mesh_1D.h"
-#include "aiv_temp_all_to_all_v_mesh_1D.h"
+// #include "aiv_temp_all_to_all_mesh_1D.h"
+// #include "aiv_temp_all_to_all_v_mesh_1D.h"
 #if !defined(HCCL_CANN_COMPAT_850)
 #include "ccu_temp_all_to_all_mesh_1D.h"
-#include "ccu_temp_all_to_all_mesh2die.h"
-#include "ccu_temp_all_to_all_mesh1d_multi_jetty.h"
-#include "ccu_temp_all_to_all_mesh1d_2Die.h"
+// #include "ccu_temp_all_to_all_mesh2die.h"
+// #include "ccu_temp_all_to_all_mesh1d_multi_jetty.h"
+// #include "ccu_temp_all_to_all_mesh1d_2Die.h"
 #endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 
