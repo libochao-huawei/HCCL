@@ -1567,14 +1567,14 @@ HcclResult FillOpExchangeInfo(HcclComm comm, const OpParam &param, OpExchangeInf
     CHK_RET(HcclGetCommName(comm, exchangeInfo.group));
     exchangeInfo.group[MAX_LENGTH - 1] = '\0';
     if (param.opType == HcclCMDType::HCCL_CMD_SEND || param.opType == HcclCMDType::HCCL_CMD_RECEIVE) {
-        // Send和Recv的algName不相同导致algTag不相同，因此仅校验tag内容
-        s32 sRet = strncpy_s(exchangeInfo.algTag, MAX_LENGTH, param.tag, MAX_LENGTH);
+        // Send和Recv的algName不相同导致algTag不相同，因此仅校验tag内容，MAX_LENGTH < ALG_TAG_LENGTH为param.tag的长度
+        s32 sRet = strncpy_s(exchangeInfo.algTag, ALG_TAG_LENGTH, param.tag, MAX_LENGTH);
         CHK_PRT_RET(sRet != EOK, HCCL_ERROR("[%s] call strncpy_s failed, param.tag[%s],  return[%d].",
             __func__, param.algTag, sRet), HCCL_E_MEMORY);
         exchangeInfo.sendRecvRemoteRank = param.sendRecvRemoteRank;
     } else {
         // 拷贝长度设置为ALG_TAG_LENGTH-1确保以终止符结尾
-        s32 sRet = strncpy_s(exchangeInfo.algTag, ALG_TAG_LENGTH - 1, param.algTag, ALG_TAG_LENGTH - 1);
+        s32 sRet = strncpy_s(exchangeInfo.algTag, ALG_TAG_LENGTH, param.algTag, ALG_TAG_LENGTH - 1);
         CHK_PRT_RET(sRet != EOK, HCCL_ERROR("[%s] call strncpy_s failed, param.algTag[%s],  return[%d].",
             __func__, param.algTag, sRet), HCCL_E_MEMORY);
     }
@@ -1595,6 +1595,7 @@ HcclResult FillOpExchangeInfoWithDataDes(const OpParam &param, OpExchangeInfo &e
             break;
         case HcclCMDType::HCCL_CMD_ALLTOALL:
             exchangeInfo.dataType = param.all2AllVDataDes.sendType;
+            CHK_PTR_NULL(param.all2AllVDataDes.sendCounts);
             exchangeInfo.count = static_cast<u64*>(param.all2AllVDataDes.sendCounts)[0];
             break;
         case HcclCMDType::HCCL_CMD_ALLTOALLV:
@@ -1683,7 +1684,7 @@ HcclResult ConsistencyCheckOpType(const OpExchangeInfo &exchangeInfo, const Hccl
 {
     HcclCMDType locOpType = exchangeInfo.opType;
     if (locOpType == HcclCMDType::HCCL_CMD_SEND || locOpType == HcclCMDType::HCCL_CMD_RECEIVE) {
-        // HcclCMDType::HCCL_CMD_SEND和HcclCMDType::HCCL_CMD_SEND的枚举值需确保大于等于0
+        // HcclCMDType::HCCL_CMD_SEND和HcclCMDType::HCCL_CMD_RECEIVE的枚举值需确保大于等于0
         uint32_t expectValue = static_cast<uint32_t>(HcclCMDType::HCCL_CMD_SEND) +
             static_cast<uint32_t>(HcclCMDType::HCCL_CMD_RECEIVE) - static_cast<uint32_t>(locOpType);
         if ((rmtOpType != HcclCMDType::HCCL_CMD_SEND && rmtOpType != HcclCMDType::HCCL_CMD_RECEIVE) ||
