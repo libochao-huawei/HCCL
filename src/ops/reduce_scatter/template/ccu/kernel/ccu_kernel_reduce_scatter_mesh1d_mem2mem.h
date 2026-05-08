@@ -80,18 +80,18 @@ public:
 struct ReduceScatterMesh1DMem2MemContext {
     const ReduceScatterKernelArg *arg;
 
-    CcuVariable input[CCU_MAX_RANK_SIZE];
-    CcuVariable scratch[CCU_MAX_RANK_SIZE];
-    CcuVariable token[CCU_MAX_RANK_SIZE];
-    CcuVariable output;
-    CcuVariable currentRankSliceInputOffset;
-    CcuVariable currentRankSliceOutputOffset;
-    CcuVariable normalSliceSize;
-    CcuVariable lastSliceSize;
-    CcuVariable inputRepeatStride;
-    CcuVariable outputRepeatStride;
-    CcuVariable repeatNum;
-    CcuVariable flag;
+    ccu::Variable input[CCU_MAX_RANK_SIZE];
+    ccu::Variable scratch[CCU_MAX_RANK_SIZE];
+    ccu::Variable token[CCU_MAX_RANK_SIZE];
+    ccu::Variable output;
+    ccu::Variable currentRankSliceInputOffset;
+    ccu::Variable currentRankSliceOutputOffset;
+    ccu::Variable normalSliceSize;
+    ccu::Variable lastSliceSize;
+    ccu::Variable inputRepeatStride;
+    ccu::Variable outputRepeatStride;
+    ccu::Variable repeatNum;
+    ccu::Variable flag;
     GroupOpSizeVars goSize;
 
     uint16_t selfBit;
@@ -100,7 +100,7 @@ struct ReduceScatterMesh1DMem2MemContext {
     ccu::LocalAddr  myInput;
     ccu::RemoteAddr remoteInput[CCU_MAX_RANK_SIZE];
     ccu::LocalAddr  scratchMem[CCU_MAX_RANK_SIZE];
-    CcuEvent      event;
+    ccu::Event      event;
 
     LoopGroupConfig  moConfig;
     LoopGroupResource moRes;
@@ -113,8 +113,8 @@ struct ReduceScatterMesh1DMem2MemContext {
     ccu::LocalAddr loopDst[2];
     ccu::LocalAddr loopSrc[2];
     ccu::LocalAddr loopScratch[2][CCU_MAX_RANK_SIZE];
-    CcuVariable  loopLen[2];
-    CcuVariable  loopLenExp[2];
+    ccu::Variable  loopLen[2];
+    ccu::Variable  loopLenExp[2];
 };
 
 class CcuKernelReduceScatterMesh1DMem2Mem : public CcuKernelAlgBase {
