@@ -48,18 +48,18 @@ static CcuResult LoadAll2allSendRecvInfo(AlltoAllVMesh1DContext &ctx, A2AsingleS
         sendRecvInfo.loopNum = UINT64_MAX - 1; // MC2 场景 loop num 默认为 1
 
         // 要求client端排列内存为[size,send,recv][size,send,recv]...
-        LoadVar(ctx.a2avXnAddr, sendRecvInfo.tailSize);
+        ccu::LoadVar(ctx.a2avXnAddr, sendRecvInfo.tailSize);
         // sendRecvInfo.tailSize = ctx.a2avXnAddr;
         ctx.a2avXnAddr += ctx.xnLength;
 
-        LoadVar(ctx.a2avXnAddr, sendRecvInfo.sendOffset);
+        ccu::LoadVar(ctx.a2avXnAddr, sendRecvInfo.sendOffset);
         // sendRecvInfo.sendOffset = ctx.a2avXnAddr;
         ctx.a2avXnAddr += ctx.xnLength;
 
         // 跳过recvSize
         ctx.a2avXnAddr += ctx.xnLength;
 
-        LoadVar(ctx.a2avXnAddr, sendRecvInfo.recvOffset);
+        ccu::LoadVar(ctx.a2avXnAddr, sendRecvInfo.recvOffset);
         // sendRecvInfo.recvOffset = ctx.a2avXnAddr;
         ctx.a2avXnAddr += ctx.xnLength;
     } else {
