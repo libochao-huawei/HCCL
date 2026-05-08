@@ -14,6 +14,7 @@
 #include "ccu_alg_template_base.h"
 #include "utils.h"
 #include "ccu_kernel_all_gather_nhr1d_multi_jetty_mem2mem.h"
+#include "ccu_kernel_alg_base.h"
 
 namespace ops_hccl {
 
@@ -44,6 +45,8 @@ public:
     HcclResult GetRes(AlgResourceRequest &resourceRequest) const override;
 
     u64 GetThreadNum() const override;
+
+    HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx) override;
 
 protected:
     HcclResult CalcNHRInfo(std::vector<NHRStepInfo> &stepInfoVector) const;

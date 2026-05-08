@@ -19,6 +19,20 @@
 
 namespace ops_hccl {
 
+using NHRStepInfo = struct NHRStepInfoDef {
+    uint32_t step = 0;
+    uint32_t myRank = 0;
+    uint32_t nSlices;
+    uint32_t toRank = 0;
+    uint32_t fromRank = 0;
+    std::vector<uint32_t> txSliceIdxs;
+    std::vector<uint32_t> rxSliceIdxs;
+
+    NHRStepInfoDef() : nSlices(0)
+    {
+    }
+};
+
 constexpr uint16_t LOC_CPY_LOOP_NUM = 8;
 constexpr uint64_t UB_MAX_TRANS_SIZE = 256 * 1024 * 1024;  // UB单次最大传输量256*1024*1024 Byte
 constexpr uint64_t MAX_LOOP_GROUP_TRANS_SIZE = 256 * 1024 * 1024;  // 暂时为 256M
