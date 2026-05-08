@@ -227,7 +227,7 @@ HcclResult InsV2AllGatherSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, In
         CHK_RET(interTempAlg.KernelRun(param, interTempDataParams, templateResourceInter));
 
         // 框内的数据偏移和搬运量计算
-        GenIntraTemplateParams(interTempDataParams, processedDataCount, currDataCount, loop);
+        GenIntraTemplateParams(intraTempDataParams, processedDataCount, currDataCount, loop);
         CHK_RET(intraTempAlg.KernelRun(param, intraTempDataParams, templateResourceIntra));
 
         processedDataCount += currDataCount;

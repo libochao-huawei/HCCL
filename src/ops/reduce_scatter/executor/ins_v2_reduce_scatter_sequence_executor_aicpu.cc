@@ -91,8 +91,8 @@ HcclResult InsV2ReduceScatterSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0
     resourceRequest.notifyNumOnMainThread = std::max(resReqInter.notifyNumOnMainThread, resReqIntra.notifyNumOnMainThread);
     HCCL_INFO("[InsV2ReduceScatterSequenceExecutorAicpu] notifyNumOnMainThread is %u", resourceRequest.notifyNumOnMainThread);
     resourceRequest.channels.resize(SEQUENCE_EXECUTOR_LEVEL_NUM);
-    resourceRequest.channels[0] = resReqInter.channels[0];
-    resourceRequest.channels[1] = resReqIntra.channels[0];
+    resourceRequest.channels[0] = resReqIntra.channels[0];
+    resourceRequest.channels[1] = resReqInter.channels[0];
     HCCL_INFO("[InsV2ReduceScatterSequenceExecutorAicpu] slaveThreadNum is [%u], notifyNumOnMainThread is [%u], "\
         "level 1 chanel size [%u], level 2 channel size [%u]",
         resourceRequest.slaveThreadNum, resourceRequest.notifyNumPerThread,
@@ -167,18 +167,14 @@ void InsV2ReduceScatterSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsA
     TemplateDataParams &tempAlgParamsInter, const u64 processedDataCount, const u64 currDataCount, const u64 loop) const
 {
     tempAlgParamsInter.count = currDataCount;
-    tempAlgParamsInter.buffInfo.inBuffBaseOff = 0;
+    tempAlgParamsInter.buffInfo.inBuffBaseOff = rankIdxLevel0_ * currDataCount * dataTypeSize_;
     tempAlgParamsInter.buffInfo.outBuffBaseOff = processedDataCount * dataTypeSize_;
-    tempAlgParamsInter.buffInfo.hcclBuffBaseOff = 0;
+    tempAlgParamsInter.buffInfo.hcclBuffBaseOff = rankIdxLevel0_ * currDataCount * dataTypeSize_;
 
     tempAlgParamsInter.sliceSize = currDataCount * dataTypeSize_;
     tempAlgParamsInter.tailSize = tempAlgParamsInter.sliceSize;
 
-    if (std::is_same<InsAlgTemplate0, InsTempReduceScatterMesh1D>::value) {
-        tempAlgParamsInter.inputSliceStride = rankSizeLevel0_ * currDataCount * dataTypeSize_;
-    } else {
-        tempAlgParamsInter.inputSliceStride = currDataCount * dataTypeSize_;
-    }
+    tempAlgParamsInter.inputSliceStride = rankSizeLevel0_ * currDataCount * dataTypeSize_;
     tempAlgParamsInter.outputSliceStride = 0;
     // 不需要重复
     tempAlgParamsInter.repeatNum = 1;
@@ -222,15 +218,12 @@ HcclResult InsV2ReduceScatterSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0
 
     // 构建框间template
     std::shared_ptr<InsAlgTemplate1> algTemplateInter = std::make_shared<InsAlgTemplate1>(param, myRank_, algHierarchyInfo_.infos[1]);
+    algTemplateInter->SetchannelsPerRank(remoteRankToChannelInfo_[1]);
 
     u32 templateScratchMultiplierIntra = algTemplateIntra->CalcScratchMultiple(BufferType::INPUT, BufferType::HCCL_BUFFER);
     u32 templateScratchMultiplierInter = algTemplateInter->CalcScratchMultiple(BufferType::HCCL_BUFFER, BufferType::OUTPUT);
     u32 templateScratchMultiplier = 1;
-    if (std::is_same<InsAlgTemplate0, InsTempReduceScatterMesh1D>::value) {
-        templateScratchMultiplier = templateScratchMultiplierIntra * templateScratchMultiplierInter;
-    } else {
-        templateScratchMultiplier = templateScratchMultiplierInter;
-    }
+    templateScratchMultiplier = templateScratchMultiplierIntra * templateScratchMultiplierInter;
 
     // 构造框内template资源
     TemplateResource templateResourceIntra;
@@ -269,12 +262,6 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER,
                                 InsV2ReduceScatterSequenceExecutorAicpu,
                                 TopoMatchMultilevel,
                                 InsTempReduceScatterMesh1D,
-                                InsTempReduceScatterNHR);
-REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER,
-                                InsReduceScatterSequenceMeshChunkNhr,
-                                InsV2ReduceScatterSequenceExecutorAicpu,
-                                TopoMatchMultilevel,
-                                InsTempReduceScatterMesh1DMeshChunk,
                                 InsTempReduceScatterNHR);
 
 }

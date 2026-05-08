@@ -222,9 +222,6 @@ void InsV2AllReduceSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     const u64 tailSizeLastStep, TemplateDataParams &tempAlgParamsStepTwo) const
 {
     tempAlgParamsStepTwo.count = currDataCount; // 没用到
-    tempAlgParamsStepTwo.buffInfo.inBuffBaseOff = 0; // input是ccl，无需偏移
-    tempAlgParamsStepTwo.buffInfo.outBuffBaseOff = 0;
-    tempAlgParamsStepTwo.buffInfo.hcclBuffBaseOff = 0;
     if (rankIdxLevel0_ == rankSizeLevel0_ - 1) {
         // 如果在step1中是尾块，则需要用step1的tailsize为基础计算step2的数据量
         tempAlgParamsStepTwo.sliceSize = tailSizeLastStep / rankSizeLevel1_;
@@ -233,8 +230,12 @@ void InsV2AllReduceSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
         tempAlgParamsStepTwo.sliceSize = sliceSizeLastStep / rankSizeLevel1_;
         tempAlgParamsStepTwo.tailSize = tempAlgParamsStepTwo.sliceSize + sliceSizeLastStep % rankSizeLevel1_;
     }
+    // 由于上一步会归约到本卡数据所在地址，所以这一步的offset要用rankIdxLevel0_来偏移
+    tempAlgParamsStepTwo.buffInfo.inBuffBaseOff = rankIdxLevel0_ * tempAlgParamsStepTwo.sliceSize * rankSizeLevel1_;
+    tempAlgParamsStepTwo.buffInfo.outBuffBaseOff = tempAlgParamsStepTwo.buffInfo.inBuffBaseOff; // input和output都是ccl，所以都一样
+    tempAlgParamsStepTwo.buffInfo.hcclBuffBaseOff = tempAlgParamsStepTwo.buffInfo.inBuffBaseOff;
 
-    tempAlgParamsStepTwo.inputSliceStride = tempAlgParamsStepTwo.sliceSize; // 实际用不到，template里ccl固定按sliceSize偏移
+    tempAlgParamsStepTwo.inputSliceStride = tempAlgParamsStepTwo.sliceSize;
     tempAlgParamsStepTwo.outputSliceStride = tempAlgParamsStepTwo.sliceSize;
 
     HCCL_INFO(
@@ -258,14 +259,14 @@ void InsV2AllReduceSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     const u64 tailSize, TemplateDataParams &tempAlgParamsStepThree) const
 {
     tempAlgParamsStepThree.count = currDataCount; // 没用到
-    tempAlgParamsStepThree.buffInfo.inBuffBaseOff = 0; // input是ccl，无需偏移
-    tempAlgParamsStepThree.buffInfo.outBuffBaseOff = 0;
-    tempAlgParamsStepThree.buffInfo.hcclBuffBaseOff = 0;
+    tempAlgParamsStepThree.buffInfo.inBuffBaseOff = rankIdxLevel0_ * sliceSize * rankSizeLevel1_;
+    tempAlgParamsStepThree.buffInfo.outBuffBaseOff = tempAlgParamsStepThree.buffInfo.inBuffBaseOff;
+    tempAlgParamsStepThree.buffInfo.hcclBuffBaseOff = tempAlgParamsStepThree.buffInfo.inBuffBaseOff;
     // 与上一步框间ReduceScatter数据量一致
     tempAlgParamsStepThree.sliceSize = sliceSize;
     tempAlgParamsStepThree.tailSize = tailSize;
 
-    tempAlgParamsStepThree.inputSliceStride = tempAlgParamsStepThree.sliceSize; // 实际用不到，template里ccl固定按sliceSize偏移
+    tempAlgParamsStepThree.inputSliceStride = tempAlgParamsStepThree.sliceSize;
     tempAlgParamsStepThree.outputSliceStride = tempAlgParamsStepThree.sliceSize;
 
     HCCL_INFO("[InsV2AllReduceSequenceExecutorAicpu] loop [%u] tempAlgParamsStepThree.inputSliceStride [%u],"
@@ -288,14 +289,14 @@ void InsV2AllReduceSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     const u64 sliceSize, const u64 tailSize, TemplateDataParams &tempAlgParamsStepFour) const
 {
     tempAlgParamsStepFour.count = currDataCount; // 没用到
-    tempAlgParamsStepFour.buffInfo.inBuffBaseOff = 0; // input是ccl，无需偏移
+    tempAlgParamsStepFour.buffInfo.inBuffBaseOff = 0;
     tempAlgParamsStepFour.buffInfo.outBuffBaseOff = processedDataCount * dataTypeSize_;
     tempAlgParamsStepFour.buffInfo.hcclBuffBaseOff = 0;
 
     tempAlgParamsStepFour.sliceSize = sliceSize;
     tempAlgParamsStepFour.tailSize = tailSize;
 
-    tempAlgParamsStepFour.inputSliceStride = 0;
+    tempAlgParamsStepFour.inputSliceStride = tempAlgParamsStepFour.sliceSize;
     tempAlgParamsStepFour.outputSliceStride = tempAlgParamsStepFour.sliceSize;
     
     HCCL_INFO("[InsV2AllReduceSequenceExecutorAicpu] loop [%u] tempAlgParamsStepFour.inputSliceStride [%u], "
@@ -308,6 +309,24 @@ void InsV2AllReduceSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     tempAlgParamsStepFour.inputRepeatStride = 0;
     tempAlgParamsStepFour.outputRepeatStride = 0;
     return;
+}
+
+template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2,
+    typename InsAlgTemplate3>
+HcclResult InsV2AllReduceSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2,
+    InsAlgTemplate3>::GenTempResource(const AlgResourceCtxSerializable &resCtx, const u32 channelLevelIdx,
+    const std::shared_ptr<InsAlgTemplate0> &algTemplate, TemplateResource &tempReousrce) const
+{
+    AlgResourceRequest req;
+    algTemplate->GetRes(req);
+    if (channelLevelIdx >= remoteRankToChannelInfo_.size()) {
+        HCCL_ERROR("[InsV2AllReduceSequenceExecutorAicpu][GenTempResource] channelLevelIdx[%u] should be lower
+            than remoteRankToChannelInfo_.size()[%u]", channelLevelIdx, remoteRankToChannelInfo_.size());
+        return HCCL_E_INTERNAL;
+    }
+    tempReousrce.channels = remoteRankToChannelInfo_[channelLevelIdx];
+    tempReousrce.threads.assign(resCtx.threads.begin(), resCtx.threads.begin() + 1 + req.slaveThreadNum);
+    return HCCL_SUCCESS;
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2,
@@ -343,20 +362,16 @@ HcclResult InsV2AllReduceSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, In
 
     // 构造框内ReduceScatterMesh1D的template资源
     TemplateResource templateResourceStepOne;
-    templateResourceStepOne.channels = remoteRankToChannelInfo_[0];
-    templateResourceStepOne.threads = resCtx.threads;
+    CHK_RET(GenTempResource(resCtx, 0, algTemplateStepOne, templateResourceStepOne));
     // 构造框间ReduceScatterNhr的template资源
     TemplateResource templateResourceStepTwo;
-    templateResourceStepTwo.channels = remoteRankToChannelInfo_[1];
-    templateResourceStepTwo.threads = resCtx.threads;
+    CHK_RET(GenTempResource(resCtx, 1, algTemplateStepTwo, templateResourceStepTwo));
     // 构造框间AllGatherNhr的template资源
     TemplateResource templateResourceStepThree;
-    templateResourceStepThree.channels = remoteRankToChannelInfo_[1];
-    templateResourceStepThree.threads = resCtx.threads;
+    CHK_RET(GenTempResource(resCtx, 1, algTemplateStepThree, templateResourceStepThree));
     // 构造框内AllGatherMesh1D的template资源
     TemplateResource templateResourceStepFour;
-    templateResourceStepFour.channels = remoteRankToChannelInfo_[0];
-    templateResourceStepFour.threads = resCtx.threads;
+    CHK_RET(GenTempResource(resCtx, 0, algTemplateStepFour, templateResourceStepFour));
     
     // 中转内存单次最多能够接受的output count
     u32 totalRankAlign = rankSizeLevel0_ * rankSizeLevel1_;
