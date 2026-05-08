@@ -75,6 +75,7 @@ if(STATIC_MODE)
         ${CMAKE_CURRENT_SOURCE_DIR}/hccl_inner_dl.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/hcomm_host_profiling_dl.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/hccl_host_comm_dl.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/hccl_res_expt_dl.cc
     )
 else()
     add_library(hccl_compat SHARED)
@@ -151,6 +152,7 @@ endif()
         hccl_inner_dl.cc
         hcomm_host_profiling_dl.cc
         hccl_host_comm_dl.cc
+        hccl_res_expt_dl.cc
     )
 endif()
 
