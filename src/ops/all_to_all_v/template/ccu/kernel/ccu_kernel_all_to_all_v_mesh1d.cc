@@ -126,7 +126,7 @@ static CcuResult InitResource(AlltoAllVMesh1DContext &ctx)
     // allOtherBit_ = ((1 << arg->rankSize) - 1) & (~(1 << arg->rankId)); // 等待其他所有对端
 
     //  all2allv 数据搬运
-    CCU_CHK_RET(ccu::Alloc(&ctx.completedRankCount));
+    CCU_CHK_RET(ccu::Alloc(&ctx.ctx.completedRankCount));
     CCU_CHK_RET(ccu::Alloc(&ctx.xnMaxTransportSize));
     CCU_CHK_RET(ccu::Alloc(&ctx.xnMaxTransportGoSize.addrOffset));
     CCU_CHK_RET(ccu::Alloc(&ctx.xnMaxTransportGoSize.loopParam));
@@ -245,11 +245,11 @@ static CcuResult DoAll2AllVMultiLoop(AlltoAllVMesh1DContext &ctx)
     HCCL_DEBUG("[CcuKernelAlltoAllVMesh1D] alltoallv mesh 1d use GroupCopy start");
     const auto *arg = ctx.arg;
     ctx.xnMaxTransportSize = UB_MAX_TRANS_SIZE;
-    uint32_t completedRankCount = 0;
+    ctx.completedRankCount = 0;
     ctx.xnConst1 = 1;
     u32 channelId = 0;
     uint16_t allBit  = (1 << arg->rankSize) - 1;
-    CCU_DO_WHILE(completedRankCount != arg->rankSize) {  // 循环发送数据，直到所有对端数据都发送完成
+    CCU_DO_WHILE(ctx.completedRankCount != arg->rankSize) {  // 循环发送数据，直到所有对端数据都发送完成
         for(uint32_t rankIdx = 0; rankIdx < arg->rankSize; rankIdx++) {  // 循环发送所有对端数据
             ctx.event.setMask(1 <<rankIdx);
             if (rankIdx == arg->rankId) {
@@ -267,7 +267,7 @@ static CcuResult DoAll2AllVMultiLoop(AlltoAllVMesh1DContext &ctx)
                         ccu::WriteNb(arg->channels[channelId], ctx.dst[rankIdx], ctx.src[rankIdx], ctx.sendRecvInfo[rankIdx].tailSize,
                               ctx.event);
                     }
-                    completedRankCount += ctx.xnConst1;  // 之后一轮循环完成，更新已完成的rank数
+                    ctx.completedRankCount += ctx.xnConst1;  // 之后一轮循环完成，更新已完成的rank数
                 }
                 CCU_IF_ONLY(ctx.sendRecvInfo[rankIdx].loopNum != UINT64_MAX - 1) { // 未完成，则继续循环，发送整块数据
                     ccu::WriteNb(arg->channels[channelId], ctx.dst[rankIdx], ctx.src[rankIdx], ctx.xnMaxTransportSize, ctx.event);
@@ -298,7 +298,7 @@ static CcuResult DoAll2AllVMultiLoop(AlltoAllVMesh1DContext &ctx)
                             ccu::WaitEvent(ctx.event);
                         }
                     }
-                    completedRankCount += ctx.xnConst1;  // 之后一轮循环完成，更新已完成的rank数
+                    ctx.completedRankCount += ctx.xnConst1;  // 之后一轮循环完成，更新已完成的rank数
                 }
                 CCU_IF_ONLY(ctx.sendRecvInfo[arg->rankId].loopNum != UINT64_MAX - 1) { // 未完成，则继续循环，发送整块数据
                     if (arg->loadFromMem) {
