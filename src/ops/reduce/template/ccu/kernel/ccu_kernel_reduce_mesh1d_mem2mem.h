@@ -28,9 +28,9 @@ struct CcuKernelArgReduceMesh1DMem2Mem: CcuKernelArgBase {
 };
 
 struct GroupReduceMesh1DMem2MemVar {
-    CcuLocalAddr src[2];
-    CcuLocalAddr dst[2];
-    CcuVariable  len[2];
+    ccu::LocalAddr src[2];
+    ccu::LocalAddr dst[2];
+    ccu::Variable  len[2];
 };
 
 struct ReduceMesh1DMem2MemContext: CcuKernelCtxBase {
@@ -40,25 +40,25 @@ struct ReduceMesh1DMem2MemContext: CcuKernelCtxBase {
     HcclDataType outputDataType;
     HcclReduceOp reduceOp;
 
-    std::vector<CcuVariable> input;
-    std::vector<CcuVariable> output;
-    std::vector<CcuVariable> token;
+    std::vector<ccu::Variable> input;
+    std::vector<ccu::Variable> output;
+    std::vector<ccu::Variable> token;
 
-    CcuVariable inputRepeatStride;
-    CcuVariable outputRepeatStride;
-    CcuVariable normalSliceSize;
-    CcuVariable lastSliceSize;
-    CcuVariable repeatNumVar;
-    CcuVariable flag;
-    CcuVariable isInputOutputEqual;
-    std::vector<CcuVariable> chunkSize;
-    CcuVariable chunkOffset;
+    ccu::Variable inputRepeatStride;
+    ccu::Variable outputRepeatStride;
+    ccu::Variable normalSliceSize;
+    ccu::Variable lastSliceSize;
+    ccu::Variable repeatNumVar;
+    ccu::Variable flag;
+    ccu::Variable isInputOutputEqual;
+    std::vector<ccu::Variable> chunkSize;
+    ccu::Variable chunkOffset;
 
-    CcuEvent event;
+    ccu::Event event;
 
-    CcuLocalAddr myInputAddr;
-    CcuRemoteAddr remoteInputAddr;
-    CcuLocalAddr dstAddr;
+    ccu::LocalAddr myInputAddr;
+    ccu::RemoteAddr remoteInputAddr;
+    ccu::LocalAddr dstAddr;
 
     GroupOpSizeVars localGoSize;
 };
