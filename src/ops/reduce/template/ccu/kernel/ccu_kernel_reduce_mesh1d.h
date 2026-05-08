@@ -33,26 +33,26 @@ struct ReduceMesh1DContext: CcuKernelCtxBase {
     HcclDataType outputDataType;
     HcclReduceOp reduceOp;
 
-    std::vector<CcuVariable> input;
-    std::vector<CcuVariable> output;
-    std::vector<CcuVariable> token;
+    std::vector<ccu::Variable> input;
+    std::vector<ccu::Variable> output;
+    std::vector<ccu::Variable> token;
 
-    CcuVariable currentRankSliceInputOffset;
-    CcuVariable currentRankSliceOutputOffset;
-    CcuVariable repeatNum;
-    CcuVariable inputRepeatStride;
-    CcuVariable outputRepeatStride;
-    CcuVariable normalSliceSize;
-    CcuVariable lastSliceSize;
-    CcuVariable repeatNumVar;
-    CcuVariable flag;
+    ccu::Variable currentRankSliceInputOffset;
+    ccu::Variable currentRankSliceOutputOffset;
+    ccu::Variable repeatNum;
+    ccu::Variable inputRepeatStride;
+    ccu::Variable outputRepeatStride;
+    ccu::Variable normalSliceSize;
+    ccu::Variable lastSliceSize;
+    ccu::Variable repeatNumVar;
+    ccu::Variable flag;
 
     GroupOpSizeVars groupOpSize;
 
-    //CcuLocalAddr dstAddr;
-    // std::vector<CcuRemoteAddr> inputAddr;
+    //ccu::LocalAddr dstAddr;
+    // std::vector<ccu::RemoteAddr> inputAddr;
 
-    CcuEvent event;
+    ccu::Event event;
 
 
 };
