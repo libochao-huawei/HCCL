@@ -29,6 +29,7 @@
 #endif
 #include "hccl_device_comm_dl.h"
 #include "exec_timeout_manager.h"
+#include "alg_data_trans_wrapper.h"
 
 using namespace ops_hccl;
 namespace {
@@ -251,7 +252,8 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         HCCL_ERROR("%s param is nullptr", __func__);
         return 1;
     }
-    HCCL_INFO("Entry-%s, commName[%s], tag[%s], algTag[%s]", __func__, param->commName, param->tag, param->algTag);
+    HCCL_INFO("Entry-%s, commName[%s], tag[%s], algTag[%s], algName[%s], opType[%d], deviceType[%d]",
+        __func__, param->commName, param->tag, param->algTag, param->algName, (int)param->opType, (int)param->deviceType);
     if (HcommAcquireComm(param->commName) != HCCL_SUCCESS) {
         HCCL_ERROR("%s HcommAcquireComm fail, commName[%s]", __func__, param->commName);
         return 1;
@@ -264,7 +266,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             HCCL_ERROR("%s CreateScatter fail", __func__);
             return 1;
         }
-        
+
         if (HcommIsSupportHcommRegOpInfo() &&
             HcommRegOpInfo(param->commName, reinterpret_cast<void *>(&opInfo), sizeof(ScatterOpInfo)) != HCCL_SUCCESS) {
             HCCL_ERROR("%s HcommRegOpInfo fail, commName[%s], algTag[%s], size[%u]",
@@ -348,6 +350,8 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             HCCL_ERROR("failed to restore optype [%d] data and counts.", param->opType);
             return 1;
         }
+        CHK_RET(ops_hccl::InitHcommBatchTransferOnThreadSupported(
+            resCtxPtr->isHcommBatchTransferOnThreadSupported));
         // 获取Device测主thread
         ThreadHandle thread = resCtxPtr->threads[0];
         if (HcommBatchModeStart(param->algTag) != HCCL_SUCCESS) {
@@ -357,22 +361,26 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
 
         // 要在下第一个task之前上报
         HcclDfxOpInfo dfxOpInfo{};
+        printf("======= before ConvertToHcclDfxOpInfo ======\n");
         if (ConvertToHcclDfxOpInfo(param, &dfxOpInfo) != HCCL_SUCCESS) {
             HCCL_ERROR("ConvertToHcclDfxOpInfo fail, commName is %s, tag is %s", param->commName, param->algTag);
             return 1;
         }
+        printf("======= before HcclDfxRegOpInfoByCommId ======\n");
         if (HcclDfxRegOpInfoByCommId(param->commName, reinterpret_cast<void *>(&dfxOpInfo)) != HCCL_SUCCESS) {
             HCCL_ERROR("HcclDfxRegOpInfoByCommId fail, commName is %s, tag is %s", param->commName, param->algTag);
             return 1;
         }
 
         // 上报上报mainstream数据,第一个任务
+        printf("======= before HcommProfilingReportKernelStartTask ======\n");
         if (HcommProfilingReportKernelStartTask(thread, param->commName) != HCCL_SUCCESS) {
             HCCL_ERROR("%sfailed to report MainStream And FirstTask, thread %lu, param->commName %s.", __func__, thread, param->commName);
             return 1;
         }
 
         // 主thread等待Host stream的通知
+        printf("======= before maxNotifyNum ======\n");
         ThreadHandle exportedAicpuTsThread = param->opThread;
         u32 maxNotifyNum = resCtxPtr->notifyNumOnMainThread;
         for (u32 i = 0; i < resCtxPtr->notifyNumPerThread.size(); i++) {
@@ -380,8 +388,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
                 maxNotifyNum = resCtxPtr->notifyNumPerThread[i];
             }
         }
-        HCCL_DEBUG("[%s]Notify wait on thread[%llu], maxNotifyNum[%u], timeout[%u]", __func__, thread,
-            maxNotifyNum, CUSTOM_TIMEOUT);
+        printf("======= before HcommThreadNotifyWaitOnThread ======\n");
         CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(thread, maxNotifyNum, CUSTOM_TIMEOUT)));
 
         std::shared_ptr<InsCollAlgBase> executor = CollAlgExecRegistryV2::Instance().GetAlgExec(param->opType, algName);
@@ -405,8 +412,6 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         }
 
         constexpr u32 DEFAULT_NOTIFY_IDX = 0;
-        HCCL_DEBUG("[%s]Notify record on srcThread[%llu], dstThread[%llu], notifyIdx[%u]",__func__, thread, exportedAicpuTsThread,
-            DEFAULT_NOTIFY_IDX);
         CHK_RET(static_cast<HcclResult>(HcommThreadNotifyRecordOnThread(thread, exportedAicpuTsThread,
             DEFAULT_NOTIFY_IDX)));
 
@@ -414,7 +419,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             HCCL_ERROR("%s HcommProfilingReportDeviceOp fail, commName[%s]", __func__, param->commName);
             return 1;
         }
-        
+
         if (HcommBatchModeEnd(param->algTag) != HCCL_SUCCESS) {
             HCCL_ERROR("failed set eager mode, tag is %s.", param->algTag);
             return 1;
