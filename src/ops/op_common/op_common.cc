@@ -633,7 +633,7 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
         return ret;
     }
     // Host stream等待Device的通知
-    CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, param.aicpuRecordCpuIdx, param.execTimeout)));
+    CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, param.aicpuRecordCpuIdx, param.execTimeout + 20)));
 
     return HCCL_SUCCESS;
 }
