@@ -145,9 +145,17 @@ HcclResult InsTempAllGatherMesh1D::RunAllGatherMesh(const std::vector<ThreadHand
                 sliceSize = tempAlgParams_.tailSize;
             }
 
+<<<<<<< HEAD
             u64 txOutOffset = tempAlgParams_.outputSliceStride * myAlgRank + outBaseOff;
             u64 txScratchOffset = scratchBase + tempAlgParams_.sliceSize * myAlgRank;
             u64 txDstOffset = (!enableRemoteMemAccess_) ? txScratchOffset : txOutOffset;
+=======
+            TxRxSlicesList sendRecvSlicesList({txSrcSlicesAll, txDstSlicesAll}, {rxSrcSlicesAll, rxDstSlicesAll});
+            TxRxChannels sendRecvChannels(linkRemote, linkRemote);
+            SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList, dataType_);
+            CHK_PRT_RET(SendRecvBatchRead(sendRecvInfo, threads[threadIdx]),
+                        HCCL_ERROR("[InsTempAllGatherMesh1D] RunAllGather Send failed"), HcclResult::HCCL_E_INTERNAL);
+>>>>>>> 46a4fa6 (AG and RS use HcommBatchTransfer, add SendRecvBatchWrite and SendRecvBatchWriteReduce in alg_data_trans_wrapper.cc)
 
             u64 rxOutOffset = tempAlgParams_.outputSliceStride * connectedAlgRank + outBaseOff;
             u64 rxScratchOffset = scratchBase + tempAlgParams_.sliceSize * connectedAlgRank;
