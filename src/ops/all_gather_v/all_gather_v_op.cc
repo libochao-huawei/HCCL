@@ -43,6 +43,10 @@ HcclResult HcclAllGatherV(void *sendBuf, uint64_t sendCount, void *recvBuf, cons
  	CHK_RET(CheckAllGatherVInputPara(comm, recvBuf, recvCounts, recvDispls, stream));
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     CHK_RET(HcclGetRankSize(comm, &rankSize));
+    const u64* recvCountsAddr = reinterpret_cast<const u64*>(recvCounts);
+    CHK_PRT_RET(std::all_of(recvCountsAddr, recvCountsAddr + rankSize, [](auto count) { return count == 0; }),
+            HCCL_WARNING("input all %u elements in recvCounts are 0, return success", rankSize),
+            HCCL_SUCCESS);
     u32 userRank = INVALID_VALUE_RANKID;
     CHK_RET(HcclGetRankId(comm, &userRank));
     char commName[COMM_INDENTIFIER_MAX_LENGTH];
@@ -87,11 +91,15 @@ HcclResult HcclAllGatherVGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCo
  	// 检查数据类型是否支持
  	CHK_RET(CheckDataType(dataType, false));
  	// 检查rank有效性，是否超出rankSize
- 	u32 rankSize = INVALID_VALUE_RANKSIZE;
- 	CHK_RET(HcclGetRankSize(comm, &rankSize));
- 	u32 userRank = INVALID_VALUE_RANKID;
- 	CHK_RET(HcclGetRankId(comm, &userRank));
- 	CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), opTag.c_str());
+    u32 rankSize = INVALID_VALUE_RANKSIZE;
+    CHK_RET(HcclGetRankSize(comm, &rankSize));
+    const u64* recvCountsAddr = reinterpret_cast<const u64*>(recvCounts);
+    CHK_PRT_RET(std::all_of(recvCountsAddr, recvCountsAddr + rankSize, [](auto count) { return count == 0; }),
+        HCCL_WARNING("input all %u elements in recvCounts are 0, return success", rankSize), 
+        HCCL_SUCCESS);
+    u32 userRank = INVALID_VALUE_RANKID;
+    CHK_RET(HcclGetRankId(comm, &userRank));
+    CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), opTag.c_str());
  	  	 
  	// 拼装ResPackGraphMode
  	ResPackGraphMode resPack;
