@@ -33,15 +33,15 @@ static void LoadAll2allSendRecvInfo(AlltoAllVMesh1DContext &ctx, A2AsingleSendRe
 {
     HCCL_INFO("[CcuKernelAlltoAllVMesh1D] LoadAll2allSendRecvInfo!");
     const auto *arg = ctx.arg;
-    CCU_CHK_RET(ccu::Alloc(sendRecvInfo.tailSize));
-    CCU_CHK_RET(ccu::Alloc(sendRecvInfo.loopNum));
-    CCU_CHK_RET(ccu::Alloc(sendRecvInfo.sendOffset));
-    CCU_CHK_RET(ccu::Alloc(sendRecvInfo.recvOffset));
+    CCU_CHK_RET(ccu::Alloc(&sendRecvInfo.tailSize));
+    CCU_CHK_RET(ccu::Alloc(&sendRecvInfo.loopNum));
+    CCU_CHK_RET(ccu::Alloc(&sendRecvInfo.sendOffset));
+    CCU_CHK_RET(ccu::Alloc(&sendRecvInfo.recvOffset));
 
-    CCU_CHK_RET(ccu::Alloc(sendRecvInfo.tailGoSize.addrOffset));
-    CCU_CHK_RET(ccu::Alloc(sendRecvInfo.tailGoSize.loopParam));
-    CCU_CHK_RET(ccu::Alloc(sendRecvInfo.tailGoSize.parallelParam));
-    CCU_CHK_RET(ccu::Alloc(sendRecvInfo.tailGoSize.residual));
+    CCU_CHK_RET(ccu::Alloc(&sendRecvInfo.tailGoSize.addrOffset));
+    CCU_CHK_RET(ccu::Alloc(&sendRecvInfo.tailGoSize.loopParam));
+    CCU_CHK_RET(ccu::Alloc(&sendRecvInfo.tailGoSize.parallelParam));
+    CCU_CHK_RET(ccu::Alloc(&sendRecvInfo.tailGoSize.residual));
 
     if (arg->loadFromMem) {
         HCCL_INFO("[CcuKernelAlltoAllVMesh1D] Load Args from Mem");
