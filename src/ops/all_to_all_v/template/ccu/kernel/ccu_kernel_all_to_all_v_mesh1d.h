@@ -28,9 +28,9 @@ public:
                                             const std::vector<std::vector<uint32_t>>& subCommRanks)
         : dimSize_(dimSize),
           rankId_(rankId),
-          loadFromMem_(loadFromMem),
           opParam_(opParam),
-          subCommRanks_(subCommRanks)
+          subCommRanks_(subCommRanks),
+          loadFromMem_(loadFromMem)
     {
         HCCL_DEBUG("[CcuKernelArgAlltoAllVMesh1D] dimSize: %lu, rankId: %u",
                    dimSize_, rankId_);

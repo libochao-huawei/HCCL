@@ -130,7 +130,7 @@ HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
         resourceRequest.notifyNumOnMainThread,
         resourceRequest.slaveThreadNum,
         resourceRequest.channels.size());
-    for (auto i = 0; i < resourceRequest.notifyNumPerThread.size(); i++) {
+    for (std::size_t i = 0; i < resourceRequest.notifyNumPerThread.size(); i++) {
         HCCL_DEBUG("[InsV2ScatterParallelExecutor][CalcRes] myRank[%u], notifyNumPerThread[%u]=[%u]",
             myRank_,
             i,
@@ -286,7 +286,6 @@ HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 
     double totalScratchMultiple = hcclBuffMultipleIntra + hcclBuffMultipleInter;
     u64 hcclMemBlockSize = maxTmpMemSize_;
-    u64 transportBoundDataSize = UB_MAX_DATA_SIZE;
     if (totalScratchMultiple > 0) {
         // data0和data1的count需要和申请的scratch mem大小对应
         u64 tmpMemBlockCount = u64(maxTmpMemSize_ / totalScratchMultiple) / dataTypeSize_;

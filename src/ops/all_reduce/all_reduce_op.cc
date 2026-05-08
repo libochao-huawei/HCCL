@@ -117,7 +117,7 @@ HcclResult AllReduceInitAndCheck(HcclComm comm, void *sendBuf, void *recvBuf, ui
 
     // topoInfo的tag，所有相同的算子可以共享
     int ret = sprintf_s(param.tag, sizeof(param.tag), "AllReduce_%s", param.commName);
-    CHK_PRT_RET((ret <= 0), "failed to fill param.tag", HCCL_E_INTERNAL);
+    CHK_PRT_RET((ret <= 0), HCCL_ERROR("failed to fill param.tag"), HCCL_E_INTERNAL);
 
     CHK_RET(HcclCheckTag(param.tag));
     CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), param.tag);

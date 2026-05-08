@@ -148,10 +148,10 @@ HcclResult CcuKernelAllToAllMesh1DMultiJetty::LoadArgs()
     Load(srcOffset_);
     Load(dstOffset_);
     Load(groupOpSize_);
-    for (int i = 0; i < rankSize_; i++) {
+    for (uint64_t i = 0; i < rankSize_; i++) {
         Load(jettySlice_[i]);
     }
-    for (int i = 0; i < rankSize_; i++) {
+    for (uint64_t i = 0; i < rankSize_; i++) {
         Load(jettySliceTail_[i]);
     }
 

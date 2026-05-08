@@ -59,7 +59,7 @@ HcclResult CcuKernelAllToAllMesh2Die::InitResources()
     groupOpSize_       = CreateGroupOpSize();
 
     logicRankSize = withMyRank_ ? channels_.size() + 1 : channels_.size();
-    uint16_t logicId       = rankId_ % logicRankSize; // topo为 2 * n
+    //uint16_t logicId       = rankId_ % logicRankSize; // topo为 2 * n
     event_ = CreateCompletedEvent();
 
     return HcclResult::HCCL_SUCCESS;

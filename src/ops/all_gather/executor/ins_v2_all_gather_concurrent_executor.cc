@@ -180,7 +180,7 @@ HcclResult InsV2AllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     algTemplate1.GetRes(temp1Request);  // 算法1需要的资源
 
     auto tmp0ThreadsNum = temp0Request.slaveThreadNum + 1;
-    auto tmp1ThreadsNum = temp1Request.slaveThreadNum + 1;
+    //auto tmp1ThreadsNum = temp1Request.slaveThreadNum + 1;
     auto tmp0NotifyOnMainThread = temp0Request.notifyNumOnMainThread;
     auto tmp1NotifyOnMainThread = temp1Request.notifyNumOnMainThread;
 
