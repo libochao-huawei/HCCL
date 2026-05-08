@@ -73,5 +73,6 @@ struct AlltoAllVMesh1DContext: CcuKernelCtxBase {
     bool loadFromMem = false;
 };
 
+CcuResult CcuAlltoAllVMesh1DKernel(CcuKernelArg arg);
 }// namespace ops_hccl
 #endif // HCCL_CCU_KERNEL_ALL_TO_ALL_MESH_1D_H
