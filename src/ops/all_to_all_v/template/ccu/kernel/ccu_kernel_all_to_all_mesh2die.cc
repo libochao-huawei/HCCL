@@ -31,7 +31,7 @@ CcuKernelAllToAllMesh2Die::CcuKernelAllToAllMesh2Die(const hcomm::CcuKernelArg &
     rankGroup_ = kernelArg->rankGroup_;
 }
 
-HcclResult CcuKernelAllToAllMesh2Die::InitResources()
+static CcuResult InitResources(AlltoAllMesh1DContext &ctx)
 {
     // 创建Variable，用于交换地址及token
     if (channels_.size() == 0) {
@@ -42,7 +42,7 @@ HcclResult CcuKernelAllToAllMesh2Die::InitResources()
     for (u64 id = 0; id < channels_.size(); id++) {
         // 非本地，使用远端Variable
         HCCL_DEBUG("[CcuKernelAllToAllMesh2Die] RankId[%u], Id[%u]", rankId_, id);
-        hcomm::CcuRep::Variable output, token;
+        CcuVariable output, token;
         CHK_RET(CreateVariable(channels_[id], OUTPUT_XN_ID, &output));
         output_.emplace_back(output);
         CHK_RET(CreateVariable(channels_[id], TOKEN_XN_ID, &token));
@@ -65,10 +65,11 @@ HcclResult CcuKernelAllToAllMesh2Die::InitResources()
     return HcclResult::HCCL_SUCCESS;
 }
 
-void CcuKernelAllToAllMesh2Die::LoadArgs()
+static CcuResult LoadArgs(AlltoAllMesh1DContext &ctx)
 {
     // 从SQE load args，本rank需要的input、output地址等信息
     Load(input_);
+    CCU_CHK_RET(ccu::LoadArg(ctx.input));
     Load(output_[virRankSize - 1]);
     Load(token_[virRankSize - 1]);
     Load(sliceSize_); // 本轮传输的分片大小
@@ -78,26 +79,26 @@ void CcuKernelAllToAllMesh2Die::LoadArgs()
     return;
 }
 
-void CcuKernelAllToAllMesh2Die::PreSync()
+static CcuResult PreSync(AlltoAllMesh1DContext &ctx)
 {
     for (ChannelHandle channel : channels_) {
-        NotifyRecord(channel, CKE_IDX_0, OUTPUT_XN_ID, output_[virRankSize - 1], 1 << OUTPUT_XN_ID);
-        NotifyRecord(channel, CKE_IDX_0, TOKEN_XN_ID, token_[virRankSize - 1], 1 << TOKEN_XN_ID);
+        ccu::NotifyRecord(channel, CKE_IDX_0, OUTPUT_XN_ID, output_[virRankSize - 1], 1 << OUTPUT_XN_ID);
+        ccu::NotifyRecord(channel, CKE_IDX_0, TOKEN_XN_ID, token_[virRankSize - 1], 1 << TOKEN_XN_ID);
     }
     uint32_t waitBits = (1 << OUTPUT_XN_ID) | (1 << TOKEN_XN_ID);
     for (const ChannelHandle &channel : channels_) {
-        NotifyWait(channel, CKE_IDX_0, waitBits);
+        ccu::NotifyWait(channel, CKE_IDX_0, waitBits);
     }
     return;
 }
 
-void CcuKernelAllToAllMesh2Die::PostSync()
+static CcuResult PostSync(AlltoAllMesh1DContext &ctx)
 {
     for (const auto &channel : channels_) {
-        NotifyRecord(channel, CKE_IDX_0, 1 << POST_SYNC_ID);
+        ccu::NotifyRecord(channel, CKE_IDX_0, 1 << POST_SYNC_ID);
     }
     for (const auto &channel : channels_) {
-        NotifyWait(channel, CKE_IDX_0, 1 << POST_SYNC_ID);
+        ccu::NotifyWait(channel, CKE_IDX_0, 1 << POST_SYNC_ID);
     }
     return;
 }
@@ -110,14 +111,14 @@ uint32_t CcuKernelAllToAllMesh2Die::CalcDstRank(uint32_t peerId) const
     return rankGroup_[peerId];
 }
 
-void CcuKernelAllToAllMesh2Die::DoRepeatAllToAll()
+static CcuResult DoRepeatAllToAll(AlltoAllMesh1DContext &ctx)
 {
     // 创建GSA， src为本地的各片HBM地址GSA列表，dst为所有对端的HBM地址GSA列表
-    std::vector<hcomm::CcuRep::LocalAddr> src;
+    std::vector<ccu::LocalAddr> src;
     for (uint64_t rankIdx = 0; rankIdx < logicRankSize; rankIdx++) {
         src.emplace_back(CreateLocalAddr());
     }
-    std::vector<hcomm::CcuRep::RemoteAddr> dst;
+    std::vector<ccu::RemoteAddr> dst;
     for (uint64_t rankIdx = 0; rankIdx < logicRankSize; rankIdx++) {
         dst.emplace_back(CreateRemoteAddr());
     }
@@ -138,8 +139,8 @@ void CcuKernelAllToAllMesh2Die::DoRepeatAllToAll()
         }
     }
 
-    hcomm::CcuRep::LocalAddr localSrc_ = CreateLocalAddr(); // for LocalCopy
-    hcomm::CcuRep::LocalAddr localDst_ = CreateLocalAddr();
+    ccu::LocalAddr localSrc_ = CreateLocalAddr(); // for LocalCopy
+    ccu::LocalAddr localDst_ = CreateLocalAddr();
     if(withMyRank_){
         const u32 with_dstRank = CalcDstRank(logicRankSize - 1);
 
