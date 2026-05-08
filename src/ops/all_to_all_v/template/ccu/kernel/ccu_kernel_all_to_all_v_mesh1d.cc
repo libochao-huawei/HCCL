@@ -29,7 +29,7 @@ static CcuResult ParseKernelArg(AlltoAllVMesh1DContext &ctx, CcuKernelArgAlltoAl
     return CCU_SUCCESS;
 }
 
-static void LoadAll2allSendRecvInfo(AlltoAllVMesh1DContext &ctx, A2AsingleSendRecvInfo &sendRecvInfo)
+static CcuResult LoadAll2allSendRecvInfo(AlltoAllVMesh1DContext &ctx, A2AsingleSendRecvInfo &sendRecvInfo)
 {
     HCCL_INFO("[CcuKernelAlltoAllVMesh1D] LoadAll2allSendRecvInfo!");
     const auto *arg = ctx.arg;
@@ -72,6 +72,8 @@ static void LoadAll2allSendRecvInfo(AlltoAllVMesh1DContext &ctx, A2AsingleSendRe
         CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.tailGoSize.parallelParam));
         CCU_CHK_RET(ccu::LoadArg(sendRecvInfo.tailGoSize.residual));
     }
+
+    return CCU_SUCCESS;
 }
 
 static CcuResult InitResource(AlltoAllVMesh1DContext &ctx)
@@ -204,7 +206,7 @@ static CcuResult LoadArgs(AlltoAllVMesh1DContext &ctx)
     // 恢复当前卡对所有卡的收发信息
     ctx.sendRecvInfo.resize(arg->rankSize);
     for (uint64_t peerId = 0; peerId < arg->rankSize; peerId++) {
-        LoadAll2allSendRecvInfo(ctx, ctx.sendRecvInfo[peerId]);
+        CCU_CHK_RET(LoadAll2allSendRecvInfo(ctx, ctx.sendRecvInfo[peerId]));
     }
 
     return CCU_SUCCESS;
