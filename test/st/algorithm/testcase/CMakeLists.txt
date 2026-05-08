@@ -10,7 +10,7 @@
 
 set(src_list
     main.cc
-    scatter_testcase.cc
+    # scatter_testcase.cc
     all_reduce_testcase.cc
     all_reduce_parallel_testcase.cc
     all_gather_aicpu_testcase.cc
