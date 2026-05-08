@@ -640,20 +640,8 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
 
 HcclResult AicpuKernelLaunch(HcclComm comm, OpParam &param, ThreadHandle unfoldThread)
 {FUNCTION_TRACE;
-
-    static aclrtFuncHandle funcHandle{nullptr};
-    if (funcHandle == nullptr) {
-        std::string kernelName = "HcclLaunchAicpuKernel";
-        // 注意，目前开源HCCL加载AICPU kernel使用的是从json文件加载
-        // 详见load_kernel.cc中的LoadAICPUKernel函数，且只实现了scatter的，先共用scatter的
-        aclError aclRet = aclrtBinaryGetFunction(g_binKernelHandle, kernelName.c_str(), &funcHandle);
-        CHK_PRT_RET(aclRet != ACL_SUCCESS,
-            HCCL_ERROR("[aclrtBinaryGetFunction]errNo[0x%016llx] get func handle failed, kernelName:%s",
-                aclRet,
-                kernelName.c_str()),
-            HCCL_E_RUNTIME);
-    }
-
+    std::string kernelName = "HcclLaunchAicpuKernel";	 
+    aclrtFuncHandle funcHandle;	
     aclrtArgsHandle argsHandle;
     // 注意，目前开源HCCL加载AICPU kernel使用的是从json文件加载
     // 详见load_kernel.cc中的LoadAICPUKernel函数，且只实现了scatter的，先共用scatter的
