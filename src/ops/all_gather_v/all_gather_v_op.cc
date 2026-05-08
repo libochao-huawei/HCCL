@@ -167,7 +167,14 @@ HcclResult AllGatherVOutPlace(void *sendBuf, void *recvBuf, uint64_t sendCount,c
         HCCL_ERROR("malloc OpParam failed!");
         return HCCL_E_INTERNAL;
     }
-    OpParam* paramPtr = new (paramMem) OpParam();
+    OpParam* tmpParamPtr = new (paramMem) OpParam();
+    auto deleter = [](OpParam* p) {
+        if (p) {
+            p->~OpParam();
+            free(p);
+        }
+     };
+    std::unique_ptr<OpParam, decltype(deleter)> paramPtr(tmpParamPtr, deleter);
     OpParam& param = *paramPtr;
     CHK_RET(HcclGetCommName(comm, param.commName));
     param.opMode = OpMode::OPBASE;
@@ -267,8 +274,15 @@ HcclResult AllGatherVOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t se
  	    HCCL_ERROR("malloc OpParam failed!");
  	    return HCCL_E_INTERNAL;
  	} 
- 	OpParam* paramPtr = new (paramMem) OpParam();
- 	OpParam& param = *paramPtr; 
+    OpParam* tmpParamPtr = new (paramMem) OpParam();
+    auto deleter = [](OpParam* p) {
+        if (p) {
+            p->~OpParam();
+            free(p);
+        }
+     };
+    std::unique_ptr<OpParam, decltype(deleter)> paramPtr(tmpParamPtr, deleter);
+    OpParam& param = *paramPtr;
     CHK_RET(HcclGetCommName(comm, param.commName));
  	  	 
     DevType deviceType = DevType::DEV_TYPE_COUNT;
