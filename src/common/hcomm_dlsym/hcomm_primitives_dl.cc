@@ -38,6 +38,8 @@ DEFINE_WEAK_FUNC(int32_t, HcommChannelFence, ChannelHandle channel);
 DEFINE_WEAK_FUNC(int32_t, HcommFenceOnThread, ThreadHandle thread);
 DEFINE_WEAK_FUNC(int32_t, HcommChannelFenceOnThread, ThreadHandle thread, ChannelHandle channel);
 DEFINE_WEAK_FUNC(HcclResult, HcommThreadJoin, ThreadHandle thread, uint32_t timeout);
+DEFINE_WEAK_FUNC(int32_t, HcommBatchTransferOnThread, ThreadHandle thread, ChannelHandle channel,
+    HcommBatchTransferDesc *transferDescs, uint32_t transferDescNum);
 
 // ---------- 初始化函数 ----------
 void HcommPrimitivesDlInit(void* libHcommHandle) {
@@ -61,4 +63,5 @@ void HcommPrimitivesDlInit(void* libHcommHandle) {
     INIT_SUPPORT_FLAG(libHcommHandle, HcommFenceOnThread);
     INIT_SUPPORT_FLAG(libHcommHandle, HcommChannelFenceOnThread);
     INIT_SUPPORT_FLAG(libHcommHandle, HcommThreadJoin);
+    INIT_SUPPORT_FLAG(libHcommHandle, HcommBatchTransferOnThread);
 }
