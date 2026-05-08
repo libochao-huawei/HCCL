@@ -179,7 +179,7 @@ static CcuResult DoAlltoAll(AlltoAllMesh1DContext &ctx)
         for(uint64_t r = 0; r < rankSize_; r++) {
             ctx.event.setMask(1 << r);
             if (r == rankId_) {
-                LocalCopyNb(myDst_, srcAddr_[r], sliceSize_, ctx.event);
+                ccu::LocalCopyNb(myDst_, srcAddr_[r], sliceSize_, ctx.event);
             }
             else {
                 WriteNb(channels_[channelId], dstAddr_[r], srcAddr_[r], sliceSize_, ctx.event);

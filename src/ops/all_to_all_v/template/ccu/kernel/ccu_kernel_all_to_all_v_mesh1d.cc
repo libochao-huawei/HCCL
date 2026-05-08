@@ -238,7 +238,7 @@ void CcuKernelAlltoAllVMesh1D::DoAll2AllVMultiLoop()
                     }
                     CCU_IF_ONLY(ctx.sendRecvInfo[arg->rankId].tailSize != 0) { // 尾块数据量不为 0，则需要发送尾块数据
                         if (loadFromMem_) {
-                            LocalCopyNb(ctx.myDst, ctx.src[arg->rankId], ctx.sendRecvInfo[arg->rankId].tailSize, ctx.event);
+                            ccu::LocalCopyNb(ctx.myDst, ctx.src[arg->rankId], ctx.sendRecvInfo[arg->rankId].tailSize, ctx.event);
                         } else {
                             GroupCopy(ctx.myDst, ctx.src[arg->rankId], ctx.sendRecvInfo[arg->rankId].tailGoSize);
                             ccu::WaitEvent(ctx.event);
@@ -248,7 +248,7 @@ void CcuKernelAlltoAllVMesh1D::DoAll2AllVMultiLoop()
                 }
                 CCU_IF_ONLY(ctx.sendRecvInfo[arg->rankId].loopNum != UINT64_MAX - 1) { // 未完成，则继续循环，发送整块数据
                     if (loadFromMem_) {
-                        LocalCopyNb(ctx.myDst, ctx.src[arg->rankId], ctx.xnMaxTransportSize, ctx.event);
+                        ccu::LocalCopyNb(ctx.myDst, ctx.src[arg->rankId], ctx.xnMaxTransportSize, ctx.event);
                     } else {
                         GroupCopy(ctx.myDst, ctx.src[arg->rankId], ctx.xnMaxTransportGoSize);
                         ccu::WaitEvent(ctx.event);
