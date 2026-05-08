@@ -633,22 +633,3 @@ if(DEVICE_MODE AND KERNEL_MODE)
         COMMENT "Copying libscatter_aicpu_kernel.so to ${AICPU_CUSTOM_DIR}/libscatter_aicpu_kernel.so"
     )
 endif()
-
-# 静态库特殊处理：嵌入二进制文件
-if(STATIC_MODE)
-    # 添加静态库恢复代码
-    set(STATIC_RESTORE_SRC ${CMAKE_CURRENT_SOURCE_DIR}/common/static_restore.c)
-    if(NOT EXISTS ${STATIC_RESTORE_SRC})
-        file(WRITE ${STATIC_RESTORE_SRC} "/* Static restore implementation will be generated during build */\n")
-    endif()
-
-    # 创建自定义目标来处理静态库的最终打包
-    add_custom_target(package_static_lib DEPENDS hccl)
-
-    # 添加后构建步骤来嵌入二进制文件
-    add_custom_command(
-        TARGET package_static_lib
-        POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E echo "Processing static library embedding..."
-    )
-endif()
