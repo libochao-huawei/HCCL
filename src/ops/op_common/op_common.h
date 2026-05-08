@@ -105,6 +105,8 @@ HcclResult FillOpExchangeInfoWithDataDes(const OpParam &param, OpExchangeInfo &e
 HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeInfo,
     const std::vector<HcclChannelDesc> &channels);
 
+HcclResult ConsistencyCheckOpType(const OpExchangeInfo &exchangeInfo, const HcclCMDType &rmtOpType);
+
 HcclResult ReportOpExchangeInfoCheckFailed(const OpExchangeInfo &exchangeInfo, const std::string &paraName,
     uint32_t expectVal, uint32_t remotePara);
 
