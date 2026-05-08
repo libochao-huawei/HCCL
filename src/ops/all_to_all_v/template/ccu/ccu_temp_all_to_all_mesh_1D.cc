@@ -192,7 +192,7 @@ HcclResult CcuTempAlltoAllMesh1D::KernelRun(const OpParam& param,
     HCCL_INFO("[CcuTempAlltoAllMesh1D::KernelRun] TaskArgs: inputAddr[%llu], outputAddr[%llu], "
             "srcOffset[%llu], dstOffset[%llu], srcStride[%llu], sliceSize[%llu]",
             inputAddr, outputAddr, srcOffset, dstOffset, srcStride, sliceSize);
-    void* taskArgPtr = static_cast<void*>(taskArg.get());
+    void* taskArgPtr = static_cast<void*>(taskArgs.get());
 
     CcuResult launchRet =  HcommCcuKernelLaunch(templateResource.threads[0], templateResource.ccuKernels[0], taskArgs.data(), argSize);
     if (launchRet != CCU_SUCCESS) {
