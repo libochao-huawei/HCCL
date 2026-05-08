@@ -25,6 +25,9 @@ constexpr uint64_t CCU_MS_INTERLEAVE         = 8;
 constexpr uint64_t CCU_MS_DEFAULT_LOOP_COUNT = 64;
 constexpr uint64_t CCU_MS_SIZE               = 4096;
 
+constexpr uint64_t LOCAL_COPY_MS_PER_LOOP       = 8;
+constexpr uint64_t CCU_MS_LOCAL_COPY_LOOP_COUNT = 8;
+
 // /* hccl仓CcuKernel基类，提供group高阶操作接口 */
 // class CcuKernelAlgBase : public CcuKernel {
 // public:
@@ -67,7 +70,7 @@ constexpr uint64_t CCU_MS_SIZE               = 4096;
         // // Loop body 中的外部 LocalAddr（每个 loop index 各两组）
         // ccu::LocalAddr loopDst[2];
         // ccu::LocalAddr loopSrc[2];
-        // ccu::LocalAddr loopScratch[2][MAX_RANK_SIZE];
+        // ccu::LocalAddr loopScratch[2][CCU_MAX_RANK_SIZE];
         // CcuVariable  loopLen[2];
         // CcuVariable  loopLenExp[2];
     };
@@ -78,6 +81,19 @@ constexpr uint64_t CCU_MS_SIZE               = 4096;
         ccu::LocalAddr loopLocalSrc[2];
         CcuVariable  loopLen[2];
         CcuVariable  loopLenExp[2];
+    };
+
+    struct GroupBroadcastVar {
+        ccu::LocalAddr loopLocalDst[2];
+        std::array<std::vector<ccu::RemoteAddr>, 2> loopRemoteDst;
+        ccu::LocalAddr loopSrc[2];
+        CcuVariable  loopLen[2];
+    };
+
+    struct GroupCopyVar {
+        ccu::LocalAddr loopDst[2];
+        ccu::LocalAddr loopSrc[2];
+        CcuVariable  loopLen[2];
     };
 
 //     // 用于n和p部分数据loopgroup的参数
@@ -114,6 +130,8 @@ constexpr uint64_t CCU_MS_SIZE               = 4096;
 
 //     HcclResult GroupBroadcast(const std::vector<ChannelHandle>& channels, std::vector<CcuRep::RemoteAddr> dst,
 //                               CcuRep::LocalAddr src, GroupOpSize goSize);
+    CcuResult GroupBroadcast(CcuKernelCtxBase &ctx, const size_t channels[], uint32_t channelCount, 
+                            std::vector<ccu::RemoteAddr> dst, ccu::LocalAddr src, ccu::LocalAddr localDst, GroupOpSizeVars goSize);
 //     HcclResult GroupBroadcastWithoutMyRank(const std::vector<ChannelHandle>& channels, std::vector<CcuRep::RemoteAddr> dst,
 //                               CcuRep::LocalAddr src, GroupOpSize goSize);
     CcuResult GroupReduce(CcuKernelCtxBase &ctx, const size_t channels[], uint32_t channelCount,
@@ -125,11 +143,14 @@ constexpr uint64_t CCU_MS_SIZE               = 4096;
 //                              HcclDataType outputDataType, HcclReduceOp opType);
 
 //     HcclResult GroupCopy(CcuRep::LocalAddr dst, CcuRep::LocalAddr src, GroupOpSize goSize);
+    CcuResult GroupCopy(CcuKernelCtxBase &ctx, ccu::LocalAddr dst, ccu::LocalAddr src, GroupOpSizeVars goSize);   
 //     HcclResult GroupLocalReduce(CcuRep::LocalAddr outDstOrg, std::vector<CcuRep::LocalAddr> &scratchOrg,
 //         GroupOpSize goSize, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType);
 // private:
 //     HcclResult CreateMultiOpCopy();
+    CcuResult CreateMultiOpCopy(CcuKernelCtxBase &ctx, GroupCopyVar &var);
 //     HcclResult CreateMultiOpBroadcast(const std::vector<ChannelHandle> &channels);
+    CcuResult CreateMultiOpBroadcast(CcuKernelCtxBase &ctx, GroupBroadcastVar &var, const size_t channels[], uint32_t channelCount);
 //     HcclResult CreateMultiOpBroadcastWithoutMyRank(const std::vector<ChannelHandle> &channels);
     CcuResult CreateMultiOpReduce(CcuKernelCtxBase &ctx, GroupReduceVar &var,
                                    const size_t channels[], uint32_t channelCount, HcclDataType dataType,

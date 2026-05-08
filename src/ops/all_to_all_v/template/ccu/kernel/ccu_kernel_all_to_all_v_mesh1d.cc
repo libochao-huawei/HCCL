@@ -312,7 +312,7 @@ static CcuResult DoAll2AllVMultiLoop(AlltoAllVMesh1DContext &ctx)
         }
         // 等待本轮发送完成
         ctx.event.setMask(allBit);
-        WaitEvent(ctx.event);
+        ccu::WaitEvent(ctx.event);
     }
 
     return CCU_SUCCESS;
