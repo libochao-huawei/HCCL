@@ -67,6 +67,11 @@ protected:
     uint64_t rankIdxLevel0_{0};
     uint64_t rankIdxLevel1_{0};
 
+    uint64_t outCclBuffSize_{0};
+    uint64_t inCclBuffSize_{0};
+    uint64_t outCclBuffOffset_{0};
+    uint64_t inCclBuffOffset_{0};
+
     AlgHierarchyInfoForAllLevel algHierarchyInfo_;
     std::vector<std::map<u32, std::vector<ChannelInfo>>> remoteRankToChannelInfo_;
     std::vector<ThreadHandle> threads_;                 // 相当于之前的std::vector<InsQuePtr> tempInsQue_;

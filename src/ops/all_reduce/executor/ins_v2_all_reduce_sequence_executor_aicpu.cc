@@ -194,14 +194,14 @@ void InsV2AllReduceSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
 {
     tempAlgParamsStepOne.count = currDataCount; // 没用到
     tempAlgParamsStepOne.buffInfo.inBuffBaseOff = processedDataCount * dataTypeSize_;
-    tempAlgParamsStepOne.buffInfo.outBuffBaseOff = 0; // 用不到，只搬运到ccl buffer
-    tempAlgParamsStepOne.buffInfo.hcclBuffBaseOff = 0;
+    tempAlgParamsStepOne.buffInfo.outBuffBaseOff = outCclBuffOffset_;
+    tempAlgParamsStepOne.buffInfo.hcclBuffBaseOff = inCclBuffOffset_;
 
-    tempAlgParamsStepOne.sliceSize = currDataCount / rankSizeLevel0_;
-    tempAlgParamsStepOne.tailSize = currDataCount / rankSizeLevel0_ + currDataCount % rankSizeLevel0_; // 最后一个rank的数据量
+    tempAlgParamsStepOne.sliceSize = currDataCount / rankSizeLevel0_ * dataTypeSize_;
+    tempAlgParamsStepOne.tailSize = (currDataCount / rankSizeLevel0_ + currDataCount % rankSizeLevel0_) * dataTypeSize_; // 最后一个rank的数据量
 
     tempAlgParamsStepOne.inputSliceStride = tempAlgParamsStepOne.sliceSize;
-    tempAlgParamsStepOne.outputSliceStride = tempAlgParamsStepOne.sliceSize;
+    tempAlgParamsStepOne.outputSliceStride = 0; // 归约时固定归约到offset0位置
 
     HCCL_INFO("[InsV2AllReduceSequenceExecutorAicpu] loop [%u] tempAlgParamsStepOne.inputSliceStride [%u], "
         "tempAlgParamsStepOne.outputSliceStride [%u], tempAlgParamsStepOne.sliceSize [%u], "
@@ -230,10 +230,10 @@ void InsV2AllReduceSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
         tempAlgParamsStepTwo.sliceSize = sliceSizeLastStep / rankSizeLevel1_;
         tempAlgParamsStepTwo.tailSize = tempAlgParamsStepTwo.sliceSize + sliceSizeLastStep % rankSizeLevel1_;
     }
-    // 由于上一步会归约到本卡数据所在地址，所以这一步的offset要用rankIdxLevel0_来偏移
-    tempAlgParamsStepTwo.buffInfo.inBuffBaseOff = rankIdxLevel0_ * tempAlgParamsStepTwo.sliceSize * rankSizeLevel1_;
-    tempAlgParamsStepTwo.buffInfo.outBuffBaseOff = tempAlgParamsStepTwo.buffInfo.inBuffBaseOff; // input和output都是ccl，所以都一样
-    tempAlgParamsStepTwo.buffInfo.hcclBuffBaseOff = tempAlgParamsStepTwo.buffInfo.inBuffBaseOff;
+    // 上一步会归约到offset0位置，所以这一步offset为0
+    tempAlgParamsStepTwo.buffInfo.inBuffBaseOff = 0;
+    tempAlgParamsStepTwo.buffInfo.outBuffBaseOff = 0;
+    tempAlgParamsStepTwo.buffInfo.hcclBuffBaseOff = 0;
 
     tempAlgParamsStepTwo.inputSliceStride = tempAlgParamsStepTwo.sliceSize;
     tempAlgParamsStepTwo.outputSliceStride = tempAlgParamsStepTwo.sliceSize;
@@ -259,9 +259,9 @@ void InsV2AllReduceSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     const u64 tailSize, TemplateDataParams &tempAlgParamsStepThree) const
 {
     tempAlgParamsStepThree.count = currDataCount; // 没用到
-    tempAlgParamsStepThree.buffInfo.inBuffBaseOff = rankIdxLevel0_ * sliceSize * rankSizeLevel1_;
-    tempAlgParamsStepThree.buffInfo.outBuffBaseOff = tempAlgParamsStepThree.buffInfo.inBuffBaseOff;
-    tempAlgParamsStepThree.buffInfo.hcclBuffBaseOff = tempAlgParamsStepThree.buffInfo.inBuffBaseOff;
+    tempAlgParamsStepThree.buffInfo.inBuffBaseOff = 0;
+    tempAlgParamsStepThree.buffInfo.outBuffBaseOff = 0;
+    tempAlgParamsStepThree.buffInfo.hcclBuffBaseOff = 0;
     // 与上一步框间ReduceScatter数据量一致
     tempAlgParamsStepThree.sliceSize = sliceSize;
     tempAlgParamsStepThree.tailSize = tailSize;
@@ -296,7 +296,7 @@ void InsV2AllReduceSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     tempAlgParamsStepFour.sliceSize = sliceSize;
     tempAlgParamsStepFour.tailSize = tailSize;
 
-    tempAlgParamsStepFour.inputSliceStride = tempAlgParamsStepFour.sliceSize;
+    tempAlgParamsStepFour.inputSliceStride = 0;
     tempAlgParamsStepFour.outputSliceStride = tempAlgParamsStepFour.sliceSize;
     
     HCCL_INFO("[InsV2AllReduceSequenceExecutorAicpu] loop [%u] tempAlgParamsStepFour.inputSliceStride [%u], "
@@ -320,8 +320,8 @@ HcclResult InsV2AllReduceSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, In
     AlgResourceRequest req;
     algTemplate->GetRes(req);
     if (channelLevelIdx >= remoteRankToChannelInfo_.size()) {
-        HCCL_ERROR("[InsV2AllReduceSequenceExecutorAicpu][GenTempResource] channelLevelIdx[%u] should be lower
-            than remoteRankToChannelInfo_.size()[%u]", channelLevelIdx, remoteRankToChannelInfo_.size());
+        HCCL_ERROR("[InsV2AllReduceSequenceExecutorAicpu][GenTempResource] channelLevelIdx[%u] should be lower"
+            "than remoteRankToChannelInfo_.size()[%u]", channelLevelIdx, remoteRankToChannelInfo_.size());
         return HCCL_E_INTERNAL;
     }
     tempReousrce.channels = remoteRankToChannelInfo_[channelLevelIdx];
@@ -373,10 +373,15 @@ HcclResult InsV2AllReduceSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, In
     TemplateResource templateResourceStepFour;
     CHK_RET(GenTempResource(resCtx, 0, algTemplateStepFour, templateResourceStepFour));
     
-    // 中转内存单次最多能够接受的output count
-    u32 totalRankAlign = rankSizeLevel0_ * rankSizeLevel1_;
+    // 计算中转内存单次最多能够接受的output count
+    // CCL buffer切分为2块，前1块作为ReduceScatter mesh1D归约操作的output，后1块作为ccl buffer接收其他卡的数据
+    outCclBuffSize_ = tempAlgParamsStepOne.buffInfo.hcclBuff.size / 2;
+    inCclBuffSize_ = tempAlgParamsStepOne.buffInfo.hcclBuff.size - outCclBuffSize_;
+    outCclBuffOffset_ = 0;
+    inCclBuffOffset_ = outCclBuffSize_;
     // 最大搬运数据量向下对齐到rankSize的倍数，方便数据切分，只用最后一个loop处理尾块
-    u64 maxCountPerLoop = tempAlgParamsStepOne.buffInfo.hcclBuff.size / HCCL_MIN_SLICE_ALIGN *
+    u32 totalRankAlign = rankSizeLevel0_ * rankSizeLevel1_;
+    u64 maxCountPerLoop = inCclBuffOffset_ / HCCL_MIN_SLICE_ALIGN *
                           HCCL_MIN_SLICE_ALIGN / dataTypeSize_ / totalRankAlign * totalRankAlign;
     // 计算loopTimes
     u64 loopTimes = dataCount_ / maxCountPerLoop + static_cast<u64>(dataCount_ % maxCountPerLoop != 0);
