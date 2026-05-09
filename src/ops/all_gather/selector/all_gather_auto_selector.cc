@@ -15,6 +15,7 @@ namespace ops_hccl {
 constexpr u64 AG_2D_SMALL_DATA_SIZE = 1024 * 1024;
 constexpr u32 MAX_RANK_NUM_FOR_CONCURRENT_ALGO = 4;
 constexpr u64 AG_CCU_SMALL_DATA_SIZE = 4 * 1024 * 1024;
+constexpr u64 AG_AICPU_SMALL_DATA_SIZE = 1 * 1024 * 1024;
 
 SelectorStatus AllGatherAutoSelector::SelectCcuMsAlgo(
     const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
@@ -215,7 +216,11 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
         } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] == 1) {
             selectAlgName = "InsAllGatherNHR";
         } else if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-            selectAlgName = "InsAllGatherParallelMesh1DNHR";
+            if (dataSize > AG_AICPU_SMALL_DATA_SIZE) {
+                selectAlgName = "InsAllGatherParallelMesh1DNHR";
+            } else {
+                selectAlgName = "InsAllGatherNHR";
+            }
         } else {
             HCCL_ERROR("[AllGatherAutoSelector] topo not match");
             return SelectorStatus::NOT_MATCH;
