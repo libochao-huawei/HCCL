@@ -88,6 +88,37 @@ HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::CalcRes(HcclComm comm, const 
     return HcclResult::HCCL_SUCCESS;
 }
 
+HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+{
+    if (tempFastLaunchCtx.ccuKernelSubmitInfos.size() == 0) {
+        HCCL_INFO("[CcuTempAllReduceNhrMem2Mem1DMultiJetty::FastLaunch] ccu kernel num is 0, just success.");
+        return HCCL_SUCCESS;
+    }
+    HCCL_DEBUG("[%s] begin.", __func__);
+    const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
+    buffInfo_ = tempFastLaunchCtx.buffInfo;
+    
+    // 计算NHR Multi Jetty特有的参数
+    CcuTaskArgAllReduceNhrMem2Mem1DMultiJetty taskArg(
+        PointerToAddr(buffInfo_.inputPtr) + args[0],
+        PointerToAddr(buffInfo_.outputPtr) + args[1],
+        args[2], // outputToken
+        args[3], // isInplace
+        args[4], // dataSizePerRank
+        args[5], // dataSizePerPort
+        args[6], // lastRankSliceSize
+        args[7]  // lastPortSliceSize;
+    );
+
+    void* taskArgPtr = static_cast<void*>(&taskArg);
+
+    CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0], 
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr));
+
+    HCCL_DEBUG("[%s] end.", __func__);
+    return HcclResult::HCCL_SUCCESS;
+}
+
 HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::KernelRun(const OpParam& param,
     const TemplateDataParams& templateDataParams, TemplateResource& templateResource)
 {
@@ -136,6 +167,14 @@ HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::KernelRun(const OpParam& para
 
     CHK_RET(
         HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr));
+
+    
+    // 下发完再保存参数信息
+    CcuKernelSubmitInfo submitInfo;
+    submitInfo.kernelHandle = templateResource.ccuKernels[0];
+    CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, outputToken, isInplace,
+        dataSizePerRank, dataSizePerPort, lastRankSliceSize, lastPortSliceSize));
+    templateResource.submitInfos.push_back(submitInfo);
 
     HCCL_DEBUG("[%s] end.", __func__);
 
@@ -277,5 +316,10 @@ HcclResult CcuTempAllReduceNhrMem2Mem1DMultiJetty::GetRes(AlgResourceRequest& re
     resourceRequest.slaveThreadNum = 0;
 
     return HcclResult::HCCL_SUCCESS;
+}
+
+u64 CcuTempAllReduceNhrMem2Mem1DMultiJetty::GetThreadNum() const
+{
+    return 1;
 }
 } // namespace ops_hccl
