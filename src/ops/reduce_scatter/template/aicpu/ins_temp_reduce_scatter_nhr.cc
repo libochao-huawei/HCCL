@@ -26,7 +26,13 @@ HcclResult InsTempReduceScatterNHR::CalcRes(HcclComm comm, const OpParam& param,
                                             AlgResourceRequest& resourceRequest) 
 {
     std::vector<HcclChannelDesc> channels;
-    CHK_RET(CalcChannelRequestNhr(comm, param, topoInfo, subCommRanks_, channels));
+    std::vector<HcclChannelDesc> myChannelDescs;
+    CHK_RET(CalcChannelRequestNhr(comm, param, topoInfo, subCommRanks_, myChannelDescs));
+    for(auto channel : myChannelDescs) {
+        if(channel.channelProtocol == COMM_PROTOCOL_UBC_CTP) {
+            channels.push_back(channel);
+        }
+    }
     resourceRequest.channels.push_back(channels);
     u32 channelsPerRank = CalcChannelsPerRank(channels);
     channelsPerRank_ = channelsPerRank;
