@@ -267,17 +267,17 @@ CcuResult CreateMultiOpReduce(CcuKernelCtxBase &ctx, GroupReduceVar &var,
             loopEvt.mask = 1 << channelSize;
             ccu::LocalCopy(ctx.moRes.ccuBuf[bufBase + channelSize], var.loopLocalSrc[index], var.loopLen[index], loopEvt);
             loopEvt.mask = (1 << size) - 1;
-            ccu::WaitEvent(loopEvt);
+            ccu::EventWait(loopEvt);
 
             if (size > 1) {
                 loopEvt.mask = 1;
                 ccu::LocalReduce(&ctx.moRes.ccuBuf[bufBase], size, dataType, outputDataType, opType, var.loopLen[index], loopEvt);
-                ccu::WaitEvent(loopEvt);
+                ccu::EventWait(loopEvt);
             }
 
             loopEvt.mask = 1;
             ccu::LocalCopy(var.loopDst[index], ctx.moRes.ccuBuf[bufBase], var.loopLenExp[index], loopEvt);
-            ccu::WaitEvent(loopEvt);
+            ccu::EventWait(loopEvt);
         }
     }
 

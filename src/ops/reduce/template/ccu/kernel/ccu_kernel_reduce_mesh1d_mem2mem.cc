@@ -49,9 +49,9 @@ static CcuResult CreateLocalCopyLoop(ReduceMesh1DMem2MemContext &ctx, GroupReduc
 
         CCU_LOOP(ctx.loops[index]) {
             ccu::LocalCopy(ctx.moRes.ccuBuf[0], var.src[index], var.len[index], event);
-            ccu::WaitEvent(event);
+            ccu::EventWait(event);
             ccu::LocalCopy(var.dst[index], ctx.moRes.ccuBuf[0], var.len[index], event);
-            ccu::WaitEvent(event);
+            ccu::EventWait(event);
         }
     }
     ctx.loopRegistered = true;
@@ -315,7 +315,7 @@ static CcuResult DoRepeatReduce(ReduceMesh1DMem2MemContext &ctx, const std::vect
             CCU_IF(ctx.chunkSize[chkId] == 0)
             {
                 ctx.event.setMask(1 << rmtId);
-                ccu::RecordEvent(ctx.event);
+                ccu::EventRecord(ctx.event);
             }
 
             CCU_IF(ctx.chunkSize[chkId] != 0)
@@ -327,7 +327,7 @@ static CcuResult DoRepeatReduce(ReduceMesh1DMem2MemContext &ctx, const std::vect
         }
         uint16_t allBit = ((1 << arg->rankSize) - 1) & (~(1 << arg->rankId));
         ctx.event.setMask(allBit);
-        ccu::WaitEvent(ctx.event);
+        ccu::EventWait(ctx.event);
     }
     HCCL_INFO("[CcuKernelReduceMesh1DMem2Mem] ReduceMeshMem2Mem1D ReadReduce end");
     return CCU_SUCCESS;
