@@ -261,16 +261,16 @@ HcclResult CcuKernelAlgBase::CreateMultiOpReduce(const std::vector<ChannelHandle
         std::vector<CcuRep::CcuBuf> bufs = {moRes.ccuBuf.begin() + index * moConfig.msInterleave,
                                                moRes.ccuBuf.begin() + index * moConfig.msInterleave + usedBufNum};
         CcuRep::CompletedEvent &event = moRes.completedEvent[index];
-        for (uint32_t i = 0; i < channels.size(); i++) {
-            event.mask = 1 << i;
-            ReadNb(channels[i], bufs[i], src[i], len, event);
-        }
+        // for (uint32_t i = 0; i < channels.size(); i++) {
+        //     event.mask = 1 << i;
+        //     ReadNb(channels[i], bufs[i], src[i], len, event);
+        // }
 
-        CcuRep::LocalAddr &localSrc = *reinterpret_cast<CcuRep::LocalAddr*>(&src[size - 1]);
-        event.mask = 1 << channelSize;
-        LocalCopyNb(bufs[size - 1], localSrc, len, event);
-        event.mask = (1 << size) - 1;
-        WaitEvent(event);
+        // CcuRep::LocalAddr &localSrc = *reinterpret_cast<CcuRep::LocalAddr*>(&src[size - 1]);
+        // event.mask = 1 << channelSize;
+        // LocalCopyNb(bufs[size - 1], localSrc, len, event);
+        // event.mask = (1 << size) - 1;
+        // WaitEvent(event);
 
         if (size > 1) {
             event.mask = 1;
@@ -278,9 +278,9 @@ HcclResult CcuKernelAlgBase::CreateMultiOpReduce(const std::vector<ChannelHandle
             WaitEvent(event);
         }
 
-        // event.mask = 1;
-        // LocalCopyNb(dst, bufs[0], lenForExpansion, event);
-        // WaitEvent(event);
+        event.mask = 1;
+        LocalCopyNb(dst, bufs[0], lenForExpansion, event);
+        WaitEvent(event);
     }
 
     registeredLoop.insert(loopType);
