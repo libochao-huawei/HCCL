@@ -64,7 +64,7 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
                 closRanks.push_back(rank);
             }
         }
-        temp1HierarchyInfo = {closRanks};
+        temp1HierarchyInfo_ = {closRanks};
     } else {
         temp0HierarchyInfo_ = algHierarchyInfo.infos[0];
         temp1HierarchyInfo_ = algHierarchyInfo.infos[1];
