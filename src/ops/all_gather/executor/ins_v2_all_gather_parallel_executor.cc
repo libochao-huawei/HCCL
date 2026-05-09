@@ -69,6 +69,7 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
         intraHierarchyInfo = algHierarchyInfo.infos[0];
         interHierarchyInfo = algHierarchyInfo.infos[1];
     }
+    
     InsAlgTemplate0 intraTempAlg(param, topoInfo->userRank, intraHierarchyInfo);
     InsAlgTemplate1 interTempAlg(param, topoInfo->userRank, interHierarchyInfo);
     
