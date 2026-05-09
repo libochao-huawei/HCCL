@@ -65,6 +65,7 @@ HcclResult ReduceNHR::KernelRun(
 
     CHK_PRT_RET(root_ == UINT32_MAX, HCCL_ERROR("[ReduceNHR] root is invalid"), HcclResult::HCCL_E_INTERNAL);
 
+    dataType_ = param.DataDes.dataType;
     u64 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
     CHK_PRT_RET(dataTypeSize == 0, HCCL_ERROR("[ReduceNHR] dataTypeSize is 0"), HcclResult::HCCL_E_INTERNAL);
 
@@ -78,7 +79,6 @@ HcclResult ReduceNHR::KernelRun(
     CHK_RET(getMyAlgRank());
     processSize_ = tempAlgParams.sliceSize;
     count_ = tempAlgParams.count;
-    dataType_ = param.DataDes.dataType;
     HCCL_INFO("[KernelRun] sliceSize: %u, count_: %u, typeSize: %u",
         tempAlgParams.sliceSize,
         count_,

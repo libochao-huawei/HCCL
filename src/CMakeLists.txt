@@ -123,11 +123,13 @@ set(INCLUDE_LIST
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/executor
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/selector
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/template
+    ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/template/host_nic
 
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/executor
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/selector
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/template
+    ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/template/host_nic
 
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce/executor
@@ -235,7 +237,8 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         ${CMAKE_CURRENT_SOURCE_DIR}/common/adapter_error_manager_pub.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/common/alg_env_config.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/common/device_compat.cc
-
+        
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/exec_timeout_manager.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/executor/channel/channel.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/executor/channel/channel_request.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/executor/registry/coll_alg_exec_registry.cc
@@ -328,6 +331,11 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
 
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/executor/ins_v2_recv_sole_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/executor/ins_v2_send_sole_executor.cc
+
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/executor/ins_send_dpu_executor.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/executor/ins_recv_dpu_executor.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/template/host_nic/ins_temp_send_host_nic_dpu.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/template/host_nic/ins_temp_recv_host_nic_dpu.cc
     )
 
     if(NOT HCCL_CANN_COMPAT_850)

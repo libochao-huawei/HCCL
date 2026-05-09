@@ -196,6 +196,8 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
     TemplateDataParams tempAlgParamsforTemp0;
     tempAlgParamsforTemp0.buffInfo.inputPtr = param.inputPtr;
     tempAlgParamsforTemp0.buffInfo.outputPtr = param.outputPtr;
+    tempAlgParamsforTemp0.buffInfo.inputSize = param.inputSize;
+    tempAlgParamsforTemp0.buffInfo.outputSize = param.outputSize;
     tempAlgParamsforTemp0.buffInfo.inBuffType = BufferType::INPUT;
     tempAlgParamsforTemp0.buffInfo.outBuffType = BufferType::OUTPUT;
     tempAlgParamsforTemp0.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
@@ -204,6 +206,8 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
     TemplateDataParams tempAlgParamsforTemp1;
     tempAlgParamsforTemp1.buffInfo.inputPtr = param.inputPtr;
     tempAlgParamsforTemp1.buffInfo.outputPtr = param.outputPtr;
+    tempAlgParamsforTemp1.buffInfo.inputSize = param.inputSize;
+    tempAlgParamsforTemp1.buffInfo.outputSize = param.outputSize;
     tempAlgParamsforTemp1.buffInfo.inBuffType = BufferType::INPUT;
     tempAlgParamsforTemp1.buffInfo.outBuffType = BufferType::OUTPUT;
     tempAlgParamsforTemp1.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;

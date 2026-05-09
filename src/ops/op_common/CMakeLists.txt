@@ -15,6 +15,7 @@ add_subdirectory(topo)
 set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/op_common.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/dlhcomm_function.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/exec_timeout_manager.cc
 )
 if(NOT HCCL_CANN_COMPAT_850)
     list(APPEND src_list
