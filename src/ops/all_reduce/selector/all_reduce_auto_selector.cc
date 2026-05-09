@@ -17,6 +17,7 @@ constexpr u64 AR_ONESHOT_1D_MAX_DATA_SIZE = 16 * 1024;
 constexpr u64 AR_M2M_1D_MAX_DATA_SIZE = 8 * 1024 * 1024;
 constexpr u64 AR_AICPU_1D_SMALL_DATA_SIZE = 8 * 1024 * 1024;
 constexpr u64 AR_AICPU_1D_MAX_DATA_SIZE = 32 * 1024 * 1024;
+constexpr u64 AR_AICPU_1D_64P_SMALL_DATA_SIZE = 32 * 1024 * 1024;
 constexpr u64 AR_AICPU_1D_64DATATYPE_DATA_SIZE = 8 * 1024 * 1024;
 constexpr u32 MAX_RANK_NUM_FOR_CONCURRENT_ALGO = 4;
 
@@ -272,6 +273,8 @@ SelectorStatus AllReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayer
                                                       std::string &selectAlgName) const
 {
     HCCL_DEBUG("[AllReduceAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
+    u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
+    u64 dataSize = opParam.DataDes.count * perDataSize;
 
     bool isDataTypeOrReduceTypeSpecial = 
         opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT64 ||
@@ -289,7 +292,11 @@ SelectorStatus AllReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayer
         } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] == 1) {
             selectAlgName = "InsAllReduceNHR";
         } else if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-            selectAlgName = "InsAllReduceParallelRSAG";
+            if (dataSize > AR_AICPU_1D_64P_SMALL_DATA_SIZE) {
+                selectAlgName = "InsAllReduceParallelRSAG";
+            } else {
+                selectAlgName = "InsAllReduceNHR";
+            }
         } else {
             return SelectorStatus::NOT_MATCH;
         }
