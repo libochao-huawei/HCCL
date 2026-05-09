@@ -278,9 +278,9 @@ HcclResult CcuKernelAlgBase::CreateMultiOpReduce(const std::vector<ChannelHandle
             WaitEvent(event);
         }
 
-        event.mask = 1;
-        LocalCopyNb(dst, bufs[0], lenForExpansion, event);
-        WaitEvent(event);
+        // event.mask = 1;
+        // LocalCopyNb(dst, bufs[0], lenForExpansion, event);
+        // WaitEvent(event);
     }
 
     registeredLoop.insert(loopType);
