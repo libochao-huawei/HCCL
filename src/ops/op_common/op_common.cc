@@ -1621,13 +1621,13 @@ HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeI
     CHK_PTR_NULL(comm);
     for (auto &channel : channels) {
         OpExchangeInfo *rmtExchangeInfo = nullptr;
-        uint32_t *rmtDataLen = nullptr;
+        uint32_t rmtDataLen = 0;
         CHK_RET(HcclCommGetExchangeInfo(comm, channel.remoteRank, static_cast<void**>(&rmtExchangeInfo),
-            rmtDataLen));
-        if (*rmtDataLen == 0) {
+            &rmtDataLen));
+        if (rmtDataLen == 0) {
             HCCL_INFO("[CompareOpExchangeInfos] rmtDataLen is 0. Skip remoteRank[%u]", channel.remoteRank);
             continue;
-        } else if (*rmtDataLen != sizeof(OpExchangeInfo)) {
+        } else if (rmtDataLen != sizeof(OpExchangeInfo)) {
             HCCL_ERROR("[CompareOpExchangeInfos] locDataLen is not equal to rmtDataLen.");
             return HCCL_E_PARA;
         }
