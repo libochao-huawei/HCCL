@@ -57,6 +57,7 @@ HcclResult InsV2AllReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(
         std::make_shared<InsAlgTemplate>(param, topoInfo->userRank, algHierarchyInfo.infos[0]);
     // 调用计算资源的函数
     algTemplate->CalcRes(comm, param, topoInfo, resourceRequest);
+    HCCL_INFO("[InsV2AllReduceSoleExecutor][CalcRes] algHierarchyInfo.infos[0].size()=%zu", algHierarchyInfo.infos[0].size());
     return HCCL_SUCCESS;
 }
 
