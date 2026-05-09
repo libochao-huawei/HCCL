@@ -70,7 +70,9 @@ HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::CalcRes(HcclComm comm, const 
 
     for (u32 i = 0; i < channelDescs.size(); ++i) {
         u32 remoteRank = channelDescs[i].remoteRank;
-        rank2ChannelIdx[RemoteRankId2RankId(remoteRank)] = i;
+        u32 rankId = 0;
+        CHK_RET(RemoteRankId2RankId(remoteRank, rankId));
+        rank2ChannelIdx[rankId] = i;
     }
 
     CHK_RET(CalcNHRInfo(stepInfoVector)); // NHR算法编排参数
@@ -144,15 +146,16 @@ HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::GetStepInfo(u32 step, u32 nSt
     return HcclResult::HCCL_SUCCESS;
 }
 
-uint32_t CcuTempAllGatherNHR1DMultiJettyMem2Mem::RemoteRankId2RankId(const uint32_t remoteRankId) const
+HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::RemoteRankId2RankId(
+    const uint32_t remoteRankId, uint32_t &rankId) const
 {
-    uint32_t subCommRankId = 0;
     std::vector<u32> ranks = subCommRanks_[0];
     auto it = std::find(ranks.begin(), ranks.end(), remoteRankId);
-    if (it != ranks.end()) {
-        subCommRankId = std::distance(ranks.begin(), it);
-    }
-    return subCommRankId;
+    CHK_PRT_RET(it == ranks.end(),
+                HCCL_ERROR("[CcuTempAllGatherNHR1DMultiJettyMem2Mem][RemoteRankId2RankId] remoteRankId[%u] "
+                           "is not in subCommRanks.", remoteRankId), HCCL_E_PARA);
+    rankId = std::distance(ranks.begin(), it);
+    return HCCL_SUCCESS;
 }
 
 HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::KernelRun(const OpParam& param,

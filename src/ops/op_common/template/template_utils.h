@@ -419,6 +419,7 @@ inline u64 RoundUp(const u64 dividend, const u64 divisor)
 template <typename... Args>
 HcclResult FillCachedArgs(CcuKernelSubmitInfo &info, Args... args)
 {
+    info.action = 0;
     size_t argNum = sizeof...(Args);
     if (UNLIKELY(argNum > CCU_MAX_TASK_ARG_NUM)) {
         HCCL_ERROR("[FillCachedArgs] argNum is bigger than CCU_MAX_TASK_ARG_NUM[%d]", CCU_MAX_TASK_ARG_NUM);

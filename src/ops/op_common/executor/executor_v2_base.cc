@@ -111,6 +111,38 @@ HcclResult InsCollAlgBase::FastLaunchSaveCtxTwoTemplate(const OpParam &param, co
 
     return HCCL_SUCCESS;
 }
+
+HcclResult InsCollAlgBase::FastLaunchSaveCtxMultiTemplate(const OpParam &param, const u32 threadNum,
+    const u32 ccuKernelNum, const std::vector<ThreadHandle> &threads,
+    const std::vector<u32> &ccuKernelNumList,
+    const std::vector<std::vector<CcuKernelSubmitInfo>> &submitInfosList)
+{
+    CHK_PRT_RET(ccuKernelNumList.size() > MAX_TEMP_NUM_IN_ALGO,
+        HCCL_ERROR("[InsCollAlgBase][FastLaunchSaveCtxMultiTemplate] segment num[%zu] exceeds max[%u].",
+                   ccuKernelNumList.size(), MAX_TEMP_NUM_IN_ALGO), HCCL_E_PARA);
+    u64 size = CcuFastLaunchCtx::GetCtxSize(threadNum, ccuKernelNum);
+    void *ctxPtr = nullptr;
+    HCCL_INFO("[InsCollAlgBase][FastLaunchSaveCtxMultiTemplate] tag[%s], size[%llu]", param.fastLaunchTag, size);
+    CHK_RET(HcclEngineCtxCreate(param.hcclComm, param.fastLaunchTag, CommEngine::COMM_ENGINE_CCU, size, &ctxPtr));
+    CcuFastLaunchCtx *ccuFastLaunchCtx = reinterpret_cast<CcuFastLaunchCtx *>(ctxPtr);
+    CHK_SAFETY_FUNC_RET(strcpy_s(ccuFastLaunchCtx->algName, sizeof(ccuFastLaunchCtx->algName), param.algName));
+    ccuFastLaunchCtx->threadNum = threadNum;
+    ThreadHandle *threadHandles = ccuFastLaunchCtx->GetThreadHandlePtr();
+    for (u32 i = 0; i < threadNum; ++i) {
+        threadHandles[i] = threads[i];
+    }
+    for (u32 i = 0; i < MAX_TEMP_NUM_IN_ALGO; ++i) {
+        ccuFastLaunchCtx->ccuKernelNum[i] = (i < ccuKernelNumList.size()) ? ccuKernelNumList[i] : 0;
+    }
+    u32 kernelIdx = 0;
+    CcuKernelSubmitInfo *kernelSubmitInfos = ccuFastLaunchCtx->GetCcuKernelSubmitInfoPtr();
+    for (u32 segIdx = 0; segIdx < ccuKernelNumList.size(); ++segIdx) {
+        for (u32 i = 0; i < ccuKernelNumList[segIdx]; ++i) {
+            kernelSubmitInfos[kernelIdx++] = submitInfosList[segIdx][i];
+        }
+    }
+    return HCCL_SUCCESS;
+}
 #endif
 
 }
