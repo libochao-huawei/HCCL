@@ -55,7 +55,7 @@ thread_local std::map<std::string, std::unique_ptr<AlgResourceCtxSerializable>> 
 thread_local std::map<AivOpCacheArgs, std::shared_ptr<InsQueue>> g_hcclCacheMap;
 thread_local std::set<std::string> g_consistencyCheckedList;
 constexpr u32 HOST_WAIT_AICPU_NOTIFYIDX = 0;// host主流wait aicpu流的notify idx
-constexpr int32_t INCONSISTENT_CHECK_SWITCH = -1; // -1：未解析过环境变量，0："on"，1："first"，2："off"
+int32_t INCONSISTENT_CHECK_SWITCH = -1; // -1：未解析过环境变量，0："on"，1："first"，2："off"
 
 // 检查非对称拓扑支持情况
 // 仅 AllGather, AllReduce, ReduceScatter 支持跨框非对称拓扑，其他算子拦截
