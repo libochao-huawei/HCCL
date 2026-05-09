@@ -873,7 +873,7 @@ HcclResult CtxReuseProcess(HcclComm comm, OpParam &param, void **resCtxSequence,
     return HCCL_SUCCESS;
 }
 
-HcclResult GetAlgResWithEngine(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
+HcclResult GetAlgResWithEngine(HcclComm comm, OpParam &param, AlgResourceRequest &resRequest,
     std::unique_ptr<AlgResourceCtxSerializable> &resCtxHost, TopoInfoWithNetLayerDetails *topoInfo,
     AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence, uint64_t &size, bool increCreateChannelFlag)
 {
@@ -1528,7 +1528,7 @@ HcclResult GetAlgResDPU(HcclComm comm, const OpParam &param, AlgResourceRequest 
 
 HcclResult ParseSingleItemFromDFSConfig(const std::string &configName)
 {
-    constexpr std::size_t DFS_CONFIG_ITE_NUM = 1;
+    constexpr std::size_t DFS_CONFIG_ITEM_NUM = 1;
     const std::array<std::string, DFS_CONFIG_ITEM_NUM> dfsConfigItems = {"inconsistent_check"};
     char *dfsConfigValue = nullptr;
     MM_SYS_GET_ENV(MM_ENV_HCCL_DFS_CONFIG, dfsConfigValue);
