@@ -48,7 +48,7 @@ class CcuTaskArgAllToAllMesh2Die : public hcomm::CcuTaskArg {
 public:
     explicit CcuTaskArgAllToAllMesh2Die(uint64_t inputAddr, uint64_t outputAddr,
         uint64_t token,  uint64_t sliceSize, uint64_t inputSliceStride, uint64_t outputSliceStride) :
-        inputAddr_(inputAddr), outputAddr_(outputAddr), token_(token), sliceSize_(sliceSize),
+        inputAddr_(inputAddr), outputAddr_(outputAddr), sliceSize_(sliceSize), token_(token),
         inputSliceStride_(inputSliceStride), outputSliceStride_(outputSliceStride){}
 
     uint64_t inputAddr_;

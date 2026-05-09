@@ -221,13 +221,13 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::KernelRun(const OpParam& param,
     uint64_t outputAddr = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
     uint64_t token;
     CHK_RET(GetToken(buffInfo_, token));
-    uint64_t offset = 0;
+    //uint64_t offset = 0;
     uint64_t repeatNum = templateDataParams.repeatNum;
     uint64_t inputSliceStride = templateDataParams.inputSliceStride;
     uint64_t outputSliceStride = templateDataParams.outputSliceStride;
     uint64_t inputRepeatStride = templateDataParams.inputRepeatStride;
     uint64_t outputRepeatStride = templateDataParams.outputRepeatStride;
-    uint64_t repeatNumVar = UINT64_MAX - repeatNum;
+    //uint64_t repeatNumVar = UINT64_MAX - repeatNum;
     uint64_t die0LastSize = templateDataParams.tailSize / kernelNum;
     uint64_t die1LastSize = templateDataParams.tailSize - die0LastSize;
     uint64_t isInputOutputEqual = (inputAddr == outputAddr) ? 1 : 0;

@@ -26,7 +26,7 @@ HcclResult SendRecvWrite(const SendRecvInfo &sendRecvInfo)
     // 这里只是在host上向device下任务，所以实际在host侧不会因为wait而阻塞
     CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(0, recvChannel.handle, NOTIFY_IDX_ACK)));
     CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(0, sendChannel.handle, NOTIFY_IDX_ACK, DPU_TIMEOUT)));
-    for (int i = 0; i < repeatNum; i++) {
+    for (u32 i = 0; i < repeatNum; i++) {
         // tx同步完成后准备将自己的userIn上的数据写到对方的hcclBuffer上
         const DataSlice srcSlice = srcSlices[i];
         const DataSlice dstSlcie = dstSlices[i];
@@ -55,7 +55,7 @@ HcclResult SendWrite(const DataInfo &sendInfo)
     u32 sliceNum = srcSlices.size();
     CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(0, sendChannel.handle, NOTIFY_IDX_ACK)));
     CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(0, sendChannel.handle, NOTIFY_IDX_ACK, DPU_TIMEOUT)));
-    for (int i = 0; i < sliceNum; i++) {
+    for (u32 i = 0; i < sliceNum; i++) {
         const DataSlice srcSlice = srcSlices[i];
         const DataSlice dstSlcie = dstSlices[i];
         void *dst = static_cast<void *>(static_cast<s8 *>(dstSlcie.addr_) + dstSlcie.offset_);
@@ -81,7 +81,7 @@ HcclResult RecvWrite(const DataInfo &recvInfo)
     u32 sliceNum = srcSlices.size();
     CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(0, recvChannel.handle, NOTIFY_IDX_ACK)));
     CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(0, recvChannel.handle, NOTIFY_IDX_ACK, DPU_TIMEOUT)));
-    for (int i = 0; i < sliceNum; i++) {
+    for (u32 i = 0; i < sliceNum; i++) {
         CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(0, recvChannel.handle, NOTIFY_IDX_DATA_SIGNAL)));
         CHK_RET(static_cast<HcclResult>(
             HcommChannelNotifyWaitOnThread(0, recvChannel.handle, NOTIFY_IDX_DATA_SIGNAL, DPU_TIMEOUT)));

@@ -15,7 +15,6 @@
 namespace ops_hccl {
 
 aclrtBinHandle g_binKernelHandle = nullptr;
-
 HcclResult GetKernelFilePath(std::string &binaryPath)
 {
     // 获取二进制文件路径

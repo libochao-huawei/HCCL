@@ -55,7 +55,7 @@ HcclResult InsV2AllGatherSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(
                "channels[%u]",
                myRank_, resourceRequest.notifyNumOnMainThread, resourceRequest.slaveThreadNum,
                resourceRequest.channels.size());
-    for (auto i = 0; i < resourceRequest.notifyNumPerThread.size(); i++) {
+    for (std::size_t i = 0; i < resourceRequest.notifyNumPerThread.size(); i++) {
         HCCL_DEBUG("[InsV2AllGatherSoleExecutor][CalcRes] myRank[%u], notifyNumPerThread[%u]=[%u]", myRank_, i,
                    resourceRequest.notifyNumPerThread[i]);
     }

@@ -77,7 +77,7 @@ HcclResult CcuTempReduceScatterMeshMem2Mem1D2Die::CalcRes(HcclComm comm, const O
     localReduceOffset_  = subRankGroup[1 - tmpDieId][0];
  
     // 创建每个kernel的ctxArg，放入kernelInfo, 然后将kernelinfo放入resourceRequest.ccuKernelInfos
-    for (int dieId = 0; dieId < DIE_NUM; dieId++) {
+    for (u32 dieId = 0; dieId < DIE_NUM; dieId++) {
         CcuKernelInfo kernelInfo;
         kernelInfo.creator = [](const hcomm::CcuKernelArg &arg) {
                                 return std::make_unique<CcuKernelReduceScatterMesh1D2DieMem2Mem>(arg);

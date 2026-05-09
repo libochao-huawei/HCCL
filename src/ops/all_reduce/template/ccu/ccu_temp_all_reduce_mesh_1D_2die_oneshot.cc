@@ -106,19 +106,19 @@ HcclResult CcuTempAllreduceMesh1D2DieOneShot::KernelRun(const OpParam& param,
     std::vector<uint64_t> dimSize;
     dimSize.push_back(templateRankSize_);
 
-    uint32_t                                rankId    = myRank_;
-    uint64_t                                repeatNumTmp  = templateDataParams.repeatNum;
+    //uint32_t                                rankId    = myRank_;
+    //uint64_t                                repeatNumTmp  = templateDataParams.repeatNum;
     uint64_t inputAddr          = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr         = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
     uint64_t token;
     CHK_RET(GetToken(buffInfo_, token));
     uint64_t scratchAddr        = PointerToAddr(buffInfo_.hcclBuff.addr) + buffInfo_.hcclBuffBaseOff;
-    uint64_t inputSliceStride   = templateDataParams.inputSliceStride;
-    uint64_t inputRepeatStride  = templateDataParams.inputRepeatStride;
-    uint64_t outputRepeatStride = templateDataParams.outputRepeatStride;
+    //uint64_t inputSliceStride   = templateDataParams.inputSliceStride;
+    //uint64_t inputRepeatStride  = templateDataParams.inputRepeatStride;
+    //uint64_t outputRepeatStride = templateDataParams.outputRepeatStride;
     uint64_t sliceSize    = templateDataParams.sliceSize;
 
-    uint64_t repeatNum = UINT64_MAX - repeatNumTmp;
+    //uint64_t repeatNum = UINT64_MAX - repeatNumTmp;
     uint32_t dieNum             = ALL_REDUCE_DIE_NUM;
 
     std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAllreduceMesh1D2DieOneShot>(
@@ -126,7 +126,7 @@ HcclResult CcuTempAllreduceMesh1D2DieOneShot::KernelRun(const OpParam& param,
 
     void* taskArgPtr = static_cast<void*>(taskArg.get());
     // 同步
-    for (auto dieId = 0; dieId < dieNum; dieId++) {
+    for (uint32_t dieId = 0; dieId < dieNum; dieId++) {
         CHK_RET(HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[dieId], templateResource.ccuKernels[dieId], taskArgPtr));
         HCCL_INFO("[CcuTempAllreduceMesh1D2DieOneShot::KernelRun] die[%d] end", dieId);
     }
