@@ -28,13 +28,19 @@ HcclResult InsTempReduceScatterNHR::CalcRes(HcclComm comm, const OpParam& param,
     std::vector<HcclChannelDesc> channels;
     std::vector<HcclChannelDesc> myChannelDescs;
     CHK_RET(CalcChannelRequestNhr(comm, param, topoInfo, subCommRanks_, myChannelDescs));
-    for(auto channel : myChannelDescs) {
-        if(channel.channelProtocol == COMM_PROTOCOL_UBC_CTP) {
-            channels.push_back(channel);
-        }
+    if(topoInfo->level0Topo != Level0Shape::MESH_1D_CLOS) {
+        CHK_RET(CalcChannelRequestNHRWithPriorityTopo(comm, param, topoInfo, subCommRanks_, myChannelDescs, CommTopo::COMM_TOPO_CLOS)); 
+        for(auto channel : myChannelDescs) {
+            if(channel.channelProtocol == COMM_PROTOCOL_UBC_CTP) {
+                channels.push_back(channel);
+            }
+        } 
+    } else {
+        channels = myChannelDescs;
     }
     resourceRequest.channels.push_back(channels);
     u32 channelsPerRank = CalcChannelsPerRank(channels);
+    HCCL_INFO("[InsTempReduceScatterNHR][CalcRes] channelsPerRank: [%u].", channelsPerRank);
     channelsPerRank_ = channelsPerRank;
     GetRes(resourceRequest);
     HCCL_INFO("[InsTempReduceScatterNHR][CalcRes] slaveThreadNum: [%u], notifyNumOnMainThread: [%u].",
