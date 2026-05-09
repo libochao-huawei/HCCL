@@ -126,7 +126,7 @@ static CcuResult InitResource(AlltoAllVMesh1DContext &ctx)
     // allOtherBit_ = ((1 << arg->rankSize) - 1) & (~(1 << arg->rankId)); // 等待其他所有对端
 
     //  all2allv 数据搬运
-    CCU_CHK_RET(ccu::Alloc(&ctx.ctx.completedRankCount));
+    CCU_CHK_RET(ccu::Alloc(&ctx.completedRankCount));
     CCU_CHK_RET(ccu::Alloc(&ctx.xnMaxTransportSize));
     CCU_CHK_RET(ccu::Alloc(&ctx.xnMaxTransportGoSize.addrOffset));
     CCU_CHK_RET(ccu::Alloc(&ctx.xnMaxTransportGoSize.loopParam));
@@ -141,7 +141,7 @@ static CcuResult InitResource(AlltoAllVMesh1DContext &ctx)
     return CCU_SUCCESS;
 }
 
-static void PreSync(AlltoAllVMesh1DContext &ctx)
+static CcuResult PreSync(AlltoAllVMesh1DContext &ctx)
 {
     HCCL_INFO("[CcuKernelAlltoAllVMesh1D] PreSync!");
     const auto *arg = ctx.arg;
@@ -167,6 +167,8 @@ static void PreSync(AlltoAllVMesh1DContext &ctx)
         ccu::NotifyWait(arg->channels[i], CKE_IDX_0, allBit);
     }
     HCCL_INFO( "[CcuKernelAlltoAllVMesh1D] PreSync end");
+
+    return CCU_SUCCESS;
 }
 
 static void PostSync(AlltoAllVMesh1DContext &ctx)
@@ -344,7 +346,7 @@ CcuResult CcuAlltoAllVMesh1DKernel(CcuKernelArg arg)
     CCU_CHK_RET(InitResource(ctx));
     CCU_CHK_RET(LoadArgs(ctx));
 
-    PreSync(ctx);
+    CCU_CHK_RET(PreSync(ctx));
     CalcGroupSrcDst(ctx);
 
     CCU_CHK_RET(DoAll2AllVMultiLoop(ctx));
