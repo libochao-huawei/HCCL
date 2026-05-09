@@ -464,7 +464,7 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLVC, InsAlltoAllVCClosMesh1DDPU, I
 #endif /* !HCCL_CANN_COMPAT_850 */
 #if !defined(HCCL_CANN_COMPAT_850)
     REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, CcuAlltoAllMesh1DMultiJetty, InsV2AlltoAllVSoleExecutor,
-                    TopoMatchUBX1d, CcuTempAllToAllMesh1dMultiJetty);
+                    TopoMatchUBX, CcuTempAllToAllMesh1dMultiJetty);
 #endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 }  // namespace Hccl
