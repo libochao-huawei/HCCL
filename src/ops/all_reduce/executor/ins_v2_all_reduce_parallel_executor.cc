@@ -815,7 +815,7 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
         TemplateResource interTempAlgRes;
         CHK_RET(PrepareResForTemplate(tempAlgIntra, tempAlgInter, tempAlgIntra1));
         PrepareResForTemplateResource(param, resCtx, intraTempAlgRes, interTempAlgRes, true);
-
+        HCCL_INFO("zjy00 after PrepareResForTemplateResource");
         //server 间地址偏移
         for (int i = 0; i < resCtx.algHierarchyInfo.infos[0][0].size(); i++) {
             tempVirtRankMapInter_.insert(std::make_pair(resCtx.algHierarchyInfo.infos[0][0][i], i));
@@ -824,7 +824,7 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
         for (int i = 0; i < resCtx.algHierarchyInfo.infos[1][0].size(); i++) {
             tempVirtRankMapIntra_.insert(std::make_pair(resCtx.algHierarchyInfo.infos[1][0][i], i));
         }
-
+        HCCL_INFO("zjy01 after tempVirtRank");
         CalcIntraDataAllRank(currCountPart0, intraLocalRankSize_, interLocalRankSize_, meshPartDataMap_);
         CalcInterDataAllRank(currCountPart1, interLocalRankSize_, intraLocalRankSize_, nhrPartDataMap_);
         // 第一步开始前同步
