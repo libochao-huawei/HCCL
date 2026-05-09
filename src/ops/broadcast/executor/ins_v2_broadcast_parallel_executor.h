@@ -14,6 +14,7 @@
 #include "executor_common_ops.h"
 #include "topo_match_1d.h"
 #include "topo_match_base.h"
+#include "topo_match_ubx.h"
 
 namespace ops_hccl {
 
@@ -37,7 +38,7 @@ public:
     HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *resCtx) override;
     HcclResult FastLaunchSaveCtx(const OpParam &param, const TemplateResource &templateAlgResIntra,
                                  const TemplateResource &templateAlgResInter, const TemplateResource &intraTempAlgRes1,
-                                 const TemplateResource &interTempAlgRes1);
+                                 const TemplateResource &interTempAlgRes1, u32 notifyNumOnMainThread);
 #endif
 
 private:
@@ -80,7 +81,7 @@ private:
     HcclResult RunTemplateInter11(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u64 dataOffset,
                                         const u64 currCountPart, const u64 scratchOffsetCount, TemplateDataParams &dataParams,
                                         TemplateResource& templateResource, InsAlgTemplate3 &tempAlgInter1);
-    HcclResult GenInsQues(const OpParam &param, const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &tempAlgIntra0,
+    HcclResult OrchestrateLoop(const OpParam &param, const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &tempAlgIntra0,
                           InsAlgTemplate1 &tempAlgInter0, InsAlgTemplate2 &tempAlgIntra1, InsAlgTemplate3 &tempAlgInter1);
     HcclResult FastLaunchTemplateIntra0(const OpParam &param, const u32 kernelNum,
                                         TemplateFastLaunchCtx &tempFastLaunchCtxIntra, InsAlgTemplate0 &tempAlgIntra);
@@ -156,6 +157,8 @@ private:
 
     std::vector<std::map<u32, std::vector<ChannelInfo>>> remoteRankToChannelInfo_;
     std::vector<ThreadHandle> threads_;
+    std::vector<std::vector<u32>> temp0HierarchyInfo_;
+    std::vector<std::vector<u32>> temp1HierarchyInfo_;
 
 };
 

@@ -46,6 +46,8 @@ public:
 
     virtual void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) = 0;
 
+    bool IsPcieProtocol(const std::map<u32, std::vector<ChannelInfo>> &channels);
+
 protected:
 
     OpMode                           opMode_; // 单算子还是图模式

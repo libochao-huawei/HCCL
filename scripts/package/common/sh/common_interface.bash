@@ -16,7 +16,7 @@ mk_custom_path() {
     local _custom_path_file="$1"
     while read line || [ -n "$line" ]
     do
-        local _custom_path="$(echo "$line" | cut --only-delimited -d= -f2)"
+        local _custom_path="$(echo "$line" | cut -d= -f2)"
         if [ -z "$_custom_path" ]; then
             continue
         fi

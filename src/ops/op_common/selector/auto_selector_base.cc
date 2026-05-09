@@ -10,6 +10,7 @@
 
 #include "auto_selector_base.h"
 #include "selector_registry.h"
+#include "op_common.h"
 
 namespace ops_hccl {
 
@@ -20,7 +21,7 @@ SelectorStatus AutoSelectorBase::Select(OpParam &opParam, TopoInfoWithNetLayerDe
     std::map<HcclCMDType, std::vector<HcclAlgoType>> configAlgMap = GetExternalInputHcclAlgoConfigAllType();
     SelectorStatus ret = SelectorStatus::NOT_MATCH;
     bool hostDPUOnly = false;
-    if ((CheckHostDPUOnly(topoInfo, opParam, hostDPUOnly) == HCCL_SUCCESS) && hostDPUOnly) {
+    if ((CheckHostDPUOnly(opParam.hcclComm, topoInfo, hostDPUOnly) == HCCL_SUCCESS) && hostDPUOnly) {
         opParam.opExecuteConfig = OpExecuteConfig::HOSTCPU;
         opParam.engine = CommEngine::COMM_ENGINE_CPU;
         return SelectDPUAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
@@ -45,6 +46,17 @@ SelectorStatus AutoSelectorBase::Select(OpParam &opParam, TopoInfoWithNetLayerDe
         return ret;
     }
     if (IsStarsState(opParam.opExecuteConfig)) {
+        // level0是PCIE混合的场景，且CLOS规模大于8，alltoall算子选择AIV_ONLY算法
+        if (topoInfo->level0PcieMix && topoInfo->level0BigClosRange &&
+            (opParam.opType == HcclCMDType::HCCL_CMD_ALLTOALL ||
+             opParam.opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
+             opParam.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC)) {
+            opParam.opExecuteConfig = OpExecuteConfig::AIV_ONLY;
+            (void)ProcessAivConfig(opParam, topoInfo, configAlgMap, selectAlgName, ret);
+            HCCL_INFO("[Algo][AutoSelectorBase] The selected algo is %s, OpExecuteConfig is %d.",
+                selectAlgName.c_str(), opParam.opExecuteConfig);
+            return ret;
+        }
         ret = SelectAicpuAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
         if (ret == SelectorStatus::MATCH) {
             opParam.opExecuteConfig = OpExecuteConfig::AICPU_TS;
@@ -75,6 +87,14 @@ bool AutoSelectorBase::IsSmallData(const u64 dataSize) const
 bool AutoSelectorBase::IsLargeData(const u64 dataSize) const
 {
     return dataSize >= LARGE_COUNT_1024KB;
+}
+
+bool AutoSelectorBase::IsSmallDataCCU(const u64 dataSize, const u64 rankSize) const
+{
+    if (rankSize == 0) {
+        HCCL_WARNING("the selector is not set RankSize");
+    } 
+    return (dataSize <= CCU_PARALLEL_MAX_DATA_SIZE) ? true : false;
 }
 
 SelectorStatus AutoSelectorBase::SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
@@ -125,81 +145,6 @@ SelectorStatus AutoSelectorBase::SelectDPUAlgo(const TopoInfoWithNetLayerDetails
     (void)configAlgMap;
     (void)selectAlgName;
     return SelectorStatus::NOT_MATCH;
-}
-
-// 判断通过最高一个level的网络全部没有device的可达链路，并且有host的可达链路
-HcclResult AutoSelectorBase::CheckHostDPUOnly(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam, bool &hostDPUOnly) const
-{
-    hostDPUOnly = false;
-    HCCL_INFO("Start CheckHostDPUOnly");
-    // 只有一个server，不使用DPU
-    if (topoInfo->serverNum == 1) {
-        HCCL_INFO("Not using hostdpu because serverNum is 1");
-        return HCCL_SUCCESS;
-    }
-
-    uint32_t *netLayers = nullptr;
-    uint32_t netLayerNum = 0;
-    CHK_RET(HcclRankGraphGetLayers(opParam.hcclComm, &netLayers, &netLayerNum));
-    if ((netLayers == nullptr) || (netLayerNum == 0)) {
-        HCCL_WARNING("HcclRankGraphGetLayers fail");
-        return HCCL_E_INTERNAL;
-    }
-
-    bool hostDPU = false;
-    for (uint32_t layerIdx = 0; layerIdx < netLayerNum; layerIdx++) {
-        uint32_t netLayer = netLayers[layerIdx];
-        // 只校验最后一个level
-        if (netLayer < (topoInfo->topoLevelNums - 1)) {
-            HCCL_INFO("Skip checking layer[%u], topoLevelNums is [%u]", netLayer, topoInfo->topoLevelNums);
-            continue;
-        }
-        uint32_t *topoInsts = nullptr;
-        uint32_t topoInsNum = 0;
-        CHK_RET(HcclRankGraphGetTopoInstsByLayer(opParam.hcclComm, netLayer, &topoInsts, &topoInsNum));
-        if ((topoInsts == nullptr) || (topoInsNum == 0)) {
-            HCCL_WARNING("HcclRankGraphGetTopoInstsByLayer fail, netLayer[%u]", netLayer);
-            return HCCL_E_INTERNAL;
-        }
-        for (uint32_t topoInsIdx = 0; topoInsIdx < topoInsNum; topoInsIdx++) {
-            uint32_t topoInstId = topoInsts[topoInsIdx];
-            HCCL_INFO("Start checking topoInstId[%u]", topoInstId);
-            CommTopo topoType;
-            CHK_RET(HcclRankGraphGetTopoType(opParam.hcclComm, netLayer, topoInstId, &topoType));
-            if (topoType != COMM_TOPO_CLOS) {
-                HCCL_INFO("Not using hostdpu because topo type is not COMM_TOPO_CLOS");
-                continue;
-            }
-            uint32_t *ranks = nullptr;
-            uint32_t rankNum = 0;
-            CHK_RET(HcclRankGraphGetRanksByTopoInst(opParam.hcclComm, netLayer, topoInstId, &ranks, &rankNum));
-            // 校验当前rank与其他所有rank连通
-            if (rankNum != topoInfo->userRankSize) {
-                HCCL_INFO("Not using hostdpu because current rank is not fully connected to all other ranks");
-                continue;
-            }
-            uint32_t endPointNums = 0;
-            CHK_RET(HcclRankGraphGetEndpointNum(opParam.hcclComm, netLayer, topoInstId, &endPointNums));
-            EndpointDesc endPointDescs[endPointNums];
-            CHK_RET(HcclRankGraphGetEndpointDesc(opParam.hcclComm, netLayer, topoInstId, &endPointNums, endPointDescs));
-            for (uint32_t endPointIdx = 0; endPointIdx < endPointNums; endPointIdx++) {
-                EndpointDesc endPointDesc = endPointDescs[endPointIdx];
-                if (endPointDesc.loc.locType == ENDPOINT_LOC_TYPE_DEVICE) {
-                    HCCL_INFO("Not using hostdpu because there is links on device in netLayer[%u] in endPointIdx[%u]",
-                        netLayer, endPointIdx);
-                    return HCCL_SUCCESS;
-                } else if (endPointDesc.loc.locType == ENDPOINT_LOC_TYPE_HOST) {
-                    HCCL_INFO("Found a host endPoint in netLayer[%u] endPointIdx[%u]", netLayer, endPointIdx);
-                    hostDPU = true;
-                }
-            }
-        }
-    }
-    if (hostDPU) {
-        HCCL_INFO("Using host dpu trans.");
-        hostDPUOnly = true;
-    }
-    return HCCL_SUCCESS;
 }
 
 bool AutoSelectorBase::IsLayerAllConnetedWithTopo(const TopoInfoWithNetLayerDetails *topoInfo, const u32 netLayer, const CommTopo topoType) const
@@ -310,7 +255,7 @@ bool AutoSelectorBase::ProcessAivConfig(OpParam &opParam, TopoInfoWithNetLayerDe
                                         std::string &selectAlgName, SelectorStatus &ret) const
 {
     if (opParam.opExecuteConfig != OpExecuteConfig::AIV && opParam.opExecuteConfig != OpExecuteConfig::AIV_ONLY) {
-        return false; 
+        return false;
     }
 
     ret = SelectAivAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
@@ -320,10 +265,10 @@ bool AutoSelectorBase::ProcessAivConfig(OpParam &opParam, TopoInfoWithNetLayerDe
             return true;
         }
         opParam.opExecuteConfig = OpExecuteConfig::CCU_FAIL;
-        return false; 
-    } 
-    
-    return true; 
+        return false;
+    }
+
+    return true;
 }
 
 }

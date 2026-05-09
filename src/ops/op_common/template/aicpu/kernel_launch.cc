@@ -11,6 +11,7 @@
 #include <string>
 #include <sstream>
 #include <memory>
+#include <cstring>
 #include "alg_param.h"
 #include "executor_base.h"
 #include "coll_alg_exec_registry.h"
@@ -23,8 +24,11 @@
 #include <unordered_map>
 #include <shared_mutex>
 #include <atomic>
+#if CANN_VERSION_NUM >= 90000000
 #include "hccl_diag.h"
+#endif
 #include "hccl_device_comm_dl.h"
+#include "exec_timeout_manager.h"
 
 using namespace ops_hccl;
 namespace {
@@ -215,6 +219,32 @@ namespace {
     thread_local CommDomainCacheManager g_cacheManager;
 }
 
+namespace ops_hccl {
+// 选择走新（CollAlgExecRegistryV2）/老（CollAlgExecRegistry）算子流程
+// A5芯片或者template名称前缀为"opv2_"（当前A2的HostNic Send/Recv使用）走新流程，其他芯片走老流程
+bool IsOpsV2(const char* algName, DevType deviceType)
+{
+    // 检查algName前缀是否为"opv2_"
+    if (algName != nullptr) {
+        const char* prefix = "opv2_";
+        if (strncmp(algName, prefix, strlen(prefix)) == 0) {
+            return true;
+        }
+    }
+
+    // 根据deviceType判断
+#ifdef MACRO_DEV_TYPE_NEW
+    if (deviceType == DevType::DEV_TYPE_950) {
+#else
+    if (deviceType == DevType::DEV_TYPE_910_95) {
+#endif
+        return true;
+    }
+
+    return false;
+}
+}
+
 extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
 {
     if (param == nullptr) {
@@ -227,11 +257,8 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         return 1;
     }
 
-    #ifdef MACRO_DEV_TYPE_NEW
-    if (param->deviceType != DevType::DEV_TYPE_950) {
-    #else
-    if (param->deviceType != DevType::DEV_TYPE_910_95) {
-    #endif
+    std::string algName = std::string(param->algName);
+    if (!ops_hccl::IsOpsV2(param->algName, param->deviceType)) {
         ScatterOpInfo opInfo;
         if (CreateScatter(param, &opInfo) != HCCL_SUCCESS) {
             HCCL_ERROR("%s CreateScatter fail", __func__);
@@ -254,12 +281,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
     }
 
     // 根据算法名字获取executor
-    std::string algName = std::string(param->algName);
-    #ifdef MACRO_DEV_TYPE_NEW
-    if (param->deviceType == DevType::DEV_TYPE_950) {
-    #else
-    if (param->deviceType == DevType::DEV_TYPE_910_95) {
-    #endif
+    if (ops_hccl::IsOpsV2(param->algName, param->deviceType)) {
         //判断通信域状态
         HcclCommStatus commStatus = HCCL_COMM_STATUS_INVALID;
         if (HcommIsSupportHcclCommGetStatus()) {
@@ -275,11 +297,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         }
 
         AlgResourceCtxSerializable resCtx;
-        if (param->opType == HcclCMDType::HCCL_CMD_BATCH_SEND_RECV) {
-            char *ctx = static_cast<char *>(param->resCtx);
-            std::vector<char> seq(ctx, ctx + param->ctxSize);
-            resCtx.DeSerialize(seq);
-        } else {
+        if (param->opType != HcclCMDType::HCCL_CMD_BATCH_SEND_RECV) {
             //通过缓存实现反序列化优化
             AlgResourceCtxSerializable* cachedResCtx = g_cacheManager.Get(param->algTag, param->commName);
             if (cachedResCtx != nullptr) {
@@ -302,6 +320,10 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
                 g_cacheManager.Put(param->algTag, resCtx, param->commName);
                 HCCL_INFO("[%s] Cache MISS and stored for algTag[%s]", __func__, param->algTag);
             }
+        } else {
+            char *ctx = static_cast<char *>(param->resCtx);
+            std::vector<char> seq(ctx, ctx + param->ctxSize);
+            resCtx.DeSerialize(seq);
         }
 
         // 还原变长指针
@@ -338,7 +360,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             return 1;
         }
 
-        // 上报主流和第一个task  wait之前
+        // 上报上报mainstream数据,第一个任务
         if (HcommProfilingReportKernelStartTask(thread, param->commName) != HCCL_SUCCESS) {
             HCCL_ERROR("%sfailed to report MainStream And FirstTask, thread %lu, param->commName %s.", __func__, thread, param->commName);
             return 1;
@@ -362,14 +384,17 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             return 1;
         }
 
+        // 设置执行超时时间
+        ExecTimeoutManager::Instance().SetExecTimeout(param->execTimeout);
         // 执行算法编排
         if (executor->Orchestrate(*param, resCtx) != HCCL_SUCCESS) {
             HCCL_ERROR("orchestrate failed for alg:%s", param->algName);
             return 1;
         }
 
-        if (HcommProfilingReportDeviceOp(param->commName) != HCCL_SUCCESS) {
-            HCCL_ERROR("%s HcommProfilingReportDeviceOp fail, commName[%s]", __func__, param->commName);
+        // 上报mainstream数据,最后一个任务
+        if (HcommProfilingReportKernelEndTask(thread, param->commName) != HCCL_SUCCESS) {
+            HCCL_ERROR("%s failed to report MainStream And LastTask, thread %lu, param->commName %s.",  __func__, thread, param->commName);
             return 1;
         }
 
@@ -379,9 +404,8 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         CHK_RET(static_cast<HcclResult>(HcommThreadNotifyRecordOnThread(thread, exportedAicpuTsThread,
             DEFAULT_NOTIFY_IDX)));
 
-        // 上报主流和最后一个task 在notify之后
-        if (HcommProfilingReportKernelEndTask(thread, param->commName) != HCCL_SUCCESS) {
-            HCCL_ERROR("%s failed to report MainStream And LastTask, thread %lu, param->commName %s.",  __func__, thread, param->commName);
+        if (HcommProfilingReportDeviceOp(param->commName) != HCCL_SUCCESS) {
+            HCCL_ERROR("%s HcommProfilingReportDeviceOp fail, commName[%s]", __func__, param->commName);
             return 1;
         }
         
