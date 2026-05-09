@@ -59,14 +59,14 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(
     }
 
     if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
-        CHK_PRT_RET(algHierarchyInfo.infos[0].size() != INST_NUM_NET,
-                    HCCL_ERROR("[InsV2AlltoAllVSoleExecutor][CalcRes] algHierarchyInfo.infos[0].size[%zu] "
-                        "with Level0Topo[%u] is not %u",
-                        algHierarchyInfo.infos[0].size(), topoInfo->level0Topo, INST_NUM_NET),
-                    HCCL_E_PARA);
+        // CHK_PRT_RET(algHierarchyInfo.infos[0].size() != INST_NUM_NET,
+        //             HCCL_ERROR("[InsV2AlltoAllVSoleExecutor][CalcRes] algHierarchyInfo.infos[0].size[%zu] "
+        //                 "with Level0Topo[%u] is not %u",
+        //                 algHierarchyInfo.infos[0].size(), topoInfo->level0Topo, INST_NUM_NET),
+        //             HCCL_E_PARA);
         if (topoInfo->topoLevelNums == 1 || param.engine == CommEngine::COMM_ENGINE_AIV ||
             param.engine == CommEngine::COMM_ENGINE_CCU) {
-            tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[1][0]);
+            tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[0][1]);
         } else {
             CHK_PRT_RET(algHierarchyInfo.infos[0][1].size() >= algHierarchyInfo.infos[1][0].size(),
                         HCCL_ERROR("[InsV2AlltoAllVSoleExecutor][CalcRes] ranknum [%zu] in Layer0 with Level0Topo[%u] "
