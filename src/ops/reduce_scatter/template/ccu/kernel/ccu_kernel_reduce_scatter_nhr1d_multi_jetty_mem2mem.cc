@@ -232,7 +232,7 @@ HcclResult CcuKernelReduceScatterNhrMutilJettyMem2Mem1D::DoRepeatReduceScatterNH
         CHK_RET(NotifyWait(sendChannel, signalIdxReady, signalBitReady));
     }
     
-    u32 sendSliceIdx = 0;
+    //u32 sendSliceIdx = 0;
     // do srs
     for (const u32 &sendSliceIdx : sendSliceIdxList) {
         remoteDst_.addr = input_[toRankIdx];

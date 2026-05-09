@@ -189,7 +189,7 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     // 获取每个template会用多少的buffer
     const u32 temp0ScratchMultiple = temp0->CalcScratchMultiple(BufferType::INPUT, BufferType::OUTPUT);
     const u32 temp1ScratchMultiple = temp1->CalcScratchMultiple(BufferType::INPUT, BufferType::OUTPUT);
-    const u32 totalScratchMultiple = temp0ScratchMultiple + temp1ScratchMultiple;
+    //const u32 totalScratchMultiple = temp0ScratchMultiple + temp1ScratchMultiple;
 
     // 计算数据切分比例，获取端口数量
     const u32 portNum0 = rankSize_ - 1; // mesh端口数为rank size - 1
@@ -283,10 +283,10 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
 
     // 划分thread
     u64 threadIdx = 0;
-    for (auto i = 0; i < temp0ThreadsNum; ++i) {
+    for (u64 i = 0; i < temp0ThreadsNum; ++i) {
         tempAlgResource0.threads.push_back(threads_[threadIdx++]);
     }
-    for (auto i = 0; i < temp1ThreadsNum; ++i) {
+    for (u64 i = 0; i < temp1ThreadsNum; ++i) {
         tempAlgResource1.threads.push_back(threads_[threadIdx++]);
     }
 

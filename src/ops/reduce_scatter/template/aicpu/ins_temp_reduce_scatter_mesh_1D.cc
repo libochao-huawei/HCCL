@@ -24,7 +24,7 @@ InsTempReduceScatterMesh1D::~InsTempReduceScatterMesh1D()
 
 HcclResult InsTempReduceScatterMesh1D::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                                                AlgResourceRequest& resourceRequest)
-{
+{FUNCTION_TRACE;
     u32 threadNum = templateRankSize_ > 1 ? templateRankSize_ : 1;
     resourceRequest.slaveThreadNum = threadNum - 1;
     for (u32 index = 0; index < threadNum - 1; index++) {
@@ -52,7 +52,7 @@ u64 InsTempReduceScatterMesh1D::CalcScratchMultiple(BufferType inBuffType, Buffe
 HcclResult InsTempReduceScatterMesh1D::KernelRun(const OpParam& param,
     const TemplateDataParams& tempAlgParams,
     TemplateResource& templateResource)
-{
+{FUNCTION_TRACE;
     if (tempAlgParams.sliceSize == 0 && tempAlgParams.tailSize == 0) {
         HCCL_DEBUG("[InsTempReduceScatterMesh1D] myRank[%u] sliceSize and tailSize are 0, skip reduce scatter.", myRank_);
         return HCCL_SUCCESS;
@@ -63,16 +63,23 @@ HcclResult InsTempReduceScatterMesh1D::KernelRun(const OpParam& param,
     count_ = tempAlgParams.sliceSize / DATATYPE_SIZE_TABLE[dataType_];
     HCCL_INFO("[InsTempReduceScatterMesh1D] Run Start");
     if (threadNum_ > 1) {
+        MY_TIMER("KernelRun_PreSyncInterThreads");
         std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
         GetNotifyIdxMainToSub(notifyIdxMainToSub_);
         CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub_));
     }
+    {
+        MY_TIMER("KernelRun_RunReduceScatter");
     CHK_RET(RunReduceScatter(templateResource.channels, templateResource.threads, tempAlgParams));
+    }
     if (threadNum_ > 1) {
+        MY_TIMER("KernelRun_PostSyncInterThreads");
         std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
         GetNotifyIdxSubToMain(notifyIdxSubToMain_);
         CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain_));
     }
+    {
+        MY_TIMER("KernelRun_PostCopy");
     if (dataType_ == HCCL_DATA_TYPE_INT64 || dataType_ == HCCL_DATA_TYPE_UINT64 || dataType_ == HCCL_DATA_TYPE_FP64
         || reduceOp_ == HcclReduceOp::HCCL_REDUCE_PROD) {
         CHK_RET(static_cast<HcclResult>(HcommBatchModeEnd(param.algTag)));
@@ -83,11 +90,12 @@ HcclResult InsTempReduceScatterMesh1D::KernelRun(const OpParam& param,
     }
     PostCopy(param, tempAlgParams, templateResource.threads);
     HCCL_INFO("[InsTempReduceScatterMesh1D] Run End");
+    }
     return HcclResult::HCCL_SUCCESS;
 }
 
 HcclResult InsTempReduceScatterMesh1D::PostCopy(const OpParam& param,const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads)
-{
+{FUNCTION_TRACE;
     // 通信结束之后，数据都在 cclBuffer 上，需要搬运到对应的输出位置。
     u32 rankIdx = 0;
     auto iter = std::find(subCommRanks_[0].begin(), subCommRanks_[0].end(), myRank_);
@@ -148,6 +156,7 @@ HcclResult InsTempReduceScatterMesh1D::RunReduceScatter(
     const std::vector<ThreadHandle> &threads,
     const TemplateDataParams &tempAlgParam)
 {
+FUNCTION_TRACE;
     u32 myAlgRank = 0;
     CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], myAlgRank));
 
@@ -168,6 +177,7 @@ HcclResult InsTempReduceScatterMesh1D::RunReduceScatter(
         const ChannelInfo &linkRecv = channels.at(remoteRank)[0];
         std::vector<DataSlice> txSrcSlices;
         std::vector<DataSlice> txDstSlices;
+        txDstSlices.reserve(tempAlgParam.repeatNum);
         std::vector<DataSlice> rxSrcSlices;
         std::vector<DataSlice> rxDstSlices;
 

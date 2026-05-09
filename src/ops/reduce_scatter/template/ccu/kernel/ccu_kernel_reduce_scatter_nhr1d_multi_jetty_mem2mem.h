@@ -40,9 +40,9 @@ public:
         : dimSize_(dimSize),
           rankId_(rankId),
           portNum_(portNum),
+          opParam_(opParam),
           stepInfoVector_(stepInfoVector),
           rank2ChannelIdx_(rank2ChannelIdx),
-          opParam_(opParam),
           subCommRanks_(subCommRanks)
     {
         HCCL_DEBUG("[CcuKernelArgReduceScatterNhrMutilJettyMem2Mem1D] dimSize: %lu, rankId: %u, portNum: %u, reduceOp: %d, dataType: %d",

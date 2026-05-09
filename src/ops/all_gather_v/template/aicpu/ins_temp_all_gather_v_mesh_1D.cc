@@ -122,7 +122,7 @@ HcclResult InsTempAllGatherVMesh1D::RunAllGatherVMesh(const std::vector<ThreadHa
                                    myRank_, threadIdx, threads.size(), connectedRank, channels.size()),
                         HcclResult::HCCL_E_INTERNAL);
  
-            ThreadHandle currQue = threads[threadIdx];
+            //ThreadHandle currQue = threads[threadIdx];
             // 预留兼容offload模式
             const ChannelInfo &linkRemote = channels.at(connectedRank)[0];
             void *remoteCclBuffAddr = linkRemote.remoteCclMem.addr;

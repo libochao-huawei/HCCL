@@ -129,7 +129,7 @@ HcclResult InsTempAllGatherMesh1DIntra::RunAllGatherMesh(const std::vector<Threa
                 continue;
             }
             
-            ThreadHandle currQue = threads[threadIdx];
+            //ThreadHandle currQue = threads[threadIdx];
             // 预留兼容offload模式
             const ChannelInfo &linkRemote = channels.at(connectedRank)[0];
             void *remoteCclBuffAddr = linkRemote.remoteCclMem.addr;

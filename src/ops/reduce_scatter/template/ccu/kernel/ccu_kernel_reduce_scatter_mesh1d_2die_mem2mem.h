@@ -23,20 +23,11 @@ using namespace hcomm;
  
 class CcuKernelArgReduceScatterMeshMem2Mem1D2Die : public CcuKernelArg {
 public:
-    explicit CcuKernelArgReduceScatterMeshMem2Mem1D2Die(uint64_t gRankSize,
-                                                        uint64_t rankSize,
-                                                        bool isReduceToOutput,
-                                                        uint32_t rankId,
-                                                        const OpParam& opParam,
-                                                        const std::vector<uint32_t>& subRankGroup,
-                                                        const std::vector<std::vector<uint32_t>>& subCommRanks)
-        : gRankSize_(gRankSize),
-          rankSize_(rankSize),
-          isReduceToOutput_(isReduceToOutput),
-          rankId_(rankId),
-          opParam_(opParam),
-          subRankGroup_(subRankGroup),
-          subCommRanks_(subCommRanks)
+    explicit CcuKernelArgReduceScatterMeshMem2Mem1D2Die(uint64_t gRankSize, uint64_t rankSize, bool isReduceToOutput,
+        uint32_t rankId, const OpParam &opParam, const std::vector<uint32_t> &subRankGroup,
+        const std::vector<std::vector<uint32_t>> &subCommRanks)
+        : rankId_(0), rankSize_(rankSize), gRankSize_(gRankSize), isReduceToOutput_(isReduceToOutput),
+          opParam_(opParam), subRankGroup_(subRankGroup), subCommRanks_(subCommRanks)
     {
         HCCL_DEBUG("[CcuKernelArgReduceScatterMeshMem2Mem1D2Die] dimSize: %lu, rankId: %u, reduceOp: %d, dataType: %d",
                    rankSize_, rankId_, opParam.reduceType, opParam.DataDes.dataType);
