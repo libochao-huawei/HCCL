@@ -50,10 +50,6 @@ HcclResult HcclSend(
 {
     HCCL_INFO("[HcclSend] Start.");
 
-    if (IsHostDpu(comm)) {
-        return HcclSendNext(sendBuf, count, dataType, destRank, comm, stream);
-    }
-
     if (GetHcommVersion() < 90000000) {
         return HcclSendInner(sendBuf, count, dataType, destRank, comm, stream);
     }

@@ -48,10 +48,6 @@ HcclResult HcclRecv(
 {
     HCCL_INFO("[HcclRecv] Start.");
 
-    if (IsHostDpu(comm)) {
-        return HcclRecvNext(recvBuf, count, dataType, srcRank, comm, stream);
-    }
-
     if (GetHcommVersion() < 90000000) {
         return HcclRecvInner(recvBuf, count, dataType, srcRank, comm, stream);
     }
