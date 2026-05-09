@@ -61,6 +61,7 @@ struct OmniPipeSliceParam {
         0};  // 如果是aicpu的单算子模式，和dataSize一样，每次都在ccl做。其他模式都是总数据量。
     std::vector<u64> levelRankId;  // 依次为本rank在三个维度的rankID
     std::vector<u64> levelAlgType;  // 依次为三个维度的算法类型，MESH是1 or NHR是0
+    u64 root{0};  // root节点的rankID，用于gather算子
     OpMode opMode;
     CommEngine engine;
     std::string toString()
@@ -120,6 +121,7 @@ struct OmniPipeSliceParam {
             }
         }
         oss << "]\n";
+        oss << "root: " << root << "\n";
         return oss.str();
     }
 };
@@ -201,8 +203,9 @@ void CalAllgather2DOffset(u64* xAGOffect, u64* yAGOffect, u64 stepNum, u64 xRank
 u64 CalAllgatherDataSizeRatio2D(double* xStepP2pDataSize, double* yStepP2pDataSize, double xB, double yB, u64 j, u64 i,
                                 double dataSize, u64 maxStep);
 u64 CalAllgatherDataSize2D(u64* xStepP2pDataSize, u64* yStepP2pDataSize, double xB, double yB, u64 xRankSize,
-                           u64 yRankSize, u64 dataSizeEachRank, u64 maxStep);
+                            u64 yRankSize, u64 dataSizeEachRank, u64 maxStep);
 OmniPipeSliceInfo CalcAGOmniPipeSliceInfo(OmniPipeSliceParam& omniPipeSliceParam);
+OmniPipeSliceInfo CalcGatherOmniPipeSliceInfo(OmniPipeSliceParam& omniPipeSliceParam);
 
 std::vector<u64> CalScratchSize(u64* xRSDataSize, u64* yRSDataSize, u64* zRSDataSize, std::vector<u64> levelRankSize,
                                 u64 cornerStep, u64 outerStepNum, u64 innerStepNum, u64 maxStepNum,
