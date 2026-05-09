@@ -194,4 +194,82 @@ struct HcclMem {
     void* addr = nullptr;
     uint64_t size = 0;
 };
+
+// OpMode 枚举转字符串
+inline const char* GetOpModeStr(OpMode mode) noexcept
+{
+    switch (mode) {
+        case OpMode::OPBASE:  return "OPBASE";
+        case OpMode::OFFLOAD: return "OFFLOAD";
+        default:              return "UNKNOWN_OP_MODE";
+    }
+}
+
+// u32 类型 OpMode 转字符串（适配结构体存储类型）
+inline const char* GetOpModeStr(u32 mode) noexcept
+{
+    return GetOpModeStr(static_cast<OpMode>(mode));
+}
+
+// HcclCMDType(opType) 枚举转字符串
+inline const char* GetHcclCmdTypeStr(HcclCMDType type) noexcept
+{
+    switch (type) {
+        case HCCL_CMD_INVALID:          return "INVALID";
+        case HCCL_CMD_BROADCAST:        return "BROADCAST";
+        case HCCL_CMD_ALLREDUCE:        return "ALLREDUCE";
+        case HCCL_CMD_REDUCE:           return "REDUCE";
+        case HCCL_CMD_SEND:             return "SEND";
+        case HCCL_CMD_RECEIVE:          return "RECEIVE";
+        case HCCL_CMD_ALLGATHER:        return "ALLGATHER";
+        case HCCL_CMD_REDUCE_SCATTER:   return "REDUCE_SCATTER";
+        case HCCL_CMD_ALLTOALLV:        return "ALLTOALLV";
+        case HCCL_CMD_ALLTOALLVC:       return "ALLTOALLVC";
+        case HCCL_CMD_ALLTOALL:         return "ALLTOALL";
+        case HCCL_CMD_GATHER:           return "GATHER";
+        case HCCL_CMD_SCATTER:          return "SCATTER";
+        case HCCL_CMD_BATCH_SEND_RECV:  return "BATCH_SEND_RECV";
+        case HCCL_CMD_BATCH_PUT:        return "BATCH_PUT";
+        case HCCL_CMD_BATCH_GET:        return "BATCH_GET";
+        case HCCL_CMD_ALLGATHER_V:      return "ALLGATHER_V";
+        case HCCL_CMD_REDUCE_SCATTER_V: return "REDUCE_SCATTER_V";
+        case HCCL_CMD_BATCH_WRITE:      return "BATCH_WRITE";
+        case HCCL_CMD_HALF_ALLTOALLV:   return "HALF_ALLTOALLV";
+        case HCCL_CMD_ALL:              return "ALL";
+        case HCCL_CMD_FINALIZE:         return "FINALIZE";
+        case HCCL_CMD_INTER_GROUP_SYNC: return "INTER_GROUP_SYNC";
+        case HCCL_CMD_INIT:             return "INIT";
+        case HCCL_CMD_BARRIER:          return "BARRIER";
+        case HCCL_CMD_MAX:              return "MAX_CMD_TYPE";
+        default:                       return "UNKNOWN_CMD_TYPE";
+    }
+}
+
+// u32 类型 opType 转字符串（适配结构体存储类型）
+inline const char* GetHcclCmdTypeStr(u32 type) noexcept
+{
+    return GetHcclCmdTypeStr(static_cast<HcclCMDType>(type));
+}
+
+// CommEngine(engine) 枚举转字符串
+inline const char* GetCommEngineStr(CommEngine engine) noexcept
+{
+    switch (engine) {
+        case COMM_ENGINE_RESERVED:  return "RESERVED";
+        case COMM_ENGINE_CPU:       return "CPU";
+        case COMM_ENGINE_CPU_TS:    return "CPU_TS";
+        case COMM_ENGINE_AICPU:     return "AICPU";
+        case COMM_ENGINE_AICPU_TS:  return "AICPU_TS";
+        case COMM_ENGINE_AIV:       return "AIV";
+        case COMM_ENGINE_CCU:       return "CCU";
+        default:                    return "UNKNOWN_ENGINE";
+    }
+}
+
+// u32 类型 engine 转字符串（适配结构体存储类型）
+inline const char* GetCommEngineStr(u32 engine) noexcept
+{
+    return GetCommEngineStr(static_cast<CommEngine>(engine));
+}
+
 #endif // HCCL_COMMON_H
