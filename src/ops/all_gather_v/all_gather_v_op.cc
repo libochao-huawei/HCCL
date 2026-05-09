@@ -256,17 +256,13 @@ HcclResult AllGatherVOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t se
 {
  	HCCL_INFO("Start to execute AllGatherVOutPlaceGraphMode");
  	u32 userRankSize;
- 	CHK_RET(HcclGetRankSize(comm, &userRankSize));
- 	  	 
+ 	CHK_RET(HcclGetRankSize(comm, &userRankSize));	  	 
  	u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
  	u64 inputSize = sendCount * perDataSize;    // all gather v 每个rank上一份数据
  	u64 outputSize = 0;  
     const u64 *u64RecvCount = reinterpret_cast<const u64 *>(recvCounts);
     const u64 *u64RecvDispls = reinterpret_cast<const u64 *>(recvDispls);
-    for (u64 i = 0; i < userRankSize; i++) {
-        outputSize = (outputSize > (u64RecvDispls[i] + u64RecvCount[i]) * perDataSize) ? outputSize : (u64RecvDispls[i] + u64RecvCount[i]) * perDataSize;
-    }// 结果为最大的displs加recvcount 	 
- 	// 申请OpParam参数结构体内存
+    for (u64 i = 0; i < userRankSize; i++) {outputSize = (outputSize > (u64RecvDispls[i] + u64RecvCount[i]) * perDataSize) ? outputSize : (u64RecvDispls[i] + u64RecvCount[i]) * perDataSize;}// 结果为最大的displs加recvcount 	 
  	u64 varMemSize = (userRankSize + userRankSize) * sizeof(u64);
  	void* paramMem = malloc(sizeof(OpParam) + varMemSize);
  	if (!paramMem) {
@@ -275,12 +271,7 @@ HcclResult AllGatherVOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t se
  	    return HCCL_E_INTERNAL;
  	} 
     OpParam* tmpParamPtr = new (paramMem) OpParam();
-    auto deleter = [](OpParam* p) {
-        if (p) {
-            p->~OpParam();
-            free(p);
-        }
-     };
+    auto deleter = [](OpParam* p) {if (p) {p->~OpParam(); free(p);}};
     std::unique_ptr<OpParam, decltype(deleter)> paramPtr(tmpParamPtr, deleter);
     OpParam& param = *paramPtr;
     CHK_RET(HcclGetCommName(comm, param.commName));
