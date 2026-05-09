@@ -139,11 +139,11 @@ HcclResult CcuTempAlltoAllMesh1D::KernelRun(const OpParam& param,
     dimSize.push_back(tempRankSize_);
 
     // 拿到input和output的首地址,和每片小数据的大小
-    uint64_t curSendCounts = templateDataParams.count;
+    //uint64_t curSendCounts = templateDataParams.count;
     uint64_t sliceSize = templateDataParams.sliceSize;
 
-    uint32_t                                rankId    = myRank_;
-    uint64_t                                repeatNumTmp  = templateDataParams.repeatNum;
+    //uint32_t                                rankId    = myRank_;
+    //uint64_t                                repeatNumTmp  = templateDataParams.repeatNum;
     uint64_t inputAddr          = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr         = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
     uint64_t token;
@@ -152,9 +152,9 @@ HcclResult CcuTempAlltoAllMesh1D::KernelRun(const OpParam& param,
     uint64_t srcStride = templateDataParams.outputSliceStride;
     uint64_t dstStride = templateDataParams.outputSliceStride;
 
-    uint64_t dataType_ = param.all2AllVDataDes.sendType;
-    uint64_t dataTypeSize_ = SIZE_TABLE[dataType_];
-    uint64_t sliceBias = templateDataParams.processedDataCount * dataTypeSize_;
+    //uint64_t dataType_ = param.all2AllVDataDes.sendType;
+    //uint64_t dataTypeSize_ = SIZE_TABLE[dataType_];
+    //uint64_t sliceBias = templateDataParams.processedDataCount * dataTypeSize_;
 
     HCCL_DEBUG("[CcuTempAlltoAllMesh1D::KernelRun] Start");
     if (tempRankSize_ == 1) {

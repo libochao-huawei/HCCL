@@ -24,6 +24,10 @@
 #define T_DESC(_msg, _y) ((_y) ? true : false)
 #endif
 
+#include <string>
+#include <vector>
+#include <sys/time.h> /* 获取时间 */
+
 #if T_DESC("日志处理适配", true)
 
 enum class HcclSubModuleID {
@@ -131,6 +135,78 @@ const u64 HCCL_MODULE_ID = 5;
 #define HCOM_ERROR_CODE(error) ((SYSTEM_RESERVE_ERROR << 32) + (HCCL_MODULE_ID << 24) + \
     ((static_cast<u64>(HcclSubModuleID::LOG_SUB_MODULE_ID_HCOM)) << 16) + static_cast<u64>(error))
 #endif
+
+/*================= 性能打点 ===================*/
+struct TimerEntry {
+    u64 startTime;
+    u64 endTime;
+    u32 timerLevel;
+    std::string name;
+ 
+    TimerEntry(u64 startTime, u32 timerLevel, const std::string &name) :
+        startTime(startTime), timerLevel(timerLevel), name(name) {
+    }
+ 
+    void PrintLog()
+    {
+        u64 elapsedNano = endTime - startTime;
+        HCCL_ERROR("TIMER: Level: %lu, Timer: %s, Start: %llu, End: %llu, Duration: %zu ns",
+            timerLevel, name.c_str(), startTime, endTime, elapsedNano);
+    }
+};
+ 
+class HcclTimer {
+  public:
+    static uint64_t timerCounter;
+    static std::vector<TimerEntry> timerEntries;
+    u64 GetCurAicpuTimestamp()
+    {
+        struct timespec timestamp;
+        (void)clock_gettime(1, &timestamp);
+        return static_cast<u64>((timestamp.tv_sec * 1000000000U) + (timestamp.tv_nsec));
+    }
+    explicit HcclTimer(const std::string &name)
+    {
+        timerCounter++;
+        timerIdx = timerEntries.size();
+        timerEntries.emplace_back(GetCurAicpuTimestamp(), timerCounter, name);
+    }
+ 
+    ~HcclTimer()
+    {
+        timerEntries[timerIdx].endTime = GetCurAicpuTimestamp();
+        timerCounter--;
+    }
+ 
+    static void DumpTimerLogs() {
+        for (auto &entry : timerEntries) {
+            entry.PrintLog();
+        }
+        timerEntries.clear();
+    }
+ 
+  private:
+    size_t timerIdx;
+};
+ 
+class HcclTimerDumper {
+  public:
+    HcclTimerDumper() {
+        HcclTimer::timerEntries.reserve(20000);
+    };
+    ~HcclTimerDumper()
+    {
+        HcclTimer::DumpTimerLogs();
+    }
+};
+ 
+#define CURRENT_FUNCTION_LOCATION std::string(__FILE__) + ":" + std::string(__func__)
+#define MY_TIMER2(name, counter) HcclTimer myTimer##counter(name)
+#define MY_TIMER1(name, counter) MY_TIMER2(name, counter)
+#define MY_TIMER(name)  MY_TIMER1(name, __COUNTER__)
+#define FUNCTION_TRACE_COUNTER2(counter) HcclTimer timer##counter(CURRENT_FUNCTION_LOCATION)
+#define FUNCTION_TRACE_COUNTER(counter) FUNCTION_TRACE_COUNTER2(counter)
+#define FUNCTION_TRACE FUNCTION_TRACE_COUNTER(__COUNTER__)
 
 #if T_DESC("公共代码宏", true)
 

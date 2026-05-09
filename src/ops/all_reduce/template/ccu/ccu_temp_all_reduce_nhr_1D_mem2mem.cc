@@ -244,10 +244,10 @@ HcclResult CcuTempAllReduceNHRMem2Mem1D::KernelRun(const OpParam& param, const T
     CHK_RET(CalcSlice(die0Size, die0SliceInfoVec));
     RankSliceInfo die1SliceInfoVec;
     CHK_RET(CalcSlice(die1Size, die1SliceInfoVec));
-    uint32_t axisSize = 2;
-    if (die0Size == 0 || die1Size == 0) {
-        axisSize = 1;
-    }
+    // uint32_t axisSize = 2;
+    // if (die0Size == 0 || die1Size == 0) {
+    //     axisSize = 1;
+    // }
     HCCL_INFO("[CcuTempAllReduceNHRMem2Mem1D] die0Size[%llu], die1Size[%llu], inputAddr[%llu],"\
         "outputAddr[%llu], repeatNum[%llu], die0Slicesize[%llu], die1Slicesize[%llu], die0LastSlicesize[%llu],"\
         "die1LastSlicesize[%llu]",

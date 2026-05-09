@@ -195,7 +195,7 @@ HcclResult InsV2ScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLo
         ccuFastLaunchCtx->notifyNumOnMainThread = notifyNumOnMainThread;
         ThreadHandle *threads = ccuFastLaunchCtx->GetThreadHandlePtr();
 
-        for (int i = 0; i < threadNum; i++)
+        for (u32 i = 0; i < threadNum; i++)
         {
             threads[i] = templateAlgRes.threads[i];
         }

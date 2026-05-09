@@ -138,7 +138,7 @@ HcclResult InsV2AllToAllVConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     sendRecvInfoLast.recvOffset.resize(rankSize_, 0);
 
     // 按照(rankSize_ - 1 ： jettyNum)切分每一个rank的数据
-    for(int i = 0; i < rankSize_; i++) {
+    for(uint64_t i = 0; i < rankSize_; i++) {
         // 设置sendRecvInfoFirst数据
         sendRecvInfoFirst.sendCounts[i] = localSendRecvInfo_.sendCounts[i] / factor * factorClos;
         sendRecvInfoFirst.sendDispls[i] = localSendRecvInfo_.sendDispls[i];
@@ -255,7 +255,7 @@ HcclResult InsV2AllToAllVConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     std::vector<uint32_t>& jettyNums, const bool multijetty) const
 {
     jettyNums.resize(rankSize_, 0);
-    for (int i = 0; i < rankSize_; i++) {
+    for (uint64_t i = 0; i < rankSize_; i++) {
         if (i == myRank_) {
             jettyNums[i] = CONST_1;
         } else if (multijetty) {

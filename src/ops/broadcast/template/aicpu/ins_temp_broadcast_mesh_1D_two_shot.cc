@@ -409,7 +409,7 @@ HcclResult InsTempBroadcastMesh1DTwoShot::KernelRun(const OpParam& param, const 
         srcBufferType_ = BufferType::HCCL_BUFFER;
         dstBufferType_ = BufferType::HCCL_BUFFER;
     }
-    for (int i = 0; i < subCommRanks_[0].size(); i++) {
+    for (std::size_t i = 0; i < subCommRanks_[0].size(); i++) {
         tempVirtRankMap_.insert(std::make_pair(subCommRanks_[0][i], i));
     }
 

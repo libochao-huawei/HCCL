@@ -136,6 +136,7 @@ namespace {
 
             //获得通信域统计信息
             bool GetCommStats(const std::string& commName, CacheStats& outStats, size_t& outCacheSize) const {
+                FUNCTION_TRACE;
                 std::shared_lock<std::shared_timed_mutex> lock(mapMutex_);
                 auto it = commCaches_.find(commName);
                 if (it != commCaches_.end()) {
@@ -155,7 +156,7 @@ namespace {
                 totalHits = 0;
                 totalMisses = 0;
                 for (const auto& pair : commCaches_) {
-                    const auto& commName = pair.first;
+                    //const auto& commName = pair.first;
                     const auto& commCache = pair.second;
                     totalcacheEntries += commCache.GetCacheSize();
                     totalHits += commCache.GetStats().hits.load();
@@ -247,6 +248,7 @@ bool IsOpsV2(const char* algName, DevType deviceType)
 
 extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
 {
+    FUNCTION_TRACE; // 细化打点会有性能损耗
     if (param == nullptr) {
         HCCL_ERROR("%s param is nullptr", __func__);
         return 1;
@@ -282,6 +284,12 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
 
     // 根据算法名字获取executor
     if (ops_hccl::IsOpsV2(param->algName, param->deviceType)) {
+        AlgResourceCtxSerializable resCtx;
+        ThreadHandle thread;
+        std::shared_ptr<InsCollAlgBase> executor;
+        ThreadHandle exportedAicpuTsThread;
+        {
+            MY_TIMER("HcclLaunchAicpuKernel_step1");
         //判断通信域状态
         HcclCommStatus commStatus = HCCL_COMM_STATUS_INVALID;
         if (HcommIsSupportHcclCommGetStatus()) {
@@ -296,7 +304,6 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             }
         }
 
-        AlgResourceCtxSerializable resCtx;
         if (param->opType != HcclCMDType::HCCL_CMD_BATCH_SEND_RECV) {
             //通过缓存实现反序列化优化
             AlgResourceCtxSerializable* cachedResCtx = g_cacheManager.Get(param->algTag, param->commName);
@@ -343,7 +350,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             return 1;
         }
         // 获取Device测主thread
-        ThreadHandle thread = resCtx.threads[0];
+        thread = resCtx.threads[0];
         if (HcommBatchModeStart(param->algTag) != HCCL_SUCCESS) {
             HCCL_ERROR("failed set batch mode, tag is %s.", param->algTag);
             return 1;
@@ -367,7 +374,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         }
 
         // 主thread等待Host stream的通知
-        ThreadHandle exportedAicpuTsThread = param->opThread;
+        exportedAicpuTsThread = param->opThread;
         u32 maxNotifyNum = resCtx.notifyNumOnMainThread;
         for (u32 i = 0; i < resCtx.notifyNumPerThread.size(); i++) {
             if (resCtx.notifyNumPerThread[i] > maxNotifyNum) {
@@ -378,7 +385,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             maxNotifyNum, CUSTOM_TIMEOUT);
         CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(thread, maxNotifyNum, CUSTOM_TIMEOUT)));
 
-        std::shared_ptr<InsCollAlgBase> executor = CollAlgExecRegistryV2::Instance().GetAlgExec(param->opType, algName);
+        executor = CollAlgExecRegistryV2::Instance().GetAlgExec(param->opType, algName);
         if (executor.get() == nullptr) {
             HCCL_ERROR("Fail to find executor for algName[%s]", algName.c_str());
             return 1;
@@ -386,16 +393,22 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
 
         // 设置执行超时时间
         ExecTimeoutManager::Instance().SetExecTimeout(param->execTimeout);
+        
+        {
+            MY_TIMER("HcclLaunchAicpuKernel_step2");
         // 执行算法编排
         if (executor->Orchestrate(*param, resCtx) != HCCL_SUCCESS) {
             HCCL_ERROR("orchestrate failed for alg:%s", param->algName);
             return 1;
         }
-
+        }
+        {
+            MY_TIMER("HcclLaunchAicpuKernel_step3");
         // 上报mainstream数据,最后一个任务
         if (HcommProfilingReportKernelEndTask(thread, param->commName) != HCCL_SUCCESS) {
             HCCL_ERROR("%s failed to report MainStream And LastTask, thread %lu, param->commName %s.",  __func__, thread, param->commName);
             return 1;
+        }
         }
 
         constexpr u32 DEFAULT_NOTIFY_IDX = 0;
@@ -412,6 +425,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         if (HcommBatchModeEnd(param->algTag) != HCCL_SUCCESS) {
             HCCL_ERROR("failed set eager mode, tag is %s.", param->algTag);
             return 1;
+        }
         }
     } else {
         std::unique_ptr<ExecutorBase> executor = CollAlgExecRegistry::Instance().GetAlgExec(algName);
@@ -523,6 +537,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
 
 HcclResult ops_hccl::RestoreVarDataBatchSendRecv(OpParam &param)
 {
+    FUNCTION_TRACE;
     u64 sendRecvItemSize = static_cast<u64>(sizeof(HcclSendRecvItem));
     u64 itemNum = static_cast<u64>(param.batchSendRecvDataDes.itemNum);
     if (param.varMemSize != itemNum * sendRecvItemSize) {
@@ -539,6 +554,7 @@ HcclResult ops_hccl::RestoreVarDataBatchSendRecv(OpParam &param)
 
 HcclResult ops_hccl::RestoreVarDataAlltoAllV(OpParam &param, const AlgResourceCtxSerializable &resCtx)
 {
+    FUNCTION_TRACE;
     u64 rankSize = resCtx.topoInfo.userRankSize;
     CHK_PRT_RET(param.varMemSize != ALL_TO_ALL_V_VECTOR_NUM * rankSize * sizeof(u64),
         HCCL_ERROR("[RestoreVarDataAlltoAllV] param.varMemSize [%llu] is invalid,"
@@ -565,6 +581,7 @@ HcclResult ops_hccl::RestoreVarDataAlltoAllV(OpParam &param, const AlgResourceCt
 
 HcclResult ops_hccl::RestoreVarDataReduceScatterV(OpParam &param, const AlgResourceCtxSerializable &resCtx)
 {
+    FUNCTION_TRACE;
     u64 rankSize = resCtx.topoInfo.userRankSize;
     HCCL_INFO("rankSize:%u", rankSize);
     CHK_PRT_RET(param.varMemSize != REDUCE_SCATTER_V_VECTOR_NUM * rankSize * sizeof(u64),
@@ -584,6 +601,7 @@ HcclResult ops_hccl::RestoreVarDataReduceScatterV(OpParam &param, const AlgResou
 
 HcclResult ops_hccl::RestoreVarDataAllGatherV(OpParam &param, const AlgResourceCtxSerializable &resCtx)
 {
+    FUNCTION_TRACE;
     u64 rankSize = resCtx.topoInfo.userRankSize;
     HCCL_INFO("rankSize:%u", rankSize);
     CHK_PRT_RET(param.varMemSize != ALL_GATHER_V_VECTOR_NUM * rankSize * sizeof(u64),

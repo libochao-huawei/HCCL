@@ -14,7 +14,7 @@
 namespace ops_hccl {
 
 HcclResult SendWrite(const DataInfo &sendInfo, const ThreadHandle &thread)
-{
+{FUNCTION_TRACE;
     const std::vector<DataSlice> srcSlices = sendInfo.slices_.srcSlices_;
     const std::vector<DataSlice> dstSlices = sendInfo.slices_.dstSlices_;
     const ChannelInfo &sendChannel = sendInfo.channel_;
@@ -23,7 +23,7 @@ HcclResult SendWrite(const DataInfo &sendInfo, const ThreadHandle &thread)
     u32 execTimeout = ExecTimeoutManager::Instance().GetExecTimeout();
     CHK_RET(static_cast<HcclResult>(
         HcommChannelNotifyWaitOnThread(thread, sendChannel.handle, NOTIFY_IDX_ACK, execTimeout)));
-    for (int i = 0; i < sliceNum; i++) {
+    for (u32 i = 0; i < sliceNum; i++) {
         const DataSlice srcSlice = srcSlices[i];
         const DataSlice dstSlice = dstSlices[i];
         if (srcSlice.size_ == 0) {
@@ -40,7 +40,7 @@ HcclResult SendWrite(const DataInfo &sendInfo, const ThreadHandle &thread)
 }
 
 HcclResult RecvWrite(const DataInfo &recvInfo, const ThreadHandle &thread)
-{
+{FUNCTION_TRACE;
     const ChannelInfo &recvChannel = recvInfo.channel_;
     CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, recvChannel.handle, NOTIFY_IDX_ACK)));
     // 获取执行超时时间
@@ -57,9 +57,11 @@ HcclResult RecvWrite(const DataInfo &recvInfo, const ThreadHandle &thread)
  而rank 0也需要wait一下rank 1的record知道rnak 1那边也可以写了。
 */
 HcclResult SendRecvWrite(const SendRecvInfo &sendRecvInfo, const ThreadHandle &thread)
-{
-    const std::vector<DataSlice> srcSlices = sendRecvInfo.sendRecvSlices_.txSlicesList_.srcSlices_;
-    const std::vector<DataSlice> dstSlices = sendRecvInfo.sendRecvSlices_.txSlicesList_.dstSlices_;
+{FUNCTION_TRACE;
+    FUNCTION_TRACE; // 打点: Hcomm接口耗时均统计了，赋值代码没法优化 不细化了
+    // 打点: 可能会触发拷贝
+    const std::vector<DataSlice> &srcSlices = sendRecvInfo.sendRecvSlices_.txSlicesList_.srcSlices_;
+    const std::vector<DataSlice> &dstSlices = sendRecvInfo.sendRecvSlices_.txSlicesList_.dstSlices_;
     const ChannelInfo &sendChannel = sendRecvInfo.sendRecvChannels_.txChannel_;
     const ChannelInfo &recvChannel = sendRecvInfo.sendRecvChannels_.rxChannel_;
     u32 repeatNum = srcSlices.size();
@@ -70,10 +72,11 @@ HcclResult SendRecvWrite(const SendRecvInfo &sendRecvInfo, const ThreadHandle &t
     u32 execTimeout = ExecTimeoutManager::Instance().GetExecTimeout();
     CHK_RET(static_cast<HcclResult>(
         HcommChannelNotifyWaitOnThread(thread, sendChannel.handle, NOTIFY_IDX_ACK, execTimeout)));
-    for (int i = 0; i < repeatNum; i++) {
+    for (u32 i = 0; i < repeatNum; i++) {
         // tx同步完成后准备将自己的userIn上的数据写到对方的hcclBuffer上
-        const DataSlice srcSlice = srcSlices[i];
-        const DataSlice dstSlice = dstSlices[i];
+        // 打点: 可能会触发拷贝
+        const DataSlice &srcSlice = srcSlices[i];
+        const DataSlice &dstSlice = dstSlices[i];
         if (srcSlice.size_ == 0) {
             HCCL_WARNING("[AlgDataTransWrapper] SendRecvWrite: size is 0.");
             continue;
@@ -91,7 +94,7 @@ HcclResult SendRecvWrite(const SendRecvInfo &sendRecvInfo, const ThreadHandle &t
 }
 
 HcclResult SendWriteReduce(const DataReduceInfo &sendInfo, const ThreadHandle &thread)
-{
+{FUNCTION_TRACE;
     const std::vector<DataSlice> srcSlices = sendInfo.slices_.srcSlices_;
     const std::vector<DataSlice> dstSlices = sendInfo.slices_.dstSlices_;
     const ChannelInfo &sendChannel = sendInfo.channel_;
@@ -100,7 +103,7 @@ HcclResult SendWriteReduce(const DataReduceInfo &sendInfo, const ThreadHandle &t
     u32 execTimeout = ExecTimeoutManager::Instance().GetExecTimeout();
     CHK_RET(static_cast<HcclResult>(
         HcommChannelNotifyWaitOnThread(thread, sendChannel.handle, NOTIFY_IDX_ACK, execTimeout)));
-    for (int i = 0; i < repeatNum; i++) {
+    for (u32 i = 0; i < repeatNum; i++) {
         const DataSlice srcSlice = srcSlices[i];
         const DataSlice dstSlice = dstSlices[i];
         if (srcSlice.size_ == 0) {
@@ -137,7 +140,7 @@ HcclResult SendWriteReduce(const DataReduceInfo &sendInfo, const ThreadHandle &t
 }
 
 HcclResult RecvWriteReduce(const DataReduceInfo &recvInfo, const ThreadHandle &thread)
-{
+{FUNCTION_TRACE;
     const ChannelInfo &recvChannel = recvInfo.channel_;
     // 获取执行超时时间
     u32 execTimeout = ExecTimeoutManager::Instance().GetExecTimeout();
@@ -148,7 +151,7 @@ HcclResult RecvWriteReduce(const DataReduceInfo &recvInfo, const ThreadHandle &t
 }
 
 HcclResult SendRecvWriteReduce(const SendRecvReduceInfo &sendRecvInfo, const ThreadHandle &thread)
-{
+{FUNCTION_TRACE;
     const std::vector<DataSlice> srcSlices = sendRecvInfo.sendRecvSlices_.txSlicesList_.srcSlices_;
     const std::vector<DataSlice> dstSlices = sendRecvInfo.sendRecvSlices_.txSlicesList_.dstSlices_;
     const ChannelInfo &sendChannel = sendRecvInfo.sendRecvChannels_.txChannel_;
@@ -161,7 +164,7 @@ HcclResult SendRecvWriteReduce(const SendRecvReduceInfo &sendRecvInfo, const Thr
     u32 execTimeout = ExecTimeoutManager::Instance().GetExecTimeout();
     CHK_RET(static_cast<HcclResult>(
         HcommChannelNotifyWaitOnThread(thread, sendChannel.handle, NOTIFY_IDX_ACK, execTimeout)));
-    for (int i = 0; i < repeatNum; i++) {
+    for (u32 i = 0; i < repeatNum; i++) {
         // tx同步完成后准备将自己的userIn上的数据写到对方的hcclBuffer上
         const DataSlice srcSlice = srcSlices[i];
         const DataSlice dstSlice = dstSlices[i];
@@ -202,7 +205,7 @@ HcclResult SendRecvWriteReduce(const SendRecvReduceInfo &sendRecvInfo, const Thr
 }
 
 HcclResult SendRead(const DataInfo &sendInfo, const ThreadHandle &thread)
-{
+{FUNCTION_TRACE;
     const ChannelInfo &sendChannel = sendInfo.channel_;
     CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, sendChannel.handle, NOTIFY_IDX_ACK)));
     // 获取执行超时时间
@@ -213,7 +216,7 @@ HcclResult SendRead(const DataInfo &sendInfo, const ThreadHandle &thread)
 }
 
 HcclResult RecvRead(const DataInfo &recvInfo, const ThreadHandle &thread)
-{
+{FUNCTION_TRACE;
     const std::vector<DataSlice> srcSlices = recvInfo.slices_.srcSlices_;
     const std::vector<DataSlice> dstSlices = recvInfo.slices_.dstSlices_;
     const ChannelInfo &recvChannel = recvInfo.channel_;
@@ -222,7 +225,7 @@ HcclResult RecvRead(const DataInfo &recvInfo, const ThreadHandle &thread)
     u32 execTimeout = ExecTimeoutManager::Instance().GetExecTimeout();
     CHK_RET(static_cast<HcclResult>(
         HcommChannelNotifyWaitOnThread(thread, recvChannel.handle, NOTIFY_IDX_ACK, execTimeout)));
-    for (int i = 0; i < repeatNum; i++) {
+    for (u32 i = 0; i < repeatNum; i++) {
         const DataSlice srcSlice = srcSlices[i];
         const DataSlice dstSlice = dstSlices[i];
         if (srcSlice.size_ == 0) {
@@ -239,7 +242,7 @@ HcclResult RecvRead(const DataInfo &recvInfo, const ThreadHandle &thread)
 }
 
 HcclResult SendRecvRead(const SendRecvInfo &sendRecvInfo, const ThreadHandle &thread)
-{
+{FUNCTION_TRACE;
     const std::vector<DataSlice> srcSlices = sendRecvInfo.sendRecvSlices_.rxSlicesList_.srcSlices_;
     const std::vector<DataSlice> dstSlices = sendRecvInfo.sendRecvSlices_.rxSlicesList_.dstSlices_;
     const ChannelInfo &sendChannel = sendRecvInfo.sendRecvChannels_.txChannel_;
@@ -252,7 +255,7 @@ HcclResult SendRecvRead(const SendRecvInfo &sendRecvInfo, const ThreadHandle &th
     u32 execTimeout = ExecTimeoutManager::Instance().GetExecTimeout();
     CHK_RET(static_cast<HcclResult>(
         HcommChannelNotifyWaitOnThread(thread, recvChannel.handle, NOTIFY_IDX_ACK, execTimeout)));
-    for (int i = 0; i < repeatNum; i++) {
+    for (u32 i = 0; i < repeatNum; i++) {
         // rx同步完成后准备将数据从对方的hcclBuffer上读到自己的userIn上
         const DataSlice srcSlice = srcSlices[i];
         const DataSlice dstSlice = dstSlices[i];
@@ -273,7 +276,7 @@ HcclResult SendRecvRead(const SendRecvInfo &sendRecvInfo, const ThreadHandle &th
 }
 
 HcclResult SendReadReduce(const DataReduceInfo &sendInfo, const ThreadHandle &thread)
-{
+{FUNCTION_TRACE;
     const ChannelInfo &sendChannel = sendInfo.channel_;
     CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, sendChannel.handle, NOTIFY_IDX_ACK)));
     // 获取执行超时时间
@@ -284,7 +287,7 @@ HcclResult SendReadReduce(const DataReduceInfo &sendInfo, const ThreadHandle &th
 }
 
 HcclResult RecvReadReduce(const DataReduceInfo &recvInfo, const ThreadHandle &thread)
-{
+{FUNCTION_TRACE;
     const std::vector<DataSlice> srcSlices = recvInfo.slices_.srcSlices_;
     const std::vector<DataSlice> dstSlices = recvInfo.slices_.dstSlices_;
     const ChannelInfo &recvChannel = recvInfo.channel_;
@@ -293,7 +296,7 @@ HcclResult RecvReadReduce(const DataReduceInfo &recvInfo, const ThreadHandle &th
     u32 execTimeout = ExecTimeoutManager::Instance().GetExecTimeout();
     CHK_RET(static_cast<HcclResult>(
         HcommChannelNotifyWaitOnThread(thread, recvChannel.handle, NOTIFY_IDX_ACK, execTimeout)));
-    for (int i = 0; i < repeatNum; i++) {
+    for (u32 i = 0; i < repeatNum; i++) {
         const DataSlice srcSlice = srcSlices[i];
         const DataSlice dstSlice = dstSlices[i];
         if (srcSlice.size_ == 0) {
@@ -330,7 +333,7 @@ HcclResult RecvReadReduce(const DataReduceInfo &recvInfo, const ThreadHandle &th
 }
 
 HcclResult SendRecvReadReduce(const SendRecvReduceInfo &sendRecvInfo, const ThreadHandle &thread)
-{
+{FUNCTION_TRACE;
     const std::vector<DataSlice> srcSlices = sendRecvInfo.sendRecvSlices_.rxSlicesList_.srcSlices_;
     const std::vector<DataSlice> dstSlices = sendRecvInfo.sendRecvSlices_.rxSlicesList_.dstSlices_;
     const ChannelInfo &sendChannel = sendRecvInfo.sendRecvChannels_.txChannel_;
@@ -343,7 +346,7 @@ HcclResult SendRecvReadReduce(const SendRecvReduceInfo &sendRecvInfo, const Thre
     u32 execTimeout = ExecTimeoutManager::Instance().GetExecTimeout();
     CHK_RET(static_cast<HcclResult>(
         HcommChannelNotifyWaitOnThread(thread, recvChannel.handle, NOTIFY_IDX_ACK, execTimeout)));
-    for (int i = 0; i < repeatNum; i++) {
+    for (u32 i = 0; i < repeatNum; i++) {
         // tx同步完成后准备将自己的userIn上的数据写到对方的hcclBuffer上
         const DataSlice srcSlice = srcSlices[i];
         const DataSlice dstSlice = dstSlices[i];
@@ -384,7 +387,7 @@ HcclResult SendRecvReadReduce(const SendRecvReduceInfo &sendRecvInfo, const Thre
 }
 
 HcclResult LocalCopy(const ThreadHandle &thread, const DataSlice &srcSlice, const DataSlice &dstSlice)
-{
+{FUNCTION_TRACE;
     CHK_PRT_RET(srcSlice.size_ == 0,
         HCCL_WARNING("[AlgDataTransWrapper] LocalCopy: src slice size is [%u].", srcSlice.size_),
         HcclResult::HCCL_SUCCESS);
@@ -402,7 +405,7 @@ HcclResult LocalCopy(const ThreadHandle &thread, const DataSlice &srcSlice, cons
 
 HcclResult LocalReduce(const ThreadHandle &thread, const DataSlice &srcSlice, const DataSlice &dstSlice,
     const HcclDataType dataType, const HcclReduceOp reduceOp)
-{
+{FUNCTION_TRACE;
     if (dataType == HCCL_DATA_TYPE_INT64 || dataType == HCCL_DATA_TYPE_UINT64 || dataType == HCCL_DATA_TYPE_FP64 ||
         reduceOp == HcclReduceOp::HCCL_REDUCE_PROD) {
         CHK_RET(AicpuReduce(thread, srcSlice, dstSlice, dataType, reduceOp));
@@ -430,7 +433,7 @@ HcclResult LocalReduce(const ThreadHandle &thread, const DataSlice &srcSlice, co
 
 HcclResult LocalCopySlices(
     const ThreadHandle &thread, const std::vector<DataSlice> &srcSlices, const std::vector<DataSlice> &dstSlices)
-{
+{FUNCTION_TRACE;
     CHK_PRT_RET(srcSlices.size() != dstSlices.size(),
         HCCL_ERROR("[InsCollAlgFactory] [AlgDataTrans] LocalCopySlices: num of src slices [%u], is not equal "
                    "to num of dst slices [%u].",
@@ -481,7 +484,7 @@ HcclResult LocalCopySlices(
 }
 
 bool IsContinuousSlice(const DataSlice &nxtSlice, const DataSlice &currSlice)
-{
+{FUNCTION_TRACE;
     if (nxtSlice.addr_ != currSlice.addr_) {
         return false;
     }
@@ -493,7 +496,7 @@ bool IsContinuousSlice(const DataSlice &nxtSlice, const DataSlice &currSlice)
 
 HcclResult PreSyncInterThreads(const ThreadHandle &mainThread, const std::vector<ThreadHandle> &subThreads,
     const std::vector<u32> &notifyIdxMainToSub)
-{
+{FUNCTION_TRACE;
     CHK_PRT_RET(subThreads.size() == 0 || notifyIdxMainToSub.size() == 0,
         HCCL_ERROR("[AlgDataTransWrapper] [PreSyncInterThreads] subThreads size: [%u], notifyIdxMainToSub size [%u] "
                    "0 is not correct.",
@@ -525,7 +528,7 @@ HcclResult PreSyncInterThreads(const ThreadHandle &mainThread, const std::vector
 
 HcclResult PostSyncInterThreads(const ThreadHandle &mainThread, const std::vector<ThreadHandle> &subThreads,
     const std::vector<u32> &notifyIdxSubToMain)
-{
+{FUNCTION_TRACE;
     CHK_PRT_RET(subThreads.size() == 0 || notifyIdxSubToMain.size() == 0,
         HCCL_ERROR("[AlgDataTransWrapper] [PreSyncInterThreads] subThreads size: [%u], notifyIdxSubToMain size [%u] "
                    "0 is not correct.",
@@ -557,7 +560,7 @@ HcclResult PostSyncInterThreads(const ThreadHandle &mainThread, const std::vecto
 
 HcclResult AicpuReduce(const ThreadHandle &thread, const DataSlice &srcSlice, const DataSlice &dstSlice,
     const HcclDataType dataType, const HcclReduceOp reduceOp)
-{
+{FUNCTION_TRACE;
     (void) thread;
     CHK_PRT_RET(srcSlice.size_ != dstSlice.size_,
         HCCL_ERROR(
@@ -601,7 +604,7 @@ HcclResult AicpuReduce(const ThreadHandle &thread, const DataSlice &srcSlice, co
 
 template <typename T>
 HcclResult AicpuReduceTemplate(T *dst, u64 dstSize, T *src, u64 srcSize, const HcclReduceOp reduceOp)
-{
+{FUNCTION_TRACE;
     if (dstSize != srcSize) {
         HCCL_ERROR("srcSize[%llu] should be equal to dstSize[%llu]", srcSize, dstSize);
         return HcclResult::HCCL_E_INTERNAL;

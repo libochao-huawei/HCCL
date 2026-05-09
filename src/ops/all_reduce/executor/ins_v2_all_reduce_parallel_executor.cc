@@ -160,7 +160,7 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     HCCL_DEBUG("[InsAllReduceParallelExecutor][CalcRes] myRank[%u], notifyNumOnMainThread[%u], slaveThreadNum[%u], "
                "channels[%u]", myRank_, resourceRequest.notifyNumOnMainThread, resourceRequest.slaveThreadNum,
                resourceRequest.channels.size());
-    for (auto i = 0; i < resourceRequest.notifyNumPerThread.size(); i++) {
+    for (std::size_t i = 0; i < resourceRequest.notifyNumPerThread.size(); i++) {
         HCCL_DEBUG("[InsAllReduceParallelExecutor][CalcRes] myRank[%u], notifyNumPerThread[%u]=[%u]", myRank_, i,
                    resourceRequest.notifyNumPerThread[i]);
     }
@@ -822,11 +822,11 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
         PrepareResForTemplateResource(param, resCtx, intraTempAlgRes, interTempAlgRes, true);
 
         //server 间地址偏移
-        for (int i = 0; i < resCtx.algHierarchyInfo.infos[0][0].size(); i++) {
+        for (std::size_t i = 0; i < resCtx.algHierarchyInfo.infos[0][0].size(); i++) {
             tempVirtRankMapInter_.insert(std::make_pair(resCtx.algHierarchyInfo.infos[0][0][i], i));
         }
         //server 内地址偏移
-        for (int i = 0; i < resCtx.algHierarchyInfo.infos[1][0].size(); i++) {
+        for (std::size_t i = 0; i < resCtx.algHierarchyInfo.infos[1][0].size(); i++) {
             tempVirtRankMapIntra_.insert(std::make_pair(resCtx.algHierarchyInfo.infos[1][0][i], i));
         }
 

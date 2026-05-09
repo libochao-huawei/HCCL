@@ -11,6 +11,10 @@
 
 thread_local bool g_hcclErrToWarn = false;
 
+uint64_t HcclTimer::timerCounter = 0;
+std::vector<TimerEntry> HcclTimer::timerEntries;
+HcclTimerDumper g_TimerDumper;
+
 bool HcclCheckLogLevel(int logType, int moduleId)
 {
     return (CheckLogLevel(moduleId, logType) == 1);

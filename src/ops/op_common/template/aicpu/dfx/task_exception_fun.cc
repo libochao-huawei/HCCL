@@ -79,6 +79,7 @@ HcclResult GetHcclDfxOpInfoDataType(const OpParam &param, uint32_t &dataType) {
 
 HcclResult ConvertToHcclDfxOpInfo(OpParam *param, HcclDfxOpInfo *hcclDfxOpInfo)
 {
+    FUNCTION_TRACE;
     CHK_PTR_NULL(param);
     CHK_PTR_NULL(hcclDfxOpInfo);
     hcclDfxOpInfo->opMode = static_cast<u32>(param->opMode);

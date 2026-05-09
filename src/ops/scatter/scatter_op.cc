@@ -91,7 +91,7 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
     CHK_RET(HcclGetCommName(comm, param.commName));
     // topoInfo的tag，所有相同的算子可以共享
     int ret = sprintf_s(param.tag, sizeof(param.tag), "Scatter_%s", param.commName);
-    CHK_PRT_RET((ret <= 0), "failed to fill param.tag", HCCL_E_INTERNAL);
+    CHK_PRT_RET((ret <= 0), HCCL_ERROR("failed to fill param.tag"), HCCL_E_INTERNAL);
     CHK_RET(HcclCheckTag(param.tag));
 
     HCCL_DEBUG("HCCL_KEY_INFO: tag[%s], input_ptr[%p], output_ptr[%p], recvCount[%llu], data_type[%s], root[%u]",
@@ -216,7 +216,7 @@ HcclResult ScatterExecOp(OpParam &param, void *sendBuf, void *recvBuf, uint64_t 
 HcclResult ScatterOutPlace(OpParam &param, void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType, uint32_t root,
     HcclComm comm, aclrtStream stream, u32 userRankSize)
 {
-    uint64_t beginTime;
+    uint64_t beginTime{0};
     if (HcommIsProfilingSupported()) {
         beginTime = HcommGetProfilingSysCycleTime();
     }
@@ -337,7 +337,7 @@ HcclResult ExecOp(HcclComm comm, OpParam &param)
         }
 
         // 执行device测的算法编排
-        uint64_t beginTime;
+        uint64_t beginTime{};
         if (HcommIsProfilingSupported()) {
             beginTime = HcommGetProfilingSysCycleTime();
         } 

@@ -123,7 +123,7 @@ HcclResult InsTempAllReduceAicpuReduceNHR::CalcSlice(u64 chunkSize)
     // 按 rank 切分数据
     sliceInfoVec_ = RankSliceInfo(templateRankSize_);
 
-    u64 unitAlignSize = DATATYPE_SIZE_TABLE[dataType_];
+    //u64 unitAlignSize = DATATYPE_SIZE_TABLE[dataType_];
     u64 dataSize = chunkSize * templateRankSize_;
 
     u64 accumOff = 0;
