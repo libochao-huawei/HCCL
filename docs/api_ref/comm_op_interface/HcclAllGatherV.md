@@ -5,12 +5,16 @@
 - Ascend 950PR/Ascend 950DT：支持
 - Atlas A3 训练系列产品/Atlas A3 推理系列产品：支持
 - Atlas A2 训练系列产品/Atlas A2 推理系列产品：支持
-- Atlas 推理系列产品：支持
-- Atlas 训练系列产品：不支持
+<cann-filter npu-type="310p">
+- Atlas 推理系列产品：支持</cann-filter>
+<cann-filter npu-type="910">
+- Atlas 训练系列产品：不支持</cann-filter>
 
 > [!NOTE]说明
-> 针对Atlas A2 训练系列产品/Atlas A2 推理系列产品，仅支持Atlas 800T A2 训练服务器、Atlas 900 A2 PoD 集群基础单元、Atlas 200T A2 Box16 异构子框。
-> 针对Atlas 推理系列产品，仅支持Atlas 300I Duo 推理卡。
+>
+> - 针对Atlas A2 训练系列产品/Atlas A2 推理系列产品，仅支持Atlas 800T A2 训练服务器、Atlas 900 A2 PoD 集群基础单元、Atlas 200T A2 Box16 异构子框。
+<cann-filter npu-type="310p">
+> - 针对Atlas 推理系列产品，仅支持Atlas 300I Duo 推理卡。</cann-filter>
 
 ## 功能说明
 
@@ -38,7 +42,7 @@ HcclResult HcclAllGatherV(void *sendBuf, uint64_t sendCount, void *recvBuf, cons
 | recvBuf | 输出 | 目的数据buffer地址，集合通信结果输出至此buffer中。 |
 | recvCounts | 输出 | 参与AllGatherV操作的每个rank在recvBuf中的数据size，为uint64类型的数组。<br>该数组的第i个元素表示需要从rank i接收的数据量，且该数据量需要与rank i的sendCount值相同。 |
 | recvDispls | 输出 | 参与AllGatherV操作的每个rank的数据在recvBuf中的偏移量（单位为dataType），为uint64类型的数组。<br>该数组的第i个元素表示从rank i接收的数据应该放置在recvBuf中的起始偏移量。 |
-| dataType | 输入 | AllGatherV操作的数据类型，[HcclDataType](https://gitcode.com/cann/hcomm/blob/master/docs/api_ref/comm_mgr_c/data_type_definition/HcclDataType.md)类型。<br>针对Ascend 950PR/Ascend 950DT，支持数据类型：int8、uint8、int16、uint16、int32、uint32、int64、uint64、float8-e5m2、float8-e4m3、float8-e8m0、hifloat8、float16、float32、float64、bfp16。<br>针对Atlas A3 训练系列产品/Atlas A3 推理系列产品，支持数据类型：int8、uint8、int16、uint16、int32、uint32、int64、uint64、float16、float32、float64、bfp16。<br>针对Atlas A2 训练系列产品/Atlas A2 推理系列产品，支持数据类型：int8、uint8、int16、uint16、int32、uint32、int64、uint64、float16、float32、float64、bfp16。<br>针对Atlas 300I Duo 推理卡，支持数据类型：int8、uint8、int16、uint16、int32、uint32、int64、uint64、float16、float32、float64。 |
+| dataType | 输入 | AllGatherV操作的数据类型，[HcclDataType](https://gitcode.com/cann/hcomm/blob/master/docs/api_ref/comm_mgr_c/data_type_definition/HcclDataType.md)类型。<br>针对Ascend 950PR/Ascend 950DT，支持数据类型：int8、uint8、int16、uint16、int32、uint32、int64、uint64、float8-e5m2、float8-e4m3、float8-e8m0、hifloat8、float16、float32、float64、bfp16。<br>针对Atlas A3 训练系列产品/Atlas A3 推理系列产品，支持数据类型：int8、uint8、int16、uint16、int32、uint32、int64、uint64、float16、float32、float64、bfp16。<br>针对Atlas A2 训练系列产品/Atlas A2 推理系列产品，支持数据类型：int8、uint8、int16、uint16、int32、uint32、int64、uint64、float16、float32、float64、bfp16。<cann-filter npu-type="310p"><br>针对Atlas 300I Duo 推理卡，支持数据类型：int8、uint8、int16、uint16、int32、uint32、int64、uint64、float16、float32、float64。</cann-filter> |
 | comm | 输入 | 集合通信操作所在的通信域。 |
 | stream | 输入 | 本rank所使用的stream。 |
 
@@ -52,4 +56,4 @@ HcclResult HcclAllGatherV(void *sendBuf, uint64_t sendCount, void *recvBuf, cons
 - 针对Ascend 950PR/Ascend 950DT，仅支持单Server场景，仅支持通信算子展开模式为CCU（Collective Communication Unit，集合通信加速单元）的场景。
 - 针对Atlas A3 训练系列产品/Atlas A3 推理系列产品，仅支持单Server场景。
 - 针对Atlas A2 训练系列产品/Atlas A2 推理系列产品，仅支持多机对称分布场景，不支持非对称分布（即卡数非对称）的场景。
-- 针对Atlas 300I Duo 推理卡，仅支持单Server场景，单Server中最大支持部署2张Atlas 300I Duo 推理卡（即4个NPU）。
+<cann-filter npu-type="310p">- 针对Atlas 300I Duo 推理卡，仅支持单Server场景，单Server中最大支持部署2张Atlas 300I Duo 推理卡（即4个NPU）。</cann-filter>
