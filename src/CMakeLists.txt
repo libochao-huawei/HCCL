@@ -47,59 +47,59 @@ set(INCLUDE_LIST
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/topo
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/interface_graph_mode
 
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/selector
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aiv
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/ccu
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/ccu/kernel
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/selector
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aiv
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/ccu
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/ccu/kernel
 
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/broadcast
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/broadcast/executor
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/broadcast/selector
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/broadcast/template
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/broadcast/template/aicpu
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/broadcast/template/aiv
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/broadcast/template/ccu
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/broadcast/template/ccu/kernel
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/broadcast
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/broadcast/executor
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/broadcast/selector
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/broadcast/template
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/broadcast/template/aicpu
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/broadcast/template/aiv
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/broadcast/template/ccu
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/broadcast/template/ccu/kernel
 
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter_v
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter_v/executor
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter_v/selector
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter_v/template
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter_v/template/aicpu
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter_v/template/ccu
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter_v/template/ccu/kernel
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter_v
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter_v/executor
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter_v/selector
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter_v/template
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter_v/template/aicpu
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter_v/template/ccu
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter_v/template/ccu/kernel
 
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/algo
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/algo/template
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/executor
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/selector
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/template
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/template/aicpu
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/template/aiv
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/template/ccu
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/template/ccu/kernel
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/algo
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/algo/template
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/executor
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/selector
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/template
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/template/aicpu
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/template/aiv
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/template/ccu
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/template/ccu/kernel
 
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/executor
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/selector
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/template
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/template/aicpu
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/template/aiv
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/template/ccu
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/template/ccu/kernel
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/executor
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/selector
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/template
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/template/aicpu
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/template/aiv
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/template/ccu
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/template/ccu/kernel
 
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather_v
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather_v/executor
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather_v/selector
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather_v/template
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather_v/template/aicpu
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather_v/template/ccu
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather_v/template/ccu/kernel
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather_v
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather_v/executor
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather_v/selector
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather_v/template
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather_v/template/aicpu
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather_v/template/ccu
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather_v/template/ccu/kernel
 
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_to_all_v
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_to_all_v/executor
@@ -110,37 +110,37 @@ set(INCLUDE_LIST
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_to_all_v/template/ccu
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_to_all_v/template/ccu/kernel
 
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/selector
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/template
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/template/aicpu
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/template/aiv
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/template/ccu
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/template/ccu/kernel
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/selector
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/template
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/template/aicpu
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/template/aiv
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/template/ccu
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/template/ccu/kernel
 
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/send
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/executor
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/selector
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/template
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/send
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/executor
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/selector
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/template
 
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/executor
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/selector
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/template
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/executor
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/selector
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/template
 
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce/executor
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce/selector
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce/template
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce/template/aicpu
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce/template/aiv
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce/template/ccu
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce/template/ccu/kernel
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce/executor
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce/selector
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce/template
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce/template/aicpu
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce/template/aiv
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce/template/ccu
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce/template/ccu/kernel
 
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/batch_send_recv
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/batch_send_recv/executor
-    ${CMAKE_CURRENT_SOURCE_DIR}/ops/batch_send_recv/selector
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/batch_send_recv
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/batch_send_recv/executor
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ops/batch_send_recv/selector
 )
 
 if(BUILD_OPEN_PROJECT)
