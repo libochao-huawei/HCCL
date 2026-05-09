@@ -6,6 +6,9 @@
 - TensorFlow分布式网络通信域初始化时。
 
 针对TensorFlow框架网络，还可以通过环境变量的方式配置资源信息，但开发者仅可以选择rank table或环境变量方式中的一种，不支持两种方式混用，环境变量配置资源信息的方式仅支持如下产品：
-
+<cann-filter npu-type="910b">
 - Atlas A2 训练系列产品/Atlas A2 推理系列产品
+</cann-filter>
+<cann-filter npu-type="910">
 - Atlas 训练系列产品
+</cann-filter>
