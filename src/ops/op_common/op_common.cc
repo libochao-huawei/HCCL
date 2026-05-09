@@ -55,6 +55,7 @@ thread_local std::map<std::string, std::unique_ptr<AlgResourceCtxSerializable>> 
 thread_local std::map<AivOpCacheArgs, std::shared_ptr<InsQueue>> g_hcclCacheMap;
 thread_local std::set<std::string> g_consistencyCheckedList;
 constexpr u32 HOST_WAIT_AICPU_NOTIFYIDX = 0;// host主流wait aicpu流的notify idx
+constexpr int32_t INCONSISTENT_CHECK_SWITCH = -1; // -1：未解析过环境变量，0："on"，1："first"，2："off"
 
 // 检查非对称拓扑支持情况
 // 仅 AllGather, AllReduce, ReduceScatter 支持跨框非对称拓扑，其他算子拦截
@@ -808,13 +809,14 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
     // 参数一致性校验准备工作
     // HCCL_DFS_CONFIG 为 off 以及 HCCL_DFS_CONFIG 为 first 或空但非首算子时不校验
     // HCCL_DFS_CONFIG 不为 off 时增量建链模式每次下算子均校验
-    std::string inconsistentCheckSwitch = "";
-    CHK_RET(ParseSingleItemFromDFSConfig("inconsistent_check:", inconsistentCheckSwitch));
+    if (INCONSISTENT_CHECK_SWITCH == -1) {
+        CHK_RET(ParseSingleItemFromDFSConfig("inconsistent_check"));
+    }
     OpExchangeInfo exchangeInfo{};
     std::string tagStr = param.algTag;
-    bool isChecked = (inconsistentCheckSwitch == "first" || inconsistentCheckSwitch == "") &&
+    bool isChecked = INCONSISTENT_CHECK_SWITCH == 1 &&
         (g_consistencyCheckedList.find(tagStr) != g_consistencyCheckedList.end());
-    if (inconsistentCheckSwitch == "off" || (isChecked && !increCreateChannelFlag)) {
+    if (INCONSISTENT_CHECK_SWITCH == 2 || (isChecked && !increCreateChannelFlag)) {
         isChecked = true; // isChecked 为 false 时做参数比较
     } else {
         CHK_RET(FillOpExchangeInfo(comm, param, exchangeInfo));
@@ -1523,27 +1525,52 @@ HcclResult GetAlgResDPU(HcclComm comm, const OpParam &param, AlgResourceRequest 
     return HCCL_SUCCESS;
 }
 
-HcclResult ParseSingleItemFromDFSConfig(const std::string &configName, std::string &configResult)
+HcclResult ParseSingleItemFromDFSConfig(const std::string &configName)
 {
+    constexpr std::size_t DFS_CONFIG_ITE_NUM = 1;
+    const std::array<std::string, DFS_CONFIG_ITEM_NUM> dfsConfigItems = {"inconsistent_check"};
     char *dfsConfigValue = nullptr;
     MM_SYS_GET_ENV(MM_ENV_HCCL_DFS_CONFIG, dfsConfigValue);
     std::string dfsConfigEnv = (dfsConfigValue != nullptr) ? dfsConfigValue : "EmptyString";
-    // 去除空格
     dfsConfigEnv.erase(std::remove(dfsConfigEnv.begin(), dfsConfigEnv.end(), ' '), dfsConfigEnv.end());
     std::transform(dfsConfigEnv.begin(), dfsConfigEnv.end(), dfsConfigEnv.begin(), ::tolower);
+    std::string inconsistentCheckSwitch = "";
+    if (std::find(dfsConfigItems.begin(), dfsConfigItems.end(), configName) != dfsConfigItems.end()) {
+        size_t start = dfsConfigEnv.find(configName);
+        if (start == std::string::npos) {
+            HCCL_INFO("[ParseSingleItemFromDFSConfig] DFS config item [%s] is not found.", configName.c_str());
+            INCONSISTENT_CHECK_SWITCH = 1;
+            return HCCL_SUCCESS;
+        }
+        size_t end = dfsConfigEnv.find(",", start);
+        if (end == std::string::npos) {
+            inconsistentCheckSwitch = dfsConfigEnv.substr(start + configName.size() + 1);
+        } else {
+            inconsistentCheckSwitch = dfsConfigEnv.substr(start + configName.size() + 1,
+                end - start - configName.size() - 1);
+        }
+        if (configName == dfsConfigItems[0]) {
+            CHK_RET(ParseInconsistentCheck(inconsistentCheckSwitch));
+        }
+        HCCL_INFO("[ParseSingleItemFromDFSConfig] DFS config item %s [%s]", configName.c_str(),
+            inconsistentCheckSwitch.c_str());
+    }
 
-    size_t start = dfsConfigEnv.find(configName);
-    if (start == std::string::npos) {
-        HCCL_INFO("[Parse] DFS config item [%s] is not found.", configName.c_str());
-        return HCCL_SUCCESS;
-    }
-    size_t end = dfsConfigEnv.find(",", start);
-    if (end == std::string::npos) {
-        configResult = dfsConfigEnv.substr(start + configName.size());
+    return HCCL_SUCCESS;
+}
+
+HcclResult ParseInconsistentCheck(const std::string &inconsistentCheckSwitch)
+{
+    if (inconsistentCheckSwitch == "on") {
+        INCONSISTENT_CHECK_SWITCH = 0;
+    } else if (inconsistentCheckSwitch == "off") {
+        INCONSISTENT_CHECK_SWITCH = 2;
+    } else if (inconsistentCheckSwitch == "first" || inconsistentCheckSwitch == "") {
+        INCONSISTENT_CHECK_SWITCH = 1;
     } else {
-        configResult = dfsConfigEnv.substr(start + configName.size(), end - start - configName.size());
+        HCCL_ERROR("[ParseSingleItemFromDFSConfig] item[%s] invalid value[%s].", configName.c_str(),
+            inconsistentCheckSwitch.c_str());
     }
-    HCCL_INFO("[Parse] DFS config item %s [%s]", configName.c_str(), configResult.c_str());
     return HCCL_SUCCESS;
 }
 
@@ -1574,8 +1601,7 @@ HcclResult FillOpExchangeInfo(HcclComm comm, const OpParam &param, OpExchangeInf
             __func__, param.algTag, sRet), HCCL_E_MEMORY);
         exchangeInfo.sendRecvRemoteRank = param.sendRecvRemoteRank;
     } else {
-        // 拷贝长度设置为ALG_TAG_LENGTH-1确保以终止符结尾
-        s32 sRet = strncpy_s(exchangeInfo.algTag, ALG_TAG_LENGTH, param.algTag, ALG_TAG_LENGTH - 1);
+        s32 sRet = strncpy_s(exchangeInfo.algTag, ALG_TAG_LENGTH, param.algTag, ALG_TAG_LENGTH);
         CHK_PRT_RET(sRet != EOK, HCCL_ERROR("[%s] call strncpy_s failed, param.algTag[%s],  return[%d].",
             __func__, param.algTag, sRet), HCCL_E_MEMORY);
     }
