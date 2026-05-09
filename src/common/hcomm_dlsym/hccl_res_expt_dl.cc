@@ -15,7 +15,7 @@
 
 // ---------- 桩函数定义（签名与真实API完全一致）----------
 DEFINE_WEAK_FUNC(HcclResult, HcclCommAddExchangeInfo, HcclComm comm, void *data, uint32_t length);
-DEFINE_WEAK_FUNC(HcclResult, HcclCommGetExchangeInfo, HcclComm comm, uint32_t remoteRank, void *data, uint32_t &length);
+DEFINE_WEAK_FUNC(HcclResult, HcclCommGetExchangeInfo, HcclComm comm, uint32_t remoteRank, void **data, uint32_t *length);
 DEFINE_WEAK_FUNC(HcclResult, HcclCommResetExchangeInfo, HcclComm comm);
 
 // 初始化
