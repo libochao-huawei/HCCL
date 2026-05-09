@@ -1568,8 +1568,7 @@ HcclResult ParseInconsistentCheck(const std::string &inconsistentCheckSwitch)
     } else if (inconsistentCheckSwitch == "first" || inconsistentCheckSwitch == "") {
         INCONSISTENT_CHECK_SWITCH = 1;
     } else {
-        HCCL_ERROR("[ParseSingleItemFromDFSConfig] item[%s] invalid value[%s].", configName.c_str(),
-            inconsistentCheckSwitch.c_str());
+        HCCL_ERROR("[ParseInconsistentCheck] invalid value[%s].", inconsistentCheckSwitch.c_str());
     }
     return HCCL_SUCCESS;
 }
