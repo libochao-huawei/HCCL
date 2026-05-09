@@ -15,6 +15,7 @@
 #include "topo_match_base.h"
 #include "topo_match_multilevel.h"
 #include "topo_match_ubx.h"
+#include "topo_match_pcie_mix.h"
 
 namespace ops_hccl {
 
@@ -44,7 +45,7 @@ public:
 #ifndef AICPU_COMPILE
     HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *resCtx) override;
     HcclResult FastLaunchSaveCtx(const OpParam &param, const TemplateResource &templateAlgResIntra,
-                                 const TemplateResource &templateAlgResInter);
+                                 const TemplateResource &templateAlgResInter, u32 notifyNumOnMainThread);
 #endif
 
 private:
@@ -79,6 +80,7 @@ private:
     std::map<u32, std::vector<ChannelInfo>> interChannelMap_;
     std::vector<ThreadHandle> threads_;
     std::vector<std::map<u32, std::vector<ChannelInfo>>> remoteRankToChannelInfo_;
+    double multipleDimensionSplitRatio_{0.8};
 };
 
 } // namespace Hccl

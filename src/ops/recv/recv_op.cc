@@ -20,10 +20,38 @@ using namespace ops_hccl;
 
 extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 
+HcclResult HcclRecvNext(
+    void *recvBuf, uint64_t count, HcclDataType dataType, uint32_t srcRank, HcclComm comm, aclrtStream stream)
+{
+    HCCL_INFO("[HcclRecv] Start.");
+    HcclUs startut = TIME_NOW(); // 走老流程的判断时间不统计在内
+    CHK_RET(InitEnvConfig());
+    u32 rankSize = INVALID_VALUE_RANKSIZE;
+    u32 userRank = INVALID_VALUE_RANKID;
+    std::string tag;
+    // 参数获取和校验
+    CHK_PRT_RET(count == 0, HCCL_WARNING("[HcclRecv] input count is 0, return recv success"), HcclResult::HCCL_SUCCESS);
+    CHK_RET(GetAndCheckRecvPara(comm, recvBuf, count, dataType, srcRank, rankSize, userRank, tag));
+
+    /* 接口交互信息日志 */
+    CHK_RET(RecvEntryLog(recvBuf, count, dataType, srcRank, stream, tag, "HcclRecv"));
+
+    CHK_RET_AND_PRINT_IDE(RecvExec(recvBuf, count, dataType, srcRank, comm, stream, rankSize, OpMode::OPBASE, tag),
+        tag.c_str());
+    CHK_RET(LogHcclExit("HcclRecv", tag.c_str(), startut));
+    HCCL_INFO("[HcclRecv][%d]<-[%d] Success.", userRank, srcRank);
+    return HcclResult::HCCL_SUCCESS;
+}
+
 HcclResult HcclRecv(
     void *recvBuf, uint64_t count, HcclDataType dataType, uint32_t srcRank, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("[HcclRecv] Start.");
+
+    if (IsHostDpu(comm)) {
+        return HcclRecvNext(recvBuf, count, dataType, srcRank, comm, stream);
+    }
+
     if (GetHcommVersion() < 90000000) {
         return HcclRecvInner(recvBuf, count, dataType, srcRank, comm, stream);
     }
@@ -37,22 +65,8 @@ HcclResult HcclRecv(
     #endif
         return HcclRecvInner(recvBuf, count, dataType, srcRank, comm, stream);
     }
-    HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
-    CHK_RET(InitEnvConfig());
-    u32 rankSize = INVALID_VALUE_RANKSIZE;
-    u32 userRank = INVALID_VALUE_RANKID;
-    std::string tag;
-    // 参数获取和校验
-    CHK_PRT_RET(count == 0, HCCL_WARNING("[HcclRecv] input count is 0, return recv success"), HcclResult::HCCL_SUCCESS);
-    CHK_RET(GetAndCheckRecvPara(comm, recvBuf, count, dataType, srcRank, rankSize, userRank, tag));
 
-    /* 接口交互信息日志 */
-    CHK_RET(RecvEntryLog(recvBuf, count, dataType, srcRank, stream, tag, "HcclRecv"));
-
-    CHK_RET_AND_PRINT_IDE(RecvExec(recvBuf, count, dataType, srcRank, comm, stream, rankSize, OpMode::OPBASE, tag), tag.c_str());
-    CHK_RET(LogHcclExit("HcclRecv", tag.c_str(), startut));
-    HCCL_INFO("[HcclRecv][%d]<-[%d] Success.", userRank, srcRank);
-    return HcclResult::HCCL_SUCCESS;
+    return HcclRecvNext(recvBuf, count, dataType, srcRank, comm, stream);
 }
 
 HcclResult HcclRecvGraphMode(
@@ -187,15 +201,17 @@ namespace ops_hccl {
 
         std::string algName;
         std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
+    
+        CHK_RET(HcclGetOpExpansionMode(comm, param));
         CHK_RET(Selector(comm, param, topoInfo, algName));
 
-        if (ShouldUseInnerOp(param.opExecuteConfig)) {
+        if (ShouldUseInnerOp(param.opExecuteConfig) && param.opMode == OpMode::OPBASE) {
             return HcclRecvInner(recvBuf, count, dataType, srcRank, comm, stream);
         }
         if (rankSize == 1) {
             HCCL_WARNING("[RecvExec][%s][%s] ranksize == 1, enter SingleRankProc", tag.c_str(),
                 opMode == OpMode::OPBASE ? "OPBASE" : "OFFLOAD");
-            CHK_RET(SingleRankProc(param));
+            CHK_RET(SingleRankProc(comm, param));
             return HcclResult::HCCL_SUCCESS;
         }
 

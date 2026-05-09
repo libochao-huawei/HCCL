@@ -250,12 +250,38 @@ HcclResult InsTempAllGatherNHRDPUInter::RunNHR(const TemplateDataParams& tempAlg
                 std::vector<DataSlice> rxDstSlices{DataSlice(tempAlgParams.buffInfo.hcclBuff.addr, rxScratchOff, recvSize, recvCount)};
 
                 if (sendSize > 0 && recvSize > 0) {
-                    TxRxChannels sendRecvChannels(txChannel[0], rxChannel[0]);
-                    TxRxSlicesList sendRecvSlicesList({txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices});
-                    SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
-                    CHK_PRT_RET(SendRecvWrite(sendRecvInfo),
-                        HCCL_ERROR("[InsTempAllGatherNHRDPUInter] SendRecvWrite failed (step=%u, rpt=%u)", step, rpt),
-                        HcclResult::HCCL_E_INTERNAL);
+                    if (txChannel[0].remoteRank == rxChannel[0].remoteRank) {
+                        TxRxChannels sendRecvChannels(txChannel[0], rxChannel[0]);
+                        TxRxSlicesList sendRecvSlicesList({txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices});
+                        SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
+                        CHK_PRT_RET(SendRecvWrite(sendRecvInfo),
+                            HCCL_ERROR("[InsTempAllGatherNHRDPUInter] SendRecvWrite failed (step=%u, rpt=%u)", step, rpt),
+                            HcclResult::HCCL_E_INTERNAL);
+                    } else if (txChannel[0].remoteRank < rxChannel[0].remoteRank) {
+                        SlicesList sendSliceList(txSrcSlices, txDstSlices);
+                        DataInfo sendInfo(txChannel[0], sendSliceList);
+                        CHK_PRT_RET(SendWrite(sendInfo),
+                            HCCL_ERROR("[InsTempAllGatherNHRDPUInter][RunNHR] Send failed (step=%u, rpt=%u)", step, rpt),
+                            HcclResult::HCCL_E_INTERNAL);
+
+                        SlicesList recvSliceList(rxSrcSlices, rxDstSlices);
+                        DataInfo recvInfo(rxChannel[0], recvSliceList);
+                        CHK_PRT_RET(RecvWrite(recvInfo),
+                            HCCL_ERROR("[InsTempAllGatherNHRDPUInter][RunNHR] Recv failed (step=%u, rpt=%u)", step, rpt),
+                            HcclResult::HCCL_E_INTERNAL);
+                    } else {
+                        SlicesList recvSliceList(rxSrcSlices, rxDstSlices);
+                        DataInfo recvInfo(rxChannel[0], recvSliceList);
+                        CHK_PRT_RET(RecvWrite(recvInfo),
+                            HCCL_ERROR("[InsTempAllGatherNHRDPUInter][RunNHR] Recv failed (step=%u, rpt=%u)", step, rpt),
+                            HcclResult::HCCL_E_INTERNAL);
+
+                        SlicesList sendSliceList(txSrcSlices, txDstSlices);
+                        DataInfo sendInfo(txChannel[0], sendSliceList);
+                        CHK_PRT_RET(SendWrite(sendInfo),
+                            HCCL_ERROR("[InsTempAllGatherNHRDPUInter][RunNHR] Send failed (step=%u, rpt=%u)", step, rpt),
+                            HcclResult::HCCL_E_INTERNAL);
+                    }
                 } else if (sendSize > 0) {
                     SlicesList sendSliceList(txSrcSlices, txDstSlices);
                     DataInfo sendInfo(txChannel[0], sendSliceList);

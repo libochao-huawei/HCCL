@@ -65,16 +65,20 @@ HcclResult ReduceNHR::KernelRun(
 
     CHK_PRT_RET(root_ == UINT32_MAX, HCCL_ERROR("[ReduceNHR] root is invalid"), HcclResult::HCCL_E_INTERNAL);
 
+    dataType_ = param.DataDes.dataType;
     u64 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
     CHK_PRT_RET(dataTypeSize == 0, HCCL_ERROR("[ReduceNHR] dataTypeSize is 0"), HcclResult::HCCL_E_INTERNAL);
 
     thread_ = templateResource.threads.at(0);
     buffInfo_ = tempAlgParams.buffInfo;
 
+    bool isPcieProtocal = IsPcieProtocol(templateResource.channels);  // 判断是否存在pcie链路
+    isDmaRead_ = isPcieProtocal;  // 是否使用Read模式
+    HCCL_DEBUG("[ReduceNHR] Use Dma Read[%d]", isDmaRead_);
+
     CHK_RET(getMyAlgRank());
     processSize_ = tempAlgParams.sliceSize;
     count_ = tempAlgParams.count;
-    dataType_ = param.DataDes.dataType;
     HCCL_INFO("[KernelRun] sliceSize: %u, count_: %u, typeSize: %u",
         tempAlgParams.sliceSize,
         count_,
@@ -193,7 +197,7 @@ HcclResult ReduceNHR::RunReduce(const std::map<u32, std::vector<ChannelInfo>> &c
             u64 rxSize = sliceInfoVec_[stepInfo.rxSliceIdxs[i]][0].size;
             DataSlice txSrcSlice = DataSlice(buffInfo_.hcclBuff.addr, txOffset, txSize, txSize / dataTypeSize);
             DataSlice txDstSlice = DataSlice(channelSend.remoteCclMem.addr, txOffset, txSize, txSize / dataTypeSize);
-            DataSlice rxSrcSlice = DataSlice(buffInfo_.hcclBuff.addr, rxOffset, rxSize, rxSize / dataTypeSize);
+            DataSlice rxSrcSlice = DataSlice(channelSend.remoteCclMem.addr, rxOffset, rxSize, rxSize / dataTypeSize);
             DataSlice rxDstSlice = DataSlice(buffInfo_.hcclBuff.addr, rxOffset, rxSize, rxSize / dataTypeSize);
             txSrcSlices.push_back(txSrcSlice);
             txDstSlices.push_back(txDstSlice);
@@ -203,9 +207,15 @@ HcclResult ReduceNHR::RunReduce(const std::map<u32, std::vector<ChannelInfo>> &c
         SendRecvReduceInfo sendRecvReduceInfo{
             {channelSend, channelRecv}, {{txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices}}, dataType_, reduceOp_};
 
-        CHK_PRT_RET(SendRecvWriteReduce(sendRecvReduceInfo, thread_),
-            HCCL_ERROR("[ReduceNHR] RunReduce SendRecvReduce failed"),
-            HcclResult::HCCL_E_INTERNAL);
+        if (isDmaRead_) {
+            CHK_PRT_RET(SendRecvReadReduce(sendRecvReduceInfo, thread_),
+                HCCL_ERROR("[ReduceNHR] RunReduce SendRecvReduce failed"),
+                HcclResult::HCCL_E_INTERNAL);
+        } else {
+            CHK_PRT_RET(SendRecvWriteReduce(sendRecvReduceInfo, thread_),
+                HCCL_ERROR("[ReduceNHR] RunReduce SendRecvReduce failed"),
+                HcclResult::HCCL_E_INTERNAL);
+        }
     }
 
     return HcclResult::HCCL_SUCCESS;
@@ -239,7 +249,7 @@ HcclResult ReduceNHR::RunGather(const std::map<u32, std::vector<ChannelInfo>> &c
 
             txSrcSlices.push_back(DataSlice(buffInfo_.hcclBuff.addr, txOffset, txSize, txSize / dataTypeSize));
             txDstSlices.push_back(DataSlice(channelSend.remoteCclMem.addr, txOffset, txSize, txSize / dataTypeSize));
-            rxSrcSlices.push_back(DataSlice(buffInfo_.hcclBuff.addr, rxOffset, rxSize, rxSize / dataTypeSize));
+            rxSrcSlices.push_back(DataSlice(channelRecv.remoteCclMem.addr, rxOffset, rxSize, rxSize / dataTypeSize));
             rxDstSlices.push_back(DataSlice(buffInfo_.hcclBuff.addr, rxOffset, rxSize, rxSize / dataTypeSize));
         }
 
@@ -247,9 +257,13 @@ HcclResult ReduceNHR::RunGather(const std::map<u32, std::vector<ChannelInfo>> &c
         TxRxSlicesList sendRecvSlicesList({txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices});
 
         SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
-        CHK_PRT_RET(SendRecvWrite(sendRecvInfo, thread_),
-            HCCL_ERROR("[ReduceNHR] RunGather send/recv failed"),
-            HcclResult::HCCL_E_INTERNAL);
+        if (isDmaRead_) {
+            CHK_PRT_RET(SendRecvRead(sendRecvInfo, thread_), HCCL_ERROR("[ReduceNHR] RunGather send/recv failed"),
+                HcclResult::HCCL_E_INTERNAL);
+        } else {
+            CHK_PRT_RET(SendRecvWrite(sendRecvInfo, thread_), HCCL_ERROR("[ReduceNHR] RunGather send/recv failed"),
+                HcclResult::HCCL_E_INTERNAL);
+        }
     }
 
     return HcclResult::HCCL_SUCCESS;

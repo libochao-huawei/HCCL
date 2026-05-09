@@ -162,8 +162,11 @@ SelectorStatus ReduceAutoSelector::SelectMeshAlgoCcuSchedule(
             } else {
                 selectAlgName = "CcuReduceMesh1DMem2Mem";
             }
+        } else if (topoInfo->level0PcieMix) {
+            HCCL_WARNING("[ReduceAutoSelector] pcie mixed topo is not supported yet for ccu schedule mode.");
+            return SelectorStatus::NOT_MATCH;
         } else {
-            selectAlgName = "CcuReduceNHR1DMem2Mem";
+            selectAlgName = "CcuReduceParallelMesh1DNHRUBX";
         }
     } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
         HCCL_WARNING("[ReduceAutoSelector] level0Topo[%d] is not supported yet for ccu schedule mode.",
@@ -217,18 +220,28 @@ SelectorStatus ReduceAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetLaye
             selectAlgName = "ReduceMesh1D";
         }
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-        if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
+        if (topoInfo->level0PcieMix) {
+            if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
+                selectAlgName = "ReduceMesh1D";
+            } else if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
+                selectAlgName = "ReduceAicpuReduceNHR";
+            } else {
+                selectAlgName = "ReduceParallelMesh1DNHRPcie";
+            }
+        } else if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
             // MESH_1D 即可链接所有卡， 使用 MESH_1D 算法
             if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
                 selectAlgName = "ReduceMesh1D";
+            } else if (dataSize >= REDUCE_AICPU_1D_MAX_DATA_SIZE) {
+                selectAlgName = "ReduceMesh1DTwoShot";
             } else {
-                selectAlgName = "ReduceParallelMesh1DNHR";
+                selectAlgName = "ReduceMesh1D";
             }
         } else {
             if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
                 selectAlgName = "ReduceAicpuReduceNHR";
             } else {
-                selectAlgName = "ReduceNHR";
+                selectAlgName = "ReduceParallelMesh1DNHRUBX";
             }
         }
     } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
@@ -257,8 +270,9 @@ SelectorStatus ReduceAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDetai
         HCCL_WARNING("[ReduceAutoSelector] ReduceOp[%d] is not supported yet for aiv mode.", opParam.reduceType),
         SelectorStatus::NOT_MATCH);
 
-    if (Is64BitDataType(opParam.DataDes.dataType)) {
-        HCCL_WARNING("[ReduceAutoSelector] aiv mode not support INT64, UINT64, FP64.");
+    if (opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
+        opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_FP64) {
+        HCCL_WARNING("[ReduceAutoSelector] aiv mode not support UINT64, FP64.");
         return SelectorStatus::NOT_MATCH;
     }
 

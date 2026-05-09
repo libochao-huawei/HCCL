@@ -9,7 +9,7 @@
  */
 
 #include "ins_v2_all_gather_concurrent_executor.h"
-#include "math.h"
+#include <cmath>
 #include "alg_data_trans_wrapper.h"
 #include "hccl_res.h"
 #include "ccu_alg_template_base.h"
@@ -20,15 +20,17 @@
 
 #ifndef AICPU_COMPILE
 // CCU template 头文件
+#if !defined(HCCL_CANN_COMPAT_850)
 #include "ccu_temp_all_gather_mesh_1D.h"
 #include "ccu_temp_all_gather_nhr_1D_multi_jetty_mem2mem.h"
 #include "ccu_temp_all_gather_mesh_1D_mem2mem.h"
 
+#endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 
-constexpr u32 CLOS_PORT_NUM = 4;
-
 namespace ops_hccl {
+
+constexpr u32 CLOS_PORT_NUM = 4;
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 InsV2AllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::InsV2AllGatherConcurrentExecutor()
@@ -112,6 +114,7 @@ HcclResult InsV2AllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
             HCCL_ERROR("[InsV2AllGatherConcurrentExecutor][CalcRes] temp0Channels.size()[%zu] is not equal to temp1Channels.size()[%zu]",
                     temp0Channels.size(), temp1Channels.size()),
             HcclResult::HCCL_E_INTERNAL);
+        resourceRequest.channels.resize(1);
         resourceRequest.channels[0].insert(resourceRequest.channels[0].end(), temp0Channels.begin(),
                                            temp0Channels.end());
         resourceRequest.channels[0].insert(resourceRequest.channels[0].end(), temp1Channels.begin(),
@@ -285,7 +288,7 @@ HcclResult InsV2AllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
         scratchMemBlockSize = (maxTmpMemSize_ / HCCL_MIN_SLICE_ALIGN / totalScratchMultiple) * HCCL_MIN_SLICE_ALIGN;
     }
     u64 scratchSizeforTemp0 = ScratchMultiplier0 * scratchMemBlockSize;
-    u64 scratchSizeforTemp1 = scratchMemBlockSize - scratchSizeforTemp0;
+    u64 scratchSizeforTemp1 = maxTmpMemSize_ - scratchSizeforTemp0;
     u64 scratchOffsetforTemp0 = 0;
     u64 scratchOffsetforTemp1 = scratchSizeforTemp0;
 
@@ -358,12 +361,16 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherConc
                               TopoMatchUBX, InsTempAllGatherMesh1D, InsTempAllGatherNHR);
 
 #ifndef AICPU_COMPILE
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherConcurrentMesh1DNHRMem, InsV2AllGatherConcurrentExecutor,
     TopoMatchUBX, CcuTempAllGatherMesh1DMem2Mem, CcuTempAllGatherNHR1DMultiJettyMem2Mem);
+#endif /* !HCCL_CANN_COMPAT_850 */
 
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherConcurrentMesh1DNHR,
                                InsV2AllGatherConcurrentExecutor, TopoMatchUBX, CcuTempAllGatherMesh1D,
                                CcuTempAllGatherNHR1DMultiJettyMem2Mem);
+#endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 
 }  // namespace

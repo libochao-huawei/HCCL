@@ -67,7 +67,18 @@ HcclResult CcuTempScatterMesh1D::CalcRes(HcclComm comm, const OpParam &param, co
         return std::make_unique<CcuKernelScatterMesh1D>(arg);
     };
     std::vector<HcclChannelDesc> channelDescs;
-    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
+    if(topoInfo->level0Topo != Level0Shape::MESH_1D_CLOS) {
+        CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
+    } else {
+        std::vector<HcclChannelDesc> myChannelDescs;
+        CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks_, myChannelDescs, CommTopo::COMM_TOPO_1DMESH));
+        for(auto channel : myChannelDescs) {
+            if(channel.channelProtocol == COMM_PROTOCOL_UBC_CTP) {
+                channelDescs.push_back(channel);
+            }
+        }
+        HCCL_DEBUG("[CcuTempScatterMesh1D::CalcRes] Get Mesh Channel Success!");
+    }
     kernelInfo.kernelArg = std::make_shared<CcuKernelArgScatterMesh1D>(subCommRanks_[0].size(), mySubCommRank_,
                                                                               subCommRootId_, param, subCommRanks_);
     kernelInfo.channels = channelDescs;
@@ -82,13 +93,17 @@ HcclResult CcuTempScatterMesh1D::CalcRes(HcclComm comm, const OpParam &param, co
 
 HcclResult CcuTempScatterMesh1D::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
 {
+    if (tempFastLaunchCtx.ccuKernelSubmitInfos.size() == 0) {
+        HCCL_INFO("[CcuTempScatterMesh1D::FastLaunch] ccu kernel num is 0, just success.");
+        return HCCL_SUCCESS;
+    }
     HCCL_DEBUG("[CcuTempScatterMesh1D::FastLaunch] start");
     const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
     buffInfo_ = tempFastLaunchCtx.buffInfo;
     CcuTaskArgScatterMesh1D taskArg(
             PointerToAddr(buffInfo_.inputPtr) + args[0],
             PointerToAddr(buffInfo_.outputPtr) + args[1],
-            args[2],args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10]);
+            args[2],args[3], args[4], args[5], args[6], args[7], args[8], args[9]);
 
     void* taskArgPtr = static_cast<void*>(&taskArg);
 
@@ -119,14 +134,12 @@ HcclResult CcuTempScatterMesh1D::KernelRun(const OpParam &param, const TemplateD
     uint64_t outputRepeatStride = templateDataParams.outputRepeatStride;
     uint64_t normalSliceSize = templateDataParams.sliceSize;
     uint64_t lastSliceSize = templateDataParams.tailSize;
-
-    uint64_t isInputOutputEqual = inputAddr == outputAddr ? 1 : 0;
     uint64_t repeatNum = UINT64_MAX - repeatNumTmp;
 
     HCCL_INFO("[CcuTempScatterMesh1D] create CcuTaskArgScatterMesh1D, normalSliceSize [%u]", normalSliceSize);
     std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgScatterMesh1D>(
         inputAddr, outputAddr, token, inputSliceStride, outputSliceStride, inputRepeatStride, outputRepeatStride, normalSliceSize,
-        lastSliceSize, repeatNum, isInputOutputEqual);
+        lastSliceSize, repeatNum);
 
     void *taskArgPtr = static_cast<void *>(taskArg.get());
 
@@ -146,7 +159,6 @@ HcclResult CcuTempScatterMesh1D::KernelRun(const OpParam &param, const TemplateD
     submitInfo.cachedArgs[7]=normalSliceSize;
     submitInfo.cachedArgs[8]=lastSliceSize;
     submitInfo.cachedArgs[9]=repeatNum;
-    submitInfo.cachedArgs[10]=isInputOutputEqual;
     templateResource.submitInfos.push_back(submitInfo);
 
     return HcclResult::HCCL_SUCCESS;

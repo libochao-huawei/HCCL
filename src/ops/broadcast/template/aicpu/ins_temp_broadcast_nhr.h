@@ -66,6 +66,7 @@ private:
     HcclResult CalcDataSliceInfo(const u64 dataSize, RankSliceInfo &sliceInfoVec) const;
     u64 dataTypeSize_{0};
     std::map<u32, u32> tempVirtRankMap_;
+    bool isDmaRead_{false};
 };
 
 } // namespace Hccl

@@ -53,6 +53,7 @@ private:
     HcclResult LocalCopyToOutput(const std::vector<ThreadHandle> &threads, u32 sliceIdx);
     TemplateDataParams tempAlgParams_;
     std::map<u32, std::vector<ChannelInfo>> channels_;
+    bool isDmaRead_{false};
 };
 
 } // namespace ops_hccl

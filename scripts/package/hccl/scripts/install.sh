@@ -16,7 +16,7 @@ pkg_version_path="${curpath}/../version.info"
 install_info_old="/etc/ascend_install.info"
 run_dir="$(echo "$2" | cut -d'-' -f 3-)"
 _RUN_PKG_INFO_FILE="${curpath}""/../scene.info"
-platform_data=$(grep -e "arch" "$_RUN_PKG_INFO_FILE" | cut --only-delimited -d"=" -f2-)
+platform_data=$(grep -e "arch" "$_RUN_PKG_INFO_FILE" | cut -d"=" -f2-)
  
 . "${common_func_path}"
 . "${version_compat_func_path}"
@@ -361,7 +361,7 @@ is_valid_path() {
         if [ ! -d "${pkg_install_path}" ]; then
             local up_dir=$(dirname "${pkg_install_path}")
             if [ ! -d "${up_dir}" ]; then
-                log "ERROR" "ERR_NO:0x0003;ERR_DES:The $up_dir dose not exist, please retry a right path."
+                log "ERROR" "ERR_NO:0x0003;ERR_DES:The $up_dir does not exist, please retry a right path."
                 exit_install_log 1
             fi
         else

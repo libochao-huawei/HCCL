@@ -23,6 +23,11 @@
 
 namespace ops_hccl {
 
+constexpr u32 DIE_0 = 0;
+constexpr u32 DIE_1 = 1;
+constexpr u32 DIE_NUM_1 = 1;
+constexpr u32 DIE_NUM_2 = 2;
+
 CcuTempAlltoAllVMesh1D::CcuTempAlltoAllVMesh1D(const OpParam& param, const u32 rankId,
                                        const std::vector<std::vector<u32>> &subCommRanks)
 : CcuAlgTemplateBase(param, rankId, subCommRanks)
@@ -36,6 +41,44 @@ CcuTempAlltoAllVMesh1D::CcuTempAlltoAllVMesh1D(const OpParam& param, const u32 r
 
 CcuTempAlltoAllVMesh1D::~CcuTempAlltoAllVMesh1D()
 {
+}
+
+HcclResult CcuTempAlltoAllVMesh1D::CalcChannelRes(HcclComm comm, const OpParam& param,
+    const TopoInfoWithNetLayerDetails* topoInfo, std::vector<HcclChannelDesc>& channelDescs)
+{
+    if (topoInfo->topoLevelNums > 1) {
+        // 跨框场景全连接建链
+        CHK_RET(CalcChannelRequestMesh1DInter(comm, param, topoInfo, subCommRanks_, channelDescs));
+        CHK_RET(RestoreChannelMap(channelDescs, rankIdToChannelDesc_));
+        uint32_t enableDieNum = 0;
+        uint32_t enableDieId = 0;
+        CHK_RET(GetDieInfoFromChannelDescs(comm, rankIdToChannelDesc_, myRank_, enableDieNum, enableDieId));
+        std::vector<std::vector<HcclChannelDesc>> channelsPerDie(enableDieNum);
+        std::map<u32, u32> rank2ChannelIdx;
+        for (auto& pair : rankIdToChannelDesc_) {
+            u32 rank = pair.first;
+            if (rank == myRank_) {
+                continue;
+            }
+            if (enableDieNum == DIE_NUM_1) {
+                CHK_RET(SelectChannelToVec(comm, myRank_, rank, rankIdToChannelDesc_, enableDieId,
+                    rank2ChannelIdx, channelsPerDie[DIE_0]));
+            } else if (enableDieNum == DIE_NUM_2) {
+                CHK_RET(SelectChannelToVec(comm, myRank_, rank, rankIdToChannelDesc_, DIE_0,
+                    rank2ChannelIdx, channelsPerDie[DIE_0]));
+                CHK_RET(SelectChannelToVec(comm, myRank_, rank, rankIdToChannelDesc_, DIE_1,
+                    rank2ChannelIdx, channelsPerDie[DIE_1]));
+            }
+        }
+        // 再排个序，6口的die放前面，防止建链失败
+        if (enableDieNum > DIE_NUM_1) {
+            CHK_RET(ReverseChannelPerDieIfNeed(comm, myRank_, channelsPerDie));
+        }
+        channelDescs = channelsPerDie[DIE_0];
+    } else {
+        CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
+    }
+    return HCCL_SUCCESS;
 }
 
 HcclResult CcuTempAlltoAllVMesh1D::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
@@ -56,7 +99,7 @@ HcclResult CcuTempAlltoAllVMesh1D::CalcRes(HcclComm comm, const OpParam& param, 
                              return std::make_unique<CcuKernelAlltoAllVMesh1D>(arg);
                          };
     std::vector<HcclChannelDesc> channelDescs;
-    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
+    CHK_RET(CalcChannelRes(comm, param, topoInfo, channelDescs));
     kernelInfo.kernelArg = std::make_shared<CcuKernelArgAlltoAllVMesh1D>(subCommRanks_[0].size(),
                                                                         mySubCommRank_,
                                                                         param.isMc2, // loadFromMem_
@@ -117,8 +160,13 @@ void CcuTempAlltoAllVMesh1D::InitInsAlgTemplate(
 
 HcclResult CcuTempAlltoAllVMesh1D::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
 {
+    if (tempFastLaunchCtx.ccuKernelSubmitInfos.size() == 0) {
+        HCCL_INFO("[CcuTempAlltoAllVMesh1D::FastLaunch] ccu kernel num is 0, just success.");
+        return HCCL_SUCCESS;
+    }
     HCCL_INFO("[CcuTempAlltoAllVMesh1D::FastLaunch] start");
-    uint64_t rankSize_ = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[5];
+    const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
+    uint64_t rankSize_ = args[5];
     HcclDataType dataType_ = param.all2AllVDataDes.sendType;
     uint64_t dataTypeSize_ =  SIZE_TABLE[dataType_];
     CHK_PRT_RET(param.varMemSize != ALL_TO_ALL_V_VECTOR_NUM * rankSize_ * sizeof(u64),
@@ -154,17 +202,12 @@ HcclResult CcuTempAlltoAllVMesh1D::FastLaunch(const OpParam& param, const Templa
     }
 
     std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAlltoAllVMesh1D>(
-        PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[0],
- 	    PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[1],
-        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[2], tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[3],
-        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[4], tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[5],
-        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[6], localSendRecvInfo);
+        PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + args[0], PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + args[1],
+        args[2], args[3], args[4], args[5], args[6], localSendRecvInfo);
 
-    HCCL_INFO("[CcuTempAlltoAllVMesh1D::FastLaunch]: inputPtr[%llu], outputPtr[%llu],"
-    "srcOffset[%llu], dstOffset[%llu], rankSize[%llu], myRank[%lu]",
-    PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr), PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr),
-    tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[3], tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[4],
-    tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[5], tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[6]);
+    HCCL_INFO("[CcuTempAlltoAllVMesh1D::FastLaunch]: inputPtr[%llu], outputPtr[%llu],srcOffset[%llu],"
+        " dstOffset[%llu], rankSize[%llu], myRank[%lu]", PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr),
+        PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr), args[3], args[4], args[5], args[6]);
 
     void* taskArgPtr = static_cast<void*>(taskArg.get());
     CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0], tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr));

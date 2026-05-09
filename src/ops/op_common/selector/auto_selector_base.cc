@@ -46,6 +46,17 @@ SelectorStatus AutoSelectorBase::Select(OpParam &opParam, TopoInfoWithNetLayerDe
         return ret;
     }
     if (IsStarsState(opParam.opExecuteConfig)) {
+        // level0是PCIE混合的场景，且CLOS规模大于8，alltoall算子选择AIV_ONLY算法
+        if (topoInfo->level0PcieMix && topoInfo->level0BigClosRange &&
+            (opParam.opType == HcclCMDType::HCCL_CMD_ALLTOALL ||
+             opParam.opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
+             opParam.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC)) {
+            opParam.opExecuteConfig = OpExecuteConfig::AIV_ONLY;
+            (void)ProcessAivConfig(opParam, topoInfo, configAlgMap, selectAlgName, ret);
+            HCCL_INFO("[Algo][AutoSelectorBase] The selected algo is %s, OpExecuteConfig is %d.",
+                selectAlgName.c_str(), opParam.opExecuteConfig);
+            return ret;
+        }
         ret = SelectAicpuAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
         if (ret == SelectorStatus::MATCH) {
             opParam.opExecuteConfig = OpExecuteConfig::AICPU_TS;
@@ -76,6 +87,14 @@ bool AutoSelectorBase::IsSmallData(const u64 dataSize) const
 bool AutoSelectorBase::IsLargeData(const u64 dataSize) const
 {
     return dataSize >= LARGE_COUNT_1024KB;
+}
+
+bool AutoSelectorBase::IsSmallDataCCU(const u64 dataSize, const u64 rankSize) const
+{
+    if (rankSize == 0) {
+        HCCL_WARNING("the selector is not set RankSize");
+    } 
+    return (dataSize <= CCU_PARALLEL_MAX_DATA_SIZE) ? true : false;
 }
 
 SelectorStatus AutoSelectorBase::SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,

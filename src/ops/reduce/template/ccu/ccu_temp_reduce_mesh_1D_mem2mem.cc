@@ -64,7 +64,18 @@ HcclResult CcuTempReduceMesh1DMem2Mem::CalcRes(HcclComm comm, const OpParam& par
                              return std::make_unique<CcuKernelReduceMesh1DMem2Mem>(arg);
                          };
     std::vector<HcclChannelDesc> channelDescs;
-    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
+    if(topoInfo->level0Topo != Level0Shape::MESH_1D_CLOS) {
+        CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
+    } else {
+        std::vector<HcclChannelDesc> myChannelDescs;
+        CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks_, myChannelDescs, CommTopo::COMM_TOPO_1DMESH));
+        for(auto channel : myChannelDescs) {
+            if(channel.channelProtocol == COMM_PROTOCOL_UBC_CTP) {
+                channelDescs.push_back(channel);
+            }
+        }
+        HCCL_DEBUG("[CcuTempReduceMesh1DMem2Mem::CalcRes] Get Mesh Channel Success!");
+    }
     kernelInfo.kernelArg = std::make_shared<CcuKernelArgReduceMesh1DMem2Mem>(subCommRanks_[0].size(),
                                                                              mySubCommRank_,
                                                                              mySubCommRoot_,
@@ -82,6 +93,10 @@ HcclResult CcuTempReduceMesh1DMem2Mem::CalcRes(HcclComm comm, const OpParam& par
 
 HcclResult CcuTempReduceMesh1DMem2Mem::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
 {
+    if (tempFastLaunchCtx.ccuKernelSubmitInfos.size() == 0) {
+        HCCL_INFO("[CcuTempReduceMesh1DMem2Mem::FastLaunch] ccu kernel num is 0, just success.");
+        return HCCL_SUCCESS;
+    }
     HCCL_DEBUG("[CcuTempReduceMesh1DMem2Mem::FastLaunch] start");
     const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
     buffInfo_ = tempFastLaunchCtx.buffInfo;

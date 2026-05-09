@@ -105,6 +105,10 @@ void CcuTempAlltoAllMesh1D::InitInsAlgTemplate(
 
 HcclResult CcuTempAlltoAllMesh1D::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
 {
+    if (tempFastLaunchCtx.ccuKernelSubmitInfos.size() == 0) {
+        HCCL_INFO("[CcuTempAlltoAllMesh1D::FastLaunch] ccu kernel num is 0, just success.");
+        return HCCL_SUCCESS;
+    }
      HCCL_INFO("[CcuTempAlltoAllMesh1D::FastLaunch] start");
      std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAlltoAllMesh1D>(
         PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[0],

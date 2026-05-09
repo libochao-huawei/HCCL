@@ -22,6 +22,8 @@
 #include "executor_v2_base.h"
 #include "coll_alg_v2_exec_registry.h"
 #include "topo_match_multilevel.h"
+#include "topo_match_pcie_mix.h"
+#include "topo_match_ubx.h"
 
 namespace ops_hccl {
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
@@ -43,7 +45,7 @@ public:
 #ifndef AICPU_COMPILE
     HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *resCtx) override;
     HcclResult FastLaunchSaveCtx(const OpParam &param, const TemplateResource &templateAlgResIntra,
-                                 const TemplateResource &templateAlgResInter);
+                                 const TemplateResource &templateAlgResInter, u32 notifyNumOnMainThread);
 #endif
 protected:
     /* *************** 算法编排 *************** */
@@ -83,6 +85,9 @@ protected:
 
     std::vector<std::map<u32, std::vector<ChannelInfo>>> remoteRankToChannelInfo_;
     std::vector<ThreadHandle> threads_;
+    std::vector<std::vector<u32>> temp0HierarchyInfo_;
+    std::vector<std::vector<u32>> temp1HierarchyInfo_;
+
 };
 }  // namespace ops_hccl
 

@@ -25,7 +25,8 @@ static const struct FunLevelKType kernel_name##_kernel_type_section __attribute_
 constexpr uint64_t BUFFER_OUT_ADDR_OFFSET = 16 * 1024;
 constexpr uint64_t TOPO_ADDR_OFFSET = 32 * 1024;
 constexpr uint64_t FLAG_ADDR_OFFSET = 40 * 1024;
-constexpr uint64_t TOPO_LEN = 32;
+constexpr uint32_t AIV_FLAG_CLEAR_OFFSET = 1040 * 1024;
+constexpr uint64_t TOPO_LEN = 64;
 constexpr uint64_t TOPO_LEN_Y_OFFSET = 8;
 constexpr uint64_t TOPO_LEN_Z_OFFSET = 16;
 constexpr uint64_t IPC_SYNC_OFFSET = 500 * 1024;
@@ -96,6 +97,9 @@ constexpr uint32_t MAX_FLAG_SIZE_PER_KERNEL = 6 * MAX_RANK_SIZE * FLAG_SIZE;
 
 #define BASE_FLAG_OFFSET (MAX_FLAG_SIZE_PER_KERNEL)
 
+constexpr int32_t TAG_INIT_VALUE = 1;
+constexpr int32_t TAG_RESET_COUNT = 4096;
+
 class AivCommBase {
 public:
     __aicore__ inline AivCommBase() {
@@ -144,6 +148,7 @@ public:
         localGetTensor = localFlagBuf.GetWithOffset<int32_t>(UB_FLAG_PAD_COUNT, FLAG_FOUR_OFFSET);
         localTagTensor = localFlagBuf.GetWithOffset<int32_t>(UB_FLAG_PAD_COUNT, FLAG_FIVE_OFFSET);
         pipe.InitBuffer(inOutQue, 1, UB_MAX_DATA_SIZE);
+        GetTag(buffIn);
     }
 
     __aicore__ inline void InitBuffArray(GM_ADDR buffIn)
@@ -186,6 +191,8 @@ public:
     __aicore__ inline void WaitFlag(uint32_t targetRank, uint64_t flag_offset, int32_t curTag);
 
     __aicore__ inline void Record(uint32_t targetRank, uint64_t flag_offset, int32_t curTag);
+
+    __aicore__ inline void GetTag(GM_ADDR buffIn);
 
     GM_ADDR GM_IN[MAX_RANK_SIZE];
     GM_ADDR GM_OUT[MAX_RANK_SIZE];
@@ -295,6 +302,25 @@ __aicore__ inline uint64_t AivCommBase::CeilDiv(uint64_t a, uint64_t b)
         return a;
     }
     return (a + b - 1) / b;
+}
+
+__aicore__ inline void AivCommBase::GetTag(GM_ADDR buffIn)
+{
+    uint64_t blockIdx = GetBlockIdx();
+    LocalTensor<uint32_t> localIn = inOutQue.AllocTensor<uint32_t>();
+    GlobalTensor<uint32_t> ipcBufferGlobal;
+    ipcBufferGlobal.SetGlobalBuffer((__gm__ uint32_t*)(buffIn));
+    DataCopyGM2UB(localIn, ipcBufferGlobal[AIV_FLAG_CLEAR_OFFSET / sizeof(uint32_t)], 1);
+    pipe_barrier(PIPE_ALL);
+    tag_ = localIn.GetValue(0);
+    SyncAll<true>();
+    tag_ = (tag_ == TAG_RESET_COUNT) ? TAG_INIT_VALUE : tag_ + 1;
+    if (blockIdx == 0) {
+        localIn.SetValue(0, tag_);
+        pipe_barrier(PIPE_ALL);
+        DataCopyUB2GM(ipcBufferGlobal[AIV_FLAG_CLEAR_OFFSET / sizeof(uint32_t)], localIn, 1);
+    }
+    inOutQue.FreeTensor(localIn);
 }
 
 template<typename T>
