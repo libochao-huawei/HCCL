@@ -44,9 +44,9 @@ HcclResult CcuKernelAllReduceMesh1DOneShot::Algorithm()
     LoadArgs();  // 加载 taskArg 参数
     Presync();  // 跨卡前同步，交换参数信息
 
-    DoGroupReduce();
+    // DoGroupReduce();
 
-    // Postsync();  // 所有搬运任务结束后，跨卡后同步
+    Postsync();  // 所有搬运任务结束后，跨卡后同步
 
     HCCL_INFO("[CcuKernelAllReduceMesh1DOneShot] AllReduceMesh1DOneShot end");
     return HcclResult::HCCL_SUCCESS;
