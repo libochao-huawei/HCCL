@@ -1648,7 +1648,7 @@ HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeI
     for (auto &channel : channels) {
         OpExchangeInfo *rmtExchangeInfo = nullptr;
         uint32_t rmtDataLen = 0;
-        CHK_RET(HcclCommGetExchangeInfo(comm, channel.remoteRank, static_cast<void**>(&rmtExchangeInfo),
+        CHK_RET(HcclCommGetExchangeInfo(comm, channel.remoteRank, reinterpret_cast<void**>(&rmtExchangeInfo),
             &rmtDataLen));
         if (rmtDataLen == 0) {
             HCCL_INFO("[CompareOpExchangeInfos] rmtDataLen is 0. Skip remoteRank[%u]", channel.remoteRank);
