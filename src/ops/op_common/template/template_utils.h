@@ -234,6 +234,7 @@ struct TemplateDataParams {
     std::vector<u64> sdispls;
     std::vector<u64> rdispls;
     StepSliceInfo stepSliceInfo;
+    u64 localCopyFlag = 0;
 
     std::vector<char> Serialize() const
     {
@@ -260,6 +261,7 @@ struct TemplateDataParams {
         binaryStream << stepSliceInfo.Serialize();
         std::vector<char> result;
         binaryStream.Dump(result);
+        binaryStream << localCopyFlag;
         return result;
     }
 
@@ -288,6 +290,7 @@ struct TemplateDataParams {
         std::vector<char> stepSliceInfoData;
         binaryStream >> stepSliceInfoData;
         stepSliceInfo.DeSerialize(stepSliceInfoData);
+        binaryStream >> localCopyFlag;
     }
 };
 
@@ -432,12 +435,6 @@ HcclResult FillCachedArgs(CcuKernelSubmitInfo &info, Args... args)
 
     return HcclResult::HCCL_SUCCESS;
 }
-HcclResult CalcDataSplitByPortGroupCommon(const u64 totalDataCount,
-                                          const u64 dataTypeSize,
-                                          const std::vector<ChannelInfo> &channels,
-                                          std::vector<u64> &elemCountOut,
-                                          std::vector<u64> &sizeOut,
-                                          std::vector<u64> &elemOffset,
-                                          const u32 channelsPerRank);
+
 }
 #endif
