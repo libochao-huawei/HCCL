@@ -376,7 +376,7 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoAicpuForMesh1DClos(const
     } else if (isClosNumMultipleOfMeshNum && !IsSmallData(dataSize)) {
         selectAlgName = "InsReduceScatterParallelMesh1DNHRUBX";
     } else {
-        selectAlgName = "InsReduceScatterParallelMesh1DNHRUBX";
+        selectAlgName = "InsReduceScatterNHR";
     }
     HCCL_DEBUG("[%s] Algo match [%s]", __func__, selectAlgName.c_str());
     return SelectorStatus::MATCH;
