@@ -214,6 +214,37 @@ HcclResult ProcessLinkForProtocol(HcclComm comm, const std::vector<CommProtocol>
     return HCCL_SUCCESS;
 }
 
+HcclResult GetRankFullMeshLayers(HcclComm comm, const std::vector<std::vector<u32>>& subcommInfo, std::vector<uint32_t> netLayersVector, u32 myRank, u32 &curNetLayer)
+{
+#ifndef AICPU_COMPILE
+    for (auto netLayer : netLayersVector) {
+        bool isStainPath =  true;
+        HCCL_INFO("netlayer=%d",netLayer);
+        CommLink *linkList = nullptr;
+        u32 listSize = 0;
+        for(u32 rank: subcommInfo[COMM_LEVEL0]){
+            if (rank == myRank) {
+                continue;
+            }
+            CHK_RET(HcclRankGraphGetLinks(comm, netLayer, myRank, rank, &linkList, &listSize));
+            HCCL_INFO("dstrank = %d,listsize = %d",rank,listSize);
+            if (listSize == 0){
+                isStainPath = false;
+                break;
+            }
+        }
+        if(isStainPath) {
+            curNetLayer = netLayer;
+            HCCL_INFO("curNetLayer=%d",curNetLayer);
+            break;
+        }
+        CHK_PRT_RET((curNetLayer == 0)&& (netLayer != 0),
+            HCCL_ERROR("[GetRankFullMeshLayers] Failed to get cur netlayer myRank=%u .", myRank), HcclResult::HCCL_E_INTERNAL);
+    }
+    return HCCL_SUCCESS;
+#endif
+}
+
 HcclResult CalcChannelRequestMesh1D(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
     const std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels)
 {
@@ -228,6 +259,12 @@ HcclResult CalcChannelRequestMesh1D(HcclComm comm, const OpParam& param, const T
     u32 myRank = topoInfo->userRank;
     std::vector<CommProtocol> expectedProtocols;
     CHK_RET(GetProtocolByEngine(param, expectedProtocols));
+
+    uint32_t *netLayers, netLayerNum;
+    uint32_t curNetLayer = 0;
+    CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
+    std::vector<uint32_t> netLayersVector(netLayers, netLayers + netLayerNum);
+    CHK_RET(GetRankFullMeshLayers(comm, subcommInfo, netLayersVector, myRank, curNetLayer));
 
     for (u32 rank: subcommInfo[COMM_LEVEL0]) {
         if (rank == topoInfo->userRank) {
