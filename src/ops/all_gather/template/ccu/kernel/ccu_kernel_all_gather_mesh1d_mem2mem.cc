@@ -41,10 +41,8 @@ HcclResult CcuKernelAllGatherMesh1DMem2Mem::InitResource()
 {
     localInput_           = CreateVariable();
     uint16_t channelIdx = 0;
-    if (channels_.size() == 0) {
-        HCCL_ERROR("[CcuKernelAllGatherMesh1DMem2Mem] channels is empty!");
-        return HcclResult::HCCL_E_INTERNAL;
-    }
+    
+    CHK_PRT_RET(channels_.size() == 0, HCCL_ERROR("[CcuKernelAllGatherMesh1DMem2Mem] channels is empty!"), HCCL_E_INTERNAL);
 
     // 按照rank号从小到大遍历channels，遇到本rank就填充本地资源，否则依次取远端资源，要求给框架返回的Link同样是按顺序排列的
     for (uint64_t peerId = 0; peerId < rankSize_; peerId++) {
@@ -84,8 +82,7 @@ HcclResult CcuKernelAllGatherMesh1DMem2Mem::InitResource()
     for (uint64_t rankIdx = 0; rankIdx < rankSize_; rankIdx++) {
         if (rankIdx == rankId_) {
             dst.push_back({});
-        }
-        else {
+        } else {
             dst.push_back(CreateRemoteAddr());
         }
     }
