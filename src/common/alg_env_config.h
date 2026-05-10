@@ -65,7 +65,7 @@ struct AlgEnvConfig {
         interHccsDisable = false;
         enableEntryLog = false;
         intraRoceSwitch = 0;     // server内的通信方式 与intraPcieSwitch组合使用，默认为0
-        inconsistentCheckSwitch = 1; // 参数一致性校验开关 0：不校验；1：仅校验首算子；2：每次算子下发均校验
+        inconsistentCheckSwitch = 1; // 参数一致性校验开关 0：每次算子下发均校验；1：仅校验首算子；2：不校验
         hcclDeterministic = static_cast<u8>(DeterministicEnableLevel::DETERMINISTIC_DISABLE);// 确定性配置 0：不支持；1：支持确定性不支持规约保序；2：支持确定性&规约保序
         enableFfts = true;
         aicpuCacheEnable = 1; // 默认开启aicpu cache (只有当aicpuUnfold为true时才生效)
