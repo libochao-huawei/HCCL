@@ -105,7 +105,7 @@ private:
     std::vector<hcomm::CcuRep::Variable> input_;
     std::vector<hcomm::CcuRep::Variable> output_;
     std::vector<hcomm::CcuRep::Variable> token_;
-    std::vector<hcomm::CcuRep::Variable> scratch_;
+    CcuRep::Variable                     myScratch_;
     hcomm::CcuRep::Variable              currentRankSliceInputOffset_;
     hcomm::CcuRep::Variable              currentRankSliceOutputOffset_;
     hcomm::CcuRep::Variable              normalSliceSize_;
