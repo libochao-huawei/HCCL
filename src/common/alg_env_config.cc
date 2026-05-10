@@ -981,6 +981,10 @@ HcclResult ParseDfsConfig()
     char *dfsConfigValue = nullptr;
     MM_SYS_GET_ENV(MM_ENV_HCCL_DFS_CONFIG, dfsConfigValue);
     std::string dfsConfigEnv = (dfsConfigValue != nullptr) ? dfsConfigValue : "EmptyString";
+    if (dfsConfigEnv == "EmptyString") {
+        HCCL_INFO("[ParseDfsConfig] HCCL_DFS_CONFIG is empty.");
+        return HCCL_SUCCESS;
+    }
     dfsConfigEnv.erase(std::remove(dfsConfigEnv.begin(), dfsConfigEnv.end(), ' '), dfsConfigEnv.end());
     std::transform(dfsConfigEnv.begin(), dfsConfigEnv.end(), dfsConfigEnv.begin(), ::tolower);
 
