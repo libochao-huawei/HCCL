@@ -283,7 +283,7 @@ HcclResult InitEnvConfig()
     // 解析DfsConfig
     ret = ParseDfsConfig();
     char* dfsEnv = nullptr;
-    MM_SYS_GET_ENV(MM_ENV_HCCL_DEBUG_CONFIG, dfsEnv);
+    MM_SYS_GET_ENV(MM_ENV_HCCL_DFS_CONFIG, dfsEnv);
     std::string dfsEnvValue = (dfsEnv != nullptr) ? std::string(dfsEnv) : "null";
     RPT_ENV_ERR(ret != HCCL_SUCCESS,
         "EI0001",
