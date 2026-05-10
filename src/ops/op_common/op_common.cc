@@ -53,7 +53,7 @@ namespace ops_hccl {
 // 用于维护增量建链算子的host ctx信息
 thread_local std::map<std::string, std::unique_ptr<AlgResourceCtxSerializable>> g_hostCtx;
 thread_local std::map<AivOpCacheArgs, std::shared_ptr<InsQueue>> g_hcclCacheMap;
-thread_local std::set<std::string> g_consistencyCheckedList;
+thread_local std::set<std::string> g_inconsistentCheckedList;
 constexpr u32 HOST_WAIT_AICPU_NOTIFYIDX = 0;// host主流wait aicpu流的notify idx
 
 // 检查非对称拓扑支持情况
@@ -811,13 +811,13 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
     OpExchangeInfo exchangeInfo{};
     std::string tagStr = param.algTag;
     bool isChecked = GetInconsistentCheckSwitch() == 1 &&
-        (g_consistencyCheckedList.find(tagStr) != g_consistencyCheckedList.end());
+        (g_inconsistentCheckedList.find(tagStr) != g_inconsistentCheckedList.end());
     if (GetInconsistentCheckSwitch() == 2 || (isChecked && !increCreateChannelFlag)) {
         isChecked = true; // isChecked 为 false 时做参数比较
     } else {
         CHK_RET(FillOpExchangeInfo(comm, param, exchangeInfo));
         CHK_RET(HcclCommAddExchangeInfo(comm, &exchangeInfo, sizeof(exchangeInfo)));
-        g_consistencyCheckedList.insert(tagStr);
+        g_inconsistentCheckedList.insert(tagStr);
         isChecked = false;
     }
 
