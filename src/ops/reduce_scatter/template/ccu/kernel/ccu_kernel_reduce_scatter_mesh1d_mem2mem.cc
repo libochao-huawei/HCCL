@@ -22,6 +22,9 @@ constexpr int POST_SYNC_ID   = 3;
 // cke序号
 constexpr int CKE_IDX_0     = 0;
 
+constexpr uint16_t BIT_NUM_PER_CKE = 16;
+constexpr uint16_t GROUP_REDUCE_MAX_PIECE_CNT = 8;
+
 CcuKernelReduceScatterMesh1DMem2Mem::CcuKernelReduceScatterMesh1DMem2Mem(const CcuKernelArg &arg)
     : CcuKernelAlgBase(arg)
 {
@@ -84,8 +87,6 @@ HcclResult CcuKernelReduceScatterMesh1DMem2Mem::InitResource()
     flag_                        = CreateVariable();
     GoSize_                      = CreateGroupOpSize();
 
-    selfBit_ = 1 << rankId_;                              // 仅rankid位为1，其他位为0，代表本端准备好了
-    allBit_ = ((1 << rankSize_) - 1) & (~(1 << rankId_)); // 仅rankid位为0，其他位为1，代表远端准备好了
     remoteInput_.reserve(rankSize_);
     scratchMem_.reserve(rankSize_);
     for (uint64_t rankIdx = 0; rankIdx < rankSize_; rankIdx++) {
@@ -98,7 +99,9 @@ HcclResult CcuKernelReduceScatterMesh1DMem2Mem::InitResource()
         }
     }
 
-    event_ = CreateCompletedEvent();
+    for (uint32_t i = 0; i < ((rankSize_ + BIT_NUM_PER_CKE - 1) / BIT_NUM_PER_CKE); i++) {
+        event_.push_back(CreateCompletedEvent());
+    }
     return HcclResult::HCCL_SUCCESS;
 }
 
@@ -160,22 +163,68 @@ void CcuKernelReduceScatterMesh1DMem2Mem::DoReduceScatter()
     CCU_IF(sliceSize != 0)
     {
         for (uint32_t rankIdx = 0; rankIdx < rankSize_; rankIdx++) {
-            event_.SetMask(1 << rankIdx);
+            uint32_t eventIdx = rankIdx / BIT_NUM_PER_CKE;
+            event_[eventIdx].SetMask(1 << (rankIdx % BIT_NUM_PER_CKE));
             if (rankIdx == rankId_) {
-                RecordEvent(event_);
+                if (rankSize_ <= GROUP_REDUCE_MAX_PIECE_CNT) {
+                    RecordEvent(event_[eventIdx]);
+                } else { // 大于8p，需要将本rank数据搬运到scratch，使得scratch上的所有rank数据连续
+                    LocalCopyNb(scratchMem_[rankIdx], myInput_, sliceSize, event_[eventIdx]);
+                }
             } else {
-                ReadNb(channels_[channelId], scratchMem_[rankIdx], remoteInput_[rankIdx], sliceSize, event_);
+                ReadNb(channels_[channelId], scratchMem_[rankIdx], remoteInput_[rankIdx], sliceSize, event_[eventIdx]);
                 channelId++;
             }
         }
 
         // 等读完所有对端
-        event_.SetMask((1 << rankSize_) - 1);
-        WaitEvent(event_);
+        uint32_t eventNum = (rankSize_ + BIT_NUM_PER_CKE - 1) / BIT_NUM_PER_CKE;
+        for (uint32_t i = 0; i < eventNum; i++) {
+            uint32_t sigNum = BIT_NUM_PER_CKE;
+            if (rankSize_ % BIT_NUM_PER_CKE != 0 && i == (eventNum - 1)) {
+                // ranksize不能被BIT_NUM_PER_CKE整除，且是最后一个cke时，sigNum不为16
+                sigNum = rankSize_ % BIT_NUM_PER_CKE;
+            }
+            event_[i].SetMask((1 << sigNum) - 1);
+            WaitEvent(event_[i]);
+        }
 
-        ReduceLoopGroup(myOutput, myInput_, scratchMem_, GoSize_, dataType_, outputDataType_, reduceOp_);
+        if (rankSize_ <= GROUP_REDUCE_MAX_PIECE_CNT) {
+            ReduceLoopGroup(myOutput, myInput_, scratchMem_, GoSize_, dataType_, outputDataType_, reduceOp_);
+        } else {
+            PairwiseLocalReduce(myOutput, scratchMem_, sliceSize, dataType_, outputDataType_, reduceOp_);
+        }
+    }
+}
+
+void CcuKernelReduceScatterMesh1DMem2Mem::PairwiseLocalReduce(CcuRep::LocalAddr myOutput, std::vector<CcuRep::LocalAddr> &inputVec,
+    CcuRep::Variable sliceSize, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType)
+{
+    CcuRep::Variable len = CreateVariable();
+
+    // 每轮将数据划分为2组做规约，总规约次数log2(n)
+    uint32_t remainPieces = rankSize_;
+    while (remainPieces > 1) {
+        // 每轮将最后remain/2块，reduce到最前remian/2块
+        uint32_t reducePieces = remainPieces / 2;
+        uint32_t srcIdx = remainPieces - reducePieces;
+        uint32_t dstIdx = 0;
+        
+        len = sliceSize;
+        for (uint32_t i = 0; i < reducePieces - 1; i++) {
+            len += sliceSize;
+        }
+
+        event_[0].SetMask(1);
+        LocalReduceNb(inputVec[dstIdx], inputVec[srcIdx], len, dataType, opType, event_[0]);
+        WaitEvent(event_[0]);
+
+        remainPieces -= reducePieces;
     }
 
+    event_[0].SetMask(1);
+    LocalCopyNb(myOutput, inputVec[0], sliceSize, event_[0]);
+    WaitEvent(event_[0]);
 }
 
 void CcuKernelReduceScatterMesh1DMem2Mem::DoRepeatReduceScatter()
