@@ -87,8 +87,6 @@ HcclResult CcuKernelReduceScatterMesh1DMem2Mem::InitResource()
     flag_                        = CreateVariable();
     GoSize_                      = CreateGroupOpSize();
 
-    selfBit_ = 1 << rankId_;                              // 仅rankid位为1，其他位为0，代表本端准备好了
-    allBit_ = ((1 << rankSize_) - 1) & (~(1 << rankId_)); // 仅rankid位为0，其他位为1，代表远端准备好了
     remoteInput_.reserve(rankSize_);
     scratchMem_.reserve(rankSize_);
     for (uint64_t rankIdx = 0; rankIdx < rankSize_; rankIdx++) {

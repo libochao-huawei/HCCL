@@ -273,7 +273,11 @@ HcclResult ProcessLinkForProtocol(HcclComm comm, const std::vector<CommProtocol>
     return HCCL_SUCCESS;
 }
 
+<<<<<<< Updated upstream
 HcclResult HcclRankCommGetLayers(HcclComm comm, const std::vector<std::vector<u32>>& subcommInfo, std::vector<uint32_t> netLayersVector, u32 myRank, u32 &curNetLayer)
+=======
+HcclResult GetRankFullMeshLayers(HcclComm comm, const std::vector<std::vector<u32>>& subcommInfo, std::vector<uint32_t> netLayersVector, u32 myRank, u32 &curNetLayer)
+>>>>>>> Stashed changes
 {
 #ifndef AICPU_COMPILE
     for (auto netLayer : netLayersVector) {
@@ -298,7 +302,11 @@ HcclResult HcclRankCommGetLayers(HcclComm comm, const std::vector<std::vector<u3
             break;
         }
         CHK_PRT_RET((curNetLayer == 0)&& (netLayer != 0),
+<<<<<<< Updated upstream
             HCCL_ERROR("[HcclRankCommGetLayers] Failed to get cur netlayer myRank=%u .", myRank), HcclResult::HCCL_E_INTERNAL);
+=======
+            HCCL_ERROR("[GetRankFullMeshLayers] Failed to get cur netlayer myRank=%u .", myRank), HcclResult::HCCL_E_INTERNAL);
+>>>>>>> Stashed changes
     }
     return HCCL_SUCCESS;
 #endif
@@ -401,6 +409,7 @@ HcclResult CalcChannelRequestMesh1DInter(HcclComm comm, const OpParam& param,
                 myRank, rank), HcclResult::HCCL_E_INTERNAL);
     }
 #endif
+    return HCCL_SUCCESS;
 }
 
 HcclResult CalcChannelRequestMesh2D(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
