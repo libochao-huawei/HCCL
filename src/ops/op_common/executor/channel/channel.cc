@@ -273,7 +273,7 @@ HcclResult ProcessLinkForProtocol(HcclComm comm, const std::vector<CommProtocol>
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclRankCommGetLayers(HcclComm comm, const std::vector<std::vector<u32>>& subcommInfo, std::vector<uint32_t> netLayersVector, u32 myRank, u32 &curNetLayer)
+HcclResult GetRankFullMeshLayers(HcclComm comm, const std::vector<std::vector<u32>>& subcommInfo, std::vector<uint32_t> netLayersVector, u32 myRank, u32 &curNetLayer)
 {
 #ifndef AICPU_COMPILE
     for (auto netLayer : netLayersVector) {
@@ -298,7 +298,7 @@ HcclResult HcclRankCommGetLayers(HcclComm comm, const std::vector<std::vector<u3
             break;
         }
         CHK_PRT_RET((curNetLayer == 0)&& (netLayer != 0),
-            HCCL_ERROR("[HcclRankCommGetLayers] Failed to get cur netlayer myRank=%u .", myRank), HcclResult::HCCL_E_INTERNAL);
+            HCCL_ERROR("[GetRankFullMeshLayers] Failed to get cur netlayer myRank=%u .", myRank), HcclResult::HCCL_E_INTERNAL);
     }
     return HCCL_SUCCESS;
 #endif
@@ -323,7 +323,7 @@ HcclResult CalcChannelRequestMesh1D(HcclComm comm, const OpParam& param, const T
     uint32_t curNetLayer = 0;
     CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
     std::vector<uint32_t> netLayersVector(netLayers, netLayers + netLayerNum);
-    CHK_RET(HcclRankCommGetLayers(comm, subcommInfo, netLayersVector, myRank, curNetLayer));
+    CHK_RET(GetRankFullMeshLayers(comm, subcommInfo, netLayersVector, myRank, curNetLayer));
 
     for (u32 rank: subcommInfo[COMM_LEVEL0]) {
         if (rank == topoInfo->userRank) {

@@ -56,7 +56,7 @@ HcclResult ProcessMeshInfo(HcclComm comm,const std::vector<std::vector<u32>>& su
                         u32 enableDieNum, u32 enableDieId,
                         std::map<u32, std::vector<HcclChannelDesc>>& rankIdToChannelDesc);
 HcclResult ProcessFlattenLink(HcclComm comm, u32 myRank, const std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels);
-HcclResult HcclRankCommGetLayers(HcclComm comm, const std::vector<std::vector<u32>>& subcommInfo, std::vector<uint32_t> netLayersVector,u32 myRank,u32 &curNetLayer);
+HcclResult GetRankFullMeshLayers(HcclComm comm, const std::vector<std::vector<u32>>& subcommInfo, std::vector<uint32_t> netLayersVector,u32 myRank,u32 &curNetLayer);
 
 }
 
