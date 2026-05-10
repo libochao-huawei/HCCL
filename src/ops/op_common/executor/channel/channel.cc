@@ -401,6 +401,7 @@ HcclResult CalcChannelRequestMesh1DInter(HcclComm comm, const OpParam& param,
                 myRank, rank), HcclResult::HCCL_E_INTERNAL);
     }
 #endif
+    return HCCL_SUCCESS;
 }
 
 HcclResult CalcChannelRequestMesh2D(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
