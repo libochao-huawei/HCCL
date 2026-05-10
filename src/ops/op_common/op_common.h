@@ -96,10 +96,6 @@ HcclResult GetAlgResDPU(HcclComm comm, const OpParam &param, AlgResourceRequest 
     AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence, uint64_t& ctxSize,
     bool increCreateChannelFlag);
 
-HcclResult ParseSingleItemFromDFSConfig(const std::string &configName);
-
-HcclResult ParseInconsistentCheck(const std::string &inconsistentCheckSwitch);
-
 HcclResult FillOpExchangeInfo(HcclComm comm, const OpParam &param, OpExchangeInfo &exchangeInfo);
 
 HcclResult FillOpExchangeInfoWithDataDes(const OpParam &param, OpExchangeInfo &exchangeInfo);
