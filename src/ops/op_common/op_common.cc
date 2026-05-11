@@ -2087,7 +2087,11 @@ bool IsHostDpu(HcclComm comm)
     HcclResult ret;
     bool hostDpuOnly = false;
 
-    // 获取 serverNum
+    hccl::hcclComm *hComm = static_cast<hccl::hcclComm *>(comm);
+    if (!hComm->GetConnectMode()) {
+        return false;
+    }
+
     uint32_t *level0SizeList = nullptr;
     uint32_t level0RankListNum = 0;
     ret = HcclRankGraphGetInstSizeListByLayer(comm, static_cast<uint32_t>(HcclNetLayer::HCCL_NetLayer_L0),
