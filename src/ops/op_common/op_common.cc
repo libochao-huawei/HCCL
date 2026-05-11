@@ -1655,6 +1655,7 @@ HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeI
                     exchangeInfo.sendRecvRemoteRank, channel.remoteRank));
             }
         }
+        HCCL_INFO("[%s] success. remoteRank[%u]", __func__, channel.remoteRank);
     }
     HCCL_INFO("[%s] success. exchangeInfo.algTag[%s]", __func__, exchangeInfo.algTag);
     return HCCL_SUCCESS;
