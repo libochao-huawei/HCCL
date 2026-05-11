@@ -797,7 +797,9 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
     uint64_t size = 0;
     bool increCreateChannelFlag = false;
     CHK_RET(CtxReuseProcess(comm, param, resCtxSequence, isResourceReused, size, increCreateChannelFlag));
-    if (isResourceReused) {return HCCL_SUCCESS;}
+    if (isResourceReused) {
+        return HCCL_SUCCESS;
+    }
     // 计算AlgHierarchyInfo
     AlgHierarchyInfoForAllLevel algHierarchyInfo;  // 分级通信域信息{localRankId, localRankSize}
     CHK_RET(executor->CalcAlgHierarchyInfo(comm, topoInfo, algHierarchyInfo));
