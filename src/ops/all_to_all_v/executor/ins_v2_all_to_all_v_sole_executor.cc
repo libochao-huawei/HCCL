@@ -65,8 +65,9 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(
             }
         }
     }
+    printf("[ywj]topoInfo->topoLevelNums = %u\n", topoInfo->topoLevelNums);
     if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
-        CHK_PRT_RET(algHierarchyInfo.infos[0].size() != INST_NUM_NET,   // 1 != 2
+        CHK_PRT_RET(algHierarchyInfo.infos[0].size() != INST_NUM_NET,
                     HCCL_ERROR("[InsV2AlltoAllVSoleExecutor][CalcRes] algHierarchyInfo.infos[0].size[%zu] "
                         "with Level0Topo[%u] is not %u",
                         algHierarchyInfo.infos[0].size(), topoInfo->level0Topo, INST_NUM_NET),
