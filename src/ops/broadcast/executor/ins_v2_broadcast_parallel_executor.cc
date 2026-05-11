@@ -93,10 +93,10 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
         algTemplate0->SetRoot(intraLocalRoot_);
         algTemplate1->SetRoot(interLocalRoot_);
     }
-    algTemplate0->CalcRes(comm, param, topoInfo, intraTempRequest);
-    algTemplate1->CalcRes(comm, param, topoInfo, interTempRequest);
-    algTemplate2->CalcRes(comm, param, topoInfo, intraTempRequest1);
-    algTemplate3->CalcRes(comm, param, topoInfo, interTempRequest1); 
+    CHK_RET(algTemplate0->CalcRes(comm, param, topoInfo, intraTempRequest));
+    CHK_RET(algTemplate1->CalcRes(comm, param, topoInfo, interTempRequest));
+    CHK_RET(algTemplate2->CalcRes(comm, param, topoInfo, intraTempRequest1));
+    CHK_RET(algTemplate3->CalcRes(comm, param, topoInfo, interTempRequest1)); 
 
     for (auto &KernelInfo : intraTempRequest.ccuKernelInfos) {
         KernelInfo.resGroup = 0;

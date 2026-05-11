@@ -41,7 +41,7 @@ HcclResult InsV2AllGatherVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(Hc
     std::shared_ptr<InsAlgTemplate> algTemplate =
         std::make_shared<InsAlgTemplate>(param, topoInfo->userRank, algHierarchyInfo.infos[0]);
     // 调用计算资源的函数
-    algTemplate->CalcRes(comm, param, topoInfo, resourceRequest);
+    CHK_RET(algTemplate->CalcRes(comm, param, topoInfo, resourceRequest));
     myRank_ = topoInfo->userRank;
     return HCCL_SUCCESS;
 }

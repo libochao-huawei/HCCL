@@ -54,8 +54,8 @@ HcclResult InsV2AllReduceSequence2DieExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
     
     AlgResourceRequest resReqStepReduce;
     AlgResourceRequest resReqStepGather;
-    reduceTempAlg->CalcRes(comm, param, topoInfo, resReqStepReduce);
-    gatherTempAlg->CalcRes(comm, param, topoInfo, resReqStepGather);
+    CHK_RET(reduceTempAlg->CalcRes(comm, param, topoInfo, resReqStepReduce));
+    CHK_RET(gatherTempAlg->CalcRes(comm, param, topoInfo, resReqStepGather));
  
     // step1在完成后，完成后同步后展开step2，因此slaveThread和对应notify可以复用
     resourceRequest.slaveThreadNum = std::max(resReqStepReduce.slaveThreadNum, resReqStepGather.slaveThreadNum);

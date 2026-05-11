@@ -91,8 +91,8 @@ HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     interAlgTemplate->SetRoot(
         root_ / rankSizeLevel0_ * rankSizeLevel0_ + rankIdxLevel0_);  // 与root同框的同列rank作为新server间模板的root
 
-    intraAlgTemplate->CalcRes(comm, param, topoInfo, intraResourceRequest);
-    interAlgTemplate->CalcRes(comm, param, topoInfo, interResourceRequest);
+    CHK_RET(intraAlgTemplate->CalcRes(comm, param, topoInfo, intraResourceRequest));
+    CHK_RET(interAlgTemplate->CalcRes(comm, param, topoInfo, interResourceRequest));
 
     // 合并两个template的资源
     resourceRequest.notifyNumOnMainThread = NUM_CONTROL_THREADS;  // 用于两个template间同步
