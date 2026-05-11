@@ -74,11 +74,11 @@ HcclResult InsV2AllGatherSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, In
     resourceRequest.notifyNumPerThread.clear();
     resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, 1);
     for (u32 i = 0; i < resourceRequest.slaveThreadNum; ++i) {
-        if (i < resReqInter.notifyNumPerThread.size()) {
-            resourceRequest.notifyNumPerThread[i] = std::max(resourceRequest.notifyNumPerThread[i], resReqInter.notifyNumPerThread[i]);
-        }
         if (i < resReqIntra.notifyNumPerThread.size()) {
             resourceRequest.notifyNumPerThread[i] = std::max(resourceRequest.notifyNumPerThread[i], resReqIntra.notifyNumPerThread[i]);
+        }
+        if (i < resReqInter.notifyNumPerThread.size()) {
+            resourceRequest.notifyNumPerThread[i] = std::max(resourceRequest.notifyNumPerThread[i], resReqInter.notifyNumPerThread[i]);
         }
     }
     resourceRequest.notifyNumOnMainThread = std::max(resReqIntra.notifyNumOnMainThread, resReqInter.notifyNumOnMainThread);

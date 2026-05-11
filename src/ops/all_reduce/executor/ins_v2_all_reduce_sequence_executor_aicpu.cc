@@ -127,9 +127,9 @@ HcclResult InsV2AllReduceSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, In
     rankSize_ = resCtx.topoInfo.userRankSize;
 
     dataCount_ = param.DataDes.count;
-    dataTypeSize_ =  SIZE_TABLE[param.DataDes.dataType];
     dataSize_ = dataCount_ * dataTypeSize_;
     dataType_ = param.DataDes.dataType;
+    dataTypeSize_ =  SIZE_TABLE[param.DataDes.dataType];
     reduceOp_ = param.reduceType;
     algHierarchyInfo_ = resCtx.algHierarchyInfo;
     threads_ = resCtx.threads;
@@ -344,8 +344,7 @@ HcclResult InsV2AllReduceSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, In
     TemplateDataParams tempAlgParamsStepThree; // 框间AllGatherNhr的模板参数
     TemplateDataParams tempAlgParamsStepFour; // 框内AllGatherMesh1D的模板参数
     // 填充buff类型和buff指针参数
-    GenBaseTempAlgParams(param, resCtx, tempAlgParamsStepOne, tempAlgParamsStepTwo,
-        tempAlgParamsStepThree, tempAlgParamsStepFour);
+    GenBaseTempAlgParams(param, resCtx, tempAlgParamsStepOne, tempAlgParamsStepTwo, tempAlgParamsStepThree, tempAlgParamsStepFour);
 
     // 构建框内ReduceScatterMesh1D的template
     std::shared_ptr<InsAlgTemplate0> algTemplateStepOne =

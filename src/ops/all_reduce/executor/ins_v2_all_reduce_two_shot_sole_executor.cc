@@ -28,8 +28,8 @@ HcclResult InsV2AllReduceTwoShotSoleExecutor<AlgTopoMatch, InsAlgTemplate0, InsA
     myRank_ = topoInfo->userRank;
     rankSize_ = topoInfo->userRankSize;
     reduceOp_ = param.reduceType;
-    dataType_ = param.DataDes.dataType;
     dataCount_ = param.DataDes.count;
+    dataType_ = param.DataDes.dataType;
     dataTypeSize_ = SIZE_TABLE[param.DataDes.dataType];
 
     algHierarchyInfo_ = algHierarchyInfo;
