@@ -252,7 +252,7 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     std::vector<std::vector<u32>> tempAlgHierachyInfo;
     if (resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS && !resCtx.topoInfo.level0PcieMix) {
         if (topoInfo->topoLevelNums == 1 ) {
-            tempAlgHierachyInfo = resCtx.algHierarchyInfo.infos[0][1];
+            tempAlgHierachyInfo = {resCtx.algHierarchyInfo.infos[0][1]};
         } else {
             tempAlgHierachyInfo = resCtx.algHierarchyInfo.infos[1];
         }
