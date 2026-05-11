@@ -165,10 +165,10 @@ inline std::string GetDataTypeEnumStr(u32 dataType)
 // 新增：OpMode枚举转字符串，适配存储为整型的枚举值
 inline const char* GetOpModeStr(u32 opMode) noexcept
 {
-    switch (static_cast<OpMode>(opMode))
+    switch (opMode)
     {
-        case OpMode::OPBASE: return "OPBASE";
-        case OpMode::OFFLOAD: return "OFFLOAD";
+        case 0: return "OPBASE";
+        case 1: return "OFFLOAD";
         default: return "unknown";
     }
 }
