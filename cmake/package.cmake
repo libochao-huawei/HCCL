@@ -92,12 +92,12 @@ function(pack_built_in)
   )
 
   set(SCRIPTS_FILES
-      ${CMAKE_SOURCE_DIR}/scripts/package/common/sh/check_version_required.awk
-      ${CMAKE_SOURCE_DIR}/scripts/package/common/sh/common_func.inc
-      ${CMAKE_SOURCE_DIR}/scripts/package/common/sh/common_interface.bash
-      ${CMAKE_SOURCE_DIR}/scripts/package/common/sh/common_interface.csh
-      ${CMAKE_SOURCE_DIR}/scripts/package/common/sh/common_interface.fish
-      ${CMAKE_SOURCE_DIR}/scripts/package/common/sh/version_compatiable.inc
+      ${CANN_CMAKE_DIR}/scripts/install/check_version_required.awk
+      ${CANN_CMAKE_DIR}/scripts/install/common_func.inc
+      ${CANN_CMAKE_DIR}/scripts/install/common_interface.sh
+      ${CANN_CMAKE_DIR}/scripts/install/common_interface.csh
+      ${CANN_CMAKE_DIR}/scripts/install/common_interface.fish
+      ${CANN_CMAKE_DIR}/scripts/install/version_compatiable.inc
       ${CMAKE_SOURCE_DIR}/scripts/package/common/py/merge_binary_info_config.py
   )
 
@@ -106,25 +106,25 @@ function(pack_built_in)
       COMPONENT hccl
   )
   set(COMMON_FILES
-      ${CMAKE_SOURCE_DIR}/scripts/package/common/sh/install_common_parser.sh
-      ${CMAKE_SOURCE_DIR}/scripts/package/common/sh/common_func_v2.inc
-      ${CMAKE_SOURCE_DIR}/scripts/package/common/sh/common_installer.inc
-      ${CMAKE_SOURCE_DIR}/scripts/package/common/sh/script_operator.inc
-      ${CMAKE_SOURCE_DIR}/scripts/package/common/sh/version_cfg.inc
+      ${CANN_CMAKE_DIR}/scripts/install/install_common_parser.sh
+      ${CANN_CMAKE_DIR}/scripts/install/common_func_v2.inc
+      ${CANN_CMAKE_DIR}/scripts/install/common_installer.inc
+      ${CANN_CMAKE_DIR}/scripts/install/script_operator.inc
+      ${CANN_CMAKE_DIR}/scripts/install/version_cfg.inc
   )
 
   set(PACKAGE_FILES
       ${COMMON_FILES}
-      ${CMAKE_SOURCE_DIR}/scripts/package/common/sh/multi_version.inc
+      ${CANN_CMAKE_DIR}/scripts/install/multi_version.inc
   )
   set(LATEST_MANGER_FILES
       ${COMMON_FILES}
-      ${CMAKE_SOURCE_DIR}/scripts/package/common/sh/common_func.inc
-      ${CMAKE_SOURCE_DIR}/scripts/package/common/sh/version_compatiable.inc
-      ${CMAKE_SOURCE_DIR}/scripts/package/common/sh/check_version_required.awk
+      ${CANN_CMAKE_DIR}/scripts/install/common_func.inc
+      ${CANN_CMAKE_DIR}/scripts/install/version_compatiable.inc
+      ${CANN_CMAKE_DIR}/scripts/install/check_version_required.awk
   )
   set(CONF_FILES
-      ${CMAKE_SOURCE_DIR}/scripts/package/common/cfg/path.cfg
+      ${CANN_CMAKE_DIR}/scripts/package/cfg/path.cfg
   )
 
   install(FILES ${CMAKE_BINARY_DIR}/version.hccl.info
