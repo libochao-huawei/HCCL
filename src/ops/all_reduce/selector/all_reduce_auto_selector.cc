@@ -10,6 +10,7 @@
 
 #include "all_reduce_auto_selector.h"
 #include "selector_registry.h"
+#include "op_common.h"
 
 namespace ops_hccl {
 constexpr u64 RS_MAX_DATA_SIZE = 16 * 1024 * 1024;
@@ -455,8 +456,14 @@ SelectorStatus AllReduceAutoSelector::SelectDPUAlgo(const TopoInfoWithNetLayerDe
             HCCL_INFO("Using algo InsAllReduceSequenceMeshNhrDPU");
             return SelectorStatus::MATCH;
         } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-            selectAlgName = "InsV2AllReduceOmniPipe";
-            HCCL_INFO("Using algo InsV2AllReduceOmniPipe");
+            bool isSupportNda = false;
+            if ((CheckSupportNda(opParam.hcclComm, topoInfo, isSupportNda) == HCCL_SUCCESS) && isSupportNda) {
+                selectAlgName = "InsV2AllReduceNdaOmniPipe";
+                HCCL_INFO("Using algo InsV2AllReduceNdaOmniPipe");
+            } else {
+                selectAlgName = "InsV2AllReduceOmniPipe";
+                HCCL_INFO("Using algo InsV2AllReduceOmniPipe");
+            }
             return SelectorStatus::MATCH;
         }
     }

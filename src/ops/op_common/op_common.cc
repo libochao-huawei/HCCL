@@ -47,6 +47,7 @@
 #include "dlhcomm_function.h"
 #include "hcomm_diag_dl.h"
 #include "hcom.h"
+#include "hccl/hccl_res.h"
 
 namespace ops_hccl {
 // 用于维护增量建链算子的host ctx信息
@@ -1087,15 +1088,24 @@ HcclResult HcclGetChannel(HcclComm comm, const OpParam &param, AlgResourceReques
         std::vector<HcclChannelDesc> &levelNChannelRequest = resRequest.channels[level];
         std::vector<HcclChannelDesc> deviceChannelRequest;
         std::vector<HcclChannelDesc> hostChannelRequest;
+        std::vector<HcclChannelDesc> ndaChannelRequest;
         for (auto &channelRequest : levelNChannelRequest) {
             if (channelRequest.remoteEndpoint.loc.locType == ENDPOINT_LOC_TYPE_DEVICE) {
                 deviceChannelRequest.emplace_back(channelRequest);
             } else if (channelRequest.remoteEndpoint.loc.locType == ENDPOINT_LOC_TYPE_HOST) {
-                hostChannelRequest.emplace_back(channelRequest);
+                bool isSupportNda = false;
+                CHK_RET(HcclIsSupportNda(&channelRequest.remoteEndpoint, &isSupportNda));
+                if (isSupportNda) {
+                    ndaChannelRequest.emplace_back(channelRequest);
+                } else {
+                    hostChannelRequest.emplace_back(channelRequest);
+                }
             }
         }
         // device建链
         CHK_RET(HcclGetChannelImpl(level, comm, param, deviceChannelRequest, COMM_ENGINE_AICPU_TS, resCtxHost, memRegInfo));
+        // host nda建链
+        CHK_RET(HcclGetChannelImpl(level, comm, param, ndaChannelRequest, COMM_ENGINE_AICPU_TS, resCtxHost, memRegInfo));
         // host建链
         CHK_RET(HcclGetChannelImpl(level, comm, param, hostChannelRequest, COMM_ENGINE_CPU, resCtxHost, memRegInfo));
 
@@ -2059,6 +2069,72 @@ HcclResult CheckHostDPUOnly(const HcclComm comm, const TopoInfoWithNetLayerDetai
         HCCL_INFO("Using host dpu trans.");
         hostDPUOnly = true;
     }
+    return HCCL_SUCCESS;
+}
+
+HcclResult CheckSupportNda(const HcclComm comm, const TopoInfoWithNetLayerDetails* topoInfo, bool &isSupportNda)
+{
+    isSupportNda = false;
+    HCCL_INFO("Start CheckSupportNda");
+
+    if (topoInfo->topoLevelNums == 1) {
+        HCCL_INFO("Not support NDA because topoLevelNums is 1");
+        return HCCL_SUCCESS;
+    }
+
+    uint32_t *netLayers = nullptr;
+    uint32_t netLayerNum = 0;
+    CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
+    if ((netLayers == nullptr) || (netLayerNum == 0)) {
+        HCCL_WARNING("HcclRankGraphGetLayers fail");
+        return HCCL_E_INTERNAL;
+    }
+
+    for (uint32_t layerIdx = 0; layerIdx < netLayerNum; layerIdx++) {
+        uint32_t netLayer = netLayers[layerIdx];
+        if (netLayer < (topoInfo->topoLevelNums - 1)) {
+            HCCL_INFO("Skip checking layer[%u], topoLevelNums is [%u]", netLayer, topoInfo->topoLevelNums);
+            continue;
+        }
+        uint32_t *topoInsts = nullptr;
+        uint32_t topoInsNum = 0;
+        CHK_RET(HcclRankGraphGetTopoInstsByLayer(comm, netLayer, &topoInsts, &topoInsNum));
+        if ((topoInsts == nullptr) || (topoInsNum == 0)) {
+            HCCL_WARNING("HcclRankGraphGetTopoInstsByLayer fail, netLayer[%u]", netLayer);
+            return HCCL_E_INTERNAL;
+        }
+        for (uint32_t topoInsIdx = 0; topoInsIdx < topoInsNum; topoInsIdx++) {
+            uint32_t topoInstId = topoInsts[topoInsIdx];
+            CommTopo topoType;
+            CHK_RET(HcclRankGraphGetTopoType(comm, netLayer, topoInstId, &topoType));
+            if (topoType != COMM_TOPO_CLOS) {
+                continue;
+            }
+            uint32_t *ranks = nullptr;
+            uint32_t rankNum = 0;
+            CHK_RET(HcclRankGraphGetRanksByTopoInst(comm, netLayer, topoInstId, &ranks, &rankNum));
+            if (rankNum != topoInfo->userRankSize) {
+                continue;
+            }
+            uint32_t endPointNums = 0;
+            CHK_RET(HcclRankGraphGetEndpointNum(comm, netLayer, topoInstId, &endPointNums));
+            EndpointDesc endPointDescs[endPointNums];
+            CHK_RET(HcclRankGraphGetEndpointDesc(comm, netLayer, topoInstId, &endPointNums, endPointDescs));
+            for (uint32_t endPointIdx = 0; endPointIdx < endPointNums; endPointIdx++) {
+                if (endPointDescs[endPointIdx].loc.locType == ENDPOINT_LOC_TYPE_HOST) {
+                    bool supportNda = false;
+                    CHK_RET(HcclIsSupportNda(&endPointDescs[endPointIdx], &supportNda));
+                    if (supportNda) {
+                        HCCL_INFO("Support NDA in netLayer[%u] topoInstId[%u] endPointIdx[%u]",
+                            netLayer, topoInstId, endPointIdx);
+                        isSupportNda = true;
+                        return HCCL_SUCCESS;
+                    }
+                }
+            }
+        }
+    }
+    HCCL_INFO("Not support NDA after checking all endpoints in last level");
     return HCCL_SUCCESS;
 }
 

@@ -173,6 +173,8 @@ HcclResult SetMultipleDimensionSplitRatio(OpParam &param);
 
 HcclResult CheckHostDPUOnly(const HcclComm comm, const TopoInfoWithNetLayerDetails* topoInfo, bool &hostDPUOnly);
 
+HcclResult CheckSupportNda(const HcclComm comm, const TopoInfoWithNetLayerDetails* topoInfo, bool &isSupportNda);
+
 HcclResult SetExecTimeout(OpParam &param);
 }  // namespace ops_hccl
 
