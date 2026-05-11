@@ -22,8 +22,16 @@ SelectorStatus AutoSelectorBase::Select(OpParam &opParam, TopoInfoWithNetLayerDe
     SelectorStatus ret = SelectorStatus::NOT_MATCH;
     bool hostDPUOnly = false;
     if ((CheckHostDPUOnly(opParam.hcclComm, topoInfo, hostDPUOnly) == HCCL_SUCCESS) && hostDPUOnly) {
-        opParam.opExecuteConfig = OpExecuteConfig::HOSTCPU;
-        opParam.engine = CommEngine::COMM_ENGINE_CPU;
+        bool isSupportNda = false;
+        // 仅支持AllReduce算子的NDA模式
+        if (opParam.opType == HcclCMDType::HCCL_CMD_ALLREDUCE &&
+            (CheckSupportNda(opParam.hcclComm, topoInfo, isSupportNda) == HCCL_SUCCESS) && isSupportNda) {
+            opParam.opExecuteConfig = OpExecuteConfig::AICPU_TS;
+            opParam.engine = CommEngine::COMM_ENGINE_AICPU_TS;
+        } else {
+            opParam.opExecuteConfig = OpExecuteConfig::HOSTCPU;
+            opParam.engine = CommEngine::COMM_ENGINE_CPU;
+        }
         return SelectDPUAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
     }
     if (opParam.opExecuteConfig == OpExecuteConfig::CCU_MS) {
