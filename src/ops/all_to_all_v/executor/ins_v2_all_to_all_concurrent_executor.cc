@@ -119,6 +119,7 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
                                               resReq1.ccuKernelInfos.begin(),
                                               resReq1.ccuKernelInfos.end());
     } else if (param.engine == CommEngine::COMM_ENGINE_AICPU || param.engine == CommEngine::COMM_ENGINE_AICPU_TS) {
+        resourceRequest.channels.resize(1);
         resourceRequest.channels[0].insert(resourceRequest.channels[0].end(),
                                               channelDescs0.begin(),
                                               channelDescs0.end());
