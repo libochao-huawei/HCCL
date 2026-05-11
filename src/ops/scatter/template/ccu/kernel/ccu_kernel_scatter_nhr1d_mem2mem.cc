@@ -18,6 +18,7 @@ using namespace hcomm;
 constexpr uint16_t SCRATCH_XN_ID = 1;  // Scratch缓冲区变量ID
 constexpr uint16_t TOKEN_XN_ID = 2;    // Token变量ID
 constexpr uint16_t STEP_POST_SYNC_ID = 3;
+constexpr uint16_t POST_SYNC_ID = 4;
 
 // CKE索引定义：用于标识不同类型的同步信号
 constexpr uint16_t CKE_IDX_0 = 0;  // 后同步
@@ -162,6 +163,17 @@ void CcuKernelScatterNHR1DMem2Mem::PreSync()
         NotifyWait(channel, CKE_IDX_0, allBit);
     }
     HCCL_INFO("[CcuKernelScatterNHR1DMem2Mem] PreSync end");
+}
+
+void CcuKernelScatterNHR1DMem2Mem::PostSync()
+{
+    for (auto channel : channels_) {  // 通知所有通道操作完成
+        NotifyRecord(channel, CKE_IDX_0, 1 << POST_SYNC_ID);
+    }
+    for (auto channel : channels_) {
+        NotifyWait(channel, CKE_IDX_0, 1 << POST_SYNC_ID);
+    }
+    return;
 }
 
 void CcuKernelScatterNHR1DMem2Mem::DoScatterNHR()
