@@ -80,22 +80,22 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
             }
         }
     }
-    printf("[ywj]%s:%s:%u", __FILE__, __FUNCTION__, __LINE__);
+    printf("[ywj]%s:%s:%u\n", __FILE__, __FUNCTION__, __LINE__);
     // 获取子通信域
     std::vector<std::vector<u32>> subCommRanks0 = {algHierarchyInfo.infos[0][0]};
     std::vector<std::vector<u32>> subCommRanks1 = {algHierarchyInfo.infos[0][1]};
-    printf("[ywj]%s:%s:%u", __FILE__, __FUNCTION__, __LINE__);
+    printf("[ywj]%s:%s:%u\n", __FILE__, __FUNCTION__, __LINE__);
     // 构建template
     std::shared_ptr<InsAlgTemplate0> interTempAlg0 = std::make_shared<InsAlgTemplate0>(param, topoInfo->userRank,
                                                                                        subCommRanks0);
     std::shared_ptr<InsAlgTemplate1> intraTempAlg1 = std::make_shared<InsAlgTemplate1>(param, topoInfo->userRank,
                                                                                        subCommRanks1);
-    printf("[ywj]%s:%s:%u", __FILE__, __FUNCTION__, __LINE__);
+    printf("[ywj]%s:%s:%u\n", __FILE__, __FUNCTION__, __LINE__);
     // 调用计算资源的函数
     AlgResourceRequest resReq0, resReq1;
     interTempAlg0->CalcRes(comm, param, topoInfo, resReq0);
     intraTempAlg1->CalcRes(comm, param, topoInfo, resReq1);
-    printf("[ywj]%s:%s:%u", __FILE__, __FUNCTION__, __LINE__);
+    printf("[ywj]%s:%s:%u\n", __FILE__, __FUNCTION__, __LINE__);
     // temp0的主流负责和temp1主流同步
     resourceRequest.slaveThreadNum = resReq0.slaveThreadNum + resReq1.slaveThreadNum + 1;   // +1用于temp0和temp1主流之间的同步流
     resourceRequest.notifyNumOnMainThread = resReq0.notifyNumOnMainThread + 1;              // +1用于2个template间同步
@@ -108,13 +108,13 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
     resourceRequest.notifyNumPerThread.insert(resourceRequest.notifyNumPerThread.end(),
                                             resReq1.notifyNumPerThread.begin(),
                                             resReq1.notifyNumPerThread.end());
-    printf("[ywj]%s:%s:%u", __FILE__, __FUNCTION__, __LINE__);
+    printf("[ywj]%s:%s:%u\n", __FILE__, __FUNCTION__, __LINE__);
     std::vector<HcclChannelDesc> channelDescs0, channelDescs1;
     CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks0,
                                                     channelDescs0, CommTopo::COMM_TOPO_1DMESH));
     CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks1,
                                                     channelDescs1, CommTopo::COMM_TOPO_CLOS));
-    printf("[ywj]%s:%s:%u", __FILE__, __FUNCTION__, __LINE__);
+    printf("[ywj]%s:%s:%u\n", __FILE__, __FUNCTION__, __LINE__);
     if ((param.engine == CommEngine::COMM_ENGINE_CCU)) {
         resReq0.ccuKernelInfos[0].channels = channelDescs0;
         resReq1.ccuKernelInfos[0].channels = channelDescs1;
@@ -127,16 +127,16 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
                                               resReq1.ccuKernelInfos.begin(),
                                               resReq1.ccuKernelInfos.end());
     } else if (param.engine == CommEngine::COMM_ENGINE_AICPU || param.engine == CommEngine::COMM_ENGINE_AICPU_TS) {
-        printf("[ywj]%s:%s:%u", __FILE__, __FUNCTION__, __LINE__);
+        printf("[ywj]%s:%s:%u\n", __FILE__, __FUNCTION__, __LINE__);
         resourceRequest.channels.resize(1);
         resourceRequest.channels[0].insert(resourceRequest.channels[0].end(),
                                               channelDescs0.begin(),
                                               channelDescs0.end());
-        printf("[ywj]%s:%s:%u", __FILE__, __FUNCTION__, __LINE__);
+        printf("[ywj]%s:%s:%u\n", __FILE__, __FUNCTION__, __LINE__);
         resourceRequest.channels[0].insert(resourceRequest.channels[0].end(),
                                               channelDescs1.begin(),
                                               channelDescs1.end());
-        printf("[ywj]%s:%s:%u", __FILE__, __FUNCTION__, __LINE__);
+        printf("[ywj]%s:%s:%u\n", __FILE__, __FUNCTION__, __LINE__);
     } else {
         HCCL_ERROR("[InsV2AllToAllConcurrentExecutor][CalcRes] the communication engine is not supported currently"
                     ", please check");
