@@ -18,7 +18,7 @@
 #include "ccu_kernel_utils.h"
 #include "ccu_kernel_alg_base.h"
 
-namespace ops_hccl {
+namespace ops_hccl { 
 using namespace hcomm;
 
 class CcuKernelArgReduceScatterMesh1DMem2Mem : public CcuKernelArg {
@@ -76,6 +76,45 @@ public:
     uint64_t normalSliceSize_;
     uint64_t lastSliceSize_;
     uint64_t repeatNum_;
+};
+struct ReduceScatterMesh1DMem2MemContext {
+    const ReduceScatterKernelArg *arg;
+
+    CcuVariable input[RS_MAX_RANK_SIZE];
+    CcuVariable scratch[RS_MAX_RANK_SIZE];
+    CcuVariable token[RS_MAX_RANK_SIZE];
+    CcuVariable output;
+    CcuVariable currentRankSliceInputOffset;
+    CcuVariable currentRankSliceOutputOffset;
+    CcuVariable normalSliceSize;
+    CcuVariable lastSliceSize;
+    CcuVariable inputRepeatStride;
+    CcuVariable outputRepeatStride;
+    CcuVariable repeatNum;
+    CcuVariable flag;
+    GroupOpSizeVars goSize;
+
+    uint16_t selfBit;
+    uint16_t allBit;
+
+    ccu::LocalAddr  myInput;
+    ccu::RemoteAddr remoteInput[RS_MAX_RANK_SIZE];
+    ccu::LocalAddr  scratchMem[RS_MAX_RANK_SIZE];
+    CcuEvent      event;
+
+    LoopGroupConfig  moConfig;
+    LoopGroupResource moRes;
+    bool resourceAllocated;
+
+    CcuLoop reduceLoops[2];
+    bool loopRegistered;
+
+    // Loop body 中的外部 LocalAddr（每个 loop index 各两组）
+    ccu::LocalAddr loopDst[2];
+    ccu::LocalAddr loopSrc[2];
+    ccu::LocalAddr loopScratch[2][RS_MAX_RANK_SIZE];
+    CcuVariable  loopLen[2];
+    CcuVariable  loopLenExp[2];
 };
 
 class CcuKernelReduceScatterMesh1DMem2Mem : public CcuKernelAlgBase {
