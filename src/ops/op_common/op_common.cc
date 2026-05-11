@@ -1657,7 +1657,7 @@ HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeI
         }
         HCCL_INFO("[%s] success. remoteRank[%u]", __func__, channel.remoteRank);
     }
-    HCCL_INFO("[%s] success. exchangeInfo.algTag[%s]", __func__, exchangeInfo.algTag);
+    HCCL_INFO("[%s] all checks successful. algTag[%s]", __func__, exchangeInfo.algTag);
     return HCCL_SUCCESS;
 }
 
