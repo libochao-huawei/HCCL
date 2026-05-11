@@ -1038,8 +1038,8 @@ HcclResult ParseInconsistentCheckSwitch(const std::string &inconsistentCheckSwit
         HCCL_ERROR("[ParseInconsistentCheckSwitch] invalid value[%s].", inconsistentCheckSwitch.c_str());
         return HCCL_E_PARA;
     }
-    HCCL_INFO("[ParseInconsistentCheckSwitch] success. set item[%s] value[%d]", inconsistentCheckSwitch.c_str(),
-        g_algEnvConfig.inconsistentCheckSwitch);
+    HCCL_INFO("[ParseInconsistentCheckSwitch] set by environment to [%s], inconsistentCheckSwitch[%d]",
+        inconsistentCheckSwitch.c_str(), g_algEnvConfig.inconsistentCheckSwitch);
     return HCCL_SUCCESS;
 }
 
