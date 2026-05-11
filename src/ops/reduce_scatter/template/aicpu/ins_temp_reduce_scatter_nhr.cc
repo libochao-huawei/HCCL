@@ -186,12 +186,11 @@ HcclResult InsTempReduceScatterNHR::PostLocalCopy(const std::vector<ThreadHandle
                               + rpt * tempAlgParams_.outputRepeatStride;
         const u64 scratchBase = tempAlgParams_.buffInfo.hcclBuffBaseOff
                               + rpt * tempAlgParams_.outputRepeatStride;
-        if (doPreCopy_) {
-            // 如果做了前拷贝，则数据在ccl上紧密排列，按照sliceSize跳过间隔
-            const u64 scOff  = scratchBase + tempAlgParams_.sliceSize * myAlgIdx + elemOffset[channelIdx];
-        } else {
+        // 如果做了前拷贝，则数据在ccl上紧密排列，按照sliceSize跳过间隔
+        u64 scOff = scratchBase + tempAlgParams_.sliceSize * myAlgIdx + elemOffset[channelIdx];
+        if (!doPreCopy_) {
             // 如果没做前拷贝，则ccl buffer继承input相关的所有参数，按照inputSliceStride跳过间隔
-            const u64 scOff  = scratchBase + tempAlgParams_.inputSliceStride * myAlgIdx + elemOffset[channelIdx];
+            scOff = scratchBase + tempAlgParams_.inputSliceStride * myAlgIdx + elemOffset[channelIdx];
         }
         const u64 outOff = outBaseOff + myAlgIdx * tempAlgParams_.outputSliceStride + elemOffset[channelIdx]; 
 
@@ -262,14 +261,13 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
                     elemOffsetTail_[channelIdx] : elemOffset_[channelIdx];
                 const u64 rxelemOffset = (rxIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize > 0) ?
                     elemOffsetTail_[channelIdx] : elemOffset_[channelIdx];
-                if (doPreCopy_) {
-                    // 如果做了前拷贝，则数据在ccl上紧密排列，按照sliceSize跳过间隔
-                    const u64 txScOff = scratchBase + tempAlgParams_.sliceSize * txIdx + txelemOffset;
-                    const u64 rxScOff = scratchBase + tempAlgParams_.sliceSize * rxIdx + rxelemOffset;
-                } else {
+                // 如果做了前拷贝，则数据在ccl上紧密排列，按照sliceSize跳过间隔
+                u64 txScOff = scratchBase + tempAlgParams_.sliceSize * txIdx + txelemOffset;
+                u64 rxScOff = scratchBase + tempAlgParams_.sliceSize * rxIdx + rxelemOffset;
+                if (!doPreCopy_) {
                     // 如果没做前拷贝，则ccl buffer继承input相关的所有参数，按照inputSliceStride跳过间隔
-                    const u64 txScOff = scratchBase + tempAlgParams_.inputSliceStride * txIdx + txelemOffset;
-                    const u64 rxScOff = scratchBase + tempAlgParams_.inputSliceStride * rxIdx + rxelemOffset;
+                    txScOff = scratchBase + tempAlgParams_.inputSliceStride * txIdx + txelemOffset;
+                    rxScOff = scratchBase + tempAlgParams_.inputSliceStride * rxIdx + rxelemOffset;
                 }
 
                 const u64 txSliceSize = (txIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize > 0) ?
