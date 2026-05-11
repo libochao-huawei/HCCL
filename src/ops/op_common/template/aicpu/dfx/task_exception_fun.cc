@@ -94,11 +94,19 @@ HcclResult ConvertToHcclDfxOpInfo(OpParam *param, HcclDfxOpInfo *hcclDfxOpInfo)
     CHK_PRT_RET(sRet != EOK, HCCL_ERROR("%s call strncpy_s failed, param.algTag %s,  return %d.", __func__, param->algTag, sRet), HCCL_E_MEMORY);
     hcclDfxOpInfo->cpuWaitAicpuNotifyIdx = param->aicpuRecordCpuIdx;
 
-    HCCL_INFO("[%s]HcclDfxOpInfo param: algTag[%s], opMode[%u], opType[%u], reduceOp[%u], dataType[%u], dataCount[%llu],"
-        "root[%u], engine[%u], cpuTsThread[%u], cpuWaitAicpuNotifyIdx[%u]",
-        __func__, hcclDfxOpInfo->algTag, hcclDfxOpInfo->opMode, hcclDfxOpInfo->opType, hcclDfxOpInfo->reduceOp,
-        hcclDfxOpInfo->dataType, hcclDfxOpInfo->dataCount, hcclDfxOpInfo->root, hcclDfxOpInfo->engine,
-        hcclDfxOpInfo->cpuTsThread, hcclDfxOpInfo->cpuWaitAicpuNotifyIdx);
+    HCCL_INFO("[%s]HcclDfxOpInfo param: algTag[%s], opMode[%s], opType[%s], reduceOp[%s], dataType[%s], dataCount[%llu],"
+        "root[%u], engine[%s], cpuTsThread[%u], cpuWaitAicpuNotifyIdx[%u]",
+        __func__, hcclDfxOpInfo->algTag,
+        GetOpModeStr(hcclDfxOpInfo->opMode),
+        GetHcclCMDTypeStr(hcclDfxOpInfo->opType),
+        GetHcclReduceOpStr(hcclDfxOpInfo->reduceOp),
+        GetHcclDataTypeStr(hcclDfxOpInfo->dataType),
+        hcclDfxOpInfo->dataCount,
+        hcclDfxOpInfo->root,
+        GetCommEngineStr(hcclDfxOpInfo->engine),
+        hcclDfxOpInfo->cpuTsThread,
+        hcclDfxOpInfo->cpuWaitAicpuNotifyIdx);
+
     return HCCL_SUCCESS;
 }
 }
