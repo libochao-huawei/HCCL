@@ -432,6 +432,10 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, InsAlltoAllMesh1D, InsV2AlltoAl
     InsTempAlltoAllVMesh1D);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, InsAlltoAllVMesh1D, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
     InsTempAlltoAllVMesh1D);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, InsAlltoAllMesh1DUBX, InsV2AlltoAllVSoleExecutor, TopoMatchUBX1d,
+    InsTempAlltoAllVMesh1D);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, InsAlltoAllVMesh1DUBX, InsV2AlltoAllVSoleExecutor, TopoMatchUBX1d,
+    InsTempAlltoAllVMesh1D);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLVC, InsAlltoAllVCMesh1D, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
     InsTempAlltoAllVMesh1D);
 #if !defined(HCCL_CANN_COMPAT_850)
