@@ -4,7 +4,7 @@
 
 用于配置Server内或超节点内是否使用RoCE链路进行通信。
 
-- 针对Atlas 训练系列产品与Atlas A2 训练系列产品/Atlas A2 推理系列产品，该环境变量用于配置Server内是否使用RoCE链路进行通信，默认值0，可以单独配置，也可以与环境变量HCCL_INTRA_PCIE_ENABLE同时使用。支持的配置组合，以及不同组合下Server内使用的通信链路如下表所示：
+- 针对<cann-filter npu-type="910">Atlas 训练系列产品与</cann-filter>Atlas A2 训练系列产品/Atlas A2 推理系列产品，该环境变量用于配置Server内是否使用RoCE链路进行通信，默认值0，可以单独配置，也可以与环境变量HCCL_INTRA_PCIE_ENABLE同时使用。支持的配置组合，以及不同组合下Server内使用的通信链路如下表所示：
 
    HCCL_INTRA_PCIE_ENABLE与HCCL_INTRA_ROCE_ENABLE支持的配置组合如下表所示：
 
@@ -40,8 +40,8 @@ export HCCL_INTRA_ROCE_ENABLE=1
 
 ## 支持的型号
 
-Atlas 训练系列产品：仅支持此处理器型号下的[Atlas 300T Pro 训练卡](https://support.huawei.com/enterprise/zh/ascend-computing/atlas-300t-pro-pid-256118195)。
+Atlas A3 训练系列产品/Atlas A3 推理系列产品：仅在使用LLM-DataDist作为集群管理组件的场景下生效。
 
 Atlas A2 训练系列产品/Atlas A2 推理系列产品：仅支持此处理器型号下的[Atlas 200T A2 Box16 异构子框](https://support.huawei.com/enterprise/zh/doc/EDOC1100318274/287e0458)。
 
-Atlas A3 训练系列产品/Atlas A3 推理系列产品：仅在使用LLM-DataDist作为集群管理组件的场景下生效。
+<cann-filter npu-type="910">Atlas 训练系列产品：仅支持此处理器型号下的[Atlas 300T Pro 训练卡](https://support.huawei.com/enterprise/zh/ascend-computing/atlas-300t-pro-pid-256118195)。</cann-filter>
