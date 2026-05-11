@@ -95,6 +95,12 @@ inline const char* GetHcclDataTypeStr(HcclDataType type) noexcept
     }
 }
 
+// 重载：支持u32类型参数的HcclDataType转字符串，适配存储为整型的枚举值
+inline const char* GetHcclDataTypeStr(u32 type) noexcept
+{
+    return GetHcclDataTypeStr(static_cast<HcclDataType>(type));
+}
+
 inline std::string GetDataTypeEnumStr(HcclDataType dataType)
 {
     auto iter = HCOM_DATA_TYPE_STR_MAP.find(dataType);
@@ -127,6 +133,12 @@ inline const char* GetHcclReduceOpStr(HcclReduceOp op) noexcept
     }
 }
 
+// 重载：支持u32类型参数的HcclReduceOp转字符串，适配存储为整型的枚举值
+inline const char* GetHcclReduceOpStr(u32 op) noexcept
+{
+    return GetHcclReduceOpStr(static_cast<HcclReduceOp>(op));
+}
+
 inline std::string GetReduceOpEnumStr(HcclReduceOp reduceOp)
 {
     auto iter = HCOM_REDUCE_OP_STR_MAP.find(reduceOp);
@@ -148,6 +160,68 @@ inline std::string GetDataTypeEnumStr(u32 dataType)
 {
     auto hcclDataType = static_cast<HcclDataType>(dataType);
     return GetDataTypeEnumStr(hcclDataType);
+}
+
+// 新增：OpMode枚举转字符串，适配存储为整型的枚举值
+inline const char* GetOpModeStr(u32 opMode) noexcept
+{
+    switch (opMode)
+    {
+        case 0: return "OPBASE";
+        case 1: return "OFFLOAD";
+        default: return "unknown";
+    }
+}
+
+// 新增：HcclCMDType枚举转字符串，适配存储为整型的枚举值
+inline const char* GetHcclCMDTypeStr(u32 opType) noexcept
+{
+    switch (static_cast<HcclCMDType>(opType))
+    {
+        case HcclCMDType::HCCL_CMD_INVALID: return "HCCL_CMD_INVALID";
+        case HcclCMDType::HCCL_CMD_BROADCAST: return "HCCL_CMD_BROADCAST";
+        case HcclCMDType::HCCL_CMD_ALLREDUCE: return "HCCL_CMD_ALLREDUCE";
+        case HcclCMDType::HCCL_CMD_REDUCE: return "HCCL_CMD_REDUCE";
+        case HcclCMDType::HCCL_CMD_SEND: return "HCCL_CMD_SEND";
+        case HcclCMDType::HCCL_CMD_RECEIVE: return "HCCL_CMD_RECEIVE";
+        case HcclCMDType::HCCL_CMD_ALLGATHER: return "HCCL_CMD_ALLGATHER";
+        case HcclCMDType::HCCL_CMD_REDUCE_SCATTER: return "HCCL_CMD_REDUCE_SCATTER";
+        case HcclCMDType::HCCL_CMD_ALLTOALLV: return "HCCL_CMD_ALLTOALLV";
+        case HcclCMDType::HCCL_CMD_ALLTOALLVC: return "HCCL_CMD_ALLTOALLVC";
+        case HcclCMDType::HCCL_CMD_ALLTOALL: return "HCCL_CMD_ALLTOALL";
+        case HcclCMDType::HCCL_CMD_GATHER: return "HCCL_CMD_GATHER";
+        case HcclCMDType::HCCL_CMD_SCATTER: return "HCCL_CMD_SCATTER";
+        case HcclCMDType::HCCL_CMD_BATCH_SEND_RECV: return "HCCL_CMD_BATCH_SEND_RECV";
+        case HcclCMDType::HCCL_CMD_BATCH_PUT: return "HCCL_CMD_BATCH_PUT";
+        case HcclCMDType::HCCL_CMD_BATCH_GET: return "HCCL_CMD_BATCH_GET";
+        case HcclCMDType::HCCL_CMD_ALLGATHER_V: return "HCCL_CMD_ALLGATHER_V";
+        case HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V: return "HCCL_CMD_REDUCE_SCATTER_V";
+        case HcclCMDType::HCCL_CMD_BATCH_WRITE: return "HCCL_CMD_BATCH_WRITE";
+        case HcclCMDType::HCCL_CMD_HALF_ALLTOALLV: return "HCCL_CMD_HALF_ALLTOALLV";
+        case HcclCMDType::HCCL_CMD_ALL: return "HCCL_CMD_ALL";
+        case HcclCMDType::HCCL_CMD_FINALIZE: return "HCCL_CMD_FINALIZE";
+        case HcclCMDType::HCCL_CMD_INTER_GROUP_SYNC: return "HCCL_CMD_INTER_GROUP_SYNC";
+        case HcclCMDType::HCCL_CMD_INIT: return "HCCL_CMD_INIT";
+        case HcclCMDType::HCCL_CMD_BARRIER: return "HCCL_CMD_BARRIER";
+        case HcclCMDType::HCCL_CMD_MAX: return "HCCL_CMD_MAX";
+        default: return "unknown";
+    }
+}
+
+// 新增：CommEngine枚举转字符串，适配存储为整型的枚举值
+inline const char* GetCommEngineStr(u32 engine) noexcept
+{
+    switch (static_cast<CommEngine>(engine))
+    {
+        case CommEngine::COMM_ENGINE_RESERVED: return "COMM_ENGINE_RESERVED";
+        case CommEngine::COMM_ENGINE_CPU: return "COMM_ENGINE_CPU";
+        case CommEngine::COMM_ENGINE_CPU_TS: return "COMM_ENGINE_CPU_TS";
+        case CommEngine::COMM_ENGINE_AICPU: return "COMM_ENGINE_AICPU";
+        case CommEngine::COMM_ENGINE_AICPU_TS: return "COMM_ENGINE_AICPU_TS";
+        case CommEngine::COMM_ENGINE_AIV: return "COMM_ENGINE_AIV";
+        case CommEngine::COMM_ENGINE_CCU: return "COMM_ENGINE_CCU";
+        default: return "unknown";
+    }
 }
 
 // server内link类型
