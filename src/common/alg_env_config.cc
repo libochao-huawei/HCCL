@@ -1029,11 +1029,11 @@ std::vector<std::string> SplitDfsConfig(const std::string &str, char delimiter)
 HcclResult ParseInconsistentCheckSwitch(const std::string &inconsistentCheckSwitch)
 {
     if (inconsistentCheckSwitch == "on") {
-        g_algEnvConfig.inconsistentCheckSwitch = 0;
-    } else if (inconsistentCheckSwitch == "first") {
         g_algEnvConfig.inconsistentCheckSwitch = 1;
+    } else if (inconsistentCheckSwitch == "first") {
+        g_algEnvConfig.inconsistentCheckSwitch = 0;
     } else if (inconsistentCheckSwitch == "off") {
-        g_algEnvConfig.inconsistentCheckSwitch = 2;
+        g_algEnvConfig.inconsistentCheckSwitch = -1;
     } else {
         HCCL_ERROR("[ParseInconsistentCheckSwitch] invalid value[%s].", inconsistentCheckSwitch.c_str());
         return HCCL_E_PARA;
@@ -1048,7 +1048,7 @@ const u32 &GetExternalInputIntraRoceSwitch()
     return g_algEnvConfig.intraRoceSwitch;
 }
 
-const u32 &GetInconsistentCheckSwitch()
+const int32_t &GetInconsistentCheckSwitch()
 {
     return g_algEnvConfig.inconsistentCheckSwitch;
 }
