@@ -810,9 +810,9 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
     // HCCL_DFS_CONFIG 不为 off 时增量建链模式每次下算子均校验
     OpExchangeInfo exchangeInfo{};
     std::string tagStr = param.algTag;
-    bool isChecked = GetInconsistentCheckSwitch() == 1 &&
+    bool isChecked = GetInconsistentCheckSwitch() == 0 &&
         (g_inconsistentCheckedList.find(tagStr) != g_inconsistentCheckedList.end());
-    if (GetInconsistentCheckSwitch() == 2 || (isChecked && !increCreateChannelFlag)) {
+    if (GetInconsistentCheckSwitch() == -1 || (isChecked && !increCreateChannelFlag)) {
         isChecked = true; // isChecked 为 false 时做参数比较
     } else {
         CHK_RET(FillOpExchangeInfo(comm, param, exchangeInfo));
