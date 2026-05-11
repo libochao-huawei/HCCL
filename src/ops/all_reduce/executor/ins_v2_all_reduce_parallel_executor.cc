@@ -83,10 +83,10 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     AlgResourceRequest intraTempRequestFinal;
     AlgResourceRequest interTempRequestFinal;
 
-    algTemplate0->CalcRes(comm, param, topoInfo, intraTempRequest);
-    algTemplate1->CalcRes(comm, param, topoInfo, interTempRequest);
-    algTemplate2->CalcRes(comm, param, topoInfo, intraTempRequest1);
-    algTemplate3->CalcRes(comm, param, topoInfo, interTempRequest1); 
+    CHK_RET(algTemplate0->CalcRes(comm, param, topoInfo, intraTempRequest));
+    CHK_RET(algTemplate1->CalcRes(comm, param, topoInfo, interTempRequest));
+    CHK_RET(algTemplate2->CalcRes(comm, param, topoInfo, intraTempRequest1));
+    CHK_RET(algTemplate3->CalcRes(comm, param, topoInfo, interTempRequest1)); 
 
     for (auto &KernelInfo : intraTempRequest.ccuKernelInfos) {
         KernelInfo.resGroup = 0;

@@ -81,8 +81,8 @@ HcclResult InsV2AllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     // 调用计算资源的函数
     AlgResourceRequest temp0ResReq;
     AlgResourceRequest temp1ResReq;
-    temp0Alg->CalcRes(comm, param, topoInfo, temp0ResReq);
-    temp1Alg->CalcRes(comm, param, topoInfo, temp1ResReq);
+    CHK_RET(temp0Alg->CalcRes(comm, param, topoInfo, temp0ResReq));
+    CHK_RET(temp1Alg->CalcRes(comm, param, topoInfo, temp1ResReq));
 
     // 两个模板并行，资源累加
     resourceRequest.slaveThreadNum = temp0ResReq.slaveThreadNum + temp1ResReq.slaveThreadNum + 1;
