@@ -22,14 +22,9 @@ namespace ops_hccl {
 
 class CcuKernelArgAllToAllMesh1DMultiJetty : public hcomm::CcuKernelArg {
 public:
-    explicit CcuKernelArgAllToAllMesh1DMultiJetty(uint64_t dimSize, uint32_t rankId, const OpParam& opParam,
-                                                    const std::vector<std::vector<uint32_t>>& subCommRanks,
-                                                    const std::vector<uint32_t>& jettyNums)
-        : rankSize_(dimSize),
-          rankId_(rankId),
-          opParam_(opParam),
-          subCommRanks_(subCommRanks),
-          jettyNums_(jettyNums)
+    explicit CcuKernelArgAllToAllMesh1DMultiJetty(uint64_t dimSize, uint32_t rankId, const OpParam &opParam,
+        const std::vector<std::vector<uint32_t>> &subCommRanks, const std::vector<uint32_t> &jettyNums)
+        : rankId_(rankId), rankSize_(dimSize), jettyNums_(jettyNums), opParam_(opParam), subCommRanks_(subCommRanks)
     {
         HCCL_DEBUG("[CcuKernelArgAllToAllMesh1DMultiJetty] rankSize: %u, rankId: %u", rankSize_, rankId_);
     }

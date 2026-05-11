@@ -169,7 +169,7 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     HCCL_DEBUG("[InsBroadcastParallelExecutor][CalcRes] myRank[%u], notifyNumOnMainThread[%u], slaveThreadNum[%u], "
                "channels[%u]", myRank_, resourceRequest.notifyNumOnMainThread, resourceRequest.slaveThreadNum,
                resourceRequest.channels.size());
-    for (auto i = 0; i < resourceRequest.notifyNumPerThread.size(); i++) {
+    for (std::size_t i = 0; i < resourceRequest.notifyNumPerThread.size(); i++) {
         HCCL_DEBUG("[InsBroadcastParallelExecutor][CalcRes] myRank[%u], notifyNumPerThread[%u]=[%u]", myRank_, i,
                    resourceRequest.notifyNumPerThread[i]);
     }
@@ -600,13 +600,13 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
         // 第二步开始前同步
         CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
         //server 间地址偏移
-        for (int i = 0; i < temp0HierarchyInfo_[0].size(); i++) {
+        for (std::size_t i = 0; i < temp0HierarchyInfo_[0].size(); i++) {
             tempVirtRankMapInter_.insert(std::make_pair(temp0HierarchyInfo_[0][i], i));
         }
         RunTemplateInter0(param, resCtx, dataOffset0, currCountPart0, scratchOffsetCountInterStage1, tempAlgParamsInter0, interTempAlgRes, tempAlgInter);
 
         //server 内地址偏移
-        for (int i = 0; i < temp1HierarchyInfo_[0].size(); i++) {
+        for (std::size_t i = 0; i < temp1HierarchyInfo_[0].size(); i++) {
             tempVirtRankMapIntra_.insert(std::make_pair(temp1HierarchyInfo_[0][i], i));
         }
         RunTemplateIntra1(param, resCtx, dataOffset1, currCountPart1, scratchOffsetCountIntraStage1, tempAlgParamsIntra1, intraTempAlgRes, tempAlgIntra);
@@ -760,8 +760,8 @@ HcclResult InsBroadcastParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     std::vector<float> dataSplitSize;
     GetParallelDataSplit(dataSplitSize);
     dataCount_ = param.DataDes.count;
-    u64 SliceCountPart0 = static_cast<u64>(float(dataCount_) * dataSplitSize.at(0));
-    u64 SliceCountPart1 = dataCount_ - SliceCountPart0;
+    //u64 SliceCountPart0 = static_cast<u64>(float(dataCount_) * dataSplitSize.at(0));
+    //u64 SliceCountPart1 = dataCount_ - SliceCountPart0;
 
     //第一步开始前同步
     HCCL_INFO("[InsBroadcastParallelExecutor][FastLaunch] Intra0 ccuKernelNum[%llu]", ctx->ccuKernelNum[0]);

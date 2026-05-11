@@ -45,7 +45,7 @@ HcclResult ReduceSoleExecutor<AlgTopoMatch, AlgTemplate>::CalcRes(HcclComm comm,
     const TopoInfoWithNetLayerDetails *topoInfo, const AlgHierarchyInfoForAllLevel &algHierarchyInfo, AlgResourceRequest &resourceRequest)
 {
     // 构建template
-    const auto &topo = algHierarchyInfo.infos;
+    //const auto &topo = algHierarchyInfo.infos;
     std::shared_ptr<AlgTemplate> algTemplate =
         std::make_shared<AlgTemplate>(param, topoInfo->userRank, algHierarchyInfo.infos[0]);
     // 调用计算资源的函数

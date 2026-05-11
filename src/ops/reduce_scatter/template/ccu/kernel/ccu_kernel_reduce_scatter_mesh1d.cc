@@ -42,7 +42,7 @@ CcuKernelReduceScatterMesh1D::CcuKernelReduceScatterMesh1D(const CcuKernelArg &a
 HcclResult CcuKernelReduceScatterMesh1D::Algorithm()
 {
     HCCL_INFO("[CcuKernelReduceScatterMesh1D] ReduceScatterMesh1D run");
-    uint16_t selfBit = 1 << rankId_;
+    //uint16_t selfBit = 1 << rankId_;
     output_.push_back(CreateVariable());
     uint16_t channelIdx = 0;
     if (channels_.size() == 0) {

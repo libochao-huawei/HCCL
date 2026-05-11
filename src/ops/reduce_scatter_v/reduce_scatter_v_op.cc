@@ -217,7 +217,7 @@ HcclResult PrepareReduceScatterVParam(void *sendBuf, const void *sendDispls, con
 
     // 从源内存地址按字节直接拷贝数据到目标地址
     memcpy_s(param.varData, varMemSize, countsAndDispls.data(), varMemSize);
-    const u64* varData = reinterpret_cast<const u64*>(param.varData);
+    //const u64* varData = reinterpret_cast<const u64*>(param.varData);
 
     param.opType = HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V;
     param.enableDetour = false;

@@ -206,7 +206,7 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
 
     if (templateRankSize_ <= 1) return HcclResult::HCCL_SUCCESS;
 
-    ThreadHandle q = threads[channelIdx];
+    // ThreadHandle q = threads[channelIdx];
 
     // 步进参数
     const u64 rptNum = std::max<u64>(1, tempAlgParams_.repeatNum);

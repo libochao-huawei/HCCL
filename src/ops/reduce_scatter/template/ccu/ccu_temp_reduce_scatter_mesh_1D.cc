@@ -113,8 +113,8 @@ HcclResult CcuTempReduceScatterMesh1D::KernelRun(const OpParam& param,
         outputDataType = dataType;
     }
 
-    uint64_t expandingtimes = DataTypeSizeGet(outputDataType) /
-                              DataTypeSizeGet(dataType);  // 膨胀的倍数是输出类型/输入类型
+    // uint64_t expandingtimes = DataTypeSizeGet(outputDataType) /
+    //                           DataTypeSizeGet(dataType);  // 膨胀的倍数是输出类型/输入类型
     HCCL_INFO("[CcuTempReduceScatterMesh1D::KernelRun] dataType[%d] outputDatatype[%d]", param.DataDes.dataType,
               param.DataDes.outputType);
     uint64_t baseInputAddr      = PointerToAddr(buffInfo_.inputPtr);
