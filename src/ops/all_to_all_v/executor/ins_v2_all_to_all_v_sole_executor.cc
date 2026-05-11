@@ -257,6 +257,14 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
         }
     }
 
+    for (u32 i = 0; i < resCtx.algHierarchyInfo.infos.size(); i++) {
+        for (u32 j = 0; j < resCtx.algHierarchyInfo.infos[i].size(); j++) {
+            for (u32 k = 0; k < resCtx.algHierarchyInfo.infos[i][j].size(); k++) {
+                printf("[ywj]resCtx.algHierarchyInfo.infos[%u][%u][%u]=%u\n", i, j, k, resCtx.algHierarchyInfo.infos[i][j][k]);
+            }
+        }
+    }
+
     std::vector<std::vector<u32>> tempAlgHierachyInfo;
     if (resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS && !resCtx.topoInfo.level0PcieMix) {
         tempAlgHierachyInfo = resCtx.algHierarchyInfo.infos[1];
