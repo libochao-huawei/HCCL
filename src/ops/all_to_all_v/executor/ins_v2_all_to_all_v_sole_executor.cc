@@ -74,7 +74,7 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(
                     HCCL_E_PARA);
         if (topoInfo->topoLevelNums == 1 || param.engine == CommEngine::COMM_ENGINE_AIV ||
             param.engine == CommEngine::COMM_ENGINE_CCU) {
-            tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[1][0]);
+            tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[0][1]);
         } else {
             CHK_PRT_RET(algHierarchyInfo.infos[0][1].size() >= algHierarchyInfo.infos[1][0].size(),
                         HCCL_ERROR("[InsV2AlltoAllVSoleExecutor][CalcRes] ranknum [%zu] in Layer0 with Level0Topo[%u] "
@@ -441,6 +441,12 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, InsAlltoAllMesh1D, InsV2AlltoAl
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, InsAlltoAllVMesh1D, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
     InsTempAlltoAllVMesh1D);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLVC, InsAlltoAllVCMesh1D, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
+    InsTempAlltoAllVMesh1D);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, InsAlltoAllUbxMesh1D, InsV2AlltoAllVSoleExecutor, TopoMatchUBX,
+    InsTempAlltoAllVMesh1D);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, InsAlltoAllVUbxMesh1D, InsV2AlltoAllVSoleExecutor, TopoMatchUBX,
+    InsTempAlltoAllVMesh1D);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLVC, InsAlltoAllVCUbxMesh1D, InsV2AlltoAllVSoleExecutor, TopoMatchUBX,
     InsTempAlltoAllVMesh1D);
 #if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, InsAlltoAllMesh1DDPU, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
