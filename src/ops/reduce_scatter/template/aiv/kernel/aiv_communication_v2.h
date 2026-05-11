@@ -15,18 +15,13 @@
 #include "aiv_reduce_scatter_mesh_1d.h"
 #include "aiv_reduce_scatter_mesh_1d_corectrl.h"
 #include "aiv_reduce_scatter_mesh_1d_bigdata.h"
+#include "aiv_reduce_scatter_local_tree.h"
 
 using namespace AscendC;
 
 #define AIV_REDUCE_SCATTER_KERNEL_BATCH_DEF(type) \
 extern "C" __global__ __aicore__ void aiv_reduce_scatter_##type(EXTERN_KERNEL_ARGS_DEF_V2) { \
-    if (AscendC::GetBlockNum() > 2 * rankSize) { \
-        AivReduceScatterV2Mesh1DBigData<type>(EXTERN_KERNEL_ARGS_CALL); \
-    } else if (AscendC::GetBlockNum() == 2 * rankSize) { \
-        AivReduceScatterV2Mesh1D<type>(EXTERN_KERNEL_ARGS_CALL); \
-    } else { \
-        AivReduceScatterV2Mesh1DCoreCtrl<type>(EXTERN_KERNEL_ARGS_CALL); \
-    } \
+    AivReduceScatterV2LocalTree<type>(EXTERN_KERNEL_ARGS_CALL); \
 } \
 EXPORT_AIV_META_INFO(aiv_reduce_scatter_##type)
 
