@@ -297,6 +297,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         }
 
         AlgResourceCtxSerializable resCtx;
+        AlgResourceCtxSerializable* resCtxPtr{nullptr};
         if (param->opType != HcclCMDType::HCCL_CMD_BATCH_SEND_RECV) {
             //通过缓存实现反序列化优化
             AlgResourceCtxSerializable* cachedResCtx = g_cacheManager.Get(param->algTag, param->commName);
@@ -310,20 +311,22 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
                 if (g_cacheManager.GetCommStats(commName, stats, cacheSize)) {
                     HCCL_DEBUG("[%s] comm[%s] hitRate=%.2f%%, cacheSize=%zu",
                     __func__, commName.c_str(), stats.hitRate() * 100, cacheSize);
-                resCtx = *cachedResCtx;
                 }
+                resCtxPtr = cachedResCtx;
             } else {
                 //未命中，进行反序列化并存入缓存
                 char *ctx = static_cast<char *>(param->resCtx);
                 std::vector<char> seq(ctx, ctx + param->ctxSize);
                 resCtx.DeSerialize(seq);
                 g_cacheManager.Put(param->algTag, resCtx, param->commName);
+                resCtxPtr = &resCtx;
                 HCCL_INFO("[%s] Cache MISS and stored for algTag[%s]", __func__, param->algTag);
             }
         } else {
             char *ctx = static_cast<char *>(param->resCtx);
             std::vector<char> seq(ctx, ctx + param->ctxSize);
             resCtx.DeSerialize(seq);
+            resCtxPtr = &resCtx;
         }
 
         // 还原变长指针
@@ -332,18 +335,18 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             ret = ops_hccl::RestoreVarDataBatchSendRecv(*param);
         } else if (param->opType == HCCL_CMD_ALLTOALLV || param->opType == HCCL_CMD_ALLTOALLVC ||
                    param->opType == HCCL_CMD_ALLTOALL) {
-            ret = ops_hccl::RestoreVarDataAlltoAllV(*param, resCtx);
+            ret = ops_hccl::RestoreVarDataAlltoAllV(*param, *resCtxPtr);
         } else if (param->opType == HCCL_CMD_REDUCE_SCATTER_V) {
-            ret = ops_hccl::RestoreVarDataReduceScatterV(*param, resCtx);
+            ret = ops_hccl::RestoreVarDataReduceScatterV(*param, *resCtxPtr);
         } else if (param->opType == HCCL_CMD_ALLGATHER_V) {
-            ret = ops_hccl::RestoreVarDataAllGatherV(*param, resCtx);
+            ret = ops_hccl::RestoreVarDataAllGatherV(*param, *resCtxPtr);
         }
         if (ret != HCCL_SUCCESS) {
             HCCL_ERROR("failed to restore optype [%d] data and counts.", param->opType);
             return 1;
         }
         // 获取Device测主thread
-        ThreadHandle thread = resCtx.threads[0];
+        ThreadHandle thread = resCtxPtr->threads[0];
         if (HcommBatchModeStart(param->algTag) != HCCL_SUCCESS) {
             HCCL_ERROR("failed set batch mode, tag is %s.", param->algTag);
             return 1;
@@ -368,10 +371,10 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
 
         // 主thread等待Host stream的通知
         ThreadHandle exportedAicpuTsThread = param->opThread;
-        u32 maxNotifyNum = resCtx.notifyNumOnMainThread;
-        for (u32 i = 0; i < resCtx.notifyNumPerThread.size(); i++) {
-            if (resCtx.notifyNumPerThread[i] > maxNotifyNum) {
-                maxNotifyNum = resCtx.notifyNumPerThread[i];
+        u32 maxNotifyNum = resCtxPtr->notifyNumOnMainThread;
+        for (u32 i = 0; i < resCtxPtr->notifyNumPerThread.size(); i++) {
+            if (resCtxPtr->notifyNumPerThread[i] > maxNotifyNum) {
+                maxNotifyNum = resCtxPtr->notifyNumPerThread[i];
             }
         }
         HCCL_DEBUG("[%s]Notify wait on thread[%llu], maxNotifyNum[%u], timeout[%u]", __func__, thread,
@@ -387,7 +390,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         // 设置执行超时时间
         ExecTimeoutManager::Instance().SetExecTimeout(param->execTimeout);
         // 执行算法编排
-        if (executor->Orchestrate(*param, resCtx) != HCCL_SUCCESS) {
+        if (executor->Orchestrate(*param, *resCtxPtr) != HCCL_SUCCESS) {
             HCCL_ERROR("orchestrate failed for alg:%s", param->algName);
             return 1;
         }
