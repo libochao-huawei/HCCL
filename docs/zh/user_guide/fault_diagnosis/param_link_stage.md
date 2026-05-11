@@ -63,7 +63,7 @@ HCCL在通信算子参数面建链阶段会有以下几个常见的报错阶段�
 
 ### 问题现象
 
-在CANN日志中存在关键字"Please check the port status and whether the port is being used by other process."，如下所示。**此外需注意在通信域集群协商阶段也会有端口绑定失败问题，可以根据报错日志中的"socket type"判断**，若type为0或者1，则为参数面端口绑定失败，若type为2，则为通信域集群信息协商时host侧网卡端口绑定失败，可参考[server节点端口绑定失败（EI0019）](./集群信息协商相关.md#server节点端口绑定失败ei0019)。
+在CANN日志中存在关键字"Please check the port status and whether the port is being used by other process."，如下所示。**此外需注意在通信域集群协商阶段也会有端口绑定失败问题，可以根据报错日志中的"socket type"判断**，若type为0或者1，则为参数面端口绑定失败，若type为2，则为通信域集群信息协商时host侧网卡端口绑定失败，可参考[server节点端口绑定失败（EI0019）](./cluster_info_nego.md#server节点端口绑定失败ei0019)。
 
 ```text
 [ERROR] HCCL(1009464,all_reduce_test):2025-03-15-00:41:48.470.172 [hccl_socket.cc:110] [1009464][InitGroupStage][RanktableDetect] socket type[0], listen on ip[192.168.2.199] and specific port[16666] fail. Please check the port status and whether the port is being used by other process.
