@@ -66,7 +66,7 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(
         }
     }
     if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
-        CHK_PRT_RET(algHierarchyInfo.infos[0].size() != INST_NUM_NET,
+        CHK_PRT_RET(algHierarchyInfo.infos[0].size() != INST_NUM_NET,   // 1 != 2
                     HCCL_ERROR("[InsV2AlltoAllVSoleExecutor][CalcRes] algHierarchyInfo.infos[0].size[%zu] "
                         "with Level0Topo[%u] is not %u",
                         algHierarchyInfo.infos[0].size(), topoInfo->level0Topo, INST_NUM_NET),
@@ -471,7 +471,7 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLVC, InsAlltoAllVCClosMesh1DDPU, I
 #endif /* !HCCL_CANN_COMPAT_850 */
 #if !defined(HCCL_CANN_COMPAT_850)
     REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, CcuAlltoAllMesh1DMultiJetty, InsV2AlltoAllVSoleExecutor,
-                    TopoMatchUBX1d, CcuTempAllToAllMesh1dMultiJetty);
+                    TopoMatchUBX, CcuTempAllToAllMesh1dMultiJetty);
 #endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 }  // namespace Hccl
