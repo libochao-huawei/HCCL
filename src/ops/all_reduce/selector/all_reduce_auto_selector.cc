@@ -21,6 +21,7 @@ constexpr u64 AR_AICPU_1D_64P_SMALL_DATA_SIZE = 32 * 1024 * 1024;
 constexpr u64 AR_AICPU_1D_64DATATYPE_DATA_SIZE = 8 * 1024 * 1024;
 constexpr u32 MAX_RANK_NUM_FOR_CONCURRENT_ALGO = 4;
 constexpr u64 AR_FLATTEN_MAX_DATA_SIZE = 8 * 1024 * 1024;
+constexpr u64 AR_CCU_CLOS_1D_SMALL_DATA_SIZE = 8 * 1024 * 1024;
 
 SelectorStatus AllReduceAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
@@ -166,6 +167,10 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNe
             } else {
                 return SelectorStatus::NOT_MATCH;//64M以上切为aicpu
             }
+        } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
+            if (dataSize > AR_CCU_CLOS_1D_SMALL_DATA_SIZE) {
+                selectAlgName = "CcuAllReduceNHR1D";
+            }
         } else {
             HCCL_DEBUG("[AllReduceAutoSelector] level0Topo[%d] is not supported yet for ccu schedule mode.",
                 topoInfo->level0Topo);
@@ -245,6 +250,8 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleLevel0AlgoMesh1D(const To
 SelectorStatus AllReduceAutoSelector::SelectCcuScheduleLevel0Algo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                  std::string &selectAlgName, const u64 dataSize) const
 {
+    u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
+    u64 dataSize = opParam.DataDes.count * perDataSize;
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
         return SelectCcuScheduleLevel0AlgoMesh1D(topoInfo, opParam, selectAlgName, dataSize);
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
@@ -261,6 +268,12 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleLevel0Algo(const TopoInfo
             HCCL_DEBUG("[AllReduceAutoSelector] dataType[%d] is not supported yet for ccu schedule mode "
                     "with ms reduce.", opParam.DataDes.dataType), SelectorStatus::NOT_MATCH);
         return SelectCcuScheduleLevel0UBXAlgo(topoInfo, selectAlgName, dataSize);
+        }
+    } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
+        if (dataSize > AR_CCU_CLOS_1D_SMALL_DATA_SIZE) {
+            selectAlgName = "CcuAllReduceNHR1D";
+        } else {
+            selectAlgName = "CcuAllReduceMesh1DMem2Mem";
         }
     } else {
         HCCL_DEBUG("[AllReduceAutoSelector] level0Topo[%d] is not supported yet for ccu schedule mode.",
@@ -301,6 +314,8 @@ SelectorStatus AllReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayer
             } else {
                 selectAlgName = "InsAllReduceNHR";
             }
+        } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
+            selectAlgName = "InsAllReduceNHR";
         } else {
             return SelectorStatus::NOT_MATCH;
         }
