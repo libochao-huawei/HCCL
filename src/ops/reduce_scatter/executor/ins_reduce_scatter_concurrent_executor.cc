@@ -193,21 +193,21 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
             }
     }
     HCCL_INFO("[DEBUG] tmp0LinkMap_ keys=%zu", templateAlgResforTemp0.channels.size());
-    for (const auto &[rank, vec] : templateAlgResforTemp0.channels) {
-        HCCL_INFO("[DEBUG]   rank[%u] -> %zu channels", rank, vec.size());
-        for (size_t j = 0; j < vec.size(); ++j) {
+    for (auto it = templateAlgResforTemp0.channels.begin(); it != templateAlgResforTemp0.channels.end(); ++it) {
+        HCCL_INFO("[DEBUG]   rank[%u] -> %zu channels", it->first, it->second.size());
+        for (size_t j = 0; j < it->second.size(); ++j) {
             HCCL_INFO("[DEBUG]     ch[%zu] remoteRank=%u, localRank=%u",
-                    j, vec[j].remoteRank, myRank_);
+                    j, it->second[j].remoteRank, myRank_);
         }
     }
 
     // 打印 tmp1LinkMap_
     HCCL_INFO("[DEBUG] tmp1LinkMap_ keys=%zu", templateAlgResforTemp1.channels.size());
-    for (const auto &[rank, vec] : templateAlgResforTemp1.channels) {
-        HCCL_INFO("[DEBUG]   rank[%u] -> %zu channels", rank, vec.size());
-        for (size_t j = 0; j < vec.size(); ++j) {
+    for (auto it = templateAlgResforTemp1.channels.begin(); it != templateAlgResforTemp1.channels.end(); ++it) {
+        HCCL_INFO("[DEBUG]   rank[%u] -> %zu channels", it->first, it->second.size());
+        for (size_t j = 0; j < it->second.size(); ++j) {
             HCCL_INFO("[DEBUG]     ch[%zu] remoteRank=%u, localRank=%u",
-                    j, vec[j].remoteRank, myRank_);
+                    j, it->second[j].remoteRank, myRank_);
         }
     }
     // 准备数据
