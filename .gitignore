@@ -1,0 +1,16 @@
+.vs/
+out/
+build/
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.a
+*.lib
+*.log
+*.tmp
+*.swp
+*~
+.DS_Store
+Thumbs.db
