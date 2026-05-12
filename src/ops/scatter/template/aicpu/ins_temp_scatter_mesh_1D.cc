@@ -139,6 +139,12 @@ HcclResult InsTempScatterMesh1D::PreCopy(
         HCCL_INFO("[InsTempScatterMesh1D][PreCopy] skip precopy, myRank = %u, root = %u", myRank_, root_);
         return HCCL_SUCCESS;
     }
+    
+    // inplace场景跳过前拷贝
+    if (tempAlgParams.buffInfo.inputPtr == tempAlgParams.buffInfo.outputPtr) {
+        HCCL_INFO("[InsTempScatterMesh1D][PreCopy] skip precopy due to inplace, myRank = %u, root = %u", myRank_, root_);
+        return HCCL_SUCCESS;
+    }
 
     u32 myAlgRank = 0;
     GetAlgRank(myRank_, subCommRanks_[0], myAlgRank);
