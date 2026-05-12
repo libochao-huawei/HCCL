@@ -116,7 +116,6 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     std::vector<HcclChannelDesc> channelDescs0, channelDescs1, channelDescsTemp;
     CHK_RET(CalcChannelRequest(comm, param, topoInfo, subCommRanks0, channelDescs0, CommTopo::COMM_TOPO_1DMESH));
     CHK_RET(CalcChannelRequest(comm, param, topoInfo, subCommRanks1, channelDescs1, CommTopo::COMM_TOPO_CLOS));
-    HCCL_INFO("zjy resourceRequest.slaveThreadNum[%u]", resourceRequest.slaveThreadNum);
     HCCL_INFO("[%s] CalcRes channelDescs0.size()[%zu], channelDescs1.size())[%zu]", __func__, channelDescs0.size(),
               channelDescs1.size());
 
@@ -353,7 +352,7 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
 
 #ifndef AICPU_COMPILE
     if ((loopTimes0 == 1 && loopTimes1 == 1) && param.engine == CommEngine::COMM_ENGINE_CCU) {
-        CHK_RET(FastLaunchSaveCtx(param, tempAlgResource0, tempAlgResource1, resCtx.notifyNumOnMainThread));
+        CHK_RET(FastLaunchSaveCtx(param, tempAlgResource0, tempAlgResource1));
     }
 #endif
 
@@ -366,7 +365,7 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::FastLaunchSaveCtx(
-    const OpParam &param, const TemplateResource &templateAlgRes0, const TemplateResource &templateAlgRes1, u32 notifyNumOnMainThread)
+    const OpParam &param, const TemplateResource &templateAlgRes0, const TemplateResource &templateAlgRes1)
 {
     HCCL_INFO("[%s] Start", __func__);
     u32 threadNum = threads_.size();
@@ -379,7 +378,7 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     std::vector<u32> ccuKernelNumList = {static_cast<u32>(templateAlgRes0.submitInfos.size()), 
                                          static_cast<u32>(templateAlgRes1.submitInfos.size())};
     std::vector<std::vector<CcuKernelSubmitInfo>> submitInfosList = {templateAlgRes0.submitInfos, templateAlgRes1.submitInfos};
-    return FastLaunchSaveCtxTwoTemplate(param, threadNum, ccuKernelNum, threads_, ccuKernelNumList, submitInfosList, notifyNumOnMainThread);
+    return FastLaunchSaveCtxTwoTemplate(param, threadNum, ccuKernelNum, threads_, ccuKernelNumList, submitInfosList);
     
 }
 
@@ -395,19 +394,23 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     TemplateResource templateAlgResIntra, templateAlgResInter;
     ThreadHandle *threads = ctx->GetThreadHandlePtr();
     threads_.assign(threads, threads + ctx->threadNum);
+    // u64 temp0SlaveThreadNum = 0;
+    // u64 temp1SlaveThreadNum = 0;
+
+    // const u64 temp0ThreadsNum = temp0SlaveThreadNum + 1;
+    // const u64 temp1ThreadsNum = temp1SlaveThreadNum + 1;
+
+    // // 划分thread
+    // u64 threadIdx = 0;
+    // for (auto i = 0; i < temp0ThreadsNum; ++i) {
+    //     temp0Threads_.push_back(threads_[threadIdx++]);
+    // }
+    // for (auto i = 0; i < temp1ThreadsNum; ++i) {
+    //     temp1Threads_.push_back(threads_[threadIdx++]);
+    // }
     u64 meshThreadsNum = tempAlg0.GetThreadNum(); // check流数
-    if (meshThreadsNum > threads_.size()) {
-        HCCL_ERROR("[InsV2AllReduceConcurrentExecutor][FastLaunch] meshThreadsNum[%llu] exceeds available threads[%llu]", 
-                meshThreadsNum, threads_.size());
-        return HCCL_E_PARA;
-    }
     temp0Threads_.assign(threads_.begin(), threads_.begin() + meshThreadsNum); // 从0开始前meshThreadNum是mesh的流
     temp1Threads_.assign(threads_.begin() + meshThreadsNum, threads_.end()); // 后面几个是nhr的流
-    // 检查线程向量是否为空
-    if (temp0Threads_.empty() || temp1Threads_.empty()) {
-        HCCL_ERROR("[InsV2AllReduceConcurrentExecutor][FastLaunch] temp0Threads_ or temp1Threads_ is empty");
-        return HCCL_E_INTERNAL;
-    }
     temp0ThreadMain_ = temp0Threads_.at(0);
     temp1ThreadMain_ = temp1Threads_.at(0);
 
