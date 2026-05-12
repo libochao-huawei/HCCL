@@ -19,6 +19,8 @@
 
 namespace ops_hccl {
 
+#ifndef NHR_STEP_INFO_NS_DEFINED
+#define NHR_STEP_INFO_NS_DEFINED
 using NHRStepInfo = struct NHRStepInfoDef {
     uint32_t step = 0;
     uint32_t myRank = 0;
@@ -32,6 +34,7 @@ using NHRStepInfo = struct NHRStepInfoDef {
     {
     }
 };
+#endif
 
 class CcuKernelArgAllGatherNHR1DMultiJettyMem2Mem : public hcomm::CcuKernelArg {
 public:

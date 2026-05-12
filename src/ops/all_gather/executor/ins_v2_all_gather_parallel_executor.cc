@@ -69,6 +69,7 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
         intraHierarchyInfo = algHierarchyInfo.infos[0];
         interHierarchyInfo = algHierarchyInfo.infos[1];
     }
+
     InsAlgTemplate0 intraTempAlg(param, topoInfo->userRank, intraHierarchyInfo);
     InsAlgTemplate1 interTempAlg(param, topoInfo->userRank, interHierarchyInfo);
     
@@ -311,8 +312,8 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     rankIdxLevel1_ = myRank_ / rankSizeLevel0_;
     // 实例化算法模板类
     // 构建template
-    InsAlgTemplate0 intraTempAlg(param, resCtx.topoInfo.userRank, resCtx.algHierarchyInfo.infos[0]);
-    InsAlgTemplate1 interTempAlg(param, resCtx.topoInfo.userRank, resCtx.algHierarchyInfo.infos[1]);
+    InsAlgTemplate0 intraTempAlg(param, resCtx.topoInfo.userRank, intraHierarchyInfo_);
+    InsAlgTemplate1 interTempAlg(param, resCtx.topoInfo.userRank, interHierarchyInfo_);
     if (param.engine == CommEngine::COMM_ENGINE_AICPU_TS) {
         interTempAlg.SetchannelsPerRank(interLinkMap_);
     }

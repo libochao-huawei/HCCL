@@ -271,7 +271,6 @@ bool ShouldGoCcuFastLaunch(HcclComm comm, OpParam &param, CcuFastLaunchCtx **ccu
     if (param.engine != CommEngine::COMM_ENGINE_CCU) {
         return false;
     }
-
     CHK_RET(SetOpParamFastLaunchTag(param));
 
     // 2. 查到engineCtx

@@ -20,7 +20,7 @@ public:
     __aicore__ inline AivAlltoAllVMesh1D() {
     }
  
-    __aicore__ inline void InitCoreInfo(uint64_t len, ExtraArgs &extraArgsPerLoop)
+    __aicore__ inline void InitCoreInfo(ExtraArgs &extraArgsPerLoop)
     {
         targetRank = block_idx / coreNumPerRank; // 每个核负责哪个rank的数据
         coreIndex = (block_idx - (targetRank * coreNumPerRank)) % coreNumPerRank;  // 每个核在当前coreNumPerRank里面的排序
@@ -38,7 +38,7 @@ public:
             sendCurCount = dataPerCore;
         }
         sendInputOffset = input_ + (extraArgsPerLoop.sendDispls[targetRank] + innerDispls)  * sizeof(T);
-        sendOutputOffset = reinterpret_cast<uint64_t>(GM_IN[rank_]) + (targetRank * len + innerDispls) * sizeof(T);
+        sendOutputOffset = reinterpret_cast<uint64_t>(GM_IN[rank_]) + (targetRank * cclBufferCountPerRank + innerDispls) * sizeof(T);
  
         //接收数据的编排
         dataPerCore = extraArgsPerLoop.recvCounts[targetRank] / coreNumPerRank;
@@ -50,7 +50,7 @@ public:
             innerDispls = coreIndex * dataPerCore + remainder;
             recvCurCount = dataPerCore;
         }
-        recvInputOffset = reinterpret_cast<uint64_t>(GM_IN[targetRank]) + (rank_ * len + innerDispls) * sizeof(T);
+        recvInputOffset = reinterpret_cast<uint64_t>(GM_IN[targetRank]) + (rank_ * cclBufferCountPerRank + innerDispls) * sizeof(T);
         recvOutputOffset = output_ + (extraArgsPerLoop.recvDispls[targetRank] + innerDispls) * sizeof(T);
     }
  
@@ -134,7 +134,7 @@ public:
                 }
             }
  
-            InitCoreInfo(currDataCount, extraArgsPerLoop);
+            InitCoreInfo(extraArgsPerLoop);
             Producer(); // 写数据
             Consumer(); // 读数据
             SyncAll<true>(); // 卡内核的同步
