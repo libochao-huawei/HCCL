@@ -597,7 +597,7 @@ HcclResult CalcLevel0TopoShape(const HcclComm comm, TopoInfoWithNetLayerDetails*
         return HCCL_SUCCESS;
     }
     topoInfo->level0Topo = Level0Shape::CLOS;   // A2场景不匹配默认为Clos
-    HCCL_WARNING("Unkown topo for level 0, topoInstNum[%u]， default topo:%d", topoInstNum, topoInfo->level0Topo);
+    HCCL_WARNING("Unknown topo for level 0, topoInstNum[%u], default topo:%d", topoInstNum, topoInfo->level0Topo);
     return HCCL_SUCCESS;
 }
 
@@ -945,7 +945,7 @@ HcclResult IsLevel0PcieMix(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo)
         CHK_PRT_RET(linkNum == 0,
             HCCL_INFO("[Topo][IsLevel0PcieMix] Can not find path from Local[%u] to Rmt[%u], in netLayer %u. "
                       "Topo is not mesh", myRank, ranks[rankIdx], netLayer), HCCL_E_INTERNAL);
-        
+
         for (u32 i = 0 ; i < linkNum; i++) {
             CommProtocol srcProtocol = links[i].srcEndpointDesc.protocol;
             HCCL_INFO("[IsLevel0PcieMix]link[%u] protocol[%u]", i, srcProtocol);
