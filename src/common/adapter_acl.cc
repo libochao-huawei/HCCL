@@ -11,9 +11,8 @@
 #include "adapter_acl.h"
 #include "acl_rt.h"
 #include "workflow.h"
-#include "mmpa_api.h"
 #include "dtype_common.h"
-
+#include "mmpa_api.h"
 namespace ops_hccl {
 HcclResult haclrtGetDeviceIndexByPhyId(u32 devicePhyId, u32 &deviceLogicId)
 {
