@@ -145,7 +145,7 @@ static CcuResult PreSync(AlltoAllVMesh1DContext &ctx)
 {
     HCCL_INFO("[CcuKernelAlltoAllVMesh1D] PreSync!");
     const auto *arg = ctx.arg;
-    CcuVariable tempDst;
+    ccu::CcuVariable tempDst;
     CCU_CHK_RET(ccu::Alloc(&tempDst));
     
     u32 channelIdx = 0;

@@ -43,17 +43,17 @@ constexpr uint64_t CCU_MS_LOCAL_COPY_LOOP_COUNT = 8;
     };
 
     struct LoopGroupResource {
-        CcuEvent  completedEvent[CCU_MS_DEFAULT_LOOP_COUNT];
-        CcuBuffer ccuBuf[CCU_MS_DEFAULT_LOOP_COUNT * CCU_MS_INTERLEAVE];
+        ccu::CcuEvent  completedEvent[CCU_MS_DEFAULT_LOOP_COUNT];
+        ccu::CcuBuffer ccuBuf[CCU_MS_DEFAULT_LOOP_COUNT * CCU_MS_INTERLEAVE];
         uint32_t  eventCount;
         uint32_t  bufCount;
  	 };
 
     struct GroupOpSizeVars {
-        CcuVariable addrOffset;        // 第二个loopGroup搬运的起始偏移
-        CcuVariable loopParam;         // loop串行重复执行次数
-        CcuVariable parallelParam;     // loopgroup展开参数，包括展开次数、从第几个loop开始展开、共有几个loop
-        CcuVariable residual;          // 尾块数据size
+        ccu::Variable addrOffset;        // 第二个loopGroup搬运的起始偏移
+        ccu::Variable loopParam;         // loop串行重复执行次数
+        ccu::Variable parallelParam;     // loopgroup展开参数，包括展开次数、从第几个loop开始展开、共有几个loop
+        ccu::Variable residual;          // 尾块数据size
     };
 
     struct CcuKernelCtxBase {
@@ -71,29 +71,29 @@ constexpr uint64_t CCU_MS_LOCAL_COPY_LOOP_COUNT = 8;
         // ccu::LocalAddr loopDst[2];
         // ccu::LocalAddr loopSrc[2];
         // ccu::LocalAddr loopScratch[2][CCU_MAX_RANK_SIZE];
-        // CcuVariable  loopLen[2];
-        // CcuVariable  loopLenExp[2];
+        // ccu::Variable  loopLen[2];
+        // ccu::Variable  loopLenExp[2];
     };
 
     struct GroupReduceVar {
         ccu::LocalAddr loopDst[2];
         std::array<std::vector<ccu::RemoteAddr>, 2> loopRemoteSrc;
         ccu::LocalAddr loopLocalSrc[2];
-        CcuVariable  loopLen[2];
-        CcuVariable  loopLenExp[2];
+        ccu::Variable  loopLen[2];
+        ccu::Variable  loopLenExp[2];
     };
 
     struct GroupBroadcastVar {
         ccu::LocalAddr loopLocalDst[2];
         std::array<std::vector<ccu::RemoteAddr>, 2> loopRemoteDst;
         ccu::LocalAddr loopSrc[2];
-        CcuVariable  loopLen[2];
+        ccu::Variable  loopLen[2];
     };
 
     struct GroupCopyVar {
         ccu::LocalAddr loopDst[2];
         ccu::LocalAddr loopSrc[2];
-        CcuVariable  loopLen[2];
+        ccu::Variable  loopLen[2];
     };
 
 //     // 用于n和p部分数据loopgroup的参数

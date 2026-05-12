@@ -31,10 +31,10 @@ struct CcuKernelArgAlltoAllVMesh1D: CcuKernelArgBase {
 };
 
 struct A2AsingleSendRecvInfo {
-    CcuVariable tailSize;
-    CcuVariable loopNum;
-    CcuVariable sendOffset;
-    CcuVariable recvOffset;
+    ccu::CcuVariable tailSize;
+    ccu::CcuVariable loopNum;
+    ccu::CcuVariable sendOffset;
+    ccu::CcuVariable recvOffset;
     GroupOpSizeVars      tailGoSize;
 };
 
@@ -45,20 +45,20 @@ struct AlltoAllVMesh1DContext: CcuKernelCtxBase {
     uint32_t rankId{0};
     HcclDataType dataType;
     HcclDataType outputDataType;
-    CcuVariable repeatNum;
+    ccu::CcuVariable repeatNum;
     std::vector<ChannelHandle> channels;
-    std::vector<CcuVariable> input;
-    std::vector<CcuVariable> output;
-    std::vector<CcuVariable> token;
-    CcuVariable sliceSize;
-    CcuVariable srcStride;
-    CcuVariable srcOffset;
-    CcuVariable dstOffset;
-    CcuVariable groupOpSize;
-    CcuVariable a2avXnAddr;
-    CcuVariable xnLength;
-    CcuVariable completedRankCount;
-    CcuVariable xnMaxTransportSize;
+    std::vector<ccu::CcuVariable> input;
+    std::vector<ccu::CcuVariable> output;
+    std::vector<ccu::CcuVariable> token;
+    ccu::CcuVariable sliceSize;
+    ccu::CcuVariable srcStride;
+    ccu::CcuVariable srcOffset;
+    ccu::CcuVariable dstOffset;
+    ccu::CcuVariable groupOpSize;
+    ccu::CcuVariable a2avXnAddr;
+    ccu::CcuVariable xnLength;
+    ccu::CcuVariable completedRankCount;
+    ccu::CcuVariable xnMaxTransportSize;
     GroupOpSizeVars xnMaxTransportGoSize;
     std::vector<A2AsingleSendRecvInfo> sendRecvInfo;
     uint16_t selfBit{0};
@@ -67,9 +67,9 @@ struct AlltoAllVMesh1DContext: CcuKernelCtxBase {
     ccu::LocalAddr                   myDst;
     std::vector<ccu::RemoteAddr>     dst;
     std::vector<ccu::LocalAddr>      src;
-    CcuEvent event;
-    CcuVariable flag; // 用以判断是否是第一次重复
-    CcuVariable xnConst1;
+    ccu::CcuEvent event;
+    ccu::CcuVariable flag; // 用以判断是否是第一次重复
+    ccu::CcuVariable xnConst1;
     bool loadFromMem = false;
 };
 
