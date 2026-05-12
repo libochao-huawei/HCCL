@@ -193,6 +193,24 @@ void InsV2ReduceScatterSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsA
 }
 
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
+template <typename InsAlgTemplate>
+HcclResult InsV2ReduceScatterSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::GenTempResource
+    (const AlgResourceCtxSerializable &resCtx, const u32 channelLevelIdx,
+    const std::shared_ptr<InsAlgTemplate> &algTemplate, TemplateResource &tempReousrce) const
+{
+    AlgResourceRequest req;
+    algTemplate->GetRes(req);
+    if (channelLevelIdx >= remoteRankToChannelInfo_.size()) {
+        HCCL_ERROR("[InsV2ReduceScatterSequenceExecutorAicpu][GenTempResource] channelLevelIdx[%u] should be lower"
+            "than remoteRankToChannelInfo_.size()[%u]", channelLevelIdx, remoteRankToChannelInfo_.size());
+        return HCCL_E_INTERNAL;
+    }
+    tempReousrce.channels = remoteRankToChannelInfo_[channelLevelIdx];
+    tempReousrce.threads.assign(resCtx.threads.begin(), resCtx.threads.begin() + 1 + req.slaveThreadNum);
+    return HCCL_SUCCESS;
+}
+
+template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsV2ReduceScatterSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::OrchestrateLoop(const OpParam &param, const AlgResourceCtxSerializable& resCtx)
 {
     // 框内模板参数，input搬运到ccl，最终规约到ccl
@@ -227,12 +245,10 @@ HcclResult InsV2ReduceScatterSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0
 
     // 构造框内template资源
     TemplateResource templateResourceIntra;
-    templateResourceIntra.channels = remoteRankToChannelInfo_[0];
-    templateResourceIntra.threads = resCtx.threads;
+    CHK_RET(GenTempResource(resCtx, 0, algTemplateIntra, templateResourceIntra));
     // 构造框间template资源
     TemplateResource templateResourceInter;
-    templateResourceInter.channels = remoteRankToChannelInfo_[1];
-    templateResourceInter.threads = resCtx.threads;
+    CHK_RET(GenTempResource(resCtx, 1, algTemplateInter, templateResourceInter));
 
     // 中转内存单次最多能够接受的output count，注意是count不是size
     u64 maxCountPerLoop = tempAlgParamsInter.buffInfo.hcclBuff.size / templateScratchMultiplier / HCCL_MIN_SLICE_ALIGN
