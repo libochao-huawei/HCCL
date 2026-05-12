@@ -10,7 +10,7 @@
 
 #include "ins_v2_all_reduce_two_shot_sole_executor.h"
 #include "ins_temp_reduce_scatter_mesh_1D.h"
-#include "ins_temp_reduce_scatter_mesh_1D_Z_axis_detour"
+#include "ins_temp_reduce_scatter_mesh_1D_Z_axis_detour.h"
 #include "ins_temp_all_gather_mesh_1D.h"
 
 namespace ops_hccl {
