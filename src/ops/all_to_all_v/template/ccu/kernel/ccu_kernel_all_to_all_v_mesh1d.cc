@@ -203,7 +203,7 @@ static CcuResult LoadArgs(AlltoAllVMesh1DContext &ctx)
         CCU_CHK_RET(ccu::LoadArg(ctx.xnMaxTransportGoSize.addrOffset, 5));
         CCU_CHK_RET(ccu::LoadArg(ctx.xnMaxTransportGoSize.loopParam, 6));
         CCU_CHK_RET(ccu::LoadArg(ctx.xnMaxTransportGoSize.parallelParam, 7));
-        CCU_CHK_RET(ccu::LoadArg(ctx.xnMaxTransportGoSize.residua, 8));
+        CCU_CHK_RET(ccu::LoadArg(ctx.xnMaxTransportGoSize.residual, 8));
     }
     // 恢复当前卡对所有卡的收发信息
     ctx.sendRecvInfo.resize(arg->rankSize);
