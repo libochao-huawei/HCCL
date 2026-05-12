@@ -188,9 +188,12 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
             const size_t channelCount = channels.size();
             for (u32 i = 0; i < channelCount; ++i) {
                 const auto &channel = channels[i];
-                auto &targetChannels = (i < rankSize_ - 1) ? templateAlgResforTemp0.channels : templateAlgResforTemp1.channels;
+                auto &targetChannels = (i < rankSize_ - 1) ? tmp0LinkMap_ : tmp1LinkMap_;
                 targetChannels[channel.remoteRank].push_back(channel);
             }
+        templateAlgResforTemp0.channels = tmp0LinkMap_;
+        templateAlgResforTemp1.channels = tmp1LinkMap_;
+
     }
     // 准备数据
     TemplateDataParams tempAlgParamsforTemp0;
