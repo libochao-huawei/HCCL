@@ -38,7 +38,7 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
         HCCL_ERROR("[HcclScatter] Scatter only support singleDeviceType");
         return HCCL_E_NOT_SUPPORT;
     }
-    
+
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
 
