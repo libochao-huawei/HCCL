@@ -36,8 +36,9 @@ public:
     HcclResult KernelRun(const OpParam& param,
                          const TemplateDataParams& templateDataParams,
                          TemplateResource& templateResource) override;
+    HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx) override;
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
-
+    u64 GetThreadNum() const override;
 private:
     std::vector<u32> jettyNums_;
     std::vector<u64> sendCounts_;

@@ -21,6 +21,8 @@ constexpr int SCRATCH_XN_ID = 2;
 constexpr int TOKEN_XN_ID   = 3;
 constexpr int POST_SYNC_ID   = 4;
 constexpr int CKE_IDX_0     = 0;
+constexpr uint16_t BIT_NUM_PER_CKE = 16;
+constexpr uint16_t GROUP_REDUCE_MAX_PIECE_CNT = 8;
 
 CcuKernelAllReduceMeshMem2Mem1D::CcuKernelAllReduceMeshMem2Mem1D(const CcuKernelArg &arg)
     : CcuKernelAlgBase(arg)
@@ -48,16 +50,13 @@ CcuKernelAllReduceMeshMem2Mem1D::CcuKernelAllReduceMeshMem2Mem1D(const CcuKernel
 HcclResult CcuKernelAllReduceMeshMem2Mem1D::InitResource()
 {
     uint16_t channelIdx = 0;
-    if (channels_.size() == 0) {
-        HCCL_ERROR("[CcuKernelAllReduceMeshMem2Mem1D] channels is empty!");
-        return HcclResult::HCCL_E_INTERNAL;
-    }
+    CHK_PRT_RET(channels_.size() == 0, HCCL_ERROR("[CcuKernelAllReduceMeshMem2Mem1D] channels is empty!"), HCCL_E_INTERNAL);
+    
     // 按照rank号从小到大遍历channels_，遇到本rank就填充本地资源，否则依次取远端资源，要求给框架返回的Link同样是按顺序排列的
     for (uint64_t peerId = 0; peerId < rankSize_; peerId++) {
         if (peerId == rankId_) {
             input_.push_back(CreateVariable());
             output_.push_back(CreateVariable());
-            scratch_.push_back(CreateVariable());
             token_.push_back(CreateVariable());
         } else {
             HCCL_DEBUG("[CcuKernelAllReduceMeshMem2Mem1D] MyRank[%u], PeerId[%llu], ChannelId[%u]",
@@ -65,15 +64,14 @@ HcclResult CcuKernelAllReduceMeshMem2Mem1D::InitResource()
             CcuRep::Variable inputVar, scratchVar, tokenVar, outputVar;
             CreateVariable((channels_[channelIdx]), INPUT_XN_ID, &inputVar);
             CreateVariable((channels_[channelIdx]), OUTPUT_XN_ID, &outputVar);
-            CreateVariable((channels_[channelIdx]), SCRATCH_XN_ID, &scratchVar);
             CreateVariable((channels_[channelIdx]), TOKEN_XN_ID, &tokenVar);
             input_.push_back(inputVar);
             output_.push_back(outputVar);
-            scratch_.push_back(scratchVar);
             token_.push_back(tokenVar);
             channelIdx++;
         }
     }
+    myScratch_                    = CreateVariable();
     currentRankSliceInputOffset_  = CreateVariable();
     currentRankSliceOutputOffset_ = CreateVariable();
     normalSliceSize_              = CreateVariable();
@@ -81,20 +79,21 @@ HcclResult CcuKernelAllReduceMeshMem2Mem1D::InitResource()
     mySliceSize_                  = CreateVariable();
     sliceOffset_                  = CreateVariable();
     isInputOutputEqual_           = CreateVariable();
-    locEvent_                     = CreateCompletedEvent();
     srcMem_                       = CreateLocalAddr();
     localDstMem_                  = CreateLocalAddr();
     remoteDstMem_                 = CreateRemoteAddr();
     reduceScatterSrc_.reserve(rankSize_);
-    for (uint32_t rankIdx = 0; rankIdx < rankSize_; rankIdx++) {
-        reduceScatterSrc_.push_back(CreateRemoteAddr());
-    }
     reduceScatterDst_.reserve(rankSize_);
     for (uint32_t rankIdx = 0; rankIdx < rankSize_; rankIdx++) {
+        reduceScatterSrc_.push_back(CreateRemoteAddr());
         reduceScatterDst_.push_back(CreateLocalAddr());
     }
     sliceSize_ = CreateVariable();
     localGoSize_ = CreateGroupOpSize();
+
+    for (uint32_t i = 0; i < ((rankSize_ + BIT_NUM_PER_CKE - 1) / BIT_NUM_PER_CKE); i++) {
+        events_.push_back(CreateCompletedEvent());
+    }
     return HCCL_SUCCESS;
 }
 
@@ -251,12 +250,39 @@ void CcuKernelAllReduceMeshMem2Mem1D::ReduceLoopGroup(CcuRep::LocalAddr outDstOr
     }
 }
 
+void CcuKernelAllReduceMeshMem2Mem1D::PairwiseLocalReduce(CcuRep::LocalAddr myOutput, std::vector<CcuRep::LocalAddr> &inputVec,
+    CcuRep::Variable sliceSize, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType)
+{
+    CcuRep::Variable len = CreateVariable();
+
+    uint32_t remainPieces = rankSize_;
+    while (remainPieces > 1) {
+        uint32_t reducePieces = remainPieces / 2;
+        uint32_t srcIdx = remainPieces - reducePieces;
+        
+        len = sliceSize;
+        for (uint32_t i = 0; i < reducePieces - 1; i++) {
+            len += sliceSize;
+        }
+
+        events_[0].SetMask(1);
+        LocalReduceNb(inputVec[0], inputVec[srcIdx], len, dataType, opType, events_[0]);
+        WaitEvent(events_[0]);
+
+        remainPieces -= reducePieces;
+    }
+
+    events_[0].SetMask(1);
+    LocalCopyNb(myOutput, inputVec[0], sliceSize, events_[0]);
+    WaitEvent(events_[0]);
+}
+
 void CcuKernelAllReduceMeshMem2Mem1D::LoadArgs()
 {
     Load(input_[rankId_]);
     Load(output_[rankId_]);
     Load(token_[rankId_]);
-    Load(scratch_[rankId_]);
+    Load(myScratch_);
     Load(currentRankSliceInputOffset_);
     Load(currentRankSliceOutputOffset_);
     Load(normalSliceSize_);
@@ -302,7 +328,7 @@ void CcuKernelAllReduceMeshMem2Mem1D::BcastLocToRmt(const CcuRep::Variable      
                                                                const std::vector<CcuRep::Variable> &dstAddr)
 {
     if (dstAddr.size() != channels_.size() + 1) {
-         HCCL_ERROR("[ReduceRmtToLoc] srcAddr.size[%zu] != channels_ size[%zu] + 1", dstAddr.size(), channels_.size()); 
+         HCCL_ERROR("[BcastLocToRmt] dstAddr.size[%zu] != channels_ size[%zu] + 1", dstAddr.size(), channels_.size()); 
          return;
     }
     srcMem_.addr = srcAddr;
@@ -311,20 +337,28 @@ void CcuKernelAllReduceMeshMem2Mem1D::BcastLocToRmt(const CcuRep::Variable      
 
     uint32_t channelIdx = 0;
     for (uint32_t rmtId = 0; rmtId < dstAddr.size(); rmtId++) {
-        locEvent_.SetMask(1 << rmtId);
+        uint32_t eventIdx = rmtId / BIT_NUM_PER_CKE;
+        events_[eventIdx].SetMask(1 << (rmtId % BIT_NUM_PER_CKE));
         if (rmtId == rankId_) {
-            RecordEvent(locEvent_);
+            RecordEvent(events_[eventIdx]);
             continue;
         }
         remoteDstMem_.addr = dstAddr[rmtId];
         remoteDstMem_.addr += sliceOffset_;
         remoteDstMem_.token = token_[rmtId];
 
-        WriteNb(channels_[channelIdx], remoteDstMem_, srcMem_, sliceSize_, locEvent_);
+        WriteNb(channels_[channelIdx], remoteDstMem_, srcMem_, sliceSize_, events_[eventIdx]);
         channelIdx++;
     }
-    locEvent_.SetMask((1 << rankSize_) - 1);
-    WaitEvent(locEvent_);
+    uint32_t eventNum = (rankSize_ + BIT_NUM_PER_CKE - 1) / BIT_NUM_PER_CKE;
+    for (uint32_t eventIdx = 0; eventIdx < eventNum; eventIdx++) {
+        uint32_t sigNum = BIT_NUM_PER_CKE;
+        if (rankSize_ % BIT_NUM_PER_CKE != 0 && eventIdx == (eventNum - 1)) {
+            sigNum = rankSize_ % BIT_NUM_PER_CKE;
+        }
+        events_[eventIdx].SetMask((1 << sigNum) - 1);
+        WaitEvent(events_[eventIdx]);
+    }
 }
 
 void CcuKernelAllReduceMeshMem2Mem1D::ReduceRmtToLoc(const std::vector<CcuRep::Variable> &srcAddr,
@@ -346,7 +380,7 @@ void CcuKernelAllReduceMeshMem2Mem1D::ReduceRmtToLoc(const std::vector<CcuRep::V
         reduceScatterSrc_[rankIdx].addr += sliceOffset_;
         reduceScatterSrc_[rankIdx].token = token_[rankIdx];
 
-        reduceScatterDst_[rankIdx].addr = scratch_[rankId_];
+        reduceScatterDst_[rankIdx].addr = myScratch_;
         reduceScatterDst_[rankIdx].addr += scratchOffset;
         scratchOffset += normalSliceSize_;
         reduceScatterDst_[rankIdx].token = token_[rankId_];
@@ -354,20 +388,45 @@ void CcuKernelAllReduceMeshMem2Mem1D::ReduceRmtToLoc(const std::vector<CcuRep::V
 
     uint32_t channelIdx = 0;
     for (uint32_t rankIdx = 0; rankIdx < rankSize_; rankIdx++) {
-        locEvent_.SetMask(1 << rankIdx);
+        uint32_t eventIdx = rankIdx / BIT_NUM_PER_CKE;
+        events_[eventIdx].SetMask(1 << (rankIdx % BIT_NUM_PER_CKE));
         if (rankIdx == rankId_) {
-            RecordEvent(locEvent_);
+            if (rankSize_ <= GROUP_REDUCE_MAX_PIECE_CNT) {
+                RecordEvent(events_[eventIdx]);
+            } else {
+                CcuRep::LocalAddr src = CreateLocalAddr();
+                src.addr = reduceScatterSrc_[rankIdx].addr;
+                src.token = reduceScatterSrc_[rankIdx].token;
+                LocalCopyNb(reduceScatterDst_[rankIdx], src, sliceSize_, events_[eventIdx]);
+            }
         } else {
-            ReadNb(channels_[channelIdx], reduceScatterDst_[rankIdx], reduceScatterSrc_[rankIdx], sliceSize_, locEvent_);
+            ReadNb(channels_[channelIdx], reduceScatterDst_[rankIdx], reduceScatterSrc_[rankIdx], sliceSize_, events_[eventIdx]);
             channelIdx++;
         }
     }
-    locEvent_.SetMask((1 << rankSize_) - 1);
-    WaitEvent(locEvent_);
-    CcuRep::LocalAddr  srcLoc = CreateLocalAddr();
-    srcLoc.addr = reduceScatterSrc_[rankId_].addr;
-    srcLoc.token = reduceScatterSrc_[rankId_].token;
-    ReduceLoopGroup(localDstMem_, srcLoc, reduceScatterDst_,  localGoSize_, dataType_, outputDataType_, reduceOp_);
+    uint32_t eventNum = (rankSize_ + BIT_NUM_PER_CKE - 1) / BIT_NUM_PER_CKE;
+    for (uint32_t i = 0; i < eventNum; i++) {
+        uint32_t sigNum = BIT_NUM_PER_CKE;
+        if (rankSize_ % BIT_NUM_PER_CKE != 0 && i == (eventNum - 1)) {
+            sigNum = rankSize_ % BIT_NUM_PER_CKE;
+        }
+        events_[i].SetMask((1 << sigNum) - 1);
+        WaitEvent(events_[i]);
+    }
+
+    DoLocalReduce();
+}
+
+void CcuKernelAllReduceMeshMem2Mem1D::DoLocalReduce()
+{
+    if (rankSize_ <= GROUP_REDUCE_MAX_PIECE_CNT) {
+        CcuRep::LocalAddr  srcLoc = CreateLocalAddr();
+        srcLoc.addr = reduceScatterSrc_[rankId_].addr;
+        srcLoc.token = reduceScatterSrc_[rankId_].token;
+        ReduceLoopGroup(localDstMem_, srcLoc, reduceScatterDst_, localGoSize_, dataType_, outputDataType_, reduceOp_);
+    } else {
+        PairwiseLocalReduce(localDstMem_, reduceScatterDst_, sliceSize_, dataType_, outputDataType_, reduceOp_);
+    }
 }
 
 void CcuKernelAllReduceMeshMem2Mem1D::DoRepeatAllReduce()

@@ -20,10 +20,10 @@ public:
     __aicore__ inline AivAlltoAllVMesh1D() {
     }
  
-    __aicore__ inline void InitCoreInfo(uint64_t len, ExtraArgs &extraArgsPerLoop)
+    __aicore__ inline void InitCoreInfo(ExtraArgs &extraArgsPerLoop)
     {
         targetRank = block_idx / coreNumPerRank; // 每个核负责哪个rank的数据
-        coreIndex = block_idx % coreNumPerRank;  // 每个核在当前coreNumPerRank里面的排序
+        coreIndex = (block_idx - (targetRank * coreNumPerRank)) % coreNumPerRank;  // 每个核在当前coreNumPerRank里面的排序
  
         // 发送数据的编排
         uint64_t dataPerCore = extraArgsPerLoop.sendCounts[targetRank] / coreNumPerRank; // 数据量很少的时候，dataPerCore为0
@@ -38,7 +38,7 @@ public:
             sendCurCount = dataPerCore;
         }
         sendInputOffset = input_ + (extraArgsPerLoop.sendDispls[targetRank] + innerDispls)  * sizeof(T);
-        sendOutputOffset = reinterpret_cast<uint64_t>(GM_IN[rank_]) + (targetRank * len + innerDispls) * sizeof(T);
+        sendOutputOffset = reinterpret_cast<uint64_t>(GM_IN[rank_]) + (targetRank * cclBufferCountPerRank + innerDispls) * sizeof(T);
  
         //接收数据的编排
         dataPerCore = extraArgsPerLoop.recvCounts[targetRank] / coreNumPerRank;
@@ -50,7 +50,7 @@ public:
             innerDispls = coreIndex * dataPerCore + remainder;
             recvCurCount = dataPerCore;
         }
-        recvInputOffset = reinterpret_cast<uint64_t>(GM_IN[targetRank]) + (rank_ * len + innerDispls) * sizeof(T);
+        recvInputOffset = reinterpret_cast<uint64_t>(GM_IN[targetRank]) + (rank_ * cclBufferCountPerRank + innerDispls) * sizeof(T);
         recvOutputOffset = output_ + (extraArgsPerLoop.recvDispls[targetRank] + innerDispls) * sizeof(T);
     }
  
@@ -85,7 +85,7 @@ public:
     __aicore__ inline void Process(uint64_t len, uint32_t sliceId, ExtraArgs &extraArgs)
     {
         // 先看一个或者多个核处理一张卡数据的情况
-        coreNumPerRank = 16 / rankSize_;
+        coreNumPerRank = numBlocks_ / rankSize_;
         if (coreNumPerRank < 1) { // 控核情况暂不处理
             return;
         }
@@ -134,9 +134,10 @@ public:
                 }
             }
  
-            InitCoreInfo(currDataCount, extraArgsPerLoop);
+            InitCoreInfo(extraArgsPerLoop);
             Producer(); // 写数据
             Consumer(); // 读数据
+            SyncAll<true>(); // 卡内核的同步
             processedDataCount += currDataCount;
         }
     }

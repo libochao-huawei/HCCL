@@ -27,8 +27,15 @@ SelectorStatus AlltoAllVAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNe
     (void)opParam;
     (void)configAlgMap;
     if (topoInfo->topoLevelNums > 1) {
-        HCCL_DEBUG("[AlltoAllVAutoSelector] levelNum > 1 is not supported yet for ccu_schedule mode.");
-        return SelectorStatus::NOT_MATCH;
+        if (opParam.all2AllDataDes.sendType == HcclDataType::HCCL_DATA_TYPE_INT8) {
+            HCCL_WARNING("[Algo][AlltoAllVAutoSelector] int8 is not supported yet for ccu_schedule mode.");
+            return SelectorStatus::NOT_MATCH;
+        }
+        if (topoInfo->userRankSize > 128) {
+            HCCL_WARNING("[Algo][AlltoAllVAutoSelector] rankSize > 128 is not supported yet for ccu_schedule mode.");
+            return SelectorStatus::NOT_MATCH;
+        }
+        selectAlgName = "CcuAlltoAllVMesh1D";
     }
 
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
@@ -104,7 +111,7 @@ SelectorStatus AlltoAllVAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayer
         if ((isMeshNumEqualToClosNum == true) && (topoInfo->userRankSize <= 4)) { // 同一组4P，走并发算法
             selectAlgName = "InsAllToAllVMesh1DConcurrent";
         } else {
-            selectAlgName = "InsAlltoAllVMesh1D";
+            selectAlgName = "InsAlltoAllVMesh1DUBX";
         }
     } else {
         HCCL_ERROR("[AlltoAllVAutoSelector][%s] hccl algo no match");

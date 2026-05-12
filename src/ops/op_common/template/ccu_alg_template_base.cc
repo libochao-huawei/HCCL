@@ -87,7 +87,7 @@ uint64_t CcuAlgTemplateBase::PointerToAddr(void* pointer) const
 }
 
 HcclResult CcuAlgTemplateBase::RestoreChannelMap(const std::vector<HcclChannelDesc>& channelDescs,
-                                                 std::map<u32, std::vector<HcclChannelDesc>>& rankIdToChannelDesc) const
+                                                 std::map<u32, std::vector<HcclChannelDesc>>& rankIdToChannelDesc)
 {
     for (auto &channel: channelDescs) {
         u32 remoteRank = channel.remoteRank;
@@ -97,7 +97,7 @@ HcclResult CcuAlgTemplateBase::RestoreChannelMap(const std::vector<HcclChannelDe
 }
 
 HcclResult CcuAlgTemplateBase::GetChannelDieId(HcclComm comm, uint32_t rankId, const HcclChannelDesc& channelDesc,
-                                               uint32_t& dieId) const
+                                               uint32_t& dieId)
 {
     EndpointAttrDieId tmpDieId{};
     uint32_t infoLen = sizeof(EndpointAttrDieId);
@@ -109,7 +109,7 @@ HcclResult CcuAlgTemplateBase::GetChannelDieId(HcclComm comm, uint32_t rankId, c
 }
 
 HcclResult CcuAlgTemplateBase::GetChannelBwCoeff(HcclComm comm, uint32_t rankId, const HcclChannelDesc& channelDesc,
-                                               uint32_t& bwCoeff) const
+                                               uint32_t& bwCoeff)
 {
     EndpointAttrBwCoeff tmpBwCoeff{};
     uint32_t infoLen = sizeof(EndpointAttrBwCoeff);
@@ -193,9 +193,8 @@ HcclResult CcuAlgTemplateBase::SelectChannelToVec(const HcclComm comm, const u32
         }
     }
     if (!isFound) {
-        HCCL_ERROR("[CcuAlgTemplateBase::SelectChannelToVec] there's no channel from rank[%u] to rank[%u] on die[%u]",
+        HCCL_INFO("[CcuAlgTemplateBase::SelectChannelToVec] there's no channel from rank[%u] to rank[%u] on die[%u]",
              myRankId, rmtRankId, dieId);
-        return HcclResult::HCCL_E_INTERNAL;
     }
     HCCL_INFO("[CcuAlgTemplateBase::SelectChannelToVec] find channel rank[%u] to rank[%u] on die[%u] succeed."
         "Index=[%u]", myRankId, rmtRankId, dieId, curChannelIdx);
@@ -224,7 +223,7 @@ HcclResult CcuAlgTemplateBase::ReverseChannelPerDieIfNeed(const HcclComm comm, c
         // 2个die出框端口数不同，将端口数多的channel放在前面
         std::swap(channelsPerDie[0], channelsPerDie[1]);
     }
-
+    HCCL_INFO("portNum0 = %lld,portNum1 = %lld",portNum0,portNum1);
     return HCCL_SUCCESS;
 }
 
