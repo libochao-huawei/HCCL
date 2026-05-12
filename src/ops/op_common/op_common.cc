@@ -2087,8 +2087,9 @@ bool IsHostDpu(HcclComm comm)
     HcclResult ret;
     bool hostDpuOnly = false;
 
-    hccl::hcclComm *hComm = static_cast<hccl::hcclComm *>(comm);
-    if (!hComm->GetConnectMode()) {
+    DevType deviceType = DevType::DEV_TYPE_COUNT;
+    ret = hrtGetDeviceType(deviceType);
+    if (ret != HCCL_SUCCESS || deviceType != DevType::DEV_TYPE_910B) {
         return false;
     }
 
