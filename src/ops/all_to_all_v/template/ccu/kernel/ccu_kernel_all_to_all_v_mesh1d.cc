@@ -258,21 +258,21 @@ static CcuResult DoAll2AllVMultiLoop(AlltoAllVMesh1DContext &ctx)
             if (rankIdx == arg->rankId) {
                 continue;
             }
-            CCU_IF_ONLY(ctx.sendRecvInfo[rankIdx].loopNum == UINT64_MAX) { // 已经完成，直接置位完成信号
+            CCU_IF(ctx.sendRecvInfo[rankIdx].loopNum == UINT64_MAX) { // 已经完成，直接置位完成信号
                 ccu::EventWait(ctx.event);
             }
-            CCU_IF_ONLY(ctx.sendRecvInfo[rankIdx].loopNum != UINT64_MAX) {  // 还没有完成，则继续循环
-                CCU_IF_ONLY(ctx.sendRecvInfo[rankIdx].loopNum == UINT64_MAX - 1) { // 最后一轮循环, 发送尾块数据
-                    CCU_IF_ONLY(ctx.sendRecvInfo[rankIdx].tailSize == 0) { // 尾块数据量为 0，则不需要发送尾块数据
+            CCU_IF(ctx.sendRecvInfo[rankIdx].loopNum != UINT64_MAX) {  // 还没有完成，则继续循环
+                CCU_IF(ctx.sendRecvInfo[rankIdx].loopNum == UINT64_MAX - 1) { // 最后一轮循环, 发送尾块数据
+                    CCU_IF(ctx.sendRecvInfo[rankIdx].tailSize == 0) { // 尾块数据量为 0，则不需要发送尾块数据
                         ccu::EventWait(ctx.event);
                     }
-                    CCU_IF_ONLY(ctx.sendRecvInfo[rankIdx].tailSize != 0) { // 尾块数据量不为 0，则需要发送尾块数据
+                    CCU_IF(ctx.sendRecvInfo[rankIdx].tailSize != 0) { // 尾块数据量不为 0，则需要发送尾块数据
                         ccu::Write(arg->channels[channelId], ctx.dst[rankIdx], ctx.src[rankIdx], ctx.sendRecvInfo[rankIdx].tailSize,
                               ctx.event);
                     }
                     ctx.completedRankCount += ctx.xnConst1;  // 之后一轮循环完成，更新已完成的rank数
                 }
-                CCU_IF_ONLY(ctx.sendRecvInfo[rankIdx].loopNum != UINT64_MAX - 1) { // 未完成，则继续循环，发送整块数据
+                CCU_IF(ctx.sendRecvInfo[rankIdx].loopNum != UINT64_MAX - 1) { // 未完成，则继续循环，发送整块数据
                     ccu::Write(arg->channels[channelId], ctx.dst[rankIdx], ctx.src[rankIdx], ctx.xnMaxTransportSize, ctx.event);
                     // 更新偏移
                     ctx.src[rankIdx].addr += ctx.xnMaxTransportSize;
@@ -284,16 +284,16 @@ static CcuResult DoAll2AllVMultiLoop(AlltoAllVMesh1DContext &ctx)
         }
 
         ctx.event.setMask(1 << arg->rankId);
-        CCU_IF_ONLY(ctx.sendRecvInfo[arg->rankId].loopNum == UINT64_MAX) { // 已经完成，直接置位完成信号
+        CCU_IF(ctx.sendRecvInfo[arg->rankId].loopNum == UINT64_MAX) { // 已经完成，直接置位完成信号
                 ccu::EventWait(ctx.event);
         }
 
-        CCU_IF_ONLY(ctx.sendRecvInfo[arg->rankId].loopNum != UINT64_MAX) {  // 还没有完成，则继续循环
-                CCU_IF_ONLY(ctx.sendRecvInfo[arg->rankId].loopNum == UINT64_MAX - 1) { // 最后一轮循环, 发送尾块数据
-                    CCU_IF_ONLY(ctx.sendRecvInfo[arg->rankId].tailSize == 0) { // 尾块数据量为 0，则不需要发送尾块数据
+        CCU_IF(ctx.sendRecvInfo[arg->rankId].loopNum != UINT64_MAX) {  // 还没有完成，则继续循环
+                CCU_IF(ctx.sendRecvInfo[arg->rankId].loopNum == UINT64_MAX - 1) { // 最后一轮循环, 发送尾块数据
+                    CCU_IF(ctx.sendRecvInfo[arg->rankId].tailSize == 0) { // 尾块数据量为 0，则不需要发送尾块数据
                         ccu::EventWait(ctx.event);
                     }
-                    CCU_IF_ONLY(ctx.sendRecvInfo[arg->rankId].tailSize != 0) { // 尾块数据量不为 0，则需要发送尾块数据
+                    CCU_IF(ctx.sendRecvInfo[arg->rankId].tailSize != 0) { // 尾块数据量不为 0，则需要发送尾块数据
                         if (arg->loadFromMem) {
                             ccu::LocalCopy(ctx.myDst, ctx.src[arg->rankId], ctx.sendRecvInfo[arg->rankId].tailSize, ctx.event);
                         } else {
@@ -303,7 +303,7 @@ static CcuResult DoAll2AllVMultiLoop(AlltoAllVMesh1DContext &ctx)
                     }
                     ctx.completedRankCount += ctx.xnConst1;  // 之后一轮循环完成，更新已完成的rank数
                 }
-                CCU_IF_ONLY(ctx.sendRecvInfo[arg->rankId].loopNum != UINT64_MAX - 1) { // 未完成，则继续循环，发送整块数据
+                CCU_IF(ctx.sendRecvInfo[arg->rankId].loopNum != UINT64_MAX - 1) { // 未完成，则继续循环，发送整块数据
                     if (arg->loadFromMem) {
                         ccu::LocalCopy(ctx.myDst, ctx.src[arg->rankId], ctx.xnMaxTransportSize, ctx.event);
                     } else {

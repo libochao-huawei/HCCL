@@ -137,7 +137,7 @@ std::vector<uint64_t> CalGoSize(uint64_t size, const LoopGroupConfig &config)
 //                 return HCCL_E_PTR;
 //             }
 //             event.mask = 1 << i;
-//             CHK_RET(WriteNb(channels[i], dst[i], buf, len, event));
+//             CHK_RET(Write(channels[i], dst[i], buf, len, event));
 //         }
 //         CcuRep::LocalAddr &localDst = *reinterpret_cast<CcuRep::LocalAddr*>(&dst[size - 1]);
 //         event.mask = 1 << channelSize;
@@ -260,7 +260,7 @@ CcuResult CreateMultiOpReduce(CcuKernelCtxBase &ctx, GroupReduceVar &var,
         CCU_LOOP(ctx.loops[index]) {
             for (uint32_t i = 0; i < channelSize; i++) {
                 loopEvt.mask = 1 << i;
-                ccu::ReadNb(channels[i], ctx.moRes.ccuBuf[bufBase + i], var.loopRemoteSrc[index][i], var.loopLen[index], loopEvt);
+                ccu::Read(channels[i], ctx.moRes.ccuBuf[bufBase + i], var.loopRemoteSrc[index][i], var.loopLen[index], loopEvt);
             }
 
             // ccu::LocalAddr &localSrc = *reinterpret_cast<ccu::LocalAddr*>(&var.loopRemoteSrc[index][channelSize]);
@@ -319,7 +319,7 @@ CcuResult CreateMultiOpReduce(CcuKernelCtxBase &ctx, GroupReduceVar &var,
 //         CcuRep::CompletedEvent &event = moRes.completedEvent[index];
 //         for (uint32_t i = 0; i < ccuChannels.size(); i++) {
 //             event.mask = 1 << i;
-//             ReadNb(ccuChannels[i], bufs[i], src[i], len, event);
+//             Read(ccuChannels[i], bufs[i], src[i], len, event);
 //         }
 
 //         event.mask = (1 << size) - 1;
@@ -373,7 +373,7 @@ CcuResult CreateMultiOpReduce(CcuKernelCtxBase &ctx, GroupReduceVar &var,
 //         CcuRep::CompletedEvent &event = moRes.completedEvent[index];
 //         for (uint32_t i = 0; i < ccuChannels.size(); i++) {
 //             event.mask = 1 << i;
-//             ReadNb(ccuChannels[i], bufs[i], src[i], len, event);
+//             Read(ccuChannels[i], bufs[i], src[i], len, event);
 //         }
 
 //         event.mask = (1 << size) - 1;
@@ -427,7 +427,7 @@ CcuResult CreateMultiOpBroadcast(CcuKernelCtxBase &ctx, GroupBroadcastVar &var, 
                     return CCU_E_PTR;
                 }
                 CCU_CHK_RET(ccu::SetMask(loopEvt, 1 << i)); // 远端拷贝
-                CCU_CHK_RET(ccu::WriteNb(channels[i], var.loopRemoteDst[index][i], buf, var.loopLen[index], loopEvt));
+                CCU_CHK_RET(ccu::Write(channels[i], var.loopRemoteDst[index][i], buf, var.loopLen[index], loopEvt));
             }
 
             CCU_CHK_RET(ccu::SetMask(loopEvt, 1 << channelSize)); // 本地拷贝
@@ -449,7 +449,7 @@ CcuResult GroupBroadcast(CcuKernelCtxBase &ctx, const size_t channels[], uint32_
 
     uint32_t size = channelCount + 1;
 
-    CCU_IF_ONLY(goSize.addrOffset != 0)
+    CCU_IF(goSize.addrOffset != 0)
     {
         ccu::Variable loopParam;
         CCU_CHK_RET(ccu::Alloc(&loopParam));
@@ -495,7 +495,7 @@ CcuResult GroupBroadcast(CcuKernelCtxBase &ctx, const size_t channels[], uint32_
 // #endif
     }
 
-    CCU_IF_ONLY(goSize.parallelParam != 0)
+    CCU_IF(goSize.parallelParam != 0)
     {
         src.addr += goSize.addrOffset;
         for (uint32_t i = 0; i < size - 1; i++) {
@@ -601,7 +601,7 @@ CcuResult GroupCopy(CcuKernelCtxBase &ctx, ccu::LocalAddr dst, ccu::LocalAddr sr
     GroupCopyVar var;
     CCU_CHK_RET(CreateMultiOpCopy(ctx, var));
 
-    CCU_IF_ONLY(goSize.addrOffset != 0)
+    CCU_IF(goSize.addrOffset != 0)
     {
         ccu::Variable loopParam;
         CCU_CHK_RET(ccu::Alloc(&loopParam));
@@ -631,7 +631,7 @@ CcuResult GroupCopy(CcuKernelCtxBase &ctx, ccu::LocalAddr dst, ccu::LocalAddr sr
         CCU_CHK_RET(ccu::AddLoop(group, ctx.loops[0], &loopParam));
     }
 
-    CCU_IF_ONLY(goSize.parallelParam != 0)
+    CCU_IF(goSize.parallelParam != 0)
     {
         // CcuRep::Condition cond(this, goSize.parallelParam != 0); // 待修改
 
@@ -696,7 +696,7 @@ CcuResult GroupReduce(CcuKernelCtxBase &ctx, const size_t channels[], uint32_t c
 
     // 第一个loopgroup，只包含1个loop，搬运m部分数据。
     // loopgroup的parallel参数自己生成
-    CCU_IF_ONLY(goSize.loopParam != 0)
+    CCU_IF(goSize.loopParam != 0)
     {
         ccu::Variable loopParam;
         CCU_CHK_RET(ccu::Alloc(&loopParam));
@@ -745,7 +745,7 @@ CcuResult GroupReduce(CcuKernelCtxBase &ctx, const size_t channels[], uint32_t c
 
     // 第二个loopgroup，包含1或2个loop，搬运n和p部分数据。
     // loopgroup的parallel参数使用基类中的moConfig，需要提前调用CalGoSize计算出来。
-    CCU_IF_ONLY(goSize.parallelParam != 0)
+    CCU_IF(goSize.parallelParam != 0)
     {
         for (uint32_t i = 0; i < size - 1; i++) {
             src[i].addr += goSize.addrOffset;
@@ -859,7 +859,7 @@ CcuResult GroupReduce(CcuKernelCtxBase &ctx, const size_t channels[], uint32_t c
 //                 return HCCL_E_PTR;
 //             }
 //             event.mask = 1 << i;
-//             CHK_RET(WriteNb(channels[i], dst[i], buf, len, event));
+//             CHK_RET(Write(channels[i], dst[i], buf, len, event));
 //         }
 //         CcuRep::LocalAddr &localDst = *reinterpret_cast<CcuRep::LocalAddr*>(&dst[size - 1]);
 //         event.mask = (1 << (size - 1)) - 1;
