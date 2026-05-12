@@ -296,9 +296,10 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             }
         }
 
+        AlgResourceCtxSerializable resCtx;
         AlgResourceCtxSerializable* resCtxPtr{nullptr};
-        std::unique_ptr<AlgResourceCtxSerializable> resCtx;
         if (param->opType != HcclCMDType::HCCL_CMD_BATCH_SEND_RECV) {
+            //通过缓存实现反序列化优化
             AlgResourceCtxSerializable* cachedResCtx = g_cacheManager.Get(param->algTag, param->commName);
             if (cachedResCtx != nullptr) {
                 HCCL_INFO("[%s] Cache HIT for algTag[%s]", __func__, param->algTag);
@@ -313,20 +314,19 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
                 }
                 resCtxPtr = cachedResCtx;
             } else {
-                resCtx.reset(new AlgResourceCtxSerializable());
+                //未命中，进行反序列化并存入缓存
                 char *ctx = static_cast<char *>(param->resCtx);
                 std::vector<char> seq(ctx, ctx + param->ctxSize);
-                resCtx->DeSerialize(seq);
-                g_cacheManager.Put(param->algTag, *resCtx, param->commName);
-                resCtxPtr = resCtx.get();
+                resCtx.DeSerialize(seq);
+                g_cacheManager.Put(param->algTag, resCtx, param->commName);
+                resCtxPtr = &resCtx;
                 HCCL_INFO("[%s] Cache MISS and stored for algTag[%s]", __func__, param->algTag);
             }
         } else {
-            resCtx.reset(new AlgResourceCtxSerializable());
             char *ctx = static_cast<char *>(param->resCtx);
             std::vector<char> seq(ctx, ctx + param->ctxSize);
-            resCtx->DeSerialize(seq);
-            resCtxPtr = resCtx.get();
+            resCtx.DeSerialize(seq);
+            resCtxPtr = &resCtx;
         }
 
         // 还原变长指针
