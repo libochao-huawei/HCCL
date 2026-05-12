@@ -22,13 +22,13 @@ HcclResult GetDeviceType(DeviceType *deviceType);
 HcclResult AcquireChannel(HcclComm comm, CommEngine engine,
                           uint32_t srcRank, uint32_t dstRank, ChannelHandle *channel);
 
-HcclResult HcclGetThreadForCcu(HcclComm comm, const OpParam &param, AlgResourceCtxSerializable &resCtxHost);
+HcclResult GetThreadForCcu(HcclComm comm, const OpParam &param, AlgResourceCtxSerializable &resCtxHost);
 
-HcclResult HcclGetChannelForCcu(HcclComm comm, const OpParam &param, AlgResourceCtxSerializable &resCtxHost, KernelResourceRequest &resRequest);
+HcclResult GetChannelForCcu(HcclComm comm, const OpParam &param, AlgResourceCtxSerializable &resCtxHost, KernelResourceRequest &resRequest);
 
-HcclResult HcclGetCcuKernel(HcclComm comm, const OpParam &param, AlgResourceCtxSerializable &resCtxHost, KernelResourceRequest &resRequest);
+HcclResult GetCcuKernel(HcclComm comm, const OpParam &param, AlgResourceCtxSerializable &resCtxHost, KernelResourceRequest &resRequest);
 
-HcclResult HcclAllocAlgResource(HcclComm comm, const OpParam &param, AlgResourceCtxSerializable &resCtxHost);
+HcclResult AllocAlgResource(HcclComm comm, const OpParam &param, AlgResourceCtxSerializable &resCtxHost);
 
 } // namespace ops_hccl_ag
 

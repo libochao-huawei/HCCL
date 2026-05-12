@@ -80,7 +80,7 @@ HcclResult AcquireChannel(HcclComm comm, CommEngine engine,
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclGetThreadForCcu(HcclComm comm, const OpParam &param, AlgResourceCtxSerializable &resCtxHost) {
+HcclResult GetThreadForCcu(HcclComm comm, const OpParam &param, AlgResourceCtxSerializable &resCtxHost) {
     // 只考虑threadNum = 1场景
     ThreadHandle thread;
     // host模式下，将主流封装为thread，并创建主流上的notify
@@ -91,7 +91,7 @@ HcclResult HcclGetThreadForCcu(HcclComm comm, const OpParam &param, AlgResourceC
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclGetChannelForCcu(HcclComm comm, const OpParam &param, AlgResourceCtxSerializable &resCtxHost, KernelResourceRequest &resRequest) {
+HcclResult GetChannelForCcu(HcclComm comm, const OpParam &param, AlgResourceCtxSerializable &resCtxHost, KernelResourceRequest &resRequest) {
     uint32_t channelNum = param.rankSize - 1;
     std::vector<ChannelHandle> kernelChannels(channelNum);
     HCCL_INFO("[HcclGetChannelForCcu] Get [%lu] channels", channelNum);
@@ -134,7 +134,7 @@ HcclResult HcclGetChannelForCcu(HcclComm comm, const OpParam &param, AlgResource
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclGetCcuKernel(HcclComm comm, const OpParam &param, AlgResourceCtxSerializable &resCtxHost, KernelResourceRequest &resRequest) {
+HcclResult GetCcuKernel(HcclComm comm, const OpParam &param, AlgResourceCtxSerializable &resCtxHost, KernelResourceRequest &resRequest) {
     CcuInsHandle insHandle{0};
     uint32_t insNum = 0;
     CHK_RET(HcclCommQueryCcuIns(comm, &insHandle, &insNum));
@@ -187,7 +187,7 @@ HcclResult HcclGetCcuKernel(HcclComm comm, const OpParam &param, AlgResourceCtxS
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclAllocAlgResource(HcclComm comm, const OpParam &param, AlgResourceCtxSerializable &resCtxHost) {
+HcclResult AllocAlgResource(HcclComm comm, const OpParam &param, AlgResourceCtxSerializable &resCtxHost) {
     HCCL_INFO("Start to execute AllocAlgResourceCCU.");
     void *cclBufferAddr;
     uint64_t cclBufferSize;
@@ -199,12 +199,12 @@ HcclResult HcclAllocAlgResource(HcclComm comm, const OpParam &param, AlgResource
     resCtxHost.notifyNumOnMainThread = resCtxHost.slaveThreadNum;
     resCtxHost.notifyNumPerThread = std::vector<uint32_t>(resCtxHost.slaveThreadNum, 1);
 
-    CHK_RET(HcclGetThreadForCcu(comm, param, resCtxHost));
+    CHK_RET(GetThreadForCcu(comm, param, resCtxHost));
     
     KernelResourceRequest resourceRequest;
-    CHK_RET(HcclGetChannelForCcu(comm, param, resCtxHost, resourceRequest));
+    CHK_RET(GetChannelForCcu(comm, param, resCtxHost, resourceRequest));
     
-    CHK_RET(HcclGetCcuKernel(comm, param, resCtxHost, resourceRequest));
+    CHK_RET(GetCcuKernel(comm, param, resCtxHost, resourceRequest));
 
     HCCL_INFO("End to execute AllocAlgResourceCCU success.");
     return HCCL_SUCCESS;

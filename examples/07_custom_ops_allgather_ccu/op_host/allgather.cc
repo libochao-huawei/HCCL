@@ -90,7 +90,7 @@ HcclResult HcclAllGatherCustom(void *sendBuf, void *recvBuf, uint64_t sendCount,
         // 资源不存在，新创建Context
         HCCL_INFO("[HcclAllGatherCustom] Creating engine context");
         // 创建资源，并填充到Host内存上
-        HcclResult ret = HcclAllocAlgResource(comm, param, *resCtxHost);
+        HcclResult ret = AllocAlgResource(comm, param, *resCtxHost);
         if (ret != HCCL_SUCCESS) {
             HCCL_ERROR("failed to alloc alg resource.");
             return ret;
