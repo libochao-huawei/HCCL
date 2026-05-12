@@ -277,7 +277,7 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWith
             selectAlgName = "InsReduceScatterMesh1D";
         } else {
             if (dataSize * ratio > RS_AICPU_1D_MAX_DATA_SIZE) {
-                selectAlgName = "InsReduceScatterMesh1D";
+                selectAlgName = "InsReduceScatterMesh1DMeshChunk";
             } else {
                 selectAlgName = "InsReduceScatterMesh1D";
             }
