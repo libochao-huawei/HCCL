@@ -242,7 +242,7 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
             HcclResult::HCCL_E_INTERNAL);
         ChannelInfo linkRecv = channels_[recvFromRank].at(channelIdx);
         ChannelInfo linkSend = channels_[sendToRank].at(channelIdx);
-
+        HCCL_INFO("zjy channel is ok");
         std::vector<DataSlice> txSrcSlices;
         std::vector<DataSlice> txDstSlices;
         std::vector<DataSlice> rxSrcSlices;
