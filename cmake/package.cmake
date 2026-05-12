@@ -117,12 +117,6 @@ function(pack_built_in)
       ${COMMON_FILES}
       ${CANN_CMAKE_DIR}/scripts/install/multi_version.inc
   )
-  set(LATEST_MANGER_FILES
-      ${COMMON_FILES}
-      ${CANN_CMAKE_DIR}/scripts/install/common_func.inc
-      ${CANN_CMAKE_DIR}/scripts/install/version_compatiable.inc
-      ${CANN_CMAKE_DIR}/scripts/install/check_version_required.awk
-  )
   set(CONF_FILES
       ${CANN_CMAKE_DIR}/scripts/package/cfg/path.cfg
   )
@@ -141,10 +135,7 @@ function(pack_built_in)
       DESTINATION share/info/hccl/script
       COMPONENT hccl
   )
-  install(FILES ${LATEST_MANGER_FILES}
-      DESTINATION latest_manager
-      COMPONENT hccl
-  )
+  
   install(DIRECTORY ${CMAKE_SOURCE_DIR}/scripts/package/latest_manager/scripts/
       DESTINATION latest_manager
       COMPONENT hccl
