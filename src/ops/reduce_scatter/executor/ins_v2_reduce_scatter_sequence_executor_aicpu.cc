@@ -9,9 +9,8 @@
  */
 
 #include "ins_v2_reduce_scatter_sequence_executor_aicpu.h"
-#include "ins_temp_reduce_scatter_mesh_1D.h"
+#include "ins_temp_reduce_scatter_mesh_1D_Z_axis_detour.h"
 #include "ins_temp_reduce_scatter_nhr.h"
-#include "ins_temp_reduce_scatter_mesh_1D_meshchunk.h"
 #include "alg_data_trans_wrapper.h"
 
 namespace ops_hccl {
@@ -224,7 +223,7 @@ HcclResult InsV2ReduceScatterSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0
 
     // 构建框内template
     std::shared_ptr<InsAlgTemplate0> algTemplateIntra = std::make_shared<InsAlgTemplate0>(param, myRank_, algHierarchyInfo_.infos[0]);
-    algTemplateInter->SetchannelsPerRank(remoteRankToChannelInfo_[0]);
+    algTemplateIntra->SetchannelsPerRank(remoteRankToChannelInfo_[0]);
 
     // 框间模板参数，ccl写到对端ccl，最终搬运到output上
     TemplateDataParams tempAlgParamsInter;
