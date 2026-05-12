@@ -224,6 +224,7 @@ HcclResult InsV2ReduceScatterSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0
 
     // 构建框内template
     std::shared_ptr<InsAlgTemplate0> algTemplateIntra = std::make_shared<InsAlgTemplate0>(param, myRank_, algHierarchyInfo_.infos[0]);
+    algTemplateInter->SetchannelsPerRank(remoteRankToChannelInfo_[0]);
 
     // 框间模板参数，ccl写到对端ccl，最终搬运到output上
     TemplateDataParams tempAlgParamsInter;
@@ -277,7 +278,7 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_REDUCE_SCATTER,
                                 InsReduceScatterSequenceMesh1DNhr,
                                 InsV2ReduceScatterSequenceExecutorAicpu,
                                 TopoMatchMultilevel,
-                                InsTempReduceScatterMesh1D,
+                                InsTempReduceScatterMesh1DZAxisDetour,
                                 InsTempReduceScatterNHR);
 
 }
