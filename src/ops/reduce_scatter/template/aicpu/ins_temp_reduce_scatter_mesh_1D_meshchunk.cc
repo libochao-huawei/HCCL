@@ -259,7 +259,7 @@ HcclResult InsTempReduceScatterMesh1DMeshChunk::PostCopy(
 
 u64 InsTempReduceScatterMesh1DMeshChunk::GetThreadNum() const
 {
-    u32 threadNum = templateRankSize_ > 1 ? (templateRankSize_ - 1) * channelsPerRank_ : 1;
+    u32 threadNum = templateRankSize_ > 1 ? (templateRankSize_ - 1) : 1;
     return threadNum;
 }
 

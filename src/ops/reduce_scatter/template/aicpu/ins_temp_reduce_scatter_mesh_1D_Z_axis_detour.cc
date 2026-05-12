@@ -54,7 +54,7 @@ HcclResult InsTempReduceScatterMesh1DZAxisDetour::CalcRes(
 u64 InsTempReduceScatterMesh1DZAxisDetour::GetThreadNum() const
 {
 
-    u32 threadNum = templateRankSize_ > 1 ? ((templateRankSize_ - 1) * channelsPerRank_ + 1) : 1;
+    u32 threadNum = templateRankSize_ > 1 ? ((templateRankSize_ - 1) * channelsPerRank_ + 1) : channelsPerRank_;
     HCCL_INFO("[InsTempReduceScatterMesh1DZAxisDetour][GetThreadNum] templateRankSize_[%u] channelsPerRank_[%u] threadNum[%u]",
               templateRankSize_, channelsPerRank_, threadNum);
     return threadNum;

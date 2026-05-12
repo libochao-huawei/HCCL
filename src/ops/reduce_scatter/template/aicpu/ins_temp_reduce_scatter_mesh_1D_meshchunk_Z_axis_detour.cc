@@ -49,7 +49,7 @@ HcclResult InsTempReduceScatterMesh1DMeshChunkZAxisDetour::CalcRes(
 
 u64 InsTempReduceScatterMesh1DMeshChunkZAxisDetour::GetThreadNum() const
 {
-    u32 threadNum = templateRankSize_ > 1 ? ((templateRankSize_ - 1) * channelsPerRank_) : 1;
+    u32 threadNum = templateRankSize_ > 1 ? ((templateRankSize_ - 1) * channelsPerRank_) : channelsPerRank_;
     HCCL_INFO("[MeshChunkZAxisDetour][GetThreadNum] templateRankSize_[%u] channelsPerRank_[%u] threadNum[%u]",
               templateRankSize_, channelsPerRank_, threadNum);
     return threadNum;
@@ -72,7 +72,7 @@ HcclResult InsTempReduceScatterMesh1DMeshChunkZAxisDetour::SetchannelsPerRank(
 {
     CHK_PRT_RET(channels.empty(), HCCL_ERROR("[SetchannelsPerRank] channels is empty."), HCCL_E_INTERNAL);
     channelsPerRank_ = CalcChannelsPerRank(channels);
-    if (channelsPerRank_ > 1 && level0ChannelNumPerRank_ == 0 && level1ChannelNumPerRank_ == 0) {
+    if (channelsPerRank_ > 1) {
         level0ChannelNumPerRank_ = MESH_CHANNELS_NUM;
         level1ChannelNumPerRank_ = channelsPerRank_ - level0ChannelNumPerRank_;
         level0DataRatio_ = 0.5f;
