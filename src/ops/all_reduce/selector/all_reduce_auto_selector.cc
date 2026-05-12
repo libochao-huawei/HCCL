@@ -105,7 +105,13 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgo(const TopoInfoWithNetLayerD
             HCCL_DEBUG("[AllReduceAutoSelector][%s] TWO_DIE_NOT_REGULAR not match", __func__);
             return SelectorStatus::NOT_MATCH;
         } else if (dataSize <= AR_WRITE_MODE_MAX_DATA_SIZE) {
-            selectAlgName = "CcuAllReduceMesh1DOneShot";
+            // 小数据量，根据环境变量选择CcuAllReduceMesh1DOneShot 或者CcuAllReduceMesh1DOneShotWrite
+            const char* envWriteMode = std::getenv("HCCL_ALLREDUCE_MESH1D_MODE");
+            if (envWriteMode != nullptr && (strcmp(envWriteMode, "write") == 0 || strcmp(envWriteMode, "Write") == 0)) {
+                selectAlgName = "CcuAllReduceMesh1DOneShotWrite";
+            } else {
+                selectAlgName = "CcuAllReduceMesh1DOneShot";
+            }
         } else {
             selectAlgName = "CcuAllReduceMesh1D";
         }

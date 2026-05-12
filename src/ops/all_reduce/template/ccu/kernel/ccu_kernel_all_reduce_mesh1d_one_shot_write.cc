@@ -34,15 +34,36 @@ CcuKernelAllReduceMesh1DOneShotWrite::CcuKernelAllReduceMesh1DOneShotWrite(const
         "outputDataType[%u], reduceOp[%u]", rankId_, rankSize_, dataType_, outputDataType_, reduceOp_);
 }
 
+// HcclResult CcuKernelAllReduceMesh1DOneShotWrite::Algorithm()
+// {
+//     HCCL_INFO("[CcuKernelAllReduceMesh1DOneShotWrite] AllReduceMesh1DOneShotWrite start");
+//     CHK_RET(InitResource());
+//     LoadArgs();
+//     Presync();
+//     DoGroupWrite();
+//     Postsync();
+//     HCCL_INFO("[CcuKernelAllReduceMesh1DOneShotWrite] AllReduceMesh1DOneShotWrite end");
+//     return HcclResult::HCCL_SUCCESS;
+// }
+
 HcclResult CcuKernelAllReduceMesh1DOneShotWrite::Algorithm()
 {
-    HCCL_INFO("[CcuKernelAllReduceMesh1DOneShotWrite] AllReduceMesh1DOneShotWrite start");
+    HCCL_INFO("[CcuKernelAllReduceMesh1DOneShotWrite] AllReduceMesh1DOneShot start");
+
+    const char* stageEnv = std::getenv("HCCL_CCUMS_PROF_STAGE");
+    uint32_t stageMask = 0xF; // 默认全部开启 (bit0=LoadArgs, bit1=Presync, bit2=GroupReduce, bit3=Postsync)
+    if (stageEnv != nullptr) {
+        stageMask = static_cast<uint32_t>(std::strtoul(stageEnv, nullptr, 0));
+    }
+    HCCL_INFO("[CcuKernelAllReduceMesh1DOneShotWrite] PROF_STAGE mask=0x%X", stageMask);
+
     CHK_RET(InitResource());
-    LoadArgs();
-    Presync();
-    // DoGroupWrite();
-    Postsync();
-    HCCL_INFO("[CcuKernelAllReduceMesh1DOneShotWrite] AllReduceMesh1DOneShotWrite end");
+    if (stageMask & 0x1) { LoadArgs(); }
+    if (stageMask & 0x2) { Presync(); }
+    if (stageMask & 0x4) { DoGroupWrite(); }
+    if (stageMask & 0x8) { Postsync(); }
+
+    HCCL_INFO("[CcuKernelAllReduceMesh1DOneShotWrite] AllReduceMesh1DOneShot end");
     return HcclResult::HCCL_SUCCESS;
 }
 
