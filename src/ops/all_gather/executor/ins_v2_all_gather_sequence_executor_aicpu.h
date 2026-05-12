@@ -38,7 +38,7 @@ private:
     HcclResult OrchestrateLoop(const OpParam &param, const AlgResourceCtxSerializable &resCtx);
     template <typename InsAlgTemplate>
     HcclResult GenTempResource(const AlgResourceCtxSerializable &resCtx, const u32 channelLevelIdx,
-        const std::shared_ptr<InsAlgTemplate> &algTemplate, TemplateResource &tempReousrce) const;
+        const InsAlgTemplate &algTemplate, TemplateResource &tempReousrce) const;
     uint32_t rankSizeLevel0_{0};
     uint32_t rankSizeLevel1_{0};
 

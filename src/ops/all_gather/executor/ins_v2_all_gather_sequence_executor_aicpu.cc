@@ -177,10 +177,10 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 template <typename InsAlgTemplate>
 HcclResult InsV2AllGatherSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::GenTempResource
     (const AlgResourceCtxSerializable &resCtx, const u32 channelLevelIdx,
-    const std::shared_ptr<InsAlgTemplate> &algTemplate, TemplateResource &tempReousrce) const
+    const InsAlgTemplate &algTemplate, TemplateResource &tempReousrce) const
 {
     AlgResourceRequest req;
-    algTemplate->GetRes(req);
+    algTemplate.GetRes(req);
     if (channelLevelIdx >= remoteRankToChannelInfo_.size()) {
         HCCL_ERROR("[InsV2AllGatherSequenceExecutorAicpu][GenTempResource] channelLevelIdx[%u] should be lower"
             "than remoteRankToChannelInfo_.size()[%u]", channelLevelIdx, remoteRankToChannelInfo_.size());
