@@ -116,7 +116,7 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     std::vector<HcclChannelDesc> channelDescs0, channelDescs1, channelDescsTemp;
     CHK_RET(CalcChannelRequest(comm, param, topoInfo, subCommRanks0, channelDescs0, CommTopo::COMM_TOPO_1DMESH));
     CHK_RET(CalcChannelRequest(comm, param, topoInfo, subCommRanks1, channelDescs1, CommTopo::COMM_TOPO_CLOS));
-
+    HCCL_INFO("zjy resourceRequest.slaveThreadNum[%u]", resourceRequest.slaveThreadNum);
     HCCL_INFO("[%s] CalcRes channelDescs0.size()[%zu], channelDescs1.size())[%zu]", __func__, channelDescs0.size(),
               channelDescs1.size());
 

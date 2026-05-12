@@ -959,6 +959,7 @@ HcclResult HcclGetThread(
         }
         u32 threadNum = resRequest.slaveThreadNum + 1;
         std::vector<ThreadHandle> threads(threadNum);
+        HCCL_INFO("zjy threadNum[%u]", threadNum);
         // maxNotifyNum需要再增加一个用于host-device同步
         CHK_RET(HcclThreadAcquire(comm, COMM_ENGINE_AICPU_TS, threadNum, maxNotifyNum + 1, threads.data()));
         CHK_RET(SaveMainThreadInfo(comm, param, threads[0], maxNotifyNum + 1));
