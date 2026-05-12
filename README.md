@@ -14,6 +14,8 @@
 - 支持HCCS、RoCE、PCIe等高速通信链路。
 - 支持单算子和图模式两种执行模式。
 
+
+
 HCCL是CANN的核心组件，对上支持多种AI框架，对下使能多款昇腾AI处理器之间的通信能力，其软件架构如下图所示：
 
 <img src="./docs/build/figures/architecture.png" alt="hccl-architecture" style="width: 65%;  height:65%;" />
