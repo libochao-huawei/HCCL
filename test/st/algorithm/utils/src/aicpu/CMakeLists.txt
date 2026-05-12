@@ -138,9 +138,6 @@ list(APPEND INCLUDE_LIST
     ${ASCEND_HOME_PATH}/include/external/
     ${ASCEND_HOME_PATH}/include/platform/
 
-    # mmpa头文件
-    ${ASCEND_HOME_PATH}/pkg_inc/mmpa/
-
     # 包间接口
     ${ASCEND_HOME_PATH}/pkg_inc/
     ${ASCEND_HOME_PATH}/pkg_inc/hccl

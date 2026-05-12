@@ -15,7 +15,6 @@
 
 #include "log.h"
 #include "adapter_error_manager_pub.h"
-#include "mmpa_api.h"
 #include "config_log.h"
 #include "sal.h"
 #include "dtype_common.h"
