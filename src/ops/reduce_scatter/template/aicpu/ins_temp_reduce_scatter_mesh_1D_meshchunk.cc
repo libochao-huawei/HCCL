@@ -177,7 +177,7 @@ HcclResult InsTempReduceScatterMesh1DMeshChunk::DoMeshChunk(
                 queIdx = (frontRank - 1) * channelsPerRank_;
             }
             const std::vector<ChannelInfo> &curChannels = channels.at(toRank);
-            CHK_RET(CalcDataSplitByPortGroup(sliceSize[i], dataTypeSize_, curChannels, elemCountOut_, sizeOut_, elemOffset_));
+            CHK_RET(CalcDataSplitByPortGroup(sliceSize[i] / dataTypeSize_, dataTypeSize_, curChannels, elemCountOut_, sizeOut_, elemOffset_));
             for (u32 channelIdx = 0; channelIdx < channelsPerRank_; channelIdx++) {
                 const ChannelInfo &linkSend = curChannels[channelIdx];
                 const ChannelInfo &linkRecv = curChannels[channelIdx];
@@ -214,7 +214,7 @@ HcclResult InsTempReduceScatterMesh1DMeshChunk::DoMeshChunk(
                     HCCL_ERROR("[InsTempReduceScatterMesh1DMeshChunk] RunReduceScatter SendRecvReduce failed"),
                     HcclResult::HCCL_E_INTERNAL);
                 queIdx ++;
-
+            }
             sliceSendOffset_ += sliceSize[i];
             if (templateRankSize_ > rankNum && i < (templateRankSize_ - rankNum)) {
                 sliceRecvOffset_ -= sliceSize[templateRankSize_ - tempNum - i];
