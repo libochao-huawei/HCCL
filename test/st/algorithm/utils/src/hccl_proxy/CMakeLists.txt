@@ -13,7 +13,6 @@ target_sources(hccl-model-proxy PRIVATE
     hccl_stub.cc
     hcclinner_stub.cc
     log_stub.cc
-    mmpa_stub.cc
     error_manager_stub.cc
     hcomm_ccu_stub.cc
     hccl_profiling_dfx_stub.cc
