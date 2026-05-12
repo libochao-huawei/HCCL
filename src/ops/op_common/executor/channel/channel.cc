@@ -330,25 +330,25 @@ static HcclResult CalcChannelRequestMesh1DByLevel(HcclComm comm, const OpParam& 
 #ifndef AICPU_COMPILE
     channels.clear();
 
-    // Check if the specified netLayer exists in rankGraph
-    // uint32_t *netLayers = nullptr;
-    // uint32_t netLayerNum = 0;
-    // CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
-    // std::vector<uint32_t> netLayersVector(netLayers, netLayers + netLayerNum);
-    // bool netLayerValid = false;
-    // for (auto layer : netLayersVector) {
-    //     if (layer == netLayer) {
-    //         netLayerValid = true;
-    //         break;
-    //     }
-    // }
-    // if (!netLayerValid) {
-    //     CHK_PRT_RET(linkRequired,
-    //         HCCL_ERROR("[%s] netLayer[%u] does not exist in rankGraph.", tag.c_str(), netLayer),
-    //         HcclResult::HCCL_E_INTERNAL);
-    //     HCCL_WARNING("[%s] netLayer[%u] does not exist in rankGraph, skip.", tag.c_str(), netLayer);
-    //     return HCCL_SUCCESS;
-    // }
+    Check if the specified netLayer exists in rankGraph
+    uint32_t *netLayers = nullptr;
+    uint32_t netLayerNum = 0;
+    CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
+    std::vector<uint32_t> netLayersVector(netLayers, netLayers + netLayerNum);
+    bool netLayerValid = false;
+    for (auto layer : netLayersVector) {
+        if (layer == netLayer) {
+            netLayerValid = true;
+            break;
+        }
+    }
+    if (!netLayerValid) {
+        CHK_PRT_RET(linkRequired,
+            HCCL_ERROR("[%s] netLayer[%u] does not exist in rankGraph.", tag.c_str(), netLayer),
+            HcclResult::HCCL_E_INTERNAL);
+        HCCL_WARNING("[%s] netLayer[%u] does not exist in rankGraph, skip.", tag.c_str(), netLayer);
+        return HCCL_SUCCESS;
+    }
 
     auto it = std::find(subcommInfo[COMM_LEVEL0].begin(), subcommInfo[COMM_LEVEL0].end(), topoInfo->userRank);
     CHK_PRT_RET((it == subcommInfo[COMM_LEVEL0].end()),
