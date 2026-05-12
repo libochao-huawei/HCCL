@@ -4,9 +4,7 @@
 
 该环境变量用于配置通信算子的展开模式。
 
-下面分别列出不同型号的产品支持的配置以及相关场景说明，未列出的产品不支持此环境变量设置，**若设置了不支持的环境变量，会使用默认值**。
-
-- **针对Ascend 950PR/Ascend 950DT** ：默认采用自适应展开模式，会根据组网、数据量等情况自动选择合适的模式。若配置此环境变量，支持的配置如下：
+- **针对Ascend 950PR/Ascend 950DT** ：支持的配置如下，若设置了不支持的环境变量，系统报错。
   - **AI_CPU**：代表通信算子在AI CPU展开，Device侧根据硬件型号自动选择相应的调度器。
 
     该配置项仅支持Broadcast、Reduce、AllReduce、Scatter、ReduceScatter、ReduceScatterV、AllGather、AllGatherV、AlltoAll、AlltoAllV、AlltoAllVC算子。
@@ -32,7 +30,7 @@
 
     当CCU资源不足时，系统会自动切换为AI_CPU模式。
 
-  - **CCU_SCHED**：代表通信算子在CCU展开，使用调度模式。
+  - **CCU_SCHED（默认值）**：代表通信算子在CCU展开，使用调度模式。
 
     调度模式指使用CCU作为调度器，向UB引擎调度UB WQE任务。调度模式下不使用CCU的片上MS，直接在两个rank间进行HBM到HBM的数据传输。
 
@@ -40,7 +38,7 @@
 
     当CCU资源不足时，系统会自动切换为AI_CPU模式。
 
-- **针对Atlas A3 训练系列产品/Atlas A3 推理系列产品，支持的配置如下：**
+- **针对Atlas A3 训练系列产品/Atlas A3 推理系列产品**：支持的配置如下，若设置了不支持的环境变量，使用默认值。
   - **AI_CPU（默认值）**：代表通信算子在AI CPU展开，Device侧根据硬件型号自动选择相应的调度器。
 
     在超节点内与超节点间支持全量通信算子。针对Reduce、ReduceScatter、ReduceScatterV、AllReduce算子，数据类型仅支持int8、int16、int32、float16、float32、bfp16，且reduce的操作类型仅支持sum、max、min。其他通信算子支持的数据类型可参见对应的集合通信接口参考。
@@ -76,7 +74,7 @@
 
     算法编排展开位置设置为“AIV”时，若同时设置了[HCCL_DETERMINISTIC](HCCL_DETERMINISTIC.md)环境变量为“true”或“strict”开启了确定性计算，确定性计算的优先级更高，某些场景下“AIV”展开可能不生效。
 
-- **针对Atlas A2 训练系列产品/Atlas A2 推理系列产品，支持的配置如下：**
+- **针对Atlas A2 训练系列产品/Atlas A2 推理系列产品**：支持的配置如下，若设置了不支持的环境变量，使用默认值。
   - **HOST（默认值）**：代表通信算在Host侧CPU展开，Device侧根据硬件型号自动选择相应的调度器。
   - **HOST_TS**：代表通信算子在Host侧CPU展开，Host向Device的Task Scheduler下发任务，Device的Task Scheduler进行任务调度执行。
   - **AI_CPU**：代表通信算子在AI CPU展开，Device侧根据硬件型号自动选择相应的调度器。
@@ -112,18 +110,21 @@
     - 算法编排展开位置设置为“AIV”时，若同时设置了[HCCL_DETERMINISTIC](HCCL_DETERMINISTIC.md)环境变量为“true”或“strict”开启了确定性计算，确定性计算的优先级更高，某些场景下“AIV”展开可能不生效。
     - 对于Atlas 200T A2 Box16异构子框，不支持跨框通信场景。
 
-- **针对Atlas 300I Duo 推理卡，支持的配置如下：**
+<cann-filter npu-type="310p">
+
+- **针对Atlas 300I Duo 推理卡**：支持的配置如下，若设置了不支持的环境变量，使用默认值。
   - **HOST（默认值）**：代表通信算子在Host侧CPU展开，Device侧根据硬件型号自动选择相应的调度器。
   - **AI_CPU**：代表通信算子在AI CPU展开，Device侧根据硬件型号自动选择相应的调度器。
     - 仅支持单机单通信域场景。
     - 仅支持AllReduce算子，AllReduce算子支持的数据类型可参见HcclAllReduce接口。
     - 配置为“AI_CPU”后，通信算子不再支持profiling性能数据采集与分析功能。
     - 对于静态shape图，不支持此配置项，即不支持指定通信算子的展开模式为AI CPU。
+</cann-filter>
 
 ## 配置示例
 
 ```bash
-export HCCL_OP_EXPANSION_MODE="HOST"
+export HCCL_OP_EXPANSION_MODE="AI_CPU"
 ```
 
 ## 使用约束

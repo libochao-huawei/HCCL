@@ -39,12 +39,13 @@ public:
         inputOffset = reinterpret_cast<uint64_t>(GM_IN[rank_]) + outerOffset;
         WaitFlag(rank_, waitRank, curTag_);
         CpGM2GM((__gm__ T *)output_, (__gm__ T *)inputOffset, len_);
- 
+        pipe_barrier(PIPE_ALL);
         for (waitRank = 1; waitRank < rankSize_; waitRank++) {
             outerOffset = waitRank  * len_ * sizeof(T); //rank_  * len;
             inputOffset = reinterpret_cast<uint64_t>(GM_IN[rank_]) + outerOffset;
             WaitFlag(rank_, waitRank, curTag_);
             CpGM2GM((__gm__ T *)output_, (__gm__ T *)inputOffset, len_, reduceOp_);
+            pipe_barrier(PIPE_ALL);
         }
     }
  

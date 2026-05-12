@@ -87,7 +87,18 @@ HcclResult CcuTempAllReduceMesh1D::CalcRes(HcclComm comm, const OpParam& param, 
                              return std::make_unique<CcuKernelAllReduceMesh1D>(arg);
                          };
     std::vector<HcclChannelDesc> channelDescs;
-    CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs);
+    if(topoInfo->level0Topo != Level0Shape::MESH_1D_CLOS) {
+        CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
+    } else {
+        std::vector<HcclChannelDesc> myChannelDescs;
+        CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks_, myChannelDescs, CommTopo::COMM_TOPO_1DMESH));
+        for(auto channel : myChannelDescs) {
+            if(channel.channelProtocol == COMM_PROTOCOL_UBC_CTP) {
+                channelDescs.push_back(channel);
+            }
+        }
+        HCCL_DEBUG("[CcuTempAllReduceMesh1D::CalcRes] Get Mesh Channel Success!");
+    }    
     std::vector<uint64_t> dimSize;
     dimSize.emplace_back(subCommRanks_[0].size());
     kernelInfo.kernelArg = std::make_shared<CcuKernelArgAllReduceMesh1D>(dimSize,
@@ -191,4 +202,8 @@ HcclResult CcuTempAllReduceMesh1D::FastLaunch(const OpParam& param, const Templa
     return HcclResult::HCCL_SUCCESS;
 }
 
+u64 CcuTempAllReduceMesh1D::GetThreadNum() const
+{
+    return 1;
+}
 } // namespace Hccl
