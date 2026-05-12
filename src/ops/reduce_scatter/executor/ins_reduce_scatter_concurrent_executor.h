@@ -55,6 +55,8 @@ protected:
     ThreadHandle temp1ThreadMain_ = 0;
 
     AlgHierarchyInfoForAllLevel algHierarchyInfo_;
+    std::map<u32, std::vector<ChannelInfo>> tmp0LinkMap_;
+    std::map<u32, std::vector<ChannelInfo>> tmp1LinkMap_;
 
 private:
     void GenTempAlgParams(const u64 dataOffset, const u64 dataCountforTemp, const u64 maxCountPerLoop,
