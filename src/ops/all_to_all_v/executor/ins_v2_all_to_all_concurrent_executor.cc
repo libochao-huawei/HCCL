@@ -73,40 +73,48 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
         HCCL_ERROR("[InsV2AllToAllConcurrentExecutor[%s] toposize = %u", __FUNCTION__, algHierarchyInfo.infos[0].size());
         return HCCL_E_PARA;
     }
-
+    for (u32 i = 0; i < algHierarchyInfo.infos.size(); i++) {
+        for (u32 j = 0; j < algHierarchyInfo.infos[i].size(); j++) {
+            for (u32 k = 0; k < algHierarchyInfo.infos[i][j].size(); k++) {
+                printf("[ywj]algHierarchyInfo.infos[%u][%u][%u]=%u\n", i, j, k, algHierarchyInfo.infos[i][j][k]);
+            }
+        }
+    }
+    printf("[ywj]%s:%s:%u\n", __FILE__, __FUNCTION__, __LINE__);
     // 获取子通信域
     std::vector<std::vector<u32>> subCommRanks0 = {algHierarchyInfo.infos[0][0]};
     std::vector<std::vector<u32>> subCommRanks1 = {algHierarchyInfo.infos[0][1]};
-
+    printf("[ywj]%s:%s:%u\n", __FILE__, __FUNCTION__, __LINE__);
     // 构建template
     std::shared_ptr<InsAlgTemplate0> interTempAlg0 = std::make_shared<InsAlgTemplate0>(param, topoInfo->userRank,
                                                                                        subCommRanks0);
     std::shared_ptr<InsAlgTemplate1> intraTempAlg1 = std::make_shared<InsAlgTemplate1>(param, topoInfo->userRank,
                                                                                        subCommRanks1);
-
+    printf("[ywj]%s:%s:%u\n", __FILE__, __FUNCTION__, __LINE__);
     // 调用计算资源的函数
     AlgResourceRequest resReq0, resReq1;
     interTempAlg0->CalcRes(comm, param, topoInfo, resReq0);
     intraTempAlg1->CalcRes(comm, param, topoInfo, resReq1);
+    printf("[ywj]%s:%s:%u\n", __FILE__, __FUNCTION__, __LINE__);
     // temp0的主流负责和temp1主流同步
     resourceRequest.slaveThreadNum = resReq0.slaveThreadNum + resReq1.slaveThreadNum + 1;   // +1用于temp0和temp1主流之间的同步流
-    resourceRequest.notifyNumOnMainThread = resReq0.notifyNumOnMainThread + 1;              // +1用于2个template间同步
+    resourceRequest.notifyNumOnMainThread = resReq0.notifyNumOnMainThread + 1;              // +1用于2个template间同步  4
     resourceRequest.notifyNumPerThread.reserve(resReq0.notifyNumPerThread.size() +
                                                resReq1.notifyNumPerThread.size() + 1);
     resourceRequest.notifyNumPerThread.insert(resourceRequest.notifyNumPerThread.end(),
                                             resReq0.notifyNumPerThread.begin(),
                                             resReq0.notifyNumPerThread.end());
-    resourceRequest.notifyNumPerThread.emplace_back(resReq1.notifyNumOnMainThread + 1); // +1用于两个template间同步
+    resourceRequest.notifyNumPerThread.emplace_back(resReq1.notifyNumOnMainThread + 1); // +1用于两个template间同步  [4, 1, 1, 1, 4, 1, 1, 1]
     resourceRequest.notifyNumPerThread.insert(resourceRequest.notifyNumPerThread.end(),
                                             resReq1.notifyNumPerThread.begin(),
                                             resReq1.notifyNumPerThread.end());
-
+    printf("[ywj]%s:%s:%u\n", __FILE__, __FUNCTION__, __LINE__);
     std::vector<HcclChannelDesc> channelDescs0, channelDescs1;
     CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks0,
                                                     channelDescs0, CommTopo::COMM_TOPO_1DMESH));
     CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks1,
                                                     channelDescs1, CommTopo::COMM_TOPO_CLOS));
-
+    printf("[ywj]%s:%s:%u\n", __FILE__, __FUNCTION__, __LINE__);
     if ((param.engine == CommEngine::COMM_ENGINE_CCU)) {
         resReq0.ccuKernelInfos[0].channels = channelDescs0;
         resReq1.ccuKernelInfos[0].channels = channelDescs1;
@@ -119,13 +127,16 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
                                               resReq1.ccuKernelInfos.begin(),
                                               resReq1.ccuKernelInfos.end());
     } else if (param.engine == CommEngine::COMM_ENGINE_AICPU || param.engine == CommEngine::COMM_ENGINE_AICPU_TS) {
+        printf("[ywj]%s:%s:%u\n", __FILE__, __FUNCTION__, __LINE__);
         resourceRequest.channels.resize(1);
         resourceRequest.channels[0].insert(resourceRequest.channels[0].end(),
                                               channelDescs0.begin(),
                                               channelDescs0.end());
+        printf("[ywj]%s:%s:%u\n", __FILE__, __FUNCTION__, __LINE__);
         resourceRequest.channels[0].insert(resourceRequest.channels[0].end(),
                                               channelDescs1.begin(),
                                               channelDescs1.end());
+        printf("[ywj]%s:%s:%u\n", __FILE__, __FUNCTION__, __LINE__);
     } else {
         HCCL_ERROR("[InsV2AllToAllConcurrentExecutor][CalcRes] the communication engine is not supported currently"
                     ", please check");
@@ -164,13 +175,14 @@ template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTempla
 HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::FillTemplateResource(
     const OpParam &param, const AlgResourceCtxSerializable& resCtx, TemplateResource& templateAlgRes, uint32_t index)
 {
-    templateAlgRes.threads = {resCtx.threads[index]};
     templateAlgRes.aivCommInfoPtr = resCtx.aivCommInfoPtr;
     if (param.engine == COMM_ENGINE_CCU) {
+        templateAlgRes.threads = {resCtx.threads[index]};
         templateAlgRes.ccuKernels = {resCtx.ccuKernels[index]};
     }
     if (param.engine == COMM_ENGINE_AICPU || param.engine == CommEngine::COMM_ENGINE_AICPU_TS) {
         CHK_RET(RestoreChannelMap(resCtx, remoteRankToChannelInfo_));
+        templateAlgRes.threads = {resCtx.threads[index]}; // 0-3   4-7
         templateAlgRes.channels = remoteRankToChannelInfo_[index];
     }
     return HcclResult::HCCL_SUCCESS;
@@ -303,7 +315,9 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
     TemplateResource templateAlgRes0, templateAlgRes1;
     FillTemplateResource(param, resCtx, templateAlgRes0, 0);
     FillTemplateResource(param, resCtx, templateAlgRes1, 1);
-
+    templateAlgRes0.threads.assign(threads_.begin(), threads_.begin() + subCommRanks0[0].size());
+    templateAlgRes1.threads.assign(threads_.begin() + subCommRanks0[0].size(), threads_.end());
+    printf("[ywj]subCommRanks0[0].size()=%u\n", subCommRanks0[0].size());
     // 获取SendRecv数据并切分到各template上
     std::vector<SendRecvData> splitData;
     RestoreSendRecvData(param);
@@ -339,7 +353,7 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
     std::vector<u64> processedDataCount = {0, 0};
     std::vector<u32> notify = {0};
     u64 loop = 0;
-    CHK_RET(PreSyncInterThreads(resCtx.threads[0], {resCtx.threads[1]}, notify));
+    CHK_RET(PreSyncInterThreads(resCtx.threads[0], {resCtx.threads[4]}, notify));  // 怎么保证前后同步使用的notify不重复
     while (loop < loopTimes0 || loop < loopTimes1) {
         if (loop < loopTimes0) {
             u64 currDataCount = (loop == loopTimes0 - 1) ?
@@ -360,7 +374,7 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
         }
         loop++;
     }
-    CHK_RET(PostSyncInterThreads(resCtx.threads[0], {resCtx.threads[1]}, notify));
+    CHK_RET(PostSyncInterThreads(resCtx.threads[0], {resCtx.threads[4]}, notify));
 #ifndef AICPU_COMPILE
     if (loopTimes0 == 1 && loopTimes1 == 1 && param.engine == CommEngine::COMM_ENGINE_CCU) {
         CHK_RET(FastLaunchSaveCtx(param, templateAlgRes0, templateAlgRes1, resCtx.notifyNumOnMainThread));

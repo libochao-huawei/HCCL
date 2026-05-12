@@ -143,6 +143,7 @@ HcclResult TopoMatchUBX::MatchTopo(const HcclComm comm, TopoInfoWithNetLayerDeta
     uint32_t *netLayers;
     uint32_t layerNum = 0;
     CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &layerNum));
+    printf("[ywj]netlayerNum=%u\n ", layerNum);
 
     HCCL_DEBUG("[CollAlgFactory] [TopoMatchUBX] Rank [%d], netLayers[%u][%s]",
                 myRank, layerNum, PrintCArray<uint32_t>(netLayers, layerNum).c_str());
@@ -151,6 +152,7 @@ HcclResult TopoMatchUBX::MatchTopo(const HcclComm comm, TopoInfoWithNetLayerDeta
     uint32_t *instSizeList;
     uint32_t listSize = 0;
     CHK_RET(HcclRankGraphGetInstSizeListByLayer(comm, 0, &instSizeList, &listSize));
+    printf("[ywj]netInst[0]Num=%u\n ", listSize);
     HCCL_INFO("[CollAlgFactory] [TopoMatchUBX] Rank [%d], [%u] pods ,ranksize on each pod :[%s]",
         myRank,
         listSize,
