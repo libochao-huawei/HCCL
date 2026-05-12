@@ -57,7 +57,15 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(
         HCCL_ERROR("algHierarchyInfo level num is zero!");
         return HCCL_E_PARA;
     }
-
+    
+    for (u32 i = 0; i < algHierarchyInfo.infos.size(); i++) {
+        for (u32 j = 0; j < algHierarchyInfo.infos[i].size(); j++) {
+            for (u32 k = 0; k < algHierarchyInfo.infos[i][j].size(); k++) {
+                printf("[ywj]algHierarchyInfo.infos[%u][%u][%u]=%u\n", i, j, k, algHierarchyInfo.infos[i][j][k]);
+            }
+        }
+    }
+    printf("[ywj]topoInfo->topoLevelNums = %u\n", topoInfo->topoLevelNums);
     if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
         CHK_PRT_RET(algHierarchyInfo.infos[0].size() != INST_NUM_NET,
                     HCCL_ERROR("[InsV2AlltoAllVSoleExecutor][CalcRes] algHierarchyInfo.infos[0].size[%zu] "
@@ -246,6 +254,14 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
             recvCounts[i] = reinterpret_cast<u64*>(param.all2AllVDataDes.recvCounts)[i];
             sdispls[i] = reinterpret_cast<u64*>(param.all2AllVDataDes.sdispls)[i];
             rdispls[i] = reinterpret_cast<u64*>(param.all2AllVDataDes.rdispls)[i];
+        }
+    }
+
+    for (u32 i = 0; i < resCtx.algHierarchyInfo.infos.size(); i++) {
+        for (u32 j = 0; j < resCtx.algHierarchyInfo.infos[i].size(); j++) {
+            for (u32 k = 0; k < resCtx.algHierarchyInfo.infos[i][j].size(); k++) {
+                printf("[ywj]resCtx.algHierarchyInfo.infos[%u][%u][%u]=%u\n", i, j, k, resCtx.algHierarchyInfo.infos[i][j][k]);
+            }
         }
     }
 
@@ -442,6 +458,12 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, InsAlltoAllVMesh1DUBX, InsV2Al
     InsTempAlltoAllVMesh1D);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLVC, InsAlltoAllVCMesh1D, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
     InsTempAlltoAllVMesh1D);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, InsAlltoAllUbxMesh1D, InsV2AlltoAllVSoleExecutor, TopoMatchUBX,
+    InsTempAlltoAllVMesh1D);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, InsAlltoAllVUbxMesh1D, InsV2AlltoAllVSoleExecutor, TopoMatchUBX,
+    InsTempAlltoAllVMesh1D);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLVC, InsAlltoAllVCUbxMesh1D, InsV2AlltoAllVSoleExecutor, TopoMatchUBX,
+    InsTempAlltoAllVMesh1D);
 #if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, InsAlltoAllMesh1DDPU, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
     InsTempDpuAlltoAllMesh);
@@ -472,7 +494,7 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLVC, InsAlltoAllVCClosMesh1DDPU, I
 #endif /* !HCCL_CANN_COMPAT_850 */
 #if !defined(HCCL_CANN_COMPAT_850)
     REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, CcuAlltoAllMesh1DMultiJetty, InsV2AlltoAllVSoleExecutor,
-                    TopoMatchUBX1d, CcuTempAllToAllMesh1dMultiJetty);
+                    TopoMatchUBX, CcuTempAllToAllMesh1dMultiJetty);
 #endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 }  // namespace Hccl
