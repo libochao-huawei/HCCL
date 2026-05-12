@@ -24,7 +24,6 @@ set(HCCL_CUSTOM_OPS_INCLUDE_LIST
     # CANN Toolkit头文件
     ${ASCEND_CANN_PACKAGE_PATH}/include
     ${ASCEND_CANN_PACKAGE_PATH}/include/hccl
-    ${ASCEND_CANN_PACKAGE_PATH}/include/mmpa
     ${ASCEND_CANN_PACKAGE_PATH}/asc/include/aicpu_api
     ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc
 )
@@ -72,7 +71,6 @@ target_link_libraries(hccl_custom_p2p PRIVATE
     ascendalog
     ascendcl
     runtime
-    mmpa
     error_manager
     ascend_dump
 )
