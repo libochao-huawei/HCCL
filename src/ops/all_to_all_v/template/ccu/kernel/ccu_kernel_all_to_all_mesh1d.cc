@@ -83,17 +83,17 @@ static CcuResult LoadArgs(AlltoAllMesh1DContext &ctx)
 {
     const auto *arg = ctx.arg;
 
-    CCU_CHK_RET(ccu::LoadArg(ctx.input[arg->rankId]));
-    CCU_CHK_RET(ccu::LoadArg(ctx.output[arg->rankId]));
-    CCU_CHK_RET(ccu::LoadArg(ctx.token[arg->rankId]));
-    CCU_CHK_RET(ccu::LoadArg(ctx.sliceSize));
-    CCU_CHK_RET(ccu::LoadArg(ctx.srcStride));
-    CCU_CHK_RET(ccu::LoadArg(ctx.srcOffset));
-    CCU_CHK_RET(ccu::LoadArg(ctx.dstOffset));
-    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.addrOffset));
-    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.loopParam));
-    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.parallelParam));
-    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.residual));
+    CCU_CHK_RET(ccu::LoadArg(ctx.input[arg->rankId], 0));
+    CCU_CHK_RET(ccu::LoadArg(ctx.output[arg->rankId], 1));
+    CCU_CHK_RET(ccu::LoadArg(ctx.token[arg->rankId], 2));
+    CCU_CHK_RET(ccu::LoadArg(ctx.sliceSize, 3));
+    CCU_CHK_RET(ccu::LoadArg(ctx.srcStride, 4));
+    CCU_CHK_RET(ccu::LoadArg(ctx.srcOffset, 5));
+    CCU_CHK_RET(ccu::LoadArg(ctx.dstOffset, 6));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.addrOffset, 7));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.loopParam, 8));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.parallelParam, 9));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.residual, 10));
 
     ctx.srcOffset += ctx.input[arg->rankId];
 
