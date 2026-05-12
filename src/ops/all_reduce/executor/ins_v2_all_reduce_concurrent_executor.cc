@@ -265,12 +265,11 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
 
         for (u32 i = 0; i < channelCount; ++i) {
             const auto &channel = channels[i];
-            auto &targetChannels = (i < rankSize_) ? tempAlgResource0.channels : tempAlgResource1.channels;
+            auto &targetChannels = (i < rankSize_ - 1) ? tempAlgResource0.channels : tempAlgResource1.channels;
             targetChannels[channel.remoteRank].push_back(channel);
         }
-
-        temp0SlaveThreadNum = temp0->GetThreadNum();
-        temp1SlaveThreadNum = temp1->GetThreadNum();
+        temp0SlaveThreadNum = temp0->GetThreadNum() - 1;
+        temp1SlaveThreadNum = temp1->GetThreadNum() - 1;
     }
 
     const u64 temp0ThreadsNum = temp0SlaveThreadNum + 1;
