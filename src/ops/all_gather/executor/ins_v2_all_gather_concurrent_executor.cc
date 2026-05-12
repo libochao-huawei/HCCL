@@ -234,6 +234,24 @@ HcclResult InsV2AllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
             targetMap[channel.remoteRank].push_back(channel);
         }
     }
+    HCCL_INFO("[DEBUG] tmp0LinkMap_ keys=%zu", tmp0LinkMap_.size());
+    for (const auto &[rank, vec] : tmp0LinkMap_) {
+        HCCL_INFO("[DEBUG]   rank[%u] -> %zu channels", rank, vec.size());
+        for (size_t j = 0; j < vec.size(); ++j) {
+            HCCL_INFO("[DEBUG]     ch[%zu] remoteRank=%u, localRank=%u",
+                    j, vec[j].remoteRank, vec[j].localRank);
+        }
+    }
+
+    // 打印 tmp1LinkMap_
+    HCCL_INFO("[DEBUG] tmp1LinkMap_ keys=%zu", tmp1LinkMap_.size());
+    for (const auto &[rank, vec] : tmp1LinkMap_) {
+        HCCL_INFO("[DEBUG]   rank[%u] -> %zu channels", rank, vec.size());
+        for (size_t j = 0; j < vec.size(); ++j) {
+            HCCL_INFO("[DEBUG]     ch[%zu] remoteRank=%u, localRank=%u",
+                    j, vec[j].remoteRank, vec[j].localRank);
+        }
+    }
 
     // 算法展开
     HcclResult ret = OrchestrateLoop(param, resCtx, algTemplate0, algTemplate1);
