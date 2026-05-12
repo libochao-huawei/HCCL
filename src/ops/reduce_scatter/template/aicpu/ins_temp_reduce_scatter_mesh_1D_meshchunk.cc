@@ -176,7 +176,7 @@ HcclResult InsTempReduceScatterMesh1DMeshChunk::DoMeshChunk(
             } else {
                 queIdx = (frontRank - 1) * channelsPerRank_;
             }
-            const std::vector<ChannelInfo> &curChannels = channels.at(remoteRank);
+            const std::vector<ChannelInfo> &curChannels = channels.at(toRank);
             CHK_RET(CalcDataSplitByPortGroup(sliceSize[i], dataTypeSize_, curChannels, elemCountOut_, sizeOut_, elemOffset_));
             for (u32 channelIdx = 0; channelIdx < channelsPerRank_; channelIdx++) {
                 const ChannelInfo &linkSend = curChannels[channelIdx];
