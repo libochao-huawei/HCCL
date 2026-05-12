@@ -55,17 +55,17 @@ namespace {
 
             const std::string& GetCommName() const {return commName_; }
 
-            //获得缓存项，返回指针。不存在则返回 nullptr
-            AlgResourceCtxSerializable* Get(const std::string& algTag) {
+            //获得缓存项，返回共享所有权保证使用期间对象稳定存活
+            std::shared_ptr<const AlgResourceCtxSerializable> Get(const std::string& algTag) {
                 std::shared_lock<std::shared_timed_mutex> lock(mutex_);
                 auto it = cache_.find(algTag);
-                return it != cache_.end() ? &it->second : nullptr;
+                return it != cache_.end() ? it->second : nullptr;
             }
 
             //缓存算法
             void Put(const std::string& algTag, const AlgResourceCtxSerializable& value) {
                 std::unique_lock<std::shared_timed_mutex> lock(mutex_);
-                cache_[algTag] = value;
+                cache_[algTag] = std::make_shared<AlgResourceCtxSerializable>(value);
             }
 
             //移除特定算法
@@ -90,7 +90,7 @@ namespace {
 
         private:
             std::string commName_;
-            std::unordered_map<std::string, AlgResourceCtxSerializable> cache_;
+            std::unordered_map<std::string, std::shared_ptr<const AlgResourceCtxSerializable>> cache_;
             CacheStats stats_;
             mutable std::shared_timed_mutex mutex_;
      };
@@ -99,7 +99,7 @@ namespace {
     class CommDomainCacheManager {
         public:
             //获取算法缓存
-            AlgResourceCtxSerializable* Get(const std::string& algTag, const std::string& paramCommName) {
+            std::shared_ptr<const AlgResourceCtxSerializable> Get(const std::string& algTag, const std::string& paramCommName) {
                 std::string commName = ExtractCommName(algTag);
                 //提取失败时使用参数中的commName
                 if (commName.empty()) commName = paramCommName;
@@ -296,12 +296,13 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             }
         }
 
-        AlgResourceCtxSerializable resCtx;
-        AlgResourceCtxSerializable* resCtxPtr{nullptr};
+        std::shared_ptr<const AlgResourceCtxSerializable> cachedResCtxHolder;
+        std::unique_ptr<AlgResourceCtxSerializable> resCtx;
+        const AlgResourceCtxSerializable* resCtxPtr{nullptr};
         if (param->opType != HcclCMDType::HCCL_CMD_BATCH_SEND_RECV) {
             //通过缓存实现反序列化优化
-            AlgResourceCtxSerializable* cachedResCtx = g_cacheManager.Get(param->algTag, param->commName);
-            if (cachedResCtx != nullptr) {
+            cachedResCtxHolder = g_cacheManager.Get(param->algTag, param->commName);
+            if (cachedResCtxHolder != nullptr) {
                 HCCL_INFO("[%s] Cache HIT for algTag[%s]", __func__, param->algTag);
                 std::string commName = g_cacheManager.ExtractCommName(param->algTag);
                 if (commName.empty()) commName = param->commName;
@@ -312,21 +313,23 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
                     HCCL_DEBUG("[%s] comm[%s] hitRate=%.2f%%, cacheSize=%zu",
                     __func__, commName.c_str(), stats.hitRate() * 100, cacheSize);
                 }
-                resCtxPtr = cachedResCtx;
+                resCtxPtr = cachedResCtxHolder.get();
             } else {
                 //未命中，进行反序列化并存入缓存
+                resCtx.reset(new AlgResourceCtxSerializable());
                 char *ctx = static_cast<char *>(param->resCtx);
                 std::vector<char> seq(ctx, ctx + param->ctxSize);
-                resCtx.DeSerialize(seq);
-                g_cacheManager.Put(param->algTag, resCtx, param->commName);
-                resCtxPtr = &resCtx;
+                resCtx->DeSerialize(seq);
+                g_cacheManager.Put(param->algTag, *resCtx, param->commName);
+                resCtxPtr = resCtx.get();
                 HCCL_INFO("[%s] Cache MISS and stored for algTag[%s]", __func__, param->algTag);
             }
         } else {
+            resCtx.reset(new AlgResourceCtxSerializable());
             char *ctx = static_cast<char *>(param->resCtx);
             std::vector<char> seq(ctx, ctx + param->ctxSize);
-            resCtx.DeSerialize(seq);
-            resCtxPtr = &resCtx;
+            resCtx->DeSerialize(seq);
+            resCtxPtr = resCtx.get();
         }
 
         // 还原变长指针
