@@ -35,24 +35,24 @@ struct AlltoAllMesh1DContext: CcuKernelCtxBase {
     // uint32_t rankId{0};
     HcclDataType dataType;
     HcclDataType outputDataType;
-    ccu::CcuVariable repeatNum;
+    ccu::Variable repeatNum;
     // std::vector<ChannelHandle> channels;
-    std::vector<ccu::CcuVariable> input;
-    std::vector<ccu::CcuVariable> output;
-    std::vector<ccu::CcuVariable> token;
-    ccu::CcuVariable sliceSize;
-    ccu::CcuVariable srcStride;
-    ccu::CcuVariable srcOffset;
-    ccu::CcuVariable dstOffset;
+    std::vector<ccu::Variable> input;
+    std::vector<ccu::Variable> output;
+    std::vector<ccu::Variable> token;
+    ccu::Variable sliceSize;
+    ccu::Variable srcStride;
+    ccu::Variable srcOffset;
+    ccu::Variable dstOffset;
     GroupOpSizeVars goSize;
 
     ccu::LocalAddr                   myDst;
     std::vector<ccu::RemoteAddr>     dstAddr;
     std::vector<ccu::LocalAddr>      srcAddr;
-    std::vector<ccu::CcuVariable>         dstToken;
-    std::vector<ccu::CcuVariable>         srcToken;
+    std::vector<ccu::Variable>         dstToken;
+    std::vector<ccu::Variable>         srcToken;
     ccu::CcuEvent event;
-    ccu::CcuVariable flag; // 用以判断是否是第一次重复
+    ccu::Variable flag; // 用以判断是否是第一次重复
     bool loadFromMem = false;
 };
 
