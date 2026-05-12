@@ -18,11 +18,11 @@
 extern "C" {
 #endif
 
-DECL_WEAK_FUNC(HcclCommAddExchangeInfo);
-DECL_WEAK_FUNC(HcclCommGetExchangeInfo);
-DECL_WEAK_FUNC(HcclCommResetExchangeInfo);
+DECL_WEAK_FUNC(HcclResult, HcclCommAddExchangeInfo, HcclComm comm, void *data, uint32_t length);
+DECL_WEAK_FUNC(HcclResult, HcclCommGetExchangeInfo, HcclComm comm, uint32_t remoteRank, uint32_t length, void *data,
+    uint32_t *actualLength);
+DECL_WEAK_FUNC(HcclResult, HcclCommResetExchangeInfo, HcclComm comm);
 
-// 动态库管理接口（大驼峰命名）
 void HcclResExptDlInit(void *libHcommHandle);
 
 #ifdef __cplusplus
