@@ -40,12 +40,6 @@ HcclResult InsTempAllGatherMesh1D1DZAxisDetour::CalcRes(HcclComm comm, const OpP
     if(subCommRanks_.size() <= COMM_LEVEL0) {
         return HCCL_E_PARA;
     }
-    auto& ranks = subCommRanks_[COMM_LEVEL0];
-    if((ranks.size() -1 ) == mergedChannels.size()) {
-        SetIsNewTemp(false);
-    } else {
-        SetIsNewTemp(true);
-    }
     GetRes(resourceRequest);
     return HCCL_SUCCESS;
 }
