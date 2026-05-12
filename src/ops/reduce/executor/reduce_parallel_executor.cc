@@ -669,12 +669,10 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
     //把每个template需要的queue传进去，比如stars的mesh要传多条queue
     if (ctx->ccuKernelNum[0] > 0) {
         //数据0的server内的mesh算法
-        HCCL_INFO("[ReduceParallelExecutor][FastLaunchTemplateIntra0] myRank_[%u] kernelNum[%u]", myRank_, ctx->ccuKernelNum[0]);
         CHK_RET(algTemplatePtrArr_.at(0).at(0)->FastLaunch(param, tempFastLaunchCtxIntra0));
     }
     if (ctx->ccuKernelNum[1] > 0) {
         //数据1的server间的nhr算法
-        HCCL_INFO("[ReduceParallelExecutor][FastLaunchTemplateInter1] myRank_[%u] kernelNum[%u]", myRank_, ctx->ccuKernelNum[1]);
         CHK_RET(algTemplatePtrArr_.at(0).at(1)->FastLaunch(param, tempFastLaunchCtxInter1));
     }
     //第一步做完后回到主流做尾同步
@@ -694,11 +692,9 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
     ccuKernelSubmitInfos += ctx->ccuKernelNum[3];
     // step2 scatter 数据0的server间的nhr算法
     if (ctx->ccuKernelNum[2] > 0) {
-        HCCL_INFO("[ReduceParallelExecutor][FastLaunchTemplateInter0] myRank_[%u] kernelNum[%u]", myRank_, ctx->ccuKernelNum[2]);
         CHK_RET(algTemplatePtrArr_.at(0).at(1)->FastLaunch(param, tempFastLaunchCtxInter0));
     }
     if (ctx->ccuKernelNum[3] > 0) {
-        HCCL_INFO("[ReduceParallelExecutor][FastLaunchTemplateIntra1] myRank_[%u] currCountPart[%u]", myRank_, ctx->ccuKernelNum[3]);
         CHK_RET(algTemplatePtrArr_.at(0).at(0)->FastLaunch(param, tempFastLaunchCtxIntra1));
     }
     CHK_RET(PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_));
@@ -718,11 +714,9 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
     tempFastLaunchCtxIntra11.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[5]);
     ccuKernelSubmitInfos += ctx->ccuKernelNum[5];
     if (ctx->ccuKernelNum[4] > 0) {
-        HCCL_INFO("[ReduceParallelExecutor][FastLaunchTemplateInter01] myRank_[%u] kernelNum[%u]", myRank_, ctx->ccuKernelNum[4]);
         CHK_RET(algTemplatePtrArr_.at(1).at(1)->FastLaunch(param, tempFastLaunchCtxInter01));
     }
     if (ctx->ccuKernelNum[5] > 0) {
-        HCCL_INFO("[ReduceParallelExecutor][FastLaunchTemplateIntra11] myRank_[%u] kernelNum[%u]", myRank_, ctx->ccuKernelNum[5]);
         CHK_RET(algTemplatePtrArr_.at(1).at(0)->FastLaunch(param, tempFastLaunchCtxIntra11));
     }
     //尾同步
@@ -740,22 +734,13 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
     tempFastLaunchCtxInter11.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[7]);
     ccuKernelSubmitInfos += ctx->ccuKernelNum[7];
     if (ctx->ccuKernelNum[6] > 0) {
-        HCCL_INFO("[ReduceParallelExecutor][FastLaunchTemplateIntra01] myRank_[%u] kernelNum[%u]", myRank_, ctx->ccuKernelNum[6]);
         CHK_RET(algTemplatePtrArr_.at(1).at(0)->FastLaunch(param, tempFastLaunchCtxIntra01));
     }
     if (ctx->ccuKernelNum[7] > 0) {
-        HCCL_INFO("[ReduceParallelExecutor][FastLaunchTemplateInter11] myRank_[%u] kernelNum[%u]", myRank_, ctx->ccuKernelNum[7]);
         CHK_RET(algTemplatePtrArr_.at(1).at(1)->FastLaunch(param, tempFastLaunchCtxInter11));
     }
     //尾同步
     CHK_RET(PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_));
-    if (param.userRank == param.root) {
-        HCCL_INFO("[ReduceParallelExecutor][FastLaunch] param.userRank[%u]", param.userRank);
-        HCCL_INFO("[ReduceParallelExecutor][FastLaunch] param.root[%u]", param.root);
-        const DataSlice srcSlice(param.hcclBuff.addr, 0, param.DataDes.count * DATATYPE_SIZE_TABLE[param.DataDes.dataType]);
-        const DataSlice dstSlice(param.outputPtr, 0, param.DataDes.count * DATATYPE_SIZE_TABLE[param.DataDes.dataType]);
-        CHK_RET(LocalCopy(threads_.at(0), srcSlice, dstSlice));
-    }
     HCCL_INFO("[ReduceParallelExecutor][FastLaunch] End.");
     return HCCL_SUCCESS;
 }
