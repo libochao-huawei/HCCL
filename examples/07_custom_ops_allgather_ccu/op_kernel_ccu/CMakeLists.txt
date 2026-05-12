@@ -13,8 +13,6 @@ set(op_kernel_ccu_src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/exec_op.cc
 )
 
-if(KERNEL_MODE)
-    target_sources(custom_allgather_ccu_kernel PRIVATE
-        ${op_kernel_ccu_src_list}
-    )
-endif()
+target_sources(hccl_custom_allgather PRIVATE
+    ${op_kernel_ccu_src_list}
+)
