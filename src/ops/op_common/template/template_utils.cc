@@ -98,6 +98,7 @@ HcclResult CalcDataSplitByPortGroupZAxisDetour(const u64 totalDataCount,
         HcclResult::HCCL_E_PARA);
 
     u64 level0DataCount = static_cast<u64>(totalDataCount * level0DataRatio);
+    level0DataCount = std::min(level0DataCount, totalDataCount);
     u64 level1DataCount = totalDataCount - level0DataCount;
 
     std::vector<ChannelInfo> level0Chs(channels.begin(),
