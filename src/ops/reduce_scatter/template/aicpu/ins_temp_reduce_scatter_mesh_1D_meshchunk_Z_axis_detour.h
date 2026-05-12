@@ -11,6 +11,9 @@
 #ifndef INS_TEMP_REDUCE_SCATTER_MESH_1D_MESH_CHUNK_Z_AXIS_DETOUR_H
 #define INS_TEMP_REDUCE_SCATTER_MESH_1D_MESH_CHUNK_Z_AXIS_DETOUR_H
 
+#include "alg_v2_template_base.h"
+#include "executor_base.h"
+#include "alg_data_trans_wrapper.h"
 #include "ins_temp_reduce_scatter_mesh_1D_meshchunk.h"
 
 namespace ops_hccl {
