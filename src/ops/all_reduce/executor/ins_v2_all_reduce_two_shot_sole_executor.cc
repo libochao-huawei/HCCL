@@ -9,9 +9,8 @@
  */
 
 #include "ins_v2_all_reduce_two_shot_sole_executor.h"
-#include "ins_temp_reduce_scatter_mesh_1D.h"
 #include "ins_temp_reduce_scatter_mesh_1D_Z_axis_detour.h"
-#include "ins_temp_all_gather_mesh_1D.h"
+#include "ins_temp_all_gather_mesh_1D_Z_axis_detour.h"
 
 namespace ops_hccl {
 
@@ -232,6 +231,7 @@ HcclResult InsV2AllReduceTwoShotSoleExecutor<AlgTopoMatch, InsAlgTemplate0, InsA
 
     std::shared_ptr<InsAlgTemplate1> algTemplateAllGather =
         std::make_shared<InsAlgTemplate1>(param, myRank_, algHierarchyInfo_.infos[0]);
+    algTemplateAllGather->SetchannelsPerRank(remoteRankToChannelInfo_[0]);
 
     TemplateResource templateResourceReduceScatter;
     CHK_RET(GenTempResource(resCtx, algTemplateReduceScatter, templateResourceReduceScatter));
@@ -269,5 +269,5 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE,
                                 InsV2AllReduceTwoShotSoleExecutor,
                                 TopoMatch1D,
                                 InsTempReduceScatterMesh1DZAxisDetour,
-                                InsTempAllGatherMesh1D);
+                                InsTempAllGatherMesh1D1DZAxisDetour);
 }

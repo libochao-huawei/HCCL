@@ -10,7 +10,7 @@
 
 #include "ins_v2_all_gather_sequence_executor_aicpu.h"
 #include "topo_match_multilevel.h"
-#include "ins_temp_all_gather_mesh_1D.h"
+#include "ins_temp_all_gather_mesh_1D_Z_axis_detour.h"
 #include "ins_temp_all_gather_nhr.h"
 #include "coll_alg_v2_exec_registry.h"
 
@@ -208,6 +208,7 @@ HcclResult InsV2AllGatherSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, In
 
     // 构建框间template
     InsAlgTemplate1 interTempAlg(param, myRank_, algHierarchyInfo_.infos[1]);
+    interTempAlg.SetchannelsPerRank(remoteRankToChannelInfo_[1]);
 
     // 框内template
     TemplateDataParams intraTempDataParams;
@@ -220,6 +221,7 @@ HcclResult InsV2AllGatherSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, In
 
     // 构建框内template
     InsAlgTemplate0 intraTempAlg(param, myRank_, algHierarchyInfo_.infos[0]);
+    intraTempAlg.SetchannelsPerRank(remoteRankToChannelInfo_[0]);
     // ccl buffer按框数切分
     u32 templateScratchMultiplier = interTempAlg.CalcScratchMultiple(BufferType::INPUT, BufferType::HCCL_BUFFER);
 
@@ -256,6 +258,6 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER,
                                InsAllGatherSequenceNHRMesh1D,
                                InsV2AllGatherSequenceExecutorAicpu,
                                TopoMatchMultilevel,
-                               InsTempAllGatherMesh1D,
+                               InsTempAllGatherMesh1D1DZAxisDetour,
                                InsTempAllGatherNHR);
 }

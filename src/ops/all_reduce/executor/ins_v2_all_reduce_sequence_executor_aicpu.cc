@@ -9,10 +9,10 @@
  */
 
 #include "ins_v2_all_reduce_sequence_executor_aicpu.h"
-#include "ins_temp_reduce_scatter_mesh_1D.h"
+#include "ins_temp_reduce_scatter_mesh_1D_Z_axis_detour.h"
 #include "ins_temp_reduce_scatter_nhr.h"
 #include "ins_temp_all_gather_nhr.h"
-#include "ins_temp_all_gather_mesh_1D.h"
+#include "ins_temp_all_gather_mesh_1D_Z_axis_detour.h"
 
 namespace ops_hccl {
 
@@ -347,20 +347,20 @@ HcclResult InsV2AllReduceSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, In
     GenBaseTempAlgParams(param, resCtx, tempAlgParamsStepOne, tempAlgParamsStepTwo, tempAlgParamsStepThree, tempAlgParamsStepFour);
 
     // 构建框内ReduceScatterMesh1D的template
-    std::shared_ptr<InsAlgTemplate0> algTemplateStepOne =
-        std::make_shared<InsAlgTemplate0>(param, myRank_, algHierarchyInfo_.infos[0]);
+    std::shared_ptr<InsAlgTemplate0> algTemplateStepOne = std::make_shared<InsAlgTemplate0>(param, myRank_, algHierarchyInfo_.infos[0]);
+    algTemplateStepOne->SetchannelsPerRank(remoteRankToChannelInfo_[0]);
 
-    // 构建框间ReduceScatterMesh1dDpu的template
-    std::shared_ptr<InsAlgTemplate1> algTemplateStepTwo =
-        std::make_shared<InsAlgTemplate1>(param, myRank_, algHierarchyInfo_.infos[1]);
+    // 构建框间ReduceScatterNhr的template
+    std::shared_ptr<InsAlgTemplate1> algTemplateStepTwo = std::make_shared<InsAlgTemplate1>(param, myRank_, algHierarchyInfo_.infos[1]);
+    algTemplateStepTwo->SetchannelsPerRank(remoteRankToChannelInfo_[1]);
 
     // 构建框间AllGatherNhr的template
-    std::shared_ptr<InsAlgTemplate2> algTemplateStepThree =
-        std::make_shared<InsAlgTemplate2>(param, myRank_, algHierarchyInfo_.infos[1]);
+    std::shared_ptr<InsAlgTemplate2> algTemplateStepThree = std::make_shared<InsAlgTemplate2>(param, myRank_, algHierarchyInfo_.infos[1]);
+    algTemplateStepThree->SetchannelsPerRank(remoteRankToChannelInfo_[1]);
 
     // 构建框内AllGatherMesh1D的template
-    std::shared_ptr<InsAlgTemplate3> algTemplateStepFour =
-        std::make_shared<InsAlgTemplate3>(param, myRank_, algHierarchyInfo_.infos[0]);
+    std::shared_ptr<InsAlgTemplate3> algTemplateStepFour = std::make_shared<InsAlgTemplate3>(param, myRank_, algHierarchyInfo_.infos[0]);
+    algTemplateStepFour->SetchannelsPerRank(remoteRankToChannelInfo_[0]);
 
     // 构造框内ReduceScatterMesh1D的template资源
     TemplateResource templateResourceStepOne;
@@ -423,8 +423,8 @@ REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE,
                                 InsAllReduceSequenceMesh1DNhr,
                                 InsV2AllReduceSequenceExecutorAicpu,
                                 TopoMatchMultilevel,
-                                InsTempReduceScatterMesh1D,
+                                InsTempReduceScatterMesh1DZAxisDetour,
                                 InsTempReduceScatterNHR,
                                 InsTempAllGatherNHR,
-                                InsTempAllGatherMesh1D);
+                                InsTempAllGatherMesh1D1DZAxisDetour);
 }
