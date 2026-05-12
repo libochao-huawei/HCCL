@@ -197,7 +197,7 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
         HCCL_INFO("[DEBUG]   rank[%u] -> %zu channels", rank, vec.size());
         for (size_t j = 0; j < vec.size(); ++j) {
             HCCL_INFO("[DEBUG]     ch[%zu] remoteRank=%u, localRank=%u",
-                    j, vec[j].remoteRank, vec[j].localRank);
+                    j, vec[j].remoteRank, myRank_);
         }
     }
 
@@ -207,7 +207,7 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
         HCCL_INFO("[DEBUG]   rank[%u] -> %zu channels", rank, vec.size());
         for (size_t j = 0; j < vec.size(); ++j) {
             HCCL_INFO("[DEBUG]     ch[%zu] remoteRank=%u, localRank=%u",
-                    j, vec[j].remoteRank, vec[j].localRank);
+                    j, vec[j].remoteRank, myRank_);
         }
     }
     // 准备数据
