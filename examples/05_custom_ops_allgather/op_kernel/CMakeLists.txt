@@ -62,7 +62,6 @@ set(ASC_INCLUDE_FLAGS
     -I${CMAKE_CURRENT_SOURCE_DIR}/../inc
     -I${ASCEND_CANN_PACKAGE_PATH}/include
     -I${ASCEND_CANN_PACKAGE_PATH}/include/hccl/
-    -I${ASCEND_CANN_PACKAGE_PATH}/include/mmpa
 )
 
 if(DEFINED OPS_BASE_DIR)

@@ -8,10 +8,10 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include <limits.h>
 #include "adapter_acl.h"
 #include "acl_rt.h"
 #include "workflow.h"
-#include "mmpa_api.h"
 #include "dtype_common.h"
 
 namespace ops_hccl {
