@@ -188,7 +188,7 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
             const size_t channelCount = channels.size();
             for (u32 i = 0; i < channelCount; ++i) {
                 const auto &channel = channels[i];
-                auto &targetChannels = (i < rankSize_ - 1) ? tmp0LinkMap_ : tmp1LinkMap_;
+                auto &targetChannels = (i < rankSize_) ? tmp0LinkMap_ : tmp1LinkMap_;
                 targetChannels[channel.remoteRank].push_back(channel);
             }
         templateAlgResforTemp0.channels = tmp0LinkMap_;
