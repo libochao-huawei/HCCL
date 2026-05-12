@@ -193,7 +193,7 @@ HcclResult InsTempScatterMesh1D::PostCopy(
     }
 
     void* srcPtr = isInplaceRootRank? tempAlgParams.buffInfo.inputPtr: tempAlgParams.buffInfo.hcclBuff.addr;
-    u64 srcOffset = isInplaceRootRank? tempAlgParams.buffInfo.inputBuffBaseOff + tempAlgParams.outputSliceStride * myAlgRank
+    u64 srcOffset = isInplaceRootRank? tempAlgParams.buffInfo.inBuffBaseOff + tempAlgParams.outputSliceStride * myAlgRank
                             : tempAlgParams.buffInfo.hcclBuffBaseOff + tempAlgParams.outputSliceStride * myAlgRank;
     DataSlice srcSlice = DataSlice(srcPtr, srcOffset,
         processSize_ * tempAlgParams.repeatNum,
