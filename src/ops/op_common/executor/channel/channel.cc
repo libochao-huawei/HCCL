@@ -411,7 +411,7 @@ static HcclResult CalcChannelRequestMesh1DByLevel(HcclComm comm, const OpParam& 
 {
 #ifndef AICPU_COMPILE
     channels.clear();
-    
+
     // Check if the specified netLayer exists in rankGraph
     uint32_t *netLayers = nullptr;
     uint32_t netLayerNum = 0;
