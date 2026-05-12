@@ -43,7 +43,7 @@ constexpr uint64_t CCU_MS_LOCAL_COPY_LOOP_COUNT = 8;
     };
 
     struct LoopGroupResource {
-        ccu::CcuEvent  completedEvent[CCU_MS_DEFAULT_LOOP_COUNT];
+        ccu::Event  completedEvent[CCU_MS_DEFAULT_LOOP_COUNT];
         ccu::CcuBuffer ccuBuf[CCU_MS_DEFAULT_LOOP_COUNT * CCU_MS_INTERLEAVE];
         uint32_t  eventCount;
         uint32_t  bufCount;

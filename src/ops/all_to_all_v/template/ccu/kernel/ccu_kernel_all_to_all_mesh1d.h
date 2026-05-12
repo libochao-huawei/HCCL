@@ -51,7 +51,7 @@ struct AlltoAllMesh1DContext: CcuKernelCtxBase {
     std::vector<ccu::LocalAddr>      srcAddr;
     std::vector<ccu::Variable>         dstToken;
     std::vector<ccu::Variable>         srcToken;
-    ccu::CcuEvent event;
+    ccu::Event event;
     ccu::Variable flag; // 用以判断是否是第一次重复
     bool loadFromMem = false;
 };

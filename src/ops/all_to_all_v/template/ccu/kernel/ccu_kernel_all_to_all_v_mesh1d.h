@@ -67,7 +67,7 @@ struct AlltoAllVMesh1DContext: CcuKernelCtxBase {
     ccu::LocalAddr                   myDst;
     std::vector<ccu::RemoteAddr>     dst;
     std::vector<ccu::LocalAddr>      src;
-    ccu::CcuEvent event;
+    ccu::Event event;
     ccu::Variable flag; // 用以判断是否是第一次重复
     ccu::Variable xnConst1;
     bool loadFromMem = false;
