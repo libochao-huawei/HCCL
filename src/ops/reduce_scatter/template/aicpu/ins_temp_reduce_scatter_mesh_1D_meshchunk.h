@@ -60,6 +60,9 @@ private:
     u32 rankIdx_{0};
     u64 count_{0};
     u64 dataTypeSize_{0};
+    std::vector<u64> elemCountOut_;
+    std::vector<u64> sizeOut_;
+    std::vector<u64> elemOffset_;
 };
 
 } // namespace Hccl
