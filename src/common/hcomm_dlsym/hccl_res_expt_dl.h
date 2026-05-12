@@ -18,9 +18,9 @@
 extern "C" {
 #endif
 
-DECL_SUPPORT_FLAG(HcclCommAddExchangeInfo);
-DECL_SUPPORT_FLAG(HcclCommGetExchangeInfo);
-DECL_SUPPORT_FLAG(HcclCommResetExchangeInfo);
+DECL_WEAK_FUNC(HcclCommAddExchangeInfo);
+DECL_WEAK_FUNC(HcclCommGetExchangeInfo);
+DECL_WEAK_FUNC(HcclCommResetExchangeInfo);
 
 // 动态库管理接口（大驼峰命名）
 void HcclResExptDlInit(void *libHcommHandle);
