@@ -1547,7 +1547,7 @@ HcclResult FillOpExchangeInfo(HcclComm comm, const OpParam &param, OpExchangeInf
         // Send和Recv的algName不相同导致algTag不相同，因此仅校验tag内容，MAX_LENGTH < ALG_TAG_LENGTH为param.tag的长度
         s32 sRet = strncpy_s(exchangeInfo.algTag, ALG_TAG_LENGTH, param.tag, MAX_LENGTH);
         CHK_PRT_RET(sRet != EOK, HCCL_ERROR("[%s] call strncpy_s failed, param.tag[%s],  return[%d].",
-            __func__, param.algTag, sRet), HCCL_E_MEMORY);
+            __func__, param.tag, sRet), HCCL_E_MEMORY);
         exchangeInfo.sendRecvRemoteRank = param.sendRecvRemoteRank;
     } else {
         s32 sRet = strncpy_s(exchangeInfo.algTag, ALG_TAG_LENGTH, param.algTag, ALG_TAG_LENGTH);
