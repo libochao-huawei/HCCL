@@ -39,6 +39,8 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
         return HCCL_E_NOT_SUPPORT;
     }
 
+    HCCL_INFO("[HcclScatter][Entry], sendBuf = %p, recvBuf = %p, recvCount = %lu, dataType = %d, comm = %p, root = %u", sendBuf, recvBuf, recvCount, dataType, comm, root);
+
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
 
