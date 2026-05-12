@@ -18,7 +18,7 @@
 extern "C" {
 #endif
 
-DECL_WEAK_FUNC(HcclResult, HcclCommAddExchangeInfo, HcclComm comm, void *data, uint32_t length);
+DECL_WEAK_FUNC(HcclResult, HcclCommAddExchangeInfo, HcclComm comm, const void *data, uint32_t length);
 DECL_WEAK_FUNC(HcclResult, HcclCommGetExchangeInfo, HcclComm comm, uint32_t remoteRank, uint32_t length, void *data,
     uint32_t *actualLength);
 DECL_WEAK_FUNC(HcclResult, HcclCommResetExchangeInfo, HcclComm comm);
