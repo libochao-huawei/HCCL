@@ -48,18 +48,18 @@ static CcuResult LoadAll2allSendRecvInfo(AlltoAllVMesh1DContext &ctx, A2AsingleS
         sendRecvInfo.loopNum = UINT64_MAX - 1; // MC2 场景 loop num 默认为 1
 
         // 要求client端排列内存为[size,send,recv][size,send,recv]...
-        ccu::LoadVar(ctx.a2avXnAddr, sendRecvInfo.tailSize);
+        // ccu::LoadVar(ctx.a2avXnAddr, sendRecvInfo.tailSize);
         // // sendRecvInfo.tailSize = ctx.a2avXnAddr;
         ctx.a2avXnAddr += ctx.xnLength;
 
-        ccu::LoadVar(ctx.a2avXnAddr, sendRecvInfo.sendOffset);
+        // ccu::LoadVar(ctx.a2avXnAddr, sendRecvInfo.sendOffset);
         // sendRecvInfo.sendOffset = ctx.a2avXnAddr;
         ctx.a2avXnAddr += ctx.xnLength;
 
         // 跳过recvSize
         ctx.a2avXnAddr += ctx.xnLength;
 
-        ccu::LoadVar(ctx.a2avXnAddr, sendRecvInfo.recvOffset);
+        // ccu::LoadVar(ctx.a2avXnAddr, sendRecvInfo.recvOffset);
         // sendRecvInfo.recvOffset = ctx.a2avXnAddr;
         ctx.a2avXnAddr += ctx.xnLength;
     } else {
@@ -259,21 +259,21 @@ static CcuResult DoAll2AllVMultiLoop(AlltoAllVMesh1DContext &ctx)
                 continue;
             }
             CCU_IF_ONLY(ctx.sendRecvInfo[rankIdx].loopNum == UINT64_MAX) { // 已经完成，直接置位完成信号
-                ccu::WaitEvent(ctx.event);
+                ccu::EventWait(ctx.event);
             }
             CCU_IF_ONLY(ctx.sendRecvInfo[rankIdx].loopNum != UINT64_MAX) {  // 还没有完成，则继续循环
                 CCU_IF_ONLY(ctx.sendRecvInfo[rankIdx].loopNum == UINT64_MAX - 1) { // 最后一轮循环, 发送尾块数据
                     CCU_IF_ONLY(ctx.sendRecvInfo[rankIdx].tailSize == 0) { // 尾块数据量为 0，则不需要发送尾块数据
-                        ccu::WaitEvent(ctx.event);
+                        ccu::EventWait(ctx.event);
                     }
                     CCU_IF_ONLY(ctx.sendRecvInfo[rankIdx].tailSize != 0) { // 尾块数据量不为 0，则需要发送尾块数据
-                        ccu::WriteNb(arg->channels[channelId], ctx.dst[rankIdx], ctx.src[rankIdx], ctx.sendRecvInfo[rankIdx].tailSize,
+                        ccu::Write(arg->channels[channelId], ctx.dst[rankIdx], ctx.src[rankIdx], ctx.sendRecvInfo[rankIdx].tailSize,
                               ctx.event);
                     }
                     ctx.completedRankCount += ctx.xnConst1;  // 之后一轮循环完成，更新已完成的rank数
                 }
                 CCU_IF_ONLY(ctx.sendRecvInfo[rankIdx].loopNum != UINT64_MAX - 1) { // 未完成，则继续循环，发送整块数据
-                    ccu::WriteNb(arg->channels[channelId], ctx.dst[rankIdx], ctx.src[rankIdx], ctx.xnMaxTransportSize, ctx.event);
+                    ccu::Write(arg->channels[channelId], ctx.dst[rankIdx], ctx.src[rankIdx], ctx.xnMaxTransportSize, ctx.event);
                     // 更新偏移
                     ctx.src[rankIdx].addr += ctx.xnMaxTransportSize;
                     ctx.dst[rankIdx].addr += ctx.xnMaxTransportSize;
@@ -285,30 +285,30 @@ static CcuResult DoAll2AllVMultiLoop(AlltoAllVMesh1DContext &ctx)
 
         ctx.event.setMask(1 << arg->rankId);
         CCU_IF_ONLY(ctx.sendRecvInfo[arg->rankId].loopNum == UINT64_MAX) { // 已经完成，直接置位完成信号
-                ccu::WaitEvent(ctx.event);
+                ccu::EventWait(ctx.event);
         }
 
         CCU_IF_ONLY(ctx.sendRecvInfo[arg->rankId].loopNum != UINT64_MAX) {  // 还没有完成，则继续循环
                 CCU_IF_ONLY(ctx.sendRecvInfo[arg->rankId].loopNum == UINT64_MAX - 1) { // 最后一轮循环, 发送尾块数据
                     CCU_IF_ONLY(ctx.sendRecvInfo[arg->rankId].tailSize == 0) { // 尾块数据量为 0，则不需要发送尾块数据
-                        ccu::WaitEvent(ctx.event);
+                        ccu::EventWait(ctx.event);
                     }
                     CCU_IF_ONLY(ctx.sendRecvInfo[arg->rankId].tailSize != 0) { // 尾块数据量不为 0，则需要发送尾块数据
                         if (arg->loadFromMem) {
-                            ccu::LocalCopyNb(ctx.myDst, ctx.src[arg->rankId], ctx.sendRecvInfo[arg->rankId].tailSize, ctx.event);
+                            ccu::LocalCopy(ctx.myDst, ctx.src[arg->rankId], ctx.sendRecvInfo[arg->rankId].tailSize, ctx.event);
                         } else {
                             GroupCopy(ctx, ctx.myDst, ctx.src[arg->rankId], ctx.sendRecvInfo[arg->rankId].tailGoSize);
-                            ccu::WaitEvent(ctx.event);
+                            ccu::EventWait(ctx.event);
                         }
                     }
                     ctx.completedRankCount += ctx.xnConst1;  // 之后一轮循环完成，更新已完成的rank数
                 }
                 CCU_IF_ONLY(ctx.sendRecvInfo[arg->rankId].loopNum != UINT64_MAX - 1) { // 未完成，则继续循环，发送整块数据
                     if (arg->loadFromMem) {
-                        ccu::LocalCopyNb(ctx.myDst, ctx.src[arg->rankId], ctx.xnMaxTransportSize, ctx.event);
+                        ccu::LocalCopy(ctx.myDst, ctx.src[arg->rankId], ctx.xnMaxTransportSize, ctx.event);
                     } else {
                         GroupCopy(ctx, ctx.myDst, ctx.src[arg->rankId], ctx.xnMaxTransportGoSize);
-                        ccu::WaitEvent(ctx.event);
+                        ccu::EventWait(ctx.event);
                     }
                     // 更新偏移
                     ctx.src[arg->rankId].addr += ctx.xnMaxTransportSize;
@@ -318,7 +318,7 @@ static CcuResult DoAll2AllVMultiLoop(AlltoAllVMesh1DContext &ctx)
         }
         // 等待本轮发送完成
         ctx.event.setMask(allBit);
-        ccu::WaitEvent(ctx.event);
+        ccu::EventWait(ctx.event);
     }
 
     return CCU_SUCCESS;

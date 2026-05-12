@@ -173,27 +173,27 @@ static CcuResult DoAlltoAll(AlltoAllMesh1DContext &ctx)
         for(uint64_t r = 0; r < arg->rankSize; r++) {
             ctx.event.setMask(1 << r);
             if (r == arg->rankId) {
-                ccu::LocalCopyNb(localDst, src[r], ctx.sliceSize, ctx.event);
+                ccu::LocalCopy(localDst, src[r], ctx.sliceSize, ctx.event);
             }
             else {
-                ccu::WriteNb(arg->channels[channelId], dst[r], src[r], ctx.sliceSize, ctx.event);
+                ccu::Write(arg->channels[channelId], dst[r], src[r], ctx.sliceSize, ctx.event);
                 channelId++;
             }
         }
         // 等读完所有对端
         ctx.event.setMask((1 << arg->rankSize) - 1);
-        ccu::WaitEvent(ctx.event);
+        ccu::EventWait(ctx.event);
     } else {
         for(uint64_t r = 0; r < arg->rankSize; r++) {
             ctx.event.setMask(1 << r);
             if (r != arg->rankId) {
-                ccu::WriteNb(arg->channels[channelId], dst[r], src[r], ctx.sliceSize, ctx.event);
+                ccu::Write(arg->channels[channelId], dst[r], src[r], ctx.sliceSize, ctx.event);
                 channelId++;
             }
         }
         // GroupCopy(localDst, src[arg->rankId], goSize);
         ctx.event.setMask(allBit);
-        ccu::WaitEvent(ctx.event);
+        ccu::EventWait(ctx.event);
     }
 
     return CCU_SUCCESS;
