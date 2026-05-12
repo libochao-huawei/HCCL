@@ -40,6 +40,9 @@ public:
                          TemplateResource& templateResource) override;
 
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override; // 此template需要将buffer分几块用
+    HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx) override;
+    u64 GetThreadNum() const override;
+    
 private:
     HcclResult GetReduceScatterStepInfo(u32 step, NHRStepInfo &stepInfo) const;
     HcclResult GetAllGatherStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo) const;

@@ -14,6 +14,8 @@
 #include "utils.h"
 #include "ccu_alg_template_base.h"
 
+#ifndef NHR_STEP_INFO_DEFINED
+#define NHR_STEP_INFO_DEFINED
 using NHRStepInfo = struct NHRStepInfoDef {
     u32 step = 0;
     u32 myRank = 0;
@@ -27,6 +29,7 @@ using NHRStepInfo = struct NHRStepInfoDef {
     {
     }
 };
+#endif
 
 namespace ops_hccl {
 class CcuTempAllGatherNHR1DMem2Mem : public CcuAlgTemplateBase {

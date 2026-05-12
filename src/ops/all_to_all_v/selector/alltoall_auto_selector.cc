@@ -122,7 +122,7 @@ SelectorStatus AlltoAllAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerD
             // 同一组4P且大数据量，不走并发
             selectAlgName = "InsAllToAllMesh1DConcurrent";
         } else {
-            selectAlgName = "InsAlltoAllMesh1D";
+            selectAlgName = "InsAlltoAllMesh1DUBX";
         }
     } else {
         HCCL_ERROR("[AlltoAllAutoSelector][%s] hccl algo no match");
