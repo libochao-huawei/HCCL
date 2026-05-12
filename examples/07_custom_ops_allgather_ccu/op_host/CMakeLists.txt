@@ -13,6 +13,6 @@ set(op_host_src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/utils.cc
 )
 
-target_sources(hccl_custom_allgather_ccu PRIVATE
+target_sources(hccl_custom_allgather PRIVATE
     ${op_host_src_list}
 )

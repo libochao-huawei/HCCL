@@ -38,9 +38,9 @@ HcclResult HcclAllGatherCustom(void *sendBuf, void *recvBuf, uint64_t sendCount,
     CHK_RET(HcclGetRankId(comm, &param.myRank));
     CHK_RET(HcclGetRankSize(comm, &param.rankSize));
 
-    u32 perDataSize = SIZE_TABLE[dataType];
-    u64 inputSize = sendCount * perDataSize;
-    u64 outputSize = inputSize * param.rankSize;
+    uint32_t perDataSize = SIZE_TABLE[dataType];
+    uint64_t inputSize = sendCount * perDataSize;
+    uint64_t outputSize = inputSize * param.rankSize;
     int ret = sprintf_s(param.tag, sizeof(param.tag), "%s", "hccl_custom_allgather");
     if (ret <= 0) {
         HCCL_ERROR("[HcclAllGatherCustom] Failed to fill param.tag");

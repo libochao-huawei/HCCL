@@ -9,8 +9,7 @@
 # -----------------------------------------------------------------------------------------------------------
 
 cmake_minimum_required(VERSION 3.16.0)
-
-project(hccl_examples_custom_ops_p2p)
+project(hccl_examples_custom_ops_allgather)
 
 set(HCCL_CUSTOM_OPS_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 set(HCCL_CUSTOM_OPS_INCLUDE_LIST
@@ -23,12 +22,11 @@ set(HCCL_CUSTOM_OPS_INCLUDE_LIST
     ${ASCEND_CANN_PACKAGE_PATH}/include/hccl
     ${ASCEND_CANN_PACKAGE_PATH}/include/mmpa
     ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc
+    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/hcomm
 )
 
 # Host 动态链接库
 add_library(hccl_custom_allgather SHARED)
-# 明确指定host库使用CXX编译
-set_target_properties(hccl_custom_allgather PROPERTIES LINKER_LANGUAGE CXX)
 target_include_directories(hccl_custom_allgather PRIVATE
     ${HCCL_CUSTOM_OPS_INCLUDE_LIST}
 )
@@ -53,7 +51,6 @@ target_link_options(hccl_custom_allgather PRIVATE
 )
 target_link_directories(hccl_custom_allgather PRIVATE
     ${ASCEND_CANN_PACKAGE_PATH}/lib64
-    ${ASCEND_CANN_PACKAGE_PATH}/lib64/device/lib64
 )
 target_link_libraries(hccl_custom_allgather PRIVATE
     hcomm
@@ -69,14 +66,6 @@ install(FILES
     DESTINATION ${CUSTOM_OPS_OPP_INC_PATH}
     COMPONENT hccl
 )
-
-if(KERNEL_MODE)
-    # CCU Kernel 动态链接库
-    add_library(allgather_ccu_kernel SHARED)
-
-    # TODO: CCU 侧链接库
-
-endif()
 
 # 添加子目录
 add_subdirectory(op_host)

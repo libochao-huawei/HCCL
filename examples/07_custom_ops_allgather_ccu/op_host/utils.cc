@@ -12,7 +12,6 @@
 #include <vector>
 #include "log.h"
 #include "common.h"
-#include "../op_kernel_ccu/ccu_kernel.h"
 
 namespace ops_hccl_ag {
 constexpr uint32_t CHANNEL_NOTIFY_NUM = 3;
@@ -122,7 +121,7 @@ HcclResult GetChannelForCcu(HcclComm comm, const OpParam &param, AlgResourceCtxS
         HCCL_ERROR("[HcclGetChannelForCcu] kernelArg ptr is err.");
         return HCCL_E_INTERNAL;
     }
-    for (u32 i = 0; i < channelNum; ++i) {
+    for (uint32_t i = 0; i < channelNum; ++i) {
         kernelArgBase->channels[i] = kernelChannels[i];
     }
     kernelArgBase->channelCount = channelNum;
@@ -143,9 +142,9 @@ HcclResult GetCcuKernel(HcclComm comm, const OpParam &param, AlgResourceCtxSeria
         HCCL_E_INTERNAL);
 
     // 按照resgroup进行注册
-    u32 currentResGroup = 0;
-    u32 maxResGroup = 0;
-    u32 totalKernelNum = resRequest.ccuKernelInfos.size();
+    uint32_t currentResGroup = 0;
+    uint32_t maxResGroup = 0;
+    uint32_t totalKernelNum = resRequest.ccuKernelInfos.size();
     resCtxHost.ccuKernels.resize(totalKernelNum);
 
     CcuResult regStartRet = HcommCcuKernelRegisterStart(insHandle);
@@ -155,7 +154,7 @@ HcclResult GetCcuKernel(HcclComm comm, const OpParam &param, AlgResourceCtxSeria
     }
 
     while (currentResGroup <= maxResGroup) {
-        for (u32 i = 0; i < totalKernelNum; i++) {
+        for (uint32_t i = 0; i < totalKernelNum; i++) {
             CcuKernelInfo& kernelInfo = resRequest.ccuKernelInfos[i];
             if (kernelInfo.resGroup > maxResGroup) {
                 maxResGroup = kernelInfo.resGroup;

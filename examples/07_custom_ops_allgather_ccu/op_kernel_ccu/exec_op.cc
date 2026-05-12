@@ -12,12 +12,10 @@
 #include <memory>
 #include <vector>
 #include <hccl/hcomm_primitives.h>
-#include "ccu_control_api.h"
-#include "ccu_kernel.h"
 
 #include "log.h"
 #include "common.h"
-
+#include "ccu_kernel.h"
 
 using namespace ops_hccl_ag;
 

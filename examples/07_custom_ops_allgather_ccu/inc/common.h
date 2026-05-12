@@ -11,11 +11,14 @@
 #ifndef OPS_HCCL_P2P_COMMON_H
 #define OPS_HCCL_P2P_COMMON_H
 
+#include <vector>
 #include <hccl/hccl_types.h>
 #include <hccl/hccl_res.h>
 #include <hccl/hcomm_primitives.h>
 #include <acl/acl_rt.h>
+#include <ccu/ccu_kernel.h>
 
+constexpr uint32_t INVALID_VALUE_RANKID = 0xFFFFFFFF; // rank id非法值
 constexpr uint32_t NOTIFY_IDX_ACK = 0;
 constexpr uint32_t NOTIFY_IDX_DATA_SIGNAL = 1;
 constexpr uint32_t CUSTOM_TIMEOUT = 1800;
@@ -27,24 +30,10 @@ constexpr uint32_t ALG_TAG_LENGTH = TAG_LENGTH + 128;
 constexpr uint32_t OP_ALG_LENGTH = 128;
 constexpr uint64_t CCU_MAX_RANK_SIZE = 16;
 
-using ChannelHandle = uint64_t;
-using ThreadHandle = uint64_t;
-
 // 算子执行模式
 enum class OpMode {
     OPBASE = 0,
     OFFLOAD = 1
-};
-
-// 通信引擎类型
-enum class CommEngine {
-    COMM_ENGINE_RESERVED = 0,
-    COMM_ENGINE_CPU = 1,
-    COMM_ENGINE_AICPU = 2,
-    COMM_ENGINE_CPU_TS = 3,
-    COMM_ENGINE_AICPU_TS = 4,
-    COMM_ENGINE_AIV = 5,
-    COMM_ENGINE_CCU = 6,
 };
 
 // 设备类型
@@ -82,7 +71,7 @@ struct CcuKernelArgBase {
 // ccu kernel register所需信息
 struct CcuKernelInfo {
     // kernel资源组序号，group号不同时，资源复用
-    u32 resGroup = 0;
+    uint32_t resGroup = 0;
     // kernel名 string？
     char kernelFuncName[64];
     // kernel函数
@@ -105,7 +94,7 @@ public:
 
 struct KernelResourceRequest {
     std::vector<CcuKernelInfo> ccuKernelInfos;
-    std::vector<u32> ccuKernelNum;
+    std::vector<uint32_t> ccuKernelNum;
 };
 
 struct AlgResourceCtxSerializable {
@@ -115,36 +104,36 @@ struct AlgResourceCtxSerializable {
     std::vector<uint32_t> notifyNumPerThread;
     std::vector<ThreadHandle> threads;
     // ccu
-    std::vector<u32> ccuKernelNum;
+    std::vector<uint32_t> ccuKernelNum;
     std::vector<CcuKernelHandle> ccuKernels;
 
      std::vector<char> Serialize()
     {
-        BinaryStream binaryStream;
+        // BinaryStream binaryStream;
 
-        binaryStream << cclMem;
-        binaryStream << notifyNumOnMainThread;
-        binaryStream << slaveThreadNum;
-        binaryStream << notifyNumPerThread;
-        binaryStream << threads;
-        binaryStream << ccuKernelNum;
-        binaryStream << ccuKernels;
+        // binaryStream << cclMem;
+        // binaryStream << notifyNumOnMainThread;
+        // binaryStream << slaveThreadNum;
+        // binaryStream << notifyNumPerThread;
+        // binaryStream << threads;
+        // binaryStream << ccuKernelNum;
+        // binaryStream << ccuKernels;
         std::vector<char> result;
-        binaryStream.Dump(result);
+        // binaryStream.Dump(result);
         return result;
     }
 
     void DeSerialize(std::vector<char> &data)
     {
-        BinaryStream binaryStream(data);
+        // BinaryStream binaryStream(data);
 
-        binaryStream >> cclMem;
-        binaryStream >> notifyNumOnMainThread;
-        binaryStream >> slaveThreadNum;
-        binaryStream >> notifyNumPerThread;
-        binaryStream >> threads;
-        binaryStream >> ccuKernelNum;
-        binaryStream >> ccuKernels;
+        // binaryStream >> cclMem;
+        // binaryStream >> notifyNumOnMainThread;
+        // binaryStream >> slaveThreadNum;
+        // binaryStream >> notifyNumPerThread;
+        // binaryStream >> threads;
+        // binaryStream >> ccuKernelNum;
+        // binaryStream >> ccuKernels;
     }
 
 };
@@ -157,20 +146,20 @@ struct OpParam {
     char commName[COMM_INDENTIFIER_MAX_LENGTH];
     aclrtStream stream;
     void* inputPtr = nullptr;
-    u64 inputSize = 0;
+    uint64_t inputSize = 0;
     void* outputPtr = nullptr;
-    u64 outputSize = 0;
+    uint64_t outputSize = 0;
     OpMode opMode;
     CommEngine engine = CommEngine::COMM_ENGINE_RESERVED;
     AlgType algType;
     char algName[OP_ALG_LENGTH];
-    u64 count;
+    uint64_t count;
     HcclDataType dataType;
     HcclCMDType opType = HcclCMDType::HCCL_CMD_INVALID;
-    u64 ctxSize = 0;
+    uint64_t ctxSize = 0;
     void* resCtx = nullptr;
-    u32 myRank = 0;
-    u32 rankSize = 0;
+    uint32_t myRank = 0;
+    uint32_t rankSize = 0;
     DeviceType devType = DEVICE_TYPE_A5;
 };
 
@@ -179,7 +168,7 @@ constexpr uint32_t SIZE_TABLE[HCCL_DATA_TYPE_RESERVED] = {sizeof(int8_t), sizeof
     8, 2, 16, 2, 1, 1, 1, 1};
 
 // CCU返回码转换为HCCL返回码
-inline HcclResult ConvertCcuToHccl(CcuResult ccuResult) {
+HcclResult ConvertCcuToHccl(CcuResult ccuResult) {
     switch (ccuResult) {
         case CCU_SUCCESS: return HCCL_SUCCESS;
         case CCU_E_PARA: return HCCL_E_PARA;
