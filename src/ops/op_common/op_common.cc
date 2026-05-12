@@ -2234,6 +2234,10 @@ HcclResult HcclGetAlgExecParamGraphMode(const char *tag, const char *group, u64 
     param.opMode = ops_hccl::OpMode::OFFLOAD;
     param.numBlocksLimit = aivCoreLimit;
     // param.engine = CommEngine::COMM_ENGINE_AIV;
+    CHK_RET(ops_hccl::InitEnvConfig());
+    DevType deviceType = DevType::DEV_TYPE_COUNT;
+    CHK_RET(hrtGetDeviceType(deviceType));
+    param.deviceType = deviceType;
 
     int ret = sprintf_s(param.tag, sizeof(param.tag), "%s", tag);
     CHK_PRT_RET(ret <= 0, HCCL_ERROR("[HcclGetAlgExecParamGraphMode] failed to fill param.tag"), HCCL_E_INTERNAL);
@@ -2259,9 +2263,18 @@ HcclResult HcclGetAlgExecParamGraphMode(const char *tag, const char *group, u64 
     ops_hccl::g_baseInputAddr = (u64)inputPtr;
     ops_hccl::g_baseOutputAddr = (u64)outputPtr;
 
+    // 计算AlgHierarchyInfo
+    ops_hccl::AlgHierarchyInfoForAllLevel algHierarchyInfo;
+    CHK_RET(executor->CalcAlgHierarchyInfo(comm, topoInfo.get(), algHierarchyInfo));
+    // 资源计算
+    ops_hccl::AlgResourceRequest resRequest;
+    CHK_RET(executor->CalcRes(comm, param, topoInfo.get(), algHierarchyInfo, resRequest));
+    // host侧资源
+    void* resCtxSequence = nullptr;
+    CHK_RET(GetAlgResAiv(comm, param, resRequest, topoInfo.get(), algHierarchyInfo, &resCtxSequence));
     // 编排
-    ops_hccl::AlgResourceCtxSerializable resCtxHost;
-    CHK_RET(executor->Orchestrate(param, resCtxHost));
+    ops_hccl::AlgResourceCtxSerializable* resCtxHost = static_cast<ops_hccl::AlgResourceCtxSerializable*>(resCtxSequence);
+    CHK_RET(executor->Orchestrate(param, *resCtxHost));
 
     // 从录制的指令队列中获取aivOpArgs
     ops_hccl::AivOpArgs aivOpArgs;
@@ -2290,9 +2303,9 @@ HcclResult HcclGetAlgExecParamGraphMode(const char *tag, const char *group, u64 
     superKernelArgs.repeatNum = 1;
     superKernelArgs.inputRepeatStride = 0;
     superKernelArgs.outputRepeatStride = 0;
-    superKernelArgs.input = reinterpret_cast<u64>(inputPtr);
-    superKernelArgs.output = reinterpret_cast<u64>(outputPtr);
-    superKernelArgs.cclBufferSize = 0;
+    superKernelArgs.input = aivOpArgs.input;
+    superKernelArgs.output = aivOpArgs.output;
+    superKernelArgs.cclBufferSize = resCtxHost->cclMem.size;
 
     // 分配设备内存
     void *deviceMem = nullptr;
