@@ -1011,17 +1011,8 @@ std::vector<std::string> SplitDfsConfig(const std::string &str, char delimiter)
     std::vector<std::string> tokens;
     std::istringstream       stream(str);
     std::string              token;
-
     while (std::getline(stream, token, delimiter)) {
         tokens.push_back(token);
-    }
-    if (stream.peek() != EOF) {
-        std::string remaining;
-        std::getline(stream, remaining);
-        tokens.push_back(remaining);
-    }
-    if (!str.empty() && str.back() == delimiter) {
-        tokens.push_back("");
     }
     return tokens;
 }
