@@ -165,9 +165,6 @@ if(BUILD_OPEN_PROJECT)
         # driver头文件
         ${ASCEND_CANN_PACKAGE_PATH}/include/driver/
 
-        # mmpa头文件
-        ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/mmpa/
-
         # driver头文件
         ${ASCEND_CANN_PACKAGE_PATH}/include/driver/
 
@@ -213,7 +210,6 @@ else()
         ${TOP_DIR}/runtime/include/dfx
         ${TOP_DIR}/runtime/pkg_inc
         ${TOP_DIR}/runtime/pkg_inc/base
-        ${TOP_DIR}/runtime/pkg_inc/mmpa
 
         ${TOP_DIR}/open_source/json/include
 
@@ -486,7 +482,6 @@ if(BUILD_OPEN_PROJECT)
         acl_rt
         c_sec
         unified_dlog
-        mmpa
         -Wl,--no-as-needed
     )
 else()
@@ -501,7 +496,6 @@ else()
         acl_rt
         c_sec
         unified_dlog
-        mmpa
         -Wl,--no-as-needed
         ofed_headers
     )
@@ -526,7 +520,6 @@ if(STATIC_MODE)
         acl_rt
         c_sec
         unified_dlog
-        mmpa
     )
 else()
     if(BUILD_OPEN_PROJECT)
@@ -536,7 +529,6 @@ else()
             acl_rt
             c_sec
             unified_dlog
-            mmpa
             -Wl,--no-as-needed
         )
     else()
@@ -550,7 +542,6 @@ else()
             acl_rt
             c_sec
             unified_dlog
-            mmpa
             -Wl,--no-as-needed
             ofed_headers
         )
