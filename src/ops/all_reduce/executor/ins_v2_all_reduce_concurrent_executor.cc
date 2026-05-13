@@ -227,8 +227,11 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     tempAlgParams0.buffInfo.outputSize = param.outputSize;
     tempAlgParams0.buffInfo.hcclBuff = cclMem0;
     tempAlgParams0.buffInfo.hcclBuffBaseOff = 0;
+    tempAlgParams0.buffInfo.hcclBuffSize = cclMem0.size;
     tempAlgParams0.buffInfo.inBuffBaseOff = 0;
     tempAlgParams0.buffInfo.outBuffBaseOff = 0;
+    tempAlgParams0.inputRepeatStride = 0;
+    tempAlgParams0.outputRepeatStride = 0;
 
     TemplateDataParams tempAlgParams1;
     tempAlgParams1.buffInfo.inputPtr = param.inputPtr;
@@ -237,8 +240,11 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     tempAlgParams1.buffInfo.outputSize = param.outputSize;
     tempAlgParams1.buffInfo.hcclBuff = cclMem1;
     tempAlgParams1.buffInfo.hcclBuffBaseOff = 0;
+    tempAlgParams1.buffInfo.hcclBuffSize = cclMem1.size;
     tempAlgParams1.buffInfo.inBuffBaseOff = dataOffset;
     tempAlgParams1.buffInfo.outBuffBaseOff = dataOffset;
+    tempAlgParams1.inputRepeatStride = 0;
+    tempAlgParams1.outputRepeatStride = 0;
 
     TemplateResource tempAlgResource0;
     TemplateResource tempAlgResource1;
