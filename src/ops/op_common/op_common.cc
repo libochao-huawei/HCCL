@@ -1594,6 +1594,10 @@ HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeI
     const std::vector<HcclChannelDesc> &channels)
 {
     CHK_PTR_NULL(comm);
+    if (channels.size() == 0) {
+        HCCL_INFO("[CompareOpExchangeInfos] channels is empty.");
+        return HCCL_SUCCESS;
+    }
     for (auto &channel : channels) {
         OpExchangeInfo rmtExchangeInfo{};
         uint32_t rmtDataLen = 0;
