@@ -128,7 +128,7 @@ function(pack_built_in)
       COMPONENT hccl
   )
   install(FILES ${CONF_FILES}
-      DESTINATION hccl/conf
+      DESTINATION ${CMAKE_SYSTEM_PROCESSOR}-linux/conf
       COMPONENT hccl
   )
   install(FILES ${PACKAGE_FILES}
