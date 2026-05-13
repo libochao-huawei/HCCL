@@ -140,12 +140,15 @@ static CcuResult DoAlltoAll(AlltoAllMesh1DContext &ctx)
     src.resize(arg->rankSize);
     dst.resize(arg->rankSize);
 
-    CCU_CHK_RET(ccu::Alloc(&localDst));
     for (uint64_t rankIdx = 0; rankIdx < arg->rankSize; rankIdx++) {
         CCU_CHK_RET(ccu::Alloc(&src[rankIdx]));
     }
-    for (uint32_t rankIdx = 0; rankIdx < arg->rankSize - 1; rankIdx++) {
-        CCU_CHK_RET(ccu::Alloc(&dst[rankIdx]));
+    for (uint32_t rankIdx = 0; rankIdx < arg->rankSize; rankIdx++) {
+        if(rankIdx == arg->rankId) {
+            CCU_CHK_RET(ccu::Alloc(&localDst));
+        } else {
+            CCU_CHK_RET(ccu::Alloc(&dst[rankIdx]));
+        }
     }
 
     for (uint32_t rankIdx = 0; rankIdx < arg->rankSize; rankIdx++) {
