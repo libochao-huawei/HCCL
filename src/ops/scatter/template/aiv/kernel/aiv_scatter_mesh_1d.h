@@ -84,10 +84,8 @@ public:
             outputGT.SetGlobalBuffer(reinterpret_cast<__gm__ T *>(outputOffset));
             if(block_idx < coreNumPerStage){
                 Producer();
-                WaitFlag(rank_, BARRIER_OFFSET / FLAG_SIZE, curTag_);
             } else if(block_idx < coreNumPerStage + coreNumPerRank){
                 Consumer();
-                Record(rank_, BARRIER_OFFSET / FLAG_SIZE, curTag_);
             }
         } else {
             outputGT.SetGlobalBuffer(reinterpret_cast<__gm__ T *>(outputOffset));

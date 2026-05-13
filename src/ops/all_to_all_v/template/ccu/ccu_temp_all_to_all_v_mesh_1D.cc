@@ -48,33 +48,7 @@ HcclResult CcuTempAlltoAllVMesh1D::CalcChannelRes(HcclComm comm, const OpParam& 
 {
     if (topoInfo->topoLevelNums > 1) {
         // 跨框场景全连接建链
-        CHK_RET(CalcChannelRequestMesh1DInter(comm, param, topoInfo, subCommRanks_, channelDescs));
-        CHK_RET(RestoreChannelMap(channelDescs, rankIdToChannelDesc_));
-        uint32_t enableDieNum = 0;
-        uint32_t enableDieId = 0;
-        CHK_RET(GetDieInfoFromChannelDescs(comm, rankIdToChannelDesc_, myRank_, enableDieNum, enableDieId));
-        std::vector<std::vector<HcclChannelDesc>> channelsPerDie(enableDieNum);
-        std::map<u32, u32> rank2ChannelIdx;
-        for (auto& pair : rankIdToChannelDesc_) {
-            u32 rank = pair.first;
-            if (rank == myRank_) {
-                continue;
-            }
-            if (enableDieNum == DIE_NUM_1) {
-                CHK_RET(SelectChannelToVec(comm, myRank_, rank, rankIdToChannelDesc_, enableDieId,
-                    rank2ChannelIdx, channelsPerDie[DIE_0]));
-            } else if (enableDieNum == DIE_NUM_2) {
-                CHK_RET(SelectChannelToVec(comm, myRank_, rank, rankIdToChannelDesc_, DIE_0,
-                    rank2ChannelIdx, channelsPerDie[DIE_0]));
-                CHK_RET(SelectChannelToVec(comm, myRank_, rank, rankIdToChannelDesc_, DIE_1,
-                    rank2ChannelIdx, channelsPerDie[DIE_1]));
-            }
-        }
-        // 再排个序，6口的die放前面，防止建链失败
-        if (enableDieNum > DIE_NUM_1) {
-            CHK_RET(ReverseChannelPerDieIfNeed(comm, myRank_, channelsPerDie));
-        }
-        channelDescs = channelsPerDie[DIE_0];
+        CHK_RET(CalcChannelRequestMesh1DFullMesh(comm, param, topoInfo, subCommRanks_, channelDescs));
     } else {
         CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
     }
