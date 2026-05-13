@@ -14,6 +14,7 @@ HCCL提供了多种故障检测功能的开关设置，包括建链故障探测�
 
     该参数配置为“0”时，代表关闭建链故障探测功能，即建链失败时无额外等待时间，建链进程立即退出。
 
+  **当前版本Ascend 950PR/Ascend 950DT仅支持配置cluster_heartbeat字段。**
 - **cluster_heartbeat**：集群心跳监测开关，用于通信操作执行超时的情况下，扩散故障信息，并在运行日志中记录故障根节点信息。
 
     该参数支持两种取值：on（开启心跳监测功能）、off（关闭心跳监测功能），默认值为on。
@@ -63,6 +64,8 @@ export HCCL_DFS_CONFIG="connection_fault_detection_time:30,cluster_heartbeat:on,
 无
 
 ## 支持的型号
+
+Ascend 950PR/Ascend 950DT
 
 Atlas A3 训练系列产品/Atlas A3 推理系列产品
 
