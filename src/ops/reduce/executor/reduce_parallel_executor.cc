@@ -661,20 +661,15 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
     tempFastLaunchCtxIntra0.threads = intraThreads_;
     tempFastLaunchCtxIntra0.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[0]);
     ccuKernelSubmitInfos += ctx->ccuKernelNum[0];
+	//数据0的server内的mesh算法
+    CHK_RET(algTemplatePtrArr_.at(0).at(0)->FastLaunch(param, tempFastLaunchCtxIntra0));
     //数据1的server间的nhr算法
     CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxInter1, param.inputPtr, param.hcclBuff.addr, param.hcclBuff));
     tempFastLaunchCtxInter1.threads = interThreads_;
     tempFastLaunchCtxInter1.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[1]);
     ccuKernelSubmitInfos += ctx->ccuKernelNum[1];
-    //把每个template需要的queue传进去，比如stars的mesh要传多条queue
-    if (ctx->ccuKernelNum[0] > 0) {
-        //数据0的server内的mesh算法
-        CHK_RET(algTemplatePtrArr_.at(0).at(0)->FastLaunch(param, tempFastLaunchCtxIntra0));
-    }
-    if (ctx->ccuKernelNum[1] > 0) {
-        //数据1的server间的nhr算法
-        CHK_RET(algTemplatePtrArr_.at(0).at(1)->FastLaunch(param, tempFastLaunchCtxInter1));
-    }
+    //数据1的server间的nhr算法
+    CHK_RET(algTemplatePtrArr_.at(0).at(1)->FastLaunch(param, tempFastLaunchCtxInter1));
     //第一步做完后回到主流做尾同步
     CHK_RET(PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_));
 
@@ -685,18 +680,14 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
     tempFastLaunchCtxInter0.threads = interThreads_;
     tempFastLaunchCtxInter0.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[2]);
     ccuKernelSubmitInfos += ctx->ccuKernelNum[2];
+	CHK_RET(algTemplatePtrArr_.at(0).at(1)->FastLaunch(param, tempFastLaunchCtxInter0));
     //数据1的server内的mesh算法
     CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxIntra1, param.hcclBuff.addr, param.hcclBuff.addr, param.hcclBuff));
     tempFastLaunchCtxIntra1.threads = intraThreads_;
     tempFastLaunchCtxIntra1.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[3]);
     ccuKernelSubmitInfos += ctx->ccuKernelNum[3];
     // step2 scatter 数据0的server间的nhr算法
-    if (ctx->ccuKernelNum[2] > 0) {
-        CHK_RET(algTemplatePtrArr_.at(0).at(1)->FastLaunch(param, tempFastLaunchCtxInter0));
-    }
-    if (ctx->ccuKernelNum[3] > 0) {
-        CHK_RET(algTemplatePtrArr_.at(0).at(0)->FastLaunch(param, tempFastLaunchCtxIntra1));
-    }
+    CHK_RET(algTemplatePtrArr_.at(0).at(0)->FastLaunch(param, tempFastLaunchCtxIntra1));
     CHK_RET(PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_));
 
     // allgather
@@ -708,17 +699,13 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
     tempFastLaunchCtxInter01.threads = interThreads_;
     tempFastLaunchCtxInter01.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[4]);
     ccuKernelSubmitInfos += ctx->ccuKernelNum[4];
+	CHK_RET(algTemplatePtrArr_.at(1).at(1)->FastLaunch(param, tempFastLaunchCtxInter01));
     // 数据1 allgather mesh
     CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxIntra11, param.hcclBuff.addr, param.hcclBuff.addr, param.hcclBuff));
     tempFastLaunchCtxIntra11.threads = intraThreads_;
     tempFastLaunchCtxIntra11.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[5]);
     ccuKernelSubmitInfos += ctx->ccuKernelNum[5];
-    if (ctx->ccuKernelNum[4] > 0) {
-        CHK_RET(algTemplatePtrArr_.at(1).at(1)->FastLaunch(param, tempFastLaunchCtxInter01));
-    }
-    if (ctx->ccuKernelNum[5] > 0) {
-        CHK_RET(algTemplatePtrArr_.at(1).at(0)->FastLaunch(param, tempFastLaunchCtxIntra11));
-    }
+	CHK_RET(algTemplatePtrArr_.at(1).at(0)->FastLaunch(param, tempFastLaunchCtxIntra11));
     //尾同步
     CHK_RET(PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_));
     //step 4
@@ -728,17 +715,12 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
     tempFastLaunchCtxIntra01.threads = intraThreads_;
     tempFastLaunchCtxIntra01.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[6]);
     ccuKernelSubmitInfos += ctx->ccuKernelNum[6];
+	CHK_RET(algTemplatePtrArr_.at(1).at(0)->FastLaunch(param, tempFastLaunchCtxIntra01));
     //数据1的 allgather nhr
     CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxInter11, param.hcclBuff.addr, param.outputPtr, param.hcclBuff));
     tempFastLaunchCtxInter11.threads = interThreads_;
     tempFastLaunchCtxInter11.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[7]);
-    ccuKernelSubmitInfos += ctx->ccuKernelNum[7];
-    if (ctx->ccuKernelNum[6] > 0) {
-        CHK_RET(algTemplatePtrArr_.at(1).at(0)->FastLaunch(param, tempFastLaunchCtxIntra01));
-    }
-    if (ctx->ccuKernelNum[7] > 0) {
-        CHK_RET(algTemplatePtrArr_.at(1).at(1)->FastLaunch(param, tempFastLaunchCtxInter11));
-    }
+    CHK_RET(algTemplatePtrArr_.at(1).at(1)->FastLaunch(param, tempFastLaunchCtxInter11));
     //尾同步
     CHK_RET(PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_));
     HCCL_INFO("[ReduceParallelExecutor][FastLaunch] End.");
