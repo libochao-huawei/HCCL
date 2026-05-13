@@ -86,13 +86,14 @@ static CcuResult LoadArgs(AlltoAllMesh1DContext &ctx)
     CCU_CHK_RET(ccu::LoadArg(ctx.input[arg->rankId], 0));
     CCU_CHK_RET(ccu::LoadArg(ctx.output[arg->rankId], 1));
     CCU_CHK_RET(ccu::LoadArg(ctx.token[arg->rankId], 2));
-    CCU_CHK_RET(ccu::LoadArg(ctx.srcOffset, 3));
-    CCU_CHK_RET(ccu::LoadArg(ctx.dstOffset, 4));
-    CCU_CHK_RET(ccu::LoadArg(ctx.srcStride, 5));
-    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.addrOffset, 6));
-    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.loopParam, 7));
-    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.parallelParam, 8));
-    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.residual, 9));
+    CCU_CHK_RET(ccu::LoadArg(ctx.sliceSize, 3));
+    CCU_CHK_RET(ccu::LoadArg(ctx.srcStride, 4));
+    CCU_CHK_RET(ccu::LoadArg(ctx.srcOffset, 5));
+    CCU_CHK_RET(ccu::LoadArg(ctx.dstOffset, 6));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.addrOffset, 7));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.loopParam, 8));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.parallelParam, 9));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.residual, 10));
 
     ctx.srcOffset += ctx.input[arg->rankId];
 
@@ -172,8 +173,6 @@ static CcuResult DoAlltoAll(AlltoAllMesh1DContext &ctx)
         for(uint64_t r = 0; r < arg->rankSize; r++) {
             ctx.event.setMask(1 << r);
             if (r == arg->rankId) {
-                src[r].token = ctx.token[arg->rankId];
-                localDst.token = ctx.token[arg->rankId];
                 ccu::LocalCopy(localDst, src[r], ctx.sliceSize, ctx.event);
             }
             else {
@@ -192,7 +191,7 @@ static CcuResult DoAlltoAll(AlltoAllMesh1DContext &ctx)
                 channelId++;
             }
         }
-        // GroupCopy(localDst, src[arg->rankId], goSize);
+        GroupCopy(ctx, localDst, src[arg->rankId], ctx.goSize);
         ctx.event.setMask(allBit);
         ccu::EventWait(ctx.event);
     }

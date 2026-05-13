@@ -186,8 +186,8 @@ HcclResult CcuTempAlltoAllMesh1D::KernelRun(const OpParam& param,
     config.loopCount    = CCU_MS_DEFAULT_LOOP_COUNT;
     config.memSlice     = CCU_MS_SIZE;
     auto     goSize             = CalGoSize(sliceSize, config);
-    std::vector<uint64_t> taskArgs = {inputAddr, outputAddr, token, srcOffset, dstOffset, srcStride, goSize[0], goSize[1], goSize[2], goSize[3]};
-    uint64_t argSize = 10;
+    std::vector<uint64_t> taskArgs = {inputAddr, outputAddr, token, sliceSize, srcStride, srcOffset, dstOffset, goSize[0], goSize[1], goSize[2], goSize[3]};
+    uint64_t argSize = 11;
 
     HCCL_INFO("[CcuTempAlltoAllMesh1D::KernelRun] TaskArgs: inputAddr[%llu], outputAddr[%llu], "
             "srcOffset[%llu], dstOffset[%llu], srcStride[%llu], sliceSize[%llu]",
