@@ -164,7 +164,6 @@ void CcuKernelScatterMesh1D::DoScatter()
 {
     HCCL_INFO(
         "[CcuContextScatterMesh1D] RunSendScatter local rank[%u], root rank[%u], start send data", rankId_, rootId_);
-
     CCU_IF(flag_ != 0)
     {
         // 非第一轮执行时，src 和 dst 已经初始化，需要添加偏移量
@@ -175,11 +174,7 @@ void CcuKernelScatterMesh1D::DoScatter()
             r.addr += outputRepeatStride_;
         }
     }
-
     uint32_t channelId = 0;
-
-
-
     CcuRep::Variable sliceSize = CreateVariable();
     // root卡的数据发送到所有卡
     for (uint64_t rankIdx = 0; rankIdx < rankSize_; rankIdx++) {
@@ -197,8 +192,6 @@ void CcuKernelScatterMesh1D::DoScatter()
             RecordEvent(event_);
         }
     }
-
-    // 本地搬运使用group操作
     CCU_IF(isInputOutputEqual_ == 0)
     {
         CcuRep::LocalAddr myOutput = CreateLocalAddr();
@@ -219,11 +212,8 @@ void CcuKernelScatterMesh1D::DoScatter()
             }
         }
     }
-
-    // 等待数据传输完成
     event_.SetMask((1 << rankSize_) - 1);
     WaitEvent(event_);
-    return;
 }
 
 HcclResult CcuKernelScatterMesh1D::Algorithm()
