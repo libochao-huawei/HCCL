@@ -151,7 +151,7 @@ HcclResult InsTempAllGatherMesh1D1DZAxisDetour::RunAllGatherMesh(const std::vect
 
     std::vector<ChannelInfo> mergedChannels;
     for (u32 i = 0; i < ranks.size(); i++) {
-        if (ranks[i] == myRank_)
+        if (ranks[i] == myRank_) {
             continue;
         }
         mergedChannels.insert(mergedChannels.end(), channels.at(rank[i]).begin(), channels.at(rank[i]).end());
