@@ -35,6 +35,7 @@ HcclResult InsTempAllGatherMesh1D1DZAxisDetour::CalcRes(HcclComm comm, const OpP
     mergedChannels.insert(mergedChannels.end(), level0Channels.begin(), level0Channels.end());
     mergedChannels.insert(mergedChannels.end(), level1Channels.begin(), level1Channels.end());
     resourceRequest.channels.push_back(mergedChannels);
+    channelsPerRank_ = mergedChannels.size();
     HCCL_INFO("mergedChannels[%d]\n", mergedChannels.size());
     channelsSize = mergedChannels.size();
 
