@@ -36,8 +36,9 @@ public:
                          TemplateResource& templateResource) override;
     HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                         AlgResourceRequest& resourceRequest) override;
+    HcclResult GetRes(AlgResourceRequest& resourceRequest) const override;
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
-    
+    u64 GetThreadNum() const override;
     HcclResult PreCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads) const;
     HcclResult PostCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads);
     HcclResult CalcSliceInfoVec(const u64 &dataSize, RankSliceInfo &sliceInfoVec);
@@ -45,7 +46,7 @@ public:
     void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub) override;
     void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override;
 
-private:
+protected:
     HcclResult RunReduceScatter(const std::map<u32, std::vector<ChannelInfo>> &channels,
                                 const std::vector<ThreadHandle> &threads,
                                 const TemplateDataParams &tempAlgParams, RankSliceInfo &sliceInfoVec);
@@ -60,6 +61,9 @@ private:
     u32 rankIdx_{0};
     u64 count_{0};
     u64 dataTypeSize_{0};
+    std::vector<u64> elemCountOut_;
+    std::vector<u64> sizeOut_;
+    std::vector<u64> elemOffset_;
 };
 
 } // namespace Hccl

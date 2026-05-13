@@ -26,17 +26,22 @@ HcclResult InsTempReduceScatterMesh1DMeshChunk::CalcRes(
     HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
     AlgResourceRequest& resourceRequest)
 {
-    u32 threadNum = templateRankSize_ > 1 ? templateRankSize_ - 1 : 1;
+    std::vector<HcclChannelDesc> level0Channels;
+    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
+    resourceRequest.channels.push_back(level0Channels);
+    CHK_RET(GetRes(resourceRequest));
+    return HcclResult::HCCL_SUCCESS;
+}
+
+HcclResult InsTempReduceScatterMesh1DMeshChunk::GetRes(AlgResourceRequest& resourceRequest) const
+{
+    u32 threadNum = GetThreadNum();
     resourceRequest.slaveThreadNum = threadNum - 1;
     const u32 NOTIFY_NUM_PER_SLAVE_THREAD = 2;
     for (u32 index = 0; index < threadNum - 1; index++) {
         resourceRequest.notifyNumPerThread.push_back(NOTIFY_NUM_PER_SLAVE_THREAD);
     }
     resourceRequest.notifyNumOnMainThread = (threadNum - 1) * NOTIFY_NUM_PER_SLAVE_THREAD;
-    std::vector<HcclChannelDesc> level0Channels;
-    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
-    resourceRequest.channels.push_back(level0Channels);
-    HCCL_WARNING("Resource calculation is temporarily not performed in the template.");
     return HcclResult::HCCL_SUCCESS;
 }
 
@@ -69,7 +74,7 @@ HcclResult InsTempReduceScatterMesh1DMeshChunk::KernelRun(const OpParam& param,
     const TemplateDataParams& tempAlgParams,
     TemplateResource& templateResource)
 {
-    threadNum_ = templateResource.threads.size();
+    threadNum_ = GetThreadNum();
     processSize_ = tempAlgParams.sliceSize;
     count_ = tempAlgParams.count;
     dataType_ = param.DataDes.dataType;
@@ -159,6 +164,9 @@ HcclResult InsTempReduceScatterMesh1DMeshChunk::DoMeshChunk(
         sliceRecvOffset_ = sliceRecvBaseOffset;
         uint16_t rankNum = 2;
         uint16_t tempNum = 3;
+        u32 queIdx = 0;
+        u64 sliceSizeCur = 0;
+        u64 sliceCountCur = 0;
         for (uint16_t i = 0; i < (templateRankSize_ - 1); i++) {
             uint16_t nextNum = stepIdx + i + 1;
             if (nextNum >= templateRankSize_) {
@@ -168,45 +176,50 @@ HcclResult InsTempReduceScatterMesh1DMeshChunk::DoMeshChunk(
             uint16_t frontNum = 2 * myAlgRank - nextRank + templateRankSize_;
             uint16_t frontRank = frontNum % templateRankSize_;
             u32 toRank = subCommRanks_[0][frontRank];
-            const ChannelInfo &linkSend = channels.at(toRank)[0];
-            const ChannelInfo &linkRecv = channels.at(toRank)[0];
-            void* remoteCclBuffAddr = linkSend.remoteCclMem.addr;
-            uint16_t queIdx;
             if (frontRank < myAlgRank) {
-                queIdx = frontRank;
+                queIdx = frontRank * channelsPerRank_;
             } else {
-                queIdx = frontRank - 1;
+                queIdx = (frontRank - 1) * channelsPerRank_;
             }
-            std::vector<DataSlice> txSrcSlices;
-            std::vector<DataSlice> txDstSlices;
-            std::vector<DataSlice> rxSrcSlices;
-            std::vector<DataSlice> rxDstSlices;
-            for (u32 repeatIdx = 0; repeatIdx < repeatNum; repeatIdx++) {
-                DataSlice rxSrcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr, tempAlgParams.buffInfo.inBuffBaseOff + 
-                    repeatIdx * tempAlgParams.inputRepeatStride + myAlgRank * tempAlgParams.inputSliceStride + sliceRecvOffset_,
-                    sliceSize[i], sliceSize[i] / dataTypeSize_); // 接收源
-                DataSlice rxDstSlice = DataSlice(tempAlgParams.buffInfo.hcclBuff.addr, tempAlgParams.buffInfo.hcclBuffBaseOff + 
-                    sliceRecvOffset_, sliceSize[i], sliceSize[i] / dataTypeSize_); // 接收目标
-                DataSlice txSrcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr, tempAlgParams.buffInfo.inBuffBaseOff + 
-                    repeatIdx * tempAlgParams.inputRepeatStride + frontRank * tempAlgParams.inputSliceStride + sliceSendOffset_,
-                    sliceSize[i], sliceSize[i] / dataTypeSize_); // 发送源
-                DataSlice txDstSlice = DataSlice(remoteCclBuffAddr, tempAlgParams.buffInfo.hcclBuffBaseOff + 
-                    sliceSendOffset_, sliceSize[i], sliceSize[i] / dataTypeSize_);  // 发送目标
+            const std::vector<ChannelInfo> &curChannels = channels.at(toRank);
+            CHK_RET(CalcDataSplitByPortGroup(sliceSize[i] / dataTypeSize_, dataTypeSize_, curChannels, elemCountOut_, sizeOut_, elemOffset_));
+            for (u32 channelIdx = 0; channelIdx < channelsPerRank_; channelIdx++) {
+                const ChannelInfo &linkSend = curChannels[channelIdx];
+                const ChannelInfo &linkRecv = curChannels[channelIdx];
+                void* remoteCclBuffAddr = linkSend.remoteCclMem.addr;
+                sliceSizeCur = sizeOut_[channelIdx];
+                sliceCountCur = elemCountOut_[channelIdx];
+                std::vector<DataSlice> txSrcSlices;
+                std::vector<DataSlice> txDstSlices;
+                std::vector<DataSlice> rxSrcSlices;
+                std::vector<DataSlice> rxDstSlices;
+                for (u32 repeatIdx = 0; repeatIdx < repeatNum; repeatIdx++) {
+                    DataSlice rxSrcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr, tempAlgParams.buffInfo.inBuffBaseOff + 
+                        repeatIdx * tempAlgParams.inputRepeatStride + myAlgRank * tempAlgParams.inputSliceStride + sliceRecvOffset_
+                        + elemOffset_[channelIdx], sliceSizeCur, sliceCountCur); // 接收源
+                    DataSlice rxDstSlice = DataSlice(tempAlgParams.buffInfo.hcclBuff.addr, tempAlgParams.buffInfo.hcclBuffBaseOff + 
+                        sliceRecvOffset_ + elemOffset_[channelIdx],sliceSizeCur, sliceCountCur); // 接收目标
+                    DataSlice txSrcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr, tempAlgParams.buffInfo.inBuffBaseOff + 
+                        repeatIdx * tempAlgParams.inputRepeatStride + frontRank * tempAlgParams.inputSliceStride + sliceSendOffset_
+                        + elemOffset_[channelIdx], sliceSizeCur, sliceCountCur); // 发送源
+                    DataSlice txDstSlice = DataSlice(remoteCclBuffAddr, tempAlgParams.buffInfo.hcclBuffBaseOff + 
+                        sliceSendOffset_ + elemOffset_[channelIdx], sliceSizeCur, sliceCountCur);  // 发送目标
 
-                rxSrcSlices.push_back(rxSrcSlice);
-                rxDstSlices.push_back(rxDstSlice);
-                txSrcSlices.push_back(txSrcSlice);
-                txDstSlices.push_back(txDstSlice);
+                    rxSrcSlices.push_back(rxSrcSlice);
+                    rxDstSlices.push_back(rxDstSlice);
+                    txSrcSlices.push_back(txSrcSlice);
+                    txDstSlices.push_back(txDstSlice);
+                }
+                SendRecvReduceInfo sendRecvReduceInfo{
+                    {linkSend,linkRecv},
+                    {{txSrcSlices, txDstSlices},{rxSrcSlices, rxDstSlices}}, dataType_, reduceOp_
+                };
+
+                CHK_PRT_RET(SendRecvWriteReduce(sendRecvReduceInfo, threads[queIdx]),
+                    HCCL_ERROR("[InsTempReduceScatterMesh1DMeshChunk] RunReduceScatter SendRecvReduce failed"),
+                    HcclResult::HCCL_E_INTERNAL);
+                queIdx ++;
             }
-            SendRecvReduceInfo sendRecvReduceInfo{
-                {linkSend,linkRecv},
-                {{txSrcSlices, txDstSlices},{rxSrcSlices, rxDstSlices}}, dataType_, reduceOp_
-            };
-
-            CHK_PRT_RET(SendRecvWriteReduce(sendRecvReduceInfo, threads[queIdx]),
-                HCCL_ERROR("[InsTempReduceScatterMesh1DMeshChunk] RunReduceScatter SendRecvReduce failed"),
-                HcclResult::HCCL_E_INTERNAL);
-
             sliceSendOffset_ += sliceSize[i];
             if (templateRankSize_ > rankNum && i < (templateRankSize_ - rankNum)) {
                 sliceRecvOffset_ -= sliceSize[templateRankSize_ - tempNum - i];
@@ -244,10 +257,16 @@ HcclResult InsTempReduceScatterMesh1DMeshChunk::PostCopy(
     return HcclResult::HCCL_SUCCESS;
 }
 
+u64 InsTempReduceScatterMesh1DMeshChunk::GetThreadNum() const
+{
+    u32 threadNum = templateRankSize_ > 1 ? (templateRankSize_ - 1) : 1;
+    return threadNum;
+}
+
 void InsTempReduceScatterMesh1DMeshChunk::GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainToSub)
 {
     notifyIdxMainToSub.clear();
-    u32 threadNum = templateRankSize_ > 1 ? templateRankSize_ - 1 : 1;
+    u32 threadNum = GetThreadNum();
     u32 slaveThreadNum = threadNum - 1;
     for (u32 slaveThreadIdx = 0; slaveThreadIdx < slaveThreadNum; slaveThreadIdx++) {
         notifyIdxMainToSub.push_back(0);
@@ -257,7 +276,7 @@ void InsTempReduceScatterMesh1DMeshChunk::GetNotifyIdxMainToSub(std::vector<u32>
 void InsTempReduceScatterMesh1DMeshChunk::GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain)
 {
     notifyIdxSubToMain.clear();
-    u32 threadNum = templateRankSize_ > 1 ? templateRankSize_ - 1 : 1;
+    u32 threadNum = GetThreadNum();
     u32 notifyNum = threadNum - 1;
     for (u32 notifyIdx = 0; notifyIdx < notifyNum; notifyIdx++) {
         notifyIdxSubToMain.push_back(notifyIdx);
@@ -267,7 +286,7 @@ void InsTempReduceScatterMesh1DMeshChunk::GetNotifyIdxSubToMain(std::vector<u32>
 void InsTempReduceScatterMesh1DMeshChunk::NotifyIdxMainToSubInMeshChunk(std::vector<u32> &notifyIdxMainToSub)
 {
     notifyIdxMainToSub.clear();
-    u32 threadNum = templateRankSize_ > 1 ? templateRankSize_ - 1 : 1;
+    u32 threadNum = GetThreadNum();
     u32 slaveThreadNum = threadNum - 1;
     for (u32 slaveThreadIdx = 0; slaveThreadIdx < slaveThreadNum; slaveThreadIdx++) {
         notifyIdxMainToSub.push_back(1);
@@ -277,7 +296,7 @@ void InsTempReduceScatterMesh1DMeshChunk::NotifyIdxMainToSubInMeshChunk(std::vec
 void InsTempReduceScatterMesh1DMeshChunk::NotifyIdxSubToMainInMeshChunk(std::vector<u32> &notifyIdxSubToMain)
 {
     notifyIdxSubToMain.clear();
-    u32 threadNum = templateRankSize_ > 1 ? templateRankSize_ - 1 : 1;
+    u32 threadNum = GetThreadNum();
     u32 notifyNum = threadNum - 1;
     for (u32 notifyIdx = 0; notifyIdx < notifyNum; notifyIdx++) {
         notifyIdxSubToMain.push_back(notifyIdx + threadNum);
