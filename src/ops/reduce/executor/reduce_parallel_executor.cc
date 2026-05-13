@@ -498,7 +498,7 @@ HcclResult
                         ccuKernelLaunchNumAGInter0_ = tempAlgResArr_.at(3).submitInfos.size();
                         ccuKernelLaunchNumAGIntra1_ = tempAlgResArr_.at(2).submitInfos.size();
                     } else if (stageIdx == 1 && stepIdx == 1 && param_.opMode != OpMode::OFFLOAD) {
-                        CHK_RET(FastLaunchSaveCtx());
+                        // CHK_RET(FastLaunchSaveCtx());
                     }
 
                 }
