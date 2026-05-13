@@ -37,6 +37,6 @@ export HCCL_INTRA_PCIE_ENABLE=1
 
 ## 支持的型号
 
-Atlas 训练系列产品：仅支持此处理器型号下的[Atlas 300T Pro 训练卡](https://support.huawei.com/enterprise/zh/ascend-computing/atlas-300t-pro-pid-256118195)。
+<cann-filter npu-type="910">Atlas 训练系列产品：仅支持此处理器型号下的[Atlas 300T Pro 训练卡](https://support.huawei.com/enterprise/zh/ascend-computing/atlas-300t-pro-pid-256118195)。</cann-filter>
 
 Atlas A2 训练系列产品/Atlas A2 推理系列产品：仅支持此处理器型号下的[Atlas 200T A2 Box16 异构子框](https://support.huawei.com/enterprise/zh/doc/EDOC1100318274/287e0458)。

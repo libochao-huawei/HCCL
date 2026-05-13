@@ -5,13 +5,16 @@
 - Ascend 950PR/Ascend 950DT：支持
 - Atlas A3 训练系列产品/Atlas A3 推理系列产品：支持
 - Atlas A2 训练系列产品/Atlas A2 推理系列产品：支持
-- Atlas 推理系列产品：支持
-- Atlas 训练系列产品：不支持
+<cann-filter npu-type="310p">
+- Atlas 推理系列产品：支持</cann-filter>
+<cann-filter npu-type="910">
+- Atlas 训练系列产品：不支持</cann-filter>
 
 > [!NOTE]说明
 >
 > - 针对Atlas A2 训练系列产品/Atlas A2 推理系列产品，仅支持Atlas 800T A2 训练服务器、Atlas 900 A2 PoD 集群基础单元、Atlas 200T A2 Box16 异构子框。
-> - 针对Atlas 推理系列产品，仅支持Atlas 300I Duo 推理卡。
+<cann-filter npu-type="310p">
+> - 针对Atlas 推理系列产品，仅支持Atlas 300I Duo 推理卡。</cann-filter>
 
 ## 功能说明
 
@@ -34,8 +37,8 @@ HcclResult HcclReduceScatterV(void *sendBuf, const void *sendCounts, const void 
 | sendDispls | 输入 | 参与ReduceScatterV操作的每个rank的数据在sendBuf中的偏移量（单位为dataType），为uint64类型的数组。<br>该数组的第i个元素表示向rank i发送的数据在sendBuf中的偏移量。 |
 | recvBuf | 输出 | 目的数据buffer地址，集合通信结果输出至此buffer中。 |
 | recvCount | 输入 | 参与ReduceScatterV操作的rank对应recvBuf的数据size。<br>假设当前rank的编号为i，则recvCount的值需要与sendCounts数组中下标为i的元素值相同。 |
-| dataType | 输入 | ReduceScatterV操作的数据类型，[HcclDataType](https://gitcode.com/cann/hcomm/blob/master/docs/api_ref/comm_mgr_c/data_type_definition/HcclDataType.md)类型。<br>针对Ascend 950PR/Ascend 950DT，支持数据类型：int8、int16、int32、float16、float32、bfp16。<br>针对Atlas A3 训练系列产品/Atlas A3 推理系列产品，支持数据类型：int8、int16、int32、int64、float16、float32、bfp16。<br>针对Atlas A2 训练系列产品/Atlas A2 推理系列产品，支持数据类型：int8、int16、int32、float16、float32、bfp16。<br>针对Atlas 300I Duo 推理卡，支持数据类型：int16、float16、float32。 |
-| op | 输入 | Reduce的操作类型。<br>针对Ascend 950PR/Ascend 950DT，支持的操作类型为sum、max、min。<br>针对Atlas A3 训练系列产品/Atlas A3 推理系列产品，支持的操作类型为sum、max、min。<br>针对Atlas A2 训练系列产品/Atlas A2 推理系列产品，支持的操作类型为sum、max、min。<br>针对Atlas 300I Duo 推理卡，仅支持操作类型sum。 |
+| dataType | 输入 | ReduceScatterV操作的数据类型，[HcclDataType](https://gitcode.com/cann/hcomm/blob/master/docs/api_ref/comm_mgr_c/data_type_definition/HcclDataType.md)类型。<br>针对Ascend 950PR/Ascend 950DT，支持数据类型：int8、int16、int32、float16、float32、bfp16。<br>针对Atlas A3 训练系列产品/Atlas A3 推理系列产品，支持数据类型：int8、int16、int32、int64、float16、float32、bfp16。<br>针对Atlas A2 训练系列产品/Atlas A2 推理系列产品，支持数据类型：int8、int16、int32、float16、float32、bfp16。<cann-filter npu-type="310p"><br>针对Atlas 300I Duo 推理卡，支持数据类型：int16、float16、float32。</cann-filter> |
+| op | 输入 | Reduce的操作类型。<br>针对Ascend 950PR/Ascend 950DT，支持的操作类型为sum、max、min。<br>针对Atlas A3 训练系列产品/Atlas A3 推理系列产品，支持的操作类型为sum、max、min。<br>针对Atlas A2 训练系列产品/Atlas A2 推理系列产品，支持的操作类型为sum、max、min。<cann-filter npu-type="310p"><br>针对Atlas 300I Duo 推理卡，仅支持操作类型sum。</cann-filter> |
 | comm | 输入 | 集合通信操作所在的通信域。 |
 | stream | 输入 | 本rank所使用的stream。 |
 

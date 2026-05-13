@@ -58,4 +58,4 @@ rank table配置文件说明如下所示：
 |  | device |  | 必选。<br>AI Server中的Device列表。 |
 |  |  | device_id | 必选。<br>AI处理器的物理ID，即Device在AI Server上的序列号。<br>可通过执行“ls /dev/davinci*”命令获取AI处理器的物理ID。<br>例如：显示/dev/davinci0，表示AI处理器的物理ID为0。<br>取值范围：\[0，实际Device数量-1]。<br>注意：“device_id”配置项的优先级高于环境变量“ASCEND_DEVICE_ID”。 |
 |  |  | device_ip | 必选。<br>AI处理器集成网卡IP，全局唯一，要求为常规IPv4或IPv6格式。<br>可以在当前AI Server执行指令“cat /etc/hccn.conf”获取网卡IP，例如：<br>address_0=xx.xx.xx.xx<br>netmask_0=xx.xx.xx.xx<br>netdetect_0=xx.xx.xx.xx<br>查询到的address_xx即为网卡IP，address后的序号为AI处理器的物理ID，即device_id，后面的ip地址即为需要用户填入的该device对应的网卡IP。 |
-|  |  | rank_id | 必选。<br>rank唯一标识，请配置为整数，从0开始配置，且全局唯一，取值范围：\[0, 总Device数量-1]<br>为方便管理，建议rank_id按照Device物理连接顺序进行排序，即将物理连接上较近的Device编排在一起。<br>例如，若device_ip按照物理连接从小到大设置，则rank_id也建议按照从小到大的顺序设置。 |
+|  |  | rank_id | 必选。<br>rank唯一标识，请配置为整数，从0开始配置，且全局唯一，取值范围：\[0, 总Device数量-1]。<br>- 建议rank_id按照Device物理连接顺序进行排序，即将物理连接上较近的Device编排在一起，否则可能会对性能造成影响。<br>&nbsp;&nbsp;  例如，若device_ip按照物理连接从小到大设置，则rank_id也建议按照从小到大的顺序设置。<br>- 不同AI Server中的rank_id不支持交叉配置。<br> &nbsp;&nbsp; 正例：server 1中的rank_id集合为{0,1,2,3}，server 2中的rank_id集合为{4,5,6,7}。<br> &nbsp;&nbsp; 反例：server 1中的rank_id集合为{0,1,2,7}，server 2中的rank_id集合为{3,4,5,6}。 |
