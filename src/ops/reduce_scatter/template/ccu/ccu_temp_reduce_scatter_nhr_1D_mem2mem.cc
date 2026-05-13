@@ -11,7 +11,6 @@
 #include "channel.h"
 #include "ccu_assist_pub.h"
 #include "ccu_temp_reduce_scatter_nhr_1D_mem2mem.h"
-#include "alg_data_trans_wrapper.h"
 #include "ccu_kernel_reduce_scatter_nhr1d_mem2mem.h"
 #include "ccu_control_api.h"
 
@@ -112,8 +111,8 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::CalcRes(HcclComm comm, const OpPara
         kernelInfo.kernelFunc = reinterpret_cast<void *>(CcuReduceScatterNHR1DMem2MemKernel);
 
         auto kernelArg = std::make_shared<CcuKernelArgReduceScatterNHR1D>();
-        kernelArg->rankSize = subCommRanks_[0].size();
-        kernelArg->rankId = mySubCommRank_;
+        kernelArg->dimSize = subCommRanks_[0].size();
+        kernelArg->mySubCommRankId = mySubCommRank_;
         kernelArg->axisId = kernelIdx;
         kernelArg->stepInfoVector = stepInfoVector;
         kernelArg->rank2ChannelIdx = rank2ChannelIdx;
@@ -138,7 +137,7 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::FastLaunch(const OpParam& param, co
         HCCL_INFO("[CcuTempReduceScatterNHR1DMem2Mem::FastLaunch] ccu kernel num is 0, just success.");
         return HCCL_SUCCESS;
     }
-    HCCL_DEBUG("[CcuTempReduceScatterMesh1D::FastLaunch] start");
+    HCCL_DEBUG("[CcuTempReduceScatterNHR1DMem2Mem::FastLaunch] start");
     u32 kernelNum = tempFastLaunchCtx.ccuKernelSubmitInfos.size();
     buffInfo_ = tempFastLaunchCtx.buffInfo;
 
@@ -174,7 +173,7 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::FastLaunch(const OpParam& param, co
         std::vector<u32> notifyIdxSubToMain(1, 0);
         CHK_RET(PostSyncInterThreads(tempFastLaunchCtx.threads[0], subThreads, notifyIdxSubToMain));
     }
-    HCCL_DEBUG("[CcuTempReduceScatterMesh1D::FastLaunch] end");
+    HCCL_DEBUG("[CcuTempReduceScatterNHR1DMem2Mem::FastLaunch] end");
     return HcclResult::HCCL_SUCCESS;
 }
 

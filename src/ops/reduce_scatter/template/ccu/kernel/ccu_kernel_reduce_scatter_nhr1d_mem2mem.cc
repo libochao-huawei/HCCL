@@ -18,21 +18,20 @@ constexpr uint16_t POST_SYNC_ID     = 2;
 constexpr uint16_t STEP_PRE_SYNC_ID = 3;
 constexpr uint16_t STEP_POST_SYNC_ID= 4;
 constexpr uint16_t CKE_IDX_0        = 0;
-constexpr uint16_t LINK_SIZE        = 2;
 
 static CcuResult ParseKernelArg(ReduceScatterNHR1DMem2MemContext &ctx, CcuKernelArgReduceScatterNHR1D *kernelArg)
 {
-    ctx.mySubCommRankId = kernelArg->mySubCommRankId_;
-    ctx.axisId          = kernelArg->axisId_;
-    ctx.dimSize         = kernelArg->dimSize_;
-    ctx.stepInfoVector  = kernelArg->stepInfoVector_;
-    ctx.rank2ChannelIdx = kernelArg->rank2ChannelIdx_;
+    ctx.mySubCommRankId = kernelArg->mySubCommRankId;
+    ctx.axisId          = kernelArg->axisId;
+    ctx.dimSize         = kernelArg->dimSize;
+    ctx.stepInfoVector  = kernelArg->stepInfoVector;
+    ctx.rank2ChannelIdx = kernelArg->rank2ChannelIdx;
     ctx.localSize       = ctx.rank2ChannelIdx.size();
     ctx.myRankIdx       = ctx.rank2ChannelIdx.size();
-    ctx.reduceOp        = kernelArg->opParam_.reduceType;
-    ctx.dataType        = kernelArg->opParam_.DataDes.dataType;
-    ctx.outputDataType  = kernelArg->opParam_.DataDes.outputType;
-    ctx.axisSize        = kernelArg->axisSize_;
+    ctx.reduceOp        = kernelArg->opParam.reduceType;
+    ctx.dataType        = kernelArg->opParam.DataDes.dataType;
+    ctx.outputDataType  = kernelArg->opParam.DataDes.outputType;
+    ctx.axisSize        = kernelArg->axisSize;
 
     if (ctx.outputDataType == HcclDataType::HCCL_DATA_TYPE_RESERVED) {
         ctx.outputDataType = ctx.dataType;
@@ -91,19 +90,20 @@ static CcuResult InitResources(ReduceScatterNHR1DMem2MemContext &ctx)
 
 static CcuResult LoadArgs(ReduceScatterNHR1DMem2MemContext &ctx)
 {
-    CCU_CHK_RET(ccu::LoadArg(ctx.input[ctx.myRankIdx]));
-    CCU_CHK_RET(ccu::LoadArg(ctx.output));
-    CCU_CHK_RET(ccu::LoadArg(ctx.token[ctx.myRankIdx]));
-    CCU_CHK_RET(ccu::LoadArg(ctx.die0Size));
-    CCU_CHK_RET(ccu::LoadArg(ctx.die1Size));
-    CCU_CHK_RET(ccu::LoadArg(ctx.die0LastSliceSize));
-    CCU_CHK_RET(ccu::LoadArg(ctx.die1LastSliceSize));
-    CCU_CHK_RET(ccu::LoadArg(ctx.inputSliceStride));
-    CCU_CHK_RET(ccu::LoadArg(ctx.currentRankSliceOutputOffset));
-    CCU_CHK_RET(ccu::LoadArg(ctx.inputRepeatStride));
-    CCU_CHK_RET(ccu::LoadArg(ctx.outputRepeatStride));
-    CCU_CHK_RET(ccu::LoadArg(ctx.repeatNumVar));
-    CCU_CHK_RET(ccu::LoadArg(ctx.isInputOutputEqual));
+    uint32_t cnt = 0;
+    CCU_CHK_RET(ccu::LoadArg(ctx.input[ctx.myRankIdx], cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.output, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.token[ctx.myRankIdx], cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.die0Size, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.die1Size, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.die0LastSliceSize, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.die1LastSliceSize, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.inputSliceStride, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.currentRankSliceOutputOffset, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.inputRepeatStride, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.outputRepeatStride, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.repeatNumVar, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.isInputOutputEqual, cnt++));
 
     ctx.repeatNumVarTemp = ctx.repeatNumVar;
     HCCL_INFO("[CcuKernelReduceScatterNHR1DMem2Mem] LoadArgs run finished");
@@ -298,6 +298,14 @@ CcuResult CcuReduceScatterNHR1DMem2MemKernel(CcuKernelArg arg)
 
     ReduceScatterNHR1DMem2MemContext ctx;
     ctx.arg = kernelArg;
+    ctx.resourceAllocated = false;
+    ctx.loopRegistered = false;
+    ctx.moConfig.msInterleave = 0;
+    ctx.moConfig.loopCount = 0;
+    ctx.moConfig.memSlice = 0;
+    ctx.moRes.eventCount = 0;
+    ctx.moRes.bufCount = 0;
+    ctx.enginePool = 0;
 
     HCCL_INFO("[CcuKernelReduceScatterNHR1DMem2Mem] CcuKernelReduceScatterNHR1DMem2Mem run.");
 
