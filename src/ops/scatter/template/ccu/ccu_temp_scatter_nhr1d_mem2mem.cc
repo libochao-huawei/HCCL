@@ -215,7 +215,7 @@ HcclResult CcuTempScatterNHR1DMem2Mem::FastLaunch(const OpParam& param, const Te
     HCCL_DEBUG("[CcuTempScatterNHR1DMem2Mem::FastLaunch] start");
     u32 kernelNum = tempFastLaunchCtx.ccuKernelSubmitInfos.size();
     buffInfo_ = tempFastLaunchCtx.buffInfo;
-    const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
+
     // 前流同步
     if (kernelNum > 1) {
         std::vector<ThreadHandle> subThreads(tempFastLaunchCtx.threads.begin() + 1, tempFastLaunchCtx.threads.end());
@@ -224,6 +224,7 @@ HcclResult CcuTempScatterNHR1DMem2Mem::FastLaunch(const OpParam& param, const Te
     }
 
     for (u32 kernelIdx = 0; kernelIdx < kernelNum; kernelIdx++) {
+        const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[kernelIdx].cachedArgs;
         CcuTaskArgScatterNHRMem2Mem1D taskArg(
                 PointerToAddr(buffInfo_.inputPtr) + args[0],
                 PointerToAddr(buffInfo_.outputPtr) + args[1],
@@ -234,7 +235,7 @@ HcclResult CcuTempScatterNHR1DMem2Mem::FastLaunch(const OpParam& param, const Te
         void* taskArgPtr = static_cast<void*>(&taskArg);
 
         CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[kernelIdx],
-                                    tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr));
+                                    tempFastLaunchCtx.ccuKernelSubmitInfos[kernelIdx].kernelHandle, taskArgPtr));
     }
     // 后流同步
     if (kernelNum > 1) {
