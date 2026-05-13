@@ -339,6 +339,7 @@ custom_install() {
             fi
         fi
     fi
+
     return 0
 }
 
