@@ -192,24 +192,24 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
                 targetChannels[channel.remoteRank].push_back(channel);
             }
     }
-    HCCL_INFO("[DEBUG] tmp0LinkMap_ keys=%zu", templateAlgResforTemp0.channels.size());
-    for (auto it = templateAlgResforTemp0.channels.begin(); it != templateAlgResforTemp0.channels.end(); ++it) {
-        HCCL_INFO("zjy[DEBUG]   rank[%u] -> %zu channels", it->first, it->second.size());
-        for (size_t j = 0; j < it->second.size(); ++j) {
-            HCCL_INFO("zjy[DEBUG]     ch[%zu] remoteRank=%u, localRank=%u",
-                    j, it->second[j].remoteRank, myRank_);
-        }
-    }
+    // HCCL_INFO("[DEBUG] tmp0LinkMap_ keys=%zu", templateAlgResforTemp0.channels.size());
+    // for (auto it = templateAlgResforTemp0.channels.begin(); it != templateAlgResforTemp0.channels.end(); ++it) {
+    //     HCCL_INFO("zjy[DEBUG]   rank[%u] -> %zu channels", it->first, it->second.size());
+    //     for (size_t j = 0; j < it->second.size(); ++j) {
+    //         HCCL_INFO("zjy[DEBUG]     ch[%zu] remoteRank=%u, localRank=%u",
+    //                 j, it->second[j].remoteRank, myRank_);
+    //     }
+    // }
 
-    // 打印 tmp1LinkMap_
-    HCCL_INFO("[DEBUG] tmp1LinkMap_ keys=%zu", templateAlgResforTemp1.channels.size());
-    for (auto it = templateAlgResforTemp1.channels.begin(); it != templateAlgResforTemp1.channels.end(); ++it) {
-        HCCL_INFO("zjy[DEBUG]   rank[%u] -> %zu channels", it->first, it->second.size());
-        for (size_t j = 0; j < it->second.size(); ++j) {
-            HCCL_INFO("zjy[DEBUG]     ch[%zu] remoteRank=%u, localRank=%u",
-                    j, it->second[j].remoteRank, myRank_);
-        }
-    }
+    // // 打印 tmp1LinkMap_
+    // HCCL_INFO("[DEBUG] tmp1LinkMap_ keys=%zu", templateAlgResforTemp1.channels.size());
+    // for (auto it = templateAlgResforTemp1.channels.begin(); it != templateAlgResforTemp1.channels.end(); ++it) {
+    //     HCCL_INFO("zjy[DEBUG]   rank[%u] -> %zu channels", it->first, it->second.size());
+    //     for (size_t j = 0; j < it->second.size(); ++j) {
+    //         HCCL_INFO("zjy[DEBUG]     ch[%zu] remoteRank=%u, localRank=%u",
+    //                 j, it->second[j].remoteRank, myRank_);
+    //     }
+    // }
     // 准备数据
     TemplateDataParams tempAlgParamsforTemp0;
     tempAlgParamsforTemp0.buffInfo.inputPtr = param.inputPtr;
@@ -285,12 +285,20 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
     // 再次填充buffer信息
     tempAlgParamsforTemp0.buffInfo.hcclBuff = cclMem0;
     tempAlgParamsforTemp0.buffInfo.hcclBuffBaseOff = 0;
+    tempAlgParamsforTemp0.buffInfo.hcclBuffSize = cclMem0.size;
     tempAlgParamsforTemp0.buffInfo.inBuffBaseOff = 0;
     tempAlgParamsforTemp0.buffInfo.outBuffBaseOff = 0;
+    tempAlgParamsforTemp0.inputRepeatStride = 0;
+    tempAlgParamsforTemp0.outputRepeatStride = 0;
+
     tempAlgParamsforTemp1.buffInfo.hcclBuff = cclMem1;
     tempAlgParamsforTemp1.buffInfo.hcclBuffBaseOff = 0;
+    tempAlgParamsforTemp1.buffInfo.hcclBuffSize = cclMem1.size;
     tempAlgParamsforTemp1.buffInfo.inBuffBaseOff = dataCountforTemp0 * dataTypeSize_;
     tempAlgParamsforTemp1.buffInfo.outBuffBaseOff = dataCountforTemp0 * dataTypeSize_;
+    tempAlgParamsforTemp1.inputRepeatStride = 0;
+    tempAlgParamsforTemp1.outputRepeatStride = 0;
+
     // 循环处理每个template
     for (u32 loopIndex = 0; loopIndex < loopTimesforTemp0 || loopIndex < loopTimesforTemp1; loopIndex++) {
         HCCL_INFO("[%s]loopIndex[%u], loopTimesforTemp0[%u], loopTimesforTemp1[%u]",
