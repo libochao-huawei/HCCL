@@ -201,8 +201,8 @@ HcclResult InsV2AllToAllVConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     // 调用计算资源的函数
     AlgResourceRequest resReq0;
     AlgResourceRequest resReq1;
-    algTemplateClos->CalcRes(comm, param, topoInfo, resReq0);
-    algTemplateMesh->CalcRes(comm, param, topoInfo, resReq1);
+    CHK_RET(algTemplateClos->CalcRes(comm, param, topoInfo, resReq0));
+    CHK_RET(algTemplateMesh->CalcRes(comm, param, topoInfo, resReq1));
 
     resourceRequest.notifyNumOnMainThread = resReq0.slaveThreadNum + 1;  // 用于两个template间同步
     resourceRequest.slaveThreadNum = resReq0.slaveThreadNum + resReq1.slaveThreadNum + 1;
