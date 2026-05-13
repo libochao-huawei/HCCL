@@ -116,9 +116,9 @@ HcclResult CcuTempAlltoAllMesh1D::FastLaunch(const OpParam& param, const Templat
     uint64_t *args = const_cast<uint64_t*>(tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs);
     constexpr u32 inputIdx = 0;
     constexpr u32 outputIdx = 1;
-    constexpr u32 inputOffsetIdx = 10;
-    constexpr u32 outputOffsetIdx = 11;
-    uint64_t argSize = 10;
+    constexpr u32 inputOffsetIdx = 11;
+    constexpr u32 outputOffsetIdx = 12;
+    uint64_t argSize = 11;
 
     args[inputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + args[inputOffsetIdx];
     args[outputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + args[outputOffsetIdx];
@@ -202,7 +202,7 @@ HcclResult CcuTempAlltoAllMesh1D::KernelRun(const OpParam& param,
     CcuKernelSubmitInfo subCommInfo;
     subCommInfo.kernelHandle = templateResource.ccuKernels[0];
     CHK_RET(FillCachedArgs(subCommInfo, inputAddr, outputAddr,  
-        token, srcOffset, dstOffset, srcStride,
+        token, sliceSize, srcStride, srcOffset, dstOffset, 
         goSize[0], goSize[1], goSize[2], goSize[3],
         buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff));
     templateResource.submitInfos.push_back(subCommInfo);
