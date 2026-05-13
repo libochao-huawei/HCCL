@@ -172,6 +172,7 @@ static CcuResult DoAlltoAll(AlltoAllMesh1DContext &ctx)
         for(uint64_t r = 0; r < arg->rankSize; r++) {
             ctx.event.setMask(1 << r);
             if (r == arg->rankId) {
+                src[r].token = ctx.token[arg->rankId];
                 ccu::LocalCopy(localDst, src[r], ctx.sliceSize, ctx.event);
             }
             else {
