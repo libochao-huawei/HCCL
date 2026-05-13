@@ -710,18 +710,26 @@ HcclResult ReduceParallelExecutor<AlgTopoMatch, AlgTemplate0, AlgTemplate1, AlgT
     //step 4
     CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
     //数据0 allgather mesh
-    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxIntra01, param.hcclBuff.addr, param.outputPtr, param.hcclBuff));
+    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxIntra01, param.hcclBuff.addr, param.hcclBuff.addr, param.hcclBuff));
     tempFastLaunchCtxIntra01.threads = intraThreads_;
     tempFastLaunchCtxIntra01.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[6]);
     ccuKernelSubmitInfos += ctx->ccuKernelNum[6];
 	CHK_RET(algTemplatePtrArr_.at(1).at(0)->FastLaunch(param, tempFastLaunchCtxIntra01));
     //数据1的 allgather nhr
-    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxInter11, param.hcclBuff.addr, param.outputPtr, param.hcclBuff));
+    CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxInter11, param.hcclBuff.addr, param.hcclBuff.addr, param.hcclBuff));
     tempFastLaunchCtxInter11.threads = interThreads_;
     tempFastLaunchCtxInter11.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + ctx->ccuKernelNum[7]);
     CHK_RET(algTemplatePtrArr_.at(1).at(1)->FastLaunch(param, tempFastLaunchCtxInter11));
     //尾同步
     CHK_RET(PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_));
+    HCCL_INFO("[ReduceParallelExecutor][FastLaunch] param.userRank[%u]", param.userRank);
+    HCCL_INFO("[ReduceParallelExecutor][FastLaunch] param.root[%u]", param.root);
+	if (param.userRank == param.root) {
+        HCCL_INFO("[ReduceParallelExecutor][FastLaunch] LocalCopy");
+        const DataSlice srcSlice(param.hcclBuff.addr, 0, param.DataDes.count * DATATYPE_SIZE_TABLE[param.DataDes.dataType]);
+        const DataSlice dstSlice(param.outputPtr, 0, param.DataDes.count * DATATYPE_SIZE_TABLE[param.DataDes.dataType]);
+        CHK_RET(LocalCopy(threads_.at(0), srcSlice, dstSlice));
+    }
     HCCL_INFO("[ReduceParallelExecutor][FastLaunch] End.");
     return HCCL_SUCCESS;
 }
