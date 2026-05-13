@@ -20,7 +20,7 @@
 
 namespace ops_hccl {
 
-template <typename AlgTopoMatch, typename InsRsAlgTemplateX, typename InsRsAlgTemplateY, typename InsGatherAlgTemplateX, typename InsGatherAlgTemplateY>
+template <typename AlgTopoMatch, typename InsRsAlgTemplateX, typename InsRsAlgTemplateY, typename InsAgAlgTemplateX, typename InsAgAlgTemplateY>
 class CcuV2ReduceOmniPipeExecutor : public InsCollAlgBase {
 public:
     explicit CcuV2ReduceOmniPipeExecutor();
@@ -28,6 +28,8 @@ public:
  
     HcclResult Orchestrate(const OpParam &param, const AlgResourceCtxSerializable &resCtx) override;
  
+    /* *************** 资源计算 *************** */
+    // 这些函数为ExecutorBase纯虚函数，必须重写
     HcclResult CalcRes(HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
         const AlgHierarchyInfoForAllLevel &algHierarchyInfo, AlgResourceRequest &resourceRequest) override;
 
@@ -35,6 +37,7 @@ public:
         HcclComm comm, TopoInfoWithNetLayerDetails *topoInfo, AlgHierarchyInfoForAllLevel &algHierarchyInfo) override;
  
 protected:
+    /* *************** 算法编排 *************** */
     HcclResult InitCommInfo(const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo, const AlgHierarchyInfoForAllLevel &algHierarchyInfo);
     HcclResult CalcResLevel(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                 std::shared_ptr<CcuAlgTemplateBase> tempAlg, AlgResourceRequest& resourceReq, const int& curLevel);
@@ -46,6 +49,9 @@ protected:
                 const std::vector<std::vector<u32>>& subCommRanks0, const std::vector<std::vector<u32>>& subCommRanks1);
 
     HcclResult InitTemplateParamsCommon(const OpParam& param, TemplateDataParams& templateDataParams);
+
+    // HcclResult PrepareResForTemplateLevelRS(u32 level, std::shared_ptr<CcuAlgTemplateBase>& tempBase);
+    // HcclResult PrepareResForTemplateLevelAG(u32 level, std::shared_ptr<CcuAlgTemplateBase>& tempBase);
 
     HcclResult InitTemplateParams(const OpParam& param, const AlgResourceCtxSerializable& resCtx,
                 const std::map<u32, std::shared_ptr<CcuAlgTemplateBase>>& tempMap,
@@ -68,7 +74,8 @@ protected:
 
 
     std::vector<std::map<u32, std::vector<ChannelInfo>>> remoteRankToChannelInfo_;
-    std::vector<ThreadHandle> threads_;
+    std::vector<ThreadHandle> threads_;  // 相当于之前的std::vector<InsQuePtr> tempInsQue_;
+    // std::vector<SplitSliceInfo> sliceInfoList_;
 
     uint64_t rankSizeLevel0_{0};
     uint64_t rankSizeLevel1_{0};
@@ -76,34 +83,46 @@ protected:
     uint64_t rankIdxLevel0_{0};
     uint64_t rankIdxLevel1_{0};
 
-    uint32_t rootRank_{0};
-    uint32_t rootIdxLevel0_{0};
-    uint32_t rootIdxLevel1_{0};
+    bool isRoot;
+    bool isSameXAxis;
+    bool isSameYAxis;
 
-    enum OmnipipeReduceLevel{
+    enum OmnipipeARLevel{
         OMNIPIPE_RS_LEVEL0 = 0,
         OMNIPIPE_RS_LEVEL1 = 1,
-        OMNIPIPE_GATHER_LEVEL0 = 2,
-        OMNIPIPE_GATHER_LEVEL1 = 3,
-        OMNIPIPE_REDUCE_LEVEL_NUM = 4
+        OMNIPIPE_AG_LEVEL0 = 2,
+        OMNIPIPE_AG_LEVEL1 = 3,
+        OMNIPIPE_AR_LEVEL_NUM = 4
     };
 
+/// 对角算法专用
 private:
+    // std::vector<ThreadHandle> rsLevel0Threads_;
+    // std::vector<ThreadHandle> rsLevel1Threads_;
+    // ThreadHandle              rsControlThread_;
+    // std::vector<ThreadHandle> rsTemplateMainXYThreads_;
+    // std::vector<u32>          rsNotifyIdxControlToTemplates_;
+    // std::vector<u32>          rsNotifyIdxTemplatesToControl_;
+
     ThreadHandle controlThread_;
 
     std::vector<std::vector<ThreadHandle>> levelThreads_;
+    // std::vector<ThreadHandle> tempMainThreadsLevel01RS_;
     std::vector<u32> ntfIdxCtrlToTempLevel01RS_;
     std::vector<u32> ntfIdxTempToCtrlLevel01RS_;
 
-    std::vector<std::vector<ThreadHandle>> levelThreadsGather_;
-    std::vector<ThreadHandle> tempMainThreadsLevel01Gather_;
-    std::vector<u32> ntfIdxCtrlToTempLevel01Gather_;
-    std::vector<u32> ntfIdxTempToCtrlLevel01Gather_;
 
-    std::vector<ThreadHandle> tempMainThreadsLevel0Gather_;
-    std::vector<u32> ntfIdxCtrlToTempLevel0Gather_;
-    std::vector<u32> ntfIdxTempToCtrlLevel0Gather_;
+    std::vector<std::vector<ThreadHandle>> levelThreadsAG_;
+    std::vector<ThreadHandle> tempMainThreadsLevel01AG_;
+    std::vector<u32> ntfIdxCtrlToTempLevel01AG_;
+    std::vector<u32> ntfIdxTempToCtrlLevel01AG_;
+
+    std::vector<ThreadHandle> tempMainThreadsLevel0AG_;
+    std::vector<u32> ntfIdxCtrlToTempLevel0AG_;
+    std::vector<u32> ntfIdxTempToCtrlLevel0AG_;
+    
+
 };
-
 }
+
 #endif

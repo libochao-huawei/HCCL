@@ -1309,160 +1309,226 @@ OmniPipeSliceInfo CalcAGOmniPipeSliceInfo(OmniPipeSliceParam &omniPipeSliceParam
 
 OmniPipeSliceInfo CalcGatherOmniPipeSliceInfo(OmniPipeSliceParam &omniPipeSliceParam)
 {
+    // 公共拓扑参数
     HCCL_INFO("[CalcGatherOmniPipeSliceInfo] Run start");
     int maxStepNum = MAX_STEP_NUM;
-    u64 processedDataEachRank = 0;
+    u64 processedDataEachRank = 0;  // 预留偏移参数，现在填0
     std::vector<u64> levelRankSize = omniPipeSliceParam.levelRankSize;
     std::vector<u64> dataSize = omniPipeSliceParam.dataWholeSize;
     std::vector<u64> dataSizePerLoop = omniPipeSliceParam.dataSizePerLoop;
     u64 dataTypeSize = omniPipeSliceParam.dataTypeSize;
     std::vector<EndpointAttrBwCoeff> endpointAttrBw = omniPipeSliceParam.endpointAttrBw;
     std::vector<u64> levelRankId = omniPipeSliceParam.levelRankId;
-    u64 root = omniPipeSliceParam.root;
-    
-    u64 xRankSize = levelRankSize[OmniPipeLevel::OMNIPIPE_LEVEL0];
-    u64 yRankSize = levelRankSize[OmniPipeLevel::OMNIPIPE_LEVEL1];
-    u64 zRankSize = levelRankSize[OmniPipeLevel::OMNIPIPE_LEVEL2];
+    u64 xRankSize = levelRankSize[OmniPipeLevel::OMNIPIPE_LEVEL0];  // x轴卡数，机内mesh
+    u64 yRankSize = levelRankSize[OmniPipeLevel::OMNIPIPE_LEVEL1];  // y轴卡数，机内clos
+    u64 zRankSize = levelRankSize[OmniPipeLevel::OMNIPIPE_LEVEL2];  // z轴卡数，机间
     double xB = endpointAttrBw[OmniPipeLevel::OMNIPIPE_LEVEL0] * 1.0;
     double yB = endpointAttrBw[OmniPipeLevel::OMNIPIPE_LEVEL1] * 1.0;
     double zB = endpointAttrBw[OmniPipeLevel::OMNIPIPE_LEVEL2] * 1.0;
-    double xyB = CalcBandwidth2D(xB, yB, xRankSize, yRankSize, maxStepNum);
-    
-    u64 xAxis = levelRankId[OmniPipeLevel::OMNIPIPE_LEVEL0];
-    u64 yAxis = levelRankId[OmniPipeLevel::OMNIPIPE_LEVEL1];
-    u64 zAxis = levelRankId[OmniPipeLevel::OMNIPIPE_LEVEL2];
-    u64 rankid = xAxis + yAxis * xRankSize + zAxis * xRankSize * yRankSize;
-    
+    double xyB = CalcBandwidth2D(xB, yB, xRankSize, yRankSize, maxStepNum);  // 2d等效带宽计算
+    HCCL_INFO("[CalcGatherOmniPipeSliceInfo] xRankSize=[%llu],yRankSize=[%llu],zRankSize=[%llu],",
+                xRankSize, yRankSize, zRankSize);
+    HCCL_INFO("[CalcGatherOmniPipeSliceInfo] xB=[%f],yB=[%f],zB=[%f],xyB=[%f]", xB, yB, zB,
+                xyB);
+    u64 xAxis = levelRankId[OmniPipeLevel::OMNIPIPE_LEVEL0];  // 当前卡x坐标
+    u64 yAxis = levelRankId[OmniPipeLevel::OMNIPIPE_LEVEL1];  // 当前卡y坐标
+    u64 zAxis = levelRankId[OmniPipeLevel::OMNIPIPE_LEVEL2];  // 当前卡z坐标
+    u64 rankid = xAxis + yAxis * xRankSize + zAxis * xRankSize * yRankSize;  // 当前卡rankid计算
+    HCCL_INFO("[CalcGatherOmniPipeSliceInfo] xAxis=[%llu],yAxis=[%llu],zAxis=[%llu],rankid=[%llu]",
+                xAxis, yAxis, zAxis, rankid);
+
+    u64 root = omniPipeSliceParam.root;
     u64 rootXAxis = root % xRankSize;
     u64 rootYAxis = (root / xRankSize) % yRankSize;
     u64 rootZAxis = root / (xRankSize * yRankSize);
-    
-    HCCL_INFO("[CalcGatherOmniPipeSliceInfo] xRankSize=[%llu],yRankSize=[%llu],zRankSize=[%llu]",
-              xRankSize, yRankSize, zRankSize);
-    HCCL_INFO("[CalcGatherOmniPipeSliceInfo] xB=[%f],yB=[%f],zB=[%f],xyB=[%f]", xB, yB, zB, xyB);
-    HCCL_INFO("[CalcGatherOmniPipeSliceInfo] xAxis=[%llu],yAxis=[%llu],zAxis=[%llu],rankid=[%llu],root=[%llu]",
-              xAxis, yAxis, zAxis, rankid, root);
-    HCCL_INFO("[CalcGatherOmniPipeSliceInfo] rootXAxis=[%llu],rootYAxis=[%llu],rootZAxis=[%llu]",
-              rootXAxis, rootYAxis, rootZAxis);
-    
-    bool isRoot = (rankid == root);
-    bool isRootSameAxisX = (zAxis == rootZAxis && yAxis == rootYAxis && xAxis != rootXAxis);
-    bool isRootSameAxisY = (zAxis == rootZAxis && xAxis == rootXAxis && yAxis != rootYAxis);
-    bool isRootSameAxisZ = (yAxis == rootYAxis && xAxis == rootXAxis && zAxis != rootZAxis);
-    bool isDiagonalNode = (!isRoot && !isRootSameAxisX && !isRootSameAxisY && !isRootSameAxisZ);
-    
-    HCCL_INFO("[CalcGatherOmniPipeSliceInfo] isRoot=[%d],isRootSameAxisX=[%d],isRootSameAxisY=[%d],isRootSameAxisZ=[%d],isDiagonalNode=[%d]",
-              isRoot, isRootSameAxisX, isRootSameAxisY, isRootSameAxisZ, isDiagonalNode);
-    
+
     u64 rankSize = xRankSize * yRankSize * zRankSize;
     std::vector<OmniPipeSplitSliceInfo> omniPipeSplitSliceInfoListPerLoop =
-        OmniPipeSplitSliceInfoListAssign(dataSizePerLoop, rankSize, dataTypeSize);
-    
+            OmniPipeSplitSliceInfoListAssign(dataSizePerLoop, rankSize, dataTypeSize);
+
     std::vector<OmniPipeSplitSliceInfo> omniPipeSplitSliceInfoListTotal =
-        OmniPipeSplitSliceInfoListAssign(dataSize, rankSize, dataTypeSize);
-    
-    u64 zAGDataSize[rankSize][maxStepNum];
-    u64 xyAGDataSize[rankSize][maxStepNum];
-    u64 xAGDataSize[rankSize][maxStepNum][maxStepNum];
-    u64 yAGDataSize[rankSize][maxStepNum][maxStepNum];
-    u64 outerStepNum;
-    u64 innerStepNum;
-    u64 zAGOffset[rankSize][maxStepNum];
-    u64 xAGOffset[rankSize][maxStepNum][maxStepNum];
-    u64 yAGOffset[rankSize][maxStepNum][maxStepNum];
-    u64 xyAGOffset[rankSize][maxStepNum];
-    
+            OmniPipeSplitSliceInfoListAssign(dataSize, rankSize, dataTypeSize);
+
+    u64 zGatherDataSize[rankSize][maxStepNum];  // 存数据片大小
+    u64 xyGatherDataSize[rankSize][maxStepNum];
+    u64 xGatherDataSize[rankSize][maxStepNum][maxStepNum];
+    u64 yGatherDataSize[rankSize][maxStepNum][maxStepNum];
+    u64 outerStepNum;  // 机内机间步数
+    u64 innerStepNum;  // 机内两轴步数
+    u64 zGatherOffset[rankSize][maxStepNum];  // z轴偏移
+    u64 xGatherOffset[rankSize][maxStepNum][maxStepNum];  // x轴偏移
+    u64 yGatherOffset[rankSize][maxStepNum][maxStepNum];  // y轴偏移
+    u64 xyGatherOffset[rankSize][maxStepNum];  // xy整体偏移
+
+    // buffer分3块，1,2.3块放别人x.y.z发来的数据，起始地址为xCclBufferBaseOff,yCclBufferBaseOff,zCclBufferBaseOff补充buffer基础偏移计算
+    u64 xCclBufferBaseOff = 0;
+    u64 yCclBufferBaseOff = 0;
+    u64 zCclBufferBaseOff = 0;
     int zConnerStep = 1;
     int xyConnerStep = 1;
     int xInCornerStep = 1;
     int yInCornerStep = 1;
-    
+
+    u64 maxDataPieceId = 0;
+    for (int i = 0; i < dataSize.size(); i++) {
+        if (dataSize[maxDataPieceId] < dataSize[i]) {
+            maxDataPieceId = i;
+        }
+    }
+
+    // 机内快和机间快分开写，但实际上这俩逻辑一样
     if (xyB > zB) {
+        HCCL_INFO("[CalcGatherOmniPipeSliceInfo] xyB>zB");
         for (int rs = 0; rs < rankSize; rs++) {
-            outerStepNum = CalAllgatherDataSize2D(zAGDataSize[rs], xyAGDataSize[rs], zB, xyB, zRankSize,
-                                                  xRankSize * yRankSize, omniPipeSplitSliceInfoListPerLoop[rs].size,
-                                                  maxStepNum);
+            // 先计算通信步数和每步每一小片数据量
+            outerStepNum = CalAllgatherDataSize2D(zGatherDataSize[rs], xyGatherDataSize[rs], zB, xyB, zRankSize,
+                                                    xRankSize * yRankSize, omniPipeSplitSliceInfoListPerLoop[rs].size,
+                                                    maxStepNum);
+            // 这里认为y一定大
             for (u64 i = 0; i < outerStepNum; i++) {
-                innerStepNum = CalAllgatherDataSize2D(xAGDataSize[rs][i], yAGDataSize[rs][i], xB, yB, xRankSize,
-                                                      yRankSize, xyAGDataSize[rs][i], maxStepNum);
+                innerStepNum = CalAllgatherDataSize2D(xGatherDataSize[rs][i], yGatherDataSize[rs][i], xB, yB, xRankSize,
+                                                        yRankSize, xyGatherDataSize[rs][i], maxStepNum);
             }
-            CalAllgather2DOffset(zAGOffset[rs], xyAGOffset[rs], outerStepNum, zRankSize, xRankSize * yRankSize,
-                                 zAGDataSize[rs], xyAGDataSize[rs]);
+            // 计算2d数据片的偏移，下面变成3d时用
+            CalAllgather2DOffset(zGatherOffset[rs], xyGatherOffset[rs], outerStepNum, zRankSize, xRankSize * yRankSize,
+                                    zGatherDataSize[rs], xyGatherDataSize[rs]);
         }
         if (outerStepNum > 1) {
             zConnerStep = outerStepNum - 1;
         }
+        // 这里判断下，步数为1的时候只进上面的循环，否则这里走一步
         if (innerStepNum > 1) {
-            xInCornerStep = innerStepNum - 1;
+            xInCornerStep = innerStepNum - 1;  // 步数为1的时候只走一步，否则走innerStepNum-1步
         }
+        HCCL_INFO("[CalcGatherOmniPipeSliceInfo] "
+                    "xInCornerStep=[%u],yRanyInCornerStepkSize=[%u],zConnerStep=[%u],",
+                    xInCornerStep, yInCornerStep, zConnerStep);
     } else {
+        HCCL_INFO("[CalcGatherOmniPipeSliceInfo] xyB<=zB");
         for (int rs = 0; rs < rankSize; rs++) {
-            outerStepNum = CalAllgatherDataSize2D(xyAGDataSize[rs], zAGDataSize[rs], xyB, zB, xRankSize * yRankSize,
-                                                  zRankSize, omniPipeSplitSliceInfoListPerLoop[rs].size, maxStepNum);
+            // 先计算通信步数和每步每一小片数据量
+            outerStepNum = CalAllgatherDataSize2D(xyGatherDataSize[rs], zGatherDataSize[rs], xyB, zB, xRankSize * yRankSize,
+                                                    zRankSize, omniPipeSplitSliceInfoListPerLoop[rs].size, maxStepNum);
+            // 这里认为y一定大
             for (u64 i = 0; i < outerStepNum; i++) {
-                innerStepNum = CalAllgatherDataSize2D(xAGDataSize[rs][i], yAGDataSize[rs][i], xB, yB, xRankSize,
-                                                      yRankSize, xyAGDataSize[rs][i], maxStepNum);
+                innerStepNum = CalAllgatherDataSize2D(xGatherDataSize[rs][i], yGatherDataSize[rs][i], xB, yB, xRankSize,
+                                                        yRankSize, xyGatherDataSize[rs][i], maxStepNum);
             }
-            CalAllgather2DOffset(xyAGOffset[rs], zAGOffset[rs], outerStepNum, xRankSize * yRankSize, zRankSize,
-                                 xyAGDataSize[rs], zAGDataSize[rs]);
+            // 计算2d数据片的偏移，下面变成3d时用
+            CalAllgather2DOffset(xyGatherOffset[rs], zGatherOffset[rs], outerStepNum, xRankSize * yRankSize, zRankSize,
+                                    xyGatherDataSize[rs], zGatherDataSize[rs]);
         }
         if (outerStepNum > 1) {
             xyConnerStep = outerStepNum - 1;
         }
         if (innerStepNum > 1) {
-            xInCornerStep = innerStepNum - 1;
+            xInCornerStep = innerStepNum - 1;  // 步数为1的时候只走一步，否则走innerStepNum-1步
         }
+        HCCL_INFO("[CalcGatherOmniPipeSliceInfo] "
+                    "xInCornerStep=[%u],yRanyInCornerStepkSize=[%u],zConnerStep=[%u],",
+                    xInCornerStep, yInCornerStep, zConnerStep);
     }
-    
-    u64 xCclBufferBaseOff = 0;
-    u64 yCclBufferBaseOff = 0;
-    u64 zCclBufferBaseOff = 0;
-    
-    if (omniPipeSliceParam.opMode == OpMode::OPBASE
-        && (omniPipeSliceParam.engine == CommEngine::COMM_ENGINE_AICPU_TS
-            || omniPipeSliceParam.engine == CommEngine::COMM_ENGINE_CPU)) {
-        u64 maxDataPieceId = 0;
-        for (int i = 0; i < dataSizePerLoop.size(); i++) {
-            if (dataSizePerLoop[maxDataPieceId] < dataSizePerLoop[i]) {
-                maxDataPieceId = i;
-            }
-        }
-        if (isRootSameAxisZ || isRoot) {
-            zCclBufferBaseOff = dataSizePerLoop[maxDataPieceId] * xRankSize * yRankSize * (zRankSize - 1);
-        }
-        if (isRootSameAxisY || isRoot) {
-            yCclBufferBaseOff = zCclBufferBaseOff + dataSizePerLoop[maxDataPieceId] * xRankSize * (yRankSize - 1);
-        }
-        if (isRootSameAxisX || isRoot) {
-            xCclBufferBaseOff = yCclBufferBaseOff + dataSizePerLoop[maxDataPieceId] * (xRankSize - 1);
-        }
-        HCCL_INFO("[CalcGatherOmniPipeSliceInfo] xCclBufferBaseOff=[%llu],yCclBufferBaseOff=[%llu],zCclBufferBaseOff=[%llu]",
-              xCclBufferBaseOff, yCclBufferBaseOff, zCclBufferBaseOff);
-    }
-    
+
+    yCclBufferBaseOff = xCclBufferBaseOff + dataSizePerLoop[maxDataPieceId] * xRankSize;
+    zCclBufferBaseOff = yCclBufferBaseOff + dataSizePerLoop[maxDataPieceId] * yRankSize;
+
+    // z是慢轴，n-1步同轴+1步斜对角
     std::vector<StepSliceInfo> dataSliceLevelz;
-    if (!isDiagonalNode) {
-        for (u64 osn = 0; osn < zConnerStep; osn++) {
+    // z的同轴
+    for (u64 osn = 0; osn < zConnerStep; osn++) {
+        struct StepSliceInfo stepSliceInfotmp;
+        struct BuffInfo bitmp;
+        u64 inOutOffset = 0;
+        BuffInfoAssign(bitmp, inOutOffset, inOutOffset, zCclBufferBaseOff);
+        stepSliceInfotmp.buffInfo = bitmp;
+        // 同轴数据搬运需要算算自己的rankid再加上偏移得到起始地址，x+y*xR)*dataSize
+        for (int oneDid = 0; oneDid < zRankSize; oneDid++) {
+            std::vector<u64> sliceSizeMultRankPiece;
+            std::vector<u64> sliceCountMultRankPiece;
+            std::vector<u64> inputOmniPipeSliceStrideMultRankPiece;
+            std::vector<u64> outputOmniPipeSliceStrideMultRankPiece;
+            u64 pieceId = oneDid * xRankSize * yRankSize + yAxis * xRankSize + xAxis;
+            u64 sliceSizeOnePiece = zGatherDataSize[pieceId][osn];
+            u64 inputPieceIdOffset = zGatherOffset[pieceId][osn];
+            sliceSizeMultRankPiece.push_back(sliceSizeOnePiece);
+            sliceCountMultRankPiece.push_back(sliceSizeOnePiece / dataTypeSize);
+            inputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
+            outputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
+            stepSliceInfotmp.stepInputSliceStride.push_back(omniPipeSplitSliceInfoListTotal[pieceId].offset);
+            stepSliceInfotmp.stepOutputSliceStride.push_back(omniPipeSplitSliceInfoListTotal[pieceId].offset);
+            stepSliceInfotmp.inputOmniPipeSliceStride.push_back(inputOmniPipeSliceStrideMultRankPiece);
+            stepSliceInfotmp.outputOmniPipeSliceStride.push_back(outputOmniPipeSliceStrideMultRankPiece);
+            stepSliceInfotmp.stepCount.push_back(sliceCountMultRankPiece);
+            stepSliceInfotmp.stepSliceSize.push_back(sliceSizeMultRankPiece);
+        }
+        dataSliceLevelz.insert(dataSliceLevelz.end(), stepSliceInfotmp);
+    }
+    // z的斜对角
+    for (u64 osn = zConnerStep; osn < outerStepNum; osn++) {
+        struct StepSliceInfo stepSliceInfotmp;
+        struct BuffInfo bitmp;
+        u64 inOutOffset= 0;
+        BuffInfoAssign(bitmp, inOutOffset, inOutOffset, zCclBufferBaseOff);
+        stepSliceInfotmp.buffInfo = bitmp;
+        // 给z轴上每卡发同xy轴的数据，所以从（0,0，z）的数据开始，发xRankSize*yRankSize-1片，，少的是自己那片，
+        for (int oneDid = 0; oneDid < zRankSize; oneDid++) {
+            std::vector<u64> sliceSizeMultRankPiece;
+            std::vector<u64> sliceCountMultRankPiece;
+            std::vector<u64> inputOmniPipeSliceStrideMultRankPiece;
+            std::vector<u64> outputOmniPipeSliceStrideMultRankPiece;
+            for (u64 connerDataSlice = 0; connerDataSlice < xRankSize * yRankSize; connerDataSlice++) {
+                u64 currentDataSliceId = oneDid * xRankSize * yRankSize + connerDataSlice;  // 斜对角先算算是哪一片
+                if (connerDataSlice != yAxis * xRankSize + xAxis) {
+                    u64 pieceId = currentDataSliceId;
+                    u64 sliceSizeOnePiece = zGatherDataSize[pieceId][osn];
+                    u64 inputPieceIdOffset = zGatherOffset[pieceId][osn] + omniPipeSplitSliceInfoListTotal[pieceId].offset;
+                    sliceSizeMultRankPiece.push_back(sliceSizeOnePiece);
+                    sliceCountMultRankPiece.push_back(sliceSizeOnePiece / dataTypeSize);
+                    inputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
+                    outputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
+                }
+            }
+            stepSliceInfotmp.stepInputSliceStride.push_back(0);
+            stepSliceInfotmp.stepOutputSliceStride.push_back(0);
+            stepSliceInfotmp.inputOmniPipeSliceStride.push_back(inputOmniPipeSliceStrideMultRankPiece);
+            stepSliceInfotmp.outputOmniPipeSliceStride.push_back(outputOmniPipeSliceStrideMultRankPiece);
+            stepSliceInfotmp.stepCount.push_back(sliceCountMultRankPiece);
+            stepSliceInfotmp.stepSliceSize.push_back(sliceSizeMultRankPiece);
+        }
+        dataSliceLevelz.insert(dataSliceLevelz.end(), stepSliceInfotmp);
+    }
+    // x轴y轴2d偏移，就正常2d
+    for (int rs = 0; rs < rankSize; rs++) {
+        for (u64 osn = 0; osn < outerStepNum; osn++) {
+            CalAllgather2DOffset(xGatherOffset[rs][osn], yGatherOffset[rs][osn], innerStepNum, xRankSize, yRankSize,
+                                    xGatherDataSize[rs][osn], yGatherDataSize[rs][osn]);
+        }
+    }
+    // 算x轴偏移
+    // 机内快，前1步只有同轴，一片数据2d
+    std::vector<StepSliceInfo> dataSliceLevelx;
+    for (u64 osn = 0; osn < xyConnerStep; osn++) {
+        // x轴比y轴慢，前n-1步只有同轴
+        for (u64 isn = 0; isn < xInCornerStep; isn++) {
             struct StepSliceInfo stepSliceInfotmp;
             struct BuffInfo bitmp;
-            BuffInfoAssign(bitmp, 0, 0, zCclBufferBaseOff);
+            u64 inOutOffset = 0;
+            BuffInfoAssign(bitmp, inOutOffset, inOutOffset, xCclBufferBaseOff);
             stepSliceInfotmp.buffInfo = bitmp;
-            
-            for (int oneDid = 0; oneDid < zRankSize; oneDid++) {
+            // 同轴，所以自己那片数据加偏移
+            for (int oneDid = 0; oneDid < xRankSize; oneDid++) {
                 std::vector<u64> sliceSizeMultRankPiece;
                 std::vector<u64> sliceCountMultRankPiece;
                 std::vector<u64> inputOmniPipeSliceStrideMultRankPiece;
                 std::vector<u64> outputOmniPipeSliceStrideMultRankPiece;
-                
-                u64 pieceId = oneDid * xRankSize * yRankSize + yAxis * xRankSize + xAxis;
-                u64 sliceSizeOnePiece = zAGDataSize[pieceId][osn];
-                u64 inputPieceIdOffset = zAGOffset[pieceId][osn];
-                
+                u64 pieceId = zAxis * xRankSize * yRankSize + yAxis * xRankSize + oneDid;
+                u64 sliceSizeOnePiece = xGatherDataSize[pieceId][osn][isn];
+                u64 inputPieceIdOffset = xyGatherOffset[pieceId][osn] + xGatherOffset[pieceId][osn][isn];
+                u64 ccloutputPieceIdOffset = pieceId % xRankSize * dataSizePerLoop[maxDataPieceId] + xGatherOffset[pieceId][osn][isn]; // TODO: zq 修改输出位置
                 sliceSizeMultRankPiece.push_back(sliceSizeOnePiece);
                 sliceCountMultRankPiece.push_back(sliceSizeOnePiece / dataTypeSize);
                 inputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
-                outputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
-                
+                outputOmniPipeSliceStrideMultRankPiece.push_back(ccloutputPieceIdOffset);
                 stepSliceInfotmp.stepInputSliceStride.push_back(omniPipeSplitSliceInfoListTotal[pieceId].offset);
                 stepSliceInfotmp.stepOutputSliceStride.push_back(omniPipeSplitSliceInfoListTotal[pieceId].offset);
                 stepSliceInfotmp.inputOmniPipeSliceStride.push_back(inputOmniPipeSliceStrideMultRankPiece);
@@ -1470,41 +1536,40 @@ OmniPipeSliceInfo CalcGatherOmniPipeSliceInfo(OmniPipeSliceParam &omniPipeSliceP
                 stepSliceInfotmp.stepCount.push_back(sliceCountMultRankPiece);
                 stepSliceInfotmp.stepSliceSize.push_back(sliceSizeMultRankPiece);
             }
-            dataSliceLevelz.insert(dataSliceLevelz.end(), stepSliceInfotmp);
+
+            dataSliceLevelx.insert(dataSliceLevelx.end(), stepSliceInfotmp);
         }
-        
-        for (u64 osn = zConnerStep; osn < outerStepNum; osn++) {
+
+        // x轴比y轴慢，1步斜对角
+        for (u64 isn = xInCornerStep; isn < innerStepNum; isn++) {
             struct StepSliceInfo stepSliceInfotmp;
             struct BuffInfo bitmp;
-            BuffInfoAssign(bitmp, 0, 0, zCclBufferBaseOff);
+            u64 inOutOffset = 0;
+            BuffInfoAssign(bitmp, inOutOffset, inOutOffset, xCclBufferBaseOff);
             stepSliceInfotmp.buffInfo = bitmp;
-            
-            for (int oneDid = 0; oneDid < zRankSize; oneDid++) {
+            // 向x轴卡转发y轴的数据片
+            for (int oneDid = 0; oneDid < xRankSize; oneDid++) {
                 std::vector<u64> sliceSizeMultRankPiece;
                 std::vector<u64> sliceCountMultRankPiece;
                 std::vector<u64> inputOmniPipeSliceStrideMultRankPiece;
                 std::vector<u64> outputOmniPipeSliceStrideMultRankPiece;
-                
-                for (u64 connerDataSlice = 0; connerDataSlice < xRankSize * yRankSize; connerDataSlice++) {
-                    u64 currentDataSliceId = oneDid * xRankSize * yRankSize + connerDataSlice;
-                    u64 currentXAxis = connerDataSlice % xRankSize;
-                    u64 currentYAxis = (connerDataSlice / xRankSize) % yRankSize;
-                    
-                    bool currentIsRoot = (oneDid == rootZAxis && currentYAxis == rootYAxis && currentXAxis == rootXAxis);
-                    bool currentIsRootSameAxisZ = (currentYAxis == rootYAxis && currentXAxis == rootXAxis && oneDid != rootZAxis);
-                    
-                    if (!currentIsRoot && !currentIsRootSameAxisZ) {
+                for (u64 connerDataSlice = 0; connerDataSlice < yRankSize; connerDataSlice++) {
+                    u64 currentDataSliceId =
+                            zAxis * xRankSize * yRankSize + connerDataSlice * xRankSize + oneDid;  // 斜对角先算算是哪一片
+                    if (connerDataSlice != yAxis) {
                         u64 pieceId = currentDataSliceId;
-                        u64 sliceSizeOnePiece = zAGDataSize[pieceId][osn];
-                        u64 inputPieceIdOffset = zAGOffset[pieceId][osn] + omniPipeSplitSliceInfoListTotal[pieceId].offset;
-                        
+                        u64 sliceSizeOnePiece = xGatherDataSize[pieceId][osn][isn];
+                        u64 inputPieceIdOffset = xyGatherOffset[pieceId][osn] + xGatherOffset[pieceId][osn][isn] +
+                                                    omniPipeSplitSliceInfoListTotal[pieceId].offset;
+                        u64 cclinputPieceIdOffset = xGatherOffset[pieceId][osn][isn] +
+                                                    omniPipeSplitSliceInfoListTotal[connerDataSlice].offset; // TODO: ZQ 要加rank的偏移不
+                        // TODO： zq修改 输入位置
                         sliceSizeMultRankPiece.push_back(sliceSizeOnePiece);
                         sliceCountMultRankPiece.push_back(sliceSizeOnePiece / dataTypeSize);
-                        inputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
+                        inputOmniPipeSliceStrideMultRankPiece.push_back(cclinputPieceIdOffset);
                         outputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
                     }
                 }
-                
                 stepSliceInfotmp.stepInputSliceStride.push_back(0);
                 stepSliceInfotmp.stepOutputSliceStride.push_back(0);
                 stepSliceInfotmp.inputOmniPipeSliceStride.push_back(inputOmniPipeSliceStrideMultRankPiece);
@@ -1512,365 +1577,244 @@ OmniPipeSliceInfo CalcGatherOmniPipeSliceInfo(OmniPipeSliceParam &omniPipeSliceP
                 stepSliceInfotmp.stepCount.push_back(sliceCountMultRankPiece);
                 stepSliceInfotmp.stepSliceSize.push_back(sliceSizeMultRankPiece);
             }
-            dataSliceLevelz.insert(dataSliceLevelz.end(), stepSliceInfotmp);
+            dataSliceLevelx.insert(dataSliceLevelx.end(), stepSliceInfotmp);
         }
     }
-    
-    for (int rs = 0; rs < rankSize; rs++) {
-        for (u64 osn = 0; osn < outerStepNum; osn++) {
-            CalAllgather2DOffset(xAGOffset[rs][osn], yAGOffset[rs][osn], innerStepNum, xRankSize, yRankSize,
-                                 xAGDataSize[rs][osn], yAGDataSize[rs][osn]);
-        }
-    }
-    
-    std::vector<StepSliceInfo> dataSliceLevelx;
-    if (!isDiagonalNode && !isRootSameAxisY) {
-        for (u64 osn = 0; osn < xyConnerStep; osn++) {
-            for (u64 isn = 0; isn < xInCornerStep; isn++) {
-                struct StepSliceInfo stepSliceInfotmp;
-                struct BuffInfo bitmp;
-                BuffInfoAssign(bitmp, 0, 0, xCclBufferBaseOff);
-                stepSliceInfotmp.buffInfo = bitmp;
-                
-                for (int oneDid = 0; oneDid < xRankSize; oneDid++) {
-                    std::vector<u64> sliceSizeMultRankPiece;
-                    std::vector<u64> sliceCountMultRankPiece;
-                    std::vector<u64> inputOmniPipeSliceStrideMultRankPiece;
-                    std::vector<u64> outputOmniPipeSliceStrideMultRankPiece;
-                    
-                    u64 pieceId = zAxis * xRankSize * yRankSize + yAxis * xRankSize + oneDid;
-                    u64 sliceSizeOnePiece = xAGDataSize[pieceId][osn][isn];
-                    u64 inputPieceIdOffset = xyAGOffset[pieceId][osn] + xAGOffset[pieceId][osn][isn];
-                    
-                    sliceSizeMultRankPiece.push_back(sliceSizeOnePiece);
-                    sliceCountMultRankPiece.push_back(sliceSizeOnePiece / dataTypeSize);
-                    inputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
-                    outputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
-                    
-                    stepSliceInfotmp.stepInputSliceStride.push_back(omniPipeSplitSliceInfoListTotal[pieceId].offset);
-                    stepSliceInfotmp.stepOutputSliceStride.push_back(omniPipeSplitSliceInfoListTotal[pieceId].offset);
-                    stepSliceInfotmp.inputOmniPipeSliceStride.push_back(inputOmniPipeSliceStrideMultRankPiece);
-                    stepSliceInfotmp.outputOmniPipeSliceStride.push_back(outputOmniPipeSliceStrideMultRankPiece);
-                    stepSliceInfotmp.stepCount.push_back(sliceCountMultRankPiece);
-                    stepSliceInfotmp.stepSliceSize.push_back(sliceSizeMultRankPiece);
-                }
-                dataSliceLevelx.insert(dataSliceLevelx.end(), stepSliceInfotmp);
-            }
-            
-            for (u64 isn = xInCornerStep; isn < innerStepNum; isn++) {
-                struct StepSliceInfo stepSliceInfotmp;
-                struct BuffInfo bitmp;
-                BuffInfoAssign(bitmp, 0, 0, xCclBufferBaseOff);
-                stepSliceInfotmp.buffInfo = bitmp;
-                
-                for (int oneDid = 0; oneDid < xRankSize; oneDid++) {
-                    std::vector<u64> sliceSizeMultRankPiece;
-                    std::vector<u64> sliceCountMultRankPiece;
-                    std::vector<u64> inputOmniPipeSliceStrideMultRankPiece;
-                    std::vector<u64> outputOmniPipeSliceStrideMultRankPiece;
-                    
-                    for (u64 connerDataSlice = 0; connerDataSlice < yRankSize; connerDataSlice++) {
-                        u64 currentDataSliceId = zAxis * xRankSize * yRankSize + connerDataSlice * xRankSize + oneDid;
-                        u64 currentYAxis = connerDataSlice;
-                        
-                        bool currentIsRootSameAxisY = (zAxis == rootZAxis && oneDid == rootXAxis && currentYAxis != rootYAxis);
-                        
-                        if (!currentIsRootSameAxisY && currentYAxis != yAxis) {
-                            u64 pieceId = currentDataSliceId;
-                            u64 sliceSizeOnePiece = xAGDataSize[pieceId][osn][isn];
-                            u64 inputPieceIdOffset = xyAGOffset[pieceId][osn] + xAGOffset[pieceId][osn][isn] +
-                                                     omniPipeSplitSliceInfoListTotal[pieceId].offset;
-                            
-                            sliceSizeMultRankPiece.push_back(sliceSizeOnePiece);
-                            sliceCountMultRankPiece.push_back(sliceSizeOnePiece / dataTypeSize);
-                            inputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
-                            outputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
-                        }
+    // 第n步斜对角，zRankSize-1片做2d
+    for (u64 osn = xyConnerStep; osn < outerStepNum; osn++) {
+        for (u64 isn = 0; isn < xInCornerStep; isn++) {
+            struct StepSliceInfo stepSliceInfotmp;
+            struct BuffInfo bitmp;
+            u64 inOutOffset = 0;
+            BuffInfoAssign(bitmp, inOutOffset, inOutOffset, xCclBufferBaseOff);
+            stepSliceInfotmp.buffInfo = bitmp;
+            // 这zRankSize-1片中的第一片在（x,y,0）的位置
+            // zRankSize-1片做2d
+            for (int oneDid = 0; oneDid < xRankSize; oneDid++) {
+                std::vector<u64> sliceSizeMultRankPiece;
+                std::vector<u64> sliceCountMultRankPiece;
+                std::vector<u64> inputOmniPipeSliceStrideMultRankPiece;
+                std::vector<u64> outputOmniPipeSliceStrideMultRankPiece;
+                for (u64 outSliceNum = 0; outSliceNum < zRankSize; outSliceNum++) {
+                    u64 currentDataSliceId = outSliceNum * xRankSize * yRankSize + yAxis * xRankSize +
+                                                oneDid;  // 算算是zRankSize-1中的哪一片
+                    // 自己的不做，只做斜对角的
+                    if (outSliceNum != zAxis) {
+                        u64 pieceId = currentDataSliceId;
+                        u64 sliceSizeOnePiece = xGatherDataSize[pieceId][osn][isn];
+                        u64 inputPieceIdOffset = xyGatherOffset[pieceId][osn] + xGatherOffset[pieceId][osn][isn] +
+                                                    omniPipeSplitSliceInfoListTotal[pieceId].offset;
+                        sliceSizeMultRankPiece.push_back(sliceSizeOnePiece);
+                        sliceCountMultRankPiece.push_back(sliceSizeOnePiece / dataTypeSize);
+                        inputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
+                        outputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
                     }
-                    
-                    stepSliceInfotmp.stepInputSliceStride.push_back(0);
-                    stepSliceInfotmp.stepOutputSliceStride.push_back(0);
-                    stepSliceInfotmp.inputOmniPipeSliceStride.push_back(inputOmniPipeSliceStrideMultRankPiece);
-                    stepSliceInfotmp.outputOmniPipeSliceStride.push_back(outputOmniPipeSliceStrideMultRankPiece);
-                    stepSliceInfotmp.stepCount.push_back(sliceCountMultRankPiece);
-                    stepSliceInfotmp.stepSliceSize.push_back(sliceSizeMultRankPiece);
                 }
-                dataSliceLevelx.insert(dataSliceLevelx.end(), stepSliceInfotmp);
+                stepSliceInfotmp.stepInputSliceStride.push_back(0);
+                stepSliceInfotmp.stepOutputSliceStride.push_back(0);
+                stepSliceInfotmp.inputOmniPipeSliceStride.push_back(inputOmniPipeSliceStrideMultRankPiece);
+                stepSliceInfotmp.outputOmniPipeSliceStride.push_back(outputOmniPipeSliceStrideMultRankPiece);
+                stepSliceInfotmp.stepCount.push_back(sliceCountMultRankPiece);
+                stepSliceInfotmp.stepSliceSize.push_back(sliceSizeMultRankPiece);
             }
+            dataSliceLevelx.insert(dataSliceLevelx.end(), stepSliceInfotmp);
         }
-        
-        for (u64 osn = xyConnerStep; osn < outerStepNum; osn++) {
-            for (u64 isn = 0; isn < xInCornerStep; isn++) {
-                struct StepSliceInfo stepSliceInfotmp;
-                struct BuffInfo bitmp;
-                BuffInfoAssign(bitmp, 0, 0, xCclBufferBaseOff);
-                stepSliceInfotmp.buffInfo = bitmp;
-                
-                for (int oneDid = 0; oneDid < xRankSize; oneDid++) {
-                    std::vector<u64> sliceSizeMultRankPiece;
-                    std::vector<u64> sliceCountMultRankPiece;
-                    std::vector<u64> inputOmniPipeSliceStrideMultRankPiece;
-                    std::vector<u64> outputOmniPipeSliceStrideMultRankPiece;
-                    
-                    for (u64 outSliceNum = 0; outSliceNum < zRankSize; outSliceNum++) {
-                        u64 currentDataSliceId = outSliceNum * xRankSize * yRankSize + yAxis * xRankSize + oneDid;
-                        
-                        bool currentIsRoot = (outSliceNum == rootZAxis && yAxis == rootYAxis && oneDid == rootXAxis);
-                        bool currentIsRootSameAxisZ = (yAxis == rootYAxis && oneDid == rootXAxis && outSliceNum != rootZAxis);
-                        
-                        if (!currentIsRoot && !currentIsRootSameAxisZ && outSliceNum != zAxis) {
-                            u64 pieceId = currentDataSliceId;
-                            u64 sliceSizeOnePiece = xAGDataSize[pieceId][osn][isn];
-                            u64 inputPieceIdOffset = xyAGOffset[pieceId][osn] + xAGOffset[pieceId][osn][isn] +
-                                                     omniPipeSplitSliceInfoListTotal[pieceId].offset;
-                            
-                            sliceSizeMultRankPiece.push_back(sliceSizeOnePiece);
-                            sliceCountMultRankPiece.push_back(sliceSizeOnePiece / dataTypeSize);
-                            inputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
-                            outputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
-                        }
-                    }
-                    
-                    stepSliceInfotmp.stepInputSliceStride.push_back(0);
-                    stepSliceInfotmp.stepOutputSliceStride.push_back(0);
-                    stepSliceInfotmp.inputOmniPipeSliceStride.push_back(inputOmniPipeSliceStrideMultRankPiece);
-                    stepSliceInfotmp.outputOmniPipeSliceStride.push_back(outputOmniPipeSliceStrideMultRankPiece);
-                    stepSliceInfotmp.stepCount.push_back(sliceCountMultRankPiece);
-                    stepSliceInfotmp.stepSliceSize.push_back(sliceSizeMultRankPiece);
-                }
-                dataSliceLevelx.insert(dataSliceLevelx.end(), stepSliceInfotmp);
-            }
-            
-            for (u64 isn = xInCornerStep; isn < innerStepNum; isn++) {
-                struct StepSliceInfo stepSliceInfotmp;
-                struct BuffInfo bitmp;
-                BuffInfoAssign(bitmp, 0, 0, xCclBufferBaseOff);
-                stepSliceInfotmp.buffInfo = bitmp;
-                
-                for (int oneDid = 0; oneDid < xRankSize; oneDid++) {
-                    std::vector<u64> sliceSizeMultRankPiece;
-                    std::vector<u64> sliceCountMultRankPiece;
-                    std::vector<u64> inputOmniPipeSliceStrideMultRankPiece;
-                    std::vector<u64> outputOmniPipeSliceStrideMultRankPiece;
-                    
-                    for (u64 outSliceNum = 0; outSliceNum < zRankSize; outSliceNum++) {
-                        u64 currentDataSliceId = outSliceNum * xRankSize * yRankSize + yAxis * xRankSize + oneDid;
-                        
-                        bool currentIsRoot = (outSliceNum == rootZAxis && yAxis == rootYAxis && oneDid == rootXAxis);
-                        bool currentIsRootSameAxisZ = (yAxis == rootYAxis && oneDid == rootXAxis && outSliceNum != rootZAxis);
-                        
-                        if (!currentIsRoot && !currentIsRootSameAxisZ && outSliceNum != zAxis) {
-                            for (u64 connerDataSlice = 0; connerDataSlice < yRankSize; connerDataSlice++) {
-                                u64 currentInnerStepDataSliceId = outSliceNum * xRankSize * yRankSize +
-                                                                  connerDataSlice * xRankSize + oneDid;
-                                u64 currentYAxis = connerDataSlice;
-                                
-                                bool currentIsRootSameAxisY = (outSliceNum == rootZAxis && oneDid == rootXAxis && currentYAxis != rootYAxis);
-                                
-                                if (!currentIsRootSameAxisY && currentYAxis != yAxis && yRankSize > 1) {
-                                    u64 pieceId = currentInnerStepDataSliceId;
-                                    u64 sliceSizeOnePiece = xAGDataSize[pieceId][osn][isn];
-                                    u64 inputPieceIdOffset = xyAGOffset[pieceId][osn] + xAGOffset[pieceId][osn][isn] +
-                                                             omniPipeSplitSliceInfoListTotal[pieceId].offset;
-                                    
-                                    sliceSizeMultRankPiece.push_back(sliceSizeOnePiece);
-                                    sliceCountMultRankPiece.push_back(sliceSizeOnePiece / dataTypeSize);
-                                    inputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
-                                    outputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
-                                }
+
+        for (u64 isn = xInCornerStep; isn < innerStepNum; isn++) {
+            struct StepSliceInfo stepSliceInfotmp;
+            struct BuffInfo bitmp;
+            u64 inOutOffset = 0;
+            BuffInfoAssign(bitmp, inOutOffset, inOutOffset, xCclBufferBaseOff);
+            stepSliceInfotmp.buffInfo = bitmp;
+            for (int oneDid = 0; oneDid < xRankSize; oneDid++) {
+                std::vector<u64> sliceSizeMultRankPiece;
+                std::vector<u64> sliceCountMultRankPiece;
+                std::vector<u64> inputOmniPipeSliceStrideMultRankPiece;
+                std::vector<u64> outputOmniPipeSliceStrideMultRankPiece;
+                for (u64 outSliceNum = 0; outSliceNum < zRankSize; outSliceNum++) {
+                    u64 currentDataSliceId = outSliceNum * xRankSize * yRankSize + yAxis * xRankSize +
+                                                oneDid;  // 算算是zRankSize-1中的哪一片
+                    if (outSliceNum != zAxis) {
+                        for (u64 connerDataSlice = 0; connerDataSlice < yRankSize; connerDataSlice++) {
+                            u64 currentInnerStepDataSliceId = outSliceNum * xRankSize * yRankSize +
+                                                                connerDataSlice * xRankSize +
+                                                                oneDid;  // 算算是机内斜对角中的哪一片
+                            if (connerDataSlice != yAxis && yRankSize > 1) {
+                                u64 pieceId = currentInnerStepDataSliceId;
+                                u64 sliceSizeOnePiece = xGatherDataSize[pieceId][osn][isn];
+                                u64 inputPieceIdOffset = xyGatherOffset[pieceId][osn] + xGatherOffset[pieceId][osn][isn] +
+                                                            omniPipeSplitSliceInfoListTotal[pieceId].offset;
+                                sliceSizeMultRankPiece.push_back(sliceSizeOnePiece);
+                                sliceCountMultRankPiece.push_back(sliceSizeOnePiece / dataTypeSize);
+                                inputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
+                                outputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
                             }
                         }
                     }
-                    
-                    stepSliceInfotmp.stepInputSliceStride.push_back(0);
-                    stepSliceInfotmp.stepOutputSliceStride.push_back(0);
-                    stepSliceInfotmp.inputOmniPipeSliceStride.push_back(inputOmniPipeSliceStrideMultRankPiece);
-                    stepSliceInfotmp.outputOmniPipeSliceStride.push_back(outputOmniPipeSliceStrideMultRankPiece);
-                    stepSliceInfotmp.stepCount.push_back(sliceCountMultRankPiece);
-                    stepSliceInfotmp.stepSliceSize.push_back(sliceSizeMultRankPiece);
                 }
-                dataSliceLevelx.insert(dataSliceLevelx.end(), stepSliceInfotmp);
+                stepSliceInfotmp.stepInputSliceStride.push_back(0);
+                stepSliceInfotmp.stepOutputSliceStride.push_back(0);
+                stepSliceInfotmp.inputOmniPipeSliceStride.push_back(inputOmniPipeSliceStrideMultRankPiece);
+                stepSliceInfotmp.outputOmniPipeSliceStride.push_back(outputOmniPipeSliceStrideMultRankPiece);
+                stepSliceInfotmp.stepCount.push_back(sliceCountMultRankPiece);
+                stepSliceInfotmp.stepSliceSize.push_back(sliceSizeMultRankPiece);
             }
+            dataSliceLevelx.insert(dataSliceLevelx.end(), stepSliceInfotmp);
         }
     }
-    
+    // 算y轴偏移,和计算xy的相似
     std::vector<StepSliceInfo> dataSliceLevely;
-    if (!isDiagonalNode && !isRootSameAxisX) {
-        for (u64 osn = 0; osn < xyConnerStep; osn++) {
-            for (u64 isn = 0; isn < yInCornerStep; isn++) {
-                struct StepSliceInfo stepSliceInfotmp;
-                struct BuffInfo bitmp;
-                BuffInfoAssign(bitmp, 0, 0, yCclBufferBaseOff);
-                stepSliceInfotmp.buffInfo = bitmp;
-                
-                for (int oneDid = 0; oneDid < yRankSize; oneDid++) {
-                    std::vector<u64> sliceSizeMultRankPiece;
-                    std::vector<u64> sliceCountMultRankPiece;
-                    std::vector<u64> inputOmniPipeSliceStrideMultRankPiece;
-                    std::vector<u64> outputOmniPipeSliceStrideMultRankPiece;
-                    
-                    u64 pieceId = zAxis * xRankSize * yRankSize + oneDid * xRankSize + xAxis;
-                    u64 sliceSizeOnePiece = yAGDataSize[pieceId][osn][isn];
-                    u64 inputPieceIdOffset = xyAGOffset[pieceId][osn] + yAGOffset[pieceId][osn][isn];
-                    
-                    sliceSizeMultRankPiece.push_back(sliceSizeOnePiece);
-                    sliceCountMultRankPiece.push_back(sliceSizeOnePiece / dataTypeSize);
-                    inputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
-                    outputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
-                    
-                    stepSliceInfotmp.stepInputSliceStride.push_back(omniPipeSplitSliceInfoListTotal[pieceId].offset);
-                    stepSliceInfotmp.stepOutputSliceStride.push_back(omniPipeSplitSliceInfoListTotal[pieceId].offset);
-                    stepSliceInfotmp.inputOmniPipeSliceStride.push_back(inputOmniPipeSliceStrideMultRankPiece);
-                    stepSliceInfotmp.outputOmniPipeSliceStride.push_back(outputOmniPipeSliceStrideMultRankPiece);
-                    stepSliceInfotmp.stepCount.push_back(sliceCountMultRankPiece);
-                    stepSliceInfotmp.stepSliceSize.push_back(sliceSizeMultRankPiece);
-                }
-                dataSliceLevely.insert(dataSliceLevely.end(), stepSliceInfotmp);
+    for (u64 osn = 0; osn < xyConnerStep; osn++) {
+        // 前1步只有同轴，一片数据2d
+        for (u64 isn = 0; isn < yInCornerStep; isn++) {
+            struct StepSliceInfo stepSliceInfotmp;
+            struct BuffInfo bitmp;
+            u64 inOutOffset = 0;
+            BuffInfoAssign(bitmp, inOutOffset, inOutOffset, yCclBufferBaseOff);
+            stepSliceInfotmp.buffInfo = bitmp;
+            for (int oneDid = 0; oneDid < yRankSize; oneDid++) {
+                std::vector<u64> sliceSizeMultRankPiece;
+                std::vector<u64> sliceCountMultRankPiece;
+                std::vector<u64> inputOmniPipeSliceStrideMultRankPiece;
+                std::vector<u64> outputOmniPipeSliceStrideMultRankPiece;
+                u64 pieceId = zAxis * xRankSize * yRankSize + oneDid * xRankSize + xAxis;
+                u64 sliceSizeOnePiece = yGatherDataSize[pieceId][osn][isn];
+                u64 inputPieceIdOffset = xyGatherOffset[pieceId][osn] + yGatherOffset[pieceId][osn][isn];
+                u64 ccloutputPieceIdOffset = oneDid % yRankSize * dataSizePerLoop[maxDataPieceId] + yGatherOffset[pieceId][osn][isn]; //dataSizePerLoop[maxDataPieceId] 一个卡上的数据量
+                sliceSizeMultRankPiece.push_back(sliceSizeOnePiece);
+                sliceCountMultRankPiece.push_back(sliceSizeOnePiece / dataTypeSize);
+                inputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
+                outputOmniPipeSliceStrideMultRankPiece.push_back(ccloutputPieceIdOffset);
+                stepSliceInfotmp.stepInputSliceStride.push_back(omniPipeSplitSliceInfoListTotal[pieceId].offset);
+                stepSliceInfotmp.stepOutputSliceStride.push_back(omniPipeSplitSliceInfoListTotal[pieceId].offset);
+                stepSliceInfotmp.inputOmniPipeSliceStride.push_back(inputOmniPipeSliceStrideMultRankPiece);
+                stepSliceInfotmp.outputOmniPipeSliceStride.push_back(outputOmniPipeSliceStrideMultRankPiece);
+                stepSliceInfotmp.stepCount.push_back(sliceCountMultRankPiece);
+                stepSliceInfotmp.stepSliceSize.push_back(sliceSizeMultRankPiece);
             }
-            
-            for (u64 isn = yInCornerStep; isn < innerStepNum; isn++) {
-                struct StepSliceInfo stepSliceInfotmp;
-                struct BuffInfo bitmp;
-                BuffInfoAssign(bitmp, 0, 0, yCclBufferBaseOff);
-                stepSliceInfotmp.buffInfo = bitmp;
-                
-                for (int oneDid = 0; oneDid < yRankSize; oneDid++) {
-                    std::vector<u64> sliceSizeMultRankPiece;
-                    std::vector<u64> sliceCountMultRankPiece;
-                    std::vector<u64> inputOmniPipeSliceStrideMultRankPiece;
-                    std::vector<u64> outputOmniPipeSliceStrideMultRankPiece;
-                    
-                    for (u64 connerDataSlice = 0; connerDataSlice < xRankSize; connerDataSlice++) {
-                        u64 currentDataSliceId = zAxis * xRankSize * yRankSize + oneDid * xRankSize + connerDataSlice;
-                        u64 currentXAxis = connerDataSlice;
-                        
-                        bool currentIsRootSameAxisX = (zAxis == rootZAxis && oneDid == rootYAxis && currentXAxis != rootXAxis);
-                        
-                        if (!currentIsRootSameAxisX && currentXAxis != xAxis) {
-                            u64 pieceId = currentDataSliceId;
-                            u64 sliceSizeOnePiece = yAGDataSize[pieceId][osn][isn];
-                            u64 inputPieceIdOffset = xyAGOffset[pieceId][osn] + yAGOffset[pieceId][osn][isn] +
-                                                     omniPipeSplitSliceInfoListTotal[pieceId].offset;
-                            
-                            sliceSizeMultRankPiece.push_back(sliceSizeOnePiece);
-                            sliceCountMultRankPiece.push_back(sliceSizeOnePiece / dataTypeSize);
-                            inputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
-                            outputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
-                        }
-                    }
-                    
-                    stepSliceInfotmp.stepInputSliceStride.push_back(0);
-                    stepSliceInfotmp.stepOutputSliceStride.push_back(0);
-                    stepSliceInfotmp.inputOmniPipeSliceStride.push_back(inputOmniPipeSliceStrideMultRankPiece);
-                    stepSliceInfotmp.outputOmniPipeSliceStride.push_back(outputOmniPipeSliceStrideMultRankPiece);
-                    stepSliceInfotmp.stepCount.push_back(sliceCountMultRankPiece);
-                    stepSliceInfotmp.stepSliceSize.push_back(sliceSizeMultRankPiece);
-                }
-                dataSliceLevely.insert(dataSliceLevely.end(), stepSliceInfotmp);
-            }
+            dataSliceLevely.insert(dataSliceLevely.end(), stepSliceInfotmp);
         }
-        
-        for (u64 osn = xyConnerStep; osn < outerStepNum; osn++) {
-            for (u64 isn = 0; isn < yInCornerStep; isn++) {
-                struct StepSliceInfo stepSliceInfotmp;
-                struct BuffInfo bitmp;
-                BuffInfoAssign(bitmp, 0, 0, yCclBufferBaseOff);
-                stepSliceInfotmp.buffInfo = bitmp;
-                
-                for (int oneDid = 0; oneDid < yRankSize; oneDid++) {
-                    std::vector<u64> sliceSizeMultRankPiece;
-                    std::vector<u64> sliceCountMultRankPiece;
-                    std::vector<u64> inputOmniPipeSliceStrideMultRankPiece;
-                    std::vector<u64> outputOmniPipeSliceStrideMultRankPiece;
-                    
-                    for (u64 outSliceNum = 0; outSliceNum < zRankSize; outSliceNum++) {
-                        u64 currentDataSliceId = outSliceNum * xRankSize * yRankSize + oneDid * xRankSize + xAxis;
-                        
-                        bool currentIsRoot = (outSliceNum == rootZAxis && oneDid == rootYAxis && xAxis == rootXAxis);
-                        bool currentIsRootSameAxisZ = (oneDid == rootYAxis && xAxis == rootXAxis && outSliceNum != rootZAxis);
-                        
-                        if (!currentIsRoot && !currentIsRootSameAxisZ && outSliceNum != zAxis) {
-                            u64 pieceId = currentDataSliceId;
-                            u64 sliceSizeOnePiece = yAGDataSize[pieceId][osn][isn];
-                            u64 inputPieceIdOffset = xyAGOffset[pieceId][osn] + yAGOffset[pieceId][osn][isn] +
-                                                     omniPipeSplitSliceInfoListTotal[pieceId].offset;
-                            
-                            sliceSizeMultRankPiece.push_back(sliceSizeOnePiece);
-                            sliceCountMultRankPiece.push_back(sliceSizeOnePiece / dataTypeSize);
-                            inputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
-                            outputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
-                        }
+        for (u64 isn = yInCornerStep; isn < innerStepNum; isn++) {
+            struct StepSliceInfo stepSliceInfotmp;
+            struct BuffInfo bitmp;
+            u64 inOutOffset = 0;
+            BuffInfoAssign(bitmp, inOutOffset, inOutOffset, yCclBufferBaseOff);
+            stepSliceInfotmp.buffInfo = bitmp;
+            for (int oneDid = 0; oneDid < yRankSize; oneDid++) {
+                std::vector<u64> sliceSizeMultRankPiece;
+                std::vector<u64> sliceCountMultRankPiece;
+                std::vector<u64> inputOmniPipeSliceStrideMultRankPiece;
+                std::vector<u64> outputOmniPipeSliceStrideMultRankPiece;
+                for (u64 connerDataSlice = 0; connerDataSlice < xRankSize; connerDataSlice++) {
+                    u64 currentDataSliceId =
+                            zAxis * xRankSize * yRankSize + oneDid * xRankSize + connerDataSlice;  // 斜对角先算算是哪一片
+                    if (connerDataSlice != xAxis) {
+                        u64 pieceId = currentDataSliceId;
+                        u64 sliceSizeOnePiece = yGatherDataSize[pieceId][osn][isn];
+                        u64 inputPieceIdOffset = xyGatherOffset[pieceId][osn] + yGatherOffset[pieceId][osn][isn] +
+                                                    omniPipeSplitSliceInfoListTotal[pieceId].offset;
+                        u64 cclinputPieceIdOffset = yGatherOffset[pieceId][osn][isn] +
+                                                    omniPipeSplitSliceInfoListTotal[pieceId].offset;
+                        sliceSizeMultRankPiece.push_back(sliceSizeOnePiece);
+                        sliceCountMultRankPiece.push_back(sliceSizeOnePiece / dataTypeSize);
+                        inputOmniPipeSliceStrideMultRankPiece.push_back(cclinputPieceIdOffset);
+                        outputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
                     }
-                    
-                    stepSliceInfotmp.stepInputSliceStride.push_back(0);
-                    stepSliceInfotmp.stepOutputSliceStride.push_back(0);
-                    stepSliceInfotmp.inputOmniPipeSliceStride.push_back(inputOmniPipeSliceStrideMultRankPiece);
-                    stepSliceInfotmp.outputOmniPipeSliceStride.push_back(outputOmniPipeSliceStrideMultRankPiece);
-                    stepSliceInfotmp.stepCount.push_back(sliceCountMultRankPiece);
-                    stepSliceInfotmp.stepSliceSize.push_back(sliceSizeMultRankPiece);
                 }
-                dataSliceLevely.insert(dataSliceLevely.end(), stepSliceInfotmp);
+                stepSliceInfotmp.stepInputSliceStride.push_back(0);
+                stepSliceInfotmp.stepOutputSliceStride.push_back(0);
+                stepSliceInfotmp.inputOmniPipeSliceStride.push_back(inputOmniPipeSliceStrideMultRankPiece);
+                stepSliceInfotmp.outputOmniPipeSliceStride.push_back(outputOmniPipeSliceStrideMultRankPiece);
+                stepSliceInfotmp.stepCount.push_back(sliceCountMultRankPiece);
+                stepSliceInfotmp.stepSliceSize.push_back(sliceSizeMultRankPiece);
             }
-            
-            for (u64 isn = yInCornerStep; isn < innerStepNum; isn++) {
-                struct StepSliceInfo stepSliceInfotmp;
-                struct BuffInfo bitmp;
-                BuffInfoAssign(bitmp, 0, 0, yCclBufferBaseOff);
-                stepSliceInfotmp.buffInfo = bitmp;
-                
-                for (int oneDid = 0; oneDid < yRankSize; oneDid++) {
-                    std::vector<u64> sliceSizeMultRankPiece;
-                    std::vector<u64> sliceCountMultRankPiece;
-                    std::vector<u64> inputOmniPipeSliceStrideMultRankPiece;
-                    std::vector<u64> outputOmniPipeSliceStrideMultRankPiece;
-                    
-                    for (u64 outSliceNum = 0; outSliceNum < zRankSize; outSliceNum++) {
-                        u64 currentDataSliceId = outSliceNum * xRankSize * yRankSize + oneDid * xRankSize + xAxis;
-                        
-                        bool currentIsRoot = (outSliceNum == rootZAxis && oneDid == rootYAxis && xAxis == rootXAxis);
-                        bool currentIsRootSameAxisZ = (oneDid == rootYAxis && xAxis == rootXAxis && outSliceNum != rootZAxis);
-                        
-                        if (!currentIsRoot && !currentIsRootSameAxisZ && outSliceNum != zAxis) {
-                            for (u64 connerDataSlice = 0; connerDataSlice < xRankSize; connerDataSlice++) {
-                                u64 currentInnerStepDataSliceId = outSliceNum * xRankSize * yRankSize +
-                                                                  oneDid * xRankSize + connerDataSlice;
-                                u64 currentXAxis = connerDataSlice;
-                                
-                                bool currentIsRootSameAxisX = (outSliceNum == rootZAxis && oneDid == rootYAxis && currentXAxis != rootXAxis);
-                                
-                                if (!currentIsRootSameAxisX && currentXAxis != xAxis && xRankSize > 1) {
-                                    u64 pieceId = currentInnerStepDataSliceId;
-                                    u64 sliceSizeOnePiece = yAGDataSize[pieceId][osn][isn];
-                                    u64 inputPieceIdOffset = xyAGOffset[pieceId][osn] + yAGOffset[pieceId][osn][isn] +
-                                                             omniPipeSplitSliceInfoListTotal[pieceId].offset;
-                                    
-                                    sliceSizeMultRankPiece.push_back(sliceSizeOnePiece);
-                                    sliceCountMultRankPiece.push_back(sliceSizeOnePiece / dataTypeSize);
-                                    inputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
-                                    outputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
-                                }
+            dataSliceLevely.insert(dataSliceLevely.end(), stepSliceInfotmp);
+        }
+    }
+    // n-1步斜对角，zRankSize-1片做2d
+    for (u64 osn = xyConnerStep; osn < outerStepNum; osn++) {
+        for (u64 isn = 0; isn < yInCornerStep; isn++) {
+            struct StepSliceInfo stepSliceInfotmp;
+            struct BuffInfo bitmp;
+            u64 inOutOffset = 0;
+            BuffInfoAssign(bitmp, inOutOffset, inOutOffset, yCclBufferBaseOff);
+            stepSliceInfotmp.buffInfo = bitmp;
+            for (int oneDid = 0; oneDid < yRankSize; oneDid++) {
+                std::vector<u64> sliceSizeMultRankPiece;
+                std::vector<u64> sliceCountMultRankPiece;
+                std::vector<u64> inputOmniPipeSliceStrideMultRankPiece;
+                std::vector<u64> outputOmniPipeSliceStrideMultRankPiece;
+                for (u64 outSliceNum = 0; outSliceNum < zRankSize; outSliceNum++) {
+                    u64 currentDataSliceId = outSliceNum * xRankSize * yRankSize + oneDid * xRankSize +
+                                                xAxis;  // 算算是zRankSize-1中的哪一片
+                    if (outSliceNum != zAxis) {
+                        u64 pieceId = currentDataSliceId;
+                        u64 sliceSizeOnePiece = yGatherDataSize[pieceId][osn][isn];
+                        u64 inputPieceIdOffset = xyGatherOffset[pieceId][osn] + yGatherOffset[pieceId][osn][isn] +
+                                                    omniPipeSplitSliceInfoListTotal[pieceId].offset;
+                        sliceSizeMultRankPiece.push_back(sliceSizeOnePiece);
+                        sliceCountMultRankPiece.push_back(sliceSizeOnePiece / dataTypeSize);
+                        inputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
+                        outputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
+                    }
+                }
+                stepSliceInfotmp.stepInputSliceStride.push_back(0);
+                stepSliceInfotmp.stepOutputSliceStride.push_back(0);
+                stepSliceInfotmp.inputOmniPipeSliceStride.push_back(inputOmniPipeSliceStrideMultRankPiece);
+                stepSliceInfotmp.outputOmniPipeSliceStride.push_back(outputOmniPipeSliceStrideMultRankPiece);
+                stepSliceInfotmp.stepCount.push_back(sliceCountMultRankPiece);
+                stepSliceInfotmp.stepSliceSize.push_back(sliceSizeMultRankPiece);
+            }
+            dataSliceLevely.insert(dataSliceLevely.end(), stepSliceInfotmp);
+        }
+        for (u64 isn = yInCornerStep; isn < innerStepNum; isn++) {
+            struct StepSliceInfo stepSliceInfotmp;
+            struct BuffInfo bitmp;
+            u64 inOutOffset = 0;
+            BuffInfoAssign(bitmp, inOutOffset, inOutOffset, yCclBufferBaseOff);
+            stepSliceInfotmp.buffInfo = bitmp;
+            for (int oneDid = 0; oneDid < yRankSize; oneDid++) {
+                std::vector<u64> sliceSizeMultRankPiece;
+                std::vector<u64> sliceCountMultRankPiece;
+                std::vector<u64> inputOmniPipeSliceStrideMultRankPiece;
+                std::vector<u64> outputOmniPipeSliceStrideMultRankPiece;
+                for (u64 outSliceNum = 0; outSliceNum < zRankSize; outSliceNum++) {
+                    u64 currentDataSliceId = outSliceNum * xRankSize * yRankSize + oneDid * xRankSize +
+                                                xAxis;  // 算算是zRankSize-1中的哪一片
+                    // 自己的不做，只做斜对角的
+                    if (outSliceNum != zAxis) {
+                        for (u64 connerDataSlice = 0; connerDataSlice < xRankSize; connerDataSlice++) {
+                            u64 currentInnerStepDataSliceId =
+                                    outSliceNum * xRankSize * yRankSize + oneDid * xRankSize + connerDataSlice;
+                            ;  // 算算是机内斜对角中的哪一片，自己的不做，只做斜对角的
+                            if (connerDataSlice != xAxis && xRankSize > 1) {
+                                u64 pieceId = currentInnerStepDataSliceId;
+                                u64 sliceSizeOnePiece = yGatherDataSize[pieceId][osn][isn];
+                                u64 inputPieceIdOffset = xyGatherOffset[pieceId][osn] + yGatherOffset[pieceId][osn][isn] +
+                                                            omniPipeSplitSliceInfoListTotal[pieceId].offset;
+                                sliceSizeMultRankPiece.push_back(sliceSizeOnePiece);
+                                sliceCountMultRankPiece.push_back(sliceSizeOnePiece / dataTypeSize);
+                                inputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
+                                outputOmniPipeSliceStrideMultRankPiece.push_back(inputPieceIdOffset);
                             }
                         }
                     }
-                    
-                    stepSliceInfotmp.stepInputSliceStride.push_back(0);
-                    stepSliceInfotmp.stepOutputSliceStride.push_back(0);
-                    stepSliceInfotmp.inputOmniPipeSliceStride.push_back(inputOmniPipeSliceStrideMultRankPiece);
-                    stepSliceInfotmp.outputOmniPipeSliceStride.push_back(outputOmniPipeSliceStrideMultRankPiece);
-                    stepSliceInfotmp.stepCount.push_back(sliceCountMultRankPiece);
-                    stepSliceInfotmp.stepSliceSize.push_back(sliceSizeMultRankPiece);
                 }
-                dataSliceLevely.insert(dataSliceLevely.end(), stepSliceInfotmp);
+                stepSliceInfotmp.stepInputSliceStride.push_back(0);
+                stepSliceInfotmp.stepOutputSliceStride.push_back(0);
+                stepSliceInfotmp.inputOmniPipeSliceStride.push_back(inputOmniPipeSliceStrideMultRankPiece);
+                stepSliceInfotmp.outputOmniPipeSliceStride.push_back(outputOmniPipeSliceStrideMultRankPiece);
+                stepSliceInfotmp.stepCount.push_back(sliceCountMultRankPiece);
+                stepSliceInfotmp.stepSliceSize.push_back(sliceSizeMultRankPiece);
             }
+            dataSliceLevely.insert(dataSliceLevely.end(), stepSliceInfotmp);
         }
     }
-    
     struct OmniPipeSliceInfo dataSliceInfoxyz;
     dataSliceInfoxyz.dataSliceLevel0 = dataSliceLevelx;
     dataSliceInfoxyz.dataSliceLevel1 = dataSliceLevely;
     dataSliceInfoxyz.dataSliceLevel2 = dataSliceLevelz;
-    
-    HCCL_INFO("[CalcGatherOmniPipeSliceInfo] Run end");
+
     return dataSliceInfoxyz;
 }
 
