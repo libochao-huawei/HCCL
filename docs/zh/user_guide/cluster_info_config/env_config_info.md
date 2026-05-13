@@ -29,7 +29,7 @@ export HCCL_SOCKET_FAMILY=AF_INET
 
 - CM_WORKER_SIZE：用于配置组网中参与集群训练的Device总数量，需要配置为整数，取值范围“0~32768”。
 - CM_WORKER_IP：用于配置当前节点与Master进行通信时所用的网卡IP，要求为常规IPv4或IPv6格式。
-- HCCL_SOCKET_FAMILY：**此环境变量可选**，用于控制Device侧通信网卡使用的IP协议版本。AF\_INET代表使用IPv4协议，AF\_INET6代表使用IPv6协议，**缺省时，优先使用IPv4协议**。
+- HCCL_SOCKET_FAMILY：**此环境变量可选**，用于控制Device侧通信网卡使用的IP协议版本。AF_INET代表使用IPv4协议，AF_INET6代表使用IPv6协议，**缺省时，优先使用IPv4协议**。
 
 说明:
 

@@ -24,25 +24,23 @@
 
   HCCL算子级入参记录开关，如果集群行为一致性问题无法通过其他手段锁定异常原因时，可以使能此环境变量，记录不同rank上的集合通信行为，通过卡间横向比对辅助找到行为差异引入点。
 
+<cann-filter npu-type="A3,910b">
+
 - [HCCL_DEBUG_CONFIG](../hccl_env/HCCL_DEBUG_CONFIG.md)
 
     HCCL模块级日志开关，进行算子开发调试时可以通过此配置分析算子内部的算法选择、任务编排等日志信息。
 
     该环境变量仅支持以下产品：
 
-    Atlas A3 训练系列产品/Atlas A3 推理系列产品
+    <cann-filter npu-type="A3">Atlas A3 训练系列产品/Atlas A3 推理系列产品</cann-filter>
 
-    Atlas A2 训练系列产品/Atlas A2 推理系列产品
+    <cann-filter npu-type="910b">Atlas A2 训练系列产品/Atlas A2 推理系列产品</cann-filter>
+
+</cann-filter>
 
 - [HCCL_DFS_CONFIG](../hccl_env/HCCL_DFS_CONFIG.md)
 
     HCCL高级故障探测配置能力，详见环境变量说明，建议保持默认值。
-
-    该环境变量仅支持以下产品：
-
-    Atlas A3 训练系列产品/Atlas A3 推理系列产品
-
-    Atlas A2 训练系列产品/Atlas A2 推理系列产品
 
 ### HCCL相关日志说明
 
@@ -104,7 +102,8 @@ HCCL的日志信息会记录在CANN日志中，CANN的相关日志说明请参�
 
   - 如果想要查询已经配置成功的环境变量，其配置及实际生效值会被打印在CANN日志的run/plog目录下。
 
-    针对Atlas 推理系列产品、Atlas 训练系列产品、Atlas A2 训练系列产品/Atlas A2 推理系列产品、Atlas A3 训练系列产品/Atlas A3 推理系列产品，可以通过检索`HCCL_ENV`的关键字查询每个进程的环境变量实际生效值，例如执行：`grep -r "HCCL_ENV" run/plog/plog-_xxx_.log`，得到以下信息：
+    <cann-filter npu-type="A3,910b,910,310p">
+    针对<cann-filter npu-type="310p">Atlas 推理系列产品，</cann-filter><cann-filter npu-type="910">Atlas 训练系列产品，</cann-filter><cann-filter npu-type="910b">Atlas A2 训练系列产品/Atlas A2 推理系列产品，</cann-filter><cann-filter npu-type="A3">Atlas A3 训练系列产品/Atlas A3 推理系列产品，</cann-filter>可以通过检索`HCCL_ENV`的关键字查询每个进程的环境变量实际生效值，例如执行：`grep -r "HCCL_ENV" run/plog/plog-_xxx_.log`，得到以下信息：
 
     ```text
     [INFO] HCCL(1595259,alltoall_test):2026-01-06-15:38:29.881.877 [externalinput.cc:598] [1595259][HCCL_ENV] HCCL_CONNECT_TIMEOUT set by default to [120]s
@@ -135,8 +134,11 @@ HCCL的日志信息会记录在CANN日志中，CANN的相关日志说明请参�
     [INFO] HCCL(1595259,alltoall_test):2026-01-06-15:38:29.882.128 [externalinput.cc:791] [1595259][HCCL_ENV][Parse][MultiQpSrcPortConfigPath]environmental variable HCCL_RDMA_QP_PORT_CONFIG_PATH is empty
     [INFO] HCCL(1595259,alltoall_test):2026-01-06-15:38:29.882.131 [externalinput.cc:1800] [1595259][HCCL_ENV] HCCL_DEBUG_CONFIG is not set, debugConfig set by default to 0x0
     ```
+    
+    </cann-filter>
 
-    针对Ascend 950PR/Ascend 950DT，可通过检索关键字“base\_config”查询当前已设置的环境变量。
+    <cann-filter npu-type="950">
+    针对Ascend 950PR/Ascend 950DT，可通过检索关键字“base_config”查询当前已设置的环境变量。
 
     ```text
     [INFO] HCCL(229424,python3.8):2025-12-23-22:31:40.239.170[base_config.cc:33][229424][Init][EnvVarParam]Env config "HCCL_IF_IP" is not set. Default value is used. 
@@ -147,6 +149,8 @@ HCCL的日志信息会记录在CANN日志中，CANN的相关日志说明请参�
     [INFO] HCCL(229424,python3.8):2025-12-23-22:31:40.239.197[base_config.cc:33][229424][Init][EnvVarParam]Env config "HCCL_SOCKET_FAMILY" is not set. Default value is used. 
     [INFO] HCCL(229424,python3.8):2025-12-23-22:31:40.239.206[base_config.cc:33][229424][Init][EnvVarParam]Env config "HCCL_CONNECT_TIMEOUT" is parsed. 
     ```
+    
+    </cann-filter>
 
 ## 快速定位定界思路
 

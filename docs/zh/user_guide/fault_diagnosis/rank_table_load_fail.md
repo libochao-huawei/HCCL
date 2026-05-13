@@ -24,6 +24,8 @@
 
 修改正确的rank table文件路径或者配置正确的可读权限。
 
+<cann-filter npu-type="A3">
+
 ## rank table字段配置错误（EI0004）
 
 ### 问题现象
@@ -40,9 +42,13 @@ rank table的"version"字段为"1.2"，但rank table里"super_device_id"字段�
 
 ### 解决方法
 
-在rank table文件中补充"super\_device\_id"字段，配置说明可参考[rank table配置资源信息（Atlas A3 训练系列产品/Atlas A3 推理系列产品）](../cluster_info_config/rank_table_config_a3.md)。
+在rank table文件中补充"super_device_id"字段，配置说明可参考[rank table配置资源信息（Atlas A3 训练系列产品/Atlas A3 推理系列产品）](../cluster_info_config/rank_table_config_a3.md)。
 
-## rank table文件中device\_ip字段校验失败（EI0014）
+</cann-filter>
+
+<cann-filter npu-type="A3,910b,910,310p">
+
+## rank table文件中device_ip字段校验失败（EI0014）
 
 ### 问题现象
 
@@ -61,3 +67,5 @@ HCCL在校验device ip时发现当前device侧获取的device ip与rank table中
 ### 解决方法
 
 需检查rank table的配置与通信域中每个rank实际执行的device ip是否一致。
+
+</cann-filter>

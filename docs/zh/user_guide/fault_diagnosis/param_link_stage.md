@@ -41,11 +41,15 @@ HCCL在与对端成功创建socket链接后，会互相交换算子入参、CANN
 
 HCCL在通信算子参数面建链阶段会有以下几个常见的报错阶段场景：
 
+<cann-filter npu-type="A3,910b">
+
 - 针对Atlas A3 训练系列产品/Atlas A3 推理系列产品与Atlas A2 训练系列产品/Atlas A2 推理系列产品，device网卡端口绑定失败，可通过以下命令排查是否有端口绑定失败问题，详细信息可参考[参数面端口绑定失败（EI0019）](#参数面端口绑定失败ei0019)。
 
     ```bash
     grep -rE "socket type\[(0|1)\].*Please check the port status and whether the port is being used by other process"
     ```
+
+</cann-filter>
 
 - 参数面socket建链超时，可通过以下命令排查是否有参数面建链失败问题，详细信息可参考[建链超时（EI0006）](#建链超时ei0006)。
 
@@ -58,6 +62,8 @@ HCCL在通信算子参数面建链阶段会有以下几个常见的报错阶段�
     ```bash
     grep -r "CMD information .* check fail"
     ```
+
+<cann-filter npu-type="A3,910b">
 
 ## 参数面端口绑定失败（EI0019）
 
@@ -83,6 +89,10 @@ HCCL使用device侧网卡的端口时默认需绑定16666端口，因此若有�
 export HCCL_NPU_SOCKET_PORT_RANGE="auto"
 ```
 
+</cann-filter>
+
+<cann-filter npu-type="A3,910b,910,310p">
+
 ## QP内存资源申请相关（EI0011）
 
 在参数面建链阶段HCCL会创建QP，如果device侧内存不足会上报OOM错误。请通过调整业务配置、减少ROCE链路的使用数量，或释放部分内存解决问题。
@@ -104,6 +114,8 @@ export HCCL_NPU_SOCKET_PORT_RANGE="auto"
 **注意：**
 
 HCCL的其他内存申请如cclBuffer内存申请若出现OOM错误，会由drv组件上报错误码并打印错误信息，可根据报错信息或CANN日志中的堆栈判断是否为HCCL内存申请失败，若为HCCL内存申请失败，可通过配置HCCL_BUFFSIZE环境变量调整申请的内存大小。
+
+</cann-filter>
 
 ## 建链超时（EI0006）
 
@@ -221,7 +233,7 @@ HCCL建链超时受环境变量[HCCL_CONNECT_TIMEOUT](../hccl_env/HCCL_CONNECT_T
 
 3. 若使用Atlas A3 训练系列产品/Atlas A3 推理系列产品中的超节点，请注意检查是否错误地将不同物理超节点下的节点配置成为一个逻辑超节点，这种情况下HCCL会错误地认为两个节点能够通过超节点内的vnic进行通信，从而导致互等超时。
 
-    可以通过如下日志确认两端的链路类型和物理超节点信息：链路类型为vnic，且两端的物理超节点ID不相同（分别是0和1），但由于配置了相同的逻辑超节点ID（logic\_1），因此选择vnic链路进行通信导致超时，可以通过修改或者取消HCCL_LOGIC_SUPERPOD_ID配置进行修复。
+    可以通过如下日志确认两端的链路类型和物理超节点信息：链路类型为vnic，且两端的物理超节点ID不相同（分别是0和1），但由于配置了相同的逻辑超节点ID（logic_1），因此选择vnic链路进行通信导致超时，可以通过修改或者取消HCCL_LOGIC_SUPERPOD_ID配置进行修复。
 
     本端日志：
 

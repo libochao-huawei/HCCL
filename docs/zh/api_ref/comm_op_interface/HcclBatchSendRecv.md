@@ -34,20 +34,20 @@ HcclResult HcclBatchSendRecv(HcclSendRecvItem* sendRecvInfo, uint32_t itemNum, H
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| sendRecvInfo | 输入 | 本rank需要下发的收发任务列表的首地址。<br>HcclSendRecvItem类型，详细可参见[HcclSendRecvItem](https://gitcode.com/cann/hcomm/blob/master/docs/api_ref/comm_mgr_c/data_type_definition/HcclSendRecvItem.md)。需要注意，针对Ascend 950PR/Ascend 950DT，不支持int128数据类型。 |
+| sendRecvInfo | 输入 | 本rank需要下发的收发任务列表的首地址。<br>HcclSendRecvItem类型，详细可参见[HcclSendRecvItem](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_mgr_c/data_type_definition/HcclSendRecvItem.md)。需要注意，针对Ascend 950PR/Ascend 950DT，不支持int128数据类型。 |
 | itemNum | 输入 | 本rank需要接收和发送的任务个数。 |
 | comm | 输入 | 集合通信操作所在的通信域。 |
 | stream | 输入 | 本rank所使用的stream。 |
 
 ## 返回值
 
-[HcclResult](https://gitcode.com/cann/hcomm/blob/master/docs/api_ref/comm_mgr_c/data_type_definition/HcclResult.md)：接口成功返回HCCL_SUCCESS，其他失败。
+[HcclResult](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_mgr_c/data_type_definition/HcclResult.md)：接口成功返回HCCL_SUCCESS，其他失败。
 
 ## 约束说明
 
 - “异步”是指同一张卡上的接收和发送任务是异步的，不会相互阻塞。但是在卡间，收发任务依旧是同步的，因此，卡间的收发任务也同HcclSend、HcclRecv一样，必须是一一对应的。
 - 针对Atlas A2 训练系列产品/Atlas A2 推理系列产品，在大规模集群下（ranksize\>500）使用此接口时，并发执行数不能超过3个。
-- 针对[Atlas 200T A2 Box16 异构子框](https://support.huawei.com/enterprise/zh/doc/EDOC1100318274/287e0458)，若Server内卡间出现建链失败的情况（错误码：EI0010），需要将环境变量HCCL\_INTRA\_ROCE\_ENABLE配置为1，HCCL\_INTRA\_PCIE\_ENABLE配置为0，让Server内采用RoCE环路进行多卡间的通信（请确保Server上存在RoCE网卡，且具有send/recv收发关系的设备之间RDMA链路互通），环境变量配置示例如下：
+- 针对[Atlas 200T A2 Box16 异构子框](https://support.huawei.com/enterprise/zh/doc/EDOC1100318274/287e0458)，若Server内卡间出现建链失败的情况（错误码：EI0010），需要将环境变量HCCL_INTRA_ROCE_ENABLE配置为1，HCCL_INTRA_PCIE_ENABLE配置为0，让Server内采用RoCE环路进行多卡间的通信（请确保Server上存在RoCE网卡，且具有send/recv收发关系的设备之间RDMA链路互通），环境变量配置示例如下：
 
     ```bash
     export HCCL_INTRA_ROCE_ENABLE=1

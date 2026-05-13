@@ -20,7 +20,7 @@ HCCL通信域Server间/超节点间支持如下算法的自适应选择，自适
 
 > [!NOTE]说明 
 >
-> - 开发者若想指定Server间或超节点间通信算法，可通过环境变量[HCCL_ALGO](../hccl_env/HCCL_ALGO.md)进行设置。需要注意，若通过环境变量HCCL\_ALGO指定了Server间或超节点间通信算法，通信算法的自适应选择功能不再生效，以用户指定的算法为准。
+> - 开发者若想指定Server间或超节点间通信算法，可通过环境变量[HCCL_ALGO](../hccl_env/HCCL_ALGO.md)进行设置。需要注意，若通过环境变量HCCL_ALGO指定了Server间或超节点间通信算法，通信算法的自适应选择功能不再生效，以用户指定的算法为准。
 > - 每种算法支持的算子以及产品可参见环境变量[HCCL_ALGO](../hccl_env/HCCL_ALGO.md)。
 
 ## 耗时评估
