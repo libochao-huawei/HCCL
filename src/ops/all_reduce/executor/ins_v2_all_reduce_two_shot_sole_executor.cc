@@ -265,7 +265,7 @@ HcclResult InsV2AllReduceTwoShotSoleExecutor<AlgTopoMatch, InsAlgTemplate0, InsA
 }
 
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE,
-                                InsAllReduceMesh1DTwoShot,
+                                InsAllReduceMesh1DTwoShotZAxisDetour,
                                 InsV2AllReduceTwoShotSoleExecutor,
                                 TopoMatch1D,
                                 InsTempReduceScatterMesh1DZAxisDetour,
