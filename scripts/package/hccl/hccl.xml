@@ -10,7 +10,7 @@
         <parallel>true</parallel>
         <check_features>true</check_features>
     </package_info>
-    <generate_info value="hccl_version.h" dst_path="share/info/hccl" install_path="$(TARGET_ENV)/include/version" install_mod="440" install_type="devel" generator="version_header">
+    <generate_info value="hccl_version.h" dst_path="$(TARGET_ENV)/include/version" install_path="$(TARGET_ENV)/include/version" install_mod="440" install_type="devel" generator="version_header">
        <HCCL_VERSION>$(ASCEND_VER)</HCCL_VERSION>
        <HCCL_TIMESTAMP>$(TIMESTAMP_NO)</HCCL_TIMESTAMP>
     </generate_info>
