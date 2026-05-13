@@ -16,7 +16,7 @@ constexpr u32 MAX_RANK_NUM_FOR_CONCURRENT_ALGO = 4;
 constexpr u64 RS_AICPU_1D_MAX_DATA_SIZE = 16 * 1024 * 1024;
 constexpr u64 RS_FLATTEN_MAX_DATA_SIZE = 8 * 1024 * 1024;
 constexpr u64 RS_AICPU_1D_MIN_DATA_SIZE = 4 * 1024 * 1024;
-constexpr u64 RS_AICPU_1D_TWO_LEVER_DATA_SIZE_THRESHOLD = 2 * 1024 * 1024;
+constexpr u64 RS_AICPU_1D_TWO_LEVER_DATA_SIZE_THRESHOLD = 16 * 1024 * 1024;
 
 
 SelectorStatus ReduceScatterAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
@@ -293,7 +293,7 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWith
                 if (dataSize * ratio > RS_AICPU_1D_TWO_LEVER_DATA_SIZE_THRESHOLD) {
                     selectAlgName = "InsReduceScatterMesh1DZAxisDetour";
                 } else {
-                    selectAlgName = "InsReduceScatterMesh1D";
+                    selectAlgName = "InsReduceScatterMesh1DZAxisDetour";
                 }
             } else {
                 if (dataSize * ratio > RS_AICPU_1D_MAX_DATA_SIZE) {
