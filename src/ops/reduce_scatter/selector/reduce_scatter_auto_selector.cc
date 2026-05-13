@@ -293,7 +293,7 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWith
                 if (dataSize * ratio > RS_AICPU_1D_TWO_LEVER_DATA_SIZE_THRESHOLD) {
                     selectAlgName = "InsReduceScatterMesh1DZAxisDetour";
                 } else {
-                    selectAlgName = "InsReduceScatterMesh1DZAxisDetour";
+                    selectAlgName = "InsReduceScatterMesh1D";
                 }
             } else {
                 if (dataSize * ratio > RS_AICPU_1D_MAX_DATA_SIZE) {
