@@ -186,6 +186,8 @@ add_library(scatter_aicpu_kernel SHARED
     ${HCCL_DEV_BASE}/src/ops/op_common/topo/topo_match_ubx.cc
     ${HCCL_DEV_BASE}/src/ops/op_common/topo/topo_match_pcie_mix.cc
 
+    ${HCCL_DEV_BASE}/src/ops/op_common/exec_timeout_manager.cc
+
     ${HCCL_DEV_BASE}/src/ops/scatter/algo/scatter_comm_executor.cc
     ${HCCL_DEV_BASE}/src/ops/scatter/algo/scatter_executor_base.cc
     ${HCCL_DEV_BASE}/src/ops/scatter/algo/scatter_mesh_executor.cc
