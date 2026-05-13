@@ -41,10 +41,10 @@ public:
     void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMianToSub) override;
     void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override;
 protected:
-    HcclResult RunAllGatherMesh(const std::vector<ThreadHandle> &threads,
+    virtual HcclResult RunAllGatherMesh(const std::vector<ThreadHandle> &threads,
                                                         const std::map<u32, std::vector<ChannelInfo>> &channels);
-    HcclResult LocalDataCopy(const std::vector<ThreadHandle> &threads);
-    HcclResult PostLocalCopy(const std::vector<ThreadHandle> &threads);
+    virtual HcclResult LocalDataCopy(const std::vector<ThreadHandle> &threads);
+    virtual HcclResult PostLocalCopy(const std::vector<ThreadHandle> &threads);
     TemplateDataParams tempAlgParams_;
 };
 
