@@ -51,7 +51,7 @@ HcclResult CcuTempReduceScatterMesh1D::CalcRes(HcclComm comm, const OpParam& par
     kernelInfo.kernelFunc = reinterpret_cast<void *>(CcuReduceScatterMesh1DKernel);
     
     std::vector<HcclChannelDesc> channelDescs;
-        if(topoInfo->level0Topo != Level0Shape::MESH_1D_CLOS) {
+    if(topoInfo->level0Topo != Level0Shape::MESH_1D_CLOS) {
         CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
     } else {
         std::vector<HcclChannelDesc> myChannelDescs;

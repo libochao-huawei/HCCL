@@ -93,6 +93,7 @@ HcclResult InsCollAlgBase::FastLaunchSaveCtxTwoTemplate(const OpParam &param, co
     // 3.2 所有ccu kernel submitInfo打平放入数组
     constexpr u32 INTRA_0 = 0, INTER_1 = 1, INTER_0 = 2, INTRA_1 = 3;
     constexpr u32 INTRA = 0, INTER = 1;
+    constexpr u32 kernelParallelNum = 4;
     u32 kernelIdx = 0;
     CcuKernelSubmitInfo *kernelSubmitInfos = ccuFastLaunchCtx->GetCcuKernelSubmitInfoPtr();
     // 2个template实例，submitInfosList只有2份
@@ -102,11 +103,13 @@ HcclResult InsCollAlgBase::FastLaunchSaveCtxTwoTemplate(const OpParam &param, co
     for (u32 i = 0; i < ccuKernelNumList[INTER_1]; i++) {
         kernelSubmitInfos[kernelIdx++] = submitInfosList[INTER][i];
     }
-    for (u32 i = ccuKernelNumList[INTER_1]; i < ccuKernelNumList[INTER_0] + ccuKernelNumList[INTER_1]; i++) {
-        kernelSubmitInfos[kernelIdx++] = submitInfosList[INTER][i];
-    }
-    for (u32 i = ccuKernelNumList[INTRA_0]; i < ccuKernelNumList[INTRA_1] + ccuKernelNumList[INTRA_0]; i++) {
-        kernelSubmitInfos[kernelIdx++] = submitInfosList[INTRA][i];
+    if (ccuKernelNumList.size() == kernelParallelNum) {
+        for (u32 i = ccuKernelNumList[INTER_1]; i < ccuKernelNumList[INTER_0] + ccuKernelNumList[INTER_1]; i++) {
+            kernelSubmitInfos[kernelIdx++] = submitInfosList[INTER][i];
+        }
+        for (u32 i = ccuKernelNumList[INTRA_0]; i < ccuKernelNumList[INTRA_1] + ccuKernelNumList[INTRA_0]; i++) {
+            kernelSubmitInfos[kernelIdx++] = submitInfosList[INTRA][i];
+        }
     }
 
     return HCCL_SUCCESS;

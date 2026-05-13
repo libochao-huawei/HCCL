@@ -9,6 +9,7 @@
 # -----------------------------------------------------------------------------------------------------------
 
 add_subdirectory(aiv)
+add_subdirectory(host_nic)
 
 if(NOT HCCL_CANN_COMPAT_850)
     set(src_list

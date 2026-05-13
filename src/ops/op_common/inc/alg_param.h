@@ -29,8 +29,8 @@
 #include "hccl_rank_graph_dl.h"
 #include "hccl_host_comm_dl.h"
 #include "binary_stream.h"
-#if CANN_VERSION_NUM >= 90000000
 #include "ccu_types.h"
+#if CANN_VERSION_NUM >= 90000000
 // #include "hccl_ccu_res.h"
 #else
 typedef void *CcuKernelHandle; // 8.5.0 下无 hccl_ccu_res.h，用 opaque 占位
@@ -71,6 +71,8 @@ constexpr u64 REDUCE_SCATTER_V_VECTOR_NUM = 2;
 constexpr u64 ALL_GATHER_V_VECTOR_NUM = 2;
 
 constexpr uint64_t GE_PARALLEL = 36;
+
+constexpr uint64_t AICPU_ALIGN_SIZE = 4096;
 
 constexpr uint64_t CCU_MAX_RANK_SIZE = 16;
 

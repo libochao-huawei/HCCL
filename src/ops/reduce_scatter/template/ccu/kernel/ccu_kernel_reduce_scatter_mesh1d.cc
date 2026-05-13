@@ -79,14 +79,14 @@ static CcuResult LoadArgs(ReduceScatterMesh1DContext &ctx)
 {
     const auto *arg = ctx.arg;
 
-    CCU_CHK_RET(ccu::LoadArg(ctx.input[arg->rankId]));
-    CCU_CHK_RET(ccu::LoadArg(ctx.output));
-    CCU_CHK_RET(ccu::LoadArg(ctx.token[arg->rankId]));
-    CCU_CHK_RET(ccu::LoadArg(ctx.offset));
-    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.addrOffset));
-    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.loopParam));
-    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.parallelParam));
-    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.residual));
+    CCU_CHK_RET(ccu::LoadArg(ctx.input[arg->rankId], 0));
+    CCU_CHK_RET(ccu::LoadArg(ctx.output, 1));
+    CCU_CHK_RET(ccu::LoadArg(ctx.token[arg->rankId], 2));
+    CCU_CHK_RET(ccu::LoadArg(ctx.offset, 3));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.addrOffset, 4));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.loopParam, 5));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.parallelParam, 6));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.residual, 7));
 
     return CCU_SUCCESS;
 }
