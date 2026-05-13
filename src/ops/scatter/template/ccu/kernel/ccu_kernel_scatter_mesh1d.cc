@@ -162,8 +162,6 @@ void CcuKernelScatterMesh1D::DoRepeatScatter()
 
 void CcuKernelScatterMesh1D::DoScatter()
 {
-    HCCL_INFO(
-        "[CcuContextScatterMesh1D] RunSendScatter local rank[%u], root rank[%u], start send data", rankId_, rootId_);
     CCU_IF(flag_ != 0)
     {
         // 非第一轮执行时，src 和 dst 已经初始化，需要添加偏移量
