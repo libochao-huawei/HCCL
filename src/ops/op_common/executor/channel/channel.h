@@ -41,6 +41,10 @@ HcclResult CalcChannelRequestMesh1DLevel1(HcclComm comm, const OpParam& param, c
 <<<<<<< HEAD
 =======
     const std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels);
+HcclResult CalcChannelRequestMesh1DLevel0(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
+    const std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels);
+HcclResult CalcChannelRequestMesh1DLevel1(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
+    const std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels);
 HcclResult CalcChannelRequestMesh1DInter(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
 >>>>>>> a41ad38 (fix merge)
     const std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels);

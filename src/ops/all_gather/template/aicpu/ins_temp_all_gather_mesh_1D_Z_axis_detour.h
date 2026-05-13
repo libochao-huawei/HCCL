@@ -46,6 +46,7 @@ public:
                                         std::vector<u64> &elemCountOut, std::vector<u64> &sizeOut,
                                         std::vector<u64> &elemOffset) override;
     HcclResult SetchannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels) override;
+<<<<<<< HEAD
     void SetIsNewTemp(bool type)
     {
         isNew = type;
@@ -54,6 +55,8 @@ public:
     // {
     //     return isNew;
     // }
+=======
+>>>>>>> ad12d3a5936801730ae60ae88b36c3e4d2f21996
     u32 channelsSize;
 protected:
     HcclResult RunAllGatherMesh(const std::vector<ThreadHandle> &threads,

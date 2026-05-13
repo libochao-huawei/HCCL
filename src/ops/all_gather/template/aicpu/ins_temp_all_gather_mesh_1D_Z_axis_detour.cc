@@ -30,6 +30,10 @@ HcclResult InsTempAllGatherMesh1D1DZAxisDetour::CalcRes(HcclComm comm, const OpP
     level0ChannelNumPerRank_ = CalcChannelsPerRank(level0Channels);
     level1ChannelNumPerRank_ = CalcChannelsPerRank(level1Channels);
     std::vector<HcclChannelDesc> mergedChannels;
+<<<<<<< HEAD
+=======
+    channelsPerRank_ = level0ChannelNumPerRank_ + level1ChannelNumPerRank_;
+>>>>>>> ad12d3a5936801730ae60ae88b36c3e4d2f21996
     HCCL_INFO("level0Channels[%d]level1Channels[%d]\n", level0Channels.size(), level1Channels.size());
     mergedChannels.insert(mergedChannels.end(), level0Channels.begin(), level0Channels.end());
     mergedChannels.insert(mergedChannels.end(), level1Channels.begin(), level1Channels.end());
@@ -40,18 +44,25 @@ HcclResult InsTempAllGatherMesh1D1DZAxisDetour::CalcRes(HcclComm comm, const OpP
     if(subCommRanks_.size() <= COMM_LEVEL0) {
         return HCCL_E_PARA;
     }
+<<<<<<< HEAD
     auto& ranks = subCommRanks_[COMM_LEVEL0];
     if((ranks.size() -1 ) == mergedChannels.size()) {
         SetIsNewTemp(false);
     } else {
         SetIsNewTemp(true);
     }
+=======
+>>>>>>> ad12d3a5936801730ae60ae88b36c3e4d2f21996
     GetRes(resourceRequest);
     return HCCL_SUCCESS;
 }
 HcclResult InsTempAllGatherMesh1D1DZAxisDetour::GetRes(AlgResourceRequest &resourceRequest) const
 {
+<<<<<<< HEAD
     u32 threadNum = resourceRequest.channels[COMM_LEVEL0].size();
+=======
+    u32 threadNum = templateRankSize_ > 1 ? ((templateRankSize_ - 1) * channelsPerRank_) : 1;
+>>>>>>> ad12d3a5936801730ae60ae88b36c3e4d2f21996
     HCCL_INFO("[InsTempAllGatherMesh1D1DZAxisDetour][GetRes] threadNum[%u]", threadNum);
     resourceRequest.slaveThreadNum = threadNum - 1;
     resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, 1);
@@ -136,7 +147,11 @@ HcclResult InsTempAllGatherMesh1D1DZAxisDetour::SetchannelsPerRank(
         level1ChannelNumPerRank_ = channelsPerRank_ - level0ChannelNumPerRank_;
         level0DataRatio_ = 0.5f;
     }
+<<<<<<< HEAD
     HCCL_INFO("[InsTempReduceScatterMesh1DZAxisDetour][SetchannelsPerRank], channelsPerRank_[%u], "
+=======
+    HCCL_INFO("[InsTempAllGatherMesh1D1DZAxisDetour][SetchannelsPerRank], channelsPerRank_[%u], "
+>>>>>>> ad12d3a5936801730ae60ae88b36c3e4d2f21996
               "level0ChannelNumPerRank_[%u], level1ChannelNumPerRank_[%u], level0DataRatio_[%.2f]",
               channelsPerRank_, level0ChannelNumPerRank_, level1ChannelNumPerRank_, level0DataRatio_);
     return HCCL_SUCCESS;
