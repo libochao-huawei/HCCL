@@ -81,11 +81,11 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
     std::vector<HcclChannelDesc> channelDescsTemp0;
     CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, temp0HierarchyInfo, channelDescsTemp0,
                                                CommTopo::COMM_TOPO_1DMESH));
-    for (auto channel : channelDescsTemp0) {
-        if (channel.channelProtocol == COMM_PROTOCOL_UBC_CTP) {
-            channelDescs0.push_back(channel);
-        }
-    }
+    // for (auto channel : channelDescsTemp0) {
+    //     if (channel.channelProtocol == COMM_PROTOCOL_UBC_CTP) {
+    //         channelDescs0.push_back(channel);
+    //     }
+    // }
     
     CHK_PRT_RET(channelDescs0.empty(),
                 HCCL_ERROR("[%s] channelDescs0.size()[%zu] is zero.", __func__, channelDescs0.size()),
@@ -97,12 +97,12 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
     CHK_RET(CalcChannelRequestNHRWithPriorityTopo(comm, param, topoInfo, temp1HierarchyInfo, channelDescsTemp1,
                                                CommTopo::COMM_TOPO_CLOS));
 
-    for (auto channel : channelDescsTemp1) {
-        if (channel.channelProtocol == COMM_PROTOCOL_UBC_CTP) {
-            channelDescs1.push_back(channel);
-        }
-    }
-    
+    // for (auto channel : channelDescsTemp1) {
+    //     if (channel.channelProtocol == COMM_PROTOCOL_UBC_CTP) {
+    //         channelDescs1.push_back(channel);
+    //     }
+    // }
+    channelDescs1 = channelDescsTemp1;
     CHK_PRT_RET(channelDescs1.empty(),
                 HCCL_ERROR("[%s] channelDescs1.size()[%zu] is zero.", __func__, channelDescs1.size()),
                 HcclResult::HCCL_E_INTERNAL);
