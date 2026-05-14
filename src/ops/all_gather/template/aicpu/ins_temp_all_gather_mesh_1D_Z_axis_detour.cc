@@ -210,14 +210,17 @@ HcclResult InsTempAllGatherMesh1D1DZAxisDetour::RunAllGatherMesh(const std::vect
             for (u32 rpt = 0; rpt < tempAlgParams_.repeatNum; ++rpt) {
                 const u64 outBaseOff = tempAlgParams_.buffInfo.outBuffBaseOff + rpt * tempAlgParams_.outputRepeatStride;
                 const u64 scratchRepeatStride = tempAlgParams_.sliceSize * templateRankSize_;
-                const u64 scratchBase = tempAlgParams_.buffInfo.hcclBuffBaseOff + rpt * scratchRepeatStride;
+                u64 scratchBase = tempAlgParams_.buffInfo.hcclBuffBaseOff + rpt * scratchRepeatStride;
+                if (tempAlgParams_.buffInfo.inBuffType == BufferType::HCCL_BUFFER) {
+                    scratchBase = tempAlgParams_.buffInfo.hcclBuffBaseOff + rpt * tempAlgParams_.inputRepeatStride;
+                }
 
                 u64 txOutOffset = tempAlgParams_.outputSliceStride * myAlgRank + outBaseOff + elemOffset[idx];
                 u64 txScratchOffset = scratchBase + tempAlgParams_.sliceSize * myAlgRank + elemOffset[idx];
                 u64 txDstOffset = (!enableRemoteMemAccess_) ? txScratchOffset : txOutOffset;
 
                 u64 rxOutOffset = tempAlgParams_.outputSliceStride * connectedAlgRank + outBaseOff + elemOffset[idx];
-                u64 rxScratchOffset = scratchBase + tempAlgParams_.sliceSize * connectedAlgRank + elemOffset[idx];
+                u64 rxScratchOffset = scratchBase + tempAlgParams_.inputSliceStride * connectedAlgRank + elemOffset[idx];
                 u64 rxSrcOffset = (!enableRemoteMemAccess_) ? rxScratchOffset : rxOutOffset;
 
                 void *txSrcPtr = tempAlgParams_.buffInfo.outputPtr;
