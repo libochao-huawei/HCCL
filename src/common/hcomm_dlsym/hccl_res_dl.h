@@ -13,6 +13,7 @@
 
 #include "dlsym_common.h"
 #include "hccl_res.h"
+#include "alg_param.h"
 
 #if CANN_VERSION_NUM >= 90000000
 #include "hccl_res_expt.h"
@@ -61,6 +62,33 @@ DECL_WEAK_FUNC(HcclResult, HcclEngineCtxDestroy, HcclComm comm, const char* ctxT
 DECL_SUPPORT_FLAG(HcclThreadExportToCommEngine);
 // 动态库管理接口（大驼峰命名）
 void HcclResDlInit(void* libHcommHandle);
+
+struct HcclDfxOpInfoTmp {
+    CommAbiHeader       header;
+    //DfxOpInfo_base
+    uint64_t            beginTime = 0;
+    uint64_t            endTime = 0;
+    //baseCollOperator
+    uint32_t            opMode = 0; // 单算子和图模式
+    uint32_t            opType = 0; // 算子名称类型
+    uint32_t            reduceOp = 0;
+    uint32_t            dataType = 0;
+    uint32_t            outputType = 0; //暂不删除，考虑后续算子使用
+    uint64_t            dataCount = 0;
+    uint32_t            root = ~0U;
+    char                algTag[ops_hccl::ALG_TAG_LENGTH]; // 算法名 = "算子类型 + 通信域id + 选择的算法"
+    CommEngine          engine = COMM_ENGINE_RESERVED;
+    //task_exception
+    uint64_t            cpuTsThread = 0; // host侧算子主流的threadhandle
+    uint32_t            cpuWaitAicpuNotifyIdx = ~0U; // host wait device notifyIdx
+    uint32_t            cpuWaitAicpuNotifyId = ~0U; // host wait device notifyId
+    // 算子内存信息
+    uint64_t            inputMemAddr = 0;
+    uint64_t            inputMemSize = 0;
+    uint64_t            outputMemAddr = 0;
+    uint64_t            outputMemSize = 0;
+    int8_t              reserve[96]; // 预留扩展字段
+};
 
 #ifdef __cplusplus
 }
