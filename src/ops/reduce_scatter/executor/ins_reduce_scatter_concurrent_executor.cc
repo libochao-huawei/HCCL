@@ -230,6 +230,7 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
         const u64 bufferRatioTerm0 = portNum0 * templateScratchMultiplier0;
         const u64 bufferRatioTerm1 = portNum * templateScratchMultiplier1;
         const double bufferRatio0 = static_cast<double>(bufferRatioTerm0) / (bufferRatioTerm0 + bufferRatioTerm1);
+        HCCL_INFO("zjy bufferRatioTerm0[%llu], bufferRatioTerm1[%llu], bufferRatio0[%f]", bufferRatioTerm0, bufferRatioTerm1, bufferRatio0);
         cclMem0.size = cclMemSize * bufferRatio0;
         cclMem1.addr = static_cast<void *>(static_cast<s8 *>(cclMemAddr) + cclMem0.size);
         cclMem1.size = cclMemSize - cclMem0.size;
