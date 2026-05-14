@@ -69,7 +69,7 @@ configure_file(
 )
 configure_file(
     ${NN_VERSION_OUT_PUT}
-    ${STAGING_DIR}/share/info/hccl/
+    ${STAGING_DIR}/${CMAKE_SYSTEM_PROCESSOR}-linux/include/version/hccl_version.h
     COPYONLY
 )
 # makeself打包
