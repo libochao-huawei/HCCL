@@ -1607,9 +1607,11 @@ HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeI
             HCCL_INFO("[CompareOpExchangeInfos] rmtDataLen is 0. Skip. remoteRank[%u]", channel.remoteRank);
             continue;
         } else if (rmtDataLen != sizeof(OpExchangeInfo)) {
-            HCCL_ERROR("[CompareOpExchangeInfos] locDataLen is not equal to rmtDataLen.");
+            HCCL_ERROR("[CompareOpExchangeInfos] locDataLen is not equal to rmtDataLen. remoteRank[%u]", 
+                channel.remoteRank);
             return HCCL_E_PARA;
         }
+        HCCL_INFO("[CompareOpExchangeInfos] check OpExchangeInfo from remoteRank[%u]", channel.remoteRank);
         if (exchangeInfo.cclBufferSize != rmtExchangeInfo.cclBufferSize) {
             CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "HcclBufferSize",
                 std::to_string(exchangeInfo.cclBufferSize), std::to_string(rmtExchangeInfo.cclBufferSize)));
