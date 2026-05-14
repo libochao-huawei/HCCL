@@ -94,6 +94,7 @@ HcclResult InsTempReduceScatterNHR::KernelRun(const OpParam& param,
     sizeOut_ = sizeOut;
 
     if (tempAlgParams.tailSize > 0) {
+        HCCL_INFO("[InsTempAllGatherNHR] tailSize[%llu]", tempAlgParams.tailSize);
         std::vector<u64> elemCountOutTail;
         std::vector<u64> sizeOutTail;
         std::vector<u64> elemOffsetTail;
