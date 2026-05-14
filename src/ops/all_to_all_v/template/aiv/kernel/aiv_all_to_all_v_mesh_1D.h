@@ -22,9 +22,6 @@ public:
  
     __aicore__ inline void InitCoreInfo(ExtraArgs &extraArgsPerLoop)
     {
-        targetRank = block_idx / coreNumPerRank; // 每个核负责哪个rank的数据
-        coreIndex = (block_idx - (targetRank * coreNumPerRank)) % coreNumPerRank;  // 每个核在当前coreNumPerRank里面的排序
- 
         // 发送数据的编排
         uint64_t dataPerCore = extraArgsPerLoop.sendCounts[targetRank] / coreNumPerRank; // 数据量很少的时候，dataPerCore为0
         uint64_t remainder = extraArgsPerLoop.sendCounts[targetRank] % coreNumPerRank;
@@ -54,32 +51,38 @@ public:
         recvOutputOffset = output_ + (extraArgsPerLoop.recvDispls[targetRank] + innerDispls) * sizeof(T);
     }
  
-    __aicore__ inline void Producer()
+    __aicore__ inline void Producer(uint64_t loop)
     {
         if (sendCurCount == 0) {
             return;
         }
         uint64_t flag_offset = block_idx;
-        WaitFlag(rank_, flag_offset, 0);
+        uint32_t tagTemp = loop;
+        if (loop == 0) {
+            tagTemp = curTag_;
+        }
+        WaitFlag(rank_, flag_offset, tagTemp);
 
         CpGM2GM((__gm__ T *)sendOutputOffset, (__gm__ T *)sendInputOffset, sendCurCount);
         PipeBarrier<PIPE_ALL>();
 
-        Record(rank_, flag_offset, curTag_);
+        flag_offset = rank_ * coreNumPerRank + coreIndex + coreCount;
+        Record(targetRank, flag_offset, loop);
     }
  
-    __aicore__ inline void Consumer()
+    __aicore__ inline void Consumer(uint64_t loop)
     {
         if (recvCurCount == 0) {
             return;
         }
-        uint64_t flag_offset = rank_ * coreNumPerRank + coreIndex;
-        WaitFlag(targetRank, flag_offset, curTag_);
+        uint64_t flag_offset = block_idx + coreCount;
+        WaitFlag(rank_, flag_offset, loop);
 
         CpGM2GM((__gm__ T *)recvOutputOffset, (__gm__ T *)recvInputOffset, recvCurCount);
         PipeBarrier<PIPE_ALL>(); // 核内自己的同步
 
-        Record(targetRank, flag_offset, 0);
+        flag_offset = rank_ * coreNumPerRank + coreIndex;
+        Record(targetRank, flag_offset, loop + 1);
     }
  
     __aicore__ inline void Process(uint64_t len, uint32_t sliceId, ExtraArgs &extraArgs)
@@ -97,10 +100,21 @@ public:
  
         curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
         cclBufferCountPerRank = len;
+
+        targetRank = block_idx / coreNumPerRank; // 每个核负责哪个rank的数据
+        coreIndex = (block_idx - (targetRank * coreNumPerRank)) % coreNumPerRank;  // 每个核在当前coreNumPerRank里面的排序
  
-        // 运行过程中用到的所有flag，先置为0，后面会复用
-        Record(rank_, block_idx, 0);
-        PipeBarrier<PIPE_ALL>();
+        // 前面 coreCount 个位置给 Producer，后面 coreCount 个位置给 Consumer
+        // 初始化的时候，先给对端一个flag
+        uint64_t flag_offset = rank_ * coreNumPerRank + coreIndex + coreCount;
+        Record(targetRank, flag_offset, curTag_);
+
+        // 然后wait到Consumer位置的flag之后，写个flag 到对端Producer的位置，后续正常循环
+        flag_offset = block_idx + coreCount;
+        WaitFlag(rank_, flag_offset, curTag_);
+
+        flag_offset = rank_ * coreNumPerRank + coreIndex;
+        Record(targetRank, flag_offset, curTag_);
  
         // 这里根据ccl buffer的大小去做循环
         uint64_t maxSendOrRecvDataCount = 0;
@@ -135,8 +149,8 @@ public:
             }
  
             InitCoreInfo(extraArgsPerLoop);
-            Producer(); // 写数据
-            Consumer(); // 读数据
+            Producer(loop); // 写数据
+            Consumer(loop); // 读数据
             SyncAll<true>(); // 卡内核的同步
             processedDataCount += currDataCount;
         }
