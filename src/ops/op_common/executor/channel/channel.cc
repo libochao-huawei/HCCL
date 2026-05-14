@@ -393,15 +393,9 @@ HcclResult CalcChannelRequestMesh1DFullMesh(HcclComm comm, const OpParam& param,
 #endif
 }
 
-static HcclResult CalcChannelRequestMesh1DByLevel(HcclComm comm, const OpParam& param,
-    const TopoInfoWithNetLayerDetails* topoInfo,
-    const std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels,
-    u32 netLayer, const std::string &tag, bool linkRequired)
+static HcclResult CheckNetLayerExists(HcclComm comm, u32 netLayer, const std::string &tag, bool linkRequired)
 {
 #ifndef AICPU_COMPILE
-    channels.clear();
-    
-    // Check if the specified netLayer exists in rankGraph
     uint32_t *netLayers = nullptr;
     uint32_t netLayerNum = 0;
     CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
@@ -420,11 +414,28 @@ static HcclResult CalcChannelRequestMesh1DByLevel(HcclComm comm, const OpParam& 
         HCCL_WARNING("[%s] netLayer[%u] does not exist in rankGraph, skip.", tag.c_str(), netLayer);
         return HCCL_SUCCESS;
     }
+#else
+    (void)comm;
+    (void)netLayer;
+    (void)tag;
+    (void)linkRequired;
+#endif
+    return HCCL_SUCCESS;
+}
+
+static HcclResult CalcChannelRequestMesh1DByLevel(HcclComm comm, const OpParam& param,
+    const TopoInfoWithNetLayerDetails* topoInfo,
+    const std::vector<std::vector<u32>>& subcommInfo, std::vector<HcclChannelDesc> &channels,
+    u32 netLayer, const std::string &tag, bool linkRequired)
+{
+#ifndef AICPU_COMPILE
+    channels.clear();
+    
+    CHK_RET(CheckNetLayerExists(comm, netLayer, tag, linkRequired));
 
     auto it = std::find(subcommInfo[COMM_LEVEL0].begin(), subcommInfo[COMM_LEVEL0].end(), topoInfo->userRank);
-    CHK_PRT_RET((it == subcommInfo[COMM_LEVEL0].end()),
-                HCCL_ERROR("[%s] Rank [%u] is not in commInfo.", tag.c_str(), topoInfo->userRank),
-                HcclResult::HCCL_E_PARA);
+    CHK_PRT_RET((it == subcommInfo[COMM_LEVEL0].end()), HCCL_ERROR("[%s] Rank [%u] is not in commInfo.",
+        tag.c_str(), topoInfo->userRank), HcclResult::HCCL_E_PARA);
 
     u32 myRank = topoInfo->userRank;
     std::vector<CommProtocol> expectedProtocols;
@@ -442,28 +453,23 @@ static HcclResult CalcChannelRequestMesh1DByLevel(HcclComm comm, const OpParam& 
 
         if (listSize == 0) {
             if (linkRequired) {
-                HCCL_ERROR("[%s] No intra-frame link between myRank=%u and rank=%u.",
-                    tag.c_str(), myRank, rank);
+                HCCL_ERROR("[%s] No intra-frame link between myRank=%u and rank=%u.", tag.c_str(), myRank, rank);
                 return HcclResult::HCCL_E_INTERNAL;
             }
-            HCCL_WARNING("[%s] No inter-frame link between myRank=%u and rank=%u.",
-                tag.c_str(), myRank, rank);
+            HCCL_WARNING("[%s] No inter-frame link between myRank=%u and rank=%u.", tag.c_str(), myRank, rank);
             continue;
         }
 
         std::vector<CommLink> links(linkList, linkList + listSize);
         bool protocolFound = false;
-        CHK_RET(ProcessLinkForProtocol(comm, expectedProtocols, links, myRank, rank, netLayer, channels, protocolFound,
-            tag));
+        CHK_RET(ProcessLinkForProtocol(comm, expectedProtocols, links, myRank, rank, netLayer, channels, protocolFound, tag));
 
         if (channels.size() == channelCountBefore) {
             if (linkRequired) {
-                HCCL_ERROR("[%s] No matching protocol intra-frame link "
-                    "between myRank=%u and rank=%u.", tag.c_str(), myRank, rank);
+                HCCL_ERROR("[%s] No matching protocol intra-frame link between myRank=%u and rank=%u.", tag.c_str(), myRank, rank);
                 return HcclResult::HCCL_E_INTERNAL;
             }
-            HCCL_WARNING("[%s] No matching protocol inter-frame link "
-                "between myRank=%u and rank=%u.", tag.c_str(), myRank, rank);
+            HCCL_WARNING("[%s] No matching protocol inter-frame link between myRank=%u and rank=%u.", tag.c_str(), myRank, rank);
         }
     }
 #else
