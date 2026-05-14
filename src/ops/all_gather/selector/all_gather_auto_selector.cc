@@ -232,7 +232,7 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
         }
     } else {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-            if (dataSize * topoInfo->userRankSize > AG_AICPU_1D_TWO_LEVER_DATA_SIZE_THRESHOLD) {
+            if (IsTwoLevelNetLayer(topoInfo) && dataSize * topoInfo->userRankSize > AG_AICPU_1D_TWO_LEVER_DATA_SIZE_THRESHOLD) {
                 selectAlgName = "InsAllGatherMesh1D1DZAxisDetour";
             } else {
                 selectAlgName = "InsAllGatherMesh1D";
