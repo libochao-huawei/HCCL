@@ -367,15 +367,11 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetL
         ratio = DEFAULT_RANK_SIZE / topoInfo->userRankSize / topoInfo->userRankSize;
     }
     bool isTwoLevelFlag = IsTwoLevelNetLayer(topoInfo);
-    bool overZDetourThreshold = (dataSize * ratio > AR_AICPU_1D_MAX_DATA_SIZE);
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
         if (isDataTypeOrReduceTypeSpecial) {
-            if (dataSize <= AR_AICPU_1D_64DATATYPE_DATA_SIZE) {
-                selectAlgName = "InsAllReduceMesh1DOneShot";
-            } else {
-                selectAlgName = (isTwoLevelFlag && overZDetourThreshold) ?
-                    "InsAllReduceMesh1DTwoShotZAxisDetour" : "InsAllReduceMesh1DTwoShot";
-            }
+            selectAlgName = dataSize <= AR_AICPU_1D_64DATATYPE_DATA_SIZE ?
+                            "InsAllReduceMesh1DOneShot" :
+                            "InsAllReduceMesh1DTwoShot";
         } else if (dataSize <= AR_AICPU_1D_SMALL_DATA_SIZE) {
             selectAlgName = "InsAllReduceMesh1DOneShot";
         } else if (dataSize * ratio > AR_AICPU_1D_MAX_DATA_SIZE) {
