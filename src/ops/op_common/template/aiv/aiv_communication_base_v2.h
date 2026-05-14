@@ -33,15 +33,6 @@ constexpr uint64_t AIV_TAG_MOVE_RIGHT_BITS = 16;
 constexpr uint64_t LOW_16_BITS = 0xFFFF;
 constexpr uint64_t DATA_LIMIT = 512 * 1024;
 
-struct ExtraArgsv2 {
-    uint64_t sendCountMatrix[MAX_RANK_SIZE * MAX_RANK_SIZE] = {};
-    uint64_t sendCounts[MAX_RANK_SIZE] = {};
-    uint64_t sendDispls[MAX_RANK_SIZE] = {};
-    uint64_t recvCounts[MAX_RANK_SIZE] = {};
-    uint64_t recvDispls[MAX_RANK_SIZE] = {};
-    uint64_t maxCount = 0;
-};
-
 struct ExtraArgs {
     uint64_t sendCounts[MAX_RANK_SIZE] = {};
     uint64_t sendDispls[MAX_RANK_SIZE] = {};

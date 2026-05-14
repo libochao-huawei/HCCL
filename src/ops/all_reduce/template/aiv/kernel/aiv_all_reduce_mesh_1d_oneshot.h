@@ -100,7 +100,7 @@ public:
 };
  
 template<typename T>
-__aicore__ inline void AivAllReduceV2Mesh1DOneShot(EXTERN_KERNEL_ARGS_DEF_V2)
+__aicore__ inline void AivAllReduceV2Mesh1DOneShot(KERNEL_ARGS_DEF)
 {
     AivAllReduceMesh1DOneShot<T> op;
     op.Init(KERNEL_CLASS_INIT, true);
