@@ -11,35 +11,22 @@
 #ifndef INS_TEMP_ALL_GATHER_MESH_1D_Z_AXIS_DETOUR_H
 #define INS_TEMP_ALL_GATHER_MESH_1D_Z_AXIS_DETOUR_H
 
-#include "alg_v2_template_base.h"
-#include "executor_base.h"
+#include "ins_temp_all_gather_mesh_1D.h"
 
 namespace ops_hccl {
 
-class InsTempAllGatherMesh1D1DZAxisDetour : public InsAlgTemplateBase {
+class InsTempAllGatherMesh1D1DZAxisDetour : public InsTempAllGatherMesh1D {
 public:
     InsTempAllGatherMesh1D1DZAxisDetour() = default;
-    explicit InsTempAllGatherMesh1D1DZAxisDetour(const OpParam &param, const u32 rankId,  // 传通信域的rankId，userRank
+    explicit InsTempAllGatherMesh1D1DZAxisDetour(const OpParam &param, const u32 rankId,
                                     const std::vector<std::vector<u32>> &subCommRanks);
-    // Host侧调用
     ~InsTempAllGatherMesh1D1DZAxisDetour() override;
 
-    std::string Describe() const override
-    {
-        std::string info = "Template of all gather Mesh with tempRankSize ";
-        info += std::to_string(templateRankSize_);
-        return info;
-    }
-    HcclResult KernelRun(const OpParam &param, const TemplateDataParams &tempAlgParams,
-                         TemplateResource &templateResource) override;
     HcclResult CalcRes(HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
                        AlgResourceRequest &resourceRequest) override;
     HcclResult GetRes(AlgResourceRequest &resourceRequest) const override;
 
-    u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
-    u64 GetThreadNum() const override;
-    void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMianToSub) override;
-    void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override;
+    u64 GetThreadNum() const;
 
     HcclResult CalcDataSplitByPortGroup(const u64 totalDataCount, const u64 dataTypeSize,
                                         const std::vector<ChannelInfo> &channels,
@@ -50,14 +37,32 @@ public:
 protected:
     HcclResult RunAllGatherMesh(const std::vector<ThreadHandle> &threads,
                                                         const std::map<u32, std::vector<ChannelInfo>> &channels);
-    HcclResult LocalDataCopy(const std::vector<ThreadHandle> &threads);
-    HcclResult PostLocalCopy(const std::vector<ThreadHandle> &threads);
-    TemplateDataParams tempAlgParams_;
 private:
+    std::vector<ChannelInfo> PrepareMergedChannels(
+        const std::map<u32, std::vector<ChannelInfo>> &channels);
+    u64 CalcSliceSizeForChannel(u32 myAlgRank, u32 connectedAlgRank, bool dmaRead) const;
+    void BuildDataSlicesForChannel(
+        u32 connectedRank, u32 myAlgRank, u32 connectedAlgRank, u32 idx,
+        const ChannelInfo &linkRemote, void *remoteCclBuffAddr,
+        std::vector<DataSlice> &txSrcSlicesAll, std::vector<DataSlice> &txDstSlicesAll,
+        std::vector<DataSlice> &rxDstSlicesAll, std::vector<DataSlice> &rxSrcSlicesAll);
+    HcclResult ExecuteSendRecvForChannel(
+        u32 threadIdx, bool dmaRead, const std::vector<ThreadHandle> &threads,
+        const ChannelInfo &linkRemote,
+        const std::vector<DataSlice> &txSrcSlicesAll, const std::vector<DataSlice> &txDstSlicesAll,
+        const std::vector<DataSlice> &rxSrcSlicesAll, const std::vector<DataSlice> &rxDstSlicesAll);
+    HcclResult ProcessSingleChannel(
+        u32 threadIdx, u32 myAlgRank, bool dmaRead, const u32 dataTypeSize,
+        const std::vector<ThreadHandle> &threads,
+        const std::map<u32, std::vector<ChannelInfo>> &channels,
+        const std::vector<ChannelInfo> &mergedChannels);
     static bool isNew;
     u32 level0ChannelNumPerRank_{1};
     u32 level1ChannelNumPerRank_{0};
     float level0DataRatio_{1.0f};
+    std::vector<u64> elemCountOut_;
+    std::vector<u64> sizeOut_;
+    std::vector<u64> elemOffset_;
 };
 
 }  // namespace ops_hccl
