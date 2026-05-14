@@ -261,6 +261,7 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
         std::make_shared<InsAlgTemplate>(param, resCtx.topoInfo.userRank, tempAlgHierachyInfo);
     u32 templateScratchMultiplier = algTemplate->CalcScratchMultiple(tempAlgParams.buffInfo.inBuffType,
                                                                      tempAlgParams.buffInfo.outBuffType);
+    HCCL_INFO("[Executor] templateScratchMultiplier[%llu]", templateScratchMultiplier);
 
     // 计算最小传输大小
     u64 maxDataSizePerLoop = 0;
