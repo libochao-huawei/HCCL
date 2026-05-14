@@ -192,24 +192,6 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
                 targetChannels[channel.remoteRank].push_back(channel);
             }
     }
-    // HCCL_INFO("[DEBUG] tmp0LinkMap_ keys=%zu", templateAlgResforTemp0.channels.size());
-    // for (auto it = templateAlgResforTemp0.channels.begin(); it != templateAlgResforTemp0.channels.end(); ++it) {
-    //     HCCL_INFO("zjy[DEBUG]   rank[%u] -> %zu channels", it->first, it->second.size());
-    //     for (size_t j = 0; j < it->second.size(); ++j) {
-    //         HCCL_INFO("zjy[DEBUG]     ch[%zu] remoteRank=%u, localRank=%u",
-    //                 j, it->second[j].remoteRank, myRank_);
-    //     }
-    // }
-
-    // // 打印 tmp1LinkMap_
-    // HCCL_INFO("[DEBUG] tmp1LinkMap_ keys=%zu", templateAlgResforTemp1.channels.size());
-    // for (auto it = templateAlgResforTemp1.channels.begin(); it != templateAlgResforTemp1.channels.end(); ++it) {
-    //     HCCL_INFO("zjy[DEBUG]   rank[%u] -> %zu channels", it->first, it->second.size());
-    //     for (size_t j = 0; j < it->second.size(); ++j) {
-    //         HCCL_INFO("zjy[DEBUG]     ch[%zu] remoteRank=%u, localRank=%u",
-    //                 j, it->second[j].remoteRank, myRank_);
-    //     }
-    // }
     // 准备数据
     TemplateDataParams tempAlgParamsforTemp0;
     tempAlgParamsforTemp0.buffInfo.inputPtr = param.inputPtr;
