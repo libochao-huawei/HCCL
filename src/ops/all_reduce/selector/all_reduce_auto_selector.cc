@@ -448,6 +448,10 @@ SelectorStatus AllReduceAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDe
         return SelectorStatus::NOT_MATCH;
     }
 
+    if (topoInfo->userRankSize > MAX_RANK_SIZE) {
+        HCCL_DEBUG("[Algo][AllReduceAutoSelector] rankSize[%u] larger than [%u]", topoInfo->userRankSize, MAX_RANK_SIZE);
+        return SelectorStatus::NOT_MATCH;
+    }
  
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;

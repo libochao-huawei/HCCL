@@ -339,6 +339,11 @@ SelectorStatus ReduceScatterAutoSelector::SelectAivAlgo(const TopoInfoWithNetLay
         return SelectorStatus::NOT_MATCH;
     }
 
+    if (topoInfo->userRankSize > MAX_RANK_SIZE) {
+        HCCL_DEBUG("[ReduceScatterAutoSelector][%s] rankSize[%u] larger than [%u]", __func__, topoInfo->userRankSize, MAX_RANK_SIZE);
+        return SelectorStatus::NOT_MATCH;
+    }
+
     selectAlgName = "AivReduceScatterMesh1D";
     HCCL_DEBUG("[ReduceScatterAutoSelector][%s] end, selectAlgName[%s]", __func__, selectAlgName.c_str());
     return SelectorStatus::MATCH;

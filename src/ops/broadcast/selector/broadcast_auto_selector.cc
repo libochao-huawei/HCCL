@@ -173,6 +173,11 @@ SelectorStatus BroadcastAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDe
     (void)configAlgMap;
     std::vector<HcclAlgoType> algos = std::vector<HcclAlgoType>(HCCL_ALGO_LEVEL_NUM, HcclAlgoType::HCCL_ALGO_TYPE_DEFAULT);
 
+    if (topoInfo->userRankSize > MAX_RANK_SIZE) {
+        HCCL_DEBUG("[BroadcastAutoSelector][%s] rankSize[%u] larger than [%u]", __func__, topoInfo->userRankSize, MAX_RANK_SIZE);
+        return SelectorStatus::NOT_MATCH;
+    }
+
     selectAlgName = "AivBroadcastMesh1D";
 
     HCCL_INFO("[BroadcastAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());

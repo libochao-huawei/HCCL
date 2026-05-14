@@ -134,6 +134,11 @@ SelectorStatus ScatterAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDeta
     (void)configAlgMap;
     HCCL_DEBUG("[ScatterAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
 
+    if (topoInfo->userRankSize > MAX_RANK_SIZE) {
+        HCCL_DEBUG("[ScatterAutoSelector][%s] rankSize[%u] larger than [%u]", __func__, topoInfo->userRankSize, MAX_RANK_SIZE);
+        return SelectorStatus::NOT_MATCH;
+    }
+
     selectAlgName = "AivScatterMesh1D";
 
     HCCL_INFO("[ScatterAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());

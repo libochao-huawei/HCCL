@@ -276,6 +276,11 @@ SelectorStatus ReduceAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDetai
         return SelectorStatus::NOT_MATCH;
     }
 
+    if (topoInfo->userRankSize > MAX_RANK_SIZE) {
+        HCCL_DEBUG("[ReduceAutoSelector][%s] rankSize[%u] larger than [%u]", __func__, topoInfo->userRankSize, MAX_RANK_SIZE);
+        return SelectorStatus::NOT_MATCH;
+    }
+
     selectAlgName = "AivReduceMesh1D";
 
     HCCL_INFO("[ReduceAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());

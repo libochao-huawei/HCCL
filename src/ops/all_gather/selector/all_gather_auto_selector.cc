@@ -279,6 +279,11 @@ SelectorStatus AllGatherAutoSelector::SelectAivAlgo(
     (void)configAlgMap;
     (void)opParam;
 
+    if (topoInfo->userRankSize > MAX_RANK_SIZE) {
+        HCCL_DEBUG("[AllGatherAutoSelector][%s] rankSize[%u] larger than [%u]", __func__, topoInfo->userRankSize, MAX_RANK_SIZE);
+        return SelectorStatus::NOT_MATCH;
+    }
+
     selectAlgName = "AivAllGatherMesh1D";
     HCCL_DEBUG("[AllGatherAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
     return SelectorStatus::MATCH;
