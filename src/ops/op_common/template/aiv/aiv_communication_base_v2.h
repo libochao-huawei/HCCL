@@ -28,7 +28,7 @@ constexpr uint64_t FLAG_ADDR_OFFSET = 40 * 1024;
 constexpr uint64_t TOPO_LEN = 64;
 constexpr uint64_t TOPO_LEN_Y_OFFSET = 8;
 constexpr uint64_t TOPO_LEN_Z_OFFSET = 16;
-constexpr uint64_t LOCAL_FLAG_BUF_LEN = 1024;
+constexpr uint64_t LOCAL_FLAG_BUF_LEN = 2560;
 constexpr uint64_t AIV_TAG_MOVE_RIGHT_BITS = 16;
 constexpr uint64_t LOW_16_BITS = 0xFFFF;
 constexpr uint64_t DATA_LIMIT = 512 * 1024;
@@ -94,7 +94,7 @@ constexpr uint64_t AIV_PING_PONG_FACTOR_TWO = 2;
 constexpr uint32_t NUM_BLOCKS_FOUR_PER_RANK_A3 = 4;
 constexpr uint32_t MAX_NUM_BLOCKS = 48;
 
-constexpr uint64_t FLAG_SIZE = 512;
+constexpr uint64_t FLAG_SIZE = 256;
 constexpr uint64_t UB_ALIGN_SIZE = 32;
 constexpr uint64_t UB_FLAG_SIZE = 32;
 constexpr uint64_t UB_FLAG_SIZE_4 = UB_FLAG_SIZE * 4;
