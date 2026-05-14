@@ -240,6 +240,9 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
         CHK_PRT_RET(recvFromRank == static_cast<u32>(-1) || sendToRank == static_cast<u32>(-1),
             HCCL_ERROR("[RS-NHR][RunNHR] rank map failed: from[%u] to[%u]", st.fromRank, st.toRank),
             HcclResult::HCCL_E_INTERNAL);
+        HCCL_DEBUG(
+            "[InsTempAllGatherNHR] rank[%d] rankSize[%u] recvFrom[%u] sendTo[%u] step[%u] nSteps[%u] nSlices[%u], recvFromRank[%u], sendToRank[%u]",
+            myRank_, templateRankSize_, st.fromRank, st.toRank, s, steps.size(), st.nSlices,recvFromRank,sendToRank);
 
         CHK_PRT_RET(channels_.count(recvFromRank) == 0 || channels_.count(sendToRank) == 0 ||
                     channels_[recvFromRank].size() == 0 || channels_[sendToRank].size() == 0,
