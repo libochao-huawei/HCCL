@@ -34,6 +34,7 @@ HcclResult InsTempReduceScatterNHR::CalcRes(HcclComm comm, const OpParam& param,
         //         channels.push_back(channel);
         //     }
         // } 
+        channels = myChannelDescs;
     } else {
         CHK_RET(CalcChannelRequestNhr(comm, param, topoInfo, subCommRanks_, myChannelDescs));
         channels = myChannelDescs;
