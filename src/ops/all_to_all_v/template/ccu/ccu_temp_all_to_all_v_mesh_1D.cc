@@ -287,6 +287,6 @@ u64 CcuTempAlltoAllVMesh1D::CalcScratchMultiple(BufferType inBuffType, BufferTyp
     // one shot 场景，scratch Buffer 需要是 usrIn的rankSize倍
     (void)inBuffType;
     (void)outBuffType;
-    return 0;
+    return tempRankSize_;
 }
 } // namespace ops_hccl
