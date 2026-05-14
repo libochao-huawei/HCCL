@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: UTF-8 -*-
-# -----------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
-# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
-# -----------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 
 import copy
 import glob
@@ -17,6 +17,7 @@ import itertools
 import re
 import xml.etree.ElementTree as ET
 import os
+import sys
 from argparse import Namespace
 from functools import partial
 from io import StringIO
@@ -26,19 +27,18 @@ from typing import (
     Any, Callable, Dict, Iterable, Iterator, List, NamedTuple, Optional, Set, Tuple, Union
 )
 
-from utils import pkg_utils
-from filelist import FileItem, FileList, fill_is_common_path
-from utils.pkg_utils import (
-    ContainAsteriskError, BLOCK_CONFIG_PATH,
+from .utils import pkg_utils
+from .filelist import FileItem, FileList, fill_is_common_path
+from .utils.pkg_utils import (
+    ContainAsteriskError, FAIL, BLOCK_CONFIG_PATH,
     BlockConfigError, EnvNotSupported, IllegalVersionDir,
-    InstallScriptFormatError, InstallScriptNotInPackageInfo, MultiPkgSoftlinkError, PackageError,
-    MultiPkgModError, PkgInnerSoftlinkNotAllowed, 
+    InstallScriptFormatError, InstallScriptNotInPackageInfo, PackageError,
     ParseOsArchError, VersionInfoNotExist, config_feature_to_set,
     flatten, star_pipe, merge_dict, yield_if
 )
-from utils.funcbase import constant, dispatch, invoke, pipe, star_apply
-from utils.comm_log import CommLog
-from version_info import (
+from .utils.funcbase import constant, dispatch, invoke, pipe, star_apply
+from .utils.comm_log import CommLog
+from .version_info import (
     VersionInfo, VersionXml, VersionFormatNotMatch, is_multi_version
 )
 
@@ -101,9 +101,8 @@ class ParseEnv(NamedTuple):
     """解析上下文环境。"""
     env_dict: EnvDict
     parse_option: ParseOption
-    pkg_config_dir: str
     delivery_dir: str
-    package_attr: Dict
+    top_dir: str
 
 
 class BlockElement(NamedTuple):
@@ -138,18 +137,6 @@ class FileInfoParsedResult(NamedTuple):
     expand_infos: List[Dict[str, str]]
 
 
-class PkgMod(NamedTuple):
-    """包内文件权限。"""
-    path: str
-    mod: int
-
-
-class PkgSoftlink(NamedTuple):
-    """包内软链接"""
-    dst_path: str
-    src_path: str
-
-
 class BlockConfig(NamedTuple):
     """块配置。"""
 
@@ -157,18 +144,16 @@ class BlockConfig(NamedTuple):
     move_files: List[FileInfo]
     expand_content_list: List[Dict]
     package_content_list: List[Dict]
-    pkg_mods: List[PkgMod]
-    pkg_softlinks: List[PkgSoftlink]
     generate_infos: List[GenerateInfo]
 
 
 class PackerConfig(NamedTuple):
-    """打包相关配置。"""
+    """安装相关配置。"""
     fill_is_common_path: Callable[[FileList], Iterator[FileItem]]
 
 
 class XmlConfig(NamedTuple):
-    """打包xml配置。"""
+    """安装xml配置。"""
     default_config: Dict[str, str]
     package_attr: PackageAttr
     version_info: VersionInfo
@@ -200,14 +185,6 @@ class XmlConfig(NamedTuple):
         return self._collect_list('package_content_list')
 
     @property
-    def pkg_mods(self) -> List[PkgMod]:
-        return self._collect_list('pkg_mods')
-
-    @property
-    def pkg_softlinks(self) -> List[PkgSoftlink]:
-        return self._collect_list('pkg_softlinks')
-
-    @property
     def generate_infos(self) -> List[GenerateInfo]:
         return self._collect_list('generate_infos')
 
@@ -230,7 +207,7 @@ def parse_package_info(package_info_ele: Optional[ET.Element]) -> Dict:
         # gen_version_info: 是否生成version.info文件
         bool_attrs = (
             'expand_asterisk', 'parallel', 'parallel_limit', 'package_check', 'check_features',
-            'use_move', 'gen_version_info', 'copy_all'
+            'use_move', 'gen_version_info'
         )
         bool_values = ('t', 'true', 'y', 'yes')
         if ele.tag in bool_attrs:
@@ -334,7 +311,6 @@ def render_semver(package_name: str, version: str) -> Iterator[Tuple[str, str]]:
     yield f'{package_name}_MAJOR', str(major)
     yield f'{package_name}_MINOR', str(minor)
     yield f'{package_name}_PATCH', str(patch)
-
     # 计算基础版本值（主版本*10^7 + 次版本*10^5 + 修订号*10^3）
     # 预留10^3空间用于预发布版本，确保不同正式版本区间不重叠
     expr_buffer.write(f'({major} * 10000000) + ({minor} * 100000) + ({patch} * 1000)')
@@ -404,6 +380,8 @@ def render_semver(package_name: str, version: str) -> Iterator[Tuple[str, str]]:
 
 def get_cann_version_info(name: str, version: str) -> Iterator[Tuple[str, str]]:
     """获取CANN版本号信息。"""
+    version_info = []
+
     # 删除字符串中的_VERSION
     package_name = name[:-8]
 
@@ -639,11 +617,6 @@ def evaluate_info(info: Dict[str, str],
     replace_env_func = partial(replace_env, env_dict)
     add_dst_path_func = partial(join_dst_path, loaded_block.dst_path)
 
-    def split_pkg_softlink(key: str, value: str) -> Tuple[str, str]:
-        if key == 'pkg_softlink':
-            return key, value.split(';')
-        return key, value
-
     def upper_value(key: str, value: str) -> Tuple[str, str]:
         if key == 'configurable':
             return key, value.upper()
@@ -656,10 +629,11 @@ def evaluate_info(info: Dict[str, str],
 
     def replace_pkg_inner_softlink(key: str, value: str) -> Tuple[str, str]:
         if key == 'pkg_inner_softlink':
+            # 禁用pkg_inner_softlink
             return key, 'NA'
         return key, value
 
-    def merge_feature(key: str, value: str) -> Tuple[str, Set[str]]:
+    def merge_feature(key: str, value: str) -> Tuple[str, str]:
         if key in ('chip', 'feature'):
             config_features = config_feature_to_set(value, key)
             return key, config_features | getattr(loaded_block, f'{key}s')
@@ -711,18 +685,7 @@ def parse_dir_info_elements(loaded_block: LoadedBlockElement,
     return dir_infos
 
 
-def get_target_name(target_conf) -> str:
-    """获取目标名。"""
-    rename = target_conf.get('rename')
-    if rename:
-        return rename
-
-    value_list = target_conf.get('value').split('/')
-    target_name = value_list[-1] if value_list[-1] else value_list[-2]
-    return target_name
-
-
-def expand_dir(file_info: FileInfo, get_dst_target_func: Callable[[FileInfo], str], env: ParseEnv):
+def expand_dir(file_info: FileInfo, get_dst_target_func: Callable[[FileInfo], str]):
     """
     如果file_info中配置的路径是文件夹，需要展开到文件
     """
@@ -745,8 +708,8 @@ def expand_dir(file_info: FileInfo, get_dst_target_func: Callable[[FileInfo], st
     if subdir_mod is not None:
         dir_info_copy['install_mod'] = subdir_mod
     # 被展开的当前目录不需要设置softlink
-    dir_info_copy['install_softlink'] = ''
-    dir_info_copy['pkg_inner_softlink'] = ''
+    dir_info_copy['install_softlink'] = 'NA'
+    dir_info_copy['pkg_inner_softlink'] = 'NA'
     dir_info_list.append(dir_info_copy)
 
     for root, dirs, files in os.walk(dst_target, followlinks=True):
@@ -761,9 +724,8 @@ def expand_dir(file_info: FileInfo, get_dst_target_func: Callable[[FileInfo], st
             if os.path.islink(dirname) and not need_dereference(file_info):
                 copy_file_info = create_file_info(dirname, dst_target, file_info, name, target_name)
                 # 被展开的子文件不需要设置softlink
-                copy_file_info['install_softlink'] = ''
-                copy_file_info['pkg_inner_softlink'] = ''
-                deal_with_copy_all(copy_file_info, env.package_attr)
+                copy_file_info['install_softlink'] = 'NA'
+                copy_file_info['pkg_inner_softlink'] = 'NA'
                 file_info_list.append(copy_file_info)
                 dirs_to_remove.append(name)
                 continue
@@ -774,8 +736,8 @@ def expand_dir(file_info: FileInfo, get_dst_target_func: Callable[[FileInfo], st
                 file_info.get('install_path', ''), target_name, relative_dirname
             )
             # 被展开的子目录不需要设置softlink
-            dir_info_copy['install_softlink'] = ''
-            dir_info_copy['pkg_inner_softlink'] = ''
+            dir_info_copy['install_softlink'] = 'NA'
+            dir_info_copy['pkg_inner_softlink'] = 'NA'
             # 子目录的权限按照xml中subdir_mod配置，如果没有配置subdir_mod按照install_mod配置
             subdir_mod = file_info.get("subdir_mod", None)
             if subdir_mod is not None:
@@ -784,7 +746,6 @@ def expand_dir(file_info: FileInfo, get_dst_target_func: Callable[[FileInfo], st
         for name in files:
             filename = os.path.join(root, name)
             copy_file_info = create_file_info(filename, dst_target, file_info, name, target_name)
-            deal_with_copy_all(copy_file_info, env.package_attr)
             file_info_list.append(copy_file_info)
 
         for name in dirs_to_remove:
@@ -863,30 +824,14 @@ def need_expand(file_info: FileInfo, get_dst_target_func: Callable[[FileInfo], s
     return False
 
 
-def deal_with_copy_all(file_info: FileInfo, package_attr: PackageAttr):
-    """处理copy_all选项。"""
-    if not package_attr.get('copy_all'):
-        return
-    if file_info.get('pkg_inner_softlink'):
-        raise PkgInnerSoftlinkNotAllowed(file_info)
-    file_info['dst_path'] = file_info['install_path']
-    if file_info.get('install_softlink'):
-        file_info['pkg_softlink'] = file_info['install_softlink'].split(';')
-    if file_info.get('install_mod'):
-        file_info['pkg_mod'] = file_info['install_mod']
-
-
 def expand_file_info(parsed_result: FileInfoParsedResult,
                      use_move: bool,
-                     get_dst_target_func: Callable[[FileInfo], str],
-                     env: ParseEnv) -> FileInfoParsedResult:
+                     get_dst_target_func: Callable[[FileInfo], str]) -> FileInfoParsedResult:
     """展开FileInfoParsedResult中的目录。"""
-    deal_with_copy_all(parsed_result.file_info, env.package_attr)
-
     file_info = parsed_result.file_info
     if need_expand(file_info, get_dst_target_func):
         # 如果当前是文件夹，需要展开计算
-        expand_infos, dir_infos = expand_dir(file_info, get_dst_target_func, env)
+        expand_infos, dir_infos = expand_dir(file_info, get_dst_target_func)
         # 实测发现，对于opp包，整体目录cp的安装速度要快于目录中各文件mv
         # 可能的原因是，cp遍历目录的速度较快，并且目录中的文件都比较小。mv依赖shell迭代目录中的所有文件。
         return FileInfoParsedResult(
@@ -932,8 +877,7 @@ def parse_file_element(file_ele: ET.Element,
             partial(
                 expand_file_info,
                 use_move=loaded_block.use_move,
-                get_dst_target_func=partial(get_dst_target, env=env),
-                env=env
+                get_dst_target_func=partial(get_dst_target, env=env)
             )
         ),
     )
@@ -958,70 +902,6 @@ def parse_file_info_elements(loaded_block: LoadedBlockElement,
             yield from parse_file_element(
                 sub_item, file_config, loaded_block, package_attr, env
             )
-
-
-def get_path_infos(pkg_ele: ET.Element,
-                   default_config: Dict[str, str],
-                   loaded_block: LoadedBlockElement,
-                   env: ParseEnv) -> List[Dict[str, str]]:
-    """获取路径信息"""
-    return invoke(
-        pipe(
-            list,
-            partial(map, attrgetter('attrib')),
-            partial(map, partial(merge_dict, default_config)),
-            partial(
-                map,
-                partial(evaluate_info, loaded_block=loaded_block, env_dict=env.env_dict, pkg=True)
-            ),
-        ),
-        pkg_ele
-    )
-
-
-def get_path_infos_by_elements(pkg_elements: List[ET.Element],
-                               default_config: Dict[str, str],
-                               loaded_block: LoadedBlockElement,
-                               env: ParseEnv) -> List[Dict[str, str]]:
-    """根据节点列表获取路径信息"""
-    return flatten([
-        get_path_infos(pkg_ele, default_config, loaded_block, env)
-        for pkg_ele in pkg_elements
-    ])
-
-
-def parse_pkg_mods(path_infos: List[Dict[str, str]]) -> List[PkgMod]:
-    """解析pkg元素。"""
-    return [
-        PkgMod(
-            path_info['value'],
-            int(path_info['pkg_mod'], 8)
-        )
-        for path_info in path_infos
-    ]
-
-
-def parse_pkg_softlinks(path_infos: List[Dict[str, str]]) -> List[PkgSoftlink]:
-    """解析pkg_softlink元素。"""
-    return [
-        PkgSoftlink(
-            dst_path=path_info['value'],
-            src_path=path_info['src_path'],
-        )
-        for path_info in path_infos
-    ]
-
-
-def parse_paths_element(root_ele: ET.Element,
-                        tag_name: str,
-                        ex: PackageError,
-                        parse_func: Callable[[List[ET.Element]], List]) -> List:
-    """解析路径列表元素。"""
-    tag_elements = root_ele.findall(tag_name)
-    if len(tag_elements) > 1:
-        raise ex
-
-    return parse_func(tag_elements)
 
 
 def unique_infos(infos: Iterable) -> List[Dict[str, str]]:
@@ -1053,32 +933,12 @@ def parse_block_config(loaded_block: LoadedBlockElement,
     file_info_results = list(
         chain(
             parse_file_info_elements(
-                loaded_block, default_config,
-                package_attr, parse_env,
+                loaded_block,
+                default_config,
+                package_attr,
+                parse_env,
             )
         )
-    )
-
-    get_path_infos_func = partial(
-        get_path_infos_by_elements,
-        default_config=default_config,
-        loaded_block=loaded_block,
-        env=parse_env
-    )
-
-    parse_pkg_mods_func = pipe(get_path_infos_func, parse_pkg_mods)
-    pkg_mods = parse_paths_element(
-        loaded_block.root_ele,
-        'pkg_mod',
-        MultiPkgModError(),
-        # tar.gz才处理pkg_mod元素
-        lambda x: parse_pkg_mods_func(x) if package_attr.get('suffix') == 'tar.gz' else [],
-    )
-
-    parse_pkg_softlinks_func = pipe(get_path_infos_func, parse_pkg_softlinks)
-    pkg_softlinks = parse_paths_element(
-        loaded_block.root_ele, 'pkg_softlink',
-        MultiPkgSoftlinkError(), parse_pkg_softlinks_func,
     )
 
     generate_infos = parse_generate_infos_by_loaded_block(
@@ -1094,8 +954,6 @@ def parse_block_config(loaded_block: LoadedBlockElement,
         list(flatten(map(attrgetter('move_infos'), file_info_results))),
         list(flatten(map(attrgetter('expand_infos'), file_info_results))),
         [result.file_info for result in file_info_results if result.file_info],
-        pkg_mods,
-        pkg_softlinks,
         generate_infos,
     )
 
@@ -1152,8 +1010,15 @@ def parse_block_info(block_info: ET.Element) -> List[BlockElement]:
     return parse_block_elements(list(block_info))
 
 
-def load_block_element(parse_env: ParseEnv,
-                       package_attr: PackageAttr,
+def get_block_filepath(block_element: BlockElement) -> str:
+    """获取块配置路径。"""
+    return os.path.join(
+        pkg_utils.TOP_SOURCE_DIR, BLOCK_CONFIG_PATH, block_element.block_conf_path,
+        f'{block_element.name}.xml'
+    )
+
+
+def load_block_element(package_attr: PackageAttr,
                        block_element: BlockElement) -> LoadedBlockElement:
     """加载块配置。"""
 
@@ -1173,11 +1038,7 @@ def load_block_element(parse_env: ParseEnv,
         except Exception:
             raise BlockConfigError(f"dependent block configuration {block_xml} parse failed!")
 
-    return with_filepath(
-        os.path.join(
-            parse_env.pkg_config_dir, 'module', 'ascend', f'{block_element.name}.xml'
-        )
-    )
+    return with_filepath(get_block_filepath(block_element))
 
 
 def parse_blocks(root_ele: ET.Element,
@@ -1191,7 +1052,7 @@ def parse_blocks(root_ele: ET.Element,
         for loaded_block in itertools.chain(
             [make_loaded_block_element(root_ele)],
             map(
-                partial(load_block_element, parse_env, package_attr),
+                partial(load_block_element, package_attr),
                 chain.from_iterable(
                     map(parse_block_info, root_ele.findall("block_info"))
                 )
@@ -1224,49 +1085,34 @@ def read_version_info(delivery_dir: str, package_attr: PackageAttr) -> Tuple[str
     return version, version_dir
 
 
-def get_version_version_dir(args: Namespace,
-                            delivery_dir: str,
-                            package_attr: PackageAttr) -> Tuple[str, Optional[str]]:
-    if args.version_dir:
-        version = args.version_dir
-        version_dir = args.version_dir
-    else:
-        version, version_dir = read_version_info(delivery_dir, package_attr)
-    if args.disable_multi_version:
-        version_dir = None
-    return version, version_dir
-
-
-def parse_xml_config(pkg_config_dir: str,
-                     config_relative_path: str,
+def parse_xml_config(filepath: str,
                      delivery_dir: str,
                      parse_option: ParseOption,
-                     args: Namespace) -> Tuple[bool, XmlConfig]:
+                     args: Namespace) -> XmlConfig:
     """解析打包xml配置。"""
-    filepath = os.path.join(pkg_config_dir, config_relative_path)
     try:
         tree = ET.parse(filepath)
         xml_root = tree.getroot()
     except ET.ParseError as ex:
         CommLog.cilog_error("xml parse %s failed: %s!", filepath, ex)
-        return False, None
+        sys.exit(FAIL)
 
     default_config = xml_root.attrib.copy()
 
     package_attr = parse_package_attr(xml_root, args)
-
     try:
-        version, version_dir = get_version_version_dir(args, delivery_dir, package_attr)
+        version, version_dir = read_version_info(delivery_dir, package_attr)
     except InstallScriptNotInPackageInfo:
         CommLog.cilog_error("The install_script is not configured in the package_info in %s!", filepath)
-        return False, None
+        sys.exit(FAIL)
     except InstallScriptFormatError:
         CommLog.cilog_error("The install_script format is illegel in %s! More directory levels are needed.", filepath)
-        return False, None
+        sys.exit(FAIL)
     except VersionInfoNotExist as ex:
         CommLog.cilog_error("The version.info file %s does not exist in %s!", str(ex), filepath)
-        return False, None
-
+        sys.exit(FAIL)
+    if args.disable_multi_version:
+        version_dir = None
     timestamp = get_timestamp(args)
     try:
         env_dict = parse_env_dict(
@@ -1277,10 +1123,10 @@ def parse_xml_config(pkg_config_dir: str,
             "os_arch %s is not correctly configured: %s!",
             parse_option.os_arch, filepath
         )
-        return False, None
+        sys.exit(FAIL)
 
     parse_env = ParseEnv(
-        env_dict, parse_option, pkg_config_dir, delivery_dir, package_attr
+        env_dict, parse_option, delivery_dir, pkg_utils.TOP_SOURCE_DIR
     )
 
     blocks = parse_blocks(
@@ -1294,7 +1140,7 @@ def parse_xml_config(pkg_config_dir: str,
     else:
         fill_is_common_path_func = iter
 
-    return True, XmlConfig(
+    return XmlConfig(
         default_config, package_attr, None, blocks, version, None,
         PackerConfig(fill_is_common_path_func)
     )
