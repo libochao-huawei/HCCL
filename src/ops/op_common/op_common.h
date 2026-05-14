@@ -41,6 +41,13 @@ HcclResult HcclCalcTopoInfo(HcclComm comm, OpParam &param, std::unique_ptr<TopoI
 HcclResult HcclGetAlgRes(HcclComm comm, OpParam &param, std::unique_ptr<InsCollAlgBase> &executor, TopoInfoWithNetLayerDetails *topoInfo,
     std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, void **resCtxSequence, bool &isResourceReused);
 
+HcclResult CtxReuseProcess(HcclComm comm, OpParam &param, void **resCtxSequence, bool &isResourceReused,
+    uint64_t &size, bool &increCreateChannelFlag);
+
+HcclResult GetAlgResWithEngine(HcclComm comm, OpParam &param, AlgResourceRequest &resRequest,
+    std::unique_ptr<AlgResourceCtxSerializable> &resCtxHost, TopoInfoWithNetLayerDetails *topoInfo,
+    AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence, uint64_t &size, bool increCreateChannelFlag);
+
 HcclResult GetAlgResAICPU(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
     std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, TopoInfoWithNetLayerDetails *topoInfo,
     AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence, uint64_t& ctxSize,
@@ -89,16 +96,20 @@ HcclResult GetAlgResDPU(HcclComm comm, const OpParam &param, AlgResourceRequest 
     AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence, uint64_t& ctxSize,
     bool increCreateChannelFlag);
 
-HcclResult FillOpExChangeInfo(HcclComm comm, const OpParam &param, OpExchangeInfo &enchangeInfo);
+HcclResult FillOpExchangeInfo(HcclComm comm, const OpParam &param, OpExchangeInfo &exchangeInfo);
 
-HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &enchangeInfo,
+HcclResult FillOpExchangeInfoWithDataDes(const OpParam &param, OpExchangeInfo &exchangeInfo);
+
+HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeInfo,
     const std::vector<HcclChannelDesc> &channels);
 
-HcclResult ReportOpExchangeInfoCheckFailed(const std::string &paraName, uint32_t localPara,
-    uint32_t remotePara);
+HcclResult ConsistencyCheckOpType(const OpExchangeInfo &exchangeInfo, const HcclCMDType &rmtOpType);
 
-HcclResult ReportOpExchangeInfoCheckFailed(const std::string &paraName, const std::string localPara,
-    const std::string remotePara);
+HcclResult ReportOpExchangeInfoCheckFailed(const OpExchangeInfo &exchangeInfo, const std::string &paraName,
+    uint32_t expectVal, uint32_t remotePara);
+
+HcclResult ReportOpExchangeInfoCheckFailed(const OpExchangeInfo &exchangeInfo, const std::string &paraName,
+    const std::string &expectVal, const std::string &remotePara);
 
 HcclResult CheckCount(const u64 count);
 

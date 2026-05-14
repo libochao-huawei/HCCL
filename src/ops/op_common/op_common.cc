@@ -47,12 +47,13 @@
 #include "dlhcomm_function.h"
 #include "hcomm_diag_dl.h"
 #include "hcom.h"
+#include "hccl_res_expt_dl.h"
 
 namespace ops_hccl {
 // 用于维护增量建链算子的host ctx信息
 thread_local std::map<std::string, std::unique_ptr<AlgResourceCtxSerializable>> g_hostCtx;
 thread_local std::map<AivOpCacheArgs, std::shared_ptr<InsQueue>> g_hcclCacheMap;
-thread_local std::set<std::string> g_consistencyCheckedList;
+thread_local std::set<std::string> g_inconsistentCheckedList;
 constexpr u32 HOST_WAIT_AICPU_NOTIFYIDX = 0;// host主流wait aicpu流的notify idx
 
 // 检查非对称拓扑支持情况
@@ -793,13 +794,60 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
                          std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, void** resCtxSequence, bool &isResourceReused)
 {
     HCCL_INFO("Start to execute HcclGetAlgRes.");
-
+    uint64_t size = 0;
     bool increCreateChannelFlag = false;
+    CHK_RET(CtxReuseProcess(comm, param, resCtxSequence, isResourceReused, size, increCreateChannelFlag));
+    if (isResourceReused) {
+        return HCCL_SUCCESS;
+    }
+    // 计算AlgHierarchyInfo
+    AlgHierarchyInfoForAllLevel algHierarchyInfo;  // 分级通信域信息{localRankId, localRankSize}
+    CHK_RET(executor->CalcAlgHierarchyInfo(comm, topoInfo, algHierarchyInfo));
+    // 资源计算
+    AlgResourceRequest resRequest;
+    CHK_RET(executor->CalcRes(comm, param, topoInfo, algHierarchyInfo, resRequest));
+
+    // 参数一致性校验准备工作
+    // HCCL_DFS_CONFIG 为 off 以及 HCCL_DFS_CONFIG 为 first 或空但非首算子时不校验
+    // HCCL_DFS_CONFIG 不为 off 时增量建链模式每次下算子均校验
+    OpExchangeInfo exchangeInfo{};
+    std::string tagStr = param.algTag;
+    bool isChecked = GetInconsistentCheckSwitch() == 0 &&
+        (g_inconsistentCheckedList.find(tagStr) != g_inconsistentCheckedList.end());
+    if (GetInconsistentCheckSwitch() == -1 || (isChecked && !increCreateChannelFlag)) {
+        isChecked = true; // isChecked 为 false 时做参数比较
+    } else {
+        CHK_RET(FillOpExchangeInfo(comm, param, exchangeInfo));
+        CHK_RET(HcclCommAddExchangeInfo(comm, &exchangeInfo, sizeof(exchangeInfo)));
+        g_inconsistentCheckedList.insert(tagStr);
+        isChecked = false;
+    }
+
+    CHK_RET(GetAlgResWithEngine(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence, size,
+        increCreateChannelFlag));
+
+    // 参数一致性校验
+    if (!isChecked) {
+        if (param.engine != COMM_ENGINE_CCU) {
+            for (u32 level = 0; level < resRequest.channels.size(); level++) {
+                CHK_RET(CompareOpExchangeInfos(comm, exchangeInfo, resRequest.channels[level]));
+            }
+        } else {
+            for (CcuKernelInfo& kernelInfo: resRequest.ccuKernelInfos) {
+                CHK_RET(CompareOpExchangeInfos(comm, exchangeInfo, kernelInfo.channels));
+            }
+        }
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult CtxReuseProcess(HcclComm comm, OpParam &param, void **resCtxSequence, bool &isResourceReused,
+    uint64_t &size, bool &increCreateChannelFlag)
+{
     if (param.opType == HcclCMDType::HCCL_CMD_BATCH_SEND_RECV && param.opMode == OpMode::OPBASE) {
         // 增量建链模式
         increCreateChannelFlag = true;
     }
-    uint64_t size = 0;
     // 图模式不支持资源复用，且不存在增量建链场景
     if (!increCreateChannelFlag && param.opMode == OpMode::OPBASE) {
         void *ctx = nullptr;
@@ -817,27 +865,15 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
             isResourceReused = true;
             *resCtxSequence = ctx;
             param.ctxSize = size;
-            return HCCL_SUCCESS;
         }
     }
+    return HCCL_SUCCESS;
+}
 
-    // 计算AlgHierarchyInfo
-    AlgHierarchyInfoForAllLevel algHierarchyInfo;  // 分级通信域信息{localRankId, localRankSize}
-    CHK_RET(executor->CalcAlgHierarchyInfo(comm, topoInfo, algHierarchyInfo));
-    // 资源计算
-    AlgResourceRequest resRequest;
-    CHK_RET(executor->CalcRes(comm, param, topoInfo, algHierarchyInfo, resRequest));
-
-    // 参数一致性校验准备工作
-    OpExchangeInfo exchangeInfo{};
-    std::string tagStr = param.algTag;
-    bool isChecked = (g_consistencyCheckedList.find(tagStr) != g_consistencyCheckedList.end());
-    if (!isChecked || increCreateChannelFlag) {
-        CHK_RET(FillOpExChangeInfo(comm, param, exchangeInfo));
-        CHK_RET(HcclCommAddExchangeInfo(comm, &exchangeInfo, sizeof(exchangeInfo)));
-        g_consistencyCheckedList.insert(tagStr);
-    }
-
+HcclResult GetAlgResWithEngine(HcclComm comm, OpParam &param, AlgResourceRequest &resRequest,
+    std::unique_ptr<AlgResourceCtxSerializable> &resCtxHost, TopoInfoWithNetLayerDetails *topoInfo,
+    AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence, uint64_t &size, bool increCreateChannelFlag)
+{
     // host侧资源
     if (param.engine == COMM_ENGINE_RESERVED) {
         // COMM_ENGINE_RESERVED
@@ -865,20 +901,6 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
         return HCCL_E_PARA;
     }
     param.ctxSize = size;
-
-    // 参数一致性校验
-    if (!isChecked) {
-        if (param.engine != COMM_ENGINE_CCU) {
-            for (u32 level = 0; level < resRequest.channels.size(); level++) {
-                CHK_RET(CompareOpExchangeInfo(comm, &exchangeInfo, resRequest.channels[level]));
-            }
-        } else {
-            for (CcuKernelInfo& kernelInfo: resRequest.ccuKernelInfos) {
-                CHK_RET(CompareOpExchangeInfo(comm, &exchangeInfo, kernelInfo.channels));
-            }
-        }
-    }
-
     return HCCL_SUCCESS;
 }
 
@@ -914,6 +936,8 @@ HcclResult GetAlgResAICPU(HcclComm comm, const OpParam &param, AlgResourceReques
             if (ret == HCCL_SUCCESS) {
                 *resCtxSequence = ctx;
                 ctxSize = size;
+                // 算子参数信息已注册，但BatchSendRecv在此处判断资源可复用，不会进行数据交换即不会被读清，需要手动reset
+                CHK_RET(HcclCommResetExchangeInfo(comm));
             } else {
                 HCCL_ERROR("failed to get device ctx.");
             }
@@ -1499,25 +1523,17 @@ HcclResult GetAlgResDPU(HcclComm comm, const OpParam &param, AlgResourceRequest 
     return HCCL_SUCCESS;
 }
 
-HcclResult FillOpExChangeInfo(HcclComm comm, const OpParam &param, OpExchangeInfo &exchangeInfo)
+HcclResult FillOpExchangeInfo(HcclComm comm, const OpParam &param, OpExchangeInfo &exchangeInfo)
 {
-    void *cclBufferAddr;
+    CHK_PTR_NULL(comm);
+    void *cclBufferAddr = nullptr; // 不使用，仅为调用HcclGetHcclBuffer获取cclBufferSize
     CHK_RET(HcclGetHcclBuffer(comm, &cclBufferAddr, &exchangeInfo.cclBufferSize));
     exchangeInfo.root = param.root;
     exchangeInfo.opType = param.opType;
-    s32 sRet = strncpy_s(exchangeInfo.algTag, ALG_TAG_LENGTH, param.algTag, ALG_TAG_LENGTH);
-    CHK_PRT_RET(sRet != EOK, HCCL_ERROR("[%s] call strncpy_s failed, param.algTag %s,  return %d.",
-        __func__, param.algTag, sRet), HCCL_E_MEMORY);
     exchangeInfo.engine = param.engine;
     exchangeInfo.opExecuteConfig = param.opExecuteConfig;
     exchangeInfo.reduceType = param.reduceType;
-    if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL) {
-        exchangeInfo.dataType = param.all2AllDataDes.sendType;
-        exchangeInfo.count = param.all2AllDataDes.sendCount;
-    } else if (param.opType) {
-        exchangeInfo.dataType = param.DataDes.dataType;
-        exchangeInfo.count = param.DataDes.count;
-    }
+    CHK_RET(FillOpExchangeInfoWithDataDes(param, exchangeInfo));
     if (param.opMode == OpMode::OFFLOAD) {
         AivParamStorage *aivParam = nullptr;
         HcclResult ret = GetAivParamStorageByComm(comm, &aivParam);
@@ -1526,87 +1542,183 @@ HcclResult FillOpExChangeInfo(HcclComm comm, const OpParam &param, OpExchangeInf
         }
     }
     CHK_RET(HcclGetCommName(comm, exchangeInfo.group));
+    exchangeInfo.group[MAX_LENGTH - 1] = '\0';
+    if (param.opType == HcclCMDType::HCCL_CMD_SEND || param.opType == HcclCMDType::HCCL_CMD_RECEIVE) {
+        // Send和Recv的algName不相同导致algTag不相同，因此仅校验tag内容，MAX_LENGTH < ALG_TAG_LENGTH为param.tag的长度
+        s32 sRet = strncpy_s(exchangeInfo.algTag, ALG_TAG_LENGTH, param.tag, MAX_LENGTH);
+        CHK_PRT_RET(sRet != EOK, HCCL_ERROR("[%s] call strncpy_s failed, param.tag[%s],  return[%d].",
+            __func__, param.tag, sRet), HCCL_E_MEMORY);
+        exchangeInfo.sendRecvRemoteRank = param.sendRecvRemoteRank;
+    } else {
+        s32 sRet = strncpy_s(exchangeInfo.algTag, ALG_TAG_LENGTH, param.algTag, ALG_TAG_LENGTH);
+        CHK_PRT_RET(sRet != EOK, HCCL_ERROR("[%s] call strncpy_s failed, param.algTag[%s],  return[%d].",
+            __func__, param.algTag, sRet), HCCL_E_MEMORY);
+    }
+    HCCL_INFO("[%s] success. exchangeInfo dump: cclBufferSize[%llu], root[%u], opType[%u], engine[%u], "
+        "opExecuteConfig[%u], reduceType[%u], dataType[%u], count[%llu], aivCoreLimit[%u], "
+        "group[%s], algTag[%s], sendRecvRemoteRank[%u]",
+        __func__, exchangeInfo.cclBufferSize, exchangeInfo.root, exchangeInfo.opType,
+        exchangeInfo.engine, exchangeInfo.opExecuteConfig, exchangeInfo.reduceType,
+        exchangeInfo.dataType, exchangeInfo.count, exchangeInfo.aivCoreLimit,
+        exchangeInfo.group, exchangeInfo.algTag, exchangeInfo.sendRecvRemoteRank);
+    return HCCL_SUCCESS;
+}
+
+HcclResult FillOpExchangeInfoWithDataDes(const OpParam &param, OpExchangeInfo &exchangeInfo)
+{
+    switch (param.opType) {
+        case HcclCMDType::HCCL_CMD_BATCH_SEND_RECV:
+            break;
+        case HcclCMDType::HCCL_CMD_ALLTOALL:
+            exchangeInfo.dataType = param.all2AllVDataDes.sendType;
+            CHK_PTR_NULL(param.all2AllVDataDes.sendCounts);
+            exchangeInfo.count = static_cast<u64*>(param.all2AllVDataDes.sendCounts)[0];
+            break;
+        case HcclCMDType::HCCL_CMD_ALLTOALLV:
+        case HcclCMDType::HCCL_CMD_ALLTOALLVC:
+            exchangeInfo.dataType = param.all2AllVDataDes.sendType;
+            break;
+        case HcclCMDType::HCCL_CMD_ALLGATHER_V:
+        case HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V:
+            exchangeInfo.dataType = param.vDataDes.dataType;
+            break;
+        default:
+            exchangeInfo.dataType = param.DataDes.dataType;
+            exchangeInfo.count = param.DataDes.count;
+            break;
+    }
     return HCCL_SUCCESS;
 }
 
 HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeInfo,
     const std::vector<HcclChannelDesc> &channels)
 {
-    for (auto channel : channels) {
-        auto rmtExchangeInfo = std::make_shared<OpExchangeInfo>();
-        uint32_t rmtDataLen{0};
-        CHK_RET(HcclCommGetExchangeInfo(comm, channel.remoteRank, static_cast<void*>(rmtExchangeInfo.get()),
-            rmtDataLen));
+    CHK_PTR_NULL(comm);
+    if (channels.size() == 0) {
+        HCCL_INFO("[CompareOpExchangeInfos] channels is empty.");
+        return HCCL_SUCCESS;
+    }
+    for (auto &channel : channels) {
+        OpExchangeInfo rmtExchangeInfo{};
+        uint32_t rmtDataLen = 0;
+        CHK_RET(HcclCommGetExchangeInfo(comm, channel.remoteRank, sizeof(OpExchangeInfo),
+            reinterpret_cast<void*>(&rmtExchangeInfo), &rmtDataLen));
         if (rmtDataLen == 0) {
+            HCCL_INFO("[CompareOpExchangeInfos] rmtDataLen is 0. Skip. remoteRank[%u]", channel.remoteRank);
             continue;
-        } else {
-            if (exchangeInfo.cclBufferSize != rmtExchangeInfo->cclBufferSize) {
-                CHK_RET(ReportOpExchangeInfoCheckFailed("HcclBufferSize", std::to_string(exchangeInfo.cclBufferSize),
-                    std::to_string(rmtExchangeInfo->cclBufferSize)));
-            }
-            if (exchangeInfo.root != rmtExchangeInfo->root) {
-                CHK_RET(ReportOpExchangeInfoCheckFailed("RootRankId", exchangeInfo.root, rmtExchangeInfo->root));
-            }
-            if (exchangeInfo.opType != rmtExchangeInfo->opType) {
-                CHK_RET(ReportOpExchangeInfoCheckFailed("HcclCMDType", static_cast<uint32_t>(exchangeInfo.opType),
-                    static_cast<uint32_t>(rmtExchangeInfo->opType)));
-            }
-            if (strncmp(exchangeInfo.algTag, rmtExchangeInfo->algTag, ALG_TAG_LENGTH) != 0) {
-                CHK_RET(ReportOpExchangeInfoCheckFailed("AlgTag", exchangeInfo.algTag, rmtExchangeInfo->algTag));
-            }
-            if (exchangeInfo.engine != rmtExchangeInfo->engine) {
-                CHK_RET(ReportOpExchangeInfoCheckFailed("CommEngine", static_cast<uint32_t>(exchangeInfo.engine),
-                    static_cast<uint32_t>(rmtExchangeInfo->engine)));
-            }
-            if (exchangeInfo.opExecuteConfig != rmtExchangeInfo->opExecuteConfig) {
-                CHK_RET(ReportOpExchangeInfoCheckFailed("OpExecuteConfig",
-                    static_cast<uint32_t>(exchangeInfo.opExecuteConfig),
-                    static_cast<uint32_t>(rmtExchangeInfo->opExecuteConfig)));
-            }
-            if (exchangeInfo.reduceType != rmtExchangeInfo->reduceType) {
-                CHK_RET(ReportOpExchangeInfoCheckFailed("HcclReduceOp", static_cast<uint32_t>(exchangeInfo.reduceType),
-                    static_cast<uint32_t>(rmtExchangeInfo->reduceType)));
-            }
-            if (exchangeInfo.dataType != rmtExchangeInfo->dataType) {
-                CHK_RET(ReportOpExchangeInfoCheckFailed("HcclDataType", static_cast<uint32_t>(exchangeInfo.dataType),
-                    static_cast<uint32_t>(rmtExchangeInfo->dataType)));
-            }
-            if (exchangeInfo.count != rmtExchangeInfo->count) {
-                CHK_RET(ReportOpExchangeInfoCheckFailed("DataCount", std::to_string(exchangeInfo.count),
-                    std::to_string(rmtExchangeInfo->count)));
-            }
-            if (exchangeInfo.aivCoreLimit != rmtExchangeInfo->aivCoreLimit) {
-                CHK_RET(ReportOpExchangeInfoCheckFailed("AivCoreLimit", exchangeInfo.aivCoreLimit,
-                    rmtExchangeInfo->aivCoreLimit));
-            }
-            if (strncmp(exchangeInfo.group, rmtExchangeInfo->group, MAX_LENGTH) != 0) {
-                CHK_RET(ReportOpExchangeInfoCheckFailed("GroupName", exchangeInfo.group, rmtExchangeInfo->group));
-            }
+        } else if (rmtDataLen != sizeof(OpExchangeInfo)) {
+            HCCL_ERROR("[CompareOpExchangeInfos] locDataLen is not equal to rmtDataLen. remoteRank[%u]", 
+                channel.remoteRank);
+            return HCCL_E_PARA;
+        }
+        HCCL_INFO("[CompareOpExchangeInfos] check OpExchangeInfo from remoteRank[%u]", channel.remoteRank);
+        if (exchangeInfo.cclBufferSize != rmtExchangeInfo.cclBufferSize) {
+            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "HcclBufferSize",
+                std::to_string(exchangeInfo.cclBufferSize), std::to_string(rmtExchangeInfo.cclBufferSize)));
+        }
+        if (exchangeInfo.root != rmtExchangeInfo.root) {
+            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "RootRankId", exchangeInfo.root,
+                rmtExchangeInfo.root));
+        }
+        CHK_RET(ConsistencyCheckOpType(exchangeInfo, rmtExchangeInfo.opType));
+        if (exchangeInfo.engine != rmtExchangeInfo.engine) {
+            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "CommEngine",
+                static_cast<uint32_t>(exchangeInfo.engine), static_cast<uint32_t>(rmtExchangeInfo.engine)));
+        }
+        if (exchangeInfo.opExecuteConfig != rmtExchangeInfo.opExecuteConfig) {
+            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "OpExecuteConfig",
+                static_cast<uint32_t>(exchangeInfo.opExecuteConfig),
+                static_cast<uint32_t>(rmtExchangeInfo.opExecuteConfig)));
+        }
+        if (exchangeInfo.reduceType != rmtExchangeInfo.reduceType) {
+            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "HcclReduceOp",
+                static_cast<uint32_t>(exchangeInfo.reduceType), static_cast<uint32_t>(rmtExchangeInfo.reduceType)));
+        }
+        if (exchangeInfo.dataType != rmtExchangeInfo.dataType) {
+            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "HcclDataType",
+                static_cast<uint32_t>(exchangeInfo.dataType), static_cast<uint32_t>(rmtExchangeInfo.dataType)));
+        }
+        if (exchangeInfo.count != rmtExchangeInfo.count) {
+            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "DataCount", std::to_string(exchangeInfo.count),
+                std::to_string(rmtExchangeInfo.count)));
+        }
+        if (exchangeInfo.aivCoreLimit != rmtExchangeInfo.aivCoreLimit) {
+            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "AivCoreLimit", exchangeInfo.aivCoreLimit,
+                rmtExchangeInfo.aivCoreLimit));
+        }
+        if (strncmp(exchangeInfo.group, rmtExchangeInfo.group, MAX_LENGTH) != 0) {
+            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "GroupName", exchangeInfo.group,
+                rmtExchangeInfo.group));
+        }
+        if (strncmp(exchangeInfo.algTag, rmtExchangeInfo.algTag, ALG_TAG_LENGTH) != 0) {
+            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "AlgTag", exchangeInfo.algTag,
+                rmtExchangeInfo.algTag));
+        }
+        if (exchangeInfo.opType == HcclCMDType::HCCL_CMD_SEND || exchangeInfo.opType == HcclCMDType::HCCL_CMD_RECEIVE){
             if (exchangeInfo.sendRecvRemoteRank != channel.remoteRank) {
-                CHK_RET(ReportOpExchangeInfoCheckFailed("SendRecvRemoteRank", exchangeInfo.root, rmtExchangeInfo->root));
+                CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "SendRecvRemoteRank",
+                    exchangeInfo.sendRecvRemoteRank, channel.remoteRank));
             }
         }
+        HCCL_INFO("[%s] success. remoteRank[%u]", __func__, channel.remoteRank);
+    }
+    HCCL_INFO("[%s] all exchangeInfos checked successfully. algTag[%s]", __func__, exchangeInfo.algTag);
+    return HCCL_SUCCESS;
+}
+
+HcclResult ConsistencyCheckOpType(const OpExchangeInfo &exchangeInfo, const HcclCMDType &rmtOpType)
+{
+    HcclCMDType locOpType = exchangeInfo.opType;
+    if (locOpType == HcclCMDType::HCCL_CMD_SEND || locOpType == HcclCMDType::HCCL_CMD_RECEIVE) {
+        // HcclCMDType::HCCL_CMD_SEND和HcclCMDType::HCCL_CMD_RECEIVE的枚举值需确保大于等于0
+        uint32_t expectValue = static_cast<uint32_t>(HcclCMDType::HCCL_CMD_SEND) +
+            static_cast<uint32_t>(HcclCMDType::HCCL_CMD_RECEIVE) - static_cast<uint32_t>(locOpType);
+        if ((rmtOpType != HcclCMDType::HCCL_CMD_SEND && rmtOpType != HcclCMDType::HCCL_CMD_RECEIVE) ||
+            locOpType == rmtOpType) {
+            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "HcclCMDType", expectValue,
+                static_cast<uint32_t>(rmtOpType)));
+        }
+    } else if (locOpType != rmtOpType) {
+        CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "HcclCMDType",
+            static_cast<uint32_t>(locOpType), static_cast<uint32_t>(rmtOpType)));
     }
     return HCCL_SUCCESS;
 }
 
-HcclResult ReportOpExchangeInfoCheckFailed(const std::string &paraName, uint32_t localPara,
-    uint32_t remotePara)
+HcclResult ReportOpExchangeInfoCheckFailed(const OpExchangeInfo &exchangeInfo, const std::string &paraName,
+    uint32_t expectVal, uint32_t remotePara)
 {
-    RPT_INPUT_ERR(true, "EI0005", std::vector<std::string>({"ParaName", "LocalPara", "RemotePara"}),
-        std::vector<std::string>({paraName, std::to_string(localPara), std::to_string(remotePara)}));
-    HCCL_ERROR("[ReportOpExchangeInfoCheckFailed]op information %s check fail. localPara[%u] remotePara[%u]",
-        paraName.c_str(), localPara, remotePara);
+    std::string opInfo = "Unknown";
+    for (const auto &pair : HCCL_OPTYPE_NAME_MAP) {
+        if (pair.second == exchangeInfo.opType) {
+            opInfo = std::string(pair.first);
+            break;
+        }
+    }
+    RPT_INPUT_ERR(true, "EI0005",
+        std::vector<std::string>({"ccl_op", "group", "para_name", "local_para", "remote_para"}),
+        std::vector<std::string>({opInfo, exchangeInfo.group, paraName, std::to_string(expectVal),
+        std::to_string(remotePara)}));
+    HCCL_ERROR("[ReportOpExchangeInfoCheckFailed]op information %s check fail. expectValue[%u] remotePara[%u]",
+        paraName.c_str(), expectVal, remotePara);
     return HCCL_E_PARA;
 }
 
-HcclResult ReportOpExchangeInfoCheckFailed(const std::string &paraName, const std::string localPara,
-    const std::string remotePara)
+HcclResult ReportOpExchangeInfoCheckFailed(const OpExchangeInfo &exchangeInfo, const std::string &paraName,
+    const std::string &expectVal, const std::string &remotePara)
 {
-    RPT_INPUT_ERR(true, "EI0005", std::vector<std::string>({"ParaName", "LocalPara", "RemotePara"}),
-        std::vector<std::string>({paraName, localPara, remotePara}));
-    HCCL_ERROR("[ReportOpExchangeInfoCheckFailed]op information %s check fail. localPara[%s] remotePara[%s]",
-        paraName.c_str(), localPara.c_str(), remotePara.c_str());
+    std::string opInfo = "Unknown";
+    for (const auto &pair : HCCL_OPTYPE_NAME_MAP) {
+        if (pair.second == exchangeInfo.opType) {
+            opInfo = std::string(pair.first);
+            break;
+        }
+    }
+    RPT_INPUT_ERR(true, "EI0005",
+        std::vector<std::string>({"ccl_op", "group", "para_name", "local_para", "remote_para"}),
+        std::vector<std::string>({opInfo, exchangeInfo.group, paraName, expectVal, remotePara}));
+    HCCL_ERROR("[ReportOpExchangeInfoCheckFailed]op information %s check fail. expectValue[%s] remotePara[%s]",
+        paraName.c_str(), expectVal.c_str(), remotePara.c_str());
     return HCCL_E_PARA;
 }
 
