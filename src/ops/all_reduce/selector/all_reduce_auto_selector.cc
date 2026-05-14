@@ -22,6 +22,7 @@ constexpr u64 AR_AICPU_1D_64DATATYPE_DATA_SIZE = 8 * 1024 * 1024;
 constexpr u32 MAX_RANK_NUM_FOR_CONCURRENT_ALGO = 4;
 constexpr u64 AR_FLATTEN_MAX_DATA_SIZE = 8 * 1024 * 1024;
 constexpr u64 AR_CCU_CLOS_1D_SMALL_DATA_SIZE = 8 * 1024 * 1024;
+constexpr u64 AR_AICPU_SEQUENCE_DATA_SIZE = 256 * 1024 * 1024;
 
 SelectorStatus AllReduceAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
@@ -306,7 +307,8 @@ SelectorStatus AllReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayer
             selectAlgName = "InsAllReduceNHR";
         } else if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             if (dataSize > AR_AICPU_1D_64P_SMALL_DATA_SIZE) {
-                selectAlgName = "InsAllReduceParallelRSAG";
+                selectAlgName = dataSize > AR_AICPU_SEQUENCE_DATA_SIZE ?
+                    "InsAllReduceSequenceMesh1DNhr" : "InsAllReduceParallelRSAG";
             } else {
                 selectAlgName = "InsAllReduceNHR";
             }

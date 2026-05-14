@@ -19,6 +19,7 @@ constexpr u32 AG_FLATTEN_MAX_DATA_SIZE = 8 * 1024 * 1024;
 constexpr u64 AG_AICPU_SMALL_DATA_SIZE = 1 * 1024 * 1024;
 constexpr u64 AG_AICPU_1D_TWO_LEVER_DATA_SIZE_THRESHOLD = 128 * 1024 * 1024;
 constexpr u64 AG_CCU_CLOS_SMALL_DATA_SIZE = 1 * 1024 * 1024;
+constexpr u64 AG_AICPU_SEQUENCE_DATA_SIZE = 256 * 1024 * 1024;
 
 SelectorStatus AllGatherAutoSelector::SelectCcuMsAlgo(
     const TopoInfoWithNetLayerDetails *topoInfo, const OpParam &opParam, const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
@@ -218,7 +219,8 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
             selectAlgName = "InsAllGatherNHR";
         } else if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             if (dataSize > AG_AICPU_SMALL_DATA_SIZE) {
-                selectAlgName = "InsAllGatherParallelMesh1DNHR";
+                selectAlgName = dataSize > AG_AICPU_SEQUENCE_DATA_SIZE ?
+                    "InsAllGatherSequenceNHRMesh1D" : "InsAllGatherParallelMesh1DNHR";
             } else {
                 selectAlgName = "InsAllGatherNHR";
             }

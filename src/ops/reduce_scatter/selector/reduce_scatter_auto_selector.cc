@@ -18,6 +18,7 @@ constexpr u64 RS_FLATTEN_MAX_DATA_SIZE = 8 * 1024 * 1024;
 constexpr u64 RS_AICPU_1D_MIN_DATA_SIZE = 4 * 1024 * 1024;
 constexpr u64 RS_AICPU_1D_TWO_LEVER_DATA_SIZE_THRESHOLD = 16 * 1024 * 1024;
 constexpr u64 RS_CCU_CLOS_1D_MIN_DATA_SIZE = 4 * 1024 * 1024;
+constexpr u64 RS_AICPU_SEQUENCE_SIZE_THRESHOLD = 256 * 1024 * 1024;
 
 SelectorStatus ReduceScatterAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
@@ -264,7 +265,8 @@ SelectorStatus ReduceScatterAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetL
             selectAlgName = "InsReduceScatterNHR"; // InsReduceScatterParallelNHRNHR备用
         } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer.at(0) > 1 && topoInfo->level0Topo == Level0Shape::MESH_1D) {
             if (dataSize > RS_AICPU_1D_MIN_DATA_SIZE) {
-                selectAlgName = "InsReduceScatterParallelMesh1DNHR";
+                selectAlgName = dataSize > RS_AICPU_SEQUENCE_SIZE_THRESHOLD ?
+                    "InsReduceScatterSequenceMesh1DNhr" : "InsReduceScatterParallelMesh1DNHR";
             } else {
                 selectAlgName = "InsReduceScatterNHR";
             }
