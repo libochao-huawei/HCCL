@@ -10,6 +10,7 @@
 #include "ins_temp_all_gather_mesh_1D_Z_axis_detour.h"
 #include "alg_data_trans_wrapper.h"
 #include "template_utils.h"
+
 namespace ops_hccl {
 bool InsTempAllGatherMesh1D1DZAxisDetour::isNew;
 InsTempAllGatherMesh1D1DZAxisDetour::InsTempAllGatherMesh1D1DZAxisDetour(const OpParam &param, const u32 rankId,
