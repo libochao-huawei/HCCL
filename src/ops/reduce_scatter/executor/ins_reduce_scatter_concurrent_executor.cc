@@ -86,7 +86,7 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
     //         channelDescs0.push_back(channel);
     //     }
     // }
-    
+    channelDescs0 = channelDescsTemp0;
     CHK_PRT_RET(channelDescs0.empty(),
                 HCCL_ERROR("[%s] channelDescs0.size()[%zu] is zero.", __func__, channelDescs0.size()),
                 HcclResult::HCCL_E_INTERNAL);
