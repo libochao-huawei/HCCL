@@ -283,6 +283,8 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
                     txSliceSize, txSliceSize / DATATYPE_SIZE_TABLE[dataType_]); // 发送源
                 DataSlice txDstSlice = DataSlice(sendRemoteCclBuffAddr, txScOff,
                     txSliceSize, txSliceSize / DATATYPE_SIZE_TABLE[dataType_]);  // 发送目标
+                HCCL_INFO("zjy txSrcSlice addr=%p, txDstSlice addr=%p, sendRemoteCclBuffAddr=%p, recvRemoteCclBuffAddr=%p",
+                    txSrcSlice.addr, txDstSlice.addr, sendRemoteCclBuffAddr, recvRemoteCclBuffAddr);
                 txSrcSlices.push_back(txSrcSlice);
                 txDstSlices.push_back(txDstSlice);
                 DataSlice rxSrcSlice = DataSlice(recvRemoteCclBuffAddr, rxScOff,
