@@ -301,9 +301,9 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWith
         } else {
             if (IsTwoLevelNetLayer(topoInfo)) {
                 if (dataSize * topoInfo->userRankSize > RS_AICPU_1D_TWO_LEVER_DATA_SIZE_THRESHOLD) {
-                    selectAlgName = "InsReduceScatterMesh1D";
+                    selectAlgName = "InsReduceScatterMesh1DZAxisDetour";
                 } else if (dataSize * ratio > RS_AICPU_1D_MAX_DATA_SIZE) {
-                    selectAlgName = "InsReduceScatterMesh1D";
+                    selectAlgName = "InsReduceScatterMesh1DMeshChunk";
                 } else {
                     selectAlgName = "InsReduceScatterMesh1D";
                 }
