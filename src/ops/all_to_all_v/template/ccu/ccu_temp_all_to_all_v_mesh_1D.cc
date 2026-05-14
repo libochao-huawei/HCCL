@@ -129,9 +129,40 @@ HcclResult CcuTempAlltoAllVMesh1D::FastLaunch(const OpParam& param, const Templa
 
     uint64_t *args = const_cast<uint64_t*>(tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs);
     uint64_t rankSize = args[5];
+    HcclDataType dataType = param.all2AllVDataDes.sendType;
+    uint64_t dataTypeSize =  SIZE_TABLE[dataType];
     CHK_PRT_RET(param.varMemSize != ALL_TO_ALL_V_VECTOR_NUM * rankSize * sizeof(u64),
     HCCL_ERROR("[InsV2AlltoAllVSoleExecutor][OrchestrateLoop] param.varMemSize [%llu] is invalid", param.varMemSize), HCCL_E_PARA);
     
+    A2ASendRecvInfo localSendRecvInfo;
+    localSendRecvInfo.recvCounts.resize(rankSize, 0);
+    localSendRecvInfo.recvDispls.resize(rankSize, 0);
+    localSendRecvInfo.recvLength.resize(rankSize, 0);
+    localSendRecvInfo.recvOffset.resize(rankSize, 0);
+    localSendRecvInfo.sendCounts.resize(rankSize, 0);
+    localSendRecvInfo.sendDispls.resize(rankSize, 0);
+    localSendRecvInfo.sendLength.resize(rankSize, 0);
+    localSendRecvInfo.sendOffset.resize(rankSize, 0);
+
+    const u64* data = reinterpret_cast<const u64*>(param.varData);
+    for (u64 i = 0; i < ALL_TO_ALL_V_VECTOR_NUM * rankSize ; i++) {
+        u64 val = i / rankSize;
+ 	    u64 curRank = i % rankSize;
+        switch(val) {
+            case CONST_ZERO:
+                localSendRecvInfo.sendLength[curRank] = data[i] * dataTypeSize;
+                break;
+            case CONST_TWO:
+                localSendRecvInfo.sendOffset[curRank] = data[i] * dataTypeSize;
+                break;
+            case CONST_THREE:
+                localSendRecvInfo.recvOffset[curRank] = data[i] * dataTypeSize;
+                break;
+            default:
+                break;
+        }
+    }
+
     std::vector<uint64_t> taskArgs = {args[0], args[1], args[2], args[3], args[4]};
 
     LoopGroupConfig  config{};
@@ -149,10 +180,10 @@ HcclResult CcuTempAlltoAllVMesh1D::FastLaunch(const OpParam& param, const Templa
         }
 
         for (uint64_t i = 0; i < rankSize; i++) {
-            uint64_t tailSize = localSendRecvInfo_.sendLength[i] % UB_MAX_TRANS_SIZE;
-            uint64_t loopNum = UINT64_MAX - 1 - (localSendRecvInfo_.sendLength[i] / UB_MAX_TRANS_SIZE);
-            uint64_t sendOffset = localSendRecvInfo_.sendOffset[i];
-            uint64_t recvOffset = localSendRecvInfo_.recvOffset[i];
+            uint64_t tailSize = localSendRecvInfo.sendLength[i] % UB_MAX_TRANS_SIZE;
+            uint64_t loopNum = UINT64_MAX - 1 - (localSendRecvInfo.sendLength[i] / UB_MAX_TRANS_SIZE);
+            uint64_t sendOffset = localSendRecvInfo.sendOffset[i];
+            uint64_t recvOffset = localSendRecvInfo.recvOffset[i];
             
             taskArgs.push_back(tailSize);
             taskArgs.push_back(loopNum);
