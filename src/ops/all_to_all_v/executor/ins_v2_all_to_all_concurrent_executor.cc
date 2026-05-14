@@ -86,8 +86,8 @@ HcclResult InsV2AllToAllConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlg
 
     // 调用计算资源的函数
     AlgResourceRequest resReq0, resReq1;
-    interTempAlg0->CalcRes(comm, param, topoInfo, resReq0);
-    intraTempAlg1->CalcRes(comm, param, topoInfo, resReq1);
+    CHK_RET(interTempAlg0->CalcRes(comm, param, topoInfo, resReq0));
+    CHK_RET(intraTempAlg1->CalcRes(comm, param, topoInfo, resReq1));
     // temp0的主流负责和temp1主流同步
     resourceRequest.slaveThreadNum = resReq0.slaveThreadNum + resReq1.slaveThreadNum + 1;   // +1用于temp0和temp1主流之间的同步流
     resourceRequest.notifyNumOnMainThread = resReq0.notifyNumOnMainThread + 1;              // +1用于2个template间同步
