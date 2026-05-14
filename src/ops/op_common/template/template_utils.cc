@@ -50,8 +50,8 @@ HcclResult CalcDataSplitByPortGroupCommon(const u64 totalDataCount,
         const auto &ch = channels[i];
         portGroups.push_back(ch.portGroupSize);
         totalPorts += ch.portGroupSize;
-        HCCL_INFO("[CalcDataSplitByPortGroup] ch.portGroupSize[%u], totalPorts[%u], channelsPerRank[%u]",
-                    ch.portGroupSize, totalPorts, channelsPerRank);
+        HCCL_INFO("zjy i[%u] [CalcDataSplitByPortGroup] ch.portGroupSize[%u], totalPorts[%u], channelsPerRank[%u]",
+                    i, ch.portGroupSize, totalPorts, channelsPerRank);
     }
 
     u32 channelsize = portGroups.size();
