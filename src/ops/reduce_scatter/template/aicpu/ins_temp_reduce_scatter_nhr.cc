@@ -29,11 +29,11 @@ HcclResult InsTempReduceScatterNHR::CalcRes(HcclComm comm, const OpParam& param,
     std::vector<HcclChannelDesc> myChannelDescs;
     if(topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
         CHK_RET(CalcChannelRequestNHRWithPriorityTopo(comm, param, topoInfo, subCommRanks_, myChannelDescs, CommTopo::COMM_TOPO_CLOS)); 
-        for(auto channel : myChannelDescs) {
-            if(channel.channelProtocol == COMM_PROTOCOL_UBC_CTP) {
-                channels.push_back(channel);
-            }
-        } 
+        // for(auto channel : myChannelDescs) {
+        //     if(channel.channelProtocol == COMM_PROTOCOL_UBC_CTP) {
+        //         channels.push_back(channel);
+        //     }
+        // } 
     } else {
         CHK_RET(CalcChannelRequestNhr(comm, param, topoInfo, subCommRanks_, myChannelDescs));
         channels = myChannelDescs;
