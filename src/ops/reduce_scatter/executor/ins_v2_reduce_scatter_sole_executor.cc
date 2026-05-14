@@ -123,7 +123,7 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchest
         HCCL_INFO("zjy[DEBUG]   rank[%u] -> %zu channels", it->first, it->second.size());
         for (size_t j = 0; j < it->second.size(); ++j) {
             HCCL_INFO("zjy[DEBUG]     ch[%zu] remoteRank=%u, localRank=%u",
-                    j, it->second[j].remoteRank, myRank_);
+                    j, it->second[j].remoteRank, resCtx.topoInfo.userRank);
         }
     }
 
