@@ -247,7 +247,6 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
             HcclResult::HCCL_E_INTERNAL);
         ChannelInfo linkRecv = channels_[recvFromRank].at(channelIdx);
         ChannelInfo linkSend = channels_[sendToRank].at(channelIdx);
-        HCCL_INFO("zjy channel is ok");
         std::vector<DataSlice> txSrcSlices;
         std::vector<DataSlice> txDstSlices;
         std::vector<DataSlice> rxSrcSlices;
@@ -291,8 +290,6 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
                     txSliceSize, txSliceSize / DATATYPE_SIZE_TABLE[dataType_]); // 发送源
                 DataSlice txDstSlice = DataSlice(sendRemoteCclBuffAddr, txScOff,
                     txSliceSize, txSliceSize / DATATYPE_SIZE_TABLE[dataType_]);  // 发送目标
-                HCCL_INFO("zjy tempAlgParams_.buffInfo.hcclBuff[%u] addr=%p, txScOff=%llu, txSliceSize=%llu",
-                    txIdx, tempAlgParams_.buffInfo.hcclBuff.addr, txScOff, txSliceSize);
                 txSrcSlices.push_back(txSrcSlice);
                 txDstSlices.push_back(txDstSlice);
                 DataSlice rxSrcSlice = DataSlice(recvRemoteCclBuffAddr, rxScOff,
