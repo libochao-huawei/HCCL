@@ -47,11 +47,14 @@ __aicore__ inline void AivBroadcastMesh1D::Process(uint64_t curCount, uint64_t s
     if (rank_ == root_) {
         CpGM2GM(cclGM, inputGM, countPerCore);
         PipeBarrier<PIPE_ALL>();
-        Record(peerRank, flag_offset, curTag_);
+        // 避免多核同时访问一个flag
+        for (uint32_t i = 0; i < rankSize_; i++) {
+            Record(i, flag_offset, curTag_);
+        }
     }
  
     // allgather
-    WaitFlag(peerRank, flag_offset, curTag_);
+    WaitFlag(rank_, flag_offset, curTag_);
     CpGM2GM(inputGM, cclGM, countPerCore);
     PipeBarrier<PIPE_ALL>();
 }
@@ -102,7 +105,7 @@ __aicore__ inline void AivBroadcastMesh1D::ProcessBigData(uint64_t curCount, uin
     // root 开始本卡搬运数据:这里是全量卡都去搬比较好，还是就用rankSize的卡去搬
     uint64_t sendInputOffset = input_ + (rankInnerDispls + innerDispls) * sizeof(T);
     uint64_t sendCclInOffset = reinterpret_cast<uint64_t>(GM_IN[rank_]) + (rankInnerDispls + innerDispls) * sizeof(T);
-    if ((rank_ == root_) && (sendCurCount > 0)) {
+    if (rank_ == root_) {
         CpGM2GM((__gm__ T *)sendCclInOffset, (__gm__ T *)sendInputOffset, sendCurCount);
         PipeBarrier<PIPE_ALL>();
         // targetRankCurCount这么多的数据量，有coreNumPerRank去写，但是有coreNumPerRank * rankSize的核去读，所以一个核要写rankSize个flag
@@ -152,12 +155,22 @@ __aicore__ inline void AivBroadcastMesh1D::ProcessBigData(uint64_t curCount, uin
     // 每个核开始去读数据
     uint64_t recvCclInOffset = reinterpret_cast<uint64_t>(GM_IN[root_]) + (rankInnerDisplsStage1 + rankSizeCoreInnerDispls + innerDisplsStage1) * sizeof(T);
     uint64_t recvCclOutOffset = reinterpret_cast<uint64_t>(GM_IN[rank_]) + (rankInnerDisplsStage1 + rankSizeCoreInnerDispls + innerDisplsStage1) * sizeof(T);
-    if ((rank_ != root_) && (rankSizeCoreSendCurCount > 0)) {
-        flag_offset = rank_ * coreNumPerRank * rankSize_ + rankSizeCoreDataIndex * rankSize_ + coreIndexStage1;
-        WaitFlag(root_, flag_offset, curTag_);
+    uint64_t flagTotal = rankSize_ * curStageCoreNum;
+    flag_offset = rank_ * coreNumPerRank * rankSize_ + rankSizeCoreDataIndex * rankSize_ + coreIndexStage1;
+    WaitFlag(root_, flag_offset, curTag_);
+    if (rank_ != root_) {
         CpGM2GM((__gm__ T *)recvCclOutOffset, (__gm__ T *)recvCclInOffset, sendCurCountStage1);
-        PipeBarrier<PIPE_ALL>();
-        Record(rank_, flag_offset, curTag_);
+        PipeBarrier<PIPE_ALL>();          
+    }
+    Record(rank_, flag_offset, curTag_);
+    if (coreIndexStage1 == 0) {
+        for (uint64_t i = 0; i < rankSize_; i++) {
+            uint64_t flag_offset_w = rank_ * coreNumPerRank * rankSize_ + rankSizeCoreDataIndex * rankSize_ + i;
+            WaitFlag(rank_, flag_offset_w, curTag_);
+        }
+        for (uint64_t i = 0; i < rankSize_; i++) {
+            Record(i, flagTotal + rank_ + rankSizeCoreDataIndex * rankSize_, curTag_);
+        }
     }
 
     // 最后所有的卡去做allgather,每个卡要读对面rankSize个flag
@@ -165,10 +178,7 @@ __aicore__ inline void AivBroadcastMesh1D::ProcessBigData(uint64_t curCount, uin
     uint64_t ouputOffset = input_ + (rankInnerDispls + innerDispls) * sizeof(T);
     if ((rank_ != root_) && (sendCurCount > 0)) {
         // 每块数据要去等rankSize个flag
-        for (uint64_t i = 0; i < rankSize_; i++) {
-            flag_offset = targetRank * coreNumPerRank * rankSize_ + coreIndex * rankSize_ + i;
-            WaitFlag(targetRank, flag_offset, curTag_);
-        }
+        WaitFlag(rank_, flagTotal + targetRank + coreIndex * rankSize_, curTag_);
         CpGM2GM((__gm__ T *)ouputOffset, (__gm__ T *)gatherSrcOffset, sendCurCount);
         PipeBarrier<PIPE_ALL>();
     }
