@@ -82,7 +82,7 @@ public:
 };
 
 template<typename T>
-__aicore__ inline void AivSendV2Mesh1D(EXTERN_KERNEL_ARGS_DEF_V2)
+__aicore__ inline void AivSendV2Mesh1D(KERNEL_ARGS_DEF)
 {
     AivSendMesh1D<T> op;
     op.Init(KERNEL_CLASS_INIT, true);
@@ -93,4 +93,4 @@ __aicore__ inline void AivSendV2Mesh1D(EXTERN_KERNEL_ARGS_DEF_V2)
     SyncAll<true>();
     op.Process(len, sliceId);
     op.SendRecvBarrierAll(rank, sendRecvRemoteRank);
-}
+}

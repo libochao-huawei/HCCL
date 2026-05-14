@@ -1,12 +1,12 @@
 if(NOT HCCL_CANN_COMPAT_850)
 set_source_files_properties(
-        aiv_communication_v2_alltoallv.h PROPERTIES LANGUAGE CXX
+        aiv_all_to_all_v_op.h PROPERTIES LANGUAGE CXX
 )
 set(CCE_DIR ${ASCEND_CANN_PACKAGE_PATH}/tools/ccec_compiler/bin)
 add_custom_target(hccl_aiv_all_to_all_v_op_910_95 ALL
     DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_v_op_910_95.o)
 add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_v_op_910_95.o
-        COMMAND ${CCE_DIR}/ccec -c -x cce -O2 ${CMAKE_CURRENT_SOURCE_DIR}/aiv_communication_v2_alltoallv.h -o ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_v_op_910_95_tmp.o --cce-aicore-arch=dav-c310-vec
+        COMMAND ${CCE_DIR}/ccec -c -x cce -O2 ${CMAKE_CURRENT_SOURCE_DIR}/aiv_all_to_all_v_op.h -o ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_v_op_910_95_tmp.o --cce-aicore-arch=dav-c310-vec
         --cce-aicore-input-parameter-size=28000 --cce-aicore-only -mllvm -cce-aicore-function-stack-size=0x8000 -mllvm -cce-aicore-stack-size=0x8000
         -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw/lib/
         -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw
@@ -24,7 +24,7 @@ add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_v_op_9
 add_custom_target(hccl_aiv_all_to_all_op_910_95 ALL
     DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_op_910_95.o)
 add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_op_910_95.o
-        COMMAND ${CCE_DIR}/ccec -c -x cce -O2 ${CMAKE_CURRENT_SOURCE_DIR}/aiv_communication_v2_alltoall.h -o ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_op_910_95_tmp.o --cce-aicore-arch=dav-c310-vec
+        COMMAND ${CCE_DIR}/ccec -c -x cce -O2 ${CMAKE_CURRENT_SOURCE_DIR}/aiv_all_to_all_op.h -o ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_op_910_95_tmp.o --cce-aicore-arch=dav-c310-vec
         --cce-aicore-input-parameter-size=28000 --cce-aicore-only -mllvm -cce-aicore-function-stack-size=0x8000 -mllvm -cce-aicore-stack-size=0x8000
         -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw/lib/
         -I${ASCEND_CANN_PACKAGE_PATH}/tools/tikcpp/tikcfw
