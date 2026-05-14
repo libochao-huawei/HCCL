@@ -119,6 +119,15 @@ HcclResult InsV2ReduceScatterSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchest
     if (param.engine == CommEngine::COMM_ENGINE_AICPU_TS) {
         algTemplate->SetchannelsPerRank(templateAlgRes.channels);
     }
+    HCCL_INFO("[DEBUG] tmp1LinkMap_ keys=%zu", templateAlgRes.channels.size());
+    for (auto it = templateAlgRes.channels.begin(); it != templateAlgRes.channels.end(); ++it) {
+        HCCL_INFO("zjy[DEBUG]   rank[%u] -> %zu channels", it->first, it->second.size());
+        for (size_t j = 0; j < it->second.size(); ++j) {
+            HCCL_INFO("zjy[DEBUG]     ch[%zu] remoteRank=%u, localRank=%u",
+                    j, it->second[j].remoteRank, myRank_);
+        }
+    }
+
     // 计算最小传输大小
     u64 maxDataSizePerLoop = 0;
     maxTmpMemSize_ = tempAlgParams.buffInfo.hcclBuff.size;
