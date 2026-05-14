@@ -2,8 +2,7 @@
 # Perform custom_install script for hccl package
 # Copyright (c) Huawei Technologies Co., Ltd. 2022. All rights reserved.
 
-arch=$(uname -m 2>&1 | awk '{print tolower($0)}')
-sourcedir="$PWD/${arch}-linux"
+sourcedir="$PWD/hccl"
 curpath=$(dirname $(readlink -f "$0"))
 common_func_path="${curpath}/common_func.inc"
 unset PYTHONPATH
