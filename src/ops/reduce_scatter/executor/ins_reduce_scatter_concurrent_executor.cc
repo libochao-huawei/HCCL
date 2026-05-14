@@ -192,6 +192,24 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
                 targetChannels[channel.remoteRank].push_back(channel);
             }
     }
+    // HCCL_INFO("[DEBUG] tmp0LinkMap_ keys=%zu", templateAlgResforTemp0.channels.size());
+    //     for (auto it = templateAlgResforTemp0.channels.begin(); it != templateAlgResforTemp0.channels.end(); ++it) {
+    //         HCCL_INFO("zjy[DEBUG]   rank[%u] -> %zu channels", it->first, it->second.size());
+    //         for (size_t j = 0; j < it->second.size(); ++j) {
+    //             HCCL_INFO("zjy[DEBUG]     ch[%zu] remoteRank=%u, localRank=%u",
+    //                     j, it->second[j].remoteRank, myRank_);
+    //         }
+    //     }
+    
+    // 打印 tmp1LinkMap_
+    HCCL_INFO("[DEBUG] tmp1LinkMap_ keys=%zu", templateAlgResforTemp1.channels.size());
+    for (auto it = templateAlgResforTemp1.channels.begin(); it != templateAlgResforTemp1.channels.end(); ++it) {
+        HCCL_INFO("zjy[DEBUG]   rank[%u] -> %zu channels", it->first, it->second.size());
+        for (size_t j = 0; j < it->second.size(); ++j) {
+            HCCL_INFO("zjy[DEBUG]     ch[%zu] remoteRank=%u, localRank=%u",
+                    j, it->second[j].remoteRank, myRank_);
+        }
+    }
     // 准备数据
     TemplateDataParams tempAlgParamsforTemp0;
     tempAlgParamsforTemp0.buffInfo.inputPtr = param.inputPtr;
@@ -235,6 +253,7 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
         cclMem1.addr = static_cast<void *>(static_cast<s8 *>(cclMemAddr) + cclMem0.size);
         cclMem1.size = cclMemSize - cclMem0.size;
     }
+    HCCL_INFO("zjy cclMem0.addr[%p], cclMem1.addr[%p]]", cclMem0.addr, cclMem1.addr);
     
     u64 maxCountPerLoopforTemp0 = static_cast<u64>(UB_MAX_DATA_SIZE) / dataTypeSize_;
     u64 maxCountPerLoopforTemp1 = static_cast<u64>(UB_MAX_DATA_SIZE) / dataTypeSize_;
