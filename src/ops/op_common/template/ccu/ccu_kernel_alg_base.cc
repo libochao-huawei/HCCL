@@ -10,6 +10,7 @@
 
 #include "ccu_kernel_alg_base.h"
 #include "ccu_kernel_utils.h"
+#include <cstdlib>
 
 namespace ops_hccl {
 using namespace hcomm;
@@ -230,10 +231,76 @@ HcclResult CcuKernelAlgBase::GroupBroadcast(const std::vector<ChannelHandle> &ch
     return HCCL_SUCCESS;
 }
 
+// HcclResult CcuKernelAlgBase::CreateMultiOpReduce(const std::vector<ChannelHandle> &channels, HcclDataType dataType,
+//                                      HcclDataType outputDataType, HcclReduceOp opType)
+// {
+//     AllocGoResource();
+//
+//     std::string loopType = GetReduceTypeStr(dataType, opType);
+//     if (registeredLoop.find(loopType) != registeredLoop.end()) {
+//         return HCCL_SUCCESS;
+//     }
+//
+//     uint32_t channelSize = channels.size();
+//     uint32_t size = channelSize + 1;
+//     uint32_t expansionNum = GetReduceExpansionNum(opType, dataType, outputDataType);
+//     uint32_t usedBufNum   = size > expansionNum ? size : expansionNum;
+//
+//     for (int32_t index = 0; index < 2; index++) {
+//         std::vector<CcuRep::RemoteAddr> src;
+//         src.reserve(size);
+//         for (uint32_t i = 0; i < size; i++) {
+//             CcuRep::LocalAddr tmp = CreateLocalAddr();
+//             src.emplace_back(*reinterpret_cast<CcuRep::RemoteAddr*>(&tmp));
+//         }
+//         CcuRep::LocalAddr dst = CreateLocalAddr();
+//         CcuRep::Variable  len = CreateVariable();
+//         CcuRep::Variable  lenForExpansion = CreateVariable();
+//         CcuRep::LoopBlock lb(this, loopType + "_loop_" + std::to_string(index));
+//         lb(src, dst, len, lenForExpansion);
+//
+//         std::vector<CcuRep::CcuBuf> bufs = {moRes.ccuBuf.begin() + index * moConfig.msInterleave,
+//                                                moRes.ccuBuf.begin() + index * moConfig.msInterleave + usedBufNum};
+//         CcuRep::CompletedEvent &event = moRes.completedEvent[index];
+//         for (uint32_t i = 0; i < channels.size(); i++) {
+//             event.mask = 1 << i;
+//             ReadNb(channels[i], bufs[i], src[i], len, event);
+//         }
+//
+//         CcuRep::LocalAddr &localSrc = *reinterpret_cast<CcuRep::LocalAddr*>(&src[size - 1]);
+//         event.mask = 1 << channelSize;
+//         LocalCopyNb(bufs[size - 1], localSrc, len, event);
+//         event.mask = (1 << size) - 1;
+//         WaitEvent(event);
+//
+//         if (size > 1) {
+//             event.mask = 1;
+//             LocalReduceNb(bufs, size, dataType, outputDataType, opType, len, event);
+//             WaitEvent(event);
+//         }
+//
+//         event.mask = 1;
+//         LocalCopyNb(dst, bufs[0], lenForExpansion, event);
+//         WaitEvent(event);
+//     }
+//
+//     registeredLoop.insert(loopType);
+//     return HCCL_SUCCESS;
+// }
+
 HcclResult CcuKernelAlgBase::CreateMultiOpReduce(const std::vector<ChannelHandle> &channels, HcclDataType dataType,
                                      HcclDataType outputDataType, HcclReduceOp opType)
 {
     AllocGoResource();
+
+    const char* subStepEnv = std::getenv("HCCL_CCUMS_REDUCE_SUBSTEP");
+    uint32_t subStepMask = 0xF;
+    // bit0=ReadNb(远端→MS), bit1=LocalCopyIn(HBM→MS), bit2=LocalReduce, bit3=LocalCopyOut(MS→HBM)
+    if (subStepEnv != nullptr) {
+        subStepMask = static_cast<uint32_t>(std::strtoul(subStepEnv, nullptr, 0));
+    }
+    HCCL_INFO("[CreateMultiOpReduceWithMask] REDUCE_SUBSTEP mask=0x%X (bit0=ReadNb,bit1=LocalCopyIn,bit2=LocalReduce,"
+              "bit3=LocalCopyOut)", subStepMask);
 
     std::string loopType = GetReduceTypeStr(dataType, opType);
     if (registeredLoop.find(loopType) != registeredLoop.end()) {
@@ -261,26 +328,33 @@ HcclResult CcuKernelAlgBase::CreateMultiOpReduce(const std::vector<ChannelHandle
         std::vector<CcuRep::CcuBuf> bufs = {moRes.ccuBuf.begin() + index * moConfig.msInterleave,
                                                moRes.ccuBuf.begin() + index * moConfig.msInterleave + usedBufNum};
         CcuRep::CompletedEvent &event = moRes.completedEvent[index];
-        for (uint32_t i = 0; i < channels.size(); i++) {
-            event.mask = 1 << i;
-            ReadNb(channels[i], bufs[i], src[i], len, event);
+
+        if (subStepMask & 0x1) {
+            for (uint32_t i = 0; i < channels.size(); i++) {
+                event.mask = 1 << i;
+                ReadNb(channels[i], bufs[i], src[i], len, event);
+            }
         }
 
-        CcuRep::LocalAddr &localSrc = *reinterpret_cast<CcuRep::LocalAddr*>(&src[size - 1]);
-        event.mask = 1 << channelSize;
-        LocalCopyNb(bufs[size - 1], localSrc, len, event);
-        event.mask = (1 << size) - 1;
-        WaitEvent(event);
+        if (subStepMask & 0x2) {
+            CcuRep::LocalAddr &localSrc = *reinterpret_cast<CcuRep::LocalAddr*>(&src[size - 1]);
+            event.mask = 1 << channelSize;
+            LocalCopyNb(bufs[size - 1], localSrc, len, event);
+            event.mask = (1 << size) - 1;
+            WaitEvent(event);
+        }
 
-        if (size > 1) {
+        if ((subStepMask & 0x4) && size > 1) {
             event.mask = 1;
             LocalReduceNb(bufs, size, dataType, outputDataType, opType, len, event);
             WaitEvent(event);
         }
 
-        event.mask = 1;
-        LocalCopyNb(dst, bufs[0], lenForExpansion, event);
-        WaitEvent(event);
+        if (subStepMask & 0x8) {
+            event.mask = 1;
+            LocalCopyNb(dst, bufs[0], lenForExpansion, event);
+            WaitEvent(event);
+        }
     }
 
     registeredLoop.insert(loopType);
@@ -934,11 +1008,81 @@ std::vector<CcuRep::CompletedEvent> CcuKernelAlgBase::CreateBlockCompletedEvent(
 // READY 握手解决跨 rank CKE bitmask 幂等冲突：
 //   依赖链保证 READY(N) 被消费后才产生 READY(N+1)，不会累积
 // 所有 rank 的 MS 布局一致：bufs[R] = rank R 的数据，reduce 顺序相同，结果 bit-exact 一致
+// HcclResult CcuKernelAlgBase::CreateMultiOpWrite(const std::vector<ChannelHandle> &channels, uint32_t rankId,
+//                                                  HcclDataType dataType, HcclDataType outputDataType,
+//                                                  HcclReduceOp opType)
+// {
+//     AllocGoResource();
+//
+//     std::string loopType = GetReduceTypeStr(dataType, opType) + "_write";
+//     if (registeredLoop.find(loopType) != registeredLoop.end()) {
+//         return HCCL_SUCCESS;
+//     }
+//     uint32_t channelSize = channels.size();
+//     uint32_t size        = channelSize + 1; // N-1 peers + self
+//     uint32_t expansionNum = GetReduceExpansionNum(opType, dataType, outputDataType);
+//     uint32_t usedBufNum   = size > expansionNum ? size : expansionNum;
+//
+//     for (int32_t index = 0; index < 2; index++) {
+//         CcuRep::LocalAddr src = CreateLocalAddr();
+//         CcuRep::LocalAddr dst = CreateLocalAddr();
+//         CcuRep::Variable  len = CreateVariable();
+//         CcuRep::Variable  lenForExpansion = CreateVariable();
+//         CcuRep::LoopBlock lb(this, loopType + "_loop_" + std::to_string(index));
+//         lb(src, dst, len, lenForExpansion);
+//
+//         std::vector<CcuRep::CcuBuf> bufs = {moRes.ccuBuf.begin() + index * (moConfig.msInterleave),
+//                                                moRes.ccuBuf.begin() + index * (moConfig.msInterleave) + usedBufNum};
+//         CcuRep::CompletedEvent &event = moRes.completedEvent[index];
+//
+//         uint32_t ckeIdx = (index == 0) ? 2 : 3;
+//
+//         event.mask = 1;
+//         LocalCopyNb(bufs[bufs.size() - 1], src, len, event);
+//         WaitEvent(event);
+//
+//         for (uint32_t i = 0; i < channels.size(); i++) {
+//             if (i < rankId) {
+//                 CHK_RET(MsWriteNb(channels[i], bufs[bufs.size() - 1], bufs[rankId - 1], len, ckeIdx, WRITE_DONE_MASK));
+//             } else {
+//                 CHK_RET(MsWriteNb(channels[i], bufs[bufs.size() - 1], bufs[rankId], len, ckeIdx, WRITE_DONE_MASK));
+//             }
+//         }
+//
+//         for (uint32_t i = 0; i < channels.size(); i++) {
+//             NotifyWait(channels[i], ckeIdx, WRITE_DONE_MASK);
+//         }
+//
+//         if (size > 1) {
+//             event.mask = 2;
+//             LocalReduceNb(bufs, size, dataType, outputDataType, opType, len, event);
+//             WaitEvent(event);
+//         }
+//
+//         event.mask = 4;
+//         LocalCopyNb(dst, bufs[0], lenForExpansion, event);
+//         WaitEvent(event);
+//     }
+//
+//     registeredLoop.insert(loopType);
+//     return HCCL_SUCCESS;
+// }
+
+
 HcclResult CcuKernelAlgBase::CreateMultiOpWrite(const std::vector<ChannelHandle> &channels, uint32_t rankId,
                                                  HcclDataType dataType, HcclDataType outputDataType,
                                                  HcclReduceOp opType)
 {
     AllocGoResource();
+
+    const char* subStepEnv = std::getenv("HCCL_CCUMS_WRITE_SUBSTEP");
+    uint32_t subStepMask = 0x1F;
+    // bit0=LocalCopyIn(HBM→MS), bit1=MsWrite, bit2=NotifyWait, bit3=LocalReduce, bit4=LocalCopyOut(MS→HBM)
+    if (subStepEnv != nullptr) {
+        subStepMask = static_cast<uint32_t>(std::strtoul(subStepEnv, nullptr, 0));
+    }
+    HCCL_INFO("[CreateMultiOpWriteWithMask] WRITE_SUBSTEP mask=0x%X (bit0=LocalCopyIn,bit1=MsWrite,bit2=NotifyWait,"
+              "bit3=LocalReduce,bit4=LocalCopyOut)", subStepMask);
 
     std::string loopType = GetReduceTypeStr(dataType, opType) + "_write";
     if (registeredLoop.find(loopType) != registeredLoop.end()) {
@@ -963,54 +1107,37 @@ HcclResult CcuKernelAlgBase::CreateMultiOpWrite(const std::vector<ChannelHandle>
 
         uint32_t ckeIdx = (index == 0) ? 2 : 3;
 
-        event.mask = 1;
-        LocalCopyNb(bufs[bufs.size() - 1], src, len, event);
-        WaitEvent(event);
+        if (subStepMask & 0x1) {
+            event.mask = 1;
+            LocalCopyNb(bufs[bufs.size() - 1], src, len, event);
+            WaitEvent(event);
+        }
 
-        // Step 4: 发送 bufs[rankId] 到所有 peers（对称 MS 分配，远端也写入 bufs[rankId]）
-        for (uint32_t i = 0; i < channels.size(); i++) {
-            if (i < rankId) {
-                CHK_RET(MsWriteNb(channels[i], bufs[bufs.size() - 1], bufs[rankId - 1], len, ckeIdx, WRITE_DONE_MASK));
-            } else {
-                CHK_RET(MsWriteNb(channels[i], bufs[bufs.size() - 1], bufs[rankId], len, ckeIdx, WRITE_DONE_MASK));
+        if (subStepMask & 0x2) {
+            for (uint32_t i = 0; i < channels.size(); i++) {
+                if (i < rankId) {
+                    CHK_RET(MsWriteNb(channels[i], bufs[bufs.size() - 1], bufs[rankId - 1], len, ckeIdx, WRITE_DONE_MASK));
+                } else {
+                    CHK_RET(MsWriteNb(channels[i], bufs[bufs.size() - 1], bufs[rankId], len, ckeIdx, WRITE_DONE_MASK));
+                }
+            }
+
+            for (uint32_t i = 0; i < channels.size(); i++) {
+                NotifyWait(channels[i], ckeIdx, WRITE_DONE_MASK);
             }
         }
 
-        // // Step 1: 本端 HBM → bufs[rankId]（每个 rank 固定占用自己的 MS slot）
-        // event.mask = 1;
-        // LocalCopyNb(bufs[rankId], src, len, event);
-        // WaitEvent(event);
-
-        // if (rankId == 0) {
-        //     event.mask = 1;
-        //     LocalCopyNb(bufs[bufs.size() - 1], src, len, event);
-        //     WaitEvent(event);
-        //     for (uint32_t i = 0; i < channels.size(); i++) {
-        //         CHK_RET(MsWriteNb(channels[i], bufs[bufs.size() - 1], bufs[rankId], len, ckeIdx, WRITE_DONE_MASK));
-        //     }
-        // } else {
-        //     // Step 4: 发送 bufs[rankId] 到所有 peers（对称 MS 分配，远端也写入 bufs[rankId]）
-        //     for (uint32_t i = 0; i < channels.size(); i++) {
-        //         CHK_RET(MsWriteNb(channels[i], bufs[rankId], bufs[rankId], len, ckeIdx, WRITE_DONE_MASK));
-        //     }
-        // }
-
-        // Step 5: 等待每个 peer 的写完成通知（WRITE_DONE，bit 2）
-        for (uint32_t i = 0; i < channels.size(); i++) {
-            NotifyWait(channels[i], ckeIdx, WRITE_DONE_MASK);
-        }
-
-        // Step 6: 对所有 N 个 MS 做 reduce（bufs[R]=rankR 的数据，所有 rank 顺序一致，结果在 bufs[0]）
-        if (size > 1) {
+        if ((subStepMask & 0x4) && size > 1) {
             event.mask = 2;
             LocalReduceNb(bufs, size, dataType, outputDataType, opType, len, event);
             WaitEvent(event);
         }
 
-        // Step 7: 结果 MS → 输出 HBM
-        event.mask = 4;
-        LocalCopyNb(dst, bufs[0], lenForExpansion, event);
-        WaitEvent(event);
+        if (subStepMask & 0x8) {
+            event.mask = 4;
+            LocalCopyNb(dst, bufs[0], lenForExpansion, event);
+            WaitEvent(event);
+        }
     }
 
     registeredLoop.insert(loopType);
