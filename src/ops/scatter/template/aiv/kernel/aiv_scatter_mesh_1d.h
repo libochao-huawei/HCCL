@@ -67,6 +67,7 @@ public:
         }
         WaitFlag(rank_, flag_offset, curTag_);
         CpGM2GM((__gm__ T *)output_, (__gm__ T *)GM_IN[rank_], len_);
+        pipe_barrier(PIPE_ALL);
     }
  
     __aicore__ inline void FlagClear()
@@ -119,4 +120,5 @@ __aicore__ inline void AivScatterV2Mesh1D(EXTERN_KERNEL_ARGS_DEF_V2)
     SyncAll<true>();
     op.Process(len, sliceId, inputSliceStride);
     op.BarrierAll();
+    SyncAll<true>();
 }
