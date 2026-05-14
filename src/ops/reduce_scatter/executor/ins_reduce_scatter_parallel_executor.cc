@@ -68,8 +68,8 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     // 调用计算资源的函数
     AlgResourceRequest intraTempRequest;
     AlgResourceRequest interTempRequest;
-    intraTempAlg.CalcRes(comm, param, topoInfo, intraTempRequest);
-    interTempAlg.CalcRes(comm, param, topoInfo, interTempRequest);
+    CHK_RET(intraTempAlg.CalcRes(comm, param, topoInfo, intraTempRequest));
+    CHK_RET(interTempAlg.CalcRes(comm, param, topoInfo, interTempRequest));
     // 申请一条控制thread作为主thread，该thread仅用于两个template之间同步
     resourceRequest.notifyNumOnMainThread = TEMPLATE_NOTIFY_NUM;
     // 由于主thread被单独作为控制thread，因此总的slaveThread需要额外加上两个template的主thread
