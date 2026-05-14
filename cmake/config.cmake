@@ -184,7 +184,7 @@ else()
 endif()
 set(INSTALL_LIBRARY_DIR ${CMAKE_SYSTEM_PROCESSOR}-linux/lib64)
 set(INSTALL_INCLUDE_DIR ${CMAKE_SYSTEM_PROCESSOR}-linux/include)
-set(INSTALL_AICPU_KERNEL_JSON_DIR opp/built-in/op_impl/aicpu)
+set(INSTALL_AICPU_KERNEL_JSON_DIR opp_new/built-in/op_impl/aicpu)
 set(INSTALL_DEVICE_TAR_DIR compat)
 
 if (ENABLE_TEST)
