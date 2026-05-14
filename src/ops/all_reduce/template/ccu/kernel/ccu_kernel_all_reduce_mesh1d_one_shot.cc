@@ -37,16 +37,37 @@ CcuKernelAllReduceMesh1DOneShot::CcuKernelAllReduceMesh1DOneShot(const CcuKernel
         "outputDataType[%u], reduceOp[%u]", rankId_, rankSize_, dataType_, outputDataType_, reduceOp_);
 }
 
+// HcclResult CcuKernelAllReduceMesh1DOneShot::Algorithm()
+// {
+//     HCCL_INFO("[CcuKernelAllReduceMesh1DOneShot] AllReduceMesh1DOneShot start");
+//     CHK_RET(InitResource());
+//     LoadArgs();  // 加载 taskArg 参数
+//     Presync();  // 跨卡前同步，交换参数信息
+
+//     DoGroupReduce();
+
+//     Postsync();  // 所有搬运任务结束后，跨卡后同步
+
+//     HCCL_INFO("[CcuKernelAllReduceMesh1DOneShot] AllReduceMesh1DOneShot end");
+//     return HcclResult::HCCL_SUCCESS;
+// }
+
 HcclResult CcuKernelAllReduceMesh1DOneShot::Algorithm()
 {
     HCCL_INFO("[CcuKernelAllReduceMesh1DOneShot] AllReduceMesh1DOneShot start");
+
+    const char* stageEnv = std::getenv("HCCL_CCUMS_PROF_STAGE");
+    uint32_t stageMask = 0xF; // 默认全部开启 (bit0=LoadArgs, bit1=Presync, bit2=GroupReduce, bit3=Postsync)
+    if (stageEnv != nullptr) {
+        stageMask = static_cast<uint32_t>(std::strtoul(stageEnv, nullptr, 0));
+    }
+    HCCL_INFO("[CcuKernelAllReduceMesh1DOneShot] PROF_STAGE mask=0x%X", stageMask);
+
     CHK_RET(InitResource());
-    LoadArgs();  // 加载 taskArg 参数
-    Presync();  // 跨卡前同步，交换参数信息
-
-    DoGroupReduce();
-
-    Postsync();  // 所有搬运任务结束后，跨卡后同步
+    if (stageMask & 0x1) { LoadArgs(); }
+    if (stageMask & 0x2) { Presync(); }
+    if (stageMask & 0x4) { DoGroupReduce(); }
+    if (stageMask & 0x8) { Postsync(); }
 
     HCCL_INFO("[CcuKernelAllReduceMesh1DOneShot] AllReduceMesh1DOneShot end");
     return HcclResult::HCCL_SUCCESS;
