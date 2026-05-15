@@ -133,13 +133,12 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
                                             channelDescs0.end());
         resourceRequest.channels[0].insert(resourceRequest.channels[0].end(), channelDescs1.begin(),
                                             channelDescs1.end());
-    for (auto it = channelDescs1.begin(); it != channelDescs1.end(); ++it) {
-        HCCL_INFO("zjy1[DEBUG]   rank[%u] -> %zu channels", it->first, it->second.size());
-        for (size_t j = 0; j < it->second.size(); ++j) {
-            HCCL_INFO("zjy1[DEBUG]     ch[%zu] remoteRank=%u, localRank=%u",
-                    j, it->second[j].remoteRank, myRank_);
+        int32 j = 0;
+        for (auto channel : resourceRequest.channels) {
+            HCCL_INFO("zjy11[DEBUG]     ch[%zu] remoteRank=%u, localRank=%u",
+                        j, channel.remoteRank, myRank_);
+            j++;
         }
-    }                                            
     } else {
         HCCL_ERROR("[InsReduceScatterConcurrentExecutor][CalcRes] the communication engine is not supported currently"
                     ", please check");
