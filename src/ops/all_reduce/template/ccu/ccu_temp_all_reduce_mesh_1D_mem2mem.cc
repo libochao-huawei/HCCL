@@ -46,7 +46,7 @@ HcclResult CcuTempAllReduceMeshMem2Mem1D::CalcSlice(const u64 dataSize, RankSlic
     sliceInfoVec.resize(templateRankSize_, tmp);
 
     u64 unitAllignSize = DataTypeSizeGet(dataType_);
-    u64 chunkSize      = RoundUp(dataSize, (templateRankSize_ * unitAllignSize)) * unitAllignSize;
+    u64 chunkSize      = u64(dataSize / (templateRankSize_ * unitAllignSize)) * unitAllignSize;
     HCCL_INFO("chunkSize[%llu], dataSize[%llu], templateRankSize_[%u], unitAllignSize[%llu]", chunkSize, dataSize,
               templateRankSize_, unitAllignSize);
     u64 accumOff = 0;
