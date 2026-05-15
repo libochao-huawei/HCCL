@@ -94,9 +94,9 @@ HcclResult InsTempAllGatherNHR::KernelRun(const OpParam &param, const TemplateDa
         CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub_));
     }
     for (u32 channelIdx = 0; channelIdx < channelsPerRank_; channelIdx++) {
-        CHK_RET(LocalDataCopy(templateResource.threads, channelIdx));   // input buffer拷贝到scratch buffer上
+     //   CHK_RET(LocalDataCopy(templateResource.threads, channelIdx));   // input buffer拷贝到scratch buffer上
         CHK_RET(RunAllGatherNHR(templateResource.threads, templateResource.channels, channelIdx));
-        CHK_RET(PostLocalCopy(templateResource.threads, channelIdx));
+      //  CHK_RET(PostLocalCopy(templateResource.threads, channelIdx));
     }
     if (threadNum_ > 1) {
         std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
@@ -238,7 +238,7 @@ HcclResult InsTempAllGatherNHR::LocalDataCopy(const std::vector<ThreadHandle> &t
         u64 sliceCount = partialSliceSize / dataTypeSize;
         DataSlice srcSlices(tempAlgParams_.buffInfo.inputPtr, inOff, partialSliceSize, sliceCount);
         DataSlice dstSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scOff, partialSliceSize, sliceCount);
-        CHK_RET(LocalCopy(threads[channelIdx], srcSlices, dstSlice));
+    //    CHK_RET(LocalCopy(threads[channelIdx], srcSlices, dstSlice));
     }
     return HcclResult::HCCL_SUCCESS;
 }
@@ -270,7 +270,7 @@ HcclResult InsTempAllGatherNHR::PostLocalCopy(const std::vector<ThreadHandle> &t
             u64 outOffset = tempAlgParams_.outputSliceStride * algRank + outBaseOff + partialOffset;
             DataSlice srcSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scratchOffset, partialSliceSize, sliceCount);
             DataSlice dstSlice(tempAlgParams_.buffInfo.outputPtr, outOffset, partialSliceSize, sliceCount);
-            CHK_RET(LocalCopy(threads[channelIdx], srcSlice, dstSlice));
+            //CHK_RET(LocalCopy(threads[channelIdx], srcSlice, dstSlice));
         }
     }
     return HcclResult::HCCL_SUCCESS;

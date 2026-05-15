@@ -37,7 +37,18 @@ HcclResult InsTempAlltoAllVMesh1D::CalcRes(HcclComm comm, const OpParam& param, 
     }
 
     std::vector<HcclChannelDesc> level0Channels;
-    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
+    if(topoInfo->level0Topo != Level0Shape::MESH_1D_CLOS) {
+        CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
+    } else {
+        std::vector<HcclChannelDesc> myChannelDescs;
+        CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks_, myChannelDescs, CommTopo::COMM_TOPO_1DMESH));
+        for(auto channel : myChannelDescs) {
+            if(channel.channelProtocol == COMM_PROTOCOL_UBC_CTP) {
+                level0Channels.push_back(channel);
+            }
+        }
+        HCCL_DEBUG("[InsTempAlltoAllVMesh1D::CalcRes] Get Channel Success!");
+    }  
     resourceRequest.channels.push_back(level0Channels);
     u32 channelsPerRank = CalcChannelsPerRank(level0Channels);
     resourceRequest.slaveThreadNum = std::min(ALLTOALLV_DIRECT_FULLMESH_CONCURRENT_SIZE, templateRankSize_ - 1) * channelsPerRank;
@@ -148,7 +159,7 @@ HcclResult InsTempAlltoAllVMesh1D::LocalCopyForMyRank(const TemplateDataParams &
         tempAlgParams.recvCounts[myAlgRank] * dataTypeSize_, tempAlgParams.recvCounts[myAlgRank]);
 
     if (tempAlgParams.sendCounts[myAlgRank] > 0) {
-        CHK_RET(static_cast<HcclResult>(LocalCopy(thread, srcSlice, dstSlice)));
+        //CHK_RET(static_cast<HcclResult>(LocalCopy(thread, srcSlice, dstSlice)));
         HCCL_DEBUG("[InsTempAlltoAllVMesh1D][RunALLtoALL] do local copy on thread[%u], data size[%llu].",
             queIdx, tempAlgParams.sendCounts[myAlgRank] * dataTypeSize_);
     }
@@ -358,7 +369,7 @@ HcclResult InsTempAlltoAllVMesh1D::PreCopy(const std::vector<u32> &commRanks,
                 myRankCclBuffIdx * tempAlgParams.inputSliceStride + tempAlgParams.buffInfo.hcclBuffBaseOff +
                 sendOffsetSplit_[channelId], sendSizeSplit_[channelId], sendCountsSplit_[channelId]);
             if (sendSizeSplit_[channelId] > 0) {
-                CHK_RET(static_cast<HcclResult>(LocalCopy(threads[queIdx], srcSlice, dstSlice)));
+           //     CHK_RET(static_cast<HcclResult>(LocalCopy(threads[queIdx], srcSlice, dstSlice)));
             }
             queIdx++;
         }
@@ -379,7 +390,7 @@ HcclResult InsTempAlltoAllVMesh1D::PostCopy(const TemplateDataParams &tempAlgPar
     DataSlice localCopyDstSlice = DataSlice(tempAlgParams.buffInfo.outputPtr,
         tempAlgParams.rdispls[remoteRank] * dataTypeSize_ + recvOffset,
         recvSize, recvCount);
-    CHK_RET(static_cast<HcclResult>(LocalCopy(thread, localCopySrcSlice, localCopyDstSlice)));
+   // CHK_RET(static_cast<HcclResult>(LocalCopy(thread, localCopySrcSlice, localCopyDstSlice)));
     return HcclResult::HCCL_SUCCESS;
 }
 
