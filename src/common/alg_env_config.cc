@@ -280,8 +280,7 @@ HcclResult InitEnvConfig()
 
     // 解析DfsConfig
     ret = ParseDfsConfig();
-    char* dfsEnv = nullptr;
-    MM_SYS_GET_ENV(MM_ENV_HCCL_DFS_CONFIG, dfsEnv);
+    char* dfsEnv = ("HCCL_DFS_CONFIG");
     std::string dfsEnvValue = (dfsEnv != nullptr) ? std::string(dfsEnv) : "null";
     RPT_ENV_ERR(ret != HCCL_SUCCESS,
         "EI0001",
@@ -976,9 +975,7 @@ HcclResult ParseDeterministic()
 
 HcclResult ParseDfsConfig()
 {
-    char *dfsConfigValue = nullptr;
-    MM_SYS_GET_ENV(MM_ENV_HCCL_DFS_CONFIG, dfsConfigValue);
-    std::string dfsConfigEnv = (dfsConfigValue != nullptr) ? dfsConfigValue : "EmptyString";
+    std::string dfsConfigEnv = GetEnv("HCCL_DFS_CONFIG");
     if (dfsConfigEnv == "EmptyString") {
         HCCL_INFO("[ParseDfsConfig] HCCL_DFS_CONFIG is not set.");
         return HCCL_SUCCESS;
