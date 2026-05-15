@@ -604,6 +604,46 @@ set(AIV_TARGETS
     hccl_aiv_scatter_op_910_95
     hccl_aiv_send_op_910_95
     hccl_aiv_recv_op_910_95
+    hccl_ar_superkernel_mesh_1d_oneshot_int8_v2
+    hccl_ar_superkernel_mesh_1d_oneshot_int16_v2
+    hccl_ar_superkernel_mesh_1d_oneshot_int32_v2
+    hccl_ar_superkernel_mesh_1d_oneshot_float16_v2
+    hccl_ar_superkernel_mesh_1d_oneshot_float32_v2
+    hccl_ar_superkernel_mesh_1d_oneshot_bfloat16_v2
+    hccl_ar_superkernel_mesh_1d_twoshot_int8_v2
+    hccl_ar_superkernel_mesh_1d_twoshot_int16_v2
+    hccl_ar_superkernel_mesh_1d_twoshot_int32_v2
+    hccl_ar_superkernel_mesh_1d_twoshot_float16_v2
+    hccl_ar_superkernel_mesh_1d_twoshot_float32_v2
+    hccl_ar_superkernel_mesh_1d_twoshot_bfloat16_v2
+    hccl_rs_superkernel_mesh_1d_int8_v2
+    hccl_rs_superkernel_mesh_1d_int16_v2
+    hccl_rs_superkernel_mesh_1d_int32_v2
+    hccl_rs_superkernel_mesh_1d_float16_v2
+    hccl_rs_superkernel_mesh_1d_float32_v2
+    hccl_rs_superkernel_mesh_1d_bfloat16_v2
+    hccl_ag_superkernel_mesh_1d_int8_v2
+    hccl_ag_superkernel_mesh_1d_int16_v2
+    hccl_ag_superkernel_mesh_1d_int32_v2
+    hccl_ag_superkernel_mesh_1d_float16_v2
+    hccl_ag_superkernel_mesh_1d_float32_v2
+    hccl_ag_superkernel_mesh_1d_bfloat16_v2
+    hccl_ag_superkernel_mesh_1d_uint8_v2
+    hccl_ag_superkernel_mesh_1d_uint16_v2
+    hccl_ag_superkernel_mesh_1d_uint32_v2
+    hccl_ag_superkernel_mesh_1d_int64_v2
+    hccl_ag_superkernel_mesh_1d_uint64_v2
+    hccl_a2a_superkernel_mesh_1d_int8_v2
+    hccl_a2a_superkernel_mesh_1d_int16_v2
+    hccl_a2a_superkernel_mesh_1d_int32_v2
+    hccl_a2a_superkernel_mesh_1d_float16_v2
+    hccl_a2a_superkernel_mesh_1d_float32_v2
+    hccl_a2a_superkernel_mesh_1d_bfloat16_v2
+    hccl_a2a_superkernel_mesh_1d_uint8_v2
+    hccl_a2a_superkernel_mesh_1d_uint16_v2
+    hccl_a2a_superkernel_mesh_1d_uint32_v2
+    hccl_a2a_superkernel_mesh_1d_int64_v2
+    hccl_a2a_superkernel_mesh_1d_uint64_v2
 )
 
 add_custom_target(aiv_all_targets)
