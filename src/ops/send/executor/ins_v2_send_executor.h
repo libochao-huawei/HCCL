@@ -37,10 +37,8 @@ namespace ops_hccl {
     protected:
         HcclResult InitSendInfo(
             const HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo);
-        // 图模式
-        HcclResult OrchestrateOffload(const OpParam &param, const AlgResourceCtxSerializable &resCtx);
-        // 单算子
-        HcclResult OrchestrateOpbase(const OpParam &param, const AlgResourceCtxSerializable &resCtx);
+        // 图模式&单算子
+        HcclResult OrchestrateImpl(const OpParam &param, const AlgResourceCtxSerializable &resCtx);
 
         HcclResult CalNumBlocks(u32& numBlocks, u64 dataSize, u32 numBlocksLimit);
 
