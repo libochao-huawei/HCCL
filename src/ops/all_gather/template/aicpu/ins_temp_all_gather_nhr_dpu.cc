@@ -13,8 +13,11 @@
 #include "dpu_alg_data_trans_wrapper.h"
 #include "channel.h"
 #include "alg_v2_template_register.h"
+#include "hcomm_primitives.h"
 
 namespace ops_hccl {
+constexpr u32 DPU_TIMEOUT = 180000;
+
 InsTempAllGatherNHRDPU::InsTempAllGatherNHRDPU(const OpParam& param, const uint32_t rankId,
                                                const std::vector<std::vector<uint32_t>> &subCommRanks)
     : InsAlgTemplateBase(param, rankId, subCommRanks) {}
@@ -227,40 +230,69 @@ HcclResult InsTempAllGatherNHRDPU::RunNHR(const TemplateDataParams& tempAlgParam
                 rxDstSlices.emplace_back(tempAlgParams.buffInfo.hcclBuff.addr, rxScratchOff, tempAlgParams.sliceSize,
                                          tempAlgParams.count);
             }
-            // write模式使用tx,rx地址不生效，仅使用对端link做Post/Wait
-            // read 模式使用rx, tx地址不生效，仅使用对端link做Post/Wait
-            if (txChannel[0].remoteRank == rxChannel[0].remoteRank) {
-                TxRxChannels sendRecvChannels(txChannel[0], rxChannel[0]);
-                TxRxSlicesList sendRecvSlicesList({txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices});
-                SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
+            const ChannelInfo& txCh = txChannel[0];
+            const ChannelInfo& rxCh = rxChannel[0];
+            const bool samePeer = (txCh.remoteRank == rxCh.remoteRank);
+            const u32 sliceNum = txSrcSlices.size();
 
-                CHK_PRT_RET(SendRecvWrite(sendRecvInfo),
-                    HCCL_ERROR("[InsTempAllGatherNHRDPU] SendRecvWrite failed (step=%u, rpt=%u)", step, rpt),
-                    HcclResult::HCCL_E_INTERNAL);
-            } else if (txChannel[0].remoteRank < rxChannel[0].remoteRank) {
-                SlicesList sendSliceList(txSrcSlices, txDstSlices);
-                DataInfo sendInfo(txChannel[0], sendSliceList);
-                CHK_PRT_RET(SendWrite(sendInfo),
-                            HCCL_ERROR("[InsTempAllGatherNhrDpuInter][RunNHR] Send failed (step=%u, rpt=%u)", step, rpt),
-                            HcclResult::HCCL_E_INTERNAL);
-
-                SlicesList recvSliceList(rxSrcSlices, rxDstSlices);
-                        DataInfo recvInfo(rxChannel[0], recvSliceList);
-                        CHK_PRT_RET(RecvWrite(recvInfo),
-                            HCCL_ERROR("[InsTempAllGatherNhrDpuInter][RunNHR] Recv failed (step=%u, rpt=%u)", step, rpt),
-                            HcclResult::HCCL_E_INTERNAL);
+            // ========== 前同步阶段 ==========
+            if (samePeer) {
+                // SendRecvWrite 模式：Record(recv) + Wait(send)
+                CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(0, rxCh.handle, NOTIFY_IDX_ACK)));
+                CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(0, txCh.handle, NOTIFY_IDX_ACK, DPU_TIMEOUT)));
             } else {
-                SlicesList recvSliceList(rxSrcSlices, rxDstSlices);
-                    DataInfo recvInfo(rxChannel[0], recvSliceList);
-                    CHK_PRT_RET(RecvWrite(recvInfo),
-                        HCCL_ERROR("[InsTempAllGatherNhrDpuInter][RunNHR] Recv failed (step=%u, rpt=%u)", step, rpt),
-                        HcclResult::HCCL_E_INTERNAL);
+                // 不同 peer：各自独立 ACK（SendWrite + RecvWrite 模式）
+                CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(0, txCh.handle, NOTIFY_IDX_ACK)));
+                CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(0, txCh.handle, NOTIFY_IDX_ACK, DPU_TIMEOUT)));
+                CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(0, rxCh.handle, NOTIFY_IDX_ACK)));
+                CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(0, rxCh.handle, NOTIFY_IDX_ACK, DPU_TIMEOUT)));
+            }
 
-                SlicesList sendSliceList(txSrcSlices, txDstSlices);
-                DataInfo sendInfo(txChannel[0], sendSliceList);
-                CHK_PRT_RET(SendWrite(sendInfo),
-                            HCCL_ERROR("[InsTempAllGatherNhrDpuInter][RunNHR] Send failed (step=%u, rpt=%u)", step, rpt),
-                            HcclResult::HCCL_E_INTERNAL);
+            // ========== 数据写操作阶段 ==========
+            for (u32 i = 0; i < sliceNum; ++i) {
+                const DataSlice& srcSlice = txSrcSlices[i];
+                const DataSlice& dstSlice = txDstSlices[i];
+                void* dst = static_cast<void*>(static_cast<s8*>(dstSlice.addr_) + dstSlice.offset_);
+                void* src = static_cast<void*>(static_cast<s8*>(srcSlice.addr_) + srcSlice.offset_);
+
+                if (samePeer) {
+                    // SendRecvWrite：Write(sendCh) + Wait(recvCh, DATA)
+                    CHK_RET(static_cast<HcclResult>(
+                        HcommWriteWithNotifyNbiOnThread(0, txCh.handle, dst, src, srcSlice.size_, NOTIFY_IDX_DATA_SIGNAL)));
+                    CHK_RET(static_cast<HcclResult>(
+                        HcommChannelNotifyWaitOnThread(0, rxCh.handle, NOTIFY_IDX_DATA_SIGNAL, DPU_TIMEOUT)));
+                } else {
+                    // SendWrite + RecvWrite：接收方先 Record(DATA)，发送方 Write+Wait(DATA)，接收方 Wait(DATA)
+                    CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(0, rxCh.handle, NOTIFY_IDX_DATA_SIGNAL)));
+                    CHK_RET(static_cast<HcclResult>(
+                        HcommWriteWithNotifyNbiOnThread(0, txCh.handle, dst, src, srcSlice.size_, NOTIFY_IDX_DATA_SIGNAL)));
+                    CHK_RET(static_cast<HcclResult>(
+                        HcommChannelNotifyWaitOnThread(0, txCh.handle, NOTIFY_IDX_DATA_SIGNAL, DPU_TIMEOUT)));
+                    CHK_RET(static_cast<HcclResult>(
+                        HcommChannelNotifyWaitOnThread(0, rxCh.handle, NOTIFY_IDX_DATA_SIGNAL, DPU_TIMEOUT)));
+                }
+            }
+
+            // ========== 后同步阶段 ==========
+            if (samePeer) {
+                // SendRecvWrite 后同步顺序
+                CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(0, txCh.handle, NOTIFY_IDX_FIN_ACK)));
+                CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(0, rxCh.handle, NOTIFY_IDX_FIN_ACK, DPU_TIMEOUT)));
+                CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(0, rxCh.handle, NOTIFY_IDX_FIN_ACK)));
+                CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(0, txCh.handle, NOTIFY_IDX_FIN_ACK, DPU_TIMEOUT)));
+                CHK_RET(static_cast<HcclResult>(HcommChannelFenceOnThread(0, txCh.handle)));
+                CHK_RET(static_cast<HcclResult>(HcommFenceOnThread(0)));
+            } else {
+                // 各自独立 FIN + Fence，最后全局 Fence
+                CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(0, txCh.handle, NOTIFY_IDX_FIN_ACK)));
+                CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(0, txCh.handle, NOTIFY_IDX_FIN_ACK, DPU_TIMEOUT)));
+                CHK_RET(static_cast<HcclResult>(HcommChannelFenceOnThread(0, txCh.handle)));
+
+                CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(0, rxCh.handle, NOTIFY_IDX_FIN_ACK)));
+                CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(0, rxCh.handle, NOTIFY_IDX_FIN_ACK, DPU_TIMEOUT)));
+                CHK_RET(static_cast<HcclResult>(HcommChannelFenceOnThread(0, rxCh.handle)));
+
+                CHK_RET(static_cast<HcclResult>(HcommFenceOnThread(0)));
             }
         }
     }

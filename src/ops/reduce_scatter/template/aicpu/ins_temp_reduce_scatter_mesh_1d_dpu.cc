@@ -9,8 +9,10 @@
  */
 
 #include "ins_temp_reduce_scatter_mesh_1d_dpu.h"
+#include "hcomm_primitives.h"
 
 namespace ops_hccl {
+constexpr u32 DPU_TIMEOUT = 180000;
 InsTempReduceScatterMesh1dDpu::InsTempReduceScatterMesh1dDpu()
 {
 }
@@ -131,51 +133,72 @@ HcclResult InsTempReduceScatterMesh1dDpu::DPUKernelRun(const TemplateDataParams&
         return HCCL_E_INTERNAL;
     }
 
+    // 收集所有 peer 的 (channel, rankIdx) 信息，跳过自己
+    std::vector<std::pair<const ChannelInfo*, u32>> peerList;
     for (u32 rankIdx = 0; rankIdx < rankIds.size(); rankIdx++) {
         u32 remoteRank = rankIds[rankIdx];
-        if (remoteRank == myRank) {
-            continue;
+        if (remoteRank != myRank) {
+            peerList.emplace_back(&channels.at(remoteRank)[0], rankIdx);
         }
-        const ChannelInfo &linkSend = channels.at(remoteRank)[0];
-        const ChannelInfo &linkRecv = channels.at(remoteRank)[0];
-        std::vector<DataSlice> txSrcSlices;
-        std::vector<DataSlice> txDstSlices;
-        std::vector<DataSlice> rxSrcSlices;
-        std::vector<DataSlice> rxDstSlices;
-
-        // 在 HcclBuffer 上进行 ReduceScatter 操作
-        // 由于进程只能访问远端的HcclBuffer，所以只能通过write的方式将自己userIn上的数据写到远端HcclBuffer上
-        for (u32 repeatIdx = 0; repeatIdx < tempAlgParams.repeatNum; repeatIdx++) {
-            // 在reduce_scatter_op.cc的创建channels的环节中获取到了remote的HcclBuff的地址
-            void* remoteCclBuffAddr = linkSend.remoteCclMem.addr;
-            // 在接收的时候接收源应该是远端地址，但是由于rs的mesh算法用的是write，所以rx不用care
-            DataSlice rxSrcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr, tempAlgParams.buffInfo.inBuffBaseOff +
-                repeatIdx * tempAlgParams.inputRepeatStride + myAlgRank * tempAlgParams.inputSliceStride,
-                tempAlgParams.sliceSize, tempAlgParams.count); // 接收源
-            DataSlice rxDstSlice = DataSlice(tempAlgParams.buffInfo.hcclBuff.addr,
-                tempAlgParams.buffInfo.hcclBuffBaseOff +  repeatIdx * tempAlgParams.outputRepeatStride +
-                rankIdx * tempAlgParams.outputSliceStride, tempAlgParams.sliceSize, tempAlgParams.count); // 接收目标
-
-            DataSlice txSrcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr,
-                tempAlgParams.buffInfo.inBuffBaseOff + rankIdx * tempAlgParams.inputSliceStride + repeatIdx * tempAlgParams.inputRepeatStride,
-                tempAlgParams.sliceSize, tempAlgParams.count); // 发送源
-            DataSlice txDstSlice = DataSlice(remoteCclBuffAddr,
-                tempAlgParams.buffInfo.hcclBuffBaseOff + myAlgRank * tempAlgParams.outputSliceStride + repeatIdx * tempAlgParams.outputRepeatStride,
-                tempAlgParams.sliceSize, tempAlgParams.count);  // 发送目标
-
-            rxSrcSlices.push_back(rxSrcSlice);
-            rxDstSlices.push_back(rxDstSlice);
-            txSrcSlices.push_back(txSrcSlice);
-            txDstSlices.push_back(txDstSlice);
-        }
-        SendRecvInfo sendRecvInfo{{linkSend, linkRecv},
-                             {{txSrcSlices, txDstSlices},{rxSrcSlices, rxDstSlices}}};
-
-        CHK_PRT_RET(SendRecvWrite(sendRecvInfo),
-                    HCCL_ERROR("[InsTempReduceScatterMesh1dDpu] RunReduceScatter Send failed"),
-                    HcclResult::HCCL_E_INTERNAL);
-
     }
+
+    // ========== 前同步阶段：对所有 n-1 个 peer 完成 ACK 握手 ==========
+    for (const auto& entry : peerList) {
+        const ChannelInfo& ch = *entry.first;
+        // SendRecvWrite 模式下：Record(recvCh, ACK) + Wait(sendCh, ACK)
+        // 此处 sendCh 与 recvCh 为同一 channel
+        CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(0, ch.handle, NOTIFY_IDX_ACK)));
+        CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(0, ch.handle, NOTIFY_IDX_ACK, DPU_TIMEOUT)));
+    }
+
+    // ========== 数据写操作阶段：集中执行所有 peer 的 Write + DATA_SIGNAL 等待 ==========
+    for (const auto& entry : peerList) {
+        const ChannelInfo& link = *entry.first;
+        const u32 rankIdx = entry.second;
+        void* remoteCclBuffAddr = link.remoteCclMem.addr;
+
+        for (u32 repeatIdx = 0; repeatIdx < tempAlgParams.repeatNum; repeatIdx++) {
+            // 完全复刻原 slice 构造逻辑
+            DataSlice rxSrcSlice(tempAlgParams.buffInfo.inputPtr,
+                tempAlgParams.buffInfo.inBuffBaseOff + repeatIdx * tempAlgParams.inputRepeatStride +
+                myAlgRank * tempAlgParams.inputSliceStride,
+                tempAlgParams.sliceSize, tempAlgParams.count);
+
+            DataSlice rxDstSlice(tempAlgParams.buffInfo.hcclBuff.addr,
+                tempAlgParams.buffInfo.hcclBuffBaseOff + repeatIdx * tempAlgParams.outputRepeatStride +
+                rankIdx * tempAlgParams.outputSliceStride,
+                tempAlgParams.sliceSize, tempAlgParams.count);
+
+            DataSlice txSrcSlice(tempAlgParams.buffInfo.inputPtr,
+                tempAlgParams.buffInfo.inBuffBaseOff + rankIdx * tempAlgParams.inputSliceStride +
+                repeatIdx * tempAlgParams.inputRepeatStride,
+                tempAlgParams.sliceSize, tempAlgParams.count);
+
+            DataSlice txDstSlice(remoteCclBuffAddr,
+                tempAlgParams.buffInfo.hcclBuffBaseOff + myAlgRank * tempAlgParams.outputSliceStride +
+                repeatIdx * tempAlgParams.outputRepeatStride,
+                tempAlgParams.sliceSize, tempAlgParams.count);
+
+            // 执行写操作（对应原 SendRecvWrite 中的 Write + Wait DATA）
+            CHK_RET(static_cast<HcclResult>(HcommWriteWithNotifyNbiOnThread(
+                0, link.handle, static_cast<void*>(static_cast<s8*>(txDstSlice.addr_) + txDstSlice.offset_),
+                static_cast<void*>(static_cast<s8*>(txSrcSlice.addr_) + txSrcSlice.offset_),
+                txSrcSlice.size_, NOTIFY_IDX_DATA_SIGNAL)));
+
+            CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(
+                0, link.handle, NOTIFY_IDX_DATA_SIGNAL, DPU_TIMEOUT)));
+        }
+    }
+
+    // ========== 后同步阶段：对所有 peer 完成 FIN_ACK + Fence ==========
+    for (const auto& entry : peerList) {
+        const ChannelInfo& ch = *entry.first;
+        CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(0, ch.handle, NOTIFY_IDX_FIN_ACK)));
+        CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(0, ch.handle, NOTIFY_IDX_FIN_ACK, DPU_TIMEOUT)));
+        CHK_RET(static_cast<HcclResult>(HcommChannelFenceOnThread(0, ch.handle)));
+    }
+    CHK_RET(static_cast<HcclResult>(HcommFenceOnThread(0)));
+
 #endif
     return HCCL_SUCCESS;
 }
