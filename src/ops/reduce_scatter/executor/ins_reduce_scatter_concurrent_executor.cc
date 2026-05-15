@@ -137,6 +137,7 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
         for (auto channel : channelDescs1.channels) {
             HCCL_INFO("zjy11[DEBUG]     ch[%zu] remoteRank=%u, localRank=%u",
                         j, channel.remoteRank, myRank_);
+                        
             j++;
         }
     } else {
