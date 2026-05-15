@@ -360,7 +360,7 @@ __aicore__ inline void AivAllReduceV2Mesh1DTwoShotSuperKernel(SUPERKERNEL_ARGS_D
     uint64_t maxCountPerLoop = op.cclBufferSize_ / UB_ALIGN_SIZE * UB_ALIGN_SIZE / op.rankSize_ / sizeof(T);
     uint64_t countLeft = op.len_;
 
-    int32_t loopTag = (op.tag_ << 15);
+    int32_t loopTag = op.tag_;
 
     while (countLeft > 0) {
         uint64_t curCount = (countLeft > maxCountPerLoop) ? maxCountPerLoop : countLeft;

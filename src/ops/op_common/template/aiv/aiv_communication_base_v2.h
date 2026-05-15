@@ -273,6 +273,7 @@ public:
         if (args->clearEnable == 1) {
             ClearSyncBuf();
         }
+        GetTag(args->buffersIn);
     }
 
     __aicore__ inline void InitBuffArray(GM_ADDR buffIn)

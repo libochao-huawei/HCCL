@@ -2231,6 +2231,8 @@ HcclResult HcclGetAlgExecParamGraphMode(const char *tag, const char *group, u64 
     
     HcclComm comm = nullptr;
     CHK_RET(HcomGetCommHandleByGroup(group, &comm));
+    u32 rankSize = INVALID_VALUE_RANKSIZE;
+    CHK_RET(HcclGetRankSize(comm, &rankSize));
 
     ops_hccl::OpParam param;
     param.hcclComm = comm;
@@ -2242,7 +2244,42 @@ HcclResult HcclGetAlgExecParamGraphMode(const char *tag, const char *group, u64 
     param.reduceType = op;
     param.opMode = ops_hccl::OpMode::OFFLOAD;
     param.numBlocksLimit = aivCoreLimit;
-    // param.engine = CommEngine::COMM_ENGINE_AIV;
+
+    if (opType == HcclCMDType::HCCL_CMD_ALLTOALL) {
+        param.varMemSize = ops_hccl::ALL_TO_ALL_V_VECTOR_NUM * rankSize * sizeof(u64);
+        param.all2AllVDataDes.sendType = dataType;
+        param.all2AllVDataDes.recvType = dataType;
+
+        u64 arrSize = rankSize * sizeof(u64);
+        void *sendCountsHost = nullptr;
+        void *recvCountsHost = nullptr;
+        void *sdisplsHost = nullptr;
+        void *rdisplsHost = nullptr;
+        ACLCHECK(aclrtMallocHost(&sendCountsHost, arrSize));
+        ACLCHECK(aclrtMallocHost(&recvCountsHost, arrSize));
+        ACLCHECK(aclrtMallocHost(&sdisplsHost, arrSize));
+        ACLCHECK(aclrtMallocHost(&rdisplsHost, arrSize));
+
+        u64 *sendCountsPtr = static_cast<u64 *>(sendCountsHost);
+        u64 *recvCountsPtr = static_cast<u64 *>(recvCountsHost);
+        u64 *sdisplsPtr = static_cast<u64 *>(sdisplsHost);
+        u64 *rdisplsPtr = static_cast<u64 *>(rdisplsHost);
+
+        u64 dataCountOffset = 0;
+        for (u32 i = 0; i < rankSize; i++) {
+            sendCountsPtr[i] = count;
+            recvCountsPtr[i] = count;
+            sdisplsPtr[i] = dataCountOffset;
+            rdisplsPtr[i] = dataCountOffset;
+            dataCountOffset += count;
+        }
+
+        param.all2AllVDataDes.sendCounts = sendCountsHost;
+        param.all2AllVDataDes.recvCounts = recvCountsHost;
+        param.all2AllVDataDes.sdispls = sdisplsHost;
+        param.all2AllVDataDes.rdispls = rdisplsHost;
+    }
+
     CHK_RET(ops_hccl::InitEnvConfig());
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
@@ -2317,6 +2354,17 @@ HcclResult HcclGetAlgExecParamGraphMode(const char *tag, const char *group, u64 
     superKernelArgs.input = aivOpArgs.input;
     superKernelArgs.output = aivOpArgs.output;
     superKernelArgs.cclBufferSize = resCtxHost->cclMem.size;
+
+    HCCL_INFO("[HcclGetAlgExecParamGraphMode] superKernelArgs: buffersIn[%p], rank[%u], rankSize[%u], "
+              "len[%llu], dataType[%u], unitSize[%u], reduceOp[%u], numBlocks[%u], tag[%d], "
+              "clearEnable[%d], inputSliceStride[%llu], outputSliceStride[%llu], repeatNum[%llu], "
+              "inputRepeatStride[%llu], outputRepeatStride[%llu], input[%llu], output[%llu], cclBufferSize[%llu]",
+              superKernelArgs.buffersIn, superKernelArgs.rank, superKernelArgs.rankSize,
+              superKernelArgs.len, superKernelArgs.dataType, superKernelArgs.unitSize,
+              superKernelArgs.reduceOp, superKernelArgs.numBlocks, superKernelArgs.tag,
+              superKernelArgs.clearEnable, superKernelArgs.inputSliceStride, superKernelArgs.outputSliceStride,
+              superKernelArgs.repeatNum, superKernelArgs.inputRepeatStride, superKernelArgs.outputRepeatStride,
+              superKernelArgs.input, superKernelArgs.output, superKernelArgs.cclBufferSize);
 
     // 分配设备内存
     void *deviceMem = nullptr;
