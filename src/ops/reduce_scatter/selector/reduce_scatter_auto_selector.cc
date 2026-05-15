@@ -16,6 +16,7 @@ constexpr u32 MAX_RANK_NUM_FOR_CONCURRENT_ALGO = 4;
 constexpr u64 RS_AICPU_1D_MAX_DATA_SIZE = 16 * 1024 * 1024;
 constexpr u64 RS_FLATTEN_MAX_DATA_SIZE = 8 * 1024 * 1024;
 constexpr u64 RS_AICPU_1D_MIN_DATA_SIZE = 4 * 1024 * 1024;
+constexpr u64 RS_CCU_CLOS_1D_MIN_DATA_SIZE = 4 * 1024 * 1024;
 
 SelectorStatus ReduceScatterAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
@@ -144,6 +145,9 @@ SelectorStatus ReduceScatterAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWi
                 selectAlgName = "CcuReduceScatterNHR1DMem2Mem";
                 return SelectorStatus::MATCH;
             }
+        } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
+            selectAlgName = "CcuReduceScatterNHR1DMem2Mem";
+            return SelectorStatus::MATCH;
         } else {
             HCCL_WARNING("[SelectCcuScheduleAlgo] layer0Shape[%d] is not supported yet for ccu schedule mode.",
                 topoInfo->level0Topo);
@@ -226,6 +230,12 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoCcuSchedule(const TopoIn
         } else {
             // 其他场景，用1d NHR算法
             selectAlgName = "CcuReduceScatterNhr1DMem2MemMultiJetty";
+        }
+    } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
+        if (dataSize > RS_CCU_CLOS_1D_MIN_DATA_SIZE) {
+            selectAlgName = "CcuReduceScatterMesh1DMem2Mem";
+        } else {
+            selectAlgName = "CcuReduceScatterNHR1DMem2Mem";
         }
     } else {
         HCCL_DEBUG("[ReduceScatterAutoSelector] MESH_1D_CLOS not match.");
