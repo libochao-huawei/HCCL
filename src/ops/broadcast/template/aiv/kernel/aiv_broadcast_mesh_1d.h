@@ -110,7 +110,7 @@ __aicore__ inline void AivBroadcastMesh1D::ProcessBigData(uint64_t curCount, uin
         PipeBarrier<PIPE_ALL>();
         // targetRankCurCount这么多的数据量，有coreNumPerRank去写，但是有coreNumPerRank * rankSize的核去读，所以一个核要写rankSize个flag
         for (uint64_t i = 0; i < rankSize_; i++) {
-            Record(root_, block_idx * rankSize_ + i, curTag_);
+            Record(i, block_idx * rankSize_ + i, curTag_);
         }
     }
 
@@ -155,21 +155,22 @@ __aicore__ inline void AivBroadcastMesh1D::ProcessBigData(uint64_t curCount, uin
     // 每个核开始去读数据
     uint64_t recvCclInOffset = reinterpret_cast<uint64_t>(GM_IN[root_]) + (rankInnerDisplsStage1 + rankSizeCoreInnerDispls + innerDisplsStage1) * sizeof(T);
     uint64_t recvCclOutOffset = reinterpret_cast<uint64_t>(GM_IN[rank_]) + (rankInnerDisplsStage1 + rankSizeCoreInnerDispls + innerDisplsStage1) * sizeof(T);
-    uint64_t flagTotal = rankSize_ * curStageCoreNum;
+    uint64_t flagRootToCclTotalNum = rankSize_ * curStageCoreNum;
+    uint64_t flagRsEndIndex = flagRootToCclTotalNum + curStageCoreNum;
     flag_offset = rank_ * coreNumPerRank * rankSize_ + rankSizeCoreDataIndex * rankSize_ + coreIndexStage1;
-    WaitFlag(root_, flag_offset, curTag_);
+    WaitFlag(rank_, flag_offset, curTag_);
     if (rank_ != root_) {
         CpGM2GM((__gm__ T *)recvCclOutOffset, (__gm__ T *)recvCclInOffset, sendCurCountStage1);
-        PipeBarrier<PIPE_ALL>();          
+        PipeBarrier<PIPE_ALL>();
     }
-    Record(rank_, flag_offset, curTag_);
+    Record(rank_, flagRootToCclTotalNum + block_idx, curTag_);
     if (coreIndexStage1 == 0) {
         for (uint64_t i = 0; i < rankSize_; i++) {
-            uint64_t flag_offset_w = rank_ * coreNumPerRank * rankSize_ + rankSizeCoreDataIndex * rankSize_ + i;
+            uint64_t flag_offset_w = flagRootToCclTotalNum + block_idx + i;
             WaitFlag(rank_, flag_offset_w, curTag_);
         }
         for (uint64_t i = 0; i < rankSize_; i++) {
-            Record(i, flagTotal + rank_ + rankSizeCoreDataIndex * rankSize_, curTag_);
+            Record(i, flagRsEndIndex + rank_ + rankSizeCoreDataIndex * rankSize_, curTag_);
         }
     }
 
@@ -178,7 +179,7 @@ __aicore__ inline void AivBroadcastMesh1D::ProcessBigData(uint64_t curCount, uin
     uint64_t ouputOffset = input_ + (rankInnerDispls + innerDispls) * sizeof(T);
     if ((rank_ != root_) && (sendCurCount > 0)) {
         // 每块数据要去等rankSize个flag
-        WaitFlag(rank_, flagTotal + targetRank + coreIndex * rankSize_, curTag_);
+        WaitFlag(rank_, flagRsEndIndex + targetRank + coreIndex * rankSize_, curTag_);
         CpGM2GM((__gm__ T *)ouputOffset, (__gm__ T *)gatherSrcOffset, sendCurCount);
         PipeBarrier<PIPE_ALL>();
     }
