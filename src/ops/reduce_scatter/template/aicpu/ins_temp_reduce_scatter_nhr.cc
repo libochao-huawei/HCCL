@@ -161,12 +161,13 @@ HcclResult InsTempReduceScatterNHR::LocalDataCopy(const std::vector<ThreadHandle
             DataSlice src = DataSlice(tempAlgParams_.buffInfo.inputPtr, inOff, sizeOut[channelIdx]);
             DataSlice dst = DataSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scOff, sizeOut[channelIdx]);
 
-            // 如果源地址和目标地址相同，则不需要做拷贝
-            if (tempAlgParams_.buffInfo.inBuffType != tempAlgParams_.buffInfo.hcclBuffType || inOff != scOff) { 
-               // CHK_RET(LocalCopy(q, src, dst));
+            // 如果源slice和目标slice的type类型相同且base偏移相同，则不需要做拷贝
+            if (tempAlgParams_.buffInfo.inBuffType != tempAlgParams_.buffInfo.hcclBuffType || inBaseOff != scratchBase) {
+                doPreCopy_ = true;
+                //CHK_RET(LocalCopy(q, src, dst));
             }
+        
         }
-    }
     return HcclResult::HCCL_SUCCESS;
 }
 
