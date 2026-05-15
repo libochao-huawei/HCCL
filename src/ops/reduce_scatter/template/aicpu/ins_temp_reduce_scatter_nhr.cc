@@ -114,13 +114,13 @@ HcclResult InsTempReduceScatterNHR::KernelRun(const OpParam& param,
     for (u32 channelIdx = 0; channelIdx < channelsPerRank_; channelIdx++) {
         CHK_PRT_RET(channelIdx >= sizeOut.size() || channelIdx >= elemOffset.size(),
                     HCCL_ERROR("[InsTempReduceScatterNHR] channelIdx[%u] out of bounds", channelIdx), HCCL_E_INTERNAL);
-        CHK_RET(LocalDataCopy(templateResource.threads, channelIdx));
+        //CHK_RET(LocalDataCopy(templateResource.threads, channelIdx));
         if (templateRankSize_ <= 1) {
             CHK_RET(PostLocalCopy(templateResource.threads, channelIdx));
             return HcclResult::HCCL_SUCCESS;
         }
         CHK_RET(RunNHR(templateResource.threads, channelIdx));
-        CHK_RET(PostLocalCopy(templateResource.threads, channelIdx));
+        //CHK_RET(PostLocalCopy(templateResource.threads, channelIdx));
     }
 
     if (threadNum_ > 1) {
