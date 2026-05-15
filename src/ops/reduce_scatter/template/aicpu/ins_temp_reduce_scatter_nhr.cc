@@ -166,8 +166,8 @@ HcclResult InsTempReduceScatterNHR::LocalDataCopy(const std::vector<ThreadHandle
                 doPreCopy_ = true;
                // CHK_RET(LocalCopy(q, src, dst));
             }
+        
         }
-    }
     return HcclResult::HCCL_SUCCESS;
 }
 
