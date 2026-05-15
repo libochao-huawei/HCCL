@@ -9,7 +9,7 @@
         <version>package/hccl/version.xml</version>
         <parallel>true</parallel>
         <check_features>true</check_features>
-        <copy_all>true<copy_all>
+        <copy_all>true</copy_all>
     </package_info>
     <generate_info value="hccl_version.h" dst_path="$(TARGET_ENV)/include/version" install_path="$(TARGET_ENV)/include/version" install_mod="440" install_type="devel" generator="version_header">
        <HCCL_VERSION>$(ASCEND_VER)</HCCL_VERSION>

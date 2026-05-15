@@ -340,6 +340,10 @@ custom_install() {
         fi
     fi
 
+    if [ -f "$pkg_install_path/cann/opp/build-in/op_impl/aicpu/kernel/libscatter_aicpu_kernel.so" ] || [ -L "$pkg_install_path/cann/opp/build-in/op_impl/aicpu/kernel/libscatter_aicpu_kernel.so" ]; then
+        rm -f "$pkg_install_path/cann/opp/build-in/op_impl/aicpu/kernel/libscatter_aicpu_kernel.so"
+    fi
+
     return 0
 }
 
