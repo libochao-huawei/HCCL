@@ -1,0 +1,412 @@
+The target system is: Linux -  - aarch64
+The host system is: Linux - 6.6.114.1-microsoft-standard-WSL2 - x86_64
+Compiling the C compiler identification source file "CMakeCCompilerId.c" succeeded.
+Compiler: /home/helloworld/Ascend/cann-9.0.0/toolkit/toolchain/hcc//bin/aarch64-target-linux-gnu-gcc 
+Build flags: 
+Id flags:  
+
+The output was:
+0
+
+
+Compilation of the C compiler identification source "CMakeCCompilerId.c" produced "a.out"
+
+The C compiler identification is GNU, found in "/home/helloworld/code/hccl-ccu/build_device/CMakeFiles/3.22.1/CompilerIdC/a.out"
+
+Compiling the CXX compiler identification source file "CMakeCXXCompilerId.cpp" succeeded.
+Compiler: /home/helloworld/Ascend/cann-9.0.0/toolkit/toolchain/hcc//bin/aarch64-target-linux-gnu-g++ 
+Build flags: 
+Id flags:  
+
+The output was:
+0
+
+
+Compilation of the CXX compiler identification source "CMakeCXXCompilerId.cpp" produced "a.out"
+
+The CXX compiler identification is GNU, found in "/home/helloworld/code/hccl-ccu/build_device/CMakeFiles/3.22.1/CompilerIdCXX/a.out"
+
+Detecting C compiler ABI info compiled with the following output:
+Change Dir: /home/helloworld/code/hccl-ccu/build_device/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/usr/bin/gmake -f Makefile cmTC_67a67/fast && /usr/bin/gmake  -f CMakeFiles/cmTC_67a67.dir/build.make CMakeFiles/cmTC_67a67.dir/build
+gmake[1]: Entering directory '/home/helloworld/code/hccl-ccu/build_device/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_67a67.dir/CMakeCCompilerABI.c.o
+/home/helloworld/Ascend/cann-9.0.0/toolkit/toolchain/hcc//bin/aarch64-target-linux-gnu-gcc   -v -o CMakeFiles/cmTC_67a67.dir/CMakeCCompilerABI.c.o -c /usr/share/cmake-3.22/Modules/CMakeCCompilerABI.c
+Using built-in specs.
+COLLECT_GCC=/home/helloworld/Ascend/cann-9.0.0/toolkit/toolchain/hcc//bin/aarch64-target-linux-gnu-gcc
+Target: aarch64-target-linux-gnu
+Configured with: /home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/hcc_arm64le_build_src/gcc/configure --build=x86_64-pc-linux-gnu --host=x86_64-pc-linux-gnu --target=aarch64-target-linux-gnu --with-arch=armv8-a --prefix=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le --disable-multilib --enable-__cxa_atexit --with-gnu-as --with-gnu-ld --disable-libmudflap --enable-libgomp --enable-libssp --enable-threads --enable-plugin --enable-c99 --enable-long-long --disable-nls --enable-shared --enable-poison-system-directories --enable-symvers=gnu --with-pkgversion='Do-Compiler V100R001C30B0032' --enable-languages=c,c++ --with-headers=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/sysroot/usr/include --with-sysroot=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/sysroot --with-build-sysroot=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/sysroot --with-gmp=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le --with-mpfr=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le --with-mpc=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le --with-build-time-tools=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/aarch64-target-linux-gnu/bin --libdir=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/lib64 --disable-libcilkrts --with-system-zlib --without-isl
+Thread model: posix
+gcc version 7.3.0 (Do-Compiler V100R001C30B0032) 
+COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_67a67.dir/CMakeCCompilerABI.c.o' '-c' '-march=armv8-a' '-mlittle-endian' '-mabi=lp64'
+ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/cc1 -quiet -v -iprefix /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/ -isysroot /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot /usr/share/cmake-3.22/Modules/CMakeCCompilerABI.c -quiet -dumpbase CMakeCCompilerABI.c -march=armv8-a -mlittle-endian -mabi=lp64 -auxbase-strip CMakeFiles/cmTC_67a67.dir/CMakeCCompilerABI.c.o -version -o /tmp/cc2usJjT.s
+GNU C11 (Do-Compiler V100R001C30B0032) version 7.3.0 (aarch64-target-linux-gnu)
+	compiled by GNU C version 7.3.1 20180303, GMP version 6.2.1, MPFR version 4.1.0, MPC version 1.2.1, isl version none
+GGC heuristics: --param ggc-min-expand=100 --param ggc-min-heapsize=131072
+ignoring duplicate directory "/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/../../lib64/gcc/aarch64-target-linux-gnu/7.3.0/include"
+ignoring nonexistent directory "/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/local/include"
+ignoring duplicate directory "/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/../../lib64/gcc/aarch64-target-linux-gnu/7.3.0/include-fixed"
+ignoring duplicate directory "/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/../../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/include"
+#include "..." search starts here:
+#include <...> search starts here:
+ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/include
+ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/include-fixed
+ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/include
+ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/include
+End of search list.
+GNU C11 (Do-Compiler V100R001C30B0032) version 7.3.0 (aarch64-target-linux-gnu)
+	compiled by GNU C version 7.3.1 20180303, GMP version 6.2.1, MPFR version 4.1.0, MPC version 1.2.1, isl version none
+GGC heuristics: --param ggc-min-expand=100 --param ggc-min-heapsize=131072
+Compiler executable checksum: 62b48361f2dd8d687f8523db92fabc73
+COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_67a67.dir/CMakeCCompilerABI.c.o' '-c' '-march=armv8-a' '-mlittle-endian' '-mabi=lp64'
+ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/bin/as -v -EL -march=armv8-a -mabi=lp64 -o CMakeFiles/cmTC_67a67.dir/CMakeCCompilerABI.c.o /tmp/cc2usJjT.s
+GNU assembler version 2.41 (aarch64-target-linux-gnu) using BFD version (Do-Compiler V100R001C30B0032) 2.41
+COMPILER_PATH=/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/bin/
+LIBRARY_PATH=/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib/../lib64/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/
+COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_67a67.dir/CMakeCCompilerABI.c.o' '-c' '-march=armv8-a' '-mlittle-endian' '-mabi=lp64'
+Linking C executable cmTC_67a67
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_67a67.dir/link.txt --verbose=1
+/home/helloworld/Ascend/cann-9.0.0/toolkit/toolchain/hcc//bin/aarch64-target-linux-gnu-gcc  -v CMakeFiles/cmTC_67a67.dir/CMakeCCompilerABI.c.o -o cmTC_67a67 
+Using built-in specs.
+COLLECT_GCC=/home/helloworld/Ascend/cann-9.0.0/toolkit/toolchain/hcc//bin/aarch64-target-linux-gnu-gcc
+COLLECT_LTO_WRAPPER=/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/lto-wrapper
+Target: aarch64-target-linux-gnu
+Configured with: /home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/hcc_arm64le_build_src/gcc/configure --build=x86_64-pc-linux-gnu --host=x86_64-pc-linux-gnu --target=aarch64-target-linux-gnu --with-arch=armv8-a --prefix=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le --disable-multilib --enable-__cxa_atexit --with-gnu-as --with-gnu-ld --disable-libmudflap --enable-libgomp --enable-libssp --enable-threads --enable-plugin --enable-c99 --enable-long-long --disable-nls --enable-shared --enable-poison-system-directories --enable-symvers=gnu --with-pkgversion='Do-Compiler V100R001C30B0032' --enable-languages=c,c++ --with-headers=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/sysroot/usr/include --with-sysroot=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/sysroot --with-build-sysroot=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/sysroot --with-gmp=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le --with-mpfr=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le --with-mpc=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le --with-build-time-tools=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/aarch64-target-linux-gnu/bin --libdir=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/lib64 --disable-libcilkrts --with-system-zlib --without-isl
+Thread model: posix
+gcc version 7.3.0 (Do-Compiler V100R001C30B0032) 
+COMPILER_PATH=/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/bin/
+LIBRARY_PATH=/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib/../lib64/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/
+COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_67a67' '-march=armv8-a' '-mlittle-endian' '-mabi=lp64'
+ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/collect2 -plugin /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/liblto_plugin.so -plugin-opt=/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/lto-wrapper -plugin-opt=-fresolution=/tmp/ccSKAjj0.res -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lc -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_s --sysroot=/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot --eh-frame-hdr -dynamic-linker /lib64/ld-linux-aarch64.so.1 -X -EL -maarch64linux -o cmTC_67a67 /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/crt1.o /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/crti.o /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/crtbegin.o -L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0 -L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc -L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib/../lib64 -L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64 -L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib -L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64 CMakeFiles/cmTC_67a67.dir/CMakeCCompilerABI.c.o -lgcc --as-needed -lgcc_s --no-as-needed -lc -lgcc --as-needed -lgcc_s --no-as-needed /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/crtend.o /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/crtn.o
+COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_67a67' '-march=armv8-a' '-mlittle-endian' '-mabi=lp64'
+gmake[1]: Leaving directory '/home/helloworld/code/hccl-ccu/build_device/CMakeFiles/CMakeTmp'
+
+
+
+Parsed C implicit include dir info from above output: rv=done
+  found start of include info
+  found start of implicit include info
+    add: [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/include]
+    add: [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/include-fixed]
+    add: [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/include]
+    add: [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/include]
+  end of search list found
+  collapse include dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/include] ==> [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/lib64/gcc/aarch64-target-linux-gnu/7.3.0/include]
+  collapse include dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/include-fixed] ==> [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/lib64/gcc/aarch64-target-linux-gnu/7.3.0/include-fixed]
+  collapse include dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/include] ==> [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/aarch64-target-linux-gnu/include]
+  collapse include dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/include] ==> [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/sysroot/usr/include]
+  implicit include dirs: [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/lib64/gcc/aarch64-target-linux-gnu/7.3.0/include;/home/helloworld/Ascend/cann-9.0.0/tools/hcc/lib64/gcc/aarch64-target-linux-gnu/7.3.0/include-fixed;/home/helloworld/Ascend/cann-9.0.0/tools/hcc/aarch64-target-linux-gnu/include;/home/helloworld/Ascend/cann-9.0.0/tools/hcc/sysroot/usr/include]
+
+
+Parsed C implicit link information from above output:
+  link line regex: [^( *|.*[/\])(aarch64-target-linux-gnu-ld|CMAKE_LINK_STARTFILE-NOTFOUND|([^/\]+-)?ld|collect2)[^/\]*( |$)]
+  ignore line: [Change Dir: /home/helloworld/code/hccl-ccu/build_device/CMakeFiles/CMakeTmp]
+  ignore line: []
+  ignore line: [Run Build Command(s):/usr/bin/gmake -f Makefile cmTC_67a67/fast && /usr/bin/gmake  -f CMakeFiles/cmTC_67a67.dir/build.make CMakeFiles/cmTC_67a67.dir/build]
+  ignore line: [gmake[1]: Entering directory '/home/helloworld/code/hccl-ccu/build_device/CMakeFiles/CMakeTmp']
+  ignore line: [Building C object CMakeFiles/cmTC_67a67.dir/CMakeCCompilerABI.c.o]
+  ignore line: [/home/helloworld/Ascend/cann-9.0.0/toolkit/toolchain/hcc//bin/aarch64-target-linux-gnu-gcc   -v -o CMakeFiles/cmTC_67a67.dir/CMakeCCompilerABI.c.o -c /usr/share/cmake-3.22/Modules/CMakeCCompilerABI.c]
+  ignore line: [Using built-in specs.]
+  ignore line: [COLLECT_GCC=/home/helloworld/Ascend/cann-9.0.0/toolkit/toolchain/hcc//bin/aarch64-target-linux-gnu-gcc]
+  ignore line: [Target: aarch64-target-linux-gnu]
+  ignore line: [Configured with: /home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/hcc_arm64le_build_src/gcc/configure --build=x86_64-pc-linux-gnu --host=x86_64-pc-linux-gnu --target=aarch64-target-linux-gnu --with-arch=armv8-a --prefix=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le --disable-multilib --enable-__cxa_atexit --with-gnu-as --with-gnu-ld --disable-libmudflap --enable-libgomp --enable-libssp --enable-threads --enable-plugin --enable-c99 --enable-long-long --disable-nls --enable-shared --enable-poison-system-directories --enable-symvers=gnu --with-pkgversion='Do-Compiler V100R001C30B0032' --enable-languages=c,c++ --with-headers=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/sysroot/usr/include --with-sysroot=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/sysroot --with-build-sysroot=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/sysroot --with-gmp=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le --with-mpfr=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le --with-mpc=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le --with-build-time-tools=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/aarch64-target-linux-gnu/bin --libdir=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/lib64 --disable-libcilkrts --with-system-zlib --without-isl]
+  ignore line: [Thread model: posix]
+  ignore line: [gcc version 7.3.0 (Do-Compiler V100R001C30B0032) ]
+  ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_67a67.dir/CMakeCCompilerABI.c.o' '-c' '-march=armv8-a' '-mlittle-endian' '-mabi=lp64']
+  ignore line: [ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/cc1 -quiet -v -iprefix /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/ -isysroot /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot /usr/share/cmake-3.22/Modules/CMakeCCompilerABI.c -quiet -dumpbase CMakeCCompilerABI.c -march=armv8-a -mlittle-endian -mabi=lp64 -auxbase-strip CMakeFiles/cmTC_67a67.dir/CMakeCCompilerABI.c.o -version -o /tmp/cc2usJjT.s]
+  ignore line: [GNU C11 (Do-Compiler V100R001C30B0032) version 7.3.0 (aarch64-target-linux-gnu)]
+  ignore line: [	compiled by GNU C version 7.3.1 20180303  GMP version 6.2.1  MPFR version 4.1.0  MPC version 1.2.1  isl version none]
+  ignore line: [GGC heuristics: --param ggc-min-expand=100 --param ggc-min-heapsize=131072]
+  ignore line: [ignoring duplicate directory "/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/../../lib64/gcc/aarch64-target-linux-gnu/7.3.0/include"]
+  ignore line: [ignoring nonexistent directory "/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/local/include"]
+  ignore line: [ignoring duplicate directory "/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/../../lib64/gcc/aarch64-target-linux-gnu/7.3.0/include-fixed"]
+  ignore line: [ignoring duplicate directory "/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/../../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/include"]
+  ignore line: [#include "..." search starts here:]
+  ignore line: [#include <...> search starts here:]
+  ignore line: [ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/include]
+  ignore line: [ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/include-fixed]
+  ignore line: [ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/include]
+  ignore line: [ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/include]
+  ignore line: [End of search list.]
+  ignore line: [GNU C11 (Do-Compiler V100R001C30B0032) version 7.3.0 (aarch64-target-linux-gnu)]
+  ignore line: [	compiled by GNU C version 7.3.1 20180303  GMP version 6.2.1  MPFR version 4.1.0  MPC version 1.2.1  isl version none]
+  ignore line: [GGC heuristics: --param ggc-min-expand=100 --param ggc-min-heapsize=131072]
+  ignore line: [Compiler executable checksum: 62b48361f2dd8d687f8523db92fabc73]
+  ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_67a67.dir/CMakeCCompilerABI.c.o' '-c' '-march=armv8-a' '-mlittle-endian' '-mabi=lp64']
+  ignore line: [ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/bin/as -v -EL -march=armv8-a -mabi=lp64 -o CMakeFiles/cmTC_67a67.dir/CMakeCCompilerABI.c.o /tmp/cc2usJjT.s]
+  ignore line: [GNU assembler version 2.41 (aarch64-target-linux-gnu) using BFD version (Do-Compiler V100R001C30B0032) 2.41]
+  ignore line: [COMPILER_PATH=/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/bin/]
+  ignore line: [LIBRARY_PATH=/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib/../lib64/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/]
+  ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_67a67.dir/CMakeCCompilerABI.c.o' '-c' '-march=armv8-a' '-mlittle-endian' '-mabi=lp64']
+  ignore line: [Linking C executable cmTC_67a67]
+  ignore line: [/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_67a67.dir/link.txt --verbose=1]
+  ignore line: [/home/helloworld/Ascend/cann-9.0.0/toolkit/toolchain/hcc//bin/aarch64-target-linux-gnu-gcc  -v CMakeFiles/cmTC_67a67.dir/CMakeCCompilerABI.c.o -o cmTC_67a67 ]
+  ignore line: [Using built-in specs.]
+  ignore line: [COLLECT_GCC=/home/helloworld/Ascend/cann-9.0.0/toolkit/toolchain/hcc//bin/aarch64-target-linux-gnu-gcc]
+  ignore line: [COLLECT_LTO_WRAPPER=/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/lto-wrapper]
+  ignore line: [Target: aarch64-target-linux-gnu]
+  ignore line: [Configured with: /home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/hcc_arm64le_build_src/gcc/configure --build=x86_64-pc-linux-gnu --host=x86_64-pc-linux-gnu --target=aarch64-target-linux-gnu --with-arch=armv8-a --prefix=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le --disable-multilib --enable-__cxa_atexit --with-gnu-as --with-gnu-ld --disable-libmudflap --enable-libgomp --enable-libssp --enable-threads --enable-plugin --enable-c99 --enable-long-long --disable-nls --enable-shared --enable-poison-system-directories --enable-symvers=gnu --with-pkgversion='Do-Compiler V100R001C30B0032' --enable-languages=c,c++ --with-headers=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/sysroot/usr/include --with-sysroot=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/sysroot --with-build-sysroot=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/sysroot --with-gmp=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le --with-mpfr=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le --with-mpc=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le --with-build-time-tools=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/aarch64-target-linux-gnu/bin --libdir=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/lib64 --disable-libcilkrts --with-system-zlib --without-isl]
+  ignore line: [Thread model: posix]
+  ignore line: [gcc version 7.3.0 (Do-Compiler V100R001C30B0032) ]
+  ignore line: [COMPILER_PATH=/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/bin/]
+  ignore line: [LIBRARY_PATH=/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib/../lib64/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/]
+  ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_67a67' '-march=armv8-a' '-mlittle-endian' '-mabi=lp64']
+  link line: [ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/collect2 -plugin /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/liblto_plugin.so -plugin-opt=/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/lto-wrapper -plugin-opt=-fresolution=/tmp/ccSKAjj0.res -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lc -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_s --sysroot=/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot --eh-frame-hdr -dynamic-linker /lib64/ld-linux-aarch64.so.1 -X -EL -maarch64linux -o cmTC_67a67 /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/crt1.o /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/crti.o /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/crtbegin.o -L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0 -L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc -L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib/../lib64 -L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64 -L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib -L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64 CMakeFiles/cmTC_67a67.dir/CMakeCCompilerABI.c.o -lgcc --as-needed -lgcc_s --no-as-needed -lc -lgcc --as-needed -lgcc_s --no-as-needed /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/crtend.o /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/crtn.o]
+    arg [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/collect2] ==> ignore
+    arg [-plugin] ==> ignore
+    arg [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/liblto_plugin.so] ==> ignore
+    arg [-plugin-opt=/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/lto-wrapper] ==> ignore
+    arg [-plugin-opt=-fresolution=/tmp/ccSKAjj0.res] ==> ignore
+    arg [-plugin-opt=-pass-through=-lgcc] ==> ignore
+    arg [-plugin-opt=-pass-through=-lgcc_s] ==> ignore
+    arg [-plugin-opt=-pass-through=-lc] ==> ignore
+    arg [-plugin-opt=-pass-through=-lgcc] ==> ignore
+    arg [-plugin-opt=-pass-through=-lgcc_s] ==> ignore
+    arg [--sysroot=/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot] ==> ignore
+    arg [--eh-frame-hdr] ==> ignore
+    arg [-dynamic-linker] ==> ignore
+    arg [/lib64/ld-linux-aarch64.so.1] ==> ignore
+    arg [-X] ==> ignore
+    arg [-EL] ==> ignore
+    arg [-maarch64linux] ==> ignore
+    arg [-o] ==> ignore
+    arg [cmTC_67a67] ==> ignore
+    arg [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/crt1.o] ==> obj [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/crt1.o]
+    arg [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/crti.o] ==> obj [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/crti.o]
+    arg [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/crtbegin.o] ==> obj [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/crtbegin.o]
+    arg [-L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0] ==> dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0]
+    arg [-L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc] ==> dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc]
+    arg [-L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib/../lib64] ==> dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib/../lib64]
+    arg [-L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64] ==> dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64]
+    arg [-L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib] ==> dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib]
+    arg [-L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64] ==> dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64]
+    arg [CMakeFiles/cmTC_67a67.dir/CMakeCCompilerABI.c.o] ==> ignore
+    arg [-lgcc] ==> lib [gcc]
+    arg [--as-needed] ==> ignore
+    arg [-lgcc_s] ==> lib [gcc_s]
+    arg [--no-as-needed] ==> ignore
+    arg [-lc] ==> lib [c]
+    arg [-lgcc] ==> lib [gcc]
+    arg [--as-needed] ==> ignore
+    arg [-lgcc_s] ==> lib [gcc_s]
+    arg [--no-as-needed] ==> ignore
+    arg [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/crtend.o] ==> obj [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/crtend.o]
+    arg [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/crtn.o] ==> obj [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/crtn.o]
+  collapse obj [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/crt1.o] ==> [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/sysroot/usr/lib64/crt1.o]
+  collapse obj [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/crti.o] ==> [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/sysroot/usr/lib64/crti.o]
+  collapse obj [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/crtbegin.o] ==> [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/lib64/gcc/aarch64-target-linux-gnu/7.3.0/crtbegin.o]
+  collapse obj [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/crtend.o] ==> [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/lib64/gcc/aarch64-target-linux-gnu/7.3.0/crtend.o]
+  collapse obj [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/crtn.o] ==> [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/sysroot/usr/lib64/crtn.o]
+  collapse library dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0] ==> [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/lib64/gcc/aarch64-target-linux-gnu/7.3.0]
+  collapse library dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc] ==> [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/lib64/gcc]
+  collapse library dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib/../lib64] ==> [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/aarch64-target-linux-gnu/lib64]
+  collapse library dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64] ==> [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/sysroot/usr/lib64]
+  collapse library dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib] ==> [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/aarch64-target-linux-gnu/lib]
+  collapse library dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64] ==> [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/sysroot/usr/lib64]
+  implicit libs: [gcc;gcc_s;c;gcc;gcc_s]
+  implicit objs: [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/sysroot/usr/lib64/crt1.o;/home/helloworld/Ascend/cann-9.0.0/tools/hcc/sysroot/usr/lib64/crti.o;/home/helloworld/Ascend/cann-9.0.0/tools/hcc/lib64/gcc/aarch64-target-linux-gnu/7.3.0/crtbegin.o;/home/helloworld/Ascend/cann-9.0.0/tools/hcc/lib64/gcc/aarch64-target-linux-gnu/7.3.0/crtend.o;/home/helloworld/Ascend/cann-9.0.0/tools/hcc/sysroot/usr/lib64/crtn.o]
+  implicit dirs: [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/lib64/gcc/aarch64-target-linux-gnu/7.3.0;/home/helloworld/Ascend/cann-9.0.0/tools/hcc/lib64/gcc;/home/helloworld/Ascend/cann-9.0.0/tools/hcc/aarch64-target-linux-gnu/lib64;/home/helloworld/Ascend/cann-9.0.0/tools/hcc/sysroot/usr/lib64;/home/helloworld/Ascend/cann-9.0.0/tools/hcc/aarch64-target-linux-gnu/lib]
+  implicit fwks: []
+
+
+Detecting CXX compiler ABI info compiled with the following output:
+Change Dir: /home/helloworld/code/hccl-ccu/build_device/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/usr/bin/gmake -f Makefile cmTC_042b3/fast && /usr/bin/gmake  -f CMakeFiles/cmTC_042b3.dir/build.make CMakeFiles/cmTC_042b3.dir/build
+gmake[1]: Entering directory '/home/helloworld/code/hccl-ccu/build_device/CMakeFiles/CMakeTmp'
+Building CXX object CMakeFiles/cmTC_042b3.dir/CMakeCXXCompilerABI.cpp.o
+/home/helloworld/Ascend/cann-9.0.0/toolkit/toolchain/hcc//bin/aarch64-target-linux-gnu-g++   -v -o CMakeFiles/cmTC_042b3.dir/CMakeCXXCompilerABI.cpp.o -c /usr/share/cmake-3.22/Modules/CMakeCXXCompilerABI.cpp
+Using built-in specs.
+COLLECT_GCC=/home/helloworld/Ascend/cann-9.0.0/toolkit/toolchain/hcc//bin/aarch64-target-linux-gnu-g++
+Target: aarch64-target-linux-gnu
+Configured with: /home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/hcc_arm64le_build_src/gcc/configure --build=x86_64-pc-linux-gnu --host=x86_64-pc-linux-gnu --target=aarch64-target-linux-gnu --with-arch=armv8-a --prefix=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le --disable-multilib --enable-__cxa_atexit --with-gnu-as --with-gnu-ld --disable-libmudflap --enable-libgomp --enable-libssp --enable-threads --enable-plugin --enable-c99 --enable-long-long --disable-nls --enable-shared --enable-poison-system-directories --enable-symvers=gnu --with-pkgversion='Do-Compiler V100R001C30B0032' --enable-languages=c,c++ --with-headers=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/sysroot/usr/include --with-sysroot=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/sysroot --with-build-sysroot=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/sysroot --with-gmp=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le --with-mpfr=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le --with-mpc=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le --with-build-time-tools=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/aarch64-target-linux-gnu/bin --libdir=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/lib64 --disable-libcilkrts --with-system-zlib --without-isl
+Thread model: posix
+gcc version 7.3.0 (Do-Compiler V100R001C30B0032) 
+COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_042b3.dir/CMakeCXXCompilerABI.cpp.o' '-c' '-shared-libgcc' '-march=armv8-a' '-mlittle-endian' '-mabi=lp64'
+ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/cc1plus -quiet -v -iprefix /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/ -isysroot /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot -D_GNU_SOURCE /usr/share/cmake-3.22/Modules/CMakeCXXCompilerABI.cpp -quiet -dumpbase CMakeCXXCompilerABI.cpp -march=armv8-a -mlittle-endian -mabi=lp64 -auxbase-strip CMakeFiles/cmTC_042b3.dir/CMakeCXXCompilerABI.cpp.o -version -o /tmp/ccVQJ2an.s
+GNU C++14 (Do-Compiler V100R001C30B0032) version 7.3.0 (aarch64-target-linux-gnu)
+	compiled by GNU C version 7.3.1 20180303, GMP version 6.2.1, MPFR version 4.1.0, MPC version 1.2.1, isl version none
+GGC heuristics: --param ggc-min-expand=100 --param ggc-min-heapsize=131072
+ignoring duplicate directory "/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/../../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/include/c++/7.3.0"
+ignoring duplicate directory "/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/../../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/include/c++/7.3.0/aarch64-target-linux-gnu"
+ignoring duplicate directory "/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/../../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/include/c++/7.3.0/backward"
+ignoring duplicate directory "/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/../../lib64/gcc/aarch64-target-linux-gnu/7.3.0/include"
+ignoring nonexistent directory "/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/local/include"
+ignoring duplicate directory "/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/../../lib64/gcc/aarch64-target-linux-gnu/7.3.0/include-fixed"
+ignoring duplicate directory "/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/../../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/include"
+#include "..." search starts here:
+#include <...> search starts here:
+ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/include/c++/7.3.0
+ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/include/c++/7.3.0/aarch64-target-linux-gnu
+ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/include/c++/7.3.0/backward
+ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/include
+ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/include-fixed
+ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/include
+ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/include
+End of search list.
+GNU C++14 (Do-Compiler V100R001C30B0032) version 7.3.0 (aarch64-target-linux-gnu)
+	compiled by GNU C version 7.3.1 20180303, GMP version 6.2.1, MPFR version 4.1.0, MPC version 1.2.1, isl version none
+GGC heuristics: --param ggc-min-expand=100 --param ggc-min-heapsize=131072
+Compiler executable checksum: 1b2962433e873c4199ce6babfda2b252
+COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_042b3.dir/CMakeCXXCompilerABI.cpp.o' '-c' '-shared-libgcc' '-march=armv8-a' '-mlittle-endian' '-mabi=lp64'
+ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/bin/as -v -EL -march=armv8-a -mabi=lp64 -o CMakeFiles/cmTC_042b3.dir/CMakeCXXCompilerABI.cpp.o /tmp/ccVQJ2an.s
+GNU assembler version 2.41 (aarch64-target-linux-gnu) using BFD version (Do-Compiler V100R001C30B0032) 2.41
+COMPILER_PATH=/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/bin/
+LIBRARY_PATH=/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib/../lib64/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/
+COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_042b3.dir/CMakeCXXCompilerABI.cpp.o' '-c' '-shared-libgcc' '-march=armv8-a' '-mlittle-endian' '-mabi=lp64'
+Linking CXX executable cmTC_042b3
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_042b3.dir/link.txt --verbose=1
+/home/helloworld/Ascend/cann-9.0.0/toolkit/toolchain/hcc//bin/aarch64-target-linux-gnu-g++  -v CMakeFiles/cmTC_042b3.dir/CMakeCXXCompilerABI.cpp.o -o cmTC_042b3 
+Using built-in specs.
+COLLECT_GCC=/home/helloworld/Ascend/cann-9.0.0/toolkit/toolchain/hcc//bin/aarch64-target-linux-gnu-g++
+COLLECT_LTO_WRAPPER=/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/lto-wrapper
+Target: aarch64-target-linux-gnu
+Configured with: /home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/hcc_arm64le_build_src/gcc/configure --build=x86_64-pc-linux-gnu --host=x86_64-pc-linux-gnu --target=aarch64-target-linux-gnu --with-arch=armv8-a --prefix=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le --disable-multilib --enable-__cxa_atexit --with-gnu-as --with-gnu-ld --disable-libmudflap --enable-libgomp --enable-libssp --enable-threads --enable-plugin --enable-c99 --enable-long-long --disable-nls --enable-shared --enable-poison-system-directories --enable-symvers=gnu --with-pkgversion='Do-Compiler V100R001C30B0032' --enable-languages=c,c++ --with-headers=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/sysroot/usr/include --with-sysroot=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/sysroot --with-build-sysroot=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/sysroot --with-gmp=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le --with-mpfr=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le --with-mpc=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le --with-build-time-tools=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/aarch64-target-linux-gnu/bin --libdir=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/lib64 --disable-libcilkrts --with-system-zlib --without-isl
+Thread model: posix
+gcc version 7.3.0 (Do-Compiler V100R001C30B0032) 
+COMPILER_PATH=/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/bin/
+LIBRARY_PATH=/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib/../lib64/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/
+COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_042b3' '-shared-libgcc' '-march=armv8-a' '-mlittle-endian' '-mabi=lp64'
+ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/collect2 -plugin /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/liblto_plugin.so -plugin-opt=/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/lto-wrapper -plugin-opt=-fresolution=/tmp/ccFsMSaE.res -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lc -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc --sysroot=/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot --eh-frame-hdr -dynamic-linker /lib64/ld-linux-aarch64.so.1 -X -EL -maarch64linux -o cmTC_042b3 /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/crt1.o /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/crti.o /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/crtbegin.o -L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0 -L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc -L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib/../lib64 -L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64 -L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib -L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64 CMakeFiles/cmTC_042b3.dir/CMakeCXXCompilerABI.cpp.o -lstdc++ -lm -lgcc_s -lgcc -lc -lgcc_s -lgcc /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/crtend.o /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/crtn.o
+COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_042b3' '-shared-libgcc' '-march=armv8-a' '-mlittle-endian' '-mabi=lp64'
+gmake[1]: Leaving directory '/home/helloworld/code/hccl-ccu/build_device/CMakeFiles/CMakeTmp'
+
+
+
+Parsed CXX implicit include dir info from above output: rv=done
+  found start of include info
+  found start of implicit include info
+    add: [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/include/c++/7.3.0]
+    add: [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/include/c++/7.3.0/aarch64-target-linux-gnu]
+    add: [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/include/c++/7.3.0/backward]
+    add: [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/include]
+    add: [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/include-fixed]
+    add: [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/include]
+    add: [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/include]
+  end of search list found
+  collapse include dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/include/c++/7.3.0] ==> [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/aarch64-target-linux-gnu/include/c++/7.3.0]
+  collapse include dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/include/c++/7.3.0/aarch64-target-linux-gnu] ==> [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/aarch64-target-linux-gnu/include/c++/7.3.0/aarch64-target-linux-gnu]
+  collapse include dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/include/c++/7.3.0/backward] ==> [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/aarch64-target-linux-gnu/include/c++/7.3.0/backward]
+  collapse include dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/include] ==> [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/lib64/gcc/aarch64-target-linux-gnu/7.3.0/include]
+  collapse include dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/include-fixed] ==> [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/lib64/gcc/aarch64-target-linux-gnu/7.3.0/include-fixed]
+  collapse include dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/include] ==> [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/aarch64-target-linux-gnu/include]
+  collapse include dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/include] ==> [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/sysroot/usr/include]
+  implicit include dirs: [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/aarch64-target-linux-gnu/include/c++/7.3.0;/home/helloworld/Ascend/cann-9.0.0/tools/hcc/aarch64-target-linux-gnu/include/c++/7.3.0/aarch64-target-linux-gnu;/home/helloworld/Ascend/cann-9.0.0/tools/hcc/aarch64-target-linux-gnu/include/c++/7.3.0/backward;/home/helloworld/Ascend/cann-9.0.0/tools/hcc/lib64/gcc/aarch64-target-linux-gnu/7.3.0/include;/home/helloworld/Ascend/cann-9.0.0/tools/hcc/lib64/gcc/aarch64-target-linux-gnu/7.3.0/include-fixed;/home/helloworld/Ascend/cann-9.0.0/tools/hcc/aarch64-target-linux-gnu/include;/home/helloworld/Ascend/cann-9.0.0/tools/hcc/sysroot/usr/include]
+
+
+Parsed CXX implicit link information from above output:
+  link line regex: [^( *|.*[/\])(aarch64-target-linux-gnu-ld|CMAKE_LINK_STARTFILE-NOTFOUND|([^/\]+-)?ld|collect2)[^/\]*( |$)]
+  ignore line: [Change Dir: /home/helloworld/code/hccl-ccu/build_device/CMakeFiles/CMakeTmp]
+  ignore line: []
+  ignore line: [Run Build Command(s):/usr/bin/gmake -f Makefile cmTC_042b3/fast && /usr/bin/gmake  -f CMakeFiles/cmTC_042b3.dir/build.make CMakeFiles/cmTC_042b3.dir/build]
+  ignore line: [gmake[1]: Entering directory '/home/helloworld/code/hccl-ccu/build_device/CMakeFiles/CMakeTmp']
+  ignore line: [Building CXX object CMakeFiles/cmTC_042b3.dir/CMakeCXXCompilerABI.cpp.o]
+  ignore line: [/home/helloworld/Ascend/cann-9.0.0/toolkit/toolchain/hcc//bin/aarch64-target-linux-gnu-g++   -v -o CMakeFiles/cmTC_042b3.dir/CMakeCXXCompilerABI.cpp.o -c /usr/share/cmake-3.22/Modules/CMakeCXXCompilerABI.cpp]
+  ignore line: [Using built-in specs.]
+  ignore line: [COLLECT_GCC=/home/helloworld/Ascend/cann-9.0.0/toolkit/toolchain/hcc//bin/aarch64-target-linux-gnu-g++]
+  ignore line: [Target: aarch64-target-linux-gnu]
+  ignore line: [Configured with: /home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/hcc_arm64le_build_src/gcc/configure --build=x86_64-pc-linux-gnu --host=x86_64-pc-linux-gnu --target=aarch64-target-linux-gnu --with-arch=armv8-a --prefix=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le --disable-multilib --enable-__cxa_atexit --with-gnu-as --with-gnu-ld --disable-libmudflap --enable-libgomp --enable-libssp --enable-threads --enable-plugin --enable-c99 --enable-long-long --disable-nls --enable-shared --enable-poison-system-directories --enable-symvers=gnu --with-pkgversion='Do-Compiler V100R001C30B0032' --enable-languages=c,c++ --with-headers=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/sysroot/usr/include --with-sysroot=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/sysroot --with-build-sysroot=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/sysroot --with-gmp=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le --with-mpfr=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le --with-mpc=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le --with-build-time-tools=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/aarch64-target-linux-gnu/bin --libdir=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/lib64 --disable-libcilkrts --with-system-zlib --without-isl]
+  ignore line: [Thread model: posix]
+  ignore line: [gcc version 7.3.0 (Do-Compiler V100R001C30B0032) ]
+  ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_042b3.dir/CMakeCXXCompilerABI.cpp.o' '-c' '-shared-libgcc' '-march=armv8-a' '-mlittle-endian' '-mabi=lp64']
+  ignore line: [ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/cc1plus -quiet -v -iprefix /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/ -isysroot /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot -D_GNU_SOURCE /usr/share/cmake-3.22/Modules/CMakeCXXCompilerABI.cpp -quiet -dumpbase CMakeCXXCompilerABI.cpp -march=armv8-a -mlittle-endian -mabi=lp64 -auxbase-strip CMakeFiles/cmTC_042b3.dir/CMakeCXXCompilerABI.cpp.o -version -o /tmp/ccVQJ2an.s]
+  ignore line: [GNU C++14 (Do-Compiler V100R001C30B0032) version 7.3.0 (aarch64-target-linux-gnu)]
+  ignore line: [	compiled by GNU C version 7.3.1 20180303  GMP version 6.2.1  MPFR version 4.1.0  MPC version 1.2.1  isl version none]
+  ignore line: [GGC heuristics: --param ggc-min-expand=100 --param ggc-min-heapsize=131072]
+  ignore line: [ignoring duplicate directory "/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/../../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/include/c++/7.3.0"]
+  ignore line: [ignoring duplicate directory "/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/../../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/include/c++/7.3.0/aarch64-target-linux-gnu"]
+  ignore line: [ignoring duplicate directory "/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/../../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/include/c++/7.3.0/backward"]
+  ignore line: [ignoring duplicate directory "/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/../../lib64/gcc/aarch64-target-linux-gnu/7.3.0/include"]
+  ignore line: [ignoring nonexistent directory "/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/local/include"]
+  ignore line: [ignoring duplicate directory "/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/../../lib64/gcc/aarch64-target-linux-gnu/7.3.0/include-fixed"]
+  ignore line: [ignoring duplicate directory "/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/../../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/include"]
+  ignore line: [#include "..." search starts here:]
+  ignore line: [#include <...> search starts here:]
+  ignore line: [ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/include/c++/7.3.0]
+  ignore line: [ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/include/c++/7.3.0/aarch64-target-linux-gnu]
+  ignore line: [ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/include/c++/7.3.0/backward]
+  ignore line: [ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/include]
+  ignore line: [ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/include-fixed]
+  ignore line: [ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/include]
+  ignore line: [ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/include]
+  ignore line: [End of search list.]
+  ignore line: [GNU C++14 (Do-Compiler V100R001C30B0032) version 7.3.0 (aarch64-target-linux-gnu)]
+  ignore line: [	compiled by GNU C version 7.3.1 20180303  GMP version 6.2.1  MPFR version 4.1.0  MPC version 1.2.1  isl version none]
+  ignore line: [GGC heuristics: --param ggc-min-expand=100 --param ggc-min-heapsize=131072]
+  ignore line: [Compiler executable checksum: 1b2962433e873c4199ce6babfda2b252]
+  ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_042b3.dir/CMakeCXXCompilerABI.cpp.o' '-c' '-shared-libgcc' '-march=armv8-a' '-mlittle-endian' '-mabi=lp64']
+  ignore line: [ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/bin/as -v -EL -march=armv8-a -mabi=lp64 -o CMakeFiles/cmTC_042b3.dir/CMakeCXXCompilerABI.cpp.o /tmp/ccVQJ2an.s]
+  ignore line: [GNU assembler version 2.41 (aarch64-target-linux-gnu) using BFD version (Do-Compiler V100R001C30B0032) 2.41]
+  ignore line: [COMPILER_PATH=/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/bin/]
+  ignore line: [LIBRARY_PATH=/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib/../lib64/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/]
+  ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_042b3.dir/CMakeCXXCompilerABI.cpp.o' '-c' '-shared-libgcc' '-march=armv8-a' '-mlittle-endian' '-mabi=lp64']
+  ignore line: [Linking CXX executable cmTC_042b3]
+  ignore line: [/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_042b3.dir/link.txt --verbose=1]
+  ignore line: [/home/helloworld/Ascend/cann-9.0.0/toolkit/toolchain/hcc//bin/aarch64-target-linux-gnu-g++  -v CMakeFiles/cmTC_042b3.dir/CMakeCXXCompilerABI.cpp.o -o cmTC_042b3 ]
+  ignore line: [Using built-in specs.]
+  ignore line: [COLLECT_GCC=/home/helloworld/Ascend/cann-9.0.0/toolkit/toolchain/hcc//bin/aarch64-target-linux-gnu-g++]
+  ignore line: [COLLECT_LTO_WRAPPER=/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/lto-wrapper]
+  ignore line: [Target: aarch64-target-linux-gnu]
+  ignore line: [Configured with: /home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/hcc_arm64le_build_src/gcc/configure --build=x86_64-pc-linux-gnu --host=x86_64-pc-linux-gnu --target=aarch64-target-linux-gnu --with-arch=armv8-a --prefix=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le --disable-multilib --enable-__cxa_atexit --with-gnu-as --with-gnu-ld --disable-libmudflap --enable-libgomp --enable-libssp --enable-threads --enable-plugin --enable-c99 --enable-long-long --disable-nls --enable-shared --enable-poison-system-directories --enable-symvers=gnu --with-pkgversion='Do-Compiler V100R001C30B0032' --enable-languages=c,c++ --with-headers=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/sysroot/usr/include --with-sysroot=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/sysroot --with-build-sysroot=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/sysroot --with-gmp=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le --with-mpfr=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le --with-mpc=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le --with-build-time-tools=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/aarch64-target-linux-gnu/bin --libdir=/home/phisik3/jenkins/workspace/work_code/asl/devtools/hcc/build/hcc_arm64le/../../../../../out/hcc_compile/arm64le_build_dir/hcc_arm64le/lib64 --disable-libcilkrts --with-system-zlib --without-isl]
+  ignore line: [Thread model: posix]
+  ignore line: [gcc version 7.3.0 (Do-Compiler V100R001C30B0032) ]
+  ignore line: [COMPILER_PATH=/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/bin/]
+  ignore line: [LIBRARY_PATH=/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib/../lib64/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib/:/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/]
+  ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_042b3' '-shared-libgcc' '-march=armv8-a' '-mlittle-endian' '-mabi=lp64']
+  link line: [ /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/collect2 -plugin /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/liblto_plugin.so -plugin-opt=/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/lto-wrapper -plugin-opt=-fresolution=/tmp/ccFsMSaE.res -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lc -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc --sysroot=/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot --eh-frame-hdr -dynamic-linker /lib64/ld-linux-aarch64.so.1 -X -EL -maarch64linux -o cmTC_042b3 /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/crt1.o /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/crti.o /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/crtbegin.o -L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0 -L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc -L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib/../lib64 -L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64 -L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib -L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64 CMakeFiles/cmTC_042b3.dir/CMakeCXXCompilerABI.cpp.o -lstdc++ -lm -lgcc_s -lgcc -lc -lgcc_s -lgcc /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/crtend.o /home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/crtn.o]
+    arg [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/collect2] ==> ignore
+    arg [-plugin] ==> ignore
+    arg [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/liblto_plugin.so] ==> ignore
+    arg [-plugin-opt=/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../libexec/gcc/aarch64-target-linux-gnu/7.3.0/lto-wrapper] ==> ignore
+    arg [-plugin-opt=-fresolution=/tmp/ccFsMSaE.res] ==> ignore
+    arg [-plugin-opt=-pass-through=-lgcc_s] ==> ignore
+    arg [-plugin-opt=-pass-through=-lgcc] ==> ignore
+    arg [-plugin-opt=-pass-through=-lc] ==> ignore
+    arg [-plugin-opt=-pass-through=-lgcc_s] ==> ignore
+    arg [-plugin-opt=-pass-through=-lgcc] ==> ignore
+    arg [--sysroot=/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot] ==> ignore
+    arg [--eh-frame-hdr] ==> ignore
+    arg [-dynamic-linker] ==> ignore
+    arg [/lib64/ld-linux-aarch64.so.1] ==> ignore
+    arg [-X] ==> ignore
+    arg [-EL] ==> ignore
+    arg [-maarch64linux] ==> ignore
+    arg [-o] ==> ignore
+    arg [cmTC_042b3] ==> ignore
+    arg [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/crt1.o] ==> obj [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/crt1.o]
+    arg [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/crti.o] ==> obj [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/crti.o]
+    arg [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/crtbegin.o] ==> obj [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/crtbegin.o]
+    arg [-L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0] ==> dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0]
+    arg [-L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc] ==> dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc]
+    arg [-L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib/../lib64] ==> dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib/../lib64]
+    arg [-L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64] ==> dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64]
+    arg [-L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib] ==> dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib]
+    arg [-L/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64] ==> dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64]
+    arg [CMakeFiles/cmTC_042b3.dir/CMakeCXXCompilerABI.cpp.o] ==> ignore
+    arg [-lstdc++] ==> lib [stdc++]
+    arg [-lm] ==> lib [m]
+    arg [-lgcc_s] ==> lib [gcc_s]
+    arg [-lgcc] ==> lib [gcc]
+    arg [-lc] ==> lib [c]
+    arg [-lgcc_s] ==> lib [gcc_s]
+    arg [-lgcc] ==> lib [gcc]
+    arg [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/crtend.o] ==> obj [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/crtend.o]
+    arg [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/crtn.o] ==> obj [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/crtn.o]
+  collapse obj [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/crt1.o] ==> [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/sysroot/usr/lib64/crt1.o]
+  collapse obj [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/crti.o] ==> [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/sysroot/usr/lib64/crti.o]
+  collapse obj [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/crtbegin.o] ==> [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/lib64/gcc/aarch64-target-linux-gnu/7.3.0/crtbegin.o]
+  collapse obj [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/crtend.o] ==> [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/lib64/gcc/aarch64-target-linux-gnu/7.3.0/crtend.o]
+  collapse obj [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64/crtn.o] ==> [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/sysroot/usr/lib64/crtn.o]
+  collapse library dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0] ==> [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/lib64/gcc/aarch64-target-linux-gnu/7.3.0]
+  collapse library dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc] ==> [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/lib64/gcc]
+  collapse library dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib/../lib64] ==> [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/aarch64-target-linux-gnu/lib64]
+  collapse library dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64/../lib64] ==> [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/sysroot/usr/lib64]
+  collapse library dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../lib64/gcc/aarch64-target-linux-gnu/7.3.0/../../../../aarch64-target-linux-gnu/lib] ==> [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/aarch64-target-linux-gnu/lib]
+  collapse library dir [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/bin/../sysroot/usr/lib64] ==> [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/sysroot/usr/lib64]
+  implicit libs: [stdc++;m;gcc_s;gcc;c;gcc_s;gcc]
+  implicit objs: [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/sysroot/usr/lib64/crt1.o;/home/helloworld/Ascend/cann-9.0.0/tools/hcc/sysroot/usr/lib64/crti.o;/home/helloworld/Ascend/cann-9.0.0/tools/hcc/lib64/gcc/aarch64-target-linux-gnu/7.3.0/crtbegin.o;/home/helloworld/Ascend/cann-9.0.0/tools/hcc/lib64/gcc/aarch64-target-linux-gnu/7.3.0/crtend.o;/home/helloworld/Ascend/cann-9.0.0/tools/hcc/sysroot/usr/lib64/crtn.o]
+  implicit dirs: [/home/helloworld/Ascend/cann-9.0.0/tools/hcc/lib64/gcc/aarch64-target-linux-gnu/7.3.0;/home/helloworld/Ascend/cann-9.0.0/tools/hcc/lib64/gcc;/home/helloworld/Ascend/cann-9.0.0/tools/hcc/aarch64-target-linux-gnu/lib64;/home/helloworld/Ascend/cann-9.0.0/tools/hcc/sysroot/usr/lib64;/home/helloworld/Ascend/cann-9.0.0/tools/hcc/aarch64-target-linux-gnu/lib]
+  implicit fwks: []
+
+

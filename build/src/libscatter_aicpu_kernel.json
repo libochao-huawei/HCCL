@@ -1,0 +1,9 @@
+{
+    "HcclLaunchAicpuKernel":{
+        "opInfo":{
+            "functionName":"HcclLaunchAicpuKernel",
+            "kernelSo":"libscatter_aicpu_kernel.so",
+            "opKernelLib":"KFCKernel"
+        }
+    }
+}

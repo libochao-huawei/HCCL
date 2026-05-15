@@ -1,0 +1,14 @@
+# Target labels
+ cann-cmake-populate
+# Source files and their labels
+/home/helloworld/code/hccl-ccu/build_device/_deps/cann-cmake-subbuild/CMakeFiles/cann-cmake-populate
+/home/helloworld/code/hccl-ccu/build_device/_deps/cann-cmake-subbuild/CMakeFiles/cann-cmake-populate.rule
+/home/helloworld/code/hccl-ccu/build_device/_deps/cann-cmake-subbuild/CMakeFiles/cann-cmake-populate-complete.rule
+/home/helloworld/code/hccl-ccu/build_device/_deps/cann-cmake-subbuild/cann-cmake-populate-prefix/src/cann-cmake-populate-stamp/cann-cmake-populate-build.rule
+/home/helloworld/code/hccl-ccu/build_device/_deps/cann-cmake-subbuild/cann-cmake-populate-prefix/src/cann-cmake-populate-stamp/cann-cmake-populate-configure.rule
+/home/helloworld/code/hccl-ccu/build_device/_deps/cann-cmake-subbuild/cann-cmake-populate-prefix/src/cann-cmake-populate-stamp/cann-cmake-populate-download.rule
+/home/helloworld/code/hccl-ccu/build_device/_deps/cann-cmake-subbuild/cann-cmake-populate-prefix/src/cann-cmake-populate-stamp/cann-cmake-populate-install.rule
+/home/helloworld/code/hccl-ccu/build_device/_deps/cann-cmake-subbuild/cann-cmake-populate-prefix/src/cann-cmake-populate-stamp/cann-cmake-populate-mkdir.rule
+/home/helloworld/code/hccl-ccu/build_device/_deps/cann-cmake-subbuild/cann-cmake-populate-prefix/src/cann-cmake-populate-stamp/cann-cmake-populate-patch.rule
+/home/helloworld/code/hccl-ccu/build_device/_deps/cann-cmake-subbuild/cann-cmake-populate-prefix/src/cann-cmake-populate-stamp/cann-cmake-populate-test.rule
+/home/helloworld/code/hccl-ccu/build_device/_deps/cann-cmake-subbuild/cann-cmake-populate-prefix/src/cann-cmake-populate-stamp/cann-cmake-populate-update.rule

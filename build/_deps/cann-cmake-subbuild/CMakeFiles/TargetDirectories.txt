@@ -1,0 +1,3 @@
+/home/helloworld/code/hccl-ccu/build/_deps/cann-cmake-subbuild/CMakeFiles/cann-cmake-populate.dir
+/home/helloworld/code/hccl-ccu/build/_deps/cann-cmake-subbuild/CMakeFiles/edit_cache.dir
+/home/helloworld/code/hccl-ccu/build/_deps/cann-cmake-subbuild/CMakeFiles/rebuild_cache.dir

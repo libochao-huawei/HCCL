@@ -1,0 +1,3 @@
+/home/helloworld/code/hccl-ccu/build_device/_deps/makeself-subbuild/CMakeFiles/makeself-populate.dir
+/home/helloworld/code/hccl-ccu/build_device/_deps/makeself-subbuild/CMakeFiles/edit_cache.dir
+/home/helloworld/code/hccl-ccu/build_device/_deps/makeself-subbuild/CMakeFiles/rebuild_cache.dir

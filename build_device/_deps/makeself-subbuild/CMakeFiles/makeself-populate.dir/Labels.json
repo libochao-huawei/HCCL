@@ -1,0 +1,46 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/home/helloworld/code/hccl-ccu/build_device/_deps/makeself-subbuild/CMakeFiles/makeself-populate"
+		},
+		{
+			"file" : "/home/helloworld/code/hccl-ccu/build_device/_deps/makeself-subbuild/CMakeFiles/makeself-populate.rule"
+		},
+		{
+			"file" : "/home/helloworld/code/hccl-ccu/build_device/_deps/makeself-subbuild/CMakeFiles/makeself-populate-complete.rule"
+		},
+		{
+			"file" : "/home/helloworld/code/hccl-ccu/build_device/_deps/makeself-subbuild/makeself-populate-prefix/src/makeself-populate-stamp/makeself-populate-build.rule"
+		},
+		{
+			"file" : "/home/helloworld/code/hccl-ccu/build_device/_deps/makeself-subbuild/makeself-populate-prefix/src/makeself-populate-stamp/makeself-populate-configure.rule"
+		},
+		{
+			"file" : "/home/helloworld/code/hccl-ccu/build_device/_deps/makeself-subbuild/makeself-populate-prefix/src/makeself-populate-stamp/makeself-populate-download.rule"
+		},
+		{
+			"file" : "/home/helloworld/code/hccl-ccu/build_device/_deps/makeself-subbuild/makeself-populate-prefix/src/makeself-populate-stamp/makeself-populate-install.rule"
+		},
+		{
+			"file" : "/home/helloworld/code/hccl-ccu/build_device/_deps/makeself-subbuild/makeself-populate-prefix/src/makeself-populate-stamp/makeself-populate-mkdir.rule"
+		},
+		{
+			"file" : "/home/helloworld/code/hccl-ccu/build_device/_deps/makeself-subbuild/makeself-populate-prefix/src/makeself-populate-stamp/makeself-populate-patch.rule"
+		},
+		{
+			"file" : "/home/helloworld/code/hccl-ccu/build_device/_deps/makeself-subbuild/makeself-populate-prefix/src/makeself-populate-stamp/makeself-populate-test.rule"
+		},
+		{
+			"file" : "/home/helloworld/code/hccl-ccu/build_device/_deps/makeself-subbuild/makeself-populate-prefix/src/makeself-populate-stamp/makeself-populate-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"makeself-populate"
+		],
+		"name" : "makeself-populate"
+	}
+}

@@ -1,0 +1,46 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/home/helloworld/code/hccl-ccu/build/_deps/cann-cmake-subbuild/CMakeFiles/cann-cmake-populate"
+		},
+		{
+			"file" : "/home/helloworld/code/hccl-ccu/build/_deps/cann-cmake-subbuild/CMakeFiles/cann-cmake-populate.rule"
+		},
+		{
+			"file" : "/home/helloworld/code/hccl-ccu/build/_deps/cann-cmake-subbuild/CMakeFiles/cann-cmake-populate-complete.rule"
+		},
+		{
+			"file" : "/home/helloworld/code/hccl-ccu/build/_deps/cann-cmake-subbuild/cann-cmake-populate-prefix/src/cann-cmake-populate-stamp/cann-cmake-populate-build.rule"
+		},
+		{
+			"file" : "/home/helloworld/code/hccl-ccu/build/_deps/cann-cmake-subbuild/cann-cmake-populate-prefix/src/cann-cmake-populate-stamp/cann-cmake-populate-configure.rule"
+		},
+		{
+			"file" : "/home/helloworld/code/hccl-ccu/build/_deps/cann-cmake-subbuild/cann-cmake-populate-prefix/src/cann-cmake-populate-stamp/cann-cmake-populate-download.rule"
+		},
+		{
+			"file" : "/home/helloworld/code/hccl-ccu/build/_deps/cann-cmake-subbuild/cann-cmake-populate-prefix/src/cann-cmake-populate-stamp/cann-cmake-populate-install.rule"
+		},
+		{
+			"file" : "/home/helloworld/code/hccl-ccu/build/_deps/cann-cmake-subbuild/cann-cmake-populate-prefix/src/cann-cmake-populate-stamp/cann-cmake-populate-mkdir.rule"
+		},
+		{
+			"file" : "/home/helloworld/code/hccl-ccu/build/_deps/cann-cmake-subbuild/cann-cmake-populate-prefix/src/cann-cmake-populate-stamp/cann-cmake-populate-patch.rule"
+		},
+		{
+			"file" : "/home/helloworld/code/hccl-ccu/build/_deps/cann-cmake-subbuild/cann-cmake-populate-prefix/src/cann-cmake-populate-stamp/cann-cmake-populate-test.rule"
+		},
+		{
+			"file" : "/home/helloworld/code/hccl-ccu/build/_deps/cann-cmake-subbuild/cann-cmake-populate-prefix/src/cann-cmake-populate-stamp/cann-cmake-populate-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"cann-cmake-populate"
+		],
+		"name" : "cann-cmake-populate"
+	}
+}

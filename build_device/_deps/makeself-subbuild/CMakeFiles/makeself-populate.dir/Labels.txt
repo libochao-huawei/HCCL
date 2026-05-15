@@ -1,0 +1,14 @@
+# Target labels
+ makeself-populate
+# Source files and their labels
+/home/helloworld/code/hccl-ccu/build_device/_deps/makeself-subbuild/CMakeFiles/makeself-populate
+/home/helloworld/code/hccl-ccu/build_device/_deps/makeself-subbuild/CMakeFiles/makeself-populate.rule
+/home/helloworld/code/hccl-ccu/build_device/_deps/makeself-subbuild/CMakeFiles/makeself-populate-complete.rule
+/home/helloworld/code/hccl-ccu/build_device/_deps/makeself-subbuild/makeself-populate-prefix/src/makeself-populate-stamp/makeself-populate-build.rule
+/home/helloworld/code/hccl-ccu/build_device/_deps/makeself-subbuild/makeself-populate-prefix/src/makeself-populate-stamp/makeself-populate-configure.rule
+/home/helloworld/code/hccl-ccu/build_device/_deps/makeself-subbuild/makeself-populate-prefix/src/makeself-populate-stamp/makeself-populate-download.rule
+/home/helloworld/code/hccl-ccu/build_device/_deps/makeself-subbuild/makeself-populate-prefix/src/makeself-populate-stamp/makeself-populate-install.rule
+/home/helloworld/code/hccl-ccu/build_device/_deps/makeself-subbuild/makeself-populate-prefix/src/makeself-populate-stamp/makeself-populate-mkdir.rule
+/home/helloworld/code/hccl-ccu/build_device/_deps/makeself-subbuild/makeself-populate-prefix/src/makeself-populate-stamp/makeself-populate-patch.rule
+/home/helloworld/code/hccl-ccu/build_device/_deps/makeself-subbuild/makeself-populate-prefix/src/makeself-populate-stamp/makeself-populate-test.rule
+/home/helloworld/code/hccl-ccu/build_device/_deps/makeself-subbuild/makeself-populate-prefix/src/makeself-populate-stamp/makeself-populate-update.rule
