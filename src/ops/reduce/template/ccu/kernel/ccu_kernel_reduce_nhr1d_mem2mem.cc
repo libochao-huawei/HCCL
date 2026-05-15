@@ -133,8 +133,8 @@ static CcuResult DoWriteReduceSlice(ReduceNHR1DMem2MemContext &ctx, const u32 &t
         ccu::WriteReduce(sendChannel, ctx.remoteDst, ctx.localSrc, sliceSize, ctx.dataType, ctx.reduceOp, ctx.event);
     }
     CCU_IF(sliceSize == 0) {
-        ctx.event.setMask(1 << signalIndex);
-        ccu::EventRecord(ctx.event);
+		const uint32_t rankMask = 1 << signalIndex;
+        ccu::EventRecord(ctx.event, rankMask);
     }
     return CCU_SUCCESS;
 }
@@ -249,8 +249,8 @@ static CcuResult DoSendRecvSlice(ReduceNHR1DMem2MemContext &ctx, const u32 &toRa
         ccu::Write(sendChannel, ctx.remoteDst, ctx.localSrc, sliceSize, ctx.event);
     }
     CCU_IF(sliceSize == 0) {
-        ctx.event.setMask(1 << signalIndex);
-        ccu::EventRecord(ctx.event);
+		const uint32_t rankMask = 1 << signalIndex;
+        ccu::EventRecord(ctx.event, rankMask);
     }
     return CCU_SUCCESS;
 }
@@ -341,8 +341,8 @@ static CcuResult DoLocalCopySlice(ReduceNHR1DMem2MemContext &ctx, const u32 &cop
         ccu::LocalCopy(ctx.localDst, ctx.localSrc, sliceSize, ctx.event);
     }
     CCU_IF(sliceSize == 0) {
-        ctx.event.setMask(1 << signalIndex);
-        ccu::EventRecord(ctx.event);
+		const uint32_t rankMask = 1 << signalIndex;
+        ccu::EventRecord(ctx.event, rankMask);
     }
     return CCU_SUCCESS;
 }
