@@ -134,10 +134,10 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
         resourceRequest.channels[0].insert(resourceRequest.channels[0].end(), channelDescs1.begin(),
                                             channelDescs1.end());
         u32 j = 0;
-        for (auto channel : channelDescs1.channels) {
+        for (auto channel : channelDescs1) {
             HCCL_INFO("zjy11[DEBUG]     ch[%zu] remoteRank=%u, localRank=%u",
                         j, channel.remoteRank, myRank_);
-                        
+
             j++;
         }
     } else {
