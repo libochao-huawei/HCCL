@@ -41,10 +41,6 @@ static CcuResult CreateLocalCopyLoop(ReduceMesh1DMem2MemContext &ctx, GroupReduc
     }
 
     for (uint32_t index = 0; index < 2; index++) { // 需要2个Loop
-        CCU_CHK_RET(ccu::Alloc(&var.src[index]));
-        CCU_CHK_RET(ccu::Alloc(&var.dst[index]));
-        CCU_CHK_RET(ccu::Alloc(&var.len[index]));
-
         ccu::Event event = ctx.moRes.completedEvent[index];
 
         CCU_LOOP(ctx.loops[index]) {
@@ -66,12 +62,10 @@ static CcuResult LocalCopyByLoopGroup(ReduceMesh1DMem2MemContext &ctx, ccu::Loca
     CCU_IF(ctx.localGoSize.addrOffset != 0)
     {
         ccu::Variable loopParam;
-        CCU_CHK_RET(ccu::Alloc(&loopParam));
         loopParam = GetLoopParam(0, ctx.moConfig.memSlice * ctx.moConfig.loopCount, 0);
         loopParam = loopParam + ctx.localGoSize.loopParam;
 
         ccu::Variable sliceSize;
-        CCU_CHK_RET(ccu::Alloc(&sliceSize));
         sliceSize = ctx.moConfig.memSlice;
 
         var.src[0].addr = src.addr;
@@ -81,10 +75,8 @@ static CcuResult LocalCopyByLoopGroup(ReduceMesh1DMem2MemContext &ctx, ccu::Loca
         var.len[0] = sliceSize;
 
         ccu::Variable paraCfg;
-        CCU_CHK_RET(ccu::Alloc(&paraCfg));
         paraCfg = GetParallelParam(ctx.moConfig.loopCount - 1, 0, 1);
         ccu::Variable offsetCfg;
-        CCU_CHK_RET(ccu::Alloc(&offsetCfg));
         offsetCfg = GetOffsetParam(ctx.moConfig.memSlice, ctx.moConfig.msInterleave, 1);
 
         CcuLoopGroup group;
@@ -108,7 +100,6 @@ static CcuResult LocalCopyByLoopGroup(ReduceMesh1DMem2MemContext &ctx, ccu::Loca
         src.addr += ctx.localGoSize.residual;
         dst.addr += ctx.localGoSize.residual;
         ccu::Variable sliceSize;
-        CCU_CHK_RET(ccu::Alloc(&sliceSize));
         sliceSize                  = ctx.moConfig.memSlice;
 
         var.src[1].addr = src.addr;
@@ -118,13 +109,10 @@ static CcuResult LocalCopyByLoopGroup(ReduceMesh1DMem2MemContext &ctx, ccu::Loca
         var.len[1] = sliceSize;
 
         ccu::Variable loopCfg0;
-        CCU_CHK_RET(ccu::Alloc(&loopCfg0));
         loopCfg0 = GetLoopParam(0, 0, 1);
         ccu::Variable loopCfg1;
-        CCU_CHK_RET(ccu::Alloc(&loopCfg1));
         loopCfg1 = GetLoopParam(0, 0, 1);
         ccu::Variable offsetCfg;
-        CCU_CHK_RET(ccu::Alloc(&offsetCfg));
         offsetCfg = GetOffsetParam(ctx.moConfig.memSlice, ctx.moConfig.msInterleave, 1);
 
         CcuLoopGroup group;
@@ -151,39 +139,15 @@ static CcuResult InitResource(ReduceMesh1DMem2MemContext &ctx)
     ctx.output.resize(arg->rankSize);
     ctx.token.resize(arg->rankSize);
     for (uint64_t peerId = 0; peerId < arg->rankSize; peerId++) {
-        if (peerId == arg->rankId) {
-            CCU_CHK_RET(ccu::Alloc(&ctx.input[peerId]));
-            CCU_CHK_RET(ccu::Alloc(&ctx.output[peerId]));
-            CCU_CHK_RET(ccu::Alloc(&ctx.token[peerId]));
-        } else {
-            CCU_CHK_RET(ccu::CreateByChannel(arg->channels[channelIdx], INPUT_XN_ID, &ctx.input[peerId]));
-            CCU_CHK_RET(ccu::CreateByChannel(arg->channels[channelIdx], OUTPUT_XN_ID, &ctx.output[peerId]));
-            CCU_CHK_RET(ccu::CreateByChannel(arg->channels[channelIdx], TOKEN_XN_ID, &ctx.token[peerId]));
+        if (peerId != arg->rankId) {
+			ctx.input[peerId] = ccu::GetResByChannel(arg->channels[channelIdx], INPUT_XN_ID);
+            ctx.output[peerId] = ccu::GetResByChannel(arg->channels[channelIdx], OUTPUT_XN_ID);
+            ctx.token[peerId] = ccu::GetResByChannel(arg->channels[channelIdx], TOKEN_XN_ID)
             channelIdx++;
         }
     }
 
     ctx.chunkSize.resize(arg->rankSize - 1);
-    for (uint64_t roundId = 0; roundId < arg->rankSize - 1; roundId++) {
-        CCU_CHK_RET(ccu::Alloc(&ctx.chunkSize[roundId]));
-    }
-
-    CCU_CHK_RET(ccu::Alloc(&ctx.inputRepeatStride));
-    CCU_CHK_RET(ccu::Alloc(&ctx.outputRepeatStride));
-    CCU_CHK_RET(ccu::Alloc(&ctx.normalSliceSize));
-    CCU_CHK_RET(ccu::Alloc(&ctx.lastSliceSize));
-    CCU_CHK_RET(ccu::Alloc(&ctx.repeatNumVar));
-    CCU_CHK_RET(ccu::Alloc(&ctx.flag));
-    CCU_CHK_RET(ccu::Alloc(&ctx.isInputOutputEqual));
-    CCU_CHK_RET(ccu::Alloc(&ctx.myInputAddr));
-    CCU_CHK_RET(ccu::Alloc(&ctx.remoteInputAddr));
-    CCU_CHK_RET(ccu::Alloc(&ctx.dstAddr));
-    CCU_CHK_RET(ccu::Alloc(&ctx.event));
-    CCU_CHK_RET(ccu::Alloc(&ctx.chunkOffset));
-    CCU_CHK_RET(ccu::Alloc(&ctx.localGoSize.addrOffset));
-    CCU_CHK_RET(ccu::Alloc(&ctx.localGoSize.loopParam));
-    CCU_CHK_RET(ccu::Alloc(&ctx.localGoSize.parallelParam));
-    CCU_CHK_RET(ccu::Alloc(&ctx.localGoSize.residual));
 
     ctx.moConfig.loopCount = 8;
     ctx.moConfig.msInterleave = LOCAL_COPY_MS;
@@ -362,7 +326,6 @@ CcuResult CcuReduceMesh1DMem2MemKernel(CcuKernelArg arg)
     {
         if (kernelArg->rankId == kernelArg->rootId) {
             ccu::Variable repeatNumAdd;
-            CCU_CHK_RET(ccu::Alloc(&repeatNumAdd));
             repeatNumAdd  = 1;
             ctx.flag = 0;
             CCU_WHILE(ctx.repeatNumVar != UINT64_MAX) { // 循环repeatNum_次
