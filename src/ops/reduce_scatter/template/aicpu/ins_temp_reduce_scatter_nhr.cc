@@ -44,7 +44,7 @@ HcclResult InsTempReduceScatterNHR::CalcRes(HcclComm comm, const OpParam& param,
     HCCL_INFO("[InsTempReduceScatterNHR][CalcRes] channelsPerRank: [%u].", channelsPerRank);
     channelsPerRank_ = channelsPerRank;
     GetRes(resourceRequest);
-    int32 j = 0;
+    u32 j = 0;
     for (auto channel : resourceRequest.channels) {
         HCCL_INFO("zjyallgather[DEBUG]     ch[%zu] remoteRank=%u, localRank=%u",
                     j, channel.remoteRank, rankId);
