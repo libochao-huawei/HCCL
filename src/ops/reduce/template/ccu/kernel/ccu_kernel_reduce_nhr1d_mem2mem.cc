@@ -59,27 +59,13 @@ static CcuResult InitResource(ReduceNHR1DMem2MemContext &ctx)
     HCCL_INFO("[CcuKernelReduceNHR1DMem2Mem] channels.size: [%u]", arg->channelCount);
 
     // 按照rank号从小到大遍历channels，遇到本rank就填充本地资源，否则依次取远端资源，要求算法返回的Link同样是按顺序排列的
-    CCU_CHK_RET(ccu::Alloc(&ctx.input));
     ctx.output.resize(ctx.localSize + 1);
     ctx.token.resize(ctx.localSize + 1);
     for (uint64_t channelIdx = 0; channelIdx < ctx.localSize; channelIdx++) {
-        CCU_CHK_RET(ccu::CreateByChannel(arg->channels[channelIdx], OUTPUT_XN_ID, &ctx.output[channelIdx]));
-        CCU_CHK_RET(ccu::CreateByChannel(arg->channels[channelIdx], TOKEN_XN_ID, &ctx.token[channelIdx]));
+        ctx.output[channelIdx] = ccu::GetResByChannel(arg->channels[channelIdx], OUTPUT_XN_ID);
+        ctx.token[channelIdx] = ccu::GetResByChannel(arg->channels[channelIdx], TOKEN_XN_ID)
+        channelIdx++;
     }
-    CCU_CHK_RET(ccu::Alloc(&ctx.output[ctx.localSize]));
-    CCU_CHK_RET(ccu::Alloc(&ctx.token[ctx.localSize]));
-
-    CCU_CHK_RET(ccu::Alloc(&ctx.die0Size));
-    CCU_CHK_RET(ccu::Alloc(&ctx.die1Size));
-    CCU_CHK_RET(ccu::Alloc(&ctx.die0SliceSize));
-    CCU_CHK_RET(ccu::Alloc(&ctx.die1SliceSize));
-    CCU_CHK_RET(ccu::Alloc(&ctx.die0LastSliceSize));
-    CCU_CHK_RET(ccu::Alloc(&ctx.die1LastSliceSize));
-    CCU_CHK_RET(ccu::Alloc(&ctx.isInputOutputEqual));
-    CCU_CHK_RET(ccu::Alloc(&ctx.event));
-    CCU_CHK_RET(ccu::Alloc(&ctx.localSrc));
-    CCU_CHK_RET(ccu::Alloc(&ctx.localDst));
-    CCU_CHK_RET(ccu::Alloc(&ctx.remoteDst));
 
     CCU_CHK_RET(ccu::CreateLoopExecutor(&ctx.enginePool, CCU_MAX_RANK_SIZE));
 
@@ -387,12 +373,10 @@ static CcuResult LocalCopySlices(ReduceNHR1DMem2MemContext &ctx)
 
     u32 nonTxSliceIdx = 0;
     ccu::Variable tmpSliceOffset;
-    CCU_CHK_RET(ccu::Alloc(&tmpSliceOffset));
     tmpSliceOffset = 0;
 
     ctx.sliceOffset.resize(arg->rankSize);
     for (u64 i = 0; i < arg->rankSize; i++) {
-        CCU_CHK_RET(ccu::Alloc(&ctx.sliceOffset[i]));
         ctx.sliceOffset[i] = tmpSliceOffset;
         tmpSliceOffset += arg->axisId == 0 ? ctx.die0SliceSize : ctx.die1SliceSize;
     }
