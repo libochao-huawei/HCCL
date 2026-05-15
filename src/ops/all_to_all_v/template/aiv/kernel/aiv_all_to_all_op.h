@@ -8,19 +8,19 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef ALL_TO_ALL_AIV_COMMUNICATION_V2_H
-#define ALL_TO_ALL_AIV_COMMUNICATION_V2_H
+#ifndef AIV_ALL_TO_ALL_OP_H
+#define AIV_ALL_TO_ALL_OP_H
 
 #include "aiv_communication_base_v2.h"
 #include "aiv_all_to_all_mesh_1D.h"
 using namespace AscendC;
 
 #define AIV_ALL_TO_ALL_KERNEL_BATCH_DEF(type) \
-extern "C" __global__ __aicore__ void aiv_alltoall_##type(EXTERN_KERNEL_ARGS_DEF_V2) { \
-    AivAlltoAllV2Mesh1D<type>(EXTERN_KERNEL_ARGS_CALL); \
+extern "C" __global__ __aicore__ void aiv_alltoall_##type(KERNEL_ARGS_DEF) { \
+    AivAlltoAllV2Mesh1D<type>(KERNEL_ARGS_CALL); \
 }                                               \
 EXPORT_AIV_META_INFO(aiv_alltoall_##type)
 
 // 定义各算子各数据类型Kernel入口
 AIV_COPY_DATA_TYPE_DEF(AIV_ALL_TO_ALL_KERNEL_BATCH_DEF);
-#endif  /* AIV_COMMUNICATION_V2_H */
+#endif  /* AIV_ALL_TO_ALL_OP_H */

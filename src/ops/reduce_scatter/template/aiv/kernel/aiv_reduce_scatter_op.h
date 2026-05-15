@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef ALL_GATHER_AIV_COMMUNICATION_V2_H
-#define ALL_GATHER_AIV_COMMUNICATION_V2_H
+#ifndef AIV_REDUCE_SCATTER_OP_H
+#define AIV_REDUCE_SCATTER_OP_H
 
 #include "aiv_communication_base_v2.h"
 #include "aiv_reduce_scatter_mesh_1d.h"
@@ -20,11 +20,11 @@
 using namespace AscendC;
 
 #define AIV_REDUCE_SCATTER_KERNEL_BATCH_DEF(type) \
-extern "C" __global__ __aicore__ void aiv_reduce_scatter_##type(EXTERN_KERNEL_ARGS_DEF_V2) { \
+extern "C" __global__ __aicore__ void aiv_reduce_scatter_##type(KERNEL_ARGS_DEF) { \
     if (AscendC::GetBlockNum() > 2 * rankSize) { \
-        AivReduceScatterV2Mesh1DBigData<type>(EXTERN_KERNEL_ARGS_CALL); \
+        AivReduceScatterV2Mesh1DBigData<type>(KERNEL_ARGS_CALL); \
     } else { \
-        AivReduceScatterV2LocalTree<type>(EXTERN_KERNEL_ARGS_CALL); \
+        AivReduceScatterV2LocalTree<type>(KERNEL_ARGS_CALL); \
     } \
 } \
 EXPORT_AIV_META_INFO(aiv_reduce_scatter_##type)
@@ -32,4 +32,4 @@ EXPORT_AIV_META_INFO(aiv_reduce_scatter_##type)
 // 定义各算子各数据类型Kernel入口
 AIV_ATOMIC_DATA_TYPE_DEF(AIV_REDUCE_SCATTER_KERNEL_BATCH_DEF);
 
-#endif  /* AIV_COMMUNICATION_V2_H */
+#endif  /* AIV_REDUCE_SCATTER_OP_H */
