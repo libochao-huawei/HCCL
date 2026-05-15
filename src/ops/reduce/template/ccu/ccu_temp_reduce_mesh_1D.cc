@@ -9,7 +9,6 @@
  */
 
 #include "channel.h"
-#include "ccu_assist_pub.h"
 #include "ccu_kernel_reduce_mesh1d.h"
 #include "ccu_temp_reduce_mesh_1D.h"
 #include "ccu_control_api.h"
