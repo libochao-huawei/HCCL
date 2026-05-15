@@ -142,7 +142,7 @@ static CcuResult InitResource(ReduceMesh1DMem2MemContext &ctx)
         if (peerId != arg->rankId) {
 			ctx.input[peerId] = ccu::GetResByChannel(arg->channels[channelIdx], INPUT_XN_ID);
             ctx.output[peerId] = ccu::GetResByChannel(arg->channels[channelIdx], OUTPUT_XN_ID);
-            ctx.token[peerId] = ccu::GetResByChannel(arg->channels[channelIdx], TOKEN_XN_ID)
+            ctx.token[peerId] = ccu::GetResByChannel(arg->channels[channelIdx], TOKEN_XN_ID);
             channelIdx++;
         }
     }
