@@ -270,7 +270,7 @@ public:
         pipe.InitBuffer(inQueueY, 1, chunkSize);
         pipe.InitBuffer(outQueueZ, 1, chunkSize);
 
-        GetTag(input);
+        GetTag(args->buffersIn);
     }
 
     __aicore__ inline void InitBuffArray(GM_ADDR buffIn)
