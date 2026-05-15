@@ -9,7 +9,6 @@
  */
 
 #include "load_kernel.h"
-#include "mmpa_api.h"
 #include "log.h"
 #include "adapter_acl.h"
 namespace ops_hccl {
@@ -20,8 +19,7 @@ HcclResult GetKernelFilePath(std::string &binaryPath)
 {
     // 获取二进制文件路径
     std::string libPath;
-    char *getPath = getenv("ASCEND_HOME_PATH");
-    MM_SYS_GET_ENV(MM_ENV_ASCEND_HOME_PATH, getPath);
+    char *getPath = std::getenv("ASCEND_HOME_PATH");
     if (getPath != nullptr) {
         libPath = getPath;
     } else {
