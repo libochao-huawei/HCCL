@@ -2318,6 +2318,17 @@ HcclResult HcclGetAlgExecParamGraphMode(const char *tag, const char *group, u64 
     superKernelArgs.output = aivOpArgs.output;
     superKernelArgs.cclBufferSize = resCtxHost->cclMem.size;
 
+    HCCL_INFO("[HcclGetAlgExecParamGraphMode] superKernelArgs: buffersIn[%p], rank[%u], rankSize[%u], "
+              "len[%llu], dataType[%u], unitSize[%u], reduceOp[%u], numBlocks[%u], tag[%d], "
+              "clearEnable[%d], inputSliceStride[%llu], outputSliceStride[%llu], repeatNum[%llu], "
+              "inputRepeatStride[%llu], outputRepeatStride[%llu], input[%llu], output[%llu], cclBufferSize[%llu]",
+              superKernelArgs.buffersIn, superKernelArgs.rank, superKernelArgs.rankSize,
+              superKernelArgs.len, superKernelArgs.dataType, superKernelArgs.unitSize,
+              superKernelArgs.reduceOp, superKernelArgs.numBlocks, superKernelArgs.tag,
+              superKernelArgs.clearEnable, superKernelArgs.inputSliceStride, superKernelArgs.outputSliceStride,
+              superKernelArgs.repeatNum, superKernelArgs.inputRepeatStride, superKernelArgs.outputRepeatStride,
+              superKernelArgs.input, superKernelArgs.output, superKernelArgs.cclBufferSize);
+
     // 分配设备内存
     void *deviceMem = nullptr;
     aclError aclRet = aclrtMalloc(&deviceMem, sizeof(ops_hccl::AivSuperKernelArgs), ACL_MEM_MALLOC_HUGE_FIRST);
