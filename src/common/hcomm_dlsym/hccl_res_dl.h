@@ -13,7 +13,6 @@
 
 #include "dlsym_common.h"
 #include "hccl_res.h"
-#include "alg_param.h"
 
 #if CANN_VERSION_NUM >= 90000000
 #include "hccl_res_expt.h"
