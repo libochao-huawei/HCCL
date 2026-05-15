@@ -44,7 +44,15 @@ HcclResult InsTempReduceScatterNHR::CalcRes(HcclComm comm, const OpParam& param,
     HCCL_INFO("[InsTempReduceScatterNHR][CalcRes] channelsPerRank: [%u].", channelsPerRank);
     channelsPerRank_ = channelsPerRank;
     GetRes(resourceRequest);
-    HCCL_INFO("[InsTempReduceScatterNHR][CalcRes] slaveThreadNum: [%u], notifyNumOnMainThread: [%u].",
+    for (auto it = resourceRequest.channels.begin(); it != resourceRequest.channels.end(); ++it) {
+        HCCL_INFO("zjyallgather[DEBUG]   rank[%u] -> %zu channels", it->first, it->second.size());
+        for (size_t j = 0; j < it->second.size(); ++j) {
+            HCCL_INFO("zjyallgather[DEBUG]     ch[%zu] remoteRank=%u, localRank=%u",
+                    j, it->second[j].remoteRank, it->first);
+        }
+    }
+
+    CCL_INFO("[InsTempReduceScatterNHR][CalcRes] slaveThreadNum: [%u], notifyNumOnMainThread: [%u].",
         resourceRequest.slaveThreadNum, resourceRequest.notifyNumOnMainThread);
     return HcclResult::HCCL_SUCCESS;
 }
