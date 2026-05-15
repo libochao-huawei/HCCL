@@ -198,7 +198,6 @@ HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::KernelRun(const OpParam& para
     uint64_t token;
     CHK_RET(GetToken(buffInfo_, token));
     
-    uint64_t isInputOutputEqual    = buffInfo_.inputPtr == buffInfo_.outputPtr ? 1 : 0;
     uint64_t sliceSize             = templateDataParams.sliceSize;
     HcclDataType dataType          = param.DataDes.dataType;
     uint64_t dataTypeSize          = DataTypeSizeGet(dataType);
@@ -216,6 +215,9 @@ HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::KernelRun(const OpParam& para
     uint64_t repeatNumTmp          = templateDataParams.repeatNum;
 
     uint64_t repeatNumInv = UINT64_MAX - repeatNumTmp; // CCU硬件限制
+
+    bool inputOutputEqual = (inputAddr + inputSliceStride * mySubCommRank_ == outputAddr + outputSliceStride * mySubCommRank_);
+    uint64_t isInputOutputEqual = static_cast<uint64_t>(inputOutputEqual);
 
     HCCL_DEBUG("[CcuTempAllGatherNHR1DMultiJettyMem2Mem] inputAddr[%llu], outputAddr[%llu],"
     "sliceSize[%llu], sliceSizePerJetty[%llu], lastSliceSizePerJetty[%llu], repeatNumInv[%llu], inputSliceStride[%llu], "

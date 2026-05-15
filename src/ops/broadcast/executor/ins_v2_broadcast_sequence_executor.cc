@@ -76,10 +76,10 @@ HcclResult InsV2BroadcastSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     AlgResourceRequest resReqScatterInter;
     AlgResourceRequest resReqAllGatherInter;
 
-    intraScatterTempAlg->CalcRes(comm, param, topoInfo, resReqScatterIntra);
-    intraAllGatherTempAlg->CalcRes(comm, param, topoInfo, resReqAllGatherIntra);
-    interScatterTempAlg->CalcRes(comm, param, topoInfo, resReqScatterInter);
-    interAllGatherTempAlg->CalcRes(comm, param, topoInfo, resReqAllGatherInter);
+    CHK_RET(intraScatterTempAlg->CalcRes(comm, param, topoInfo, resReqScatterIntra));
+    CHK_RET(intraAllGatherTempAlg->CalcRes(comm, param, topoInfo, resReqAllGatherIntra));
+    CHK_RET(interScatterTempAlg->CalcRes(comm, param, topoInfo, resReqScatterInter));
+    CHK_RET(interAllGatherTempAlg->CalcRes(comm, param, topoInfo, resReqAllGatherInter));
 
     // step1在完成后，完成后同步后展开step2，因此slaveThread和对应notify可以复用
     resourceRequest.slaveThreadNum = std::max({resReqScatterIntra.slaveThreadNum,
