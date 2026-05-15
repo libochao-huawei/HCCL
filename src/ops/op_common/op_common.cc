@@ -2214,13 +2214,13 @@ HcclResult HcclCalcAivCoreNumGraphMode(u32 aivCoreLimit, u32 *numBlocks)
 }
 
 HcclResult HcclGetAlgExecParamGraphMode(const char *tag, const char *group, u64 count, void *inputPtr, void *outputPtr,
-                                 HcclCMDType opType, bool clearEnable, HcclDataType dataType, HcclReduceOp op,
+                                 HcclCMDType opType, HcclDataType dataType, HcclReduceOp op,
                                  void **commContext, u64 *len, u32 aivCoreLimit)
 {
     HCCL_INFO("[HcclGetAlgExecParamGraphMode] tag[%s], group[%s], count[%llu], opType[%d], dataType[%d], "
-                "reduceOp[%d], clearEnable[%d], aivCoreLimit[%u]", tag != nullptr ? tag : "nullptr",
+                "reduceOp[%d], aivCoreLimit[%u]", tag != nullptr ? tag : "nullptr",
             group != nullptr ? group : "nullptr", count, static_cast<int>(opType), static_cast<int>(dataType),
-            static_cast<int>(op), clearEnable, aivCoreLimit);
+            static_cast<int>(op), aivCoreLimit);
 
     CHK_PTR_NULL(tag);
     CHK_PTR_NULL(group);
@@ -2308,7 +2308,6 @@ HcclResult HcclGetAlgExecParamGraphMode(const char *tag, const char *group, u64 
     superKernelArgs.reduceOp = op;
     superKernelArgs.numBlocks = aivCoreLimit;
     superKernelArgs.tag = 0;
-    superKernelArgs.clearEnable = clearEnable;
     superKernelArgs.inputSliceStride = 0;
     superKernelArgs.outputSliceStride = 0;
     superKernelArgs.repeatNum = 1;
