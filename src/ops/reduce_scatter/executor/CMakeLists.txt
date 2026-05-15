@@ -11,7 +11,6 @@
 set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_reduce_scatter_sole_executor.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_reduce_scatter_parallel_executor.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_reduce_scatter_sequence_executor_aicpu.cc
 )
 if(NOT HCCL_CANN_COMPAT_850)
     list(APPEND src_list

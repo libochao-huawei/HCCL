@@ -10,7 +10,6 @@
 
 set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_all_gather_mesh_1D.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_all_gather_mesh_1D_Z_axis_detour.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_all_gather_nhr.cc
 )
 if(NOT HCCL_CANN_COMPAT_850)
