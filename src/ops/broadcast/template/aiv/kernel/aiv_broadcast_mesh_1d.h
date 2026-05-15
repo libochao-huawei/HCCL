@@ -160,9 +160,9 @@ __aicore__ inline void AivBroadcastMesh1D::ProcessBigData(uint64_t curCount, uin
     WaitFlag(root_, flag_offset, curTag_);
     if (rank_ != root_) {
         CpGM2GM((__gm__ T *)recvCclOutOffset, (__gm__ T *)recvCclInOffset, sendCurCountStage1);
-        PipeBarrier<PIPE_ALL>();          
+        PipeBarrier<PIPE_ALL>();
+        Record(rank_, flag_offset, curTag_);
     }
-    Record(rank_, flag_offset, curTag_);
     if (coreIndexStage1 == 0) {
         for (uint64_t i = 0; i < rankSize_; i++) {
             uint64_t flag_offset_w = rank_ * coreNumPerRank * rankSize_ + rankSizeCoreDataIndex * rankSize_ + i;
