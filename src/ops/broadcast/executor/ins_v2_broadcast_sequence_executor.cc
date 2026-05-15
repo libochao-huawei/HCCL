@@ -252,7 +252,7 @@ HcclResult InsV2BroadcastSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
         tempAlgParamsScatterIntra.inputRepeatStride = 0;
         tempAlgParamsScatterIntra.outputRepeatStride = 0;
         // 因为只考虑执行0级算法，所以传进template里面的channels就是channels_的第一个vector
-        if(intraLocalRoot_ = root_) {
+        if(intraLocalRoot_ == root_) {
             CHK_RET(algTemplateScatterIntra->KernelRun(param, tempAlgParamsScatterIntra, templateResourceIntra));
         }
 
