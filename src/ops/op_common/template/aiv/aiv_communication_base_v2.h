@@ -270,6 +270,7 @@ public:
         pipe.InitBuffer(inQueueY, 1, chunkSize);
         pipe.InitBuffer(outQueueZ, 1, chunkSize);
 
+        GetTag(args->buffersIn);
         if (args->clearEnable == 1) {
             ClearSyncBuf();
         }
