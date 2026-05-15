@@ -119,7 +119,7 @@ HcclResult InsTempReduceScatterMesh1D::PostCopy(const OpParam& param,const Templ
                 repeatIdx * tempAlgParams.inputRepeatStride + myAlgRank * tempAlgParams.inputSliceStride, processSize_, count_);
             DataSlice dstSlice = DataSlice(tempAlgParams.buffInfo.outputPtr, tempAlgParams.buffInfo.outBuffBaseOff +
                 repeatIdx * tempAlgParams.outputRepeatStride + myAlgRank * tempAlgParams.outputSliceStride, processSize_, count_);
-            CHK_RET(static_cast<HcclResult>(LocalCopy(threads[0], srcSlice, dstSlice)));
+          //  CHK_RET(static_cast<HcclResult>(LocalCopy(threads[0], srcSlice, dstSlice)));
         }
         if (dataType_ == HCCL_DATA_TYPE_INT64 || dataType_ == HCCL_DATA_TYPE_UINT64 || dataType_ == HCCL_DATA_TYPE_FP64
             || reduceOp_ == HcclReduceOp::HCCL_REDUCE_PROD) {

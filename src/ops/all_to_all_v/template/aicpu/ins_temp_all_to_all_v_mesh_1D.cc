@@ -159,7 +159,7 @@ HcclResult InsTempAlltoAllVMesh1D::LocalCopyForMyRank(const TemplateDataParams &
         tempAlgParams.recvCounts[myAlgRank] * dataTypeSize_, tempAlgParams.recvCounts[myAlgRank]);
 
     if (tempAlgParams.sendCounts[myAlgRank] > 0) {
-        CHK_RET(static_cast<HcclResult>(LocalCopy(thread, srcSlice, dstSlice)));
+        //CHK_RET(static_cast<HcclResult>(LocalCopy(thread, srcSlice, dstSlice)));
         HCCL_DEBUG("[InsTempAlltoAllVMesh1D][RunALLtoALL] do local copy on thread[%u], data size[%llu].",
             queIdx, tempAlgParams.sendCounts[myAlgRank] * dataTypeSize_);
     }
@@ -369,7 +369,7 @@ HcclResult InsTempAlltoAllVMesh1D::PreCopy(const std::vector<u32> &commRanks,
                 myRankCclBuffIdx * tempAlgParams.inputSliceStride + tempAlgParams.buffInfo.hcclBuffBaseOff +
                 sendOffsetSplit_[channelId], sendSizeSplit_[channelId], sendCountsSplit_[channelId]);
             if (sendSizeSplit_[channelId] > 0) {
-                CHK_RET(static_cast<HcclResult>(LocalCopy(threads[queIdx], srcSlice, dstSlice)));
+           //     CHK_RET(static_cast<HcclResult>(LocalCopy(threads[queIdx], srcSlice, dstSlice)));
             }
             queIdx++;
         }
@@ -390,7 +390,7 @@ HcclResult InsTempAlltoAllVMesh1D::PostCopy(const TemplateDataParams &tempAlgPar
     DataSlice localCopyDstSlice = DataSlice(tempAlgParams.buffInfo.outputPtr,
         tempAlgParams.rdispls[remoteRank] * dataTypeSize_ + recvOffset,
         recvSize, recvCount);
-    CHK_RET(static_cast<HcclResult>(LocalCopy(thread, localCopySrcSlice, localCopyDstSlice)));
+   // CHK_RET(static_cast<HcclResult>(LocalCopy(thread, localCopySrcSlice, localCopyDstSlice)));
     return HcclResult::HCCL_SUCCESS;
 }
 
