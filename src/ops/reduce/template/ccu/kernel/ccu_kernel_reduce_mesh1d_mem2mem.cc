@@ -278,8 +278,8 @@ static CcuResult DoRepeatReduce(ReduceMesh1DMem2MemContext &ctx, const std::vect
 
             CCU_IF(ctx.chunkSize[chkId] == 0)
             {
-                ctx.event.setMask(1 << rmtId);
-                ccu::EventRecord(ctx.event);
+				const uint32_t rankMask = 1 << rmtId;
+                ccu::EventRecord(ctx.event, rankMask);
             }
 
             CCU_IF(ctx.chunkSize[chkId] != 0)
