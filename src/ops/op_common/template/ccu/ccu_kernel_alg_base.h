@@ -41,7 +41,7 @@ constexpr uint64_t CCU_MS_SIZE               = 4096;
 
     struct LoopGroupResource {
         ccu::Event  completedEvent[CCU_MS_DEFAULT_LOOP_COUNT];
-        ccu::Buffer ccuBuf[CCU_MS_DEFAULT_LOOP_COUNT * CCU_MS_INTERLEAVE];
+        ccu::CcuBuffer ccuBuf[CCU_MS_DEFAULT_LOOP_COUNT * CCU_MS_INTERLEAVE];
         uint32_t  eventCount;
         uint32_t  bufCount;
  	 };
