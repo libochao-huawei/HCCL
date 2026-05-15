@@ -15,7 +15,6 @@
 #include <fstream>
 #include <limits>
 #include <unordered_map>
-#include "mmpa_api.h"
 #include "adapter_acl.h"
 #include "hccl_aiv_utils.h"
 #include "aiv_kernel_def.h"
@@ -198,8 +197,7 @@ HcclResult GetAivOpBinaryPath(const std::string &aivBinaryName, std::string &bin
 {
     // 获取二进制文件路径
     std::string libPath;
-    char *getPath = nullptr;
-    MM_SYS_GET_ENV(MM_ENV_ASCEND_HOME_PATH, getPath);
+    char *getPath = getenv("ASCEND_HOME_PATH");
     if (getPath != nullptr) {
         libPath = getPath;
     } else {
