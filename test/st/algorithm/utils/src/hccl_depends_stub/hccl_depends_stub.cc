@@ -17,5 +17,5 @@ extern "C" int32_t dlog_getlevel(int32_t moduleId, int32_t *enableEvent)
     if (enableEvent != nullptr) {
         *enableEvent = 0;
     }
-    return 0x03;
+    return 0x0;
 }
