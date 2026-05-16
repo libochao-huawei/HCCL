@@ -15,19 +15,17 @@ namespace ops_hccl {
 InsTempSendHostNicDpu::InsTempSendHostNicDpu()
 {
 }
-// ! 已编码完成
+
 InsTempSendHostNicDpu::InsTempSendHostNicDpu(const OpParam &param, const u32 rankId,  // 传通信域的rankId，userRank
     const std::vector<std::vector<u32>> &subCommRanks)
     : InsAlgTemplateBase(param, rankId, subCommRanks)
 {
 }
 
-// ! 已编码完成
 InsTempSendHostNicDpu::~InsTempSendHostNicDpu()
 {
 }
 
-// ! 已编码完成
 HcclResult InsTempSendHostNicDpu::CalcRes(HcclComm comm, const OpParam &param,
     const TopoInfoWithNetLayerDetails *topoInfo, AlgResourceRequest &resourceRequest)
 {
