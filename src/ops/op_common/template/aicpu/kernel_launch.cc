@@ -29,6 +29,7 @@
 #endif
 #include "hccl_device_comm_dl.h"
 #include "exec_timeout_manager.h"
+#include "alg_data_trans_wrapper.h"
 
 using namespace ops_hccl;
 namespace {
@@ -348,6 +349,8 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
             HCCL_ERROR("failed to restore optype [%d] data and counts.", param->opType);
             return 1;
         }
+        CHK_RET(ops_hccl::InitHcommBatchTransferOnThreadSupported(
+            resCtx.isHcommBatchTransferOnThreadSupported));
         // 获取Device测主thread
         ThreadHandle thread = resCtxPtr->threads[0];
         if (HcommBatchModeStart(param->algTag) != HCCL_SUCCESS) {
