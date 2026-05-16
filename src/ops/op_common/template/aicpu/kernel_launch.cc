@@ -356,16 +356,14 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         }
 
         // 要在下第一个task之前上报
-        if (HcclDfxRegOpInfoByCommId(param->commName, nullptr) != HCCL_SUCCESS) {
-            HcclDfxOpInfo dfxOpInfo{};
-            if (ConvertToHcclDfxOpInfo(param, &dfxOpInfo) != HCCL_SUCCESS) {
-                HCCL_ERROR("ConvertToHcclDfxOpInfo fail, commName is %s, tag is %s", param->commName, param->algTag);
-                return 1;
-            }
-            if (HcclDfxRegOpInfoByCommId(param->commName, reinterpret_cast<void *>(&dfxOpInfo)) != HCCL_SUCCESS) {
-                HCCL_ERROR("HcclDfxRegOpInfoByCommId fail, commName is %s, tag is %s", param->commName, param->algTag);
-                return 1;
-            }
+        HcclDfxOpInfo dfxOpInfo{};
+        if (ConvertToHcclDfxOpInfo(param, &dfxOpInfo) != HCCL_SUCCESS) {
+            HCCL_ERROR("ConvertToHcclDfxOpInfo fail, commName is %s, tag is %s", param->commName, param->algTag);
+            return 1;
+        }
+        if (HcclDfxRegOpInfoByCommId(param->commName, reinterpret_cast<void *>(&dfxOpInfo)) != HCCL_SUCCESS) {
+            HCCL_ERROR("HcclDfxRegOpInfoByCommId fail, commName is %s, tag is %s", param->commName, param->algTag);
+            return 1;
         }
 
         // 上报上报mainstream数据,第一个任务
