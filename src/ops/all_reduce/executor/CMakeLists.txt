@@ -21,6 +21,7 @@ if(NOT HCCL_CANN_COMPAT_850)
         ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_allreduce_sequence2die_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_all_reduce_sequence_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_all_reduce_omnipipe_executor.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ins_v2_all_reduce_order_preserved_executor.cc
     )
 endif()
 
