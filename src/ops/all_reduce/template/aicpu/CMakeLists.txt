@@ -21,6 +21,10 @@ if(NOT HCCL_CANN_COMPAT_850)
     list(APPEND src_list
         ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_all_gather_nhr_dpu_inter.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_reduce_scatter_mesh_1D_dpu_inter.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_reduce_scatter_order_preserved_level1.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_reduce_scatter_order_preserved_level2.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_all_gather_order_preserved_level1.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_all_gather_order_preserved_level2.cc
     )
 endif()
 
