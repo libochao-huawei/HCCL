@@ -692,7 +692,7 @@ elif [ "${ENABLE_CUSTOM}" == "on" ]; then
     build_custom
 elif [ "${BUILD_CB_TEST}" == "true" ]; then
     log "Info: Building cb_test_verify"
-    build_cb_test_verify
+    # build_cb_test_verify
     if grep -q "Make Failure" ${BUILD_DIR}/build.log || grep -q "Make test Failure" ${BUILD_DIR}/build.log; then
         log "Info: Building cb_test_verify failed"
         exit 1

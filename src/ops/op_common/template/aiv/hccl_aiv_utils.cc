@@ -15,7 +15,6 @@
 #include <fstream>
 #include <limits>
 #include <unordered_map>
-#include "mmpa_api.h"
 #include "adapter_acl.h"
 #include "hccl_aiv_utils.h"
 #include "aiv_kernel_def.h"
@@ -145,6 +144,51 @@ static u32 GetAivTimeout()
     return timeout;
 }
 
+using AivKernelArgs = struct AivKernelArgsDef {
+    const void* buffersIn; // 注册的CCLIN地址，所有卡可访问
+    u64 input;
+    u64 output;
+    u32 rank;
+    u32 sendRecvRemoteRank;
+    u32 rankSize;
+    u64 xRankSize;
+    u64 yRankSize;
+    u64 zRankSize;
+    u64 len;
+    u32 dataType;
+    u32 reduceOp;
+    u32 root;
+    u32 tag; // 第几次调用，定时重置成1
+    u64 inputSliceStride;
+    u64 outputSliceStride;
+    u64 repeatNum;
+    u64 inputRepeatStride;
+    u64 outputRepeatStride;
+    bool isOpBase;
+    const void* headCountMem;
+    const void* tailCountMem;
+    const void* addOneMem;
+    u32 counterMemSize;
+    bool isEnableCounter;
+
+    AivKernelArgsDef(const void* buffIn, u64 input, u64 output, u32 rank, u32 sendRecvRemoteRank,
+        u32 rankSize, u64 xRankSize, u64 yRankSize, u64 zRankSize,
+        u64 len, u32 dataType, u32 reduceOp, u32 root, u32 tag,
+        u64 inputSliceStride, u64 outputSliceStride, u64 repeatNum, u64 inputRepeatStride, u64 outputRepeatStride,
+        bool isOpBase = true,
+        const void* headCountMem = nullptr, const void* tailCountMem = nullptr, const void* addOneMem = nullptr,
+        u32 counterMemSize = 0)
+        : buffersIn(buffIn),input(input), output(output), rank(rank), sendRecvRemoteRank(sendRecvRemoteRank), rankSize(rankSize), xRankSize(xRankSize), yRankSize(yRankSize), zRankSize(zRankSize),
+        len(len) ,dataType(dataType),
+        reduceOp(reduceOp), root(root), tag(tag),
+        inputSliceStride(inputSliceStride), outputSliceStride(outputSliceStride), repeatNum(repeatNum), inputRepeatStride(inputRepeatStride), outputRepeatStride(outputRepeatStride),
+        isOpBase(isOpBase),
+        headCountMem(headCountMem), tailCountMem(tailCountMem), addOneMem(addOneMem),
+        counterMemSize(counterMemSize)
+    {
+    }
+};
+
 using AivExtraKernelArgs = struct AivExtraKernelArgsDef {
     const void* buffersIn; // 注册的CCLIN地址，所有卡可访问
     u64 input;
@@ -198,8 +242,7 @@ HcclResult GetAivOpBinaryPath(const std::string &aivBinaryName, std::string &bin
 {
     // 获取二进制文件路径
     std::string libPath;
-    char *getPath = nullptr;
-    MM_SYS_GET_ENV(MM_ENV_ASCEND_HOME_PATH, getPath);
+    char *getPath = getenv("ASCEND_HOME_PATH");
     if (getPath != nullptr) {
         libPath = getPath;
     } else {
@@ -489,16 +532,29 @@ HcclResult ExecuteKernelLaunch(const AivOpArgs &opArgs)
         g_recordingQueue->push_back(ins);
     }
 
-    AivExtraKernelArgs aivExtraKernelArgs {
-        opArgs.buffersIn, opArgs.input, opArgs.output,
-        opArgs.rank, opArgs.sendRecvRemoteRank, opArgs.rankSize, opArgs.xRankSize, opArgs.yRankSize, opArgs.zRankSize, opArgs.count, opArgs.dataType, opArgs.op, opArgs.root, opArgs.sliceId,
-        opArgs.inputSliceStride, opArgs.outputSliceStride, opArgs.repeatNum, opArgs.inputRepeatStride, opArgs.outputRepeatStride,
-        opArgs.isOpBase,
-        reinterpret_cast<void*>(opArgs.counter.headCountMem),
-        reinterpret_cast<void*>(opArgs.counter.tailCountMem), reinterpret_cast<void*>(opArgs.counter.addOneMem),
-        opArgs.counter.memSize, &opArgs.extraArgs
-    };
-    CHK_RET(ExecuteKernelLaunchInner(opArgs, &aivExtraKernelArgs, sizeof(aivExtraKernelArgs)));
+    if (opArgs.cmdType == HcclCMDType::HCCL_CMD_ALLTOALLV) {
+        AivExtraKernelArgs aivExtraKernelArgs {
+            opArgs.buffersIn, opArgs.input, opArgs.output,
+            opArgs.rank, opArgs.sendRecvRemoteRank, opArgs.rankSize, opArgs.xRankSize, opArgs.yRankSize, opArgs.zRankSize, opArgs.count, opArgs.dataType, opArgs.op, opArgs.root, opArgs.sliceId,
+            opArgs.inputSliceStride, opArgs.outputSliceStride, opArgs.repeatNum, opArgs.inputRepeatStride, opArgs.outputRepeatStride,
+            opArgs.isOpBase,
+            reinterpret_cast<void*>(opArgs.counter.headCountMem),
+            reinterpret_cast<void*>(opArgs.counter.tailCountMem), reinterpret_cast<void*>(opArgs.counter.addOneMem),
+            opArgs.counter.memSize, &opArgs.extraArgs
+        };
+        CHK_RET(ExecuteKernelLaunchInner(opArgs, &aivExtraKernelArgs, sizeof(aivExtraKernelArgs)));
+    } else {
+        AivKernelArgs aivKernelArgs {
+            opArgs.buffersIn, opArgs.input, opArgs.output,
+            opArgs.rank, opArgs.sendRecvRemoteRank, opArgs.rankSize, opArgs.xRankSize, opArgs.yRankSize, opArgs.zRankSize, opArgs.count, opArgs.dataType, opArgs.op, opArgs.root, opArgs.sliceId,
+            opArgs.inputSliceStride, opArgs.outputSliceStride, opArgs.repeatNum, opArgs.inputRepeatStride, opArgs.outputRepeatStride,
+            opArgs.isOpBase,
+            reinterpret_cast<void*>(opArgs.counter.headCountMem),
+            reinterpret_cast<void*>(opArgs.counter.tailCountMem), reinterpret_cast<void*>(opArgs.counter.addOneMem),
+            opArgs.counter.memSize
+        };
+        CHK_RET(ExecuteKernelLaunchInner(opArgs, &aivKernelArgs, sizeof(aivKernelArgs)));
+    }
     return HCCL_SUCCESS;
 }
 

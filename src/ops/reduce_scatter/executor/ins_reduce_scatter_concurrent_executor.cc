@@ -63,8 +63,8 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
     AlgResourceRequest temp0ResReq;
     AlgResourceRequest temp1ResReq;
 
-    tempAlg0->CalcRes(comm, param, topoInfo, temp0ResReq);
-    tempAlg1->CalcRes(comm, param, topoInfo, temp1ResReq);
+    CHK_RET(tempAlg0->CalcRes(comm, param, topoInfo, temp0ResReq));
+    CHK_RET(tempAlg1->CalcRes(comm, param, topoInfo, temp1ResReq));
 
     // 合并两个resourceRequest
     resourceRequest.slaveThreadNum = temp0ResReq.slaveThreadNum + temp1ResReq.slaveThreadNum + 1; // 将mesh作为主流，其他都是从流

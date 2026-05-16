@@ -108,25 +108,13 @@ namespace ops_hccl {
         dataSize_ = dataCount_ * dataTypeSize_;
 
         HCCL_DEBUG("[InsV2SendExecutor][Orchestrate][%d]->[%d] Start.", myRank_, remoteRank_);
-        if (opMode_ == OpMode::OFFLOAD) {
-            CHK_RET(OrchestrateOffload(param, resCtx));
-        } else {
-            CHK_RET(OrchestrateOpbase(param, resCtx));
-        }
+        CHK_RET(OrchestrateImpl(param, resCtx));
         HCCL_DEBUG("[InsV2SendExecutor][Orchestrate][%d]->[%d] Success.", myRank_, remoteRank_);
 
         return HcclResult::HCCL_SUCCESS;
     }
 
-    HcclResult InsV2SendExecutor::OrchestrateOffload(const OpParam &param, const AlgResourceCtxSerializable &resCtx)
-    {
-        (void)param;
-        (void)resCtx;
-        HCCL_ERROR("[InsV2SendExecutor][OrchestrateOffload] offload is not support");
-        return HcclResult::HCCL_E_NOT_SUPPORT;
-    }
-
-    HcclResult InsV2SendExecutor::OrchestrateOpbase(const OpParam &param, const AlgResourceCtxSerializable &resCtx)
+    HcclResult InsV2SendExecutor::OrchestrateImpl(const OpParam &param, const AlgResourceCtxSerializable &resCtx)
     {
         HCCL_INFO("[InsV2SendExecutor][KernelRun] start: rank is %d, count is %u, dataType is %u, destRank is %u",
             myRank_, dataCount_, static_cast<u32>(dataType_), remoteRank_);
