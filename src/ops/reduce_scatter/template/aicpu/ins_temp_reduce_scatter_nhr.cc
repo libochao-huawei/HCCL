@@ -161,8 +161,9 @@ HcclResult InsTempReduceScatterNHR::LocalDataCopy(const std::vector<ThreadHandle
             DataSlice src = DataSlice(tempAlgParams_.buffInfo.inputPtr, inOff, sizeOut[channelIdx]);
             DataSlice dst = DataSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scOff, sizeOut[channelIdx]);
 
-            // 如果源地址和目标地址相同，则不需要做拷贝
-            if (tempAlgParams_.buffInfo.inBuffType != tempAlgParams_.buffInfo.hcclBuffType || inOff != scOff) { 
+            // 如果源slice和目标slice的type类型相同且base偏移相同，则不需要做拷贝
+            if (tempAlgParams_.buffInfo.inBuffType != tempAlgParams_.buffInfo.hcclBuffType || inBaseOff != scratchBase) { 
+                doPreCopy_ = true;
                 CHK_RET(LocalCopy(q, src, dst));
             }
         }
@@ -197,8 +198,12 @@ HcclResult InsTempReduceScatterNHR::PostLocalCopy(const std::vector<ThreadHandle
                               + rpt * tempAlgParams_.outputRepeatStride;
         const u64 scratchBase = tempAlgParams_.buffInfo.hcclBuffBaseOff
                               + rpt * tempAlgParams_.outputRepeatStride;
-
-        const u64 scOff  = scratchBase + tempAlgParams_.sliceSize * myAlgIdx + elemOffset[channelIdx]; 
+        // 如果做了前拷贝，则数据在ccl上紧密排列，按照sliceSize跳过间隔
+        u64 scOff = scratchBase + tempAlgParams_.sliceSize * myAlgIdx + elemOffset[channelIdx];
+        if (!doPreCopy_) {
+            // 如果没做前拷贝，则ccl buffer继承input相关的所有参数，按照inputSliceStride跳过间隔
+            scOff = scratchBase + tempAlgParams_.inputSliceStride * myAlgIdx + elemOffset[channelIdx];
+        }
         const u64 outOff = outBaseOff + myAlgIdx * tempAlgParams_.outputSliceStride + elemOffset[channelIdx]; 
 
         DataSlice src = DataSlice(tempAlgParams_.buffInfo.hcclBuff.addr, scOff, sizeOut[channelIdx]);
@@ -268,9 +273,14 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
                     elemOffsetTail_[channelIdx] : elemOffset_[channelIdx];
                 const u64 rxelemOffset = (rxIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize > 0) ?
                     elemOffsetTail_[channelIdx] : elemOffset_[channelIdx];
-
-                const u64 txScOff = scratchBase + tempAlgParams_.sliceSize * txIdx + txelemOffset; 
-                const u64 rxScOff = scratchBase + tempAlgParams_.sliceSize * rxIdx + rxelemOffset; 
+                // 如果做了前拷贝，则数据在ccl上紧密排列，按照sliceSize跳过间隔
+                u64 txScOff = scratchBase + tempAlgParams_.sliceSize * txIdx + txelemOffset;
+                u64 rxScOff = scratchBase + tempAlgParams_.sliceSize * rxIdx + rxelemOffset;
+                if (!doPreCopy_) {
+                    // 如果没做前拷贝，则ccl buffer继承input相关的所有参数，按照inputSliceStride跳过间隔
+                    txScOff = scratchBase + tempAlgParams_.inputSliceStride * txIdx + txelemOffset;
+                    rxScOff = scratchBase + tempAlgParams_.inputSliceStride * rxIdx + rxelemOffset;
+                }
 
                 const u64 txSliceSize = (txIdx == templateRankSize_ - 1 && tempAlgParams_.tailSize > 0) ?
                     sizeOutTail_[channelIdx] : sizeOut_[channelIdx];
