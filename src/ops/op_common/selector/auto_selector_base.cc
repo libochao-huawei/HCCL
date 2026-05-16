@@ -214,36 +214,6 @@ HcclResult AutoSelectorBase::CheckClosNumMultipleOfMeshNum(const TopoInfoWithNet
     return HCCL_SUCCESS;
 }
 
-bool AutoSelectorBase::IsTwoLevelNetLayer(const TopoInfoWithNetLayerDetails *topoInfo) const
-{
-    CHK_PRT_RET(topoInfo == nullptr,
-        HCCL_WARNING("[AutoSelectorBase][IsTwoLevelNetLayer] topoInfo is nullptr."), false);
-    if (topoInfo->netLayerDetails.netLayerNum <= 1) {
-        HCCL_INFO("[AutoSelectorBase][IsTwoLevelNetLayer] netLayerNum[%u] <= 1, not two level net layer.",
-            topoInfo->netLayerDetails.netLayerNum);
-        return false;
-    }
-    u32 level1Idx = topoInfo->netLayerDetails.netLayers[1];
-    bool hasLevel1Clos = topoInfo->topoInstDetailsOfLayer.size() > level1Idx &&
-        topoInfo->topoInstDetailsOfLayer[level1Idx].rankNumForTopoType.find(COMM_TOPO_CLOS) !=
-            topoInfo->topoInstDetailsOfLayer[level1Idx].rankNumForTopoType.end();
-    if (!hasLevel1Clos) {
-        HCCL_INFO("[AutoSelectorBase][IsTwoLevelNetLayer] level1[%u] has no CLOS topo, not two level net layer.", level1Idx);
-        return false;
-    }
-    if (topoInfo->netLayerDetails.localNetInsSizeOfLayer.size() < 1 ||
-        topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] <= 1) {
-        HCCL_INFO("[AutoSelectorBase][IsTwoLevelNetLayer] level0 localNetInsSizeOfLayer[%zu] <= 1, not two level net layer.",
-            topoInfo->netLayerDetails.localNetInsSizeOfLayer.size());
-        return false;
-    }
-    HCCL_INFO("[AutoSelectorBase][IsTwoLevelNetLayer] topoLevelNums[%u], netLayerNum[%u], level0Topo[MESH_1D], "
-        "level1Idx[%u] has CLOS, level0LocalNetInsSize[%u], is two level net layer.",
-        topoInfo->topoLevelNums, topoInfo->netLayerDetails.netLayerNum,
-        level1Idx, topoInfo->netLayerDetails.localNetInsSizeOfLayer[0]);
-    return true;
-}
-
 bool AutoSelectorBase::IsInputOutputOverlap(const OpParam &opParam) const
 {
     CHK_PRT_RET(opParam.inputPtr == nullptr || opParam.outputPtr == nullptr,

@@ -284,10 +284,9 @@ public:
 };
  
 template<typename T>
-__aicore__ inline void AivReduceV2Mesh1D(EXTERN_KERNEL_ARGS_DEF_V2)
+__aicore__ inline void AivReduceV2Mesh1D(KERNEL_ARGS_DEF)
 {
     constexpr static uint64_t TWO_SHOT_SLICE_NUM = 256 * 1024;
-    (void)extraArgs;
     AivReduceMesh1DTwoShot<T> op;
     op.Init(KERNEL_CLASS_INIT, true);
     SyncAll<true>(); 
