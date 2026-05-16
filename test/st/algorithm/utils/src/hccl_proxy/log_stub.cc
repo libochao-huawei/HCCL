@@ -39,6 +39,11 @@ int32_t CheckLogLevel(int32_t moduleId, int32_t logLevel)
     return 1;
 }
 
+int dlog_getlevel(int moduleId, int *enableEvent)
+{
+    return 0;
+}
+
 void GetCurTimeStr(char *timeStr, int len)
 {
     struct timeval tv;
