@@ -53,6 +53,8 @@ protected:
     ThreadHandle temp0ThreadMain_ = 0;
     std::vector<ThreadHandle> temp1Threads_;
     ThreadHandle temp1ThreadMain_ = 0;
+    std::vector<u32> syncNotifyOnTemplates_;
+    std::vector<u32> syncNotifyOnMain_;
 
     AlgHierarchyInfoForAllLevel algHierarchyInfo_;
 
