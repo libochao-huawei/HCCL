@@ -63,7 +63,7 @@ DECL_SUPPORT_FLAG(HcclThreadExportToCommEngine);
 void HcclResDlInit(void* libHcommHandle);
 
 constexpr uint32_t DFX_ALG_TAG_LENGTH = 288; // 对应HCOMM_ALG_TAG_LENGTH
-struct HcclDfxOpInfoTmp {
+struct HcclDfxOpInfoCompat {
     CommAbiHeader       header;
     //DfxOpInfo_base
     uint64_t            beginTime = 0;
