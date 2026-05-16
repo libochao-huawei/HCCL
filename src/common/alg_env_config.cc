@@ -1008,6 +1008,11 @@ const bool &GetExternalInputHcclEnableEntryLog()
     return g_algEnvConfig.enableEntryLog;
 }
 
+const u8 &GetExternalInputHcclDeterministic()
+{
+    return g_algEnvConfig.hcclDeterministic;
+}
+
 bool RunIndependentOpExpansion(DevType deviceType)
 {
     std::string opExpansionModeEnv = GetEnv("HCCL_OP_EXPANSION_MODE");
