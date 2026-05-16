@@ -148,7 +148,7 @@ private:
 };
  
 template<typename T>
-__aicore__ inline void AivAlltoAllV2Mesh1D(EXTERN_KERNEL_ARGS_DEF_V2)
+__aicore__ inline void AivAlltoAllV2Mesh1D(KERNEL_ARGS_DEF)
 {
     AivAlltoAllMesh1D<T> op;
     op.Init(KERNEL_CLASS_INIT, true);
