@@ -439,5 +439,15 @@ HcclResult CalcDataSplitByPortGroupCommon(const u64 totalDataCount,
                                           std::vector<u64> &sizeOut,
                                           std::vector<u64> &elemOffset,
                                           const u32 channelsPerRank);
+
+HcclResult CalcDataSplitByPortGroupZAxisDetour(const u64 totalDataCount,
+                                                const u64 dataTypeSize,
+                                                const std::vector<ChannelInfo> &channels,
+                                                std::vector<u64> &elemCountOut,
+                                                std::vector<u64> &sizeOut,
+                                                std::vector<u64> &elemOffset,
+                                                const u32 level0ChannelNumPerRank,
+                                                const u32 level1ChannelNumPerRank,
+                                                const float level0DataRatio = 0.5f);
 }
 #endif
