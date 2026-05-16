@@ -11,9 +11,16 @@
 
 thread_local bool g_hcclErrToWarn = false;
 
+constexpr int32_t HCCL_LOG_LEVEL_INVALID = -1;
+static int32_t g_hcclLogLevel = HCCL_LOG_LEVEL_INVALID;
+
 bool HcclCheckLogLevel(int logType, int moduleId)
 {
-    return (CheckLogLevel(moduleId, logType) == 1);
+    if (UNLIKELY(g_hcclLogLevel == HCCL_LOG_LEVEL_INVALID)) {
+        int32_t enableEvent = -1;
+        g_hcclLogLevel = dlog_getlevel(moduleId, &enableEvent);
+    }
+    return (logType >= g_hcclLogLevel);
 }
 
 void SetErrToWarnSwitch(bool flag)
