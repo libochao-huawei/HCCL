@@ -11,6 +11,8 @@
 #include "all_reduce_auto_selector.h"
 #include "selector_registry.h"
 #include "hccl_aiv_utils.h"
+#include "ins_v2_all_reduce_order_preserved_executor.h"
+#include "alg_env_config.h"
 
 namespace ops_hccl {
 constexpr u64 RS_MAX_DATA_SIZE = 16 * 1024 * 1024;
@@ -25,6 +27,23 @@ constexpr u32 MAX_RANK_NUM_FOR_REDUCE_MS_ALGO = 8;
 constexpr u64 AR_FLATTEN_MAX_DATA_SIZE = 8 * 1024 * 1024;
 constexpr u64 AR_CCU_CLOS_1D_SMALL_DATA_SIZE = 8 * 1024 * 1024;
 constexpr u64 AR_AICPU_SEQUENCE_DATA_SIZE = 1 * 1024 * 1024 * 1024;
+
+bool IsNeedStrictModeA5(const OpParam& opParam, u32 rankSize)
+{
+    u8 deterministicLevel = GetExternalInputHcclDeterministic();
+    HcclDataType dataType = opParam.DataDes.dataType;
+    HcclReduceOp reduceType = opParam.reduceType;
+    HCCL_INFO("[IsNeedStrictModeA5] deterministicLevel[%u], dataType[%d], reduceType[%d], rankSize[%u]",
+        deterministicLevel, dataType, reduceType, rankSize);
+    
+    return (deterministicLevel == static_cast<u8>(DeterministicEnableLevel::DETERMINISTIC_STRICT))
+        && (dataType == HcclDataType::HCCL_DATA_TYPE_FP16 ||
+            dataType == HcclDataType::HCCL_DATA_TYPE_FP32 ||
+            dataType == HcclDataType::HCCL_DATA_TYPE_BFP16 ||
+            dataType == HcclDataType::HCCL_DATA_TYPE_FP64)
+        && (reduceType == HcclReduceOp::HCCL_REDUCE_SUM ||
+            reduceType == HcclReduceOp::HCCL_REDUCE_PROD);
+}
 
 SelectorStatus AllReduceAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
@@ -300,6 +319,12 @@ SelectorStatus AllReduceAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayer
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
 
+    if (IsNeedStrictModeA5(opParam, topoInfo->userRankSize)) {
+        selectAlgName = "AllReduceOrderPreserved";
+        HCCL_INFO("[AllReduceAutoSelector] DETERMINISTIC_STRICT mode, select [%s]", selectAlgName.c_str());
+        return SelectorStatus::MATCH;
+    }
+
     bool isDataTypeOrReduceTypeSpecial = 
         opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT64 ||
         opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
@@ -438,6 +463,7 @@ SelectorStatus AllReduceAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetL
         HCCL_ERROR("[AllReduceAutoSelector] topo not match");
         return SelectorStatus::NOT_MATCH;
     }
+    selectAlgName = "AllReduceOrderPreserved";
 
     HCCL_DEBUG("[AllReduceAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
     return SelectorStatus::MATCH;

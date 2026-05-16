@@ -160,6 +160,8 @@ const bool& GetExternalInputInterSuperPodRetryEnable();
 
 const bool& GetExternalInputHcclEnableEntryLog();
 
+const u8& GetExternalInputHcclDeterministic();
+
 const std::map<HcclCMDType, std::vector<HcclAlgoType>> GetExternalInputHcclAlgoConfigAllType();
 
 bool GetExternalInputExecTimeout(double &execTimeOut);
