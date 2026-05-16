@@ -131,7 +131,7 @@ HcclResult InsV2AllGatherSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
         algTemplate.CalcScratchMultiple(tempAlgParams.buffInfo.inBuffType, tempAlgParams.buffInfo.outBuffType);
     maxTmpMemSize_ = tempAlgParams.buffInfo.hcclBuff.size;
 
-    algTemplate.SetchannelsPerRank(templateAlgRes.channels);
+    // algTemplate.SetchannelsPerRank(templateAlgRes.channels);
     // 中转内存单次最多能够接受的output count，注意是count不是size
     u64 transportBoundDataSize = UB_MAX_DATA_SIZE;
     u64 maxDataSizePerLoop = 0;
