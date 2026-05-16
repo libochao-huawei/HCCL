@@ -540,16 +540,16 @@ HcclResult PostSyncInterThreads(const ThreadHandle &mainThread, const std::vecto
         HcclResult::HCCL_E_INTERNAL);
     // 获取执行超时时间
     u32 execTimeout = ExecTimeoutManager::Instance().GetExecTimeout();
-    // 主thread等待所有从thread的record
-    for (u32 tidx = 0; tidx < subThreads.size(); tidx++) {
-        CHK_RET(static_cast<HcclResult>(
-            HcommThreadNotifyWaitOnThread(mainThread, notifyIdxSubToMain[tidx], execTimeout)));
-    }
-
     // 从thread向主thread发送record
     for (u32 tidx = 0; tidx < subThreads.size(); tidx++) {
         CHK_RET(static_cast<HcclResult>(
             HcommThreadNotifyRecordOnThread(subThreads[tidx], mainThread, notifyIdxSubToMain[tidx])));
+    }
+
+    // 主thread等待所有从thread的record
+    for (u32 tidx = 0; tidx < subThreads.size(); tidx++) {
+        CHK_RET(static_cast<HcclResult>(
+            HcommThreadNotifyWaitOnThread(mainThread, notifyIdxSubToMain[tidx], execTimeout)));
     }
 
     return HcclResult::HCCL_SUCCESS;
