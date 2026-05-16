@@ -21,6 +21,28 @@ constexpr u64 RS_AICPU_1D_TWO_LEVER_DATA_SIZE_THRESHOLD = 1536 * 1024 * 1024;
 
 constexpr u64 RS_CCU_CLOS_1D_MIN_DATA_SIZE = 4 * 1024 * 1024;
 constexpr u64 RS_AICPU_SEQUENCE_SIZE_THRESHOLD = 1 * 1024 * 1024 * 1024;
+constexpr u32 MIN_STRICT_RANK_NUM_ORDER_PRESERVED = 2;
+
+bool IsNeedStrictModeReduceScatter(const OpParam& opParam, u32 rankSize)
+{
+    return (opParam.deterministicConfig == DETERMINISTIC_STRICT)
+        && (opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_FP16 ||
+            opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_FP32 ||
+            opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_BFP16)
+        && (opParam.reduceType == HcclReduceOp::HCCL_REDUCE_SUM)
+        && rankSize >= MIN_STRICT_RANK_NUM_ORDER_PRESERVED;
+}
+
+bool CheckStrictConditionReduceScatter(const OpParam& opParam)
+{
+    if (opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
+        return false;
+    }
+    if (opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_FP64) {
+        return false;
+    }
+    return true;
+}
 
 SelectorStatus ReduceScatterAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
@@ -257,6 +279,13 @@ SelectorStatus ReduceScatterAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetL
     (void)configAlgMap;
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
+
+    if (IsNeedStrictModeReduceScatter(opParam, topoInfo->userRankSize) && CheckStrictConditionReduceScatter(opParam)) {
+        selectAlgName = "ReduceScatterOrderPreserved";
+        HCCL_INFO("[ReduceScatterAutoSelector] DETERMINISTIC_STRICT mode, select [%s]", selectAlgName.c_str());
+        return SelectorStatus::MATCH;
+    }
+
     if (topoInfo->topoLevelNums > 1) {
         if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
             selectAlgName = "InsReduceScatterAicpuReduceNHR";
