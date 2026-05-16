@@ -138,6 +138,8 @@ HcclResult CollectRetryEnableFromConfig(const std::vector<std::string> &retryEna
 
 HcclResult ParseRetryEnable();
 
+const u8& GetExternalInputHcclDeterministic();
+
 const u32& GetExternalInputIntraRoceSwitch();
 
 const bool& GetExternalInputHcclAicpuUnfold();

@@ -211,6 +211,13 @@ struct TemplateFastLaunchCtx {
     std::vector<CcuKernelSubmitInfo> ccuKernelSubmitInfos;
 };
 
+struct MemBlockInfo {
+    std::vector<u64> size;
+    std::vector<u64> userInputOffsets;
+    std::vector<u64> inputOffsets;
+    std::vector<u64> outputOffsets;
+};
+
 struct TemplateDataParams {
     BuffInfo buffInfo;
     u64 count{0};
@@ -228,6 +235,7 @@ struct TemplateDataParams {
     std::vector<u64> allRankSliceSize;
     std::vector<u64> allRankDispls;
     std::vector<u64> allRankProcessedDataCount;
+    MemBlockInfo memBlockInfo;
     // alltoallV loop内变长数据
     std::vector<u64> sendCounts;
     std::vector<u64> recvCounts;
@@ -255,6 +263,10 @@ struct TemplateDataParams {
         binaryStream << sdispls;
         binaryStream << rdispls;
         binaryStream << allRankProcessedDataCount;
+        binaryStream << memBlockInfo.size;
+        binaryStream << memBlockInfo.userInputOffsets;
+        binaryStream << memBlockInfo.inputOffsets;
+        binaryStream << memBlockInfo.outputOffsets;
         binaryStream << root;
         binaryStream << dataType;
         binaryStream << stepSliceInfo.Serialize();
@@ -283,6 +295,10 @@ struct TemplateDataParams {
         binaryStream >> sdispls;
         binaryStream >> rdispls;
         binaryStream >> allRankProcessedDataCount;
+        binaryStream >> memBlockInfo.size;
+        binaryStream >> memBlockInfo.userInputOffsets;
+        binaryStream >> memBlockInfo.inputOffsets;
+        binaryStream >> memBlockInfo.outputOffsets;
         binaryStream >> root;
         binaryStream >> dataType;
         std::vector<char> stepSliceInfoData;

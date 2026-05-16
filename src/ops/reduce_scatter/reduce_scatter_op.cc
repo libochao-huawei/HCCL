@@ -11,6 +11,7 @@
 #include "reduce_scatter_op.h"
 #include "op_common_ops.h"
 #include "topo_host.h"
+#include "alg_env_config.h"
 #include <algorithm>
 #include <future>
 #include <map>
@@ -165,6 +166,8 @@ static HcclResult PrepareReduceScatterParam(OpParam &param, void *sendBuf, void 
     param.opType = HcclCMDType::HCCL_CMD_REDUCE_SCATTER;
     param.enableDetour = false;
     param.deviceType = deviceType;
+    param.deterministicConfig = GetExternalInputHcclDeterministic();
+    param.aicpuUnfoldMode = GetExternalInputHcclAicpuUnfold();
 
     return HCCL_SUCCESS;
 }

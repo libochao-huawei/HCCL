@@ -11,6 +11,7 @@
 #include "all_reduce_op.h"
 #include "op_common_ops.h"
 #include "topo_host.h"
+#include "alg_env_config.h"
 #include <algorithm>
 #include <future>
 #include <map>
@@ -172,6 +173,8 @@ HcclResult FillAllReduceOpParam(void *sendBuf, void *recvBuf, uint64_t count, Hc
     param.enableDetour = false;
     param.deviceType = deviceType;
     param.reduceType = op;
+    param.deterministicConfig = GetExternalInputHcclDeterministic();
+    param.aicpuUnfoldMode = GetExternalInputHcclAicpuUnfold();
     return HCCL_SUCCESS;
 }
 

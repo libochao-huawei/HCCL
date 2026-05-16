@@ -957,6 +957,11 @@ HcclResult ParseDeterministic()
     return HCCL_SUCCESS;
 }
 
+const u8 &GetExternalInputHcclDeterministic()
+{
+    return g_algEnvConfig.hcclDeterministic;
+}
+
 const u32 &GetExternalInputIntraRoceSwitch()
 {
     return g_algEnvConfig.intraRoceSwitch;
