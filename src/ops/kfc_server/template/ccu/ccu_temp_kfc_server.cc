@@ -33,36 +33,10 @@ CcuTempKfcServer::~CcuTempKfcServer()
 {
 }
 
-HcclResult CcuTempKfcServer::CalcChannelRes(HcclComm comm, const OpParam& param,
-    const TopoInfoWithNetLayerDetails* topoInfo, std::vector<HcclChannelDesc>& channelDescs)
-{
-    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
-    return HCCL_SUCCESS;
-}
-
 HcclResult CcuTempKfcServer::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                                      AlgResourceRequest& resourceRequest)
 {
     HCCL_INFO("[CcuTempKfcServer::CalcRes]");
-    return HcclResult::HCCL_SUCCESS;
-}
-
-HcclResult CcuTempKfcServer::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
-{
-    if (tempFastLaunchCtx.ccuKernelSubmitInfos.size() == 0) {
-        HCCL_INFO("[CcuTempKfcServer::FastLaunch] ccu kernel num is 0, just success.");
-        return HCCL_SUCCESS;
-    }
-    HCCL_INFO("[CcuTempKfcServer::FastLaunch] start");
-
-    std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgKfcServer>(
-        PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr),
-        PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr));
-
-    void* taskArgPtr = static_cast<void*>(taskArg.get());
-    CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0],
-        tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr));
-    HCCL_INFO("[CcuTempKfcServer::FastLaunch] end");
     return HcclResult::HCCL_SUCCESS;
 }
 

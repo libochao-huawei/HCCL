@@ -101,58 +101,6 @@ HcclResult InsKfcServerSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLo
 }
 
 #ifndef AICPU_COMPILE
-template <typename AlgTopoMatch, typename InsAlgTemplate>
-HcclResult InsKfcServerSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunchSaveCtx(
-    const OpParam &param, const TemplateResource &templateAlgRes, u32 notifyNumOnMainThread)
-{
-    HCCL_INFO("[InsKfcServerSoleExecutor] save fast launch ctx.");
-    u32 threadNum = 1;
-    u32 ccuKernelNum = templateAlgRes.submitInfos.size();
-    if (ccuKernelNum < 1) {
-        HCCL_INFO("[InsKfcServerSoleExecutor] ccu kernel num is 0, no need to save.");
-        return HCCL_SUCCESS;
-    }
-
-    u64 size = CcuFastLaunchCtx::GetCtxSize(threadNum, ccuKernelNum);
-    void *ctxPtr = nullptr;
-    CHK_RET(HcclEngineCtxCreate(param.hcclComm, param.fastLaunchTag, CommEngine::COMM_ENGINE_CCU, size, &ctxPtr));
-
-    CcuFastLaunchCtx *ccuFastLaunchCtx = reinterpret_cast<CcuFastLaunchCtx *>(ctxPtr);
-    CHK_SAFETY_FUNC_RET(strcpy_s(ccuFastLaunchCtx->algName, sizeof(ccuFastLaunchCtx->algName), param.algName));
-
-    ccuFastLaunchCtx->threadNum = threadNum;
-    ccuFastLaunchCtx->notifyNumOnMainThread = notifyNumOnMainThread;
-    ThreadHandle *threads = ccuFastLaunchCtx->GetThreadHandlePtr();
-    threads[0] = templateAlgRes.threads[0];
-
-    ccuFastLaunchCtx->ccuKernelNum[0] = ccuKernelNum;
-    CcuKernelSubmitInfo *kernels = ccuFastLaunchCtx->GetCcuKernelSubmitInfoPtr();
-    kernels[0] = templateAlgRes.submitInfos[0];
-    return HCCL_SUCCESS;
-}
-
-template <typename AlgTopoMatch, typename InsAlgTemplate>
-HcclResult InsKfcServerSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunch(
-        const OpParam &param, const CcuFastLaunchCtx *fastLaunchCtx)
-{
-    HCCL_INFO("[InsKfcServerSoleExecutor][FastLaunch] Start.");
-    TemplateFastLaunchCtx tempFastLaunchCtx;
-    ThreadHandle *threads = fastLaunchCtx->GetThreadHandlePtr();
-    tempFastLaunchCtx.threads.assign(threads, threads + fastLaunchCtx->threadNum);
-
-    CcuKernelSubmitInfo *ccuKernelSubmitInfos = fastLaunchCtx->GetCcuKernelSubmitInfoPtr();
-    tempFastLaunchCtx.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + fastLaunchCtx->ccuKernelNum[0]);
-    tempFastLaunchCtx.buffInfo.inputPtr = param.inputPtr;
-    tempFastLaunchCtx.buffInfo.outputPtr = param.outputPtr;
-
-    std::unique_ptr<InsAlgTemplate> algTemplate = std::make_unique<InsAlgTemplate>();
-    CHK_RET(algTemplate->FastLaunch(param, tempFastLaunchCtx));
-    HCCL_INFO("[InsKfcServerSoleExecutor][FastLaunch] End.");
-    return HCCL_SUCCESS;
-}
-#endif
-
-#ifndef AICPU_COMPILE
 #if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_KFC_SERVER, CcuKfcServerMesh1D, InsKfcServerSoleExecutor, TopoMatch1D,
     CcuTempKfcServer);

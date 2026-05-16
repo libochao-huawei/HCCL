@@ -40,16 +40,10 @@ public:
 
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
 
-    HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx) override;
-
-    HcclResult CalcChannelRes(HcclComm comm, const OpParam& param,
-        const TopoInfoWithNetLayerDetails* topoInfo, std::vector<HcclChannelDesc>& channelDescs);
-
 private:
     BuffInfo buffInfo_;
     uint32_t mySubCommRank_ = 0;
     uint32_t tempRankSize_ = 0;
-    std::map<u32, std::vector<HcclChannelDesc>> rankIdToChannelDesc_;
 };
 
 }

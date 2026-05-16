@@ -32,11 +32,6 @@ public:
     HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo,
                                      AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
 
-#ifndef AICPU_COMPILE
-    HcclResult FastLaunchSaveCtx(const OpParam &param, const TemplateResource &templateAlgRes, u32 notifyNumOnMainThread);
-    HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *resCtx) override;
-#endif
-
 protected:
     HcclResult OrchestrateLoop(const OpParam &param, const AlgResourceCtxSerializable &resCtx);
     HcclResult InitCommInfo(const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo);
