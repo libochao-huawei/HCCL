@@ -43,31 +43,7 @@ HcclResult CcuTempKfcServer::CalcChannelRes(HcclComm comm, const OpParam& param,
 HcclResult CcuTempKfcServer::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                                      AlgResourceRequest& resourceRequest)
 {
-    resourceRequest.notifyNumOnMainThread = 0;
-    resourceRequest.slaveThreadNum = 0;
-    resourceRequest.ccuKernelNum.push_back(1);
-    HCCL_DEBUG("[CcuTempKfcServer::CalcRes] notifyNumOnMainThread[%u] slaveThreadNum[%u]",
-               resourceRequest.notifyNumOnMainThread, resourceRequest.slaveThreadNum);
-
-    CcuKernelInfo kernelInfo;
-
-    kernelInfo.creator = [](const hcomm::CcuKernelArg &arg) {
-                             return std::make_unique<CcuKernelKfcServer>(arg);
-                         };
-    std::vector<HcclChannelDesc> channelDescs;
-    CHK_RET(CalcChannelRes(comm, param, topoInfo, channelDescs));
-    kernelInfo.kernelArg = std::make_shared<CcuKernelArgKfcServer>(subCommRanks_[0].size(),
-                                                                   mySubCommRank_,
-                                                                   param.isMc2,
-                                                                   param,
-                                                                   subCommRanks_);
-    kernelInfo.channels = channelDescs;
-    resourceRequest.ccuKernelInfos.push_back(kernelInfo);
-
-    HCCL_DEBUG("[CcuTempKfcServer::CalcRes] channelDescs.size()=%llu, dimsize=%llu, "
-               "ccuKernelInfos.size()=%llu",
-               channelDescs.size(), subCommRanks_[0].size(), resourceRequest.ccuKernelInfos.size());
-
+    HCCL_INFO("[CcuTempKfcServer::CalcRes]");
     return HcclResult::HCCL_SUCCESS;
 }
 
@@ -94,31 +70,8 @@ HcclResult CcuTempKfcServer::KernelRun(const OpParam& param,
                                        const TemplateDataParams& templateDataParams,
                                        TemplateResource& templateResource)
 {
-    HCCL_INFO("[CcuTempKfcServer] KernelRun");
-
-    buffInfo_ = templateDataParams.buffInfo;
-
-    TemplateAlgParams algParams;
-    algParams.rankId = mySubCommRank_;
-    algParams.rankSize = tempRankSize_;
-
-    HCCL_INFO("[CcuTempKfcServer] KernelRun param inputPtr[%p], outputPtr[%p]",
-              templateDataParams.buffInfo.inputPtr, templateDataParams.buffInfo.outputPtr);
-
-    CcuKernelSubmitInfo submitInfo;
-    submitInfo.kernelHandle = templateResource.ccuKernels[0];
-    submitInfo.kernelArg = templateResource.ccuKernels[0]->GetKernelArg();
-
-    uint64_t inputAddr = PointerToAddr(templateDataParams.buffInfo.inputPtr);
-    uint64_t outputAddr = PointerToAddr(templateDataParams.buffInfo.outputPtr);
-
-    submitInfo.cachedArgs = new uint64_t[2];
-    submitInfo.cachedArgs[0] = inputAddr;
-    submitInfo.cachedArgs[1] = outputAddr;
-    submitInfo.cachedArgsNum = 2;
-
-    templateResource.submitInfos.push_back(submitInfo);
-
+    (void)templateDataParams;
+    (void)templateResource;
     HCCL_INFO("[CcuTempKfcServer] KernelRun End.");
     return HcclResult::HCCL_SUCCESS;
 }

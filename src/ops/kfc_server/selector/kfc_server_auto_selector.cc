@@ -33,6 +33,6 @@ SelectorStatus KfcServerAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNe
     return SelectorStatus::MATCH;
 }
 
-REGISTER_SELECTOR_BY_OPTYPE(HcclCMDType::HCCL_CMD_KFC_SERVER, 19, KfcServerAutoSelector);
+REGISTER_SELECTOR_BY_OPTYPE(HcclCMDType::HCCL_CMD_KFC_SERVER, 18, KfcServerAutoSelector);
 
 }

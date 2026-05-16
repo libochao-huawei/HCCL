@@ -118,6 +118,7 @@ HcclResult KfcServerOutPlaceCommon(const void *sendBuf, const void *recvBuf, Hcc
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));
+    HCCL_INFO("Selector output algName is: %s", algName.c_str());
     if (ShouldUseInnerOp(param.opExecuteConfig) && param.opMode == OpMode::OPBASE) {
         useInnerOp = true;
         return HCCL_SUCCESS;

@@ -37,16 +37,7 @@ template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsKfcServerSoleExecutor<AlgTopoMatch, InsAlgTemplate>::InitCommInfo(const OpParam& param,
     const TopoInfoWithNetLayerDetails* topoInfo)
 {
-    myRank_ = topoInfo->userRank;
-    rankSize_ = topoInfo->userRankSize;
-    devType_ = topoInfo->deviceType;
-    dataType_ = param.DataDes.dataType;
-    dataTypeSize_ = SIZE_TABLE[dataType_];
-    dataCount_ = param.DataDes.count;
-    dataSize_ = dataCount_ * dataTypeSize_;
-
-    HCCL_INFO("[InsKfcServerSoleExecutor][InitCommInfo] myRank [%u], rankSize [%u], devType [%u], dataType_ [%u], "
-        "dataCount_ [%llu]", myRank_, rankSize_, devType_, dataType_, dataCount_);
+    HCCL_INFO("[InsKfcServerSoleExecutor][InitCommInfo]");
     return HCCL_SUCCESS;
 }
 
@@ -96,30 +87,7 @@ HcclResult InsKfcServerSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLo
         std::make_shared<InsAlgTemplate>(param, resCtx.topoInfo.userRank, resCtx.algHierarchyInfo.infos[0]);
 
     TemplateResource templateAlgRes;
-    if (remoteRankToChannelInfo_.size() > 0) {
-        templateAlgRes.channels = remoteRankToChannelInfo_[0];
-    }
-    if (param.engine == COMM_ENGINE_CCU) {
-        templateAlgRes.ccuKernels = resCtx.ccuKernels;
-    }
-    templateAlgRes.threads = resCtx.threads;
-
     TemplateDataParams tempAlgParams;
-    tempAlgParams.buffInfo.inputPtr = param.inputPtr;
-    tempAlgParams.buffInfo.outputPtr = param.outputPtr;
-    tempAlgParams.buffInfo.inputSize = param.inputSize;
-    tempAlgParams.buffInfo.outputSize = param.outputSize;
-    tempAlgParams.buffInfo.hcclBuff = resCtx.cclMem;
-    tempAlgParams.buffInfo.inBuffBaseOff = 0;
-    tempAlgParams.buffInfo.outBuffBaseOff = 0;
-    tempAlgParams.buffInfo.hcclBuffBaseOff = 0;
-    tempAlgParams.buffInfo.inBuffType = BufferType::INPUT;
-    tempAlgParams.buffInfo.outBuffType = BufferType::OUTPUT;
-    tempAlgParams.buffInfo.hcclBuffType = BufferType::HCCL_BUFFER;
-    tempAlgParams.repeatNum = 1;
-    tempAlgParams.inputRepeatStride = 0;
-    tempAlgParams.outputRepeatStride = 0;
-
     CHK_RET(algTemplate->KernelRun(param, tempAlgParams, templateAlgRes));
 
 #ifndef AICPU_COMPILE
