@@ -12,6 +12,7 @@
 #include <sstream>
 #include <string>
 #include <algorithm>
+#include <cstdint>
 #include <string>
 #include "log.h"
 #include "adapter_error_manager_pub.h"
@@ -37,30 +38,30 @@ std::string GetEnv(std::string IdName)
     }
 }
 
-static bool IsValidTimeoutFormat(const std::string &str)
+static bool IsValidNumberFormat(const std::string &str, const size_t maxDecimal = SIZE_MAX)
 {
     if (str.empty()) return false;
-    
+
     size_t dotPos = str.find('.');
     size_t pos = 0;
-    
+
     // 检查小数点前的数字
     while (pos < str.length() && pos != dotPos) {
         if (!std::isdigit(str[pos])) return false;
         pos++;
     }
-    
+
     // 如果有小数点，检查小数部分
     if (dotPos != std::string::npos) {
         if (dotPos == 0 || dotPos == str.length() - 1) return false;
         size_t decimalLen = str.length() - dotPos - 1;
-        if (decimalLen > 2) return false; // 最多2位小数
-        
+        if (decimalLen > maxDecimal) return false;
+
         for (size_t i = dotPos + 1; i < str.length(); i++) {
             if (!std::isdigit(str[i])) return false;
         }
     }
-    
+
     return true;
 }
 
@@ -73,7 +74,7 @@ HcclResult ParseExecTimeout()
         return HCCL_SUCCESS;
     }
 
-    if (!IsValidTimeoutFormat(execTimeOutEnv)) {
+    if (!IsValidNumberFormat(execTimeOutEnv, 2)) {
         HCCL_WARNING("[ParseExecTimeout] HCCL_EXEC_TIMEOUT[%s] format is invalid, use default.",
             execTimeOutEnv.c_str());
         g_algEnvConfig.execTimeOutSet = false;
@@ -116,8 +117,8 @@ HcclResult ParseMultipleDimensionSplitRatio()
     }
 
     std::string multipleDimensionSplitRatioStr(multipleDimensionSplitRatioEnv);
-    if (!IsValidTimeoutFormat(multipleDimensionSplitRatioStr)) {
-        HCCL_WARNING("[ParseExecTimeout] HCCL_ALG_MULTIPLE_DIMENSION_SPLIT_RATIO[%s] format is invalid, use default.",
+    if (!IsValidNumberFormat(multipleDimensionSplitRatioStr)) {
+        HCCL_WARNING("[ParseMultipleDimensionSplitRatio] HCCL_ALG_MULTIPLE_DIMENSION_SPLIT_RATIO[%s] format is invalid, use default.",
             multipleDimensionSplitRatioStr.c_str());
         g_algEnvConfig.multipleDimensionSplitRatioSet = false;
         g_algEnvConfig.multipleDimensionSplitRatio = 0;
@@ -245,7 +246,7 @@ HcclResult InitEnvConfig()
     std::string multipleDimensionSplitRatioStr = (multipleDimensionSplitRatioEnv != nullptr) ? std::string(multipleDimensionSplitRatioEnv) : "EmptyString";
     RPT_ENV_ERR(ret != HCCL_SUCCESS, "EI0001", std::vector<std::string>({"value", "env", "expect"}),
         std::vector<std::string>({multipleDimensionSplitRatioStr, "HCCL_ALG_MULTIPLE_DIMENSION_SPLIT_RATIO",
-        "a non-negative number with up to 2 decimals"}));
+        "a non-negative number"}));
     CHK_PRT_RET(ret != HCCL_SUCCESS,
         HCCL_ERROR("[Init][EnvVarParam]errNo[0x%016llx] In init env variable param, parse HCCL_ALG_MULTIPLE_DIMENSION_SPLIT_RATIO failed. "
             "errorno[%d]", HCCL_ERROR_CODE(ret), ret), ret);
