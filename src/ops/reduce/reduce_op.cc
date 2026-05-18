@@ -206,6 +206,9 @@ HcclResult ReduceConstructOpParam(void *sendBuf, void *recvBuf, uint64_t count, 
     param.enableDetour = false;
     param.deviceType = deviceType;
     param.root = root;
+    u32 userRank = INVALID_VALUE_RANKID;
+    CHK_RET(HcclGetRankId(comm, &userRank));
+    param.userRank = userRank;
 
     return HCCL_SUCCESS;
 }

@@ -9,7 +9,6 @@
  */
 
 #include "config_log.h"
-#include "mmpa_api.h"
 
 namespace ops_hccl {
 
@@ -23,8 +22,7 @@ u64 GetDebugConfig()
 HcclResult InitDebugConfigByEnv()
 {
     g_debugConfig = 0;
-    char* env = nullptr; // 环境变量值
-    MM_SYS_GET_ENV(MM_ENV_HCCL_DEBUG_CONFIG, env);
+    char* env = std::getenv("HCCL_DEBUG_CONFIG"); // 环境变量值
     if (env == nullptr) {
         HCCL_RUN_INFO("HCCL_DEBUG_CONFIG is not set, debugConfig set by default to 0x%llx", g_debugConfig);
         return HCCL_SUCCESS;

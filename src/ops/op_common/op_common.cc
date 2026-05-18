@@ -21,7 +21,6 @@
 #include "hccl/base.h"
 #include "sal.h"
 #include "error_codes/rt_error_codes.h"
-#include "mmpa_api.h"
 #include "param_check.h"
 #include "executor_base.h"
 #include "coll_alg_v2_exec_registry.h"
@@ -69,7 +68,7 @@ HcclResult CheckAsymmetricTopoSupport(HcclCMDType opType, const TopoInfoWithNetL
                              opType == HcclCMDType::HCCL_CMD_ALLTOALLVC);
         if (!isSupportedOp) {
             HCCL_ERROR("[CheckAsymmetricTopoSupport] OpType[%d] does not support asymmetric topology "
-                "(multi-module diff device num mode), only ALLGATHER/ALLREDUCE/REDUCE_SCATTER are supported.",
+                "(multi-module diff device num mode), only ALLGATHER/ALLREDUCE/REDUCE_SCATTER/ALLTOALL are supported.",
                 opType);
             return HCCL_E_NOT_SUPPORT;
         }
@@ -1517,7 +1516,7 @@ HcclResult CheckDataType(const HcclDataType dataType, bool needReduce)
 std::string GetSupportDataType(bool needReduce)
 {
     std::vector<HcclDataType> supportList = {HCCL_DATA_TYPE_INT8, HCCL_DATA_TYPE_INT16, HCCL_DATA_TYPE_INT32,
-                                             HCCL_DATA_TYPE_FP16, HCCL_DATA_TYPE_FP32};
+                                             HCCL_DATA_TYPE_INT64, HCCL_DATA_TYPE_FP16, HCCL_DATA_TYPE_FP32};
     if (needReduce) {
         supportList.insert(supportList.end(), {HCCL_DATA_TYPE_BFP16, HCCL_DATA_TYPE_INT64, HCCL_DATA_TYPE_UINT64,
                                                HCCL_DATA_TYPE_FP64});
@@ -1744,17 +1743,26 @@ HcclResult DecideHcclOpExpansionMode(HcclComm comm, HcclOpExpansionMode &finalMo
 {
 #if CANN_VERSION_NUM >= 90000000
     HcclOpExpansionMode configOpExpansionMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_INVALID;
-    uint32_t infoLen = sizeof(HcclOpExpansionMode);
-    CHK_RET(HcclConfigGetInfo(comm, HcclConfigType::HCCL_CONFIG_TYPE_OP_EXPANSION_MODE, infoLen, &configOpExpansionMode));
-    finalMode = configOpExpansionMode;
+    bool useConfigOpExpansionMode = false;
+    auto& hcommFunction = ops_hccl::DlHcommFunction::GetInstance();
+    if (hcommFunction.dlHcclConfigGetInfo) {
+        uint32_t infoLen = sizeof(HcclOpExpansionMode);
+        CHK_RET(hcommFunction.dlHcclConfigGetInfo(comm, HcclConfigType::HCCL_CONFIG_TYPE_OP_EXPANSION_MODE, infoLen,
+            &configOpExpansionMode));
+        finalMode = configOpExpansionMode;
+        useConfigOpExpansionMode = true;
+    } else {
+        HCCL_INFO("[DecideHcclOpExpansionMode] HcclConfigGetInfo is not supported, use environment mode.");
+        finalMode = static_cast<HcclOpExpansionMode>(opExpansionModeCcuMs);
+    }
 
     // A5仅通过HcclConfigGetInfo获取展开模式，其他型号保留环境变量方式
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
     #ifdef MACRO_DEV_TYPE_NEW
-    if (deviceType != DevType::DEV_TYPE_950) {
+    if (deviceType != DevType::DEV_TYPE_950 || !useConfigOpExpansionMode) {
     #else
-    if (deviceType != DevType::DEV_TYPE_910_95) {
+    if (deviceType != DevType::DEV_TYPE_910_95 || !useConfigOpExpansionMode) {
     #endif
         if (GetExternalInputHcclAicpuUnfold() == true) {
             finalMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_AI_CPU;
@@ -1767,7 +1775,7 @@ HcclResult DecideHcclOpExpansionMode(HcclComm comm, HcclOpExpansionMode &finalMo
         } else if (GetExternalInputHcclCcuSchedMode()) {
             finalMode = static_cast<HcclOpExpansionMode>(opExpansionModeCcuSched);
         }
-        if (configOpExpansionMode != finalMode) {
+        if (useConfigOpExpansionMode && configOpExpansionMode != finalMode) {
             HCCL_DEBUG("[DecideHcclOpExpansionMode] configOpExpansionMode: %d, environment mode: %d, conflict, use environment mode.",
                 configOpExpansionMode, finalMode);
         }
@@ -2087,7 +2095,16 @@ bool IsHostDpu(HcclComm comm)
     HcclResult ret;
     bool hostDpuOnly = false;
 
-    // 获取 serverNum
+    DevType deviceType = DevType::DEV_TYPE_COUNT;
+    ret = hrtGetDeviceType(deviceType);
+    if (ret != HCCL_SUCCESS) {
+        HCCL_ERROR("[IsHostDpu]hrtGetDeviceType fail, ret:%d", ret);
+        return false;
+    }
+    if (deviceType != DevType::DEV_TYPE_910B) {
+        return false;
+    }
+
     uint32_t *level0SizeList = nullptr;
     uint32_t level0RankListNum = 0;
     ret = HcclRankGraphGetInstSizeListByLayer(comm, static_cast<uint32_t>(HcclNetLayer::HCCL_NetLayer_L0),

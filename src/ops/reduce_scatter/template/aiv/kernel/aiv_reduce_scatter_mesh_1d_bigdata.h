@@ -139,7 +139,7 @@ public:
 };
 
 template<typename T>
-__aicore__ inline void AivReduceScatterV2Mesh1DBigData(EXTERN_KERNEL_ARGS_DEF_V2)
+__aicore__ inline void AivReduceScatterV2Mesh1DBigData(KERNEL_ARGS_DEF)
 {
     AivReduceScatterMesh1DBigData<T> op;
     op.Init(KERNEL_CLASS_INIT, true);

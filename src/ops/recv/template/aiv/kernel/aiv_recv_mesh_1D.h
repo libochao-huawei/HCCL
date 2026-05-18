@@ -82,7 +82,7 @@ public:
 };
 
 template<typename T>
-__aicore__ inline void AivRecvV2Mesh1D(EXTERN_KERNEL_ARGS_DEF_V2)
+__aicore__ inline void AivRecvV2Mesh1D(KERNEL_ARGS_DEF)
 {
     AivRecvMesh1D<T> op;
     op.Init(KERNEL_CLASS_INIT, true);
