@@ -247,6 +247,43 @@ HcclResult InsTempAllGatherMesh1D1DZAxisDetour::LocalDataCopy(const std::vector<
     return HcclResult::HCCL_SUCCESS;
 }
 
+HcclResult InsTempAllGatherMesh1D1DZAxisDetour::KernelRun(const OpParam &param, const TemplateDataParams &tempAlgParams,
+                                             TemplateResource &templateResource)
+{
+    enableRemoteMemAccess_ = tempAlgParams.enableRemoteMemAccess;
+    HCCL_INFO("[InsTempAllGatherMesh1D1DZAxisDetour] Run start");
+    if (tempAlgParams.sliceSize == 0 && tempAlgParams.tailSize ==0) {
+        HCCL_INFO("[InsTempAllGatherMesh1D1DZAxisDetour] Rank [%d], get slicesize zero.", myRank_);
+        return HCCL_SUCCESS;
+    }
+    threadNum_ = templateResource.threads.size();
+    tempAlgParams_ = tempAlgParams;
+    dataType_ = param.DataDes.dataType;
+    HCCL_DEBUG("[InsTempAllGatherMesh1D1DZAxisDetour] Rank [%d], get threadNum_[%d].", myRank_, threadNum_);
+    CHK_RET(LocalDataCopy(templateResource.threads));
+    if (templateRankSize_ == 1) {
+        return HcclResult::HCCL_SUCCESS;
+    }
+    if (threadNum_ > 1) {
+        std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+        GetNotifyIdxMainToSub(notifyIdxMainToSub_);
+        CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub_));
+    }
+
+    CHK_RET(RunAllGatherMesh(templateResource.threads, templateResource.channels));
+
+    if (threadNum_ > 1) {
+        std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+        GetNotifyIdxSubToMain(notifyIdxSubToMain_);
+        CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain_));
+    }
+    if (opMode_ == OpMode::OPBASE) {
+        CHK_RET(PostLocalCopy(templateResource.threads));
+    }
+    HCCL_INFO("[InsTempAllGatherMesh1D1DZAxisDetour] Run End");
+    return HcclResult::HCCL_SUCCESS;
+}
+
 HcclResult InsTempAllGatherMesh1D1DZAxisDetour::RunAllGatherMesh(const std::vector<ThreadHandle> &threads,
                                                     const std::map<u32, std::vector<ChannelInfo>> &channels)
 {
