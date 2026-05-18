@@ -97,8 +97,13 @@ HcclResult CalcDataSplitByPortGroupZAxisDetour(const u64 totalDataCount,
         HCCL_ERROR("[CalcDataSplitByPortGroupZAxisDetour] level0DataRatio[%f] is invalid.", level0DataRatio),
         HcclResult::HCCL_E_PARA);
 
-    u64 level0DataCount = static_cast<u64>(totalDataCount * level0DataRatio);
-    level0DataCount = std::min(level0DataCount, totalDataCount);
+    u64 level0DataCount;
+    if (level1ChannelNumPerRank == 0) {
+        level0DataCount = totalDataCount;
+    } else {
+        level0DataCount = static_cast<u64>(static_cast<double>(totalDataCount) * level0DataRatio);
+        level0DataCount = std::min(level0DataCount, totalDataCount);
+    }
     u64 level1DataCount = totalDataCount - level0DataCount;
 
     std::vector<ChannelInfo> level0Chs(channels.begin(),
