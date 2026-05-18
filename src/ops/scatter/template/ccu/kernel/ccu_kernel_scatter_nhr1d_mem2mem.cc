@@ -17,8 +17,8 @@ using namespace hcomm;
 // XN ID定义：用于标识不同类型的变量
 constexpr uint16_t SCRATCH_XN_ID = 1;  // Scratch缓冲区变量ID
 constexpr uint16_t TOKEN_XN_ID = 2;    // Token变量ID
-constexpr uint16_t STEP_POST_SYNC_ID = 3;
-constexpr uint16_t POST_SYNC_ID = 4;
+constexpr uint16_t POST_SYNC_ID = 3;
+constexpr uint16_t STEP_POST_SYNC_ID = 4;
 
 // CKE索引定义：用于标识不同类型的同步信号
 constexpr uint16_t CKE_IDX_0 = 0;  // 后同步
