@@ -86,11 +86,9 @@ __aicore__ inline void AivRecvV2Mesh1D(KERNEL_ARGS_DEF)
 {
     AivRecvMesh1D<T> op;
     op.Init(KERNEL_CLASS_INIT, true);
-    SyncAll<true>();
     if (op.IsFirstOP(sliceId)) {
         op.SendRecvBarrierForFirstOP(rank, sendRecvRemoteRank);
     }
-    SyncAll<true>();
     op.Process(len, sliceId);
     op.SendRecvBarrierAll(rank, sendRecvRemoteRank);
 }

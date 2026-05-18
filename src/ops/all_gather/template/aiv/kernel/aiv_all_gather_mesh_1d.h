@@ -188,11 +188,9 @@ __aicore__ inline void AivAllGatherV2Mesh1D(KERNEL_ARGS_DEF)
 {
     AivAllGatherMesh1D<T> op;
     op.Init(KERNEL_CLASS_INIT, true);
-    SyncAll<true>();
     if (op.IsFirstOP(sliceId)) {
         op.BarrierForFirstOP();
     }
-    SyncAll<true>();
  
     op.Process(len, sliceId, outputSliceStride);
     // 执行barrier全同步
