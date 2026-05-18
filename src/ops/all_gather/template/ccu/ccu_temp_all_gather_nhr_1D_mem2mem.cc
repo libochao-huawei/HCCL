@@ -235,6 +235,7 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::KernelRun(const OpParam& param,
     
     uint64_t inputOutputEqual_original = (inputAddr == outputAddr)? 1 : 0;
     HCCL_RUN_INFO("[CcuTempAllGatherNHR1DMem2Mem][KernelRun] isInputOutputEqual [%llu] and inputOutputEqual_original [%llu]", isInputOutputEqual, inputOutputEqual_original);
+    isInputOutputEqual = inputOutputEqual_original;
     
     HCCL_RUN_INFO("[CcuTempAllGatherNHR1DMem2Mem] dimSize[%llu], die0Size[%llu], die1Size[%llu], inputAddr[%llu],"\
         "outputAddr[%llu], repeatNum[%llu], inputSliceStride[%llu], outputSliceStride[%llu],"\
