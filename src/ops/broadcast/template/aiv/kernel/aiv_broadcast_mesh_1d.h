@@ -15,7 +15,6 @@ using namespace AscendC;
 // todo 简化参数
  
 class AivBroadcastMesh1D : public AivCommBase {
-    constexpr static uint64_t CORE_NUMS_ALL = 2;
 
 public:
     __aicore__ inline AivBroadcastMesh1D() {}
@@ -54,14 +53,16 @@ __aicore__ inline void AivBroadcastMesh1D::Process(uint64_t curCount, uint64_t s
 {
     curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
     uint64_t dataTypeSize = sizeof(T);
-    if (block_idx >= rankSize_) {
+    uint64_t usedCoreNumsAll = numBlocks_ / rankSize_ * rankSize_;
+    if (block_idx >= usedCoreNumsAll) {
         return;
     }
-    uint32_t peerRank = block_idx / (rankSize_ / rankSize_);
-    uint64_t offsetPerCore = curCount / rankSize_ * dataTypeSize;
+    uint64_t coreNumPerRank = usedCoreNumsAll / rankSize_;
+    uint32_t peerRank = block_idx / coreNumPerRank;
+    uint64_t offsetPerCore = curCount / usedCoreNumsAll * dataTypeSize;
     uint64_t dataOffset = offsetPerCore * block_idx;
-    uint64_t countPerCore = block_idx == rankSize_ - 1 ? curCount - (rankSize_ - 1) * (curCount / rankSize_)
-                                    : curCount / rankSize_;
+    uint64_t countPerCore = block_idx == usedCoreNumsAll - 1 ? curCount - (usedCoreNumsAll - 1) * (curCount / usedCoreNumsAll)
+                                    : curCount / usedCoreNumsAll;
     uint64_t flag_offset = block_idx;
     __gm__ T *inputGM = (__gm__ T *)(input_ + dataOffset);
     __gm__ T *cclGM = (__gm__ T *)(GM_IN[peerRank] + dataOffset);
@@ -181,10 +182,6 @@ __aicore__ inline void AivBroadcastV2Mesh1D(KERNEL_ARGS_DEF)
         op.BarrierForFirstOP();
     }
     SyncAll<true>();
-    if (len * sizeof(T) >= DATA_LIMIT) {
-        op.ProcessBigData<T>(len, sliceId);
-    } else {
-        op.Process<T>(len, sliceId, inputSliceStride);
-    }
+    op.Process<T>(len, sliceId, inputSliceStride);
     op.BarrierAll();
 }
