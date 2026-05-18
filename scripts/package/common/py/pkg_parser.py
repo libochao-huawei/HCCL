@@ -138,18 +138,18 @@ class FileInfoParsedResult(NamedTuple):
     dir_infos: List[Dict[str, str]]
     expand_infos: List[Dict[str, str]]
 
+
 class PkgMod(NamedTuple):
     """包内文件权限。"""
     path: str
     mod: int
- 	 
+
  	 
 class PkgSoftlink(NamedTuple):
     """包内软链接。"""
     dst_path: str
     src_path: str
- 	 
- 	 
+
 
 class BlockConfig(NamedTuple):
     """块配置。"""
@@ -231,7 +231,7 @@ def parse_package_info(package_info_ele: Optional[ET.Element]) -> Dict:
         # gen_version_info: 是否生成version.info文件
         bool_attrs = (
             'expand_asterisk', 'parallel', 'parallel_limit', 'package_check', 'check_features',
-            'use_move', 'gen_version_info','copy_all'
+            'use_move', 'gen_version_info', 'copy_all'
         )
         bool_values = ('t', 'true', 'y', 'yes')
         if ele.tag in bool_attrs:
@@ -881,15 +881,15 @@ def deal_with_copy_all(file_info: FileInfo, package_attr: PackageAttr):
 
 
 def expand_file_info(parsed_result: FileInfoParsedResult,
-                     use_move: bool,
-                     get_dst_target_func: Callable[[FileInfo], str],
- 	                 env: ParseEnv) -> FileInfoParsedResult:
+                    use_move: bool,
+                    get_dst_target_func: Callable[[FileInfo], str],
+                    env: ParseEnv) -> FileInfoParsedResult:
     """展开FileInfoParsedResult中的目录。"""
     deal_with_copy_all(parsed_result.file_info, env.package_attr)
     file_info = parsed_result.file_info
     if need_expand(file_info, get_dst_target_func):
         # 如果当前是文件夹，需要展开计算
-        expand_infos, dir_infos = expand_dir(file_info, get_dst_target_func,env)
+        expand_infos, dir_infos = expand_dir(file_info, get_dst_target_func, env)
         # 实测发现，对于opp包，整体目录cp的安装速度要快于目录中各文件mv
         # 可能的原因是，cp遍历目录的速度较快，并且目录中的文件都比较小。mv依赖shell迭代目录中的所有文件。
         return FileInfoParsedResult(
@@ -961,6 +961,7 @@ def parse_file_info_elements(loaded_block: LoadedBlockElement,
             yield from parse_file_element(
                 sub_item, file_config, loaded_block, package_attr, env
             )
+
 
 def get_path_infos(pkg_ele: ET.Element,
                     default_config: Dict[str, str],
@@ -1045,14 +1046,14 @@ def parse_block_config(loaded_block: LoadedBlockElement, package_attr: PackageAt
     default_config.update(loaded_block.root_ele.attrib)
 
     dir_infos = parse_dir_info_elements(
-        loaded_block,default_config,
-        package_attr,parse_env,
+        loaded_block, default_config,
+        package_attr, parse_env,
     )
     file_info_results = list(
         chain(
             parse_file_info_elements(
-                loaded_block,default_config,
-                package_attr,parse_env,
+                loaded_block, default_config,
+                package_attr, parse_env,
             )
         )
     )

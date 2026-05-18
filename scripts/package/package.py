@@ -105,6 +105,7 @@ class PackageOption(PrivatePackageOption):
     def __new__(cls, *package_option_args, **kwargs):
         return super().__new__(cls, *package_option_args, **kwargs)
 
+
 def do_copy(target_conf=None,
             delivery_dir='',
             release_dir='',
@@ -384,12 +385,12 @@ def parse_install_info(infos: List, operate_type, filter_key) -> Iterator[FileIt
             get_owner_group(target_config),
             install_type,
             get_softlink(target_config),
-            get_feature(target_config),'N',
+            get_feature(target_config), 'N',
             get_configurable(target_config),
             get_hash_value(target_config),
             get_block(target_config),
             get_pkg_inner_softlink(target_config),
-            get_chip(target_config),is_dir,
+            get_chip(target_config), is_dir,
         )
 
         yield file_item
