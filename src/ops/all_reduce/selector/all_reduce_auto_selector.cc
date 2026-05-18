@@ -156,7 +156,7 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNe
             } else if (topoInfo->is2DieFullMesh) {
                 HCCL_DEBUG("[AllReduceAutoSelector] 2DieFullMesh is not supported yet for ccu schedule mode.");
                 return SelectorStatus::NOT_MATCH;
-            } else if (dataSize <= AR_FLATTEN_MAX_DATA_SIZE && topoInfo->userRankSize > 8) {
+            } else if (dataSize <= AR_FLATTEN_MAX_DATA_SIZE && topoInfo->userRankSize <= 64) {
                 selectAlgName = "CcuAllReduceMesh1DMem2Mem";
                 return SelectorStatus::MATCH;
             } else if(IsSmallDataCCU(dataSize, topoInfo->userRankSize)){//64M以下跑ccu
