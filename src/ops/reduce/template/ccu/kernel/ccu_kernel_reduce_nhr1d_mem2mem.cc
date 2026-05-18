@@ -70,7 +70,6 @@ static CcuResult InitResource(ReduceNHR1DMem2MemContext &ctx)
     CCU_CHK_RET(ccu::CreateLoopExecutor(&ctx.enginePool, CCU_MAX_RANK_SIZE));
 
     ctx.resourceAllocated = false;
-    ctx.loopRegistered    = false;
 
     return CCU_SUCCESS;
 }
@@ -422,7 +421,6 @@ CcuResult CcuReduceNHR1DMem2MemKernel(CcuKernelArg arg)
     ReduceNHR1DMem2MemContext ctx;
     ctx.arg = kernelArg;
     ctx.resourceAllocated = false;
-    ctx.loopRegistered = false;
     ctx.moConfig.msInterleave = 0;
     ctx.moConfig.loopCount = 0;
     ctx.moConfig.memSlice = 0;

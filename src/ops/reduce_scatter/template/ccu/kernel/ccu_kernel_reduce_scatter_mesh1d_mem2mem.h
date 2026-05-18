@@ -107,7 +107,6 @@ struct ReduceScatterMesh1DMem2MemContext {
     bool resourceAllocated;
 
     CcuLoop reduceLoops[2];
-    bool loopRegistered;
 
     // Loop body 中的外部 LocalAddr（每个 loop index 各两组）
     ccu::LocalAddr loopDst[2];
