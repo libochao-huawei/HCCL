@@ -428,15 +428,12 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     templateAlgResInter.threads = interThreads_;
 
     for (u32 loopIndex = 0; loopIndex < loopTimes; loopIndex++) {
-
         // 使用预计算的对齐后数据量
         u64 currCountPart0 = (loopIndex == loopTimes - 1) ? finalDataCountPerLoopAixs0 : dataCountPerLoopAixs0;
         u64 currCountPart1 = (loopIndex == loopTimes - 1) ? finalDataCountPerLoopAixs1 : dataCountPerLoopAixs1;
         
         u64 dataOffset0 = loopIndex * maxCountPerLoop * dataTypeSize_;
         u64 dataOffset1 = dataOffset0 + currCountPart0 * dataTypeSize_;
-        HCCL_INFO("zjy currCountPart0[%u], currCountPart1[%u], dataOffset0[%llu], dataOffset1[%llu]",
-            currCountPart0, currCountPart1, dataOffset0, dataOffset1);
 
         //第一步开始前同步
         CHK_RET(PreSyncInterThreads(controlThread_, templateMainThreads_, notifyIdxControlToTemplates_));
