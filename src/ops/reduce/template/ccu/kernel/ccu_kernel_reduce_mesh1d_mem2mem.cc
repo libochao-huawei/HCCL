@@ -13,12 +13,12 @@
 
 namespace ops_hccl {
 
-constexpr int INPUT_XN_ID          = 0;
-constexpr int OUTPUT_XN_ID         = 1;
-constexpr int TOKEN_XN_ID          = 2;
-constexpr int POST_SYNC_ID         = 3;
-constexpr int CKE_IDX_0            = 0;
-constexpr std::string LOOP_NAME    = "reduceMesh1DMem2MemLoop";
+constexpr int INPUT_XN_ID    = 0;
+constexpr int OUTPUT_XN_ID   = 1;
+constexpr int TOKEN_XN_ID    = 2;
+constexpr int POST_SYNC_ID   = 3;
+constexpr int CKE_IDX_0      = 0;
+const std::string LOOP_NAME  = "reduceMesh1DMem2MemLoop";
 
 static CcuResult ParseKernelArg(ReduceMesh1DMem2MemContext &ctx, CcuKernelArgReduceMesh1DMem2Mem *kernelArg)
 
