@@ -25,7 +25,7 @@ constexpr uint64_t LARGE_COUNT_1024KB = 1024*1024; // Byte, 可掩盖多mission�
 constexpr u32 CCU_MS_MODE = 2;
 constexpr double DEFAULT_RANK_SIZE = 8.0;
 constexpr u64 RS_2D_SMALL_DATA_SIZE = 1024 * 1024;
-constexpr u64 RS_M2M_1D_MAX_DATA_SIZE = 8 * 1024 * 1024;
+constexpr u64 RS_M2M_1D_MAX_DATA_SIZE = 4 * 1024 * 1024;
 constexpr u64 CCU_PARALLEL_MAX_DATA_SIZE = 64 * 1024 * 1024;
 
 enum class SelectorStatus { MATCH, NOT_MATCH };
