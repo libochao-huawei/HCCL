@@ -7,7 +7,7 @@
 - **针对Ascend 950PR/Ascend 950DT** ：支持的配置如下，若设置了不支持的环境变量，系统报错。
   - **AI_CPU**：代表通信算子在AI CPU展开，Device侧根据硬件型号自动选择相应的调度器。
 
-    该配置项仅支持Broadcast、Reduce、AllReduce、Scatter、ReduceScatter、ReduceScatterV、AllGather、AllGatherV、AlltoAll、AlltoAllV、AlltoAllVC算子。
+    该配置项支持Broadcast、Reduce、AllReduce、Scatter、ReduceScatter、ReduceScatterV、AllGather、AllGatherV、AlltoAll、AlltoAllV、AlltoAllVC、Send、Recv、BatchSendRecv算子。
 
     **注意**：
 
