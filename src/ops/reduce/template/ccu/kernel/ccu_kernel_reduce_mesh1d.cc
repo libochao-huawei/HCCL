@@ -64,7 +64,6 @@ static CcuResult InitResource(ReduceMesh1DContext &ctx)
     CCU_CHK_RET(ccu::CreateLoopExecutor(&ctx.enginePool, CCU_MAX_RANK_SIZE + 1));
 
     ctx.resourceAllocated = false;
-    ctx.loopRegistered    = false;
 
     return CCU_SUCCESS;
 }
@@ -168,7 +167,6 @@ CcuResult CcuReduceMesh1DKernel(CcuKernelArg arg)
     ReduceMesh1DContext ctx;
     ctx.arg = kernelArg;
     ctx.resourceAllocated = false;
-    ctx.loopRegistered = false;
     ctx.moConfig.msInterleave = 0;
     ctx.moConfig.loopCount = 0;
     ctx.moConfig.memSlice = 0;

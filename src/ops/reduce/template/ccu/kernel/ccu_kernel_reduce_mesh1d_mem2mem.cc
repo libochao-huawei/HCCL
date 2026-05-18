@@ -36,9 +36,11 @@ static CcuResult ParseKernelArg(ReduceMesh1DMem2MemContext &ctx, CcuKernelArgRed
 
 static CcuResult CreateLocalCopyLoop(ReduceMesh1DMem2MemContext &ctx, GroupReduceMesh1DMem2MemVar &var)
 {
-    if (ctx.loopRegistered) {
+    if (ctx.IsLoopRegistered("reduce_local_copy")) {
         return CCU_SUCCESS;
     }
+    ctx.CreateLoop("reduce_local_copy");
+    auto &loops = ctx.loopMap["reduce_local_copy"];
 
     for (uint32_t index = 0; index < 2; index++) { // 需要2个Loop
         ccu::Event event = ctx.moRes.completedEvent[index];
@@ -50,7 +52,6 @@ static CcuResult CreateLocalCopyLoop(ReduceMesh1DMem2MemContext &ctx, GroupReduc
             ccu::EventWait(event);
         }
     }
-    ctx.loopRegistered = true;
     return CCU_SUCCESS;
 }
 
@@ -162,7 +163,6 @@ static CcuResult InitResource(ReduceMesh1DMem2MemContext &ctx)
     CCU_CHK_RET(ccu::CreateLoopExecutor(&ctx.enginePool, CCU_MAX_RANK_SIZE));
 
     ctx.resourceAllocated = true;
-    ctx.loopRegistered    = false;
 
     return CCU_SUCCESS;
 }
@@ -307,7 +307,6 @@ CcuResult CcuReduceMesh1DMem2MemKernel(CcuKernelArg arg)
     ReduceMesh1DMem2MemContext ctx;
     ctx.arg = kernelArg;
     ctx.resourceAllocated = false;
-    ctx.loopRegistered = false;
     ctx.moConfig.msInterleave = 0;
     ctx.moConfig.loopCount = 0;
     ctx.moConfig.memSlice = 0;
