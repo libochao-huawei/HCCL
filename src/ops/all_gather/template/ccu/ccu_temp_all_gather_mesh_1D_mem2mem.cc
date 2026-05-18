@@ -120,6 +120,9 @@ HcclResult CcuTempAllGatherMesh1DMem2Mem::KernelRun(const OpParam& param,
     uint64_t lastSliceSize      = templateDataParams.tailSize;
     bool inputOutputEqual = (inputAddr + inputSliceStride * mySubCommRank_ == outputAddr + outputSliceStride * mySubCommRank_);
     uint64_t isInputOutputEqual = static_cast<uint64_t>(inputOutputEqual);
+    uint64_t inputOutputEqual_original = (inputAddr == outputAddr)? 1 : 0;
+    HCCL_INFO("[CcuTempAllGatherMesh1DMem2Mem][KernelRun] isInputOutputEqual [%llu] and inputOutputEqual_original [%llu]", isInputOutputEqual, inputOutputEqual_original);
+
     if (templateDataParams.tailSize != 0 && mySubCommRank_ == templateRankSize_ - 1) {
         normalSliceSize = templateDataParams.tailSize;
     }

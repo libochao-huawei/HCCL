@@ -233,6 +233,9 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::KernelRun(const OpParam& param,
     bool inputOutputEqual = (inputAddr + inputSliceStride * mySubCommRank_ == outputAddr + outputSliceStride * mySubCommRank_);
     uint64_t isInputOutputEqual = static_cast<uint64_t>(inputOutputEqual);
     
+    uint64_t inputOutputEqual_original = (inputAddr == outputAddr)? 1 : 0;
+    HCCL_INFO("[CcuTempAllGatherNHR1DMem2Mem][KernelRun] isInputOutputEqual [%llu] and inputOutputEqual_original [%llu]", isInputOutputEqual, inputOutputEqual_original);
+    
     HCCL_INFO("[CcuTempAllGatherNHR1DMem2Mem] dimSize[%llu], die0Size[%llu], die1Size[%llu], inputAddr[%llu],"\
         "outputAddr[%llu], repeatNum[%llu], inputSliceStride[%llu], outputSliceStride[%llu],"\
         "inputRepeatStride[%llu], outputRepeatStride[%llu]",
