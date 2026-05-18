@@ -13,11 +13,12 @@
 
 namespace ops_hccl {
 
-constexpr int INPUT_XN_ID    = 0;
-constexpr int OUTPUT_XN_ID   = 1;
-constexpr int TOKEN_XN_ID    = 2;
-constexpr int POST_SYNC_ID   = 3;
-constexpr int CKE_IDX_0      = 0;
+constexpr int INPUT_XN_ID          = 0;
+constexpr int OUTPUT_XN_ID         = 1;
+constexpr int TOKEN_XN_ID          = 2;
+constexpr int POST_SYNC_ID         = 3;
+constexpr int CKE_IDX_0            = 0;
+constexpr std::string LOOP_NAME    = "reduceMesh1DMem2MemLoop";
 
 static CcuResult ParseKernelArg(ReduceMesh1DMem2MemContext &ctx, CcuKernelArgReduceMesh1DMem2Mem *kernelArg)
 
@@ -36,16 +37,16 @@ static CcuResult ParseKernelArg(ReduceMesh1DMem2MemContext &ctx, CcuKernelArgRed
 
 static CcuResult CreateLocalCopyLoop(ReduceMesh1DMem2MemContext &ctx, GroupReduceMesh1DMem2MemVar &var)
 {
-    if (ctx.IsLoopRegistered("reduce_local_copy")) {
+    if (ctx.IsLoopRegistered(LOOP_NAME)) {
         return CCU_SUCCESS;
     }
-    ctx.CreateLoop("reduce_local_copy");
-    auto &loops = ctx.loopMap["reduce_local_copy"];
+    ctx.CreateLoop(LOOP_NAME);
+    auto &loops = ctx.loopMap[LOOP_NAME];
 
     for (uint32_t index = 0; index < 2; index++) { // 需要2个Loop
         ccu::Event event = ctx.moRes.completedEvent[index];
 
-        CCU_LOOP(ctx.loops[index]) {
+        CCU_LOOP(loops[index]) {
             ccu::LocalCopy(ctx.moRes.ccuBuf[0], var.src[index], var.len[index], event);
             ccu::EventWait(event);
             ccu::LocalCopy(var.dst[index], ctx.moRes.ccuBuf[0], var.len[index], event);
@@ -59,6 +60,7 @@ static CcuResult LocalCopyByLoopGroup(ReduceMesh1DMem2MemContext &ctx, ccu::Loca
 {
     GroupReduceMesh1DMem2MemVar var;
     CreateLocalCopyLoop(ctx, var);
+	auto &loops = ctx.loopMap[LOOP_NAME];
 
     CCU_IF(ctx.localGoSize.addrOffset != 0)
     {
@@ -82,7 +84,7 @@ static CcuResult LocalCopyByLoopGroup(ReduceMesh1DMem2MemContext &ctx, ccu::Loca
 
         CcuLoopGroup group;
         CCU_CHK_RET(ccu::CreateLoopGroup(&group, &paraCfg, &offsetCfg, ctx.enginePool));
-        CCU_CHK_RET(ccu::AddLoop(group, ctx.loops[0], &loopParam));
+        CCU_CHK_RET(ccu::AddLoop(group, loops[0], &loopParam));
     }
 
     CCU_IF(ctx.localGoSize.parallelParam != 0)
@@ -118,8 +120,8 @@ static CcuResult LocalCopyByLoopGroup(ReduceMesh1DMem2MemContext &ctx, ccu::Loca
 
         CcuLoopGroup group;
         CCU_CHK_RET(ccu::CreateLoopGroup(&group, &ctx.localGoSize.parallelParam, &offsetCfg, ctx.enginePool));
-        CCU_CHK_RET(ccu::AddLoop(group, ctx.loops[0], &loopCfg0));
-        CCU_CHK_RET(ccu::AddLoop(group, ctx.loops[1], &loopCfg1));
+        CCU_CHK_RET(ccu::AddLoop(group, loops[0], &loopCfg0));
+        CCU_CHK_RET(ccu::AddLoop(group, loops[1], &loopCfg1));
     }
     return CCU_SUCCESS;
 }
