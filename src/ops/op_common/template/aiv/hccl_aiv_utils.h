@@ -72,6 +72,7 @@ struct OpCounterInfo {
 struct AivOpArgs {
     HcclCMDType cmdType = HcclCMDType::HCCL_CMD_MAX;
     std::string comm = {};
+    HcclComm hcclComm = nullptr;
     u32 numBlocks = MAX_NUM_BLOCKS;
     rtStream_t stream = nullptr;
     uint64_t beginTime = 0;
@@ -143,6 +144,8 @@ using InsQueue = std::vector<AivInstruction>;
 extern thread_local std::shared_ptr<InsQueue> g_recordingQueue;
 extern thread_local u64 g_baseInputAddr;
 extern thread_local u64 g_baseOutputAddr;
+extern thread_local HcclComm g_aivCurrentComm;
+extern thread_local std::string g_aivCurrentCommName;
 
 using AivSuperKernelArgs = struct AivSuperKernelArgsDef {
     const void* buffersIn = nullptr; // 注册的CCLIN地址，所有卡可访问
@@ -182,8 +185,10 @@ HcclResult RegisterKernel();
 HcclResult UnRegisterAivKernel();
 
 HcclResult ExecuteKernelLaunchInner(const AivOpArgs &opArgs, void* args, u32 argsSize);
- 
+
 HcclResult ExecuteKernelLaunch(const AivOpArgs &opArgs);
+
+void ProcessAivExceptionCallBack(aclrtExceptionInfo *exceptionInfo);
 }
  
 #endif // HCCL_AIV_UTILS_H
