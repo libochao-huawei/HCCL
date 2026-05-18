@@ -398,6 +398,8 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
         for (auto& ins : *queue) {
             AivOpArgs newArgs = ins.opArgs;
             newArgs.stream = param.stream;
+            newArgs.hcclComm = param.hcclComm;
+            newArgs.comm = param.commName;
 
             // Update addresses
             newArgs.input = (u64)param.inputPtr + ins.inputOffset;
@@ -413,7 +415,12 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
             g_baseOutputAddr = (u64)param.outputPtr;
         }
 
-        CHK_RET(executor->Orchestrate(param, resCtxHost));
+        g_aivCurrentComm = param.hcclComm;
+        g_aivCurrentCommName = param.commName;
+        HcclResult orchestrateRet = executor->Orchestrate(param, resCtxHost);
+        g_aivCurrentComm = nullptr;
+        g_aivCurrentCommName.clear();
+        CHK_RET(orchestrateRet);
 
         if (useCache && g_recordingQueue) {
             g_hcclCacheMap[cacheKey] = g_recordingQueue;
