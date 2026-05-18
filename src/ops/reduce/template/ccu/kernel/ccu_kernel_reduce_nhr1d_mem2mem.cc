@@ -128,8 +128,7 @@ static CcuResult DoWriteReduceSlice(ReduceNHR1DMem2MemContext &ctx, const u32 &t
                                                   : (islastSlice ? ctx.die1LastSliceSize : ctx.die1SliceSize);
 
     CCU_IF(sliceSize != 0) {
-        ctx.event.setMask(1 << signalIndex);
-        ccu::WriteReduce(sendChannel, ctx.remoteDst, ctx.localSrc, sliceSize, ctx.dataType, ctx.reduceOp, ctx.event);
+        ccu::WriteReduce(sendChannel, ctx.remoteDst, ctx.localSrc, sliceSize, ctx.dataType, ctx.reduceOp, ctx.event, 1 << signalIndex);
     }
     CCU_IF(sliceSize == 0) {
 		const uint32_t rankMask = 1 << signalIndex;
@@ -176,8 +175,7 @@ static CcuResult DoReduceScatterNHRSingleStep(ReduceNHR1DMem2MemContext &ctx, co
         // cke用完了，等待上一轮结束在使用
         if (i != 0) {
             if (i % RANK_NUM_PER_CKE == 0) {
-                ctx.event.setMask((1 << RANK_NUM_PER_CKE) - 1);
-                ccu::EventWait(ctx.event);
+                ccu::EventWait(ctx.event, (1 << RANK_NUM_PER_CKE) - 1);
             }
         }
 
@@ -196,8 +194,7 @@ static CcuResult DoReduceScatterNHRSingleStep(ReduceNHR1DMem2MemContext &ctx, co
         CCU_CHK_RET(DoWriteReduceSlice(ctx, nhrStepInfo.toRank, sendSliceIdx, i % RANK_NUM_PER_CKE));
     }
     // 等待上面的DoWriteReduceSlice方法传完
-    ctx.event.setMask((1 << (sendSliceIdxList.size() % RANK_NUM_PER_CKE)) - 1);
-    ccu::EventWait(ctx.event);
+    ccu::EventWait(ctx.event, (1 << (sendSliceIdxList.size() % RANK_NUM_PER_CKE)) - 1);
 
     // 通知toRank数据写入完毕
     ccu::NotifyRecord(sendChannel, CKE_IDX_0, 1 << REDUCE_SCATTER_POST_SYNC_ID);
@@ -244,8 +241,7 @@ static CcuResult DoSendRecvSlice(ReduceNHR1DMem2MemContext &ctx, const u32 &toRa
                                                   : (islastSlice ? ctx.die1LastSliceSize : ctx.die1SliceSize);
 
     CCU_IF(sliceSize != 0) {
-        ctx.event.setMask(1 << signalIndex);
-        ccu::Write(sendChannel, ctx.remoteDst, ctx.localSrc, sliceSize, ctx.event);
+        ccu::Write(sendChannel, ctx.remoteDst, ctx.localSrc, sliceSize, ctx.event, 1 << signalIndex);
     }
     CCU_IF(sliceSize == 0) {
 		const uint32_t rankMask = 1 << signalIndex;
@@ -283,8 +279,7 @@ static CcuResult DoGatherNHRSingleStep(ReduceNHR1DMem2MemContext &ctx, const NHR
 
         if (i != 0) {
             if (i % RANK_NUM_PER_CKE == 0) {
-                ctx.event.setMask((1 << RANK_NUM_PER_CKE) - 1);
-                ccu::EventWait(ctx.event);
+                ccu::EventWait(ctx.event, (1 << RANK_NUM_PER_CKE) - 1);
             }
         }
 
@@ -295,8 +290,7 @@ static CcuResult DoGatherNHRSingleStep(ReduceNHR1DMem2MemContext &ctx, const NHR
         ctx.remoteDst.addr += ctx.sliceOffset[sendSliceIdx];
         CCU_CHK_RET(DoSendRecvSlice(ctx, nhrStepInfo.toRank, sendSliceIdx, i % RANK_NUM_PER_CKE));
     }
-    ctx.event.setMask((1 << (sendSliceIdxList.size() % RANK_NUM_PER_CKE)) - 1);
-    ccu::EventWait(ctx.event);
+    ccu::EventWait(ctx.event, (1 << (sendSliceIdxList.size() % RANK_NUM_PER_CKE)) - 1);
 
     if (nhrStepInfo.step + 1 != arg->stepInfoVector.size()) {   // 最后一步不需要同步
         // 通知toRank，写入完毕
@@ -336,8 +330,7 @@ static CcuResult DoLocalCopySlice(ReduceNHR1DMem2MemContext &ctx, const u32 &cop
                                                   : (islastSlice ? ctx.die1LastSliceSize : ctx.die1SliceSize);
 
     CCU_IF(sliceSize != 0) {
-        ctx.event.setMask(1 << signalIndex);
-        ccu::LocalCopy(ctx.localDst, ctx.localSrc, sliceSize, ctx.event);
+        ccu::LocalCopy(ctx.localDst, ctx.localSrc, sliceSize, ctx.event, 1 << signalIndex);
     }
     CCU_IF(sliceSize == 0) {
 		const uint32_t rankMask = 1 << signalIndex;
@@ -391,8 +384,7 @@ static CcuResult LocalCopySlices(ReduceNHR1DMem2MemContext &ctx)
 
             if (i != 0) {
                 if (i % RANK_NUM_PER_CKE == 0) {
-                    ctx.event.setMask((1 << RANK_NUM_PER_CKE) - 1);
-                    ccu::EventWait(ctx.event);
+                    ccu::EventWait(ctx.event, (1 << RANK_NUM_PER_CKE) - 1);
                 }
             }
 
@@ -405,8 +397,7 @@ static CcuResult LocalCopySlices(ReduceNHR1DMem2MemContext &ctx)
             ctx.localDst.token = ctx.token[ctx.myRankIdx];
             CCU_CHK_RET(DoLocalCopySlice(ctx, nonTxSliceIdx, i));
         }
-        ctx.event.setMask((1 << (nonTxSliceIdxList.size() % RANK_NUM_PER_CKE)) - 1);
-        ccu::EventWait(ctx.event);
+        ccu::EventWait(ctx.event, (1 << (nonTxSliceIdxList.size() % RANK_NUM_PER_CKE)) - 1);
     }
     return CCU_SUCCESS;
 }
