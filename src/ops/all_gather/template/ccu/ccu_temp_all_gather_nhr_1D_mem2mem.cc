@@ -230,10 +230,14 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::KernelRun(const OpParam& param,
     uint64_t repeatNumVar = UINT64_MAX - repeatNum;
     uint64_t die0LastSize = templateDataParams.tailSize / kernelNum;
     uint64_t die1LastSize = templateDataParams.tailSize - die0LastSize;
-    bool inputOutputEqual = (inputAddr + inputSliceStride * mySubCommRank_ == outputAddr + outputSliceStride * mySubCommRank_);
-    uint64_t isInputOutputEqual = static_cast<uint64_t>(inputOutputEqual);
+    // bool inputOutputEqual = (inputAddr + inputSliceStride * mySubCommRank_ == outputAddr + outputSliceStride * mySubCommRank_);
+    // uint64_t isInputOutputEqual = static_cast<uint64_t>(inputOutputEqual);
     
-    HCCL_INFO("[CcuTempAllGatherNHR1DMem2Mem] dimSize[%llu], die0Size[%llu], die1Size[%llu], inputAddr[%llu],"\
+    uint64_t isInputOutputEqual = (inputAddr == outputAddr)? 1 : 0;
+    // HCCL_RUN_INFO("[CcuTempAllGatherNHR1DMem2Mem][KernelRun] isInputOutputEqual [%llu] and inputOutputEqual_original [%llu]", isInputOutputEqual, inputOutputEqual_original);
+    // isInputOutputEqual = inputOutputEqual_original;
+    
+    HCCL_RUN_INFO("[CcuTempAllGatherNHR1DMem2Mem] dimSize[%llu], die0Size[%llu], die1Size[%llu], inputAddr[%llu],"\
         "outputAddr[%llu], repeatNum[%llu], inputSliceStride[%llu], outputSliceStride[%llu],"\
         "inputRepeatStride[%llu], outputRepeatStride[%llu]",
         templateRankSize_, die0Size, die1Size, inputAddr, outputAddr, repeatNum, inputSliceStride,
