@@ -268,6 +268,9 @@ bool ShouldGoCcuFastLaunch(HcclComm comm, OpParam &param, CcuFastLaunchCtx **ccu
 {
 #if CANN_VERSION_NUM >= 90000000
     param.hcclComm = comm;
+    if (param.opMode == OpMode::OFFLOAD) {
+        return false;
+    }
     // 1. 引擎为ccu模式
     if (param.engine != CommEngine::COMM_ENGINE_CCU) {
         return false;
@@ -803,8 +806,12 @@ void CompReqChannelWithExistChannel(const std::vector<std::vector<ChannelInfo>>&
 static HcclResult TryReuseResource(HcclComm comm, OpParam& param, bool increCreateChannelFlag,
     void** resCtxSequence, uint64_t& size, bool &isResourceReused)
 {
-    // 图模式不支持资源复用，且不存在增量建链场景
-    if (increCreateChannelFlag || param.opMode != OpMode::OPBASE) {
+    // 增量建链模式下不能复用资源
+    if (increCreateChannelFlag) {
+        return HCCL_E_NOT_FOUND;
+    }
+    // 非OPBASE模式且非CCU引擎不能复用资源
+    if (param.opMode != OpMode::OPBASE && param.engine != CommEngine::COMM_ENGINE_CCU) {
         return HCCL_E_NOT_FOUND;
     }
     void *ctx = nullptr;
@@ -1694,14 +1701,48 @@ HcclResult HcclCheckTag(const char *tag)
     return HCCL_SUCCESS;
 }
 
+static HcclResult BuildCcuExtraTag(const OpParam &param, std::string &ccuExtraTag)
+{
+    HcclDataType tmpDataType;
+    if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALL ||
+        param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
+        param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
+        tmpDataType = param.all2AllVDataDes.sendType;
+    } else if (param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V ||
+               param.opType == HcclCMDType::HCCL_CMD_ALLGATHER_V) {
+        tmpDataType = param.vDataDes.dataType;
+    } else {
+        tmpDataType = param.DataDes.dataType;
+    }
+    ccuExtraTag = "_" + HCOM_DATA_TYPE_STR_MAP.at(tmpDataType);
+
+    if (param.opType == HcclCMDType::HCCL_CMD_ALLREDUCE ||
+        param.opType == HcclCMDType::HCCL_CMD_REDUCE ||
+        param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER ||
+        param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V) {
+        ccuExtraTag += "_" + HCOM_REDUCE_OP_STR_MAP.at(param.reduceType);
+    }
+
+    if (param.opType == HcclCMDType::HCCL_CMD_REDUCE || param.opType == HcclCMDType::HCCL_CMD_SCATTER ||
+        param.opType == HcclCMDType::HCCL_CMD_BROADCAST) {
+        ccuExtraTag += "_r" + std::to_string(param.root);
+    }
+    return HCCL_SUCCESS;
+}
+
 HcclResult SetOpParamAlgTag(OpParam &param, const std::string &algName)
 {
     std::string temp = algName; // 创建algName的副本
 
     const char* launchMode = (((param.engine == CommEngine::COMM_ENGINE_AICPU) ||
                                 (param.engine == CommEngine::COMM_ENGINE_AICPU_TS)) ? "device" : "host");
-    // 原有tag + algName + 编排模式，得到基础algTag
-    int len = snprintf_s(param.algTag, sizeof(param.algTag), sizeof(param.algTag), "%s_%s_%s", param.tag, temp.c_str(), launchMode);
+    int len;
+    // 图模式下去掉param.tag前缀，避免tag不同导致algTag不同而无法复用资源
+    if (param.opMode == OpMode::OFFLOAD && param.engine == CommEngine::COMM_ENGINE_CCU) {
+        len = snprintf_s(param.algTag, sizeof(param.algTag), sizeof(param.algTag), "Graph_%s_%s", temp.c_str(), launchMode);
+    } else {
+        len = snprintf_s(param.algTag, sizeof(param.algTag), sizeof(param.algTag), "%s_%s_%s", param.tag, temp.c_str(), launchMode);
+    }
     if (len < 0|| len >= sizeof(param.algTag)) {
         HCCL_ERROR("failed to fill param.algTag");
         return HcclResult::HCCL_E_INTERNAL;
@@ -1710,30 +1751,8 @@ HcclResult SetOpParamAlgTag(OpParam &param, const std::string &algName)
     // ccu模式，考虑kernel是否能复用，需要添加dataType和reduceType
     if (param.engine == CommEngine::COMM_ENGINE_CCU) {
         try{
-            HcclDataType tmpDataType;
-            if(param.opType == HcclCMDType::HCCL_CMD_ALLTOALL ||
-               param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
-               param.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC) {
-                tmpDataType = param.all2AllVDataDes.sendType;
-            } else if (param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V ||
-                       param.opType == HcclCMDType::HCCL_CMD_ALLGATHER_V) {
-                tmpDataType = param.vDataDes.dataType;
-            } else {
-                tmpDataType = param.DataDes.dataType;
-            }
-            std::string ccuExtraTag = "_" + HCOM_DATA_TYPE_STR_MAP.at(tmpDataType);
-
-            if (param.opType == HcclCMDType::HCCL_CMD_ALLREDUCE ||
-                param.opType == HcclCMDType::HCCL_CMD_REDUCE ||
-                param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER ||
-                param.opType == HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V) {
-                ccuExtraTag += "_" + HCOM_REDUCE_OP_STR_MAP.at(param.reduceType);
-            }
-
-            if (param.opType == HcclCMDType::HCCL_CMD_REDUCE || param.opType == HcclCMDType::HCCL_CMD_SCATTER ||
-                param.opType == HcclCMDType::HCCL_CMD_BROADCAST) {
-                ccuExtraTag += "_r" + std::to_string(param.root);
-            }
+            std::string ccuExtraTag;
+            CHK_RET(BuildCcuExtraTag(param, ccuExtraTag));
             size_t remainBytes = sizeof(param.algTag) - len;
 
             int len_ccu = snprintf_s(param.algTag + len, remainBytes, remainBytes, "%s", ccuExtraTag.c_str());
