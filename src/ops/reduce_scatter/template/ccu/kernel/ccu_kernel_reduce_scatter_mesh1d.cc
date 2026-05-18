@@ -13,8 +13,8 @@
 namespace ops_hccl {
 
 constexpr int INPUT_XN_ID  = 0;
-constexpr int TOKEN_XN_ID  = 1;
-constexpr int POST_SYNC_ID = 2;
+constexpr int TOKEN_XN_ID  = 2;
+constexpr int POST_SYNC_ID = 3;
 constexpr int CKE_IDX_0    = 0;
 
 static CcuResult ParseKernelArg(ReduceScatterMesh1DContext &ctx, CcuKernelArgReduceScatterMesh1D *kernelArg)
