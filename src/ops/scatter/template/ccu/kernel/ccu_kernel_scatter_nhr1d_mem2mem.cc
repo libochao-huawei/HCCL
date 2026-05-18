@@ -494,7 +494,7 @@ HcclResult CcuKernelScatterNHR1DMem2Mem::Algorithm()
 
     PreSync();
     DoScatterNHR();
-
+	PostSync();
     HCCL_INFO("[CcuKernelScatterNHR1DMem2Mem] ScatterNHR1D end");
     return HcclResult::HCCL_SUCCESS;
 }
