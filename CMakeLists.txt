@@ -143,13 +143,8 @@ elseif(BUILD_OPEN_PROJECT)
             ${BUILD_DEVICE_DIR}/aicpu_custom/libscatter_aicpu_kernel.so
         )
         install(FILES ${BUILD_DEVICE_DIR}/signatures/aicpu_hccl.tar.gz
-            DESTINATION ${INSTALL_CCL_KERNEL_JSON_DIR}/kernel 
-            ${INSTALL_OPTIONAL}
-            COMPONENT hccl
-        )
-        install(FILES ${BUILD_DEVICE_DIR}/aicpu_custom/libscatter_aicpu_kernel.so
-            DESTINATION ${INSTALL_AICPU_KERNEL_JSON_DIR} 
-            ${INSTALL_OPTIONAL}
+            DESTINATION ${INSTALL_AICPU_KERNEL_JSON_DIR}/kernel
+            OPTIONAL
             COMPONENT hccl
         )
         add_dependencies(install_tar hccl)
