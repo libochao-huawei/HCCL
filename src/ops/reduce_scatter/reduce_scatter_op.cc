@@ -15,6 +15,8 @@
 #include <future>
 #include <map>
 #include <string>
+#include "load_kernel.h"
+#include "hcomm_host_profiling_dl.h"
 
 using namespace std;
 using namespace ops_hccl;
@@ -30,15 +32,23 @@ HcclResult HcclReduceScatter(void *sendBuf, void *recvBuf, uint64_t recvCount, H
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
 #ifdef MACRO_DEV_TYPE_NEW
-    if (deviceType != DevType::DEV_TYPE_950) {
+    if (deviceType != DevType::DEV_TYPE_950 && deviceType != DevType::DEV_TYPE_910_93) {
 #else
-    if (deviceType != DevType::DEV_TYPE_910_95) {
+    if (deviceType != DevType::DEV_TYPE_910_95 && deviceType != DevType::DEV_TYPE_910_93) {
 #endif
         return HcclReduceScatterInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
     }
     HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
     // 入口的地方先解析环境变量
     CHK_RET(InitEnvConfig());
+
+    if (deviceType == DevType::DEV_TYPE_910_93)
+    {
+        if (!GetBirsEnableFromEnv()) {
+            return HcclReduceScatterInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
+        }
+        HCCL_INFO("BIRS mode enabled for ReduceScatter"); 
+    }
 
     OpParam param;
     // 参数校验等工作
@@ -175,26 +185,46 @@ HcclResult ReduceScatterOutPlace(OpParam &param, void *sendBuf, void *recvBuf, u
     HCCL_INFO("Start to execute ReduceScatterOutPlace");
     CHK_RET(PrepareReduceScatterParam(param, sendBuf, recvBuf, recvCount, dataType, op, comm, stream, userRankSize,
  	    OpMode::OPBASE));
+    #ifdef MACRO_DEV_TYPE_NEW
+    if (param.deviceType == DevType::DEV_TYPE_950 && (GetHcommVersion() >= 90000000)) {
+    #else
+    if (param.deviceType == DevType::DEV_TYPE_910_95) {
+    #endif
+        CHK_RET(HcclGetOpExpansionMode(comm, param));
+        CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
+        if (ShouldGoCcuFastLaunch(comm, param, &ccuFastLaunchCtx)) {
+            return HcclExecOpCcuFastLaunch(comm, param, ccuFastLaunchCtx);
+        }
+        
+        std::string algName;
+        std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
+        CHK_RET(Selector(comm, param, topoInfo, algName));
+        if (ShouldUseInnerOp(param.opExecuteConfig)) {
+            return HcclReduceScatterInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
+        }
+        if (userRankSize == 1) {
+            HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
+            CHK_RET(SingleRankProc(comm, param));
+            return HcclResult::HCCL_SUCCESS;
+        }
+        CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
+    } else {
+        if (IsAiCpuMode(param.deviceType, userRankSize)) {
+            HCCL_DEBUG("is aicpu mode");
+            CHK_RET(LoadAICPUKernel());
+            param.engine = CommEngine::COMM_ENGINE_AICPU_TS;
+        } else {
+            HCCL_DEBUG("is host mode");
+            param.engine = CommEngine::COMM_ENGINE_CPU_TS;
+        }
     
-    CHK_RET(HcclGetOpExpansionMode(comm, param));
-
-    CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
-    if (ShouldGoCcuFastLaunch(comm, param, &ccuFastLaunchCtx)) {
-        return HcclExecOpCcuFastLaunch(comm, param, ccuFastLaunchCtx);
+        uint64_t beginTime;
+        if (HcommIsProfilingSupported()) {
+            beginTime = HcommGetProfilingSysCycleTime();
+        }
+        ProcessA3(comm, param, beginTime);
+        }
     }
-    
-    std::string algName;
-    std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
-    CHK_RET(Selector(comm, param, topoInfo, algName));
-    if (ShouldUseInnerOp(param.opExecuteConfig) && param.opMode == OpMode::OPBASE) {
-        return HcclReduceScatterInner(sendBuf, recvBuf, recvCount, dataType, op, comm, stream);
-    }
-    if (userRankSize == 1) {
-        HCCL_WARNING("[%s] ranksize == 1, enter SingleRankProc", __func__);
-        CHK_RET(SingleRankProc(comm, param));
-        return HcclResult::HCCL_SUCCESS;
-    }
-    CHK_RET(HcclExecOp(comm, param, topoInfo, algName));
     HCCL_INFO("Execute ReduceScatterOutPlace success.");
     return HCCL_SUCCESS;
 }
@@ -246,4 +276,16 @@ HcclResult ReduceScatterOutPlaceGraphMode(void *sendBuf, void *recvBuf, uint64_t
     HCCL_INFO("Execute ReduceScatterOutPlaceGraphMode success.");
     return HCCL_SUCCESS;
 }
+
+bool GetBirsEnableFromEnv() {
+    const char* val = std::getenv("HCCL_BIRS_ENABLE");
+    if (val == nullptr) return false;
+    std::string str = val;
+    if (str == "TRUE") {
+       return true;
+    } else {
+       return false;
+    }
+}
+
 }
