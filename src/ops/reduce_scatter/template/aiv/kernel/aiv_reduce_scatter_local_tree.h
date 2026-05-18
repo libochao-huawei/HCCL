@@ -171,11 +171,9 @@ __aicore__ inline void AivReduceScatterV2LocalTree(KERNEL_ARGS_DEF)
     AivReduceScatterLocalTree<T> op;
     op.Init(KERNEL_CLASS_INIT, true);
     op.InitCoreInfo(len, inputSliceStride);
-    SyncAll<true>();
     if (op.IsFirstOP(sliceId)) {
         op.BarrierForFirstOP();
     }
-    SyncAll<true>();
     op.Process(sliceId);
     op.BarrierAll();
 }
