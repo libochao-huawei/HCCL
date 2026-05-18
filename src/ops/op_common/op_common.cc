@@ -48,6 +48,7 @@
 #include "hcomm_diag_dl.h"
 #include "hcom.h"
 #include "hccl/hccl_res.h"
+#include "hcomm/hcomm_res_defs.h"
 
 namespace ops_hccl {
 // 用于维护增量建链算子的host ctx信息
@@ -1094,7 +1095,7 @@ HcclResult HcclGetChannel(HcclComm comm, const OpParam &param, AlgResourceReques
                 deviceChannelRequest.emplace_back(channelRequest);
             } else if (channelRequest.localEndpoint.loc.locType == ENDPOINT_LOC_TYPE_HOST) {
                 bool isSupportNda = false;
-                CHK_RET(HcclIsSupportNda(&channelRequest.remoteEndpoint, &isSupportNda));
+                CHK_RET(HcommEndpointCheckFeature(HcommFeatureType::HCOMM_FEATURE_TYPE_NDA, &channelRequest.remoteEndpoint, &isSupportNda));
                 if (isSupportNda) {
                     ndaChannelRequest.emplace_back(channelRequest);
                 } else {
@@ -2124,7 +2125,7 @@ HcclResult CheckSupportNda(const HcclComm comm, const TopoInfoWithNetLayerDetail
             for (uint32_t endPointIdx = 0; endPointIdx < endPointNums; endPointIdx++) {
                 if (endPointDescs[endPointIdx].loc.locType == ENDPOINT_LOC_TYPE_HOST) {
                     bool supportNda = false;
-                    CHK_RET(HcclIsSupportNda(&endPointDescs[endPointIdx], &supportNda));
+                    CHK_RET(HcommEndpointCheckFeature(HcommFeatureType::HCOMM_FEATURE_TYPE_NDA, &endPointDescs[endPointIdx], &supportNda));
                     if (supportNda) {
                         HCCL_INFO("Support NDA in netLayer[%u] topoInstId[%u] endPointIdx[%u]",
                             netLayer, topoInstId, endPointIdx);
