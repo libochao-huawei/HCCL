@@ -285,13 +285,11 @@ static CcuResult DoRepeatReduce(ReduceMesh1DMem2MemContext &ctx, const std::vect
             CCU_IF(ctx.chunkSize[chkId] != 0)
             {
                 // 读远端内存并Reduce, 将远端内存中的数据，和本端内存中的数据进行Reduce操作，结果保存在本端内存中
-                ctx.event.setMask(1 << rmtId);
-                ccu::ReadReduce(arg->channels[channelId], ctx.dstAddr, ctx.remoteInputAddr, ctx.chunkSize[chkId], ctx.dataType, ctx.reduceOp, ctx.event);
+                ccu::ReadReduce(arg->channels[channelId], ctx.dstAddr, ctx.remoteInputAddr, ctx.chunkSize[chkId], ctx.dataType, ctx.reduceOp, ctx.event, 1 << rmtId);
             }
         }
         uint16_t allBit = ((1 << arg->rankSize) - 1) & (~(1 << arg->rankId));
-        ctx.event.setMask(allBit);
-        ccu::EventWait(ctx.event);
+        ccu::EventWait(ctx.event, allBit);
     }
     HCCL_INFO("[CcuKernelReduceMesh1DMem2Mem] ReduceMeshMem2Mem1D ReadReduce end");
     return CCU_SUCCESS;
