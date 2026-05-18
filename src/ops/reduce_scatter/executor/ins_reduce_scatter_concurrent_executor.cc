@@ -300,7 +300,7 @@ HcclResult InsReduceScatterConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
     CHK_RET(PostSyncInterThreads(temp0ThreadMain_, subThreads, notifyIdxMSubToMain));
 
 #ifndef AICPU_COMPILE
-    if ((loopTimesforTemp0 == 1 && loopTimesforTemp1 == 1) && param.engine == CommEngine::COMM_ENGINE_CCU) {
+    if ((loopTimesforTemp0 == 1 && loopTimesforTemp1 == 1) && param.engine == CommEngine::COMM_ENGINE_CCU && param.opMode != OpMode::OFFLOAD) {
         CHK_RET(FastLaunchSaveCtx(param, templateAlgResforTemp0, templateAlgResforTemp1, resCtx.notifyNumOnMainThread));
     }
 #endif
