@@ -12,6 +12,7 @@
 #define CCU_KERNEL_ALG_BASE
 
 #include <vector>
+#include <map>
 #include <array>
 
 #include "log.h"
