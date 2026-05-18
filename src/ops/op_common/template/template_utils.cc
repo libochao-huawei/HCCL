@@ -98,7 +98,7 @@ HcclResult CalcDataSplitByPortGroupZAxisDetour(const u64 totalDataCount,
         HcclResult::HCCL_E_PARA);
 
     if (level1ChannelNumPerRank == 0) {
-        level0DataCount = totalDataCount;
+        u64 level0DataCount = totalDataCount;
     } else {
         u64 level0DataCount = static_cast<u64>(static_cast<double>(totalDataCount) * level0DataRatio);
         level0DataCount = std::min(level0DataCount, totalDataCount);
