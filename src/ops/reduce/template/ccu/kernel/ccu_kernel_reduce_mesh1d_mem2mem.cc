@@ -155,10 +155,10 @@ static CcuResult InitResource(ReduceMesh1DMem2MemContext &ctx)
     ctx.moConfig.memSlice = LOCAL_COPY_MS * CCU_MS_SIZE;
 
     ctx.moRes.eventCount = ctx.moConfig.loopCount;
-    CCU_CHK_RET(ccu::BlockAlloc(ctx.moRes.completedEvent, ctx.moRes.eventCount));
+	ctx.moRes.completedEvent = ccu::Array<ccu::Event>(ctx.moRes.eventCount);
 
     ctx.moRes.bufCount = ctx.moConfig.loopCount * ctx.moConfig.msInterleave;
-    CCU_CHK_RET(ccu::BlockAlloc(ctx.moRes.ccuBuf, ctx.moRes.bufCount));
+	ctx.moRes.ccuBuf = ccu::Array<ccu::CcuBuffer>(ctx.moRes.bufCount);
 
     CCU_CHK_RET(ccu::CreateLoopExecutor(&ctx.enginePool, CCU_MAX_RANK_SIZE));
 
