@@ -27,6 +27,8 @@ public:
     HcclResult GetRes(AlgResourceRequest &resourceRequest) const override;
 
     u64 GetThreadNum() const override;
+    HcclResult KernelRun(const OpParam &param, const TemplateDataParams &tempAlgParams,
+                                             TemplateResource &templateResource) override;
 
     HcclResult CalcDataSplitByPortGroup(const u64 totalDataCount, const u64 dataTypeSize,
                                         const std::vector<ChannelInfo> &channels,
@@ -37,6 +39,7 @@ public:
 protected:
     HcclResult RunAllGatherMesh(const std::vector<ThreadHandle> &threads,
                                                         const std::map<u32, std::vector<ChannelInfo>> &channels) override;
+    HcclResult LocalDataCopy(const std::vector<ThreadHandle> &threads) override;
 private:
     std::vector<ChannelInfo> PrepareMergedChannels(
         const std::map<u32, std::vector<ChannelInfo>> &channels);
