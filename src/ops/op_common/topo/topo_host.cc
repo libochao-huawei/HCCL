@@ -9,6 +9,7 @@
  */
 
 #include <numeric>
+#include <vector>
 #include "topo_host.h"
 #include "hccl_rank_graph.h"
 #include "hcomm_primitives.h"
@@ -595,8 +596,9 @@ HcclResult CalcLevel0TopoShape(const HcclComm comm, TopoInfoWithNetLayerDetails*
         topoInfo->level0Topo = Level0Shape::MESH_1D_CLOS;
         return HCCL_SUCCESS;
     }
-    HCCL_ERROR("Unkown topo for level 0, topoInstNum[%u]", topoInstNum);
-    return HCCL_E_INTERNAL;
+    topoInfo->level0Topo = Level0Shape::CLOS;   // A2场景不匹配默认为Clos
+    HCCL_WARNING("Unknown topo for level 0, topoInstNum[%u], default topo:%d", topoInstNum, topoInfo->level0Topo);
+    return HCCL_SUCCESS;
 }
 
 // 计算 Level1 NHR 标记：当 Level0 GCD 为 1 时，Mesh 无意义，需要退化为单级 NHR
@@ -943,7 +945,7 @@ HcclResult IsLevel0PcieMix(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo)
         CHK_PRT_RET(linkNum == 0,
             HCCL_INFO("[Topo][IsLevel0PcieMix] Can not find path from Local[%u] to Rmt[%u], in netLayer %u. "
                       "Topo is not mesh", myRank, ranks[rankIdx], netLayer), HCCL_E_INTERNAL);
-        
+
         for (u32 i = 0 ; i < linkNum; i++) {
             CommProtocol srcProtocol = links[i].srcEndpointDesc.protocol;
             HCCL_INFO("[IsLevel0PcieMix]link[%u] protocol[%u]", i, srcProtocol);

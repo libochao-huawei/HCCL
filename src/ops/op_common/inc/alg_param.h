@@ -70,6 +70,10 @@ constexpr u64 ALL_GATHER_V_VECTOR_NUM = 2;
 
 constexpr uint64_t GE_PARALLEL = 36;
 
+constexpr uint64_t AICPU_ALIGN_SIZE = 4096;
+// Z axis detour 需要
+constexpr u32 MESH_CHANNELS_NUM = 1;
+
 enum class TopoType {
     TOPO_TYPE_COMMON = 0,           // 普通拓扑类型 ，default单层拓扑使用
     TOPO_TYPE_8P_RING = 1,          // 特殊场景, 服务器内8 rank组成一个ring，4个逻辑环
@@ -480,6 +484,7 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     bool   isMc2{false};
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CommEngine engine = CommEngine::COMM_ENGINE_RESERVED;
+    u32 execTimeout = 0;
     AlgType algType;
     double multipleDimensionSplitRatio = 0.8;
     char algTypeStr[ALG_MAX_LENGTH] = "";

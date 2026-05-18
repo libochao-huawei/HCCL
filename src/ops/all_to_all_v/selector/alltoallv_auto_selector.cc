@@ -10,6 +10,7 @@
 
 #include "alltoallv_auto_selector.h"
 #include "selector_registry.h"
+#include "hccl_aiv_utils.h"
 
 namespace ops_hccl {
 constexpr uint32_t INDEX_0 = 0;
@@ -27,8 +28,15 @@ SelectorStatus AlltoAllVAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNe
     (void)opParam;
     (void)configAlgMap;
     if (topoInfo->topoLevelNums > 1) {
-        HCCL_DEBUG("[AlltoAllVAutoSelector] levelNum > 1 is not supported yet for ccu_schedule mode.");
-        return SelectorStatus::NOT_MATCH;
+        if (opParam.all2AllDataDes.sendType == HcclDataType::HCCL_DATA_TYPE_INT8) {
+            HCCL_WARNING("[Algo][AlltoAllVAutoSelector] int8 is not supported yet for ccu_schedule mode.");
+            return SelectorStatus::NOT_MATCH;
+        }
+        if (topoInfo->userRankSize > 128) {
+            HCCL_WARNING("[Algo][AlltoAllVAutoSelector] rankSize > 128 is not supported yet for ccu_schedule mode.");
+            return SelectorStatus::NOT_MATCH;
+        }
+        selectAlgName = "CcuAlltoAllVMesh1D";
     }
 
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
@@ -102,9 +110,9 @@ SelectorStatus AlltoAllVAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayer
             HCCL_ERROR("[Algo][AlltoAllAutoSelector] CheckMeshNumEqualToClosNum failed."),
             SelectorStatus::NOT_MATCH);
         if ((isMeshNumEqualToClosNum == true) && (topoInfo->userRankSize <= 4)) { // 同一组4P，走并发算法
-            selectAlgName = "InsAllToAllVMesh1DConcurrent";
+            selectAlgName = "InsAlltoAllVMesh1DUBX";
         } else {
-            selectAlgName = "InsAlltoAllVMesh1D";
+            selectAlgName = "InsAlltoAllVMesh1DUBX";
         }
     } else {
         HCCL_ERROR("[AlltoAllVAutoSelector][%s] hccl algo no match");
@@ -121,6 +129,11 @@ SelectorStatus AlltoAllVAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDe
     HCCL_DEBUG("[AlltoAllVAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
     (void)opParam;
     (void)configAlgMap;
+
+    if (topoInfo->userRankSize > MAX_RANK_SIZE) {
+        HCCL_DEBUG("[AlltoAllVAutoSelector][%s] rankSize[%u] larger than [%u]", __func__, topoInfo->userRankSize, MAX_RANK_SIZE);
+        return SelectorStatus::NOT_MATCH;
+    }
 
     selectAlgName = "AivAlltoAllVMesh1D";
     HCCL_DEBUG("[AlltoAllVAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());

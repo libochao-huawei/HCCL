@@ -42,7 +42,7 @@ HcclResult InsV2ReduceScatterVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRe
     std::shared_ptr<InsAlgTemplate> algTemplate =
         std::make_shared<InsAlgTemplate>(param, topoInfo->userRank, algHierarchyInfo.infos[0]);
     // 调用计算资源的函数
-    algTemplate->CalcRes(comm, param, topoInfo, resourceRequest);
+    CHK_RET(algTemplate->CalcRes(comm, param, topoInfo, resourceRequest));
     return HCCL_SUCCESS;
 }
 

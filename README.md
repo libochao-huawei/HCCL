@@ -16,7 +16,7 @@
 
 HCCL是CANN的核心组件，对上支持多种AI框架，对下使能多款昇腾AI处理器之间的通信能力，其软件架构如下图所示：
 
-<img src="./docs/figures/architecture.png" alt="hccl-architecture" style="width: 65%;  height:65%;" />
+<img src="./docs/zh/build/figures/architecture.png" alt="hccl-architecture" style="width: 65%;  height:65%;" />
 
 HCCL包含HCCL集合通信库与HCOMM（Huawei Communication）通信基础库：
 
@@ -27,7 +27,7 @@ HCCL包含HCCL集合通信库与HCOMM（Huawei Communication）通信基础库�
 
 本项目关键目录如下所示：
 
-```
+```text
 │── src                         # HCCL算子源码目录
 |    ├── common                 # 通用逻辑，包括类型定义、日志模块等
 |    └── ops                    # HCCL算子实现
@@ -66,7 +66,7 @@ HCCL包含HCCL集合通信库与HCOMM（Huawei Communication）通信基础库�
 
 若您希望快速构建并体验本项目，请访问如下简易指南。
 
-- [源码构建](./docs/build.md)：了解如何编译、安装本项目，并进行基础测试验证。
+- [源码构建](./docs/zh/build/build.md)：了解如何编译、安装本项目，并进行基础测试验证。
 - [样例执行](./examples/README.md)：参照详细的示例代码与操作步骤指引，快速体验。
 
 ## 📖 学习教程

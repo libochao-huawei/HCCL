@@ -10,6 +10,7 @@
 
 #include "alltoall_auto_selector.h"
 #include "selector_registry.h"
+#include "hccl_aiv_utils.h"
 
 namespace ops_hccl {
 constexpr uint32_t INDEX_0 = 0;
@@ -120,9 +121,9 @@ SelectorStatus AlltoAllAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerD
         if ((isMeshNumEqualToClosNum == true) && (topoInfo->userRankSize <= CONCURRENT_RANK_LIMIT) &&
             (opParam.all2AllDataDes.sendCount > BIG_DATA_SIZE_LIMIT)) {
             // 同一组4P且大数据量，不走并发
-            selectAlgName = "InsAllToAllMesh1DConcurrent";
+            selectAlgName = "InsAlltoAllMesh1DUBX";
         } else {
-            selectAlgName = "InsAlltoAllMesh1D";
+            selectAlgName = "InsAlltoAllMesh1DUBX";
         }
     } else {
         HCCL_ERROR("[AlltoAllAutoSelector][%s] hccl algo no match");
@@ -140,6 +141,11 @@ SelectorStatus AlltoAllAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDet
     HCCL_DEBUG("[AlltoAllAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
     (void)opParam;
     (void)configAlgMap;
+
+    if (topoInfo->userRankSize > MAX_RANK_SIZE) {
+        HCCL_DEBUG("[AlltoAllAutoSelector][%s] rankSize[%u] larger than [%u]", __func__, topoInfo->userRankSize, MAX_RANK_SIZE);
+        return SelectorStatus::NOT_MATCH;
+    }
 
     selectAlgName = "AivAlltoAllMesh1D";
 

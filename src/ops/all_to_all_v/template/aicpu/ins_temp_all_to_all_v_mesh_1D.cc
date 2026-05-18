@@ -40,7 +40,7 @@ HcclResult InsTempAlltoAllVMesh1D::CalcRes(HcclComm comm, const OpParam& param, 
     CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, level0Channels));
     resourceRequest.channels.push_back(level0Channels);
     u32 channelsPerRank = CalcChannelsPerRank(level0Channels);
-    resourceRequest.slaveThreadNum = ALLTOALLV_DIRECT_FULLMESH_CONCURRENT_SIZE * channelsPerRank;
+    resourceRequest.slaveThreadNum = std::min(ALLTOALLV_DIRECT_FULLMESH_CONCURRENT_SIZE, templateRankSize_ - 1) * channelsPerRank;
     for (u32 index = 0; index < resourceRequest.slaveThreadNum; index++) {
         resourceRequest.notifyNumPerThread.push_back(1);
     }

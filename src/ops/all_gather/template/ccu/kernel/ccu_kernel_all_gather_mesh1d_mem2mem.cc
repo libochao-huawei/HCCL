@@ -21,6 +21,7 @@ constexpr int CKE_IDX_1 = 1;
 constexpr uint64_t CCU_MS_SIZE = 4096;
 constexpr uint64_t LOCAL_COPY_MS = 8;
 constexpr int POST_SYNC_ID = 3;  
+constexpr uint16_t BIT_NUM_PER_CKE = 16;
 
 CcuKernelAllGatherMesh1DMem2Mem::CcuKernelAllGatherMesh1DMem2Mem(const CcuKernelArg &arg)
     : CcuKernelAlgBase(arg)
@@ -40,10 +41,8 @@ HcclResult CcuKernelAllGatherMesh1DMem2Mem::InitResource()
 {
     localInput_           = CreateVariable();
     uint16_t channelIdx = 0;
-    if (channels_.size() == 0) {
-        HCCL_ERROR("[CcuKernelAllGatherMesh1DMem2Mem] channels is empty!");
-        return HcclResult::HCCL_E_INTERNAL;
-    }
+    
+    CHK_PRT_RET(channels_.size() == 0, HCCL_ERROR("[CcuKernelAllGatherMesh1DMem2Mem] channels is empty!"), HCCL_E_INTERNAL);
 
     // 按照rank号从小到大遍历channels，遇到本rank就填充本地资源，否则依次取远端资源，要求给框架返回的Link同样是按顺序排列的
     for (uint64_t peerId = 0; peerId < rankSize_; peerId++) {
@@ -60,6 +59,7 @@ HcclResult CcuKernelAllGatherMesh1DMem2Mem::InitResource()
             token_.push_back(tokenVar);
             channelIdx++;
         }
+
     }
     currentRankSliceInputOffset_  = CreateVariable();
     currentRankSliceOutputOffset_ = CreateVariable();
@@ -82,13 +82,14 @@ HcclResult CcuKernelAllGatherMesh1DMem2Mem::InitResource()
     for (uint64_t rankIdx = 0; rankIdx < rankSize_; rankIdx++) {
         if (rankIdx == rankId_) {
             dst.push_back({});
-        }
-        else {
+        } else {
             dst.push_back(CreateRemoteAddr());
         }
     }
 
-    event_ = CreateCompletedEvent();
+    for(uint32_t i = 0; i < (rankSize_ + BIT_NUM_PER_CKE - 1)/BIT_NUM_PER_CKE; i++){
+        event_.push_back(CreateCompletedEvent());
+    }
     return HcclResult::HCCL_SUCCESS;
 }
 
@@ -139,12 +140,12 @@ void CcuKernelAllGatherMesh1DMem2Mem::DoAllGather(const hcomm::CcuRep::LocalAddr
 {
     uint32_t channelId = 0;
     for (uint64_t rankIdx = 0; rankIdx < rankSize_; rankIdx++) {
+        uint32_t eventIdx= rankIdx / BIT_NUM_PER_CKE;
+        event_[eventIdx].SetMask(1 << (rankIdx % BIT_NUM_PER_CKE));
         if (rankIdx == rankId_) {
-            event_.SetMask(1 << rankIdx);
-            RecordEvent(event_);
+            RecordEvent(event_[eventIdx]);
         } else {
-            event_.SetMask(1 << rankIdx);
-            WriteNb(channels_[channelId], dst[rankIdx], src, sliceSize, event_);
+            WriteNb(channels_[channelId], dst[rankIdx], src, sliceSize, event_[eventIdx]);
             channelId++;
         }
     }
@@ -152,8 +153,17 @@ void CcuKernelAllGatherMesh1DMem2Mem::DoAllGather(const hcomm::CcuRep::LocalAddr
     {
         GroupCopy(remote_src, src_loccopy, localGoSize_);
     }
-    event_.SetMask((1 << rankSize_) - 1);
-    WaitEvent(event_);
+    for(uint32_t i = 0; i < (rankSize_ + BIT_NUM_PER_CKE - 1)/BIT_NUM_PER_CKE; i++){
+        if (i == (rankSize_ + BIT_NUM_PER_CKE - 1)/BIT_NUM_PER_CKE - 1) {
+            if(rankSize_ % BIT_NUM_PER_CKE == 0){
+                event_[i].SetMask((1 << BIT_NUM_PER_CKE) - 1);
+            } else {event_[i].SetMask((1 << rankSize_ % BIT_NUM_PER_CKE) - 1);
+            }
+        } else {
+            event_[i].SetMask((1 << BIT_NUM_PER_CKE) - 1);
+        }
+        WaitEvent(event_[i]);
+    }
 }
 
 void CcuKernelAllGatherMesh1DMem2Mem::DoRepeatAllGather()

@@ -202,85 +202,59 @@ static int safe_strcpy(char* dest, size_t dest_size, const char* src) {
 }
 
 /**
- * @brief 验证路径是否为有效目录（非符号链接）
- */
-static int validate_dir_path(const char* path) {
-    struct stat st;
-    if (lstat(path, &st) != 0) {
-        return 1; /* stat 失败，稍后会处理 */
-    }
-    if (S_ISLNK(st.st_mode)) {
-        HCCL_ERROR("Path '%s' is a symbolic link, refusing to create", path);
-        return 0;
-    }
-    if (!S_ISDIR(st.st_mode)) {
-        HCCL_ERROR("Path '%s' exists but is not a directory", path);
-        return 0;
-    }
-    return 1;
-}
-
-/**
- * @brief 创建单级目录并验证
- */
-static int create_single_dir(const char* path) {
-    if (mkdir(path, 0755) == -1) {
-        if (errno != EEXIST) {
-            HCCL_ERROR("Failed to create directory '%s': %s",
-                    path, strerror(errno));
-            return -1;
-        }
-        if (!validate_dir_path(path)) {
-            return -1;
-        }
-    }
-    return 0;
-}
-
-/**
- * @brief 安全地递归创建目录
+ * @brief 逐级安全打开（按需创建）目录，返回最末一级目录的 fd
  *
- * @param path 要创建的目录路径
- * @return int 0 成功，-1 失败
+ * 从根目录起，按 '/' 切分输入路径的每一个 component，每段执行：
+ *   1. mkdirat(dirfd, comp, 0755)，EEXIST 视为已存在
+ *   2. fstatat(dirfd, comp, AT_SYMLINK_NOFOLLOW) 校验是普通目录
+ *   3. openat(dirfd, comp, O_DIRECTORY|O_NOFOLLOW|O_RDONLY|O_CLOEXEC)
+ *      O_NOFOLLOW 在 race 极端情况下也会拒绝跟随 symlink
+ *   4. 关闭旧 dirfd，用新 fd 推进到下一级
+ *
+ * 整条链都基于 dirfd 上的 *at 系列 syscall，不再用路径字符串"check-then-use"，
+ * 从根本上消除攻击者通过中间目录 symlink 替换实现的 TOCTOU 跳转。
+ *
+ * @param path 必须为已通过 is_safe_path 的绝对路径
+ * @return int 成功返回最末级目录的 fd（调用者负责 close），失败返回 -1
  */
-static int safe_create_directory(const char* path) {
-    char component[PATH_BUFFER_SIZE];
-    size_t len;
+static int safe_open_dir_chain(const char* path) {
+    char buf[PATH_BUFFER_SIZE];
+    char* saveptr = NULL;
+    int dirfd;
 
-    if (path == NULL) {
+    if (path == NULL || path[0] != '/' ||
+        safe_strcpy(buf, sizeof(buf), path) != 0) {
         return -1;
     }
-
-    len = strlen(path);
-    if (len >= PATH_BUFFER_SIZE) {
-        HCCL_ERROR("Path too long for mkdir: %zu chars", len);
+    dirfd = open("/", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+    if (dirfd < 0) {
+        HCCL_ERROR("open root failed: %s", strerror(errno));
         return -1;
     }
+    for (char* comp = strtok_r(buf, "/", &saveptr); comp != NULL;
+         comp = strtok_r(NULL, "/", &saveptr)) {
+        struct stat st;
+        int next_fd;
 
-    if (safe_strcpy(component, sizeof(component), path) != 0) {
-        return -1;
-    }
-
-    if (len > 0 && component[len - 1] == '/') {
-        component[len - 1] = '\0';
-        len--;
-    }
-
-    for (char* p = component + 1; *p != '\0'; ++p) {
-        if (*p == '/') {
-            *p = '\0';
-            if (create_single_dir(component) != 0) {
-                return -1;
-            }
-            *p = '/';
+        if (mkdirat(dirfd, comp, 0755) == -1 && errno != EEXIST) {
+            HCCL_ERROR("mkdirat '%s' failed: %s", comp, strerror(errno));
+            close(dirfd); return -1;
         }
+        if (fstatat(dirfd, comp, &st, AT_SYMLINK_NOFOLLOW) != 0 ||
+            S_ISLNK(st.st_mode) || !S_ISDIR(st.st_mode)) {
+            HCCL_ERROR("Component '%s' invalid (symlink or non-dir)", comp);
+            close(dirfd); return -1;
+        }
+        next_fd = openat(dirfd, comp,
+                         O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+        if (next_fd < 0) {
+            HCCL_ERROR("openat '%s' failed: %s", comp, strerror(errno));
+            close(dirfd); return -1;
+        }
+        close(dirfd);
+        dirfd = next_fd;
     }
-
-    if (create_single_dir(component) != 0) {
-        return -1;
-    }
-
-    return 0;
+    return dirfd;
 }
 
 /**
@@ -387,40 +361,69 @@ static FILE* lock_file(FILE* fp, const char* target_path) {
 }
 
 /**
- * @brief 打开并获取目标文件的排他锁
+ * @brief 通过父目录 fd 安全地打开并加锁目标文件
  *
- * 直接对目标文件本身加锁，避免单独的锁文件与目标文件权限不一致的问题。
+ * 关键设计：
+ *   1. 把 target_path 拆为 dir + basename，先用 safe_open_dir_chain(dir)
+ *      逐级 openat 拿到锚定 inode 的父目录 fd，从而保证
+ *      "目录链中任一级被 symlink 替换都不会被跟随"。
+ *   2. 再用 openat(parent_fd, basename, O_NOFOLLOW|...) 打开/创建目标文件，
+ *      O_NOFOLLOW 让最后一段是 symlink 时直接 ELOOP；
+ *      创建分支用 O_CREAT|O_EXCL 防止并发 race 中被 symlink 抢占。
+ *   3. 多进程并发时，若另一进程已先创建，本次拿到 EEXIST，
+ *      回退用 O_RDWR|O_NOFOLLOW 重开，标记 file_exists=1。
  *
- * @param target_path 目标文件路径
- * @param file_exists 输出参数，文件是否存在
- * @return FILE* 文件指针（>=0 成功），NULL 失败
+ * @param target_path 已通过 is_safe_path 的绝对路径
+ * @param file_exists 输出：1 表示已存在并被打开，0 表示由本调用创建
+ * @return FILE* 已加 flock 的文件指针；NULL 表示失败
  */
-static FILE* open_and_lock_target(const char* target_path, int* file_exists) {
+static FILE* open_target_secure(const char* target_path, int* file_exists) {
+    char dir_buf[PATH_BUFFER_SIZE];
+    int parent_fd, fd = -1;
+    char* slash;
+    const char* basename;
     FILE* fp;
 
-    if (file_exists != NULL) {
-        *file_exists = 0;
+    if (file_exists) *file_exists = 0;
+    if (target_path == NULL ||
+        safe_strcpy(dir_buf, sizeof(dir_buf), target_path) != 0) {
+        return NULL;
     }
+    slash = strrchr(dir_buf, '/');
+    if (slash == NULL) return NULL;
+    /* 目标位于根目录下时父目录退化为 "/"，其它情况截断到最后一级目录 */
+    if (slash == dir_buf) slash[1] = '\0'; else *slash = '\0';
+    basename = strrchr(target_path, '/') + 1;
+    if (*basename == '\0') {
+        HCCL_ERROR("Target '%s' missing basename", target_path);
+        return NULL;
+    }
+    parent_fd = safe_open_dir_chain(dir_buf);
+    if (parent_fd < 0) return NULL;
 
-    fp = fopen(target_path, "r+b");
+    fd = openat(parent_fd, basename, O_RDWR | O_NOFOLLOW | O_CLOEXEC);
+    if (fd >= 0) {
+        if (file_exists) *file_exists = 1;
+    } else if (errno == ENOENT) {
+        /* O_EXCL 让多进程并发创建只赢一个；EEXIST 时回退按已存在打开 */
+        fd = openat(parent_fd, basename,
+                    O_CREAT | O_EXCL | O_RDWR | O_NOFOLLOW | O_CLOEXEC, 0644);
+        if (fd < 0 && errno == EEXIST) {
+            fd = openat(parent_fd, basename, O_RDWR | O_NOFOLLOW | O_CLOEXEC);
+            if (fd >= 0 && file_exists) *file_exists = 1;
+        }
+    }
+    close(parent_fd);
+    if (fd < 0) {
+        HCCL_ERROR("Cannot open target '%s': %s", target_path, strerror(errno));
+        return NULL;
+    }
+    fp = fdopen(fd, "r+b");
     if (fp == NULL) {
-        if (errno != ENOENT) {
-            HCCL_ERROR("Cannot open target file '%s': %s",
-                    target_path, strerror(errno));
-            return NULL;
-        }
-        fp = fopen(target_path, "w+b");
-        if (fp == NULL) {
-            HCCL_ERROR("Cannot create target file '%s': %s",
-                    target_path, strerror(errno));
-            return NULL;
-        }
-    } else {
-        if (file_exists != NULL) {
-            *file_exists = 1;
-        }
+        HCCL_ERROR("fdopen failed for '%s': %s", target_path, strerror(errno));
+        close(fd);
+        return NULL;
     }
-
     return lock_file(fp, target_path);
 }
 
@@ -563,7 +566,10 @@ static void remove_incomplete_file(const char* path) {
 }
 
 /**
- * @brief 解析目标路径并创建父目录
+ * @brief 解析目标路径
+ *
+ * 目录创建已转移到 open_target_secure() 内通过 safe_open_dir_chain
+ * 用 fd 链方式安全完成，本函数只做字符串拼接 + 校验。
  *
  * @param target_path 输出缓冲区
  * @param path_size 缓冲区大小
@@ -579,17 +585,6 @@ static int resolve_target_path(char* target_path, size_t path_size) {
     if (build_safe_path(base_path, AICPU_TAR_RELATIVE_PATH, target_path, path_size) != 0) {
         HCCL_ERROR("Failed to build safe target path");
         return -1;
-    }
-
-    char* last_slash = strrchr(target_path, '/');
-    if (last_slash != NULL) {
-        *last_slash = '\0';
-        int ret = safe_create_directory(target_path);
-        *last_slash = '/';
-        if (ret != 0) {
-            HCCL_ERROR("Failed to create directory for: %s", target_path);
-            return -1;
-        }
     }
 
     return 0;
@@ -670,7 +665,7 @@ static void restore_aicpu_tar(void) {
         return;
     }
 
-    FILE* fp = open_and_lock_target(target_path, &file_exists);
+    FILE* fp = open_target_secure(target_path, &file_exists);
     if (fp == NULL) {
         HCCL_ERROR("Failed to acquire file lock on '%s'. Aborting restore.",
                 target_path);
@@ -688,12 +683,13 @@ static void restore_aicpu_tar(void) {
         return;
     }
 
-    unlock_and_close(fp);
-
-    if (chmod(target_path, FILE_PERMISSIONS) != 0) {
+    /* 用 fchmod 直接对 fd 操作，绕过路径解析，race-free */
+    if (fchmod(fileno(fp), FILE_PERMISSIONS) != 0) {
         HCCL_WARNING("Failed to set permissions on %s: %s",
                 target_path, strerror(errno));
     }
+
+    unlock_and_close(fp);
 
     HCCL_INFO("AICPU tar package restored to: %s (%zu bytes, CRC: 0x%08X)",
             target_path, tar_size, embedded_crc);

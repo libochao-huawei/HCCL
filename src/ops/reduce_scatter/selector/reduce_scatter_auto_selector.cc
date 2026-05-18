@@ -10,10 +10,17 @@
 
 #include "reduce_scatter_auto_selector.h"
 #include "selector_registry.h"
+#include "hccl_aiv_utils.h"
 
 namespace ops_hccl {
 constexpr u32 MAX_RANK_NUM_FOR_CONCURRENT_ALGO = 4;
 constexpr u64 RS_AICPU_1D_MAX_DATA_SIZE = 16 * 1024 * 1024;
+constexpr u64 RS_FLATTEN_MAX_DATA_SIZE = 8 * 1024 * 1024;
+constexpr u64 RS_AICPU_1D_MIN_DATA_SIZE = 4 * 1024 * 1024;
+constexpr u64 RS_AICPU_1D_TWO_LEVER_DATA_SIZE_THRESHOLD = 1536 * 1024 * 1024;
+
+constexpr u64 RS_CCU_CLOS_1D_MIN_DATA_SIZE = 4 * 1024 * 1024;
+constexpr u64 RS_AICPU_SEQUENCE_SIZE_THRESHOLD = 1 * 1024 * 1024 * 1024;
 
 SelectorStatus ReduceScatterAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
@@ -129,7 +136,10 @@ SelectorStatus ReduceScatterAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWi
                 CHK_PRT_RET(opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT8,
                 HCCL_WARNING("[ReduceScatterAutoSelector] dataType[%d] is not supported yet for ccu schedule mode.",
                     opParam.DataDes.dataType), SelectorStatus::NOT_MATCH);
-                if(IsSmallDataCCU((dataSize * topoInfo->userRankSize), topoInfo->userRankSize)){
+                if ((dataSize * topoInfo->userRankSize) <= RS_FLATTEN_MAX_DATA_SIZE && topoInfo->userRankSize > 8) {
+                    selectAlgName = "CcuReduceScatterMesh1DMem2Mem";
+                    return SelectorStatus::MATCH;
+                } else if(IsSmallDataCCU((dataSize * topoInfo->userRankSize), topoInfo->userRankSize)){
                     selectAlgName = "CcuReduceScatterParallelMesh1DNHR";//64M以下跑ccu
                     return SelectorStatus::MATCH;
                 } else {
@@ -139,6 +149,9 @@ SelectorStatus ReduceScatterAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWi
                 selectAlgName = "CcuReduceScatterNHR1DMem2Mem";
                 return SelectorStatus::MATCH;
             }
+        } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
+            selectAlgName = "CcuReduceScatterNHR1DMem2Mem";
+            return SelectorStatus::MATCH;
         } else {
             HCCL_WARNING("[SelectCcuScheduleAlgo] layer0Shape[%d] is not supported yet for ccu schedule mode.",
                 topoInfo->level0Topo);
@@ -222,6 +235,12 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoCcuSchedule(const TopoIn
             // 其他场景，用1d NHR算法
             selectAlgName = "CcuReduceScatterNhr1DMem2MemMultiJetty";
         }
+    } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
+        if (dataSize > RS_CCU_CLOS_1D_MIN_DATA_SIZE) {
+            selectAlgName = "CcuReduceScatterMesh1DMem2Mem";
+        } else {
+            selectAlgName = "CcuReduceScatterNHR1DMem2Mem";
+        }
     } else {
         HCCL_DEBUG("[ReduceScatterAutoSelector] MESH_1D_CLOS not match.");
         return SelectorStatus::NOT_MATCH;
@@ -236,6 +255,8 @@ SelectorStatus ReduceScatterAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetL
 {
     HCCL_DEBUG("[ReduceScatterAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
     (void)configAlgMap;
+    u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
+    u64 dataSize = opParam.DataDes.count * perDataSize;
     if (topoInfo->topoLevelNums > 1) {
         if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
             selectAlgName = "InsReduceScatterAicpuReduceNHR";
@@ -245,7 +266,12 @@ SelectorStatus ReduceScatterAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetL
         } else if (topoInfo->Level0Nhr) {
             selectAlgName = "InsReduceScatterNHR"; // InsReduceScatterParallelNHRNHR备用
         } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer.at(0) > 1 && topoInfo->level0Topo == Level0Shape::MESH_1D) {
-            selectAlgName = "InsReduceScatterParallelMesh1DNHR";
+            if (dataSize > RS_AICPU_1D_MIN_DATA_SIZE) {
+                selectAlgName = (dataSize * topoInfo->userRankSize > RS_AICPU_SEQUENCE_SIZE_THRESHOLD) ?
+                    "InsReduceScatterSequenceMesh1DNhr" : "InsReduceScatterParallelMesh1DNHR";
+            } else {
+                selectAlgName = "InsReduceScatterNHR";
+            }
         } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer.at(0) == 1 || topoInfo->level0Topo == Level0Shape::CLOS) {
             selectAlgName = "InsReduceScatterNHR"; // InsReduceScatterParallelNHRNHR备用
         } else {
@@ -276,11 +302,22 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWith
         if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
             selectAlgName = "InsReduceScatterMesh1D";
         } else {
-            if (dataSize * ratio > RS_AICPU_1D_MAX_DATA_SIZE) {
-                selectAlgName = "InsReduceScatterMesh1DMeshChunk";
+            if (IsTwoLevelNetLayer(topoInfo)) {
+                if (dataSize * topoInfo->userRankSize > RS_AICPU_1D_TWO_LEVER_DATA_SIZE_THRESHOLD) {
+                    selectAlgName = "InsReduceScatterMesh1DZAxisDetour";
+                } else if (dataSize * ratio > RS_AICPU_1D_MAX_DATA_SIZE) {
+                    selectAlgName = "InsReduceScatterMesh1DMeshChunk";
+                } else {
+                    selectAlgName = "InsReduceScatterMesh1D";
+                }
             } else {
-                selectAlgName = "InsReduceScatterMesh1D";
+                if (dataSize * ratio > RS_AICPU_1D_MAX_DATA_SIZE) {
+                    selectAlgName = "InsReduceScatterMesh1DMeshChunk";
+                } else {
+                    selectAlgName = "InsReduceScatterMesh1D";
+                }
             }
+
         }
     } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
         if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
@@ -315,6 +352,11 @@ SelectorStatus ReduceScatterAutoSelector::SelectAivAlgo(const TopoInfoWithNetLay
     if (opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
         opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_FP64) {
         HCCL_WARNING("[ReduceScatterAutoSelector] aiv mode not support UINT64, FP64.");
+        return SelectorStatus::NOT_MATCH;
+    }
+
+    if (topoInfo->userRankSize > MAX_RANK_SIZE) {
+        HCCL_DEBUG("[ReduceScatterAutoSelector][%s] rankSize[%u] larger than [%u]", __func__, topoInfo->userRankSize, MAX_RANK_SIZE);
         return SelectorStatus::NOT_MATCH;
     }
 
@@ -363,7 +405,7 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoAicpuForMesh1DClos(const
         if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
             selectAlgName = "InsReduceScatterMesh1D";
         } else if (!IsSmallData(dataSize)) {
-            selectAlgName = "InsReduceScatterConcurrentMeshNHR";
+            selectAlgName = "InsReduceScatterMesh1D";
         } else {
             if (dataSize * ratio > RS_AICPU_1D_MAX_DATA_SIZE) {
                 selectAlgName = "InsReduceScatterMesh1DMeshChunk";

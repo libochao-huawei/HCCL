@@ -50,7 +50,6 @@ else()
         ${TOP_DIR}/runtime/include/external
         ${TOP_DIR}/runtime/include/external/acl
         ${TOP_DIR}/runtime/pkg_inc/base
-        ${TOP_DIR}/runtime/pkg_inc/mmpa
 
         ${TOP_DIR}/open_source/json/include
 

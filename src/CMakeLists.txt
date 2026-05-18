@@ -125,11 +125,13 @@ set(INCLUDE_LIST
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/executor
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/selector
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/template
+    ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/template/host_nic
 
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/executor
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/selector
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/template
+    ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/template/host_nic
 
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce/executor
@@ -164,9 +166,6 @@ if(BUILD_OPEN_PROJECT)
 
         # driver头文件
         ${ASCEND_CANN_PACKAGE_PATH}/include/driver/
-
-        # mmpa头文件
-        ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/mmpa/
 
         # driver头文件
         ${ASCEND_CANN_PACKAGE_PATH}/include/driver/
@@ -213,7 +212,6 @@ else()
         ${TOP_DIR}/runtime/include/dfx
         ${TOP_DIR}/runtime/pkg_inc
         ${TOP_DIR}/runtime/pkg_inc/base
-        ${TOP_DIR}/runtime/pkg_inc/mmpa
 
         ${TOP_DIR}/open_source/json/include
 
@@ -237,7 +235,8 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         ${CMAKE_CURRENT_SOURCE_DIR}/common/adapter_error_manager_pub.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/common/alg_env_config.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/common/device_compat.cc
-
+        
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/exec_timeout_manager.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/executor/channel/channel.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/executor/channel/channel_request.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/executor/registry/coll_alg_exec_registry.cc
@@ -282,10 +281,13 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sole_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_reduce_scatter_parallel_executor.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_reduce_scatter_concurrent_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_mesh_1D.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_nhr.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_mesh_1D_meshchunk.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_aicpu_reduce_nhr.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_mesh_1D_Z_axis_detour.cc
 
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/broadcast/executor/ins_v2_broadcast_parallel_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/broadcast/executor/ins_v2_broadcast_sole_executor.cc
@@ -296,7 +298,10 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
 
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/executor/ins_v2_all_gather_sole_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/executor/ins_v2_all_gather_parallel_executor.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/executor/ins_v2_all_gather_sequence_executor_aicpu.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/executor/ins_v2_all_gather_concurrent_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/template/aicpu/ins_temp_all_gather_mesh_1D.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/template/aicpu/ins_temp_all_gather_mesh_1D_Z_axis_detour.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/template/aicpu/ins_temp_all_gather_nhr.cc
 
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce/executor/reduce_sole_executor.cc
@@ -311,10 +316,15 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather_v/template/aicpu/ins_temp_all_gather_v_mesh_1D.cc
 
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_to_all_v/executor/ins_v2_all_to_all_v_sole_executor.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_to_all_v/executor/ins_v2_all_to_all_concurrent_executor.cc
+
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_to_all_v/template/aicpu/ins_temp_all_to_all_v_mesh_1D.cc
 
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_v2_all_reduce_sole_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_v2_all_reduce_parallel_executor.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_v2_all_reduce_sequence_executor_aicpu.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_v2_all_reduce_two_shot_sole_executor.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_v2_all_reduce_concurrent_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/template/aicpu/ins_temp_all_reduce_mesh_1D_one_shot.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/template/aicpu/ins_temp_all_reduce_mesh_1D_two_shot.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/template/aicpu/ins_temp_all_reduce_nhr.cc
@@ -334,6 +344,11 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
 
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/executor/ins_v2_recv_sole_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/executor/ins_v2_send_sole_executor.cc
+
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/executor/ins_send_dpu_executor.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/executor/ins_recv_dpu_executor.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/template/host_nic/ins_temp_send_host_nic_dpu.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/template/host_nic/ins_temp_recv_host_nic_dpu.cc
     )
 
     if(NOT HCCL_CANN_COMPAT_850)
@@ -484,7 +499,6 @@ if(BUILD_OPEN_PROJECT)
         acl_rt
         c_sec
         unified_dlog
-        mmpa
         -Wl,--no-as-needed
     )
 else()
@@ -499,7 +513,6 @@ else()
         acl_rt
         c_sec
         unified_dlog
-        mmpa
         -Wl,--no-as-needed
         ofed_headers
     )
@@ -524,7 +537,6 @@ if(STATIC_MODE)
         acl_rt
         c_sec
         unified_dlog
-        mmpa
     )
 else()
     if(BUILD_OPEN_PROJECT)
@@ -534,7 +546,6 @@ else()
             acl_rt
             c_sec
             unified_dlog
-            mmpa
             -Wl,--no-as-needed
         )
     else()
@@ -548,7 +559,6 @@ else()
             acl_rt
             c_sec
             unified_dlog
-            mmpa
             -Wl,--no-as-needed
             ofed_headers
         )
@@ -627,24 +637,5 @@ if(DEVICE_MODE AND KERNEL_MODE)
         COMMAND ${CMAKE_COMMAND} -E make_directory ${AICPU_CUSTOM_DIR}
         COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:scatter_aicpu_kernel> ${AICPU_CUSTOM_DIR}/libscatter_aicpu_kernel.so
         COMMENT "Copying libscatter_aicpu_kernel.so to ${AICPU_CUSTOM_DIR}/libscatter_aicpu_kernel.so"
-    )
-endif()
-
-# 静态库特殊处理：嵌入二进制文件
-if(STATIC_MODE)
-    # 添加静态库恢复代码
-    set(STATIC_RESTORE_SRC ${CMAKE_CURRENT_SOURCE_DIR}/common/static_restore.c)
-    if(NOT EXISTS ${STATIC_RESTORE_SRC})
-        file(WRITE ${STATIC_RESTORE_SRC} "/* Static restore implementation will be generated during build */\n")
-    endif()
-
-    # 创建自定义目标来处理静态库的最终打包
-    add_custom_target(package_static_lib DEPENDS hccl)
-
-    # 添加后构建步骤来嵌入二进制文件
-    add_custom_command(
-        TARGET package_static_lib
-        POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E echo "Processing static library embedding..."
     )
 endif()

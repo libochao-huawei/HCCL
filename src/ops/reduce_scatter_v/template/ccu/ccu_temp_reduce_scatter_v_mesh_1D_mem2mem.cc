@@ -79,13 +79,13 @@ HcclResult CcuTempReduceScatterVMesh1DMem2Mem::CalcRes(HcclComm comm, const OpPa
 
 
 uint64_t CcuTempReduceScatterVMesh1DMem2Mem::GetTokenWithFallback(const BuffInfo& buffInfo) {
-    // 由于 input 中可能有气泡导致 token 计算保持，暂时不适用 input 计算 token
-    if (buffInfo.outputPtr != nullptr) {
+    // 由于 input 中可能有气泡导致 token 计算报错，暂时不适用 input 计算 token
+    if (buffInfo.outputPtr != nullptr && buffInfo.outputSize != 0) {
         HCCL_INFO("Generate token using output buffer: ptr=%p, size=%llu",
                   buffInfo.outputPtr, buffInfo.outputSize);
         return hcomm::CcuRep::GetTokenInfo(reinterpret_cast<uint64_t>(buffInfo.outputPtr),
                                            static_cast<uint64_t>(buffInfo.outputSize));
-    } else if (buffInfo.hcclBuff.addr != nullptr) {
+    } else if (buffInfo.hcclBuff.addr != nullptr && buffInfo.hcclBuff.size != 0) {
         HCCL_INFO("Generate token using scratch buffer: ptr=%p, size=%llu",
                   buffInfo.hcclBuff.addr, buffInfo.hcclBuff.size);
         return hcomm::CcuRep::GetTokenInfo(reinterpret_cast<uint64_t>(buffInfo.hcclBuff.addr),

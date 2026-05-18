@@ -11,7 +11,6 @@ set(HCCL_CUSTOM_OPS_INCLUDE_LIST
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${ASCEND_CANN_PACKAGE_PATH}/include
     ${ASCEND_CANN_PACKAGE_PATH}/include/hccl
-    ${ASCEND_CANN_PACKAGE_PATH}/include/mmpa
 )
 
 add_library(hccl_custom_allgather SHARED)
@@ -61,7 +60,6 @@ target_link_libraries(hccl_custom_allgather PRIVATE
     ascendalog
     ascendcl
     runtime
-    mmpa
     error_manager
     ascend_dump
     -Wl,--no-as-needed

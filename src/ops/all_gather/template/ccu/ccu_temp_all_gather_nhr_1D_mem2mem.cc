@@ -230,7 +230,9 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::KernelRun(const OpParam& param,
     uint64_t repeatNumVar = UINT64_MAX - repeatNum;
     uint64_t die0LastSize = templateDataParams.tailSize / kernelNum;
     uint64_t die1LastSize = templateDataParams.tailSize - die0LastSize;
-    uint64_t isInputOutputEqual = (inputAddr == outputAddr) ? 1 : 0;
+    bool inputOutputEqual = (inputAddr + inputSliceStride * mySubCommRank_ == outputAddr + outputSliceStride * mySubCommRank_);
+    uint64_t isInputOutputEqual = static_cast<uint64_t>(inputOutputEqual);
+    
     HCCL_INFO("[CcuTempAllGatherNHR1DMem2Mem] dimSize[%llu], die0Size[%llu], die1Size[%llu], inputAddr[%llu],"\
         "outputAddr[%llu], repeatNum[%llu], inputSliceStride[%llu], outputSliceStride[%llu],"\
         "inputRepeatStride[%llu], outputRepeatStride[%llu]",
@@ -250,7 +252,6 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::KernelRun(const OpParam& param,
             // 数据长度为0的kernel不下发
             continue;
         }
-        isInputOutputEqual = (inputAddr == outputAddr) ? 1 : 0;
         std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAllGatherNHR1D>(
             inputAddr, outputAddr, token, die0Size, die1Size, repeatNum, inputSliceStride, outputSliceStride,
             inputRepeatStride, outputRepeatStride, isInputOutputEqual, die0LastSize, die1LastSize);
