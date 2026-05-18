@@ -230,7 +230,7 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoCcuSchedule(const TopoIn
             }
         } else if(isClosNumMultipleOfMeshNum && !IsSmallData(dataSize)) {
             // 矩形场景大数据量，用2d并行算法
-            selectAlgName = "CcuReduceScatterParallelMesh1DNHRMultiJettys";
+            selectAlgName = "CcuReduceScatterParallelMesh1DNHRMultiJetty";
         } else {
             // 其他场景，用1d NHR算法
             selectAlgName = "CcuReduceScatterNhr1DMem2MemMultiJetty";
