@@ -39,7 +39,7 @@ SelectorStatus AlltoAllAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNet
     (void)opParam;
     (void)configAlgMap;
     if (topoInfo->topoLevelNums > 1) {
-        if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
+        if (topoInfo->level0Topo == Level0Shape::MESH_1D && rankSize <= 64) {
             selectAlgName = "CcuAllToAllMesh1D2Die";
         } else {
             HCCL_WARNING("[AlltoAllAutoSelector] levelNum > 1 is not supported yet for 2d ccu_ms mode.");
