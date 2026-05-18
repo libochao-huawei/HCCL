@@ -144,7 +144,7 @@ class PkgMod(NamedTuple):
     path: str
     mod: int
 
- 	 
+    
 class PkgSoftlink(NamedTuple):
     """包内软链接。"""
     dst_path: str
