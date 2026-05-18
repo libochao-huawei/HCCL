@@ -14,6 +14,7 @@
 #include <hccl/hccl_types.h>
 #include <hccl/hccl_res.h>
 
+
 #ifdef __cplusplus
 extern "C" {
 #endif  // __cplusplus
