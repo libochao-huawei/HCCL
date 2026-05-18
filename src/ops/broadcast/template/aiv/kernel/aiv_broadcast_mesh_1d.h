@@ -26,28 +26,25 @@ public:
     template<typename T>
     __aicore__ inline void ProcessBigData(uint64_t curCount, uint64_t sliceId);
 private:
-    __aicore__ inline void CalculateOffsetAndCount(uint64_t totalData, uint64_t index, 
-                                                   uint64_t totalParts, uint64_t &offset, uint64_t &count);
+    __aicore__ inline void CalculateOffsetAndCount(uint64_t totalData, uint64_t index, uint64_t totalParts, 
+                                                   uint64_t &offset, uint64_t &count)
+    {
+        if (totalParts == 0) {
+            offset = 0;
+            count = 0;
+            return;
+        }
+        uint64_t dataPerPart = totalData / totalParts;
+        uint64_t remainder = totalData % totalParts;
+        if (index < remainder) {
+            offset = index * dataPerPart + index;
+            count = dataPerPart + 1;
+        } else {
+            offset = index * dataPerPart + remainder;
+            count = dataPerPart;
+        }
+    }
 };
-
-__aicore__ inline void AivBroadcastMesh1D::CalculateOffsetAndCount(uint64_t totalData, uint64_t index, 
-                                               uint64_t totalParts, uint64_t &offset, uint64_t &count)
-{
-    if (totalParts == 0) {
-        offset = 0;
-        count = 0;
-        return;
-    }
-    uint64_t dataPerPart = totalData / totalParts;
-    uint64_t remainder = totalData % totalParts;
-    if (index < remainder) {
-        offset = index * dataPerPart + index;
-        count = dataPerPart + 1;
-    } else {
-        offset = index * dataPerPart + remainder;
-        count = dataPerPart;
-    }
-}
  
 template<typename T>
 __aicore__ inline void AivBroadcastMesh1D::Process(uint64_t curCount, uint64_t sliceId, uint64_t stride)
