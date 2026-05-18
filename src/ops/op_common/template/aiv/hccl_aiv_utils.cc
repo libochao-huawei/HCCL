@@ -15,11 +15,17 @@
 #include <fstream>
 #include <limits>
 #include <unordered_map>
+#include <deque>
+#include <sstream>
+#include <algorithm>
+#include "rt_external.h"
 #include "adapter_acl.h"
 #include "hccl_aiv_utils.h"
 #include "aiv_kernel_def.h"
 #include "universal_concurrent_map.h"
 #include "alg_env_config.h"
+#include "hcomm_host_profiling_dl.h"
+#include "hccl_res_dl.h"
 
 using namespace std;
 using namespace ops_hccl;
@@ -32,6 +38,10 @@ constexpr u32 AIV_BUFFER_PING_PONG_FACTOR = 2;
 constexpr u32 MAX_BIN_FILE_SIZE = 100 * 1024 * 1024; // 最大读取100m的bin file到string中
 
 constexpr s32 RESET_TAIL_SYNC_TAG = 2;
+constexpr u32 AIV_TASK_CONTEXT_SIZE = 50;
+constexpr u32 AIV_TASK_QUEUE_LIMIT = 2048;
+constexpr u32 AIV_FLAG_UB_ALIGN_SIZE = 32;
+constexpr u32 AIV_FLAG_PRINT_SIZE = 4096;
 
 static mutex g_mut;
 static condition_variable g_launchCv;
@@ -62,6 +72,211 @@ struct AivDeviceRegistry {
 };
 
 static std::unordered_map<s32, AivDeviceRegistry> g_aivRegistryByDevice;
+
+struct TaskParamAiv {
+    u64 taskId = 0;
+    u64 streamId = 0;
+    HcclComm comm = nullptr;
+    HcclCMDType cmdType = HcclCMDType::HCCL_CMD_INVALID;
+    u32 tag = 0;
+    u64 size = 0;
+    u32 blockDim = 0;
+    u32 rankSize = 0;
+    s32 aivRdmaStep = 0;
+    void *flagMem = nullptr;
+    u32 rank = 0;
+    bool isOpbase = false;
+    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_RESERVED;
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_RESERVED;
+    uint64_t beginTime = 0;
+};
+
+static mutex g_aivTaskMutex;
+static std::unordered_map<u64, HcclComm> g_aivTaskCommMap;
+static std::unordered_map<u64, std::deque<TaskParamAiv>> g_aivTaskByStream;
+
+thread_local HcclComm g_aivCurrentComm = nullptr;
+thread_local std::string g_aivCurrentCommName;
+
+static u64 MakeTaskKey(u32 streamId, u32 taskId)
+{
+    return (static_cast<u64>(streamId) << 32U) | static_cast<u64>(taskId);
+}
+
+static HcclResult GetCommByName(const std::string &commName, HcclComm &comm)
+{
+    CHK_PRT_RET(commName.empty(), HCCL_ERROR("[AIV][GetCommByName] comm name is empty."), HCCL_E_PARA);
+    CHK_PRT_RET(!HcommIsSupportHcomGetCommHandleByGroup(),
+        HCCL_ERROR("[AIV][GetCommByName] HcomGetCommHandleByGroup is not supported."), HCCL_E_NOT_SUPPORT);
+    CHK_RET(HcomGetCommHandleByGroup(commName.c_str(), &comm));
+    CHK_PTR_NULL(comm);
+    return HCCL_SUCCESS;
+}
+
+static HcclResult GetAivTaskComm(const AivOpArgs &opArgs, HcclComm &comm)
+{
+    if (opArgs.hcclComm != nullptr) {
+        comm = opArgs.hcclComm;
+        return HCCL_SUCCESS;
+    }
+    if (g_aivCurrentComm != nullptr) {
+        comm = g_aivCurrentComm;
+        return HCCL_SUCCESS;
+    }
+    std::string commName = opArgs.comm.empty() ? g_aivCurrentCommName : opArgs.comm;
+    return GetCommByName(commName, comm);
+}
+
+static void RegisterAivExceptionCallback(HcclComm comm)
+{
+    static mutex callbackMutex;
+    static std::unordered_map<HcclComm, bool> callbackRegistered;
+    if (comm == nullptr || !HcommIsSupportHcclTaskExceptionRegCallBack()) {
+        HCCL_RUN_INFO("[AIV][RegisterAivExceptionCallback] skip, comm[%p], supported[%d].", comm,
+            HcommIsSupportHcclTaskExceptionRegCallBack());
+        return;
+    }
+    {
+        std::lock_guard<mutex> lock(callbackMutex);
+        auto it = callbackRegistered.find(comm);
+        if (it != callbackRegistered.end() && it->second) {
+            return;
+        }
+        callbackRegistered[comm] = true;
+    }
+    HcclResult ret = HcclTaskExceptionRegCallBack(comm, ProcessAivExceptionCallBack);
+    if (ret != HCCL_SUCCESS) {
+        std::lock_guard<mutex> lock(callbackMutex);
+        callbackRegistered[comm] = false;
+        HCCL_WARNING("[AIV][RegisterAivExceptionCallback] register callback failed, ret[%d].", ret);
+    }
+}
+
+static HcclResult SaveAivDfxTaskInfo(const AivOpArgs &opArgs)
+{
+    u32 taskId = 0;
+    u32 streamId = 0;
+    rtError_t rtRet = rtGetTaskIdAndStreamID(&taskId, &streamId);
+    CHK_PRT_RET(rtRet != RT_ERROR_NONE,
+        HCCL_ERROR("[AIV][SaveAivDfxTaskInfo] rtGetTaskIdAndStreamID failed, ret[%d].", rtRet), HCCL_E_RUNTIME);
+
+    HcclComm comm = nullptr;
+    CHK_RET(GetAivTaskComm(opArgs, comm));
+    RegisterAivExceptionCallback(comm);
+
+    TaskParamAiv taskInfo;
+    taskInfo.taskId = taskId;
+    taskInfo.streamId = streamId;
+    taskInfo.comm = comm;
+    taskInfo.cmdType = opArgs.cmdType;
+    taskInfo.tag = opArgs.sliceId;
+    taskInfo.size = opArgs.count;
+    taskInfo.blockDim = opArgs.numBlocks;
+    taskInfo.rankSize = opArgs.rankSize;
+    taskInfo.aivRdmaStep = 0;
+    taskInfo.flagMem = static_cast<void *>(opArgs.buffersIn == nullptr ? nullptr :
+        static_cast<u8 *>(opArgs.buffersIn) + AIV_FLAG_ADDR_OFFSET);
+    taskInfo.rank = opArgs.rank;
+    taskInfo.isOpbase = opArgs.isOpBase;
+    taskInfo.reduceOp = opArgs.op;
+    taskInfo.dataType = opArgs.dataType;
+    taskInfo.beginTime = opArgs.beginTime;
+
+    HCCL_DEBUG("Begin to SaveAivDfxTaskInfo taskType[%d]", static_cast<int32_t>(opArgs.cmdType));
+    std::lock_guard<mutex> lock(g_aivTaskMutex);
+    g_aivTaskCommMap[MakeTaskKey(streamId, taskId)] = comm;
+    auto &taskQueue = g_aivTaskByStream[streamId];
+    taskQueue.push_back(taskInfo);
+    if (taskQueue.size() > AIV_TASK_QUEUE_LIMIT) {
+        g_aivTaskCommMap.erase(MakeTaskKey(static_cast<u32>(taskQueue.front().streamId),
+            static_cast<u32>(taskQueue.front().taskId)));
+        taskQueue.pop_front();
+    }
+    return HCCL_SUCCESS;
+}
+
+static bool FindAivTask(u32 streamId, u32 taskId, TaskParamAiv &taskInfo, std::deque<TaskParamAiv> &taskQueue)
+{
+    std::lock_guard<mutex> lock(g_aivTaskMutex);
+    auto streamIt = g_aivTaskByStream.find(streamId);
+    if (streamIt == g_aivTaskByStream.end()) {
+        return false;
+    }
+    auto taskIt = std::find_if(streamIt->second.begin(), streamIt->second.end(),
+        [taskId](const TaskParamAiv &task) { return task.taskId == taskId; });
+    if (taskIt == streamIt->second.end()) {
+        return false;
+    }
+    taskInfo = *taskIt;
+    taskQueue.assign(streamIt->second.begin(), std::next(taskIt));
+    return true;
+}
+
+static std::string SerializeAivFlag(const TaskParamAiv &taskInfo)
+{
+    if (taskInfo.flagMem == nullptr) {
+        return "flagMem is nullptr";
+    }
+    std::vector<s32> flagMem(AIV_FLAG_PRINT_SIZE / sizeof(s32));
+    HcclResult ret = haclrtMemcpy(flagMem.data(), AIV_FLAG_PRINT_SIZE, taskInfo.flagMem, AIV_FLAG_PRINT_SIZE,
+        ACL_MEMCPY_DEVICE_TO_HOST);
+    if (ret != HCCL_SUCCESS) {
+        return "copy flagMem failed";
+    }
+
+    std::stringstream ss;
+    const u32 alignStep = AIV_FLAG_UB_ALIGN_SIZE / sizeof(s32);
+    for (u32 i = 0; i < flagMem.size(); i += alignStep) {
+        ss << flagMem[i] << " ";
+    }
+    return ss.str();
+}
+
+void ProcessAivExceptionCallBack(aclrtExceptionInfo *exceptionInfo)
+{
+    if (exceptionInfo == nullptr) {
+        HCCL_ERROR("[TaskExceptionHandler][AIV] exceptionInfo is nullptr.");
+        return;
+    }
+
+    const u32 taskId = aclrtGetTaskIdFromExceptionInfo(exceptionInfo);
+    const u32 streamId = aclrtGetStreamIdFromExceptionInfo(exceptionInfo);
+    const u32 deviceId = aclrtGetDeviceIdFromExceptionInfo(exceptionInfo);
+
+    TaskParamAiv taskInfo;
+    std::deque<TaskParamAiv> taskQueue;
+    if (!FindAivTask(streamId, taskId, taskInfo, taskQueue)) {
+        HCCL_RUN_INFO("[TaskExceptionHandler][AIV] task not found, streamId[%u], taskId[%u].",
+            streamId, taskId);
+        return;
+    }
+
+    HCCL_ERROR("[TaskExceptionHandler][AIV]Task run failed, para information is deviceId[%u] streamId[%u], "
+        "TaskId[%u], cmdType[%u], tag[%u],rank[%u],rankSize[%u], dataCount[%llu], blockDim[%u],"
+        "dataType:[%u], beginTime:[%llu], flagMem[%p]",
+        deviceId, streamId, taskId, taskInfo.cmdType, taskInfo.tag,
+        taskInfo.rank, taskInfo.rankSize, taskInfo.size, taskInfo.blockDim, taskInfo.dataType, taskInfo.beginTime,
+        taskInfo.flagMem);
+
+    HCCL_ERROR("[TaskExceptionHandler][AIV]Task run failed, para information is deviceId[%u] streamId[%u], "
+        "TaskId[%u], flag: %s", deviceId, streamId, taskId,
+        SerializeAivFlag(taskInfo).c_str());
+
+    HCCL_ERROR("[TaskExceptionHandler][AIV]Task run failed, para information is deviceId[%u] streamId[%u], "
+        "TaskId[%u], task info before failed task is:", deviceId, streamId, taskId);
+
+    u32 printed = 0;
+    for (auto it = taskQueue.rbegin(); it != taskQueue.rend() && printed < AIV_TASK_CONTEXT_SIZE; ++it) {
+        if (it->taskId == taskInfo.taskId) {
+            continue;
+        }
+        HCCL_ERROR("[TaskExceptionHandler][AIV] previous TaskId[%llu],streamId[%llu], cmdType[%u], "
+            "tag[%u],rank[%u],rankSize[%u], dataCount[%llu], blockDim[%u],dataType:[%u], beginTime:[%llu], "
+            "flagMem[%p]", it->taskId, it->streamId, it->cmdType, it->tag, it->rank, it->rankSize, it->size,
+            it->blockDim, it->dataType, it->beginTime, it->flagMem);
+        ++printed;
+    }
+}
 
 class AivLaunchGuard {
 public:
@@ -506,6 +721,10 @@ HcclResult ExecuteKernelLaunchInner(const AivOpArgs &opArgs, void* args, u32 arg
     }
     CHK_PRT_RET(aclRet != ACL_SUCCESS, HCCL_ERROR("[ExecuteKernelLaunchInner]errNo[0x%016llx] aclrtLaunchKernelWithHostArgs error[%d].",
         HCCL_ERROR_CODE(HCCL_E_RUNTIME), aclRet), HCCL_E_RUNTIME);
+    HcclResult dfxRet = SaveAivDfxTaskInfo(opArgs);
+    if (dfxRet != HCCL_SUCCESS) {
+        HCCL_WARNING("[ExecuteKernelLaunchInner] SaveAivDfxTaskInfo failed, ret[%d].", dfxRet);
+    }
     return HCCL_SUCCESS;
 }
 
