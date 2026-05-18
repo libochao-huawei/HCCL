@@ -15,15 +15,95 @@
 #include <fstream>
 #include <limits>
 #include <unordered_map>
-#include "mmpa_api.h"
 #include "adapter_acl.h"
 #include "hccl_aiv_utils.h"
 #include "aiv_kernel_def.h"
 #include "universal_concurrent_map.h"
 #include "alg_env_config.h"
+#ifdef HCCL_STATIC_MODE
+#include "acl_rt.h"
+#endif
 
 using namespace std;
 using namespace ops_hccl;
+
+#ifdef HCCL_STATIC_MODE
+// 静态库模式下，AIV kernel `.o` 已通过 `ld -r -b binary` 内嵌进 libhccl_static.a。
+// 这里声明 ld 自动生成的 _binary_<name>_start/end 符号，
+// 并在 RegisterKernel 时用 aclrtBinaryLoadFromData 从内存加载，
+// 无需依赖 ${ASCEND_HOME_PATH}/lib64 下的 .o 文件。
+extern "C" {
+#define DECL_AIV_EMBED(stem)                                               \
+    extern const char _binary_##stem##_bin_start[];                         \
+    extern const char _binary_##stem##_bin_end[]
+DECL_AIV_EMBED(hccl_aiv_all_gather_op_910_95);
+DECL_AIV_EMBED(hccl_aiv_all_reduce_op_910_95);
+DECL_AIV_EMBED(hccl_aiv_all_to_all_op_910_95);
+DECL_AIV_EMBED(hccl_aiv_all_to_all_v_op_910_95);
+DECL_AIV_EMBED(hccl_aiv_broadcast_op_910_95);
+DECL_AIV_EMBED(hccl_aiv_reduce_op_910_95);
+DECL_AIV_EMBED(hccl_aiv_reduce_scatter_op_910_95);
+DECL_AIV_EMBED(hccl_aiv_scatter_op_910_95);
+DECL_AIV_EMBED(hccl_aiv_send_op_910_95);
+DECL_AIV_EMBED(hccl_aiv_recv_op_910_95);
+#undef DECL_AIV_EMBED
+}
+
+namespace {
+struct AivEmbedSymbol {
+    const char *binaryName;
+    const char *start;
+    const char *end;
+};
+
+#define EMBED_ENTRY(stem)                                                  \
+    { #stem ".o", _binary_##stem##_bin_start, _binary_##stem##_bin_end }
+static const AivEmbedSymbol kAivEmbedTable[] = {
+    EMBED_ENTRY(hccl_aiv_all_gather_op_910_95),
+    EMBED_ENTRY(hccl_aiv_all_reduce_op_910_95),
+    EMBED_ENTRY(hccl_aiv_all_to_all_op_910_95),
+    EMBED_ENTRY(hccl_aiv_all_to_all_v_op_910_95),
+    EMBED_ENTRY(hccl_aiv_broadcast_op_910_95),
+    EMBED_ENTRY(hccl_aiv_reduce_op_910_95),
+    EMBED_ENTRY(hccl_aiv_reduce_scatter_op_910_95),
+    EMBED_ENTRY(hccl_aiv_scatter_op_910_95),
+    EMBED_ENTRY(hccl_aiv_send_op_910_95),
+    EMBED_ENTRY(hccl_aiv_recv_op_910_95),
+};
+#undef EMBED_ENTRY
+
+static HcclResult LoadAivKernelFromEmbed(const std::string &aivBinaryName,
+    aclrtBinHandle &binHandle)
+{
+    for (const auto &entry : kAivEmbedTable) {
+        if (aivBinaryName != entry.binaryName) {
+            continue;
+        }
+        size_t length = static_cast<size_t>(entry.end - entry.start);
+        aclrtBinaryLoadOptions loadOptions = {0};
+        aclrtBinaryLoadOption option;
+        loadOptions.numOpt = 1;
+        loadOptions.options = &option;
+        option.type = ACL_RT_BINARY_LOAD_OPT_LAZY_LOAD;
+        option.value.cpuKernelMode = 1;
+        aclError aclRet = aclrtBinaryLoadFromData(
+            entry.start, length, &loadOptions, &binHandle);
+        if (aclRet != ACL_SUCCESS) {
+            HCCL_ERROR("[LoadAivKernelFromEmbed]errNo[0x%016llx] load aiv binary[%s] "
+                "from embedded data failed, length[%zu], ret[%d].",
+                HCCL_ERROR_CODE(HCCL_E_RUNTIME), aivBinaryName.c_str(), length, aclRet);
+            return HCCL_E_RUNTIME;
+        }
+        HCCL_INFO("[LoadAivKernelFromEmbed]aiv binary[%s] loaded from embedded data, "
+            "length[%zu].", aivBinaryName.c_str(), length);
+        return HCCL_SUCCESS;
+    }
+    HCCL_ERROR("[LoadAivKernelFromEmbed]aiv binary[%s] not found in embed table.",
+        aivBinaryName.c_str());
+    return HCCL_E_NOT_FOUND;
+}
+}  // namespace
+#endif  // HCCL_STATIC_MODE
 
 namespace ops_hccl {
 constexpr u32 SIG_MOVE_LEFT_BITS = 20;
@@ -145,6 +225,51 @@ static u32 GetAivTimeout()
     return timeout;
 }
 
+using AivKernelArgs = struct AivKernelArgsDef {
+    const void* buffersIn; // 注册的CCLIN地址，所有卡可访问
+    u64 input;
+    u64 output;
+    u32 rank;
+    u32 sendRecvRemoteRank;
+    u32 rankSize;
+    u64 xRankSize;
+    u64 yRankSize;
+    u64 zRankSize;
+    u64 len;
+    u32 dataType;
+    u32 reduceOp;
+    u32 root;
+    u32 tag; // 第几次调用，定时重置成1
+    u64 inputSliceStride;
+    u64 outputSliceStride;
+    u64 repeatNum;
+    u64 inputRepeatStride;
+    u64 outputRepeatStride;
+    bool isOpBase;
+    const void* headCountMem;
+    const void* tailCountMem;
+    const void* addOneMem;
+    u32 counterMemSize;
+    bool isEnableCounter;
+
+    AivKernelArgsDef(const void* buffIn, u64 input, u64 output, u32 rank, u32 sendRecvRemoteRank,
+        u32 rankSize, u64 xRankSize, u64 yRankSize, u64 zRankSize,
+        u64 len, u32 dataType, u32 reduceOp, u32 root, u32 tag,
+        u64 inputSliceStride, u64 outputSliceStride, u64 repeatNum, u64 inputRepeatStride, u64 outputRepeatStride,
+        bool isOpBase = true,
+        const void* headCountMem = nullptr, const void* tailCountMem = nullptr, const void* addOneMem = nullptr,
+        u32 counterMemSize = 0)
+        : buffersIn(buffIn),input(input), output(output), rank(rank), sendRecvRemoteRank(sendRecvRemoteRank), rankSize(rankSize), xRankSize(xRankSize), yRankSize(yRankSize), zRankSize(zRankSize),
+        len(len) ,dataType(dataType),
+        reduceOp(reduceOp), root(root), tag(tag),
+        inputSliceStride(inputSliceStride), outputSliceStride(outputSliceStride), repeatNum(repeatNum), inputRepeatStride(inputRepeatStride), outputRepeatStride(outputRepeatStride),
+        isOpBase(isOpBase),
+        headCountMem(headCountMem), tailCountMem(tailCountMem), addOneMem(addOneMem),
+        counterMemSize(counterMemSize)
+    {
+    }
+};
+
 using AivExtraKernelArgs = struct AivExtraKernelArgsDef {
     const void* buffersIn; // 注册的CCLIN地址，所有卡可访问
     u64 input;
@@ -198,8 +323,7 @@ HcclResult GetAivOpBinaryPath(const std::string &aivBinaryName, std::string &bin
 {
     // 获取二进制文件路径
     std::string libPath;
-    char *getPath = nullptr;
-    MM_SYS_GET_ENV(MM_ENV_ASCEND_HOME_PATH, getPath);
+    char *getPath = getenv("ASCEND_HOME_PATH");
     if (getPath != nullptr) {
         libPath = getPath;
     } else {
@@ -329,25 +453,33 @@ HcclResult RegisterKernel()
         const std::vector<AivKernelInfo>& aivKernelInfoList = item.second.second;
 
         HcclResult ret;
-        string binFilePath;
-        ret = GetAivOpBinaryPath(aivBinaryName, binFilePath);
-        if (ret != HCCL_SUCCESS) {
-            HCCL_ERROR("[AIV][RegisterKernel] get aiv op binary path failed");
-            ClearDeviceRegistry(registry);
-            return HCCL_E_RUNTIME;
-        }
-
         aclrtBinHandle binHandle = nullptr;
         auto binHandleIt = registry.binHandles.find(aivBinaryName);
         if (binHandleIt != registry.binHandles.end()) {
             binHandle = binHandleIt->second;
         } else {
+#ifdef HCCL_STATIC_MODE
+            ret = LoadAivKernelFromEmbed(aivBinaryName, binHandle);
+            if (ret != HCCL_SUCCESS) {
+                HCCL_ERROR("[AIV][RegisterKernel] load aiv kernel from embedded data failed");
+                ClearDeviceRegistry(registry);
+                return HCCL_E_RUNTIME;
+            }
+#else
+            string binFilePath;
+            ret = GetAivOpBinaryPath(aivBinaryName, binFilePath);
+            if (ret != HCCL_SUCCESS) {
+                HCCL_ERROR("[AIV][RegisterKernel] get aiv op binary path failed");
+                ClearDeviceRegistry(registry);
+                return HCCL_E_RUNTIME;
+            }
             ret = LoadBinaryFromFile(binFilePath.c_str(), ACL_RT_BINARY_LOAD_OPT_LAZY_LOAD, 1, binHandle);
             if (ret != HCCL_SUCCESS) {
                 HCCL_ERROR("[AIV][RegisterKernel] read aiv kernel bin file failed");
                 ClearDeviceRegistry(registry);
                 return HCCL_E_RUNTIME;
             }
+#endif
             registry.binHandles[aivBinaryName] = binHandle;
         }
 
@@ -489,16 +621,29 @@ HcclResult ExecuteKernelLaunch(const AivOpArgs &opArgs)
         g_recordingQueue->push_back(ins);
     }
 
-    AivExtraKernelArgs aivExtraKernelArgs {
-        opArgs.buffersIn, opArgs.input, opArgs.output,
-        opArgs.rank, opArgs.sendRecvRemoteRank, opArgs.rankSize, opArgs.xRankSize, opArgs.yRankSize, opArgs.zRankSize, opArgs.count, opArgs.dataType, opArgs.op, opArgs.root, opArgs.sliceId,
-        opArgs.inputSliceStride, opArgs.outputSliceStride, opArgs.repeatNum, opArgs.inputRepeatStride, opArgs.outputRepeatStride,
-        opArgs.isOpBase,
-        reinterpret_cast<void*>(opArgs.counter.headCountMem),
-        reinterpret_cast<void*>(opArgs.counter.tailCountMem), reinterpret_cast<void*>(opArgs.counter.addOneMem),
-        opArgs.counter.memSize, &opArgs.extraArgs
-    };
-    CHK_RET(ExecuteKernelLaunchInner(opArgs, &aivExtraKernelArgs, sizeof(aivExtraKernelArgs)));
+    if (opArgs.cmdType == HcclCMDType::HCCL_CMD_ALLTOALLV) {
+        AivExtraKernelArgs aivExtraKernelArgs {
+            opArgs.buffersIn, opArgs.input, opArgs.output,
+            opArgs.rank, opArgs.sendRecvRemoteRank, opArgs.rankSize, opArgs.xRankSize, opArgs.yRankSize, opArgs.zRankSize, opArgs.count, opArgs.dataType, opArgs.op, opArgs.root, opArgs.sliceId,
+            opArgs.inputSliceStride, opArgs.outputSliceStride, opArgs.repeatNum, opArgs.inputRepeatStride, opArgs.outputRepeatStride,
+            opArgs.isOpBase,
+            reinterpret_cast<void*>(opArgs.counter.headCountMem),
+            reinterpret_cast<void*>(opArgs.counter.tailCountMem), reinterpret_cast<void*>(opArgs.counter.addOneMem),
+            opArgs.counter.memSize, &opArgs.extraArgs
+        };
+        CHK_RET(ExecuteKernelLaunchInner(opArgs, &aivExtraKernelArgs, sizeof(aivExtraKernelArgs)));
+    } else {
+        AivKernelArgs aivKernelArgs {
+            opArgs.buffersIn, opArgs.input, opArgs.output,
+            opArgs.rank, opArgs.sendRecvRemoteRank, opArgs.rankSize, opArgs.xRankSize, opArgs.yRankSize, opArgs.zRankSize, opArgs.count, opArgs.dataType, opArgs.op, opArgs.root, opArgs.sliceId,
+            opArgs.inputSliceStride, opArgs.outputSliceStride, opArgs.repeatNum, opArgs.inputRepeatStride, opArgs.outputRepeatStride,
+            opArgs.isOpBase,
+            reinterpret_cast<void*>(opArgs.counter.headCountMem),
+            reinterpret_cast<void*>(opArgs.counter.tailCountMem), reinterpret_cast<void*>(opArgs.counter.addOneMem),
+            opArgs.counter.memSize
+        };
+        CHK_RET(ExecuteKernelLaunchInner(opArgs, &aivKernelArgs, sizeof(aivKernelArgs)));
+    }
     return HCCL_SUCCESS;
 }
 

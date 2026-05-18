@@ -166,7 +166,7 @@ private:
 };
 
 template<typename T>
-__aicore__ inline void AivReduceScatterV2LocalTree(EXTERN_KERNEL_ARGS_DEF_V2)
+__aicore__ inline void AivReduceScatterV2LocalTree(KERNEL_ARGS_DEF)
 {
     AivReduceScatterLocalTree<T> op;
     op.Init(KERNEL_CLASS_INIT, true);

@@ -21,26 +21,17 @@ static const struct FunLevelKType kernel_name##_kernel_type_section __attribute_
 ((used, section (".ascend.meta." #kernel_name))) \
 = {{F_TYPE_KTYPE, sizeof(unsigned int), K_TYPE_AIV}}
 
-constexpr uint32_t MAX_RANK_SIZE = 64; // server内最大卡数
+constexpr uint32_t MAX_RANK_SIZE = 128; // server内最大卡数
 constexpr uint64_t BUFFER_OUT_ADDR_OFFSET = 16 * 1024;
 constexpr uint64_t TOPO_ADDR_OFFSET = 32 * 1024;
 constexpr uint64_t FLAG_ADDR_OFFSET = 40 * 1024;
 constexpr uint64_t TOPO_LEN = 64;
 constexpr uint64_t TOPO_LEN_Y_OFFSET = 8;
 constexpr uint64_t TOPO_LEN_Z_OFFSET = 16;
-constexpr uint64_t LOCAL_FLAG_BUF_LEN = 1024;
+constexpr uint64_t LOCAL_FLAG_BUF_LEN = 2560;
 constexpr uint64_t AIV_TAG_MOVE_RIGHT_BITS = 16;
 constexpr uint64_t LOW_16_BITS = 0xFFFF;
 constexpr uint64_t DATA_LIMIT = 512 * 1024;
-
-struct ExtraArgsv2 {
-    uint64_t sendCountMatrix[MAX_RANK_SIZE * MAX_RANK_SIZE] = {};
-    uint64_t sendCounts[MAX_RANK_SIZE] = {};
-    uint64_t sendDispls[MAX_RANK_SIZE] = {};
-    uint64_t recvCounts[MAX_RANK_SIZE] = {};
-    uint64_t recvDispls[MAX_RANK_SIZE] = {};
-    uint64_t maxCount = 0;
-};
 
 struct ExtraArgs {
     uint64_t sendCounts[MAX_RANK_SIZE] = {};
@@ -94,7 +85,7 @@ constexpr uint64_t AIV_PING_PONG_FACTOR_TWO = 2;
 constexpr uint32_t NUM_BLOCKS_FOUR_PER_RANK_A3 = 4;
 constexpr uint32_t MAX_NUM_BLOCKS = 48;
 
-constexpr uint64_t FLAG_SIZE = 512;
+constexpr uint64_t FLAG_SIZE = 256;
 constexpr uint64_t UB_ALIGN_SIZE = 32;
 constexpr uint64_t UB_FLAG_SIZE = 32;
 constexpr uint64_t UB_FLAG_SIZE_4 = UB_FLAG_SIZE * 4;
