@@ -54,23 +54,30 @@ constexpr uint64_t CCU_MS_SIZE               = 4096;
     };
 
     struct CcuKernelCtxBase {
-        // GroupOpSizeVars goSize;
+    // GroupOpSizeVars goSize;
 
-        LoopGroupConfig  moConfig;
-        LoopGroupResource moRes;
-        bool resourceAllocated;
+    LoopGroupConfig  moConfig;
+    LoopGroupResource moRes;
+    bool resourceAllocated;
 
-        CcuLoop loops[2];
-        CcuLoopExecutors enginePool;
-        bool loopRegistered;
+    std::map<std::string, std::array<CcuLoop, 2>> loopMap;
+    CcuLoopExecutors enginePool;
 
-        // // Loop body 中的外部 LocalAddr（每个 loop index 各两组）
-        // ccu::LocalAddr loopDst[2];
-        // ccu::LocalAddr loopSrc[2];
-        // ccu::LocalAddr loopScratch[2][CCU_MAX_RANK_SIZE];
-        // ccu::Variable  loopLen[2];
-        // ccu::Variable  loopLenExp[2];
-    };
+    void CreateLoop(std::string loopStr) {
+        loopMap.emplace(loopStr, std::array<CcuLoop, 2>());
+    }
+
+    bool IsLoopRegistered(std::string loopStr) {
+        return loopMap.count(loopStr) != 0;
+    }
+
+    // // Loop body 中的外部 LocalAddr（每个 loop index 各两组）
+    // ccu::LocalAddr loopDst[2];
+    // ccu::LocalAddr loopSrc[2];
+    // ccu::LocalAddr loopScratch[2][RS_MAX_RANK_SIZE];
+    // CcuVariable  loopLen[2];
+    // CcuVariable  loopLenExp[2];
+};
 
     struct GroupReduceVar {
         ccu::LocalAddr loopDst[2];
