@@ -37,6 +37,7 @@ public:
 protected:
     HcclResult RunAllGatherMesh(const std::vector<ThreadHandle> &threads,
                                                         const std::map<u32, std::vector<ChannelInfo>> &channels) override;
+    HcclResult LocalDataCopy(const std::vector<ThreadHandle> &threads) override;
 private:
     std::vector<ChannelInfo> PrepareMergedChannels(
         const std::map<u32, std::vector<ChannelInfo>> &channels);
