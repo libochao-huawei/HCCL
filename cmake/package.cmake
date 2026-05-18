@@ -135,11 +135,6 @@ function(pack_built_in)
       DESTINATION share/info/hccl/script
       COMPONENT hccl
   )
-  install(DIRECTORY ${CMAKE_SOURCE_DIR}/scripts/package/latest_manager/scripts/
-      DESTINATION latest_manager
-      COMPONENT hccl
-  )
-
   string(FIND "${ASCEND_COMPUTE_UNIT}" ";" SEMICOLON_INDEX)
   if (SEMICOLON_INDEX GREATER -1)
       # 截取分号前的字串
