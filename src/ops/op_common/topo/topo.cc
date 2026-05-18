@@ -97,6 +97,24 @@ HcclResult CalcGeneralTopoInfoForA3(const HcclComm comm, const TopoInfo* topoInf
     return HCCL_SUCCESS;
 }
 
+HcclResult CalcGeneralTopoInfoForA3BirsInterServer(const HcclComm comm, const TopoInfo* topoInfo, AlgHierarchyInfo& algHierarchyInfo)
+{
+    (void) comm;
+    algHierarchyInfo.levels = 1;
+    algHierarchyInfo.infos[COMM_LEVEL0].localRank = topoInfo->userRank;
+    algHierarchyInfo.infos[COMM_LEVEL0].localRankSize = topoInfo->userRankSize;
+    HCCL_INFO("[CalcGeneralTopoInfoForA3BirsInterServer] userRank[%u] serverIdx[%u] superPodIdx[%u] l0Rank[%u]"
+        "deviceNumPerModule[%u] serverNumPerSuperPod[%u] superPodNum[%u]"
+        "l0RankSize[%u]",
+        topoInfo->userRank, topoInfo->serverIdx, topoInfo->superPodIdx,
+        algHierarchyInfo.infos[COMM_LEVEL0].localRank,
+        topoInfo->deviceNumPerModule, topoInfo->serverNumPerSuperPod, topoInfo->superPodNum,
+        algHierarchyInfo.infos[COMM_LEVEL0].localRankSize);
+
+    return HCCL_SUCCESS;
+}
+
+
 /* 针对非对称场景打平拓扑通用的拓扑信息获取方式 */
 HcclResult CalcGeneralTopoInfoForComm(const HcclComm comm, const TopoInfo* topoInfo, AlgHierarchyInfo& algHierarchyInfo)
 {
