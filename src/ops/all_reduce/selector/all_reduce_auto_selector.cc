@@ -487,8 +487,10 @@ SelectorStatus AllReduceAutoSelector::SelectDPUAlgo(const TopoInfoWithNetLayerDe
             HCCL_INFO("Using algo InsAllReduceSequenceMeshNhrDPU");
             return SelectorStatus::MATCH;
         } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+            const char* enableNda = std::getenv("ENABLE_NDA");
             bool isSupportNda = false;
-            if ((CheckSupportNda(opParam.hcclComm, topoInfo, isSupportNda) == HCCL_SUCCESS) && isSupportNda) {
+            if ((enableNda != nullptr) && (strcmp(enableNda, "1") == 0) &&
+                (CheckSupportNda(opParam.hcclComm, topoInfo, isSupportNda) == HCCL_SUCCESS) && isSupportNda) {
                 selectAlgName = "InsV2AllReduceNdaOmniPipe";
                 HCCL_INFO("Using algo InsV2AllReduceNdaOmniPipe");
             } else {

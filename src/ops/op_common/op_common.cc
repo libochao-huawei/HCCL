@@ -47,6 +47,7 @@
 #include "hcomm_diag_dl.h"
 #include "hcom.h"
 #include "hccl/hccl_res.h"
+#include "hcomm/hcomm_res_defs.h"
 
 namespace ops_hccl {
 // 用于维护增量建链算子的host ctx信息
@@ -1120,15 +1121,15 @@ HcclResult HcclGetChannel(HcclComm comm, const OpParam &param, AlgResourceReques
         std::vector<HcclChannelDesc> &levelNChannelRequest = resRequest.channels[level];
         std::vector<HcclChannelDesc> deviceChannelRequest;
         std::vector<HcclChannelDesc> hostChannelRequest;
-        std::vector<HcclChannelDesc> ndaChannelRequest;
         for (auto &channelRequest : levelNChannelRequest) {
             if (channelRequest.localEndpoint.loc.locType == ENDPOINT_LOC_TYPE_DEVICE) {
                 deviceChannelRequest.emplace_back(channelRequest);
             } else if (channelRequest.localEndpoint.loc.locType == ENDPOINT_LOC_TYPE_HOST) {
+                const char* enableNda = std::getenv("ENABLE_NDA");
                 bool isSupportNda = false;
-                CHK_RET(HcclIsSupportNda(&channelRequest.remoteEndpoint, &isSupportNda));
-                if (isSupportNda) {
-                    ndaChannelRequest.emplace_back(channelRequest);
+                CHK_RET(HcommEndpointCheckFeature(HcommFeatureType::HCOMM_FEATURE_TYPE_NDA, &channelRequest.localEndpoint, &isSupportNda));
+                if ((enableNda != nullptr) && (strcmp(enableNda, "1") == 0) && isSupportNda) {
+                    deviceChannelRequest.emplace_back(channelRequest);
                 } else {
                     hostChannelRequest.emplace_back(channelRequest);
                 }
@@ -1136,8 +1137,6 @@ HcclResult HcclGetChannel(HcclComm comm, const OpParam &param, AlgResourceReques
         }
         // device建链
         CHK_RET(HcclGetChannelImpl(level, comm, param, deviceChannelRequest, COMM_ENGINE_AICPU_TS, resCtxHost, memRegInfo));
-        // host nda建链
-        CHK_RET(HcclGetChannelImpl(level, comm, param, ndaChannelRequest, COMM_ENGINE_AICPU_TS, resCtxHost, memRegInfo));
         // host建链
         CHK_RET(HcclGetChannelImpl(level, comm, param, hostChannelRequest, COMM_ENGINE_CPU, resCtxHost, memRegInfo));
 
@@ -2165,7 +2164,7 @@ HcclResult CheckSupportNda(const HcclComm comm, const TopoInfoWithNetLayerDetail
             for (uint32_t endPointIdx = 0; endPointIdx < endPointNums; endPointIdx++) {
                 if (endPointDescs[endPointIdx].loc.locType == ENDPOINT_LOC_TYPE_HOST) {
                     bool supportNda = false;
-                    CHK_RET(HcclIsSupportNda(&endPointDescs[endPointIdx], &supportNda));
+                    CHK_RET(HcommEndpointCheckFeature(HcommFeatureType::HCOMM_FEATURE_TYPE_NDA, &endPointDescs[endPointIdx], &supportNda));
                     if (supportNda) {
                         HCCL_INFO("Support NDA in netLayer[%u] topoInstId[%u] endPointIdx[%u]",
                             netLayer, topoInstId, endPointIdx);
