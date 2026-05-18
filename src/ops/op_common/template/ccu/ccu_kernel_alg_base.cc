@@ -229,9 +229,11 @@ CcuResult CreateMultiOpReduce(CcuKernelCtxBase &ctx, GroupReduceVar &var,
 {
     AllocGoResource(ctx.moConfig, ctx.moRes, ctx.resourceAllocated);
 
-    if (ctx.loopRegistered) {
+    if (ctx.IsLoopRegistered("reduce")) {
         return CCU_SUCCESS;
     }
+    ctx.CreateLoop("reduce");
+    auto &loops = ctx.loopMap["reduce"];
 
     uint32_t channelSize = channelCount;
     uint32_t size = channelSize + 1;
@@ -257,7 +259,7 @@ CcuResult CreateMultiOpReduce(CcuKernelCtxBase &ctx, GroupReduceVar &var,
         uint32_t bufBase = index * ctx.moConfig.msInterleave;
         ccu::Event loopEvt = ctx.moRes.completedEvent[index];
 
-        CCU_LOOP(ctx.loops[index]) {
+        CCU_LOOP(loops[index]) {
             for (uint32_t i = 0; i < channelSize; i++) {
                 loopEvt.mask = 1 << i;
                 ccu::Read(channels[i], ctx.moRes.ccuBuf[bufBase + i], var.loopRemoteSrc[index][i], var.loopLen[index], loopEvt);
@@ -281,8 +283,6 @@ CcuResult CreateMultiOpReduce(CcuKernelCtxBase &ctx, GroupReduceVar &var,
         }
     }
 
-
-    ctx.loopRegistered = true;
     return CCU_SUCCESS;
 }
 
