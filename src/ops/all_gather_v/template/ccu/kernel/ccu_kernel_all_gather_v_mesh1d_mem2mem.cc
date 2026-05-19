@@ -14,12 +14,12 @@
 namespace ops_hccl {
 
 constexpr int OUTPUT_XN_ID = 1;
-constexpr int TOKEN_XN_ID = 2;
-constexpr int CKE_IDX_0 = 0;
-constexpr int CKE_IDX_1 = 1;
+constexpr int TOKEN_XN_ID  = 2;
+constexpr int CKE_IDX_0    = 0;
+constexpr int CKE_IDX_1    = 1;
 
 constexpr uint64_t LOCAL_COPY_MS = 8;
-constexpr int POST_SYNC_ID = 3;
+constexpr int POST_SYNC_ID       = 3;
 
 static CcuResult InitResource(AllGatherVMesh1DMem2MemContext &ctx)
 {
@@ -35,8 +35,8 @@ static CcuResult InitResource(AllGatherVMesh1DMem2MemContext &ctx)
     ctx.token.resize(arg->rankSize);
     for (uint64_t peerId = 0; peerId < arg->rankSize; peerId++) {
         if (peerId != arg->rankId) {
-            ctx.output[peerId] = ccu::GetResByChannel(arg->channels[channelIdx], OUTPUT_XN_ID);
-            ctx.token[peerId] = ccu::GetResByChannel(arg->channels[channelIdx], TOKEN_XN_ID);
+            ctx.output[peerId] = ccu::GetResByChannel<ccu::Variable>(arg->channels[channelIdx], OUTPUT_XN_ID);
+            ctx.token[peerId] = ccu::GetResByChannel<ccu::Variable>(arg->channels[channelIdx], TOKEN_XN_ID);
             channelIdx++;
         }
     }
@@ -47,15 +47,16 @@ static CcuResult InitResource(AllGatherVMesh1DMem2MemContext &ctx)
 static CcuResult LoadArgs(AllGatherVMesh1DMem2MemContext &ctx)
 {
     const auto *arg = ctx.arg;
-    CCU_CHK_RET(ccu::LoadArg(ctx.input));
-    CCU_CHK_RET(ccu::LoadArg(ctx.output[arg->rankId]));
-    CCU_CHK_RET(ccu::LoadArg(ctx.token[arg->rankId]));
-    CCU_CHK_RET(ccu::LoadArg(ctx.mySliceSize));
-    CCU_CHK_RET(ccu::LoadArg(ctx.mySliceSizeOutputOffset));
-    CCU_CHK_RET(ccu::LoadArg(ctx.localGoSize.addrOffset));
-    CCU_CHK_RET(ccu::LoadArg(ctx.localGoSize.loopParam));
-    CCU_CHK_RET(ccu::LoadArg(ctx.localGoSize.parallelParam));
-    CCU_CHK_RET(ccu::LoadArg(ctx.localGoSize.residual));
+    uint32_t cnt = 0;
+    CCU_CHK_RET(ccu::LoadArg(ctx.input, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.output[arg->rankId], cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.token[arg->rankId], cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.mySliceSize, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.mySliceSizeOutputOffset, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.localGoSize.addrOffset, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.localGoSize.loopParam, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.localGoSize.parallelParam, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.localGoSize.residual, cnt++));
     return CCU_SUCCESS;
 }
 
@@ -109,7 +110,7 @@ static void DoAllGatherV(AllGatherVMesh1DMem2MemContext &ctx)
                 ctx.dst[rankIdx].token = ctx.token[rankIdx];
                 CCU_IF(ctx.mySliceSize != 0)
                 {
-                    ccu::LocalCopy(ctx.dst[rankIdx], ctx.src, ctx.mySliceSize, ctx.event, 1 << rankIdx);
+                    ccu::LocalCopy(ctx.localDst, ctx.src, ctx.mySliceSize, ctx.event, 1 << rankIdx);
                 }
                 channelId++;
             }
