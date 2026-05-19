@@ -107,7 +107,7 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
     }
     CHK_RET(SetCommEngine(param));
     // AIV_ONLY 模式下禁止回退到非 AIV 引擎，未选中 AIV 时直接返回不支持。
-    if (param.commOpExpansionMode == HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY && param.engine != CommEngine::COMM_ENGINE_AIV) {
+    if (param.opConfig.commOpExpansionMode == HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY && param.engine != CommEngine::COMM_ENGINE_AIV) {
         HCCL_ERROR("[HcclExecOp] opType[%d] currently do not select aiv mode, aiv only not support.",
             static_cast<int>(param.opType));
         return HCCL_E_NOT_SUPPORT;
@@ -447,7 +447,7 @@ HcclResult ReSelector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWit
 {
     HCCL_INFO("Start to execute ReSelector.");
     // 回退AICPU
-    param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
+    param.opConfig.opExecuteConfig = OpExecuteConfig::AICPU_TS;
     // 拓扑已有，无需再计算
 
     // 算法选择，选择完后顺便param.algTag设置了，资源的保存是以算子+算法为单位
@@ -459,7 +459,7 @@ HcclResult ReSelector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWit
     }
     CHK_RET(SetCommEngine(param));
     // AIV_ONLY 模式下禁止回退到非 AIV 引擎，未选中 AIV 时直接返回不支持。
-    if (param.commOpExpansionMode == HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY && param.engine != CommEngine::COMM_ENGINE_AIV) {
+    if (param.opConfig.commOpExpansionMode == HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY && param.engine != CommEngine::COMM_ENGINE_AIV) {
         HCCL_ERROR("[HcclExecOp] opType[%d] currently do not select aiv mode, aiv only not support.",
             static_cast<int>(param.opType));
         return HCCL_E_NOT_SUPPORT;
@@ -497,7 +497,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
         HCCL_INFO("[HcclExecOp] Engine ctx exists, try to fallback.");
         std::string newAlgName = static_cast<char*>(fallbackCtx);
         HCCL_INFO("[HcclExecOp] Cached algo type is %s.", newAlgName.c_str());
-        param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
+        param.opConfig.opExecuteConfig = OpExecuteConfig::AICPU_TS;
         param.engine = COMM_ENGINE_AICPU_TS;
         CHK_RET(SetOpParamAlgTag(param, newAlgName));
         CHK_RET(HcclExecOp(comm, param, topoInfo, newAlgName, resPack));
@@ -642,7 +642,7 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
         return ret;
     }
     // Host stream等待Device的通知
-    u32 hostNotifyWaitTime = param.execTimeout + HOST_NOTIFY_TIMEOUT_OFFSET;
+    u32 hostNotifyWaitTime = param.opConfig.execTimeout + HOST_NOTIFY_TIMEOUT_OFFSET;
     CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, param.aicpuRecordCpuIdx, hostNotifyWaitTime)));
 
     return HCCL_SUCCESS;
@@ -670,7 +670,7 @@ HcclResult AicpuKernelLaunch(HcclComm comm, OpParam &param, ThreadHandle unfoldT
     CHK_PRT_RET(ret != ACL_SUCCESS, HCCL_ERROR("[aclrtKernelArgsFinalize]errNo[0x%016llx] args finalize failed, "
         "kernelName:%s", ret, kernelName.c_str()), HCCL_E_RUNTIME);
 
-    u32 kernelTimeoutTmp = param.execTimeout + KERNEL_TIMEOUT_OFFSET;
+    u32 kernelTimeoutTmp = param.opConfig.execTimeout + KERNEL_TIMEOUT_OFFSET;
     u16 kernelLaunchTimeout = (kernelTimeoutTmp > UINT16_MAX) ? UINT16_MAX : static_cast<u16>(kernelTimeoutTmp);
     aclrtLaunchKernelCfg cfg;
     aclrtLaunchKernelAttr attr;
@@ -1596,19 +1596,19 @@ HcclResult SetCommEngine(OpParam &param)
         {OpExecuteConfig::HOSTCPU,    COMM_ENGINE_CPU},
     };
 
-    auto it = ConfigToEngineMap.find(param.opExecuteConfig);
+    auto it = ConfigToEngineMap.find(param.opConfig.opExecuteConfig);
     if (it != ConfigToEngineMap.end()) {
         param.engine = it->second;
         return HCCL_SUCCESS;
     }
 
-    HCCL_ERROR("[op_common][SetCommEngine] Unsupported or unknown opExecuteConfig: {%d}", static_cast<int>(param.opExecuteConfig));
+    HCCL_ERROR("[op_common][SetCommEngine] Unsupported or unknown opExecuteConfig: {%d}", static_cast<int>(param.opConfig.opExecuteConfig));
     return HCCL_E_NOT_SUPPORT;
 }
 
 HcclResult SingleRankProc(HcclComm comm, OpParam &param)
 {
-    if (param.commOpExpansionMode == HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY) {
+    if (param.opConfig.commOpExpansionMode == HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY) {
         HCCL_ERROR("[SingleRankProc] opType[%d] currently do not select aiv mode, aiv only not support, "
             "please ensure rankNum is greater than one", static_cast<int>(param.opType));
         return HCCL_E_NOT_SUPPORT;
@@ -1737,7 +1737,7 @@ HcclResult HcclGetOpExpansionMode(HcclComm comm, OpParam &param)
         HCCL_ERROR("DecideHcclOpExpansionMode failed, ret: %d", ret);
         return ret;
     }
-    param.commOpExpansionMode = finalMode;
+    param.opConfig.commOpExpansionMode = finalMode;
 
     // 第二步：应用选择的模式到param
     ret = ApplyOpExpansionMode(param, finalMode);
@@ -1807,37 +1807,37 @@ HcclResult ApplyOpExpansionMode(OpParam &param, HcclOpExpansionMode finalMode)
 #if CANN_VERSION_NUM >= 90000000
     switch (finalMode) {
         case HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_AI_CPU:
-            param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
+            param.opConfig.opExecuteConfig = OpExecuteConfig::AICPU_TS;
             param.engine = CommEngine::COMM_ENGINE_AICPU_TS;
             CHK_RET(LoadAICPUKernel());
             HCCL_DEBUG("[ApplyOpExpansionMode] AICPU mode selected.");
             break;
         case HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_AIV:
-            param.opExecuteConfig = OpExecuteConfig::AIV;
+            param.opConfig.opExecuteConfig = OpExecuteConfig::AIV;
             param.engine = CommEngine::COMM_ENGINE_AIV;
             CHK_RET(RegisterKernel());
             HCCL_DEBUG("[ApplyOpExpansionMode] AIV mode selected.");
             break;
         case HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY:
-            param.opExecuteConfig = OpExecuteConfig::AIV_ONLY;
+            param.opConfig.opExecuteConfig = OpExecuteConfig::AIV_ONLY;
             param.engine = CommEngine::COMM_ENGINE_AIV;
             CHK_RET(RegisterKernel());
             HCCL_DEBUG("[ApplyOpExpansionMode] AIV_ONLY mode selected.");
             break;
         case static_cast<HcclOpExpansionMode>(opExpansionModeCcuMs):
-            param.opExecuteConfig = OpExecuteConfig::CCU_MS;
+            param.opConfig.opExecuteConfig = OpExecuteConfig::CCU_MS;
             param.engine = CommEngine::COMM_ENGINE_CCU;
             HCCL_DEBUG("[ApplyOpExpansionMode] CCU_MS mode selected.");
             break;
         case static_cast<HcclOpExpansionMode>(opExpansionModeCcuSched):
-            param.opExecuteConfig = OpExecuteConfig::CCU_SCHED;
+            param.opConfig.opExecuteConfig = OpExecuteConfig::CCU_SCHED;
             param.engine = CommEngine::COMM_ENGINE_CCU;
             HCCL_DEBUG("[ApplyOpExpansionMode] CCU_SCHED mode selected.");
             break;
         default:
             // 回退到aicpu
             HCCL_WARNING("[ApplyOpExpansionMode] Invalid HcclOpExpansionMode: %d, fallback to AICPU_TS.", finalMode);
-            param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
+            param.opConfig.opExecuteConfig = OpExecuteConfig::AICPU_TS;
             param.engine = CommEngine::COMM_ENGINE_AICPU_TS;
             CHK_RET(LoadAICPUKernel());
             break;
@@ -1986,17 +1986,17 @@ HcclResult SetMultipleDimensionSplitRatio(OpParam &param) {
     double ratioValue = 0;
     const double DEFAULT_MULT_RATIO = 0.5;
     if (!GetExternalInputMultipleDimensionSplitRatio(ratioValue)) {
-        param.multipleDimensionSplitRatio = DEFAULT_MULT_RATIO;
+        param.opConfig.multipleDimensionSplitRatio = DEFAULT_MULT_RATIO;
         HCCL_INFO("[OpCommon] Ratio is not set, use default value: %u seconds", DEFAULT_MULT_RATIO);
     } else {
         // 验证转换后的值是否合理
         if (ratioValue < 0 || ratioValue > 1) {
             HCCL_WARNING("[OpCommon] Ratio value %.2f out of range, use default: %u seconds", 
                         ratioValue, DEFAULT_MULT_RATIO);
-            param.multipleDimensionSplitRatio = DEFAULT_MULT_RATIO;
+            param.opConfig.multipleDimensionSplitRatio = DEFAULT_MULT_RATIO;
         } else {
-            param.multipleDimensionSplitRatio = ratioValue;
-            HCCL_INFO("[OpCommon] Set ratio to: %f", param.multipleDimensionSplitRatio);
+            param.opConfig.multipleDimensionSplitRatio = ratioValue;
+            HCCL_INFO("[OpCommon] Set ratio to: %f", param.opConfig.multipleDimensionSplitRatio);
         }
     }
     return HCCL_SUCCESS;
@@ -2087,17 +2087,17 @@ HcclResult CheckHostDPUOnly(const HcclComm comm, const TopoInfoWithNetLayerDetai
 HcclResult SetExecTimeout(OpParam &param) {
     double execTimeoutValue = 0;
     if (!GetExternalInputExecTimeout(execTimeoutValue)) {
-        param.execTimeout = CUSTOM_TIMEOUT;
+        param.opConfig.execTimeout = CUSTOM_TIMEOUT;
         HCCL_INFO("[OpCommon] Exec timeout is not set, use default value: %u seconds", CUSTOM_TIMEOUT);
     } else {
         // 验证转换后的值是否合理
         if (execTimeoutValue < 0 || execTimeoutValue > UINT32_MAX) {
             HCCL_WARNING("[OpCommon] Exec timeout value %.2f out of range, use default: %u seconds", 
                          execTimeoutValue, CUSTOM_TIMEOUT);
-            param.execTimeout = CUSTOM_TIMEOUT;
+            param.opConfig.execTimeout = CUSTOM_TIMEOUT;
         } else {
-            param.execTimeout = static_cast<uint32_t>(execTimeoutValue);
-            HCCL_INFO("[OpCommon] Set exec timeout to: %u seconds", param.execTimeout);
+            param.opConfig.execTimeout = static_cast<uint32_t>(execTimeoutValue);
+            HCCL_INFO("[OpCommon] Set exec timeout to: %u seconds", param.opConfig.execTimeout);
         }
     }
     return HCCL_SUCCESS;

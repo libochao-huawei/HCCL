@@ -391,7 +391,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         }
 
         // 设置执行超时时间
-        ExecTimeoutManager::Instance().SetExecTimeout(param->execTimeout);
+        ExecTimeoutManager::Instance().SetExecTimeout(param->opConfig.execTimeout);
         // 执行算法编排
         if (executor->Orchestrate(*param, *resCtxPtr) != HCCL_SUCCESS) {
             HCCL_ERROR("orchestrate failed for alg:%s", param->algName);
