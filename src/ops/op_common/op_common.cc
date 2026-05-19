@@ -1512,7 +1512,7 @@ HcclResult HcclAllocAlgResourceAiv(
 HcclResult GetAlgResDPU(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
     std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, TopoInfoWithNetLayerDetails *topoInfo,
     AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence, uint64_t& ctxSize,
-    bool increCreateChannelFlag)
+    bool increCreateChannelFlag, const ResPackGraphMode &resPack)
 {
     // 申请共享内存
     uint64_t shmemSize = 100 * 1024 * 1024;
@@ -1524,7 +1524,7 @@ HcclResult GetAlgResDPU(HcclComm comm, const OpParam &param, AlgResourceRequest 
     resCtxHost->dpu2NpuShmemPtr = static_cast<void*>(static_cast<uint8_t*>(shmemPtr) + shmemSize / DPU2NPU_SHMEM_RATIO);
 
     CHK_RET(GetAlgResAICPU(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence,
-                           ctxSize, increCreateChannelFlag));
+                           ctxSize, increCreateChannelFlag, resPack));
 
     HCCL_INFO("Execute GetAlgResAICPU success.");
     return HCCL_SUCCESS;
