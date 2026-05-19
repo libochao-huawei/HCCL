@@ -56,30 +56,35 @@ constexpr uint64_t CCU_MS_SIZE               = 4096;
         ccu::Variable residual;          // 尾块数据size
     };
 
-    struct CcuKernelCtxBase {
-    // GroupOpSizeVars goSize;
+struct CcuKernelCtxBase {
+// GroupOpSizeVars goSize;
+
+    struct CcuLoopEntity {
+        std::unique_ptr<ccu::Func> reduceBody[2];
+        std::unique_ptr<ccu::Loop> reduceLoops[2];
+    };
 
     LoopGroupConfig  moConfig;
     LoopGroupResource moRes;
     bool resourceAllocated;
 
-    std::map<std::string, std::array<CcuLoop, 2>> loopMap;
+    std::map<std::string, std::array<CcuLoopEntity, 2>> loopMap;
     CcuLoopExecutors enginePool;
 
-    void CreateLoop(std::string loopStr) {
-        loopMap.emplace(loopStr, std::array<CcuLoop, 2>());
+    void CreateLoopEntity(std::string loopStr) {
+        loopMap.emplace(loopStr, std::array<CcuLoopEntity, 2>());
     }
 
-    bool IsLoopRegistered(std::string loopStr) {
+    bool IsLoopResRegistered(std::string loopStr) {
         return loopMap.count(loopStr) != 0;
     }
 
-    // // Loop body 中的外部 LocalAddr（每个 loop index 各两组）
-    // ccu::LocalAddr loopDst[2];
-    // ccu::LocalAddr loopSrc[2];
-    // ccu::LocalAddr loopScratch[2][RS_MAX_RANK_SIZE];
-    // CcuVariable  loopLen[2];
-    // CcuVariable  loopLenExp[2];
+// // Loop body 中的外部 LocalAddr（每个 loop index 各两组）
+// ccu::LocalAddr loopDst[2];
+// ccu::LocalAddr loopSrc[2];
+// ccu::LocalAddr loopScratch[2][RS_MAX_RANK_SIZE];
+// CcuVariable  loopLen[2];
+// CcuVariable  loopLenExp[2];
 };
 
     struct GroupReduceVar {
