@@ -46,12 +46,13 @@ static CcuResult CreateLocalCopyLoop(ReduceMesh1DMem2MemContext &ctx, GroupReduc
     for (uint32_t index = 0; index < 2; index++) { // 需要2个Loop
         ccu::Event event = ctx.moRes.completedEvent[index];
 
-        CCU_LOOP(loops[index]) {
+		loops.body[index].reset(new ccu::Func([&ctx, index, event, &var]() {
             ccu::LocalCopy(ctx.moRes.ccuBuf[0], var.src[index], var.len[index], event);
             ccu::EventWait(event);
             ccu::LocalCopy(var.dst[index], ctx.moRes.ccuBuf[0], var.len[index], event);
             ccu::EventWait(event);
-        }
+        }));
+		loops.loops[index].reset(new ccu::Loop(loops.loopParam[index], loops.body[index]));
     }
     return CCU_SUCCESS;
 }
@@ -82,9 +83,9 @@ static CcuResult LocalCopyByLoopGroup(ReduceMesh1DMem2MemContext &ctx, ccu::Loca
         ccu::Variable offsetCfg;
         offsetCfg = GetOffsetParam(ctx.moConfig.memSlice, ctx.moConfig.msInterleave, 1);
 
-        CcuLoopGroup group;
-        CCU_CHK_RET(ccu::CreateLoopGroup(&group, &paraCfg, &offsetCfg, ctx.enginePool));
-        CCU_CHK_RET(ccu::AddLoop(group, loops[0], &loopParam));
+		loops.loopParam[0] = loopParam;
+ 	    std::vector<ccu::Loop> grpLoops{ loops.loops[0] };
+ 	    ccu::LoopGroup group(paraCfg, offsetCfg, 1, grpLoops);
     }
 
     CCU_IF(ctx.localGoSize.parallelParam != 0)
@@ -118,10 +119,10 @@ static CcuResult LocalCopyByLoopGroup(ReduceMesh1DMem2MemContext &ctx, ccu::Loca
         ccu::Variable offsetCfg;
         offsetCfg = GetOffsetParam(ctx.moConfig.memSlice, ctx.moConfig.msInterleave, 1);
 
-        CcuLoopGroup group;
-        CCU_CHK_RET(ccu::CreateLoopGroup(&group, &ctx.localGoSize.parallelParam, &offsetCfg, ctx.enginePool));
-        CCU_CHK_RET(ccu::AddLoop(group, loops[0], &loopCfg0));
-        CCU_CHK_RET(ccu::AddLoop(group, loops[1], &loopCfg1));
+		loops.loopParam[0] = loopCfg0;
+ 	    loops.loopParam[1] = loopCfg1;
+ 	    std::vector<ccu::Loop> grpLoops{ loops.loops[0], loops.loops[1] };
+ 	    ccu::LoopGroup group(ctx.localGoSize.parallelParam, offsetCfg, 2, grpLoops);
     }
     return CCU_SUCCESS;
 }
@@ -161,8 +162,6 @@ static CcuResult InitResource(ReduceMesh1DMem2MemContext &ctx)
 
     ctx.moRes.bufCount = ctx.moConfig.loopCount * ctx.moConfig.msInterleave;
 	ctx.moRes.ccuBuf = ccu::Array<ccu::CcuBuffer>(ctx.moRes.bufCount);
-
-    CCU_CHK_RET(ccu::CreateLoopExecutor(&ctx.enginePool, CCU_MAX_RANK_SIZE));
 
     ctx.resourceAllocated = true;
 

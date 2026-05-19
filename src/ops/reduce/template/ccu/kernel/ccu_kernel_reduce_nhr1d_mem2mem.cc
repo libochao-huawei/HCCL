@@ -67,8 +67,6 @@ static CcuResult InitResource(ReduceNHR1DMem2MemContext &ctx)
         channelIdx++;
     }
 
-    CCU_CHK_RET(ccu::CreateLoopExecutor(&ctx.enginePool, CCU_MAX_RANK_SIZE));
-
     ctx.resourceAllocated = false;
 
     return CCU_SUCCESS;
