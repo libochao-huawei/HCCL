@@ -143,6 +143,13 @@ set(INCLUDE_LIST
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/batch_send_recv
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/batch_send_recv/executor
     ${CMAKE_CURRENT_SOURCE_DIR}/ops/batch_send_recv/selector
+
+    ${CMAKE_CURRENT_SOURCE_DIR}/ops/kfc_server
+    ${CMAKE_CURRENT_SOURCE_DIR}/ops/kfc_server/executor
+    ${CMAKE_CURRENT_SOURCE_DIR}/ops/kfc_server/selector
+    ${CMAKE_CURRENT_SOURCE_DIR}/ops/kfc_server/template
+    ${CMAKE_CURRENT_SOURCE_DIR}/ops/kfc_server/template/ccu
+    ${CMAKE_CURRENT_SOURCE_DIR}/ops/kfc_server/template/ccu/kernel
 )
 
 if(BUILD_OPEN_PROJECT)
