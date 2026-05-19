@@ -11,14 +11,161 @@
 #include "all_gather_op.h"
 #include "op_common_ops.h"
 #include <algorithm>
+#include <atomic>
+#include <cctype>
+#include <cerrno>
+#include <cstdlib>
+#include <fstream>
 #include <future>
 #include <map>
+#include <sstream>
 #include <string>
+#include <sys/stat.h>
+#include <unistd.h>
 
 
 using namespace std;
 using namespace ops_hccl;
 extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
+
+namespace {
+constexpr uint64_t DEFAULT_ALLGATHER_DUMP_COUNT = 46263936;
+constexpr const char *ALLGATHER_DUMP_ENABLE_ENV = "HCCL_ALLGATHER_DUMP_ENABLE";
+constexpr const char *ALLGATHER_DUMP_COUNT_ENV = "HCCL_ALLGATHER_DUMP_COUNT";
+constexpr const char *ALLGATHER_DUMP_PATH_ENV = "HCCL_ALLGATHER_DUMP_PATH";
+constexpr const char *DEFAULT_ALLGATHER_DUMP_PATH = "/tmp/hccl_allgather_dump";
+std::atomic<uint64_t> g_allGatherDumpSeq{0};
+
+bool IsAllGatherDumpEnabled()
+{
+    const char *enable = std::getenv(ALLGATHER_DUMP_ENABLE_ENV);
+    return enable != nullptr && std::string(enable) == "1";
+}
+
+uint64_t GetAllGatherDumpCount()
+{
+    const char *dumpCount = std::getenv(ALLGATHER_DUMP_COUNT_ENV);
+    if (dumpCount == nullptr || dumpCount[0] == '\0') {
+        return DEFAULT_ALLGATHER_DUMP_COUNT;
+    }
+    char *end = nullptr;
+    uint64_t count = std::strtoull(dumpCount, &end, 10);
+    if (end == dumpCount || *end != '\0') {
+        HCCL_WARNING("[AllGatherDump] invalid %s[%s], use default[%llu].",
+                     ALLGATHER_DUMP_COUNT_ENV, dumpCount, DEFAULT_ALLGATHER_DUMP_COUNT);
+        return DEFAULT_ALLGATHER_DUMP_COUNT;
+    }
+    return count;
+}
+
+bool ShouldDumpAllGather(uint64_t sendCount)
+{
+    if (!IsAllGatherDumpEnabled()) {
+        return false;
+    }
+    uint64_t dumpCount = GetAllGatherDumpCount();
+    return dumpCount == 0 || sendCount == dumpCount;
+}
+
+std::string GetAllGatherDumpPath()
+{
+    const char *dumpPath = std::getenv(ALLGATHER_DUMP_PATH_ENV);
+    if (dumpPath == nullptr || dumpPath[0] == '\0') {
+        return DEFAULT_ALLGATHER_DUMP_PATH;
+    }
+    return std::string(dumpPath);
+}
+
+std::string SanitizeFilePart(const std::string &value)
+{
+    std::string result;
+    result.reserve(value.size());
+    for (char ch : value) {
+        unsigned char uch = static_cast<unsigned char>(ch);
+        if (std::isalnum(uch) || ch == '_' || ch == '-' || ch == '.') {
+            result.push_back(ch);
+        } else {
+            result.push_back('_');
+        }
+    }
+    return result;
+}
+
+bool EnsureDumpDir(const std::string &dumpPath)
+{
+    if (mkdir(dumpPath.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == 0 || errno == EEXIST) {
+        return true;
+    }
+    HCCL_WARNING("[AllGatherDump] mkdir path[%s] failed, errno[%d].", dumpPath.c_str(), errno);
+    return false;
+}
+
+HcclResult DumpAllGatherDeviceBuffer(const void *deviceBuf, uint64_t elementCount, uint64_t byteSize,
+    HcclDataType dataType, aclrtStream stream, uint32_t rank, uint32_t rankSize, const std::string &tag,
+    const std::string &stage)
+{
+    CHK_PRT_RET(deviceBuf == nullptr || byteSize == 0,
+                HCCL_WARNING("[AllGatherDump] skip empty %s dump, ptr[%p], byteSize[%llu].",
+                             stage.c_str(), deviceBuf, byteSize),
+                HCCL_SUCCESS);
+
+    aclError aclRet = aclrtSynchronizeStream(stream);
+    CHK_PRT_RET(aclRet != ACL_SUCCESS,
+                HCCL_WARNING("[AllGatherDump] synchronize stream failed before %s dump, ret[%d].",
+                             stage.c_str(), aclRet),
+                HCCL_SUCCESS);
+
+    void *hostBuf = nullptr;
+    aclRet = aclrtMallocHost(&hostBuf, byteSize);
+    CHK_PRT_RET(aclRet != ACL_SUCCESS || hostBuf == nullptr,
+                HCCL_WARNING("[AllGatherDump] malloc host buffer failed for %s, byteSize[%llu], ret[%d].",
+                             stage.c_str(), byteSize, aclRet),
+                HCCL_SUCCESS);
+
+    aclRet = aclrtMemcpy(hostBuf, byteSize, deviceBuf, byteSize, ACL_MEMCPY_DEVICE_TO_HOST);
+    if (aclRet != ACL_SUCCESS) {
+        HCCL_WARNING("[AllGatherDump] copy %s device buffer failed, byteSize[%llu], ret[%d].",
+                     stage.c_str(), byteSize, aclRet);
+        (void)aclrtFreeHost(hostBuf);
+        return HCCL_SUCCESS;
+    }
+
+    const std::string dumpPath = GetAllGatherDumpPath();
+    if (!EnsureDumpDir(dumpPath)) {
+        (void)aclrtFreeHost(hostBuf);
+        return HCCL_SUCCESS;
+    }
+
+    uint64_t seq = g_allGatherDumpSeq.fetch_add(1);
+    std::ostringstream fileName;
+    fileName << dumpPath << "/allgather_" << stage << "_rank" << rank << "_ranks" << rankSize
+             << "_count" << elementCount << "_dtype" << SanitizeFilePart(GetDataTypeEnumStr(dataType))
+             << "_seq" << seq << "_pid" << getpid() << "_" << SanitizeFilePart(tag) << ".pt";
+
+    std::ofstream out(fileName.str(), std::ios::binary);
+    if (!out.is_open()) {
+        HCCL_WARNING("[AllGatherDump] open dump file[%s] failed.", fileName.str().c_str());
+        (void)aclrtFreeHost(hostBuf);
+        return HCCL_SUCCESS;
+    }
+
+    out << "HCCL_ALLGATHER_DUMP_V1\n"
+        << "stage=" << stage << "\n"
+        << "rank=" << rank << "\n"
+        << "rank_size=" << rankSize << "\n"
+        << "count=" << elementCount << "\n"
+        << "dtype=" << GetDataTypeEnumStr(dataType) << "\n"
+        << "byte_size=" << byteSize << "\n"
+        << "tag=" << tag << "\n"
+        << "data\n";
+    out.write(static_cast<const char *>(hostBuf), byteSize);
+    out.close();
+    HCCL_WARNING("[AllGatherDump] dump %s data to [%s], byteSize[%llu].",
+                 stage.c_str(), fileName.str().c_str(), byteSize);
+    (void)aclrtFreeHost(hostBuf);
+    return HCCL_SUCCESS;
+}
+}
 
 
 HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
@@ -150,10 +297,16 @@ HcclResult AllGatherOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t sendCo
     HCCL_INFO("Start to execute AllGatherOutPlaceCommon");
     u32 userRankSize;
     CHK_RET(HcclGetRankSize(comm, &userRankSize));
+    u32 userRank = INVALID_VALUE_RANKID;
+    CHK_RET(HcclGetRankId(comm, &userRank));
 
     u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
     u64 inputSize = sendCount * perDataSize;    // all gather 每个rank上一份数据
     u64 outputSize = inputSize * userRankSize;  // 每个卡上结果为rankSize份数据
+    if (ShouldDumpAllGather(sendCount)) {
+        CHK_RET(DumpAllGatherDeviceBuffer(sendBuf, sendCount, inputSize, dataType, stream, userRank,
+                                          userRankSize, tag, "input"));
+    }
 
     OpParam param;
     CHK_RET(HcclGetCommName(comm, param.commName));
@@ -185,21 +338,39 @@ HcclResult AllGatherOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t sendCo
 
     CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
     if (ShouldGoCcuFastLaunch(comm, param, &ccuFastLaunchCtx)) {
-        return HcclExecOpCcuFastLaunch(comm, param, ccuFastLaunchCtx);
+        CHK_RET(HcclExecOpCcuFastLaunch(comm, param, ccuFastLaunchCtx));
+        if (ShouldDumpAllGather(sendCount)) {
+            CHK_RET(DumpAllGatherDeviceBuffer(recvBuf, sendCount * userRankSize, outputSize, dataType, stream, userRank,
+                                              userRankSize, tag, "output"));
+        }
+        return HCCL_SUCCESS;
     }
 
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));
     if (ShouldUseInnerOp(param.opExecuteConfig) && param.opMode == OpMode::OPBASE) {
-        return HcclAllGatherInner(sendBuf, recvBuf, sendCount, dataType, comm, stream);
+        CHK_RET(HcclAllGatherInner(sendBuf, recvBuf, sendCount, dataType, comm, stream));
+        if (ShouldDumpAllGather(sendCount)) {
+            CHK_RET(DumpAllGatherDeviceBuffer(recvBuf, sendCount * userRankSize, outputSize, dataType, stream, userRank,
+                                              userRankSize, tag, "output"));
+        }
+        return HCCL_SUCCESS;
     }
     if (userRankSize == 1) {
         HCCL_WARNING("[%s] rankSize == 1, enter SingleRankProc", __func__);
         CHK_RET(SingleRankProc(comm, param));
+        if (ShouldDumpAllGather(sendCount)) {
+            CHK_RET(DumpAllGatherDeviceBuffer(recvBuf, sendCount * userRankSize, outputSize, dataType, stream, userRank,
+                                              userRankSize, tag, "output"));
+        }
         return HcclResult::HCCL_SUCCESS;
     }
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName, resPack));
+    if (ShouldDumpAllGather(sendCount)) {
+        CHK_RET(DumpAllGatherDeviceBuffer(recvBuf, sendCount * userRankSize, outputSize, dataType, stream, userRank,
+                                          userRankSize, tag, "output"));
+    }
     HCCL_INFO("Execute AllGatherOutPlace success.");
     return HCCL_SUCCESS;
 }
