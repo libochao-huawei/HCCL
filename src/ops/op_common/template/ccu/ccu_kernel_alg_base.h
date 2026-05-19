@@ -14,6 +14,7 @@
 #include <vector>
 #include <map>
 #include <array>
+#include <memory>
 
 #include "log.h"
 #include "ccu_api.hpp"
