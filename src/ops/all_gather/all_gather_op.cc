@@ -17,7 +17,7 @@
 #include <string>
 #include <fstream>
 #include <cstdlib>
-
+#include <unistd.h>
 
 using namespace std;
 using namespace ops_hccl;
@@ -27,6 +27,15 @@ static bool IsAllGatherDumpEnabled()
 {
     static bool enabled = (getenv("HCCL_ALLGATHER_DUMP") != nullptr);
     return enabled;
+}
+
+static u32 GetDumpSleepUs()
+{
+    const char *sleepEnv = getenv("HCCL_ALLGATHER_DUMP_SLEEP_US");
+    if (sleepEnv != nullptr) {
+        return static_cast<u32>(atoi(sleepEnv));
+    }
+    return 1000000;
 }
 
 static HcclResult DumpAllGatherData(const void *devPtr, u64 dataSize, u32 rankId,
@@ -110,11 +119,15 @@ HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclD
 
     CHK_RET_AND_PRINT_IDE(AllGatherOutPlace(sendBuf, recvBuf, sendCount, dataType, comm, stream, opTag), opTag.c_str());
 
-    aclError aclRet = aclrtSynchronizeStream(stream);
-    if (aclRet != ACL_SUCCESS) {
-        HCCL_ERROR("[AllGatherDump] aclrtSynchronizeStream failed, ret[%d]", aclRet);
-        return HCCL_E_RUNTIME;
-    }
+    // aclError aclRet = aclrtSynchronizeStream(stream);
+    // if (aclRet != ACL_SUCCESS) {
+    //     HCCL_ERROR("[AllGatherDump] aclrtSynchronizeStream failed, ret[%d]", aclRet);
+    //     return HCCL_E_RUNTIME;
+    // }
+
+    u32 sleepUs = GetDumpSleepUs();
+    HCCL_INFO("[HcclAllGather] usleep[%u us] before dump output", sleepUs);
+    usleep(sleepUs);
 
     if (IsAllGatherDumpEnabled()) {
         u32 dumpRankId = INVALID_VALUE_RANKID;
