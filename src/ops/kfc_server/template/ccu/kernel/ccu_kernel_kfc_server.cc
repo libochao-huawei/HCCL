@@ -10,7 +10,6 @@
 
 #include "ccu_kernel_alg_base.h"
 #include "ccu_kernel_kfc_server.h"
-#include "const_val.h"
 
 namespace ops_hccl {
 

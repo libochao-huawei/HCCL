@@ -29,7 +29,7 @@ HcclResult HcclKfcServer(HcclComm comm, aclrtStream stream)
     HcclUs startut = TIME_NOW();
     CHK_RET(InitEnvConfig());
 
-    CHK_RET(CheckKfcServerInputPara(comm, sendBuf, sendCount, sendType, recvBuf, recvCount, recvType, stream));
+    CHK_RET(CheckKfcServerInputPara(comm, stream));
     u32 rankSize = INVALID_VALUE_RANKSIZE;
     CHK_RET(HcclGetRankSize(comm, &rankSize));
     char commName[COMM_INDENTIFIER_MAX_LENGTH];
@@ -39,13 +39,11 @@ HcclResult HcclKfcServer(HcclComm comm, aclrtStream stream)
     const string tag = "KFC_SERVER_" + string(commName);
     CHK_RET(HcclCheckTag(tag.c_str()));
     CHK_RET_AND_PRINT_IDE(HcomCheckUserRank(rankSize, userRank), tag.c_str());
-    CHK_RET(CheckCount(recvCount));
-    CHK_RET(CheckDataType(recvType, false));
 
-    CHK_RET(KfcServerEntryLog(sendBuf, recvBuf, sendCount, recvCount, sendType, recvType, stream, tag, "HcclKfcServer"));
+    CHK_RET(KfcServerEntryLog(stream, tag, "HcclKfcServer"));
 
     bool useInnerOp = false;
-    CHK_RET_AND_PRINT_IDE(KfcServerOutPlace(sendBuf, recvBuf, recvType, comm, stream, tag,
+    CHK_RET_AND_PRINT_IDE(KfcServerOutPlace(comm, stream, tag,
         HcclCMDType::HCCL_CMD_KFC_SERVER, rankSize, useInnerOp), tag.c_str());
     
     CHK_RET(LogHcclExit("HcclKfcServer", tag.c_str(), startut));
@@ -55,21 +53,11 @@ HcclResult HcclKfcServer(HcclComm comm, aclrtStream stream)
 
 namespace ops_hccl {
 
-HcclResult CheckKfcServerInputPara(const HcclComm comm, const void *sendBuf, const uint64_t sendCount,
-    const HcclDataType sendType, const void *recvBuf, const uint64_t recvCount,
-    const HcclDataType recvType, const aclrtStream stream)
+HcclResult CheckKfcServerInputPara(const HcclComm comm, const aclrtStream stream)
 {
     RPT_INPUT_ERR(comm == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),
         std::vector<std::string>({"HcclKfcServer", "nullptr", "comm", "non-null pointer"}));
     CHK_PTR_NULL(comm);
-    RPT_INPUT_ERR(sendBuf == nullptr, "EI0003",
-        std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),
-        std::vector<std::string>({"HcclKfcServer", "nullptr", "sendBuf", "non-null pointer"}));
-    CHK_PTR_NULL(sendBuf);
-    RPT_INPUT_ERR(recvBuf == nullptr, "EI0003",
-        std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),
-        std::vector<std::string>({"HcclKfcServer", "nullptr", "recvBuf", "non-null pointer"}));
-    CHK_PTR_NULL(recvBuf);
     RPT_INPUT_ERR(stream == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),
         std::vector<std::string>({"HcclKfcServer", "nullptr", "stream", "non-null pointer"}));
     CHK_PTR_NULL(stream);
@@ -77,8 +65,7 @@ HcclResult CheckKfcServerInputPara(const HcclComm comm, const void *sendBuf, con
     return HCCL_SUCCESS;
 }
 
-HcclResult KfcServerConstructOpParam(const void *sendBuf, const void *recvBuf, HcclDataType dataType,
-    HcclComm comm, aclrtStream stream, const std::string &tag, HcclCMDType opType, 
+HcclResult KfcServerConstructOpParam(HcclComm comm, aclrtStream stream, const std::string &tag, HcclCMDType opType, 
     u32 rankSize, OpMode opMode, OpParam &param)
 {
     CHK_RET(HcclGetCommName(comm, param.commName));
@@ -94,24 +81,17 @@ HcclResult KfcServerConstructOpParam(const void *sendBuf, const void *recvBuf, H
         return HCCL_E_INTERNAL;
     }
 
-    param.inputPtr = const_cast<void*>(sendBuf);
-    param.outputPtr = const_cast<void*>(recvBuf);
-    param.inputSize = sendCount;
-    param.outputSize = recvCount;
-    param.DataDes.count = sendCount;
-    param.DataDes.dataType = dataType;
     param.enableDetour = false;
     param.opType = opType;
 
     return HCCL_SUCCESS;
 }
 
-HcclResult KfcServerOutPlaceCommon(const void *sendBuf, const void *recvBuf, HcclDataType dataType,
-    HcclComm comm, aclrtStream stream, const std::string &tag, HcclCMDType opType,
+HcclResult KfcServerOutPlaceCommon(HcclComm comm, aclrtStream stream, const std::string &tag, HcclCMDType opType,
     u32 rankSize, bool &useInnerOp, OpMode opMode, const ResPackGraphMode &resPack)
 {
     OpParam param;
-    CHK_RET(KfcServerConstructOpParam(sendBuf, recvBuf, dataType, comm, stream, tag, opType, rankSize, opMode, param));
+    CHK_RET(KfcServerConstructOpParam(comm, stream, tag, opType, rankSize, opMode, param));
     
     CHK_RET(HcclGetOpExpansionMode(comm, param));
 
@@ -119,10 +99,6 @@ HcclResult KfcServerOutPlaceCommon(const void *sendBuf, const void *recvBuf, Hcc
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));
     HCCL_INFO("Selector output algName is: %s", algName.c_str());
-    if (ShouldUseInnerOp(param.opExecuteConfig) && param.opMode == OpMode::OPBASE) {
-        useInnerOp = true;
-        return HCCL_SUCCESS;
-    }
     if (rankSize == 1) {
         HCCL_WARNING("[%s] rankSize == 1, enter SingleRankProc", __func__);
         CHK_RET(SingleRankProc(comm, param));
@@ -133,8 +109,7 @@ HcclResult KfcServerOutPlaceCommon(const void *sendBuf, const void *recvBuf, Hcc
     return HCCL_SUCCESS;
 }
 
-HcclResult KfcServerOutPlace(const void *sendBuf, const void *recvBuf, HcclDataType dataType,
-    HcclComm comm, aclrtStream stream, const std::string &tag, HcclCMDType opType,
+HcclResult KfcServerOutPlace(HcclComm comm, aclrtStream stream, const std::string &tag, HcclCMDType opType,
     u32 rankSize, bool &useInnerOp)
 {
     HCCL_INFO("Start to execute KfcServerOutPlace");
@@ -144,9 +119,7 @@ HcclResult KfcServerOutPlace(const void *sendBuf, const void *recvBuf, HcclDataT
     return HCCL_SUCCESS;
 }
 
-HcclResult KfcServerEntryLog(const void *sendBuf, const void *recvBuf, uint64_t sendCount, uint64_t recvCount,
-    HcclDataType sendType, HcclDataType recvType, aclrtStream stream, 
-    const std::string &tag, const std::string &opName)
+HcclResult KfcServerEntryLog(aclrtStream stream, const std::string &tag, const std::string &opName)
 {
     if (GetExternalInputHcclEnableEntryLog()) {
         s32 deviceLogicId = 0;
@@ -155,9 +128,8 @@ HcclResult KfcServerEntryLog(const void *sendBuf, const void *recvBuf, uint64_t 
         ACLCHECK(aclrtStreamGetId(stream, &streamId));
         char stackLogBuffer[LOG_TMPBUF_SIZE];
         s32 ret = snprintf_s(stackLogBuffer, LOG_TMPBUF_SIZE, LOG_TMPBUF_SIZE - 1U,
-            "tag[%s], sendBuf[%p], recvBuf[%p], sendCount[%llu], recvCount[%llu], sendType[%s], recvType[%s], streamId[%d], deviceLogicId[%d]",
-            tag.c_str(), sendBuf, recvBuf, sendCount, recvCount, GetDataTypeEnumStr(sendType).c_str(), 
-            GetDataTypeEnumStr(recvType).c_str(), streamId, deviceLogicId);
+            "tag[%s], streamId[%d], deviceLogicId[%d]",
+            tag.c_str(), streamId, deviceLogicId);
 
         CHK_PRT_CONT(ret == -1, HCCL_WARNING("Failed to build log info, tag[%s].", tag.c_str()));
         std::string logInfo = "Entry-" + opName + ":" + std::string(stackLogBuffer);
