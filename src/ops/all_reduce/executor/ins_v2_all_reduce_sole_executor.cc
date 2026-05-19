@@ -18,13 +18,13 @@
 #include "aiv_temp_all_reduce_mesh_1D_oneshot.h"
 #include "aiv_temp_all_reduce_mesh_1D_twoshot.h"
 #if !defined(HCCL_CANN_COMPAT_850)
-#include "ccu_temp_all_reduce_mesh_1D_one_shot.h"
+// #include "ccu_temp_all_reduce_mesh_1D_one_shot.h"
 #include "ccu_temp_all_reduce_mesh_1D_mem2mem.h"
 #include "ccu_temp_all_reduce_mesh_1D.h"
 #include "ccu_temp_all_reduce_nhr_1D_mem2mem.h"
-#include "ccu_temp_all_reduce_mesh_1D_2die_oneshot.h"
-#include "ccu_temp_all_reduce_mesh_1D_mem2mem_2die_oneshot.h"
-#include "ccu_temp_all_reduce_nhr_mem2mem_1D_multi_jetty.h"
+// #include "ccu_temp_all_reduce_mesh_1D_2die_oneshot.h"
+// #include "ccu_temp_all_reduce_mesh_1D_mem2mem_2die_oneshot.h"
+// #include "ccu_temp_all_reduce_nhr_mem2mem_1D_multi_jetty.h"
 #endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 
