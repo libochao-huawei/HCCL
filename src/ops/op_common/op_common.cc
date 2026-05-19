@@ -1006,18 +1006,17 @@ HcclResult HcclGetThread(
         }
     } else {
         // host模式下，将主流封装为thread，并创建主流上的notify
-        // 加if判断
-        if (param.opMode == OpMode::OPBASE) {
-            ThreadHandle thread;
-            CHK_RET(HcclThreadAcquireWithStream(comm, param.engine, param.stream,
-                resRequest.notifyNumOnMainThread, &thread));
-            resCtxHost->threads.push_back(thread);
-            u32 maxNotifyNum = 0;
-            for (u32 i = 0; i < resRequest.notifyNumPerThread.size(); i++) {
-                if (resRequest.notifyNumPerThread[i] > maxNotifyNum) {
-                    maxNotifyNum = resRequest.notifyNumPerThread[i];
-                }
+        ThreadHandle thread;
+        CHK_RET(HcclThreadAcquireWithStream(comm, param.engine, param.stream,
+            resRequest.notifyNumOnMainThread, &thread));
+        resCtxHost->threads.push_back(thread);
+        u32 maxNotifyNum = 0;
+        for (u32 i = 0; i < resRequest.notifyNumPerThread.size(); i++) {
+            if (resRequest.notifyNumPerThread[i] > maxNotifyNum) {
+                maxNotifyNum = resRequest.notifyNumPerThread[i];
             }
+        }
+        if (param.opMode == OpMode::OPBASE) {
             u32 threadNum = resRequest.slaveThreadNum;
             if (threadNum > 0) {
                 std::vector<ThreadHandle> threads(threadNum);
@@ -1027,32 +1026,26 @@ HcclResult HcclGetThread(
                 }
             }
         } else {
-            ThreadHandle thread;
-            CHK_RET(HcclThreadAcquireWithStream(comm, param.engine, param.stream,
-                resRequest.notifyNumOnMainThread, &thread));
-            resCtxHost->threads.push_back(thread);
-            u32 maxNotifyNum = 0;
-            for (u32 i = 0; i < resRequest.notifyNumPerThread.size(); i++) {
-                if (resRequest.notifyNumPerThread[i] > maxNotifyNum) {
-                    maxNotifyNum = resRequest.notifyNumPerThread[i];
-                }
+            u32 slaveStreams = resPack.streams.size();
+            u32 threadNum = resRequest.slaveThreadNum;
+            if (threadNum > slaveStreams) {
+                HCCL_ERROR("Thread Num Should less than slave streams.");
+                return HCCL_E_UNAVAIL;
             }
-            u32 threadNum = resPack.streams.size();
-            if (threadNum > 0) {
-                for (u32 i = 0; i < threadNum; i++) {
-                    ThreadHandle slaveThread;
-                    CHK_RET(HcclThreadAcquireWithStream(comm, param.engine, resPack.streams[i], maxNotifyNum, &slaveThread));
-                    resCtxHost->threads.push_back(slaveThread);
-                }
+
+            for (u32 i = 0; i < threadNum; i++) {
+                ThreadHandle slaveThread;
+                CHK_RET(HcclThreadAcquireWithStream(comm, param.engine, resPack.streams[i], maxNotifyNum, &slaveThread));
+                resCtxHost->threads.push_back(slaveThread);
             }
         }
+    }
 
     if (UNLIKELY(HcclCheckLogLevel(DLOG_DEBUG))) {
         HCCL_DEBUG("[HcclGetThread] slaveThreadNum[%u]", resRequest.slaveThreadNum);
         for (u32 i = 0; i < resRequest.slaveThreadNum + 1; i++) {
             HCCL_DEBUG("[HcclGetThread] threads[%u]=[%llu]", i, resCtxHost->threads[i]);
         }
-    }
     }
     return HCCL_SUCCESS;
 }
