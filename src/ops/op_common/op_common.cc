@@ -852,41 +852,23 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
     CHK_RET(executor->CalcRes(comm, param, topoInfo, algHierarchyInfo, resRequest));
 
     // 参数一致性校验准备工作
+    // HCCL_DFS_CONFIG 为 off 以及 HCCL_DFS_CONFIG 为 first 或空但非首算子时不校验
+    // HCCL_DFS_CONFIG 不为 off 时增量建链模式每次下算子均校验
     OpExchangeInfo exchangeInfo{};
     std::string tagStr = param.algTag;
-    bool isChecked = (g_consistencyCheckedList.find(tagStr) != g_consistencyCheckedList.end());
-    if (!isChecked || increCreateChannelFlag) {
-        CHK_RET(FillOpExChangeInfo(comm, param, exchangeInfo));
+    bool isChecked = GetInconsistentCheckSwitch() == 0 &&
+        (g_inconsistentCheckedList.find(tagStr) != g_inconsistentCheckedList.end());
+    if (GetInconsistentCheckSwitch() == -1 || (isChecked && !increCreateChannelFlag)) {
+        isChecked = true; // isChecked 为 false 时做参数比较
+    } else {
+        CHK_RET(FillOpExchangeInfo(comm, param, exchangeInfo));
         CHK_RET(HcclCommAddExchangeInfo(comm, &exchangeInfo, sizeof(exchangeInfo)));
-        g_consistencyCheckedList.insert(tagStr);
+        g_inconsistentCheckedList.insert(tagStr);
+        isChecked = false;
     }
 
-    // host侧资源
-    if (param.engine == COMM_ENGINE_RESERVED) {
-        // COMM_ENGINE_RESERVED
-    } else if (param.engine == COMM_ENGINE_CPU) {
-        CHK_RET(GetAlgResDPU(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence,
-            size, increCreateChannelFlag));
-    } else if (param.engine == COMM_ENGINE_CPU_TS) {
-        // COMM_ENGINE_CPU_TS
-    } else if (param.engine == COMM_ENGINE_AICPU) {
-        // COMM_ENGINE_AICPU
-    } else if (param.engine == COMM_ENGINE_AICPU_TS) {
-        CHK_RET(GetAlgResAICPU(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence,
-                               size, increCreateChannelFlag));
-    } else if (param.engine == COMM_ENGINE_AIV) {
-        CHK_RET(GetAlgResAiv(comm, param, resRequest, topoInfo, algHierarchyInfo, resCtxSequence));
-    } else if (param.engine == COMM_ENGINE_CCU) {
-        auto ret = GetAlgResCcu(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence, size);
-        if (ret == HCCL_E_UNAVAIL) {
-            return HCCL_E_UNAVAIL;
-        }
-        CHK_RET(ret);
-    } else {
-        HCCL_ERROR("fail to get engine, invalid engine type[%d].", param.engine);
-        return HCCL_E_PARA;
-    }
-    param.ctxSize = size;
+    CHK_RET(GetAlgResWithEngine(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence, size,
+        increCreateChannelFlag));
     if (resCtxHost != nullptr) {
         // 拼接各level的channel数量信息
         std::string channelNumInfo;
@@ -913,6 +895,40 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
         }
     }
 
+    return HCCL_SUCCESS;
+}
+
+HcclResult GetAlgResWithEngine(HcclComm comm, OpParam &param, AlgResourceRequest &resRequest,
+    std::unique_ptr<AlgResourceCtxSerializable> &resCtxHost, TopoInfoWithNetLayerDetails *topoInfo,
+    AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence, uint64_t &size, bool increCreateChannelFlag)
+{
+    // host侧资源
+    if (param.engine == COMM_ENGINE_RESERVED) {
+        // COMM_ENGINE_RESERVED
+    } else if (param.engine == COMM_ENGINE_CPU) {
+        CHK_RET(GetAlgResDPU(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence,
+            size, increCreateChannelFlag));
+    } else if (param.engine == COMM_ENGINE_CPU_TS) {
+        // COMM_ENGINE_CPU_TS
+    } else if (param.engine == COMM_ENGINE_AICPU) {
+        // COMM_ENGINE_AICPU
+    } else if (param.engine == COMM_ENGINE_AICPU_TS) {
+        CHK_RET(GetAlgResAICPU(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence,
+                               size, increCreateChannelFlag));
+    } else if (param.engine == COMM_ENGINE_AIV) {
+        CHK_RET(GetAlgResAiv(comm, param, resRequest, topoInfo, algHierarchyInfo, resCtxSequence));
+    } else if (param.engine == COMM_ENGINE_CCU) {
+        // 添加资源回退。SetCommEngine
+        auto ret = GetAlgResCcu(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence, size);
+        if (ret == HCCL_E_UNAVAIL) {
+            return HCCL_E_UNAVAIL;
+        }
+        CHK_RET(ret);
+    } else {
+        HCCL_ERROR("fail to get engine, invalid engine type[%d].", param.engine);
+        return HCCL_E_PARA;
+    }
+    param.ctxSize = size;
     return HCCL_SUCCESS;
 }
 
