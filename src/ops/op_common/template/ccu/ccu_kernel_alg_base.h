@@ -60,19 +60,20 @@ struct CcuKernelCtxBase {
 // GroupOpSizeVars goSize;
 
     struct CcuLoopEntity {
-        std::unique_ptr<ccu::Func> reduceBody[2];
-        std::unique_ptr<ccu::Loop> reduceLoops[2];
+        std::unique_ptr<ccu::Func> body[2];
+        std::unique_ptr<ccu::Loop> loops[2];
+        ccu::Variable              loopParam[2];
     };
 
     LoopGroupConfig  moConfig;
     LoopGroupResource moRes;
     bool resourceAllocated;
 
-    std::map<std::string, std::array<CcuLoopEntity, 2>> loopMap;
+    std::map<std::string, CcuLoopEntity> loopMap;
     CcuLoopExecutors enginePool;
 
     void CreateLoopEntity(std::string loopStr) {
-        loopMap.emplace(loopStr, std::array<CcuLoopEntity, 2>());
+        loopMap.emplace(loopStr, CcuLoopEntity());
     }
 
     bool IsLoopResRegistered(std::string loopStr) {
