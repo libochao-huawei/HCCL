@@ -43,29 +43,16 @@ static CcuResult InitResource(ReduceScatterMesh1DContext &ctx)
         return CcuResult::CCU_E_INTERNAL;
     }
 
-    CCU_CHK_RET(ccu::Alloc(&ctx.output));
     // 按照rank号从小到大遍历channels，遇到本rank就填充本地资源，否则依次取远端资源，要求算法返回的Link同样是按顺序排列的
     ctx.input.resize(arg->rankSize);
     ctx.token.resize(arg->rankSize);
     for (uint64_t peerId = 0; peerId < arg->rankSize; peerId++) {
-        if (peerId == arg->rankId) {
-            CCU_CHK_RET(ccu::Alloc(&ctx.input[peerId]));
-            CCU_CHK_RET(ccu::Alloc(&ctx.token[peerId]));
-        } else {
-            CCU_CHK_RET(ccu::CreateByChannel(
-                arg->channels[channelIdx], INPUT_XN_ID, &ctx.input[peerId]));
-            CCU_CHK_RET(ccu::CreateByChannel(
-                arg->channels[channelIdx], TOKEN_XN_ID, &ctx.token[peerId]));
+        if (peerId != arg->rankId) {
+            ctx.input[peerId] = ccu::GetResByChannel(arg->channels[channelIdx], INPUT_XN_ID);
+            ctx.token[peerId] = ccu::GetResByChannel(arg->channels[channelIdx], TOKEN_XN_ID);
             channelIdx++;
         }
     }
-
-    CCU_CHK_RET(ccu::Alloc(&ctx.offset));
-
-    CCU_CHK_RET(ccu::Alloc(&ctx.goSize.addrOffset));
-    CCU_CHK_RET(ccu::Alloc(&ctx.goSize.loopParam));
-    CCU_CHK_RET(ccu::Alloc(&ctx.goSize.parallelParam));
-    CCU_CHK_RET(ccu::Alloc(&ctx.goSize.residual));
 
     CCU_CHK_RET(ccu::CreateLoopExecutor(&ctx.enginePool, CCU_MAX_RANK_SIZE + 1));
 
@@ -125,12 +112,10 @@ static CcuResult DoReduceScatter(ReduceScatterMesh1DContext &ctx)
     std::vector<ccu::RemoteAddr> src;
     ccu::LocalAddr localSrc;
     src.resize(arg->rankSize);
-    for (uint32_t rankIdx = 0; rankIdx < arg->rankSize - 1; rankIdx++) {
-        CCU_CHK_RET(ccu::Alloc(&src[rankIdx]));
-    }
-    CCU_CHK_RET(ccu::Alloc(&localSrc));
+    // for (uint32_t rankIdx = 0; rankIdx < arg->rankSize - 1; rankIdx++) {
+    //     CCU_CHK_RET(ccu::Alloc(&src[rankIdx]));
+    // }
     ccu::LocalAddr dst;
-    CCU_CHK_RET(ccu::Alloc(&dst));
     dst.addr  = ctx.output;
     dst.token = ctx.token[arg->rankId];
     uint32_t curId = 0;
