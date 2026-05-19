@@ -20,7 +20,6 @@
 
 namespace ops_hccl {
 constexpr u32 MAX_RANK_SIZE = 128; // 注意要和device侧的一致
-constexpr u32 MAX_NUM_BLOCKS = 56; // 56-72
  
 constexpr s32 TOPO_LEN = 64;
 
