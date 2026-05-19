@@ -64,17 +64,18 @@ static CcuResult InitResource(ReduceScatterVMesh1DMem2MemContext &ctx)
 static CcuResult LoadArgs(ReduceScatterVMesh1DMem2MemContext &ctx)
 {
     const auto *arg = ctx.arg;
-    CCU_CHK_RET(ccu::LoadArg(ctx.input[arg->rankId]));
-    CCU_CHK_RET(ccu::LoadArg(ctx.output));
-    CCU_CHK_RET(ccu::LoadArg(ctx.token[arg->rankId]));
-    CCU_CHK_RET(ccu::LoadArg(ctx.scratch));
-    CCU_CHK_RET(ccu::LoadArg(ctx.scratchInterval));
-    CCU_CHK_RET(ccu::LoadArg(ctx.sliceSize));
-    CCU_CHK_RET(ccu::LoadArg(ctx.offset));
-    CCU_CHK_RET(ccu::LoadArg(ctx.reduceGosize.addrOffset));
-    CCU_CHK_RET(ccu::LoadArg(ctx.reduceGosize.loopParam));
-    CCU_CHK_RET(ccu::LoadArg(ctx.reduceGosize.parallelParam));
-    CCU_CHK_RET(ccu::LoadArg(ctx.reduceGosize.residual));
+    uint32_t cnt = 0;
+    CCU_CHK_RET(ccu::LoadArg(ctx.input[arg->rankId], cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.output, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.token[arg->rankId], cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.scratch, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.scratchInterval, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.sliceSize, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.offset, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.reduceGosize.addrOffset, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.reduceGosize.loopParam, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.reduceGosize.parallelParam, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.reduceGosize.residual, cnt++));
     return CCU_SUCCESS;
 }
 
@@ -109,7 +110,7 @@ static void PostSync(ReduceScatterVMesh1DMem2MemContext &ctx)
 }
 
 static void CcuKernelReduceScatterVMesh1DMem2Mem::CollectAllRanksSlice(std::vector<ccu::RemoteAddr>& tmpSrc,
-    std::vector<ccu::CcuLocalAddr>& tmpDst, ReduceScatterVMesh1DMem2MemContext &ctx)
+    std::vector<ccu::LocalAddr>& tmpDst, ReduceScatterVMesh1DMem2MemContext &ctx)
 {
     const auto *arg = ctx.arg;
     uint32_t channelId = 0;
@@ -118,9 +119,7 @@ static void CcuKernelReduceScatterVMesh1DMem2Mem::CollectAllRanksSlice(std::vect
             // 跳过本卡
             ccu::EventRecord(ctx.event, 1 << rankIdx);
         } else {
-            // ctx.event.setMask(1 << rankIdx);
-            // ReadNb(arg->channels[channelId], tmpDst[rankIdx], tmpSrc[rankIdx], arg->sliceSize, ctx.event); // fix
-            CHK_RET(ccu::Read(channels[channelId], tmpDst[rankIdx], tmpSrc[rankIdx], arg->sliceSize, ctx.event, 1 << rankIdx));
+            CHK_RET(ccu::Read(channels[channelId], tmpDst[rankIdx], tmpSrc[rankIdx], ctx.sliceSize, ctx.event, 1 << rankIdx));
             channelId++;
         }
     }
@@ -158,7 +157,7 @@ static void CcuKernelReduceScatterVMesh1DMem2Mem::PrepareReduceScatterVData(std:
 static void CcuKernelReduceScatterVMesh1DMem2Mem::DoReduceScatterV(ReduceScatterVMesh1DMem2MemContext &ctx)
 {
     const auto *arg = ctx.arg;
-    CCU_IF(arg->sliceSize != 0) {
+    CCU_IF(ctx.sliceSize != 0) {
         PrepareReduceScatterVData(ctx.reduceScatterVSrc, ctx.reduceScatterVDst, ctx);
         CollectAllRanksSlice(ctx.reduceScatterVSrc, ctx.reduceScatterVDst, ctx);
 
