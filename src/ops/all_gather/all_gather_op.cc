@@ -44,12 +44,12 @@ static HcclResult DumpAllGatherData(const void *devPtr, u64 dataSize, u32 rankId
         return HCCL_E_RUNTIME;
     }
 
-    aclRet = aclrtSynchronizeStream(stream);
-    if (aclRet != ACL_SUCCESS) {
-        HCCL_ERROR("[AllGatherDump] aclrtSynchronizeStream failed, ret[%d]", aclRet);
-        aclrtFreeHost(hostBuf);
-        return HCCL_E_RUNTIME;
-    }
+    // aclRet = aclrtSynchronizeStream(stream);
+    // if (aclRet != ACL_SUCCESS) {
+    //     HCCL_ERROR("[AllGatherDump] aclrtSynchronizeStream failed, ret[%d]", aclRet);
+    //     aclrtFreeHost(hostBuf);
+    //     return HCCL_E_RUNTIME;
+    // }
 
     aclRet = aclrtMemcpy(hostBuf, dataSize, devPtr, dataSize, ACL_MEMCPY_DEVICE_TO_HOST);
     if (aclRet != ACL_SUCCESS) {
@@ -59,7 +59,7 @@ static HcclResult DumpAllGatherData(const void *devPtr, u64 dataSize, u32 rankId
     }
 
     std::string fileName = "/tmp/hccl_allgather_dump_rank" + std::to_string(rankId) +
-        "_" + phase + "_" + opTag + std::to_string(dataSize) + ".bin";
+        "_" + phase + "_" + opTag + "_" +std::to_string(dataSize) + ".bin";
     std::ofstream ofs(fileName, std::ios::binary | std::ios::trunc);
     if (!ofs.is_open()) {
         HCCL_ERROR("[AllGatherDump] failed to open file[%s]", fileName.c_str());
@@ -117,17 +117,17 @@ HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclD
 
     CHK_RET_AND_PRINT_IDE(AllGatherOutPlace(sendBuf, recvBuf, sendCount, dataType, comm, stream, opTag), opTag.c_str());
 
-    if (IsAllGatherDumpEnabled()) {
-        u32 dumpRankId = INVALID_VALUE_RANKID;
-        CHK_RET(HcclGetRankId(comm, &dumpRankId));
-        u32 dumpRankSize = INVALID_VALUE_RANKSIZE;
-        CHK_RET(HcclGetRankSize(comm, &dumpRankSize));
-        u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
-        u64 outputSize = sendCount * perDataSize * dumpRankSize;
-        HcclResult dumpRet = DumpAllGatherData(recvBuf, outputSize, dumpRankId, "output", opTag, stream);
-        CHK_PRT_CONT(dumpRet != HCCL_SUCCESS,
-            HCCL_WARNING("[HcclAllGather] dump output data failed, ret[%d]", dumpRet));
-    }
+    // if (IsAllGatherDumpEnabled()) {
+    //     u32 dumpRankId = INVALID_VALUE_RANKID;
+    //     CHK_RET(HcclGetRankId(comm, &dumpRankId));
+    //     u32 dumpRankSize = INVALID_VALUE_RANKSIZE;
+    //     CHK_RET(HcclGetRankSize(comm, &dumpRankSize));
+    //     u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
+    //     u64 outputSize = sendCount * perDataSize * dumpRankSize;
+    //     HcclResult dumpRet = DumpAllGatherData(recvBuf, outputSize, dumpRankId, "output", opTag, stream);
+    //     CHK_PRT_CONT(dumpRet != HCCL_SUCCESS,
+    //         HCCL_WARNING("[HcclAllGather] dump output data failed, ret[%d]", dumpRet));
+    // }
 
     CHK_RET(LogHcclExit("HcclAllGather", opTag.c_str(), startut));
 
