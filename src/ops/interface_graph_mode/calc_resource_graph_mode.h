@@ -21,10 +21,16 @@ HcclResult HcclSetOpParamGraphModeDataCount(OpParamGraphMode *opParam, const u64
 HcclResult HcclSetOpParamGraphModeDataType(OpParamGraphMode *opParam, HcclDataType dataType);
 HcclResult HcclSetOpParamGraphModeRankSize(OpParamGraphMode *opParam, const u32 *rankSize);
 HcclResult HcclSetOpParamGraphModeHCCLBufferSize(OpParamGraphMode *opParam, const u64 *hcclBufferSize);
+HcclResult HcclSetOpParamGraphModeGroup(OpParamGraphMode *opParam, const char *group);
+HcclResult HcclSetOpParamGraphModeReduceOp(OpParamGraphMode *opParam, HcclReduceOp reduceOp);
 HcclResult HcclSetAivSelectOpParamGraphMode(OpParamGraphMode *opParam, u32 aivCoreLimit);
 HcclResult HcclCalcOpResOnlineGraphMode(OpParamGraphMode *opParam, u64 *opMemSize, u32 *streamNum, u32 *taskNum, u32 *aivCoreNum);
 HcclResult HcclCalcOpResOfflineGraphMode(OpParamGraphMode *opParam, u64 *opMemSize, u32 *streamNum, u32 *taskNum, u32 *aivCoreNum);
+HcclResult HcclSetAivCoreLimitGraphMode(const char *group, u32 aivCoreLimit);
+HcclResult HcclSelectAlgGraphMode(const char *group, u64 count, HcclDataType dataType, HcclReduceOp op, HcclCMDType opType,
+ 	u32 aivCoreLimit, bool *ifAiv, char **algName);
 
+HcclCMDType GetOpType(const char* opType);
 #ifdef __cplusplus
 }
 #endif
