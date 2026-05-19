@@ -207,9 +207,9 @@ HcclResult CcuTempReduceNHR1DMem2Mem::FastLaunch(const OpParam& param, const Tem
         args[outputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + args[outputOffsetIdx];
 
         void *taskArgs = reinterpret_cast<void*>(args);
-
-        CcuResult launchRet = HcommCcuKernelLaunch(tempFastLaunchCtx.threads[0],
-                                                   tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle,
+        HCCL_INFO("[CcuTempReduceNHR1DMem2Mem::FastLaunch] xjhlog1 kernelHandle [%llu]", tempFastLaunchCtx.ccuKernelSubmitInfos[kernelIdx].kernelHandle);
+        CcuResult launchRet = HcommCcuKernelLaunch(tempFastLaunchCtx.threads[kernelIdx],
+                                                   tempFastLaunchCtx.ccuKernelSubmitInfos[kernelIdx].kernelHandle,
                                                    taskArgs, argSize);
         if (launchRet != CCU_SUCCESS) {
             HCCL_ERROR("[CcuTempReduceNHR1DMem2Mem::FastLaunch] kernel launch failed, ccuRet -> %d", launchRet);
