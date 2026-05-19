@@ -51,9 +51,9 @@ static CcuResult InitResource(ReduceScatterVMesh1DMem2MemContext &ctx)
     ctx.input.resize(arg->rankSize);
     ctx.token.resize(arg->rankSize);
     for (uint64_t peerId = 0; peerId < arg->rankSize; peerId++) {
-        if (peerId ！= arg->rankId) {
-            ctx.input[peerId] = ccu::GetResByChannel(arg->channels[channelIdx], INPUT_XN_ID);
-            ctx.token[peerId] = ccu::GetResByChannel(arg->channels[channelIdx], TOKEN_XN_ID);
+        if (peerId != arg->rankId) {
+            ctx.input[peerId] = ccu::GetResByChannel<ccu::Variable>(arg->channels[channelIdx], INPUT_XN_ID);
+            ctx.token[peerId] = ccu::GetResByChannel<ccu::Variable>(arg->channels[channelIdx], TOKEN_XN_ID);
             channelIdx++;
         }
     }
@@ -64,17 +64,18 @@ static CcuResult InitResource(ReduceScatterVMesh1DMem2MemContext &ctx)
 static CcuResult LoadArgs(ReduceScatterVMesh1DMem2MemContext &ctx)
 {
     const auto *arg = ctx.arg;
-    CCU_CHK_RET(ccu::LoadArg(ctx.input[arg->rankId]));
-    CCU_CHK_RET(ccu::LoadArg(ctx.output));
-    CCU_CHK_RET(ccu::LoadArg(ctx.token[arg->rankId]));
-    CCU_CHK_RET(ccu::LoadArg(ctx.scratch));
-    CCU_CHK_RET(ccu::LoadArg(ctx.scratchInterval));
-    CCU_CHK_RET(ccu::LoadArg(ctx.sliceSize));
-    CCU_CHK_RET(ccu::LoadArg(ctx.offset));
-    CCU_CHK_RET(ccu::LoadArg(ctx.reduceGosize.addrOffset));
-    CCU_CHK_RET(ccu::LoadArg(ctx.reduceGosize.loopParam));
-    CCU_CHK_RET(ccu::LoadArg(ctx.reduceGosize.parallelParam));
-    CCU_CHK_RET(ccu::LoadArg(ctx.reduceGosize.residual));
+    uint32_t cnt = 0;
+    CCU_CHK_RET(ccu::LoadArg(ctx.input[arg->rankId], cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.output, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.token[arg->rankId], cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.scratch, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.scratchInterval, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.sliceSize, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.offset, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.reduceGosize.addrOffset, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.reduceGosize.loopParam, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.reduceGosize.parallelParam, cnt++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.reduceGosize.residual, cnt++));
     return CCU_SUCCESS;
 }
 
@@ -108,8 +109,8 @@ static void PostSync(ReduceScatterVMesh1DMem2MemContext &ctx)
     HCCL_INFO("[CcuKernelReduceScatterVMesh1DMem2Mem] ReduceScatterVMem2Mem1D post sync end");
 }
 
-static void CcuKernelReduceScatterVMesh1DMem2Mem::CollectAllRanksSlice(std::vector<ccu::RemoteAddr>& tmpSrc,
-    std::vector<ccu::CcuLocalAddr>& tmpDst, ReduceScatterVMesh1DMem2MemContext &ctx)
+static void CollectAllRanksSlice(std::vector<ccu::RemoteAddr>& tmpSrc,
+    std::vector<ccu::LocalAddr>& tmpDst, ReduceScatterVMesh1DMem2MemContext &ctx)
 {
     const auto *arg = ctx.arg;
     uint32_t channelId = 0;
@@ -118,9 +119,7 @@ static void CcuKernelReduceScatterVMesh1DMem2Mem::CollectAllRanksSlice(std::vect
             // 跳过本卡
             ccu::EventRecord(ctx.event, 1 << rankIdx);
         } else {
-            // ctx.event.setMask(1 << rankIdx);
-            // ReadNb(arg->channels[channelId], tmpDst[rankIdx], tmpSrc[rankIdx], arg->sliceSize, ctx.event); // fix
-            CHK_RET(ccu::Read(channels[channelId], tmpDst[rankIdx], tmpSrc[rankIdx], arg->sliceSize, ctx.event, 1 << rankIdx));
+            CHK_RET(ccu::Read(channels[channelId], tmpDst[rankIdx], tmpSrc[rankIdx], ctx.sliceSize, ctx.event, 1 << rankIdx));
             channelId++;
         }
     }
@@ -128,7 +127,7 @@ static void CcuKernelReduceScatterVMesh1DMem2Mem::CollectAllRanksSlice(std::vect
     ccu::EventWait(ctx.event, (1 << arg->rankSize) - 1);
 }
 
-static void CcuKernelReduceScatterVMesh1DMem2Mem::PrepareReduceScatterVData(std::vector<ccu::RemoteAddr>& reduceScatterVSrc,
+static void PrepareReduceScatterVData(std::vector<ccu::RemoteAddr>& reduceScatterVSrc,
     std::vector<ccu::LocalAddr>& reduceScatterVDst, ReduceScatterVMesh1DMem2MemContext &ctx)
 {
     ccu::Variable scratchOffset;
@@ -155,10 +154,10 @@ static void CcuKernelReduceScatterVMesh1DMem2Mem::PrepareReduceScatterVData(std:
     return;
 }
 
-static void CcuKernelReduceScatterVMesh1DMem2Mem::DoReduceScatterV(ReduceScatterVMesh1DMem2MemContext &ctx)
+static void DoReduceScatterV(ReduceScatterVMesh1DMem2MemContext &ctx)
 {
     const auto *arg = ctx.arg;
-    CCU_IF(arg->sliceSize != 0) {
+    CCU_IF(ctx.sliceSize != 0) {
         PrepareReduceScatterVData(ctx.reduceScatterVSrc, ctx.reduceScatterVDst, ctx);
         CollectAllRanksSlice(ctx.reduceScatterVSrc, ctx.reduceScatterVDst, ctx);
 

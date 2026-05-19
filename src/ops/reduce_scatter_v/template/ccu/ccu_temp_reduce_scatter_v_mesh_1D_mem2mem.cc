@@ -9,7 +9,6 @@
  */
 
 #include "channel.h"
-#include "ccu_assist_pub.h"
 #include "ccu_kernel_reduce_scatter_v_mesh1d_mem2mem.h"
 #include "ccu_temp_reduce_scatter_v_mesh_1D_mem2mem.h"
 #include "ccu_control_api.h"
@@ -48,9 +47,6 @@ HcclResult CcuTempReduceScatterVMesh1DMem2Mem::CalcRes(HcclComm comm, const OpPa
     strcpy(kernelInfo.kernelFuncName, "CcuKernelReduceScatterVMesh1DMem2Mem");
  	kernelInfo.kernelFunc = reinterpret_cast<void *>(CcuReduceScatterVMesh1DMem2MemKernel);
 
-    kernelInfo.creator = [](const hcomm::CcuKernelArg &arg) {
-                             return std::make_unique<CcuKernelReduceScatterVMesh1DMem2Mem>(arg);
-                         };
     std::vector<HcclChannelDesc> channelDescs;
     if(topoInfo->level0Topo != Level0Shape::MESH_1D_CLOS) {
         CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
@@ -122,7 +118,7 @@ HcclResult CcuTempReduceScatterVMesh1DMem2Mem::KernelRun(const OpParam& param,
     auto     goSize     = CalGoSize(sliceSize, config);
     // 代替GeneArgs
     std::vector<uint64_t> taskArgs = {inputAddr, outputAddr, token, scratchAddr, scratchInterval, sliceSize, offset,
-        goSize[0], goSize[1], goSize[2], goSize[3]}
+        goSize[0], goSize[1], goSize[2], goSize[3]};
     uint64_t argSize = 11;
 
     CcuResult launchRet =  HcommCcuKernelLaunch(templateResource.threads[0], templateResource.ccuKernels[0], taskArgs.data(), argSize);
