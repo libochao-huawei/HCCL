@@ -10,7 +10,7 @@
 
 #ifndef OPS_HCCL_SRC_OPS_INC_COLL_OMNIPIPEDATASLICECALC
 #define OPS_HCCL_SRC_OPS_INC_COLL_OMNIPIPEDATASLICECALC
-#include <math.h>
+#include <cmath>
 #include <stdint.h>
 #include <vector>
 #include <string>

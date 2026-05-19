@@ -10,8 +10,8 @@
 
 #include "hcomm_diag_dl.h"
 #include <dlfcn.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
 
 DEFINE_WEAK_FUNC(HcclResult, HcommRegOpInfo, const char* commId, void* opInfo, size_t size);
 DEFINE_WEAK_FUNC(HcclResult, HcommRegOpTaskException, const char* commId, HcommGetOpInfoCallback callback);
