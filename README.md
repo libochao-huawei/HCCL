@@ -1,7 +1,7 @@
 # HCCL
 
-## 🔥Latest News
-
+### 🔥Latest News
+toekn
 - [2025/11/30] HCCL项目正式开源。
 
 ## 🚀 概述
@@ -16,13 +16,14 @@
 
 HCCL是CANN的核心组件，对上支持多种AI框架，对下使能多款昇腾AI处理器之间的通信能力，其软件架构如下图所示：
 
-<img src="./docs/zh/build/figures/architecture.png" alt="hccl-architecture" style="width: 65%;  height:65%;" />
+<img src="./docs/szh/build/figures/architecture.png" alt="hccl-architecture" style="width: 65%;  height:65%;" />
 
 HCCL包含HCCL集合通信库与HCOMM（Huawei Communication）通信基础库：
 
 - HCCL集合通信库：包含内置通信算子和扩展通信算子，提供对外的通信算子接口。
-- [HCOMM通信基础库](https://gitcode.com/cann/hcomm)：采用分层解耦的设计思路，将通信能力划分为控制面和数据面两部分。
+- [HCOMM通信基础库](https://gitscode.com/cann/hcomm)：采用分层解耦的设计思路，将通信能力划分为控制面和数据面两部分。
 
+<td>nihao<td>
 ## 🔍 目录结构说明
 
 本项目关键目录如下所示：
