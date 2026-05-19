@@ -1378,21 +1378,6 @@ HcclResult GetAlgResAiv(HcclComm comm, const OpParam &param, AlgResourceRequest 
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclAllocAlgResourceAivGraphMode(
-    HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest, AlgResourceCtxSerializable* resCtxHost)
-{
-    return HCCL_SUCCESS;
-}
-
-HcclResult HcclRegstryBuffGraphMode(HcclComm comm, const char *memTag, void *bufferPtr, uint64_t bufferSize, HcclMemHandle *memHandle)
-{
-    CHK_PTR_NULL(memHandle);
-    CommMem regMem{COMM_MEM_TYPE_DEVICE, bufferPtr, bufferSize};
-    CHK_RET(HcclCommMemReg(comm, memTag, &regMem, memHandle));
-    CHK_PTR_NULL(*memHandle);
-    return HCCL_SUCCESS;
-}
-
 HcclResult HcclAllocAlgResourceAiv(
     HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest, AlgResourceCtxSerializable* resCtxHost)
 {
