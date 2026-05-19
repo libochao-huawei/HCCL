@@ -191,7 +191,8 @@ HcclResult HcclSetAivCoreLimitGraphMode(const char *group, u32 aivCoreLimit)
 HcclResult HcclSelectAlgGraphMode(const char *group, u64 count, HcclDataType dataType, HcclReduceOp op, HcclCMDType opType,
                            u32 aivCoreLimit, bool *ifAiv, char **algName)
 {
-    HCCL_INFO("[HcclSelectAlgGraphMode] Start.");
+    HCCL_INFO("[HcclSelectAlgGraphMode] Start: group[%s] count[%llu] dataType[%u] reduceOp[%u] opType[%u] aivCoreLimit[%u]",
+        group, count, dataType, op, opType, aivCoreLimit);
     
     if (group == nullptr || ifAiv == nullptr || algName == nullptr) {
         HCCL_ERROR("[HcclSelectAlgGraphMode] Invalid parameters");
