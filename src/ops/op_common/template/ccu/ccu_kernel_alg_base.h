@@ -60,8 +60,8 @@ struct CcuKernelCtxBase {
 // GroupOpSizeVars goSize;
 
     struct CcuLoopEntity {
-        std::unique_ptr<ccu::Func> reduceBody[2];
-        std::unique_ptr<ccu::Loop> reduceLoops[2];
+        std::unique_ptr<ccu::Func> body[2];
+        std::unique_ptr<ccu::Loop> loops[2];
     };
 
     LoopGroupConfig  moConfig;
