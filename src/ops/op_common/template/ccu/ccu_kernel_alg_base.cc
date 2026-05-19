@@ -445,7 +445,7 @@ CcuResult GroupReduce(CcuKernelCtxBase &ctx, const size_t channels[], uint32_t c
         offsetCfg = GetOffsetParam(ctx.moConfig.memSlice, ctx.moConfig.msInterleave, 1);
 
         loops.loopParam[0] = loopParam;
-        std::vector<ccu::Loop> grpLoops{ loops.loops[0] };
+        std::vector<ccu::Loop> grpLoops{ *loops.loops[0] };
         ccu::LoopGroup group(paraCfg, offsetCfg, 1, grpLoops);
 
 // #ifdef CcuProfiling
@@ -522,7 +522,7 @@ CcuResult GroupReduce(CcuKernelCtxBase &ctx, const size_t channels[], uint32_t c
 
         loops.loopParam[0] = loopCfg0;
         loops.loopParam[1] = loopCfg1;
-        std::vector<ccu::Loop> grpLoops{ loops.loops[0], loops.loops[1] };
+        std::vector<ccu::Loop> grpLoops{ *loops.loops[0], *loops.loops[1] };
         ccu::LoopGroup group(goSize.parallelParam, offsetCfg, 2, grpLoops);
     
 //#ifdef CcuProfiling
@@ -615,7 +615,7 @@ CcuResult GroupBroadcast(CcuKernelCtxBase &ctx, const size_t channels[], uint32_
         offsetCfg = GetOffsetParam(ctx.moConfig.memSlice, ctx.moConfig.msInterleave, 1);
 
         loops.loopParam[0] = loopParam;
-        std::vector<ccu::Loop> grpLoops{ loops.loops[0] };
+        std::vector<ccu::Loop> grpLoops{ *loops.loops[0] };
         ccu::LoopGroup group(paraCfg, offsetCfg, 1, grpLoops);
     }
 
@@ -669,7 +669,7 @@ CcuResult GroupBroadcast(CcuKernelCtxBase &ctx, const size_t channels[], uint32_
 
         loops.loopParam[0] = loopCfg0;
         loops.loopParam[1] = loopCfg1;
-        std::vector<ccu::Loop> grpLoops{ loops.loops[0], loops.loops[1] };
+        std::vector<ccu::Loop> grpLoops{ *loops.loops[0], *loops.loops[1] };
         ccu::LoopGroup group(goSize.parallelParam, offsetCfg, 2, grpLoops);
     }
     return CCU_SUCCESS;
