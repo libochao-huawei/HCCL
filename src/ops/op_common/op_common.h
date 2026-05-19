@@ -39,19 +39,19 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
 HcclResult HcclCalcTopoInfo(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithNetLayerDetails> &topoInfo);
 
 HcclResult HcclGetAlgRes(HcclComm comm, OpParam &param, std::unique_ptr<InsCollAlgBase> &executor, TopoInfoWithNetLayerDetails *topoInfo,
-    std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, void **resCtxSequence, bool &isResourceReused);
+    std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, void **resCtxSequence, bool &isResourceReused, , const ResPackGraphMode &resPack);
 
 HcclResult GetAlgResAICPU(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
     std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, TopoInfoWithNetLayerDetails *topoInfo,
     AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence, uint64_t& ctxSize,
-    bool increCreateChannelFlag);
+    bool increCreateChannelFlag, const ResPackGraphMode &resPack);
 
 HcclResult HcclAllocAlgResourceAICPU(
     HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
-    std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost);
+    std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, const ResPackGraphMode &resPack);
 
 HcclResult HcclGetThread(HcclComm comm, const OpParam &param,
-                        AlgResourceRequest &resRequest, std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost);
+                        AlgResourceRequest &resRequest, std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, const ResPackGraphMode &resPack);
 
 HcclResult HcclGetChannel(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
                           std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost);
@@ -68,7 +68,7 @@ HcclResult HcclAllocAlgResourceCcu(HcclComm comm, const OpParam& param, AlgResou
                                    std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost);
 HcclResult GetAlgResCcu(HcclComm comm, const OpParam& param, AlgResourceRequest& resRequest,
                         std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, TopoInfoWithNetLayerDetails* topoInfo,
-                        AlgHierarchyInfoForAllLevel& algHierarchyInfo, void** resCtxSequence, uint64_t& ctxSize);
+                        AlgHierarchyInfoForAllLevel& algHierarchyInfo, void** resCtxSequence, uint64_t& ctxSize, const ResPackGraphMode &resPack);
 
 HcclResult AppendFastLaunchTag(OpParam &param, const char* dataTypeStr,
     const char* reduceOpStr, const char* countStr, const char* rootStr);
