@@ -242,16 +242,16 @@ CcuResult CreateMultiOpReduce(CcuKernelCtxBase &ctx, GroupReduceVar &var,
 
     for (int32_t index = 0; index < 2; index++) { // 需要实现化2个Loop
         var.loopRemoteSrc[index].resize(size - 1);
-        for (uint32_t i = 0; i < size - 1; i++) {
+        // for (uint32_t i = 0; i < size - 1; i++) {
             // ccu::LocalAddr tmp;
             //CCU_CHK_RET(ccu::Alloc(&tmp));
             // var.loopRemoteSrc[index].emplace_back(*reinterpret_cast<ccu::RemoteAddr*>(&tmp));
-            CCU_CHK_RET(ccu::Alloc(&var.loopRemoteSrc[index][i]));
-        }
-        CCU_CHK_RET(ccu::Alloc(&var.loopLocalSrc[index]));
-        CCU_CHK_RET(ccu::Alloc(&var.loopDst[index]));
-        CCU_CHK_RET(ccu::Alloc(&var.loopLen[index]));
-        CCU_CHK_RET(ccu::Alloc(&var.loopLenExp[index]));
+            // CCU_CHK_RET(ccu::Alloc(&var.loopRemoteSrc[index][i]));
+        // }
+        // CCU_CHK_RET(ccu::Alloc(&var.loopLocalSrc[index]));
+        // CCU_CHK_RET(ccu::Alloc(&var.loopDst[index]));
+        // CCU_CHK_RET(ccu::Alloc(&var.loopLen[index]));
+        // CCU_CHK_RET(ccu::Alloc(&var.loopLenExp[index]));
 
         // std::vector<CcuRep::CcuBuf> bufs = {moRes.ccuBuf.begin() + index * moConfig.msInterleave,
         //                                        moRes.ccuBuf.begin() + index * moConfig.msInterleave + usedBufNum};
@@ -261,25 +261,25 @@ CcuResult CreateMultiOpReduce(CcuKernelCtxBase &ctx, GroupReduceVar &var,
 
         CCU_LOOP(loops[index]) {
             for (uint32_t i = 0; i < channelSize; i++) {
-                loopEvt.mask = 1 << i;
-                ccu::Read(channels[i], ctx.moRes.ccuBuf[bufBase + i], var.loopRemoteSrc[index][i], var.loopLen[index], loopEvt);
+                // loopEvt.mask = 1 << i;
+                ccu::Read(channels[i], ctx.moRes.ccuBuf[bufBase + i], var.loopRemoteSrc[index][i], var.loopLen[index], loopEvt, 1 << i);
             }
 
             // ccu::LocalAddr &localSrc = *reinterpret_cast<ccu::LocalAddr*>(&var.loopRemoteSrc[index][channelSize]);
-            loopEvt.mask = 1 << channelSize;
-            ccu::LocalCopy(ctx.moRes.ccuBuf[bufBase + channelSize], var.loopLocalSrc[index], var.loopLen[index], loopEvt);
-            loopEvt.mask = (1 << size) - 1;
-            ccu::EventWait(loopEvt);
+            // loopEvt.mask = 1 << channelSize;
+            ccu::LocalCopy(ctx.moRes.ccuBuf[bufBase + channelSize], var.loopLocalSrc[index], var.loopLen[index], loopEvt, 1 << channelSize);
+            // loopEvt.mask = (1 << size) - 1;
+            ccu::EventWait(loopEvt, (1 << size) - 1);
 
             if (size > 1) {
-                loopEvt.mask = 1;
-                ccu::LocalReduce(&ctx.moRes.ccuBuf[bufBase], size, dataType, outputDataType, opType, var.loopLen[index], loopEvt);
+                // loopEvt.mask = 1;
+                ccu::LocalReduce(&ctx.moRes.ccuBuf[bufBase], size, dataType, outputDataType, opType, var.loopLen[index], loopEvt, 1);
                 ccu::EventWait(loopEvt);
             }
 
-            loopEvt.mask = 1;
-            ccu::LocalCopy(var.loopDst[index], ctx.moRes.ccuBuf[bufBase], var.loopLenExp[index], loopEvt);
-            ccu::EventWait(loopEvt);
+            // loopEvt.mask = 1;
+            ccu::LocalCopy(var.loopDst[index], ctx.moRes.ccuBuf[bufBase], var.loopLenExp[index], loopEvt, 1);
+            ccu::EventWait(loopEvt, 1);
         }
     }
 
@@ -400,16 +400,16 @@ CcuResult GroupReduce(CcuKernelCtxBase &ctx, const size_t channels[], uint32_t c
 {
     GroupReduceVar var;
     CCU_CHK_RET(CreateMultiOpReduce(ctx, var, channels, channelCount, dataType, outputDataType, opType));
-
+	auto &loops = ctx.loopMap["reduce"];
 
     uint32_t         size         = channelCount + 1;
     uint32_t         expansionNum = GetReduceExpansionNum(opType, dataType, outputDataType);
     ccu::Variable sliceSizeExpansion;
-    CCU_CHK_RET(ccu::Alloc(&sliceSizeExpansion));
+    // CCU_CHK_RET(ccu::Alloc(&sliceSizeExpansion));
 
     if (expansionNum != 1) {
         ccu::Variable tmp;
-        CCU_CHK_RET(ccu::Alloc(&tmp));
+        // CCU_CHK_RET(ccu::Alloc(&tmp));
         tmp = GetExpansionParam(expansionNum);
         dst.token = dst.token + tmp;
     }
@@ -419,12 +419,12 @@ CcuResult GroupReduce(CcuKernelCtxBase &ctx, const size_t channels[], uint32_t c
     CCU_IF(goSize.loopParam != 0)
     {
         ccu::Variable loopParam;
-        CCU_CHK_RET(ccu::Alloc(&loopParam));
+        // CCU_CHK_RET(ccu::Alloc(&loopParam));
         loopParam = GetLoopParam(0, ctx.moConfig.memSlice * ctx.moConfig.loopCount, 0);
         loopParam = loopParam + goSize.loopParam;
 
         ccu::Variable sliceSize;
-        CCU_CHK_RET(ccu::Alloc(&sliceSize));
+        // CCU_CHK_RET(ccu::Alloc(&sliceSize));
         sliceSize          = ctx.moConfig.memSlice;
         sliceSizeExpansion = ctx.moConfig.memSlice * expansionNum;
 
@@ -441,16 +441,16 @@ CcuResult GroupReduce(CcuKernelCtxBase &ctx, const size_t channels[], uint32_t c
         var.loopLenExp[0]    = sliceSizeExpansion;
 
         ccu::Variable paraCfg;
-        CCU_CHK_RET(ccu::Alloc(&paraCfg));
+        // CCU_CHK_RET(ccu::Alloc(&paraCfg));
         paraCfg = GetParallelParam(ctx.moConfig.loopCount - 1, 0, 1);
 
         ccu::Variable offsetCfg;
-        CCU_CHK_RET(ccu::Alloc(&offsetCfg));
+        // CCU_CHK_RET(ccu::Alloc(&offsetCfg));
         offsetCfg = GetOffsetParam(ctx.moConfig.memSlice, ctx.moConfig.msInterleave, 1);
 
         CcuLoopGroup group;
         CCU_CHK_RET(ccu::CreateLoopGroup(&group, &paraCfg, &offsetCfg, ctx.enginePool));
-        CCU_CHK_RET(ccu::AddLoop(group, ctx.loops[0], &loopParam));
+        CCU_CHK_RET(ccu::AddLoop(group, loops[0], &loopParam));
 
 // #ifdef CcuProfiling
 //         std::string groupOpSize = "GroupReduce";
@@ -500,7 +500,7 @@ CcuResult GroupReduce(CcuKernelCtxBase &ctx, const size_t channels[], uint32_t c
         }
 
         ccu::Variable sliceSize;
-        CCU_CHK_RET(ccu::Alloc(&sliceSize));
+        // CCU_CHK_RET(ccu::Alloc(&sliceSize));
         sliceSize          = ctx.moConfig.memSlice;
         sliceSizeExpansion = ctx.moConfig.memSlice * expansionNum;
 
@@ -516,21 +516,21 @@ CcuResult GroupReduce(CcuKernelCtxBase &ctx, const size_t channels[], uint32_t c
         var.loopLenExp[1] = sliceSizeExpansion;
 
         ccu::Variable loopCfg0;
-        CCU_CHK_RET(ccu::Alloc(&loopCfg0));
+        // CCU_CHK_RET(ccu::Alloc(&loopCfg0));
         loopCfg0 = GetLoopParam(0, 0, 1);
 
         ccu::Variable loopCfg1;
-        CCU_CHK_RET(ccu::Alloc(&loopCfg1));
+        // CCU_CHK_RET(ccu::Alloc(&loopCfg1));
         loopCfg1 = GetLoopParam(0, 0, 1);
 
         ccu::Variable offsetCfg;
-        CCU_CHK_RET(ccu::Alloc(&offsetCfg));
+        // CCU_CHK_RET(ccu::Alloc(&offsetCfg));
         offsetCfg = GetOffsetParam(ctx.moConfig.memSlice, ctx.moConfig.msInterleave, 1);
 
         CcuLoopGroup group;
         CCU_CHK_RET(ccu::CreateLoopGroup(&group, &goSize.parallelParam, &offsetCfg, ctx.enginePool));
-        CCU_CHK_RET(ccu::AddLoop(group, ctx.loops[0], &loopCfg0));
-        CCU_CHK_RET(ccu::AddLoop(group, ctx.loops[1], &loopCfg1));
+        CCU_CHK_RET(ccu::AddLoop(group, loops[0], &loopCfg0));
+        CCU_CHK_RET(ccu::AddLoop(group, loops[1], &loopCfg1));
     
 //#ifdef CcuProfiling
 //        std::string groupOpSize = "GroupReduce";
