@@ -115,7 +115,7 @@ HcclResult HcclScatter(void *sendBuf, void *recvBuf, uint64_t recvCount,
 
     CHK_RET(ScatterOutPlace(param, sendBuf, recvBuf, recvCount, dataType, root, comm, stream, rankSize));
 
-    CHK_RET(LogHcclExit("HcclScatter", param.tag, startut));
+    // CHK_RET(LogHcclExit("HcclScatter", param.tag, startut));
     return HCCL_SUCCESS;
 }
 
