@@ -107,7 +107,7 @@ HcclResult Selector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWithN
     }
     CHK_RET(SetCommEngine(param));
     // AIV_ONLY 模式下禁止回退到非 AIV 引擎，未选中 AIV 时直接返回不支持。
-    if (param.opConfig.commOpExpansionMode == HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY && param.engine != CommEngine::COMM_ENGINE_AIV) {
+    if (param.commOpExpansionMode == HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY && param.engine != CommEngine::COMM_ENGINE_AIV) {
         HCCL_ERROR("[HcclExecOp] opType[%d] currently do not select aiv mode, aiv only not support.",
             static_cast<int>(param.opType));
         return HCCL_E_NOT_SUPPORT;
@@ -447,7 +447,7 @@ HcclResult ReSelector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWit
 {
     HCCL_INFO("Start to execute ReSelector.");
     // 回退AICPU
-    param.opConfig.opExecuteConfig = OpExecuteConfig::AICPU_TS;
+    param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
     // 拓扑已有，无需再计算
 
     // 算法选择，选择完后顺便param.algTag设置了，资源的保存是以算子+算法为单位
@@ -459,7 +459,7 @@ HcclResult ReSelector(HcclComm comm, OpParam &param, std::unique_ptr<TopoInfoWit
     }
     CHK_RET(SetCommEngine(param));
     // AIV_ONLY 模式下禁止回退到非 AIV 引擎，未选中 AIV 时直接返回不支持。
-    if (param.opConfig.commOpExpansionMode == HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY && param.engine != CommEngine::COMM_ENGINE_AIV) {
+    if (param.commOpExpansionMode == HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY && param.engine != CommEngine::COMM_ENGINE_AIV) {
         HCCL_ERROR("[HcclExecOp] opType[%d] currently do not select aiv mode, aiv only not support.",
             static_cast<int>(param.opType));
         return HCCL_E_NOT_SUPPORT;
@@ -497,7 +497,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
         HCCL_INFO("[HcclExecOp] Engine ctx exists, try to fallback.");
         std::string newAlgName = static_cast<char*>(fallbackCtx);
         HCCL_INFO("[HcclExecOp] Cached algo type is %s.", newAlgName.c_str());
-        param.opConfig.opExecuteConfig = OpExecuteConfig::AICPU_TS;
+        param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
         param.engine = COMM_ENGINE_AICPU_TS;
         CHK_RET(SetOpParamAlgTag(param, newAlgName));
         CHK_RET(HcclExecOp(comm, param, topoInfo, newAlgName, resPack));
@@ -1596,19 +1596,19 @@ HcclResult SetCommEngine(OpParam &param)
         {OpExecuteConfig::HOSTCPU,    COMM_ENGINE_CPU},
     };
 
-    auto it = ConfigToEngineMap.find(param.opConfig.opExecuteConfig);
+    auto it = ConfigToEngineMap.find(param.opExecuteConfig);
     if (it != ConfigToEngineMap.end()) {
         param.engine = it->second;
         return HCCL_SUCCESS;
     }
 
-    HCCL_ERROR("[op_common][SetCommEngine] Unsupported or unknown opExecuteConfig: {%d}", static_cast<int>(param.opConfig.opExecuteConfig));
+    HCCL_ERROR("[op_common][SetCommEngine] Unsupported or unknown opExecuteConfig: {%d}", static_cast<int>(param.opExecuteConfig));
     return HCCL_E_NOT_SUPPORT;
 }
 
 HcclResult SingleRankProc(HcclComm comm, OpParam &param)
 {
-    if (param.opConfig.commOpExpansionMode == HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY) {
+    if (param.commOpExpansionMode == HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY) {
         HCCL_ERROR("[SingleRankProc] opType[%d] currently do not select aiv mode, aiv only not support, "
             "please ensure rankNum is greater than one", static_cast<int>(param.opType));
         return HCCL_E_NOT_SUPPORT;
@@ -1737,7 +1737,7 @@ HcclResult HcclGetOpExpansionMode(HcclComm comm, OpParam &param)
         HCCL_ERROR("DecideHcclOpExpansionMode failed, ret: %d", ret);
         return ret;
     }
-    param.opConfig.commOpExpansionMode = finalMode;
+    param.commOpExpansionMode = finalMode;
 
     // 第二步：应用选择的模式到param
     ret = ApplyOpExpansionMode(param, finalMode);
@@ -1807,37 +1807,37 @@ HcclResult ApplyOpExpansionMode(OpParam &param, HcclOpExpansionMode finalMode)
 #if CANN_VERSION_NUM >= 90000000
     switch (finalMode) {
         case HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_AI_CPU:
-            param.opConfig.opExecuteConfig = OpExecuteConfig::AICPU_TS;
+            param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
             param.engine = CommEngine::COMM_ENGINE_AICPU_TS;
             CHK_RET(LoadAICPUKernel());
             HCCL_DEBUG("[ApplyOpExpansionMode] AICPU mode selected.");
             break;
         case HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_AIV:
-            param.opConfig.opExecuteConfig = OpExecuteConfig::AIV;
+            param.opExecuteConfig = OpExecuteConfig::AIV;
             param.engine = CommEngine::COMM_ENGINE_AIV;
             CHK_RET(RegisterKernel());
             HCCL_DEBUG("[ApplyOpExpansionMode] AIV mode selected.");
             break;
         case HcclOpExpansionMode::HCCL_OP_EXPANSION_AIV_ONLY:
-            param.opConfig.opExecuteConfig = OpExecuteConfig::AIV_ONLY;
+            param.opExecuteConfig = OpExecuteConfig::AIV_ONLY;
             param.engine = CommEngine::COMM_ENGINE_AIV;
             CHK_RET(RegisterKernel());
             HCCL_DEBUG("[ApplyOpExpansionMode] AIV_ONLY mode selected.");
             break;
         case static_cast<HcclOpExpansionMode>(opExpansionModeCcuMs):
-            param.opConfig.opExecuteConfig = OpExecuteConfig::CCU_MS;
+            param.opExecuteConfig = OpExecuteConfig::CCU_MS;
             param.engine = CommEngine::COMM_ENGINE_CCU;
             HCCL_DEBUG("[ApplyOpExpansionMode] CCU_MS mode selected.");
             break;
         case static_cast<HcclOpExpansionMode>(opExpansionModeCcuSched):
-            param.opConfig.opExecuteConfig = OpExecuteConfig::CCU_SCHED;
+            param.opExecuteConfig = OpExecuteConfig::CCU_SCHED;
             param.engine = CommEngine::COMM_ENGINE_CCU;
             HCCL_DEBUG("[ApplyOpExpansionMode] CCU_SCHED mode selected.");
             break;
         default:
             // 回退到aicpu
             HCCL_WARNING("[ApplyOpExpansionMode] Invalid HcclOpExpansionMode: %d, fallback to AICPU_TS.", finalMode);
-            param.opConfig.opExecuteConfig = OpExecuteConfig::AICPU_TS;
+            param.opExecuteConfig = OpExecuteConfig::AICPU_TS;
             param.engine = CommEngine::COMM_ENGINE_AICPU_TS;
             CHK_RET(LoadAICPUKernel());
             break;
