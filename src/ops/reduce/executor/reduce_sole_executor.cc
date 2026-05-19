@@ -236,6 +236,8 @@ HcclResult ReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunch(
     // 2 取arg
     CcuKernelSubmitInfo *ccuKernelSubmitInfos = fastLaunchCtx->GetCcuKernelSubmitInfoPtr();
     tempFastLaunchCtx.ccuKernelSubmitInfos.assign(ccuKernelSubmitInfos, ccuKernelSubmitInfos + fastLaunchCtx->ccuKernelNum[0]);
+    HCCL_INFO("[ReduceSoleExecutor][FastLaunch] xjhlog2 kernelHandle [%llu]", tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle);
+    HCCL_INFO("[ReduceSoleExecutor][FastLaunch] xjhlog3 kernelHandle [%llu]", tempFastLaunchCtx.ccuKernelSubmitInfos[1].kernelHandle);
     HCCL_INFO("[ReduceSoleExecutor][FastLaunch] ccuKernelNum[%llu]", fastLaunchCtx->ccuKernelNum[0]);
     tempFastLaunchCtx.buffInfo.inputPtr = param.inputPtr;
     tempFastLaunchCtx.buffInfo.outputPtr = param.outputPtr;
