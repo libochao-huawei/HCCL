@@ -52,6 +52,7 @@ constexpr uint32_t AICPU_CONTROL_NOTIFY_NUM = 2;
 constexpr uint32_t MAX_MEM_TAG_LENGTH = OP_ALG_LENGTH + 32;
 constexpr uint32_t RES_PACK_TAG_LENGTH = 255;
 constexpr uint32_t MAX_TEMP_NUM_IN_ALGO = 8; // 单个算法中最大template数量
+constexpr uint32_t ALG_NAME_MAX_LEN = 256; // 最大的group name 长度
 
 // 是否再拆分一个comm头文件
 constexpr u32 LOCAL_NOTIFY_IDX_ZERO = 0;
