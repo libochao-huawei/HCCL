@@ -9,7 +9,6 @@
  */
 
 #include "channel.h"
-#include "ccu_assist_pub.h"
 #include "ccu_kernel_reduce_scatter_v_mesh1d_mem2mem.h"
 #include "ccu_temp_reduce_scatter_v_mesh_1D_mem2mem.h"
 #include "ccu_control_api.h"
@@ -48,9 +47,6 @@ HcclResult CcuTempReduceScatterVMesh1DMem2Mem::CalcRes(HcclComm comm, const OpPa
     strcpy(kernelInfo.kernelFuncName, "CcuKernelReduceScatterVMesh1DMem2Mem");
  	kernelInfo.kernelFunc = reinterpret_cast<void *>(CcuReduceScatterVMesh1DMem2MemKernel);
 
-    kernelInfo.creator = [](const hcomm::CcuKernelArg &arg) {
-                             return std::make_unique<CcuKernelReduceScatterVMesh1DMem2Mem>(arg);
-                         };
     std::vector<HcclChannelDesc> channelDescs;
     if(topoInfo->level0Topo != Level0Shape::MESH_1D_CLOS) {
         CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
@@ -82,18 +78,14 @@ HcclResult CcuTempReduceScatterVMesh1DMem2Mem::CalcRes(HcclComm comm, const OpPa
 }
 
 
-uint64_t CcuTempReduceScatterVMesh1DMem2Mem::GetTokenWithFallback(const BuffInfo& buffInfo) {
+uint64_t CcuTempReduceScatterVMesh1DMem2Mem::GetTokenWithFallback(const BuffInfo& buffInfo, uint64_t &token) {
     // 由于 input 中可能有气泡导致 token 计算保持，暂时不适用 input 计算 token
     if (buffInfo.outputPtr != nullptr) {
-        HCCL_INFO("Generate token using output buffer: ptr=%p, size=%llu",
-                  buffInfo.outputPtr, buffInfo.outputSize);
-        return hcomm::CcuRep::GetTokenInfo(reinterpret_cast<uint64_t>(buffInfo.outputPtr),
-                                           static_cast<uint64_t>(buffInfo.outputSize));
+        HCCL_INFO("Generate token using output buffer: ptr=%p, size=%llu", buffInfo.outputPtr, buffInfo.outputSize);
+        return HcommCcuGetMemToken(PointerToAddr(buffInfo.outputPtr), static_cast<uint64_t>(buffInfo.outputSize), &token);
     } else if (buffInfo.hcclBuff.addr != nullptr) {
-        HCCL_INFO("Generate token using scratch buffer: ptr=%p, size=%llu",
-                  buffInfo.hcclBuff.addr, buffInfo.hcclBuff.size);
-        return hcomm::CcuRep::GetTokenInfo(reinterpret_cast<uint64_t>(buffInfo.hcclBuff.addr),
-                                           static_cast<uint64_t>(buffInfo.hcclBuff.size));
+        HCCL_INFO("Generate token using scratch buffer: ptr=%p, size=%llu", buffInfo.hcclBuff.addr, buffInfo.hcclBuff.size);
+        return HcommCcuGetMemToken(PointerToAddr(buffInfo.hcclBuff.addr), static_cast<uint64_t>(buffInfo.hcclBuff.size), &token);
     } else {
         HCCL_INFO("All buffers are null, using 0 as token");
         return 0;
@@ -105,10 +97,9 @@ HcclResult CcuTempReduceScatterVMesh1DMem2Mem::KernelRun(const OpParam& param,
                                                         TemplateResource& templateResource)
 {
     buffInfo_ = templateDataParams.buffInfo;
-
     uint64_t inputAddr          = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr         = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
-    uint64_t token              = GetTokenWithFallback(buffInfo_);
+    uint64_t token              = GetTokenWithFallback(buffInfo_, token);
     uint64_t scratchAddr        = PointerToAddr(buffInfo_.hcclBuff.addr) + buffInfo_.hcclBuffBaseOff;
 
     uint64_t sliceSize          = templateDataParams.allRankSliceSize[mySubCommRank_];
@@ -122,7 +113,7 @@ HcclResult CcuTempReduceScatterVMesh1DMem2Mem::KernelRun(const OpParam& param,
     auto     goSize     = CalGoSize(sliceSize, config);
     // 代替GeneArgs
     std::vector<uint64_t> taskArgs = {inputAddr, outputAddr, token, scratchAddr, scratchInterval, sliceSize, offset,
-        goSize[0], goSize[1], goSize[2], goSize[3]}
+        goSize[0], goSize[1], goSize[2], goSize[3]};
     uint64_t argSize = 11;
 
     CcuResult launchRet =  HcommCcuKernelLaunch(templateResource.threads[0], templateResource.ccuKernels[0], taskArgs.data(), argSize);
