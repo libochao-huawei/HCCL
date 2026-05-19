@@ -110,12 +110,12 @@ HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclD
 
     CHK_RET_AND_PRINT_IDE(AllGatherOutPlace(sendBuf, recvBuf, sendCount, dataType, comm, stream, opTag), opTag.c_str());
 
-    // aclError aclRet = aclrtSynchronizeStream(stream);
-    // if (aclRet != ACL_SUCCESS) {
-    //     HCCL_ERROR("[AllGatherDump] aclrtSynchronizeStream failed, ret[%d]", aclRet);
-    //     aclrtFreeHost(hostBuf);
-    //     return HCCL_E_RUNTIME;
-    // }
+    aclError aclRet = aclrtSynchronizeStream(stream);
+    if (aclRet != ACL_SUCCESS) {
+        HCCL_ERROR("[AllGatherDump] aclrtSynchronizeStream failed, ret[%d]", aclRet);
+        aclrtFreeHost(hostBuf);
+        return HCCL_E_RUNTIME;
+    }
 
     if (IsAllGatherDumpEnabled()) {
         u32 dumpRankId = INVALID_VALUE_RANKID;
