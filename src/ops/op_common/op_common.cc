@@ -1029,7 +1029,7 @@ HcclResult HcclGetThread(
             u32 slaveStreams = resPack.streams.size();
             u32 threadNum = resRequest.slaveThreadNum;
             if (threadNum > slaveStreams) {
-                HCCL_ERROR("Thread Num Should less than slave streams.");
+                HCCL_ERROR("Thread Num Should less than slave streams. slaveStreams[%llu], threadNums[%llu]", slaveStreams, threadNums);
                 return HCCL_E_UNAVAIL;
             }
 
