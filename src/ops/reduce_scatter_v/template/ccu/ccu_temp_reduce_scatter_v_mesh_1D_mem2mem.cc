@@ -9,10 +9,10 @@
  */
 
 #include "channel.h"
-#include "hccl_ccu_res.h"
 #include "ccu_assist_pub.h"
 #include "ccu_kernel_reduce_scatter_v_mesh1d_mem2mem.h"
 #include "ccu_temp_reduce_scatter_v_mesh_1D_mem2mem.h"
+#include "ccu_control_api.h"
 
 namespace ops_hccl {
 
@@ -45,6 +45,8 @@ HcclResult CcuTempReduceScatterVMesh1DMem2Mem::CalcRes(HcclComm comm, const OpPa
 
     // 创建每个kernel的ctxArg，放入kernelInfo, 然后将kernelinfo放入resourceRequest.ccuKernelInfos
     CcuKernelInfo kernelInfo;
+    strcpy(kernelInfo.kernelFuncName, "CcuKernelReduceScatterVMesh1DMem2Mem");
+ 	kernelInfo.kernelFunc = reinterpret_cast<void *>(CcuReduceScatterVMesh1DMem2MemKernel);
 
     kernelInfo.creator = [](const hcomm::CcuKernelArg &arg) {
                              return std::make_unique<CcuKernelReduceScatterVMesh1DMem2Mem>(arg);
@@ -63,10 +65,12 @@ HcclResult CcuTempReduceScatterVMesh1DMem2Mem::CalcRes(HcclComm comm, const OpPa
     }
     HCCL_DEBUG("[CcuTempReduceScatterVMesh1DMem2Mem::CalcRes] Get Mesh Channel Success!");
 
-    kernelInfo.kernelArg = std::make_shared<CcuKernelArgReduceScatterVMesh1DMem2Mem>(subCommRanks_[0].size(),
-                                                                                    mySubCommRank_,
-                                                                                    param,
-                                                                                    subCommRanks_);
+    auto kernelArg = std::make_shared<CcuKernelArgReduceScatterVMesh1DMem2Mem>();
+    kernelArg->rankSize = subCommRanks_[0].size();
+    kernelArg->rankId = mySubCommRank_;
+    kernelArg->opParam = param;
+    kernelArg->subCommRanks = subCommRanks_;
+    kernelInfo.setKernelArg(kernelArg);
     kernelInfo.channels = channelDescs;
     resourceRequest.ccuKernelInfos.push_back(kernelInfo);
 
@@ -79,13 +83,13 @@ HcclResult CcuTempReduceScatterVMesh1DMem2Mem::CalcRes(HcclComm comm, const OpPa
 
 
 uint64_t CcuTempReduceScatterVMesh1DMem2Mem::GetTokenWithFallback(const BuffInfo& buffInfo) {
-    // 由于 input 中可能有气泡导致 token 计算报错，暂时不适用 input 计算 token
-    if (buffInfo.outputPtr != nullptr && buffInfo.outputSize != 0) {
+    // 由于 input 中可能有气泡导致 token 计算保持，暂时不适用 input 计算 token
+    if (buffInfo.outputPtr != nullptr) {
         HCCL_INFO("Generate token using output buffer: ptr=%p, size=%llu",
                   buffInfo.outputPtr, buffInfo.outputSize);
         return hcomm::CcuRep::GetTokenInfo(reinterpret_cast<uint64_t>(buffInfo.outputPtr),
                                            static_cast<uint64_t>(buffInfo.outputSize));
-    } else if (buffInfo.hcclBuff.addr != nullptr && buffInfo.hcclBuff.size != 0) {
+    } else if (buffInfo.hcclBuff.addr != nullptr) {
         HCCL_INFO("Generate token using scratch buffer: ptr=%p, size=%llu",
                   buffInfo.hcclBuff.addr, buffInfo.hcclBuff.size);
         return hcomm::CcuRep::GetTokenInfo(reinterpret_cast<uint64_t>(buffInfo.hcclBuff.addr),
@@ -95,7 +99,7 @@ uint64_t CcuTempReduceScatterVMesh1DMem2Mem::GetTokenWithFallback(const BuffInfo
         return 0;
     }
 }
-
+// 下面的函数还要改
 HcclResult CcuTempReduceScatterVMesh1DMem2Mem::KernelRun(const OpParam& param,
                                                         const TemplateDataParams& templateDataParams,
                                                         TemplateResource& templateResource)
@@ -111,13 +115,31 @@ HcclResult CcuTempReduceScatterVMesh1DMem2Mem::KernelRun(const OpParam& param,
     uint64_t offset             = templateDataParams.allRankDispls[mySubCommRank_];
     uint64_t scratchInterval    = sliceSize;  // 每个rank的数据在scratch中连续存放，间隔为sliceSize
 
-    std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgReduceScatterVMesh1DMem2Mem>(
-        inputAddr, outputAddr, token, scratchAddr, scratchInterval, sliceSize, offset);
+    LoopGroupConfig  config{};
+    config.msInterleave = CCU_MS_INTERLEAVE;
+    config.loopCount    = CCU_MS_DEFAULT_LOOP_COUNT;
+    config.memSlice     = CCU_MS_SIZE;
+    auto     goSize     = CalGoSize(sliceSize, config);
+    // 代替GeneArgs
+    std::vector<uint64_t> taskArgs = {inputAddr, outputAddr, token, scratchAddr, scratchInterval, sliceSize, offset,
+        goSize[0], goSize[1], goSize[2], goSize[3]}
+    uint64_t argSize = 11;
 
-    void* taskArgPtr = static_cast<void*>(taskArg.get());
+    CcuResult launchRet =  HcommCcuKernelLaunch(templateResource.threads[0], templateResource.ccuKernels[0], taskArgs.data(), argSize);
+    if (launchRet != CCU_SUCCESS) {
+        HCCL_ERROR("[CcuTempReduceScatterVMesh1DMem2Mem::KernelRun] kernel launch failed, ccuRet -> %d", launchRet);
+        return ConvertCcuToHccl(launchRet);
+    }
+
+    CcuKernelSubmitInfo submitInfo;
+    submitInfo.kernelHandle = templateResource.ccuKernels[0];
+
+    CHK_RET(FillCachedArgs(submitInfo, inputAddr, outputAddr, token, scratchAddr, scratchInterval, sliceSize, offset,
+        goSize[0], goSize[1], goSize[2], goSize[3],
+        buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff)); // input和output的offset追加在最后
+
     HCCL_INFO("templateResource.threads.size[%zu], templateResource.ccuKernels.size[%zu]", templateResource.threads.size(), templateResource.ccuKernels.size());
-    CHK_RET(HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr));
-
+    templateResource.submitInfos.push_back(submitInfo);
     return HcclResult::HCCL_SUCCESS;
 }
 
