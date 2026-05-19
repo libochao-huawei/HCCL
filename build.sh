@@ -219,6 +219,10 @@ function build_static() {
     # 构建hccl静态库目标
     build hccl
 
+    # 同步构建AIV设备kernel目标，产出 hccl_aiv_*_op_910_95.o
+    log "Info: Building AIV device kernels (aiv_all_targets)"
+    build aiv_all_targets
+
     # 检查静态库是否生成
     local STATIC_LIB="${BUILD_DIR}/src/libhccl_static.a"
     if [ ! -f "${STATIC_LIB}" ]; then
@@ -255,6 +259,27 @@ function build_static() {
         log "Error: Failed to convert AICPU tar to binary object"
         exit 1
     fi
+
+    # 步骤5: 将AIV设备kernel .o 转成binary embed对象，注入符号
+    # _binary_hccl_aiv_<op>_op_910_95_bin_start/end/size
+    # 用 .bin 后缀是为了避开和后续 ar 的 *.o 冲突，并让符号名干净
+    log "Info: Embedding AIV device kernel objects as binary"
+    local AIV_EMBED_COUNT=0
+    while IFS= read -r -d '' AIV_O; do
+        local AIV_BASENAME=$(basename "${AIV_O}")
+        local AIV_STEM="${AIV_BASENAME%.o}"
+        cp "${AIV_O}" "${EXTRACT_DIR}/${AIV_STEM}.bin"
+        if ! (cd "${EXTRACT_DIR}" && ${LD} -r -b binary \
+                -o "${AIV_STEM}_embed.o" "${AIV_STEM}.bin"); then
+            log "Error: Failed to embed AIV kernel: ${AIV_BASENAME}"
+            exit 1
+        fi
+        rm -f "${EXTRACT_DIR}/${AIV_STEM}.bin"
+        AIV_EMBED_COUNT=$((AIV_EMBED_COUNT + 1))
+        log "Info: Embedded AIV kernel: ${AIV_BASENAME}"
+    done < <(find "${BUILD_DIR}/src/ops" -type f \
+                -name 'hccl_aiv_*_op_910_95.o' -print0)
+    log "Info: Total AIV kernels embedded: ${AIV_EMBED_COUNT}"
 
     # 步骤6: 将所有.o文件打包成最终的静态库
     log "Info: Creating final static library libhccl_static.a"
@@ -305,21 +330,25 @@ function package_static_tar() {
         exit 1
     fi
 
-    # 确定架构
-    local ARCH=$(uname -m)
+    # 确定架构：交叉编译时优先使用 BUILD_AARCH，否则取 uname -m
     local TAR_ARCH=""
-    case "$ARCH" in
-        x86_64|i386|i686)
-            TAR_ARCH="x86_64"
-            ;;
-        aarch64|armv8l|armv7l)
-            TAR_ARCH="aarch64"
-            ;;
-        *)
-            log "Error: Unsupported architecture: $ARCH"
-            exit 1
-            ;;
-    esac
+    if [ "${BUILD_AARCH}" == "true" ]; then
+        TAR_ARCH="aarch64"
+    else
+        local ARCH=$(uname -m)
+        case "$ARCH" in
+            x86_64|i386|i686)
+                TAR_ARCH="x86_64"
+                ;;
+            aarch64|armv8l|armv7l)
+                TAR_ARCH="aarch64"
+                ;;
+            *)
+                log "Error: Unsupported architecture: $ARCH"
+                exit 1
+                ;;
+        esac
+    fi
 
     # 创建临时打包目录
     local temp_dir="${OUTPUT_DIR}/static_package_temp"

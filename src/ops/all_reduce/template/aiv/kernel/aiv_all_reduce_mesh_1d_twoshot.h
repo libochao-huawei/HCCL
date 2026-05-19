@@ -331,15 +331,13 @@ public:
 };
 
 template<typename T>
-__aicore__ inline void AivAllReduceV2Mesh1DTwoShot(EXTERN_KERNEL_ARGS_DEF_V2)
+__aicore__ inline void AivAllReduceV2Mesh1DTwoShot(KERNEL_ARGS_DEF)
 {
     AivAllReduceMesh1DTwoShot<T> op;
     op.Init(KERNEL_CLASS_INIT, true);
-    SyncAll<true>();
     if (op.IsFirstOP(sliceId)) {
         op.BarrierForFirstOP();
     }
-    SyncAll<true>();
     if (block_num >= rankSize * 2) {
         op.Prepare(sliceId);
         op.Process();

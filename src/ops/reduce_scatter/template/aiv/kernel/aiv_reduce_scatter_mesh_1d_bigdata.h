@@ -139,16 +139,14 @@ public:
 };
 
 template<typename T>
-__aicore__ inline void AivReduceScatterV2Mesh1DBigData(EXTERN_KERNEL_ARGS_DEF_V2)
+__aicore__ inline void AivReduceScatterV2Mesh1DBigData(KERNEL_ARGS_DEF)
 {
     AivReduceScatterMesh1DBigData<T> op;
     op.Init(KERNEL_CLASS_INIT, true);
     // op.InitCoreInfo(len, inputSliceStride);
-    SyncAll<true>();
     if (op.IsFirstOP(sliceId)) {
         op.BarrierForFirstOP();
     }
-    SyncAll<true>();
     op.Process(sliceId, len, inputSliceStride);
     op.BarrierAll();
 }
