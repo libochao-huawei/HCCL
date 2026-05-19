@@ -278,7 +278,7 @@ CcuResult CreateMultiOpReduce(CcuKernelCtxBase &ctx, GroupReduceVar &var,
         }));
 
         loops.loops[index].reset(
-            new ccu::Loop(loops.loopParam[index], loops.body[index]));
+            new ccu::Loop(loops.loopParam[index], *loops.body[index]));
     }
 
     return CCU_SUCCESS;
@@ -573,7 +573,7 @@ CcuResult CreateMultiOpBroadcast(CcuKernelCtxBase &ctx, GroupBroadcastVar &var,
         }));
 
         loops.loops[index].reset(
-            new ccu::Loop(loops.loopParam[index], loops.body[index]));
+            new ccu::Loop(loops.loopParam[index], *loops.body[index]));
     }
 
     return CCU_SUCCESS;
