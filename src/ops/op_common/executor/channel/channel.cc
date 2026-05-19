@@ -242,6 +242,7 @@ HcclResult CreateChannelFromLink(HcclComm comm, u32 myRank, u32 rank, uint32_t n
     channelDesc.remoteEndpoint.protocol = link.dstEndpointDesc.protocol;
     channelDesc.remoteEndpoint.commAddr = link.dstEndpointDesc.commAddr;
     channelDesc.remoteEndpoint.loc = link.dstEndpointDesc.loc;
+    HCCL_DEBUG("%s through hccl system.", funcName.c_str());
     HCCL_DEBUG("%s local device phyId: %u, remote device phyId: %u.",
                 funcName.c_str(), channelDesc.localEndpoint.loc.device.devPhyId,
                 channelDesc.remoteEndpoint.loc.device.devPhyId);
@@ -317,7 +318,9 @@ HcclResult CalcChannelRequestMesh1D(HcclComm comm, const OpParam& param, const T
                  HcclResult::HCCL_E_PARA);	 
     u32 myRank = topoInfo->userRank;	 
     std::vector<CommProtocol> expectedProtocols;	 
-    CHK_RET(GetProtocolByEngine(param, expectedProtocols));	 
+    CHK_RET(GetProtocolByEngine(param, expectedProtocols));
+    HCCL_INFO("Check mc2_hccl");
+
     for (u32 rank: subcommInfo[COMM_LEVEL0]) {	 
         if (rank == topoInfo->userRank) {	 
             continue;	 
@@ -331,6 +334,8 @@ HcclResult CalcChannelRequestMesh1D(HcclComm comm, const OpParam& param, const T
             CommLink *linkList = nullptr; 
             u32 listSize; 
             CHK_RET(HcclRankGraphGetLinks(comm, netLayer, myRank, rank, &linkList, &listSize)); 
+            
+            HCCL_INFO("Check mc2_hccl");
             if (listSize == 0) { 
                 continue; 
             } 
@@ -342,6 +347,8 @@ HcclResult CalcChannelRequestMesh1D(HcclComm comm, const OpParam& param, const T
                 break; 
             } 
         } 
+        
+        HCCL_INFO("Check mc2_hccl");
         CHK_PRT_RET(channels.size() == channelCountBefore, 
             HCCL_ERROR("[CalcChannelRequestMesh1D] Failed to create channel between myRank=%u and rank=%u, there is no link.", 
                 myRank, rank), HcclResult::HCCL_E_INTERNAL); 
