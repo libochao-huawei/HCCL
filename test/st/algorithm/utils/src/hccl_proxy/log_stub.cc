@@ -19,7 +19,7 @@
 #include <unistd.h>
 #include <securec.h>
 
-uint32_t logLevel = 0x03;  // ERROR级别
+uint32_t logLevel = 0x00;  // ERROR级别
 constexpr int TIME_FROM_1900 = 1900;
 constexpr int LOG_STUB_BUFFER_SIZE = 1024;
 std::map<int, std::string> LOG_LEVEL_STR_MAP = {
