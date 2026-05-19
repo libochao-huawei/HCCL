@@ -77,7 +77,7 @@ struct CcuKernelCtxBase {
         loopMap.emplace(loopStr, CcuLoopEntity());
     }
 
-    bool IsLoopResRegistered(std::string loopStr) {
+    bool IsLoopEntityRegistered(std::string loopStr) {
         return loopMap.count(loopStr) != 0;
     }
 
