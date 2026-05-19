@@ -71,34 +71,67 @@ def _help():
     print("  %s: 待签名的文件路径,支持多target,各target以空格分开" % ("target".ljust(8)))
     print("====================================== END =====================================")
 
-def get_sign_cmd(file, rootdir) -> str:
-    """获取签名命令。"""
+
+def get_sign_cmd(file, rootdir) -> list:
+    """
+    获取签名命令，返回【列表格式】，支持 shell=False
+    彻底消除命令注入风险
+    """
     sign_crl = os.path.join(rootdir, "scripts/signtool/signature/SWSCRL.crl")
-    sign_command = ("sudo /home/jenkins/signatrust_client/signatrust_client --config /home/jenkins/signatrust_client/client.toml add "
-                    "--file-type p7s --key-type x509 --key-name SignCert --detached ")
-    sign_suffix=" --timestamp-key TimeCert --crl "
-    cmd = "{} {} {} {}".format(sign_command, file, sign_suffix, sign_crl)
-    return cmd
+
+    # 拆分成纯参数列表 → 最安全
+    cmd_list = [
+        "/home/jenkins/signatrust_client/signatrust_client",
+        "--config", "/home/jenkins/signatrust_client/client.toml",
+        "add",
+        "--file-type", "p7s",
+        "--key-type", "x509",
+        "--key-name", "SignCert",
+        "--detached",
+        file,  # 输入文件（安全传递）
+        "--timestamp-key", "TimeCert",
+        "--crl",
+        sign_crl  # CRL 文件（安全传递）
+    ]
+    return cmd_list
+
 
 def _run_sign(inputfiles, rootdir):
-    """执行签名。"""
+    """执行签名（安全版，shell=False）"""
     crlfile, cmstag = _get_sign_filename()
-    ret=True
+    ret = True
+
     for file in inputfiles:
         if not os.path.isfile(file):
             logging.warning("input file:%s is not exist", file)
             continue
-        cmd = get_sign_cmd(file, rootdir)
 
-        logging.info("run sign cmd %s in %s", cmd, mypath)
-        result = subprocess.run(cmd, cwd=mypath, shell=True, check=False, stdout=PIPE, stderr=STDOUT)
-        if 0 != result.returncode:
-            logging.error(result.stdout.decode())
-            logging.error("file %s signed error",file)
+        # 获取【列表格式命令】
+        cmd_list = get_sign_cmd(file, rootdir)
+
+        # 日志打印（把列表转成字符串方便查看）
+        logging.info("run sign cmd: %s", ' '.join(cmd_list))
+        logging.info("work dir: %s", mypath)
+
+        # ✅ 核心优化：shell=False，命令用列表，最安全
+        result = subprocess.run(
+            cmd_list,
+            cwd=mypath,
+            shell=False,  # 关闭 shell，消除注入风险
+            check=False,
+            stdout=PIPE,
+            stderr=STDOUT,
+            text=True,  # 自动解码输出为字符串（不用手动 decode）
+            encoding='utf-8'  # 指定编码，避免乱码
+        )
+
+        if result.returncode != 0:
+            logging.error("sign output: %s", result.stdout)
+            logging.error("file %s signed failed", file)
             ret = False
             break
-    return ret
 
+    return ret
 # 多个文件签名场景需要拆分分别签
 def main(argv):
     """主流程。"""
