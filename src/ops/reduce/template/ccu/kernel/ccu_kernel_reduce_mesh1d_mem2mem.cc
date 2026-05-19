@@ -84,7 +84,7 @@ static CcuResult LocalCopyByLoopGroup(ReduceMesh1DMem2MemContext &ctx, ccu::Loca
         offsetCfg = GetOffsetParam(ctx.moConfig.memSlice, ctx.moConfig.msInterleave, 1);
 
 		loops.loopParam[0] = loopParam;
- 	    std::vector<ccu::Loop> grpLoops{ loops.loops[0] };
+ 	    std::vector<ccu::Loop> grpLoops{ *loops.loops[0] };
  	    ccu::LoopGroup group(paraCfg, offsetCfg, 1, grpLoops);
     }
 
@@ -121,7 +121,7 @@ static CcuResult LocalCopyByLoopGroup(ReduceMesh1DMem2MemContext &ctx, ccu::Loca
 
 		loops.loopParam[0] = loopCfg0;
  	    loops.loopParam[1] = loopCfg1;
- 	    std::vector<ccu::Loop> grpLoops{ loops.loops[0], loops.loops[1] };
+ 	    std::vector<ccu::Loop> grpLoops{ *loops.loops[0], *loops.loops[1] };
  	    ccu::LoopGroup group(ctx.localGoSize.parallelParam, offsetCfg, 2, grpLoops);
     }
     return CCU_SUCCESS;
@@ -144,9 +144,9 @@ static CcuResult InitResource(ReduceMesh1DMem2MemContext &ctx)
     ctx.token.resize(arg->rankSize);
     for (uint64_t peerId = 0; peerId < arg->rankSize; peerId++) {
         if (peerId != arg->rankId) {
-			ctx.input[peerId] = ccu::GetResByChannel(arg->channels[channelIdx], INPUT_XN_ID);
-            ctx.output[peerId] = ccu::GetResByChannel(arg->channels[channelIdx], OUTPUT_XN_ID);
-            ctx.token[peerId] = ccu::GetResByChannel(arg->channels[channelIdx], TOKEN_XN_ID);
+			ctx.input[peerId] = ccu::GetResByChannel<ccu::Variable>(arg->channels[channelIdx], INPUT_XN_ID);
+            ctx.output[peerId] = ccu::GetResByChannel<ccu::Variable>(arg->channels[channelIdx], OUTPUT_XN_ID);
+            ctx.token[peerId] = ccu::GetResByChannel<ccu::Variable>(arg->channels[channelIdx], TOKEN_XN_ID);
             channelIdx++;
         }
     }
