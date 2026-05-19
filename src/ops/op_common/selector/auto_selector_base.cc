@@ -17,27 +17,27 @@ namespace ops_hccl {
 SelectorStatus AutoSelectorBase::Select(OpParam &opParam, TopoInfoWithNetLayerDetails* topoInfo,
                                         std::string &selectAlgName) const
 {
-    HCCL_DEBUG("[AutoSelectorBase][%s] start, OpExecuteConfig is %d.", __func__, opParam.opConfig.opExecuteConfig);
+    HCCL_DEBUG("[AutoSelectorBase][%s] start, OpExecuteConfig is %d.", __func__, opParam.opExecuteConfig);
     std::map<HcclCMDType, std::vector<HcclAlgoType>> configAlgMap = GetExternalInputHcclAlgoConfigAllType();
     SelectorStatus ret = SelectorStatus::NOT_MATCH;
     bool hostDPUOnly = false;
     if ((CheckHostDPUOnly(opParam.hcclComm, topoInfo, hostDPUOnly) == HCCL_SUCCESS) && hostDPUOnly) {
-        opParam.opConfig.opExecuteConfig = OpExecuteConfig::HOSTCPU;
+        opParam.opExecuteConfig = OpExecuteConfig::HOSTCPU;
         opParam.engine = CommEngine::COMM_ENGINE_CPU;
         return SelectDPUAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
     }
-    if (opParam.opConfig.opExecuteConfig == OpExecuteConfig::CCU_MS) {
+    if (opParam.opExecuteConfig == OpExecuteConfig::CCU_MS) {
         ret = SelectCcuMsAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
         if (ret == SelectorStatus::NOT_MATCH) {
-            opParam.opConfig.opExecuteConfig = OpExecuteConfig::CCU_SCHED;
+            opParam.opExecuteConfig = OpExecuteConfig::CCU_SCHED;
         } else {
             return ret;
         }
     }
-    if (opParam.opConfig.opExecuteConfig == OpExecuteConfig::CCU_SCHED) {
+    if (opParam.opExecuteConfig == OpExecuteConfig::CCU_SCHED) {
         ret = SelectCcuScheduleAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
         if (ret == SelectorStatus::NOT_MATCH) {
-            opParam.opConfig.opExecuteConfig = OpExecuteConfig::CCU_FAIL;
+            opParam.opExecuteConfig = OpExecuteConfig::CCU_FAIL;
         } else {
             return ret;
         }
@@ -45,25 +45,25 @@ SelectorStatus AutoSelectorBase::Select(OpParam &opParam, TopoInfoWithNetLayerDe
     if (ProcessAivConfig(opParam, topoInfo, configAlgMap, selectAlgName, ret)) {
         return ret;
     }
-    if (IsStarsState(opParam.opConfig.opExecuteConfig)) {
+    if (IsStarsState(opParam.opExecuteConfig)) {
         // level0是PCIE混合的场景，且CLOS规模大于8，alltoall算子选择AIV_ONLY算法
         if (topoInfo->level0PcieMix && topoInfo->level0BigClosRange &&
             (opParam.opType == HcclCMDType::HCCL_CMD_ALLTOALL ||
              opParam.opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
              opParam.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC)) {
-            opParam.opConfig.opExecuteConfig = OpExecuteConfig::AIV_ONLY;
+            opParam.opExecuteConfig = OpExecuteConfig::AIV_ONLY;
             (void)ProcessAivConfig(opParam, topoInfo, configAlgMap, selectAlgName, ret);
             HCCL_INFO("[Algo][AutoSelectorBase] The selected algo is %s, OpExecuteConfig is %d.",
-                selectAlgName.c_str(), opParam.opConfig.opExecuteConfig);
+                selectAlgName.c_str(), opParam.opExecuteConfig);
             return ret;
         }
         ret = SelectAicpuAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
         if (ret == SelectorStatus::MATCH) {
-            opParam.opConfig.opExecuteConfig = OpExecuteConfig::AICPU_TS;
+            opParam.opExecuteConfig = OpExecuteConfig::AICPU_TS;
         }
     }
     HCCL_INFO("[Algo][AutoSelectorBase] The selected algo is %s, OpExecuteConfig is %d.",
-        selectAlgName.c_str(), opParam.opConfig.opExecuteConfig);
+        selectAlgName.c_str(), opParam.opExecuteConfig);
     return ret;
 }
 
@@ -284,17 +284,17 @@ bool AutoSelectorBase::ProcessAivConfig(OpParam &opParam, TopoInfoWithNetLayerDe
                                         const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
                                         std::string &selectAlgName, SelectorStatus &ret) const
 {
-    if (opParam.opConfig.opExecuteConfig != OpExecuteConfig::AIV && opParam.opConfig.opExecuteConfig != OpExecuteConfig::AIV_ONLY) {
+    if (opParam.opExecuteConfig != OpExecuteConfig::AIV && opParam.opExecuteConfig != OpExecuteConfig::AIV_ONLY) {
         return false;
     }
 
     ret = SelectAivAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
     if (ret == SelectorStatus::NOT_MATCH) {
-        if (opParam.opConfig.opExecuteConfig == OpExecuteConfig::AIV_ONLY) {
+        if (opParam.opExecuteConfig == OpExecuteConfig::AIV_ONLY) {
             HCCL_ERROR("[Algo][AutoSelectorBase] Failed to select AIV algorithm while configured as AIV_ONLY.");
             return true;
         }
-        opParam.opConfig.opExecuteConfig = OpExecuteConfig::CCU_FAIL;
+        opParam.opExecuteConfig = OpExecuteConfig::CCU_FAIL;
         return false;
     }
 

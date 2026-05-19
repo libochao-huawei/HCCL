@@ -467,8 +467,6 @@ struct AlgResourceCtxSerializable {
 struct DevAicpuOpConfig {
     u32 execTimeout = 0;
     double multipleDimensionSplitRatio = 0.8;
-    HcclOpExpansionMode commOpExpansionMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_INVALID;
-    OpExecuteConfig opExecuteConfig;
     // 如要新增配置类字段，在此处添加
 };
 
@@ -537,6 +535,8 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     HcclCMDType opType = HcclCMDType::HCCL_CMD_INVALID;
     bool isZeroCopy = false;
     char algName[OP_ALG_LENGTH] = "";
+    HcclOpExpansionMode commOpExpansionMode = HcclOpExpansionMode::HCCL_OP_EXPANSION_MODE_INVALID;
+    OpExecuteConfig opExecuteConfig;
     u32 numBlocksLimit = 0;
     bool isAivClearEnable = false;
     u64 ctxSize = 0;
