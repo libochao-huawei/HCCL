@@ -530,6 +530,7 @@ struct OpParam { // 不申请ctx，每个算子单独下发
             u32 itemNum;
         } batchSendRecvDataDes;
     };
+    DevAicpuOpConfig opConfig;
     HcclCMDType opType = HcclCMDType::HCCL_CMD_INVALID;
     bool isZeroCopy = false;
     char algName[OP_ALG_LENGTH] = "";
@@ -541,7 +542,6 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     u32 aicpuRecordCpuIdx = 0; // aicpu record host的notifyIdx
     u32 dataCount = 0; // 算子上报dfx的数据量
     u64 varMemSize{0};
-    DevAicpuOpConfig opConfig;
     u8 varData[0];
 };
 
