@@ -1045,8 +1045,7 @@ HcclResult HcclGetThread(
                     resCtxHost->threads.push_back(slaveThread);
                 }
             }
-        
-    }
+        }
 
     if (UNLIKELY(HcclCheckLogLevel(DLOG_DEBUG))) {
         HCCL_DEBUG("[HcclGetThread] slaveThreadNum[%u]", resRequest.slaveThreadNum);
