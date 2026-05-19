@@ -40,7 +40,8 @@ HCCL提供了C与Python两种语言的开发接口，用于实现分布式能力
 > - 同一个通信域内不支持图模式通信和单算子通信混合执行。
 > - 同一个通信域内的算子需要由使用者确保串行执行。
 > - 同一个NPU上需要串行创建多个通信域。
-<cann-filter npu-type="A3">> - 针对Atlas A3 训练系列产品/Atlas A3 推理系列产品，通信域初始化时，如果组网中存在多个超节点，请将属于同一超节点内的AI Server信息配置在一起。假设有两个超节点，标识分别为“0”和“1”，请先配置“0”中的AI Server信息，再配置“1”中的AI Server信息，不支持“0”中的AI Server信息与“1”中的AI Server信息交叉配置。</cann-filter>
+<cann-filter npu-type="A3">
+> - 针对Atlas A3 训练系列产品/Atlas A3 推理系列产品，通信域初始化时，如果组网中存在多个超节点，请将属于同一超节点内的AI Server信息配置在一起。假设有两个超节点，标识分别为“0”和“1”，请先配置“0”中的AI Server信息，再配置“1”中的AI Server信息，不支持“0”中的AI Server信息与“1”中的AI Server信息交叉配置。</cann-filter>
 
 ### 基于rank table创建通信域
 
@@ -122,6 +123,7 @@ HCCL提供了C与Python两种语言的开发接口，用于实现分布式能力
     4. 每个Device匹配一个线程，分别根据不同的“rootInfo”信息，并发调用[HcclCommInitRootInfo](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_mgr_c/HcclCommInitRootInfo.md)或者[HcclCommInitRootInfoConfig](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_mgr_c/HcclCommInitRootInfoConfig.md)接口，进行通信域初始化。
 
 > [!NOTE]说明
+>
 > 针对Ascend 950PR/Ascend 950DT，Atlas A3 训练系列产品/Atlas A3 推理系列产品，Atlas A2 训练系列产品/Atlas A2 推理系列产品，若业务为单卡多进程场景，建议通过环境变量“[HCCL_HOST_SOCKET_PORT_RANGE](./hccl_env/HCCL_HOST_SOCKET_PORT_RANGE.md)”与“[HCCL_NPU_SOCKET_PORT_RANGE](./hccl_env/HCCL_NPU_SOCKET_PORT_RANGE.md)”分别配置HCCL在Host侧与NPU侧使用的通信端口，否则可能会导致端口冲突，配置示例如下所示。但需要注意，多进程会对资源开销、通信性能产生一定的影响。
 >
 > ```bash
