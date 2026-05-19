@@ -13,12 +13,12 @@
 #include <cstddef>
 #include <cstring>
 #include "hcom.h"
-#include "op_common/op_common.h"
+#include "op_common.h"
 #include "alg_env_config.h"
 #include "adapter_acl.h"
-#include "op_common/executor/executor_v2_base.h"
-#include "op_common/executor/registry/coll_alg_v2_exec_registry.h"
-#include "op_common/template/aiv/hccl_aiv_utils.h"
+#include "executor_v2_base.h"
+#include "coll_alg_v2_exec_registry.h"
+#include "hccl_aiv_utils.h"
 
 HcclResult HcclCreateOpParamGraphMode(OpParamGraphMode **opParam)
 {
@@ -99,6 +99,29 @@ HcclResult HcclSetOpParamGraphModeHCCLBufferSize(OpParamGraphMode *opParam, cons
     memcpy_s(&paramPtr->hcclBufferSize, sizeof(paramPtr->hcclBufferSize), hcclBufferSize, sizeof(u64));
     return HCCL_SUCCESS;
 }
+
+HcclResult HcclSetOpParamGraphModeGroup(OpParamGraphMode *opParam, const char *group)
+{
+    if (opParam == nullptr || group == nullptr) {
+        return HCCL_E_PARA;
+    }
+    // 将void*转换为OpParamGraphMode*
+    OpParamGraphMode *paramPtr = reinterpret_cast<OpParamGraphMode *>(opParam);
+    strncpy_s(paramPtr->group, sizeof(paramPtr->group), group, sizeof(paramPtr->group) - 1);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclSetOpParamGraphModeReduceOp(OpParamGraphMode *opParam, HcclReduceOp reduceOp)
+{
+    if (opParam == nullptr) {
+        return HCCL_E_PARA;
+    }
+    // 将void*转换为OpParamGraphMode*
+    OpParamGraphMode *paramPtr = reinterpret_cast<OpParamGraphMode *>(opParam);
+    paramPtr->op = reduceOp;
+    return HCCL_SUCCESS;
+}
+
 HcclResult HcclSetAivSelectOpParamGraphMode(OpParamGraphMode *opParam, u32 aivCoreLimit)
 {
     if (opParam == nullptr) {
@@ -122,14 +145,22 @@ HcclResult HcclCalcOpResOnlineGraphMode(OpParamGraphMode *opParam, u64 *opMemSiz
     // 为了兼容，创建临时的 ResResponseGraphMode 结构
     ResResponseGraphMode resResponse = {0, 0, 0, 0};
     HCCL_INFO("Start to calc op resource online.");
-    // aicpu引擎计算资源
-    ops_hccl::HcclCalcAicpuResOffline(&resResponse);
 
-    // ccu引擎计算资源
-    ops_hccl::HcclCalcCcuResOffline(opParam, &resResponse);
+    bool ifAiv = false;
+    char algName[ALG_NAME_MAX_LEN];
+    char *pAlgName = algName;
+ 	CHK_RET(HcclSelectAlgGraphMode(opParam->group, opParam->dataCount, opParam->dataType, opParam->op,
+        GetOpType(opParam->opType), opParam->aivCoreLimit, &ifAiv, &pAlgName));
+    if (ifAiv) {
+        // aiv引擎计算资源
+        ops_hccl::HcclCalcAivResOffline(&resResponse, paramPtr);
+    } else {
+        // aicpu引擎计算资源
+        ops_hccl::HcclCalcAicpuResOffline(&resResponse);
 
-    // aiv引擎计算资源
- 	ops_hccl::HcclCalcAivResOffline(&resResponse, paramPtr);
+        // ccu引擎计算资源
+        ops_hccl::HcclCalcCcuResOffline(opParam, &resResponse);
+    }
 
     // 将结果复制到输出参数
     *opMemSize = resResponse.opMemSize;
@@ -152,15 +183,22 @@ HcclResult HcclCalcOpResOfflineGraphMode(OpParamGraphMode *opParam, u64 *opMemSi
     // 为了兼容，创建临时的 ResResponseGraphMode 结构
     ResResponseGraphMode resResponse = {0, 0, 0, 0};
     HCCL_INFO("Start to calc op resource offline.");
-    // aicpu引擎计算资源
-    ops_hccl::HcclCalcAicpuResOffline(&resResponse);
 
-    // ccu引擎计算资源
-    ops_hccl::HcclCalcCcuResOffline(opParam, &resResponse);
+    bool ifAiv = false;
+    char algName[ALG_NAME_MAX_LEN];
+    char *pAlgName = algName;
+ 	CHK_RET(HcclSelectAlgGraphMode(opParam->group, opParam->dataCount, opParam->dataType, opParam->op,
+        GetOpType(opParam->opType), opParam->aivCoreLimit, &ifAiv, &pAlgName));
+    if (ifAiv) {
+        // aiv引擎计算资源
+        ops_hccl::HcclCalcAivResOffline(&resResponse, paramPtr);
+    } else {
+        // aicpu引擎计算资源
+        ops_hccl::HcclCalcAicpuResOffline(&resResponse);
 
-    // 其他引擎补充在下面
-    // aiv引擎计算资源
- 	ops_hccl::HcclCalcAivResOffline(&resResponse, paramPtr);
+        // ccu引擎计算资源
+        ops_hccl::HcclCalcCcuResOffline(opParam, &resResponse);
+    }
 
     // 将结果复制到输出参数
     *opMemSize = resResponse.opMemSize;
@@ -188,10 +226,18 @@ HcclResult HcclSetAivCoreLimitGraphMode(const char *group, u32 aivCoreLimit)
     return HCCL_SUCCESS;
 }
 
+// 获取算子操作类型
+HcclCMDType GetOpType(const char* opType) {
+    HCCL_INFO("[GetOpType] opType[%s]", opType);
+    auto iter = HCCL_OPTYPE_NAME_MAP.find(std::string(opType));
+    return (iter != HCCL_OPTYPE_NAME_MAP.end()) ? iter->second : HcclCMDType::HCCL_CMD_INVALID;
+}
+
 HcclResult HcclSelectAlgGraphMode(const char *group, u64 count, HcclDataType dataType, HcclReduceOp op, HcclCMDType opType,
-                           u32 aivCoreLimit, bool *ifAiv, char **algName)
+                        u32 aivCoreLimit, bool *ifAiv, char **algName)
 {
-    HCCL_INFO("[HcclSelectAlgGraphMode] Start.");
+    HCCL_INFO("[HcclSelectAlgGraphMode] Start: group[%s] count[%llu] dataType[%u] reduceOp[%u] opType[%u] aivCoreLimit[%u]",
+        group, count, dataType, op, opType, aivCoreLimit);
     
     if (group == nullptr || ifAiv == nullptr || algName == nullptr) {
         HCCL_ERROR("[HcclSelectAlgGraphMode] Invalid parameters");
@@ -446,7 +492,13 @@ HcclResult HcclCalcAivResOffline(ResResponseGraphMode *resResponse, OpParamGraph
     if (resResponse == nullptr || paramPtr == nullptr || paramPtr->aivCoreLimit == 0) {
         return HCCL_E_PARA;
     }
+
+    resResponse->opMemSize = 0;
+    resResponse->streamNum = 0;
+    resResponse->taskNum = 3;
     resResponse->aivCoreNum = paramPtr->aivCoreLimit;
+    HCCL_INFO("[HcclCalcAivResOffline] opMemSize[%llu], streamNum[%u], taskNum[%u], aivCoreNum[%u]",
+        resResponse->opMemSize, resResponse->streamNum, resResponse->taskNum, resResponse->aivCoreNum);
     return HCCL_SUCCESS;
 }
 
