@@ -828,7 +828,7 @@ static HcclResult TryReuseResource(HcclComm comm, OpParam& param, bool increCrea
 }
 
 HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollAlgBase>& executor, TopoInfoWithNetLayerDetails* topoInfo,
-                         std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, void** resCtxSequence, bool &isResourceReused, , const ResPackGraphMode &resPack)
+                         std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, void** resCtxSequence, bool &isResourceReused, const ResPackGraphMode &resPack)
 {
     HCCL_INFO("[HcclGetAlgRes] Start to execute HcclGetAlgRes.");
 
