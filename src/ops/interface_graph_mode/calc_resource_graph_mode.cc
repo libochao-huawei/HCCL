@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <cstring>
 #include "hcom.h"
+#include "op_common.h"
 
 HcclResult HcclCreateOpParamGraphMode(OpParamGraphMode **opParam)
 {
@@ -162,6 +163,60 @@ HcclResult HcclCalcOpResOfflineGraphMode(OpParamGraphMode *opParam, u64 *opMemSi
     *taskNum = resResponse.taskNum;
     *aivCoreNum = resResponse.aivCoreNum;
 
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclSelectAlgGraphMode(const char *group, u64 count, HcclDataType dataType, HcclReduceOp op, HcclCMDType opType,
+                        u32 aivCoreLimit, bool *ifAiv, char **algName)
+{
+    HCCL_INFO("[HcclSelectAlgGraphMode] Start: group[%s] count[%llu] dataType[%u] reduceOp[%u] opType[%u] aivCoreLimit[%u]",
+        group, count, dataType, op, opType, aivCoreLimit);
+    
+    if (group == nullptr || ifAiv == nullptr || algName == nullptr) {
+        HCCL_ERROR("[HcclSelectAlgGraphMode] Invalid parameters");
+        return HCCL_E_PARA;
+    }
+    
+    HcclComm hcclComm = nullptr;
+    CHK_RET(HcomGetCommHandleByGroup(group, &hcclComm));
+    
+    CHK_RET(InitEnvConfig());
+    
+    ops_hccl::OpParam param;
+    CHK_RET(HcclGetCommName(hcclComm, param.commName));
+    
+    DevType deviceType = DevType::DEV_TYPE_COUNT;
+    CHK_RET(hrtGetDeviceType(deviceType));
+    
+    param.opType = opType;
+    param.DataDes.count = count;
+    param.DataDes.dataType = dataType;
+    param.reduceType = op;
+    param.opMode = ops_hccl::OpMode::OFFLOAD;
+    param.numBlocksLimit = aivCoreLimit;
+    param.enableDetour = false;
+    param.deviceType = deviceType;
+
+    int ret = sprintf_s(param.tag, sizeof(param.tag), "SelectAlg_%d_%s", static_cast<int>(opType), param.commName);
+    CHK_PRT_RET(ret <= 0, HCCL_ERROR("[HcclSelectAlgGraphMode] failed to fill param.tag"), HCCL_E_INTERNAL);
+    
+    CHK_RET(ops_hccl::HcclGetOpExpansionMode(hcclComm, param));
+
+    std::unique_ptr<ops_hccl::TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<ops_hccl::TopoInfoWithNetLayerDetails>();
+    std::string localAlgName;
+    CHK_RET(ops_hccl::Selector(hcclComm, param, topoInfo, localAlgName));
+    
+    *ifAiv = (param.engine == CommEngine::COMM_ENGINE_AIV);
+    
+    // 分配内存并拷贝字符串
+    *algName = (char*)malloc(localAlgName.size() + 1);
+    if (*algName == nullptr) {
+        HCCL_ERROR("[HcclSelectAlgGraphMode] malloc failed for algName");
+        return HCCL_E_INTERNAL;
+    }
+    strncpy_s(*algName, localAlgName.size() + 1, localAlgName.c_str(), localAlgName.size());
+    
+    HCCL_INFO("[HcclSelectAlgGraphMode] Success. ifAiv=%d, algName=%s", *ifAiv, *algName);
     return HCCL_SUCCESS;
 }
 
