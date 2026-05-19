@@ -32,10 +32,10 @@ CcuResult AllocGoResource(LoopGroupConfig &config, LoopGroupResource &res, bool 
     config.memSlice     = msPerLoop * CCU_MS_SIZE;
 
     res.eventCount = config.loopCount;
-    CCU_CHK_RET(ccu::BlockAlloc(res.completedEvent, res.eventCount));
+	res.completedEvent = ccu::Array<ccu::Event>(res.eventCount);
 
     res.bufCount = config.loopCount * config.msInterleave;
-    CCU_CHK_RET(ccu::BlockAlloc(res.ccuBuf, res.bufCount));
+	res.ccuBuf = ccu::Array<ccu::CcuBuffer>(res.bufCount);
 
     allocated = true;
     return CCU_SUCCESS;
