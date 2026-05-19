@@ -467,8 +467,16 @@ SelectorStatus AllReduceAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDe
         return SelectorStatus::NOT_MATCH;
     }
  
+    void *cclBufferAddr;
+    uint64_t cclBufferSize;
+    CHK_RET(HcclGetHcclBuffer(opParam.hcclComm, &cclBufferAddr, &cclBufferSize));
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
+    if (dataSize > cclBufferSize * AIV_MAX_CCL_LOOP_NUM) {
+        HCCL_DEBUG("[Algo][AllReduceAutoSelector] dataSize[%llu] too large for cclBufferSize [%llu]", dataSize, cclBufferSize);
+        return SelectorStatus::NOT_MATCH;
+    }
+
     if (IsSmallData(dataSize)) {
         selectAlgName = "AivAllReduceMesh1DOneShot";
     } else {

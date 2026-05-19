@@ -497,6 +497,15 @@ __aicore__ inline bool AivCommBase::IsFirstOP(int32_t sliceId)
 
 __aicore__ inline void AivCommBase::BarrierForFirstOP()
 {
+    // 清零
+    uint32_t clearSize = BASE_FLAG_OFFSET;
+    uint32_t blockClearSize = clearSize / numBlocks_;
+    uint32_t blockClearOffset = blockClearSize * block_idx;
+    GlobalTensor<uint8_t> flagGT;
+    flagGT.SetGlobalBuffer(GM_OUT[rank_] + blockClearOffset, blockClearSize);
+    AscendC::Fill(flagGT, blockClearSize, (uint8_t)0);
+    SyncAll<true>();
+
     // 每个核分配多个rank
     uint32_t perCoreRankNum = rankSize_ / numBlocks_;
     uint32_t remainRankNum = rankSize_ % numBlocks_;
@@ -520,6 +529,15 @@ __aicore__ inline void AivCommBase::BarrierForFirstOP()
 // 为sendRecv单独设计
 __aicore__ inline void AivCommBase::SendRecvBarrierForFirstOP(uint32_t myRank, uint32_t remoteRank)
 {
+    // 清零
+    uint32_t clearSize = BASE_FLAG_OFFSET;
+    uint32_t blockClearSize = clearSize / numBlocks_;
+    uint32_t blockClearOffset = blockClearSize * block_idx;
+    GlobalTensor<uint8_t> flagGT;
+    flagGT.SetGlobalBuffer(GM_OUT[rank_] + blockClearOffset, blockClearSize);
+    AscendC::Fill(flagGT, blockClearSize, (uint8_t)0);
+    SyncAll<true>();
+
     if (GetBlockIdx() == 0) {
         pipe_barrier(PIPE_ALL);
         for (int i = 0; i < rankSize_; i++) {
