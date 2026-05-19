@@ -34,14 +34,14 @@ HcclResult HcclBatchSendRecv(HcclSendRecvItem* sendRecvInfo, uint32_t itemNum, H
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| sendRecvInfo | 输入 | 本rank需要下发的收发任务列表的首地址。<br>HcclSendRecvItem类型，详细可参见[HcclSendRecvItem](https://gitcode.com/cann/hcomm/blob/master/docs/api_ref/comm_mgr_c/data_type_definition/HcclSendRecvItem.md)。需要注意，针对Ascend 950PR/Ascend 950DT，不支持int128数据类型。 |
+| sendRecvInfo | 输入 | 本rank需要下发的收发任务列表的首地址。<br>HcclSendRecvItem类型，详细可参见[HcclSendRecvItem](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_mgr_c/data_type_definition/HcclSendRecvItem.md)。需要注意，针对Ascend 950PR/Ascend 950DT，不支持int128数据类型。 |
 | itemNum | 输入 | 本rank需要接收和发送的任务个数。 |
 | comm | 输入 | 集合通信操作所在的通信域。 |
 | stream | 输入 | 本rank所使用的stream。 |
 
 ## 返回值
 
-[HcclResult](https://gitcode.com/cann/hcomm/blob/master/docs/api_ref/comm_mgr_c/data_type_definition/HcclResult.md)：接口成功返回HCCL_SUCCESS，其他失败。
+[HcclResult](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_mgr_c/data_type_definition/HcclResult.md)：接口成功返回HCCL_SUCCESS，其他失败。
 
 ## 约束说明
 
