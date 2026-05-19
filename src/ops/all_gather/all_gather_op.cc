@@ -68,6 +68,15 @@ static HcclResult DumpAllGatherData(const void *devPtr, u64 dataSize, u32 rankId
         aclrtFreeHost(hostBuf);
         return HCCL_E_INTERNAL;
     }
+    ofs << "HCCL_ALLGATHER_DUMP_V1\n"
+        << "stage=" << phase << "\n"
+        << "rank=" << rankId << "\n"
+        << "rank_size=" << "2" << "\n"
+        << "count=" << dataSize << "\n"
+        << "dtype=" << "bfloat16" << "\n"
+        << "byte_size=" << dataSize << "\n"
+        << "tag=" << "HcclAllGather" << "\n"
+        << "data\n";   // 注意：无额外换行，接下来直接写二进制
     ofs.write(static_cast<const char *>(hostBuf), dataSize);
     ofs.close();
 
