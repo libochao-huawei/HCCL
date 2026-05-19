@@ -90,12 +90,6 @@ HcclResult InsKfcServerSoleExecutor<AlgTopoMatch, InsAlgTemplate>::OrchestrateLo
     TemplateDataParams tempAlgParams;
     CHK_RET(algTemplate->KernelRun(param, tempAlgParams, templateAlgRes));
 
-#ifndef AICPU_COMPILE
-    if (param.engine == CommEngine::COMM_ENGINE_CCU && param.opMode != OpMode::OFFLOAD) {
-        CHK_RET(FastLaunchSaveCtx(param, templateAlgRes, resCtx.notifyNumOnMainThread));
-    }
-#endif
-
     HCCL_INFO("[InsKfcServerSoleExecutor][OrchestrateLoop] End.");
     return HCCL_SUCCESS;
 }

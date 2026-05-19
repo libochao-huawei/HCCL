@@ -25,6 +25,8 @@ namespace ops_hccl {
 
 using namespace hcomm;
 
+constexpr uint32_t CCU_PARAM_NUM_PER_DIE = 32;
+
 class CcuKernelArgKfcServer : public hcomm::CcuKernelArg {
 public:
     explicit CcuKernelArgKfcServer(uint64_t dimSize, uint32_t rankId, bool loadFromMem, const OpParam& opParam,
