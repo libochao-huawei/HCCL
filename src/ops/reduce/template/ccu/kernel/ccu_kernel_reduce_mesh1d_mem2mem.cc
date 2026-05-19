@@ -52,7 +52,7 @@ static CcuResult CreateLocalCopyLoop(ReduceMesh1DMem2MemContext &ctx, GroupReduc
             ccu::LocalCopy(var.dst[index], ctx.moRes.ccuBuf[0], var.len[index], event);
             ccu::EventWait(event);
         }));
-		loops.loops[index].reset(new ccu::Loop(loops.loopParam[index], loops.body[index]));
+		loops.loops[index].reset(new ccu::Loop(loops.loopParam[index], *loops.body[index]));
     }
     return CCU_SUCCESS;
 }
