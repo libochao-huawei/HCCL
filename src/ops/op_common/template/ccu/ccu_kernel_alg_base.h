@@ -84,8 +84,8 @@ struct CcuKernelCtxBase {
 // ccu::LocalAddr loopDst[2];
 // ccu::LocalAddr loopSrc[2];
 // ccu::LocalAddr loopScratch[2][RS_MAX_RANK_SIZE];
-// CcuVariable  loopLen[2];
-// CcuVariable  loopLenExp[2];
+// ccu::Variable  loopLen[2];
+// ccu::Variable  loopLenExp[2];
 };
 
     struct GroupReduceVar {
@@ -100,7 +100,7 @@ struct CcuKernelCtxBase {
  	         ccu::LocalAddr loopSrc[2];
  	         ccu::LocalAddr loopLocalDst[2];
  	         std::array<std::vector<ccu::RemoteAddr>, 2> loopRemoteDst;
- 	         CcuVariable  loopLen[2];
+ 	         ccu::Variable  loopLen[2];
  	};
 
 //     // 用于n和p部分数据loopgroup的参数
