@@ -591,11 +591,11 @@ CcuResult GroupBroadcast(CcuKernelCtxBase &ctx, const size_t channels[], uint32_
     // loopgroup的parallel参数自己生成
     CCU_IF(goSize.loopParam != 0)
     {
-        CcuVariable loopParam;
+        ccu::Variable loopParam;
         loopParam = GetLoopParam(0, ctx.moConfig.memSlice * ctx.moConfig.loopCount, 0);
         loopParam = loopParam + goSize.loopParam;
 
-        CcuVariable sliceSize;
+        ccu::Variable sliceSize;
         sliceSize = ctx.moConfig.memSlice;
 
         var.loopSrc[0].addr = src.addr;
@@ -608,10 +608,10 @@ CcuResult GroupBroadcast(CcuKernelCtxBase &ctx, const size_t channels[], uint32_
         }
         var.loopLen[0] = sliceSize;
 
-        CcuVariable paraCfg;
+        ccu::Variable paraCfg;
         paraCfg = GetParallelParam(ctx.moConfig.loopCount - 1, 0, 1);
 
-        CcuVariable offsetCfg;
+        ccu::Variable offsetCfg;
         offsetCfg = GetOffsetParam(ctx.moConfig.memSlice, ctx.moConfig.msInterleave, 1);
 
         loops.loopParam[0] = loopParam;
@@ -645,7 +645,7 @@ CcuResult GroupBroadcast(CcuKernelCtxBase &ctx, const size_t channels[], uint32_
             dst[i].addr += goSize.residual;
         }
 
-        CcuVariable sliceSize;
+        ccu::Variable sliceSize;
         sliceSize = ctx.moConfig.memSlice;
 
         var.loopSrc[1].addr = src.addr;
@@ -658,13 +658,13 @@ CcuResult GroupBroadcast(CcuKernelCtxBase &ctx, const size_t channels[], uint32_
         }
         var.loopLen[1] = sliceSize;
 
-        CcuVariable loopCfg0;
+        ccu::Variable loopCfg0;
         loopCfg0 = GetLoopParam(0, 0, 1);
 
-        CcuVariable loopCfg1;
+        ccu::Variable loopCfg1;
         loopCfg1 = GetLoopParam(0, 0, 1);
 
-        CcuVariable offsetCfg;
+        ccu::Variable offsetCfg;
         offsetCfg = GetOffsetParam(ctx.moConfig.memSlice, ctx.moConfig.msInterleave, 1);
 
         loops.loopParam[0] = loopCfg0;
