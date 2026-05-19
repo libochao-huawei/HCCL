@@ -229,10 +229,10 @@ CcuResult CreateMultiOpReduce(CcuKernelCtxBase &ctx, GroupReduceVar &var,
 {
     AllocGoResource(ctx.moConfig, ctx.moRes, ctx.resourceAllocated);
 
-    if (ctx.IsLoopRegistered("reduce")) {
+    if (ctx.IsLoopResRegistered("reduce")) {
         return CCU_SUCCESS;
     }
-    ctx.CreateLoop("reduce");
+    ctx.CreateLoopEntity("reduce");
     auto &loops = ctx.loopMap["reduce"];
 
     uint32_t channelSize = channelCount;
@@ -544,10 +544,10 @@ CcuResult CreateMultiOpBroadcast(CcuKernelCtxBase &ctx, GroupBroadcastVar &var,
 {
     AllocGoResource(ctx.moConfig, ctx.moRes, ctx.resourceAllocated);
 
-    if (ctx.IsLoopRegistered("broadcast")) {
+    if (ctx.IsLoopResRegistered("broadcast")) {
         return CCU_SUCCESS;
     }
-    ctx.CreateLoop("broadcast");
+    ctx.CreateLoopEntity("broadcast");
     auto &loops = ctx.loopMap["broadcast"];
 
     uint32_t channelSize = channelCount;
@@ -556,7 +556,7 @@ CcuResult CreateMultiOpBroadcast(CcuKernelCtxBase &ctx, GroupBroadcastVar &var,
         var.loopRemoteDst[index].resize(channelSize);
 
         uint32_t bufBase = index * ctx.moConfig.msInterleave;
-        CcuEvent loopEvt = ctx.moRes.completedEvent[index];
+        ccu::Event loopEvt = ctx.moRes.completedEvent[index];
 
         loops.body[index].reset(new ccu::Func(
             [&ctx, index, bufBase, loopEvt, channelSize, channels, &var]() {

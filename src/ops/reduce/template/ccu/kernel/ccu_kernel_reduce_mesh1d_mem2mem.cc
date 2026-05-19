@@ -37,10 +37,10 @@ static CcuResult ParseKernelArg(ReduceMesh1DMem2MemContext &ctx, CcuKernelArgRed
 
 static CcuResult CreateLocalCopyLoop(ReduceMesh1DMem2MemContext &ctx, GroupReduceMesh1DMem2MemVar &var)
 {
-    if (ctx.IsLoopRegistered(LOOP_NAME)) {
+    if (ctx.IsLoopResRegistered(LOOP_NAME)) {
         return CCU_SUCCESS;
     }
-    ctx.CreateLoop(LOOP_NAME);
+    ctx.CreateLoopEntity(LOOP_NAME);
     auto &loops = ctx.loopMap[LOOP_NAME];
 
     for (uint32_t index = 0; index < 2; index++) { // 需要2个Loop
