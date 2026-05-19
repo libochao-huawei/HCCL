@@ -229,7 +229,7 @@ CcuResult CreateMultiOpReduce(CcuKernelCtxBase &ctx, GroupReduceVar &var,
 {
     AllocGoResource(ctx.moConfig, ctx.moRes, ctx.resourceAllocated);
 
-    if (ctx.IsLoopResRegistered("reduce")) {
+    if (ctx.IsLoopEntityRegistered("reduce")) {
         return CCU_SUCCESS;
     }
     ctx.CreateLoopEntity("reduce");
@@ -544,7 +544,7 @@ CcuResult CreateMultiOpBroadcast(CcuKernelCtxBase &ctx, GroupBroadcastVar &var,
 {
     AllocGoResource(ctx.moConfig, ctx.moRes, ctx.resourceAllocated);
 
-    if (ctx.IsLoopResRegistered("broadcast")) {
+    if (ctx.IsLoopEntityRegistered("broadcast")) {
         return CCU_SUCCESS;
     }
     ctx.CreateLoopEntity("broadcast");
