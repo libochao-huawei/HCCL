@@ -54,8 +54,6 @@ static CcuResult InitResource(ReduceScatterMesh1DContext &ctx)
         }
     }
 
-    CCU_CHK_RET(ccu::CreateLoopExecutor(&ctx.enginePool, CCU_MAX_RANK_SIZE + 1));
-
     ctx.resourceAllocated = false;
 
     return CCU_SUCCESS;
