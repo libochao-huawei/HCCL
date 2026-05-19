@@ -92,7 +92,7 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::CalcRes(HcclComm comm, const OpPara
         return HcclResult::HCCL_E_INTERNAL;
     }
 
-    uint32_t kernelNum = 1;
+    uint32_t kernelNum = enableDieNum;
     // 无论几个kernel，都创建2条流
     resourceRequest.notifyNumOnMainThread = 1;
     resourceRequest.slaveThreadNum = 1;
@@ -185,8 +185,8 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::SplitDataFor2Dies(const OpParam& pa
         die1Size = 0;
         return HcclResult::HCCL_SUCCESS;
     }
-    u8 die0BWcoeff = 1;
-    u8 die1BWcoeff = 1;
+    u8 die0BWcoeff = 6;
+    u8 die1BWcoeff = 2;
 
     die0Size = (dataCount * die0BWcoeff / (die0BWcoeff + die1BWcoeff)) * typeSize;
     die1Size = sliceSize - die0Size;

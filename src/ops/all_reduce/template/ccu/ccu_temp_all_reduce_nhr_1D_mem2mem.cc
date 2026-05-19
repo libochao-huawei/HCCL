@@ -52,7 +52,7 @@ HcclResult CcuTempAllReduceNHRMem2Mem1D::CalcRes(HcclComm comm, const OpParam& p
         return HcclResult::HCCL_E_INTERNAL;
     }
 
-    uint32_t kernelNum = 1;
+    uint32_t kernelNum = enableDieNum;
     resourceRequest.notifyNumOnMainThread = 1;
     resourceRequest.slaveThreadNum = 1;
     resourceRequest.ccuKernelNum.push_back(kernelNum);
@@ -99,8 +99,8 @@ HcclResult CcuTempAllReduceNHRMem2Mem1D::SplitDataFor2Dies(uint64_t dataCount, u
         die1Size = dataCount * DataTypeSizeGet(dataType_);
         return HcclResult::HCCL_SUCCESS;
     }
-    u8 die0PortGroupSize = 1;
-    u8 die1PortGroupSize = 1;
+    u8 die0PortGroupSize = 6;
+    u8 die1PortGroupSize = 2;
 
     die0Size = (dataCount * die0PortGroupSize / (die0PortGroupSize + die1PortGroupSize)) * DataTypeSizeGet(dataType_);
     die1Size = dataCount * DataTypeSizeGet(dataType_) - die0Size;

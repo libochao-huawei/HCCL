@@ -102,8 +102,8 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::FastLaunch(const OpParam& param, const 
 
         void* taskArgPointer = static_cast<void*>(&taskArg);
 
-        CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0],
-            tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPointer));
+        CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[kernelIdx],
+            tempFastLaunchCtx.ccuKernelSubmitInfos[kernelIdx].kernelHandle, taskArgPointer));
     }
     // 后流同步
     if (kernelNum > 1) {
@@ -132,7 +132,7 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::CalcRes(HcclComm comm, const OpParam& p
         return HcclResult::HCCL_E_INTERNAL;
     }
 
-    uint32_t kernelNum = 1;
+    uint32_t kernelNum = enableDieNum;
     resourceRequest.notifyNumOnMainThread = 1;
     resourceRequest.slaveThreadNum = 1;
     resourceRequest.ccuKernelNum.push_back(kernelNum);
@@ -188,8 +188,8 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::SplitDataFor2Dies(const OpParam& param,
         die1Size = 0;
         return HcclResult::HCCL_SUCCESS;
     }
-    u8 die0PortGroupSize = 1;
-    u8 die1PortGroupSize = 1;
+    u8 die0PortGroupSize = 6;
+    u8 die1PortGroupSize = 2;
 
     die0Size = (dataCount * die0PortGroupSize / (die0PortGroupSize + die1PortGroupSize)) * typeSize;
     die1Size = templateDataParams.sliceSize - die0Size;
