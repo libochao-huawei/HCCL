@@ -36,12 +36,11 @@ struct ReduceScatterVMesh1DMem2MemContext: CcuKernelCtxBase {
     ccu::Variable output;
     std::vector<ccu::Variable> token;
     ccu::Variable offset;
-    GroupOpSizeVars goSize;
     ccu::Variable scratchInterval;
     ccu::Variable scratch;
     ccu::Variable sliceSize;
     GroupOpSizeVars reduceGosize;
-    ccu::Event event; //
+    ccu::Event event;
     ccu::LocalAddr scr;
     std::vector<ccu::RemoteAddr> dst;
     std::vector<ccu::RemoteAddr> reduceScatterVSrc;
