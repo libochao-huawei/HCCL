@@ -317,7 +317,9 @@ HcclResult CalcChannelRequestMesh1D(HcclComm comm, const OpParam& param, const T
                  HcclResult::HCCL_E_PARA);	 
     u32 myRank = topoInfo->userRank;	 
     std::vector<CommProtocol> expectedProtocols;	 
-    CHK_RET(GetProtocolByEngine(param, expectedProtocols));	 
+    CHK_RET(GetProtocolByEngine(param, expectedProtocols));
+    HCCL_INFO("Check mc2_hccl");
+
     for (u32 rank: subcommInfo[COMM_LEVEL0]) {	 
         if (rank == topoInfo->userRank) {	 
             continue;	 
@@ -331,6 +333,8 @@ HcclResult CalcChannelRequestMesh1D(HcclComm comm, const OpParam& param, const T
             CommLink *linkList = nullptr; 
             u32 listSize; 
             CHK_RET(HcclRankGraphGetLinks(comm, netLayer, myRank, rank, &linkList, &listSize)); 
+            
+            HCCL_INFO("Check mc2_hccl");
             if (listSize == 0) { 
                 continue; 
             } 
@@ -342,6 +346,8 @@ HcclResult CalcChannelRequestMesh1D(HcclComm comm, const OpParam& param, const T
                 break; 
             } 
         } 
+        
+        HCCL_INFO("Check mc2_hccl");
         CHK_PRT_RET(channels.size() == channelCountBefore, 
             HCCL_ERROR("[CalcChannelRequestMesh1D] Failed to create channel between myRank=%u and rank=%u, there is no link.", 
                 myRank, rank), HcclResult::HCCL_E_INTERNAL); 
