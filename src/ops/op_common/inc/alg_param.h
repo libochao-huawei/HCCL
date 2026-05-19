@@ -30,7 +30,7 @@
 #include "hccl_host_comm_dl.h"
 #include "binary_stream.h"
 #if CANN_VERSION_NUM >= CANN_VERSION_9_0_0
-#include "hccl_ccu_res.h"
+// #include "hccl_ccu_res.h"
 #else
 typedef void *CcuKernelHandle; // 8.5.0 下无 hccl_ccu_res.h，用 opaque 占位
 #endif
