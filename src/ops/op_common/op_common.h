@@ -41,9 +41,6 @@ HcclResult HcclCalcTopoInfo(HcclComm comm, OpParam &param, std::unique_ptr<TopoI
 HcclResult HcclGetAlgRes(HcclComm comm, OpParam &param, std::unique_ptr<InsCollAlgBase> &executor, TopoInfoWithNetLayerDetails *topoInfo,
     std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, void **resCtxSequence, bool &isResourceReused);
 
-HcclResult CtxReuseProcess(HcclComm comm, OpParam &param, void **resCtxSequence, bool &isResourceReused,
-    uint64_t &size, bool &increCreateChannelFlag);
-
 HcclResult GetAlgResWithEngine(HcclComm comm, OpParam &param, AlgResourceRequest &resRequest,
     std::unique_ptr<AlgResourceCtxSerializable> &resCtxHost, TopoInfoWithNetLayerDetails *topoInfo,
     AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence, uint64_t &size, bool increCreateChannelFlag);
