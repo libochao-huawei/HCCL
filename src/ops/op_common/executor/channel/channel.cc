@@ -242,6 +242,7 @@ HcclResult CreateChannelFromLink(HcclComm comm, u32 myRank, u32 rank, uint32_t n
     channelDesc.remoteEndpoint.protocol = link.dstEndpointDesc.protocol;
     channelDesc.remoteEndpoint.commAddr = link.dstEndpointDesc.commAddr;
     channelDesc.remoteEndpoint.loc = link.dstEndpointDesc.loc;
+    HCCL_DEBUG("%s through hccl system.", funcName.c_str());
     HCCL_DEBUG("%s local device phyId: %u, remote device phyId: %u.",
                 funcName.c_str(), channelDesc.localEndpoint.loc.device.devPhyId,
                 channelDesc.remoteEndpoint.loc.device.devPhyId);
