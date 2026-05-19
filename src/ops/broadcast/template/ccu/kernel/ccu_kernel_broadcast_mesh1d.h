@@ -14,81 +14,32 @@
 #include <vector>
 #include <ios>
 #include "utils.h"
-#include "ccu_kernel.h"
 #include "ccu_kernel_utils.h"
 #include "ccu_kernel_alg_base.h"
 
 namespace ops_hccl {
 
-class CcuKernelArgBroadcastMesh1D : public hcomm::CcuKernelArg {
-public:
-    explicit CcuKernelArgBroadcastMesh1D(uint64_t dimSize, uint32_t rankId, uint32_t rootId, const OpParam& opParam,
-                                                    const std::vector<std::vector<uint32_t>>& subCommRanks)
-        : dimSize_(dimSize),
-          rankId_(rankId),
-          rootId_(rootId),
-          opParam_(opParam),
-          subCommRanks_(subCommRanks)
-    {
-    }
-    hcomm::CcuKernelSignature GetKernelSignature() const override
-    {
-        hcomm::CcuKernelSignature signature;
-        GenerateCcuKernelSignature(signature, "CcuKernelArgBroadcastMesh1D", opParam_, subCommRanks_);
-        return signature;
-    }
-    uint64_t                                dimSize_;
-    uint32_t                                rankId_;
-    uint32_t                                rootId_;
-    OpParam                                 opParam_;
-    std::vector<std::vector<uint32_t>>      subCommRanks_;
+struct CcuKernelArgBroadcastMesh1D: CcuKernelArgBase{
+    uint64_t                                rankSize;
+    uint32_t                                rankId;
+    uint32_t                                rootId;
+    OpParam                                 opParam;
+    std::vector<std::vector<uint32_t>>      subCommRanks;
 };
 
-class CcuTaskArgBroadcastMesh1D : public hcomm::CcuTaskArg {
-public:
-    explicit CcuTaskArgBroadcastMesh1D(uint64_t inputAddr, uint64_t outputAddr, uint64_t token,
-                                                uint64_t offSet, uint64_t sliceSize)
-        : inputAddr_(inputAddr), outputAddr_(outputAddr), token_(token), offSet_(offSet), sliceSize_(sliceSize)
-    {
-        HCCL_DEBUG("[CcuTaskArgBroadcastMesh1D] inputAddr: %lu, outputAddr: %lu, offSet_: %lu, sliceSize_: %lu",
-                   inputAddr_, outputAddr_, offSet_, sliceSize_);
-    }
-
-    uint64_t inputAddr_;
-    uint64_t outputAddr_;
-    uint64_t token_;
-    uint64_t offSet_;
-    uint64_t sliceSize_;
+struct BroadcastMesh1DContext : CcuKernelCtxBase {
+    const CcuKernelArgBroadcastMesh1D *arg;
+    HcclDataType dataType;
+ 	HcclDataType outputDataType;
+    ccu::Variable input;
+    std::vector<ccu::Variable> output;
+    std::vector<ccu::Variable> token;
+    ccu::Variable offset;
+    ccu::Variable slicesize;
+    GroupOpSizeVars groupOpSize;
 };
 
-class CcuKernelBroadcastMesh1D : public CcuKernelAlgBase {
-public:
-    CcuKernelBroadcastMesh1D(const hcomm::CcuKernelArg &arg);
-    ~CcuKernelBroadcastMesh1D() override {}
-
-    HcclResult Algorithm() override;
-    std::vector<uint64_t> GeneArgs(const hcomm::CcuTaskArg &arg) override;
-
-private:
-    HcclResult InitResource();
-    void LoadArgs();
-    void PreSync();
-    void PostSync();
-    void BroadcastFromRootToAll();
-
-    uint32_t rankId_{0};
-    uint32_t rootId_{0};
-    uint64_t rankSize_{0};
-    std::vector<ChannelHandle> channels_;
-    HcclDataType dataType_;
-    HcclDataType outputDataType_;
-    hcomm::CcuRep::Variable input_;
-    std::vector<hcomm::CcuRep::Variable> output_;
-    std::vector<hcomm::CcuRep::Variable> token_;
-    hcomm::CcuRep::Variable offSet_;
-    hcomm::CcuRep::Variable slicesize_;
-    GroupOpSize groupOpSize_;
-};
+    CcuResult CcuBroadcastMesh1DKernel(CcuKernelArg arg);
 
 }// namespace ops_hccl
 #endif // HCCLV2_CCU_KERNEL_BROADCAST_MESH_1D_H

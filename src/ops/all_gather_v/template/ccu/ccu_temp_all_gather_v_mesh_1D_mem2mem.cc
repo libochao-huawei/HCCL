@@ -80,7 +80,6 @@ HcclResult CcuTempAllGatherVMesh1DMem2Mem::KernelRun(const OpParam& param,
                                                         TemplateResource& templateResource)
 {
     buffInfo_ = templateDataParams.buffInfo;
-
     uint32_t rankId = mySubCommRank_;
     u64 dataTypeSize = DATATYPE_SIZE_TABLE[param.vDataDes.dataType];
     uint64_t mySliceSize = templateDataParams.allRankSliceSize[rankId];

@@ -42,7 +42,7 @@ public:
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
 
 private:
-    uint64_t GetTokenWithFallback(const BuffInfo& buffInfo);
+    uint64_t GetTokenWithFallback(const BuffInfo& buffInfo, uint64_t &token);
 
     uint32_t mySubCommRank_ = 0;
 };
