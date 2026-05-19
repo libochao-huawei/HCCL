@@ -854,7 +854,7 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
         // COMM_ENGINE_RESERVED
     } else if (param.engine == COMM_ENGINE_CPU) {
         CHK_RET(GetAlgResDPU(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence,
-            size, increCreateChannelFlag));
+            size, increCreateChannelFlag, resPack));
     } else if (param.engine == COMM_ENGINE_CPU_TS) {
         // COMM_ENGINE_CPU_TS
     } else if (param.engine == COMM_ENGINE_AICPU) {
