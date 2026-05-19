@@ -1053,8 +1053,8 @@ HcclResult HcclGetThread(
             HCCL_DEBUG("[HcclGetThread] threads[%u]=[%llu]", i, resCtxHost->threads[i]);
         }
     }
-    return HCCL_SUCCESS;
     }
+    return HCCL_SUCCESS;
 }
 
 HcclResult SaveMainThreadInfo(HcclComm comm, const OpParam &param, ThreadHandle thread, u32 notifyNum)
