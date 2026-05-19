@@ -15,11 +15,97 @@
 #include <map>
 #include <string>
 
+#include <fstream>
+#include <sys/time.h>
+#include <unistd.h>   // for getpid (可选)
+#include <cstdlib>    // for getenv
 
 using namespace std;
 using namespace ops_hccl;
 extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
 
+// 获取数据类型大小
+static size_t GetDataTypeSize(HcclDataType dataType) {
+    switch (dataType) {
+        case HCCL_DATA_TYPE_INT8:   return 1;
+        case HCCL_DATA_TYPE_INT16:  return 2;
+        case HCCL_DATA_TYPE_INT32:  return 4;
+        case HCCL_DATA_TYPE_INT64:  return 8;
+        case HCCL_DATA_TYPE_UINT64: return 8;
+        case HCCL_DATA_TYPE_FP16:   return 2;
+        case HCCL_DATA_TYPE_FP32:   return 4;
+        case HCCL_DATA_TYPE_FP64:   return 8;
+        case HCCL_DATA_TYPE_BFP16:   return 2;
+        default:
+            HCCL_WARNING("Unknown HcclDataType %d", (int)dataType);
+            return 4;
+    }
+}
+
+static bool IsSaveEnabled() {
+    static bool enabled = []() {
+        char *env = std::getenv("HCCL_ALLGATHER_DUMP_ENABLE");
+        return env && (strcmp(env, "1") == 0 || strcmp(env, "true") == 0);
+    }();
+    return enabled;
+}
+
+// 保存设备缓冲区到文件（同步拷贝）
+static void SaveDeviceBufferToFile(const char *tag, void *deviceBuf, uint64_t elemCount,
+                                   HcclDataType dataType, HcclComm comm, uint64_t displayCount) {
+    if (deviceBuf == nullptr || elemCount == 0) {
+        return;
+    }
+    size_t elemSize = GetDataTypeSize(dataType);
+    if (elemSize == 0) {
+        HCCL_WARNING("Invalid dataType, skip saving %s", tag);
+        return;
+    }
+
+    size_t totalBytes = elemCount * elemSize;
+    const size_t MAX_SAVE_BYTES = 1ULL << 30; // 1GB 限制
+    if (totalBytes > MAX_SAVE_BYTES) {
+        HCCL_WARNING("%s size %zu exceeds max save limit %zu, skip saving", tag, totalBytes, MAX_SAVE_BYTES);
+        return;
+    }
+
+    void *hostBuf = malloc(totalBytes);
+    if (hostBuf == nullptr) {
+        HCCL_WARNING("Failed to allocate %zu bytes for %s host buffer", totalBytes, tag);
+        return;
+    }
+
+    aclError ret = aclrtMemcpy(hostBuf, totalBytes, deviceBuf, totalBytes, ACL_MEMCPY_DEVICE_TO_HOST);
+    if (ret != ACL_SUCCESS) {
+        HCCL_WARNING("aclrtMemcpy failed for %s, error=%d", tag, ret);
+        free(hostBuf);
+        return;
+    }
+
+    // 获取 rankId
+    u32 rankId = INVALID_VALUE_RANKID;
+    CHK_RET(HcclGetRankId(comm, &rankId));
+
+    // 构造文件名
+    struct timeval tv;
+    gettimeofday(&tv, nullptr);
+    char filename[512];
+    snprintf(filename, sizeof(filename),
+             "allgather_%s_rank%u_%ld_%06ld_count%llu.bin",
+             tag, rankId, tv.tv_sec, tv.tv_usec, (unsigned long long)displayCount);
+
+    // 写文件
+    std::ofstream ofs(filename, std::ios::binary);
+    if (ofs) {
+        ofs.write(static_cast<char*>(hostBuf), totalBytes);
+        ofs.close();
+        HCCL_INFO("Saved %s to %s, size=%zu bytes", tag, filename, totalBytes);
+    } else {
+        HCCL_WARNING("Failed to open file %s for %s", filename, tag);
+    }
+
+    free(hostBuf);
+}
 
 HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
                          aclrtStream stream)
@@ -41,6 +127,11 @@ HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclD
     }
     CHK_PRT_RET(sendCount == 0, HCCL_WARNING("input sendCount is 0, return all gather success"), HCCL_SUCCESS);
 
+    // ========== 公共保存（sendBuf） ==========
+    if (IsSaveEnabled()) {
+        SaveDeviceBufferToFile("send", sendBuf, sendCount, dataType, comm, sendCount);
+    }
+
     HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
     std::string opTag;
     CHK_RET(AllGatherInitAndCheck(comm, sendBuf, recvBuf, sendCount, dataType, stream, opTag));
@@ -50,6 +141,18 @@ HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclD
     // 执行AllGather
     CHK_RET_AND_PRINT_IDE(AllGatherOutPlace(sendBuf, recvBuf, sendCount, dataType, comm, stream, opTag), opTag.c_str());
 
+    // ========== 公共保存（recvBuf） ==========
+    if (IsSaveEnabled()) {
+        // 获取通信域大小
+        uint32_t rankSize = 1;
+        if (HcclCommGetSize(comm, &rankSize) != HCCL_SUCCESS) {
+            HCCL_WARNING("Failed to get rankSize, assume 1 for recvBuf saving");
+            rankSize = 1;
+        }
+        uint64_t recvElemCount = sendCount * rankSize;
+        SaveDeviceBufferToFile("recv", recvBuf, recvElemCount, dataType, comm, sendCount);
+    }
+    
     CHK_RET(LogHcclExit("HcclAllGather", opTag.c_str(), startut));
 
     return HCCL_SUCCESS;
