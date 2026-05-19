@@ -207,7 +207,7 @@ HcclResult CcuTempReduceNHR1DMem2Mem::FastLaunch(const OpParam& param, const Tem
         args[outputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + args[outputOffsetIdx];
 
         void *taskArgs = reinterpret_cast<void*>(args);
-
+        HCCL_INFO("[CcuTempReduceNHR1DMem2Mem::FastLaunch] xjhlog1 kernelHandle [%llu]", tempFastLaunchCtx.ccuKernelSubmitInfos[kernelIdx].kernelHandle);
         CcuResult launchRet = HcommCcuKernelLaunch(tempFastLaunchCtx.threads[kernelIdx],
                                                    tempFastLaunchCtx.ccuKernelSubmitInfos[kernelIdx].kernelHandle,
                                                    taskArgs, argSize);
