@@ -49,7 +49,7 @@ private:
         const std::vector<CommLink>& linkList, u32 myRank, u32 remoteRank, uint32_t netLayer,
         std::vector<HcclChannelDesc>& channels, bool& protocolFound);
     HcclResult CalcNHRChannelConnect(u32 rank, u32 rankSize, u32 root, std::set<u32> &connectRanks);
-    HcclResult CcuTempAllToAllMesh1D2Die::SplitDataFor2Dies(const OpParam& param,
+    HcclResult SplitDataFor2Dies(const OpParam& param,
                                                            const TemplateDataParams& templateDataParams,
                                                            uint64_t& sliceSizeMesh2die, uint64_t& sliceSizeMesh1d) const;
 
