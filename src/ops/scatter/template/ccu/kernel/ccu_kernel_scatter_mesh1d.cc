@@ -74,6 +74,8 @@ HcclResult CcuKernelScatterMesh1D::InitResource()
     repeatNum_ = CreateVariable();
     isInputOutputEqual_ = CreateVariable();
     localGoSize_ = CreateGroupOpSize();
+	flag_ = CreateVariable();
+    flag_ = 0;
 
     selfBit_ = 1 << rankId_;  // 仅rankid位为1，其他位为0，代表本端准备好了
     allBit_ = ((1 << rankSize_) - 1) & (~(1 << rankId_));  // 仅rankid位为0，其他位为1，代表远端准备好了
