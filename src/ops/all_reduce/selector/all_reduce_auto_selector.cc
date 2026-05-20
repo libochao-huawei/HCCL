@@ -164,7 +164,7 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNe
                 CHK_PRT_RET(opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT8,
                     HCCL_DEBUG("[AllReduceAutoSelector] dataType[%d] is not supported yet for ccu schedule mode with ms "
                         "reduce. levelNum[%u]", opParam.DataDes.dataType, topoInfo->topoLevelNums), SelectorStatus::NOT_MATCH);
-                selectAlgName = "CcuAllReduceParallelMesh1DNHR";
+                selectAlgName = "CcuAllReduceSequenceMesh1DNhr";
                 return SelectorStatus::MATCH;
             } else {
                 return SelectorStatus::NOT_MATCH;//64M以上切为aicpu
