@@ -67,6 +67,10 @@ private:
     HcclResult RunSendRecv(const TemplateDataParams &tempAlgParams,
         const SendRecvInfo &sendRecvInfo, const DataInfo &sendInfo, const DataInfo &recvInfo,
         const ThreadHandle& thread, const u32 channelId) const;
+    HcclResult PreSyncInterThreadsPerRank(const ThreadHandle &mainThreadCurRank,
+        const std::vector<ThreadHandle> &subThreadsCurRank) const;
+    HcclResult PostSyncInterThreadsPerRank(const ThreadHandle &mainThreadCurRank,
+        const std::vector<ThreadHandle> &subThreadsCurRank) const;
 
     u64 dataTypeSize_{0};
     bool isDmaRead_{false};
