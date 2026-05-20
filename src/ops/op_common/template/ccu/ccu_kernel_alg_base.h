@@ -77,7 +77,7 @@ struct CcuKernelCtxBase {
         loopMap.emplace(loopStr, CcuLoopEntity());
     }
 
-    bool IsLoopEntityRegistered(std::string loopStr) {
+    bool IsLoopResRegistered(std::string loopStr) {
         return loopMap.count(loopStr) != 0;
     }
 
@@ -103,6 +103,20 @@ struct CcuKernelCtxBase {
  	         std::array<std::vector<ccu::RemoteAddr>, 2> loopRemoteDst;
  	         ccu::Variable  loopLen[2];
  	};
+
+    struct GroupCopyVar {
+        ccu::LocalAddr loopDst[2];
+        ccu::LocalAddr loopSrc[2];
+        CcuVariable loopLen[2];
+    };
+
+    struct GroupReduceMem2MemVar {
+        ccu::LocalAddr loopDst[2];
+        ccu::LocalAddr loopSrc[2];
+        std::array<std::vector<ccu::LocalAddr>, 2> loopScratch;
+        ccu::Variable loopLen[2];
+        ccu::Variable loopLenExp[2];
+    };
 
 //     // 用于n和p部分数据loopgroup的参数
 //     GroupOpConfig       moConfig{0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFFFFFFFFFF};
@@ -146,12 +160,15 @@ struct CcuKernelCtxBase {
 //                              HcclDataType outputDataType, HcclReduceOp opType);
 
 //     HcclResult GroupCopy(CcuRep::LocalAddr dst, CcuRep::LocalAddr src, GroupOpSize goSize);
-//     HcclResult GroupLocalReduce(CcuRep::LocalAddr outDstOrg, std::vector<CcuRep::LocalAddr> &scratchOrg,
-//         GroupOpSize goSize, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType);
-// private:
-//     HcclResult CreateMultiOpCopy();
-//     HcclResult CreateMultiOpBroadcast(const std::vector<ChannelHandle> &channels);
-//     HcclResult CreateMultiOpBroadcastWithoutMyRank(const std::vector<ChannelHandle> &channels);
+    CcuResult GroupLocalReduce(CcuKernelCtxBase &ctx, ccu::LocalAddr outDstOrg,
+        std::vector<ccu::LocalAddr> &scratchOrg, GroupOpSizeVars goSize, HcclDataType dataType,
+        HcclDataType outputDataType, HcclReduceOp opType);
+    // private:
+    //     HcclResult CreateMultiOpCopy();
+    //     HcclResult CreateMultiOpBroadcast(const std::vector<ChannelHandle> &channels);
+    //     HcclResult CreateMultiOpBroadcastWithoutMyRank(const std::vector<ChannelHandle> &channels);
+    CcuResult CreateMultiOpCopy(CcuKernelCtxBase &ctx, GroupCopyVar &var);
+    CcuResult GroupCopy(CcuKernelCtxBase &ctx, ccu::LocalAddr dst, ccu::LocalAddr src, GroupOpSizeVars goSize);
     CcuResult GroupReduce(CcuKernelCtxBase &ctx, const size_t channels[], uint32_t channelCount,
                             ccu::LocalAddr dst, std::vector<ccu::RemoteAddr> src, ccu::LocalAddr localSrc,
                             GroupOpSizeVars goSize, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType);
@@ -164,8 +181,7 @@ struct CcuKernelCtxBase {
                              ccu::LocalAddr localDst, std::vector<ccu::RemoteAddr> dst, ccu::LocalAddr src, GroupOpSizeVars goSize);
 //     HcclResult CreateMultiOpReduceWithoutMyRank(const std::vector<ChannelHandle> &ccuChannels, HcclDataType dataType,
 //                                      HcclDataType outputDataType, HcclReduceOp opType);
-//     HcclResult CreateReduceLoop(uint32_t size, HcclDataType dataType, HcclDataType outputDataType,
-//         HcclReduceOp opType);
+    CcuResult CreateReduceLoop(CcuKernelCtxBase &ctx, uint32_t size, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType);
 //     std::string GetLoopBlockTag(std::string loopType, int32_t index);
 // };
 
