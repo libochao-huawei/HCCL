@@ -18,6 +18,23 @@
 
 namespace ops_hccl {
 
+#ifndef NHR_STEP_INFO_DEFINED
+#define NHR_STEP_INFO_DEFINED
+using NHRStepInfo = struct NHRStepInfoDef {
+    u32 step = 0;
+    u32 myRank = 0;
+    u32 nSlices;
+    u32 toRank = 0;
+    u32 fromRank = 0;
+    std::vector<u32> txSliceIdxs;
+    std::vector<u32> rxSliceIdxs;
+
+    NHRStepInfoDef() : nSlices(0)
+    {
+    }
+};
+#endif
+
 struct CcuKernelArgAllGatherNHR1D : CcuKernelArgBase {
     uint64_t                                dimSize;
     uint64_t                                mySubCommRankId;
@@ -34,27 +51,27 @@ struct AllGatherNHR1DMem2MemContext : CcuKernelCtxBase {
 
     uint64_t localSize;
     uint64_t myRankIdx;
-    CcuVariable input;
-    std::vector<CcuVariable> output;
-    std::vector<CcuVariable> token;
-    CcuVariable die0Size;
-    CcuVariable die1Size;
-    CcuVariable repeatNum;
-    CcuVariable inputSliceStride;
-    CcuVariable outputSliceStride;
-    CcuVariable inputRepeatStride;
-    CcuVariable outputRepeatStride;
-    CcuVariable isInputOutputEqual;
-    CcuVariable die0LastSize;
-    CcuVariable die1LastSize;
-    CcuEvent localEvent;
-    CcuVariable repeatTimeflag;
-    std::vector<CcuVariable> outputSliceOffset;
-    CcuVariable myrankInputSliceOffset;
-    CcuLocalAddr srcMem;
-    CcuRemoteAddr dstMem;
-    CcuLocalAddr localDst;
-    CcuVariable constVar1;
+    ccu::Variable input;
+    std::vector<ccu::Variable> output;
+    std::vector<ccu::Variable> token;
+    ccu::Variable die0Size;
+    ccu::Variable die1Size;
+    ccu::Variable repeatNum;
+    ccu::Variable inputSliceStride;
+    ccu::Variable outputSliceStride;
+    ccu::Variable inputRepeatStride;
+    ccu::Variable outputRepeatStride;
+    ccu::Variable isInputOutputEqual;
+    ccu::Variable die0LastSize;
+    ccu::Variable die1LastSize;
+    ccu::Event localEvent;
+    ccu::Variable repeatTimeflag;
+    std::vector<ccu::Variable> outputSliceOffset;
+    ccu::Variable myrankInputSliceOffset;
+    ccu::LocalAddr srcMem;
+    ccu::RemoteAddr dstMem;
+    ccu::LocalAddr localDst;
+    ccu::Variable constVar1;
 };
 
 CcuResult CcuAllGatherNHR1DMem2MemKernel(CcuKernelArg arg);

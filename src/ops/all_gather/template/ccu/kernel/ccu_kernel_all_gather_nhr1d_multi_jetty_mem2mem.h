@@ -18,8 +18,8 @@
 
 namespace ops_hccl {
 
-#ifndef NHR_STEP_INFO_NS_DEFINED
-#define NHR_STEP_INFO_NS_DEFINED
+#ifndef NHR_STEP_INFO_DEFINED
+#define NHR_STEP_INFO_DEFINED
 using NHRStepInfo = struct NHRStepInfoDef {
     uint32_t step = 0;
     uint32_t myRank = 0;
@@ -32,6 +32,7 @@ using NHRStepInfo = struct NHRStepInfoDef {
     NHRStepInfoDef() : nSlices(0)
     {
     }
+};
 #endif
 
 struct CcuKernelArgAllGatherNHR1DMultiJettyMem2Mem : CcuKernelArgBase {
@@ -50,27 +51,27 @@ struct AllGatherNHR1DMultiJettyMem2MemContext : CcuKernelCtxBase {
     uint64_t                                localSize;
     uint64_t                                myRankIdx;
 
-    CcuVariable                             input;
-    std::vector<CcuVariable>                output;
-    std::vector<CcuVariable>                token;
-    CcuVariable                             sliceSize;
-    CcuVariable                             sliceSizePerJetty;
-    CcuVariable                             lastSliceSizePerJetty;
-    CcuVariable                             repeatNumInv;
-    CcuVariable                             inputSliceStride;
-    CcuVariable                             outputSliceStride;
-    CcuVariable                             inputRepeatStride;
-    CcuVariable                             outputRepeatStride;
-    CcuVariable                             isInputOutputEqual;
+    ccu::Variable                             input;
+    std::vector<ccu::Variable>                output;
+    std::vector<ccu::Variable>                token;
+    ccu::Variable                             sliceSize;
+    ccu::Variable                             sliceSizePerJetty;
+    ccu::Variable                             lastSliceSizePerJetty;
+    ccu::Variable                             repeatNumInv;
+    ccu::Variable                             inputSliceStride;
+    ccu::Variable                             outputSliceStride;
+    ccu::Variable                             inputRepeatStride;
+    ccu::Variable                             outputRepeatStride;
+    ccu::Variable                             isInputOutputEqual;
     GroupOpSizeVars                         groupOpSize;
-    CcuEvent                                event;
-    std::vector<CcuVariable>                outputSliceOffset;
-    CcuVariable                             constVar1;
-    CcuLocalAddr                            srcMem;
-    CcuRemoteAddr                           dstMem;
-    CcuLocalAddr                            myDstMem;
-    CcuVariable                             repeatTimeflag;
-    CcuVariable                             tmpCopyRepeatNumInv;
+    ccu::Event                                event;
+    std::vector<ccu::Variable>                outputSliceOffset;
+    ccu::Variable                             constVar1;
+    ccu::LocalAddr                            srcMem;
+    ccu::RemoteAddr                           dstMem;
+    ccu::LocalAddr                            myDstMem;
+    ccu::Variable                             repeatTimeflag;
+    ccu::Variable                             tmpCopyRepeatNumInv;
 };
 
 CcuResult CcuAllGatherNHR1DMultiJettyMem2MemKernel(CcuKernelArg arg);

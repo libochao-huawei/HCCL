@@ -28,10 +28,10 @@ struct CcuKernelArgAllGatherMesh1D : CcuKernelArgBase {
 struct AllGatherMesh1DContext : CcuKernelCtxBase {
     const CcuKernelArgAllGatherMesh1D *arg;
 
-    CcuVariable input;
-    std::vector<CcuVariable> output;
-    std::vector<CcuVariable> token;
-    CcuVariable offset;
+    ccu::Variable input;
+    std::vector<ccu::Variable> output;
+    std::vector<ccu::Variable> token;
+    ccu::Variable offset;
     GroupOpSizeVars goSize;
 };
 

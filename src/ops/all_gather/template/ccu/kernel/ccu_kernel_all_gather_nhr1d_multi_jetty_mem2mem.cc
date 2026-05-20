@@ -37,60 +37,22 @@ static CcuResult InitResource(AllGatherNHR1DMultiJettyMem2MemContext &ctx)
         HCCL_ERROR("[CcuKernelAllGatherNHR1DMultiJettyMem2Mem] channels is empty!");
         return CcuResult::CCU_E_INTERNAL;
     }
+    HCCL_INFO("[CcuKernelAllGatherNHR1DMultiJettyMem2Mem] channels.size: [%u]", arg->channelCount);
 
-    CCU_CHK_RET(ccu::Alloc(&ctx.input));
     ctx.output.resize(ctx.localSize + 1);
     ctx.token.resize(ctx.localSize + 1);
 
     for (uint32_t channelIdx = 0; channelIdx < arg->channelCount; channelIdx++) {
         HCCL_DEBUG("[CcuKernelAllGatherNHR1DMultiJettyMem2Mem] MyRank[%u], channelIdx[%u]",
             arg->rankId, channelIdx);
-        CCU_CHK_RET(ccu::CreateByChannel(
-            arg->channels[channelIdx], OUTPUT_XN_ID, &ctx.output[channelIdx]));
-        CCU_CHK_RET(ccu::CreateByChannel(
-            arg->channels[channelIdx], TOKEN_XN_ID, &ctx.token[channelIdx]));
+        ctx.output[channelIdx] = ccu::GetResByChannel<ccu::Variable>(arg->channels[channelIdx], OUTPUT_XN_ID);
+        ctx.token[channelIdx] = ccu::GetResByChannel<ccu::Variable>(arg->channels[channelIdx], TOKEN_XN_ID);
     }
-    
-    CCU_CHK_RET(ccu::Alloc(&ctx.output[ctx.myRankIdx]));
-    CCU_CHK_RET(ccu::Alloc(&ctx.token[ctx.myRankIdx]));
-
-    CCU_CHK_RET(ccu::Alloc(&ctx.sliceSize));
-    CCU_CHK_RET(ccu::Alloc(&ctx.sliceSizePerJetty));
-    CCU_CHK_RET(ccu::Alloc(&ctx.lastSliceSizePerJetty));
-    CCU_CHK_RET(ccu::Alloc(&ctx.repeatNumInv));
-    CCU_CHK_RET(ccu::Alloc(&ctx.inputSliceStride));
-    CCU_CHK_RET(ccu::Alloc(&ctx.outputSliceStride));
-    CCU_CHK_RET(ccu::Alloc(&ctx.inputRepeatStride));
-    CCU_CHK_RET(ccu::Alloc(&ctx.outputRepeatStride));
-    CCU_CHK_RET(ccu::Alloc(&ctx.isInputOutputEqual));
-    CCU_CHK_RET(ccu::Alloc(&ctx.groupOpSize.addrOffset));
-    CCU_CHK_RET(ccu::Alloc(&ctx.groupOpSize.loopParam));
-    CCU_CHK_RET(ccu::Alloc(&ctx.groupOpSize.parallelParam));
-    CCU_CHK_RET(ccu::Alloc(&ctx.groupOpSize.residual));
-
-    CCU_CHK_RET(ccu::CreateLoopExecutor(&ctx.enginePool, 8)); // 待修改
-
-    ctx.resourceAllocated = false;
-    ctx.loopRegistered = false;
-
-    CCU_CHK_RET(ccu::Alloc(&ctx.event));
 
     ctx.outputSliceOffset.resize(arg->rankSize);
-    for (u64 i = 0; i < arg->rankSize; i++) {
-        CCU_CHK_RET(ccu::Alloc(&ctx.outputSliceOffset[i]));
-    }
-
-    CCU_CHK_RET(ccu::Alloc(&ctx.constVar1));
     ctx.constVar1 = 1;
-
-    CCU_CHK_RET(ccu::Alloc(&ctx.srcMem));
-    CCU_CHK_RET(ccu::Alloc(&ctx.dstMem));
-    CCU_CHK_RET(ccu::Alloc(&ctx.myDstMem));
-
-    CCU_CHK_RET(ccu::Alloc(&ctx.repeatTimeflag));
     ctx.repeatTimeflag = 0;
-
-    CCU_CHK_RET(ccu::Alloc(&ctx.tmpCopyRepeatNumInv));
+    ctx.resourceAllocated = false;
 
     return CCU_SUCCESS;
 }
@@ -98,23 +60,24 @@ static CcuResult InitResource(AllGatherNHR1DMultiJettyMem2MemContext &ctx)
 static CcuResult LoadArgs(AllGatherNHR1DMultiJettyMem2MemContext &ctx)
 {
     const auto *arg = ctx.arg;
+    uint32_t argId = 0;
 
-    CCU_CHK_RET(ccu::LoadArg(ctx.input));
-    CCU_CHK_RET(ccu::LoadArg(ctx.output[ctx.myRankIdx]));
-    CCU_CHK_RET(ccu::LoadArg(ctx.token[ctx.myRankIdx]));
-    CCU_CHK_RET(ccu::LoadArg(ctx.sliceSize));
-    CCU_CHK_RET(ccu::LoadArg(ctx.sliceSizePerJetty));
-    CCU_CHK_RET(ccu::LoadArg(ctx.lastSliceSizePerJetty));
-    CCU_CHK_RET(ccu::LoadArg(ctx.repeatNumInv));
-    CCU_CHK_RET(ccu::LoadArg(ctx.inputSliceStride));
-    CCU_CHK_RET(ccu::LoadArg(ctx.outputSliceStride));
-    CCU_CHK_RET(ccu::LoadArg(ctx.inputRepeatStride));
-    CCU_CHK_RET(ccu::LoadArg(ctx.outputRepeatStride));
-    CCU_CHK_RET(ccu::LoadArg(ctx.isInputOutputEqual));
-    CCU_CHK_RET(ccu::LoadArg(ctx.groupOpSize.addrOffset));
-    CCU_CHK_RET(ccu::LoadArg(ctx.groupOpSize.loopParam));
-    CCU_CHK_RET(ccu::LoadArg(ctx.groupOpSize.parallelParam));
-    CCU_CHK_RET(ccu::LoadArg(ctx.groupOpSize.residual));
+    CCU_CHK_RET(ccu::LoadArg(ctx.input, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.output[ctx.myRankIdx], argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.token[ctx.myRankIdx], argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.sliceSize, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.sliceSizePerJetty, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.lastSliceSizePerJetty, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.repeatNumInv, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.inputSliceStride, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.outputSliceStride, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.inputRepeatStride, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.outputRepeatStride, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.isInputOutputEqual, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.groupOpSize.addrOffset, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.groupOpSize.loopParam, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.groupOpSize.parallelParam, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.groupOpSize.residual, argId++));
 
     HCCL_DEBUG("[CcuKernelAllGatherNHR1DMultiJettyMem2Mem] LoadArgs run finished");
     return CCU_SUCCESS;
@@ -163,43 +126,38 @@ static CcuResult DoSendRecvSlices(AllGatherNHR1DMultiJettyMem2MemContext &ctx,
     ChannelHandle sendChannel = arg->channels[arg->rank2ChannelIdx.at(toRank)];
     ccu::LocalAddr srcMemTmp;
     ccu::RemoteAddr dstMemTmp;
-    CCU_CHK_RET(ccu::Alloc(&srcMemTmp));
-    CCU_CHK_RET(ccu::Alloc(&dstMemTmp));
     srcMemTmp.addr = srcMem.addr;
     srcMemTmp.token = srcMem.token;
     dstMemTmp.addr = dstMem.addr;
     dstMemTmp.token = dstMem.token;
 
-    CCU_IF_ONLY(ctx.sliceSizePerJetty != 0)
+    CCU_IF(ctx.sliceSizePerJetty != 0)
     {
         for (uint32_t i = 0; i < arg->jettyNum - 1; ++i) {
-            CCU_CHK_RET(ccu::SetMask(ctx.event, 1 << i));
-            CCU_CHK_RET(ccu::WriteNb(sendChannel, dstMemTmp, srcMemTmp, ctx.sliceSizePerJetty, ctx.event));
+            const uint16_t jettyMask = 1 << i;
+            CCU_CHK_RET(ccu::Write(sendChannel, dstMemTmp, srcMemTmp, 
+                ctx.sliceSizePerJetty, ctx.event, jettyMask));
             srcMemTmp.addr += ctx.sliceSizePerJetty;
             dstMemTmp.addr += ctx.sliceSizePerJetty;
         }
-    }
-    CCU_IF_ONLY(ctx.sliceSizePerJetty == 0)
-    {
+    } CCU_ELSE {
         for (uint32_t i = 0; i < arg->jettyNum - 1; ++i) {
-            CCU_CHK_RET(ccu::SetMask(ctx.event, 1 << i));
-            CCU_CHK_RET(ccu::RecordEvent(ctx.event));
+            const uint16_t jettyMask = 1 << i;
+            CCU_CHK_RET(ccu::EventRecord(ctx.event, jettyMask));
         }
     }
-    CCU_IF_ONLY(ctx.lastSliceSizePerJetty != 0)
+    CCU_IF(ctx.lastSliceSizePerJetty != 0)
     {
-        CCU_CHK_RET(ccu::SetMask(ctx.event, 1 << (arg->jettyNum - 1)));
-        CCU_CHK_RET(ccu::WriteNb(sendChannel, dstMemTmp, srcMemTmp, ctx.lastSliceSizePerJetty, ctx.event));
-    }
-    CCU_IF_ONLY(ctx.lastSliceSizePerJetty == 0)
-    {
-        CCU_CHK_RET(ccu::SetMask(ctx.event, 1 << (arg->jettyNum - 1)));
-        CCU_CHK_RET(ccu::RecordEvent(ctx.event));
+        const uint16_t lastJettyMask = 1 << (arg->jettyNum - 1);
+        CCU_CHK_RET(ccu::Write(sendChannel, dstMemTmp, srcMemTmp, 
+            ctx.lastSliceSizePerJetty, ctx.event, lastJettyMask));
+    } CCU_ELSE {
+        const uint16_t lastJettyMask = 1 << (arg->jettyNum - 1);
+        CCU_CHK_RET(ccu::EventRecord(ctx.event, lastJettyMask));
     }
 
     uint16_t sendBit = (1 << arg->jettyNum) - 1;
-    CCU_CHK_RET(ccu::SetMask(ctx.event, sendBit));
-    CCU_CHK_RET(ccu::WaitEvent(ctx.event));
+    CCU_CHK_RET(ccu::EventWait(ctx.event, sendBit));
 
     return CCU_SUCCESS;
 }
@@ -231,10 +189,10 @@ static CcuResult DoRepeatAllGatherNHRSingleStep(AllGatherNHR1DMultiJettyMem2MemC
         ctx.repeatTimeflag = 0;
         ctx.tmpCopyRepeatNumInv = ctx.repeatNumInv;
 
-        CCU_DO_WHILE(ctx.tmpCopyRepeatNumInv != UINT64_MAX)
+        CCU_WHILE(ctx.tmpCopyRepeatNumInv != UINT64_MAX)
         {
             ctx.tmpCopyRepeatNumInv += ctx.constVar1;
-            CCU_IF_ONLY(ctx.repeatTimeflag == 1)
+            CCU_IF(ctx.repeatTimeflag == 1)
             {
                 ctx.srcMem.addr += ctx.inputRepeatStride;
                 ctx.dstMem.addr += ctx.outputRepeatStride;
@@ -253,12 +211,10 @@ static CcuResult DoRepeatAllGatherNHR(AllGatherNHR1DMultiJettyMem2MemContext &ct
 {
     const auto *arg = ctx.arg;
 
-    CcuVariable tmpSliceOffset;
-    CCU_CHK_RET(ccu::Alloc(&tmpSliceOffset));
+    ccu::Variable tmpSliceOffset;
     tmpSliceOffset = 0;
 
-    CcuVariable myrankInputSliceOffset;
-    CCU_CHK_RET(ccu::Alloc(&myrankInputSliceOffset));
+    ccu::Variable myrankInputSliceOffset;
     myrankInputSliceOffset = 0;
 
     for (u64 i = 0; i < arg->rankId; i++) {
@@ -278,26 +234,24 @@ static CcuResult DoRepeatAllGatherNHR(AllGatherNHR1DMultiJettyMem2MemContext &ct
 
     ctx.tmpCopyRepeatNumInv = ctx.repeatNumInv;
 
-    CCU_DO_WHILE(ctx.tmpCopyRepeatNumInv != UINT64_MAX)
+    CCU_WHILE(ctx.tmpCopyRepeatNumInv != UINT64_MAX)
     {
         ctx.tmpCopyRepeatNumInv += ctx.constVar1;
-        CCU_IF_ONLY(ctx.repeatTimeflag != 0)
+        CCU_IF(ctx.repeatTimeflag != 0)
         {
             ctx.srcMem.addr += ctx.inputRepeatStride;
             ctx.myDstMem.addr += ctx.outputRepeatStride;
         }
-        CCU_CHK_RET(ccu::SetMask(ctx.event, 1 << arg->rankId));
-        CCU_IF_ONLY(ctx.isInputOutputEqual == 0)
+        const uint16_t rankMask = 1 << arg->rankId;
+        CCU_IF(ctx.isInputOutputEqual == 0)
         {
-            CCU_CHK_RET(GroupCopy(ctx, ctx.myDstMem, ctx.srcMem, ctx.groupOpSize));
-            CCU_CHK_RET(ccu::RecordEvent(ctx.event));
+            CCU_CHK_RET(GroupCopy(ctx, ctx.myDstMem, ctx.srcMem, ctx.groupOpSize)); // 待修改
+            CCU_CHK_RET(ccu::EventRecord(ctx.event, rankMask));
+        } CCU_ELSE {
+            CCU_CHK_RET(ccu::EventRecord(ctx.event, rankMask));
         }
-        CCU_IF_ONLY(ctx.isInputOutputEqual != 0)
-        {
-            CCU_CHK_RET(ccu::RecordEvent(ctx.event));
-        }
-        CCU_CHK_RET(ccu::SetMask(ctx.event, 1 << arg->rankId));
-        CCU_CHK_RET(ccu::WaitEvent(ctx.event));
+        
+        CCU_CHK_RET(ccu::EventWait(ctx.event, rankMask));
         ctx.repeatTimeflag = 1;
     }
 
@@ -314,7 +268,6 @@ CcuResult CcuAllGatherNHR1DMultiJettyMem2MemKernel(CcuKernelArg arg)
 
     AllGatherNHR1DMultiJettyMem2MemContext ctx;
     ctx.resourceAllocated = false;
-    ctx.loopRegistered = false;
     ctx.moConfig.msInterleave = 0;
     ctx.moConfig.loopCount = 0;
     ctx.moConfig.memSlice = 0;
