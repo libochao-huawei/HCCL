@@ -16,7 +16,6 @@
 
 #include "ccu_temp_all_to_all_mesh1d_2Die.h"
 #include "ccu_kernel_all_to_all_mesh2die.h"
-#include "ccu_temp_all_to_all_mesh_1D.h"
 
 
 namespace ops_hccl {
@@ -169,6 +168,11 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcChannelRequest(HcclComm comm, const Op
 HcclResult CcuTempAllToAllMesh1D2Die::CalcRes(HcclComm comm, const OpParam& param,
     const TopoInfoWithNetLayerDetails* topoInfo, AlgResourceRequest& resourceRequest)
 {
+    // 需要从流
+    resourceRequest.notifyNumOnMainThread = 1;
+    resourceRequest.slaveThreadNum = 1;
+    resourceRequest.notifyNumPerThread.push_back(1);
+
     //多少个kernel
     std::vector<HcclChannelDesc> channelDescs;
     // 要拿所有的channel，mesh和clos的。
@@ -186,11 +190,6 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcRes(HcclComm comm, const OpParam& para
 
     const uint32_t rankSize = subCommRanks_[0].size();
     resourceRequest.ccuKernelNum.push_back(DIE_NUM);        // kernel数量
-
-    // 需要从流
-    resourceRequest.notifyNumOnMainThread = 1;
-    resourceRequest.slaveThreadNum = channels2port_.size() + 1;//2+6需要2条从流，server需要1条从流
-    resourceRequest.notifyNumPerThread.push_back(1);
 
     // 先下发mesh的kenrel
     CcuKernelInfo kernelInfoMesh;
@@ -219,21 +218,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcRes(HcclComm comm, const OpParam& para
     HCCL_DEBUG("[CcuTempAllToAllMesh1D2Die][CalcRes] dieId=%u, channels=%llu, rankSize=%llu, ccuKernelInfos=%llu",
         closDieId, channels_[closDieId].size(), rankSize, resourceRequest.ccuKernelInfos.size());
 
-    //下发2port_clos的kernel
-    if (channels2port_.size() == 0) {
-        return HcclResult::HCCL_SUCCESS;
-    }
-    CcuKernelInfo kernelInfoClos2Port;
-    kernelInfoClos2Port.creator = [](const hcomm::CcuKernelArg &arg) {
-        return std::make_unique<CcuKernelAlltoAllMesh1D>(arg);
-    };
-    auto kernelArg = std::make_shared<CcuKernelArgAlltoAllMesh1D>(rankSize, myRank_, false, param, subCommRanks_);
-    kernelInfoClos2Port.kernelArg = kernelArg;
-    kernelInfoClos2Port.channels = channels2port_;
-    resourceRequest.ccuKernelInfos.emplace_back(kernelInfoClos2Port);
-    HCCL_DEBUG("[CcuTempAllToAllMesh1D2Die][CalcRes] dieId=%u, channels=%llu, rankSize=%llu, ccuKernelInfos=%llu",
-        meshDieId, channels2port_.size(), rankSize, resourceRequest.ccuKernelInfos.size());
-    
+
     return HcclResult::HCCL_SUCCESS;
 }
 
@@ -269,19 +254,17 @@ HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std
     }
     
     // 筛选clos链路
-    channels2port_.clear();
     for(auto& channels: clos_channels){
         u32 dieId = channels.first;
         std::vector<HcclChannelDesc>& channel_list = channels.second;
         HCCL_INFO("DIEID[%u], meshDieId[%u]", dieId, meshDieId);
+        if (dieId == meshDieId) {
+            continue;
+        }
 
         for(auto& channel: channel_list){
-            if (dieId == meshDieId) {
-                channels2port_.emplace_back(channel);
-            } else {
-                channels_[dieId].emplace_back(channel);
-                rankGroup_[dieId].push_back(channel.remoteRank);
-            } 
+            channels_[dieId].emplace_back(channel);
+            rankGroup_[dieId].push_back(channel.remoteRank);
         }
         
     }
@@ -295,48 +278,20 @@ HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuTempAllToAllMesh1D2Die::SplitDataFor2Dies(const OpParam& param,
-                                                           const TemplateDataParams& templateDataParams,
-                                                           uint64_t& sliceSizeMesh2die, uint64_t& sliceSizeMesh1d) const
-{
-    constexpr uint64_t MULTIPLIER = 4;
-    uint64_t typeSize = DataTypeSizeGet(param.all2AllDataDes.dataType);
-    uint64_t dataCount = (templateDataParams.sliceSize / typeSize);
-
-    if (dataCount <= templateRankSize_ * MULTIPLIER) {   // 数据量极小，不划分die
-        sliceSizeMesh2die = dataCount * typeSize;
-        sliceSizeMesh1d = 0;
-        return HcclResult::HCCL_SUCCESS;
-    }
-    u8 die0PortGroupSize = 6;
-    u8 die1PortGroupSize = 2;
-
-    sliceSizeMesh2die = (dataCount * die0PortGroupSize / (die0PortGroupSize + die1PortGroupSize)) * typeSize;
-    sliceSizeMesh1d = templateDataParams.sliceSize - sliceSizeMesh2die;
-    HCCL_INFO("[CcuTempAllGatherNHR1DMem2Mem::SplitDataFor2Dies] sliceSizeMesh2die = %llu, sliceSizeMesh1d = %llu", sliceSizeMesh2die , sliceSizeMesh1d);
-    return HcclResult::HCCL_SUCCESS;
-}
-
 HcclResult CcuTempAllToAllMesh1D2Die::KernelRun(const OpParam &param, const TemplateDataParams &templateDataParams,
     TemplateResource& templateResource)
 {
     HCCL_INFO("[CcuTempAllToAllMesh1D2Die] Run");
     opMode_ = param.opMode;
     buffInfo_ = templateDataParams.buffInfo;
-    u32 kernelNum = templateResource.ccuKernels.size();
+
     const uint32_t rankSize = subCommRanks_[0].size();
 
     uint64_t inputAddr  = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
     uint64_t token;
     CHK_RET(GetToken(buffInfo_, token));
-
-    if (kernelNum == DIE_NUM + 1) {
-        SplitDataFor2Dies(param, templateDataParams, sliceSizeMesh2die, sliceSizeMesh1d);
-    } else {
-        sliceSizeMesh2die = templateDataParams.sliceSize;
-    }
-
+    uint64_t sliceSize        = templateDataParams.sliceSize;
     // uint64_t inputSliceStride = templateDataParams.sdispls[1] * DATATYPE_SIZE_TABLE[param.all2AllDataDes.recvType] -  buffInfo_.inBuffBaseOff;
     uint64_t outputSliceStride = templateDataParams.sdispls[1] * DATATYPE_SIZE_TABLE[param.all2AllDataDes.recvType] -  buffInfo_.inBuffBaseOff;
     uint64_t inputSliceStride = outputSliceStride;
@@ -346,7 +301,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::KernelRun(const OpParam &param, const Temp
         param.all2AllDataDes.sendType, param.all2AllDataDes.recvType);
     HCCL_INFO("[CcuTempAllToAllMesh1D2Die][KernelRun] myRank_[%d], rankSize[%lu], inputAddr[%llu],"
               "outputAddr[%llu], sliceSize[%llu], outBuffBaseOff[%llu], inputSliceStride[%llu], outputSliceStride[%llu]",
-               myRank_, rankSize, inputAddr, outputAddr, sliceSizeMesh2die, outBuffBaseOff, inputSliceStride, outputSliceStride);
+               myRank_, rankSize, inputAddr, outputAddr, sliceSize, outBuffBaseOff, inputSliceStride, outputSliceStride);
 
     // 前流同步
     std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
@@ -359,26 +314,6 @@ HcclResult CcuTempAllToAllMesh1D2Die::KernelRun(const OpParam &param, const Temp
         void *taskArgPtr = static_cast<void *>(taskArg.get());
         CHK_RET(HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[dieId], templateResource.ccuKernels[dieId],
             taskArgPtr));
-    }
-
-    //判断是否有2port
-    if (kernelNum == DIE_NUM + 1 && templateRankSize_ != 1) {
-        //2port参数
-        // 拿到input和output的首地址,和每片小数据的大小
-        uint64_t srcStride = templateDataParams.outputSliceStride;
-        uint64_t dstStride = templateDataParams.outputSliceStride;
-        uint64_t sliceBias = templateDataParams.processedDataCount * DATATYPE_SIZE_TABLE[param.all2AllDataDes.recvType];
-        uint64_t srcOffset = 0;
-        uint64_t dstOffset = myRank_ * dstStride;
-
-        HCCL_INFO("[CcuTempAllToAllMesh1D2Die] Run Init: myRank_[%d],  inputAddr[%llu],"\
-            "outputAddr[%llu], sliceSize[%llu], srcOffset[%llu], dstOffset[%llu]",
-            myRank_, inputAddr, outputAddr, sliceSize, srcOffset, dstOffset);
-        std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAlltoAllMesh1D>(
-            inputAddr, outputAddr, sliceSizeMesh1d, token, srcOffset, dstOffset, srcStride);
-
-        void* taskArgPtr = static_cast<void*>(taskArg.get());
-        CHK_RET(HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[DIE_NUM], templateResource.ccuKernels[DIE_NUM], taskArgPtr));
     }
 
     // 后流同步
