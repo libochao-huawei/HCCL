@@ -585,26 +585,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
             resCtxHost->threads[0] = thread;
             // 图模式要全部覆盖
             if (param.opMode != OpMode::OPBASE) {
-                // 计算AlgHierarchyInfo
-                AlgHierarchyInfoForAllLevel algHierarchyInfo;  // 分级通信域信息{localRankId, localRankSize}
-                CHK_RET(executor->CalcAlgHierarchyInfo(comm, topoInfo.get(), algHierarchyInfo));
-                // 资源计算
-                AlgResourceRequest resRequest;
-                CHK_RET(executor->CalcRes(comm, param, topoInfo.get(), algHierarchyInfo, resRequest));
-
-                u32 maxNotifyNum = 0;
-                for (u32 i = 0; i < resRequest.notifyNumPerThread.size(); i++) {
-                    if (resRequest.notifyNumPerThread[i] > maxNotifyNum) {
-                        maxNotifyNum = resRequest.notifyNumPerThread[i];
-                    }
-                }
-
-                u32 threadNum = resRequest.slaveThreadNum;
-                for (u32 i = 0; i < threadNum; i++) {
-                    ThreadHandle slaveThread;
-                    CHK_RET(HcclThreadAcquireWithStream(comm, param.engine, resPack.streams[i], maxNotifyNum, &slaveThread));
-                    resCtxHost->threads[i + 1] = slaveThread;
-                } 
+                GeReuseResource(comm, param, executor, topoInfo.get(), resPack);
             }
         }
         int result = sprintf_s(param.algName, sizeof(param.algName), "%s", algName.c_str());
@@ -629,6 +610,31 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     CHK_RET(HcclProfilingReportOp(comm, beginTime));
     HCCL_INFO("Execute HcclExecOp success.");
     return HCCL_SUCCESS;
+}
+
+HcclResult GeReuseResource(HcclComm comm, OpParam &param, std::unique_ptr<InsCollAlgBase>& executor,
+        TopoInfoWithNetLayerDetails* topoInfo,, const ResPackGraphMode &resPack)
+{
+    // 计算AlgHierarchyInfo
+    AlgHierarchyInfoForAllLevel algHierarchyInfo;  // 分级通信域信息{localRankId, localRankSize}
+    CHK_RET(executor->CalcAlgHierarchyInfo(comm, topoInfo.get(), algHierarchyInfo));
+    // 资源计算
+    AlgResourceRequest resRequest;
+    CHK_RET(executor->CalcRes(comm, param, topoInfo.get(), algHierarchyInfo, resRequest));
+
+    u32 maxNotifyNum = 0;
+    for (u32 i = 0; i < resRequest.notifyNumPerThread.size(); i++) {
+        if (resRequest.notifyNumPerThread[i] > maxNotifyNum) {
+            maxNotifyNum = resRequest.notifyNumPerThread[i];
+        }
+    }
+
+    u32 threadNum = resRequest.slaveThreadNum;
+    for (u32 i = 0; i < threadNum; i++) {
+        ThreadHandle slaveThread;
+        CHK_RET(HcclThreadAcquireWithStream(comm, param.engine, resPack.streams[i], maxNotifyNum, &slaveThread));
+        resCtxHost->threads[i + 1] = slaveThread;
+    }
 }
 
 HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHandle cpuTsThread,
@@ -1049,18 +1055,7 @@ HcclResult HcclGetThread(
                 }
             }
         } else {
-            u32 slaveStreams = resPack.streams.size();
-            u32 threadNum = resRequest.slaveThreadNum;
-            if (threadNum > slaveStreams) {
-                HCCL_ERROR("Thread Num Should less than slave streams. slaveStreams[%llu], threadNums[%llu]", slaveStreams, threadNum);
-                return HCCL_E_UNAVAIL;
-            }
-
-            for (u32 i = 0; i < threadNum; i++) {
-                ThreadHandle slaveThread;
-                CHK_RET(HcclThreadAcquireWithStream(comm, param.engine, resPack.streams[i], maxNotifyNum, &slaveThread));
-                resCtxHost->threads.push_back(slaveThread);
-            }
+            GeGetThread(comm, param, resRequest, resCtxHost, resPack);
         }
     }
 
@@ -1071,6 +1066,23 @@ HcclResult HcclGetThread(
         }
     }
     return HCCL_SUCCESS;
+}
+
+HcclResult GeGetThread(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
+    std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, const ResPackGraphMode &resPack)
+{
+    u32 slaveStreams = resPack.streams.size();
+    u32 threadNum = resRequest.slaveThreadNum;
+    if (threadNum > slaveStreams) {
+        HCCL_ERROR("Thread Num Should less than slave streams. slaveStreams[%llu], threadNums[%llu]", slaveStreams, threadNum);
+        return HCCL_E_UNAVAIL;
+    }
+
+    for (u32 i = 0; i < threadNum; i++) {
+        ThreadHandle slaveThread;
+        CHK_RET(HcclThreadAcquireWithStream(comm, param.engine, resPack.streams[i], maxNotifyNum, &slaveThread));
+        resCtxHost->threads.push_back(slaveThread);
+    }
 }
 
 HcclResult SaveMainThreadInfo(HcclComm comm, const OpParam &param, ThreadHandle thread, u32 notifyNum)
