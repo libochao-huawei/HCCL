@@ -12,6 +12,12 @@
 #include "topo_match_multilevel.h"
 #include "ins_temp_all_gather_mesh_1D_Z_axis_detour.h"
 #include "ins_temp_all_gather_nhr.h"
+#ifndef AICPU_COMPILE
+#if !defined(HCCL_CANN_COMPAT_850)
+#include "ccu_temp_all_gather_nhr_1D_mem2mem.h"
+#include "ccu_temp_all_gather_mesh_1D_mem2mem.h"
+#endif /* !HCCL_CANN_COMPAT_850 */
+#endif
 #include "coll_alg_v2_exec_registry.h"
 
 namespace ops_hccl {
@@ -83,7 +89,21 @@ HcclResult InsV2AllGatherSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, In
     }
     resourceRequest.notifyNumOnMainThread = std::max(resReqIntra.notifyNumOnMainThread, resReqInter.notifyNumOnMainThread);
 
-    resourceRequest.channels = {resReqIntra.channels[0], resReqInter.channels[0]};
+    if (param.engine != COMM_ENGINE_CCU) {
+        resourceRequest.channels = {resReqIntra.channels[0], resReqInter.channels[0]};
+    } else {
+        // ccu
+        HCCL_INFO("[InsAllGatherParallelExecutor][CalcRes] intraTemplate has [%d] kernels.", resReqIntra.ccuKernelNum[0]);
+        resourceRequest.ccuKernelInfos.insert(resourceRequest.ccuKernelInfos.end(),
+                                            resReqIntra.ccuKernelInfos.begin(),
+                                            resReqIntra.ccuKernelInfos.end());
+        resourceRequest.ccuKernelNum.emplace_back(resReqIntra.ccuKernelNum[0]);
+        HCCL_INFO("[InsAllGatherParallelExecutor][CalcRes] interTemplate has [%d] kernels.", resReqInter.ccuKernelNum[0]);
+        resourceRequest.ccuKernelInfos.insert(resourceRequest.ccuKernelInfos.end(),
+                                            resReqInter.ccuKernelInfos.begin(),
+                                            resReqInter.ccuKernelInfos.end());
+        resourceRequest.ccuKernelNum.emplace_back(resReqInter.ccuKernelNum[0]);
+    }
     return HCCL_SUCCESS;
 }
 
@@ -103,7 +123,9 @@ HcclResult InsV2AllGatherSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, In
     threads_ = resCtx.threads;
     rankSizeLevel0_ = algHierarchyInfo_.infos[0][0].size();
     rankSizeLevel1_ = algHierarchyInfo_.infos[1][0].size();
-    CHK_RET(RestoreChannelMap(resCtx, remoteRankToChannelInfo_));
+    if (param.engine != CommEngine::COMM_ENGINE_CCU) {
+        CHK_RET(RestoreChannelMap(resCtx, remoteRankToChannelInfo_));
+    }
 
     // 算法展开
     HcclResult ret = OrchestrateLoop(param, resCtx);
@@ -176,17 +198,29 @@ void InsV2AllGatherSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 template <typename InsAlgTemplate>
 HcclResult InsV2AllGatherSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::GenTempResource
-    (const AlgResourceCtxSerializable &resCtx, const u32 channelLevelIdx,
+    (const OpParam &param, const AlgResourceCtxSerializable &resCtx, const u32 channelLevelIdx,
     const InsAlgTemplate &algTemplate, TemplateResource &tempReousrce) const
 {
     AlgResourceRequest req;
     algTemplate.GetRes(req);
-    if (channelLevelIdx >= remoteRankToChannelInfo_.size()) {
-        HCCL_ERROR("[InsV2AllGatherSequenceExecutorAicpu][GenTempResource] channelLevelIdx[%u] should be lower"
-            "than remoteRankToChannelInfo_.size()[%u]", channelLevelIdx, remoteRankToChannelInfo_.size());
-        return HCCL_E_INTERNAL;
+    if (param.engine != CommEngine::COMM_ENGINE_CCU) {
+        if (channelLevelIdx >= remoteRankToChannelInfo_.size()) {
+            HCCL_ERROR("[InsV2AllGatherSequenceExecutorAicpu][GenTempResource] channelLevelIdx[%u] should be lower"
+                "than remoteRankToChannelInfo_.size()[%u]", channelLevelIdx, remoteRankToChannelInfo_.size());
+            return HCCL_E_INTERNAL;
+        }
+        tempReousrce.channels = remoteRankToChannelInfo_[channelLevelIdx];
+    } else {
+        if (channelLevelIdx == 0) {
+            tempReousrce.ccuKernels.insert(tempReousrce.ccuKernels.end(),
+                                            resCtx.ccuKernels.begin(),
+                                            resCtx.ccuKernels.begin() + resCtx.ccuKernelNum[0]);
+        } else {
+            tempReousrce.ccuKernels.insert(tempReousrce.ccuKernels.end(),
+                                            resCtx.ccuKernels.begin() + resCtx.ccuKernelNum[0],
+                                            resCtx.ccuKernels.begin() + resCtx.ccuKernelNum[0] + resCtx.ccuKernelNum[1]);
+        }
     }
-    tempReousrce.channels = remoteRankToChannelInfo_[channelLevelIdx];
     tempReousrce.threads.assign(resCtx.threads.begin(), resCtx.threads.begin() + 1 + req.slaveThreadNum);
     return HCCL_SUCCESS;
 }
@@ -208,7 +242,9 @@ HcclResult InsV2AllGatherSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, In
 
     // 构建框间template
     InsAlgTemplate1 interTempAlg(param, myRank_, algHierarchyInfo_.infos[1]);
-    interTempAlg.SetchannelsPerRank(remoteRankToChannelInfo_[1]);
+    if (param.engine != CommEngine::COMM_ENGINE_CCU) {
+        interTempAlg.SetchannelsPerRank(remoteRankToChannelInfo_[1]);
+    }
 
     // 框内template
     TemplateDataParams intraTempDataParams;
@@ -221,16 +257,18 @@ HcclResult InsV2AllGatherSequenceExecutorAicpu<AlgTopoMatch, InsAlgTemplate0, In
 
     // 构建框内template
     InsAlgTemplate0 intraTempAlg(param, myRank_, algHierarchyInfo_.infos[0]);
-    intraTempAlg.SetchannelsPerRank(remoteRankToChannelInfo_[0]);
+    if (param.engine != CommEngine::COMM_ENGINE_CCU) {
+        intraTempAlg.SetchannelsPerRank(remoteRankToChannelInfo_[0]);
+    }
     // ccl buffer按框数切分
     u32 templateScratchMultiplier = interTempAlg.CalcScratchMultiple(BufferType::INPUT, BufferType::HCCL_BUFFER);
 
     // 构造框间template资源
     TemplateResource templateResourceInter;
-    CHK_RET(GenTempResource(resCtx, 1, interTempAlg, templateResourceInter));
+    CHK_RET(GenTempResource(param, resCtx, 1, interTempAlg, templateResourceInter));
     // 构造框内template资源
     TemplateResource templateResourceIntra;
-    CHK_RET(GenTempResource(resCtx, 0, intraTempAlg, templateResourceIntra));
+    CHK_RET(GenTempResource(param, resCtx, 0, intraTempAlg, templateResourceIntra));
 
     u64 maxCountPerLoop = interTempDataParams.buffInfo.hcclBuff.size / templateScratchMultiplier /
         HCCL_MIN_SLICE_ALIGN * HCCL_MIN_SLICE_ALIGN / dataTypeSize_;
@@ -260,4 +298,16 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER,
                                TopoMatchMultilevel,
                                InsTempAllGatherMesh1D1DZAxisDetour,
                                InsTempAllGatherNHR);
+
+#ifndef AICPU_COMPILE
+#if !defined(HCCL_CANN_COMPAT_850)
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, 
+                            CcuAllGatherSequenceNHRMesh1D,
+                            InsV2AllGatherSequenceExecutorAicpu,
+                            TopoMatchMultilevel,
+                            CcuTempAllGatherMesh1DMem2Mem,
+                            CcuTempAllGatherNHR1DMem2Mem);
+#endif /* !HCCL_CANN_COMPAT_850 */
+
+#endif
 }
