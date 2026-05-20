@@ -208,26 +208,6 @@ void CcuKernelScatterMesh1D::DoScatter()
             RecordEvent(event_);
         }
     }
-    CCU_IF(isInputOutputEqual_ == 0)
-    {
-        CcuRep::LocalAddr myOutput = CreateLocalAddr();
-        myOutput.addr = outputMem_[rankId_].addr;
-        myOutput.token = outputMem_[rankId_].token;
-        GroupCopy(myOutput, inputMem_[rankId_], localGoSize_);
-    }
-    CCU_IF(isInputOutputEqual_ != 0)
-    {
-        CCU_IF(outputSliceStride_ == 0)
-        {
-            if (rootId_ != 0)
-            {
-                CcuRep::LocalAddr myOutput = CreateLocalAddr();
-                myOutput.addr = outputMem_[rankId_].addr;
-                myOutput.token = outputMem_[rankId_].token;
-                GroupCopy(myOutput, inputMem_[rankId_], localGoSize_);
-            }
-        }
-    }
     event_.SetMask((1 << rankSize_) - 1);
     WaitEvent(event_);
 }
