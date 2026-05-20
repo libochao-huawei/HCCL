@@ -104,6 +104,7 @@ HcclResult CcuTempAllReduceNHRMem2Mem1D::SplitDataFor2Dies(uint64_t dataCount, u
 
     die0Size = (dataCount * die0PortGroupSize / (die0PortGroupSize + die1PortGroupSize)) * DataTypeSizeGet(dataType_);
     die1Size = dataCount * DataTypeSizeGet(dataType_) - die0Size;
+    HCCL_INFO("[CcuTempAllReduceNHRMem2Mem1D::SplitDataFor2Dies] die0Size = %llu, die1Size = %llu", die0Size ,die1Size);
     return HcclResult::HCCL_SUCCESS;
 }
 

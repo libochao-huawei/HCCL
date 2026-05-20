@@ -53,6 +53,7 @@ private:
     const uint32_t DIE_NUM = 2; // 2Die
 
     std::map<uint32_t, std::vector<HcclChannelDesc>> channels_; // key is DieId
+    std::vector<HcclChannelDesc> channels2port_;
     std::map<uint32_t, RankGroup> rankGroup_;
     std::map<u32, std::vector<HcclChannelDesc>> rankIdToChannelDesc_;
 };
