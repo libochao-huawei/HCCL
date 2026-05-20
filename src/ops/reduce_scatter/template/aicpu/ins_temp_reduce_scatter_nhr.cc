@@ -312,7 +312,6 @@ HcclResult InsTempReduceScatterNHR::RunNHR(const std::vector<ThreadHandle> &thre
                 if (skipStep0TxPreCopy_ && s == 0) {
                     txSrcAddr = tempAlgParams_.buffInfo.inputPtr;
                     txSrcOff = inBaseOff + tempAlgParams_.inputSliceStride * txIdx + txelemOffset;
-                    txDstOff = rxScOff;
                 }
 
                 DataSlice txSrcSlice = DataSlice(txSrcAddr, txSrcOff,
