@@ -349,7 +349,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::KernelRun(const OpParam &param, const Temp
         "sendType[%d], recvType[%d]", myRank_, inputAddr, param.inputPtr, outputAddr, param.outputPtr,
         param.all2AllDataDes.sendType, param.all2AllDataDes.recvType);
     HCCL_INFO("[CcuTempAllToAllMesh1D2Die][KernelRun] myRank_[%d], rankSize[%lu], inputAddr[%llu],"
-              "outputAddr[%llu], sliceSize[%llu], outBuffBaseOff[%llu], inputSliceStride[%llu], outputSliceStride[%llu]",
+              "outputAddr[%llu], sliceSizeMesh2die[%llu], outBuffBaseOff[%llu], inputSliceStride[%llu], outputSliceStride[%llu]",
                myRank_, rankSize, inputAddr, outputAddr, sliceSizeMesh2die, outBuffBaseOff, inputSliceStride, outputSliceStride);
 
     // 前流同步
@@ -359,7 +359,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::KernelRun(const OpParam &param, const Temp
 
     for (uint32_t dieId = 0; dieId < DIE_NUM; dieId++) {    // 2Die算法，需要执行两次
         std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAllToAllMesh2Die>(
-            inputAddr, outputAddr, token, sliceSize, inputSliceStride, outputSliceStride);
+            inputAddr, outputAddr, token, sliceSizeMesh1d, inputSliceStride, outputSliceStride);
         void *taskArgPtr = static_cast<void *>(taskArg.get());
         CHK_RET(HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[dieId], templateResource.ccuKernels[dieId],
             taskArgPtr));
@@ -375,8 +375,8 @@ HcclResult CcuTempAllToAllMesh1D2Die::KernelRun(const OpParam &param, const Temp
         uint64_t dstOffset = myRank_ * dstStride;
 
         HCCL_INFO("[CcuTempAllToAllMesh1D2Die] Run Init: myRank_[%d],  inputAddr[%llu],"\
-            "outputAddr[%llu], sliceSize[%llu], srcOffset[%llu], dstOffset[%llu]",
-            myRank_, inputAddr, outputAddr, sliceSize, srcOffset, dstOffset);
+            "outputAddr[%llu], sliceSizeMesh1d[%llu], srcOffset[%llu], dstOffset[%llu]",
+            myRank_, inputAddr, outputAddr, sliceSizeMesh1d, srcOffset, dstOffset);
         std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAlltoAllMesh1D>(
             inputAddr, outputAddr, sliceSizeMesh1d, token, srcOffset, dstOffset, srcStride);
 
