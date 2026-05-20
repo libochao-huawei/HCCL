@@ -30,6 +30,7 @@ if(NOT PROJECT_SOURCE_DIR)
             )
         endif()
         FetchContent_GetProperties(cann-cmake)
+        
         if(NOT cann-cmake_POPULATED)
             FetchContent_Populate(cann-cmake)
         endif()
