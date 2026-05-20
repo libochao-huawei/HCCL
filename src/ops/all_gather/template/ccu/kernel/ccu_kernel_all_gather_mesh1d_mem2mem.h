@@ -26,23 +26,23 @@ struct CcuKernelArgAllGatherMesh1DMem2Mem : CcuKernelArgBase {
 };
 
 struct AllGatherMesh1DMem2MemContext : CcuKernelCtxBase {
-    const CcuKernelArgAllGatherNHR1D *arg;
+    const CcuKernelArgAllGatherMesh1DMem2Mem *arg;
 
-    CcuVariable input;
-    std::vector<CcuVariable> output;
-    std::vector<CcuVariable> token;
-    CcuVariable currentRankSliceInputOffset;
-    CcuVariable currentRankSliceOutputOffset;
-    CcuVariable tmpRepeatNum;
-    CcuVariable inputRepeatStride;
-    CcuVariable outputRepeatStride;
-    CcuVariable normalSliceSize;
-    CcuVariable lastSliceSize;
-    CcuVariable isInputOutputEqual;
+    ccu::Variable input;
+    std::vector<ccu::Variable> output;
+    std::vector<ccu::Variable> token;
+    ccu::Variable currentRankSliceInputOffset;
+    ccu::Variable currentRankSliceOutputOffset;
+    ccu::Variable tmpRepeatNum;
+    ccu::Variable inputRepeatStride;
+    ccu::Variable outputRepeatStride;
+    ccu::Variable normalSliceSize;
+    ccu::Variable lastSliceSize;
+    ccu::Variable isInputOutputEqual;
     GroupOpSizeVars goSize;
-    CcuEvent event;
-    CcuLocalAddr src_loccopy;
-    CcuLocalAddr localDst;
+    ccu::Event event;
+    ccu::LocalAddr src_loccopy;
+    ccu::LocalAddr localDst;
 
 };
 

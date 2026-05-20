@@ -32,70 +32,42 @@ static CcuResult InitResource(AllGatherMesh1DMem2MemContext &ctx)
         HCCL_ERROR("[CcuKernelAllGatherMesh1DMem2Mem] channels is empty!");
         return CcuResult::CCU_E_INTERNAL;
     }
+    HCCL_INFO("[CcuKernelAllGatherMesh1DMem2Mem] channels.size: [%u]", arg->channelCount);
 
-    CCU_CHK_RET(ccu::Alloc(&ctx.input));
     ctx.output.resize(arg->rankSize);
     ctx.token.resize(arg->rankSize);
 
     for (uint64_t peerId = 0; peerId < arg->rankSize; peerId++) {
-        if (peerId == arg->rankId) {
-            CCU_CHK_RET(ccu::Alloc(&ctx.output[peerId]));
-            CCU_CHK_RET(ccu::Alloc(&ctx.token[peerId]));
-        } else {
-            CCU_CHK_RET(ccu::CreateByChannel(
-                arg->channels[channelIdx], OUTPUT_XN_ID, &ctx.output[peerId]));
-            CCU_CHK_RET(ccu::CreateByChannel(
-                arg->channels[channelIdx], TOKEN_XN_ID, &ctx.token[peerId]));
+        if (peerId != arg->rankId) {
+            ctx.output[peerId] = ccu::GetResByChannel<ccu::Variable>(arg->channels[channelIdx], OUTPUT_XN_ID);
+            ctx.token[peerId] = ccu::GetResByChannel<ccu::Variable>(arg->channels[channelIdx], TOKEN_XN_ID);
             channelIdx++;
         }
-
     }
-
-    CCU_CHK_RET(ccu::Alloc(&ctx.currentRankSliceInputOffset));
-    CCU_CHK_RET(ccu::Alloc(&ctx.currentRankSliceOutputOffset));
-    CCU_CHK_RET(ccu::Alloc(&ctx.inputRepeatStride));
-    CCU_CHK_RET(ccu::Alloc(&ctx.outputRepeatStride));
-    CCU_CHK_RET(ccu::Alloc(&ctx.tmpRepeatNum));
-    CCU_CHK_RET(ccu::Alloc(&ctx.normalSliceSize));
-    CCU_CHK_RET(ccu::Alloc(&ctx.lastSliceSize));
-    CCU_CHK_RET(ccu::Alloc(&ctx.isInputOutputEqual));
-
-    CCU_CHK_RET(ccu::Alloc(&ctx.goSize.addrOffset));
-    CCU_CHK_RET(ccu::Alloc(&ctx.goSize.loopParam));
-    CCU_CHK_RET(ccu::Alloc(&ctx.goSize.parallelParam));
-    CCU_CHK_RET(ccu::Alloc(&ctx.goSize.residual));
-
-    CCU_CHK_RET(ccu::CreateLoopExecutor(&ctx.enginePool, CCU_MS_LOCAL_COPY_LOOP_COUNT)); // 待修改
-
     ctx.resourceAllocated = false;
-    ctx.loopRegistered = false;
-
-    CCU_CHK_RET(ccu::Alloc(&ctx.event));
-    CCU_CHK_RET(ccu::Alloc(&ctx.src_loccopy));
-    CCU_CHK_RET(ccu::Alloc(&ctx.localDst));
-
     return CCU_SUCCESS;
 }
 
 static CcuResult LoadArgs(AllGatherMesh1DMem2MemContext &ctx)
 {
     const auto *arg = ctx.arg;
+    uint32_t argId = 0;
 
-    CCU_CHK_RET(ccu::LoadArg(ctx.input));
-    CCU_CHK_RET(ccu::LoadArg(ctx.output[arg->rankId]));
-    CCU_CHK_RET(ccu::LoadArg(ctx.token[arg->rankId]));
-    CCU_CHK_RET(ccu::LoadArg(ctx.currentRankSliceInputOffset));
-    CCU_CHK_RET(ccu::LoadArg(ctx.currentRankSliceOutputOffset));
-    CCU_CHK_RET(ccu::LoadArg(ctx.tmpRepeatNum));
-    CCU_CHK_RET(ccu::LoadArg(ctx.inputRepeatStride));
-    CCU_CHK_RET(ccu::LoadArg(ctx.outputRepeatStride));
-    CCU_CHK_RET(ccu::LoadArg(ctx.normalSliceSize));
-    CCU_CHK_RET(ccu::LoadArg(ctx.lastSliceSize));
-    CCU_CHK_RET(ccu::LoadArg(ctx.isInputOutputEqual));
-    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.addrOffset));
-    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.loopParam));
-    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.parallelParam));
-    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.residual));
+    CCU_CHK_RET(ccu::LoadArg(ctx.input, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.output[arg->rankId], argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.token[arg->rankId], argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.currentRankSliceInputOffset, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.currentRankSliceOutputOffset, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.tmpRepeatNum, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.inputRepeatStride, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.outputRepeatStride, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.normalSliceSize, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.lastSliceSize, argId++)); 
+    CCU_CHK_RET(ccu::LoadArg(ctx.isInputOutputEqual, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.addrOffset, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.loopParam, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.parallelParam, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.residual, argId++));
 
     return CCU_SUCCESS;
 }
@@ -131,29 +103,29 @@ static CcuResult PostSync(AllGatherMesh1DMem2MemContext &ctx)
     return CCU_SUCCESS;
 }
 
-static CcuResult DoAllGather(AllGatherMesh1DMem2MemContext &ctx, const ccu::LocalAddr &src, const std::vector<ccu::RemoteAddr> &dst, const CcuVariable &sliceSize)
+static CcuResult DoAllGather(AllGatherMesh1DMem2MemContext &ctx, const ccu::LocalAddr &src, const std::vector<ccu::RemoteAddr> &dst, const ccu::Variable &sliceSize)
 {
     const auto *arg = ctx.arg;
     uint32_t channelId = 0;
 
     for (uint64_t rankIdx = 0; rankIdx < arg->rankSize; rankIdx++) {
+        const uint16_t rankMask = 1 << rankIdx;
         if (rankIdx == arg->rankId) {
-            CCU_CHK_RET(ccu::SetMask(ctx.event, 1 << rankIdx));
-            CCU_CHK_RET(ccu::RecordEvent(ctx.event));
+            CCU_CHK_RET(ccu::EventRecord(ctx.event, rankMask));
         } else {
             // 处理非本卡情况
-            CCU_CHK_RET(ccu::SetMask(ctx.event, 1 << rankIdx));
-            CCU_CHK_RET(ccu::WriteNb(arg->channels[channelId], dst[rankIdx], src, sliceSize, ctx.event));
+            CCU_CHK_RET(ccu::Write(arg->channels[channelId], dst[rankIdx], 
+                src, sliceSize, ctx.event, rankMask));
             channelId++;
         }
     }
-    CCU_IF_ONLY(ctx.isInputOutputEqual == 0)
+    CCU_IF(ctx.isInputOutputEqual == 0)
     {
         // 处理本卡情况
         CCU_CHK_RET(GroupCopy(ctx, ctx.localDst, ctx.src_loccopy, ctx.goSize));
     }
-    CCU_CHK_RET(ccu::SetMask(ctx.event, (1 << arg->rankSize) - 1));
-    CCU_CHK_RET(ccu::WaitEvent(ctx.event));
+    const uint16_t allRankMask = (1 << arg->rankSize) - 1;
+    CCU_CHK_RET(ccu::EventWait(ctx.event, allRankMask));
     return CCU_SUCCESS;
 }
 
@@ -165,12 +137,6 @@ static CcuResult DoRepeatAllGather(AllGatherMesh1DMem2MemContext &ctx)
     std::vector<ccu::RemoteAddr> dst;
 
     dst.resize(arg->rankSize);
-    CCU_CHK_RET(ccu::Alloc(&src));
-    for (uint32_t rankIdx = 0; rankIdx < arg->rankSize; rankIdx++) {
-        if (rankIdx != arg->rankId) {
-            CCU_CHK_RET(ccu::Alloc(&dst[rankIdx]));
-        }
-    }
 
     src.addr = ctx.input;
     src.addr += ctx.currentRankSliceInputOffset;
@@ -192,17 +158,15 @@ static CcuResult DoRepeatAllGather(AllGatherMesh1DMem2MemContext &ctx)
         }
     }
 
-    CcuVariable constVar1;
-    CcuVariable repeatTimeflag;
-    CCU_CHK_RET(ccu::Alloc(&constVar1));
-    CCU_CHK_RET(ccu::Alloc(&repeatTimeflag));
+    ccu::Variable constVar1;
+    ccu::Variable repeatTimeflag;
     constVar1 = 1;
     repeatTimeflag = 0;
 
-    CCU_DO_WHILE(ctx.tmpRepeatNum != UINT64_MAX)
+    CCU_WHILE(ctx.tmpRepeatNum != UINT64_MAX)
     {
         ctx.tmpRepeatNum += constVar1;
-        CCU_IF_ONLY(repeatTimeflag != 0)
+        CCU_IF(repeatTimeflag != 0)
         {
             src.addr += ctx.inputRepeatStride;
             for (uint32_t rankIdx = 0; rankIdx < arg->rankSize; rankIdx++) {
@@ -213,7 +177,7 @@ static CcuResult DoRepeatAllGather(AllGatherMesh1DMem2MemContext &ctx)
                 }
             }
         }
-        CCU_IF_ONLY(ctx.normalSliceSize != 0)
+        CCU_IF(ctx.normalSliceSize != 0)
         {
             CCU_CHK_RET(DoAllGather(ctx, src, dst, ctx.normalSliceSize));
         }
@@ -229,7 +193,6 @@ CcuResult CcuAllGatherMesh1DMem2MemKernel(CcuKernelArg arg)
 
     AllGatherMesh1DMem2MemContext ctx;
     ctx.resourceAllocated = false;
-    ctx.loopRegistered = false;
     ctx.moConfig.msInterleave = 0;
     ctx.moConfig.loopCount = 0;
     ctx.moConfig.memSlice = 0;
