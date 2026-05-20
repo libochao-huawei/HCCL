@@ -9,8 +9,6 @@
  */
 
 #include "channel.h"
-//#include "hccl_ccu_res.h"
-#include "ccu_assist_pub.h"
 #include "alg_template_base.h"
 #include "ccu_kernel_all_gather_nhr1d_multi_jetty_mem2mem.h"
 #include "ccu_temp_all_gather_nhr_1D_multi_jetty_mem2mem.h"
