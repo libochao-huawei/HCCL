@@ -302,7 +302,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::SplitDataFor2Dies(const OpParam& param,
                                                            uint64_t& sliceSizeMesh2die, uint64_t& sliceSizeMesh1d) const
 {
     constexpr uint64_t MULTIPLIER = 4;
-    uint64_t typeSize = DataTypeSizeGet(param.all2AllDataDes.dataType);
+    uint64_t typeSize = DataTypeSizeGet(param.all2AllDataDes.recvType);
     uint64_t dataCount = (templateDataParams.sliceSize / typeSize);
 
     if (dataCount <= templateRankSize_ * MULTIPLIER) {   // 数据量极小，不划分die
