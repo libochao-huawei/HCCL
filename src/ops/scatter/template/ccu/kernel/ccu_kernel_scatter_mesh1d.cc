@@ -74,8 +74,6 @@ HcclResult CcuKernelScatterMesh1D::InitResource()
     repeatNum_ = CreateVariable();
     isInputOutputEqual_ = CreateVariable();
     localGoSize_ = CreateGroupOpSize();
-    flag_ = CreateVariable();
-    flag_ = 0;
 
     selfBit_ = 1 << rankId_;  // 仅rankid位为1，其他位为0，代表本端准备好了
     allBit_ = ((1 << rankSize_) - 1) & (~(1 << rankId_));  // 仅rankid位为0，其他位为1，代表远端准备好了
@@ -136,16 +134,18 @@ void CcuKernelScatterMesh1D::DoRepeatScatter()
     CcuRep::Variable repeatNumAdd = CreateVariable();
     repeatNumAdd = 1;
     // 设置每张卡输入输出的起始地址
+	CcuRep::Variable inputOffset = CreateVariable();
+	CcuRep::Variable outputOffset = CreateVariable();
+	inputOffset = 0;
+	outputOffset = 0;
     for (uint64_t curId = 0; curId < rankSize_; curId++) {
         inputMem_[curId].token = token_[curId];   // 设置每张卡的输入token
         outputMem_[curId].token = token_[curId];  // 设置每张卡的输出token
 
         inputMem_[curId].addr = input_;  // 设置每张卡的输入地址，以root的起始地址为基准
         outputMem_[curId].addr = output_[curId];  // 设置每张卡的输出地址
-        for (uint64_t i = 0; i < curId; i++) {
-            inputMem_[curId].addr += currentRankSliceInputOffset_;  // 每张卡加上偏移量
-            outputMem_[curId].addr += outputSliceStride_;
-        }
+		inputMem_[curId].addr += inputOffset;
+		outputMem_[curId].addr += outputOffset;
     }
     if (rankId_ == rootId_) {
         CCU_WHILE(repeatNum_ != UINT64_MAX)
