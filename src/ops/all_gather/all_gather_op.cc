@@ -97,6 +97,18 @@ HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclD
         return HcclAllGatherInner(sendBuf, recvBuf, sendCount, dataType, comm, stream);
     }
 
+    if (IsAllGatherDumpEnabled()) {
+        u32 dumpRankId = INVALID_VALUE_RANKID;
+        CHK_RET(HcclGetRankId(comm, &dumpRankId));
+        u32 dumpRankSize = INVALID_VALUE_RANKSIZE;
+        CHK_RET(HcclGetRankSize(comm, &dumpRankSize));
+        u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
+        u64 inputSize = sendCount * perDataSize;
+        HcclResult dumpRet = DumpAllGatherData(sendBuf, inputSize, dumpRankId, "input0", opTag, stream);
+        CHK_PRT_CONT(dumpRet != HCCL_SUCCESS,
+            HCCL_WARNING("[HcclAllGather] dump input data failed, ret[%d]", dumpRet));
+    }
+
     u32 sleepUs = GetDumpSleepUs();
     HCCL_INFO("[HcclAllGather] usleep[%u us] before dump input", sleepUs);
     usleep(sleepUs);
