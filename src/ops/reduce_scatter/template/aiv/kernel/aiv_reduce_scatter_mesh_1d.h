@@ -94,16 +94,14 @@ private:
 };
 
 template<typename T>
-__aicore__ inline void AivReduceScatterV2Mesh1D(EXTERN_KERNEL_ARGS_DEF_V2)
+__aicore__ inline void AivReduceScatterV2Mesh1D(KERNEL_ARGS_DEF)
 {
     AivReduceScatterMesh1D<T> op;
     op.Init(KERNEL_CLASS_INIT, true);
     op.InitCoreInfo(len, inputSliceStride);
-    SyncAll<true>();
     if (op.IsFirstOP(sliceId)) {
         op.BarrierForFirstOP();
     }
-    SyncAll<true>();
     op.Process(sliceId);
     op.BarrierAll();
 }

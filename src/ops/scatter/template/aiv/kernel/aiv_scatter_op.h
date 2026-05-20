@@ -7,22 +7,22 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
-
-#ifndef ALL_GATHER_AIV_COMMUNICATION_V2_H
-#define ALL_GATHER_AIV_COMMUNICATION_V2_H
-
+ 
+#ifndef AIV_SCATTER_OP_H
+#define AIV_SCATTER_OP_H
+ 
 #include "aiv_communication_base_v2.h"
-#include "aiv_all_gather_mesh_1d.h"
-
+#include "aiv_scatter_mesh_1d.h"
+ 
 using namespace AscendC;
-
-#define AIV_ALLGATHER_KERNEL_BATCH_DEF(type) \
-extern "C" __global__ __aicore__ void aiv_all_gather_##type(EXTERN_KERNEL_ARGS_DEF_V2) { \
-    return AivAllGatherV2Mesh1D<type>(EXTERN_KERNEL_ARGS_CALL); \
+ 
+#define AIV_SCATTER_KERNEL_BATCH_DEF(type) \
+extern "C" __global__ __aicore__ void aiv_scatter_##type(KERNEL_ARGS_DEF) { \
+    return AivScatterV2Mesh1D<type>(KERNEL_ARGS_CALL); \
 } \
-EXPORT_AIV_META_INFO(aiv_all_gather_##type)
-
+EXPORT_AIV_META_INFO(aiv_scatter_##type)
+ 
 // 定义各算子各数据类型Kernel入口
-AIV_COPY_DATA_TYPE_DEF(AIV_ALLGATHER_KERNEL_BATCH_DEF);
-
-#endif  /* AIV_COMMUNICATION_V2_H */
+AIV_COPY_DATA_TYPE_DEF(AIV_SCATTER_KERNEL_BATCH_DEF);
+ 
+#endif  /* AIV_SCATTER_OP_H */

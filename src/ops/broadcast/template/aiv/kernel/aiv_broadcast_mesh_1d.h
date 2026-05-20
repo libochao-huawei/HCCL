@@ -175,15 +175,13 @@ __aicore__ inline void AivBroadcastMesh1D::ProcessBigData(uint64_t curCount, uin
 }
  
 template<typename T>
-__aicore__ inline void AivBroadcastV2Mesh1D(EXTERN_KERNEL_ARGS_DEF_V2)
+__aicore__ inline void AivBroadcastV2Mesh1D(KERNEL_ARGS_DEF)
 {
     AivBroadcastMesh1D op;
     op.Init(KERNEL_CLASS_INIT, true);
-    SyncAll<true>();
     if (op.IsFirstOP(sliceId)) {
         op.BarrierForFirstOP();
     }
-    SyncAll<true>();
     if (len * sizeof(T) >= DATA_LIMIT) {
         op.ProcessBigData<T>(len, sliceId);
     } else {
