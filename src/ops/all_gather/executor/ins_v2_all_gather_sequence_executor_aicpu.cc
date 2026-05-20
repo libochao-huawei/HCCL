@@ -12,6 +12,12 @@
 #include "topo_match_multilevel.h"
 #include "ins_temp_all_gather_mesh_1D_Z_axis_detour.h"
 #include "ins_temp_all_gather_nhr.h"
+#ifndef AICPU_COMPILE
+#if !defined(HCCL_CANN_COMPAT_850)
+#include "ccu_temp_all_gather_nhr_1D_mem2mem.h"
+#include "ccu_temp_all_gather_mesh_1D_mem2mem.h"
+#endif /* !HCCL_CANN_COMPAT_850 */
+#endif
 #include "coll_alg_v2_exec_registry.h"
 
 namespace ops_hccl {
@@ -260,4 +266,16 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER,
                                TopoMatchMultilevel,
                                InsTempAllGatherMesh1D1DZAxisDetour,
                                InsTempAllGatherNHR);
+
+#ifndef AICPU_COMPILE
+#if !defined(HCCL_CANN_COMPAT_850)
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, 
+                            CcuAllGatherSequenceNHRMesh1D,
+                            InsV2AllGatherSequenceExecutorAicpu,
+                            TopoMatchMultilevel,
+                            CcuTempAllGatherMesh1DMem2Mem,
+                            CcuTempAllGatherNHR1DMem2Mem);
+#endif /* !HCCL_CANN_COMPAT_850 */
+
+#endif
 }
