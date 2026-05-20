@@ -52,7 +52,7 @@ HcclResult CcuTempAllReduceNHRMem2Mem1D::CalcRes(HcclComm comm, const OpParam& p
         return HcclResult::HCCL_E_INTERNAL;
     }
 
-    uint32_t kernelNum = 1;
+    uint32_t kernelNum = dieNum;
     resourceRequest.notifyNumOnMainThread = 1;
     resourceRequest.slaveThreadNum = 1;
     resourceRequest.ccuKernelNum.push_back(kernelNum);

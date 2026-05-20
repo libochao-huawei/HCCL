@@ -92,7 +92,7 @@ HcclResult CcuTempReduceScatterNHR1DMem2Mem::CalcRes(HcclComm comm, const OpPara
         return HcclResult::HCCL_E_INTERNAL;
     }
 
-    uint32_t kernelNum = 1;
+    uint32_t kernelNum = dieNum;
     // 无论几个kernel，都创建2条流
     resourceRequest.notifyNumOnMainThread = 1;
     resourceRequest.slaveThreadNum = 1;
