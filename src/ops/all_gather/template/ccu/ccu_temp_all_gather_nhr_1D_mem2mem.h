@@ -13,6 +13,7 @@
  
 #include "utils.h"
 #include "ccu_alg_template_base.h"
+#include "ccu_kernel_all_gather_nhr1d_mem2mem.h"
 
 #ifndef NHR_STEP_INFO_DEFINED
 #define NHR_STEP_INFO_DEFINED
@@ -32,6 +33,7 @@ using NHRStepInfo = struct NHRStepInfoDef {
 #endif
 
 namespace ops_hccl {
+
 class CcuTempAllGatherNHR1DMem2Mem : public CcuAlgTemplateBase {
 public:
     CcuTempAllGatherNHR1DMem2Mem() = default;
