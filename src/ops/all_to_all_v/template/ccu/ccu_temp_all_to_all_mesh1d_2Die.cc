@@ -17,6 +17,7 @@
 #include "ccu_temp_all_to_all_mesh1d_2Die.h"
 #include "ccu_kernel_all_to_all_mesh2die.h"
 #include "ccu_temp_all_to_all_mesh_1D.h"
+#include "ccu_kernel_all_to_all_mesh1d.h"
 
 
 namespace ops_hccl {
@@ -367,7 +368,6 @@ HcclResult CcuTempAllToAllMesh1D2Die::KernelRun(const OpParam &param, const Temp
         // 拿到input和output的首地址,和每片小数据的大小
         uint64_t srcStride = templateDataParams.outputSliceStride;
         uint64_t dstStride = templateDataParams.outputSliceStride;
-        uint64_t sliceBias = templateDataParams.processedDataCount * DATATYPE_SIZE_TABLE[param.all2AllDataDes.recvType];
         uint64_t srcOffset = 0;
         uint64_t dstOffset = myRank_ * dstStride;
 
