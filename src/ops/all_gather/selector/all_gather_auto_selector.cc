@@ -179,7 +179,7 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
                 selectAlgName = "CcuAllGatherMesh1DMem2Mem";
                 return SelectorStatus::MATCH;
             } else {
-                selectAlgName = "CcuAllGatherParallelMesh1DNHR";
+                selectAlgName = "CcuAllGatherSequenceNHRMesh1D";
                 return SelectorStatus::MATCH;
             }
         } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
