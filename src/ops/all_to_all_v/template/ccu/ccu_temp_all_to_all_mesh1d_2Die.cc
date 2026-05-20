@@ -134,6 +134,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcChannelRequest(HcclComm comm, const Op
         if (rank == topoInfo->userRank) {
             continue;
         }
+        HCCL_INFO("topoInfo->userRank = %llu",topoInfo->userRank);
         size_t channelCountBefore = channels.size();
         uint32_t *netLayers;
         uint32_t netLayerNum;
@@ -153,7 +154,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcChannelRequest(HcclComm comm, const Op
             bool protocolFound = false;
             CHK_RET(ProcessLinkForProtocol(comm, expectedProtocols, links, myRank, rank, netLayer, channels, protocolFound,
                 std::string("[CalcChannelRequestMesh1D]")));
-
+            HCCL_INFO("netLayer = %llu,channels.size()= %llu",netLayer,channels.size());
             if (channels.size() > channelCountBefore) {
                 break;
             }
@@ -186,9 +187,9 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcRes(HcclComm comm, const OpParam& para
     HCCL_INFO("resourceRequest.channels[%d]",resourceRequest.channels.size());
 
     const uint32_t rankSize = subCommRanks_[0].size();
-    u32 kernelNum = (channels2port_.size() == 0) ? DIE_NUM: DIE_NUM+1;
+    u32 kernelNum = (channels2port_.size() == 0) ? DIE_NUM: DIE_NUM + 1;
     resourceRequest.ccuKernelNum.push_back(kernelNum);        // kernel数量
-
+    HCCL_INFO("channels2port_ = %llu", channels2port_.size());
     // 需要从流
     resourceRequest.notifyNumOnMainThread = 1;
     resourceRequest.slaveThreadNum = channels2port_.size() + 1;//2+6需要2条从流，server需要1条从流
@@ -213,9 +214,9 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcRes(HcclComm comm, const OpParam& para
         return std::make_unique<CcuKernelAllToAllMesh2Die>(arg);
     };
     uint32_t closDieId = 1 - meshDieId;
-    auto closkernelArg = std::make_shared<CcuKernelArgAllToAllMesh2Die>(rankSize, myRank_, param, subCommRanks_,
+    auto kernelArgClos = std::make_shared<CcuKernelArgAllToAllMesh2Die>(rankSize, myRank_, param, subCommRanks_,
         false, rankGroup_[closDieId]);
-    kernelInfoClos.kernelArg = closkernelArg;
+    kernelInfoClos.kernelArg = kernelArgClos;
     kernelInfoClos.channels = channels_[closDieId];
     resourceRequest.ccuKernelInfos.emplace_back(kernelInfoClos);
     HCCL_DEBUG("[CcuTempAllToAllMesh1D2Die][CalcRes] dieId=%u, channels=%llu, rankSize=%llu, ccuKernelInfos=%llu",
@@ -229,8 +230,8 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcRes(HcclComm comm, const OpParam& para
     kernelInfoClos2Port.creator = [](const hcomm::CcuKernelArg &arg) {
         return std::make_unique<CcuKernelAlltoAllMesh1D>(arg);
     };
-    auto kernelArg = std::make_shared<CcuKernelArgAlltoAllMesh1D>(rankSize, myRank_, false, param, subCommRanks_);
-    kernelInfoClos2Port.kernelArg = kernelArg;
+    auto kernelArgClos2Port = std::make_shared<CcuKernelArgAlltoAllMesh1D>(rankSize, myRank_, false, param, subCommRanks_);
+    kernelInfoClos2Port.kernelArg = kernelArgClos2Port;
     kernelInfoClos2Port.channels = channels2port_;
     resourceRequest.ccuKernelInfos.emplace_back(kernelInfoClos2Port);
     HCCL_DEBUG("[CcuTempAllToAllMesh1D2Die][CalcRes] dieId=%u, channels=%llu, rankSize=%llu, ccuKernelInfos=%llu",
@@ -238,7 +239,6 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcRes(HcclComm comm, const OpParam& para
     
     return HcclResult::HCCL_SUCCESS;
 }
-
 
 HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std::vector<HcclChannelDesc> &channelDescs, uint32_t &meshDieId,
     std::map<u32, std::vector<HcclChannelDesc>>& rankIdToChannelDesc)
@@ -277,7 +277,6 @@ HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std
         u32 dieId = channels.first;
         std::vector<HcclChannelDesc>& channel_list = channels.second;
         HCCL_INFO("DIEID[%u], meshDieId[%u]", dieId, meshDieId);
-
         for(auto& channel: channel_list){
             if (dieId == meshDieId) {
                 channels2port_.emplace_back(channel);
