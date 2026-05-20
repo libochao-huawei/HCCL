@@ -260,4 +260,16 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER,
                                TopoMatchMultilevel,
                                InsTempAllGatherMesh1D1DZAxisDetour,
                                InsTempAllGatherNHR);
+
+#ifndef AICPU_COMPILE
+#if !defined(HCCL_CANN_COMPAT_850)
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, 
+                            CcuAllGatherSequenceNHRMesh1D,
+                            InsV2AllGatherSequenceExecutorAicpu,
+                            TopoMatchMultilevel,
+                            CcuTempAllGatherMesh1DMem2Mem,
+                            CcuTempAllGatherNHR1DMem2Mem);
+#endif /* !HCCL_CANN_COMPAT_850 */
+
+#endif
 }
