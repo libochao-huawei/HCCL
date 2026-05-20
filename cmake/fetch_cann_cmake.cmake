@@ -29,6 +29,7 @@ if(NOT PROJECT_SOURCE_DIR)
                 GIT_SHALLOW    TRUE
             )
         endif()
+        
         FetchContent_GetProperties(cann-cmake)
         if(NOT cann-cmake_POPULATED)
             FetchContent_Populate(cann-cmake)
