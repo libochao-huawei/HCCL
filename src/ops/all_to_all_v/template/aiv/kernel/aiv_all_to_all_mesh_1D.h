@@ -205,7 +205,7 @@ __aicore__ inline void AivAlltoAllV2Mesh1DSuperKernel(SUPERKERNEL_ARGS_DEF)
 
         op.len_ = curCount;
         op.InitCommon(loopTag);
-        op.ProcessSpk();
+        op.Process();
         op.BarrierAll();
 
         countLeft -= curCount;
