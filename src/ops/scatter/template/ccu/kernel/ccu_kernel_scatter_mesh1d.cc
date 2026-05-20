@@ -74,7 +74,7 @@ HcclResult CcuKernelScatterMesh1D::InitResource()
     repeatNum_ = CreateVariable();
     isInputOutputEqual_ = CreateVariable();
     localGoSize_ = CreateGroupOpSize();
-    flag_ = CreateVariable();
+	flag_ = CreateVariable();
     flag_ = 0;
 
     selfBit_ = 1 << rankId_;  // 仅rankid位为1，其他位为0，代表本端准备好了
@@ -136,16 +136,20 @@ void CcuKernelScatterMesh1D::DoRepeatScatter()
     CcuRep::Variable repeatNumAdd = CreateVariable();
     repeatNumAdd = 1;
     // 设置每张卡输入输出的起始地址
+	CcuRep::Variable inputOffset = CreateVariable();
+	CcuRep::Variable outputOffset = CreateVariable();
+	inputOffset = 0;
+	outputOffset = 0;
     for (uint64_t curId = 0; curId < rankSize_; curId++) {
         inputMem_[curId].token = token_[curId];   // 设置每张卡的输入token
         outputMem_[curId].token = token_[curId];  // 设置每张卡的输出token
 
         inputMem_[curId].addr = input_;  // 设置每张卡的输入地址，以root的起始地址为基准
         outputMem_[curId].addr = output_[curId];  // 设置每张卡的输出地址
-        for (uint64_t i = 0; i < curId; i++) {
-            inputMem_[curId].addr += currentRankSliceInputOffset_;  // 每张卡加上偏移量
-            outputMem_[curId].addr += outputSliceStride_;
-        }
+		inputMem_[curId].addr += inputOffset;
+		outputMem_[curId].addr += outputOffset;
+		inputOffset += currentRankSliceInputOffset_;
+		outputOffset += outputSliceStride_;
     }
     if (rankId_ == rootId_) {
         CCU_WHILE(repeatNum_ != UINT64_MAX)
@@ -192,10 +196,7 @@ void CcuKernelScatterMesh1D::DoScatter()
     }
     CCU_IF(isInputOutputEqual_ == 0)
     {
-        CcuRep::LocalAddr myOutput = CreateLocalAddr();
-        myOutput.addr = outputMem_[rankId_].addr;
-        myOutput.token = outputMem_[rankId_].token;
-        GroupCopy(myOutput, inputMem_[rankId_], localGoSize_);
+        DoScatterLocalCopy();
     }
     CCU_IF(isInputOutputEqual_ != 0)
     {
@@ -203,15 +204,23 @@ void CcuKernelScatterMesh1D::DoScatter()
         {
             if (rootId_ != 0)
             {
-                CcuRep::LocalAddr myOutput = CreateLocalAddr();
-                myOutput.addr = outputMem_[rankId_].addr;
-                myOutput.token = outputMem_[rankId_].token;
-                GroupCopy(myOutput, inputMem_[rankId_], localGoSize_);
+                DoScatterLocalCopy();
             }
         }
     }
     event_.SetMask((1 << rankSize_) - 1);
     WaitEvent(event_);
+}
+
+void CcuKernelScatterMesh1D::DoScatterLocalCopy()
+{
+    CcuRep::LocalAddr myOutput = CreateLocalAddr();
+	CcuRep::LocalAddr myInput = CreateLocalAddr();
+    myOutput.addr = outputMem_[rankId_].addr;
+    myOutput.token = outputMem_[rankId_].token;
+	myInput.addr = inputMem_[rankId_].addr;
+    myInput.token = inputMem_[rankId_].token;
+    GroupCopy(myOutput, myInput, localGoSize_);
 }
 
 HcclResult CcuKernelScatterMesh1D::Algorithm()
