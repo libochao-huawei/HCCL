@@ -152,7 +152,7 @@ HcclResult CcuTempAlltoAllMesh1D::KernelRun(const OpParam& param,
     uint64_t srcStride = templateDataParams.outputSliceStride;
     uint64_t dstStride = templateDataParams.outputSliceStride;
 
-    uint64_t dataType_ = param.all2AllVDataDes.sendType;
+    uint64_t dataType_ = param.all2AllDataDes.sendType;
     uint64_t dataTypeSize_ = SIZE_TABLE[dataType_];
     uint64_t sliceBias = templateDataParams.processedDataCount * dataTypeSize_;
 
