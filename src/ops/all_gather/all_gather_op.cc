@@ -10,15 +10,88 @@
 
 #include "all_gather_op.h"
 #include "op_common_ops.h"
+#include "adapter_acl.h"
 #include <algorithm>
 #include <future>
 #include <map>
 #include <string>
-
+#include <fstream>
+#include <cstdlib>
+#include <unistd.h>
+#include <chrono>
+#include <iomanip>
+#include <sstream>
 
 using namespace std;
 using namespace ops_hccl;
 extern "C" unsigned int LaunchAicpuKernel(OpParam *param);
+
+static bool IsAllGatherDumpEnabled()
+{
+    static bool enabled = (getenv("HCCL_ALLGATHER_DUMP") != nullptr);
+    return enabled;
+}
+
+static u32 GetDumpSleepUs()
+{
+    const char *sleepEnv = getenv("HCCL_ALLGATHER_DUMP_SLEEP_US");
+    if (sleepEnv != nullptr) {
+        return static_cast<u32>(atoi(sleepEnv));
+    }
+    return 1000000;
+}
+
+static HcclResult DumpAllGatherData(const void *devPtr, u64 dataSize, u32 rankId,
+    const std::string &phase, const std::string &opTag, aclrtStream stream)
+{
+    if (devPtr == nullptr || dataSize == 0) {
+        HCCL_WARNING("[AllGatherDump] %s data is null or size is 0, skip dump", phase.c_str());
+        return HCCL_SUCCESS;
+    }
+
+    void *hostBuf = nullptr;
+    aclError aclRet = aclrtMallocHost(&hostBuf, dataSize);
+    if (aclRet != ACL_SUCCESS) {
+        HCCL_ERROR("[AllGatherDump] aclrtMallocHost failed, size[%llu], ret[%d]", dataSize, aclRet);
+        return HCCL_E_RUNTIME;
+    }
+
+    aclRet = aclrtMemcpy(hostBuf, dataSize, devPtr, dataSize, ACL_MEMCPY_DEVICE_TO_HOST);
+    if (aclRet != ACL_SUCCESS) {
+        HCCL_ERROR("[AllGatherDump] aclrtMemcpy DEVICE_TO_HOST failed, size[%llu], ret[%d]", dataSize, aclRet);
+        aclrtFreeHost(hostBuf);
+        return HCCL_E_RUNTIME;
+    }
+
+    auto now = std::chrono::system_clock::now();
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+    std::string fileName = "/tmp/hccl_allgather/hccl_allgather_dump_rank" + std::to_string(rankId) +
+        "_" + phase + "_" + opTag + "_" + std::to_string(dataSize) +
+        "_" + std::to_string(ms) + ".bin";
+    std::ofstream ofs(fileName, std::ios::binary | std::ios::trunc);
+    if (!ofs.is_open()) {
+        HCCL_ERROR("[AllGatherDump] failed to open file[%s]", fileName.c_str());
+        aclrtFreeHost(hostBuf);
+        return HCCL_E_INTERNAL;
+    }
+    // ofs << "HCCL_ALLGATHER_DUMP_V1\n"
+    //     << "stage=" << phase << "\n"
+    //     << "rank=" << rankId << "\n"
+    //     << "rank_size=" << "2" << "\n"
+    //     << "count=" << dataSize << "\n"
+    //     << "dtype=" << "bfloat16" << "\n"
+    //     << "byte_size=" << dataSize << "\n"
+    //     << "tag=" << "HcclAllGather" << "\n"
+    //     << "data\n";   // 注意：无额外换行，接下来直接写二进制
+    ofs.write(static_cast<const char *>(hostBuf), dataSize);
+    ofs.close();
+
+    HCCL_INFO("[AllGatherDump] %s dump success, rank[%u], size[%llu], file[%s]",
+        phase.c_str(), rankId, dataSize, fileName.c_str());
+
+    aclrtFreeHost(hostBuf);
+    return HCCL_SUCCESS;
+}
 
 
 HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm,
@@ -43,12 +116,62 @@ HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclD
 
     HcclUs startut = TIME_NOW();// 走老流程的判断时间不统计在内
     std::string opTag;
+
+    if (IsAllGatherDumpEnabled()) {
+        u32 dumpRankId = INVALID_VALUE_RANKID;
+        CHK_RET(HcclGetRankId(comm, &dumpRankId));
+        u32 dumpRankSize = INVALID_VALUE_RANKSIZE;
+        CHK_RET(HcclGetRankSize(comm, &dumpRankSize));
+        u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
+        u64 inputSize = sendCount * perDataSize;
+        HcclResult dumpRet = DumpAllGatherData(sendBuf, inputSize, dumpRankId, "input0", opTag, stream);
+        CHK_PRT_CONT(dumpRet != HCCL_SUCCESS,
+            HCCL_WARNING("[HcclAllGather] dump input data failed, ret[%d]", dumpRet));
+    }
+    
     CHK_RET(AllGatherInitAndCheck(comm, sendBuf, recvBuf, sendCount, dataType, stream, opTag));
 
     CHK_RET(AllGatherEntryLog(sendBuf, recvBuf, sendCount, dataType, stream, opTag, "HcclAllGather"));
 
-    // 执行AllGather
+    if (IsAllGatherDumpEnabled()) {
+        u32 sleepUs = GetDumpSleepUs();
+        HCCL_INFO("[HcclAllGather] usleep[%u us] before dump input", sleepUs);
+        usleep(sleepUs);
+
+        u32 dumpRankId = INVALID_VALUE_RANKID;
+        CHK_RET(HcclGetRankId(comm, &dumpRankId));
+        u32 dumpRankSize = INVALID_VALUE_RANKSIZE;
+        CHK_RET(HcclGetRankSize(comm, &dumpRankSize));
+        u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
+        u64 inputSize = sendCount * perDataSize;
+        HcclResult dumpRet = DumpAllGatherData(sendBuf, inputSize, dumpRankId, "input", opTag, stream);
+        CHK_PRT_CONT(dumpRet != HCCL_SUCCESS,
+            HCCL_WARNING("[HcclAllGather] dump input data failed, ret[%d]", dumpRet));
+    }
+
     CHK_RET_AND_PRINT_IDE(AllGatherOutPlace(sendBuf, recvBuf, sendCount, dataType, comm, stream, opTag), opTag.c_str());
+
+    // aclError aclRet = aclrtSynchronizeStream(stream);
+    // if (aclRet != ACL_SUCCESS) {
+    //     HCCL_ERROR("[AllGatherDump] aclrtSynchronizeStream failed, ret[%d]", aclRet);
+    //     return HCCL_E_RUNTIME;
+    // }
+
+    if (IsAllGatherDumpEnabled()) {
+        u32 sleepUs = GetDumpSleepUs();
+        HCCL_INFO("[HcclAllGather] usleep[%u us] before dump output", sleepUs);
+        usleep(sleepUs);
+
+        u32 dumpRankId = INVALID_VALUE_RANKID;
+        CHK_RET(HcclGetRankId(comm, &dumpRankId));
+        u32 dumpRankSize = INVALID_VALUE_RANKSIZE;
+        CHK_RET(HcclGetRankSize(comm, &dumpRankSize));
+        u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
+        u64 outputSize = sendCount * perDataSize * dumpRankSize;
+        HcclResult dumpRet = DumpAllGatherData(recvBuf, outputSize, dumpRankId, "output", opTag, stream);
+        CHK_PRT_CONT(dumpRet != HCCL_SUCCESS,
+            HCCL_WARNING("[HcclAllGather] dump output data failed, ret[%d]", dumpRet));
+    }
 
     CHK_RET(LogHcclExit("HcclAllGather", opTag.c_str(), startut));
 
@@ -91,8 +214,31 @@ HcclResult HcclAllGatherGraphMode(void *sendBuf, void *recvBuf, uint64_t sendCou
 
     CHK_RET(AllGatherEntryLog(sendBuf, recvBuf, sendCount, dataType, stream, opTag, "HcclAllGatherGraphMode"));
 
-    // 执行AllGather
+    if (IsAllGatherDumpEnabled()) {
+        u32 dumpRankId = INVALID_VALUE_RANKID;
+        CHK_RET(HcclGetRankId(comm, &dumpRankId));
+        u32 dumpRankSize = INVALID_VALUE_RANKSIZE;
+        CHK_RET(HcclGetRankSize(comm, &dumpRankSize));
+        u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
+        u64 inputSize = sendCount * perDataSize;
+        HcclResult dumpRet = DumpAllGatherData(sendBuf, inputSize, dumpRankId, "input", opTag, stream);
+        CHK_PRT_CONT(dumpRet != HCCL_SUCCESS,
+            HCCL_WARNING("[HcclAllGatherGraphMode] dump input data failed, ret[%d]", dumpRet));
+    }
+
     CHK_RET_AND_PRINT_IDE(AllGatherOutPlaceGraphMode(sendBuf, recvBuf, sendCount, dataType, comm, stream, tagStr, resPack), tagStr.c_str());
+
+    if (IsAllGatherDumpEnabled()) {
+        u32 dumpRankId = INVALID_VALUE_RANKID;
+        CHK_RET(HcclGetRankId(comm, &dumpRankId));
+        u32 dumpRankSize = INVALID_VALUE_RANKSIZE;
+        CHK_RET(HcclGetRankSize(comm, &dumpRankSize));
+        u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
+        u64 outputSize = sendCount * perDataSize * dumpRankSize;
+        HcclResult dumpRet = DumpAllGatherData(recvBuf, outputSize, dumpRankId, "output", opTag, stream);
+        CHK_PRT_CONT(dumpRet != HCCL_SUCCESS,
+            HCCL_WARNING("[HcclAllGatherGraphMode] dump output data failed, ret[%d]", dumpRet));
+    }
 
     CHK_RET(LogHcclExit("HcclAllGatherGraphMode", opTag.c_str(), startut));
 
