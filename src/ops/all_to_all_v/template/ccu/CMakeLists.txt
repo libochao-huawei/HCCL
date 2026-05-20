@@ -13,15 +13,15 @@ set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/kernel/ccu_kernel_all_to_all_mesh1d.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ccu_temp_all_to_all_v_mesh_1D.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/kernel/ccu_kernel_all_to_all_v_mesh1d.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/ccu_temp_all_to_all_v_mesh2die.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/kernel/ccu_kernel_all_to_all_v_mesh2die.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/ccu_temp_all_to_all_v_mesh_1D_multi_jetty.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/kernel/ccu_kernel_all_to_all_v_mesh1d_multi_jetty.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/ccu_temp_all_to_all_mesh2die.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/kernel/ccu_kernel_all_to_all_mesh2die.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/ccu_temp_all_to_all_mesh1d_multi_jetty.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/kernel/ccu_kernel_all_to_all_mesh1d_multi_jetty.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/ccu_temp_all_to_all_mesh1d_2Die.cc
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ccu_temp_all_to_all_v_mesh2die.cc
+    # ${CMAKE_CURRENT_SOURCE_DIR}/kernel/ccu_kernel_all_to_all_v_mesh2die.cc
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ccu_temp_all_to_all_v_mesh_1D_multi_jetty.cc
+    # ${CMAKE_CURRENT_SOURCE_DIR}/kernel/ccu_kernel_all_to_all_v_mesh1d_multi_jetty.cc
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ccu_temp_all_to_all_mesh2die.cc
+    # ${CMAKE_CURRENT_SOURCE_DIR}/kernel/ccu_kernel_all_to_all_mesh2die.cc
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ccu_temp_all_to_all_mesh1d_multi_jetty.cc
+    # ${CMAKE_CURRENT_SOURCE_DIR}/kernel/ccu_kernel_all_to_all_mesh1d_multi_jetty.cc
+    # ${CMAKE_CURRENT_SOURCE_DIR}/ccu_temp_all_to_all_mesh1d_2Die.cc
 )
 
 target_sources(hccl PRIVATE

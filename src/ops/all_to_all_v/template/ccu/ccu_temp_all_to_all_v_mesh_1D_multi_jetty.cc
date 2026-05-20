@@ -9,7 +9,7 @@
  */
 
 #include "channel.h"
-#include "hccl_ccu_res.h"
+// #include "hccl_ccu_res.h"
 #include "ccu_assist_pub.h"
 #include "ccu_kernel_all_to_all_v_mesh1d_multi_jetty.h"
 #include "ccu_temp_all_to_all_v_mesh_1D_multi_jetty.h"
