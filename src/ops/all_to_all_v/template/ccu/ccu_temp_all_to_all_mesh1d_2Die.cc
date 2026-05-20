@@ -134,7 +134,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcChannelRequest(HcclComm comm, const Op
         if (rank == topoInfo->userRank) {
             continue;
         }
-        HCCL_INFO("topoInfo->userRank = %llu",topoInfo->userRank);
+        HCCL_INFO("rank = %llu",rank);
         size_t channelCountBefore = channels.size();
         uint32_t *netLayers;
         uint32_t netLayerNum;
