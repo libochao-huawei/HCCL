@@ -186,7 +186,8 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcRes(HcclComm comm, const OpParam& para
     HCCL_INFO("resourceRequest.channels[%d]",resourceRequest.channels.size());
 
     const uint32_t rankSize = subCommRanks_[0].size();
-    resourceRequest.ccuKernelNum.push_back(DIE_NUM);        // kernel数量
+    u32 kernelNum = (channels2port_.size() == 0) ? DIE_NUM: DIE_NUM+1;
+    resourceRequest.ccuKernelNum.push_back(kernelNum);        // kernel数量
 
     // 需要从流
     resourceRequest.notifyNumOnMainThread = 1;
@@ -238,8 +239,8 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcRes(HcclComm comm, const OpParam& para
     return HcclResult::HCCL_SUCCESS;
 }
 
+std::map<u32, std::vector<HcclChannelDesc>>& rankIdToChannelDesc)
 HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std::vector<HcclChannelDesc> &channelDescs, uint32_t &meshDieId,
-                                                        std::map<u32, std::vector<HcclChannelDesc>>& rankIdToChannelDesc)
 {   // 目前channelDescs传入的是level0的
     // layer 0 -> mesh layer 1 -> clos 在mesh的时候查一下dieId，选择另外一个dieId的就是6口clos
     std::map<uint32_t, std::vector<HcclChannelDesc>> clos_channels; // key is DieId
@@ -330,6 +331,8 @@ HcclResult CcuTempAllToAllMesh1D2Die::KernelRun(const OpParam &param, const Temp
     uint64_t inputAddr  = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
     uint64_t token;
+    uint64_t sliceSizeMesh2die = 0;
+    uint64_t sliceSizeMesh1d = 0;
     CHK_RET(GetToken(buffInfo_, token));
 
     if (kernelNum == DIE_NUM + 1) {
