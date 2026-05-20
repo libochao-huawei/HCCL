@@ -583,6 +583,22 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
             CHK_RET(HcclThreadAcquireWithStream(comm, param.engine, param.stream,
                 resCtxHost->notifyNumOnMainThread, &thread));
             resCtxHost->threads[0] = thread;
+            // 图模式要全部覆盖
+            if (param.opMode != OpMode::OPBASE) {
+                u32 maxNotifyNum = 0;
+                for (u32 i = 0; i < resRequest.notifyNumPerThread.size(); i++) {
+                    if (resRequest.notifyNumPerThread[i] > maxNotifyNum) {
+                        maxNotifyNum = resRequest.notifyNumPerThread[i];
+                    }
+                }
+
+                u32 threadNum = resRequest.slaveThreadNum;
+                for (u32 i = 0; i < threadNum; i++) {
+                    ThreadHandle slaveThread;
+                    CHK_RET(HcclThreadAcquireWithStream(comm, param.engine, resPack.streams[i], maxNotifyNum, &slaveThread));
+                    resCtxHost->threads[i + 1] = slaveThread;
+                } 
+            }
         }
         int result = sprintf_s(param.algName, sizeof(param.algName), "%s", algName.c_str());
         if (result <= 0) {
