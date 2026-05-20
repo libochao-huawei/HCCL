@@ -97,9 +97,17 @@ HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclD
         return HcclAllGatherInner(sendBuf, recvBuf, sendCount, dataType, comm, stream);
     }
 
-    u32 sleepUs = GetDumpSleepUs();
-    HCCL_INFO("[HcclAllGather] usleep[%u us] before dump input", sleepUs);
-    usleep(sleepUs);
+    if (IsAllGatherDumpEnabled()) {
+        u32 dumpRankId = INVALID_VALUE_RANKID;
+        CHK_RET(HcclGetRankId(comm, &dumpRankId));
+        u32 dumpRankSize = INVALID_VALUE_RANKSIZE;
+        CHK_RET(HcclGetRankSize(comm, &dumpRankSize));
+        u32 perDataSize = DATATYPE_SIZE_TABLE[dataType];
+        u64 inputSize = sendCount * perDataSize;
+        HcclResult dumpRet = DumpAllGatherData(sendBuf, inputSize, dumpRankId, "input0", opTag, stream);
+        CHK_PRT_CONT(dumpRet != HCCL_SUCCESS,
+            HCCL_WARNING("[HcclAllGather] dump input data failed, ret[%d]", dumpRet));
+    }
 
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CHK_RET(hrtGetDeviceType(deviceType));
@@ -119,6 +127,10 @@ HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclD
     CHK_RET(AllGatherEntryLog(sendBuf, recvBuf, sendCount, dataType, stream, opTag, "HcclAllGather"));
 
     if (IsAllGatherDumpEnabled()) {
+        u32 sleepUs = GetDumpSleepUs();
+        HCCL_INFO("[HcclAllGather] usleep[%u us] before dump input", sleepUs);
+        usleep(sleepUs);
+
         u32 dumpRankId = INVALID_VALUE_RANKID;
         CHK_RET(HcclGetRankId(comm, &dumpRankId));
         u32 dumpRankSize = INVALID_VALUE_RANKSIZE;
@@ -138,10 +150,11 @@ HcclResult HcclAllGather(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclD
     //     return HCCL_E_RUNTIME;
     // }
 
-    HCCL_INFO("[HcclAllGather] usleep[%u us] before dump output", sleepUs);
-    usleep(sleepUs);
-
     if (IsAllGatherDumpEnabled()) {
+        u32 sleepUs = GetDumpSleepUs();
+        HCCL_INFO("[HcclAllGather] usleep[%u us] before dump output", sleepUs);
+        usleep(sleepUs);
+
         u32 dumpRankId = INVALID_VALUE_RANKID;
         CHK_RET(HcclGetRankId(comm, &dumpRankId));
         u32 dumpRankSize = INVALID_VALUE_RANKSIZE;
