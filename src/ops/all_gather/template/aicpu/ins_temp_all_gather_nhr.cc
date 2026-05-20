@@ -120,6 +120,9 @@ HcclResult InsTempAllGatherNHR::RunAllGatherNHR(const std::vector<ThreadHandle> 
 
         const ChannelInfo &channelRecv = channels.at(GetRankFromMap(stepInfo.fromRank))[channelIdx];
         const ChannelInfo &channelSend = channels.at(GetRankFromMap(stepInfo.toRank))[channelIdx];
+        HCCL_DEBUG(
+            "[InsTempAllGatherNHR] RunAllGatherNHR rank[%d] channelIdx[%u] fromchannelsize[%u] tochannelsize[%u] fromrank[%u] torank[%u]",
+            myRank_, channelIdx, channels.at(GetRankFromMap(stepInfo.fromRank)).size(), channels.at(GetRankFromMap(stepInfo.toRank)).size(), stepInfo.fromRank, stepInfo.toRank);
         // 构造SendRecv， 都是Scratch到Scratch的传输，没有DMA消减
         std::vector<DataSlice> txSrcSlicesAll;
         std::vector<DataSlice> txDstSlicesAll;
