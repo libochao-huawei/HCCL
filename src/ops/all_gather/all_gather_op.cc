@@ -18,6 +18,9 @@
 #include <fstream>
 #include <cstdlib>
 #include <unistd.h>
+#include <chrono>
+#include <iomanip>
+#include <sstream>
 
 using namespace std;
 using namespace ops_hccl;
@@ -60,8 +63,11 @@ static HcclResult DumpAllGatherData(const void *devPtr, u64 dataSize, u32 rankId
         return HCCL_E_RUNTIME;
     }
 
-    std::string fileName = "/tmp/hccl_allgather_dump_rank" + std::to_string(rankId) +
-        "_" + phase + "_" + opTag + "_" +std::to_string(dataSize) + ".bin";
+    auto now = std::chrono::system_clock::now();
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+    std::string fileName = "/tmp/hccl_allgather/hccl_allgather_dump_rank" + std::to_string(rankId) +
+        "_" + phase + "_" + opTag + "_" + std::to_string(dataSize) +
+        "_" + std::to_string(ms) + ".bin";
     std::ofstream ofs(fileName, std::ios::binary | std::ios::trunc);
     if (!ofs.is_open()) {
         HCCL_ERROR("[AllGatherDump] failed to open file[%s]", fileName.c_str());
