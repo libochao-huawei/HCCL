@@ -87,8 +87,7 @@ HcclResult InsTempReduceScatterNHR::KernelRun(const OpParam& param,
     step0TxSliceIdxs_.clear();
     HCCL_DEBUG("[InsTempReduceScatterNHR] Use Dma Read[%d]", isDmaRead_);
 
-    if (!isDmaRead_ && tempAlgParams.buffInfo.inBuffType == BufferType::INPUT &&
-        templateRankSize_ > 1) {
+    if (!isDmaRead_ && templateRankSize_ > 1) {
         skipStep0TxPreCopy_ = true;
         HCCL_INFO("[InsTempReduceScatterNHR] Skip step0 tx pre-copy enabled");
     }
