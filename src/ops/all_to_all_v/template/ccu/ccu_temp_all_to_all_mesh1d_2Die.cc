@@ -213,9 +213,9 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcRes(HcclComm comm, const OpParam& para
         return std::make_unique<CcuKernelAllToAllMesh2Die>(arg);
     };
     uint32_t closDieId = 1 - meshDieId;
-    auto kernelArg = std::make_shared<CcuKernelArgAllToAllMesh2Die>(rankSize, myRank_, param, subCommRanks_,
+    auto closkernelArg = std::make_shared<CcuKernelArgAllToAllMesh2Die>(rankSize, myRank_, param, subCommRanks_,
         false, rankGroup_[closDieId]);
-    kernelInfoClos.kernelArg = kernelArg;
+    kernelInfoClos.kernelArg = closkernelArg;
     kernelInfoClos.channels = channels_[closDieId];
     resourceRequest.ccuKernelInfos.emplace_back(kernelInfoClos);
     HCCL_DEBUG("[CcuTempAllToAllMesh1D2Die][CalcRes] dieId=%u, channels=%llu, rankSize=%llu, ccuKernelInfos=%llu",
@@ -239,8 +239,9 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcRes(HcclComm comm, const OpParam& para
     return HcclResult::HCCL_SUCCESS;
 }
 
-std::map<u32, std::vector<HcclChannelDesc>>& rankIdToChannelDesc)
+
 HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std::vector<HcclChannelDesc> &channelDescs, uint32_t &meshDieId,
+    std::map<u32, std::vector<HcclChannelDesc>>& rankIdToChannelDesc)
 {   // 目前channelDescs传入的是level0的
     // layer 0 -> mesh layer 1 -> clos 在mesh的时候查一下dieId，选择另外一个dieId的就是6口clos
     std::map<uint32_t, std::vector<HcclChannelDesc>> clos_channels; // key is DieId
