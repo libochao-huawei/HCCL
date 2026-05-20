@@ -20,7 +20,6 @@
 #include "../ccu_temp_all_to_all_v_mesh_1D.h"
 
 namespace ops_hccl {
-using namespace hcomm;
 
 struct CcuKernelArgAlltoAllVMesh1D: CcuKernelArgBase {
     uint64_t                                rankSize;

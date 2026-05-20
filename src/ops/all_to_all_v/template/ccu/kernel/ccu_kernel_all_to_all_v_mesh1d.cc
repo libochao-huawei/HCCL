@@ -248,30 +248,30 @@ static CcuResult DoAll2AllVMultiLoop(AlltoAllVMesh1DContext &ctx)
         }
 
         CCU_IF(ctx.sendRecvInfo[arg->rankId].loopNum == UINT64_MAX) { // 已经完成，直接置位完成信号
-                ccu::EventRecord(ctx.event, 1 <<rankIdx);
+                ccu::EventRecord(ctx.event, 1 << arg->rankId);
         }
 
         CCU_IF(ctx.sendRecvInfo[arg->rankId].loopNum != UINT64_MAX) {  // 还没有完成，则继续循环
                 CCU_IF(ctx.sendRecvInfo[arg->rankId].loopNum == UINT64_MAX - 1) { // 最后一轮循环, 发送尾块数据
                     CCU_IF(ctx.sendRecvInfo[arg->rankId].tailSize == 0) { // 尾块数据量为 0，则不需要发送尾块数据
-                        ccu::EventRecord(ctx.event, 1 <<rankIdx);
+                        ccu::EventRecord(ctx.event, 1 << arg->rankId);
                     }
                     CCU_IF(ctx.sendRecvInfo[arg->rankId].tailSize != 0) { // 尾块数据量不为 0，则需要发送尾块数据
                         if (arg->loadFromMem) {
                             ccu::LocalCopy(ctx.myDst, ctx.src[arg->rankId], ctx.sendRecvInfo[arg->rankId].tailSize, ctx.event, 1 <<rankIdx);
                         } else {
                             GroupCopy(ctx, ctx.myDst, ctx.src[arg->rankId], ctx.sendRecvInfo[arg->rankId].tailGoSize);
-                            ccu::EventRecord(ctx.event, 1 <<rankIdx);
+                            ccu::EventRecord(ctx.event, 1 <<arg->rankId);
                         }
                     }
                     ctx.completedRankCount += ctx.xnConst1;  // 之后一轮循环完成，更新已完成的rank数
                 }
                 CCU_IF(ctx.sendRecvInfo[arg->rankId].loopNum != UINT64_MAX - 1) { // 未完成，则继续循环，发送整块数据
                     if (arg->loadFromMem) {
-                        ccu::LocalCopy(ctx.myDst, ctx.src[arg->rankId], ctx.xnMaxTransportSize, ctx.event, 1 <<rankIdx);
+                        ccu::LocalCopy(ctx.myDst, ctx.src[arg->rankId], ctx.xnMaxTransportSize, ctx.event, 1 <<arg->rankId);
                     } else {
                         GroupCopy(ctx, ctx.myDst, ctx.src[arg->rankId], ctx.xnMaxTransportGoSize);
-                        ccu::EventRecord(ctx.event, 1 <<rankIdx);
+                        ccu::EventRecord(ctx.event, 1 <<arg->rankId);
                     }
                     // 更新偏移
                     ctx.src[arg->rankId].addr += ctx.xnMaxTransportSize;
