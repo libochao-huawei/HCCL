@@ -140,7 +140,7 @@ SelectorStatus ReduceScatterAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWi
                     selectAlgName = "CcuReduceScatterMesh1DMem2Mem";
                     return SelectorStatus::MATCH;
                 } else if(IsSmallDataCCU((dataSize * topoInfo->userRankSize), topoInfo->userRankSize)){
-                    selectAlgName = "CcuReduceScatterParallelMesh1DNHR";//64M以下跑ccu
+                    selectAlgName = "CcuReduceScatterSequenceMesh1DNhr";//64M以下跑ccu
                     return SelectorStatus::MATCH;
                 } else {
                     return SelectorStatus::NOT_MATCH;//64M以上切为aicpu
