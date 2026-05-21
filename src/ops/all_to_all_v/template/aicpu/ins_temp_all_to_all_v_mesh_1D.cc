@@ -186,13 +186,13 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
                 }
                 CHK_RET(LocalCopyForMyRank(tempAlgParams, threads[0], myAlgRank, 0)); // 在第1轮通信中用0号流做本卡数据拷贝
             }
-            CHK_RET(RunSendRecvByLoop(commRanks, tempAlgParams, channels, threads, roundIdx));
+            CHK_RET(RunSendRecvByLoop(commRanks, tempAlgParams, channels, threads, roundIdx, commLoops));
             remainRankSize -= commRanks.size();
         } else {
             if (roundIdx == 0) {
                 CHK_RET(LocalCopyForMyRank(tempAlgParams, threads[0], myAlgRank, 0)); // 在第1轮通信中用0号流做本卡数据拷贝
             }
-            CHK_RET(RunSendRecvByLoop(commRanks, tempAlgParams, channels, threads, roundIdx));
+            CHK_RET(RunSendRecvByLoop(commRanks, tempAlgParams, channels, threads, roundIdx, commLoops));
             remainRankSize -= commRanks.size();
             HCCL_DEBUG("[InsTempAlltoAllVMesh1D][RunALLtoALL] round[%u] finish, commRank size is [%zu], "\
                 "remainRankSize is [%u].", roundIdx, commRanks.size(), remainRankSize);
@@ -209,7 +209,7 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
 HcclResult InsTempAlltoAllVMesh1D::RunSendRecvByLoop(const std::vector<u32> &commRanks,
     const TemplateDataParams &tempAlgParams,
     const std::map<u32, std::vector<ChannelInfo>> &channels,
-    const std::vector<ThreadHandle> &threads, const u32 roundIdx)
+    const std::vector<ThreadHandle> &threads, const u32 roundIdx, const u32 commLoops)
 {
     // 遍历本次通信的所有rank
     for (u32 rankIdx = 0; rankIdx < commRanks.size(); rankIdx++) {
@@ -227,7 +227,7 @@ HcclResult InsTempAlltoAllVMesh1D::RunSendRecvByLoop(const std::vector<u32> &com
         // recv数据按照channel分片
         CHK_RET(CalcDataSplitByPortGroupCommon(tempAlgParams.recvCounts[remoteRank], dataTypeSize_, curChannels,
             recvCountsSplit_, recvSizeSplit_, recvOffsetSplit_, static_cast<u32>(curChannels.size())));
-        CHK_RET(RunSendRecvByChannel(tempAlgParams, roundIdx, curChannels, remoteRank, threads));
+        CHK_RET(RunSendRecvByChannel(tempAlgParams, roundIdx, curChannels, remoteRank, threads, commLoops));
     }
     return HcclResult::HCCL_SUCCESS;
 }
@@ -255,7 +255,7 @@ HcclResult InsTempAlltoAllVMesh1D::PostSyncInterThreadsPerRank(const ThreadHandl
 }
 
 HcclResult InsTempAlltoAllVMesh1D::RunSendRecvByChannel(const TemplateDataParams &tempAlgParams, const u32 roundIdx,
-    const std::vector<ChannelInfo> &curChannels, const u32 remoteRank, const std::vector<ThreadHandle> &threads) const
+    const std::vector<ChannelInfo> &curChannels, const u32 remoteRank, const std::vector<ThreadHandle> &threads, const u32 commLoops) const
 {
     u32 myRankCclBuffIdx = 0; // myRank与remoteRank交互时myRank提供的cclbuffer index
     u32 remoteCclBuffIdx = 0; // myRank与remoteRank交互时remoteRank提供的cclbuffer index
@@ -263,7 +263,7 @@ HcclResult InsTempAlltoAllVMesh1D::RunSendRecvByChannel(const TemplateDataParams
     u32 queIdx = myRankCclBuffIdx * channelsPerRank_ + 1;
     const ThreadHandle &mainThreadCurRank = threads[queIdx]; // 当前rank分配到的第一条流（rank内主流）
     std::vector<ThreadHandle> subThreadsCurRank; // 当前rank的rank内从流
-    if (curChannels.size() > 1) {
+    if (curChannels.size() > 1 && roundIdx != 0) {
         subThreadsCurRank.assign(threads.begin() + queIdx + 1, threads.begin() + queIdx + curChannels.size());
         PreSyncInterThreadsPerRank(mainThreadCurRank, subThreadsCurRank);
     }
@@ -312,7 +312,7 @@ HcclResult InsTempAlltoAllVMesh1D::RunSendRecvByChannel(const TemplateDataParams
         }
         queIdx++;
     }
-    if (curChannels.size() > 1) {
+    if (curChannels.size() > 1 && roundIdx != commLoops - 1) {
         PostSyncInterThreadsPerRank(mainThreadCurRank, subThreadsCurRank);
     }
     return HcclResult::HCCL_SUCCESS;
