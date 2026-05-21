@@ -13,13 +13,13 @@
 #define _GNU_SOURCE
 #endif
 
-#include <errno.h>
+#include <cerrno>
 #include <fcntl.h>
-#include <limits.h>
+#include <climits>
 #include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <securec.h>
 #include <sys/file.h>
 #include <sys/stat.h>
