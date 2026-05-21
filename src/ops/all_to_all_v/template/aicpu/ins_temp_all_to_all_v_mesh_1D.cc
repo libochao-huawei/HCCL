@@ -183,6 +183,7 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
                 if (threadNum_ > 1) {
                     GetNotifyIdxSubToMain(notifyIdxSubToMain_);
                     CHK_RET(PostSyncInterThreads(threads[0], subThreads, notifyIdxSubToMain_)); // 第1轮通信中将前拷贝与本卡数据拷贝错开
+                    CHK_RET(PreSyncInterThreads(threads[0], subThreads, notifyIdxMainToSub_));
                 }
                 CHK_RET(LocalCopyForMyRank(tempAlgParams, threads[0], myAlgRank, 0)); // 在第1轮通信中用0号流做本卡数据拷贝
             }
