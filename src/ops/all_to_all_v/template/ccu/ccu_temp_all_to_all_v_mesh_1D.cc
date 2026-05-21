@@ -277,7 +277,7 @@ HcclResult CcuTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
 
     LoopGroupConfig  config{};
     config.msInterleave = CCU_MS_INTERLEAVE;
-    config.loopCount    = CCU_MS_DEFAULT_LOOP_COUNT;
+    config.loopCount    = CCU_MS_LOCAL_COPY_LOOP_COUNT;
     config.memSlice     = CCU_MS_SIZE;
 
     if (loadFromMem_) {
