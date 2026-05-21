@@ -10,7 +10,7 @@
 
 #include "channel.h"
 #include "ccu_temp_all_gather_nhr_1D_mem2mem.h"
-#include "ccu_control_api.h"
+#include "ccu_launch.h"
 #include "alg_data_trans_wrapper.h"
 
 namespace ops_hccl {

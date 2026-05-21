@@ -12,7 +12,7 @@
 // #include "hccl_ccu_res.h"
 #include "ccu_kernel_reduce_scatter_mesh1d.h"
 #include "ccu_temp_reduce_scatter_mesh_1D.h"
-#include "ccu_control_api.h"
+#include "ccu_launch.h"
 
 namespace ops_hccl {
 
