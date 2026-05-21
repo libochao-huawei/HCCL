@@ -613,7 +613,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
 }
 
 HcclResult GeReuseResource(HcclComm comm, OpParam &param, std::unique_ptr<InsCollAlgBase>& executor,
-        TopoInfoWithNetLayerDetails* topoInfo, const ResPackGraphMode &resPack)
+        std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, TopoInfoWithNetLayerDetails* topoInfo, const ResPackGraphMode &resPack)
 {
     // 计算AlgHierarchyInfo
     AlgHierarchyInfoForAllLevel algHierarchyInfo;  // 分级通信域信息{localRankId, localRankSize}
