@@ -47,11 +47,19 @@ protected:
     TemplateDataParams tempAlgParams_;
     bool isDmaRead_{false};
 private:
+    bool CanReadLastStepToOutput() const;
+    bool IsLastStepReadSlice(u32 algRank) const;
     HcclResult PreprareDataSplitForMultiChannel(const TemplateResource &templateResource);
     HcclResult LocalDataCopy(const std::vector<ThreadHandle> &threads, const u32 &channelIdx);
-    HcclResult PostLocalCopy(const std::vector<ThreadHandle> &threads, const u32 &channelIdx);
+    HcclResult PostLocalCopy(const ThreadHandle &thread, const u32 &channelIdx);
     HcclResult RunAllGatherNHR(const std::vector<ThreadHandle> &threads,
-                               const std::map<u32, std::vector<ChannelInfo>> &channels, const u32 &channelIdx);
+                               const std::map<u32, std::vector<ChannelInfo>> &channels, const u32 &channelIdx,
+                               bool &postLocalCopyLaunched);
+    HcclResult RunLastStepWriteThenRead(const std::vector<ThreadHandle> &threads, const ChannelInfo &channelSend,
+                                        const ChannelInfo &channelRecv, const AicpuNHRStepInfo &stepInfo,
+                                        const u32 &channelIdx, u32 step, bool &postLocalCopyLaunched);
+    bool readLastStepToOutput_{false};
+    std::vector<u32> lastStepReadSliceIdxs_;
     u64 dataTypeSize_{0};
     std::vector<u64> dataSplit_;
     std::vector<u64> dataOffset_;
