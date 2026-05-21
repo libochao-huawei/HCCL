@@ -12,7 +12,7 @@
 #include "alg_data_trans_wrapper.h"
 #include "template_utils.h"
 #include "channel.h"
-#inlcude "topo_match_base.h"
+#include "topo_match_base.h"
 
 namespace ops_hccl {
 
