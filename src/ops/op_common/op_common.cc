@@ -585,7 +585,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
             resCtxHost->threads[0] = thread;
             // 图模式要全部覆盖
             if (param.opMode != OpMode::OPBASE) {
-                GeReuseResource(comm, param, executor, topoInfo.get(), resPack);
+                GeReuseResource(comm, param, executor, resCtxHost, topoInfo.get(), resPack);
             }
         }
         int result = sprintf_s(param.algName, sizeof(param.algName), "%s", algName.c_str());
