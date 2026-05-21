@@ -183,6 +183,8 @@ add_library(scatter_aicpu_kernel SHARED
     ${HCCL_DEV_BASE}/src/ops/op_common/topo/topo_match_multilevel.cc
     ${HCCL_DEV_BASE}/src/ops/op_common/topo/topo_match_ubx.cc
     ${HCCL_DEV_BASE}/src/ops/op_common/topo/topo_match_pcie_mix.cc
+    ${HCCL_DEV_BASE}/src/ops/op_common/topo/topo_match_clos_mesh_2d_v2.cc
+    ${HCCL_DEV_BASE}/src/ops/op_common/topo/topo_match_clos_mesh_2d_ubx_v2.cc
 
     ${HCCL_DEV_BASE}/src/ops/scatter/algo/scatter_comm_executor.cc
     ${HCCL_DEV_BASE}/src/ops/scatter/algo/scatter_executor_base.cc
@@ -216,6 +218,7 @@ add_library(scatter_aicpu_kernel SHARED
     ${HCCL_DEV_BASE}/src/ops/all_gather/executor/ins_v2_all_gather_sequence_executor_aicpu.cc
     ${HCCL_DEV_BASE}/src/ops/all_gather/template/aicpu/ins_temp_all_gather_mesh_1D.cc
     ${HCCL_DEV_BASE}/src/ops/all_gather/template/aicpu/ins_temp_all_gather_nhr.cc
+    ${HCCL_DEV_BASE}/src/ops/all_gather/template/aicpu/ins_temp_all_gather_mesh_clos_v2.cc
     ${HCCL_DEV_BASE}/src/ops/all_gather/template/aicpu/ins_temp_all_gather_mesh_1D_Z_axis_detour.cc
     ${HCCL_DEV_BASE}/src/ops/all_gather/executor/ins_v2_all_gather_sequence_executor.cc
     ${HCCL_DEV_BASE}/src/ops/all_gather/template/aicpu/ins_temp_all_gather_nhr_dpu.cc
@@ -230,6 +233,7 @@ add_library(scatter_aicpu_kernel SHARED
 
     ${HCCL_DEV_BASE}/src/ops/all_to_all_v/executor/ins_v2_all_to_all_v_sole_executor.cc
     ${HCCL_DEV_BASE}/src/ops/all_to_all_v/template/aicpu/ins_temp_all_to_all_v_mesh_1D.cc
+    ${HCCL_DEV_BASE}/src/ops/all_to_all_v/template/aicpu/ins_temp_all_to_all_mesh_clos_2d_v2.cc
     ${HCCL_DEV_BASE}/src/ops/all_to_all_v/template/aicpu/ins_temp_dpu_alltoall_mesh.cc
 
     ${HCCL_DEV_BASE}/src/ops/send/executor/ins_v2_send_sole_executor.cc
