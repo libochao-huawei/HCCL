@@ -16,10 +16,21 @@
 using namespace AscendC;
 
 #define AIV_ALL_TO_ALL_KERNEL_BATCH_DEF(type) \
-extern "C" __global__ __aicore__ void aiv_alltoall_##type(KERNEL_ARGS_DEF) { \
+extern "C" __global__ __aicore__ void aiv_alltoall_##type##_inner(KERNEL_ARGS_DEF) { \
     AivAlltoAllV2Mesh1D<type>(KERNEL_ARGS_CALL); \
 }                                               \
 EXPORT_AIV_META_INFO(aiv_alltoall_##type)
+
+#if defined(BUILD_SK_FUNC) && defined(SK_FUNC_ID)
+#define AIV_ALL_TO_ALL_KERNEL_BATCH_DEF(type) \
+    AIV_ALL_TO_ALL_KERNEL_DEF(type); \
+    SK_BIND_FUNC_DEF(aiv_all_to_all_##type, SK_FUNC_ID)
+#else
+#define AIV_ALL_TO_ALL_KERNEL_BATCH_DEF(type) \
+    AIV_ALL_TO_ALL_KERNEL_DEF(type); \
+    GLOBAL_FUNC_DEF(aiv_all_to_all_##type); \
+    SuperKernelBind(aiv_all_to_all_##type)
+#endif
 
 // 定义各算子各数据类型Kernel入口
 AIV_COPY_DATA_TYPE_DEF(AIV_ALL_TO_ALL_KERNEL_BATCH_DEF);
