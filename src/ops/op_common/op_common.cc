@@ -838,11 +838,12 @@ void CompReqChannelWithExistChannel(const std::vector<std::vector<ChannelInfo>>&
     return;
 }
 
-static HcclResult TryReuseResource(HcclComm comm, OpParam& param, bool increCreateChannelFlag,
+static HcclResult TryReuseResource(HcclComm comm, OpParam& param, bool& increCreateChannelFlag,
     void** resCtxSequence, uint64_t& size, bool &isResourceReused)
 {
     // 增量建链模式下不能复用资源
-    if (increCreateChannelFlag) {
+    if (param.opType == HcclCMDType::HCCL_CMD_BATCH_SEND_RECV && param.opMode == OpMode::OPBASE) {
+        increCreateChannelFlag = true;
         return HCCL_E_NOT_FOUND;
     }
     // 非OPBASE模式且非CCU引擎不能复用资源
@@ -875,10 +876,6 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
     HCCL_INFO("[HcclGetAlgRes] Start to execute HcclGetAlgRes.");
 
     bool increCreateChannelFlag = false;
-    if (param.opType == HcclCMDType::HCCL_CMD_BATCH_SEND_RECV && param.opMode == OpMode::OPBASE) {
-        // 增量建链模式
-        increCreateChannelFlag = true;
-    }
     uint64_t size = 0;
     if (TryReuseResource(comm, param, increCreateChannelFlag, resCtxSequence, size, isResourceReused) == HCCL_SUCCESS) {
         return HCCL_SUCCESS;
