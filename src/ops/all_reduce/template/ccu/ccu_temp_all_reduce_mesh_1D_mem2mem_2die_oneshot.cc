@@ -9,13 +9,10 @@
  */
  
 #include "channel.h"
-#include "hccl_ccu_res.h"
-#include "ccu_assist_pub.h"
 #include "ccu_kernel_all_reduce_mesh1d_mem2mem_2die_oneshot.h"
 #include "ccu_temp_all_reduce_mesh_1D_mem2mem_2die_oneshot.h"
-#include "ccu_kernel.h"
 #include "alg_data_trans_wrapper.h"
-#include "ccu_control_api.h"
+#include "ccu_launch.h"
 
 namespace ops_hccl {
 

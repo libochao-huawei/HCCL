@@ -9,7 +9,6 @@
  */
 
 #include "ccu_kernel_all_reduce_mesh_1D_2die_oneshot.h"
-#include "ccu_control_api.h"
 
 namespace ops_hccl {
 
@@ -41,7 +40,7 @@ static CcuResult ParseKernelArg(AllreduceMesh1D2DieOneShotContext &ctx)
     ctx.rankId = arg->rankId;
     ctx.rankSize = arg->rankSize;
     ctx.rmtReduceWithMyRank = arg->rmtReduceWithMyRank;
-    ctx.rmtReduceRankNum = arg->channels.size() + (ctx.rmtReduceWithMyRank ? 1 : 0);
+    ctx.rmtReduceRankNum = arg->channelCount + (ctx.rmtReduceWithMyRank ? 1 : 0);
 
     ctx.rmtSyncMyBit = 1 << (ctx.rankId % ctx.rmtReduceRankNum);
     ctx.rmtSyncWaitBit = ctx.rmtReduceWithMyRank ? ((1 << ctx.rmtReduceRankNum) - 1) & (~ctx.rmtSyncMyBit) : (1 << ctx.rmtReduceRankNum) - 1;
@@ -76,14 +75,14 @@ static CcuResult InitResource(AllreduceMesh1D2DieOneShotContext &ctx)
     ctx.myScratch = ccu::GetResByChannel<ccu::Variable>(arg->channels[0], 2);
     ctx.myToken = ccu::GetResByChannel<ccu::Variable>(arg->channels[0], TOKEN_XN_ID);
 
-    if (arg->channels.empty()) {
+    if (arg->channelCount == 0) {
         HCCL_ERROR("[CcuKernelAllreduceMesh1D2DieOneShot] channels is empty!");
         return CcuResult::CCU_E_INTERNAL;
     }
 
-    ctx.input.resize(arg->channels.size());
-    ctx.remoteToken.resize(arg->channels.size());
-    for (size_t i = 0; i < arg->channels.size(); i++) {
+    ctx.input.resize(arg->channelCount);
+    ctx.remoteToken.resize(arg->channelCount);
+    for (size_t i = 0; i < arg->channelCount; i++) {
         ctx.input[i] = ccu::GetResByChannel<ccu::Variable>(arg->channels[i], INPUT_XN_ID);
         ctx.remoteToken[i] = ccu::GetResByChannel<ccu::Variable>(arg->channels[i], TOKEN_XN_ID);
     }
@@ -204,7 +203,7 @@ static CcuResult CreateReduceLoop(AllreduceMesh1D2DieOneShotContext &ctx,
 
 static CcuResult ReduceLoopGroup(AllreduceMesh1D2DieOneShotContext &ctx,
     ccu::LocalAddr &outDstOrg, std::vector<ccu::LocalAddr> &srcOrg,
-    GroupOpSize goSize, HcclDataType dataType, HcclDataType outputDataType,
+    GroupOpSizeVars goSize, HcclDataType dataType, HcclDataType outputDataType,
     HcclReduceOp opType)
 {
     const uint32_t size = srcOrg.size();
@@ -318,18 +317,17 @@ static CcuResult DoRmtReduce(AllreduceMesh1D2DieOneShotContext &ctx)
     const auto *arg = ctx.arg;
 
     std::vector<ccu::RemoteAddr> src;
-    src.reserve(ctx.rmtReduceRankNum);
-    for (uint32_t peerIdx = 0; peerIdx < arg->channels.size(); peerIdx++) {
+    src.resize(ctx.rmtReduceRankNum);
+    for (uint32_t peerIdx = 0; peerIdx < arg->channelCount; peerIdx++) {
         ccu::RemoteAddr addr;
         addr.token = ctx.remoteToken[peerIdx];
         addr.addr = ctx.input[peerIdx];
         src.push_back(addr);
     }
+    ccu::LocalAddr localSrc;
     if (ctx.rmtReduceWithMyRank) {
-        ccu::RemoteAddr addr;
-        addr.token = ctx.myToken;
-        addr.addr = ctx.myInput;
-        src.push_back(addr);
+        localSrc.token = ctx.myToken;
+        localSrc.addr = ctx.myInput;
     }
 
     ccu::LocalAddr dst;
@@ -338,9 +336,9 @@ static CcuResult DoRmtReduce(AllreduceMesh1D2DieOneShotContext &ctx)
     dst.addr = dst.addr + (ctx.rmtReduceWithMyRank ? ctx.scratchBaseOffset0 : ctx.scratchBaseOffset1);
 
     if (ctx.rmtReduceWithMyRank) {
-        CCU_CHK_RET(ccu::GroupReduce(arg->channels, dst, src, ctx.rmtReduceGoSize, ctx.dataType, ctx.outputDataType, ctx.reduceOp));
+        CCU_CHK_RET(GroupReduce(ctx, arg->channels, arg->channelCount, dst, src, localSrc, ctx.rmtReduceGoSize, ctx.dataType, ctx.outputDataType, ctx.reduceOp));
     } else {
-        CCU_CHK_RET(ccu::GroupReduceWithoutMyRank(arg->channels, dst, src, ctx.rmtReduceGoSize, ctx.dataType, ctx.outputDataType, ctx.reduceOp));
+        CCU_CHK_RET(GroupReduceWithoutMyRank(ctx, arg->channels, arg->channelCount, dst, src, ctx.rmtReduceGoSize, ctx.dataType, ctx.outputDataType, ctx.reduceOp));
     }
 
     HCCL_INFO("[CcuKernelAllreduceMesh1D2DieOneShot] Step1 RmtReduce run finished");
@@ -350,7 +348,7 @@ static CcuResult DoRmtReduce(AllreduceMesh1D2DieOneShotContext &ctx)
 static CcuResult DoLocalReduce(AllreduceMesh1D2DieOneShotContext &ctx)
 {
     std::vector<ccu::LocalAddr> src;
-    src.reserve(DIE_WORK);
+    src.resize(DIE_WORK);
     for (uint32_t i = 0; i < DIE_WORK; i++) {
         ccu::LocalAddr addr;
         addr.token = ctx.myToken;
@@ -382,8 +380,10 @@ static CcuResult MissionSync(AllreduceMesh1D2DieOneShotContext &ctx, uint32_t ma
     HCCL_INFO("[CcuKernelAllreduceMesh1D2DieOneShot] MissionSync, missionSyncMybit[%u], missionSyncWaitBit[%u]",
         ctx.missionSyncMybit, ctx.missionSyncWaitBit);
     uint32_t coreIdx = ctx.rmtReduceWithMyRank ? 1 : 0;
-    CCU_CHK_RET(ccu::LocalNotifyRecord(1 - coreIdx, CKE_IDX_2, ctx.missionSyncMybit << (DIE_WORK * maskIndex)));
-    CCU_CHK_RET(ccu::LocalNotifyWait(coreIdx, CKE_IDX_2, ctx.missionSyncWaitBit << (DIE_WORK * maskIndex)));
+    uint16_t mask = static_cast<uint16_t>(ctx.missionSyncMybit << (DIE_WORK * maskIndex));
+    ccu::EventRecord((coreIdx == 0) ? "core1_mission_sync" : "core0_mission_sync", mask);
+    mask = static_cast<uint16_t>(ctx.missionSyncWaitBit << (DIE_WORK * maskIndex));
+    ccu::EventWait((coreIdx == 0) ? "core0_mission_sync" : "core1_mission_sync", mask);
     HCCL_INFO("[CcuKernelAllreduceMesh1D2DieOneShot] MissionSync run finished");
     return CCU_SUCCESS;
 }

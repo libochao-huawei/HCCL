@@ -9,12 +9,10 @@
  */
 
 #include "channel.h"
-#include "hccl_ccu_res.h"
-#include "ccu_assist_pub.h"
 #include "alg_data_trans_wrapper.h"
 #include "ccu_kernel_all_reduce_mesh_1D_2die_oneshot.h"
 #include "ccu_temp_all_reduce_mesh_1D_2die_oneshot.h"
-#include "ccu_control_api.h"
+#include "ccu_launch.h"
 
 namespace ops_hccl {
 constexpr u32 ALL_REDUCE_DIE_NUM = 2;

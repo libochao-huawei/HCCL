@@ -47,6 +47,8 @@
 #include "hcomm_primitives_dl.h"
 #include "hcomm_diag_dl.h"
 #include "hcom.h"
+#include "ccu_launch.h"
+#include "hccl_ccu_res.h"
 
 namespace ops_hccl {
 // 用于维护增量建链算子的host ctx信息
