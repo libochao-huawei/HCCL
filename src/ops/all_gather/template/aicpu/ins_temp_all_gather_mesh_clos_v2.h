@@ -43,11 +43,6 @@ private:
                                   const std::map<u32, std::vector<ChannelInfo>> &channels,
                                   u32 linkIdx);
 
-    u32 GetSelectedLinkIdx(u32 remoteRank, u32 totalLinks) const
-    {
-        return (myRank_ + remoteRank) % totalLinks;
-    }
-
     u32 totalLinks_{1};
 };
 

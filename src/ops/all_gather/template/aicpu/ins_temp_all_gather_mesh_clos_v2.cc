@@ -101,7 +101,7 @@ HcclResult InsTempAllGatherMeshClosV2::RunAllGatherOnLink(
         }
 
         u32 totalLinksToNeighbor = it->second.size();
-        u32 selectedLinkIdx = GetSelectedLinkIdx(connectedRank, totalLinksToNeighbor);
+        u32 selectedLinkIdx = (myAlgRank + connectedAlgRank) % totalLinksToNeighbor;
 
         if (selectedLinkIdx != linkIdx) {
             continue;

@@ -244,7 +244,7 @@ HcclResult InsTempAlltoAllMeshClos2DV2::RunAxisMeshStage(
         }
 
         u32 totalLinks = it->second.size();
-        u32 selectedIdx = GetSelectedLinkIdx(connectedRank, totalLinks);
+        u32 selectedIdx = (myAxisRank + connectedAxisRank) % totalLinks;
         const ChannelInfo &linkRemote = it->second[selectedIdx];
 
         u32 threadIdx = threadBaseIdx + neighborIdx * channelsPerRank + selectedIdx;
@@ -322,7 +322,7 @@ HcclResult InsTempAlltoAllMeshClos2DV2::RunAxisMeshYClos(
             }
 
             u32 totalLinks = it->second.size();
-            u32 selectedIdx = GetSelectedLinkIdx(connectedRank, totalLinks);
+            u32 selectedIdx = (myAxisRank + connectedAxisRank) % totalLinks;
             if (selectedIdx != linkIdx) {
                 continue;
             }

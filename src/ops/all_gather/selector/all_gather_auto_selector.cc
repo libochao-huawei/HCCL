@@ -216,7 +216,11 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
     (void)configAlgMap;
 
     if (IsAllGatherMeshClosV2Enabled()) {
-        return SelectAicpuAlgoMeshClosV2(topoInfo, opParam, selectAlgName);
+        SelectorStatus ret = SelectAicpuAlgoMeshClosV2(topoInfo, opParam, selectAlgName);
+        if (ret == SelectorStatus::MATCH) {
+            return SelectorStatus::MATCH;
+        }
+        HCCL_INFO("[AllGatherAutoSelector] MeshClosV2 not matched, fallback to legacy.");
     }
 
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];

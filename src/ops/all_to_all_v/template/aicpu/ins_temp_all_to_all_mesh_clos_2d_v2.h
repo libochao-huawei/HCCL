@@ -55,11 +55,6 @@ private:
                                 const std::vector<u64> &srcAddrs, const std::vector<u64> &dstAddrs,
                                 u64 dataSize, BufferType srcType, BufferType dstType);
 
-    u32 GetSelectedLinkIdx(u32 remoteRank, u32 totalLinks) const
-    {
-        return (myRank_ + remoteRank) % totalLinks;
-    }
-
     void ComputeStageAddrs(const TemplateDataParams &tp, u64 dataOffset, u64 dataSize,
                            bool fromInput, BufferType srcType, BufferType dstType,
                            std::vector<u64> &srcAddrs, std::vector<u64> &dstAddrs);
