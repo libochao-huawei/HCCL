@@ -25,7 +25,19 @@ HcclResult InsTempAllGatherNHR::CalcRes(HcclComm comm, const OpParam &param, con
                                         AlgResourceRequest &resourceRequest)
 {
     std::vector<HcclChannelDesc> level1Channels;
-    CHK_RET(CalcChannelRequestNhr(comm, param, topoInfo, subCommRanks_, level1Channels));
+    std::vector<HcclChannelDesc> myChannelDescs;
+    if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
+        CHK_RET(CalcChannelRequestNHRWithPriorityTopo(comm, param, topoInfo, subCommRanks_, myChannelDescs, CommTopo::COMM_TOPO_CLOS)); 
+        for(auto channel : myChannelDescs) {
+            if(channel.channelProtocol == COMM_PROTOCOL_UBC_CTP) {
+                level1Channels.push_back(channel);
+            }
+        }
+        HCCL_DEBUG("[InsTempAllGatherNHR::CalcRes] Get Channel Success!");
+    } else {
+        CHK_RET(CalcChannelRequestNhr(comm, param, topoInfo, subCommRanks_, myChannelDescs));
+        level1Channels = myChannelDescs;
+    }
     resourceRequest.channels.push_back(level1Channels);
     channelsPerRank_ = CalcChannelsPerRank(level1Channels);
     CHK_RET(GetRes(resourceRequest));
