@@ -298,9 +298,10 @@ HcclResult InsTempAlltoAllVMesh1D::RunSendRecvByChannel(const TemplateDataParams
         rxSrcSlices.push_back(rxSrcSlice);
         rxDstSlices.push_back(rxDstSlice);
 
-        DataInfo sendInfo{channelSend, {txSrcSlices, txDstSlices}};
-        DataInfo recvInfo{channelRecv, {rxSrcSlices, rxDstSlices}};
-        SendRecvInfo sendRecvInfo{{channelSend, channelRecv}, {{txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices}}};
+        DataInfo sendInfo{channelSend, {txSrcSlices, txDstSlices}, dataType_};
+        DataInfo recvInfo{channelRecv, {rxSrcSlices, rxDstSlices}, dataType_};
+        SendRecvInfo sendRecvInfo{{channelSend, channelRecv},
+            {{txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices}}, dataType_};
         CHK_RET(RunSendRecv(tempAlgParams, sendRecvInfo, sendInfo, recvInfo, threads[queIdx], channelId));
         HCCL_INFO("[InsTempAlltoAllVMesh1D][RunSendRecvByLoop] do send recv write on thread[%u], channelId[%u], "\
             "send size[%llu], recv size[%llu], remote rank[%u].",

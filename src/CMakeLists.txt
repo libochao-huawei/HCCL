@@ -431,7 +431,7 @@ if(NOT KERNEL_MODE)
     )
     add_custom_target(aicpu_kernel_json DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/libscatter_aicpu_kernel.json)
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libscatter_aicpu_kernel.json
-        DESTINATION ${INSTALL_AICPU_KERNEL_JSON_DIR} 
+        DESTINATION ${INSTALL_AICPU_KERNEL_JSON_DIR}/config
         ${INSTALL_OPTIONAL}
         COMPONENT hccl
     )
@@ -631,24 +631,5 @@ if(DEVICE_MODE AND KERNEL_MODE)
         COMMAND ${CMAKE_COMMAND} -E make_directory ${AICPU_CUSTOM_DIR}
         COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:scatter_aicpu_kernel> ${AICPU_CUSTOM_DIR}/libscatter_aicpu_kernel.so
         COMMENT "Copying libscatter_aicpu_kernel.so to ${AICPU_CUSTOM_DIR}/libscatter_aicpu_kernel.so"
-    )
-endif()
-
-# 静态库特殊处理：嵌入二进制文件
-if(STATIC_MODE)
-    # 添加静态库恢复代码
-    set(STATIC_RESTORE_SRC ${CMAKE_CURRENT_SOURCE_DIR}/common/static_restore.c)
-    if(NOT EXISTS ${STATIC_RESTORE_SRC})
-        file(WRITE ${STATIC_RESTORE_SRC} "/* Static restore implementation will be generated during build */\n")
-    endif()
-
-    # 创建自定义目标来处理静态库的最终打包
-    add_custom_target(package_static_lib DEPENDS hccl)
-
-    # 添加后构建步骤来嵌入二进制文件
-    add_custom_command(
-        TARGET package_static_lib
-        POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E echo "Processing static library embedding..."
     )
 endif()
