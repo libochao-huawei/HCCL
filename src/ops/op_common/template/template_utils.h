@@ -443,6 +443,22 @@ HcclResult FillCachedArgs(CcuKernelSubmitInfo &info, Args... args)
 
     return HcclResult::HCCL_SUCCESS;
 }
+
+// ccu快速下发arg填充（指针+长度版本）
+HcclResult FillCachedArgsArray(CcuKernelSubmitInfo &info, const uint64_t *args, size_t argNum)
+{
+    if (UNLIKELY(argNum > CCU_MAX_TASK_ARG_NUM)) {
+        HCCL_ERROR("[FillCachedArgs] argNum[%zu] is bigger than CCU_MAX_TASK_ARG_NUM[%d]", argNum, CCU_MAX_TASK_ARG_NUM);
+        return HcclResult::HCCL_E_INTERNAL;
+    }
+
+    for (size_t i = 0; i < argNum; i++) {
+        info.cachedArgs[i] = args[i];
+    }
+
+    return HcclResult::HCCL_SUCCESS;
+}
+
 HcclResult CalcDataSplitByPortGroupCommon(const u64 totalDataCount,
                                           const u64 dataTypeSize,
                                           const std::vector<ChannelInfo> &channels,

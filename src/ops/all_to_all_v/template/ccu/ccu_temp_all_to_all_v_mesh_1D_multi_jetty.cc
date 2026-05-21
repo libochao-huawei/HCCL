@@ -9,16 +9,15 @@
  */
 
 #include "channel.h"
-#include "hccl_ccu_res.h"
-#include "ccu_assist_pub.h"
 #include "ccu_kernel_all_to_all_v_mesh1d_multi_jetty.h"
 #include "ccu_temp_all_to_all_v_mesh_1D_multi_jetty.h"
 #include "alg_data_trans_wrapper.h"
-#include "template_utils.h"
+#include "ccu_launch.h"
 
 namespace ops_hccl {
 constexpr uint32_t CONST_1 = 1;
 constexpr uint32_t CONST_4 = 4;
+constexpr u64 HCCL_MIN_SLICE_ALIGN = 128;
 
 CcuTempAllToAllVMesh1DMultiJetty::CcuTempAllToAllVMesh1DMultiJetty(const OpParam& param, const u32 rankId,
                                        const std::vector<std::vector<u32>> &subCommRanks)
@@ -45,22 +44,25 @@ HcclResult CcuTempAllToAllVMesh1DMultiJetty::CalcRes(HcclComm comm, const OpPara
 
     // 创建每个kernel的ctxArg，放入kernelInfo, 然后将kernelinfo放入resourceRequest.ccuKernelInfos
     CcuKernelInfo kernelInfo;
-    
-    kernelInfo.creator = [](const hcomm::CcuKernelArg &arg) {
-                             return std::make_unique<CcuKernelAllToAllVMesh1DMultiJetty>(arg);
-                         };
+    strcpy(kernelInfo.kernelFuncName, "CcuKernelAllToAllVMesh1DMultiJetty");
+    kernelInfo.kernelFunc = reinterpret_cast<void*>(CcuAllToAllVMesh1DMultiJettyKernel);
+
     std::vector<HcclChannelDesc> channelDescs;
     // 计算建链诉求以COMM_TOPO_1DMESH为优先级，优先建mesh链，没有mesh链建clos链
     CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks_, channelDescs, CommTopo::COMM_TOPO_1DMESH));
-    kernelInfo.channels = channelDescs;
 
     std::vector<uint32_t> jettyNums;
     CHK_RET(SetJettyNums(jettyNums, false));
-    kernelInfo.kernelArg = std::make_shared<CcuKernelArgAllToAllVMesh1DMultiJetty>(subCommRanks_[0].size(),
-                                                                                    myRank_,
-                                                                                    param,
-                                                                                    subCommRanks_,
-                                                                                    jettyNums);
+    jettyNums_ = jettyNums;
+    auto kernelArg = std::make_shared<CcuKernelArgAllToAllVMesh1DMultiJetty>();
+    kernelArg->rankSize = subCommRanks_[0].size();
+    kernelArg->rankId = myRank_;
+    kernelArg->channelCount = channelDescs.size();
+    kernelArg->opParam = param;
+    kernelArg->subCommRanks = subCommRanks_;
+    kernelArg->jettyNums = jettyNums;
+    kernelInfo.setKernelArg(kernelArg);
+    kernelInfo.channels = channelDescs;
     resourceRequest.ccuKernelInfos.push_back(kernelInfo);
 
     HCCL_DEBUG("[CcuTempAllToAllVMesh1DMultiJetty::CalcRes] channelDescs.size()=%llu, dimsize=%llu, "
@@ -82,17 +84,87 @@ HcclResult CcuTempAllToAllVMesh1DMultiJetty::KernelRun(const OpParam& param, con
     uint64_t srcOffset = 0; // alltoallv假设src起始地址为发送rank的对应块起始地址
     uint64_t dstOffset = 0; // alltoallv假设dst起始地址为接收rank的对应块起始地址
 
-    std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAllToAllVMesh1DMultiJetty>(
-        inputAddr, outputAddr, token, srcOffset, dstOffset, localSendRecvInfo_);
+    HCCL_INFO("[CcuTempAllToAllVMesh1DMultiJetty] inputAddr[%llu], outputAddr[%llu],"
+              "srcOffset[%llu], dstOffset[%llu]",
+              inputAddr, outputAddr, srcOffset, dstOffset);
 
-    void* taskArgPtr = static_cast<void*>(taskArg.get());
+    std::vector<uint64_t> taskArgs = {inputAddr, outputAddr, token, srcOffset, dstOffset};
 
-    HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr);
-    //所有task下发完再保存参数信息
+    constexpr uint64_t UB_MAX_TRANS_SIZE = 256 * 1024 * 1024;
+    LoopGroupConfig config{};
+    config.msInterleave = CCU_MS_INTERLEAVE;
+    config.loopCount    = CCU_MS_LOCAL_COPY_LOOP_COUNT;
+    config.memSlice     = LOCAL_COPY_MS_PER_LOOP * CCU_MS_SIZE;
+    auto xnMaxTransportGoSize = CalGoSize(UB_MAX_TRANS_SIZE, config);
+    for (auto val : xnMaxTransportGoSize) {
+        taskArgs.push_back(val);
+    }
+
+    std::vector<uint32_t> jettyNums;
+    CHK_RET(SetJettyNums(jettyNums, false));
+    jettyNums_ = jettyNums;
+    uint64_t rankSize = jettyNums_.size();
+    for (uint64_t i = 0; i < rankSize; i++) {
+        uint64_t blockSize = UB_MAX_TRANS_SIZE;
+        uint64_t loopNum = UINT64_MAX - (localSendRecvInfo_.sendLength[i] / blockSize + 1) * jettyNums_[i];
+        uint64_t sliceSize = 0;
+        uint64_t tailSliceSize = 0;
+        if (localSendRecvInfo_.sendLength[i] >= blockSize) {
+            sliceSize = blockSize / jettyNums_[i] / HCCL_MIN_SLICE_ALIGN * HCCL_MIN_SLICE_ALIGN;
+            tailSliceSize = blockSize - sliceSize * (jettyNums_[i] - 1);        
+            if (jettyNums_[i] == 1) {
+                sliceSize = 0;
+                tailSliceSize = blockSize;
+            }
+        }
+        uint64_t lastBlockSize = localSendRecvInfo_.sendLength[i] % blockSize;
+        uint64_t lastSliceSize = lastBlockSize / jettyNums_[i] / HCCL_MIN_SLICE_ALIGN * HCCL_MIN_SLICE_ALIGN;
+        uint64_t lastTailSliceSize = lastBlockSize - lastSliceSize * (jettyNums_[i] - 1);
+        if (jettyNums_[i] == 1) {
+            lastSliceSize = 0;
+            lastTailSliceSize = lastBlockSize;
+        }
+
+        uint64_t sendOffset = localSendRecvInfo_.sendOffset[i];        
+        uint64_t recvOffset = localSendRecvInfo_.recvOffset[i];        
+        taskArgs.push_back(sliceSize);
+        taskArgs.push_back(tailSliceSize);
+        taskArgs.push_back(lastSliceSize);
+        taskArgs.push_back(lastTailSliceSize);
+        taskArgs.push_back(loopNum);
+        taskArgs.push_back(sendOffset);
+        taskArgs.push_back(recvOffset);
+
+        auto tailGoSize = CalGoSize(lastBlockSize, config);
+        for (auto val : tailGoSize) {
+            taskArgs.push_back(val);
+        }
+        HCCL_INFO("[CcuTempAllToAllVMesh1DMultiJetty] rankIdx[%llu] " \
+            "localSendRecvInfo.sendLength[%llu]," \
+            "localSendRecvInfo.sendOffset[%llu]," \
+            "localSendRecvInfo.recvLength[%llu]," \
+            "localSendRecvInfo.recvOffset[%llu]", i,
+            localSendRecvInfo_.sendLength[i],
+            localSendRecvInfo_.sendOffset[i],
+            localSendRecvInfo_.recvLength[i],
+            localSendRecvInfo_.recvOffset[i]);
+    }
+
+    uint64_t argSize = taskArgs.size();
+
+    CcuResult launchRet = HcommCcuKernelLaunch(templateResource.threads[0], templateResource.ccuKernels[0],
+        taskArgs.data(), argSize);
+    if (launchRet != CCU_SUCCESS) {
+        HCCL_ERROR("[CcuTempAllToAllVMesh1DMultiJetty::KernelRun] kernel launch failed, ccuRet -> %d", launchRet);
+        return ConvertCcuToHccl(launchRet);
+    }
     CcuKernelSubmitInfo submitInfo;
+    std::vector<uint64_t> taskArgsFastLaunch = {argSize, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff};
+    for (uint64_t i = 2; i < argSize; i++) {
+        taskArgsFastLaunch.push_back(taskArgs[i]);
+    }
     submitInfo.kernelHandle = templateResource.ccuKernels[0];
-    CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff,
-        token, srcOffset, dstOffset, templateRankSize_));
+    CHK_RET(FillCachedArgsArray(submitInfo, taskArgsFastLaunch.data(), argSize + 1));
     templateResource.submitInfos.push_back(submitInfo);
 
     HCCL_DEBUG("[CcuTempAllToAllVMesh1DMultiJetty::KernelRun] end");
@@ -114,49 +186,25 @@ HcclResult CcuTempAllToAllVMesh1DMultiJetty::FastLaunch(const OpParam& param,
         return HCCL_SUCCESS;
     }
     HCCL_INFO("[CcuTempAllToAllVMesh1DMultiJetty::FastLaunch] start");
-    const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
-    uint64_t rankSize = args[5];
-    HcclDataType dataType = param.all2AllVDataDes.sendType;
-    uint64_t dataTypeSize = SIZE_TABLE[dataType];
-    CHK_PRT_RET(param.varMemSize != ALL_TO_ALL_V_VECTOR_NUM * rankSize * sizeof(u64),
-        HCCL_ERROR("[CcuTempAllToAllVMesh1DMultiJetty::FastLaunch] param.varMemSize [%llu] is invalid", param.varMemSize), HCCL_E_PARA);
-
-    A2ASendRecvInfo localSendRecvInfo;
-    localSendRecvInfo.sendCounts.resize(rankSize, 0);
-    localSendRecvInfo.sendDispls.resize(rankSize, 0);
-    localSendRecvInfo.sendLength.resize(rankSize, 0);
-    localSendRecvInfo.sendOffset.resize(rankSize, 0);
-    localSendRecvInfo.recvCounts.resize(rankSize, 0);
-    localSendRecvInfo.recvDispls.resize(rankSize, 0);
-    localSendRecvInfo.recvLength.resize(rankSize, 0);
-    localSendRecvInfo.recvOffset.resize(rankSize, 0);
-    const u64* data = reinterpret_cast<const u64*>(param.varData);
-    for (u64 i = 0; i < ALL_TO_ALL_V_VECTOR_NUM * rankSize; i++) {
-        u64 val = i / rankSize;
-        u64 curRank = i % rankSize;
-        switch(val) {
-            case 0:
-                localSendRecvInfo.sendLength[curRank] = data[i] * dataTypeSize;
-                break;
-            case 2:
-                localSendRecvInfo.sendOffset[curRank] = data[i] * dataTypeSize;
-                break;
-            case 3:
-                localSendRecvInfo.recvOffset[curRank] = data[i] * dataTypeSize;
-                break;
-            default:
-                break;
-        }
-    }
-    uint64_t inputAddr = PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + args[0];
-    uint64_t outputAddr = PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + args[1];
-
-    std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAllToAllVMesh1DMultiJetty>(
-        inputAddr, outputAddr, args[2], args[3], args[4], localSendRecvInfo);
+    uint64_t *args = const_cast<uint64_t*>(tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs);
+    uint64_t argSize = args[0];
+    constexpr u32 inputIdx = 1;
+    constexpr u32 outputIdx = 2;
+    constexpr u32 inputOffsetIdx = 1;
+    constexpr u32 outputOffsetIdx = 2;
+    args[inputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + args[inputOffsetIdx];
+    args[outputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + args[outputOffsetIdx];
     HCCL_INFO("[CcuTempAlltoAllVMesh1DMultiJetty::FastLaunch]: inputAddr[%llu], outputAddr[%llu], ",
-        "srcOffset[%llu], dstOffset[%llu]", inputAddr, outputAddr, args[3], args[4]);
-    void* taskArgPtr = static_cast<void*>(taskArg.get());
-    CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0], tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr));
+        "srcOffset[%llu], dstOffset[%llu]", args[1], args[2], args[4], args[5]);
+
+    void *taskArgs = reinterpret_cast<void*>(args + 1);
+    CcuResult launchRet = HcommCcuKernelLaunch(tempFastLaunchCtx.threads[0],
+                                               tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle,
+                                               taskArgs, argSize);
+    if (launchRet != CCU_SUCCESS) {
+        HCCL_ERROR("[CcuTempAllReduceMesh1D::FastLaunch] kernel launch failed, ccuRet -> %d", launchRet);
+        return ConvertCcuToHccl(launchRet);
+    }
     HCCL_INFO("[CcuTempAllToAllVMesh1DMultiJetty::FastLaunch] end");
     return HcclResult::HCCL_SUCCESS;
 }
