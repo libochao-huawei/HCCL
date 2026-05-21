@@ -177,14 +177,4 @@ HcclResult SetExecTimeout(OpParam &param);
 bool IsHostDpu(HcclComm comm);
 }  // namespace ops_hccl
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-HcclResult HcclSetAivCoreLimitGraphMode(const char *group, u32 aivCoreLimit);
-
-#ifdef __cplusplus
-}
-#endif
-
 #endif
