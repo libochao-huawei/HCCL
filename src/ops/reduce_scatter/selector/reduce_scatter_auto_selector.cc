@@ -20,6 +20,8 @@ constexpr u64 RS_AICPU_1D_MIN_DATA_SIZE = 4 * 1024 * 1024;
 constexpr u64 RS_AICPU_1D_TWO_LEVER_DATA_SIZE_THRESHOLD = 1536 * 1024 * 1024;
 
 constexpr u64 RS_CCU_CLOS_1D_MIN_DATA_SIZE = 4 * 1024 * 1024;
+constexpr u64 RS_CCU_64P_MIN_DATA_SIZE = 128 * 1024 * 1024;
+constexpr u64 RS_CCU_8P_MIN_DATA_SIZE = 64 * 1024 * 1024;
 constexpr u64 RS_AICPU_SEQUENCE_SIZE_THRESHOLD = 1 * 1024 * 1024 * 1024;
 
 SelectorStatus ReduceScatterAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
@@ -139,7 +141,10 @@ SelectorStatus ReduceScatterAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWi
                 if ((dataSize * topoInfo->userRankSize) <= RS_FLATTEN_MAX_DATA_SIZE && topoInfo->userRankSize <= 64) {
                     selectAlgName = "CcuReduceScatterMesh1DMem2Mem";
                     return SelectorStatus::MATCH;
-                } else if(IsSmallDataCCU((dataSize * topoInfo->userRankSize), topoInfo->userRankSize)){
+                } else if (dataSize * topoInfo->userRankSize <= RS_CCU_64P_MIN_DATA_SIZE && topoInfo->userRankSize == 64){
+                    selectAlgName = "CcuReduceScatterParallelMesh1DNHR";//64M以下跑ccu
+                    return SelectorStatus::MATCH;
+                } else if (dataSize * topoInfo->userRankSize <= RS_CCU_8P_MIN_DATA_SIZE) {
                     selectAlgName = "CcuReduceScatterParallelMesh1DNHR";//64M以下跑ccu
                     return SelectorStatus::MATCH;
                 } else {
@@ -236,6 +241,11 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoCcuSchedule(const TopoIn
             selectAlgName = "CcuReduceScatterNhr1DMem2MemMultiJetty";
         }
     } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
+        if (topoInfo->level0PcieMix) {
+            // PCIE-SW定制机型，Mesh无法链接全卡时，需要跨pcie链路，不支持ccu模式
+            HCCL_WARNING("[ReduceScatterAutoSelector] pcie mixed topo is not supported yet for ccu schedule mode.");
+            return SelectorStatus::NOT_MATCH;
+        }
         if (dataSize > RS_CCU_CLOS_1D_MIN_DATA_SIZE) {
             selectAlgName = "CcuReduceScatterMesh1DMem2Mem";
         } else {
