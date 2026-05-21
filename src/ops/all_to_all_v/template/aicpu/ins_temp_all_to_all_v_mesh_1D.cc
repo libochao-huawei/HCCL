@@ -223,11 +223,11 @@ HcclResult InsTempAlltoAllVMesh1D::RunSendRecvByLoop(const std::vector<u32> &com
         }
         const std::vector<ChannelInfo> &curChannels = channels.at(remoteRank);
         // send数据按照channel分片
-        CHK_RET(CalcDataSplitByPortGroup(tempAlgParams.sendCounts[remoteRank], dataTypeSize_, curChannels,
-            sendCountsSplit_, sendSizeSplit_, sendOffsetSplit_));
+        CHK_RET(CalcDataSplitByPortGroupCommon(tempAlgParams.sendCounts[remoteRank], dataTypeSize_, curChannels,
+            sendCountsSplit_, sendSizeSplit_, sendOffsetSplit_, static_cast<u32>(curChannels.size())));
         // recv数据按照channel分片
-        CHK_RET(CalcDataSplitByPortGroup(tempAlgParams.recvCounts[remoteRank], dataTypeSize_, curChannels,
-            recvCountsSplit_, recvSizeSplit_, recvOffsetSplit_));
+        CHK_RET(CalcDataSplitByPortGroupCommon(tempAlgParams.recvCounts[remoteRank], dataTypeSize_, curChannels,
+            recvCountsSplit_, recvSizeSplit_, recvOffsetSplit_, static_cast<u32>(curChannels.size())));
         CHK_RET(RunSendRecvByChannel(tempAlgParams, roundIdx, curChannels, remoteRank, threads));
     }
     return HcclResult::HCCL_SUCCESS;
@@ -375,8 +375,8 @@ HcclResult InsTempAlltoAllVMesh1D::PreCopyByLoop(const std::vector<u32> &commRan
         }
         const std::vector<ChannelInfo> &curChannels = channels.at(remoteRank);
         // send数据按照channel分片
-        CHK_RET(CalcDataSplitByPortGroup(tempAlgParams.sendCounts[remoteRank], dataTypeSize_, curChannels,
-            sendCountsSplit_, sendSizeSplit_, sendOffsetSplit_));
+        CHK_RET(CalcDataSplitByPortGroupCommon(tempAlgParams.sendCounts[remoteRank], dataTypeSize_, curChannels,
+            sendCountsSplit_, sendSizeSplit_, sendOffsetSplit_, static_cast<u32>(curChannels.size())));
         for (u32 channelId = 0; channelId < curChannels.size(); channelId++) {
             if (sendSizeSplit_[channelId] > 0) {
                 CHK_RET(static_cast<HcclResult>(PreCopy(tempAlgParams, threads[queIdx], myRankCclBuffIdx, remoteRank,
