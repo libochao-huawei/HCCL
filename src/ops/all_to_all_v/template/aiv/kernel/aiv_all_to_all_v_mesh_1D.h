@@ -130,10 +130,12 @@ public:
         for (uint64_t loop = 0; loop < loopTimes; loop++) {
             ExtraArgs extraArgsPerLoop;
             uint64_t currDataCount = (loop == loopTimes - 1) ? maxSendOrRecvDataCount - processedDataCount : cclBufferCountPerRank;
+            uint32_t sendRecvRank[MAX_RANK_SIZE] = {0};
             for (uint64_t i = 0; i < rankSize_; i++) {
                 if (extraArgs.sendCounts[i] > processedDataCount) {
                     extraArgsPerLoop.sendCounts[i] = min(currDataCount, extraArgs.sendCounts[i] - processedDataCount);
                     extraArgsPerLoop.sendDispls[i] = extraArgs.sendDispls[i] + processedDataCount;
+                    sendRecvRank[i] = 1;
                 } else {
                     extraArgsPerLoop.sendCounts[i] = 0;
                     extraArgsPerLoop.sendDispls[i] = extraArgs.sendDispls[i] + extraArgs.sendCounts[i];
@@ -142,6 +144,7 @@ public:
                 if (extraArgs.recvCounts[i] > processedDataCount) {
                     extraArgsPerLoop.recvCounts[i] = min(currDataCount, extraArgs.recvCounts[i] - processedDataCount);
                     extraArgsPerLoop.recvDispls[i] = extraArgs.recvDispls[i] + processedDataCount;
+                    sendRecvRank[i] = 1;
                 } else {
                     extraArgsPerLoop.recvCounts[i] = 0;
                     extraArgsPerLoop.recvDispls[i] = extraArgs.recvDispls[i] + extraArgs.recvCounts[i];
@@ -151,9 +154,11 @@ public:
             InitCoreInfo(extraArgsPerLoop);
             Producer(loop); // 写数据
             Consumer(loop); // 读数据
-            SyncAll<true>(); // 卡内核的同步
+            SubBarrierAllForAlltoAllV(sendRecvRank, loop);
             processedDataCount += currDataCount;
         }
+        // 本卡的收发全部结束之后，去给其他所有卡写flag
+        PreBarrierAllForAlltoAllV(curTag_, loopTimes);
     }
 
     uint32_t coreCount;
@@ -178,5 +183,6 @@ __aicore__ inline void AivAlltoAllVV2Mesh1D(KERNEL_ARGS_DEF, ExtraArgs &extraArg
         op.BarrierForFirstOP();
     }
     op.Process(len, sliceId, extraArgs);
-    op.BarrierAll();
+    // wait到本卡所有tag，再结束全流程
+    op.PostBarrierAllForAlltoAllV(op.curTag_);
 }
