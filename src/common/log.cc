@@ -9,18 +9,28 @@
  */
 #include "log.h"
 
+#include <unordered_map>
+
 thread_local bool g_hcclErrToWarn = false;
 
-constexpr int32_t HCCL_LOG_LEVEL_INVALID = -1;
-static int32_t g_logLevelCache = -1;
+static thread_local std::unordered_map<int32_t, int32_t> g_logLevelCache;
+
+static int32_t GetLogLevel(int32_t moduleId)
+{
+    auto iter = g_logLevelCache.find(moduleId);
+    if (iter != g_logLevelCache.end()) {
+        return iter->second;
+    }
+
+    int32_t enableEvent = -1;
+    int32_t logLevel = dlog_getlevel(moduleId, &enableEvent);
+    g_logLevelCache.emplace(moduleId, logLevel);
+    return logLevel;
+}
 
 bool HcclCheckLogLevel(int logType, int moduleId)
 {
-    if (g_logLevelCache == HCCL_LOG_LEVEL_INVALID) {
-        int32_t enableEvent = -1;
-        g_logLevelCache = dlog_getlevel(moduleId, &enableEvent);
-    }
-    return (logType >= g_logLevelCache);
+    return (logType >= GetLogLevel(moduleId));
 }
 
 void SetErrToWarnSwitch(bool flag)
