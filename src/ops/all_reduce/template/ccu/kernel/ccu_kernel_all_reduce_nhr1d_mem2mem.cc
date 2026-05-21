@@ -9,7 +9,6 @@
  */
 
 #include "ccu_kernel_all_reduce_nhr1d_mem2mem.h"
-#include "ccu_control_api.h"
 
 namespace ops_hccl {
 constexpr uint16_t OUTPUT_XN_ID     = 1;
