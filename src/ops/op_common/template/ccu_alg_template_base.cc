@@ -10,6 +10,7 @@
 
 #include "ccu_alg_template_base.h"
 #include "log.h"
+#include "ccu_res.h"
 
 namespace ops_hccl {
 CcuAlgTemplateBase::CcuAlgTemplateBase()

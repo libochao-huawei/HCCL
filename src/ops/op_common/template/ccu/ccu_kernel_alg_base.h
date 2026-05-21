@@ -17,9 +17,10 @@
 #include <memory>
 
 #include "log.h"
-#include "ccu_api.hpp"
+#include "ccu_primitives.hpp"
 #include "ccu_log.h"
 // #include "ccu_kernel.h"
+namespace ccu = ::AscendC::ccu;
 
 namespace ops_hccl {
 
