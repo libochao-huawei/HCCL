@@ -52,10 +52,10 @@ static CcuResult InitResource(AlltoAllMesh1DContext &ctx)
         }
     }
 
-    CCU_CHK_RET(ccu::CreateLoopExecutor(&ctx.enginePool, MAX_RANK_SIZE));
+    // CCU_CHK_RET(ccu::CreateLoopExecutor(&ctx.enginePool, MAX_RANK_SIZE));
 
     ctx.resourceAllocated = false;
-    ctx.loopRegistered    = false;
+    ctx.IsLoopResRegistered    = false;
 
     return CCU_SUCCESS;
 }

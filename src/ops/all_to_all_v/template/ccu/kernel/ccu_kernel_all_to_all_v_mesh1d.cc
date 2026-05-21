@@ -12,7 +12,6 @@
 #include "ccu_kernel_all_to_all_v_mesh1d.h"
 
 namespace ops_hccl {
-using namespace hcomm;
 constexpr int INPUT_XN_ID  = 0;
 constexpr int OUTPUT_XN_ID = 1;
 constexpr int TOKEN_XN_ID  = 2;
@@ -99,10 +98,10 @@ static CcuResult InitResource(AlltoAllVMesh1DContext &ctx)
     //  all2allv 数据搬运
     ctx.xnLength = 8; // xn长度为8byte
 
-    CCU_CHK_RET(ccu::CreateLoopExecutor(&ctx.enginePool, MAX_RANK_SIZE));
+    // CCU_CHK_RET(ccu::CreateLoopExecutor(&ctx.enginePool, MAX_RANK_SIZE));
 
     ctx.resourceAllocated = false;
-    ctx.loopRegistered    = false;
+    ctx.IsLoopResRegistered    = false;
 
     return CCU_SUCCESS;
 }
