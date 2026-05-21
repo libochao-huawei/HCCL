@@ -7,19 +7,14 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
+add_subdirectory(executor)
+add_subdirectory(selector)
+add_subdirectory(template)
 
-add_subdirectory(scatter)
-add_subdirectory(op_common)
-add_subdirectory(reduce_scatter)
-add_subdirectory(all_gather)
-add_subdirectory(all_to_all_v)
-add_subdirectory(broadcast)
-add_subdirectory(all_reduce)
-add_subdirectory(send)
-add_subdirectory(recv)
-add_subdirectory(reduce_scatter_v)
-add_subdirectory(all_gather_v)
-add_subdirectory(reduce)
-add_subdirectory(batch_send_recv)
-add_subdirectory(kfc_server)
-add_subdirectory(interface_graph_mode)
+set(src_list
+    ${CMAKE_CURRENT_SOURCE_DIR}/kfc_server_op.cc
+)
+
+target_sources(hccl PRIVATE
+    ${src_list}
+)
