@@ -153,10 +153,10 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcChannelRequest(HcclComm comm, const Op
             bool protocolFound = false;
             CHK_RET(ProcessLinkForProtocol(comm, expectedProtocols, links, myRank, rank, netLayer, channels, protocolFound,
                 std::string("[CalcChannelRequestMesh1D]")));
-            HCCL_INFO("netLayer = %llu,channels.size()= %llu",netLayer,channels.size());
+            HCCL_INFO("netLayer = %llu,channels.size()= %llu,rank = %llu",netLayer,channels.size(),rank);
         }
 
-        CHK_PRT_RET(channels.size() == channelCountBefore,
+        CHK_PRT_RET(channels.size() == 0,
             HCCL_ERROR("[CalcChannelRequestMesh1D] Failed to create channel between myRank=%u and rank=%u, there is no link.",
                 myRank, rank), HcclResult::HCCL_E_INTERNAL);
     }
