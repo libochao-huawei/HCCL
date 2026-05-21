@@ -938,6 +938,25 @@ HcclResult HcommSymWinGetPeerPointer(HcclCommSymWindow winHandle, size_t offset,
     return HCCL_E_NOT_SUPPORT;
 }
 
+HcclResult HcclCommAddExchangeInfo(HcclComm comm, const void *data, uint32_t length)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclCommGetExchangeInfo(HcclComm comm, uint32_t remoteRank, uint32_t length, void *data,
+    uint32_t *actualLength)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+
+HcclResult HcclCommResetExchangeInfo(HcclComm comm)
+{
+    HCCL_WARNING("[%s] not support.", __func__);
+    return HCCL_SUCCESS;
+}
+
 #ifdef __cplusplus
 }
 #endif  // __cplusplus
