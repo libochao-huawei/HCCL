@@ -12,7 +12,7 @@
 #include "channel.h"
 #include "ccu_kernel_all_reduce_nhr1d_mem2mem.h"
 #include "alg_data_trans_wrapper.h"
-#include "ccu_control_api.h"
+#include "ccu_launch.h"
 namespace ops_hccl {
 
 CcuTempAllReduceNHRMem2Mem1D::CcuTempAllReduceNHRMem2Mem1D(const OpParam& param, 
