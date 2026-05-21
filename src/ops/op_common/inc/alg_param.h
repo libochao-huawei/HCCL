@@ -16,6 +16,7 @@
 #include <map>
 #include <set>
 #include <unordered_set>
+#include <memory>
 #include <functional>
 #include <functional>
 #include <memory>
@@ -28,8 +29,9 @@
 #include "hccl_rank_graph_dl.h"
 #include "hccl_host_comm_dl.h"
 #include "binary_stream.h"
+#include "ccu_types.h"
 #if CANN_VERSION_NUM >= 90000000
-#include "hccl_ccu_res.h"
+// #include "hccl_ccu_res.h"
 #else
 typedef void *CcuKernelHandle; // 8.5.0 下无 hccl_ccu_res.h，用 opaque 占位
 #endif
@@ -74,6 +76,8 @@ constexpr uint64_t AICPU_ALIGN_SIZE = 4096;
 // Z axis detour 需要
 constexpr u32 MESH_CHANNELS_NUM = 1;
 
+constexpr uint64_t CCU_MAX_RANK_SIZE = 16;
+
 enum class TopoType {
     TOPO_TYPE_COMMON = 0,           // 普通拓扑类型 ，default单层拓扑使用
     TOPO_TYPE_8P_RING = 1,          // 特殊场景, 服务器内8 rank组成一个ring，4个逻辑环
@@ -105,8 +109,8 @@ enum class OpExecuteConfig {
 };
 
 enum class OpMode {
-    OFFLOAD = 0,
-    OPBASE = 1
+    OPBASE = 0,
+    OFFLOAD = 1
 };
 
 enum class Level0Shape {
@@ -262,18 +266,36 @@ struct TopoInfoWithNetLayerDetails : public TopoInfo { // 通信域拓扑ctx
     }
 };
 
+struct CcuKernelArgBase {
+    // std::vector<ChannelHandle> channels;
+    ChannelHandle channels[CCU_MAX_RANK_SIZE];
+    uint32_t      channelCount;
+};
+
 // ccu kernel register所需信息
 struct CcuKernelInfo {
     // kernel资源组序号，group号不同时，资源复用
     u32 resGroup = 0;
 #if CANN_VERSION_NUM >= 90000000
-    // kernel构造函数
-    hcomm::KernelCreator creator;
-    // KernelArg实例
-    std::shared_ptr<hcomm::CcuKernelArg> kernelArg;
+    // kernel名 string？
+    char kernelFuncName[64];
+    // kernel函数
+    void* kernelFunc;
+    // KernelArg实例指针
+    void *kernelArg;
 #endif
     // kernel所需channel
     std::vector<HcclChannelDesc> channels;
+
+private:
+    std::shared_ptr<CcuKernelArgBase> kernelArgSmartPtr;
+
+public:
+    template<typename T>
+    void setKernelArg(std::shared_ptr<T> arg) {
+        kernelArgSmartPtr = std::static_pointer_cast<CcuKernelArgBase>(arg);
+        kernelArg = static_cast<void*>(arg.get());
+    }
 };
 
 // 算法taskArg入参最大个数，用于快速下发缓存
@@ -392,7 +414,6 @@ struct AlgResourceCtxSerializable {
     std::vector<ThreadHandle> threads;
     ThreadHandle unfoldThread = 0; // 展开流thread
     std::vector<std::vector<ChannelInfo>> channels;
-    bool isHcommBatchTransferOnThreadSupported = false;
     void* commInfoPtr = nullptr;
     // hostdpu
     void *npu2DpuShmemPtr = nullptr;
@@ -417,7 +438,6 @@ struct AlgResourceCtxSerializable {
         binaryStream << threads;
         binaryStream << unfoldThread;
         binaryStream << channels;
-        binaryStream << isHcommBatchTransferOnThreadSupported;
 
         binaryStream << npu2DpuShmemPtr;
         binaryStream << dpu2NpuShmemPtr;
@@ -448,7 +468,6 @@ struct AlgResourceCtxSerializable {
         binaryStream >> threads;
         binaryStream >> unfoldThread;
         binaryStream >> channels;
-        binaryStream >> isHcommBatchTransferOnThreadSupported;
 
         binaryStream >> npu2DpuShmemPtr;
         binaryStream >> dpu2NpuShmemPtr;
