@@ -136,26 +136,27 @@ public:
  
     __aicore__ inline void RunCtrlCore(uint64_t count, uint64_t stride)
     {
+        int32_t curNumBlocks = numBlocks_;
         // 核数小于ranksize
-        if (numBlocks_ > rankSize_) {
-            numBlocks_ = rankSize_;
+        if (curNumBlocks > rankSize_) {
+            curNumBlocks = rankSize_;
         }
-        if (block_idx >= numBlocks_) {
+        if (block_idx >= curNumBlocks) {
             SyncAll<true>();
             return;
         }
         // 分核把数据从input搬到gm
         auto input = reinterpret_cast<__gm__ T *>(input_);
         uint64_t dataTypeSize = sizeof(T);
-        uint64_t countPerCore = count / numBlocks_;
-        uint64_t curCountCore = block_idx == numBlocks_ - 1 ? count - countPerCore * (numBlocks_ - 1) : countPerCore;
+        uint64_t countPerCore = count / curNumBlocks;
+        uint64_t curCountCore = block_idx == curNumBlocks - 1 ? count - countPerCore * (curNumBlocks - 1) : countPerCore;
         auto gmIn = reinterpret_cast<__gm__ T *>(reinterpret_cast<uint64_t>(GM_IN[rank_]) + block_idx * countPerCore * dataTypeSize);
         CpGM2GM(gmIn, input + block_idx * countPerCore, curCountCore);
         SyncAll<true>();
 
         // 每个核分配多个rank搬运数据从gm到对端output
-        uint32_t perCoreRankNum = rankSize_ / numBlocks_;
-        uint32_t remainRankNum = rankSize_ % numBlocks_;
+        uint32_t perCoreRankNum = rankSize_ / curNumBlocks;
+        uint32_t remainRankNum = rankSize_ % curNumBlocks;
         uint32_t curCoreRankNum = block_idx < remainRankNum ? perCoreRankNum + 1 : perCoreRankNum;
         uint32_t startRank = block_idx < remainRankNum
                            ? (perCoreRankNum + 1) * block_idx
@@ -188,11 +189,9 @@ __aicore__ inline void AivAllGatherV2Mesh1D(KERNEL_ARGS_DEF)
 {
     AivAllGatherMesh1D<T> op;
     op.Init(KERNEL_CLASS_INIT, true);
-    SyncAll<true>();
     if (op.IsFirstOP(sliceId)) {
         op.BarrierForFirstOP();
     }
-    SyncAll<true>();
  
     op.Process(len, sliceId, outputSliceStride);
     // 执行barrier全同步
