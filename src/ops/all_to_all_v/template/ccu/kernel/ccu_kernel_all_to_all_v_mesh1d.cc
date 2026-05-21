@@ -295,7 +295,7 @@ CcuResult CcuAlltoAllVMesh1DKernel(CcuKernelArg arg)
     AlltoAllVMesh1DContext ctx;
     ctx.arg = kernelArg;
     ctx.resourceAllocated = false;
-    ctx.loopRegistered = false;
+    // ctx.loopRegistered = false;
     ctx.moConfig.msInterleave = 0;
     ctx.moConfig.loopCount = 0;
     ctx.moConfig.memSlice = 0;
