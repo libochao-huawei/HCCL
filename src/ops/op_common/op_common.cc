@@ -585,7 +585,7 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
             resCtxHost->threads[0] = thread;
             // 图模式要全部覆盖
             if (param.opMode != OpMode::OPBASE) {
-                GeReuseResource(comm, param, executor, resCtxHost, topoInfo.get(), resPack);
+                CHK_RET(GeReuseResource(comm, param, executor, resCtxHost, topoInfo.get(), resPack));
             }
         }
         int result = sprintf_s(param.algName, sizeof(param.algName), "%s", algName.c_str());
@@ -635,6 +635,7 @@ HcclResult GeReuseResource(HcclComm comm, OpParam &param, std::unique_ptr<InsCol
         CHK_RET(HcclThreadAcquireWithStream(comm, param.engine, resPack.streams[i], maxNotifyNum, &slaveThread));
         resCtxHost->threads[i + 1] = slaveThread;
     }
+    return HCCL_SUCCESS;
 }
 
 HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHandle cpuTsThread,
@@ -1055,7 +1056,7 @@ HcclResult HcclGetThread(
                 }
             }
         } else {
-            GeGetThread(comm, param, resRequest, resCtxHost, resPack, maxNotifyNum);
+            CHK_RET(GeGetThread(comm, param, resRequest, resCtxHost, resPack, maxNotifyNum));
         }
     }
 
@@ -1083,6 +1084,8 @@ HcclResult GeGetThread(HcclComm comm, const OpParam &param, AlgResourceRequest &
         CHK_RET(HcclThreadAcquireWithStream(comm, param.engine, resPack.streams[i], maxNotifyNum, &slaveThread));
         resCtxHost->threads.push_back(slaveThread);
     }
+
+    return HCCL_SUCCESS;
 }
 
 HcclResult SaveMainThreadInfo(HcclComm comm, const OpParam &param, ThreadHandle thread, u32 notifyNum)
