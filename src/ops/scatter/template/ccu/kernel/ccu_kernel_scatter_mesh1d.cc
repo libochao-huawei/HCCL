@@ -24,7 +24,6 @@ static CcuResult ParseKernelArg(ScatterMesh1DContext &ctx, CcuKernelArgScatterMe
     ctx.rankSize = kernelArg->rankSize;
     ctx.rankId = kernelArg->rankId;
     ctx.rootId = kernelArg->rootId;
-    //ctx.arg->channels = kernelArg->channels;
     ctx.dataType = kernelArg->opParam.DataDes.dataType;
     ctx.outputDataType = kernelArg->opParam.DataDes.outputType;
     if (ctx.outputDataType == HcclDataType::HCCL_DATA_TYPE_RESERVED) {
@@ -44,51 +43,32 @@ static CcuResult InitResource(ScatterMesh1DContext &ctx)
     ctx.output.resize(ctx.rankSize);
     ctx.token.resize(ctx.rankSize);
     for (uint64_t peerId = 0; peerId < ctx.rankSize; peerId++) {
-        if (peerId == ctx.rankId) {
-            CCU_CHK_RET(ccu::Alloc(&ctx.output[peerId]));
-            CCU_CHK_RET(ccu::Alloc(&ctx.token[peerId]));
-        } else {
-            CCU_CHK_RET(ccu::CreateByChannel(ctx.arg->channels[channelIdx], OUTPUT_XN_ID, &ctx.output[peerId]));
-            CCU_CHK_RET(ccu::CreateByChannel(ctx.arg->channels[channelIdx], TOKEN_XN_ID, &ctx.token[peerId]));
+        if (peerId != ctx.rankId) {
+			ctx.output[peerId] = ccu::GetResByChannel<ccu::Variable>(arg->channels[channelIdx], OUTPUT_XN_ID);
+            ctx.token[peerId] = ccu::GetResByChannel<ccu::Variable>(arg->channels[channelIdx], TOKEN_XN_ID);
             channelIdx++;
-        }
     }
 
-    CCU_CHK_RET(ccu::Alloc(&ctx.input));
-    CCU_CHK_RET(ccu::Alloc(&ctx.currentRankSliceInputOffset));
-    CCU_CHK_RET(ccu::Alloc(&ctx.outputSliceStride));
-    CCU_CHK_RET(ccu::Alloc(&ctx.inputRepeatStride));
-    CCU_CHK_RET(ccu::Alloc(&ctx.outputRepeatStride));
-    CCU_CHK_RET(ccu::Alloc(&ctx.normalSliceSize));
-    CCU_CHK_RET(ccu::Alloc(&ctx.lastSliceSize));
-    CCU_CHK_RET(ccu::Alloc(&ctx.repeatNum));
-    CCU_CHK_RET(ccu::Alloc(&ctx.isInputOutputEqual));
-    CCU_CHK_RET(ccu::Alloc(&ctx.flag));
     ctx.flag = 0;
-
     ctx.inputMem.resize(ctx.rankSize);
     ctx.outputMem.resize(ctx.rankSize);
-    for (uint64_t i = 0; i < ctx.rankSize; i++) {
-        CCU_CHK_RET(ccu::Alloc(&ctx.inputMem[i]));
-        CCU_CHK_RET(ccu::Alloc(&ctx.outputMem[i]));
-    }
-    CCU_CHK_RET(ccu::Alloc(&ctx.event));
     return CCU_SUCCESS;
 }
 
 static CcuResult LoadArgs(ScatterMesh1DContext &ctx)
 {
-    CCU_CHK_RET(ccu::LoadArg(ctx.input));
-    CCU_CHK_RET(ccu::LoadArg(ctx.output[ctx.rankId]));
-    CCU_CHK_RET(ccu::LoadArg(ctx.token[ctx.rankId]));
-    CCU_CHK_RET(ccu::LoadArg(ctx.currentRankSliceInputOffset));
-    CCU_CHK_RET(ccu::LoadArg(ctx.outputSliceStride));
-    CCU_CHK_RET(ccu::LoadArg(ctx.inputRepeatStride));
-    CCU_CHK_RET(ccu::LoadArg(ctx.outputRepeatStride));
-    CCU_CHK_RET(ccu::LoadArg(ctx.normalSliceSize));
-    CCU_CHK_RET(ccu::LoadArg(ctx.lastSliceSize));
-    CCU_CHK_RET(ccu::LoadArg(ctx.repeatNum));
-    CCU_CHK_RET(ccu::LoadArg(ctx.isInputOutputEqual));
+	uint32_t argId = 0;
+    CCU_CHK_RET(ccu::LoadArg(ctx.input, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.output[ctx.rankId], argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.token[ctx.rankId], argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.currentRankSliceInputOffset, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.outputSliceStride, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.inputRepeatStride, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.outputRepeatStride, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.normalSliceSize, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.lastSliceSize, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.repeatNum, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.isInputOutputEqual, argId++));
     return CCU_SUCCESS;
 }
 
@@ -120,48 +100,45 @@ static CcuResult DoScatterOnce(ScatterMesh1DContext &ctx)
 {
     uint32_t channelId = 0;
 
-    CcuLocalAddr myOutput;
-    CCU_CHK_RET(ccu::Alloc(&myOutput));
+    ccu::LocalAddr myOutput;
     myOutput.addr = ctx.outputMem[ctx.rankId].addr;
     myOutput.token = ctx.outputMem[ctx.rankId].token;
 
-    CcuVariable sliceSize;
-    CCU_CHK_RET(ccu::Alloc(&sliceSize));
+    ccu::Variable sliceSize;
 
     for (uint64_t rankIdx = 0; rankIdx < ctx.rankSize; rankIdx++) {
-        ctx.event.setMask(1 << rankIdx);
+		uint16_t mask = 1 << rankIdx;
         sliceSize = (rankIdx == ctx.rankSize - 1) ? ctx.lastSliceSize : ctx.normalSliceSize;
-        CCU_IF_ONLY(sliceSize != 0)
+        CCU_IF(sliceSize != 0)
         {
             if (rankIdx == ctx.rankId) {
-                CCU_IF_ONLY(ctx.isInputOutputEqual == 0)
+                CCU_IF(ctx.isInputOutputEqual == 0)
                 {
-                    ccu::LocalCopyNb(myOutput, ctx.inputMem[rankIdx], sliceSize, ctx.event);
+                    ccu::LocalCopy(myOutput, ctx.inputMem[rankIdx], sliceSize, ctx.event, mask);
                 }
-                CCU_IF_ONLY(ctx.isInputOutputEqual != 0)
+                CCU_IF(ctx.isInputOutputEqual != 0)
                 {
-                    ccu::RecordEvent(ctx.event);
+                    ccu::EventRecord(ctx.event, mask);
                 }
             } else {
-                ccu::WriteNb(ctx.arg->channels[channelId], ctx.outputMem[rankIdx], ctx.inputMem[rankIdx], sliceSize, ctx.event);
+                ccu::Write(ctx.arg->channels[channelId], ctx.outputMem[rankIdx],
+				             ctx.inputMem[rankIdx], sliceSize, ctx.event, mask);
                 channelId++;
             }
         }
-        CCU_IF_ONLY(sliceSize == 0)
+        CCU_IF(sliceSize == 0)
         {
-            ccu::RecordEvent(ctx.event);
+            ccu::EventRecord(ctx.event, mask);
         }
     }
 
-    ctx.event.setMask((1 << ctx.rankSize) - 1);
-    ccu::WaitEvent(ctx.event);
+    ccu::EventWait(ctx.event, (1 << ctx.rankSize) - 1);
     return CCU_SUCCESS;
 }
 
 static CcuResult DoRepeatScatter(ScatterMesh1DContext &ctx)
 {
-    CcuVariable repeatNumAdd;
-    CCU_CHK_RET(ccu::Alloc(&repeatNumAdd));
+    ccu::Variable repeatNumAdd;
     repeatNumAdd = 1;
 
     // 初始化每张卡 input/output 逻辑地址
@@ -181,9 +158,9 @@ static CcuResult DoRepeatScatter(ScatterMesh1DContext &ctx)
         return CCU_SUCCESS;
     }
 
-    CCU_DO_WHILE(ctx.repeatNum != UINT64_MAX)
+    CCU_WHILE(ctx.repeatNum != UINT64_MAX)
     {
-        CCU_IF_ONLY(ctx.flag != 0)
+        CCU_IF(ctx.flag != 0)
         {
             for (auto &i : ctx.inputMem) {
                 i.addr += ctx.inputRepeatStride;

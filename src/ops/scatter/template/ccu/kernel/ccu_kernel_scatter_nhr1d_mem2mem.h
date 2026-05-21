@@ -64,36 +64,36 @@ struct ScatterNHR1DContext {
     //std::vector<ChannelHandle> channels;
 
     // args
-    CcuVariable input;
-    CcuVariable output;
-    std::vector<CcuVariable> scratch;
-    std::vector<CcuVariable> token;
-    CcuVariable die0Size;
-    CcuVariable die1Size;
-    CcuVariable inputSliceStride;
-    CcuVariable outputSliceStride;
-    CcuVariable curScratchStride;
-    CcuVariable inputRepeatStride;
-    CcuVariable outputRepeatStride;
-    CcuVariable repeatNumVar;
-    CcuVariable isOutputScratch;
-    CcuVariable isInputOutputEqual;
-    CcuVariable die0TailSize;
-    CcuVariable die1TailSize;
-    CcuVariable isSliceSizeZero;
+    ccu::Variable input;
+    ccu::Variable output;
+    std::vector<ccu::Variable> scratch;
+    std::vector<ccu::Variable> token;
+    ccu::Variable die0Size;
+    ccu::Variable die1Size;
+    ccu::Variable inputSliceStride;
+    ccu::Variable outputSliceStride;
+    ccu::Variable curScratchStride;
+    ccu::Variable inputRepeatStride;
+    ccu::Variable outputRepeatStride;
+    ccu::Variable repeatNumVar;
+    ccu::Variable isOutputScratch;
+    ccu::Variable isInputOutputEqual;
+    ccu::Variable die0TailSize;
+    ccu::Variable die1TailSize;
+    ccu::Variable isSliceSizeZero;
 
     // temps
-    CcuVariable repeatNumVarTemp;
-    CcuVariable repeatTimeFlag;
-    std::vector<CcuVariable> inputOffset;
-    std::vector<CcuVariable> scratchOffset;
-    CcuVariable curInputOffset;
-    CcuVariable curScratchOffset;
-    CcuVariable curSliceSize;
-    CcuLocalAddr srcMem;
-    CcuLocalAddr dstMem;
-    CcuRemoteAddr dstRemoteMem;
-    CcuEvent event;
+    ccu::Variable repeatNumVarTemp;
+    ccu::Variable repeatTimeFlag;
+    std::vector<ccu::Variable> inputOffset;
+    std::vector<ccu::Variable> scratchOffset;
+    ccu::Variable curInputOffset;
+    ccu::Variable curScratchOffset;
+    ccu::Variable curSliceSize;
+    ccu::LocalAddr srcMem;
+    ccu::LocalAddr dstMem;
+    ccu::RemoteAddr dstRemoteMem;
+    ccu::Event event;
 };
 
 CcuResult CcuScatterNHR1DMem2MemKernel(CcuKernelArg arg);

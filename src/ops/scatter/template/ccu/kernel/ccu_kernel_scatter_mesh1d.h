@@ -37,22 +37,22 @@ struct ScatterMesh1DContext {
     HcclDataType outputDataType{HcclDataType::HCCL_DATA_TYPE_RESERVED};
     //std::vector<ChannelHandle> channels;
 
-    CcuVariable input;
-    std::vector<CcuVariable> output;
-    std::vector<CcuVariable> token;
-    CcuVariable currentRankSliceInputOffset;
-    CcuVariable outputSliceStride;
-    CcuVariable inputRepeatStride;
-    CcuVariable outputRepeatStride;
-    CcuVariable normalSliceSize;
-    CcuVariable lastSliceSize;
-    CcuVariable repeatNum;
-    CcuVariable isInputOutputEqual;
-    CcuVariable flag;
+    ccu::Variable input;
+    std::vector<ccu::Variable> output;
+    std::vector<ccu::Variable> token;
+    ccu::Variable currentRankSliceInputOffset;
+    ccu::Variable outputSliceStride;
+    ccu::Variable inputRepeatStride;
+    ccu::Variable outputRepeatStride;
+    ccu::Variable normalSliceSize;
+    ccu::Variable lastSliceSize;
+    ccu::Variable repeatNum;
+    ccu::Variable isInputOutputEqual;
+    ccu::Variable flag;
 
-    std::vector<CcuLocalAddr> inputMem;
-    std::vector<CcuRemoteAddr> outputMem;
-    CcuEvent event;
+    std::vector<ccu::LocalAddr> inputMem;
+    std::vector<ccu::RemoteAddr> outputMem;
+    ccu::Event event;
 };
 
 CcuResult CcuScatterMesh1DKernel(CcuKernelArg arg);
