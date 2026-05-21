@@ -115,6 +115,87 @@ constexpr uint32_t MAX_FLAG_SIZE_PER_KERNEL = AIV_FLAG_CLEAR_OFFSET - MAX_RANK_S
 
 #define BASE_FLAG_OFFSET (MAX_FLAG_SIZE_PER_KERNEL)
 
+// __sk__函数参数
+struct SkArgsStruct {
+    GM_ADDR buffIn0; GM_ADDR buffIn1; GM_ADDR buffIn2; GM_ADDR buffIn3;
+    GM_ADDR buffIn4; GM_ADDR buffIn5; GM_ADDR buffIn6; GM_ADDR buffIn7;
+    GM_ADDR buffIn8; GM_ADDR buffIn9; GM_ADDR buffIn10; GM_ADDR buffIn11;
+    GM_ADDR buffIn12; GM_ADDR buffIn13; GM_ADDR buffIn14; GM_ADDR buffIn15;
+    GM_ADDR buffOut0; GM_ADDR buffOut1; GM_ADDR buffOut2; GM_ADDR buffOut3;
+    GM_ADDR buffOut4; GM_ADDR buffOut5; GM_ADDR buffOut6; GM_ADDR buffOut7;
+    GM_ADDR buffOut8; GM_ADDR buffOut9; GM_ADDR buffOut10; GM_ADDR buffOut11;
+    GM_ADDR buffOut12; GM_ADDR buffOut13; GM_ADDR buffOut14; GM_ADDR buffOut15;
+    GM_ADDR input; GM_ADDR output;
+    uint32_t rank;
+    uint32_t rankSize;
+    uint64_t len;
+    uint32_t dataType;
+    uint32_t reduceOp;
+    uint32_t root;
+    int32_t tag;
+    uint32_t numBlocks;
+    alignas(4) bool isOpBase;
+    uint64_t bufferSize;
+    int32_t aivRdmaStep;
+    alignas(4) bool useAivRdmaSmall;
+    int32_t serverNum;
+    uint32_t devType;
+    GM_ADDR headCountMem;
+    GM_ADDR tailCountMem;
+    GM_ADDR addOneMem;
+    uint32_t counterMemSize;
+    alignas(4) bool isEnableCounter;
+    uint32_t deterministic;
+    uint64_t rmaInfo;
+};
+
+// __sk__定义的函数参数
+#define SK_BIND_FUNC_ARGS \
+    __gm__ struct SkArgsStruct* args
+
+// 将__sk__参数转成__aicore__参数
+#define CONVERT_SK_PARAM_TO_KERNEL_ARGS \
+GM_ADDR buffIn0 = args->buffIn0; GM_ADDR buffIn1 = args->buffIn1; GM_ADDR buffIn2 = args->buffIn2; GM_ADDR buffIn3 = args->buffIn3; \
+GM_ADDR buffIn4 = args->buffIn4; GM_ADDR buffIn5 = args->buffIn5; GM_ADDR buffIn6 = args->buffIn6; GM_ADDR buffIn7 = args->buffIn7; \
+GM_ADDR buffIn8 = args->buffIn8; GM_ADDR buffIn9 = args->buffIn9; GM_ADDR buffIn10 = args->buffIn10; GM_ADDR buffIn11 = args->buffIn11; \
+GM_ADDR buffIn12 = args->buffIn12; GM_ADDR buffIn13 = args->buffIn13; GM_ADDR buffIn14 = args->buffIn14; GM_ADDR buffIn15 = args->buffIn15; \
+GM_ADDR buffOut0 = args->buffOut0; GM_ADDR buffOut1 = args->buffOut1; GM_ADDR buffOut2 = args->buffOut2; GM_ADDR buffOut3 = args->buffOut3; \
+GM_ADDR buffOut4 = args->buffOut4; GM_ADDR buffOut5 = args->buffOut5; GM_ADDR buffOut6 = args->buffOut6; GM_ADDR buffOut7 = args->buffOut7; \
+GM_ADDR buffOut8 = args->buffOut8; GM_ADDR buffOut9 = args->buffOut9; GM_ADDR buffOut10 = args->buffOut10; GM_ADDR buffOut11 = args->buffOut11; \
+GM_ADDR buffOut12 = args->buffOut12; GM_ADDR buffOut13 = args->buffOut13; GM_ADDR buffOut14 = args->buffOut14; GM_ADDR buffOut15 = args->buffOut15; \
+GM_ADDR input = args->input; GM_ADDR output = args->output; uint32_t rank = args->rank; uint32_t rankSize = args->rankSize; \
+uint64_t len = args->len; uint32_t dataType = args->dataType; uint32_t reduceOp = args->reduceOp; uint32_t root = args->root; \
+int32_t tag = args->tag; uint32_t numBlocks = args->numBlocks; bool isOpBase = args->isOpBase; uint64_t bufferSize = args->bufferSize; \
+int32_t aivRdmaStep = args->aivRdmaStep; bool useAivRdmaSmall = args->useAivRdmaSmall; int32_t serverNum = args->serverNum; \
+uint32_t devType = args->devType; GM_ADDR headCountMem = args->headCountMem; GM_ADDR tailCountMem = args->tailCountMem; \
+GM_ADDR addOneMem = args->addOneMem; uint32_t counterMemSize = args->counterMemSize; bool isEnableCounter = args->isEnableCounter; \
+uint32_t deterministic = args->deterministic; uint64_t rmaInfo = args->rmaInfo
+
+// sk 绑定函数
+#define SuperKernelBind(kernel_name) \
+extern "C" __sk__ void kernel_name##_1(SK_BIND_FUNC_ARGS); \
+extern "C" __sk__ void kernel_name##_2(SK_BIND_FUNC_ARGS); \
+extern "C" __sk__ void kernel_name##_3(SK_BIND_FUNC_ARGS); \
+extern "C" __sk__ void kernel_name##_4(SK_BIND_FUNC_ARGS); \
+SK_BIND(kernel_name, 0, kernel_name##_1, kernel_name##_2, kernel_name##_3, kernel_name##_4)
+
+// sk 导出函数
+#define _SK_BIND_FUNC_DEF(kernel_name, postfix) \
+extern "C" __sk__ void kernel_name##_##postfix(SK_BIND_FUNC_ARGS) \
+{ \
+    CONVERT_SK_PARAM_TO_KERNEL_ARGS; \
+    kernel_name##_inner(KERNEL_ARGS_CALL); \
+}
+#define SK_BIND_FUNC_DEF(kernel_name, postfix) _SK_BIND_FUNC_DEF(kernel_name, postfix)
+
+// Global 导出函数
+#define GLOBAL_FUNC_DEF(kernel_name) \
+extern "C" __global__ __aicore__ void kernel_name(KERNEL_ARGS_DEF) \
+{ \
+    kernel_name##_inner(KERNEL_ARGS_CALL); \
+} \
+EXPORT_AIV_META_INFO(kernel_name)
+
 class AivCommBase {
 public:
     __aicore__ inline AivCommBase() {
