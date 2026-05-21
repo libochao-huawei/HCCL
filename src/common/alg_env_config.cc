@@ -13,6 +13,7 @@
 #include <string>
 #include <algorithm>
 #include <string>
+#include <array>
 #include "log.h"
 #include "adapter_error_manager_pub.h"
 #include "config_log.h"
