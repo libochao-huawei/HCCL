@@ -95,8 +95,12 @@ SelectorStatus ReduceScatterAutoSelector::SelectMeshAlgoCcums(const TopoInfoWith
         } else if (isClosNumMultipleOfMeshNum && !IsSmallData(dataSize)) {
             HCCL_WARNING("[%s] MESH_1D_CLOS not match.", __func__);
             return SelectorStatus::NOT_MATCH;
-        } else {
+        } else if (topoInfo->userRankSize <= MAX_RANK_NUM_FOR_REDUCE_MS_ALGO) {
             selectAlgName = "CcuReduceScatterMesh1D";
+        } else {
+            HCCL_DEBUG("[ReduceScatterAutoSelector] level0Topo[%u] is not supported mesh yet.",
+                topoInfo->level0Topo);
+            return SelectorStatus::NOT_MATCH;       
         }
     } else {
         HCCL_WARNING("[ReduceScatterAutoSelector] level0Topo[%d] is not supported yet for ccu_ms mode.",
