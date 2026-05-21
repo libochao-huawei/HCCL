@@ -443,6 +443,7 @@ HcclResult FillCachedArgs(CcuKernelSubmitInfo &info, Args... args)
 
     return HcclResult::HCCL_SUCCESS;
 }
+
 HcclResult CalcDataSplitByPortGroupCommon(const u64 totalDataCount,
                                           const u64 dataTypeSize,
                                           const std::vector<ChannelInfo> &channels,
