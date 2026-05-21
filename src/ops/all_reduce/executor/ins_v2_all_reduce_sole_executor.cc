@@ -22,9 +22,9 @@
 #include "ccu_temp_all_reduce_mesh_1D_mem2mem.h"
 #include "ccu_temp_all_reduce_mesh_1D.h"
 #include "ccu_temp_all_reduce_nhr_1D_mem2mem.h"
-// #include "ccu_temp_all_reduce_mesh_1D_2die_oneshot.h"
-// #include "ccu_temp_all_reduce_mesh_1D_mem2mem_2die_oneshot.h"
-// #include "ccu_temp_all_reduce_nhr_mem2mem_1D_multi_jetty.h"
+#include "ccu_temp_all_reduce_mesh_1D_2die_oneshot.h"
+#include "ccu_temp_all_reduce_mesh_1D_mem2mem_2die_oneshot.h"
+#include "ccu_temp_all_reduce_nhr_mem2mem_1D_multi_jetty.h"
 #endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 
@@ -274,10 +274,10 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh1D, InsV2AllRe
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh2Die, InsV2AllReduceSoleExecutor, TopoMatch1D,
     CcuTempAllreduceMesh1D2DieOneShot);
 #endif /* !HCCL_CANN_COMPAT_850 */
-#if !defined(HCCL_CANN_COMPAT_850)
-REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh1DOneShot, InsV2AllReduceSoleExecutor,
-    TopoMatch1D, CcuTempAllReduceMesh1DOneShot);
-#endif /* !HCCL_CANN_COMPAT_850 */
+// #if !defined(HCCL_CANN_COMPAT_850)
+// REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh1DOneShot, InsV2AllReduceSoleExecutor,
+//     TopoMatch1D, CcuTempAllReduceMesh1DOneShot);
+// #endif /* !HCCL_CANN_COMPAT_850 */
 #if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceMesh1DMem2Mem2DieOneShot, InsV2AllReduceSoleExecutor, TopoMatch1D,
     CcuTempAllReduceMesh1DMem2Mem2DieOneShot);
