@@ -64,7 +64,6 @@ static CcuResult InitResource(ReduceNHR1DMem2MemContext &ctx)
     for (uint64_t channelIdx = 0; channelIdx < ctx.localSize; channelIdx++) {
         ctx.output[channelIdx] = ccu::GetResByChannel<ccu::Variable>(arg->channels[channelIdx], OUTPUT_XN_ID);
         ctx.token[channelIdx] = ccu::GetResByChannel<ccu::Variable>(arg->channels[channelIdx], TOKEN_XN_ID);
-        channelIdx++;
     }
 
     ctx.resourceAllocated = false;
