@@ -1046,18 +1046,8 @@ HcclResult HcclGetThread(
                 maxNotifyNum = resRequest.notifyNumPerThread[i];
             }
         }
-        if (param.opMode == OpMode::OPBASE) {
-            u32 threadNum = resRequest.slaveThreadNum;
-            if (threadNum > 0) {
-                std::vector<ThreadHandle> threads(threadNum);
-                CHK_RET(HcclThreadAcquire(comm, param.engine, threadNum, maxNotifyNum, threads.data()));
-                for (u32 i = 0; i < threadNum; i++) {
-                    resCtxHost->threads.push_back(threads[i]);
-                }
-            }
-        } else {
-            CHK_RET(GeGetThread(comm, param, resRequest, resCtxHost, resPack, maxNotifyNum));
-        }
+
+        CHK_RET(GeGetThread(comm, param, resRequest, resCtxHost, resPack, maxNotifyNum));
     }
 
     if (UNLIKELY(HcclCheckLogLevel(DLOG_DEBUG))) {
@@ -1072,17 +1062,28 @@ HcclResult HcclGetThread(
 HcclResult GeGetThread(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
     std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, const ResPackGraphMode &resPack, u32 maxNotifyNum)
 {
-    u32 slaveStreams = resPack.streams.size();
-    u32 threadNum = resRequest.slaveThreadNum;
-    if (threadNum > slaveStreams) {
-        HCCL_ERROR("Thread Num Should less than slave streams. slaveStreams[%llu], threadNums[%llu]", slaveStreams, threadNum);
-        return HCCL_E_UNAVAIL;
-    }
+    if (param.opMode == OpMode::OPBASE) {
+        u32 threadNum = resRequest.slaveThreadNum;
+        if (threadNum > 0) {
+            std::vector<ThreadHandle> threads(threadNum);
+            CHK_RET(HcclThreadAcquire(comm, param.engine, threadNum, maxNotifyNum, threads.data()));
+            for (u32 i = 0; i < threadNum; i++) {
+                resCtxHost->threads.push_back(threads[i]);
+            }
+        }
+    } else {
+        u32 slaveStreams = resPack.streams.size();
+        u32 threadNum = resRequest.slaveThreadNum;
+        if (threadNum > slaveStreams) {
+            HCCL_ERROR("Thread Num Should less than slave streams. slaveStreams[%llu], threadNums[%llu]", slaveStreams, threadNum);
+            return HCCL_E_UNAVAIL;
+        }
 
-    for (u32 i = 0; i < threadNum; i++) {
-        ThreadHandle slaveThread;
-        CHK_RET(HcclThreadAcquireWithStream(comm, param.engine, resPack.streams[i], maxNotifyNum, &slaveThread));
-        resCtxHost->threads.push_back(slaveThread);
+        for (u32 i = 0; i < threadNum; i++) {
+            ThreadHandle slaveThread;
+            CHK_RET(HcclThreadAcquireWithStream(comm, param.engine, resPack.streams[i], maxNotifyNum, &slaveThread));
+            resCtxHost->threads.push_back(slaveThread);
+        }
     }
 
     return HCCL_SUCCESS;
