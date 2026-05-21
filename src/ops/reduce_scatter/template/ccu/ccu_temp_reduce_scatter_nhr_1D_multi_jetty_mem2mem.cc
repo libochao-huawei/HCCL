@@ -10,8 +10,6 @@
 
 #include "channel.h"
 #include <algorithm>
-#include "hccl_ccu_res.h"
-#include "ccu_assist_pub.h"
 #include "ccu_control_api.h"
 #include "ccu_temp_reduce_scatter_nhr_1D_multi_jetty_mem2mem.h"
 #include "ccu_kernel_reduce_scatter_nhr1d_multi_jetty_mem2mem.h"

@@ -58,9 +58,9 @@ struct AllReduceMesh1DMem2Mem2DieOneShotContext : CcuKernelCtxBase {
     ccu::Variable localReduceSliceOffset0;
     ccu::Variable localReduceSliceOffset1;
 
-    GroupOpSize localReduceGoSize;
-    GroupOpSize localReduceGoSize0;
-    GroupOpSize localReduceGoSize1;
+    GroupOpSizeVars localReduceGoSize;
+    GroupOpSizeVars localReduceGoSize0;
+    GroupOpSizeVars localReduceGoSize1;
 
     ccu::Event event;
 };
