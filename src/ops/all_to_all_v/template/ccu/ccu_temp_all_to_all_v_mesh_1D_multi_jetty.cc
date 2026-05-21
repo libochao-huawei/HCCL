@@ -9,16 +9,15 @@
  */
 
 #include "channel.h"
-#include "hccl_ccu_res.h"
-#include "ccu_assist_pub.h"
 #include "ccu_kernel_all_to_all_v_mesh1d_multi_jetty.h"
 #include "ccu_temp_all_to_all_v_mesh_1D_multi_jetty.h"
 #include "alg_data_trans_wrapper.h"
-#include "ccu_control_api.h"
+#include "ccu_launch.h"
 
 namespace ops_hccl {
 constexpr uint32_t CONST_1 = 1;
 constexpr uint32_t CONST_4 = 4;
+constexpr u64 HCCL_MIN_SLICE_ALIGN = 128;
 
 CcuTempAllToAllVMesh1DMultiJetty::CcuTempAllToAllVMesh1DMultiJetty(const OpParam& param, const u32 rankId,
                                        const std::vector<std::vector<u32>> &subCommRanks)
@@ -55,11 +54,13 @@ HcclResult CcuTempAllToAllVMesh1DMultiJetty::CalcRes(HcclComm comm, const OpPara
     std::vector<uint32_t> jettyNums;
     CHK_RET(SetJettyNums(jettyNums, false));
     jettyNums_ = jettyNums;
-    auto kernelArg = std::make_shared<CcuKernelArgAllToAllVMesh1DMultiJetty>(subCommRanks_[0].size(),
-                                                                             myRank_,
-                                                                             param,
-                                                                             subCommRanks_,
-                                                                             jettyNums);
+    auto kernelArg = std::make_shared<CcuKernelArgAllToAllVMesh1DMultiJetty>();
+    kernelArg->rankSize = subCommRanks_[0].size();
+    kernelArg->rankId = myRank_;
+    kernelArg->channelCount = channelDescs.size();
+    kernelArg->opParam = param;
+    kernelArg->subCommRanks = subCommRanks_;
+    kernelArg->jettyNums = jettyNums;
     kernelInfo.setKernelArg(kernelArg);
     kernelInfo.channels = channelDescs;
     resourceRequest.ccuKernelInfos.push_back(kernelInfo);

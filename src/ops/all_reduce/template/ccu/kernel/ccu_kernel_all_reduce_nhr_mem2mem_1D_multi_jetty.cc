@@ -9,7 +9,6 @@
  */
 
 #include "ccu_kernel_all_reduce_nhr_mem2mem_1D_multi_jetty.h"
-#include "ccu_control_api.h"
 
 #include <set>
 
@@ -79,8 +78,14 @@ static CcuResult LoadArgs(AllReduceNhrMem2Mem1DMultiJettyContext &ctx)
     CCU_CHK_RET(ccu::LoadArg(ctx.dataSizePerPort, argId++));
     CCU_CHK_RET(ccu::LoadArg(ctx.lastRankSliceSize, argId++));
     CCU_CHK_RET(ccu::LoadArg(ctx.lastPortSliceSize, argId++));
-    CCU_CHK_RET(ccu::LoadArg(ctx.localCopyGoSize, argId++));
-    CCU_CHK_RET(ccu::LoadArg(ctx.localCopyGoSizeLastSlice, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.localCopyGoSize.addrOffset, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.localCopyGoSize.loopParam, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.localCopyGoSize.parallelParam, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.localCopyGoSize.residual, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.localCopyGoSizeLastSlice.addrOffset, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.localCopyGoSizeLastSlice.loopParam, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.localCopyGoSizeLastSlice.parallelParam, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.localCopyGoSizeLastSlice.residual, argId++));
     return CCU_SUCCESS;
 }
 
@@ -151,14 +156,14 @@ static std::vector<u32> GetNonTxSliceIdxs(const std::vector<u32> &txSliceIdxs, u
 }
 
 static CcuResult DoLocalCopySlice(AllReduceNhrMem2Mem1DMultiJettyContext &ctx, ccu::LocalAddr &src,
-    ccu::LocalAddr &dst, const u32 &copySliceIdx, ccu::Event &event)
+    ccu::LocalAddr &dst, u32 &copySliceIdx, ccu::Event &event)
 {
-    const bool islastSlice = copySliceIdx + 1 == ctx.rankSize;
-    const auto &sliceSize = islastSlice ? ctx.lastRankSliceSize : ctx.dataSizePerRank;
+    bool islastSlice = (copySliceIdx + 1 == ctx.rankSize);
+    auto &sliceSize = islastSlice ? ctx.lastRankSliceSize : ctx.dataSizePerRank;
 
-    if (sliceSize != 0) {
+    CCU_IF (sliceSize != 0) {
         ccu::LocalCopy(dst, src, sliceSize, event, 1);
-    } else {
+    } CCU_ELSE {
         ccu::EventRecord(event);
     }
     return CCU_SUCCESS;
@@ -167,7 +172,8 @@ static CcuResult DoLocalCopySlice(AllReduceNhrMem2Mem1DMultiJettyContext &ctx, c
 static CcuResult LocalCopySlices(AllReduceNhrMem2Mem1DMultiJettyContext &ctx)
 {
     u32 nonTxSliceIdx = 0;
-    ccu::Variable tmpSliceOffset = 0;
+    ccu::Variable tmpSliceOffset;
+    tmpSliceOffset = 0;
 
     for (u64 i = 0; i < ctx.rankSize; i++) {
         ctx.sliceOffset[i] = tmpSliceOffset;
@@ -287,7 +293,8 @@ static CcuResult DoWriteReduceSlice(AllReduceNhrMem2Mem1DMultiJettyContext &ctx,
     const u32 toRankIdx = ctx.channelIdxMap.at(toRank);
 
     const bool islastSlice = sendSliceIdx + 1 == ctx.rankSize;
-    const ccu::Variable &lastSliceSize = islastSlice ? ctx.lastPortSliceSize : ctx.dataSizePerPort;
+    ccu::Variable lastSliceSize;
+    lastSliceSize = islastSlice ? ctx.lastPortSliceSize : ctx.dataSizePerPort;
 
     uint16_t mask = 1 << signalIndex;
 
@@ -386,7 +393,8 @@ static CcuResult DoSendRecvSlice(AllReduceNhrMem2Mem1DMultiJettyContext &ctx, co
     const u32 toRankIdx = ctx.channelIdxMap.at(toRank);
 
     const bool islastSlice = sendSliceIdx + 1 == ctx.rankSize;
-    const ccu::Variable &lastSliceSize = islastSlice ? ctx.lastPortSliceSize : ctx.dataSizePerPort;
+    ccu::Variable lastSliceSize;
+    lastSliceSize = islastSlice ? ctx.lastPortSliceSize : ctx.dataSizePerPort;
 
     uint16_t mask = 1 << signalIndex;
 
@@ -420,7 +428,7 @@ CcuResult CcuAllReduceNhrMem2Mem1DMultiJettyKernel(CcuKernelArg arg)
     HCCL_INFO("[AllReduceNhrMem2Mem1DMultiJetty] Algorithm run");
 
     AllReduceNhrMem2Mem1DMultiJettyContext ctx;
-    auto *kernelArg = dynamic_cast<CcuKernelArgAllReduceNhrMem2Mem1DMultiJetty *>(&arg);
+    auto *kernelArg = static_cast<CcuKernelArgAllReduceNhrMem2Mem1DMultiJetty *>(arg);
     CHK_PRT_RET(kernelArg == nullptr, HCCL_ERROR("[AllReduceNhrMem2Mem1DMultiJetty] kernelArg is null!"),
         CCU_E_INTERNAL);
 

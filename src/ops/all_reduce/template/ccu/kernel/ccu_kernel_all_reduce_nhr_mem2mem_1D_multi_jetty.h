@@ -17,20 +17,9 @@
 #include "utils.h"
 #include "ccu_kernel_utils.h"
 #include "ccu_kernel_alg_base.h"
+#include "ins_temp_all_reduce_nhr.h"
 
 namespace ops_hccl {
-
-struct NHRStepInfo {
-    u32 step = 0;
-    u32 myRank = 0;
-    u32 nSlices;
-    u32 toRank = 0;
-    u32 fromRank = 0;
-    std::vector<u32> txSliceIdxs;
-    std::vector<u32> rxSliceIdxs;
-
-    NHRStepInfo() : nSlices(0) {}
-};
 
 struct CcuKernelArgAllReduceNhrMem2Mem1DMultiJetty : CcuKernelArgBase {
     uint32_t rankSize{0};
@@ -64,8 +53,8 @@ struct AllReduceNhrMem2Mem1DMultiJettyContext : CcuKernelCtxBase {
     ccu::Variable lastRankSliceSize;
     ccu::Variable lastPortSliceSize;
     std::vector<ccu::Variable> sliceOffset;
-    GroupOpSize localCopyGoSize;
-    GroupOpSize localCopyGoSizeLastSlice;
+    GroupOpSizeVars localCopyGoSize;
+    GroupOpSizeVars localCopyGoSizeLastSlice;
 
     ccu::LocalAddr localInput;
     ccu::LocalAddr localOutput;
