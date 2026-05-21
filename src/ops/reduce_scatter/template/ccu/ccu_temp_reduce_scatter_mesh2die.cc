@@ -9,11 +9,8 @@
  */
 
 #include "channel.h"
-#include "hccl_ccu_res.h"
-#include "ccu_assist_pub.h"
 #include "alg_data_trans_wrapper.h"
 #include "ccu_control_api.h"
-
 #include "ccu_temp_reduce_scatter_mesh2die.h"
 #include "ccu_kernel_reduce_scatter_mesh2die.h"
 
@@ -121,16 +118,21 @@ HcclResult CcuTempReduceScatterMesh2Die::KernelRun(const OpParam &param, const T
     uint64_t inputAddr  = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
     uint64_t scratchAddr = PointerToAddr(buffInfo_.hcclBuff.addr) + buffInfo_.hcclBuffBaseOff;
-    uint64_t sliceSize             = templateDataParams.sliceSize;
+    uint64_t sliceSize = templateDataParams.sliceSize;
     uint64_t token;
     CHK_RET(GetToken(buffInfo_, token));
     uint64_t inputSliceStride = templateDataParams.inputSliceStride;
     uint64_t offsetSliceSize = templateDataParams.sliceSize;
     uint64_t rmtReduceSliceOffset = inputSliceStride * mySubCommRank_;
     uint64_t myScratch = scratchAddr + offsetSliceSize;
-    HCCL_INFO("[CcuTempReduceScatterMesh2Die] inputAddr[%llu], outputAddr[%llu], scratchAddr0[%llu], "
-              "sliceSize[%llu], inputSliceStride[%llu]",
-              inputAddr, outputAddr, scratchAddr, sliceSize, inputSliceStride);
+
+    u32 dataTypeSize = DataTypeSizeGet(param.DataDes.dataType);
+    uint64_t localRedcueSize0 = (sliceSize / dataTypeSize) / MISSION_NUM * dataTypeSize;
+    uint64_t localRedcueSize1 = sliceSize - localRedcueSize0;
+
+    HCCL_INFO("[CcuTempReduceScatterMesh2Die] inputAddr[%llu], outputAddr[%llu], myScratch[%llu], "
+              "rmtReduceSliceOffset[%llu], sliceSize[%llu], localRedcueSize0[%llu], localRedcueSize1[%llu], offsetSliceSize[%llu]",
+              inputAddr, outputAddr, myScratch, rmtReduceSliceOffset, sliceSize, localRedcueSize0, localRedcueSize1, offsetSliceSize);
 
     // 前流同步
     std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
@@ -142,7 +144,9 @@ HcclResult CcuTempReduceScatterMesh2Die::KernelRun(const OpParam &param, const T
     config.msInterleave = CCU_MS_INTERLEAVE;
     config.loopCount    = CCU_MS_DEFAULT_LOOP_COUNT;
     config.memSlice     = CCU_MS_SIZE;
-    auto rmtReduceGoSize = CalGoSize(sliceSize, config);
+    auto rmtReduceGoSize    = CalGoSize(sliceSize, config);
+    auto localReduceGoSize0 = CalGoSize(localRedcueSize0, config);
+    auto localReduceGoSize1 = CalGoSize(localRedcueSize1, config);
 
     std::vector<uint64_t> taskArgs = {
         inputAddr,
@@ -152,7 +156,12 @@ HcclResult CcuTempReduceScatterMesh2Die::KernelRun(const OpParam &param, const T
         sliceSize,
         rmtReduceSliceOffset
     };
-    taskArgs.insert(taskArgs.end(), rmtReduceGoSize.cbegin(), rmtReduceGoSize.cend());
+
+    for (auto &goSize : {rmtReduceGoSize}) {
+        for (auto &element : goSize) {
+            taskArgs.push_back(element);
+        }
+    }
     uint64_t argSize = taskArgs.size();
 
     for (uint32_t dieId = 0; dieId < DIE_NUM; dieId++) {    // 2Die算法，需要执行两次

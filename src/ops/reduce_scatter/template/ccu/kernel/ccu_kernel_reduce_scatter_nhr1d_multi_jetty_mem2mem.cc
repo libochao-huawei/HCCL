@@ -35,40 +35,23 @@ static uint16_t GetSignalMask(const int signalBit)
 static CcuResult InitResource(ReduceScatterNhrMem2Mem1DMultiJettyContext &ctx)
 {
     const auto *arg = ctx.arg;
-    if (arg->channels.size() == 0) {
+    if (arg->channelCount == 0) {
         HCCL_ERROR("[CcuKernelReduceScatterNhrMutilJettyMem2Mem1D] channels is empty!");
         return CcuResult::CCU_E_INTERNAL;
     }
     
-    ctx.output             = ccu::GetResByChannel<ccu::Variable>(arg->channels[0], 1);
-    ctx.sliceSize          = ccu::CreateVariable();
-    ctx.inputSliceStride   = ccu::CreateVariable();
-    ctx.outputSliceStride  = ccu::CreateVariable();
-    ctx.inputRepeatStride  = ccu::CreateVariable();
-    ctx.outputRepeatStride = ccu::CreateVariable();
-    ctx.sliceOneJettySize  = ccu::CreateVariable();
-    ctx.sliceLastJettySize = ccu::CreateVariable();
-    ctx.repeatNumVar       = ccu::CreateVariable();
-    ctx.repeatNumVarTemp   = ccu::CreateVariable();
+    ctx.output = ccu::GetResByChannel<ccu::Variable>(arg->channels[0], 1);
 
-    ctx.input.resize(arg->channels.size() + 1);
-    ctx.token.resize(arg->channels.size() + 1);
-    for (uint32_t channelIdx = 0; channelIdx < arg->channels.size(); channelIdx++) {
+    ctx.input.resize(arg->channelCount + 1);
+    ctx.token.resize(arg->channelCount + 1);
+    for (uint32_t channelIdx = 0; channelIdx < arg->channelCount; channelIdx++) {
         ctx.input[channelIdx] = ccu::GetResByChannel<ccu::Variable>(arg->channels[channelIdx], INPUT_XN_ID);
         ctx.token[channelIdx] = ccu::GetResByChannel<ccu::Variable>(arg->channels[channelIdx], TOKEN_XN_ID);
     }
     ctx.input[ctx.myRankIdx] = ccu::GetResByChannel<ccu::Variable>(arg->channels[0], INPUT_XN_ID);
     ctx.token[ctx.myRankIdx] = ccu::GetResByChannel<ccu::Variable>(arg->channels[0], TOKEN_XN_ID);
     
-    ctx.localSrc = ccu::CreateLocalAddr();
-    ctx.localDst = ccu::CreateLocalAddr();
-    ctx.remoteDst = ccu::CreateRemoteAddr();
-    ctx.flag = ccu::CreateVariable();
-    ctx.event = ccu::CreateEvent();
     ctx.jettyEvent.resize(ctx.portNum);
-    for (uint32_t jettyId = 0; jettyId < ctx.portNum; jettyId++) {
-        ctx.jettyEvent[jettyId] = ccu::CreateEvent();
-    }
     HCCL_INFO("[CcuKernelReduceScatterNhrMutilJettyMem2Mem1D] InitResource success!");
     return CCU_SUCCESS;
 }
@@ -103,8 +86,8 @@ static CcuResult PreSync(ReduceScatterNhrMem2Mem1DMultiJettyContext &ctx)
     const uint32_t signalIndexToken = GetSignalIndex(CKE_IDX_TOKEN);
     
     for (const auto &channel : arg->channels) {
-        ccu::NotifyRecord(channel, signalIndexInput, CKE_IDX_INPUT, ctx.input[ctx.myRankIdx], signalBitInput);
-        ccu::NotifyRecord(channel, signalIndexToken, CKE_IDX_TOKEN, ctx.token[ctx.myRankIdx], signalBitToken);
+        ccu::WriteVariableWithNotify(channel, ctx.input[ctx.myRankIdx], CKE_IDX_INPUT, signalIndexInput, signalBitInput);
+        ccu::WriteVariableWithNotify(channel, ctx.token[ctx.myRankIdx], CKE_IDX_TOKEN, signalIndexToken, signalBitToken);
     }
     
     const uint16_t waitMask = signalBitInput | signalBitToken;
@@ -136,11 +119,11 @@ static CcuResult PostSync(ReduceScatterNhrMem2Mem1DMultiJettyContext &ctx)
     return CCU_SUCCESS;
 }
 
-static CcuResult DoRepeatSendRecvSlices(ReduceScatterNhrMem2Mem1DMultiJettyContext &ctx, const u32 &toRank, 
+static CcuResult DoRepeatSendRecvSlices(ReduceScatterNhrMem2Mem1DMultiJettyContext &ctx, const uint32_t &toRank, 
     ccu::LocalAddr &src, ccu::RemoteAddr &dst)
 {
     const auto *arg = ctx.arg;
-    ccu::Variable repeatNumAdd = ccu::CreateVariable();
+    ccu::Variable repeatNumAdd;
     repeatNumAdd = 1;
     ctx.flag = 0;
     ctx.repeatNumVarTemp = ctx.repeatNumVar;
@@ -154,20 +137,20 @@ static CcuResult DoRepeatSendRecvSlices(ReduceScatterNhrMem2Mem1DMultiJettyConte
             dst.addr += ctx.inputRepeatStride;
         }
         
-        ccu::LocalAddr tempSrc = ccu::CreateLocalAddr();
-        ccu::RemoteAddr tempDst = ccu::CreateRemoteAddr();
+        ccu::LocalAddr tempSrc;
+        ccu::RemoteAddr tempDst;
         tempSrc.addr = src.addr;
         tempSrc.token = src.token;
         tempDst.addr = dst.addr;
         tempDst.token = dst.token;
         
         CCU_IF(ctx.sliceOneJettySize == 0) {
-            for (u32 jettyId = 0; jettyId < ctx.portNum - 1; jettyId++) {
+            for (uint32_t jettyId = 0; jettyId < ctx.portNum - 1; jettyId++) {
                 ccu::EventRecord(ctx.jettyEvent[jettyId], 1);
             }
         }
         CCU_IF(ctx.sliceOneJettySize != 0) {
-            for (u32 jettyId = 0; jettyId < ctx.portNum - 1; jettyId++) {
+            for (uint32_t jettyId = 0; jettyId < ctx.portNum - 1; jettyId++) {
                 ccu::EventRecord(ctx.jettyEvent[jettyId], 1);
                 ccu::WriteReduce(arg->channels[ctx.rank2ChannelIdx.at(toRank)], tempDst, tempSrc, ctx.sliceOneJettySize,
                     ctx.dataType, ctx.reduceOp, ctx.jettyEvent[jettyId]);
@@ -179,12 +162,12 @@ static CcuResult DoRepeatSendRecvSlices(ReduceScatterNhrMem2Mem1DMultiJettyConte
             ccu::EventRecord(ctx.jettyEvent[ctx.portNum - 1], 1);
         }
         CCU_IF(ctx.sliceLastJettySize != 0) {
-            u32 jettyId = ctx.portNum - 1;
+            uint32_t jettyId = ctx.portNum - 1;
             ccu::EventRecord(ctx.jettyEvent[jettyId], 1);
             ccu::WriteReduce(arg->channels[ctx.rank2ChannelIdx.at(toRank)], tempDst, tempSrc, ctx.sliceLastJettySize,
                     ctx.dataType, ctx.reduceOp, ctx.jettyEvent[jettyId]);
         }
-        for (u32 jettyId = 0; jettyId < ctx.portNum; jettyId++) {
+        for (uint32_t jettyId = 0; jettyId < ctx.portNum; jettyId++) {
             ccu::EventWait(ctx.jettyEvent[jettyId], 1);
         }
         ctx.flag = 1;
@@ -197,11 +180,11 @@ static CcuResult DoRepeatReduceScatterNHRSingleStep(ReduceScatterNhrMem2Mem1DMul
     const NHRStepInfo &nhrStepInfo, const std::vector<ccu::Variable> &inputSliceOffset)
 {
     const auto *arg = ctx.arg;
-    u32& toRankIdx = ctx.rank2ChannelIdx.at(nhrStepInfo.toRank);
-    u32& fromRankIdx = ctx.rank2ChannelIdx.at(nhrStepInfo.fromRank);
+    uint32_t& toRankIdx = ctx.rank2ChannelIdx.at(nhrStepInfo.toRank);
+    uint32_t& fromRankIdx = ctx.rank2ChannelIdx.at(nhrStepInfo.fromRank);
     const auto &sendChannel = arg->channels[toRankIdx];
     const auto &recvChannel = arg->channels[fromRankIdx];
-    const std::vector<u32> &sendSliceIdxList = nhrStepInfo.txSliceIdxs;
+    const std::vector<uint32_t> &sendSliceIdxList = nhrStepInfo.txSliceIdxs;
     
     ctx.remoteDst.token = ctx.token[toRankIdx];
     ctx.localSrc.token = ctx.token[ctx.myRankIdx];
@@ -216,7 +199,7 @@ static CcuResult DoRepeatReduceScatterNHRSingleStep(ReduceScatterNhrMem2Mem1DMul
         ccu::NotifyWait(sendChannel, signalIdxReady, signalBitReady);
     }
     
-    for (const u32 &sendSliceIdx : sendSliceIdxList) {
+    for (const uint32_t &sendSliceIdx : sendSliceIdxList) {
         ctx.remoteDst.addr = ctx.input[toRankIdx];
         ctx.remoteDst.addr += inputSliceOffset[sendSliceIdx];
         ctx.localSrc.addr = ctx.input[ctx.myRankIdx];
@@ -233,12 +216,12 @@ static CcuResult DoRepeatReduceScatterNHRSingleStep(ReduceScatterNhrMem2Mem1DMul
 
 static CcuResult DoRepeatReduceScatter(ReduceScatterNhrMem2Mem1DMultiJettyContext &ctx)
 {
-    ccu::Variable tmpSliceOffset = ccu::CreateVariable();
+    ccu::Variable tmpSliceOffset;
     tmpSliceOffset = 0;
     
     std::vector<ccu::Variable> inputSliceOffset;
-    for (u64 i = 0; i < ctx.dimSize; i++) {
-        inputSliceOffset.push_back(ccu::CreateVariable());
+    inputSliceOffset.resize(ctx.dimSize);
+    for (uint64_t i = 0; i < ctx.dimSize; i++) {
         inputSliceOffset[i] = tmpSliceOffset;
         tmpSliceOffset += ctx.inputSliceStride;
     }
@@ -253,7 +236,7 @@ static CcuResult DoRepeatReduceScatter(ReduceScatterNhrMem2Mem1DMultiJettyContex
     ctx.localSrc.addr += inputSliceOffset[ctx.rankId];
     ctx.localSrc.token = ctx.token[ctx.myRankIdx];
 
-    ccu::Variable repeatNumAdd2 = ccu::CreateVariable();
+    ccu::Variable repeatNumAdd2;
     repeatNumAdd2 = 1;
     CCU_WHILE(ctx.repeatNumVar != UINT64_MAX) {
         ctx.repeatNumVar += repeatNumAdd2;
