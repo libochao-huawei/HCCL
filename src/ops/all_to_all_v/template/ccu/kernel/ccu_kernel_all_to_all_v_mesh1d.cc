@@ -101,7 +101,7 @@ static CcuResult InitResource(AlltoAllVMesh1DContext &ctx)
     // CCU_CHK_RET(ccu::CreateLoopExecutor(&ctx.enginePool, MAX_RANK_SIZE));
 
     ctx.resourceAllocated = false;
-    ctx.IsLoopResRegistered    = false;
+    // ctx.IsLoopResRegistered    = false;
 
     return CCU_SUCCESS;
 }
