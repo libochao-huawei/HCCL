@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "alg_template_base.h"
 #include "ccu_kernel_all_to_all_v_mesh1d_multi_jetty.h"
+#include "ccu_control_api.h"
 
 namespace ops_hccl {
 using namespace hcomm;
@@ -22,22 +22,22 @@ constexpr int CKE_IDX_0    = 0;
 static CcuResult PreSync(AllToAllVMesh1DMultiJettyContext &ctx)
 {
     const auto& arg = ctx.arg;
-    ccu::Variable tempDst;
-    u32 channelIdx = 0;
-    for (u32 id = 0; id < arg->rankSize; id++) {
+    uint32_t channelIdx = 0;
+    for (uint32_t id = 0; id < arg->rankSize; id++) {
         if (id == arg->rankId) {
             continue;
         }
+        ccu::Variable tempDst;
         tempDst = ctx.output[arg->rankId];
         tempDst += ctx.sendRecvInfo[id].recvOffset;
-        CHK_RET(ccu::NotifyRecord(ctx.channels[channelIdx], CKE_IDX_0, OUTPUT_XN_ID, tempDst, 1 << OUTPUT_XN_ID));
-        CHK_RET(ccu::NotifyRecord(ctx.channels[channelIdx], CKE_IDX_0, TOKEN_XN_ID, ctx.token[arg->rankId], 1 << TOKEN_XN_ID));
+        CCU_CHK_RET(ccu::NotifyRecord(ctx.channels[channelIdx], CKE_IDX_0, OUTPUT_XN_ID, tempDst, 1 << OUTPUT_XN_ID));
+        CCU_CHK_RET(ccu::NotifyRecord(ctx.channels[channelIdx], CKE_IDX_0, TOKEN_XN_ID, ctx.token[arg->rankId], 1 << TOKEN_XN_ID));
         channelIdx++;
     }
 
-    uint32_t allBit = 1 << OUTPUT_XN_ID | 1 << TOKEN_XN_ID;
+    uint32_t allBit = (1 << OUTPUT_XN_ID) | (1 << TOKEN_XN_ID);
     for (const auto& ch : ctx.channels) {
-        CHK_RET(ccu::NotifyWait(ch, CKE_IDX_0, allBit));
+        CCU_CHK_RET(ccu::NotifyWait(ch, CKE_IDX_0, allBit));
     }
     return CCU_SUCCESS;
 }
@@ -45,94 +45,73 @@ static CcuResult PreSync(AllToAllVMesh1DMultiJettyContext &ctx)
 static CcuResult PostSync(AllToAllVMesh1DMultiJettyContext &ctx)
 {
     for (const auto& ch : ctx.channels) {
-        CHK_RET(ccu::NotifyRecord(ch, CKE_IDX_0, 1 << POST_SYNC_ID));
+        CCU_CHK_RET(ccu::NotifyRecord(ch, CKE_IDX_0, 1 << POST_SYNC_ID));
     }
     for (const auto& ch : ctx.channels) {
-        CHK_RET(ccu::NotifyWait(ch, CKE_IDX_0, 1 << POST_SYNC_ID));
+        CCU_CHK_RET(ccu::NotifyWait(ch, CKE_IDX_0, 1 << POST_SYNC_ID));
     }
+    HCCL_INFO("[CcuKernelAllToAllVMesh1DMultiJetty] AllToAllV GroupWait end");
     return CCU_SUCCESS;
 }
 
 static CcuResult InitResource(AllToAllVMesh1DMultiJettyContext &ctx)
 {
     const auto& arg = ctx.arg;
-    u32 channelIdx = 0;
+    uint32_t channelIdx = 0;
+
     if (ctx.channels.empty()) {
         HCCL_ERROR("[CcuKernelAllToAllVMesh1DMultiJetty] channels is empty!");
         return CCU_E_INTERNAL;
     }
-    ctx.input.push_back(ccu::CreateVariable());
-    ctx.output.reserve(arg->rankSize);
-    ctx.token.reserve(arg->rankSize);
-    for (u32 id = 0; id < arg->rankSize; id++) {
-        if (id == arg->rankId) {
-            ctx.output.push_back(ccu::CreateVariable());
-            ctx.token.push_back(ccu::CreateVariable());
-        } else {
-            HCCL_DEBUG("[CcuKernelAllToAllVMesh1DMultiJetty] MyRank[%u], PeerId[%u], ChannelId[%u]",
-                arg->rankId, id, channelIdx);
-            ctx.output.push_back(ccu::GetResByChannel<ccu::Variable>(ctx.channels[channelIdx], OUTPUT_XN_ID));
-            ctx.token.push_back(ccu::GetResByChannel<ccu::Variable>(ctx.channels[channelIdx], TOKEN_XN_ID));
+    HCCL_INFO("[CcuKernelAllToAllVMesh1DMultiJetty] channels.size: [%u]", ctx.channels.size());
+
+    ctx.input.resize(arg->rankSize);
+    ctx.output.resize(arg->rankSize);
+    ctx.token.resize(arg->rankSize);
+    for (uint32_t id = 0; id < arg->rankSize; id++) {
+        if (id != arg->rankId) {
+            ctx.input[id] = ccu::GetResByChannel<ccu::Variable>(ctx.channels[channelIdx], OUTPUT_XN_ID);
+            ctx.output[id] = ccu::GetResByChannel<ccu::Variable>(ctx.channels[channelIdx], OUTPUT_XN_ID);
+            ctx.token[id] = ccu::GetResByChannel<ccu::Variable>(ctx.channels[channelIdx], TOKEN_XN_ID);
             channelIdx++;
         }
     }
 
-    ctx.src.reserve(arg->rankSize);
-    ctx.remoteDst.reserve(arg->rankSize);
-    for (uint32_t rankIdx = 0; rankIdx < arg->rankSize; rankIdx++) {
-        ctx.src.push_back(ccu::CreateLocalAddr());
-        if (rankIdx == arg->rankId) {
-            ctx.myDst = ccu::CreateLocalAddr();
-            ctx.remoteDst.push_back({});
-        } else {
-            ctx.remoteDst.push_back(ccu::CreateRemoteAddr());
-        }
-    }
+    ctx.src.resize(arg->rankSize);
+    ctx.remoteDst.resize(arg->rankSize);
+    ctx.eventList.resize(arg->rankSize);
 
-    ctx.srcOffset = ccu::CreateVariable();
-    ctx.dstOffset = ccu::CreateVariable();
-
-    ctx.completedRankCount = ccu::CreateVariable();
-    ctx.xnMaxTransportSize = ccu::CreateVariable();
-    ctx.xnMaxTransportGoSize = ccu::CreateGroupOpSize();
-    ctx.xnConst1 = ccu::CreateVariable();
-
-    ctx.eventList.reserve(arg->rankSize);
-    for (uint32_t rankIdx = 0; rankIdx < arg->rankSize; rankIdx++) {
-        ctx.eventList.push_back(ccu::CreateCompletedEvent());
-    }
     return CCU_SUCCESS;
 }
 
 static CcuResult LoadArgs(AllToAllVMesh1DMultiJettyContext &ctx)
 {
     const auto& arg = ctx.arg;
-    ccu::Load(ctx.input[0]);
-    ccu::Load(ctx.output[arg->rankId]);
-    ccu::Load(ctx.token[arg->rankId]);
-    ccu::Load(ctx.srcOffset);
-    ccu::Load(ctx.dstOffset);
-    ccu::Load(ctx.xnMaxTransportGoSize);
+    uint32_t argId = 0;
+
+    CCU_CHK_RET(ccu::LoadArg(ctx.input[arg->rankId], argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.output[arg->rankId], argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.token[arg->rankId], argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.srcOffset, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.dstOffset, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.xnMaxTransportGoSize.addrOffset, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.xnMaxTransportGoSize.loopParam, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.xnMaxTransportGoSize.parallelParam, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.xnMaxTransportGoSize.residual, argId++));
 
     ctx.sendRecvInfo.resize(arg->rankSize);
     for (uint64_t rankIdx = 0; rankIdx < arg->rankSize; rankIdx++) {
-        ctx.sendRecvInfo[rankIdx].sliceSize = ccu::CreateVariable();
-        ctx.sendRecvInfo[rankIdx].tailSliceSize = ccu::CreateVariable();
-        ctx.sendRecvInfo[rankIdx].lastSliceSize = ccu::CreateVariable();
-        ctx.sendRecvInfo[rankIdx].lastTailSliceSize = ccu::CreateVariable();
-        ctx.sendRecvInfo[rankIdx].loopNum = ccu::CreateVariable();
-        ctx.sendRecvInfo[rankIdx].sendOffset = ccu::CreateVariable();
-        ctx.sendRecvInfo[rankIdx].recvOffset = ccu::CreateVariable();
-        ctx.sendRecvInfo[rankIdx].tailGoSize = ccu::CreateGroupOpSize();
-
-        ccu::Load(ctx.sendRecvInfo[rankIdx].sliceSize);
-        ccu::Load(ctx.sendRecvInfo[rankIdx].tailSliceSize);
-        ccu::Load(ctx.sendRecvInfo[rankIdx].lastSliceSize);
-        ccu::Load(ctx.sendRecvInfo[rankIdx].lastTailSliceSize);
-        ccu::Load(ctx.sendRecvInfo[rankIdx].loopNum);
-        ccu::Load(ctx.sendRecvInfo[rankIdx].sendOffset);
-        ccu::Load(ctx.sendRecvInfo[rankIdx].recvOffset);
-        ccu::Load(ctx.sendRecvInfo[rankIdx].tailGoSize);
+        CCU_CHK_RET(ccu::LoadArg(ctx.sendRecvInfo[rankIdx].sliceSize, argId++));
+        CCU_CHK_RET(ccu::LoadArg(ctx.sendRecvInfo[rankIdx].tailSliceSize, argId++));
+        CCU_CHK_RET(ccu::LoadArg(ctx.sendRecvInfo[rankIdx].lastSliceSize, argId++));
+        CCU_CHK_RET(ccu::LoadArg(ctx.sendRecvInfo[rankIdx].lastTailSliceSize, argId++));
+        CCU_CHK_RET(ccu::LoadArg(ctx.sendRecvInfo[rankIdx].loopNum, argId++));
+        CCU_CHK_RET(ccu::LoadArg(ctx.sendRecvInfo[rankIdx].sendOffset, argId++));
+        CCU_CHK_RET(ccu::LoadArg(ctx.sendRecvInfo[rankIdx].recvOffset, argId++));
+        CCU_CHK_RET(ccu::LoadArg(ctx.sendRecvInfo[rankIdx].tailGoSize.addrOffset, argId++));
+        CCU_CHK_RET(ccu::LoadArg(ctx.sendRecvInfo[rankIdx].tailGoSize.loopParam, argId++));
+        CCU_CHK_RET(ccu::LoadArg(ctx.sendRecvInfo[rankIdx].tailGoSize.parallelParam, argId++));
+        CCU_CHK_RET(ccu::LoadArg(ctx.sendRecvInfo[rankIdx].tailGoSize.residual, argId++));
     }
     return CCU_SUCCESS;
 }
@@ -154,13 +133,14 @@ static CcuResult CalcGroupSrcDst(AllToAllVMesh1DMultiJettyContext &ctx)
         } else {
             ctx.remoteDst[rankIdx].token = ctx.token[rankIdx];
             ctx.remoteDst[rankIdx].addr = ctx.output[rankIdx];
+            ctx.remoteDst[rankIdx].addr += ctx.sendRecvInfo[rankIdx].recvOffset;
             ctx.remoteDst[rankIdx].addr += ctx.dstOffset;
         }
     }
     return CCU_SUCCESS;
 }
 
-static CcuResult DoAll2AllVLastBlock(AllToAllVMesh1DMultiJettyContext &ctx, u32 rankIdx, u32 channelIdx)
+static CcuResult DoAll2AllVLastBlock(AllToAllVMesh1DMultiJettyContext &ctx, uint32_t rankIdx, uint32_t channelIdx)
 {
     const auto& arg = ctx.arg;
     for (uint32_t i = 0; i < arg->jettyNums[rankIdx]; i++) {
@@ -194,7 +174,7 @@ static CcuResult DoAll2AllVLastBlock(AllToAllVMesh1DMultiJettyContext &ctx, u32 
     return CCU_SUCCESS;
 }
 
-static CcuResult DoAll2AllVBlock(AllToAllVMesh1DMultiJettyContext &ctx, u32 rankIdx, u32 channelIdx)
+static CcuResult DoAll2AllVBlock(AllToAllVMesh1DMultiJettyContext &ctx, uint32_t rankIdx, uint32_t channelIdx)
 {
     const auto& arg = ctx.arg;
     for (uint32_t i = 0; i < arg->jettyNums[rankIdx]; i++) {
@@ -235,7 +215,7 @@ static CcuResult DoAll2AllVMultiLoop(AllToAllVMesh1DMultiJettyContext &ctx)
     ctx.xnMaxTransportSize = UB_MAX_TRANS_SIZE;
     ctx.completedRankCount = 0;
     ctx.xnConst1 = 1;
-    u32 channelIdx = 0;
+    uint32_t channelIdx = 0;
     CCU_WHILE(ctx.completedRankCount != arg->rankSize) {
         for (uint32_t rankIdx = 0; rankIdx < arg->rankSize; rankIdx++) {
             if (rankIdx == arg->rankId) {
@@ -267,7 +247,7 @@ static CcuResult DoAll2AllVMultiLoop(AllToAllVMesh1DMultiJettyContext &ctx)
                     CHK_RET(ccu::EventRecord(ctx.eventList[arg->rankId]));
                 }
                 CCU_IF(ctx.sendRecvInfo[arg->rankId].lastTailSliceSize != 0) {
-                    CHK_RET(ccu::GroupCopy(ctx.myDst, ctx.src[arg->rankId], ctx.sendRecvInfo[arg->rankId].tailGoSize));
+                    CHK_RET(GroupCopy(ctx, ctx.myDst, ctx.src[arg->rankId], ctx.sendRecvInfo[arg->rankId].tailGoSize));
                     ctx.eventList[arg->rankId].SetMask((1 << arg->jettyNums[arg->rankId]) - 1);
                     CHK_RET(ccu::EventRecord(ctx.eventList[arg->rankId]));
                 }
@@ -279,7 +259,7 @@ static CcuResult DoAll2AllVMultiLoop(AllToAllVMesh1DMultiJettyContext &ctx)
                     CHK_RET(ccu::EventRecord(ctx.eventList[arg->rankId]));
                 }
                 CCU_IF(ctx.sendRecvInfo[arg->rankId].tailSliceSize != 0) {
-                    CHK_RET(ccu::GroupCopy(ctx.myDst, ctx.src[arg->rankId], ctx.xnMaxTransportGoSize));
+                    CHK_RET(GroupCopy(ctx, ctx.myDst, ctx.src[arg->rankId], ctx.xnMaxTransportGoSize));
                     ctx.eventList[arg->rankId].SetMask((1 << arg->jettyNums[arg->rankId]) - 1);
                     CHK_RET(ccu::EventRecord(ctx.eventList[arg->rankId]));
                     ctx.src[arg->rankId].addr += ctx.xnMaxTransportSize;
@@ -305,12 +285,12 @@ CcuResult CcuAllToAllVMesh1DMultiJettyKernel(CcuKernelCtxBase *ctxBase)
     HCCL_INFO("[CcuKernelAllToAllVMesh1DMultiJetty] Init, KernelArgs are rankId[%u], rankSize[%u]",
         arg->rankId, arg->rankSize);
 
-    CHK_RET(InitResource(*ctx));
-    CHK_RET(LoadArgs(*ctx));
-    CHK_RET(PreSync(*ctx));
-    CHK_RET(CalcGroupSrcDst(*ctx));
-    CHK_RET(DoAll2AllVMultiLoop(*ctx));
-    CHK_RET(PostSync(*ctx));
+    CCU_CHK_RET(InitResource(*ctx));
+    CCU_CHK_RET(LoadArgs(*ctx));
+    CCU_CHK_RET(PreSync(*ctx));
+    CCU_CHK_RET(CalcGroupSrcDst(*ctx));
+    CCU_CHK_RET(DoAll2AllVMultiLoop(*ctx));
+    CCU_CHK_RET(PostSync(*ctx));
 
     HCCL_INFO("[AllToAllVAlgo] AllToAllVMesh1DMultiJetty end");
     return CCU_SUCCESS;

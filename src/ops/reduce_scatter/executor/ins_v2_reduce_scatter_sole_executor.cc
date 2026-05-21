@@ -21,8 +21,8 @@
 #include "ccu_temp_reduce_scatter_mesh_1D.h"
 // #include "ccu_temp_reduce_scatter_nhr_1D_mem2mem.h"
 // #include "ccu_temp_reduce_scatter_mesh_1D_2die_mem2mem.h"
-// #include "ccu_temp_reduce_scatter_mesh2die.h"
-// #include "ccu_temp_reduce_scatter_nhr_1D_multi_jetty_mem2mem.h"
+#include "ccu_temp_reduce_scatter_mesh2die.h"
+#include "ccu_temp_reduce_scatter_nhr_1D_multi_jetty_mem2mem.h"
 #endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 
@@ -277,14 +277,14 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterMesh1D, I
 // REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterMeshMem2Mem1D2Die, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
 //     CcuTempReduceScatterMeshMem2Mem1D2Die);
 // #endif /* !HCCL_CANN_COMPAT_850 */
-// #if !defined(HCCL_CANN_COMPAT_850)
-// REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterMesh2Die, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
-//     CcuTempReduceScatterMesh2Die);
-// #endif /* !HCCL_CANN_COMPAT_850 */
-// #if !defined(HCCL_CANN_COMPAT_850)
-// REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterNhr1DMem2MemMultiJetty, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
-//  	     CcuTempReduceScatterNhrMultiJettyMem2Mem1D);
-// #endif /* !HCCL_CANN_COMPAT_850 */
+#if !defined(HCCL_CANN_COMPAT_850)
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterMesh2Die, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
+    CcuTempReduceScatterMesh2Die);
+#endif /* !HCCL_CANN_COMPAT_850 */
+#if !defined(HCCL_CANN_COMPAT_850)
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE_SCATTER, CcuReduceScatterNhr1DMem2MemMultiJetty, InsV2ReduceScatterSoleExecutor, TopoMatch1D,
+ 	     CcuTempReduceScatterNhrMultiJettyMem2Mem1D);
+#endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 
 }

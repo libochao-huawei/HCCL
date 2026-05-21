@@ -8,11 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 #include "ccu_temp_all_reduce_nhr_mem2mem_1D_multi_jetty.h"
-
 #include <algorithm>
 #include "channel.h"
-#include "hccl_ccu_res.h"
-#include "ccu_assist_pub.h"
 #include "alg_template_base.h"
 #include "ccu_kernel_all_reduce_nhr_mem2mem_1D_multi_jetty.h"
 
