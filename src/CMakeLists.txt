@@ -154,6 +154,7 @@ if(BUILD_OPEN_PROJECT)
         # hcomm头文件
         ${ASCEND_CANN_PACKAGE_PATH}/include/hccl
         ${ASCEND_CANN_PACKAGE_PATH}/include/hcomm
+        ${ASCEND_CANN_PACKAGE_PATH}/include/ccu
 
         # runtime头文件
         ${ASCEND_CANN_PACKAGE_PATH}/include/
