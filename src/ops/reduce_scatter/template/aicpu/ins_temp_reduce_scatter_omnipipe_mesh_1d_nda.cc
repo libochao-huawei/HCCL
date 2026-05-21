@@ -9,6 +9,8 @@
  */
 
 #include "ins_temp_reduce_scatter_omnipipe_mesh_1d_nda.h"
+#include "alg_data_trans_wrapper.h"
+#include "dpu_alg_data_trans_wrapper.h"
 
 namespace ops_hccl {
 InsTempReduceScatterOmniPipeMesh1dNDA::InsTempReduceScatterOmniPipeMesh1dNDA()
@@ -246,7 +248,7 @@ HcclResult InsTempReduceScatterOmniPipeMesh1dNDA::RunReduceScatter(
             txDstSlices.push_back(txDstSlice);
         }
         SendRecvInfo sendRecvInfo{{linkRemote, linkRemote}, {{txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices}}};
-        CHK_PRT_RET(SendRecvWrite(sendRecvInfo, threads[0]),
+        CHK_PRT_RET(SendRecvWriteForNda(sendRecvInfo, threads[0]),
             HCCL_ERROR("[InsTempReduceScatterOmniPipeMesh1dNDA] RunReduceScatter Send failed"),
             HcclResult::HCCL_E_INTERNAL);
     }

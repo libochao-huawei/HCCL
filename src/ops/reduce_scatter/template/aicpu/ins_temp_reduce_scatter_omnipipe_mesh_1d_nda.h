@@ -17,7 +17,6 @@
 #include "alg_param.h"
 #include "executor_v2_base.h"
 #include "template_utils.h"
-#include "alg_data_trans_wrapper.h"
 
 namespace ops_hccl {
 

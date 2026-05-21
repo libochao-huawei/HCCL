@@ -21,6 +21,7 @@ namespace ops_hccl {
 HcclResult SendWrite(const DataInfo &sendInfo);
 HcclResult RecvWrite(const DataInfo &recvInfo);
 HcclResult SendRecvWrite(const SendRecvInfo &sendRecvInfo);
+HcclResult SendRecvWriteForNda(const SendRecvInfo &sendRecvInfo, const ThreadHandle &thread);
 
 }
 #endif // DPU_ALG_DATA_TRANS_WRAPPER
