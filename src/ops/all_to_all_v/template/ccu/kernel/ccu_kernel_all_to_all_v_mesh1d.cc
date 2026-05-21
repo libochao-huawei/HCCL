@@ -38,18 +38,18 @@ static CcuResult LoadAll2allSendRecvInfo(AlltoAllVMesh1DContext &ctx, A2AsingleS
         sendRecvInfo.loopNum = UINT64_MAX - 1; // MC2 场景 loop num 默认为 1
 
         // 要求client端排列内存为[size,send,recv][size,send,recv]...
-        ccu::LoadVar(ctx.a2avXnAddr, sendRecvInfo.tailSize);
+        ccu::Load(ctx.a2avXnAddr, sendRecvInfo.tailSize);
         // sendRecvInfo.tailSize = ctx.a2avXnAddr;
         ctx.a2avXnAddr += ctx.xnLength;
 
-        ccu::LoadVar(ctx.a2avXnAddr, sendRecvInfo.sendOffset);
+        ccu::Load(ctx.a2avXnAddr, sendRecvInfo.sendOffset);
         // sendRecvInfo.sendOffset = ctx.a2avXnAddr;
         ctx.a2avXnAddr += ctx.xnLength;
 
         // 跳过recvSize
         ctx.a2avXnAddr += ctx.xnLength;
 
-        ccu::LoadVar(ctx.a2avXnAddr, sendRecvInfo.recvOffset);
+        ccu::Load(ctx.a2avXnAddr, sendRecvInfo.recvOffset);
         // sendRecvInfo.recvOffset = ctx.a2avXnAddr;
         ctx.a2avXnAddr += ctx.xnLength;
     } else {
@@ -82,9 +82,9 @@ static CcuResult InitResource(AlltoAllVMesh1DContext &ctx)
     ctx.token.resize(arg->rankSize);
     for (uint64_t peerId = 0; peerId < arg->rankSize; peerId++) {
         if (peerId != arg->rankId) { // 非本地，使用远端Variable
-            ctx.input[peerId] = ccu::GetResByChannel(arg->channels[channelIdx], INPUT_XN_ID);
-            ctx.output[peerId] = ccu::GetResByChannel(arg->channels[channelIdx], OUTPUT_XN_ID);
-            ctx.token[peerId] = ccu::GetResByChannel(arg->channels[channelIdx], TOKEN_XN_ID);
+            ctx.input[peerId] = ccu::GetResByChannel<ccu::Variable>(arg->channels[channelIdx], INPUT_XN_ID);
+            ctx.output[peerId] = ccu::GetResByChannel<ccu::Variable>(arg->channels[channelIdx], OUTPUT_XN_ID);
+            ctx.token[peerId] = ccu::GetResByChannel<ccu::Variable>(arg->channels[channelIdx], TOKEN_XN_ID);
             channelIdx++;
         }
     }

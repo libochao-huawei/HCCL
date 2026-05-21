@@ -107,7 +107,7 @@ struct CcuKernelCtxBase {
     struct GroupCopyVar {
         ccu::LocalAddr loopDst[2];
         ccu::LocalAddr loopSrc[2];
-        CcuVariable loopLen[2];
+        ccu::Variable loopLen[2];
     };
 
     struct GroupReduceMem2MemVar {

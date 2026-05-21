@@ -45,9 +45,9 @@ static CcuResult InitResource(AlltoAllMesh1DContext &ctx)
     ctx.token.resize(arg->rankSize);
     for (uint64_t peerId = 0; peerId < arg->rankSize; peerId++) {
         if (peerId != arg->rankId) {
-            ctx.input[peerId] = ccu::GetResByChannel(arg->channels[channelIdx], INPUT_XN_ID);
-            ctx.output[peerId] = ccu::GetResByChannel(arg->channels[channelIdx], OUTPUT_XN_ID);
-            ctx.token[peerId] = ccu::GetResByChannel(arg->channels[channelIdx], TOKEN_XN_ID);
+            ctx.input[peerId] = ccu::GetResByChannel<ccu::Variable>(arg->channels[channelIdx], INPUT_XN_ID);
+            ctx.output[peerId] = ccu::GetResByChannel<ccu::Variable>(arg->channels[channelIdx], OUTPUT_XN_ID);
+            ctx.token[peerId] = ccu::GetResByChannel<ccu::Variable>(arg->channels[channelIdx], TOKEN_XN_ID);
             channelIdx++;
         }
     }
@@ -180,7 +180,7 @@ CcuResult CcuAlltoAllMesh1DKernel(CcuKernelArg arg)
     AlltoAllMesh1DContext ctx;
     ctx.arg = kernelArg;
     ctx.resourceAllocated = false;
-    ctx.loopRegistered = false;
+    ctx.IsLoopResRegistered = false;
     ctx.moConfig.msInterleave = 0;
     ctx.moConfig.loopCount = 0;
     ctx.moConfig.memSlice = 0;
