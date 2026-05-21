@@ -175,17 +175,17 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcRes(HcclComm comm, const OpParam& para
     // 获取clos的dieid
     CHK_RET(CalcChannelRequest(comm, param, topoInfo, subCommRanks_, channelDescs));
     CHK_RET(RestoreChannelMap(channelDescs, rankIdToChannelDesc_));
-    HCCL_INFO("channelDescs size[%u]", channelDescs.size());
+    HCCL_INFO("channelDescs size[%u]", channelDescs.size());//////37
 
     uint32_t meshDieId = 0;
     CHK_RET(PartitionChannels(comm, channelDescs, meshDieId, rankIdToChannelDesc_));
     resourceRequest.channels.emplace_back(channelDescs);
-    HCCL_INFO("resourceRequest.channels[%d]",resourceRequest.channels.size());
+    HCCL_INFO("resourceRequest.channels[%d]",resourceRequest.channels.size());////////////1
 
     const uint32_t rankSize = subCommRanks_[0].size();
     u32 kernelNum = (channels2port_.size() == 0) ? DIE_NUM: DIE_NUM + 1;
     resourceRequest.ccuKernelNum.push_back(kernelNum);        // kernel数量
-    HCCL_INFO("channels2port_ = %llu", channels2port_.size());
+    HCCL_INFO("channels2port_ = %llu", channels2port_.size());///////////////////8->15
     // 需要从流
     resourceRequest.notifyNumOnMainThread = 1;
     resourceRequest.slaveThreadNum = channels2port_.size() + 1;//2+6需要2条从流，server需要1条从流
@@ -248,7 +248,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std
         using DieIdType = uint32_t;
         const uint32_t dieIdTypeSize = sizeof(DieIdType);
         // clos 链路
-        if(channel_list.size() == 2) {
+        if(channel_list.size() >= 2) {
             for (const auto &channel : channel_list) {
                 DieIdType dieId = 0;
                 EndpointDesc localEndpoint = channel.localEndpoint;
@@ -269,6 +269,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std
     
     // 筛选clos链路
     channels2port_.clear();
+    HCCL_INFO("clos_channels[0][%llu], clos_channels[1][%llu]", clos_channels[0].size(), clos_channels[1].size());
     for(auto& channels: clos_channels){
         u32 dieId = channels.first;
         std::vector<HcclChannelDesc>& channel_list = channels.second;
