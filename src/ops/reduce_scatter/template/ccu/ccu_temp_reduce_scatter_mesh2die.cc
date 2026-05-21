@@ -12,6 +12,7 @@
 #include "hccl_ccu_res.h"
 #include "ccu_assist_pub.h"
 #include "alg_data_trans_wrapper.h"
+#include "ccu_control_api.h"
 
 #include "ccu_temp_reduce_scatter_mesh2die.h"
 #include "ccu_kernel_reduce_scatter_mesh2die.h"
@@ -58,13 +59,16 @@ HcclResult CcuTempReduceScatterMesh2Die::CalcRes(HcclComm comm, const OpParam &p
     for (uint32_t dieId = 0; dieId < DIE_NUM; dieId++) {    // 2Die算法，需要执行两次
         // 创建每个kernel的kernelArg，放入kernelInfo, 然后将kernelInfo放入resourceRequest.ccuKernelInfos
         CcuKernelInfo kernelInfo;
-        kernelInfo.creator = [](const hcomm::CcuKernelArg &arg) {
-            return std::make_unique<CcuKernelReduceScatterMesh2Die>(arg);
-        };
+        strcpy(kernelInfo.kernelFuncName, "CcuKernelReduceScatterMesh2Die");
+        kernelInfo.kernelFunc = reinterpret_cast<void *>(CcuReduceScatterMesh2DieKernel);
         const bool rmtReduceWithMyRank = channels_[dieId].size() > channels_[1 - dieId].size() ? false : true;
-        auto kernelArg = std::make_shared<CcuKernelArgReduceScatterMesh2Die>(rankSize, mySubCommRank_, param, subCommRanks_,
-            rmtReduceWithMyRank);
-        kernelInfo.kernelArg = kernelArg;
+        auto kernelArg = std::make_shared<CcuKernelArgReduceScatterMesh2Die>();
+        kernelArg->rankSize = rankSize;
+        kernelArg->rankId = mySubCommRank_;
+        kernelArg->opParam = param;
+        kernelArg->subCommRanks = subCommRanks_;
+        kernelArg->rmtReduceWithMyRank = rmtReduceWithMyRank;
+        kernelInfo.setKernelArg(kernelArg);
         kernelInfo.channels = channels_[dieId];
         resourceRequest.ccuKernelInfos.emplace_back(kernelInfo);
         HCCL_DEBUG("[CcuTempReduceScatterMesh2Die][CalcRes] dieId=%u, channels=%llu, rankSize=%llu, ccuKernelInfos=%llu",
@@ -122,7 +126,9 @@ HcclResult CcuTempReduceScatterMesh2Die::KernelRun(const OpParam &param, const T
     CHK_RET(GetToken(buffInfo_, token));
     uint64_t inputSliceStride = templateDataParams.inputSliceStride;
     uint64_t offsetSliceSize = templateDataParams.sliceSize;
-   HCCL_INFO("[CcuTempReduceScatterMesh2Die] inputAddr[%llu], outputAddr[%llu], scratchAddr0[%llu], "
+    uint64_t rmtReduceSliceOffset = inputSliceStride * mySubCommRank_;
+    uint64_t myScratch = scratchAddr + offsetSliceSize;
+    HCCL_INFO("[CcuTempReduceScatterMesh2Die] inputAddr[%llu], outputAddr[%llu], scratchAddr0[%llu], "
               "sliceSize[%llu], inputSliceStride[%llu]",
               inputAddr, outputAddr, scratchAddr, sliceSize, inputSliceStride);
 
@@ -131,12 +137,31 @@ HcclResult CcuTempReduceScatterMesh2Die::KernelRun(const OpParam &param, const T
     std::vector<u32> notifyIdxMainToSub(1, 0);
     CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub));
 
+    // go size of group operations
+    LoopGroupConfig config{};
+    config.msInterleave = CCU_MS_INTERLEAVE;
+    config.loopCount    = CCU_MS_DEFAULT_LOOP_COUNT;
+    config.memSlice     = CCU_MS_SIZE;
+    auto rmtReduceGoSize = CalGoSize(sliceSize, config);
+
+    std::vector<uint64_t> taskArgs = {
+        inputAddr,
+        outputAddr,
+        token,
+        myScratch,
+        sliceSize,
+        rmtReduceSliceOffset
+    };
+    taskArgs.insert(taskArgs.end(), rmtReduceGoSize.cbegin(), rmtReduceGoSize.cend());
+    uint64_t argSize = taskArgs.size();
+
     for (uint32_t dieId = 0; dieId < DIE_NUM; dieId++) {    // 2Die算法，需要执行两次
-        std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgReduceScatterMesh2Die>(
-            inputAddr, outputAddr, token, scratchAddr, sliceSize, inputSliceStride);
-        void *taskArgPtr = static_cast<void *>(taskArg.get());
-        CHK_RET(HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[dieId], templateResource.ccuKernels[dieId],
-            taskArgPtr));
+        CcuResult launchRet = HcommCcuKernelLaunch(templateResource.threads[dieId], templateResource.ccuKernels[dieId],
+            taskArgs.data(), argSize);
+        if (launchRet != CCU_SUCCESS) {
+            HCCL_ERROR("[CcuTempReduceScatterMesh2Die::KernelRun] kernel launch failed, ccuRet -> %d", launchRet);
+            return ConvertCcuToHccl(launchRet);
+        }
     }
 
     // 后流同步
