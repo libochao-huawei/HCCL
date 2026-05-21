@@ -460,11 +460,11 @@ SelectorStatus AllReduceAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDe
  
     u64 perDataSize = DATATYPE_SIZE_TABLE[opParam.DataDes.dataType];
     u64 dataSize = opParam.DataDes.count * perDataSize;
-    // if (IsSmallData(dataSize)) {
-    //     selectAlgName = "AivAllReduceMesh1DOneShot";
-    // } else {
+    if (IsSmallData(dataSize)) {
+        selectAlgName = "AivAllReduceMesh1DOneShot";
+    } else {
         selectAlgName = "AivAllReduceMesh1DTwoShot";
-    // }
+    }
     HCCL_DEBUG("[AllReduceAutoSelector][%s] Algo match [%s]", __func__, selectAlgName.c_str());
     return SelectorStatus::MATCH;
 }

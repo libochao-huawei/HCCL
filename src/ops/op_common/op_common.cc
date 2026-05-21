@@ -396,20 +396,20 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
         }
     }
 
-    if (useCache && g_hcclCacheMap.find(cacheKey) != g_hcclCacheMap.end()) {
-        // Hit
-        auto queue = g_hcclCacheMap[cacheKey];
-        for (auto& ins : *queue) {
-            AivOpArgs newArgs = ins.opArgs;
-            newArgs.stream = param.stream;
+    // if (useCache && g_hcclCacheMap.find(cacheKey) != g_hcclCacheMap.end()) {
+    //     // Hit
+    //     auto queue = g_hcclCacheMap[cacheKey];
+    //     for (auto& ins : *queue) {
+    //         AivOpArgs newArgs = ins.opArgs;
+    //         newArgs.stream = param.stream;
 
-            // Update addresses
-            newArgs.input = (u64)param.inputPtr + ins.inputOffset;
-            newArgs.output = (u64)param.outputPtr + ins.outputOffset;
+    //         // Update addresses
+    //         newArgs.input = (u64)param.inputPtr + ins.inputOffset;
+    //         newArgs.output = (u64)param.outputPtr + ins.outputOffset;
 
-            CHK_RET(ExecuteKernelLaunch(newArgs));
-        }
-    } else {
+    //         CHK_RET(ExecuteKernelLaunch(newArgs));
+    //     }
+    // } else {
         // Miss
         if (useCache) {
             g_recordingQueue = std::make_shared<InsQueue>();
@@ -425,7 +425,7 @@ HcclResult ExecuteAivCacheLogic(OpParam &param, const std::string &algName,
             g_baseInputAddr = 0;
             g_baseOutputAddr = 0;
         }
-    }
+    // }
     return HCCL_SUCCESS;
 }
 
