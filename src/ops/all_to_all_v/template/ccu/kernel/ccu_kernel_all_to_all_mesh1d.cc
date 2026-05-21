@@ -180,7 +180,7 @@ CcuResult CcuAlltoAllMesh1DKernel(CcuKernelArg arg)
     AlltoAllMesh1DContext ctx;
     ctx.arg = kernelArg;
     ctx.resourceAllocated = false;
-    ctx.IsLoopResRegistered = false;
+    // ctx.IsLoopResRegistered = false;
     ctx.moConfig.msInterleave = 0;
     ctx.moConfig.loopCount = 0;
     ctx.moConfig.memSlice = 0;
