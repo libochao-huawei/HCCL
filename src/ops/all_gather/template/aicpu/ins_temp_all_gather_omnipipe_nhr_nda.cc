@@ -9,7 +9,7 @@
  */
 
 #include "ins_temp_all_gather_omnipipe_nhr_nda.h"
-#include "alg_data_trans_wrapper.h"
+#include "dpu_alg_data_trans_wrapper.h"
 #include "channel.h"
 #include "alg_v2_template_register.h"
 
@@ -162,7 +162,7 @@ HcclResult InsTempAllGatherOmniPipeNHRNDA::RunNHR(
             SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
 
             CHK_PRT_RET(
-                SendRecvWrite(sendRecvInfo, thread),
+                SendRecvWriteForNda(sendRecvInfo, thread),
                 HCCL_ERROR("[InsTempAllGatherOmniPipeNHRNDA] SendRecvWrite failed (step=%u, rpt=%u)", step, rpt),
                 HcclResult::HCCL_E_INTERNAL);
         }
