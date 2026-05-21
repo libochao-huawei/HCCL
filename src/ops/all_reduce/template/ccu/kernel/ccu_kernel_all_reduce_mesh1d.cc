@@ -9,7 +9,6 @@
  */
 
 #include "ccu_kernel_all_reduce_mesh1d.h"
-#include "ccu_control_api.h"
 
 namespace ops_hccl {
 

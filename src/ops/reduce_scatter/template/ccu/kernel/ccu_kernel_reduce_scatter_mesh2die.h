@@ -52,7 +52,7 @@ struct ReduceScatterMesh2DieContext : public CcuKernelCtxBase {
 
     ccu::Variable sliceSize;
     ccu::Variable rmtReduceSliceOffset;
-    GroupOpSize rmtReduceGoSize;
+    GroupOpSizeVars rmtReduceGoSize;
 };
 
 CcuResult CcuReduceScatterMesh2DieKernel(CcuKernelArg arg);

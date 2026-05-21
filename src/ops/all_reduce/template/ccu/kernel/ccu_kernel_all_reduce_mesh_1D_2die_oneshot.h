@@ -14,7 +14,6 @@
 #include <vector>
 #include <ios>
 #include "utils.h"
-#include "ccu_kernel.h"
 #include "ccu_kernel_utils.h"
 #include "ccu_kernel_alg_base.h"
 
@@ -63,9 +62,9 @@ struct AllreduceMesh1D2DieOneShotContext : CcuKernelCtxBase {
     ccu::Variable localReduceSliceOffset0;
     ccu::Variable localReduceSliceOffset1;
 
-    GroupOpSize rmtReduceGoSize;
-    GroupOpSize localReduceGoSize0;
-    GroupOpSize localReduceGoSize1;
+    GroupOpSizeVars rmtReduceGoSize;
+    GroupOpSizeVars localReduceGoSize0;
+    GroupOpSizeVars localReduceGoSize1;
 };
 
 CcuResult CcuAllreduceMesh1D2DieOneShotKernel(CcuKernelArg arg);
