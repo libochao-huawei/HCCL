@@ -50,12 +50,12 @@ static CcuResult InitResource(ScatterNHR1DContext &ctx)
             HCCL_ERROR("[CcuScatterNHR1DMem2MemKernel] arg->channels size[%llu] < localSize[%u]", ctx.arg->channelCount, ctx.localSize);
             return CCU_E_INTERNAL;
         }
-		ctx.scratch[channelIdx] = ccu::GetResByChannel<ccu::Variable>(arg->channels[channelIdx], SCRATCH_XN_ID);
-        ctx.token[channelIdx] = ccu::GetResByChannel<ccu::Variable>(arg->channels[channelIdx], TOKEN_XN_ID);
+		ctx.scratch[channelIdx] = ccu::GetResByChannel<ccu::Variable>(ctx.arg->channels[channelIdx], SCRATCH_XN_ID);
+        ctx.token[channelIdx] = ccu::GetResByChannel<ccu::Variable>(ctx.arg->channels[channelIdx], TOKEN_XN_ID);
     }
     // local scratch/token
-    CcuVariable localScratch;
-    CcuVariable localToken;
+    ccu::Variable localScratch;
+    ccu::Variable localToken;
     ctx.scratch.push_back(localScratch);
     ctx.token.push_back(localToken);
     return CCU_SUCCESS;
@@ -97,7 +97,7 @@ static CcuResult PreSync(ScatterNHR1DContext &ctx)
     return CCU_SUCCESS;
 }
 
-static void DoLocalCopy(ccu::LocalAddr &dst, ccu::LocalAddr &src, CcuVariable &sliceSize, CcuEvent &event,
+static void DoLocalCopy(ccu::LocalAddr &dst, ccu::LocalAddr &src, ccu::Variable &sliceSize, ccu::Event &event,
                           uint16_t mask)
 {
     CCU_IF(sliceSize == 0)
@@ -111,7 +111,7 @@ static void DoLocalCopy(ccu::LocalAddr &dst, ccu::LocalAddr &src, CcuVariable &s
 }
 
 static void DoWrite(ChannelHandle sendChannel, ccu::RemoteAddr &dst, ccu::LocalAddr &src,
-                      CcuVariable &sliceSize, CcuEvent &event, uint16_t mask)
+                      ccu::Variable &sliceSize, ccu::Event &event, uint16_t mask)
 {
     CCU_IF(sliceSize == 0)
     {
@@ -135,7 +135,7 @@ static CcuResult DoSendRecvSlice(ScatterNHR1DContext &ctx, const u32 &toRank, cc
     }
     ChannelHandle sendChannel = ctx.arg->channels[toRankIdx];
 
-    CcuVariable repeatNumAdd;
+    ccu::Variable repeatNumAdd;
     repeatNumAdd = 1;
     ctx.repeatTimeFlag = 0;
     ctx.repeatNumVarTemp = ctx.repeatNumVar;
@@ -266,7 +266,7 @@ static CcuResult DoScatterNHR(ScatterNHR1DContext &ctx)
     ctx.srcMem.token = ctx.token[ctx.myRankIdx];
     ctx.dstMem.token = ctx.token[ctx.myRankIdx];
 
-    CcuVariable repeatNumAdd;
+    ccu::Variable repeatNumAdd;
     repeatNumAdd = 1;
     ctx.repeatTimeFlag = 0;
 
