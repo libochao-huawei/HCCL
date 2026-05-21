@@ -135,7 +135,6 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcChannelRequest(HcclComm comm, const Op
             continue;
         }
         HCCL_INFO("rank = %llu",rank);
-        size_t channelCountBefore = channels.size();
         uint32_t *netLayers;
         uint32_t netLayerNum;
         CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
@@ -155,9 +154,6 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcChannelRequest(HcclComm comm, const Op
             CHK_RET(ProcessLinkForProtocol(comm, expectedProtocols, links, myRank, rank, netLayer, channels, protocolFound,
                 std::string("[CalcChannelRequestMesh1D]")));
             HCCL_INFO("netLayer = %llu,channels.size()= %llu",netLayer,channels.size());
-            if (channels.size() > channelCountBefore) {
-                break;
-            }
         }
 
         CHK_PRT_RET(channels.size() == channelCountBefore,
