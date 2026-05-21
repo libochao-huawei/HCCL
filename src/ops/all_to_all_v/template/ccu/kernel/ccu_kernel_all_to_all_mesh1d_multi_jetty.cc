@@ -10,6 +10,7 @@
 
 #include "ccu_kernel_all_to_all_mesh1d_multi_jetty.h"
 #include "ccu_kernel_alg_base.h"
+#include "ccu_control_api.h"
 
 namespace ops_hccl {
 

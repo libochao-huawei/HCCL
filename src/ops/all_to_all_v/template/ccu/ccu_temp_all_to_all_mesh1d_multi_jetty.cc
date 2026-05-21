@@ -84,13 +84,13 @@ HcclResult CcuTempAllToAllMesh1dMultiJetty::FastLaunch(const OpParam& param, con
 
     constexpr u32 inputIdx = 0;
     constexpr u32 outputIdx = 1;
-    constexpr u32 inputOffsetIdx = 7;
-    constexpr u32 outputOffsetIdx = 8;
+    uint64_t argSize = 11 + 2 * templateRankSize_;
+    constexpr u32 inputOffsetIdx = 11;
+    constexpr u32 outputOffsetIdx = 12;
     args[inputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + args[inputOffsetIdx];
     args[outputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + args[outputOffsetIdx];
 
     void *taskArgs = reinterpret_cast<void*>(args);
-    uint64_t argSize = 8;
     CcuResult launchRet = HcommCcuKernelLaunch(tempFastLaunchCtx.threads[0],
                                                tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle,
                                                taskArgs, argSize);
@@ -152,7 +152,7 @@ HcclResult CcuTempAllToAllMesh1dMultiJetty::KernelRun(const OpParam& param, cons
     for (uint32_t i = 0; i < templateRankSize_; i++) {
         taskArgs.push_back(jettySliceTail[i]);
     }
-    uint64_t argSize = 8;
+    uint64_t argSize = 11 + 2 * templateRankSize_;
 
     HCCL_INFO("[CcuTempAllToAllMesh1dMultiJetty::KernelRun] TaskArgs: inputAddr[%llu], outputAddr[%llu], "
               "sliceSize[%llu], srcStride[%llu], srcOffset[%llu], dstOffset[%llu]",
