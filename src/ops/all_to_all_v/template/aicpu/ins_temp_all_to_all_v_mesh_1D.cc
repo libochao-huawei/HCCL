@@ -176,7 +176,6 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
     }
     for (u32 roundIdx = 0; roundIdx < commLoops && remainRankSize > 0; roundIdx++) {
         CalcCommRankSetForOneLoop(roundIdx, remainRankSize, commRanks); // 计算本轮通信rank
-        // 如果是read模式，每轮做全量前后同步
         if (isDmaRead_) {
             if (roundIdx == 0) {
                 // 如果是read模式，第一轮做统一的前拷贝
@@ -200,7 +199,7 @@ HcclResult InsTempAlltoAllVMesh1D::RunALLtoALL(
         }
     }
     if (threadNum_ > 1) {
-        // write模式下，只做一次全量的后同步
+        // 只做一次全量的后同步
         GetNotifyIdxSubToMain(notifyIdxSubToMain_);
         CHK_RET(PostSyncInterThreads(threads[0], subThreads, notifyIdxSubToMain_));
     }
@@ -310,6 +309,7 @@ HcclResult InsTempAlltoAllVMesh1D::RunSendRecvByChannel(const TemplateDataParams
             CHK_RET(PostCopy(tempAlgParams, threads[queIdx], myRankCclBuffIdx, remoteRank,
                 recvSizeSplit_[channelId], recvCountsSplit_[channelId], recvOffsetSplit_[channelId]));
         }
+        queIdx++;
     }
     if (curChannels.size() > 1) {
         PostSyncInterThreadsPerRank(mainThreadCurRank, subThreadsCurRank);
@@ -382,6 +382,7 @@ HcclResult InsTempAlltoAllVMesh1D::PreCopyByLoop(const std::vector<u32> &commRan
                 CHK_RET(static_cast<HcclResult>(PreCopy(tempAlgParams, threads[queIdx], myRankCclBuffIdx, remoteRank,
                     sendSizeSplit_[channelId], sendCountsSplit_[channelId], sendOffsetSplit_[channelId])));
             }
+            queIdx++;
         }
     }
     return HcclResult::HCCL_SUCCESS;
