@@ -154,7 +154,7 @@ if(BUILD_OPEN_PROJECT)
         # hcomm头文件
         ${ASCEND_CANN_PACKAGE_PATH}/include/hccl
         ${ASCEND_CANN_PACKAGE_PATH}/include/hcomm
-        ${ASCEND_CANN_PACKAGE_PATH}/include/ccu
+        ${ASCEND_CANN_PACKAGE_PATH}/include/ccu  # 待修改成 hcomm/ccu
 
         # runtime头文件
         ${ASCEND_CANN_PACKAGE_PATH}/include/
@@ -174,7 +174,6 @@ if(BUILD_OPEN_PROJECT)
         ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/
         ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/hccl
         ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/hcomm/ccu
-        ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/hcomm/ccu_new
         ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/runtime/
         ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/aicpu/
         ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/profiling/
