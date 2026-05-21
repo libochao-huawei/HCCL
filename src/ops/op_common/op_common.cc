@@ -617,10 +617,10 @@ HcclResult GeReuseResource(HcclComm comm, OpParam &param, std::unique_ptr<InsCol
 {
     // 计算AlgHierarchyInfo
     AlgHierarchyInfoForAllLevel algHierarchyInfo;  // 分级通信域信息{localRankId, localRankSize}
-    CHK_RET(executor->CalcAlgHierarchyInfo(comm, topoInfo.get(), algHierarchyInfo));
+    CHK_RET(executor->CalcAlgHierarchyInfo(comm, topoInfo, algHierarchyInfo));
     // 资源计算
     AlgResourceRequest resRequest;
-    CHK_RET(executor->CalcRes(comm, param, topoInfo.get(), algHierarchyInfo, resRequest));
+    CHK_RET(executor->CalcRes(comm, param, topoInfo, algHierarchyInfo, resRequest));
 
     u32 maxNotifyNum = 0;
     for (u32 i = 0; i < resRequest.notifyNumPerThread.size(); i++) {
