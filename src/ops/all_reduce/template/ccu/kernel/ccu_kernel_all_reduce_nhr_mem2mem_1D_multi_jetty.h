@@ -64,8 +64,8 @@ struct AllReduceNhrMem2Mem1DMultiJettyContext : CcuKernelCtxBase {
     ccu::Variable lastRankSliceSize;
     ccu::Variable lastPortSliceSize;
     std::vector<ccu::Variable> sliceOffset;
-    GroupOpSize localCopyGoSize;
-    GroupOpSize localCopyGoSizeLastSlice;
+    GroupOpSizeVars localCopyGoSize;
+    GroupOpSizeVars localCopyGoSizeLastSlice;
 
     ccu::LocalAddr localInput;
     ccu::LocalAddr localOutput;

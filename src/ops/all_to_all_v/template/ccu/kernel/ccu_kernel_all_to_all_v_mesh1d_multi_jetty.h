@@ -43,7 +43,7 @@ struct AllToAllVMesh1DMultiJettyContext : public CcuKernelCtxBase {
         ccu::Variable loopNum;
         ccu::Variable sendOffset;
         ccu::Variable recvOffset;
-        GroupOpSize tailGoSize;
+        GroupOpSizeVars tailGoSize;
     };
 
     std::vector<ccu::Variable> input;
@@ -55,7 +55,7 @@ struct AllToAllVMesh1DMultiJettyContext : public CcuKernelCtxBase {
 
     ccu::Variable completedRankCount;
     ccu::Variable xnMaxTransportSize;
-    GroupOpSize xnMaxTransportGoSize; // 本地ccu的尾块
+    GroupOpSizeVars xnMaxTransportGoSize; // 本地ccu的尾块
     ccu::Variable xnConst1;
 
     std::vector<ccu::LocalAddr> src;

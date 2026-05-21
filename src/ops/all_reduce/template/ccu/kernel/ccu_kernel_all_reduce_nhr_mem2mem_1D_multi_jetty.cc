@@ -79,8 +79,14 @@ static CcuResult LoadArgs(AllReduceNhrMem2Mem1DMultiJettyContext &ctx)
     CCU_CHK_RET(ccu::LoadArg(ctx.dataSizePerPort, argId++));
     CCU_CHK_RET(ccu::LoadArg(ctx.lastRankSliceSize, argId++));
     CCU_CHK_RET(ccu::LoadArg(ctx.lastPortSliceSize, argId++));
-    CCU_CHK_RET(ccu::LoadArg(ctx.localCopyGoSize, argId++));
-    CCU_CHK_RET(ccu::LoadArg(ctx.localCopyGoSizeLastSlice, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.localCopyGoSize.addrOffset, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.localCopyGoSize.loopParam, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.localCopyGoSize.parallelParam, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.localCopyGoSize.residual, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.localCopyGoSizeLastSlice.addrOffset, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.localCopyGoSizeLastSlice.loopParam, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.localCopyGoSizeLastSlice.parallelParam, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.localCopyGoSizeLastSlice.residual, argId++));
     return CCU_SUCCESS;
 }
 

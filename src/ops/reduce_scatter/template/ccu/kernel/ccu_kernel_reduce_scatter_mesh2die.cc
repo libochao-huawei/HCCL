@@ -31,14 +31,11 @@ static CcuResult InitResources(ReduceScatterMesh2DieContext &ctx)
 
     ctx.peerInput.resize(arg->channels.size());
     ctx.peerToken.resize(arg->channels.size());
-    for (u64 id = 0; id < arg->channels.size(); id++) {
+    for (uint64_t id = 0; id < arg->channels.size(); id++) {
         ctx.peerInput[id] = ccu::GetResByChannel<ccu::Variable>(arg->channels[id], INPUT_XN_ID);
         ctx.peerToken[id] = ccu::GetResByChannel<ccu::Variable>(arg->channels[id], TOKEN_XN_ID);
     }
 
-    ctx.sliceSize = ccu::CreateVariable();
-    ctx.rmtReduceSliceOffset = ccu::CreateVariable();
-    ctx.rmtReduceGoSize = ccu::CreateGroupOpSize();
     ctx.rmtReduceRankNum = arg->channels.size() + (ctx.rmtReduceWithMyRank == true ? 1 : 0);
     ctx.rmtSyncMyBit = 1 << (ctx.myRankId % ctx.rmtReduceRankNum);
     ctx.rmtSyncWaitBit = ctx.rmtReduceWithMyRank ? ((1 << ctx.rmtReduceRankNum) - 1) & (~ctx.rmtSyncMyBit) 
@@ -56,7 +53,10 @@ static void LoadArgs(ReduceScatterMesh2DieContext &ctx)
     CCU_CHK_RET(ccu::LoadArg(ctx.myScratch, argId++));
     CCU_CHK_RET(ccu::LoadArg(ctx.sliceSize, argId++));
     CCU_CHK_RET(ccu::LoadArg(ctx.rmtReduceSliceOffset, argId++));
-    CCU_CHK_RET(ccu::LoadArg(ctx.rmtReduceGoSize, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.rmtReduceGoSize.addrOffset, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.rmtReduceGoSize.loopParam, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.rmtReduceGoSize.parallelParam, argId++));
+    CCU_CHK_RET(ccu::LoadArg(ctx.rmtReduceGoSize.residual, argId++));
 }
 
 static void PreSync(ReduceScatterMesh2DieContext &ctx)
@@ -83,33 +83,35 @@ static void PostSync(ReduceScatterMesh2DieContext &ctx)
     }
 }
 
-static void RmtReduce(ReduceScatterMesh2DieContext &ctx)
+static CcuResult RmtReduce(ReduceScatterMesh2DieContext &ctx)
 {
     const auto *arg = ctx.arg;
     std::vector<ccu::RemoteAddr> src;
-    src.reserve(ctx.rmtReduceRankNum);
+    src.resize(arg->channels.size());
     for (uint32_t peerIdx = 0; peerIdx < arg->channels.size(); peerIdx++) {
-        src.emplace_back(ccu::CreateRemoteAddr());
-        src.back().token = ctx.peerToken[peerIdx];
-        src.back().addr = ctx.peerInput[peerIdx];
-        src.back().addr += ctx.rmtReduceSliceOffset;
+        ccu::RemoteAddr addr;
+        addr.token = ctx.peerToken[peerIdx];
+        addr.addr = ctx.peerInput[peerIdx];
+        addr.addr += ctx.rmtReduceSliceOffset;
+        src[peerIdx] = addr;
     }
+    ccu::LocalAddr localSrc;
     if (ctx.rmtReduceWithMyRank) {
-        src.emplace_back(ccu::CreateRemoteAddr());
-        src.back().token = ctx.myToken;
-        src.back().addr = ctx.myInput;
-        src.back().addr += ctx.rmtReduceSliceOffset;
+        localSrc.token = ctx.myToken;
+        localSrc.addr = ctx.myInput;
+        localSrc.addr += ctx.rmtReduceSliceOffset;
     }
 
-    ccu::LocalAddr dst = ccu::CreateLocalAddr();
+    ccu::LocalAddr dst;
     dst.token = ctx.myToken;
     dst.addr = ctx.rmtReduceWithMyRank ? ctx.myOutput : ctx.myScratch;
 
     if (ctx.rmtReduceWithMyRank) {
-        ccu::GroupReduce(arg->channels, dst, src, ctx.rmtReduceGoSize, ctx.dataType, ctx.outputDataType, ctx.reduceOp);
+        CCU_CHK_RET(GroupReduce(ctx, arg->channels.data(), arg->channels.size(), dst, src, localSrc, ctx.rmtReduceGoSize, ctx.dataType, ctx.outputDataType, ctx.reduceOp));
     } else {
-        ccu::GroupReduceWithoutMyRank(arg->channels, dst, src, ctx.rmtReduceGoSize, ctx.dataType, ctx.outputDataType, ctx.reduceOp);
+        CCU_CHK_RET(GroupReduceWithoutMyRank(ctx, arg->channels.data(), arg->channels.size(), dst, src, ctx.rmtReduceGoSize, ctx.dataType, ctx.outputDataType, ctx.reduceOp));
     }
+    return CCU_SUCCESS;
 }
 
 CcuResult CcuReduceScatterMesh2DieKernel(CcuKernelArg arg)
@@ -137,7 +139,7 @@ CcuResult CcuReduceScatterMesh2DieKernel(CcuKernelArg arg)
     CCU_CHK_RET(InitResources(ctx));
     LoadArgs(ctx);
     PreSync(ctx);
-    RmtReduce(ctx);
+    CCU_CHK_RET(RmtReduce(ctx));
     PostSync(ctx);
 
     HCCL_INFO("[ccuReduceScatterMesh2Die_kernel] ReduceScatterMesh2Die end.");
