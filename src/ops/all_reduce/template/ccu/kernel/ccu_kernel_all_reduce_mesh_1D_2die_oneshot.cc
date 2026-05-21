@@ -204,7 +204,7 @@ static CcuResult CreateReduceLoop(AllreduceMesh1D2DieOneShotContext &ctx,
 
 static CcuResult ReduceLoopGroup(AllreduceMesh1D2DieOneShotContext &ctx,
     ccu::LocalAddr &outDstOrg, std::vector<ccu::LocalAddr> &srcOrg,
-    GroupOpSize goSize, HcclDataType dataType, HcclDataType outputDataType,
+    GroupOpSizeVars goSize, HcclDataType dataType, HcclDataType outputDataType,
     HcclReduceOp opType)
 {
     const uint32_t size = srcOrg.size();
@@ -318,18 +318,17 @@ static CcuResult DoRmtReduce(AllreduceMesh1D2DieOneShotContext &ctx)
     const auto *arg = ctx.arg;
 
     std::vector<ccu::RemoteAddr> src;
-    src.reserve(ctx.rmtReduceRankNum);
+    src.resize(ctx.rmtReduceRankNum);
     for (uint32_t peerIdx = 0; peerIdx < arg->channels.size(); peerIdx++) {
         ccu::RemoteAddr addr;
         addr.token = ctx.remoteToken[peerIdx];
         addr.addr = ctx.input[peerIdx];
         src.push_back(addr);
     }
+    ccu::LocalAddr localSrc;
     if (ctx.rmtReduceWithMyRank) {
-        ccu::RemoteAddr addr;
-        addr.token = ctx.myToken;
-        addr.addr = ctx.myInput;
-        src.push_back(addr);
+        localSrc.token = ctx.myToken;
+        localSrc.addr = ctx.myInput;
     }
 
     ccu::LocalAddr dst;
@@ -338,9 +337,9 @@ static CcuResult DoRmtReduce(AllreduceMesh1D2DieOneShotContext &ctx)
     dst.addr = dst.addr + (ctx.rmtReduceWithMyRank ? ctx.scratchBaseOffset0 : ctx.scratchBaseOffset1);
 
     if (ctx.rmtReduceWithMyRank) {
-        CCU_CHK_RET(ccu::GroupReduce(arg->channels, dst, src, ctx.rmtReduceGoSize, ctx.dataType, ctx.outputDataType, ctx.reduceOp));
+        CCU_CHK_RET(GroupReduce(ctx, arg->channels.data(), arg->channels.size(), dst, src, localSrc, ctx.rmtReduceGoSize, ctx.dataType, ctx.outputDataType, ctx.reduceOp));
     } else {
-        CCU_CHK_RET(ccu::GroupReduceWithoutMyRank(arg->channels, dst, src, ctx.rmtReduceGoSize, ctx.dataType, ctx.outputDataType, ctx.reduceOp));
+        CCU_CHK_RET(GroupReduceWithoutMyRank(ctx, arg->channels.data(), arg->channels.size(), dst, src, ctx.rmtReduceGoSize, ctx.dataType, ctx.outputDataType, ctx.reduceOp));
     }
 
     HCCL_INFO("[CcuKernelAllreduceMesh1D2DieOneShot] Step1 RmtReduce run finished");
@@ -350,7 +349,7 @@ static CcuResult DoRmtReduce(AllreduceMesh1D2DieOneShotContext &ctx)
 static CcuResult DoLocalReduce(AllreduceMesh1D2DieOneShotContext &ctx)
 {
     std::vector<ccu::LocalAddr> src;
-    src.reserve(DIE_WORK);
+    src.resize(DIE_WORK);
     for (uint32_t i = 0; i < DIE_WORK; i++) {
         ccu::LocalAddr addr;
         addr.token = ctx.myToken;

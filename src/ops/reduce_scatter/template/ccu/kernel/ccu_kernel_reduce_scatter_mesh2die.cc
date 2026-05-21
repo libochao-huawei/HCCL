@@ -83,33 +83,35 @@ static void PostSync(ReduceScatterMesh2DieContext &ctx)
     }
 }
 
-static void RmtReduce(ReduceScatterMesh2DieContext &ctx)
+static CcuResult RmtReduce(ReduceScatterMesh2DieContext &ctx)
 {
     const auto *arg = ctx.arg;
     std::vector<ccu::RemoteAddr> src;
-    src.reserve(ctx.rmtReduceRankNum);
+    src.resize(ctx.rmtReduceRankNum);
     for (uint32_t peerIdx = 0; peerIdx < arg->channels.size(); peerIdx++) {
-        src.emplace_back(ccu::CreateRemoteAddr());
-        src.back().token = ctx.peerToken[peerIdx];
-        src.back().addr = ctx.peerInput[peerIdx];
-        src.back().addr += ctx.rmtReduceSliceOffset;
+        ccu::RemoteAddr addr;
+        addr.token = ctx.peerToken[peerIdx];
+        addr.addr = ctx.peerInput[peerIdx];
+        addr.addr = addr.addr + ctx.rmtReduceSliceOffset;
+        src.push_back(addr);
     }
+    ccu::LocalAddr localSrc;
     if (ctx.rmtReduceWithMyRank) {
-        src.emplace_back(ccu::CreateRemoteAddr());
-        src.back().token = ctx.myToken;
-        src.back().addr = ctx.myInput;
-        src.back().addr += ctx.rmtReduceSliceOffset;
+        localSrc.token = ctx.myToken;
+        localSrc.addr = ctx.myInput;
+        localSrc.addr = localSrc.addr + ctx.rmtReduceSliceOffset;
     }
 
-    ccu::LocalAddr dst = ccu::CreateLocalAddr();
+    ccu::LocalAddr dst;
     dst.token = ctx.myToken;
     dst.addr = ctx.rmtReduceWithMyRank ? ctx.myOutput : ctx.myScratch;
 
     if (ctx.rmtReduceWithMyRank) {
-        ccu::GroupReduce(arg->channels, dst, src, ctx.rmtReduceGoSize, ctx.dataType, ctx.outputDataType, ctx.reduceOp);
+        CCU_CHK_RET(GroupReduce(ctx, arg->channels.data(), arg->channels.size(), dst, src, localSrc, ctx.rmtReduceGoSize, ctx.dataType, ctx.outputDataType, ctx.reduceOp));
     } else {
-        ccu::GroupReduceWithoutMyRank(arg->channels, dst, src, ctx.rmtReduceGoSize, ctx.dataType, ctx.outputDataType, ctx.reduceOp);
+        CCU_CHK_RET(GroupReduceWithoutMyRank(ctx, arg->channels.data(), arg->channels.size(), dst, src, ctx.rmtReduceGoSize, ctx.dataType, ctx.outputDataType, ctx.reduceOp));
     }
+    return CCU_SUCCESS;
 }
 
 CcuResult CcuReduceScatterMesh2DieKernel(CcuKernelArg arg)
@@ -137,7 +139,7 @@ CcuResult CcuReduceScatterMesh2DieKernel(CcuKernelArg arg)
     CCU_CHK_RET(InitResources(ctx));
     LoadArgs(ctx);
     PreSync(ctx);
-    RmtReduce(ctx);
+    CCU_CHK_RET(RmtReduce(ctx));
     PostSync(ctx);
 
     HCCL_INFO("[ccuReduceScatterMesh2Die_kernel] ReduceScatterMesh2Die end.");

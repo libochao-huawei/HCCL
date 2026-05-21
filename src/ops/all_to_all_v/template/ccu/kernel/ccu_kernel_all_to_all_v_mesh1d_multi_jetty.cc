@@ -62,8 +62,8 @@ static CcuResult InitResource(AllToAllVMesh1DMultiJettyContext &ctx)
         return CCU_E_INTERNAL;
     }
     ctx.input.push_back(ccu::CreateVariable());
-    ctx.output.reserve(arg->rankSize);
-    ctx.token.reserve(arg->rankSize);
+    ctx.output.resize(arg->rankSize);
+    ctx.token.resize(arg->rankSize);
     for (u32 id = 0; id < arg->rankSize; id++) {
         if (id == arg->rankId) {
             ctx.output.push_back(ccu::CreateVariable());
@@ -77,8 +77,8 @@ static CcuResult InitResource(AllToAllVMesh1DMultiJettyContext &ctx)
         }
     }
 
-    ctx.src.reserve(arg->rankSize);
-    ctx.remoteDst.reserve(arg->rankSize);
+    ctx.src.resize(arg->rankSize);
+    ctx.remoteDst.resize(arg->rankSize);
     for (uint32_t rankIdx = 0; rankIdx < arg->rankSize; rankIdx++) {
         ctx.src.push_back(ccu::CreateLocalAddr());
         if (rankIdx == arg->rankId) {
@@ -97,7 +97,7 @@ static CcuResult InitResource(AllToAllVMesh1DMultiJettyContext &ctx)
     ctx.xnMaxTransportGoSize = ccu::CreateGroupOpSize();
     ctx.xnConst1 = ccu::CreateVariable();
 
-    ctx.eventList.reserve(arg->rankSize);
+    ctx.eventList.resize(arg->rankSize);
     for (uint32_t rankIdx = 0; rankIdx < arg->rankSize; rankIdx++) {
         ctx.eventList.push_back(ccu::CreateCompletedEvent());
     }
@@ -267,7 +267,7 @@ static CcuResult DoAll2AllVMultiLoop(AllToAllVMesh1DMultiJettyContext &ctx)
                     CHK_RET(ccu::EventRecord(ctx.eventList[arg->rankId]));
                 }
                 CCU_IF(ctx.sendRecvInfo[arg->rankId].lastTailSliceSize != 0) {
-                    CHK_RET(ccu::GroupCopy(ctx.myDst, ctx.src[arg->rankId], ctx.sendRecvInfo[arg->rankId].tailGoSize));
+                    CHK_RET(GroupCopy(*ctx, ctx.myDst, ctx.src[arg->rankId], ctx.sendRecvInfo[arg->rankId].tailGoSize));
                     ctx.eventList[arg->rankId].SetMask((1 << arg->jettyNums[arg->rankId]) - 1);
                     CHK_RET(ccu::EventRecord(ctx.eventList[arg->rankId]));
                 }
@@ -279,11 +279,11 @@ static CcuResult DoAll2AllVMultiLoop(AllToAllVMesh1DMultiJettyContext &ctx)
                     CHK_RET(ccu::EventRecord(ctx.eventList[arg->rankId]));
                 }
                 CCU_IF(ctx.sendRecvInfo[arg->rankId].tailSliceSize != 0) {
-                    CHK_RET(ccu::GroupCopy(ctx.myDst, ctx.src[arg->rankId], ctx.xnMaxTransportGoSize));
+                    CHK_RET(GroupCopy(*ctx, ctx.myDst, ctx.src[arg->rankId], ctx.xnMaxTransportGoSize));
                     ctx.eventList[arg->rankId].SetMask((1 << arg->jettyNums[arg->rankId]) - 1);
                     CHK_RET(ccu::EventRecord(ctx.eventList[arg->rankId]));
-                    ctx.src[arg->rankId].addr += ctx.xnMaxTransportSize;
-                    ctx.myDst.addr += ctx.xnMaxTransportSize;
+                    ctx.src[arg->rankId].addr = ctx.src[arg->rankId].addr + ctx.xnMaxTransportSize;
+                    ctx.myDst.addr = ctx.myDst.addr + ctx.xnMaxTransportSize;
                 }
             }
             ctx.sendRecvInfo[arg->rankId].loopNum += ctx.xnConst1;

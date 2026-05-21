@@ -193,7 +193,7 @@ static CcuResult CreateReduceLoop(AllReduceMesh1DMem2Mem2DieOneShotContext &ctx,
 
 static CcuResult ReduceLoopGroup(AllReduceMesh1DMem2Mem2DieOneShotContext &ctx,
     ccu::LocalAddr &outDstOrg, std::vector<ccu::LocalAddr> &srcOrg,
-    GroupOpSize goSize, HcclDataType dataType, HcclDataType outputDataType,
+    GroupOpSizeVars goSize, HcclDataType dataType, HcclDataType outputDataType,
     HcclReduceOp opType, const std::string &loopName)
 {
     const uint32_t size = srcOrg.size();
@@ -308,7 +308,7 @@ static CcuResult RmtReduce(AllReduceMesh1DMem2Mem2DieOneShotContext &ctx)
 
     std::vector<ccu::RemoteAddr> remoteInput;
     uint32_t channelIdx = 0;
-    remoteInput.reserve(ctx.rmtReduceRankNum);
+    remoteInput.resize(ctx.rmtReduceRankNum);
     for (uint32_t rankIdx = 0; rankIdx < ctx.rmtReduceRankNum; rankIdx++) {
         if (ctx.rmtReduceWithMyRank && rankIdx == ctx.rankId % ctx.rmtReduceRankNum) {
             remoteInput.push_back({});
@@ -322,7 +322,7 @@ static CcuResult RmtReduce(AllReduceMesh1DMem2Mem2DieOneShotContext &ctx)
     }
 
     std::vector<ccu::LocalAddr> scratchDst;
-    scratchDst.reserve(ctx.rmtReduceRankNum);
+    scratchDst.resize(ctx.rmtReduceRankNum);
     ccu::Variable scratchOffset;
     scratchOffset = 0;
     for (uint32_t rankIdx = 0; rankIdx < ctx.rmtReduceRankNum; rankIdx++) {
@@ -365,7 +365,7 @@ static CcuResult RmtReduce(AllReduceMesh1DMem2Mem2DieOneShotContext &ctx)
 static CcuResult DoLocalReduce(AllReduceMesh1DMem2Mem2DieOneShotContext &ctx)
 {
     std::vector<ccu::LocalAddr> src;
-    src.reserve(MISSION_NUM);
+    src.resize(MISSION_NUM);
     for (uint32_t i = 0; i < MISSION_NUM; i++) {
         ccu::LocalAddr addr;
         addr.token = ctx.myToken;
