@@ -1055,7 +1055,7 @@ HcclResult HcclGetThread(
                 }
             }
         } else {
-            GeGetThread(comm, param, resRequest, resCtxHost, resPack);
+            GeGetThread(comm, param, resRequest, resCtxHost, resPack, maxNotifyNum);
         }
     }
 
@@ -1069,7 +1069,7 @@ HcclResult HcclGetThread(
 }
 
 HcclResult GeGetThread(HcclComm comm, const OpParam &param, AlgResourceRequest &resRequest,
-    std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, const ResPackGraphMode &resPack)
+    std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, const ResPackGraphMode &resPack, u32 maxNotifyNum)
 {
     u32 slaveStreams = resPack.streams.size();
     u32 threadNum = resRequest.slaveThreadNum;
