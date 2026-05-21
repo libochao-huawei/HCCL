@@ -621,5 +621,17 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherPara
 #endif /* !HCCL_CANN_COMPAT_850 */
 
 #endif
+
+#include "ins_temp_all_gather_mesh_clos_v2.h"
+
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherParallelMesh1DMeshClosV2,
+                               InsV2AllGatherParallelExecutor, TopoMatchMultilevel,
+                               InsTempAllGatherMesh1D, InsTempAllGatherMeshClosV2);
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherParallelMesh1DMeshClosV2MultiJetty,
+                               InsV2AllGatherParallelExecutor, TopoMatchUBX,
+                               InsTempAllGatherMesh1D, InsTempAllGatherMeshClosV2);
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherParallelMesh1DMeshClosV2Pcie,
+                               InsV2AllGatherParallelExecutor, TopoMatchPcieMix,
+                               InsTempAllGatherMesh1D, InsTempAllGatherMeshClosV2);
 }
 // 算法注册
