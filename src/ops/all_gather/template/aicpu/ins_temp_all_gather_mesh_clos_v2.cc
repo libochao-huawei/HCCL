@@ -70,7 +70,7 @@ HcclResult InsTempAllGatherMeshClosV2::RunAllGatherMesh(
         return HCCL_SUCCESS;
     }
 
-    for (u32 linkIdx = 0; linkIdx < 1; linkIdx++) {
+    for (u32 linkIdx = 0; linkIdx < channelsPerRank_; linkIdx++) {
         CHK_RET(RunAllGatherOnLink(threads, channels, linkIdx));
     }
     return HCCL_SUCCESS;
