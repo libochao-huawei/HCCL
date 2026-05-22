@@ -16,7 +16,7 @@ namespace ops_hccl {
 constexpr u64 AG_2D_SMALL_DATA_SIZE = 1024 * 1024;
 constexpr u32 MAX_RANK_NUM_FOR_CONCURRENT_ALGO = 4;
 constexpr u64 AG_CCU_SMALL_DATA_SIZE = 4 * 1024 * 1024;
-constexpr u32 AG_FLATTEN_MAX_DATA_SIZE = 8 * 1024 * 1024;
+constexpr u32 AG_FLATTEN_MAX_DATA_SIZE = 1 * 1024 * 1024;
 constexpr u64 AG_AICPU_SMALL_DATA_SIZE = 1 * 1024 * 1024;
 constexpr u64 AG_AICPU_1D_TWO_LEVER_DATA_SIZE_THRESHOLD = 1 * 1024 * 1024 * 1024;
 constexpr u64 AG_CCU_CLOS_SMALL_DATA_SIZE = 1 * 1024 * 1024;
@@ -139,6 +139,10 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleLevel0Algo(
             return SelectCcuScheduleUBXAlgo(topoInfo, selectAlgName, dataSize);
         }
     } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
+        if (topoInfo->level0PcieMix) {
+            HCCL_WARNING("[AllGatherAutoSelector] pcie mixed topo is not supported yet for ccu schedule mode.");
+            return SelectorStatus::NOT_MATCH;
+        }
         if (dataSize > AG_CCU_CLOS_SMALL_DATA_SIZE) {
             selectAlgName = "CcuAllGatherMesh1DMem2Mem";
         } else {
@@ -175,15 +179,12 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
             } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] == 1) {
                 selectAlgName = "CcuAllGatherNHR1DMem2Mem";
                 return SelectorStatus::MATCH;
-            } else if ((dataSize * topoInfo->userRankSize) <= AG_FLATTEN_MAX_DATA_SIZE && topoInfo->userRankSize > 8) {
+            } else if (dataSize < AG_FLATTEN_MAX_DATA_SIZE && topoInfo->userRankSize <= 64) {
                 selectAlgName = "CcuAllGatherMesh1DMem2Mem";
                 return SelectorStatus::MATCH;
-            } else if (dataSize < AG_CCU_SMALL_DATA_SIZE) {
+            } else {
                 selectAlgName = "CcuAllGatherParallelMesh1DNHR";
                 return SelectorStatus::MATCH;
-            }else {
-                // 4M 以上切aicpu
-                return SelectorStatus::NOT_MATCH;
             }
         } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
             selectAlgName = "CcuAllGatherNHR1DMem2Mem";

@@ -8,17 +8,17 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef AIV_REDUCE_SCATTER_LOCAL_TREE_H
-#define AIV_REDUCE_SCATTER_LOCAL_TREE_H
+#ifndef AIV_REDUCE_SCATTER_LOCAL_TREE_CORECTRL_H
+#define AIV_REDUCE_SCATTER_LOCAL_TREE_CORECTRL_H
 
 #include "aiv_communication_base_v2.h"
 
 using namespace AscendC;
 
 template<typename T>
-class AivReduceScatterLocalTree : public AivCommBase {
+class AivReduceScatterLocalTreeCoreCtrl : public AivCommBase {
 public:
-    __aicore__ inline AivReduceScatterLocalTree() {}
+    __aicore__ inline AivReduceScatterLocalTreeCoreCtrl() {}
 
     __aicore__ inline void InitCoreInfo(uint64_t len, uint64_t inputStride)
     {
@@ -27,7 +27,13 @@ public:
         rankSizeU32_ = static_cast<uint32_t>(rankSize_);
         blockIdx_ = static_cast<uint32_t>(GetBlockIdx());
         blockNum_ = static_cast<uint32_t>(GetBlockNum());
-        valid_ = rankSizeU32_ > 0 && blockNum_ >= rankSizeU32_;
+        valid_ = rankSizeU32_ > 0 && blockNum_ > 0 && blockNum_ < rankSizeU32_;
+        if (!valid_) {
+            return;
+        }
+
+        SplitLogicalRange(rankSizeU32_, publishBegin_, publishEnd_);
+        SplitLogicalRange(rankSizeU32_, fetchBegin_, fetchEnd_);
     }
 
     __aicore__ inline void Process(uint32_t sliceId)
@@ -38,13 +44,13 @@ public:
 
         curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
 
-        PublishLocalShard();
+        PublishLocalShardRange();
         SyncAll<true>();
 
-        FetchPeerShardToLocalStage();
+        FetchPeerShardRange();
         SyncAll<true>();
 
-        LocalTreeReduce();
+        LocalTreeReduceCoreCtrl();
         SyncAll<true>();
 
         StoreResult();
@@ -57,6 +63,10 @@ private:
     uint32_t rankSizeU32_ = 0;
     uint32_t blockIdx_ = 0;
     uint32_t blockNum_ = 0;
+    uint32_t publishBegin_ = 0;
+    uint32_t publishEnd_ = 0;
+    uint32_t fetchBegin_ = 0;
+    uint32_t fetchEnd_ = 0;
 
     __aicore__ inline uint64_t LocalPublishOffset(uint32_t targetRank)
     {
@@ -66,6 +76,15 @@ private:
     __aicore__ inline uint64_t LocalStageOffset(uint32_t peerRank)
     {
         return static_cast<uint64_t>(rankSizeU32_ + peerRank) * lenPerRank_ * sizeof(T);
+    }
+
+    __aicore__ inline void SplitLogicalRange(uint32_t total, uint32_t &begin, uint32_t &end)
+    {
+        const uint32_t baseCnt = total / blockNum_;
+        const uint32_t extra = total % blockNum_;
+        const uint32_t myCnt = baseCnt + (blockIdx_ < extra ? 1u : 0u);
+        begin = baseCnt * blockIdx_ + (blockIdx_ < extra ? blockIdx_ : extra);
+        end = begin + myCnt;
     }
 
     __aicore__ inline uint32_t CeilLog2(uint32_t n)
@@ -94,29 +113,25 @@ private:
         return result;
     }
 
-    __aicore__ inline void PublishLocalShard()
+    __aicore__ inline void PublishOne(uint32_t targetRank)
     {
-        if (blockIdx_ >= rankSizeU32_) {
-            return;
-        }
-
-        const uint64_t inputOffset = input_ + static_cast<uint64_t>(blockIdx_) * inputStride_;
-        const uint64_t cclOffset = reinterpret_cast<uint64_t>(GM_IN[rank_]) + LocalPublishOffset(blockIdx_);
-        CpGM2GM(reinterpret_cast<__gm__ T *>(cclOffset), reinterpret_cast<__gm__ T *>(inputOffset), lenPerRank_);
+        const uint64_t inputOffset = input_ + static_cast<uint64_t>(targetRank) * inputStride_;
+        const uint64_t publishOffset = reinterpret_cast<uint64_t>(GM_IN[rank_]) + LocalPublishOffset(targetRank);
+        CpGM2GM(reinterpret_cast<__gm__ T *>(publishOffset), reinterpret_cast<__gm__ T *>(inputOffset), lenPerRank_);
         pipe_barrier(PIPE_ALL);
-
-        Record(blockIdx_, rank_, curTag_);
+        Record(targetRank, rank_, curTag_);
     }
 
-    __aicore__ inline void FetchPeerShardToLocalStage()
+    __aicore__ inline void PublishLocalShardRange()
     {
-        if (blockIdx_ >= rankSizeU32_) {
-            return;
+        for (uint32_t targetRank = publishBegin_; targetRank < publishEnd_; ++targetRank) {
+            PublishOne(targetRank);
         }
+    }
 
-        const uint32_t peerRank = blockIdx_;
+    __aicore__ inline void FetchOne(uint32_t peerRank)
+    {
         WaitFlag(rank_, peerRank, curTag_);
-
         const uint64_t peerOffset =
             reinterpret_cast<uint64_t>(GM_IN[peerRank]) + static_cast<uint64_t>(rank_) * lenPerRank_ * sizeof(T);
         const uint64_t stageOffset = reinterpret_cast<uint64_t>(GM_IN[rank_]) + LocalStageOffset(peerRank);
@@ -124,27 +139,31 @@ private:
         pipe_barrier(PIPE_ALL);
     }
 
-    __aicore__ inline void LocalTreeReduce()
+    __aicore__ inline void FetchPeerShardRange()
+    {
+        for (uint32_t peerRank = fetchBegin_; peerRank < fetchEnd_; ++peerRank) {
+            FetchOne(peerRank);
+        }
+    }
+
+    __aicore__ inline void LocalTreeReduceCoreCtrl()
     {
         uint32_t curBlocks = rankSizeU32_;
         const uint32_t totalRounds = CeilLog2(rankSizeU32_);
-
         for (uint32_t round = 0; round < totalRounds; ++round) {
             const uint32_t powerOf2 = GetLargestPowerOf2(curBlocks);
             if (powerOf2 == 0) {
                 break;
             }
 
-            if (blockIdx_ < rankSizeU32_) {
-                for (uint32_t offset = blockIdx_; offset < powerOf2; offset += rankSizeU32_) {
-                    const uint32_t backIdx = powerOf2 + offset;
-                    if (backIdx < curBlocks) {
-                        const uint64_t frontOffset = reinterpret_cast<uint64_t>(GM_IN[rank_]) + LocalStageOffset(offset);
-                        const uint64_t backOffset = reinterpret_cast<uint64_t>(GM_IN[rank_]) + LocalStageOffset(backIdx);
-                        CpGM2GM(reinterpret_cast<__gm__ T *>(frontOffset), reinterpret_cast<__gm__ T *>(backOffset),
-                                lenPerRank_, reduceOp_);
-                        pipe_barrier(PIPE_ALL);
-                    }
+            for (uint32_t offset = blockIdx_; offset < powerOf2; offset += blockNum_) {
+                const uint32_t backIdx = powerOf2 + offset;
+                if (backIdx < curBlocks) {
+                    const uint64_t frontOffset = reinterpret_cast<uint64_t>(GM_IN[rank_]) + LocalStageOffset(offset);
+                    const uint64_t backOffset = reinterpret_cast<uint64_t>(GM_IN[rank_]) + LocalStageOffset(backIdx);
+                    CpGM2GM(reinterpret_cast<__gm__ T *>(frontOffset), reinterpret_cast<__gm__ T *>(backOffset),
+                            lenPerRank_, reduceOp_);
+                    pipe_barrier(PIPE_ALL);
                 }
             }
 
@@ -166,16 +185,18 @@ private:
 };
 
 template<typename T>
-__aicore__ inline void AivReduceScatterV2LocalTree(KERNEL_ARGS_DEF)
+__aicore__ inline void AivReduceScatterV2LocalTreeCoreCtrl(KERNEL_ARGS_DEF)
 {
-    AivReduceScatterLocalTree<T> op;
+    AivReduceScatterLocalTreeCoreCtrl<T> op;
     op.Init(KERNEL_CLASS_INIT, true);
     op.InitCoreInfo(len, inputSliceStride);
+    SyncAll<true>();
     if (op.IsFirstOP(sliceId)) {
         op.BarrierForFirstOP();
     }
+    SyncAll<true>();
     op.Process(sliceId);
     op.BarrierAll();
 }
 
-#endif // AIV_REDUCE_SCATTER_LOCAL_TREE_H
+#endif // AIV_REDUCE_SCATTER_LOCAL_TREE_CORECTRL_H

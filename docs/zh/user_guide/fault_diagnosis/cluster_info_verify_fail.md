@@ -38,7 +38,7 @@ hccn_tool -i {deviceId} -ip -inet6 -g
 
 同一次作业的所有rank的IP Family应保持一致。HCCL默认先使用IPv4协议，若Device侧没有配置IPv4协议的IP，则会使用IPv6协议对应的ip。可以使用HCCL\_SOCKET\_FAMILY环境变量指定需要使用的网卡IP协议。
 
-**注意：**family打印为枚举值，枚举值及对应关系如下表所示。
+**注意**：family打印为枚举值，枚举值及对应关系如下表所示。
 
 | IP Family枚举值 | IP协议 |
 | --- | --- |

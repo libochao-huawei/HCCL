@@ -20,12 +20,12 @@
 
 #ifndef AICPU_COMPILE
 // CCU template 头文件
-#if !defined(HCCL_CANN_COMPAT_850)
+#if CANN_VERSION_NUM >= CANN_VERSION_9_0_0
 #include "ccu_temp_all_gather_mesh_1D.h"
 #include "ccu_temp_all_gather_nhr_1D_multi_jetty_mem2mem.h"
 #include "ccu_temp_all_gather_mesh_1D_mem2mem.h"
 
-#endif /* !HCCL_CANN_COMPAT_850 */
+#endif /* CANN_VERSION_NUM >= CANN_VERSION_9_0_0 */
 #endif
 
 namespace ops_hccl {
@@ -354,7 +354,7 @@ HcclResult InsV2AllGatherConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     CHK_RET(PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_));
 
 #ifndef AICPU_COMPILE
-    if ((loopTimesforTemp0 == 1 && loopTimesforTemp1 == 1) && param.engine == CommEngine::COMM_ENGINE_CCU) {
+    if ((loopTimesforTemp0 == 1 && loopTimesforTemp1 == 1) && param.engine == CommEngine::COMM_ENGINE_CCU && param.opMode != OpMode::OFFLOAD) {
         CHK_RET(FastLaunchSaveCtx(param, templateAlgResforTemp0, templateAlgResforTemp1, resCtx.notifyNumOnMainThread));
     }
 #endif
@@ -434,16 +434,16 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, InsAllGatherConc
                               TopoMatchUBX, InsTempAllGatherMesh1D, InsTempAllGatherNHR);
 
 #ifndef AICPU_COMPILE
-#if !defined(HCCL_CANN_COMPAT_850)
+#if CANN_VERSION_NUM >= CANN_VERSION_9_0_0
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherConcurrentMesh1DNHRMem, InsV2AllGatherConcurrentExecutor,
     TopoMatchUBX, CcuTempAllGatherMesh1DMem2Mem, CcuTempAllGatherNHR1DMultiJettyMem2Mem);
-#endif /* !HCCL_CANN_COMPAT_850 */
+#endif /* CANN_VERSION_NUM >= CANN_VERSION_9_0_0 */
 
-#if !defined(HCCL_CANN_COMPAT_850)
+#if CANN_VERSION_NUM >= CANN_VERSION_9_0_0
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLGATHER, CcuAllGatherConcurrentMesh1DNHR,
                                InsV2AllGatherConcurrentExecutor, TopoMatchUBX, CcuTempAllGatherMesh1D,
                                CcuTempAllGatherNHR1DMultiJettyMem2Mem);
-#endif /* !HCCL_CANN_COMPAT_850 */
+#endif /* CANN_VERSION_NUM >= CANN_VERSION_9_0_0 */
 #endif
 
 }  // namespace

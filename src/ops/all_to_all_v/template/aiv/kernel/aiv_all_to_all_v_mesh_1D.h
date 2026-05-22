@@ -174,11 +174,9 @@ __aicore__ inline void AivAlltoAllVV2Mesh1D(KERNEL_ARGS_DEF, ExtraArgs &extraArg
 {
     AivAlltoAllVMesh1D<T> op;
     op.Init(KERNEL_CLASS_INIT, true);
-    SyncAll<true>();
     if (op.IsFirstOP(sliceId)) {
         op.BarrierForFirstOP();
     }
-    SyncAll<true>();
     op.Process(len, sliceId, extraArgs);
     op.BarrierAll();
 }
