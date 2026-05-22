@@ -296,9 +296,9 @@ HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std
                 }
             }
         }
+         HCCL_INFO("closChannel_list.size() = %llu", closChannel_list.size());
     }
     HCCL_INFO("meshDieId = %llu", meshDieId);
-    HCCL_INFO("closChannel_list.size() = %llu", closChannel_list.size());
 
     HCCL_INFO("closChannels_[0][%llu], closChannels_[1][%llu]", closChannels_[0].size(), closChannels_[1].size());
 
