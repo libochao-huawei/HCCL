@@ -37,7 +37,7 @@ public:
         TemplateResource& templateResource) override;
 private:
     HcclResult PartitionChannels(HcclComm comm, const std::vector<HcclChannelDesc> &channelDescs, uint32_t &meshDieId,
-                                std::map<u32, std::vector<HcclChannelDesc>>& rankIdToChannelDesc);
+                                std::map<u32, std::vector<std::vector<HcclChannelDesc>>>& rankIdToChannelDesc);
     HcclResult CalcChannelRequest(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
         const std::vector<std::vector<u32>>& subcommInfo, std::vector<std::vector<HcclChannelDesc>> &channels);
     HcclResult ProcessLinkForProtocol(HcclComm comm, const std::vector<CommProtocol>& expectedProtocols,
@@ -59,7 +59,7 @@ private:
     std::map<uint32_t, std::vector<HcclChannelDesc>> meshChannels_; // key is DieId
     std::map<uint32_t, std::vector<HcclChannelDesc>> closChannels_;
     std::map<uint32_t, RankGroup> rankGroup_;
-    std::map<u32, std::vector<HcclChannelDesc>> rankIdToChannelDesc_;
+    std::map<u32, std::vector<std::vector<HcclChannelDesc>>>& rankIdToChannelDesc_;
     
 };
 
