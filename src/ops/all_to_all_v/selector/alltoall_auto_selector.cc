@@ -19,7 +19,7 @@ constexpr uint32_t INDEX_2 = 2;
 constexpr uint32_t INDEX_3 = 3;
 constexpr uint32_t CONCURRENT_RANK_LIMIT = 4;
 constexpr uint64_t BIG_DATA_SIZE_LIMIT = 512;
-constexpr uint64_t ENABLE_MULTI_CHANNEL_DATA_SIZE_LIMIT = 4 * 1024 * 1024 * 1024;
+constexpr uint64_t ENABLE_MULTI_CHANNEL_DATA_SIZE_LIMIT = 8LL * 1024 * 1024 * 1024;
 
 constexpr u64 A2A_CCU_64P_MAX_DATA_SIZE = 256 * 1024 * 1024;
 SelectorStatus AlltoAllAutoSelector::SelectCcuMsAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
