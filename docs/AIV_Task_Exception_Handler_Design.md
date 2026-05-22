@@ -132,51 +132,62 @@ constexpr u32 AIV_FLAG_UB_ALIGN_SIZE = 32;   // flag内存对齐大小
 
 ```mermaid
 flowchart LR
-    A[Kernel启动] --> B[保存任务信息]
-    B --> C[注册异常回调]
-    C --> D[正常执行完成]
+    A[ExecuteKernelLaunchInner] --> B[rtGetTaskIdAndStreamID]
+    B --> C[SaveAivDfxTaskInfo]
+    C --> D[RegisterAivExceptionCallback]
+    D --> E[HcclTaskExceptionRegCallBack]
+    E --> F[返回成功]
 ```
 
 ```mermaid
 flowchart LR
-    A[设备异常] --> B[触发回调]
-    B --> C[查询任务信息]
-    C --> D[输出诊断日志]
+    A[设备异常] --> B[Runtime触发]
+    B --> C[ProcessAivExceptionCallBack]
+    C --> D[FindAivTask]
+    D --> E[SerializeAivFlag]
+    E --> F[输出诊断日志]
 ```
 
 ### 4.2 任务信息保存流程
 
 ```mermaid
 flowchart LR
-    A[获取taskId/streamId] --> B[获取通信句柄]
-    B --> C[注册回调]
-    C --> D[构建任务参数]
-    D --> E[保存到队列]
+    A[rtGetTaskIdAndStreamID] --> B[GetAivTaskComm]
+    B --> C[RegisterAivExceptionCallback]
+    C --> D[构建TaskParamAiv]
+    D --> E[加锁g_aivTaskMutex]
+    E --> F[保存到g_aivTaskByStream]
+    F --> G[解锁返回]
 ```
 
 ### 4.3 异常回调处理流程
 
 ```mermaid
-flowchart LR
-    A[解析异常信息] --> B[查找任务]
-    B --> C{找到?}
-    C -->|是| D[输出诊断日志]
-    C -->|否| E[输出警告]
+flowchart TB
+    A[ProcessAivExceptionCallBack] --> B[aclrtGetTaskIdFromExceptionInfo]
+    B --> C[FindAivTask]
+    C --> D{找到任务?}
+    D -->|是| E[SerializeAivFlag]
+    D -->|否| F[HCCL_RUN_WARNING]
+    E --> G[输出诊断日志]
 ```
 
 ### 4.4 回调注册流程（时序图）
 
 ```mermaid
 sequenceDiagram
-    participant K as Kernel
-    participant H as HCOMM
-    participant R as Runtime
+    participant K as ExecuteKernelLaunchInner
+    participant S as SaveAivDfxTaskInfo
+    participant R as RegisterAivExceptionCallback
+    participant H as HcclTaskExceptionRegCallBack
     
-    K->>H: 注册回调请求
-    H->>H: 设置callbackRegistered
-    H->>R: HcclTaskExceptionRegCallBack
-    R-->>H: 注册成功
-    H-->>K: 返回结果
+    K->>S: kernel启动完成
+    S->>S: rtGetTaskIdAndStreamID
+    S->>R: 注册回调
+    R->>R: 检查callbackRegistered
+    R->>H: HCOMM API
+    H-->>S: 返回结果
+    S-->>K: 保存任务信息
 ```
 
 ---
@@ -258,11 +269,15 @@ flowchart TB
 ### 5.3 通信句柄获取逻辑
 
 ```mermaid
-flowchart LR
-    A[检查opArgs.hcclComm] --> B{存在?}
-    B -->|是| C[直接使用]
-    B -->|否| D[通过组名获取]
-    D --> E[返回comm]
+flowchart TB
+    A[GetAivTaskComm] --> B{opArgs.hcclComm存在?}
+    B -->|是| C[使用opArgs.hcclComm]
+    B -->|否| D{g_aivCurrentComm存在?}
+    D -->|是| E[使用g_aivCurrentComm]
+    D -->|否| F[HcomGetCommHandleByGroup]
+    C --> G[返回comm]
+    E --> G
+    F --> G
 ```
 
 ---
