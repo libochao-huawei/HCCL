@@ -20,6 +20,7 @@
 #include "alg_type.h"
 #include "execute_selector.h"
 #include "acl/acl_rt.h"
+#include "inconsistent_check.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -92,21 +93,6 @@ HcclResult GetAlgResDPU(HcclComm comm, const OpParam &param, AlgResourceRequest 
     std::unique_ptr<AlgResourceCtxSerializable>& resCtxHost, TopoInfoWithNetLayerDetails *topoInfo,
     AlgHierarchyInfoForAllLevel &algHierarchyInfo, void **resCtxSequence, uint64_t& ctxSize,
     bool increCreateChannelFlag);
-
-HcclResult FillOpExchangeInfo(HcclComm comm, const OpParam &param, OpExchangeInfo &exchangeInfo);
-
-HcclResult FillOpExchangeInfoWithDataDes(const OpParam &param, OpExchangeInfo &exchangeInfo);
-
-HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeInfo,
-    const std::vector<HcclChannelDesc> &channels);
-
-HcclResult ConsistencyCheckOpType(const OpExchangeInfo &exchangeInfo, const HcclCMDType &rmtOpType);
-
-HcclResult ReportOpExchangeInfoCheckFailed(const OpExchangeInfo &exchangeInfo, const std::string &paraName,
-    uint32_t expectVal, uint32_t remotePara);
-
-HcclResult ReportOpExchangeInfoCheckFailed(const OpExchangeInfo &exchangeInfo, const std::string &paraName,
-    const std::string &expectVal, const std::string &remotePara);
 
 HcclResult CheckCount(const u64 count);
 
