@@ -164,11 +164,12 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcChannelRequest(HcclComm comm, const Op
 HcclResult CcuTempAllToAllMesh1D2Die::RestoreChannelMap(const std::vector<std::vector<HcclChannelDesc>>& channelDescs,
                                 std::map<u32, std::vector<std::vector<HcclChannelDesc>>>& rankIdToChannelDesc)
 {
-    rankIdToChannelDesc[remoteRank].resize(2);
+
     for (size_t dieIdx = 0; dieIdx < channelDescs.size(); ++dieIdx) {
         const auto& channelList = channelDescs[dieIdx];
         for (const auto& channel : channelList) {
             u32 remoteRank = channel.remoteRank;
+            rankIdToChannelDesc[remoteRank].resize(2);
             rankIdToChannelDesc[remoteRank][dieIdx].push_back(channel);
             HCCL_INFO("remoteRank = %llu, dieIdx = %llu, rankIdToChannelDesc[remoteRank][dieIdx].size() = %llu", remoteRank, dieIdx, rankIdToChannelDesc[remoteRank][dieIdx].size());
         }
