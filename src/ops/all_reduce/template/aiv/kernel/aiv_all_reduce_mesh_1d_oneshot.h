@@ -67,7 +67,9 @@ public:
             uint64_t outerOffset = rank_  * this->curCount * sizeof(T);
             outputOffset = reinterpret_cast<uint64_t>(GM_IN[targetRank]) + outerOffset;
             Producer();
+            SyncAll<true>();
         } else if(GetBlockIdx() < coreNumPerStage + coreNumPerRank){
+            SyncAll<true>();
             Consumer();
         }
     }
@@ -83,10 +85,12 @@ public:
             uint64_t outerOffset = rank_  * this->curCount * sizeof(T);
             outputOffset = reinterpret_cast<uint64_t>(GM_IN[targetRank]) + outerOffset;
             Producer();
+            SyncAll<true>();
         }
  
         if(block_idx==numBlocks_-1){
-          Consumer();
+            SyncAll<true>();
+            Consumer();
         }
     }
  
