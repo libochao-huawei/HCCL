@@ -20,7 +20,6 @@
 #include "alg_type.h"
 #include "execute_selector.h"
 #include "acl/acl_rt.h"
-#include "inconsistent_check.h"
 
 #ifdef __cplusplus
 extern "C" {
