@@ -190,20 +190,7 @@ void CcuKernelScatterMesh1D::DoScatter()
             RecordEvent(event_);
         }
     }
-    CCU_IF(isInputOutputEqual_ == 0)
-    {
-        DoScatterLocalCopy();
-    }
-    CCU_IF(isInputOutputEqual_ != 0)
-    {
-        CCU_IF(outputSliceStride_ == 0)
-        {
-            if (rootId_ != 0)
-            {
-                DoScatterLocalCopy();
-            }
-        }
-    }
+    DoScatterLocalCopy();
     event_.SetMask((1 << rankSize_) - 1);
     WaitEvent(event_);
 }
