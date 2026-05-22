@@ -90,9 +90,7 @@ else()
         )
     endif()
 
-    if(HCCL_CANN_COMPAT_850)
-        target_compile_definitions(hccl_compat PRIVATE HCCL_CANN_COMPAT_850)
-    endif()
+    hccl_apply_cann_compat(hccl_compat)
 
     target_include_directories(hccl_compat PRIVATE
         ${INCLUDE_LIST}
@@ -164,9 +162,7 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         hccl_device_comm_dl.cc
     )
 
-    if(HCCL_CANN_COMPAT_850)
-        target_compile_definitions(hccl_kernel_compat PRIVATE HCCL_CANN_COMPAT_850)
-    endif()
+    hccl_apply_cann_compat(hccl_kernel_compat)
 
     target_include_directories(hccl_kernel_compat PRIVATE
         ${INCLUDE_LIST}
