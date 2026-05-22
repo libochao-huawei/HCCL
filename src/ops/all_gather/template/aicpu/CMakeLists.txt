@@ -22,6 +22,14 @@ if(NOT HCCL_CANN_COMPAT_850)
     )
 endif()
 
+<<<<<<< HEAD
 target_sources(hccl PRIVATE
     ${src_list}
 )
+=======
+if(TARGET hccl)
+    target_sources(hccl PRIVATE
+        ${src_list}
+    )
+endif()
+>>>>>>> 017c24e (src/CMakeList.txt实现分支判断 下层target_source()增加判断逻辑 未关心BUILD_OPEN_PROJECT的逻辑)
