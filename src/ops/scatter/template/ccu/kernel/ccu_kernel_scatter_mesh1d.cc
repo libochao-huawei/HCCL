@@ -175,6 +175,9 @@ void CcuKernelScatterMesh1D::DoScatter()
     uint32_t channelId = 0;
     CcuRep::Variable sliceSize = CreateVariable();
     // root卡的数据发送到所有卡
+	CcuRep::LocalAddr myOutput = CreateLocalAddr();
+    myOutput.addr = outputMem_[rankId_].addr;
+    myOutput.token = outputMem_[rankId_].token;
     for (uint64_t rankIdx = 0; rankIdx < rankSize_; rankIdx++) {
         event_.SetMask(1 << rankIdx);
         sliceSize = rankIdx == rankSize_ - 1 ? lastSliceSize_ : normalSliceSize_;
