@@ -72,13 +72,13 @@ HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeI
             CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "GroupName", exchangeInfo.group,
                 rmtExchangeInfo.group));
         }
-        if (strncmp(exchangeInfo.algTag, rmtExchangeInfo.algTag, ALG_TAG_LENGTH) != 0) {
-            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "AlgTag", exchangeInfo.algTag,
-                rmtExchangeInfo.algTag));
+        if (strncmp(exchangeInfo.tag, rmtExchangeInfo.tag, ALG_TAG_LENGTH) != 0) {
+            CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "OpTag", exchangeInfo.tag,
+                rmtExchangeInfo.tag));
         }
         HCCL_INFO("[CompareOpExchangeInfos] success. remoteRank[%u]", channel.remoteRank);
     }
-    HCCL_INFO("[CompareOpExchangeInfos] all exchangeInfos checked successfully. tag[%s]", exchangeInfo.algTag);
+    HCCL_INFO("[CompareOpExchangeInfos] all exchangeInfos checked successfully. tag[%s]", exchangeInfo.tag);
     return HCCL_SUCCESS;
 }
 
