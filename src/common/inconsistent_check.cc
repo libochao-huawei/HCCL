@@ -8,6 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 #include "inconsistent_check.h"
+#include "hcom.h"
 #include "adapter_error_manager_pub.h"
 
 namespace ops_hccl {
