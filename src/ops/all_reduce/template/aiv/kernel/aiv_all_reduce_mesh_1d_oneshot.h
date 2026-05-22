@@ -68,6 +68,7 @@ public:
             outputOffset = reinterpret_cast<uint64_t>(GM_IN[targetRank]) + outerOffset;
             Producer();
         } else if(GetBlockIdx() < coreNumPerStage + coreNumPerRank){
+            SyncAll<true>();
             Consumer();
         }
     }
@@ -86,7 +87,8 @@ public:
         }
  
         if(block_idx==numBlocks_-1){
-          Consumer();
+            SyncAll<true>();
+            Consumer();
         }
     }
  
