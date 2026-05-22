@@ -26,9 +26,9 @@ experimental/
 
 ---
 
-## 5. 贡献流程
+## 3. 贡献流程
 
-### 5.1 快速贡献（experimental）
+### 3.1 快速贡献（experimental）
 
 ```
 Step 1: 确定归属
@@ -54,7 +54,7 @@ Step 4: 提交 PR
 
 ---
 
-## 6. 子目录模板
+## 4. 子目录模板
 
 ### 最小模板
 
@@ -78,7 +78,7 @@ experimental/<ops|eco_system>/<category>/<project_name>/
 
 ---
 
-## 8. 维护策略
+## 5. 维护策略
 
 | 策略 | 说明 |
 |------|------|
