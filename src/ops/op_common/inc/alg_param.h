@@ -641,7 +641,6 @@ struct OpExchangeInfo {
     u32 aivCoreLimit = MAX_NUM_BLOCKS;
     char group[MAX_LENGTH] = {0};
     char algTag[ALG_TAG_LENGTH] = {0};
-    u32 sendRecvRemoteRank = INVALID_VALUE_RANKID;
 };
 
 } 
