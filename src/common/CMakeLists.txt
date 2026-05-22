@@ -32,8 +32,10 @@ endif()
 
 message(STATUS "TARGET_NAME = ${TARGET_NAME}")
 message(STATUS "src_list contains ${src_list}")
-target_sources(${TARGET_NAME} PRIVATE
-    ${src_list}
-)
+if(TARGET ${TARGET_NAME})
+    target_sources(${TARGET_NAME} PRIVATE
+        ${src_list}
+    )
+endif()
 
 add_subdirectory(hcomm_dlsym)
