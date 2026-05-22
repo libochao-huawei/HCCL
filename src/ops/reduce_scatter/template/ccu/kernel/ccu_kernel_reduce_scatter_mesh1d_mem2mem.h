@@ -77,6 +77,44 @@ public:
     uint64_t lastSliceSize_;
     uint64_t repeatNum_;
 };
+struct ReduceScatterMesh1DMem2MemContext {
+    const ReduceScatterKernelArg *arg;
+
+    ccu::Variable input[CCU_MAX_RANK_SIZE];
+    ccu::Variable scratch[CCU_MAX_RANK_SIZE];
+    ccu::Variable token[CCU_MAX_RANK_SIZE];
+    ccu::Variable output;
+    ccu::Variable currentRankSliceInputOffset;
+    ccu::Variable currentRankSliceOutputOffset;
+    ccu::Variable normalSliceSize;
+    ccu::Variable lastSliceSize;
+    ccu::Variable inputRepeatStride;
+    ccu::Variable outputRepeatStride;
+    ccu::Variable repeatNum;
+    ccu::Variable flag;
+    GroupOpSizeVars goSize;
+
+    uint16_t selfBit;
+    uint16_t allBit;
+
+    ccu::LocalAddr  myInput;
+    ccu::RemoteAddr remoteInput[CCU_MAX_RANK_SIZE];
+    ccu::LocalAddr  scratchMem[CCU_MAX_RANK_SIZE];
+    ccu::Event      event;
+
+    LoopGroupConfig  moConfig;
+    LoopGroupResource moRes;
+    bool resourceAllocated;
+
+    CcuLoop reduceLoops[2];
+
+    // Loop body 中的外部 LocalAddr（每个 loop index 各两组）
+    ccu::LocalAddr loopDst[2];
+    ccu::LocalAddr loopSrc[2];
+    ccu::LocalAddr loopScratch[2][CCU_MAX_RANK_SIZE];
+    ccu::Variable  loopLen[2];
+    ccu::Variable  loopLenExp[2];
+};
 
 class CcuKernelReduceScatterMesh1DMem2Mem : public CcuKernelAlgBase {
 public:
