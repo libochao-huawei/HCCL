@@ -44,6 +44,7 @@ public:
     u64 GetThreadNum() const override;
     HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx) override;
 
+
 protected:
     HcclResult CalcNHRInfo(std::vector<NHRStepInfo> &stepInfoVector) const;
     u32 GetNHRStepNum(u32 rankSize) const;
