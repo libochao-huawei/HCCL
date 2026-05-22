@@ -131,135 +131,52 @@ constexpr u32 AIV_FLAG_UB_ALIGN_SIZE = 32;   // flag内存对齐大小
 ### 4.1 整体流程图
 
 ```mermaid
-flowchart TB
-    subgraph 正常执行流程
-        A[ExecuteKernelLaunch] --> B[ExecuteKernelLaunchInner]
-        B --> C[aclrtLaunchKernelWithHostArgs]
-        C --> D[获取 taskId/streamId]
-        D --> E[SaveAivDfxTaskInfo]
-        E --> F{首次该comm?}
-        F -->|是| G[RegisterAivExceptionCallback]
-        F -->|否| H[保存任务信息到队列]
-        G --> I[HcclTaskExceptionRegCallBack]
-        I --> H
-        H --> J[返回成功]
-    end
-    
-    subgraph 异常处理流程
-        K[AIV Kernel异常] --> L[Runtime触发回调]
-        L --> M[ProcessAivExceptionCallBack]
-        M --> N[解析异常信息]
-        N --> O[FindAivTask查询任务]
-        O --> P{找到任务?}
-        P -->|是| Q[输出诊断日志]
-        P -->|否| R[输出警告日志]
-        Q --> S[打印flag内存]
-        S --> T[打印上下文任务]
-    end
+flowchart LR
+    A[Kernel启动] --> B[保存任务信息]
+    B --> C[注册异常回调]
+    C --> D[正常执行完成]
+```
+
+```mermaid
+flowchart LR
+    A[设备异常] --> B[触发回调]
+    B --> C[查询任务信息]
+    C --> D[输出诊断日志]
 ```
 
 ### 4.2 任务信息保存流程
 
 ```mermaid
-flowchart TB
-    Start([kernel启动完成]) --> GetID[rtGetTaskIdAndStreamID<br/>获取 taskId, streamId]
-    GetID --> GetComm[GetAivTaskComm<br/>获取通信句柄]
-    
-    GetComm --> CheckComm{comm有效?}
-    CheckComm -->|否| Error1[返回错误]
-    CheckComm -->|是| Register[RegisterAivExceptionCallback]
-    
-    Register --> CheckReg{已注册?}
-    CheckReg -->|是| SkipReg[跳过注册]
-    CheckReg -->|否| DoReg[HcclTaskExceptionRegCallBack<br/>注册回调]
-    
-    SkipReg --> BuildTask[构建 TaskParamAiv]
-    DoReg --> BuildTask
-    
-    BuildTask --> LockMutex[加锁 g_aivTaskMutex]
-    LockMutex --> SaveIndex[保存到 g_aivTaskCommMap]
-    SaveIndex --> SaveQueue[保存到 g_aivTaskByStream]
-    SaveQueue --> CheckLimit{队列超限?}
-    
-    CheckLimit -->|是| RemoveOld[移除最旧任务]
-    CheckLimit -->|否| Unlock[解锁]
-    RemoveOld --> Unlock
-    Unlock --> Return([返回成功])
+flowchart LR
+    A[获取taskId/streamId] --> B[获取通信句柄]
+    B --> C[注册回调]
+    C --> D[构建任务参数]
+    D --> E[保存到队列]
 ```
 
 ### 4.3 异常回调处理流程
 
 ```mermaid
-flowchart TB
-    Start([Runtime触发回调]) --> CheckNull{exceptionInfo<br/>为空?}
-    CheckNull -->|是| LogNull[记录错误日志]
-    CheckNull -->|否| ParseInfo[解析异常信息<br/>taskId/streamId/deviceId]
-    
-    ParseInfo --> FindTask[FindAivTask<br/>查找任务信息]
-    FindTask --> LockMutex[加锁 g_aivTaskMutex]
-    LockMutex --> FindStream{stream存在?}
-    
-    FindStream -->|否| NotFound[未找到任务]
-    FindStream -->|是| FindTaskInQueue[在队列中查找taskId]
-    
-    FindTaskInQueue --> TaskFound{任务存在?}
-    TaskFound -->|否| NotFound
-    TaskFound -->|是| CopyTask[复制任务信息<br/>复制上下文队列]
-    
-    NotFound --> Unlock[解锁]
-    CopyTask --> Unlock
-    
-    Unlock --> CheckFound{任务存在?}
-    CheckFound -->|否| LogNotFound[记录警告日志]
-    CheckFound -->|是| LogError[输出错误日志<br/>任务详细信息]
-    
-    LogError --> SerializeFlag[SerializeAivFlag<br/>序列化flag内存]
-    SerializeFlag --> LogFlag[输出flag内容]
-    LogFlag --> LogContext[输出前50个<br/>上下文任务信息]
-    
-    LogNotFound --> End([结束])
-    LogNull --> End
-    LogContext --> End
+flowchart LR
+    A[解析异常信息] --> B[查找任务]
+    B --> C{找到?}
+    C -->|是| D[输出诊断日志]
+    C -->|否| E[输出警告]
 ```
 
 ### 4.4 回调注册流程（时序图）
 
 ```mermaid
 sequenceDiagram
-    participant K as Kernel Launch
-    participant S as SaveAivDfxTaskInfo
-    participant R as RegisterAivExceptionCallback
-    participant M as callbackRegistered
-    participant H as HCOMM API
-    participant RT as Runtime
+    participant K as Kernel
+    participant H as HCOMM
+    participant R as Runtime
     
-    K->>S: kernel启动完成
-    S->>S: 获取taskId/streamId
-    S->>R: 注册回调
-    
-    R->>M: 查找comm是否已注册
-    alt 已注册
-        M-->>R: 存在且为true
-        R-->>S: 跳过注册
-    else 未注册
-        M-->>R: 不存在或为false
-        R->>M: 设置callbackRegistered[comm]=true
-        R->>H: HcclTaskExceptionRegCallBack(comm, callback)
-        H-->>R: 返回结果
-        alt 注册成功
-            R-->>S: 注册成功
-        else 注册失败
-            R->>M: 设置callbackRegistered[comm]=false
-            R-->>S: 记录警告
-        end
-    end
-    
-    S->>S: 保存任务信息
-    S-->>K: 返回
-    
-    Note over RT: 异常发生时
-    RT->>H: 触发异常回调
-    H->>H: ProcessAivExceptionCallBack
+    K->>H: 注册回调请求
+    H->>H: 设置callbackRegistered
+    H->>R: HcclTaskExceptionRegCallBack
+    R-->>H: 注册成功
+    H-->>K: 返回结果
 ```
 
 ---
@@ -341,26 +258,11 @@ flowchart TB
 ### 5.3 通信句柄获取逻辑
 
 ```mermaid
-flowchart TB
-    Start([获取通信句柄]) --> CheckOpArgs{opArgs.hcclComm<br/>存在?}
-    CheckOpArgs -->|是| UseOpArgs[使用 opArgs.hcclComm]
-    CheckOpArgs -->|否| CheckThreadLocal{g_aivCurrentComm<br/>存在?}
-    
-    CheckThreadLocal -->|是| UseThreadLocal[使用 g_aivCurrentComm]
-    CheckThreadLocal -->|否| CheckCommName{comm名<br/>存在?}
-    
-    CheckCommName -->|否| UseDefault[使用 g_aivCurrentCommName]
-    CheckCommName -->|是| GetName[使用 opArgs.comm]
-    
-    UseDefault --> GetByName[HcomGetCommHandleByGroup]
-    GetName --> GetByName
-    
-    GetByName --> CheckResult{获取成功?}
-    CheckResult -->|是| Return([返回comm])
-    CheckResult -->|否| Error([返回错误])
-    
-    UseOpArgs --> Return
-    UseThreadLocal --> Return
+flowchart LR
+    A[检查opArgs.hcclComm] --> B{存在?}
+    B -->|是| C[直接使用]
+    B -->|否| D[通过组名获取]
+    D --> E[返回comm]
 ```
 
 ---
