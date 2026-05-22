@@ -34,6 +34,9 @@ public:
  
     __aicore__ inline void Consumer()
     {
+        for (uint32_t idx = 0; idx < rankSize_; idx++) {
+            WaitFlag(idx, rank_, curTag_);
+        }
         uint32_t waitRank = 0;
         uint64_t outerOffset = waitRank  * len_ * sizeof(T); //rank_  * len;
         inputOffset = reinterpret_cast<uint64_t>(GM_IN[rank_]) + outerOffset;
