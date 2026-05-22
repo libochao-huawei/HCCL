@@ -22,6 +22,7 @@
 #include "sal.h"
 #include "error_codes/rt_error_codes.h"
 #include "param_check.h"
+#include "inconsistent_check.h"
 #include "executor_base.h"
 #include "coll_alg_v2_exec_registry.h"
 #include "alg_env_config.h"
