@@ -769,6 +769,7 @@ HcclResult CalcChannelRequestMesh1DWithPriorityTopo(HcclComm comm, const OpParam
             if (rank / 4 != myRank / 4) {
                 CHK_RET(ProcessLinksForChannel(comm, myRank, rank, channels, priorityTopo));
                 CHK_RET(ProcessLinksForChannel(comm, myRank, rank, channels, priorityTopo));
+                HCCL_INFO("[%s] zjy Add channel request between %u and %u with priority topo type %u.", __func__, myRank, rank, priorityTopo);
             }
         }
     }
