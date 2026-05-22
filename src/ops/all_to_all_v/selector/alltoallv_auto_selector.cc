@@ -18,7 +18,7 @@ constexpr uint32_t INDEX_1 = 1;
 constexpr uint32_t INDEX_2 = 2;
 constexpr uint32_t INDEX_3 = 3;
 constexpr uint32_t CONST_4 = 4;
-
+constexpr u64 A2AV_CCU_64P_MAX_DATA_SIZE = 256 * 1024 * 1024;
 SelectorStatus AlltoAllVAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNetLayerDetails* topoInfo,
                                                     const OpParam &opParam,
                                                     const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap,
@@ -27,16 +27,20 @@ SelectorStatus AlltoAllVAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNe
     HCCL_DEBUG("[AlltoAllVAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
     (void)opParam;
     (void)configAlgMap;
+    uint32_t dataTypeSize = DATATYPE_SIZE_TABLE[opParam.all2AllDataDes.sendType];
+    uint64_t sendCount = opParam.inputSize;
+    uint64_t dataSize = sendCount * dataTypeSize * topoInfo->userRankSize;
     if (topoInfo->topoLevelNums > 1) {
         if (opParam.all2AllDataDes.sendType == HcclDataType::HCCL_DATA_TYPE_INT8) {
             HCCL_WARNING("[Algo][AlltoAllVAutoSelector] int8 is not supported yet for ccu_schedule mode.");
             return SelectorStatus::NOT_MATCH;
         }
-        if (topoInfo->userRankSize > 128) {
-            HCCL_WARNING("[Algo][AlltoAllVAutoSelector] rankSize > 128 is not supported yet for ccu_schedule mode.");
+        if (topoInfo->level0Topo == Level0Shape::MESH_1D && topoInfo->userRankSize <= 64 && dataSize < A2AV_CCU_64P_MAX_DATA_SIZE) {
+            selectAlgName = "CcuAlltoAllVMesh1D";
+        } else {
+            HCCL_WARNING("[AlltoAllVAutoSelector] topo is not support ccu or dataSize is too big.");
             return SelectorStatus::NOT_MATCH;
         }
-        selectAlgName = "CcuAlltoAllVMesh1D";
     }
 
     if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
