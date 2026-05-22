@@ -8,8 +8,49 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 #include "inconsistent_check.h"
+#include "adapter_error_manager_pub.h"
 
 namespace ops_hccl {
+HcclResult FillOpExchangeInfo(HcclComm comm, const OpParam &param, OpExchangeInfo &exchangeInfo)
+{
+    CHK_PTR_NULL(comm);
+    void *cclBufferAddr = nullptr; // 不使用，仅为调用HcclGetHcclBuffer获取cclBufferSize
+    CHK_RET(HcclGetHcclBuffer(comm, &cclBufferAddr, &exchangeInfo.cclBufferSize));
+    exchangeInfo.root = param.root;
+    exchangeInfo.opType = param.opType;
+    exchangeInfo.engine = param.engine;
+    exchangeInfo.opExecuteConfig = param.opExecuteConfig;
+    exchangeInfo.reduceType = param.reduceType;
+    CHK_RET(FillOpExchangeInfoWithDataDes(param, exchangeInfo));
+    if (param.opMode == OpMode::OFFLOAD) {
+        AivParamStorage *aivParam = nullptr;
+        HcclResult ret = GetAivParamStorageByComm(comm, &aivParam);
+        if (ret == HCCL_SUCCESS && aivParam != nullptr) {
+            exchangeInfo.aivCoreLimit = aivParam->aivCoreLimit;
+        }
+    }
+    CHK_RET(HcclGetCommName(comm, exchangeInfo.group));
+    exchangeInfo.group[MAX_LENGTH - 1] = '\0';
+    if (param.opType == HcclCMDType::HCCL_CMD_SEND || param.opType == HcclCMDType::HCCL_CMD_RECEIVE) {
+        // Send和Recv的algName不相同导致algTag不相同，因此仅校验tag内容，MAX_LENGTH < ALG_TAG_LENGTH为param.tag的长度
+        s32 sRet = strncpy_s(exchangeInfo.algTag, ALG_TAG_LENGTH, param.tag, MAX_LENGTH);
+        CHK_PRT_RET(sRet != EOK, HCCL_ERROR("[%s] call strncpy_s failed, param.tag[%s],  return[%d].",
+            __func__, param.tag, sRet), HCCL_E_MEMORY);
+    } else {
+        s32 sRet = strncpy_s(exchangeInfo.algTag, ALG_TAG_LENGTH, param.algTag, ALG_TAG_LENGTH);
+        CHK_PRT_RET(sRet != EOK, HCCL_ERROR("[%s] call strncpy_s failed, param.algTag[%s],  return[%d].",
+            __func__, param.algTag, sRet), HCCL_E_MEMORY);
+    }
+    HCCL_INFO("[%s] success. exchangeInfo dump: cclBufferSize[%llu], root[%u], opType[%u], engine[%u], "
+        "opExecuteConfig[%u], reduceType[%u], dataType[%u], count[%llu], aivCoreLimit[%u], "
+        "group[%s], tag[%s]",
+        __func__, exchangeInfo.cclBufferSize, exchangeInfo.root, exchangeInfo.opType,
+        exchangeInfo.engine, exchangeInfo.opExecuteConfig, exchangeInfo.reduceType,
+        exchangeInfo.dataType, exchangeInfo.count, exchangeInfo.aivCoreLimit,
+        exchangeInfo.group, exchangeInfo.algTag);
+    return HCCL_SUCCESS;
+}
+
 HcclResult FillOpExchangeInfoWithDataDes(const OpParam &param, OpExchangeInfo &exchangeInfo)
 {
     switch (param.opType) {
