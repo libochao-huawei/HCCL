@@ -20,6 +20,104 @@ else()
     set(INSTALL_AICPU_KERNEL_JSON_DIR ${INSTALL_LIBRARY_DIR})
 endif()
 
+set(HCCL_CANN_VERSION_NUM 0)
+
+# 解析 CANN 包根目录：上游(config.cmake)未必先于本文件设置 ASCEND_CANN_PACKAGE_PATH
+# (大工程构建入口不同时尤其如此)，因此这里按一组候选来源自行兜底定位。
+set(_hccl_cann_root_candidates
+    "${ASCEND_CANN_PACKAGE_PATH}"
+    "${CUSTOM_ASCEND_CANN_PACKAGE_PATH}"
+    "${ASCEND_INSTALL_PATH}"
+    "${CANN_ROOT}"          # 大工程可能以 CMake 变量形式传入
+    "$ENV{CANN_ROOT}"       # 或以环境变量形式提供
+    "$ENV{ASCEND_HOME_PATH}"
+    "$ENV{ASCEND_TOOLKIT_HOME}"
+)
+if(DEFINED ENV{ASCEND_OPP_PATH})
+    get_filename_component(_hccl_opp_parent "$ENV{ASCEND_OPP_PATH}/.." ABSOLUTE)
+    list(APPEND _hccl_cann_root_candidates "${_hccl_opp_parent}")
+endif()
+list(APPEND _hccl_cann_root_candidates "/usr/local/Ascend/ascend-toolkit/latest")
+
+# ---- 诊断日志：定位大工程中版本号解析失败的具体环节 ----
+message(STATUS "[HCCL-VER] ===== CANN version resolve diagnostics =====")
+message(STATUS "[HCCL-VER] CMAKE_CURRENT_SOURCE_DIR    = ${CMAKE_CURRENT_SOURCE_DIR}")
+message(STATUS "[HCCL-VER] ASCEND_CANN_PACKAGE_PATH    = [${ASCEND_CANN_PACKAGE_PATH}]")
+message(STATUS "[HCCL-VER] CUSTOM_ASCEND_CANN_PACKAGE_PATH = [${CUSTOM_ASCEND_CANN_PACKAGE_PATH}]")
+message(STATUS "[HCCL-VER] ASCEND_INSTALL_PATH         = [${ASCEND_INSTALL_PATH}]")
+message(STATUS "[HCCL-VER] CANN_ROOT (cmake var)       = [${CANN_ROOT}]")
+message(STATUS "[HCCL-VER] ENV{CANN_ROOT}              = [$ENV{CANN_ROOT}]")
+message(STATUS "[HCCL-VER] ENV{ASCEND_HOME_PATH}       = [$ENV{ASCEND_HOME_PATH}]")
+message(STATUS "[HCCL-VER] ENV{ASCEND_TOOLKIT_HOME}    = [$ENV{ASCEND_TOOLKIT_HOME}]")
+message(STATUS "[HCCL-VER] ENV{ASCEND_OPP_PATH}        = [$ENV{ASCEND_OPP_PATH}]")
+
+set(_hccl_cann_version_header "")
+set(_hccl_cand_idx 0)
+foreach(_hccl_cann_root IN LISTS _hccl_cann_root_candidates)
+    math(EXPR _hccl_cand_idx "${_hccl_cand_idx} + 1")
+    if(NOT _hccl_cann_root)
+        message(STATUS "[HCCL-VER] candidate[${_hccl_cand_idx}] = <empty>, skip")
+        continue()
+    endif()
+    set(_hccl_try_header "${_hccl_cann_root}/include/version/cann_version.h")
+    if(NOT IS_DIRECTORY "${_hccl_cann_root}")
+        message(STATUS "[HCCL-VER] candidate[${_hccl_cand_idx}] = ${_hccl_cann_root} -> dir NOT exist")
+    elseif(NOT EXISTS "${_hccl_try_header}")
+        message(STATUS "[HCCL-VER] candidate[${_hccl_cand_idx}] = ${_hccl_cann_root} -> dir OK, but header NOT exist (${_hccl_try_header})")
+    else()
+        message(STATUS "[HCCL-VER] candidate[${_hccl_cand_idx}] = ${_hccl_cann_root} -> dir OK, header OK -> SELECTED")
+        set(_hccl_cann_version_header "${_hccl_try_header}")
+        break()
+    endif()
+endforeach()
+
+message(STATUS "[HCCL-VER] selected header = [${_hccl_cann_version_header}]")
+if(_hccl_cann_version_header AND EXISTS "${_hccl_cann_version_header}")
+    file(STRINGS "${_hccl_cann_version_header}" _hccl_cann_ver_line
+        REGEX "^#define[ \t]+CANN_VERSION_NUM[ \t]+")
+    message(STATUS "[HCCL-VER] matched CANN_VERSION_NUM line = [${_hccl_cann_ver_line}]")
+    if(_hccl_cann_ver_line)
+        string(REGEX MATCH
+            "\\(([0-9]+) \\* 10000000\\) \\+ \\(([0-9]+) \\* 100000\\) \\+ \\(([0-9]+) \\* 1000\\)"
+            _ "${_hccl_cann_ver_line}")
+        message(STATUS "[HCCL-VER] regex captures: major=[${CMAKE_MATCH_1}] minor=[${CMAKE_MATCH_2}] patch=[${CMAKE_MATCH_3}]")
+        if(NOT CMAKE_MATCH_1 STREQUAL "" AND NOT CMAKE_MATCH_2 STREQUAL "" AND NOT CMAKE_MATCH_3 STREQUAL "")
+            math(EXPR HCCL_CANN_VERSION_NUM
+                "${CMAKE_MATCH_1} * 10000000 + ${CMAKE_MATCH_2} * 100000 + ${CMAKE_MATCH_3} * 1000")
+        else()
+            message(STATUS "[HCCL-VER] regex did NOT match the literal-number form; header may use macro names or a single literal")
+        endif()
+    else()
+        message(STATUS "[HCCL-VER] no '#define CANN_VERSION_NUM' line found in header")
+    endif()
+else()
+    message(STATUS "[HCCL-VER] no usable header among candidates")
+endif()
+message(STATUS "[HCCL-VER] final HCCL_CANN_VERSION_NUM = ${HCCL_CANN_VERSION_NUM}")
+message(STATUS "[HCCL-VER] ===============================================")
+
+if(HCCL_CANN_VERSION_NUM EQUAL 0)
+    message(WARNING "HCCL failed to resolve CANN_VERSION_NUM (got 0). "
+        "Checked roots: ${_hccl_cann_root_candidates}. "
+        "Pass -DASCEND_CANN_PACKAGE_PATH=<cann_root> or set ASCEND_HOME_PATH. "
+        "Compatibility branches (e.g. HCCL_CANN_COMPAT_850) will fall back to the 9.0.0+ path.")
+endif()
+
+set(HCCL_CANN_COMPAT_850 OFF)
+if(HCCL_CANN_VERSION_NUM GREATER 0 AND HCCL_CANN_VERSION_NUM LESS 90000000)
+    set(HCCL_CANN_COMPAT_850 ON)
+endif()
+
+message(STATUS "HCCL scoped CANN_VERSION_NUM = ${HCCL_CANN_VERSION_NUM}")
+message(STATUS "HCCL_CANN_COMPAT_850 = ${HCCL_CANN_COMPAT_850}")
+
+function(hccl_apply_cann_compat target_name)
+    if(NOT TARGET ${target_name})
+        return()
+    endif()
+    target_compile_definitions(${target_name} PRIVATE CANN_VERSION_NUM=${HCCL_CANN_VERSION_NUM})
+endfunction()
+
 set(INCLUDE_LIST
     ${OPS_BASE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/common
@@ -280,8 +378,6 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sole_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_reduce_scatter_parallel_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu.cc
-        ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_reduce_scatter_concurrent_executor.cc
-        ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_v2_reduce_scatter_omnipipe_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_mesh_1D.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_nhr.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_hd.cc
@@ -303,8 +399,6 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/executor/ins_v2_all_gather_sole_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/executor/ins_v2_all_gather_parallel_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/executor/ins_v2_all_gather_sequence_executor_aicpu.cc
-        ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/executor/ins_v2_all_gather_concurrent_executor.cc
-        ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/executor/ins_v2_all_gather_omnipipe_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/template/aicpu/ins_temp_all_gather_mesh_1D.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/template/aicpu/ins_temp_all_gather_mesh_1D_Z_axis_detour.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/template/aicpu/ins_temp_all_gather_nhr.cc
@@ -325,7 +419,6 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather_v/template/aicpu/ins_temp_all_gather_v_mesh_1D.cc
 
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_to_all_v/executor/ins_v2_all_to_all_v_sole_executor.cc
-        ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_to_all_v/executor/ins_v2_all_to_all_concurrent_executor.cc
 
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_to_all_v/template/aicpu/ins_temp_all_to_all_v_mesh_1D.cc
 
@@ -333,8 +426,6 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_v2_all_reduce_parallel_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_v2_all_reduce_sequence_executor_aicpu.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_v2_all_reduce_two_shot_sole_executor.cc
-        ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_v2_all_reduce_concurrent_executor.cc
-        ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_v2_all_reduce_omnipipe_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/template/aicpu/ins_temp_all_reduce_mesh_1D_one_shot.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/template/aicpu/ins_temp_all_reduce_mesh_1D_two_shot.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/template/aicpu/ins_temp_all_reduce_nhr.cc
@@ -355,19 +446,26 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/executor/ins_v2_recv_sole_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/executor/ins_v2_send_sole_executor.cc
 
-        ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/executor/ins_send_dpu_executor.cc
-        ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/executor/ins_recv_dpu_executor.cc
-        ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/template/host_nic/ins_temp_send_host_nic_dpu.cc
-        ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/template/host_nic/ins_temp_recv_host_nic_dpu.cc
     )
 
     if(NOT HCCL_CANN_COMPAT_850)
         target_sources(scatter_aicpu_kernel PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/executor/ins_send_dpu_executor.cc
+            ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/executor/ins_recv_dpu_executor.cc
+            ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/template/host_nic/ins_temp_send_host_nic_dpu.cc
+            ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/template/host_nic/ins_temp_recv_host_nic_dpu.cc
             ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/template/wrapper/dpu_alg_data_trans_wrapper.cc
             ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/topo/topo_match_multilevel.cc
             ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/topo/topo_match_ubx.cc
             ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/topo/topo_match_ubx_1d.cc
             ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/topo/topo_match_pcie_mix.cc
+            ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_reduce_scatter_concurrent_executor.cc
+            ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/executor/ins_v2_all_gather_concurrent_executor.cc
+            ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_to_all_v/executor/ins_v2_all_to_all_concurrent_executor.cc
+            ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_v2_all_reduce_concurrent_executor.cc
+            ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_v2_reduce_scatter_omnipipe_executor.cc
+            ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/executor/ins_v2_all_gather_omnipipe_executor.cc
+            ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_v2_all_reduce_omnipipe_executor.cc
             ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor.cc
             ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_mesh_1d_dpu.cc
             ${CMAKE_CURRENT_SOURCE_DIR}/ops/broadcast/executor/ins_v2_broadcast_sequence_executor.cc
@@ -408,9 +506,7 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         -DAICPU_COMPILE
     )
 
-    if(HCCL_CANN_COMPAT_850)
-        target_compile_definitions(scatter_aicpu_kernel PRIVATE HCCL_CANN_COMPAT_850)
-    endif()
+    hccl_apply_cann_compat(scatter_aicpu_kernel)
 
     target_link_directories(scatter_aicpu_kernel PRIVATE
       ${ASCEND_CANN_PACKAGE_PATH}/devlib/device
@@ -477,9 +573,7 @@ target_compile_definitions(${TARGET_NAME} PRIVATE
     -DHOST_COMPILE
 )
 
-if(HCCL_CANN_COMPAT_850)
-    target_compile_definitions(hccl PRIVATE HCCL_CANN_COMPAT_850)
-endif()
+hccl_apply_cann_compat(hccl)
 
 target_compile_options(hccl PRIVATE
     -Werror
