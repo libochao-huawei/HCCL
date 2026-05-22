@@ -11,27 +11,47 @@
 #ifndef HCOMM_DIAG_DL_H
 #define HCOMM_DIAG_DL_H
 
+#include "dlsym_common.h"
 #include "hcomm_diag.h"   // 原始头文件，包含所有声明和类型定义
+#include "hccl_res.h"     // CommAbiHeader, CommEngine for HcclDfxOpInfo stub
+
+#if CANN_VERSION_NUM >= 90000000
+#include "hccl_diag.h"    // 9.0.0 提供 HcclDfxOpInfo, HCOMM_ALG_TAG_LENGTH
+#endif
+
+/* 8.5.0 桩: hccl_diag.h 中 9.0.0 新增类型 */
+#if CANN_VERSION_NUM < 90000000
+#define HCOMM_ALG_TAG_LENGTH 288
+
+struct HcclDfxOpInfo {
+    CommAbiHeader header;
+    uint64_t beginTime;
+    uint64_t endTime;
+    uint32_t opMode;
+    uint32_t opType;
+    uint32_t reduceOp;
+    uint32_t dataType;
+    uint32_t outputType;
+    uint64_t dataCount;
+    uint32_t root;
+    char algTag[HCOMM_ALG_TAG_LENGTH];
+    CommEngine engine;
+    uint64_t cpuTsThread;
+    uint32_t cpuWaitAicpuNotifyIdx;
+    uint32_t cpuWaitAicpuNotifyId;
+    int8_t reserve[128];
+};
+#endif /* CANN_VERSION_NUM < 90000000 */
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-// 声明全局函数指针（小驼峰命名）
-extern HcclResult (*hcommRegOpInfoPtr)(const char*, void*, size_t);
-extern HcclResult (*hcommRegOpTaskExceptionPtr)(const char*, HcommGetOpInfoCallback);
-
-// 宏：将原始API名映射为函数指针调用
-#define HcommRegOpInfo                (*hcommRegOpInfoPtr)
-#define HcommRegOpTaskException        (*hcommRegOpTaskExceptionPtr)
-
-// 查询函数声明
-bool HcommIsSupportHcommRegOpInfo(void);
-bool HcommIsSupportHcommRegOpTaskException(void);
+DECL_SUPPORT_FLAG(HcommRegOpInfo);
+DECL_SUPPORT_FLAG(HcommRegOpTaskException);
 
 // 动态库管理接口
 void HcommDiagDlInit(void* libHcommHandle);
-void HcommDiagDlFini(void);
 
 #ifdef __cplusplus
 }

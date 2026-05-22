@@ -20,6 +20,7 @@ using RankGroup = std::vector<RankId>;
 
 class CcuTempAllGather2DiesMesh1D : public CcuAlgTemplateBase {
 public:
+    CcuTempAllGather2DiesMesh1D() = default;
     explicit  CcuTempAllGather2DiesMesh1D(const OpParam& param, 
                                                 const u32 rankId, // 传通信域的rankId，userRank
                                                 const std::vector<std::vector<u32>> &subCommRanks);
@@ -37,7 +38,7 @@ public:
  
     HcclResult KernelRun(const OpParam& param,
                          const TemplateDataParams& templateDataParams,
-                         const TemplateResource& templateResource) override;
+                         TemplateResource& templateResource) override;
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
     u64 GetThreadNum() const override;
     HcclResult GetRes(AlgResourceRequest& resourceRequest) const override;

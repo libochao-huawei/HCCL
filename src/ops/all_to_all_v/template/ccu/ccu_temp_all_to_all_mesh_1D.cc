@@ -103,9 +103,34 @@ void CcuTempAlltoAllMesh1D::InitInsAlgTemplate(
     }
 }
 
+HcclResult CcuTempAlltoAllMesh1D::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+{
+    if (tempFastLaunchCtx.ccuKernelSubmitInfos.size() == 0) {
+        HCCL_INFO("[CcuTempAlltoAllMesh1D::FastLaunch] ccu kernel num is 0, just success.");
+        return HCCL_SUCCESS;
+    }
+     HCCL_INFO("[CcuTempAlltoAllMesh1D::FastLaunch] start");
+     std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAlltoAllMesh1D>(
+        PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[0],
+ 	    PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[1],
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[2],
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[3],
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[4],
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[5],
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[6]        
+    );
+
+    void* taskArgPtr = static_cast<void*>(taskArg.get());
+    CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0], 
+ 	        tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr));
+
+    HCCL_INFO("[CcuTempAlltoAllMesh1D::FastLaunch] end");
+    return HcclResult::HCCL_SUCCESS;
+}
+
 HcclResult CcuTempAlltoAllMesh1D::KernelRun(const OpParam& param,
                                             const TemplateDataParams& templateDataParams,
-                                            const TemplateResource& templateResource)
+                                            TemplateResource& templateResource)
 {
     HCCL_INFO("[CcuTempAllToAllMesh1D] Run");
     buffInfo_ = templateDataParams.buffInfo;
@@ -121,8 +146,8 @@ HcclResult CcuTempAlltoAllMesh1D::KernelRun(const OpParam& param,
     uint64_t                                repeatNumTmp  = templateDataParams.repeatNum;
     uint64_t inputAddr          = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr         = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
-    uint64_t token              = hcomm::CcuRep::GetTokenInfo(reinterpret_cast<uint64_t>(buffInfo_.inputPtr),
-                                                       static_cast<uint64_t>(buffInfo_.inputSize));
+    uint64_t token;
+    CHK_RET(GetToken(buffInfo_, token));
     
     uint64_t srcStride = templateDataParams.outputSliceStride;
     uint64_t dstStride = templateDataParams.outputSliceStride;
@@ -149,12 +174,18 @@ HcclResult CcuTempAlltoAllMesh1D::KernelRun(const OpParam& param,
         "outputAddr[%llu], sliceSize[%llu], srcOffset[%llu], dstOffset[%llu]",
         loadFromMem, myRank_, dimSize[0], inputAddr, outputAddr, sliceSize, srcOffset, dstOffset);
     std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgAlltoAllMesh1D>(
-            inputAddr, outputAddr, sliceSize, token, srcOffset, dstOffset, srcStride, loadFromMem);
+            inputAddr, outputAddr, sliceSize, token, srcOffset, dstOffset, srcStride);
 
     void* taskArgPtr = static_cast<void*>(taskArg.get());
 
     HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr);
     
+    CcuKernelSubmitInfo subCommInfo;
+    subCommInfo.kernelHandle = templateResource.ccuKernels[0];
+    CHK_RET(FillCachedArgs(subCommInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, sliceSize, 
+        token, srcOffset, dstOffset, srcStride));
+    templateResource.submitInfos.push_back(subCommInfo);
+     
     HCCL_DEBUG("[CcuTempAlltoAllMesh1D::KernelRun] end");
 
     return HcclResult::HCCL_SUCCESS;
@@ -165,6 +196,6 @@ u64 CcuTempAlltoAllMesh1D::CalcScratchMultiple(BufferType inBuffType, BufferType
     // one shot 场景，scratch Buffer 需要是 usrIn的rankSize倍
     (void)inBuffType;
     (void)outBuffType;
-    return tempRankSize_;
+    return 0;
 }
 } // namespace ops_hccl

@@ -24,7 +24,7 @@
 
 ### 环境要求
 
-本样例支持以下产品：
+本样例支持以下产品，组网为单机N卡（N>=2）：
 
 - <term>Ascend 950PR</term> / <term>Ascend 950DT</term>
 - <term>Atlas A3 训练系列产品</term> / <term>Atlas A3 推理系列产品</term>

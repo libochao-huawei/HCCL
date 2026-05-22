@@ -32,7 +32,7 @@ HcclResult TaskCheckReduceScatterVSemantics(std::map<RankId, RankMemorySemantics
         u64 totalSize = 0;
         for (auto &ele : allRankMemSemantics[rankId][BufferType::OUTPUT]) {
             if (ele.startAddr != totalSize) {
-                HCCL_ERROR("[rankId:%u]Missing buffer semantic: exepected startAddr is %llu, "
+                HCCL_ERROR("[rankId:%u]Missing buffer semantic: expected startAddr is %llu, "
                     "while cur buffer semantic startAddr is %llu, cur buffer semantic is %s",
                     rankId, totalSize, ele.startAddr, ele.Describe().c_str());
                 return HcclResult::HCCL_E_PARA;
@@ -67,7 +67,7 @@ HcclResult TaskCheckReduceScatterVSemantics(std::map<RankId, RankMemorySemantics
 
                 const u64 outputOffset = vDataDes.displs[rankId] * SIZE_TABLE[vDataDes.dataType];
                 if (srcBuf.srcAddr != outputOffset + totalSize) {
-                    HCCL_ERROR("[rankId:%u]Exepected semantic srcBuf srcAddr is %llu, "
+                    HCCL_ERROR("[rankId:%u]Expected semantic srcBuf srcAddr is %llu, "
                         "while cur srcBuf srcAddr is %llu, cur buffer semantic is %s",
                         rankId, outputOffset + totalSize, srcBuf.srcAddr, ele.Describe().c_str());
                     return HcclResult::HCCL_E_PARA;

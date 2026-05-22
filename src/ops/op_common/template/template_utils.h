@@ -19,6 +19,7 @@
 #include "alg_param.h"
 #include "binary_stream.h"
 
+HcclResult __attribute__((weak)) HcommThreadJoin(ThreadHandle thread, uint32_t timeout);
 namespace ops_hccl {
 
 # define UINT32_MAX     (4294967295U)
@@ -93,8 +94,13 @@ struct A2ASendRecvInfo {
 struct DataInfo {
     ChannelInfo channel_;
     SlicesList slices_;
+    HcclDataType dataType_;
     DataInfo(const ChannelInfo &channel, const SlicesList &slices)
     : channel_(channel), slices_(slices)
+    {
+    }
+    DataInfo(const ChannelInfo &channel, const SlicesList &slices, HcclDataType dataType)
+    : channel_(channel), slices_(slices), dataType_(dataType)
     {
     }
 };
@@ -133,9 +139,15 @@ struct TxRxSlicesList {
 struct SendRecvInfo {
     TxRxChannels      sendRecvChannels_;
     TxRxSlicesList    sendRecvSlices_;
+    HcclDataType      dataType_;
 
     SendRecvInfo(const TxRxChannels &sendRecvLinks, const TxRxSlicesList &sendRecvSlices)
         : sendRecvChannels_(sendRecvLinks), sendRecvSlices_(sendRecvSlices)
+    {
+    }
+
+    SendRecvInfo(const TxRxChannels &sendRecvLinks, const TxRxSlicesList &sendRecvSlices, HcclDataType dataType)
+    : sendRecvChannels_(sendRecvLinks), sendRecvSlices_(sendRecvSlices), dataType_(dataType)
     {
     }
 };
@@ -168,6 +180,48 @@ struct BuffInfo {
     u64        hcclBuffBaseOff    = 0;
 };
 
+struct StepSliceInfo
+{
+    BuffInfo buffInfo;
+    std::vector<std::vector<u64>> stepCount; //每step上所有的rank参与的数据量
+    std::vector<std::vector<u64>> stepSliceSize; //每step上所有的rank参与的数据量
+    std::vector<u64> stepInputSliceStride; //数据连着放 buffertype.addr + inputSliceStride[rankid] + inputOmniPipeSliceStride[j]
+    std::vector<u64> stepOutputSliceStride; //数据连着放
+    std::vector<std::vector<u64>> inputOmniPipeSliceStride;
+    std::vector<std::vector<u64>> outputOmniPipeSliceStride;
+
+    std::vector<char> Serialize() const
+    {
+        BinaryStream binaryStream;
+        binaryStream << stepCount;
+        binaryStream << stepSliceSize;
+        binaryStream << stepInputSliceStride;
+        binaryStream << stepOutputSliceStride;
+        binaryStream << inputOmniPipeSliceStride;
+        binaryStream << outputOmniPipeSliceStride;
+        std::vector<char> result;
+        binaryStream.Dump(result);
+        return result;
+    }
+
+    void DeSerialize(std::vector<char> &data)
+    {
+        BinaryStream binaryStream(data);
+        binaryStream >> stepCount;
+        binaryStream >> stepSliceSize;
+        binaryStream >> stepInputSliceStride;
+        binaryStream >> stepOutputSliceStride;
+        binaryStream >> inputOmniPipeSliceStride;
+        binaryStream >> outputOmniPipeSliceStride;
+    }
+};
+
+struct TemplateFastLaunchCtx {
+    BuffInfo buffInfo;
+    std::vector<ThreadHandle> threads;
+    std::vector<CcuKernelSubmitInfo> ccuKernelSubmitInfos;
+};
+
 struct TemplateDataParams {
     BuffInfo buffInfo;
     u64 count{0};
@@ -190,6 +244,7 @@ struct TemplateDataParams {
     std::vector<u64> recvCounts;
     std::vector<u64> sdispls;
     std::vector<u64> rdispls;
+    StepSliceInfo stepSliceInfo;
 
     std::vector<char> Serialize() const
     {
@@ -213,6 +268,7 @@ struct TemplateDataParams {
         binaryStream << allRankProcessedDataCount;
         binaryStream << root;
         binaryStream << dataType;
+        binaryStream << stepSliceInfo.Serialize();
         std::vector<char> result;
         binaryStream.Dump(result);
         return result;
@@ -240,6 +296,9 @@ struct TemplateDataParams {
         binaryStream >> allRankProcessedDataCount;
         binaryStream >> root;
         binaryStream >> dataType;
+        std::vector<char> stepSliceInfoData;
+        binaryStream >> stepSliceInfoData;
+        stepSliceInfo.DeSerialize(stepSliceInfoData);
     }
 };
 
@@ -248,6 +307,7 @@ struct TemplateResource {
     std::map<u32, std::vector<ChannelInfo>> channels;
     std::vector<ThreadHandle> threads;
     std::vector<CcuKernelHandle> ccuKernels;
+    std::vector<CcuKernelSubmitInfo> submitInfos;
     void *npu2DpuShmemPtr;
     void *dpu2NpuShmemPtr;
     void* aivCommInfoPtr = nullptr;
@@ -313,6 +373,49 @@ HcclResult GetAlgRank(const u32 virtRank, const std::vector<u32> &rankIds, u32 &
 
 u32 GetNHRStepNum(u32 rankSize);
 
+inline u32 CalcChannelsPerRank(const std::vector<HcclChannelDesc> &channels)
+{
+    u32 channelsPerRank = 1;
+    u32 currentRank = INVALID_VALUE_RANKID;
+    u32 currentCount = 0;
+    u32 changeNum = 0;
+    // channels的排列遵循相同远端的channel放在相邻位置
+    for (const auto &channel : channels) {
+        if (channel.remoteRank == currentRank) {
+            // 如果remoteRank不变，则计数一直累加
+            currentCount++;
+        } else {
+            // 如果remoteRank变化了，则更新channelsPerRank并重新开始给下一个remoteRank计数
+            if (currentCount != channelsPerRank && channel.remoteRank != channels[0].remoteRank) {
+                HCCL_WARNING("[CalcChannelsPerRank] channel num[%u] of remote rank[%u] is not equal to "\
+                    "channel num[%u] of previous ranks.",
+                    currentCount, channel.remoteRank, channelsPerRank);
+            }
+            if (currentCount > channelsPerRank) {
+                channelsPerRank = currentCount;
+            }
+            currentRank = channel.remoteRank;
+            currentCount = 1;
+        }
+    }
+    // 处理最后一个rank
+    if (currentCount > channelsPerRank) {
+        channelsPerRank = currentCount;
+    }
+    return channelsPerRank;
+}
+
+inline u32 CalcChannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels)
+{
+    u32 channelsPerRank = 1;
+    for (const auto &channelsByRank : channels) {
+        if (channelsByRank.second.size() > channelsPerRank) {
+            channelsPerRank = static_cast<u32>(channelsByRank.second.size());
+        }
+    }
+    return channelsPerRank;
+}
+
 // roundup func for uint
 inline u64 RoundUp(const u64 dividend, const u64 divisor)
 {
@@ -322,5 +425,40 @@ inline u64 RoundUp(const u64 dividend, const u64 divisor)
     }
     return dividend / divisor + ((dividend % divisor != 0) ? 1 : 0);
 }
+
+// ccu快速下发arg填充
+template <typename... Args>
+HcclResult FillCachedArgs(CcuKernelSubmitInfo &info, Args... args)
+{
+    size_t argNum = sizeof...(Args);
+    if (UNLIKELY(argNum > CCU_MAX_TASK_ARG_NUM)) {
+        HCCL_ERROR("[FillCachedArgs] argNum is bigger than CCU_MAX_TASK_ARG_NUM[%d]", CCU_MAX_TASK_ARG_NUM);
+        return HcclResult::HCCL_E_INTERNAL;
+    }
+    uint64_t temp[] = { static_cast<uint64_t>(args)... };
+
+    for (size_t i = 0; i < argNum; i++) {
+        info.cachedArgs[i] = temp[i];
+    }
+
+    return HcclResult::HCCL_SUCCESS;
+}
+HcclResult CalcDataSplitByPortGroupCommon(const u64 totalDataCount,
+                                          const u64 dataTypeSize,
+                                          const std::vector<ChannelInfo> &channels,
+                                          std::vector<u64> &elemCountOut,
+                                          std::vector<u64> &sizeOut,
+                                          std::vector<u64> &elemOffset,
+                                          const u32 channelsPerRank);
+
+HcclResult CalcDataSplitByPortGroupZAxisDetour(const u64 totalDataCount,
+                                                const u64 dataTypeSize,
+                                                const std::vector<ChannelInfo> &channels,
+                                                std::vector<u64> &elemCountOut,
+                                                std::vector<u64> &sizeOut,
+                                                std::vector<u64> &elemOffset,
+                                                const u32 level0ChannelNumPerRank,
+                                                const u32 level1ChannelNumPerRank,
+                                                const float level0DataRatio = 0.5f);
 }
 #endif

@@ -53,7 +53,7 @@ u64 InsTempGatherMesh1dIntra::CalcScratchMultiple(BufferType inBuffType, BufferT
 }
 
 HcclResult InsTempGatherMesh1dIntra::KernelRun(const OpParam &param, const TemplateDataParams &tempAlgParams,
-    const TemplateResource &templateResource)
+    TemplateResource &templateResource)
 {
     HCCL_INFO("[InsTempGatherMesh1dIntra] Run start");
     threadNum_ = templateResource.threads.size();

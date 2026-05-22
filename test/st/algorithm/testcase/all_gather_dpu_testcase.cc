@@ -36,6 +36,7 @@ protected:
         unsetenv("HCCL_OP_EXPANSION_MODE");
         unsetenv("ENABLE_HOSTDPU_FOR_LLT");
         unsetenv("HCCL_INDEPENDENT_OP");
+        unsetenv("HCCL_ENABLE_OPEN_AICPU");
     }
     static void SetUpTestCase()
     {}

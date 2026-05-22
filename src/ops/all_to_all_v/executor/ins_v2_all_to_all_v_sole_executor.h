@@ -15,6 +15,7 @@
 #include "topo_match_1d.h"
 #include "topo_match_base.h"
 #include "topo_match_ubx.h"
+#include "topo_match_ubx_1d.h"
 
 namespace ops_hccl {
 template <typename AlgTopoMatch, typename InsAlgTemplate> class InsV2AlltoAllVSoleExecutor : public InsCollAlgBase {
@@ -26,12 +27,17 @@ public:
 
     /* *************** 资源计算 *************** */
 
+    HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo,
+                                    AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
+
     HcclResult CalcRes(HcclComm comm, const OpParam& param,
                        const TopoInfoWithNetLayerDetails* topoInfo, const AlgHierarchyInfoForAllLevel& algHierarchyInfo,
                        AlgResourceRequest& resourceRequest) override;
 
-    HcclResult CalcAlgHierarchyInfo(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo,
-                                    AlgHierarchyInfoForAllLevel& algHierarchyInfo) override;
+#ifndef AICPU_COMPILE
+    HcclResult FastLaunchSaveCtx(const OpParam &param, const TemplateResource &templateAlgRes, u32 notifyNumOnMainThread);
+ 	HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *resCtx) override;    
+#endif
 
 protected:
     /* *************** 算法编排 *************** */

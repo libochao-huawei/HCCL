@@ -19,6 +19,7 @@ namespace ops_hccl {
  
 class InsTempAllReduceMesh1DTwoShotMeshChunk : public InsAlgTemplateBase {
 public:
+    InsTempAllReduceMesh1DTwoShotMeshChunk() = default;
     explicit InsTempAllReduceMesh1DTwoShotMeshChunk(const OpParam& param, 
                                                     const u32 rankId, // 传通信域的rankId，userRank
                                                     const std::vector<std::vector<u32>> &subCommRanks);
@@ -36,7 +37,7 @@ public:
                     AlgResourceRequest& resourceRequest) override;
     HcclResult KernelRun(const OpParam& param,
                          const TemplateDataParams& tempAlgParams,
-                         const TemplateResource& templateResource) override;
+                         TemplateResource& templateResource) override;
     
     HcclResult PreCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads,
                         const RankSliceInfo &sliceInfoVec);
@@ -57,6 +58,10 @@ private:
     HcclResult RunAllgather(const std::map<u32, std::vector<ChannelInfo>> &channels,
                             const std::vector<ThreadHandle> &threads,
                             const TemplateDataParams &tempAlgParams, RankSliceInfo &sliceInfoVec);
+    void NotifyIdxMainToSubInRSMeshChunk(std::vector<u32> &notifyIdxMainToSub);
+    void NotifyIdxSubToMainInRSMeshChunk(std::vector<u32> &notifyIdxSubToMain);
+    void NotifyIdxMainToSubInAG(std::vector<u32> &notifyIdxMainToSub);
+    void NotifyIdxSubToMainInAG(std::vector<u32> &notifyIdxSubToMain);
 
     u64 processSize_{0};
     u64 count_{0};

@@ -17,8 +17,11 @@
 
 namespace ops_hccl {
 
+constexpr u64 REDUCE_SCATTER_SMALL_COUNT_512KB = 512 * 1024;
+
 class AivTempReduceScatterMesh1D : public AivAlgTemplateBase {
 public:
+    AivTempReduceScatterMesh1D() = default;
     explicit AivTempReduceScatterMesh1D(const OpParam& param, const u32 rankId, // 传通信域的rankId，userRank
                                         const std::vector<std::vector<u32>> &subCommRanks);
     ~AivTempReduceScatterMesh1D() override;

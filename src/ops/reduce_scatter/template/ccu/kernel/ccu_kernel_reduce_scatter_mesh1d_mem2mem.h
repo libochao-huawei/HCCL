@@ -49,18 +49,20 @@ class CcuTaskArgReduceScatterMesh1DMem2Mem : public CcuTaskArg {
 public:
     explicit CcuTaskArgReduceScatterMesh1DMem2Mem(uint64_t inputAddr, uint64_t outputAddr, uint64_t token,
                                                 uint64_t scratchAddr,
-                                                uint64_t inputSliceStride,
+                                                uint64_t inputSliceStride, uint64_t outputSliceStride,
                                                 uint64_t inputRepeatStride, uint64_t outputRepeatStride,
                                                 uint64_t normalSliceSize, uint64_t lastSliceSize, uint64_t repeatNum)
         : inputAddr_(inputAddr), outputAddr_(outputAddr), token_(token), scratchAddr_(scratchAddr),
-        inputSliceStride_(inputSliceStride), inputRepeatStride_(inputRepeatStride), outputRepeatStride_(outputRepeatStride),
+        inputSliceStride_(inputSliceStride), outputSliceStride_(outputSliceStride), 
+        inputRepeatStride_(inputRepeatStride), outputRepeatStride_(outputRepeatStride),
         normalSliceSize_(normalSliceSize), lastSliceSize_(lastSliceSize), repeatNum_(repeatNum) 
     {
-        HCCL_DEBUG("[CcuTaskArgReduceScatterMesh1DMem2Mem] inputAddr: %lu, outputAddr: %lu, scratchAddr: %lu, "
-                   "inputSliceStride: %lu, inputRepeatStride: %lu, outputRepeatStride: %lu, normalSliceSize: %lu, "
+        HCCL_INFO("[CcuTaskArgReduceScatterMesh1DMem2Mem] inputAddr: %lu, outputAddr: %lu, scratchAddr: %lu, "
+                   "inputSliceStride: %lu, outputSliceStride: %lu, inputRepeatStride: %lu, "
+                   "outputRepeatStride: %lu, normalSliceSize: %lu, "
                    "lastSliceSize: %lu, repeatNum: %lu",
-                   inputAddr_, outputAddr_, scratchAddr_, inputSliceStride_, inputRepeatStride_,
-                   outputRepeatStride_, normalSliceSize_, lastSliceSize_, repeatNum_);
+                   inputAddr_, outputAddr_, scratchAddr_, inputSliceStride_, outputSliceStride_,
+                   inputRepeatStride_, outputRepeatStride_, normalSliceSize_, lastSliceSize_, repeatNum_);
     }
 
     uint64_t inputAddr_;
@@ -68,6 +70,7 @@ public:
     uint64_t token_;
     uint64_t scratchAddr_;
     uint64_t inputSliceStride_;
+    uint64_t outputSliceStride_;
     uint64_t inputRepeatStride_;
     uint64_t outputRepeatStride_;
     uint64_t normalSliceSize_;
@@ -95,6 +98,8 @@ private:
     void CreateReduceLoop(uint32_t size, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType);
     void ReduceLoopGroup(CcuRep::LocalAddr outDstOrg, CcuRep::LocalAddr srcOrg, std::vector<CcuRep::LocalAddr> &scratchOrg,
         GroupOpSize goSize, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType);
+    void PairwiseLocalReduce(CcuRep::LocalAddr myOutput, std::vector<CcuRep::LocalAddr> &inputVec,
+        CcuRep::Variable sliceSize, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType);
  
     const std::string LOOP_BLOCK_TAG{"_local_copy_reduce_loop_"};
 
@@ -109,16 +114,18 @@ private:
     std::vector<CcuRep::Variable> scratch_;
     std::vector<CcuRep::Variable> token_;
     CcuRep::Variable currentRankSliceInputOffset_;
+    CcuRep::Variable currentRankSliceOutputOffset_;
     CcuRep::Variable inputRepeatStride_;
     CcuRep::Variable outputRepeatStride_;
     CcuRep::Variable normalSliceSize_;
-    GroupOpSize normalGoSize_;
+    CcuRep::Variable lastSliceSize_;
+    GroupOpSize GoSize_;
     uint16_t selfBit_{0};
     uint16_t allBit_{0};
     CcuRep::LocalAddr                   myInput_;
     std::vector<CcuRep::RemoteAddr>     remoteInput_;
     std::vector<CcuRep::LocalAddr>      scratchMem_;
-    CcuRep::CompletedEvent event_;
+    std::vector<CcuRep::CompletedEvent> event_;
     CcuRep::Variable flag_; // 用以判断是否是第一次重复
 };
 

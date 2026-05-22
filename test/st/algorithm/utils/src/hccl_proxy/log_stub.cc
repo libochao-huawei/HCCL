@@ -10,11 +10,12 @@
 
 #include <cstdarg>
 #include <cstdio>
+#include <cstdint>
 #include <map>
 #include <string>
 #include <sys/time.h>
 #include <time.h>
-#include <stdio.h>
+#include <cstdio>
 #include <unistd.h>
 #include <securec.h>
 

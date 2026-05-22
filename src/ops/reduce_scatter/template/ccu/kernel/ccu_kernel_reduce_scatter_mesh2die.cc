@@ -14,7 +14,7 @@
 
 constexpr int CKE_IDX_0   = 0;
 constexpr int INPUT_XN_ID = 0;
-constexpr int TOKEN_XN_ID = 1;
+constexpr int TOKEN_XN_ID = 2;
 constexpr int POST_SYNC_ID = 3;
 constexpr int LOOP_NUM    = 128;
 
@@ -24,9 +24,7 @@ CcuKernelReduceScatterMesh2Die::CcuKernelReduceScatterMesh2Die(const hcomm::CcuK
     : CcuKernelAlgBase(arg)
 {
     const CcuKernelArgReduceScatterMesh2Die *kernelArg = dynamic_cast<const CcuKernelArgReduceScatterMesh2Die *>(&arg);
-    if (kernelArg == nullptr) {
-        HCCL_ERROR("[CcuKernelReduceScatterMesh2Die] kernelArg ptr is null.");
-    }
+
     channels_ = kernelArg->channels;
     rmtReduceWithMyRank_ = kernelArg->rmtReduceWithMyRank_;
     myRankId_            = kernelArg->rankId_;
@@ -149,9 +147,6 @@ HcclResult CcuKernelReduceScatterMesh2Die::Algorithm()
 std::vector<uint64_t> CcuKernelReduceScatterMesh2Die::GeneArgs(const CcuTaskArg &arg)
 {
     const CcuTaskArgReduceScatterMesh2Die *taskArg = dynamic_cast<const CcuTaskArgReduceScatterMesh2Die *>(&arg);
-    if (taskArg == nullptr) {
-        HCCL_ERROR("[CcuKernelReduceScatterMesh2Die] taskArg ptr is null. RankId[%u]", myRankId_);
-    }
     moConfig.loopCount = LOOP_NUM;
     uint64_t myInput   = taskArg->inputAddr_;
     uint64_t myOutput  = taskArg->outputAddr_;

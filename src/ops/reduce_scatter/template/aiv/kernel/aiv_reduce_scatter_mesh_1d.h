@@ -17,7 +17,6 @@ template<typename T>
 class AivReduceScatterMesh1D : public AivCommBase {
     constexpr static uint64_t stageNum = 2;  // 生产者 消费者
     constexpr static uint64_t TAG_FLAG_SIZE = 8;
-    constexpr static uint64_t maxRankSize = 8;
 
 public:
 
@@ -55,7 +54,7 @@ public:
         CpGM2GM((__gm__ T *)outputOffset, (__gm__ T *)inputOffset, len_); // 本卡数据拷贝到ipc上
         pipe_barrier(PIPE_ALL);
         uint64_t flag_offset = rank_;
-        Record(targetRank, flag_offset, curTag);
+        Record(targetRank, flag_offset, curTag_);
     }
 
     __aicore__ inline void Consumer()
@@ -64,7 +63,7 @@ public:
         for (int index = 0; index < rankSize_; index++) {
             uint32_t rankIdx = (index + GetBlockIdx()) % rankSize_;
             flag_offset = rankIdx;
-            WaitFlag(rank_, flag_offset, curTag);
+            WaitFlag(rank_, flag_offset, curTag_);
             if (index == 0) { // 通过直接覆盖output把数据清一下
                 CpGM2GM((__gm__ T *)outputOffset, (__gm__ T *)inputOffVec[index], consumProcessNum);
             } else { // 其他卡往output上做atomic add
@@ -74,9 +73,9 @@ public:
         }
     }
 
-    __aicore__ inline void Process(uint32_t curTag)
+    __aicore__ inline void Process(uint32_t sliceId)
     {
-        this->curTag = static_cast<int32_t>(curTag);
+        curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
         if(GetBlockIdx() < coreNumPerStage){ // 0-1
             Producer();
         } else if(GetBlockIdx() < (coreNumPerStage * stageNum)) { // 2-3
@@ -89,23 +88,20 @@ private:
     uint32_t targetRank;
     uint64_t inputOffset;
     uint64_t outputOffset;
-    int32_t curTag;
     uint64_t consumProcessNum;
-    int64_t inputOffVec[maxRankSize];
+    int64_t inputOffVec[MAX_RANK_SIZE];
     uint32_t coreNumPerStage;
 };
 
 template<typename T>
-__aicore__ inline void AivReduceScatterV2Mesh1D(EXTERN_KERNEL_ARGS_DEF_V2)
+__aicore__ inline void AivReduceScatterV2Mesh1D(KERNEL_ARGS_DEF)
 {
     AivReduceScatterMesh1D<T> op;
     op.Init(KERNEL_CLASS_INIT, true);
     op.InitCoreInfo(len, inputSliceStride);
-    SyncAll<true>();
-    if (block_idx == 0 && tag >> AIV_TAG_MOVE_RIGHT_BITS == 1 && (tag & LOW_16_BITS) == 1) {
+    if (op.IsFirstOP(sliceId)) {
         op.BarrierForFirstOP();
     }
-    SyncAll<true>();
-    op.Process(tag);
+    op.Process(sliceId);
     op.BarrierAll();
 }

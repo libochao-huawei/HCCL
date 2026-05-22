@@ -34,6 +34,7 @@ void InsTempScatterNHR::SetRoot(u32 root)
 HcclResult InsTempScatterNHR::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
                         AlgResourceRequest& resourceRequest)
 {
+    CHK_PTR_NULL(topoInfo);
     GetRes(resourceRequest);
 
     std::vector<HcclChannelDesc> level0Channels;
@@ -118,17 +119,31 @@ HcclResult InsTempScatterNHR::GetStepInfo(u32 step, u32 nSteps, AicpuNHRStepInfo
 }
 
 HcclResult InsTempScatterNHR::KernelRun(const OpParam& param, const TemplateDataParams &tempAlgParams,
-                     const TemplateResource& templateResource)
+                     TemplateResource& templateResource)
 {
+    u32 myAlgRank = 0;
+    CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], myAlgRank));
+    enableRemoteMemAccess_ = tempAlgParams.enableRemoteMemAccess;
     threadNum_ =  subCommRanks_.size();
     processSize_ = tempAlgParams.sliceSize;
     count_ = tempAlgParams.count;
     dataType_ = param.DataDes.dataType;
+
+    bool isPcieProtocal = IsPcieProtocol(templateResource.channels);  // 判断是否存在pcie链路
+    isDmaRead_ = isPcieProtocal;  // 是否使用Read模式
+    HCCL_DEBUG("[InsTempScatterNHR] Use Dma Read[%d]", isDmaRead_);
+
     HCCL_INFO("[InsTempScatterNHR] queNum_ =  [%d], threads size = [%d]", threadNum_, templateResource.threads.size());
     HCCL_INFO("[InsTempScatterNHR] Run Start");
-    CHK_PRT_RET(threadNum_ != templateResource.threads.size(),
+    CHK_PRT_RET(templateResource.threads.empty(), 
+ 	            HCCL_ERROR("[InsTempScatterNHR][KernelRun] threads is empty"), 
+ 	            HCCL_E_INTERNAL);
+    CHK_PRT_RET(threadNum_ > templateResource.threads.size(),
         HCCL_ERROR("[InsTempScatterNHR] Rank [%d], requiredThread Error.", myRank_),
         HcclResult::HCCL_E_INTERNAL);
+    CHK_PTR_NULL(tempAlgParams.buffInfo.hcclBuff.addr);
+    CHK_PTR_NULL(tempAlgParams.buffInfo.inputPtr);
+    CHK_PTR_NULL(tempAlgParams.buffInfo.outputPtr);
     CHK_RET(PreCopy(tempAlgParams, templateResource.threads));
     CHK_RET(RunNHR(templateResource.channels, templateResource.threads, tempAlgParams));
     CHK_RET(PostCopy(tempAlgParams, templateResource.threads));
@@ -139,8 +154,13 @@ HcclResult InsTempScatterNHR::KernelRun(const OpParam& param, const TemplateData
 HcclResult InsTempScatterNHR::PreCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads) const
 {
     if (u32(myRank_) != root_ || tempAlgParams.buffInfo.inBuffType == BufferType::HCCL_BUFFER) {
+        HCCL_INFO("[InsTempScatterNHR][Precopy] skip precopy, myRank = %u, root = %u", myRank_, root_);
         return HCCL_SUCCESS;
     }
+
+    u32 curSliceSize = 0;
+    u32 curCount = 0;
+    const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
 
     for (u32 r = 0; r < tempAlgParams.repeatNum; r++) {
         for (u32 algRank = 0; algRank < templateRankSize_; algRank++) {
@@ -148,8 +168,11 @@ HcclResult InsTempScatterNHR::PreCopy(const TemplateDataParams &tempAlgParams, c
                             tempAlgParams.buffInfo.inBuffBaseOff;
             u64 dstOffset = r * templateRankSize_ * tempAlgParams.sliceSize + tempAlgParams.buffInfo.hcclBuffBaseOff +
                             algRank * tempAlgParams.sliceSize;
-            DataSlice srcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr, srcOffset, processSize_, count_);
-            DataSlice dstSlice = DataSlice(tempAlgParams.buffInfo.hcclBuff.addr, dstOffset, processSize_, count_);
+            
+            curSliceSize = tempAlgParams.tailSize !=0 && algRank == templateRankSize_ - 1? tempAlgParams.tailSize : processSize_;
+            curCount = curSliceSize / dataTypeSize;
+            DataSlice srcSlice = DataSlice(tempAlgParams.buffInfo.inputPtr, srcOffset, curSliceSize, curCount);
+            DataSlice dstSlice = DataSlice(tempAlgParams.buffInfo.hcclBuff.addr, dstOffset, curSliceSize, curCount);
             CHK_RET(static_cast<HcclResult>(LocalCopy(threads.at(0), srcSlice, dstSlice)));
         }
     }
@@ -161,14 +184,17 @@ HcclResult InsTempScatterNHR::PostCopy(
     const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads) const
 {
     u32 myAlgRank;
+    const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
+    u32 curSliceSize = tempAlgParams.tailSize !=0 && myAlgRank == templateRankSize_ - 1? tempAlgParams.tailSize : processSize_;
+    u32 curCount = curSliceSize / dataTypeSize;
     GetAlgRank(myRank_, subCommRanks_[0], myAlgRank);
     for (u32 r = 0; r < tempAlgParams.repeatNum; r++) {
         u64 srcOffset = r * templateRankSize_ * tempAlgParams.sliceSize + tempAlgParams.buffInfo.hcclBuffBaseOff +
                         myAlgRank * tempAlgParams.sliceSize;
-        u64 dstOffset = tempAlgParams.buffInfo.outBuffBaseOff + r * tempAlgParams.sliceSize;
-        DataSlice srcSlice = DataSlice(tempAlgParams.buffInfo.hcclBuff.addr, srcOffset, processSize_, count_);
-        DataSlice dstSlice = DataSlice(tempAlgParams.buffInfo.outputPtr, dstOffset, processSize_, count_);
-        if (tempAlgParams.buffInfo.outBuffType == BufferType::HCCL_BUFFER && srcOffset == dstOffset) {
+        u64 dstOffset = tempAlgParams.buffInfo.outBuffBaseOff + myAlgRank * tempAlgParams.outputSliceStride + r * tempAlgParams.sliceSize;
+        DataSlice srcSlice = DataSlice(tempAlgParams.buffInfo.hcclBuff.addr, srcOffset, curSliceSize, curCount);
+        DataSlice dstSlice = DataSlice(tempAlgParams.buffInfo.outputPtr, dstOffset, curSliceSize, curCount);
+        if ((tempAlgParams.buffInfo.outBuffType == BufferType::HCCL_BUFFER && srcOffset == dstOffset) || enableRemoteMemAccess_) {
             continue;
         }
         CHK_RET(static_cast<HcclResult>(LocalCopy(threads.at(0), srcSlice, dstSlice)));
@@ -206,54 +232,103 @@ HcclResult InsTempScatterNHR::RunNHR(const std::map<u32, std::vector<ChannelInfo
 HcclResult InsTempScatterNHR::BatchSend(AicpuNHRStepInfo &stepInfo, const std::map<u32, std::vector<ChannelInfo>> &channels,
     const ThreadHandle &thread, const TemplateDataParams &tempAlgParam, u32 repeat) const
 {
+    CHK_PRT_RET(channels.find(stepInfo.toRank) == channels.end() || channels.at(stepInfo.toRank).empty(), 
+ 	             HCCL_ERROR("[InsTempScatterNHR][BatchSend] remoteRank[%d] not found in channels", stepInfo.toRank), 
+ 	             HCCL_E_INTERNAL);
     const ChannelInfo &linkSend = channels.at(stepInfo.toRank)[0];
+    CHK_PTR_NULL(linkSend.remoteCclMem.addr);
     HCCL_INFO("[InsTempScatterNHR][BatchSend] myRank[%d], toRank[%d]", myRank_, stepInfo.toRank);
     void* remoteCclBuffAddr = linkSend.remoteCclMem.addr;
     std::vector<DataSlice> srcSlices;
     std::vector<DataSlice> dstSlices;
+    u32 curSliceSize = 0;
+    u32 curCount = 0;
+    const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
+
     for (u32 i = 0; i < stepInfo.txSliceIdxs.size(); i++) {
         u32 txId = stepInfo.txSliceIdxs.at(i);
         u64 srcDstOffset = repeat * templateRankSize_ * tempAlgParam.sliceSize + tempAlgParam.buffInfo.hcclBuffBaseOff +
                            txId * tempAlgParam.sliceSize;
-        DataSlice srcSlice = DataSlice(tempAlgParam.buffInfo.hcclBuff.addr, srcDstOffset, processSize_, count_);
-        DataSlice dstSlice = DataSlice(remoteCclBuffAddr, srcDstOffset, processSize_, count_);
+        curSliceSize = tempAlgParam.tailSize !=0 && txId == templateRankSize_ - 1? tempAlgParam.tailSize : processSize_;
+        curCount = curSliceSize / dataTypeSize;
+        DataSlice srcSlice = DataSlice(tempAlgParam.buffInfo.hcclBuff.addr, srcDstOffset, curSliceSize, curCount);
+        DataSlice dstSlice = DataSlice(remoteCclBuffAddr, srcDstOffset, curSliceSize, curCount);
         srcSlices.push_back(srcSlice);
         dstSlices.push_back(dstSlice);
     }
     SlicesList txSlicesList({srcSlices}, {dstSlices});
     DataInfo sendData(linkSend, txSlicesList);
-    CHK_PRT_RET(static_cast<HcclResult>(SendWrite(sendData, thread)),
-        HCCL_ERROR("[InsTempScatterNHR] BatchSend failed"),
-        HcclResult::HCCL_E_INTERNAL);
+    if (isDmaRead_) {
+        CHK_PRT_RET(static_cast<HcclResult>(SendRead(sendData, thread)),
+            HCCL_ERROR("[InsTempScatterNHR] BatchSend failed"),
+            HcclResult::HCCL_E_INTERNAL);
+    } else {
+        CHK_PRT_RET(static_cast<HcclResult>(SendWrite(sendData, thread)),
+            HCCL_ERROR("[InsTempScatterNHR] BatchSend failed"),
+            HcclResult::HCCL_E_INTERNAL);
+    }
     return HcclResult::HCCL_SUCCESS;
 }
 
 HcclResult InsTempScatterNHR::BatchRecv(AicpuNHRStepInfo &stepInfo, const std::map<u32, std::vector<ChannelInfo>> &channels,
     const ThreadHandle &thread, const TemplateDataParams &tempAlgParam, u32 repeat) const
 {
+    CHK_PRT_RET(channels.find(stepInfo.fromRank) == channels.end() || channels.at(stepInfo.fromRank).empty(), 
+                HCCL_ERROR("[InsTempScatterNHR][BatchRecv] remoteRank[%d] not found in channels", stepInfo.fromRank), 
+                HCCL_E_INTERNAL);
     const ChannelInfo &linkRecv = channels.at(stepInfo.fromRank)[0];
-    std::vector<DataSlice> srcDstSlices;
+    CHK_PTR_NULL(linkRecv.remoteCclMem.addr);
+    void* remoteCclBuffAddr = linkRecv.remoteCclMem.addr;
+    std::vector<DataSlice> srcSlices;
+    std::vector<DataSlice> dstSlices;
+    u32 curSliceSize = 0;
+    u32 curCount = 0;
+    const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
+
     for (u32 i = 0; i < stepInfo.rxSliceIdxs.size(); i++) {
         u32 rxId = stepInfo.rxSliceIdxs.at(i);
         u64 srcDstOffset = repeat * templateRankSize_ * tempAlgParam.sliceSize + tempAlgParam.buffInfo.hcclBuffBaseOff +
                            rxId * tempAlgParam.sliceSize;
-        DataSlice srcDstSlice(tempAlgParam.buffInfo.hcclBuff.addr, srcDstOffset, processSize_, count_);
-        srcDstSlices.push_back(srcDstSlice);
+        curSliceSize = tempAlgParam.tailSize !=0 && rxId == templateRankSize_ - 1? tempAlgParam.tailSize : processSize_;
+        curCount = curSliceSize / dataTypeSize;
+        DataSlice srcSlice = DataSlice(remoteCclBuffAddr, srcDstOffset, curSliceSize, curCount);
+        DataSlice dstSlice = DataSlice(tempAlgParam.buffInfo.hcclBuff.addr, srcDstOffset, curSliceSize, curCount);
+        srcSlices.push_back(srcSlice);
+        dstSlices.push_back(dstSlice);
     }
-    SlicesList rxSlicesList(srcDstSlices, srcDstSlices); // RecvWrite函数下远端地址不起作用
+    SlicesList rxSlicesList({srcSlices}, {dstSlices});
     DataInfo recvData(linkRecv, rxSlicesList);
-    CHK_PRT_RET(static_cast<HcclResult>(RecvWrite(recvData, thread)),
-        HCCL_ERROR("[InsTempScatterNHR] BatchRecv failed"),
-        HcclResult::HCCL_E_INTERNAL);
+    if (isDmaRead_) {
+        CHK_PRT_RET(static_cast<HcclResult>(RecvRead(recvData, thread)),
+            HCCL_ERROR("[InsTempScatterNHR] BatchRecv failed"),
+            HcclResult::HCCL_E_INTERNAL);
+    } else {
+        CHK_PRT_RET(static_cast<HcclResult>(RecvWrite(recvData, thread)),
+            HCCL_ERROR("[InsTempScatterNHR] BatchRecv failed"),
+            HcclResult::HCCL_E_INTERNAL);
+    }
     return HcclResult::HCCL_SUCCESS;
 }
 
 HcclResult InsTempScatterNHR::BatchSR(AicpuNHRStepInfo &stepInfo, const std::map<u32, std::vector<ChannelInfo>> &channels,
     const ThreadHandle &thread, const TemplateDataParams &tempAlgParam, u32 repeat) const
 {
+    CHK_PRT_RET(channels.find(stepInfo.fromRank) == channels.end() || channels.at(stepInfo.fromRank).empty(), 
+ 	            HCCL_ERROR("[InsTempScatterNHR][BatchSR] remoteRank[%d] not found in channels", stepInfo.fromRank), 
+ 	            HCCL_E_INTERNAL);
+    CHK_PRT_RET(channels.find(stepInfo.toRank) == channels.end() || channels.at(stepInfo.toRank).empty(), 
+                HCCL_ERROR("[InsTempScatterNHR][BatchSend] remoteRank[%d] not found in channels", stepInfo.toRank), 
+                HCCL_E_INTERNAL);
     const ChannelInfo &linkSend = channels.at(stepInfo.toRank)[0];
     const ChannelInfo &linkRecv = channels.at(stepInfo.fromRank)[0];
-    void* remoteCclBuffAddr = linkSend.remoteCclMem.addr;
+    CHK_PTR_NULL(linkSend.remoteCclMem.addr);
+    CHK_PTR_NULL(linkRecv.remoteCclMem.addr);
+    void* sendRemoteCclBuffAddr = linkSend.remoteCclMem.addr;
+    void* recvRemoteCclBuffAddr = linkRecv.remoteCclMem.addr;
+
+    u32 curSliceSize = 0;
+    u32 curCount = 0;
+    const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
 
     std::vector<DataSlice> txSrcSlices;
     std::vector<DataSlice> txDstSlices;
@@ -261,25 +336,38 @@ HcclResult InsTempScatterNHR::BatchSR(AicpuNHRStepInfo &stepInfo, const std::map
         u32 txId = stepInfo.txSliceIdxs.at(i);
         u64 srcDstOffset = repeat * templateRankSize_ * tempAlgParam.sliceSize + tempAlgParam.buffInfo.hcclBuffBaseOff +
                            txId * tempAlgParam.sliceSize;
-        DataSlice srcSlice(tempAlgParam.buffInfo.hcclBuff.addr, srcDstOffset, processSize_, count_);
-        DataSlice dstSlice(remoteCclBuffAddr, srcDstOffset, processSize_, count_);
+        curSliceSize = tempAlgParam.tailSize !=0 && txId == templateRankSize_ - 1? tempAlgParam.tailSize : processSize_;
+        curCount = curSliceSize / dataTypeSize;
+        DataSlice srcSlice(tempAlgParam.buffInfo.hcclBuff.addr, srcDstOffset, curSliceSize, curCount);
+        DataSlice dstSlice(sendRemoteCclBuffAddr, srcDstOffset, curSliceSize, curCount);
         txSrcSlices.push_back(srcSlice);
         txDstSlices.push_back(dstSlice);
     }
-    std::vector<DataSlice> rxSrcDstSlices;
+    std::vector<DataSlice> rxSrcSlices;
+    std::vector<DataSlice> rxDstSlices;
     for (u32 i = 0; i < stepInfo.rxSliceIdxs.size(); i++) {
         u32 rxId = stepInfo.rxSliceIdxs.at(i);
         u64 srcDstOffset = repeat * templateRankSize_ * tempAlgParam.sliceSize + tempAlgParam.buffInfo.hcclBuffBaseOff +
                            rxId * tempAlgParam.sliceSize;
-        DataSlice srcDstSlice(tempAlgParam.buffInfo.hcclBuff.addr, srcDstOffset, processSize_, count_);
-        rxSrcDstSlices.push_back(srcDstSlice);
+        curSliceSize = tempAlgParam.tailSize !=0 && rxId == templateRankSize_ - 1? tempAlgParam.tailSize : processSize_;
+        curCount = curSliceSize / dataTypeSize;
+        DataSlice srcSlice = DataSlice(recvRemoteCclBuffAddr, srcDstOffset, curSliceSize, curCount);
+        DataSlice dstSlice = DataSlice(tempAlgParam.buffInfo.hcclBuff.addr, srcDstOffset, curSliceSize, curCount);
+        rxSrcSlices.push_back(srcSlice);
+        rxDstSlices.push_back(dstSlice);
     }
     SendRecvInfo sendRecvInfo{
-        {linkSend, linkRecv}, {{txSrcSlices, txDstSlices}, {rxSrcDstSlices, rxSrcDstSlices}}};
+        {linkSend, linkRecv}, {{txSrcSlices, txDstSlices}, {rxSrcSlices, rxDstSlices}}};
 
-    CHK_PRT_RET(SendRecvWrite(sendRecvInfo, thread),
-        HCCL_ERROR("[InsTempScatterNHR] RunNHR BatchSendRecv failed"),
-        HcclResult::HCCL_E_INTERNAL);
+    if (isDmaRead_) {
+        CHK_PRT_RET(SendRecvRead(sendRecvInfo, thread),
+            HCCL_ERROR("[InsTempScatterNHR] RunNHR BatchSendRecv failed"),
+            HcclResult::HCCL_E_INTERNAL);
+    } else {
+        CHK_PRT_RET(SendRecvWrite(sendRecvInfo, thread),
+            HCCL_ERROR("[InsTempScatterNHR] RunNHR BatchSendRecv failed"),
+            HcclResult::HCCL_E_INTERNAL);
+    }
     return HcclResult::HCCL_SUCCESS;
 }
 

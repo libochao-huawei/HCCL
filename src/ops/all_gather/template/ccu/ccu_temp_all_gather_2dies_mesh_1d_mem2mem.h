@@ -16,6 +16,7 @@
 namespace ops_hccl {
 class CcuTempAllGather2DiesMeshMem2Mem1D : public CcuAlgTemplateBase {
 public:
+    CcuTempAllGather2DiesMeshMem2Mem1D() = default;
     explicit  CcuTempAllGather2DiesMeshMem2Mem1D(const OpParam& param, 
                                                 const u32 rankId,
                                                 const std::vector<std::vector<u32>> &subCommRanks);
@@ -33,7 +34,7 @@ public:
  
     HcclResult KernelRun(const OpParam& param,
                          const TemplateDataParams& templateDataParams,
-                         const TemplateResource& templateResource) override;
+                         TemplateResource& templateResource) override;
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
     u64 GetThreadNum() const override;
     HcclResult GetRes(AlgResourceRequest& resourceRequest) const override;

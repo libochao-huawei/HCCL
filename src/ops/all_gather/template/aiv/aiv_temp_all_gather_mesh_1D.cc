@@ -44,8 +44,7 @@ HcclResult AivTempAllGatherMesh1D::CalcRes(HcclComm comm, const OpParam& param, 
 HcclResult AivTempAllGatherMesh1D::CalNumBlocks(u32& numBlocks, u64 dataSize, u32 numBlocksLimit)
 {
     (void) dataSize;
-    constexpr u32 NUM_BLOCKS_FOUR = 4;
-    numBlocks = NUM_BLOCKS_FOUR;
+    numBlocks = numBlocksLimit;
     HCCL_INFO("[AivTempAllGatherMesh1D] Actually use core num[%u]", numBlocks);
     return HcclResult::HCCL_SUCCESS;
 }
@@ -56,7 +55,7 @@ HcclResult AivTempAllGatherMesh1D::KernelRun(const OpParam& param,
 {
     HCCL_INFO("[AivTempAllGatherMesh1D] KernelRun start");
 
-    IncSliceId();  // 自动增长sliceId，传入aivCountTag
+    IncSliceId();  // 自动增长sliceId，传入sliceId
     dataType_ = param.DataDes.dataType;
     AivOpArgs aivAllGatherArgs;
     aivAllGatherArgs.cmdType = HcclCMDType::HCCL_CMD_ALLGATHER;
@@ -68,7 +67,7 @@ HcclResult AivTempAllGatherMesh1D::KernelRun(const OpParam& param,
     aivAllGatherArgs.dataType = dataType_;
     aivAllGatherArgs.op = param.reduceType;
     aivAllGatherArgs.root = root_;
-    aivAllGatherArgs.aivCountTag = (static_cast<uint32_t>(param.aivCountTag) << AIV_TAG_MOVE_LEFT_BITS) | static_cast<uint32_t>(sliceId_);  // 传入aivCountTag，Lauch时重新组装为aivCountTag  // todo
+    aivAllGatherArgs.sliceId = static_cast<uint32_t>(sliceId_);
     aivAllGatherArgs.buffersIn = templateResource.aivCommInfoPtr;
     aivAllGatherArgs.stream = param.stream;
     aivAllGatherArgs.isOpBase = (param.opMode == OpMode::OPBASE);
@@ -100,7 +99,7 @@ HcclResult AivTempAllGatherMesh1D::KernelRun(const OpParam& param,
     aivAllGatherArgs.inputRepeatStride = tempAlgParams.inputRepeatStride;
     aivAllGatherArgs.outputRepeatStride = tempAlgParams.outputRepeatStride;
 
-    ExecuteKernelLaunch(aivAllGatherArgs);
+    CHK_RET(ExecuteKernelLaunch(aivAllGatherArgs));
 
     HCCL_INFO("[AivTempAllGatherMesh1D] KernelRun finished");
     return HcclResult::HCCL_SUCCESS;

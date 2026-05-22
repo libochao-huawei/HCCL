@@ -29,7 +29,7 @@ public:
     {
         CpGM2GM((__gm__ T *)outputOffset, (__gm__ T *)input_, len_);
         pipe_barrier(PIPE_ALL);
-        Record(targetRank, rank_, curTag);
+        Record(targetRank, rank_, curTag_);
     }
  
     __aicore__ inline void Consumer()
@@ -37,14 +37,15 @@ public:
         uint32_t waitRank = 0;
         uint64_t outerOffset = waitRank  * len_ * sizeof(T); //rank_  * len;
         inputOffset = reinterpret_cast<uint64_t>(GM_IN[rank_]) + outerOffset;
-        WaitFlag(rank_, waitRank, curTag);
+        WaitFlag(rank_, waitRank, curTag_);
         CpGM2GM((__gm__ T *)output_, (__gm__ T *)inputOffset, len_);
- 
+        pipe_barrier(PIPE_ALL);
         for (waitRank = 1; waitRank < rankSize_; waitRank++) {
             outerOffset = waitRank  * len_ * sizeof(T); //rank_  * len;
             inputOffset = reinterpret_cast<uint64_t>(GM_IN[rank_]) + outerOffset;
-            WaitFlag(rank_, waitRank, curTag);
+            WaitFlag(rank_, waitRank, curTag_);
             CpGM2GM((__gm__ T *)output_, (__gm__ T *)inputOffset, len_, reduceOp_);
+            pipe_barrier(PIPE_ALL);
         }
     }
  
@@ -55,9 +56,9 @@ public:
     }
  
     //aiv core数目大于ranksize+1
-    __aicore__ inline void ProcessCoreLargeCase(uint64_t curCount, uint32_t curTag, uint64_t stride)
+    __aicore__ inline void ProcessCoreLargeCase(uint64_t curCount, uint32_t sliceId, uint64_t stride)
     {
-        this->curTag = static_cast<int32_t>(curTag);
+        curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
         this->curCount = curCount / coreNumPerRank;
         coreNumPerStage = coreNumPerRank * rankSize_;
  
@@ -72,9 +73,9 @@ public:
     }
  
     //aiv core数目小于ranksize
-    __aicore__ inline void ProcessCoreSmallCase(uint64_t curCount, uint32_t curTag, uint64_t stride)
+    __aicore__ inline void ProcessCoreSmallCase(uint64_t curCount, uint32_t sliceId, uint64_t stride)
     {
-        this->curTag = static_cast<int32_t>(curTag);
+        curTag_ = (static_cast<uint32_t>(tag_) << AIV_TAG_MOVE_RIGHT_BITS) | (sliceId & LOW_16_BITS);
         this->curCount = curCount;
  
         for(uint32_t i=0;block_idx+i*numBlocks_<rankSize_;i++){
@@ -94,25 +95,22 @@ public:
     GM_ADDR peerMemThisCore;
     uint64_t inputOffset;
     uint64_t outputOffset;
-    int32_t curTag;
     uint64_t curCount;
     uint64_t dataBufferSize;
 };
  
 template<typename T>
-__aicore__ inline void AivAllReduceV2Mesh1DOneShot(EXTERN_KERNEL_ARGS_DEF_V2)
+__aicore__ inline void AivAllReduceV2Mesh1DOneShot(KERNEL_ARGS_DEF)
 {
     AivAllReduceMesh1DOneShot<T> op;
     op.Init(KERNEL_CLASS_INIT, true);
-    SyncAll<true>();
-    if (block_idx == 0 && tag >> AIV_TAG_MOVE_RIGHT_BITS == 1 && (tag & LOW_16_BITS) == 1) {
+    if (op.IsFirstOP(sliceId)) {
         op.BarrierForFirstOP();
     }
-    SyncAll<true>();
     if(rankSize+1<=block_num){
-      op.ProcessCoreLargeCase(len, tag, inputSliceStride);
+      op.ProcessCoreLargeCase(len, sliceId, inputSliceStride);
     }else{
-      op.ProcessCoreSmallCase(len, tag, inputSliceStride);
+      op.ProcessCoreSmallCase(len, sliceId, inputSliceStride);
     }
     op.BarrierAll();
 }

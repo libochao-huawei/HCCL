@@ -63,13 +63,12 @@ HcclResult AivTempAlltoAllMesh1D::CalNumBlocks(u32& numBlocks, u64 dataSize, u32
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult AivTempAlltoAllMesh1D::KernelRun(const OpParam& param,
-                                                 const TemplateDataParams& tempAlgParams,
-                                                 const TemplateResource& templateResource)
+HcclResult AivTempAlltoAllMesh1D::KernelRun(const OpParam& param, const TemplateDataParams& tempAlgParams,
+                                            const TemplateResource& templateResource)
 {
     HCCL_INFO("[AivTempAlltoAllMesh1D] KernelRun start");
 
-    IncSliceId();  // 自动增长sliceId，传入aivCountTag
+    IncSliceId();  // 自动增长sliceId，传入sliceId
     dataType_ = param.all2AllVDataDes.sendType;
     AivOpArgs aivAlltoAllArgs;
     aivAlltoAllArgs.cmdType = HcclCMDType::HCCL_CMD_ALLTOALL;
@@ -84,7 +83,7 @@ HcclResult AivTempAlltoAllMesh1D::KernelRun(const OpParam& param,
     aivAlltoAllArgs.dataType = dataType_;
     aivAlltoAllArgs.op = param.reduceType;
     aivAlltoAllArgs.root = root_;
-    aivAlltoAllArgs.aivCountTag = (static_cast<uint32_t>(param.aivCountTag) << AIV_TAG_MOVE_LEFT_BITS) | static_cast<uint32_t>(sliceId_);  // 传入aivCountTag，Lauch时重新组装为aivCountTag  // todo
+    aivAlltoAllArgs.sliceId = static_cast<uint32_t>(sliceId_);
     aivAlltoAllArgs.buffersIn = templateResource.aivCommInfoPtr;
     aivAlltoAllArgs.stream = param.stream;
     aivAlltoAllArgs.isOpBase = (param.opMode == OpMode::OPBASE);
@@ -110,13 +109,15 @@ HcclResult AivTempAlltoAllMesh1D::KernelRun(const OpParam& param,
     u64 dataSize = tempAlgParams.inputSliceStride;
     CHK_RET(CalNumBlocks(aivAlltoAllArgs.numBlocks, dataSize, param.numBlocksLimit));
 
-    aivAlltoAllArgs.inputSliceStride = reinterpret_cast<u64*>(param.all2AllVDataDes.sendCounts)[0];
-    aivAlltoAllArgs.outputSliceStride = reinterpret_cast<u64*>(param.all2AllVDataDes.sendCounts)[0];
+    aivAlltoAllArgs.inputSliceStride =
+        reinterpret_cast<u64*>(param.all2AllVDataDes.sendCounts)[0] * DATATYPE_SIZE_TABLE[dataType_];
+    aivAlltoAllArgs.outputSliceStride =
+        reinterpret_cast<u64*>(param.all2AllVDataDes.sendCounts)[0] * DATATYPE_SIZE_TABLE[dataType_];
     aivAlltoAllArgs.repeatNum = tempAlgParams.repeatNum;
     aivAlltoAllArgs.inputRepeatStride = tempAlgParams.inputRepeatStride;
     aivAlltoAllArgs.outputRepeatStride = tempAlgParams.outputRepeatStride;
 
-    ExecuteKernelLaunch(aivAlltoAllArgs);
+    CHK_RET(ExecuteKernelLaunch(aivAlltoAllArgs));
 
     HCCL_INFO("[AivTempAlltoAllMesh1D] KernelRun finished");
     return HcclResult::HCCL_SUCCESS;

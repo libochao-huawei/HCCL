@@ -25,6 +25,7 @@ constexpr uint64_t MAX_DIM_NUM = 3;
 
 class AivAlgTemplateBase {
 public:
+    explicit AivAlgTemplateBase();
     explicit AivAlgTemplateBase(const OpParam& param, const u32 rankId, // 传通信域的rankId，userRank
                                 const std::vector<std::vector<u32>> &subCommRanks);
     virtual ~AivAlgTemplateBase();
@@ -37,11 +38,19 @@ public:
     virtual HcclResult KernelRun(const OpParam& param,
                                  const TemplateDataParams& tempAlgParams,
                                  const TemplateResource& templateResource);
+    virtual HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx);
     // Sync
     HcclResult PreSync(const u32 queIdx, const std::vector<ThreadHandle> &threads) const;
     HcclResult PostSync(const u32 queIdx, const std::vector<ThreadHandle> &threads) const;
     HcclResult PreSyncInterQueues(const std::vector<ThreadHandle> &threads) const;
     HcclResult PostSyncInterQueues(const std::vector<ThreadHandle> &threads) const;
+    virtual HcclResult CalcDataSplitByPortGroup(const u64 totalDataCount, const u64 dataTypeSize,
+                                                const std::vector<ChannelInfo> &channels,
+                                                std::vector<u64> &elemCountOut, std::vector<u64> &sizeOut,
+                                                std::vector<u64> &elemOffset);
+
+    virtual HcclResult SetchannelsPerRank(const std::map<u32, std::vector<ChannelInfo>> &channels);
+
 protected:
     void IncSliceId();
 
@@ -56,7 +65,8 @@ protected:
     HcclDataType                     dataType_;
     // 从OpParam中获取
     bool                             enableDetour_ = false;
-    u32                              sliceId_ = 0; // 用于组装aivCountTag
+    u32                              sliceId_ = 0;
+    u32             channelsPerRank_    = 1;
 };
 
 } // namespace Hccl

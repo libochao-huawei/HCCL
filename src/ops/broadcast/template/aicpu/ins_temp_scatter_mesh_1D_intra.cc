@@ -53,7 +53,7 @@ u64 InsTempScatterMesh1DIntra::CalcScratchMultiple(BufferType inBuffType, Buffer
 }
 
 HcclResult InsTempScatterMesh1DIntra::KernelRun(const OpParam& param, const TemplateDataParams &tempAlgParams,
-    const TemplateResource& templateResource)
+    TemplateResource& templateResource)
 {
     threadNum_ = templateResource.threads.size();
     dataTypeSize_ = SIZE_TABLE[param.DataDes.dataType];

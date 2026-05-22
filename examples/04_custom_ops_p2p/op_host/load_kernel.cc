@@ -8,7 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include <mmpa_api.h>
+#include <limits.h>
+#include "log.h"
 #include "load_kernel.h"
 
 namespace ops_hccl_p2p {
@@ -19,8 +20,7 @@ HcclResult GetKernelFilePath(std::string &binaryPath)
 {
     // 获取二进制文件路径
     std::string libPath;
-    char *getPath = getenv("ASCEND_HOME_PATH");
-    MM_SYS_GET_ENV(MM_ENV_ASCEND_HOME_PATH, getPath);
+    char *getPath = std::getenv("ASCEND_HOME_PATH");
     if (getPath != nullptr) {
         libPath = getPath;
     } else {

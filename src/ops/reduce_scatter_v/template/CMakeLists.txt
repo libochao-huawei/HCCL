@@ -9,3 +9,6 @@
 # -----------------------------------------------------------------------------------------------------------
 
 add_subdirectory(aicpu)
+if(NOT HCCL_CANN_COMPAT_850)
+    add_subdirectory(ccu)
+endif()

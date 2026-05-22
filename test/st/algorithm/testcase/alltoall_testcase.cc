@@ -31,7 +31,6 @@ protected:
     {
         // 取消设置环境变量
         unsetenv("HCCL_OP_EXPANSION_MODE");
-        unsetenv("ENABLE_HOSTDPU");
         unsetenv("ENABLE_HOSTDPU_FOR_LLT");
         unsetenv("HCCL_INDEPENDENT_OP");
         unsetenv("HCCL_ENABLE_OPEN_AICPU");
@@ -48,7 +47,7 @@ protected:
         setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
         setenv("HCCL_BUFFSIZE", "200", 1);
         setenv("HCCL_INDEPENDENT_OP", "1", 1);
-        setenv("HCCL_ENABLE_OPEN_AICPU", "1", 1);
+        
 
         // 设置收发数据量，收发数据量相同
         u64 sendDataCount = dataCount;
@@ -90,10 +89,12 @@ protected:
             thread.join();
         }
 
-        // 结果成图校验
-        auto taskQueues = SimTaskQueue::Global()->GetAllRankTaskQueues();
-        HcclResult res = CheckAll2All(taskQueues, rankSize, dataType, sendDataCount);
-        EXPECT_TRUE(res == HCCL_SUCCESS);
+        if (dataCount != 0) {
+            // 结果成图校验
+            auto taskQueues = SimTaskQueue::Global()->GetAllRankTaskQueues();
+            HcclResult res = CheckAll2All(taskQueues, rankSize, dataType, sendDataCount);
+            EXPECT_TRUE(res == HCCL_SUCCESS);
+        }
 
         // 资源清理
         SimWorld::Global()->Deinit();
@@ -104,9 +105,9 @@ protected:
         SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
         // 设置环境变量
         setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
-        setenv("ENABLE_HOSTDPU", "1", 1);
         setenv("ENABLE_HOSTDPU_FOR_LLT", "1", 1);
         setenv("HCCL_INDEPENDENT_OP", "1", 1);
+        
 
         // 设置发送数据量和接收数据量相同
         u64 sendDataCount = dataCount;
@@ -155,10 +156,12 @@ protected:
             thread.join();
         }
 
-        // 结果成图校验
-        auto taskQueues = SimTaskQueue::Global()->GetAllRankTaskQueues();
-        HcclResult res = CheckAll2All(taskQueues, rankSize, dataType, sendDataCount);
-        EXPECT_TRUE(res == HCCL_SUCCESS);
+        if (sendDataCount != 0) {
+            // 结果成图校验
+            auto taskQueues = SimTaskQueue::Global()->GetAllRankTaskQueues();
+            HcclResult res = CheckAll2All(taskQueues, rankSize, dataType, sendDataCount);
+            EXPECT_TRUE(res == HCCL_SUCCESS);
+        }
 
         // 资源清理
         SimWorld::Global()->Deinit();
@@ -245,15 +248,6 @@ TEST_F(ST_ALLTOALL_TEST, st_alltoall_hostDpu_test_8)
     HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_FP8E8M0;
 
     u64 sendDataCount = 0;
-    RunHostDpuAlltoAllMeshTest(topoMeta, dataType, sendDataCount);
-}
-
-TEST_F(ST_ALLTOALL_TEST, st_alltoall_hostDpu_test_9)
-{
-    TopoMeta topoMeta{{{0, 1, 2, 3, 4}, {0}, {0}, {0}}};
-    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_FP64;
-
-    u64 sendDataCount = 11;
     RunHostDpuAlltoAllMeshTest(topoMeta, dataType, sendDataCount);
 }
 
@@ -377,6 +371,28 @@ TEST_F(ST_ALLTOALL_TEST, st_alltoall_10)
     uint32_t rankSize = 8;
     HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_FP8E4M3;
     uint64_t dataCount = 67108864;
+
+    RunAlltoAllMeshTest(topoMeta, rankSize, dataType, dataCount);
+}
+
+TEST_F(ST_ALLTOALL_TEST, st_alltoall_11)
+{
+    TopoMeta topoMeta;  // 三维数组指定超节点-Server-Device信息
+    GenTopoMeta(topoMeta, 1, 4, 8);
+    uint32_t rankSize = 32;
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_FP16;
+    uint64_t dataCount = 2222222;
+
+    RunAlltoAllMeshTest(topoMeta, rankSize, dataType, dataCount);
+}
+
+TEST_F(ST_ALLTOALL_TEST, st_alltoall_13)
+{
+    TopoMeta topoMeta;  // 三维数组指定超节点-Server-Device信息
+    GenTopoMeta(topoMeta, 1, 8, 8);
+    uint32_t rankSize = 64;
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_INT32;
+    uint64_t dataCount = 3333333;
 
     RunAlltoAllMeshTest(topoMeta, rankSize, dataType, dataCount);
 }

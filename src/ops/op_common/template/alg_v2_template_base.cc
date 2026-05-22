@@ -29,9 +29,17 @@ InsAlgTemplateBase::~InsAlgTemplateBase()
 {
 }
 
+HcclResult InsAlgTemplateBase::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+{
+    (void)param;
+    (void)tempFastLaunchCtx;
+    HCCL_ERROR("[InsAlgTemplateBase] Unsupported interface of InsAlgTemplateBase::FastLaunch!");
+    return HcclResult::HCCL_E_INTERNAL;
+}
+
 HcclResult InsAlgTemplateBase::KernelRun(const OpParam& param,
                                          const TemplateDataParams& tempAlgParams,
-                                         const TemplateResource& templateResource)
+                                         TemplateResource& templateResource)
 {
     (void)param;
     (void)tempAlgParams;
@@ -78,6 +86,18 @@ u64 InsAlgTemplateBase::CalcScratchMultiple(BufferType inBuffType, BufferType ou
 u64 InsAlgTemplateBase::GetThreadNum() const
 {
     return 0;
+}
+
+bool InsAlgTemplateBase::IsPcieProtocol(const std::map<u32, std::vector<ChannelInfo>> &channels)
+{
+    for (auto it = channels.begin(); it != channels.end(); it++) {
+        if ((it->second).at(0).protocol == CommProtocol::COMM_PROTOCOL_PCIE) {
+            HCCL_DEBUG("[IsPcieProtocol] the protocol of channel is PCIE");
+            return true;
+        }
+    }
+    HCCL_DEBUG("[IsPcieProtocol] the protocol of channel is Non-PCIE");
+    return false;
 }
 
 }

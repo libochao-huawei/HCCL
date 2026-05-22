@@ -50,22 +50,23 @@ public:
 
 class CcuTaskArgAlltoAllVMesh1D : public hcomm::CcuTaskArg {
 public:
-    explicit CcuTaskArgAlltoAllVMesh1D(uint64_t inputAddr, uint64_t outputAddr, std::vector<uint64_t> sliceSize,
-        uint64_t token, uint64_t srcOffset, uint64_t dstOffset,const A2ASendRecvInfo& localSendRecvInfo) :
-        inputAddr_(inputAddr), outputAddr_(outputAddr), sliceSize_(sliceSize), token_(token), 
-        srcOffset_(srcOffset), dstOffset_(dstOffset), localSendRecvInfo_(localSendRecvInfo)
+    explicit CcuTaskArgAlltoAllVMesh1D(uint64_t inputAddr, uint64_t outputAddr,
+        uint64_t token, uint64_t srcOffset, uint64_t dstOffset, uint32_t rankSize, uint32_t myRank, const A2ASendRecvInfo& localSendRecvInfo) :
+        inputAddr_(inputAddr), outputAddr_(outputAddr), token_(token), 
+        srcOffset_(srcOffset), dstOffset_(dstOffset), rankSize_(rankSize), myRank_(myRank), localSendRecvInfo_(localSendRecvInfo)
     {
-        HCCL_DEBUG("[CcuTaskArgAlltoAllVMesh1D] inputAddr: %lu, outputAddr: %lu, sliceSize: %lu, "
+        HCCL_DEBUG("[CcuTaskArgAlltoAllVMesh1D] inputAddr: %lu, outputAddr: %lu, rankSize: %lu, "
                    "srcOffset: %lu, dstOffset: %lu",
-                   inputAddr_, outputAddr_, sliceSize_, srcOffset_, dstOffset_);
+                   inputAddr_, outputAddr_, rankSize_, srcOffset_, dstOffset_);
     }
 
     uint64_t inputAddr_;
     uint64_t outputAddr_;
-    std::vector<uint64_t> sliceSize_;
     uint64_t token_;
     uint64_t srcOffset_;
     uint64_t dstOffset_;
+    uint32_t rankSize_;
+    uint32_t myRank_;
     A2ASendRecvInfo localSendRecvInfo_;
 };
 

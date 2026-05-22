@@ -22,10 +22,6 @@ CcuKernelAllToAllMesh2Die::CcuKernelAllToAllMesh2Die(const hcomm::CcuKernelArg &
     : CcuKernelAlgBase(arg)
 {
     const CcuKernelArgAllToAllMesh2Die *kernelArg = dynamic_cast<const CcuKernelArgAllToAllMesh2Die *>(&arg);
-    if (kernelArg == nullptr) {
-        HCCL_ERROR("[CcuKernelAllToAllMesh2Die] kernelArg ptr is null.");
-        return;
-    }
 
     channels_ = kernelArg->channels;
 
@@ -192,9 +188,6 @@ HcclResult CcuKernelAllToAllMesh2Die::Algorithm()
 std::vector<uint64_t> CcuKernelAllToAllMesh2Die::GeneArgs(const CcuTaskArg &arg)
 {
     const CcuTaskArgAllToAllMesh2Die *taskArg = dynamic_cast<const CcuTaskArgAllToAllMesh2Die *>(&arg);
-    if (taskArg == nullptr) {
-        HCCL_ERROR("[CcuKernelAllToAllMesh2Die] taskArg ptr is null. RankId[%u]", rankId_);
-    }
     uint64_t inputAddr         = taskArg->inputAddr_;
     uint64_t outputAddr        = taskArg->outputAddr_;
     uint64_t tokenInfo         = taskArg->token_;

@@ -17,7 +17,7 @@ namespace ops_hccl {
 
 HcclResult HcomCheckGroupName(const char *group)
 {
-    if (group != nullptr) {
+    if (UNLIKELY(group != nullptr)) {
         u32 groupLen = strnlen(group, GROUP_NAME_MAX_LEN + 1);
         if (groupLen == (GROUP_NAME_MAX_LEN + 1) || groupLen == 0) {
             HCCL_ERROR("[Check][GroupName]errNo[0x%016llx] group name[%s] length[%lu] is invalid",
@@ -32,8 +32,8 @@ HcclResult HcomCheckOpParam(const char *tag, const u64 count, const HcclDataType
     const void *stream)
 {
     HcclResult ret = HcomCheckGroupName(group);
-    RPT_INPUT_ERR(ret != HCCL_SUCCESS, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-        std::vector<std::string>({tag, "group", group, "please check group"}));
+    RPT_INPUT_ERR(ret != HCCL_SUCCESS, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({tag, group, "group", "non-empty string with only letters, digits, and underscores"}));
     CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("[Check][OpParam]errNo[0x%016llx] group name is invalid",
         HCOM_ERROR_CODE(ret)), ret);
 
@@ -46,8 +46,8 @@ HcclResult HcomCheckOpParam(const char *tag, const u64 count, const HcclDataType
 {
     CHK_RET(HcomCheckOpParam(tag, count, dataType));
 
-    RPT_INPUT_ERR(stream == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-        std::vector<std::string>({tag, "stream", "nullptr", "please check stream"}));
+    RPT_INPUT_ERR(stream == nullptr, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({tag, "nullptr", "stream", "non-null pointer"}));
     CHK_PTR_NULL(stream);
 
     return HCCL_SUCCESS;
@@ -107,20 +107,20 @@ HcclResult HcomCheckReductionOp(const HcclReduceOp op)
 HcclResult HcomCheckOpParam(const char *tag, const u64 count, const HcclDataType dataType)
 {
     HcclResult ret = HcomCheckTag(tag);
-    RPT_INPUT_ERR(ret != HCCL_SUCCESS, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-        std::vector<std::string>({"HcomCheckTag", "tag", tag, "please check tag"}));
+    RPT_INPUT_ERR(ret != HCCL_SUCCESS, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({"HcomCheckTag", tag, "tag", "supported operation name (e.g., \"AllReduce\", \"AllGather\")"}));
     CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("[Check][OpParam]errNo[0x%016llx] tag is invalid",
         HCOM_ERROR_CODE(ret)), ret);
 
     ret = HcomCheckCount(count);
-    RPT_INPUT_ERR(ret != HCCL_SUCCESS, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-        std::vector<std::string>({tag, "count", std::to_string(count), "please check count"}));
+    RPT_INPUT_ERR(ret != HCCL_SUCCESS, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({tag, std::to_string(count), "count", "positive integer (>=1)"}));
     CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("[Check][OpParam]errNo[0x%016llx] count is out of range",
         HCOM_ERROR_CODE(ret)), ret);
 
     ret = HcomCheckDataType(dataType);
-    RPT_INPUT_ERR(ret != HCCL_SUCCESS, "EI0003", std::vector<std::string>({"ccl_op", "parameter", "value", "tips"}),\
-        std::vector<std::string>({tag, "dataType", GetDataTypeEnumStr(dataType), "please check dataType"}));
+    RPT_INPUT_ERR(ret != HCCL_SUCCESS, "EI0003", std::vector<std::string>({"ccl_op", "value", "parameter", "expect"}),\
+        std::vector<std::string>({tag, GetDataTypeEnumStr(dataType), "dataType", "valid data type (e.g., HCCL_DATA_TYPE_FP32, HCCL_DATA_TYPE_INT64)"}));
     CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("[Check][OpParam]errNo[0x%016llx] dataType is invalid",
         HCOM_ERROR_CODE(ret)), ret);
 

@@ -52,7 +52,19 @@ HcclResult CcuTempReduceMesh1D::CalcRes(HcclComm comm, const OpParam& param, con
                              return std::make_unique<CcuKernelReduceMesh1D>(arg);
                          };
     std::vector<HcclChannelDesc> channelDescs;
-    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
+    if(topoInfo->level0Topo != Level0Shape::MESH_1D_CLOS) {
+        CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
+        HCCL_DEBUG("[CcuTempReduceMesh1D::CalcRes] Get Mesh Channel Success!");
+    } else {
+        std::vector<HcclChannelDesc> tempChannelDescs;
+        CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks_, tempChannelDescs, CommTopo::COMM_TOPO_1DMESH));
+        for(auto channel : tempChannelDescs) {
+            if(channel.channelProtocol == COMM_PROTOCOL_UBC_CTP) {
+                channelDescs.push_back(channel);
+            }
+        }
+        HCCL_DEBUG("[CcuTempReduceMesh1D::CalcRes] Get Mesh Channel Success!");
+    }
     kernelInfo.kernelArg = std::make_shared<CcuKernelArgReduceMesh1D>(subCommRanks_[0].size(),
                                                                              mySubCommRank_,
                                                                              mySubCommRoot_,
@@ -68,16 +80,46 @@ HcclResult CcuTempReduceMesh1D::CalcRes(HcclComm comm, const OpParam& param, con
     return HcclResult::HCCL_SUCCESS;
 }
 
+HcclResult CcuTempReduceMesh1D::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+{
+    if (tempFastLaunchCtx.ccuKernelSubmitInfos.size() == 0) {
+        HCCL_INFO("[CcuTempReduceMesh1D::FastLaunch] ccu kernel num is 0, just success.");
+        return HCCL_SUCCESS;
+    }
+    HCCL_DEBUG("[CcuTempReduceMesh1D::FastLaunch] start");
+    CcuTaskArgReduceMesh1D taskArg(
+        PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[0],
+        PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[1],
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[2],
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[3],
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[4],
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[5],
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[6],
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[7],
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[8],
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[9],
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs[10]
+        );
+
+    void* taskArgPtr = static_cast<void*>(&taskArg);
+
+    CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0],
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr));
+
+    HCCL_DEBUG("[CcuTempReduceMesh1D::FastLaunch] end");
+    return HcclResult::HCCL_SUCCESS;
+}
+
 HcclResult CcuTempReduceMesh1D::KernelRun(const OpParam& param,
                                           const TemplateDataParams& templateDataParams,
-                                          const TemplateResource& templateResource)
+                                          TemplateResource& templateResource)
 {
     buffInfo_ = templateDataParams.buffInfo;
 
     uint64_t                      inputAddr               = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t                      outputAddr              = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
-    uint64_t                      token                   = hcomm::CcuRep::GetTokenInfo(reinterpret_cast<uint64_t>(buffInfo_.inputPtr),
-                                                            static_cast<uint64_t>(buffInfo_.inputSize));
+    uint64_t                      token;
+    CHK_RET(GetToken(buffInfo_, token));
     uint64_t                      inputSliceStride        = templateDataParams.inputSliceStride;
     uint64_t                      outputSliceStride       = templateDataParams.outputSliceStride;
     uint64_t                      repeatNum               = templateDataParams.repeatNum;
@@ -86,7 +128,7 @@ HcclResult CcuTempReduceMesh1D::KernelRun(const OpParam& param,
     uint64_t                      normalSliceSize         = templateDataParams.sliceSize;
     uint64_t                      lastSliceSize           = templateDataParams.tailSize;
     uint64_t                      repeatNumVar            = UINT64_MAX - repeatNum;
-    
+
     std::unique_ptr<hcomm::CcuTaskArg> taskArg = std::make_unique<CcuTaskArgReduceMesh1D>(
         inputAddr, outputAddr, token, inputSliceStride, outputSliceStride, repeatNum, inputRepeatStride,
         outputRepeatStride, normalSliceSize, lastSliceSize, repeatNumVar);
@@ -94,6 +136,12 @@ HcclResult CcuTempReduceMesh1D::KernelRun(const OpParam& param,
     void* taskArgPtr = static_cast<void*>(taskArg.get());
 
     HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr);
+
+    CcuKernelSubmitInfo submitInfo;
+    submitInfo.kernelHandle = templateResource.ccuKernels[0];
+    CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, token, inputSliceStride, outputSliceStride,
+    repeatNum, inputRepeatStride, outputRepeatStride, normalSliceSize, lastSliceSize, repeatNumVar));
+    templateResource.submitInfos.push_back(submitInfo);
     
     HCCL_DEBUG("[CcuTempReduceMesh1D::KernelRun] end");
 

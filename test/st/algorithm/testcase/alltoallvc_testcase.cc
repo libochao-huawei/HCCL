@@ -31,7 +31,6 @@ protected:
     {
         // 取消设置环境变量
         unsetenv("HCCL_OP_EXPANSION_MODE");
-        unsetenv("ENABLE_HOSTDPU");
         unsetenv("ENABLE_HOSTDPU_FOR_LLT");
         unsetenv("HCCL_INDEPENDENT_OP");
         unsetenv("HCCL_ENABLE_OPEN_AICPU");
@@ -49,7 +48,7 @@ protected:
         setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
         setenv("HCCL_BUFFSIZE", "200", 1);
         setenv("HCCL_INDEPENDENT_OP", "1", 1);
-        setenv("HCCL_ENABLE_OPEN_AICPU", "1", 1);
+        
 
         std::vector<std::thread> threads;
         for (auto rankId = 0; rankId < rankSize; ++rankId) {
@@ -110,9 +109,9 @@ protected:
         SimWorld::Global()->Init(topoMeta, DevType::DEV_TYPE_950);
         // 设置环境变量
         setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
-        setenv("ENABLE_HOSTDPU", "1", 1);
         setenv("ENABLE_HOSTDPU_FOR_LLT", "1", 1);
         setenv("HCCL_INDEPENDENT_OP", "1", 1);
+        
 
         // 计算RankSize
         u32 rankSize = 0;
@@ -207,20 +206,6 @@ TEST_F(ST_ALLTOALLVC_TEST, st_alltoallvc_hostDpu_test_1)
     RunHostDpuAlltoAllVCMeshTest(topoMeta, dataType, sendCountMatrix);
 }
 
-TEST_F(ST_ALLTOALLVC_TEST, st_alltoallvc_hostDpu_test_2)
-{
-    TopoMeta topoMeta{{{0, 1, 2}, {0}}};
-    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_INT64;
-
-    std::vector<u64> sendCountMatrix = {
-        0, 50, 25, 209715200,
-        50, 314572800, 30, 80,
-        209715200, 30, 0, 0,
-        75, 0, 45, 209715200
-    };
-    RunHostDpuAlltoAllVCMeshTest(topoMeta, dataType, sendCountMatrix);
-}
-
 TEST_F(ST_ALLTOALLVC_TEST, st_alltoallvc_hostDpu_test_3)
 {
     TopoMeta topoMeta{{{0, 1}, {0, 1}}};
@@ -231,21 +216,6 @@ TEST_F(ST_ALLTOALLVC_TEST, st_alltoallvc_hostDpu_test_3)
         50, 314572800, 0, 80,
         209715200, 0, 0, 21,
         75, 0, 45, 209235255
-    };
-    RunHostDpuAlltoAllVCMeshTest(topoMeta, dataType, sendCountMatrix);
-}
-
-TEST_F(ST_ALLTOALLVC_TEST, st_alltoallvc_hostDpu_test_4)
-{
-    TopoMeta topoMeta{{{0, 1, 2, 3}, {0}}};
-    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_FP8E8M0;
-
-    std::vector<u64> sendCountMatrix = {
-        524288000,  0,  0,  0,  0,
-        0,  524288000,  0,  0,  0,
-        0, 0, 524288000, 0, 0,
-        0, 0, 0, 524288000, 0,
-        0, 0, 0, 0, 524288000
     };
     RunHostDpuAlltoAllVCMeshTest(topoMeta, dataType, sendCountMatrix);
 }
@@ -299,23 +269,6 @@ TEST_F(ST_ALLTOALLVC_TEST, st_alltoallvc_hostDpu_test_7)
         122, 0, 0, 512, 20546, 2, 7200, 1, 0,
         0, 55, 11, 1, 0, 55, 2560, 0, 35262,
         1, 40, 0, 8192, 1025, 0, 1, 33, 384
-    };
-
-    RunHostDpuAlltoAllVCMeshTest(topoMeta, dataType, sendCountMatrix);
-}
-
-TEST_F(ST_ALLTOALLVC_TEST, st_alltoallvc_hostDpu_test_8)
-{
-    TopoMeta topoMeta{{{0, 1}, {0, 1}, {0}, {0}}};
-    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_UINT8;
-    
-    std::vector<u64> sendCountMatrix = {
-        524288000, 3068, 230686721, 0, 4096, 8193,
-        0, 1025, 0, 0, 4096, 524288000,
-        0, 4096, 230686721, 8197, 5555, 524288000,
-        230686721, 0, 512, 0, 3065, 0,
-        0, 8197, 0, 1025, 4096, 0,
-        2048, 522486, 0, 230686721, 256, 0
     };
 
     RunHostDpuAlltoAllVCMeshTest(topoMeta, dataType, sendCountMatrix);

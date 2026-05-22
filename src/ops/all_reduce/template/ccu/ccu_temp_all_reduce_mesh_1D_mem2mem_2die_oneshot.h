@@ -18,6 +18,7 @@ namespace ops_hccl {
  
 class CcuTempAllReduceMesh1DMem2Mem2DieOneShot : public CcuAlgTemplateBase {
 public:
+    CcuTempAllReduceMesh1DMem2Mem2DieOneShot() = default;
     explicit  CcuTempAllReduceMesh1DMem2Mem2DieOneShot(const OpParam& param,
                                                 const u32 rankId, // 传通信域的rankId，userRank
                                                 const std::vector<std::vector<u32>> &subCommRanks);
@@ -35,7 +36,7 @@ public:
  
     HcclResult KernelRun(const OpParam& param,
                          const TemplateDataParams& templateDataParams,
-                         const TemplateResource& templateResource) override;
+                         TemplateResource& templateResource) override;
  
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
  

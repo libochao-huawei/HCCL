@@ -21,6 +21,7 @@ namespace ops_hccl {
 
 class InsTempBroadcastMesh1DTwoShot : public InsAlgTemplateBase {
 public:
+    InsTempBroadcastMesh1DTwoShot() = default;
     explicit InsTempBroadcastMesh1DTwoShot(const OpParam& param, const u32 rankId, // 传通信域的rankId，userRank
                                         const std::vector<std::vector<u32>> &subCommRanks);
     ~InsTempBroadcastMesh1DTwoShot() override;
@@ -34,7 +35,7 @@ public:
 
     HcclResult KernelRun(const OpParam& param,
                          const TemplateDataParams &tempAlgParams,
-                         const TemplateResource& templateResource) override;
+                         TemplateResource& templateResource) override;
     HcclResult CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo, 
                        AlgResourceRequest& resourceRequest) override;
     HcclResult GetRes(AlgResourceRequest &resourceRequest) const override;
@@ -61,6 +62,8 @@ private:
 
     u64 dataTypeSize_{0};
     std::map<u32, u32> tempVirtRankMap_;
+    BufferType srcBufferType_ = BufferType::INPUT;
+    BufferType dstBufferType_ = BufferType::INPUT;
 };
 
 } // namespace Hccl

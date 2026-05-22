@@ -25,6 +25,8 @@ private:
                                  std::string &selectAlgName) const override;
     SelectorStatus SelectCcuScheduleLevel0Algo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
                                  std::string &selectAlgName, const u64 dataSize) const;
+    SelectorStatus SelectCcuScheduleLevel0AlgoMesh1D(const TopoInfoWithNetLayerDetails* topoInfo,
+                                 const OpParam &opParam, std::string &selectAlgName, const u64 dataSize) const;
     SelectorStatus SelectCcuScheduleLevel0UBXAlgo(const TopoInfoWithNetLayerDetails* topoInfo, 
         std::string &selectAlgName, const u64 dataSize) const;
     SelectorStatus SelectAicpuAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
@@ -40,7 +42,7 @@ private:
     SelectorStatus SelectDPUAlgo(const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
         const std::map<HcclCMDType, std::vector<HcclAlgoType>> &configAlgMap, std::string &selectAlgName) const;
     SelectorStatus SelectMeshAlgoAicpuUBX(const TopoInfoWithNetLayerDetails* topoInfo, const u64 dataSize, 
-        std::string &selectAlgName) const;
+        std::string &selectAlgName, bool isDataTypeOrReduceTypeSpecial) const;
     SelectorStatus SelectMeshUBXAlgo(const TopoInfoWithNetLayerDetails* topoInfo, std::string &selectAlgName, 
         u64 dataSize) const;
 };

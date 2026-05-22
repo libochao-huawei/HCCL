@@ -11,6 +11,7 @@
 set(INCLUDE_LIST
     ${HCCL_DEV_BASE}/include
     ${HCCL_DEV_BASE}/src/common
+    ${HCCL_DEV_BASE}/src/common/hcomm_dlsym
 
     ${HCCL_DEV_BASE}/src/ops
     ${HCCL_DEV_BASE}/src/ops/op_common
@@ -118,6 +119,7 @@ set(INCLUDE_LIST
     ${HCCL_DEV_BASE}/src/ops/batch_send_recv
     ${HCCL_DEV_BASE}/src/ops/batch_send_recv/executor
     ${HCCL_DEV_BASE}/src/ops/batch_send_recv/selector
+    ${HCCL_DEV_BASE}/src/common/hcomm_dlsym
 )
 
 list(APPEND INCLUDE_LIST
@@ -126,6 +128,7 @@ list(APPEND INCLUDE_LIST
 
     # hcomm头文件
     ${ASCEND_HOME_PATH}/include/hccl
+    ${ASCEND_HOME_PATH}/include/hcomm
 
     # runtime头文件
     ${ASCEND_HOME_PATH}/include/
@@ -135,16 +138,12 @@ list(APPEND INCLUDE_LIST
     ${ASCEND_HOME_PATH}/include/external/
     ${ASCEND_HOME_PATH}/include/platform/
 
-    # mmpa头文件
-    ${ASCEND_HOME_PATH}/pkg_inc/mmpa/
-
     # 包间接口
     ${ASCEND_HOME_PATH}/pkg_inc/
     ${ASCEND_HOME_PATH}/pkg_inc/hccl
     ${ASCEND_HOME_PATH}/pkg_inc/hcomm/ccu
     ${ASCEND_HOME_PATH}/pkg_inc/runtime/
     ${ASCEND_HOME_PATH}/pkg_inc/aicpu/
-    ${ASCEND_HOME_PATH}/pkg_inc/runtime/runtime/
     ${ASCEND_HOME_PATH}/pkg_inc/profiling/
     ${ASCEND_HOME_PATH}/pkg_inc/base/
     ${ASCEND_HOME_PATH}/pkg_inc/dump/
@@ -159,7 +158,9 @@ add_library(scatter_aicpu_kernel SHARED
     ${HCCL_DEV_BASE}/src/common/log.cc
     ${HCCL_DEV_BASE}/src/common/adapter_error_manager_pub.cc
     ${HCCL_DEV_BASE}/src/common/alg_env_config.cc
+    ${HCCL_DEV_BASE}/src/common/hcomm_dlsym/hcomm_primitives_dl.cc
 
+    ${HCCL_DEV_BASE}/src/ops/op_common/exec_timeout_manager.cc
     ${HCCL_DEV_BASE}/src/ops/op_common/executor/channel/channel.cc
     ${HCCL_DEV_BASE}/src/ops/op_common/executor/channel/channel_request.cc
     ${HCCL_DEV_BASE}/src/ops/op_common/executor/registry/coll_alg_exec_registry.cc
@@ -182,6 +183,7 @@ add_library(scatter_aicpu_kernel SHARED
     ${HCCL_DEV_BASE}/src/ops/op_common/topo/topo_match_base.cc
     ${HCCL_DEV_BASE}/src/ops/op_common/topo/topo_match_multilevel.cc
     ${HCCL_DEV_BASE}/src/ops/op_common/topo/topo_match_ubx.cc
+    ${HCCL_DEV_BASE}/src/ops/op_common/topo/topo_match_pcie_mix.cc
 
     ${HCCL_DEV_BASE}/src/ops/scatter/algo/scatter_comm_executor.cc
     ${HCCL_DEV_BASE}/src/ops/scatter/algo/scatter_executor_base.cc
@@ -203,14 +205,19 @@ add_library(scatter_aicpu_kernel SHARED
     ${HCCL_DEV_BASE}/src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sole_executor.cc
     ${HCCL_DEV_BASE}/src/ops/reduce_scatter/executor/ins_reduce_scatter_parallel_executor.cc
     ${HCCL_DEV_BASE}/src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor.cc
+    ${HCCL_DEV_BASE}/src/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu.cc
     ${HCCL_DEV_BASE}/src/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_mesh_1D.cc
     ${HCCL_DEV_BASE}/src/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_nhr.cc
     ${HCCL_DEV_BASE}/src/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_mesh_1D_meshchunk.cc
+    ${HCCL_DEV_BASE}/src/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_mesh_1D_Z_axis_detour.cc
+    ${HCCL_DEV_BASE}/src/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_mesh_1d_dpu.cc
 
     ${HCCL_DEV_BASE}/src/ops/all_gather/executor/ins_v2_all_gather_sole_executor.cc
     ${HCCL_DEV_BASE}/src/ops/all_gather/executor/ins_v2_all_gather_parallel_executor.cc
+    ${HCCL_DEV_BASE}/src/ops/all_gather/executor/ins_v2_all_gather_sequence_executor_aicpu.cc
     ${HCCL_DEV_BASE}/src/ops/all_gather/template/aicpu/ins_temp_all_gather_mesh_1D.cc
     ${HCCL_DEV_BASE}/src/ops/all_gather/template/aicpu/ins_temp_all_gather_nhr.cc
+    ${HCCL_DEV_BASE}/src/ops/all_gather/template/aicpu/ins_temp_all_gather_mesh_1D_Z_axis_detour.cc
     ${HCCL_DEV_BASE}/src/ops/all_gather/executor/ins_v2_all_gather_sequence_executor.cc
     ${HCCL_DEV_BASE}/src/ops/all_gather/template/aicpu/ins_temp_all_gather_nhr_dpu.cc
 
@@ -235,8 +242,10 @@ add_library(scatter_aicpu_kernel SHARED
     ${HCCL_DEV_BASE}/src/ops/recv/template/ins_temp_recv_dpu.cc
 
     ${HCCL_DEV_BASE}/src/ops/all_reduce/executor/ins_v2_all_reduce_sole_executor.cc
-    ${HCCL_DEV_BASE}/src/ops/all_reduce/executor/ins_all_reduce_parallel_executor.cc
+    ${HCCL_DEV_BASE}/src/ops/all_reduce/executor/ins_v2_all_reduce_parallel_executor.cc
     ${HCCL_DEV_BASE}/src/ops/all_reduce/executor/ins_v2_all_reduce_sequence_executor.cc
+    ${HCCL_DEV_BASE}/src/ops/all_reduce/executor/ins_v2_all_reduce_sequence_executor_aicpu.cc
+    ${HCCL_DEV_BASE}/src/ops/all_reduce/executor/ins_v2_all_reduce_two_shot_sole_executor.cc
     ${HCCL_DEV_BASE}/src/ops/all_reduce/template/aicpu/ins_temp_all_reduce_mesh_1D_one_shot.cc
     ${HCCL_DEV_BASE}/src/ops/all_reduce/template/aicpu/ins_temp_all_reduce_mesh_1D_two_shot.cc
     ${HCCL_DEV_BASE}/src/ops/all_reduce/template/aicpu/ins_temp_all_reduce_nhr.cc

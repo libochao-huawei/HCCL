@@ -16,7 +16,7 @@
 #include "ccu_temp_all_to_all_mesh1d_multi_jetty.h"
 
 namespace ops_hccl {
-constexpr uint32_t STUB_JETTY_NUM = 4;
+constexpr uint32_t STUB_JETTY_NUM = 1;
 CcuTempAllToAllMesh1dMultiJetty::CcuTempAllToAllMesh1dMultiJetty(const OpParam& param, const u32 rankId,
                                        const std::vector<std::vector<u32>> &subCommRanks)
 : CcuAlgTemplateBase(param, rankId, subCommRanks)
@@ -74,8 +74,51 @@ HcclResult CcuTempAllToAllMesh1dMultiJetty::CalcRes(HcclComm comm, const OpParam
     return HcclResult::HCCL_SUCCESS;
 }
 
+HcclResult CcuTempAllToAllMesh1dMultiJetty::FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx)
+{
+    if (tempFastLaunchCtx.ccuKernelSubmitInfos.size() == 0) {
+        HCCL_INFO("[CcuTempAllToAllMesh1dMultiJetty::FastLaunch] ccu kernel num is 0, just success.");
+        return HCCL_SUCCESS;
+    }
+    HCCL_DEBUG("[CcuTempAllToAllMesh1dMultiJetty::FastLaunch] start");
+    const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
+    buffInfo_ = tempFastLaunchCtx.buffInfo;
+    // 根据channel的jetty数量，再做切分
+    std::vector<uint64_t> jettySlice, jettySliceTail;
+    std::vector<u32> jettyNums;
+    jettyNums.assign(args[7], STUB_JETTY_NUM);
+    for (uint32_t rank = 0; rank < args[7]; rank++) {
+        // 128B对齐
+        uint64_t quotient = args[2] / jettyNums[rank] / HCCL_MIN_SLICE_ALIGN * HCCL_MIN_SLICE_ALIGN;
+        uint64_t tailSlice = args[2] - quotient * (jettyNums[rank] - 1);
+        jettySlice.push_back(quotient);
+        jettySliceTail.push_back(tailSlice);
+    }
+    
+    // 计算NHR Multi Jetty特有的参数
+    CcuTaskArgAllToAllMesh1DMultiJetty taskArg(
+        PointerToAddr(buffInfo_.inputPtr) + args[0],
+        PointerToAddr(buffInfo_.outputPtr) + args[1],
+        args[2], // sliceSize
+        jettySlice, // jettySlice
+        jettySliceTail, // jettySliceTail
+        args[3], // token
+        args[4], // srcOffset
+        args[5], // dstOffset
+        args[6]  // srcStride
+    );
+
+    void* taskArgPtr = static_cast<void*>(&taskArg);
+
+    CHK_RET(HcclCcuKernelLaunch(param.hcclComm, tempFastLaunchCtx.threads[0], 
+        tempFastLaunchCtx.ccuKernelSubmitInfos[0].kernelHandle, taskArgPtr));
+
+    HCCL_DEBUG("[CcuTempAllToAllMesh1dMultiJetty::FastLaunch] end"); 
+    return HcclResult::HCCL_SUCCESS;
+}
+
 HcclResult CcuTempAllToAllMesh1dMultiJetty::KernelRun(const OpParam& param, const TemplateDataParams& templateDataParams,
-                                                        const TemplateResource& templateResource)
+                                                        TemplateResource& templateResource)
 {
     buffInfo_ = templateDataParams.buffInfo;
     sendCounts_ = templateDataParams.sendCounts;
@@ -89,7 +132,8 @@ HcclResult CcuTempAllToAllMesh1dMultiJetty::KernelRun(const OpParam& param, cons
 
     uint64_t inputAddr          = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
     uint64_t outputAddr         = PointerToAddr(buffInfo_.outputPtr) + buffInfo_.outBuffBaseOff;
-    uint64_t token              = hcomm::CcuRep::GetTokenInfo(PointerToAddr(buffInfo_.inputPtr), buffInfo_.inputSize);
+    uint64_t token;
+    CHK_RET(GetToken(buffInfo_, token));
     uint64_t sliceSize    = templateDataParams.sliceSize;
     uint64_t totalSliceSize = (sdispls_[1] - sdispls_[0]) * dataTypeSize; // Bytes
     uint64_t srcStride = totalSliceSize;
@@ -117,7 +161,13 @@ HcclResult CcuTempAllToAllMesh1dMultiJetty::KernelRun(const OpParam& param, cons
     void* taskArgPtr = static_cast<void*>(taskArg.get());
 
     HcclCcuKernelLaunch(param.hcclComm, templateResource.threads[0], templateResource.ccuKernels[0], taskArgPtr);
-    
+    //所有task下发完再保存参数信息
+    CcuKernelSubmitInfo submitInfo;
+    submitInfo.kernelHandle = templateResource.ccuKernels[0];
+    CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, sliceSize, 
+        token, srcOffset, dstOffset, srcStride, templateRankSize_));
+    templateResource.submitInfos.push_back(submitInfo);
+  
     HCCL_DEBUG("[CcuTempAllToAllMesh1dMultiJetty::KernelRun] end");
 
     return HcclResult::HCCL_SUCCESS;
@@ -128,4 +178,8 @@ u64 CcuTempAllToAllMesh1dMultiJetty::CalcScratchMultiple(BufferType inBuffType, 
     return 0;
 }
 
+u64 CcuTempAllToAllMesh1dMultiJetty::GetThreadNum() const
+{
+    return 1;
+}
 } // namespace ops_hccl

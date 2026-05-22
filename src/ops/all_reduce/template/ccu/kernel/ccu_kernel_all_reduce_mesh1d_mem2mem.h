@@ -105,7 +105,7 @@ private:
     std::vector<hcomm::CcuRep::Variable> input_;
     std::vector<hcomm::CcuRep::Variable> output_;
     std::vector<hcomm::CcuRep::Variable> token_;
-    std::vector<hcomm::CcuRep::Variable> scratch_;
+    CcuRep::Variable                     myScratch_;
     hcomm::CcuRep::Variable              currentRankSliceInputOffset_;
     hcomm::CcuRep::Variable              currentRankSliceOutputOffset_;
     hcomm::CcuRep::Variable              normalSliceSize_;
@@ -114,7 +114,7 @@ private:
     hcomm::CcuRep::Variable              sliceOffset_;
     hcomm::CcuRep::Variable              isInputOutputEqual_;
     hcomm::CcuRep::Variable              sliceSize_;
-    hcomm::CcuRep::CompletedEvent        locEvent_;
+    std::vector<hcomm::CcuRep::CompletedEvent> events_;
 
     hcomm::CcuRep::LocalAddr              srcMem_;
     hcomm::CcuRep::LocalAddr              localDstMem_;
@@ -131,6 +131,9 @@ private:
     void ReduceLoopGroup(hcomm::CcuRep::LocalAddr outDstOrg, hcomm::CcuRep::LocalAddr srcOrg,
         std::vector<hcomm::CcuRep::LocalAddr> &scratchOrg, GroupOpSize goSize, HcclDataType dataType, HcclDataType outputDataType,
         HcclReduceOp opType);
+    void PairwiseLocalReduce(hcomm::CcuRep::LocalAddr myOutput, std::vector<hcomm::CcuRep::LocalAddr> &inputVec,
+        hcomm::CcuRep::Variable sliceSize, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType);
+    void DoLocalReduce();
     const std::string LOOP_BLOCK_TAG{"_local_copy_reduce_loop_"};
 };
 } // namespace ops_hccl

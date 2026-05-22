@@ -24,7 +24,7 @@
 
 ### 环境要求
 
-本样例支持以下产品：
+本样例支持以下产品，组网为单机N卡（N>=2，且为偶数）：
 
 - <term>Ascend 950PR</term> / <term>Ascend 950DT</term>
 - <term>Atlas A3 训练系列产品</term> / <term>Atlas A3 推理系列产品</term>
@@ -60,8 +60,8 @@ make test
 
 ```text
 Found 8 NPU device(s) available
-rankId: 1, output: [ 0 0 0 0 ]
-rankId: 3, output: [ 2 2 2 2 ]
-rankId: 5, output: [ 4 4 4 4 ]
-rankId: 7, output: [ 6 6 6 6 ]
+rankId: 1, output: [ 0 0 0 0 0 0 0 0 ]
+rankId: 3, output: [ 2 2 2 2 2 2 2 2 ]
+rankId: 5, output: [ 4 4 4 4 4 4 4 4 ]
+rankId: 7, output: [ 6 6 6 6 6 6 6 6 ]
 ```

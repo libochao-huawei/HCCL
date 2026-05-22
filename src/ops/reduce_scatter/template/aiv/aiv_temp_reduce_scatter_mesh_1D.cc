@@ -25,7 +25,7 @@ AivTempReduceScatterMesh1D::~AivTempReduceScatterMesh1D()
 
 u64 AivTempReduceScatterMesh1D::CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType)
 {
-    u64 scratchMultiple = tempRankSize_;
+    u64 scratchMultiple = 2 * tempRankSize_;
     return scratchMultiple;
 }
 
@@ -49,11 +49,12 @@ HcclResult AivTempReduceScatterMesh1D::CalcRes(HcclComm comm, const OpParam& par
 
 HcclResult AivTempReduceScatterMesh1D::CalNumBlocks(u32& numBlocks, u64 dataSize, u32 numBlocksLimit)
 {
-    (void) dataSize;
     numBlocks = numBlocksLimit;
-    constexpr uint32_t stepNum = 2;
-    if (numBlocks > stepNum * tempRankSize_) {
-        numBlocks = stepNum * tempRankSize_;
+    if (dataSize < REDUCE_SCATTER_SMALL_COUNT_512KB) { // 小数据量，走原来极致低时延的流程
+        constexpr uint32_t stepNum = 2;
+        if (numBlocks > stepNum * tempRankSize_) {
+            numBlocks = stepNum * tempRankSize_;
+        }
     }
     HCCL_INFO("[AivTempReduceScatterMesh1D] Actually use core num[%u]", numBlocks);
     return HcclResult::HCCL_SUCCESS;
@@ -65,7 +66,7 @@ HcclResult AivTempReduceScatterMesh1D::KernelRun(const OpParam& param,
 {
     HCCL_INFO("[AivTempReduceScatterMesh1D] KernelRun start");
 
-    IncSliceId();  // 自动增长sliceId，传入aivCountTag
+    IncSliceId();  // 自动增长sliceId，传入sliceId
     dataType_ = param.DataDes.dataType;
     AivOpArgs aivReduceScatterArgs;
     aivReduceScatterArgs.cmdType = HcclCMDType::HCCL_CMD_REDUCE_SCATTER;
@@ -77,7 +78,7 @@ HcclResult AivTempReduceScatterMesh1D::KernelRun(const OpParam& param,
     aivReduceScatterArgs.dataType = dataType_;
     aivReduceScatterArgs.op = param.reduceType;
     aivReduceScatterArgs.root = root_;
-    aivReduceScatterArgs.aivCountTag = (static_cast<uint32_t>(param.aivCountTag) << AIV_TAG_MOVE_LEFT_BITS) | static_cast<uint32_t>(sliceId_);  // 传入aivCountTag，Lauch时重新组装为aivCountTag  // todo
+    aivReduceScatterArgs.sliceId = static_cast<uint32_t>(sliceId_);
     aivReduceScatterArgs.buffersIn = templateResource.aivCommInfoPtr;
     aivReduceScatterArgs.stream = param.stream;
     aivReduceScatterArgs.isOpBase = (param.opMode == OpMode::OPBASE);
@@ -109,7 +110,7 @@ HcclResult AivTempReduceScatterMesh1D::KernelRun(const OpParam& param,
     aivReduceScatterArgs.inputRepeatStride = tempAlgParams.inputRepeatStride;
     aivReduceScatterArgs.outputRepeatStride = tempAlgParams.outputRepeatStride;
 
-    ExecuteKernelLaunch(aivReduceScatterArgs);
+    CHK_RET(ExecuteKernelLaunch(aivReduceScatterArgs));
 
     HCCL_INFO("[AivTempReduceScatterMesh1D] KernelRun finished");
     return HcclResult::HCCL_SUCCESS;

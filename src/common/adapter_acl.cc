@@ -8,11 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include <limits.h>
 #include "adapter_acl.h"
 #include "acl_rt.h"
 #include "workflow.h"
-#include "mmpa_api.h"
-#include "dtype_common_dl.h"
+#include "dtype_common.h"
 
 namespace ops_hccl {
 HcclResult haclrtGetDeviceIndexByPhyId(u32 devicePhyId, u32 &deviceLogicId)
@@ -182,6 +182,48 @@ HcclResult haclrtMemcpy(void *dst, size_t destMax, const void *src, size_t count
         HCCL_WARNING("[haclrtMemcpy]aclmdlRICaptureThreadExchangeMode not support!");
     } else {
         CHK_PRT_RET(ret != ACL_SUCCESS, HCCL_ERROR("[haclrtMemcpy]aclmdlRICaptureThreadExchangeMode "
+            "failed mode:%d, return value[%d].", mode, ret), HCCL_E_RUNTIME);
+    }
+#endif
+    return HCCL_SUCCESS;
+}
+
+HcclResult haclrtMemset(void *dst, size_t destMax, int32_t value, size_t count)
+{
+#ifndef AICPU_COMPILE
+    // 参数有效性检查
+    CHK_PTR_NULL(dst);
+
+    aclmdlRICaptureMode mode = aclmdlRICaptureMode::ACL_MODEL_RI_CAPTURE_MODE_RELAXED;
+    aclError ret = aclmdlRICaptureThreadExchangeMode(&mode);
+    HCCL_DEBUG("Call aclmdlRICaptureThreadExchangeMode mode before: %d, ret: %d", mode, ret);
+    if (ret == ACL_ERROR_RT_FEATURE_NOT_SUPPORT) {
+        HCCL_WARNING("[haclrtMemset]aclmdlRICaptureThreadExchangeMode not support!");
+    } else {
+        CHK_PRT_RET(ret != ACL_SUCCESS, HCCL_ERROR("[haclrtMemset]aclmdlRICaptureThreadExchangeMode "
+            "failed mode:%d, return [%d].", mode, ret), HCCL_E_RUNTIME);
+    }
+
+    ret = aclrtMemset(dst, destMax, value, count);
+    HCCL_DEBUG("Call aclrtMemset, return[%d], para: dstAddr[%p], destMax[%llu], value[%d], count[%llu]",
+        ret, dst, destMax, value, count);
+    if (ret != ACL_SUCCESS) {
+        HCCL_ERROR("[SyncSet][Mem]errNo[0x%016llx] aclrtMemset failed, "
+            "return[%d], para: dstAddr[%p], destMax[%llu], value[%d], count[%llu].",
+            HCCL_ERROR_CODE(HCCL_E_RUNTIME), ret, dst, destMax, value, count);
+        ret = aclmdlRICaptureThreadExchangeMode(&mode);
+        CHK_PRT_RET(ret != ACL_SUCCESS && ret != ACL_ERROR_RT_FEATURE_NOT_SUPPORT,
+            HCCL_ERROR("[haclrtMemset]aclmdlRICaptureThreadExchangeMode failed mode:%d, return [%d].", mode, ret),
+            HCCL_E_RUNTIME);
+        return HCCL_E_RUNTIME;
+    }
+
+    ret = aclmdlRICaptureThreadExchangeMode(&mode);
+    HCCL_DEBUG("Call aclmdlRICaptureThreadExchangeMode mode before: %d, ret: %d", mode, ret);
+    if (ret == ACL_ERROR_RT_FEATURE_NOT_SUPPORT) {
+        HCCL_WARNING("[haclrtMemset]aclmdlRICaptureThreadExchangeMode not support!");
+    } else {
+        CHK_PRT_RET(ret != ACL_SUCCESS, HCCL_ERROR("[haclrtMemset]aclmdlRICaptureThreadExchangeMode "
             "failed mode:%d, return value[%d].", mode, ret), HCCL_E_RUNTIME);
     }
 #endif

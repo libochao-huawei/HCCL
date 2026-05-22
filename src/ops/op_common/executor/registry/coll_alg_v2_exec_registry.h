@@ -34,7 +34,7 @@ class CollAlgExecRegistryV2 {
 public:
     static CollAlgExecRegistryV2 &Instance();
     HcclResult Register(const HcclCMDType type, const std::string &tag, const CollExecCreatorV2 &collExecCreator);
-    std::shared_ptr<InsCollAlgBase> GetAlgExec(const HcclCMDType type, const std::string &tag);
+    std::unique_ptr<InsCollAlgBase> GetAlgExec(const HcclCMDType type, const std::string &tag);
 
 private:
     std::map<HcclCMDType, std::map<std::string, const CollExecCreatorV2>> execCreators_;
@@ -102,5 +102,21 @@ private:
 #define REGISTER_EXECUTOR_BY_FOUR_TEMPS(type, name, insCollAlgBase, AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3)              \
     REGISTER_EXECUTOR_BY_FOUR_TEMPS_HELPER_1(__COUNTER__, type, name, insCollAlgBase, AlgTopoMatch, InsAlgTemplate0,             \
         InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3)
+
+// 通过 __VA_ARGS__ 展开
+#define REGISTER_EXECUTOR_IMPL_MULTI(ctr, type, name, insCollAlgBase, AlgTopoMatch, ...) \
+    static HcclResult g_func_##name##_##ctr = \
+        CollAlgExecRegistryV2::Instance().Register( \
+            type, \
+            std::string(#name), \
+            DefaultExecCreatorV2<insCollAlgBase<AlgTopoMatch, __VA_ARGS__>> \
+        )
+
+#define REGISTER_EXECUTOR_HELPER_MULTI(ctr, type, name, insCollAlgBase, AlgTopoMatch, ...) \
+    REGISTER_EXECUTOR_IMPL_MULTI(ctr, type, name, insCollAlgBase, AlgTopoMatch, __VA_ARGS__)
+
+// 支持任意数量的后续参数
+#define REGISTER_EXEC_V2_MULTI(type, name, insCollAlgBase, AlgTopoMatch, ...) \
+    REGISTER_EXECUTOR_HELPER_MULTI(__COUNTER__, type, name, insCollAlgBase, AlgTopoMatch, __VA_ARGS__)
 }
 #endif

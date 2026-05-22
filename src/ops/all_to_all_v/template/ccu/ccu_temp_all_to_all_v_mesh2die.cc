@@ -112,7 +112,7 @@ void CcuTempAlltoAllVMesh2Die::SetA2ASendRecvInfo(const A2ASendRecvInfo &sendRec
 }
 
 HcclResult CcuTempAlltoAllVMesh2Die::KernelRun(const OpParam &param, const TemplateDataParams &templateDataParams,
-    const TemplateResource &templateResource)
+    TemplateResource& templateResource)
 {
     CHK_PRT_RET(subCommRanks_.empty() || subCommRanks_[0].empty(),
         HCCL_ERROR("[CcuTempAlltoAllVMesh2Die][KernelRun] subCommRanks empty."), HcclResult::HCCL_E_INTERNAL);
@@ -129,7 +129,8 @@ HcclResult CcuTempAlltoAllVMesh2Die::KernelRun(const OpParam &param, const Templ
         "sendType[%d], recvType[%d]", myRank_, inputAddr, param.inputPtr, outputAddr, param.outputPtr,
         param.all2AllVDataDes.sendType, param.all2AllVDataDes.recvType);
 
-    uint64_t token = hcomm::CcuRep::GetTokenInfo(inputAddr, buffInfo.inputSize);
+    uint64_t token;
+    CHK_RET(GetToken(buffInfo, token));
 
     // 前流同步
     std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());

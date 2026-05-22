@@ -19,6 +19,7 @@ namespace ops_hccl {
 
 class CcuTempAllReduceNhrMem2Mem1DMultiJetty : public CcuAlgTemplateBase {
 public:
+    CcuTempAllReduceNhrMem2Mem1DMultiJetty() = default;
     explicit  CcuTempAllReduceNhrMem2Mem1DMultiJetty(const OpParam& param,
         const u32 rankId, const std::vector<std::vector<u32>> &subCommRanks);
 
@@ -36,9 +37,12 @@ public:
 
     HcclResult KernelRun(const OpParam& param,
                          const TemplateDataParams& templateDataParams,
-                         const TemplateResource& templateResource) override;
+                         TemplateResource& templateResource) override;
 
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override; // 此template需要将buffer分几块用
+    HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx) override;
+    u64 GetThreadNum() const override;
+    
 private:
     HcclResult GetReduceScatterStepInfo(u32 step, NHRStepInfo &stepInfo) const;
     HcclResult GetAllGatherStepInfo(u32 step, u32 nSteps, NHRStepInfo &stepInfo) const;

@@ -18,6 +18,7 @@ namespace ops_hccl {
 
 class CcuTempAlltoAllVMesh1D : public CcuAlgTemplateBase {
 public:
+    CcuTempAlltoAllVMesh1D() = default; 
     explicit  CcuTempAlltoAllVMesh1D(const OpParam& param, 
                                         const u32 rankId, // 传通信域的rankId，userRank
                                         const std::vector<std::vector<u32>> &subCommRanks);
@@ -35,7 +36,7 @@ public:
 
     HcclResult KernelRun(const OpParam& param,
                          const TemplateDataParams& templateDataParams,
-                         const TemplateResource& templateResource) override;
+                         TemplateResource& templateResource) override;
 
     u64 CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType) override;
 
@@ -44,7 +45,9 @@ public:
         std::vector<u64> &sdispls, std::vector<u64> &rdispls);
 
     void SetA2ASendRecvInfo(const A2ASendRecvInfo &sendRecvInfo);
-
+    HcclResult FastLaunch(const OpParam& param, const TemplateFastLaunchCtx& tempFastLaunchCtx) override;
+    HcclResult CalcChannelRes(HcclComm comm, const OpParam& param,
+        const TopoInfoWithNetLayerDetails* topoInfo, std::vector<HcclChannelDesc>& channelDescs);
 private:
     A2ASendRecvInfo localSendRecvInfo_;
     u32             concurrentSendRecvNum_ = 8;
@@ -58,6 +61,7 @@ private:
     std::vector<u64> recvCounts_;
     std::vector<u64> sdispls_;
     std::vector<u64> rdispls_;
+    std::map<u32, std::vector<HcclChannelDesc>> rankIdToChannelDesc_;
 };
 
 }// namespace ops_hccl

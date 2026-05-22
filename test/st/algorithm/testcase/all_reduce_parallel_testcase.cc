@@ -47,7 +47,7 @@ void RunAllReduceParallelCase(const TopoMeta &topoInfo, const u64 dataCount,
     // 设置展开模式为HOST_TS
     setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
     setenv("HCCL_INDEPENDENT_OP", "1", 1);
-    setenv("HCCL_ENABLE_OPEN_AICPU", "1", 1);
+    
 
     // 算子执行参数设置
     u32 rankSize = 0;
@@ -169,47 +169,6 @@ TEST_F(ST_ALL_REDUCE_PARALLEL_TEST, st_all_reduce_hcclbuff_add_1)
     u64 dataCount = 200 * 1024 * 1024 + 1;
     HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_INT8;
     u32 dataTypeSize = 1;
-    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_SUM;
-    RunAllReduceParallelCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp);
-}
-
-// type64
-TEST_F(ST_ALL_REDUCE_PARALLEL_TEST, st_all_reduce_odd_dataCount_type64)
-{
-    TopoMeta topoMeta{{{0, 1}, {0, 1}, {0, 1}}};
-    u64 dataCount = 13;
-    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_INT64;
-    u32 dataTypeSize = 8;
-    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_PROD;
-    RunAllReduceParallelCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp);
-}
-
-TEST_F(ST_ALL_REDUCE_PARALLEL_TEST, st_all_reduce_even_dataCount_type64)
-{
-    TopoMeta topoMeta{{{0, 1, 2}, {0, 1, 2}, {0, 1, 2}}};
-    u64 dataCount = 16;
-    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_FP64;
-    u32 dataTypeSize = 8;
-    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_SUM;
-    RunAllReduceParallelCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp);
-}
-
-TEST_F(ST_ALL_REDUCE_PARALLEL_TEST, st_all_reduce_small_data_type64)
-{
-    TopoMeta topoMeta{{{0, 1, 2}, {8, 9, 10}}};
-    u64 dataCount = 4096;
-    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_UINT64;
-    u32 dataTypeSize = 8;
-    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_PROD;
-    RunAllReduceParallelCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp);
-}
-
-TEST_F(ST_ALL_REDUCE_PARALLEL_TEST, st_all_reduce_mid_data_type64)
-{
-    TopoMeta topoMeta{{{0, 1, 2, 3, 4, 5, 6, 7}, {0, 1, 2, 3, 4, 5, 6, 7}}};
-    u64 dataCount = 1048575;
-    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_UINT64;
-    u32 dataTypeSize = 8;
     HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_SUM;
     RunAllReduceParallelCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp);
 }

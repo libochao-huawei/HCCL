@@ -73,6 +73,7 @@ private:
     HcclResult RunLoopSendRecv();
 
     static constexpr u32 channelNumPerRankPair_ = 2;
+    static constexpr u32 totalThreadNum_ = 2;
     const HcclSendRecvItem* itemPtr_ = nullptr;
     HcclMem cclMem_{HCCL_MEM_TYPE_DEVICE, nullptr, 0};
     u32 itemNum_ = 0;
