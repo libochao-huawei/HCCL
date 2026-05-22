@@ -21,7 +21,9 @@ ExecuteSelector::ExecuteSelector()
 HcclResult ExecuteSelector::Run(OpParam &opParam, TopoInfoWithNetLayerDetails* topoInfo,
                                 std::string &selectAlgName) const
 {
-    HCCL_DEBUG("[Algo][Selector] Run.");
+    HCCL_INFO("[asc][AlgoSelect][ExecuteSelector::Run] start, opType[%d], opExecuteConfig[%d], engine[%d], "
+        "isMc2[%d], commName[%s], tag[%s].", opParam.opType, opParam.opExecuteConfig, opParam.engine,
+        opParam.isMc2, opParam.commName, opParam.tag);
     std::map<u32, AutoSelectorBase *> selectors = SelectorRegistry::Global()->GetAllSelectors();
 
     if (opParam.isMc2) {
@@ -31,8 +33,9 @@ HcclResult ExecuteSelector::Run(OpParam &opParam, TopoInfoWithNetLayerDetails* t
             return HcclResult::HCCL_E_NOT_SUPPORT;
         }
         if(iter->second->Select(opParam, topoInfo, selectAlgName) == SelectorStatus::MATCH) {
-            HCCL_INFO("[Algo][Selector] The ccu selector[priority of %u] is matched, the selected algo type is %s",
-                iter->first, selectAlgName.c_str());
+            HCCL_INFO("[asc][AlgoSelect][ExecuteSelector::Run] mc2 matched, priority[%u], algName[%s], "
+                "opExecuteConfig[%d], engine[%d].", iter->first, selectAlgName.c_str(), opParam.opExecuteConfig,
+                opParam.engine);
             return HcclResult::HCCL_SUCCESS;
         }
         HCCL_ERROR("[Algo][Selector] CCU selector can not match for optype[%d].", opParam.opType);
@@ -40,12 +43,15 @@ HcclResult ExecuteSelector::Run(OpParam &opParam, TopoInfoWithNetLayerDetails* t
     }
 
     selectors = SelectorRegistry::Global()->GetSelectorsByOpType(opParam.opType);
-    HCCL_INFO("[Algo][Selector] The selector nums of optype[%d] is [%zu].", opParam.opType, selectors.size());
+    HCCL_INFO("[asc][AlgoSelect][ExecuteSelector::Run] selectorNum[%zu] for opType[%d].", selectors.size(),
+        opParam.opType);
     for (auto iter : selectors) {
-        HCCL_DEBUG("[Algo][Selector] The selector[priority of %llu] is running.", iter.first);
+        HCCL_DEBUG("[asc][AlgoSelect][ExecuteSelector::Run] try selector priority[%llu], opType[%d].", iter.first,
+            opParam.opType);
         if (iter.second->Select(opParam, topoInfo, selectAlgName) == SelectorStatus::MATCH) {
-            HCCL_INFO("[Algo][Selector] The selector[priority of %llu] is matched, the selected algo type is %s",
-                      iter.first, selectAlgName.c_str());
+            HCCL_INFO("[asc][AlgoSelect][ExecuteSelector::Run] matched, priority[%llu], algName[%s], "
+                "opExecuteConfig[%d], engine[%d].", iter.first, selectAlgName.c_str(), opParam.opExecuteConfig,
+                opParam.engine);
             return HcclResult::HCCL_SUCCESS;
         }
     }

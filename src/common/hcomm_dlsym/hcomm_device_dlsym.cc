@@ -21,15 +21,17 @@
 #include <stdlib.h>
 
 static void* gLibHandle = nullptr;
+static bool gInitialized = false;
 
 // 初始化
 void HcommDeviceDlInit(void) {
-    if (gLibHandle != nullptr) return;
-
-    gLibHandle = dlopen("libccl_kernel.so", RTLD_NOW);
-    if (!gLibHandle) {
-        fprintf(stderr, "[HcclWrapper] Failed to open libccl_kernel.so: %s\n", dlerror());
+    if (gInitialized) {
         return;
+    }
+
+    gLibHandle = dlopen("libmc2_server.so", RTLD_NOW | RTLD_NOLOAD);
+    if (!gLibHandle) {
+        gLibHandle = RTLD_DEFAULT;
     }
 
     dlerror();
@@ -38,4 +40,5 @@ void HcommDeviceDlInit(void) {
     HcommDeviceProfilingDlInit(gLibHandle);
     HcommDiagDlInit(gLibHandle);
     HcclDeviceCommDlInit(gLibHandle);
+    gInitialized = true;
 }
