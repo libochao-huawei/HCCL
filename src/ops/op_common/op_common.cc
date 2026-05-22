@@ -55,7 +55,7 @@ thread_local std::map<AivOpCacheArgs, std::shared_ptr<InsQueue>> g_hcclCacheMap;
 constexpr u32 HOST_WAIT_AICPU_NOTIFYIDX = 0;// host主流wait aicpu流的notify idx
 constexpr u32 HOST_NOTIFY_TIMEOUT_OFFSET = 27;  // host等待Device通知的超时时间偏移量
 constexpr u32 KERNEL_TIMEOUT_OFFSET = 25;       // kernel启动超时时间偏移量
-
+constexpr u64 A2AV_CCU_64P_MAX_DATA_SIZE = 256 * 1024 * 1024;
 // 检查非对称拓扑支持情况
 // 仅 AllGather, AllReduce, ReduceScatter 支持跨框非对称拓扑，其他算子拦截
 HcclResult CheckAsymmetricTopoSupport(HcclCMDType opType, const TopoInfoWithNetLayerDetails* topoInfo)
@@ -277,7 +277,10 @@ bool ShouldGoCcuFastLaunch(HcclComm comm, OpParam &param, CcuFastLaunchCtx **ccu
         return false;
     }
     CHK_RET(SetOpParamFastLaunchTag(param));
-
+    if (param.opType == HcclCMDType::HCCL_CMD_ALLTOALLV && 
+        (DATATYPE_SIZE_TABLE[param.all2AllDataDes.sendType] *  param.inputSize >= A2AV_CCU_64P_MAX_DATA_SIZE)) {
+        return false;
+    }
     // 2. 查到engineCtx
     uint64_t size = 0;
     void *fastLaunchCtxPtr = nullptr;
