@@ -396,6 +396,23 @@ int32_t HcommThreadNotifyWaitOnThread(ThreadHandle thread, uint32_t notifyIdx, u
     return HCCL_SUCCESS;
 }
 
+int32_t HcommThreadNotifyWaitOnThreadWithDefaultTimeout(ThreadHandle thread, uint32_t notifyIdx)
+{
+    return HcommThreadNotifyWaitOnThread(thread, notifyIdx, 0);
+}
+
+int32_t HcommSetNotifyWaitTimeOut(uint32_t timeOut)
+{
+    static_cast<void>(timeOut);
+    return HCCL_SUCCESS;
+}
+
+int32_t HcommThreadResAcquireTimeOut(uint32_t timeOut)
+{
+    static_cast<void>(timeOut);
+    return HCCL_SUCCESS;
+}
+
 int32_t HcommThreadNotifyRecordOnThread(ThreadHandle thread, ThreadHandle dstThread, uint32_t dstNotifyIdx)
 {
     // 1.获取当前rankId,NpuPos和stream
@@ -921,6 +938,17 @@ int32_t HcommChannelNotifyWait(ChannelHandle channel, uint32_t localNotifyIdx, u
     return -1;
 }
 
+int32_t HcommChannelNotifyWaitOnThreadWithDefaultTimeout(ThreadHandle thread, ChannelHandle channel,
+    uint32_t localNotifyIdx)
+{
+    return HcommChannelNotifyWaitOnThread(thread, channel, localNotifyIdx, 0);
+}
+
+int32_t HcommChannelNotifyWaitWithDefaultTimeout(ChannelHandle channel, uint32_t localNotifyIdx)
+{
+    return HcommChannelNotifyWait(channel, localNotifyIdx, 0);
+}
+
 int32_t HcommFlush()
 {
     HCCL_ERROR("[%s] not support.", __func__);
@@ -940,6 +968,31 @@ HcclResult HcommSymWinGetPeerPointer(HcclCommSymWindow winHandle, size_t offset,
 }
 
 bool HcommIsSupportHcommBatchTransferOnThread()
+{
+    return false;
+}
+
+bool HcommIsSupportHcommThreadResAcquireTimeOut()
+{
+    return false;
+}
+
+bool HcommIsSupportHcommSetNotifyWaitTimeOut()
+{
+    return false;
+}
+
+bool HcommIsSupportHcommThreadNotifyWaitOnThreadWithDefaultTimeout()
+{
+    return false;
+}
+
+bool HcommIsSupportHcommChannelNotifyWaitOnThreadWithDefaultTimeout()
+{
+    return false;
+}
+
+bool HcommIsSupportHcommChannelNotifyWaitWithDefaultTimeout()
 {
     return false;
 }
