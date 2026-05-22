@@ -389,6 +389,8 @@ struct AlgResourceCtxSerializable {
     HcclMem cclMem; // 跨Rank缓存Buffer
     u32 notifyNumOnMainThread; // 主流上的notify数量
     u32 slaveThreadNum; // 需要的thread数量
+    u32 waitTimeout = 0; // Device侧notify wait默认超时时间
+    u32 fullTimeout = 0; // Device侧队列满/资源申请超时时间
     std::vector<u32> notifyNumPerThread; // 每个thread需要的notify数量
     void* aivCommInfoPtr = nullptr;
     std::vector<ThreadHandle> threads;
@@ -414,6 +416,8 @@ struct AlgResourceCtxSerializable {
         binaryStream << cclMem;
         binaryStream << notifyNumOnMainThread;
         binaryStream << slaveThreadNum;
+        binaryStream << waitTimeout;
+        binaryStream << fullTimeout;
         binaryStream << notifyNumPerThread;
         binaryStream << commInfoPtr;
         binaryStream << threads;
@@ -445,6 +449,8 @@ struct AlgResourceCtxSerializable {
         binaryStream >> cclMem;
         binaryStream >> notifyNumOnMainThread;
         binaryStream >> slaveThreadNum;
+        binaryStream >> waitTimeout;
+        binaryStream >> fullTimeout;
         binaryStream >> notifyNumPerThread;
         binaryStream >> commInfoPtr;
         binaryStream >> threads;
