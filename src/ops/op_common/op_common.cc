@@ -953,23 +953,17 @@ HcclResult FillOpExchangeInfo(HcclComm comm, const OpParam &param, OpExchangeInf
     }
     CHK_RET(HcclGetCommName(comm, exchangeInfo.group));
     exchangeInfo.group[MAX_LENGTH - 1] = '\0';
-    if (param.opType == HcclCMDType::HCCL_CMD_SEND || param.opType == HcclCMDType::HCCL_CMD_RECEIVE) {
-        // Send和Recv的algName不相同导致algTag不相同，因此仅校验tag内容，MAX_LENGTH < ALG_TAG_LENGTH为param.tag的长度
-        s32 sRet = strncpy_s(exchangeInfo.algTag, ALG_TAG_LENGTH, param.tag, MAX_LENGTH);
-        CHK_PRT_RET(sRet != EOK, HCCL_ERROR("[%s] call strncpy_s failed, param.tag[%s],  return[%d].",
-            __func__, param.tag, sRet), HCCL_E_MEMORY);
-    } else {
-        s32 sRet = strncpy_s(exchangeInfo.algTag, ALG_TAG_LENGTH, param.algTag, ALG_TAG_LENGTH);
-        CHK_PRT_RET(sRet != EOK, HCCL_ERROR("[%s] call strncpy_s failed, param.algTag[%s],  return[%d].",
-            __func__, param.algTag, sRet), HCCL_E_MEMORY);
-    }
+    s32 sRet = strncpy_s(exchangeInfo.tag, TAG_LENGTH, param.tag, TAG_LENGTH);
+    CHK_PRT_RET(sRet != EOK, HCCL_ERROR("[%s] call strncpy_s failed, param.tag[%s],  return[%d].",
+        __func__, param.tag, sRet), HCCL_E_MEMORY);
+
     HCCL_INFO("[%s] success. exchangeInfo dump: cclBufferSize[%llu], root[%u], opType[%u], engine[%u], "
         "opExecuteConfig[%u], reduceType[%u], dataType[%u], count[%llu], aivCoreLimit[%u], "
         "group[%s], tag[%s]",
         __func__, exchangeInfo.cclBufferSize, exchangeInfo.root, exchangeInfo.opType,
         exchangeInfo.engine, exchangeInfo.opExecuteConfig, exchangeInfo.reduceType,
         exchangeInfo.dataType, exchangeInfo.count, exchangeInfo.aivCoreLimit,
-        exchangeInfo.group, exchangeInfo.algTag);
+        exchangeInfo.group, exchangeInfo.tag);
     return HCCL_SUCCESS;
 }
 
