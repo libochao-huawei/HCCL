@@ -1633,7 +1633,6 @@ HcclResult FillOpExchangeInfo(HcclComm comm, const OpParam &param, OpExchangeInf
         s32 sRet = strncpy_s(exchangeInfo.algTag, ALG_TAG_LENGTH, param.tag, MAX_LENGTH);
         CHK_PRT_RET(sRet != EOK, HCCL_ERROR("[%s] call strncpy_s failed, param.tag[%s],  return[%d].",
             __func__, param.tag, sRet), HCCL_E_MEMORY);
-        exchangeInfo.sendRecvRemoteRank = param.sendRecvRemoteRank;
     } else {
         s32 sRet = strncpy_s(exchangeInfo.algTag, ALG_TAG_LENGTH, param.algTag, ALG_TAG_LENGTH);
         CHK_PRT_RET(sRet != EOK, HCCL_ERROR("[%s] call strncpy_s failed, param.algTag[%s],  return[%d].",
@@ -1641,11 +1640,11 @@ HcclResult FillOpExchangeInfo(HcclComm comm, const OpParam &param, OpExchangeInf
     }
     HCCL_INFO("[%s] success. exchangeInfo dump: cclBufferSize[%llu], root[%u], opType[%u], engine[%u], "
         "opExecuteConfig[%u], reduceType[%u], dataType[%u], count[%llu], aivCoreLimit[%u], "
-        "group[%s], algTag[%s], sendRecvRemoteRank[%u]",
+        "group[%s], tag[%s]",
         __func__, exchangeInfo.cclBufferSize, exchangeInfo.root, exchangeInfo.opType,
         exchangeInfo.engine, exchangeInfo.opExecuteConfig, exchangeInfo.reduceType,
         exchangeInfo.dataType, exchangeInfo.count, exchangeInfo.aivCoreLimit,
-        exchangeInfo.group, exchangeInfo.algTag, exchangeInfo.sendRecvRemoteRank);
+        exchangeInfo.group, exchangeInfo.algTag);
     return HCCL_SUCCESS;
 }
 
@@ -1739,15 +1738,9 @@ HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeI
             CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "AlgTag", exchangeInfo.algTag,
                 rmtExchangeInfo.algTag));
         }
-        if (exchangeInfo.opType == HcclCMDType::HCCL_CMD_SEND || exchangeInfo.opType == HcclCMDType::HCCL_CMD_RECEIVE){
-            if (exchangeInfo.sendRecvRemoteRank != channel.remoteRank) {
-                CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "SendRecvRemoteRank",
-                    exchangeInfo.sendRecvRemoteRank, channel.remoteRank));
-            }
-        }
         HCCL_INFO("[CompareOpExchangeInfos] success. remoteRank[%u]", channel.remoteRank);
     }
-    HCCL_INFO("[CompareOpExchangeInfos] all exchangeInfos checked successfully. algTag[%s]", exchangeInfo.algTag);
+    HCCL_INFO("[CompareOpExchangeInfos] all exchangeInfos checked successfully. tag[%s]", exchangeInfo.algTag);
     return HCCL_SUCCESS;
 }
 
