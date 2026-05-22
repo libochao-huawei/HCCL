@@ -43,7 +43,6 @@ private:
                                   const std::map<u32, std::vector<ChannelInfo>> &channels,
                                   u32 linkIdx);
 
-    u32 totalLinks_{1};
 };
 
 }  // namespace ops_hccl

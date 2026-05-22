@@ -17,7 +17,7 @@ namespace ops_hccl {
 
 InsTempAllGatherMeshClosV2::InsTempAllGatherMeshClosV2(const OpParam &param, const u32 rankId,
                                                        const std::vector<std::vector<u32>> &subCommRanks)
-    : InsTempAllGatherMesh1D(param, rankId, subCommRanks), totalLinks_(1)
+    : InsTempAllGatherMesh1D(param, rankId, subCommRanks)
 {
 }
 
@@ -25,13 +25,12 @@ InsTempAllGatherMeshClosV2::~InsTempAllGatherMeshClosV2() {}
 
 u64 InsTempAllGatherMeshClosV2::GetThreadNum() const
 {
-    return totalLinks_;
+    return channelsPerRank_;
 }
 
 HcclResult InsTempAllGatherMeshClosV2::GetRes(AlgResourceRequest &resourceRequest) const
 {   
-    totalLinks_ = channelsPerRank_;
-    u32 threadNum = totalLinks_;
+    u32 threadNum = channelsPerRank_;
     resourceRequest.slaveThreadNum = threadNum > 1 ? threadNum - 1 : 0;
     if (resourceRequest.slaveThreadNum > 0) {
         resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, 1);
@@ -49,9 +48,9 @@ HcclResult InsTempAllGatherMeshClosV2::CalcRes(HcclComm comm, const OpParam &par
     CHK_RET(CalcChannelRequestNhr(comm, param, topoInfo, subCommRanks_, levelChannels));
     resourceRequest.channels.push_back(levelChannels);
 
-    totalLinks_ = levelChannels.empty() ? 1 : CalcChannelsPerRank(levelChannels);
+    channelsPerRank_ = levelChannels.empty() ? 1 : CalcChannelsPerRank(levelChannels);
     HCCL_INFO("[InsTempAllGatherMeshClosV2][CalcRes] totalLinks[%u], channelCount[%zu]",
-              totalLinks_, levelChannels.size());
+              channelsPerRank_, levelChannels.size());
 
     CHK_RET(GetRes(resourceRequest));
     return HCCL_SUCCESS;
@@ -62,7 +61,7 @@ HcclResult InsTempAllGatherMeshClosV2::RunAllGatherMesh(
     const std::map<u32, std::vector<ChannelInfo>> &channels)
 {
     HCCL_INFO("[InsTempAllGatherMeshClosV2][RunAllGatherMesh] Rank[%d] templateRankSize[%u] totalLinks[%u].",
-              myRank_, templateRankSize_, totalLinks_);
+              myRank_, templateRankSize_, channelsPerRank_);
     // ========== 新增日志 ==========
     HCCL_INFO("[InsTempAllGatherMeshClosV2][RunAllGatherMesh] threads.size=%zu, channels.size=%zu",
               threads.size(), channels.size());
@@ -71,7 +70,7 @@ HcclResult InsTempAllGatherMeshClosV2::RunAllGatherMesh(
         return HCCL_SUCCESS;
     }
 
-    for (u32 linkIdx = 0; linkIdx < totalLinks_; linkIdx++) {
+    for (u32 linkIdx = 0; linkIdx < channelsPerRank_; linkIdx++) {
         CHK_RET(RunAllGatherOnLink(threads, channels, linkIdx));
     }
     return HCCL_SUCCESS;
