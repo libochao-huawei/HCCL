@@ -70,7 +70,7 @@ HcclResult InsTempAllGatherMeshClosV2::RunAllGatherMesh(
         return HCCL_SUCCESS;
     }
 
-    for (u32 linkIdx = 0; linkIdx < channelsPerRank_; linkIdx++) {
+    for (u32 linkIdx = 0; linkIdx < 1; linkIdx++) {
         CHK_RET(RunAllGatherOnLink(threads, channels, linkIdx));
     }
     return HCCL_SUCCESS;
@@ -107,9 +107,9 @@ HcclResult InsTempAllGatherMeshClosV2::RunAllGatherOnLink(
         u32 selectedLinkIdx = (myAlgRank + connectedAlgRank) % totalLinksToNeighbor;
 
         
-        if (selectedLinkIdx != linkIdx) {
-            continue;
-        }
+        // if (selectedLinkIdx != linkIdx) {
+        //     continue;
+        // }
 
         HCCL_INFO("[InsTempAllGatherMeshClosV2 0] Rank[%d] linkIdx[%u] matched connectedRank[%u] "
                   "selectedLinkIdx[%u] totalLinks[%u] enableRemoteMemAccess[%d]",
