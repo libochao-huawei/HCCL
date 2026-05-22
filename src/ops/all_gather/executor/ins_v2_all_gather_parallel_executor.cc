@@ -292,6 +292,7 @@ HcclResult InsV2AllGatherParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
         HCCL_INFO("[Orchestrate] interLinkMap_ size=%zu", interLinkMap_.size());
         for (auto &kv : interLinkMap_) {
             HCCL_INFO("[Orchestrate] interLinkMap_ size=%zu", interLinkMap_.size());
+        }
         for (auto &kv : interLinkMap_) {
             HCCL_INFO("[Orchestrate] interLinkMap_ rank=%u channels=%zu", kv.first, kv.second.size());
         }
