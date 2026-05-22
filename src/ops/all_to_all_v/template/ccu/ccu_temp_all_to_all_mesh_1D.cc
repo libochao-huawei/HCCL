@@ -183,15 +183,17 @@ HcclResult CcuTempAlltoAllMesh1D::KernelRun(const OpParam& param,
         loadFromMem, myRank_, dimSize[0], inputAddr, outputAddr, sliceSize, srcOffset, dstOffset);
     LoopGroupConfig  config{};
     config.msInterleave = CCU_MS_INTERLEAVE;
-    config.loopCount    = CCU_MS_LOCAL_COPY_LOOP_COUNT;
+    config.loopCount    = CCU_MS_DEFAULT_LOOP_COUNT;
     config.memSlice     = CCU_MS_SIZE;
-    auto     goSize             = CalGoSize(sliceSize, config);
+    auto     goSize     = CalGoSize(sliceSize, config);
     std::vector<uint64_t> taskArgs = {inputAddr, outputAddr, token, sliceSize, srcStride, srcOffset, dstOffset, goSize[0], goSize[1], goSize[2], goSize[3]};
     uint64_t argSize = 11;
 
     HCCL_INFO("[CcuTempAlltoAllMesh1D::KernelRun] TaskArgs: inputAddr[%llu], outputAddr[%llu], "
-            "srcOffset[%llu], dstOffset[%llu], srcStride[%llu], sliceSize[%llu]",
-            inputAddr, outputAddr, srcOffset, dstOffset, srcStride, sliceSize);
+            "srcStride[%llu], srcOffset[%llu],"
+            "dstOffset[%llu], sliceSize[%llu], goSize: [%llu], [%llu], [%llu], [%llu]",
+            inputAddr, outputAddr, srcStride, srcOffset,
+            dstOffset, sliceSize, goSize[0], goSize[1], goSize[2], goSize[3]);
 
     CcuResult launchRet =  HcommCcuKernelLaunch(templateResource.threads[0], templateResource.ccuKernels[0], taskArgs.data(), argSize);
     if (launchRet != CCU_SUCCESS) {

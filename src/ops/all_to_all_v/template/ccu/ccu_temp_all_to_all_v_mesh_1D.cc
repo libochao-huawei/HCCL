@@ -166,9 +166,9 @@ HcclResult CcuTempAlltoAllVMesh1D::FastLaunch(const OpParam& param, const Templa
     std::vector<uint64_t> taskArgs = {args[0], args[1], args[2], args[3], args[4]};
 
     LoopGroupConfig  config{};
-    config.msInterleave = CCU_MS_INTERLEAVE;
-    config.loopCount    = CCU_MS_DEFAULT_LOOP_COUNT;
-    config.memSlice     = CCU_MS_SIZE;
+    config.msInterleave = LOCAL_COPY_MS;
+    config.loopCount    = 8;
+    config.memSlice     = LOCAL_COPY_MS * CCU_MS_SIZE;
 
     if (loadFromMem_) {
         taskArgs.push_back(0);  // 空地址占位，保证参数个数与load个数一致
@@ -277,7 +277,7 @@ HcclResult CcuTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
 
     LoopGroupConfig  config{};
     config.msInterleave = CCU_MS_INTERLEAVE;
-    config.loopCount    = CCU_MS_LOCAL_COPY_LOOP_COUNT;
+    config.loopCount    = CCU_MS_DEFAULT_LOOP_COUNT;
     config.memSlice     = CCU_MS_SIZE;
 
     if (loadFromMem_) {
