@@ -94,9 +94,7 @@ HcclResult CcuTempAllGatherMesh1DMem2Mem::FastLaunch(const OpParam& param, const
     bool inputOutputEqual = (inputAddr + inputSliceStride * mySubCommRank == outputAddr + outputSliceStride * mySubCommRank);
     uint64_t isInputOutputEqual = static_cast<uint64_t>(inputOutputEqual);
     CcuTaskArgAllGatherMesh1DMem2Mem taskArg(
-        PointerToAddr(buffInfo_.inputPtr) + args[0],
-        PointerToAddr(buffInfo_.outputPtr) + args[1],
-        args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], isInputOutputEqual);
+        inputAddr, outputAddr, args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], isInputOutputEqual);
 
     void* taskArgPtr = static_cast<void*>(&taskArg);
 
