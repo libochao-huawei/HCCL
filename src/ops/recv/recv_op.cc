@@ -52,7 +52,7 @@ HcclResult HcclRecv(
         return HcclRecvNext(recvBuf, count, dataType, srcRank, comm, stream);
     }
 
-    if (GetHcommVersion() < 90000000) {
+    if (GetHcommVersion() < CANN_VERSION(9, 0, 0)) {
         return HcclRecvInner(recvBuf, count, dataType, srcRank, comm, stream);
     }
 
