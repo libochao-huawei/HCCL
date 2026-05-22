@@ -497,6 +497,11 @@ HcclResult HcclExecOp(HcclComm comm, OpParam &param,
     void * fallbackCtx = nullptr;
     uint64_t fallbackCtxSize = 0;
     CHK_RET(SetOpParamFallbackTag(param, algName));
+    int result = sprintf_s(param.algName, sizeof(param.algName), "%s", algName.c_str());
+    if (result <= 0) {
+        HCCL_ERROR("failed to fill param.algName");
+        return HCCL_E_INTERNAL;
+    }
     if (HcclEngineCtxGet(comm, param.fallbackTag, param.engine, &fallbackCtx, &fallbackCtxSize) == HCCL_SUCCESS) {
         HCCL_INFO("[HcclExecOp] Engine ctx exists, try to fallback.");
         std::string newAlgName = static_cast<char*>(fallbackCtx);

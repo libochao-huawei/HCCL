@@ -602,6 +602,12 @@ HcclResult AlltoAllVConstructOpParam(const void *sendBuf, const void *sendCounts
     param.all2AllVDataDes.recvCounts = data + RECV_COUNT_IDX * rankSize;
     param.all2AllVDataDes.sdispls = data + SEND_DISPL_IDX * rankSize;
     param.all2AllVDataDes.rdispls = data + RECV_DISPL_IDX * rankSize;
+    if (opType == HcclCMDType::HCCL_CMD_ALLTOALL) {
+        param.all2AllDataDes.sendCount = data[0];
+        param.all2AllDataDes.recvCount = data[0];
+        param.all2AllDataDes.sendType = dataType;
+        param.all2AllDataDes.recvType = dataType;
+    }
 
     for (u64 i = 0; i < ALL_TO_ALL_V_VECTOR_NUM * rankSize; i++) {
         HCCL_INFO("[AlltoAllVConstructOpParam] varData[%u] is [%u]", i, data[i]);

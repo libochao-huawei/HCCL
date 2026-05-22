@@ -66,7 +66,7 @@ private:
         const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads,
         const u32 roundIdx, const u32 commLoops);
     HcclResult RunSendRecvByChannel(const TemplateDataParams &tempAlgParams, const u32 roundIdx,
-        const std::vector<ChannelInfo> &curChannels, const u32 remoteRank,
+        const u32 curValidChannelsSize, const std::vector<ChannelInfo> &curValidChannels, const u32 remoteRank,
         const std::vector<ThreadHandle> &threads, const u32 commLoops) const;
     HcclResult RunSendRecv(const TemplateDataParams &tempAlgParams,
         const SendRecvInfo &sendRecvInfo, const DataInfo &sendInfo, const DataInfo &recvInfo,
@@ -75,6 +75,8 @@ private:
         const std::vector<ThreadHandle> &subThreadsCurRank) const;
     HcclResult PostSyncInterThreadsPerRank(const ThreadHandle &mainThreadCurRank,
         const std::vector<ThreadHandle> &subThreadsCurRank) const;
+    void GetCurValidChannels(const std::map<u32, std::vector<ChannelInfo>> &channels,
+        const u32 remoteRank, std::vector<ChannelInfo> &curValidChannels, u32 &curValidChannelsSize) const;
 
     u64 dataTypeSize_{0};
     bool isDmaRead_{false};
