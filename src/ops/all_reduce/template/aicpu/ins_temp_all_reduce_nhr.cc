@@ -33,7 +33,18 @@ HcclResult InsTempAllReduceNHR::CalcRes(HcclComm comm, const OpParam& param,
     resourceRequest.notifyNumOnMainThread = 0;  // 不需要从流
 
     std::vector<HcclChannelDesc> level1Channels;
-    CHK_RET(CalcChannelRequestNhr(comm, param, topoInfo, subCommRanks_, level1Channels));
+    if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
+        std::vector<HcclChannelDesc> myChannelDescs;
+        CHK_RET(CalcChannelRequestNHRWithPriorityTopo(comm, param, topoInfo, subCommRanks_, myChannelDescs, CommTopo::COMM_TOPO_CLOS)); 
+        for(auto channel : myChannelDescs) {
+            if(channel.channelProtocol == COMM_PROTOCOL_UBC_CTP) {
+                level1Channels.push_back(channel);
+            }
+        }
+        HCCL_DEBUG("[InsTempAllReduceNHR::CalcRes] Get Channel Success!");
+    } else {
+        CHK_RET(CalcChannelRequestNhr(comm, param, topoInfo, subCommRanks_, level1Channels));
+    }    
     resourceRequest.channels.push_back(level1Channels);
 
     HCCL_INFO("[InsTempAllReduceNHR] Calculate resource finished.");
