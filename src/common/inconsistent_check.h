@@ -15,9 +15,10 @@
 
 #include "alg_param.h"
 #include "alg_type.h"
-#include "hccl/base.h"
 
 namespace ops_hccl {
+HcclResult FillOpExchangeInfo(HcclComm comm, const OpParam &param, OpExchangeInfo &exchangeInfo);
+
 HcclResult FillOpExchangeInfoWithDataDes(const OpParam &param, OpExchangeInfo &exchangeInfo);
 
 HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeInfo,
