@@ -107,9 +107,9 @@ HcclResult InsTempAllGatherMeshClosV2::RunAllGatherOnLink(
         u32 selectedLinkIdx = (myAlgRank + connectedAlgRank) % totalLinksToNeighbor;
 
         
-        // if (selectedLinkIdx != linkIdx) {
-        //     continue;
-        // }
+        if (selectedLinkIdx != linkIdx) {
+            continue;
+        }
 
         HCCL_INFO("[InsTempAllGatherMeshClosV2 0] Rank[%d] linkIdx[%u] matched connectedRank[%u] "
                   "selectedLinkIdx[%u] totalLinks[%u] enableRemoteMemAccess[%d]",
