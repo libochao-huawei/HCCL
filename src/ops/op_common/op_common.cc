@@ -648,7 +648,7 @@ HcclResult HcclAicpuKernelEntranceLaunch(HcclComm comm, OpParam &param, ThreadHa
         return ret;
     }
     // Host stream等待Device的通知
-    u32 hostNotifyWaitTime = param.execTimeout + HOST_NOTIFY_TIMEOUT_OFFSET;
+    u32 hostNotifyWaitTime = param.opConfig.execTimeout + HOST_NOTIFY_TIMEOUT_OFFSET;
     CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(cpuTsThread, param.aicpuRecordCpuIdx, hostNotifyWaitTime)));
 
     return HCCL_SUCCESS;
@@ -676,7 +676,7 @@ HcclResult AicpuKernelLaunch(HcclComm comm, OpParam &param, ThreadHandle unfoldT
     CHK_PRT_RET(ret != ACL_SUCCESS, HCCL_ERROR("[aclrtKernelArgsFinalize]errNo[0x%016llx] args finalize failed, "
         "kernelName:%s", ret, kernelName.c_str()), HCCL_E_RUNTIME);
 
-    u32 kernelTimeoutTmp = param.execTimeout + KERNEL_TIMEOUT_OFFSET;
+    u32 kernelTimeoutTmp = param.opConfig.execTimeout + KERNEL_TIMEOUT_OFFSET;
     u16 kernelLaunchTimeout = (kernelTimeoutTmp > UINT16_MAX) ? UINT16_MAX : static_cast<u16>(kernelTimeoutTmp);
     aclrtLaunchKernelCfg cfg;
     aclrtLaunchKernelAttr attr;
@@ -2029,17 +2029,17 @@ HcclResult SetMultipleDimensionSplitRatio(OpParam &param) {
     double ratioValue = 0;
     const double DEFAULT_MULT_RATIO = 0.5;
     if (!GetExternalInputMultipleDimensionSplitRatio(ratioValue)) {
-        param.multipleDimensionSplitRatio = DEFAULT_MULT_RATIO;
+        param.opConfig.multipleDimensionSplitRatio = DEFAULT_MULT_RATIO;
         HCCL_INFO("[OpCommon] Ratio is not set, use default value: %u seconds", DEFAULT_MULT_RATIO);
     } else {
         // 验证转换后的值是否合理
         if (ratioValue < 0 || ratioValue > 1) {
             HCCL_WARNING("[OpCommon] Ratio value %.2f out of range, use default: %u seconds", 
                         ratioValue, DEFAULT_MULT_RATIO);
-            param.multipleDimensionSplitRatio = DEFAULT_MULT_RATIO;
+            param.opConfig.multipleDimensionSplitRatio = DEFAULT_MULT_RATIO;
         } else {
-            param.multipleDimensionSplitRatio = ratioValue;
-            HCCL_INFO("[OpCommon] Set ratio to: %f", param.multipleDimensionSplitRatio);
+            param.opConfig.multipleDimensionSplitRatio = ratioValue;
+            HCCL_INFO("[OpCommon] Set ratio to: %f", param.opConfig.multipleDimensionSplitRatio);
         }
     }
     return HCCL_SUCCESS;
@@ -2130,17 +2130,17 @@ HcclResult CheckHostDPUOnly(const HcclComm comm, const TopoInfoWithNetLayerDetai
 HcclResult SetExecTimeout(OpParam &param) {
     double execTimeoutValue = 0;
     if (!GetExternalInputExecTimeout(execTimeoutValue)) {
-        param.execTimeout = CUSTOM_TIMEOUT;
+        param.opConfig.execTimeout = CUSTOM_TIMEOUT;
         HCCL_INFO("[OpCommon] Exec timeout is not set, use default value: %u seconds", CUSTOM_TIMEOUT);
     } else {
         // 验证转换后的值是否合理
         if (execTimeoutValue < 0 || execTimeoutValue > UINT32_MAX) {
             HCCL_WARNING("[OpCommon] Exec timeout value %.2f out of range, use default: %u seconds", 
                          execTimeoutValue, CUSTOM_TIMEOUT);
-            param.execTimeout = CUSTOM_TIMEOUT;
+            param.opConfig.execTimeout = CUSTOM_TIMEOUT;
         } else {
-            param.execTimeout = static_cast<uint32_t>(execTimeoutValue);
-            HCCL_INFO("[OpCommon] Set exec timeout to: %u seconds", param.execTimeout);
+            param.opConfig.execTimeout = static_cast<uint32_t>(execTimeoutValue);
+            HCCL_INFO("[OpCommon] Set exec timeout to: %u seconds", param.opConfig.execTimeout);
         }
     }
     return HCCL_SUCCESS;
