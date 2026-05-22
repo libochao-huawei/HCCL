@@ -29,7 +29,8 @@ u64 InsTempAllGatherMeshClosV2::GetThreadNum() const
 }
 
 HcclResult InsTempAllGatherMeshClosV2::GetRes(AlgResourceRequest &resourceRequest) const
-{
+{   
+    totalLinks_ = channelsPerRank_;
     u32 threadNum = totalLinks_;
     resourceRequest.slaveThreadNum = threadNum > 1 ? threadNum - 1 : 0;
     if (resourceRequest.slaveThreadNum > 0) {
