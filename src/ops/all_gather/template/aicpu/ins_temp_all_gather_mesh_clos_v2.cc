@@ -116,7 +116,7 @@ HcclResult InsTempAllGatherMeshClosV2::RunAllGatherOnLink(
                   myRank_, linkIdx, connectedRank, selectedLinkIdx, totalLinksToNeighbor,
                   enableRemoteMemAccess_);
 
-        const ChannelInfo &linkRemote = it->second[selectedLinkIdx];
+        const ChannelInfo &linkRemote = it->second[linkIdx];
         void *remoteCclBuffAddr = linkRemote.remoteCclMem.addr;
 
         std::vector<DataSlice> txSrcSlicesAll;
