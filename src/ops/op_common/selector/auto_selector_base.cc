@@ -17,32 +17,48 @@ namespace ops_hccl {
 SelectorStatus AutoSelectorBase::Select(OpParam &opParam, TopoInfoWithNetLayerDetails* topoInfo,
                                         std::string &selectAlgName) const
 {
-    HCCL_DEBUG("[AutoSelectorBase][%s] start, OpExecuteConfig is %d.", __func__, opParam.opExecuteConfig);
+    HCCL_INFO("[asc][AlgoSelect][AutoSelectorBase::Select] start, opType[%d], opExecuteConfig[%d], engine[%d], "
+        "isMc2[%d], topoInfo[%p].", opParam.opType, opParam.opExecuteConfig, opParam.engine, opParam.isMc2, topoInfo);
     std::map<HcclCMDType, std::vector<HcclAlgoType>> configAlgMap = GetExternalInputHcclAlgoConfigAllType();
     SelectorStatus ret = SelectorStatus::NOT_MATCH;
     bool hostDPUOnly = false;
     if ((CheckHostDPUOnly(opParam.hcclComm, topoInfo, hostDPUOnly) == HCCL_SUCCESS) && hostDPUOnly) {
         opParam.opExecuteConfig = OpExecuteConfig::HOSTCPU;
         opParam.engine = CommEngine::COMM_ENGINE_CPU;
+        HCCL_INFO("[asc][AlgoSelect][AutoSelectorBase::Select] switch to host DPU, opType[%d], "
+            "opExecuteConfig[%d], engine[%d].", opParam.opType, opParam.opExecuteConfig, opParam.engine);
         return SelectDPUAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
     }
     if (opParam.opExecuteConfig == OpExecuteConfig::CCU_MS) {
+        HCCL_DEBUG("[asc][AlgoSelect][AutoSelectorBase::Select] try CCU_MS, opType[%d].", opParam.opType);
         ret = SelectCcuMsAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
         if (ret == SelectorStatus::NOT_MATCH) {
             opParam.opExecuteConfig = OpExecuteConfig::CCU_SCHED;
+            HCCL_INFO("[asc][AlgoSelect][AutoSelectorBase::Select] CCU_MS not match, fallback to CCU_SCHED, "
+                "opType[%d].", opParam.opType);
         } else {
+            HCCL_INFO("[asc][AlgoSelect][AutoSelectorBase::Select] CCU_MS matched, opType[%d], algName[%s].",
+                opParam.opType, selectAlgName.c_str());
             return ret;
         }
     }
     if (opParam.opExecuteConfig == OpExecuteConfig::CCU_SCHED) {
+        HCCL_DEBUG("[asc][AlgoSelect][AutoSelectorBase::Select] try CCU_SCHED, opType[%d].", opParam.opType);
         ret = SelectCcuScheduleAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
         if (ret == SelectorStatus::NOT_MATCH) {
             opParam.opExecuteConfig = OpExecuteConfig::CCU_FAIL;
+            HCCL_INFO("[asc][AlgoSelect][AutoSelectorBase::Select] CCU_SCHED not match, fallback to CCU_FAIL, "
+                "opType[%d].", opParam.opType);
         } else {
+            HCCL_INFO("[asc][AlgoSelect][AutoSelectorBase::Select] CCU_SCHED matched, opType[%d], algName[%s].",
+                opParam.opType, selectAlgName.c_str());
             return ret;
         }
     }
     if (ProcessAivConfig(opParam, topoInfo, configAlgMap, selectAlgName, ret)) {
+        HCCL_INFO("[asc][AlgoSelect][AutoSelectorBase::Select] AIV config handled, opType[%d], algName[%s], "
+            "opExecuteConfig[%d], status[%d].", opParam.opType, selectAlgName.c_str(), opParam.opExecuteConfig,
+            static_cast<int>(ret));
         return ret;
     }
     if (IsStarsState(opParam.opExecuteConfig)) {
@@ -57,13 +73,18 @@ SelectorStatus AutoSelectorBase::Select(OpParam &opParam, TopoInfoWithNetLayerDe
                 selectAlgName.c_str(), opParam.opExecuteConfig);
             return ret;
         }
+        HCCL_DEBUG("[asc][AlgoSelect][AutoSelectorBase::Select] try AICPU algo, opType[%d], opExecuteConfig[%d].",
+            opParam.opType, opParam.opExecuteConfig);
         ret = SelectAicpuAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
         if (ret == SelectorStatus::MATCH) {
             opParam.opExecuteConfig = OpExecuteConfig::AICPU_TS;
+            HCCL_INFO("[asc][AlgoSelect][AutoSelectorBase::Select] AICPU algo matched, opType[%d], algName[%s], "
+                "opExecuteConfig[%d].", opParam.opType, selectAlgName.c_str(), opParam.opExecuteConfig);
         }
     }
-    HCCL_INFO("[Algo][AutoSelectorBase] The selected algo is %s, OpExecuteConfig is %d.",
-        selectAlgName.c_str(), opParam.opExecuteConfig);
+    HCCL_INFO("[asc][AlgoSelect][AutoSelectorBase::Select] end, opType[%d], status[%d], algName[%s], "
+        "opExecuteConfig[%d], engine[%d].", opParam.opType, static_cast<int>(ret), selectAlgName.c_str(),
+        opParam.opExecuteConfig, opParam.engine);
     return ret;
 }
 

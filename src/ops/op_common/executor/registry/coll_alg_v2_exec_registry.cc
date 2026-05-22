@@ -34,11 +34,14 @@ std::unique_ptr<InsCollAlgBase> CollAlgExecRegistryV2::GetAlgExec(const HcclCMDT
     const std::string &tag)
 {
     if (execCreators_.count(type) == 0 || execCreators_[type].count(tag) == 0) {
-        HCCL_DEBUG("[CollAlgExecRegistryV2]Creator for executor tag[%s] has not registered.", tag.c_str());
+        HCCL_INFO("[asc][AlgoExecute][CollAlgExecRegistryV2::GetAlgExec] miss, opType[%d], algName[%s].",
+            type, tag.c_str());
         return nullptr;
     }
-    HCCL_DEBUG("[CollAlgExecRegistryV2][GetAlgExec]get executor by algName[%s].", tag.c_str());
-    return std::unique_ptr<InsCollAlgBase>(execCreators_[type][tag]());
+    auto executor = std::unique_ptr<InsCollAlgBase>(execCreators_[type][tag]());
+    HCCL_INFO("[asc][AlgoExecute][CollAlgExecRegistryV2::GetAlgExec] hit, opType[%d], algName[%s], "
+        "executor[%p].", type, tag.c_str(), executor.get());
+    return executor;
 }
 
 }

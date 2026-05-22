@@ -43,7 +43,7 @@ HcclResult LoadAICPUKernel(void)
     }
     std::string jsonPath;
     CHK_RET(GetKernelFilePath(jsonPath));
-    jsonPath += "libscatter_aicpu_kernel.json";
+    jsonPath += "libmc2_server.json";
     HcclResult ret = LoadBinaryFromFile(jsonPath.c_str(), ACL_RT_BINARY_LOAD_OPT_CPU_KERNEL_MODE, 0,
         g_binKernelHandle);
     CHK_PRT_RET(ret != HCCL_SUCCESS,

@@ -12,8 +12,6 @@
 #include "ins_temp_all_to_all_v_mesh_1D.h"
 #include "ins_temp_dpu_alltoall_mesh.h"
 #ifndef AICPU_COMPILE
-#include "aiv_temp_all_to_all_mesh_1D.h"
-#include "aiv_temp_all_to_all_v_mesh_1D.h"
 #if !defined(HCCL_CANN_COMPAT_850)
 #include "ccu_temp_all_to_all_mesh_1D.h"
 #include "ccu_temp_all_to_all_mesh2die.h"
@@ -92,7 +90,10 @@ template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate(
     const OpParam &param, const AlgResourceCtxSerializable &resCtx)
 {
-    HCCL_INFO("[InsV2AlltoAllVSoleExecutor][Orchestrate] Orchestrate Start");
+    HCCL_INFO("[MC2_OPEN_DIAG][InsV2AlltoAllVSoleExecutor][Orchestrate] Orchestrate Start, file[%s:%d], "
+              "sizeof(OpParam) %zu, varMemSizeOffset %zu, varMemSize %llu, opType %u, algName[%s].",
+              __FILE__, __LINE__, sizeof(OpParam), offsetof(OpParam, varMemSize),
+              static_cast<unsigned long long>(param.varMemSize), static_cast<u32>(param.opType), param.algName);
 
     // maxTmpMemSize_设定为cclIn的大小，op中将申请的HcclBuff全给了cclIn
     maxTmpMemSize_ = resCtx.cclMem.size;
@@ -246,6 +247,8 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
             recvCounts[i] = reinterpret_cast<u64*>(param.all2AllVDataDes.recvCounts)[i];
             sdispls[i] = reinterpret_cast<u64*>(param.all2AllVDataDes.sdispls)[i];
             rdispls[i] = reinterpret_cast<u64*>(param.all2AllVDataDes.rdispls)[i];
+            HCCL_INFO("[InsV2AlltoAllVSoleExecutor][param.all2AllVDataDes] sendCounts[%d]:[%llu], recvCounts[%d]:[%llu], sdispls[%d]:[%llu], rdispls[%d]:[%llu]",
+                    i, sendCounts[i], i, recvCounts[i], i, sdispls[i], i, rdispls[i]);
         }
     }
 
@@ -350,6 +353,8 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
                 tempAlgParams.recvCounts[i] = 0;
                 tempAlgParams.rdispls[i] = rdispls[i] + recvCounts[i];
             }
+            HCCL_INFO("[InsV2AlltoAllVSoleExecutor][tempAlgParams] sendCounts[%d]:[%llu], recvCounts[%d]:[%llu], sdispls[%d]:[%llu], rdispls[%d]:[%llu]",
+                    i, tempAlgParams.sendCounts[i], i, tempAlgParams.recvCounts[i], i, tempAlgParams.sdispls[i], i, tempAlgParams.rdispls[i]);
         }
 
         // 因为只考虑执行0级算法，所以传进template里面的channels就是channels_的第一个vector
@@ -464,8 +469,6 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLVC, InsAlltoAllVCClosMesh1DDPU, I
     REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, CcuAllToAllMesh1D2Die, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
         CcuTempAllToAllMesh1D2Die);
 #endif /* !HCCL_CANN_COMPAT_850 */
-    REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, AivAlltoAllMesh1D, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
-                     AivTempAlltoAllMesh1D);
 #if !defined(HCCL_CANN_COMPAT_850)
     REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, CcuAllToAllMesh2Die, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
     CcuTempAllToAllMesh2Die);

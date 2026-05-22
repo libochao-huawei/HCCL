@@ -15,8 +15,6 @@
 #include "ins_temp_all_reduce_mesh_1D_two_shot_mesh_chunk.h"
 #include "ins_temp_all_reduce_aicpu_reduce_nhr.h"
 #ifndef AICPU_COMPILE
-#include "aiv_temp_all_reduce_mesh_1D_oneshot.h"
-#include "aiv_temp_all_reduce_mesh_1D_twoshot.h"
 #if !defined(HCCL_CANN_COMPAT_850)
 #include "ccu_temp_all_reduce_mesh_1D_one_shot.h"
 #include "ccu_temp_all_reduce_mesh_1D_mem2mem.h"
@@ -253,10 +251,6 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, InsAllReduceAicpuReduceNHR, In
     TopoMatch1D, InsTempAllReduceAicpuReduceNHR);
 
 #ifndef AICPU_COMPILE
-REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, AivAllReduceMesh1DOneShot, InsV2AllReduceSoleExecutor, TopoMatch1D,
-    AivTempAllReduceMesh1DOneShot);
-REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, AivAllReduceMesh1DTwoShot, InsV2AllReduceSoleExecutor, TopoMatch1D,
-    AivTempAllReduceMesh1DTwoShot);
 #if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceNHR1D, InsV2AllReduceSoleExecutor, TopoMatch1D,
                  CcuTempAllReduceNHRMem2Mem1D);

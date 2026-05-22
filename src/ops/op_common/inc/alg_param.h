@@ -22,12 +22,12 @@
 #include <hccl/hccl_comm.h>
 #include "hccl_common.h"
 #include "hccl_types.h"
-#include "alg_type.h"
-#include "hccl_res_dl.h"
-#include "hcomm_primitives_dl.h"
-#include "hccl_rank_graph_dl.h"
-#include "hccl_host_comm_dl.h"
-#include "binary_stream.h"
+#include "../../../common/alg_type.h"
+#include "../../../common/hcomm_dlsym/hccl_res_dl.h"
+#include "../../../common/hcomm_dlsym/hcomm_primitives_dl.h"
+#include "../../../common/hcomm_dlsym/hccl_rank_graph_dl.h"
+#include "../../../common/hcomm_dlsym/hccl_host_comm_dl.h"
+#include "../../../common/binary_stream.h"
 #if CANN_VERSION_NUM >= 90000000
 #include "hccl_ccu_res.h"
 #else
