@@ -16,6 +16,8 @@ set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/ccu_temp_reduce_nhr_1D_mem2mem.cc
 )
 
-target_sources(hccl PRIVATE
-    ${src_list}
-)
+if(TARGET hccl)
+    target_sources(hccl PRIVATE
+        ${src_list}
+    )
+endif()

@@ -24,6 +24,8 @@ set(src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/ccu_temp_all_to_all_mesh1d_2Die.cc
 )
 
-target_sources(hccl PRIVATE
-    ${src_list}
-)
+if(TARGET hccl)
+    target_sources(hccl PRIVATE
+        ${src_list}
+    )
+endif()
