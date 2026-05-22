@@ -15,6 +15,7 @@
 
 #include "alg_param.h"
 #include "alg_type.h"
+#include "hccl/base.h"
 
 namespace ops_hccl {
 HcclResult FillOpExchangeInfoWithDataDes(const OpParam &param, OpExchangeInfo &exchangeInfo);
@@ -30,7 +31,7 @@ HcclResult ReportOpExchangeInfoCheckFailed(const OpExchangeInfo &exchangeInfo, c
 HcclResult ReportOpExchangeInfoCheckFailed(const OpExchangeInfo &exchangeInfo, const std::string &paraName,
     const std::string &expectVal, const std::string &remotePara);
 
-HcclResult GetOpTypeName(const OpExchangeInfo &exchangeInfo, std::string &opinfo);
+HcclResult GetOpTypeName(const OpExchangeInfo &exchangeInfo, std::string &opInfo);
 
 }
 #endif

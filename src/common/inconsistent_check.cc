@@ -66,7 +66,7 @@ HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeI
             CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "RootRankId", exchangeInfo.root,
                 rmtExchangeInfo.root));
         }
-        CHK_RET(ConsistencyCheckOpType(exchangeInfo, rmtExchangeInfo.opType));
+        CHK_RET(InconsistentCheckOpType(exchangeInfo, rmtExchangeInfo.opType));
         if (exchangeInfo.engine != rmtExchangeInfo.engine) {
             CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "CommEngine",
                 static_cast<uint32_t>(exchangeInfo.engine), static_cast<uint32_t>(rmtExchangeInfo.engine)));
@@ -129,7 +129,7 @@ HcclResult ReportOpExchangeInfoCheckFailed(const OpExchangeInfo &exchangeInfo, c
     uint32_t expectVal, uint32_t remotePara)
 {
     std::string opInfo = "Unknown";
-    CHK_RET(GetOpTypeName(exchangeInfo, opinfo));
+    CHK_RET(GetOpTypeName(exchangeInfo, opInfo));
 
     RPT_INPUT_ERR(true, "EI0005",
         std::vector<std::string>({"ccl_op", "group", "para_name", "local_para", "remote_para"}),
@@ -144,7 +144,7 @@ HcclResult ReportOpExchangeInfoCheckFailed(const OpExchangeInfo &exchangeInfo, c
     const std::string &expectVal, const std::string &remotePara)
 {
     std::string opInfo = "Unknown";
-    CHK_RET(GetOpTypeName(exchangeInfo, opinfo));
+    CHK_RET(GetOpTypeName(exchangeInfo, opInfo));
     RPT_INPUT_ERR(true, "EI0005",
         std::vector<std::string>({"ccl_op", "group", "para_name", "local_para", "remote_para"}),
         std::vector<std::string>({opInfo, exchangeInfo.group, paraName, expectVal, remotePara}));
@@ -153,7 +153,7 @@ HcclResult ReportOpExchangeInfoCheckFailed(const OpExchangeInfo &exchangeInfo, c
     return HCCL_E_PARA;
 }
 
-HcclResult GetOpTypeName(const OpExchangeInfo &exchangeInfo, std::string &opinfo)
+HcclResult GetOpTypeName(const OpExchangeInfo &exchangeInfo, std::string &opInfo)
 {
     for (const auto &pair : HCCL_OPTYPE_NAME_MAP) {
         if (pair.second == exchangeInfo.opType) {
