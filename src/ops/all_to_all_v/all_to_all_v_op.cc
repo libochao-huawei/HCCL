@@ -72,7 +72,7 @@ HcclResult HcclAlltoAll(const void *sendBuf, uint64_t sendCount, HcclDataType se
     CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlace(sendBuf, sendCounts.data(), sdispls.data(),
         recvBuf, recvCounts.data(), rdispls.data(), recvType, comm, stream, tag,
         HcclCMDType::HCCL_CMD_ALLTOALL, rankSize, useInnerOp), tag.c_str());
-    
+
     CHK_RET(LogHcclExit("HcclAlltoAll", tag.c_str(), startut));
 
     if (useInnerOp) {
@@ -132,7 +132,7 @@ HcclResult HcclAlltoAllV(const void *sendBuf, const void *sendCounts, const void
     bool useInnerOp = false;
     CHK_RET_AND_PRINT_IDE(AlltoAllVOutPlace(sendBuf, sendCounts, sdispls, recvBuf, recvCounts, rdispls, recvType, comm, stream,
         tag, HcclCMDType::HCCL_CMD_ALLTOALLV, rankSize, useInnerOp), tag.c_str());
-    
+
     CHK_RET(LogHcclExit("HcclAlltoAllV", tag.c_str(), startut));
 
     if (useInnerOp) {
@@ -190,7 +190,7 @@ HcclResult HcclAlltoAllVC(const void *sendBuf, const void *sendCountMatrix, Hccl
         recvBuf, recvCounts.data(), rdispls.data(), recvType, comm, stream, tag,
         HcclCMDType::HCCL_CMD_ALLTOALLVC, rankSize, useInnerOp), tag.c_str());
 
-    CHK_RET(LogHcclExit("HcclAlltoAllVC", tag.c_str(), startut));    
+    CHK_RET(LogHcclExit("HcclAlltoAllVC", tag.c_str(), startut));
 
     if (useInnerOp) {
         return HcclAlltoAllVCInner(sendBuf, sendCountMatrix, sendType, recvBuf, recvType, comm, stream);
@@ -450,6 +450,8 @@ HcclResult CheckAlltoAllInputPara(const HcclComm comm, const void *sendBuf, cons
     CHK_PTR_NULL(stream);
     CHK_PRT_RET(sendBuf == recvBuf,
         HCCL_ERROR("[HcclAlltoAll] sendBuf and recvBuf cannot be same."), HCCL_E_PARA);
+    CHK_PRT_RET(sendCount > UINT64_MAX / DATATYPE_SIZE_TABLE[sendType],
+        HCCL_ERROR("[HcclAlltoAll] sendSize overflow UINT64_MAX."), HCCL_E_PARA);
 
     return HCCL_SUCCESS;
 }
@@ -535,6 +537,7 @@ HcclResult CalcInputOutputSize(const u64* sendCountsData, const u64* recvCountsD
 HcclResult ContructVarData(const u64* sendCountsData, const u64* recvCountsData, const u64* sdisplsData,
     const u64* rdisplsData, const u32 userRankSize, const u32 rankSize, OpParam &param)
 {
+    CHK_PTR_NULL(param.varData);
     u64* data = reinterpret_cast<u64*>(param.varData);
     for (u64 i = 0; i < ALL_TO_ALL_V_VECTOR_NUM * userRankSize; i++) {
         u64 val = i / rankSize;
@@ -633,7 +636,7 @@ HcclResult AlltoAllVOutPlaceCommon(const void *sendBuf, const void *sendCounts, 
 
     CHK_RET(AlltoAllVConstructOpParam(sendBuf, sendCounts, sdispls, recvBuf, recvCounts, rdispls, dataType,
         comm, stream, tag, opType, rankSize, opMode, varMemSize, param));
-    
+
     CHK_RET(HcclGetOpExpansionMode(comm, param));
 
     CcuFastLaunchCtx *ccuFastLaunchCtx = nullptr;
@@ -643,6 +646,7 @@ HcclResult AlltoAllVOutPlaceCommon(const void *sendBuf, const void *sendCounts, 
 
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
+    CHK_PTR_NULL(topoInfo);
     CHK_RET(Selector(comm, param, topoInfo, algName));
     if (ShouldUseInnerOp(param.opExecuteConfig) && param.opMode == OpMode::OPBASE) {
         useInnerOp = true;
