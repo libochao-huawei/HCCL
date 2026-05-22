@@ -178,6 +178,8 @@ SelectorStatus AllGatherAutoSelector::SelectCcuScheduleAlgo(
             } else if (dataSize < AG_FLATTEN_MAX_DATA_SIZE && topoInfo->userRankSize <= 64) {
                 selectAlgName = "CcuAllGatherMesh1DMem2Mem";
                 return SelectorStatus::MATCH;
+            } else if (dataSize >= AG_CCU_SMALL_DATA_SIZE && topoInfo->userRankSize >16) {
+                return SelectorStatus::NOT_MATCH;
             } else {
                 selectAlgName = "CcuAllGatherParallelMesh1DNHR";
                 return SelectorStatus::MATCH;
