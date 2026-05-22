@@ -283,7 +283,6 @@ HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std
                     dieIdTypeSize, static_cast<void*>(&dieId));
                 if (dieId == meshDieId) {
                     closChannels_[dieId].emplace_back(channel);//2port走mesh1d，需要所有channel
-                    rankGroup_[dieId].push_back(channel.remoteRank);
                     HCCL_INFO("closChannels_[dieId].size() = %llu", closChannels_[dieId].size());
                     HCCL_INFO("channel.remoteRank = %llu", channel.remoteRank);
                     HCCL_INFO("rankGroup_[dieId].size() = %llu", rankGroup_[dieId].size());
