@@ -11,12 +11,26 @@
 #ifndef DLSYM_COMMON_H
 #define DLSYM_COMMON_H
 
+/* CANN 版本号宏，与 CMake 注入的 CANN_VERSION_NUM 配套使用。
+ * CANN_VERSION(M, m, p)        -> 正式版本号 = M*10000000 + m*100000 + p*1000
+ * CANN_VERSION(M, m, p, betaN) -> beta 版本号 = 正式号 - 200 + N (介于上一 patch 与本 patch 之间)
+ */
+#define CANN_VERSION_BETA_beta1 1
+
+#define CANN_VERSION_VAL(M, m, p) ((M) * 10000000 + (m) * 100000 + (p) * 1000)
+#define CANN_VERSION_3(M, m, p)       (CANN_VERSION_VAL(M, m, p))
+#define CANN_VERSION_4(M, m, p, beta) (CANN_VERSION_VAL(M, m, p) - 200 + CANN_VERSION_BETA_##beta)
+#define CANN_VERSION_PICK(_1, _2, _3, _4, NAME, ...) NAME
+#define CANN_VERSION(...) CANN_VERSION_PICK(__VA_ARGS__, CANN_VERSION_4, CANN_VERSION_3)(__VA_ARGS__)
+
 #include <sys/syscall.h>
 #include <unistd.h>
 #include "dlog_pub.h"
 
-/* 8.5.0 桩: HcclCommStatus (来自 hccl_types.h，9.0.0 新增) */
-#if CANN_VERSION_NUM < 90000000
+#include "hccl/hccl_types.h"
+
+/* beta.1 起 hccl_types.h 已提供 HcclCommStatus，仅 < beta.1 (8.5.0/9.0.0) 需要桩 */
+#if CANN_VERSION_NUM < CANN_VERSION(9, 1, 0, beta1)
 typedef enum {
     HCCL_COMM_STATUS_READY = 0,
     HCCL_COMM_STATUS_SUSPENDING = 1,
