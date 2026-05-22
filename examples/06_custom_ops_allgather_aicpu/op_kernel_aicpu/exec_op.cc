@@ -21,6 +21,28 @@ constexpr uint32_t NOTIFY_IDX_ACK = 0;
 constexpr uint32_t NOTIFY_IDX_DATA_SIGNAL = 1;
 constexpr uint32_t NOTIFY_IDX_FIN_ACK = 2;
 
+static HcclResult ThreadSyncBefore(const std::vector<ThreadHandle> &threads)
+{
+    for (uint32_t i = 1; i < threads.size(); i++) {
+        CHK_RET(static_cast<HcclResult>(HcommThreadNotifyRecordOnThread(threads[0], threads[i], 0)));
+    }
+    for (uint32_t i = 1; i < threads.size(); i++) {
+        CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(threads[i], 0, CUSTOM_TIMEOUT)));
+    }
+    return HCCL_SUCCESS;
+}
+
+static HcclResult ThreadSyncAfter(const std::vector<ThreadHandle> &threads)
+{
+    for (uint32_t i = 1; i < threads.size(); i++) {
+        CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(threads[i], i, CUSTOM_TIMEOUT)));
+    }
+    for (uint32_t i = 1; i < threads.size(); i++) {
+        CHK_RET(static_cast<HcclResult>(HcommThreadNotifyRecordOnThread(threads[i], threads[0], i - 1)));
+    }
+    return HCCL_SUCCESS;
+}
+
 HcclResult ExecOp(const OpParam &param, const AlgResourceCtx &resCtx)
 {
     uint32_t dataTypeSize = SIZE_TABLE[param.dataType];
@@ -49,16 +71,8 @@ HcclResult ExecOp(const OpParam &param, const AlgResourceCtx &resCtx)
         void *curCclBuffAddr = static_cast<void *>(static_cast<uint8_t *>(cclBuffAddr) + cclBuffOffset);
         void *curInputAddr = static_cast<void *>(static_cast<uint8_t *>(param.inputPtr) + inputOffset);
         CHK_RET(static_cast<HcclResult>(HcommLocalCopyOnThread(resCtx.threads[0], curCclBuffAddr, curInputAddr, sliceSize)));
-
-        // 前同步
-        // 主thread通知其他thread开始工作
-        for (uint32_t i = 1; i < resCtx.threads.size(); i++) {
-            CHK_RET(static_cast<HcclResult>(HcommThreadNotifyRecordOnThread(resCtx.threads[0], resCtx.threads[i], 0)));
-        }
-        // 其他thread等待主thread通知
-        for (uint32_t i = 1; i < resCtx.threads.size(); i++) {
-            CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(resCtx.threads[i], 0, CUSTOM_TIMEOUT)));
-        }
+        // 
+        CHK_RET(ThreadSyncBefore(resCtx.threads));
         // 交换数据
         for (uint32_t i = 0; i < resCtx.threads.size(); i++) {
             uint32_t remoteRank = resCtx.channels[i].remoteRank;
@@ -77,15 +91,7 @@ HcclResult ExecOp(const OpParam &param, const AlgResourceCtx &resCtx)
             CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(resCtx.threads[i], remoteChannelHandle, NOTIFY_IDX_DATA_SIGNAL, CUSTOM_TIMEOUT)));
         }
 
-        // 后同步
-        // 主thread等待其他thread
-        for (uint32_t i = 1; i < resCtx.threads.size(); i++) {
-            CHK_RET(static_cast<HcclResult>(HcommThreadNotifyWaitOnThread(resCtx.threads[i], i, CUSTOM_TIMEOUT)));
-        }
-        // 其他thread通知主thread
-        for (uint32_t i = 1; i < resCtx.threads.size(); i++) {
-            CHK_RET(static_cast<HcclResult>(HcommThreadNotifyRecordOnThread(resCtx.threads[i], resCtx.threads[0], i - 1)));
-        }
+        CHK_RET(ThreadSyncAfter(resCtx.threads));
         // 从cclbuff拷贝到outputPtr
         for (uint32_t rankId = 0; rankId < param.rankSize; rankId++) {
             uint64_t cclBuffOffset = sliceSize * rankId;
