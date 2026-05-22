@@ -8,9 +8,9 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include <stdio.h>
-#include <errno.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cerrno>
+#include <cstdlib>
 #include "gtest/gtest.h"
 
 GTEST_API_ int main(int argc, char **argv) 

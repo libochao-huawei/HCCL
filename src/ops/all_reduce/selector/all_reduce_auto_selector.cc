@@ -156,7 +156,7 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNe
             } else if (topoInfo->is2DieFullMesh) {
                 HCCL_DEBUG("[AllReduceAutoSelector] 2DieFullMesh is not supported yet for ccu schedule mode.");
                 return SelectorStatus::NOT_MATCH;
-            } else if (dataSize <= AR_FLATTEN_MAX_DATA_SIZE && topoInfo->userRankSize > 8) {
+            } else if (dataSize <= AR_FLATTEN_MAX_DATA_SIZE && topoInfo->userRankSize <= 64) {
                 selectAlgName = "CcuAllReduceMesh1DMem2Mem";
                 return SelectorStatus::MATCH;
             } else if(IsSmallDataCCU(dataSize, topoInfo->userRankSize)){//64M以下跑ccu
@@ -268,6 +268,11 @@ SelectorStatus AllReduceAutoSelector::SelectCcuScheduleLevel0Algo(const TopoInfo
         return SelectCcuScheduleLevel0UBXAlgo(topoInfo, selectAlgName, dataSize);
         }
     } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
+        if (topoInfo->level0PcieMix) {
+            // PCIE-SW定制机型，Mesh无法链接全卡时，需要跨pcie链路，不支持ccu模式
+            HCCL_WARNING("[AllReduceAutoSelector] pcie mixed topo is not supported yet for ccu schedule mode.");
+            return SelectorStatus::NOT_MATCH;
+        }
         if (dataSize > AR_CCU_CLOS_1D_SMALL_DATA_SIZE) {
             selectAlgName = "CcuAllReduceNHR1D";
         } else {

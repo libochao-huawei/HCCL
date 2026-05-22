@@ -176,11 +176,9 @@ __aicore__ inline void AivBroadcastV2Mesh1D(KERNEL_ARGS_DEF)
 {
     AivBroadcastMesh1D op;
     op.Init(KERNEL_CLASS_INIT, true);
-    SyncAll<true>();
     if (op.IsFirstOP(sliceId)) {
         op.BarrierForFirstOP();
     }
-    SyncAll<true>();
     if (len * sizeof(T) >= DATA_LIMIT) {
         op.ProcessBigData<T>(len, sliceId);
     } else {
