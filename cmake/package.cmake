@@ -77,7 +77,7 @@ function(pack_built_in)
       message(WARNING "Unknown architecture: ${CMAKE_SYSTEM_PROCESSOR}")
   endif ()
 
-  set(script_prefix ${CMAKE_SOURCE_DIR}/scripts/package/hccl/scripts)
+  set(script_prefix ${CMAKE_CURRENT_SOURCE_DIR}/scripts/package/hccl/scripts)
   install(DIRECTORY ${script_prefix}/
       DESTINATION share/info/hccl/script
       FILE_PERMISSIONS
@@ -149,6 +149,6 @@ function(pack_built_in)
 
   # ============= CPack =============
   if (NOT ENABLE_COV AND NOT ENABLE_UT)
-    set_cann_cpack_config(hccl ENABLE_DEVICE ${ENABLE_DEVICE} SHARE_INFO_NAME hccl)
+    set_cann_cpack_config(hccl SHARE_INFO_NAME hccl)
   endif()
 endfunction()

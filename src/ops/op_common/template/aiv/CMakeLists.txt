@@ -21,6 +21,8 @@ if(STATIC_MODE)
     )
 endif()
 
-target_sources(hccl PRIVATE
-    ${src_list}
-)
+if(TARGET hccl)
+    target_sources(hccl PRIVATE
+        ${src_list}
+    )
+endif()
