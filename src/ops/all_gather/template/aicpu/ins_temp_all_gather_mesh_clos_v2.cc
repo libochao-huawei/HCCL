@@ -62,7 +62,10 @@ HcclResult InsTempAllGatherMeshClosV2::RunAllGatherMesh(
 {
     HCCL_INFO("[InsTempAllGatherMeshClosV2][RunAllGatherMesh] Rank[%d] templateRankSize[%u] totalLinks[%u].",
               myRank_, templateRankSize_, totalLinks_);
-
+    // ========== 新增日志 ==========
+    HCCL_INFO("[InsTempAllGatherMeshClosV2][RunAllGatherMesh] threads.size=%zu, channels.size=%zu",
+              threads.size(), channels.size());
+    // ============================
     if (templateRankSize_ <= 1) {
         return HCCL_SUCCESS;
     }
