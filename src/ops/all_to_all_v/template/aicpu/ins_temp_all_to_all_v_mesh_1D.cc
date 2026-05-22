@@ -147,7 +147,7 @@ HcclResult InsTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
         return HCCL_E_INTERNAL;
     }
     if (std::string(param.algName) == "InsAlltoAllMesh1DMultiChannel") {
-        channelsPerRank_ = CalcChannelsPerRank(channels); // 每个rank的channel数量的最大值
+        channelsPerRank_ = CalcChannelsPerRank(templateResource.channels); // 每个rank的channel数量的最大值
     }
     CHK_RET(RunALLtoALL(templateResource.channels, templateResource.threads, tempAlgParams, myAlgRank));
 
@@ -236,7 +236,7 @@ HcclResult InsTempAlltoAllVMesh1D::RunSendRecvByLoop(const std::vector<u32> &com
                 "does not exist in channels map!", remoteRank);
             return HCCL_E_PARA;
         }
-        const std::vector<ChannelInfo> curValidChannels;
+        std::vector<ChannelInfo> curValidChannels;
         u32 curValidChannelsSize = 1;
         GetCurValidChannels(channels, remoteRank, curValidChannels, curValidChannelsSize);
         // send数据按照channel分片
@@ -273,7 +273,7 @@ HcclResult InsTempAlltoAllVMesh1D::PostSyncInterThreadsPerRank(const ThreadHandl
 }
 
 void InsTempAlltoAllVMesh1D::GetCurValidChannels(const std::map<u32, std::vector<ChannelInfo>> &channels,
-    const u32 remoteRank, std::vector<ChannelInfo> &curValidChannels, u32 &curValidChannelsSize)
+    const u32 remoteRank, std::vector<ChannelInfo> &curValidChannels, u32 &curValidChannelsSize) const
 {
     curValidChannels.clear();
     if (channelsPerRank_ == 1) {
