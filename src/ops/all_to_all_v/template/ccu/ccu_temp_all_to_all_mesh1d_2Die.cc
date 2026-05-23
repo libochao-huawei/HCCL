@@ -131,14 +131,16 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcChannelRequest(HcclComm comm, const Op
     std::vector<CommProtocol> expectedProtocols;
     CHK_RET(GetProtocolByEngine(param, expectedProtocols));
 
+    uint32_t *netLayers, netLayerNum;
+    CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
+    std::vector<uint32_t> netLayersVector(netLayers, netLayers + netLayerNum);
+    channels.resize(netLayersVector.back() + 1);
+    
     for (u32 rank: subcommInfo[COMM_LEVEL0]) {
         if (rank == topoInfo->userRank) {
             continue;
         }
-        HCCL_INFO("rank = %llu",rank);
-        uint32_t *netLayers, netLayerNum;
-        CHK_RET(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
-        std::vector<uint32_t> netLayersVector(netLayers, netLayers + netLayerNum);
+        HCCL_INFO("rank = %u",rank);
 
         for (auto netLayer : netLayersVector) {
             CommLink *linkList = nullptr;
@@ -151,7 +153,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcChannelRequest(HcclComm comm, const Op
             bool protocolFound = false;
             CHK_RET(ProcessLinkForProtocol(comm, expectedProtocols, links, myRank, rank, netLayer, channels[netLayer], protocolFound,
             std::string("[CalcChannelRequestMesh1D]")));
-            HCCL_INFO("netLayer = %llu,channels[netLayer].size()= %llu,rank = %llu",netLayer,channels[netLayer].size(),rank);
+            HCCL_INFO("netLayer = %llu,channels[netLayer].size()= %llu,rank = %u",netLayer,channels[netLayer].size(),rank);
         }
         CHK_PRT_RET(channels.empty(),
             HCCL_ERROR("[CalcChannelRequestMesh1D] Failed to create channel between myRank=%u and rank=%u, there is no link.",
