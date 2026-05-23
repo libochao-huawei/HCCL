@@ -347,3 +347,49 @@ __aicore__ inline void AivAllReduceV2Mesh1DTwoShot(KERNEL_ARGS_DEF)
     }
     op.BarrierAll();
 }
+
+template<typename T>
+__aicore__ inline void AivAllReduceV2Mesh1DTwoShotSuperKernel(SUPERKERNEL_ARGS_DEF)
+{
+    // 参数中的input和output是分别加了步长inBuffBaseOff和outBuffBaseOff步长
+    AivAllReduceMesh1DTwoShot<T> op;
+    op.Init(SUPERKERNEL_CLASS_INIT);
+
+    uint64_t maxCountPerLoop = op.cclBufferSize_ / UB_ALIGN_SIZE * UB_ALIGN_SIZE / op.rankSize_ / sizeof(T);
+    uint64_t countLeft = op.len_;
+
+    int32_t loopTag = op.tag_;
+
+    while (countLeft > 0) {
+        uint64_t curCount = (countLeft > maxCountPerLoop) ? maxCountPerLoop : countLeft;
+        uint64_t curSize = curCount * sizeof(T);
+
+        op.len_ = curCount;
+        op.SmallCoreReduceScatter(loopTag);
+        op.SmallCoreAllgather();
+        op.BarrierAll();
+
+        countLeft -= curCount;
+        op.input_ += curSize;
+        op.output_ += curSize;
+        loopTag += curSize / UB_DB_DATA_BATCH_SIZE + 1;
+    }
+}
+
+__aicore__ inline void sk_ar_mesh_1d_twoshot(SUPERKERNEL_ARGS_DEF)
+{
+    #ifdef HCCL_DTYPE_INT8
+        AivAllReduceV2Mesh1DTwoShotSuperKernel<int8_t> (SUPERKERNEL_ARGS_CALL);
+    #elif defined HCCL_DTYPE_INT16
+        AivAllReduceV2Mesh1DTwoShotSuperKernel<int16_t> (SUPERKERNEL_ARGS_CALL);
+    #elif defined HCCL_DTYPE_INT32
+        AivAllReduceV2Mesh1DTwoShotSuperKernel<int32_t> (SUPERKERNEL_ARGS_CALL);
+    #elif defined HCCL_DTYPE_FP16
+        AivAllReduceV2Mesh1DTwoShotSuperKernel<half> (SUPERKERNEL_ARGS_CALL);
+    #elif defined HCCL_DTYPE_FP32
+        AivAllReduceV2Mesh1DTwoShotSuperKernel<float> (SUPERKERNEL_ARGS_CALL);
+    #elif defined HCCL_DTYPE_BFP16
+        AivAllReduceV2Mesh1DTwoShotSuperKernel<bfloat16_t> (SUPERKERNEL_ARGS_CALL);
+    #else
+    #endif
+}
