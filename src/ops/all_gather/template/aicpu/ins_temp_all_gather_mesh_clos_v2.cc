@@ -25,10 +25,10 @@ InsTempAllGatherMeshClosV2::~InsTempAllGatherMeshClosV2() {}
 
 u64 InsTempAllGatherMeshClosV2::GetThreadNum() const
 {
-    return channelsPerRank_;
+    // return channelsPerRank_;
     // 最多使用 min(链路数, 邻居数) 个线程
-    // u32 numNeighbors = std::max(1u, templateRankSize_ - 1);
-    // return std::min(channelsPerRank_, numNeighbors);
+    u32 numNeighbors = std::max(1u, templateRankSize_ - 1);
+    return std::min(channelsPerRank_, numNeighbors);
 }
 
 HcclResult InsTempAllGatherMeshClosV2::GetRes(AlgResourceRequest &resourceRequest) const
@@ -108,8 +108,10 @@ HcclResult InsTempAllGatherMeshClosV2::RunAllGatherOnLink(
 
         u32 totalLinksToNeighbor = it->second.size();
         u32 selectedLinkIdx = (myAlgRank + connectedAlgRank) % threads.size();
-
-        
+        if (selectedLinkIdx == 0) {
+            selectedLinkIdx = 2;
+        }
+        selectedLinkIdx = selectedLinkIdx - 1;
         if (selectedLinkIdx != linkIdx) {
             continue;
         }
