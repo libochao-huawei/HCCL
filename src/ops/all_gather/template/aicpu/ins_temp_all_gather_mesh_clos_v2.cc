@@ -15,6 +15,22 @@
 
 namespace ops_hccl {
 
+static u32 GetTournamentPartner(u32 rank, u32 N, u32 round)
+{
+    u32 Nm1 = N - 1;
+    if (rank == Nm1) {
+        return round % Nm1;
+    }
+    if (rank == round % Nm1) {
+        return Nm1;
+    }
+    i32 val = static_cast<i32>(2 * round - rank) % static_cast<i32>(Nm1);
+    if (val < 0) {
+        val += static_cast<i32>(Nm1);
+    }
+    return static_cast<u32>(val);
+}
+
 InsTempAllGatherMeshClosV2::InsTempAllGatherMeshClosV2(const OpParam &param, const u32 rankId,
                                                        const std::vector<std::vector<u32>> &subCommRanks)
     : InsTempAllGatherMesh1D(param, rankId, subCommRanks)
@@ -90,30 +106,29 @@ HcclResult InsTempAllGatherMeshClosV2::RunAllGatherOnLink(
     CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], myAlgRank));
     const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
 
-    for (u32 neighborIdx = 0; neighborIdx < subCommRanks_[0].size() - 1; neighborIdx++) {
-        u32 connectedRank = subCommRanks_[0][(myAlgRank + 1 + neighborIdx) % subCommRanks_[0].size()];
+    u32 N = subCommRanks_[0].size();
+    for (u32 round = 0; round < N - 1; round++) {
+        u32 partnerAlgRank = GetTournamentPartner(myAlgRank, N, round);
+        u32 partnerRank = subCommRanks_[0][partnerAlgRank];
 
-        u32 connectedAlgRank = 0;
-        CHK_RET(GetAlgRank(connectedRank, subCommRanks_[0], connectedAlgRank));
-
-        auto it = channels.find(connectedRank);
+        auto it = channels.find(partnerRank);
         if (it == channels.end() || it->second.empty()) {
-            HCCL_ERROR("[InsTempAllGatherMeshClosV2] Rank[%d] connectedRank[%u] has no channels.",
-                       myRank_, connectedRank);
+            HCCL_ERROR("[InsTempAllGatherMeshClosV2] Rank[%d] partnerRank[%u] has no channels.",
+                       myRank_, partnerRank);
             return HcclResult::HCCL_E_INTERNAL;
         }
 
-        u32 totalLinksToNeighbor = it->second.size();
-        u32 selectedLinkIdx = (myAlgRank + connectedAlgRank) % totalLinksToNeighbor;
+        u32 totalLinksToPartner = it->second.size();
+        u32 selectedLinkIdx = (myAlgRank + partnerAlgRank) % totalLinksToPartner;
 
         
         if (selectedLinkIdx != linkIdx) {
             continue;
         }
 
-        HCCL_INFO("[InsTempAllGatherMeshClosV2 0] Rank[%d] linkIdx[%u] matched connectedRank[%u] "
+        HCCL_INFO("[InsTempAllGatherMeshClosV2 0] Rank[%d] linkIdx[%u] matched partnerRank[%u] "
                   "selectedLinkIdx[%u] totalLinks[%u] enableRemoteMemAccess[%d]",
-                  myRank_, linkIdx, connectedRank, selectedLinkIdx, totalLinksToNeighbor,
+                  myRank_, linkIdx, partnerRank, selectedLinkIdx, totalLinksToPartner,
                   enableRemoteMemAccess_);
 
         const ChannelInfo &linkRemote = it->second[selectedLinkIdx];
@@ -132,7 +147,7 @@ HcclResult InsTempAllGatherMeshClosV2::RunAllGatherOnLink(
                                     rpt * scratchRepeatStride;
 
             u64 sliceSize = tempAlgParams_.sliceSize;
-            if (tempAlgParams_.tailSize != 0 && connectedAlgRank == templateRankSize_ - 1) {
+            if (tempAlgParams_.tailSize != 0 && partnerAlgRank == templateRankSize_ - 1) {
                 sliceSize = tempAlgParams_.tailSize;
             }
 
@@ -140,8 +155,8 @@ HcclResult InsTempAllGatherMeshClosV2::RunAllGatherOnLink(
             u64 txScratchOffset = scratchBase + tempAlgParams_.sliceSize * myAlgRank;
             u64 txDstOffset = (!enableRemoteMemAccess_) ? txScratchOffset : txOutOffset;
 
-            u64 rxOutOffset = tempAlgParams_.outputSliceStride * connectedAlgRank + outBaseOff;
-            u64 rxScratchOffset = scratchBase + tempAlgParams_.sliceSize * connectedAlgRank;
+            u64 rxOutOffset = tempAlgParams_.outputSliceStride * partnerAlgRank + outBaseOff;
+            u64 rxScratchOffset = scratchBase + tempAlgParams_.sliceSize * partnerAlgRank;
             u64 rxSrcOffset = (!enableRemoteMemAccess_) ? rxScratchOffset : rxOutOffset;
 
             void *txSrcPtr = tempAlgParams_.buffInfo.outputPtr;
@@ -157,7 +172,7 @@ HcclResult InsTempAllGatherMeshClosV2::RunAllGatherOnLink(
                       "srcPtr[%p] + offset[%llu], dstPtr[%p] + offset[%llu], "
                       "size[%llu] count[%llu]",
                       myRank_, linkIdx, rpt,
-                      myRank_, connectedRank,
+                      myRank_, partnerRank,
                       txSrcPtr, (unsigned long long)txOutOffset,
                       txDstPtr, (unsigned long long)txDstOffset,
                       (unsigned long long)sliceSize, (unsigned long long)sliceCount);
@@ -167,7 +182,7 @@ HcclResult InsTempAllGatherMeshClosV2::RunAllGatherOnLink(
                       "srcPtr[%p] + offset[%llu], dstPtr[%p] + offset[%llu], "
                       "size[%llu] count[%llu]",
                       myRank_, linkIdx, rpt,
-                      connectedRank, myRank_,
+                      partnerRank, myRank_,
                       rxSrcPtr, (unsigned long long)rxSrcOffset,
                       rxDstPtr, (unsigned long long)rxOutOffset,
                       (unsigned long long)sliceSize, (unsigned long long)sliceCount);
@@ -184,12 +199,12 @@ HcclResult InsTempAllGatherMeshClosV2::RunAllGatherOnLink(
         SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
         
         HCCL_INFO("[InsTempAllGatherMeshClosV2] Rank[%d] linkIdx[%u] before SendRecvRead, "
-                  "connectedRank[%u] slices[%zu]",
-                  myRank_, linkIdx, connectedRank, txSrcSlicesAll.size());
+                  "partnerRank[%u] slices[%zu]",
+                  myRank_, linkIdx, partnerRank, txSrcSlicesAll.size());
 
         CHK_PRT_RET(SendRecvRead(sendRecvInfo, threads[linkIdx]),
                     HCCL_ERROR("[InsTempAllGatherMeshClosV2] SendRecvRead failed on linkIdx[%u] "
-                               "connectedRank[%u]", linkIdx, connectedRank),
+                               "partnerRank[%u]", linkIdx, partnerRank),
                     HcclResult::HCCL_E_INTERNAL);
 
         HCCL_INFO("[InsTempAllGatherMeshClosV2] Rank[%d] linkIdx[%u] after SendRecvRead successfully",
