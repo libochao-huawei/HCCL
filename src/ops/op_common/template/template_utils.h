@@ -369,9 +369,25 @@ struct AicpuNHRStepInfo {
     }
 };
 
+struct AicpuHDStepInfo {
+    u32 step = 0;
+    u32 myRank = 0;
+    u32 nSlices;
+    u32 toRank = 0;
+    u32 fromRank = 0;
+    std::vector<u32> txSliceIdxs;
+    std::vector<u32> rxSliceIdxs;
+
+    AicpuHDStepInfo() : nSlices(0)
+    {
+    }
+};
+
 HcclResult GetAlgRank(const u32 virtRank, const std::vector<u32> &rankIds, u32 &algRank);
 
 u32 GetNHRStepNum(u32 rankSize);
+
+u32 GetHDStepNum(u32 rankSize);
 
 inline u32 CalcChannelsPerRank(const std::vector<HcclChannelDesc> &channels)
 {
