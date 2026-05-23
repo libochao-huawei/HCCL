@@ -159,6 +159,10 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     rankSize_ = resCtx.topoInfo.userRankSize;
     dataCount_ = param.DataDes.count;
     dataTypeSize_ =  SIZE_TABLE[param.DataDes.dataType];
+    if (dataCount > UINT64_MAX / dataTypeSize_) {
+        CHK_PRT_RET(true, HCCL_ERROR("[InsV2AllReduceConcurrentExecutor][Orchestrate] dataCount[%llu] * dataTypeSize_[%llu] overflow",
+            dataCount, dataTypeSize_), HCCL_E_INTERNAL);
+    }
     dataSize_ = dataCount_ * dataTypeSize_;
     dataType_ = param.DataDes.dataType;
     reduceOp_ = param.reduceType;
@@ -408,6 +412,9 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
         HCCL_ERROR("[InsV2AllReduceConcurrentExecutor][FastLaunch] temp0Threads_ or temp1Threads_ is empty");
         return HCCL_E_INTERNAL;
     }
+    CHK_PRT_RET(temp0Threads_.at(0) == nullptr || temp1Threads_.at(0) == nullptr,
+        HCCL_ERROR("[InsV2AllReduceConcurrentExecutor][FastLaunch] temp0ThreadMain_ or temp1ThreadMain_ is nullptr"),
+        HcclResult::HCCL_E_INTERNAL);
     temp0ThreadMain_ = temp0Threads_.at(0);
     temp1ThreadMain_ = temp1Threads_.at(0);
 

@@ -126,7 +126,9 @@ HcclResult InsTempAllReduceMesh1DOneShot::RunAllReduce(const OpParam& param,
         u32 nextRank = (myRank_ + queIdx) % templateRankSize_;
         u32 fromRank = subCommRanks_[0][nextRank];
         u32 toRank = subCommRanks_[0][nextRank];
-
+        CHK_PRT_RET(channels.at(fromRank).size() == 0 || channels.at(toRank).size() == 0,
+            HCCL_ERROR("[InsTempAllReduceMesh1DOneShot] RunAllReduce channels.at(fromRank).size() is 0 or channels.at(toRank).size() is 0"),
+            HcclResult::HCCL_E_INTERNAL);
         const ChannelInfo &linkRecv = channels.at(fromRank)[0]; // linkRecv - 从fromRank接收的链路
         const ChannelInfo &linkSend = channels.at(toRank)[0]; // linkSend - 向toRank发送的链路
 
