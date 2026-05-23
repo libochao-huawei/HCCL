@@ -167,7 +167,7 @@ SelectorStatus AlltoAllAutoSelector::SelectAicpuAlgoClosMesh2D(
     if (topoInfo->topoLevelNums > 1) {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D || topoInfo->level0Topo == Level0Shape::CLOS ||
             topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-            selectAlgName = "InsAlltoAllMeshClos2DV2";
+            selectAlgName = "InsAlltoAllParallelMesh2DClosV2";
             return SelectorStatus::MATCH;
         } else {
             HCCL_ERROR("[AlltoAllAutoSelector][ClosMesh2D] topo not match");
@@ -176,7 +176,7 @@ SelectorStatus AlltoAllAutoSelector::SelectAicpuAlgoClosMesh2D(
     }
 
     if (topoInfo->level0Topo == Level0Shape::MESH_1D || topoInfo->level0Topo == Level0Shape::CLOS) {
-        selectAlgName = "InsAlltoAllMeshClos2DV2";
+        selectAlgName = "InsAlltoAllParallelMesh2DClosV2";
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
         if (topoInfo->level0PcieMix) {
             selectAlgName = "InsAlltoAllMesh1D";
@@ -186,9 +186,9 @@ SelectorStatus AlltoAllAutoSelector::SelectAicpuAlgoClosMesh2D(
                         HCCL_ERROR("[AlltoAllAutoSelector][ClosMesh2D] CheckMeshNumEqualToClosNum failed."),
                         SelectorStatus::NOT_MATCH);
             if (isMeshNumEqualToClosNum && topoInfo->userRankSize <= CONCURRENT_RANK_LIMIT) {
-                selectAlgName = "InsAlltoAllMeshClos2DUBXV2";
+                selectAlgName = "InsAlltoAllParallelMesh2DClosUBXV2";
             } else {
-                selectAlgName = "InsAlltoAllMeshClos2DV2";
+                selectAlgName = "InsAlltoAllParallelMesh2DClosV2";
             }
         }
     } else {

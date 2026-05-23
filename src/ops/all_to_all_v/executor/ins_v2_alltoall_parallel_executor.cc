@@ -12,6 +12,8 @@
 #include <cmath>
 #include "topo_match_clos_mesh_2d_v2.h"
 #include "topo_match_clos_mesh_2d_ubx_v2.h"
+#include "ins_temp_alltoall_mesh_2d_v2.h"
+#include "ins_temp_alltoall_mesh_clos_v2.h"
 
 namespace ops_hccl {
 
