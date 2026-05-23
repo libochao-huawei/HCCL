@@ -31,6 +31,16 @@ u32 GetNHRStepNum(u32 rankSize)
     return nSteps;
 }
 
+u32 GetHDStepNum(u32 rankSize)
+{
+    u32 stepNum = 0;
+    while (u32(1 << stepNum) < rankSize) {
+        stepNum++;
+    }
+    HCCL_DEBUG("[GetHDStepNum] rankSize[%u] HDStepNum[%u]", rankSize, stepNum);
+    return stepNum;
+}
+
 HcclResult CalcDataSplitByPortGroupCommon(const u64 totalDataCount,
                                           const u64 dataTypeSize,
                                           const std::vector<ChannelInfo> &channels,
