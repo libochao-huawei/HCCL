@@ -11,6 +11,7 @@
 #include "ins_v2_all_to_all_v_sole_executor.h"
 #include "ins_temp_all_to_all_v_mesh_1D.h"
 #include "ins_temp_dpu_alltoall_mesh.h"
+#include "ins_temp_all_to_all_mesh_clos_2d_v2.h"
 #ifndef AICPU_COMPILE
 #include "aiv_temp_all_to_all_mesh_1D.h"
 #include "aiv_temp_all_to_all_v_mesh_1D.h"
@@ -58,7 +59,11 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(
         return HCCL_E_PARA;
     }
 
-    if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
+    if (algHierarchyInfo.infos.size() >= COMM_LAYER_SIZE_2 &&
+        algHierarchyInfo.infos[0].size() == 1 && algHierarchyInfo.infos[1].size() >= 1) {
+        tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[0][0]);
+        tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[1][0]);
+    } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
         CHK_PRT_RET(algHierarchyInfo.infos[0].size() != INST_NUM_NET,
                     HCCL_ERROR("[InsV2AlltoAllVSoleExecutor][CalcRes] algHierarchyInfo.infos[0].size[%zu] "
                         "with Level0Topo[%u] is not %u",
@@ -250,7 +255,11 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     }
 
     std::vector<std::vector<u32>> tempAlgHierachyInfo;
-    if (resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS && !resCtx.topoInfo.level0PcieMix) {
+    if (resCtx.algHierarchyInfo.infos.size() >= COMM_LAYER_SIZE_2 &&
+        resCtx.algHierarchyInfo.infos[0].size() == 1 && resCtx.algHierarchyInfo.infos[1].size() >= 1) {
+        tempAlgHierachyInfo.push_back(resCtx.algHierarchyInfo.infos[0][0]);
+        tempAlgHierachyInfo.push_back(resCtx.algHierarchyInfo.infos[1][0]);
+    } else if (resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS && !resCtx.topoInfo.level0PcieMix) {
         if (resCtx.topoInfo.topoLevelNums == 1 ) {
             tempAlgHierachyInfo = {resCtx.algHierarchyInfo.infos[0][1]};
         } else {
@@ -456,6 +465,11 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, InsAlltoAllVClosMesh1DDPU, Ins
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLVC, InsAlltoAllVCClosMesh1DDPU, InsV2AlltoAllVSoleExecutor,
     TopoMatchUBX1d, InsTempDpuAlltoAllMesh);
 #endif /* !HCCL_CANN_COMPAT_850 */
+
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, InsAlltoAllMeshClos2DV2, InsV2AlltoAllVSoleExecutor,
+                 TopoMatchClosMesh2DV2, InsTempAlltoAllMeshClos2DV2);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, InsAlltoAllMeshClos2DUBXV2, InsV2AlltoAllVSoleExecutor,
+                 TopoMatchClosMesh2DUBXV2, InsTempAlltoAllMeshClos2DV2);
 
 #ifndef AICPU_COMPILE
 #if !defined(HCCL_CANN_COMPAT_850)
