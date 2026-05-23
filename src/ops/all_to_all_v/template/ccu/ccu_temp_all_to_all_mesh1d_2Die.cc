@@ -200,15 +200,22 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcRes(HcclComm comm, const OpParam& para
     uint32_t meshDieId = 0;
     CHK_RET(PartitionChannels(comm, channelDescs, meshDieId, rankIdToChannelDesc_));
     //resourceRequest.channels.emplace_back(channelDescs);
-    for (auto& chGroup : channelDescs) {
+/*     for (auto& chGroup : channelDescs) {
         resourceRequest.channels.push_back(chGroup);
+    } */
+   std::vector<HcclChannelDesc> allChannels;
+    for (auto& chGroup : channelDescs) {
+        allChannels.insert(allChannels.end(), chGroup.begin(), chGroup.end());
     }
-    HCCL_INFO("resourceRequest.channels[%d]",resourceRequest.channels.size());////////////1
+
+    // 最后只 push 一次！！！
+    resourceRequest.channels.push_back(allChannels);
+    HCCL_INFO("resourceRequest.channels[%d]",resourceRequest.channels.size());////////////1//////////0523:2
 
     const uint32_t rankSize = subCommRanks_[0].size();
     u32 kernelNum = (closChannels_[meshDieId].size() == 0) ? DIE_NUM: DIE_NUM + 1;
     resourceRequest.ccuKernelNum.push_back(kernelNum);        // kernel数量
-    HCCL_INFO("closChannels_[meshDieId] = %llu", closChannels_[meshDieId].size());///////////////////8->15//////15or22
+    HCCL_INFO("closChannels_[meshDieId] = %llu", closChannels_[meshDieId].size());//////////15
     // 需要从流
     resourceRequest.notifyNumOnMainThread = 1;
     resourceRequest.slaveThreadNum = (closChannels_[meshDieId].size() == 0) ? 1 : 2;//2+6需要2条从流，server需要1条从流
