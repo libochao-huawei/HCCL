@@ -339,7 +339,7 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     HCCL_INFO("[InsReduceScatterParallelExecutor][OrchestrateLoop] Start");
     HCCL_INFO("[InsReduceScatterParallelExecutor] AlgTemplate inter server is [%s]", tempAlgIntra.Describe().c_str());
     HCCL_INFO("[InsReduceScatterParallelExecutor] AlgTemplate intra server is [%s]", tempAlgInter.Describe().c_str());
-    multipleDimensionSplitRatio_ = param.multipleDimensionSplitRatio;
+    multipleDimensionSplitRatio_ = param.opConfig.multipleDimensionSplitRatio;
     std::vector<float> dataSplitSize;
     GetParallelDataSplit(dataSplitSize);
     u64 alignedSize = 16 * 1024; //假设需要16K对齐
@@ -434,7 +434,7 @@ HcclResult InsReduceScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
         
         u64 dataOffset0 = loopIndex * maxCountPerLoop * dataTypeSize_;
         u64 dataOffset1 = dataOffset0 + currCountPart0 * dataTypeSize_;
-        
+
         //第一步开始前同步
         CHK_RET(PreSyncInterThreads(controlThread_, templateMainThreads_, notifyIdxControlToTemplates_));
         //数据0的server内的mesh算法

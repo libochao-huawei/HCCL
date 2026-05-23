@@ -29,6 +29,7 @@
 #endif
 #include "hccl_device_comm_dl.h"
 #include "exec_timeout_manager.h"
+#include "alg_data_trans_wrapper.h"
 
 using namespace ops_hccl;
 namespace {
@@ -391,7 +392,9 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         }
 
         // 设置执行超时时间
-        ExecTimeoutManager::Instance().SetExecTimeout(param->execTimeout);
+        ExecTimeoutManager::Instance().SetExecTimeout(param->opConfig.execTimeout);
+        // 设置BatchTransfer是否可行
+        CHK_RET(InitHcommBatchTransferOnThreadSupported(resCtxPtr->isHcommBatchTransferOnThreadSupported));
         // 执行算法编排
         if (executor->Orchestrate(*param, *resCtxPtr) != HCCL_SUCCESS) {
             HCCL_ERROR("orchestrate failed for alg:%s", param->algName);
