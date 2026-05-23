@@ -131,7 +131,6 @@ HcclResult HcclGetChannelAICPU(HcclComm comm, const OpParam &param, AlgResourceC
         CHK_RET(AcquireChannel(comm, COMM_ENGINE_AICPU_TS, param.myRank, remoteRank, &channels[remoteRank]));
         ChannelInfo channel;
         channel.remoteRank = remoteRank;
-        std::cout << "remoteRank: " << remoteRank << ", handle: " << std::hex  << channels[remoteRank] << std::endl;
         channel.handle = channels[remoteRank];
         channel.notifyNum = CHANNEL_NOTIFY_NUM;
         void * cclBuf;
