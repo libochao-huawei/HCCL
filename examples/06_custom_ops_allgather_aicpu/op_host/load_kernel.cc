@@ -9,6 +9,7 @@
  */
 
 #include <string>
+#include <limits.h>
 #include "log.h"
 #include "load_kernel.h"
 
