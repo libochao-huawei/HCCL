@@ -65,4 +65,7 @@ test/
 ```bash
 # 编译并运行所有单元测试用例
 bash build.sh --ut
+
+# 编译并运行所有集成测试用例
+bash build.sh --st
 ```
