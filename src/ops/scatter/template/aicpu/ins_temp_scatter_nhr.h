@@ -50,11 +50,13 @@ private:
     HcclResult RunNHR(const std::map<u32, std::vector<ChannelInfo>> &channels, const std::vector<ThreadHandle> &threads,
         const TemplateDataParams &tempAlgParam);
     HcclResult BatchSend(AicpuNHRStepInfo &stepInfo, const std::map<u32, std::vector<ChannelInfo>> &channels,
-        const ThreadHandle &thread, const TemplateDataParams &tempAlgParam, u32 repeat) const;
+        const std::vector<ThreadHandle> &threads, const TemplateDataParams &tempAlgParam, u32 repeat) const;
     HcclResult BatchRecv(AicpuNHRStepInfo &stepInfo, const std::map<u32, std::vector<ChannelInfo>> &channels,
-        const ThreadHandle &thread, const TemplateDataParams &tempAlgParam, u32 repeat) const;
+        const std::vector<ThreadHandle> &threads, const TemplateDataParams &tempAlgParam, u32 repeat) const;
     HcclResult BatchSR(AicpuNHRStepInfo &stepInfo, const std::map<u32, std::vector<ChannelInfo>> &channels,
-        const ThreadHandle &thread, const TemplateDataParams &tempAlgParam, u32 repeat) const;
+        const std::vector<ThreadHandle> &threads, const TemplateDataParams &tempAlgParam, u32 repeat) const;
+    HcclResult SplitDataPerChannel(const DataSlice &srcSlice, const DataSlice &dstSlice, const std::vector<ChannelInfo> &channels,
+        std::vector<DataSlice> &srcSliceVec, std::vector<DataSlice> &dstSliceVec) const;
     u64 processSize_{0};
     u64 count_{0};
     bool isDmaRead_{false};
