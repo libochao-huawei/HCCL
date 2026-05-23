@@ -10,8 +10,8 @@
 
 #include "hccl_device_comm_dl.h"
 #include <dlfcn.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
 
 DEFINE_WEAK_FUNC(HcclResult, HcclCommGetStatus, const char* commId, HcclCommStatus *status);
 

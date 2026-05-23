@@ -140,6 +140,12 @@ HcclResult InsTempScatterMesh1D::PreCopy(
         return HCCL_SUCCESS;
     }
 
+    // inplace场景跳过前拷贝
+    if (tempAlgParams.buffInfo.inputPtr == tempAlgParams.buffInfo.outputPtr) {
+        HCCL_INFO("[InsTempScatterMesh1D][PreCopy] skip precopy due to inplace, myRank = %u, root = %u", myRank_, root_);
+        return HCCL_SUCCESS;
+    }
+
     u32 myAlgRank = 0;
     GetAlgRank(myRank_, subCommRanks_[0], myAlgRank);
 
@@ -163,17 +169,33 @@ HcclResult InsTempScatterMesh1D::PreCopy(
 HcclResult InsTempScatterMesh1D::PostCopy(
     const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads) const
 {
+    bool isInplaceRootRank = u32(myRank_) == root_ && tempAlgParams.buffInfo.inputPtr == tempAlgParams.buffInfo.outputPtr;
     // 通信结束之后，非root rank数据都在 cclBuffer 上，需要搬运到对应的输出位置。
-    if (u32(myRank_) == root_ || tempAlgParams.buffInfo.outBuffType == BufferType::HCCL_BUFFER || enableRemoteMemAccess_) {
+    if (tempAlgParams.buffInfo.outBuffType == BufferType::HCCL_BUFFER || enableRemoteMemAccess_) {
         HCCL_INFO("[InsTempScatterMesh1D][PostCopy] skip postcopy, myRank = %u, root = %u", myRank_, root_);
         return HCCL_SUCCESS;
     }
+
+    //root rank数据在非inplace场景不需要进行搬运
+    if (u32(myRank_) == root_ && tempAlgParams.buffInfo.inputPtr != tempAlgParams.buffInfo.outputPtr) {
+        HCCL_INFO("[InsTempScatterMesh1D][PostCopy] root rank skip postcopy, myRank = %u, root = %u", myRank_, root_);
+        return HCCL_SUCCESS;
+    }
+
     u32 myAlgRank = 0;
     GetAlgRank(myRank_, subCommRanks_[0], myAlgRank);
-    // 如果是单算子模式, 并且是最后一步算子，需要将数据从 cclBuffer 拷贝到 userOut
-    HCCL_INFO("[InsTempScatterMesh1D][PostCopy], copy from cclBuffer to userOut");
-    DataSlice srcSlice = DataSlice(tempAlgParams.buffInfo.hcclBuff.addr,
-        tempAlgParams.buffInfo.hcclBuffBaseOff + tempAlgParams.outputSliceStride * myAlgRank,
+    // root rank数据在inplace场景下需要进行搬运
+    if (isInplaceRootRank){
+        HCCL_INFO("[InsTempScatterMesh1D][PostCopy], is inplace root rank, copy from userIn to userOut");
+    }
+    else {// 如果是单算子模式, 并且是最后一步算子，需要将数据从 cclBuffer 拷贝到 userOut
+        HCCL_INFO("[InsTempScatterMesh1D][PostCopy], copy from cclBuffer to userOut");
+    }
+
+    void* srcPtr = isInplaceRootRank? tempAlgParams.buffInfo.inputPtr: tempAlgParams.buffInfo.hcclBuff.addr;
+    u64 srcOffset = isInplaceRootRank? tempAlgParams.buffInfo.inBuffBaseOff + tempAlgParams.inputSliceStride * myAlgRank
+                            : tempAlgParams.buffInfo.hcclBuffBaseOff + tempAlgParams.outputSliceStride * myAlgRank;
+    DataSlice srcSlice = DataSlice(srcPtr, srcOffset,
         processSize_ * tempAlgParams.repeatNum,
         count_ * tempAlgParams.repeatNum);
     DataSlice dstSlice = DataSlice(tempAlgParams.buffInfo.outputPtr,

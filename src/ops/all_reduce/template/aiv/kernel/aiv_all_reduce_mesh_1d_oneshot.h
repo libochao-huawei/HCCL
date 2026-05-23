@@ -39,12 +39,13 @@ public:
         inputOffset = reinterpret_cast<uint64_t>(GM_IN[rank_]) + outerOffset;
         WaitFlag(rank_, waitRank, curTag_);
         CpGM2GM((__gm__ T *)output_, (__gm__ T *)inputOffset, len_);
- 
+        pipe_barrier(PIPE_ALL);
         for (waitRank = 1; waitRank < rankSize_; waitRank++) {
             outerOffset = waitRank  * len_ * sizeof(T); //rank_  * len;
             inputOffset = reinterpret_cast<uint64_t>(GM_IN[rank_]) + outerOffset;
             WaitFlag(rank_, waitRank, curTag_);
             CpGM2GM((__gm__ T *)output_, (__gm__ T *)inputOffset, len_, reduceOp_);
+            pipe_barrier(PIPE_ALL);
         }
     }
  
@@ -99,19 +100,60 @@ public:
 };
  
 template<typename T>
-__aicore__ inline void AivAllReduceV2Mesh1DOneShot(EXTERN_KERNEL_ARGS_DEF_V2)
+__aicore__ inline void AivAllReduceV2Mesh1DOneShot(KERNEL_ARGS_DEF)
 {
     AivAllReduceMesh1DOneShot<T> op;
     op.Init(KERNEL_CLASS_INIT, true);
-    SyncAll<true>();
     if (op.IsFirstOP(sliceId)) {
         op.BarrierForFirstOP();
     }
-    SyncAll<true>();
     if(rankSize+1<=block_num){
       op.ProcessCoreLargeCase(len, sliceId, inputSliceStride);
     }else{
       op.ProcessCoreSmallCase(len, sliceId, inputSliceStride);
     }
     op.BarrierAll();
+}
+
+template<typename T>
+__aicore__ inline void AivAllReduceV2Mesh1DOneShotSuperKernel(SUPERKERNEL_ARGS_DEF)
+{
+    AivAllReduceMesh1DOneShot<T> op;
+    op.Init(SUPERKERNEL_CLASS_INIT);
+
+    uint64_t maxCountPerLoop = op.cclBufferSize_ / UB_ALIGN_SIZE * UB_ALIGN_SIZE / op.rankSize_ / sizeof(T);
+    uint64_t countLeft = op.len_;
+
+    int32_t loopTag = op.tag_;
+
+    while (countLeft > 0) {
+        uint64_t curCount = (countLeft > maxCountPerLoop) ? maxCountPerLoop : countLeft;
+        uint64_t curSize = curCount * sizeof(T);
+
+        op.ProcessCoreLargeCase(curCount, loopTag, 1);
+        op.BarrierAll();
+
+        countLeft -= curCount;
+        op.input_ += curSize;
+        op.output_ += curSize;
+        loopTag += curSize / UB_DB_DATA_BATCH_SIZE + 1;
+    }
+}
+
+__aicore__ inline void sk_ar_mesh_1d_oneshot(SUPERKERNEL_ARGS_DEF)
+{
+    #ifdef HCCL_DTYPE_INT8
+        AivAllReduceV2Mesh1DOneShotSuperKernel<int8_t> (SUPERKERNEL_ARGS_CALL);
+    #elif defined HCCL_DTYPE_INT16
+        AivAllReduceV2Mesh1DOneShotSuperKernel<int16_t> (SUPERKERNEL_ARGS_CALL);
+    #elif defined HCCL_DTYPE_INT32
+        AivAllReduceV2Mesh1DOneShotSuperKernel<int32_t> (SUPERKERNEL_ARGS_CALL);
+    #elif defined HCCL_DTYPE_FP16
+        AivAllReduceV2Mesh1DOneShotSuperKernel<half> (SUPERKERNEL_ARGS_CALL);
+    #elif defined HCCL_DTYPE_FP32
+        AivAllReduceV2Mesh1DOneShotSuperKernel<float> (SUPERKERNEL_ARGS_CALL);
+    #elif defined HCCL_DTYPE_BFP16
+        AivAllReduceV2Mesh1DOneShotSuperKernel<bfloat16_t> (SUPERKERNEL_ARGS_CALL);
+    #else
+    #endif
 }

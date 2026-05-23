@@ -17,8 +17,8 @@
 #include "hccl_host_comm_dl.h"
 #include <pthread.h>
 #include <dlfcn.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
 #include <acl/acl.h>
 
 static void* gLibHandle = nullptr;

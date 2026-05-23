@@ -17,15 +17,22 @@
 #include <set>
 #include <unordered_set>
 #include <functional>
+#include <functional>
+#include <memory>
 #include <hccl/hccl_comm.h>
 #include "hccl_common.h"
 #include "hccl_types.h"
 #include "alg_type.h"
-#include "hccl_res.h"
+#include "hccl_res_dl.h"
 #include "hcomm_primitives_dl.h"
-#include "hccl_rank_graph.h"
+#include "hccl_rank_graph_dl.h"
+#include "hccl_host_comm_dl.h"
 #include "binary_stream.h"
+#if CANN_VERSION_NUM >= 90000000
 #include "hccl_ccu_res.h"
+#else
+typedef void *CcuKernelHandle; // 8.5.0 下无 hccl_ccu_res.h，用 opaque 占位
+#endif
 
 namespace ops_hccl {
 
@@ -63,6 +70,10 @@ constexpr u64 ALL_GATHER_V_VECTOR_NUM = 2;
 
 constexpr uint64_t GE_PARALLEL = 36;
 
+constexpr uint64_t AICPU_ALIGN_SIZE = 4096;
+// Z axis detour 需要
+constexpr u32 MESH_CHANNELS_NUM = 1;
+
 enum class TopoType {
     TOPO_TYPE_COMMON = 0,           // 普通拓扑类型 ，default单层拓扑使用
     TOPO_TYPE_8P_RING = 1,          // 特殊场景, 服务器内8 rank组成一个ring，4个逻辑环
@@ -94,8 +105,8 @@ enum class OpExecuteConfig {
 };
 
 enum class OpMode {
-    OPBASE = 0,
-    OFFLOAD = 1
+    OFFLOAD = 0,
+    OPBASE = 1
 };
 
 enum class Level0Shape {
@@ -154,6 +165,7 @@ struct TopoInfoWithNetLayerDetails : public TopoInfo { // 通信域拓扑ctx
     bool Level1Nhr{false};
     bool is2DieFullMesh{false};
     bool level0PcieMix{false};
+    bool level0BigClosRange{false};
     u32 topoInstDetailsOfLayerSize = 0;
     Level0MeshType level0MeshType;
     NetLayerDetails netLayerDetails;
@@ -185,6 +197,7 @@ struct TopoInfoWithNetLayerDetails : public TopoInfo { // 通信域拓扑ctx
         binaryStream << Level1Nhr;
         binaryStream << is2DieFullMesh;
         binaryStream << level0PcieMix;
+        binaryStream << level0BigClosRange;
         binaryStream << topoInstDetailsOfLayerSize;
         binaryStream << level0MeshType;
         binaryStream << netLayerDetails.netLayerNum;
@@ -230,6 +243,7 @@ struct TopoInfoWithNetLayerDetails : public TopoInfo { // 通信域拓扑ctx
         binaryStream >> Level1Nhr;
         binaryStream >> is2DieFullMesh;
         binaryStream >> level0PcieMix;
+        binaryStream >> level0BigClosRange;
         binaryStream >> topoInstDetailsOfLayerSize;
         binaryStream >> level0MeshType;
         binaryStream >> netLayerDetails.netLayerNum;
@@ -252,10 +266,12 @@ struct TopoInfoWithNetLayerDetails : public TopoInfo { // 通信域拓扑ctx
 struct CcuKernelInfo {
     // kernel资源组序号，group号不同时，资源复用
     u32 resGroup = 0;
+#if CANN_VERSION_NUM >= 90000000
     // kernel构造函数
     hcomm::KernelCreator creator;
     // KernelArg实例
     std::shared_ptr<hcomm::CcuKernelArg> kernelArg;
+#endif
     // kernel所需channel
     std::vector<HcclChannelDesc> channels;
 };
@@ -271,6 +287,7 @@ struct CcuKernelSubmitInfo {
 // ccu快速下发上下文
 struct CcuFastLaunchCtx {
     char algName[OP_ALG_LENGTH];
+    u32 notifyNumOnMainThread = 0;
     u32 threadNum;
     u32 ccuKernelNum[MAX_TEMP_NUM_IN_ALGO];  // 每次调用template的KernelRun下发的kernel数量
     // 紧接ThreadHandle数组
@@ -375,6 +392,7 @@ struct AlgResourceCtxSerializable {
     std::vector<ThreadHandle> threads;
     ThreadHandle unfoldThread = 0; // 展开流thread
     std::vector<std::vector<ChannelInfo>> channels;
+    bool isHcommBatchTransferOnThreadSupported = false;
     void* commInfoPtr = nullptr;
     // hostdpu
     void *npu2DpuShmemPtr = nullptr;
@@ -399,6 +417,7 @@ struct AlgResourceCtxSerializable {
         binaryStream << threads;
         binaryStream << unfoldThread;
         binaryStream << channels;
+        binaryStream << isHcommBatchTransferOnThreadSupported;
 
         binaryStream << npu2DpuShmemPtr;
         binaryStream << dpu2NpuShmemPtr;
@@ -429,6 +448,7 @@ struct AlgResourceCtxSerializable {
         binaryStream >> threads;
         binaryStream >> unfoldThread;
         binaryStream >> channels;
+        binaryStream >> isHcommBatchTransferOnThreadSupported;
 
         binaryStream >> npu2DpuShmemPtr;
         binaryStream >> dpu2NpuShmemPtr;
@@ -444,6 +464,12 @@ struct AlgResourceCtxSerializable {
     }
 };
 
+struct DevAicpuOpConfig {
+    u32 execTimeout = 0;
+    double multipleDimensionSplitRatio = 0.8;
+    // 如要新增配置类字段，在此处添加
+};
+
 struct OpParam { // 不申请ctx，每个算子单独下发
     void* hcclComm;
     char tag[TAG_LENGTH] = ""; // 保存topoInfo的key值
@@ -451,7 +477,7 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     char fastLaunchTag[ALG_TAG_LENGTH] = ""; // 快速下发的key值
     char fallbackTag[ALG_MAX_LENGTH] = "";
     char commName[COMM_INDENTIFIER_MAX_LENGTH] = "";
-    char commModeTag[TAG_LENGTH] = ""; // 保存与执行模式相关的资源信息的key值
+    char commModeTag[TAG_LENGTH] = ""; // 保存与执行模式相关的资源信息的key值，当前aiv使用
     aclrtStream stream;
     void* inputPtr = nullptr;
     u64 inputSize = 0;
@@ -468,7 +494,6 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     DevType deviceType = DevType::DEV_TYPE_COUNT;
     CommEngine engine = CommEngine::COMM_ENGINE_RESERVED;
     AlgType algType;
-    double multipleDimensionSplitRatio = 0.8;
     char algTypeStr[ALG_MAX_LENGTH] = "";
     union {
         struct {
@@ -518,6 +543,7 @@ struct OpParam { // 不申请ctx，每个算子单独下发
     ThreadHandle opThread = 0;
     u32 aicpuRecordCpuIdx = 0; // aicpu record host的notifyIdx
     u32 dataCount = 0; // 算子上报dfx的数据量
+    DevAicpuOpConfig opConfig; // 收编算子配置类变量
     u64 varMemSize{0};
     u8 varData[0];
 };
@@ -590,6 +616,13 @@ struct ResPackGraphMode {
     std::vector<aclrtStream> streams;
     void* scratchMemAddr;
     u64 scratchMemSize;
+};
+
+// 图模式内存注册信息
+struct MemRegInfo {
+    char inputBuffTag[MAX_MEM_TAG_LENGTH];    // 输入缓冲区标签
+    char outputBuffTag[MAX_MEM_TAG_LENGTH];   // 输出缓冲区标签
+    std::vector<HcclMemHandle> memHandles;    // 内存句柄列表
 };
 
 // AIV模式参数存储结构

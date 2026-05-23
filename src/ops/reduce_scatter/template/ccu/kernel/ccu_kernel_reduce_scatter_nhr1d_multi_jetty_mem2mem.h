@@ -17,7 +17,9 @@
 #include "ccu_kernel.h"
 #include "ccu_kernel_utils.h"
 #include "ccu_kernel_alg_base.h"
-using NHRStepInfo = struct NHRStepInfo {
+#ifndef NHR_STEP_INFO_DEFINED
+#define NHR_STEP_INFO_DEFINED
+using NHRStepInfo = struct NHRStepInfoDef {
     u32 step = 0;
     u32 myRank = 0;
     u32 nSlices;
@@ -26,10 +28,11 @@ using NHRStepInfo = struct NHRStepInfo {
     std::vector<u32> txSliceIdxs;
     std::vector<u32> rxSliceIdxs;
 
-    NHRStepInfo() : nSlices(0)
+    NHRStepInfoDef() : nSlices(0)
     {
     }
 };
+#endif
 
 namespace ops_hccl {
 class CcuKernelArgReduceScatterNhrMutilJettyMem2Mem1D : public hcomm::CcuKernelArg {

@@ -20,7 +20,7 @@
 
 1. 提交 PR 时，请按照 PR 模板仔细填写本次 PR 的业务背景、目的、方案等信息；
 2. **所有PR都必须关联Issue**，请在PR描述中引用对应的Issue编号；
-3. 使用 Git 提交代码前，请参考 [pre-commit工具使用指导](./docs/dev_guide/pre-commit-guide.md)，以保持代码风格一致且符合合规规范。
+3. 使用 Git 提交代码前，请参考 [pre-commit工具使用指导](./docs/zh/build/pre-commit-guide.md)，以保持代码风格一致且符合合规规范。
 4. 若您的修改不是简单问题处理，而是涉及到新增功能、新增算子或算法、新增接口、新增配置参数或者修改代码流程等，请务必先通过 Issue 进行方案讨论，以避免您的代码被拒绝合入。若您不确定本次修改是否可被归为"简单问题处理"，亦可通过提交 Issue 进行方案讨论。
 
 ## 贡献流程
@@ -78,9 +78,7 @@ flowchart TD
 
    - 负责对应模块或组件的Committer检视代码并反馈检视意见，请根据意见修改；没有问题后，添加`/lgtm`和`/approve`标签并合入。
 
-
 ### 增加新功能或新特性
-
 
 1. 提交Requirement类型Issue
 
@@ -91,14 +89,13 @@ flowchart TD
 2. 系统方案设计
 
    - 需求被接纳后，设计详细的系统方案；
-   - 在 `docs/rfcs` 目录下创建markdown格式的RFC文件，并按[RFC模板](./docs/rfcs/0000-template.md)撰写系统方案；
+   - 在 `docs/rfcs` 目录下创建markdown格式的RFC文件，并按[RFC模板](./docs/zh/rfcs/0000-template.md)撰写系统方案；
    - 提交PR。
 
 3. 系统方案评审
 
    - 详细设计方案通过包含RFC的PR进行评审；
    - 过程中请针对评审意见进行方案修改；
-
 
 4. RFC合入
 
@@ -119,6 +116,5 @@ flowchart TD
 ## 争议处理
 
 存在争议的Issue、PR或RFC可以在[SIG工作会议](https://etherpad-cann.meeting.osinfra.cn/p/sig-hccl)上申报议题，由SIG组决策。
-
 
 *本文档由社区维护，如有变更建议，请在Issue中提出。*

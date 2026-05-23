@@ -51,7 +51,7 @@ HcclResult CcuTempAllGatherMesh1DMem2Mem::CalcRes(HcclComm comm, const OpParam& 
                          };
     std::vector<HcclChannelDesc> channelDescs;
     if(topoInfo->level0Topo != Level0Shape::MESH_1D_CLOS) {
-        CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
+        CHK_RET(CalcChannelRequestMesh1DFullMesh(comm, param, topoInfo, subCommRanks_, channelDescs));
     } else {
         CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks_, channelDescs, CommTopo::COMM_TOPO_1DMESH));
         for(auto channel : channelDescs){
@@ -86,10 +86,15 @@ HcclResult CcuTempAllGatherMesh1DMem2Mem::FastLaunch(const OpParam& param, const
     HCCL_DEBUG("[CcuTempAllGatherMesh1DMem2Mem::FastLaunch] start");
     const uint64_t *args = tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs;
     buffInfo_ = tempFastLaunchCtx.buffInfo;
+    uint64_t inputAddr          = PointerToAddr(buffInfo_.inputPtr) + args[0];
+    uint64_t outputAddr         = PointerToAddr(buffInfo_.outputPtr) + args[1];
+    uint64_t inputSliceStride   = args[3];
+    uint64_t outputSliceStride  = args[4];
+    uint64_t mySubCommRank      = args[11];
+    bool inputOutputEqual = (inputAddr + inputSliceStride * mySubCommRank == outputAddr + outputSliceStride * mySubCommRank);
+    uint64_t isInputOutputEqual = static_cast<uint64_t>(inputOutputEqual);
     CcuTaskArgAllGatherMesh1DMem2Mem taskArg(
-        PointerToAddr(buffInfo_.inputPtr) + args[0],
-        PointerToAddr(buffInfo_.outputPtr) + args[1],
-        args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10]);
+        inputAddr, outputAddr, args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], isInputOutputEqual);
 
     void* taskArgPtr = static_cast<void*>(&taskArg);
 
@@ -118,7 +123,8 @@ HcclResult CcuTempAllGatherMesh1DMem2Mem::KernelRun(const OpParam& param,
     uint64_t outputRepeatStride = templateDataParams.outputRepeatStride;
     uint64_t normalSliceSize    = templateDataParams.sliceSize;
     uint64_t lastSliceSize      = templateDataParams.tailSize;
-    uint64_t isInputOutputEqual = (inputAddr == outputAddr) ? 1 : 0;
+    bool inputOutputEqual = (inputAddr + inputSliceStride * mySubCommRank_ == outputAddr + outputSliceStride * mySubCommRank_);
+    uint64_t isInputOutputEqual = static_cast<uint64_t>(inputOutputEqual);
     if (templateDataParams.tailSize != 0 && mySubCommRank_ == templateRankSize_ - 1) {
         normalSliceSize = templateDataParams.tailSize;
     }
@@ -144,7 +150,7 @@ HcclResult CcuTempAllGatherMesh1DMem2Mem::KernelRun(const OpParam& param,
     submitInfo.kernelHandle = templateResource.ccuKernels[0];
     CHK_RET(FillCachedArgs(submitInfo, buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, token, inputSliceStride,
         outputSliceStride, repeatNum, inputRepeatStride, outputRepeatStride, normalSliceSize, lastSliceSize,
-        isInputOutputEqual));
+        isInputOutputEqual, mySubCommRank_));
     templateResource.submitInfos.push_back(submitInfo);
 
     HCCL_DEBUG("[CcuTempAllGatherMesh1DMem2Mem::KernelRun] end");

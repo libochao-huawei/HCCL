@@ -48,7 +48,7 @@ public:
     HcclResult FastLaunch(const OpParam &param, const CcuFastLaunchCtx *resCtx) override;
     HcclResult FastLaunchSaveCtx(const OpParam &param, const TemplateResource &templateAlgResIntra,
                                 const TemplateResource &templateAlgResInter, const TemplateResource &templateAlgResIntra1,
-                                const TemplateResource &templateAlgResInter1);
+                                const TemplateResource &templateAlgResInter1, u32 notifyNumOnMainThread);
  	#endif
 
 private:
@@ -159,6 +159,8 @@ private:
     std::map<u32, std::pair<u64, u64>> nhrPartDataMap_;
     std::map<u32, std::pair<u64, u64>> meshPartDataMap_;
     double multipleDimensionSplitRatio_{0.8};
+    std::vector<std::vector<u32>> temp0HierarchyInfo_;
+    std::vector<std::vector<u32>> temp1HierarchyInfo_;
 };
 
 } // namespace ops_hccl

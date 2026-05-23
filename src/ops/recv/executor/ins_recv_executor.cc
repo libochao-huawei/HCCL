@@ -175,7 +175,7 @@ namespace ops_hccl {
             u64 transferCount = dataCountToRecv > maxLoopTransCount_ ? maxLoopTransCount_ : dataCountToRecv;
             u64 transferSize = transferCount * dataTypeSize_;
             // 因ccl buffer大小限制，每次往ccl buffer写一片数据，所以offset固定为0
-            DataSlice remoteCclSlice{channel.remoteCclMem.addr, currentOffset, transferSize, transferCount};
+            DataSlice remoteCclSlice{channel.remoteCclMem.addr, 0, transferSize, transferCount};
             DataSlice outputSlice{param.outputPtr, currentOffset, transferSize, transferCount};
             if (isDmaRead_) {
                 // Read模式下，等待对端通知后，从对端cclBuffer中读取数据

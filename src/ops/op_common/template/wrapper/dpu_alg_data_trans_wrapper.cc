@@ -40,7 +40,7 @@ HcclResult SendRecvWrite(const SendRecvInfo &sendRecvInfo)
     // 写完之后做后同步告诉对面写完了
     CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(0, sendChannel.handle, NOTIFY_IDX_FIN_ACK)));
     CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(0, recvChannel.handle, NOTIFY_IDX_FIN_ACK, DPU_TIMEOUT)));
-    CHK_RET(static_cast<HcclResult>(HcommChannelFenceOnThread(0, recvChannel.handle)));
+    CHK_RET(static_cast<HcclResult>(HcommChannelFenceOnThread(0, sendChannel.handle)));
     CHK_RET(static_cast<HcclResult>(HcommFenceOnThread(0)));
 #endif
     return HCCL_SUCCESS;

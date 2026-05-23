@@ -57,9 +57,9 @@ HcclResult InsV2AllGatherSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
     InsAlgTemplate1 interTempAlg(param, myRank_, algHierarchyInfo.infos[1]);
 
     AlgResourceRequest resReqIntra;
-    intraTempAlg.CalcRes(comm, param, topoInfo, resReqIntra);
+    CHK_RET(intraTempAlg.CalcRes(comm, param, topoInfo, resReqIntra));
     AlgResourceRequest resReqInter;
-    interTempAlg.CalcRes(comm, param, topoInfo, resReqInter);
+    CHK_RET(interTempAlg.CalcRes(comm, param, topoInfo, resReqInter));
 
     // 分级算法，slaveThread和对应notify可以复用
     resourceRequest.slaveThreadNum = std::max(resReqIntra.slaveThreadNum, resReqInter.slaveThreadNum);

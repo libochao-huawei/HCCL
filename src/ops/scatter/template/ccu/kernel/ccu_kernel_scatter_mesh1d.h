@@ -118,6 +118,7 @@ private:
     void PostSync();
     void DoRepeatScatter();
     void DoScatter();
+	void DoScatterLocalCopy();
 
     uint64_t rankSize_{0};
     uint32_t rankId_{0};
@@ -136,6 +137,7 @@ private:
     hcomm::CcuRep::Variable outputRepeatStride_;
     hcomm::CcuRep::Variable normalSliceSize_;
     hcomm::CcuRep::Variable lastSliceSize_;
+    GroupOpSize localGoSize_;
     uint16_t selfBit_{0};
     uint16_t allBit_{0};
     hcomm::CcuRep::LocalAddr myInput_;

@@ -46,6 +46,17 @@ SelectorStatus AutoSelectorBase::Select(OpParam &opParam, TopoInfoWithNetLayerDe
         return ret;
     }
     if (IsStarsState(opParam.opExecuteConfig)) {
+        // level0是PCIE混合的场景，且CLOS规模大于8，alltoall算子选择AIV_ONLY算法
+        if (topoInfo->level0PcieMix && topoInfo->level0BigClosRange &&
+            (opParam.opType == HcclCMDType::HCCL_CMD_ALLTOALL ||
+             opParam.opType == HcclCMDType::HCCL_CMD_ALLTOALLV ||
+             opParam.opType == HcclCMDType::HCCL_CMD_ALLTOALLVC)) {
+            opParam.opExecuteConfig = OpExecuteConfig::AIV_ONLY;
+            (void)ProcessAivConfig(opParam, topoInfo, configAlgMap, selectAlgName, ret);
+            HCCL_INFO("[Algo][AutoSelectorBase] The selected algo is %s, OpExecuteConfig is %d.",
+                selectAlgName.c_str(), opParam.opExecuteConfig);
+            return ret;
+        }
         ret = SelectAicpuAlgo(topoInfo, opParam, configAlgMap, selectAlgName);
         if (ret == SelectorStatus::MATCH) {
             opParam.opExecuteConfig = OpExecuteConfig::AICPU_TS;
@@ -201,6 +212,36 @@ HcclResult AutoSelectorBase::CheckClosNumMultipleOfMeshNum(const TopoInfoWithNet
     // 检查CLOS数量是否大于1DMESH数量且是1DMESH数量的倍数
     isMultiple = (meshRankNums > 1) && (closRankNums > meshRankNums) && (closRankNums % meshRankNums == 0);
     return HCCL_SUCCESS;
+}
+
+bool AutoSelectorBase::IsTwoLevelNetLayer(const TopoInfoWithNetLayerDetails *topoInfo) const
+{
+    CHK_PRT_RET(topoInfo == nullptr,
+        HCCL_WARNING("[AutoSelectorBase][IsTwoLevelNetLayer] topoInfo is nullptr."), false);
+    if (topoInfo->netLayerDetails.netLayerNum <= 1) {
+        HCCL_INFO("[AutoSelectorBase][IsTwoLevelNetLayer] netLayerNum[%u] <= 1, not two level net layer.",
+            topoInfo->netLayerDetails.netLayerNum);
+        return false;
+    }
+    u32 level1Idx = topoInfo->netLayerDetails.netLayers[1];
+    bool hasLevel1Clos = topoInfo->topoInstDetailsOfLayer.size() > level1Idx &&
+        topoInfo->topoInstDetailsOfLayer[level1Idx].rankNumForTopoType.find(COMM_TOPO_CLOS) !=
+            topoInfo->topoInstDetailsOfLayer[level1Idx].rankNumForTopoType.end();
+    if (!hasLevel1Clos) {
+        HCCL_INFO("[AutoSelectorBase][IsTwoLevelNetLayer] level1[%u] has no CLOS topo, not two level net layer.", level1Idx);
+        return false;
+    }
+    if (topoInfo->netLayerDetails.localNetInsSizeOfLayer.size() < 1 ||
+        topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] <= 1) {
+        HCCL_INFO("[AutoSelectorBase][IsTwoLevelNetLayer] level0 localNetInsSizeOfLayer[%zu] <= 1, not two level net layer.",
+            topoInfo->netLayerDetails.localNetInsSizeOfLayer.size());
+        return false;
+    }
+    HCCL_INFO("[AutoSelectorBase][IsTwoLevelNetLayer] topoLevelNums[%u], netLayerNum[%u], level0Topo[MESH_1D], "
+        "level1Idx[%u] has CLOS, level0LocalNetInsSize[%u], is two level net layer.",
+        topoInfo->topoLevelNums, topoInfo->netLayerDetails.netLayerNum,
+        level1Idx, topoInfo->netLayerDetails.localNetInsSizeOfLayer[0]);
+    return true;
 }
 
 bool AutoSelectorBase::IsInputOutputOverlap(const OpParam &opParam) const

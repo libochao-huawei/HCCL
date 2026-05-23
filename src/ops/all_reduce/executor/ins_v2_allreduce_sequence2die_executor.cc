@@ -11,10 +11,12 @@
 #include "ins_v2_allreduce_sequence2die_executor.h"
 #include "alg_data_trans_wrapper.h"
 #ifndef AICPU_COMPILE
+#if !defined(HCCL_CANN_COMPAT_850)
 #include "ccu_temp_all_gather_2dies_mesh_1d_mem2mem.h"
 #include "ccu_temp_reduce_scatter_mesh_1D_2die_mem2mem.h"
 #include "ccu_temp_all_gather_2dies_mesh_1D.h"
 #include "ccu_temp_reduce_scatter_mesh2die.h"
+#endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 
 namespace ops_hccl {
@@ -52,8 +54,8 @@ HcclResult InsV2AllReduceSequence2DieExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
     
     AlgResourceRequest resReqStepReduce;
     AlgResourceRequest resReqStepGather;
-    reduceTempAlg->CalcRes(comm, param, topoInfo, resReqStepReduce);
-    gatherTempAlg->CalcRes(comm, param, topoInfo, resReqStepGather);
+    CHK_RET(reduceTempAlg->CalcRes(comm, param, topoInfo, resReqStepReduce));
+    CHK_RET(gatherTempAlg->CalcRes(comm, param, topoInfo, resReqStepGather));
  
     // step1在完成后，完成后同步后展开step2，因此slaveThread和对应notify可以复用
     resourceRequest.slaveThreadNum = std::max(resReqStepReduce.slaveThreadNum, resReqStepGather.slaveThreadNum);
@@ -265,9 +267,13 @@ HcclResult InsV2AllReduceSequence2DieExecutor<AlgTopoMatch, InsAlgTemplate0, Ins
 }
 #ifndef AICPU_COMPILE
 
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllreduceMesh2DieBigMs,
     InsV2AllReduceSequence2DieExecutor, TopoMatch1D, CcuTempReduceScatterMesh2Die, CcuTempAllGather2DiesMesh1D);
+#endif /* !HCCL_CANN_COMPAT_850 */
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllreduceMesh2DieBigSche,
     InsV2AllReduceSequence2DieExecutor, TopoMatch1D, CcuTempReduceScatterMeshMem2Mem1D2Die, CcuTempAllGather2DiesMeshMem2Mem1D);
+#endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 }

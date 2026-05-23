@@ -27,7 +27,7 @@ u64 AivTempAllReduceMesh1DTwoShot::CalcScratchMultiple(BufferType inBuffType, Bu
 {
     (void) inBuffType;
     (void) outBuffType;
-    u32 multiplier = 2;
+    u32 multiplier = 4;
     return multiplier;
 }
 

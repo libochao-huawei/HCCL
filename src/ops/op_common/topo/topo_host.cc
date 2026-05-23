@@ -9,6 +9,7 @@
  */
 
 #include <numeric>
+#include <vector>
 #include "topo_host.h"
 #include "hccl_rank_graph.h"
 #include "hcomm_primitives.h"
@@ -20,6 +21,8 @@
 #include "config_log.h"
 #include "topo.h"
 #include "dtype_common.h"
+#include "dlsym_common.h"
+#include "hccl_rank_graph_dl.h"
 
 constexpr u32 FACTOR_NUM_TWO = 2;
 constexpr s32 DEVICE_PER_MODULE = 8;
@@ -310,11 +313,9 @@ HcclResult GetPairLinkCounter(HcclComm comm, TopoInfo* topoInfo, std::unordered_
                 // 双向兼容处理：先处理版本号1的字段
                 if (currentLink.header.version >= 1) {
                     // --- 在这里处理 currentLink ---
-                    HCCL_DEBUG("  Link[%u] found between srcRank[%u] and dstRank[%u]:", i, srcRank, dstRank);
-                    HCCL_DEBUG("    LinkType: %u", currentLink.linkAttr.linkProtocol); // 假设有 linkType 成员
-                    HCCL_DEBUG("    srcEndpointDesc: %u", currentLink.srcEndpointDesc); // 假设有此成员
-                    HCCL_DEBUG("    dstEndpointDesc: %u", currentLink.dstEndpointDesc); // 假设有此成员
-
+                    HCCL_DEBUG("Link[%u] found between srcRank[%u] and dstRank[%u]:"
+                               "LinkType: %u, srcEndpointDesc: %u, dstEndpointDesc: %u",
+                    i, srcRank, dstRank, currentLink.linkAttr.linkProtocol, currentLink.srcEndpointDesc, currentLink.dstEndpointDesc);
                     // 可以将链路类型统计起来
                     // 原始代码中的 pairLinkCounter 应该在这里使用
                     pairLinkCounter[static_cast<u32>(currentLink.linkAttr.linkProtocol)]++;
@@ -581,6 +582,9 @@ HcclResult CalcLevel0TopoShape(const HcclComm comm, TopoInfoWithNetLayerDetails*
         return HCCL_SUCCESS;
     } else if (topoInstNum == TOPO_INST_NUM_MESH_1D_CLOS && rankNumForTopoType[CommTopo::COMM_TOPO_CLOS].size() == 1 &&
                rankNumForTopoType[CommTopo::COMM_TOPO_1DMESH].size() == 1) {
+        if (rankNumForTopoType[CommTopo::COMM_TOPO_CLOS].at(0) > BIG_CLOS_RANGE) {
+            topoInfo->level0BigClosRange = true;
+        }
         // MESH_1D_CLOS 拓扑校验
         CHK_PRT_RET(rankNumForTopoType[CommTopo::COMM_TOPO_CLOS][0] != level0LocalRankSize,
             HCCL_ERROR("[BaseSelector][CalcLevel0TopoShape] CLOS rankSize[%u] is not equal to level0LocalRankSize[%u]",
@@ -590,8 +594,9 @@ HcclResult CalcLevel0TopoShape(const HcclComm comm, TopoInfoWithNetLayerDetails*
         topoInfo->level0Topo = Level0Shape::MESH_1D_CLOS;
         return HCCL_SUCCESS;
     }
-    HCCL_ERROR("Unkown topo for level 0, topoInstNum[%u]", topoInstNum);
-    return HCCL_E_INTERNAL;
+    topoInfo->level0Topo = Level0Shape::CLOS;   // A2场景不匹配默认为Clos
+    HCCL_WARNING("Unknown topo for level 0, topoInstNum[%u], default topo:%d", topoInstNum, topoInfo->level0Topo);
+    return HCCL_SUCCESS;
 }
 
 // 计算 Level1 NHR 标记：当 Level0 GCD 为 1 时，Mesh 无意义，需要退化为单级 NHR
@@ -938,7 +943,7 @@ HcclResult IsLevel0PcieMix(HcclComm comm, TopoInfoWithNetLayerDetails* topoInfo)
         CHK_PRT_RET(linkNum == 0,
             HCCL_INFO("[Topo][IsLevel0PcieMix] Can not find path from Local[%u] to Rmt[%u], in netLayer %u. "
                       "Topo is not mesh", myRank, ranks[rankIdx], netLayer), HCCL_E_INTERNAL);
-        
+
         for (u32 i = 0 ; i < linkNum; i++) {
             CommProtocol srcProtocol = links[i].srcEndpointDesc.protocol;
             HCCL_INFO("[IsLevel0PcieMix]link[%u] protocol[%u]", i, srcProtocol);

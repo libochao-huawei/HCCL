@@ -9,6 +9,7 @@
  */
 
 #include "alg_template_base.h"
+#include "exec_timeout_manager.h"
 
 namespace ops_hccl {
 AlgTemplateBase::AlgTemplateBase()
@@ -84,10 +85,12 @@ HcclResult AlgTemplateBase::RunAsync(const u32 rank, const u32 rankSize, std::ve
 
 HcclResult AlgTemplateBase::ExecuteBarrier(ChannelInfo &channel, ThreadHandle thread) const
 {
+    // 获取执行超时时间
+    u32 execTimeout = ExecTimeoutManager::Instance().GetExecTimeout();
     CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, channel.handle, NOTIFY_IDX_ACK)));
-    CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(thread, channel.handle, NOTIFY_IDX_ACK, CUSTOM_TIMEOUT)));
+    CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(thread, channel.handle, NOTIFY_IDX_ACK, execTimeout)));
     CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, channel.handle, NOTIFY_IDX_DATA_SIGNAL)));
-    CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(thread, channel.handle, NOTIFY_IDX_DATA_SIGNAL, CUSTOM_TIMEOUT)));
+    CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(thread, channel.handle, NOTIFY_IDX_DATA_SIGNAL, execTimeout)));
 
     return HCCL_SUCCESS;
 }
@@ -99,13 +102,15 @@ HcclResult AlgTemplateBase::ExecuteBarrier(ChannelInfo &preChannel, ChannelInfo 
 
 HcclResult AlgTemplateBase::ExecuteBarrier(ChannelInfo &preChannel, ChannelInfo &aftChannel, ThreadHandle thread) const
 {
+    // 获取执行超时时间
+    u32 execTimeout = ExecTimeoutManager::Instance().GetExecTimeout();
     // 同步与preChannel保证数据收发已结束
     CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, preChannel.handle, NOTIFY_IDX_ACK)));
-    CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(thread, aftChannel.handle, NOTIFY_IDX_ACK, CUSTOM_TIMEOUT)));
+    CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(thread, aftChannel.handle, NOTIFY_IDX_ACK, execTimeout)));
 
     // 同步与aftChannel保证数据收发已结束
     CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, aftChannel.handle, NOTIFY_IDX_DATA_SIGNAL)));
-    CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(thread, preChannel.handle, NOTIFY_IDX_DATA_SIGNAL, CUSTOM_TIMEOUT)));
+    CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(thread, preChannel.handle, NOTIFY_IDX_DATA_SIGNAL, execTimeout)));
 
     return HCCL_SUCCESS;
 }
@@ -117,8 +122,10 @@ HcclResult AlgTemplateBase::ExecuteBarrier(ChannelInfo &preChannel, ChannelInfo 
 
 HcclResult AlgTemplateBase::ExecuteBarrier(ChannelInfo &preChannel, ChannelInfo &aftChannel, u32 notifyIdx, ThreadHandle thread) const
 {
+    // 获取执行超时时间
+    u32 execTimeout = ExecTimeoutManager::Instance().GetExecTimeout();
     CHK_RET(static_cast<HcclResult>(HcommChannelNotifyRecordOnThread(thread, aftChannel.handle, notifyIdx)));
-    CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(thread, preChannel.handle, notifyIdx, CUSTOM_TIMEOUT)));
+    CHK_RET(static_cast<HcclResult>(HcommChannelNotifyWaitOnThread(thread, preChannel.handle, notifyIdx, execTimeout)));
 
     return HCCL_SUCCESS;
 }

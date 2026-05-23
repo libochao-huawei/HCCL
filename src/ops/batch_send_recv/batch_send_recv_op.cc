@@ -134,7 +134,7 @@ HcclResult BatchSendRecvOutPlace(HcclSendRecvItem *sendRecvInfo, uint32_t itemNu
     
     CHK_RET(HcclGetOpExpansionMode(comm, param));
     CHK_RET(Selector(comm, param, topoInfo, algName));
-    if (ShouldUseInnerOp(param.opExecuteConfig)) {
+    if (ShouldUseInnerOp(param.opExecuteConfig) && param.opMode == OpMode::OPBASE) {
         return HcclBatchSendRecvInner(sendRecvInfo, itemNum, comm, stream);
     }
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName));

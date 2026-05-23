@@ -9,13 +9,17 @@
 # -----------------------------------------------------------------------------------------------------------
 
 set(src_list
-    ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_scatter_nhr_dpu_inter.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_allgather_nhr_dpu_inter.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_allgather_mesh_1D_intra.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_scatter_mesh_1D_intra.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_broadcast_mesh_1D_two_shot.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_broadcast_nhr.cc
 )
+if(NOT HCCL_CANN_COMPAT_850)
+    list(APPEND src_list
+        ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_scatter_nhr_dpu_inter.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ins_temp_allgather_nhr_dpu_inter.cc
+    )
+endif()
 
 target_sources(hccl PRIVATE
     ${src_list}

@@ -14,9 +14,12 @@
 #ifndef AICPU_COMPILE
 #include "aiv_temp_all_to_all_mesh_1D.h"
 #include "aiv_temp_all_to_all_v_mesh_1D.h"
+#if !defined(HCCL_CANN_COMPAT_850)
 #include "ccu_temp_all_to_all_mesh_1D.h"
 #include "ccu_temp_all_to_all_mesh2die.h"
 #include "ccu_temp_all_to_all_mesh1d_multi_jetty.h"
+#include "ccu_temp_all_to_all_mesh1d_2Die.h"
+#endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 
 #define CONST_ZERO 0
@@ -63,7 +66,7 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::CalcRes(
                     HCCL_E_PARA);
         if (topoInfo->topoLevelNums == 1 || param.engine == CommEngine::COMM_ENGINE_AIV ||
             param.engine == CommEngine::COMM_ENGINE_CCU) {
-            tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[1][0]);
+            tempAlgHierachyInfo.push_back(algHierarchyInfo.infos[0][1]);
         } else {
             CHK_PRT_RET(algHierarchyInfo.infos[0][1].size() >= algHierarchyInfo.infos[1][0].size(),
                         HCCL_ERROR("[InsV2AlltoAllVSoleExecutor][CalcRes] ranknum [%zu] in Layer0 with Level0Topo[%u] "
@@ -248,7 +251,11 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
 
     std::vector<std::vector<u32>> tempAlgHierachyInfo;
     if (resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS && !resCtx.topoInfo.level0PcieMix) {
-        tempAlgHierachyInfo = resCtx.algHierarchyInfo.infos[1];
+        if (resCtx.topoInfo.topoLevelNums == 1 ) {
+            tempAlgHierachyInfo = {resCtx.algHierarchyInfo.infos[0][1]};
+        } else {
+            tempAlgHierachyInfo = resCtx.algHierarchyInfo.infos[1];
+        }
     } else {
         tempAlgHierachyInfo = resCtx.algHierarchyInfo.infos[0];
     }
@@ -265,7 +272,7 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     u64 transportBoundDataSize = UB_MAX_DATA_SIZE;
     HCCL_INFO("[InsV2AlltoAllVSoleExecutor]maxTmpMemSize_ [%u]", maxTmpMemSize_);
     if (templateScratchMultiplier != 0) {
-        u64 scratchBoundDataSize = maxTmpMemSize_ / templateScratchMultiplier / rankSize_ / HCCL_MIN_SLICE_ALIGN
+        u64 scratchBoundDataSize = maxTmpMemSize_ / templateScratchMultiplier / HCCL_MIN_SLICE_ALIGN
         * HCCL_MIN_SLICE_ALIGN;
         maxDataSizePerLoop = std::min(transportBoundDataSize, scratchBoundDataSize);
     } else {
@@ -273,6 +280,9 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     }
     // 单次循环处理的数据count
     u64 maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize_; // 发往单卡的数据count
+    if (param.engine == CommEngine::COMM_ENGINE_AIV) {
+        maxDataCountPerLoop = maxDataCountPerLoop / rankSize_;
+    }
     HCCL_INFO(
         "[InsV2AlltoAllVSoleExecutor][OrchestrateOpbase] maxDataCountPerLoop[%llu], maxDataSizePerLoop[%llu], "
         "transportBoundDataSize[%llu], templateScratchMultiplier[%llu]",
@@ -348,8 +358,8 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
     }
 
 #ifndef AICPU_COMPILE
-    if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU) {
-        CHK_RET(FastLaunchSaveCtx(param, templateAlgRes));
+    if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU && param.opMode != OpMode::OFFLOAD) {
+        CHK_RET(FastLaunchSaveCtx(param, templateAlgRes, resCtx.notifyNumOnMainThread));
     }
 #endif
 
@@ -360,7 +370,7 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
 #ifndef AICPU_COMPILE
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunchSaveCtx(
-    const OpParam &param, const TemplateResource &templateAlgRes)
+    const OpParam &param, const TemplateResource &templateAlgRes, u32 notifyNumOnMainThread)
 {
     HCCL_INFO("[InsV2AlltoAllVSoleExecutor] loopTimes==1, save fast launch ctx.");
     u32 threadNum = 1;
@@ -385,6 +395,7 @@ HcclResult InsV2AlltoAllVSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunchS
 
     // 2 thread
     ccuFastLaunchCtx->threadNum = threadNum;
+    ccuFastLaunchCtx->notifyNumOnMainThread = notifyNumOnMainThread;
     ThreadHandle *threads = ccuFastLaunchCtx->GetThreadHandlePtr();
     threads[0] = templateAlgRes.threads[0];
 
@@ -425,8 +436,13 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, InsAlltoAllMesh1D, InsV2AlltoAl
     InsTempAlltoAllVMesh1D);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, InsAlltoAllVMesh1D, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
     InsTempAlltoAllVMesh1D);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, InsAlltoAllMesh1DUBX, InsV2AlltoAllVSoleExecutor, TopoMatchUBX1d,
+    InsTempAlltoAllVMesh1D);
+REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, InsAlltoAllVMesh1DUBX, InsV2AlltoAllVSoleExecutor, TopoMatchUBX1d,
+    InsTempAlltoAllVMesh1D);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLVC, InsAlltoAllVCMesh1D, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
     InsTempAlltoAllVMesh1D);
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, InsAlltoAllMesh1DDPU, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
     InsTempDpuAlltoAllMesh);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, InsAlltoAllVMesh1DDPU, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
@@ -439,16 +455,24 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, InsAlltoAllVClosMesh1DDPU, Ins
     InsTempDpuAlltoAllMesh);
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLVC, InsAlltoAllVCClosMesh1DDPU, InsV2AlltoAllVSoleExecutor,
     TopoMatchUBX1d, InsTempDpuAlltoAllMesh);
+#endif /* !HCCL_CANN_COMPAT_850 */
+
 #ifndef AICPU_COMPILE
+#if !defined(HCCL_CANN_COMPAT_850)
     REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, CcuAlltoAllMesh1D, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
         CcuTempAlltoAllMesh1D);
+    REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, CcuAllToAllMesh1D2Die, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
+        CcuTempAllToAllMesh1D2Die);
+#endif /* !HCCL_CANN_COMPAT_850 */
     REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, AivAlltoAllMesh1D, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
                      AivTempAlltoAllMesh1D);
-    REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, AivAlltoAllVMesh1D, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
-                     AivTempAlltoAllVMesh1D);
+#if !defined(HCCL_CANN_COMPAT_850)
     REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, CcuAllToAllMesh2Die, InsV2AlltoAllVSoleExecutor, TopoMatch1D,
     CcuTempAllToAllMesh2Die);
+#endif /* !HCCL_CANN_COMPAT_850 */
+#if !defined(HCCL_CANN_COMPAT_850)
     REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALL, CcuAlltoAllMesh1DMultiJetty, InsV2AlltoAllVSoleExecutor,
                     TopoMatchUBX1d, CcuTempAllToAllMesh1dMultiJetty);
+#endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 }  // namespace Hccl

@@ -12,7 +12,6 @@
 #include "aiv/aiv_temp_all_to_all_v_mesh_1D.h"
 
 namespace ops_hccl {
-constexpr u32 MAX_NUM_BLOCKS_ALL_TO_ALL_V = 48; // 算法不交付控核
 
 AivTempAlltoAllVMesh1D::AivTempAlltoAllVMesh1D(const OpParam& param, const u32 rankId, // 传通信域的rankId，userRank
                                                        const std::vector<std::vector<u32>> &subCommRanks)
@@ -45,14 +44,18 @@ HcclResult AivTempAlltoAllVMesh1D::CalcRes(HcclComm comm, const OpParam& param, 
 HcclResult AivTempAlltoAllVMesh1D::CalNumBlocks(u32& numBlocks, u64 dataSize, u32 numBlocksLimit)
 {
     (void) dataSize;
-    numBlocks = numBlocksLimit;
+    HCCL_INFO("[AivTempAlltoAllVMesh1D] Limit core num[%u]", numBlocksLimit);
+    numBlocks = numBlocksLimit / tempRankSize_ * tempRankSize_;
+    if (numBlocks == 0) {
+        HCCL_ERROR("[AivTempAlltoAllVMesh1D] core num[%u] is less than rankSize[%u]", numBlocksLimit, tempRankSize_);
+        return HcclResult::HCCL_E_NOT_SUPPORT;
+    }
     HCCL_INFO("[AivTempAlltoAllVMesh1D] Actually use core num[%u]", numBlocks);
     return HcclResult::HCCL_SUCCESS;
 }
 
 HcclResult AivTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
-                                                 const TemplateDataParams& tempAlgParams,
-                                                 const TemplateResource& templateResource)
+    const TemplateDataParams& tempAlgParams, const TemplateResource& templateResource)
 {
     HCCL_INFO("[AivTempAlltoAllVMesh1D] KernelRun start");
 
@@ -106,8 +109,8 @@ HcclResult AivTempAlltoAllVMesh1D::KernelRun(const OpParam& param,
         }
     }
 
-    u64 dataSize = tempAlgParams.inputSliceStride;
-    CHK_RET(CalNumBlocks(aivAlltoAllVArgs.numBlocks, dataSize, MAX_NUM_BLOCKS_ALL_TO_ALL_V));
+    u64 dataSize = tempAlgParams.sliceSize;
+    CHK_RET(CalNumBlocks(aivAlltoAllVArgs.numBlocks, dataSize, param.numBlocksLimit));
 
     aivAlltoAllVArgs.inputSliceStride = tempAlgParams.inputSliceStride;
     aivAlltoAllVArgs.outputSliceStride = tempAlgParams.outputSliceStride;

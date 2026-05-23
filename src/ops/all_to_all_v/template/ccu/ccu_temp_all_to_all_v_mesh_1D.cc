@@ -23,6 +23,11 @@
 
 namespace ops_hccl {
 
+constexpr u32 DIE_0 = 0;
+constexpr u32 DIE_1 = 1;
+constexpr u32 DIE_NUM_1 = 1;
+constexpr u32 DIE_NUM_2 = 2;
+
 CcuTempAlltoAllVMesh1D::CcuTempAlltoAllVMesh1D(const OpParam& param, const u32 rankId,
                                        const std::vector<std::vector<u32>> &subCommRanks)
 : CcuAlgTemplateBase(param, rankId, subCommRanks)
@@ -36,6 +41,18 @@ CcuTempAlltoAllVMesh1D::CcuTempAlltoAllVMesh1D(const OpParam& param, const u32 r
 
 CcuTempAlltoAllVMesh1D::~CcuTempAlltoAllVMesh1D()
 {
+}
+
+HcclResult CcuTempAlltoAllVMesh1D::CalcChannelRes(HcclComm comm, const OpParam& param,
+    const TopoInfoWithNetLayerDetails* topoInfo, std::vector<HcclChannelDesc>& channelDescs)
+{
+    if (topoInfo->topoLevelNums > 1) {
+        // 跨框场景全连接建链
+        CHK_RET(CalcChannelRequestMesh1DFullMesh(comm, param, topoInfo, subCommRanks_, channelDescs));
+    } else {
+        CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
+    }
+    return HCCL_SUCCESS;
 }
 
 HcclResult CcuTempAlltoAllVMesh1D::CalcRes(HcclComm comm, const OpParam& param, const TopoInfoWithNetLayerDetails* topoInfo,
@@ -56,7 +73,7 @@ HcclResult CcuTempAlltoAllVMesh1D::CalcRes(HcclComm comm, const OpParam& param, 
                              return std::make_unique<CcuKernelAlltoAllVMesh1D>(arg);
                          };
     std::vector<HcclChannelDesc> channelDescs;
-    CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
+    CHK_RET(CalcChannelRes(comm, param, topoInfo, channelDescs));
     kernelInfo.kernelArg = std::make_shared<CcuKernelArgAlltoAllVMesh1D>(subCommRanks_[0].size(),
                                                                         mySubCommRank_,
                                                                         param.isMc2, // loadFromMem_

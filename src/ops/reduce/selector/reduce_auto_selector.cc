@@ -9,6 +9,7 @@
  */
 #include "reduce_auto_selector.h"
 #include "selector_registry.h"
+#include "hccl_aiv_utils.h"
 
 namespace ops_hccl {
 constexpr u64 REDUCE_AICPU_1D_MAX_DATA_SIZE = 8 * 1024 * 1024;
@@ -122,6 +123,9 @@ SelectorStatus ReduceAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNetLa
                 HCCL_WARNING("[ReduceAutoSelector] 2DieFullMesh is not supported yet for schedule mode.");
                 return SelectorStatus::NOT_MATCH;
             } else {
+                CHK_PRT_RET(opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_INT8,
+                HCCL_DEBUG("[AllReduceAutoSelector] dataType[%d] is not supported yet"
+                " for ccu schedule mode with ms reduce. levelNum[%u]", opParam.DataDes.dataType, topoInfo->topoLevelNums), SelectorStatus::NOT_MATCH);
                 selectAlgName = "CcuReduceParallelMesh1DNHR";
             }
         } else {
@@ -220,20 +224,28 @@ SelectorStatus ReduceAutoSelector::SelectMeshAlgoAicpu(const TopoInfoWithNetLaye
             selectAlgName = "ReduceMesh1D";
         }
     } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-        if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
+        if (topoInfo->level0PcieMix) {
+            if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
+                selectAlgName = "ReduceMesh1D";
+            } else if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
+                selectAlgName = "ReduceAicpuReduceNHR";
+            } else {
+                selectAlgName = "ReduceParallelMesh1DNHRPcie";
+            }
+        } else if (IsLayerAllConnetedWithTopo(topoInfo, 0, CommTopo::COMM_TOPO_1DMESH)) {
             // MESH_1D 即可链接所有卡， 使用 MESH_1D 算法
             if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
                 selectAlgName = "ReduceMesh1D";
-            } else if (topoInfo->level0PcieMix) { 
-                selectAlgName = "ReduceParallelMesh1DNHR";
+            } else if (dataSize >= REDUCE_AICPU_1D_MAX_DATA_SIZE) {
+                selectAlgName = "ReduceMesh1DTwoShot";
             } else {
-                selectAlgName = "ReduceParallelMesh1DNHRUBX";
+                selectAlgName = "ReduceMesh1D";
             }
         } else {
             if (Is64BitDataType(opParam.DataDes.dataType) || opParam.reduceType == HcclReduceOp::HCCL_REDUCE_PROD) {
                 selectAlgName = "ReduceAicpuReduceNHR";
             } else {
-                selectAlgName = "ReduceNHR";
+                selectAlgName = "ReduceParallelMesh1DNHRUBX";
             }
         }
     } else if (topoInfo->level0Topo == Level0Shape::CLOS) {
@@ -265,6 +277,11 @@ SelectorStatus ReduceAutoSelector::SelectAivAlgo(const TopoInfoWithNetLayerDetai
     if (opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_UINT64 ||
         opParam.DataDes.dataType == HcclDataType::HCCL_DATA_TYPE_FP64) {
         HCCL_WARNING("[ReduceAutoSelector] aiv mode not support UINT64, FP64.");
+        return SelectorStatus::NOT_MATCH;
+    }
+
+    if (topoInfo->userRankSize > MAX_RANK_SIZE) {
+        HCCL_DEBUG("[ReduceAutoSelector][%s] rankSize[%u] larger than [%u]", __func__, topoInfo->userRankSize, MAX_RANK_SIZE);
         return SelectorStatus::NOT_MATCH;
     }
 

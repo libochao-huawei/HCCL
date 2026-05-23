@@ -13,9 +13,11 @@
 #include "ins_temp_broadcast_nhr.h"
 #ifndef AICPU_COMPILE
 #include "aiv_temp_broadcast_mesh_1D.h"
+#if !defined(HCCL_CANN_COMPAT_850)
 #include "ccu_temp_broadcast_mesh_1D_mem2mem.h"
 #include "ccu_temp_broadcast_mesh_1D.h"
 #include "ccu_temp_broadcast_nhr_1D_mem2mem.h"
+#endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 
 namespace ops_hccl {
@@ -154,8 +156,8 @@ HcclResult InsV2BroadcastSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
                    myRank_, currSize, currloopOffset);
     }
 #ifndef AICPU_COMPILE
-    if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU) {
-        CHK_RET(FastLaunchSaveCtx(param, templateAlgRes));
+    if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU && param.opMode != OpMode::OFFLOAD) {
+        CHK_RET(FastLaunchSaveCtx(param, templateAlgRes, resCtx.notifyNumOnMainThread));
     }
 #endif
     HCCL_INFO("[InsV2BroadcastSoleExecutor][OrchestrateLoop] End.");
@@ -166,7 +168,7 @@ HcclResult InsV2BroadcastSoleExecutor<AlgTopoMatch, InsAlgTemplate>::Orchestrate
 #ifndef AICPU_COMPILE
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult InsV2BroadcastSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunchSaveCtx(
-    const OpParam &param, const TemplateResource &templateAlgRes)
+    const OpParam &param, const TemplateResource &templateAlgRes, u32 notifyNumOnMainThread)
 {
     HCCL_INFO("[InsV2BroadcastSoleExecutor][FastLaunchSaveCtx] loopTimes==1, save fast launch ctx.");
     u32 threadNum = templateAlgRes.submitInfos.size();
@@ -190,6 +192,7 @@ HcclResult InsV2BroadcastSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunchS
 
     // 2 thread
     ccuFastLaunchCtx->threadNum = threadNum;
+    ccuFastLaunchCtx->notifyNumOnMainThread = notifyNumOnMainThread;
     ThreadHandle *threads = ccuFastLaunchCtx->GetThreadHandlePtr();
     for (u32 i = 0; i < threadNum; i++) {
         threads[i] = templateAlgRes.threads[i];
@@ -237,11 +240,17 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_BROADCAST, InsBroadcastNHR, InsV2Broadcas
 #ifndef AICPU_COMPILE
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_BROADCAST, AivBroadcastMesh1D, InsV2BroadcastSoleExecutor, TopoMatch1D,
                 AivTempBroadcastMesh1D);
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_BROADCAST, CcuBroadcastMesh1DMem2Mem, InsV2BroadcastSoleExecutor, TopoMatch1D,
                 CcuTempBroadcastMesh1DMem2Mem);
+#endif /* !HCCL_CANN_COMPAT_850 */
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_BROADCAST, CcuBroadcastMesh1D, InsV2BroadcastSoleExecutor, TopoMatch1D,
                 CcuTempBroadcastMesh1D);
+#endif /* !HCCL_CANN_COMPAT_850 */
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_BROADCAST, CcuBroadcastNHR1DMem2Mem, InsV2BroadcastSoleExecutor, TopoMatch1D,
                 CcuTempBroadcastNHR1DMem2Mem);
+#endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 }

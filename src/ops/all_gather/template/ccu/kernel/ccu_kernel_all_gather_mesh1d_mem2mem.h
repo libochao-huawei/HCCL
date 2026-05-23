@@ -111,6 +111,7 @@ private:
     CcuRep::Variable              repeatTimeflag_;
     CcuRep::Variable              tmpRepeatNum_;
     CcuRep::Variable              constVar1_;
+    std::vector<CcuRep::CompletedEvent> event_;
 
     GroupOpSize localGoSize_;
 
@@ -124,7 +125,6 @@ private:
 
     uint16_t selfBit_{0};
     uint16_t allBit_{0};
-    CcuRep::CompletedEvent event_;
 };
 
 }// namespace ops_hccl

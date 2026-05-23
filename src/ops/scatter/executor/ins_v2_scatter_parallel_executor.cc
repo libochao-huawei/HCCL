@@ -12,9 +12,11 @@
 #include "ins_temp_scatter_mesh_1D.h"
 #include "ins_temp_scatter_nhr.h"
 #ifndef AICPU_COMPILE
+#if !defined(HCCL_CANN_COMPAT_850)
 #include "ccu_temp_scatter_mesh1d.h"
 #include "ccu_temp_scatter_nhr1d_mem2mem.h"
 #include "ccu_kernel_scatter_nhr1d_mem2mem.h"
+#endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 
 namespace ops_hccl {
@@ -89,8 +91,8 @@ HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     interAlgTemplate->SetRoot(
         root_ / rankSizeLevel0_ * rankSizeLevel0_ + rankIdxLevel0_);  // 与root同框的同列rank作为新server间模板的root
 
-    intraAlgTemplate->CalcRes(comm, param, topoInfo, intraResourceRequest);
-    interAlgTemplate->CalcRes(comm, param, topoInfo, interResourceRequest);
+    CHK_RET(intraAlgTemplate->CalcRes(comm, param, topoInfo, intraResourceRequest));
+    CHK_RET(interAlgTemplate->CalcRes(comm, param, topoInfo, interResourceRequest));
 
     // 合并两个template的资源
     resourceRequest.notifyNumOnMainThread = NUM_CONTROL_THREADS;  // 用于两个template间同步
@@ -390,8 +392,8 @@ HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
         PostSyncInterTemplates();
 
 #ifndef AICPU_COMPILE
-        if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU) {
-            CHK_RET(FastLaunchSaveCtx(param, intraTemplateAlgRes, interTemplateAlgRes));
+        if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU && param.opMode != OpMode::OFFLOAD) {
+            CHK_RET(FastLaunchSaveCtx(param, intraTemplateAlgRes, interTemplateAlgRes, resCtx.notifyNumOnMainThread));
         }
 #endif
     }
@@ -401,7 +403,8 @@ HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 #ifndef AICPU_COMPILE
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::FastLaunchSaveCtx(
-        const OpParam &param, const TemplateResource &templateAlgResIntra, const TemplateResource &templateAlgResInter)
+        const OpParam &param, const TemplateResource &templateAlgResIntra, const TemplateResource &templateAlgResInter, 
+        u32 notifyNumOnMainThread)
 {
     HCCL_INFO("[InsV2ScatterParallelExecutor] loopTimes==1, save fast launch ctx.");
     ccuKernelLaunchNumIntra1_ = templateAlgResIntra.submitInfos.size() - ccuKernelLaunchNumIntra0_;
@@ -416,7 +419,7 @@ HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 
     std::vector<u32> ccuKernelNumList = {ccuKernelLaunchNumIntra0_, ccuKernelLaunchNumInter1_, ccuKernelLaunchNumInter0_, ccuKernelLaunchNumIntra1_};
     std::vector<std::vector<CcuKernelSubmitInfo>> submitInfosList = {templateAlgResIntra.submitInfos, templateAlgResInter.submitInfos};
-    return FastLaunchSaveCtxTwoTemplate(param, threadNum, ccuKernelNum, threads_, ccuKernelNumList, submitInfosList);
+    return FastLaunchSaveCtxTwoTemplate(param, threadNum, ccuKernelNum, threads_, ccuKernelNumList, submitInfosList, notifyNumOnMainThread);
     
 }
 
@@ -507,6 +510,8 @@ void InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
     tempAlgParamsIntra0.repeatNum = rankSizeLevel1_;
     tempAlgParamsIntra0.inputRepeatStride = dataSize_ * rankSizeLevel0_;
     tempAlgParamsIntra0.outputRepeatStride = tempAlgParamsIntra0.sliceSize;
+    HCCL_INFO("[GenTemplateAlgParamsIntra0] data0 setp1 intra, repeatNum[%llu], sliceSize[%llu], tailSize[%llu]",
+        tempAlgParamsIntra0.repeatNum, tempAlgParamsIntra0.sliceSize, tempAlgParamsIntra0.tailSize);
     return;
 }
 
@@ -534,6 +539,8 @@ void InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
     tempAlgParamsInter0.repeatNum = 1;
     tempAlgParamsInter0.inputRepeatStride = 0;
     tempAlgParamsInter0.outputRepeatStride = 0;
+    HCCL_INFO("[tempAlgParamsInter0] data0 setp2 inter, repeatNum[%llu], sliceSize[%llu], tailSize[%llu]",
+            tempAlgParamsInter0.repeatNum, tempAlgParamsInter0.sliceSize, tempAlgParamsInter0.tailSize);
     return;
 }
 
@@ -561,6 +568,8 @@ void InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
     tempAlgParamsInter1.repeatNum = rankSizeLevel0_;
     tempAlgParamsInter1.inputRepeatStride = dataSize_;
     tempAlgParamsInter1.outputRepeatStride = tempAlgParamsInter1.sliceSize;
+    HCCL_INFO("[tempAlgParamsInter1] data1 setp1 inter, repeatNum[%llu], sliceSize[%llu], tailSize[%llu]",
+                tempAlgParamsInter1.repeatNum, tempAlgParamsInter1.sliceSize, tempAlgParamsInter1.tailSize);
     return;
 }
 
@@ -588,6 +597,8 @@ void InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1
     tempAlgParamsIntra1.repeatNum = 1;
     tempAlgParamsIntra1.inputRepeatStride = 0;
     tempAlgParamsIntra1.outputRepeatStride = 0;
+    HCCL_INFO("[tempAlgParamsIntra1] data1 setp2 intra, repeatNum[%llu], sliceSize[%llu], tailSize[%llu]",
+                    tempAlgParamsIntra1.repeatNum, tempAlgParamsIntra1.sliceSize, tempAlgParamsIntra1.tailSize);
     return;
 }
 
@@ -601,16 +612,20 @@ HcclResult InsV2ScatterParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     return HCCL_SUCCESS;
 }
 
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_SCATTER, InsScatterParallelMesh1DNHR, InsV2ScatterParallelExecutor,
     TopoMatchMultilevel, InsTempScatterMesh1D, InsTempScatterNHR);
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_SCATTER, InsScatterParallelMesh1DNHRPcie,
     InsV2ScatterParallelExecutor, TopoMatchPcieMix, InsTempScatterMesh1D, InsTempScatterNHR);
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_SCATTER, InsScatterParallelMesh1DNHRUBX,
     InsV2ScatterParallelExecutor, TopoMatchUBX, InsTempScatterMesh1D, InsTempScatterNHR);
+#endif /* !HCCL_CANN_COMPAT_850 */
 #ifndef AICPU_COMPILE
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_SCATTER, CcuScatterParallelMesh1DNHR, InsV2ScatterParallelExecutor,
     TopoMatchMultilevel, CcuTempScatterMesh1D, CcuTempScatterNHR1DMem2Mem);
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_SCATTER, CcuScatterParallelMesh1DNHRUBX, InsV2ScatterParallelExecutor,
     TopoMatchUBX, CcuTempScatterMesh1D, CcuTempScatterNHR1DMem2Mem);
+#endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 }  // namespace ops_hccl

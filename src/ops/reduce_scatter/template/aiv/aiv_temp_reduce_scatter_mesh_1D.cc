@@ -25,7 +25,7 @@ AivTempReduceScatterMesh1D::~AivTempReduceScatterMesh1D()
 
 u64 AivTempReduceScatterMesh1D::CalcScratchMultiple(BufferType inBuffType, BufferType outBuffType)
 {
-    u64 scratchMultiple = tempRankSize_;
+    u64 scratchMultiple = 2 * tempRankSize_;
     return scratchMultiple;
 }
 

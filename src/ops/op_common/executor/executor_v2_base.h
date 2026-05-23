@@ -53,7 +53,7 @@ public:
 #ifndef AICPU_COMPILE
     HcclResult FastLaunchSaveCtxTwoTemplate(const OpParam &param, const u32 threadNum, const u32 ccuKernelNum, 
                                             const std::vector<ThreadHandle> &threads_, const std::vector<u32> &ccuKernelNumList, 
-                                            const std::vector<std::vector<CcuKernelSubmitInfo>> &submitInfosList);
+                                            const std::vector<std::vector<CcuKernelSubmitInfo>> &submitInfosList, u32 notifyNumOnMainThread);
 #endif
 protected:
     // CollAlg base params

@@ -17,10 +17,12 @@
 #include "topo_match_pcie_mix.h"
 #include <cmath>
 #ifndef AICPU_COMPILE
+#if !defined(HCCL_CANN_COMPAT_850)
 #include "ccu_temp_all_gather_nhr_1D_mem2mem.h"
 #include "ccu_temp_all_gather_mesh_1D_mem2mem.h"
 #include "ccu_temp_reduce_scatter_mesh_1D_mem2mem.h"
 #include "ccu_temp_reduce_scatter_nhr_1D_mem2mem.h"
+#endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 
 namespace ops_hccl {
@@ -81,10 +83,10 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     AlgResourceRequest intraTempRequestFinal;
     AlgResourceRequest interTempRequestFinal;
 
-    algTemplate0->CalcRes(comm, param, topoInfo, intraTempRequest);
-    algTemplate1->CalcRes(comm, param, topoInfo, interTempRequest);
-    algTemplate2->CalcRes(comm, param, topoInfo, intraTempRequest1);
-    algTemplate3->CalcRes(comm, param, topoInfo, interTempRequest1); 
+    CHK_RET(algTemplate0->CalcRes(comm, param, topoInfo, intraTempRequest));
+    CHK_RET(algTemplate1->CalcRes(comm, param, topoInfo, interTempRequest));
+    CHK_RET(algTemplate2->CalcRes(comm, param, topoInfo, intraTempRequest1));
+    CHK_RET(algTemplate3->CalcRes(comm, param, topoInfo, interTempRequest1)); 
 
     for (auto &KernelInfo : intraTempRequest.ccuKernelInfos) {
         KernelInfo.resGroup = 0;
@@ -170,7 +172,7 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2, typename InsAlgTemplate3>
 HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3>::FastLaunchSaveCtx(
     const OpParam &param, const TemplateResource &templateAlgResIntra, const TemplateResource &templateAlgResInter, 
-    const TemplateResource &templateAlgResIntra1, const TemplateResource &templateAlgResInter1)
+    const TemplateResource &templateAlgResIntra1, const TemplateResource &templateAlgResInter1, u32 notifyNumOnMainThread)
 {
     HCCL_INFO("[InsAllReduceParallelExecutor] loopTimes==1, save fast launch ctx.");
     u32 threadNum = threads_.size();
@@ -195,6 +197,7 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 
     // 2 thread
     ccuFastLaunchCtx->threadNum = threadNum;
+    ccuFastLaunchCtx->notifyNumOnMainThread = notifyNumOnMainThread;
     ThreadHandle *threads = ccuFastLaunchCtx->GetThreadHandlePtr();
     for (u32 i = 0; i < threadNum; i++) {
         threads[i] = threads_[i];
@@ -246,7 +249,8 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1, typename InsAlgTemplate2, typename InsAlgTemplate3>
 HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1, InsAlgTemplate2, InsAlgTemplate3>::FastLaunch(
         const OpParam &param, const CcuFastLaunchCtx *ctx)
-{
+{   
+    HCCL_INFO("[InsAllReduceParallelExecutor][FastLaunch] Start.");
     InsAlgTemplate0 intraTempAlg{};
     InsAlgTemplate1 interTempAlg{};
     InsAlgTemplate2 intraTempAlg1{};
@@ -264,7 +268,6 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     CcuKernelSubmitInfo *ccuKernelSubmitInfos = ctx->GetCcuKernelSubmitInfoPtr();
     
     //第一步开始前同步
-    HCCL_INFO("[InsAllReduceParallelExecutor][FastLaunch] Intra0 ccuKernelNum[%llu]", ctx->ccuKernelNum[0]);
     CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
     //数据0的server内的mesh算法
     CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxIntra0, param.inputPtr, param.hcclBuff.addr, param.hcclBuff));
@@ -318,7 +321,6 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     CHK_RET(PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_));
 
     //第四步开始前同步
-    HCCL_INFO("[InsAllReduceParallelExecutor][FastLaunch] Intra0 ccuKernelNum[%llu]", ctx->ccuKernelNum[0]);
     CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
     //数据0的server内的mesh算法
     CHK_RET(SetTempFastLaunchAddr(tempFastLaunchCtxIntra00, param.hcclBuff.addr, param.outputPtr, param.hcclBuff));
@@ -366,10 +368,8 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     vTopo_ = resCtx.algHierarchyInfo.infos;         // 本通信域内的通信平面
 
     // 计算localRankSize
-    std::vector<std::vector<u32>> temp0HierarchyInfo;
-    std::vector<std::vector<u32>> temp1HierarchyInfo;
     if(resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS && !resCtx.topoInfo.level0PcieMix) {
-        temp0HierarchyInfo = {resCtx.algHierarchyInfo.infos[0][0]};
+        temp0HierarchyInfo_ = {resCtx.algHierarchyInfo.infos[0][0]};
         std::vector<u32> closRanks;
         u32 meshSize = resCtx.algHierarchyInfo.infos[0][0].size();
         for(auto rank : resCtx.algHierarchyInfo.infos[0][1]) {
@@ -377,23 +377,23 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
                 closRanks.push_back(rank);
             }
         }
-        temp1HierarchyInfo = {closRanks};
+        temp1HierarchyInfo_ = {closRanks};
     } else {
-        temp0HierarchyInfo = resCtx.algHierarchyInfo.infos[0];
-        temp1HierarchyInfo = resCtx.algHierarchyInfo.infos[1];
+        temp0HierarchyInfo_ = resCtx.algHierarchyInfo.infos[0];
+        temp1HierarchyInfo_ = resCtx.algHierarchyInfo.infos[1];
     }
 
-    intraLocalRankSize_ = GetRankSize(temp0HierarchyInfo);
-    interLocalRankSize_ = GetRankSize(temp1HierarchyInfo);
+    intraLocalRankSize_ = GetRankSize(temp0HierarchyInfo_);
+    interLocalRankSize_ = GetRankSize(temp1HierarchyInfo_);
     rankSize_ = intraLocalRankSize_ * interLocalRankSize_;
     HCCL_INFO("[Orchestrate] localRankSize: myRank[%d] intraLocalRankSize[%u] interLocalRankSize[%u] rankSize_[%u]",
               myRank_, intraLocalRankSize_, interLocalRankSize_, rankSize_);
 
     // 实例化算法模板类
-    InsAlgTemplate0 tempAlgIntra(param, resCtx.topoInfo.userRank, temp0HierarchyInfo);
-    InsAlgTemplate1 tempAlgInter(param, resCtx.topoInfo.userRank, temp1HierarchyInfo);
-    InsAlgTemplate2 tempAlgIntra1(param, resCtx.topoInfo.userRank, temp0HierarchyInfo);
-    InsAlgTemplate3 tempAlgInter1(param, resCtx.topoInfo.userRank, temp1HierarchyInfo);
+    InsAlgTemplate0 tempAlgIntra(param, resCtx.topoInfo.userRank, temp0HierarchyInfo_);
+    InsAlgTemplate1 tempAlgInter(param, resCtx.topoInfo.userRank, temp1HierarchyInfo_);
+    InsAlgTemplate2 tempAlgIntra1(param, resCtx.topoInfo.userRank, temp0HierarchyInfo_);
+    InsAlgTemplate3 tempAlgInter1(param, resCtx.topoInfo.userRank, temp1HierarchyInfo_);
     if (param.engine == CommEngine::COMM_ENGINE_AICPU_TS) {
         tempAlgInter.SetchannelsPerRank(interLinks_);
         tempAlgInter1.SetchannelsPerRank(interLinks_);
@@ -402,7 +402,7 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     // 算法展开
     HcclResult ret = GenInsQues(param, resCtx, tempAlgIntra, tempAlgInter, tempAlgIntra1, tempAlgInter1);
     CHK_PRT_RET(ret != HCCL_SUCCESS,
-        HCCL_ERROR("[InsAllReduceParallelExecutor][Orchestrate]errNo[0x%016llx] Reduce scatter excutor kernel run failed",
+        HCCL_ERROR("[InsAllReduceParallelExecutor][Orchestrate]errNo[0x%016llx] AllReduce excutor kernel run failed",
             HCCL_ERROR_CODE(ret)), ret);
     return HcclResult::HCCL_SUCCESS;
 }
@@ -743,7 +743,7 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     HCCL_INFO("[InsAllReduceParallelExecutor] AlgTemplate intra server is [%s]", tempAlgIntra.Describe().c_str());
     HCCL_INFO("[InsAllReduceParallelExecutor] AlgTemplate inter server is [%s]", tempAlgInter.Describe().c_str());
 
-    multipleDimensionSplitRatio_ = param.multipleDimensionSplitRatio;
+    multipleDimensionSplitRatio_ = param.opConfig.multipleDimensionSplitRatio;
     std::vector<float> dataSplitSize;
     GetParallelDataSplit(dataSplitSize);
 
@@ -771,8 +771,14 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     HCCL_DEBUG("[InsAllReduceParallelExecutor][GenInsQues] dataCount_[%lu], myRank_[%d], sliceCountUB[%d], sliceCountUB0[%d], sliceCount[%d]",
               dataCount_, myRank_, sliceCountUB, sliceCountUB0, sliceCount);
 
+    u64 alignSize = AICPU_ALIGN_SIZE; // 用于4k对齐
     u64 sliceCountPart0 = static_cast<u64>(std::floor(double(sliceCount) * dataSplitSize.at(0)));
     u64 sliceCountPart1 = sliceCount - sliceCountPart0;
+    if (sliceCountPart0 * dataTypeSize_ >= alignSize) {
+        // 进行4K对齐（向下取整）
+        sliceCountPart0 = sliceCountPart0 * dataTypeSize_ / alignSize * alignSize / dataTypeSize_;
+        sliceCountPart1 = sliceCount - sliceCountPart0;
+    }
 
     if (sliceCount == 0) {
         HCCL_WARNING("The divisor cannot be zero.");
@@ -812,16 +818,14 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
         TemplateResource interTempAlgRes;
         CHK_RET(PrepareResForTemplate(tempAlgIntra, tempAlgInter, tempAlgIntra1));
         PrepareResForTemplateResource(param, resCtx, intraTempAlgRes, interTempAlgRes, true);
-
         //server 间地址偏移
-        for (int i = 0; i < resCtx.algHierarchyInfo.infos[0][0].size(); i++) {
-            tempVirtRankMapInter_.insert(std::make_pair(resCtx.algHierarchyInfo.infos[0][0][i], i));
+        for (int i = 0; i < temp0HierarchyInfo_[0].size(); i++) {
+            tempVirtRankMapInter_.insert(std::make_pair(temp0HierarchyInfo_[0][i], i));
         }
         //server 内地址偏移
-        for (int i = 0; i < resCtx.algHierarchyInfo.infos[1][0].size(); i++) {
-            tempVirtRankMapIntra_.insert(std::make_pair(resCtx.algHierarchyInfo.infos[1][0][i], i));
+        for (int i = 0; i < temp1HierarchyInfo_[0].size(); i++) {
+            tempVirtRankMapIntra_.insert(std::make_pair(temp1HierarchyInfo_[0][i], i));
         }
-
         CalcIntraDataAllRank(currCountPart0, intraLocalRankSize_, interLocalRankSize_, meshPartDataMap_);
         CalcInterDataAllRank(currCountPart1, interLocalRankSize_, intraLocalRankSize_, nhrPartDataMap_);
         // 第一步开始前同步
@@ -867,8 +871,8 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 
         #ifndef AICPU_COMPILE
         if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU) {
-            ccuKernelLaunchNumIntra00_ = intraTempAlgRes1.submitInfos.size();
-            ccuKernelLaunchNumInter11_ = interTempAlgRes1.submitInfos.size();
+            ccuKernelLaunchNumIntra11_ = intraTempAlgRes1.submitInfos.size();
+            ccuKernelLaunchNumInter00_ = interTempAlgRes1.submitInfos.size();
         }
         #endif
 
@@ -880,10 +884,10 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
         CHK_RET(PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_));
 
         #ifndef AICPU_COMPILE
-        if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU) {
-            ccuKernelLaunchNumIntra11_ = intraTempAlgRes1.submitInfos.size() - ccuKernelLaunchNumIntra00_;
-            ccuKernelLaunchNumInter00_ = interTempAlgRes1.submitInfos.size() - ccuKernelLaunchNumInter11_;
-            CHK_RET(FastLaunchSaveCtx(param, intraTempAlgRes, interTempAlgRes, intraTempAlgRes1, interTempAlgRes1));
+        if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU && param.opMode != OpMode::OFFLOAD) {
+            ccuKernelLaunchNumIntra00_ = intraTempAlgRes1.submitInfos.size() - ccuKernelLaunchNumIntra11_;
+            ccuKernelLaunchNumInter11_ = interTempAlgRes1.submitInfos.size() - ccuKernelLaunchNumInter00_;
+            CHK_RET(FastLaunchSaveCtx(param, intraTempAlgRes, interTempAlgRes, intraTempAlgRes1, interTempAlgRes1, resCtx.notifyNumOnMainThread));
         }
         #endif
     }
@@ -1047,6 +1051,7 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
 }
 
 // 算法注册
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, InsAllReduceParallelRSAG, InsAllReduceParallelExecutor,
     TopoMatchMultilevel, InsTempReduceScatterMesh1D, InsTempReduceScatterNHR, InsTempAllGatherMesh1D, InsTempAllGatherNHR);
 REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, InsAllReduceParallelMesh1DNHRPcie,
@@ -1054,7 +1059,9 @@ REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, InsAllReducePar
     InsTempAllGatherMesh1D, InsTempAllGatherNHR);
 REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, InsAllReduceParallelRSAGUBX, InsAllReduceParallelExecutor,
     TopoMatchUBX, InsTempReduceScatterMesh1D, InsTempReduceScatterNHR, InsTempAllGatherMesh1D, InsTempAllGatherNHR);
+#endif /* !HCCL_CANN_COMPAT_850 */
 #ifndef AICPU_COMPILE
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReduceParallelMesh1DNHR, InsAllReduceParallelExecutor,
     TopoMatchMultilevel, CcuTempReduceScatterMesh1DMem2Mem, CcuTempReduceScatterNHR1DMem2Mem, CcuTempAllGatherMesh1DMem2Mem, 
     CcuTempAllGatherNHR1DMem2Mem);
@@ -1062,5 +1069,6 @@ REGISTER_EXECUTOR_BY_FOUR_TEMPS(HcclCMDType::HCCL_CMD_ALLREDUCE, CcuAllReducePar
     TopoMatchUBX, CcuTempReduceScatterMesh1DMem2Mem, CcuTempReduceScatterNHR1DMem2Mem, CcuTempAllGatherMesh1DMem2Mem, 
     CcuTempAllGatherNHR1DMem2Mem);
 
-#endif
+#endif /* !HCCL_CANN_COMPAT_850 */
+#endif /* AICPU_COMPILE */
 }  // namespace Hccl

@@ -11,8 +11,10 @@
 #include "channel.h"
 #include "ins_v2_all_to_all_v_concurrent_executor.h"
 #ifndef AICPU_COMPILE
+#if !defined(HCCL_CANN_COMPAT_850)
 #include "ccu_temp_all_to_all_v_mesh_1D_multi_jetty.h"
 #include "ccu_kernel_all_to_all_v_mesh1d_multi_jetty.h"
+#endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 #include "alg_data_trans_wrapper.h"
 
@@ -199,8 +201,8 @@ HcclResult InsV2AllToAllVConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     // 调用计算资源的函数
     AlgResourceRequest resReq0;
     AlgResourceRequest resReq1;
-    algTemplateClos->CalcRes(comm, param, topoInfo, resReq0);
-    algTemplateMesh->CalcRes(comm, param, topoInfo, resReq1);
+    CHK_RET(algTemplateClos->CalcRes(comm, param, topoInfo, resReq0));
+    CHK_RET(algTemplateMesh->CalcRes(comm, param, topoInfo, resReq1));
 
     resourceRequest.notifyNumOnMainThread = resReq0.slaveThreadNum + 1;  // 用于两个template间同步
     resourceRequest.slaveThreadNum = resReq0.slaveThreadNum + resReq1.slaveThreadNum + 1;
@@ -219,22 +221,26 @@ HcclResult InsV2AllToAllVConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
 
     std::vector<uint32_t> jettyNums;
     CHK_RET(SetJettyNums(jettyNums, true));
+#if !defined(HCCL_CANN_COMPAT_850)
     resReq0.ccuKernelInfos[0].kernelArg = std::make_shared<CcuKernelArgAllToAllVMesh1DMultiJetty>(subCommRanks0[0].size(),
                                                                                     topoInfo->userRank,
                                                                                     param,
                                                                                     subCommRanks0,
                                                                                     jettyNums);
+#endif
 
     std::vector<HcclChannelDesc> channelDescs1;
     CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks1, channelDescs1, CommTopo::COMM_TOPO_1DMESH));
     resReq1.ccuKernelInfos[0].channels = channelDescs1;
 
     CHK_RET(SetJettyNums(jettyNums, false));
+#if !defined(HCCL_CANN_COMPAT_850)
     resReq1.ccuKernelInfos[0].kernelArg = std::make_shared<CcuKernelArgAllToAllVMesh1DMultiJetty>(subCommRanks1[0].size(),
                                                                                     topoInfo->userRank,
                                                                                     param,
                                                                                     subCommRanks1,
                                                                                     jettyNums);
+#endif
 
     resourceRequest.ccuKernelNum.emplace_back(resReq0.ccuKernelNum[0]);
     resourceRequest.ccuKernelNum.emplace_back(resReq1.ccuKernelNum[0]);
@@ -349,12 +355,14 @@ HcclResult InsV2AllToAllVConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
 }
 
 #ifndef AICPU_COMPILE
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLTOALLV,
                                 CcuAllToAllVMesh1DConcurrent,
                                 InsV2AllToAllVConcurrentExecutor,
                                 TopoMatchUBX,
                                 CcuTempAllToAllVMesh1DMultiJetty,
                                 CcuTempAllToAllVMesh1DMultiJetty);
+#endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 
 }

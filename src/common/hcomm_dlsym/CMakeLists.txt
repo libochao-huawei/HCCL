@@ -11,6 +11,7 @@
 if(BUILD_OPEN_PROJECT)
     set(INCLUDE_LIST
         ${CMAKE_CURRENT_SOURCE_DIR}/..
+        ${CMAKE_CURRENT_SOURCE_DIR}
 
         ${ASCEND_CANN_PACKAGE_PATH}/include
         ${ASCEND_CANN_PACKAGE_PATH}/include/acl
@@ -49,7 +50,6 @@ else()
         ${TOP_DIR}/runtime/include/external
         ${TOP_DIR}/runtime/include/external/acl
         ${TOP_DIR}/runtime/pkg_inc/base
-        ${TOP_DIR}/runtime/pkg_inc/mmpa
 
         ${TOP_DIR}/open_source/json/include
 
@@ -87,6 +87,10 @@ else()
         target_compile_definitions(hccl_compat PRIVATE
             $<$<STREQUAL:${PRODUCT_SIDE},host>:_GLIBCXX_USE_CXX11_ABI=0>
         )
+    endif()
+
+    if(HCCL_CANN_COMPAT_850)
+        target_compile_definitions(hccl_compat PRIVATE HCCL_CANN_COMPAT_850)
     endif()
 
     target_include_directories(hccl_compat PRIVATE
@@ -157,6 +161,10 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         hcomm_device_profiling_dl.cc
         hccl_device_comm_dl.cc
     )
+
+    if(HCCL_CANN_COMPAT_850)
+        target_compile_definitions(hccl_kernel_compat PRIVATE HCCL_CANN_COMPAT_850)
+    endif()
 
     target_include_directories(hccl_kernel_compat PRIVATE
         ${INCLUDE_LIST}

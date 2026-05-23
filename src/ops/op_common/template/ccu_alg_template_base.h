@@ -43,8 +43,19 @@ public:
     
     HcclResult GetToken(const BuffInfo &buffinfo, uint64_t &token) const;
 
-    HcclResult GetChannelDieId(HcclComm comm, uint32_t rankId, const HcclChannelDesc& channelDesc, uint32_t& dieId) const;
-    HcclResult GetChannelBwCoeff(HcclComm comm, uint32_t rankId, const HcclChannelDesc& channelDesc, uint32_t& bwCoeff) const;
+    static HcclResult GetChannelDieId(HcclComm comm, uint32_t rankId, const HcclChannelDesc& channelDesc, uint32_t& dieId) ;
+    static HcclResult GetChannelBwCoeff(HcclComm comm, uint32_t rankId, const HcclChannelDesc& channelDesc, uint32_t& bwCoeff) ;
+    static HcclResult RestoreChannelMap(const std::vector<HcclChannelDesc>& channelDescs,
+                                 std::map<u32, std::vector<HcclChannelDesc>>& rankIdToChannelDesc) ;
+
+    static HcclResult SelectChannelToVec(const HcclComm comm, const u32 myRankId, const u32 rmtRankId,
+        const std::map<u32, std::vector<HcclChannelDesc>> &rankIdToChannelDesc, const u32 dieId,
+        std::map<u32, u32>& rank2ChannelIdx, std::vector<HcclChannelDesc>& channels);
+    static HcclResult ReverseChannelPerDieIfNeed(const HcclComm comm, const u32 myRankId,
+        std::vector<std::vector<HcclChannelDesc>>& channelsPerDie);
+    static HcclResult GetDieInfoFromChannelDescs(HcclComm comm,
+        const std::map<u32, std::vector<HcclChannelDesc>> &rankIdToChannelDesc,
+        u32 myRankId, uint32_t &dieNum, uint32_t &dieId);
 
 protected:
     OpMode          opMode_             = OpMode::OPBASE;
@@ -56,18 +67,6 @@ protected:
     HcclReduceOp    reduceOp_           = HcclReduceOp::HCCL_REDUCE_RESERVED;
     BuffInfo        buffInfo_{};
     std::vector<std::vector<u32>> subCommRanks_;
-    HcclResult RestoreChannelMap(const std::vector<HcclChannelDesc>& channelDescs,
-                                 std::map<u32, std::vector<HcclChannelDesc>>& rankIdToChannelDesc) const;
-                        
-    HcclResult SelectChannelToVec(const HcclComm comm, const u32 myRankId, const u32 rmtRankId,
-        const std::map<u32, std::vector<HcclChannelDesc>> &rankIdToChannelDesc, const u32 dieId, 
-        std::map<u32, u32>& rank2ChannelIdx, std::vector<HcclChannelDesc>& channels);
-    HcclResult ReverseChannelPerDieIfNeed(const HcclComm comm, const u32 myRankId, 
-        std::vector<std::vector<HcclChannelDesc>>& channelsPerDie);
-
-    HcclResult GetDieInfoFromChannelDescs(HcclComm comm, 
-        const std::map<u32, std::vector<HcclChannelDesc>> &rankIdToChannelDesc, 
-        u32 myRankId, uint32_t &dieNum, uint32_t &dieId);
 };
 }
 #endif // HCCLV2_CCU_ALG_TEMPLATE_BASE

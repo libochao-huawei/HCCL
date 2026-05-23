@@ -38,10 +38,8 @@ namespace ops_hccl {
         HcclResult InitRecvInfo(
             const HcclComm comm, const OpParam &param, const TopoInfoWithNetLayerDetails *topoInfo,
             const AlgHierarchyInfoForAllLevel &algHierarchyInfo);
-        // 图模式
-        HcclResult OrchestrateOffload(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const ThreadHandle &thread, const ChannelInfo &channel);
-        // 单算子
-        HcclResult OrchestrateOpbase(const OpParam &param, const AlgResourceCtxSerializable &resCtx, const ThreadHandle &thread, const ChannelInfo &channel);
+        // 图模式&单算子
+        HcclResult OrchestrateImpl(const OpParam &param, const AlgResourceCtxSerializable &resCtx);
 
         HcclResult CalNumBlocks(u32& numBlocks, u64 dataSize, u32 numBlocksLimit);
 
@@ -54,6 +52,7 @@ namespace ops_hccl {
         u64 maxLoopTransCount_;
         u32 sliceId_{0};
     };
+
 } // namespace ops_hccl
 
 #endif  // HCCL_INS_V2_RECV_EXECUTOR_H

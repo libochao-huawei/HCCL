@@ -32,7 +32,6 @@ target_link_libraries(hccl-model-proxy PUBLIC
     # 链接hccl_depends_stub
     hcomm
     unified_dlog
-    mmpa
     acl_rt
     scatter_aicpu_kernel
 )
@@ -62,9 +61,6 @@ if (BUILD_OPEN_PROJECT)
         ${ASCEND_HOME_PATH}/include/hcomm
         ${ASCEND_HOME_PATH}/pkg_inc/hccl
         ${ASCEND_HOME_PATH}/pkg_inc/hcomm/ccu
-
-        # mmpa头文件
-        ${ASCEND_HOME_PATH}/include/mmpa
 
         # 本仓代码头文件
         ${HCCL_DEV_BASE}/src/common

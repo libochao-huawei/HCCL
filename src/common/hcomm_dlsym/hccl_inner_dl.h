@@ -18,6 +18,10 @@
 extern "C" {
 #endif
 
+DECL_WEAK_FUNC(HcclResult, HcclCreateOpResCtxInner, HcclComm comm, uint8_t opType,
+    HcclDataType srcDataType, HcclDataType dstDataType, HcclReduceOp reduceType,
+    uint64_t count, char* algConfig, uint32_t commEngine, void** opResCtx);
+
 void HcclInnerDlInit(void* libHcommHandle);
 
 #ifdef __cplusplus

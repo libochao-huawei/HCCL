@@ -11,6 +11,7 @@
 #ifndef HCCL_REDUCE_PARALLEL_EXECUTOR_H
 #define HCCL_REDUCE_PARALLEL_EXECUTOR_H
 
+#include <array>
 #include "common_alg_template_base.h"
 #include "executor_v2_base.h"
 

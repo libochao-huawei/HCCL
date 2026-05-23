@@ -16,9 +16,11 @@
 #include "topo_match_1d.h"
 #ifndef AICPU_COMPILE
 #include "aiv_temp_reduce_mesh_1D.h"
+#if !defined(HCCL_CANN_COMPAT_850)
 #include "ccu_temp_reduce_mesh_1D_mem2mem.h"
 #include "ccu_temp_reduce_mesh_1D.h"
 #include "ccu_temp_reduce_nhr_1D_mem2mem.h"
+#endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 
 namespace ops_hccl {
@@ -170,8 +172,8 @@ HcclResult ReduceSoleExecutor<AlgTopoMatch, AlgTemplate>::OrchestrateLoop(
     }
 
 #ifndef AICPU_COMPILE
-    if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU) {
-        CHK_RET(FastLaunchSaveCtx(param, templateAlgRes));
+    if (loopTimes == 1 && param.engine == CommEngine::COMM_ENGINE_CCU && param.opMode != OpMode::OFFLOAD) {
+        CHK_RET(FastLaunchSaveCtx(param, templateAlgRes, resCtx.notifyNumOnMainThread));
     }
 #endif
 
@@ -182,7 +184,7 @@ HcclResult ReduceSoleExecutor<AlgTopoMatch, AlgTemplate>::OrchestrateLoop(
 #ifndef AICPU_COMPILE
 template <typename AlgTopoMatch, typename InsAlgTemplate>
 HcclResult ReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunchSaveCtx(
-    const OpParam &param, const TemplateResource &templateAlgRes)
+    const OpParam &param, const TemplateResource &templateAlgRes, u32 notifyNumOnMainThread)
 {
     HCCL_INFO("[ReduceSoleExecutor] loopTimes==1, save fast launch ctx.");
     u32 threadNum = 1;
@@ -206,6 +208,7 @@ HcclResult ReduceSoleExecutor<AlgTopoMatch, InsAlgTemplate>::FastLaunchSaveCtx(
 
     // 2 thread
     ccuFastLaunchCtx->threadNum = threadNum;
+    ccuFastLaunchCtx->notifyNumOnMainThread = notifyNumOnMainThread;
     ThreadHandle *threads = ccuFastLaunchCtx->GetThreadHandlePtr();
     threads[0] = templateAlgRes.threads[0];
 
@@ -251,10 +254,16 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE, ReduceAicpuReduceNHR, ReduceSoleE
 
 #ifndef AICPU_COMPILE
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE, AivReduceMesh1D, ReduceSoleExecutor, TopoMatch1D, AivTempReduceMesh1D);
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXEC_V2(
     HcclCMDType::HCCL_CMD_REDUCE, CcuReduceMesh1DMem2Mem, ReduceSoleExecutor, TopoMatch1D, CcuTempReduceMesh1DMem2Mem);
+#endif /* !HCCL_CANN_COMPAT_850 */
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_REDUCE, CcuReduceMesh1D, ReduceSoleExecutor, TopoMatch1D, CcuTempReduceMesh1D);
+#endif /* !HCCL_CANN_COMPAT_850 */
+#if !defined(HCCL_CANN_COMPAT_850)
 REGISTER_EXEC_V2(
     HcclCMDType::HCCL_CMD_REDUCE, CcuReduceNHR1DMem2Mem, ReduceSoleExecutor, TopoMatch1D, CcuTempReduceNHR1DMem2Mem);
+#endif /* !HCCL_CANN_COMPAT_850 */
 #endif
 }  // namespace ops_hccl

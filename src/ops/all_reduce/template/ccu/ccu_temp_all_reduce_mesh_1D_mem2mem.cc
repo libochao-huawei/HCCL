@@ -85,7 +85,7 @@ HcclResult CcuTempAllReduceMeshMem2Mem1D::CalcRes(HcclComm comm, const OpParam& 
                          };
     std::vector<HcclChannelDesc> channelDescs;
     if(topoInfo->level0Topo != Level0Shape::MESH_1D_CLOS) {
-        CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelDescs));
+        CHK_RET(CalcChannelRequestMesh1DFullMesh(comm, param, topoInfo, subCommRanks_, channelDescs));
     } else {
         std::vector<HcclChannelDesc> myChannelDescs;
         CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks_, myChannelDescs, CommTopo::COMM_TOPO_1DMESH));

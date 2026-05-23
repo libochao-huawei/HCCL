@@ -18,7 +18,6 @@
 #include "hccl.h"
 #include "hccl/base.h"
 #include "hccl_inner.h"
-#include "mmpa_api.h"
 #include "op_common.h"
 #include "param_check.h"
 #include "sal.h"

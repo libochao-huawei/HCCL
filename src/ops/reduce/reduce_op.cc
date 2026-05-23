@@ -206,6 +206,9 @@ HcclResult ReduceConstructOpParam(void *sendBuf, void *recvBuf, uint64_t count, 
     param.enableDetour = false;
     param.deviceType = deviceType;
     param.root = root;
+    u32 userRank = INVALID_VALUE_RANKID;
+    CHK_RET(HcclGetRankId(comm, &userRank));
+    param.userRank = userRank;
 
     return HCCL_SUCCESS;
 }
@@ -236,7 +239,7 @@ HcclResult ReduceOutPlaceCommon(void *sendBuf, void *recvBuf, uint64_t count, Hc
     std::string algName;
     std::unique_ptr<TopoInfoWithNetLayerDetails> topoInfo = std::make_unique<TopoInfoWithNetLayerDetails>();
     CHK_RET(Selector(comm, param, topoInfo, algName));
-    if (ShouldUseInnerOp(param.opExecuteConfig)) {
+    if (ShouldUseInnerOp(param.opExecuteConfig) && param.opMode == OpMode::OPBASE) {
         return HcclReduceInner(sendBuf, recvBuf, count, dataType, op, root, comm, stream);
     }
     CHK_RET(HcclExecOp(comm, param, topoInfo, algName, resPack));

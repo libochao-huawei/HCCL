@@ -98,6 +98,8 @@ private:
     void CreateReduceLoop(uint32_t size, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType);
     void ReduceLoopGroup(CcuRep::LocalAddr outDstOrg, CcuRep::LocalAddr srcOrg, std::vector<CcuRep::LocalAddr> &scratchOrg,
         GroupOpSize goSize, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType);
+    void PairwiseLocalReduce(CcuRep::LocalAddr myOutput, std::vector<CcuRep::LocalAddr> &inputVec,
+        CcuRep::Variable sliceSize, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType);
  
     const std::string LOOP_BLOCK_TAG{"_local_copy_reduce_loop_"};
 
@@ -123,7 +125,7 @@ private:
     CcuRep::LocalAddr                   myInput_;
     std::vector<CcuRep::RemoteAddr>     remoteInput_;
     std::vector<CcuRep::LocalAddr>      scratchMem_;
-    CcuRep::CompletedEvent event_;
+    std::vector<CcuRep::CompletedEvent> event_;
     CcuRep::Variable flag_; // 用以判断是否是第一次重复
 };
 
