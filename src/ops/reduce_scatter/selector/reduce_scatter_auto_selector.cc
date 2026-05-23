@@ -281,14 +281,17 @@ SelectorStatus ReduceScatterAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetL
         } else if (topoInfo->Level0Nhr) {
             selectAlgName = "InsReduceScatterNHR"; // InsReduceScatterParallelNHRNHR备用
         } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer.at(0) > 1 && topoInfo->level0Topo == Level0Shape::MESH_1D) {
-            if (dataSize > RS_AICPU_1D_MIN_DATA_SIZE) {
+            if (topoInfo->Level1Hd) {
+                selectAlgName = (dataSize > RS_AICPU_1D_MIN_DATA_SIZE) ?
+                    "InsReduceScatterParallelMesh1DHD" : "InsReduceScatterHD";
+            } else if (dataSize > RS_AICPU_1D_MIN_DATA_SIZE) {
                 selectAlgName = (dataSize * topoInfo->userRankSize > RS_AICPU_SEQUENCE_SIZE_THRESHOLD) ?
                     "InsReduceScatterSequenceMesh1DNhr" : "InsReduceScatterParallelMesh1DNHR";
             } else {
                 selectAlgName = "InsReduceScatterNHR";
             }
         } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer.at(0) == 1 || topoInfo->level0Topo == Level0Shape::CLOS) {
-            selectAlgName = "InsReduceScatterNHR"; // InsReduceScatterParallelNHRNHR备用
+            selectAlgName = topoInfo->Level1Hd ? "InsReduceScatterHD" : "InsReduceScatterNHR"; // InsReduceScatterParallelNHRNHR备用
         } else {
             HCCL_ERROR("[ReduceScatterAutoSelector] topo not match, level0Topo [%d], deviceNumPerModule [%d]",
                 topoInfo->level0Topo, topoInfo->netLayerDetails.localNetInsSizeOfLayer.at(0));
