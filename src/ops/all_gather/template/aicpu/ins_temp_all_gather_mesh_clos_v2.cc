@@ -25,12 +25,15 @@ InsTempAllGatherMeshClosV2::~InsTempAllGatherMeshClosV2() {}
 
 u64 InsTempAllGatherMeshClosV2::GetThreadNum() const
 {
-    return channelsPerRank_;
+    // return channelsPerRank_;
+    u32 numNeighbors = std::max(1u, templateRankSize_ - 1);
+    // 最多使用 min(链路数, 邻居数) 个线程
+    return std::min(channelsPerRank_, numNeighbors);
 }
 
 HcclResult InsTempAllGatherMeshClosV2::GetRes(AlgResourceRequest &resourceRequest) const
 {   
-    u32 threadNum = channelsPerRank_;
+    u32 threadNum = GetThreadNum();
     resourceRequest.slaveThreadNum = threadNum > 1 ? threadNum - 1 : 0;
     if (resourceRequest.slaveThreadNum > 0) {
         resourceRequest.notifyNumPerThread.assign(resourceRequest.slaveThreadNum, 1);
@@ -70,7 +73,7 @@ HcclResult InsTempAllGatherMeshClosV2::RunAllGatherMesh(
         return HCCL_SUCCESS;
     }
 
-    for (u32 linkIdx = 0; linkIdx < channelsPerRank_; linkIdx++) {
+    for (u32 linkIdx = 0; linkIdx < threads.size(); linkIdx++) {
         CHK_RET(RunAllGatherOnLink(threads, channels, linkIdx));
     }
     return HCCL_SUCCESS;
@@ -104,19 +107,19 @@ HcclResult InsTempAllGatherMeshClosV2::RunAllGatherOnLink(
         }
 
         u32 totalLinksToNeighbor = it->second.size();
-        u32 selectedLinkIdx = (myAlgRank + connectedAlgRank) % totalLinksToNeighbor;
+        u32 selectedLinkIdx = (myAlgRank + connectedAlgRank) % threads.size();
 
         
-        // if (selectedLinkIdx != linkIdx) {
-        //     continue;
-        // }
+        if (selectedLinkIdx != linkIdx) {
+            continue;
+        }
 
         HCCL_INFO("[InsTempAllGatherMeshClosV2 0] Rank[%d] linkIdx[%u] matched connectedRank[%u] "
-                  "selectedLinkIdx[%u] totalLinks[%u] enableRemoteMemAccess[%d]",
-                  myRank_, linkIdx, connectedRank, selectedLinkIdx, totalLinksToNeighbor,
+                  "selectedLinkIdx[%u] totalLinks[%u] totalThreads[%u] enableRemoteMemAccess[%d]",
+                  myRank_, linkIdx, connectedRank, selectedLinkIdx, totalLinksToNeighbor, threads.size(),
                   enableRemoteMemAccess_);
 
-        const ChannelInfo &linkRemote = it->second[selectedLinkIdx];
+        const ChannelInfo &linkRemote = it->second[linkIdx];
         void *remoteCclBuffAddr = linkRemote.remoteCclMem.addr;
 
         std::vector<DataSlice> txSrcSlicesAll;
