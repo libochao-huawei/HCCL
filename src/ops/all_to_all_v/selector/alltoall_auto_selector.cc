@@ -11,6 +11,18 @@
 #include "alltoall_auto_selector.h"
 #include "selector_registry.h"
 #include "hccl_aiv_utils.h"
+#include <cstdlib>
+#include <cstring>
+
+namespace {
+
+bool IsAlltoAllClosMesh2DEnabled()
+{
+    const char *env = std::getenv("ENABLE_HCCL_ALLTOALL_CLOS_MESH_2D");
+    return (env != nullptr && std::strcmp(env, "1") == 0);
+}
+
+}  // namespace
 
 namespace ops_hccl {
 constexpr uint32_t INDEX_0 = 0;
@@ -99,6 +111,14 @@ SelectorStatus AlltoAllAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerD
 {
     HCCL_DEBUG("[AlltoAllAutoSelector][%s] start, topoInfo levelNum[%u]", __func__, topoInfo->topoLevelNums);
     (void)configAlgMap;
+
+    if (IsAlltoAllClosMesh2DEnabled()) {
+        SelectorStatus ret = SelectAicpuAlgoClosMesh2D(topoInfo, opParam, selectAlgName);
+        if (ret == SelectorStatus::MATCH) {
+            return SelectorStatus::MATCH;
+        }
+        HCCL_INFO("[AlltoAllAutoSelector] ClosMesh2D not matched, fallback to legacy.");
+    }
     if (topoInfo->topoLevelNums > 1) {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D || topoInfo->level0Topo == Level0Shape::CLOS ||
             topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
@@ -137,6 +157,45 @@ SelectorStatus AlltoAllAutoSelector::SelectAicpuAlgo(const TopoInfoWithNetLayerD
     }
     HCCL_INFO("[AlltoAllAutoSelector][%s] Algo match[%s]", __func__, selectAlgName.c_str());
 
+    return SelectorStatus::MATCH;
+}
+
+SelectorStatus AlltoAllAutoSelector::SelectAicpuAlgoClosMesh2D(
+    const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
+    std::string &selectAlgName) const
+{
+    if (topoInfo->topoLevelNums > 1) {
+        if (topoInfo->level0Topo == Level0Shape::MESH_1D || topoInfo->level0Topo == Level0Shape::CLOS ||
+            topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+            selectAlgName = "InsAlltoAllParallelMesh2DClosV2";
+            return SelectorStatus::MATCH;
+        } else {
+            HCCL_ERROR("[AlltoAllAutoSelector][ClosMesh2D] topo not match");
+            return SelectorStatus::NOT_MATCH;
+        }
+    }
+
+    if (topoInfo->level0Topo == Level0Shape::MESH_1D || topoInfo->level0Topo == Level0Shape::CLOS) {
+        selectAlgName = "InsAlltoAllParallelMesh2DClosV2";
+    } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
+        if (topoInfo->level0PcieMix) {
+            selectAlgName = "InsAlltoAllMesh1D";
+        } else {
+            bool isMeshNumEqualToClosNum = false;
+            CHK_PRT_RET(CheckMeshNumEqualToClosNum(topoInfo, isMeshNumEqualToClosNum) != HCCL_SUCCESS,
+                        HCCL_ERROR("[AlltoAllAutoSelector][ClosMesh2D] CheckMeshNumEqualToClosNum failed."),
+                        SelectorStatus::NOT_MATCH);
+            if (isMeshNumEqualToClosNum && topoInfo->userRankSize <= CONCURRENT_RANK_LIMIT) {
+                selectAlgName = "InsAlltoAllParallelMesh2DClosUBXV2";
+            } else {
+                selectAlgName = "InsAlltoAllParallelMesh2DClosV2";
+            }
+        }
+    } else {
+        HCCL_ERROR("[AlltoAllAutoSelector][ClosMesh2D] topo not match");
+        return SelectorStatus::NOT_MATCH;
+    }
+    HCCL_INFO("[AlltoAllAutoSelector][ClosMesh2D] Algo match[%s]", selectAlgName.c_str());
     return SelectorStatus::MATCH;
 }
 
