@@ -91,7 +91,13 @@ HcclResult InsTempAlltoAllMesh2DV2::KernelRun(const OpParam &param, const Templa
                                               TemplateResource &templateResource)
 {
     enableRemoteMemAccess_ = tempAlgParams.enableRemoteMemAccess;
-    HCCL_INFO("[InsTempAlltoAllMesh2DV2][KernelRun] Run start");
+    HCCL_INFO("[InsTempAlltoAllMesh2DV2][KernelRun] Run start. sliceSize=%llu templateRankSize=%u threadNum=%zu "
+              "xRank=%u yRank=%u totalRank=%u inBuffBase=%llu outBuffBase=%llu hcclBase=%llu",
+              tempAlgParams.sliceSize, templateRankSize_, templateResource.threads.size(),
+              xRankSize_, yRankSize_, totalRankSize_,
+              tempAlgParams.buffInfo.inBuffBaseOff,
+              tempAlgParams.buffInfo.outBuffBaseOff,
+              tempAlgParams.buffInfo.hcclBuffBaseOff);
 
     slaveErrs_.clear();
     slaveErrs_.resize(templateResource.threads.size(), HCCL_SUCCESS);
@@ -174,22 +180,9 @@ HcclResult InsTempAlltoAllMesh2DV2::RunAlltoAllMesh(
     const std::vector<ThreadHandle> &threads,
     const std::map<u32, std::vector<ChannelInfo>> &channels)
 {
-    HCCL_INFO("[InsTempAlltoAllMesh2DV2][RunAlltoAllMesh] RankIDs[%d].", myRank_);
-
-    u32 myAlgRank = 0;
-    CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], myAlgRank));
-
-    bool isPcie = IsPcieProtocol(channels);
-    const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
-    u64 totalSliceSize = tempAlgParams_.sliceSize;
-    u64 perPeerChunkSize = (totalSliceSize + templateRankSize_ - 1) / templateRankSize_;
-
-    // v3.0 Fix B: lastPeerSize for ceiling over-shoot
-    u64 lastPeerSize = totalSliceSize - perPeerChunkSize * (templateRankSize_ - 1);
-    if (lastPeerSize <= 0) {
-        lastPeerSize = perPeerChunkSize;
-    }
-    u32 lastPeerIndex = templateRankSize_ - 1;
+    HCCL_INFO("[InsTempAlltoAllMesh2DV2][RunAlltoAllMesh] start. templateRankSize=%u isPcie=%d myAlgRank=%u "
+              "perPeerChunk=%llu totalSlice=%llu lastPeerSize=%llu",
+              templateRankSize_, isPcie, myAlgRank, perPeerChunkSize, totalSliceSize, lastPeerSize);
 
     for (u32 neighborIdx = 0; neighborIdx < subCommRanks_[0].size() - 1; neighborIdx++) {
         u32 connectedRank = subCommRanks_[0][(myAlgRank + 1 + neighborIdx) % subCommRanks_[0].size()];
@@ -266,6 +259,10 @@ HcclResult InsTempAlltoAllMesh2DV2::RunAlltoAllMesh(
         TxRxChannels sendRecvChannels(linkRemote, linkRemote);
         SendRecvInfo sendRecvInfo(sendRecvChannels, sendRecvSlicesList);
 
+        HCCL_INFO("[InsTempAlltoAllMesh2DV2][RunAlltoAllMesh] round[%u] connectedRank=%u connectedAlgRank=%u "
+                  "actualChunkSize=%llu isPcie=%d",
+                  neighborIdx, connectedRank, connectedAlgRank, actualChunkSize, isPcie);
+
         HcclResult dmaResult;
         if (isPcie) {
             dmaResult = SendRecvRead(sendRecvInfo, threads[neighborIdx]);
@@ -298,7 +295,11 @@ HcclResult InsTempAlltoAllMesh2DV2::RunAlltoAllMesh(
 
 HcclResult InsTempAlltoAllMesh2DV2::LocalDataCopy(const std::vector<ThreadHandle> &threads)
 {
-    HCCL_INFO("[InsTempAlltoAllMesh2DV2][LocalDataCopy] Start.");
+    HCCL_INFO("[InsTempAlltoAllMesh2DV2][LocalDataCopy] Start. totalRankSize=%u xRank=%u yRank=%u "
+              "totalSliceSize=%llu chunkPerPeer=%llu",
+              totalRankSize_, xRankSize_, yRankSize_,
+              tempAlgParams_.sliceSize,
+              (tempAlgParams_.sliceSize + totalRankSize_ - 1) / totalRankSize_);
     if (threads.empty()) {
         return HcclResult::HCCL_E_INTERNAL;
     }

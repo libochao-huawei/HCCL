@@ -46,25 +46,13 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
 
     std::vector<std::vector<u32>> intraHierarchyInfo;
     std::vector<std::vector<u32>> interHierarchyInfo;
-    if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
-        intraHierarchyInfo = {algHierarchyInfo.infos[0][0]};
-        std::vector<u32> closRanks;
-        u32 meshSize = algHierarchyInfo.infos[0][0].size();
-        for (auto rank : algHierarchyInfo.infos[0][1]) {
-            if (rank % meshSize == topoInfo->userRank % meshSize) {
-                closRanks.push_back(rank);
-            }
-        }
-        interHierarchyInfo = {closRanks};
-    } else {
-        constexpr u32 TOPO_NUM = 2;
-        CHK_PRT_RET(algHierarchyInfo.infos.size() < TOPO_NUM || algHierarchyInfo.infos[0].empty() ||
-                    algHierarchyInfo.infos[1].empty(),
-                    HCCL_ERROR("[InsV2AlltoAllParallelExecutor][CalcRes] Invalid topoInfo"),
-                    HcclResult::HCCL_E_INTERNAL);
-        intraHierarchyInfo = algHierarchyInfo.infos[0];
-        interHierarchyInfo = algHierarchyInfo.infos[1];
-    }
+    constexpr u32 TOPO_NUM = 2;
+    CHK_PRT_RET(algHierarchyInfo.infos.size() < TOPO_NUM || algHierarchyInfo.infos[0].empty() ||
+                algHierarchyInfo.infos[1].empty(),
+                HCCL_ERROR("[InsV2AlltoAllParallelExecutor][CalcRes] Invalid topoInfo"),
+                HcclResult::HCCL_E_INTERNAL);
+    intraHierarchyInfo = algHierarchyInfo.infos[0];
+    interHierarchyInfo = algHierarchyInfo.infos[1];
 
     InsAlgTemplate0 intraTempAlg(param, topoInfo->userRank, intraHierarchyInfo);
     InsAlgTemplate1 interTempAlg(param, topoInfo->userRank, interHierarchyInfo);
@@ -313,30 +301,33 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     dataTypeSize_ = DATATYPE_SIZE_TABLE[param.DataDes.dataType];
     dataSize_ = dataCount_ * dataTypeSize_;
 
-    if (resCtx.topoInfo.level0Topo == Level0Shape::MESH_1D_CLOS && !resCtx.topoInfo.level0PcieMix) {
-        intraHierarchyInfo_ = {resCtx.algHierarchyInfo.infos[0][0]};
-        std::vector<u32> closRanks;
-        u32 meshSize = resCtx.algHierarchyInfo.infos[0][0].size();
-        for (auto rank : resCtx.algHierarchyInfo.infos[0][1]) {
-            if (rank % meshSize == resCtx.topoInfo.userRank % meshSize) {
-                closRanks.push_back(rank);
-            }
-        }
-        interHierarchyInfo_ = {closRanks};
-    } else {
-        intraHierarchyInfo_ = resCtx.algHierarchyInfo.infos[0];
-        interHierarchyInfo_ = resCtx.algHierarchyInfo.infos[1];
-    }
+    HCCL_INFO("[InsV2AlltoAllParallelExecutor][Orchestrate] myRank=%u dataCount=%llu dataSize=%llu dataTypeSize=%u",
+              myRank_, dataCount_, dataSize_, dataTypeSize_);
+    HCCL_INFO("[InsV2AlltoAllParallelExecutor][Orchestrate] infos.size=%zu infos[0].size=%zu infos[1].size=%zu",
+              resCtx.algHierarchyInfo.infos.size(),
+              resCtx.algHierarchyInfo.infos.empty() ? 0 : resCtx.algHierarchyInfo.infos[0].size(),
+              resCtx.algHierarchyInfo.infos.size() < 2 ? 0 : resCtx.algHierarchyInfo.infos[1].size());
+
+    intraHierarchyInfo_ = resCtx.algHierarchyInfo.infos[0];
+    interHierarchyInfo_ = resCtx.algHierarchyInfo.infos[1];
     rankSizeLevel0_ = GetRankSize(intraHierarchyInfo_);
     rankSizeLevel1_ = GetRankSize(interHierarchyInfo_);
     rankIdxLevel0_ = myRank_ % rankSizeLevel0_;
     rankIdxLevel1_ = myRank_ / rankSizeLevel0_;
+
+    HCCL_INFO("[InsV2AlltoAllParallelExecutor][Orchestrate] hierarchy: intra.size=%zu inter.size=%zu "
+              "rankSize0=%llu rankSize1=%llu rankIdx0=%llu rankIdx1=%llu",
+              intraHierarchyInfo_.size(), interHierarchyInfo_.size(),
+              rankSizeLevel0_, rankSizeLevel1_, rankIdxLevel0_, rankIdxLevel1_);
 
     InsAlgTemplate0 intraTempAlg(param, resCtx.topoInfo.userRank, intraHierarchyInfo_);
     InsAlgTemplate1 interTempAlg(param, resCtx.topoInfo.userRank, interHierarchyInfo_);
 
     intraTempAlg.SetMeshDimensions(rankSizeLevel0_, rankSizeLevel1_, rankIdxLevel0_, rankIdxLevel1_);
     interTempAlg.SetMeshDimensions(rankSizeLevel0_, rankSizeLevel1_, rankIdxLevel0_, rankIdxLevel1_);
+
+    HCCL_INFO("[InsV2AlltoAllParallelExecutor][Orchestrate] intra template=%s inter template=%s",
+              intraTempAlg.Describe().c_str(), interTempAlg.Describe().c_str());
 
     if (param.engine == CommEngine::COMM_ENGINE_AICPU_TS) {
         interTempAlg.SetchannelsPerRank(interLinkMap_);
@@ -402,8 +393,9 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     const OpParam &param, const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &tempAlgIntra,
     InsAlgTemplate1 &tempAlgInter)
 {
-    HCCL_INFO("[InsV2AlltoAllParallelExecutor] AlgTemplate intra server is [%s]", tempAlgIntra.Describe().c_str());
-    HCCL_INFO("[InsV2AlltoAllParallelExecutor] AlgTemplate inter server is [%s]", tempAlgInter.Describe().c_str());
+    HCCL_INFO("[InsV2AlltoAllParallelExecutor][OrchestrateLoop] Entry. maxTmpMem=%llu dataCount=%llu dataSize=%llu "
+              "dataTypeSize=%u",
+              maxTmpMemSize_, dataCount_, dataSize_, dataTypeSize_);
     std::vector<float> splitDataSize;
     GetParallelDataSplit(splitDataSize);
 
@@ -447,6 +439,15 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     maxCountPerLoop = dataCountPerLoopAxis0 + dataCountPerLoopAxis1;
 
     u32 loopTimes = dataCount_ / maxCountPerLoop + ((dataCount_ % maxCountPerLoop == 0) ? 0 : 1);
+
+    HCCL_INFO("[InsV2AlltoAllParallelExecutor][OrchestrateLoop] scratch: intraMulti=%u interMulti=%u total=%u "
+              "scratchBlock=%llu intraOff=%llu interOff=%llu intraSz=%llu interSz=%llu",
+              scratchMultipleIntra, scratchMultipleInter, totalScratchMultiple,
+              scratchMemBlockSize, intraScratchOffset, interScratchOffset,
+              scratchMultipleIntra * scratchMemBlockSize, scratchMultipleInter * scratchMemBlockSize);
+    HCCL_INFO("[InsV2AlltoAllParallelExecutor][OrchestrateLoop] loop: maxCountPerLoop=%llu axis0=%llu axis1=%llu "
+              "loopTimes=%u",
+              maxCountPerLoop, dataCountPerLoopAxis0, dataCountPerLoopAxis1, loopTimes);
 
     TemplateResource interTempAlgRes;
     interTempAlgRes.channels = interLinkMap_;
@@ -530,6 +531,12 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
             currPerPeerChunkSize1 = currCountPart1 * dataTypeSize_;
         }
 
+        HCCL_INFO("[InsV2AlltoAllParallelExecutor][OrchestrateLoop] loop[%u/%u] Stage1 start. "
+                  "currPart0=%llu currPart1=%llu dataOff0=%llu dataOff1=%llu "
+                  "peerChunk0=%llu peerChunk1=%llu",
+                  loopIndex, loopTimes, currCountPart0, currCountPart1,
+                  dataOffset0, dataOffset1, currPerPeerChunkSize0, currPerPeerChunkSize1);
+
         // Stage 1: Intra0 (X-axis mesh) + Inter1 (Y-axis clos)
         // Executed sequentially on the orchestrator's main thread.
         // The templates run their internal sub-thread PreSync/PostSync in parallel,
@@ -571,6 +578,10 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
 
         // Stage 2 PreSync
         CHK_RET(PreSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnTemplates_));
+
+        HCCL_INFO("[InsV2AlltoAllParallelExecutor][OrchestrateLoop] loop[%u/%u] Stage2 start. "
+                  "Intra0 reads INTER scratch, Inter0 reads INTRA scratch.",
+                  loopIndex, loopTimes);
 
         // v2.0 Fix 2: Inter0 reads from INTRA scratch, Intra1 reads from INTER scratch
         GenTemplateAlgParamsInter0(param, resCtx, dataOffset0, currCountPart0, intraScratchOffset,
