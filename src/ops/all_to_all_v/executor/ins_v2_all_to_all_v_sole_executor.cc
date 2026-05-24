@@ -11,7 +11,6 @@
 #include "ins_v2_all_to_all_v_sole_executor.h"
 #include "ins_temp_all_to_all_v_mesh_1D.h"
 #include "ins_temp_dpu_alltoall_mesh.h"
-#include "ins_v2_alltoall_parallel_executor.h"
 #ifndef AICPU_COMPILE
 #include "aiv_temp_all_to_all_mesh_1D.h"
 #include "aiv_temp_all_to_all_v_mesh_1D.h"
@@ -465,20 +464,6 @@ REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLV, InsAlltoAllVClosMesh1DDPU, Ins
 REGISTER_EXEC_V2(HcclCMDType::HCCL_CMD_ALLTOALLVC, InsAlltoAllVCClosMesh1DDPU, InsV2AlltoAllVSoleExecutor,
     TopoMatchUBX1d, InsTempDpuAlltoAllMesh);
 #endif /* !HCCL_CANN_COMPAT_850 */
-
-REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLTOALL,
-    InsAlltoAllParallelMesh2DClosV2_ClosMesh2D,
-    InsV2AlltoAllParallelExecutor,
-    TopoMatchClosMesh2DV2,
-    InsTempAlltoAllMesh2DV2,
-    InsTempAlltoAllMeshClosV2);
-
-REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLTOALL,
-    InsAlltoAllParallelMesh2DClosV2_ClosMesh2DUBX,
-    InsV2AlltoAllParallelExecutor,
-    TopoMatchClosMesh2DUBXV2,
-    InsTempAlltoAllMesh2DV2,
-    InsTempAlltoAllMeshClosV2);
 
 #ifndef AICPU_COMPILE
 #if !defined(HCCL_CANN_COMPAT_850)

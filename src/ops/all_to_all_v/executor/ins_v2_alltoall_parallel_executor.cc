@@ -14,9 +14,9 @@
 #include "ins_temp_alltoall_mesh_2d_v2.h"
 #include "ins_temp_alltoall_mesh_clos_v2.h"
 
-#include "topo_match_multilevel.h"
+#include "topo_match_clos_mesh_2d_v2.h"
+#include "topo_match_clos_mesh_2d_ubx_v2.h"
 #include "topo_match_ubx.h"
-#include "topo_match_pcie_mix.h"
 
 namespace ops_hccl {
 
@@ -723,21 +723,17 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(
     InsTempAlltoAllMesh2DV2,
     InsTempAlltoAllMeshClosV2);
 
-// Multilevel topology (general multi-server)
-REGISTER_EXECUTOR_BY_TWO_TEMPS(
-    HcclCMDType::HCCL_CMD_ALLTOALL,
-    InsAlltoAllParallelMesh2DClosV2_Multilevel,
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLTOALL,
+    InsAlltoAllParallelMesh2DClosV2_ClosMesh2D,
     InsV2AlltoAllParallelExecutor,
-    TopoMatchMultilevel,
+    TopoMatchClosMesh2DV2,
     InsTempAlltoAllMesh2DV2,
     InsTempAlltoAllMeshClosV2);
 
-// PCIe Mixed topology (HCCS + PCIe servers)
-REGISTER_EXECUTOR_BY_TWO_TEMPS(
-    HcclCMDType::HCCL_CMD_ALLTOALL,
-    InsAlltoAllParallelMesh2DClosV2_PcieMix,
+REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLTOALL,
+    InsAlltoAllParallelMesh2DClosV2_ClosMesh2DUBX,
     InsV2AlltoAllParallelExecutor,
-    TopoMatchPcieMix,
+    TopoMatchClosMesh2DUBXV2,
     InsTempAlltoAllMesh2DV2,
     InsTempAlltoAllMeshClosV2);
 
