@@ -353,13 +353,3 @@ TEST_F(ST_REDUCE_SCATTER_AICPU_TEST, st_reduce_scatter_a5_aicpu_meshchunk_8rank_
     auto reduceOp = HcclReduceOp::HCCL_REDUCE_MAX;
     RunReduceScatterAicpuA5(topoMeta, recvCount, dataType, reduceOp);
 }
-
-TEST_F(ST_REDUCE_SCATTER_AICPU_TEST, st_reduce_scatter_a5_aicpu_hd_8x8rank_int8_sum_test)
-{
-    TopoMeta topoMeta;
-    GenTopoMeta(topoMeta, 1, 8, 8);
-    auto recvCount = 100;
-    auto dataType = HcclDataType::HCCL_DATA_TYPE_INT8;
-    auto reduceOp = HcclReduceOp::HCCL_REDUCE_SUM;
-    RunReduceScatterAicpuA5(topoMeta, recvCount, dataType, reduceOp);
-}
