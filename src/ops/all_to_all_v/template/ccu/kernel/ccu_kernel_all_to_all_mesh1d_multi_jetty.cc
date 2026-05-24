@@ -9,7 +9,6 @@
  */
 
 #include "ccu_kernel_all_to_all_mesh1d_multi_jetty.h"
-#include "ccu_kernel_alg_base.h"
 #include "ccu_control_api.h"
 
 namespace ops_hccl {
@@ -155,22 +154,22 @@ static CcuResult DoAllToAll(AllToAllMesh1DMultiJettyContext &ctx)
             continue;
         }
         for (uint32_t jettyIdx = 0; jettyIdx < arg->jettyNums[r]; jettyIdx++) {
-            ctx.eventList[r].mask = 1 << jettyIdx;
+            const uint16_t jettyMask = 1 << jettyIdx;
             if (jettyIdx == (arg->jettyNums[r] - 1)) {
                 CCU_IF(ctx.jettySliceTail[r] != 0) {
-                    CCU_CHK_RET(ccu::WriteNb(arg->channels[channelId], remoteDst[r], remoteSrc[r],
-                                             ctx.jettySliceTail[r], ctx.eventList[r]));
+                    CCU_CHK_RET(ccu::Write(arg->channels[channelId], remoteDst[r], remoteSrc[r],
+                                           ctx.jettySliceTail[r], ctx.eventList[r], jettyMask));
                 }
                 CCU_IF(ctx.jettySliceTail[r] == 0) {
-                    CCU_CHK_RET(ccu::RecordEvent(ctx.eventList[r]));
+                    CCU_CHK_RET(ccu::EventRecord(ctx.eventList[r], jettyMask));
                 }
             } else {
                 CCU_IF(ctx.jettySlice[r] != 0) {
-                    CCU_CHK_RET(ccu::WriteNb(arg->channels[channelId], remoteDst[r], remoteSrc[r],
-                                             ctx.jettySlice[r], ctx.eventList[r]));
+                    CCU_CHK_RET(ccu::Write(arg->channels[channelId], remoteDst[r], remoteSrc[r],
+                                           ctx.jettySlice[r], ctx.eventList[r], jettyMask));
                 }
                 CCU_IF(ctx.jettySlice[r] == 0) {
-                    CCU_CHK_RET(ccu::RecordEvent(ctx.eventList[r]));
+                    CCU_CHK_RET(ccu::EventRecord(ctx.eventList[r], jettyMask));
                 }
             }
             remoteDst[r].addr += ctx.jettySlice[r];
@@ -180,16 +179,11 @@ static CcuResult DoAllToAll(AllToAllMesh1DMultiJettyContext &ctx)
     }
 
     CCU_CHK_RET(GroupCopy(ctx, localDst, localSrc, ctx.goSize));
-    ctx.eventList[arg->rankId].mask = 1;
-    CCU_CHK_RET(ccu::RecordEvent(ctx.eventList[arg->rankId]));
+    CCU_CHK_RET(ccu::EventRecord(ctx.eventList[arg->rankId], 1));
 
     for (uint64_t r = 0; r < arg->rankSize; r++) {
-        if (r == arg->rankId) {
-            ctx.eventList[r].mask = 1;
-        } else {
-            ctx.eventList[r].mask = (1 << arg->jettyNums[r]) - 1;
-        }
-        CCU_CHK_RET(ccu::WaitEvent(ctx.eventList[r]));
+        uint16_t waitMask = (r == arg->rankId) ? 1 : ((1 << arg->jettyNums[r]) - 1);
+        CCU_CHK_RET(ccu::EventWait(ctx.eventList[r], waitMask));
     }
 
     HCCL_INFO("[CcuKernelAllToAllMesh1DMultiJetty] DoAllToAll success!");

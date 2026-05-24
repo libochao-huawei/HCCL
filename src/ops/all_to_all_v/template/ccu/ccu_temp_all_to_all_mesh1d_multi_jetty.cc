@@ -85,8 +85,8 @@ HcclResult CcuTempAllToAllMesh1dMultiJetty::FastLaunch(const OpParam& param, con
     constexpr u32 inputIdx = 0;
     constexpr u32 outputIdx = 1;
     uint64_t argSize = 11 + 2 * templateRankSize_;
-    constexpr u32 inputOffsetIdx = 11;
-    constexpr u32 outputOffsetIdx = 12;
+    uint64_t inputOffsetIdx = 11 + 2 * templateRankSize_;
+    uint64_t outputOffsetIdx = 12 + 2 * templateRankSize_;
     args[inputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + args[inputOffsetIdx];
     args[outputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + args[outputOffsetIdx];
 
@@ -166,17 +166,26 @@ HcclResult CcuTempAllToAllMesh1dMultiJetty::KernelRun(const OpParam& param, cons
 
     CcuKernelSubmitInfo submitInfo;
     submitInfo.kernelHandle = templateResource.ccuKernels[0];
-    CHK_RET(FillCachedArgs(submitInfo, inputAddr, outputAddr, token, sliceSize,
-        srcStride, srcOffset, dstOffset,
-        goSize[0], goSize[1], goSize[2], goSize[3],
-        buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff));
-    uint32_t cachedIdx = 13;
+    uint32_t idx = 0;
+    submitInfo.cachedArgs[idx++] = inputAddr;
+    submitInfo.cachedArgs[idx++] = outputAddr;
+    submitInfo.cachedArgs[idx++] = token;
+    submitInfo.cachedArgs[idx++] = sliceSize;
+    submitInfo.cachedArgs[idx++] = srcStride;
+    submitInfo.cachedArgs[idx++] = srcOffset;
+    submitInfo.cachedArgs[idx++] = dstOffset;
+    submitInfo.cachedArgs[idx++] = goSize[0];
+    submitInfo.cachedArgs[idx++] = goSize[1];
+    submitInfo.cachedArgs[idx++] = goSize[2];
+    submitInfo.cachedArgs[idx++] = goSize[3];
     for (uint32_t i = 0; i < templateRankSize_; i++) {
-        submitInfo.cachedArgs[cachedIdx++] = jettySlice[i];
+        submitInfo.cachedArgs[idx++] = jettySlice[i];
     }
     for (uint32_t i = 0; i < templateRankSize_; i++) {
-        submitInfo.cachedArgs[cachedIdx++] = jettySliceTail[i];
+        submitInfo.cachedArgs[idx++] = jettySliceTail[i];
     }
+    submitInfo.cachedArgs[idx++] = buffInfo_.inBuffBaseOff;
+    submitInfo.cachedArgs[idx++] = buffInfo_.outBuffBaseOff;
     templateResource.submitInfos.push_back(submitInfo);
 
     HCCL_DEBUG("[CcuTempAllToAllMesh1dMultiJetty::KernelRun] end");
