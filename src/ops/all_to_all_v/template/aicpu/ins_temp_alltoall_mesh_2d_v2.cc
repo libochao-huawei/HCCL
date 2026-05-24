@@ -95,9 +95,10 @@ HcclResult InsTempAlltoAllMesh2DV2::KernelRun(const OpParam &param, const Templa
 
     slaveErrs_.clear();
     slaveErrs_.resize(templateResource.threads.size(), HCCL_SUCCESS);
-    failedRanks_.resize(templateRankSize_);
-    for (auto& f : failedRanks_) {
-        f.store(false, std::memory_order_relaxed);
+    failedRanks_.clear();
+    failedRanks_.reserve(templateRankSize_);
+    for (u32 i = 0; i < templateRankSize_; i++) {
+        failedRanks_.emplace_back(false);
     }
 
     // RAII PostSync guard: on ANY exit path (success, error, return),
