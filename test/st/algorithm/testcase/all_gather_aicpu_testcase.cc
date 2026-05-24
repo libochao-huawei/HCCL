@@ -103,6 +103,7 @@ void RunAllGatherAicpuA5(const TopoMeta &topoInfo, const u64 &sendCount, const H
                 HCCL_ERROR("[ST_ALL_GATHER_AICPU_TEST] rank[%u] unknown exception", rankId);
                 hasException.store(true);
             }
+            return HCCL_E_INTERNAL;
         });
     }
 
@@ -168,6 +169,7 @@ void RunAllGatherAicpuA5NoCheck(const TopoMeta &topoInfo, const u64 &sendCount, 
                 HCCL_ERROR("[ST_ALL_GATHER_AICPU_TEST][NoCheck] rank[%u] unknown exception", rankId);
                 hasException.store(true);
             }
+            return HCCL_E_INTERNAL;
         });
     }
 
