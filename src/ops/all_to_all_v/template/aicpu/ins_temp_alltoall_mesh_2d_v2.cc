@@ -180,9 +180,20 @@ HcclResult InsTempAlltoAllMesh2DV2::RunAlltoAllMesh(
     const std::vector<ThreadHandle> &threads,
     const std::map<u32, std::vector<ChannelInfo>> &channels)
 {
+    const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
+    const u64 totalSliceSize = tempAlgParams_.sliceSize;
+    const u64 perPeerChunkSize = (totalSliceSize + templateRankSize_ - 1) / templateRankSize_;
+    u64 lastPeerSize = totalSliceSize - perPeerChunkSize * (templateRankSize_ - 1);
+    if (lastPeerSize <= 0) { lastPeerSize = perPeerChunkSize; }
+    const u64 lastPeerIndex = templateRankSize_ - 1;
+    const bool isPcie = IsPcieProtocol(channels);
+    u32 myAlgRank = 0;
+    CHK_RET(GetAlgRank(myRank_, subCommRanks_[0], myAlgRank));
+
     HCCL_INFO("[InsTempAlltoAllMesh2DV2][RunAlltoAllMesh] start. templateRankSize=%u isPcie=%d myAlgRank=%u "
-              "perPeerChunk=%llu totalSlice=%llu lastPeerSize=%llu",
-              templateRankSize_, isPcie, myAlgRank, perPeerChunkSize, totalSliceSize, lastPeerSize);
+              "perPeerChunk=%llu totalSlice=%llu lastPeerSize=%llu lastPeerIndex=%llu",
+              templateRankSize_, isPcie, myAlgRank, perPeerChunkSize, totalSliceSize,
+              lastPeerSize, lastPeerIndex);
 
     for (u32 neighborIdx = 0; neighborIdx < subCommRanks_[0].size() - 1; neighborIdx++) {
         u32 connectedRank = subCommRanks_[0][(myAlgRank + 1 + neighborIdx) % subCommRanks_[0].size()];
