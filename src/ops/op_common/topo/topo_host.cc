@@ -640,11 +640,13 @@ static HcclResult CalcLevel1Hd(TopoInfoWithNetLayerDetails* topoInfo)
         return HCCL_SUCCESS;
     }
 
-    const u32 closRankSize = closIter->second[0];
-    constexpr u32 HD_LEVEL1_RANK_SIZE = 8;
-    topoInfo->Level1Hd = closRankSize == HD_LEVEL1_RANK_SIZE;
-    HCCL_INFO("[TopoHost][CalcLevel1Hd] level1Idx[%u], closRankSize[%u], Level1Hd[%d]", level1Idx,
-        closRankSize, topoInfo->Level1Hd);
+    const u32 level0LocalRankSize = topoInfo->netLayerDetails.localNetInsSizeOfLayer[0];
+    const u32 level1LocalRankSize = topoInfo->netLayerDetails.localNetInsSizeOfLayer[level1Idx];
+    constexpr u32 HD_LEVEL1_AXIS_SIZE = 8;
+    topoInfo->Level1Hd = level0LocalRankSize > 0 && level1LocalRankSize % level0LocalRankSize == 0 &&
+        level1LocalRankSize / level0LocalRankSize == HD_LEVEL1_AXIS_SIZE;
+    HCCL_INFO("[TopoHost][CalcLevel1Hd] level1Idx[%u], level0LocalRankSize[%u], level1LocalRankSize[%u], "
+        "Level1Hd[%d]", level1Idx, level0LocalRankSize, level1LocalRankSize, topoInfo->Level1Hd);
     return HCCL_SUCCESS;
 }
 
