@@ -110,6 +110,45 @@ void RunAllGatherAicpuA5(const TopoMeta &topoInfo, const u64 &sendCount, const H
     SimWorld::Global()->Deinit();
 }
 
+void RunAllGatherAicpuA5NoCheck(const TopoMeta &topoInfo, const u64 &sendCount, const HcclDataType &dataType)
+{
+    SimWorld::Global()->Init(topoInfo, DevType::DEV_TYPE_950);
+
+    setenv("HCCL_OP_EXPANSION_MODE", "AI_CPU", 1);
+    setenv("HCCL_INDEPENDENT_OP", "1", 1);
+
+    const u32 dataTypeSize = DATATYPE_SIZE_TABLE_ALL_GATHER_ST[dataType];
+    auto rankSize = AnalyseRankSize(topoInfo);
+    std::vector<std::thread> threads;
+    for (auto rankId = 0; rankId < rankSize; ++rankId) {
+        threads.emplace_back([=]() {
+            aclrtSetDevice(rankId);
+
+            aclrtStream stream = nullptr;
+            aclrtCreateStream(&stream);
+
+            HcclComm comm = nullptr;
+            CHK_RET(HcclCommInitClusterInfo("./ranktable.json", rankId, &comm));
+
+            void *sendBuf = nullptr;
+            void *recvBuf = nullptr;
+            u64 sendBufSize = sendCount * dataTypeSize;
+            u64 recvBufSize = sendCount * dataTypeSize * rankSize;
+            aclrtMalloc(&sendBuf, sendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
+            aclrtMalloc(&recvBuf, recvBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
+
+            CHK_RET(HcclAllGather(sendBuf, recvBuf, sendCount, dataType, comm, stream));
+            CHK_RET(HcclCommDestroy(comm));
+            return HCCL_SUCCESS;
+        });
+    }
+
+    for (auto &thread : threads) {
+        thread.join();
+    }
+    SimWorld::Global()->Deinit();
+}
+
 TEST_F(ST_ALL_GATHER_AICPU_TEST, st_all_gather_a5_aicpu_mesh_1d_2rank_int64_small_data_test)
 {
     // 仿真模型初始化
@@ -297,4 +336,13 @@ TEST_F(ST_ALL_GATHER_AICPU_TEST, st_all_gather_a5_aicpu_hd_8rank_int8_small_data
     auto sendCount = 100;
     auto dataType = HcclDataType::HCCL_DATA_TYPE_INT8;
     RunAllGatherAicpuA5(topoMeta, sendCount, dataType);
+}
+
+TEST_F(ST_ALL_GATHER_AICPU_TEST, st_all_gather_a5_aicpu_hd_8rank_int8_small_data_no_check_test)
+{
+    TopoMeta topoMeta;
+    GenTopoMeta(topoMeta, 1, 8, 1);
+    auto sendCount = 100;
+    auto dataType = HcclDataType::HCCL_DATA_TYPE_INT8;
+    RunAllGatherAicpuA5NoCheck(topoMeta, sendCount, dataType);
 }
