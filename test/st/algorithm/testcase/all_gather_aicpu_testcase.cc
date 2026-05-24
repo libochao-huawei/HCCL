@@ -111,8 +111,16 @@ void RunAllGatherAicpuA5(const TopoMeta &topoInfo, const u64 &sendCount, const H
 
     // 结果成图校验
     auto taskQueues = SimTaskQueue::Global()->GetAllRankTaskQueues();
-    HcclResult res = CheckAllGather(taskQueues, rankSize, dataType, sendCount);
-    EXPECT_TRUE(res == HCCL_SUCCESS);
+    try {
+        HcclResult res = CheckAllGather(taskQueues, rankSize, dataType, sendCount);
+        EXPECT_TRUE(res == HCCL_SUCCESS);
+    } catch (const std::exception &e) {
+        HCCL_ERROR("[ST_ALL_GATHER_AICPU_TEST] CheckAllGather exception: %s", e.what());
+        throw;
+    } catch (...) {
+        HCCL_ERROR("[ST_ALL_GATHER_AICPU_TEST] CheckAllGather unknown exception");
+        throw;
+    }
 
     // 资源清理
     SimWorld::Global()->Deinit();
@@ -358,6 +366,14 @@ TEST_F(ST_ALL_GATHER_AICPU_TEST, st_all_gather_a5_aicpu_hd_8rank_int8_small_data
 {
     TopoMeta topoMeta;
     GenTopoMeta(topoMeta, 1, 8, 1);
+    auto sendCount = 100;
+    auto dataType = HcclDataType::HCCL_DATA_TYPE_INT8;
+    RunAllGatherAicpuA5NoCheck(topoMeta, sendCount, dataType);
+}
+
+TEST_F(ST_ALL_GATHER_AICPU_TEST, st_all_gather_a5_aicpu_mesh_1d_8rank_int8_small_data_no_check_test)
+{
+    TopoMeta topoMeta{{{0, 1, 2, 3, 4, 5, 6, 7}}};
     auto sendCount = 100;
     auto dataType = HcclDataType::HCCL_DATA_TYPE_INT8;
     RunAllGatherAicpuA5NoCheck(topoMeta, sendCount, dataType);
