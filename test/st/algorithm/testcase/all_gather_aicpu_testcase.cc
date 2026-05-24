@@ -67,32 +67,40 @@ void RunAllGatherAicpuA5(const TopoMeta &topoInfo, const u64 &sendCount, const H
     std::vector<std::thread> threads;
     for (auto rankId = 0; rankId < rankSize; ++rankId) {
         threads.emplace_back([=]() {
-            // 1.SetDevice
-            aclrtSetDevice(rankId);
+            try {
+                // 1.SetDevice
+                aclrtSetDevice(rankId);
 
-            // 2.创建流
-            aclrtStream stream = nullptr;
-            aclrtCreateStream(&stream);
+                // 2.创建流
+                aclrtStream stream = nullptr;
+                aclrtCreateStream(&stream);
 
-            // 3.初始化通信域
-            HcclComm comm = nullptr;
-            CHK_RET(HcclCommInitClusterInfo("./ranktable.json", rankId, &comm));
+                // 3.初始化通信域
+                HcclComm comm = nullptr;
+                CHK_RET(HcclCommInitClusterInfo("./ranktable.json", rankId, &comm));
 
-            void *sendBuf = nullptr;
-            void *recvBuf = nullptr;
-            u64 sendBufSize = sendCount * dataTypeSize;  // 数据量转化为字节数
-            u64 recvBufSize = sendCount * dataTypeSize * rankSize;
-            // 打桩实现，仿真运行需标记内存是INPUT和OUTPUT
-            aclrtMalloc(&sendBuf, sendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
-            aclrtMalloc(&recvBuf, recvBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
-            HCCL_INFO("[ST_ALL_GATHER_AICPU_TEST]Run HcclAllGather");
+                void *sendBuf = nullptr;
+                void *recvBuf = nullptr;
+                u64 sendBufSize = sendCount * dataTypeSize;  // 数据量转化为字节数
+                u64 recvBufSize = sendCount * dataTypeSize * rankSize;
+                // 打桩实现，仿真运行需标记内存是INPUT和OUTPUT
+                aclrtMalloc(&sendBuf, sendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
+                aclrtMalloc(&recvBuf, recvBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
+                HCCL_INFO("[ST_ALL_GATHER_AICPU_TEST]Run HcclAllGather");
 
-            // 4.算子下发
-            CHK_RET(HcclAllGather(sendBuf, recvBuf, sendCount, dataType, comm, stream));
+                // 4.算子下发
+                CHK_RET(HcclAllGather(sendBuf, recvBuf, sendCount, dataType, comm, stream));
 
-            // 5.销毁通信域
-            CHK_RET(HcclCommDestroy(comm));
-            return HCCL_SUCCESS;
+                // 5.销毁通信域
+                CHK_RET(HcclCommDestroy(comm));
+                return HCCL_SUCCESS;
+            } catch (const std::exception &e) {
+                HCCL_ERROR("[ST_ALL_GATHER_AICPU_TEST] rank[%u] exception: %s", rankId, e.what());
+                throw;
+            } catch (...) {
+                HCCL_ERROR("[ST_ALL_GATHER_AICPU_TEST] rank[%u] unknown exception", rankId);
+                throw;
+            }
         });
     }
 
@@ -122,24 +130,32 @@ void RunAllGatherAicpuA5NoCheck(const TopoMeta &topoInfo, const u64 &sendCount, 
     std::vector<std::thread> threads;
     for (auto rankId = 0; rankId < rankSize; ++rankId) {
         threads.emplace_back([=]() {
-            aclrtSetDevice(rankId);
+            try {
+                aclrtSetDevice(rankId);
 
-            aclrtStream stream = nullptr;
-            aclrtCreateStream(&stream);
+                aclrtStream stream = nullptr;
+                aclrtCreateStream(&stream);
 
-            HcclComm comm = nullptr;
-            CHK_RET(HcclCommInitClusterInfo("./ranktable.json", rankId, &comm));
+                HcclComm comm = nullptr;
+                CHK_RET(HcclCommInitClusterInfo("./ranktable.json", rankId, &comm));
 
-            void *sendBuf = nullptr;
-            void *recvBuf = nullptr;
-            u64 sendBufSize = sendCount * dataTypeSize;
-            u64 recvBufSize = sendCount * dataTypeSize * rankSize;
-            aclrtMalloc(&sendBuf, sendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
-            aclrtMalloc(&recvBuf, recvBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
+                void *sendBuf = nullptr;
+                void *recvBuf = nullptr;
+                u64 sendBufSize = sendCount * dataTypeSize;
+                u64 recvBufSize = sendCount * dataTypeSize * rankSize;
+                aclrtMalloc(&sendBuf, sendBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_INPUT_MARK));
+                aclrtMalloc(&recvBuf, recvBufSize, static_cast<aclrtMemMallocPolicy>(BUFFER_OUTPUT_MARK));
 
-            CHK_RET(HcclAllGather(sendBuf, recvBuf, sendCount, dataType, comm, stream));
-            CHK_RET(HcclCommDestroy(comm));
-            return HCCL_SUCCESS;
+                CHK_RET(HcclAllGather(sendBuf, recvBuf, sendCount, dataType, comm, stream));
+                CHK_RET(HcclCommDestroy(comm));
+                return HCCL_SUCCESS;
+            } catch (const std::exception &e) {
+                HCCL_ERROR("[ST_ALL_GATHER_AICPU_TEST][NoCheck] rank[%u] exception: %s", rankId, e.what());
+                throw;
+            } catch (...) {
+                HCCL_ERROR("[ST_ALL_GATHER_AICPU_TEST][NoCheck] rank[%u] unknown exception", rankId);
+                throw;
+            }
         });
     }
 
