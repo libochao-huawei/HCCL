@@ -15,6 +15,7 @@
 #include "acl/acl_rt.h"
 #include "hccl_verifier.h"
 #include "check_utils.h"
+#include <atomic>
 #include <thread>
 #include "alg_env_config.h"
 
@@ -64,9 +65,10 @@ void RunAllGatherAicpuA5(const TopoMeta &topoInfo, const u64 &sendCount, const H
     auto rankSize = AnalyseRankSize(topoInfo);
     // 算子执行参数设置
     // 多线程运行SCATTER算子
+    std::atomic<bool> hasException{false};
     std::vector<std::thread> threads;
     for (auto rankId = 0; rankId < rankSize; ++rankId) {
-        threads.emplace_back([=]() {
+        threads.emplace_back([&, rankId]() {
             try {
                 // 1.SetDevice
                 aclrtSetDevice(rankId);
@@ -96,10 +98,10 @@ void RunAllGatherAicpuA5(const TopoMeta &topoInfo, const u64 &sendCount, const H
                 return HCCL_SUCCESS;
             } catch (const std::exception &e) {
                 HCCL_ERROR("[ST_ALL_GATHER_AICPU_TEST] rank[%u] exception: %s", rankId, e.what());
-                throw;
+                hasException.store(true);
             } catch (...) {
                 HCCL_ERROR("[ST_ALL_GATHER_AICPU_TEST] rank[%u] unknown exception", rankId);
-                throw;
+                hasException.store(true);
             }
         });
     }
@@ -108,6 +110,7 @@ void RunAllGatherAicpuA5(const TopoMeta &topoInfo, const u64 &sendCount, const H
     for (auto &thread : threads) {
         thread.join();
     }
+    EXPECT_FALSE(hasException.load());
 
     // 结果成图校验
     auto taskQueues = SimTaskQueue::Global()->GetAllRankTaskQueues();
@@ -135,9 +138,10 @@ void RunAllGatherAicpuA5NoCheck(const TopoMeta &topoInfo, const u64 &sendCount, 
 
     const u32 dataTypeSize = DATATYPE_SIZE_TABLE_ALL_GATHER_ST[dataType];
     auto rankSize = AnalyseRankSize(topoInfo);
+    std::atomic<bool> hasException{false};
     std::vector<std::thread> threads;
     for (auto rankId = 0; rankId < rankSize; ++rankId) {
-        threads.emplace_back([=]() {
+        threads.emplace_back([&, rankId]() {
             try {
                 aclrtSetDevice(rankId);
 
@@ -159,10 +163,10 @@ void RunAllGatherAicpuA5NoCheck(const TopoMeta &topoInfo, const u64 &sendCount, 
                 return HCCL_SUCCESS;
             } catch (const std::exception &e) {
                 HCCL_ERROR("[ST_ALL_GATHER_AICPU_TEST][NoCheck] rank[%u] exception: %s", rankId, e.what());
-                throw;
+                hasException.store(true);
             } catch (...) {
                 HCCL_ERROR("[ST_ALL_GATHER_AICPU_TEST][NoCheck] rank[%u] unknown exception", rankId);
-                throw;
+                hasException.store(true);
             }
         });
     }
@@ -170,6 +174,7 @@ void RunAllGatherAicpuA5NoCheck(const TopoMeta &topoInfo, const u64 &sendCount, 
     for (auto &thread : threads) {
         thread.join();
     }
+    EXPECT_FALSE(hasException.load());
     SimWorld::Global()->Deinit();
 }
 
