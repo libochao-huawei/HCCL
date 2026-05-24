@@ -46,7 +46,8 @@ protected:
     HcclResult OrchestrateLoop(const OpParam &param,
                                 const AlgResourceCtxSerializable &resCtx,
                                 InsAlgTemplate0 &tempAlgIntra,
-                                InsAlgTemplate1 &tempAlgInter);
+                                InsAlgTemplate1 &tempAlgInter,
+                                bool hasInterComm);
 
     void GenTemplateAlgParamsIntra0(const OpParam &param,
                                      const AlgResourceCtxSerializable &resCtx,

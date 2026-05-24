@@ -51,17 +51,49 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
                 algHierarchyInfo.infos[1].empty(),
                 HCCL_ERROR("[InsV2AlltoAllParallelExecutor][CalcRes] Invalid topoInfo"),
                 HcclResult::HCCL_E_INTERNAL);
-    intraHierarchyInfo = algHierarchyInfo.infos[0];
-    interHierarchyInfo = algHierarchyInfo.infos[1];
+
+    // ClosMesh2D topology: infos[0] has 2+ groups (one per pod). Extract first group
+    // as intra, and filtered same-slot ranks from second group as inter.
+    // UBX/other: infos[0] has 1 group → use infos[0]/infos[1] directly.
+    if (algHierarchyInfo.infos[0].size() >= 2) {
+        intraHierarchyInfo = {algHierarchyInfo.infos[0][0]};
+        std::vector<u32> closRanks;
+        u32 meshSize = algHierarchyInfo.infos[0][0].size();
+        for (auto rank : algHierarchyInfo.infos[0][1]) {
+            if (rank % meshSize == topoInfo->userRank % meshSize) {
+                closRanks.push_back(rank);
+            }
+        }
+        closRanks.insert(closRanks.begin(), topoInfo->userRank);  // self first
+        interHierarchyInfo = {closRanks};
+        HCCL_INFO("[CalcRes] ClosMesh2D path: userRank=%u meshSize=%u intra[0]=%zu closRanks=%zu",
+                  topoInfo->userRank, meshSize, intraHierarchyInfo[0].size(), closRanks.size());
+    } else {
+        intraHierarchyInfo = algHierarchyInfo.infos[0];
+        interHierarchyInfo = algHierarchyInfo.infos[1];
+        HCCL_INFO("[CalcRes] Direct path: infos[0].size=%zu infos[1].size=%zu",
+                  algHierarchyInfo.infos[0].size(), algHierarchyInfo.infos[1].size());
+    }
 
     InsAlgTemplate0 intraTempAlg(param, topoInfo->userRank, intraHierarchyInfo);
     InsAlgTemplate1 interTempAlg(param, topoInfo->userRank, interHierarchyInfo);
+    HCCL_INFO("[CalcRes] intra=%s inter=%s",
+              intraTempAlg.Describe().c_str(), interTempAlg.Describe().c_str());
 
     // v2.0 Fix 4: separate local requests; merge only if both succeed
     AlgResourceRequest intraTempRequest;
     AlgResourceRequest interTempRequest;
     CHK_RET(intraTempAlg.CalcRes(comm, param, topoInfo, intraTempRequest));
     CHK_RET(interTempAlg.CalcRes(comm, param, topoInfo, interTempRequest));
+
+    HCCL_INFO("[CalcRes] intra: channels[0]=%zu slaveThreads=%u notifyMain=%u notifyVec=%zu",
+              intraTempRequest.channels.empty() ? 0 : intraTempRequest.channels[0].size(),
+              intraTempRequest.slaveThreadNum, intraTempRequest.notifyNumOnMainThread,
+              intraTempRequest.notifyNumPerThread.size());
+    HCCL_INFO("[CalcRes] inter: channels[0]=%zu slaveThreads=%u notifyMain=%u notifyVec=%zu",
+              interTempRequest.channels.empty() ? 0 : interTempRequest.channels[0].size(),
+              interTempRequest.slaveThreadNum, interTempRequest.notifyNumOnMainThread,
+              interTempRequest.notifyNumPerThread.size());
 
     constexpr u32 SUB_MAIN_THREAD_NUM = 2;
     resourceRequest.notifyNumOnMainThread = SUB_MAIN_THREAD_NUM;
@@ -109,12 +141,12 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
         resourceRequest.ccuKernelNum.emplace_back(interTempRequest.ccuKernelNum[0]);
     }
 
-    HCCL_DEBUG("[InsV2AlltoAllParallelExecutor][CalcRes] myRank[%u], notifyNumOnMainThread[%u], slaveThreadNum[%u], "
+    HCCL_INFO("[InsV2AlltoAllParallelExecutor][CalcRes] myRank[%u], notifyNumOnMainThread[%u], slaveThreadNum[%u], "
                "channels[%u]",
                myRank_, resourceRequest.notifyNumOnMainThread, resourceRequest.slaveThreadNum,
                resourceRequest.channels.size());
     for (auto i = 0; i < resourceRequest.notifyNumPerThread.size(); i++) {
-        HCCL_DEBUG("[InsV2AlltoAllParallelExecutor][CalcRes] myRank[%u], notifyNumPerThread[%u]=[%u]", myRank_, i,
+        HCCL_INFO("[InsV2AlltoAllParallelExecutor][CalcRes] myRank[%u], notifyNumPerThread[%u]=[%u]", myRank_, i,
                    resourceRequest.notifyNumPerThread[i]);
     }
 
@@ -151,7 +183,7 @@ void InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate
     tempAlgParamsIntra0.outputRepeatStride = 0;
     tempAlgParamsIntra0.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
 
-    HCCL_DEBUG(
+    HCCL_INFO(
         "[InsV2AlltoAllParallelExecutor][GenTemplateAlgParamsIntra0] rank[%d] inBuffBaseOff[%llu] "
         "outBuffBaseOff[%llu] scratchBuffBaseOff[%llu] sliceSize[%llu] "
         "rankSizeLevel0[%u] rankSizeLevel1[%u] rankIdxLevel0[%u] rankIdxLevel1[%u]",
@@ -191,7 +223,7 @@ void InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate
     tempAlgParamsInter1.outputRepeatStride = 0;
     tempAlgParamsInter1.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
 
-    HCCL_DEBUG("[InsV2AlltoAllParallelExecutor][GenTemplateAlgParamsInter1] rank[%u] inBuffBaseOff[%llu] "
+    HCCL_INFO("[InsV2AlltoAllParallelExecutor][GenTemplateAlgParamsInter1] rank[%u] inBuffBaseOff[%llu] "
                "outBuffBaseOff[%llu] scratchBuffBaseOff[%llu] sliceSize[%llu]",
                myRank_, tempAlgParamsInter1.buffInfo.inBuffBaseOff, tempAlgParamsInter1.buffInfo.outBuffBaseOff,
                tempAlgParamsInter1.buffInfo.hcclBuffBaseOff, tempAlgParamsInter1.sliceSize);
@@ -228,7 +260,7 @@ void InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate
     tempAlgParamsInter0.outputRepeatStride = 0;
     tempAlgParamsInter0.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
 
-    HCCL_DEBUG("[InsV2AlltoAllParallelExecutor][GenTemplateAlgParamsInter0] rank[%u] inBuffBaseOff[%llu] "
+    HCCL_INFO("[InsV2AlltoAllParallelExecutor][GenTemplateAlgParamsInter0] rank[%u] inBuffBaseOff[%llu] "
                "outBuffBaseOff[%llu] scratchBuffBaseOff[%llu] sliceSize[%llu]",
                myRank_, tempAlgParamsInter0.buffInfo.inBuffBaseOff, tempAlgParamsInter0.buffInfo.outBuffBaseOff,
                tempAlgParamsInter0.buffInfo.hcclBuffBaseOff, tempAlgParamsInter0.sliceSize);
@@ -259,7 +291,7 @@ void InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate
     tempAlgParamsIntra1.outputRepeatStride = 0;
     tempAlgParamsIntra1.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
 
-    HCCL_DEBUG("[InsV2AlltoAllParallelExecutor][GenTemplateAlgParamsIntra1] rank[%u] inBuffBaseOff[%llu] "
+    HCCL_INFO("[InsV2AlltoAllParallelExecutor][GenTemplateAlgParamsIntra1] rank[%u] inBuffBaseOff[%llu] "
                "outBuffBaseOff[%llu] scratchBuffBaseOff[%llu] sliceSize[%llu]",
                myRank_, tempAlgParamsIntra1.buffInfo.inBuffBaseOff, tempAlgParamsIntra1.buffInfo.outBuffBaseOff,
                tempAlgParamsIntra1.buffInfo.hcclBuffBaseOff, tempAlgParamsIntra1.sliceSize);
@@ -289,9 +321,15 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     if (param.engine != CommEngine::COMM_ENGINE_AIV && param.engine != CommEngine::COMM_ENGINE_CCU) {
         CHK_RET(RestoreChannelMap(resCtx, remoteRankToChannelInfo_));
         intraLinkMap_ = remoteRankToChannelInfo_[0];
-        interLinkMap_ = remoteRankToChannelInfo_[1];
+        if (remoteRankToChannelInfo_.size() >= 2) {
+            interLinkMap_ = remoteRankToChannelInfo_[1];
+        }
 
-        HCCL_INFO("[Orchestrate] interLinkMap_ size=%zu", interLinkMap_.size());
+        HCCL_INFO("[Orchestrate] intraLinkMap_ size=%zu interLinkMap_ size=%zu",
+                  intraLinkMap_.size(), interLinkMap_.size());
+        for (auto &kv : intraLinkMap_) {
+            HCCL_INFO("[Orchestrate] intraLinkMap_ rank=%u channels=%zu", kv.first, kv.second.size());
+        }
         for (auto &kv : interLinkMap_) {
             HCCL_INFO("[Orchestrate] interLinkMap_ rank=%u channels=%zu", kv.first, kv.second.size());
         }
@@ -308,8 +346,24 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
               resCtx.algHierarchyInfo.infos.empty() ? 0 : resCtx.algHierarchyInfo.infos[0].size(),
               resCtx.algHierarchyInfo.infos.size() < 2 ? 0 : resCtx.algHierarchyInfo.infos[1].size());
 
-    intraHierarchyInfo_ = resCtx.algHierarchyInfo.infos[0];
-    interHierarchyInfo_ = resCtx.algHierarchyInfo.infos[1];
+    // ClosMesh2D: infos[0] has 2+ groups (one per pod). UBX: 1 group.
+    if (resCtx.algHierarchyInfo.infos[0].size() >= 2) {
+        intraHierarchyInfo_ = {resCtx.algHierarchyInfo.infos[0][0]};
+        std::vector<u32> closRanks;
+        u32 meshSize = resCtx.algHierarchyInfo.infos[0][0].size();
+        for (auto rank : resCtx.algHierarchyInfo.infos[0][1]) {
+            if (rank % meshSize == resCtx.topoInfo.userRank % meshSize) {
+                closRanks.push_back(rank);
+            }
+        }
+        closRanks.insert(closRanks.begin(), resCtx.topoInfo.userRank);  // self first
+        interHierarchyInfo_ = {closRanks};
+        HCCL_INFO("[Orchestrate] ClosMesh2D path: intra[%zu] inter[%zu]",
+                  intraHierarchyInfo_[0].size(), interHierarchyInfo_[0].size());
+    } else {
+        intraHierarchyInfo_ = resCtx.algHierarchyInfo.infos[0];
+        interHierarchyInfo_ = resCtx.algHierarchyInfo.infos[1];
+    }
     rankSizeLevel0_ = GetRankSize(intraHierarchyInfo_);
     rankSizeLevel1_ = GetRankSize(interHierarchyInfo_);
     rankIdxLevel0_ = myRank_ % rankSizeLevel0_;
@@ -322,9 +376,13 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
 
     InsAlgTemplate0 intraTempAlg(param, resCtx.topoInfo.userRank, intraHierarchyInfo_);
     InsAlgTemplate1 interTempAlg(param, resCtx.topoInfo.userRank, interHierarchyInfo_);
+    HCCL_INFO("[Orchestrate] templates: intra=%s inter=%s",
+              intraTempAlg.Describe().c_str(), interTempAlg.Describe().c_str());
 
     intraTempAlg.SetMeshDimensions(rankSizeLevel0_, rankSizeLevel1_, rankIdxLevel0_, rankIdxLevel1_);
     interTempAlg.SetMeshDimensions(rankSizeLevel0_, rankSizeLevel1_, rankIdxLevel0_, rankIdxLevel1_);
+    HCCL_INFO("[Orchestrate] SetMeshDimensions: rankSize0=%llu rankSize1=%llu rankIdx0=%llu rankIdx1=%llu",
+              rankSizeLevel0_, rankSizeLevel1_, rankIdxLevel0_, rankIdxLevel1_);
 
     HCCL_INFO("[InsV2AlltoAllParallelExecutor][Orchestrate] intra template=%s inter template=%s",
               intraTempAlg.Describe().c_str(), interTempAlg.Describe().c_str());
@@ -333,9 +391,12 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
         interTempAlg.SetchannelsPerRank(interLinkMap_);
     }
 
+    bool hasInterComm = !interLinkMap_.empty();
+    HCCL_INFO("[InsV2AlltoAllParallelExecutor][Orchestrate] hasInterComm=%d", hasInterComm);
+
     PrepareResForTemplate(intraTempAlg, interTempAlg);
 
-    HcclResult ret = OrchestrateLoop(param, resCtx, intraTempAlg, interTempAlg);
+    HcclResult ret = OrchestrateLoop(param, resCtx, intraTempAlg, interTempAlg, hasInterComm);
     CHK_PRT_RET(
         ret != HCCL_SUCCESS,
         HCCL_ERROR("[InsV2AlltoAllParallelExecutor][Orchestrate]errNo[0x%016llx] AlltoAll executor kernel run failed",
@@ -391,13 +452,21 @@ void InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate
 template <typename AlgTopoMatch, typename InsAlgTemplate0, typename InsAlgTemplate1>
 HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate1>::OrchestrateLoop(
     const OpParam &param, const AlgResourceCtxSerializable &resCtx, InsAlgTemplate0 &tempAlgIntra,
-    InsAlgTemplate1 &tempAlgInter)
+    InsAlgTemplate1 &tempAlgInter, bool hasInterComm)
 {
     HCCL_INFO("[InsV2AlltoAllParallelExecutor][OrchestrateLoop] Entry. maxTmpMem=%llu dataCount=%llu dataSize=%llu "
-              "dataTypeSize=%u",
-              maxTmpMemSize_, dataCount_, dataSize_, dataTypeSize_);
+              "dataTypeSize=%u hasInterComm=%d",
+              maxTmpMemSize_, dataCount_, dataSize_, dataTypeSize_, hasInterComm);
     std::vector<float> splitDataSize;
     GetParallelDataSplit(splitDataSize);
+
+    // Fix 3: single-pod degenerate — if no inter links, route all data through intra
+    if (!hasInterComm) {
+        splitDataSize.clear();
+        splitDataSize.push_back(1.0f);
+        splitDataSize.push_back(0.0f);
+        HCCL_INFO("[InsV2AlltoAllParallelExecutor][OrchestrateLoop] no inter links, forcing split=[1.0,0.0]");
+    }
 
     u32 intraScratchMultipleStage0 = tempAlgIntra.CalcScratchMultiple(BufferType::INPUT, BufferType::OUTPUT);
     u32 interScratchMultipleStage0 = tempAlgInter.CalcScratchMultiple(BufferType::INPUT, BufferType::OUTPUT);
@@ -544,11 +613,23 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
         // Future optimization: thread-pool dispatch for true intra-template parallelism.
         GenTemplateAlgParamsIntra0(param, resCtx, dataOffset0, currCountPart0, intraScratchOffset,
                                    tempAlgParamsIntra0);
+        HCCL_INFO("[OrchestrateLoop] Stage1-Intra0: sliceSize=%llu count=%llu dataOffset=%llu scratchOff=%llu",
+                  tempAlgParamsIntra0.sliceSize, tempAlgParamsIntra0.count,
+                  tempAlgParamsIntra0.buffInfo.inBuffBaseOff, tempAlgParamsIntra0.buffInfo.hcclBuffBaseOff);
         HcclResult intra0Ret = tempAlgIntra.KernelRun(param, tempAlgParamsIntra0, intraTempAlgRes);
+        HCCL_INFO("[OrchestrateLoop] Stage1-Intra0: ret=0x%x", intra0Ret);
 
-        GenTemplateAlgParamsInter1(param, resCtx, dataOffset1, currCountPart1, interScratchOffset,
-                                   tempAlgParamsInter1);
-        HcclResult inter1Ret = tempAlgInter.KernelRun(param, tempAlgParamsInter1, interTempAlgRes);
+        HcclResult inter1Ret = HCCL_SUCCESS;
+        if (hasInterComm && currCountPart1 > 0) {
+            GenTemplateAlgParamsInter1(param, resCtx, dataOffset1, currCountPart1, interScratchOffset,
+                                       tempAlgParamsInter1);
+            HCCL_INFO("[OrchestrateLoop] Stage1-Inter1: sliceSize=%llu count=%llu dataOffset=%llu scratchOff=%llu hasInterComm=%d",
+                      tempAlgParamsInter1.sliceSize, tempAlgParamsInter1.count,
+                      tempAlgParamsInter1.buffInfo.inBuffBaseOff, tempAlgParamsInter1.buffInfo.hcclBuffBaseOff,
+                      hasInterComm);
+            inter1Ret = tempAlgInter.KernelRun(param, tempAlgParamsInter1, interTempAlgRes);
+            HCCL_INFO("[OrchestrateLoop] Stage1-Inter1: ret=0x%x", inter1Ret);
+        }
 
         // Stage 1 PostSync — MUST always execute, even on template errors.
         // The RAII guard in KernelRun guarantees template main threads signal notify,
@@ -584,13 +665,24 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
                   loopIndex, loopTimes);
 
         // v2.0 Fix 2: Inter0 reads from INTRA scratch, Intra1 reads from INTER scratch
-        GenTemplateAlgParamsInter0(param, resCtx, dataOffset0, currCountPart0, intraScratchOffset,
-                                   tempAlgParamsInter0);
-        HcclResult inter0Ret = tempAlgInter.KernelRun(param, tempAlgParamsInter0, interTempAlgRes);
-
         GenTemplateAlgParamsIntra1(param, resCtx, dataOffset1, currCountPart1, interScratchOffset,
                                    tempAlgParamsIntra1);
+        HCCL_INFO("[OrchestrateLoop] Stage2-Intra1: sliceSize=%llu count=%llu scratchOff=%llu",
+                  tempAlgParamsIntra1.sliceSize, tempAlgParamsIntra1.count,
+                  tempAlgParamsIntra1.buffInfo.inBuffBaseOff);
         HcclResult intra1Ret = tempAlgIntra.KernelRun(param, tempAlgParamsIntra1, intraTempAlgRes);
+        HCCL_INFO("[OrchestrateLoop] Stage2-Intra1: ret=0x%x", intra1Ret);
+
+        HcclResult inter0Ret = HCCL_SUCCESS;
+        if (hasInterComm && currCountPart0 > 0) {
+            GenTemplateAlgParamsInter0(param, resCtx, dataOffset0, currCountPart0, intraScratchOffset,
+                                       tempAlgParamsInter0);
+            HCCL_INFO("[OrchestrateLoop] Stage2-Inter0: sliceSize=%llu count=%llu scratchOff=%llu hasInterComm=%d",
+                      tempAlgParamsInter0.sliceSize, tempAlgParamsInter0.count,
+                      tempAlgParamsInter0.buffInfo.inBuffBaseOff, hasInterComm);
+            inter0Ret = tempAlgInter.KernelRun(param, tempAlgParamsInter0, interTempAlgRes);
+            HCCL_INFO("[OrchestrateLoop] Stage2-Inter0: ret=0x%x", inter0Ret);
+        }
 
         // Stage 2 PostSync — MUST always execute, even on template errors
         HcclResult syncRet2 = PostSyncInterThreads(mainThread_, templateMainThreads_, syncNotifyOnMain_);
