@@ -77,7 +77,7 @@ HcclResult InsTempAlltoAllMeshClosV2::RunAlltoAllMesh(
         CHK_RET(RunAlltoAllOnLink(threads, channels, linkIdx));
     }
     for (u32 i = 0; i < failedRanks_.size(); i++) {
-        if (failedRanks_[i].load(std::memory_order_acquire)) {
+        if (failedRanks_[i]) {
             return HcclResult::HCCL_E_INTERNAL;
         }
     }
@@ -114,7 +114,7 @@ HcclResult InsTempAlltoAllMeshClosV2::RunAlltoAllOnLink(
         u32 connectedAlgRank = 0;
         CHK_RET(GetAlgRank(connectedRank, subCommRanks_[0], connectedAlgRank));
 
-        if (failedRanks_[connectedAlgRank].load(std::memory_order_acquire)) {
+        if (failedRanks_[connectedAlgRank]) {
             continue;
         }
 
@@ -195,7 +195,7 @@ HcclResult InsTempAlltoAllMeshClosV2::RunAlltoAllOnLink(
         }
 
         if (dmaResult == HcclResult::HCCL_E_INTERNAL) {
-            failedRanks_[connectedAlgRank].store(true, std::memory_order_release);
+            failedRanks_[connectedAlgRank] = 1;
             HCCL_WARNING("[InsTempAlltoAllMeshClosV2] linkIdx[%u] peer %u timed out.", linkIdx, connectedRank);
             continue;
         }

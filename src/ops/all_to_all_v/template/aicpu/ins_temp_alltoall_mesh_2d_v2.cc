@@ -95,11 +95,7 @@ HcclResult InsTempAlltoAllMesh2DV2::KernelRun(const OpParam &param, const Templa
 
     slaveErrs_.clear();
     slaveErrs_.resize(templateResource.threads.size(), HCCL_SUCCESS);
-    failedRanks_.clear();
-    failedRanks_.reserve(templateRankSize_);
-    for (u32 i = 0; i < templateRankSize_; i++) {
-        failedRanks_.emplace_back(false);
-    }
+    failedRanks_.assign(templateRankSize_, 0);
 
     // RAII PostSync guard: on ANY exit path (success, error, return),
     // this ensures PostSyncInterThreads is signaled to sub-threads
@@ -200,7 +196,7 @@ HcclResult InsTempAlltoAllMesh2DV2::RunAlltoAllMesh(
         u32 connectedAlgRank = 0;
         CHK_RET(GetAlgRank(connectedRank, subCommRanks_[0], connectedAlgRank));
 
-        if (failedRanks_[connectedAlgRank].load(std::memory_order_acquire)) {
+        if (failedRanks_[connectedAlgRank]) {
             HCCL_INFO("[InsTempAlltoAllMesh2DV2][RunAlltoAllMesh] peer[%u] algRank[%u] already failed, skip.",
                       connectedRank, connectedAlgRank);
             continue;
@@ -278,7 +274,7 @@ HcclResult InsTempAlltoAllMesh2DV2::RunAlltoAllMesh(
         }
 
         if (dmaResult == HcclResult::HCCL_E_INTERNAL) {
-            failedRanks_[connectedAlgRank].store(true, std::memory_order_release);
+            failedRanks_[connectedAlgRank] = 1;
             HCCL_WARNING("[InsTempAlltoAllMesh2DV2] Ring round %d: peer %u timed out, skipping.",
                          neighborIdx, connectedRank);
             continue;
@@ -292,7 +288,7 @@ HcclResult InsTempAlltoAllMesh2DV2::RunAlltoAllMesh(
     }
 
     for (u32 i = 0; i < failedRanks_.size(); i++) {
-        if (failedRanks_[i].load(std::memory_order_acquire)) {
+        if (failedRanks_[i]) {
             return HcclResult::HCCL_E_INTERNAL;
         }
     }

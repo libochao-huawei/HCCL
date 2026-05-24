@@ -11,8 +11,6 @@
 #ifndef INS_TEMP_ALLTOALL_MESH_2D_V2_H
 #define INS_TEMP_ALLTOALL_MESH_2D_V2_H
 
-#include <atomic>
-
 #include "alg_v2_template_base.h"
 #include "executor_base.h"
 
@@ -70,8 +68,10 @@ protected:
     u32 myYRank_{0};       // rank's row index
     TemplateDataParams tempAlgParams_;
 
-    // v3.0 Fix C: atomic peer bitmap for multi-link safety
-    std::vector<std::atomic<bool>> failedRanks_;
+    // peer failure bitmap (0=ok, 1=failed). uint8_t: non-copyable std::atomic
+    // incompatible with std::vector assign/resize. Per-index single-writer
+    // safety from disjoint hash subsets in ClosV2 multi-link ring.
+    std::vector<uint8_t> failedRanks_;
 
 public:
     // Public setter for 2D grid dimensions set by the parallel executor.
