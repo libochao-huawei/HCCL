@@ -335,18 +335,8 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     InsAlgTemplate0 intraTempAlg(param, resCtx.topoInfo.userRank, intraHierarchyInfo_);
     InsAlgTemplate1 interTempAlg(param, resCtx.topoInfo.userRank, interHierarchyInfo_);
 
-    // Set 2D grid dimensions on templates
-    intraTempAlg.xRankSize_ = rankSizeLevel0_;
-    intraTempAlg.yRankSize_ = rankSizeLevel1_;
-    intraTempAlg.totalRankSize_ = rankSizeLevel0_ * rankSizeLevel1_;
-    intraTempAlg.myXRank_ = rankIdxLevel0_;
-    intraTempAlg.myYRank_ = rankIdxLevel1_;
-
-    interTempAlg.xRankSize_ = rankSizeLevel0_;
-    interTempAlg.yRankSize_ = rankSizeLevel1_;
-    interTempAlg.totalRankSize_ = rankSizeLevel0_ * rankSizeLevel1_;
-    interTempAlg.myXRank_ = rankIdxLevel0_;
-    interTempAlg.myYRank_ = rankIdxLevel1_;
+    intraTempAlg.SetMeshDimensions(rankSizeLevel0_, rankSizeLevel1_, rankIdxLevel0_, rankIdxLevel1_);
+    interTempAlg.SetMeshDimensions(rankSizeLevel0_, rankSizeLevel1_, rankIdxLevel0_, rankIdxLevel1_);
 
     if (param.engine == CommEngine::COMM_ENGINE_AICPU_TS) {
         interTempAlg.SetchannelsPerRank(interLinkMap_);

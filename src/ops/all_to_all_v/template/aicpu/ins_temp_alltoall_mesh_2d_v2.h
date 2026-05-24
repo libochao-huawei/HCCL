@@ -70,10 +70,26 @@ protected:
     u32 myYRank_{0};       // rank's row index
     TemplateDataParams tempAlgParams_;
 
-    // v2.0: fault tolerance
-    std::vector<HcclResult> slaveErrs_;    // one per slave thread (Fix 3)
     // v3.0 Fix C: atomic peer bitmap for multi-link safety
     std::vector<std::atomic<bool>> failedRanks_;
+
+public:
+    // Public setter for 2D grid dimensions set by the parallel executor.
+    // The template knows its 1D column peers from subCommRanks_ (x-axis),
+    // but the full 2D grid (xRankSize, yRankSize, myXRank, myYRank) is only
+    // known at the executor orchestration level.
+    void SetMeshDimensions(u32 xRankSize, u32 yRankSize, u32 myXRank, u32 myYRank)
+    {
+        xRankSize_ = xRankSize;
+        yRankSize_ = yRankSize;
+        totalRankSize_ = xRankSize * yRankSize;
+        myXRank_ = myXRank;
+        myYRank_ = myYRank;
+    }
+
+protected:
+    // v2.0: fault tolerance
+    std::vector<HcclResult> slaveErrs_;    // one per slave thread (Fix 3)
 };
 
 }  // namespace ops_hccl

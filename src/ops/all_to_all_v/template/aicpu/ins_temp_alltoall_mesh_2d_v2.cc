@@ -95,7 +95,10 @@ HcclResult InsTempAlltoAllMesh2DV2::KernelRun(const OpParam &param, const Templa
 
     slaveErrs_.clear();
     slaveErrs_.resize(templateResource.threads.size(), HCCL_SUCCESS);
-    failedRanks_.assign(templateRankSize_, false);
+    failedRanks_.resize(templateRankSize_);
+    for (auto& f : failedRanks_) {
+        f.store(false, std::memory_order_relaxed);
+    }
 
     // RAII PostSync guard: on ANY exit path (success, error, return),
     // this ensures PostSyncInterThreads is signaled to sub-threads
