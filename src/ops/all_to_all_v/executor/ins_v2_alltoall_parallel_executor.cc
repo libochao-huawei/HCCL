@@ -404,8 +404,6 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
 {
     HCCL_INFO("[InsV2AlltoAllParallelExecutor] AlgTemplate intra server is [%s]", tempAlgIntra.Describe().c_str());
     HCCL_INFO("[InsV2AlltoAllParallelExecutor] AlgTemplate inter server is [%s]", tempAlgInter.Describe().c_str());
-    multipleDimensionSplitRatio_ = param.multipleDimensionSplitRatio;
-
     std::vector<float> splitDataSize;
     GetParallelDataSplit(splitDataSize);
 
