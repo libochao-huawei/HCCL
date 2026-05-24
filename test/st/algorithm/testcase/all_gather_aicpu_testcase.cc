@@ -289,3 +289,12 @@ TEST_F(ST_ALL_GATHER_AICPU_TEST, st_all_gather_a5_aicpu_hd_8x8rank_int8_small_da
     auto dataType = HcclDataType::HCCL_DATA_TYPE_INT8;
     RunAllGatherAicpuA5(topoMeta, sendCount, dataType);
 }
+
+TEST_F(ST_ALL_GATHER_AICPU_TEST, st_all_gather_a5_aicpu_hd_8rank_int8_small_data_test)
+{
+    TopoMeta topoMeta;
+    GenTopoMeta(topoMeta, 1, 8, 1);
+    auto sendCount = 100;
+    auto dataType = HcclDataType::HCCL_DATA_TYPE_INT8;
+    RunAllGatherAicpuA5(topoMeta, sendCount, dataType);
+}
