@@ -280,3 +280,12 @@ TEST_F(ST_ALL_GATHER_AICPU_TEST, st_all_gather_a5_aicpu_parallel_nhr_mesh1d_3x3r
     auto dataType = HcclDataType::HCCL_DATA_TYPE_UINT8;  // 数据类型
     RunAllGatherAicpuA5(topoMeta, sendCount, dataType);
 }
+
+TEST_F(ST_ALL_GATHER_AICPU_TEST, st_all_gather_a5_aicpu_hd_8x8rank_int8_small_data_test)
+{
+    TopoMeta topoMeta;
+    GenTopoMeta(topoMeta, 1, 8, 8);
+    auto sendCount = 100;
+    auto dataType = HcclDataType::HCCL_DATA_TYPE_INT8;
+    RunAllGatherAicpuA5(topoMeta, sendCount, dataType);
+}

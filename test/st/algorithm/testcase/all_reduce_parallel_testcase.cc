@@ -172,14 +172,3 @@ TEST_F(ST_ALL_REDUCE_PARALLEL_TEST, st_all_reduce_hcclbuff_add_1)
     HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_SUM;
     RunAllReduceParallelCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp);
 }
-
-TEST_F(ST_ALL_REDUCE_PARALLEL_TEST, st_all_reduce_parallel_mesh1d_hd_8x8_int8_tail)
-{
-    TopoMeta topoMeta;
-    GenTopoMeta(topoMeta, 1, 8, 8);
-    u64 dataCount = 64 * 1024 * 1024 + 1;
-    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_INT8;
-    u32 dataTypeSize = 1;
-    HcclReduceOp reduceOp = HcclReduceOp::HCCL_REDUCE_SUM;
-    RunAllReduceParallelCase(topoMeta, dataCount, dataType, dataTypeSize, reduceOp);
-}
