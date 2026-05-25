@@ -439,7 +439,7 @@ HcclResult
         }
     }
 
-    multipleDimensionSplitRatio_ = param_.opConfig.multipleDimensionSplitRatio;
+    multipleDimensionSplitRatio_ = param_.multipleDimensionSplitRatio;
     std::array<long double, dataSplitPart_> dataSplitSize{multipleDimensionSplitRatio_, 1.0 - multipleDimensionSplitRatio_};
     HCCL_INFO("[ReduceParallelExecutor] dataSplitSize is %Lf, %Lf", dataSplitSize[0], dataSplitSize[1]);
 
