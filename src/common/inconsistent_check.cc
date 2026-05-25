@@ -10,6 +10,7 @@
 #include "inconsistent_check.h"
 #include "hcom.h"
 #include "adapter_error_manager_pub.h"
+#include "hccl_res_expt_dl.h"
 
 namespace ops_hccl {
 HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeInfo,
