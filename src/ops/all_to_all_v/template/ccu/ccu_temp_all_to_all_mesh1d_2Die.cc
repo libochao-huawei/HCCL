@@ -212,8 +212,10 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcRes(HcclComm comm, const OpParam& para
     allChannels.insert(allChannels.end(), closChannels_[closDieId].begin(), closChannels_[closDieId].end());
 
     // 3. 最后放 closChannels_[meshDieId]
-    allChannels.insert(allChannels.end(), closChannels_[meshDieId].begin(), closChannels_[meshDieId].end());
-
+    if (!closChannels_[meshDieId].empth()){
+        allChannels.insert(allChannels.end(), closChannels_[meshDieId].begin(), closChannels_[meshDieId].end());
+    }
+    
     resourceRequest.channels.emplace_back(allChannels);
     HCCL_INFO("resourceRequest.channels[%d]",resourceRequest.channels.size());////////////1
 
@@ -244,7 +246,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcRes(HcclComm comm, const OpParam& para
     kernelInfoClos.creator = [](const hcomm::CcuKernelArg &arg) {
         return std::make_unique<CcuKernelAllToAllMesh2Die>(arg);
     };
-    uint32_t closDieId = 1 - meshDieId;
+
     auto kernelArgClos = std::make_shared<CcuKernelArgAllToAllMesh2Die>(rankSize, myRank_, param, subCommRanks_,
         false, rankGroup_[closDieId]);
     kernelInfoClos.kernelArg = kernelArgClos;
