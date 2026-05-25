@@ -812,18 +812,4 @@ REGISTER_EXECUTOR_BY_TWO_TEMPS(
     InsTempAlltoAllMesh2DV2,
     InsTempAlltoAllMeshClosV2);
 
-REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLTOALL,
-    InsAlltoAllParallelMesh2DClosV2_ClosMesh2D,
-    InsV2AlltoAllParallelExecutor,
-    TopoMatchClosMesh2DV2,
-    InsTempAlltoAllMesh2DV2,
-    InsTempAlltoAllMeshClosV2);
-
-REGISTER_EXECUTOR_BY_TWO_TEMPS(HcclCMDType::HCCL_CMD_ALLTOALL,
-    InsAlltoAllParallelMesh2DClosV2_ClosMesh2DUBX,
-    InsV2AlltoAllParallelExecutor,
-    TopoMatchClosMesh2DUBXV2,
-    InsTempAlltoAllMesh2DV2,
-    InsTempAlltoAllMeshClosV2);
-
 }  // namespace ops_hccl

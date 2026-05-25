@@ -164,38 +164,15 @@ SelectorStatus AlltoAllAutoSelector::SelectAicpuAlgoClosMesh2D(
     const TopoInfoWithNetLayerDetails* topoInfo, const OpParam &opParam,
     std::string &selectAlgName) const
 {
-    if (topoInfo->topoLevelNums > 1) {
-        if (topoInfo->level0Topo == Level0Shape::MESH_1D || topoInfo->level0Topo == Level0Shape::CLOS ||
-            topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-            selectAlgName = "InsAlltoAllParallelMesh2DClosV2";
-            return SelectorStatus::MATCH;
-        } else {
-            HCCL_ERROR("[AlltoAllAutoSelector][ClosMesh2D] topo not match");
-            return SelectorStatus::NOT_MATCH;
-        }
-    }
-
-    if (topoInfo->level0Topo == Level0Shape::MESH_1D || topoInfo->level0Topo == Level0Shape::CLOS) {
+    if (topoInfo->level0Topo == Level0Shape::MESH_1D || topoInfo->level0Topo == Level0Shape::CLOS ||
+        topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
         selectAlgName = "InsAlltoAllParallelMesh2DClosV2";
-    } else if (topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS) {
-        if (topoInfo->level0PcieMix) {
-            selectAlgName = "InsAlltoAllMesh1D";
-        } else {
-            bool isMeshNumEqualToClosNum = false;
-            CHK_PRT_RET(CheckMeshNumEqualToClosNum(topoInfo, isMeshNumEqualToClosNum) != HCCL_SUCCESS,
-                        HCCL_ERROR("[AlltoAllAutoSelector][ClosMesh2D] CheckMeshNumEqualToClosNum failed."),
-                        SelectorStatus::NOT_MATCH);
-            if (isMeshNumEqualToClosNum && topoInfo->userRankSize <= CONCURRENT_RANK_LIMIT) {
-                selectAlgName = "InsAlltoAllParallelMesh2DClosV2_ClosMesh2DUBX";
-            } else {
-                selectAlgName = "InsAlltoAllParallelMesh2DClosV2_ClosMesh2D";
-            }
-        }
     } else {
         HCCL_ERROR("[AlltoAllAutoSelector][ClosMesh2D] topo not match");
         return SelectorStatus::NOT_MATCH;
     }
-    HCCL_INFO("[AlltoAllAutoSelector][ClosMesh2D] Algo match[%s]", selectAlgName.c_str());
+    HCCL_INFO("[AlltoAllAutoSelector][ClosMesh2D] Algo match[%s] topoLevelNums=%u",
+              selectAlgName.c_str(), topoInfo->topoLevelNums);
     return SelectorStatus::MATCH;
 }
 
