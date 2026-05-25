@@ -224,7 +224,7 @@ HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::KernelRun(const OpParam& para
                            lastSliceSizePerJetty, repeatNumInv, inputSliceStride, outputSliceStride,
                            inputRepeatStride, outputRepeatStride, isInputOutputEqual,
                            goSize[0], goSize[1], goSize[2], goSize[3],
-                           buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff));
+                           buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, mySubCommRank_));
     templateResource.submitInfos.push_back(submitInfo);
 
     HCCL_DEBUG("[CcuTempAllGatherNHR1DMultiJettyMem2Mem] Template Run end.");
@@ -242,12 +242,26 @@ HcclResult CcuTempAllGatherNHR1DMultiJettyMem2Mem::FastLaunch(const OpParam& par
     uint64_t *args = const_cast<uint64_t*>(tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs);
     constexpr u32 inputIdx = 0;
     constexpr u32 outputIdx = 1;
+    constexpr u32 inputSliceStrideIdx  = 7;
+    constexpr u32 outputSliceStrideIdx  = 8;
+    constexpr u32 isInputOutputEqualIdx = 11;
     constexpr u32 inputOffsetIdx = 16;
     constexpr u32 outputOffsetIdx = 17;
+    constexpr u32 mySubCommRankIdx = 18;
     uint64_t argSize = 16;
 
-    args[inputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + args[inputOffsetIdx];
-    args[outputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + args[outputOffsetIdx];
+    uint64_t inputAddr          = PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + args[inputOffsetIdx];
+    uint64_t outputAddr         = PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + args[outputOffsetIdx];
+    uint64_t inputSliceStride   = args[inputSliceStrideIdx];
+    uint64_t outputSliceStride  = args[outputSliceStrideIdx];
+    uint64_t mySubCommRank      = args[mySubCommRankIdx];
+    bool inputOutputEqual = (inputAddr + inputSliceStride * mySubCommRank == outputAddr + outputSliceStride * mySubCommRank);
+
+    uint64_t isInputOutputEqual = static_cast<uint64_t>(inputOutputEqual);
+
+    args[inputIdx]  = inputAddr;
+    args[outputIdx] = outputAddr;
+    args[isInputOutputEqualIdx] = isInputOutputEqual;
 
     void *taskArgs = reinterpret_cast<void*>(args);
     CcuResult launchRet = HcommCcuKernelLaunch(tempFastLaunchCtx.threads[0],

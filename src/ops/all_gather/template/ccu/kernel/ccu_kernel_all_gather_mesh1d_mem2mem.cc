@@ -16,6 +16,7 @@ constexpr int OUTPUT_XN_ID = 1;
 constexpr int TOKEN_XN_ID = 2;
 constexpr int CKE_IDX_0 = 0;
 constexpr int POST_SYNC_ID = 3;
+constexpr uint16_t BIT_NUM_PER_CKE = 16;
 
 static CcuResult ParseKernelArg(AllGatherMesh1DMem2MemContext &ctx, CcuKernelArgAllGatherMesh1DMem2Mem *kernelArg)
 {
@@ -44,6 +45,10 @@ static CcuResult InitResource(AllGatherMesh1DMem2MemContext &ctx)
             channelIdx++;
         }
     }
+    
+    const uint32_t eventNum = (arg->rankSize + BIT_NUM_PER_CKE - 1) / BIT_NUM_PER_CKE;
+    ctx.events.resize(eventNum);
+
     ctx.resourceAllocated = false;
     return CCU_SUCCESS;
 }
@@ -107,15 +112,17 @@ static CcuResult DoAllGather(AllGatherMesh1DMem2MemContext &ctx, const ccu::Loca
 {
     const auto *arg = ctx.arg;
     uint32_t channelId = 0;
+    const uint32_t eventNum = (arg->rankSize + BIT_NUM_PER_CKE - 1) / BIT_NUM_PER_CKE;
 
     for (uint64_t rankIdx = 0; rankIdx < arg->rankSize; rankIdx++) {
-        const uint16_t rankMask = 1 << rankIdx;
+        const uint16_t eventIdx = rankIdx / BIT_NUM_PER_CKE;
+        const uint16_t rankMask = 1 << (rankIdx % BIT_NUM_PER_CKE);
         if (rankIdx == arg->rankId) {
-            CCU_CHK_RET(ccu::EventRecord(ctx.event, rankMask));
+            CCU_CHK_RET(ccu::EventRecord(ctx.events[eventIdx], rankMask));
         } else {
             // 处理非本卡情况
             CCU_CHK_RET(ccu::Write(arg->channels[channelId], dst[rankIdx], 
-                src, sliceSize, ctx.event, rankMask));
+                src, sliceSize, ctx.events[eventIdx], rankMask));
             channelId++;
         }
     }
@@ -124,8 +131,20 @@ static CcuResult DoAllGather(AllGatherMesh1DMem2MemContext &ctx, const ccu::Loca
         // 处理本卡情况
         CCU_CHK_RET(GroupCopy(ctx, ctx.localDst, ctx.src_loccopy, ctx.goSize));
     }
-    const uint16_t allRankMask = (1 << arg->rankSize) - 1;
-    CCU_CHK_RET(ccu::EventWait(ctx.event, allRankMask));
+
+    for (uint32_t i = 0; i < eventNum; i++) {
+        uint16_t eventMask;
+        if (i == eventNum - 1) {
+            if (arg->rankSize % BIT_NUM_PER_CKE == 0) {
+                eventMask = (1 << BIT_NUM_PER_CKE) - 1;
+            } else {
+                eventMask = (1 << (arg->rankSize % BIT_NUM_PER_CKE)) - 1;
+            }
+        } else {
+            eventMask = (1 << BIT_NUM_PER_CKE) - 1;
+        }
+        CCU_CHK_RET(ccu::EventWait(ctx.events[i], eventMask));
+    }
     return CCU_SUCCESS;
 }
 

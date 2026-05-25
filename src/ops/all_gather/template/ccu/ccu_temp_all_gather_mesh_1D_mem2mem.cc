@@ -87,12 +87,24 @@ HcclResult CcuTempAllGatherMesh1DMem2Mem::FastLaunch(const OpParam& param, const
     uint64_t *args = const_cast<uint64_t*>(tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs);
     constexpr u32 inputIdx = 0;
     constexpr u32 outputIdx = 1;
+    constexpr u32 currentRankSliceInputOffsetIdx = 3;
+    constexpr u32 currentRankSliceOutputOffsetIdx = 4;
+    constexpr u32 isInputOutputEqualIdx = 10;
     constexpr u32 inputOffsetIdx = 15;
     constexpr u32 outputOffsetIdx = 16;
     uint64_t argSize = 15;
 
-    args[inputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + args[inputOffsetIdx];
-    args[outputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + args[outputOffsetIdx];
+    uint64_t inputAddr                     = PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + args[inputOffsetIdx];
+    uint64_t outputAddr                    = PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + args[outputOffsetIdx];
+    uint64_t currentRankSliceInputOffset   = args[currentRankSliceInputOffsetIdx];
+    uint64_t currentRankSliceOutputOffset  = args[currentRankSliceOutputOffsetIdx];
+    bool inputOutputEqual = (inputAddr + currentRankSliceInputOffset == outputAddr + currentRankSliceOutputOffset);
+
+    uint64_t isInputOutputEqual = static_cast<uint64_t>(inputOutputEqual);
+
+    args[inputIdx]  = inputAddr;
+    args[outputIdx] = outputAddr;
+    args[isInputOutputEqualIdx] = isInputOutputEqual;
 
     void *taskArgs = reinterpret_cast<void*>(args);
     CcuResult launchRet = HcommCcuKernelLaunch(tempFastLaunchCtx.threads[0],

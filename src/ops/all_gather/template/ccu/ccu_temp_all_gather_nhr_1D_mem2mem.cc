@@ -242,7 +242,7 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::KernelRun(const OpParam& param,
     CHK_RET(FillCachedArgs(submitInfo, inputAddr, outputAddr, token, die0Size, die1Size, repeatNum,
                            inputSliceStride, outputSliceStride, inputRepeatStride, outputRepeatStride,
                            isInputOutputEqual, die0LastSize, die1LastSize,
-                           buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff));
+                           buffInfo_.inBuffBaseOff, buffInfo_.outBuffBaseOff, mySubCommRank_));
     for (u32 i = 0; i < kernelNum; i++) {
         // 2个kernel的TaskArg相同
         submitInfo.kernelHandle = templateResource.ccuKernels[i];
@@ -264,12 +264,26 @@ HcclResult CcuTempAllGatherNHR1DMem2Mem::FastLaunch(const OpParam& param, const 
     uint64_t *args = const_cast<uint64_t*>(tempFastLaunchCtx.ccuKernelSubmitInfos[0].cachedArgs);
     constexpr u32 inputIdx = 0;
     constexpr u32 outputIdx = 1;
-    constexpr u32 inputOffsetIdx = 13;
-    constexpr u32 outputOffsetIdx = 14;
+    constexpr u32 inputSliceStrideIdx  = 6;
+    constexpr u32 outputSliceStrideIdx  = 7;
+    constexpr u32 isInputOutputEqualIdx = 10;
+    constexpr u32 inputOffsetIdx   = 13;
+    constexpr u32 outputOffsetIdx  = 14;
+    constexpr u32 mySubCommRankIdx = 15;
     uint64_t argSize = 13;
 
-    args[inputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + args[inputOffsetIdx];
-    args[outputIdx] = PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + args[outputOffsetIdx];
+    uint64_t inputAddr          = PointerToAddr(tempFastLaunchCtx.buffInfo.inputPtr) + args[inputOffsetIdx];
+    uint64_t outputAddr         = PointerToAddr(tempFastLaunchCtx.buffInfo.outputPtr) + args[outputOffsetIdx];
+    uint64_t inputSliceStride   = args[inputSliceStrideIdx];
+    uint64_t outputSliceStride  = args[outputSliceStrideIdx];
+    uint64_t mySubCommRank      = args[mySubCommRankIdx];
+    bool inputOutputEqual = (inputAddr + inputSliceStride * mySubCommRank == outputAddr + outputSliceStride * mySubCommRank);
+
+    uint64_t isInputOutputEqual = static_cast<uint64_t>(inputOutputEqual);
+
+    args[inputIdx]  = inputAddr;
+    args[outputIdx] = outputAddr;
+    args[isInputOutputEqualIdx] = isInputOutputEqual;
 
     if (kernelNum > 1) {
         std::vector<ThreadHandle> subThreads(tempFastLaunchCtx.threads.begin() + 1, tempFastLaunchCtx.threads.end());
