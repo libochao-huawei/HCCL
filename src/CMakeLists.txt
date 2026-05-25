@@ -20,38 +20,6 @@ else()
     set(INSTALL_AICPU_KERNEL_JSON_DIR ${INSTALL_LIBRARY_DIR})
 endif()
 
-set(HCCL_CANN_VERSION_NUM 0)
-set(_hccl_cann_version_header "${ASCEND_CANN_PACKAGE_PATH}/include/version/cann_version.h")
-message(STATUS "Checking HCCL scoped CANN version header: ${_hccl_cann_version_header}")
-if(EXISTS "${_hccl_cann_version_header}")
-    file(STRINGS "${_hccl_cann_version_header}" _hccl_cann_ver_line
-        REGEX "^#define[ \t]+CANN_VERSION_NUM[ \t]+")
-    if(_hccl_cann_ver_line)
-        string(REGEX MATCH
-            "\\(([0-9]+) \\* 10000000\\) \\+ \\(([0-9]+) \\* 100000\\) \\+ \\(([0-9]+) \\* 1000\\)"
-            _ "${_hccl_cann_ver_line}")
-        if(NOT CMAKE_MATCH_1 STREQUAL "" AND NOT CMAKE_MATCH_2 STREQUAL "" AND NOT CMAKE_MATCH_3 STREQUAL "")
-            math(EXPR HCCL_CANN_VERSION_NUM
-                "${CMAKE_MATCH_1} * 10000000 + ${CMAKE_MATCH_2} * 100000 + ${CMAKE_MATCH_3} * 1000")
-        endif()
-    endif()
-endif()
-
-set(HCCL_CANN_COMPAT_850 OFF)
-if(HCCL_CANN_VERSION_NUM GREATER 0 AND HCCL_CANN_VERSION_NUM LESS 90000000)
-    set(HCCL_CANN_COMPAT_850 ON)
-endif()
-
-message(STATUS "HCCL scoped CANN_VERSION_NUM = ${HCCL_CANN_VERSION_NUM}")
-message(STATUS "HCCL_CANN_COMPAT_850 = ${HCCL_CANN_COMPAT_850}")
-
-function(hccl_apply_cann_compat target_name)
-    if(NOT TARGET ${target_name})
-        return()
-    endif()
-    target_compile_definitions(${target_name} PRIVATE CANN_VERSION_NUM=${HCCL_CANN_VERSION_NUM})
-endfunction()
-
 set(INCLUDE_LIST
     ${OPS_BASE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/common
@@ -308,9 +276,10 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/scatter/template/aicpu/ins_temp_scatter_nhr.cc
 
 
-        #${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sole_executor.cc
-        #${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_reduce_scatter_parallel_executor.cc
-        #${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu.cc
+        # ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sole_executor.cc
+        # ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_reduce_scatter_parallel_executor.cc
+        # ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor_aicpu.cc
+        # ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_reduce_scatter_concurrent_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_mesh_1D.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_nhr.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_mesh_1D_meshchunk.cc
@@ -324,9 +293,10 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/broadcast/template/aicpu/ins_temp_allgather_mesh_1D_intra.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/broadcast/template/aicpu/ins_temp_scatter_mesh_1D_intra.cc
 
-        #${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/executor/ins_v2_all_gather_sole_executor.cc
-        #${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/executor/ins_v2_all_gather_parallel_executor.cc
-        #${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/executor/ins_v2_all_gather_sequence_executor_aicpu.cc
+        # ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/executor/ins_v2_all_gather_sole_executor.cc
+        # ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/executor/ins_v2_all_gather_parallel_executor.cc
+        # ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/executor/ins_v2_all_gather_sequence_executor_aicpu.cc
+        # ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/executor/ins_v2_all_gather_concurrent_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/template/aicpu/ins_temp_all_gather_mesh_1D.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/template/aicpu/ins_temp_all_gather_mesh_1D_Z_axis_detour.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/template/aicpu/ins_temp_all_gather_nhr.cc
@@ -343,13 +313,15 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather_v/template/aicpu/ins_temp_all_gather_v_mesh_1D.cc
 
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_to_all_v/executor/ins_v2_all_to_all_v_sole_executor.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_to_all_v/executor/ins_v2_all_to_all_concurrent_executor.cc
 
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_to_all_v/template/aicpu/ins_temp_all_to_all_v_mesh_1D.cc
 
-        #${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_v2_all_reduce_sole_executor.cc
-        #${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_v2_all_reduce_parallel_executor.cc
-        #${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_v2_all_reduce_sequence_executor_aicpu.cc
-        #${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_v2_all_reduce_two_shot_sole_executor.cc
+        # ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_v2_all_reduce_sole_executor.cc
+        # ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_v2_all_reduce_parallel_executor.cc
+        # ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_v2_all_reduce_sequence_executor_aicpu.cc
+        # ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_v2_all_reduce_two_shot_sole_executor.cc
+        # ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_v2_all_reduce_concurrent_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/template/aicpu/ins_temp_all_reduce_mesh_1D_one_shot.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/template/aicpu/ins_temp_all_reduce_mesh_1D_two_shot.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/template/aicpu/ins_temp_all_reduce_nhr.cc
@@ -370,23 +342,19 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/executor/ins_v2_recv_sole_executor.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/executor/ins_v2_send_sole_executor.cc
 
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/executor/ins_send_dpu_executor.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/executor/ins_recv_dpu_executor.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/template/host_nic/ins_temp_send_host_nic_dpu.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/template/host_nic/ins_temp_recv_host_nic_dpu.cc
     )
 
     if(NOT HCCL_CANN_COMPAT_850)
         target_sources(scatter_aicpu_kernel PRIVATE
-            ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/executor/ins_send_dpu_executor.cc
-            ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/executor/ins_recv_dpu_executor.cc
-            ${CMAKE_CURRENT_SOURCE_DIR}/ops/send/template/host_nic/ins_temp_send_host_nic_dpu.cc
-            ${CMAKE_CURRENT_SOURCE_DIR}/ops/recv/template/host_nic/ins_temp_recv_host_nic_dpu.cc
             ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/template/wrapper/dpu_alg_data_trans_wrapper.cc
             ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/topo/topo_match_multilevel.cc
             ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/topo/topo_match_ubx.cc
             ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/topo/topo_match_ubx_1d.cc
             ${CMAKE_CURRENT_SOURCE_DIR}/ops/op_common/topo/topo_match_pcie_mix.cc
-            ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_reduce_scatter_concurrent_executor.cc
-            ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_gather/executor/ins_v2_all_gather_concurrent_executor.cc
-            ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_to_all_v/executor/ins_v2_all_to_all_concurrent_executor.cc
-            ${CMAKE_CURRENT_SOURCE_DIR}/ops/all_reduce/executor/ins_v2_all_reduce_concurrent_executor.cc
             ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/executor/ins_v2_reduce_scatter_sequence_executor.cc
             ${CMAKE_CURRENT_SOURCE_DIR}/ops/reduce_scatter/template/aicpu/ins_temp_reduce_scatter_mesh_1d_dpu.cc
             ${CMAKE_CURRENT_SOURCE_DIR}/ops/broadcast/executor/ins_v2_broadcast_sequence_executor.cc
@@ -427,7 +395,9 @@ if((DEVICE_MODE AND BUILD_OPEN_PROJECT) OR (NOT BUILD_OPEN_PROJECT))
         -DAICPU_COMPILE
     )
 
-    hccl_apply_cann_compat(scatter_aicpu_kernel)
+    if(HCCL_CANN_COMPAT_850)
+        target_compile_definitions(scatter_aicpu_kernel PRIVATE HCCL_CANN_COMPAT_850)
+    endif()
 
     target_link_directories(scatter_aicpu_kernel PRIVATE
       ${ASCEND_CANN_PACKAGE_PATH}/devlib/device
@@ -494,7 +464,9 @@ target_compile_definitions(${TARGET_NAME} PRIVATE
     -DHOST_COMPILE
 )
 
-hccl_apply_cann_compat(hccl)
+if(HCCL_CANN_COMPAT_850)
+    target_compile_definitions(hccl PRIVATE HCCL_CANN_COMPAT_850)
+endif()
 
 target_compile_options(hccl PRIVATE
     -Werror
@@ -635,6 +607,46 @@ set(AIV_TARGETS
     hccl_aiv_scatter_op_910_95
     hccl_aiv_send_op_910_95
     hccl_aiv_recv_op_910_95
+    hccl_ar_superkernel_mesh_1d_oneshot_int8_v2
+    hccl_ar_superkernel_mesh_1d_oneshot_int16_v2
+    hccl_ar_superkernel_mesh_1d_oneshot_int32_v2
+    hccl_ar_superkernel_mesh_1d_oneshot_float16_v2
+    hccl_ar_superkernel_mesh_1d_oneshot_float32_v2
+    hccl_ar_superkernel_mesh_1d_oneshot_bfloat16_v2
+    hccl_ar_superkernel_mesh_1d_twoshot_int8_v2
+    hccl_ar_superkernel_mesh_1d_twoshot_int16_v2
+    hccl_ar_superkernel_mesh_1d_twoshot_int32_v2
+    hccl_ar_superkernel_mesh_1d_twoshot_float16_v2
+    hccl_ar_superkernel_mesh_1d_twoshot_float32_v2
+    hccl_ar_superkernel_mesh_1d_twoshot_bfloat16_v2
+    hccl_rs_superkernel_mesh_1d_int8_v2
+    hccl_rs_superkernel_mesh_1d_int16_v2
+    hccl_rs_superkernel_mesh_1d_int32_v2
+    hccl_rs_superkernel_mesh_1d_float16_v2
+    hccl_rs_superkernel_mesh_1d_float32_v2
+    hccl_rs_superkernel_mesh_1d_bfloat16_v2
+    hccl_ag_superkernel_mesh_1d_int8_v2
+    hccl_ag_superkernel_mesh_1d_int16_v2
+    hccl_ag_superkernel_mesh_1d_int32_v2
+    hccl_ag_superkernel_mesh_1d_float16_v2
+    hccl_ag_superkernel_mesh_1d_float32_v2
+    hccl_ag_superkernel_mesh_1d_bfloat16_v2
+    hccl_ag_superkernel_mesh_1d_uint8_v2
+    hccl_ag_superkernel_mesh_1d_uint16_v2
+    hccl_ag_superkernel_mesh_1d_uint32_v2
+    hccl_ag_superkernel_mesh_1d_int64_v2
+    hccl_ag_superkernel_mesh_1d_uint64_v2
+    hccl_a2a_superkernel_mesh_1d_int8_v2
+    hccl_a2a_superkernel_mesh_1d_int16_v2
+    hccl_a2a_superkernel_mesh_1d_int32_v2
+    hccl_a2a_superkernel_mesh_1d_float16_v2
+    hccl_a2a_superkernel_mesh_1d_float32_v2
+    hccl_a2a_superkernel_mesh_1d_bfloat16_v2
+    hccl_a2a_superkernel_mesh_1d_uint8_v2
+    hccl_a2a_superkernel_mesh_1d_uint16_v2
+    hccl_a2a_superkernel_mesh_1d_uint32_v2
+    hccl_a2a_superkernel_mesh_1d_int64_v2
+    hccl_a2a_superkernel_mesh_1d_uint64_v2
 )
 
 add_custom_target(aiv_all_targets)

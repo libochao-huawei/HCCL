@@ -29,7 +29,6 @@ export HCCL_HOST_SOCKET_PORT_RANGE="auto"
 
 - 若业务为单卡多进程场景（即多个业务进程同时共用一个NPU），建议配置此环境变量，否则业务可能会因为端口冲突运行失败。但需要注意，多进程会对资源开销、通信性能产生影响。
 - 此环境变量优先级高于[HCCL_IF_BASE_PORT](HCCL_IF_BASE_PORT.md)，若配置了此环境变量，HCCL在Host侧使用的通信端口以此环境变量为准。
-- 针对Atlas A2 训练系列产品/Atlas A2 推理系列产品，若网络中存在MC²通算融合算子（计算和通信融合的算子，例如AllGatherMatmul、MatmulReduceScatter、AlltoAllAllGatherBatchMatMul等），不支持配置此环境变量。
 
 ## 支持的型号
 
