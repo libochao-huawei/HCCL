@@ -290,7 +290,7 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     u64 threadIdx = 0;
     for (auto i = 0; i < temp0ThreadsNum; ++i) {
         tempAlgResource0.threads.push_back(threads_[threadIdx++]);
-        threadIdx++;
+        //threadIdx++;
     }
     for (auto i = 0; i < temp1ThreadsNum; ++i) {
         tempAlgResource1.threads.push_back(threads_[threadIdx++]);
