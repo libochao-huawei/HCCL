@@ -81,8 +81,7 @@ HcclBroadcast(buf, count, HCCL_DATA_TYPE_FP32, rootRank, hcclComm, stream);
 aclrtSynchronizeStream(stream);
 
 // 释放资源
-aclrtFree(sendBuf);          // 释放 Device 侧内存
-aclrtFree(recvBuf);          // 释放 Device 侧内存
+aclrtFree(buf);              // 释放 Device 侧内存
 aclrtDestroyStream(stream);  // 销毁任务流
 HcclCommDestroy(hcclComm);   // 销毁通信域
 ```
