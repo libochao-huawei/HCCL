@@ -936,8 +936,8 @@ HcclResult InsAllReduceParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTem
     TemplateDataParams &dataParams, TemplateResource& templateResource, InsAlgTemplate1 &tempAlgInter)
 {
     // step2 - parallel 0: RS nhr
-    u64 inputOffset = 0;
-    u64 hcclBuffOffset = 0;
+    u64 inputOffset = currCountPart * dataTypeSize_;
+    u64 hcclBuffOffset = currCountPart * dataTypeSize_;
     // u64 hcclBuffOffset = 2 * currCountPart * dataTypeSize_;
     u64 outputOffset = 0;
     PrePareDataParamstempAlgInter(dataOffset, currCountPart, scratchOffsetCount);
