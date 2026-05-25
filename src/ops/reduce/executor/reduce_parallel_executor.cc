@@ -454,8 +454,9 @@ HcclResult
 
     const u64 scratchMemBlockSize = maxTmpMemSize_ / totalScratchMultiple;
     CHK_PRT_RET(dataTypeSize_ == 0, "[ReduceParallelExecutor][OrchestrateImpl] dataTypeSize_ is 0", HCCL_E_INTERNAL);
-    // const u64 maxCountPerLoop = std::min<u64>(scratchMemBlockSize, UB_MAX_DATA_SIZE) / dataTypeSize_;
-    const u64 maxCountPerLoop = scratchMemBlockSize / dataTypeSize_;
+    u64 ubMaxDataCount = std::min(UB_MAX_DATA_SIZE * intraLocalRankSize_ / dataSplitSize0_,
+        UB_MAX_DATA_SIZE * interLocalRankSize_ / (1 - dataSplitSize0_));
+    const u64 maxCountPerLoop = std::min<u64>(scratchMemBlockSize, ubMaxDataCount) / dataTypeSize_;
     CHK_PRT_RET(maxCountPerLoop == 0, "[ReduceParallelExecutor][OrchestrateImpl] maxCountPerLoop is 0", HCCL_E_INTERNAL);
     const u32 loopTimes = dataCount_ / maxCountPerLoop + ((dataCount_ % maxCountPerLoop == 0) ? 0 : 1);
 
