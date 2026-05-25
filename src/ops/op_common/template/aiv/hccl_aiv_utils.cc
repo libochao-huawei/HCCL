@@ -157,7 +157,6 @@ static std::unordered_map<s32, AivDeviceRegistry> g_aivRegistryByDevice;
 struct TaskParamAiv {
     u64 taskId = 0;
     u64 streamId = 0;
-    HcclComm comm = nullptr;
     HcclCMDType cmdType = HcclCMDType::HCCL_CMD_INVALID;
     u32 tag = 0;
     u64 size = 0;
@@ -173,40 +172,10 @@ struct TaskParamAiv {
 };
 
 static mutex g_aivTaskMutex;
-static std::unordered_map<u64, HcclComm> g_aivTaskCommMap;
 static std::unordered_map<u64, std::deque<TaskParamAiv>> g_aivTaskByStream;
 
 thread_local HcclComm g_aivCurrentComm = nullptr;
 thread_local std::string g_aivCurrentCommName;
-
-static u64 MakeTaskKey(u32 streamId, u32 taskId)
-{
-    return (static_cast<u64>(streamId) << 32U) | static_cast<u64>(taskId);
-}
-
-static HcclResult GetCommByName(const std::string &commName, HcclComm &comm)
-{
-    CHK_PRT_RET(commName.empty(), HCCL_ERROR("[AIV][GetCommByName] comm name is empty."), HCCL_E_PARA);
-    CHK_PRT_RET(!HcommIsSupportHcomGetCommHandleByGroup(),
-        HCCL_ERROR("[AIV][GetCommByName] HcomGetCommHandleByGroup is not supported."), HCCL_E_NOT_SUPPORT);
-    CHK_RET(HcomGetCommHandleByGroup(commName.c_str(), &comm));
-    CHK_PTR_NULL(comm);
-    return HCCL_SUCCESS;
-}
-
-static HcclResult GetAivTaskComm(const AivOpArgs &opArgs, HcclComm &comm)
-{
-    if (opArgs.hcclComm != nullptr) {
-        comm = opArgs.hcclComm;
-        return HCCL_SUCCESS;
-    }
-    if (g_aivCurrentComm != nullptr) {
-        comm = g_aivCurrentComm;
-        return HCCL_SUCCESS;
-    }
-    std::string commName = opArgs.comm.empty() ? g_aivCurrentCommName : opArgs.comm;
-    return GetCommByName(commName, comm);
-}
 
 static void RegisterAivExceptionCallback(HcclComm comm)
 {
@@ -221,6 +190,7 @@ static void RegisterAivExceptionCallback(HcclComm comm)
         std::lock_guard<mutex> lock(callbackMutex);
         auto it = callbackRegistered.find(comm);
         if (it != callbackRegistered.end() && it->second) {
+            HCCL_DEBUG("[AIV][RegisterAivExceptionCallback] already registered, comm[%p].", comm);
             return;
         }
         callbackRegistered[comm] = true;
@@ -229,7 +199,9 @@ static void RegisterAivExceptionCallback(HcclComm comm)
     if (ret != HCCL_SUCCESS) {
         std::lock_guard<mutex> lock(callbackMutex);
         callbackRegistered[comm] = false;
-        HCCL_WARNING("[AIV][RegisterAivExceptionCallback] register callback failed, ret[%d].", ret);
+        HCCL_WARNING("[AIV][RegisterAivExceptionCallback] register callback failed, comm[%p], ret[%d].", comm, ret);
+    } else {
+        HCCL_INFO("[AIV][RegisterAivExceptionCallback] register callback success, comm[%p].", comm);
     }
 }
 
@@ -241,14 +213,9 @@ static HcclResult SaveAivDfxTaskInfo(const AivOpArgs &opArgs)
     CHK_PRT_RET(rtRet != RT_ERROR_NONE,
         HCCL_ERROR("[AIV][SaveAivDfxTaskInfo] rtGetTaskIdAndStreamID failed, ret[%d].", rtRet), HCCL_E_RUNTIME);
 
-    HcclComm comm = nullptr;
-    CHK_RET(GetAivTaskComm(opArgs, comm));
-    RegisterAivExceptionCallback(comm);
-
     TaskParamAiv taskInfo;
     taskInfo.taskId = taskId;
     taskInfo.streamId = streamId;
-    taskInfo.comm = comm;
     taskInfo.cmdType = opArgs.cmdType;
     taskInfo.tag = opArgs.sliceId;
     taskInfo.size = opArgs.count;
@@ -265,12 +232,9 @@ static HcclResult SaveAivDfxTaskInfo(const AivOpArgs &opArgs)
 
     HCCL_DEBUG("Begin to SaveAivDfxTaskInfo taskType[%d]", static_cast<int32_t>(opArgs.cmdType));
     std::lock_guard<mutex> lock(g_aivTaskMutex);
-    g_aivTaskCommMap[MakeTaskKey(streamId, taskId)] = comm;
     auto &taskQueue = g_aivTaskByStream[streamId];
     taskQueue.push_back(taskInfo);
     if (taskQueue.size() > AIV_TASK_QUEUE_LIMIT) {
-        g_aivTaskCommMap.erase(MakeTaskKey(static_cast<u32>(taskQueue.front().streamId),
-            static_cast<u32>(taskQueue.front().taskId)));
         taskQueue.pop_front();
     }
     return HCCL_SUCCESS;
@@ -647,7 +611,7 @@ static HcclResult ClearDeviceRegistry(AivDeviceRegistry &registry)
 }
 
 // Kernel注册入口，每个device只需要初始化一次
-HcclResult RegisterKernel()
+HcclResult RegisterKernel(HcclComm comm)
 {
     s32 deviceId = 0;
     CHK_RET(GetCurrentDeviceId(deviceId));
@@ -712,6 +676,8 @@ HcclResult RegisterKernel()
     }
 
     registry.initialized = true;
+
+    RegisterAivExceptionCallback(comm);
 
     return HCCL_SUCCESS;
 }

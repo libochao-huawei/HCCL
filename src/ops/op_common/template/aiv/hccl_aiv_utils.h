@@ -180,7 +180,7 @@ using AivSuperKernelArgs = struct AivSuperKernelArgsDef {
     AivSuperKernelArgsDef() {}
 };
 
-HcclResult RegisterKernel();
+HcclResult RegisterKernel(HcclComm comm);
 
 HcclResult UnRegisterAivKernel();
 

@@ -57,8 +57,8 @@
 
 | 模块 | 职责 | 关键函数 |
 |------|------|----------|
-| **回调注册模块** | 向底层 runtime 注册异常回调函数，确保每个通信域只注册一次 | `RegisterAivExceptionCallback()` |
-| **任务追踪模块** | 在 kernel 启动时采集并保存任务上下文信息 | `SaveAivDfxTaskInfo()`, `MakeTaskKey()`, `GetAivTaskComm()` |
+| **回调注册模块** | 在 RegisterKernel 中注册异常回调函数，每个通信域只注册一次 | `RegisterAivExceptionCallback()` |
+| **任务追踪模块** | 在 kernel 启动时采集并保存任务上下文信息 | `SaveAivDfxTaskInfo()` |
 | **异常处理模块** | 异常发生时被底层调用，输出诊断信息 | `ProcessAivExceptionCallBack()`, `FindAivTask()`, `SerializeAivFlag()` |
 
 ### 2.3 外部依赖
@@ -69,8 +69,7 @@
 | Runtime API | `aclrtGetTaskIdFromExceptionInfo()` | 从异常信息获取 taskId |
 | Runtime API | `aclrtGetStreamIdFromExceptionInfo()` | 从异常信息获取 streamId |
 | Runtime API | `aclrtGetDeviceIdFromExceptionInfo()` | 从异常信息获取 deviceId |
-| HCOMM API | `HcclTaskExceptionRegCallBack()` | 注册异常回调函数 |
-| HCOMM API | `HcomGetCommHandleByGroup()` | 通过组名获取通信句柄 |
+| HCOMM API | `HcclTaskExceptionRegCallBack()` | 通过通信域注册异常回调函数 |
 
 ---
 
@@ -82,7 +81,6 @@
 struct TaskParamAiv {
     u64 taskId = 0;              // 任务ID，runtime分配
     u64 streamId = 0;            // 流ID
-    HcclComm comm = nullptr;     // 通信句柄
     HcclCMDType cmdType;         // 命令类型（AllReduce、Broadcast等）
     u32 tag = 0;                 // 切片标识
     u64 size = 0;                // 数据量（字节）
@@ -104,15 +102,8 @@ struct TaskParamAiv {
 // 任务队列：按 streamId 分组存储任务信息
 static std::unordered_map<u64, std::deque<TaskParamAiv>> g_aivTaskByStream;
 
-// 任务索引：通过 (streamId, taskId) 快速定位通信句柄
-static std::unordered_map<u64, HcclComm> g_aivTaskCommMap;
-
-// 回调注册状态：防止重复注册
-static std::unordered_map<HcclComm, bool> callbackRegistered;
-
-// 线程局部变量：当前执行的通信上下文
-thread_local HcclComm g_aivCurrentComm = nullptr;
-thread_local std::string g_aivCurrentCommName;
+// 回调注册状态：防止重复注册（按 deviceId）
+static std::unordered_map<s32, bool> callbackRegisteredByDevice;
 ```
 
 ### 3.3 配置常量
@@ -132,11 +123,19 @@ constexpr u32 AIV_FLAG_UB_ALIGN_SIZE = 32;   // flag内存对齐大小
 
 ```mermaid
 flowchart LR
-    A[ExecuteKernelLaunchInner] --> B[rtGetTaskIdAndStreamID]
-    B --> C[SaveAivDfxTaskInfo]
+    A[HcclGetOpExpansionMode] --> B[ApplyOpExpansionMode]
+    B --> C[RegisterKernel]
     C --> D[RegisterAivExceptionCallback]
     D --> E[HcclTaskExceptionRegCallBack]
     E --> F[返回成功]
+```
+
+```mermaid
+flowchart LR
+    A[ExecuteKernelLaunchInner] --> B[aclrtLaunchKernelWithHostArgs]
+    B --> C[SaveAivDfxTaskInfo]
+    C --> D[保存到g_aivTaskByStream]
+    D --> E[返回成功]
 ```
 
 ```mermaid
@@ -152,12 +151,13 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    A[rtGetTaskIdAndStreamID] --> B[GetAivTaskComm]
-    B --> C[RegisterAivExceptionCallback]
-    C --> D[构建TaskParamAiv]
-    D --> E[加锁g_aivTaskMutex]
-    E --> F[保存到g_aivTaskByStream]
-    F --> G[解锁返回]
+    A[rtGetTaskIdAndStreamID] --> B[构建TaskParamAiv]
+    B --> C[加锁g_aivTaskMutex]
+    C --> D[保存到g_aivTaskByStream]
+    D --> E{队列超限?}
+    E -->|是| F[移除最旧任务]
+    E -->|否| G[解锁]
+    F --> G
 ```
 
 ### 4.3 异常回调处理流程
@@ -176,18 +176,34 @@ flowchart TB
 
 ```mermaid
 sequenceDiagram
-    participant K as ExecuteKernelLaunchInner
-    participant S as SaveAivDfxTaskInfo
+    participant H as HcclGetOpExpansionMode
+    participant A as ApplyOpExpansionMode
+    participant K as RegisterKernel
     participant R as RegisterAivExceptionCallback
-    participant H as HcclTaskExceptionRegCallBack
+    participant M as callbackRegistered
+    participant HCOMM as HcclTaskExceptionRegCallBack
     
-    K->>S: kernel启动完成
-    S->>S: rtGetTaskIdAndStreamID
-    S->>R: 注册回调
-    R->>R: 检查callbackRegistered
-    R->>H: HCOMM API
-    H-->>S: 返回结果
-    S-->>K: 保存任务信息
+    H->>A: ApplyOpExpansionMode(comm, param, finalMode)
+    A->>K: RegisterKernel(comm)
+    K->>R: RegisterAivExceptionCallback(comm)
+    R->>M: 查找comm是否已注册
+    alt 已注册
+        M-->>R: 存在且为true
+        R-->>K: 跳过注册
+    else 未注册
+        M-->>R: 不存在或为false
+        R->>M: 设置callbackRegistered[comm]=true
+        R->>HCOMM: HCOMM API
+        HCOMM-->>R: 返回结果
+        alt 注册成功
+            R-->>K: 注册成功
+        else 注册失败
+            R->>M: 设置callbackRegistered[comm]=false
+            R-->>K: 记录警告
+        end
+    end
+    K-->>A: 返回成功
+    A-->>H: 返回成功
 ```
 
 ---
@@ -201,32 +217,25 @@ flowchart LR
     subgraph 输入源
         A[AivOpArgs<br/>kernel参数]
         B[Runtime API<br/>taskId/streamId]
-        C[Thread Local<br/>g_aivCurrentComm]
     end
     
     subgraph 任务追踪模块
-        D[GetAivTaskComm<br/>获取通信句柄]
-        E[TaskParamAiv<br/>任务结构体]
-        F[g_aivTaskByStream<br/>任务队列]
-        G[g_aivTaskCommMap<br/>任务索引]
+        C[TaskParamAiv<br/>任务结构体]
+        D[g_aivTaskByStream<br/>任务队列]
     end
     
     subgraph 异常处理模块
-        H[ProcessAivExceptionCallBack]
-        I[FindAivTask]
-        J[诊断日志输出]
+        E[ProcessAivExceptionCallBack]
+        F[FindAivTask]
+        G[诊断日志输出]
     end
     
-    A --> D
-    B --> E
+    A --> C
+    B --> C
     C --> D
-    D --> E
-    E --> F
+    D --> F
+    F --> E
     E --> G
-    F --> I
-    G --> I
-    I --> H
-    H --> J
 ```
 
 ### 5.2 异常回调数据流
@@ -266,65 +275,35 @@ flowchart TB
     G --> J
 ```
 
-### 5.3 通信句柄获取逻辑
-
-```mermaid
-flowchart TB
-    A[GetAivTaskComm] --> B{opArgs.hcclComm存在?}
-    B -->|是| C[使用opArgs.hcclComm]
-    B -->|否| D{g_aivCurrentComm存在?}
-    D -->|是| E[使用g_aivCurrentComm]
-    D -->|否| F[HcomGetCommHandleByGroup]
-    C --> G[返回comm]
-    E --> G
-    F --> G
-```
-
 ---
 
 ## 6. 关键设计决策
 
-### 6.1 为什么使用双数据结构？
+### 6.1 为什么在 RegisterKernel() 中注册回调？
 
-| 数据结构 | 用途 | 时间复杂度 |
-|----------|------|------------|
-| `g_aivTaskByStream` | 按流存储任务队列，支持查询上下文 | O(n) 查找任务 |
-| `g_aivTaskCommMap` | 快速索引通信句柄 | O(1) 查找 |
-
-**原因**：
-1. 异常处理需要获取失败任务前的上下文任务信息
-2. `deque` 保证任务的时间顺序
-3. 单独的索引表加速通信句柄查找
-
-### 6.2 为什么限制队列大小为 2048？
-
-| 考量 | 说明 |
+| 原因 | 说明 |
 |------|------|
-| 内存占用 | 每个 `TaskParamAiv` 约 120 字节，2048 条约 240KB |
-| 上下文足够 | 前 50 个任务已足够定位问题 |
-| 性能平衡 | 避免队列过大导致查找性能下降 |
+| **每个算子只注册一次** | 不需要每次 kernel launch 都检查是否已注册 |
+| **调用时机合适** | RegisterKernel() 在 ApplyOpExpansionMode() 中调用，此时有 HcclComm |
+| **减少开销** | 避免每次 kernel launch 的注册检查开销 |
 
-### 6.3 为什么使用线程局部变量？
+### 6.2 为什么使用 HcclComm 注册？
 
-```cpp
-thread_local HcclComm g_aivCurrentComm = nullptr;
-thread_local std::string g_aivCurrentCommName;
-```
+| 原因 | 说明 |
+|------|------|
+| **HCOMM 接口设计** | HCOMM 通过 HcclComm 获取 deviceLogicId，再获取 handler |
+| **回调按设备存储** | 实际回调是按设备存储的，但需要通过 comm 获取设备信息 |
+| **保持接口一致性** | 与现有 HCOMM API 设计保持一致 |
 
-**原因**：
-1. Kernel launch 可能发生在不同线程
-2. 通信句柄需要在整个调用链中传递
-3. 避免修改现有函数签名
-
-### 6.4 防重复注册机制
+### 6.3 防重复注册机制
 
 ```cpp
 static std::unordered_map<HcclComm, bool> callbackRegistered;
 ```
 
 **原因**：
-1. 每个 `HcclComm` 只需注册一次回调
-2. 避免重复注册导致回调被多次调用
+1. 每个通信域只需注册一次回调
+2. RegisterKernel() 可能被多次调用，需要防重
 3. 使用 `static` 保证全局唯一性
 
 ---
@@ -335,9 +314,8 @@ static std::unordered_map<HcclComm, bool> callbackRegistered;
 
 | 项目 | 单次大小 | 数量上限 | 总计 |
 |------|----------|----------|------|
-| TaskParamAiv | ~120 bytes | 2048/stream | ~240KB/stream |
-| g_aivTaskCommMap | 24 bytes/entry | 2048/stream | ~48KB/stream |
-| callbackRegistered | 16 bytes/entry | N个comm | ~N*16 bytes |
+| TaskParamAiv | ~100 bytes | 2048/stream | ~200KB/stream |
+| callbackRegisteredByDevice | 16 bytes/entry | N个device | ~N*16 bytes |
 
 ### 7.2 性能影响
 
@@ -346,11 +324,11 @@ static std::unordered_map<HcclComm, bool> callbackRegistered;
 | rtGetTaskIdAndStreamID | ~1μs | 每次kernel启动 |
 | 队列插入 | O(1) | 每次kernel启动 |
 | 锁竞争 | mutex | 每次kernel启动 |
-| 回调注册 | 一次性 | 每个comm一次 |
+| 回调注册 | 一次性 | 每个device一次 |
 
 ### 7.3 关键路径优化
 
-1. **首次检测后跳过**：`callbackRegistered` 检查避免重复注册
+1. **注册时机提前**：在 RegisterKernel() 注册，避免每次 kernel launch 检查
 2. **队列自动清理**：超限时移除最旧任务，避免内存泄漏
 3. **按 stream 分组**：减少单个队列长度，提升查找效率
 
@@ -457,13 +435,16 @@ AIV Task Exception Handler 通过三层架构（回调注册、任务追踪、�
 typedef void (*HcclTaskExceptionCallback)(aclrtExceptionInfo *exceptionInfo);
 
 // 核心函数
+HcclResult RegisterKernel(HcclComm comm);
+HcclResult ApplyOpExpansionMode(HcclComm comm, OpParam &param, HcclOpExpansionMode finalMode);
 HcclResult SaveAivDfxTaskInfo(const AivOpArgs &opArgs);
 void ProcessAivExceptionCallBack(aclrtExceptionInfo *exceptionInfo);
 static void RegisterAivExceptionCallback(HcclComm comm);
 static bool FindAivTask(u32 streamId, u32 taskId, TaskParamAiv &taskInfo, std::deque<TaskParamAiv> &taskQueue);
-static HcclResult GetAivTaskComm(const AivOpArgs &opArgs, HcclComm &comm);
 static std::string SerializeAivFlag(const TaskParamAiv &taskInfo);
-static u64 MakeTaskKey(u32 streamId, u32 taskId);
+
+// HCOMM API
+HcclResult HcclTaskExceptionRegCallBack(HcclComm comm, HcclTaskExceptionCallback callback);
 ```
 
 ## 附录 B：日志输出示例
