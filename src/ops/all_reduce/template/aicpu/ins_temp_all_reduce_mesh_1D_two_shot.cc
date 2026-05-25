@@ -33,6 +33,18 @@ HcclResult InsTempAllReduceMesh1DTwoShot::CalcRes(HcclComm comm, const OpParam& 
 
     std::vector<HcclChannelDesc> channelReq;
     CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelReq));
+    if(topoInfo->level0Topo == Level0Shape::MESH_1D_CLOS && !topoInfo->level0PcieMix) {
+        std::vector<HcclChannelDesc> myChannelDescs;
+        CHK_RET(CalcChannelRequestMesh1DWithPriorityTopo(comm, param, topoInfo, subCommRanks_, myChannelDescs, CommTopo::COMM_TOPO_1DMESH));
+        for(auto channel : myChannelDescs) {
+            if(channel.channelProtocol == COMM_PROTOCOL_UBC_CTP) {
+                channelReq.push_back(channel);
+            }
+        }
+        HCCL_DEBUG("[InsTempAllReduceMesh1DTwoShot::CalcRes] Get Channel Success!");
+    } else {
+        CHK_RET(CalcChannelRequestMesh1D(comm, param, topoInfo, subCommRanks_, channelReq));
+    }
     resourceRequest.channels.push_back(channelReq);
 
     HCCL_INFO("[InsTempAllReduceMesh1DTwoShot] Calculate resource finished."
