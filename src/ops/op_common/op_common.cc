@@ -2177,20 +2177,3 @@ bool IsHostDpu(HcclComm comm)
     return false;
 }
 }  // namespace ops_hccl
-
-HcclResult HcclSetAivCoreLimitGraphMode(const char *group, u32 aivCoreLimit)
-{
-    if (group == nullptr) {
-        HCCL_ERROR("[HcclSetAivCoreLimitGraphMode] group is nullptr");
-        return HCCL_E_PARA;
-    }
-
-    ops_hccl::AivParamStorage *aivParam = nullptr;
-    CHK_RET(ops_hccl::GetAivParamStorage(group, &aivParam));
-
-    aivParam->aivCoreLimit = aivCoreLimit;
-
-    HCCL_INFO("[HcclSetAivCoreLimitGraphMode] Set aivCoreLimit[%u] for group[%s]", aivCoreLimit, group);
-
-    return HCCL_SUCCESS;
-}
