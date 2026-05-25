@@ -141,6 +141,7 @@ struct AivInstruction {
 using InsQueue = std::vector<AivInstruction>;
 
 extern thread_local std::shared_ptr<InsQueue> g_recordingQueue;
+extern thread_local bool g_recordOnlyMode;
 extern thread_local u64 g_baseInputAddr;
 extern thread_local u64 g_baseOutputAddr;
 
