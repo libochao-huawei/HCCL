@@ -35,11 +35,12 @@ HcclResult InsTempScatterNHR::CalcRes(HcclComm comm, const OpParam& param, const
                         AlgResourceRequest& resourceRequest)
 {
     CHK_PTR_NULL(topoInfo);
-    GetRes(resourceRequest);
 
     std::vector<HcclChannelDesc> level0Channels;
     CHK_RET(CalcChannelRequestNhr(comm, param, topoInfo, subCommRanks_, level0Channels));
     resourceRequest.channels.push_back(level0Channels);
+    channelsPerRank_ = CalcChannelsPerRank(level0Channels);
+    CHK_RET(GetRes(resourceRequest));
     return HCCL_SUCCESS;
 }
 
@@ -160,7 +161,17 @@ HcclResult InsTempScatterNHR::KernelRun(const OpParam& param, const TemplateData
     CHK_PTR_NULL(tempAlgParams.buffInfo.inputPtr);
     CHK_PTR_NULL(tempAlgParams.buffInfo.outputPtr);
     CHK_RET(PreCopy(tempAlgParams, templateResource.threads));
+    if (threadNum_ > 1) {
+        std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+        GetNotifyIdxMainToSub(notifyIdxMainToSub_);
+        CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub_));
+    }
     CHK_RET(RunNHR(templateResource.channels, templateResource.threads, tempAlgParams));
+    if (threadNum_ > 1) {
+        std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
+        GetNotifyIdxSubToMain(notifyIdxSubToMain_);
+        CHK_RET(PostSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxSubToMain_));
+    }
     CHK_RET(PostCopy(tempAlgParams, templateResource.threads));
     HCCL_INFO("[InsTempScatterNHR] Run End");
     return HcclResult::HCCL_SUCCESS;
@@ -393,5 +404,23 @@ HcclResult InsTempScatterNHR::BatchSR(AicpuNHRStepInfo &stepInfo, const std::map
     }
     return HcclResult::HCCL_SUCCESS;
 }
+void InsTempScatterNHR::GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMianToSub)
+{
+    notifyIdxMianToSub.clear();
+    u32 threadNum = GetThreadNum();
+    u32 slaveThreadNum = threadNum - 1;
+    for (u32 slaveThreadIdx = 0; slaveThreadIdx < slaveThreadNum; slaveThreadIdx++) {
+        notifyIdxMianToSub.push_back(0);
+    }
+}
 
+void InsTempScatterNHR::GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain)
+{
+    notifyIdxSubToMain.clear();
+    u32 threadNum = GetThreadNum();
+    u32 notifyNum = threadNum - 1;
+    for (u32 notifyIdx = 0; notifyIdx < notifyNum; notifyIdx++) {
+        notifyIdxSubToMain.push_back(notifyIdx);
+    }
+}
 }  // namespace ops_hccl
