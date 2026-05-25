@@ -296,6 +296,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std
             rankGroup_[dieId].push_back(meshChannel_list.front().remoteRank);
             meshDieId = dieId;
         }
+        HCCL_INFO("meshDieId = %llu", meshDieId);
         HCCL_INFO("meshChannels_[dieId].size() = %llu", meshChannels_[meshDieId].size());
         //clos链路
         if (!closChannel_list.empty()) {
@@ -309,7 +310,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::PartitionChannels(HcclComm comm, const std
                     HCCL_INFO("closChannels_[dieId].size() = %llu", closChannels_[dieId].size());
                     HCCL_INFO("channel.remoteRank = %llu", channel.remoteRank);
                     HCCL_INFO("rankGroup_[dieId].size() = %llu", rankGroup_[dieId].size());
-                } else if (remoteRank >= 8) {
+                } else if (meshChannel_list.empty()) {
                     closChannels_[dieId].emplace_back(channel);//6port走mesh2die，只需要跨框channel
                     rankGroup_[dieId].push_back(channel.remoteRank);
                     HCCL_INFO("closChannels_[dieId].size() = %llu", closChannels_[dieId].size());
