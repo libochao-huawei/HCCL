@@ -226,7 +226,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcRes(HcclComm comm, const OpParam& para
     resourceRequest.ccuKernelNum.push_back(kernelNum);        // kernel数量
     HCCL_INFO("closChannels_[meshDieId] = %llu", closChannels_[meshDieId].size());//////////15
     // 需要从流
-    resourceRequest.notifyNumOnMainThread = 1;
+    resourceRequest.notifyNumOnMainThread = (closChannels_[meshDieId].size() == 0) ? 1 : 2;
     resourceRequest.slaveThreadNum = (closChannels_[meshDieId].size() == 0) ? 1 : 2;//2+6需要2条从流，server需要1条从流
     resourceRequest.notifyNumPerThread.push_back(1);
 
