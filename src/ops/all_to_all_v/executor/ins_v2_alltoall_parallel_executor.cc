@@ -64,7 +64,6 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
                 closRanks.push_back(rank);
             }
         }
-        closRanks.insert(closRanks.begin(), topoInfo->userRank);  // self first
         interHierarchyInfo = {closRanks};
         HCCL_INFO("[CalcRes] ClosMesh2D path: userRank=%u meshSize=%u intra[0]=%zu closRanks=%zu",
                   topoInfo->userRank, meshSize, intraHierarchyInfo[0].size(), closRanks.size());
@@ -356,7 +355,6 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
                 closRanks.push_back(rank);
             }
         }
-        closRanks.insert(closRanks.begin(), resCtx.topoInfo.userRank);  // self first
         interHierarchyInfo_ = {closRanks};
         HCCL_INFO("[Orchestrate] ClosMesh2D path: intra[%zu] inter[%zu]",
                   intraHierarchyInfo_[0].size(), interHierarchyInfo_[0].size());
