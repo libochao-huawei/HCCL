@@ -203,14 +203,19 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcRes(HcclComm comm, const OpParam& para
 /*     for (auto& chGroup : channelDescs) {
         resourceRequest.channels.push_back(chGroup);
     } */
-   std::vector<HcclChannelDesc> allChannels;
-    for (auto& chGroup : channelDescs) {
-        allChannels.insert(allChannels.end(), chGroup.begin(), chGroup.end());
-    }
+    std::vector<HcclChannelDesc> allChannels;
+        // 1. 先放 meshChannels_[meshDieId]
+    allChannels.insert(allChannels.end(), meshChannels_[meshDieId].begin(), meshChannels_[meshDieId].end());
 
-    // 最后只 push 一次！！！
-    resourceRequest.channels.push_back(allChannels);
-    HCCL_INFO("resourceRequest.channels[%d]",resourceRequest.channels.size());////////////1//////////0523:2
+    // 2. 再放 closChannels_[closDieId]
+    uint32_t closDieId = 1 - meshDieId;
+    allChannels.insert(allChannels.end(), closChannels_[closDieId].begin(), closChannels_[closDieId].end());
+
+    // 3. 最后放 closChannels_[meshDieId]
+    allChannels.insert(allChannels.end(), closChannels_[meshDieId].begin(), closChannels_[meshDieId].end());
+
+    resourceRequest.channels.emplace_back(allChannels);
+    HCCL_INFO("resourceRequest.channels[%d]",resourceRequest.channels.size());////////////1
 
     const uint32_t rankSize = subCommRanks_[0].size();
     u32 kernelNum = (closChannels_[meshDieId].size() == 0) ? DIE_NUM: DIE_NUM + 1;
