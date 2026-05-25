@@ -240,9 +240,11 @@ HcclResult InsTempAlltoAllMesh2DV2::RunAlltoAllMesh(
             const u64 scratchBase = tempAlgParams_.buffInfo.hcclBuffBaseOff +
                                     rpt * scratchRepeatStride;
 
-            u64 txOutOffset = tempAlgParams_.outputSliceStride * connectedAlgRank + outBaseOff;
+            u64 txSrcInputOffset = tempAlgParams_.outputSliceStride * connectedAlgRank + outBaseOff;
+            u64 txSrcScratchOffset = tempAlgParams_.buffInfo.inBuffBaseOff +
+                                     perPeerChunkSize * connectedAlgRank;
             u64 txScratchOffset = scratchBase + perPeerChunkSize * connectedAlgRank;
-            u64 txDstOffset = (!enableRemoteMemAccess_) ? txScratchOffset : txOutOffset;
+            u64 txDstOffset = (!enableRemoteMemAccess_) ? txScratchOffset : txSrcInputOffset;
 
             u64 rxOutOffset = tempAlgParams_.outputSliceStride * myAlgRank + outBaseOff;
             u64 rxScratchOffset = scratchBase + perPeerChunkSize * myAlgRank;
@@ -250,19 +252,23 @@ HcclResult InsTempAlltoAllMesh2DV2::RunAlltoAllMesh(
 
             void *txSrcPtr = tempAlgParams_.buffInfo.inputPtr;
             void *txDstPtr = (!enableRemoteMemAccess_) ? remoteCclBuffAddr
-                                                         : linkRemote.remoteOutputGraphMode.addr;
+                                                          : linkRemote.remoteOutputGraphMode.addr;
             void *rxSrcPtr = (!enableRemoteMemAccess_) ? remoteCclBuffAddr
-                                                         : linkRemote.remoteOutputGraphMode.addr;
+                                                          : linkRemote.remoteOutputGraphMode.addr;
             void *rxDstPtr = tempAlgParams_.buffInfo.outputPtr;
 
-            txSrcSlicesAll.emplace_back(txSrcPtr, txOutOffset, actualChunkSize, chunkCount);
+            bool readingFromScratch = (tempAlgParams_.buffInfo.inBuffType == BufferType::HCCL_BUFFER);
+            u64 txSrcOffset = readingFromScratch ? txSrcScratchOffset : txSrcInputOffset;
+
+            txSrcSlicesAll.emplace_back(txSrcPtr, txSrcOffset, actualChunkSize, chunkCount);
             txDstSlicesAll.emplace_back(txDstPtr, txDstOffset, actualChunkSize, chunkCount);
             rxDstSlicesAll.emplace_back(rxDstPtr, rxOutOffset, actualChunkSize, chunkCount);
             rxSrcSlicesAll.emplace_back(rxSrcPtr, rxSrcOffset, actualChunkSize, chunkCount);
 
             HCCL_DEBUG("[InsTempAlltoAllMesh2DV2][RunAlltoAllMesh] rankId [%d] connectedRank [%d] rpt [%d] "
-                        "txSrc offset[%llu] sliceSize[%llu] count[%llu].",
-                        myRank_, connectedRank, rpt, txOutOffset, actualChunkSize, chunkCount);
+                        "txSrc offset[%llu] sliceSize[%llu] count[%llu] fromScratch[%d].",
+                        myRank_, connectedRank, rpt, txSrcOffset, actualChunkSize, chunkCount,
+                        readingFromScratch);
         }
 
         TxRxSlicesList sendRecvSlicesList({txSrcSlicesAll, txDstSlicesAll},
@@ -323,18 +329,23 @@ HcclResult InsTempAlltoAllMesh2DV2::LocalDataCopy(const std::vector<ThreadHandle
     }
 
     u64 totalSliceSize = tempAlgParams_.sliceSize;
-    u64 chunkPerPeerSize = (totalSliceSize + totalRankSize_ - 1) / totalRankSize_;
-    if (chunkPerPeerSize == 0) {
-        chunkPerPeerSize = totalSliceSize;
+    u64 cellSize = (totalSliceSize + totalRankSize_ - 1) / totalRankSize_;
+    if (cellSize == 0) {
+        cellSize = totalSliceSize;
+    }
+
+    u64 perPeerMeshSize = (totalSliceSize + xRankSize_ - 1) / xRankSize_;
+    if (perPeerMeshSize == 0) {
+        perPeerMeshSize = totalSliceSize;
     }
 
     for (u32 d = 0; d < totalRankSize_; d++) {
         u32 dx = d % xRankSize_;
         u32 dy = d / xRankSize_;
 
-        u64 offsetInSlice = chunkPerPeerSize * d;
+        u64 offsetInSlice = cellSize * d;
         u64 remainingAtOffset = (offsetInSlice < totalSliceSize) ? (totalSliceSize - offsetInSlice) : 0;
-        u64 actualChunkSize = std::min(chunkPerPeerSize, remainingAtOffset);
+        u64 actualChunkSize = std::min(cellSize, remainingAtOffset);
         if (actualChunkSize == 0) {
             continue;
         }
@@ -355,7 +366,7 @@ HcclResult InsTempAlltoAllMesh2DV2::LocalDataCopy(const std::vector<ThreadHandle
         }
 
         u64 cclOff = tempAlgParams_.buffInfo.hcclBuffBaseOff +
-                     chunkPerPeerSize * (dy * xRankSize_ + dx);
+                     perPeerMeshSize * dx + cellSize * dy;
         bool skipCclCopy = (tempAlgParams_.buffInfo.inputPtr == tempAlgParams_.buffInfo.hcclBuff.addr &&
                             inOff == cclOff);
         if (!skipCclCopy) {
@@ -382,10 +393,8 @@ HcclResult InsTempAlltoAllMesh2DV2::PostLocalCopy(const std::vector<ThreadHandle
     }
 
     u64 totalSliceSize = tempAlgParams_.sliceSize;
-    u64 chunkPerPeerSize = (totalSliceSize + totalRankSize_ - 1) / totalRankSize_;
-    if (chunkPerPeerSize == 0) {
-        chunkPerPeerSize = totalSliceSize;
-    }
+    u64 cellSize = (totalSliceSize + totalRankSize_ - 1) / totalRankSize_;
+    u64 perPeerSize = (totalSliceSize + xRankSize_ - 1) / xRankSize_;
 
     for (auto rank : subCommRanks_[0]) {
         if (rank == myRank_) {
@@ -399,16 +408,16 @@ HcclResult InsTempAlltoAllMesh2DV2::PostLocalCopy(const std::vector<ThreadHandle
 
         for (u32 dx = 0; dx < xRankSize_; dx++) {
             u32 d = dx + sy * xRankSize_;
-            u64 offsetInSlice = chunkPerPeerSize * d;
+            u64 offsetInSlice = cellSize * d;
             u64 remainingAtOffset = (offsetInSlice < totalSliceSize) ? (totalSliceSize - offsetInSlice) : 0;
-            u64 actualChunkSize = std::min(chunkPerPeerSize, remainingAtOffset);
+            u64 actualChunkSize = std::min(cellSize, remainingAtOffset);
             if (actualChunkSize == 0) {
                 continue;
             }
             u64 chunkCount = actualChunkSize / dataTypeSize;
 
             u64 scratchOffset = tempAlgParams_.buffInfo.hcclBuffBaseOff +
-                                chunkPerPeerSize * (sy * xRankSize_ + dx);
+                                dx * perPeerSize + sy * cellSize;
             u64 outOffset = tempAlgParams_.buffInfo.outBuffBaseOff +
                             tempAlgParams_.outputSliceStride * d;
 

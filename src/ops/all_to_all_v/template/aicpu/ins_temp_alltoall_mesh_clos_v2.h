@@ -36,6 +36,9 @@ protected:
         const std::vector<ThreadHandle> &threads,
         const std::map<u32, std::vector<ChannelInfo>> &channels) override;
 
+    HcclResult LocalDataCopy(const std::vector<ThreadHandle> &threads) override;
+    HcclResult PostLocalCopy(const std::vector<ThreadHandle> &threads) override;
+
 private:
     HcclResult RunAlltoAllOnLink(
         const std::vector<ThreadHandle> &threads,

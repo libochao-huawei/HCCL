@@ -59,7 +59,8 @@ protected:
     virtual HcclResult LocalDataCopy(const std::vector<ThreadHandle> &threads);
 
     // Post copy: received data from scratch → output for all column peers
-    HcclResult PostLocalCopy(const std::vector<ThreadHandle> &threads);
+    // C-9 fix: virtual so clos can override with dy-based formula
+    virtual HcclResult PostLocalCopy(const std::vector<ThreadHandle> &threads);
 
     u32 xRankSize_{0};     // total columns (from executor)
     u32 yRankSize_{0};     // total rows (from executor)
