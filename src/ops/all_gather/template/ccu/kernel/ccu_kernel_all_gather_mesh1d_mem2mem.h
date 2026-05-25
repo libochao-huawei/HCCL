@@ -40,10 +40,9 @@ struct AllGatherMesh1DMem2MemContext : CcuKernelCtxBase {
     ccu::Variable lastSliceSize;
     ccu::Variable isInputOutputEqual;
     GroupOpSizeVars goSize;
-    ccu::Event event;
     ccu::LocalAddr src_loccopy;
     ccu::LocalAddr localDst;
-
+    std::vector<ccu::Event> events;
 };
 
 CcuResult CcuAllGatherMesh1DMem2MemKernel(CcuKernelArg arg);
