@@ -21,6 +21,7 @@ cmake_minimum_required(VERSION 3.16)
 if(NOT _STAGING_DIR)
     message(FATAL_ERROR "_STAGING_DIR not set")
 endif()
+
 if(NOT _ITEMS)
     message(FATAL_ERROR "_ITEMS not set")
 endif()
