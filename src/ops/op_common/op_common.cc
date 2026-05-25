@@ -904,7 +904,7 @@ HcclResult HcclGetAlgRes(HcclComm comm, OpParam& param, std::unique_ptr<InsCollA
     }
 
     CHK_RET(GetAlgResWithEngine(comm, param, resRequest, resCtxHost, topoInfo, algHierarchyInfo, resCtxSequence, size,
-        increCreateChannelFlag));
+        increCreateChannelFlag, resPack));
     if (resCtxHost != nullptr) {
         // 拼接各level的channel数量信息
         std::string channelNumInfo;
