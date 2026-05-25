@@ -361,6 +361,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::KernelRun(const OpParam &param, const Temp
     opMode_ = param.opMode;
     buffInfo_ = templateDataParams.buffInfo;
     u32 kernelNum = templateResource.ccuKernels.size();
+    HCCL_INFO("[kernelNum111] = %u ,kernelNum");
     const uint32_t rankSize = subCommRanks_[0].size();
 
     uint64_t inputAddr  = PointerToAddr(buffInfo_.inputPtr) + buffInfo_.inBuffBaseOff;
