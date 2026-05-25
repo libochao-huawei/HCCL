@@ -386,10 +386,10 @@ inline u32 CalcChannelsPerRank(const std::vector<HcclChannelDesc> &channels)
             currentCount++;
         } else {
             // 如果remoteRank变化了，则更新channelsPerRank并重新开始给下一个remoteRank计数
-            if (currentCount != channelsPerRank && currentRank != channels[0].remoteRank && currentRank != INVALID_VALUE_RANKID) {
+            if (currentCount != channelsPerRank && channel.remoteRank != channels[0].remoteRank) {
                 HCCL_WARNING("[CalcChannelsPerRank] channel num[%u] of remote rank[%u] is not equal to "\
                     "channel num[%u] of previous ranks.",
-                    currentCount, currentRank, channelsPerRank);
+                    currentCount, channel.remoteRank, channelsPerRank);
             }
             if (currentCount > channelsPerRank) {
                 channelsPerRank = currentCount;
