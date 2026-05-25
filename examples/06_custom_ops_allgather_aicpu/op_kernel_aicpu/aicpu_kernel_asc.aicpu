@@ -60,7 +60,6 @@ HcclResult ExecOp(OpParam &param, AlgResourceCtx &resCtx)
         }
         // 交换数据
         for (uint32_t i = 0; i < resCtx.threads.size(); i++) {
-            uint32_t remoteRank = resCtx.channels[i].remoteRank;
             ChannelHandle remoteChannelHandle = resCtx.channels[i].handle;
             void *remoteCclBuffAddr = static_cast<void *>(static_cast<uint8_t *>(resCtx.channels[i].remoteCclMem.addr) + sliceSize * param.myRank);
             CHK_RET(HcommChannelNotifyRecordOnThread(resCtx.threads[i], remoteChannelHandle, NOTIFY_IDX_ACK));

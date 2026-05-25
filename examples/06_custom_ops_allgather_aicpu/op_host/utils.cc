@@ -20,7 +20,8 @@ namespace ops_hccl_allgather {
 
 constexpr uint32_t CHANNEL_NOTIFY_NUM = 3;
 
-HcclResult GetDeviceType(DeviceType *deviceType) {
+HcclResult GetDeviceType(DeviceType *deviceType)
+{
     const char *socNamePtr = aclrtGetSocName();
     if (socNamePtr == nullptr) {
         HCCL_ERROR("[GetDeviceType] Failed to get soc name");
@@ -48,7 +49,8 @@ HcclResult AcquireChannel(HcclComm comm, CommEngine engine,
                           uint32_t srcRank, uint32_t dstRank, ChannelHandle *channel)
 {
     // Ascend 950 创建 Channel
-    uint32_t netLayer = 0, listSize = 0;
+    uint32_t netLayer = 0;
+    uint32_t listSize = 0;
     CommLink *linkList = nullptr;
     CHK_RET(HcclRankGraphGetLinks(comm, netLayer, srcRank, dstRank, &linkList,
                                   &listSize));
@@ -105,7 +107,8 @@ HcclResult HcclMemcpyCtxHostToDevice(HcclComm comm, const OpParam &param,
 }
 
 
-HcclResult HcclGetThreadAICPU(HcclComm comm, const OpParam &param, AlgResourceCtx &resCtxHost) {
+HcclResult HcclGetThreadAICPU(HcclComm comm, const OpParam &param, AlgResourceCtx &resCtxHost)
+{
     // Mesh算法所需资源
     uint32_t slaveThreadNum = resCtxHost.slaveThreadNum;
     uint32_t notifyNumOnMainThread = resCtxHost.notifyNumOnMainThread;
@@ -121,11 +124,12 @@ HcclResult HcclGetThreadAICPU(HcclComm comm, const OpParam &param, AlgResourceCt
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclGetChannelAICPU(HcclComm comm, const OpParam &param, AlgResourceCtx &resCtxHost) {
+HcclResult HcclGetChannelAICPU(HcclComm comm, const OpParam &param, AlgResourceCtx &resCtxHost)
+{
     uint32_t channelNum = param.rankSize - 1;
     std::vector<ChannelHandle> channels(channelNum);
-    for(uint32_t remoteRank = 0; remoteRank < param.rankSize; remoteRank++) {
-        if(remoteRank == param.myRank) {
+    for(uint32_t remoteRank=0; remoteRank<param.rankSize; remoteRank++) {
+        if (remoteRank == param.myRank) {
             continue;
         }
         CHK_RET(AcquireChannel(comm, COMM_ENGINE_AICPU_TS, param.myRank, remoteRank, &channels[remoteRank]));
@@ -142,7 +146,8 @@ HcclResult HcclGetChannelAICPU(HcclComm comm, const OpParam &param, AlgResourceC
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclAllocAlgResourceAICPU(HcclComm comm, const OpParam &param, AlgResourceCtx &resCtxHost) {
+HcclResult HcclAllocAlgResourceAICPU(HcclComm comm, const OpParam &param, AlgResourceCtx &resCtxHost)
+{
     void *cclBufferAddr;
     uint64_t cclBufferSize;
     // 从通信域获取CCL buffer

@@ -88,7 +88,6 @@ struct AlgResourceCtx {
         binaryStream >> threads;
         binaryStream >> channels;
     }
-
 };
 
 struct OpParam {

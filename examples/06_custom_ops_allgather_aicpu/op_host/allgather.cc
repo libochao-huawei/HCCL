@@ -86,7 +86,7 @@ HcclResult HcclAllGatherCustom(
         // ==============================================
         // STEP 2.2: 申请资源Thread和Channel
         // ==============================================
-        CHK_RET(HcclAllocAlgResourceAICPU( comm, param, resCtxHost));
+        CHK_RET(HcclAllocAlgResourceAICPU(comm, param, resCtxHost));
         CHK_RET(HcclMemcpyCtxHostToDevice(comm, param, resCtxHost, &param.resCtxDevice, &param.ctxSize));
     }
     // ==============================================
