@@ -393,7 +393,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::KernelRun(const OpParam &param, const Temp
     std::vector<u32> notifyIdxMainToSub;
     notifyIdxMainToSub.push_back(0);
     if (kernelNum == DIE_NUM + 1) {
-        notifyIdxMainToSub.push_back(1);
+        notifyIdxMainToSub.push_back(0);
     }
     CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub));
 
@@ -428,7 +428,7 @@ HcclResult CcuTempAllToAllMesh1D2Die::KernelRun(const OpParam &param, const Temp
     std::vector<u32> notifyIdxSubToMain;
     notifyIdxSubToMain.push_back(0);
     if (kernelNum == DIE_NUM + 1) {
-        notifyIdxSubToMain.push_back(1);
+        notifyIdxSubToMain.push_back(0);
     }
 
     //std::vector<u32> notifyIdxSubToMain(1, 0);
