@@ -73,7 +73,7 @@ HcclResult CompareOpExchangeInfos(HcclComm comm, const OpExchangeInfo &exchangeI
             CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "GroupName", exchangeInfo.group,
                 rmtExchangeInfo.group));
         }
-        if (strncmp(exchangeInfo.tag, rmtExchangeInfo.tag, ALG_TAG_LENGTH) != 0) {
+        if (strncmp(exchangeInfo.tag, rmtExchangeInfo.tag, TAG_LENGTH) != 0) {
             CHK_RET(ReportOpExchangeInfoCheckFailed(exchangeInfo, "OpTag", exchangeInfo.tag,
                 rmtExchangeInfo.tag));
         }
