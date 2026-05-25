@@ -41,8 +41,8 @@ public:
     HcclResult GetRes(AlgResourceRequest &resourceRequest) const override;
     void SetRoot(u32 root);
 
-    void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainnToSub) override {};
-    void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override{};
+    void GetNotifyIdxMainToSub(std::vector<u32> &notifyIdxMainnToSub) override;
+    void GetNotifyIdxSubToMain(std::vector<u32> &notifyIdxSubToMain) override;
 
 private:
     HcclResult PreCopy(const TemplateDataParams &tempAlgParams, const std::vector<ThreadHandle> &threads) const;
