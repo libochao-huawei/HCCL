@@ -10,8 +10,8 @@
 
 #include "hccl_res_expt_dl.h"
 #include <dlfcn.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
 
 DEFINE_WEAK_FUNC(HcclResult, HcclCommAddExchangeInfo, HcclComm comm, const void *data, uint32_t length);
 DEFINE_WEAK_FUNC(HcclResult, HcclCommGetExchangeInfo, HcclComm comm, uint32_t remoteRank, uint32_t length, void *data,

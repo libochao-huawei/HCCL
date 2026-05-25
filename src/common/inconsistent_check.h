@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef INCONSISTENT_CHECK
-#define INCONSISTENT_CHECK
+#ifndef INCONSISTENT_CHECK_H
+#define INCONSISTENT_CHECK_H
 
 #include <string>
 
@@ -31,4 +31,4 @@ HcclResult ReportOpExchangeInfoCheckFailed(const OpExchangeInfo &exchangeInfo, c
 HcclResult GetOpTypeName(const OpExchangeInfo &exchangeInfo, std::string &opInfo);
 
 }
-#endif
+#endif // INCONSISTENT_CHECK_H
