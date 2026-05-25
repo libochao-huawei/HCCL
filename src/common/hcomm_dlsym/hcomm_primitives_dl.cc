@@ -10,8 +10,8 @@
 
 #include "hcomm_primitives_dl.h"
 #include <dlfcn.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
 
 DEFINE_WEAK_FUNC(int32_t, HcommWriteWithNotifyOnThread, ThreadHandle thread, ChannelHandle channel, void* dst, const void* src,
                                                 uint64_t len, uint32_t remoteNotifyIdx);

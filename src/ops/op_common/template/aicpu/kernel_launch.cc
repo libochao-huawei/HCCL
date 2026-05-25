@@ -392,7 +392,7 @@ extern "C" unsigned int HcclLaunchAicpuKernel(OpParam *param)
         }
 
         // 设置执行超时时间
-        ExecTimeoutManager::Instance().SetExecTimeout(param->execTimeout);
+        ExecTimeoutManager::Instance().SetExecTimeout(param->opConfig.execTimeout);
         // 设置BatchTransfer是否可行
         CHK_RET(InitHcommBatchTransferOnThreadSupported(resCtxPtr->isHcommBatchTransferOnThreadSupported));
         // 执行算法编排

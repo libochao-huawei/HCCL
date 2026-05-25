@@ -30,7 +30,6 @@ export HCCL_NPU_SOCKET_PORT_RANGE="auto"
 
 - 在多卡场景下，若需要配置该环境变量，则同一通信域内的所有卡都必须进行配置。
 - 若业务为单卡多进程场景（即多个业务进程同时共用一个NPU），建议配置此环境变量，否则业务可能会因为端口冲突运行失败。但需要注意，多进程会对资源开销、通信性能产生一定的影响。
-- 针对Atlas A2 训练系列产品/Atlas A2 推理系列产品，若网络中存在MC²通算融合算子（计算和通信融合的算子，例如AllGatherMatmul、MatmulReduceScatter、AlltoAllAllGatherBatchMatMul等），不支持配置此环境变量。
 
 ## 支持的型号
 
