@@ -277,7 +277,6 @@ struct CcuKernelArgBase {
 struct CcuKernelInfo {
     // kernel资源组序号，group号不同时，资源复用
     u32 resGroup = 0;
-#if CANN_VERSION_NUM >= 90000000
     // kernel名 string？
     char kernelFuncName[64];
     // kernel函数
