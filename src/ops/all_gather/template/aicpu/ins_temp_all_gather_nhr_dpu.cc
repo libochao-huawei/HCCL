@@ -49,13 +49,14 @@ HcclResult InsTempAllGatherNHRDPU::KernelRun(const OpParam& param,
                                              TemplateResource& templateResource)
 {
     HCCL_INFO("[InsTempAllGatherNHRDPU] Run Start");
-
+    enableRemoteMemAccess_ = tempAlgParams.enableRemoteMemAccess;
     if (templateResource.threads.size() < 1) {
         HCCL_ERROR("[InsTempAllGatherNHRDPU] Rank[%u], required thread error.", myRank_);
         return HCCL_E_INTERNAL;
     }
-
-    CHK_RET(LocalDataCopy(tempAlgParams, templateResource));
+    if (!enableRemoteMemAccess_) {
+        CHK_RET(LocalDataCopy(tempAlgParams, templateResource));
+    }
 
     // 转换成eager-mode，保障AICPU指令下发执行完成
     if (HcommBatchModeEnd(param.algTag) != HCCL_SUCCESS) {
@@ -104,7 +105,9 @@ HcclResult InsTempAllGatherNHRDPU::KernelRun(const OpParam& param,
         return HCCL_E_INTERNAL;
     }
 
-    CHK_RET(PostLocalCopy(tempAlgParams, templateResource));
+    if (!enableRemoteMemAccess_) {
+        CHK_RET(PostLocalCopy(tempAlgParams, templateResource));
+    }
 
     HCCL_INFO("[InsTempAllGatherNHRDPU] Run End");
     return HcclResult::HCCL_SUCCESS;
@@ -195,6 +198,7 @@ HcclResult InsTempAllGatherNHRDPU::RunNHR(const TemplateDataParams& tempAlgParam
     for (uint32_t rpt = 0; rpt < tempAlgParams.repeatNum; ++rpt) {
         const uint64_t scratchRepeatStride = tempAlgParams.sliceSize * templateRankSize_;
         const uint64_t scratchBase = tempAlgParams.buffInfo.hcclBuffBaseOff + rpt * scratchRepeatStride;
+        const uint64_t outBaseOff = tempAlgParams.buffInfo.outBuffBaseOff + rpt * tempAlgParams.outputRepeatStride;
 
         for (uint32_t step = 0; step < nSteps; ++step) {
             AicpuNHRStepInfo stepInfo;
@@ -219,13 +223,20 @@ HcclResult InsTempAllGatherNHRDPU::RunNHR(const TemplateDataParams& tempAlgParam
 
                 const u64 txScratchOff = scratchBase + tempAlgParams.sliceSize * txIdx;
                 const u64 rxScratchOff = scratchBase + tempAlgParams.sliceSize * rxIdx;
+                const u64 txOutOff = tempAlgParams.outputSliceStride * txIdx + outBaseOff;
+                const u64 rxOutOff = tempAlgParams.outputSliceStride * rxIdx + outBaseOff;
 
-                txSrcSlices.emplace_back(tempAlgParams.buffInfo.hcclBuff.addr, txScratchOff, tempAlgParams.sliceSize,
-                                         tempAlgParams.count);
-                txDstSlices.emplace_back(sendCclBuffAddr, txScratchOff, tempAlgParams.sliceSize, tempAlgParams.count);
-                rxSrcSlices.emplace_back(recvCclBuffAddr, rxScratchOff, tempAlgParams.sliceSize, tempAlgParams.count);
-                rxDstSlices.emplace_back(tempAlgParams.buffInfo.hcclBuff.addr, rxScratchOff, tempAlgParams.sliceSize,
-                                         tempAlgParams.count);
+                const u64 txSrcOff = (!enableRemoteMemAccess_) ? txScratchOff : txOutOff;
+                const u64 rxDstOff = (!enableRemoteMemAccess_) ? rxScratchOff : rxOutOff;
+                void *txSrcAddr = (!enableRemoteMemAccess_) ? tempAlgParams.buffInfo.hcclBuff.addr : tempAlgParams.buffInfo.outputPtr;
+                void *rxDstAddr = (!enableRemoteMemAccess_) ? tempAlgParams.buffInfo.hcclBuff.addr : tempAlgParams.buffInfo.outputPtr;
+                void *txDstAddr = (!enableRemoteMemAccess_) ? sendCclBuffAddr : txChannel[0].remoteOutputGraphMode.addr;
+                void *rxSrcAddr = (!enableRemoteMemAccess_) ? recvCclBuffAddr : rxChannel[0].remoteOutputGraphMode.addr;
+
+                txSrcSlices.emplace_back(txSrcAddr, txSrcOff, tempAlgParams.sliceSize, tempAlgParams.count);
+                txDstSlices.emplace_back(txDstAddr, txSrcOff, tempAlgParams.sliceSize, tempAlgParams.count);
+                rxSrcSlices.emplace_back(rxSrcAddr, rxDstOff, tempAlgParams.sliceSize, tempAlgParams.count);
+                rxDstSlices.emplace_back(rxDstAddr, rxDstOff, tempAlgParams.sliceSize, tempAlgParams.count);
             }
             // write模式使用tx,rx地址不生效，仅使用对端link做Post/Wait
             // read 模式使用rx, tx地址不生效，仅使用对端link做Post/Wait

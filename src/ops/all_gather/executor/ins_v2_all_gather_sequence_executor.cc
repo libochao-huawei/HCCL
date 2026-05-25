@@ -163,6 +163,7 @@ HcclResult InsV2AllGatherSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
         interTempDataParams.repeatNum = 1;
         interTempDataParams.inputRepeatStride = 0;
         interTempDataParams.outputRepeatStride = 0;
+        interTempDataParams.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
 
         HCCL_INFO("[InsV2AllGatherSequenceExecutor] loop[%llu] interTempDataParams.inputSliceStride[%llu] "
             "interTempDataParams.outputSliceStride[%llu] interTempDataParams.sliceSize[%llu] "
@@ -190,6 +191,7 @@ HcclResult InsV2AllGatherSequenceExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgT
         intraTempDataParams.repeatNum = rankSizeLevel1_;
         intraTempDataParams.inputRepeatStride = dataSize_ * rankSizeLevel0_;
         intraTempDataParams.outputRepeatStride = dataSize_ * rankSizeLevel0_;
+        intraTempDataParams.enableRemoteMemAccess = param.opMode == OpMode::OFFLOAD;
 
         HCCL_INFO("[InsV2AllGatherSequenceExecutor] loop[%llu] intraTempDataParams.inputSliceStride[%llu] "
             "intraTempDataParams.outputSliceStride[%llu] intraTempDataParams.sliceSize[%llu] "
