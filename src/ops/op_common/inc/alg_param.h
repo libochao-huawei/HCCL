@@ -38,6 +38,8 @@ namespace ops_hccl {
 
 constexpr uint64_t UB_MAX_DATA_SIZE = 256*1024*1024; // Byte, UB协议一次传输的最大size
 
+constexpr u32 MAX_NUM_BLOCKS = 56; // 56-72
+
 constexpr uint32_t DATATYPE_SIZE_TABLE[HCCL_DATA_TYPE_RESERVED] = {sizeof(int8_t), sizeof(int16_t), sizeof(int32_t),
     2, sizeof(float), sizeof(int64_t), sizeof(uint64_t), sizeof(uint8_t), sizeof(uint16_t), sizeof(uint32_t),
     8, 2, 16, 2, 1, 1, 1, 1};
@@ -629,6 +631,21 @@ struct MemRegInfo {
 struct AivParamStorage {
     u32 aivCoreLimit = 0;
     bool aivClearEnable = false;
+};
+
+// 算子参数一致性校验信息
+struct OpExchangeInfo {
+    uint64_t cclBufferSize{0};
+    u32 root = INVALID_VALUE_RANKID;
+    HcclCMDType opType = HcclCMDType::HCCL_CMD_INVALID;
+    CommEngine engine = CommEngine::COMM_ENGINE_RESERVED;
+    OpExecuteConfig opExecuteConfig = OpExecuteConfig::DEFAULT;
+    HcclReduceOp reduceType = HcclReduceOp::HCCL_REDUCE_RESERVED;
+    HcclDataType dataType = HcclDataType::HCCL_DATA_TYPE_RESERVED;
+    u64 count{0};
+    u32 aivCoreLimit = MAX_NUM_BLOCKS;
+    char group[MAX_LENGTH] = {0};
+    char tag[TAG_LENGTH] = {0};
 };
 
 } 
