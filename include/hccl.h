@@ -137,7 +137,7 @@ extern HcclResult HcclAllGatherV(void *sendBuf, uint64_t sendCount, void *recvBu
 /**
  * @brief Send operator.
  *
- * @param sendBuff A pointer identifying the input data address of the operator.
+ * @param sendBuf A pointer identifying the input data address of the operator.
  * @param count An integer(u64) identifying the number of the send data.
  * @param dataType The data type of the operator, must be one of the following types: int8, int16, int32, int64,
  * uint8, uint16, uint32, uint64, float16, float32, float64, bfp16.
@@ -151,7 +151,7 @@ extern HcclResult HcclSend(void* sendBuf, uint64_t count, HcclDataType dataType,
 /**
  * @brief Recv operator.
  *
- * @param recvBuff A pointer identifying the output data address of the operator.
+ * @param recvBuf A pointer identifying the output data address of the operator.
  * @param count An integer(u64) identifying the number of the receive data.
  * @param dataType The data type of the operator, must be one of the following types: int8, int16, int32, int64,
  * uint8, uint16, uint32, uint64, float16, float32, float64, bfp16.
@@ -166,7 +166,7 @@ extern HcclResult HcclRecv(void* recvBuf, uint64_t count, HcclDataType dataType,
 /**
  * @brief AlltoAllVC operator.
  *
- * @param sendBuff A pointer identifying the input data address of the operator.
+ * @param sendBuf A pointer identifying the input data address of the operator.
  * @param sendCountMatrix A two-dimensional(uint64) array representing the data volume directly sent by all ranks.
  * @param sendType Datatype of send buffer elements, must be one of the following types: int8, int16, int32, int64,
  * uint8, uint16, uint32, uint64, float16, float32, float64, bfp16.
@@ -183,7 +183,7 @@ extern HcclResult HcclAlltoAllVC(const void *sendBuf, const void *sendCountMatri
 /**
  * @brief AlltoAllV operator.
  *
- * @param sendBuff A pointer identifying the input data address of the operator.
+ * @param sendBuf A pointer identifying the input data address of the operator.
  * @param sendCounts Integer(uint64) array, where entry i specifies the number of elements to send to rank i.
  * @param sdispls Integer(uint64) array, where entry i specifies the displacement (offset from sendbuf, in units of sendtype)
  * from which to send data to rank i.
@@ -206,7 +206,7 @@ extern HcclResult HcclAlltoAllV(const void *sendBuf, const void *sendCounts, con
 /**
  * @brief AlltoAll operator.
  *
- * @param sendBuff A pointer identifying the input data address of the operator.
+ * @param sendBuf A pointer identifying the input data address of the operator.
  * @param sendCount Integer, number of elements to send to each process.
  * @param sendType Datatype of send buffer elements, must be one of the following types: int8, int16, int32, int64,
  * uint8, uint16, uint32, uint64, float16, float32, float64, bfp16.
