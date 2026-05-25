@@ -7,6 +7,7 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
+#include "externalinput.h"
 #include "log.h"
 
 #include <unordered_map>
@@ -30,6 +31,9 @@ static int32_t GetLogLevel(int32_t moduleId)
 
 bool HcclCheckLogLevel(int logType, int moduleId)
 {
+    if (logType == HCCL_LOG_INFO && moduleId == HCCL_LOG_MASK && GetExternalInputHcclEnableEntryLog()) {
+        return true;
+    }
     return (logType >= GetLogLevel(moduleId));
 }
 
