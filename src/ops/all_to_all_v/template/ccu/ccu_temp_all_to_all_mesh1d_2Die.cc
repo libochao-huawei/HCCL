@@ -390,7 +390,11 @@ HcclResult CcuTempAllToAllMesh1D2Die::KernelRun(const OpParam &param, const Temp
 
     // 前流同步
     std::vector<ThreadHandle> subThreads(templateResource.threads.begin() + 1, templateResource.threads.end());
-    std::vector<u32> notifyIdxMainToSub(1, 0);
+    std::vector<u32> notifyIdxMainToSub;
+    notifyIdxMainToSub.push_back(0);
+    if (kernelNum == DIE_NUM + 1) {
+        notifyIdxMainToSub.push_back(1);
+    }
     CHK_RET(PreSyncInterThreads(templateResource.threads[0], subThreads, notifyIdxMainToSub));
 
     for (uint32_t dieId = 0; dieId < DIE_NUM; dieId++) {    // 2Die算法，需要执行两次
