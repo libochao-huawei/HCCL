@@ -206,16 +206,18 @@ HcclResult CcuTempAllToAllMesh1D2Die::CalcRes(HcclComm comm, const OpParam& para
     std::vector<HcclChannelDesc> allChannels;
         // 1. 先放 meshChannels_[meshDieId]
     allChannels.insert(allChannels.end(), meshChannels_[meshDieId].begin(), meshChannels_[meshDieId].end());
+    HCCL_INFO("meshChannels_[meshDieId].size() = %llu",meshChannels_[meshDieId].size());
 
     // 2. 再放 closChannels_[closDieId]
     uint32_t closDieId = 1 - meshDieId;
     allChannels.insert(allChannels.end(), closChannels_[closDieId].begin(), closChannels_[closDieId].end());
+    HCCL_INFO("closChannels_[closDieId].size() = %llu",closChannels_[closDieId].size());
 
     // 3. 最后放 closChannels_[meshDieId]
-    if (!closChannels_[meshDieId].empth()){
-        allChannels.insert(allChannels.end(), closChannels_[meshDieId].begin(), closChannels_[meshDieId].end());
-    }
-    
+    allChannels.insert(allChannels.end(), closChannels_[meshDieId].begin(), closChannels_[meshDieId].end());
+    HCCL_INFO("closChannels_[meshDieId].size() = %llu",closChannels_[meshDieId].size());
+
+    HCCL_INFO("allChannels.size() = %llu",allChannels.size());
     resourceRequest.channels.emplace_back(allChannels);
     HCCL_INFO("resourceRequest.channels[%d]",resourceRequest.channels.size());////////////1
 
