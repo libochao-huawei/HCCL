@@ -47,10 +47,7 @@ SelectorStatus AlltoAllAutoSelector::SelectCcuScheduleAlgo(const TopoInfoWithNet
     if (topoInfo->topoLevelNums > 1) {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D && topoInfo->userRankSize <= 64 && dataSize < A2A_CCU_64P_MAX_DATA_SIZE) {
             selectAlgName = "CcuAllToAllMesh1D2Die";
-        } else {
-            HCCL_WARNING("[AlltoAllAutoSelector] levelNum > 1 is not supported yet for 2d ccu_ms mode.");
-            return SelectorStatus::NOT_MATCH;
-        }
+        } 
     } else {
         if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
             if (topoInfo->level0MeshType == Level0MeshType::TWO_DIE_REGULAR) {
