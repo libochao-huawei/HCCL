@@ -218,14 +218,15 @@ SelectorStatus AllGatherAutoSelector::SelectAicpuAlgo(
         } else if (topoInfo->Level0Nhr) {
             selectAlgName = "InsAllGatherNHR"; // 预留给NHRNHR
         } else if (topoInfo->netLayerDetails.localNetInsSizeOfLayer[0] == 1) {
-            selectAlgName = topoInfo->Level1Hd ? "InsAllGatherHD" : "InsAllGatherNHR";
+            selectAlgName = "InsAllGatherNHR";
         } else if (topoInfo->level0Topo == Level0Shape::MESH_1D) {
-            if (topoInfo->Level1Hd) {
-                selectAlgName = (dataSize > AG_AICPU_SMALL_DATA_SIZE) ?
-                    "InsAllGatherParallelMesh1DHD" : "InsAllGatherHD";
-            } else if (dataSize > AG_AICPU_SMALL_DATA_SIZE) {
-                selectAlgName = (dataSize * topoInfo->userRankSize > AG_AICPU_SEQUENCE_DATA_SIZE) ?
-                    "InsAllGatherSequenceNHRMesh1D" : "InsAllGatherParallelMesh1DNHR";
+            if (dataSize > AG_AICPU_SMALL_DATA_SIZE) {
+                if (topoInfo->Level1Hd) {
+                    selectAlgName = "InsAllGatherParallelMesh1DHD";
+                } else {
+                    selectAlgName = (dataSize * topoInfo->userRankSize > AG_AICPU_SEQUENCE_DATA_SIZE) ?
+                        "InsAllGatherSequenceNHRMesh1D" : "InsAllGatherParallelMesh1DNHR";
+                }
             } else {
                 selectAlgName = "InsAllGatherNHR";
             }
