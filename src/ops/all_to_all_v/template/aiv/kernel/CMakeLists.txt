@@ -23,7 +23,7 @@ add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_v_op_9
 
 add_custom_target(hccl_aiv_all_to_all_op_910_95 ALL
     DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_op_910_95_tmp.o ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_op_sk1.o ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_op_sk2.o ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_op_sk3.o ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_op_sk4.o
-    COMMAND ${CCE_DIR}/ld.lld -m aicorelinux -Ttext=0 ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_op_910_95_tmp.o ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_op_sk1.o ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_op_sk2.o ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_op_sk3.o ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_op_sk4.o -static -o ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_op_910_95.o
+    COMMAND ${CCE_DIR}/ld.lld -m aicorelinux -Ttext=0 --allow-multiple-definition ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_op_910_95_tmp.o ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_op_sk1.o ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_op_sk2.o ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_op_sk3.o ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_op_sk4.o -static -o ${CMAKE_CURRENT_BINARY_DIR}/hccl_aiv_all_to_all_op_910_95.o
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 )
 
