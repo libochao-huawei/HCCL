@@ -47,8 +47,10 @@
 #include "hcomm_primitives_dl.h"
 #include "hcomm_diag_dl.h"
 #include "hcom.h"
+#if CANN_VERSION_NUM >= 90000000
 #include "ccu_launch.h"
 #include "hccl_ccu_res.h"
+#endif
 
 namespace ops_hccl {
 // 用于维护增量建链算子的host ctx信息
