@@ -114,8 +114,8 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
 
      // 分别获取两种拓扑的链路，这里约束temp0为mesh拓扑，走mesh算法；temp1为clos拓扑，走nhr算法
     std::vector<HcclChannelDesc> channelDescs0, channelDescs1, channelDescsTemp;
-    // CHK_RET(CalcChannelRequest(comm, param, topoInfo, subCommRanks0, channelDescs0, CommTopo::COMM_TOPO_1DMESH));
-    // CHK_RET(CalcChannelRequest(comm, param, topoInfo, subCommRanks1, channelDescs1, CommTopo::COMM_TOPO_CLOS));
+    CHK_RET(CalcChannelRequest(comm, param, topoInfo, subCommRanks0, channelDescs0, CommTopo::COMM_TOPO_1DMESH));
+    CHK_RET(CalcChannelRequest(comm, param, topoInfo, subCommRanks1, channelDescs1, CommTopo::COMM_TOPO_CLOS));
 
     HCCL_INFO("[%s] CalcRes channelDescs0.size()[%zu], channelDescs1.size())[%zu]", __func__, channelDescs0.size(),
               channelDescs1.size());
@@ -128,7 +128,7 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
 
     if (param.engine == CommEngine::COMM_ENGINE_CCU) {
         for (auto &kernelInfo : resReq0.ccuKernelInfos) {
-            kernelInfo.channels = resReq0.channels[0];
+            kernelInfo.channels = channelDescs0;
         }
         resourceRequest.ccuKernelNum.insert(resourceRequest.ccuKernelNum.end(), resReq0.ccuKernelNum.begin(),
                                             resReq0.ccuKernelNum.end());
@@ -141,10 +141,10 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     } else if (param.engine == CommEngine::COMM_ENGINE_AICPU || param.engine == CommEngine::COMM_ENGINE_AICPU_TS) {
         // 都放在level0，前面放temp0的channels，后面放temp1的channels，两者数量应相等
         resourceRequest.channels.resize(1);
-        resourceRequest.channels[0].insert(resourceRequest.channels[0].end(), resReq0.channels[0].begin(),
-                                            resReq0.channels[0].end());
-        resourceRequest.channels[0].insert(resourceRequest.channels[0].end(), resReq1.channels[0].begin(),
-                                            resReq1.channels[0].end());
+        resourceRequest.channels[0].insert(resourceRequest.channels[0].end(), channelDescs0.begin(),
+                                            channelDescs0.end());
+        resourceRequest.channels[0].insert(resourceRequest.channels[0].end(), channelDescs1.begin(),
+                                            channelDescs1.end());
     }
     return HCCL_SUCCESS;
 }
@@ -227,11 +227,8 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     tempAlgParams0.buffInfo.outputSize = param.outputSize;
     tempAlgParams0.buffInfo.hcclBuff = cclMem0;
     tempAlgParams0.buffInfo.hcclBuffBaseOff = 0;
-    tempAlgParams0.buffInfo.hcclBuffSize = cclMem0.size;
     tempAlgParams0.buffInfo.inBuffBaseOff = 0;
     tempAlgParams0.buffInfo.outBuffBaseOff = 0;
-    tempAlgParams0.inputRepeatStride = 0;
-    tempAlgParams0.outputRepeatStride = 0;
 
     TemplateDataParams tempAlgParams1;
     tempAlgParams1.buffInfo.inputPtr = param.inputPtr;
@@ -240,11 +237,8 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     tempAlgParams1.buffInfo.outputSize = param.outputSize;
     tempAlgParams1.buffInfo.hcclBuff = cclMem1;
     tempAlgParams1.buffInfo.hcclBuffBaseOff = 0;
-    tempAlgParams1.buffInfo.hcclBuffSize = cclMem1.size;
     tempAlgParams1.buffInfo.inBuffBaseOff = dataOffset;
     tempAlgParams1.buffInfo.outBuffBaseOff = dataOffset;
-    tempAlgParams1.inputRepeatStride = 0;
-    tempAlgParams1.outputRepeatStride = 0;
 
     TemplateResource tempAlgResource0;
     TemplateResource tempAlgResource1;
@@ -271,7 +265,7 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
 
         for (u32 i = 0; i < channelCount; ++i) {
             const auto &channel = channels[i];
-            auto &targetChannels = (i < (rankSize_ - 1)) ? tempAlgResource0.channels : tempAlgResource1.channels;
+            auto &targetChannels = (i < rankSize_ - 1) ? tempAlgResource0.channels : tempAlgResource1.channels;
             targetChannels[channel.remoteRank].push_back(channel);
         }
         temp0SlaveThreadNum = temp0->GetThreadNum() - 1;
