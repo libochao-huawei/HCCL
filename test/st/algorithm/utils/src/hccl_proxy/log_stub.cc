@@ -34,6 +34,11 @@ std::map<int, std::string> LOG_LEVEL_STR_MAP = {
 extern "C" {
 #endif
 
+int32_t dlog_getlevel(int32_t moduleId, int32_t *enableEvent)
+{
+    return logLevel;
+}
+
 int32_t CheckLogLevel(int32_t moduleId, int32_t logLevel)
 {
     return 1;
