@@ -361,7 +361,7 @@ void InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate
     tempAlgParamsIntra0.count = dataCountPerLoopAxis0;
     tempAlgParamsIntra0.tailSize = tempAlgParamsIntra0.sliceSize;
 
-    tempAlgParamsIntra0.inputSliceStride = 0;
+    tempAlgParamsIntra0.inputSliceStride = dataSize_;
     tempAlgParamsIntra0.outputSliceStride = dataSize_;
     tempAlgParamsIntra0.repeatNum = 1;
     tempAlgParamsIntra0.inputRepeatStride = 0;
@@ -401,7 +401,7 @@ void InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTemplate
     tempAlgParamsInter1.count = dataCountPerLoopAxis1;
     tempAlgParamsInter1.tailSize = tempAlgParamsInter1.sliceSize;
 
-    tempAlgParamsInter1.inputSliceStride = 0;
+    tempAlgParamsInter1.inputSliceStride = dataSize_ * rankSizeLevel0_;
     tempAlgParamsInter1.outputSliceStride = dataSize_;
     tempAlgParamsInter1.repeatNum = 1;
     tempAlgParamsInter1.inputRepeatStride = 0;
@@ -630,6 +630,21 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
     }
     rankSizeLevel0_ = GetRankSize(intraHierarchyInfo_);
     rankSizeLevel1_ = GetRankSize(interHierarchyInfo_);
+
+    if (rankSizeLevel0_ == 0) {
+        HCCL_ERROR("[InsV2AlltoAllParallelExecutor][Orchestrate] FATAL: rankSizeLevel0_ is 0. "
+                   "intraHierarchyInfo_.size=%zu rankIdxLevel0_=%llu",
+                   intraHierarchyInfo_.size(), rankIdxLevel0_);
+        return HcclResult::HCCL_E_INTERNAL;
+    }
+
+    if (rankSizeLevel1_ == 0) {
+        HCCL_ERROR("[InsV2AlltoAllParallelExecutor][Orchestrate] FATAL: rankSizeLevel1_ is 0. "
+                   "interHierarchyInfo_.size=%zu rankIdxLevel1_=%llu",
+                   interHierarchyInfo_.size(), rankIdxLevel1_);
+        return HcclResult::HCCL_E_INTERNAL;
+    }
+
     rankIdxLevel0_ = myRank_ % rankSizeLevel0_;
     rankIdxLevel1_ = myRank_ / rankSizeLevel0_;
 
@@ -903,6 +918,12 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
         HCCL_INFO("[OrchestrateLoop] Stage1-Intra0: sliceSize=%llu count=%llu dataOffset=%llu scratchOff=%llu",
                   tempAlgParamsIntra0.sliceSize, tempAlgParamsIntra0.count,
                   tempAlgParamsIntra0.buffInfo.inBuffBaseOff, tempAlgParamsIntra0.buffInfo.hcclBuffBaseOff);
+        HCCL_WARNING("[ALLTOALL_V2_DEBUG][OrchestrateLoop] Stage1 Intra0: "
+            "inputSliceStride=%llu outputSliceStride=%llu inBuffBase=%llu outBuffBase=%llu "
+            "sliceSize=%llu rankSize0=%llu rankSize1=%llu",
+            tempAlgParamsIntra0.inputSliceStride, tempAlgParamsIntra0.outputSliceStride,
+            tempAlgParamsIntra0.buffInfo.inBuffBaseOff, tempAlgParamsIntra0.buffInfo.outBuffBaseOff,
+            tempAlgParamsIntra0.sliceSize, rankSizeLevel0_, rankSizeLevel1_);
         HcclResult intra0Ret = tempAlgIntra.KernelRun(param, tempAlgParamsIntra0, intraTempAlgRes);
         HCCL_INFO("[OrchestrateLoop] Stage1-Intra0: ret=0x%x", intra0Ret);
 
@@ -914,6 +935,12 @@ HcclResult InsV2AlltoAllParallelExecutor<AlgTopoMatch, InsAlgTemplate0, InsAlgTe
                       tempAlgParamsInter1.sliceSize, tempAlgParamsInter1.count,
                       tempAlgParamsInter1.buffInfo.inBuffBaseOff, tempAlgParamsInter1.buffInfo.hcclBuffBaseOff,
                       hasInterComm);
+            HCCL_WARNING("[ALLTOALL_V2_DEBUG][OrchestrateLoop] Stage1 Inter1: "
+                "inputSliceStride=%llu outputSliceStride=%llu inBuffBase=%llu outBuffBase=%llu "
+                "sliceSize=%llu rankSize0=%llu rankSize1=%llu",
+                tempAlgParamsInter1.inputSliceStride, tempAlgParamsInter1.outputSliceStride,
+                tempAlgParamsInter1.buffInfo.inBuffBaseOff, tempAlgParamsInter1.buffInfo.outBuffBaseOff,
+                tempAlgParamsInter1.sliceSize, rankSizeLevel0_, rankSizeLevel1_);
             inter1Ret = tempAlgInter.KernelRun(param, tempAlgParamsInter1, interTempAlgRes);
             HCCL_INFO("[OrchestrateLoop] Stage1-Inter1: ret=0x%x", inter1Ret);
         }

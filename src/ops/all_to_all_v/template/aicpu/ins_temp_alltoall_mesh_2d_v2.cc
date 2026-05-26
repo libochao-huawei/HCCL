@@ -191,6 +191,16 @@ HcclResult InsTempAlltoAllMesh2DV2::RunAlltoAllMesh(
     const u32 dataTypeSize = DATATYPE_SIZE_TABLE[dataType_];
     const u64 totalSliceSize = tempAlgParams_.sliceSize;
     const u64 perPeerChunkSize = (totalSliceSize + templateRankSize_ - 1) / templateRankSize_;
+    HCCL_WARNING("[ALLTOALL_V2_DEBUG][Mesh2D][RunAlltoAllMesh] Stride config: "
+        "inputSliceStride=%llu outputSliceStride=%llu inBuffType=%d outBuffType=%d "
+        "inBuffBaseOff=%llu outBuffBaseOff=%llu outputSize=%llu perPeerChunk=%llu",
+        tempAlgParams_.inputSliceStride, tempAlgParams_.outputSliceStride,
+        static_cast<int>(tempAlgParams_.buffInfo.inBuffType),
+        static_cast<int>(tempAlgParams_.buffInfo.outBuffType),
+        tempAlgParams_.buffInfo.inBuffBaseOff,
+        tempAlgParams_.buffInfo.outBuffBaseOff,
+        tempAlgParams_.buffInfo.outputSize,
+        perPeerChunkSize);
     u64 lastPeerSize = totalSliceSize - perPeerChunkSize * (templateRankSize_ - 1);
     if (lastPeerSize <= 0) { lastPeerSize = perPeerChunkSize; }
     const u64 lastPeerIndex = templateRankSize_ - 1;
@@ -249,13 +259,49 @@ HcclResult InsTempAlltoAllMesh2DV2::RunAlltoAllMesh(
             const u64 scratchBase = tempAlgParams_.buffInfo.hcclBuffBaseOff +
                                     rpt * scratchRepeatStride;
 
-            u64 txSrcInputOffset = tempAlgParams_.outputSliceStride * connectedAlgRank + outBaseOff;
+            bool readingFromScratch = (tempAlgParams_.buffInfo.inBuffType == BufferType::HCCL_BUFFER);
+
+            u64 actualInputStride = (tempAlgParams_.inputSliceStride != 0)
+                ? tempAlgParams_.inputSliceStride : tempAlgParams_.outputSliceStride;
+            u64 txSrcInputOffset = tempAlgParams_.buffInfo.inBuffBaseOff +
+                                   actualInputStride * connectedAlgRank;
+            if (actualInputStride == tempAlgParams_.outputSliceStride && !readingFromScratch) {
+                HCCL_WARNING("[ALLTOALL_V2_DEBUG][Mesh2D][RunAlltoAllMesh] inputSliceStride=0 fallback: "
+                    "using outputSliceStride=%llu as input stride. connectedAlgRank=%u txSrcInputOffset=%llu "
+                    "templateRankSize_=%u inBuffBaseOff=%llu myRank=%d",
+                    actualInputStride, connectedAlgRank, txSrcInputOffset,
+                    templateRankSize_, tempAlgParams_.buffInfo.inBuffBaseOff, myRank_);
+            }
+
+            if (!readingFromScratch) {
+                u64 maxTxReadPos = txSrcInputOffset + actualChunkSize;
+                if (maxTxReadPos > tempAlgParams_.buffInfo.inputSize) {
+                    HCCL_ERROR("[ALLTOALL_V2_DEBUG][Mesh2D] TX source OOB! "
+                        "txSrcInputOffset=%llu + actualChunkSize=%llu = %llu > inputSize=%llu "
+                        "connectedAlgRank=%u",
+                        txSrcInputOffset, actualChunkSize, maxTxReadPos,
+                        tempAlgParams_.buffInfo.inputSize, connectedAlgRank);
+                    return HcclResult::HCCL_E_INTERNAL;
+                }
+            }
+
             u64 txSrcScratchOffset = tempAlgParams_.buffInfo.inBuffBaseOff +
                                      perPeerChunkSize * connectedAlgRank;
             u64 txScratchOffset = scratchBase + perPeerChunkSize * connectedAlgRank;
             u64 txDstOffset = (!enableRemoteMemAccess_) ? txScratchOffset : txSrcInputOffset;
 
             u64 rxOutOffset = tempAlgParams_.outputSliceStride * myAlgRank + outBaseOff;
+            if (tempAlgParams_.buffInfo.outBuffType == BufferType::HCCL_BUFFER) {
+                u64 maxRxWritePos = rxOutOffset + actualChunkSize;
+                if (maxRxWritePos > tempAlgParams_.buffInfo.outputSize) {
+                    HCCL_ERROR("[ALLTOALL_V2_DEBUG][Mesh2D] RX destination OOB! "
+                        "rxOutOffset=%llu + actualChunkSize=%llu = %llu > outputSize=%llu "
+                        "myAlgRank=%u myRank=%d",
+                        rxOutOffset, actualChunkSize, maxRxWritePos,
+                        tempAlgParams_.buffInfo.outputSize, myAlgRank, myRank_);
+                    return HcclResult::HCCL_E_INTERNAL;
+                }
+            }
             u64 rxScratchOffset = scratchBase + perPeerChunkSize * myAlgRank;
             u64 rxSrcOffset = (!enableRemoteMemAccess_) ? rxScratchOffset : rxOutOffset;
 
@@ -266,7 +312,6 @@ HcclResult InsTempAlltoAllMesh2DV2::RunAlltoAllMesh(
                                                           : linkRemote.remoteOutputGraphMode.addr;
             void *rxDstPtr = tempAlgParams_.buffInfo.outputPtr;
 
-            bool readingFromScratch = (tempAlgParams_.buffInfo.inBuffType == BufferType::HCCL_BUFFER);
             u64 txSrcOffset = readingFromScratch ? txSrcScratchOffset : txSrcInputOffset;
 
             txSrcSlicesAll.emplace_back(txSrcPtr, txSrcOffset, actualChunkSize, chunkCount);
