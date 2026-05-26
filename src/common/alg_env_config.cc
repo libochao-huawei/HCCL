@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <string>
+#include <array>
 #include "log.h"
 #include "adapter_error_manager_pub.h"
 #include "config_log.h"
@@ -275,6 +276,22 @@ HcclResult InitEnvConfig()
     CHK_PRT_RET(ret != HCCL_SUCCESS,
         HCCL_ERROR("[InitEnvParam]errNo[0x%016llx] In init environment param, parse "
                    "HCCL_DEBUG_CONFIG failed. errorno[%d]",
+            HCCL_ERROR_CODE(ret),
+            ret),
+        ret);
+
+    // 解析DfsConfig
+    ret = ParseDfsConfig();
+    char* dfsEnv = std::getenv("HCCL_DFS_CONFIG");
+    std::string dfsEnvValue = (dfsEnv != nullptr) ? std::string(dfsEnv) : "null";
+    RPT_ENV_ERR(ret != HCCL_SUCCESS,
+        "EI0001",
+        std::vector<std::string>({"value", "env", "expect"}),
+        std::vector<std::string>({dfsEnvValue, "HCCL_DFS_CONFIG",
+            "inconsistent_check:on or inconsistent_check:first or inconsistent_check:off"}));
+    CHK_PRT_RET(ret != HCCL_SUCCESS,
+        HCCL_ERROR("[InitEnvParam]errNo[0x%016llx] In init environment param, parse "
+                   "HCCL_DFS_CONFIG failed. errorno[%d]",
             HCCL_ERROR_CODE(ret),
             ret),
         ret);
@@ -952,9 +969,79 @@ HcclResult ParseDeterministic()
     return HCCL_SUCCESS;
 }
 
+HcclResult ParseDfsConfig()
+{
+    std::string dfsConfigEnv = GetEnv("HCCL_DFS_CONFIG");
+    if (dfsConfigEnv == "EmptyString") {
+        HCCL_INFO("[ParseDfsConfig] HCCL_DFS_CONFIG is not set.");
+        return HCCL_SUCCESS;
+    }
+    dfsConfigEnv.erase(std::remove(dfsConfigEnv.begin(), dfsConfigEnv.end(), ' '), dfsConfigEnv.end());
+    std::transform(dfsConfigEnv.begin(), dfsConfigEnv.end(), dfsConfigEnv.begin(), ::tolower);
+
+    constexpr std::size_t DFS_CONFIG_ITEM_NUM = 2;
+    const std::array<std::string, DFS_CONFIG_ITEM_NUM> dfsConfigItems = {"task_exception", "inconsistent_check"};
+    auto items = SplitDfsConfig(dfsConfigEnv, ',');
+    for (const auto &item : items) {
+        auto itemPair = SplitDfsConfig(item, ':');
+        constexpr std::size_t ITEM_SIZE = 2;
+        if (itemPair.size() != ITEM_SIZE
+            || std::find(dfsConfigItems.begin(), dfsConfigItems.end(), itemPair[0]) == dfsConfigItems.end()) {
+            HCCL_ERROR("[ParseDfsConfig] failed. invalid item[%s]", item.c_str());
+            return HCCL_E_PARA;
+        }
+        if (itemPair[0] == dfsConfigItems[1]) {
+            CHK_RET(ParseInconsistentCheckSwitch(itemPair[1]));
+        }
+    }
+    return HCCL_SUCCESS;
+}
+
+std::vector<std::string> SplitDfsConfig(const std::string &str, char delimiter)
+{
+    std::vector<std::string> tokens;
+    std::istringstream       stream(str);
+    std::string              token;
+
+    while (std::getline(stream, token, delimiter)) {
+        tokens.push_back(token);
+    }
+    if (stream.peek() != EOF) {
+        std::string remaining;
+        std::getline(stream, remaining);
+        tokens.push_back(remaining);
+    }
+    if (!str.empty() && str.back() == delimiter) {
+        tokens.push_back("");
+    }
+    return tokens;
+}
+
+HcclResult ParseInconsistentCheckSwitch(const std::string &inconsistentCheckSwitch)
+{
+    if (inconsistentCheckSwitch == "on") {
+        g_algEnvConfig.inconsistentCheckSwitch = 1;
+    } else if (inconsistentCheckSwitch == "first") {
+        g_algEnvConfig.inconsistentCheckSwitch = 0;
+    } else if (inconsistentCheckSwitch == "off") {
+        g_algEnvConfig.inconsistentCheckSwitch = -1;
+    } else {
+        HCCL_ERROR("[ParseInconsistentCheckSwitch] invalid value[%s].", inconsistentCheckSwitch.c_str());
+        return HCCL_E_PARA;
+    }
+    HCCL_INFO("[ParseInconsistentCheckSwitch] set by environment to [%s], inconsistentCheckSwitch[%d]",
+        inconsistentCheckSwitch.c_str(), g_algEnvConfig.inconsistentCheckSwitch);
+    return HCCL_SUCCESS;
+}
+
 const u32 &GetExternalInputIntraRoceSwitch()
 {
     return g_algEnvConfig.intraRoceSwitch;
+}
+
+const int32_t &GetInconsistentCheckSwitch()
+{
+    return g_algEnvConfig.inconsistentCheckSwitch;
 }
 
 const bool &GetExternalInputHcclAicpuUnfold()
