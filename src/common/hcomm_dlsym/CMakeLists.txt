@@ -17,11 +17,11 @@ if(BUILD_OPEN_PROJECT)
         ${ASCEND_CANN_PACKAGE_PATH}/include/acl
 
         # hcomm头文件
+        ${ASCEND_CANN_PACKAGE_PATH}/include/ccu
         ${ASCEND_CANN_PACKAGE_PATH}/include/hccl
 
         # 包间接口
         ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/
-        ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/ccu
         ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/hccl
         ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/base/
     )
