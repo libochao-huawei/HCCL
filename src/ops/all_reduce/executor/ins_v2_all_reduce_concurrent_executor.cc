@@ -114,8 +114,8 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
 
      // 分别获取两种拓扑的链路，这里约束temp0为mesh拓扑，走mesh算法；temp1为clos拓扑，走nhr算法
     std::vector<HcclChannelDesc> channelDescs0, channelDescs1, channelDescsTemp;
-    CHK_RET(CalcChannelRequest(comm, param, topoInfo, subCommRanks0, channelDescs0, CommTopo::COMM_TOPO_1DMESH));
-    CHK_RET(CalcChannelRequest(comm, param, topoInfo, subCommRanks1, channelDescs1, CommTopo::COMM_TOPO_CLOS));
+    // CHK_RET(CalcChannelRequest(comm, param, topoInfo, subCommRanks0, channelDescs0, CommTopo::COMM_TOPO_1DMESH));
+    // CHK_RET(CalcChannelRequest(comm, param, topoInfo, subCommRanks1, channelDescs1, CommTopo::COMM_TOPO_CLOS));
 
     HCCL_INFO("[%s] CalcRes channelDescs0.size()[%zu], channelDescs1.size())[%zu]", __func__, channelDescs0.size(),
               channelDescs1.size());
@@ -128,7 +128,7 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
 
     if (param.engine == CommEngine::COMM_ENGINE_CCU) {
         for (auto &kernelInfo : resReq0.ccuKernelInfos) {
-            kernelInfo.channels = channelDescs0;
+            kernelInfo.channels = resReq0.channels[0];
         }
         resourceRequest.ccuKernelNum.insert(resourceRequest.ccuKernelNum.end(), resReq0.ccuKernelNum.begin(),
                                             resReq0.ccuKernelNum.end());
@@ -141,10 +141,10 @@ HcclResult InsV2AllReduceConcurrentExecutor<AlgTopoMatch, InsAlgTemplate0, InsAl
     } else if (param.engine == CommEngine::COMM_ENGINE_AICPU || param.engine == CommEngine::COMM_ENGINE_AICPU_TS) {
         // 都放在level0，前面放temp0的channels，后面放temp1的channels，两者数量应相等
         resourceRequest.channels.resize(1);
-        resourceRequest.channels[0].insert(resourceRequest.channels[0].end(), channelDescs0.begin(),
-                                            channelDescs0.end());
-        resourceRequest.channels[0].insert(resourceRequest.channels[0].end(), channelDescs1.begin(),
-                                            channelDescs1.end());
+        resourceRequest.channels[0].insert(resourceRequest.channels[0].end(), resReq0.channels[0].begin(),
+                                            resReq0.channels[0].end());
+        resourceRequest.channels[0].insert(resourceRequest.channels[0].end(), resReq1.channels[0].begin(),
+                                            resReq1.channels[0].end());
     }
     return HCCL_SUCCESS;
 }
