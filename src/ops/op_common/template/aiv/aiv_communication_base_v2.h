@@ -130,6 +130,7 @@ constexpr uint32_t NUM_BLOCKS_FOUR_PER_RANK_A3 = 4;
 constexpr uint32_t MAX_NUM_BLOCKS = 48;
 
 constexpr uint64_t FLAG_SIZE = 128;
+constexpr uint64_t FLAG_SIZE_ALLTOALLV = 512;
 constexpr uint64_t UB_ALIGN_SIZE = 32;
 constexpr uint64_t UB_FLAG_SIZE = 32;
 constexpr uint64_t UB_FLAG_SIZE_4 = UB_FLAG_SIZE * 4;
@@ -156,8 +157,10 @@ constexpr uint32_t AIV_FLAG_CLEAR_OFFSET = 16 * 1024 * 1024;
 
 // 当前每个kernel最多使用4组同步标记，这里预留6组
 constexpr uint32_t MAX_FLAG_SIZE_PER_KERNEL = AIV_FLAG_CLEAR_OFFSET - MAX_RANK_SIZE * FLAG_SIZE;
+constexpr uint32_t MAX_FLAG_SIZE_PER_KERNEL_ALLTOALLV = AIV_FLAG_CLEAR_OFFSET - MAX_RANK_SIZE * FLAG_SIZE_ALLTOALLV;
 
 #define BASE_FLAG_OFFSET (MAX_FLAG_SIZE_PER_KERNEL)
+#define BASE_FLAG_OFFSET_ALLTOALLV (MAX_FLAG_SIZE_PER_KERNEL_ALLTOALLV)
 
 class AivCommBase {
 public:
@@ -340,7 +343,11 @@ public:
 
     __aicore__ inline void WaitFlag(uint32_t targetRank, uint64_t flag_offset, int32_t curTag);
 
+    __aicore__ inline void WaitFlagForAlltoAllV(uint32_t targetRank, uint64_t flag_offset, int32_t curTag);
+
     __aicore__ inline void Record(uint32_t targetRank, uint64_t flag_offset, int32_t curTag);
+
+    __aicore__ inline void RecordForAlltoAllV(uint32_t targetRank, uint64_t flag_offset, int32_t curTag);
 
     __aicore__ inline void Barrier(uint32_t step);
 
@@ -410,6 +417,15 @@ __aicore__ inline void AivCommBase::Record(uint32_t targetRank, uint64_t flag_of
     localTagTensor.SetValue(0, curTag);
     pipe_barrier(PIPE_ALL);
     DataCopyUB2GM(d2hGlobal, localTagTensor, FLAG_SIZE / sizeof(int32_t));
+    pipe_barrier(PIPE_ALL);
+}
+
+__aicore__ inline void AivCommBase::RecordForAlltoAllV(uint32_t targetRank, uint64_t flag_offset, int32_t curTag)
+{
+    d2hGlobal.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(GM_OUT[targetRank] + flag_offset * FLAG_SIZE_ALLTOALLV));
+    localTagTensor.SetValue(0, curTag);
+    pipe_barrier(PIPE_ALL);
+    DataCopyUB2GM(d2hGlobal, localTagTensor, FLAG_SIZE_ALLTOALLV / sizeof(int32_t));
     pipe_barrier(PIPE_ALL);
 }
 
@@ -483,6 +499,18 @@ __aicore__ inline void AivCommBase::WaitFlag(uint32_t targetRank, uint64_t flag_
     d2hGlobal.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(GM_OUT[targetRank] + flag_offset * FLAG_SIZE));
     while (true) {
         DataCopyGM2UB(localTagTensor, d2hGlobal, FLAG_SIZE / sizeof(int32_t));
+        pipe_barrier(PIPE_ALL);
+        if (localTagTensor.GetValue(0) == curTag) {
+            break;
+        }
+    }
+}
+
+__aicore__ inline void AivCommBase::WaitFlagForAlltoAllV(uint32_t targetRank, uint64_t flag_offset, int32_t curTag)
+{
+    d2hGlobal.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(GM_OUT[targetRank] + flag_offset * FLAG_SIZE_ALLTOALLV));
+    while (true) {
+        DataCopyGM2UB(localTagTensor, d2hGlobal, FLAG_SIZE_ALLTOALLV / sizeof(int32_t));
         pipe_barrier(PIPE_ALL);
         if (localTagTensor.GetValue(0) == curTag) {
             break;
@@ -573,25 +601,25 @@ __aicore__ inline void AivCommBase::SubBarrierAllForAlltoAllV(uint32_t (&sendRec
     uint32_t startRank = block_idx < remainRankNum
                         ? (perCoreRankNum + 1) * block_idx
                         : perCoreRankNum * block_idx + remainRankNum;
-    uint64_t flag_offset = BASE_FLAG_OFFSET + rank_ * FLAG_SIZE;
+    uint64_t flag_offset = BASE_FLAG_OFFSET_ALLTOALLV + rank_ * FLAG_SIZE_ALLTOALLV;
     for (uint32_t rank = startRank; rank < startRank + curCoreRankNum; rank++) {
         // loop为0的时候，给对端初始化置为0
         if (loop == 0 && sendRecvRank[rank] == 0) {
-            Record(rank, flag_offset / FLAG_SIZE, 0);
+            RecordForAlltoAllV(rank, flag_offset / FLAG_SIZE_ALLTOALLV, 0);
         }
         if (sendRecvRank[rank] == 1) {
             if (loop > 0) {
-                WaitFlag(rank, flag_offset / FLAG_SIZE, 0); // 防止后续record 0 之前重入
+                WaitFlagForAlltoAllV(rank, flag_offset / FLAG_SIZE_ALLTOALLV, 0); // 防止后续record 0 之前重入
             }
-            Record(rank, flag_offset / FLAG_SIZE, 1);
+            RecordForAlltoAllV(rank, flag_offset / FLAG_SIZE_ALLTOALLV, 1);
         }
     }
     PipeBarrier<PIPE_ALL>();
     for (uint32_t rank = startRank; rank < startRank + curCoreRankNum; rank++) {
         if (sendRecvRank[rank] == 1) {
-            uint64_t flag_offset = BASE_FLAG_OFFSET + rank * FLAG_SIZE;
-            WaitFlag(rank_, flag_offset / FLAG_SIZE, 1);
-            Record(rank_, flag_offset / FLAG_SIZE, 0);
+            uint64_t flag_offset = BASE_FLAG_OFFSET_ALLTOALLV + rank * FLAG_SIZE_ALLTOALLV;
+            WaitFlagForAlltoAllV(rank_, flag_offset / FLAG_SIZE_ALLTOALLV, 1);
+            RecordForAlltoAllV(rank_, flag_offset / FLAG_SIZE_ALLTOALLV, 0);
         }
     }
     SyncAll<true>();
@@ -607,13 +635,13 @@ __aicore__ inline void AivCommBase::PreBarrierAllForAlltoAllV(uint32_t tag, uint
     uint32_t startRank = block_idx < remainRankNum
                         ? (perCoreRankNum + 1) * block_idx
                         : perCoreRankNum * block_idx + remainRankNum;
-    uint64_t flag_offset = BASE_FLAG_OFFSET + rank_ * FLAG_SIZE;
+    uint64_t flag_offset = BASE_FLAG_OFFSET_ALLTOALLV + rank_ * FLAG_SIZE_ALLTOALLV;
     for (uint32_t rank = startRank; rank < startRank + curCoreRankNum; rank++) {
         if (loopTimes > 0) {
             // loopTimes>0的时候，SubBarrierAllForAlltoAllV会给全部rank置0，这里肯定可以wait到
-            WaitFlag(rank, flag_offset / FLAG_SIZE, 0); // 防止重入
+            WaitFlagForAlltoAllV(rank, flag_offset / FLAG_SIZE_ALLTOALLV, 0); // 防止重入
         }
-        Record(rank, flag_offset / FLAG_SIZE, tag);
+        RecordForAlltoAllV(rank, flag_offset / FLAG_SIZE_ALLTOALLV, tag);
     }
     PipeBarrier<PIPE_ALL>();
 }
@@ -631,9 +659,9 @@ __aicore__ inline void AivCommBase::PostBarrierAllForAlltoAllV(uint32_t tag)
                         : perCoreRankNum * block_idx + remainRankNum;
 
     for (uint32_t rank = startRank; rank < startRank + curCoreRankNum; rank++) {
-        uint64_t flag_offset = BASE_FLAG_OFFSET + rank * FLAG_SIZE;
-        WaitFlag(rank_, flag_offset / FLAG_SIZE, tag);
-        Record(rank_, flag_offset / FLAG_SIZE, 0);
+        uint64_t flag_offset = BASE_FLAG_OFFSET_ALLTOALLV + rank * FLAG_SIZE_ALLTOALLV;
+        WaitFlagForAlltoAllV(rank_, flag_offset / FLAG_SIZE_ALLTOALLV, tag);
+        RecordForAlltoAllV(rank_, flag_offset / FLAG_SIZE_ALLTOALLV, 0);
     }
 }
 
