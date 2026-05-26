@@ -1293,7 +1293,7 @@ HcclResult HcclGetChannel(HcclComm comm, const OpParam &param, AlgResourceReques
                 const char* enableNda = std::getenv("ENABLE_NDA");
                 bool isSupportNda = false;
                 CHK_RET(static_cast<HcclResult>(HcommEndpointCheckFeature(
-                    HcommFeatureType::HCOMM_FEATURE_NDA, &channelRequest.localEndpoint, &isSupportNda)));
+                    HcommEndpointFeatureType::HCOMM_ENDPOINT_FEATURE_NDA, &channelRequest.localEndpoint, &isSupportNda)));
                 if ((enableNda != nullptr) && (strcmp(enableNda, "1") == 0) && isSupportNda) {
                     deviceChannelRequest.emplace_back(channelRequest);
                 } else {
@@ -2343,7 +2343,7 @@ HcclResult CheckSupportNda(const HcclComm comm, const TopoInfoWithNetLayerDetail
                 if (endPointDescs[endPointIdx].loc.locType == ENDPOINT_LOC_TYPE_HOST) {
                     bool supportNda = false;
                     CHK_RET(static_cast<HcclResult>(HcommEndpointCheckFeature(
-                        HcommFeatureType::HCOMM_FEATURE_NDA, &endPointDescs[endPointIdx], &supportNda)));
+                        HcommEndpointFeatureType::HCOMM_ENDPOINT_FEATURE_NDA, &endPointDescs[endPointIdx], &supportNda)));
                     if (supportNda) {
                         HCCL_INFO("Support NDA in netLayer[%u] topoInstId[%u] endPointIdx[%u]",
                             netLayer, topoInstId, endPointIdx);
